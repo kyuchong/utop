@@ -109,12 +109,6 @@
   max-width: 100%;
 }
 
-/* ── 편집기: 쓰기 / 미리보기 전환 ───────────────────────────── */
-.md-editor {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-}
 
 .md-editor-bar {
   display: flex;
@@ -133,55 +127,46 @@
   background: var(--c-surface-alt);
 }
 
-/* ── 서식 도구모음 ─────────────────────────────────────────── */
-.md-tools {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-}
 
-.md-tool {
-  border: 1px solid var(--c-border);
+/* ── 편집기 (MDXEditor) ────────────────────────────────────────
+   기본 스타일이 자기 폰트·크기를 들고 온다. 화면 나머지와 튀지 않도록
+   우리 척도(--fs-*, --font-ui)로 덮는다. */
+.md-editor {
+  border: 1px solid #ccd3da;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
   background: var(--c-surface);
-  border-radius: 4px;
-  padding: 2px 7px;
-  font-size: var(--fs-xs);
-  color: var(--c-text-muted);
-  line-height: 1.6;
 }
 
-.md-tool:hover:not(:disabled) {
-  background: var(--c-primary-bg);
-  border-color: #cfe0f5;
-  color: var(--c-primary);
+.md-editor .mdxeditor {
+  --font-body: var(--font-ui);
+  --font-mono: var(--font-mono);
+  font-family: var(--font-ui);
 }
 
-.md-tool:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.md-editor .mdxeditor-toolbar {
+  border-radius: 0;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface-alt);
 }
 
-/* ── 쓰기 / 나란히 / 미리보기 ──────────────────────────────── */
-.md-panes {
-  display: flex;
-  gap: var(--sp-2);
-  min-height: 0;
+.md-editor .md-content {
+  min-height: 260px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding: var(--sp-3);
+  font-size: var(--fs-md);
+  line-height: 1.65;
 }
 
-.md-panes > textarea,
-.md-panes > .md-preview {
-  flex: 1;
-  min-width: 0;
+.md-editor .md-content:focus {
+  outline: none;
 }
 
-.md-panes > textarea {
+/* 원문 보기(소스 모드)는 고정폭으로 */
+.md-editor .mdxeditor-source-editor {
+  max-height: 420px;
+  overflow-y: auto;
   font-family: var(--font-mono);
   font-size: var(--fs-sm);
-  line-height: 1.6;
-  resize: vertical;
-}
-
-/* 나란히 볼 때 두 칸 높이를 맞춘다 */
-.md-panes.split > .md-preview {
-  max-height: none;
 }

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { categoryApi, reqApi } from '@/api/client'
 import { buildCategoryTree, reqPk, type Requirement } from '@/types'
-import MarkdownEditor from './MarkdownEditor'
+import MarkdownEditor from './MarkdownEditorLazy'
 import './ReqForm.css'
 
 interface Props {
@@ -109,7 +109,7 @@ export default function ReqForm({ editing, onClose }: Props) {
   return (
     <div className="modal-back" onMouseDown={onClose}>
       <div
-        className="modal"
+        className="modal tall"
         role="dialog"
         aria-modal="true"
         aria-label={isNew ? '요구사항 추가' : '요구사항 편집'}
@@ -226,7 +226,6 @@ export default function ReqForm({ editing, onClose }: Props) {
             <MarkdownEditor
               value={desc}
               onChange={setDesc}
-              rows={12}
               placeholder={
                 '무엇을, 어떻게 구현하는지 적습니다.\n\n' +
                 '## 동작\n' +

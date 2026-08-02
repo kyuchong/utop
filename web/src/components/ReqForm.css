@@ -247,3 +247,65 @@
   padding: 2px 8px;
   font-size: var(--fs-xs);
 }
+
+/* ── 요구사항 편집 창 ──────────────────────────────────────────
+   구현내용이 이 시스템의 핵심 자료(벡터DB·TC 생성의 입력)라, 작은 팝업에
+   밀어넣으면 제대로 쓸 수 없다. 화면 대부분을 쓰게 한다. */
+.modal.tall {
+  /* 구현내용을 쓰는 창이라 화면을 거의 다 쓴다. 위 아래 여백만 남긴다. */
+  max-width: none;
+  width: 96vw;
+  height: 95vh;
+  max-height: 95vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal.tall .modal-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+/* 구현내용 칸이 남는 높이를 전부 가져간다 */
+.modal.tall .fld:has(.md-editor) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal.tall .md-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal.tall .md-editor .mdxeditor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* flex 연쇄에 기대면 위쪽 칸(ID·제목·분류)들이 높이를 다 가져가서
+   정작 입력 영역이 70px 로 쪼그라든다. 남는 높이를 계산해 못박는다.
+   340px = 창 머리 + 위쪽 입력칸들 + 도구모음 + 창 바닥. */
+.modal.tall .md-editor .md-content,
+.modal.tall .md-editor .mdxeditor-source-editor {
+  height: calc(95vh - 340px);
+  min-height: 280px;
+  max-height: none;
+  flex: none;
+}
+
+.md-loading {
+  padding: var(--sp-5);
+  text-align: center;
+  color: var(--c-text-faint);
+  border: 1px solid #ccd3da;
+  border-radius: var(--radius-sm);
+}
