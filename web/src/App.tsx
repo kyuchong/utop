@@ -4,6 +4,7 @@ import Login from '@/components/Login'
 import { authApi, getToken, setToken, type MeUser } from '@/api/client'
 import Requirements from '@/pages/Requirements'
 import TestCases from '@/pages/TestCases'
+import Settings from '@/pages/Settings'
 
 /**
  * 화면 하나를 옮길 때마다 여기 분기를 한 줄 늘린다.
@@ -45,6 +46,8 @@ export default function App() {
         <Requirements />
       ) : page === 'testcases' ? (
         <TestCases />
+      ) : page === 'settings' ? (
+        <Settings />
       ) : (
         <div className="empty">
           이 화면은 아직 새 UI로 옮기지 않았습니다.

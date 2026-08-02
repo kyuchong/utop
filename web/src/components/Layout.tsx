@@ -9,6 +9,7 @@ import {
   IconPanelToggle,
   IconRelease,
   IconRequirements,
+  IconSettings,
   IconTestCase,
 } from './icons'
 import './Layout.css'
@@ -55,6 +56,10 @@ export const NAV: NavGroup[] = [
       { key: 'ai-tc', label: 'TC 생성', Icon: IconAi },
       { key: 'knowledge', label: 'Knowledge', Icon: IconKnowledge },
     ],
+  },
+  {
+    title: 'SYSTEM',
+    items: [{ key: 'settings', label: '설정', Icon: IconSettings }],
   },
 ]
 

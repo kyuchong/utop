@@ -1,0 +1,156 @@
+/* 설정 화면. 항목이 계속 늘어나므로 좌측 목록 + 우측 내용으로 잡는다. */
+.set-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 0;
+  padding-top: var(--sp-2);
+}
+
+.set-nav {
+  flex: 0 0 230px;
+  min-width: 0;
+  overflow-y: auto;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  padding: var(--sp-1);
+}
+
+.set-nav-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  color: var(--c-text);
+}
+
+.set-nav-item:hover {
+  background: var(--c-surface-info);
+}
+
+.set-nav-item.on {
+  background: var(--c-primary-bg);
+  box-shadow: inset 3px 0 0 var(--c-primary);
+}
+
+.set-nav-item.on .set-nav-label {
+  color: var(--c-primary);
+  font-weight: 700;
+}
+
+.set-nav-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 1px;
+}
+
+.set-body {
+  flex: 1 1 0;
+  min-width: 0;
+  margin-left: 6px;
+  overflow-y: auto;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+}
+
+.set-page {
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  max-width: 720px;
+}
+
+.set-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.set-head h3 {
+  margin: 0 0 3px;
+  font-size: var(--fs-lg);
+}
+
+.set-head p {
+  margin: 0;
+  max-width: 520px;
+}
+
+.set-card {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: var(--sp-3);
+}
+
+.set-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--sp-3);
+}
+
+.set-page .fld {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.set-page .fld > span {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  text-align: right;
+}
+
+.set-page .fld input {
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.set-probe {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.set-note {
+  padding: 8px 11px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+}
+
+.set-note.ok {
+  background: #e8f5ed;
+  border: 1px solid #b9dfc8;
+  color: #12643a;
+}
+
+.set-note.err {
+  background: #fdf4f4;
+  border: 1px solid #f0c8c8;
+  color: #8a2a2a;
+}
+
+.set-todo {
+  padding: var(--sp-6);
+  color: var(--c-text-faint);
+}
+
+.set-todo b {
+  display: block;
+  font-size: var(--fs-lg);
+  color: var(--c-text);
+  margin-bottom: 4px;
+}
