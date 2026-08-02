@@ -103,7 +103,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   color: #6a747e;
-  margin: 15px var(--sp-3) 7px;
+  margin: 10px var(--sp-3) 4px;
   white-space: nowrap;
 }
 
@@ -114,10 +114,11 @@
   gap: 10px;
   width: 100%;
   text-align: left;
-  padding: 10px var(--sp-3);
+  /* 메뉴가 늘어나 세로가 빠듯하다. 행 간격을 줄인다. */
+  padding: 6px var(--sp-3);
   border: 0;
   border-radius: var(--radius);
-  margin: 2px 0;
+  margin: 1px 0;
   background: transparent;
   color: var(--c-text);
 }

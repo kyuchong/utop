@@ -397,3 +397,64 @@
 .md-fallback textarea:focus {
   outline: none;
 }
+
+/* ── 장비 인터페이스 편집 ─────────────────────────────────────
+   48포트를 한 줄씩 치게 만들면 아무도 채우지 않는다. 범위로 넣는다. */
+.if-add {
+  display: flex;
+  gap: 6px;
+  margin-bottom: var(--sp-2);
+}
+.if-add input { flex: 1; min-width: 0; }
+.if-add input,
+.if-add select {
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  font-size: var(--fs-sm);
+}
+
+.if-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+}
+
+.if-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--c-border-soft);
+  border-right: 1px solid var(--c-border-soft);
+}
+
+.if-name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.if-row select {
+  border: 1px solid var(--c-border);
+  border-radius: 3px;
+  font-size: var(--fs-xs);
+  padding: 1px 3px;
+}
+
+.if-x {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--c-text-faint);
+}
+.if-x:hover { background: #fdeaea; color: var(--c-fail); }

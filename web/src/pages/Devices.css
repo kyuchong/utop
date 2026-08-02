@@ -1,0 +1,77 @@
+.dev-panel {
+  flex: 1;
+  min-height: 0;
+  margin-top: var(--sp-2);
+}
+
+.dev-msg {
+  margin: var(--sp-2) var(--sp-3) 0;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+}
+.dev-msg.ok { background: #e8f5ed; border: 1px solid #b9dfc8; color: #12643a; }
+.dev-msg.err { background: #fdf4f4; border: 1px solid #f0c8c8; color: #8a2a2a; }
+
+.dev-filter {
+  flex: none;
+  display: flex;
+  gap: 7px;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.dev-filter input { flex: 1; min-width: 0; }
+.dev-filter input,
+.dev-filter select {
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  font-size: var(--fs-sm);
+}
+
+/* 열 폭을 고정한다. 내용에 맡기면 장비를 추가할 때마다 표가 흔들린다. */
+.dev-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.4fr) 90px minmax(150px, 1.4fr) 190px 60px minmax(230px, 1.6fr);
+  align-items: center;
+  gap: 10px;
+  padding: 7px var(--sp-3);
+  border-bottom: 1px solid var(--c-border-soft);
+  min-width: 0;
+}
+
+.dev-row.th {
+  background: var(--c-surface-alt);
+  color: #5b6670;
+  font-size: var(--fs-xs);
+  min-height: 36px;
+  flex: none;
+}
+
+.dev-row[role='button'] { cursor: pointer; }
+.dev-row[role='button']:hover { background: var(--c-surface-info); }
+.dev-row[role='button']:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: -2px;
+}
+
+.dev-row > span { min-width: 0; }
+.dev-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dev-row .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.dev-proto {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #eef2f6;
+  color: #48525c;
+  font-size: 10px;
+}
+
+.dev-lock {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.dev-lock .btn { padding: 2px 8px; font-size: var(--fs-xs); }
