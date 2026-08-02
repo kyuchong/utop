@@ -560,3 +560,10 @@
   padding: 8px 9px;
   resize: vertical;
 }
+
+/* 장비 등록 창. 접속 방식 한 줄에 포트·기본·계정 다름·확인 이 모두 들어가야
+   하고, 인터페이스 목록도 여러 칸으로 늘어선다. 760px 로는 줄이 접힌다. */
+.modal.xwide {
+  max-width: 1120px;
+  width: 92vw;
+}

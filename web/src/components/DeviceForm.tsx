@@ -267,7 +267,7 @@ export default function DeviceForm({ editing, onClose }: Props) {
   return (
     <div className="modal-back" onMouseDown={onClose}>
       <div
-        className="modal wide"
+        className="modal xwide"
         role="dialog"
         aria-modal="true"
         aria-label={isNew ? '장비 등록' : '장비 편집'}
