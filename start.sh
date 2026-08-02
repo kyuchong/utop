@@ -31,7 +31,32 @@ ok "Docker 실행 중"
 # ── 1. 최신 소스 ────────────────────────────────────────────────
 step 1 "최신 소스 받기"
 if [ -d .git ]; then
-    if git pull --ff-only; then ok "최신 상태"; else ok "git pull 실패 — 현재 소스로 계속"; fi
+    BEFORE="$(git rev-parse --short HEAD 2>/dev/null || true)"
+    if git pull --ff-only; then
+        AFTER="$(git rev-parse --short HEAD 2>/dev/null || true)"
+        if [ "$BEFORE" = "$AFTER" ]; then ok "이미 최신 ($AFTER)"; else ok "갱신 $BEFORE -> $AFTER"; fi
+    else
+        # 조용히 넘어가면 "받은 줄 알았는데 옛 소스" 가 되어, 고쳐 올린 버그가
+        # 그대로 재현되고 원인 찾는 데 시간이 다 간다. 반드시 물어본다.
+        printf '
+  [경고] 최신 소스를 받지 못했습니다. 옛 소스로 실행됩니다.
+'
+        printf '         현재 커밋: %s
+
+' "$BEFORE"
+        printf '  흔한 원인
+'
+        printf '   · GitHub 인증 안 됨 —  git pull  을 직접 실행해 로그인하세요.
+'
+        printf '   · 로컬 수정으로 충돌 —  git status  로 확인 후 되돌리세요.
+
+'
+        printf '  그래도 이 소스로 계속할까요? (y/N) '
+        read -r ANS < /dev/tty || ANS=n
+        case "$ANS" in y|Y) ;; *) printf '  중단했습니다.
+
+'; exit 1 ;; esac
+    fi
 else
     ok "git 저장소가 아님 — 현재 소스로 진행"
 fi

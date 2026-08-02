@@ -38,11 +38,32 @@ Write-Ok "Docker 실행 중"
 # ── 1. 최신 소스 ────────────────────────────────────────────────
 Write-Step 1 "최신 소스 받기"
 if (Test-Path ".git") {
+    $before = (git rev-parse --short HEAD 2>$null)
     git pull --ff-only
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warn2 "git pull 실패 — 현재 소스로 계속 진행합니다."
+    $pullOk = ($LASTEXITCODE -eq 0)
+    $after = (git rev-parse --short HEAD 2>$null)
+
+    if (-not $pullOk) {
+        # 여기서 조용히 넘어가면 안 된다. "받은 줄 알았는데 옛 소스" 가 되어
+        # 고쳐 올린 버그가 그대로 재현되고, 원인을 찾는 데 시간이 다 간다.
+        Write-Host ""
+        Write-Host "  [경고] 최신 소스를 받지 못했습니다. 옛 소스로 실행됩니다." -ForegroundColor Red
+        Write-Host "         현재 커밋: $before" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "  흔한 원인" -ForegroundColor Yellow
+        Write-Host "   · GitHub 로그인이 안 됨 — 아래를 실행해 창이 뜨면 로그인하세요:" -ForegroundColor Yellow
+        Write-Host "       git pull" -ForegroundColor Yellow
+        Write-Host "   · 로컬에서 파일을 고쳐 충돌 — git status 로 확인 후 되돌리세요." -ForegroundColor Yellow
+        Write-Host ""
+        $ans = Read-Host "  그래도 이 소스로 계속할까요? (y/N)"
+        if ($ans -ne 'y' -and $ans -ne 'Y') {
+            Write-Host "  중단했습니다." -ForegroundColor Yellow
+            exit 1
+        }
+    } elseif ($before -eq $after) {
+        Write-Ok "이미 최신 ($after)"
     } else {
-        Write-Ok "최신 상태"
+        Write-Ok "갱신 $before -> $after"
     }
 } else {
     Write-Warn2 "git 저장소가 아닙니다 — 현재 소스로 진행합니다."
