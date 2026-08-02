@@ -399,15 +399,6 @@ export default function Requirements() {
             <ReqDetail req={selectedReq} tcs={linked} tab={tab} />
           ) : (
             <div className="tc-body scroll">
-              <div className="summary">
-                <b>{reqLabel(selectedReq)}</b> · {selectedReq.title || '(제목 없음)'}
-                <br />
-                <span className="muted small">
-                  모델별 실제 실행 TC를 연결합니다. 유사한 TC라도 모델별
-                  CLI/특성이 다르면 독립 TC로 관리합니다.
-                </span>
-              </div>
-
               <div className="filter">
                 <input
                   placeholder="TC ID / 제목 검색"
@@ -442,14 +433,15 @@ export default function Requirements() {
                 ) : (
                   shown.map((t) => (
                     <div className="tr" key={t.tcid}>
-                      <div>
-                        <div className="tc-name">{t.tcid}</div>
-                        <div className="muted">{t.name || '(제목 없음)'}</div>
+                      <div className="tc-cell">
+                        {/* 읽는 것은 제목이다. ID 는 참조 번호라 작게 위에 둔다. */}
+                        <div className="id-cell">{t.tcid}</div>
+                        <div className="tc-name">{t.name || '(제목 없음)'}</div>
                       </div>
                       <div>
                         {t.type ? <span className="tag">{t.type}</span> : null}
                       </div>
-                      <div className="muted">{t._cli_count ?? '-'}</div>
+                      <div className="muted small">{t._cli_count ?? '-'}</div>
                       <div className={`status ${statusClass(t.status)}`}>
                         ● {t.status || '미실행'}
                       </div>

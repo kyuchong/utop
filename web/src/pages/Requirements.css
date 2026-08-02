@@ -148,11 +148,21 @@
   min-height: 36px;
 }
 
+/* 연결된 TC 행: ID 는 작게 위, 제목은 본문 크기로 아래.
+   읽는 것은 제목이므로 ID 보다 제목이 커야 한다. */
+.tc-cell {
+  min-width: 0;
+}
+
+.tc-cell .id-cell {
+  line-height: 1.3;
+}
+
 .tc-name {
-  font-weight: 700;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: var(--fs-md);
+  color: var(--c-text);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .bottom {
