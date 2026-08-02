@@ -178,6 +178,43 @@ DROP TRIGGER IF EXISTS trg_device_updated ON device;
 CREATE TRIGGER trg_device_updated BEFORE UPDATE ON device
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- ── 장비 카탈로그 (제조사 · 제품군 · 모델 · 랩) ────────────────
+-- 장비를 등록할 때마다 제조사와 모델을 손으로 치면 '유비쿼스' 와
+-- '유비쿼스(주)' 로 갈려 같은 것이 둘로 보인다. 여기에 한 번 등록해 두고
+-- 장비 등록에서는 고르기만 한다.
+--
+-- 종류를 나누지 않고 한 테이블에 담는 이유: 넷 다 '이름 목록' 이라는 같은
+-- 모양이고, 나누면 화면과 API 를 네 벌 만들어야 한다.
+--
+-- 모델에는 기본 인터페이스를 적어둔다(gi1/0/1-48 같은 범위 표기).
+-- 장비 등록에서 모델을 고르면 그대로 채워지므로 48포트를 다시 치지 않는다.
+CREATE TABLE IF NOT EXISTS device_catalog (
+  id          BIGSERIAL PRIMARY KEY,
+  kind        TEXT NOT NULL,             -- vendor | family | model | lab
+  name        TEXT NOT NULL,
+  vendor      TEXT,                      -- kind=model 일 때 제조사
+  family      TEXT,                      -- kind=model 일 때 제품군
+  interfaces  TEXT,                      -- kind=model 일 때 기본 인터페이스
+  note        TEXT,
+  sort_order  INT DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_device_catalog ON device_catalog(kind, name);
+CREATE INDEX IF NOT EXISTS idx_device_catalog_kind ON device_catalog(kind);
+
+-- 이미 등록된 장비에서 쓰던 값을 카탈로그로 끌어올린다. 빈 화면부터
+-- 시작하면 아무도 채우지 않는다 — 쓰던 것이 이미 들어 있어야 한다.
+INSERT INTO device_catalog (kind, name)
+SELECT DISTINCT 'vendor', vendor FROM device WHERE vendor IS NOT NULL AND vendor <> ''
+ON CONFLICT (kind, name) DO NOTHING;
+INSERT INTO device_catalog (kind, name)
+SELECT DISTINCT 'lab', lab FROM device WHERE lab IS NOT NULL AND lab <> ''
+ON CONFLICT (kind, name) DO NOTHING;
+INSERT INTO device_catalog (kind, name, vendor, family)
+SELECT DISTINCT 'model', model, max(vendor), max(role) FROM device
+WHERE model IS NOT NULL AND model <> '' GROUP BY model
+ON CONFLICT (kind, name) DO NOTHING;
+
 -- ── 장비 접속 방식 ────────────────────────────────────────────
 -- 한 장비에 telnet 과 ssh 가 함께 열려 있는 것이 보통이고, TC 스텝마다
 -- 어느 쪽으로 붙을지 고를 수 있어야 한다. 그래서 device.protocol 하나로

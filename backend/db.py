@@ -908,3 +908,69 @@ async def device_delete(dev_id: str) -> bool:
     async with pool().acquire() as c:
         r = await c.execute("DELETE FROM device WHERE id=$1 OR ip=$1", dev_id)
         return r.endswith(" 1")
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 장비 카탈로그 (제조사 · 제품군 · 모델 · 랩)
+#
+# 장비 등록 화면이 고를 수 있는 값의 원천. 넷 다 '이름 목록' 이라 한
+# 테이블에 kind 로 구분해 담는다.
+# ══════════════════════════════════════════════════════════════════════
+CATALOG_KINDS = ("vendor", "family", "model", "lab")
+
+
+async def catalog_list(kind: str = "") -> list[dict]:
+    async with pool().acquire() as c:
+        if kind:
+            rows = await c.fetch(
+                "SELECT * FROM device_catalog WHERE kind=$1 ORDER BY sort_order, name", kind
+            )
+        else:
+            rows = await c.fetch(
+                "SELECT * FROM device_catalog ORDER BY kind, sort_order, name"
+            )
+        return [dict(r) for r in rows]
+
+
+async def catalog_upsert(item: dict) -> None:
+    kind = (item.get("kind") or "").strip().lower()
+    name = (item.get("name") or "").strip()
+    if kind not in CATALOG_KINDS:
+        raise ValueError(f"알 수 없는 종류입니다: {kind}")
+    if not name:
+        raise ValueError("이름이 필요합니다")
+    async with pool().acquire() as c:
+        await c.execute(
+            """INSERT INTO device_catalog (kind, name, vendor, family, interfaces, note, sort_order)
+               VALUES ($1,$2,$3,$4,$5,$6,$7)
+               ON CONFLICT (kind, name) DO UPDATE SET
+                 vendor=EXCLUDED.vendor, family=EXCLUDED.family,
+                 interfaces=EXCLUDED.interfaces, note=EXCLUDED.note,
+                 sort_order=EXCLUDED.sort_order""",
+            kind, name,
+            (item.get("vendor") or "").strip() or None,
+            (item.get("family") or "").strip() or None,
+            (item.get("interfaces") or "").strip() or None,
+            (item.get("note") or "").strip() or None,
+            int(item.get("sort_order") or 0),
+        )
+
+
+async def catalog_delete(kind: str, name: str) -> bool:
+    async with pool().acquire() as c:
+        r = await c.execute(
+            "DELETE FROM device_catalog WHERE kind=$1 AND name=$2", kind, name
+        )
+        return r.endswith(" 1")
+
+
+async def catalog_usage(kind: str, name: str) -> int:
+    """지우기 전에 쓰고 있는 장비가 몇 대인지 센다.
+
+    쓰는 장비가 있는데 조용히 지우면 그 장비의 제조사가 목록에서 사라져
+    다음 편집 때 빈 칸이 된다."""
+    col = {"vendor": "vendor", "family": "role", "model": "model", "lab": "lab"}.get(kind)
+    if not col:
+        return 0
+    async with pool().acquire() as c:
+        return await c.fetchval(f"SELECT count(*) FROM device WHERE {col}=$1", name) or 0

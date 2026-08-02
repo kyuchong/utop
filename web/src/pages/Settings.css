@@ -154,3 +154,39 @@
   color: var(--c-text);
   margin-bottom: 4px;
 }
+
+/* ── 장비 카탈로그 ─────────────────────────────────────────── */
+.cat-add {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.cat-add input,
+.cat-add select {
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 7px;
+  background: var(--c-surface);
+  flex: 0 1 auto;
+  min-width: 130px;
+}
+.cat-add input:first-child { flex: 1 1 170px; }
+.cat-add input:last-of-type { flex: 2 1 240px; }
+
+.cat-list {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.cat-row:last-child { border-bottom: 0; }
+.cat-name { flex: 0 0 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-meta { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-actions { margin-left: auto; display: flex; gap: 5px; }
+.seg-btn .cnt { margin-left: 5px; font-size: var(--fs-xs); opacity: 0.75; }

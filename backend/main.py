@@ -2386,10 +2386,44 @@ def _me(request) -> dict:
 DEVICE_ROLES = ["L2", "L3", "OLT", "ONT", "CPE", "HGW", "계측기", "기타"]
 
 
+@app.get("/api/device-catalog")
+async def device_catalog_list(kind: str = ""):
+    items = await db.catalog_list(kind)
+    # 지울 수 있는지 화면이 알 수 있게 쓰는 장비 수를 함께 준다
+    for it in items:
+        it["used"] = await db.catalog_usage(it["kind"], it["name"])
+    return {"items": items, "kinds": list(db.CATALOG_KINDS)}
+
+
+@app.post("/api/device-catalog")
+async def device_catalog_save(payload: dict):
+    try:
+        await db.catalog_upsert(payload)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"success": True}
+
+
+@app.delete("/api/device-catalog/{kind}/{name}")
+async def device_catalog_delete(kind: str, name: str):
+    used = await db.catalog_usage(kind, name)
+    if used:
+        raise HTTPException(400, f"{used}대가 쓰고 있어 지울 수 없습니다")
+    if not await db.catalog_delete(kind, name):
+        raise HTTPException(404, "없는 항목입니다")
+    return {"success": True}
+
+
 @app.get("/api/device-roles")
 async def device_roles():
-    # 이미 쓰고 있는 값을 골라 쓰게 한다. 손으로 치면 'Lab#1' 과 'lab1',
-    # '유비쿼스' 와 '유비쿼스(주)' 로 갈려 같은 것이 둘로 보인다.
+    # 카탈로그에 등록된 것을 먼저 쓴다. 비어 있으면 기본 목록으로 시작한다.
+    cat = await db.catalog_list()
+    by: dict = {}
+    for it in cat:
+        by.setdefault(it["kind"], []).append(it["name"])
+
+    # 이미 쓰고 있는 값도 함께 준다. 카탈로그에 아직 안 올린 것이 목록에서
+    # 빠지면 그 장비를 편집할 때 값이 사라진 것처럼 보인다.
     async def distinct(col: str) -> list[str]:
         async with db.pool().acquire() as c:
             rows = await c.fetch(
@@ -2398,12 +2432,29 @@ async def device_roles():
             )
         return [r["v"] for r in rows]
 
+    def merge(kind: str, used: list[str], fallback: list[str] | None = None) -> list[str]:
+        out = list(by.get(kind) or fallback or [])
+        for v in used:
+            if v not in out:
+                out.append(v)
+        return out
+
     return {
-        "roles": DEVICE_ROLES,
-        "labs": await distinct("lab"),
-        "vendors": await distinct("vendor"),
-        "models": await distinct("model"),
+        "roles": merge("family", await distinct("role"), DEVICE_ROLES),
+        "labs": merge("lab", await distinct("lab")),
+        "vendors": merge("vendor", await distinct("vendor")),
+        "models": merge("model", await distinct("model")),
         "usernames": await distinct("username"),
+        # 모델을 고르면 제조사·제품군·기본 인터페이스를 채운다
+        "model_info": {
+            it["name"]: {
+                "vendor": it.get("vendor"),
+                "family": it.get("family"),
+                "interfaces": it.get("interfaces"),
+            }
+            for it in cat
+            if it["kind"] == "model"
+        },
         "protocols": list(db.PROTOCOLS),
         "cli_protocols": list(db.CLI_PROTOCOLS),
     }

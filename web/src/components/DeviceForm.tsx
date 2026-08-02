@@ -149,6 +149,10 @@ export default function DeviceForm({ editing, onClose }: Props) {
         vendors: string[]
         models: string[]
         usernames: string[]
+        model_info: Record<
+          string,
+          { vendor?: string | null; family?: string | null; interfaces?: string | null }
+        >
       }
     },
   })
@@ -169,6 +173,26 @@ export default function DeviceForm({ editing, onClose }: Props) {
       }
       return next
     })
+  }
+
+  /**
+   * 카탈로그에 등록된 모델을 고르면 제조사·제품군·기본 인터페이스를 채운다.
+   * 같은 모델을 30대 등록할 때 이것이 가장 크게 줄여준다.
+   *
+   * 이미 적어둔 값은 덮지 않는다 — 카탈로그와 다르게 쓰는 장비가 있다.
+   * 인터페이스도 비어 있을 때만 채운다.
+   */
+  const pickModel = (name: string) => {
+    const info = rolesQ.data?.model_info?.[name]
+    setF((c) => ({
+      ...c,
+      model: name,
+      vendor: c.vendor || info?.vendor || '',
+      role: c.role || info?.family || '',
+    }))
+    if (info?.interfaces && ifs.length === 0) {
+      setIfs(expandRange(info.interfaces).map((n) => ({ name: n, kind: 'general' })))
+    }
   }
 
   const addBulk = () => {
@@ -315,7 +339,7 @@ export default function DeviceForm({ editing, onClose }: Props) {
                 list="model-list"
                 value={f.model ?? ''}
                 placeholder="E6100-48X"
-                onChange={(e) => set('model', e.target.value)}
+                onChange={(e) => pickModel(e.target.value)}
               />
               <DL id="model-list" items={rolesQ.data?.models} />
             </label>
