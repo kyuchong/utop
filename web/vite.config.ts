@@ -24,6 +24,9 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    // 소스맵은 원본 TypeScript 를 그대로 복원해준다. 배포본에 넣으면
+    // 브라우저 개발자도구에서 소스가 전부 읽힌다.
+    // 디버깅이 필요할 때만 VITE_SOURCEMAP=1 로 켜서 빌드한다.
+    sourcemap: process.env.VITE_SOURCEMAP === '1',
   },
 })

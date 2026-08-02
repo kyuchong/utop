@@ -139,7 +139,7 @@ cd web && npm run typecheck
 
 ## 화면 이관 현황
 
-새 UI(`web/`)로 옮긴 화면만 `localhost:8080` 에 나온다.
+새 UI(`web/`)로 옮긴 화면만 나온다.
 아직 안 옮긴 화면은 기존 UI 에 남아 있다.
 
 | 화면 | 상태 |
