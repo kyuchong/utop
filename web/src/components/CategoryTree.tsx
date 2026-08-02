@@ -520,6 +520,14 @@ export default function CategoryTree({ selected, onSelect }: Props) {
       )}
       <div className="cat-head">
         <span className="panel-name">REQ 분류</span>
+        <button
+          type="button"
+          className={`btn cat-all${selected === null ? ' primary' : ''}`}
+          onClick={() => onSelect(null)}
+          title="분류에 상관없이 전체 보기"
+        >
+          전체
+        </button>
         <select
           className="cat-sort"
           value={sort}
@@ -535,14 +543,6 @@ export default function CategoryTree({ selected, onSelect }: Props) {
           <option value="alpha">알파벳순</option>
           <option value="name">이름순</option>
         </select>
-        <button
-          type="button"
-          className={`btn cat-all${selected === null ? ' primary' : ''}`}
-          onClick={() => onSelect(null)}
-          title="분류에 상관없이 전체 보기"
-        >
-          전체
-        </button>
         <div className="cat-head-actions">
           {picked.size > 0 && (
             <button

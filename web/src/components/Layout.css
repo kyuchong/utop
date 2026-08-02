@@ -256,3 +256,73 @@
   font-weight: 700;
   box-shadow: inset 0 -2px 0 var(--c-primary);
 }
+
+/* ── 좌측 하단 사용자 ─────────────────────────────────────────
+   오른쪽 위 구석은 눈이 잘 가지 않는다. 메뉴 맨 아래에 두면
+   '지금 누구로 들어와 있는지' 가 늘 보인다. */
+.nav {
+  display: flex;
+  flex-direction: column;
+}
+
+.nav-user {
+  margin-top: auto;
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--c-border-nav);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.nav-user-face {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+}
+
+.nav-user-who {
+  flex: 1;
+  min-width: 0;
+}
+
+.nav-user-name {
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-user-out {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--c-text-faint);
+  font-size: var(--fs-md);
+}
+
+.nav-user-out:hover {
+  background: #fdeaea;
+  color: var(--c-fail);
+}
+
+/* 접힌 상태에서는 얼굴만 */
+.app.nav-collapsed .nav-user {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.app.nav-collapsed .nav-user-who {
+  display: none;
+}

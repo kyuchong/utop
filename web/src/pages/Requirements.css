@@ -14,15 +14,22 @@
   min-width: 120px;
 }
 
+/* 2열은 드래그로 정한 폭을 지킨다. 3열 내용 때문에 줄어들면 안 된다. */
 .req-panel {
   flex-grow: 0;
-  flex-shrink: 1;
-  min-width: 280px;
+  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
+/* flex-basis 를 0 으로 둬야 폭이 '내용' 이 아니라 '남는 공간' 으로 정해진다.
+   auto 로 두면 탭마다 내용의 최소 폭이 달라서(표가 있는 탭 vs 글만 있는 탭)
+   3열이 늘었다 줄었다 하고 그만큼 2열이 밀린다.
+   min-width:0 이 없으면 긴 단어 하나가 칸을 벌린다. */
 .tc-panel {
-  flex: 1 1 auto;
-  min-width: 300px;
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .scroll {
@@ -316,4 +323,37 @@
    본문일 때만 칸을 접었더니 탭을 옮길 때마다 화면이 출렁였다. */
 .detail-doc > .md {
   max-width: 100%;
+}
+
+
+/* 3열 안의 내용이 칸을 벌리지 않도록 — 넘치면 안에서 스크롤한다 */
+.tc-panel > *,
+.tc-panel .tc-body,
+.tc-panel .detail-body,
+.tc-panel .detail-doc-wrap {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.tc-panel .table,
+.tc-panel .md table {
+  overflow-x: auto;
+}
+
+/* 요구사항 선택 체크박스 */
+.req-pick {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+}
+
+/* 행이 button 에서 div 가 됐다 — 커서와 포커스 표시를 직접 준다 */
+.req-row[role='button'] {
+  cursor: pointer;
+}
+
+.req-row[role='button']:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: -2px;
 }

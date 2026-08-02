@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '@/components/Layout'
 import Login from '@/components/Login'
-import { authApi, getToken, type MeUser } from '@/api/client'
+import { authApi, getToken, setToken, type MeUser } from '@/api/client'
 import Requirements from '@/pages/Requirements'
 import TestCases from '@/pages/TestCases'
 
@@ -31,7 +31,16 @@ export default function App() {
   if (user === null) return <Login onDone={setUser} />
 
   return (
-    <Layout current={page} onNavigate={setPage}>
+    <Layout
+      user={user}
+      onLogout={() => {
+        void authApi.logout()
+        setToken('')
+        setUser(null)
+      }}
+      current={page}
+      onNavigate={setPage}
+    >
       {page === 'requirements' ? (
         <Requirements />
       ) : page === 'testcases' ? (

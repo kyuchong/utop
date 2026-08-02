@@ -359,9 +359,16 @@
   font-size: var(--fs-sm);
 }
 
+/* 정렬은 '전체' 버튼 오른쪽에. 한 줄에 나란히 둔다. */
 .cat-head .cat-sort {
-  flex: 1 1 100%;
-  order: 3;
+  flex: 1 1 auto;
+  min-width: 0;
+  order: 0;
+  height: 26px;
+  padding: 0 4px;
+  border: 1px solid #ccd3da;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
 }
 
 

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { api } from '@/api/client'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api, reqApi } from '@/api/client'
 import CategoryTree from '@/components/CategoryTree'
 import ReqForm from '@/components/ReqForm'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
@@ -51,6 +51,8 @@ export default function Requirements() {
   const [selected, setSelected] = useState<string | null>(null)
   const [catFilter, setCatFilter] = useState<string | null>(null)
   const [reqQuery, setReqQuery] = useState('')
+  // 여러 건을 골라 한 번에 지우기
+  const [picked, setPicked] = useState<Set<string>>(new Set())
   // undefined = 폼 닫힘 / null = 새로 만들기 / Requirement = 편집
   const [form, setForm] = useState<Requirement | null | undefined>(undefined)
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -66,6 +68,27 @@ export default function Requirements() {
   const splitRef = useRef<HTMLDivElement>(null)
   const [catW, setCatW] = useResizableWidth('utop.req.catW3', 230, 150, 460)
   const [reqW, setReqW] = useResizableWidth('utop.req.reqW2', 560, 300, 1200)
+
+  const qc = useQueryClient()
+
+  const removeManyM = useMutation({
+    mutationFn: async (ids: string[]) => {
+      // 순차 삭제. 한꺼번에 던지면 어디까지 지워졌는지 알 수 없어
+      // 실패했을 때 무엇을 다시 시도해야 하는지 말해줄 수 없다.
+      let ok = 0
+      for (const id of ids) {
+        await reqApi.remove(id)
+        ok++
+      }
+      return ok
+    },
+    onSuccess: () => {
+      setPicked(new Set())
+      void qc.invalidateQueries({ queryKey: ['req', 'list'] })
+      void qc.invalidateQueries({ queryKey: ['req-categories'] })
+      void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
+    },
+  })
 
   const reqQ = useQuery({
     queryKey: ['req', 'list'],
@@ -193,6 +216,28 @@ export default function Requirements() {
     })
   }, [linked, q, statusFilter])
 
+  const togglePick = (id: string) =>
+    setPicked((s) => {
+      const n = new Set(s)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+
+  const doRemovePicked = () => {
+    const ids = [...picked]
+    if (ids.length === 0) return
+    const tcCount = ids.reduce((a, id) => {
+      const r = allReqs.find((x) => reqPk(x) === id)
+      return a + (r ? tcsFor(r).length : 0)
+    }, 0)
+    const lines = [`요구사항 ${ids.length}건을 삭제합니다.`]
+    if (tcCount > 0) lines.push(`연결된 TC ${tcCount}건도 함께 사라집니다.`)
+    lines.push('되돌릴 수 없습니다. 계속할까요?')
+    if (!window.confirm(lines.join('\n'))) return
+    removeManyM.mutate(ids)
+  }
+
   const loading = reqQ.isLoading || tcQ.isLoading
   const error = reqQ.error ?? tcQ.error
 
@@ -261,6 +306,16 @@ export default function Requirements() {
               >
                 편집
               </button>
+              {picked.size > 0 && (
+                <button
+                  className="btn danger"
+                  type="button"
+                  onClick={doRemovePicked}
+                  disabled={removeManyM.isPending}
+                >
+                  {removeManyM.isPending ? '삭제 중…' : `${picked.size}건 삭제`}
+                </button>
+              )}
               <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
                 일괄 생성
               </button>
@@ -289,6 +344,18 @@ export default function Requirements() {
 
           {/* 표 머리. 3열에도 같은 높이의 머리가 있어 두 목록의 행이 맞는다. */}
           <div className="req-row th">
+            <input
+              type="checkbox"
+              className="req-pick"
+              aria-label="전체 선택"
+              checked={reqs.length > 0 && picked.size === reqs.length}
+              ref={(el) => {
+                if (el) el.indeterminate = picked.size > 0 && picked.size < reqs.length
+              }}
+              onChange={(e) =>
+                setPicked(e.target.checked ? new Set(reqs.map((r) => reqPk(r))) : new Set())
+              }
+            />
             <span className="req-id">REQ ID</span>
             <span className="req-name">제목</span>
             <span className="req-stat">TC</span>
@@ -310,12 +377,27 @@ export default function Requirements() {
                 const pk = reqPk(r)
                 const stat = rollup(tcsFor(r))
                 return (
-                  <button
+                  <div
                     key={pk}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     className={`req-row${pk === selected ? ' sel' : ''}`}
                     onClick={() => setSelected(pk)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelected(pk)
+                      }
+                    }}
                   >
+                    <input
+                      type="checkbox"
+                      className="req-pick"
+                      aria-label={`${reqLabel(r)} 선택`}
+                      checked={picked.has(pk)}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={() => togglePick(pk)}
+                    />
                     <span className="req-id">{reqLabel(r) || '(ID 없음)'}</span>
                     <span className="req-name">{r.title || '(제목 없음)'}</span>
                     <span className="req-stat">
@@ -329,7 +411,7 @@ export default function Requirements() {
                         </>
                       )}
                     </span>
-                  </button>
+                  </div>
                 )
               })
             )}

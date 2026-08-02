@@ -61,12 +61,15 @@ export const NAV: NavGroup[] = [
 const COLLAPSE_KEY = 'utop.nav.collapsed'
 
 interface Props {
+  /** 로그인한 사람 (좌측 하단에 표시) */
+  user?: { username?: string; name?: string; role?: string } | null
+  onLogout?: () => void
   current: string
   onNavigate: (key: string) => void
   children: ReactNode
 }
 
-export default function Layout({ current, onNavigate, children }: Props) {
+export default function Layout({ user, onLogout, current, onNavigate, children }: Props) {
   // 접힘 상태는 사람마다 취향이 갈리므로 브라우저에 기억시킨다.
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSE_KEY) === '1',
@@ -84,7 +87,6 @@ export default function Layout({ current, onNavigate, children }: Props) {
         <div className="topbar-search" role="search">
           Requirement / TC 검색
         </div>
-        <div className="topbar-user">관리자</div>
       </header>
 
       <div className="app-body">
@@ -124,6 +126,28 @@ export default function Layout({ current, onNavigate, children }: Props) {
               ))}
             </div>
           ))}
+
+          {/* 사용자는 메뉴 맨 아래에 둔다. 오른쪽 위 구석은 눈이 잘 가지
+              않는 자리이고, 메뉴를 접어도 여기는 아이콘으로 남는다. */}
+          <div className="nav-user">
+            <div className="nav-user-face" title={user?.name || user?.username || ''}>
+              {(user?.name || user?.username || '?').slice(0, 1)}
+            </div>
+            <div className="nav-user-who">
+              <div className="nav-user-name">{user?.name || user?.username || '알 수 없음'}</div>
+              {user?.role && user.role !== (user.name || user.username) && (
+                <div className="muted small">{user.role}</div>
+              )}
+            </div>
+            <button
+              type="button"
+              className="nav-user-out"
+              title="로그아웃"
+              onClick={onLogout}
+            >
+              ⏻
+            </button>
+          </div>
         </nav>
 
         <main className="main">{children}</main>
