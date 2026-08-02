@@ -450,13 +450,29 @@ async def req_upsert(rid: str, data: dict) -> None:
 # 요구사항 분류 (2단 고정: 대분류 > 중분류)
 # ══════════════════════════════════════════════════════════════════════
 async def cat_list() -> list[dict]:
-    """전체 분류를 평면 리스트로. 트리 조립은 화면에서 한다."""
+    """전체 분류를 평면 리스트로. 트리 조립은 화면에서 한다.
+
+    req_count 는 자손까지 합산한다. 직접 달린 것만 세면 'E57 을 누르면
+    요구사항이 나오는데 배지에는 아무것도 없는' 어긋남이 생긴다 —
+    필터는 하위까지 포함해서 걸러주기 때문이다.
+    """
     async with pool().acquire() as c:
         rows = await c.fetch(
             """
+            WITH RECURSIVE sub AS (
+              -- 각 분류와 그 자손을 짝지어 둔다
+              SELECT id AS root, id AS node FROM req_category
+              UNION ALL
+              SELECT s.root, k.id
+                FROM req_category k JOIN sub s ON k.parent_id = s.node
+            )
             SELECT c.id, c.name, c.parent_id, c.sort_order,
                    (SELECT count(*) FROM req r
-                     WHERE r.cat1 = c.id OR r.cat2 = c.id OR r.cat3 = c.id OR r.cat4 = c.id) AS req_count
+                     WHERE r.cat1 IN (SELECT node FROM sub WHERE root = c.id)
+                        OR r.cat2 IN (SELECT node FROM sub WHERE root = c.id)
+                        OR r.cat3 IN (SELECT node FROM sub WHERE root = c.id)
+                        OR r.cat4 IN (SELECT node FROM sub WHERE root = c.id)
+                   ) AS req_count
             FROM req_category c
             ORDER BY c.parent_id NULLS FIRST, c.sort_order, c.name
             """
