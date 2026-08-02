@@ -200,24 +200,6 @@ export default function Requirements() {
         />
       )}
 
-      <div className="tabs">
-        {([
-          ['tc', 'TC 연결'],
-          ['detail', '상세정보'],
-          ['history', '변경이력'],
-          ['runs', '실행현황'],
-        ] as const).map(([k, label]) => (
-          <button
-            key={k}
-            className={`tab${tab === k ? ' on' : ''}`}
-            type="button"
-            onClick={() => setTab(k)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
       {error ? (
         <div className="load-error">
           데이터를 불러오지 못했습니다 — {(error as Error).message}
@@ -313,15 +295,26 @@ export default function Requirements() {
         {/* ── 오른쪽: 탭에 따라 내용이 바뀐다 ─────────────── */}
         <section className="panel tc-panel">
           <div className="panel-title">
-            <b>
-              {tab === 'tc'
-                ? '연결된 Test Cases'
-                : tab === 'detail'
-                  ? '상세정보'
-                  : tab === 'history'
-                    ? '변경이력'
-                    : '실행현황'}
-            </b>
+            {/* 탭은 이 패널만 바꾼다. 화면 전체 폭을 쓰는 띠로 두면 자리만 먹는다. */}
+            <div className="seg" role="tablist">
+              {([
+                ['tc', 'TC'],
+                ['detail', '상세'],
+                ['history', '이력'],
+                ['runs', '실행'],
+              ] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  role="tab"
+                  aria-selected={tab === k}
+                  className={`seg-btn${tab === k ? ' on' : ''}`}
+                  type="button"
+                  onClick={() => setTab(k)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             {tab === 'tc' && (
               <div className="page-head-actions">
                 <button

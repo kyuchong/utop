@@ -34,7 +34,7 @@
   margin-left: auto;
   width: 270px;
   background: var(--c-topbar-item);
-  padding: 9px var(--sp-3);
+  padding: 5px var(--sp-3);
   border-radius: var(--radius);
   color: #aab5c0;
 }
@@ -59,7 +59,7 @@
   min-width: 0;
   background: var(--c-surface);
   border-right: 1px solid var(--c-border-nav);
-  padding: 56px 10px var(--sp-4);
+  padding: 46px 10px var(--sp-4);
   /* 접힘 툴팁이 메뉴 바깥으로 나가야 하므로 자르지 않는다.
      항목이 화면 높이를 넘길 만큼 늘어나면 안쪽 래퍼에 스크롤을 주고
      툴팁을 position:fixed 로 바꿔야 한다. */
@@ -72,7 +72,7 @@
    메뉴 안에 두면 접을 때 버튼도 같이 움직여 눈으로 쫓아가야 한다. */
 .nav-toggle {
   position: absolute;
-  top: 14px;
+  top: 8px;
   left: calc(var(--nav-w) - 16px);
   z-index: 10;
   display: flex;

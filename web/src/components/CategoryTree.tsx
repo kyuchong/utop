@@ -11,7 +11,7 @@ import {
   type CategoryTreeNode,
   type ReqCategory,
 } from '@/types'
-import { IconChevron } from './icons'
+import { IconChevron, IconGrip } from './icons'
 import './CategoryTree.css'
 
 type SortKey = 'manual' | 'number' | 'alpha' | 'name'
@@ -273,17 +273,6 @@ export default function CategoryTree({ selected, onSelect }: Props) {
             `${overId === n.id ? ' dropinto' : ''}`
           }
           style={{ paddingLeft: 4 + (n.depth - 1) * 14 }}
-          draggable
-          onDragStart={(e) => {
-            setDragId(n.id)
-            e.dataTransfer.effectAllowed = 'move'
-            // 파이어폭스는 데이터가 없으면 드래그를 시작하지 않는다
-            e.dataTransfer.setData('text/plain', n.id)
-          }}
-          onDragEnd={() => {
-            setDragId(null)
-            setOverId(undefined)
-          }}
           onDragOver={(e) => {
             if (!dragId || dragId === n.id) return
             e.preventDefault()
@@ -297,6 +286,26 @@ export default function CategoryTree({ selected, onSelect }: Props) {
             drop(n.id)
           }}
         >
+          {/* 드래그는 이 손잡이에서만 시작한다.
+              행 전체를 draggable 로 두면 체크박스·버튼 위에서 끌 때
+              브라우저가 컨테이너 드래그를 시작하지 않아 잡을 곳이 없다. */}
+          <span
+            className="cat-grip"
+            title="끌어서 상위 분류 변경"
+            draggable
+            onDragStart={(e) => {
+              setDragId(n.id)
+              e.dataTransfer.effectAllowed = 'move'
+              // 파이어폭스는 데이터가 없으면 드래그를 시작하지 않는다
+              e.dataTransfer.setData('text/plain', n.id)
+            }}
+            onDragEnd={() => {
+              setDragId(null)
+              setOverId(undefined)
+            }}
+          >
+            <IconGrip />
+          </span>
           <input
             type="checkbox"
             className="cat-pick"

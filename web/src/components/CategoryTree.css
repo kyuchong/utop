@@ -289,3 +289,23 @@
 .cat-row.sel .cat-actions {
   background: var(--c-primary-bg-soft);
 }
+
+/* 드래그 손잡이 — 평소엔 흐리게, hover 하면 또렷하게 */
+.cat-grip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 20px;
+  color: #ccd3da;
+  cursor: grab;
+}
+
+.cat-row:hover .cat-grip {
+  color: var(--c-text-faint);
+}
+
+.cat-grip:active {
+  cursor: grabbing;
+}

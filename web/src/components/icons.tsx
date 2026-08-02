@@ -115,3 +115,17 @@ export const IconChevron = (p: P) => (
     <path d="m9 6 6 6-6 6" />
   </Svg>
 )
+
+/** 드래그 손잡이 (점 6개) */
+export const IconGrip = (p: P) => (
+  <Svg width="12" height="14" strokeWidth="0" {...p}>
+    <g fill="currentColor">
+      <circle cx="9" cy="6" r="1.5" />
+      <circle cx="15" cy="6" r="1.5" />
+      <circle cx="9" cy="12" r="1.5" />
+      <circle cx="15" cy="12" r="1.5" />
+      <circle cx="9" cy="18" r="1.5" />
+      <circle cx="15" cy="18" r="1.5" />
+    </g>
+  </Svg>
+)
