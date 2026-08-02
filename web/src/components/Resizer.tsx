@@ -7,6 +7,13 @@ import './Resizer.css'
  * 폭은 localStorage 에 남긴다 — 매번 다시 맞추게 하면 안 쓰게 된다.
  * 값은 왼쪽 패널의 px 폭이고, 오른쪽 패널이 남는 공간을 가져간다.
  */
+/**
+ * 폭은 localStorage 에 남긴다 — 매번 다시 맞추게 하면 안 쓰게 된다.
+ *
+ * 주의: 처음 열 때 곧바로 저장되므로, 나중에 initial 만 바꾸면 이미 저장된
+ * 옛 기본값이 이겨서 아무도 변화를 못 본다. 기본값을 바꿀 때는 key 도 함께
+ * 올릴 것(catW → catW2).
+ */
 export function useResizableWidth(key: string, initial: number, min = 140, max = 900) {
   const [width, setWidth] = useState<number>(() => {
     const saved = Number(localStorage.getItem(key))

@@ -84,18 +84,6 @@ export default function TestCases() {
       )}
       {bulkOpen && <TcBulkForm onClose={() => setBulkOpen(false)} />}
 
-      <div className="page-head">
-        <h1>Test Cases</h1>
-        <div className="page-head-actions">
-          <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
-            일괄 생성
-          </button>
-          <button className="btn primary" type="button" onClick={() => setForm(null)}>
-            + Test Case
-          </button>
-        </div>
-      </div>
-
       {error ? (
         <div className="load-error">
           데이터를 불러오지 못했습니다 — {(error as Error).message}
@@ -135,6 +123,14 @@ export default function TestCases() {
             {stat.fail > 0 && ` · FAIL ${stat.fail}`}
             {stat.idle > 0 && ` · 미실행 ${stat.idle}`}
           </span>
+          <div className="page-head-actions">
+            <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
+              일괄 생성
+            </button>
+            <button className="btn primary" type="button" onClick={() => setForm(null)}>
+              + Test Case
+            </button>
+          </div>
         </div>
 
         <div className="scroll">

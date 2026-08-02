@@ -4,6 +4,8 @@ import { categoryApi } from '@/api/client'
 import {
   buildCategoryTree,
   MAX_CAT_DEPTH,
+  compareByAlpha,
+  compareByNumber,
   naturalCompare,
   UNCATEGORIZED,
   type CategoryTreeNode,
@@ -11,6 +13,8 @@ import {
 } from '@/types'
 import { IconChevron } from './icons'
 import './CategoryTree.css'
+
+type SortKey = 'manual' | 'number' | 'alpha' | 'name'
 
 interface Props {
   /** 선택된 분류 id. null 이면 전체 */
@@ -33,12 +37,11 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   // 드래그 중인 분류 id / 올려둔 대상 id (null = 최상위로 빼기)
   const [dragId, setDragId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null | undefined>(undefined)
-  // 여러 개 골라 한 번에 지우는 모드
-  const [pickMode, setPickMode] = useState(false)
+  // 체크박스는 항상 보인다. 모드를 두면 '선택' 을 먼저 눌러야 해서 한 단계가 는다.
   const [picked, setPicked] = useState<Set<string>>(new Set())
   // 정렬 기준. 브라우저에 기억시킨다.
-  const [sort, setSort] = useState<'manual' | 'name' | 'count'>(
-    () => (localStorage.getItem('utop.cat.sort') as 'manual' | 'name' | 'count') || 'manual',
+  const [sort, setSort] = useState<SortKey>(
+    () => (localStorage.getItem('utop.cat.sort') as SortKey) || 'manual',
   )
 
   const catQ = useQuery({
@@ -96,12 +99,12 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   const tree = useMemo(() => {
     const t0 = buildCategoryTree(list)
     if (sort === 'manual') return t0
-    const cmp = (a: CategoryTreeNode, b: CategoryTreeNode) =>
-      sort === 'name'
-        ? naturalCompare(a.name, b.name)
-        : b.req_count - a.req_count || naturalCompare(a.name, b.name)
+    const by =
+      sort === 'number' ? compareByNumber : sort === 'alpha' ? compareByAlpha : naturalCompare
     const walk = (ns: CategoryTreeNode[]): CategoryTreeNode[] =>
-      [...ns].sort(cmp).map((n) => ({ ...n, children: walk(n.children) }))
+      [...ns]
+        .sort((a, b) => by(a.name, b.name))
+        .map((n) => ({ ...n, children: walk(n.children) }))
     return walk(t0)
   }, [list, sort])
 
@@ -159,11 +162,29 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   const countAll = (n: CategoryTreeNode): number =>
     n.children.reduce((a, k) => a + 1 + countAll(k), 0)
 
+  /** 자기 자신 + 모든 자손 id */
+  const withDescendants = (id: string): string[] => {
+    const out: string[] = []
+    const walk = (x: string) => {
+      if (out.includes(x)) return
+      out.push(x)
+      for (const c of list) if (c.parent_id === x) walk(c.id)
+    }
+    walk(id)
+    return out
+  }
+
+  /**
+   * 체크는 하위까지 함께 움직인다.
+   * 상위만 고르고 하위는 안 골라진 상태로 지우면, 어차피 CASCADE 로 하위도
+   * 사라지는데 화면에는 안 고른 것처럼 보여 헷갈린다.
+   */
   const togglePick = (id: string) =>
     setPicked((s) => {
       const n = new Set(s)
-      if (n.has(id)) n.delete(id)
-      else n.add(id)
+      const ids = withDescendants(id)
+      if (n.has(id)) ids.forEach((x) => n.delete(x))
+      else ids.forEach((x) => n.add(x))
       return n
     })
 
@@ -181,7 +202,6 @@ export default function CategoryTree({ selected, onSelect }: Props) {
     },
     onSuccess: () => {
       setPicked(new Set())
-      setPickMode(false)
       setError('')
       invalidate()
     },
@@ -277,16 +297,14 @@ export default function CategoryTree({ selected, onSelect }: Props) {
             drop(n.id)
           }}
         >
-          {pickMode && (
-            <input
-              type="checkbox"
-              className="cat-pick"
-              checked={picked.has(n.id)}
-              onChange={() => togglePick(n.id)}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={`${n.name} 선택`}
-            />
-          )}
+          <input
+            type="checkbox"
+            className="cat-pick"
+            checked={picked.has(n.id)}
+            onChange={() => togglePick(n.id)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={`${n.name} 선택`}
+          />
           <button
             type="button"
             className={`cat-caret${open ? ' open' : ''}`}
@@ -332,7 +350,21 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   return (
     <div className="cat-tree">
       <div className="cat-head">
-        <b>분류</b>
+        <select
+          className="cat-sort"
+          value={sort}
+          title="정렬 기준"
+          onChange={(e) => {
+            const v = e.target.value as SortKey
+            setSort(v)
+            localStorage.setItem('utop.cat.sort', v)
+          }}
+        >
+          <option value="manual">직접</option>
+          <option value="number">숫자순</option>
+          <option value="alpha">알파벳순</option>
+          <option value="name">이름순</option>
+        </select>
         <button
           type="button"
           className={`btn cat-all${selected === null ? ' primary' : ''}`}
@@ -341,57 +373,26 @@ export default function CategoryTree({ selected, onSelect }: Props) {
         >
           전체
         </button>
-        <select
-          className="cat-sort"
-          value={sort}
-          title="정렬 기준"
-          onChange={(e) => {
-            const v = e.target.value as 'manual' | 'name' | 'count'
-            setSort(v)
-            localStorage.setItem('utop.cat.sort', v)
-          }}
-        >
-          <option value="manual">직접 정렬</option>
-          <option value="name">이름순</option>
-          <option value="count">요구사항 많은순</option>
-        </select>
         <div className="cat-head-actions">
-          {pickMode ? (
-            <>
-              <button
-                className="btn danger"
-                type="button"
-                disabled={picked.size === 0 || removeManyM.isPending}
-                onClick={doRemovePicked}
-              >
-                {removeManyM.isPending ? '삭제 중…' : `${picked.size}개 삭제`}
-              </button>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => {
-                  setPickMode(false)
-                  setPicked(new Set())
-                }}
-              >
-                취소
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                className="btn"
-                type="button"
-                onClick={() => setPickMode(true)}
-                title="여러 개 골라 한 번에 삭제"
-              >
-                선택
-              </button>
-              <button className="btn" type="button" onClick={() => startAdd(null)}>
-                + 대분류
-              </button>
-            </>
+          {picked.size > 0 && (
+            <button
+              className="btn danger"
+              type="button"
+              disabled={removeManyM.isPending}
+              onClick={doRemovePicked}
+              title={`${picked.size}개 삭제`}
+            >
+              {removeManyM.isPending ? '…' : `${picked.size} 삭제`}
+            </button>
           )}
+          <button
+            className="btn"
+            type="button"
+            onClick={() => startAdd(null)}
+            title="대분류 추가"
+          >
+            +
+          </button>
         </div>
       </div>
 

@@ -63,8 +63,8 @@ export default function Requirements() {
 
   // 패널 폭은 사람마다 선호가 다르다. 드래그로 맞추고 브라우저에 기억시킨다.
   const splitRef = useRef<HTMLDivElement>(null)
-  const [catW, setCatW] = useResizableWidth('utop.req.catW', 210, 150, 420)
-  const [reqW, setReqW] = useResizableWidth('utop.req.reqW', 520, 300, 1200)
+  const [catW, setCatW] = useResizableWidth('utop.req.catW2', 168, 120, 420)
+  const [reqW, setReqW] = useResizableWidth('utop.req.reqW2', 560, 300, 1200)
 
   const reqQ = useQuery({
     queryKey: ['req', 'list'],
@@ -199,14 +199,6 @@ export default function Requirements() {
           onClose={() => setTcBulkOpen(false)}
         />
       )}
-
-      <div className="page-head">
-        <h1>
-          {selectedReq
-            ? `${reqLabel(selectedReq)} · ${selectedReq.title || '(제목 없음)'}`
-            : 'Requirements'}
-        </h1>
-      </div>
 
       <div className="tabs">
         {([

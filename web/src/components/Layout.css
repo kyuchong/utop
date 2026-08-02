@@ -202,7 +202,7 @@
 .main {
   flex: 1;
   min-width: 0;
-  padding: 18px 22px;
+  padding: var(--sp-2) var(--sp-3) var(--sp-3);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -237,7 +237,7 @@
 }
 
 .tabs {
-  height: 40px;
+  height: 34px;
   flex: none;
   border-bottom: 1px solid #d8dde3;
   display: flex;
@@ -245,7 +245,7 @@
 }
 
 .tab {
-  padding: 11px 3px;
+  padding: 8px 3px;
   border: 0;
   background: none;
   color: var(--c-text);

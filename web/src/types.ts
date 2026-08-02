@@ -146,6 +146,42 @@ export function naturalCompare(a: string, b: string): number {
   return collator.compare(a ?? '', b ?? '')
 }
 
+/** 이름 앞머리의 숫자. '1-2. 제목' → [1,2] / 숫자로 시작하지 않으면 null */
+function leadingNumbers(s: string): number[] | null {
+  const m = /^\s*(\d+(?:[.\-]\d+)*)/.exec(s ?? '')
+  if (!m) return null
+  return m[1]!.split(/[.\-]/).map(Number)
+}
+
+/**
+ * 숫자순. '1. → 2. → 10.' 처럼 앞머리 번호로 매긴다.
+ * 번호가 없는 항목은 뒤로 밀고 자기들끼리는 이름순으로 둔다 —
+ * 번호 체계를 쓰는 목록에서 번호 없는 것이 사이에 끼면 순서가 안 읽힌다.
+ */
+export function compareByNumber(a: string, b: string): number {
+  const na = leadingNumbers(a)
+  const nb = leadingNumbers(b)
+  if (na && nb) {
+    for (let i = 0; i < Math.max(na.length, nb.length); i++) {
+      const d = (na[i] ?? -1) - (nb[i] ?? -1)
+      if (d !== 0) return d
+    }
+    return naturalCompare(a, b)
+  }
+  if (na) return -1
+  if (nb) return 1
+  return naturalCompare(a, b)
+}
+
+/**
+ * 알파벳순. 앞머리 번호를 떼고 글자만 본다 —
+ * '1. VLAN' 과 'VLAN' 이 멀리 떨어지지 않게.
+ */
+export function compareByAlpha(a: string, b: string): number {
+  const strip = (s: string) => (s ?? '').replace(/^\s*\d+(?:[.\-]\d+)*[.\s)]*/, '').trim()
+  return naturalCompare(strip(a) || a, strip(b) || b)
+}
+
 /** 분류 3단까지. 이 값을 넘는 하위는 만들 수 없다 (서버도 같은 값으로 막는다). */
 export const MAX_CAT_DEPTH = 3
 
