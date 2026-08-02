@@ -188,8 +188,12 @@ export default function Requirements() {
 
       <div className="split">
         {/* ── 왼쪽: 요구사항 목록 ─────────────────────────── */}
-        <section className="panel req-panel">
+        {/* 분류는 독립된 열. 요구사항 목록 위에 얹으면 목록이 몇 줄 못 나온다. */}
+        <section className="panel cat-panel">
           <CategoryTree selected={catFilter} onSelect={setCatFilter} />
+        </section>
+
+        <section className="panel req-panel">
           <div className="panel-title">
             <span className="muted">
               {catFilter ? `${reqs.length} / ${allReqs.length}건` : `${reqs.length}건`}
@@ -228,14 +232,19 @@ export default function Requirements() {
                     className={`req-row${pk === selected ? ' sel' : ''}`}
                     onClick={() => setSelected(pk)}
                   >
-                    <div className="req-id">{reqLabel(r) || '(ID 없음)'}</div>
-                    <div className="req-name">{r.title || '(제목 없음)'}</div>
-                    <div className="muted">
-                      TC {stat.total}
-                      {stat.pass > 0 && ` · PASS ${stat.pass}`}
-                      {stat.fail > 0 && ` · FAIL ${stat.fail}`}
-                      {stat.idle > 0 && ` · 미실행 ${stat.idle}`}
-                    </div>
+                    <span className="req-id">{reqLabel(r) || '(ID 없음)'}</span>
+                    <span className="req-name">{r.title || '(제목 없음)'}</span>
+                    <span className="req-stat">
+                      {stat.total === 0 ? (
+                        <span className="muted">TC 0</span>
+                      ) : (
+                        <>
+                          {stat.pass > 0 && <b className="status pass">{stat.pass}</b>}
+                          {stat.fail > 0 && <b className="status fail">{stat.fail}</b>}
+                          {stat.idle > 0 && <b className="status idle">{stat.idle}</b>}
+                        </>
+                      )}
+                    </span>
                   </button>
                 )
               })

@@ -7,6 +7,7 @@ import {
   type CategoryTreeNode,
   type ReqCategory,
 } from '@/types'
+import { IconChevron } from './icons'
 import './CategoryTree.css'
 
 interface Props {
@@ -148,12 +149,12 @@ export default function CategoryTree({ selected, onSelect }: Props) {
         >
           <button
             type="button"
-            className="cat-caret"
+            className={`cat-caret${open ? ' open' : ''}`}
             onClick={() => toggle(n.id)}
             aria-label={open ? '접기' : '펼치기'}
             disabled={!hasKids}
           >
-            {!hasKids ? '·' : open ? '▾' : '▸'}
+            {hasKids ? <IconChevron /> : <span className="cat-dot" />}
           </button>
           <button
             type="button"
@@ -163,7 +164,7 @@ export default function CategoryTree({ selected, onSelect }: Props) {
           >
             {n.name}
           </button>
-          <span className="cat-count">{n.req_count || ''}</span>
+          {n.req_count > 0 && <span className="cat-count">{n.req_count}</span>}
           <span className="cat-actions">
             {canAddChild && (
               <button type="button" onClick={() => startAdd(n.id)} title="하위 분류 추가">

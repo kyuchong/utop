@@ -6,14 +6,20 @@
   padding-top: 14px;
 }
 
+/* 분류는 좁은 고정 열. 요구사항 목록이 화면을 최대한 쓰게 한다. */
+.cat-panel {
+  flex: 0 0 210px;
+  min-width: 180px;
+}
+
 .req-panel {
-  width: 42%;
-  min-width: 300px;
+  flex: 1 1 auto;
+  min-width: 320px;
 }
 
 .tc-panel {
-  flex: 1;
-  min-width: 0;
+  flex: 0 0 400px;
+  min-width: 320px;
 }
 
 .scroll {
@@ -21,12 +27,16 @@
   min-height: 0;
 }
 
-/* ── 요구사항 행 ───────────────────────────────────────────── */
+/* ── 요구사항 행 ─────────────────────────────────────────────
+   한 줄에 ID·제목·TC 집계를 모두 넣는다. 3줄로 쓰면 한 화면에
+   대여섯 건밖에 안 보인다. */
 .req-row {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   text-align: left;
-  padding: var(--sp-3) 15px;
+  padding: 7px 12px;
   border: 0;
   border-bottom: 1px solid var(--c-border-soft);
   background: transparent;
@@ -44,13 +54,33 @@
 }
 
 .req-id {
-  font-size: var(--fs-label);
+  flex: none;
+  width: 84px;
+  font-size: var(--fs-xs);
   color: var(--c-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .req-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.req-row.sel .req-name {
   font-weight: 700;
-  margin: var(--sp-1) 0;
+}
+
+/* TC 집계 — 숫자만. PASS/FAIL/미실행을 색으로 구분한다 */
+.req-stat {
+  flex: none;
+  display: flex;
+  gap: 5px;
+  font-size: var(--fs-xs);
 }
 
 /* ── 연결된 TC ─────────────────────────────────────────────── */
@@ -140,13 +170,14 @@
 }
 
 /* 좁은 화면에서는 위아래로 쌓는다 (목업은 min-width:1280px 로 포기했던 부분) */
-@media (max-width: 1100px) {
+/* 좁은 화면: 연결 TC 를 아래로 내린다 (분류와 목록이 먼저다) */
+@media (max-width: 1200px) {
   .split {
-    flex-direction: column;
+    flex-wrap: wrap;
   }
-  .req-panel {
-    width: 100%;
-    max-height: 40%;
+  .tc-panel {
+    flex: 1 1 100%;
+    min-height: 240px;
   }
 }
 

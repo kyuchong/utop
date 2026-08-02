@@ -1,9 +1,22 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
+import {
+  IconAi,
+  IconCycle,
+  IconDashboard,
+  IconDefect,
+  IconExecution,
+  IconKnowledge,
+  IconPanelToggle,
+  IconRelease,
+  IconRequirements,
+  IconTestCase,
+} from './icons'
 import './Layout.css'
 
 export interface NavItem {
   key: string
   label: string
+  Icon: ComponentType<{ className?: string }>
 }
 
 export interface NavGroup {
@@ -19,31 +32,33 @@ export interface NavGroup {
  * 화면을 새로 옮길 때마다 이 목록에 한 줄씩 추가하는 방식으로 늘린다.
  */
 export const NAV: NavGroup[] = [
-  { items: [{ key: 'dashboard', label: '대시보드' }] },
+  { items: [{ key: 'dashboard', label: '대시보드', Icon: IconDashboard }] },
   {
     title: 'QUALITY',
     items: [
-      { key: 'requirements', label: 'Requirements' },
-      { key: 'testcases', label: 'Test Cases' },
-      { key: 'cycles', label: 'Cycles' },
-      { key: 'executions', label: 'Executions' },
+      { key: 'requirements', label: 'Requirements', Icon: IconRequirements },
+      { key: 'testcases', label: 'Test Cases', Icon: IconTestCase },
+      { key: 'cycles', label: 'Cycles', Icon: IconCycle },
+      { key: 'executions', label: 'Executions', Icon: IconExecution },
     ],
   },
   {
     title: 'MANAGEMENT',
     items: [
-      { key: 'defects', label: 'Defects' },
-      { key: 'releases', label: 'Releases' },
+      { key: 'defects', label: 'Defects', Icon: IconDefect },
+      { key: 'releases', label: 'Releases', Icon: IconRelease },
     ],
   },
   {
     title: 'AI',
     items: [
-      { key: 'ai-tc', label: 'TC 생성' },
-      { key: 'knowledge', label: 'Knowledge' },
+      { key: 'ai-tc', label: 'TC 생성', Icon: IconAi },
+      { key: 'knowledge', label: 'Knowledge', Icon: IconKnowledge },
     ],
   },
 ]
+
+const COLLAPSE_KEY = 'utop.nav.collapsed'
 
 interface Props {
   current: string
@@ -52,8 +67,17 @@ interface Props {
 }
 
 export default function Layout({ current, onNavigate, children }: Props) {
+  // 접힘 상태는 사람마다 취향이 갈리므로 브라우저에 기억시킨다.
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem(COLLAPSE_KEY) === '1',
+  )
+
+  useEffect(() => {
+    localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0')
+  }, [collapsed])
+
   return (
-    <div className="app">
+    <div className={`app${collapsed ? ' nav-collapsed' : ''}`}>
       <header className="topbar">
         <div className="topbar-logo">UTOP</div>
         <div className="topbar-chip">QA Management</div>
@@ -65,18 +89,37 @@ export default function Layout({ current, onNavigate, children }: Props) {
 
       <div className="app-body">
         <nav className="nav" aria-label="주 메뉴">
+          <button
+            type="button"
+            className="nav-toggle"
+            onClick={() => setCollapsed((v) => !v)}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
+            title={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
+          >
+            <IconPanelToggle />
+          </button>
+
           {NAV.map((group, gi) => (
-            <div key={group.title ?? `g${gi}`}>
+            <div className="nav-section" key={group.title ?? `g${gi}`}>
               {group.title && <h5 className="nav-group">{group.title}</h5>}
-              {group.items.map((item) => (
+              {group.items.map(({ key, label, Icon }) => (
                 <button
-                  key={item.key}
+                  key={key}
                   type="button"
-                  className={`nav-item${item.key === current ? ' on' : ''}`}
-                  aria-current={item.key === current ? 'page' : undefined}
-                  onClick={() => onNavigate(item.key)}
+                  className={`nav-item${key === current ? ' on' : ''}`}
+                  aria-current={key === current ? 'page' : undefined}
+                  onClick={() => onNavigate(key)}
+                  // 접힌 상태에서는 글자가 안 보이므로 이름을 툴팁으로 남긴다.
+                  title={collapsed ? label : undefined}
                 >
-                  {item.label}
+                  <span className="nav-icon">
+                    <Icon />
+                  </span>
+                  <span className="nav-label">{label}</span>
+                  <span className="nav-tip" aria-hidden="true">
+                    {label}
+                  </span>
                 </button>
               ))}
             </div>

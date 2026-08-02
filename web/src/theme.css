@@ -38,10 +38,25 @@
   --c-draft: #a97800;
   --c-idle: #8a949e;
 
-  /* 글자 3단 */
-  --fs-title: 21px;
-  --fs-body: 13px;
-  --fs-label: 11px;
+  /* ── 글자 척도 ──────────────────────────────────────────────
+     쓰는 크기는 이 다섯 개뿐이다. CSS 어디에도 px 을 직접 적지 않는다.
+     크기가 제각각이면 화면마다 다른 앱처럼 보인다. */
+  --fs-2xl: 21px;   /* 화면 제목 (h1) */
+  --fs-xl: 18px;    /* 로고 */
+  --fs-lg: 15px;    /* 모달 제목, 강조 문구 */
+  --fs-md: 13px;    /* 본문 — 기본값 */
+  --fs-sm: 12px;    /* 보조 설명 */
+  --fs-xs: 11px;    /* 라벨, 배지, 표 머리 */
+
+  /* 뜻으로 부르는 이름 (위 척도를 가리킨다) */
+  --fs-title: var(--fs-2xl);
+  --fs-body: var(--fs-md);
+  --fs-label: var(--fs-xs);
+
+  /* 글꼴은 한 벌만 쓴다. 여기서만 정하고 나머지는 상속받는다. */
+  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR',
+    'Malgun Gothic', Arial, sans-serif;
+  --font-mono: 'Cascadia Mono', Consolas, 'D2Coding', monospace;
 
   /* 간격 */
   --sp-1: 4px;
@@ -72,22 +87,27 @@ body {
   margin: 0;
   background: var(--c-app-bg);
   color: var(--c-text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR',
-    'Malgun Gothic', Arial, sans-serif;
+  font-family: var(--font-ui);
   font-size: var(--fs-body);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-button {
-  font: inherit;
-  cursor: pointer;
+/* 폼 요소는 브라우저 기본 글꼴을 쓰려 한다. 한곳에서 못박아 둔다.
+   (select 는 font: inherit 만으로 안 먹는 경우가 있어 family 를 따로 준다) */
+button,
+input,
+select,
+textarea,
+optgroup,
+option {
+  font-family: var(--font-ui);
+  font-size: var(--fs-md);
+  color: inherit;
 }
 
-input,
-select {
-  font: inherit;
-  color: inherit;
+button {
+  cursor: pointer;
 }
 
 /* ── 공용 요소 ─────────────────────────────────────────────── */
@@ -117,7 +137,7 @@ select {
 }
 
 .tag {
-  font-size: 10px;
+  font-size: var(--fs-xs);
   padding: 3px 7px;
   border-radius: 10px;
   background: #eef2f6;

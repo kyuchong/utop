@@ -1,17 +1,23 @@
+/* 항목 수만큼만 차지하고, 많아지면 40% 에서 멈추고 스크롤한다.
+   고정 높이로 두면 분류가 몇 개 없을 때 큰 빈 칸이 남는다. */
+/* 이제 분류는 독립된 열이라 높이를 다 쓴다. */
 .cat-tree {
-  flex: none;
-  border-bottom: 1px solid var(--c-border);
+  flex: 1;
+  min-height: 0;
   padding-bottom: var(--sp-2);
-  max-height: 45%;
   overflow-y: auto;
 }
 
 .cat-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--c-surface);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-2);
-  padding: var(--sp-3) 15px var(--sp-2);
+  padding: var(--sp-2) 12px var(--sp-1);
 }
 
 .cat-head .btn {
@@ -62,49 +68,72 @@
 
 .cat-caret {
   flex: none;
-  width: 20px;
-  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   border: 0;
+  border-radius: 4px;
   background: transparent;
-  color: var(--c-text-faint);
-  font-size: 10px;
-  line-height: 1;
+  color: var(--c-text-muted);
+  /* 펼치면 아래를 가리키도록 90도 돌린다 */
+  transition: transform 0.12s ease;
+}
+
+.cat-caret.open {
+  transform: rotate(90deg);
+}
+
+.cat-caret:hover:not(:disabled) {
+  background: #dfe5ec;
+  color: var(--c-text);
 }
 
 .cat-caret:disabled {
-  color: #ccd3da;
   cursor: default;
 }
 
-.cat-row.child .cat-caret {
-  width: 30px;
+/* 자식 없는 항목의 자리표시 — 비우면 이름이 들쭉날쭉해진다 */
+.cat-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #ccd3da;
 }
 
+
+
 .cat-name {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   border: 0;
   background: transparent;
   text-align: left;
   color: inherit;
   font: inherit;
-  padding: 6px 0;
+  padding: 4px 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* 건수는 이름 바로 뒤에 붙인다. 오른쪽 끝으로 밀면 가운데가 휑하다. */
 .cat-count {
   flex: none;
-  font-size: var(--fs-label);
-  color: var(--c-text-faint);
-  min-width: 16px;
-  text-align: right;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 8px;
+  background: #eef2f6;
+  font-size: var(--fs-xs);
+  color: #5d6873;
 }
 
-/* 편집 버튼은 hover 했을 때만 — 평소에는 목록이 조용해야 한다 */
+/* 이름·건수는 왼쪽에 모으고 편집 버튼만 오른쪽으로 민다.
+   버튼은 hover 했을 때만 보인다 — 평소에는 목록이 조용해야 한다. */
 .cat-actions {
   flex: none;
+  margin-left: auto;
   display: flex;
   gap: 1px;
   visibility: hidden;
@@ -121,7 +150,7 @@
   border-radius: 3px;
   background: transparent;
   color: var(--c-text-faint);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   line-height: 1;
 }
 
