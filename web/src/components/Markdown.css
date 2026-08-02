@@ -1,0 +1,187 @@
+/* 마크다운 본문. 요구사항 구현내용처럼 길게 읽는 글에 쓴다.
+   화면 나머지와 크기가 튀지 않도록 척도(--fs-*)만 쓴다. */
+.md {
+  font-size: var(--fs-md);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.md > :first-child {
+  margin-top: 0;
+}
+.md > :last-child {
+  margin-bottom: 0;
+}
+
+.md h1,
+.md h2,
+.md h3,
+.md h4 {
+  margin: var(--sp-4) 0 var(--sp-2);
+  line-height: 1.35;
+}
+.md h1 {
+  font-size: var(--fs-lg);
+}
+.md h2 {
+  font-size: var(--fs-lg);
+}
+.md h3,
+.md h4 {
+  font-size: var(--fs-md);
+}
+
+.md p {
+  margin: 0 0 var(--sp-3);
+}
+
+.md ul,
+.md ol {
+  margin: 0 0 var(--sp-3);
+  padding-left: var(--sp-5);
+}
+
+.md li {
+  margin: 2px 0;
+}
+
+.md code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  background: var(--c-surface-alt);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
+.md pre {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-3);
+  background: var(--c-surface-alt);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  overflow-x: auto;
+}
+
+.md pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.md blockquote {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-1) var(--sp-3);
+  border-left: 3px solid var(--c-border);
+  color: var(--c-text-muted);
+}
+
+.md table {
+  border-collapse: collapse;
+  margin: 0 0 var(--sp-3);
+  display: block;
+  overflow-x: auto;
+}
+
+.md th,
+.md td {
+  border: 1px solid var(--c-border);
+  padding: 5px 9px;
+  text-align: left;
+}
+
+.md th {
+  background: var(--c-surface-alt);
+  font-size: var(--fs-xs);
+}
+
+.md a {
+  color: var(--c-primary);
+}
+
+.md hr {
+  border: 0;
+  border-top: 1px solid var(--c-border);
+  margin: var(--sp-4) 0;
+}
+
+.md img {
+  max-width: 100%;
+}
+
+/* ── 편집기: 쓰기 / 미리보기 전환 ───────────────────────────── */
+.md-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.md-editor-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.md-preview {
+  min-height: 160px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: var(--sp-3);
+  border: 1px solid #ccd3da;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-alt);
+}
+
+/* ── 서식 도구모음 ─────────────────────────────────────────── */
+.md-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.md-tool {
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  line-height: 1.6;
+}
+
+.md-tool:hover:not(:disabled) {
+  background: var(--c-primary-bg);
+  border-color: #cfe0f5;
+  color: var(--c-primary);
+}
+
+.md-tool:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── 쓰기 / 나란히 / 미리보기 ──────────────────────────────── */
+.md-panes {
+  display: flex;
+  gap: var(--sp-2);
+  min-height: 0;
+}
+
+.md-panes > textarea,
+.md-panes > .md-preview {
+  flex: 1;
+  min-width: 0;
+}
+
+.md-panes > textarea {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  resize: vertical;
+}
+
+/* 나란히 볼 때 두 칸 높이를 맞춘다 */
+.md-panes.split > .md-preview {
+  max-height: none;
+}

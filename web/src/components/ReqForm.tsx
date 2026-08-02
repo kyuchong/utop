@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { categoryApi, reqApi } from '@/api/client'
 import { buildCategoryTree, reqPk, type Requirement } from '@/types'
+import MarkdownEditor from './MarkdownEditor'
 import './ReqForm.css'
 
 interface Props {
@@ -220,15 +221,28 @@ export default function ReqForm({ editing, onClose }: Props) {
             </label>
           </div>
 
-          <label className="fld">
-            <span>설명</span>
-            <textarea
-              rows={5}
+          <div className="fld">
+            <span>구현내용</span>
+            <MarkdownEditor
               value={desc}
-              placeholder="요구사항 내용을 적습니다."
-              onChange={(e) => setDesc(e.target.value)}
+              onChange={setDesc}
+              rows={12}
+              placeholder={
+                '무엇을, 어떻게 구현하는지 적습니다.\n\n' +
+                '## 동작\n' +
+                '- 포트별 rate limit 을 1Mbps 단위로 설정한다\n' +
+                '- 설정값 초과 트래픽은 drop 한다\n\n' +
+                '## CLI\n' +
+                '```\n' +
+                'rate-limit input 100000\n' +
+                '```\n\n' +
+                '## 판정 기준\n' +
+                '| 항목 | 기준 |\n' +
+                '|---|---|\n' +
+                '| 오차 | ±2% 이내 |'
+              }
             />
-          </label>
+          </div>
         </div>
 
         <div className="modal-foot">

@@ -9,6 +9,7 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
+import Markdown from './Markdown'
 import './ReqDetail.css'
 
 interface Props {
@@ -70,12 +71,11 @@ export default function ReqDetail({ req, tcs, tab }: Props) {
         </dl>
 
         <div className="detail-section">
-          <h4>설명</h4>
-          {desc ? (
-            <p className="detail-desc">{desc}</p>
-          ) : (
-            <p className="muted small">설명이 없습니다. 「편집」에서 넣을 수 있습니다.</p>
-          )}
+          <h4>구현내용</h4>
+          <Markdown
+            text={desc}
+            empty="구현내용이 없습니다. 「편집」에서 넣을 수 있습니다."
+          />
         </div>
       </div>
     )

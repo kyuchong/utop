@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.62.0",
+    "dompurify": "^3.4.12",
+    "marked": "^18.0.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

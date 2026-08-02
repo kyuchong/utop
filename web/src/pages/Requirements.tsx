@@ -298,10 +298,10 @@ export default function Requirements() {
             {/* 탭은 이 패널만 바꾼다. 화면 전체 폭을 쓰는 띠로 두면 자리만 먹는다. */}
             <div className="seg" role="tablist">
               {([
-                ['tc', 'TC'],
-                ['detail', '상세'],
-                ['history', '이력'],
-                ['runs', '실행'],
+                ['tc', 'TC 연결'],
+                ['detail', '상세정보'],
+                ['history', '변경이력'],
+                ['runs', '실행현황'],
               ] as const).map(([k, label]) => (
                 <button
                   key={k}

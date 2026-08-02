@@ -227,8 +227,8 @@ button {
 .seg-btn {
   border: 0;
   background: transparent;
-  padding: 4px 10px;
-  font-size: var(--fs-xs);
+  padding: 5px 12px;
+  font-size: var(--fs-sm);
   color: var(--c-text-muted);
   border-right: 1px solid var(--c-border);
 }

@@ -229,3 +229,21 @@
   opacity: 0.55;
   text-decoration: line-through;
 }
+
+.md-hint {
+  display: block;
+  margin-top: 2px;
+}
+
+.md-hint code {
+  font-family: var(--font-mono);
+  background: var(--c-surface-alt);
+  border-radius: 3px;
+  padding: 0 3px;
+  margin: 0 2px;
+}
+
+.btn.small {
+  padding: 2px 8px;
+  font-size: var(--fs-xs);
+}

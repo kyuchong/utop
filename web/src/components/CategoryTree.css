@@ -309,3 +309,9 @@
 .cat-grip:active {
   cursor: grabbing;
 }
+
+/* 분류 카드 머리 버튼도 같은 규격 */
+.cat-head .btn {
+  padding: 4px 7px;
+  font-size: var(--fs-sm);
+}

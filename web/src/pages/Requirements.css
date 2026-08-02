@@ -184,8 +184,9 @@
   }
 }
 
-/* 요구사항 패널 제목줄: 왼쪽 건수, 오른쪽 편집/추가 버튼 */
-.req-panel .panel-title .btn {
-  padding: 5px 9px;
-  font-size: var(--fs-label);
+/* 패널 머리의 버튼은 세 패널 모두 같은 규격을 쓴다.
+   패널마다 크기가 다르면 같은 줄에 놓였을 때 들쭉날쭉해 보인다. */
+.split .panel-title .btn {
+  padding: 4px 9px;
+  font-size: var(--fs-sm);
 }
