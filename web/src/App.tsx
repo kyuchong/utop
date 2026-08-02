@@ -6,6 +6,7 @@ import Requirements from '@/pages/Requirements'
 import TestCases from '@/pages/TestCases'
 import Settings from '@/pages/Settings'
 import Devices from '@/pages/Devices'
+import Instruments from '@/pages/Instruments'
 
 /**
  * 화면 하나를 옮길 때마다 여기 분기를 한 줄 늘린다.
@@ -66,7 +67,9 @@ export default function App() {
       ) : page === 'testcases' ? (
         <TestCases />
       ) : page === 'devices' ? (
-        <Devices />
+        <Devices me={user} />
+      ) : page === 'instruments' ? (
+        <Instruments me={user} />
       ) : page === 'settings' ? (
         <Settings />
       ) : (

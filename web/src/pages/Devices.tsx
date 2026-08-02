@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, getToken } from '@/api/client'
 import DeviceForm from '@/components/DeviceForm'
 import DeviceBulk from '@/components/DeviceBulk'
+import LockCell, { useLocks, type Lock } from '@/components/LockCell'
 import './Devices.css'
 
 export interface DeviceIf {
@@ -47,14 +48,6 @@ export interface Device {
   access?: DeviceAccess[]
 }
 
-interface Lock {
-  resource_id: string
-  locked_by: string
-  locked_name?: string | null
-  cycle_id?: string | null
-  locked_at?: string | null
-  stale_sec?: number
-}
 
 async function getJson<T>(path: string): Promise<T> {
   const r = await apiFetch(path)
@@ -65,13 +58,6 @@ async function getJson<T>(path: string): Promise<T> {
   return (await r.json()) as T
 }
 
-function fmt(iso?: string | null): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
-}
 
 const PROTO_COLS = ['telnet', 'ssh', 'console', 'snmp']
 
@@ -126,7 +112,11 @@ function ProtoCell({
  * 시험을 시작하기 전에 가장 먼저 여는 화면이다. 그래서 '누가 쓰고 있나'
  * 를 목록에서 바로 본다 — 장비를 눌러 들어가야 알 수 있으면 아무도 안 본다.
  */
-export default function Devices() {
+interface Props {
+  me?: { username?: string; role?: string } | null
+}
+
+export default function Devices({ me }: Props) {
   const qc = useQueryClient()
   const [q, setQ] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
@@ -138,12 +128,7 @@ export default function Devices() {
     queryKey: ['devices'],
     queryFn: () => getJson<{ devices: Device[] }>('/api/devices2'),
   })
-  const lockQ = useQuery({
-    queryKey: ['locks'],
-    queryFn: () => getJson<{ locks: Lock[] }>('/api/locks'),
-    // 남이 잡거나 푼 것이 화면에 늦게 반영되면 같은 장비를 두 사람이 잡는다
-    refetchInterval: 15_000,
-  })
+  const lockQ = useLocks()
 
   const devices = devQ.data?.devices ?? []
   const lockBy = useMemo(() => {
@@ -181,15 +166,7 @@ export default function Devices() {
     onError: (e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) }),
   })
 
-  const releaseM = useMutation({
-    mutationFn: async (rid: string) => {
-      const r = await apiFetch(`/api/locks/${encodeURIComponent(rid)}`, { method: 'DELETE' })
-      const b = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(b.detail || `해제하지 못했습니다 (${r.status})`)
-    },
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['locks'] }),
-    onError: (e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) }),
-  })
+
 
   // 어느 칸을 확인 중인지. 목록 전체가 아니라 그 칸만 '확인 중' 으로 바뀌어야 한다.
   const [checking, setChecking] = useState('')
@@ -325,8 +302,6 @@ export default function Devices() {
             </div>
           ) : (
             shown.map((d) => {
-              const lock = lockBy.get(d.id) ?? lockBy.get(d.ip)
-              const stale = (lock?.stale_sec ?? 0) > 600
               return (
                 <div
                   key={d.id}
@@ -355,36 +330,14 @@ export default function Devices() {
                   ))}
                   <span className="muted">{d.interfaces?.length ?? 0}</span>
                   <span className="dev-lock">
-                    {lock ? (
-                      <>
-                        <span className={`status ${stale ? 'draft' : 'fail'}`}>
-                          ● {lock.locked_name || lock.locked_by}
-                        </span>
-                        <span className="muted small">
-                          {fmt(lock.locked_at)}
-                          {lock.cycle_id ? ` · ${lock.cycle_id}` : ''}
-                          {stale ? ' · 응답 없음' : ''}
-                        </span>
-                        <button
-                          className="btn danger"
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            if (
-                              window.confirm(
-                                `${lock.locked_name || lock.locked_by} 님이 잡고 있습니다.\n` +
-                                  '시험 중일 수 있습니다. 해제할까요?',
-                              )
-                            )
-                              releaseM.mutate(lock.resource_id)
-                          }}
-                        >
-                          해제
-                        </button>
-                      </>
-                    ) : (
-                      <span className="status pass">○ 사용 가능</span>
-                    )}
+                    <LockCell
+                      resourceId={d.id}
+                      kind="device"
+                      lock={lockBy.get(d.id) ?? lockBy.get(d.ip)}
+                      me={me?.username}
+                      isAdmin={me?.role === '관리자' || me?.role === 'admin'}
+                      onMessage={(k, txt) => setMsg({ kind: k, text: txt })}
+                    />
                   </span>
                 </div>
               )
