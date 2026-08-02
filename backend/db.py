@@ -629,3 +629,32 @@ async def sessions_all() -> dict[str, dict]:
     async with pool().acquire() as c:
         rows = await c.fetch("SELECT session_id, data FROM sessions")
         return {r["session_id"]: r["data"] for r in rows}
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 스키마 적용
+# ══════════════════════════════════════════════════════════════════════
+async def apply_schema() -> None:
+    """db/schema.sql 을 기동할 때마다 적용한다.
+
+    도커의 /docker-entrypoint-initdb.d 는 **볼륨이 비어 있을 때 한 번만** 돈다.
+    그래서 이미 데이터가 있는 설치처에는 나중에 추가한
+    `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` 가 영영 실행되지 않는다.
+    실제로 cat3 컬럼을 추가했을 때 기존 설치가 `column r.cat3 does not exist`
+    로 죽었다.
+
+    schema.sql 은 전부 IF NOT EXISTS / CREATE OR REPLACE 로 되어 있어
+    몇 번을 돌려도 안전하다. 그래서 기동 때마다 통째로 실행한다.
+    """
+    here = Path(__file__).resolve().parent
+    for cand in (here.parent / "db" / "schema.sql", here / "db" / "schema.sql"):
+        if cand.exists():
+            sql = cand.read_text(encoding="utf-8")
+            break
+    else:
+        print("[schema] db/schema.sql 을 찾지 못했습니다 — 스키마 적용을 건너뜁니다.", flush=True)
+        return
+
+    async with pool().acquire() as c:
+        await c.execute(sql)
+    print("[schema] db/schema.sql 적용 완료", flush=True)

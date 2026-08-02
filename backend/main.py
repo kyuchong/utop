@@ -6133,6 +6133,12 @@ async def _db_init():
     """PostgreSQL 커넥션 풀 초기화 (필수 — 이후 모든 데이터 접근이 db.* 로 감).
     정리·백필 작업은 서버 기동을 막지 않도록 백그라운드로 미룸."""
     await db.init_pool()
+    # 스키마를 기동할 때마다 적용한다. 도커 initdb 훅은 볼륨이 빌 때 한 번만
+    # 돌아서, 이미 쓰고 있는 설치처에는 나중에 추가한 컬럼이 반영되지 않는다.
+    try:
+        await db.apply_schema()
+    except Exception as e:
+        print(f'[startup] 스키마 적용 실패: {e}', flush=True)
     # 워커 스레드(run_cli 등)에서 asyncio.run_coroutine_threadsafe 호출용 메인 루프 참조 저장.
     # 스레드 안에서는 asyncio.get_event_loop() 가 새 루프를 만들거나 실패하므로,
     # 요청 처리 스레드에서 broadcast() 를 예약하려면 반드시 여기서 잡은 루프를 써야 한다.
