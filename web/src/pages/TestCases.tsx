@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import TcBulkForm from '@/components/TcBulkForm'
+import TcDetail from '@/components/tc/TcDetail'
 import {
   reqLabel,
   reqPk,
@@ -21,6 +22,9 @@ import './TestCases.css'
  */
 export default function TestCases() {
   const [form, setForm] = useState<TestCaseMeta | null | undefined>(undefined)
+  // 목록에서 TC 를 누르면 상세로 들어간다. 편집 팝업은 '+ Test Case' 로
+  // 새로 만들 때만 쓴다 — 스텝까지 팝업에 넣으면 아무것도 못 본다.
+  const [openId, setOpenId] = useState('')
   const [bulkOpen, setBulkOpen] = useState(false)
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -76,6 +80,8 @@ export default function TestCases() {
 
   const loading = tcQ.isLoading || reqQ.isLoading
   const error = tcQ.error ?? reqQ.error
+
+  if (openId) return <TcDetail tcid={openId} onClose={() => setOpenId('')} />
 
   return (
     <>
@@ -159,8 +165,8 @@ export default function TestCases() {
                     key={t.tcid}
                     type="button"
                     className="tcr"
-                    onClick={() => setForm(t)}
-                    title="클릭하면 편집합니다"
+                    onClick={() => setOpenId(t.tcid)}
+                    title="클릭하면 상세로 들어갑니다"
                   >
                     <div className="tc-main">
                       <span className="id-cell">{t.tcid}</span>
