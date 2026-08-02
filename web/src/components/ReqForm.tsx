@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { categoryApi, reqApi } from '@/api/client'
 import { buildCategoryTree, reqPk, type Requirement } from '@/types'
@@ -27,6 +27,78 @@ export default function ReqForm({ editing, onClose }: Props) {
   const [priority, setPriority] = useState(PRIORITIES[1]!)
   const [desc, setDesc] = useState('')
   const [error, setError] = useState('')
+
+  // 파일 등록 / 벡터 저장
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+  const [embedding, setEmbedding] = useState(false)
+  const [importState, setImportState] = useState<{ kind: string; msg: string }>({
+    kind: '',
+    msg: '',
+  })
+
+  /**
+   * 문서를 마크다운으로 바꿔 구현내용에 넣는다.
+   * .md/.txt 는 브라우저에서 바로 읽고, 나머지(.docx/.pdf/…)는 서버가 변환한다 —
+   * 워드 파일은 브라우저가 제대로 못 읽는다.
+   */
+  const doImport = async (f: File) => {
+    setImporting(true)
+    setImportState({ kind: '', msg: '' })
+    try {
+      const plain = /\.(md|markdown|txt)$/i.test(f.name)
+      let md: string
+      if (plain) {
+        md = await f.text()
+      } else {
+        const fd = new FormData()
+        fd.append('file', f)
+        const res = await fetch('/api/convert/markdown', { method: 'POST', body: fd })
+        if (!res.ok) {
+          const b = await res.json().catch(() => ({}))
+          throw new Error(b.detail || `변환 실패 (${res.status})`)
+        }
+        md = (await res.json()).markdown ?? ''
+      }
+      // 기존 내용이 있으면 덮지 않고 아래에 잇는다 — 실수로 날리면 되돌릴 수 없다.
+      setDesc((cur) => (cur.trim() ? `${cur}
+
+---
+
+${md}` : md))
+      setImportState({ kind: 'ok', msg: `${f.name} 불러옴` })
+    } catch (e) {
+      setImportState({ kind: 'err', msg: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  /** 구현내용을 검색·TC 생성에 쓸 수 있도록 벡터로 저장한다 */
+  const doEmbed = async () => {
+    setEmbedding(true)
+    setImportState({ kind: '', msg: '' })
+    try {
+      const res = await fetch(
+        `/api/req/${encodeURIComponent(isNew ? reqid.trim() : reqPk(editing))}/embed`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: desc }),
+        },
+      )
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}))
+        throw new Error(b.detail || `저장 실패 (${res.status})`)
+      }
+      const r = await res.json()
+      setImportState({ kind: 'ok', msg: `벡터 저장 완료 (${r.chunks ?? 0}조각)` })
+    } catch (e) {
+      setImportState({ kind: 'err', msg: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setEmbedding(false)
+    }
+  }
 
   useEffect(() => {
     setReqid(editing?.reqid ?? '')
@@ -221,8 +293,41 @@ export default function ReqForm({ editing, onClose }: Props) {
             </label>
           </div>
 
-          <div className="fld">
-            <span>구현내용</span>
+          <div className="fld wide">
+            <div className="fld-head">
+              <span>구현내용</span>
+              <div className="md-actions">
+                <span className={`stat ${importState.kind}`}>{importState.msg}</span>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={importing}
+                >
+                  {importing ? '변환 중…' : '파일 등록'}
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={doEmbed}
+                  disabled={embedding || !desc.trim()}
+                  title="구현내용을 검색·TC 생성에 쓸 수 있도록 벡터로 저장합니다"
+                >
+                  {embedding ? '저장 중…' : '벡터 저장'}
+                </button>
+              </div>
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".md,.markdown,.txt,.docx,.pdf,.xlsx,.pptx,.html,.htm"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (f) doImport(f)
+              }}
+            />
             <MarkdownEditor
               value={desc}
               onChange={setDesc}

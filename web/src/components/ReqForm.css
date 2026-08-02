@@ -309,3 +309,97 @@
   border: 1px solid #ccd3da;
   border-radius: var(--radius-sm);
 }
+
+
+/* ── 라벨을 입력칸 왼쪽으로 ────────────────────────────────────
+   라벨이 위에 있으면 칸 하나가 두 줄을 먹는다. 왼쪽으로 붙이면
+   같은 높이에 두 배가 들어가고, 세로 공간이 구현내용으로 간다. */
+.modal .fld {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.modal .fld > span {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  text-align: right;
+  line-height: 1.3;
+}
+
+/* 구현내용은 라벨을 위에 두고 편집기가 폭을 다 쓰게 한다 */
+.modal .fld.wide {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--sp-1);
+}
+
+.modal .fld.wide > .fld-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.modal .fld.wide > .fld-head > span {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+
+/* ── 편집기 도구모음이 잘 안 보이던 문제 ──────────────────────
+   기본 아이콘이 옅은 회색이라 흰 배경에서 거의 안 보인다. */
+.md-editor .mdxeditor-toolbar {
+  padding: 4px 6px;
+  gap: 2px;
+}
+
+.md-editor .mdxeditor-toolbar button {
+  color: var(--c-text);
+}
+
+.md-editor .mdxeditor-toolbar svg {
+  color: var(--c-text) !important;
+  opacity: 1;
+  width: 20px;
+  height: 20px;
+}
+
+.md-editor .mdxeditor-toolbar button:hover {
+  background: var(--c-primary-bg);
+}
+
+.md-editor .mdxeditor-toolbar button[data-state='on'],
+.md-editor .mdxeditor-toolbar button[aria-checked='true'] {
+  background: var(--c-primary-bg);
+}
+
+.md-editor .mdxeditor-toolbar button[data-state='on'] svg {
+  color: var(--c-primary) !important;
+}
+
+/* 구현내용 위의 동작 버튼 (파일 등록 · 벡터 저장) */
+.md-actions {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: center;
+}
+
+.md-actions .btn {
+  padding: 3px 9px;
+  font-size: var(--fs-xs);
+}
+
+.md-actions .stat {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+
+.md-actions .stat.ok {
+  color: var(--c-pass);
+}
+
+.md-actions .stat.err {
+  color: var(--c-fail);
+}

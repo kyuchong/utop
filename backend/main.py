@@ -2184,6 +2184,130 @@ async def delete_req_category(cat_id: str):
     return {"success": True}
 
 
+# ───────────────────────────────────────────
+# 문서 → 마크다운 변환
+#
+# 워드(.docx)·PDF 는 브라우저가 제대로 읽지 못한다. 서버에서 바꿔서 돌려준다.
+# 결과를 마크다운으로 두는 이유는 그게 이 시스템의 정본이기 때문이다 —
+# 구현내용으로 들어가고, 벡터 DB 에 실리고, 시험항목 생성의 입력이 된다.
+# ───────────────────────────────────────────
+@app.post("/api/convert/markdown")
+async def convert_to_markdown(file: UploadFile = File(...)):
+    name = (file.filename or "").strip()
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(400, "빈 파일입니다")
+    # 20MB 제한 — 이보다 큰 규격서는 통째로 넣기보다 나눠 올리는 게 낫다
+    if len(raw) > 20 * 1024 * 1024:
+        raise HTTPException(413, "20MB 이하 파일만 변환합니다")
+
+    ext = Path(name).suffix.lower()
+    if ext in (".md", ".markdown", ".txt"):
+        return {"markdown": raw.decode("utf-8", "replace"), "source": name}
+
+    try:
+        from markitdown import MarkItDown
+    except ImportError:
+        raise HTTPException(
+            501,
+            "문서 변환 기능이 설치되지 않았습니다. requirements.txt 의 markitdown 을 "
+            "설치한 뒤 서버를 다시 띄우세요.",
+        )
+
+    # markitdown 은 파일 경로를 받는다. 임시 파일로 떨군 뒤 지운다.
+    import tempfile
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=ext or ".bin", delete=False) as fh:
+            fh.write(raw)
+            tmp = fh.name
+        md = MarkItDown(enable_plugins=False).convert(tmp).text_content or ""
+    except Exception as e:
+        raise HTTPException(422, f"변환하지 못했습니다: {e}") from e
+    finally:
+        if tmp:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+
+    return {"markdown": md, "source": name}
+
+
+# ───────────────────────────────────────────
+# 요구사항 구현내용 → 벡터 저장
+#
+# 마크다운을 제목(##) 단위로 자른다. 문단 길이로 자르면 '## 판정 기준' 의
+# 표가 반토막 나서, 나중에 이 조각으로 시험항목을 만들 때 기준을 놓친다.
+# ───────────────────────────────────────────
+def _split_markdown(md: str, max_chars: int = 1200) -> list[str]:
+    """제목 단위로 자르되, 한 절이 너무 길면 줄 단위로 더 쪼갠다."""
+    lines = (md or "").splitlines()
+    blocks: list[list[str]] = [[]]
+    for ln in lines:
+        if ln.lstrip().startswith("#") and blocks[-1]:
+            blocks.append([])
+        blocks[-1].append(ln)
+
+    out: list[str] = []
+    for b in blocks:
+        text = "\n".join(b).strip()
+        if not text:
+            continue
+        if len(text) <= max_chars:
+            out.append(text)
+            continue
+        cur: list[str] = []
+        size = 0
+        for ln in b:
+            if size + len(ln) > max_chars and cur:
+                out.append("\n".join(cur).strip())
+                cur, size = [], 0
+            cur.append(ln)
+            size += len(ln) + 1
+        if cur:
+            out.append("\n".join(cur).strip())
+    return [c for c in out if c]
+
+
+class ReqEmbedIn(BaseModel):
+    text: str
+
+
+@app.post("/api/req/{req_id}/embed")
+async def embed_requirement(req_id: str, body: ReqEmbedIn):
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(400, "구현내용이 비어 있습니다")
+
+    chunks = _split_markdown(text)
+    if not chunks:
+        raise HTTPException(400, "저장할 내용이 없습니다")
+
+    vecs = await _embed_texts(chunks)
+    if not vecs:
+        raise HTTPException(
+            503,
+            "임베딩 서버가 설정되지 않았습니다. 시스템 > RAG 설정에서 embed_url 을 "
+            "지정하세요. (구현내용은 요구사항에 이미 저장되어 있습니다)",
+        )
+
+    import numpy as _np
+    async with db.pool().acquire() as c:
+        async with c.transaction():
+            # 같은 요구사항의 옛 조각은 지우고 새로 넣는다 — 수정본과 옛 본이
+            # 같이 검색되면 어느 것이 맞는지 알 수 없다.
+            await c.execute("DELETE FROM rag_embed WHERE key LIKE $1", f"req:{req_id}#%")
+            for i, (chunk, vec) in enumerate(zip(chunks, vecs)):
+                await c.execute(
+                    "INSERT INTO rag_embed (key, embed, meta) VALUES ($1,$2,$3::jsonb)",
+                    f"req:{req_id}#{i}",
+                    _np.asarray(vec, dtype="float32").tobytes(),
+                    {"req_id": req_id, "chunk": i, "text": chunk},
+                )
+    return {"success": True, "chunks": len(chunks)}
+
+
 # REQ 목록 (전체)
 @app.get("/api/req")
 async def get_all_req():
