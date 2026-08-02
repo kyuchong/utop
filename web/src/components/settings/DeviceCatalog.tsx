@@ -38,7 +38,7 @@ export default function DeviceCatalog() {
   const listQ = useQuery({
     queryKey: ['device-catalog'],
     queryFn: async () => {
-      const r = await apiFetch('/api/device-catalog')
+      const r = await apiFetch('/api/device-catalog2')
       if (!r.ok) throw new Error('불러오지 못했습니다')
       return (await r.json()) as { items: Item[] }
     },
@@ -49,7 +49,7 @@ export default function DeviceCatalog() {
 
   const saveM = useMutation({
     mutationFn: async (it: Item) => {
-      const r = await apiFetch('/api/device-catalog', {
+      const r = await apiFetch('/api/device-catalog2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(it),
@@ -69,7 +69,7 @@ export default function DeviceCatalog() {
   const delM = useMutation({
     mutationFn: async (it: Item) => {
       const r = await apiFetch(
-        `/api/device-catalog/${encodeURIComponent(it.kind)}/${encodeURIComponent(it.name)}`,
+        `/api/device-catalog2/${encodeURIComponent(it.kind)}/${encodeURIComponent(it.name)}`,
         { method: 'DELETE' },
       )
       const b = await r.json().catch(() => ({}))

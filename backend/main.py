@@ -2387,7 +2387,10 @@ def _me(request) -> dict:
 DEVICE_ROLES = ["L2", "L3", "OLT", "ONT", "CPE", "HGW", "계측기", "기타"]
 
 
-@app.get("/api/device-catalog")
+# 기존 앱의 /api/device-catalog(app_kv 기반) 과 경로가 겹친다.
+# 먼저 선언된 쪽이 이기므로 그대로 두면 옛 화면이 조용히 망가진다.
+# devices2 와 같은 규칙으로 2 를 붙인다.
+@app.get("/api/device-catalog2")
 async def device_catalog_list(kind: str = ""):
     items = await db.catalog_list(kind)
     # 지울 수 있는지 화면이 알 수 있게 쓰는 장비 수를 함께 준다
@@ -2396,7 +2399,7 @@ async def device_catalog_list(kind: str = ""):
     return {"items": items, "kinds": list(db.CATALOG_KINDS)}
 
 
-@app.post("/api/device-catalog")
+@app.post("/api/device-catalog2")
 async def device_catalog_save(payload: dict):
     try:
         await db.catalog_upsert(payload)
@@ -2405,7 +2408,7 @@ async def device_catalog_save(payload: dict):
     return {"success": True}
 
 
-@app.delete("/api/device-catalog/{kind}/{name}")
+@app.delete("/api/device-catalog2/{kind}/{name}")
 async def device_catalog_delete(kind: str, name: str):
     used = await db.catalog_usage(kind, name)
     if used:
