@@ -260,9 +260,13 @@
   padding: 3px 6px;
 }
 
+/* 드롭다운 좌우 여백을 줄인다. 카드가 좁아서 여백이 곧 글자 자리다.
+   text-indent 를 음수로 주면 크롬이 화살표 앞에 넣는 여백까지 당겨진다. */
 .cat-sort {
   flex: 1;
   min-width: 0;
+  padding: 2px 0 2px 2px;
+  text-indent: -1px;
 }
 
 .cat-row {
@@ -375,9 +379,10 @@
 
 
 
-/* 버튼 세 개가 들어가야 하므로 행 높이와 카드 폭을 조금 늘린다 */
+/* 행 높이는 REQ LIST(.tr, 47px)와 같게 맞춘다. 두 열이 나란히 놓이는데
+   한쪽만 촘촘하면 같은 표로 안 읽힌다. */
 .cat-row {
-  min-height: 34px;
+  min-height: 47px;
 }
 
 /* 이름 위에서 끌 수 있다는 걸 커서로 알린다 */
@@ -559,3 +564,40 @@
   background: #fdeaea;
   color: var(--c-fail);
 }
+
+/* 분류 이름 검색. REQ LIST 의 검색과 같은 모양으로 맞춘다 —
+   두 열이 나란히 있으므로 다르게 생기면 다른 기능처럼 보인다. */
+.cat-search {
+  position: relative;
+  flex: none;
+  padding: 0 var(--sp-2) var(--sp-2);
+}
+
+.cat-search input {
+  width: 100%;
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 7px 24px 7px 8px;
+  background: var(--c-surface);
+  font: inherit;
+}
+
+.cat-search input:focus {
+  outline: 2px solid var(--c-primary-bg);
+  border-color: var(--c-primary);
+}
+
+.cat-search-x {
+  position: absolute;
+  right: calc(var(--sp-2) + 5px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--c-text-faint);
+  line-height: 1;
+}
+.cat-search-x:hover { background: var(--c-surface-alt); color: var(--c-text); }

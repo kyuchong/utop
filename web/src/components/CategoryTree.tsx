@@ -44,6 +44,8 @@ export default function CategoryTree({ selected, onSelect }: Props) {
 
   // 열려 있는 '⋯' 메뉴의 분류 id
   const [menuFor, setMenuFor] = useState<string | null>(null)
+  // 이름 검색. REQ LIST 와 같은 자리에 같은 모양으로 둔다.
+  const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (!menuFor) return
@@ -141,6 +143,27 @@ export default function CategoryTree({ selected, onSelect }: Props) {
         .map((n) => ({ ...n, children: walk(n.children) }))
     return walk(t0)
   }, [list, sort])
+
+  /**
+   * 이름으로 거른다.
+   *
+   * 맞는 분류만 남기면 트리가 끊겨서 어디에 속한 것인지 알 수 없다.
+   * 그래서 맞는 것의 **조상까지 함께** 남긴다 — 'VLAN' 을 치면
+   * 'IPv4 > L2 > VLAN' 처럼 경로가 보인다.
+   *
+   * 맞는 분류의 자식은 그대로 남긴다. 'L2' 를 쳤을 때 그 아래를 못 보면
+   * 찾아놓고 다시 검색을 지워야 한다.
+   */
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return tree
+    const keep = (n: CategoryTreeNode): CategoryTreeNode | null => {
+      if (n.name.toLowerCase().includes(q)) return n
+      const kids = n.children.map(keep).filter(Boolean) as CategoryTreeNode[]
+      return kids.length > 0 ? { ...n, children: kids } : null
+    }
+    return tree.map(keep).filter(Boolean) as CategoryTreeNode[]
+  }, [tree, search])
 
   const toggle = (id: string) =>
     setOpenIds((s) => {
@@ -391,7 +414,8 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   )
 
   const renderNode = (n: CategoryTreeNode) => {
-    const open = openIds.has(n.id)
+    // 검색 중에는 접힌 것도 펼친다. 접혀 있으면 찾아놓고 못 본다.
+    const open = search.trim() ? true : openIds.has(n.id)
     const hasKids = n.children.length > 0
     const canAddChild = n.depth < MAX_CAT_DEPTH
     return (
@@ -538,7 +562,9 @@ export default function CategoryTree({ selected, onSelect }: Props) {
             localStorage.setItem('utop.cat.sort', v)
           }}
         >
-          <option value="manual">직접</option>
+          {/* 기본값은 손으로 옮겨둔 순서 그대로다. 닫힌 상태에서 이 칸이
+              무엇을 하는 칸인지 보이도록 '정렬' 로 적는다. */}
+          <option value="manual">정렬</option>
           <option value="number">숫자순</option>
           <option value="alpha">알파벳순</option>
           <option value="name">이름순</option>
@@ -566,6 +592,29 @@ export default function CategoryTree({ selected, onSelect }: Props) {
         </div>
       </div>
 
+      {/* 분류 이름 검색. REQ LIST 의 검색과 같은 자리·같은 모양이다.
+          분류가 4단까지 깊어지면 눈으로 찾는 것이 가장 오래 걸린다. */}
+      <div className="cat-search">
+        <input
+          value={search}
+          placeholder="분류 이름 검색"
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setSearch('')
+          }}
+        />
+        {search && (
+          <button
+            type="button"
+            className="cat-search-x"
+            onClick={() => setSearch('')}
+            aria-label="검색 지우기"
+          >
+            ×
+          </button>
+        )}
+      </div>
+
       {error && <div className="cat-error">{error}</div>}
 
       {/* 드래그 중에만 나타나는 '최상위로 빼기' 영역.
@@ -582,14 +631,24 @@ export default function CategoryTree({ selected, onSelect }: Props) {
 
       {catQ.isLoading ? (
         <div className="empty">불러오는 중…</div>
-      ) : tree.length === 0 ? (
+      ) : shown.length === 0 ? (
         <div className="empty">
-          분류가 없습니다.
-          <br />
-          <span className="muted small">위 「+ 대분류」로 만드세요.</span>
+          {search.trim() ? (
+            <>
+              <b>{search}</b> 에 맞는 분류가 없습니다.
+              <br />
+              <span className="muted small">검색을 지우면 전체가 보입니다.</span>
+            </>
+          ) : (
+            <>
+              분류가 없습니다.
+              <br />
+              <span className="muted small">위 「+」로 만드세요.</span>
+            </>
+          )}
         </div>
       ) : (
-        tree.map(renderNode)
+        shown.map(renderNode)
       )}
 
       {/* 분류가 안 붙은 요구사항을 찾는 자리. 실제 분류가 아니라 필터라서
