@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { categoryApi } from '@/api/client'
 import {
@@ -31,7 +31,20 @@ interface Props {
  */
 export default function CategoryTree({ selected, onSelect }: Props) {
   const qc = useQueryClient()
-  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+  // 펼친 상태를 브라우저에 기억시킨다. 새로고침마다 다 접히면 매번
+  // 같은 가지를 다시 펴야 해서 깊은 트리를 쓸 수 없다.
+  const [openIds, setOpenIds] = useState<Set<string>>(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('utop.cat.open') || '[]')
+      return new Set(Array.isArray(saved) ? saved : [])
+    } catch {
+      return new Set()
+    }
+  })
+
+  useEffect(() => {
+    localStorage.setItem('utop.cat.open', JSON.stringify([...openIds]))
+  }, [openIds])
   const [addingTo, setAddingTo] = useState<string | null | undefined>(undefined)
   const [draftName, setDraftName] = useState('')
   const [error, setError] = useState('')
