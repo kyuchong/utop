@@ -6,10 +6,17 @@
   - git add -A / git add .
   - git commit -a / git commit -am
   - git reset --hard
-  - git push (force 여부 무관)
+  - git push --force / --force-with-lease / +refspec (이력 덮어쓰기)
   - rm -rf 로 data/ 또는 db/ 하위 대상
   - db/schema.sql 직접 수정 (Edit/Write 로만 허용)
   - alembic/versions 디렉토리 직접 수정 (마이그레이션 파일)
+
+허용으로 바꾼 것:
+  - 일반 git push  — 2026-08-02 사용자 결정.
+    에이전트가 수정·검증·커밋·푸시까지 하고, 사용자는 GitHub 에서 받아 확인한다.
+    다만 강제 푸시는 원격 이력을 지우므로 계속 막는다.
+
+차단 시 stderr 에 사유 + 대안 명시하고 exit 2.
 
 차단 시 stderr 에 사유 + 대안 명시하고 exit 2.
 """
@@ -36,9 +43,10 @@ RULES: list[tuple[re.Pattern, str, str]] = [
     (re.compile(r"\bgit\s+reset\s+--hard\b"),
      "git reset --hard 금지",
      "작업을 잃을 수 있습니다. git stash 또는 새 브랜치로 우회하세요."),
-    (re.compile(r"\bgit\s+push\b"),
-     "git push 금지",
-     "사용자 승인이 필요합니다. 승인 후 사용자가 직접 실행하세요."),
+    # 일반 push 는 허용(2026-08-02 결정). 이력을 덮어쓰는 강제 푸시만 막는다.
+    (re.compile(r"\bgit\s+push\b[^|;&]*(--force\b|--force-with-lease\b|\s-f\b|\s\+[\w./-]+:)"),
+     "git push --force 금지 (원격 이력이 사라집니다)",
+     "일반 push 로 되지 않으면 원인을 확인하고, 강제 푸시가 꼭 필요하면 사용자가 직접 실행하세요."),
     (re.compile(r"\brm\s+-r[a-z]*f[a-z]*\s+.*\b(data|db)/"),
      "rm -rf 로 data/ 또는 db/ 하위 삭제 금지",
      "삭제가 필요하면 이유와 대상을 사용자에게 먼저 승인받으세요."),
