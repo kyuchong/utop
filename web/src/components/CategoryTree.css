@@ -519,13 +519,15 @@
   color: var(--c-primary);
 }
 
+/* 메뉴 자체에는 여백을 두지 않는다 — 그 여백을 누르면 아무 일도 안 일어나서
+   '가장자리는 안 눌린다' 로 느껴진다. */
 .cat-menu {
   position: absolute;
   top: 28px;
   right: 0;
   z-index: 30;
-  min-width: 150px;
-  padding: 4px;
+  min-width: 160px;
+  padding: 4px 0;
   border: 1px solid var(--c-border);
   border-radius: var(--radius);
   background: var(--c-surface);
@@ -534,11 +536,14 @@
   flex-direction: column;
 }
 
+/* 항목 전체가 눌려야 한다. 글자 위에서만 눌리면 매번 조준하게 된다. */
 .cat-menu button {
+  display: block;
+  width: 100%;
   border: 0;
   background: transparent;
   text-align: left;
-  padding: 7px 10px;
+  padding: 9px 12px;
   border-radius: 4px;
   font-size: var(--fs-sm);
   color: var(--c-text);
