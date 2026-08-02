@@ -422,6 +422,7 @@ def _req_meta(data: dict) -> dict:
         "cat1": (data.get("cat1") or "").strip() or None,
         "cat2": (data.get("cat2") or "").strip() or None,
         "cat3": (data.get("cat3") or "").strip() or None,
+        "cat4": (data.get("cat4") or "").strip() or None,
     }
 
 
@@ -431,17 +432,17 @@ async def req_upsert(rid: str, data: dict) -> None:
         await c.execute(
             """
             INSERT INTO req (id, reqid, title, folder, status, priority,
-                             created_by, updated_by, cat1, cat2, cat3, data)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)
+                             created_by, updated_by, cat1, cat2, cat3, cat4, data)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb)
             ON CONFLICT (id) DO UPDATE SET
               reqid=EXCLUDED.reqid, title=EXCLUDED.title, folder=EXCLUDED.folder,
               status=EXCLUDED.status, priority=EXCLUDED.priority,
               created_by=EXCLUDED.created_by, updated_by=EXCLUDED.updated_by,
-              cat1=EXCLUDED.cat1, cat2=EXCLUDED.cat2, cat3=EXCLUDED.cat3,
+              cat1=EXCLUDED.cat1, cat2=EXCLUDED.cat2, cat3=EXCLUDED.cat3, cat4=EXCLUDED.cat4,
               data=EXCLUDED.data, updated_at=now()
             """,
             rid, m["reqid"], m["title"], m["folder"], m["status"], m["priority"],
-            m["created_by"], m["updated_by"], m["cat1"], m["cat2"], m["cat3"], data,
+            m["created_by"], m["updated_by"], m["cat1"], m["cat2"], m["cat3"], m["cat4"], data,
         )
 
 
@@ -455,7 +456,7 @@ async def cat_list() -> list[dict]:
             """
             SELECT c.id, c.name, c.parent_id, c.sort_order,
                    (SELECT count(*) FROM req r
-                     WHERE r.cat1 = c.id OR r.cat2 = c.id OR r.cat3 = c.id) AS req_count
+                     WHERE r.cat1 = c.id OR r.cat2 = c.id OR r.cat3 = c.id OR r.cat4 = c.id) AS req_count
             FROM req_category c
             ORDER BY c.parent_id NULLS FIRST, c.sort_order, c.name
             """
@@ -522,7 +523,7 @@ async def cat_delete(cid: str) -> bool:
                 cid,
             )
             ids = [r["id"] for r in rows] or [cid]
-            for col in ("cat1", "cat2", "cat3"):
+            for col in ("cat1", "cat2", "cat3", "cat4"):
                 await c.execute(
                     f"UPDATE req SET {col}=NULL WHERE {col} = ANY($1::text[])", ids
                 )

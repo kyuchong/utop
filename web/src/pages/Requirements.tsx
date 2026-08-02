@@ -86,10 +86,14 @@ export default function Requirements() {
     if (!catFilter) return allReqs
     if (catFilter === UNCATEGORIZED) {
       // 분류가 하나도 안 붙은 것 (지워진 분류를 가리키던 것도 여기로 온다)
-      return allReqs.filter((r) => !r.cat1 && !r.cat2 && !r.cat3)
+      return allReqs.filter((r) => !r.cat1 && !r.cat2 && !r.cat3 && !r.cat4)
     }
     return allReqs.filter(
-      (r) => r.cat1 === catFilter || r.cat2 === catFilter || r.cat3 === catFilter,
+      (r) =>
+        r.cat1 === catFilter ||
+        r.cat2 === catFilter ||
+        r.cat3 === catFilter ||
+        r.cat4 === catFilter,
     )
   }, [allReqs, catFilter])
 

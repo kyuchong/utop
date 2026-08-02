@@ -23,6 +23,7 @@ export default function ReqForm({ editing, onClose }: Props) {
   const [cat1, setCat1] = useState('')
   const [cat2, setCat2] = useState('')
   const [cat3, setCat3] = useState('')
+  const [cat4, setCat4] = useState('')
   const [status, setStatus] = useState(STATUSES[0]!)
   const [priority, setPriority] = useState(PRIORITIES[1]!)
   const [desc, setDesc] = useState('')
@@ -106,6 +107,7 @@ ${md}` : md))
     setCat1(editing?.cat1 ?? '')
     setCat2(editing?.cat2 ?? '')
     setCat3(editing?.cat3 ?? '')
+    setCat4(editing?.cat4 ?? '')
     setStatus(editing?.status || STATUSES[0]!)
     setPriority(editing?.priority || PRIORITIES[1]!)
     setDesc(typeof editing?.desc === 'string' ? editing.desc : '')
@@ -134,6 +136,7 @@ ${md}` : md))
         cat1: cat1 || null,
         cat2: cat2 || null,
         cat3: cat3 || null,
+        cat4: cat4 || null,
         status,
         priority,
         desc: desc.trim(),

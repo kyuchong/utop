@@ -112,6 +112,7 @@ CREATE TABLE IF NOT EXISTS req (
   cat1          TEXT,
   cat2          TEXT,
   cat3          TEXT,
+  cat4          TEXT,
   data          JSONB NOT NULL,
   created_at    TIMESTAMPTZ DEFAULT now(),
   updated_at    TIMESTAMPTZ DEFAULT now()
@@ -120,12 +121,14 @@ CREATE TABLE IF NOT EXISTS req (
 ALTER TABLE req ADD COLUMN IF NOT EXISTS cat1 TEXT;
 ALTER TABLE req ADD COLUMN IF NOT EXISTS cat2 TEXT;
 ALTER TABLE req ADD COLUMN IF NOT EXISTS cat3 TEXT;
+ALTER TABLE req ADD COLUMN IF NOT EXISTS cat4 TEXT;
 CREATE INDEX IF NOT EXISTS idx_req_reqid       ON req(reqid);
 CREATE INDEX IF NOT EXISTS idx_req_folder      ON req(folder);
 CREATE INDEX IF NOT EXISTS idx_req_status      ON req(status);
 CREATE INDEX IF NOT EXISTS idx_req_cat1        ON req(cat1);
 CREATE INDEX IF NOT EXISTS idx_req_cat2        ON req(cat2);
 CREATE INDEX IF NOT EXISTS idx_req_cat3        ON req(cat3);
+CREATE INDEX IF NOT EXISTS idx_req_cat4        ON req(cat4);
 CREATE INDEX IF NOT EXISTS idx_req_updated_at  ON req(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_req_data_gin    ON req USING GIN (data jsonb_path_ops);
 DROP TRIGGER IF EXISTS trg_req_updated ON req;

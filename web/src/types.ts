@@ -37,6 +37,8 @@ export interface Requirement {
   cat2?: string | null
   /** 소분류 id (req_category.id) */
   cat3?: string | null
+  /** 4단 분류 id (req_category.id) */
+  cat4?: string | null
   tc?: TcRef[]
   [k: string]: unknown
 }
@@ -182,8 +184,8 @@ export function compareByAlpha(a: string, b: string): number {
   return naturalCompare(strip(a) || a, strip(b) || b)
 }
 
-/** 분류 3단까지. 이 값을 넘는 하위는 만들 수 없다 (서버도 같은 값으로 막는다). */
-export const MAX_CAT_DEPTH = 3
+/** 분류 4단까지. 서버도 같은 값으로 막는다. */
+export const MAX_CAT_DEPTH = 4
 
 /** id → 조상 경로(대>중>소 이름). 화면에 분류를 한 줄로 보여줄 때 쓴다. */
 export function categoryPath(list: ReqCategory[], id: string | null | undefined): string {

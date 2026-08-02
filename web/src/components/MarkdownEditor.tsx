@@ -1,6 +1,19 @@
 import { useEffect, useRef } from 'react'
 import { Crepe } from '@milkdown/crepe'
-import { replaceAll } from '@milkdown/kit/utils'
+import { replaceAll, callCommand } from '@milkdown/kit/utils'
+import {
+  wrapInHeadingCommand,
+  turnIntoTextCommand,
+  toggleStrongCommand,
+  toggleEmphasisCommand,
+  toggleInlineCodeCommand,
+  wrapInBulletListCommand,
+  wrapInOrderedListCommand,
+  wrapInBlockquoteCommand,
+  insertHrCommand,
+  createCodeBlockCommand,
+} from '@milkdown/kit/preset/commonmark'
+import { insertTableCommand } from '@milkdown/kit/preset/gfm'
 import '@milkdown/crepe/theme/common/style.css'
 import '@milkdown/crepe/theme/frame.css'
 import './Markdown.css'
@@ -95,5 +108,53 @@ export default function MarkdownEditor({ value, onChange, placeholder }: Props) 
     }
   }, [value])
 
-  return <div className="md-editor" ref={holder} />
+  /** 도구모음 버튼이 편집기 명령을 실행한다 */
+  const run = (cmd: Parameters<typeof callCommand>[0], payload?: unknown) => {
+    const inst = crepe.current
+    if (!inst) return
+    try {
+      inst.editor.action(callCommand(cmd, payload))
+    } catch (e) {
+      console.error('[MarkdownEditor] 명령 실행 실패:', e)
+    }
+  }
+
+  // Crepe 는 글자를 선택해야 서식 메뉴가 뜬다. 그것만으로는 서식이 있는지도
+  // 모르므로, 늘 보이는 도구모음을 따로 둔다.
+  const tools: Array<[string, string, () => void]> = [
+    ['H1', '제목 1', () => run(wrapInHeadingCommand.key, 1)],
+    ['H2', '제목 2', () => run(wrapInHeadingCommand.key, 2)],
+    ['H3', '제목 3', () => run(wrapInHeadingCommand.key, 3)],
+    ['본문', '제목 해제', () => run(turnIntoTextCommand.key)],
+    ['B', '굵게', () => run(toggleStrongCommand.key)],
+    ['I', '기울임', () => run(toggleEmphasisCommand.key)],
+    ['`', '인라인 코드', () => run(toggleInlineCodeCommand.key)],
+    ['•', '목록', () => run(wrapInBulletListCommand.key)],
+    ['1.', '번호 목록', () => run(wrapInOrderedListCommand.key)],
+    ['❝', '인용', () => run(wrapInBlockquoteCommand.key)],
+    ['표', '표 넣기', () => run(insertTableCommand.key)],
+    ['{ }', '코드 블록', () => run(createCodeBlockCommand.key)],
+    ['—', '구분선', () => run(insertHrCommand.key)],
+  ]
+
+  return (
+    <div className="md-editor">
+      <div className="md-toolbar">
+        {tools.map(([label, title, fn]) => (
+          <button
+            key={title}
+            type="button"
+            className="md-tool"
+            title={title}
+            // 누를 때 편집기의 선택이 풀리지 않게
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={fn}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="md-host" ref={holder} />
+    </div>
+  )
 }
