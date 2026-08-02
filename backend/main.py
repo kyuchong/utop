@@ -2168,6 +2168,50 @@ async def delete_req_category(cat_id: str):
 # 결과를 마크다운으로 두는 이유는 그게 이 시스템의 정본이기 때문이다 —
 # 구현내용으로 들어가고, 벡터 DB 에 실리고, 시험항목 생성의 입력이 된다.
 # ───────────────────────────────────────────
+# ───────────────────────────────────────────
+# 구현내용에 붙이는 이미지
+#
+# 파일은 data/req_images/ 에 둔다. 이 폴더는 도커 볼륨(app-data)이라
+# 소스 트리에 쌓이지 않고, 볼륨 하나만 챙기면 함께 백업된다.
+# 마크다운에는 ![](/api/req-images/<파일명>) 으로 들어간다 — 원문이
+# 정본이므로 경로도 원문 안에 남아야 한다.
+# ───────────────────────────────────────────
+REQ_IMG_DIR = DATA_DIR / "req_images"
+
+_IMG_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"}
+
+
+@app.post("/api/upload/image")
+async def upload_image(file: UploadFile = File(...)):
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in _IMG_EXT:
+        raise HTTPException(400, f"이미지 파일만 올릴 수 있습니다 ({', '.join(sorted(_IMG_EXT))})")
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(400, "빈 파일입니다")
+    if len(raw) > 10 * 1024 * 1024:
+        raise HTTPException(413, "10MB 이하만 올릴 수 있습니다")
+
+    REQ_IMG_DIR.mkdir(parents=True, exist_ok=True)
+    # 이름은 서버가 정한다. 사용자가 준 이름을 그대로 쓰면 경로 조작과
+    # 덮어쓰기가 열린다.
+    import secrets
+    name = f"{int(datetime.now().timestamp() * 1000)}-{secrets.token_hex(4)}{ext}"
+    (REQ_IMG_DIR / name).write_bytes(raw)
+    return {"url": f"/api/req-images/{name}", "name": name, "size": len(raw)}
+
+
+@app.get("/api/req-images/{name}")
+async def get_req_image(name: str):
+    # 이름만 받는다. 경로가 섞여 들어오면 거부 — 상위 폴더 탈출 방지.
+    if "/" in name or "\\" in name or name.startswith("."):
+        raise HTTPException(400, "잘못된 파일명입니다")
+    f = REQ_IMG_DIR / name
+    if not f.is_file():
+        raise HTTPException(404, "이미지를 찾을 수 없습니다")
+    return FileResponse(str(f), headers={"Cache-Control": "public, max-age=31536000, immutable"})
+
+
 @app.post("/api/convert/markdown")
 async def convert_to_markdown(file: UploadFile = File(...)):
     name = (file.filename or "").strip()

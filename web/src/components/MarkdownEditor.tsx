@@ -59,12 +59,26 @@ export default function MarkdownEditor({ value, onChange, placeholder }: Props) 
       root: el,
       defaultValue: value ?? '',
       features: {
-        // 이미지 업로드는 아직 받을 곳이 없다. 켜두면 눌렀을 때 죽는다.
-        [Crepe.Feature.ImageBlock]: false,
         [Crepe.Feature.Latex]: false,
       },
       featureConfigs: {
         [Crepe.Feature.Placeholder]: { text: placeholder ?? '' },
+        [Crepe.Feature.ImageBlock]: {
+          // 붙여넣기·끌어놓기·파일선택 모두 이리로 온다.
+          // 서버가 파일을 받아 URL 을 돌려주고, 마크다운에는
+          // ![](/api/req-images/…) 로 남는다 — 원문이 정본이므로
+          // 경로도 원문 안에 있어야 한다(base64 로 박으면 글이 못 쓰게 커진다).
+          onUpload: async (file: File) => {
+            const fd = new FormData()
+            fd.append('file', file)
+            const res = await fetch('/api/upload/image', { method: 'POST', body: fd })
+            if (!res.ok) {
+              const b = await res.json().catch(() => ({}))
+              throw new Error(b.detail || `이미지 업로드 실패 (${res.status})`)
+            }
+            return (await res.json()).url as string
+          },
+        },
       },
     })
 
