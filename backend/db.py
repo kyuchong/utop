@@ -696,7 +696,8 @@ async def apply_schema() -> None:
 # ══════════════════════════════════════════════════════════════════════
 _DEV_COLS = (
     "id", "ip", "name", "model", "vendor", "device_group", "lab", "role",
-    "protocol", "port", "username", "password", "description", "status",
+    "protocol", "port", "username", "password", "enable_password",
+    "description", "status",
 )
 
 
@@ -782,20 +783,22 @@ async def device_upsert(payload: dict) -> str:
         await c.execute(
             """
             INSERT INTO device (id, ip, name, model, vendor, device_group, lab, role,
-                                protocol, port, username, password, description, status, data)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb)
+                                protocol, port, username, password, enable_password,
+                                description, status, data)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16::jsonb)
             ON CONFLICT (id) DO UPDATE SET
               ip=EXCLUDED.ip, name=EXCLUDED.name, model=EXCLUDED.model,
               vendor=EXCLUDED.vendor, device_group=EXCLUDED.device_group,
               lab=EXCLUDED.lab,
               role=EXCLUDED.role, protocol=EXCLUDED.protocol, port=EXCLUDED.port,
               username=EXCLUDED.username, password=EXCLUDED.password,
+              enable_password=EXCLUDED.enable_password,
               description=EXCLUDED.description, status=EXCLUDED.status,
               data=EXCLUDED.data, updated_at=now()
             """,
             m["id"], m["ip"], m["name"], m["model"], m["vendor"], m["device_group"],
             m["lab"], m["role"], m["protocol"], m["port"], m["username"], m["password"],
-            m["description"], m["status"], json.dumps(extra, ensure_ascii=False, default=str),
+            m["enable_password"], m["description"], m["status"], json.dumps(extra, ensure_ascii=False, default=str),
         )
         if "interfaces" in payload:
             await _device_set_ifs(c, m["id"], payload.get("interfaces") or [])

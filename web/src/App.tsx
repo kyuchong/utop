@@ -11,8 +11,26 @@ import Devices from '@/pages/Devices'
  * 화면 하나를 옮길 때마다 여기 분기를 한 줄 늘린다.
  * 아직 안 옮긴 메뉴는 안내만 띄운다 — 기존 앱(8000 포트)에 그대로 남아 있다.
  */
+const PAGE_KEY = 'utop.page'
+
 export default function App() {
-  const [page, setPage] = useState('requirements')
+  // 새로고침해도 보던 화면으로 돌아온다. 장비를 등록하다 새로고침했는데
+  // 요구사항으로 튕기면 다시 찾아 들어가야 한다.
+  const [page, setPage] = useState(() => {
+    try {
+      return localStorage.getItem(PAGE_KEY) || 'requirements'
+    } catch {
+      return 'requirements'
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PAGE_KEY, page)
+    } catch {
+      /* 사생활 보호 모드에서 저장이 막혀도 화면은 돌아야 한다 */
+    }
+  }, [page])
   // undefined = 확인 중 / null = 로그인 필요
   const [user, setUser] = useState<MeUser | null | undefined>(undefined)
 

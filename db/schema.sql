@@ -168,6 +168,9 @@ CREATE TABLE IF NOT EXISTS device (
 -- 이미 만들어진 DB 에는 CREATE TABLE IF NOT EXISTS 가 컬럼을 더해주지 않는다.
 -- 새로 넣는 컬럼은 반드시 ALTER 로 한 줄 더 적어야 기존 설치가 따라온다.
 ALTER TABLE device ADD COLUMN IF NOT EXISTS lab TEXT;
+-- 공용 enable 비번. 계정은 보통 telnet/ssh 가 같은 것을 쓴다 — 방식마다
+-- 따로 받으면 같은 값을 두 번 치게 된다. 다를 때만 device_access 로 덮는다.
+ALTER TABLE device ADD COLUMN IF NOT EXISTS enable_password TEXT;
 CREATE INDEX IF NOT EXISTS idx_device_model ON device(model);
 CREATE INDEX IF NOT EXISTS idx_device_group ON device(device_group);
 CREATE INDEX IF NOT EXISTS idx_device_lab ON device(lab);

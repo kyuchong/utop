@@ -52,16 +52,17 @@
    행 높이·칸 여백·머리글 크기는 요구사항 표(.tr / .tr.th)와 같은 값이다. */
 .dev-row {
   display: grid;
-  /* 1920 화면 기준. 고정폭 합계 약 620px, 나머지를 4개 칸이 나눠 갖는다. */
+  /* 1920 화면 기준. 고정폭 합계 612px, 남는 폭을 네 칸이 나눠 갖는다.
+     좁히면 머리글이 두 줄로 접혀 행 높이가 흔들리므로 아래 nowrap 과 함께 본다. */
   grid-template-columns:
-    88px                   /* LAB */
-    minmax(140px, 1.2fr)   /* 이름 · IP */
-    minmax(76px, 0.6fr)    /* 제조사 */
-    72px                   /* 제품군 */
-    minmax(100px, 0.9fr)   /* 모델명 */
-    88px 88px 88px 88px    /* Telnet · SSH · Console · SNMP */
-    68px                   /* 인터페이스 */
-    minmax(180px, 1.2fr);  /* 사용 현황 */
+    84px                   /* LAB */
+    minmax(150px, 1fr)     /* 이름 · IP */
+    minmax(84px, 0.7fr)    /* 제조사 */
+    76px                   /* 제품군 */
+    minmax(110px, 1fr)     /* 모델명 */
+    92px 92px 92px 92px    /* Telnet · SSH · Console · SNMP */
+    84px                   /* 인터페이스 */
+    minmax(190px, 1.3fr);  /* 사용 현황 */
   align-items: center;
   min-height: 47px;
   border-bottom: 1px solid var(--c-border-soft);

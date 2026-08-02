@@ -63,7 +63,9 @@ export function expandRange(text: string): string[] {
   for (const raw of text.split(/[,\n]/)) {
     const s = raw.trim()
     if (!s) continue
-    const m = /^(.*?)(\d+)\s*-\s*(\d+)$/.exec(s)
+    // te6/1~te6/8 처럼 앞자리를 되풀이해 적은 것도 받는다. 기존 자료가
+    // 물결로 들어와 있어서 '-' 만 알면 8포트가 1개로 세어진다.
+    const m = /^(.*?)(\d+)\s*[-~]\s*(?:\1)?(\d+)$/.exec(s)
     if (!m) {
       out.push(s)
       continue
@@ -80,6 +82,22 @@ export function expandRange(text: string): string[] {
   return out
 }
 
+/**
+ * 이미 쓰고 있는 값을 고르게 하는 목록.
+ *
+ * select 가 아니라 datalist 인 이유: 새 랩·새 제조사를 등록할 때 목록에
+ * 없다고 막히면 안 된다. 고를 수도 있고 새로 칠 수도 있어야 한다.
+ */
+function DL({ id, items }: { id: string; items?: string[] }) {
+  return (
+    <datalist id={id}>
+      {(items ?? []).map((v) => (
+        <option key={v} value={v} />
+      ))}
+    </datalist>
+  )
+}
+
 export default function DeviceForm({ editing, onClose }: Props) {
   const qc = useQueryClient()
   const isNew = editing === null
@@ -94,7 +112,6 @@ export default function DeviceForm({ editing, onClose }: Props) {
     role: '',
     username: '',
     password: '',
-    description: '',
   })
   const [ifs, setIfs] = useState<DeviceIf[]>([])
   const [acc, setAcc] = useState<Record<string, DeviceAccess>>({})
@@ -107,14 +124,12 @@ export default function DeviceForm({ editing, onClose }: Props) {
     setF({
       id: editing?.id ?? '',
       ip: editing?.ip ?? '',
-      name: editing?.name ?? '',
       model: editing?.model ?? '',
       vendor: editing?.vendor ?? '',
       device_group: editing?.device_group ?? '',
       role: editing?.role ?? '',
       username: editing?.username ?? '',
       password: editing?.password ?? '',
-      description: editing?.description ?? '',
     })
     setIfs(editing?.interfaces ?? [])
     const m: Record<string, DeviceAccess> = {}
@@ -128,7 +143,13 @@ export default function DeviceForm({ editing, onClose }: Props) {
     queryKey: ['device-roles'],
     queryFn: async () => {
       const r = await apiFetch('/api/device-roles')
-      return (await r.json()) as { roles: string[]; labs: string[] }
+      return (await r.json()) as {
+        roles: string[]
+        labs: string[]
+        vendors: string[]
+        models: string[]
+        usernames: string[]
+      }
     },
   })
 
@@ -201,8 +222,10 @@ export default function DeviceForm({ editing, onClose }: Props) {
    * 연결 확인은 저장부터 한다. 서버는 저장된 장비를 보고 붙기 때문에,
    * 방금 고친 포트가 아니라 예전 포트를 확인하면 "고쳤는데 왜 안 되냐" 가 된다.
    */
+  const [probing, setProbing] = useState('')
   const checkM = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (only?: string) => {
+      setProbing(only || 'all')
       const s = await apiFetch('/api/devices2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -211,7 +234,10 @@ export default function DeviceForm({ editing, onClose }: Props) {
       const sb = await s.json().catch(() => ({}))
       if (!s.ok) throw new Error(sb.detail || `저장 실패 (${s.status})`)
       const id = sb.id || f.id || f.ip
-      const r = await apiFetch(`/api/devices2/${encodeURIComponent(id)}/check`, { method: 'POST' })
+      const r = await apiFetch(
+        `/api/devices2/${encodeURIComponent(id)}/check${only ? '?protocol=' + only : ''}`,
+        { method: 'POST' },
+      )
       const b = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(b.detail || `확인 실패 (${r.status})`)
       return b as { results: Array<{ protocol: string; ok: boolean; error: string }> }
@@ -225,6 +251,7 @@ export default function DeviceForm({ editing, onClose }: Props) {
       void qc.invalidateQueries({ queryKey: ['devices'] })
     },
     onError: (e) => setProbe(e instanceof Error ? e.message : String(e)),
+    onSettled: () => setProbing(''),
   })
 
   const submit = () => {
@@ -268,19 +295,7 @@ export default function DeviceForm({ editing, onClose }: Props) {
               />
               {/* 이미 쓰던 랩 이름을 골라 쓰게 한다. 손으로 치면
                   'Lab#1' 과 'lab1' 이 갈려 같은 랩이 둘로 보인다. */}
-              <datalist id="lab-list">
-                {(rolesQ.data?.labs ?? []).map((l) => (
-                  <option key={l} value={l} />
-                ))}
-              </datalist>
-            </label>
-            <label className="fld">
-              <span>이름</span>
-              <input
-                value={f.name ?? ''}
-                placeholder="E6100 #1"
-                onChange={(e) => set('name', e.target.value)}
-              />
+              <DL id="lab-list" items={rolesQ.data?.labs} />
             </label>
             <label className="fld">
               <span>제품군</span>
@@ -295,20 +310,24 @@ export default function DeviceForm({ editing, onClose }: Props) {
 
           <div className="frow">
             <label className="fld">
-              <span>모델</span>
+              <span>모델명</span>
               <input
+                list="model-list"
                 value={f.model ?? ''}
                 placeholder="E6100-48X"
                 onChange={(e) => set('model', e.target.value)}
               />
+              <DL id="model-list" items={rolesQ.data?.models} />
             </label>
             <label className="fld">
               <span>제조사</span>
               <input
+                list="vendor-list"
                 value={f.vendor ?? ''}
                 placeholder="유비쿼스"
                 onChange={(e) => set('vendor', e.target.value)}
               />
+              <DL id="vendor-list" items={rolesQ.data?.vendors} />
             </label>
           </div>
 
@@ -323,7 +342,12 @@ export default function DeviceForm({ editing, onClose }: Props) {
             </label>
             <label className="fld">
               <span>계정</span>
-              <input value={f.username ?? ''} onChange={(e) => set('username', e.target.value)} />
+              <input
+                list="user-list"
+                value={f.username ?? ''}
+                onChange={(e) => set('username', e.target.value)}
+              />
+              <DL id="user-list" items={rolesQ.data?.usernames} />
             </label>
             <label className="fld">
               <span>비밀번호</span>
@@ -333,15 +357,15 @@ export default function DeviceForm({ editing, onClose }: Props) {
                 onChange={(e) => set('password', e.target.value)}
               />
             </label>
+            <label className="fld">
+              <span>enable</span>
+              <input
+                type="password"
+                value={f.enable_password ?? ''}
+                onChange={(e) => set('enable_password', e.target.value)}
+              />
+            </label>
           </div>
-
-          <label className="fld">
-            <span>설명</span>
-            <input
-              value={f.description ?? ''}
-              onChange={(e) => set('description', e.target.value)}
-            />
-          </label>
 
           {/* ── 접속 방식 ── */}
           <div className="fld wide">
@@ -389,32 +413,12 @@ export default function DeviceForm({ editing, onClose }: Props) {
                           value={a.port ?? p.port}
                           onChange={(e) => setAccField(p.v, 'port', Number(e.target.value))}
                         />
-                        {p.v === 'snmp' ? (
+                        {p.v === 'snmp' && (
                           <input
                             placeholder="community (public)"
                             value={a.community ?? ''}
                             onChange={(e) => setAccField(p.v, 'community', e.target.value)}
                           />
-                        ) : (
-                          <>
-                            <input
-                              placeholder="계정 (비우면 위와 같음)"
-                              value={a.username ?? ''}
-                              onChange={(e) => setAccField(p.v, 'username', e.target.value)}
-                            />
-                            <input
-                              type="password"
-                              placeholder="비밀번호"
-                              value={a.password ?? ''}
-                              onChange={(e) => setAccField(p.v, 'password', e.target.value)}
-                            />
-                            <input
-                              type="password"
-                              placeholder="enable 비번"
-                              value={a.enable_password ?? ''}
-                              onChange={(e) => setAccField(p.v, 'enable_password', e.target.value)}
-                            />
-                          </>
                         )}
                         {p.cli && (
                           <label className="acc-def" title="스텝이 방식을 안 적었을 때 쓰는 접속">
@@ -434,6 +438,60 @@ export default function DeviceForm({ editing, onClose }: Props) {
                             기본
                           </label>
                         )}
+                        {/* 계정은 보통 telnet/ssh 가 같은 것을 쓴다. 위의 공용 계정을
+                            그대로 쓰고, 이 방식만 다를 때에만 펼쳐서 덮는다. */}
+                        {p.cli && (
+                          <label className="acc-def">
+                            <input
+                              type="checkbox"
+                              checked={!!a.username || !!a.password || !!a.enable_password}
+                              onChange={(e) => {
+                                if (e.target.checked) setAccField(p.v, 'username', ' ')
+                                else
+                                  setAcc((c) => ({
+                                    ...c,
+                                    [p.v]: {
+                                      ...(c[p.v] ?? { protocol: p.v }),
+                                      username: '',
+                                      password: '',
+                                      enable_password: '',
+                                    } as DeviceAccess,
+                                  }))
+                              }}
+                            />
+                            계정 다름
+                          </label>
+                        )}
+                        {p.cli && (!!a.username || !!a.password || !!a.enable_password) && (
+                          <>
+                            <input
+                              placeholder="계정"
+                              value={(a.username ?? '').trim()}
+                              onChange={(e) => setAccField(p.v, 'username', e.target.value)}
+                            />
+                            <input
+                              type="password"
+                              placeholder="비밀번호"
+                              value={a.password ?? ''}
+                              onChange={(e) => setAccField(p.v, 'password', e.target.value)}
+                            />
+                            <input
+                              type="password"
+                              placeholder="enable"
+                              value={a.enable_password ?? ''}
+                              onChange={(e) => setAccField(p.v, 'enable_password', e.target.value)}
+                            />
+                          </>
+                        )}
+                        <button
+                          className="btn small"
+                          type="button"
+                          disabled={busy}
+                          title="저장한 뒤 이 방식으로만 붙어 봅니다"
+                          onClick={() => checkM.mutate(p.v)}
+                        >
+                          {probing === p.v ? '확인 중…' : '확인'}
+                        </button>
                         {p.hint && <span className="muted small">{p.hint}</span>}
                       </div>
                     )}
@@ -447,7 +505,7 @@ export default function DeviceForm({ editing, onClose }: Props) {
                 className="btn"
                 type="button"
                 disabled={busy}
-                onClick={() => checkM.mutate()}
+                onClick={() => checkM.mutate(undefined)}
                 title="저장한 뒤 각 방식으로 붙어 봅니다"
               >
                 {checkM.isPending ? '확인 중…' : '연결 확인'}
@@ -529,7 +587,7 @@ export default function DeviceForm({ editing, onClose }: Props) {
                 type="button"
                 disabled={busy}
                 onClick={() => {
-                  if (window.confirm(`'${f.name || f.ip}' 을 삭제합니다. 계속할까요?`))
+                  if (window.confirm(`'${f.model || f.ip}' 을 삭제합니다. 계속할까요?`))
                     removeM.mutate()
                 }}
               >

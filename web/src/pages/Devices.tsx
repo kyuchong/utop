@@ -39,6 +39,8 @@ export interface Device {
   role?: string | null
   username?: string | null
   password?: string | null
+  /** 공용 enable 비번. 방식마다 다를 때만 device_access 로 덮는다 */
+  enable_password?: string | null
   description?: string | null
   status?: string | null
   interfaces?: DeviceIf[]
@@ -160,7 +162,7 @@ export default function Devices() {
     return devices.filter((d) => {
       if (roleFilter && d.role !== roleFilter) return false
       if (!n) return true
-      return [d.name, d.ip, d.model, d.vendor, d.lab, d.device_group]
+      return [d.ip, d.model, d.vendor, d.lab, d.name, d.device_group]
         .some((v) => (v ?? '').toLowerCase().includes(n))
     })
   }, [devices, q, roleFilter])
@@ -300,7 +302,7 @@ export default function Devices() {
 
         <div className="dev-row th">
           <span>LAB</span>
-          <span>이름 · IP</span>
+          <span>IP</span>
           <span>제조사</span>
           <span>제품군</span>
           <span>모델명</span>
@@ -337,10 +339,7 @@ export default function Devices() {
                   }}
                 >
                   <span className="muted ell">{d.lab || '–'}</span>
-                  <span className="dev-id">
-                    <b className="ell">{d.name || d.ip}</b>
-                    <span className="muted small ell">{d.ip}</span>
-                  </span>
+                  <b className="dev-name">{d.ip}</b>
                   <span className="muted ell">{d.vendor || '–'}</span>
                   <span>
                     {d.role ? <span className="tag">{d.role}</span> : <span className="muted">–</span>}

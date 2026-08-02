@@ -2388,11 +2388,25 @@ DEVICE_ROLES = ["L2", "L3", "OLT", "ONT", "CPE", "HGW", "계측기", "기타"]
 
 @app.get("/api/device-roles")
 async def device_roles():
-    async with db.pool().acquire() as c:
-        labs = [r["lab"] for r in await c.fetch(
-            "SELECT DISTINCT lab FROM device WHERE lab <> '' ORDER BY lab")]
-    return {"roles": DEVICE_ROLES, "labs": labs, "protocols": list(db.PROTOCOLS),
-            "cli_protocols": list(db.CLI_PROTOCOLS)}
+    # 이미 쓰고 있는 값을 골라 쓰게 한다. 손으로 치면 'Lab#1' 과 'lab1',
+    # '유비쿼스' 와 '유비쿼스(주)' 로 갈려 같은 것이 둘로 보인다.
+    async def distinct(col: str) -> list[str]:
+        async with db.pool().acquire() as c:
+            rows = await c.fetch(
+                f"SELECT DISTINCT {col} AS v FROM device "
+                f"WHERE {col} IS NOT NULL AND {col} <> '' ORDER BY 1"
+            )
+        return [r["v"] for r in rows]
+
+    return {
+        "roles": DEVICE_ROLES,
+        "labs": await distinct("lab"),
+        "vendors": await distinct("vendor"),
+        "models": await distinct("model"),
+        "usernames": await distinct("username"),
+        "protocols": list(db.PROTOCOLS),
+        "cli_protocols": list(db.CLI_PROTOCOLS),
+    }
 
 
 # 접속 확인은 장비에 실제로 붙어 본다. 동기 라이브러리(paramiko/telnetlib)라
@@ -2474,7 +2488,7 @@ async def devices2_export(with_secrets: int = 0):
         con, snmp = _acc_of(d, "console"), _acc_of(d, "snmp")
         w.writerow([
             d.get("lab") or "",
-            d.get("name") or "", d.get("ip") or "", d.get("vendor") or "",
+            d.get("ip") or "", d.get("vendor") or "",
             d.get("role") or "", d.get("model") or "",
             tel.get("port") or "", ssh.get("port") or "",
             con.get("host") or "", con.get("port") or "",
@@ -2557,7 +2571,7 @@ async def devices2_import(request: Request):
 # 장비 30대를 창 하나씩 열어 등록하는 것은 현실적이지 않다. 내보내고,
 # 엑셀에서 고치고, 다시 넣는 왕복 하나로 일괄등록·수정을 함께 해결한다.
 DEV_CSV_COLS = [
-    "LAB", "이름", "IP", "제조사", "제품군", "모델명",
+    "LAB", "IP", "제조사", "제품군", "모델명",
     "telnet포트", "ssh포트", "console주소", "console포트", "snmp",
     "계정", "비밀번호", "인터페이스",
 ]
@@ -2571,7 +2585,9 @@ def _expand_ifs(text: str) -> list[str]:
         s = raw.strip()
         if not s:
             continue
-        m = re.match(r"^(.*?)(\d+)\s*-\s*(\d+)$", s)
+        # te6/1~te6/8 처럼 앞자리를 되풀이해 적은 것도 받는다. 기존 자료가
+        # 물결로 들어와 있어서 '-' 만 알면 48포트가 1개로 세어진다.
+        m = re.match(r"^(.*?)(\d+)\s*[-~]\s*(?:)?(\d+)$", s)
         if not m:
             out.append(s)
             continue
@@ -2697,7 +2713,6 @@ async def devices2_import_csv(payload: dict):
             "id": (cur or {}).get("id") or ip,
             "ip": ip,
             "lab": pick("LAB", (cur or {}).get("lab")),
-            "name": pick("이름", (cur or {}).get("name")),
             "vendor": pick("제조사", (cur or {}).get("vendor")),
             "role": pick("제품군", (cur or {}).get("role")),
             "model": pick("모델명", (cur or {}).get("model")),
@@ -2714,14 +2729,14 @@ async def devices2_import_csv(payload: dict):
 
         if dry:
             (updated if cur else created).append(
-                {"ip": ip, "name": payload_dev["name"],
+                {"ip": ip, "name": payload_dev.get("model"),
                  "interfaces": len(payload_dev.get("interfaces") or []) or None,
                  "access": [a["protocol"] for a in access]}
             )
             continue
         try:
             await db.device_upsert(payload_dev)
-            (updated if cur else created).append({"ip": ip, "name": payload_dev["name"]})
+            (updated if cur else created).append({"ip": ip, "name": payload_dev.get("model")})
         except Exception as e:
             errors.append(f"{n}행 ({ip}): {e}")
 
