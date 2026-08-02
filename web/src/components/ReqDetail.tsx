@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { categoryApi } from '@/api/client'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { categoryApi, reqApi } from '@/api/client'
 import {
   categoryPath,
   reqLabel,
@@ -10,6 +10,7 @@ import {
   type TestCaseMeta,
 } from '@/types'
 import Markdown from './Markdown'
+import MarkdownEditor from './MarkdownEditorLazy'
 import './ReqDetail.css'
 
 interface Props {
@@ -76,16 +77,9 @@ export default function ReqDetail({ req, tcs, tab }: Props) {
   }
 
   if (tab === 'detail') {
-    // 본문만. 메타데이터는 'REQ 정보' 탭에 있다 — 규격서를 읽을 때마다
+    // 본문만. 메타데이터는 'REQ Info' 탭에 있다 — 규격서를 읽을 때마다
     // 6줄짜리 표를 지나 스크롤하게 만들 이유가 없다.
-    return (
-      <div className="detail-body scroll detail-doc">
-        <Markdown
-          text={desc}
-          empty="구현내용이 없습니다. 「편집」에서 넣을 수 있습니다."
-        />
-      </div>
-    )
+    return <DetailDoc req={req} desc={desc} />
   }
 
   if (tab === 'history') {
@@ -174,6 +168,101 @@ export default function ReqDetail({ req, tcs, tab }: Props) {
         실행 시각·소요 시간은 사이클 실행 기능을 옮긴 뒤에 함께 표시됩니다.
         지금은 TC 의 마지막 상태만 집계합니다. (요구사항 {reqPk(req)})
       </p>
+    </div>
+  )
+}
+
+
+/**
+ * REQ Details — 읽기와 편집을 한자리에서.
+ *
+ * 규격서는 자주 손본다. 고칠 때마다 창을 열었다 닫는 건 흐름을 끊는다.
+ * 그래서 이 탭 안에서 바로 고치고 저장한다.
+ *
+ * 다만 기본은 읽기다. 편집으로 들어가야 글이 바뀌므로 실수로 건드릴 일이 없고,
+ * 저장하지 않고 나가려 하면 붙잡는다.
+ */
+function DetailDoc({ req, desc }: { req: Requirement; desc: string }) {
+  const qc = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(desc)
+  const [error, setError] = useState('')
+  const savedRef = useRef(desc)
+
+  // 다른 요구사항으로 옮겨가면 편집을 닫고 새 내용을 싣는다
+  useEffect(() => {
+    setEditing(false)
+    setDraft(desc)
+    savedRef.current = desc
+    setError('')
+  }, [reqPk(req), desc])
+
+  const dirty = editing && draft !== savedRef.current
+
+  const saveM = useMutation({
+    mutationFn: () =>
+      // 본문만 바꾼다. 나머지 필드는 그대로 실어 보내야 서버가 덮어쓰지 않는다.
+      reqApi.save(reqPk(req), { ...req, desc: draft.trim() }),
+    onSuccess: () => {
+      savedRef.current = draft
+      setEditing(false)
+      setError('')
+      void qc.invalidateQueries({ queryKey: ['req', 'list'] })
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : String(e)),
+  })
+
+  const cancel = () => {
+    if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 버릴까요?')) return
+    setDraft(savedRef.current)
+    setEditing(false)
+    setError('')
+  }
+
+  return (
+    <div className="detail-doc-wrap">
+      <div className="doc-bar">
+        <span className="muted small">
+          {editing ? (dirty ? '수정 중 · 저장하지 않음' : '수정 중') : '읽기'}
+        </span>
+        <span className="page-head-actions">
+          {editing ? (
+            <>
+              <button className="btn" type="button" onClick={cancel} disabled={saveM.isPending}>
+                취소
+              </button>
+              <button
+                className="btn primary"
+                type="button"
+                onClick={() => saveM.mutate()}
+                disabled={saveM.isPending || !dirty}
+              >
+                {saveM.isPending ? '저장 중…' : '저장'}
+              </button>
+            </>
+          ) : (
+            <button className="btn primary" type="button" onClick={() => setEditing(true)}>
+              편집
+            </button>
+          )}
+        </span>
+      </div>
+
+      {error && <div className="form-error">{error}</div>}
+
+      {editing ? (
+        <div className="doc-editor">
+          <MarkdownEditor
+            value={draft}
+            onChange={setDraft}
+            placeholder="무엇을, 어떻게 구현하는지 적습니다."
+          />
+        </div>
+      ) : (
+        <div className="detail-body scroll detail-doc">
+          <Markdown text={desc} empty="구현내용이 없습니다. 「편집」을 눌러 넣으세요." />
+        </div>
+      )}
     </div>
   )
 }

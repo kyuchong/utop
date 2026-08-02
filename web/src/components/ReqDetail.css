@@ -102,3 +102,40 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── REQ Details: 읽기 ↔ 편집 ─────────────────────────────── */
+.detail-doc-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.doc-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--c-border-soft);
+  background: var(--c-surface-alt);
+}
+
+.doc-bar .btn {
+  padding: 4px 10px;
+  font-size: var(--fs-sm);
+}
+
+.doc-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-2);
+}
+
+.doc-editor .md-editor {
+  flex: 1;
+  min-height: 0;
+}
