@@ -92,7 +92,7 @@
 .fld input,
 .fld select,
 .fld textarea {
-  border: 1px solid #ccd3da;
+  border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
   padding: 8px 9px;
   background: var(--c-surface);
@@ -301,7 +301,7 @@
   padding: var(--sp-5);
   text-align: center;
   color: var(--c-text-faint);
-  border: 1px solid #ccd3da;
+  border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
 }
 

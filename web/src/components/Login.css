@@ -42,7 +42,7 @@
 }
 
 .login-fld input {
-  border: 1px solid #ccd3da;
+  border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
   padding: 9px 10px;
 }

@@ -36,7 +36,7 @@
   background: var(--c-topbar-item);
   padding: 5px var(--sp-3);
   border-radius: var(--radius);
-  color: #aab5c0;
+  color: #c2ccd6;
 }
 
 .topbar-user {
@@ -101,7 +101,7 @@
   font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: #89939d;
+  color: #6a747e;
   margin: 15px var(--sp-3) 7px;
   white-space: nowrap;
 }

@@ -17,7 +17,7 @@
 
 .tc-filters input,
 .tc-filters select {
-  border: 1px solid #ccd3da;
+  border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
   padding: 6px 8px;
   background: var(--c-surface);
@@ -68,7 +68,7 @@
   z-index: 1;
   min-height: 36px;
   background: var(--c-surface-alt);
-  color: #78838e;
+  color: #5b6670;
   font-size: var(--fs-label);
 }
 

@@ -17,15 +17,17 @@
   --c-topbar: #17202b;
   --c-topbar-item: #273442;
 
-  /* 텍스트 */
-  --c-text: #20252b;
-  --c-text-muted: #68737e;
-  --c-text-faint: #7c8792;
+  /* 텍스트
+     전체적으로 흐리다는 지적이 있어 한 단계씩 진하게 했다.
+     본문은 거의 검정에 가깝게, 보조 글자도 회색 티가 덜 나게. */
+  --c-text: #131920;
+  --c-text-muted: #4d5760;
+  --c-text-faint: #626d78;
 
-  /* 선 */
-  --c-border: #d9dee4;
-  --c-border-soft: #edf0f2;
-  --c-border-nav: #dce1e6;
+  /* 선 — 칸 경계가 잘 안 보여서 함께 진하게 */
+  --c-border: #c3cbd4;
+  --c-border-soft: #dfe4ea;
+  --c-border-nav: #ccd3db;
 
   /* 강조 (선택·링크·주버튼 — 상태 아님) */
   --c-primary: #1769d2;
@@ -115,7 +117,7 @@ button {
 
 .btn {
   background: var(--c-surface);
-  border: 1px solid #ccd3da;
+  border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
   padding: 7px 11px;
   color: var(--c-text);
@@ -142,7 +144,7 @@ button {
   padding: 3px 7px;
   border-radius: 10px;
   background: #eef2f6;
-  color: #5d6873;
+  color: #48525c;
   white-space: nowrap;
 }
 

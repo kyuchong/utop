@@ -122,7 +122,7 @@
   max-height: 320px;
   overflow-y: auto;
   padding: var(--sp-3);
-  border: 1px solid #ccd3da;
+  border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
   background: var(--c-surface-alt);
 }
@@ -131,7 +131,7 @@
 /* ── 편집기 (Milkdown / Crepe) ────────────────────────────────
    테마가 자기 글꼴·크기를 들고 온다. 화면 나머지와 튀지 않게 덮는다. */
 .md-editor {
-  border: 1px solid #ccd3da;
+  border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--c-surface);

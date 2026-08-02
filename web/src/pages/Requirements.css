@@ -114,7 +114,7 @@
 
 .filter input,
 .filter select {
-  border: 1px solid #ccd3da;
+  border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
   padding: 7px;
   background: var(--c-surface);
@@ -150,7 +150,7 @@
 
 .tr.th {
   background: var(--c-surface-alt);
-  color: #78838e;
+  color: #5b6670;
   font-size: var(--fs-label);
   min-height: 36px;
 }
@@ -227,7 +227,7 @@
 
 .req-search input {
   width: 100%;
-  border: 1px solid #ccd3da;
+  border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
   padding: 5px 26px 5px 9px;
   font-size: var(--fs-sm);
@@ -264,7 +264,7 @@
 .req-row.th {
   min-height: 36px;
   background: var(--c-surface-alt);
-  color: #78838e;
+  color: #5b6670;
   font-size: var(--fs-xs);
   cursor: default;
   flex: none;
