@@ -12,6 +12,7 @@ import {
   type ReqCategory,
 } from '@/types'
 import { IconChevron, IconGrip } from './icons'
+import CategoryEditForm from './CategoryEditForm'
 import './CategoryTree.css'
 
 type SortKey = 'manual' | 'number' | 'alpha' | 'name'
@@ -34,6 +35,7 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   const [addingTo, setAddingTo] = useState<string | null | undefined>(undefined)
   const [draftName, setDraftName] = useState('')
   const [error, setError] = useState('')
+  const [editing, setEditing] = useState<ReqCategory | null>(null)
   // 드래그 중인 분류 id / 올려둔 대상 id (null = 최상위로 빼기)
   const [dragId, setDragId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null | undefined>(undefined)
@@ -154,10 +156,11 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   }
 
   const doRename = (c: ReqCategory) => {
-    const name = window.prompt('분류 이름', c.name)?.trim()
-    if (!name || name === c.name) return
-    renameM.mutate({ id: c.id, name, parentId: c.parent_id })
+    // 이름만 바꾸는 게 아니라 상위 분류도 여기서 고른다.
+    // 드래그는 환경을 타서(원격데스크톱·터치패드) 확실한 길이 따로 있어야 한다.
+    setEditing(c)
   }
+
 
   const countAll = (n: CategoryTreeNode): number =>
     n.children.reduce((a, k) => a + 1 + countAll(k), 0)
@@ -375,6 +378,13 @@ export default function CategoryTree({ selected, onSelect }: Props) {
 
   return (
     <div className="cat-tree">
+      {editing && (
+        <CategoryEditForm
+          cat={editing}
+          all={list}
+          onClose={() => setEditing(null)}
+        />
+      )}
       <div className="cat-head">
         <span className="panel-name">REQ 분류</span>
         <select
@@ -465,7 +475,13 @@ export default function CategoryTree({ selected, onSelect }: Props) {
         onClick={() => onSelect(UNCATEGORIZED)}
       >
         <span className="cat-caret" />
-        <button type="button" className="cat-name" onClick={(e) => e.stopPropagation()}>
+        {/* 글자를 누르는 게 자연스러운데, 여기서 stopPropagation 을 하면
+            부모의 선택 처리까지 막혀 아무 일도 일어나지 않았다. */}
+        <button
+          type="button"
+          className="cat-name"
+          onClick={() => onSelect(UNCATEGORIZED)}
+        >
           미분류
         </button>
       </div>

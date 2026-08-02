@@ -2,7 +2,7 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: var(--sp-2);
+  gap: 0;
   padding-top: var(--sp-2);
 }
 
@@ -251,4 +251,63 @@
 .req-search-x:hover {
   background: #d3dae2;
   color: var(--c-text);
+}
+
+/* 표 머리 — 3열의 Test Case 머리와 같은 높이여야 두 목록의 행이 맞는다. */
+.req-row.th {
+  min-height: 36px;
+  background: var(--c-surface-alt);
+  color: #78838e;
+  font-size: var(--fs-xs);
+  cursor: default;
+  flex: none;
+}
+
+.req-row.th:hover {
+  background: var(--c-surface-alt);
+}
+
+.req-row.th .req-name {
+  font-weight: 400;
+}
+
+
+/* ── 2열·3열 행 맞춤 ──────────────────────────────────────────
+   두 목록이 나란히 있으므로 머리 높이가 같아야 행이 맞는다.
+   구조가 조금 달라도(2열은 형제, 3열은 tc-body 안) 높이만 맞추면 된다. */
+.split .panel-title {
+  min-height: 46px;
+}
+
+/* 두 검색줄은 높이를 같은 값으로 못박는다. 안에 든 것(입력칸 하나 vs
+   입력칸+셀렉트)이 달라 내용에 맡기면 몇 px 씩 어긋난다. */
+.req-search,
+.tc-panel .filter {
+  height: 45px;
+  padding: var(--sp-2);
+  margin: 0;
+  border-bottom: 1px solid var(--c-border-soft);
+  align-items: center;
+}
+
+.req-search input,
+.tc-panel .filter input,
+.tc-panel .filter select {
+  height: 27px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* tc-body 의 위 여백을 없앤다 — 2열에는 없는 여백이라 한 줄만큼 밀렸다 */
+.tc-body {
+  padding: 0;
+}
+
+.tc-body > .table {
+  border: 0;
+  border-radius: 0;
+}
+
+.tc-body > .bottom {
+  padding: 0 var(--sp-3) var(--sp-2);
 }

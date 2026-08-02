@@ -283,6 +283,13 @@ export default function Requirements() {
             )}
           </div>
 
+          {/* 표 머리. 3열에도 같은 높이의 머리가 있어 두 목록의 행이 맞는다. */}
+          <div className="req-row th">
+            <span className="req-id">REQ ID</span>
+            <span className="req-name">제목</span>
+            <span className="req-stat">TC</span>
+          </div>
+
           <div className="scroll">
             {loading ? (
               <div className="empty">불러오는 중…</div>
@@ -331,8 +338,8 @@ export default function Requirements() {
           getOrigin={() => {
             const el = splitRef.current
             if (!el) return 0
-            // 요구사항 패널의 왼쪽 끝 = split 왼쪽 + 분류 폭 + 조절바 폭
-            return el.getBoundingClientRect().left + catW + 8
+            // 요구사항 패널의 왼쪽 끝 = split 왼쪽 + 분류 폭 + 조절바 폭(6px)
+            return el.getBoundingClientRect().left + catW + 6
           }}
         />
 

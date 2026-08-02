@@ -2,7 +2,7 @@
    보이는 선은 얇게(2px) 두되, 잡는 영역은 8px 로 넉넉히 준다 —
    1~2px 짜리는 마우스로 집기가 어렵다. */
 .resizer {
-  flex: 0 0 8px;
+  flex: 0 0 6px;
   align-self: stretch;
   display: flex;
   align-items: center;
