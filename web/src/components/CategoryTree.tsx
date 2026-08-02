@@ -291,10 +291,11 @@ export default function CategoryTree({ selected, onSelect }: Props) {
           style={{ paddingLeft: 4 + (n.depth - 1) * 14 }}
           draggable
           onDragStart={(e) => {
-            // 버튼·체크박스 위에서 시작한 드래그는 무시한다 —
-            // 그 위에서는 클릭이 우선이어야 한다.
+            // 이름은 <button> 이지만 여기서 끄는 게 자연스럽다.
+            // 정작 막아야 할 것은 체크박스·펼침화살표·편집버튼뿐이다 —
+            // 전부 막았더니 행에서 잡을 수 있는 곳이 사실상 없었다.
             const el = e.target as HTMLElement
-            if (el.closest('button, input')) {
+            if (el.closest('input, .cat-caret, .cat-actions')) {
               e.preventDefault()
               return
             }

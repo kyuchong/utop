@@ -372,3 +372,12 @@
 .cat-row {
   min-height: 34px;
 }
+
+/* 이름 위에서 끌 수 있다는 걸 커서로 알린다 */
+.cat-name {
+  cursor: grab;
+}
+
+.cat-row.dragging .cat-name {
+  cursor: grabbing;
+}
