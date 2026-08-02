@@ -1,4 +1,9 @@
-import type { ReqListResponse, Requirement, TcListResponse } from '@/types'
+import type {
+  ReqCategory,
+  ReqListResponse,
+  Requirement,
+  TcListResponse,
+} from '@/types'
 
 /**
  * API 호출은 전부 여기를 지난다. 화면 코드에서 fetch 를 직접 부르지 않는다.
@@ -47,4 +52,41 @@ export const api = {
   /** TC 목록. meta=1 이면 steps/checks 를 뺀 슬림 응답 (main.py:2237) */
   listTestCases: (signal?: AbortSignal) =>
     get<TcListResponse>('/api/tc?meta=1', signal),
+}
+
+// ── 요구사항 분류 ────────────────────────────────────────────
+async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method,
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  if (!res.ok) {
+    let detail = res.statusText
+    try {
+      const b = (await res.json()) as { detail?: string }
+      if (b?.detail) detail = b.detail
+    } catch {
+      /* 본문이 JSON 이 아니면 statusText 사용 */
+    }
+    throw new ApiError(res.status, path, detail)
+  }
+  return (await res.json()) as T
+}
+
+export const categoryApi = {
+  list: (signal?: AbortSignal) =>
+    get<{ categories: ReqCategory[] }>('/api/req-categories', signal),
+  create: (name: string, parentId: string | null) =>
+    send<{ success: boolean; id: string }>('POST', '/api/req-categories', {
+      name,
+      parent_id: parentId,
+    }),
+  rename: (id: string, name: string, parentId: string | null) =>
+    send<{ success: boolean }>('PUT', `/api/req-categories/${encodeURIComponent(id)}`, {
+      name,
+      parent_id: parentId,
+    }),
+  remove: (id: string) =>
+    send<{ success: boolean }>('DELETE', `/api/req-categories/${encodeURIComponent(id)}`),
 }

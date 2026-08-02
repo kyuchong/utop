@@ -1,0 +1,154 @@
+.cat-tree {
+  flex: none;
+  border-bottom: 1px solid var(--c-border);
+  padding-bottom: var(--sp-2);
+  max-height: 45%;
+  overflow-y: auto;
+}
+
+.cat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-3) 15px var(--sp-2);
+}
+
+.cat-head .btn {
+  padding: 4px 8px;
+  font-size: var(--fs-label);
+}
+
+.cat-error {
+  margin: 0 15px var(--sp-2);
+  padding: 6px 9px;
+  border: 1px solid #f0c8c8;
+  background: #fdf4f4;
+  border-radius: var(--radius-sm);
+  color: #8a2a2a;
+  font-size: var(--fs-label);
+}
+
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  padding: 0 10px 0 6px;
+  min-height: 30px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: var(--c-text);
+}
+
+.cat-row:hover {
+  background: var(--c-surface-info);
+}
+
+.cat-row.sel {
+  background: var(--c-primary-bg-soft);
+  box-shadow: inset 3px 0 0 var(--c-primary);
+}
+
+.cat-row.root {
+  font-weight: 700;
+  padding-left: 26px;
+}
+
+.cat-row.child {
+  padding-left: 6px;
+}
+
+.cat-caret {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  background: transparent;
+  color: var(--c-text-faint);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.cat-caret:disabled {
+  color: #ccd3da;
+  cursor: default;
+}
+
+.cat-row.child .cat-caret {
+  width: 30px;
+}
+
+.cat-name {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  padding: 6px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cat-count {
+  flex: none;
+  font-size: var(--fs-label);
+  color: var(--c-text-faint);
+  min-width: 16px;
+  text-align: right;
+}
+
+/* 편집 버튼은 hover 했을 때만 — 평소에는 목록이 조용해야 한다 */
+.cat-actions {
+  flex: none;
+  display: flex;
+  gap: 1px;
+  visibility: hidden;
+}
+
+.cat-row:hover .cat-actions {
+  visibility: visible;
+}
+
+.cat-actions button {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--c-text-faint);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.cat-actions button:hover {
+  background: #e3e8ee;
+  color: var(--c-text);
+}
+
+.cat-add {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px 6px 26px;
+}
+
+.cat-add input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #ccd3da;
+  border-radius: var(--radius-sm);
+  padding: 5px 7px;
+}
+
+.cat-add .btn {
+  padding: 5px 8px;
+  font-size: var(--fs-label);
+}
+
+.cat-indent {
+  padding-left: 14px;
+}

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
+import CategoryTree from '@/components/CategoryTree'
 import {
   reqKey,
   statusClass,
@@ -39,6 +40,7 @@ function rollup(tcs: TestCaseMeta[]): ReqRollup {
  */
 export default function Requirements() {
   const [selected, setSelected] = useState<string | null>(null)
+  const [catFilter, setCatFilter] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
@@ -51,8 +53,15 @@ export default function Requirements() {
     queryFn: ({ signal }) => api.listTestCases(signal),
   })
 
-  const reqs = reqQ.data?.reqs ?? []
+  const allReqs = reqQ.data?.reqs ?? []
   const tcs = tcQ.data?.tcs ?? []
+
+  // 분류 필터. 대분류를 고르면 그 대분류에 직접 달린 것 + 하위 중분류의 것까지
+  // 봐야 자연스럽다. cat1 이 대분류를 가리키므로 cat1 비교 하나로 둘 다 걸린다.
+  const reqs = useMemo(() => {
+    if (!catFilter) return allReqs
+    return allReqs.filter((r) => r.cat1 === catFilter || r.cat2 === catFilter)
+  }, [allReqs, catFilter])
 
   /** req_id → TC[] (TC 쪽 포인터 기준) */
   const tcsByReq = useMemo(() => {
@@ -159,15 +168,22 @@ export default function Requirements() {
       <div className="split">
         {/* ── 왼쪽: 요구사항 목록 ─────────────────────────── */}
         <section className="panel req-panel">
+          <CategoryTree selected={catFilter} onSelect={setCatFilter} />
           <div className="panel-title">
             <b>Requirements</b>
-            <span className="muted">{reqs.length}건</span>
+            <span className="muted">
+              {catFilter ? `${reqs.length} / ${allReqs.length}건` : `${reqs.length}건`}
+            </span>
           </div>
           <div className="scroll">
             {loading ? (
               <div className="empty">불러오는 중…</div>
             ) : reqs.length === 0 ? (
-              <div className="empty">등록된 요구사항이 없습니다.</div>
+              <div className="empty">
+                {catFilter
+                  ? '이 분류에 해당하는 요구사항이 없습니다.'
+                  : '등록된 요구사항이 없습니다.'}
+              </div>
             ) : (
               reqs.map((r) => {
                 const key = reqKey(r)

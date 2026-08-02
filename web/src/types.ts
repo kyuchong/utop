@@ -31,6 +31,10 @@ export interface Requirement {
   priority?: string
   created_by?: string
   updated_by?: string
+  /** 대분류 id (req_category.id). 없으면 미분류 */
+  cat1?: string | null
+  /** 중분류 id (req_category.id) */
+  cat2?: string | null
   tc?: TcRef[]
   [k: string]: unknown
 }
@@ -76,4 +80,27 @@ export function statusClass(s: string | undefined): string {
   if (v === 'FAIL' || v === '실패') return 'fail'
   if (v === 'DRAFT' || v === '작성중') return 'draft'
   return 'idle'
+}
+
+/** 요구사항 분류 (2단 고정). parent_id 가 없으면 대분류. */
+export interface ReqCategory {
+  id: string
+  name: string
+  parent_id: string | null
+  sort_order: number
+  /** 이 분류를 쓰는 요구사항 수 (cat1 또는 cat2 로 참조) */
+  req_count: number
+}
+
+export interface CategoryTreeNode extends ReqCategory {
+  children: ReqCategory[]
+}
+
+/** 평면 목록 → 2단 트리. 서버가 2단을 보장하므로 재귀가 필요 없다. */
+export function buildCategoryTree(list: ReqCategory[]): CategoryTreeNode[] {
+  const roots = list.filter((c) => !c.parent_id)
+  return roots.map((r) => ({
+    ...r,
+    children: list.filter((c) => c.parent_id === r.id),
+  }))
 }
