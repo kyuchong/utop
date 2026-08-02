@@ -356,6 +356,13 @@
 .cat-head {
   flex-wrap: wrap;
   row-gap: 4px;
+  /* 머리와 검색 사이의 구분선. REQ LIST 머리(.panel-title)와 같은 선이다.
+     이것이 없으면 제목·버튼과 검색칸이 한 덩어리로 보인다. */
+  border-bottom: 1px solid #e1e5e9;
+  padding-bottom: var(--sp-2);
+  /* 높이도 .panel-title(46px)과 같게. 선만 넣고 높이를 안 맞추면
+     두 열의 구분선이 다른 자리에 그어져 오히려 더 어긋나 보인다. */
+  min-height: 46px;
 }
 
 .cat-head .panel-name {
