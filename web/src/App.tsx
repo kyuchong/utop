@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Layout from '@/components/Layout'
 import Requirements from '@/pages/Requirements'
+import TestCases from '@/pages/TestCases'
 
 /**
  * 화면 하나를 옮길 때마다 여기 분기를 한 줄 늘린다.
@@ -13,6 +14,8 @@ export default function App() {
     <Layout current={page} onNavigate={setPage}>
       {page === 'requirements' ? (
         <Requirements />
+      ) : page === 'testcases' ? (
+        <TestCases />
       ) : (
         <div className="empty">
           이 화면은 아직 새 UI로 옮기지 않았습니다.

@@ -1,0 +1,105 @@
+.tc-list {
+  flex: 1;
+  min-height: 0;
+  margin-top: 14px;
+}
+
+.tc-list .panel-title {
+  gap: var(--sp-4);
+}
+
+.tc-filters {
+  display: flex;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tc-filters input,
+.tc-filters select {
+  border: 1px solid #ccd3da;
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  background: var(--c-surface);
+}
+
+.tc-filters input {
+  flex: 1;
+  min-width: 120px;
+}
+
+.tc-filters select {
+  max-width: 220px;
+}
+
+.tc-stat {
+  flex: none;
+  white-space: nowrap;
+}
+
+.tc-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.tcr {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 1fr) 110px 60px 96px;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: transparent;
+  text-align: left;
+  color: var(--c-text);
+}
+
+.tcr > div {
+  padding: 6px 12px;
+  min-width: 0;
+}
+
+.tcr.th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-height: 36px;
+  background: var(--c-surface-alt);
+  color: #78838e;
+  font-size: var(--fs-label);
+}
+
+.tcr:not(.th):hover {
+  background: var(--c-surface-info);
+}
+
+.tc-id {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tcr .muted {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* req_id 는 있는데 그 요구사항이 없는 경우 — 데이터가 어긋난 상태라 눈에 띄어야 한다 */
+.orphan {
+  color: var(--c-draft);
+}
+
+/* 좁은 화면에서는 요구사항 열을 접는다 */
+@media (max-width: 1000px) {
+  .tcr {
+    grid-template-columns: minmax(180px, 1fr) 100px 50px 90px;
+  }
+  .tcr > div:nth-child(2) {
+    display: none;
+  }
+}

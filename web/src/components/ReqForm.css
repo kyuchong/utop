@@ -134,3 +134,14 @@
   border-radius: var(--radius-sm);
   color: #8a2a2a;
 }
+
+/* 아직 못 만든 기능을 폼 안에서 알려줄 때 */
+.hint {
+  padding: 9px 11px;
+  border: 1px solid #cfe0f5;
+  background: var(--c-surface-info);
+  border-radius: var(--radius-sm);
+  color: #355f8c;
+  font-size: var(--fs-label);
+  line-height: 1.6;
+}

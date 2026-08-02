@@ -104,19 +104,29 @@ utop/
 
 ### 프론트만 고칠 때
 
-백엔드는 도커로 띄워두고, 프론트는 로컬에서 돌리면 저장하는 즉시 반영된다.
+도커 스택을 그대로 띄워둔 채, 프론트만 로컬에서 돌리면 저장하는 즉시 반영된다.
+같은 백엔드·같은 DB 를 보므로 데이터가 갈리지 않는다.
 
 ```bash
-docker compose up -d db api
+docker compose up -d          # 백엔드는 127.0.0.1:8000 에 열린다
 cd web
 npm install
-npm run dev          # http://localhost:5173
+npm run dev                   # http://localhost:5173
 ```
 
-`/api` 요청은 vite 가 백엔드로 넘긴다 (`web/vite.config.ts`).
+| 주소 | 무엇 |
+|---|---|
+| http://localhost:9000 | 도커가 빌드한 화면 (운영과 같은 것) |
+| http://localhost:5173 | 개발 서버 — 고치면 즉시 반영 |
 
-**백엔드가 5173 이 아닌 8000 을 보고 있어야 한다** — `docker-compose.yml` 의
-`api` 서비스에서 `ports: - "8000:8000"` 주석을 풀어라.
+둘 다 같은 백엔드(127.0.0.1:8000)를 본다. `/api` 와 `/ws` 는 vite 가 넘긴다
+(`web/vite.config.ts`).
+
+API 를 직접 찔러볼 때는 http://localhost:8000/docs 를 쓴다.
+
+> 백엔드 포트는 127.0.0.1 에만 묶여 있다. 아직 라우트에 인증이 없어서
+> 0.0.0.0 으로 열면 같은 네트워크의 다른 PC 가 그대로 호출할 수 있다.
+> 인증을 붙이기 전에는 넓히지 말 것.
 
 ### 검사
 
@@ -134,7 +144,8 @@ cd web && npm run typecheck
 
 | 화면 | 상태 |
 |---|---|
-| Requirements → TC 연결 | 이관 완료 |
+| Requirements → TC 연결 · 분류(2단) · 생성/편집/삭제 | 이관 완료 |
+| Test Cases 목록 · 생성/편집/삭제 | 이관 완료 (스텝 편집은 아직) |
 | 그 외 | 기존 UI 사용 |
 
 화면을 하나 옮길 때마다 `web/src/pages/` 에 파일을 추가하고

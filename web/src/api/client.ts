@@ -105,3 +105,16 @@ export const reqApi = {
   remove: (id: string) =>
     send<{ success: boolean }>('DELETE', `/api/req/${encodeURIComponent(id)}`),
 }
+
+// ── 테스트케이스 쓰기 ────────────────────────────────────────
+export const tcApi = {
+  /**
+   * 생성·수정 공통. tcid 가 곧 PK 다.
+   * 주의: checks(스텝)를 안 보내면 서버가 기존 값을 보존한다(main.py:save_tc).
+   *       그래서 이 폼은 메타만 보내도 스텝이 날아가지 않는다.
+   */
+  save: (tcid: string, body: Record<string, unknown>) =>
+    send<{ success: boolean }>('POST', `/api/tc/${encodeURIComponent(tcid)}`, body),
+  remove: (tcid: string) =>
+    send<{ success: boolean }>('DELETE', `/api/tc/${encodeURIComponent(tcid)}`),
+}

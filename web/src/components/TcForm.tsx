@@ -1,0 +1,210 @@
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { api, tcApi } from '@/api/client'
+import { reqLabel, reqPk, type TestCaseMeta } from '@/types'
+import './ReqForm.css'
+
+interface Props {
+  /** null 이면 새로 만들기, 값이 있으면 그 TC 편집 */
+  editing: TestCaseMeta | null
+  onClose: () => void
+}
+
+const STATUSES = ['대기', 'PASS', 'FAIL', '작성중', '보류']
+const SEVERITIES = ['Critical', 'Major', 'Minor']
+
+export default function TcForm({ editing, onClose }: Props) {
+  const qc = useQueryClient()
+  const isNew = editing === null
+
+  const [tcid, setTcid] = useState('')
+  const [name, setName] = useState('')
+  const [reqId, setReqId] = useState('')
+  const [type, setType] = useState('')
+  const [status, setStatus] = useState(STATUSES[0]!)
+  const [severity, setSeverity] = useState(SEVERITIES[1]!)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setTcid(editing?.tcid ?? '')
+    setName(editing?.name ?? '')
+    setReqId(editing?.req_id ?? '')
+    setType(editing?.type ?? '')
+    setStatus(editing?.status || STATUSES[0]!)
+    setSeverity(editing?.severity || SEVERITIES[1]!)
+    setError('')
+  }, [editing])
+
+  const reqQ = useQuery({
+    queryKey: ['req', 'list'],
+    queryFn: ({ signal }) => api.listRequirements(signal),
+  })
+  const reqs = reqQ.data?.reqs ?? []
+
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
+    void qc.invalidateQueries({ queryKey: ['req', 'list'] })
+  }
+  const fail = (e: unknown) => setError(e instanceof Error ? e.message : String(e))
+
+  const saveM = useMutation({
+    mutationFn: () =>
+      // tcid 가 곧 PK 다(REQ 와 달리 별도 PK 가 없다). 그래서 편집 중에는
+      // tcid 를 바꾸지 못하게 막는다 — 바꾸면 새 TC 가 생기고 원본이 남는다.
+      tcApi.save(isNew ? tcid.trim() : editing.tcid, {
+        tcid: isNew ? tcid.trim() : editing.tcid,
+        name: name.trim(),
+        req_id: reqId || '',
+        type: type.trim(),
+        status,
+        severity,
+      }),
+    onSuccess: () => {
+      invalidate()
+      onClose()
+    },
+    onError: fail,
+  })
+
+  const removeM = useMutation({
+    mutationFn: () => tcApi.remove(editing!.tcid),
+    onSuccess: () => {
+      invalidate()
+      onClose()
+    },
+    onError: fail,
+  })
+
+  const submit = () => {
+    if (isNew && !tcid.trim()) {
+      setError('TC ID 를 입력하세요')
+      return
+    }
+    if (!name.trim()) {
+      setError('제목을 입력하세요')
+      return
+    }
+    saveM.mutate()
+  }
+
+  const doDelete = () => {
+    if (!window.confirm(`'${editing!.tcid}' 를 삭제합니다. 계속할까요?`)) return
+    removeM.mutate()
+  }
+
+  const busy = saveM.isPending || removeM.isPending
+
+  return (
+    <div className="modal-back" onMouseDown={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={isNew ? '테스트케이스 추가' : '테스트케이스 편집'}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">
+          <b>{isNew ? '테스트케이스 추가' : '테스트케이스 편집'}</b>
+          <button className="modal-x" type="button" onClick={onClose} aria-label="닫기">
+            ×
+          </button>
+        </div>
+
+        <div className="modal-body">
+          {error && <div className="form-error">{error}</div>}
+
+          <div className="frow">
+            <label className="fld">
+              <span>TC ID{!isNew && ' (변경 불가)'}</span>
+              <input
+                value={tcid}
+                disabled={!isNew}
+                placeholder="TC-E6100-RATE-001"
+                onChange={(e) => setTcid(e.target.value)}
+              />
+            </label>
+            <label className="fld">
+              <span>상태</span>
+              <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                {STATUSES.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+            <label className="fld">
+              <span>중요도</span>
+              <select value={severity} onChange={(e) => setSeverity(e.target.value)}>
+                {SEVERITIES.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <label className="fld">
+            <span>제목</span>
+            <input
+              autoFocus
+              value={name}
+              placeholder="E6100 10G Rate Limit 검증 (1518B)"
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+
+          <div className="frow">
+            <label className="fld">
+              <span>연결 요구사항</span>
+              <select value={reqId} onChange={(e) => setReqId(e.target.value)}>
+                <option value="">(연결 안 함)</option>
+                {reqs.map((r) => (
+                  <option key={reqPk(r)} value={reqPk(r)}>
+                    {reqLabel(r)} · {r.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="fld">
+              <span>유형</span>
+              <input
+                value={type}
+                placeholder="Rate Limit"
+                onChange={(e) => setType(e.target.value)}
+              />
+            </label>
+          </div>
+
+          {!isNew && (
+            <div className="hint">
+              시험 절차 {editing._cli_count ?? 0}스텝은 이 창에서 고치지 않습니다.
+              스텝 편집 화면은 다음 작업으로 붙입니다 — 지금 저장해도 기존
+              스텝은 그대로 보존됩니다.
+            </div>
+          )}
+        </div>
+
+        <div className="modal-foot">
+          <span>
+            {!isNew && (
+              <button
+                className="btn danger"
+                type="button"
+                onClick={doDelete}
+                disabled={busy}
+              >
+                삭제
+              </button>
+            )}
+          </span>
+          <span className="page-head-actions">
+            <button className="btn" type="button" onClick={onClose} disabled={busy}>
+              취소
+            </button>
+            <button className="btn primary" type="button" onClick={submit} disabled={busy}>
+              {busy ? '저장 중…' : '저장'}
+            </button>
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
