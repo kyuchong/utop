@@ -92,6 +92,12 @@ export const categoryApi = {
       name,
       parent_id: parentId,
     }),
+  /** 형제 순서 재배치(+상위 이동). ids 차례대로 sort_order 를 매긴다. */
+  reorder: (parentId: string | null, ids: string[]) =>
+    send<{ success: boolean; count: number }>('POST', '/api/req-categories/reorder', {
+      parent_id: parentId,
+      ids,
+    }),
   remove: (id: string) =>
     send<{ success: boolean }>('DELETE', `/api/req-categories/${encodeURIComponent(id)}`),
 }
@@ -102,6 +108,12 @@ export const reqApi = {
   save: (id: string, body: Record<string, unknown>) =>
     send<{ success: boolean }>('POST', `/api/req/${encodeURIComponent(id)}`, body),
   /** 삭제. 연결된 TC 도 함께 지워지고 휴지통으로 들어간다(main.py:delete_req). */
+  /** 형제 순서 재배치(+상위 이동). ids 차례대로 sort_order 를 매긴다. */
+  reorder: (parentId: string | null, ids: string[]) =>
+    send<{ success: boolean; count: number }>('POST', '/api/req-categories/reorder', {
+      parent_id: parentId,
+      ids,
+    }),
   remove: (id: string) =>
     send<{ success: boolean }>('DELETE', `/api/req/${encodeURIComponent(id)}`),
 }

@@ -452,3 +452,33 @@
   color: var(--c-primary);
   font-weight: 700;
 }
+
+/* ── 폴더 사이에 넣기 ──────────────────────────────────────────
+   행의 위·아래 가장자리에서는 '사이' 로 본다. 그때는 채우지 않고
+   선만 그린다 — 채우면 '이 안으로' 와 구분이 안 된다. */
+.cat-row.drop-before::before,
+.cat-row.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--c-primary);
+  box-shadow: 0 0 0 1px #fff;
+  z-index: 3;
+}
+
+.cat-row.drop-before::before {
+  top: -2px;
+}
+
+.cat-row.drop-after::after {
+  bottom: -2px;
+}
+
+/* 선 끝에 점을 찍어 어디에 들어가는지 더 분명하게 */
+.cat-row.drop-before::before,
+.cat-row.drop-after::after {
+  border-left: 6px solid var(--c-primary);
+}

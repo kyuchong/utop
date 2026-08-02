@@ -2119,6 +2119,43 @@ async def create_req_category(body: ReqCategoryIn):
     return {"success": True, "id": cid}
 
 
+# ★ 이 라우트는 반드시 /{cat_id} 라우트보다 위에 있어야 한다.
+#   아래에 두면 'reorder' 가 cat_id 로 잡혀 405 가 난다.
+class ReqCategoryOrderIn(BaseModel):
+    """한 상위 아래 형제들의 새 순서. ids 에 적힌 차례대로 sort_order 를 매긴다."""
+    parent_id: Optional[str] = None
+    ids: list[str]
+
+
+@app.post("/api/req-categories/reorder")
+async def reorder_req_categories(body: ReqCategoryOrderIn):
+    """형제 순서 재배치 + 필요하면 상위 이동까지 한 번에.
+
+    화면에서 '폴더와 폴더 사이' 에 놓으면 여기로 온다. 한 건씩 PUT 하면
+    중간 상태가 보이고, 실패했을 때 절반만 적용된 채로 남는다.
+    그래서 한 트랜잭션에서 형제 전체를 다시 매긴다.
+    """
+    parent = (body.parent_id or "").strip() or None
+    if parent and await db.cat_get(parent) is None:
+        raise HTTPException(404, "상위 분류를 찾을 수 없습니다")
+
+    base = await db.cat_depth(parent) if parent else 0
+    for cid in body.ids:
+        if parent and (cid == parent or await _is_descendant(parent, cid)):
+            raise HTTPException(400, "자기 하위 분류 밑으로는 옮길 수 없습니다")
+        if base + await _subtree_height(cid) > MAX_CAT_DEPTH:
+            raise HTTPException(400, CAT_DEPTH_MSG)
+
+    async with db.pool().acquire() as c:
+        async with c.transaction():
+            for i, cid in enumerate(body.ids):
+                await c.execute(
+                    "UPDATE req_category SET parent_id=$1, sort_order=$2, updated_at=now() WHERE id=$3",
+                    parent, i * 10, cid,
+                )
+    return {"success": True, "count": len(body.ids)}
+
+
 @app.put("/api/req-categories/{cat_id}")
 async def update_req_category(cat_id: str, body: ReqCategoryIn):
     cur = await db.cat_get(cat_id)

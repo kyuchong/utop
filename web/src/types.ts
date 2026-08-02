@@ -121,6 +121,8 @@ export function buildCategoryTree(list: ReqCategory[]): CategoryTreeNode[] {
   const build = (parentId: string | null, depth: number): CategoryTreeNode[] =>
     list
       .filter((c) => (c.parent_id ?? null) === parentId)
+      // 드래그로 정한 순서(sort_order)를 그대로 쓴다. 같으면 이름순.
+      .sort((a, b) => a.sort_order - b.sort_order || naturalCompare(a.name, b.name))
       .map((c) => ({ ...c, depth, children: build(c.id, depth + 1) }))
   return build(null, 1)
 }

@@ -52,6 +52,8 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   // 드래그 중인 분류 id / 올려둔 대상 id (null = 최상위로 빼기)
   const [dragId, setDragId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null | undefined>(undefined)
+  // 'in' = 그 분류 안으로, 'before'/'after' = 형제로 그 앞뒤에
+  const [dropPos, setDropPos] = useState<'in' | 'before' | 'after'>('in')
   // 체크박스는 항상 보인다. 모드를 두면 '선택' 을 먼저 눌러야 해서 한 단계가 는다.
   const [picked, setPicked] = useState<Set<string>>(new Set())
   // 정렬 기준. 브라우저에 기억시킨다.
@@ -178,8 +180,16 @@ export default function CategoryTree({ selected, onSelect }: Props) {
       const el = document.elementFromPoint(ev.clientX, ev.clientY)
       const row = el?.closest('[data-cat-row]') as HTMLElement | null
       if (row) {
+        // 행을 위/가운데/아래 세 칸으로 나눈다. 가장자리 4px 씩은 '사이',
+        // 가운데는 '안으로'. 이렇게 해야 순서 바꾸기와 하위로 넣기를
+        // 같은 동작으로 구분할 수 있다.
+        const r = row.getBoundingClientRect()
+        const y = ev.clientY - r.top
+        const edge = Math.min(8, r.height / 3)
+        setDropPos(y < edge ? 'before' : y > r.height - edge ? 'after' : 'in')
         setOverId(row.dataset.catRow ?? undefined)
       } else if (el?.closest('.cat-drop-root')) {
+        setDropPos('in')
         setOverId(null)
       } else {
         setOverId(undefined)
@@ -195,7 +205,10 @@ export default function CategoryTree({ selected, onSelect }: Props) {
       const el = document.elementFromPoint(ev.clientX, ev.clientY)
       const row = el?.closest('[data-cat-row]') as HTMLElement | null
       const target = row ? (row.dataset.catRow ?? null) : el?.closest('.cat-drop-root') ? null : undefined
-      if (target !== undefined) dropOn(id, target)
+      if (target !== undefined) {
+        if (row && dropPos !== 'in') dropBetween(id, target as string, dropPos)
+        else dropOn(id, target)
+      }
       else {
         setDragId(null)
         setOverId(undefined)
@@ -204,6 +217,27 @@ export default function CategoryTree({ selected, onSelect }: Props) {
 
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
+  }
+
+  /** 형제로 끼워 넣기 — 대상과 같은 상위에, 대상 앞/뒤에 놓는다 */
+  const dropBetween = (id: string, targetId: string, pos: 'before' | 'after') => {
+    setDragId(null)
+    setOverId(undefined)
+    const target = list.find((c) => c.id === targetId)
+    if (!target || id === targetId) return
+    if (isSelfOrDescendant(id, targetId)) {
+      setError('자기 자신이나 하위 분류 밑으로는 옮길 수 없습니다')
+      return
+    }
+    const parent = target.parent_id ?? null
+    const sibs = list
+      .filter((c) => (c.parent_id ?? null) === parent && c.id !== id)
+      .sort((a, b) => a.sort_order - b.sort_order || naturalCompare(a.name, b.name))
+      .map((c) => c.id)
+    const at = sibs.indexOf(targetId)
+    sibs.splice(pos === 'before' ? at : at + 1, 0, id)
+    setError('')
+    reorderM.mutate({ parentId: parent, ids: sibs })
   }
 
   const dropOn = (id: string, targetId: string | null) => {
@@ -256,6 +290,16 @@ export default function CategoryTree({ selected, onSelect }: Props) {
       else ids.forEach((x) => n.add(x))
       return n
     })
+
+  const reorderM = useMutation({
+    mutationFn: (v: { parentId: string | null; ids: string[] }) =>
+      categoryApi.reorder(v.parentId, v.ids),
+    onSuccess: () => {
+      setError('')
+      invalidate()
+    },
+    onError: fail,
+  })
 
   const removeManyM = useMutation({
     mutationFn: async (ids: string[]) => {
@@ -340,7 +384,8 @@ export default function CategoryTree({ selected, onSelect }: Props) {
           className={
             `cat-row${selected === n.id ? ' sel' : ''}` +
             `${dragId === n.id ? ' dragging' : ''}` +
-            `${overId === n.id ? ' dropinto' : ''}`
+            `${overId === n.id && dropPos === 'in' ? ' dropinto' : ''}` +
+            `${overId === n.id && dropPos !== 'in' ? ` drop-${dropPos}` : ''}`
           }
           style={{ paddingLeft: 4 + (n.depth - 1) * 14 }}
         >
