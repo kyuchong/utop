@@ -50,6 +50,7 @@ function rollup(tcs: TestCaseMeta[]): ReqRollup {
 export default function Requirements() {
   const [selected, setSelected] = useState<string | null>(null)
   const [catFilter, setCatFilter] = useState<string | null>(null)
+  const [reqQuery, setReqQuery] = useState('')
   // undefined = 폼 닫힘 / null = 새로 만들기 / Requirement = 편집
   const [form, setForm] = useState<Requirement | null | undefined>(undefined)
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -81,7 +82,7 @@ export default function Requirements() {
   // 분류 필터. 어느 단계를 고르든, 그 아래에 달린 것까지 함께 보여야 자연스럽다.
   // 요구사항이 cat1/cat2/cat3 에 조상들을 그대로 담고 있으므로 셋 중 하나만
   // 맞으면 하위까지 자동으로 걸린다.
-  const reqs = useMemo(() => {
+  const byCat = useMemo(() => {
     if (!catFilter) return allReqs
     if (catFilter === UNCATEGORIZED) {
       // 분류가 하나도 안 붙은 것 (지워진 분류를 가리키던 것도 여기로 온다)
@@ -91,6 +92,24 @@ export default function Requirements() {
       (r) => r.cat1 === catFilter || r.cat2 === catFilter || r.cat3 === catFilter,
     )
   }, [allReqs, catFilter])
+
+  /**
+   * 분류로 좁힌 뒤 검색어로 한 번 더 좁힌다.
+   * 구현내용까지 뒤지는 이유: 제목은 짧게 쓰는데 실제 내용(CLI 명령·판정
+   * 기준)은 본문에 있어서, 'rate-limit' 같은 말로 찾는 일이 잦다.
+   */
+  const reqs = useMemo(() => {
+    const needle = reqQuery.trim().toLowerCase()
+    if (!needle) return byCat
+    return byCat.filter((r) => {
+      const desc = typeof r.desc === 'string' ? r.desc : ''
+      return (
+        reqLabel(r).toLowerCase().includes(needle) ||
+        (r.title ?? '').toLowerCase().includes(needle) ||
+        desc.toLowerCase().includes(needle)
+      )
+    })
+  }, [byCat, reqQuery])
 
   /** req_id → TC[] (TC 쪽 포인터 기준) */
   const tcsByReq = useMemo(() => {
@@ -224,7 +243,9 @@ export default function Requirements() {
             <span className="panel-name">
               REQ LIST
               <span className="muted small">
-                {catFilter ? `${reqs.length} / ${allReqs.length}건` : `${reqs.length}건`}
+                {reqs.length === allReqs.length
+                  ? `${reqs.length}건`
+                  : `${reqs.length} / ${allReqs.length}건`}
               </span>
             </span>
             <div className="page-head-actions">
@@ -244,14 +265,34 @@ export default function Requirements() {
               </button>
             </div>
           </div>
+          <div className="req-search">
+            <input
+              placeholder="REQ ID / 제목 / 구현내용 검색"
+              value={reqQuery}
+              onChange={(e) => setReqQuery(e.target.value)}
+            />
+            {reqQuery && (
+              <button
+                type="button"
+                className="req-search-x"
+                onClick={() => setReqQuery('')}
+                aria-label="검색어 지우기"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
           <div className="scroll">
             {loading ? (
               <div className="empty">불러오는 중…</div>
             ) : reqs.length === 0 ? (
               <div className="empty">
-                {catFilter
-                  ? '이 분류에 해당하는 요구사항이 없습니다.'
-                  : '등록된 요구사항이 없습니다.'}
+                {reqQuery
+                  ? `'${reqQuery}' 에 맞는 요구사항이 없습니다.`
+                  : catFilter
+                    ? '이 분류에 해당하는 요구사항이 없습니다.'
+                    : '등록된 요구사항이 없습니다.'}
               </div>
             ) : (
               reqs.map((r) => {

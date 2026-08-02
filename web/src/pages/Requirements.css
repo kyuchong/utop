@@ -199,3 +199,46 @@
   font-weight: 700;
   white-space: nowrap;
 }
+
+/* 요구사항 검색. 목록 바로 위에 붙여 무엇을 거르는지 분명하게 한다. */
+.req-search {
+  position: relative;
+  flex: none;
+  padding: var(--sp-2) var(--sp-2) var(--sp-1);
+  border-bottom: 1px solid var(--c-border-soft);
+}
+
+.req-search input {
+  width: 100%;
+  border: 1px solid #ccd3da;
+  border-radius: var(--radius-sm);
+  padding: 5px 26px 5px 9px;
+  font-size: var(--fs-sm);
+}
+
+.req-search input:focus {
+  outline: none;
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 2px var(--c-primary-bg);
+}
+
+.req-search-x {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-40%);
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: #e3e8ee;
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1;
+  padding: 0;
+}
+
+.req-search-x:hover {
+  background: #d3dae2;
+  color: var(--c-text);
+}
