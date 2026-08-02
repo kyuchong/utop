@@ -229,7 +229,7 @@ export default function Requirements() {
         </div>
       ) : null}
 
-      <div className={`split${tab === 'detail' ? ' doc-mode' : ''}`} ref={splitRef}>
+      <div className="split" ref={splitRef}>
         {/* ── 왼쪽: 요구사항 목록 ─────────────────────────── */}
         {/* 분류는 독립된 열. 요구사항 목록 위에 얹으면 목록이 몇 줄 못 나온다. */}
         <section className="panel cat-panel" style={{ flexBasis: catW }}>

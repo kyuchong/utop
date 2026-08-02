@@ -312,25 +312,8 @@
   padding: 0 var(--sp-3) var(--sp-2);
 }
 
-/* ── REQ 상세 내용 탭: 본문이 화면 폭을 다 쓴다 ────────────────
-   3열은 400px 남짓이다. 거기서 표가 든 규격서를 읽는 건 사실상 불가능해서,
-   이 탭일 때만 분류·목록 칸을 접는다. 다른 탭으로 가면 되돌아온다. */
-.split.doc-mode > .cat-panel,
-.split.doc-mode > .req-panel,
-.split.doc-mode > .resizer {
-  display: none;
-}
-
-.split.doc-mode > .tc-panel {
-  flex: 1 1 100%;
-}
-
-/* 긴 글은 한 줄이 너무 길면 읽기 어렵다 — 본문 폭을 제한한다 */
-.detail-doc {
-  align-items: center;
-}
-
+/* REQ Details 도 다른 탭과 같은 3열 배치를 쓴다.
+   본문일 때만 칸을 접었더니 탭을 옮길 때마다 화면이 출렁였다. */
 .detail-doc > .md {
-  width: 100%;
-  max-width: 900px;
+  max-width: 100%;
 }

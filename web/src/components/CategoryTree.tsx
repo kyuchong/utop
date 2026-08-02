@@ -151,11 +151,64 @@ export default function CategoryTree({ selected, onSelect }: Props) {
     return kids.some((k) => isSelfOrDescendant(k.id, target))
   }
 
-  const drop = (targetId: string | null) => {
-    const id = dragId
+  /**
+   * 포인터 기반 드래그.
+   *
+   * HTML5 drag-and-drop 을 쓰다가 접었다. 행 안에 버튼·체크박스가 있으면
+   * 브라우저가 dragstart 를 안 띄우고, 원격데스크톱·터치패드에서도 자주
+   * 먹통이 된다. '폴더 이동이 안 된다'는 신고가 반복된 원인이 이것이다.
+   * 포인터 이벤트는 그런 변수가 없다 — 누르고, 움직이고, 떼는 것뿐이다.
+   */
+  const beginDrag = (e: React.PointerEvent, id: string) => {
+    if (e.button !== 0) return
+    const startX = e.clientX
+    const startY = e.clientY
+    let started = false
+
+    const move = (ev: PointerEvent) => {
+      // 5px 넘게 움직여야 드래그로 본다 — 그냥 클릭까지 드래그로 먹으면
+      // 분류를 고를 수가 없다.
+      if (!started) {
+        if (Math.abs(ev.clientX - startX) + Math.abs(ev.clientY - startY) < 5) return
+        started = true
+        setDragId(id)
+        document.body.style.userSelect = 'none'
+        document.body.style.cursor = 'grabbing'
+      }
+      const el = document.elementFromPoint(ev.clientX, ev.clientY)
+      const row = el?.closest('[data-cat-row]') as HTMLElement | null
+      if (row) {
+        setOverId(row.dataset.catRow ?? undefined)
+      } else if (el?.closest('.cat-drop-root')) {
+        setOverId(null)
+      } else {
+        setOverId(undefined)
+      }
+    }
+
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+      if (!started) return
+      const el = document.elementFromPoint(ev.clientX, ev.clientY)
+      const row = el?.closest('[data-cat-row]') as HTMLElement | null
+      const target = row ? (row.dataset.catRow ?? null) : el?.closest('.cat-drop-root') ? null : undefined
+      if (target !== undefined) dropOn(id, target)
+      else {
+        setDragId(null)
+        setOverId(undefined)
+      }
+    }
+
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
+  const dropOn = (id: string, targetId: string | null) => {
     setDragId(null)
     setOverId(undefined)
-    if (!id) return
     if (targetId && isSelfOrDescendant(id, targetId)) {
       setError('자기 자신이나 하위 분류 밑으로는 옮길 수 없습니다')
       return
@@ -283,42 +336,13 @@ export default function CategoryTree({ selected, onSelect }: Props) {
     return (
       <div key={n.id}>
         <div
+          data-cat-row={n.id}
           className={
             `cat-row${selected === n.id ? ' sel' : ''}` +
             `${dragId === n.id ? ' dragging' : ''}` +
             `${overId === n.id ? ' dropinto' : ''}`
           }
           style={{ paddingLeft: 4 + (n.depth - 1) * 14 }}
-          draggable
-          onDragStart={(e) => {
-            // 이름은 <button> 이지만 여기서 끄는 게 자연스럽다.
-            // 정작 막아야 할 것은 체크박스·펼침화살표·편집버튼뿐이다 —
-            // 전부 막았더니 행에서 잡을 수 있는 곳이 사실상 없었다.
-            const el = e.target as HTMLElement
-            if (el.closest('input, .cat-caret, .cat-actions')) {
-              e.preventDefault()
-              return
-            }
-            setDragId(n.id)
-            e.dataTransfer.effectAllowed = 'move'
-            e.dataTransfer.setData('text/plain', n.id)
-          }}
-          onDragEnd={() => {
-            setDragId(null)
-            setOverId(undefined)
-          }}
-          onDragOver={(e) => {
-            if (!dragId || dragId === n.id) return
-            e.preventDefault()
-            e.dataTransfer.dropEffect = 'move'
-            setOverId(n.id)
-          }}
-          onDragLeave={() => setOverId((v) => (v === n.id ? undefined : v))}
-          onDrop={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            drop(n.id)
-          }}
         >
           {/* 드래그는 이 손잡이에서만 시작한다.
               행 전체를 draggable 로 두면 체크박스·버튼 위에서 끌 때
@@ -326,17 +350,7 @@ export default function CategoryTree({ selected, onSelect }: Props) {
           <span
             className="cat-grip"
             title="끌어서 상위 분류 변경"
-            draggable
-            onDragStart={(e) => {
-              setDragId(n.id)
-              e.dataTransfer.effectAllowed = 'move'
-              // 파이어폭스는 데이터가 없으면 드래그를 시작하지 않는다
-              e.dataTransfer.setData('text/plain', n.id)
-            }}
-            onDragEnd={() => {
-              setDragId(null)
-              setOverId(undefined)
-            }}
+            onPointerDown={(e) => beginDrag(e, n.id)}
           >
             <IconGrip />
           </span>
@@ -361,6 +375,7 @@ export default function CategoryTree({ selected, onSelect }: Props) {
             type="button"
             className="cat-name"
             onClick={() => onSelect(n.id)}
+            onPointerDown={(e) => beginDrag(e, n.id)}
             title={n.name}
           >
             {n.name}
@@ -454,15 +469,6 @@ export default function CategoryTree({ selected, onSelect }: Props) {
       {dragId && (
         <div
           className={`cat-drop-root${overId === null ? ' dropinto' : ''}`}
-          onDragOver={(e) => {
-            e.preventDefault()
-            setOverId(null)
-          }}
-          onDragLeave={() => setOverId((v) => (v === null ? undefined : v))}
-          onDrop={(e) => {
-            e.preventDefault()
-            drop(null)
-          }}
         >
           여기에 놓으면 대분류로 나갑니다
         </div>
