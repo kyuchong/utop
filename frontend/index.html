@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ubiquoss-TOP - Ubiquoss Test Orchestration Platform</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.3/tinymce.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+<link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css">
+<script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+<!-- Toast UI 에디터 플러그인: 글자/배경색 + 코드 하이라이트 -->
+<link rel="stylesheet" href="https://uicdn.toast.com/tui-color-picker/latest/tui-color-picker.min.css">
+<script src="https://uicdn.toast.com/tui-color-picker/latest/tui-color-picker.min.js"></script>
+<link rel="stylesheet" href="https://uicdn.toast.com/editor-plugin-color-syntax/latest/toastui-editor-plugin-color-syntax.min.css">
+<script src="https://uicdn.toast.com/editor-plugin-color-syntax/latest/toastui-editor-plugin-color-syntax.min.js"></script>
+<link rel="stylesheet" href="https://uicdn.toast.com/editor-plugin-code-syntax-highlight/latest/toastui-editor-plugin-code-syntax-highlight.min.css">
+<script src="https://uicdn.toast.com/editor-plugin-code-syntax-highlight/latest/toastui-editor-plugin-code-syntax-highlight-all.min.js"></script>
+<!-- 자원 관리: 표(Handsontable 6.2.2 MIT)·칸반(SortableJS)·차트(Chart.js)·간트(Frappe Gantt) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/handsontable@6.2.2/dist/handsontable.full.min.css">
+<script src="https://cdn.jsdelivr.net/npm/handsontable@6.2.2/dist/handsontable.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.css">
+<script src="https://cdn.jsdelivr.net/npm/frappe-gantt@0.6.1/dist/frappe-gantt.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="/static/css/app.css?v=z20260722fspin">
+<style id="ui-zoom-css">html{zoom:0.9;} body{height:calc(100vh / 0.9) !important;}</style>
+<script>
+/* 전체 UI 배율 — 앱만 90% 렌더링. body 높이를 100vh/zoom 로 보정해 하단 빈공간(zoom+100vh 충돌) 제거. localStorage 저장, setUIZoom(0.85~1.0)로 조절 */
+function _applyUIZoom(z){ z=Math.max(0.5,Math.min(1.3,parseFloat(z)||0.9)); var st=document.getElementById('ui-zoom-css'); if(st) st.textContent='html{zoom:'+z+';} body{height:calc(100vh / '+z+') !important;}'; return z; }
+(function(){ try{ var z=parseFloat(localStorage.getItem('utop_uizoom')); if(z>0.4) _applyUIZoom(z); }catch(e){} })();
+window.setUIZoom=function(v){ var z=_applyUIZoom(v); try{localStorage.setItem('utop_uizoom',String(z));}catch(e){} return z; };
+</script>
+</head>
+<body>
+<style>
+  /* ── RBAC 읽기 전용 ── */
+  #rbac-ro-bar{position:fixed;top:9px;left:50%;transform:translateX(-50%);z-index:3000;display:none;align-items:center;gap:7px;background:#fff7ed;border:1px solid #fdba74;color:#c2410c;font-size:12px;font-weight:700;padding:6px 15px;border-radius:20px;box-shadow:0 6px 18px rgba(0,0,0,0.13);}
+  .utop-ro button:not(.ro-ok), .utop-ro [contenteditable]:not(.ro-ok){pointer-events:none !important;opacity:0.55;}
+  /* ── 동시 접속 제어 바 ── */
+  #collab-bar{display:none;align-items:center;gap:7px;font-size:11.5px;font-weight:600;padding:5px 13px;border-radius:20px;flex-shrink:0;margin-left:12px;white-space:nowrap;}
+  #collab-bar.collab-ctrl{background:#ecfdf3;border:1px solid #6ce9a6;color:#067647;}
+  #collab-bar.collab-view{background:#fef3f2;border:1px solid #fda29b;color:#b42318;}
+  #collab-bar.collab-present{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#cdd5e0;padding:3px 11px 3px 4px;font-size:11.5px;}
+  #collab-bar b{font-weight:800;}
+  #collab-bar button{margin-left:5px;border:0;background:#b42318;color:#fff;font-size:11px;font-weight:700;padding:4px 11px;border-radius:14px;cursor:pointer;}
+  #collab-bar button:hover{background:#912018;}
+</style>
+<div id="rbac-ro-bar"><i class="ti ti-eye"></i> 읽기 전용 — 실행 권한이 없습니다</div>
+
+<!-- LLM 전역 상태 오버레이 -->
+<div id="llm-overlay" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:9999;pointer-events:none;">
+  <div id="llm-overlay-inner" style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 24px;display:flex;align-items:center;gap:10px;box-shadow:0 4px 20px rgba(0,0,0,0.15);">
+    <span style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block;animation:llm-blink 0.7s ease-in-out infinite;flex-shrink:0;"></span>
+    <span id="llm-overlay-msg" style="font-size:13px;font-weight:600;color:var(--text);"></span>
+  </div>
+</div>
+
+<div class="topbar">
+  <!-- 로고/상태는 topnav-bar(가로 탑 네비)로 이동 -->
+  <!-- 구역2: 브레드크럼 (본문 위) -->
+  <div style="flex:1;display:flex;align-items:center;gap:10px;min-width:0;padding-left:16px;">
+    <div id="topbar-crumb" style="display:flex;align-items:center;gap:7px;font-size:13px;"></div>
+    <i class="ti ti-circuit-board" style="color:var(--blue);font-size:20px;display:none"></i>
+    <a href="javascript:void(0)" onclick="location.reload()" title="새로고침"><img src="data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAAwADADASIAAhEBAxEB/8QAGgAAAgMBAQAAAAAAAAAAAAAABwgABQYCA//EAC4QAAEEAgEDAgUEAgMAAAAAAAECAwQFBhEhAAcSEzEUIkFRYRUjJDIIgRdCYv/EABgBAQEBAQEAAAAAAAAAAAAAAAUEBgID/8QAMBEAAQEFBQUHBQAAAAAAAAAAAREAAgMEBRIUIUFREzFhcZEGMqGiwdHwFiJikrH/2gAMAwEAAhEDEQA/AEy63PbfttY5lVWV4q1q6akqnWkTZtg8pCUhe+EAJPmoAf19+R9+qbt1jLmZZtVYuzOYguWL4ZQ+8klKDokcDkk60PyR7dNFZ2MWPCr8qdgtzcbqLSPUUkJDHyOALDL0/wBNA+d1RSrwGjoDjk9E1SoGWAcc7x+AaKceSE8GrlJbbPY7g1FRdr8J/nrx/t1k2RQpjQbZl3c9uAhscErZTr1NkjhSk+3HUve1+EfwFZB26ybHIUNotvS6Se3PQ4OSFvJ16mwTypKfbjrVxu8Dq02cxyoHwUOFPlISQpt5foSGmkJUFf12HNq2ONddyO6NrSuSIWQQ65yxjzIaXGq5qQsfDvqIKk+Sf3FAjQ8dg8/brI36qW1s+YrpqmYyz3M7c5Kz3j0Cfz1ZZe5Hbaxw2rrbxNtVXNLauOohTK94uJIRrhYKR4KIP9ffg/brDdOezkyJ+Hv2KKivhYvNu5lfbsmCA4gLV6LU0hQ2laT4+aSP+x+o6U7uDjbmIZnaY07NZnOV75ZU+yCEqOgTweQRvR/IPv1rKVUXpoFyIEeC+BzyUYdQWEnJXYkF0qCxe7JYXdYrRx+6ItMF+AmRXY8Zy2mPNriuq2jyT4tnTg0eBvjfRnxmntkdsceq3V4TYSkSIwo1IsXzHlrZT5lzzDe/UBSpXiARwd9DXtRJoKfthik6Pm+KJv66XLmfpttNCWkh9PpgexKFpACgdHkkfXrQUNnU1GKU7n/IeByshq8gkW/pGxDUV8PNrQpIKU/t69QnQTrY/PTMekSU2j0ZxTgd5G7keJwYB2qTkAvCE8mJG7nqOWLXkatvmgzbN1XbEpuHXobTyraUpMpby/J1obZ0SpTZ2P8Az14Q8Wt6OLYhjH+2kRqrkMypyjbzNxnEDzaKyWtgAHYHto+3WZyKDj1pjuNVLHd/D4ZoI70ppYkBYcsFulwEcjxQn2CuTyeOr65yGjsU57CVnGDJjZRBaLb4t/nakJZQ2UlHj/TYUfLe/bjryHZ+nIRYP7Pe+rdmt1BQQ/5RqOGmLc3Dl1NgZFgjMnttDly2pMicyi2lqcZUtPqOPEFnWxsL+3Q0784Td2yJebTLLCG/0+BGTMRVy3XHHypIDbittgFawQRyOAOj1V5j28j9wp1+/nuLOQ5NNGgBv41JUVtqWVbHt4kKHQf7lx8FidjLSipMvxx6f+quWCWIMxKi836p9NvXufFspAH08eOqJejSMqS9CdQ45n1J0HRp4tYnY5ddfJRXR3dTjll6stnR67TuXh7ZSV5Fjr+QURfTJgvonlmbXFrYW5H+QknXskEA+BH16AvRhwPvna0zNdT2tVAepYyEskR2ih1CANeQO9E/X89QzcHbOWUXwbU0syoim8vEBME148GM9RlTiUS0U+YYbkMKEyHlvXMVddIDW9bKwn03NHgkAc/TqW+VOKTERcZhhuPQprJfQ9TRV2Mgtb1sLKfTb2RoEg8/Tpf/APIDMYGV5Wy3TOByrgshDLmiPUUrSlK55+w/0ep2AzGBimVvN3Lgbq5zJQ85on01J2pKuOfuP9joH6dhJtM+Q9k8rJ3x29Xfa/YqWvh3L+XFtt3PYyGT23ZVi+Mv0dK2tybPeXYerNsErA07I+VJGgCSnZA8vbjoA9GLOu+ltbtWNRU1kFimkoWwA+2VurbI0STvQJ9/x0HenpOBsXLKJ49WNqhlTFF2eJCYrrwb/9k=" alt="Ubiquoss-TOP Logo" style="height:32px;object-fit:contain;cursor:pointer;"></a>
+    <a href="javascript:void(0)" onclick="location.reload()" style="text-decoration:none;cursor:pointer;" title="새로고침"><span class="logo-text" style="color:var(--blue);font-size:15px;font-weight:700;">ubi<span style="color:#e53e5a;font-weight:900;font-size:1.28em;position:relative;top:-2px;">Q</span>uoss-TOP</span></a>
+    <span class="logo-sub">Ubiquoss Test Orchestration Platform</span>
+  </div>
+  <!-- TC 생성 진행 토스트 슬롯 (구 메뉴 위치) -->
+  <div id="topbar-tc-progress" style="flex:1;display:flex;justify-content:center;align-items:center;min-width:0;padding:0 16px;"></div>
+  <!-- 상태 표시는 topnav-bar로 이동 -->
+</div>
+<!-- 2번째 줄: 메인 네비게이션 (Ubiquoss-TOP 헤더 아래로 이동) -->
+<div class="topnav-bar">
+    <!-- 로고 (메뉴 왼쪽) -->
+    <div class="topbar-logo">
+      <img id="tb-logo-img" class="tb-logo-img" src="" alt="" style="display:none;" onclick="location.reload()" title="새로고침">
+      <span class="tb-logo-text" onclick="location.reload()" title="새로고침 (ubiQuoss-TOP)">ubi<span style="color:#e53e5a;font-weight:900;font-size:1.18em;">Q</span>uoss-TOP</span>
+    </div>
+    <!-- 드롭다운 메뉴 -->
+    <div style="display:flex;align-items:stretch;gap:0;" id="top-nav">
+
+      <div class="top-menu-wrap">
+        <div class="nav-item" id="nav-dashboard" onclick="showPage('dashboard')">
+          <i class="ti ti-layout-dashboard" style="font-size:18px;"></i> Dashboard
+        </div>
+      </div>
+
+      <!-- AI Assistant 메뉴는 시스템 왼쪽으로 이동 -->
+
+      <div class="top-menu-wrap" onmouseenter="showDropdown('dd-test')" onmouseleave="hideDropdown('dd-test')">
+        <div class="nav-item active" id="nav-tm" onclick="navTop(event,'dd-test')">
+          <i class="ti ti-file-check" style="font-size:18px;"></i> Tests
+        </div>
+        <div class="top-dropdown" id="dd-test">
+          <!-- 향후 다시 사용 예정 — 아래 두 줄 주석 해제하면 즉시 복원
+          <div class="dd-item" onclick="showPage('req-v2')"><i class="ti ti-list-details"></i> Requirements</div>
+          <div class="dd-item" onclick="showPage('cov-v2')"><i class="ti ti-clipboard-check"></i> Coverage &amp; Test Details</div>
+          -->
+          <div class="dd-item" onclick="showPage('explorer3')"><i class="ti ti-columns-3"></i> Requirements &amp; Coverage</div>
+          <div class="dd-item" onclick="showPage('global-params')"><i class="ti ti-variable"></i> Global Parameters</div>
+          <div class="dd-item" onclick="showPage('snmp')"><i class="ti ti-binary-tree"></i> SNMP OID Management</div>
+          <div style="margin:4px 8px;border-top:1px solid var(--border);"></div>
+          <div class="dd-item" onclick="showPage('ixia-traffic')"><i class="ti ti-wave-sine"></i> IXIA N2X 트래픽 시험</div>
+          <div class="dd-item" onclick="showPage('stc-traffic')"><i class="ti ti-activity-heartbeat"></i> STC 트래픽 시험</div>
+          <div style="margin:4px 8px;border-top:1px solid var(--border);"></div>
+          <div class="dd-item" onclick="showPage('tests-color')"><i class="ti ti-palette"></i> Tests Theme</div>
+        </div>
+      </div>
+
+      <div class="top-menu-wrap" onmouseenter="showDropdown('dd-cycle')" onmouseleave="hideDropdown('dd-cycle')">
+        <div class="nav-item" id="nav-cycle" onclick="navTop(event,'dd-cycle')">
+          <i class="ti ti-rotate-clockwise" style="font-size:18px;"></i> Cycles
+        </div>
+        <div class="top-dropdown" id="dd-cycle">
+          <div class="dd-item" onclick="showPage('cycle')"><i class="ti ti-rotate-clockwise"></i> Cycle Execution</div>
+          <div class="dd-item" onclick="showPage('milestone')"><i class="ti ti-flag-3"></i> Milestone</div>
+          <div style="margin:4px 8px;border-top:1px solid var(--border);"></div>
+          <div class="dd-item" onclick="showPage('cycle-color')"><i class="ti ti-palette"></i> Cycles Theme</div>
+        </div>
+      </div>
+
+      <div class="top-menu-wrap" onmouseenter="showDropdown('dd-release')" onmouseleave="hideDropdown('dd-release')">
+        <div class="nav-item" id="nav-release-summary" onclick="navTop(event,'dd-release')">
+          <i class="ti ti-clipboard-text" style="font-size:18px;"></i> Reports
+        </div>
+        <div class="top-dropdown" id="dd-release">
+          <div class="dd-item" onclick="showPage('report')"><i class="ti ti-chart-bar"></i> Test Report</div>
+          <div style="margin:4px 8px;border-top:1px solid var(--border);"></div>
+          <div class="dd-item" onclick="showPage('reports-color')"><i class="ti ti-palette"></i> Reports Theme</div>
+        </div>
+      </div>
+
+      <div class="top-menu-wrap" onmouseenter="showDropdown('dd-jira')" onmouseleave="hideDropdown('dd-jira')">
+        <div class="nav-item" id="nav-jira" onclick="navTop(event,'dd-jira')">
+          <i class="ti ti-brand-jira" style="font-size:18px;"></i> Jira Integration
+        </div>
+        <div class="top-dropdown" id="dd-jira">
+          <div class="dd-item" onclick="rlsShowSub('status-beta')"><i class="ti ti-clipboard-list"></i> Jira Issue Coverage</div>
+          <div class="dd-item" onclick="rlsShowSub('stats')"><i class="ti ti-chart-pie"></i> Jira Issue Report</div>
+          <div class="dd-item" onclick="showPage('issue-sync')"><i class="ti ti-refresh"></i> Issue Sync</div>
+          <div style="margin:4px 8px;border-top:1px solid var(--border);"></div>
+          <div class="dd-item" onclick="showPage('sys-jira')"><i class="ti ti-plug-connected"></i> Jira 연동 설정</div>
+          <div class="dd-item" onclick="showPage('sys-jira-panel')"><i class="ti ti-layout-columns"></i> Jira 프로젝트 패널 설정</div>
+        </div>
+      </div>
+
+      <div class="top-menu-wrap" onmouseenter="showDropdown('dd-itms');renderItmsMenu()" onmouseleave="hideDropdown('dd-itms')">
+        <div class="nav-item" id="nav-itms" onclick="navTop(event,'dd-itms')">
+          <i class="ti ti-server-2" style="font-size:18px;"></i> Resources
+        </div>
+        <div class="top-dropdown" id="dd-itms">
+          <div class="dd-item" onclick="showPage('itms-rack')"><i class="ti ti-layout-grid"></i> Rack 배치 (Lab Rack View)</div>
+        </div>
+      </div>
+
+      <!-- Device Management 3종은 Rack View 드롭다운(renderItmsMenu)으로 이동됨 -->
+
+      <!-- AI Assistant 메뉴 (시스템 왼쪽) -->
+      <div class="top-menu-wrap" onmouseenter="showDropdown('dd-ai')" onmouseleave="hideDropdown('dd-ai')">
+        <div class="nav-item" id="nav-chat" onclick="navTop(event,'dd-ai')">
+          <i class="ti ti-sparkles" style="font-size:18px;color:#9d7bff;"></i> AI Assistant
+          <span id="ai-busy-badge" style="display:none;align-items:center;gap:4px;margin-left:6px;font-size:10px;font-weight:800;color:#fff;background:#7c5cff;border-radius:10px;padding:1px 8px;white-space:nowrap;"><span style="width:5px;height:5px;border-radius:50%;background:#fff;animation:aibusyblink 1s infinite;"></span>작업 중</span>
+        </div>
+        <div class="top-dropdown" id="dd-ai">
+          <div class="dd-item" onclick="showPage('jira-ai-beta')"><i class="ti ti-message-chatbot"></i> 지식 검색</div>
+          <div style="margin:4px 8px;border-top:1px solid var(--border);"></div>
+          <div class="dd-item" onclick="showPage('sys-ai')"><i class="ti ti-bulb"></i> 시험절차 학습/조회</div>
+          <div class="dd-item" onclick="showPage('manual')"><i class="ti ti-book-2"></i> RAG Data</div>
+          <div style="margin:4px 8px;border-top:1px solid var(--border);"></div>
+          <div class="dd-item" onclick="showPage('llm')"><i class="ti ti-brain"></i> LLM 설정</div>
+          <div class="dd-item" onclick="showPage('sys-jira-search')"><i class="ti ti-search"></i> Jira Search 설정</div>
+          <div class="dd-item" onclick="showPage('knowledge-src')"><i class="ti ti-list-search"></i> 지식 소스 설정</div>
+          <div style="margin:4px 8px;border-top:1px solid var(--border);"></div>
+          <div class="dd-item" onclick="showPage('ai-stat')"><i class="ti ti-chart-bar"></i> AI 피드백·통계</div>
+        </div>
+      </div>
+
+      <!-- 시스템 메뉴 -->
+      <div class="top-menu-wrap" onmouseenter="showDropdown('dd-sys')" onmouseleave="hideDropdown('dd-sys')">
+        <div class="nav-item" id="nav-sys" onclick="navTop(event,'dd-sys')">
+          <i class="ti ti-settings" style="font-size:18px;"></i> System
+        </div>
+        <div class="top-dropdown" id="dd-sys">
+          <div style="padding:6px 16px 4px;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.5px;">Tests</div>
+          <div class="dd-item" onclick="showPage('sys-custom')"><i class="ti ti-table-options"></i> 커스텀 필드</div>
+          <div style="margin:4px 8px;border-top:1px solid var(--border);"></div>
+          <div style="padding:6px 16px 4px;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.5px;">설정</div>
+          <div class="dd-item" onclick="showPage('sys-theme')"><i class="ti ti-palette"></i> 테마 설정</div>
+          <div class="dd-item" data-admin-only onclick="showPage('sys-mail')"><i class="ti ti-mail-cog"></i> 메일(SMTP) 설정</div>
+          <div style="margin:4px 8px;border-top:1px solid var(--border);"></div>
+          <div style="padding:6px 16px 4px;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.5px;">사용자</div>
+          <div class="dd-item" data-admin-only onclick="showPage('sys-users')"><i class="ti ti-users"></i> 사용자 관리</div>
+          <div class="dd-item" data-admin-only onclick="showPage('sys-perms')"><i class="ti ti-shield-lock"></i> 권한 관리</div>
+          <div class="dd-item" data-admin-only onclick="showPage('sys-org')"><i class="ti ti-sitemap"></i> 조직 설정</div>
+          <div style="margin:4px 8px;border-top:1px solid var(--border);"></div>
+          <div style="padding:6px 16px 4px;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.5px;">데이터</div>
+          <div class="dd-item" onclick="showPage('sys-export')"><i class="ti ti-download"></i> 데이터 내보내기</div>
+          <div class="dd-item" onclick="showPage('sys-import')"><i class="ti ti-upload"></i> 데이터 가져오기</div>
+          <div style="margin:4px 8px;border-top:1px solid var(--border);"></div>
+          <div style="padding:6px 16px 4px;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.5px;">정보</div>
+          <div class="dd-item" onclick="showPage('sys-version')"><i class="ti ti-versions"></i> 버전 현황</div>
+          <div class="dd-item" onclick="showPage('sys-config')"><i class="ti ti-adjustments"></i> 시스템 설정</div>
+          <div style="margin:4px 8px;border-top:1px solid var(--border);"></div>
+          <div style="padding:6px 16px 4px;font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.5px;">도움말</div>
+          <div class="dd-item" onclick="showPage('sys-help')"><i class="ti ti-help-circle"></i> 사용 도움말</div>
+        </div>
+      </div>
+
+      <!-- 자원 관리 → '리소스 관리'로 이름 변경 후 Rack View 드롭다운(renderItmsMenu)의 Device Management 아래로 이동됨 -->
+
+      <div class="top-menu-wrap">
+        <div class="nav-item" id="nav-bbs" onclick="showPage('bbs')">
+          <i class="ti ti-message-2" style="font-size:18px;"></i> 요청사항
+        </div>
+        <div class="nav-item" id="nav-todo" data-admin-only onclick="showPage('todo')">
+          <i class="ti ti-checklist" style="font-size:18px;"></i> TO-DO
+        </div>
+      </div>
+
+    </div><!--/top-nav-->
+    <!-- 우측 상태 (메뉴 오른쪽 끝) -->
+    <div class="top-nav-status">
+      <div class="stat-pill"><div class="dot g"></div><span id="stat-conn">장비 확인 중...</span></div>
+      <div class="stat-pill"><div class="dot" id="ws-dot" style="background:var(--text3)"></div><span id="ws-label">WebSocket</span></div>
+      <div id="user-bar" style="display:flex;align-items:center;gap:8px;"></div>
+      <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">
+        <i class="ti ti-moon" id="theme-icon"></i><span id="theme-text">라이트</span>
+      </button>
+    </div>
+  </div><!--/topnav-bar-->
+
+<div class="main">
+
+
+  <div class="content">
+
+    <!-- ══════════════ Dashboard ══════════════ -->
+    <div class="page active" id="page-dashboard" style="flex-direction:column;overflow-y:auto;padding:12px;gap:10px;background:var(--bg);flex:1;width:100%;">
+
+      <!-- 통합 대시보드 (위젯) — 제품·계측기·시험 병합 -->
+      <div id="dash-prod" style="display:flex;flex-direction:column;gap:14px;">
+
+        <!-- 헬스 허브 스타일 -->
+        <style>
+          #dash-prod .hub-hero{position:relative;background:radial-gradient(rgba(255,255,255,0.045) 1px,transparent 1.5px) 0 0/22px 22px,linear-gradient(135deg,#0c1a35 0%,#16284e 48%,#1f3c72 100%);border-radius:18px;padding:26px 32px 22px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:20px;box-shadow:0 18px 44px rgba(10,22,48,0.36);overflow:hidden;}
+          #dash-prod .hub-hero::after{content:'';position:absolute;right:-80px;top:-90px;width:290px;height:290px;border-radius:50%;background:radial-gradient(circle,rgba(0,201,141,0.22),transparent 70%);pointer-events:none;}
+          #dash-prod .hub-hero::before{content:'';position:absolute;left:-70px;bottom:-120px;width:270px;height:270px;border-radius:50%;background:radial-gradient(circle,rgba(99,160,255,0.2),transparent 70%);pointer-events:none;}
+          #dash-prod .hub-side{position:relative;z-index:1;display:inline-flex;align-items:center;gap:16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:15px 22px;justify-self:start;backdrop-filter:blur(6px);}
+          #dash-prod .hub-side.r{justify-self:end;flex-direction:row-reverse;text-align:right;}
+          #dash-prod .hub-side-ico{width:50px;height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;}
+          #dash-prod .hub-side-num{font-size:35px;font-weight:800;color:#fff;line-height:1;letter-spacing:-1px;}
+          #dash-prod .hub-side-num small{font-size:16px;font-weight:600;color:rgba(255,255,255,0.5);letter-spacing:0;}
+          #dash-prod .hub-side-lbl{font-size:11.5px;color:rgba(255,255,255,0.62);margin-top:7px;font-weight:500;}
+          #dash-prod .hub-gauge-wrap{position:relative;width:172px;height:172px;justify-self:center;z-index:1;}
+          #dash-prod .hub-gauge{width:172px;height:172px;display:block;}
+          #dash-prod .hub-gauge #hub-arc{filter:drop-shadow(0 0 5px rgba(0,201,141,0.55));}
+          #dash-prod .hub-gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+          #dash-prod .hub-gauge-pct{font-size:39px;font-weight:800;color:#fff;line-height:1;text-shadow:0 2px 16px rgba(0,201,141,0.4);}
+          #dash-prod .hub-gauge-cap{font-size:9.5px;color:rgba(255,255,255,0.55);margin-top:7px;letter-spacing:2px;text-transform:uppercase;}
+          #dash-prod .hub-chips{grid-column:1/-1;display:flex;gap:10px;justify-content:center;margin-top:10px;z-index:1;flex-wrap:wrap;}
+          #dash-prod .hub-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:30px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.09);color:rgba(255,255,255,0.9);font-size:11.5px;font-weight:500;}
+          #dash-prod .hub-chip b{color:#fff;font-weight:800;margin-left:2px;}
+          #dash-prod .hub-chip-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;box-shadow:0 0 8px currentColor;}
+          #dash-prod .hub-sec{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:16px 18px;}
+          #dash-prod .hub-sec-hd{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;}
+          #dash-prod .hub-sec-hd i{font-size:18px;}
+          #dash-prod .hub-sec-n{margin-left:6px;font-size:11px;color:var(--text3);font-weight:600;}
+          #dash-prod .hub-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(162px,1fr));gap:12px;}
+          #dash-prod .hub-grid.m{grid-template-columns:repeat(auto-fill,minmax(222px,1fr));}
+          #dash-prod .hub-card{position:relative;--ac:#2d6fd4;--ac2:#5b9bff;background:linear-gradient(180deg,var(--bg2),var(--bg));border:1px solid var(--border);border-radius:13px;padding:16px 15px 14px;overflow:hidden;transition:transform .18s,box-shadow .18s;}
+          #dash-prod .hub-card::before{content:'';position:absolute;left:0;top:0;right:0;height:3px;background:linear-gradient(90deg,var(--ac),var(--ac2));}
+          #dash-prod .hub-card:hover{transform:translateY(-4px);box-shadow:0 13px 28px -8px rgba(0,0,0,0.2);}
+          #dash-prod .hub-card.on{box-shadow:0 6px 18px -9px var(--ac);}
+          #dash-prod .hub-card.on:hover{box-shadow:0 15px 30px -8px var(--ac);}
+          #dash-prod .hub-card.off{opacity:0.62;}
+          #dash-prod .hub-card.off::before{opacity:0.4;}
+          #dash-prod .hub-card.off .hub-cmodel{color:var(--text2);}
+          #dash-prod .hub-ctop{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+          #dash-prod .hub-cico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;color:#fff;background:linear-gradient(135deg,var(--ac),var(--ac2));box-shadow:0 5px 13px -3px var(--ac);}
+          #dash-prod .hub-live{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;color:var(--green);}
+          #dash-prod .hub-live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:hubPulse 1.9s infinite;}
+          #dash-prod .hub-dead{font-size:10.5px;font-weight:700;color:var(--text3);}
+          #dash-prod .hub-cmodel{font-size:14px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-0.2px;}
+          #dash-prod .hub-cip{font-size:11px;color:var(--text2);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;margin-top:4px;}
+          #dash-prod .hub-cfoot{margin-top:11px;display:flex;gap:6px;}
+          #dash-prod .hub-proto{font-size:9px;font-weight:800;letter-spacing:0.5px;padding:3px 9px;border-radius:6px;background:var(--bg3);color:var(--text2);}
+          #dash-prod .hub-empty{color:var(--text3);font-size:12px;padding:20px;text-align:center;grid-column:1/-1;}
+          #dash-prod .hub-mport{margin-top:12px;min-height:34px;}
+          #dash-prod .hub-mport .e{font-size:10.5px;color:var(--text3);}
+          #dash-prod .hub-mport .err{font-size:10.5px;color:var(--red);}
+          #dash-prod .hub-mport .ld{font-size:10.5px;color:var(--text2);display:inline-flex;align-items:center;gap:6px;}
+          #dash-prod .hub-pp-row{display:flex;justify-content:space-between;font-size:11px;color:var(--text2);margin-bottom:6px;}
+          #dash-prod .hub-pp-row b{color:var(--text);font-weight:800;}
+          #dash-prod .hub-pp-bar{height:8px;border-radius:5px;background:var(--bg3);overflow:hidden;}
+          #dash-prod .hub-pp-fill{height:100%;background:linear-gradient(90deg,var(--ac),var(--ac2));border-radius:5px;transition:width .9s cubic-bezier(.22,1,.36,1);}
+          #dash-prod .hub-mbtn{margin-top:12px;width:100%;border:0;background:linear-gradient(135deg,var(--ac),var(--ac2));color:#fff;font-size:11px;font-weight:700;padding:9px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;box-shadow:0 5px 14px -4px var(--ac);transition:transform .15s,box-shadow .15s;}
+          #dash-prod .hub-mbtn:hover{transform:translateY(-1px);box-shadow:0 9px 19px -4px var(--ac);}
+          #dash-prod .hub-mbtn:disabled{opacity:0.6;cursor:default;transform:none;}
+          #dash-prod .hub-spin{animation:hubSpin .8s linear infinite;display:inline-block;}
+          @keyframes hubPulse{0%{box-shadow:0 0 0 0 rgba(0,168,114,0.55);}70%{box-shadow:0 0 0 8px rgba(0,168,114,0);}100%{box-shadow:0 0 0 0 rgba(0,168,114,0);}}
+          @keyframes hubSpin{to{transform:rotate(360deg);}}
+        </style>
+        <style>
+          #dash-prod .dsh-head{display:flex;align-items:center;justify-content:space-between;padding:2px 4px;}
+          #dash-prod .dsh-title{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:800;color:var(--text);letter-spacing:-0.3px;}
+          #dash-prod .dsh-title i{font-size:21px;color:var(--blue);}
+          #dash-prod .dsh-time{font-size:12px;color:var(--text3);}
+          #dash-prod .dsh-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;}
+          #dash-prod .dsh-kpi{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 18px;position:relative;overflow:hidden;}
+          #dash-prod .dsh-kpi::after{content:'';position:absolute;right:-16px;top:-16px;width:64px;height:64px;border-radius:50%;opacity:0.1;background:currentColor;}
+          #dash-prod .dsh-kpi-lbl{font-size:12px;color:var(--text2);font-weight:600;margin-bottom:11px;}
+          #dash-prod .dsh-kpi-num{font-size:31px;font-weight:800;line-height:1;letter-spacing:-1px;color:inherit;}
+          #dash-prod .dsh-grid2{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+          #dash-prod .dsh-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
+          #dash-prod .dsh-card-hd{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--text);margin-bottom:15px;}
+          #dash-prod .dsh-card-hd i{font-size:16px;color:var(--text2);}
+          #dash-prod .dsh-donut-wrap{display:flex;align-items:center;gap:24px;}
+          #dash-prod .dsh-leg{display:flex;flex-direction:column;gap:11px;flex:1;}
+          #dash-prod .dsh-leg-row{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--text2);}
+          #dash-prod .dsh-leg-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+          #dash-prod .dsh-leg-row b{margin-left:auto;color:var(--text);font-weight:800;font-size:14px;}
+          #dash-prod .dsh-bars{display:flex;flex-direction:column;gap:18px;padding-top:6px;}
+          #dash-prod .dsh-bar-top{display:flex;justify-content:space-between;font-size:12.5px;color:var(--text2);margin-bottom:7px;}
+          #dash-prod .dsh-bar-top b{color:var(--text);font-weight:800;}
+          #dash-prod .dsh-bar-track{height:12px;border-radius:7px;background:var(--bg3);overflow:hidden;}
+          #dash-prod .dsh-bar-fill{height:100%;border-radius:7px;transition:width 1s cubic-bezier(.22,1,.36,1);}
+          #dash-prod .dsh-rings{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+          #dash-prod .dsh-ring{display:flex;flex-direction:column;align-items:center;padding:8px 4px;}
+          #dash-prod .dsh-ring-wrap{position:relative;width:96px;height:96px;}
+          #dash-prod .dsh-ring-pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:19px;font-weight:800;color:var(--text);}
+          #dash-prod .dsh-ring-lbl{font-size:12px;font-weight:700;color:var(--text);margin-top:6px;}
+          #dash-prod .dsh-ring-sub{font-size:10.5px;color:var(--text3);margin-top:1px;}
+          #dash-prod .dsh-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;color:var(--text3);font-size:12.5px;min-height:150px;text-align:center;}
+          #dash-prod .dsh-empty i{font-size:28px;opacity:0.45;}
+          #dash-prod .dsh-card-n{margin-left:6px;font-size:11px;color:var(--text3);font-weight:600;}
+          #dash-prod .dsh-mlist{display:flex;flex-direction:column;gap:7px;}
+          #dash-prod .dsh-mrow{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--bg);}
+          #dash-prod .dsh-mico{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff;background:linear-gradient(135deg,#7c5cff,#b794ff);flex-shrink:0;}
+          #dash-prod .dsh-minfo{flex:1;min-width:0;}
+          #dash-prod .dsh-mname{font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+          #dash-prod .dsh-mip{font-size:10.5px;color:var(--text2);font-family:ui-monospace,monospace;margin-top:1px;}
+          #dash-prod .dsh-mstat{font-size:10.5px;font-weight:700;color:var(--text3);white-space:nowrap;}
+          #dash-prod .dsh-mstat.on{color:var(--green);}
+          #dash-prod .dsh-mport{font-size:11px;color:var(--text2);white-space:nowrap;}
+          #dash-prod .dsh-mport .ld{display:inline-flex;align-items:center;gap:5px;color:var(--text3);}
+          #dash-prod .dsh-pp b{color:var(--text);font-weight:800;}
+          #dash-prod .dsh-pperr{color:var(--red);font-size:10.5px;}
+          #dash-prod .dsh-mbtn{border:0;background:linear-gradient(135deg,#7c5cff,#b794ff);color:#fff;font-size:10.5px;font-weight:700;padding:6px 11px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;flex-shrink:0;box-shadow:0 4px 10px -3px #7c5cff;transition:transform .15s;}
+          #dash-prod .dsh-mbtn:hover{transform:translateY(-1px);}
+          #dash-prod .dsh-mbtn:disabled{opacity:0.6;cursor:default;transform:none;}
+          /* ── 위젯 대시보드 ── */
+          #dash-prod .dsh-tools{display:flex;gap:8px;}
+          #dash-prod .dsh-tbtn{border:1px solid var(--border);background:var(--bg2);color:var(--text2);font-size:12px;font-weight:600;padding:7px 13px;border-radius:9px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .15s;}
+          #dash-prod .dsh-tbtn:hover{background:var(--bg3);}
+          #dash-prod .dsh-tbtn.add{color:var(--blue);border-color:rgba(45,111,212,0.4);}
+          #dash-prod .dsh-tbtn.on{background:var(--blue);color:#fff;border-color:var(--blue);}
+          #dash-prod .dsh-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;align-items:start;}
+          #dash-prod .dsh-w{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:14px 16px;min-width:0;}
+          #dash-prod .dsh-w.edit{border-style:dashed;border-color:var(--blue);}
+          #dash-prod .dsh-w-hd{display:flex;align-items:center;gap:7px;margin-bottom:13px;}
+          #dash-prod .dsh-grip{color:var(--text3);cursor:grab;font-size:17px;flex-shrink:0;}
+          #dash-prod .dsh-w-sel{flex:1;min-width:0;border:0;background:transparent;font-size:13px;font-weight:700;color:var(--text);cursor:pointer;padding:4px 6px;border-radius:7px;}
+          #dash-prod .dsh-w-sel:hover{background:var(--bg3);}
+          #dash-prod .dsh-w-sel2{border:1px solid var(--border);background:var(--bg);font-size:10.5px;font-weight:600;color:var(--text2);cursor:pointer;padding:3px 5px;border-radius:6px;flex-shrink:0;}
+          #dash-prod .dsh-w-sel2:hover{background:var(--bg3);}
+          #dash-prod .dsh-w-ctl{display:flex;align-items:center;gap:4px;margin-left:auto;flex-shrink:0;}
+          #dash-prod .dsh-w-ctl button{border:1px solid var(--border);background:var(--bg);color:var(--text2);width:25px;height:25px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:13px;}
+          #dash-prod .dsh-w-ctl button:hover{background:var(--bg3);color:var(--blue);}
+          #dash-prod .dsh-wd{font-size:11px;font-weight:800;color:var(--text2);min-width:12px;text-align:center;}
+          #dash-prod .dsh-kpirow{display:grid;grid-template-columns:repeat(auto-fit,minmax(92px,1fr));gap:11px;}
+        </style>
+
+        <div id="dsh-head" class="dsh-head"></div>
+        <div id="dsh-grid" class="dsh-grid"></div>
+
+      </div><!-- /dash-prod -->
+
+
+      <!-- ② 계측기 Dashboard -->
+      <div id="dash-meter" style="display:none;flex-direction:column;gap:8px;">
+
+        <style>
+          .mc-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+          .mc-hdr{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);}
+          .mc-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+          .mc-title{font-size:13px;font-weight:500;color:var(--text);}
+          .mc-sub{font-size:10px;color:var(--text3);margin-top:2px;}
+          .mc-conn{margin-left:auto;font-size:10px;padding:3px 10px;border-radius:20px;font-weight:500;white-space:nowrap;}
+          .mc-conn.on{background:rgba(0,168,114,0.12);color:var(--green);}
+          .mc-conn.off{background:rgba(229,62,90,0.1);color:var(--red);}
+          .mc-info{display:flex;border-bottom:1px solid var(--border);}
+          .mc-info-item{flex:1;padding:8px 14px;border-right:1px solid var(--border);font-size:11px;}
+          .mc-info-item:last-child{border-right:none;}
+          .mc-info-lbl{font-size:10px;color:var(--text3);margin-bottom:2px;}
+          .mc-info-val{font-size:12px;color:var(--text);font-weight:500;}
+          .mc-ports-wrap{padding:12px 14px;}
+          .mc-ports-title{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;}
+          .port-legend{display:flex;gap:10px;}
+          .pl{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);}
+          .pl-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+          .port-grid{display:flex;flex-wrap:wrap;gap:5px;}
+          .mport{width:52px;height:44px;border-radius:6px;border:1px solid var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
+          .mport-num{font-size:11px;font-weight:500;}
+          .mport-lbl{font-size:9px;}
+          .mport.active{background:rgba(0,168,114,0.1);border-color:rgba(0,168,114,0.4);}
+          .mport.active .mport-num{color:var(--green);}
+          .mport.active .mport-lbl{color:var(--green);}
+          .mport.free{background:var(--bg3);}
+          .mport.free .mport-num{color:var(--text2);}
+          .mport.free .mport-lbl{color:var(--text3);}
+          .mport.disabled{background:var(--bg3);opacity:0.4;}
+          .mport.disabled .mport-num{color:var(--text3);}
+          .mport.disabled .mport-lbl{color:var(--text3);}
+          .mc-stat-row{display:flex;gap:6px;padding:8px 14px;border-top:1px solid var(--border);}
+          .mc-stat{flex:1;text-align:center;background:var(--bg3);border-radius:6px;padding:6px 8px;}
+          .mc-stat-num{font-size:16px;font-weight:500;color:var(--text);}
+          .mc-stat-lbl{font-size:9px;color:var(--text3);margin-top:1px;}
+        </style>
+
+        <!-- 요약 카드 -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
+            <div style="width:34px;height:34px;border-radius:8px;background:rgba(45,111,212,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="ti ti-device-analytics" style="color:var(--blue);font-size:17px;"></i>
+            </div>
+            <div><div style="font-size:20px;font-weight:500;" id="ms-total">3</div><div style="font-size:10px;color:var(--text3);">전체 계측기</div></div>
+            <div style="margin-left:auto;text-align:right;font-size:10px;"><div style="color:var(--green);">연결 2</div><div style="color:var(--red);">미연결 1</div></div>
+          </div>
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
+            <div style="width:34px;height:34px;border-radius:8px;background:rgba(0,168,114,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="ti ti-plug" style="color:var(--green);font-size:17px;"></i>
+            </div>
+            <div><div style="font-size:20px;font-weight:500;color:var(--green);" id="ms-active">5</div><div style="font-size:10px;color:var(--text3);">사용중 포트</div></div>
+          </div>
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
+            <div style="width:34px;height:34px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="ti ti-circle-dashed" style="color:var(--text2);font-size:17px;"></i>
+            </div>
+            <div><div style="font-size:20px;font-weight:500;" id="ms-free">23</div><div style="font-size:10px;color:var(--text3);">미사용 포트</div></div>
+          </div>
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
+            <div style="width:34px;height:34px;border-radius:8px;background:rgba(229,62,90,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+              <i class="ti ti-alert-triangle" style="color:var(--red);font-size:17px;"></i>
+            </div>
+            <div><div style="font-size:20px;font-weight:500;color:var(--red);" id="ms-disc">1</div><div style="font-size:10px;color:var(--text3);">미연결 계측기</div></div>
+          </div>
+        </div>
+
+        <!-- IXIA N2X -->
+        <div class="mc-card">
+          <div class="mc-hdr">
+            <div class="mc-icon" style="background:rgba(229,62,90,0.1);"><i class="ti ti-wave-sine" style="color:var(--red);" aria-hidden="true"></i></div>
+            <div><div class="mc-title">IXIA N2X</div><div class="mc-sub">Traffic Generator · ver 7.9</div></div>
+            <span class="mc-conn off" id="n2x-badge">● 미연결</span>
+          </div>
+          <div class="mc-info">
+            <div class="mc-info-item"><div class="mc-info-lbl">IP 주소</div><div class="mc-info-val" id="n2x-ip">192.168.3.10</div></div>
+            <div class="mc-info-item"><div class="mc-info-lbl">프로토콜</div><div class="mc-info-val">TCL · Port 8009</div></div>
+            <div class="mc-info-item"><div class="mc-info-lbl">전체 포트</div><div class="mc-info-val">8 포트</div></div>
+            <div class="mc-info-item"><div class="mc-info-lbl">세션</div><div class="mc-info-val" style="color:var(--text3);">비활성</div></div>
+          </div>
+          <div class="mc-ports-wrap">
+            <div class="mc-ports-title">포트 현황
+              <div class="port-legend">
+                <div class="pl"><div class="pl-dot" style="background:rgba(0,168,114,0.15);border:0.5px solid rgba(0,168,114,0.4);"></div>사용중</div>
+                <div class="pl"><div class="pl-dot" style="background:var(--bg3);border:0.5px solid var(--border);"></div>미사용</div>
+                <div class="pl"><div class="pl-dot" style="background:var(--bg3);border:0.5px solid var(--border);opacity:0.4;"></div>비활성</div>
+              </div>
+            </div>
+            <div class="port-grid">
+              <div class="mport disabled"><span class="mport-num">P1</span><span class="mport-lbl">비활성</span></div>
+              <div class="mport disabled"><span class="mport-num">P2</span><span class="mport-lbl">비활성</span></div>
+              <div class="mport disabled"><span class="mport-num">P3</span><span class="mport-lbl">비활성</span></div>
+              <div class="mport disabled"><span class="mport-num">P4</span><span class="mport-lbl">비활성</span></div>
+              <div class="mport disabled"><span class="mport-num">P5</span><span class="mport-lbl">비활성</span></div>
+              <div class="mport disabled"><span class="mport-num">P6</span><span class="mport-lbl">비활성</span></div>
+              <div class="mport disabled"><span class="mport-num">P7</span><span class="mport-lbl">비활성</span></div>
+              <div class="mport disabled"><span class="mport-num">P8</span><span class="mport-lbl">비활성</span></div>
+            </div>
+          </div>
+          <div class="mc-stat-row">
+            <div class="mc-stat"><div class="mc-stat-num" style="color:var(--text3);">0</div><div class="mc-stat-lbl">사용중</div></div>
+            <div class="mc-stat"><div class="mc-stat-num">8</div><div class="mc-stat-lbl">전체</div></div>
+            <div class="mc-stat"><div class="mc-stat-num" style="color:var(--text3);">0%</div><div class="mc-stat-lbl">사용률</div></div>
+          </div>
+        </div>
+
+        <!-- IXIA IxNetworks -->
+        <div class="mc-card">
+          <div class="mc-hdr">
+            <div class="mc-icon" style="background:rgba(45,111,212,0.1);"><i class="ti ti-network" style="color:var(--blue);" aria-hidden="true"></i></div>
+            <div><div class="mc-title">IXIA IxNetworks</div><div class="mc-sub">Network Emulator · REST API</div></div>
+            <span class="mc-conn on" id="ixn-badge">● 연결됨</span>
+          </div>
+          <div class="mc-info">
+            <div class="mc-info-item"><div class="mc-info-lbl">IP 주소</div><div class="mc-info-val" id="ixn-ip">192.168.3.20</div></div>
+            <div class="mc-info-item"><div class="mc-info-lbl">프로토콜</div><div class="mc-info-val">REST · Port 11009</div></div>
+            <div class="mc-info-item"><div class="mc-info-lbl">전체 포트</div><div class="mc-info-val">12 포트</div></div>
+            <div class="mc-info-item"><div class="mc-info-lbl">세션</div><div class="mc-info-val" style="color:var(--green);">Session #3 활성</div></div>
+          </div>
+          <div class="mc-ports-wrap">
+            <div class="mc-ports-title">포트 현황
+              <div class="port-legend">
+                <div class="pl"><div class="pl-dot" style="background:rgba(0,168,114,0.15);border:0.5px solid rgba(0,168,114,0.4);"></div>사용중</div>
+                <div class="pl"><div class="pl-dot" style="background:var(--bg3);border:0.5px solid var(--border);"></div>미사용</div>
+              </div>
+            </div>
+            <div class="port-grid">
+              <div class="mport active"><span class="mport-num">P1</span><span class="mport-lbl">사용중</span></div>
+              <div class="mport active"><span class="mport-num">P2</span><span class="mport-lbl">사용중</span></div>
+              <div class="mport active"><span class="mport-num">P3</span><span class="mport-lbl">사용중</span></div>
+              <div class="mport free"><span class="mport-num">P4</span><span class="mport-lbl">미사용</span></div>
+              <div class="mport free"><span class="mport-num">P5</span><span class="mport-lbl">미사용</span></div>
+              <div class="mport free"><span class="mport-num">P6</span><span class="mport-lbl">미사용</span></div>
+              <div class="mport free"><span class="mport-num">P7</span><span class="mport-lbl">미사용</span></div>
+              <div class="mport free"><span class="mport-num">P8</span><span class="mport-lbl">미사용</span></div>
+              <div class="mport free"><span class="mport-num">P9</span><span class="mport-lbl">미사용</span></div>
+              <div class="mport free"><span class="mport-num">P10</span><span class="mport-lbl">미사용</span></div>
+              <div class="mport free"><span class="mport-num">P11</span><span class="mport-lbl">미사용</span></div>
+              <div class="mport free"><span class="mport-num">P12</span><span class="mport-lbl">미사용</span></div>
+            </div>
+          </div>
+          <div class="mc-stat-row">
+            <div class="mc-stat"><div class="mc-stat-num" style="color:var(--green);">3</div><div class="mc-stat-lbl">사용중</div></div>
+            <div class="mc-stat"><div class="mc-stat-num">12</div><div class="mc-stat-lbl">전체</div></div>
+            <div class="mc-stat"><div class="mc-stat-num" style="color:var(--blue);">25%</div><div class="mc-stat-lbl">사용률</div></div>
+          </div>
+        </div>
+
+        <!-- Spirent Test Center -->
+        <div class="mc-card">
+          <div class="mc-hdr">
+            <div class="mc-icon" style="background:rgba(0,168,114,0.1);"><i class="ti ti-activity" style="color:var(--green);" aria-hidden="true"></i></div>
+            <div><div class="mc-title">Spirent Test Center</div><div class="mc-sub">Traffic Generator · Python API</div></div>
+            <span class="mc-conn on" id="stc-badge">● 연결됨</span>
+          </div>
+          <div class="mc-info">
+            <div class="mc-info-item"><div class="mc-info-lbl">IP 주소</div><div class="mc-info-val" id="stc-ip">192.168.3.30</div></div>
+            <div class="mc-info-item"><div class="mc-info-lbl">프로토콜</div><div class="mc-info-val">API · Port 8888</div></div>
+            <div class="mc-info-item"><div class="mc-info-lbl">전체 포트</div><div class="mc-info-val">8 포트</div></div>
+            <div class="mc-info-item"><div class="mc-info-lbl">세션</div><div class="mc-info-val" style="color:var(--green);">Session #1 활성</div></div>
+          </div>
+          <div class="mc-ports-wrap">
+            <div class="mc-ports-title">포트 현황
+              <div class="port-legend">
+                <div class="pl"><div class="pl-dot" style="background:rgba(0,168,114,0.15);border:0.5px solid rgba(0,168,114,0.4);"></div>사용중</div>
+                <div class="pl"><div class="pl-dot" style="background:var(--bg3);border:0.5px solid var(--border);"></div>미사용</div>
+              </div>
+            </div>
+            <div class="port-grid">
+              <div class="mport active"><span class="mport-num">P1</span><span class="mport-lbl">사용중</span></div>
+              <div class="mport active"><span class="mport-num">P2</span><span class="mport-lbl">사용중</span></div>
+              <div class="mport free"><span class="mport-num">P3</span><span class="mport-lbl">미사용</span></div>
+              <div class="mport free"><span class="mport-num">P4</span><span class="mport-lbl">미사용</span></div>
+              <div class="mport free"><span class="mport-num">P5</span><span class="mport-lbl">미사용</span></div>
+              <div class="mport free"><span class="mport-num">P6</span><span class="mport-lbl">미사용</span></div>
+              <div class="mport free"><span class="mport-num">P7</span><span class="mport-lbl">미사용</span></div>
+              <div class="mport free"><span class="mport-num">P8</span><span class="mport-lbl">미사용</span></div>
+            </div>
+          </div>
+          <div class="mc-stat-row">
+            <div class="mc-stat"><div class="mc-stat-num" style="color:var(--green);">2</div><div class="mc-stat-lbl">사용중</div></div>
+            <div class="mc-stat"><div class="mc-stat-num">8</div><div class="mc-stat-lbl">전체</div></div>
+            <div class="mc-stat"><div class="mc-stat-num" style="color:var(--blue);">25%</div><div class="mc-stat-lbl">사용률</div></div>
+          </div>
+        </div>
+
+      </div><!-- /dash-meter -->
+
+      <!-- ③ 시험항목 Dashboard (placeholder) -->
+      <div id="dash-tc" style="display:none;padding:60px;text-align:center;color:var(--text3);background:var(--bg2);border-radius:8px;border:1px solid var(--border);">
+        <i class="ti ti-clipboard-list" style="font-size:32px;display:block;margin-bottom:8px;"></i>시험항목 Dashboard — 준비 중
+      </div>
+
+    </div><!-- /page-dashboard -->
+
+    <!-- 장비 관리 -->
+    <div class="page" id="page-devices">
+      <div class="panel" style="width:210px;border-right:1px solid var(--border);">
+        <div class="ph">장비 목록
+          <button class="btn primary" style="padding:3px 8px;" onclick="openModal('modal-device-add')"><i class="ti ti-plus"></i></button>
+        </div>
+        <div class="pb" id="device-tree"></div>
+      </div>
+      <div class="vdiv"></div>
+      <div class="panel" style="flex:1;">
+        <div class="ph" id="device-detail-title">장비 상세</div>
+        <div class="pb" id="device-detail"><div class="detail-empty"><i class="ti ti-server-off"></i><span>장비를 선택하세요</span></div></div>
+      </div>
+    </div>
+
+    <!-- ══════════════ REQ/TC 통합 4열 ══════════════ -->
+    <!-- 서브 네비게이션 (Test Management 하위) -->
+    <div class="utop-subnav" id="utop-subnav" style="display:none !important;position:fixed;top:46px;left:0;right:0;z-index:50;justify-content:center;">
+      <div class="utop-subnav-item active" id="subnav-tm" onclick="showSubPage('tm')">
+        <i class="ti ti-layout-columns" style="font-size:22px;" aria-hidden="true"></i> Requirements & Test Coverage
+      </div>
+      <div class="utop-subnav-item" id="subnav-cycle" onclick="showSubPage('cycle')">
+        <i class="ti ti-rotate-clockwise" style="font-size:22px;" aria-hidden="true"></i> Test Suites &amp; Execution
+      </div>
+      <div class="utop-subnav-item" id="subnav-report" onclick="showSubPage('report')">
+        <i class="ti ti-chart-bar" style="font-size:22px;" aria-hidden="true"></i> Test Report
+      </div>
+    </div>
+
+    <!-- ══════════════ Test Management 통합 페이지 ══════════════ -->
+    <!-- Requirements & Test Coverage 페이지는 탐색기(page-explorer)로 통합되어 제거됨 -->
+
+
+    <div class="page" id="page-req" style="overflow:hidden;flex-direction:row;">
+
+      <!-- 1열: 폴더 트리 -->
+      <div class="req2-sidebar" id="req2-sidebar">
+        <div class="req2-sidebar-hdr">
+          <i class="ti ti-folder" style="font-size:18px;color:var(--blue);" aria-hidden="true"></i>
+          <span style="font-size:14px;font-weight:700;color:var(--text);flex:1;">폴더</span>
+          <button onclick="req2ExpandAll()" title="전체 펼치기"
+            style="padding:4px 9px;font-size:14px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;">
+            <i class="ti ti-unfold-more-horizontal"></i>
+          </button>
+          <button onclick="req2CollapseAll()" title="전체 접기"
+            style="padding:4px 9px;font-size:14px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;">
+            <i class="ti ti-fold"></i>
+          </button>
+          <button onclick="req2OpenFolderModal(null,'new')" title="루트 폴더 추가"
+            style="padding:4px 9px;font-size:14px;border-radius:6px;border:1px solid rgba(45,111,212,0.3);background:rgba(45,111,212,0.08);color:var(--blue);cursor:pointer;">
+            <i class="ti ti-plus"></i>
+          </button>
+        </div>
+        <div class="req2-sidebar-body" id="req2-folder-tree">
+          <div class="detail-empty" style="height:120px;"><i class="ti ti-folder"></i><span style="font-size:11px;">폴더 없음</span></div>
+        </div>
+      </div>
+
+      <!-- 구분선 -->
+      <div style="width:4px;flex-shrink:0;background:var(--border);cursor:col-resize;" onmousedown="colDragStart(event,'req2-sidebar',140,400)"></div>
+
+      <!-- 2열: REQ 목록 + 상세 -->
+      <div class="req2-main">
+        <!-- 헤더 -->
+        <div class="req2-main-hdr" style="flex-wrap:wrap;gap:10px;padding:10px 16px;">
+          <!-- 폴더 경로 + 통계 -->
+          <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;">
+            <i class="ti ti-folder-open" style="font-size:16px;color:var(--blue);" aria-hidden="true"></i>
+            <span id="req2-folder-breadcrumb" style="font-size:14px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">폴더를 선택하세요</span>
+            <span id="req2-folder-stats" style="font-size:13px;color:var(--text2);font-weight:500;white-space:nowrap;flex-shrink:0;"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;" id="req2-main-actions">
+            <!-- 검색 -->
+            <div style="display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid var(--border);border-radius:8px;padding:6px 12px;min-width:220px;">
+              <i class="ti ti-search" style="font-size:14px;color:var(--text3);" aria-hidden="true"></i>
+              <input id="req2-search" placeholder="REQ 검색..." oninput="req2Search(this.value)"
+                style="border:none;background:transparent;font-size:13px;color:var(--text);outline:none;width:100%;">
+            </div>
+            <!-- 필터 -->
+            <select id="req2-filter-priority" onchange="req2Render()"
+              style="font-size:13px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:#fff;color:var(--text2);outline:none;cursor:pointer;">
+              <option value="all">우선순위 전체</option>
+              <option value="Critical">Critical</option>
+              <option value="Major">Major</option>
+              <option value="Minor">Minor</option>
+            </select>
+            <select id="req2-filter-status" onchange="req2Render()"
+              style="font-size:13px;padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:#fff;color:var(--text2);outline:none;cursor:pointer;">
+              <option value="all">상태 전체</option>
+              <option value="DRAFT">DRAFT</option>
+              <option value="APPROVED">APPROVED</option>
+              <option value="DEPRECATED">DEPRECATED</option>
+            </select>
+            <!-- REQ 추가 -->
+            <button onclick="req2OpenNewREQ()"
+              style="display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:600;border:1.5px solid rgba(45,111,212,0.4);background:rgba(45,111,212,0.1);color:var(--blue);cursor:pointer;white-space:nowrap;">
+              <i class="ti ti-plus" style="font-size:15px;" aria-hidden="true"></i> REQ 추가
+            </button>
+            <button onclick="req2ExportWord()"
+              style="display:flex;align-items:center;gap:4px;padding:7px 12px;border-radius:8px;font-size:13px;border:1.5px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;" title="Word 문서 추출">
+              <i class="ti ti-file-word" style="font-size:15px;" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- REQ 테이블 영역 -->
+        <div class="req2-main-body" id="req2-table-wrap">
+          <div class="detail-empty" style="height:200px;">
+            <i class="ti ti-folder-open" style="font-size:40px;"></i>
+            <span>왼쪽에서 폴더를 선택하세요</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 우클릭 컨텍스트 메뉴 -->
+      <div id="req2-ctx" class="req2-ctx-menu" style="display:none;">
+        <div id="req2-ctx-path" style="display:none;font-size:10.5px;color:var(--text3);padding:5px 12px 4px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:240px;overflow:hidden;text-overflow:ellipsis;"></div>
+        <div class="req2-ctx-item" onclick="req2CtxAction('add-sub')"><i class="ti ti-folder-plus"></i> 하위 폴더 추가</div>
+        <div class="req2-ctx-item" onclick="req2CtxAction('add-req')"><i class="ti ti-plus"></i> REQ 추가</div>
+        <div class="req2-ctx-sep req2-fonly"></div>
+        <div class="req2-ctx-item req2-fonly" onclick="req2CtxAction('rename')"><i class="ti ti-edit"></i> 폴더명 수정</div>
+        <div class="req2-ctx-item req2-fonly" onclick="req2CtxAction('move-folder')"><i class="ti ti-folder-symlink"></i> 상위 폴더 변경</div>
+        <div class="req2-ctx-item req2-fonly" onclick="req2CtxAction('sort-name-asc')"><i class="ti ti-sort-ascending-letters"></i> 이름 오름차순 (A→Z)</div>
+        <div class="req2-ctx-item req2-fonly" onclick="req2CtxAction('sort-name-desc')"><i class="ti ti-sort-descending-letters"></i> 이름 내림차순 (Z→A)</div>
+        <div class="req2-ctx-item req2-fonly" onclick="req2CtxAction('sort-num-asc')"><i class="ti ti-sort-ascending-numbers"></i> 숫자 오름차순 (1→9)</div>
+        <div class="req2-ctx-item req2-fonly" onclick="req2CtxAction('sort-num-desc')"><i class="ti ti-sort-descending-numbers"></i> 숫자 내림차순 (9→1)</div>
+        <div class="req2-ctx-sep req2-fonly"></div>
+        <div class="req2-ctx-item req2-fonly" onclick="req2CtxAction('delete')" style="color:var(--red);"><i class="ti ti-trash" style="color:var(--red);"></i> 폴더 삭제</div>
+      </div>
+
+    </div><!-- /page-req -->
+
+    <!-- ══════════════ Test Cases 페이지 ══════════════ -->
+    <div class="page" id="page-tc" style="overflow:hidden;flex-direction:row;">
+
+      <!-- 1열: 폴더 트리 -->
+      <div style="width:220px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--bg2);overflow:hidden;">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;gap:8px;flex-shrink:0;">
+          <i class="ti ti-folder" style="font-size:16px;color:var(--blue);"></i>
+          <span style="font-size:13px;font-weight:700;flex:1;">폴더</span>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:4px;" id="tc-folder-tree"></div>
+      </div>
+
+      <!-- 2열: REQ 목록 -->
+      <div style="width:300px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);background:#fff;overflow:hidden;">
+        <div style="padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="font-size:13px;font-weight:700;flex:1;" id="tc2-title">REQ</span>
+            <span style="font-size:11px;color:var(--text3);" id="tc2-count"></span>
+          </div>
+          <input id="tc2-search" placeholder="REQ 검색..." oninput="tcRenderREQList()"
+            style="width:100%;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:#fff;outline:none;box-sizing:border-box;">
+          <div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;">
+            <select id="tc2-filter-status" onchange="tcRenderREQList()" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:#fff;outline:none;flex:1;">
+              <option value="">상태 전체</option>
+              <option>Draft</option><option>Work in Progress</option><option>Review</option><option>Approved</option><option>Deprecated</option>
+            </select>
+            <select id="tc2-filter-priority" onchange="tcRenderREQList()" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:#fff;outline:none;flex:1;">
+              <option value="">중요도 전체</option>
+              <option>Very High</option><option>High</option><option>Medium</option><option>Low</option>
+            </select>
+            <select id="tc2-filter-product" onchange="tcRenderREQList()" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:#fff;outline:none;flex:1;">
+              <option value="">제품 전체</option>
+              <option>공통</option><option>L2</option><option>L3</option><option>OLT</option><option>ONT</option><option>CPE</option><option>HGW</option><option>WIFI</option>
+            </select>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;" id="tc2-req-list">
+          <div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">폴더를 선택하세요</div>
+        </div>
+      </div>
+
+      <!-- 3열: TC 목록 + 인라인 세부내역 -->
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;background:#fff;">
+        <div style="padding:8px 12px;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <span style="font-size:13px;font-weight:700;flex:1;" id="tc3-title">TC</span>
+            <span style="font-size:11px;color:var(--text3);" id="tc3-count"></span>
+            <button onclick="tcAddNewTC(tcSelReqId)" style="font-size:11px;padding:3px 10px;border-radius:5px;border:1px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;white-space:nowrap;"><i class="ti ti-plus"></i> TC 추가</button>
+          </div>
+          <input id="tc3-search" placeholder="TC 검색 (ID, Summary)..." oninput="tcRenderTCList(null)"
+            style="width:100%;font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:#fff;outline:none;box-sizing:border-box;">
+          <div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap;">
+            <select id="tc3-filter-severity" onchange="tcRenderTCList(null)" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:#fff;outline:none;flex:1;">
+              <option value="">심각도 전체</option>
+              <option>Critical</option><option>Major</option><option>Normal</option><option>Minor</option><option>Cosmetic</option>
+            </select>
+            <select id="tc3-filter-status" onchange="tcRenderTCList(null)" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:#fff;outline:none;flex:1;">
+              <option value="">상태 전체</option>
+              <option>Draft</option><option>Work in Progress</option><option>Review</option><option>Approved</option><option>Deprecated</option>
+            </select>
+            <select id="tc3-filter-product" onchange="tcRenderTCList(null)" style="font-size:11px;padding:3px 6px;border:1px solid var(--border);border-radius:5px;background:#fff;outline:none;flex:1;">
+              <option value="">제품 전체</option>
+              <option>공통</option><option>L2</option><option>L3</option><option>OLT</option><option>ONT</option><option>CPE</option><option>HGW</option><option>WIFI</option>
+            </select>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;" id="tc3-list">
+          <div style="padding:30px;text-align:center;color:var(--text3);font-size:13px;">REQ를 선택하세요</div>
+        </div>
+      </div>
+
+    </div><!-- /page-tc -->
+
+    <!-- ══════════════ Req & Coverage 3열 베타 (explorer3) ══════════════ -->
+    <div class="page" id="page-explorer3" style="overflow:hidden;flex-direction:column;"></div>
+
+    <!-- ══════════════ Requirements (2열 신규, req-v2) ══════════════ -->
+    <div class="page" id="page-req-v2" style="overflow:hidden;flex-direction:column;"></div>
+
+    <!-- ══════════════ Coverage & Test Details (2열 신규, cov-v2) ══════════════ -->
+    <div class="page" id="page-cov-v2" style="overflow:hidden;flex-direction:column;"></div>
+
+    <!-- Beta 페이지(page-explorer3-beta) 는 사용자에게 노출되지 않으므로 제거됨 (2026-07-24).
+         관련 e3b* 함수/상태는 원본이 참조 중이라 코드는 유지. -->
+
+    <!-- ══════════════ 탐색기 (Explorer) ══════════════ -->
+    <div class="page" id="page-resource" style="overflow:hidden;flex-direction:column;"></div>
+
+    <div class="page" id="page-explorer" style="overflow:hidden;flex-direction:row;padding:12px;gap:6px;background:var(--bg);">
+      <div id="exp-tree-col" style="width:690px;flex-shrink:0;display:flex;flex-direction:column;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 2px 10px rgba(40,50,90,0.06);overflow:hidden;">
+        <div style="padding:9px 11px;border-bottom:1px solid var(--border);background:#fff;flex-shrink:0;border-radius:12px 12px 0 0;">
+          <!-- 1행 아이콘 툴바 -->
+          <div style="display:flex;gap:5px;align-items:center;">
+            <select id="exp-view-sel" onchange="expSetView(this.value)" title="보기 모드 (All / Requirement / Coverage)" style="flex:0 0 auto;width:140px;font-size:13px;padding:6px 8px;border-radius:7px;border:1.5px solid #5a6376;background:#fff;color:#3a4150;cursor:pointer;font-weight:700;outline:none;"><option value="all">All</option><option value="req">Requirement</option><option value="tc">Coverage</option></select>
+            <input id="exp-search" oninput="expOnSearch(this.value)" placeholder="REQ ID, 제목, TC 검색..." style="flex:1;min-width:0;font-size:12px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:#fff;outline:none;box-sizing:border-box;">
+            <button id="exp-filter-btn" onclick="expToggleFilterBar()" title="필터 (REQ · TC)" style="flex:0 0 auto;width:30px;height:30px;font-size:14px;border-radius:7px;border:1.5px solid #2d6fd4;background:#fff;color:#2d6fd4;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ti ti-filter"></i></button>
+            <button id="exp-sort-btn" onclick="expToggleSortBar()" title="정렬 (REQ · TC)" style="flex:0 0 auto;width:30px;height:30px;font-size:14px;border-radius:7px;border:1.5px solid #7c3aed;background:#fff;color:#7c3aed;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ti ti-arrows-sort"></i></button>
+            <button id="exp-create-btn" onclick="expToggleCreateMenu(event)" title="생성 (상위폴더 · REQ 일괄)" style="flex:0 0 auto;width:30px;height:30px;font-size:14px;border-radius:7px;border:1.5px solid #e8820c;background:#fff;color:#e8820c;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ti ti-plus"></i></button>
+            <button onclick="expTrashOpen()" title="휴지통 — 삭제한 REQ/TC 복원" style="flex:0 0 auto;width:30px;height:30px;font-size:14px;border-radius:7px;border:1.5px solid #94a3b8;background:#fff;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="ti ti-trash"></i></button>
+          </div>
+          <!-- 생성 메뉴 (＋) -->
+          <div id="exp-create-menu" style="display:none;margin-top:4px;border:1px solid var(--border);border-radius:8px;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,0.1);overflow:hidden;">
+            <div onclick="expAddFolder(null);expToggleCreateMenu()" style="padding:8px 12px;font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:7px;" onmouseenter="this.style.background='var(--bg3)'" onmouseleave="this.style.background='#fff'"><i class="ti ti-folder-plus" style="color:#e8820c;font-size:15px;"></i> 상위폴더 생성</div>
+            <div onclick="expBulkReqDialog();expToggleCreateMenu()" style="padding:8px 12px;font-size:12px;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:7px;border-top:1px solid var(--border);" onmouseenter="this.style.background='var(--bg3)'" onmouseleave="this.style.background='#fff'"><i class="ti ti-files" style="color:#7c3aed;font-size:15px;"></i> REQ 일괄 생성</div>
+          </div>
+          <!-- 카운트 스트립 (폴더 · REQ · TC) -->
+          <div style="display:flex;align-items:center;gap:18px;margin-top:8px;padding:6px 4px 2px;font-size:14px;font-weight:600;">
+            <span style="color:var(--text2);"><i class="ti ti-folder" style="font-size:17px;color:#e8a83c;vertical-align:-2px;"></i> 폴더 <b id="exp-stat-folder" style="color:var(--text);font-size:15.5px;">0</b></span>
+            <span style="color:var(--blue);font-weight:700;"><i class="ti ti-file-text" style="font-size:17px;vertical-align:-2px;"></i> REQ <b id="exp-stat-req" style="font-size:15.5px;">0</b></span>
+            <span style="color:var(--green);font-weight:700;"><i class="ti ti-clipboard-check" style="font-size:17px;vertical-align:-2px;"></i> TC <b id="exp-stat-tc" style="font-size:15.5px;">0</b></span>
+          </div>
+          <!-- 필터 바 (⛛ 토글) -->
+          <div id="exp-filter-bar" style="display:none;margin-top:6px;">
+            <div style="display:flex;gap:4px;">
+              <button id="exp-req-filter-btn" onclick="expToggleFilter('req')" style="flex:1;font-size:11px;padding:5px 0;border-radius:7px;border:1.5px solid #2d6fd4;background:#fff;color:#2d6fd4;cursor:pointer;font-weight:600;display:flex;align-items:center;justify-content:center;gap:4px;"><i class="ti ti-filter" style="font-size:12px;"></i> REQ 필터</button>
+              <button id="exp-tc-filter-btn" onclick="expToggleFilter('tc')" style="flex:1;font-size:11px;padding:5px 0;border-radius:7px;border:1.5px solid #00a872;background:#fff;color:#00a872;cursor:pointer;font-weight:600;display:flex;align-items:center;justify-content:center;gap:4px;"><i class="ti ti-filter" style="font-size:12px;"></i> TC 필터</button>
+            </div>
+            <div id="exp-req-filter" style="display:none;margin-top:5px;padding:7px;background:#fff;border:1px solid var(--border);border-radius:6px;"></div>
+            <div id="exp-tc-filter" style="display:none;margin-top:5px;padding:7px;background:#fff;border:1px solid var(--border);border-radius:6px;"></div>
+          </div>
+          <!-- 정렬 바 (↕ 토글) -->
+          <div id="exp-sort-bar" style="display:none;margin-top:6px;">
+            <div style="display:flex;gap:6px;">
+              <div style="flex:1;display:flex;align-items:center;gap:3px;">
+                <span style="font-size:9px;font-weight:700;color:var(--blue);flex-shrink:0;">REQ</span>
+                <select id="exp-sort" onchange="expSetSort(this.value)" style="flex:1;min-width:0;font-size:10px;padding:3px 4px;border:1px solid var(--border);border-radius:5px;background:#fff;outline:none;cursor:pointer;"><option value="reqid">ID</option><option value="title">이름</option><option value="status">상태</option><option value="updated">수정일</option></select>
+                <button id="exp-sort-dir" onclick="expToggleSortDir()" title="오름/내림" style="font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:5px;background:#fff;color:var(--text2);cursor:pointer;flex-shrink:0;">↑</button>
+              </div>
+              <div style="flex:1;display:flex;align-items:center;gap:3px;">
+                <span style="font-size:9px;font-weight:700;color:var(--green);flex-shrink:0;">TC</span>
+                <select id="exp-tc-sort" onchange="expSetTcSort(this.value)" style="flex:1;min-width:0;font-size:10px;padding:3px 4px;border:1px solid var(--border);border-radius:5px;background:#fff;outline:none;cursor:pointer;"><option value="tcid">ID</option><option value="name">이름</option><option value="status">상태</option></select>
+                <button id="exp-tc-sort-dir" onclick="expToggleTcSortDir()" title="오름/내림" style="font-size:11px;padding:2px 6px;border:1px solid var(--border);border-radius:5px;background:#fff;color:var(--text2);cursor:pointer;flex-shrink:0;">↑</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="flex:1;overflow-y:auto;padding:6px;" id="exp-tree" ondragover="event.preventDefault()" ondrop="expDropOnRoot(event)"></div>
+        <div id="exp-bulk-bar" style="display:none;padding:8px 10px;border-top:1px solid var(--border);background:#fff;align-items:center;gap:8px;flex-shrink:0;">
+          <span id="exp-bulk-count" style="font-size:12px;font-weight:600;color:var(--red);flex:1;"></span>
+          <button onclick="expBulkPDF()" style="font-size:12px;padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--text2);cursor:pointer;font-weight:600;display:flex;align-items:center;gap:4px;"><i class="ti ti-printer" style="font-size:15px;"></i> PDF 추출</button>
+          <button onclick="expBulkDelete()" style="font-size:12px;padding:5px 12px;border-radius:6px;border:1px solid rgba(229,62,90,0.5);background:rgba(229,62,90,0.1);color:var(--red);cursor:pointer;font-weight:600;"><i class="ti ti-trash"></i> 삭제</button>
+          <button onclick="expClearSel()" style="font-size:12px;padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:#fff;color:var(--text3);cursor:pointer;">취소</button>
+        </div>
+        <div id="exp-tree-status" style="padding:6px 12px;border-top:1px solid var(--border);background:#fafbfc;font-size:9px;color:var(--text3);text-align:right;letter-spacing:1px;opacity:0.55;flex-shrink:0;border-radius:0 0 12px 12px;">— 목록 끝 —</div>
+      </div>
+      <div onmousedown="expResizeStart(event)" title="드래그로 폭 조절" style="width:4px;flex-shrink:0;cursor:col-resize;border-radius:2px;background:transparent;" onmouseenter="this.style.background='var(--border)'" onmouseleave="this.style.background='transparent'"></div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 2px 10px rgba(40,50,90,0.06);overflow:hidden;" id="exp-detail">
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:14px;">왼쪽 트리에서 REQ 또는 TC를 선택하세요</div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 실행 보드 (REQ · TC · 실행) ══════════════ -->
+    <div class="page" id="page-board" style="overflow:hidden;flex-direction:column;">
+      <div style="padding:10px 18px;border-bottom:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;gap:14px;flex-wrap:wrap;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:7px;"><i class="ti ti-layout-board" style="font-size:18px;color:var(--blue);"></i><span style="font-size:15px;font-weight:700;">실행 보드</span></div>
+        <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:11px;color:var(--text3);font-weight:700;">프로젝트</span><select id="bd-project" onchange="boardOnChange('project')" style="font-size:12.5px;padding:5px 9px;border:1px solid var(--border);border-radius:6px;background:#fff;outline:none;min-width:130px;"><option value="">전체</option></select></div>
+        <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:11px;color:var(--text3);font-weight:700;">모델명</span><select id="bd-model" onchange="boardOnChange('model')" style="font-size:12.5px;padding:5px 9px;border:1px solid var(--border);border-radius:6px;background:#fff;outline:none;min-width:110px;"><option value="">전체</option></select></div>
+        <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:11px;color:var(--text3);font-weight:700;">버전그룹</span><select id="bd-vgroup" onchange="boardOnChange('vgroup')" style="font-size:12.5px;padding:5px 9px;border:1px solid var(--border);border-radius:6px;background:#fff;outline:none;min-width:100px;"><option value="">전체</option></select></div>
+        <div style="display:flex;align-items:center;gap:5px;"><span style="font-size:11px;color:var(--text3);font-weight:700;">버전명</span><select id="bd-version" onchange="boardOnChange('version')" style="font-size:12.5px;padding:5px 9px;border:1px solid var(--border);border-radius:6px;background:#fff;outline:none;min-width:110px;"><option value="">전체</option></select></div>
+        <span style="flex:1;"></span>
+        <span id="bd-ctx" style="font-size:11px;color:var(--text3);"></span>
+      </div>
+      <div style="flex:1;display:flex;overflow:hidden;">
+        <div style="width:300px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:#fff;overflow:hidden;">
+          <div style="padding:7px 12px;border-bottom:1px solid var(--border);background:#eef2f7;font-size:11px;font-weight:800;color:#2d6fd4;display:flex;align-items:center;gap:5px;"><i class="ti ti-file-text"></i> 1열 · 요구사항 <span id="bd-req-cnt" style="color:var(--text3);font-weight:600;"></span></div>
+          <div id="bd-col-req" style="flex:1;overflow-y:auto;"></div>
+        </div>
+        <div style="width:330px;flex-shrink:0;border-right:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg2);overflow:hidden;">
+          <div style="padding:7px 12px;border-bottom:1px solid var(--border);background:#e8f5ef;font-size:11px;font-weight:800;color:#00875a;display:flex;align-items:center;gap:5px;"><i class="ti ti-clipboard-check"></i> 2열 · 시험항목 (TC) <span id="bd-tc-cnt" style="color:var(--text3);font-weight:600;"></span></div>
+          <div id="bd-col-tc" style="flex:1;overflow-y:auto;"></div>
+        </div>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#fff;overflow:hidden;">
+          <div style="padding:7px 12px;border-bottom:1px solid var(--border);background:#f4eefc;font-size:11px;font-weight:800;color:#7c3aed;display:flex;align-items:center;gap:5px;"><i class="ti ti-player-play"></i> 3열 · 실행 &amp; 결과</div>
+          <div id="bd-col-exec" style="flex:1;overflow-y:auto;padding:14px 18px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page" id="page-report" style="overflow:hidden;flex-direction:column;">
+      <div style="flex:1;overflow-y:auto;padding:10px;" id="report-body"></div>
+    </div>
+
+    <!-- ══════════════ 시스템: 커스텀 필드 ══════════════ -->
+    <div class="page" id="page-sys-theme" style="overflow:hidden;flex-direction:column;">
+      <div style="padding:16px 24px;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0;display:flex;align-items:center;gap:10px;">
+        <i class="ti ti-palette" style="font-size:20px;color:var(--blue);"></i>
+        <span style="font-size:16px;font-weight:700;">테마 설정</span>
+        <span style="font-size:12px;color:var(--text3);">화면 모드와 강조 색을 선택합니다</span>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:28px;" id="theme-settings-body"></div>
+    </div>
+
+    <div class="page" id="page-sys-custom" style="overflow:hidden;flex-direction:column;">
+      <div style="padding:16px 24px;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0;display:flex;align-items:center;gap:10px;">
+        <i class="ti ti-table-options" style="font-size:20px;color:var(--blue);"></i>
+        <span style="font-size:16px;font-weight:700;">커스텀 필드 관리</span>
+        <span style="font-size:12px;color:var(--text3);">REQ / TC / Cycle에 추가 필드를 정의합니다</span>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:24px;display:flex;gap:20px;" id="sys-custom-body">
+        <!-- 탭 3개 -->
+        <div style="flex:1;display:flex;flex-direction:column;gap:16px;" id="sys-custom-panels"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 시스템: 프롬프트 설정 ══════════════ -->
+    <div class="page" id="page-sys-prompt" style="overflow:hidden;flex-direction:column;">
+      <div style="padding:16px 24px;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0;display:flex;align-items:center;gap:10px;">
+        <i class="ti ti-message-code" style="font-size:20px;color:var(--blue);"></i>
+        <span style="font-size:16px;font-weight:700;">프롬프트 설정</span>
+        <span style="font-size:12px;color:var(--text3);">용도별 LLM 모델과 프롬프트를 설정합니다</span>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:20px;display:flex;gap:16px;" id="sys-prompt-body">
+        <div style="flex:1;display:flex;flex-direction:column;gap:12px;" id="sys-prompt-panels"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 시스템: 사용자 관리 ══════════════ -->
+    <div class="page" id="page-sys-users" style="overflow:hidden;flex-direction:column;">
+      <div id="users-body" style="flex:1;overflow:auto;padding:24px 30px;"></div>
+    </div>
+
+    <!-- ══════════════ 시스템: 권한 관리 (RBAC) ══════════════ -->
+    <div class="page" id="page-sys-perms" style="overflow:auto;flex-direction:column;">
+      <div id="sys-perms-body" style="width:100%;"></div>
+    </div>
+
+    <!-- ══════════════ 시스템: 조직 설정 ══════════════ -->
+    <div class="page" id="page-sys-org" style="overflow:hidden;flex-direction:column;">
+      <div id="org-config-body" style="flex:1;overflow:auto;padding:24px 30px;"></div>
+    </div>
+
+    <!-- ══════════════ 시스템: LLM 학습/조회 ══════════════ -->
+    <div class="page" id="page-sys-ai" style="overflow:hidden;flex-direction:column;">
+      <div id="ai-learn-body" style="flex:1;overflow:auto;padding:24px 30px;"></div>
+    </div>
+
+    <!-- ══════════════ AI 피드백·통계 ══════════════ -->
+    <div class="page" id="page-ai-stat" style="overflow:hidden;flex-direction:column;">
+      <div id="ai-stat-body" style="flex:1;overflow:auto;padding:24px 30px;"></div>
+    </div>
+
+    <!-- ══════════════ 시스템: 데이터 내보내기 ══════════════ -->
+    <div class="page" id="page-sys-export" style="overflow:hidden;flex-direction:column;align-items:center;justify-content:center;">
+      <div style="text-align:center;color:var(--text3);"><i class="ti ti-download" style="font-size:48px;display:block;margin-bottom:16px;opacity:0.3;"></i><div style="font-size:18px;font-weight:700;margin-bottom:8px;">데이터 내보내기</div><div style="font-size:14px;">준비 중입니다.</div></div>
+    </div>
+
+    <!-- ══════════════ 시스템: 데이터 가져오기 ══════════════ -->
+    <div class="page" id="page-sys-import" style="overflow:hidden;flex-direction:column;align-items:center;justify-content:center;">
+      <div style="text-align:center;color:var(--text3);"><i class="ti ti-upload" style="font-size:48px;display:block;margin-bottom:16px;opacity:0.3;"></i><div style="font-size:18px;font-weight:700;margin-bottom:8px;">데이터 가져오기</div><div style="font-size:14px;">준비 중입니다.</div></div>
+    </div>
+
+    <!-- ══════════════ 시스템: 버전 현황 ══════════════ -->
+    <div class="page" id="page-sys-version" style="overflow:hidden;flex-direction:column;align-items:center;justify-content:center;">
+      <div style="text-align:center;color:var(--text3);"><i class="ti ti-versions" style="font-size:48px;display:block;margin-bottom:16px;opacity:0.3;"></i><div style="font-size:18px;font-weight:700;margin-bottom:8px;">버전 현황</div><div style="font-size:14px;">UTOP v1.0.0</div></div>
+    </div>
+
+    <!-- ══════════════ 시스템: 사용 도움말 ══════════════ -->
+    <div class="page" id="page-sys-help" style="overflow:hidden;flex-direction:column;">
+      <div style="padding:16px 24px;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0;display:flex;align-items:center;gap:10px;">
+        <i class="ti ti-help-circle" style="font-size:20px;color:var(--blue);"></i>
+        <span style="font-size:16px;font-weight:700;">사용 도움말</span>
+        <span style="font-size:12px;color:var(--text3);">U-TOP 전체 메뉴 안내 · 직접 편집 가능(마크다운)</span>
+      </div>
+      <div style="flex:1;display:flex;overflow:hidden;">
+        <div id="help-menu" style="width:260px;flex-shrink:0;border-right:1px solid var(--border);overflow:auto;background:var(--bg2);padding:12px 10px;"></div>
+        <div id="help-content-pane" style="flex:1;overflow:auto;background:var(--bg2);"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 시스템: 시스템 설정 ══════════════ -->
+    <!-- ══════════════ Jira 연동 설정 ══════════════ -->
+    <div class="page" id="page-sys-mail" style="overflow:auto;flex-direction:column;">
+      <div id="mail-config-body" style="max-width:680px;width:100%;margin:0 auto;padding:24px 26px;"></div>
+    </div>
+    <div class="page" id="page-sys-jira" style="overflow:auto;flex-direction:column;">
+      <div id="jira-config-body" style="max-width:1280px;width:100%;margin:0 auto;padding:24px 26px;"></div>
+    </div>
+    <div class="page" id="page-sys-jira-panel" style="overflow:auto;flex-direction:column;">
+      <div id="jira-panel-body" style="max-width:1280px;width:100%;margin:0 auto;padding:24px 26px;"></div>
+    </div>
+
+    <div class="page" id="page-global-params" style="overflow:auto;flex-direction:column;">
+      <div id="global-params-body" style="max-width:1600px;width:100%;margin:0 auto;padding:24px 26px;"></div>
+    </div>
+
+    <div class="page" id="page-sys-config" style="overflow:hidden;flex-direction:column;align-items:center;justify-content:center;">
+      <div style="text-align:center;color:var(--text3);"><i class="ti ti-adjustments" style="font-size:48px;display:block;margin-bottom:16px;opacity:0.3;"></i><div style="font-size:18px;font-weight:700;margin-bottom:8px;">시스템 설정</div><div style="font-size:14px;">준비 중입니다.</div></div>
+    </div>
+
+    <!-- ══════════════ AI 학습 데이터 (메뉴얼) ══════════════ -->
+    <div class="page" id="page-bbs" style="overflow:hidden;flex-direction:column;"></div>
+
+    <!-- ══════════════ TO-DO (관리자 전용) ══════════════ -->
+    <div class="page" id="page-todo" style="overflow:auto;padding:24px;"></div>
+
+    <div class="page" id="page-manual" style="overflow:hidden;flex-direction:column;">
+      <div style="padding:12px 18px;border-bottom:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;gap:12px;flex-shrink:0;">
+        <i class="ti ti-book-2" style="font-size:22px;color:var(--blue);"></i>
+        <div style="flex:1;"><div style="font-size:15px;font-weight:700;">RAG Data</div><div style="font-size:11px;color:var(--text3);">워드(.docx)·PDF·PPT(.pptx)·이미지·텍스트를 등록하면 <b>활성</b> 문서를 AI가 참고하여 TC·절차를 생성합니다. <b>문서·이미지 속 사진(명령 표·스크린샷)</b>은 OCR 또는 <b>AI 비전(gemma 등)</b>으로 글자를 추출합니다.</div></div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);white-space:nowrap;" title="문서·이미지 속 사진/스크린샷(명령 표 등) 처리 방식. AI 비전은 연동된 비전 모델(gemma 등)로 정확히 인식합니다."><i class="ti ti-photo" style="font-size:15px;"></i> 이미지 처리:
+          <select id="manual-img-mode" onchange="_manualImgMode=this.value" style="font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;outline:none;cursor:pointer;">
+            <option value="off" selected>사용 안 함 (텍스트만·빠름)</option>
+            <option value="ocr">OCR (느림)</option>
+            <option value="vision">AI 비전 (gemma 등·정확)</option>
+          </select></label>
+        <input type="file" id="manual-file" accept=".docx,.pdf,.pptx,.txt,.md,.png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff" multiple style="display:none;" onchange="manualUpload(this)">
+        <button onclick="document.getElementById('manual-file').click()" style="font-size:13px;padding:8px 16px;border-radius:8px;border:none;background:var(--blue);color:#fff;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;"><i class="ti ti-upload" style="font-size:16px;"></i> 매뉴얼 추가</button>
+      </div>
+      <div id="manual-list" style="flex:1;overflow-y:auto;padding:16px 18px;background:var(--bg);"></div>
+    </div>
+
+    <!-- ══════════════ Release Summary ══════════════ -->
+    <div class="page" id="page-release-summary" style="flex-direction:column;overflow:hidden;">
+      <div id="release-summary-body" style="width:100%;height:100%;display:flex;flex-direction:column;"></div>
+    </div>
+
+    <!-- ══════════════ Issue Sync ══════════════ -->
+    <div class="page" id="page-issue-sync" style="flex-direction:column;overflow:auto;">
+      <div id="issue-sync-body" style="width:100%;"></div>
+    </div>
+
+    <!-- ══════════════ 지식 검색 (AI Assistant 하위) ══════════════ -->
+    <div class="page" id="page-jira-ai-beta" style="flex-direction:column;overflow:hidden;">
+      <div id="jira-ai-beta-body" style="width:100%;height:100%;display:flex;min-height:0;"></div>
+    </div>
+
+    <!-- ══════════════ Jira Search 설정 ══════════════ -->
+    <div class="page" id="page-sys-jira-search" style="overflow:auto;flex-direction:column;">
+      <div id="jira-search-cfg-body" style="max-width:1400px;width:100%;margin:0 auto;padding:20px 24px;box-sizing:border-box;"></div>
+    </div>
+
+    <!-- ══════════════ 지식 소스 통합 설정 ══════════════ -->
+    <div class="page" id="page-knowledge-src" style="overflow:auto;flex-direction:column;">
+      <div id="knowledge-src-body" style="max-width:900px;width:100%;margin:0 auto;padding:20px 24px;box-sizing:border-box;"></div>
+    </div>
+
+    <!-- ══════════════ ITMS: Rack 배치 ══════════════ -->
+    <div class="page" id="page-itms-rack" style="overflow:hidden;flex-direction:column;">
+      <div style="padding:9px 18px;border-bottom:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;gap:12px;flex-shrink:0;">
+        <span id="rack-desc" style="font-size:11px;color:var(--text3);white-space:nowrap;flex-shrink:0;">왼쪽 미배치 장비를 랙 슬롯에 드래그 · 배치된 장비 클릭 시 원격 접속</span>
+        <span id="rack-mode-badge" style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:6px;flex-shrink:0;"></span>
+        <span id="rack-labtabs" style="display:flex;gap:7px;align-items:center;justify-content:center;overflow-x:auto;flex:1;margin:0 12px;min-width:0;"></span>
+        <span style="display:inline-flex;align-items:center;gap:3px;flex-shrink:0;">
+          <button onclick="rackScroll(-1)" title="랙 왼쪽으로" style="width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:#fff;color:#2d6fd4;cursor:pointer;font-weight:800;display:inline-flex;align-items:center;justify-content:center;"><i class="ti ti-chevron-left" style="font-size:17px;"></i></button>
+          <button onclick="rackScroll(1)" title="랙 오른쪽으로" style="width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:#fff;color:#2d6fd4;cursor:pointer;font-weight:800;display:inline-flex;align-items:center;justify-content:center;"><i class="ti ti-chevron-right" style="font-size:17px;"></i></button>
+        </span>
+        <span id="rack-slide-secwrap" style="display:none;align-items:center;gap:4px;flex-shrink:0;font-size:12px;color:var(--text3);font-weight:700;"><input id="rack-slide-sec" type="number" min="1" value="5" onchange="rackSlideRestart()" title="슬라이드 전환 간격(초)" style="width:52px;font-size:12px;padding:6px 8px;border-radius:7px;border:1px solid var(--border);background:#fff;color:var(--text);text-align:center;outline:none;box-sizing:border-box;">초</span>
+        <button id="rack-slide-btn" onclick="rackSlideToggle()" style="display:none;align-items:center;gap:4px;font-size:12px;padding:6px 13px;border-radius:7px;border:1px solid #2d6fd4;background:#fff;color:#2d6fd4;cursor:pointer;font-weight:700;flex-shrink:0;"><i class="ti ti-player-play"></i> 슬라이드</button>
+        <span id="rack-edit-btns" style="display:flex;gap:8px;flex-shrink:0;">
+        <button onclick="labAddPrompt()" style="font-size:12px;padding:6px 14px;border-radius:7px;border:1px solid #7c3aed;background:#fff;color:#7c3aed;cursor:pointer;font-weight:700;"><i class="ti ti-plus"></i> Lab 추가</button>
+        <button onclick="rackAddPrompt()" style="font-size:12px;padding:6px 14px;border-radius:7px;border:none;background:#e8820c;color:#fff;cursor:pointer;font-weight:700;"><i class="ti ti-plus"></i> 랙 추가</button>
+        </span>
+      </div>
+      <div style="flex:1;display:flex;overflow:hidden;" id="rack-board"></div>
+    </div>
+
+    <!-- ══════════════ STC 트래픽 시험 ══════════════ -->
+    <div class="page" id="page-ixia-traffic" style="overflow:hidden;flex-direction:column;"></div>
+    <div class="page" id="page-stc-traffic" style="overflow:hidden;flex-direction:column;"></div>
+
+    <!-- ══════════════ Tests Color (Req & Coverage 강조 색·글자·폰트) ══════════════ -->
+    <div class="page" id="page-tests-color" style="overflow:auto;flex-direction:column;">
+      <div style="padding:20px 26px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <i class="ti ti-palette" style="font-size:22px;color:#7c3aed;"></i>
+          <span style="font-size:18px;font-weight:800;color:var(--text);">Tests Theme</span>
+          <span style="font-size:12px;color:var(--text3);">화면별 항목 글자색·크기·굵기·폰트 · 즉시 저장 (이 브라우저에만 적용)</span>
+        </div>
+        <div id="tests-color-body" style="margin-top:14px;"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════ TC Cycle ══════════════ -->
+    <div class="page" id="page-cycle" style="overflow:hidden;flex-direction:column;">
+      <div style="flex:1;display:flex;overflow:hidden;padding:10px;gap:6px;background:var(--bg);" id="cycle-board"></div>
+      <!-- 하단 상태바(cycle-status) 제거 (사용자 요청) — cbRenderStatus는 요소 없으면 no-op -->
+    </div><!-- /page-cycle -->
+
+    <!-- ══════════════ Cycle Color (Cycle 화면 강조 색·글자·폰트·아이콘) ══════════════ -->
+    <div class="page" id="page-cycle-color" style="overflow:auto;flex-direction:column;">
+      <div style="padding:20px 26px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <i class="ti ti-palette" style="font-size:22px;color:#e8820c;"></i>
+          <span style="font-size:18px;font-weight:800;color:var(--text);">Cycles Theme</span>
+          <span style="font-size:12px;color:var(--text3);">Cycle 화면 항목 글자색·크기·굵기·폰트·아이콘 · 즉시 저장 (이 브라우저에만 적용)</span>
+        </div>
+        <div id="cycle-color-body" style="margin-top:14px;"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════ Reports Theme (Test Report 화면 KPI/Rollup 색·글자·폰트) ══════════════ -->
+    <div class="page" id="page-reports-color" style="overflow:auto;flex-direction:column;">
+      <div style="padding:20px 26px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <i class="ti ti-palette" style="font-size:22px;color:#2d6fd4;"></i>
+          <span style="font-size:18px;font-weight:800;color:var(--text);">Reports Theme</span>
+          <span style="font-size:12px;color:var(--text3);">Test Report 화면 KPI·Rollup 항목 글자색·크기·굵기·폰트 · 즉시 저장 (이 브라우저에만 적용)</span>
+        </div>
+        <div id="reports-color-body" style="margin-top:14px;"></div>
+      </div>
+    </div>
+
+    <!-- ══════════════ 마일스톤 (Test Planning) ══════════════ -->
+    <div class="page" id="page-milestone" style="overflow:hidden;flex-direction:column;">
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;" id="ms-board"></div>
+      <div id="ms-status" style="padding:5px 14px;border-top:1px solid var(--border);background:var(--bg3);font-size:10.5px;color:var(--text3);display:flex;align-items:center;gap:12px;flex-shrink:0;"></div>
+    </div><!-- /page-milestone -->
+
+    <!-- ══════════════ SNMP OID Management ══════════════ -->
+    <div class="page" id="page-snmp" style="overflow:auto;">
+      <div id="snmp-body" style="padding:18px 24px;"></div>
+    </div>
+
+    <!-- ══════════════ Device Registration — 3열 카드: 벤더>제품군 / 장비 목록 / 상세 ══════════════ -->
+    <div class="page" id="page-device-reg-beta" style="overflow:hidden;flex-direction:row;padding:8px;background:var(--bg);box-sizing:border-box;">
+      <div id="drb-cat" onclick="_drbFocusSet(1)" style="width:300px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 2px 10px rgba(40,50,90,0.06);"></div>
+      <div onmousedown="_drbRailDrag(event,1)" title="드래그로 폭 조절" style="width:8px;flex-shrink:0;cursor:col-resize;border-radius:4px;transition:background .12s;" onmouseenter="this.style.background='var(--border)'" onmouseleave="this.style.background='transparent'"></div>
+      <div id="drb-tree" onclick="_drbFocusSet(2)" style="width:550px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 2px 10px rgba(40,50,90,0.06);"></div>
+      <div onmousedown="_drbRailDrag(event,2)" title="드래그로 폭 조절" style="width:8px;flex-shrink:0;cursor:col-resize;border-radius:4px;transition:background .12s;" onmouseenter="this.style.background='var(--border)'" onmouseleave="this.style.background='transparent'"></div>
+      <div id="drb-detail" onclick="_drbFocusSet(3)" style="flex:1;overflow-y:auto;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:0 2px 10px rgba(40,50,90,0.06);"></div>
+    </div>
+
+    <!-- ══════════════ Vendor 등록 ══════════════ -->
+    <div class="page" id="page-vendor" style="overflow:hidden;flex-direction:column;">
+      <div id="vendor-body" style="flex:1;overflow-y:auto;padding:22px 28px;width:100%;box-sizing:border-box;"></div>
+    </div>
+
+    <!-- ══════════════ Model 등록 ══════════════ -->
+    <div class="page" id="page-model" style="overflow:hidden;flex-direction:column;">
+      <div id="model-body" style="flex:1;overflow-y:auto;padding:22px 28px;width:100%;box-sizing:border-box;"></div>
+    </div>
+
+    <!-- ══════════════ Line Card 등록 ══════════════ -->
+    <div class="page" id="page-linecard" style="overflow:hidden;flex-direction:column;">
+      <div id="card-body" style="flex:1;overflow-y:auto;padding:22px 28px;width:100%;box-sizing:border-box;"></div>
+    </div>
+
+    <div class="page" id="page-lab" style="overflow:hidden;flex-direction:column;">
+      <div id="lab-body" style="flex:1;overflow-y:auto;padding:22px 28px;width:100%;box-sizing:border-box;"></div>
+    </div>
+
+    <!-- ══════════════ 계측기 관리 ══════════════ -->
+    <div class="page" id="page-meters">
+      <div class="panel" style="width:210px;border-right:1px solid var(--border);">
+        <div class="ph">계측기 목록
+          <button class="btn primary" style="padding:3px 8px;" onclick="openModal('modal-meter-add')"><i class="ti ti-plus"></i></button>
+        </div>
+        <div class="pb" id="meter-tree"></div>
+      </div>
+      <div class="vdiv"></div>
+      <div class="panel" style="flex:1;">
+        <div class="ph" id="meter-detail-title">계측기 상세</div>
+        <div class="pb" id="meter-detail">
+          <div class="detail-empty"><i class="ti ti-device-analytics"></i><span>계측기를 선택하세요</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LLM 관리 -->
+    <div class="page" id="page-llm" style="overflow:hidden;flex-direction:column;">
+      <div style="padding:16px 24px;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0;display:flex;align-items:center;gap:10px;">
+        <i class="ti ti-brain" style="font-size:20px;color:var(--blue);"></i>
+        <span style="font-size:16px;font-weight:700;">모델 설정</span>
+        <span style="font-size:12px;color:var(--text3);">Chat LLM · 임베딩 · 리랭커를 한 곳에서 등록·관리합니다 (RAG 검색 + 답변 생성)</span>
+        <div style="flex:1;"></div>
+        <button id="llm-add-btn" class="btn primary" onclick="openModal('modal-llm-add')" style="font-size:13px;padding:8px 16px;"><i class="ti ti-plus"></i> LLM 추가</button>
+      </div>
+      <div id="llm-tab-bar" style="display:flex;flex-wrap:wrap;gap:2px;padding:0 24px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--bg3);">
+        <div onclick="llmModelTab('chat')" id="llm-mtab-chat" style="padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid var(--blue);color:var(--blue);"><i class="ti ti-robot"></i> Chat LLM</div>
+        <div onclick="llmModelTab('embed')" id="llm-mtab-embed" style="padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);"><i class="ti ti-vector"></i> 임베딩</div>
+        <div onclick="llmModelTab('rerank')" id="llm-mtab-rerank" style="padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);"><i class="ti ti-sort-descending-2"></i> 리랭커</div>
+        <div onclick="llmModelTab('pageai-tests')" id="llm-mtab-pageai-tests" style="padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);"><i class="ti ti-file-check"></i> Tests AI</div>
+        <div onclick="llmModelTab('pageai-cycle')" id="llm-mtab-pageai-cycle" style="padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);"><i class="ti ti-rotate-clockwise"></i> Cycle AI</div>
+        <div onclick="llmModelTab('pageai-report')" id="llm-mtab-pageai-report" style="padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);"><i class="ti ti-chart-bar"></i> Reports AI</div>
+        <div onclick="llmModelTab('pageai-jira_ai')" id="llm-mtab-pageai-jira_ai" style="padding:9px 16px;font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;color:var(--text3);"><i class="ti ti-database-search"></i> 지식 검색 AI</div>
+        <!-- 지식 어시스턴트(Dify) 탭은 _llmRenderDifyTabs()가 여기 뒤에 동적으로 추가 -->
+      </div>
+      <div id="llm-tab-chat" style="flex:1;display:flex;overflow:hidden;">
+        <div class="panel" style="width:300px;flex-shrink:0;border-right:1px solid var(--border);">
+          <div class="ph">LLM 목록 <span style="font-size:10px;color:var(--text3);font-weight:400;">· 드래그로 순서 변경</span></div>
+          <div class="pb" id="llm-tree"></div>
+        </div>
+        <div class="panel" style="flex:1;">
+          <div class="ph" id="llm-detail-title">LLM 상세</div>
+          <div class="pb" id="llm-detail">
+            <div class="detail-empty"><i class="ti ti-brain"></i><span>LLM을 선택하세요</span></div>
+          </div>
+        </div>
+      </div>
+      <div id="llm-tab-embed" style="flex:1;display:none;overflow:auto;padding:22px 26px;"></div>
+      <div id="llm-tab-rerank" style="flex:1;display:none;overflow:auto;padding:22px 26px;"></div>
+      <div id="llm-tab-pageai-tests" style="flex:1;display:none;overflow:auto;padding:22px 26px;"></div>
+      <div id="llm-tab-pageai-cycle" style="flex:1;display:none;overflow:auto;padding:22px 26px;"></div>
+      <div id="llm-tab-pageai-report" style="flex:1;display:none;overflow:auto;padding:22px 26px;"></div>
+      <div id="llm-tab-pageai-jira_ai" style="flex:1;display:none;overflow:auto;padding:22px 26px;"></div>
+      <!-- 지식 어시스턴트(Dify) 전용 콘텐츠 — Chat LLM 목록과 분리, 편집 폼만 -->
+      <div id="llm-tab-dify" style="flex:1;display:none;overflow:auto;"></div>
+    </div>
+
+    <!-- AI 어시스턴트 설정 -->
+    <div class="page" id="page-ai-config" style="flex-direction:column;">
+      <div style="padding:16px 24px;border-bottom:1px solid var(--border);background:var(--bg3);flex-shrink:0;display:flex;align-items:center;gap:10px;">
+        <i class="ti ti-adjustments" style="font-size:20px;color:#9d7bff;"></i>
+        <span style="font-size:16px;font-weight:700;">AI 어시스턴트 설정</span>
+        <span style="font-size:12px;color:var(--text3);">우하단 AI 어시스턴트(토글바)의 오프닝 메시지 등을 관리합니다</span>
+      </div>
+      <div style="flex:1;overflow:auto;padding:22px 26px;" id="ai-config-body"></div>
+    </div>
+
+    <!-- 시험 절차 -->
+    <div class="page" id="page-procedures">
+      <div class="panel" style="width:220px;border-right:1px solid var(--border);">
+        <div class="ph">절차 목록
+          <button class="btn primary" style="padding:3px 8px;" onclick="openProcForm(null)"><i class="ti ti-plus"></i></button>
+        </div>
+        <div class="pb" id="proc-tree"></div>
+      </div>
+      <div class="vdiv"></div>
+      <div class="panel" style="flex:1;">
+        <div class="ph" id="proc-detail-title">절차 상세</div>
+        <div class="pb" id="proc-detail"><div class="detail-empty"><i class="ti ti-clipboard-list"></i><span>절차를 선택하거나 + 로 등록하세요</span></div></div>
+      </div>
+    </div>
+
+    <!-- 템플릿 -->
+    <div class="page" id="page-templates">
+      <div class="panel" style="width:220px;border-right:1px solid var(--border);">
+        <div class="ph">템플릿 목록</div>
+        <div class="pb" id="tpl-list"></div>
+      </div>
+      <div class="vdiv"></div>
+      <div class="panel" style="flex:1;">
+        <div class="ph" id="tpl-detail-title">템플릿 상세</div>
+        <div class="pb" id="tpl-detail"><div class="detail-empty"><i class="ti ti-template"></i><span>템플릿을 선택하세요</span></div></div>
+      </div>
+    </div>
+
+    <!-- 시험 실행 -->
+    <div class="page" id="page-run" style="flex-direction:column;padding:16px;gap:12px;overflow-y:auto;">
+      <div style="font-size:16px;font-weight:700;">시험 실행</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;">
+        <div style="flex:1;"><div class="fl">실행할 절차 선택</div><select class="fs" id="run-select"></select></div>
+        <button class="btn primary" onclick="runProcedure()" id="run-btn"><i class="ti ti-player-play"></i> 실행</button>
+      </div>
+      <div id="run-log" style="display:none;">
+        <div class="section-title">실행 로그</div>
+        <div id="run-steps"></div>
+      </div>
+    </div>
+
+    <!-- 결과 리포트 -->
+    <div class="page" id="page-results" style="flex-direction:column;overflow:hidden;">
+      <div class="panel" style="flex:1;overflow:hidden;display:flex;">
+        <div style="width:280px;border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;">
+          <div class="ph">결과 목록 <button class="btn" style="padding:3px 8px;" onclick="loadResults()"><i class="ti ti-refresh"></i></button></div>
+          <div class="pb" id="result-list"></div>
+        </div>
+        <div class="vdiv"></div>
+        <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+          <div class="ph">결과 상세</div>
+          <div class="pb" id="result-detail"><div class="detail-empty"><i class="ti ti-chart-bar"></i><span>결과를 선택하세요</span></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI 채팅 (ChatGPT/Claude 스타일) -->
+    <div class="page" id="page-chat" style="flex-direction:row;overflow:hidden;">
+      <!-- 좌: LLM + 채팅 기록 -->
+      <div style="width:340px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border);background:var(--bg2);">
+        <div style="padding:10px;border-bottom:1px solid var(--border);flex-shrink:0;">
+          <div style="font-size:13px;color:var(--text3);font-weight:600;margin-bottom:4px;">모델</div>
+          <select id="chat-model-select" class="fs" onchange="chatModelChanged()" style="width:100%;font-size:14px;padding:7px 9px;margin-bottom:8px;"></select>
+          <div style="display:flex;gap:6px;">
+            <button onclick="chatNewSession()" style="flex:1;font-size:13px;padding:8px;border-radius:7px;border:1px solid var(--blue);background:var(--blue);color:#fff;cursor:pointer;font-weight:600;display:flex;align-items:center;justify-content:center;gap:6px;"><i class="ti ti-plus"></i> 새 채팅</button>
+            <button onclick="chatDeleteAll()" title="내 대화 기록 전체 삭제" style="flex-shrink:0;font-size:12.5px;padding:8px 11px;border-radius:7px;border:1px solid rgba(229,62,90,0.4);background:#fff;color:#e53e5a;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:5px;"><i class="ti ti-trash"></i> 전체 삭제</button>
+          </div>
+        </div>
+        <div style="padding:9px 10px;border-bottom:1px solid var(--border);flex-shrink:0;">
+          <div style="font-size:13px;color:var(--text3);font-weight:700;margin-bottom:6px;">지식 어시스턴트 <span style="font-weight:400;">— 클릭해서 바로 대화</span></div>
+          <div id="chat-dify-models"></div>
+        </div>
+        <div style="padding:10px 10px 4px;font-size:13px;font-weight:700;color:var(--text3);letter-spacing:0.5px;flex-shrink:0;">채팅 기록</div>
+        <div style="flex:1;overflow-y:auto;padding:4px 8px;" id="chat-session-list"></div>
+      </div>
+      <!-- 우: 대화 -->
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;background:#fff;">
+        <div class="chat-wrap" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+          <div class="chat-msgs" id="chat-msgs"></div>
+          <div id="chat-file-chip" style="display:none;padding:8px 10px 0;"></div>
+          <div class="chat-input-area">
+            <input type="file" id="chat-file-input" style="display:none" onchange="chatFileChosen(this)">
+            <button class="chat-send" onclick="chatPickFile()" title="파일 첨부" style="background:var(--bg3);border-color:var(--border);color:var(--text2);"><i class="ti ti-paperclip"></i></button>
+            <textarea class="chat-input" id="chat-input" rows="2" placeholder="장비 설정 방법, 시험 시나리오, 트러블슈팅 등... (이미지는 붙여넣기 가능)" onkeydown="chatKeydown(event)" onpaste="chatPaste(event)"></textarea>
+            <button class="chat-send" onclick="sendChat()"><i class="ti ti-send"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- REQ 폴더 생성 모달 -->
+<div class="modal-bg" id="modal-req-folder">
+  <div class="modal">
+    <div class="modal-title"><i class="ti ti-folder-plus"></i> 폴더 생성</div>
+    <div class="fr"><div class="fl">상위 폴더</div>
+      <select class="fs" id="rf-parent">
+        <option value="root">최상위</option>
+        <option value="U-REQ-SYS">U-REQ-SYS</option>
+        <option value="KT-REQ">KT-REQ</option>
+        <option value="C-REQ-LGU+">C-REQ-LGU+</option>
+      </select>
+    </div>
+    <div class="fr"><div class="fl">폴더 이름</div><input class="fi" id="rf-name" placeholder="예: IPv4_L2, QoS, Security"></div>
+    <div class="fr"><div class="fl">설명</div><input class="fi" id="rf-desc" placeholder="폴더 설명 (선택)"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-req-folder')">취소</button>
+      <button class="btn primary" onclick="submitREQFolder()"><i class="ti ti-device-floppy"></i> 생성</button>
+    </div>
+  </div>
+</div>
+
+<!-- REQ 등록 모달 -->
+<div class="modal-bg" id="modal-req-add">
+  <div class="modal" style="width:560px;">
+    <div class="modal-title" id="req-modal-title"><i class="ti ti-file-description"></i> REQ 등록</div>
+    <input type="hidden" id="ra-id">
+    <input type="hidden" id="ra-title">
+    <div class="fr"><div class="fl">폴더</div>
+      <select class="fs" id="ra-folder" onchange="updateREQId()"></select>
+    </div>
+    <div class="fr"><div class="fl">REQ ID</div>
+      <input class="fi" id="ra-reqid" placeholder="자동 생성" style="background:var(--bg3);color:var(--text2);" readonly>
+    </div>
+    <div class="fr"><div class="fl">REQ 제목</div>
+      <input class="fi" id="ra-title-vis" placeholder="예: VLAN Access 모드 설정"
+        oninput="syncREQTitle(this.value);updateREQId()">
+    </div>
+    <div class="fr"><div class="fl">카테고리</div>
+      <select class="fs" id="ra-cat">
+        <option value="l2">L2</option>
+        <option value="l3">L3</option>
+        <option value="olt">OLT</option>
+        <option value="cmn">공통</option>
+      </select>
+    </div>
+    <div class="fr"><div class="fl">적용 제품군</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="ra-p-l2"> L2</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="ra-p-l3"> L3</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="ra-p-olt"> OLT</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="ra-p-cmn"> 공통</label>
+      </div>
+    </div>
+    <div class="fr"><div class="fl">우선순위</div>
+      <select class="fs" id="ra-priority"><option>MUST</option><option>SHOULD</option><option>MAY</option></select>
+    </div>
+    <div class="fr"><div class="fl">상태</div>
+      <select class="fs" id="ra-status"><option>DRAFT</option><option>APPROVED</option><option>DEPRECATED</option></select>
+    </div>
+    <div class="fr"><div class="fl">Confluence</div><input class="fi" id="ra-confluence" placeholder="http://confluence.../..."></div>
+    <div class="fr"><div class="fl">개요</div>
+      <textarea class="fi" id="ra-overview" rows="3" style="resize:vertical;" placeholder="요구사항 개요 설명"></textarea>
+    </div>
+    <div class="fr"><div class="fl">시나리오</div>
+      <textarea class="fi" id="ra-scenarios" rows="4" style="resize:vertical;" placeholder="SC-001: 시나리오 설명&#10;SC-002: 시나리오 설명"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-req-add')">취소</button>
+      <button class="btn primary" onclick="submitREQ()"><i class="ti ti-device-floppy"></i> 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- LLM 추가 모달 -->
+<div class="modal-bg" id="modal-llm-add">
+  <div class="modal">
+    <div class="modal-title"><i class="ti ti-brain"></i> LLM 등록</div>
+    <div class="fr"><div class="fl">타입</div>
+      <select class="fs" id="la-type" onchange="llmTypeChange()">
+        <option value="local">로컬 LLM (vLLM)</option>
+        <option value="claude">Claude API</option>
+      </select>
+    </div>
+    <div class="fr"><div class="fl">이름</div><input class="fi" id="la-name" placeholder="예: EXAONE 4.0"></div>
+    <div class="fr"><div class="fl">엔드포인트</div><input class="fi" id="la-endpoint" placeholder="http://192.168.x.x:8000/v1"></div>
+    <div class="fr"><div class="fl">모델명</div><input class="fi" id="la-model" placeholder="예: EXAONE-4.0-32B"></div>
+    <div class="fr"><div class="fl">API Key</div><input class="fi" id="la-apikey" type="password" placeholder="없으면 비워두세요"></div>
+    <div class="fr"><div class="fl">Max Tokens</div><input class="fi" id="la-tokens" type="number" value="4096" placeholder="4096"></div>
+    <div class="fr"><div class="fl">Context Size</div><input class="fi" id="la-context" type="number" value="262144" placeholder="262144"></div>
+    <div class="fr"><div class="fl">Temperature</div><input class="fi" id="la-temp" type="number" value="0.7" step="0.1" min="0" max="2" placeholder="0.7"></div>
+    <div class="fr"><div class="fl">시스템 프롬프트</div><textarea class="fi" id="la-sysprompt" rows="4" style="resize:vertical;" placeholder="비워두면 Ubiquoss-TOP 기본 프롬프트 사용"></textarea></div>
+    <div class="fr"><div class="fl">용도</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px;">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="la-use-chat" checked> AI 채팅</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="la-use-req"> REQ 분석</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;"><input type="checkbox" id="la-use-tc"> TC 생성</label>
+      </div>
+    </div>
+    <div class="fr"><div class="fl">상태</div>
+      <select class="fs" id="la-status"><option value="active">활성</option><option value="inactive">비활성</option></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-llm-add')">취소</button>
+      <button class="btn primary" onclick="submitLLM()"><i class="ti ti-device-floppy"></i> 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 계측기 추가 모달 -->
+<div class="modal-bg" id="modal-meter-add">
+  <div class="modal">
+    <div class="modal-title"><i class="ti ti-device-analytics"></i> 계측기 등록</div>
+    <div class="fr"><div class="fl">계측기 종류</div>
+      <select class="fs" id="ma-model" onchange="meterModelChange()">
+        <option>IXIA N2X</option>
+        <option>IXIA IxNetworks</option>
+        <option>Spirent Test Center</option>
+      </select>
+    </div>
+    <div class="fr"><div class="fl">IP 주소</div><input class="fi" id="ma-ip" placeholder="192.168.3.10"></div>
+    <div class="fr"><div class="fl">프로토콜</div><select class="fs" id="ma-proto"><option>TCL</option><option>REST</option><option>API</option></select></div>
+    <div class="fr"><div class="fl">포트</div><input class="fi" id="ma-port" type="number" value="8009"></div>
+    <div class="fr"><div class="fl">설명</div><input class="fi" id="ma-desc" placeholder="계측기 설명"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-meter-add')">취소</button>
+      <button class="btn primary" onclick="submitMeter()"><i class="ti ti-device-floppy"></i> 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 장비 추가 모달 -->
+<div class="modal-bg" id="modal-device-add">
+  <div class="modal">
+    <div class="modal-title"><i class="ti ti-plus"></i> 장비 등록</div>
+    <div class="fr"><div class="fl">제품군</div><select class="fs" id="da-group"><option>스위치</option><option>OLT</option><option>계측기</option></select></div>
+    <div class="fr"><div class="fl">모델명</div><input class="fi" id="da-model" placeholder="예: E7124"></div>
+    <div class="fr"><div class="fl">IP 주소</div><input class="fi" id="da-ip" placeholder="192.168.1.10"></div>
+    <div class="fr"><div class="fl">프로토콜</div><select class="fs" id="da-proto"><option>SSH</option><option>Telnet</option><option>TCL</option><option>API</option><option>REST</option></select></div>
+    <div class="fr"><div class="fl">포트</div><input class="fi" id="da-port" type="number" value="22"></div>
+    <div class="fr"><div class="fl">사용자명</div><input class="fi" id="da-user" placeholder="admin"></div>
+    <div class="fr"><div class="fl">비밀번호</div><input class="fi" id="da-pass" type="password" placeholder="admin"></div>
+    <div class="fr"><div class="fl">설명</div><input class="fi" id="da-desc" placeholder="장비 설명"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-device-add')">취소</button>
+      <button class="btn primary" onclick="submitDevice(false)"><i class="ti ti-device-floppy"></i> 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 장비 수정 모달 -->
+<div class="modal-bg" id="modal-device-edit">
+  <div class="modal">
+    <div class="modal-title"><i class="ti ti-edit"></i> 장비 수정</div>
+    <input type="hidden" id="de-id">
+    <div class="fr"><div class="fl">제품군</div><select class="fs" id="de-group"><option>스위치</option><option>OLT</option><option>계측기</option></select></div>
+    <div class="fr"><div class="fl">모델명</div><input class="fi" id="de-model"></div>
+    <div class="fr"><div class="fl">IP 주소</div><input class="fi" id="de-ip"></div>
+    <div class="fr"><div class="fl">프로토콜</div><select class="fs" id="de-proto"><option>SSH</option><option>Telnet</option><option>TCL</option><option>API</option><option>REST</option></select></div>
+    <div class="fr"><div class="fl">포트</div><input class="fi" id="de-port" type="number"></div>
+    <div class="fr"><div class="fl">사용자명</div><input class="fi" id="de-user"></div>
+    <div class="fr"><div class="fl">비밀번호</div><input class="fi" id="de-pass" type="password"></div>
+    <div class="fr"><div class="fl">설명</div><input class="fi" id="de-desc"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-device-edit')">취소</button>
+      <button class="btn primary" onclick="submitDevice(true)"><i class="ti ti-device-floppy"></i> 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 절차 등록/수정 모달 -->
+<div class="modal-bg" id="modal-proc">
+  <div class="modal">
+    <div class="modal-title" id="proc-modal-title"><i class="ti ti-clipboard-list"></i> 시험 절차</div>
+    <input type="hidden" id="pm-id">
+    <div class="fr"><div class="fl">제품군</div><select class="fs" id="pm-group"><option>스위치</option><option>OLT</option><option>계측기</option></select></div>
+    <div class="fr"><div class="fl">모델명</div><input class="fi" id="pm-model" placeholder="예: E7124"></div>
+    <div class="fr"><div class="fl">절차 이름</div><input class="fi" id="pm-name" placeholder="예: VLAN 기능시험"></div>
+    <div class="fr"><div class="fl">설명</div><input class="fi" id="pm-desc" placeholder="시험 목적"></div>
+    <div class="section-title">시험 단계 <button class="btn" style="padding:2px 8px;font-size:11px;" onclick="addStepRow()"><i class="ti ti-plus"></i> 추가</button></div>
+    <div id="pm-steps"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-proc')">취소</button>
+      <button class="btn warn" onclick="saveAsTemplate()"><i class="ti ti-template"></i> 템플릿으로 저장</button>
+      <button class="btn primary" onclick="submitProc()"><i class="ti ti-device-floppy"></i> 저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 템플릿 적용 모달 -->
+<div class="modal-bg" id="modal-tpl-apply">
+  <div class="modal">
+    <div class="modal-title"><i class="ti ti-template"></i> 템플릿으로 절차 생성</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;" id="tpl-apply-name"></div>
+    <div class="fr"><div class="fl">적용할 제품군</div><select class="fs" id="ta-group"><option>스위치</option><option>OLT</option><option>계측기</option></select></div>
+    <div class="fr"><div class="fl">적용할 모델명</div><input class="fi" id="ta-model" placeholder="예: E6124"></div>
+    <div class="fr"><div class="fl">절차 이름</div><input class="fi" id="ta-name"></div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('modal-tpl-apply')">취소</button>
+      <button class="btn primary" onclick="submitTplApply()"><i class="ti ti-plus"></i> 절차 생성</button>
+    </div>
+  </div>
+</div>
+<script src="/static/js/_shared/01-core.js?v=z20260727iconsize4"></script>
+<script src="/static/js/dashboard/02-dashboard.js?v=z20260721reqdel"></script>
+<script src="/static/js/tests/03-requirements.js?v=z20260727reqalign"></script>
+<script src="/static/js/tests/04-testcase.js?v=z20260727streamcnt50"></script>
+<script src="/static/js/_shared/05-stc-rack.js?v=z20260727asyncres"></script>
+<script src="/static/js/_shared/06-nav-misc.js?v=z20260727reptheme"></script>
+<script src="/static/js/tests/07-global-params.js?v=z20260710h"></script>
+<script src="/static/js/reports/07-report.js?v=z20260727tcpopupreq3"></script>
+<script src="/static/js/cycles/08-milestone-cycle.js?v=z20260727btnheight"></script>
+<script src="/static/js/_shared/09-system-init.js?v=z20260722confsave"></script>
+<script src="/static/js/reports/10-myreport.js?v=z20260727guides6"></script>
+<script src="/static/js/board/11-board.js?v=z20260721bbsnocache"></script>
+<script src="/static/js/system/12-help.js?v=z20260701"></script>
+<script src="/static/js/resources/13-resource.js?v=z20260703c"></script>
+<script src="/static/js/todo/14-todo.js?v=z20260721imgmodal"></script>
+<script src="/static/js/tests/pages-requirements-v2.js?v=z20260726reqselect"></script>
+<!-- 플로팅 AI 어시스턴트 위젯 -->
+<div id="ai-fab" onclick="aiFabToggle()" title="AI 어시스턴트" style="position:fixed;right:24px;bottom:24px;z-index:11500;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#2d6fd4,#9d7bff);box-shadow:0 6px 20px rgba(45,111,212,0.45);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;transition:transform 0.15s;" onmouseenter="this.style.transform='scale(1.08)'" onmouseleave="this.style.transform='scale(1)'">
+  <i class="ti ti-sparkles" style="font-size:26px;"></i>
+</div>
+<div id="ai-fab-panel" style="display:none;position:fixed;right:24px;bottom:90px;z-index:11500;width:1040px;max-width:97vw;height:900px;max-height:calc(100vh - 110px);background:#fff;border:1px solid var(--border);border-radius:16px;box-shadow:0 16px 50px rgba(0,0,0,0.28);flex-direction:column;overflow:hidden;">
+  <div style="padding:14px 16px;background:linear-gradient(135deg,#2d6fd4,#9d7bff);color:#fff;display:flex;align-items:center;gap:9px;flex-shrink:0;">
+    <i class="ti ti-sparkles" style="font-size:20px;"></i>
+    <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;">Ubiquoss-TOP AI 어시스턴트</div></div>
+    <select id="ai-fab-model" onchange="_aiFabModelPick=this.value" title="응답 모델 선택 (클로드/로컬 LLM)" style="font-size:13.5px;font-weight:700;max-width:220px;padding:7px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.4);background:rgba(255,255,255,0.2);color:#fff;cursor:pointer;outline:none;margin-right:8px;"></select>
+    <i class="ti ti-maximize" id="ai-fab-expand-ic" onclick="aiFabExpand()" title="확대 / 축소" style="font-size:18px;cursor:pointer;opacity:0.9;margin-right:6px;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.9'"></i>
+    <i class="ti ti-eraser" onclick="aiFabClear()" title="대화 비우기" style="font-size:17px;cursor:pointer;opacity:0.9;margin-right:4px;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.9'"></i>
+    <i class="ti ti-x" onclick="aiFabToggle()" title="닫기" style="font-size:18px;cursor:pointer;opacity:0.9;" onmouseenter="this.style.opacity='1'" onmouseleave="this.style.opacity='0.9'"></i>
+  </div>
+  <div id="ai-fab-msgs" style="flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;background:#f7f8fb;"></div>
+  <div style="padding:10px;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0;background:#fff;">
+    <textarea id="ai-fab-input" rows="1" placeholder="메시지 입력… (Enter 전송)" onkeydown="aiFabKeydown(event)" style="flex:1;resize:none;font-size:13px;font-family:var(--font);padding:9px 11px;border:1.5px solid var(--border);border-radius:9px;outline:none;max-height:90px;box-sizing:border-box;"></textarea>
+    <button id="ai-fab-send" onclick="aiFabSendOrStop()" title="전송" style="flex-shrink:0;width:40px;border:none;border-radius:9px;background:var(--blue);color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;"><i class="ti ti-send"></i></button>
+  </div>
+</div>
+<div id="pdf-print-area"></div>
+</body>
+</html>

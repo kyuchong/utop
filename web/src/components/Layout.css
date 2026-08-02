@@ -1,0 +1,148 @@
+.app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-app-bg);
+}
+
+/* ── 상단바 ────────────────────────────────────────────────── */
+.topbar {
+  height: var(--topbar-h);
+  flex: none;
+  background: var(--c-topbar);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--sp-5);
+  gap: var(--sp-5);
+}
+
+.topbar-logo {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.topbar-chip {
+  background: var(--c-topbar-item);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius);
+  color: #dce3ea;
+}
+
+.topbar-search {
+  margin-left: auto;
+  width: 270px;
+  background: var(--c-topbar-item);
+  padding: 9px var(--sp-3);
+  border-radius: var(--radius);
+  color: #aab5c0;
+}
+
+.topbar-user {
+  color: #dce3ea;
+}
+
+/* ── 본문 ──────────────────────────────────────────────────── */
+.app-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.nav {
+  width: var(--nav-w);
+  flex: none;
+  background: var(--c-surface);
+  border-right: 1px solid var(--c-border-nav);
+  padding: var(--sp-4) 10px;
+  overflow-y: auto;
+}
+
+.nav-group {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #89939d;
+  margin: 15px var(--sp-3) 7px;
+}
+
+.nav-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px var(--sp-3);
+  border: 0;
+  border-radius: var(--radius);
+  margin: 2px 0;
+  background: transparent;
+  color: var(--c-text);
+}
+
+.nav-item:hover {
+  background: var(--c-surface-alt);
+}
+
+.nav-item.on {
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  font-weight: 700;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── 화면 머리(빵부스러기 · 제목 · 탭) ─────────────────────── */
+.crumb {
+  font-size: 12px;
+  color: var(--c-text-faint);
+}
+
+.page-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 7px 0 var(--sp-3);
+}
+
+.page-head h1 {
+  font-size: var(--fs-title);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-head-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex: none;
+}
+
+.tabs {
+  height: 40px;
+  flex: none;
+  border-bottom: 1px solid #d8dde3;
+  display: flex;
+  gap: 22px;
+}
+
+.tab {
+  padding: 11px 3px;
+  border: 0;
+  background: none;
+  color: var(--c-text);
+}
+
+.tab.on {
+  color: var(--c-primary);
+  font-weight: 700;
+  box-shadow: inset 0 -2px 0 var(--c-primary);
+}

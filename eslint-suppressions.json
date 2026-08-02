@@ -1,0 +1,139 @@
+{
+  "frontend/static/js/_shared/01-core.js": {
+    "no-constant-condition": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 9
+    }
+  },
+  "frontend/static/js/dashboard/02-dashboard.js": {
+    "no-redeclare": {
+      "count": 12
+    },
+    "no-unused-vars": {
+      "count": 13
+    },
+    "no-useless-assignment": {
+      "count": 2
+    }
+  },
+  "frontend/static/js/tests/03-requirements.js": {
+    "no-redeclare": {
+      "count": 3
+    },
+    "no-unused-vars": {
+      "count": 10
+    },
+    "no-useless-assignment": {
+      "count": 12
+    },
+    "no-useless-escape": {
+      "count": 3
+    }
+  },
+  "frontend/static/js/tests/04-testcase.js": {
+    "no-redeclare": {
+      "count": 3
+    },
+    "no-unused-vars": {
+      "count": 36
+    },
+    "no-useless-assignment": {
+      "count": 11
+    },
+    "no-useless-escape": {
+      "count": 8
+    }
+  },
+  "frontend/static/js/_shared/05-stc-rack.js": {
+    "no-control-regex": {
+      "count": 1
+    },
+    "no-redeclare": {
+      "count": 6
+    },
+    "no-unused-vars": {
+      "count": 25
+    },
+    "no-useless-assignment": {
+      "count": 9
+    },
+    "no-useless-escape": {
+      "count": 8
+    }
+  },
+  "frontend/static/js/_shared/06-nav-misc.js": {
+    "no-redeclare": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 3
+    },
+    "no-useless-assignment": {
+      "count": 2
+    }
+  },
+  "frontend/static/js/reports/07-report.js": {
+    "no-redeclare": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 15
+    },
+    "no-useless-assignment": {
+      "count": 6
+    },
+    "no-useless-escape": {
+      "count": 2
+    }
+  },
+  "frontend/static/js/cycles/08-milestone-cycle.js": {
+    "no-unused-vars": {
+      "count": 8
+    }
+  },
+  "frontend/static/js/_shared/09-system-init.js": {
+    "no-unused-vars": {
+      "count": 8
+    },
+    "no-useless-assignment": {
+      "count": 5
+    },
+    "no-useless-escape": {
+      "count": 1
+    }
+  },
+  "frontend/static/js/reports/10-myreport.js": {
+    "no-control-regex": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 3
+    },
+    "no-useless-escape": {
+      "count": 1
+    }
+  },
+  "frontend/static/js/resources/13-resource.js": {
+    "no-unused-vars": {
+      "count": 2
+    },
+    "no-useless-assignment": {
+      "count": 3
+    }
+  },
+  "frontend/static/js/todo/14-todo.js": {
+    "no-irregular-whitespace": {
+      "count": 1
+    },
+    "no-unused-vars": {
+      "count": 2
+    }
+  },
+  "frontend/static/js/tests/pages-requirements-v2.js": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  }
+}

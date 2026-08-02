@@ -1,0 +1,79 @@
+/**
+ * 백엔드가 실제로 돌려주는 모양.
+ *
+ * 근거: backend/db.py 의 _req_meta / _tc_meta, backend/main.py 의
+ *       GET /api/req, GET /api/req/{id}, GET /api/tc?meta=1
+ *
+ * req/tc 는 PG 의 data JSONB 를 그대로 돌려주므로 스키마가 느슨하다.
+ * 여기 적힌 필드는 "메타 추출기가 실제로 읽는 것" 만 확정으로 두고,
+ * 나머지는 인덱스 시그니처로 남긴다.
+ *
+ * TODO: `npm run gen:api` 로 /openapi.json 에서 자동 생성한 타입으로 교체.
+ *       현재 백엔드 라우트가 dict 반환이라 OpenAPI 에 본문 스키마가 없다.
+ */
+
+export type TestStatus = 'PASS' | 'FAIL' | '대기' | string
+
+/** REQ 안에 들어있는 TC 참조 (GET /api/req/{id} 가 이 형태로 축약해 준다) */
+export interface TcRef {
+  tcid: string
+  name: string
+  status: TestStatus
+}
+
+export interface Requirement {
+  /** PG 기본키. data.reqid 가 없으면 data.id 를 씀 (db.py:_req_meta) */
+  reqid?: string
+  id?: string
+  title?: string
+  folder?: string
+  status?: string
+  priority?: string
+  created_by?: string
+  updated_by?: string
+  tc?: TcRef[]
+  [k: string]: unknown
+}
+
+export interface TestCaseMeta {
+  tcid: string
+  name?: string
+  status?: TestStatus
+  req_id?: string
+  type?: string
+  severity?: string
+  kind?: string
+  /**
+   * CLI 스텝 수. PG 컬럼 이름은 step_count 지만 응답 키는 _cli_count 다
+   * (db.py:231 이 이 이름으로 갈아끼운다). 응답 기준 이름을 쓴다.
+   */
+  _cli_count?: number
+  /** PG updated_at (ISO). db.py:232 */
+  _updated_at_pg?: string | null
+  created_by?: string
+  updated_by?: string
+  [k: string]: unknown
+}
+
+export interface ReqListResponse {
+  folders: unknown[]
+  reqs: Requirement[]
+}
+
+export interface TcListResponse {
+  tcs: TestCaseMeta[]
+}
+
+/** REQ 의 안정적인 키. reqid 우선, 없으면 id. (db.py:_req_meta 와 동일 규칙) */
+export function reqKey(r: Requirement): string {
+  return r.reqid || r.id || ''
+}
+
+/** 상태 문자열 → CSS 클래스. 판정은 여기 한 곳에서만 한다. */
+export function statusClass(s: string | undefined): string {
+  const v = (s || '').toUpperCase()
+  if (v === 'PASS' || v === '성공') return 'pass'
+  if (v === 'FAIL' || v === '실패') return 'fail'
+  if (v === 'DRAFT' || v === '작성중') return 'draft'
+  return 'idle'
+}

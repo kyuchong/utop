@@ -1,0 +1,151 @@
+.split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 14px;
+  padding-top: 14px;
+}
+
+.req-panel {
+  width: 42%;
+  min-width: 300px;
+}
+
+.tc-panel {
+  flex: 1;
+  min-width: 0;
+}
+
+.scroll {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ── 요구사항 행 ───────────────────────────────────────────── */
+.req-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--sp-3) 15px;
+  border: 0;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: transparent;
+  color: var(--c-text);
+}
+
+.req-row:hover {
+  background: var(--c-surface-info);
+}
+
+.req-row.sel {
+  background: var(--c-primary-bg-soft);
+  border-left: 3px solid var(--c-primary);
+  padding-left: var(--sp-3);
+}
+
+.req-id {
+  font-size: var(--fs-label);
+  color: var(--c-text-faint);
+}
+
+.req-name {
+  font-weight: 700;
+  margin: var(--sp-1) 0;
+}
+
+/* ── 연결된 TC ─────────────────────────────────────────────── */
+.tc-body {
+  padding: 14px var(--sp-4);
+}
+
+.summary {
+  background: #f7f9fb;
+  border: 1px solid #e1e5e9;
+  border-radius: var(--radius);
+  padding: 11px var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.filter {
+  display: flex;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+
+.filter input,
+.filter select {
+  border: 1px solid #ccd3da;
+  border-radius: var(--radius-sm);
+  padding: 7px;
+  background: var(--c-surface);
+}
+
+.filter input {
+  flex: 1;
+  min-width: 0;
+}
+
+.table {
+  border: 1px solid #e0e4e8;
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.tr {
+  display: grid;
+  grid-template-columns: 1fr 110px 60px 96px;
+  align-items: center;
+  min-height: 47px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+
+.tr:last-child {
+  border-bottom: 0;
+}
+
+.tr > div {
+  padding: 0 9px;
+  min-width: 0;
+}
+
+.tr.th {
+  background: var(--c-surface-alt);
+  color: #78838e;
+  font-size: var(--fs-label);
+  min-height: 36px;
+}
+
+.tc-name {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bottom {
+  margin-top: var(--sp-3);
+  display: flex;
+  justify-content: space-between;
+  color: var(--c-text-faint);
+  font-size: var(--fs-label);
+}
+
+.load-error {
+  margin-top: var(--sp-3);
+  padding: 10px var(--sp-3);
+  border: 1px solid #f0c8c8;
+  background: #fdf4f4;
+  border-radius: var(--radius);
+  color: #8a2a2a;
+}
+
+/* 좁은 화면에서는 위아래로 쌓는다 (목업은 min-width:1280px 로 포기했던 부분) */
+@media (max-width: 1100px) {
+  .split {
+    flex-direction: column;
+  }
+  .req-panel {
+    width: 100%;
+    max-height: 40%;
+  }
+}

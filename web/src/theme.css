@@ -1,0 +1,175 @@
+/* ══════════════════════════════════════════════════════════════════
+   UTOP 디자인 토큰 — 목업(requirement_tc_link_mockup.html) 에서 추출.
+
+   규칙 4가지. 새 화면을 만들 때 이걸 지키면 화면들이 한 벌로 보인다.
+   1. 색은 "상태"에만 쓴다.  나머지는 무채색 + 단일 강조색(--c-primary).
+   2. 글자 크기는 3단만 쓴다.  --fs-title / --fs-body / --fs-label
+   3. 간격은 4px 배수만 쓴다.
+   4. 테두리는 --c-border 하나로 통일한다.
+   ══════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* 표면 */
+  --c-app-bg: #f7f8fa;
+  --c-surface: #ffffff;
+  --c-surface-alt: #f5f7f9;
+  --c-surface-info: #f8fbff;
+  --c-topbar: #17202b;
+  --c-topbar-item: #273442;
+
+  /* 텍스트 */
+  --c-text: #20252b;
+  --c-text-muted: #68737e;
+  --c-text-faint: #7c8792;
+
+  /* 선 */
+  --c-border: #d9dee4;
+  --c-border-soft: #edf0f2;
+  --c-border-nav: #dce1e6;
+
+  /* 강조 (선택·링크·주버튼 — 상태 아님) */
+  --c-primary: #1769d2;
+  --c-primary-bg: #e9f1ff;
+  --c-primary-bg-soft: #edf5ff;
+
+  /* 상태 — 색을 쓰는 곳은 여기뿐 */
+  --c-pass: #18864b;
+  --c-fail: #cc3333;
+  --c-draft: #a97800;
+  --c-idle: #8a949e;
+
+  /* 글자 3단 */
+  --fs-title: 21px;
+  --fs-body: 13px;
+  --fs-label: 11px;
+
+  /* 간격 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+
+  --radius: 6px;
+  --radius-sm: 5px;
+
+  --topbar-h: 56px;
+  --nav-w: 185px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--c-app-bg);
+  color: var(--c-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR',
+    'Malgun Gothic', Arial, sans-serif;
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* ── 공용 요소 ─────────────────────────────────────────────── */
+
+.btn {
+  background: var(--c-surface);
+  border: 1px solid #ccd3da;
+  border-radius: var(--radius-sm);
+  padding: 7px 11px;
+  color: var(--c-text);
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) {
+  background: var(--c-surface-alt);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn.primary {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: #fff;
+}
+.btn.primary:hover:not(:disabled) {
+  background: #1259b5;
+}
+
+.tag {
+  font-size: 10px;
+  padding: 3px 7px;
+  border-radius: 10px;
+  background: #eef2f6;
+  color: #5d6873;
+  white-space: nowrap;
+}
+
+/* 상태 점 — 색을 쓰는 유일한 자리 */
+.status {
+  font-size: var(--fs-label);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.status.pass {
+  color: var(--c-pass);
+}
+.status.fail {
+  color: var(--c-fail);
+}
+.status.draft {
+  color: var(--c-draft);
+}
+.status.idle {
+  color: var(--c-idle);
+}
+
+.panel {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-title {
+  padding: var(--sp-3) 15px;
+  border-bottom: 1px solid #e1e5e9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+}
+
+.muted {
+  color: var(--c-text-muted);
+  font-size: var(--fs-label);
+}
+
+.empty {
+  padding: 40px var(--sp-5);
+  text-align: center;
+  color: var(--c-text-faint);
+}

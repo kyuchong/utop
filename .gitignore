@@ -1,0 +1,85 @@
+# ── Git 기록에서 제외할 것들 (파일은 지우지 않음, 이력에서만 뺌) ──
+
+# 파이썬 가상환경 (용량 큼, requirements.txt로 재생성 가능)
+.venv/
+__pycache__/
+*.pyc
+
+# Node.js 의존성 (package.json 으로 재생성 가능)
+node_modules/
+
+# 손으로 만든 백업/스냅샷 폴더들 (필요하면 그대로 남아있음)
+# 과거 _port_work/ _backup/ 은 _archive/ 아래로 모았다. 패턴은 재발 대비로 남긴다.
+_archive/
+_port_work/
+_backup/
+_refactor_snapshot/
+_zombie_backup_*/
+
+# 비밀정보 (API 키 등 — 절대 기록/공유하면 안 됨)
+.env
+sk-ant-*
+*.key
+*.pem
+
+# PG 마이그레이션 백업 (평문 자격증명 포함 — 커밋 금지)
+data/legacy/
+
+# 앱 자동 생성 산출물 (커밋 금지)
+# - data/backups/device_catalog/ 는 장비 평문 비번 포함
+# - data/trash 는 소프트 삭제된 REQ/TC 로컬 상태
+data/backups/
+data/trash/
+data/artifacts/
+data/pptx/
+data/results/
+data/tc_run_history/
+data/tc_snapshots/
+data/board_files/
+# rag_embed 2종은 아래 "런타임 산출물" 절에 있다 (여기 중복으로 적지 않는다)
+
+# PG 로 이관 완료 — DB 가 정본, 파일은 로컬 잔여
+data/tc/
+data/req/
+data/cycle/
+data/manuals/
+
+# 자격증명이 담긴 설정 파일 (템플릿은 *.sample 로 커밋)
+# ★ 2026-07-28 data/ 를 폴더로 나누면서 경로가 바뀌었다. 경로가 어긋나면 토큰이 든
+#   파일이 조용히 추적 대상이 되므로, data/ 구조를 바꿀 때 여기도 반드시 같이 고친다.
+# ★ 이 목록은 폴더 이동 전과 "완전히 같은 집합" 이다. 폴더를 옮기면서 추적 대상이
+#   덩달아 바뀌면 안 되기 때문. 추적 정책 변경은 별도 판단으로 한다.
+data/integrations/llms.json
+data/integrations/jira.json
+data/integrations/confluence.json
+data/integrations/confluence_config.json
+
+# 캐시 (재조회로 재생성)
+data/_unused/zephyr_cache.json
+
+# 런타임 산출물
+data/state/launcher_prefs.json
+data/state/rag_embed.npy
+data/state/rag_embed_keys.json
+
+# DB 덤프/애드혹 SQL 은 커밋 금지, 정본 스키마는 예외
+db/*.sql
+!db/schema.sql
+*.dump
+
+# 임시/로그 파일
+*.log
+_uvicorn_boot.log
+
+# 예전 SVN 부산물
+.svn/
+
+# OS/에디터 부산물
+Thumbs.db
+.DS_Store
+
+# .env.local, .env.production 같은 파생 파일도 커밋 금지.
+# 단 .env.example 은 값이 없는 템플릿이므로 반드시 커밋한다 —
+# 이게 빠지면 새로 받은 사람이 무슨 환경변수가 필요한지 알 수 없다.
+.env.*
+!.env.example

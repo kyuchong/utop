@@ -1,0 +1,13 @@
+[tool.ruff]
+line-length = 120
+# docs/reference/Ubiquoss/ 는 외부 반입 참조 스크립트 (Python 2 시절 코드, import 안 함).
+# 루트에 있던 것을 docs/ 아래로 옮겨서, 이미 있는 "docs/" 제외 규칙에 포함된다.
+# _archive/ 는 과거 포팅 작업 폐기물 — 린트 대상 아님.
+exclude = ["data/", "docs/", ".venv/", "__pycache__/", "_archive/"]
+
+[tool.ruff.lint]
+select = ["F"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --tb=short"
