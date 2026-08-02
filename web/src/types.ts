@@ -68,9 +68,24 @@ export interface TcListResponse {
   tcs: TestCaseMeta[]
 }
 
-/** REQ 의 안정적인 키. reqid 우선, 없으면 id. (db.py:_req_meta 와 동일 규칙) */
-export function reqKey(r: Requirement): string {
+/**
+ * 화면 표시용 이름. 사람이 읽는 REQ-001 을 우선한다.
+ * ★ 저장·삭제 대상 지정에는 절대 쓰지 말 것 — reqPk() 를 쓴다.
+ *   (db.py:_req_meta 가 reqid 를 메타 컬럼으로 뽑는 규칙과 같은 값)
+ */
+export function reqLabel(r: Requirement): string {
   return r.reqid || r.id || ''
+}
+
+/**
+ * PostgreSQL 기본키. POST/DELETE /api/req/{여기} 에 들어가는 값이다.
+ *
+ * reqid(REQ-001)를 PK 로 착각하면 편집이 새 행을 만든다 —
+ * 서버(main.py:save_req)가 URL 의 id 를 PK 로 쓰고 body.id 를 덮어쓰는 데다,
+ * 같은 reqid 가 이미 있으면 REQ-201 처럼 번호를 올려 붙이기 때문이다.
+ */
+export function reqPk(r: Requirement): string {
+  return r.id || r.reqid || ''
 }
 
 /** 상태 문자열 → CSS 클래스. 판정은 여기 한 곳에서만 한다. */

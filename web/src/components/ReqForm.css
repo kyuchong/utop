@@ -1,0 +1,136 @@
+.modal-back {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgb(20 28 38 / 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-5);
+}
+
+.modal {
+  width: 100%;
+  max-width: 620px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.22);
+}
+
+.modal-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--c-border);
+  font-size: 15px;
+}
+
+.modal-x {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-text-faint);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.modal-x:hover {
+  background: var(--c-surface-alt);
+  color: var(--c-text);
+}
+
+.modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.modal-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5);
+  border-top: 1px solid var(--c-border);
+  background: var(--c-surface-alt);
+  border-radius: 0 0 8px 8px;
+}
+
+.frow {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.frow .fld {
+  flex: 1;
+  min-width: 0;
+}
+
+.fld {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.fld > span {
+  font-size: var(--fs-label);
+  color: var(--c-text-faint);
+}
+
+.fld input,
+.fld select,
+.fld textarea {
+  border: 1px solid #ccd3da;
+  border-radius: var(--radius-sm);
+  padding: 8px 9px;
+  background: var(--c-surface);
+  font: inherit;
+  color: inherit;
+  width: 100%;
+}
+
+.fld textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.fld input:focus,
+.fld select:focus,
+.fld textarea:focus {
+  outline: 2px solid var(--c-primary-bg);
+  border-color: var(--c-primary);
+}
+
+.fld select:disabled {
+  background: var(--c-surface-alt);
+  color: var(--c-text-faint);
+}
+
+.btn.danger {
+  color: var(--c-fail);
+  border-color: #e6c2c2;
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: #fdf4f4;
+}
+
+.form-error {
+  padding: 8px 11px;
+  border: 1px solid #f0c8c8;
+  background: #fdf4f4;
+  border-radius: var(--radius-sm);
+  color: #8a2a2a;
+}

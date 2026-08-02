@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import CategoryTree from '@/components/CategoryTree'
+import ReqForm from '@/components/ReqForm'
 import {
-  reqKey,
+  reqLabel,
+  reqPk,
   statusClass,
   type Requirement,
   type TestCaseMeta,
@@ -41,6 +43,8 @@ function rollup(tcs: TestCaseMeta[]): ReqRollup {
 export default function Requirements() {
   const [selected, setSelected] = useState<string | null>(null)
   const [catFilter, setCatFilter] = useState<string | null>(null)
+  // undefined = 폼 닫힘 / null = 새로 만들기 / Requirement = 편집
+  const [form, setForm] = useState<Requirement | null | undefined>(undefined)
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
@@ -76,6 +80,26 @@ export default function Requirements() {
     return m
   }, [tcs])
 
+  /**
+   * 이 요구사항을 가리키는 TC 들.
+   *
+   * tc.req_id 에 무엇이 들어 있는지가 데이터마다 다르다 —
+   * 예전 데이터는 PK 와 reqid 가 같은 값이었지만(REQ-001), 새로 만든
+   * 요구사항은 PK 가 rq-<ts> 라서 둘이 갈린다. 어느 쪽으로 저장됐든
+   * 놓치지 않도록 둘 다로 찾아 합친다.
+   */
+  const tcsFor = useMemo(
+    () => (r: Requirement): TestCaseMeta[] => {
+      const a = tcsByReq.get(reqPk(r)) ?? []
+      const label = reqLabel(r)
+      const b = label && label !== reqPk(r) ? (tcsByReq.get(label) ?? []) : []
+      if (b.length === 0) return a
+      const seen = new Set(a.map((t) => t.tcid))
+      return [...a, ...b.filter((t) => !seen.has(t.tcid))]
+    },
+    [tcsByReq],
+  )
+
   const tcById = useMemo(() => {
     const m = new Map<string, TestCaseMeta>()
     for (const t of tcs) m.set(t.tcid, t)
@@ -83,15 +107,14 @@ export default function Requirements() {
   }, [tcs])
 
   const selectedReq: Requirement | undefined = useMemo(
-    () => reqs.find((r) => reqKey(r) === selected),
+    () => reqs.find((r) => reqPk(r) === selected),
     [reqs, selected],
   )
 
   /** 선택된 REQ 에 연결된 TC — 양쪽 정본의 합집합 */
   const linked = useMemo(() => {
     if (!selectedReq) return []
-    const key = reqKey(selectedReq)
-    const byTc = tcsByReq.get(key) ?? []
+    const byTc = tcsFor(selectedReq)
     const seen = new Set(byTc.map((t) => t.tcid))
 
     const extra: TestCaseMeta[] = []
@@ -108,7 +131,7 @@ export default function Requirements() {
       )
     }
     return [...byTc, ...extra]
-  }, [selectedReq, tcsByReq, tcById])
+  }, [selectedReq, tcsFor, tcById])
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -127,18 +150,27 @@ export default function Requirements() {
 
   return (
     <>
+      {form !== undefined && (
+        <ReqForm editing={form} onClose={() => setForm(undefined)} />
+      )}
+
       <div className="crumb">Requirements</div>
       <div className="page-head">
         <h1>
           {selectedReq
-            ? `${reqKey(selectedReq)} · ${selectedReq.title || '(제목 없음)'}`
+            ? `${reqLabel(selectedReq)} · ${selectedReq.title || '(제목 없음)'}`
             : 'Requirements'}
         </h1>
         <div className="page-head-actions">
-          <button className="btn" type="button" disabled={!selectedReq}>
+          <button
+            className="btn"
+            type="button"
+            disabled={!selectedReq}
+            onClick={() => selectedReq && setForm(selectedReq)}
+          >
             편집
           </button>
-          <button className="btn primary" type="button">
+          <button className="btn primary" type="button" onClick={() => setForm(null)}>
             + Requirement
           </button>
         </div>
@@ -186,16 +218,16 @@ export default function Requirements() {
               </div>
             ) : (
               reqs.map((r) => {
-                const key = reqKey(r)
-                const stat = rollup(tcsByReq.get(key) ?? [])
+                const pk = reqPk(r)
+                const stat = rollup(tcsFor(r))
                 return (
                   <button
-                    key={key || r.title}
+                    key={pk}
                     type="button"
-                    className={`req-row${key === selected ? ' sel' : ''}`}
-                    onClick={() => setSelected(key)}
+                    className={`req-row${pk === selected ? ' sel' : ''}`}
+                    onClick={() => setSelected(pk)}
                   >
-                    <div className="req-id">{key || '(ID 없음)'}</div>
+                    <div className="req-id">{reqLabel(r) || '(ID 없음)'}</div>
                     <div className="req-name">{r.title || '(제목 없음)'}</div>
                     <div className="muted">
                       TC {stat.total}
@@ -233,7 +265,7 @@ export default function Requirements() {
           ) : (
             <div className="tc-body scroll">
               <div className="summary">
-                <b>{reqKey(selectedReq)}</b> · {selectedReq.title || '(제목 없음)'}
+                <b>{reqLabel(selectedReq)}</b> · {selectedReq.title || '(제목 없음)'}
                 <br />
                 <span className="muted">
                   모델별 실제 실행 TC를 연결합니다. 유사한 TC라도 모델별

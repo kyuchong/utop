@@ -26,6 +26,11 @@ async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(path, {
     signal,
     headers: { Accept: 'application/json' },
+    // 서버가 목록 API 에 max-age=10, stale-while-revalidate=60 을 붙인다
+    // (backend/main.py 의 _CACHEABLE_PATHS). 그대로 두면 저장 직후 다시 불러도
+    // 브라우저 HTTP 캐시가 옛 목록을 돌려줘서 화면이 갱신되지 않는다.
+    // 캐싱은 TanStack Query(staleTime)가 앱 계층에서 이미 한다.
+    cache: 'no-store',
   })
   if (!res.ok) {
     let detail = res.statusText
@@ -89,4 +94,14 @@ export const categoryApi = {
     }),
   remove: (id: string) =>
     send<{ success: boolean }>('DELETE', `/api/req-categories/${encodeURIComponent(id)}`),
+}
+
+// ── 요구사항 쓰기 ────────────────────────────────────────────
+export const reqApi = {
+  /** 생성·수정 공통. id 는 PK(URL) 이고, 서버가 body.id 를 이 값으로 덮어쓴다. */
+  save: (id: string, body: Record<string, unknown>) =>
+    send<{ success: boolean }>('POST', `/api/req/${encodeURIComponent(id)}`, body),
+  /** 삭제. 연결된 TC 도 함께 지워지고 휴지통으로 들어간다(main.py:delete_req). */
+  remove: (id: string) =>
+    send<{ success: boolean }>('DELETE', `/api/req/${encodeURIComponent(id)}`),
 }
