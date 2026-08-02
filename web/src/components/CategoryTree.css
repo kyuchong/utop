@@ -381,3 +381,35 @@
 .cat-row.dragging .cat-name {
   cursor: grabbing;
 }
+
+/* 선택된 분류를 확실히 드러낸다. 배경만 옅게 바꾸면 어느 것이 골라졌는지
+   한눈에 안 들어온다 — 굵게 + 색 + 왼쪽 막대까지 함께 준다. */
+.cat-row.sel {
+  background: var(--c-primary-bg);
+  box-shadow: inset 4px 0 0 var(--c-primary);
+}
+
+.cat-row.sel .cat-name {
+  font-weight: 700;
+  color: var(--c-primary);
+}
+
+.cat-row.sel .cat-count {
+  background: var(--c-primary);
+  color: #fff;
+}
+
+.cat-row.sel .cat-caret {
+  color: var(--c-primary);
+}
+
+/* 끌고 있는 것과 놓을 자리도 더 뚜렷하게 */
+.cat-row.dragging {
+  opacity: 0.4;
+}
+
+.cat-row.dropinto {
+  outline: 2px dashed var(--c-primary);
+  outline-offset: -2px;
+  background: var(--c-primary-bg);
+}
