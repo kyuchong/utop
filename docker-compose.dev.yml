@@ -1,0 +1,32 @@
+# 개발용 덮어쓰기. 백엔드 소스를 컨테이너에 마운트해서 이미지를 다시 굽지 않고
+# 고친 즉시 반영되게 한다.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d api db
+#
+# 이러면 backend/*.py 를 저장할 때마다 uvicorn 이 알아서 재시작한다(1~2초).
+# 이 파일을 안 쓰면 운영과 똑같이 이미지에 구운 소스로 돈다.
+#
+# 프론트는 도커를 아예 쓰지 않는다 — web/ 에서 npm run dev (5173).
+
+services:
+  api:
+    volumes:
+      - ./backend:/app/backend
+      - ./db:/app/db
+      - ./tools:/app/tools
+      - app-data:/app/data
+    command:
+      - uvicorn
+      - main:app
+      - --host
+      - '0.0.0.0'
+      - --port
+      - '8000'
+      - --reload
+      - --reload-dir
+      - /app/backend
+
+  # 개발 중에는 빌드된 화면이 필요 없다. 프론트는 5173 에서 돈다.
+  # (필요하면 이 줄을 지우고 web 도 함께 띄우면 된다)
+  web:
+    profiles: ['not-in-dev']
