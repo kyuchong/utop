@@ -221,8 +221,11 @@ export default function Requirements() {
 
         <section className="panel req-panel" style={{ flexBasis: reqW }}>
           <div className="panel-title">
-            <span className="muted small">
-              {catFilter ? `${reqs.length} / ${allReqs.length}건` : `${reqs.length}건`}
+            <span className="panel-name">
+              REQ LIST
+              <span className="muted small">
+                {catFilter ? `${reqs.length} / ${allReqs.length}건` : `${reqs.length}건`}
+              </span>
             </span>
             <div className="page-head-actions">
               <button

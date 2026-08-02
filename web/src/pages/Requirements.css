@@ -190,3 +190,12 @@
   padding: 4px 9px;
   font-size: var(--fs-sm);
 }
+
+/* 패널 이름 + 건수. 이름이 있어야 세 칸이 각각 무엇인지 바로 읽힌다. */
+.panel-name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-weight: 700;
+  white-space: nowrap;
+}

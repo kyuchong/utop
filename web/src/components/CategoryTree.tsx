@@ -273,6 +273,23 @@ export default function CategoryTree({ selected, onSelect }: Props) {
             `${overId === n.id ? ' dropinto' : ''}`
           }
           style={{ paddingLeft: 4 + (n.depth - 1) * 14 }}
+          draggable
+          onDragStart={(e) => {
+            // 버튼·체크박스 위에서 시작한 드래그는 무시한다 —
+            // 그 위에서는 클릭이 우선이어야 한다.
+            const el = e.target as HTMLElement
+            if (el.closest('button, input')) {
+              e.preventDefault()
+              return
+            }
+            setDragId(n.id)
+            e.dataTransfer.effectAllowed = 'move'
+            e.dataTransfer.setData('text/plain', n.id)
+          }}
+          onDragEnd={() => {
+            setDragId(null)
+            setOverId(undefined)
+          }}
           onDragOver={(e) => {
             if (!dragId || dragId === n.id) return
             e.preventDefault()
@@ -359,6 +376,7 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   return (
     <div className="cat-tree">
       <div className="cat-head">
+        <span className="panel-name">REQ 분류</span>
         <select
           className="cat-sort"
           value={sort}

@@ -315,3 +315,49 @@
   padding: 4px 7px;
   font-size: var(--fs-sm);
 }
+
+/* 손잡이 안의 아이콘이 드래그 이벤트를 가로채지 않게 한다.
+   svg 가 이벤트를 받으면 span 의 dragstart 가 뜨지 않는 브라우저가 있다. */
+.cat-grip svg,
+.cat-grip * {
+  pointer-events: none;
+}
+
+/* 잡을 면적을 넓힌다 — 14x20 은 마우스로 집기 어렵다 */
+.cat-grip {
+  width: 18px;
+  height: 26px;
+}
+
+/* 이름도 드래그로 잡을 수 있게 (클릭은 그대로 동작) */
+.cat-name {
+  cursor: pointer;
+}
+
+.cat-row.dragging {
+  opacity: 0.45;
+}
+
+/* 놓을 대상은 확실히 보이게 */
+.cat-row.dropinto {
+  outline: 2px solid var(--c-primary);
+  outline-offset: -2px;
+  background: var(--c-primary-bg);
+}
+
+/* 이름이 들어가면서 머리말이 두 줄이 될 수 있다 — 줄바꿈을 허용하고
+   정렬 셀렉트가 아래 줄을 차지하게 둔다. */
+.cat-head {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.cat-head .panel-name {
+  flex: 1 1 auto;
+  font-size: var(--fs-sm);
+}
+
+.cat-head .cat-sort {
+  flex: 1 1 100%;
+  order: 3;
+}
