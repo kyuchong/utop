@@ -210,6 +210,16 @@ ON CONFLICT (kind, name) DO NOTHING;
 INSERT INTO device_catalog (kind, name)
 SELECT DISTINCT 'lab', lab FROM device WHERE lab IS NOT NULL AND lab <> ''
 ON CONFLICT (kind, name) DO NOTHING;
+-- 제품군은 쓰던 값에 더해 기본 목록도 넣는다. 빈 목록으로 두면 장비를
+-- 등록하려는 사람이 제품군을 고를 수 없어 카탈로그부터 채워야 한다.
+-- sort_order 를 주는 이유: 이름순으로 두면 CPE 가 L2 보다 앞에 온다.
+INSERT INTO device_catalog (kind, name, sort_order)
+VALUES ('family','L2',1), ('family','L3',2), ('family','OLT',3), ('family','ONT',4),
+       ('family','CPE',5), ('family','HGW',6), ('family','계측기',7), ('family','기타',8)
+ON CONFLICT (kind, name) DO NOTHING;
+INSERT INTO device_catalog (kind, name, sort_order)
+SELECT DISTINCT 'family', role, 9 FROM device WHERE role IS NOT NULL AND role <> ''
+ON CONFLICT (kind, name) DO NOTHING;
 INSERT INTO device_catalog (kind, name, vendor, family)
 SELECT DISTINCT 'model', model, max(vendor), max(role) FROM device
 WHERE model IS NOT NULL AND model <> '' GROUP BY model
