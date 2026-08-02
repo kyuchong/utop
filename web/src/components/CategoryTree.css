@@ -389,6 +389,11 @@
   min-height: 28px;
   padding-top: 0;
   padding-bottom: 0;
+  /* 줄 사이 구분선. REQ LIST(.req-row)와 같은 선이다.
+     ★ 맨 위 .cat-row 가 border:0 이라 여기서 다시 켜야 한다. 전에는
+       Settings.css 의 .cat-row 가 우연히 이 선을 그려주고 있었고,
+       그 규칙을 dc-* 로 갈라내자 선이 통째로 사라졌다. */
+  border-bottom: 1px solid var(--c-border-soft);
 }
 
 /* 이름 위에서 끌 수 있다는 걸 커서로 알린다 */
