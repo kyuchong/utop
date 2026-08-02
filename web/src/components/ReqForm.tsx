@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { categoryApi, reqApi } from '@/api/client'
+import { categoryApi, reqApi, apiFetch } from '@/api/client'
 import { buildCategoryTree, reqPk, type Requirement } from '@/types'
 import MarkdownEditor from './MarkdownEditorLazy'
 import './ReqForm.css'
@@ -54,7 +54,7 @@ export default function ReqForm({ editing, onClose }: Props) {
       } else {
         const fd = new FormData()
         fd.append('file', f)
-        const res = await fetch('/api/convert/markdown', { method: 'POST', body: fd })
+        const res = await apiFetch('/api/convert/markdown', { method: 'POST', body: fd })
         if (!res.ok) {
           const b = await res.json().catch(() => ({}))
           throw new Error(b.detail || `변환 실패 (${res.status})`)
@@ -80,7 +80,7 @@ ${md}` : md))
     setEmbedding(true)
     setImportState({ kind: '', msg: '' })
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/req/${encodeURIComponent(isNew ? reqid.trim() : reqPk(editing))}/embed`,
         {
           method: 'POST',

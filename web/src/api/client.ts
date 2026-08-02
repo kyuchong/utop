@@ -33,6 +33,25 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
   return { ...(extra ?? {}), ...(tk ? { Authorization: `Bearer ${tk}` } : {}) }
 }
 
+/**
+ * 인증 헤더를 붙여 주는 fetch.
+ *
+ * 컴포넌트에서 fetch 를 직접 쓰면 토큰을 붙이는 걸 잊는다 — 실제로
+ * 이미지 업로드·문서 변환·벡터 저장이 전부 토큰 없이 나가서 401 이 났다.
+ * FormData 를 보낼 때는 Content-Type 을 우리가 정하면 안 된다(경계 문자열이
+ * 빠진다). 그래서 헤더는 Authorization 만 얹는다.
+ */
+export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const tk = getToken()
+  return fetch(path, {
+    ...init,
+    headers: {
+      ...(init.headers as Record<string, string> | undefined),
+      ...(tk ? { Authorization: `Bearer ${tk}` } : {}),
+    },
+  })
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -47,7 +66,7 @@ export class ApiError extends Error {
 async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
   const res = await fetch(path, {
     signal,
-    headers: { Accept: 'application/json' },
+    headers: authHeaders({ Accept: 'application/json' }),
     // 서버가 목록 API 에 max-age=10, stale-while-revalidate=60 을 붙인다
     // (backend/main.py 의 _CACHEABLE_PATHS). 그대로 두면 저장 직후 다시 불러도
     // 브라우저 HTTP 캐시가 옛 목록을 돌려줘서 화면이 갱신되지 않는다.
@@ -133,12 +152,6 @@ export const reqApi = {
   save: (id: string, body: Record<string, unknown>) =>
     send<{ success: boolean }>('POST', `/api/req/${encodeURIComponent(id)}`, body),
   /** 삭제. 연결된 TC 도 함께 지워지고 휴지통으로 들어간다(main.py:delete_req). */
-  /** 형제 순서 재배치(+상위 이동). ids 차례대로 sort_order 를 매긴다. */
-  reorder: (parentId: string | null, ids: string[]) =>
-    send<{ success: boolean; count: number }>('POST', '/api/req-categories/reorder', {
-      parent_id: parentId,
-      ids,
-    }),
   remove: (id: string) =>
     send<{ success: boolean }>('DELETE', `/api/req/${encodeURIComponent(id)}`),
 }

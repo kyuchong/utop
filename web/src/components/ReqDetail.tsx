@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { categoryApi, reqApi } from '@/api/client'
+import { categoryApi, reqApi, apiFetch } from '@/api/client'
 import {
   categoryPath,
   reqLabel,
@@ -205,7 +205,7 @@ function DetailDoc({ req, desc }: { req: Requirement; desc: string }) {
       } else {
         const fd = new FormData()
         fd.append('file', f)
-        const res = await fetch('/api/convert/markdown', { method: 'POST', body: fd })
+        const res = await apiFetch('/api/convert/markdown', { method: 'POST', body: fd })
         if (!res.ok) {
           const b = await res.json().catch(() => ({}))
           throw new Error(b.detail || `변환 실패 (${res.status})`)
@@ -231,7 +231,7 @@ ${md}` : md))
     setEmbedding(true)
     setNote({ kind: '', msg: '' })
     try {
-      const res = await fetch(`/api/req/${encodeURIComponent(reqPk(req))}/embed`, {
+      const res = await apiFetch(`/api/req/${encodeURIComponent(reqPk(req))}/embed`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: editing ? draft : desc }),

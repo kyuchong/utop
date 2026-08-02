@@ -1,3 +1,4 @@
+import { apiFetch } from '@/api/client'
 import { useEffect, useRef } from 'react'
 import { Crepe } from '@milkdown/crepe'
 import { replaceAll, callCommand } from '@milkdown/kit/utils'
@@ -71,7 +72,7 @@ export default function MarkdownEditor({ value, onChange, placeholder }: Props) 
           onUpload: async (file: File) => {
             const fd = new FormData()
             fd.append('file', file)
-            const res = await fetch('/api/upload/image', { method: 'POST', body: fd })
+            const res = await apiFetch('/api/upload/image', { method: 'POST', body: fd })
             if (!res.ok) {
               const b = await res.json().catch(() => ({}))
               throw new Error(b.detail || `이미지 업로드 실패 (${res.status})`)
