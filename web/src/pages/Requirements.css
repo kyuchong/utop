@@ -6,20 +6,23 @@
   padding-top: 14px;
 }
 
-/* 분류는 좁은 고정 열. 요구사항 목록이 화면을 최대한 쓰게 한다. */
+/* 세 패널의 폭은 인라인 flex-basis 로 준다 (드래그로 바뀌고 저장된다).
+   TC 패널만 남는 공간을 가져간다. */
 .cat-panel {
-  flex: 0 0 210px;
-  min-width: 180px;
+  flex-grow: 0;
+  flex-shrink: 0;
+  min-width: 150px;
 }
 
 .req-panel {
-  flex: 1 1 auto;
-  min-width: 320px;
+  flex-grow: 0;
+  flex-shrink: 1;
+  min-width: 280px;
 }
 
 .tc-panel {
-  flex: 0 0 400px;
-  min-width: 320px;
+  flex: 1 1 auto;
+  min-width: 300px;
 }
 
 .scroll {

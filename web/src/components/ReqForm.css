@@ -145,3 +145,28 @@
   font-size: var(--fs-label);
   line-height: 1.6;
 }
+
+/* 일괄 생성 창은 미리보기까지 들어가서 더 넓어야 한다 */
+.modal.wide {
+  max-width: 760px;
+}
+
+.bulk-preview {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-alt);
+}
+
+.bulk-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+
+.bulk-row:last-child {
+  border-bottom: 0;
+}

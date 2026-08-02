@@ -1,0 +1,104 @@
+.detail-body {
+  padding: var(--sp-4) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* 이름-값 목록. 라벨 폭을 고정해 값들이 세로로 맞아떨어지게 한다. */
+.kv {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 7px var(--sp-3);
+  margin: 0;
+}
+
+.kv dt {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  padding-top: 2px;
+}
+
+.kv dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.detail-section h4 {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  font-weight: 700;
+}
+
+.detail-desc {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ── 실행현황 ─────────────────────────────────────────────── */
+.run-summary {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.run-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--sp-3) var(--sp-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface-alt);
+}
+
+.run-num {
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+/* 한 줄 막대로 비율을 보여준다 — 숫자만으로는 감이 안 온다 */
+.run-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--c-border-soft);
+}
+
+.run-bar .seg.pass {
+  background: var(--c-pass);
+}
+.run-bar .seg.fail {
+  background: var(--c-fail);
+}
+.run-bar .seg.idle {
+  background: var(--c-idle);
+}
+
+.run-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+
+.run-row:last-child {
+  border-bottom: 0;
+}
+
+.run-row .tc-id {
+  flex: none;
+  width: 150px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

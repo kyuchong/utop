@@ -1,8 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import CategoryTree from '@/components/CategoryTree'
 import ReqForm from '@/components/ReqForm'
+import Resizer, { useResizableWidth } from '@/components/Resizer'
+import ReqBulkForm from '@/components/ReqBulkForm'
+import TcForm from '@/components/TcForm'
+import ReqDetail from '@/components/ReqDetail'
 import {
   reqLabel,
   reqPk,
@@ -45,8 +49,17 @@ export default function Requirements() {
   const [catFilter, setCatFilter] = useState<string | null>(null)
   // undefined = 폼 닫힘 / null = 새로 만들기 / Requirement = 편집
   const [form, setForm] = useState<Requirement | null | undefined>(undefined)
+  const [bulkOpen, setBulkOpen] = useState(false)
+  // undefined = 닫힘 / { } = 새 TC(요구사항 미리 연결)
+  const [tcForm, setTcForm] = useState<{ reqId: string } | undefined>(undefined)
+  const [tab, setTab] = useState<'tc' | 'detail' | 'history' | 'runs'>('tc')
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+
+  // 패널 폭은 사람마다 선호가 다르다. 드래그로 맞추고 브라우저에 기억시킨다.
+  const splitRef = useRef<HTMLDivElement>(null)
+  const [catW, setCatW] = useResizableWidth('utop.req.catW', 210, 150, 420)
+  const [reqW, setReqW] = useResizableWidth('utop.req.reqW', 520, 300, 1200)
 
   const reqQ = useQuery({
     queryKey: ['req', 'list'],
@@ -156,6 +169,14 @@ export default function Requirements() {
       {form !== undefined && (
         <ReqForm editing={form} onClose={() => setForm(undefined)} />
       )}
+      {bulkOpen && <ReqBulkForm onClose={() => setBulkOpen(false)} />}
+      {tcForm !== undefined && (
+        <TcForm
+          editing={null}
+          presetReqId={tcForm.reqId}
+          onClose={() => setTcForm(undefined)}
+        />
+      )}
 
       <div className="page-head">
         <h1>
@@ -166,18 +187,21 @@ export default function Requirements() {
       </div>
 
       <div className="tabs">
-        <button className="tab on" type="button">
-          TC 연결
-        </button>
-        <button className="tab" type="button" disabled>
-          상세정보
-        </button>
-        <button className="tab" type="button" disabled>
-          변경이력
-        </button>
-        <button className="tab" type="button" disabled>
-          실행현황
-        </button>
+        {([
+          ['tc', 'TC 연결'],
+          ['detail', '상세정보'],
+          ['history', '변경이력'],
+          ['runs', '실행현황'],
+        ] as const).map(([k, label]) => (
+          <button
+            key={k}
+            className={`tab${tab === k ? ' on' : ''}`}
+            type="button"
+            onClick={() => setTab(k)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {error ? (
@@ -186,14 +210,20 @@ export default function Requirements() {
         </div>
       ) : null}
 
-      <div className="split">
+      <div className="split" ref={splitRef}>
         {/* ── 왼쪽: 요구사항 목록 ─────────────────────────── */}
         {/* 분류는 독립된 열. 요구사항 목록 위에 얹으면 목록이 몇 줄 못 나온다. */}
-        <section className="panel cat-panel">
+        <section className="panel cat-panel" style={{ flexBasis: catW }}>
           <CategoryTree selected={catFilter} onSelect={setCatFilter} />
         </section>
 
-        <section className="panel req-panel">
+        <Resizer
+          label="분류 폭 조절"
+          onResize={setCatW}
+          getOrigin={() => splitRef.current?.getBoundingClientRect().left ?? 0}
+        />
+
+        <section className="panel req-panel" style={{ flexBasis: reqW }}>
           <div className="panel-title">
             <span className="muted">
               {catFilter ? `${reqs.length} / ${allReqs.length}건` : `${reqs.length}건`}
@@ -206,6 +236,9 @@ export default function Requirements() {
                 onClick={() => selectedReq && setForm(selectedReq)}
               >
                 편집
+              </button>
+              <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
+                일괄 생성
               </button>
               <button className="btn primary" type="button" onClick={() => setForm(null)}>
                 + Requirement
@@ -252,26 +285,50 @@ export default function Requirements() {
           </div>
         </section>
 
-        {/* ── 오른쪽: 연결된 TC ───────────────────────────── */}
+        <Resizer
+          label="요구사항 목록 폭 조절"
+          onResize={setReqW}
+          getOrigin={() => {
+            const el = splitRef.current
+            if (!el) return 0
+            // 요구사항 패널의 왼쪽 끝 = split 왼쪽 + 분류 폭 + 조절바 폭
+            return el.getBoundingClientRect().left + catW + 8
+          }}
+        />
+
+        {/* ── 오른쪽: 탭에 따라 내용이 바뀐다 ─────────────── */}
         <section className="panel tc-panel">
           <div className="panel-title">
-            <b>연결된 Test Cases</b>
-            <div className="page-head-actions">
-              <button className="btn" type="button" disabled={!selectedReq}>
-                TC 연결
-              </button>
-              <button
-                className="btn primary"
-                type="button"
-                disabled={!selectedReq}
-              >
-                + TC 생성
-              </button>
-            </div>
+            <b>
+              {tab === 'tc'
+                ? '연결된 Test Cases'
+                : tab === 'detail'
+                  ? '상세정보'
+                  : tab === 'history'
+                    ? '변경이력'
+                    : '실행현황'}
+            </b>
+            {tab === 'tc' && (
+              <div className="page-head-actions">
+                <button
+                  className="btn primary"
+                  type="button"
+                  disabled={!selectedReq}
+                  onClick={() =>
+                    // 새 TC 를 만들되 이 요구사항에 미리 연결해 둔다.
+                    selectedReq && setTcForm({ reqId: reqPk(selectedReq) })
+                  }
+                >
+                  + TC 생성
+                </button>
+              </div>
+            )}
           </div>
 
           {!selectedReq ? (
             <div className="empty">왼쪽에서 요구사항을 선택하세요.</div>
+          ) : tab !== 'tc' ? (
+            <ReqDetail req={selectedReq} tcs={linked} tab={tab} />
           ) : (
             <div className="tc-body scroll">
               <div className="summary">

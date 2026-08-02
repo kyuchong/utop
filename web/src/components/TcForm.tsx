@@ -7,13 +7,15 @@ import './ReqForm.css'
 interface Props {
   /** null 이면 새로 만들기, 값이 있으면 그 TC 편집 */
   editing: TestCaseMeta | null
+  /** 새로 만들 때 미리 연결해 둘 요구사항 (요구사항 화면의 「+ TC 생성」) */
+  presetReqId?: string
   onClose: () => void
 }
 
 const STATUSES = ['대기', 'PASS', 'FAIL', '작성중', '보류']
 const SEVERITIES = ['Critical', 'Major', 'Minor']
 
-export default function TcForm({ editing, onClose }: Props) {
+export default function TcForm({ editing, presetReqId, onClose }: Props) {
   const qc = useQueryClient()
   const isNew = editing === null
 
@@ -28,12 +30,12 @@ export default function TcForm({ editing, onClose }: Props) {
   useEffect(() => {
     setTcid(editing?.tcid ?? '')
     setName(editing?.name ?? '')
-    setReqId(editing?.req_id ?? '')
+    setReqId(editing?.req_id ?? presetReqId ?? '')
     setType(editing?.type ?? '')
     setStatus(editing?.status || STATUSES[0]!)
     setSeverity(editing?.severity || SEVERITIES[1]!)
     setError('')
-  }, [editing])
+  }, [editing, presetReqId])
 
   const reqQ = useQuery({
     queryKey: ['req', 'list'],

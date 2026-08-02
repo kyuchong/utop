@@ -71,6 +71,7 @@
 
   --topbar-h: 56px;
   --nav-w: 185px;
+  --nav-w-collapsed: 56px;
 }
 
 * {

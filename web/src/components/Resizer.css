@@ -1,0 +1,33 @@
+/* 패널 사이 조절 바.
+   보이는 선은 얇게(2px) 두되, 잡는 영역은 8px 로 넉넉히 준다 —
+   1~2px 짜리는 마우스로 집기가 어렵다. */
+.resizer {
+  flex: 0 0 8px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.resizer-grip {
+  width: 2px;
+  height: 40px;
+  border-radius: 2px;
+  background: #d4dae4;
+  transition: background 0.12s ease, height 0.12s ease;
+}
+
+.resizer:hover .resizer-grip,
+.resizer.on .resizer-grip {
+  background: var(--c-primary);
+  height: 64px;
+}
+
+/* 좁은 화면에서 패널이 아래로 접히면 세로 조절은 의미가 없다 */
+@media (max-width: 1200px) {
+  .resizer {
+    display: none;
+  }
+}

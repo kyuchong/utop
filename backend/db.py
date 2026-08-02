@@ -543,9 +543,19 @@ async def req_delete(rid: str) -> bool:
 
 
 async def req_list_full() -> list[dict]:
+    """요구사항 전체. PG 의 생성·수정 시각을 함께 실어 보낸다 —
+    data(JSONB) 안에는 없어서 화면에서 '마지막 수정' 을 못 보여준다."""
     async with pool().acquire() as c:
-        rows = await c.fetch("SELECT data FROM req ORDER BY updated_at DESC")
-        return [r["data"] for r in rows]
+        rows = await c.fetch(
+            "SELECT data, created_at, updated_at FROM req ORDER BY updated_at DESC"
+        )
+        out = []
+        for r in rows:
+            d = dict(r["data"] or {})
+            d["_created_at"] = r["created_at"].isoformat() if r["created_at"] else None
+            d["_updated_at"] = r["updated_at"].isoformat() if r["updated_at"] else None
+            out.append(d)
+        return out
 
 
 # ══════════════════════════════════════════════════════════════════════
