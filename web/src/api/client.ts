@@ -11,6 +11,28 @@ import type {
  * 운영: nginx 가 /api → api:8000
  */
 
+/**
+ * 로그인 토큰.
+ *
+ * 서버가 /api/* 전체에 로그인을 요구한다. 토큰은 Authorization 헤더로
+ * 보낸다 — 쿼리스트링에 실으면 프록시·서버 로그에 그대로 남는다.
+ */
+const TOKEN_KEY = 'utop.token'
+
+export function getToken(): string {
+  return localStorage.getItem(TOKEN_KEY) || ''
+}
+
+export function setToken(v: string): void {
+  if (v) localStorage.setItem(TOKEN_KEY, v)
+  else localStorage.removeItem(TOKEN_KEY)
+}
+
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+  const tk = getToken()
+  return { ...(extra ?? {}), ...(tk ? { Authorization: `Bearer ${tk}` } : {}) }
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -63,7 +85,10 @@ export const api = {
 async function send<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(path, {
     method,
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    headers: authHeaders({
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    }),
     body: body === undefined ? undefined : JSON.stringify(body),
   })
   if (!res.ok) {
@@ -129,4 +154,42 @@ export const tcApi = {
     send<{ success: boolean }>('POST', `/api/tc/${encodeURIComponent(tcid)}`, body),
   remove: (tcid: string) =>
     send<{ success: boolean }>('DELETE', `/api/tc/${encodeURIComponent(tcid)}`),
+}
+
+
+// ── 로그인 ────────────────────────────────────────────────────
+export interface MeUser {
+  username: string
+  name?: string
+  role?: string
+  [k: string]: unknown
+}
+
+export const authApi = {
+  login: async (username: string, password: string) => {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    })
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}))
+      throw new ApiError(res.status, '/api/login', b.detail || '로그인에 실패했습니다')
+    }
+    const r = (await res.json()) as { token: string; user: MeUser }
+    setToken(r.token)
+    return r
+  },
+  me: () => get<{ user: MeUser }>('/api/me'),
+  logout: async () => {
+    const tk = getToken()
+    setToken('')
+    if (tk) {
+      await fetch('/api/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: tk }),
+      }).catch(() => {})
+    }
+  },
 }

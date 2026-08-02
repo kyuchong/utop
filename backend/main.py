@@ -750,6 +750,74 @@ def _require_admin(token: str):
         raise HTTPException(403, "관리자 권한이 필요합니다")
     return u
 
+# ══════════════════════════════════════════════════════════════════════
+# 인증 강제
+#
+# 지금까지 라우트 234개 중 어느 것도 로그인을 확인하지 않았다. 사내망이라
+# 넘어갔지만 50명이 함께 쓰면 누가 무엇을 고쳤는지 알 수 없고, 장비 락도
+# 편집 중 표시도 '누구' 를 알아야 만들 수 있다.
+#
+# 라우트마다 의존성을 붙이면 234곳을 고쳐야 하고 새 라우트에서 빠뜨리기
+# 쉽다. 미들웨어에서 한 번에 막고, 열어둘 곳만 목록으로 둔다 —
+# 기본이 '막힘' 이어야 새로 만든 라우트가 자동으로 보호된다.
+# ══════════════════════════════════════════════════════════════════════
+
+# 로그인 없이 열어두는 경로. 접두사로 비교한다.
+_AUTH_PUBLIC = (
+    "/api/login",
+    "/api/logout",
+    "/api/health",
+    "/api/req-images/",     # 마크다운 안 <img> 는 헤더를 못 붙인다
+    "/openapi.json",
+    "/docs",
+    "/redoc",
+)
+
+
+def _token_from(request) -> str:
+    """Authorization: Bearer 우선, 없으면 기존 방식(쿼리 ?token=)."""
+    h = request.headers.get("authorization") or ""
+    if h.lower().startswith("bearer "):
+        return h[7:].strip()
+    return request.query_params.get("token") or ""
+
+
+async def _session_of(token: str):
+    """메모리 캐시 → 없으면 PG. 워커가 여러 개면 로그인한 워커에만
+    메모리 세션이 있으므로 DB 를 반드시 확인해야 한다."""
+    if not token:
+        return None
+    s = SESSIONS.get(token)
+    if s:
+        return s
+    try:
+        row = await db.session_get(token)
+    except Exception:
+        return None
+    if row:
+        SESSIONS[token] = row      # 이 워커에도 캐시
+        return row
+    return None
+
+
+@app.middleware("http")
+async def _require_login(request, call_next):
+    path = request.url.path
+    if request.method == "OPTIONS" or not path.startswith("/api/"):
+        return await call_next(request)      # 화면·정적 파일은 통과
+    if any(path.startswith(p) for p in _AUTH_PUBLIC):
+        return await call_next(request)
+
+    s = await _session_of(_token_from(request))
+    if not s:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail": "로그인이 필요합니다"}, status_code=401)
+
+    # 아래 코드가 '누가 했는지' 를 알 수 있게 실어 보낸다
+    request.state.user = s
+    return await call_next(request)
+
+
 class LoginReq(BaseModel):
     username: str
     password: str
@@ -775,8 +843,11 @@ async def api_logout(payload: dict):
     return {"ok": True}
 
 @app.get("/api/me")
-async def api_me(token: str = ""):
-    u = _user_from_token(token)
+async def api_me(request: Request, token: str = ""):
+    # 미들웨어가 이미 세션을 확인해 request.state.user 에 넣어 뒀다.
+    # 옛 화면은 아직 ?token= 으로 부르므로 그 경로도 남긴다.
+    s = getattr(request.state, "user", None)
+    u = _find_user(s.get("username")) if s else _user_from_token(token)
     if not u:
         raise HTTPException(401, "세션이 없습니다")
     return {"user": _public_user(u)}
