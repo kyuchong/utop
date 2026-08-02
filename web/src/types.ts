@@ -35,6 +35,8 @@ export interface Requirement {
   cat1?: string | null
   /** 중분류 id (req_category.id) */
   cat2?: string | null
+  /** 소분류 id (req_category.id) */
+  cat3?: string | null
   tc?: TcRef[]
   [k: string]: unknown
 }
@@ -97,25 +99,43 @@ export function statusClass(s: string | undefined): string {
   return 'idle'
 }
 
-/** 요구사항 분류 (2단 고정). parent_id 가 없으면 대분류. */
+/** 요구사항 분류 (최대 3단). parent_id 가 없으면 대분류. */
 export interface ReqCategory {
   id: string
   name: string
   parent_id: string | null
   sort_order: number
-  /** 이 분류를 쓰는 요구사항 수 (cat1 또는 cat2 로 참조) */
+  /** 이 분류를 쓰는 요구사항 수 (cat1/cat2/cat3 중 하나로 참조) */
   req_count: number
 }
 
 export interface CategoryTreeNode extends ReqCategory {
-  children: ReqCategory[]
+  children: CategoryTreeNode[]
+  /** 1=대분류, 2=중분류, 3=소분류 */
+  depth: number
 }
 
-/** 평면 목록 → 2단 트리. 서버가 2단을 보장하므로 재귀가 필요 없다. */
+/** 평면 목록 → 트리. 서버가 3단까지만 허용하지만 여기서는 깊이를 가정하지 않는다. */
 export function buildCategoryTree(list: ReqCategory[]): CategoryTreeNode[] {
-  const roots = list.filter((c) => !c.parent_id)
-  return roots.map((r) => ({
-    ...r,
-    children: list.filter((c) => c.parent_id === r.id),
-  }))
+  const build = (parentId: string | null, depth: number): CategoryTreeNode[] =>
+    list
+      .filter((c) => (c.parent_id ?? null) === parentId)
+      .map((c) => ({ ...c, depth, children: build(c.id, depth + 1) }))
+  return build(null, 1)
+}
+
+/** 분류 3단까지. 이 값을 넘는 하위는 만들 수 없다 (서버도 같은 값으로 막는다). */
+export const MAX_CAT_DEPTH = 3
+
+/** id → 조상 경로(대>중>소 이름). 화면에 분류를 한 줄로 보여줄 때 쓴다. */
+export function categoryPath(list: ReqCategory[], id: string | null | undefined): string {
+  if (!id) return ''
+  const byId = new Map(list.map((c) => [c.id, c]))
+  const names: string[] = []
+  let cur = byId.get(id)
+  while (cur) {
+    names.unshift(cur.name)
+    cur = cur.parent_id ? byId.get(cur.parent_id) : undefined
+  }
+  return names.join(' > ')
 }

@@ -2061,17 +2061,55 @@ async def save_folders(data: dict):
 
 
 # ───────────────────────────────────────────
-# 요구사항 분류 (2단 고정: 대분류 > 중분류)
+# 요구사항 분류 (3단 고정: 대분류 > 중분류 > 소분류)
 #
 # 옛 폴더 트리는 깊이 제한이 없어 프로토콜·계층·기능이 한 경로에 섞였다
 # (IPV4_L2 > VLAN). 그래서 같은 기능이 여러 가지에 중복 등록됐다.
-# 여기서는 2단으로 못박는다 — 중분류의 상위는 반드시 대분류여야 하고,
-# 대분류는 상위를 가질 수 없다. 이 규칙을 서버에서 강제한다.
+# 상한을 두되 3단까지는 허용한다. 이 규칙을 서버에서 강제한다 —
+# DB 제약으로는 재귀 깊이를 막을 수 없다.
 # ───────────────────────────────────────────
+MAX_CAT_DEPTH = 3
+CAT_DEPTH_MSG = "분류는 3단까지만 만들 수 있습니다 (대분류 > 중분류 > 소분류)"
+
+
 class ReqCategoryIn(BaseModel):
     name: str
     parent_id: Optional[str] = None
     sort_order: int = 0
+
+
+async def _cat_children_map() -> dict:
+    m: dict = {}
+    for c in await db.cat_list():
+        m.setdefault(c.get("parent_id"), []).append(c["id"])
+    return m
+
+
+async def _cat_descendants(cid: str, include_self: bool = True) -> set:
+    kids = await _cat_children_map()
+    out, stack = (set([cid]) if include_self else set()), list(kids.get(cid, []))
+    while stack:
+        x = stack.pop()
+        if x in out:
+            continue
+        out.add(x)
+        stack.extend(kids.get(x, []))
+    return out
+
+
+async def _is_descendant(node: str, ancestor: str) -> bool:
+    return node in await _cat_descendants(ancestor, include_self=False)
+
+
+async def _subtree_height(cid: str) -> int:
+    """자기만 있으면 1, 자식이 있으면 2, 손자까지면 3."""
+    kids = await _cat_children_map()
+
+    def h(x: str) -> int:
+        ch = kids.get(x, [])
+        return 1 if not ch else 1 + max(h(k) for k in ch)
+
+    return h(cid)
 
 
 @app.get("/api/req-categories")
@@ -2090,8 +2128,8 @@ async def create_req_category(body: ReqCategoryIn):
         parent = await db.cat_get(parent_id)
         if parent is None:
             raise HTTPException(404, "상위 분류를 찾을 수 없습니다")
-        if parent.get("parent_id"):
-            raise HTTPException(400, "분류는 2단까지만 만들 수 있습니다 (대분류 > 중분류)")
+        if await db.cat_depth(parent_id) >= MAX_CAT_DEPTH:
+            raise HTTPException(400, CAT_DEPTH_MSG)
 
     cid = f"cat-{int(datetime.now().timestamp() * 1000)}"
     try:
@@ -2121,14 +2159,14 @@ async def update_req_category(cat_id: str, body: ReqCategoryIn):
         parent = await db.cat_get(parent_id)
         if parent is None:
             raise HTTPException(404, "상위 분류를 찾을 수 없습니다")
-        if parent.get("parent_id"):
-            raise HTTPException(400, "분류는 2단까지만 만들 수 있습니다 (대분류 > 중분류)")
-        # 자식을 가진 대분류를 남의 밑으로 내리면 3단이 된다.
-        kids = [c for c in await db.cat_list() if c.get("parent_id") == cat_id]
-        if kids:
-            raise HTTPException(
-                400, "하위 분류가 있는 대분류는 다른 분류 밑으로 옮길 수 없습니다"
-            )
+        # 자기 자손 밑으로 옮기면 순환이 된다.
+        if cat_id in await _cat_descendants(cat_id, include_self=False) or await _is_descendant(
+            parent_id, cat_id
+        ):
+            raise HTTPException(400, "자기 하위 분류 밑으로는 옮길 수 없습니다")
+        # 옮긴 뒤 (상위 깊이 + 이 가지의 높이) 가 상한을 넘으면 안 된다.
+        if await db.cat_depth(parent_id) + await _subtree_height(cat_id) > MAX_CAT_DEPTH:
+            raise HTTPException(400, CAT_DEPTH_MSG)
     try:
         await db.cat_upsert(cat_id, name, parent_id, body.sort_order)
     except Exception as e:

@@ -21,6 +21,7 @@ export default function ReqForm({ editing, onClose }: Props) {
   const [title, setTitle] = useState('')
   const [cat1, setCat1] = useState('')
   const [cat2, setCat2] = useState('')
+  const [cat3, setCat3] = useState('')
   const [status, setStatus] = useState(STATUSES[0]!)
   const [priority, setPriority] = useState(PRIORITIES[1]!)
   const [desc, setDesc] = useState('')
@@ -31,6 +32,7 @@ export default function ReqForm({ editing, onClose }: Props) {
     setTitle(editing?.title ?? '')
     setCat1(editing?.cat1 ?? '')
     setCat2(editing?.cat2 ?? '')
+    setCat3(editing?.cat3 ?? '')
     setStatus(editing?.status || STATUSES[0]!)
     setPriority(editing?.priority || PRIORITIES[1]!)
     setDesc(typeof editing?.desc === 'string' ? editing.desc : '')
@@ -45,10 +47,8 @@ export default function ReqForm({ editing, onClose }: Props) {
     () => buildCategoryTree(catQ.data?.categories ?? []),
     [catQ.data],
   )
-  const children = useMemo(
-    () => tree.find((p) => p.id === cat1)?.children ?? [],
-    [tree, cat1],
-  )
+  const lv2 = useMemo(() => tree.find((p) => p.id === cat1)?.children ?? [], [tree, cat1])
+  const lv3 = useMemo(() => lv2.find((p) => p.id === cat2)?.children ?? [], [lv2, cat2])
 
   const saveM = useMutation({
     mutationFn: async () => {
@@ -60,6 +60,7 @@ export default function ReqForm({ editing, onClose }: Props) {
         title: title.trim(),
         cat1: cat1 || null,
         cat2: cat2 || null,
+        cat3: cat3 || null,
         status,
         priority,
         desc: desc.trim(),
@@ -166,8 +167,10 @@ export default function ReqForm({ editing, onClose }: Props) {
               <select
                 value={cat1}
                 onChange={(e) => {
+                  // 상위가 바뀌면 아래 단계는 반드시 다시 고른다 (남아 있으면 짝이 안 맞는다)
                   setCat1(e.target.value)
-                  setCat2('') // 대분류가 바뀌면 중분류는 반드시 다시 고른다
+                  setCat2('')
+                  setCat3('')
                 }}
               >
                 <option value="">(미분류)</option>
@@ -182,17 +185,33 @@ export default function ReqForm({ editing, onClose }: Props) {
               <span>중분류</span>
               <select
                 value={cat2}
-                disabled={!cat1 || children.length === 0}
-                onChange={(e) => setCat2(e.target.value)}
+                disabled={!cat1 || lv2.length === 0}
+                onChange={(e) => {
+                  setCat2(e.target.value)
+                  setCat3('')
+                }}
               >
                 <option value="">
-                  {!cat1
-                    ? '(대분류를 먼저 고르세요)'
-                    : children.length === 0
-                      ? '(중분류 없음)'
-                      : '(선택 안 함)'}
+                  {!cat1 ? '(대분류 먼저)' : lv2.length === 0 ? '(하위 없음)' : '(선택 안 함)'}
                 </option>
-                {children.map((c) => (
+                {lv2.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="fld">
+              <span>소분류</span>
+              <select
+                value={cat3}
+                disabled={!cat2 || lv3.length === 0}
+                onChange={(e) => setCat3(e.target.value)}
+              >
+                <option value="">
+                  {!cat2 ? '(중분류 먼저)' : lv3.length === 0 ? '(하위 없음)' : '(선택 안 함)'}
+                </option>
+                {lv3.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>

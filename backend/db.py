@@ -421,6 +421,7 @@ def _req_meta(data: dict) -> dict:
         # "미분류" 를 한 가지 표현으로 통일한다.
         "cat1": (data.get("cat1") or "").strip() or None,
         "cat2": (data.get("cat2") or "").strip() or None,
+        "cat3": (data.get("cat3") or "").strip() or None,
     }
 
 
@@ -430,17 +431,17 @@ async def req_upsert(rid: str, data: dict) -> None:
         await c.execute(
             """
             INSERT INTO req (id, reqid, title, folder, status, priority,
-                             created_by, updated_by, cat1, cat2, data)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)
+                             created_by, updated_by, cat1, cat2, cat3, data)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb)
             ON CONFLICT (id) DO UPDATE SET
               reqid=EXCLUDED.reqid, title=EXCLUDED.title, folder=EXCLUDED.folder,
               status=EXCLUDED.status, priority=EXCLUDED.priority,
               created_by=EXCLUDED.created_by, updated_by=EXCLUDED.updated_by,
-              cat1=EXCLUDED.cat1, cat2=EXCLUDED.cat2,
+              cat1=EXCLUDED.cat1, cat2=EXCLUDED.cat2, cat3=EXCLUDED.cat3,
               data=EXCLUDED.data, updated_at=now()
             """,
             rid, m["reqid"], m["title"], m["folder"], m["status"], m["priority"],
-            m["created_by"], m["updated_by"], m["cat1"], m["cat2"], data,
+            m["created_by"], m["updated_by"], m["cat1"], m["cat2"], m["cat3"], data,
         )
 
 
@@ -454,7 +455,7 @@ async def cat_list() -> list[dict]:
             """
             SELECT c.id, c.name, c.parent_id, c.sort_order,
                    (SELECT count(*) FROM req r
-                     WHERE r.cat1 = c.id OR r.cat2 = c.id) AS req_count
+                     WHERE r.cat1 = c.id OR r.cat2 = c.id OR r.cat3 = c.id) AS req_count
             FROM req_category c
             ORDER BY c.parent_id NULLS FIRST, c.sort_order, c.name
             """
@@ -485,15 +486,46 @@ async def cat_get(cid: str) -> Optional[dict]:
         return dict(row) if row else None
 
 
+async def cat_depth(cid: str) -> int:
+    """1=대분류, 2=중분류, 3=소분류. 없으면 0."""
+    async with pool().acquire() as c:
+        row = await c.fetchrow(
+            """
+            WITH RECURSIVE up AS (
+              SELECT id, parent_id, 1 AS d FROM req_category WHERE id=$1
+              UNION ALL
+              SELECT p.id, p.parent_id, up.d + 1
+                FROM req_category p JOIN up ON up.parent_id = p.id
+            )
+            SELECT max(d) AS depth FROM up
+            """,
+            cid,
+        )
+        return int(row["depth"]) if row and row["depth"] else 0
+
+
 async def cat_delete(cid: str) -> bool:
     """분류 삭제. 하위 분류는 ON DELETE CASCADE 로 함께 지워진다.
     요구사항은 지우지 않고, 가리키던 분류만 비운다(미분류가 된다)."""
     async with pool().acquire() as c:
         async with c.transaction():
-            kids = await c.fetch("SELECT id FROM req_category WHERE parent_id=$1", cid)
-            ids = [cid] + [k["id"] for k in kids]
-            await c.execute("UPDATE req SET cat1=NULL WHERE cat1 = ANY($1::text[])", ids)
-            await c.execute("UPDATE req SET cat2=NULL WHERE cat2 = ANY($1::text[])", ids)
+            # 3단이므로 자손은 두 세대까지. 재귀로 한 번에 모은다.
+            rows = await c.fetch(
+                """
+                WITH RECURSIVE down AS (
+                  SELECT id FROM req_category WHERE id=$1
+                  UNION ALL
+                  SELECT k.id FROM req_category k JOIN down ON k.parent_id = down.id
+                )
+                SELECT id FROM down
+                """,
+                cid,
+            )
+            ids = [r["id"] for r in rows] or [cid]
+            for col in ("cat1", "cat2", "cat3"):
+                await c.execute(
+                    f"UPDATE req SET {col}=NULL WHERE {col} = ANY($1::text[])", ids
+                )
             r = await c.execute("DELETE FROM req_category WHERE id=$1", cid)
         return r.endswith(" 1")
 

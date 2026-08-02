@@ -149,3 +149,9 @@
     max-height: 40%;
   }
 }
+
+/* 요구사항 패널 제목줄: 왼쪽 건수, 오른쪽 편집/추가 버튼 */
+.req-panel .panel-title .btn {
+  padding: 5px 9px;
+  font-size: var(--fs-label);
+}

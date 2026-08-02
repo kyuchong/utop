@@ -60,11 +60,14 @@ export default function Requirements() {
   const allReqs = reqQ.data?.reqs ?? []
   const tcs = tcQ.data?.tcs ?? []
 
-  // 분류 필터. 대분류를 고르면 그 대분류에 직접 달린 것 + 하위 중분류의 것까지
-  // 봐야 자연스럽다. cat1 이 대분류를 가리키므로 cat1 비교 하나로 둘 다 걸린다.
+  // 분류 필터. 어느 단계를 고르든, 그 아래에 달린 것까지 함께 보여야 자연스럽다.
+  // 요구사항이 cat1/cat2/cat3 에 조상들을 그대로 담고 있으므로 셋 중 하나만
+  // 맞으면 하위까지 자동으로 걸린다.
   const reqs = useMemo(() => {
     if (!catFilter) return allReqs
-    return allReqs.filter((r) => r.cat1 === catFilter || r.cat2 === catFilter)
+    return allReqs.filter(
+      (r) => r.cat1 === catFilter || r.cat2 === catFilter || r.cat3 === catFilter,
+    )
   }, [allReqs, catFilter])
 
   /** req_id → TC[] (TC 쪽 포인터 기준) */
@@ -154,26 +157,12 @@ export default function Requirements() {
         <ReqForm editing={form} onClose={() => setForm(undefined)} />
       )}
 
-      <div className="crumb">Requirements</div>
       <div className="page-head">
         <h1>
           {selectedReq
             ? `${reqLabel(selectedReq)} · ${selectedReq.title || '(제목 없음)'}`
             : 'Requirements'}
         </h1>
-        <div className="page-head-actions">
-          <button
-            className="btn"
-            type="button"
-            disabled={!selectedReq}
-            onClick={() => selectedReq && setForm(selectedReq)}
-          >
-            편집
-          </button>
-          <button className="btn primary" type="button" onClick={() => setForm(null)}>
-            + Requirement
-          </button>
-        </div>
       </div>
 
       <div className="tabs">
@@ -202,10 +191,22 @@ export default function Requirements() {
         <section className="panel req-panel">
           <CategoryTree selected={catFilter} onSelect={setCatFilter} />
           <div className="panel-title">
-            <b>Requirements</b>
             <span className="muted">
               {catFilter ? `${reqs.length} / ${allReqs.length}건` : `${reqs.length}건`}
             </span>
+            <div className="page-head-actions">
+              <button
+                className="btn"
+                type="button"
+                disabled={!selectedReq}
+                onClick={() => selectedReq && setForm(selectedReq)}
+              >
+                편집
+              </button>
+              <button className="btn primary" type="button" onClick={() => setForm(null)}>
+                + Requirement
+              </button>
+            </div>
           </div>
           <div className="scroll">
             {loading ? (

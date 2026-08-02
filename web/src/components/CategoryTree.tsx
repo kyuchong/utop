@@ -1,7 +1,12 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { categoryApi } from '@/api/client'
-import { buildCategoryTree, type ReqCategory } from '@/types'
+import {
+  buildCategoryTree,
+  MAX_CAT_DEPTH,
+  type CategoryTreeNode,
+  type ReqCategory,
+} from '@/types'
 import './CategoryTree.css'
 
 interface Props {
@@ -11,10 +16,10 @@ interface Props {
 }
 
 /**
- * 요구사항 분류 트리 (대분류 > 중분류, 2단 고정).
+ * 요구사항 분류 트리 (대분류 > 중분류 > 소분류, 최대 3단).
  *
- * 깊이가 2단인 것은 서버가 강제한다 — 여기서는 "중분류 밑에 추가" 버튼을
- * 아예 만들지 않는 것으로 같은 규칙을 화면에서도 드러낸다.
+ * 깊이 상한은 서버가 강제한다. 화면에서는 3단째 행에 「+」 버튼을 아예
+ * 두지 않는 것으로 같은 규칙을 미리 보여준다 — 눌러본 뒤 거부당하지 않도록.
  */
 export default function CategoryTree({ selected, onSelect }: Props) {
   const qc = useQueryClient()
@@ -50,13 +55,19 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   const renameM = useMutation({
     mutationFn: (v: { id: string; name: string; parentId: string | null }) =>
       categoryApi.rename(v.id, v.name, v.parentId),
-    onSuccess: () => { setError(''); invalidate() },
+    onSuccess: () => {
+      setError('')
+      invalidate()
+    },
     onError: fail,
   })
 
   const removeM = useMutation({
     mutationFn: (id: string) => categoryApi.remove(id),
-    onSuccess: () => { setError(''); invalidate() },
+    onSuccess: () => {
+      setError('')
+      invalidate()
+    },
     onError: fail,
   })
 
@@ -90,14 +101,18 @@ export default function CategoryTree({ selected, onSelect }: Props) {
     renameM.mutate({ id: c.id, name, parentId: c.parent_id })
   }
 
-  const doRemove = (c: ReqCategory, childCount: number) => {
+  const countAll = (n: CategoryTreeNode): number =>
+    n.children.reduce((a, k) => a + 1 + countAll(k), 0)
+
+  const doRemove = (n: CategoryTreeNode) => {
+    const total = countAll(n)
     const warn =
-      childCount > 0
-        ? `'${c.name}' 과 그 아래 하위 분류 ${childCount}개가 함께 삭제됩니다.\n`
-        : `'${c.name}' 을 삭제합니다.\n`
+      total > 0
+        ? `'${n.name}' 과 그 아래 하위 분류 ${total}개가 함께 삭제됩니다.\n`
+        : `'${n.name}' 을 삭제합니다.\n`
     if (!window.confirm(warn + '요구사항은 지워지지 않고 미분류가 됩니다. 계속할까요?'))
       return
-    removeM.mutate(c.id)
+    removeM.mutate(n.id)
   }
 
   const nameInput = (
@@ -121,16 +136,63 @@ export default function CategoryTree({ selected, onSelect }: Props) {
     </div>
   )
 
+  const renderNode = (n: CategoryTreeNode) => {
+    const open = openIds.has(n.id)
+    const hasKids = n.children.length > 0
+    const canAddChild = n.depth < MAX_CAT_DEPTH
+    return (
+      <div key={n.id}>
+        <div
+          className={`cat-row${selected === n.id ? ' sel' : ''}`}
+          style={{ paddingLeft: 6 + (n.depth - 1) * 14 }}
+        >
+          <button
+            type="button"
+            className="cat-caret"
+            onClick={() => toggle(n.id)}
+            aria-label={open ? '접기' : '펼치기'}
+            disabled={!hasKids}
+          >
+            {!hasKids ? '·' : open ? '▾' : '▸'}
+          </button>
+          <button
+            type="button"
+            className="cat-name"
+            onClick={() => onSelect(n.id)}
+            title={n.name}
+          >
+            {n.name}
+          </button>
+          <span className="cat-count">{n.req_count || ''}</span>
+          <span className="cat-actions">
+            {canAddChild && (
+              <button type="button" onClick={() => startAdd(n.id)} title="하위 분류 추가">
+                +
+              </button>
+            )}
+            <button type="button" onClick={() => doRename(n)} title="이름 변경">
+              ✎
+            </button>
+            <button type="button" onClick={() => doRemove(n)} title="삭제">
+              ×
+            </button>
+          </span>
+        </div>
+
+        {addingTo === n.id && (
+          <div style={{ paddingLeft: (n.depth - 1) * 14 }}>{nameInput}</div>
+        )}
+
+        {open && n.children.map(renderNode)}
+      </div>
+    )
+  }
+
   return (
     <div className="cat-tree">
       <div className="cat-head">
         <b>분류</b>
-        <button
-          className="btn"
-          type="button"
-          onClick={() => startAdd(null)}
-          title="대분류 추가"
-        >
+        <button className="btn" type="button" onClick={() => startAdd(null)} title="대분류 추가">
           + 대분류
         </button>
       </div>
@@ -156,77 +218,7 @@ export default function CategoryTree({ selected, onSelect }: Props) {
           <span className="muted">위 「+ 대분류」로 만드세요.</span>
         </div>
       ) : (
-        tree.map((p) => {
-          const open = openIds.has(p.id)
-          return (
-            <div key={p.id}>
-              <div className={`cat-row${selected === p.id ? ' sel' : ''}`}>
-                <button
-                  type="button"
-                  className="cat-caret"
-                  onClick={() => toggle(p.id)}
-                  aria-label={open ? '접기' : '펼치기'}
-                  disabled={p.children.length === 0}
-                >
-                  {p.children.length === 0 ? '·' : open ? '▾' : '▸'}
-                </button>
-                <button
-                  type="button"
-                  className="cat-name"
-                  onClick={() => onSelect(p.id)}
-                  title={p.name}
-                >
-                  {p.name}
-                </button>
-                <span className="cat-count">{p.req_count || ''}</span>
-                <span className="cat-actions">
-                  <button type="button" onClick={() => startAdd(p.id)} title="중분류 추가">
-                    +
-                  </button>
-                  <button type="button" onClick={() => doRename(p)} title="이름 변경">
-                    ✎
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => doRemove(p, p.children.length)}
-                    title="삭제"
-                  >
-                    ×
-                  </button>
-                </span>
-              </div>
-
-              {addingTo === p.id && <div className="cat-indent">{nameInput}</div>}
-
-              {open &&
-                p.children.map((c) => (
-                  <div
-                    key={c.id}
-                    className={`cat-row child${selected === c.id ? ' sel' : ''}`}
-                  >
-                    <span className="cat-caret" />
-                    <button
-                      type="button"
-                      className="cat-name"
-                      onClick={() => onSelect(c.id)}
-                      title={c.name}
-                    >
-                      {c.name}
-                    </button>
-                    <span className="cat-count">{c.req_count || ''}</span>
-                    <span className="cat-actions">
-                      <button type="button" onClick={() => doRename(c)} title="이름 변경">
-                        ✎
-                      </button>
-                      <button type="button" onClick={() => doRemove(c, 0)} title="삭제">
-                        ×
-                      </button>
-                    </span>
-                  </div>
-                ))}
-            </div>
-          )
-        })
+        tree.map(renderNode)
       )}
     </div>
   )
