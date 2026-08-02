@@ -42,6 +42,23 @@ export default function CategoryTree({ selected, onSelect }: Props) {
     }
   })
 
+  // 열려 있는 '⋯' 메뉴의 분류 id
+  const [menuFor, setMenuFor] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!menuFor) return
+    const close = (e: Event) => {
+      if (!(e.target as HTMLElement)?.closest?.('.cat-menu-wrap')) setMenuFor(null)
+    }
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setMenuFor(null)
+    window.addEventListener('pointerdown', close)
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.removeEventListener('pointerdown', close)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [menuFor])
+
   useEffect(() => {
     localStorage.setItem('utop.cat.open', JSON.stringify([...openIds]))
   }, [openIds])
@@ -426,18 +443,60 @@ export default function CategoryTree({ selected, onSelect }: Props) {
             {n.name}
           </button>
           {n.req_count > 0 && <span className="cat-count">{n.req_count}</span>}
-          <span className="cat-actions">
-            {canAddChild && (
-              <button type="button" onClick={() => startAdd(n.id)} title="하위 분류 추가">
-                +
-              </button>
+          {/* 버튼 세 개를 늘어놓으면 좁은 카드에서 이름을 밀어낸다.
+              하나로 모으고 눌렀을 때만 펼친다. */}
+          <span className="cat-actions cat-menu-wrap">
+            <button
+              type="button"
+              className={`cat-menu-btn${menuFor === n.id ? ' on' : ''}`}
+              title="추가 · 수정 · 삭제"
+              aria-haspopup="menu"
+              aria-expanded={menuFor === n.id}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation()
+                setMenuFor(menuFor === n.id ? null : n.id)
+              }}
+            >
+              ⋯
+            </button>
+            {menuFor === n.id && (
+              <div className="cat-menu" role="menu">
+                {canAddChild && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setMenuFor(null)
+                      startAdd(n.id)
+                    }}
+                  >
+                    하위 분류 추가
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenuFor(null)
+                    doRename(n)
+                  }}
+                >
+                  이름 변경 · 이동
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="danger"
+                  onClick={() => {
+                    setMenuFor(null)
+                    doRemove(n)
+                  }}
+                >
+                  삭제
+                </button>
+              </div>
             )}
-            <button type="button" onClick={() => doRename(n)} title="이름 변경 · 상위 분류 이동">
-              ✎
-            </button>
-            <button type="button" onClick={() => doRemove(n)} title="삭제">
-              ×
-            </button>
           </span>
         </div>
 

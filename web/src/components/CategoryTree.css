@@ -482,3 +482,68 @@
 .cat-row.drop-after::after {
   border-left: 6px solid var(--c-primary);
 }
+
+/* ── ⋯ 메뉴 ────────────────────────────────────────────────
+   버튼 세 개를 늘어놓으니 좁은 카드에서 이름을 밀어냈다.
+   하나로 모으고 누를 때만 펼친다. */
+.cat-menu-wrap {
+  position: relative;
+}
+
+.cat-menu-btn {
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--c-text-faint);
+  font-size: var(--fs-lg);
+  line-height: 1;
+}
+
+.cat-row:hover .cat-menu-btn {
+  color: var(--c-text-muted);
+}
+
+.cat-menu-btn:hover,
+.cat-menu-btn.on {
+  background: var(--c-primary-bg);
+  border-color: #cfe0f5;
+  color: var(--c-primary);
+}
+
+.cat-menu {
+  position: absolute;
+  top: 28px;
+  right: 0;
+  z-index: 30;
+  min-width: 150px;
+  padding: 4px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  box-shadow: 0 6px 18px rgb(20 28 38 / 0.16);
+  display: flex;
+  flex-direction: column;
+}
+
+.cat-menu button {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 4px;
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+  white-space: nowrap;
+}
+
+.cat-menu button:hover {
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+}
+
+.cat-menu button.danger:hover {
+  background: #fdeaea;
+  color: var(--c-fail);
+}
