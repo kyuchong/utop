@@ -124,6 +124,13 @@ export function buildCategoryTree(list: ReqCategory[]): CategoryTreeNode[] {
   return build(null, 1)
 }
 
+/**
+ * '미분류' 를 고른 상태를 나타내는 표식.
+ * 실제 분류가 아니라 '분류가 안 붙은 요구사항' 을 거르는 값이라
+ * 실존하는 id 와 절대 겹치지 않는 문자열을 쓴다.
+ */
+export const UNCATEGORIZED = '__none__'
+
 /** 분류 3단까지. 이 값을 넘는 하위는 만들 수 없다 (서버도 같은 값으로 막는다). */
 export const MAX_CAT_DEPTH = 3
 

@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { categoryApi } from '@/api/client'
 import {
   buildCategoryTree,
   MAX_CAT_DEPTH,
+  UNCATEGORIZED,
   type CategoryTreeNode,
   type ReqCategory,
 } from '@/types'
@@ -31,6 +32,13 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   // 드래그 중인 분류 id / 올려둔 대상 id (null = 최상위로 빼기)
   const [dragId, setDragId] = useState<string | null>(null)
   const [overId, setOverId] = useState<string | null | undefined>(undefined)
+  // 여러 개 골라 한 번에 지우는 모드
+  const [pickMode, setPickMode] = useState(false)
+  const [picked, setPicked] = useState<Set<string>>(new Set())
+  // 정렬 기준. 브라우저에 기억시킨다.
+  const [sort, setSort] = useState<'manual' | 'name' | 'count'>(
+    () => (localStorage.getItem('utop.cat.sort') as 'manual' | 'name' | 'count') || 'manual',
+  )
 
   const catQ = useQuery({
     queryKey: ['req-categories'],
@@ -76,7 +84,24 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   })
 
   const list = catQ.data?.categories ?? []
-  const tree = buildCategoryTree(list)
+
+  /**
+   * 정렬. 같은 단계끼리만 정렬하고 부모-자식 관계는 건드리지 않는다.
+   *  - manual: 서버가 준 순서(sort_order → 이름). 드래그로 옮긴 구조를 그대로.
+   *  - name  : 이름 오름차순. 한글·영문이 섞여서 localeCompare 를 쓴다.
+   *  - count : 요구사항이 많은 분류부터. 어디에 일이 몰려 있는지 볼 때.
+   */
+  const tree = useMemo(() => {
+    const t0 = buildCategoryTree(list)
+    if (sort === 'manual') return t0
+    const cmp = (a: CategoryTreeNode, b: CategoryTreeNode) =>
+      sort === 'name'
+        ? a.name.localeCompare(b.name, 'ko')
+        : b.req_count - a.req_count || a.name.localeCompare(b.name, 'ko')
+    const walk = (ns: CategoryTreeNode[]): CategoryTreeNode[] =>
+      [...ns].sort(cmp).map((n) => ({ ...n, children: walk(n.children) }))
+    return walk(t0)
+  }, [list, sort])
 
   const toggle = (id: string) =>
     setOpenIds((s) => {
@@ -131,6 +156,55 @@ export default function CategoryTree({ selected, onSelect }: Props) {
 
   const countAll = (n: CategoryTreeNode): number =>
     n.children.reduce((a, k) => a + 1 + countAll(k), 0)
+
+  const togglePick = (id: string) =>
+    setPicked((s) => {
+      const n = new Set(s)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+
+  const removeManyM = useMutation({
+    mutationFn: async (ids: string[]) => {
+      // 조상을 먼저 지우면 자손은 CASCADE 로 함께 사라진다. 그 뒤에 자손을
+      // 또 지우려 하면 404 가 나므로, 이미 사라진 것은 조용히 넘긴다.
+      for (const id of ids) {
+        try {
+          await categoryApi.remove(id)
+        } catch (e) {
+          if (!(e instanceof Error) || !e.message.includes('찾을 수 없')) throw e
+        }
+      }
+    },
+    onSuccess: () => {
+      setPicked(new Set())
+      setPickMode(false)
+      setError('')
+      invalidate()
+    },
+    onError: fail,
+  })
+
+  const doRemovePicked = () => {
+    const ids = [...picked]
+    if (ids.length === 0) return
+    // 고른 것들의 자손까지 합쳐서 실제로 몇 개가 사라지는지 알려준다
+    const all = new Set<string>()
+    const walk = (id: string) => {
+      if (all.has(id)) return
+      all.add(id)
+      for (const c of list) if (c.parent_id === id) walk(c.id)
+    }
+    ids.forEach(walk)
+    const extra = all.size - ids.length
+    const lines = [`분류 ${ids.length}개를 삭제합니다.`]
+    if (extra > 0) lines.push(`하위 분류 ${extra}개도 함께 사라집니다.`)
+    lines.push('요구사항은 지워지지 않고 미분류가 됩니다. 계속할까요?')
+    const msg = lines.join('\n')
+    if (!window.confirm(msg)) return
+    removeManyM.mutate(ids)
+  }
 
   const doRemove = (n: CategoryTreeNode) => {
     const total = countAll(n)
@@ -201,6 +275,16 @@ export default function CategoryTree({ selected, onSelect }: Props) {
             drop(n.id)
           }}
         >
+          {pickMode && (
+            <input
+              type="checkbox"
+              className="cat-pick"
+              checked={picked.has(n.id)}
+              onChange={() => togglePick(n.id)}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={`${n.name} 선택`}
+            />
+          )}
           <button
             type="button"
             className={`cat-caret${open ? ' open' : ''}`}
@@ -247,34 +331,88 @@ export default function CategoryTree({ selected, onSelect }: Props) {
     <div className="cat-tree">
       <div className="cat-head">
         <b>분류</b>
-        <button className="btn" type="button" onClick={() => startAdd(null)} title="대분류 추가">
-          + 대분류
+        <button
+          type="button"
+          className={`btn cat-all${selected === null ? ' primary' : ''}`}
+          onClick={() => onSelect(null)}
+          title="분류에 상관없이 전체 보기"
+        >
+          전체
         </button>
+        <select
+          className="cat-sort"
+          value={sort}
+          title="정렬 기준"
+          onChange={(e) => {
+            const v = e.target.value as 'manual' | 'name' | 'count'
+            setSort(v)
+            localStorage.setItem('utop.cat.sort', v)
+          }}
+        >
+          <option value="manual">직접 정렬</option>
+          <option value="name">이름순</option>
+          <option value="count">요구사항 많은순</option>
+        </select>
+        <div className="cat-head-actions">
+          {pickMode ? (
+            <>
+              <button
+                className="btn danger"
+                type="button"
+                disabled={picked.size === 0 || removeManyM.isPending}
+                onClick={doRemovePicked}
+              >
+                {removeManyM.isPending ? '삭제 중…' : `${picked.size}개 삭제`}
+              </button>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  setPickMode(false)
+                  setPicked(new Set())
+                }}
+              >
+                취소
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => setPickMode(true)}
+                title="여러 개 골라 한 번에 삭제"
+              >
+                선택
+              </button>
+              <button className="btn" type="button" onClick={() => startAdd(null)}>
+                + 대분류
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {error && <div className="cat-error">{error}</div>}
 
-      <button
-        type="button"
-        className={
-          `cat-row root${selected === null ? ' sel' : ''}` +
-          `${overId === null ? ' dropinto' : ''}`
-        }
-        onClick={() => onSelect(null)}
-        onDragOver={(e) => {
-          if (!dragId) return
-          e.preventDefault()
-          setOverId(null)
-        }}
-        onDragLeave={() => setOverId((v) => (v === null ? undefined : v))}
-        onDrop={(e) => {
-          e.preventDefault()
-          drop(null)
-        }}
-        title={dragId ? '여기에 놓으면 최상위(대분류)로 나갑니다' : undefined}
-      >
-        <span className="cat-name">전체</span>
-      </button>
+      {/* 드래그 중에만 나타나는 '최상위로 빼기' 영역.
+          평소에 자리를 차지하면 목록만 밀린다. */}
+      {dragId && (
+        <div
+          className={`cat-drop-root${overId === null ? ' dropinto' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setOverId(null)
+          }}
+          onDragLeave={() => setOverId((v) => (v === null ? undefined : v))}
+          onDrop={(e) => {
+            e.preventDefault()
+            drop(null)
+          }}
+        >
+          여기에 놓으면 대분류로 나갑니다
+        </div>
+      )}
 
       {addingTo === null && nameInput}
 
@@ -289,6 +427,18 @@ export default function CategoryTree({ selected, onSelect }: Props) {
       ) : (
         tree.map(renderNode)
       )}
+
+      {/* 분류가 안 붙은 요구사항을 찾는 자리. 실제 분류가 아니라 필터라서
+          이름 변경·삭제·하위 추가가 없다. */}
+      <div
+        className={`cat-row uncat${selected === UNCATEGORIZED ? ' sel' : ''}`}
+        onClick={() => onSelect(UNCATEGORIZED)}
+      >
+        <span className="cat-caret" />
+        <button type="button" className="cat-name" onClick={(e) => e.stopPropagation()}>
+          미분류
+        </button>
+      </div>
     </div>
   )
 }

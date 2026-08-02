@@ -13,6 +13,7 @@ import {
   reqLabel,
   reqPk,
   statusClass,
+  UNCATEGORIZED,
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
@@ -82,6 +83,10 @@ export default function Requirements() {
   // 맞으면 하위까지 자동으로 걸린다.
   const reqs = useMemo(() => {
     if (!catFilter) return allReqs
+    if (catFilter === UNCATEGORIZED) {
+      // 분류가 하나도 안 붙은 것 (지워진 분류를 가리키던 것도 여기로 온다)
+      return allReqs.filter((r) => !r.cat1 && !r.cat2 && !r.cat3)
+    }
     return allReqs.filter(
       (r) => r.cat1 === catFilter || r.cat2 === catFilter || r.cat3 === catFilter,
     )
