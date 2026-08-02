@@ -135,6 +135,27 @@ DROP TRIGGER IF EXISTS trg_req_updated ON req;
 CREATE TRIGGER trg_req_updated BEFORE UPDATE ON req
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- ── 자원 점유 (장비 · 계측기) ──────────────────────────────────
+-- 장비와 계측기를 한 테이블로 다룬다. 둘 다 '누가 잡고 있나' 라는 같은
+-- 문제이고, 나누면 '장비는 비었는데 계측기가 잡혀 있다' 를 한 번에 볼 수 없다.
+--
+-- 락은 사이클이 끝날 때까지 유지된다(시간 만료 없음). 대신 살아있음 신호
+-- (heartbeat_at)를 남겨, 신호가 끊긴 지 오래면 화면에서 '응답 없음' 으로
+-- 보여준다. 자동으로 풀지는 않는다 — 실제 시험 중인 장비를 남이 뺏으면
+-- 시험이 통째로 망가진다. 푸는 것은 사람이 판단한다.
+CREATE TABLE IF NOT EXISTS resource_lock (
+  resource_id   TEXT PRIMARY KEY,          -- 장비 id 또는 계측기 id
+  kind          TEXT NOT NULL,             -- 'device' | 'instrument'
+  locked_by     TEXT NOT NULL,             -- username
+  locked_name   TEXT,                      -- 표시용 이름
+  cycle_id      TEXT,                      -- 이 사이클이 끝나면 풀린다
+  note          TEXT,
+  locked_at     TIMESTAMPTZ DEFAULT now(),
+  heartbeat_at  TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_resource_lock_by    ON resource_lock(locked_by);
+CREATE INDEX IF NOT EXISTS idx_resource_lock_cycle ON resource_lock(cycle_id);
+
 -- ── Manuals (매뉴얼/문서) ────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS manuals (
   id            TEXT PRIMARY KEY,

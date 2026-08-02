@@ -5,6 +5,7 @@ import asyncio
 import socket
 import subprocess
 import threading
+import contextvars
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -738,8 +739,18 @@ def _find_user(username: str):
             return u
     return None
 
+# 지금 요청의 세션. 미들웨어가 채운다.
+#
+# 옛 엔드포인트들은 토큰을 쿼리(?token=)로만 받는다(21곳쯤). 새 화면은
+# Authorization 헤더로 보내므로 그대로 두면 전부 401 이 난다.
+# 라우트를 하나씩 고치는 대신, 토큰 인자가 비었을 때 이 값으로 넘어가게
+# 한다 — 미들웨어가 이미 확인한 세션이라 안전하고, 옛 화면의 ?token= 도
+# 그대로 동작한다.
+_CUR_SESSION: contextvars.ContextVar = contextvars.ContextVar("utop_session", default=None)
+
+
 def _user_from_token(token: str):
-    s = SESSIONS.get(token or "")
+    s = SESSIONS.get(token or "") or _CUR_SESSION.get()
     return _find_user(s.get("username")) if s else None
 
 def _require_admin(token: str):
@@ -815,6 +826,7 @@ async def _require_login(request, call_next):
 
     # 아래 코드가 '누가 했는지' 를 알 수 있게 실어 보낸다
     request.state.user = s
+    _CUR_SESSION.set(s)
     return await call_next(request)
 
 
@@ -2318,6 +2330,118 @@ async def get_req_image(name: str):
     if not f.is_file():
         raise HTTPException(404, "이미지를 찾을 수 없습니다")
     return FileResponse(str(f), headers={"Cache-Control": "public, max-age=31536000, immutable"})
+
+
+# ───────────────────────────────────────────
+# 자원 점유 (장비 · 계측기)
+#
+# 같은 장비를 두 사람이 동시에 잡으면 시험이 통째로 망가진다. 50명이
+# 함께 쓰면 반드시 필요하다.
+#
+# 락은 사이클이 끝날 때까지 유지한다(시간 만료 없음). 자동으로 풀면
+# 실제 시험 중인 장비를 남이 뺏을 수 있다. 대신 살아있음 신호를 남겨
+# '응답 없음' 을 보여주고, 푸는 것은 사람이 판단한다.
+# ───────────────────────────────────────────
+class LockIn(BaseModel):
+    resource_id: str
+    kind: str = "device"          # 'device' | 'instrument'
+    cycle_id: Optional[str] = None
+    note: Optional[str] = None
+
+
+def _me(request) -> dict:
+    """미들웨어가 넣어둔 세션. 없으면 401 (미들웨어가 이미 막지만 방어적으로)."""
+    s = getattr(request.state, "user", None)
+    if not s:
+        raise HTTPException(401, "로그인이 필요합니다")
+    return s
+
+
+@app.get("/api/locks")
+async def list_locks():
+    """지금 잡혀 있는 자원 전부. 화면이 '누가 언제부터' 를 보여줄 수 있게
+    신호가 끊긴 지 얼마나 됐는지도 함께 준다."""
+    async with db.pool().acquire() as c:
+        rows = await c.fetch(
+            """
+            SELECT resource_id, kind, locked_by, locked_name, cycle_id, note,
+                   locked_at, heartbeat_at,
+                   EXTRACT(EPOCH FROM (now() - heartbeat_at))::int AS stale_sec
+            FROM resource_lock ORDER BY locked_at
+            """
+        )
+    return {"locks": [dict(r) for r in rows]}
+
+
+@app.post("/api/locks")
+async def acquire_lock(body: LockIn, request: Request):
+    rid = (body.resource_id or "").strip()
+    if not rid:
+        raise HTTPException(400, "자원 id 가 필요합니다")
+    me = _me(request)
+
+    async with db.pool().acquire() as c:
+        cur = await c.fetchrow("SELECT * FROM resource_lock WHERE resource_id=$1", rid)
+        if cur:
+            if cur["locked_by"] != me.get("username"):
+                who = cur["locked_name"] or cur["locked_by"]
+                since = cur["locked_at"].strftime("%m-%d %H:%M") if cur["locked_at"] else ""
+                raise HTTPException(
+                    409, f"이미 {who} 님이 잡고 있습니다 (시작 {since}). 확인 후 진행하세요."
+                )
+            # 내가 이미 잡고 있으면 신호만 갱신한다
+            await c.execute(
+                "UPDATE resource_lock SET heartbeat_at=now(), cycle_id=COALESCE($2, cycle_id) WHERE resource_id=$1",
+                rid, body.cycle_id,
+            )
+            return {"success": True, "renewed": True}
+
+        await c.execute(
+            """INSERT INTO resource_lock
+               (resource_id, kind, locked_by, locked_name, cycle_id, note)
+               VALUES ($1,$2,$3,$4,$5,$6)""",
+            rid, body.kind, me.get("username"), me.get("name") or me.get("username"),
+            body.cycle_id, body.note,
+        )
+    return {"success": True, "renewed": False}
+
+
+@app.post("/api/locks/{resource_id}/heartbeat")
+async def heartbeat_lock(resource_id: str, request: Request):
+    me = _me(request)
+    async with db.pool().acquire() as c:
+        r = await c.execute(
+            "UPDATE resource_lock SET heartbeat_at=now() WHERE resource_id=$1 AND locked_by=$2",
+            resource_id, me.get("username"),
+        )
+    if not r.endswith(" 1"):
+        raise HTTPException(404, "내가 잡고 있는 자원이 아닙니다")
+    return {"success": True}
+
+
+@app.delete("/api/locks/{resource_id}")
+async def release_lock(resource_id: str, request: Request):
+    """해제는 잡은 본인과 관리자만. 남의 시험을 아무나 끊을 수 없어야 한다."""
+    me = _me(request)
+    async with db.pool().acquire() as c:
+        cur = await c.fetchrow("SELECT * FROM resource_lock WHERE resource_id=$1", resource_id)
+        if not cur:
+            raise HTTPException(404, "잡혀 있지 않습니다")
+        is_admin = me.get("role") == "관리자"
+        if cur["locked_by"] != me.get("username") and not is_admin:
+            who = cur["locked_name"] or cur["locked_by"]
+            raise HTTPException(403, f"{who} 님이 잡은 자원입니다. 본인 또는 관리자만 해제할 수 있습니다.")
+        await c.execute("DELETE FROM resource_lock WHERE resource_id=$1", resource_id)
+    return {"success": True, "forced": cur["locked_by"] != me.get("username")}
+
+
+@app.delete("/api/locks/by-cycle/{cycle_id}")
+async def release_locks_of_cycle(cycle_id: str, request: Request):
+    """사이클이 끝나면 그 사이클이 잡은 것을 한꺼번에 푼다."""
+    _me(request)
+    async with db.pool().acquire() as c:
+        r = await c.execute("DELETE FROM resource_lock WHERE cycle_id=$1", cycle_id)
+    return {"success": True, "released": int(r.rsplit(" ", 1)[-1] or 0)}
 
 
 @app.post("/api/convert/markdown")
