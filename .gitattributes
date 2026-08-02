@@ -1,0 +1,8 @@
+# 줄바꿈만 고정한다. 인코딩(BOM)은 파일 내용이라 git 이 그대로 보존한다.
+
+# PowerShell 5.1 은 BOM 없는 .ps1 을 ANSI(cp949) 로 읽어 한글이 깨진다.
+# start.ps1 은 UTF-8 BOM 으로 저장돼 있으니 그 상태를 유지할 것.
+*.ps1 text eol=crlf
+
+# 리눅스에서 실행되는 스크립트는 LF 여야 한다 (CRLF 면 bash 가 죽는다).
+*.sh  text eol=lf

@@ -13,21 +13,35 @@
 필요한 것은 **Docker 하나뿐이다.** PostgreSQL 을 따로 설치하지 않는다.
 (Windows 는 Docker Desktop, 리눅스는 docker + docker compose)
 
-```bash
-git clone https://github.com/kyuchong/utop.git
-cd utop
-cp .env.example .env
+### Windows
+
+PowerShell 에 그대로 붙여넣으면 된다.
+
+```powershell
+git clone https://github.com/kyuchong/utop.git C:\utop; cd C:\utop; .\start.ps1
 ```
 
-`.env` 를 열어 `POSTGRES_PASSWORD` 를 채운 뒤:
+### 리눅스 / macOS
 
 ```bash
-docker compose up -d
+git clone https://github.com/kyuchong/utop.git ~/utop && cd ~/utop && ./start.sh
 ```
 
-브라우저에서 **http://localhost:8080** 으로 접속한다.
+`start` 스크립트가 알아서 한다 — 최신 소스 받기 → `.env` 생성(DB 비밀번호 자동 생성)
+→ 이미지 빌드 → 기동 → 뜰 때까지 대기 → 브라우저 열기.
 
-첫 기동은 이미지 빌드 때문에 몇 분 걸린다. 두 번째부터는 수십 초다.
+첫 실행은 이미지 빌드 때문에 몇 분 걸린다. 두 번째부터는 수십 초다.
+
+접속 주소는 **http://localhost:9000** 이다.
+
+### 두 번째부터 (업데이트)
+
+같은 스크립트를 다시 실행하면 최신 소스를 받아 다시 띄운다.
+**데이터는 도커 볼륨에 있으므로 지워지지 않는다.**
+
+```powershell
+cd C:\utop; .\start.ps1
+```
 
 ### 자주 쓰는 명령
 
@@ -37,6 +51,16 @@ docker compose restart api      # 백엔드만 재시작
 docker compose down             # 정지 (데이터는 남는다)
 docker compose down -v          # 정지 + 데이터까지 삭제
 ```
+
+### 포트를 바꾸려면
+
+`.env` 의 `WEB_PORT` 를 고치고 `docker compose up -d` 를 다시 실행한다.
+
+```
+WEB_PORT=9000
+```
+
+같은 PC 에서 두 벌을 동시에 띄우려면 각각 다른 포트를 주면 된다.
 
 ---
 
