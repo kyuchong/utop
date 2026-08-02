@@ -60,7 +60,7 @@ export default function ReqForm({ editing, onClose }: Props) {
         }
         md = (await res.json()).markdown ?? ''
       }
-      // 기존 내용이 있으면 덮지 않고 아래에 잇는다 — 실수로 날리면 되돌릴 수 없다.
+      // 기존 내용이 있으면 덮지 않고 아래에 잇는다 - 실수로 날리면 되돌릴 수 없다.
       setDesc((cur) => (cur.trim() ? `${cur}
 
 ---

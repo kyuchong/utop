@@ -128,45 +128,36 @@
 }
 
 
-/* ── 편집기 (MDXEditor) ────────────────────────────────────────
-   기본 스타일이 자기 폰트·크기를 들고 온다. 화면 나머지와 튀지 않도록
-   우리 척도(--fs-*, --font-ui)로 덮는다. */
+/* ── 편집기 (Milkdown / Crepe) ────────────────────────────────
+   테마가 자기 글꼴·크기를 들고 온다. 화면 나머지와 튀지 않게 덮는다. */
 .md-editor {
   border: 1px solid #ccd3da;
   border-radius: var(--radius-sm);
   overflow: hidden;
   background: var(--c-surface);
+  display: flex;
+  flex-direction: column;
 }
 
-.md-editor .mdxeditor {
-  --font-body: var(--font-ui);
-  --font-mono: var(--font-mono);
-  font-family: var(--font-ui);
+.md-editor .milkdown {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  --crepe-font-title: var(--font-ui);
+  --crepe-font-default: var(--font-ui);
+  --crepe-font-code: var(--font-mono);
 }
 
-.md-editor .mdxeditor-toolbar {
-  border-radius: 0;
-  border-bottom: 1px solid var(--c-border);
-  background: var(--c-surface-alt);
-}
-
-.md-editor .md-content {
-  min-height: 260px;
-  max-height: 420px;
+.md-editor .milkdown .ProseMirror {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--sp-3);
   font-size: var(--fs-md);
   line-height: 1.65;
 }
 
-.md-editor .md-content:focus {
+.md-editor .milkdown .ProseMirror:focus {
   outline: none;
-}
-
-/* 원문 보기(소스 모드)는 고정폭으로 */
-.md-editor .mdxeditor-source-editor {
-  max-height: 420px;
-  overflow-y: auto;
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
 }

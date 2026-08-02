@@ -291,15 +291,10 @@
   flex-direction: column;
 }
 
-/* flex 연쇄에 기대면 위쪽 칸(ID·제목·분류)들이 높이를 다 가져가서
-   정작 입력 영역이 70px 로 쪼그라든다. 남는 높이를 계산해 못박는다.
-   340px = 창 머리 + 위쪽 입력칸들 + 도구모음 + 창 바닥. */
-.modal.tall .md-editor .md-content,
-.modal.tall .md-editor .mdxeditor-source-editor {
-  height: calc(95vh - 340px);
-  min-height: 280px;
-  max-height: none;
-  flex: none;
+/* 편집기 높이. 상자에 높이를 주고 안쪽이 그 안을 채우게 한다. */
+.modal.tall .md-editor {
+  height: calc(95vh - 300px);
+  min-height: 320px;
 }
 
 .md-loading {
@@ -348,36 +343,6 @@
   color: var(--c-text-faint);
 }
 
-/* ── 편집기 도구모음이 잘 안 보이던 문제 ──────────────────────
-   기본 아이콘이 옅은 회색이라 흰 배경에서 거의 안 보인다. */
-.md-editor .mdxeditor-toolbar {
-  padding: 4px 6px;
-  gap: 2px;
-}
-
-.md-editor .mdxeditor-toolbar button {
-  color: var(--c-text);
-}
-
-.md-editor .mdxeditor-toolbar svg {
-  color: var(--c-text) !important;
-  opacity: 1;
-  width: 20px;
-  height: 20px;
-}
-
-.md-editor .mdxeditor-toolbar button:hover {
-  background: var(--c-primary-bg);
-}
-
-.md-editor .mdxeditor-toolbar button[data-state='on'],
-.md-editor .mdxeditor-toolbar button[aria-checked='true'] {
-  background: var(--c-primary-bg);
-}
-
-.md-editor .mdxeditor-toolbar button[data-state='on'] svg {
-  color: var(--c-primary) !important;
-}
 
 /* 구현내용 위의 동작 버튼 (파일 등록 · 벡터 저장) */
 .md-actions {
@@ -402,4 +367,33 @@
 
 .md-actions .stat.err {
   color: var(--c-fail);
+}
+
+/* 편집기를 못 띄웠을 때의 대체 입력칸 */
+.md-fallback {
+  display: flex;
+  flex-direction: column;
+}
+
+.md-fallback-note {
+  padding: 6px var(--sp-2);
+  background: #fdf7e8;
+  border-bottom: 1px solid #efe0bd;
+  color: #7a5c12;
+  font-size: var(--fs-xs);
+}
+
+.md-fallback textarea {
+  flex: 1;
+  min-height: 260px;
+  border: 0;
+  padding: var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  resize: none;
+}
+
+.md-fallback textarea:focus {
+  outline: none;
 }
