@@ -175,7 +175,7 @@ button {
 }
 
 .panel-title {
-  padding: var(--sp-3) 15px;
+  padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid #e1e5e9;
   display: flex;
   justify-content: space-between;
@@ -208,7 +208,7 @@ button {
 }
 
 .empty {
-  padding: 40px var(--sp-5);
+  padding: var(--sp-5) var(--sp-4);
   text-align: center;
   color: var(--c-text-faint);
 }

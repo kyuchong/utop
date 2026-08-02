@@ -28,6 +28,9 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   const [addingTo, setAddingTo] = useState<string | null | undefined>(undefined)
   const [draftName, setDraftName] = useState('')
   const [error, setError] = useState('')
+  // 드래그 중인 분류 id / 올려둔 대상 id (null = 최상위로 빼기)
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [overId, setOverId] = useState<string | null | undefined>(undefined)
 
   const catQ = useQuery({
     queryKey: ['req-categories'],
@@ -96,6 +99,30 @@ export default function CategoryTree({ selected, onSelect }: Props) {
     createM.mutate({ name, parentId: addingTo ?? null })
   }
 
+  /** 자기 자신이나 자기 자손 위로는 떨어뜨릴 수 없다 (순환) */
+  const isSelfOrDescendant = (dragged: string, target: string): boolean => {
+    if (dragged === target) return true
+    const kids = list.filter((c) => c.parent_id === dragged)
+    return kids.some((k) => isSelfOrDescendant(k.id, target))
+  }
+
+  const drop = (targetId: string | null) => {
+    const id = dragId
+    setDragId(null)
+    setOverId(undefined)
+    if (!id) return
+    if (targetId && isSelfOrDescendant(id, targetId)) {
+      setError('자기 자신이나 하위 분류 밑으로는 옮길 수 없습니다')
+      return
+    }
+    const me = list.find((c) => c.id === id)
+    if (!me || (me.parent_id ?? null) === targetId) return
+    setError('')
+    // 깊이 상한은 서버가 판정한다 — 옮기는 가지의 높이까지 계산해야 해서
+    // 화면에서 흉내내면 규칙이 두 벌이 된다.
+    renameM.mutate({ id, name: me.name, parentId: targetId })
+  }
+
   const doRename = (c: ReqCategory) => {
     const name = window.prompt('분류 이름', c.name)?.trim()
     if (!name || name === c.name) return
@@ -144,8 +171,35 @@ export default function CategoryTree({ selected, onSelect }: Props) {
     return (
       <div key={n.id}>
         <div
-          className={`cat-row${selected === n.id ? ' sel' : ''}`}
-          style={{ paddingLeft: 6 + (n.depth - 1) * 14 }}
+          className={
+            `cat-row${selected === n.id ? ' sel' : ''}` +
+            `${dragId === n.id ? ' dragging' : ''}` +
+            `${overId === n.id ? ' dropinto' : ''}`
+          }
+          style={{ paddingLeft: 4 + (n.depth - 1) * 14 }}
+          draggable
+          onDragStart={(e) => {
+            setDragId(n.id)
+            e.dataTransfer.effectAllowed = 'move'
+            // 파이어폭스는 데이터가 없으면 드래그를 시작하지 않는다
+            e.dataTransfer.setData('text/plain', n.id)
+          }}
+          onDragEnd={() => {
+            setDragId(null)
+            setOverId(undefined)
+          }}
+          onDragOver={(e) => {
+            if (!dragId || dragId === n.id) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
+            setOverId(n.id)
+          }}
+          onDragLeave={() => setOverId((v) => (v === n.id ? undefined : v))}
+          onDrop={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            drop(n.id)
+          }}
         >
           <button
             type="button"
@@ -202,8 +256,22 @@ export default function CategoryTree({ selected, onSelect }: Props) {
 
       <button
         type="button"
-        className={`cat-row root${selected === null ? ' sel' : ''}`}
+        className={
+          `cat-row root${selected === null ? ' sel' : ''}` +
+          `${overId === null ? ' dropinto' : ''}`
+        }
         onClick={() => onSelect(null)}
+        onDragOver={(e) => {
+          if (!dragId) return
+          e.preventDefault()
+          setOverId(null)
+        }}
+        onDragLeave={() => setOverId((v) => (v === null ? undefined : v))}
+        onDrop={(e) => {
+          e.preventDefault()
+          drop(null)
+        }}
+        title={dragId ? '여기에 놓으면 최상위(대분류)로 나갑니다' : undefined}
       >
         <span className="cat-name">전체</span>
       </button>
