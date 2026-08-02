@@ -35,7 +35,6 @@ CUSTOM_FIELDS_FILE = DATA_DIR / "config" / "custom_fields.json"
 DEVICE_CATALOG_FILE = DATA_DIR / "state" / "device_catalog.json"
 PERMISSIONS_FILE = DATA_DIR / "config" / "permissions.json"
 PROMPTS_FILE = DATA_DIR / "config" / "prompts.json"
-REQ_FILE = DATA_DIR / "state" / "req.json"
 CONFLUENCE_FILE = DATA_DIR / "integrations" / "confluence.json"
 JIRA_FILE = DATA_DIR / "integrations" / "jira.json"
 DEFECT_CLASS_FILE = DATA_DIR / "config" / "issue_defect_class.json"   # 이슈키 → defect 분류(현장장애/상용망검증)
@@ -148,7 +147,6 @@ async def _api_cache_headers(request, call_next):
 # (이 줄이 없으면 도커 첫 기동 때 FileNotFoundError 로 import 자체가 실패한다)
 for f, default in [
     (LLMS_FILE, {"llms": []}),
-    (REQ_FILE, {"folders": [], "reqs": []}),
 ]:
     if not f.exists():
         f.parent.mkdir(parents=True, exist_ok=True)
@@ -2023,30 +2021,6 @@ def _trash_put(kind, item_id, data, bundle=None):
     except Exception:
         pass
     return tid
-    # 기존 req.json 마이그레이션 (한 번만 실행)
-    if REQ_FILE.exists():
-        try:
-            old = load_json(REQ_FILE)
-            if old.get("folders"):
-                save_json(FOLDERS_FILE, {"folders": old["folders"]})
-            for r in old.get("reqs", []):
-                rid = r.get("reqid", r.get("id", "unknown"))
-                rfile = REQ_DIR / f"{rid}.json"
-                if not rfile.exists():
-                    save_json(rfile, r)
-                for tc in r.get("tc", []):
-                    tcid = tc.get("tcid", "")
-                    if tcid:
-                        tcfile = TC_DIR / f"{tcid}.json"
-                        if not tcfile.exists():
-                            save_json(tcfile, {**tc, "req_id": r.get("id","")})
-            bak = REQ_FILE.with_suffix(".json.bak")
-            if bak.exists():
-                bak.unlink()
-            REQ_FILE.rename(bak)
-        except Exception as e:
-            print(f"REQ 마이그레이션 오류: {e}")
-
 # 폴더 구조
 @app.get("/api/folders")
 async def get_folders():
@@ -2314,9 +2288,9 @@ async def embed_requirement(req_id: str, body: ReqEmbedIn):
 # REQ 목록 (전체)
 @app.get("/api/req")
 async def get_all_req():
-    reqs = await db.req_list_full()
-    folders = load_json(FOLDERS_FILE)
-    return {"folders": folders.get("folders", []), "reqs": reqs}
+    # 분류는 req_category 테이블로 넘어갔다. 옛 화면은 /api/folders 를
+    # 따로 부르므로 여기서 folders 를 함께 실어 보낼 이유가 없다.
+    return {"reqs": await db.req_list_full()}
 
 # REQ 단건 조회
 @app.get("/api/req/{req_id}")

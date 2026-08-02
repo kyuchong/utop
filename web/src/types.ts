@@ -64,7 +64,6 @@ export interface TestCaseMeta {
 }
 
 export interface ReqListResponse {
-  folders: unknown[]
   reqs: Requirement[]
 }
 
