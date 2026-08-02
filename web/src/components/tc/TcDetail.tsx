@@ -4,6 +4,7 @@ import { apiFetch, tcApi } from '@/api/client'
 import TcEnvironment from './TcEnvironment'
 import TcTopology from './TcTopology'
 import TcSteps from './TcSteps'
+import TcGenerate from './TcGenerate'
 import type { TcData } from './types'
 import './tc.css'
 
@@ -252,7 +253,10 @@ export default function TcDetail({ tcid, onClose }: Props) {
         ) : tab === 'manual' ? (
           <TcSteps mode="manual" data={d} onChange={patch} />
         ) : tab === 'auto' ? (
-          <TcSteps mode="auto" data={d} onChange={patch} />
+          <div className="tc-pane">
+            <TcGenerate tcid={tcid} data={d} onChange={patch} />
+            <TcSteps mode="auto" data={d} onChange={patch} />
+          </div>
         ) : (
           <div className="tc-pane">
             <div className="empty">

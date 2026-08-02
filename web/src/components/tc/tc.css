@@ -188,3 +188,55 @@
   border-radius: var(--radius-sm);
 }
 .st-actions { display: flex; gap: 2px; padding-top: 4px; }
+
+/* ── 자연어 생성 ──
+   만든 것을 바로 넣지 않고 먼저 보여준다. 모델이 만든 명령이 확인 없이
+   장비로 나가면 안 된다. */
+.gen-card { background: var(--c-surface-info); border-color: #cfe0f5; }
+
+.gen-bar { display: flex; gap: 7px; }
+.gen-bar input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  font: inherit;
+  background: var(--c-surface);
+}
+
+/* 근거가 몇 건인지 항상 보인다. 근거가 없으면 결과도 믿을 수 없다. */
+.gen-ground { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.gen-ground .tag.weak { background: #f3f0e6; color: #8a7b3a; }
+
+.gen-out { display: flex; flex-direction: column; gap: var(--sp-2); }
+.gen-sum { line-height: 1.6; }
+.gen-list {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  overflow: hidden;
+}
+.gen-row {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 5px 9px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.gen-row:last-child { border-bottom: 0; }
+.gen-row.step { flex-wrap: wrap; }
+.gen-sess { font-family: var(--font-mono); font-size: var(--fs-sm); color: var(--c-text-muted); }
+.gen-step { flex: 1 1 220px; min-width: 0; }
+.gen-cmd {
+  flex: 1 1 260px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  background: var(--c-surface-alt);
+  border-radius: 3px;
+  padding: 1px 5px;
+  word-break: break-all;
+}
+.gen-cmd.none { color: var(--c-fail); background: #fdf4f4; }
+.gen-note { color: #8a7b3a; font-size: var(--fs-sm); }
+.gen-actions { display: flex; gap: 7px; justify-content: flex-end; }

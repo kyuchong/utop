@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import re
 import asyncio
 import socket
 import subprocess
@@ -10649,3 +10650,170 @@ async def todo_save(payload: dict):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 자연어로 시험 만들기
+#
+# "E6100 rate limit 시험 해줘" 한 줄에서 슬롯(장비·세션)과 스텝을 만든다.
+# 이 기능의 성패는 '근거' 다. 모델에게 맨손으로 물으면 유비쿼스에 없는
+# 명령을 그럴듯하게 지어낸다. 그래서 반드시 다음을 찾아 함께 넘긴다:
+#   1. 등록된 장비와 그 인터페이스 (실제로 존재하는 포트만 쓰게)
+#   2. 같은 모델로 이미 만든 TC 의 스텝 (사내에서 쓰는 실제 명령)
+#   3. 요구사항·매뉴얼에서 찾은 조각 (임베딩 서버가 있을 때)
+#
+# 임베딩 서버가 없어도 1·2 만으로 동작한다 — 사내망 밖에서도 쓸 수 있어야
+# 하고, 무엇보다 2번(우리가 쓰던 실제 명령)이 가장 정확한 근거다.
+# ══════════════════════════════════════════════════════════════════════
+async def _grounding_devices(hint: str) -> list[dict]:
+    """말에 나온 모델·IP 와 맞는 장비를 찾는다. 없으면 전부 조금씩."""
+    devs = await db.device_list()
+    words = [w for w in re.split(r"[\s,·]+", hint) if len(w) >= 2]
+    hit = []
+    for d in devs:
+        hay = " ".join(str(d.get(k) or "") for k in ("ip", "model", "vendor", "role", "lab"))
+        if any(w.lower() in hay.lower() for w in words):
+            hit.append(d)
+    return (hit or devs)[:8]
+
+
+async def _grounding_steps(hint: str, limit: int = 40) -> list[dict]:
+    """같은 모델·주제로 이미 만든 TC 스텝. 사내에서 실제로 쓰는 명령이다."""
+    words = [w for w in re.split(r"[\s,·]+", hint) if len(w) >= 2][:6]
+    if not words:
+        return []
+    async with db.pool().acquire() as c:
+        rows = await c.fetch(
+            """SELECT tcid, name, data FROM tc
+               WHERE data::text ILIKE ANY($1::text[])
+               ORDER BY updated_at DESC LIMIT 12""",
+            [f"%{w}%" for w in words],
+        )
+    out = []
+    for r in rows:
+        d = r["data"] or {}
+        for s in (d.get("checks") or [])[:8]:
+            if not isinstance(s, dict):
+                continue
+            cmd = (s.get("cli") or s.get("data") or "").strip()
+            if cmd:
+                out.append({"tcid": r["tcid"], "cmd": cmd,
+                            "expected": (s.get("expected") or s.get("criteria") or "")[:200]})
+            if len(out) >= limit:
+                return out
+    return out
+
+
+async def _grounding_docs(query: str, k: int = 6) -> list[dict]:
+    """요구사항·매뉴얼에서 찾은 조각. 임베딩 서버가 없으면 빈 목록."""
+    vecs = await _embed_texts([query])
+    if not vecs:
+        return []
+    import numpy as _np
+    qv = _np.asarray(vecs[0], dtype="float32")
+    qn = float(_np.linalg.norm(qv)) or 1.0
+    async with db.pool().acquire() as c:
+        rows = await c.fetch("SELECT key, embed, meta FROM rag_embed")
+    scored = []
+    for r in rows:
+        try:
+            v = _np.frombuffer(r["embed"], dtype="float32")
+            if v.shape != qv.shape:
+                continue
+            s = float(qv @ v) / (qn * (float(_np.linalg.norm(v)) or 1.0))
+            scored.append((s, r))
+        except Exception:
+            continue
+    scored.sort(key=lambda x: -x[0])
+    cfg = _rag_cfg()
+    lo = float(cfg.get("min_score") or 0)
+    return [
+        {"key": r["key"], "score": round(s, 3), "text": (r["meta"] or {}).get("text", "")[:800]}
+        for s, r in scored[:k] if s >= lo
+    ]
+
+
+_GEN_SYSTEM = """당신은 유비쿼스 네트워크 장비 시험 자동화 도구의 시험 설계자다.
+사용자의 한 줄 요청에서 시험 슬롯과 스텝을 만든다.
+
+절대 규칙:
+1. 아래 '근거' 에 없는 CLI 명령을 지어내지 마라. 근거의 명령을 그대로 쓰거나
+   포트·값만 바꿔 쓴다. 근거에 없으면 그 스텝의 data 를 비우고 note 에
+   "근거 없음 - 확인 필요" 라고 적는다.
+2. 인터페이스는 '등록된 장비' 에 실제로 있는 이름만 쓴다.
+3. 슬롯 key 는 s1, s2 … 순서대로. 스텝의 session 은 반드시 만든 슬롯의 key.
+4. 계측기가 필요하면 슬롯을 따로 만들고 family 를 '계측기' 로 한다.
+5. 판정 기준(criteria)은 응답에서 확인할 문자열이나 수치 조건으로 적는다.
+
+반드시 JSON 만 출력한다. 설명 문장을 붙이지 마라. 모양:
+{"slots":[{"key":"s1","label":"DUT","family":"L2","device_ip":"","protocol":"telnet"}],
+ "steps":[{"kind":"auto","session":"s1","step":"...","data":"...","expected":"...","criteria":"...","rca":"...","note":""}],
+ "summary":"무엇을 어떻게 시험하는지 두 문장",
+ "unsure":["근거가 부족해 확인이 필요한 것"]}"""
+
+
+@app.post("/api/tc/{tc_id}/generate")
+async def tc_generate(tc_id: str, payload: dict):
+    """자연어 한 줄 → 슬롯·스텝 제안. 저장하지 않고 돌려만 준다.
+
+    바로 저장하지 않는 이유: 모델이 만든 스텝을 사람이 보기 전에 넣으면
+    잘못된 명령이 장비로 나간다. 화면에서 확인하고 적용하게 한다.
+    """
+    prompt = str(payload.get("prompt") or "").strip()
+    if not prompt:
+        raise HTTPException(400, "무엇을 시험할지 적어주세요")
+    if claude_client is None:
+        raise HTTPException(503, "ANTHROPIC_API_KEY 가 설정되지 않았습니다 (.env)")
+
+    devs = await _grounding_devices(prompt)
+    prev = await _grounding_steps(prompt)
+    docs = await _grounding_docs(prompt)
+
+    dev_txt = "\n".join(
+        f"- {d.get('ip')} · {d.get('model') or '?'} · {d.get('role') or '?'} · {d.get('lab') or '?'}"
+        f" · 접속 {','.join(a['protocol'] for a in (d.get('access') or []))}"
+        f" · 포트 {','.join(i['name'] for i in (d.get('interfaces') or [])[:60]) or '없음'}"
+        for d in devs
+    ) or "(등록된 장비 없음)"
+    prev_txt = "\n".join(f"- [{p['tcid']}] {p['cmd']}   → {p['expected']}" for p in prev) \
+        or "(비슷한 시험 없음)"
+    doc_txt = "\n\n".join(f"[{d['key']} {d['score']}]\n{d['text']}" for d in docs) \
+        or "(임베딩 서버가 없어 문서 근거는 비어 있습니다)"
+
+    user = (
+        f"요청: {prompt}\n\n"
+        f"=== 근거 1. 등록된 장비와 실제 포트 ===\n{dev_txt}\n\n"
+        f"=== 근거 2. 우리가 이미 쓰는 명령 ===\n{prev_txt}\n\n"
+        f"=== 근거 3. 요구사항·매뉴얼 ===\n{doc_txt}\n"
+    )
+
+    try:
+        msg = claude_client.messages.create(
+            model="claude-sonnet-4-5-20250929",
+            max_tokens=4000,
+            system=_GEN_SYSTEM,
+            messages=[{"role": "user", "content": user}],
+        )
+        raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
+    except Exception as e:
+        raise HTTPException(502, f"모델 호출에 실패했습니다: {e}") from e
+
+    # 모델이 ```json 으로 감싸는 경우가 있다
+    m = re.search(r"\{.*\}", raw, re.S)
+    if not m:
+        raise HTTPException(502, "모델이 JSON 을 돌려주지 않았습니다")
+    try:
+        out = json.loads(m.group(0))
+    except json.JSONDecodeError as e:
+        raise HTTPException(502, f"모델 응답을 읽지 못했습니다: {e}") from e
+
+    return {
+        "success": True,
+        "proposal": out,
+        "grounding": {
+            "devices": len(devs),
+            "prev_steps": len(prev),
+            "docs": len(docs),
+            "embed_ready": bool(docs) or bool(_rag_cfg().get("embed_url")),
+        },
+    }
