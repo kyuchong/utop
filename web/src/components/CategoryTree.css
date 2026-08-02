@@ -363,13 +363,15 @@
   font-size: var(--fs-sm);
 }
 
-/* 정렬은 '전체' 버튼 오른쪽에. 한 줄에 나란히 둔다. */
+/* 정렬은 '전체' 버튼 오른쪽에. 늘리지 않는다 — flex:1 로 두면 칸이
+   줄 전체로 늘어나 열린 목록까지 넓어지고 오른쪽이 텅 빈다. */
 .cat-head .cat-sort {
-  flex: 1 1 auto;
+  flex: none;
+  width: auto;
   min-width: 0;
   order: 0;
   height: 26px;
-  padding: 0 4px;
+  padding: 0 2px;
   border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
   font-size: var(--fs-sm);
@@ -379,10 +381,14 @@
 
 
 
-/* 행 높이는 REQ LIST(.tr, 47px)와 같게 맞춘다. 두 열이 나란히 놓이는데
-   한쪽만 촘촘하면 같은 표로 안 읽힌다. */
+/* 행 높이를 REQ LIST 와 같게 맞춘다.
+   기준은 .tr(47px)이 아니라 실제로 쓰이는 .req-row 다 — padding 5px 에
+   글자 높이를 더해 약 28px 이다. 두 열이 나란히 놓이므로 한쪽만
+   성기면 같은 표로 안 읽힌다. */
 .cat-row {
-  min-height: 47px;
+  min-height: 28px;
+  padding-top: 5px;
+  padding-bottom: 5px;
 }
 
 /* 이름 위에서 끌 수 있다는 걸 커서로 알린다 */
