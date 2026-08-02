@@ -417,6 +417,10 @@ def _req_meta(data: dict) -> dict:
         "priority": data.get("priority") or "",
         "created_by": data.get("created_by") or "",
         "updated_by": data.get("updated_by") or "",
+        # 분류 2단. 값은 req_category.id. 빈 문자열이면 NULL 로 넣어
+        # "미분류" 를 한 가지 표현으로 통일한다.
+        "cat1": (data.get("cat1") or "").strip() or None,
+        "cat2": (data.get("cat2") or "").strip() or None,
     }
 
 
@@ -426,17 +430,72 @@ async def req_upsert(rid: str, data: dict) -> None:
         await c.execute(
             """
             INSERT INTO req (id, reqid, title, folder, status, priority,
-                             created_by, updated_by, data)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb)
+                             created_by, updated_by, cat1, cat2, data)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb)
             ON CONFLICT (id) DO UPDATE SET
               reqid=EXCLUDED.reqid, title=EXCLUDED.title, folder=EXCLUDED.folder,
               status=EXCLUDED.status, priority=EXCLUDED.priority,
               created_by=EXCLUDED.created_by, updated_by=EXCLUDED.updated_by,
+              cat1=EXCLUDED.cat1, cat2=EXCLUDED.cat2,
               data=EXCLUDED.data, updated_at=now()
             """,
             rid, m["reqid"], m["title"], m["folder"], m["status"], m["priority"],
-            m["created_by"], m["updated_by"], data,
+            m["created_by"], m["updated_by"], m["cat1"], m["cat2"], data,
         )
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 요구사항 분류 (2단 고정: 대분류 > 중분류)
+# ══════════════════════════════════════════════════════════════════════
+async def cat_list() -> list[dict]:
+    """전체 분류를 평면 리스트로. 트리 조립은 화면에서 한다."""
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            """
+            SELECT c.id, c.name, c.parent_id, c.sort_order,
+                   (SELECT count(*) FROM req r
+                     WHERE r.cat1 = c.id OR r.cat2 = c.id) AS req_count
+            FROM req_category c
+            ORDER BY c.parent_id NULLS FIRST, c.sort_order, c.name
+            """
+        )
+        return [dict(r) for r in rows]
+
+
+async def cat_upsert(cid: str, name: str, parent_id: Optional[str],
+                     sort_order: int = 0) -> None:
+    async with pool().acquire() as c:
+        await c.execute(
+            """
+            INSERT INTO req_category (id, name, parent_id, sort_order)
+            VALUES ($1,$2,$3,$4)
+            ON CONFLICT (id) DO UPDATE SET
+              name=EXCLUDED.name, parent_id=EXCLUDED.parent_id,
+              sort_order=EXCLUDED.sort_order, updated_at=now()
+            """,
+            cid, name, parent_id, sort_order,
+        )
+
+
+async def cat_get(cid: str) -> Optional[dict]:
+    async with pool().acquire() as c:
+        row = await c.fetchrow(
+            "SELECT id, name, parent_id, sort_order FROM req_category WHERE id=$1", cid
+        )
+        return dict(row) if row else None
+
+
+async def cat_delete(cid: str) -> bool:
+    """분류 삭제. 하위 분류는 ON DELETE CASCADE 로 함께 지워진다.
+    요구사항은 지우지 않고, 가리키던 분류만 비운다(미분류가 된다)."""
+    async with pool().acquire() as c:
+        async with c.transaction():
+            kids = await c.fetch("SELECT id FROM req_category WHERE parent_id=$1", cid)
+            ids = [cid] + [k["id"] for k in kids]
+            await c.execute("UPDATE req SET cat1=NULL WHERE cat1 = ANY($1::text[])", ids)
+            await c.execute("UPDATE req SET cat2=NULL WHERE cat2 = ANY($1::text[])", ids)
+            r = await c.execute("DELETE FROM req_category WHERE id=$1", cid)
+        return r.endswith(" 1")
 
 
 async def req_get(rid: str) -> Optional[dict]:

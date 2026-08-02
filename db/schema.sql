@@ -74,6 +74,29 @@ DROP TRIGGER IF EXISTS trg_cycle_updated ON cycle;
 CREATE TRIGGER trg_cycle_updated BEFORE UPDATE ON cycle
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- ── 요구사항 분류 (2단 고정: 대분류 > 중분류) ─────────────────
+-- parent_id 가 NULL 이면 대분류, 값이 있으면 중분류다.
+-- 깊이를 2단으로 고정한 이유: 옛 폴더 트리는 깊이 제한이 없어서
+-- 프로토콜·계층·기능이 한 경로에 섞이고(IPV4_L2 > VLAN), 같은 기능이
+-- 여러 가지에 중복 등록되는 문제가 있었다.
+CREATE TABLE IF NOT EXISTS req_category (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  parent_id   TEXT REFERENCES req_category(id) ON DELETE CASCADE,
+  sort_order  INT DEFAULT 0,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  updated_at  TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_req_category_parent ON req_category(parent_id);
+-- 같은 상위 아래 이름 중복 금지. 대분류(parent 없음)끼리도 중복 금지.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_req_category_child
+  ON req_category(parent_id, name) WHERE parent_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_req_category_root
+  ON req_category(name) WHERE parent_id IS NULL;
+DROP TRIGGER IF EXISTS trg_req_category_updated ON req_category;
+CREATE TRIGGER trg_req_category_updated BEFORE UPDATE ON req_category
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- ── REQ (요구사항) ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS req (
   id            TEXT PRIMARY KEY,
@@ -84,13 +107,22 @@ CREATE TABLE IF NOT EXISTS req (
   priority      TEXT,
   created_by    TEXT,
   updated_by    TEXT,
+  -- 분류. 대분류/중분류 각각 req_category.id 를 담는다.
+  -- 분류가 지워져도 요구사항은 남아야 하므로 FK 는 걸지 않는다(고아는 UI 에서 '미분류'로 표시).
+  cat1          TEXT,
+  cat2          TEXT,
   data          JSONB NOT NULL,
   created_at    TIMESTAMPTZ DEFAULT now(),
   updated_at    TIMESTAMPTZ DEFAULT now()
 );
+-- 기존 DB 따라잡기 (멱등)
+ALTER TABLE req ADD COLUMN IF NOT EXISTS cat1 TEXT;
+ALTER TABLE req ADD COLUMN IF NOT EXISTS cat2 TEXT;
 CREATE INDEX IF NOT EXISTS idx_req_reqid       ON req(reqid);
 CREATE INDEX IF NOT EXISTS idx_req_folder      ON req(folder);
 CREATE INDEX IF NOT EXISTS idx_req_status      ON req(status);
+CREATE INDEX IF NOT EXISTS idx_req_cat1        ON req(cat1);
+CREATE INDEX IF NOT EXISTS idx_req_cat2        ON req(cat2);
 CREATE INDEX IF NOT EXISTS idx_req_updated_at  ON req(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_req_data_gin    ON req USING GIN (data jsonb_path_ops);
 DROP TRIGGER IF EXISTS trg_req_updated ON req;

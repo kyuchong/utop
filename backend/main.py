@@ -2059,6 +2059,93 @@ async def save_folders(data: dict):
     save_json(FOLDERS_FILE, data)
     return {"success": True}
 
+
+# ───────────────────────────────────────────
+# 요구사항 분류 (2단 고정: 대분류 > 중분류)
+#
+# 옛 폴더 트리는 깊이 제한이 없어 프로토콜·계층·기능이 한 경로에 섞였다
+# (IPV4_L2 > VLAN). 그래서 같은 기능이 여러 가지에 중복 등록됐다.
+# 여기서는 2단으로 못박는다 — 중분류의 상위는 반드시 대분류여야 하고,
+# 대분류는 상위를 가질 수 없다. 이 규칙을 서버에서 강제한다.
+# ───────────────────────────────────────────
+class ReqCategoryIn(BaseModel):
+    name: str
+    parent_id: Optional[str] = None
+    sort_order: int = 0
+
+
+@app.get("/api/req-categories")
+async def list_req_categories():
+    return {"categories": await db.cat_list()}
+
+
+@app.post("/api/req-categories")
+async def create_req_category(body: ReqCategoryIn):
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(400, "분류 이름을 입력하세요")
+
+    parent_id = (body.parent_id or "").strip() or None
+    if parent_id:
+        parent = await db.cat_get(parent_id)
+        if parent is None:
+            raise HTTPException(404, "상위 분류를 찾을 수 없습니다")
+        if parent.get("parent_id"):
+            raise HTTPException(400, "분류는 2단까지만 만들 수 있습니다 (대분류 > 중분류)")
+
+    cid = f"cat-{int(datetime.now().timestamp() * 1000)}"
+    try:
+        await db.cat_upsert(cid, name, parent_id, body.sort_order)
+    except Exception as e:
+        # 유니크 인덱스 위반 = 같은 상위 아래 같은 이름
+        if "uq_req_category" in str(e):
+            raise HTTPException(409, f"'{name}' 은 이미 있습니다") from e
+        raise
+    return {"success": True, "id": cid}
+
+
+@app.put("/api/req-categories/{cat_id}")
+async def update_req_category(cat_id: str, body: ReqCategoryIn):
+    cur = await db.cat_get(cat_id)
+    if cur is None:
+        raise HTTPException(404, "분류를 찾을 수 없습니다")
+
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(400, "분류 이름을 입력하세요")
+
+    parent_id = (body.parent_id or "").strip() or None
+    if parent_id == cat_id:
+        raise HTTPException(400, "자기 자신을 상위로 지정할 수 없습니다")
+    if parent_id:
+        parent = await db.cat_get(parent_id)
+        if parent is None:
+            raise HTTPException(404, "상위 분류를 찾을 수 없습니다")
+        if parent.get("parent_id"):
+            raise HTTPException(400, "분류는 2단까지만 만들 수 있습니다 (대분류 > 중분류)")
+        # 자식을 가진 대분류를 남의 밑으로 내리면 3단이 된다.
+        kids = [c for c in await db.cat_list() if c.get("parent_id") == cat_id]
+        if kids:
+            raise HTTPException(
+                400, "하위 분류가 있는 대분류는 다른 분류 밑으로 옮길 수 없습니다"
+            )
+    try:
+        await db.cat_upsert(cat_id, name, parent_id, body.sort_order)
+    except Exception as e:
+        if "uq_req_category" in str(e):
+            raise HTTPException(409, f"'{name}' 은 이미 있습니다") from e
+        raise
+    return {"success": True}
+
+
+@app.delete("/api/req-categories/{cat_id}")
+async def delete_req_category(cat_id: str):
+    """하위 분류까지 함께 지운다. 요구사항은 지우지 않고 '미분류'가 된다."""
+    if not await db.cat_delete(cat_id):
+        raise HTTPException(404, "분류를 찾을 수 없습니다")
+    return {"success": True}
+
+
 # REQ 목록 (전체)
 @app.get("/api/req")
 async def get_all_req():
