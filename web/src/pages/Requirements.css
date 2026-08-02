@@ -81,9 +81,13 @@
   color: var(--c-primary);
 }
 
+/* REQ ID 칸.
+   실제 자료의 ID 는 최대 26자(LGUPLUS-REQ-L2-E59xxRL-001), 평균 19자다.
+   96px 로 두면 15자쯤에서 잘려 대부분이 끊긴다. 168px 까지 늘리되
+   제목이 심하게 좁아지면 96px 까지 줄어들도록 flex 로 둔다. */
 .req-id {
-  flex: none;
-  width: 96px;
+  flex: 0 1 168px;
+  min-width: 96px;
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
   overflow: hidden;

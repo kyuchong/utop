@@ -398,8 +398,14 @@ export default function Requirements() {
                       onClick={(e) => e.stopPropagation()}
                       onChange={() => togglePick(pk)}
                     />
-                    <span className="req-id">{reqLabel(r) || '(ID 없음)'}</span>
-                    <span className="req-name">{r.title || '(제목 없음)'}</span>
+                    {/* 칸을 넘치면 잘리므로 전체 값을 title 로 달아 둔다.
+                        ID 가 최대 26자라 좁은 폭에서는 어차피 잘린다. */}
+                    <span className="req-id" title={reqLabel(r)}>
+                      {reqLabel(r) || '(ID 없음)'}
+                    </span>
+                    <span className="req-name" title={r.title ?? ''}>
+                      {r.title || '(제목 없음)'}
+                    </span>
                     <span className="req-stat">
                       {stat.total === 0 ? (
                         <span className="muted small">TC 0</span>
