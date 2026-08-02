@@ -189,6 +189,66 @@ function DetailDoc({ req, desc }: { req: Requirement; desc: string }) {
   const [error, setError] = useState('')
   const savedRef = useRef(desc)
 
+  // 파일 등록 / 벡터 저장 — 편집 창에만 있던 것을 여기서도 쓸 수 있게 한다.
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+  const [embedding, setEmbedding] = useState(false)
+  const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
+
+  const doImport = async (f: File) => {
+    setImporting(true)
+    setNote({ kind: '', msg: '' })
+    try {
+      let md: string
+      if (/\.(md|markdown|txt)$/i.test(f.name)) {
+        md = await f.text()
+      } else {
+        const fd = new FormData()
+        fd.append('file', f)
+        const res = await fetch('/api/convert/markdown', { method: 'POST', body: fd })
+        if (!res.ok) {
+          const b = await res.json().catch(() => ({}))
+          throw new Error(b.detail || `변환 실패 (${res.status})`)
+        }
+        md = (await res.json()).markdown ?? ''
+      }
+      // 덮지 않고 아래에 잇는다 — 실수로 날리면 되돌릴 수 없다.
+      setDraft((cur) => (cur.trim() ? `${cur}
+
+---
+
+${md}` : md))
+      setEditing(true)
+      setNote({ kind: 'ok', msg: `${f.name} 불러옴 · 저장을 눌러야 반영됩니다` })
+    } catch (e) {
+      setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const doEmbed = async () => {
+    setEmbedding(true)
+    setNote({ kind: '', msg: '' })
+    try {
+      const res = await fetch(`/api/req/${encodeURIComponent(reqPk(req))}/embed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: editing ? draft : desc }),
+      })
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}))
+        throw new Error(b.detail || `저장 실패 (${res.status})`)
+      }
+      const r = await res.json()
+      setNote({ kind: 'ok', msg: `벡터 저장 완료 (${r.chunks ?? 0}조각)` })
+    } catch (e) {
+      setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setEmbedding(false)
+    }
+  }
+
   // 다른 요구사항으로 옮겨가면 편집을 닫고 새 내용을 싣는다
   useEffect(() => {
     setEditing(false)
@@ -222,10 +282,38 @@ function DetailDoc({ req, desc }: { req: Requirement; desc: string }) {
   return (
     <div className="detail-doc-wrap">
       <div className="doc-bar">
-        <span className="muted small">
-          {editing ? (dirty ? '수정 중 · 저장하지 않음' : '수정 중') : '읽기'}
+        <span className={`small ${note.kind || 'muted'}`}>
+          {note.msg || (editing ? (dirty ? '수정 중 · 저장하지 않음' : '수정 중') : '읽기')}
         </span>
         <span className="page-head-actions">
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".md,.markdown,.txt,.docx,.pdf,.xlsx,.pptx,.html,.htm"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (f) void doImport(f)
+            }}
+          />
+          <button
+            className="btn"
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={importing}
+          >
+            {importing ? '변환 중…' : '파일 등록'}
+          </button>
+          <button
+            className="btn"
+            type="button"
+            onClick={doEmbed}
+            disabled={embedding || !(editing ? draft : desc).trim()}
+            title="구현내용을 검색·TC 생성에 쓸 수 있도록 벡터로 저장합니다"
+          >
+            {embedding ? '저장 중…' : '벡터 저장'}
+          </button>
           {editing ? (
             <>
               <button className="btn" type="button" onClick={cancel} disabled={saveM.isPending}>

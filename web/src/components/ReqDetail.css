@@ -139,3 +139,6 @@
   flex: 1;
   min-height: 0;
 }
+
+.doc-bar .ok { color: var(--c-pass); }
+.doc-bar .err { color: var(--c-fail); }
