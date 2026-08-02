@@ -6,6 +6,8 @@ interface Item {
   kind: string
   name: string
   vendor?: string | null
+  /** kind=model 일 때 속한 모델군(시리즈) */
+  model_group?: string | null
   family?: string | null
   interfaces?: string | null
   note?: string | null
@@ -14,8 +16,9 @@ interface Item {
 
 const KINDS: Array<{ v: string; label: string; desc: string }> = [
   { v: 'vendor', label: '제조사', desc: '유비쿼스 · Cisco …' },
+  { v: 'group', label: '모델군', desc: 'E6000 시리즈 · U9500 시리즈 …' },
   { v: 'family', label: '제품군', desc: 'L2 · L3 · OLT · ONT · CPE · HGW' },
-  { v: 'model', label: '모델명', desc: '제조사 · 제품군 · 기본 인터페이스까지' },
+  { v: 'model', label: '모델명', desc: '제조사 · 모델군 · 제품군 · 기본 인터페이스' },
   { v: 'lab', label: 'LAB', desc: '시험실' },
 ]
 
@@ -84,6 +87,7 @@ export default function DeviceCatalog() {
   })
 
   const vendors = (listQ.data?.items ?? []).filter((i) => i.kind === 'vendor')
+  const groups = (listQ.data?.items ?? []).filter((i) => i.kind === 'group')
   const families = (listQ.data?.items ?? []).filter((i) => i.kind === 'family')
 
   const submit = () => {
@@ -157,6 +161,15 @@ export default function DeviceCatalog() {
                 ))}
               </select>
               <select
+                value={draft.model_group ?? ''}
+                onChange={(e) => setDraft({ ...draft, model_group: e.target.value })}
+              >
+                <option value="">모델군</option>
+                {groups.map((v) => (
+                  <option key={v.name}>{v.name}</option>
+                ))}
+              </select>
+              <select
                 value={draft.family ?? ''}
                 onChange={(e) => setDraft({ ...draft, family: e.target.value })}
               >
@@ -202,21 +215,27 @@ export default function DeviceCatalog() {
                 <b className="cat-name">{it.name}</b>
                 {kind === 'model' && (
                   <span className="muted small cat-meta">
-                    {[it.vendor, it.family].filter(Boolean).join(' · ') || '–'}
+                    {[it.vendor, it.model_group, it.family].filter(Boolean).join(' · ') || '–'}
                     {it.interfaces ? ` · ${it.interfaces}` : ''}
+                  </span>
+                )}
+                {kind === 'group' && (
+                  <span className="muted small cat-meta">
+                    {(listQ.data?.items ?? [])
+                      .filter((m) => m.kind === 'model' && m.model_group === it.name)
+                      .map((m) => m.name)
+                      .join(' · ') || '속한 모델 없음'}
                   </span>
                 )}
                 <span className="muted small">{it.used ? `${it.used}대 사용 중` : ''}</span>
                 <span className="cat-actions">
-                  {kind === 'model' && (
-                    <button
-                      className="btn small"
-                      type="button"
-                      onClick={() => setDraft({ ...it, kind })}
-                    >
-                      고치기
-                    </button>
-                  )}
+                  <button
+                    className="btn small"
+                    type="button"
+                    onClick={() => setDraft({ ...it, kind })}
+                  >
+                    고치기
+                  </button>
                   <button
                     className="btn small danger"
                     type="button"

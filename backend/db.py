@@ -916,7 +916,8 @@ async def device_delete(dev_id: str) -> bool:
 # 장비 등록 화면이 고를 수 있는 값의 원천. 넷 다 '이름 목록' 이라 한
 # 테이블에 kind 로 구분해 담는다.
 # ══════════════════════════════════════════════════════════════════════
-CATALOG_KINDS = ("vendor", "family", "model", "lab")
+# group = 모델군(시리즈). 시험은 보통 모델 하나가 아니라 시리즈 단위로 돈다.
+CATALOG_KINDS = ("vendor", "group", "family", "model", "lab")
 
 
 async def catalog_list(kind: str = "") -> list[dict]:
@@ -941,14 +942,17 @@ async def catalog_upsert(item: dict) -> None:
         raise ValueError("이름이 필요합니다")
     async with pool().acquire() as c:
         await c.execute(
-            """INSERT INTO device_catalog (kind, name, vendor, family, interfaces, note, sort_order)
-               VALUES ($1,$2,$3,$4,$5,$6,$7)
+            """INSERT INTO device_catalog
+                 (kind, name, vendor, model_group, family, interfaces, note, sort_order)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
                ON CONFLICT (kind, name) DO UPDATE SET
-                 vendor=EXCLUDED.vendor, family=EXCLUDED.family,
+                 vendor=EXCLUDED.vendor, model_group=EXCLUDED.model_group,
+                 family=EXCLUDED.family,
                  interfaces=EXCLUDED.interfaces, note=EXCLUDED.note,
                  sort_order=EXCLUDED.sort_order""",
             kind, name,
             (item.get("vendor") or "").strip() or None,
+            (item.get("model_group") or "").strip() or None,
             (item.get("family") or "").strip() or None,
             (item.get("interfaces") or "").strip() or None,
             (item.get("note") or "").strip() or None,
@@ -969,6 +973,15 @@ async def catalog_usage(kind: str, name: str) -> int:
 
     쓰는 장비가 있는데 조용히 지우면 그 장비의 제조사가 목록에서 사라져
     다음 편집 때 빈 칸이 된다."""
+    if kind == "group":
+        # 모델군은 장비에 직접 없다. 그 군에 속한 모델을 쓰는 장비를 센다.
+        async with pool().acquire() as c:
+            return await c.fetchval(
+                """SELECT count(*) FROM device d
+                   WHERE d.model IN (SELECT name FROM device_catalog
+                                     WHERE kind='model' AND model_group=$1)""",
+                name,
+            ) or 0
     col = {"vendor": "vendor", "family": "role", "model": "model", "lab": "lab"}.get(kind)
     if not col:
         return 0

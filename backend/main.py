@@ -2448,11 +2448,13 @@ async def device_roles():
         "labs": merge("lab", await distinct("lab")),
         "vendors": merge("vendor", await distinct("vendor")),
         "models": merge("model", await distinct("model")),
+        "groups": by.get("group") or [],
         "usernames": await distinct("username"),
         # 모델을 고르면 제조사·제품군·기본 인터페이스를 채운다
         "model_info": {
             it["name"]: {
                 "vendor": it.get("vendor"),
+                "model_group": it.get("model_group"),
                 "family": it.get("family"),
                 "interfaces": it.get("interfaces"),
             }
