@@ -773,6 +773,23 @@ def _require_admin(token: str):
 # 기본이 '막힘' 이어야 새로 만든 라우트가 자동으로 보호된다.
 # ══════════════════════════════════════════════════════════════════════
 
+@app.get("/api/health")
+async def api_health():
+    """도커 헬스체크가 부르는 곳. 로그인 없이 열려 있다.
+
+    프로세스가 살아 있는지만 보면 의미가 없다 — uvicorn 은 떠 있는데 DB 가
+    안 붙어 모든 화면이 500 인 상태가 '정상' 으로 보고된다. 그래서 DB 까지
+    한 번 찔러 보고, 안 되면 503 으로 답한다.
+    """
+    try:
+        async with db.pool().acquire() as c:
+            await c.fetchval("SELECT 1")
+    except Exception as e:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"ok": False, "db": str(e)[:200]}, status_code=503)
+    return {"ok": True, "db": True}
+
+
 # 로그인 없이 열어두는 경로. 접두사로 비교한다.
 _AUTH_PUBLIC = (
     "/api/login",

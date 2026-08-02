@@ -29,7 +29,9 @@ RUN mkdir -p /app/data
 WORKDIR /app/backend
 EXPOSE 8000
 
+# /api/req 를 찌르면 안 된다 — 인증이 붙은 뒤로 401 이라 컨테이너가 영원히
+# unhealthy 로 남는다. 헬스체크 전용 경로만 열어두고 그것을 본다.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=5 \
-  CMD curl -fsS http://localhost:8000/api/req >/dev/null || exit 1
+  CMD curl -fsS http://localhost:8000/api/health >/dev/null || exit 1
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
