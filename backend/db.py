@@ -685,3 +685,118 @@ async def apply_schema() -> None:
     async with pool().acquire() as c:
         await c.execute(sql)
     print("[schema] db/schema.sql 적용 완료", flush=True)
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 장비 · 인터페이스
+#
+# 키는 IP. 같은 모델이 여러 대여도 접속 대상은 IP 로 갈린다.
+# 비밀번호는 평문이다(2026-08-02 결정). 나중에 암호화로 바꾸려면
+# _dev_in / _dev_out 두 함수만 고치면 되도록 읽고 쓰는 지점을 모아뒀다.
+# ══════════════════════════════════════════════════════════════════════
+_DEV_COLS = (
+    "id", "ip", "name", "model", "vendor", "device_group", "role",
+    "protocol", "port", "username", "password", "description", "status",
+)
+
+
+def _dev_in(d: dict) -> dict:
+    """저장 직전 변환. 암호화를 넣게 되면 여기서 password 를 감싼다."""
+    out = {k: d.get(k) for k in _DEV_COLS}
+    out["ip"] = (out.get("ip") or "").strip()
+    out["id"] = (out.get("id") or out["ip"]).strip()
+    out["protocol"] = (out.get("protocol") or "ssh").strip().lower()
+    try:
+        out["port"] = int(out.get("port") or (22 if out["protocol"] == "ssh" else 23))
+    except (TypeError, ValueError):
+        out["port"] = 22
+    return out
+
+
+def _dev_out(row) -> dict:
+    """조회 직후 변환. 복호화 지점."""
+    return dict(row)
+
+
+async def device_list(with_ifs: bool = True) -> list[dict]:
+    async with pool().acquire() as c:
+        rows = await c.fetch("SELECT * FROM device ORDER BY name NULLS LAST, ip")
+        devs = [_dev_out(r) for r in rows]
+        if with_ifs and devs:
+            ifs = await c.fetch(
+                "SELECT * FROM device_interface ORDER BY device_id, sort_order, name"
+            )
+            by: dict = {}
+            for i in ifs:
+                by.setdefault(i["device_id"], []).append(dict(i))
+            for d in devs:
+                d["interfaces"] = by.get(d["id"], [])
+        return devs
+
+
+async def device_get(dev_id: str) -> Optional[dict]:
+    async with pool().acquire() as c:
+        row = await c.fetchrow("SELECT * FROM device WHERE id=$1 OR ip=$1", dev_id)
+        if not row:
+            return None
+        d = _dev_out(row)
+        ifs = await c.fetch(
+            "SELECT * FROM device_interface WHERE device_id=$1 ORDER BY sort_order, name",
+            d["id"],
+        )
+        d["interfaces"] = [dict(i) for i in ifs]
+        return d
+
+
+async def device_upsert(payload: dict) -> str:
+    m = _dev_in(payload)
+    if not m["ip"]:
+        raise ValueError("IP 가 필요합니다")
+    extra = {k: v for k, v in payload.items() if k not in _DEV_COLS and k != "interfaces"}
+    async with pool().acquire() as c:
+        await c.execute(
+            """
+            INSERT INTO device (id, ip, name, model, vendor, device_group, role,
+                                protocol, port, username, password, description, status, data)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
+            ON CONFLICT (id) DO UPDATE SET
+              ip=EXCLUDED.ip, name=EXCLUDED.name, model=EXCLUDED.model,
+              vendor=EXCLUDED.vendor, device_group=EXCLUDED.device_group,
+              role=EXCLUDED.role, protocol=EXCLUDED.protocol, port=EXCLUDED.port,
+              username=EXCLUDED.username, password=EXCLUDED.password,
+              description=EXCLUDED.description, status=EXCLUDED.status,
+              data=EXCLUDED.data, updated_at=now()
+            """,
+            m["id"], m["ip"], m["name"], m["model"], m["vendor"], m["device_group"],
+            m["role"], m["protocol"], m["port"], m["username"], m["password"],
+            m["description"], m["status"], json.dumps(extra, ensure_ascii=False, default=str),
+        )
+        if "interfaces" in payload:
+            await _device_set_ifs(c, m["id"], payload.get("interfaces") or [])
+    return m["id"]
+
+
+async def _device_set_ifs(c, dev_id: str, ifs: list) -> None:
+    """인터페이스는 통째로 갈아끼운다. 부분 갱신으로 두면 화면에서 지운
+    포트가 DB 에 남아 토폴로지에서 계속 튀어나온다."""
+    async with c.transaction():
+        await c.execute("DELETE FROM device_interface WHERE device_id=$1", dev_id)
+        for i, it in enumerate(ifs):
+            name = (it.get("name") if isinstance(it, dict) else str(it) or "").strip()
+            if not name:
+                continue
+            await c.execute(
+                """INSERT INTO device_interface (device_id, name, kind, speed, note, sort_order)
+                   VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (device_id, name) DO NOTHING""",
+                dev_id, name,
+                (it.get("kind") if isinstance(it, dict) else None),
+                (it.get("speed") if isinstance(it, dict) else None),
+                (it.get("note") if isinstance(it, dict) else None),
+                i,
+            )
+
+
+async def device_delete(dev_id: str) -> bool:
+    async with pool().acquire() as c:
+        r = await c.execute("DELETE FROM device WHERE id=$1 OR ip=$1", dev_id)
+        return r.endswith(" 1")

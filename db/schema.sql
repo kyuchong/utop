@@ -135,6 +135,55 @@ DROP TRIGGER IF EXISTS trg_req_updated ON req;
 CREATE TRIGGER trg_req_updated BEFORE UPDATE ON req
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- ── 장비 ──────────────────────────────────────────────────────
+-- 키는 IP 다. 같은 모델이 여러 대여도 접속 대상은 IP 로 갈린다.
+-- 토폴로지·장비 락·TC 스텝이 모두 이 행을 가리킨다.
+--
+-- 비밀번호는 평문이다(2026-08-02 결정). 장비 CLI 접속에 원문이 필요해
+-- 단방향 해시를 쓸 수 없다. 나중에 암호화로 바꿀 수 있도록 컬럼을
+-- password_enc 로 나눠두지 않고 password 하나로 두되, 읽고 쓰는 지점을
+-- db.py 한 곳에 모아 그때 그 함수만 고치면 되게 한다.
+-- ★ DB 백업 파일이 곧 사내 장비 전체의 비밀번호다. 저장소·공유 폴더 금지.
+CREATE TABLE IF NOT EXISTS device (
+  id            TEXT PRIMARY KEY,          -- ip 를 그대로 쓰거나 별도 id
+  ip            TEXT NOT NULL UNIQUE,      -- ★ 실질 키
+  name          TEXT,                      -- 사람이 부르는 이름 (E6100 #1)
+  model         TEXT,                      -- 모델명 (E6100-48X)
+  vendor        TEXT,
+  device_group  TEXT,
+  role          TEXT,                      -- OLT · ONU · DUT · 대향 …
+  protocol      TEXT DEFAULT 'ssh',        -- ssh | telnet
+  port          INT,
+  username      TEXT,
+  password      TEXT,
+  description   TEXT,
+  status        TEXT,
+  data          JSONB DEFAULT '{}'::jsonb, -- 그 밖의 것 (원본 보존용)
+  created_at    TIMESTAMPTZ DEFAULT now(),
+  updated_at    TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_device_model ON device(model);
+CREATE INDEX IF NOT EXISTS idx_device_group ON device(device_group);
+DROP TRIGGER IF EXISTS trg_device_updated ON device;
+CREATE TRIGGER trg_device_updated BEFORE UPDATE ON device
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
+-- ── 장비 인터페이스 ───────────────────────────────────────────
+-- 모델이 아니라 '실제 장비' 에 붙인다. 같은 모델이어도 카드 구성이
+-- 다를 수 있고, 모델에 미리 다 채워두려 하면 등록을 시작조차 못 한다.
+-- 모델 카탈로그는 나중에 '기본값' 을 채워주는 역할만 한다.
+CREATE TABLE IF NOT EXISTS device_interface (
+  id            BIGSERIAL PRIMARY KEY,
+  device_id     TEXT NOT NULL REFERENCES device(id) ON DELETE CASCADE,
+  name          TEXT NOT NULL,             -- gi1/0/1 · te1/1
+  kind          TEXT,                      -- uplink | subscriber | mgmt
+  speed         TEXT,
+  note          TEXT,
+  sort_order    INT DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_device_if_dev ON device_interface(device_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_device_if ON device_interface(device_id, name);
+
 -- ── 자원 점유 (장비 · 계측기) ──────────────────────────────────
 -- 장비와 계측기를 한 테이블로 다룬다. 둘 다 '누가 잡고 있나' 라는 같은
 -- 문제이고, 나누면 '장비는 비었는데 계측기가 잡혀 있다' 를 한 번에 볼 수 없다.

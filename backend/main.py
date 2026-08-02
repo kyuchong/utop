@@ -2357,6 +2357,88 @@ def _me(request) -> dict:
     return s
 
 
+# ───────────────────────────────────────────
+# 장비 (PG)
+#
+# 키는 IP. 같은 모델이 여러 대여도 접속 대상은 IP 로 갈린다.
+# 제품군(L2·L3·OLT·ONT·CPE·HGW)은 role, 제조사는 vendor 에 담는다.
+#
+# 옛 /api/devices (devices.json) 와 경로를 나눠 둔다 — 옛 화면이 아직
+# 그걸 쓰고 있어서, 한 번에 갈아치우면 옛 화면이 멈춘다.
+# ───────────────────────────────────────────
+DEVICE_ROLES = ["L2", "L3", "OLT", "ONT", "CPE", "HGW", "계측기", "기타"]
+
+
+@app.get("/api/device-roles")
+async def device_roles():
+    return {"roles": DEVICE_ROLES}
+
+
+@app.get("/api/devices2")
+async def devices2_list():
+    return {"devices": await db.device_list()}
+
+
+@app.get("/api/devices2/{dev_id}")
+async def devices2_get(dev_id: str):
+    d = await db.device_get(dev_id)
+    if d is None:
+        raise HTTPException(404, "장비를 찾을 수 없습니다")
+    return d
+
+
+@app.post("/api/devices2")
+async def devices2_save(payload: dict):
+    ip = str(payload.get("ip") or "").strip()
+    if not ip:
+        raise HTTPException(400, "IP 를 입력하세요")
+    # 같은 IP 가 이미 있으면 그 장비를 고치는 것으로 본다. IP 가 키다.
+    cur = await db.device_get(ip)
+    if cur and not payload.get("id"):
+        payload["id"] = cur["id"]
+    try:
+        dev_id = await db.device_upsert(payload)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"success": True, "id": dev_id}
+
+
+@app.delete("/api/devices2/{dev_id}")
+async def devices2_delete(dev_id: str):
+    if not await db.device_delete(dev_id):
+        raise HTTPException(404, "장비를 찾을 수 없습니다")
+    return {"success": True}
+
+
+@app.post("/api/devices2/import-legacy")
+async def devices2_import(request: Request):
+    """옛 devices.json 을 PG 로 옮긴다. 여러 번 눌러도 안전하다(IP 기준 upsert)."""
+    _me(request)
+    src = DEVICES_FILE
+    if not src.exists():
+        raise HTTPException(404, f"{src.name} 이 없습니다")
+    data = load_json(src) or {}
+    n = 0
+    for d in data.get("devices", []) or []:
+        if not str(d.get("ip") or "").strip():
+            continue
+        await db.device_upsert({
+            "id": d.get("id") or d.get("ip"),
+            "ip": d.get("ip"),
+            "name": d.get("id") or d.get("ip"),
+            "model": d.get("model"),
+            "device_group": d.get("group"),
+            "protocol": d.get("protocol"),
+            "port": d.get("port"),
+            "username": d.get("username"),
+            "password": d.get("password"),
+            "description": d.get("description"),
+            "status": d.get("status"),
+        })
+        n += 1
+    return {"success": True, "imported": n}
+
+
 @app.get("/api/locks")
 async def list_locks():
     """지금 잡혀 있는 자원 전부. 화면이 '누가 언제부터' 를 보여줄 수 있게
