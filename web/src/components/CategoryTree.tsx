@@ -358,7 +358,7 @@ export default function CategoryTree({ selected, onSelect }: Props) {
                 +
               </button>
             )}
-            <button type="button" onClick={() => doRename(n)} title="이름 변경">
+            <button type="button" onClick={() => doRename(n)} title="이름 변경 · 상위 분류 이동">
               ✎
             </button>
             <button type="button" onClick={() => doRemove(n)} title="삭제">

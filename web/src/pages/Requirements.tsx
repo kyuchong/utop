@@ -58,13 +58,13 @@ export default function Requirements() {
   const [tcForm, setTcForm] = useState<{ reqId: string } | undefined>(undefined)
   const [tcLinkOpen, setTcLinkOpen] = useState(false)
   const [tcBulkOpen, setTcBulkOpen] = useState(false)
-  const [tab, setTab] = useState<'tc' | 'detail' | 'history' | 'runs'>('tc')
+  const [tab, setTab] = useState<'info' | 'detail' | 'tc' | 'runs' | 'history'>('info')
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
   // 패널 폭은 사람마다 선호가 다르다. 드래그로 맞추고 브라우저에 기억시킨다.
   const splitRef = useRef<HTMLDivElement>(null)
-  const [catW, setCatW] = useResizableWidth('utop.req.catW2', 168, 120, 420)
+  const [catW, setCatW] = useResizableWidth('utop.req.catW3', 230, 150, 460)
   const [reqW, setReqW] = useResizableWidth('utop.req.reqW2', 560, 300, 1200)
 
   const reqQ = useQuery({
@@ -229,7 +229,7 @@ export default function Requirements() {
         </div>
       ) : null}
 
-      <div className="split" ref={splitRef}>
+      <div className={`split${tab === 'detail' ? ' doc-mode' : ''}`} ref={splitRef}>
         {/* ── 왼쪽: 요구사항 목록 ─────────────────────────── */}
         {/* 분류는 독립된 열. 요구사항 목록 위에 얹으면 목록이 몇 줄 못 나온다. */}
         <section className="panel cat-panel" style={{ flexBasis: catW }}>
@@ -353,10 +353,11 @@ export default function Requirements() {
             {/* 탭은 이 패널만 바꾼다. 화면 전체 폭을 쓰는 띠로 두면 자리만 먹는다. */}
             <div className="seg" role="tablist">
               {([
+                ['info', 'REQ 정보'],
+                ['detail', 'REQ 상세 내용'],
                 ['tc', 'TC 연결'],
-                ['detail', '상세정보'],
-                ['history', '변경이력'],
-                ['runs', '실행현황'],
+                ['runs', '실행 이력'],
+                ['history', '변경 이력'],
               ] as const).map(([k, label]) => (
                 <button
                   key={k}

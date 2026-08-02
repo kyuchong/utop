@@ -16,7 +16,7 @@ interface Props {
   req: Requirement
   /** 이 요구사항에 연결된 TC (Requirements 페이지가 이미 계산해 둔 것) */
   tcs: TestCaseMeta[]
-  tab: 'detail' | 'history' | 'runs'
+  tab: 'info' | 'detail' | 'history' | 'runs'
 }
 
 function fmt(iso: string | null | undefined): string {
@@ -40,6 +40,8 @@ export default function ReqDetail({ req, tcs, tab }: Props) {
     return categoryPath(cats, deepest) || '미분류'
   }, [cats, req])
 
+  const desc = typeof req.desc === 'string' ? req.desc : ''
+
   const stat = useMemo(() => {
     let pass = 0
     let fail = 0
@@ -51,8 +53,7 @@ export default function ReqDetail({ req, tcs, tab }: Props) {
     return { total: tcs.length, pass, fail, idle: tcs.length - pass - fail }
   }, [tcs])
 
-  if (tab === 'detail') {
-    const desc = typeof req.desc === 'string' ? req.desc : ''
+  if (tab === 'info') {
     return (
       <div className="detail-body scroll">
         <dl className="kv">
@@ -70,13 +71,19 @@ export default function ReqDetail({ req, tcs, tab }: Props) {
           <dd>{stat.total}건</dd>
         </dl>
 
-        <div className="detail-section">
-          <h4>구현내용</h4>
-          <Markdown
-            text={desc}
-            empty="구현내용이 없습니다. 「편집」에서 넣을 수 있습니다."
-          />
-        </div>
+      </div>
+    )
+  }
+
+  if (tab === 'detail') {
+    // 본문만. 메타데이터는 'REQ 정보' 탭에 있다 — 규격서를 읽을 때마다
+    // 6줄짜리 표를 지나 스크롤하게 만들 이유가 없다.
+    return (
+      <div className="detail-body scroll detail-doc">
+        <Markdown
+          text={desc}
+          empty="구현내용이 없습니다. 「편집」에서 넣을 수 있습니다."
+        />
       </div>
     )
   }

@@ -143,20 +143,22 @@
   visibility: visible;
 }
 
+/* 20px 짜리 아이콘 글자는 안 보인다는 신고가 반복됐다. 눈에 띄게 키운다. */
 .cat-actions button {
-  width: 20px;
-  height: 20px;
-  border: 0;
-  border-radius: 3px;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 4px;
   background: transparent;
-  color: var(--c-text-faint);
-  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  font-size: var(--fs-md);
   line-height: 1;
 }
 
 .cat-actions button:hover {
-  background: #e3e8ee;
-  color: var(--c-text);
+  background: var(--c-primary-bg);
+  border-color: #cfe0f5;
+  color: var(--c-primary);
 }
 
 .cat-add {
@@ -363,11 +365,10 @@
 }
 
 
-/* 상시 표시라 평소에는 조용해야 한다 — 흐리게 두고 hover 때 또렷하게 */
-.cat-actions button {
-  color: #b9c2cc;
-}
 
-.cat-row:hover .cat-actions button {
-  color: var(--c-text-muted);
+
+
+/* 버튼 세 개가 들어가야 하므로 행 높이와 카드 폭을 조금 늘린다 */
+.cat-row {
+  min-height: 34px;
 }
