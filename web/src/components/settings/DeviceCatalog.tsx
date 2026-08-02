@@ -140,7 +140,7 @@ export default function DeviceCatalog() {
           <span className="muted small">{cur.desc}</span>
         </div>
 
-        <div className="cat-add">
+        <div className="dc-add">
           <input
             placeholder={cur.label}
             value={draft.name}
@@ -209,18 +209,18 @@ export default function DeviceCatalog() {
         ) : items.length === 0 ? (
           <div className="empty">아직 없습니다.</div>
         ) : (
-          <div className="cat-list">
+          <div className="dc-list">
             {items.map((it) => (
-              <div className="cat-row" key={it.name}>
-                <b className="cat-name">{it.name}</b>
+              <div className="dc-row" key={it.name}>
+                <b className="dc-name">{it.name}</b>
                 {kind === 'model' && (
-                  <span className="muted small cat-meta">
+                  <span className="muted small dc-meta">
                     {[it.vendor, it.model_group, it.family].filter(Boolean).join(' · ') || '–'}
                     {it.interfaces ? ` · ${it.interfaces}` : ''}
                   </span>
                 )}
                 {kind === 'group' && (
-                  <span className="muted small cat-meta">
+                  <span className="muted small dc-meta">
                     {(listQ.data?.items ?? [])
                       .filter((m) => m.kind === 'model' && m.model_group === it.name)
                       .map((m) => m.name)
@@ -228,7 +228,7 @@ export default function DeviceCatalog() {
                   </span>
                 )}
                 <span className="muted small">{it.used ? `${it.used}대 사용 중` : ''}</span>
-                <span className="cat-actions">
+                <span className="dc-actions">
                   <button
                     className="btn small"
                     type="button"

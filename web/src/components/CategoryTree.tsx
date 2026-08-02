@@ -615,6 +615,25 @@ export default function CategoryTree({ selected, onSelect }: Props) {
         )}
       </div>
 
+      {/* 머리글. REQ LIST 에도 같은 높이(36px)의 머리글이 있어야
+          두 열의 구분선이 같은 자리에 온다. */}
+      <div className="cat-row th">
+        <input
+          type="checkbox"
+          className="cat-pick"
+          aria-label="전체 선택"
+          checked={list.length > 0 && picked.size === list.length}
+          ref={(el) => {
+            if (el) el.indeterminate = picked.size > 0 && picked.size < list.length
+          }}
+          onChange={(e) =>
+            setPicked(e.target.checked ? new Set(list.map((c) => c.id)) : new Set())
+          }
+        />
+        <span className="cat-name">분류</span>
+        <span className="cat-count">건수</span>
+      </div>
+
       {error && <div className="cat-error">{error}</div>}
 
       {/* 드래그 중에만 나타나는 '최상위로 빼기' 영역.

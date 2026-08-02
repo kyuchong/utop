@@ -381,14 +381,14 @@
 
 
 
-/* 행 높이를 REQ LIST 와 같게 맞춘다.
-   기준은 .tr(47px)이 아니라 실제로 쓰이는 .req-row 다 — padding 5px 에
-   글자 높이를 더해 약 28px 이다. 두 열이 나란히 놓이므로 한쪽만
-   성기면 같은 표로 안 읽힌다. */
+/* 행 높이를 REQ LIST(.req-row) 와 같게 — 28px.
+   ★ min-height 만 주면 안 된다. 이 행 안에는 26px 짜리 버튼(⋯·손잡이)이
+     들어 있어서, 위아래 패딩을 5px 씩 주면 26+10=36px 이 되어 버린다.
+     패딩을 0 으로 두고 가장 큰 자식(26px)이 28px 안에 들어오게 한다. */
 .cat-row {
   min-height: 28px;
-  padding-top: 5px;
-  padding-bottom: 5px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 /* 이름 위에서 끌 수 있다는 걸 커서로 알린다 */
@@ -571,21 +571,23 @@
   color: var(--c-fail);
 }
 
-/* 분류 이름 검색. REQ LIST 의 검색과 같은 모양으로 맞춘다 —
-   두 열이 나란히 있으므로 다르게 생기면 다른 기능처럼 보인다. */
+/* 분류 이름 검색. REQ LIST 의 .req-search 와 값까지 똑같이 맞춘다 —
+   두 열이 나란히 있어서 여백이나 글자 크기가 다르면 바로 눈에 띈다.
+   아래 테두리도 같이 준다. 그래야 두 열의 구분선이 같은 높이에 온다. */
 .cat-search {
   position: relative;
   flex: none;
-  padding: 0 var(--sp-2) var(--sp-2);
+  padding: var(--sp-2) var(--sp-2) var(--sp-1);
+  border-bottom: 1px solid var(--c-border-soft);
 }
 
 .cat-search input {
   width: 100%;
   border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
-  padding: 7px 24px 7px 8px;
+  padding: 5px 26px 5px 9px;
   background: var(--c-surface);
-  font: inherit;
+  font-size: var(--fs-sm);
 }
 
 .cat-search input:focus {
@@ -595,9 +597,9 @@
 
 .cat-search-x {
   position: absolute;
-  right: calc(var(--sp-2) + 5px);
-  top: 50%;
-  transform: translateY(-50%);
+  right: calc(var(--sp-2) + 6px);
+  /* 검색칸이 컨테이너 위쪽에 치우쳐 있으므로 가운데가 아니라 칸에 맞춘다 */
+  top: calc(var(--sp-2) + 5px);
   width: 18px;
   height: 18px;
   border: 0;
@@ -607,3 +609,21 @@
   line-height: 1;
 }
 .cat-search-x:hover { background: var(--c-surface-alt); color: var(--c-text); }
+
+/* 분류 머리글. REQ LIST 의 .req-row.th 와 같은 규격(36px)이다.
+   이것이 없으면 두 열의 구분선 높이가 어긋나 표가 따로 논다. */
+.cat-row.th {
+  min-height: 36px;
+  background: var(--c-surface-alt);
+  color: #5b6670;
+  font-size: var(--fs-xs);
+  cursor: default;
+  flex: none;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.cat-row.th:hover {
+  background: var(--c-surface-alt);
+}

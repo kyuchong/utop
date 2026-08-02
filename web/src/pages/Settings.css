@@ -155,14 +155,18 @@
   margin-bottom: 4px;
 }
 
-/* ── 장비 카탈로그 ─────────────────────────────────────────── */
-.cat-add {
+/* ── 장비 카탈로그 ───────────────────────────────────────────
+   접두사가 dc- 인 이유: 분류 트리가 이미 .dc-row / .dc-name 을 쓰고 있다.
+   CSS 는 전역이라 같은 이름을 쓰면 나중에 불러오는 쪽이 상대를 덮는다.
+   실제로 이 파일의 .dc-row { padding: 6px 10px } 가 분류 트리의 행 높이를
+   덮어써서 "행 간격이 안 맞는다"는 신고가 반복됐다. */
+.dc-add {
   display: flex;
   gap: 7px;
   flex-wrap: wrap;
 }
-.cat-add input,
-.cat-add select {
+.dc-add input,
+.dc-add select {
   border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
   padding: 7px;
@@ -170,23 +174,23 @@
   flex: 0 1 auto;
   min-width: 130px;
 }
-.cat-add input:first-child { flex: 1 1 170px; }
-.cat-add input:last-of-type { flex: 2 1 240px; }
+.dc-add input:first-child { flex: 1 1 170px; }
+.dc-add input:last-of-type { flex: 2 1 240px; }
 
-.cat-list {
+.dc-list {
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   overflow: hidden;
 }
-.cat-row {
+.dc-row {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--c-border-soft);
 }
-.cat-row:last-child { border-bottom: 0; }
-.cat-name { flex: 0 0 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cat-meta { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cat-actions { margin-left: auto; display: flex; gap: 5px; }
+.dc-row:last-child { border-bottom: 0; }
+.dc-name { flex: 0 0 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-meta { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-actions { margin-left: auto; display: flex; gap: 5px; }
 .seg-btn .cnt { margin-left: 5px; font-size: var(--fs-xs); opacity: 0.75; }
