@@ -13,6 +13,8 @@ import {
   wrapInBlockquoteCommand,
   insertHrCommand,
   createCodeBlockCommand,
+  liftListItemCommand,
+  sinkListItemCommand,
 } from '@milkdown/kit/preset/commonmark'
 import { insertTableCommand } from '@milkdown/kit/preset/gfm'
 import '@milkdown/crepe/theme/common/style.css'
@@ -146,6 +148,9 @@ export default function MarkdownEditor({ value, onChange, placeholder }: Props) 
     ['`', '인라인 코드', () => run(toggleInlineCodeCommand.key)],
     ['•', '목록', () => run(wrapInBulletListCommand.key)],
     ['1.', '번호 목록', () => run(wrapInOrderedListCommand.key)],
+    // 목록 단계 조절. Tab / Shift+Tab 으로도 되지만 그걸 아는 사람만 쓴다.
+    ['◄', '내어쓰기 (Shift+Tab)', () => run(liftListItemCommand.key)],
+    ['►', '들여쓰기 (Tab)', () => run(sinkListItemCommand.key)],
     ['❝', '인용', () => run(wrapInBlockquoteCommand.key)],
     ['표', '표 넣기', () => run(insertTableCommand.key)],
     ['{ }', '코드 블록', () => run(createCodeBlockCommand.key)],
