@@ -11,6 +11,21 @@ interface Props {
 }
 
 /**
+ * 인터페이스 종류.
+ *
+ * 스위치는 48포트가 전부 같은 포트라 업링크/가입자 구분이 없다. 어느 포트를
+ * 업링크로 쓸지는 그 시험에서 어떻게 물리느냐의 문제이지 장비의 성질이 아니다.
+ * 그래서 '일반' 이 기본값이다 — 여기서는 '어떤 포트가 있는가' 만 적고,
+ * 역할은 시험 구성도에서 정한다. OLT 처럼 하드웨어로 갈리는 장비만 지정한다.
+ */
+const IF_KINDS = [
+  { v: 'general', label: '일반' },
+  { v: 'subscriber', label: '가입자' },
+  { v: 'uplink', label: '업링크' },
+  { v: 'mgmt', label: '관리' },
+]
+
+/**
  * gi1/0/1-48 처럼 범위로 적은 것을 펼친다.
  * 48포트를 한 줄씩 치게 만들면 아무도 인터페이스를 채우지 않는다.
  */
@@ -56,7 +71,7 @@ export default function DeviceForm({ editing, onClose }: Props) {
   })
   const [ifs, setIfs] = useState<DeviceIf[]>([])
   const [bulk, setBulk] = useState('')
-  const [bulkKind, setBulkKind] = useState('subscriber')
+  const [bulkKind, setBulkKind] = useState('general')
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -285,9 +300,11 @@ export default function DeviceForm({ editing, onClose }: Props) {
                 }}
               />
               <select value={bulkKind} onChange={(e) => setBulkKind(e.target.value)}>
-                <option value="subscriber">가입자</option>
-                <option value="uplink">업링크</option>
-                <option value="mgmt">관리</option>
+                {IF_KINDS.map((k) => (
+                  <option key={k.v} value={k.v}>
+                    {k.label}
+                  </option>
+                ))}
               </select>
               <button className="btn" type="button" onClick={addBulk}>
                 추가
@@ -300,14 +317,16 @@ export default function DeviceForm({ editing, onClose }: Props) {
                   <div className="if-row" key={`${it.name}-${i}`}>
                     <span className="if-name">{it.name}</span>
                     <select
-                      value={it.kind ?? 'subscriber'}
+                      value={it.kind || 'general'}
                       onChange={(e) =>
                         setIfs(ifs.map((x, j) => (j === i ? { ...x, kind: e.target.value } : x)))
                       }
                     >
-                      <option value="subscriber">가입자</option>
-                      <option value="uplink">업링크</option>
-                      <option value="mgmt">관리</option>
+                      {IF_KINDS.map((k) => (
+                        <option key={k.v} value={k.v}>
+                          {k.label}
+                        </option>
+                      ))}
                     </select>
                     <button
                       type="button"

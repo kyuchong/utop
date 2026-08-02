@@ -176,7 +176,10 @@ CREATE TABLE IF NOT EXISTS device_interface (
   id            BIGSERIAL PRIMARY KEY,
   device_id     TEXT NOT NULL REFERENCES device(id) ON DELETE CASCADE,
   name          TEXT NOT NULL,             -- gi1/0/1 · te1/1
-  kind          TEXT,                      -- uplink | subscriber | mgmt
+  -- general 이 기본. 스위치는 48포트가 전부 같아서 업링크/가입자 구분이
+  -- 없다 — 어느 포트를 업링크로 쓰는지는 시험 구성도에서 정한다.
+  -- OLT 처럼 하드웨어로 갈리는 장비만 uplink/subscriber 를 적는다.
+  kind          TEXT,                      -- general | uplink | subscriber | mgmt
   speed         TEXT,
   note          TEXT,
   sort_order    INT DEFAULT 0

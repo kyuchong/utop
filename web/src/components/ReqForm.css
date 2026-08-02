@@ -405,7 +405,18 @@
   gap: 6px;
   margin-bottom: var(--sp-2);
 }
-.if-add input { flex: 1; min-width: 0; }
+/* 위쪽 `.fld input, .fld select { width: 100% }` 이 여기까지 걸린다.
+   그대로 두면 select 가 줄 전체를 먹고 입력칸이 폭 0 으로 찌그러진다.
+   둘 다 width 를 되돌린 뒤 flex 로 나눈다. */
+.if-add input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 150px;
+}
+.if-add select {
+  flex: 0 0 auto;
+  width: auto;
+}
 .if-add input,
 .if-add select {
   border: 1px solid #b6bec8;
@@ -443,6 +454,9 @@
 }
 
 .if-row select {
+  /* .if-add 와 같은 이유로 width 를 되돌린다 — 안 그러면 포트 이름이 밀려난다 */
+  flex: 0 0 auto;
+  width: auto;
   border: 1px solid var(--c-border);
   border-radius: 3px;
   font-size: var(--fs-xs);
