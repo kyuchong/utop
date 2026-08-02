@@ -162,18 +162,41 @@ export default function Devices() {
         {msg.text && <div className={`dev-msg ${msg.kind}`}>{msg.text}</div>}
         {err && <div className="load-error">{(err as Error).message}</div>}
 
+        {/* 제품군 탭. 드롭다운은 열어봐야 무엇이 있는지 알 수 있지만
+            탭은 제품군 구성과 대수가 한눈에 보인다. */}
+        <div className="dev-tabs">
+          <div className="seg" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={roleFilter === ''}
+              className={`seg-btn${roleFilter === '' ? ' on' : ''}`}
+              onClick={() => setRoleFilter('')}
+            >
+              전체<span className="cnt">{devices.length}</span>
+            </button>
+            {roles.map((r) => (
+              <button
+                key={r}
+                type="button"
+                role="tab"
+                aria-selected={roleFilter === r}
+                className={`seg-btn${roleFilter === r ? ' on' : ''}`}
+                onClick={() => setRoleFilter(r)}
+              >
+                {r}
+                <span className="cnt">{devices.filter((d) => d.role === r).length}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="dev-filter">
           <input
             placeholder="이름 / IP / 모델 / 제조사 검색"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-            <option value="">전체 제품군</option>
-            {roles.map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </select>
         </div>
 
         <div className="dev-row th">
@@ -211,15 +234,15 @@ export default function Devices() {
                 >
                   <span className="dev-name">{d.name || d.ip}</span>
                   <span>{d.role ? <span className="tag">{d.role}</span> : <span className="muted small">–</span>}</span>
-                  <span className="muted small ell">
+                  <span className="muted ell">
                     {d.model || '–'}
                     {d.vendor ? ` · ${d.vendor}` : ''}
                   </span>
-                  <span className="muted small">
+                  <span className="muted">
                     {d.ip}
                     <span className="dev-proto">{(d.protocol || 'ssh').toUpperCase()}</span>
                   </span>
-                  <span className="muted small">{d.interfaces?.length ?? 0}</span>
+                  <span className="muted">{d.interfaces?.length ?? 0}</span>
                   <span className="dev-lock">
                     {lock ? (
                       <>

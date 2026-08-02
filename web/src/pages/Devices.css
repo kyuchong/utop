@@ -13,9 +13,13 @@
 .dev-msg.ok { background: #e8f5ed; border: 1px solid #b9dfc8; color: #12643a; }
 .dev-msg.err { background: #fdf4f4; border: 1px solid #f0c8c8; color: #8a2a2a; }
 
+/* 글꼴·글자크기는 요구사항 화면(.filter / .tr)과 똑같이 간다.
+   화면마다 크기가 다르면 같은 앱으로 안 보인다. font-size 를 따로 주지
+   않는 것이 핵심 — 본문(--fs-md) 을 그대로 물려받는다. */
 .dev-filter {
   flex: none;
   display: flex;
+  align-items: center;
   gap: 7px;
   padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--c-border-soft);
@@ -25,25 +29,45 @@
 .dev-filter select {
   border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
-  padding: 5px 8px;
-  font-size: var(--fs-sm);
+  padding: 7px;
+  background: var(--c-surface);
 }
 
-/* 열 폭을 고정한다. 내용에 맡기면 장비를 추가할 때마다 표가 흔들린다. */
+/* 제품군 탭. 요구사항 화면의 세그먼트 탭(.seg)을 그대로 쓴다. */
+.dev-tabs {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--sp-2) var(--sp-3) 0;
+  flex-wrap: wrap;
+}
+.dev-tabs .seg-btn .cnt {
+  margin-left: 5px;
+  font-size: var(--fs-xs);
+  opacity: 0.75;
+}
+
+/* 열 폭을 고정한다. 내용에 맡기면 장비를 추가할 때마다 표가 흔들린다.
+   행 높이·칸 여백·머리글 크기는 요구사항 표(.tr / .tr.th)와 같은 값이다. */
 .dev-row {
   display: grid;
   grid-template-columns: minmax(140px, 1.4fr) 90px minmax(150px, 1.4fr) 190px 60px minmax(230px, 1.6fr);
   align-items: center;
-  gap: 10px;
-  padding: 7px var(--sp-3);
+  min-height: 47px;
   border-bottom: 1px solid var(--c-border-soft);
+  min-width: 0;
+}
+
+.dev-row > span {
+  padding: 0 9px;
   min-width: 0;
 }
 
 .dev-row.th {
   background: var(--c-surface-alt);
   color: #5b6670;
-  font-size: var(--fs-xs);
+  font-size: var(--fs-label);
   min-height: 36px;
   flex: none;
 }
@@ -55,7 +79,6 @@
   outline-offset: -2px;
 }
 
-.dev-row > span { min-width: 0; }
 .dev-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dev-row .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
