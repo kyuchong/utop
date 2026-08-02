@@ -58,7 +58,7 @@
 
 .req-id {
   flex: none;
-  width: 84px;
+  width: 96px;
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
   overflow: hidden;

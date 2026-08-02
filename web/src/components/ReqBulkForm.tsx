@@ -214,7 +214,7 @@ export default function ReqBulkForm({ onClose }: Props) {
                       </div>
                     ))}
                     {parsed.length > 30 && (
-                      <div className="bulk-row muted">… 외 {parsed.length - 30}건</div>
+                      <div className="bulk-row muted small">… 외 {parsed.length - 30}건</div>
                     )}
                   </div>
                 </div>

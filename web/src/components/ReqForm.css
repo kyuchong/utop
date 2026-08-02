@@ -170,3 +170,62 @@
 .bulk-row:last-child {
   border-bottom: 0;
 }
+
+/* 체크박스 라벨 — 필터 줄에 인라인으로 놓는다 */
+.chk {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}
+
+/* TC 연결 목록 */
+.link-list {
+  max-height: 340px;
+  overflow-y: auto;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+}
+
+.link-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+  cursor: pointer;
+}
+
+.link-row:last-child {
+  border-bottom: 0;
+}
+
+.link-row:hover {
+  background: var(--c-surface-info);
+}
+
+.link-row .tc-id {
+  flex: none;
+  width: 170px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-row .req-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 만들 수 없는 줄 (TC ID 없음) 은 흐리게 + 취소선으로 구분 */
+.bulk-row.invalid {
+  opacity: 0.55;
+  text-decoration: line-through;
+}

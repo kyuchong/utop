@@ -7,6 +7,8 @@ import Resizer, { useResizableWidth } from '@/components/Resizer'
 import ReqBulkForm from '@/components/ReqBulkForm'
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
+import TcLinkForm from '@/components/TcLinkForm'
+import TcBulkForm from '@/components/TcBulkForm'
 import {
   reqLabel,
   reqPk,
@@ -52,6 +54,8 @@ export default function Requirements() {
   const [bulkOpen, setBulkOpen] = useState(false)
   // undefined = 닫힘 / { } = 새 TC(요구사항 미리 연결)
   const [tcForm, setTcForm] = useState<{ reqId: string } | undefined>(undefined)
+  const [tcLinkOpen, setTcLinkOpen] = useState(false)
+  const [tcBulkOpen, setTcBulkOpen] = useState(false)
   const [tab, setTab] = useState<'tc' | 'detail' | 'history' | 'runs'>('tc')
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -177,6 +181,19 @@ export default function Requirements() {
           onClose={() => setTcForm(undefined)}
         />
       )}
+      {tcLinkOpen && selectedReq && (
+        <TcLinkForm
+          req={selectedReq}
+          linked={linked}
+          onClose={() => setTcLinkOpen(false)}
+        />
+      )}
+      {tcBulkOpen && selectedReq && (
+        <TcBulkForm
+          presetReqId={reqPk(selectedReq)}
+          onClose={() => setTcBulkOpen(false)}
+        />
+      )}
 
       <div className="page-head">
         <h1>
@@ -225,7 +242,7 @@ export default function Requirements() {
 
         <section className="panel req-panel" style={{ flexBasis: reqW }}>
           <div className="panel-title">
-            <span className="muted">
+            <span className="muted small">
               {catFilter ? `${reqs.length} / ${allReqs.length}건` : `${reqs.length}건`}
             </span>
             <div className="page-head-actions">
@@ -269,7 +286,7 @@ export default function Requirements() {
                     <span className="req-name">{r.title || '(제목 없음)'}</span>
                     <span className="req-stat">
                       {stat.total === 0 ? (
-                        <span className="muted">TC 0</span>
+                        <span className="muted small">TC 0</span>
                       ) : (
                         <>
                           {stat.pass > 0 && <b className="status pass">{stat.pass}</b>}
@@ -311,6 +328,23 @@ export default function Requirements() {
             {tab === 'tc' && (
               <div className="page-head-actions">
                 <button
+                  className="btn"
+                  type="button"
+                  disabled={!selectedReq}
+                  onClick={() => setTcLinkOpen(true)}
+                  title="이미 있는 TC 를 이 요구사항에 붙입니다"
+                >
+                  TC 연결
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={!selectedReq}
+                  onClick={() => setTcBulkOpen(true)}
+                >
+                  일괄 생성
+                </button>
+                <button
                   className="btn primary"
                   type="button"
                   disabled={!selectedReq}
@@ -334,7 +368,7 @@ export default function Requirements() {
               <div className="summary">
                 <b>{reqLabel(selectedReq)}</b> · {selectedReq.title || '(제목 없음)'}
                 <br />
-                <span className="muted">
+                <span className="muted small">
                   모델별 실제 실행 TC를 연결합니다. 유사한 TC라도 모델별
                   CLI/특성이 다르면 독립 TC로 관리합니다.
                 </span>

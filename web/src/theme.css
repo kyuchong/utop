@@ -184,9 +184,27 @@ button {
   flex: none;
 }
 
+/* 색과 크기를 섞지 않는다. .muted 를 크기까지 겸하게 두면
+   '덜 중요한 것' 과 '작은 글씨' 가 엉켜서, 본문에 muted 를 쓰는 순간
+   내용이 라벨만 해진다. */
 .muted {
   color: var(--c-text-muted);
-  font-size: var(--fs-label);
+}
+
+/* 작은 글씨 — 라벨·배지·표머리·부가 설명 */
+.small {
+  font-size: var(--fs-xs);
+}
+
+/* ID 류 (REQ-001, TC-...) — 내용이 아니라 참조 번호다.
+   목록마다 다르게 보이지 않도록 한곳에서 정한다. */
+.id-cell {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .empty {

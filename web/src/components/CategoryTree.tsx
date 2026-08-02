@@ -216,7 +216,7 @@ export default function CategoryTree({ selected, onSelect }: Props) {
         <div className="empty">
           분류가 없습니다.
           <br />
-          <span className="muted">위 「+ 대분류」로 만드세요.</span>
+          <span className="muted small">위 「+ 대분류」로 만드세요.</span>
         </div>
       ) : (
         tree.map(renderNode)

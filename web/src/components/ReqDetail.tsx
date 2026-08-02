@@ -74,7 +74,7 @@ export default function ReqDetail({ req, tcs, tab }: Props) {
           {desc ? (
             <p className="detail-desc">{desc}</p>
           ) : (
-            <p className="muted">설명이 없습니다. 「편집」에서 넣을 수 있습니다.</p>
+            <p className="muted small">설명이 없습니다. 「편집」에서 넣을 수 있습니다.</p>
           )}
         </div>
       </div>
@@ -96,7 +96,7 @@ export default function ReqDetail({ req, tcs, tab }: Props) {
         </dl>
 
         <div className="detail-section">
-          <p className="muted">
+          <p className="muted small">
             지금은 <b>마지막 상태</b>만 남습니다. 어떤 항목이 언제 무엇에서 무엇으로
             바뀌었는지는 아직 기록하지 않습니다.
             <br />
@@ -131,7 +131,7 @@ export default function ReqDetail({ req, tcs, tab }: Props) {
       </div>
 
       {stat.total === 0 ? (
-        <p className="muted" style={{ padding: '0 4px' }}>
+        <p className="muted small" style={{ padding: '0 4px' }}>
           연결된 TC 가 없어 실행 현황이 없습니다.
         </p>
       ) : (
@@ -163,7 +163,7 @@ export default function ReqDetail({ req, tcs, tab }: Props) {
         </>
       )}
 
-      <p className="muted" style={{ padding: '0 4px' }}>
+      <p className="muted small" style={{ padding: '0 4px' }}>
         실행 시각·소요 시간은 사이클 실행 기능을 옮긴 뒤에 함께 표시됩니다.
         지금은 TC 의 마지막 상태만 집계합니다. (요구사항 {reqPk(req)})
       </p>

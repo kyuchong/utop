@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '@/api/client'
 import TcForm from '@/components/TcForm'
+import TcBulkForm from '@/components/TcBulkForm'
 import {
   reqLabel,
   reqPk,
@@ -20,6 +21,7 @@ import './TestCases.css'
  */
 export default function TestCases() {
   const [form, setForm] = useState<TestCaseMeta | null | undefined>(undefined)
+  const [bulkOpen, setBulkOpen] = useState(false)
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [reqFilter, setReqFilter] = useState('')
@@ -80,11 +82,14 @@ export default function TestCases() {
       {form !== undefined && (
         <TcForm editing={form} onClose={() => setForm(undefined)} />
       )}
+      {bulkOpen && <TcBulkForm onClose={() => setBulkOpen(false)} />}
 
-      <div className="crumb">Test Cases</div>
       <div className="page-head">
         <h1>Test Cases</h1>
         <div className="page-head-actions">
+          <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
+            일괄 생성
+          </button>
           <button className="btn primary" type="button" onClick={() => setForm(null)}>
             + Test Case
           </button>
@@ -124,7 +129,7 @@ export default function TestCases() {
               <option value="draft">작성중</option>
             </select>
           </div>
-          <span className="muted tc-stat">
+          <span className="muted small tc-stat">
             {shown.length}건
             {stat.pass > 0 && ` · PASS ${stat.pass}`}
             {stat.fail > 0 && ` · FAIL ${stat.fail}`}
@@ -161,11 +166,11 @@ export default function TestCases() {
                     onClick={() => setForm(t)}
                     title="클릭하면 편집합니다"
                   >
-                    <div>
-                      <div className="tc-id">{t.tcid}</div>
-                      <div className="muted">{t.name || '(제목 없음)'}</div>
+                    <div className="tc-main">
+                      <span className="id-cell">{t.tcid}</span>
+                      <span className="tc-title">{t.name || '(제목 없음)'}</span>
                     </div>
-                    <div className="muted">
+                    <div className="muted small ell">
                       {r ? (
                         `${reqLabel(r)} · ${r.title ?? ''}`
                       ) : t.req_id ? (
@@ -175,7 +180,7 @@ export default function TestCases() {
                       )}
                     </div>
                     <div>{t.type ? <span className="tag">{t.type}</span> : null}</div>
-                    <div className="muted">{t._cli_count ?? '-'}</div>
+                    <div className="muted small">{t._cli_count ?? '-'}</div>
                     <div className={`status ${statusClass(t.status)}`}>
                       ● {t.status || '미실행'}
                     </div>
