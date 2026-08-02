@@ -131,6 +131,21 @@ export function buildCategoryTree(list: ReqCategory[]): CategoryTreeNode[] {
  */
 export const UNCATEGORIZED = '__none__'
 
+/**
+ * 이름 정렬용 비교기.
+ *
+ * 기본 localeCompare 는 문자열을 글자 단위로 비교해서 '10' 이 '2' 보다
+ * 앞에 온다. 실제 분류 이름이 '1. 부품 변경' · '1-1. …' · 'E43' · 'E57'
+ * 처럼 숫자를 품고 있어서 그대로 두면 순서가 어긋난다.
+ * numeric 을 켜면 숫자 부분을 수로 읽어 2 < 10 이 된다.
+ * 한글·영문이 섞여 있으므로 로케일은 ko 를 쓴다.
+ */
+const collator = new Intl.Collator('ko', { numeric: true, sensitivity: 'base' })
+
+export function naturalCompare(a: string, b: string): number {
+  return collator.compare(a ?? '', b ?? '')
+}
+
 /** 분류 3단까지. 이 값을 넘는 하위는 만들 수 없다 (서버도 같은 값으로 막는다). */
 export const MAX_CAT_DEPTH = 3
 

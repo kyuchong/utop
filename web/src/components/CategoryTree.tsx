@@ -4,6 +4,7 @@ import { categoryApi } from '@/api/client'
 import {
   buildCategoryTree,
   MAX_CAT_DEPTH,
+  naturalCompare,
   UNCATEGORIZED,
   type CategoryTreeNode,
   type ReqCategory,
@@ -88,7 +89,8 @@ export default function CategoryTree({ selected, onSelect }: Props) {
   /**
    * 정렬. 같은 단계끼리만 정렬하고 부모-자식 관계는 건드리지 않는다.
    *  - manual: 서버가 준 순서(sort_order → 이름). 드래그로 옮긴 구조를 그대로.
-   *  - name  : 이름 오름차순. 한글·영문이 섞여서 localeCompare 를 쓴다.
+   *  - name  : 이름 오름차순. 숫자를 수로 읽는 자연 정렬이다 —
+   *            그냥 비교하면 '1-10' 이 '1-2' 보다, 'E43' 이 'E5' 보다 앞에 온다.
    *  - count : 요구사항이 많은 분류부터. 어디에 일이 몰려 있는지 볼 때.
    */
   const tree = useMemo(() => {
@@ -96,8 +98,8 @@ export default function CategoryTree({ selected, onSelect }: Props) {
     if (sort === 'manual') return t0
     const cmp = (a: CategoryTreeNode, b: CategoryTreeNode) =>
       sort === 'name'
-        ? a.name.localeCompare(b.name, 'ko')
-        : b.req_count - a.req_count || a.name.localeCompare(b.name, 'ko')
+        ? naturalCompare(a.name, b.name)
+        : b.req_count - a.req_count || naturalCompare(a.name, b.name)
     const walk = (ns: CategoryTreeNode[]): CategoryTreeNode[] =>
       [...ns].sort(cmp).map((n) => ({ ...n, children: walk(n.children) }))
     return walk(t0)
