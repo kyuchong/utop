@@ -151,6 +151,9 @@ CREATE TABLE IF NOT EXISTS device (
   model         TEXT,                      -- 모델명 (E6100-48X)
   vendor        TEXT,
   device_group  TEXT,
+  -- 어느 시험실에 있는 장비인가. 같은 모델이 여러 랩에 흩어져 있어서
+  -- 랩을 모르면 "그 장비 어디 있어요" 를 매번 물어야 한다.
+  lab           TEXT,
   role          TEXT,                      -- OLT · ONU · DUT · 대향 …
   protocol      TEXT DEFAULT 'ssh',        -- ssh | telnet
   port          INT,
@@ -162,8 +165,12 @@ CREATE TABLE IF NOT EXISTS device (
   created_at    TIMESTAMPTZ DEFAULT now(),
   updated_at    TIMESTAMPTZ DEFAULT now()
 );
+-- 이미 만들어진 DB 에는 CREATE TABLE IF NOT EXISTS 가 컬럼을 더해주지 않는다.
+-- 새로 넣는 컬럼은 반드시 ALTER 로 한 줄 더 적어야 기존 설치가 따라온다.
+ALTER TABLE device ADD COLUMN IF NOT EXISTS lab TEXT;
 CREATE INDEX IF NOT EXISTS idx_device_model ON device(model);
 CREATE INDEX IF NOT EXISTS idx_device_group ON device(device_group);
+CREATE INDEX IF NOT EXISTS idx_device_lab ON device(lab);
 DROP TRIGGER IF EXISTS trg_device_updated ON device;
 CREATE TRIGGER trg_device_updated BEFORE UPDATE ON device
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();

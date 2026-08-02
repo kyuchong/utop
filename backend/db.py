@@ -695,7 +695,7 @@ async def apply_schema() -> None:
 # _dev_in / _dev_out 두 함수만 고치면 되도록 읽고 쓰는 지점을 모아뒀다.
 # ══════════════════════════════════════════════════════════════════════
 _DEV_COLS = (
-    "id", "ip", "name", "model", "vendor", "device_group", "role",
+    "id", "ip", "name", "model", "vendor", "device_group", "lab", "role",
     "protocol", "port", "username", "password", "description", "status",
 )
 
@@ -781,19 +781,20 @@ async def device_upsert(payload: dict) -> str:
     async with pool().acquire() as c:
         await c.execute(
             """
-            INSERT INTO device (id, ip, name, model, vendor, device_group, role,
+            INSERT INTO device (id, ip, name, model, vendor, device_group, lab, role,
                                 protocol, port, username, password, description, status, data)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14::jsonb)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::jsonb)
             ON CONFLICT (id) DO UPDATE SET
               ip=EXCLUDED.ip, name=EXCLUDED.name, model=EXCLUDED.model,
               vendor=EXCLUDED.vendor, device_group=EXCLUDED.device_group,
+              lab=EXCLUDED.lab,
               role=EXCLUDED.role, protocol=EXCLUDED.protocol, port=EXCLUDED.port,
               username=EXCLUDED.username, password=EXCLUDED.password,
               description=EXCLUDED.description, status=EXCLUDED.status,
               data=EXCLUDED.data, updated_at=now()
             """,
             m["id"], m["ip"], m["name"], m["model"], m["vendor"], m["device_group"],
-            m["role"], m["protocol"], m["port"], m["username"], m["password"],
+            m["lab"], m["role"], m["protocol"], m["port"], m["username"], m["password"],
             m["description"], m["status"], json.dumps(extra, ensure_ascii=False, default=str),
         )
         if "interfaces" in payload:

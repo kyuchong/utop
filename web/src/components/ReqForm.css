@@ -538,3 +538,25 @@
   gap: 9px;
   margin-top: var(--sp-2);
 }
+
+/* ── 장비 CSV 일괄 등록 ─────────────────────────────────────── */
+.bulk-tools {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.bulk-csv {
+  width: 100%;
+  min-height: 150px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  white-space: pre;
+  overflow-x: auto;
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 8px 9px;
+  resize: vertical;
+}

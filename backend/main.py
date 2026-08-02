@@ -2388,7 +2388,10 @@ DEVICE_ROLES = ["L2", "L3", "OLT", "ONT", "CPE", "HGW", "계측기", "기타"]
 
 @app.get("/api/device-roles")
 async def device_roles():
-    return {"roles": DEVICE_ROLES, "protocols": list(db.PROTOCOLS),
+    async with db.pool().acquire() as c:
+        labs = [r["lab"] for r in await c.fetch(
+            "SELECT DISTINCT lab FROM device WHERE lab <> '' ORDER BY lab")]
+    return {"roles": DEVICE_ROLES, "labs": labs, "protocols": list(db.PROTOCOLS),
             "cli_protocols": list(db.CLI_PROTOCOLS)}
 
 
@@ -2417,8 +2420,11 @@ def _probe_sync(proto: str, host: str, port: int) -> tuple[bool, str]:
 
 
 @app.post("/api/devices2/{dev_id}/check")
-async def devices2_check(dev_id: str):
-    """등록된 접속 방식마다 붙어 보고 결과를 남긴다."""
+async def devices2_check(dev_id: str, protocol: str = ""):
+    """접속해 보고 결과를 남긴다.
+
+    protocol 을 주면 그것 하나만 — 목록에서 Telnet 칸만 눌러 확인하는 경우다.
+    비우면 등록된 방식 전부."""
     d = await db.device_get(dev_id)
     if d is None:
         raise HTTPException(404, "장비를 찾을 수 없습니다")
@@ -2426,10 +2432,13 @@ async def devices2_check(dev_id: str):
     import asyncio
     loop = asyncio.get_running_loop()
     out = []
+    want = (protocol or "").strip().lower()
     for a in d.get("access") or []:
         if not a.get("enabled", True):
             continue
         proto = a["protocol"]
+        if want and proto != want:
+            continue
         host = (a.get("host") or d.get("ip") or "").strip()
         ok, err = await loop.run_in_executor(
             None, _probe_sync, proto, host, a.get("port") or 0
@@ -2443,6 +2452,45 @@ async def devices2_check(dev_id: str):
 @app.get("/api/devices2")
 async def devices2_list():
     return {"devices": await db.device_list()}
+
+
+# 이 라우트는 /api/devices2/{dev_id} 보다 먼저 선언되어야 한다.
+# 뒤에 두면 'export.csv' 가 dev_id 로 잡혀 404 가 난다.
+@app.get("/api/devices2/export.csv")
+async def devices2_export(with_secrets: int = 0):
+    """장비 목록을 CSV 로. 비밀번호는 기본적으로 비운다.
+
+    평문 저장은 결정된 사항이지만, CSV 는 메일과 메신저로 쉽게 돌아다닌다.
+    파일 하나가 사내 장비 전체의 비밀번호가 되는 것은 저장과 다른 문제다.
+    가져올 때 빈 칸은 '기존 값 유지' 로 처리하므로 이대로도 왕복이 된다.
+    """
+    import csv, io
+    devs = await db.device_list()
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(DEV_CSV_COLS)
+    for d in devs:
+        tel, ssh = _acc_of(d, "telnet"), _acc_of(d, "ssh")
+        con, snmp = _acc_of(d, "console"), _acc_of(d, "snmp")
+        w.writerow([
+            d.get("lab") or "",
+            d.get("name") or "", d.get("ip") or "", d.get("vendor") or "",
+            d.get("role") or "", d.get("model") or "",
+            tel.get("port") or "", ssh.get("port") or "",
+            con.get("host") or "", con.get("port") or "",
+            snmp.get("community") or "",
+            d.get("username") or "",
+            (d.get("password") or "") if with_secrets else "",
+            _compress_ifs([i["name"] for i in d.get("interfaces") or []]),
+        ])
+    # 엑셀이 UTF-8 을 알아보게 BOM 을 붙인다. 없으면 한글이 깨져서 열린다.
+    data = "﻿" + buf.getvalue()
+    from fastapi.responses import Response
+    return Response(
+        content=data.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="devices.csv"'},
+    )
 
 
 @app.get("/api/devices2/{dev_id}")
@@ -2503,6 +2551,182 @@ async def devices2_import(request: Request):
         })
         n += 1
     return {"success": True, "imported": n}
+
+
+# ── 장비 CSV 일괄 처리 ────────────────────────────────────────────
+# 장비 30대를 창 하나씩 열어 등록하는 것은 현실적이지 않다. 내보내고,
+# 엑셀에서 고치고, 다시 넣는 왕복 하나로 일괄등록·수정을 함께 해결한다.
+DEV_CSV_COLS = [
+    "LAB", "이름", "IP", "제조사", "제품군", "모델명",
+    "telnet포트", "ssh포트", "console주소", "console포트", "snmp",
+    "계정", "비밀번호", "인터페이스",
+]
+
+
+def _expand_ifs(text: str) -> list[str]:
+    """gi1/0/1-48 을 펼친다. 화면의 입력 규칙과 같아야 한다."""
+    import re
+    out: list[str] = []
+    for raw in re.split(r"[,\n]", text or ""):
+        s = raw.strip()
+        if not s:
+            continue
+        m = re.match(r"^(.*?)(\d+)\s*-\s*(\d+)$", s)
+        if not m:
+            out.append(s)
+            continue
+        prefix, a, b = m.group(1), int(m.group(2)), int(m.group(3))
+        if b < a or b - a > 512:
+            out.append(s)
+            continue
+        out.extend(f"{prefix}{i}" for i in range(a, b + 1))
+    return out
+
+
+def _compress_ifs(names: list[str]) -> str:
+    """펼친 포트를 범위로 다시 접는다.
+
+    48포트를 그대로 내보내면 한 칸이 화면을 넘어가 엑셀에서 손댈 수가 없다.
+    _expand_ifs 의 역이라 내보내고 다시 넣어도 같은 결과가 나온다.
+    """
+    import re
+    out: list[str] = []
+    st: dict = {"pre": None, "from": 0, "to": 0, "width": 1}
+
+    def flush():
+        if st["pre"] is None:
+            return
+        if st["from"] == st["to"]:
+            out.append(f"{st['pre']}{str(st['from']).zfill(st['width'])}")
+        else:
+            out.append(f"{st['pre']}{st['from']}-{st['to']}")
+
+    for nm in names:
+        m = re.match(r"^(.*?)(\d+)$", nm)
+        if not m:
+            flush()
+            st["pre"] = None
+            out.append(nm)
+            continue
+        pre, digits = m.group(1), m.group(2)
+        num, width = int(digits), len(digits)
+        # 0 으로 채운 이름(gi1/0/01)은 접으면 자릿수가 사라진다. 그대로 둔다.
+        padded = width > 1 and digits[0] == "0"
+        if st["pre"] == pre and num == st["to"] + 1 and not padded:
+            st["to"] = num
+            continue
+        flush()
+        st.update({"pre": pre, "from": num, "to": num, "width": width})
+    flush()
+    return ",".join(out)
+
+
+def _acc_of(d: dict, proto: str) -> dict:
+    for a in d.get("access") or []:
+        if a.get("protocol") == proto:
+            return a
+    return {}
+
+
+@app.post("/api/devices2/import-csv")
+async def devices2_import_csv(payload: dict):
+    """CSV 로 일괄 등록·수정. IP 가 키라 같은 IP 는 덮어쓴다.
+
+    dry_run=true 면 저장하지 않고 무엇이 바뀌는지만 돌려준다 — 30줄을 넣기
+    전에 확인할 수 있어야 한다.
+    """
+    import csv, io
+    text = str(payload.get("csv") or "").lstrip("﻿")
+    if not text.strip():
+        raise HTTPException(400, "CSV 내용이 비어 있습니다")
+    dry = bool(payload.get("dry_run"))
+
+    rows = list(csv.DictReader(io.StringIO(text)))
+    if not rows:
+        raise HTTPException(400, "머리글만 있고 자료가 없습니다")
+
+    missing = [c for c in ("IP",) if c not in (rows[0].keys() or [])]
+    if missing:
+        raise HTTPException(400, f"필수 열이 없습니다: {', '.join(missing)}. 내보내기 파일의 머리글을 그대로 쓰세요")
+
+    created, updated, errors = [], [], []
+    for n, r in enumerate(rows, start=2):   # 2 = 머리글 다음 줄
+        ip = (r.get("IP") or "").strip()
+        if not ip:
+            errors.append(f"{n}행: IP 가 비어 있습니다")
+            continue
+        cur = await db.device_get(ip)
+
+        def pick(key: str, old):
+            """빈 칸은 기존 값 유지. 비밀번호를 안 내보내도 왕복이 되게 한다."""
+            v = (r.get(key) or "").strip()
+            return v if v else (old or None)
+
+        def num(key: str, old, dflt=None):
+            v = (r.get(key) or "").strip()
+            if not v:
+                return old if old is not None else dflt
+            try:
+                return int(v)
+            except ValueError:
+                errors.append(f"{n}행: {key} 가 숫자가 아닙니다 ({v})")
+                return old if old is not None else dflt
+
+        access = []
+        tel_old, ssh_old = _acc_of(cur or {}, "telnet"), _acc_of(cur or {}, "ssh")
+        con_old, snmp_old = _acc_of(cur or {}, "console"), _acc_of(cur or {}, "snmp")
+
+        tp = num("telnet포트", tel_old.get("port"))
+        if tp:
+            access.append({"protocol": "telnet", "port": tp, "enabled": True,
+                           "is_default": True})
+        sp = num("ssh포트", ssh_old.get("port"))
+        if sp:
+            access.append({"protocol": "ssh", "port": sp, "enabled": True,
+                           "is_default": not tp})
+        ch, cp = pick("console주소", con_old.get("host")), num("console포트", con_old.get("port"))
+        if ch or cp:
+            access.append({"protocol": "console", "host": ch, "port": cp, "enabled": True})
+        comm = pick("snmp", snmp_old.get("community"))
+        if comm:
+            access.append({"protocol": "snmp", "port": snmp_old.get("port") or 161,
+                           "community": comm, "enabled": True})
+
+        if_text = (r.get("인터페이스") or "").strip()
+        payload_dev = {
+            "id": (cur or {}).get("id") or ip,
+            "ip": ip,
+            "lab": pick("LAB", (cur or {}).get("lab")),
+            "name": pick("이름", (cur or {}).get("name")),
+            "vendor": pick("제조사", (cur or {}).get("vendor")),
+            "role": pick("제품군", (cur or {}).get("role")),
+            "model": pick("모델명", (cur or {}).get("model")),
+            "username": pick("계정", (cur or {}).get("username")),
+            "password": pick("비밀번호", (cur or {}).get("password")),
+            "access": access,
+        }
+        # 인터페이스 칸이 비면 건드리지 않는다. 빈 칸을 '전부 삭제' 로 읽으면
+        # 내보내기에서 지우고 올린 사람이 48포트를 통째로 잃는다.
+        if if_text:
+            payload_dev["interfaces"] = [
+                {"name": nm, "kind": "general"} for nm in _expand_ifs(if_text)
+            ]
+
+        if dry:
+            (updated if cur else created).append(
+                {"ip": ip, "name": payload_dev["name"],
+                 "interfaces": len(payload_dev.get("interfaces") or []) or None,
+                 "access": [a["protocol"] for a in access]}
+            )
+            continue
+        try:
+            await db.device_upsert(payload_dev)
+            (updated if cur else created).append({"ip": ip, "name": payload_dev["name"]})
+        except Exception as e:
+            errors.append(f"{n}행 ({ip}): {e}")
+
+    return {"success": not errors, "dry_run": dry,
+            "created": created, "updated": updated, "errors": errors}
 
 
 @app.get("/api/locks")

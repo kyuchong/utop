@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '@/api/client'
+import { apiFetch, getToken } from '@/api/client'
 import DeviceForm from '@/components/DeviceForm'
+import DeviceBulk from '@/components/DeviceBulk'
 import './Devices.css'
 
 export interface DeviceIf {
@@ -30,6 +31,7 @@ export interface DeviceAccess {
 export interface Device {
   id: string
   ip: string
+  lab?: string | null
   name?: string | null
   model?: string | null
   vendor?: string | null
@@ -80,24 +82,39 @@ const accOf = (d: Device, proto: string): DeviceAccess | undefined =>
  * 등록 안 함 / 등록만 함 / 연결됨 / 실패 를 구분해서 보여준다. 이 넷이
  * 섞이면 "telnet 은 되는데 ssh 가 막힌 장비" 를 목록에서 못 찾는다.
  */
-function ProtoCell({ access }: { access?: DeviceAccess }) {
+function ProtoCell({
+  access,
+  onCheck,
+  busy,
+}: {
+  access?: DeviceAccess
+  onCheck: () => void
+  busy: boolean
+}) {
   if (!access || access.enabled === false) return <span className="muted acc-none">–</span>
   const st = access.last_status
   const cls = st === 'ok' ? 'pass' : st === 'fail' ? 'fail' : 'draft'
   const mark = st === 'ok' ? '●' : st === 'fail' ? '●' : '○'
-  const label = st === 'ok' ? '연결됨' : st === 'fail' ? '실패' : '미확인'
+  const label = busy ? '확인 중' : st === 'ok' ? '연결됨' : st === 'fail' ? '실패' : '미확인'
   return (
-    <span
+    <button
+      type="button"
       className={`acc-cell status ${cls}`}
+      disabled={busy}
       title={
         `${access.host || ''}${access.host ? ':' : ''}${access.port ?? ''}` +
-        (access.last_error ? ` — ${access.last_error}` : '') +
-        (access.is_default ? ' (기본)' : '')
+        (access.last_error ? ' — ' + access.last_error : '') +
+        (access.is_default ? ' (기본)' : '') +
+        ' · 눌러서 연결 확인'
       }
+      onClick={(e) => {
+        e.stopPropagation()
+        onCheck()
+      }}
     >
-      {mark} {label}
+      {busy ? '⋯' : mark} {label}
       <span className="acc-port-txt">{access.port ?? ''}</span>
-    </span>
+    </button>
   )
 }
 
@@ -112,6 +129,7 @@ export default function Devices() {
   const [q, setQ] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [form, setForm] = useState<Device | null | undefined>(undefined)
+  const [bulk, setBulk] = useState(false)
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
 
   const devQ = useQuery({
@@ -142,7 +160,7 @@ export default function Devices() {
     return devices.filter((d) => {
       if (roleFilter && d.role !== roleFilter) return false
       if (!n) return true
-      return [d.name, d.ip, d.model, d.vendor, d.device_group]
+      return [d.name, d.ip, d.model, d.vendor, d.lab, d.device_group]
         .some((v) => (v ?? '').toLowerCase().includes(n))
     })
   }, [devices, q, roleFilter])
@@ -171,6 +189,29 @@ export default function Devices() {
     onError: (e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) }),
   })
 
+  // 어느 칸을 확인 중인지. 목록 전체가 아니라 그 칸만 '확인 중' 으로 바뀌어야 한다.
+  const [checking, setChecking] = useState('')
+  const checkM = useMutation({
+    mutationFn: async (v: { id: string; protocol: string }) => {
+      setChecking(v.id + ':' + v.protocol)
+      const r = await apiFetch(
+        `/api/devices2/${encodeURIComponent(v.id)}/check?protocol=${v.protocol}`,
+        { method: 'POST' },
+      )
+      const b = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(b.detail || '확인하지 못했습니다')
+      return b as { results: Array<{ ok: boolean; error: string }> }
+    },
+    onSuccess: (b) => {
+      const bad = (b.results ?? []).find((x) => !x.ok)
+      if (bad) setMsg({ kind: 'err', text: bad.error || '연결하지 못했습니다' })
+      else setMsg({ kind: 'ok', text: '연결됨' })
+      void qc.invalidateQueries({ queryKey: ['devices'] })
+    },
+    onError: (e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) }),
+    onSettled: () => setChecking(''),
+  })
+
   const err = devQ.error
 
   return (
@@ -178,6 +219,7 @@ export default function Devices() {
       {form !== undefined && (
         <DeviceForm editing={form} onClose={() => setForm(undefined)} />
       )}
+      {bulk && <DeviceBulk onClose={() => setBulk(false)} />}
 
       <section className="panel dev-panel">
         <div className="panel-title">
@@ -198,6 +240,17 @@ export default function Devices() {
               title="옛 devices.json 을 가져옵니다 (IP 기준, 여러 번 눌러도 안전)"
             >
               {importM.isPending ? '가져오는 중…' : '기존 장비 가져오기'}
+            </button>
+            <a
+              className="btn"
+              href={`/api/devices2/export.csv?token=${encodeURIComponent(getToken())}`}
+              download="devices.csv"
+              title="지금 목록을 CSV 로 (비밀번호는 빼고 내보냅니다)"
+            >
+              내보내기
+            </a>
+            <button className="btn" type="button" onClick={() => setBulk(true)}>
+              일괄 등록
             </button>
             <button className="btn primary" type="button" onClick={() => setForm(null)}>
               + 장비 등록
@@ -246,6 +299,7 @@ export default function Devices() {
         </div>
 
         <div className="dev-row th">
+          <span>LAB</span>
           <span>이름 · IP</span>
           <span>제조사</span>
           <span>제품군</span>
@@ -282,6 +336,7 @@ export default function Devices() {
                     if (e.key === 'Enter') setForm(d)
                   }}
                 >
+                  <span className="muted ell">{d.lab || '–'}</span>
                   <span className="dev-id">
                     <b className="ell">{d.name || d.ip}</b>
                     <span className="muted small ell">{d.ip}</span>
@@ -292,7 +347,12 @@ export default function Devices() {
                   </span>
                   <span className="muted ell">{d.model || '–'}</span>
                   {PROTO_COLS.map((p) => (
-                    <ProtoCell key={p} access={accOf(d, p)} />
+                    <ProtoCell
+                      key={p}
+                      access={accOf(d, p)}
+                      busy={checking === d.id + ':' + p}
+                      onCheck={() => checkM.mutate({ id: d.id, protocol: p })}
+                    />
                   ))}
                   <span className="muted">{d.interfaces?.length ?? 0}</span>
                   <span className="dev-lock">

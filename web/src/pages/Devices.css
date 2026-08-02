@@ -52,14 +52,16 @@
    행 높이·칸 여백·머리글 크기는 요구사항 표(.tr / .tr.th)와 같은 값이다. */
 .dev-row {
   display: grid;
+  /* 1920 화면 기준. 고정폭 합계 약 620px, 나머지를 4개 칸이 나눠 갖는다. */
   grid-template-columns:
-    minmax(150px, 1.3fr)   /* 이름 · IP */
-    minmax(80px, 0.7fr)    /* 제조사 */
-    76px                   /* 제품군 */
-    minmax(110px, 1fr)     /* 모델명 */
-    86px 86px 86px 86px    /* Telnet · SSH · Console · SNMP */
-    72px                   /* 인터페이스 */
-    minmax(190px, 1.3fr);  /* 사용 현황 */
+    88px                   /* LAB */
+    minmax(140px, 1.2fr)   /* 이름 · IP */
+    minmax(76px, 0.6fr)    /* 제조사 */
+    72px                   /* 제품군 */
+    minmax(100px, 0.9fr)   /* 모델명 */
+    88px 88px 88px 88px    /* Telnet · SSH · Console · SNMP */
+    68px                   /* 인터페이스 */
+    minmax(180px, 1.2fr);  /* 사용 현황 */
   align-items: center;
   min-height: 47px;
   border-bottom: 1px solid var(--c-border-soft);
@@ -130,3 +132,19 @@
   flex-wrap: wrap;
 }
 .dev-lock .btn { padding: 2px 8px; font-size: var(--fs-xs); }
+
+/* 접속 칸은 눌러서 연결을 확인하는 버튼이다. 버튼처럼 보이면 표가
+   시끄러워지므로 글자만 두고, 누를 수 있다는 것은 hover 로 알린다. */
+.acc-cell {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  padding: 2px 5px;
+  cursor: pointer;
+  text-align: left;
+}
+.acc-cell:hover:not(:disabled) {
+  border-color: var(--c-border);
+  background: var(--c-surface);
+}
+.acc-cell:disabled { cursor: default; opacity: 0.7; }

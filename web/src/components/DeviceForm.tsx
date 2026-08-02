@@ -128,7 +128,7 @@ export default function DeviceForm({ editing, onClose }: Props) {
     queryKey: ['device-roles'],
     queryFn: async () => {
       const r = await apiFetch('/api/device-roles')
-      return (await r.json()) as { roles: string[] }
+      return (await r.json()) as { roles: string[]; labs: string[] }
     },
   })
 
@@ -258,9 +258,25 @@ export default function DeviceForm({ editing, onClose }: Props) {
 
           <div className="frow">
             <label className="fld">
-              <span>이름</span>
+              <span>LAB</span>
               <input
                 autoFocus
+                list="lab-list"
+                value={f.lab ?? ''}
+                placeholder="Lab#1"
+                onChange={(e) => set('lab', e.target.value)}
+              />
+              {/* 이미 쓰던 랩 이름을 골라 쓰게 한다. 손으로 치면
+                  'Lab#1' 과 'lab1' 이 갈려 같은 랩이 둘로 보인다. */}
+              <datalist id="lab-list">
+                {(rolesQ.data?.labs ?? []).map((l) => (
+                  <option key={l} value={l} />
+                ))}
+              </datalist>
+            </label>
+            <label className="fld">
+              <span>이름</span>
+              <input
                 value={f.name ?? ''}
                 placeholder="E6100 #1"
                 onChange={(e) => set('name', e.target.value)}
