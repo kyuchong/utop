@@ -35,6 +35,8 @@ export interface Device {
   lab?: string | null
   name?: string | null
   model?: string | null
+  /** 카탈로그에서 끌어온 모델군. 장비에 저장하지 않는다 */
+  model_group?: string | null
   vendor?: string | null
   device_group?: string | null
   role?: string | null

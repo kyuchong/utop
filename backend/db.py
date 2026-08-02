@@ -735,6 +735,18 @@ async def device_list(with_ifs: bool = True) -> list[dict]:
         if not devs:
             return devs
 
+        # 모델군은 장비에 저장하지 않고 카탈로그에서 끌어온다. 장비에도 넣으면
+        # 카탈로그를 고쳤을 때 둘이 어긋나고 어느 쪽이 맞는지 알 수 없다.
+        grp = {
+            r["name"]: r["model_group"]
+            for r in await c.fetch(
+                "SELECT name, model_group FROM device_catalog "
+                "WHERE kind='model' AND model_group IS NOT NULL"
+            )
+        }
+        for d in devs:
+            d["model_group"] = grp.get(d.get("model") or "")
+
         # 접속 방식은 목록에서 바로 보여준다(Telnet/SSH 연결상태 열).
         # 장비를 눌러 들어가야 알 수 있으면 어느 장비가 안 붙는지 못 찾는다.
         acc = await c.fetch("SELECT * FROM device_access ORDER BY device_id, protocol")

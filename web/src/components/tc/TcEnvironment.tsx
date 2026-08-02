@@ -33,12 +33,25 @@ export default function TcEnvironment({ data, onChange }: Props) {
     queryKey: ['device-roles'],
     queryFn: async () => {
       const r = await apiFetch('/api/device-roles')
-      return (await r.json()) as { roles: string[] }
+      return (await r.json()) as { roles: string[]; groups: string[] }
     },
   })
 
   const devices = devQ.data?.devices ?? []
   const byIp = new Map(devices.map((d) => [d.ip, d]))
+
+  /**
+   * 슬롯 조건에 맞는 장비.
+   *
+   * 제품군과 모델군을 둘 다 조건으로 쓴다. 시험은 보통 시리즈 단위로 돌기
+   * 때문에 'E6000 시리즈' 만 적어두면 그 시리즈의 아무 장비로나 돌아간다.
+   */
+  const matching = (s: TcSlot): Device[] =>
+    devices.filter(
+      (d) =>
+        (!s.family || d.role === s.family) &&
+        (!s.model_group || d.model_group === s.model_group),
+    )
 
   const setSlot = (i: number, patch: Partial<TcSlot>) =>
     onChange({ slots: slots.map((s, j) => (j === i ? { ...s, ...patch } : s)) })
@@ -112,6 +125,7 @@ export default function TcEnvironment({ data, onChange }: Props) {
               <span>세션</span>
               <span>이름</span>
               <span>제품군</span>
+              <span>모델군</span>
               <span>장비</span>
               <span>접속</span>
               <span>인터페이스</span>
@@ -141,18 +155,28 @@ export default function TcEnvironment({ data, onChange }: Props) {
                     ))}
                   </select>
                   <select
+                    value={s.model_group ?? ''}
+                    onChange={(e) => setSlot(i, { model_group: e.target.value })}
+                  >
+                    <option value="">(무관)</option>
+                    {(rolesQ.data?.groups ?? []).map((g) => (
+                      <option key={g}>{g}</option>
+                    ))}
+                  </select>
+                  <select
                     value={s.device_ip ?? ''}
                     onChange={(e) => setSlot(i, { device_ip: e.target.value })}
                   >
                     {/* 비워두면 실행할 때 고른다. 그래야 같은 TC 를 랩마다 돌린다 */}
-                    <option value="">실행할 때 고름</option>
-                    {devices
-                      .filter((d) => !s.family || d.role === s.family)
-                      .map((d) => (
-                        <option key={d.ip} value={d.ip}>
-                          {d.ip} {d.model ? `· ${d.model}` : ''} {d.lab ? `· ${d.lab}` : ''}
-                        </option>
-                      ))}
+                    <option value="">
+                      실행할 때 고름
+                      {matching(s).length > 0 ? ` (${matching(s).length}대 해당)` : ''}
+                    </option>
+                    {matching(s).map((d) => (
+                      <option key={d.ip} value={d.ip}>
+                        {d.ip} {d.model ? `· ${d.model}` : ''} {d.lab ? `· ${d.lab}` : ''}
+                      </option>
+                    ))}
                   </select>
                   <select
                     value={s.protocol ?? ''}
@@ -176,6 +200,11 @@ export default function TcEnvironment({ data, onChange }: Props) {
                   </select>
                   <span className="muted small slot-ifs">
                     {dev ? `${dev.interfaces?.length ?? 0}개` : '–'}
+                    {dev && s.model_group && dev.model_group !== s.model_group && (
+                      <b className="slot-warn" title="고른 장비가 모델군 조건과 다릅니다">
+                        {' '}!
+                      </b>
+                    )}
                   </span>
                   <button
                     type="button"

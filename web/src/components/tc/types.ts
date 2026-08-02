@@ -23,6 +23,12 @@ export interface TcSlot {
   label?: string
   /** 필요한 제품군 (OLT · L2 …). 장비를 안 정했을 때의 조건 */
   family?: string
+  /**
+   * 필요한 모델군 (E6000 시리즈 …).
+   * 시험은 보통 모델 하나가 아니라 시리즈 단위로 돈다. 여기에 시리즈만
+   * 적어두면 그 시리즈의 아무 장비로나 돌릴 수 있다.
+   */
+  model_group?: string
   model?: string
   /** 실제 장비를 정했을 때. 비어 있으면 실행할 때 고른다 */
   device_ip?: string

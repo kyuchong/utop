@@ -93,7 +93,7 @@
 .slot-list { border: 1px solid var(--c-border); border-radius: var(--radius-sm); overflow: hidden; }
 .slot-row {
   display: grid;
-  grid-template-columns: 70px minmax(90px,1fr) 90px minmax(180px,1.6fr) 100px 76px 28px;
+  grid-template-columns: 66px minmax(84px,1fr) 82px minmax(110px,1fr) minmax(170px,1.5fr) 96px 66px 28px;
   align-items: center;
   gap: 7px;
   padding: 5px 8px;
@@ -240,3 +240,7 @@
 .gen-cmd.none { color: var(--c-fail); background: #fdf4f4; }
 .gen-note { color: #8a7b3a; font-size: var(--fs-sm); }
 .gen-actions { display: flex; gap: 7px; justify-content: flex-end; }
+
+/* 고른 장비가 슬롯 조건과 어긋날 때. 막지는 않는다 — 조건은 거들 뿐이고
+   특정 장비로만 되는 시험도 있다. 다만 눈에 띄어야 한다. */
+.slot-warn { color: var(--c-fail); }

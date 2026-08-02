@@ -10670,21 +10670,49 @@ if __name__ == "__main__":
 # 임베딩 서버가 없어도 1·2 만으로 동작한다 — 사내망 밖에서도 쓸 수 있어야
 # 하고, 무엇보다 2번(우리가 쓰던 실제 명령)이 가장 정확한 근거다.
 # ══════════════════════════════════════════════════════════════════════
+async def _expand_series(hint: str) -> list[str]:
+    """말에 나온 모델군을 그 군의 모델 이름으로 펼친다.
+
+    "E6000 시리즈 rate limit 시험" 이라고 하면 E6100-48X · E6100-24X 로
+    만든 기존 TC 도 근거로 잡혀야 한다. 시리즈 이름만으로 찾으면 아무것도
+    안 나온다 — 스텝에는 모델명이 적혀 있기 때문이다.
+    """
+    async with db.pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT name, model_group FROM device_catalog "
+            "WHERE kind='model' AND model_group IS NOT NULL"
+        )
+    low = hint.lower()
+    out: list[str] = []
+    for r in rows:
+        g = (r["model_group"] or "").strip()
+        if g and g.lower() in low:
+            out.append(r["name"])
+    return out
+
+
 async def _grounding_devices(hint: str) -> list[dict]:
-    """말에 나온 모델·IP 와 맞는 장비를 찾는다. 없으면 전부 조금씩."""
+    """말에 나온 모델·모델군·IP 와 맞는 장비를 찾는다. 없으면 전부 조금씩."""
     devs = await db.device_list()
     words = [w for w in re.split(r"[\s,·]+", hint) if len(w) >= 2]
     hit = []
     for d in devs:
-        hay = " ".join(str(d.get(k) or "") for k in ("ip", "model", "vendor", "role", "lab"))
+        hay = " ".join(
+            str(d.get(k) or "")
+            for k in ("ip", "model", "model_group", "vendor", "role", "lab")
+        )
         if any(w.lower() in hay.lower() for w in words):
             hit.append(d)
     return (hit or devs)[:8]
 
 
 async def _grounding_steps(hint: str, limit: int = 40) -> list[dict]:
-    """같은 모델·주제로 이미 만든 TC 스텝. 사내에서 실제로 쓰는 명령이다."""
+    """같은 모델·주제로 이미 만든 TC 스텝. 사내에서 실제로 쓰는 명령이다.
+
+    모델군으로 물어보면 그 군의 모델명까지 넓혀서 찾는다.
+    """
     words = [w for w in re.split(r"[\s,·]+", hint) if len(w) >= 2][:6]
+    words += await _expand_series(hint)
     if not words:
         return []
     async with db.pool().acquire() as c:
@@ -10775,7 +10803,9 @@ async def tc_generate(tc_id: str, payload: dict):
     docs = await _grounding_docs(prompt)
 
     dev_txt = "\n".join(
-        f"- {d.get('ip')} · {d.get('model') or '?'} · {d.get('role') or '?'} · {d.get('lab') or '?'}"
+        f"- {d.get('ip')} · {d.get('model') or '?'}"
+        f"{' (' + d['model_group'] + ')' if d.get('model_group') else ''}"
+        f" · {d.get('role') or '?'} · {d.get('lab') or '?'}"
         f" · 접속 {','.join(a['protocol'] for a in (d.get('access') or []))}"
         f" · 포트 {','.join(i['name'] for i in (d.get('interfaces') or [])[:60]) or '없음'}"
         for d in devs
