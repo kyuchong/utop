@@ -413,3 +413,42 @@
   outline-offset: -2px;
   background: var(--c-primary-bg);
 }
+
+/* 놓을 지점 — 점선만으로는 '이 위' 인지 '이 안' 인지 알 수 없다.
+   대상 행을 채우고 무엇이 일어나는지 글로 알려준다. */
+.cat-row.dropinto {
+  outline: 2px solid var(--c-primary);
+  outline-offset: -2px;
+  background: #d7e7fb;
+}
+
+.cat-row.dropinto .cat-name {
+  font-weight: 700;
+  color: var(--c-primary);
+}
+
+.drop-hint {
+  flex: none;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* 끌고 있는 행은 확실히 흐리게 — 무엇을 옮기는 중인지 보이게 */
+.cat-row.dragging {
+  opacity: 0.35;
+  background: var(--c-surface-alt);
+}
+
+/* 최상위로 빼는 자리도 같은 방식으로 */
+.cat-drop-root.dropinto {
+  outline: 2px solid var(--c-primary);
+  outline-offset: -2px;
+  background: #d7e7fb;
+  color: var(--c-primary);
+  font-weight: 700;
+}
