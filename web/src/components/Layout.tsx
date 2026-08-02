@@ -9,6 +9,8 @@ import {
   IconPanelToggle,
   IconRelease,
   IconRequirements,
+  IconDevice,
+  IconInstrument,
   IconSettings,
   IconTestCase,
 } from './icons'
@@ -41,6 +43,13 @@ export const NAV: NavGroup[] = [
       { key: 'testcases', label: 'Test Cases', Icon: IconTestCase },
       { key: 'cycles', label: 'Cycles', Icon: IconCycle },
       { key: 'executions', label: 'Executions', Icon: IconExecution },
+    ],
+  },
+  {
+    title: 'RESOURCES',
+    items: [
+      { key: 'devices', label: '장비', Icon: IconDevice },
+      { key: 'instruments', label: '계측기', Icon: IconInstrument },
     ],
   },
   {

@@ -57,7 +57,7 @@
   /* 플렉스 아이템의 기본 min-width 는 auto(=min-content) 라서, 이게 없으면
      접었을 때 width:56px 이 min-content(185px)로 되밀려 폭이 안 줄어든다. */
   min-width: 0;
-  background: var(--c-surface);
+  background: var(--c-nav-bg);
   border-right: 1px solid var(--c-border-nav);
   padding: 46px 10px var(--sp-4);
   /* 접힘 툴팁이 메뉴 바깥으로 나가야 하므로 자르지 않는다.
@@ -70,6 +70,7 @@
 /* ── 접기/펴기 토글 ──────────────────────────────────────────
    Docker Desktop 처럼 사이드바 오른쪽 경계에 걸쳐 띄운다.
    메뉴 안에 두면 접을 때 버튼도 같이 움직여 눈으로 쫓아가야 한다. */
+/* 접기 버튼은 흰 배경으로 띄워 경계에 걸친 느낌을 유지한다 */
 .nav-toggle {
   position: absolute;
   top: 8px;
@@ -138,7 +139,7 @@
 }
 
 .nav-item:hover {
-  background: var(--c-surface-alt);
+  background: #e3e7ec;
 }
 
 .nav-item.on {
