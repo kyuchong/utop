@@ -567,3 +567,110 @@
   max-width: 1120px;
   width: 92vw;
 }
+
+/* ── TC 연결 창 ───────────────────────────────────────────────
+   TC 가 수백 건이 되면 한 줄짜리 검색만으로는 못 찾는다. 왼쪽에서
+   '어디에 있는 TC 인가' 로 좁히고 오른쪽에서 고른다. */
+.modal.tall-lk {
+  height: 88vh;
+  max-height: 88vh;
+}
+
+.lk-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.lk-cols {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: var(--sp-3);
+}
+
+.lk-nav {
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-alt);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.lk-nav-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  text-align: left;
+  color: var(--c-text);
+  font: inherit;
+}
+
+.lk-nav-item:hover { background: var(--c-surface); }
+
+.lk-nav-item.on {
+  background: var(--c-primary);
+  color: #fff;
+  font-weight: 700;
+}
+
+.lk-nav-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.lk-nav-n {
+  font-size: var(--fs-xs);
+  opacity: 0.8;
+}
+
+/* 설명은 아래 줄 전체를 쓴다 */
+.lk-nav-hint { grid-column: 1 / -1; }
+.lk-nav-item.on .lk-nav-hint { color: #dbe8ff; }
+
+.lk-nav-title {
+  margin: var(--sp-2) 0 2px;
+  padding: 0 8px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+
+.lk-nav-empty { padding: 4px 8px; }
+
+.lk-main {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.lk-search {
+  flex: none;
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 7px 9px;
+  font: inherit;
+}
+
+/* 목록이 남는 높이를 다 쓴다. 고정 높이로 두면 창을 키워도 안 늘어난다. */
+.lk-list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+/* 아직 어디에도 안 붙은 TC — 가져와도 남의 연결이 안 끊긴다 */
+.tag.free {
+  background: #e8f5ed;
+  color: #12643a;
+}
