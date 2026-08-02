@@ -12,6 +12,21 @@ export interface DeviceIf {
   note?: string | null
 }
 
+export interface DeviceAccess {
+  protocol: string
+  host?: string | null
+  port?: number | null
+  username?: string | null
+  password?: string | null
+  enable_password?: string | null
+  community?: string | null
+  enabled?: boolean
+  is_default?: boolean
+  last_status?: string | null
+  last_error?: string | null
+  last_checked_at?: string | null
+}
+
 export interface Device {
   id: string
   ip: string
@@ -20,13 +35,12 @@ export interface Device {
   vendor?: string | null
   device_group?: string | null
   role?: string | null
-  protocol?: string | null
-  port?: number | null
   username?: string | null
   password?: string | null
   description?: string | null
   status?: string | null
   interfaces?: DeviceIf[]
+  access?: DeviceAccess[]
 }
 
 interface Lock {
@@ -53,6 +67,38 @@ function fmt(iso?: string | null): string {
   if (Number.isNaN(d.getTime())) return ''
   const p = (n: number) => String(n).padStart(2, '0')
   return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+const PROTO_COLS = ['telnet', 'ssh', 'console', 'snmp']
+
+const accOf = (d: Device, proto: string): DeviceAccess | undefined =>
+  (d.access ?? []).find((a) => a.protocol === proto)
+
+/**
+ * 접속 방식 한 칸.
+ *
+ * 등록 안 함 / 등록만 함 / 연결됨 / 실패 를 구분해서 보여준다. 이 넷이
+ * 섞이면 "telnet 은 되는데 ssh 가 막힌 장비" 를 목록에서 못 찾는다.
+ */
+function ProtoCell({ access }: { access?: DeviceAccess }) {
+  if (!access || access.enabled === false) return <span className="muted acc-none">–</span>
+  const st = access.last_status
+  const cls = st === 'ok' ? 'pass' : st === 'fail' ? 'fail' : 'draft'
+  const mark = st === 'ok' ? '●' : st === 'fail' ? '●' : '○'
+  const label = st === 'ok' ? '연결됨' : st === 'fail' ? '실패' : '미확인'
+  return (
+    <span
+      className={`acc-cell status ${cls}`}
+      title={
+        `${access.host || ''}${access.host ? ':' : ''}${access.port ?? ''}` +
+        (access.last_error ? ` — ${access.last_error}` : '') +
+        (access.is_default ? ' (기본)' : '')
+      }
+    >
+      {mark} {label}
+      <span className="acc-port-txt">{access.port ?? ''}</span>
+    </span>
+  )
 }
 
 /**
@@ -200,11 +246,15 @@ export default function Devices() {
         </div>
 
         <div className="dev-row th">
-          <span>이름</span>
+          <span>이름 · IP</span>
+          <span>제조사</span>
           <span>제품군</span>
-          <span>모델 · 제조사</span>
-          <span>IP · 접속</span>
-          <span>포트</span>
+          <span>모델명</span>
+          <span>Telnet</span>
+          <span>SSH</span>
+          <span>Console</span>
+          <span>SNMP</span>
+          <span>인터페이스</span>
           <span>사용 현황</span>
         </div>
 
@@ -232,16 +282,18 @@ export default function Devices() {
                     if (e.key === 'Enter') setForm(d)
                   }}
                 >
-                  <span className="dev-name">{d.name || d.ip}</span>
-                  <span>{d.role ? <span className="tag">{d.role}</span> : <span className="muted small">–</span>}</span>
-                  <span className="muted ell">
-                    {d.model || '–'}
-                    {d.vendor ? ` · ${d.vendor}` : ''}
+                  <span className="dev-id">
+                    <b className="ell">{d.name || d.ip}</b>
+                    <span className="muted small ell">{d.ip}</span>
                   </span>
-                  <span className="muted">
-                    {d.ip}
-                    <span className="dev-proto">{(d.protocol || 'ssh').toUpperCase()}</span>
+                  <span className="muted ell">{d.vendor || '–'}</span>
+                  <span>
+                    {d.role ? <span className="tag">{d.role}</span> : <span className="muted">–</span>}
                   </span>
+                  <span className="muted ell">{d.model || '–'}</span>
+                  {PROTO_COLS.map((p) => (
+                    <ProtoCell key={p} access={accOf(d, p)} />
+                  ))}
                   <span className="muted">{d.interfaces?.length ?? 0}</span>
                   <span className="dev-lock">
                     {lock ? (

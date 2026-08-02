@@ -168,6 +168,51 @@ DROP TRIGGER IF EXISTS trg_device_updated ON device;
 CREATE TRIGGER trg_device_updated BEFORE UPDATE ON device
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- ── 장비 접속 방식 ────────────────────────────────────────────
+-- 한 장비에 telnet 과 ssh 가 함께 열려 있는 것이 보통이고, TC 스텝마다
+-- 어느 쪽으로 붙을지 고를 수 있어야 한다. 그래서 device.protocol 하나로
+-- 고정하지 않고 방식을 행으로 쌓는다. 나중에 console/netconf 가 붙어도
+-- 스키마를 안 건드린다.
+--
+-- 계정을 방식마다 따로 두는 이유: telnet 만 enable 비밀번호가 따로인
+-- 장비가 흔하다. 비워두면 device 의 공용 계정을 쓴다.
+--
+-- console 은 장비에 직접 붙지 않는다. 터미널 서버(콘솔 서버)의 IP 로 가서
+-- 7001 처럼 장비마다 배정된 포트에 telnet 하는 방식이다. 그래서 host 를
+-- 방식마다 따로 둔다 — 비어 있으면 device.ip 를 쓴다(telnet/ssh 는 보통 비운다).
+CREATE TABLE IF NOT EXISTS device_access (
+  id            BIGSERIAL PRIMARY KEY,
+  device_id     TEXT NOT NULL REFERENCES device(id) ON DELETE CASCADE,
+  protocol      TEXT NOT NULL,             -- telnet | ssh | console | snmp
+  host          TEXT,                      -- 비면 device.ip. console 은 콘솔서버 IP
+  port          INT,                       -- telnet 23 · ssh 22 · console 7001… · snmp 161
+  username      TEXT,                      -- 비면 device.username. snmp v3 는 user
+  password      TEXT,                      -- 비면 device.password (평문)
+  enable_password TEXT,
+  -- snmp 전용. v1/v2c 는 community 만 있으면 되고 그게 대부분이다.
+  -- v3 의 auth/priv 프로토콜 같은 나머지는 params 에 넣는다.
+  community     TEXT,
+  params        JSONB DEFAULT '{}'::jsonb,
+  enabled       BOOLEAN DEFAULT TRUE,
+  is_default    BOOLEAN DEFAULT FALSE,     -- 스텝이 방식을 안 적었을 때 쓰는 것
+  -- 마지막 연결 확인 결과. 목록에서 '연결상태' 로 보여준다.
+  last_status   TEXT,                      -- ok | fail | (null=확인 안 함)
+  last_error    TEXT,
+  last_checked_at TIMESTAMPTZ,
+  note          TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_device_access_dev ON device_access(device_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_device_access ON device_access(device_id, protocol);
+
+-- 이미 등록된 장비를 잃지 않는다. device.protocol/port 로 한 행을 만들어 준다.
+-- (schema.sql 은 기동할 때마다 도니 ON CONFLICT 로 두 번째부터는 아무 일도 안 한다)
+INSERT INTO device_access (device_id, protocol, host, port, username, password, enabled, is_default)
+SELECT d.id, COALESCE(NULLIF(lower(d.protocol), ''), 'ssh'), NULL,
+       COALESCE(d.port, CASE WHEN lower(d.protocol) = 'telnet' THEN 23 ELSE 22 END),
+       d.username, d.password, TRUE, TRUE
+FROM device d
+ON CONFLICT (device_id, protocol) DO NOTHING;
+
 -- ── 장비 인터페이스 ───────────────────────────────────────────
 -- 모델이 아니라 '실제 장비' 에 붙인다. 같은 모델이어도 카드 구성이
 -- 다를 수 있고, 모델에 미리 다 채워두려 하면 등록을 시작조차 못 한다.

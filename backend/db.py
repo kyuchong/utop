@@ -718,11 +718,32 @@ def _dev_out(row) -> dict:
     return dict(row)
 
 
+PROTOCOLS = ("telnet", "ssh", "console", "snmp")
+# console 은 기본 포트가 없다. 터미널 서버가 장비마다 7001, 7002 … 로
+# 배정하므로 사람이 적어야 한다. 0 을 넣어두면 접속 시도에서 바로 드러난다.
+_DEFAULT_PORT = {"telnet": 23, "ssh": 22, "console": 0, "snmp": 161}
+# CLI 세션을 열 수 있는 방식. 스텝의 cli 명령은 이 셋으로만 보낼 수 있다.
+# snmp 는 조회용이라 명령을 실행하지 못한다.
+CLI_PROTOCOLS = ("telnet", "ssh", "console")
+
+
 async def device_list(with_ifs: bool = True) -> list[dict]:
     async with pool().acquire() as c:
         rows = await c.fetch("SELECT * FROM device ORDER BY name NULLS LAST, ip")
         devs = [_dev_out(r) for r in rows]
-        if with_ifs and devs:
+        if not devs:
+            return devs
+
+        # 접속 방식은 목록에서 바로 보여준다(Telnet/SSH 연결상태 열).
+        # 장비를 눌러 들어가야 알 수 있으면 어느 장비가 안 붙는지 못 찾는다.
+        acc = await c.fetch("SELECT * FROM device_access ORDER BY device_id, protocol")
+        by_acc: dict = {}
+        for a in acc:
+            by_acc.setdefault(a["device_id"], []).append(dict(a))
+        for d in devs:
+            d["access"] = by_acc.get(d["id"], [])
+
+        if with_ifs:
             ifs = await c.fetch(
                 "SELECT * FROM device_interface ORDER BY device_id, sort_order, name"
             )
@@ -745,6 +766,10 @@ async def device_get(dev_id: str) -> Optional[dict]:
             d["id"],
         )
         d["interfaces"] = [dict(i) for i in ifs]
+        acc = await c.fetch(
+            "SELECT * FROM device_access WHERE device_id=$1 ORDER BY protocol", d["id"]
+        )
+        d["access"] = [dict(a) for a in acc]
         return d
 
 
@@ -773,7 +798,86 @@ async def device_upsert(payload: dict) -> str:
         )
         if "interfaces" in payload:
             await _device_set_ifs(c, m["id"], payload.get("interfaces") or [])
+        if "access" in payload:
+            await _device_set_access(c, m["id"], payload.get("access") or [])
     return m["id"]
+
+
+async def _device_set_access(c, dev_id: str, rows: list) -> None:
+    """접속 방식을 통째로 갈아끼운다.
+
+    단, 마지막 연결 확인 결과(last_status/last_error/last_checked_at)는
+    같은 프로토콜이 그대로 남아 있으면 유지한다 — 포트 하나 고쳤다고
+    방금 확인한 연결상태가 '확인 안 함' 으로 돌아가면 화면이 거짓말을 한다.
+    """
+    async with c.transaction():
+        old = await c.fetch(
+            "SELECT protocol, last_status, last_error, last_checked_at "
+            "FROM device_access WHERE device_id=$1",
+            dev_id,
+        )
+        keep = {o["protocol"]: o for o in old}
+        await c.execute("DELETE FROM device_access WHERE device_id=$1", dev_id)
+
+        seen: set = set()
+        for r in rows:
+            if not isinstance(r, dict):
+                continue
+            proto = (r.get("protocol") or "").strip().lower()
+            if proto not in PROTOCOLS or proto in seen:
+                continue
+            seen.add(proto)
+            try:
+                port = int(r.get("port") or _DEFAULT_PORT[proto])
+            except (TypeError, ValueError):
+                port = _DEFAULT_PORT[proto]
+            prev = keep.get(proto)
+            await c.execute(
+                """INSERT INTO device_access
+                     (device_id, protocol, host, port, username, password, enable_password,
+                      community, params, enabled, is_default,
+                      last_status, last_error, last_checked_at, note)
+                   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12,$13,$14,$15)""",
+                dev_id, proto, (r.get("host") or "").strip() or None, port,
+                r.get("username") or None,
+                r.get("password") or None,
+                r.get("enable_password") or None,
+                r.get("community") or None,
+                json.dumps(r.get("params") or {}, ensure_ascii=False, default=str),
+                bool(r.get("enabled", True)),
+                bool(r.get("is_default", False)),
+                prev["last_status"] if prev else None,
+                prev["last_error"] if prev else None,
+                prev["last_checked_at"] if prev else None,
+                r.get("note") or None,
+            )
+
+        # 기본 접속이 하나도 없으면 하나를 골라 둔다. 스텝이 방식을 안 적었을 때
+        # 무엇으로 붙을지 정해져 있어야 한다.
+        # snmp 는 명령을 실행할 수 없으므로 기본이 되면 안 된다.
+        # 유비쿼스 장비는 telnet 이 주력이라 telnet > ssh > console 순으로 고른다.
+        if seen & set(CLI_PROTOCOLS):
+            n = await c.fetchval(
+                "SELECT count(*) FROM device_access WHERE device_id=$1 AND is_default", dev_id
+            )
+            if not n:
+                await c.execute(
+                    "UPDATE device_access SET is_default=TRUE WHERE id = ("
+                    "  SELECT id FROM device_access WHERE device_id=$1 AND protocol = ANY($2)"
+                    "  ORDER BY array_position($2, protocol) LIMIT 1)",
+                    dev_id, list(CLI_PROTOCOLS),
+                )
+
+
+async def device_access_mark(dev_id: str, protocol: str, ok: bool, error: str = "") -> None:
+    """연결 확인 결과를 남긴다. 목록의 Telnet/SSH 연결상태가 이걸 읽는다."""
+    async with pool().acquire() as c:
+        await c.execute(
+            """UPDATE device_access
+                 SET last_status=$3, last_error=$4, last_checked_at=now()
+               WHERE device_id=$1 AND protocol=$2""",
+            dev_id, protocol.lower(), "ok" if ok else "fail", (error or "")[:500] or None,
+        )
 
 
 async def _device_set_ifs(c, dev_id: str, ifs: list) -> None:

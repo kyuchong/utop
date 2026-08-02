@@ -2388,7 +2388,56 @@ DEVICE_ROLES = ["L2", "L3", "OLT", "ONT", "CPE", "HGW", "계측기", "기타"]
 
 @app.get("/api/device-roles")
 async def device_roles():
-    return {"roles": DEVICE_ROLES}
+    return {"roles": DEVICE_ROLES, "protocols": list(db.PROTOCOLS),
+            "cli_protocols": list(db.CLI_PROTOCOLS)}
+
+
+# 접속 확인은 장비에 실제로 붙어 본다. 동기 라이브러리(paramiko/telnetlib)라
+# 그대로 await 하면 이벤트 루프가 멈춰 50명 전원이 같이 멈춘다. 스레드로 보낸다.
+_PROBE_TIMEOUT = 6
+
+
+def _probe_sync(proto: str, host: str, port: int) -> tuple[bool, str]:
+    """포트가 열려 있는지만 본다.
+
+    로그인까지 해보면 확실하지만 시간이 오래 걸리고, 잘못된 계정으로 여러 번
+    시도하면 장비가 계정을 잠근다. 목록의 '연결상태' 는 '길이 열려 있나' 로 충분하다.
+    """
+    import socket
+    if proto == "snmp":
+        # UDP 라 포트 열림을 알 수 없다. 확인은 나중에 실제 조회로 붙인다.
+        return False, "SNMP 는 아직 확인을 지원하지 않습니다"
+    if not host or not port:
+        return False, "주소 또는 포트가 비어 있습니다"
+    try:
+        with socket.create_connection((host, int(port)), timeout=_PROBE_TIMEOUT):
+            return True, ""
+    except OSError as e:
+        return False, str(e)
+
+
+@app.post("/api/devices2/{dev_id}/check")
+async def devices2_check(dev_id: str):
+    """등록된 접속 방식마다 붙어 보고 결과를 남긴다."""
+    d = await db.device_get(dev_id)
+    if d is None:
+        raise HTTPException(404, "장비를 찾을 수 없습니다")
+
+    import asyncio
+    loop = asyncio.get_running_loop()
+    out = []
+    for a in d.get("access") or []:
+        if not a.get("enabled", True):
+            continue
+        proto = a["protocol"]
+        host = (a.get("host") or d.get("ip") or "").strip()
+        ok, err = await loop.run_in_executor(
+            None, _probe_sync, proto, host, a.get("port") or 0
+        )
+        await db.device_access_mark(d["id"], proto, ok, err)
+        out.append({"protocol": proto, "host": host, "port": a.get("port"),
+                    "ok": ok, "error": err})
+    return {"success": True, "results": out}
 
 
 @app.get("/api/devices2")

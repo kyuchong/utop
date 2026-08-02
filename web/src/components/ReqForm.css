@@ -472,3 +472,69 @@
   color: var(--c-text-faint);
 }
 .if-x:hover { background: #fdeaea; color: var(--c-fail); }
+
+/* ── 장비 접속 방식 편집 ──────────────────────────────────────
+   한 장비에 telnet/ssh 가 함께 열려 있는 게 보통이고, console 은 터미널
+   서버로 가므로 주소가 다르다. 체크한 것만 등록한다. */
+.acc-list {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.acc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 9px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.acc-row:last-child { border-bottom: 0; }
+.acc-row.on { background: var(--c-surface-info); }
+
+.acc-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 132px;
+}
+.acc-name input[type='checkbox'] { width: auto; }
+
+.acc-fields {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+/* .fld input { width:100% } 이 여기까지 걸린다. 되돌린 뒤 폭을 준다. */
+.acc-fields input {
+  width: auto;
+  flex: 1 1 110px;
+  min-width: 90px;
+  padding: 4px 7px;
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+}
+.acc-fields .acc-port { flex: 0 0 74px; min-width: 0; }
+.acc-fields .acc-host { flex: 0 0 130px; min-width: 0; }
+
+.acc-def {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+.acc-def input { width: auto; flex: none; }
+
+.acc-probe {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: var(--sp-2);
+}

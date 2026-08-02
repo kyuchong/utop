@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import type { Device, DeviceIf } from '@/pages/Devices'
+import type { Device, DeviceAccess, DeviceIf } from '@/pages/Devices'
 import './ReqForm.css'
 
 interface Props {
@@ -23,6 +23,35 @@ const IF_KINDS = [
   { v: 'subscriber', label: '가입자' },
   { v: 'uplink', label: '업링크' },
   { v: 'mgmt', label: '관리' },
+]
+
+/**
+ * 접속 방식.
+ *
+ * 한 장비에 telnet 과 ssh 가 함께 열려 있는 것이 보통이고, TC 스텝마다 어느
+ * 쪽으로 붙을지 고른다. console 은 장비가 아니라 터미널 서버로 가므로 주소를
+ * 따로 받는다(콘솔서버 IP 의 7001 같은 포트). snmp 는 조회 전용이라 명령을
+ * 실행하지 못한다 — 기본 접속으로 고를 수 없다.
+ */
+const PROTOS: Array<{
+  v: string
+  label: string
+  port: number
+  cli: boolean
+  ownHost: boolean
+  hint: string
+}> = [
+  { v: 'telnet', label: 'Telnet', port: 23, cli: true, ownHost: false, hint: '' },
+  { v: 'ssh', label: 'SSH', port: 22, cli: true, ownHost: false, hint: '' },
+  {
+    v: 'console',
+    label: 'Console',
+    port: 7001,
+    cli: true,
+    ownHost: true,
+    hint: '콘솔서버 주소와 이 장비에 배정된 포트',
+  },
+  { v: 'snmp', label: 'SNMP', port: 161, cli: false, ownHost: false, hint: '조회 전용' },
 ]
 
 /**
@@ -63,16 +92,16 @@ export default function DeviceForm({ editing, onClose }: Props) {
     vendor: '',
     device_group: '',
     role: '',
-    protocol: 'ssh',
-    port: 22,
     username: '',
     password: '',
     description: '',
   })
   const [ifs, setIfs] = useState<DeviceIf[]>([])
+  const [acc, setAcc] = useState<Record<string, DeviceAccess>>({})
   const [bulk, setBulk] = useState('')
   const [bulkKind, setBulkKind] = useState('general')
   const [error, setError] = useState('')
+  const [probe, setProbe] = useState('')
 
   useEffect(() => {
     setF({
@@ -83,14 +112,16 @@ export default function DeviceForm({ editing, onClose }: Props) {
       vendor: editing?.vendor ?? '',
       device_group: editing?.device_group ?? '',
       role: editing?.role ?? '',
-      protocol: editing?.protocol ?? 'ssh',
-      port: editing?.port ?? 22,
       username: editing?.username ?? '',
       password: editing?.password ?? '',
       description: editing?.description ?? '',
     })
     setIfs(editing?.interfaces ?? [])
+    const m: Record<string, DeviceAccess> = {}
+    for (const a of editing?.access ?? []) m[a.protocol] = { ...a }
+    setAcc(m)
     setError('')
+    setProbe('')
   }, [editing])
 
   const rolesQ = useQuery({
@@ -103,6 +134,22 @@ export default function DeviceForm({ editing, onClose }: Props) {
 
   const set = <K extends keyof Device>(k: K, v: Device[K]) => setF((c) => ({ ...c, [k]: v }))
 
+  const setAccField = (proto: string, k: keyof DeviceAccess, v: unknown) =>
+    setAcc((c) => ({ ...c, [proto]: { ...(c[proto] ?? { protocol: proto }), [k]: v } as DeviceAccess }))
+
+  const toggleProto = (p: (typeof PROTOS)[number], on: boolean) => {
+    setAcc((c) => {
+      const next = { ...c }
+      if (on) {
+        // 껐다 켜도 예전에 적어둔 포트·계정은 살린다
+        next[p.v] = { protocol: p.v, port: p.port, ...(c[p.v] ?? {}), enabled: true }
+      } else {
+        delete next[p.v]
+      }
+      return next
+    })
+  }
+
   const addBulk = () => {
     const names = expandRange(bulk)
     if (names.length === 0) return
@@ -114,12 +161,14 @@ export default function DeviceForm({ editing, onClose }: Props) {
     setBulk('')
   }
 
+  const body = () => ({ ...f, interfaces: ifs, access: Object.values(acc) })
+
   const saveM = useMutation({
     mutationFn: async () => {
       const r = await apiFetch('/api/devices2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...f, interfaces: ifs }),
+        body: JSON.stringify(body()),
       })
       const b = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(b.detail || `저장 실패 (${r.status})`)
@@ -148,6 +197,36 @@ export default function DeviceForm({ editing, onClose }: Props) {
     onError: (e) => setError(e instanceof Error ? e.message : String(e)),
   })
 
+  /**
+   * 연결 확인은 저장부터 한다. 서버는 저장된 장비를 보고 붙기 때문에,
+   * 방금 고친 포트가 아니라 예전 포트를 확인하면 "고쳤는데 왜 안 되냐" 가 된다.
+   */
+  const checkM = useMutation({
+    mutationFn: async () => {
+      const s = await apiFetch('/api/devices2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body()),
+      })
+      const sb = await s.json().catch(() => ({}))
+      if (!s.ok) throw new Error(sb.detail || `저장 실패 (${s.status})`)
+      const id = sb.id || f.id || f.ip
+      const r = await apiFetch(`/api/devices2/${encodeURIComponent(id)}/check`, { method: 'POST' })
+      const b = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(b.detail || `확인 실패 (${r.status})`)
+      return b as { results: Array<{ protocol: string; ok: boolean; error: string }> }
+    },
+    onSuccess: (b) => {
+      setProbe(
+        (b.results ?? [])
+          .map((x) => `${x.protocol.toUpperCase()} ${x.ok ? '연결됨' : `실패(${x.error})`}`)
+          .join(' · ') || '확인할 접속 방식이 없습니다',
+      )
+      void qc.invalidateQueries({ queryKey: ['devices'] })
+    },
+    onError: (e) => setProbe(e instanceof Error ? e.message : String(e)),
+  })
+
   const submit = () => {
     if (!f.ip.trim()) {
       setError('IP 를 입력하세요')
@@ -156,7 +235,7 @@ export default function DeviceForm({ editing, onClose }: Props) {
     saveM.mutate()
   }
 
-  const busy = saveM.isPending || removeM.isPending
+  const busy = saveM.isPending || removeM.isPending || checkM.isPending
 
   return (
     <div className="modal-back" onMouseDown={onClose}>
@@ -227,38 +306,8 @@ export default function DeviceForm({ editing, onClose }: Props) {
               />
             </label>
             <label className="fld">
-              <span>접속</span>
-              <select
-                value={f.protocol ?? 'ssh'}
-                onChange={(e) => {
-                  const p = e.target.value
-                  set('protocol', p)
-                  // 프로토콜을 바꾸면 기본 포트도 따라가야 한다.
-                  // 22 에서 telnet 으로 바꿔놓고 접속 실패를 겪는 일이 흔하다.
-                  set('port', p === 'telnet' ? 23 : 22)
-                }}
-              >
-                <option value="ssh">SSH</option>
-                <option value="telnet">Telnet</option>
-              </select>
-            </label>
-            <label className="fld">
-              <span>포트</span>
-              <input
-                type="number"
-                value={f.port ?? 22}
-                onChange={(e) => set('port', Number(e.target.value))}
-              />
-            </label>
-          </div>
-
-          <div className="frow">
-            <label className="fld">
               <span>계정</span>
-              <input
-                value={f.username ?? ''}
-                onChange={(e) => set('username', e.target.value)}
-              />
+              <input value={f.username ?? ''} onChange={(e) => set('username', e.target.value)} />
             </label>
             <label className="fld">
               <span>비밀번호</span>
@@ -277,6 +326,119 @@ export default function DeviceForm({ editing, onClose }: Props) {
               onChange={(e) => set('description', e.target.value)}
             />
           </label>
+
+          {/* ── 접속 방식 ── */}
+          <div className="fld wide">
+            <div className="fld-head">
+              <span>접속 방식</span>
+              <span className="muted small">
+                켠 것만 등록됩니다. 계정을 비우면 위의 계정을 씁니다
+              </span>
+            </div>
+
+            <div className="acc-list">
+              {PROTOS.map((p) => {
+                const on = !!acc[p.v]
+                const a = acc[p.v] ?? ({ protocol: p.v } as DeviceAccess)
+                return (
+                  <div className={`acc-row${on ? ' on' : ''}`} key={p.v}>
+                    <label className="acc-name">
+                      <input
+                        type="checkbox"
+                        checked={on}
+                        onChange={(e) => toggleProto(p, e.target.checked)}
+                      />
+                      <b>{p.label}</b>
+                      {a.last_status && (
+                        <span className={`status ${a.last_status === 'ok' ? 'pass' : 'fail'}`}>
+                          {a.last_status === 'ok' ? '연결됨' : '실패'}
+                        </span>
+                      )}
+                    </label>
+
+                    {on && (
+                      <div className="acc-fields">
+                        {p.ownHost && (
+                          <input
+                            className="acc-host"
+                            placeholder="콘솔서버 IP"
+                            value={a.host ?? ''}
+                            onChange={(e) => setAccField(p.v, 'host', e.target.value)}
+                          />
+                        )}
+                        <input
+                          className="acc-port"
+                          type="number"
+                          placeholder={String(p.port)}
+                          value={a.port ?? p.port}
+                          onChange={(e) => setAccField(p.v, 'port', Number(e.target.value))}
+                        />
+                        {p.v === 'snmp' ? (
+                          <input
+                            placeholder="community (public)"
+                            value={a.community ?? ''}
+                            onChange={(e) => setAccField(p.v, 'community', e.target.value)}
+                          />
+                        ) : (
+                          <>
+                            <input
+                              placeholder="계정 (비우면 위와 같음)"
+                              value={a.username ?? ''}
+                              onChange={(e) => setAccField(p.v, 'username', e.target.value)}
+                            />
+                            <input
+                              type="password"
+                              placeholder="비밀번호"
+                              value={a.password ?? ''}
+                              onChange={(e) => setAccField(p.v, 'password', e.target.value)}
+                            />
+                            <input
+                              type="password"
+                              placeholder="enable 비번"
+                              value={a.enable_password ?? ''}
+                              onChange={(e) => setAccField(p.v, 'enable_password', e.target.value)}
+                            />
+                          </>
+                        )}
+                        {p.cli && (
+                          <label className="acc-def" title="스텝이 방식을 안 적었을 때 쓰는 접속">
+                            <input
+                              type="radio"
+                              name="acc-default"
+                              checked={!!a.is_default}
+                              onChange={() =>
+                                setAcc((c) => {
+                                  const n: Record<string, DeviceAccess> = {}
+                                  for (const [k, v] of Object.entries(c))
+                                    n[k] = { ...v, is_default: k === p.v }
+                                  return n
+                                })
+                              }
+                            />
+                            기본
+                          </label>
+                        )}
+                        {p.hint && <span className="muted small">{p.hint}</span>}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="acc-probe">
+              <button
+                className="btn"
+                type="button"
+                disabled={busy}
+                onClick={() => checkM.mutate()}
+                title="저장한 뒤 각 방식으로 붙어 봅니다"
+              >
+                {checkM.isPending ? '확인 중…' : '연결 확인'}
+              </button>
+              <span className="muted small">{probe}</span>
+            </div>
+          </div>
 
           {/* ── 인터페이스 ── */}
           <div className="fld wide">

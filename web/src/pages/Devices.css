@@ -52,11 +52,43 @@
    행 높이·칸 여백·머리글 크기는 요구사항 표(.tr / .tr.th)와 같은 값이다. */
 .dev-row {
   display: grid;
-  grid-template-columns: minmax(140px, 1.4fr) 90px minmax(150px, 1.4fr) 190px 60px minmax(230px, 1.6fr);
+  grid-template-columns:
+    minmax(150px, 1.3fr)   /* 이름 · IP */
+    minmax(80px, 0.7fr)    /* 제조사 */
+    76px                   /* 제품군 */
+    minmax(110px, 1fr)     /* 모델명 */
+    86px 86px 86px 86px    /* Telnet · SSH · Console · SNMP */
+    72px                   /* 인터페이스 */
+    minmax(190px, 1.3fr);  /* 사용 현황 */
   align-items: center;
   min-height: 47px;
   border-bottom: 1px solid var(--c-border-soft);
   min-width: 0;
+}
+
+/* 이름과 IP 를 한 칸에 위아래로. IP 가 실질 키라 항상 보여야 하지만
+   이름만큼 클 필요는 없다. */
+.dev-id {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+  min-width: 0;
+}
+
+/* 접속 방식 칸 — 등록 안 함 / 미확인 / 연결됨 / 실패 넷을 구분한다. */
+.acc-cell {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.acc-port-txt {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+.acc-none {
+  color: var(--c-text-faint);
 }
 
 .dev-row > span {
