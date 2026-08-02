@@ -105,8 +105,29 @@ if ($ready) {
     Write-Host ""
     Start-Process $url
 } else {
-    Write-Host "  아직 응답이 없습니다. 잠시 후 $url 로 접속해 보세요." -ForegroundColor Yellow
-    Write-Host "  로그 확인:  docker compose logs -f api" -ForegroundColor Yellow
+    # 흔한 실패 하나는 원인을 짚어준다.
+    # PostgreSQL 은 POSTGRES_PASSWORD 를 볼륨 최초 생성 때만 적용한다.
+    # 그래서 "DB 볼륨은 이미 있는데 .env 를 새로 만든" 경우 비밀번호가 어긋나
+    # api 가 무한 재시작한다. 로그를 보고 바로 알려준다.
+    $apiLog = ""
+    try { $apiLog = (docker compose logs api --tail 50 2>&1) -join "`n" } catch { }
+
+    Write-Host "  서버가 응답하지 않습니다." -ForegroundColor Yellow
+    if ($apiLog -match 'InvalidPasswordError|password authentication failed') {
+        Write-Host ""
+        Write-Host "  원인: DB 비밀번호가 맞지 않습니다." -ForegroundColor Red
+        Write-Host "        이미 만들어진 DB 볼륨의 비밀번호와 .env 의 값이 다릅니다." -ForegroundColor Red
+        Write-Host "        (PostgreSQL 은 볼륨을 처음 만들 때의 비밀번호를 계속 씁니다)" -ForegroundColor Red
+        Write-Host ""
+        Write-Host "  해결 1) 기존 데이터를 버려도 되면 — DB 를 지우고 다시 만든다:" -ForegroundColor White
+        Write-Host "           docker compose down -v" -ForegroundColor White
+        Write-Host "           .\start.ps1" -ForegroundColor White
+        Write-Host ""
+        Write-Host "  해결 2) 데이터를 지켜야 하면 — .env 의 POSTGRES_PASSWORD 를" -ForegroundColor White
+        Write-Host "           예전에 쓰던 값으로 되돌린 뒤 다시 실행한다." -ForegroundColor White
+    } else {
+        Write-Host "  로그 확인:  docker compose logs -f api" -ForegroundColor Yellow
+    }
     Write-Host ""
 }
 
