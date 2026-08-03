@@ -5,6 +5,7 @@ import TcEnvironment from './TcEnvironment'
 import TcTopology from './TcTopology'
 import TcSteps from './TcSteps'
 import TcGenerate from './TcGenerate'
+import { useCodes } from '@/hooks/useCodes'
 import type { TcData } from './types'
 import './tc.css'
 
@@ -19,9 +20,13 @@ const TABS: Array<{ k: Tab; label: string }> = [
   { k: 'runs', label: 'Execution History' },
 ]
 
-const STATUSES = ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류']
-const SEVERITIES = ['치명', '중대', '보통', '경미']
-const RUN_TYPES = ['수동', '자동', '혼합']
+// 서버가 아직 값을 안 준 첫 렌더에서 드롭다운이 비지 않도록 하는 기본값.
+// 진짜 목록은 설정 → 코드 관리에 있다.
+const FB_STATUS = ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류']
+const FB_SEVERITY = ['치명', '중대', '보통', '경미']
+const FB_RUN_TYPE = ['수동', '자동', '혼합']
+const FB_TYPE = ['FT', 'Function']
+const FB_ORIGIN = ['자체', '고객']
 
 interface Props {
   tcid: string
@@ -41,6 +46,11 @@ interface Props {
 export default function TcDetail({ tcid, onClose }: Props) {
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>('info')
+  const STATUSES = useCodes('tc_status', FB_STATUS)
+  const SEVERITIES = useCodes('tc_severity', FB_SEVERITY)
+  const RUN_TYPES = useCodes('tc_run_type', FB_RUN_TYPE)
+  const TYPES = useCodes('tc_type', FB_TYPE)
+  const ORIGINS = useCodes('tc_origin', FB_ORIGIN)
   const [d, setD] = useState<TcData>({})
   const [dirty, setDirty] = useState(false)
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
@@ -189,12 +199,13 @@ export default function TcDetail({ tcid, onClose }: Props) {
                   </select>
                 </label>
                 <label className="fld">
-                  <span>타입</span>
-                  <input
-                    value={d.type ?? ''}
-                    placeholder="FT · Function"
-                    onChange={(e) => patch({ type: e.target.value })}
-                  />
+                  <span>유형</span>
+                  <select value={d.type ?? ''} onChange={(e) => patch({ type: e.target.value })}>
+                    <option value="">(선택)</option>
+                    {TYPES.map((s) => (
+                      <option key={s}>{s}</option>
+                    ))}
+                  </select>
                 </label>
                 <label className="fld">
                   <span>고객사</span>
@@ -205,11 +216,12 @@ export default function TcDetail({ tcid, onClose }: Props) {
                 </label>
                 <label className="fld">
                   <span>발생 구분</span>
-                  <input
-                    value={d.origin ?? ''}
-                    placeholder="자체 · 고객"
-                    onChange={(e) => patch({ origin: e.target.value })}
-                  />
+                  <select value={d.origin ?? ''} onChange={(e) => patch({ origin: e.target.value })}>
+                    <option value="">(선택)</option>
+                    {ORIGINS.map((s) => (
+                      <option key={s}>{s}</option>
+                    ))}
+                  </select>
                 </label>
                 <label className="fld">
                   <span>요구사항</span>

@@ -2390,6 +2390,34 @@ DEVICE_ROLES = ["L2", "L3", "OLT", "ONT", "CPE", "HGW", "계측기", "기타"]
 # 기존 앱의 /api/device-catalog(app_kv 기반) 과 경로가 겹친다.
 # 먼저 선언된 쪽이 이기므로 그대로 두면 옛 화면이 조용히 망가진다.
 # devices2 와 같은 규칙으로 2 를 붙인다.
+@app.get("/api/codes")
+async def codes_list(kind: str = ""):
+    """드롭다운에 들어가는 값 목록. 화면은 여기서만 읽는다."""
+    items = await db.code_list(kind)
+    for it in items:
+        it["used"] = await db.code_usage(it["kind"], it["value"])
+    return {"items": items, "kinds": db.CODE_KINDS}
+
+
+@app.post("/api/codes")
+async def codes_save(payload: dict):
+    try:
+        await db.code_upsert(payload)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"success": True}
+
+
+@app.delete("/api/codes/{kind}/{value}")
+async def codes_delete(kind: str, value: str):
+    used = await db.code_usage(kind, value)
+    if used:
+        raise HTTPException(400, f"{used}건이 쓰고 있어 지울 수 없습니다")
+    if not await db.code_delete(kind, value):
+        raise HTTPException(404, "없는 항목입니다")
+    return {"success": True}
+
+
 @app.get("/api/device-catalog2")
 async def device_catalog_list(kind: str = ""):
     items = await db.catalog_list(kind)

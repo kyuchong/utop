@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, tcApi } from '@/api/client'
 import { reqLabel, reqPk, type TestCaseMeta } from '@/types'
+import { useCodes } from '@/hooks/useCodes'
 import './ReqForm.css'
 
 interface Props {
@@ -12,8 +13,9 @@ interface Props {
   onClose: () => void
 }
 
-const STATUSES = ['대기', 'PASS', 'FAIL', '작성중', '보류']
-const SEVERITIES = ['Critical', 'Major', 'Minor']
+const FB_STATUS = ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류']
+const FB_SEVERITY = ['치명', '중대', '보통', '경미']
+const FB_TYPE = ['FT', 'Function']
 
 export default function TcForm({ editing, presetReqId, onClose }: Props) {
   const qc = useQueryClient()
@@ -23,8 +25,11 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
   const [name, setName] = useState('')
   const [reqId, setReqId] = useState('')
   const [type, setType] = useState('')
-  const [status, setStatus] = useState(STATUSES[0]!)
-  const [severity, setSeverity] = useState(SEVERITIES[1]!)
+  const STATUSES = useCodes('tc_status', FB_STATUS)
+  const SEVERITIES = useCodes('tc_severity', FB_SEVERITY)
+  const TYPES = useCodes('tc_type', FB_TYPE)
+  const [status, setStatus] = useState(FB_STATUS[0]!)
+  const [severity, setSeverity] = useState(FB_SEVERITY[1]!)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -32,8 +37,8 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
     setName(editing?.name ?? '')
     setReqId(editing?.req_id ?? presetReqId ?? '')
     setType(editing?.type ?? '')
-    setStatus(editing?.status || STATUSES[0]!)
-    setSeverity(editing?.severity || SEVERITIES[1]!)
+    setStatus(editing?.status || FB_STATUS[0]!)
+    setSeverity(editing?.severity || FB_SEVERITY[1]!)
     setError('')
   }, [editing, presetReqId])
 
@@ -167,11 +172,14 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
             </label>
             <label className="fld">
               <span>유형</span>
-              <input
-                value={type}
-                placeholder="Rate Limit"
-                onChange={(e) => setType(e.target.value)}
-              />
+              {/* 자유 입력이면 'FT' 와 'ft' 가 갈려 같은 유형이 둘로 보인다.
+                  목록은 설정 → 코드 관리에서 늘린다. */}
+              <select value={type} onChange={(e) => setType(e.target.value)}>
+                <option value="">(선택)</option>
+                {TYPES.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
             </label>
           </div>
 

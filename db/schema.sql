@@ -178,6 +178,44 @@ DROP TRIGGER IF EXISTS trg_device_updated ON device;
 CREATE TRIGGER trg_device_updated BEFORE UPDATE ON device
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- ── 코드 목록 (TC 유형 · 상태 · 중요도 …) ─────────────────────
+-- 화면의 드롭다운에 들어가는 값을 코드에 박아두면 항목 하나 늘릴 때마다
+-- 배포를 해야 하고, 같은 목록이 여러 파일에 흩어져 서로 어긋난다
+-- (실제로 TcForm 과 TcDetail 에 상태 목록이 따로 있었다).
+--
+-- 장비 카탈로그와 나누는 이유: 저쪽은 제조사·모델처럼 서로 참조하는 자료고,
+-- 이쪽은 그냥 고를 값의 목록이다. 한 테이블에 넣으면 kind 가 뒤섞인다.
+CREATE TABLE IF NOT EXISTS code_item (
+  id          BIGSERIAL PRIMARY KEY,
+  kind        TEXT NOT NULL,   -- tc_type | tc_status | tc_severity | tc_run_type | tc_origin
+  value       TEXT NOT NULL,   -- 화면에 보이고 그대로 저장되는 값
+  sort_order  INT DEFAULT 0,
+  note        TEXT,
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_code_item ON code_item(kind, value);
+CREATE INDEX IF NOT EXISTS idx_code_item_kind ON code_item(kind);
+
+-- 기본값. 지금까지 코드에 박혀 있던 것을 그대로 옮긴다.
+INSERT INTO code_item (kind, value, sort_order) VALUES
+  ('tc_status','작성중',1), ('tc_status','검토중',2), ('tc_status','승인',3),
+  ('tc_status','PASS',4),   ('tc_status','FAIL',5),   ('tc_status','보류',6),
+  ('tc_severity','치명',1), ('tc_severity','중대',2),
+  ('tc_severity','보통',3), ('tc_severity','경미',4),
+  ('tc_run_type','수동',1), ('tc_run_type','자동',2), ('tc_run_type','혼합',3),
+  ('tc_origin','자체',1),   ('tc_origin','고객',2),
+  ('tc_type','FT',1),       ('tc_type','Function',2)
+ON CONFLICT (kind, value) DO NOTHING;
+
+-- 이미 쓰고 있는 값도 목록으로 끌어올린다. 손으로 넣은 유형이 목록에
+-- 없으면 그 TC 를 편집할 때 값이 사라진 것처럼 보인다.
+INSERT INTO code_item (kind, value, sort_order)
+SELECT DISTINCT 'tc_type', type, 9 FROM tc WHERE type IS NOT NULL AND type <> ''
+ON CONFLICT (kind, value) DO NOTHING;
+INSERT INTO code_item (kind, value, sort_order)
+SELECT DISTINCT 'tc_status', status, 9 FROM tc WHERE status IS NOT NULL AND status <> ''
+ON CONFLICT (kind, value) DO NOTHING;
+
 -- ── 장비 카탈로그 (제조사 · 제품군 · 모델 · 랩) ────────────────
 -- 장비를 등록할 때마다 제조사와 모델을 손으로 치면 '유비쿼스' 와
 -- '유비쿼스(주)' 로 갈려 같은 것이 둘로 보인다. 여기에 한 번 등록해 두고

@@ -999,3 +999,72 @@ async def catalog_usage(kind: str, name: str) -> int:
         return 0
     async with pool().acquire() as c:
         return await c.fetchval(f"SELECT count(*) FROM device WHERE {col}=$1", name) or 0
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 코드 목록 (드롭다운에 들어가는 값)
+#
+# 코드에 박아두면 항목 하나 늘릴 때마다 배포를 해야 하고, 같은 목록이
+# 여러 파일에 흩어져 서로 어긋난다. 화면은 여기서만 읽는다.
+# ══════════════════════════════════════════════════════════════════════
+CODE_KINDS = {
+    "tc_type": "TC 유형",
+    "tc_status": "TC 상태",
+    "tc_severity": "TC 중요도",
+    "tc_run_type": "실행 타입",
+    "tc_origin": "발생 구분",
+}
+
+
+async def code_list(kind: str = "") -> list[dict]:
+    async with pool().acquire() as c:
+        if kind:
+            rows = await c.fetch(
+                "SELECT * FROM code_item WHERE kind=$1 ORDER BY sort_order, value", kind
+            )
+        else:
+            rows = await c.fetch("SELECT * FROM code_item ORDER BY kind, sort_order, value")
+        return [dict(r) for r in rows]
+
+
+async def code_upsert(item: dict) -> None:
+    kind = (item.get("kind") or "").strip()
+    value = (item.get("value") or "").strip()
+    if kind not in CODE_KINDS:
+        raise ValueError(f"알 수 없는 종류입니다: {kind}")
+    if not value:
+        raise ValueError("값이 필요합니다")
+    async with pool().acquire() as c:
+        await c.execute(
+            """INSERT INTO code_item (kind, value, sort_order, note)
+               VALUES ($1,$2,$3,$4)
+               ON CONFLICT (kind, value) DO UPDATE SET
+                 sort_order=EXCLUDED.sort_order, note=EXCLUDED.note""",
+            kind, value, int(item.get("sort_order") or 0),
+            (item.get("note") or "").strip() or None,
+        )
+
+
+async def code_delete(kind: str, value: str) -> bool:
+    async with pool().acquire() as c:
+        r = await c.execute("DELETE FROM code_item WHERE kind=$1 AND value=$2", kind, value)
+        return r.endswith(" 1")
+
+
+async def code_usage(kind: str, value: str) -> int:
+    """지우기 전에 쓰는 TC 가 몇 건인지. 쓰는 것이 있는데 지우면 그 TC 의
+    값이 목록에 없어져 편집할 때 빈 칸이 된다."""
+    col = {
+        "tc_type": "type", "tc_status": "status", "tc_severity": "severity",
+    }.get(kind)
+    if not col:
+        # run_type·origin 은 메타 컬럼이 없어 data 안에 있다
+        key = {"tc_run_type": "run_type", "tc_origin": "origin"}.get(kind)
+        if not key:
+            return 0
+        async with pool().acquire() as c:
+            return await c.fetchval(
+                "SELECT count(*) FROM tc WHERE data->>$1 = $2", key, value
+            ) or 0
+    async with pool().acquire() as c:
+        return await c.fetchval(f"SELECT count(*) FROM tc WHERE {col}=$1", value) or 0

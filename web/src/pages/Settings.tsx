@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import LlmSettings from '@/components/settings/LlmSettings'
 import DeviceCatalog from '@/components/settings/DeviceCatalog'
+import CodeSettings from '@/components/settings/CodeSettings'
 import './Settings.css'
 
-type Section = 'llm' | 'accounts' | 'perms' | 'chat' | 'catalog'
+type Section = 'llm' | 'accounts' | 'perms' | 'chat' | 'catalog' | 'codes'
 
 /**
  * 설정 화면.
@@ -23,6 +24,12 @@ const SECTIONS: Array<{ key: Section; label: string; desc: string; ready: boolea
     key: 'catalog',
     label: '장비 카탈로그',
     desc: '제조사 · 제품군 · 모델명 · LAB',
+    ready: true,
+  },
+  {
+    key: 'codes',
+    label: '코드 관리',
+    desc: 'TC 유형 · 상태 · 중요도 드롭다운 값',
     ready: true,
   },
   {
@@ -73,6 +80,8 @@ export default function Settings() {
           <LlmSettings />
         ) : sec === 'catalog' ? (
           <DeviceCatalog />
+        ) : sec === 'codes' ? (
+          <CodeSettings />
         ) : (
           <div className="set-todo">
             <b>{cur.label}</b>
