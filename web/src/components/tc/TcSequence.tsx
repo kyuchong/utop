@@ -104,6 +104,21 @@ export default function TcSequence({
                   <StepIcon name={info.icon} className={`sq-ic g-${info.group}`} />
                   {info.label}
                 </span>
+                {/* 어느 세션으로 나가는가. 같은 장비를 두 자리에 앉히는 일이
+                    흔해서 장비 이름만으로는 안 갈린다 — iTest 도 Session 을
+                    별도 열로 둔다. */}
+                {(() => {
+                  const k = sessionIndex(s.session)
+                  return (
+                    <span className="sq-s">
+                      {k >= 0 && (
+                        <b data-s={k % 4} title={sessionName(k)}>
+                          S{k + 1}
+                        </b>
+                      )}
+                    </span>
+                  )
+                })()}
                 {/* 명령·값만 고정폭. 'U9532H 접속' 같은 한글까지 고정폭으로
                     두면 다른 화면과 글자가 달라 보인다. */}
                 <span

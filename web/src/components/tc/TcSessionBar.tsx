@@ -73,7 +73,10 @@ export default function TcSessionBar({
         const proto = dev ? protocolOf(dev) : ''
         return (
           <span className={`tc-sess${dev ? '' : ' gone'}`} key={`${id}-${i}`}>
-            <b className="tc-sess-n">S{i + 1}</b>
+            {/* 스텝 줄·터미널의 자리 표시와 같은 색을 쓴다 — 색이 곧 자리다 */}
+            <b className="tc-sess-n" data-s={i % 4}>
+              S{i + 1}
+            </b>
             <select
               className="tc-sess-dev"
               value={id}

@@ -374,7 +374,7 @@
    선이 먼저 보인다. 간격과 hover 로 가른다. */
 .sq-row {
   display: grid;
-  grid-template-columns: 18px 20px minmax(74px, auto) 1fr 54px 24px;
+  grid-template-columns: 18px 20px minmax(74px, auto) 24px 1fr 54px 24px;
   position: relative;
   align-items: center;
   gap: var(--sp-2);
@@ -923,3 +923,40 @@
 }
 
 .tm-foot .sp { margin-left: auto; }
+
+/* ── 세션 표시 ──────────────────────────────────────────────
+   같은 장비를 두 자리에 앉히는 일이 흔하다(S1·S2 둘 다 220.1.1.254).
+   장비 이름으로는 안 갈리므로 자리 번호에 색을 준다 — 색이 곧 자리다.
+   숫자만으로는 스텝 30줄에서 S1 과 S2 가 눈에 안 들어온다. */
+.sq-s { text-align: center; }
+
+.sq-s b,
+.tm-s {
+  display: inline-block;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sq-s b[data-s='0'] { background: #e6f0fb; color: #1f5fa8; }
+.sq-s b[data-s='1'] { background: #eaf5ec; color: #1f7a45; }
+.sq-s b[data-s='2'] { background: #fdf1e3; color: #97620d; }
+.sq-s b[data-s='3'] { background: #f2ecfb; color: #5c3d9e; }
+
+/* 터미널은 바탕이 어두워서 같은 색을 쓰면 안 읽힌다 */
+.tm-s { flex: none; }
+.tm-s[data-s='0'] { background: #1c3b57; color: #8fc6f5; }
+.tm-s[data-s='1'] { background: #1c4433; color: #86dcae; }
+.tm-s[data-s='2'] { background: #4a3616; color: #f0c07a; }
+.tm-s[data-s='3'] { background: #372a52; color: #c0a8f0; }
+
+/* 실행 줄의 세션 칩도 같은 색. 트리·터미널·스텝 줄에서 S2 가 늘 같은
+   색이어야 '이 색이 그 장비' 로 읽힌다. */
+.tc-sess-n[data-s='0'] { color: #1f5fa8; }
+.tc-sess-n[data-s='1'] { color: #1f7a45; }
+.tc-sess-n[data-s='2'] { color: #97620d; }
+.tc-sess-n[data-s='3'] { color: #5c3d9e; }

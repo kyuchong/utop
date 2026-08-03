@@ -19,6 +19,14 @@ interface Props {
 interface Block {
   cmd: string
   out: string
+  /**
+   * 어느 세션에서 쳤는가.
+   *
+   * 같은 장비에 세션을 둘 잡는 일이 흔하다(S1·S2 둘 다 220.1.1.254).
+   * 장비 이름만으로는 어느 쪽에서 친 것인지 알 수 없어서 자리 번호를
+   * 덩어리마다 들고 다닌다.
+   */
+  sess: number
   /** 이 덩어리가 이미 스텝이 되었는가 */
   taken: boolean
   error?: boolean
@@ -46,7 +54,13 @@ export default function TcTerminal({
   const [blocks, setBlocks] = useState<Block[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
-  const [prompt, setPrompt] = useState('')
+  /**
+   * 세션 자리별 프롬프트. 접속한 자리만 값이 있다.
+   *
+   * 하나로 두면 S1 에서 S2 로 옮길 때 앞의 프롬프트가 남아 접속한 것처럼
+   * 보인다. 자리마다 따로 잡는다.
+   */
+  const [prompts, setPrompts] = useState<Record<number, string>>({})
   const [note, setNote] = useState('')
   /** 켜 두면 친 명령이 곧바로 스텝이 된다 */
   const [rec, setRec] = useState(true)
@@ -60,6 +74,8 @@ export default function TcTerminal({
 
   const devId = sessions[idx]
   const dev = devId ? devById.get(devId) : undefined
+  const prompt = prompts[idx] ?? ''
+  const sessLabel = (i: number) => sessionNames[i] ?? `세션 ${i + 1}`
 
   // 새 줄이 붙으면 바닥으로. 터미널은 늘 마지막 줄을 보고 있어야 한다.
   useEffect(() => {
@@ -67,12 +83,15 @@ export default function TcTerminal({
     if (el) el.scrollTop = el.scrollHeight
   }, [blocks, busy])
 
-  /** 세션을 바꾸면 화면을 비운다 — 다른 장비의 출력이 섞이면 못 읽는다 */
+  /**
+   * 세션을 바꿔도 화면을 비우지 않는다.
+   *
+   * 전에는 비웠는데, S1 에서 두 줄 치고 S2 로 옮기는 것이 실제 일하는
+   * 방식이라 앞의 것이 사라지면 무엇을 했는지 놓친다. 덩어리마다 어느
+   * 자리에서 친 것인지를 적어 두는 편이 낫다.
+   */
   useEffect(() => {
-    setBlocks([])
-    setPrompt('')
     setNote('')
-    lastDone.current = -1
   }, [idx])
 
   const open = async () => {
@@ -87,7 +106,10 @@ export default function TcTerminal({
       })
       const b = (await r.json()) as { ok?: boolean; prompt?: string; error?: string }
       if (b.ok) {
-        setPrompt(String(b.prompt ?? '').trim())
+        // 프롬프트가 비어 오는 장비가 있다. 빈 값이면 접속 안 된 것으로
+        // 보이므로 자리 번호라도 세워 둔다.
+        const p = String(b.prompt ?? '').trim() || `S${idx + 1}#`
+        setPrompts((v) => ({ ...v, [idx]: p }))
         setNote('')
         inputRef.current?.focus()
       } else {
@@ -113,7 +135,8 @@ export default function TcTerminal({
     setInput('')
     setBusy(true)
     const at = blocks.length
-    setBlocks((v) => [...v, { cmd, out: '', taken: false }])
+    const sess = idx
+    setBlocks((v) => [...v, { cmd, out: '', taken: false, sess }])
 
     try {
       const r = await apiFetch('/api/run-cli-stream', {
@@ -175,7 +198,9 @@ export default function TcTerminal({
     onAdd({
       kind: 'cli',
       indent: 0,
-      session: idx,
+      // 지금 고른 자리가 아니라 **그 명령을 친 자리**다. S1 에서 치고
+      // S2 로 옮긴 뒤 담으면 엉뚱한 장비로 나간다.
+      session: b.sess,
       cli: b.cmd,
       output: b.out.replace(/\s+$/, ''),
       executed_at: new Date().toISOString(),
@@ -220,12 +245,19 @@ export default function TcTerminal({
     <div className="tm">
       <div className="tm-head">
         <b>터미널</b>
+        {/* 같은 장비를 두 자리에 앉히는 일이 흔해서 이름만으로는 안 갈린다.
+            자리 번호를 앞에, IP 를 뒤에 둔다. */}
         <select value={idx} onChange={(e) => setIdx(Number(e.target.value))}>
-          {sessions.map((_, i) => (
-            <option key={i} value={i}>
-              S{i + 1} · {sessionNames[i] ?? `세션 ${i + 1}`}
-            </option>
-          ))}
+          {sessions.map((id, i) => {
+            const d = devById.get(id)
+            return (
+              <option key={i} value={i}>
+                S{i + 1} · {sessLabel(i)}
+                {d?.ip ? ` (${d.ip})` : ''}
+                {prompts[i] ? ' ●' : ''}
+              </option>
+            )
+          })}
         </select>
         <label className="tm-rec" title="켜 두면 친 명령이 바로 스텝이 됩니다">
           <input type="checkbox" checked={rec} onChange={(e) => setRec(e.target.checked)} />
@@ -238,21 +270,15 @@ export default function TcTerminal({
       </div>
 
       <div className="tm-body" ref={bodyRef} onClick={() => inputRef.current?.focus()}>
-        {!prompt && (
-          <div className="tm-open">
-            <b>{dev ? deviceLabel(dev) : '(장비 없음)'}</b>
-            <span className="muted small">{dev?.ip}</span>
-            <button className="btn small primary" type="button" disabled={busy || !dev} onClick={() => void open()}>
-              {busy ? '접속 중…' : '접속'}
-            </button>
-            {note && <span className="tm-note">{note}</span>}
-          </div>
-        )}
-
         {blocks.map((b, i) => (
           <div className="tm-blk" key={i}>
             <div className="tm-cmd">
-              <span className="tm-p">{prompt || '$'}</span>
+              {/* 어느 자리에서 친 것인지. 같은 장비에 세션 둘이면 이름으로는
+                  구분이 안 되므로 자리 번호를 앞에 세운다. */}
+              <span className="tm-s" data-s={b.sess % 4} title={sessLabel(b.sess)}>
+                S{b.sess + 1}
+              </span>
+              <span className="tm-p">{prompts[b.sess] || '$'}</span>
               {b.cmd}
               {/* 기록이 꺼져 있을 때만 손으로 담는다. 켜져 있으면 이미 담겼다. */}
               {b.taken ? (
@@ -267,8 +293,24 @@ export default function TcTerminal({
           </div>
         ))}
 
+        {!prompt && (
+          <div className="tm-open">
+            <span className="tm-s" data-s={idx % 4}>
+              S{idx + 1}
+            </span>
+            <b>{dev ? deviceLabel(dev) : '(장비 없음)'}</b>
+            <span className="muted small">{dev?.ip}</span>
+            <button className="btn small primary" type="button" disabled={busy || !dev} onClick={() => void open()}>
+              {busy ? '접속 중…' : '접속'}
+            </button>
+          </div>
+        )}
+
         {prompt && (
           <div className="tm-line">
+            <span className="tm-s" data-s={idx % 4}>
+              S{idx + 1}
+            </span>
             <span className="tm-p">{prompt}</span>
             <input
               ref={inputRef}
@@ -309,7 +351,7 @@ export default function TcTerminal({
           </div>
         )}
 
-        {note && prompt && <div className="tm-note">{note}</div>}
+        {note && <div className="tm-note">{note}</div>}
       </div>
 
       <div className="tm-foot">
