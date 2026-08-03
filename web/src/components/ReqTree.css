@@ -125,56 +125,6 @@
   flex: none;
 }
 
-/* ⋯ 는 그 줄에 마우스가 왔을 때만. 폴더가 20개면 점 20개가 먼저 보인다. */
-.rt-fact { position: relative; flex: none; margin-left: 4px; }
-
-.rt-menu-btn {
-  border: 0;
-  background: none;
-  color: var(--c-text-faint);
-  cursor: pointer;
-  font-size: 13px;
-  line-height: 1;
-  padding: 2px 4px;
-  border-radius: 3px;
-  opacity: 0;
-}
-
-.rt-fold:hover .rt-menu-btn,
-.rt-menu-btn.on { opacity: 1; }
-.rt-menu-btn:hover { background: var(--c-surface); color: var(--c-text); }
-
-.rt-menu-back { position: fixed; inset: 0; z-index: 20; }
-
-.rt-menu {
-  position: absolute;
-  right: 0;
-  top: 22px;
-  z-index: 21;
-  min-width: 150px;
-  padding: 4px;
-  background: var(--c-surface);
-  border: 1px solid var(--rt-line);
-  border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.12);
-}
-
-.rt-menu button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  border: 0;
-  background: none;
-  padding: 6px 9px;
-  border-radius: var(--rt-r);
-  font: inherit;
-  font-size: var(--fs-sm);
-  color: var(--c-text);
-  cursor: pointer;
-}
-
-.rt-menu button:hover { background: var(--rt-hover); }
-.rt-menu button.danger { color: var(--c-fail); }
 
 /* ── 요구사항 줄 ─────────────────────────────────────────── */
 .rt-req {
@@ -297,7 +247,8 @@
 
 
 /* 전체 ID 보기 토글. 줄인 ID 가 기본이라, 원래 값을 봐야 할 때만 켠다. */
-.rt-fullid {
+/* 검색줄 옆 토글 둘 — 「폴더만」·「ID」 */
+.rt-toggle {
   flex: none;
   border: 1px solid var(--rt-line);
   background: var(--c-surface);
@@ -307,9 +258,10 @@
   font-weight: 600;
   color: var(--c-text-faint);
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.rt-fullid.on {
+.rt-toggle.on {
   border-color: transparent;
   background: var(--rt-sel);
   color: var(--c-primary);
@@ -361,3 +313,79 @@
 }
 
 .rt-bulk-foot .muted { margin-right: auto; }
+
+
+/* ── 우클릭 메뉴 ─────────────────────────────────────────────
+   Zephyr·탐색기와 같은 자리·같은 항목. ⋯ 를 찾아 누르는 단계를 없앤다. */
+.rt-ctx {
+  position: fixed;
+  z-index: 60;
+  min-width: 168px;
+  padding: 4px;
+  background: var(--c-surface);
+  border: 1px solid var(--rt-line);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.14);
+}
+
+.rt-ctx button {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 6px 9px;
+  border-radius: var(--rt-r);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+  cursor: pointer;
+}
+
+.rt-ctx button:hover:not(:disabled) { background: var(--rt-hover); }
+.rt-ctx button:disabled { color: var(--c-text-faint); cursor: default; }
+.rt-ctx button.danger { color: var(--c-fail); }
+.rt-ctx hr { border: 0; border-top: 1px solid var(--rt-line); margin: 4px 2px; }
+
+/* 단축키 표시. 있는 줄 알아야 쓰게 된다. */
+.rt-key {
+  margin-left: auto;
+  padding-left: var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+
+/* 제자리 이름 변경. 창을 띄우지 않는다 — 줄이 그대로 입력칸이 된다. */
+.rt-rename {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--c-primary);
+  border-radius: var(--rt-r);
+  padding: 1px 6px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: inherit;
+  background: var(--c-surface);
+}
+
+.rt-rename:focus { outline: none; }
+
+/* 복사해둔 폴더는 흐리게 — 무엇을 들고 있는지 트리에서도 보인다 */
+.rt-fold.copied { opacity: 0.55; }
+
+/* 복사 상태 알림. 어디에 붙여넣을지 안내한다. */
+.rt-clip {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 var(--sp-3) var(--sp-2);
+  padding: 5px 9px;
+  border-radius: var(--rt-r);
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  font-size: var(--fs-xs);
+}
+
+.rt-clip .btn { margin-left: auto; }

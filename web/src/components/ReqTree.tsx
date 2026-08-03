@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { categoryApi, reqApi } from '@/api/client'
 import {
@@ -15,7 +15,6 @@ import {
   type TestCaseMeta,
 } from '@/types'
 import { IconChevron } from './icons'
-import CategoryEditForm from './CategoryEditForm'
 import './ReqTree.css'
 
 interface Props {
@@ -30,7 +29,7 @@ interface Props {
   /** 고른 폴더. 바깥 버튼에서 삭제하려고 올려 보낸다 */
   pickedFolders: Set<string>
   onPickFolder: (catId: string) => void
-  /** 「+ 폴더」 · 「일괄 폴더」를 바깥 버튼 줄에서 누를 수 있게 */
+  /** 「+ 폴더」·「일괄 폴더」를 바깥 버튼 줄에서 누를 수 있게 */
   addFolderSignal: number
   bulkFolderSignal: number
 }
@@ -40,15 +39,24 @@ function reqFolder(r: Requirement): string | null {
   return (r.cat4 || r.cat3 || r.cat2 || r.cat1 || null) as string | null
 }
 
+/** 우클릭 메뉴 위치와 대상 */
+interface Ctx {
+  x: number
+  y: number
+  cat: CategoryTreeNode
+}
+
 /**
  * 요구사항 트리 — 폴더 안에 요구사항이 들어간다.
  *
- * 전에는 분류 트리와 요구사항 목록이 따로였다. 자료가 29건 · 분류 20개라
- * 전체가 한 화면에 들어오는데, 굳이 두 단계로 고르게 하고 있었다.
- * Zephyr Enterprise 도 같은 모양이다 — 폴더를 열면 그 안에 요구사항이 있다.
+ * 폴더 다루는 방식은 Zephyr Enterprise 를 그대로 따른다. 거기가 곧
+ * 윈도우 탐색기 방식이라 배울 것이 없다:
+ *   · 폴더에 우클릭 → 하위 폴더 추가 · 이름 변경 · 복사 · 붙여넣기 · 삭제
+ *   · 이름 변경은 창을 띄우지 않고 그 줄에서 바로 (F2 도 같다)
+ *   · 끌어서 옮기고, 정확히 놓기 어려울 때는 복사·붙여넣기를 쓴다
  *
- * 폴더와 요구사항 둘 다 끌어서 옮긴다. 폴더는 서버가 깊이·순환을 판정하고,
- * 요구사항은 놓은 폴더의 조상 사슬로 cat1~cat4 가 다시 채워진다.
+ * 요구사항도 같은 트리 안에 있어서 끌어 옮길 수 있다. 폴더 구조만 볼
+ * 때는 「폴더만」 을 켠다 — 정리할 때 트리가 짧아진다.
  */
 export default function ReqTree({
   reqs,
@@ -64,7 +72,6 @@ export default function ReqTree({
 }: Props) {
   const qc = useQueryClient()
 
-  // 펼친 폴더. 새로고침해도 남아야 매번 같은 가지를 다시 펴지 않는다.
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('utop.reqtree.open') || '[]')
@@ -78,22 +85,27 @@ export default function ReqTree({
   }, [openIds])
 
   const [q, setQ] = useState('')
-  const [menuFor, setMenuFor] = useState<string | null>(null)
+  /** 우클릭 메뉴 */
+  const [ctx, setCtx] = useState<Ctx | null>(null)
+  /** 제자리 이름 변경 중인 폴더 id */
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [renameText, setRenameText] = useState('')
+  /** 하위 폴더 추가 중인 곳. null = 최상위 */
   const [addingTo, setAddingTo] = useState<string | null | undefined>(undefined)
   const [draftName, setDraftName] = useState('')
-  const [editing, setEditing] = useState<ReqCategory | null>(null)
+  /** 복사해둔 폴더 (붙여넣기 대기) */
+  const [clip, setClip] = useState<CategoryTreeNode | null>(null)
   const [error, setError] = useState('')
-  /** 끌고 있는 것 — 요구사항이면 req, 폴더면 cat */
   const [drag, setDrag] = useState<{ kind: 'req' | 'cat'; id: string } | null>(null)
-  /** 올려둔 폴더 id. null = 최상위/미분류로 빼기 */
   const [over, setOver] = useState<string | null | undefined>(undefined)
-  /** 폴더 여러 개 만들기 */
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkText, setBulkText] = useState('')
-  /** 전체 ID 를 그대로 볼지 (줄여서 보는 것이 기본) */
   const [fullId, setFullId] = useState(false)
+  /** 폴더 구조만 보기 — 정리할 때 요구사항이 사이에 끼면 트리가 길다 */
+  const [foldersOnly, setFoldersOnly] = useState(false)
 
-  // 바깥 버튼 줄에서 「+ 폴더」·「일괄」을 눌렀을 때
+  const treeRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     if (addFolderSignal > 0) {
       setAddingTo(null)
@@ -103,6 +115,19 @@ export default function ReqTree({
   useEffect(() => {
     if (bulkFolderSignal > 0) setBulkOpen(true)
   }, [bulkFolderSignal])
+
+  // 메뉴는 아무 데나 누르거나 Esc 로 닫힌다
+  useEffect(() => {
+    if (!ctx) return
+    const close = () => setCtx(null)
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setCtx(null)
+    window.addEventListener('pointerdown', close)
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.removeEventListener('pointerdown', close)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [ctx])
 
   const catQ = useQuery({
     queryKey: ['req-categories'],
@@ -131,14 +156,53 @@ export default function ReqTree({
     onError: fail,
   })
 
+  const renameM = useMutation({
+    mutationFn: ({ cat, name }: { cat: ReqCategory; name: string }) =>
+      categoryApi.rename(cat.id, name, cat.parent_id ?? null),
+    onSuccess: () => {
+      setRenaming(null)
+      setError('')
+      invalidate()
+    },
+    onError: fail,
+  })
+
+  const moveCatM = useMutation({
+    mutationFn: ({ cat, parentId }: { cat: ReqCategory; parentId: string | null }) =>
+      categoryApi.rename(cat.id, cat.name, parentId),
+    onSuccess: () => {
+      setError('')
+      invalidate()
+    },
+    onError: fail,
+  })
+
   /**
-   * 폴더 여러 개를 한 번에.
+   * 폴더 복사 — 가지를 통째로 새로 만든다.
    *
-   * 줄마다 하나씩, 앞의 공백 두 칸이 한 단계 아래다. 트리를 통째로 세울 수
-   * 있어야 폴더 20개를 하나씩 만드는 일이 없다.
+   * 안에 든 요구사항은 따라가지 않는다. 요구사항은 한 곳에만 있어야 하고,
+   * 복사하면 같은 것이 둘이 되어 어느 쪽이 진짜인지 알 수 없어진다.
+   * 구조만 복사하는 것이 Zephyr 와도 같다.
    */
+  const pasteM = useMutation({
+    mutationFn: async ({ src, parentId }: { src: CategoryTreeNode; parentId: string | null }) => {
+      const copy = async (n: CategoryTreeNode, parent: string | null, top: boolean) => {
+        const r = await categoryApi.create(top ? `${n.name} 복사` : n.name, parent)
+        for (const k of n.children) await copy(k, r.id, false)
+      }
+      await copy(src, parentId, true)
+    },
+    onSuccess: () => {
+      setError('')
+      invalidate()
+    },
+    onError: fail,
+  })
+
   const bulkCatM = useMutation({
     mutationFn: async ({ text, parentId }: { text: string; parentId: string | null }) => {
+      // 줄마다 하나씩, 공백 두 칸이 한 단계 아래. 트리를 통째로 세울 수
+      // 있어야 폴더 20개를 하나씩 만드는 일이 없다.
       const stack: Array<{ depth: number; id: string | null }> = [{ depth: -1, id: parentId }]
       let made = 0
       for (const raw of text.split('\n')) {
@@ -160,20 +224,6 @@ export default function ReqTree({
     onError: fail,
   })
 
-  /**
-   * 폴더 옮기기. 깊이 상한과 순환은 서버가 판정한다 —
-   * 화면에서 흉내내면 규칙이 두 벌이 되어 어긋난다.
-   */
-  const moveCatM = useMutation({
-    mutationFn: ({ cat, parentId }: { cat: ReqCategory; parentId: string | null }) =>
-      categoryApi.rename(cat.id, cat.name, parentId),
-    onSuccess: () => {
-      setError('')
-      invalidate()
-    },
-    onError: fail,
-  })
-
   const removeCatM = useMutation({
     mutationFn: (id: string) => categoryApi.remove(id),
     onSuccess: () => {
@@ -183,14 +233,9 @@ export default function ReqTree({
     onError: fail,
   })
 
-  /**
-   * 요구사항을 폴더로 옮긴다.
-   *
-   * 서버는 cat1~cat4 를 각 단계별로 받으므로, 놓은 폴더의 조상 사슬을
-   * 거슬러 올라가 단계에 맞춰 채운다.
-   */
   const moveReqM = useMutation({
     mutationFn: async ({ r, folderId }: { r: Requirement; folderId: string | null }) => {
+      // 놓은 폴더의 조상 사슬로 cat1~cat4 를 단계에 맞춰 채운다
       const chain: string[] = []
       let cur = folderId ? catById.get(folderId) : undefined
       while (cur) {
@@ -212,7 +257,6 @@ export default function ReqTree({
     onError: fail,
   })
 
-  /** 폴더별 요구사항. 가장 깊은 분류에 매단다. */
   const byFolder = useMemo(() => {
     const m = new Map<string | null, Requirement[]>()
     for (const r of reqs) {
@@ -244,16 +288,31 @@ export default function ReqTree({
       return n
     })
 
-  /** 자기 자신이나 자손 위로는 못 놓는다 (순환) */
   const isSelfOrDesc = (dragged: string, target: string): boolean => {
     if (dragged === target) return true
     return cats.filter((c) => c.parent_id === dragged).some((k) => isSelfOrDesc(k.id, target))
   }
 
+  const startRename = (n: CategoryTreeNode) => {
+    setCtx(null)
+    setRenaming(n.id)
+    setRenameText(n.name)
+  }
+
+  const doDelete = (n: CategoryTreeNode) => {
+    setCtx(null)
+    const deep = countDeep(n)
+    const msg =
+      deep > 0
+        ? `'${n.name}' 을 지웁니다.\n안에 있는 요구사항 ${deep}건은 지워지지 않고 미분류가 됩니다.\n계속할까요?`
+        : `'${n.name}' 을 지울까요?`
+    if (window.confirm(msg)) removeCatM.mutate(n.id)
+  }
+
   /**
-   * 끌기. 포인터 이벤트를 쓰는 이유는 분류 트리와 같다 — HTML5 드래그는
-   * 행 안에 버튼·체크박스가 있으면 시작조차 안 되고 원격데스크톱에서
-   * 자주 먹통이 된다.
+   * 끌기. 포인터 이벤트를 쓰는 이유는 HTML5 드래그가 행 안에 버튼·
+   * 체크박스가 있으면 시작조차 안 되고 원격데스크톱에서 자주 먹통이 되기
+   * 때문이다.
    */
   const beginDrag = (e: React.PointerEvent, kind: 'req' | 'cat', id: string) => {
     if (e.button !== 0) return
@@ -363,8 +422,6 @@ export default function ReqTree({
           onPointerDown={(e) => e.stopPropagation()}
           onChange={() => onPick(pk)}
         />
-        {/* 줄인 ID 를 보이고 전체는 title 로. 폴더 이름이 트리에 이미
-            있어서 ID 에 같은 말이 두 번 나오는 것을 막는다. */}
         <span className="rt-id" title={full}>
           {shown || '(ID 없음)'}
         </span>
@@ -381,19 +438,38 @@ export default function ReqTree({
 
   const renderFolder = (n: CategoryTreeNode) => {
     const open = needle ? true : openIds.has(n.id)
-    const mine = (byFolder.get(n.id) ?? []).filter(match)
+    const mine = foldersOnly ? [] : (byFolder.get(n.id) ?? []).filter(match)
     const total = countDeep(n)
-    if (needle && total === 0) return null
+    if (needle && total === 0 && !foldersOnly) return null
     const hasKids = n.children.length > 0 || mine.length > 0
+
     return (
       <div key={n.id}>
         <div
           data-folder={n.id}
           className={`rt-fold${over === n.id && drag ? ' dropinto' : ''}${
             drag?.kind === 'cat' && drag.id === n.id ? ' dragging' : ''
-          }`}
+          }${clip?.id === n.id ? ' copied' : ''}`}
           style={{ paddingLeft: 4 + (n.depth - 1) * 14 }}
+          tabIndex={0}
           onPointerDown={(e) => beginDrag(e, 'cat', n.id)}
+          // 우클릭이 곧 메뉴다. Zephyr·탐색기와 같아 배울 것이 없다.
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setCtx({ x: e.clientX, y: e.clientY, cat: n })
+          }}
+          // F2 · Delete — 탐색기와 같은 키
+          onKeyDown={(e) => {
+            if (renaming) return
+            if (e.key === 'F2') {
+              e.preventDefault()
+              startRename(n)
+            }
+            if (e.key === 'Delete') {
+              e.preventDefault()
+              doDelete(n)
+            }
+          }}
         >
           <input
             type="checkbox"
@@ -417,68 +493,38 @@ export default function ReqTree({
           >
             {hasKids ? <IconChevron /> : <span className="rt-dot" />}
           </button>
-          <b className="rt-fname" title={n.name}>
-            {n.name}
-          </b>
-          <span className="rt-cnt">{total || ''}</span>
-          <span className="rt-fact">
-            <button
-              type="button"
-              className={`rt-menu-btn${menuFor === n.id ? ' on' : ''}`}
-              title="하위 폴더 추가 · 이름 변경 · 삭제"
+
+          {renaming === n.id ? (
+            // 창을 띄우지 않고 그 자리에서 고친다
+            <input
+              autoFocus
+              className="rt-rename"
+              value={renameText}
               onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setRenameText(e.target.value)}
+              onBlur={() => setRenaming(null)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && renameText.trim())
+                  renameM.mutate({ cat: n, name: renameText.trim() })
+                if (e.key === 'Escape') setRenaming(null)
+              }}
+            />
+          ) : (
+            <b
+              className="rt-fname"
+              title={n.name}
+              // 두 번 누르면 이름 변경 — 탐색기와 같다
+              onDoubleClick={(e) => {
                 e.stopPropagation()
-                setMenuFor(menuFor === n.id ? null : n.id)
+                startRename(n)
               }}
             >
-              ⋯
-            </button>
-            {menuFor === n.id && (
-              <>
-                <div className="rt-menu-back" onClick={() => setMenuFor(null)} />
-                <div className="rt-menu" role="menu">
-                  {n.depth < MAX_CAT_DEPTH && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuFor(null)
-                        setAddingTo(n.id)
-                        setDraftName('')
-                        setOpenIds((s) => new Set(s).add(n.id))
-                      }}
-                    >
-                      하위 폴더 추가
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuFor(null)
-                      setEditing(n)
-                    }}
-                  >
-                    이름 변경 · 이동
-                  </button>
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => {
-                      setMenuFor(null)
-                      const deep = countDeep(n)
-                      const msg =
-                        deep > 0
-                          ? `'${n.name}' 을 지웁니다.\n안에 있는 요구사항 ${deep}건은 지워지지 않고 미분류가 됩니다.\n계속할까요?`
-                          : `'${n.name}' 을 지울까요?`
-                      if (window.confirm(msg)) removeCatM.mutate(n.id)
-                    }}
-                  >
-                    삭제
-                  </button>
-                </div>
-              </>
-            )}
-          </span>
+              {n.name}
+            </b>
+          )}
+
+          <span className="rt-cnt">{total || ''}</span>
         </div>
 
         {addingTo === n.id && (
@@ -519,12 +565,10 @@ export default function ReqTree({
     )
   }
 
-  const uncat = (byFolder.get(null) ?? []).filter(match)
+  const uncat = foldersOnly ? [] : (byFolder.get(null) ?? []).filter(match)
 
   return (
-    <div className="rt">
-      {editing && <CategoryEditForm cat={editing} all={cats} onClose={() => setEditing(null)} />}
-
+    <div className="rt" ref={treeRef}>
       <div className="rt-search">
         <input
           value={q}
@@ -532,10 +576,17 @@ export default function ReqTree({
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === 'Escape' && setQ('')}
         />
-        {/* 줄인 ID 가 기본. 전체가 필요할 때만 켠다. */}
         <button
           type="button"
-          className={`rt-fullid${fullId ? ' on' : ''}`}
+          className={`rt-toggle${foldersOnly ? ' on' : ''}`}
+          title="폴더 구조만 보기 — 정리할 때 트리가 짧아집니다"
+          onClick={() => setFoldersOnly((v) => !v)}
+        >
+          폴더만
+        </button>
+        <button
+          type="button"
+          className={`rt-toggle${fullId ? ' on' : ''}`}
           title={fullId ? '짧게 보기' : '전체 ID 보기'}
           onClick={() => setFullId((v) => !v)}
         >
@@ -544,6 +595,15 @@ export default function ReqTree({
       </div>
 
       {error && <div className="rt-error">{error}</div>}
+
+      {clip && (
+        <div className="rt-clip">
+          <b>{clip.name}</b> 복사됨 — 붙여넣을 폴더에 우클릭
+          <button className="btn small" type="button" onClick={() => setClip(null)}>
+            취소
+          </button>
+        </div>
+      )}
 
       {bulkOpen && (
         <div className="rt-bulk">
@@ -607,10 +667,14 @@ export default function ReqTree({
 
         {catQ.isLoading ? <div className="empty">불러오는 중…</div> : tree.map(renderFolder)}
 
-        {/* 미분류. 끌어다 놓으면 폴더에서 빼내거나 폴더를 최상위로 올린다. */}
         <div
           data-root="1"
           className={`rt-fold rt-uncat${over === null && drag ? ' dropinto' : ''}`}
+          onContextMenu={(e) => {
+            // 최상위에 붙여넣기·폴더 만들기
+            e.preventDefault()
+            setCtx({ x: e.clientX, y: e.clientY, cat: { id: '', name: '', depth: 0, children: [] } as unknown as CategoryTreeNode })
+          }}
         >
           <span className="rt-pick-sp" />
           <span className="rt-caret" />
@@ -627,6 +691,92 @@ export default function ReqTree({
           </div>
         )}
       </div>
+
+      {/* 우클릭 메뉴 — Zephyr 와 같은 항목 */}
+      {ctx && (
+        <div
+          className="rt-ctx"
+          style={{ left: ctx.x, top: ctx.y }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {ctx.cat.id ? (
+            <>
+              {ctx.cat.depth < MAX_CAT_DEPTH && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCtx(null)
+                    setAddingTo(ctx.cat.id)
+                    setDraftName('')
+                    setOpenIds((s) => new Set(s).add(ctx.cat.id))
+                  }}
+                >
+                  하위 폴더 추가
+                </button>
+              )}
+              <button type="button" onClick={() => startRename(ctx.cat)}>
+                이름 변경 <span className="rt-key">F2</span>
+              </button>
+              <hr />
+              <button
+                type="button"
+                onClick={() => {
+                  setClip(ctx.cat)
+                  setCtx(null)
+                }}
+              >
+                복사
+              </button>
+              <button
+                type="button"
+                disabled={!clip || pasteM.isPending || isSelfOrDesc(clip.id, ctx.cat.id)}
+                title={
+                  clip && isSelfOrDesc(clip.id, ctx.cat.id)
+                    ? '자기 자신이나 하위에는 붙여넣을 수 없습니다'
+                    : ''
+                }
+                onClick={() => {
+                  if (!clip) return
+                  pasteM.mutate({ src: clip, parentId: ctx.cat.id })
+                  setClip(null)
+                  setCtx(null)
+                }}
+              >
+                붙여넣기
+              </button>
+              <hr />
+              <button type="button" className="danger" onClick={() => doDelete(ctx.cat)}>
+                삭제
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  setCtx(null)
+                  setAddingTo(null)
+                  setDraftName('')
+                }}
+              >
+                최상위 폴더 추가
+              </button>
+              <button
+                type="button"
+                disabled={!clip || pasteM.isPending}
+                onClick={() => {
+                  if (!clip) return
+                  pasteM.mutate({ src: clip, parentId: null })
+                  setClip(null)
+                  setCtx(null)
+                }}
+              >
+                여기에 붙여넣기
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
