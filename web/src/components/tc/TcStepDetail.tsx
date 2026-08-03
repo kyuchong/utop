@@ -59,6 +59,9 @@ export default function TcStepDetail({
   const verdict = stepStatus(step)
   const isRun = kind === 'cli' || kind === 'instrument'
   const needsSession = isRun || kind === 'connect' || kind === 'disconnect'
+  const depth = Math.min(Math.max(Number(step.indent) || 0, 0), 4)
+  /** 반복 방식 — 자료에 '몇 회' 와 '범위' 두 형태가 섞여 있다 */
+  const loopByRange = step.forFrom !== undefined && step.forTo !== undefined
 
   /** 응답에서 글자를 고르면 판정·변수로 만들 수 있게 잡아둔다 */
   const grab = () => {
@@ -85,12 +88,42 @@ export default function TcStepDetail({
         >
           ▼
         </button>
+        {/* 들여쓰기가 곧 블록 중첩이다. If·Loop 의 몸통은 여는 줄보다 한 칸
+            깊은 줄들이라, 이 값을 못 고치면 블록에 넣고 뺄 수가 없다. */}
+        <button
+          className="btn small"
+          type="button"
+          disabled={depth <= 0}
+          title="블록 밖으로"
+          onClick={() => onChange({ indent: depth - 1 })}
+        >
+          ⇤
+        </button>
+        <button
+          className="btn small"
+          type="button"
+          disabled={depth >= 4}
+          title="블록 안으로"
+          onClick={() => onChange({ indent: depth + 1 })}
+        >
+          ⇥
+        </button>
         <button className="btn small danger" type="button" onClick={onRemove}>
           삭제
         </button>
       </div>
 
       <div className="sd-body">
+        {/* 지우지 않고 잠시 빼두는 일이 잦다 */}
+        <label className="sd-chk">
+          <input
+            type="checkbox"
+            checked={!!step.skip}
+            onChange={(e) => onChange({ skip: e.target.checked })}
+          />
+          이 스텝 건너뛰기
+        </label>
+
         <label className="sd-f">
           <span>Action</span>
           <select value={kind} onChange={(e) => onChange({ kind: e.target.value as StepKind })}>
@@ -162,52 +195,138 @@ export default function TcStepDetail({
           </label>
         )}
         {kind === 'if' && (
-          <label className="sd-f">
-            <span>조건</span>
-            <input
-              className="mono"
-              value={step.condition ?? ''}
-              placeholder="$model == 'U9532H'"
-              onChange={(e) => onChange({ condition: e.target.value })}
-            />
-          </label>
-        )}
-        {kind === 'switch' && (
-          <label className="sd-f">
-            <span>기준 값</span>
-            <input
-              className="mono"
-              value={step.switchExpr ?? ''}
-              placeholder="$model"
-              onChange={(e) => onChange({ switchExpr: e.target.value })}
-            />
-          </label>
-        )}
-        {kind === 'loop' && (
-          <div className="sd-f">
-            <span>반복</span>
-            <div className="sd-row">
-              <input
-                type="number"
-                value={step.forFrom ?? ''}
-                placeholder="1"
-                onChange={(e) => onChange({ forFrom: Number(e.target.value) })}
-              />
-              <span className="sd-tilde">~</span>
-              <input
-                type="number"
-                value={step.forTo ?? ''}
-                placeholder="24"
-                onChange={(e) => onChange({ forTo: Number(e.target.value) })}
-              />
+          <>
+            <label className="sd-f">
+              <span>조건 — 참일 때만 아래 블록을 돈다</span>
               <input
                 className="mono"
-                value={step.loopVar ?? ''}
-                placeholder="변수 i"
-                onChange={(e) => onChange({ loopVar: e.target.value })}
+                value={step.condition ?? ''}
+                placeholder="${model} == 'U9532H'"
+                onChange={(e) => onChange({ condition: e.target.value })}
               />
+              <span className="sd-hint">
+                쓸 수 있는 것: <b>== != &gt; &lt; &gt;= &lt;= 포함</b>. 앞 스텝에서 뽑은 값은
+                <b> {'${이름}'}</b> 으로 넣는다. 숫자끼리면 숫자로 견준다.
+              </span>
+            </label>
+            <div className="sd-blk">
+              이 아래로 <b>한 칸 더 들여쓴 줄</b>이 If 의 몸통이다. 머리의 ⇥ 로 넣는다.
             </div>
-          </div>
+          </>
+        )}
+        {kind === 'switch' && (
+          <>
+            <label className="sd-f">
+              <span>기준 값</span>
+              <input
+                className="mono"
+                value={step.switchExpr ?? ''}
+                placeholder="${model}"
+                onChange={(e) => onChange({ switchExpr: e.target.value })}
+              />
+            </label>
+            <div className="sd-blk warn">
+              Switch 는 아직 <b>실행하지 않는다</b>. 자료에 남은 것이 없어 갈래를 어떻게
+              적었는지 확인할 수 없었다 — 돌리면 블록째 건너뛰고 로그에 남긴다.
+            </div>
+          </>
+        )}
+        {kind === 'loop' && (
+          <>
+            <div className="sd-f">
+              <span>반복 방식</span>
+              <div className="seg sd-seg">
+                <button
+                  type="button"
+                  className={`seg-btn${loopByRange ? '' : ' on'}`}
+                  onClick={() =>
+                    onChange({
+                      forFrom: undefined,
+                      forTo: undefined,
+                      loopCount: step.loopCount ?? 3,
+                    })
+                  }
+                >
+                  몇 회
+                </button>
+                <button
+                  type="button"
+                  className={`seg-btn${loopByRange ? ' on' : ''}`}
+                  onClick={() =>
+                    onChange({
+                      forFrom: step.forFrom ?? 1,
+                      forTo: step.forTo ?? 24,
+                      loopVar: step.loopVar || 'i',
+                    })
+                  }
+                >
+                  범위 (포트 번호 …)
+                </button>
+              </div>
+            </div>
+
+            {loopByRange ? (
+              <div className="sd-f">
+                <span>범위 · 증가 · 담을 변수</span>
+                <div className="sd-row">
+                  <input
+                    type="number"
+                    value={step.forFrom ?? ''}
+                    placeholder="1"
+                    onChange={(e) => onChange({ forFrom: Number(e.target.value) })}
+                  />
+                  <span className="sd-tilde">~</span>
+                  <input
+                    type="number"
+                    value={step.forTo ?? ''}
+                    placeholder="24"
+                    onChange={(e) => onChange({ forTo: Number(e.target.value) })}
+                  />
+                  <input
+                    type="number"
+                    className="sd-narrow"
+                    value={step.forStep ?? ''}
+                    placeholder="+1"
+                    title="증가 폭"
+                    onChange={(e) => onChange({ forStep: Number(e.target.value) })}
+                  />
+                  <input
+                    className="mono"
+                    value={step.loopVar ?? ''}
+                    placeholder="i"
+                    onChange={(e) => onChange({ loopVar: e.target.value })}
+                  />
+                </div>
+                <span className="sd-hint">
+                  몸통에서 <b>{'${' + (step.loopVar || 'i') + '}'}</b> 로 지금 회차 값을 쓴다.
+                  예: <code>show interface gi0/{'${' + (step.loopVar || 'i') + '}'}</code>
+                </span>
+              </div>
+            ) : (
+              <label className="sd-f">
+                <span>횟수</span>
+                <input
+                  type="number"
+                  value={step.loopCount ?? ''}
+                  placeholder="3"
+                  onChange={(e) => onChange({ loopCount: Number(e.target.value) })}
+                />
+              </label>
+            )}
+            <div className="sd-blk">
+              이 아래로 <b>한 칸 더 들여쓴 줄</b>이 반복 몸통이다. 머리의 ⇥ 로 넣는다.
+            </div>
+          </>
+        )}
+        {kind === 'model' && (
+          <label className="sd-f">
+            <span>모델 이름</span>
+            <input
+              value={step.modelName ?? step.model ?? ''}
+              placeholder="E6100"
+              onChange={(e) => onChange({ modelName: e.target.value })}
+            />
+          </label>
         )}
         {kind === 'wait' && (
           <label className="sd-f">
@@ -283,15 +402,105 @@ export default function TcStepDetail({
             {(step.queries ?? []).map((q, i) => (
               <span className="sd-var" key={`q${i}`} title={q.q ?? ''}>
                 ${q.var || '?'}
+                <button
+                  type="button"
+                  className="sd-var-x"
+                  aria-label={`${q.var || '변수'} 지우기`}
+                  onClick={() =>
+                    onChange({ queries: (step.queries ?? []).filter((_, j) => j !== i) })
+                  }
+                >
+                  ×
+                </button>
               </span>
             ))}
+            {/* extracts 는 옛 이름이다. 새로 만들지 않고 있는 것만 보인다. */}
             {(step.extracts ?? []).map((x, i) => (
               <span className="sd-var" key={`x${i}`} title={x.rule ?? ''}>
                 ${x.var || '?'}
+                <button
+                  type="button"
+                  className="sd-var-x"
+                  aria-label={`${x.var || '변수'} 지우기`}
+                  onClick={() =>
+                    onChange({ extracts: (step.extracts ?? []).filter((_, j) => j !== i) })
+                  }
+                >
+                  ×
+                </button>
               </span>
             ))}
+            <span className="sd-hint">뒤 스텝에서 {'${이름}'} 으로 쓴다</span>
           </div>
         ) : null}
+
+        {/* 자주 안 건드리는 칸. 늘 펼쳐 두면 어느 칸을 채워야 하는지 매번
+            판단하게 된다. */}
+        <details className="sd-more">
+          <summary>세부</summary>
+
+          {isRun && (
+            <>
+              <label className="sd-f">
+                <span>판정 영역 — 응답에서 이 부분만 본다</span>
+                <input
+                  className="mono"
+                  value={String(step.query ?? '')}
+                  placeholder="Port 1/1 .. Port 1/8  ·  /Rate\s+(\d+)/"
+                  onChange={(e) => onChange({ query: e.target.value })}
+                />
+                <span className="sd-hint">
+                  <b>시작..끝</b> 두 마커 줄 사이 · <b>/식/</b> 정규식 매칭 · 그냥 문구면 그
+                  문구가 든 줄만. 비우면 응답 전체.
+                </span>
+              </label>
+              <label className="sd-f">
+                <span>판정에서 뺄 줄</span>
+                <textarea
+                  className="mono"
+                  rows={2}
+                  value={step.excludeLines ?? ''}
+                  placeholder={'uptime\nlast change'}
+                  onChange={(e) => onChange({ excludeLines: e.target.value })}
+                />
+                <span className="sd-hint">
+                  한 줄에 하나. 그 문구가 든 줄은 판정에서 통째로 뺀다 — 돌릴 때마다
+                  달라지는 시각·카운터가 여기 온다.
+                </span>
+              </label>
+            </>
+          )}
+
+          {kind !== 'manual' && (
+            <label className="sd-f">
+              <span>Test Data — 사람이 읽는 값</span>
+              <input
+                value={step.data ?? ''}
+                placeholder={kind === 'cli' ? '명령은 위 칸에 적는다' : ''}
+                onChange={(e) => onChange({ data: e.target.value })}
+              />
+            </label>
+          )}
+
+          <label className="sd-f">
+            <span>실패했을 때 볼 곳</span>
+            <textarea
+              rows={2}
+              value={step.rca ?? ''}
+              placeholder="예) 링크가 안 올라오면 SFP 광 세기부터 본다"
+              onChange={(e) => onChange({ rca: e.target.value })}
+            />
+          </label>
+
+          <label className="sd-f">
+            <span>메모</span>
+            <textarea
+              rows={2}
+              value={step.note ?? ''}
+              onChange={(e) => onChange({ note: e.target.value })}
+            />
+          </label>
+        </details>
 
         {isRun && (
           <>

@@ -662,6 +662,72 @@
 .sd-row > input { min-width: 0; }
 .sd-crit { flex: 0 0 132px; }
 .sd-tilde { color: var(--c-text-faint); }
+.sd-narrow { flex: 0 0 56px; }
+
+/* 건너뛰기. 칸이 아니라 켜고 끄는 것이라 라벨을 위에 두지 않는다. */
+.sd-chk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+
+.sd-chk input { margin: 0; }
+
+.sd-seg { display: flex; gap: 4px; }
+
+/* 블록이 어디까지인지 알려주는 쪽지. 들여쓰기가 곧 중첩이라 처음 보면
+   몸통을 어떻게 넣는지 알 길이 없다. */
+.sd-blk {
+  margin-bottom: var(--sp-3);
+  padding: 7px 10px;
+  border-radius: var(--tc-r);
+  background: #fdf8ec;
+  color: #7a5c12;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+}
+
+.sd-blk.warn { background: #fdf3f3; color: #8a2a2a; }
+
+.sd-hint code {
+  font-family: var(--font-mono);
+  background: var(--tc-hover);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+.sd-var-x {
+  border: 0;
+  background: none;
+  color: inherit;
+  opacity: 0.5;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0 0 0 3px;
+}
+
+.sd-var-x:hover { opacity: 1; color: var(--c-fail); }
+
+/* 자주 안 건드리는 칸 */
+.sd-more { margin-bottom: var(--sp-3); }
+
+.sd-more > summary {
+  padding: 7px 0;
+  color: var(--c-text-faint);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  list-style: none;
+}
+
+.sd-more > summary::-webkit-details-marker { display: none; }
+.sd-more > summary::before { content: '▸ '; }
+.sd-more[open] > summary::before { content: '▾ '; }
+.sd-more > summary:hover { color: var(--c-primary); }
 
 /* 뽑아둔 변수. 정규식을 그대로 보이면 무섭게 읽히므로 이름만 세운다 —
    실제 식은 title 로 붙여 둔다. */
