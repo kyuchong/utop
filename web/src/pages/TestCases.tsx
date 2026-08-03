@@ -11,7 +11,14 @@ import { deviceLabel } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
-import { sessionIndex, type StepKind, type TcData, type TcStep } from '@/components/tc/types'
+import { runSteps, type RunLog } from '@/components/tc/runner'
+import {
+  sessionIndex,
+  stepStatus,
+  type StepKind,
+  type TcData,
+  type TcStep,
+} from '@/components/tc/types'
 import './TestCases.css'
 
 type Tab = 'steps' | 'info' | 'history'
@@ -56,6 +63,11 @@ export default function TestCases() {
   // 편집 중인 TC 전체. 목록의 메타가 아니라 스텝까지 든 원본이다.
   const [d, setD] = useState<TcData>({})
   const [dirty, setDirty] = useState(false)
+
+  const [running, setRunning] = useState(false)
+  /** 지금 돌고 있는 줄. -1 이면 안 돌고 있다 */
+  const [runAt, setRunAt] = useState(-1)
+  const [runLog, setRunLog] = useState<RunLog[]>([])
 
   const splitRef = useRef<HTMLDivElement>(null)
   const [listW, setListW] = useResizableWidth('utop.tc.listW', 250, 170, 460)
@@ -162,8 +174,20 @@ export default function TestCases() {
     setDirty(true)
   }
 
-  const patchStep = (i: number, p: Partial<TcStep>) =>
-    patch({ checks: steps.map((s, j) => (j === i ? { ...s, ...p } : s)) })
+  /**
+   * 스텝 한 줄 고치기.
+   *
+   * 최신 상태에서 갈아끼운다. 화면에서 손으로 고칠 때는 차이가 없지만,
+   * 실행 중에는 스텝 결과가 잇달아 들어와서 닫힌 값(steps)을 쓰면 앞의
+   * 결과가 뒤 결과에 덮여 사라진다.
+   */
+  const patchStep = (i: number, p: Partial<TcStep>) => {
+    setD((c) => {
+      const arr = (c.checks ?? []) as TcStep[]
+      return { ...c, checks: arr.map((s, j) => (j === i ? { ...s, ...p } : s)) }
+    })
+    setDirty(true)
+  }
 
   const addStep = (kind: StepKind) => {
     const next = [...steps, blankStep(kind)]
@@ -243,12 +267,75 @@ export default function TestCases() {
     let pass = 0
     let fail = 0
     for (const s of steps) {
-      const v = (s.status || '').toUpperCase()
+      const v = stepStatus(s)
       if (v === 'PASS') pass++
       else if (v === 'FAIL') fail++
     }
     return { pass, fail, done: pass + fail }
   }, [steps])
+
+  /**
+   * 실행.
+   *
+   * 스텝을 쓰면서 그 자리에서 돌려보는 것이 이 화면의 요점이라, TC Cycle 의
+   * 배치 실행(backend/engine.py)과는 다른 길로 간다 — 여기서는 스텝 하나가
+   * 끝날 때마다 결과가 그 줄에 바로 박힌다.
+   */
+  const runAbort = useRef<AbortController | null>(null)
+
+  const doRun = async (from: number, only: boolean) => {
+    if (running) return
+    if (sessionIds.length === 0) {
+      setMsg({ kind: 'err', text: '세션이 없습니다 — 「+ 세션」 으로 장비를 넣으세요' })
+      return
+    }
+    const ac = new AbortController()
+    runAbort.current = ac
+    setRunning(true)
+    setRunLog([])
+    setMsg({ kind: '', text: only ? '스텝 실행 중…' : '실행 중…' })
+    const began = Date.now()
+    try {
+      const r = await runSteps(
+        {
+          steps,
+          sessions: sessionIds,
+          devById,
+          onStep: patchStep,
+          onAt: setRunAt,
+          onLog: (l) => setRunLog((v) => [...v.slice(-400), l]),
+          signal: ac.signal,
+        },
+        from,
+        only,
+      )
+      setMsg({
+        kind: r.fail > 0 ? 'err' : 'ok',
+        text: `${r.stopped ? '중지됨 · ' : ''}PASS ${r.pass} · FAIL ${r.fail}`,
+      })
+      // 실행 이력은 전체 실행만 남긴다. 한 줄씩 돌려보는 것까지 쌓으면
+      // 이력이 편집 기록이 되어 '언제 통째로 돌렸나' 를 못 찾는다.
+      if (!only && !r.stopped) {
+        void apiFetch(`/api/tc/${encodeURIComponent(openId)}/run-history`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            at: new Date().toISOString(),
+            pass: r.pass,
+            fail: r.fail,
+            sec: Math.round((Date.now() - began) / 1000),
+            sessions: sessionNames,
+          }),
+        }).catch((e) => console.warn('[TestCases.doRun] 이력 저장 실패:', e))
+      }
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setRunning(false)
+      setRunAt(-1)
+      runAbort.current = null
+    }
+  }
 
   const error = tcQ.error ?? reqQ.error
 
@@ -441,13 +528,31 @@ export default function TestCases() {
             {/* 2열 — 스텝 요약 */}
             <section className="panel tc-seqcol" style={{ flexBasis: seqW }}>
               <div className="tc-run">
-                <button className="btn small" type="button" disabled title="다음 작업에서 붙입니다">
+                <button
+                  className="btn small primary"
+                  type="button"
+                  disabled={running || steps.length === 0}
+                  title="처음부터 끝까지 돌립니다"
+                  onClick={() => void doRun(0, false)}
+                >
                   ▶ 전체
                 </button>
-                <button className="btn small" type="button" disabled>
-                  ⏸
+                <button
+                  className="btn small"
+                  type="button"
+                  disabled={running || stepIdx < 0}
+                  title="고른 줄부터 끝까지"
+                  onClick={() => void doRun(stepIdx, false)}
+                >
+                  ▶ 여기부터
                 </button>
-                <button className="btn small" type="button" disabled>
+                <button
+                  className="btn small danger"
+                  type="button"
+                  disabled={!running}
+                  title="중지"
+                  onClick={() => runAbort.current?.abort()}
+                >
                   ⏹
                 </button>
                 <TcSessionBar
@@ -476,7 +581,19 @@ export default function TestCases() {
                   onSelect={setStepIdx}
                   onAdd={addStep}
                   sessionName={sessionName}
+                  runningAt={runAt}
+                  onRun={running ? undefined : (i) => void doRun(i, true)}
                 />
+              )}
+              {runLog.length > 0 && (
+                <div className="tc-runlog">
+                  {runLog.slice(-6).map((l, i) => (
+                    <div className={`rl ${l.kind}`} key={i}>
+                      <span className="rl-n">{l.i + 1}</span>
+                      {l.text}
+                    </div>
+                  ))}
+                </div>
               )}
             </section>
 
@@ -500,6 +617,7 @@ export default function TestCases() {
                 onChange={(p) => stepIdx >= 0 && patchStep(stepIdx, p)}
                 onMove={(dir) => stepIdx >= 0 && moveStep(stepIdx, dir)}
                 onRemove={() => stepIdx >= 0 && removeStep(stepIdx)}
+                onRun={running || stepIdx < 0 ? undefined : () => void doRun(stepIdx, true)}
               />
             </section>
           </>

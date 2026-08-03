@@ -122,11 +122,29 @@ export interface TcStep {
   expected_img?: string
   /** 판정 기준 (문자열 포함 · 정규식) */
   criteria?: string
-  /** 판정 방식 — 포함 · 불포함 · 정규식 등. 옛 화면 값 그대로 */
+  /**
+   * 판정 종류 — contains · contains_all · notcontains · line · none.
+   * 판정을 실제로 가르는 것은 이 값이다(judge.ts).
+   */
+  type?: string
+  /** 판정 영역 좁히기 — `/식/` · `시작..끝` · 문구 */
+  query?: string
+  /**
+   * 판정 방식의 **표시용 이름** ('라인 선택' · '문구 검증' 등).
+   * 판정에는 안 쓴다. 여기에 contains 를 써 넣으면 옛 화면 배지가 깨진다.
+   */
   critMode?: string
   critLines?: string
+  /** 판정에서 뺄 줄. 한 줄에 하나 */
   excludeLines?: string
   excMode?: string
+  /**
+   * 판정 결과 — 'Pass' · 'Fail' · ''(미실행).
+   * 옛 화면이 쓰는 이름이라 실행하면 status 와 함께 이쪽도 채운다.
+   */
+  repeatResult?: string
+  /** 판정이 그렇게 난 이유 */
+  reason?: string
 
   /** Result — 실제 응답 */
   output?: string
@@ -243,6 +261,19 @@ export function stepSummary(s: TcStep): string {
 /** Result 는 이름이 두 벌이다. 새 것부터 본다. */
 export function stepResult(s: TcStep): string {
   return String(s.output ?? s.response ?? '')
+}
+
+/**
+ * 이 스텝의 판정 결과 — 'PASS' · 'FAIL' · ''(미실행).
+ *
+ * 이름이 두 벌이다. 옛 화면은 `repeatResult` 에 'Pass'/'Fail' 을 적고,
+ * 새 화면은 `status` 에 'PASS'/'FAIL' 을 적는다. 실제 자료에는 옛 이름만
+ * 든 스텝이 있어서 둘 다 읽는다 — 한쪽만 보면 656스텝이 전부 미실행으로
+ * 보인다.
+ */
+export function stepStatus(s: TcStep): string {
+  const v = String(s.status ?? s.repeatResult ?? '').trim().toUpperCase()
+  return v === 'PASS' || v === 'FAIL' ? v : ''
 }
 
 /**

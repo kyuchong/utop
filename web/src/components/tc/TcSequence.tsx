@@ -3,6 +3,7 @@ import {
   sessionIndex,
   STEP_KINDS,
   stepKindInfo,
+  stepStatus,
   stepSummary,
   type StepKind,
   type TcStep,
@@ -16,6 +17,8 @@ interface Props {
   onAdd: (kind: StepKind) => void
   /** 세션 번호 → 사람이 읽는 이름 (장비명). 없으면 번호만 */
   sessionName: (i: number) => string
+  /** 지금 돌고 있는 줄. -1 이면 안 돌고 있다 */
+  runningAt?: number
   /** 이 스텝만 실행 */
   onRun?: (i: number) => void
 }
@@ -38,6 +41,7 @@ export default function TcSequence({
   onSelect,
   onAdd,
   sessionName,
+  runningAt = -1,
   onRun,
 }: Props) {
   /** 한 줄 요약. 접속 계열은 세션 이름이 곧 내용이라 여기서 붙인다. */
@@ -51,7 +55,7 @@ export default function TcSequence({
   }
 
   const stat = (s: TcStep) => {
-    const v = (s.status || '').toUpperCase()
+    const v = stepStatus(s)
     if (v === 'PASS') return { cls: 'pass', mark: '✔', label: 'PASS' }
     if (v === 'FAIL') return { cls: 'fail', mark: '✖', label: 'FAIL' }
     return { cls: 'idle', mark: '○', label: '미실행' }
@@ -77,7 +81,9 @@ export default function TcSequence({
                 key={i}
                 role="button"
                 tabIndex={0}
-                className={`sq-row${i === selected ? ' on' : ''}${s.skip ? ' skip' : ''}`}
+                className={`sq-row${i === selected ? ' on' : ''}${s.skip ? ' skip' : ''}${
+                  i === runningAt ? ' now' : ''
+                }`}
                 data-depth={depth || undefined}
                 onClick={() => onSelect(i)}
                 onKeyDown={(e) => {
@@ -87,8 +93,11 @@ export default function TcSequence({
                   }
                 }}
               >
-                <span className={`sq-st ${st.cls}`} title={st.label}>
-                  {st.mark}
+                <span
+                  className={`sq-st ${i === runningAt ? 'now' : st.cls}`}
+                  title={i === runningAt ? '실행 중' : st.label}
+                >
+                  {i === runningAt ? '▸' : st.mark}
                 </span>
                 <span className="sq-n">{i + 1}</span>
                 <span className="sq-act" style={{ marginLeft: depth * 16 }}>

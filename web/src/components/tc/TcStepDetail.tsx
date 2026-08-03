@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { JUDGE_TYPES } from './judge'
 import {
   sessionIndex,
   STEP_KINDS,
   stepKindInfo,
   stepResult,
+  stepStatus,
   type StepKind,
   type TcStep,
 } from './types'
@@ -19,14 +21,6 @@ interface Props {
   onRemove: () => void
   onRun?: () => void
 }
-
-/** 판정 방식. 옛 자료의 critMode 값을 그대로 쓴다. */
-const CRIT_MODES: Array<[string, string]> = [
-  ['contains', '포함하면 PASS'],
-  ['not_contains', '없으면 PASS'],
-  ['regex', '정규식'],
-  ['range', '숫자 범위'],
-]
 
 /**
  * 3열 — 고른 스텝의 세부.
@@ -62,6 +56,7 @@ export default function TcStepDetail({
   const kind = (step.kind || 'cli') as StepKind
   const info = stepKindInfo(kind)
   const result = stepResult(step)
+  const verdict = stepStatus(step)
   const isRun = kind === 'cli' || kind === 'instrument'
   const needsSession = isRun || kind === 'connect' || kind === 'disconnect'
 
@@ -241,21 +236,28 @@ export default function TcStepDetail({
           </label>
         )}
 
-        {/* 판정은 실행하는 스텝에만 둔다 */}
+        {/* 판정은 실행하는 스텝에만 둔다.
+            고르는 값은 `type` 이다 — critMode 는 '라인 선택' 같은 표시용
+            이름이라 거기에 contains 를 써 넣으면 옛 화면 배지가 깨진다. */}
         {isRun && (
           <div className="sd-f">
             <span>Expected</span>
             <div className="sd-row">
               <select
                 className="sd-crit"
-                value={step.critMode || 'contains'}
-                onChange={(e) => onChange({ critMode: e.target.value })}
+                value={String(step.type ?? 'contains')}
+                onChange={(e) => onChange({ type: e.target.value })}
               >
-                {CRIT_MODES.map(([v, l]) => (
+                {JUDGE_TYPES.map(([v, l]) => (
                   <option key={v} value={v}>
                     {l}
                   </option>
                 ))}
+                {/* 옛 자료에 있는 종류(diff·table·expr…)를 고른 채로 두면
+                    목록에 없어서 조용히 contains 로 바뀐다. 자리를 만든다. */}
+                {step.type && !JUDGE_TYPES.some(([v]) => v === step.type) && (
+                  <option value={String(step.type)}>{String(step.type)} (옛 방식)</option>
+                )}
               </select>
               <input
                 className="mono"
@@ -264,6 +266,12 @@ export default function TcStepDetail({
                 onChange={(e) => onChange({ criteria: e.target.value })}
               />
             </div>
+            {step.type !== 'none' && (
+              <span className="sd-hint">
+                대소문자는 안 가립니다. 한 줄에 콤마로 여러 개를 적으면 그 중 하나만
+                맞아도 합격입니다.
+              </span>
+            )}
           </div>
         )}
 
@@ -289,6 +297,8 @@ export default function TcStepDetail({
           <>
             <div className="sd-rlab">
               <span>Result</span>
+              {verdict && <b className={`status ${verdict.toLowerCase()}`}>{verdict}</b>}
+              {step.reason && <span className="sd-why">{step.reason}</span>}
               <span className="sp" />
               {step.executed_at && (
                 <span className="muted small">{step.executed_at.slice(0, 16).replace('T', ' ')}</span>

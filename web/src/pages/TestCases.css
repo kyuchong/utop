@@ -427,6 +427,44 @@
 .sq-st.pass { color: var(--c-pass); }
 .sq-st.fail { color: var(--c-fail); }
 .sq-st.idle { color: #cfd6dd; }
+.sq-st.now { color: var(--c-primary); }
+
+/* 지금 돌고 있는 줄. 고른 줄과 겹칠 수 있어 색이 아니라 왼쪽 띠로 표시한다 */
+.sq-row.now { background: #eef6ff; box-shadow: inset 2px 0 0 var(--c-primary); }
+
+/* 실행 로그 — 최근 몇 줄만. 전체 로그는 스텝의 Result 에 남는다.
+   여기는 '지금 어디까지 갔나' 를 보는 자리라 길면 오히려 안 읽힌다. */
+.tc-runlog {
+  flex: none;
+  border-top: 1px solid var(--tc-line);
+  padding: 5px var(--sp-3);
+  background: var(--tc-bg);
+  font-size: var(--fs-xs);
+  max-height: 118px;
+  overflow: auto;
+}
+
+.tc-runlog .rl {
+  display: flex;
+  gap: 7px;
+  padding: 1px 0;
+  color: var(--c-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tc-runlog .rl-n {
+  flex: none;
+  width: 18px;
+  text-align: right;
+  color: var(--c-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.tc-runlog .rl.pass { color: var(--c-pass); }
+.tc-runlog .rl.fail { color: var(--c-fail); }
+.tc-runlog .rl.skip { color: var(--c-text-faint); }
 
 .sq-n {
   font-size: var(--fs-xs);
@@ -656,6 +694,16 @@
 }
 
 .sd-rlab .sp { margin-left: auto; }
+.sd-rlab .status.pass { color: var(--c-pass); }
+.sd-rlab .status.fail { color: var(--c-fail); }
+
+/* 판정이 그렇게 난 이유. FAIL 만 보고 '왜' 를 다시 찾게 두지 않는다. */
+.sd-why {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .sd-res {
   background: #151c24;
