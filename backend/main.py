@@ -11033,3 +11033,214 @@ async def tc_generate(tc_id: str, payload: dict):
             "embed_ready": bool(docs) or bool(_rag_cfg().get("embed_url")),
         },
     }
+
+
+def _llm_for(use: str, llm_id: str = "") -> Optional[dict]:
+    """이 일에 쓸 LLM 하나.
+
+    `llm_id` 를 주면 그것을 쓴다 — 화면에서 사람이 고른 경우다. 랩 안에
+    있는 로컬 LLM 과 Claude 는 잘하는 일이 달라서, 매번 고를 수 있어야 한다.
+
+    안 주면 설정 → Chat LLM 에 등록한 것 중에서 고른다. `uses` 에 이 일의
+    이름이 들어 있는 것이 먼저고, 없으면 활성인 아무 것. 그것도 없으면
+    None 이고 부르는 쪽이 Claude 로 넘어간다.
+
+    화면에 이미 `uses`·`field_prompts` 칸이 있는데 서버가 아무 데서도 안
+    읽고 있었다. 새 설정 화면을 만드는 대신 그 칸을 쓴다.
+    """
+    try:
+        init_llms_file()
+        llms = load_json(LLMS_FILE).get("llms") or []
+    except Exception as e:
+        print(f"[_llm_for] LLM 목록을 읽지 못했습니다: {e}", flush=True)
+        return None
+    if llm_id:
+        return next((l for l in llms if str(l.get("id")) == llm_id), None)
+    live = [l for l in llms if str(l.get("status", "active")) == "active" and l.get("endpoint")]
+    return next((l for l in live if use in (l.get("uses") or [])), None) or (live[0] if live else None)
+
+
+async def _llm_text(use: str, system: str, user: str, max_tokens: int = 1500,
+                    llm_id: str = "") -> str:
+    """등록 LLM 으로 한 번 물어보고 글자만 돌려준다.
+
+    OpenAI 호환(vLLM 등)과 Anthropic 을 둘 다 받는다. 등록된 것이 없으면
+    `ANTHROPIC_API_KEY` 로 뜬 기본 Claude 를 쓴다 — 설정이 비어 있어도
+    동작은 해야 한다.
+
+    시스템 프롬프트는 설정에서 갈아끼울 수 있다. `field_prompts[use]` 가
+    있으면 그것을 쓰고, 없으면 코드의 기본값을 쓴다. 장비 CLI 는 우리 것이
+    특이해서 프롬프트를 배포 없이 고칠 수 있어야 한다.
+    """
+    # 'claude' 는 등록 목록에 없는 특별한 값 — .env 의 기본 Claude 를 뜻한다
+    llm = None if llm_id == "claude" else _llm_for(use, llm_id)
+    sys_p = str(((llm or {}).get("field_prompts") or {}).get(use) or "").strip() or system
+
+    if llm and str(llm.get("type") or "").lower() not in ("claude", "anthropic", "bedrock"):
+        import httpx
+        base = str(llm.get("endpoint") or "").rstrip("/")
+        url = base if base.endswith("/chat/completions") else base + "/chat/completions"
+        headers = {"Content-Type": "application/json"}
+        if llm.get("apikey"):
+            headers["Authorization"] = "Bearer " + str(llm["apikey"])
+        body = {
+            "model": llm.get("model") or "",
+            "max_tokens": int(llm.get("max_tokens") or max_tokens),
+            "temperature": float(llm.get("temperature") or 0.7),
+            "messages": [{"role": "system", "content": sys_p}, {"role": "user", "content": user}],
+        }
+        try:
+            async with httpx.AsyncClient(timeout=120) as c:
+                r = await c.post(url, json=body, headers=headers)
+                r.raise_for_status()
+                d = r.json()
+            return str(((d.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
+        except Exception as e:
+            # 등록 LLM 이 죽어 있을 수 있다. 조용히 실패하지 않고 Claude 로 넘어간다.
+            print(f"[_llm_text] 등록 LLM({llm.get('name')}) 호출 실패 → Claude 로 시도: {e}", flush=True)
+
+    if claude_client is None:
+        raise HTTPException(
+            503,
+            "쓸 수 있는 LLM 이 없습니다 — 설정 → Chat LLM 에 등록하거나 "
+            ".env 에 ANTHROPIC_API_KEY 를 넣으세요",
+        )
+    try:
+        msg = claude_client.messages.create(
+            model=(llm or {}).get("model") if (llm or {}).get("type", "").lower() in ("claude", "anthropic")
+            else "claude-sonnet-4-5-20250929",
+            max_tokens=max_tokens,
+            system=sys_p,
+            messages=[{"role": "user", "content": user}],
+        )
+        return "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
+    except Exception as e:
+        raise HTTPException(502, f"모델 호출에 실패했습니다: {e}") from e
+
+
+_DESCRIBE_SYSTEM = """당신은 유비쿼스 네트워크 장비 시험 문서를 쓰는 사람이다.
+
+이미 만들어진 시험 절차(스텝)를 읽고, 그 시험의 **목적**과 **사전 준비 조건**을
+한국어로 쓴다. 스텝을 새로 만들거나 고치지 않는다.
+
+규칙:
+- 시험 목적은 '무엇을 확인하는 시험인가' 를 두세 문장으로. 명령을 나열하지
+  말고, 그 명령들로 무엇을 확인하려는 것인지를 쓴다.
+- 사전 준비 조건은 '시작 전에 되어 있어야 하는 것' 을 '- ' 로 시작하는
+  목록으로. 스텝에서 읽어낼 수 있는 것만 쓴다(어떤 장비가 몇 대 필요한지,
+  어떤 접속이 열려 있어야 하는지, 어떤 설정이 미리 있어야 하는지).
+- 스텝에서 알 수 없는 것을 지어내지 않는다. 근거가 없으면 그 항목을 뺀다.
+- 이미 적혀 있는 목적·사전조건이 함께 주어지면, 그것을 참고하되 스텝과
+  어긋나는 부분은 스텝 쪽을 따른다.
+
+JSON 만 출력한다. 형식:
+{"object_md": "...", "precondition_md": "- ...\\n- ..."}
+"""
+
+
+@app.post("/api/tc/{tc_id}/describe")
+async def tc_describe(tc_id: str, payload: dict):
+    """스텝을 읽고 시험 목적·사전 준비 조건을 제안한다. 저장하지 않는다.
+
+    `/api/tc/{id}/generate` 와 반대 방향이다. 저쪽은 '목적 → 스텝' 이고
+    이쪽은 '스텝 → 목적' 이다. 명령어 캡쳐로 스텝을 먼저 만들게 되면서
+    남는 일이 문서 쓰기라 이 방향이 필요해졌다.
+
+    저장하지 않는 이유는 generate 와 같다 — 모델이 쓴 글을 사람이 보기 전에
+    넣으면 틀린 설명이 그대로 문서가 된다.
+    """
+    tc_id = _tc_id_norm(tc_id)
+
+    # 화면이 편집 중인 내용을 그대로 보낼 수 있게 payload 를 먼저 본다.
+    # 저장하지 않은 스텝으로도 목적을 뽑을 수 있어야 한다 — 캡쳐 직후가
+    # 바로 그 순간이다.
+    tc = payload.get("tc") if isinstance(payload.get("tc"), dict) else None
+    if tc is None:
+        tc = await db.tc_get(tc_id)
+    if not isinstance(tc, dict):
+        raise HTTPException(404, "TC 를 찾을 수 없습니다")
+
+    checks = tc.get("checks") if isinstance(tc.get("checks"), list) else []
+    if not checks:
+        raise HTTPException(400, "스텝이 없습니다 — 먼저 스텝을 만드세요")
+
+    sessions = tc.get("sessions") if isinstance(tc.get("sessions"), list) else []
+    sess_txt = []
+    for i, dev_id in enumerate(sessions):
+        try:
+            d = await db.device_get(str(dev_id))
+        except Exception as e:
+            print(f"[tc_describe] 장비 조회 실패({dev_id}): {e}", flush=True)
+            d = None
+        if d:
+            sess_txt.append(f"- S{i+1}: {d.get('model') or '?'} · {d.get('role') or '?'} · {d.get('ip')}")
+        else:
+            sess_txt.append(f"- S{i+1}: (등록에 없는 장비 {dev_id})")
+
+    lines = []
+    for n, c in enumerate(checks[:200], start=1):
+        if not isinstance(c, dict):
+            continue
+        kind = c.get("kind") or "cli"
+        body = (c.get("cli") or c.get("data") or c.get("condition")
+                or c.get("text") or c.get("oid") or c.get("step") or "")
+        crit = c.get("criteria") or ""
+        s = c.get("session")
+        who = f"S{int(s)+1}" if isinstance(s, int) else ""
+        lines.append(
+            f"{n}. [{kind}]{(' ' + who) if who else ''} {str(body).strip()[:200]}"
+            + (f"   → 기대: {str(crit).strip()[:120]}" if crit else "")
+        )
+
+    user = (
+        f"시험 제목: {tc.get('name') or '(없음)'}\n"
+        f"TC ID: {tc_id}\n\n"
+        f"=== 쓰는 장비 ===\n" + ("\n".join(sess_txt) or "(지정 안 됨)") + "\n\n"
+        f"=== 이미 적힌 목적 ===\n{tc.get('object_md') or '(비어 있음)'}\n\n"
+        f"=== 이미 적힌 사전조건 ===\n{tc.get('precondition_md') or '(비어 있음)'}\n\n"
+        f"=== 시험 절차 {len(lines)}스텝 ===\n" + "\n".join(lines) + "\n"
+    )
+
+    raw = await _llm_text(
+        "tc_describe", _DESCRIBE_SYSTEM, user, max_tokens=1500,
+        llm_id=str(payload.get("llm") or ""),
+    )
+
+    m = re.search(r"\{.*\}", raw, re.S)
+    if not m:
+        raise HTTPException(502, "모델이 JSON 을 돌려주지 않았습니다")
+    try:
+        out = json.loads(m.group(0))
+    except json.JSONDecodeError as e:
+        raise HTTPException(502, f"모델 응답을 읽지 못했습니다: {e}") from e
+
+    return {
+        "success": True,
+        "object_md": str(out.get("object_md") or ""),
+        "precondition_md": str(out.get("precondition_md") or ""),
+        "steps": len(lines),
+    }
+
+
+@app.get("/api/llm-choices")
+async def llm_choices():
+    """글을 맡길 수 있는 것들. 화면의 고르는 칸이 이것을 읽는다.
+
+    등록 LLM 과 기본 Claude 를 한 목록으로 준다 — 사람 눈에는 둘 다 그냥
+    '누가 쓸 것인가' 이고, 어디에 등록돼 있는지는 사정이다.
+    """
+    try:
+        init_llms_file()
+        llms = load_json(LLMS_FILE).get("llms") or []
+    except Exception as e:
+        print(f"[llm_choices] LLM 목록을 읽지 못했습니다: {e}", flush=True)
+        llms = []
+    out = [
+        {"id": str(l.get("id")), "name": l.get("name") or l.get("model") or "(이름 없음)",
+         "model": l.get("model") or "", "local": True}
+        for l in llms
+        if str(l.get("status", "active")) == "active" and l.get("endpoint")
+    ]
+    if claude_client is not None:
+        out.append({"id": "claude", "name": "Claude", "model": "claude-sonnet-4-5", "local": False})
+    return {"choices": out}

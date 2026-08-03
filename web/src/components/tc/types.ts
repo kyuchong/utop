@@ -241,6 +241,14 @@ export const STEP_KINDS: Array<{
   label: string
   group: 'run' | 'flow' | 'conn' | 'etc'
   icon: StepIcon
+  /**
+   * 새로 만들 때는 안 보인다.
+   *
+   * 목록에서 아예 빼지 않는 이유: 이미 저장된 스텝이 있다. `model` 만
+   * 81건이다. 빼면 그 81건의 Action 칸이 빈 채로 뜨고, 다른 칸을 고치는
+   * 순간 조용히 다른 종류가 된다.
+   */
+  hidden?: boolean
 }> = [
   { k: 'cli', label: 'CLI', group: 'run', icon: 'cli' },
   { k: 'ping', label: 'Ping', group: 'run', icon: 'ping' },
@@ -252,7 +260,7 @@ export const STEP_KINDS: Array<{
   { k: 'loop', label: 'Loop', group: 'flow', icon: 'loop' },
   { k: 'switch', label: 'Switch', group: 'flow', icon: 'switch' },
   { k: 'wait', label: 'Wait', group: 'flow', icon: 'clock' },
-  { k: 'model', label: 'Model', group: 'etc', icon: 'chip' },
+  { k: 'model', label: 'Model', group: 'etc', icon: 'chip', hidden: true },
   { k: 'comment', label: 'Comment', group: 'etc', icon: 'note' },
   { k: 'message', label: 'Message', group: 'etc', icon: 'note' },
   { k: 'manual', label: 'Manual', group: 'etc', icon: 'hand' },
@@ -270,6 +278,9 @@ export const STEP_KINDS: Array<{
 ]
 
 const KIND_MAP = new Map(STEP_KINDS.map((x) => [x.k, x]))
+
+/** 「+ 스텝」 에 내놓을 것. 옛 자료에만 남은 종류는 뺀다. */
+export const ADD_KINDS = STEP_KINDS.filter((x) => !x.hidden)
 
 /** 모르는 종류가 와도 화면이 비지 않게 한다 — 옛 자료에 무엇이 있을지 모른다 */
 export function stepKindInfo(k?: string) {

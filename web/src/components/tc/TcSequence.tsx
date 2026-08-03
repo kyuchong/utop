@@ -1,7 +1,7 @@
 import StepIcon from './StepIcon'
 import {
+  ADD_KINDS,
   sessionIndex,
-  STEP_KINDS,
   stepKindInfo,
   stepStatus,
   stepSummary,
@@ -160,7 +160,7 @@ export default function TcSequence({
       <details className="sq-add">
         <summary>＋ 스텝</summary>
         <div className="sq-add-list">
-          {STEP_KINDS.map((k) => (
+          {ADD_KINDS.map((k) => (
             <button
               key={k.k}
               type="button"

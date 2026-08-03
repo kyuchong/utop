@@ -600,7 +600,7 @@ export default function TestCases() {
           </section>
         ) : tab === 'info' ? (
           <section className="panel tc-tabcol">
-            <TcInfo data={d} onChange={patch} />
+            <TcInfo data={d} onChange={patch} tcid={openId} />
           </section>
         ) : tab === 'history' ? (
           <section className="panel tc-tabcol">
