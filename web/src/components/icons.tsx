@@ -271,6 +271,26 @@ export const IconHand = (p: P) => (
   </SmallSvg>
 )
 
+/* 들여쓰기 — 블록 안으로 / 밖으로.
+   ⇤ ⇥ 문자를 썼더니 글꼴에 따라 거의 안 보였다(IconChevron 과 같은 사정).
+   편집기에서 쓰는 모양 그대로 — 줄 몇 개와 그 줄을 미는 화살표. */
+
+/** 블록 안으로 (들여쓰기) */
+export const IconIndent = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M11 6h10M11 12h10M11 18h10" />
+    <path d="m3 8 3.5 4L3 16z" fill="currentColor" stroke="none" />
+  </SmallSvg>
+)
+
+/** 블록 밖으로 (내어쓰기) */
+export const IconOutdent = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M11 6h10M11 12h10M11 18h10" />
+    <path d="m7 8-3.5 4L7 16z" fill="currentColor" stroke="none" />
+  </SmallSvg>
+)
+
 /** 재생 — 이 스텝만 실행 */
 export const IconPlay = (p: P) => (
   <SmallSvg {...p}>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { IconIndent, IconOutdent } from '../icons'
 import { JUDGE_TYPES } from './judge'
 import {
   sessionIndex,
@@ -89,24 +90,27 @@ export default function TcStepDetail({
           ▼
         </button>
         {/* 들여쓰기가 곧 블록 중첩이다. If·Loop 의 몸통은 여는 줄보다 한 칸
-            깊은 줄들이라, 이 값을 못 고치면 블록에 넣고 뺄 수가 없다. */}
+            깊은 줄들이라, 이 값을 못 고치면 블록에 넣고 뺄 수가 없다.
+            ⇤ ⇥ 문자는 글꼴에 따라 거의 안 보여서 도형으로 그린다. */}
         <button
-          className="btn small"
+          className="btn small sd-ind"
           type="button"
           disabled={depth <= 0}
-          title="블록 밖으로"
+          title="블록 밖으로 (내어쓰기)"
+          aria-label="블록 밖으로"
           onClick={() => onChange({ indent: depth - 1 })}
         >
-          ⇤
+          <IconOutdent />
         </button>
         <button
-          className="btn small"
+          className="btn small sd-ind"
           type="button"
           disabled={depth >= 4}
-          title="블록 안으로"
+          title="블록 안으로 (들여쓰기)"
+          aria-label="블록 안으로"
           onClick={() => onChange({ indent: depth + 1 })}
         >
-          ⇥
+          <IconIndent />
         </button>
         <button className="btn small danger" type="button" onClick={onRemove}>
           삭제

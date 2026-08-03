@@ -8,6 +8,16 @@ import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTree from '@/components/tc/TcTree'
 import TcSessionBar from '@/components/tc/TcSessionBar'
 import TcTerminal from '@/components/tc/TcTerminal'
+import TcSaveAs from '@/components/tc/TcSaveAs'
+import {
+  buildTcFile,
+  downloadJson,
+  parseTcFile,
+  remapSessions,
+  tcFileName,
+  TcFileError,
+  uniqueTcId,
+} from '@/components/tc/portable'
 import TcInfo from '@/components/tc/TcInfo'
 import TcHistory from '@/components/tc/TcHistory'
 import { deviceLabel } from '@/components/tc/device'
@@ -234,6 +244,82 @@ export default function TestCases() {
     onError: (e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) }),
   })
 
+  /**
+   * 다른 이름으로 저장 · 파일에서 가져오기.
+   *
+   * 둘 다 '내용은 이미 있고 새 ID 만 정하면 되는' 일이라 한 창을 쓴다.
+   */
+  const [saveAs, setSaveAs] = useState<{
+    title: string
+    id: string
+    name: string
+    note?: string
+    data: TcData
+  } | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const takenIds = useMemo(() => new Set(tcs.map((t) => t.tcid)), [tcs])
+
+  const saveAsM = useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const src = saveAs?.data ?? {}
+      await tcApi.save(id, { ...src, tcid: id, name, checks: src.checks ?? [] })
+      return id
+    },
+    onSuccess: (id) => {
+      setSaveAs(null)
+      setDirty(false)
+      setOpenId(id)
+      setMsg({ kind: 'ok', text: `${id} 를 만들었습니다` })
+      void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
+    },
+    onError: (e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) }),
+  })
+
+  /** 지금 TC 를 파일로. 다른 랩의 UTOP 에서 그대로 연다. */
+  const exportTc = () => {
+    if (!openId) return
+    downloadJson(tcFileName(d), buildTcFile({ ...d, tcid: openId }, devById))
+    setMsg({ kind: 'ok', text: '파일로 내보냈습니다' })
+  }
+
+  /**
+   * 파일에서 가져오기.
+   *
+   * 서버가 다르면 장비도 다르다. 세션이 가리키던 장비를 IP·이름·모델로
+   * 찾아 이 서버 것으로 바꿔 준다. 못 찾으면 그대로 두어 세션 칩이
+   * 「없는 장비」로 뜨게 한다 — 아무 장비나 붙이면 엉뚱한 곳에 명령이 나간다.
+   */
+  const importFile = async (file: File) => {
+    try {
+      const f = parseTcFile(await file.text())
+      const tc = { ...f.tc }
+      const sess = Array.isArray(tc.sessions) ? (tc.sessions as string[]) : []
+      const { sessions: mapped, matched } = remapSessions(sess, f.session_devices, devices)
+      tc.sessions = mapped
+
+      const from = f.origin ? `${f.origin} 에서 만든 시험` : '가져온 시험'
+      const dev =
+        sess.length === 0
+          ? '세션 없음'
+          : matched === sess.length
+            ? `장비 ${matched}자리 모두 이 서버 것으로 맞췄습니다`
+            : `장비 ${sess.length}자리 중 ${matched}개만 찾았습니다 — 나머지는 세션에서 고르세요`
+      setSaveAs({
+        title: '파일에서 가져오기',
+        id: uniqueTcId(String(tc.tcid ?? 'TC'), takenIds),
+        name: String(tc.name ?? ''),
+        note: `${from} · ${dev}`,
+        data: tc,
+      })
+    } catch (e) {
+      setMsg({
+        kind: 'err',
+        text: e instanceof TcFileError ? e.message : `읽지 못했습니다 — ${String(e)}`,
+      })
+    }
+  }
+
   const pickTc = (id: string) => {
     if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 옮길까요?')) return
     setOpenId(id)
@@ -322,6 +408,31 @@ export default function TestCases() {
     <>
       {form !== undefined && <TcForm editing={form} onClose={() => setForm(undefined)} />}
       {bulkOpen && <TcBulkForm onClose={() => setBulkOpen(false)} />}
+      {saveAs && (
+        <TcSaveAs
+          title={saveAs.title}
+          defaultId={saveAs.id}
+          defaultName={saveAs.name}
+          note={saveAs.note}
+          taken={takenIds}
+          busy={saveAsM.isPending}
+          onSubmit={(id, name) => saveAsM.mutate({ id, name })}
+          onClose={() => setSaveAs(null)}
+        />
+      )}
+      {/* 파일 고르기는 감춰 둔다 — ⋯ 메뉴가 이 칸을 대신 누른다 */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".json,application/json"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          // 같은 파일을 다시 골라도 change 가 뜨도록 비운다
+          e.target.value = ''
+          if (f) void importFile(f)
+        }}
+      />
 
       {error ? (
         <div className="load-error">
@@ -396,6 +507,44 @@ export default function TestCases() {
                   }}
                 >
                   ⌨ 터미널에서 따오기
+                </button>
+                <hr />
+                {/* 랩마다 UTOP 이 따로 서 있어서 한쪽에서 만든 시험을 다른
+                    쪽에서 그대로 돌리고 싶은 일이 잦다. DB 를 통째로 옮기면
+                    장비 비밀번호까지 따라가므로, 시험 하나만 파일로 뗀다. */}
+                <button
+                  type="button"
+                  disabled={!openId}
+                  onClick={() => {
+                    setMenuOpen(false)
+                    setSaveAs({
+                      title: '다른 이름으로 저장',
+                      id: uniqueTcId(openId, takenIds),
+                      name: `${d.name ?? ''} 복사`.trim(),
+                      data: d,
+                    })
+                  }}
+                >
+                  다른 이름으로 저장
+                </button>
+                <button
+                  type="button"
+                  disabled={!openId}
+                  onClick={() => {
+                    setMenuOpen(false)
+                    exportTc()
+                  }}
+                >
+                  파일로 내보내기
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    fileRef.current?.click()
+                  }}
+                >
+                  파일에서 가져오기
                 </button>
                 <hr />
                 <button type="button" onClick={() => { setMenuOpen(false); setBulkOpen(true) }}>

@@ -1026,3 +1026,34 @@
   padding: 1px 5px;
   white-space: nowrap;
 }
+
+/* 들여쓰기 버튼 — 아이콘만 든 버튼이라 글자 버튼과 같은 여백을 쓰면
+   가운데가 안 맞는다 */
+.sd-ind {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 6px;
+}
+
+/* ── 다른 이름으로 저장 · 가져오기 ────────────────────────── */
+.modal.sa { max-width: 460px; }
+
+.sa-note {
+  padding: 8px 10px;
+  border-radius: var(--tc-r);
+  background: var(--c-surface-info, #f8fbff);
+  color: #355f8c;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.sa-err {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  color: var(--c-fail);
+}
+
+.sa-sp { margin-left: auto; }
+.modal.sa .modal-foot { gap: 6px; }
