@@ -2,7 +2,7 @@
    보이는 선은 얇게(2px) 두되, 잡는 영역은 8px 로 넉넉히 준다 —
    1~2px 짜리는 마우스로 집기가 어렵다. */
 .resizer {
-  flex: 0 0 6px;
+  flex: 0 0 8px;
   align-self: stretch;
   display: flex;
   align-items: center;
@@ -25,9 +25,19 @@
   height: 64px;
 }
 
-/* 좁은 화면에서 패널이 아래로 접히면 세로 조절은 의미가 없다 */
+/* 좁은 화면에서 패널이 아래로 접히면 세로 조절은 의미가 없다.
+   다만 '좁다'의 기준이 1200px 이라 노트북(1366·1440) 아래 해상도나 창을
+   반만 쓰는 경우에 조절바가 통째로 사라졌다 — 정작 폭이 아쉬워서 조절하고
+   싶은 상황이 그때다. 아래로 접히는 화면에만 숨긴다. */
 @media (max-width: 1200px) {
-  .resizer {
+  .split:not(.tc-split) .resizer {
+    display: none;
+  }
+}
+
+/* TC 화면은 세 열을 끝까지 유지한다(아래로 안 접힌다). 정말 좁을 때만 숨긴다 */
+@media (max-width: 820px) {
+  .tc-split .resizer {
     display: none;
   }
 }

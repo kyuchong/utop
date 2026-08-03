@@ -118,7 +118,7 @@
    전에는 반대였다 — 2열이 flex:1 이라 가운데 손잡이를 끌어도 결국 남는
    폭을 2열이 도로 가져가서 아무 변화가 없었고, 3열은 420px 에 묶여 있었다.
    2열은 상태·번호·Action·요약 넉 줄이면 되는데 3열은 칸이 열 개가 넘는다. */
-.tc-seqcol { flex: 0 0 auto; min-width: 260px; }
+.tc-seqcol { flex: 0 1 auto; min-width: 260px; }
 .tc-detcol { flex: 1 1 0; min-width: 320px; }
 
 /* 터미널을 열면 더 좁아지지 않게 막는다. 좁으면 `show running-config`

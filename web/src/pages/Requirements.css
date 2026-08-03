@@ -263,7 +263,9 @@
 /* 좁은 화면에서는 위아래로 쌓는다 (목업은 min-width:1280px 로 포기했던 부분) */
 /* 좁은 화면: 연결 TC 를 아래로 내린다 (분류와 목록이 먼저다) */
 @media (max-width: 1200px) {
-  .split {
+  /* TC 화면(.tc-split)은 빼야 한다. 세 열이 아래로 접히면 스텝을 쓰면서
+     결과를 보는 일이 안 된다 — 그러라고 세 열로 둔 것이다. */
+  .split:not(.tc-split) {
     flex-wrap: wrap;
   }
   .tc-panel {
