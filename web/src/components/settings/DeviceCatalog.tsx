@@ -6,7 +6,7 @@ interface Item {
   kind: string
   name: string
   vendor?: string | null
-  /** kind=model 일 때 속한 모델군(시리즈) */
+  /** kind=model 일 때 속한 모델그룹(시리즈) */
   model_group?: string | null
   family?: string | null
   interfaces?: string | null
@@ -14,12 +14,15 @@ interface Item {
   used?: number
 }
 
+// 넓은 것에서 좁은 것 순으로 둔다 — LAB 안에 장비가 있고, 장비는 Vendor 와
+// 제품군으로 갈리고, 모델그룹은 그 아래 시리즈, 모델명이 가장 아래다.
+// 등록할 때도 이 차례로 채우게 되므로 탭 순서가 곧 작업 순서가 된다.
 const KINDS: Array<{ v: string; label: string; desc: string }> = [
-  { v: 'vendor', label: '제조사', desc: '유비쿼스 · Cisco …' },
-  { v: 'group', label: '모델군', desc: 'E6000 시리즈 · U9500 시리즈 …' },
-  { v: 'family', label: '제품군', desc: 'L2 · L3 · OLT · ONT · CPE · HGW' },
-  { v: 'model', label: '모델명', desc: '제조사 · 모델군 · 제품군 · 기본 인터페이스' },
   { v: 'lab', label: 'LAB', desc: '시험실' },
+  { v: 'vendor', label: 'Vendor', desc: '유비쿼스 · Cisco …' },
+  { v: 'family', label: '제품군', desc: 'L2 · L3 · OLT · ONT · CPE · HGW' },
+  { v: 'group', label: '모델그룹', desc: 'E6000 시리즈 · U9500 시리즈 …' },
+  { v: 'model', label: '모델명', desc: 'Vendor · 모델그룹 · 제품군 · 기본 인터페이스' },
 ]
 
 /**
@@ -34,8 +37,10 @@ const KINDS: Array<{ v: string; label: string; desc: string }> = [
  */
 export default function DeviceCatalog() {
   const qc = useQueryClient()
-  const [kind, setKind] = useState('vendor')
-  const [draft, setDraft] = useState<Item>({ kind: 'vendor', name: '' })
+  // 처음 열리는 탭은 목록 첫 번째와 같아야 한다 — 다르면 어느 탭이 켜져
+  // 있는지 눈으로 한 번 더 찾아야 한다.
+  const [kind, setKind] = useState('lab')
+  const [draft, setDraft] = useState<Item>({ kind: 'lab', name: '' })
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
 
   const listQ = useQuery({
@@ -104,8 +109,8 @@ export default function DeviceCatalog() {
         <div>
           <h3>장비 카탈로그</h3>
           <p className="muted small">
-            제조사·제품군·모델명·LAB 을 여기 등록해두면 장비 등록 화면에서 고르기만 하면
-            됩니다. 손으로 칠 때마다 이름이 갈리는 것을 막습니다.
+            여기 등록해두면 장비 등록 화면에서 고르기만 하면 됩니다.
+            손으로 칠 때마다 이름이 갈리는 것을 막습니다.
           </p>
         </div>
       </div>
@@ -155,7 +160,7 @@ export default function DeviceCatalog() {
                 value={draft.vendor ?? ''}
                 onChange={(e) => setDraft({ ...draft, vendor: e.target.value })}
               >
-                <option value="">제조사</option>
+                <option value="">Vendor</option>
                 {vendors.map((v) => (
                   <option key={v.name}>{v.name}</option>
                 ))}
@@ -164,7 +169,7 @@ export default function DeviceCatalog() {
                 value={draft.model_group ?? ''}
                 onChange={(e) => setDraft({ ...draft, model_group: e.target.value })}
               >
-                <option value="">모델군</option>
+                <option value="">모델그룹</option>
                 {groups.map((v) => (
                   <option key={v.name}>{v.name}</option>
                 ))}

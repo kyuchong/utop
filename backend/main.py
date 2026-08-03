@@ -447,6 +447,68 @@ async def delete_llm(llm_id: str):
     save_json(LLMS_FILE, data)
     return {"success": True}
 
+
+@app.post("/api/llms/{llm_id}/test")
+async def test_llm(llm_id: str):
+    """저장된 설정으로 실제로 한 번 불러 본다.
+
+    주소·모델명·키가 맞는지는 눌러 보기 전에는 알 수 없다. 사내 서버는
+    자주 내려가 있어서, 답이 안 나올 때 '설정이 틀렸나 서버가 죽었나' 를
+    가려주지 않으면 매번 처음부터 의심하게 된다.
+
+    /v1/models 로 먼저 확인한다 — 토큰을 쓰지 않고 인증과 주소만 본다.
+    그것이 없는 서버(일부 vLLM 구성)를 위해 짧은 chat 요청으로 한 번 더 시도한다.
+    """
+    import httpx
+
+    init_llms_file()
+    data = load_json(LLMS_FILE)
+    llm = next((l for l in data["llms"] if l.get("id") == llm_id), None)
+    if llm is None:
+        raise HTTPException(404, "LLM 을 찾을 수 없습니다")
+
+    base = (llm.get("endpoint") or "").rstrip("/")
+    if not base:
+        return {"ok": False, "detail": "엔드포인트가 비어 있습니다"}
+    # 사람은 보통 .../v1 까지 적어 둔다. 안 적었으면 붙여 준다.
+    root = base[:-3].rstrip("/") if base.endswith("/v1") else base
+    model = (llm.get("model") or "").strip()
+    headers = {}
+    if llm.get("apikey"):
+        headers["Authorization"] = f"Bearer {llm['apikey']}"
+
+    async with httpx.AsyncClient(timeout=12) as client:
+        try:
+            r = await client.get(f"{root}/v1/models", headers=headers)
+            if r.status_code == 200:
+                names = [m.get("id") for m in (r.json().get("data") or []) if m.get("id")]
+                if model and names and model not in names:
+                    # 주소는 맞는데 모델 이름이 틀린 경우. 가장 흔한 실수다.
+                    return {
+                        "ok": False,
+                        "detail": f"서버는 응답하는데 '{model}' 모델이 없습니다",
+                        "models": names[:20],
+                    }
+                return {"ok": True, "detail": f"연결됨 (모델 {len(names)}개)", "models": names[:20]}
+            if r.status_code in (401, 403):
+                return {"ok": False, "detail": f"인증 실패 ({r.status_code}) — API Key 를 확인하세요"}
+        except Exception as e:
+            return {"ok": False, "detail": f"연결하지 못했습니다 — {e}"}
+
+        # /v1/models 가 없는 서버. 가장 짧은 요청으로 한 번 더 본다.
+        try:
+            r = await client.post(
+                f"{root}/v1/chat/completions",
+                headers={**headers, "Content-Type": "application/json"},
+                json={"model": model, "messages": [{"role": "user", "content": "ping"}],
+                      "max_tokens": 1},
+            )
+            if r.status_code == 200:
+                return {"ok": True, "detail": "연결됨 (chat 응답 확인)"}
+            return {"ok": False, "detail": f"응답 코드 {r.status_code} — {r.text[:200]}"}
+        except Exception as e:
+            return {"ok": False, "detail": f"연결하지 못했습니다 — {e}"}
+
 # ─────────────────── 사용자 관리 / 인증 ───────────────────
 import hashlib as _hashlib
 import secrets as _secrets

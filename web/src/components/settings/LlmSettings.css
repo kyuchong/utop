@@ -1,0 +1,195 @@
+/* LLM 설정 — Chat LLM 탭의 목록 + 상세 배치.
+   접두사가 llm- 인 이유는 이 화면 밖에서 같은 이름을 쓰지 않게 하기
+   위해서다. CSS 는 전역이라 이름이 겹치면 나중에 불러오는 쪽이 이긴다
+   (Settings.css:158 에 같은 이유가 적혀 있다). */
+
+.llm-wrap {
+  display: flex;
+  gap: var(--sp-3);
+  align-items: flex-start;
+  min-height: 420px;
+}
+
+/* ── 왼쪽 목록 ────────────────────────────────────────────── */
+.llm-list {
+  flex: 0 0 220px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--c-surface);
+}
+
+.llm-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 7px 10px;
+  background: var(--c-surface-alt);
+  border-bottom: 1px solid var(--c-border-soft);
+}
+
+.llm-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.llm-item:last-child {
+  border-bottom: 0;
+}
+
+.llm-item:hover {
+  background: var(--c-surface-info);
+}
+
+/* 고른 줄. 배경만 바꾸면 hover 와 구분이 안 되므로 왼쪽 띠를 함께 준다
+   (REQ 목록과 같은 규칙이다). */
+.llm-item.on,
+.llm-item.on:hover {
+  background: var(--c-primary-bg);
+  box-shadow: inset 3px 0 0 var(--c-primary);
+}
+
+.llm-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.llm-item-text b,
+.llm-item-text span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 활성 여부. 글자로 '활성/비활성' 을 붙이면 이름 자리를 먹는다. */
+.llm-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-border);
+}
+
+.llm-dot.on {
+  background: var(--c-pass, #1f9254);
+}
+
+/* ── 오른쪽 상세 ──────────────────────────────────────────── */
+.llm-detail {
+  flex: 1;
+  min-width: 0;
+}
+
+.llm-detail-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+
+.llm-title {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  background: transparent;
+  color: inherit;
+}
+
+/* 이름은 평소엔 제목처럼 보이다가, 손을 대면 고칠 수 있다는 것이 보여야
+   한다. 테두리를 항상 그려두면 제목이 입력칸처럼 보인다. */
+.llm-title:hover,
+.llm-title:focus {
+  border-color: #b6bec8;
+  background: var(--c-surface);
+}
+
+.llm-detail-head select {
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  background: var(--c-surface);
+  font: inherit;
+}
+
+/* 카드 3개를 폭에 맞춰 흘린다. 좁아지면 한 줄씩 내려간다 —
+   억지로 3열을 유지하면 칸 너비가 40px 까지 줄어 아무것도 못 읽는다. */
+.llm-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--sp-3);
+  align-items: start;
+}
+
+/* 이 화면의 라벨은 'Frequency Penalty' 처럼 길다. 설정 기본값인
+   84px 격자(오른쪽 정렬)에 넣으면 두 줄로 접히고 값과 어긋난다.
+   위아래로 되돌린다.
+
+   `.set-page` 를 앞에 붙이는 이유는 우선순위 때문이다. Settings.css 의
+   `.set-page .fld` 와 자릿수가 같으면 나중에 불러온 쪽이 이기는데,
+   그 순서는 import 순서에 딸려 있어 눈에 보이지 않는다. 한 자리 올려
+   순서와 무관하게 이기게 한다. */
+.set-page .llm-cols .fld {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  margin-bottom: var(--sp-2);
+}
+
+.set-page .llm-cols .fld > span {
+  text-align: left;
+}
+
+.set-page .llm-cols .fld input,
+.set-page .llm-cols .fld select {
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  background: var(--c-surface);
+  font: inherit;
+  color: inherit;
+  width: 100%;
+}
+
+/* ── 아래 버튼 줄 ─────────────────────────────────────────── */
+.llm-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+/* 확인 결과는 버튼 왼쪽에 흐르게 둔다. 길어지면 버튼을 밀어내지 않도록
+   남는 자리를 먼저 먹는다. */
+.llm-foot > .muted {
+  margin-right: auto;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .llm-wrap {
+    flex-direction: column;
+  }
+
+  .llm-list {
+    flex: none;
+    width: 100%;
+  }
+}

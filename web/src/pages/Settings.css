@@ -67,6 +67,12 @@
   max-width: 720px;
 }
 
+/* 목록과 상세를 나란히 두는 화면은 720px 로는 좁다 — 상세가 456px 로
+   줄어 파라미터 카드 3개가 한 줄로 쌓인다. 그 화면만 상한을 올린다. */
+.set-page.wide {
+  max-width: 1280px;
+}
+
 .set-head {
   display: flex;
   align-items: flex-start;
@@ -141,6 +147,28 @@
   background: #fdf4f4;
   border: 1px solid #f0c8c8;
   color: #8a2a2a;
+}
+
+/* ── 설정 화면 글자 크기 ──────────────────────────────────────
+   전역 `.small` 은 11px 다. 표 머리나 배지에는 맞지만 설정 화면은
+   설명 문장이 많아서, 문단 전체가 11px 로 깔리면 읽기 어렵다.
+   그래서 이 화면 안에서만 바닥을 12px 로 올리고 한 단계로 통일한다.
+
+   전역 `.small` 을 바꾸지 않는 이유: TC 목록의 표 머리·ID·상태 배지가
+   전부 같은 클래스를 쓴다. 거기까지 커지면 목록에 들어가는 줄 수가 준다. */
+.set-wrap .small,
+.set-wrap .muted.small,
+.set-wrap .set-note,
+.set-wrap .seg-btn .cnt,
+.set-wrap .fld > span {
+  font-size: var(--fs-sm);
+}
+
+/* 화면 맨 위 설명은 문장이라 본문 크기로 둔다 */
+.set-head p {
+  font-size: var(--fs-md);
+  line-height: 1.55;
+  margin: 4px 0 0;
 }
 
 .set-todo {

@@ -99,10 +99,11 @@ export default function CodeSettings() {
     <div className="set-page">
       <div className="set-head">
         <div>
-          <h3>코드 관리</h3>
+          <h3>TC INFO 필드</h3>
           <p className="muted small">
-            TC 유형·상태·중요도처럼 드롭다운에 들어가는 값을 여기서 정합니다. 고치면
-            TC 편집 화면과 Coverages 목록에 바로 반영됩니다.
+            TC 상세 「기본」 카드의 상태·유형·심각도처럼 <b>고를 값</b>을 여기서 정합니다.
+            고치면 TC 상세와 추가 창에 함께 반영됩니다.
+            칸 자체를 늘리는 것은 「커스텀 필드」에서 합니다.
           </p>
         </div>
       </div>

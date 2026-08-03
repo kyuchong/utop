@@ -3,7 +3,7 @@
 
 # API Reference
 
-총 라우트 수: **269** (그룹 81개)
+총 라우트 수: **270** (그룹 81개)
 
 `auth` 컬럼은 endpoint 시그니처에서 감지한 인증/권한 의존성 이름 (best-effort).
 
@@ -312,7 +312,7 @@
 | POST | `/api/llm/ask` | 자연어 질문 → 학습 데이터 검색 + LLM(gemma) 요약 답변 (근거 포함). | token param |
 | POST | `/api/llm/generate` | 자연어 시험 목적 → 시험 절차(steps) 생성. 등록 LLM(vLLM) + 학습 예시 few-shot + JSON 강제. | token param |
 
-## `/api/llms` (6개)
+## `/api/llms` (7개)
 
 | method | path | summary | auth |
 |---|---|---|---|
@@ -322,6 +322,7 @@
 | POST | `/api/llms/reorder` | LLM 목록 순서 재배치 (드래그) |  |
 | DELETE | `/api/llms/{llm_id}` |  |  |
 | PUT | `/api/llms/{llm_id}` |  |  |
+| POST | `/api/llms/{llm_id}/test` | 저장된 설정으로 실제로 한 번 불러 본다. |  |
 
 ## `/api/locks` (5개)
 

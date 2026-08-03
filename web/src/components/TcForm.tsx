@@ -191,7 +191,7 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
             <label className="fld">
               <span>유형</span>
               {/* 자유 입력이면 'FT' 와 'ft' 가 갈려 같은 유형이 둘로 보인다.
-                  목록은 설정 → 코드 관리에서 늘린다. */}
+                  목록은 설정 → TC INFO 필드에서 늘린다. */}
               <select value={type} onChange={(e) => setType(e.target.value)}>
                 <option value="">(선택)</option>
                 {TYPES.map((s) => (

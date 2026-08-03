@@ -4,6 +4,13 @@ interface Props {
   fields: CustomField[]
   values: Record<string, unknown>
   onChange: (key: string, v: unknown) => void
+  /**
+   * 칸만 내놓는다. 줄 묶음(.frow)과 구분선을 붙이지 않는다.
+   *
+   * TC 상세는 이미 `.tc-grid` 가 폭에 맞춰 칸을 흘려보내고 있어서,
+   * 여기서 또 줄을 묶으면 격자 안에 격자가 생겨 칸 너비가 어긋난다.
+   */
+  flat?: boolean
 }
 
 /**
@@ -17,7 +24,7 @@ interface Props {
  * 묶는다. 설정에 '폭' 을 두지 않는 이유는, 칸을 만드는 사람이 화면 폭까지
  * 신경 쓰게 하고 싶지 않아서다.
  */
-export default function CustomFieldInputs({ fields, values, onChange }: Props) {
+export default function CustomFieldInputs({ fields, values, onChange, flat }: Props) {
   if (fields.length === 0) return null
 
   // textarea 는 자기 혼자 한 줄, 나머지는 3개씩 묶는다.
@@ -111,6 +118,10 @@ export default function CustomFieldInputs({ fields, values, onChange }: Props) {
       </label>
     )
   }
+
+  // 격자 안에 들어갈 때는 칸만 내놓는다. 어디까지가 늘린 칸인지는
+  // 부르는 쪽이 카드 제목으로 이미 말해 준다.
+  if (flat) return <>{fields.map(render)}</>
 
   return (
     <>

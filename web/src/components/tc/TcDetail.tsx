@@ -6,6 +6,8 @@ import TcTopology from './TcTopology'
 import TcSteps from './TcSteps'
 import TcGenerate from './TcGenerate'
 import { useCodes } from '@/hooks/useCodes'
+import { useCustomFields } from '@/hooks/useCustomFields'
+import CustomFieldInputs from '../CustomFieldInputs'
 import type { TcData } from './types'
 import './tc.css'
 
@@ -21,7 +23,7 @@ const TABS: Array<{ k: Tab; label: string }> = [
 ]
 
 // 서버가 아직 값을 안 준 첫 렌더에서 드롭다운이 비지 않도록 하는 기본값.
-// 진짜 목록은 설정 → 코드 관리에 있다.
+// 진짜 목록은 설정 → TC INFO 필드에 있다.
 const FB_STATUS = ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류']
 const FB_SEVERITY = ['치명', '중대', '보통', '경미']
 const FB_RUN_TYPE = ['수동', '자동', '혼합']
@@ -51,6 +53,9 @@ export default function TcDetail({ tcid, onClose }: Props) {
   const RUN_TYPES = useCodes('tc_run_type', FB_RUN_TYPE)
   const TYPES = useCodes('tc_type', FB_TYPE)
   const ORIGINS = useCodes('tc_origin', FB_ORIGIN)
+  // 설정 → 커스텀 필드에서 늘린 칸. 목록에는 열이 뜨는데 여기서 고칠 수
+  // 없으면 값을 넣을 방법이 없다 — 이 화면이 TC 를 고치는 자리다.
+  const cf = useCustomFields('tc')
   const [d, setD] = useState<TcData>({})
   const [dirty, setDirty] = useState(false)
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
@@ -232,6 +237,32 @@ export default function TcDetail({ tcid, onClose }: Props) {
                 </label>
               </div>
             </section>
+
+            {/* 설정 → 커스텀 필드에서 늘린 칸. 기본 칸과 한 카드에 섞으면
+                어디까지가 원래 있던 것인지 알 수 없어 카드를 나눈다. */}
+            {cf.inForm.length > 0 && (
+              <section className="tc-card">
+                <div className="tc-card-head">
+                  <b>추가 항목</b>
+                  <span className="muted small">설정 → 커스텀 필드에서 정합니다</span>
+                </div>
+                <div className="tc-grid">
+                  <CustomFieldInputs
+                    flat
+                    fields={cf.inForm}
+                    values={(d.custom as Record<string, unknown>) ?? {}}
+                    onChange={(k, v) =>
+                      patch({
+                        custom: {
+                          ...((d.custom as Record<string, unknown>) ?? {}),
+                          [k]: v,
+                        },
+                      })
+                    }
+                  />
+                </div>
+              </section>
+            )}
 
             <section className="tc-card">
               <div className="tc-card-head">

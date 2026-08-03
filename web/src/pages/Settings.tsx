@@ -5,7 +5,9 @@ import CodeSettings from '@/components/settings/CodeSettings'
 import CustomFieldSettings from '@/components/settings/CustomFieldSettings'
 import './Settings.css'
 
-type Section = 'llm' | 'accounts' | 'perms' | 'chat' | 'catalog' | 'codes' | 'fields'
+// 'chat' 은 없앴다 — Chat 모델 설정은 'llm' 안의 탭으로 들어갔다.
+// 서버 연결과 모델 설정을 따로 두면 같은 모델을 두 군데서 고치게 된다.
+type Section = 'llm' | 'accounts' | 'perms' | 'catalog' | 'codes' | 'fields'
 
 /**
  * 설정 화면.
@@ -17,20 +19,20 @@ type Section = 'llm' | 'accounts' | 'perms' | 'chat' | 'catalog' | 'codes' | 'fi
 const SECTIONS: Array<{ key: Section; label: string; desc: string; ready: boolean }> = [
   {
     key: 'llm',
-    label: 'LLM 연결',
-    desc: 'Chat · 임베딩 · 리랭커 서버',
+    label: 'LLM 설정',
+    desc: '',
     ready: true,
   },
   {
     key: 'catalog',
     label: '장비 카탈로그',
-    desc: '제조사 · 제품군 · 모델명 · LAB',
+    desc: '',
     ready: true,
   },
   {
     key: 'codes',
-    label: '코드 관리',
-    desc: 'TC 유형 · 상태 · 중요도 드롭다운 값',
+    label: 'TC INFO 필드',
+    desc: 'TC 상세 「기본」 칸의 고를 값',
     ready: true,
   },
   {
@@ -38,12 +40,6 @@ const SECTIONS: Array<{ key: Section; label: string; desc: string; ready: boolea
     label: '커스텀 필드',
     desc: 'TC · 요구사항에 우리 팀 항목 추가',
     ready: true,
-  },
-  {
-    key: 'chat',
-    label: 'Chat 모델별 설정',
-    desc: '모델 선택 · 프롬프트 · 온도',
-    ready: false,
   },
   {
     key: 'accounts',
@@ -77,7 +73,9 @@ export default function Settings() {
               {s.label}
               {!s.ready && <span className="tag">준비 중</span>}
             </div>
-            <div className="muted small">{s.desc}</div>
+            {/* 설명이 없으면 줄 자체를 내지 않는다. 빈 div 를 두면
+                그 항목만 높이가 남아 목록이 어긋나 보인다. */}
+            {s.desc && <div className="muted small">{s.desc}</div>}
           </button>
         ))}
       </nav>
