@@ -1,118 +1,518 @@
-.tc-list {
-  flex: 1;
-  min-height: 0;
-  margin-top: 14px;
-}
+/* 테스트케이스 화면 — 3열.
+   1열 TC 목록 · 2열 스텝 요약 · 3열 스텝 세부.
+   요구사항은 상단 버튼으로 띄우는 팝업이라 열을 차지하지 않는다. */
 
-.tc-list .panel-title {
-  gap: var(--sp-4);
-}
-
-.tc-filters {
+/* ── 상단 한 줄 ───────────────────────────────────────────── */
+.tc-bar {
   display: flex;
-  gap: 7px;
-  flex: 1;
-  min-width: 0;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  min-height: 44px;
 }
 
-.tc-filters input,
-.tc-filters select {
+.tc-bar .sp { margin-left: auto; }
+
+.tc-bar-ttl {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-left: var(--sp-2);
+}
+
+.tc-bar-ttl b { font-size: var(--fs-lg); }
+
+/* 지금 걸린 요구사항. 켜져 있을 때만 색을 준다 — 늘 파랗게 두면
+   필터가 걸린 것인지 그냥 버튼인지 구분이 안 된다. */
+.tc-reqbtn.on {
+  border-color: var(--c-primary);
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+}
+
+.tc-reqx {
+  border: 0;
+  background: transparent;
+  color: var(--c-primary);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 999px;
+  margin-left: -4px;
+}
+
+.tc-reqx:hover { background: var(--c-primary); color: #fff; }
+
+/* ⋯ 메뉴 */
+.tc-more { position: relative; }
+
+.tc-dots {
+  padding: 4px 9px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--c-text-muted);
+}
+
+/* 바깥을 눌러 닫는 판. 메뉴보다 아래에 깔린다. */
+.tc-menu-back { position: fixed; inset: 0; z-index: 20; }
+
+.tc-menu {
+  position: absolute;
+  right: 0;
+  top: 34px;
+  z-index: 21;
+  min-width: 178px;
+  padding: 5px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+}
+
+.tc-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+  cursor: pointer;
+}
+
+.tc-menu button:hover:not(:disabled) { background: var(--c-primary-bg); color: var(--c-primary); }
+.tc-menu button:disabled { color: var(--c-text-faint); cursor: default; }
+.tc-menu hr { border: 0; border-top: 1px solid var(--c-border-soft); margin: 4px 2px; }
+
+/* ── 열 ──────────────────────────────────────────────────── */
+.tc-split { flex: 1; min-height: 0; }
+.tc-listcol, .tc-seqcol { flex: 0 0 auto; min-width: 0; }
+.tc-detcol { flex: 1; min-width: 0; }
+
+.tc-col-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 7px var(--sp-3);
+  border-bottom: 1px solid var(--c-border-soft);
+}
+
+.tc-col-head .panel-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+}
+
+.tc-search { padding: var(--sp-2) var(--sp-3); }
+
+.tc-search input {
+  width: 100%;
   border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
   padding: 6px 8px;
-  background: var(--c-surface);
+  font: inherit;
+  font-size: var(--fs-sm);
 }
 
-.tc-filters input {
-  flex: 1;
-  min-width: 120px;
+/* ── 1열: TC 한 줄 ───────────────────────────────────────── */
+.tc-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  text-align: left;
+  padding: 6px var(--sp-3);
+  border: 0;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: transparent;
+  color: var(--c-text);
+  cursor: pointer;
 }
 
-.tc-filters select {
-  max-width: 220px;
+.tc-item:hover { background: var(--c-surface-info); }
+
+/* 고른 줄은 배경만으로는 hover 와 안 갈린다. 왼쪽 띠를 함께 준다
+   (REQ 목록과 같은 규칙). */
+.tc-item.on,
+.tc-item.on:hover {
+  background: var(--c-primary-bg);
+  box-shadow: inset 4px 0 0 var(--c-primary);
 }
 
-.tc-stat {
+.tc-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
   flex: none;
+  background: var(--c-idle);
+}
+
+.tc-dot.pass { background: var(--c-pass); }
+.tc-dot.fail { background: var(--c-fail); }
+.tc-dot.draft { background: var(--c-draft); }
+
+.tc-item-txt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.tc-item-txt b,
+.tc-item-txt span {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.tc-table {
+/* CLI 스텝 수. 몇 줄짜리 시험인지가 목록에서 가장 궁금하다. */
+.tc-item-n {
+  margin-left: auto;
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  background: var(--c-surface-alt);
+  border-radius: 999px;
+  padding: 0 6px;
+}
+
+/* ── 2열: 실행 바 + 스텝 ─────────────────────────────────── */
+.tc-run {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px var(--sp-3);
+  background: var(--c-surface-info);
+  border-bottom: 1px solid var(--c-border-soft);
+  flex-wrap: wrap;
+}
+
+.tc-run .sp { margin-left: auto; }
+
+.tc-sess {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  padding: 2px 7px;
+}
+
+.tc-sess i { width: 6px; height: 6px; border-radius: 50%; background: var(--c-pass); }
+
+.sq { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sq-list { flex: 1; min-height: 0; overflow: auto; }
+
+.sq-row {
+  display: grid;
+  grid-template-columns: 22px 22px minmax(76px, auto) 1fr 26px;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  text-align: left;
+  padding: 5px var(--sp-3);
+  border: 0;
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: transparent;
+  color: var(--c-text);
+  cursor: pointer;
+}
+
+.sq-row:hover { background: var(--c-surface-info); }
+.sq-row.on { background: var(--c-primary-bg); border-left-color: var(--c-primary); }
+
+/* 건너뛰는 스텝은 흐리게. 지우지 않고 잠시 빼두는 일이 잦다. */
+.sq-row.skip { opacity: 0.45; }
+
+.sq-st { font-size: var(--fs-sm); text-align: center; }
+.sq-st.pass { color: var(--c-pass); }
+.sq-st.fail { color: var(--c-fail); }
+.sq-st.idle { color: #c3cbd4; }
+
+.sq-n {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  text-align: right;
+}
+
+/* Action 이 명령 팔레트를 겸한다. 마우스를 올리면 누를 수 있다는 것이
+   보이도록 테두리를 띄운다. */
+.sq-act {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.sq-row:hover .sq-act {
+  background: var(--c-surface);
+  box-shadow: inset 0 0 0 1px var(--c-border-soft);
+}
+
+.sq-sq { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+
+/* 종류를 넷으로만 갈라 색을 준다. 열두 개에 다 다른 색을 주면
+   무엇이 무엇인지 외워야 한다. */
+.g-run { background: #4a86d8; }
+.g-flow { background: #d0a244; }
+.g-conn { background: #4aa06e; }
+.g-etc { background: #a8b0b8; }
+
+.sq-sum {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sq-run {
+  border: 0;
+  background: none;
+  color: var(--c-text-faint);
+  cursor: pointer;
+  font-size: var(--fs-xs);
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+}
+
+.sq-run:hover { background: var(--c-primary-bg); color: var(--c-primary); }
+
+/* 스텝 추가 — 종류를 여기서 고른다 */
+.sq-add { border-top: 1px solid var(--c-border-soft); }
+
+.sq-add > summary {
+  padding: 8px var(--sp-3);
+  color: var(--c-primary);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  list-style: none;
+}
+
+.sq-add > summary::-webkit-details-marker { display: none; }
+.sq-add > summary:hover { background: var(--c-primary-bg); }
+
+.sq-add-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 0 var(--sp-3) var(--sp-3);
+}
+
+.sq-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 999px;
+  padding: 3px 11px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  color: var(--c-text);
+}
+
+.sq-add-btn:hover { border-color: var(--c-primary); color: var(--c-primary); }
+
+/* ── 3열: 스텝 세부 ─────────────────────────────────────── */
+.sd { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+
+.sd-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px var(--sp-3);
+  border-bottom: 1px solid var(--c-border-soft);
+}
+
+.sd-head .sp { margin-left: auto; }
+
+.sd-body { flex: 1; min-height: 0; overflow: auto; padding: var(--sp-3); }
+
+.sd-f { display: block; margin-bottom: var(--sp-3); }
+
+.sd-f > span {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  margin-bottom: 3px;
+}
+
+.sd-f input,
+.sd-f select,
+.sd-f textarea {
+  width: 100%;
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 6px 9px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  background: var(--c-surface);
+  color: inherit;
+}
+
+.sd-f input.mono,
+.sd-f textarea.mono {
+  font-family: var(--font-mono);
+}
+
+.sd-f textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+
+/* 칸 아래 덧붙이는 안내. 라벨과 헷갈리지 않게 아래에 작게 둔다. */
+.sd-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+
+.sd-row { display: flex; gap: 6px; align-items: center; }
+.sd-row > input { min-width: 0; }
+.sd-crit { flex: 0 0 128px; }
+.sd-tilde { color: var(--c-text-faint); }
+
+/* 뽑아둔 변수. 정규식을 그대로 보이면 무섭게 읽히므로 이름만 세운다 —
+   실제 식은 title 로 붙여 둔다. */
+.sd-vars {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: var(--sp-3);
+}
+
+.sd-vars-lb { font-size: var(--fs-xs); color: var(--c-text-faint); }
+
+.sd-var {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  background: #fdf6e3;
+  border: 1px solid #ecdfae;
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+  color: #7a5c00;
+}
+
+.sd-rlab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  margin-bottom: 4px;
+}
+
+.sd-rlab .sp { margin-left: auto; }
+
+.sd-res {
+  background: #151c24;
+  color: #dae4ef;
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.65;
+  margin: 0;
+  overflow: auto;
+  max-height: 260px;
+  /* 글자를 끌어 판정·변수로 만드는 자리다. 선택이 편해야 한다. */
+  user-select: text;
+  cursor: text;
+}
+
+.sd-res.empty-res {
+  background: var(--c-surface-alt);
+  color: var(--c-text-faint);
+  font-family: inherit;
+  cursor: default;
+}
+
+.sd-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--sp-2);
+}
+
+/* ── 요구사항 고르기 팝업 ───────────────────────────────── */
+.modal.rp {
+  width: min(640px, 92vw);
+  max-height: 76vh;
   display: flex;
   flex-direction: column;
 }
 
-.tcr {
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(160px, 1fr) 110px 60px 96px;
-  align-items: center;
-  gap: 0;
-  width: 100%;
-  min-height: 38px;
-  padding: 0;
-  border: 0;
-  border-bottom: 1px solid var(--c-border-soft);
-  background: transparent;
-  text-align: left;
-  color: var(--c-text);
-}
-
-.tcr > div {
-  padding: 4px var(--sp-2);
-  min-width: 0;
-}
-
-.tcr.th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  min-height: 36px;
-  background: var(--c-surface-alt);
-  color: #5b6670;
-  font-size: var(--fs-label);
-}
-
-.tcr:not(.th):hover {
-  background: var(--c-surface-info);
-}
-
-/* ID + 제목을 한 줄에. 두 줄로 쓰면 목록이 절반밖에 안 들어간다. */
-.tc-main {
+.rp-top {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
-  min-width: 0;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--c-border-soft);
 }
 
-.tc-main .id-cell {
-  width: 160px;
-}
-
-.tc-title {
+.rp-top input {
   flex: 1;
   min-width: 0;
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 7px 9px;
+  font: inherit;
+}
+
+.rp-body { flex: 1; min-height: 0; overflow: auto; padding: var(--sp-2) 0 var(--sp-3); }
+
+.rp-cat-nm {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  padding: 6px var(--sp-3) 2px;
+}
+
+.rp-req {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 5px var(--sp-3);
+  font: inherit;
+  color: var(--c-text);
+  cursor: pointer;
+}
+
+.rp-req:hover { background: var(--c-surface-info); }
+.rp-req.on { background: var(--c-primary-bg); color: var(--c-primary); }
+
+.rp-t {
+  flex: 1;
+  min-width: 0;
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ell {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* req_id 는 있는데 그 요구사항이 없는 경우 — 데이터가 어긋난 상태라 눈에 띄어야 한다 */
-.orphan {
-  color: var(--c-draft);
-}
-
-/* 좁은 화면에서는 요구사항 열을 접는다 */
-@media (max-width: 1000px) {
-  .tcr {
-    grid-template-columns: minmax(180px, 1fr) 100px 50px 90px;
-  }
-  .tcr > div:nth-child(2) {
-    display: none;
-  }
-}
+.rp-n { flex: none; font-size: var(--fs-xs); color: var(--c-text-faint); }

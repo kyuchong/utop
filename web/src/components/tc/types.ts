@@ -47,31 +47,192 @@ export interface TcLink {
 }
 
 /**
+ * 스텝 종류 (Action).
+ *
+ * 실제 자료에 있는 값을 전부 적는다. 전에는 'manual' | 'auto' 두 개뿐이라
+ * 656스텝 중 7개만 화면에 나왔다 — cli·if·loop 가 어느 탭에도 안 걸렸다.
+ *
+ * 값은 옛 화면이 쓰던 문자열 그대로다. 이름을 바꾸면 이미 저장된 656스텝을
+ * 전부 고쳐야 하고, 옛 화면과도 갈린다.
+ */
+export type StepKind =
+  // 실행
+  | 'cli'
+  | 'instrument'
+  // 흐름
+  | 'if'
+  | 'loop'
+  | 'switch'
+  | 'wait'
+  // 접속
+  | 'connect'
+  | 'disconnect'
+  // 기타
+  | 'model'
+  | 'comment'
+  | 'message'
+  | 'manual'
+  | 'auto'
+
+/** 응답에서 정규식으로 값을 뽑아 변수에 담는다 (iTest 의 Response Map) */
+export interface TcQuery {
+  /** 정규식. 옛 자료는 /…/m 형태로 슬래시까지 들어 있다 */
+  q?: string
+  /** 담을 변수 이름 */
+  var?: string
+}
+
+/** queries 와 같은 일을 하는 옛 형태. 둘 다 살아 있어 함께 읽는다. */
+export interface TcExtract {
+  var?: string
+  rule?: string
+}
+
+/**
  * 스텝 하나.
  *
- * 수동 시험은 사람이 보고 판단하므로 결과·RCA 칸을 두지 않는다.
- * 자동 시험만 response·판정기준·RCA 를 쓴다.
+ * 한 배열(checks)에 종류가 섞여 순서대로 들어간다. 나누면 순서가 어긋난다.
+ * 블록(if·loop·switch)은 indent 로 중첩을 나타낸다 — 652스텝이 이 값을 갖고 있다.
  */
 export interface TcStep {
   /** 화면 표시용 번호는 순서에서 만든다. 저장하지 않는다 */
-  kind?: 'manual' | 'auto'
-  /** 자동일 때 어느 세션으로 보낼지 (슬롯 key) */
-  session?: string
-  /** 시험 절차 */
+  kind?: StepKind
+  /**
+   * 어느 세션으로 보낼지.
+   *
+   * 실제 자료는 **`data.sessions` 배열의 인덱스**(0, 1)를 담고 있다.
+   * 'sN' 형태도 두 건 있어서 둘 다 받는다 — 옛 화면이 중간에 바뀐 흔적이다.
+   */
+  session?: string | number
+  /** 블록 중첩 깊이. 0 이 최상위 */
+  indent?: number
+  /** 이 스텝을 건너뛴다 */
+  skip?: boolean
+
+  /** Test Step — 무엇을 하는가 (사람이 읽는 절차) */
   step?: string
-  /** 넣는 값 · 명령 */
+  /** Test Data — 보낼 값. kind=cli 는 아래 cli 를 쓴다 */
   data?: string
   data_img?: string
-  /** 기대 결과 */
+  /** kind=cli 의 실제 명령. data 와 나뉘어 있는 것은 옛 화면 구조 그대로다 */
+  cli?: string
+
+  /** Expected — 기대 결과 */
   expected?: string
   expected_img?: string
-  /** 자동: 실제 응답 */
-  response?: string
-  /** 자동: 판정 기준 (문자열 포함 · 정규식) */
+  /** 판정 기준 (문자열 포함 · 정규식) */
   criteria?: string
-  /** 자동: 실패 원인 분석 */
+  /** 판정 방식 — 포함 · 불포함 · 정규식 등. 옛 화면 값 그대로 */
+  critMode?: string
+  critLines?: string
+  excludeLines?: string
+  excMode?: string
+
+  /** Result — 실제 응답 */
+  output?: string
+  /** 옛 이름. output 이 없을 때 이쪽을 본다 */
+  response?: string
+  /** 실행 시각 (ISO) */
+  executed_at?: string
+  /** PASS · FAIL · 빈 값(미실행) */
+  status?: string
+
+  /** 응답에서 변수 뽑기 */
+  queries?: TcQuery[]
+  extracts?: TcExtract[]
+
+  /** kind=if · switch */
+  condition?: string
+  switchExpr?: string
+  /** kind=loop */
+  loopMode?: string
+  loopVar?: string
+  loopCount?: number
+  forFrom?: number
+  forTo?: number
+  forStep?: number
+  /** kind=wait */
+  waitSec?: number
+  /** kind=model */
+  model?: string
+  modelName?: string
+  /** kind=comment · message */
+  text?: string
+  desc?: string
+
+  /** 실패했을 때 볼 곳 */
   rca?: string
   note?: string
+  [k: string]: unknown
+}
+
+/** 화면에 보일 Action 이름과 색 갈래 */
+export const STEP_KINDS: Array<{ k: StepKind; label: string; group: 'run' | 'flow' | 'conn' | 'etc' }> = [
+  { k: 'cli', label: 'CLI', group: 'run' },
+  { k: 'instrument', label: '계측기', group: 'run' },
+  { k: 'if', label: 'If', group: 'flow' },
+  { k: 'loop', label: 'Loop', group: 'flow' },
+  { k: 'switch', label: 'Switch', group: 'flow' },
+  { k: 'wait', label: 'Wait', group: 'flow' },
+  { k: 'connect', label: 'Connect', group: 'conn' },
+  { k: 'disconnect', label: 'Close', group: 'conn' },
+  { k: 'model', label: 'Model', group: 'etc' },
+  { k: 'comment', label: 'Comment', group: 'etc' },
+  { k: 'message', label: 'Message', group: 'etc' },
+  { k: 'manual', label: 'Manual', group: 'etc' },
+]
+
+const KIND_MAP = new Map(STEP_KINDS.map((x) => [x.k, x]))
+
+/** 모르는 종류가 와도 화면이 비지 않게 한다 — 옛 자료에 무엇이 있을지 모른다 */
+export function stepKindInfo(k?: string) {
+  return (
+    KIND_MAP.get((k || 'cli') as StepKind) ?? {
+      k: (k || 'cli') as StepKind,
+      label: k || '(없음)',
+      group: 'etc' as const,
+    }
+  )
+}
+
+/** 2열에 한 줄로 보일 요약. 종류마다 읽어야 할 값이 다르다. */
+export function stepSummary(s: TcStep): string {
+  const k = s.kind || 'cli'
+  if (k === 'cli') return (s.cli || s.data || s.step || '').trim()
+  if (k === 'wait') return s.waitSec ? `${s.waitSec}초` : (s.data || '').trim()
+  if (k === 'if') return (s.condition || s.step || '').trim()
+  if (k === 'switch') return (s.switchExpr || s.step || '').trim()
+  if (k === 'loop') {
+    if (s.forFrom !== undefined && s.forTo !== undefined)
+      return `${s.forFrom} ~ ${s.forTo}${s.loopVar ? ` — $${s.loopVar}` : ''}`
+    return s.loopCount ? `${s.loopCount}회` : (s.step || '').trim()
+  }
+  // 세션 번호만 찍으면 '0' 이 되어 아무 뜻이 없다. 부르는 쪽에서 장비
+  // 이름을 붙여 주도록 여기서는 비워 둔다.
+  if (k === 'connect' || k === 'disconnect') return ''
+  if (k === 'model') return (s.modelName || s.model || '').trim()
+  if (k === 'comment' || k === 'message') return (s.text || s.desc || s.step || '').trim()
+  return (s.step || s.data || '').trim()
+}
+
+/** Result 는 이름이 두 벌이다. 새 것부터 본다. */
+export function stepResult(s: TcStep): string {
+  return String(s.output ?? s.response ?? '')
+}
+
+/**
+ * 이 스텝이 쓰는 세션의 자리 번호.
+ *
+ * 자료에 0/1 같은 인덱스와 's1' 이 섞여 있다. 둘 다 0-기준 번호로 맞춘다 —
+ * 화면은 한 가지 형태만 다루면 된다.
+ */
+export function sessionIndex(v: string | number | undefined): number {
+  if (v === undefined || v === null || v === '') return -1
+  if (typeof v === 'number') return v
+  const m = /^s(\d+)$/i.exec(v.trim())
+  if (m) return Number(m[1]) - 1
+  const n = Number(v)
+  return Number.isFinite(n) ? n : -1
 }
 
 export interface TcData {
