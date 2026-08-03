@@ -15,7 +15,7 @@ interface Props {
   onClose: () => void
 }
 
-/** 터미널에 쌓이는 한 덩어리 — 친 명령과 그 응답 */
+/** 화면에 쌓이는 한 덩어리 — 친 명령과 그 응답 */
 interface Block {
   cmd: string
   out: string
@@ -33,7 +33,7 @@ interface Block {
 }
 
 /**
- * 터미널에서 따오기.
+ * 명령어 캡쳐.
  *
  * 이 화면의 요점은 **아무것도 배우지 않고 첫 스텝을 만드는 것**이다.
  * 스텝 종류를 고르고 세션을 지정하고 명령 문법을 익히는 대신, 평소처럼
@@ -77,7 +77,7 @@ export default function TcTerminal({
   const prompt = prompts[idx] ?? ''
   const sessLabel = (i: number) => sessionNames[i] ?? `세션 ${i + 1}`
 
-  // 새 줄이 붙으면 바닥으로. 터미널은 늘 마지막 줄을 보고 있어야 한다.
+  // 새 줄이 붙으면 바닥으로. 늘 마지막 줄을 보고 있어야 한다.
   useEffect(() => {
     const el = bodyRef.current
     if (el) el.scrollTop = el.scrollHeight
@@ -255,7 +255,7 @@ export default function TcTerminal({
     return (
       <div className="tm">
         <div className="tm-head">
-          <b>터미널</b>
+          <b>명령어 캡쳐</b>
           <span className="sp" />
           <button className="btn small" type="button" onClick={onClose}>
             닫기
@@ -273,7 +273,7 @@ export default function TcTerminal({
   return (
     <div className="tm">
       <div className="tm-head">
-        <b>터미널</b>
+        <b>명령어 캡쳐</b>
         {/* 같은 장비를 두 자리에 앉히는 일이 흔해서 이름만으로는 안 갈린다.
             자리 번호를 앞에, IP 를 뒤에 둔다. */}
         <select value={idx} onChange={(e) => setIdx(Number(e.target.value))}>

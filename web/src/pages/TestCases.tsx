@@ -16,6 +16,7 @@ import {
   remapSessions,
   tcFileName,
   TcFileError,
+  nextTcId,
   uniqueTcId,
 } from '@/components/tc/portable'
 import TcInfo from '@/components/tc/TcInfo'
@@ -42,6 +43,8 @@ function blankStep(kind: StepKind): TcStep {
   if (kind === 'cli' || kind === 'connect' || kind === 'disconnect' || kind === 'instrument')
     base.session = 0
   if (kind === 'wait') base.waitSec = 3
+  if (kind === 'ping') base.pingCount = 4
+  if (kind === 'snmp_trap') base.trapSec = 15
   if (kind === 'loop') {
     base.forFrom = 1
     base.forTo = 10
@@ -69,7 +72,7 @@ export default function TestCases() {
   const [openId, setOpenId] = useState('')
   const [stepIdx, setStepIdx] = useState(-1)
   const [menuOpen, setMenuOpen] = useState(false)
-  /** 터미널을 열면 3열이 그것으로 바뀐다 — 따오는 동안 스텝 세부는 볼 일이 없다 */
+  /** 명령어 캡쳐를 열면 3열이 그것으로 바뀐다 — 캡쳐하는 동안 스텝 세부는 볼 일이 없다 */
   const [termOpen, setTermOpen] = useState(false)
   const [form, setForm] = useState<TestCaseMeta | null | undefined>(undefined)
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -500,7 +503,7 @@ export default function TestCases() {
                 <button type="button" disabled={!openId}>
                   ✨ AI 로 만들기
                 </button>
-                {/* 「⌨ 터미널」 은 실행 줄에 있다. 같은 것을 여기 또 두면
+                {/* 「⌨ 명령어 캡쳐」 는 실행 줄에 있다. 같은 것을 여기 또 두면
                     어느 쪽이 무엇인지 생각하게 된다. */}
                 <hr />
                 {/* 랩마다 UTOP 이 따로 서 있어서 한쪽에서 만든 시험을 다른
@@ -513,7 +516,10 @@ export default function TestCases() {
                     setMenuOpen(false)
                     setSaveAs({
                       title: '다른 이름으로 저장',
-                      id: uniqueTcId(openId, takenIds),
+                      // 같은 요구사항 묶음의 다음 번호. TC ID 앞부분이 곧
+                      // 그 요구사항이라(U-REQ-SYS-HW-TC-004) 앞은 지키고
+                      // 번호만 올린다.
+                      id: nextTcId(openId, takenIds),
                       name: `${d.name ?? ''} 복사`.trim(),
                       data: d,
                     })
@@ -640,7 +646,7 @@ export default function TestCases() {
                   title="장비에 붙어 명령을 치면 그대로 스텝이 됩니다"
                   onClick={() => setTermOpen((v) => !v)}
                 >
-                  ⌨ 터미널
+                  ⌨ 명령어 캡쳐
                 </button>
                 <TcSessionBar
                   sessions={sessionIds}
@@ -694,7 +700,7 @@ export default function TestCases() {
               }}
             />
 
-            {/* 3열 — 스텝 세부, 또는 따오는 동안은 터미널 */}
+            {/* 3열 — 스텝 세부, 또는 캡쳐하는 동안은 명령어 캡쳐 */}
             <section className={`panel tc-detcol${termOpen ? ' wide' : ''}`}>
               {termOpen ? (
                 <TcTerminal

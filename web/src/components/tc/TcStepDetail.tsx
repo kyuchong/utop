@@ -58,8 +58,13 @@ export default function TcStepDetail({
   const info = stepKindInfo(kind)
   const result = stepResult(step)
   const verdict = stepStatus(step)
-  const isRun = kind === 'cli' || kind === 'instrument'
-  const needsSession = isRun || kind === 'connect' || kind === 'disconnect'
+  /** CLI 로는 못 하는 것들 — 세션 없이도 돈다 */
+  const isNet =
+    kind === 'ping' || kind === 'snmp_get' || kind === 'snmp_set' || kind === 'snmp_trap'
+  /** 응답을 받아 판정하는 스텝. 판정 칸과 Result 를 띄운다 */
+  const isRun = kind === 'cli' || kind === 'instrument' || isNet
+  const needsSession =
+    kind === 'cli' || kind === 'instrument' || kind === 'connect' || kind === 'disconnect' || isNet
   const depth = Math.min(Math.max(Number(step.indent) || 0, 0), 4)
   /** 반복 방식 — 자료에 '몇 회' 와 '범위' 두 형태가 섞여 있다 */
   const loopByRange = step.forFrom !== undefined && step.forTo !== undefined
@@ -197,6 +202,114 @@ export default function TcStepDetail({
               onChange={(e) => onChange({ cli: e.target.value })}
             />
           </label>
+        )}
+        {/* CLI 로는 못 하는 것들. 세션이 없어도 되지만, 세션을 골라 두면
+            그 장비 IP 로 나간다 — 재부팅 중이라 CLI 가 안 붙는 동안
+            ping 으로 살아나는지 보는 것이 바로 이 스텝의 쓸모다. */}
+        {isNet && (
+          <label className="sd-f">
+            <span>대상 IP</span>
+            <input
+              className="mono"
+              value={step.host ?? ''}
+              placeholder={sessions.length ? '비우면 세션 장비' : '220.1.1.254'}
+              onChange={(e) => onChange({ host: e.target.value })}
+            />
+          </label>
+        )}
+        {kind === 'ping' && (
+          <label className="sd-f">
+            <span>보낼 횟수</span>
+            <input
+              type="number"
+              value={step.pingCount ?? ''}
+              placeholder="4"
+              onChange={(e) => onChange({ pingCount: Number(e.target.value) })}
+            />
+            <span className="sd-hint">
+              판정기준을 안 적으면 <b>응답이 오면 합격</b>입니다. 재부팅 뒤 살아나는지
+              볼 때는 그것으로 충분합니다.
+            </span>
+          </label>
+        )}
+        {(kind === 'snmp_get' || kind === 'snmp_set' || kind === 'snmp_trap') && (
+          <label className="sd-f">
+            <span>OID</span>
+            <input
+              className="mono"
+              value={step.oid ?? ''}
+              placeholder={kind === 'snmp_trap' ? '비우면 아무 Trap' : '1.3.6.1.2.1.1.3.0'}
+              onChange={(e) => onChange({ oid: e.target.value })}
+            />
+          </label>
+        )}
+        {kind === 'snmp_set' && (
+          <div className="sd-f">
+            <span>넣을 값 · 형식</span>
+            <div className="sd-row">
+              <input
+                className="mono"
+                value={step.snmpValue ?? ''}
+                placeholder="1"
+                onChange={(e) => onChange({ snmpValue: e.target.value })}
+              />
+              <select
+                className="sd-narrow2"
+                value={step.snmpType ?? ''}
+                onChange={(e) => onChange({ snmpType: e.target.value })}
+              >
+                <option value="">자동</option>
+                <option value="i">정수 i</option>
+                <option value="s">문자 s</option>
+                <option value="u">부호없는 u</option>
+                <option value="a">주소 a</option>
+              </select>
+            </div>
+          </div>
+        )}
+        {kind === 'snmp_trap' && (
+          <label className="sd-f">
+            <span>몇 초까지 기다리는가</span>
+            <input
+              type="number"
+              value={step.trapSec ?? ''}
+              placeholder="15"
+              onChange={(e) => onChange({ trapSec: Number(e.target.value) })}
+            />
+            <span className="sd-hint">
+              그 안에 Trap 이 오면 합격입니다. 안 오면 불합격 — 「오면 안 되는 것」 을
+              볼 때는 판정기준을 반대로 두세요.
+            </span>
+          </label>
+        )}
+        {(kind === 'snmp_get' || kind === 'snmp_set') && (
+          <details className="sd-more">
+            <summary>SNMP 접속</summary>
+            <div className="sd-row">
+              <input
+                className="mono"
+                value={step.community ?? ''}
+                placeholder={kind === 'snmp_set' ? 'private' : 'public'}
+                onChange={(e) => onChange({ community: e.target.value })}
+              />
+              <select
+                className="sd-narrow2"
+                value={step.snmpVersion ?? ''}
+                onChange={(e) => onChange({ snmpVersion: e.target.value })}
+              >
+                <option value="">v2c</option>
+                <option value="v1">v1</option>
+                <option value="v2c">v2c</option>
+              </select>
+              <input
+                type="number"
+                className="sd-narrow"
+                value={step.snmpPort ?? ''}
+                placeholder="161"
+                onChange={(e) => onChange({ snmpPort: Number(e.target.value) })}
+              />
+            </div>
+          </details>
         )}
         {kind === 'if' && (
           <>

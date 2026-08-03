@@ -271,6 +271,27 @@ export const IconHand = (p: P) => (
   </SmallSvg>
 )
 
+/** Ping — 되돌아오는 신호 */
+export const IconPing = (p: P) => (
+  <SmallSvg {...p}>
+    <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none" />
+    <path d="M7.8 16.2a6 6 0 0 1 0-8.4" />
+    <path d="M16.2 7.8a6 6 0 0 1 0 8.4" />
+    <path d="M4.9 19.1a10 10 0 0 1 0-14.2" />
+    <path d="M19.1 4.9a10 10 0 0 1 0 14.2" />
+  </SmallSvg>
+)
+
+/** SNMP — 값을 물어 가져온다 (꼬리표) */
+export const IconSnmp = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M12 3v7" />
+    <path d="M8 6.5 12 3l4 3.5" />
+    <rect x="3" y="12" width="18" height="8" rx="2" />
+    <path d="M7 16h.01M11 16h.01M15 16h.01" />
+  </SmallSvg>
+)
+
 /* 들여쓰기 — 블록 안으로 / 밖으로.
    ⇤ ⇥ 문자를 썼더니 글꼴에 따라 거의 안 보였다(IconChevron 과 같은 사정).
    편집기에서 쓰는 모양 그대로 — 줄 몇 개와 그 줄을 미는 화살표. */

@@ -7,7 +7,9 @@ import {
   IconLoop,
   IconMeter,
   IconNote,
+  IconPing,
   IconPlug,
+  IconSnmp,
   IconSwitch,
   IconUnplug,
 } from '@/components/icons'
@@ -25,6 +27,8 @@ const MAP = {
   chip: IconChip,
   note: IconNote,
   hand: IconHand,
+  ping: IconPing,
+  snmp: IconSnmp,
 } as const
 
 /**

@@ -784,7 +784,7 @@
   margin-top: var(--sp-2);
 }
 
-/* ── 터미널에서 따오기 ──────────────────────────────────────
+/* ── 명령어 캡쳐 ────────────────────────────────────────────
    스텝을 손으로 만드는 대신 평소처럼 명령을 치고, 친 것과 응답이 그대로
    스텝이 되는 자리. 여기가 처음 오는 사람의 첫 30초다. */
 .tm { display: flex; flex-direction: column; min-height: 0; flex: 1; }
@@ -1059,3 +1059,5 @@
 
 .sa-sp { margin-left: auto; }
 .modal.sa .modal-foot { gap: 6px; }
+
+.sd-narrow2 { flex: 0 0 96px; }

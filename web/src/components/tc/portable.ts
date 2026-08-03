@@ -66,11 +66,26 @@ export function buildTcFile(d: TcData, devById: Map<string, Device>): TcFile {
   }
 }
 
-/** 파일 이름. 같은 TC 를 두 번 내보내도 겹치지 않게 날짜를 붙인다. */
+/**
+ * 파일 이름.
+ *
+ * TC ID 만으로는 폴더에 쌓였을 때 무엇인지 모른다 — `U-REQ-SYS-HW-TC-004`
+ * 가 무슨 시험인지는 열어봐야 안다. 제목을 붙인다.
+ * ID 앞부분이 이미 요구사항이라(`U-REQ-SYS-HW`) 요구사항을 따로 붙이지
+ * 않는다. 같은 것이 두 번 들어가면 이름만 길어진다.
+ */
 export function tcFileName(d: TcData): string {
-  const id = (d.tcid || 'tc').replace(/[^\w.-]+/g, '_')
+  const safe = (s: string, max: number) =>
+    s
+      .trim()
+      .replace(/[\\/:*?"<>|]+/g, '')   // 파일 이름에 못 쓰는 글자
+      .replace(/\s+/g, '_')
+      .slice(0, max)
+      .replace(/_+$/, '')
+  const id = safe(d.tcid || 'tc', 60) || 'tc'
+  const name = safe(String(d.name ?? ''), 40)
   const day = new Date().toISOString().slice(0, 10)
-  return `${id}_${day}.utop.json`
+  return [id, name, day].filter(Boolean).join('_') + '.utop.json'
 }
 
 /** 브라우저에서 파일로 내려받기 */
@@ -156,6 +171,36 @@ export function remapSessions(
  * 'TC-001' 이 있으면 'TC-001-2', 그것도 있으면 '-3'. 덮어쓰지 않는 것이
  * 요점이다 — 같은 이름으로 저장해서 남의 시험을 지우면 되돌릴 수 없다.
  */
+/**
+ * 같은 묶음의 **다음 번호**.
+ *
+ * 실제 ID 는 `<요구사항 이름표>-TC-<번호>` 다:
+ *   KT-REQ-SYS-SW-EPON-IOP-TC-001 · U-REQ-SYS-HW-TC-004
+ *
+ * 그러니 `U-REQ-SYS-HW-TC-004` 를 복사할 때 나와야 하는 것은
+ * `U-REQ-SYS-HW-TC-004-2` 가 아니라 `U-REQ-SYS-HW-TC-009`(지금 최대가
+ * 008 이면) 다. 앞부분은 그 요구사항의 시험이라는 뜻이라 지키고, 번호만
+ * 그 묶음의 다음 것으로 매긴다. 자릿수도 지킨다(001 → 009, 09 아님).
+ *
+ * 번호로 끝나지 않는 ID 는 규칙이 없으므로 뒤에 -2 를 붙인다.
+ */
+export function nextTcId(base: string, taken: Set<string>): string {
+  const m = /^(.*?)(\d+)$/.exec(base.trim())
+  const prefix = m?.[1]
+  const digits = m?.[2]
+  if (!m || !prefix || !digits) return uniqueTcId(base, taken)
+
+  let max = 0
+  for (const id of taken) {
+    if (!id.startsWith(prefix)) continue
+    const tail = id.slice(prefix.length)
+    if (!/^\d+$/.test(tail)) continue
+    max = Math.max(max, Number(tail))
+  }
+  const n = String(Math.max(max, Number(digits)) + 1).padStart(digits.length, '0')
+  return uniqueTcId(prefix + n, taken)
+}
+
 export function uniqueTcId(base: string, taken: Set<string>): string {
   const id = base.trim() || 'TC'
   if (!taken.has(id)) return id

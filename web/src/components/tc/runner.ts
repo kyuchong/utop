@@ -142,6 +142,74 @@ async function runOne(
     return ''
   }
 
+  /**
+   * CLI 가 아닌 것들 — ping · SNMP.
+   *
+   * 세션(CLI 접속)이 없어도 된다. SNMP 만 등록된 장비도 있고, 재부팅
+   * 중이라 CLI 가 안 붙는 동안 ping 으로 살아나는지 보는 것이 시험의
+   * 내용이기도 하다. 그래서 세션을 강제하지 않고, 대상 IP 만 있으면 된다.
+   */
+  if (kind === 'ping' || kind === 'snmp_get' || kind === 'snmp_set' || kind === 'snmp_trap') {
+    // host 를 직접 적었으면 그것을, 아니면 세션 장비의 IP 를 쓴다
+    const sessDev = deviceOf(ctx, step).dev
+    const host = (step.host || sessDev?.ip || '').trim()
+    if (kind !== 'snmp_trap' && !host) {
+      const err = '대상 IP 가 없습니다 — 세션을 고르거나 IP 를 직접 적으세요'
+      ctx.onStep(i, { output: `[오류] ${err}`, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: err })
+      ctx.onLog({ i, text: err, kind: 'fail' })
+      return 'Fail'
+    }
+
+    const snmp = {
+      host,
+      oid: subVars(String(step.oid ?? ''), vars),
+      community: step.community || undefined,
+      version: step.snmpVersion || undefined,
+      port: step.snmpPort || undefined,
+    }
+    const [path, body] =
+      kind === 'ping'
+        ? ['/api/ping', { host, count: step.pingCount ?? 4 }]
+        : kind === 'snmp_get'
+          ? ['/api/snmp-get', snmp]
+          : kind === 'snmp_set'
+            ? ['/api/snmp-set', { ...snmp, value: subVars(String(step.snmpValue ?? ''), vars), type: step.snmpType || undefined }]
+            : ['/api/snmp-trap/wait', { oid: snmp.oid, timeout: step.trapSec ?? 15 }]
+
+    const r = await post(path as string, body, ctx.signal)
+    // Trap 은 output 이 아니라 trap 객체로 온다. 없으면 안 온 것이다.
+    const output =
+      kind === 'snmp_trap'
+        ? r.trap
+          ? JSON.stringify(r.trap, null, 2)
+          : `[Trap 없음] ${step.trapSec ?? 15}초 동안 오지 않았습니다`
+        : String(r.output ?? r.error ?? '')
+
+    Object.assign(vars, extractVars(step, output))
+    // 판정기준을 안 적었으면 '됐나 안 됐나' 로 본다 — ping 은 그것만으로
+    // 충분한 경우가 대부분이다.
+    const hasCriteria = !!String(step.criteria ?? step.expected ?? '').trim()
+    const okByItself =
+      kind === 'ping' ? !!r.alive : kind === 'snmp_trap' ? !!r.trap : !!r.ok
+    const j = hasCriteria
+      ? judge(step, output, vars)
+      : { verdict: (okByItself ? 'Pass' : 'Fail') as Verdict, reason: okByItself ? '' : String(r.error ?? '응답 없음') }
+
+    ctx.onStep(i, {
+      output,
+      executed_at: at,
+      status: j.verdict ? j.verdict.toUpperCase() : '',
+      repeatResult: j.verdict,
+      reason: j.reason,
+    })
+    ctx.onLog({
+      i,
+      text: `${stepSummary(step)}${j.reason ? ` — ${j.reason}` : ''}`,
+      kind: j.verdict === 'Pass' ? 'pass' : j.verdict === 'Fail' ? 'fail' : 'info',
+    })
+    return j.verdict
+  }
+
   const { dev, error } = deviceOf(ctx, step)
   if (!dev) {
     ctx.onStep(i, { output: `[오류] ${error}`, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: error })

@@ -59,6 +59,16 @@ export type StepKind =
   // 실행
   | 'cli'
   | 'instrument'
+  /**
+   * CLI 로는 못 하는 것들. 백엔드에는 진작 있었는데(`/api/ping`,
+   * `/api/snmp-get`, `/api/snmp-set`, `/api/snmp-trap/wait`) 스텝으로 쓸
+   * 길이 없었다. 실제 자료에 0건인 것은 필요 없어서가 아니라 만들 방법이
+   * 없어서다 — 재부팅 뒤 언제 살아나는지는 ping 이 아니면 못 잰다.
+   */
+  | 'ping'
+  | 'snmp_get'
+  | 'snmp_set'
+  | 'snmp_trap'
   // 흐름
   | 'if'
   | 'loop'
@@ -171,6 +181,26 @@ export interface TcStep {
   forStep?: number
   /** kind=wait */
   waitSec?: number
+
+  /**
+   * kind=ping · snmp_* — 어디로 보내는가.
+   *
+   * 비우면 세션의 장비 IP 를 쓴다. 세션이 CLI 세션을 못 여는 장비(SNMP 만
+   * 등록된 것)를 가리킬 수도 있어서 직접 적을 수도 있게 둔다.
+   */
+  host?: string
+  /** kind=ping — 몇 번 */
+  pingCount?: number
+  /** kind=snmp_* */
+  oid?: string
+  community?: string
+  snmpVersion?: string
+  snmpPort?: number
+  /** kind=snmp_set — 넣을 값과 형식(i·s·u·a…). 비우면 자동 */
+  snmpValue?: string
+  snmpType?: string
+  /** kind=snmp_trap — 몇 초까지 기다리는가 */
+  trapSec?: number
   /** kind=model */
   model?: string
   modelName?: string
@@ -203,6 +233,8 @@ export type StepIcon =
   | 'chip'
   | 'note'
   | 'hand'
+  | 'ping'
+  | 'snmp'
 
 export const STEP_KINDS: Array<{
   k: StepKind
@@ -211,6 +243,10 @@ export const STEP_KINDS: Array<{
   icon: StepIcon
 }> = [
   { k: 'cli', label: 'CLI', group: 'run', icon: 'cli' },
+  { k: 'ping', label: 'Ping', group: 'run', icon: 'ping' },
+  { k: 'snmp_get', label: 'SNMP Get', group: 'run', icon: 'snmp' },
+  { k: 'snmp_set', label: 'SNMP Set', group: 'run', icon: 'snmp' },
+  { k: 'snmp_trap', label: 'Trap 대기', group: 'run', icon: 'snmp' },
   { k: 'instrument', label: '계측기', group: 'run', icon: 'meter' },
   { k: 'if', label: 'If', group: 'flow', icon: 'branch' },
   { k: 'loop', label: 'Loop', group: 'flow', icon: 'loop' },
@@ -251,6 +287,13 @@ export function stepKindInfo(k?: string) {
 export function stepSummary(s: TcStep): string {
   const k = s.kind || 'cli'
   if (k === 'cli') return (s.cli || s.data || s.step || '').trim()
+  if (k === 'ping')
+    return `${(s.host || '세션 장비').trim()}${s.pingCount ? ` · ${s.pingCount}회` : ''}`
+  if (k === 'snmp_get') return (s.oid || s.step || '').trim()
+  if (k === 'snmp_set')
+    return `${(s.oid || '').trim()}${s.snmpValue ? ` = ${s.snmpValue}` : ''}`.trim()
+  if (k === 'snmp_trap')
+    return `${(s.oid || '아무 Trap').trim()} · ${s.trapSec ?? 15}초 대기`
   if (k === 'wait') return s.waitSec ? `${s.waitSec}초` : (s.data || '').trim()
   if (k === 'if') return (s.condition || s.step || '').trim()
   if (k === 'switch') return (s.switchExpr || s.step || '').trim()
