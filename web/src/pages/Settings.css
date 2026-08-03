@@ -275,3 +275,31 @@
 .dc-meta { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dc-actions { margin-left: auto; display: flex; gap: 5px; }
 .seg-btn .cnt { margin-left: 5px; font-size: var(--fs-xs); opacity: 0.75; }
+
+/* 우리가 만든 탭 표시. 기본 칸과 달리 지울 수 있어서, 구분이 안 되면
+   지워도 되는지 매번 판단해야 한다. */
+.seg-made {
+  margin-left: 5px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--c-border-soft);
+  color: var(--c-text-faint);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+
+.seg-btn.on .seg-made {
+  background: rgba(255, 255, 255, 0.28);
+  color: inherit;
+}
+
+/* 탭 추가는 값 탭이 아니므로 흐리게 두고 조금 떨어뜨린다 */
+.seg-btn.seg-add {
+  margin-left: var(--sp-2);
+  color: var(--c-text-faint);
+  font-weight: 400;
+}
+
+.seg-btn.seg-add:hover {
+  color: var(--c-primary);
+}

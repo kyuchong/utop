@@ -1009,14 +1009,18 @@ async def catalog_usage(kind: str, name: str) -> int:
 # ══════════════════════════════════════════════════════════════════════
 # 앞의 tc_ / req_ 가 어느 화면 것인지를 가른다. 설정 화면이 이 접두사로
 # 탭을 나누므로, 새 종류를 넣을 때 접두사를 빼면 어느 쪽에도 안 뜬다.
+#
+# 이름에 'TC' / '요구사항' 을 다시 붙이지 않는다 — 화면 제목이 이미
+# 「TC INFO 필드」/「요구사항 INFO 필드」다. 탭에까지 적으면 같은 말이
+# 두 번 나와 정작 다른 부분(유형·상태·중요도)이 눈에 안 들어온다.
 CODE_KINDS = {
-    "tc_type": "TC 유형",
-    "tc_status": "TC 상태",
-    "tc_severity": "TC 중요도",
-    "tc_run_type": "실행 타입",
-    "tc_origin": "발생 구분",
-    "req_status": "요구사항 상태",
-    "req_priority": "요구사항 우선순위",
+    "tc_type": "유형",
+    "tc_status": "상태",
+    "tc_severity": "중요도",
+    "tc_run_type": "타입",
+    "tc_origin": "구분",
+    "req_status": "상태",
+    "req_priority": "우선순위",
 }
 
 

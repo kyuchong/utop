@@ -106,8 +106,12 @@ export default function LlmSettings() {
       const b = await res.json().catch(() => ({}))
       const e = b.embed ?? {}
       const r = b.rerank ?? {}
-      const embedMsg = `임베딩 ${e.ok ? `연결됨 (차원 ${e.dim})` : '실패'}`
-      const rerankMsg = `리랭커 ${r.ok ? `연결됨 (${r.results}건)` : '실패'}`
+      // 실패했을 때는 이유를 붙인다. '실패' 한 단어만 뜨면 주소가 틀린 건지
+      // 서버가 죽은 건지 모델 이름이 틀린 건지 알 수 없어 처음부터 의심하게 된다.
+      const embedMsg = `임베딩 ${e.ok ? `연결됨 (차원 ${e.dim})` : `실패 — ${e.detail || '알 수 없음'}`}`
+      const rerankMsg = `리랭커 ${r.ok ? `연결됨 (${r.results}건)` : `실패 — ${r.detail || '알 수 없음'}`}`
+      // 지금 보고 있는 탭 것을 앞에 둔다. 둘 다 실패하면 줄이 길어지므로
+      // 내 탭 것만 먼저 읽어도 되게 한다.
       setProbe(which === 'embed' ? `${embedMsg} · ${rerankMsg}` : `${rerankMsg} · ${embedMsg}`)
     } catch (err) {
       setProbe(err instanceof Error ? err.message : '확인하지 못했습니다')

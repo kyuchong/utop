@@ -481,7 +481,7 @@
 | POST | `/api/rag/index` | RAG 색인 추가/갱신 — {id?, name, text, source?, folder?, url?}. 같은 id 재전송 = 덮어쓰기(업서트). | token param |
 | GET | `/api/rag/info` |  |  |
 | POST | `/api/rag/search` |  |  |
-| POST | `/api/rag/test` | 임베딩·리랭커 연결 테스트. | token param |
+| POST | `/api/rag/test` | 임베딩·리랭커 연결 테스트. 실패하면 왜 안 되는지까지 돌려준다. | token param |
 
 ## `/api/release-summary` (2개)
 

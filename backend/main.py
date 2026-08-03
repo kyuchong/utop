@@ -7396,42 +7396,94 @@ def _rag_cfg():
     return dict(_RAG_DEFAULT_CFG)
 
 
-async def _embed_texts(texts):
+async def _embed_texts_raw(texts):
+    """(벡터, 실패이유) 를 함께 돌려준다.
+
+    검색 경로는 실패하면 그냥 넘어가면 되지만, 연결 테스트는 '왜' 안 되는지를
+    답해야 한다. 예전에는 둘 다 None 만 받아서 화면에 '실패' 한 단어만 떴고,
+    주소가 틀린 건지 서버가 죽은 건지 모델 이름이 틀린 건지 알 수 없었다.
+    """
     cfg = _rag_cfg(); url = str(cfg.get("embed_url") or "").rstrip("/")
-    if not url or not texts:
-        return None
+    if not url:
+        return None, "서버 주소가 비어 있습니다"
+    if not texts:
+        return None, "보낼 내용이 없습니다"
     import httpx
+    model = cfg.get("embed_model") or "bge-m3"
     out = []
     try:
         async with httpx.AsyncClient(timeout=120) as client:
             for i in range(0, len(texts), 64):
                 batch = texts[i:i + 64]
-                r = await client.post(url + "/v1/embeddings", json={"model": cfg.get("embed_model") or "bge-m3", "input": batch})
+                r = await client.post(url + "/v1/embeddings",
+                                      json={"model": model, "input": batch})
                 if r.status_code != 200:
-                    return None
+                    return None, await _why_http(client, url, model, r)
                 data = sorted(r.json().get("data") or [], key=lambda x: x.get("index", 0))
                 out.extend([d.get("embedding") for d in data])
-        return out
-    except Exception:
-        return None
+        return out, ""
+    except Exception as e:
+        return None, f"연결하지 못했습니다 — {e}"
 
-async def _rerank(query, docs, top_k):
+
+async def _embed_texts(texts):
+    v, _ = await _embed_texts_raw(texts)
+    return v
+
+
+async def _rerank_raw(query, docs, top_k):
+    """(결과, 실패이유). _embed_texts_raw 와 같은 이유로 나눠 둔다."""
     cfg = _rag_cfg(); url = str(cfg.get("rerank_url") or "").rstrip("/")
-    if not url or not docs:
-        return None
+    if not url:
+        return None, "서버 주소가 비어 있습니다"
+    if not docs:
+        return None, "보낼 내용이 없습니다"
     import httpx
-    payload = {"model": cfg.get("rerank_model") or "bge-reranker-v2-m3", "query": query, "documents": docs, "top_n": top_k}
+    model = cfg.get("rerank_model") or "bge-reranker-v2-m3"
+    payload = {"model": model, "query": query, "documents": docs, "top_n": top_k}
     try:
         async with httpx.AsyncClient(timeout=120) as client:
+            # 서버마다 경로가 갈린다(vLLM 은 /v1/rerank, TEI 는 /rerank).
+            # 먼저 것이 아니면 두 번째로 한 번 더 본다.
             r = await client.post(url + "/v1/rerank", json=payload)
             if r.status_code != 200:
-                r = await client.post(url + "/rerank", json=payload)
-            if r.status_code != 200:
-                return None
+                r2 = await client.post(url + "/rerank", json=payload)
+                # 둘 다 실패면 앞의 응답으로 이유를 말한다 — 보통 그쪽이
+                # 진짜 경로라 메시지가 더 쓸모 있다.
+                if r2.status_code == 200:
+                    r = r2
+                else:
+                    return None, await _why_http(client, url, model, r)
             res = r.json().get("results") or []
-            return [(it.get("index"), it.get("relevance_score", it.get("score", 0))) for it in res]
+            return [(it.get("index"), it.get("relevance_score", it.get("score", 0))) for it in res], ""
+    except Exception as e:
+        return None, f"연결하지 못했습니다 — {e}"
+
+
+async def _rerank(query, docs, top_k):
+    v, _ = await _rerank_raw(query, docs, top_k)
+    return v
+
+
+async def _why_http(client, url: str, model: str, r) -> str:
+    """200 이 아닐 때 사람이 읽을 이유를 만든다.
+
+    가장 흔한 실수가 모델 이름이라, 서버가 살아 있으면 /v1/models 를 물어
+    '주소는 맞는데 그 모델이 없다' 를 따로 짚어 준다. 이것을 안 하면
+    주소부터 다시 의심하느라 시간을 버린다.
+    """
+    if r.status_code in (401, 403):
+        return f"인증 실패 ({r.status_code}) — 키를 확인하세요"
+    try:
+        m = await client.get(url + "/v1/models")
+        if m.status_code == 200:
+            names = [x.get("id") for x in (m.json().get("data") or []) if x.get("id")]
+            if names and model not in names:
+                return f"서버는 응답하는데 '{model}' 모델이 없습니다 (있는 것: {', '.join(names[:5])})"
     except Exception:
-        return None
+        pass
+    body = (r.text or "").strip().replace("\n", " ")[:200]
+    return f"응답 코드 {r.status_code}{' — ' + body if body else ''}"
 
 async def _ensure_embeddings(corpus):
     """캐시에 없는 청크만 임베딩 후 .npy 캐시에 추가 (다음부터 재사용)."""
@@ -7610,12 +7662,12 @@ async def rag_config_set(payload: dict, token: str = ""):
 
 @app.post("/api/rag/test")
 async def rag_test(payload: dict, token: str = ""):
-    """임베딩·리랭커 연결 테스트."""
+    """임베딩·리랭커 연결 테스트. 실패하면 왜 안 되는지까지 돌려준다."""
     out = {}
-    ev = await _embed_texts(["연결 테스트", "embedding test"])
-    out["embed"] = {"ok": bool(ev), "dim": (len(ev[0]) if ev else 0)}
-    rr = await _rerank("테스트 질문", ["문서1 테스트", "관계없는 문서"], 2)
-    out["rerank"] = {"ok": bool(rr), "results": len(rr or [])}
+    ev, ew = await _embed_texts_raw(["연결 테스트", "embedding test"])
+    out["embed"] = {"ok": bool(ev), "dim": (len(ev[0]) if ev else 0), "detail": ew}
+    rr, rw = await _rerank_raw("테스트 질문", ["문서1 테스트", "관계없는 문서"], 2)
+    out["rerank"] = {"ok": bool(rr), "results": len(rr or []), "detail": rw}
     return out
 
 # ══════════ AI 통합: RAG 색인 API · Cycle 요약 · Fail→Jira · 통합 검색 · 자연어 실행 ══════════
