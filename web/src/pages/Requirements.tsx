@@ -29,6 +29,14 @@ import './Requirements.css'
  */
 export default function Requirements() {
   const [selected, setSelected] = useState<string | null>(null)
+  /**
+   * 고른 폴더. undefined = 안 고름 · null = 미분류.
+   *
+   * 요구사항 하나가 아니라 폴더를 고르면 오른쪽에 그 폴더 아래 요구사항의
+   * TC 가 전부 모인다. '이 묶음의 시험이 다 됐나' 는 요구사항 한 건이
+   * 아니라 묶음 단위로 묻게 된다.
+   */
+  const [selectedFolder, setSelectedFolder] = useState<string | null | undefined>(undefined)
   // 여러 건을 골라 한 번에 지우기
   const [picked, setPicked] = useState<Set<string>>(new Set())
   /** 고른 폴더. 요구사항과 함께 지울 수 있어야 정리가 한 번에 끝난다. */
@@ -138,6 +146,40 @@ export default function Requirements() {
     [allReqs, selected],
   )
 
+  const catQ = useQuery({
+    queryKey: ['req-categories'],
+    queryFn: ({ signal }) => categoryApi.list(signal),
+  })
+
+  /** 폴더 모드 — 요구사항 한 건이 아니라 묶음을 보고 있다 */
+  const folderMode = selectedFolder !== undefined
+
+  const folderName = useMemo(() => {
+    if (selectedFolder === undefined) return ''
+    if (selectedFolder === null) return '미분류'
+    return (catQ.data?.categories ?? []).find((c) => c.id === selectedFolder)?.name ?? '(없는 폴더)'
+  }, [selectedFolder, catQ.data])
+
+  /**
+   * 이 폴더에 속한 요구사항 — 하위 폴더까지.
+   *
+   * 요구사항은 cat1~cat4 에 자기가 놓인 폴더의 **조상 사슬 전체**를 들고
+   * 있다(ReqTree 의 moveReqM 이 그렇게 채운다). 그래서 넷 중 하나만
+   * 맞으면 그 폴더의 자손이다 — 분류 트리를 따로 훑을 필요가 없다.
+   */
+  const folderReqs = useMemo(() => {
+    if (selectedFolder === undefined) return []
+    if (selectedFolder === null)
+      return allReqs.filter((r) => !r.cat1 && !r.cat2 && !r.cat3 && !r.cat4)
+    return allReqs.filter(
+      (r) =>
+        r.cat1 === selectedFolder ||
+        r.cat2 === selectedFolder ||
+        r.cat3 === selectedFolder ||
+        r.cat4 === selectedFolder,
+    )
+  }, [allReqs, selectedFolder])
+
   /** 선택된 REQ 에 연결된 TC — 양쪽 정본의 합집합 */
   /**
    * 연결 해제. tc.req_id 를 비우는 것이 전부다 — TC 자체는 남는다.
@@ -159,26 +201,35 @@ export default function Requirements() {
     },
   })
 
-  const linked = useMemo(() => {
-    if (!selectedReq) return []
-    const byTc = tcsFor(selectedReq)
-    const seen = new Set(byTc.map((t) => t.tcid))
+  /**
+   * 보고 있는 대상의 TC.
+   *
+   * 요구사항 하나를 골랐으면 그 하나, 폴더를 골랐으면 그 아래 요구사항
+   * 전부를 모은다. 같은 TC 가 여러 요구사항에 걸려 있어도 한 줄만 나온다.
+   * ownerOf 는 그 줄이 어느 요구사항의 것인지 — 폴더 모드에서만 쓴다.
+   */
+  const { linked, ownerOf } = useMemo(() => {
+    const targets = folderMode ? folderReqs : selectedReq ? [selectedReq] : []
+    const out: TestCaseMeta[] = []
+    const owner = new Map<string, Requirement>()
+    const seen = new Set<string>()
 
-    const extra: TestCaseMeta[] = []
-    for (const ref of selectedReq.tc ?? []) {
-      if (!ref?.tcid || seen.has(ref.tcid)) continue
-      seen.add(ref.tcid)
-      // TC 목록에 있으면 그 메타를, 없으면 REQ 가 들고 있는 참조만으로 행을 만든다.
-      extra.push(
-        tcById.get(ref.tcid) ?? {
-          tcid: ref.tcid,
-          name: ref.name,
-          status: ref.status,
-        },
-      )
+    for (const r of targets) {
+      const push = (t: TestCaseMeta) => {
+        if (seen.has(t.tcid)) return
+        seen.add(t.tcid)
+        owner.set(t.tcid, r)
+        out.push(t)
+      }
+      for (const t of tcsFor(r)) push(t)
+      for (const ref of r.tc ?? []) {
+        if (!ref?.tcid) continue
+        // TC 목록에 있으면 그 메타를, 없으면 REQ 가 들고 있는 참조만으로 행을 만든다.
+        push(tcById.get(ref.tcid) ?? { tcid: ref.tcid, name: ref.name, status: ref.status })
+      }
     }
-    return [...byTc, ...extra]
-  }, [selectedReq, tcsFor, tcById])
+    return { linked: out, ownerOf: owner }
+  }, [folderMode, folderReqs, selectedReq, tcsFor, tcById])
 
   /** 커버리지 집계. Xray 처럼 '덮였는가' 를 먼저 답하려고 쓴다. */
   const cov = useMemo(() => {
@@ -332,7 +383,18 @@ export default function Requirements() {
               reqs={allReqs}
               tcsFor={tcsFor}
               selected={selected}
-              onSelect={setSelected}
+              // 요구사항과 폴더는 둘 중 하나만 골라져 있다. 오른쪽 패널이
+              // 무엇을 보여줄지가 여기서 갈리므로 서로를 지운다.
+              onSelect={(pk) => {
+                setSelected(pk)
+                setSelectedFolder(undefined)
+              }}
+              selectedFolder={selectedFolder}
+              onSelectFolder={(id) => {
+                setSelectedFolder(id)
+                setSelected(null)
+                setTab('tc')
+              }}
               picked={picked}
               onPick={togglePick}
               pickedFolders={pickedFolders}
@@ -352,7 +414,24 @@ export default function Requirements() {
         {/* ── 오른쪽: 탭에 따라 내용이 바뀐다 ─────────────── */}
         <section className="panel tc-panel">
           <div className="panel-title">
-            {/* 탭은 이 패널만 바꾼다. 화면 전체 폭을 쓰는 띠로 두면 자리만 먹는다. */}
+            {/* 폴더를 보고 있을 때는 탭을 띄우지 않는다. REQ Info·Details·
+                이력은 요구사항 한 건에만 있는 것이라, 폴더에 걸어두면 늘
+                비어 있는 탭이 넷 생긴다. 폴더에서는 TC 목록 하나면 된다. */}
+            {folderMode ? (
+              <span className="fold-title">
+                <b>📁 {folderName}</b>
+                <span className="muted small">
+                  요구사항 {folderReqs.length}건 · 하위 폴더 포함
+                </span>
+                <button
+                  className="btn small"
+                  type="button"
+                  onClick={() => setSelectedFolder(undefined)}
+                >
+                  닫기
+                </button>
+              </span>
+            ) : (
             <div className="seg" role="tablist">
               {([
                 ['info', 'REQ Info'],
@@ -373,7 +452,8 @@ export default function Requirements() {
                 </button>
               ))}
             </div>
-            {tab === 'tc' && (
+            )}
+            {tab === 'tc' && !folderMode && (
               <div className="page-head-actions">
                 <button
                   className="btn"
@@ -407,12 +487,12 @@ export default function Requirements() {
             )}
           </div>
 
-          {!selectedReq ? (
-            <div className="empty">왼쪽에서 요구사항을 선택하세요.</div>
-          ) : tab !== 'tc' ? (
+          {!selectedReq && !folderMode ? (
+            <div className="empty">왼쪽에서 요구사항이나 폴더를 선택하세요.</div>
+          ) : !folderMode && selectedReq && tab !== 'tc' ? (
             <ReqDetail req={selectedReq} tcs={linked} tab={tab} />
           ) : (
-            <div className="tc-body scroll">
+            <div className={`tc-body scroll${folderMode ? ' by-folder' : ''}`}>
               {/* 커버리지 상태. 목록만 있으면 '이 요구사항이 덮였나' 를
                   눈으로 세어야 한다. 한 줄로 먼저 답한다. */}
               <div className={`cov-bar ${linked.length === 0 ? 'none' : cov.fail > 0 ? 'bad' : cov.idle > 0 ? 'warn' : 'good'}`}>
@@ -420,7 +500,11 @@ export default function Requirements() {
                   <>
                     <b>미커버</b>
                     <span className="muted small">
-                      이 요구사항을 검증하는 TC 가 없습니다. 「TC 연결」 또는 「+ TC 생성」
+                      {folderMode
+                        ? folderReqs.length === 0
+                          ? '이 폴더에 요구사항이 없습니다.'
+                          : `요구사항 ${folderReqs.length}건 중 TC 가 붙은 것이 없습니다.`
+                        : '이 요구사항을 검증하는 TC 가 없습니다. 「TC 연결」 또는 「+ TC 생성」'}
                     </span>
                   </>
                 ) : (
@@ -454,6 +538,9 @@ export default function Requirements() {
               <div className="table">
                 <div className="tr th">
                   <div>Test Case</div>
+                  {/* 폴더는 요구사항 여럿을 모아 보이므로 어느 것의 TC 인지
+                      적어야 한다. 한 건만 볼 때는 자명해서 열을 안 만든다. */}
+                  {folderMode && <div>요구사항</div>}
                   <div>유형</div>
                   <div>Step</div>
                   <div>상태</div>
@@ -466,13 +553,32 @@ export default function Requirements() {
                       : '조건에 맞는 TC가 없습니다.'}
                   </div>
                 ) : (
-                  shown.map((t) => (
+                  shown.map((t) => {
+                    const owner = ownerOf.get(t.tcid)
+                    return (
                     <div className="tr" key={t.tcid}>
                       <div className="tc-cell">
                         {/* 읽는 것은 제목이다. ID 는 참조 번호라 작게 위에 둔다. */}
                         <div className="id-cell">{t.tcid}</div>
                         <div className="tc-name">{t.name || '(제목 없음)'}</div>
                       </div>
+                      {folderMode && (
+                        <div className="fold-req">
+                          <button
+                            type="button"
+                            className="linkish"
+                            disabled={!owner}
+                            title="이 요구사항으로 이동"
+                            onClick={() => {
+                              if (!owner) return
+                              setSelected(reqPk(owner))
+                              setSelectedFolder(undefined)
+                            }}
+                          >
+                            {owner ? reqLabel(owner) || owner.title || '(ID 없음)' : '–'}
+                          </button>
+                        </div>
+                      )}
                       <div>
                         {t.type ? <span className="tag">{t.type}</span> : null}
                       </div>
@@ -498,13 +604,16 @@ export default function Requirements() {
                         </button>
                       </div>
                     </div>
-                  ))
+                    )
+                  })
                 )}
               </div>
 
               <div className="bottom">
                 <span>
-                  {linked.length}개 TC 연결
+                  {folderMode
+                    ? `요구사항 ${folderReqs.length}건 · TC ${linked.length}건`
+                    : `${linked.length}개 TC 연결`}
                   {shown.length !== linked.length && ` · ${shown.length}개 표시`}
                 </span>
               </div>

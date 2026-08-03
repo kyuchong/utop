@@ -452,6 +452,51 @@
   grid-template-columns: 1fr 110px 60px 96px 64px;
 }
 
+/* 폴더를 골랐을 때 — '요구사항' 열이 하나 더 붙는다 */
+.tc-body.by-folder .tr {
+  grid-template-columns: 1fr 132px 110px 60px 96px 64px;
+}
+
+/* 폴더 이름 줄. 탭 자리를 대신 쓰므로 높이가 같아야 패널 머리가 안 흔들린다. */
+.fold-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.fold-title b {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fold-title .btn { align-self: center; }
+
+.fold-req { min-width: 0; }
+
+/* 어느 요구사항의 TC 인지. 눌러서 그 요구사항으로 넘어간다 — 폴더에서
+   훑다가 한 건을 들여다보는 흐름이 자연스럽다. */
+.linkish {
+  max-width: 100%;
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-primary);
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.linkish:hover:not(:disabled) { text-decoration: underline; }
+.linkish:disabled { color: var(--c-text-faint); cursor: default; }
+
 /* ── 2열 구조 (2026-08-03) ────────────────────────────────────
    분류 트리와 REQ 목록을 하나로 합쳤다. 요구사항 29건 · 분류 20개라
    전체가 한 화면에 들어오는데 두 단계로 고르게 하고 있었다.

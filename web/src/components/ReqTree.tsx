@@ -23,6 +23,12 @@ interface Props {
   tcsFor: (r: Requirement) => TestCaseMeta[]
   selected: string | null
   onSelect: (reqPk: string) => void
+  /**
+   * 고른 폴더. undefined = 폴더를 안 고름 · null = 미분류.
+   * 폴더를 고르면 오른쪽에 그 폴더 아래 요구사항의 TC 가 전부 모여 나온다.
+   */
+  selectedFolder: string | null | undefined
+  onSelectFolder: (catId: string | null) => void
   /** 여러 건 고르기 (삭제용) */
   picked: Set<string>
   onPick: (reqPk: string) => void
@@ -62,6 +68,8 @@ export default function ReqTree({
   tcsFor,
   selected,
   onSelect,
+  selectedFolder,
+  onSelectFolder,
   picked,
   onPick,
   pickedFolders,
@@ -101,6 +109,14 @@ export default function ReqTree({
   const [foldersOnly, setFoldersOnly] = useState(false)
 
   const treeRef = useRef<HTMLDivElement>(null)
+  /**
+   * 방금 끌어 옮겼는가.
+   *
+   * 끌기가 끝나면 브라우저가 click 도 함께 쏜다. 그대로 두면 폴더를 옮길
+   * 때마다 오른쪽 패널이 그 폴더로 튄다. 트리 안 아무 데나 다시 누르면
+   * 풀린다 — 끌 수 없는 줄(미분류)에서도 풀리게 트리 전체에 건다.
+   */
+  const justDragged = useRef(false)
 
   useEffect(() => {
     if (addFolderSignal > 0) {
@@ -311,6 +327,7 @@ export default function ReqTree({
       setDrag(null)
       setOver(undefined)
       if (!started) return
+      justDragged.current = true
       const el = document.elementFromPoint(ev.clientX, ev.clientY)
       const row = el?.closest('[data-folder]') as HTMLElement | null
       const target = row
@@ -372,7 +389,7 @@ export default function ReqTree({
           drag?.kind === 'req' && drag.id === pk ? ' dragging' : ''
         }`}
         style={{ paddingLeft: 8 + depth * 14 }}
-        onClick={() => onSelect(pk)}
+        onClick={() => !justDragged.current && onSelect(pk)}
         onPointerDown={(e) => beginDrag(e, 'req', pk)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -415,11 +432,17 @@ export default function ReqTree({
       <div key={n.id}>
         <div
           data-folder={n.id}
-          className={`rt-fold${over === n.id && drag ? ' dropinto' : ''}${
-            drag?.kind === 'cat' && drag.id === n.id ? ' dragging' : ''
-          }${clip?.id === n.id ? ' copied' : ''}`}
+          className={`rt-fold${selectedFolder === n.id ? ' on' : ''}${
+            over === n.id && drag ? ' dropinto' : ''
+          }${drag?.kind === 'cat' && drag.id === n.id ? ' dragging' : ''}${
+            clip?.id === n.id ? ' copied' : ''
+          }`}
           style={{ paddingLeft: 4 + (n.depth - 1) * 14 }}
           tabIndex={0}
+          // 폴더를 누르면 그 아래 요구사항의 TC 를 오른쪽에 모아 보인다.
+          // 폴더는 펼치는 것 말고 할 일이 없었는데, 실제로는 '이 묶음의
+          // 시험이 다 됐나' 를 폴더 단위로 보는 일이 가장 잦다.
+          onClick={() => !justDragged.current && onSelectFolder(n.id)}
           onPointerDown={(e) => beginDrag(e, 'cat', n.id)}
           // 우클릭이 곧 메뉴다. Zephyr·탐색기와 같아 배울 것이 없다.
           onContextMenu={(e) => {
@@ -429,6 +452,10 @@ export default function ReqTree({
           // F2 · Delete — 탐색기와 같은 키
           onKeyDown={(e) => {
             if (renaming) return
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onSelectFolder(n.id)
+            }
             if (e.key === 'F2') {
               e.preventDefault()
               startRename(n)
@@ -536,7 +563,13 @@ export default function ReqTree({
   const uncat = foldersOnly ? [] : (byFolder.get(null) ?? []).filter(match)
 
   return (
-    <div className="rt" ref={treeRef}>
+    <div
+      className="rt"
+      ref={treeRef}
+      onPointerDown={() => {
+        justDragged.current = false
+      }}
+    >
       <div className="rt-search">
         <input
           value={q}
@@ -606,7 +639,17 @@ export default function ReqTree({
 
         <div
           data-root="1"
-          className={`rt-fold rt-uncat${over === null && drag ? ' dropinto' : ''}`}
+          className={`rt-fold rt-uncat${selectedFolder === null ? ' on' : ''}${
+            over === null && drag ? ' dropinto' : ''
+          }`}
+          tabIndex={0}
+          onClick={() => !justDragged.current && onSelectFolder(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onSelectFolder(null)
+            }
+          }}
           onContextMenu={(e) => {
             // 최상위에 붙여넣기·폴더 만들기
             e.preventDefault()

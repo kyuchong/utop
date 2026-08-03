@@ -77,7 +77,14 @@
   box-shadow: inset 0 -1px 0 var(--rt-div);
 }
 
+.rt-fold { cursor: pointer; }
 .rt-fold:hover { background: var(--rt-hover); box-shadow: none; }
+
+/* 고른 폴더. 요구사항 줄과 같은 표시를 쓴다 — 둘 중 어느 것이 골라져
+   있는지가 오른쪽 패널이 무엇을 보여주는지를 정한다. */
+.rt-fold.on,
+.rt-fold.on:hover { background: var(--rt-sel); box-shadow: none; }
+.rt-fold.on .rt-fname { color: var(--c-primary); }
 
 /* 끌어온 요구사항을 받을 수 있는 폴더 */
 .rt-fold.dropinto {
