@@ -153,6 +153,131 @@ export const IconInstrument = (p: P) => (
   </Svg>
 )
 
+/* ── 스텝 종류 (Action) ────────────────────────────────────────
+   14px 로 줄마다 들어간다. 색 네모만으로는 훑을 때 안 읽혀서,
+   모양으로 구분되게 한다. 선 굵기는 메뉴 아이콘보다 살짝 얇다 —
+   작은 크기에서 1.7 은 뭉개진다. */
+function SmallSvg({ children, ...p }: P) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      {...p}
+    >
+      {children}
+    </svg>
+  )
+}
+
+/** CLI — 터미널 */
+export const IconCli = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="m4 7 4 4-4 4M11 15h9" />
+  </SmallSvg>
+)
+
+/** 계측기 — 계기판 */
+export const IconMeter = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M4 18a8 8 0 1 1 16 0" />
+    <path d="m12 14 4-4" />
+  </SmallSvg>
+)
+
+/** If — 갈라짐 */
+export const IconBranch = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M6 4v6a4 4 0 0 0 4 4h8" />
+    <path d="m15 11 3 3-3 3" />
+    <path d="M6 14v6" />
+  </SmallSvg>
+)
+
+/** Loop — 되돌아감 */
+export const IconLoop = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M4 10a6 6 0 0 1 6-6h10" />
+    <path d="m17 1 3 3-3 3" />
+    <path d="M20 14a6 6 0 0 1-6 6H4" />
+    <path d="m7 23-3-3 3-3" />
+  </SmallSvg>
+)
+
+/** Switch — 여러 갈래 */
+export const IconSwitch = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M4 12h5" />
+    <path d="M9 12c4 0 4-7 8-7h3M9 12c4 0 4 7 8 7h3" />
+    <path d="m18 2 2 3-2 3M18 16l2 3-2 3" />
+  </SmallSvg>
+)
+
+/** Wait — 시계 */
+export const IconClock = (p: P) => (
+  <SmallSvg {...p}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" />
+  </SmallSvg>
+)
+
+/** Connect — 이어짐 */
+export const IconPlug = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M9 3v5M15 3v5" />
+    <path d="M6 8h12v3a6 6 0 0 1-12 0z" />
+    <path d="M12 17v4" />
+  </SmallSvg>
+)
+
+/** Close — 끊김 */
+export const IconUnplug = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M5 19 9 15" />
+    <path d="M13 3 21 11" />
+    <path d="m8.5 10.5 5 5" />
+    <path d="M12 7 7 12a3.5 3.5 0 0 0 5 5l5-5" />
+  </SmallSvg>
+)
+
+/** Model — 칩 */
+export const IconChip = (p: P) => (
+  <SmallSvg {...p}>
+    <rect x="7" y="7" width="10" height="10" rx="1.5" />
+    <path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4" />
+  </SmallSvg>
+)
+
+/** Comment — 말풍선 */
+export const IconNote = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M20 15a2 2 0 0 1-2 2H8l-4 3V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" />
+  </SmallSvg>
+)
+
+/** Manual — 손 */
+export const IconHand = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V11" />
+    <path d="M12 11V4.5a1.5 1.5 0 0 1 3 0V11" />
+    <path d="M15 11V6.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1a6 6 0 0 1-5.2-3l-2-3.4a1.5 1.5 0 0 1 2.5-1.6L9 15" />
+  </SmallSvg>
+)
+
+/** 재생 — 이 스텝만 실행 */
+export const IconPlay = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M7 4.5 19 12 7 19.5z" fill="currentColor" stroke="none" />
+  </SmallSvg>
+)
+
 /* ── 설정 화면 항목 ────────────────────────────────────────────
    왼쪽 메뉴와 같은 규격(18px·stroke·currentColor)을 쓴다. 설정 안에서만
    다른 모양을 쓰면 같은 앱으로 안 보인다. */

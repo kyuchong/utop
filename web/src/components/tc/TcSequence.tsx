@@ -1,3 +1,4 @@
+import StepIcon from './StepIcon'
 import {
   sessionIndex,
   STEP_KINDS,
@@ -89,7 +90,7 @@ export default function TcSequence({
                 </span>
                 <span className="sq-n">{i + 1}</span>
                 <span className="sq-act" style={{ marginLeft: depth * 16 }}>
-                  <span className={`sq-sq g-${info.group}`} />
+                  <StepIcon name={info.icon} className={`sq-ic g-${info.group}`} />
                   {info.label}
                 </span>
                 <span className="sq-sum" title={summary(s)}>
@@ -132,7 +133,7 @@ export default function TcSequence({
                 if (d) d.open = false
               }}
             >
-              <span className={`sq-sq g-${k.group}`} />
+              <StepIcon name={k.icon} className={`sq-ic g-${k.group}`} />
               {k.label}
             </button>
           ))}

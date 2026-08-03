@@ -166,20 +166,44 @@ export interface TcStep {
   [k: string]: unknown
 }
 
-/** 화면에 보일 Action 이름과 색 갈래 */
-export const STEP_KINDS: Array<{ k: StepKind; label: string; group: 'run' | 'flow' | 'conn' | 'etc' }> = [
-  { k: 'cli', label: 'CLI', group: 'run' },
-  { k: 'instrument', label: '계측기', group: 'run' },
-  { k: 'if', label: 'If', group: 'flow' },
-  { k: 'loop', label: 'Loop', group: 'flow' },
-  { k: 'switch', label: 'Switch', group: 'flow' },
-  { k: 'wait', label: 'Wait', group: 'flow' },
-  { k: 'connect', label: 'Connect', group: 'conn' },
-  { k: 'disconnect', label: 'Close', group: 'conn' },
-  { k: 'model', label: 'Model', group: 'etc' },
-  { k: 'comment', label: 'Comment', group: 'etc' },
-  { k: 'message', label: 'Message', group: 'etc' },
-  { k: 'manual', label: 'Manual', group: 'etc' },
+/**
+ * 화면에 보일 Action 이름과 갈래.
+ *
+ * icon 은 아이콘 이름만 담는다 — 이 파일은 자료 모양만 다루고 화면 요소를
+ * 들이지 않는다(여기서 컴포넌트를 import 하면 서버 쪽 코드가 이 타입을
+ * 가져다 쓸 때 React 까지 딸려온다).
+ */
+export type StepIcon =
+  | 'cli'
+  | 'meter'
+  | 'branch'
+  | 'loop'
+  | 'switch'
+  | 'clock'
+  | 'plug'
+  | 'unplug'
+  | 'chip'
+  | 'note'
+  | 'hand'
+
+export const STEP_KINDS: Array<{
+  k: StepKind
+  label: string
+  group: 'run' | 'flow' | 'conn' | 'etc'
+  icon: StepIcon
+}> = [
+  { k: 'cli', label: 'CLI', group: 'run', icon: 'cli' },
+  { k: 'instrument', label: '계측기', group: 'run', icon: 'meter' },
+  { k: 'if', label: 'If', group: 'flow', icon: 'branch' },
+  { k: 'loop', label: 'Loop', group: 'flow', icon: 'loop' },
+  { k: 'switch', label: 'Switch', group: 'flow', icon: 'switch' },
+  { k: 'wait', label: 'Wait', group: 'flow', icon: 'clock' },
+  { k: 'connect', label: 'Connect', group: 'conn', icon: 'plug' },
+  { k: 'disconnect', label: 'Close', group: 'conn', icon: 'unplug' },
+  { k: 'model', label: 'Model', group: 'etc', icon: 'chip' },
+  { k: 'comment', label: 'Comment', group: 'etc', icon: 'note' },
+  { k: 'message', label: 'Message', group: 'etc', icon: 'note' },
+  { k: 'manual', label: 'Manual', group: 'etc', icon: 'hand' },
 ]
 
 const KIND_MAP = new Map(STEP_KINDS.map((x) => [x.k, x]))
@@ -191,6 +215,7 @@ export function stepKindInfo(k?: string) {
       k: (k || 'cli') as StepKind,
       label: k || '(없음)',
       group: 'etc' as const,
+      icon: 'note' as StepIcon,
     }
   )
 }
