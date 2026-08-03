@@ -21,6 +21,9 @@
   --tc-hover: #f2f5f8;
   --tc-sel: #eaf1fb;
   --tc-line: #e8ecf0;
+  /* 줄 구분선. 테두리색보다 더 옅어야 '선을 그었다'는 느낌이 안 난다 —
+     있는 줄 모르지만 없으면 눈이 옆줄로 새는 정도. */
+  --tc-div: #f0f3f6;
 }
 
 /* ── 상단 한 줄 ───────────────────────────────────────────── */
@@ -201,12 +204,12 @@
   cursor: pointer;
 }
 
-.tc-item + .tc-item { margin-top: 1px; }
-.tc-item:hover { background: var(--tc-hover); }
+.tc-item { box-shadow: inset 0 -1px 0 var(--tc-div); }
+.tc-item:hover { background: var(--tc-hover); box-shadow: none; }
 
 /* 고른 줄. 띠 대신 채움으로. 제목만 진하게 해서 어느 것인지 알린다. */
 .tc-item.on,
-.tc-item.on:hover { background: var(--tc-sel); }
+.tc-item.on:hover { background: var(--tc-sel); box-shadow: none; }
 .tc-item.on b { color: var(--c-primary); }
 
 .tc-dot {
@@ -307,10 +310,13 @@
   cursor: pointer;
 }
 
-.sq-row + .sq-row { margin-top: 1px; }
-.sq-row:hover { background: var(--tc-hover); }
+/* 줄 사이 옅은 선. 스텝은 Action·요약·결과가 좌우로 멀어서 선이 없으면
+   눈이 옆줄로 샌다. 30줄에 진한 선을 그으면 내용보다 선이 먼저 읽히므로
+   테두리색보다 더 옅게 둔다. */
+.sq-row { box-shadow: inset 0 -1px 0 var(--tc-div); }
+.sq-row:hover { background: var(--tc-hover); box-shadow: none; }
 .sq-row.on,
-.sq-row.on:hover { background: var(--tc-sel); }
+.sq-row.on:hover { background: var(--tc-sel); box-shadow: none; }
 
 /* 건너뛰는 스텝은 흐리게. 지우지 않고 잠시 빼두는 일이 잦다. */
 .sq-row.skip { opacity: 0.42; }
