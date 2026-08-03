@@ -7,6 +7,7 @@ import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTree from '@/components/tc/TcTree'
 import TcSessionBar from '@/components/tc/TcSessionBar'
+import TcTerminal from '@/components/tc/TcTerminal'
 import TcInfo from '@/components/tc/TcInfo'
 import TcHistory from '@/components/tc/TcHistory'
 import { deviceLabel } from '@/components/tc/device'
@@ -58,6 +59,8 @@ export default function TestCases() {
   const [openId, setOpenId] = useState('')
   const [stepIdx, setStepIdx] = useState(-1)
   const [menuOpen, setMenuOpen] = useState(false)
+  /** 터미널을 열면 3열이 그것으로 바뀐다 — 따오는 동안 스텝 세부는 볼 일이 없다 */
+  const [termOpen, setTermOpen] = useState(false)
   const [form, setForm] = useState<TestCaseMeta | null | undefined>(undefined)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
@@ -373,7 +376,15 @@ export default function TestCases() {
                 <button type="button" disabled={!openId}>
                   ✨ AI 로 만들기
                 </button>
-                <button type="button" disabled={!openId}>
+                <button
+                  type="button"
+                  disabled={!openId}
+                  onClick={() => {
+                    setMenuOpen(false)
+                    setTab('steps')
+                    setTermOpen(true)
+                  }}
+                >
                   ⌨ 터미널에서 따오기
                 </button>
                 <hr />
@@ -468,6 +479,16 @@ export default function TestCases() {
                 >
                   ⏹
                 </button>
+                {/* 스텝을 손으로 만들지 않고 쳐서 만드는 길. ⋯ 안에 숨기면
+                    처음 오는 사람이 못 찾는다 — 여기가 그 사람의 첫 30초다. */}
+                <button
+                  className={`btn small${termOpen ? ' primary' : ''}`}
+                  type="button"
+                  title="장비에 붙어 명령을 치면 그대로 스텝이 됩니다"
+                  onClick={() => setTermOpen((v) => !v)}
+                >
+                  ⌨ 터미널
+                </button>
                 <TcSessionBar
                   sessions={sessionIds}
                   devices={devices}
@@ -520,8 +541,22 @@ export default function TestCases() {
               }}
             />
 
-            {/* 3열 — 스텝 세부 */}
-            <section className="panel tc-detcol">
+            {/* 3열 — 스텝 세부, 또는 따오는 동안은 터미널 */}
+            <section className={`panel tc-detcol${termOpen ? ' wide' : ''}`}>
+              {termOpen ? (
+                <TcTerminal
+                  sessions={sessionIds}
+                  devById={devById}
+                  sessionNames={sessionNames}
+                  onAdd={(s) => {
+                    // 함수형으로 붙인다. 기록 중에는 명령이 잇달아 들어와서
+                    // 닫힌 값을 쓰면 앞 스텝이 뒤 스텝에 덮인다.
+                    setD((c) => ({ ...c, checks: [...((c.checks ?? []) as TcStep[]), s] }))
+                    setDirty(true)
+                  }}
+                  onClose={() => setTermOpen(false)}
+                />
+              ) : (
               <TcStepDetail
                 step={stepIdx >= 0 ? (steps[stepIdx] ?? null) : null}
                 index={stepIdx}
@@ -532,6 +567,7 @@ export default function TestCases() {
                 onRemove={() => stepIdx >= 0 && removeStep(stepIdx)}
                 onRun={running || stepIdx < 0 ? undefined : () => void doRun(stepIdx, true)}
               />
+              )}
             </section>
           </>
         )}
