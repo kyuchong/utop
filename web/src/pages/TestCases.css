@@ -1,6 +1,7 @@
 /* 테스트케이스 화면 — 3열.
-   1열 TC 목록 · 2열 스텝 요약 · 3열 스텝 세부.
-   요구사항은 상단 버튼으로 띄우는 팝업이라 열을 차지하지 않는다.
+   1열 폴더·요구사항·TC 트리 · 2열 스텝 요약 · 3열 스텝 세부.
+   1열은 요구사항 화면과 같은 트리다 — 좁히는 일과 고르는 일이 한 자리에서
+   끝나야 한다. 트리 줄의 생김새는 ReqTree.css 에 있다.
 
    ── 시각 규칙 (Linear 를 기준으로 잡았다) ──────────────────────
    1. 선을 최소로 긋는다. 열과 열은 배경 톤 차이로 가른다 — 1px 선을
@@ -49,33 +50,6 @@
   font-size: var(--fs-lg);
   font-weight: 600;
 }
-
-/* 지금 걸린 요구사항. 켜져 있을 때만 색을 준다 — 늘 파랗게 두면
-   필터가 걸린 것인지 그냥 버튼인지 구분이 안 된다. */
-.tc-reqbtn {
-  border-radius: var(--tc-r);
-  font-weight: 500;
-}
-
-.tc-reqbtn.on {
-  border-color: transparent;
-  background: var(--tc-sel);
-  color: var(--c-primary);
-}
-
-.tc-reqx {
-  border: 0;
-  background: transparent;
-  color: var(--c-primary);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  padding: 3px 5px;
-  border-radius: var(--tc-r);
-  margin-left: -5px;
-}
-
-.tc-reqx:hover { background: var(--tc-sel); }
 
 /* ⋯ 메뉴 */
 .tc-more { position: relative; }
@@ -143,6 +117,7 @@
 /* 작업하는 곳이 가장 넓어야 한다. 전에는 반대로 두어(2열 고정 · 3열 flex)
    스텝 목록이 좁고 오른쪽 절반이 비었다. */
 .tc-seqcol { flex: 1; min-width: 0; }
+.tc-detcol { flex: 0 0 420px; min-width: 0; }
 
 /* 정보·이력은 3열을 쓰지 않는다. 고른 TC 한 건의 이야기라 열을 나눌
    것이 없고, 나누면 카드가 좁아 읽기만 나빠진다. */
@@ -173,7 +148,6 @@
 .th-dev { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .th-row .status.pass { color: var(--c-pass); }
 .th-row .status.fail { color: var(--c-fail); }
-.tc-detcol { flex: 0 0 420px; min-width: 0; }
 
 /* 양 끝 열은 살짝 가라앉혀 가운데(작업하는 곳)를 앞으로 낸다 */
 .tc-split .tc-listcol { background: var(--tc-bg); }
@@ -196,51 +170,50 @@
   font-weight: 700;
 }
 
-.tc-search { padding: 2px var(--sp-3) var(--sp-2); }
-
-.tc-search input {
-  width: 100%;
-  border: 1px solid transparent;
-  background: var(--tc-hover);
-  border-radius: var(--tc-r);
-  padding: 6px 9px;
-  font: inherit;
-  font-size: var(--fs-sm);
-  color: inherit;
-}
-
-.tc-search input::placeholder { color: var(--c-text-faint); }
-
-.tc-search input:focus {
-  outline: none;
-  background: var(--c-surface);
-  border-color: var(--c-primary);
-}
-
-/* ── 1열: TC 한 줄 ───────────────────────────────────────── */
-.tc-listcol .scroll { padding: 0 6px 10px; }
-
-.tc-item {
+/* ── 1열: 폴더 · 요구사항 · TC 트리 ─────────────────────────
+   트리 자체(폴더·요구사항 줄)는 요구사항 화면의 ReqTree.css 를 그대로 쓴다.
+   여기서 다시 정하면 두 화면을 오갈 때 같은 것이 달라 보인다.
+   TC 줄만 이 화면에서 더한다 — 요구사항 화면에는 없는 층이다. */
+.tt-tc {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: 7px;
   width: 100%;
+  min-height: 28px;
+  box-sizing: border-box;
   text-align: left;
-  padding: 6px 8px;
+  padding: 2px 6px;
   border: 0;
   border-radius: var(--tc-r);
   background: transparent;
   color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-sm);
   cursor: pointer;
+  /* 요구사항 줄과 같은 옅은 구분선. 층만 하나 더 깊을 뿐이다. */
+  box-shadow: inset 0 -1px 0 var(--tc-div);
 }
 
-.tc-item { box-shadow: inset 0 -1px 0 var(--tc-div); }
-.tc-item:hover { background: var(--tc-hover); box-shadow: none; }
+.tt-tc:hover { background: var(--tc-hover); box-shadow: none; }
+.tt-tc.on,
+.tt-tc.on:hover { background: var(--tc-sel); box-shadow: none; }
+.tt-tc.on .tt-tc-nm { font-weight: 700; color: var(--c-primary); }
 
-/* 고른 줄. 띠 대신 채움으로. 제목만 진하게 해서 어느 것인지 알린다. */
-.tc-item.on,
-.tc-item.on:hover { background: var(--tc-sel); box-shadow: none; }
-.tc-item.on b { color: var(--c-primary); }
+.tt-tc-nm {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* CLI 스텝 수. 몇 줄짜리 시험인지가 목록에서 가장 궁금하다. */
+.tt-n {
+  flex: none;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-faint);
+}
 
 .tc-dot {
   width: 6px;
@@ -253,37 +226,6 @@
 .tc-dot.pass { background: var(--c-pass); }
 .tc-dot.fail { background: var(--c-fail); }
 .tc-dot.draft { background: var(--c-draft); }
-
-.tc-item-txt {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  gap: 0;
-}
-
-/* 요구사항 목록은 평소 보통 굵기, 고른 줄만 굵다. 같은 규칙을 쓴다. */
-.tc-item-txt b {
-  font-weight: 400;
-  line-height: 1.4;
-}
-
-.tc-item.on .tc-item-txt b { font-weight: 700; }
-
-.tc-item-txt b,
-.tc-item-txt span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* CLI 스텝 수. 몇 줄짜리 시험인지가 목록에서 가장 궁금하다. */
-.tc-item-n {
-  margin-left: auto;
-  flex: none;
-  font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
-  color: var(--c-text-faint);
-}
 
 /* ── 2열: 실행 바 + 스텝 ─────────────────────────────────── */
 .tc-run {
@@ -834,82 +776,4 @@
   align-items: center;
   gap: 6px;
   margin-top: var(--sp-2);
-}
-
-/* ── 요구사항 고르기 팝업 ───────────────────────────────── */
-.modal.rp {
-  width: min(640px, 92vw);
-  max-height: 76vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.rp-top {
-  display: flex;
-  gap: var(--sp-2);
-  padding: var(--sp-3);
-  border-bottom: 1px solid var(--tc-line, #e8ecf0);
-}
-
-.rp-top input {
-  flex: 1;
-  min-width: 0;
-  border: 1px solid #e8ecf0;
-  border-radius: 6px;
-  padding: 7px 10px;
-  font: inherit;
-}
-
-.rp-top input:focus {
-  outline: none;
-  border-color: var(--c-primary);
-  box-shadow: 0 0 0 3px #eaf1fb;
-}
-
-.rp-body { flex: 1; min-height: 0; overflow: auto; padding: var(--sp-2) 6px var(--sp-3); }
-
-.rp-cat-nm {
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--c-text-faint);
-  text-transform: uppercase;
-  padding: 9px 10px 3px;
-}
-
-.rp-req {
-  display: flex;
-  align-items: baseline;
-  gap: var(--sp-2);
-  width: 100%;
-  text-align: left;
-  border: 0;
-  background: none;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font: inherit;
-  color: var(--c-text);
-  cursor: pointer;
-}
-
-.rp-req:hover { background: #f2f5f8; }
-.rp-req.on { background: #eaf1fb; }
-.rp-req.on b { color: var(--c-primary); }
-.rp-req b { font-weight: 500; }
-
-.rp-t {
-  flex: 1;
-  min-width: 0;
-  color: var(--c-text-muted);
-  font-size: var(--fs-sm);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rp-n {
-  flex: none;
-  font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
-  color: var(--c-text-faint);
 }

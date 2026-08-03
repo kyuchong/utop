@@ -5,14 +5,14 @@ import TcForm from '@/components/TcForm'
 import TcBulkForm from '@/components/TcBulkForm'
 import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
-import ReqPicker from '@/components/tc/ReqPicker'
+import TcTree from '@/components/tc/TcTree'
 import TcSessionBar from '@/components/tc/TcSessionBar'
 import TcInfo from '@/components/tc/TcInfo'
 import TcHistory from '@/components/tc/TcHistory'
 import { deviceLabel } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
-import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
+import { type TestCaseMeta } from '@/types'
 import { runSteps, type RunLog } from '@/components/tc/runner'
 import {
   sessionIndex,
@@ -42,9 +42,12 @@ function blankStep(kind: StepKind): TcStep {
 /**
  * 테스트케이스 화면.
  *
- * 3열이다 — 1열 TC 목록 · 2열 스텝 요약 · 3열 스텝 세부.
- * 요구사항은 왼쪽에 상주시키지 않고 위 「요구사항」 버튼으로 띄운다. 스텝을
- * 쓰는 동안은 트리를 쓸 일이 없는데 폭만 먹기 때문이다.
+ * 3열이다 — 1열 폴더·요구사항·TC 트리 · 2열 스텝 요약 · 3열 스텝 세부.
+ *
+ * 1열은 요구사항 화면과 같은 트리다. 전에는 TC 89건이 평평하게 늘어선
+ * 목록이었고 요구사항으로 좁히려면 위의 「요구사항」 팝업을 따로 띄워야
+ * 했다 — '지금 무엇으로 좁혀져 있나' 가 목록 밖에 있었다. 좁히는 일과
+ * 고르는 일은 한 자리에서 끝나야 한다.
  *
  * 전에는 TC 를 누르면 화면이 통째로 상세로 바뀌어 목록이 사라졌다. 89건을
  * 훑을 때 그것이 가장 불편했다.
@@ -54,12 +57,9 @@ export default function TestCases() {
   const [tab, setTab] = useState<Tab>('steps')
   const [openId, setOpenId] = useState('')
   const [stepIdx, setStepIdx] = useState(-1)
-  const [reqFilter, setReqFilter] = useState<string | null>(null)
-  const [reqOpen, setReqOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [form, setForm] = useState<TestCaseMeta | null | undefined>(undefined)
   const [bulkOpen, setBulkOpen] = useState(false)
-  const [q, setQ] = useState('')
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
 
   // 편집 중인 TC 전체. 목록의 메타가 아니라 스텝까지 든 원본이다.
@@ -79,10 +79,6 @@ export default function TestCases() {
     queryKey: ['tc', 'list', 'meta'],
     queryFn: ({ signal }) => api.listTestCases(signal),
   })
-  const reqQ = useQuery({
-    queryKey: ['req', 'list'],
-    queryFn: ({ signal }) => api.listRequirements(signal),
-  })
 
   // 세션이 장비 id 로 저장돼 있어 이름을 붙이려면 장비 목록이 필요하다.
   const devQ = useQuery({
@@ -96,7 +92,6 @@ export default function TestCases() {
   })
 
   const tcs = tcQ.data?.tcs ?? []
-  const reqs = reqQ.data?.reqs ?? []
 
   const devices = useMemo(() => devQ.data?.devices ?? [], [devQ.data])
 
@@ -105,39 +100,6 @@ export default function TestCases() {
     for (const dv of devices) if (dv.id) m.set(dv.id, dv)
     return m
   }, [devices])
-
-  const reqByKey = useMemo(() => {
-    const m = new Map<string, Requirement>()
-    for (const r of reqs) {
-      m.set(reqPk(r), r)
-      const l = reqLabel(r)
-      if (l) m.set(l, r)
-    }
-    return m
-  }, [reqs])
-
-  const curReq = reqFilter ? reqByKey.get(reqFilter) : undefined
-
-  /**
-   * 요구사항 필터. tc.req_id 에 PK 가 들었는지 이름표가 들었는지 자료마다
-   * 달라서 둘 다로 맞춘다 (Requirements.tsx 에 같은 사정이 적혀 있다).
-   */
-  const shown = useMemo(() => {
-    const needle = q.trim().toLowerCase()
-    const label = curReq ? reqLabel(curReq) : ''
-    return tcs.filter((t) => {
-      if (reqFilter) {
-        const k = (t.req_id || '').trim()
-        if (k !== reqFilter && (!label || k !== label)) return false
-      }
-      if (!needle) return true
-      return (
-        t.tcid.toLowerCase().includes(needle) ||
-        (t.name ?? '').toLowerCase().includes(needle) ||
-        (t.type ?? '').toLowerCase().includes(needle)
-      )
-    })
-  }, [tcs, q, reqFilter, curReq])
 
   // 고른 TC 의 원본을 따로 읽는다 — 목록 응답에는 스텝이 빠져 있다.
   const fullQ = useQuery({
@@ -341,15 +303,12 @@ export default function TestCases() {
     }
   }
 
-  const error = tcQ.error ?? reqQ.error
+  const error = tcQ.error
 
   return (
     <>
       {form !== undefined && <TcForm editing={form} onClose={() => setForm(undefined)} />}
       {bulkOpen && <TcBulkForm onClose={() => setBulkOpen(false)} />}
-      {reqOpen && (
-        <ReqPicker selected={reqFilter} onPick={setReqFilter} onClose={() => setReqOpen(false)} />
-      )}
 
       {error ? (
         <div className="load-error">
@@ -357,28 +316,9 @@ export default function TestCases() {
         </div>
       ) : null}
 
-      {/* 상단 한 줄 — 어느 TC 를 보고 있는지 · 요구사항 필터 · 탭 */}
+      {/* 상단 한 줄 — 어느 TC 를 보고 있는지 · 탭.
+          요구사항으로 좁히는 일은 1열 트리가 맡는다. */}
       <div className="tc-bar">
-        <button
-          className={`btn tc-reqbtn${reqFilter ? ' on' : ''}`}
-          type="button"
-          onClick={() => setReqOpen(true)}
-          title="요구사항으로 TC 를 좁힙니다"
-        >
-          요구사항
-          {curReq && <b> · {reqLabel(curReq)}</b>}
-        </button>
-        {reqFilter && (
-          <button
-            className="tc-reqx"
-            type="button"
-            onClick={() => setReqFilter(null)}
-            aria-label="요구사항 필터 해제"
-          >
-            ×
-          </button>
-        )}
-
         <span className="tc-bar-ttl">
           {openId ? (
             <>
@@ -460,53 +400,22 @@ export default function TestCases() {
       </div>
 
       <div className="split tc-split" ref={splitRef}>
-        {/* 1열 — TC 목록 */}
+        {/* 1열 — 폴더 · 요구사항 · TC 트리 (요구사항 화면과 같은 모양) */}
         <section className="panel tc-listcol" style={{ flexBasis: listW }}>
           <div className="tc-col-head">
             <span className="panel-name">
               TC
-              <span className="muted small">
-                {shown.length === tcs.length ? `${tcs.length}건` : `${shown.length} / ${tcs.length}건`}
-              </span>
+              <span className="muted small">{tcs.length}건</span>
             </span>
             <button className="btn small" type="button" onClick={() => setForm(null)}>
               +
             </button>
           </div>
-          <div className="tc-search">
-            <input
-              placeholder="TC ID · 제목 검색"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-          </div>
-          <div className="scroll">
-            {tcQ.isLoading ? (
-              <div className="empty">불러오는 중…</div>
-            ) : shown.length === 0 ? (
-              <div className="empty">
-                {reqFilter ? '이 요구사항에 달린 TC 가 없습니다.' : '조건에 맞는 TC 가 없습니다.'}
-              </div>
-            ) : (
-              shown.map((t) => (
-                <button
-                  key={t.tcid}
-                  type="button"
-                  className={`tc-item${openId === t.tcid ? ' on' : ''}`}
-                  onClick={() => pickTc(t.tcid)}
-                >
-                  <span className={`tc-dot ${statusClass(t.status)}`} />
-                  <span className="tc-item-txt">
-                    <b>{t.name || '(제목 없음)'}</b>
-                    <span className="muted small">{t.tcid}</span>
-                  </span>
-                  {typeof t._cli_count === 'number' && t._cli_count > 0 && (
-                    <span className="tc-item-n">{t._cli_count}</span>
-                  )}
-                </button>
-              ))
-            )}
-          </div>
+          {tcQ.isLoading ? (
+            <div className="empty">불러오는 중…</div>
+          ) : (
+            <TcTree tcs={tcs} openId={openId} onOpen={pickTc} />
+          )}
         </section>
 
         <Resizer
