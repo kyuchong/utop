@@ -674,3 +674,92 @@
   background: #e8f5ed;
   color: #12643a;
 }
+
+/* ── TC 연결: 양쪽 목록 ───────────────────────────────────────
+   오른쪽 칸이 곧 결과다. 옮겨 놓고 저장을 누르면 그대로 된다.
+   1열은 후보를 좁히는 칸이라 좁게, 2·3열은 같은 폭으로 나눈다. */
+.lk-cols {
+  grid-template-columns: 190px 1fr 1fr;
+}
+
+.lk-pane {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2);
+}
+
+/* 결과 칸은 배경을 달리해 '이쪽이 최종' 이라는 것을 보이게 한다 */
+.lk-pane.mine {
+  background: var(--c-surface-info);
+  border-color: #cfe0f5;
+}
+
+.lk-pane-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.lk-pane-head .btn { margin-left: auto; }
+.lk-pane-head .tag.chg { margin-left: auto; background: #fdf7e8; color: #7a5c12; }
+
+.lk-list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+}
+
+/* 줄 전체가 버튼이다. 체크박스를 켠 뒤 아래 버튼을 또 누르게 하면
+   무슨 일이 일어날지 예측이 안 된다 — 누르면 바로 옮긴다. */
+.lk-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 9px;
+  border: 0;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: transparent;
+  text-align: left;
+  color: var(--c-text);
+  font: inherit;
+}
+.lk-row:last-child { border-bottom: 0; }
+.lk-row:hover { background: var(--c-surface-info); }
+.lk-pane.mine .lk-row:hover { background: #fdf4f4; }
+
+/* 옮겨갈 방향을 화살표로 알린다. 평소엔 흐리게, hover 하면 또렷하게. */
+.lk-move {
+  flex: none;
+  width: 16px;
+  color: var(--c-text-faint);
+  font-size: var(--fs-sm);
+}
+.lk-row:hover .lk-move { color: var(--c-primary); }
+.lk-pane.mine .lk-row:hover .lk-move { color: var(--c-fail); }
+
+.lk-txt {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+.lk-name,
+.lk-id {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 이번에 새로 가져온 줄 — 저장 전에 무엇이 바뀌는지 보이게 */
+.lk-row.added { background: #f2fbf5; }
+.lk-row.added:hover { background: #fdf4f4; }
