@@ -114,14 +114,16 @@
 
 .tc-listcol { flex: 0 0 auto; min-width: 0; }
 
-/* 작업하는 곳이 가장 넓어야 한다. 전에는 반대로 두어(2열 고정 · 3열 flex)
-   스텝 목록이 좁고 오른쪽 절반이 비었다. */
-.tc-seqcol { flex: 1; min-width: 0; }
-.tc-detcol { flex: 0 0 420px; min-width: 0; }
+/* 2열은 드래그한 폭을 지키고, 3열이 남는 곳을 다 가져간다.
+   전에는 반대였다 — 2열이 flex:1 이라 가운데 손잡이를 끌어도 결국 남는
+   폭을 2열이 도로 가져가서 아무 변화가 없었고, 3열은 420px 에 묶여 있었다.
+   2열은 상태·번호·Action·요약 넉 줄이면 되는데 3열은 칸이 열 개가 넘는다. */
+.tc-seqcol { flex: 0 0 auto; min-width: 260px; }
+.tc-detcol { flex: 1 1 0; min-width: 320px; }
 
-/* 터미널을 열면 3열이 넓어진다. 420px 로는 `show running-config` 한 줄이
-   접혀서 무엇을 봤는지 알 수 없다. */
-.tc-detcol.wide { flex: 0 0 min(620px, 46vw); }
+/* 터미널을 열면 더 좁아지지 않게 막는다. 좁으면 `show running-config`
+   한 줄이 접혀서 무엇을 봤는지 알 수 없다. */
+.tc-detcol.wide { min-width: 460px; }
 
 /* 정보·이력은 3열을 쓰지 않는다. 고른 TC 한 건의 이야기라 열을 나눌
    것이 없고, 나누면 카드가 좁아 읽기만 나빠진다. */

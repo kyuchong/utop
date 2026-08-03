@@ -86,7 +86,10 @@ export default function TestCases() {
 
   const splitRef = useRef<HTMLDivElement>(null)
   const [listW, setListW] = useResizableWidth('utop.tc.listW', 250, 170, 460)
-  const [seqW, setSeqW] = useResizableWidth('utop.tc.seqW', 560, 340, 1100)
+  // 기본값을 바꿀 때는 key 도 올린다 — 이미 저장된 옛 값이 이겨서 아무도
+  // 변화를 못 본다(Resizer.tsx 주석). 3열이 남는 폭을 갖게 되면서 2열의
+  // 적정 폭도 달라졌다.
+  const [seqW, setSeqW] = useResizableWidth('utop.tc.seqW2', 620, 260, 1400)
 
   const tcQ = useQuery({
     queryKey: ['tc', 'list', 'meta'],
@@ -497,17 +500,8 @@ export default function TestCases() {
                 <button type="button" disabled={!openId}>
                   ✨ AI 로 만들기
                 </button>
-                <button
-                  type="button"
-                  disabled={!openId}
-                  onClick={() => {
-                    setMenuOpen(false)
-                    setTab('steps')
-                    setTermOpen(true)
-                  }}
-                >
-                  ⌨ 터미널에서 따오기
-                </button>
+                {/* 「⌨ 터미널」 은 실행 줄에 있다. 같은 것을 여기 또 두면
+                    어느 쪽이 무엇인지 생각하게 된다. */}
                 <hr />
                 {/* 랩마다 UTOP 이 따로 서 있어서 한쪽에서 만든 시험을 다른
                     쪽에서 그대로 돌리고 싶은 일이 잦다. DB 를 통째로 옮기면
