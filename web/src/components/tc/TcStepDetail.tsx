@@ -353,10 +353,69 @@ export default function TcStepDetail({
           </label>
         )}
         {kind === 'manual' && (
-          <label className="sd-f">
-            <span>Test Data</span>
-            <input value={step.data ?? ''} onChange={(e) => onChange({ data: e.target.value })} />
-          </label>
+          <>
+            <label className="sd-f">
+              <span>사람이 할 일</span>
+              {/* 여기 적히는 것은 명령이 아니라 사람의 일이다. input 으로
+                  두었더니 명령처럼 보여서 실행기가 장비로 보내고 있었다. */}
+              <textarea
+                rows={2}
+                value={step.data ?? ''}
+                placeholder="예) 장비 전원을 내렸다가 30초 뒤 다시 올린다"
+                onChange={(e) => onChange({ data: e.target.value })}
+              />
+              <span className="sd-hint">
+                이 스텝은 장비로 나가지 않습니다. 돌린 뒤 아래에서 직접 찍으세요.
+              </span>
+            </label>
+
+            {/* 자동으로 판정할 수 없는 스텝이라 사람이 찍는다. 이것이 없으면
+                수동 절차가 든 시험은 영영 '미실행' 으로 남는다. */}
+            <div className="sd-f">
+              <span>직접 판정</span>
+              <div className="sd-row">
+                <button
+                  className={`btn small${verdict === 'PASS' ? ' primary' : ''}`}
+                  type="button"
+                  onClick={() =>
+                    onChange({
+                      status: 'PASS',
+                      repeatResult: 'Pass',
+                      executed_at: new Date().toISOString(),
+                    })
+                  }
+                >
+                  합격
+                </button>
+                <button
+                  className={`btn small${verdict === 'FAIL' ? ' danger' : ''}`}
+                  type="button"
+                  onClick={() =>
+                    onChange({
+                      status: 'FAIL',
+                      repeatResult: 'Fail',
+                      executed_at: new Date().toISOString(),
+                    })
+                  }
+                >
+                  불합격
+                </button>
+                <button
+                  className="btn small"
+                  type="button"
+                  disabled={!verdict}
+                  onClick={() => onChange({ status: '', repeatResult: '' })}
+                >
+                  지움
+                </button>
+                {step.executed_at && (
+                  <span className="muted small">
+                    {step.executed_at.slice(0, 16).replace('T', ' ')}
+                  </span>
+                )}
+              </div>
+            </div>
+          </>
         )}
 
         {/* 판정은 실행하는 스텝에만 둔다.

@@ -117,6 +117,24 @@ async function runOne(
     return ''
   }
 
+  /**
+   * 사람이 직접 하는 절차. 장비에 보내지 않는다.
+   *
+   * 여기 적힌 것은 명령이 아니라 '장비 전원을 내린다' 같은 사람의 일이다.
+   * 전에는 이 문장을 CLI 로 그대로 보내고 있었다 — 장비는 못 알아듣고
+   * 그 스텝은 늘 실패했다.
+   *
+   * 실행을 멈추고 묻지도 않는다. 시험 하나에 사람 손이 몇 번 들어가는데
+   * 매번 창이 뜨면 자동 실행이 아니게 된다. 대신 판정을 비워 두고, 사람이
+   * 나중에 3열에서 합격·불합격을 찍는다.
+   */
+  if (kind === 'manual') {
+    const what = (step.step || step.data || '').trim()
+    ctx.onStep(i, { executed_at: at })
+    ctx.onLog({ i, text: `사람이 할 일 — ${what || '(내용 없음)'}`, kind: 'skip' })
+    return ''
+  }
+
   if (kind === 'wait') {
     const sec = Math.max(0, Number(step.waitSec ?? 0))
     ctx.onLog({ i, text: `${sec}초 기다림`, kind: 'info' })
