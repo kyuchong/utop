@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, reqApi, tcApi } from '@/api/client'
+import { api, categoryApi, reqApi, tcApi } from '@/api/client'
 import ReqTree from '@/components/ReqTree'
 import ReqForm from '@/components/ReqForm'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
@@ -31,6 +31,11 @@ export default function Requirements() {
   const [selected, setSelected] = useState<string | null>(null)
   // 여러 건을 골라 한 번에 지우기
   const [picked, setPicked] = useState<Set<string>>(new Set())
+  /** 고른 폴더. 요구사항과 함께 지울 수 있어야 정리가 한 번에 끝난다. */
+  const [pickedFolders, setPickedFolders] = useState<Set<string>>(new Set())
+  /** 버튼 줄에서 트리에게 보내는 신호 (숫자가 늘면 트리가 반응한다) */
+  const [addFolder, setAddFolder] = useState(0)
+  const [bulkFolder, setBulkFolder] = useState(0)
   // undefined = 폼 닫힘 / null = 새로 만들기 / Requirement = 편집
   const [form, setForm] = useState<Requirement | null | undefined>(undefined)
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -49,18 +54,29 @@ export default function Requirements() {
   const qc = useQueryClient()
 
   const removeManyM = useMutation({
-    mutationFn: async (ids: string[]) => {
+    mutationFn: async ({ reqIds, folderIds }: { reqIds: string[]; folderIds: string[] }) => {
       // 순차 삭제. 한꺼번에 던지면 어디까지 지워졌는지 알 수 없어
       // 실패했을 때 무엇을 다시 시도해야 하는지 말해줄 수 없다.
       let ok = 0
-      for (const id of ids) {
+      for (const id of reqIds) {
         await reqApi.remove(id)
         ok++
+      }
+      // 폴더는 나중에. 요구사항을 먼저 지워야 '안에 든 것' 셈이 맞는다.
+      // 조상을 지우면 자손은 CASCADE 로 함께 사라져 404 가 날 수 있어 넘긴다.
+      for (const id of folderIds) {
+        try {
+          await categoryApi.remove(id)
+          ok++
+        } catch (e) {
+          if (!(e instanceof Error) || !e.message.includes('찾을 수 없')) throw e
+        }
       }
       return ok
     },
     onSuccess: () => {
       setPicked(new Set())
+      setPickedFolders(new Set())
       void qc.invalidateQueries({ queryKey: ['req', 'list'] })
       void qc.invalidateQueries({ queryKey: ['req-categories'] })
       void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
@@ -197,18 +213,32 @@ export default function Requirements() {
       return n
     })
 
+  const togglePickFolder = (id: string) =>
+    setPickedFolders((s) => {
+      const n = new Set(s)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+
   const doRemovePicked = () => {
     const ids = [...picked]
-    if (ids.length === 0) return
+    const folderIds = [...pickedFolders]
+    if (ids.length === 0 && folderIds.length === 0) return
     const tcCount = ids.reduce((a, id) => {
       const r = allReqs.find((x) => reqPk(x) === id)
       return a + (r ? tcsFor(r).length : 0)
     }, 0)
-    const lines = [`요구사항 ${ids.length}건을 삭제합니다.`]
+    const lines: string[] = []
+    if (ids.length > 0) lines.push(`요구사항 ${ids.length}건을 삭제합니다.`)
+    if (folderIds.length > 0)
+      lines.push(
+        `폴더 ${folderIds.length}개를 삭제합니다. 안에 있던 요구사항은 지워지지 않고 미분류가 됩니다.`,
+      )
     if (tcCount > 0) lines.push(`연결된 TC ${tcCount}건도 함께 사라집니다.`)
     lines.push('되돌릴 수 없습니다. 계속할까요?')
     if (!window.confirm(lines.join('\n'))) return
-    removeManyM.mutate(ids)
+    removeManyM.mutate({ reqIds: ids, folderIds })
   }
 
   const loading = reqQ.isLoading || tcQ.isLoading
@@ -253,7 +283,11 @@ export default function Requirements() {
             분류 20개라 전체가 한 화면에 들어오는데 두 단계로 고르게 하고
             있었다. Zephyr Enterprise 처럼 폴더 안에 요구사항을 둔다. */}
         <section className="panel req-tree-panel" style={{ flexBasis: catW }}>
+          {/* 한 줄에 다 넣는다. 건수를 따로 아래에 두면 그만큼 목록이 준다. */}
           <div className="rt-actions">
+            <span className="rt-count">
+              요구사항 <b>{allReqs.length}</b>건
+            </span>
             <button
               className="btn small"
               type="button"
@@ -262,14 +296,16 @@ export default function Requirements() {
             >
               편집
             </button>
-            {picked.size > 0 && (
+            {(picked.size > 0 || pickedFolders.size > 0) && (
               <button
                 className="btn small danger"
                 type="button"
                 onClick={doRemovePicked}
                 disabled={removeManyM.isPending}
               >
-                {removeManyM.isPending ? '삭제 중…' : `${picked.size}건 삭제`}
+                {removeManyM.isPending
+                  ? '삭제 중…'
+                  : `${picked.size + pickedFolders.size}건 삭제`}
               </button>
             )}
             <span className="sp" />
@@ -278,6 +314,24 @@ export default function Requirements() {
             </button>
             <button className="btn small primary" type="button" onClick={() => setForm(null)}>
               + REQ
+            </button>
+            {/* 폴더 만들기는 요구사항 만들기 오른쪽에. 둘 다 '새로 만드는'
+                일이라 붙여 두고, 자주 쓰는 + REQ 를 왼쪽에 둔다. */}
+            <button
+              className="btn small"
+              type="button"
+              title="폴더 추가"
+              onClick={() => setAddFolder((n) => n + 1)}
+            >
+              + 폴더
+            </button>
+            <button
+              className="btn small"
+              type="button"
+              title="폴더 여러 개를 한 번에 만들기"
+              onClick={() => setBulkFolder((n) => n + 1)}
+            >
+              일괄 폴더
             </button>
           </div>
           {loading ? (
@@ -290,6 +344,10 @@ export default function Requirements() {
               onSelect={setSelected}
               picked={picked}
               onPick={togglePick}
+              pickedFolders={pickedFolders}
+              onPickFolder={togglePickFolder}
+              addFolderSignal={addFolder}
+              bulkFolderSignal={bulkFolder}
             />
           )}
         </section>

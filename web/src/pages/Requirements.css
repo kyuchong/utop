@@ -473,3 +473,13 @@
 }
 
 .rt-actions .sp { margin-left: auto; }
+
+/* 건수는 버튼 줄 맨 왼쪽에. 아래에 따로 한 줄을 두면 그만큼 목록이 준다. */
+.rt-count {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  margin-right: var(--sp-2);
+  white-space: nowrap;
+}
+
+.rt-count b { color: var(--c-text); }

@@ -81,6 +81,39 @@ export function reqLabel(r: Requirement): string {
 }
 
 /**
+ * 트리에서 보일 짧은 REQ ID.
+ *
+ * 실제 ID 가 폴더 경로를 다시 담고 있어서 길다 — 폴더 `U-REQ-SYS-HW`
+ * 안에 `U-REQ-SYS-HW-Spec-001` 이 있는 식이다. 트리에 폴더 이름이 이미
+ * 보이므로 같은 말이 두 번 나온다.
+ *
+ * 규칙: ID 안에서 폴더 이름을 찾아 **그 앞부분을 잘라낸다.**
+ * 다만 잘라낸 나머지가 숫자뿐이면 뜻이 사라지므로 폴더 이름부터 남긴다.
+ *
+ *   폴더 U-REQ-SYS-HW · U-REQ-SYS-HW-Spec-001      → Spec-001
+ *   폴더 L2-E59xxRL   · LGUPLUS-REQ-L2-E59xxRL-001 → L2-E59xxRL-001
+ *   폴더 없음         · 부팅-001                    → 부팅-001
+ *
+ * 자료는 건드리지 않는다. TC 89건이 이 ID 로 요구사항을 가리키고 있고
+ * 문서·Jira 에도 그대로 쓰이므로 화면에서만 줄인다.
+ */
+export function shortReqId(fullId: string, folderName?: string | null): string {
+  const id = (fullId || '').trim()
+  if (!id || !folderName) return id
+  const at = id.indexOf(folderName)
+  if (at < 0) return id
+
+  // 폴더 이름 뒤부터 남겨 본다 (구분자 하나는 같이 뗀다)
+  let rest = id.slice(at + folderName.length)
+  if (rest.startsWith('-') || rest.startsWith('_')) rest = rest.slice(1)
+
+  // 뗀 나머지가 뜻을 가지면(영문·한글로 시작) 그것만 쓴다.
+  // 숫자만 남으면 '001' 이 되어 무엇인지 알 수 없으므로 폴더 이름부터 남긴다.
+  if (rest && /^[A-Za-z가-힣]/.test(rest)) return rest
+  return id.slice(at)
+}
+
+/**
  * PostgreSQL 기본키. POST/DELETE /api/req/{여기} 에 들어가는 값이다.
  *
  * reqid(REQ-001)를 PK 로 착각하면 편집이 새 행을 만든다 —

@@ -13,25 +13,15 @@
   flex: 1;
 }
 
-.rt-head {
+.rt-search {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: 9px var(--sp-3) 5px;
+  gap: 5px;
+  padding: var(--sp-2) var(--sp-3);
 }
-
-.rt-head .panel-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-right: auto;
-  font-weight: 700;
-}
-
-.rt-search { padding: 2px var(--sp-3) var(--sp-2); }
 
 .rt-search input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   border: 1px solid transparent;
   background: var(--rt-hover);
   border-radius: var(--rt-r);
@@ -290,3 +280,70 @@
   font-size: var(--fs-xs);
   text-align: center;
 }
+
+
+/* 전체 ID 보기 토글. 줄인 ID 가 기본이라, 원래 값을 봐야 할 때만 켠다. */
+.rt-fullid {
+  flex: none;
+  border: 1px solid var(--rt-line);
+  background: var(--c-surface);
+  border-radius: var(--rt-r);
+  padding: 0 8px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--c-text-faint);
+  cursor: pointer;
+}
+
+.rt-fullid.on {
+  border-color: transparent;
+  background: var(--rt-sel);
+  color: var(--c-primary);
+}
+
+/* 폴더에도 체크박스가 생겼다. 요구사항 줄과 왼쪽 끝을 맞춘다. */
+.rt-fold .rt-pick { flex: none; }
+
+/* 미분류 줄에는 체크박스가 없다 — 실제 폴더가 아니라 자리다.
+   그래도 왼쪽 끝은 맞아야 하므로 같은 폭을 비워 둔다. */
+.rt-pick-sp { width: 13px; flex: none; }
+
+/* 끌고 있는 폴더 */
+.rt-fold.dragging { opacity: 0.4; }
+
+/* ── 폴더 일괄 만들기 ────────────────────────────────────── */
+.rt-bulk {
+  margin: 0 var(--sp-3) var(--sp-2);
+  padding: var(--sp-2);
+  border: 1px solid var(--c-primary);
+  border-radius: var(--rt-r);
+  background: var(--c-surface);
+}
+
+.rt-bulk-lb {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  margin-bottom: 5px;
+}
+
+.rt-bulk textarea {
+  width: 100%;
+  border: 1px solid var(--rt-line);
+  border-radius: var(--rt-r);
+  padding: 7px 9px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  resize: vertical;
+  color: inherit;
+  background: var(--c-surface);
+}
+
+.rt-bulk-foot {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.rt-bulk-foot .muted { margin-right: auto; }

@@ -7,6 +7,7 @@ import {
   naturalCompare,
   reqLabel,
   reqPk,
+  shortReqId,
   statusClass,
   type CategoryTreeNode,
   type ReqCategory,
@@ -26,6 +27,12 @@ interface Props {
   /** 여러 건 고르기 (삭제용) */
   picked: Set<string>
   onPick: (reqPk: string) => void
+  /** 고른 폴더. 바깥 버튼에서 삭제하려고 올려 보낸다 */
+  pickedFolders: Set<string>
+  onPickFolder: (catId: string) => void
+  /** 「+ 폴더」 · 「일괄 폴더」를 바깥 버튼 줄에서 누를 수 있게 */
+  addFolderSignal: number
+  bulkFolderSignal: number
 }
 
 /** 이 요구사항이 놓인 가장 깊은 분류 id. 없으면 null(미분류) */
@@ -40,9 +47,8 @@ function reqFolder(r: Requirement): string | null {
  * 전체가 한 화면에 들어오는데, 굳이 두 단계로 고르게 하고 있었다.
  * Zephyr Enterprise 도 같은 모양이다 — 폴더를 열면 그 안에 요구사항이 있다.
  *
- * 요구사항은 끌어서 다른 폴더로 옮긴다. 옮기면 cat1~cat4 가 그 폴더의
- * 조상 사슬로 다시 채워진다 — 화면이 어느 단계에 놓였는지 계산해서
- * 서버에 그대로 넘긴다.
+ * 폴더와 요구사항 둘 다 끌어서 옮긴다. 폴더는 서버가 깊이·순환을 판정하고,
+ * 요구사항은 놓은 폴더의 조상 사슬로 cat1~cat4 가 다시 채워진다.
  */
 export default function ReqTree({
   reqs,
@@ -51,6 +57,10 @@ export default function ReqTree({
   onSelect,
   picked,
   onPick,
+  pickedFolders,
+  onPickFolder,
+  addFolderSignal,
+  bulkFolderSignal,
 }: Props) {
   const qc = useQueryClient()
 
@@ -73,10 +83,26 @@ export default function ReqTree({
   const [draftName, setDraftName] = useState('')
   const [editing, setEditing] = useState<ReqCategory | null>(null)
   const [error, setError] = useState('')
-  /** 끌고 있는 요구사항 PK */
-  const [dragReq, setDragReq] = useState<string | null>(null)
-  /** 올려둔 폴더 id. null = 미분류로 빼기 */
-  const [overFolder, setOverFolder] = useState<string | null | undefined>(undefined)
+  /** 끌고 있는 것 — 요구사항이면 req, 폴더면 cat */
+  const [drag, setDrag] = useState<{ kind: 'req' | 'cat'; id: string } | null>(null)
+  /** 올려둔 폴더 id. null = 최상위/미분류로 빼기 */
+  const [over, setOver] = useState<string | null | undefined>(undefined)
+  /** 폴더 여러 개 만들기 */
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulkText, setBulkText] = useState('')
+  /** 전체 ID 를 그대로 볼지 (줄여서 보는 것이 기본) */
+  const [fullId, setFullId] = useState(false)
+
+  // 바깥 버튼 줄에서 「+ 폴더」·「일괄」을 눌렀을 때
+  useEffect(() => {
+    if (addFolderSignal > 0) {
+      setAddingTo(null)
+      setDraftName('')
+    }
+  }, [addFolderSignal])
+  useEffect(() => {
+    if (bulkFolderSignal > 0) setBulkOpen(true)
+  }, [bulkFolderSignal])
 
   const catQ = useQuery({
     queryKey: ['req-categories'],
@@ -84,6 +110,7 @@ export default function ReqTree({
   })
   const cats = catQ.data?.categories ?? []
   const tree = useMemo(() => buildCategoryTree(cats), [cats])
+  const catById = useMemo(() => new Map(cats.map((c) => [c.id, c])), [cats])
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['req-categories'] })
@@ -104,6 +131,49 @@ export default function ReqTree({
     onError: fail,
   })
 
+  /**
+   * 폴더 여러 개를 한 번에.
+   *
+   * 줄마다 하나씩, 앞의 공백 두 칸이 한 단계 아래다. 트리를 통째로 세울 수
+   * 있어야 폴더 20개를 하나씩 만드는 일이 없다.
+   */
+  const bulkCatM = useMutation({
+    mutationFn: async ({ text, parentId }: { text: string; parentId: string | null }) => {
+      const stack: Array<{ depth: number; id: string | null }> = [{ depth: -1, id: parentId }]
+      let made = 0
+      for (const raw of text.split('\n')) {
+        if (!raw.trim()) continue
+        const depth = Math.floor((raw.length - raw.trimStart().length) / 2)
+        while (stack.length > 1 && stack[stack.length - 1]!.depth >= depth) stack.pop()
+        const r = await categoryApi.create(raw.trim(), stack[stack.length - 1]!.id)
+        stack.push({ depth, id: r.id })
+        made++
+      }
+      return made
+    },
+    onSuccess: () => {
+      setBulkOpen(false)
+      setBulkText('')
+      setError('')
+      invalidate()
+    },
+    onError: fail,
+  })
+
+  /**
+   * 폴더 옮기기. 깊이 상한과 순환은 서버가 판정한다 —
+   * 화면에서 흉내내면 규칙이 두 벌이 되어 어긋난다.
+   */
+  const moveCatM = useMutation({
+    mutationFn: ({ cat, parentId }: { cat: ReqCategory; parentId: string | null }) =>
+      categoryApi.rename(cat.id, cat.name, parentId),
+    onSuccess: () => {
+      setError('')
+      invalidate()
+    },
+    onError: fail,
+  })
+
   const removeCatM = useMutation({
     mutationFn: (id: string) => categoryApi.remove(id),
     onSuccess: () => {
@@ -117,16 +187,15 @@ export default function ReqTree({
    * 요구사항을 폴더로 옮긴다.
    *
    * 서버는 cat1~cat4 를 각 단계별로 받으므로, 놓은 폴더의 조상 사슬을
-   * 거슬러 올라가 단계에 맞춰 채운다. 3단 폴더에 놓으면
-   * cat1=조부모 · cat2=부모 · cat3=그 폴더 · cat4=없음 이 된다.
+   * 거슬러 올라가 단계에 맞춰 채운다.
    */
-  const moveM = useMutation({
+  const moveReqM = useMutation({
     mutationFn: async ({ r, folderId }: { r: Requirement; folderId: string | null }) => {
       const chain: string[] = []
-      let cur = folderId ? cats.find((c) => c.id === folderId) : undefined
+      let cur = folderId ? catById.get(folderId) : undefined
       while (cur) {
         chain.unshift(cur.id)
-        cur = cur.parent_id ? cats.find((c) => c.id === cur!.parent_id) : undefined
+        cur = cur.parent_id ? catById.get(cur.parent_id) : undefined
       }
       return reqApi.save(reqPk(r), {
         ...r,
@@ -163,7 +232,6 @@ export default function ReqTree({
     reqLabel(r).toLowerCase().includes(needle) ||
     (r.title ?? '').toLowerCase().includes(needle)
 
-  /** 이 폴더(자손 포함)에 걸리는 요구사항 수 — 폴더 오른쪽 숫자 */
   const countDeep = (n: CategoryTreeNode): number =>
     (byFolder.get(n.id) ?? []).filter(match).length +
     n.children.reduce((a, k) => a + countDeep(k), 0)
@@ -176,12 +244,18 @@ export default function ReqTree({
       return n
     })
 
+  /** 자기 자신이나 자손 위로는 못 놓는다 (순환) */
+  const isSelfOrDesc = (dragged: string, target: string): boolean => {
+    if (dragged === target) return true
+    return cats.filter((c) => c.parent_id === dragged).some((k) => isSelfOrDesc(k.id, target))
+  }
+
   /**
-   * 요구사항 끌기. 포인터 이벤트를 쓰는 이유는 분류 트리와 같다 —
-   * HTML5 드래그는 행 안에 버튼·체크박스가 있으면 시작조차 안 되고
-   * 원격데스크톱에서 자주 먹통이 된다.
+   * 끌기. 포인터 이벤트를 쓰는 이유는 분류 트리와 같다 — HTML5 드래그는
+   * 행 안에 버튼·체크박스가 있으면 시작조차 안 되고 원격데스크톱에서
+   * 자주 먹통이 된다.
    */
-  const beginDrag = (e: React.PointerEvent, pk: string) => {
+  const beginDrag = (e: React.PointerEvent, kind: 'req' | 'cat', id: string) => {
     if (e.button !== 0) return
     const x0 = e.clientX
     const y0 = e.clientY
@@ -189,18 +263,17 @@ export default function ReqTree({
 
     const move = (ev: PointerEvent) => {
       if (!started) {
-        // 5px 넘게 움직여야 드래그. 그냥 클릭까지 먹으면 고를 수가 없다.
         if (Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 5) return
         started = true
-        setDragReq(pk)
+        setDrag({ kind, id })
         document.body.style.userSelect = 'none'
         document.body.style.cursor = 'grabbing'
       }
       const el = document.elementFromPoint(ev.clientX, ev.clientY)
       const row = el?.closest('[data-folder]') as HTMLElement | null
-      if (row) setOverFolder(row.dataset.folder || null)
-      else if (el?.closest('[data-uncat]')) setOverFolder(null)
-      else setOverFolder(undefined)
+      if (row) setOver(row.dataset.folder || null)
+      else if (el?.closest('[data-root]')) setOver(null)
+      else setOver(undefined)
     }
 
     const up = (ev: PointerEvent) => {
@@ -208,24 +281,39 @@ export default function ReqTree({
       window.removeEventListener('pointerup', up)
       document.body.style.userSelect = ''
       document.body.style.cursor = ''
-      setDragReq(null)
-      setOverFolder(undefined)
+      setDrag(null)
+      setOver(undefined)
       if (!started) return
       const el = document.elementFromPoint(ev.clientX, ev.clientY)
       const row = el?.closest('[data-folder]') as HTMLElement | null
-      const target = row ? row.dataset.folder || null : el?.closest('[data-uncat]') ? null : undefined
+      const target = row
+        ? row.dataset.folder || null
+        : el?.closest('[data-root]')
+          ? null
+          : undefined
       if (target === undefined) return
-      const r = reqs.find((x) => reqPk(x) === pk)
-      if (!r) return
-      if (reqFolder(r) === target) return
-      moveM.mutate({ r, folderId: target })
+
+      if (kind === 'req') {
+        const r = reqs.find((x) => reqPk(x) === id)
+        if (!r || reqFolder(r) === target) return
+        moveReqM.mutate({ r, folderId: target })
+        return
+      }
+      const cat = catById.get(id)
+      if (!cat) return
+      if (target && isSelfOrDesc(id, target)) {
+        setError('자기 자신이나 하위 폴더 밑으로는 옮길 수 없습니다')
+        return
+      }
+      if ((cat.parent_id ?? null) === target) return
+      moveCatM.mutate({ cat, parentId: target })
     }
 
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
   }
 
-  const reqRow = (r: Requirement, depth: number) => {
+  const reqRow = (r: Requirement, depth: number, folderName?: string | null) => {
     const pk = reqPk(r)
     const tcs = tcsFor(r)
     let pass = 0
@@ -244,15 +332,21 @@ export default function ReqTree({
           : idle > 0
             ? { cls: 'idle', label: `미실행 ${idle}건` }
             : { cls: 'pass', label: `${pass}건 모두 통과` }
+
+    const full = reqLabel(r)
+    const shown = fullId ? full : shortReqId(full, folderName)
+
     return (
       <div
         key={pk}
         role="button"
         tabIndex={0}
-        className={`rt-req${pk === selected ? ' on' : ''}${dragReq === pk ? ' dragging' : ''}`}
+        className={`rt-req${pk === selected ? ' on' : ''}${
+          drag?.kind === 'req' && drag.id === pk ? ' dragging' : ''
+        }`}
         style={{ paddingLeft: 8 + depth * 14 }}
         onClick={() => onSelect(pk)}
-        onPointerDown={(e) => beginDrag(e, pk)}
+        onPointerDown={(e) => beginDrag(e, 'req', pk)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
@@ -263,24 +357,20 @@ export default function ReqTree({
         <input
           type="checkbox"
           className="rt-pick"
-          aria-label={`${reqLabel(r)} 선택`}
+          aria-label={`${full} 선택`}
           checked={picked.has(pk)}
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
           onChange={() => onPick(pk)}
         />
-        <span className="rt-id" title={reqLabel(r)}>
-          {reqLabel(r) || '(ID 없음)'}
+        {/* 줄인 ID 를 보이고 전체는 title 로. 폴더 이름이 트리에 이미
+            있어서 ID 에 같은 말이 두 번 나오는 것을 막는다. */}
+        <span className="rt-id" title={full}>
+          {shown || '(ID 없음)'}
         </span>
         <span className="rt-title" title={r.title ?? ''}>
           {r.title || '(제목 없음)'}
         </span>
-        {/* 오른쪽 숫자는 폴더와 요구사항이 뜻이 다르다 —
-            폴더는 '안에 든 요구사항 수', 요구사항은 '연결된 TC 수'.
-            섞이지 않도록 요구사항에만 점을 붙인다. 점 색은 커버 상태다:
-            초록=다 통과 · 빨강=FAIL 있음 · 노랑=미실행 있음 · 회색=TC 없음.
-            요구사항 화면에서 가장 먼저 답해야 하는 질문이 '이 요구사항이
-            검증됐나' 라서, 세 숫자를 늘어놓는 대신 색 하나로 답한다. */}
         <span className="rt-tc" title={cover.label}>
           <span className={`rt-cdot ${cover.cls}`} />
           {tcs.length}
@@ -290,7 +380,6 @@ export default function ReqTree({
   }
 
   const renderFolder = (n: CategoryTreeNode) => {
-    // 검색 중에는 접힌 것도 펼친다 — 접혀 있으면 찾아놓고 못 본다.
     const open = needle ? true : openIds.has(n.id)
     const mine = (byFolder.get(n.id) ?? []).filter(match)
     const total = countDeep(n)
@@ -300,13 +389,29 @@ export default function ReqTree({
       <div key={n.id}>
         <div
           data-folder={n.id}
-          className={`rt-fold${overFolder === n.id ? ' dropinto' : ''}`}
+          className={`rt-fold${over === n.id && drag ? ' dropinto' : ''}${
+            drag?.kind === 'cat' && drag.id === n.id ? ' dragging' : ''
+          }`}
           style={{ paddingLeft: 4 + (n.depth - 1) * 14 }}
+          onPointerDown={(e) => beginDrag(e, 'cat', n.id)}
         >
+          <input
+            type="checkbox"
+            className="rt-pick"
+            aria-label={`${n.name} 폴더 선택`}
+            checked={pickedFolders.has(n.id)}
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onChange={() => onPickFolder(n.id)}
+          />
           <button
             type="button"
             className={`rt-caret${open ? ' open' : ''}`}
-            onClick={() => toggle(n.id)}
+            onClick={(e) => {
+              e.stopPropagation()
+              toggle(n.id)
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
             aria-label={open ? '접기' : '펼치기'}
             disabled={!hasKids}
           >
@@ -321,6 +426,7 @@ export default function ReqTree({
               type="button"
               className={`rt-menu-btn${menuFor === n.id ? ' on' : ''}`}
               title="하위 폴더 추가 · 이름 변경 · 삭제"
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => {
                 e.stopPropagation()
                 setMenuFor(menuFor === n.id ? null : n.id)
@@ -391,7 +497,9 @@ export default function ReqTree({
             <button
               className="btn small primary"
               type="button"
-              onClick={() => draftName.trim() && createM.mutate({ name: draftName.trim(), parentId: n.id })}
+              onClick={() =>
+                draftName.trim() && createM.mutate({ name: draftName.trim(), parentId: n.id })
+              }
             >
               추가
             </button>
@@ -404,7 +512,7 @@ export default function ReqTree({
         {open && (
           <>
             {n.children.map(renderFolder)}
-            {mine.map((r) => reqRow(r, n.depth))}
+            {mine.map((r) => reqRow(r, n.depth, n.name))}
           </>
         )}
       </div>
@@ -415,27 +523,7 @@ export default function ReqTree({
 
   return (
     <div className="rt">
-      {editing && (
-        <CategoryEditForm cat={editing} all={cats} onClose={() => setEditing(null)} />
-      )}
-
-      <div className="rt-head">
-        <span className="panel-name">
-          요구사항
-          <span className="muted small">{reqs.length}건</span>
-        </span>
-        <button
-          className="btn small"
-          type="button"
-          title="최상위 폴더 추가"
-          onClick={() => {
-            setAddingTo(null)
-            setDraftName('')
-          }}
-        >
-          + 폴더
-        </button>
-      </div>
+      {editing && <CategoryEditForm cat={editing} all={cats} onClose={() => setEditing(null)} />}
 
       <div className="rt-search">
         <input
@@ -444,9 +532,49 @@ export default function ReqTree({
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === 'Escape' && setQ('')}
         />
+        {/* 줄인 ID 가 기본. 전체가 필요할 때만 켠다. */}
+        <button
+          type="button"
+          className={`rt-fullid${fullId ? ' on' : ''}`}
+          title={fullId ? '짧게 보기' : '전체 ID 보기'}
+          onClick={() => setFullId((v) => !v)}
+        >
+          ID
+        </button>
       </div>
 
       {error && <div className="rt-error">{error}</div>}
+
+      {bulkOpen && (
+        <div className="rt-bulk">
+          <div className="rt-bulk-lb">
+            폴더 일괄 만들기 — 줄마다 하나씩. <b>공백 두 칸</b>이 한 단계 아래입니다.
+          </div>
+          <textarea
+            autoFocus
+            rows={7}
+            value={bulkText}
+            placeholder={'U-REQ-SYS-HW\n  Spec\n  FAN\nU-REQ-SYS-SW\n  ENV\n  MGMT'}
+            onChange={(e) => setBulkText(e.target.value)}
+          />
+          <div className="rt-bulk-foot">
+            <span className="muted small">
+              {bulkText.split('\n').filter((s) => s.trim()).length}개
+            </span>
+            <button className="btn small" type="button" onClick={() => setBulkOpen(false)}>
+              취소
+            </button>
+            <button
+              className="btn small primary"
+              type="button"
+              disabled={bulkCatM.isPending || !bulkText.trim()}
+              onClick={() => bulkCatM.mutate({ text: bulkText, parentId: null })}
+            >
+              {bulkCatM.isPending ? '만드는 중…' : '만들기'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="rt-body">
         {addingTo === null && (
@@ -465,7 +593,9 @@ export default function ReqTree({
             <button
               className="btn small primary"
               type="button"
-              onClick={() => draftName.trim() && createM.mutate({ name: draftName.trim(), parentId: null })}
+              onClick={() =>
+                draftName.trim() && createM.mutate({ name: draftName.trim(), parentId: null })
+              }
             >
               추가
             </button>
@@ -475,25 +605,26 @@ export default function ReqTree({
           </div>
         )}
 
-        {catQ.isLoading ? (
-          <div className="empty">불러오는 중…</div>
-        ) : (
-          tree.map(renderFolder)
-        )}
+        {catQ.isLoading ? <div className="empty">불러오는 중…</div> : tree.map(renderFolder)}
 
-        {/* 분류가 안 붙은 것. 끌어다 놓으면 폴더에서 빼낼 수도 있다. */}
+        {/* 미분류. 끌어다 놓으면 폴더에서 빼내거나 폴더를 최상위로 올린다. */}
         <div
-          data-uncat="1"
-          className={`rt-fold rt-uncat${overFolder === null && dragReq ? ' dropinto' : ''}`}
+          data-root="1"
+          className={`rt-fold rt-uncat${over === null && drag ? ' dropinto' : ''}`}
         >
+          <span className="rt-pick-sp" />
           <span className="rt-caret" />
           <b className="rt-fname">미분류</b>
           <span className="rt-cnt">{uncat.length || ''}</span>
         </div>
-        {uncat.map((r) => reqRow(r, 1))}
+        {uncat.map((r) => reqRow(r, 1, null))}
 
-        {dragReq && (
-          <div className="rt-hint">폴더 위에 놓으면 그 폴더로 옮겨집니다</div>
+        {drag && (
+          <div className="rt-hint">
+            {drag.kind === 'cat'
+              ? '폴더 위에 놓으면 그 아래로, 미분류에 놓으면 최상위로 나갑니다'
+              : '폴더 위에 놓으면 그 폴더로 옮겨집니다'}
+          </div>
         )}
       </div>
     </div>
