@@ -32,6 +32,8 @@ export default function TcSessionBar({
   onMsg,
 }: Props) {
   const [pick, setPick] = useState(false)
+  /** 세션 목록을 펼쳤는가 */
+  const [panel, setPanel] = useState(false)
   /** 연결 확인 중인 자리 */
   const [testing, setTesting] = useState<number | null>(null)
 
@@ -63,16 +65,15 @@ export default function TcSessionBar({
     }
   }
 
-  return (
-    <>
-      {sessions.map((id, i) => {
-        const dev = devById.get(id)
-        // 등록이 지워진 장비를 가리키고 있을 수 있다. 목록에서 지우지 않고
-        // 그 자리를 남겨 둔다 — 조용히 다른 장비로 바뀌면 엉뚱한 곳에
-        // 명령이 나간다.
-        const proto = dev ? protocolOf(dev) : ''
-        return (
-          <span className={`tc-sess${dev ? '' : ' gone'}`} key={`${id}-${i}`}>
+  /** 세션 한 줄. 실행 줄에 늘어놓을 때와 목록으로 펼칠 때가 같은 모양이다. */
+  const row = (id: string, i: number) => {
+    const dev = devById.get(id)
+    // 등록이 지워진 장비를 가리키고 있을 수 있다. 목록에서 지우지 않고
+    // 그 자리를 남겨 둔다 — 조용히 다른 장비로 바뀌면 엉뚱한 곳에
+    // 명령이 나간다.
+    const proto = dev ? protocolOf(dev) : ''
+    return (
+      <span className={`tc-sess${dev ? '' : ' gone'}`} key={`${id}-${i}`}>
             {/* 스텝 줄·터미널의 자리 표시와 같은 색을 쓴다 — 색이 곧 자리다 */}
             <b className="tc-sess-n" data-s={i % 4}>
               S{i + 1}
@@ -111,32 +112,88 @@ export default function TcSessionBar({
               title="이 세션 제거"
               onClick={() => onRemove(i)}
             >
-              ×
-            </button>
-          </span>
-        )
-      })}
+          ×
+        </button>
+      </span>
+    )
+  }
 
-      <button className="btn small" type="button" onClick={() => setPick(true)}>
-        + 세션
+  /** 몇 대를 쓰는가. 같은 장비를 여러 자리에 앉히는 일이 흔하다. */
+  const devCount = new Set(sessions).size
+  const only = sessions.length === 1 ? devById.get(sessions[0] ?? '') : undefined
+
+  if (sessions.length === 0) {
+    return (
+      <>
+        <button className="btn small" type="button" onClick={() => setPick(true)}>
+          + 세션
+        </button>
+        {pick && (
+          <DevicePicker
+            devices={devices}
+            sessions={sessions}
+            onAdd={onAdd}
+            onClose={() => setPick(false)}
+          />
+        )}
+      </>
+    )
+  }
+
+  return (
+    <span className="tc-sessmore">
+      {/* 늘어놓지 않고 버튼 하나로 접는다. 17개를 늘어놓으면 여섯 줄이 되어
+          실행 줄이 화면 절반을 먹는다. 대신 버튼이 '지금 무엇에 붙는지' 는
+          말해 준다 — 한 대뿐이면 그 장비를, 여럿이면 개수를. */}
+      <button
+        className={`btn small${panel ? ' primary' : ''}`}
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={panel}
+        title="세션 목록 펼치기"
+        onClick={() => setPanel((v) => !v)}
+      >
+        세션 {sessions.length}
+        <span className="muted">
+          {' · '}
+          {only ? deviceLabel(only) : `장비 ${devCount}`}
+        </span>
+        {' ▾'}
       </button>
+
+      {panel && (
+        <>
+          <div className="tc-menu-back" onClick={() => setPanel(false)} />
+          <div className="tc-sesspanel">
+            <div className="tc-sesspanel-head">
+              <b>세션 {sessions.length}개</b>
+              <span className="muted small">장비 {devCount}대</span>
+              <span className="sp" />
+              <button className="btn small" type="button" onClick={() => setPick(true)}>
+                + 세션
+              </button>
+            </div>
+            <div className="tc-sesspanel-body">{sessions.map(row)}</div>
+          </div>
+        </>
+      )}
 
       {pick && (
         <DevicePicker
           devices={devices}
-          count={sessions.length}
+          sessions={sessions}
           onAdd={onAdd}
           onClose={() => setPick(false)}
         />
       )}
-    </>
+    </span>
   )
 }
 
 interface PickProps {
   devices: Device[]
-  /** 지금 몇 자리인지. 추가하면 S(count+1) 이 된다 */
-  count: number
+  /** 지금 앉아 있는 자리들. 어느 장비를 몇 개 넣었는지 보여주려고 받는다 */
+  sessions: string[]
   onAdd: (deviceId: string) => void
   onClose: () => void
 }
@@ -157,7 +214,7 @@ function optionsOf(devices: Device[], get: (d: Device) => string): string[] {
  * 창을 닫지 않고 여러 번 추가할 수 있다 — 시험은 보통 DUT 한 대로 끝나지
  * 않고 대향·가입자단말까지 두세 자리를 한 번에 잡는다.
  */
-function DevicePicker({ devices, count, onAdd, onClose }: PickProps) {
+function DevicePicker({ devices, sessions, onAdd, onClose }: PickProps) {
   const [lab, setLab] = useState('')
   const [vendor, setVendor] = useState('')
   const [role, setRole] = useState('')
@@ -165,6 +222,15 @@ function DevicePicker({ devices, count, onAdd, onClose }: PickProps) {
   const [q, setQ] = useState('')
   /** 이 창에서 방금 더한 개수. 몇 개를 넣었는지 보이지 않으면 겹쳐 넣게 된다 */
   const [added, setAdded] = useState(0)
+
+  /**
+   * 장비별로 이미 몇 자리를 잡았는가.
+   *
+   * ＋를 여러 번 눌러 같은 장비가 17자리가 되는 일이 실제로 있었다.
+   * 줄에 「이미 3」 이 보이면 손이 멈춘다.
+   */
+  const taken = new Map<string, number>()
+  for (const id of sessions) taken.set(id, (taken.get(id) ?? 0) + 1)
 
   const byLab = devices.filter((d) => !lab || (d.lab ?? '') === lab)
   const byVendor = byLab.filter((d) => !vendor || (d.vendor ?? '') === vendor)
@@ -207,7 +273,7 @@ function DevicePicker({ devices, count, onAdd, onClose }: PickProps) {
         <div className="modal-head">
           <b>세션 장비 고르기</b>
           <span className="muted small">
-            지금 {count}자리{added > 0 ? ` · 방금 ${added}개 추가` : ''}
+            지금 {sessions.length}자리{added > 0 ? ` · 방금 ${added}개 추가` : ''}
           </span>
           <button className="modal-x" type="button" onClick={onClose} aria-label="닫기">
             ×
@@ -249,7 +315,8 @@ function DevicePicker({ devices, count, onAdd, onClose }: PickProps) {
                 <span className="muted small">{d.model || '–'}</span>
                 <span className="muted small">{d.role || '–'}</span>
                 <span className="muted small">{protocolOf(d).toUpperCase()}</span>
-                <span>
+                <span className="dp-add">
+                  {taken.has(d.id) && <b className="dp-taken">이미 {taken.get(d.id)}</b>}
                   <button
                     className="btn small primary"
                     type="button"

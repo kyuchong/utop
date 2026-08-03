@@ -183,13 +183,23 @@ export default function TestCases() {
    * 번호가 하나씩 당겨진다. 스텝을 그대로 두면 다음에 저장하는 순간
    * 조용히 옆 장비로 명령이 나간다 — 옛 화면이 실제로 그랬다.
    */
+  /**
+   * 묻지 않고 바로 뺀다.
+   *
+   * 세션을 넣고 빼는 것은 자주 있는 일이라 매번 물으면 그 창을 안 읽고
+   * 누르게 된다. 대신 무슨 일이 있었는지는 알린다 — 스텝의 세션이 비워진
+   * 것을 모르고 넘어가면 실행할 때 가서야 안다. 잘못 뺐으면 저장 전에
+   * 다시 넣으면 되고, 저장 전까지는 서버에 아무 일도 일어나지 않는다.
+   */
   const removeSession = (i: number) => {
     const gone = sessionNames[i] ?? `S${i + 1}`
     const used = steps.filter((s) => sessionIndex(s.session) === i).length
-    const msg = used
-      ? `S${i + 1} (${gone}) 을 뺍니다.\n이 세션을 쓰는 스텝 ${used}개는 세션이 비워집니다.\n계속할까요?`
-      : `S${i + 1} (${gone}) 을 뺄까요?`
-    if (!window.confirm(msg)) return
+    setMsg({
+      kind: used ? 'err' : '',
+      text: used
+        ? `S${i + 1} (${gone}) 뺐습니다 — 스텝 ${used}개의 세션이 비었습니다`
+        : `S${i + 1} (${gone}) 뺐습니다`,
+    })
     setSessions(
       sessionIds.filter((_, j) => j !== i),
       {

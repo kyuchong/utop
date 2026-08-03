@@ -960,3 +960,69 @@
 .tc-sess-n[data-s='1'] { color: #1f7a45; }
 .tc-sess-n[data-s='2'] { color: #97620d; }
 .tc-sess-n[data-s='3'] { color: #5c3d9e; }
+
+/* ── 세션 목록 펼치기 ───────────────────────────────────────
+   세션을 실행 줄에 늘어놓지 않는다. 17개가 되면 여섯 줄로 감겨 실행 줄이
+   화면 절반을 먹는다. 버튼 하나로 접고, 누르면 목록이 뜬다. */
+.tc-sessmore { position: relative; display: inline-flex; }
+
+.tc-sesspanel {
+  position: absolute;
+  left: 0;
+  top: 30px;
+  z-index: 21;
+  width: 340px;
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+  border: 1px solid var(--tc-line);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.12);
+}
+
+.tc-sesspanel-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--tc-line);
+  font-size: var(--fs-sm);
+}
+
+.tc-sesspanel-head .sp { margin-left: auto; }
+
+.tc-sesspanel-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/* 목록 안에서는 칩이 아니라 줄이다 — 알약 모양이 세로로 쌓이면 어수선하다 */
+.tc-sesspanel-body .tc-sess {
+  max-width: none;
+  border-radius: var(--tc-r);
+  background: transparent;
+  padding: 3px 4px 3px 6px;
+}
+
+.tc-sesspanel-body .tc-sess:hover { background: var(--tc-hover); }
+.tc-sesspanel-body .tc-sess-dev { flex: 1; max-width: none; }
+
+/* 이미 몇 자리를 잡았는지. ＋를 여러 번 눌러 같은 장비가 17자리가 되는
+   일이 실제로 있었다. */
+.dp-add { display: flex; align-items: center; gap: 5px; justify-content: flex-end; }
+
+.dp-taken {
+  font-size: 10px;
+  font-weight: 700;
+  color: #97620d;
+  background: #fdf1e3;
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
