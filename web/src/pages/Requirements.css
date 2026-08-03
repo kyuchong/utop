@@ -451,3 +451,25 @@
 .tc-body .tr {
   grid-template-columns: 1fr 110px 60px 96px 64px;
 }
+
+/* ── 2열 구조 (2026-08-03) ────────────────────────────────────
+   분류 트리와 REQ 목록을 하나로 합쳤다. 요구사항 29건 · 분류 20개라
+   전체가 한 화면에 들어오는데 두 단계로 고르게 하고 있었다.
+   Zephyr Enterprise 처럼 폴더 안에 요구사항을 둔다. */
+.req-tree-panel {
+  flex: 0 0 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 버튼 줄. 트리 위에 얹어 열을 더 쓰지 않는다. */
+.rt-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px var(--sp-3);
+  border-bottom: 1px solid var(--c-border-soft);
+}
+
+.rt-actions .sp { margin-left: auto; }

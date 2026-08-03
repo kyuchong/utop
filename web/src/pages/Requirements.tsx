@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, categoryApi, reqApi, tcApi } from '@/api/client'
-import CategoryTree from '@/components/CategoryTree'
+import { api, reqApi, tcApi } from '@/api/client'
+import ReqTree from '@/components/ReqTree'
 import ReqForm from '@/components/ReqForm'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import ReqBulkForm from '@/components/ReqBulkForm'
@@ -13,31 +13,10 @@ import {
   reqLabel,
   reqPk,
   statusClass,
-  UNCATEGORIZED,
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
-import { cfDisplay, useCustomFields } from '@/hooks/useCustomFields'
 import './Requirements.css'
-
-/** REQ 하나에 달린 TC 집계 */
-interface ReqRollup {
-  total: number
-  pass: number
-  fail: number
-  idle: number
-}
-
-function rollup(tcs: TestCaseMeta[]): ReqRollup {
-  let pass = 0
-  let fail = 0
-  for (const t of tcs) {
-    const c = statusClass(t.status)
-    if (c === 'pass') pass++
-    else if (c === 'fail') fail++
-  }
-  return { total: tcs.length, pass, fail, idle: tcs.length - pass - fail }
-}
 
 /**
  * REQ ↔ TC 연결 화면.
@@ -50,8 +29,6 @@ function rollup(tcs: TestCaseMeta[]): ReqRollup {
  */
 export default function Requirements() {
   const [selected, setSelected] = useState<string | null>(null)
-  const [catFilter, setCatFilter] = useState<string | null>(null)
-  const [reqQuery, setReqQuery] = useState('')
   // 여러 건을 골라 한 번에 지우기
   const [picked, setPicked] = useState<Set<string>>(new Set())
   // undefined = 폼 닫힘 / null = 새로 만들기 / Requirement = 편집
@@ -68,7 +45,6 @@ export default function Requirements() {
   // 패널 폭은 사람마다 선호가 다르다. 드래그로 맞추고 브라우저에 기억시킨다.
   const splitRef = useRef<HTMLDivElement>(null)
   const [catW, setCatW] = useResizableWidth('utop.req.catW3', 230, 150, 460)
-  const [reqW, setReqW] = useResizableWidth('utop.req.reqW2', 560, 300, 1200)
 
   const qc = useQueryClient()
 
@@ -100,54 +76,8 @@ export default function Requirements() {
     queryFn: ({ signal }) => api.listTestCases(signal),
   })
 
-  // 분류 이름은 트리만 알고 있었다. 2열 머리에 '지금 무엇으로 걸렀는지'
-  // 를 적으려면 여기서도 필요하다. 같은 queryKey 라 요청은 늘지 않는다.
-  const catQ = useQuery({
-    queryKey: ['req-categories'],
-    queryFn: ({ signal }) => categoryApi.list(signal),
-  })
-
   const allReqs = reqQ.data?.reqs ?? []
   const tcs = tcQ.data?.tcs ?? []
-
-  // 목록에 열로 붙일 커스텀 필드 (설정 → 커스텀 필드에서 켠 것)
-  const cfCols = useCustomFields('req').inList
-
-  // 분류 필터. 어느 단계를 고르든, 그 아래에 달린 것까지 함께 보여야 자연스럽다.
-  // 요구사항이 cat1/cat2/cat3 에 조상들을 그대로 담고 있으므로 셋 중 하나만
-  // 맞으면 하위까지 자동으로 걸린다.
-  const byCat = useMemo(() => {
-    if (!catFilter) return allReqs
-    if (catFilter === UNCATEGORIZED) {
-      // 분류가 하나도 안 붙은 것 (지워진 분류를 가리키던 것도 여기로 온다)
-      return allReqs.filter((r) => !r.cat1 && !r.cat2 && !r.cat3 && !r.cat4)
-    }
-    return allReqs.filter(
-      (r) =>
-        r.cat1 === catFilter ||
-        r.cat2 === catFilter ||
-        r.cat3 === catFilter ||
-        r.cat4 === catFilter,
-    )
-  }, [allReqs, catFilter])
-
-  /**
-   * 분류로 좁힌 뒤 검색어로 한 번 더 좁힌다.
-   * 구현내용까지 뒤지는 이유: 제목은 짧게 쓰는데 실제 내용(CLI 명령·판정
-   * 기준)은 본문에 있어서, 'rate-limit' 같은 말로 찾는 일이 잦다.
-   */
-  const reqs = useMemo(() => {
-    const needle = reqQuery.trim().toLowerCase()
-    if (!needle) return byCat
-    return byCat.filter((r) => {
-      const desc = typeof r.desc === 'string' ? r.desc : ''
-      return (
-        reqLabel(r).toLowerCase().includes(needle) ||
-        (r.title ?? '').toLowerCase().includes(needle) ||
-        desc.toLowerCase().includes(needle)
-      )
-    })
-  }, [byCat, reqQuery])
 
   /** req_id → TC[] (TC 쪽 포인터 기준) */
   const tcsByReq = useMemo(() => {
@@ -189,29 +119,9 @@ export default function Requirements() {
   }, [tcs])
 
   const selectedReq: Requirement | undefined = useMemo(
-    () => reqs.find((r) => reqPk(r) === selected),
-    [reqs, selected],
+    () => allReqs.find((r) => reqPk(r) === selected),
+    [allReqs, selected],
   )
-
-  /**
-   * 지금 걸려 있는 분류의 경로. 'IPv4 > L2 > VLAN' 처럼 조상까지 적는다.
-   *
-   * 트리에서 파랗게 칠해진 줄만으로는 부족하다 — 트리를 스크롤해 내리면
-   * 그 줄이 화면 밖으로 나가고, 2열에 왜 5건만 있는지 알 수 없어진다.
-   */
-  const catPath = useMemo((): string[] => {
-    if (!catFilter || catFilter === UNCATEGORIZED) return []
-    const byId = new Map((catQ.data?.categories ?? []).map((c) => [c.id, c]))
-    const out: string[] = []
-    let cur = byId.get(catFilter)
-    // 분류가 지워졌는데 필터만 남은 경우가 있다. 그때는 빈 배열이 되어
-    // 아래에서 '알 수 없는 분류' 로 표시된다.
-    while (cur) {
-      out.unshift(cur.name)
-      cur = cur.parent_id ? byId.get(cur.parent_id) : undefined
-    }
-    return out
-  }, [catFilter, catQ.data])
 
   /** 선택된 REQ 에 연결된 TC — 양쪽 정본의 합집합 */
   /**
@@ -338,207 +248,58 @@ export default function Requirements() {
       ) : null}
 
       <div className="split" ref={splitRef}>
-        {/* ── 왼쪽: 요구사항 목록 ─────────────────────────── */}
-        {/* 분류는 독립된 열. 요구사항 목록 위에 얹으면 목록이 몇 줄 못 나온다. */}
-        <section className="panel cat-panel" style={{ flexBasis: catW }}>
-          <CategoryTree selected={catFilter} onSelect={setCatFilter} />
+        {/* ── 왼쪽: 폴더 + 요구사항 한 트리 ─────────────────
+            전에는 분류 트리와 요구사항 목록이 따로였다. 자료가 29건 ·
+            분류 20개라 전체가 한 화면에 들어오는데 두 단계로 고르게 하고
+            있었다. Zephyr Enterprise 처럼 폴더 안에 요구사항을 둔다. */}
+        <section className="panel req-tree-panel" style={{ flexBasis: catW }}>
+          <div className="rt-actions">
+            <button
+              className="btn small"
+              type="button"
+              disabled={!selectedReq}
+              onClick={() => selectedReq && setForm(selectedReq)}
+            >
+              편집
+            </button>
+            {picked.size > 0 && (
+              <button
+                className="btn small danger"
+                type="button"
+                onClick={doRemovePicked}
+                disabled={removeManyM.isPending}
+              >
+                {removeManyM.isPending ? '삭제 중…' : `${picked.size}건 삭제`}
+              </button>
+            )}
+            <span className="sp" />
+            <button className="btn small" type="button" onClick={() => setBulkOpen(true)}>
+              일괄
+            </button>
+            <button className="btn small primary" type="button" onClick={() => setForm(null)}>
+              + REQ
+            </button>
+          </div>
+          {loading ? (
+            <div className="empty">불러오는 중…</div>
+          ) : (
+            <ReqTree
+              reqs={allReqs}
+              tcsFor={tcsFor}
+              selected={selected}
+              onSelect={setSelected}
+              picked={picked}
+              onPick={togglePick}
+            />
+          )}
         </section>
 
         <Resizer
-          label="분류 폭 조절"
+          label="요구사항 트리 폭 조절"
           onResize={setCatW}
           getOrigin={() => splitRef.current?.getBoundingClientRect().left ?? 0}
         />
 
-        <section className="panel req-panel" style={{ flexBasis: reqW }}>
-          <div className="panel-title">
-            <span className="panel-name">
-              REQ LIST
-              <span className="muted small">
-                {reqs.length === allReqs.length
-                  ? `${reqs.length}건`
-                  : `${reqs.length} / ${allReqs.length}건`}
-              </span>
-              {/* 무엇으로 걸렀는지. 트리의 파란 줄은 스크롤하면 안 보인다.
-                  '하위 포함' 을 함께 적는 이유는, 5건이 이 분류의 것인지
-                  아래 분류까지 합친 것인지가 숫자만으로는 안 보여서다. */}
-              {catFilter && (
-                <span className="cat-chip" title={catPath.join(' > ')}>
-                  {catFilter === UNCATEGORIZED ? (
-                    '미분류'
-                  ) : catPath.length === 0 ? (
-                    '지워진 분류'
-                  ) : (
-                    <>
-                      {catPath[catPath.length - 1]}
-                      <span className="muted"> · 하위 포함</span>
-                    </>
-                  )}
-                  <button
-                    type="button"
-                    className="cat-chip-x"
-                    onClick={() => setCatFilter(null)}
-                    aria-label="분류 필터 해제"
-                    title="분류 필터 해제"
-                  >
-                    ×
-                  </button>
-                </span>
-              )}
-            </span>
-            <div className="page-head-actions">
-              <button
-                className="btn"
-                type="button"
-                disabled={!selectedReq}
-                onClick={() => selectedReq && setForm(selectedReq)}
-              >
-                편집
-              </button>
-              {picked.size > 0 && (
-                <button
-                  className="btn danger"
-                  type="button"
-                  onClick={doRemovePicked}
-                  disabled={removeManyM.isPending}
-                >
-                  {removeManyM.isPending ? '삭제 중…' : `${picked.size}건 삭제`}
-                </button>
-              )}
-              <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
-                일괄 생성
-              </button>
-              <button className="btn primary" type="button" onClick={() => setForm(null)}>
-                + Requirement
-              </button>
-            </div>
-          </div>
-          <div className="req-search">
-            <input
-              placeholder="REQ ID / 제목 / 구현내용 검색"
-              value={reqQuery}
-              onChange={(e) => setReqQuery(e.target.value)}
-            />
-            {reqQuery && (
-              <button
-                type="button"
-                className="req-search-x"
-                onClick={() => setReqQuery('')}
-                aria-label="검색어 지우기"
-              >
-                ×
-              </button>
-            )}
-          </div>
-
-          {/* 표 머리. 3열에도 같은 높이의 머리가 있어 두 목록의 행이 맞는다. */}
-          <div className="req-row th">
-            <input
-              type="checkbox"
-              className="req-pick"
-              aria-label="전체 선택"
-              checked={reqs.length > 0 && picked.size === reqs.length}
-              ref={(el) => {
-                if (el) el.indeterminate = picked.size > 0 && picked.size < reqs.length
-              }}
-              onChange={(e) =>
-                setPicked(e.target.checked ? new Set(reqs.map((r) => reqPk(r))) : new Set())
-              }
-            />
-            <span className="req-id">REQ ID</span>
-            <span className="req-name">제목</span>
-            {cfCols.map((f) => (
-              <span className="req-cf" key={f.key} title={f.label}>
-                {f.label}
-              </span>
-            ))}
-            <span className="req-stat">TC</span>
-          </div>
-
-          <div className="scroll">
-            {loading ? (
-              <div className="empty">불러오는 중…</div>
-            ) : reqs.length === 0 ? (
-              <div className="empty">
-                {reqQuery
-                  ? `'${reqQuery}' 에 맞는 요구사항이 없습니다.`
-                  : catFilter
-                    ? '이 분류에 해당하는 요구사항이 없습니다.'
-                    : '등록된 요구사항이 없습니다.'}
-              </div>
-            ) : (
-              reqs.map((r) => {
-                const pk = reqPk(r)
-                const stat = rollup(tcsFor(r))
-                return (
-                  <div
-                    key={pk}
-                    role="button"
-                    tabIndex={0}
-                    className={`req-row${pk === selected ? ' sel' : ''}`}
-                    onClick={() => setSelected(pk)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault()
-                        setSelected(pk)
-                      }
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      className="req-pick"
-                      aria-label={`${reqLabel(r)} 선택`}
-                      checked={picked.has(pk)}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={() => togglePick(pk)}
-                    />
-                    {/* 칸을 넘치면 잘리므로 전체 값을 title 로 달아 둔다.
-                        ID 가 최대 26자라 좁은 폭에서는 어차피 잘린다. */}
-                    <span className="req-id" title={reqLabel(r)}>
-                      {reqLabel(r) || '(ID 없음)'}
-                    </span>
-                    <span className="req-name" title={r.title ?? ''}>
-                      {r.title || '(제목 없음)'}
-                    </span>
-                    {cfCols.map((f) => {
-                      const v = cfDisplay(
-                        f,
-                        (r.custom as Record<string, unknown> | undefined)?.[f.key],
-                      )
-                      return (
-                        <span className="req-cf" key={f.key} title={v}>
-                          {v}
-                        </span>
-                      )
-                    })}
-                    <span className="req-stat">
-                      {stat.total === 0 ? (
-                        <span className="muted small">TC 0</span>
-                      ) : (
-                        <>
-                          {stat.pass > 0 && <b className="status pass">{stat.pass}</b>}
-                          {stat.fail > 0 && <b className="status fail">{stat.fail}</b>}
-                          {stat.idle > 0 && <b className="status idle">{stat.idle}</b>}
-                        </>
-                      )}
-                    </span>
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </section>
-
-        <Resizer
-          label="요구사항 목록 폭 조절"
-          onResize={setReqW}
-          getOrigin={() => {
-            const el = splitRef.current
-            if (!el) return 0
-            // 요구사항 패널의 왼쪽 끝 = split 왼쪽 + 분류 폭 + 조절바 폭(6px)
-            return el.getBoundingClientRect().left + catW + 6
-          }}
-        />
 
         {/* ── 오른쪽: 탭에 따라 내용이 바뀐다 ─────────────── */}
         <section className="panel tc-panel">
