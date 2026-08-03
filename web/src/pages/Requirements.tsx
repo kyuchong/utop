@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, reqApi } from '@/api/client'
+import { api, reqApi, tcApi } from '@/api/client'
 import CategoryTree from '@/components/CategoryTree'
 import ReqForm from '@/components/ReqForm'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
@@ -183,6 +183,26 @@ export default function Requirements() {
   )
 
   /** 선택된 REQ 에 연결된 TC — 양쪽 정본의 합집합 */
+  /**
+   * 연결 해제. tc.req_id 를 비우는 것이 전부다 — TC 자체는 남는다.
+   * 붙이는 창이 아니라 이 목록에서 한다(Zephyr 도 같은 구조다).
+   */
+  const unlinkM = useMutation({
+    mutationFn: (t: TestCaseMeta) =>
+      tcApi.save(t.tcid, {
+        tcid: t.tcid,
+        name: t.name ?? '',
+        type: t.type ?? '',
+        status: t.status ?? '',
+        severity: t.severity ?? '',
+        req_id: '',
+      }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
+      void qc.invalidateQueries({ queryKey: ['req', 'list'] })
+    },
+  })
+
   const linked = useMemo(() => {
     if (!selectedReq) return []
     const byTc = tcsFor(selectedReq)
@@ -203,6 +223,18 @@ export default function Requirements() {
     }
     return [...byTc, ...extra]
   }, [selectedReq, tcsFor, tcById])
+
+  /** 커버리지 집계. Xray 처럼 '덮였는가' 를 먼저 답하려고 쓴다. */
+  const cov = useMemo(() => {
+    let p = 0
+    let f = 0
+    for (const t of linked) {
+      const c = statusClass(t.status)
+      if (c === 'pass') p++
+      else if (c === 'fail') f++
+    }
+    return { pass: p, fail: f, idle: linked.length - p - f }
+  }, [linked])
 
   const shown = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -499,6 +531,26 @@ export default function Requirements() {
             <ReqDetail req={selectedReq} tcs={linked} tab={tab} />
           ) : (
             <div className="tc-body scroll">
+              {/* 커버리지 상태. 목록만 있으면 '이 요구사항이 덮였나' 를
+                  눈으로 세어야 한다. 한 줄로 먼저 답한다. */}
+              <div className={`cov-bar ${linked.length === 0 ? 'none' : cov.fail > 0 ? 'bad' : cov.idle > 0 ? 'warn' : 'good'}`}>
+                {linked.length === 0 ? (
+                  <>
+                    <b>미커버</b>
+                    <span className="muted small">
+                      이 요구사항을 검증하는 TC 가 없습니다. 「TC 연결」 또는 「+ TC 생성」
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <b>{cov.fail > 0 ? '실패 있음' : cov.idle > 0 ? '미실행 있음' : '커버됨'}</b>
+                    <span className="muted small">
+                      TC {linked.length}건 · PASS {cov.pass} · FAIL {cov.fail} · 미실행 {cov.idle}
+                    </span>
+                  </>
+                )}
+              </div>
+
               <div className="filter">
                 <input
                   placeholder="TC ID / 제목 검색"
@@ -523,6 +575,7 @@ export default function Requirements() {
                   <div>유형</div>
                   <div>Step</div>
                   <div>상태</div>
+                  <div />
                 </div>
                 {shown.length === 0 ? (
                   <div className="empty">
@@ -544,6 +597,23 @@ export default function Requirements() {
                       <div className="muted small">{t._cli_count ?? '-'}</div>
                       <div className={`status ${statusClass(t.status)}`}>
                         ● {t.status || '미실행'}
+                      </div>
+                      {/* 떼는 것은 붙이는 창이 아니라 이 목록에서 한다.
+                          한 창에서 붙이기·떼기를 같이 하면 무엇이 무엇인지
+                          계속 생각해야 한다(Zephyr 도 같은 구조다). */}
+                      <div>
+                        <button
+                          className="btn small danger"
+                          type="button"
+                          disabled={unlinkM.isPending}
+                          title="이 요구사항에서 뗍니다. TC 자체는 지워지지 않습니다"
+                          onClick={() => {
+                            if (window.confirm(`'${t.name || t.tcid}' 을 이 요구사항에서 뗍니다.`))
+                              unlinkM.mutate(t)
+                          }}
+                        >
+                          해제
+                        </button>
                       </div>
                     </div>
                   ))

@@ -379,3 +379,26 @@
   outline: 2px solid var(--c-primary);
   outline-offset: -2px;
 }
+
+/* ── 커버리지 상태 줄 ─────────────────────────────────────────
+   목록만 있으면 '이 요구사항이 덮였나' 를 눈으로 세어야 한다.
+   Xray 의 Test Coverage 패널처럼 한 줄로 먼저 답한다. */
+.cov-bar {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-wrap: wrap;
+  padding: 8px var(--sp-3);
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.cov-bar.none { background: #fdf7e8; color: #7a5c12; }
+.cov-bar.bad  { background: #fdf4f4; color: #8a2a2a; }
+.cov-bar.warn { background: var(--c-surface-info); color: #355f8c; }
+.cov-bar.good { background: #e8f5ed; color: #12643a; }
+.cov-bar .muted { color: inherit; opacity: 0.85; }
+
+/* Coverages 표에 '해제' 열이 늘었다 */
+.tc-body .tr {
+  grid-template-columns: 1fr 110px 60px 96px 64px;
+}

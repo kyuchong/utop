@@ -24,19 +24,21 @@ const ALL = '__all__'
 const UNLINKED = '__unlinked__'
 
 /**
- * 기존 TC 를 요구사항에 붙이거나 뗀다.
+ * 기존 TC 를 이 요구사항에 붙인다. **붙이기만 한다.**
  *
- * 양쪽 목록으로 만든다. 체크박스로 고르고 아래에서 '연결'/'해제' 중 하나를
- * 누르는 방식은 두 가지가 안 보였다 — 지금 무엇이 붙어 있는지, 그리고
- * 내가 무엇을 누르면 무슨 일이 일어나는지.
+ *   [분류]  [가져올 수 있는 TC — 체크박스]
  *
- *   [분류]  [후보 TC]  →←  [이 요구사항의 TC]
+ * 떼는 것은 Coverages 탭의 목록에서 한다. 한 창에서 붙이기와 떼기를 같이
+ * 하면 어느 쪽이 무엇인지 계속 생각해야 한다 — Zephyr Enterprise 도 같은
+ * 구조다(요구사항 화면에 Mapped Testcases 가 상시로 있고, Map TestCase
+ * 버튼이 여는 창은 추가 전용이다).
  *
- * 오른쪽이 곧 결과다. 옮겨 놓고 저장을 누르면 그대로 된다. 옮기는 동안에는
- * 아무것도 저장하지 않는다 — 잘못 눌러도 되돌리면 그만이다.
+ * 왼쪽은 후보를 좁히는 칸이다. TC 가 수백 건이 되면 검색 한 줄로는 못 찾는다.
+ *  · 미연결  — 아직 어느 요구사항에도 안 붙은 TC. 대개 여기서 찾는다
+ *  · 분류    — 그 분류의 요구사항에 붙어 있는 TC (가져오면 그쪽이 끊긴다)
+ *  · 미분류  — 붙어는 있는데 그 요구사항에 분류가 없는 것
  *
- * 연결의 실체는 tc.req_id 한 칸이다. 그래서 "붙이기 = req_id 를 이 요구사항으로",
- * "떼기 = req_id 를 비움" 이다.
+ * 연결의 실체는 tc.req_id 한 칸이다. "붙이기 = req_id 를 이 요구사항으로".
  */
 export default function TcLinkForm({ req, linked, onClose }: Props) {
   const qc = useQueryClient()
@@ -122,11 +124,6 @@ export default function TcLinkForm({ req, linked, onClose }: Props) {
     })
   }, [candidates, q, bucket, reqByKey])
 
-  const mineRows = useMemo(
-    () => [...mine].map((id) => tcById.get(id)).filter(Boolean) as TestCaseMeta[],
-    [mine, tcById],
-  )
-
   const add = (tcid: string) => setMine((s) => new Set(s).add(tcid))
   const drop = (tcid: string) =>
     setMine((s) => {
@@ -136,31 +133,25 @@ export default function TcLinkForm({ req, linked, onClose }: Props) {
     })
   const addAll = () => setMine((s) => new Set([...s, ...shown.map((t) => t.tcid)]))
 
-  /** 저장할 것: 새로 붙일 것과 뗄 것 */
+  /** 저장할 것. 이 창은 붙이기만 하므로 새로 고른 것뿐이다. */
   const toLink = useMemo(() => [...mine].filter((id) => !original.has(id)), [mine, original])
-  const toUnlink = useMemo(() => [...original].filter((id) => !mine.has(id)), [mine, original])
-  const dirty = toLink.length + toUnlink.length
+  const dirty = toLink.length
 
   const saveM = useMutation({
     mutationFn: async () => {
       // 순차 저장. TC 저장은 스텝 보존 로직 때문에 서버가 이전 값을 읽으므로
       // 같은 대상에 동시에 던지지 않는 편이 안전하다.
-      for (const [ids, val] of [
-        [toLink, myPk],
-        [toUnlink, ''],
-      ] as const) {
-        for (const tcid of ids) {
-          const cur = tcById.get(tcid)
-          if (!cur) continue
-          await tcApi.save(tcid, {
-            tcid,
-            name: cur.name ?? '',
-            type: cur.type ?? '',
-            status: cur.status ?? '',
-            severity: cur.severity ?? '',
-            req_id: val,
-          })
-        }
+      for (const tcid of toLink) {
+        const cur = tcById.get(tcid)
+        if (!cur) continue
+        await tcApi.save(tcid, {
+          tcid,
+          name: cur.name ?? '',
+          type: cur.type ?? '',
+          status: cur.status ?? '',
+          severity: cur.severity ?? '',
+          req_id: myPk,
+        })
       }
     },
     onSuccess: () => {
@@ -235,13 +226,14 @@ export default function TcLinkForm({ req, linked, onClose }: Props) {
               <div className="lk-pane-head">
                 <b>가져올 수 있는 TC</b>
                 <span className="muted small">{shown.length}건</span>
+                {toLink.length > 0 && <span className="tag chg">고른 것 {toLink.length}</span>}
                 <button
                   className="btn small"
                   type="button"
                   disabled={shown.length === 0}
                   onClick={addAll}
                 >
-                  모두 →
+                  모두 고르기
                 </button>
               </div>
 
@@ -267,14 +259,15 @@ export default function TcLinkForm({ req, linked, onClose }: Props) {
                     const key = (t.req_id || '').trim()
                     const owner = key ? reqByKey.get(key) : undefined
                     return (
-                      <button
+                      <label
                         key={t.tcid}
-                        type="button"
-                        className="lk-row"
-                        title="누르면 오른쪽으로 옮깁니다"
-                        onClick={() => add(t.tcid)}
+                        className={`lk-row${mine.has(t.tcid) ? ' added' : ''}`}
                       >
-                        <span className="lk-move">→</span>
+                        <input
+                          type="checkbox"
+                          checked={mine.has(t.tcid)}
+                          onChange={() => (mine.has(t.tcid) ? drop(t.tcid) : add(t.tcid))}
+                        />
                         <span className="lk-txt">
                           <b className="lk-name">{t.name || '(제목 없음)'}</b>
                           <span className="muted small lk-id">{t.tcid}</span>
@@ -291,66 +284,27 @@ export default function TcLinkForm({ req, linked, onClose }: Props) {
                         <span className={`status ${statusClass(t.status)}`}>
                           ● {t.status || '미실행'}
                         </span>
-                      </button>
+                      </label>
                     )
                   })
                 )}
               </div>
             </section>
 
-            {/* ── 3열: 이 요구사항의 TC (= 저장하면 이대로 된다) ── */}
-            <section className="lk-pane mine">
-              <div className="lk-pane-head">
-                <b>이 요구사항의 TC</b>
-                <span className="muted small">{mineRows.length}건</span>
-                {dirty > 0 && <span className="tag chg">변경 {dirty}</span>}
-              </div>
-
-              <div className="lk-list">
-                {mineRows.length === 0 ? (
-                  <div className="empty">
-                    아직 없습니다. 왼쪽에서 TC 를 눌러 가져오세요.
-                  </div>
-                ) : (
-                  mineRows.map((t) => {
-                    const isNew = !original.has(t.tcid)
-                    return (
-                      <button
-                        key={t.tcid}
-                        type="button"
-                        className={`lk-row${isNew ? ' added' : ''}`}
-                        title="누르면 뗍니다"
-                        onClick={() => drop(t.tcid)}
-                      >
-                        <span className="lk-move">←</span>
-                        <span className="lk-txt">
-                          <b className="lk-name">{t.name || '(제목 없음)'}</b>
-                          <span className="muted small lk-id">{t.tcid}</span>
-                        </span>
-                        {isNew && <span className="tag free">추가</span>}
-                        <span className={`status ${statusClass(t.status)}`}>
-                          ● {t.status || '미실행'}
-                        </span>
-                      </button>
-                    )
-                  })
-                )}
-              </div>
-            </section>
           </div>
 
           <div className="hint">
             TC 하나는 요구사항 하나에만 붙습니다(<code>tc.req_id</code> 한 칸).
             다른 요구사항의 TC 를 가져오면 <b>그쪽 연결은 끊깁니다</b> — 회색 배지가
-            현재 주인입니다. <b>저장을 누르기 전에는 아무것도 바뀌지 않습니다.</b>
+            현재 주인입니다. <b>떼는 것은 Coverages 목록의 「해제」</b> 로 합니다.
           </div>
         </div>
 
         <div className="modal-foot">
           <span className="muted small">
             {dirty === 0
-              ? '바뀐 것이 없습니다'
-              : `가져오기 ${toLink.length}건 · 떼기 ${toUnlink.length}건`}
+              ? '가져올 TC 를 고르세요'
+              : `${toLink.length}건을 이 요구사항에 붙입니다`}
           </span>
           <span className="page-head-actions">
             <button className="btn" type="button" onClick={close} disabled={busy}>
@@ -362,7 +316,7 @@ export default function TcLinkForm({ req, linked, onClose }: Props) {
               disabled={busy || dirty === 0}
               onClick={() => saveM.mutate()}
             >
-              {busy ? '저장 중…' : '저장'}
+              {busy ? '붙이는 중…' : dirty > 0 ? `${dirty}건 붙이기` : '붙이기'}
             </button>
           </span>
         </div>

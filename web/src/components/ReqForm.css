@@ -678,8 +678,9 @@
 /* ── TC 연결: 양쪽 목록 ───────────────────────────────────────
    오른쪽 칸이 곧 결과다. 옮겨 놓고 저장을 누르면 그대로 된다.
    1열은 후보를 좁히는 칸이라 좁게, 2·3열은 같은 폭으로 나눈다. */
+/* 붙이기 전용이라 두 칸이다. 왼쪽은 후보를 좁히는 칸. */
 .lk-cols {
-  grid-template-columns: 190px 1fr 1fr;
+  grid-template-columns: 210px 1fr;
 }
 
 .lk-pane {
@@ -734,7 +735,7 @@
 }
 .lk-row:last-child { border-bottom: 0; }
 .lk-row:hover { background: var(--c-surface-info); }
-.lk-pane.mine .lk-row:hover { background: #fdf4f4; }
+.lk-row input[type='checkbox'] { flex: none; }
 
 /* 옮겨갈 방향을 화살표로 알린다. 평소엔 흐리게, hover 하면 또렷하게. */
 .lk-move {
