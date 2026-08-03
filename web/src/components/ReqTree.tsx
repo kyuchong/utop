@@ -236,6 +236,14 @@ export default function ReqTree({
       else if (c === 'fail') f++
     }
     const idle = tcs.length - pass - f
+    const cover =
+      tcs.length === 0
+        ? { cls: 'none', label: 'TC 없음 — 미커버' }
+        : f > 0
+          ? { cls: 'fail', label: `FAIL ${f}건` }
+          : idle > 0
+            ? { cls: 'idle', label: `미실행 ${idle}건` }
+            : { cls: 'pass', label: `${pass}건 모두 통과` }
     return (
       <div
         key={pk}
@@ -267,16 +275,15 @@ export default function ReqTree({
         <span className="rt-title" title={r.title ?? ''}>
           {r.title || '(제목 없음)'}
         </span>
-        <span className="rt-tc">
-          {tcs.length === 0 ? (
-            <span className="muted">TC 0</span>
-          ) : (
-            <>
-              {pass > 0 && <b className="status pass">{pass}</b>}
-              {f > 0 && <b className="status fail">{f}</b>}
-              {idle > 0 && <b className="status idle">{idle}</b>}
-            </>
-          )}
+        {/* 오른쪽 숫자는 폴더와 요구사항이 뜻이 다르다 —
+            폴더는 '안에 든 요구사항 수', 요구사항은 '연결된 TC 수'.
+            섞이지 않도록 요구사항에만 점을 붙인다. 점 색은 커버 상태다:
+            초록=다 통과 · 빨강=FAIL 있음 · 노랑=미실행 있음 · 회색=TC 없음.
+            요구사항 화면에서 가장 먼저 답해야 하는 질문이 '이 요구사항이
+            검증됐나' 라서, 세 숫자를 늘어놓는 대신 색 하나로 답한다. */}
+        <span className="rt-tc" title={cover.label}>
+          <span className={`rt-cdot ${cover.cls}`} />
+          {tcs.length}
         </span>
       </div>
     )

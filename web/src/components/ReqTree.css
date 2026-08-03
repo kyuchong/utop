@@ -225,14 +225,36 @@
   min-width: 0;
 }
 
+/* 요구사항의 TC 수 + 커버 상태.
+   폴더 숫자(.rt-cnt)와 같은 자리에 오므로 점으로 갈라놓는다 —
+   점이 있으면 요구사항의 TC 수, 없으면 폴더 안의 요구사항 수다. */
 .rt-tc {
   display: flex;
-  gap: 4px;
+  align-items: center;
+  gap: 5px;
   font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-faint);
   flex: none;
 }
 
-.rt-tc .muted { color: var(--c-text-faint); }
+.rt-cdot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+}
+
+/* 이 요구사항이 검증됐는가 — 요구사항 화면에서 가장 먼저 답할 질문이다 */
+.rt-cdot.pass { background: var(--c-pass); }
+.rt-cdot.fail { background: var(--c-fail); }
+.rt-cdot.idle { background: var(--c-draft); }
+/* TC 가 하나도 없는 것(미커버)은 비어 있는 원으로 — 회색으로 채우면
+   '미실행' 과 헷갈린다. */
+.rt-cdot.none {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px #cfd6dd;
+}
 
 /* ── 폴더 추가 입력 ──────────────────────────────────────── */
 .rt-add {
