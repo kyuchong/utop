@@ -57,11 +57,20 @@
 }
 
 /* ── 폴더 줄 ─────────────────────────────────────────────── */
+/* 폴더 줄과 요구사항 줄은 높이가 같아야 구분선이 일정한 간격으로 그어진다.
+   전에는 폴더에 16px 캐럿, 요구사항에 13px 체크박스가 들어가 줄 높이가
+   달랐고 선 간격이 들쭉날쭉했다. 두 줄 모두 같은 값으로 못박는다. */
+.rt-fold,
+.rt-req {
+  min-height: 28px;
+  box-sizing: border-box;
+}
+
 .rt-fold {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 6px;
+  padding: 2px 6px;
   border-radius: var(--rt-r);
   white-space: nowrap;
   position: relative;
@@ -81,6 +90,8 @@
 .rt-caret {
   width: 16px;
   height: 16px;
+  /* 아이콘이 줄 높이를 밀지 않게. 세로 정렬은 flex 가 맡는다. */
+  line-height: 1;
   flex: none;
   display: flex;
   align-items: center;
@@ -132,7 +143,7 @@
   grid-template-columns: 16px minmax(0, 148px) minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
-  padding: 5px 6px;
+  padding: 2px 6px;
   border-radius: var(--rt-r);
   cursor: pointer;
   white-space: nowrap;
@@ -154,8 +165,10 @@
 /* 끌고 있는 줄은 흐리게 — 어느 것을 옮기는 중인지 보인다 */
 .rt-req.dragging { opacity: 0.4; }
 
+/* 폴더·요구사항 양쪽에서 같은 폭을 차지해야 왼쪽 끝이 맞는다.
+   16px 로 두어 캐럿과 같은 자리를 쓴다. */
 .rt-pick {
-  width: 13px;
+  width: 16px;
   height: 13px;
   margin: 0;
   /* 체크박스는 평소 흐리게. 고를 때만 눈에 들어오면 된다. */
@@ -272,7 +285,7 @@
 
 /* 미분류 줄에는 체크박스가 없다 — 실제 폴더가 아니라 자리다.
    그래도 왼쪽 끝은 맞아야 하므로 같은 폭을 비워 둔다. */
-.rt-pick-sp { width: 13px; flex: none; }
+.rt-pick-sp { width: 16px; flex: none; }
 
 /* 끌고 있는 폴더 */
 .rt-fold.dragging { opacity: 0.4; }

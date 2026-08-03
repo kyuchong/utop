@@ -29,9 +29,8 @@ interface Props {
   /** 고른 폴더. 바깥 버튼에서 삭제하려고 올려 보낸다 */
   pickedFolders: Set<string>
   onPickFolder: (catId: string) => void
-  /** 「+ 폴더」·「일괄 폴더」를 바깥 버튼 줄에서 누를 수 있게 */
+  /** 「+ 폴더」를 바깥 버튼 줄에서 누를 수 있게 */
   addFolderSignal: number
-  bulkFolderSignal: number
 }
 
 /** 이 요구사항이 놓인 가장 깊은 분류 id. 없으면 null(미분류) */
@@ -68,7 +67,6 @@ export default function ReqTree({
   pickedFolders,
   onPickFolder,
   addFolderSignal,
-  bulkFolderSignal,
 }: Props) {
   const qc = useQueryClient()
 
@@ -98,8 +96,6 @@ export default function ReqTree({
   const [error, setError] = useState('')
   const [drag, setDrag] = useState<{ kind: 'req' | 'cat'; id: string } | null>(null)
   const [over, setOver] = useState<string | null | undefined>(undefined)
-  const [bulkOpen, setBulkOpen] = useState(false)
-  const [bulkText, setBulkText] = useState('')
   const [fullId, setFullId] = useState(false)
   /** 폴더 구조만 보기 — 정리할 때 요구사항이 사이에 끼면 트리가 길다 */
   const [foldersOnly, setFoldersOnly] = useState(false)
@@ -112,9 +108,6 @@ export default function ReqTree({
       setDraftName('')
     }
   }, [addFolderSignal])
-  useEffect(() => {
-    if (bulkFolderSignal > 0) setBulkOpen(true)
-  }, [bulkFolderSignal])
 
   // 메뉴는 아무 데나 누르거나 Esc 로 닫힌다
   useEffect(() => {
@@ -193,31 +186,6 @@ export default function ReqTree({
       await copy(src, parentId, true)
     },
     onSuccess: () => {
-      setError('')
-      invalidate()
-    },
-    onError: fail,
-  })
-
-  const bulkCatM = useMutation({
-    mutationFn: async ({ text, parentId }: { text: string; parentId: string | null }) => {
-      // 줄마다 하나씩, 공백 두 칸이 한 단계 아래. 트리를 통째로 세울 수
-      // 있어야 폴더 20개를 하나씩 만드는 일이 없다.
-      const stack: Array<{ depth: number; id: string | null }> = [{ depth: -1, id: parentId }]
-      let made = 0
-      for (const raw of text.split('\n')) {
-        if (!raw.trim()) continue
-        const depth = Math.floor((raw.length - raw.trimStart().length) / 2)
-        while (stack.length > 1 && stack[stack.length - 1]!.depth >= depth) stack.pop()
-        const r = await categoryApi.create(raw.trim(), stack[stack.length - 1]!.id)
-        stack.push({ depth, id: r.id })
-        made++
-      }
-      return made
-    },
-    onSuccess: () => {
-      setBulkOpen(false)
-      setBulkText('')
       setError('')
       invalidate()
     },
@@ -602,37 +570,6 @@ export default function ReqTree({
           <button className="btn small" type="button" onClick={() => setClip(null)}>
             취소
           </button>
-        </div>
-      )}
-
-      {bulkOpen && (
-        <div className="rt-bulk">
-          <div className="rt-bulk-lb">
-            폴더 일괄 만들기 — 줄마다 하나씩. <b>공백 두 칸</b>이 한 단계 아래입니다.
-          </div>
-          <textarea
-            autoFocus
-            rows={7}
-            value={bulkText}
-            placeholder={'U-REQ-SYS-HW\n  Spec\n  FAN\nU-REQ-SYS-SW\n  ENV\n  MGMT'}
-            onChange={(e) => setBulkText(e.target.value)}
-          />
-          <div className="rt-bulk-foot">
-            <span className="muted small">
-              {bulkText.split('\n').filter((s) => s.trim()).length}개
-            </span>
-            <button className="btn small" type="button" onClick={() => setBulkOpen(false)}>
-              취소
-            </button>
-            <button
-              className="btn small primary"
-              type="button"
-              disabled={bulkCatM.isPending || !bulkText.trim()}
-              onClick={() => bulkCatM.mutate({ text: bulkText, parentId: null })}
-            >
-              {bulkCatM.isPending ? '만드는 중…' : '만들기'}
-            </button>
-          </div>
         </div>
       )}
 

@@ -35,7 +35,6 @@ export default function Requirements() {
   const [pickedFolders, setPickedFolders] = useState<Set<string>>(new Set())
   /** 버튼 줄에서 트리에게 보내는 신호 (숫자가 늘면 트리가 반응한다) */
   const [addFolder, setAddFolder] = useState(0)
-  const [bulkFolder, setBulkFolder] = useState(0)
   // undefined = 폼 닫힘 / null = 새로 만들기 / Requirement = 편집
   const [form, setForm] = useState<Requirement | null | undefined>(undefined)
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -325,14 +324,6 @@ export default function Requirements() {
             >
               + 폴더
             </button>
-            <button
-              className="btn small"
-              type="button"
-              title="폴더 여러 개를 한 번에 만들기"
-              onClick={() => setBulkFolder((n) => n + 1)}
-            >
-              일괄 폴더
-            </button>
           </div>
           {loading ? (
             <div className="empty">불러오는 중…</div>
@@ -347,7 +338,6 @@ export default function Requirements() {
               pickedFolders={pickedFolders}
               onPickFolder={togglePickFolder}
               addFolderSignal={addFolder}
-              bulkFolderSignal={bulkFolder}
             />
           )}
         </section>
