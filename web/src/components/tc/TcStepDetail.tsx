@@ -135,7 +135,7 @@ export default function TcStepDetail({
             </select>
             {sessions.length === 0 && (
               <span className="sd-hint">
-                이 TC 에 등록된 세션이 없습니다 — 세션 설정은 다음 작업에서 붙입니다.
+                이 TC 에 등록된 세션이 없습니다 — 위 실행 줄의 「+ 세션」 으로 장비를 넣으세요.
               </span>
             )}
           </label>

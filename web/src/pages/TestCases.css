@@ -267,23 +267,125 @@
 
 .tc-run .sp { margin-left: auto; }
 
+/* 세션 칩 — 이 시험이 어느 장비에 붙는가.
+   스텝은 장비가 아니라 이 자리의 '번호'를 가리킨다. */
 .tc-sess {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   font-size: var(--fs-xs);
   color: var(--c-text-muted);
   background: var(--tc-hover);
   border-radius: 999px;
-  padding: 3px 9px;
+  padding: 2px 4px 2px 8px;
+  max-width: 300px;
 }
 
-.tc-sess i {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--c-pass);
+/* 등록이 지워진 장비를 가리키는 자리. 조용히 바꾸지 않고 눈에 띄게 둔다 */
+.tc-sess.gone { background: #fdf3e4; color: #8a5a00; }
+
+.tc-sess-n {
+  font-weight: 700;
+  color: var(--c-primary);
+  font-variant-numeric: tabular-nums;
 }
+
+.tc-sess-dev {
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-text);
+  max-width: 130px;
+  cursor: pointer;
+  padding: 1px 2px;
+  border-radius: 4px;
+}
+
+.tc-sess-dev:hover { background: var(--c-surface); }
+.tc-sess-dev:focus { outline: none; background: var(--c-surface); }
+
+.tc-sess-ip { font-family: var(--font-mono); color: var(--c-text-faint); }
+
+.tc-sess-b,
+.tc-sess-x {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--c-text-faint);
+  font-size: 11px;
+  line-height: 1;
+  padding: 3px 4px;
+  border-radius: 999px;
+}
+
+.tc-sess-b:hover:not(:disabled),
+.tc-sess-x:hover { background: var(--c-surface); color: var(--c-primary); }
+.tc-sess-b:disabled { opacity: 0.4; cursor: default; }
+.tc-sess-x:hover { color: var(--c-fail); }
+
+/* ── 세션 장비 고르기 ────────────────────────────────────── */
+.modal.dp {
+  /* 전역 .modal 의 620px 상한을 푼다 — 장비 목록은 열이 다섯이라 좁으면
+     모델·제품군이 잘려서 어느 장비인지 못 고른다. */
+  width: min(860px, 94vw);
+  max-width: none;
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.dp-filter {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--tc-line, #e8ecf0);
+}
+
+.dp-f { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.dp-f.grow { flex: 1; min-width: 150px; }
+
+.dp-f > span { font-size: var(--fs-xs); color: var(--c-text-faint); }
+
+.dp-f select,
+.dp-f input {
+  border: 1px solid #e8ecf0;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.dp-cnt { align-self: center; white-space: nowrap; }
+
+.dp-body { flex: 1; min-height: 0; overflow: auto; padding: 0 var(--sp-2) var(--sp-2); }
+
+.dp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px 100px 74px 44px;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 5px 10px;
+  border-radius: 6px;
+}
+
+.dp-row.th {
+  position: sticky;
+  top: 0;
+  background: var(--c-surface);
+  color: var(--c-text-faint);
+  font-size: var(--fs-xs);
+  padding-top: 9px;
+}
+
+.dp-row:not(.th):hover { background: #f2f5f8; }
+
+.dp-nm { display: flex; flex-direction: column; min-width: 0; }
+.dp-nm b,
+.dp-nm span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .sq { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 

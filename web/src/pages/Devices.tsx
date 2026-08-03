@@ -40,6 +40,9 @@ export interface Device {
   vendor?: string | null
   device_group?: string | null
   role?: string | null
+  /** 기본 접속 방식·포트. 방식마다 다를 때만 access[] 가 덮는다 */
+  protocol?: string | null
+  port?: number | null
   username?: string | null
   password?: string | null
   /** 공용 enable 비번. 방식마다 다를 때만 device_access 로 덮는다 */

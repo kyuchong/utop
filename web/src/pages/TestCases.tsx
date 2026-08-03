@@ -6,9 +6,12 @@ import TcBulkForm from '@/components/TcBulkForm'
 import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import ReqPicker from '@/components/tc/ReqPicker'
+import TcSessionBar from '@/components/tc/TcSessionBar'
+import { deviceLabel } from '@/components/tc/device'
+import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
-import type { StepKind, TcData, TcStep } from '@/components/tc/types'
+import { sessionIndex, type StepKind, type TcData, type TcStep } from '@/components/tc/types'
 import './TestCases.css'
 
 type Tab = 'steps' | 'info' | 'history'
@@ -73,7 +76,7 @@ export default function TestCases() {
     queryFn: async () => {
       const r = await apiFetch('/api/devices2')
       if (!r.ok) throw new Error('장비 목록을 불러오지 못했습니다')
-      return (await r.json()) as { devices?: Array<{ id?: string; name?: string; ip?: string }> }
+      return (await r.json()) as { devices?: Device[] }
     },
     staleTime: 60_000,
   })
@@ -81,11 +84,13 @@ export default function TestCases() {
   const tcs = tcQ.data?.tcs ?? []
   const reqs = reqQ.data?.reqs ?? []
 
+  const devices = useMemo(() => devQ.data?.devices ?? [], [devQ.data])
+
   const devById = useMemo(() => {
-    const m = new Map<string, { id?: string; name?: string; ip?: string }>()
-    for (const dv of devQ.data?.devices ?? []) if (dv.id) m.set(dv.id, dv)
+    const m = new Map<string, Device>()
+    for (const dv of devices) if (dv.id) m.set(dv.id, dv)
     return m
-  }, [devQ.data])
+  }, [devices])
 
   const reqByKey = useMemo(() => {
     const m = new Map<string, Requirement>()
@@ -148,7 +153,7 @@ export default function TestCases() {
   const sessionIds = Array.isArray(d.sessions) ? (d.sessions as string[]) : []
   const sessionNames = sessionIds.map((id, i) => {
     const dev = devById.get(id)
-    return dev ? `${dev.name || dev.ip || id}` : `세션 ${i + 1}`
+    return dev ? deviceLabel(dev) : `세션 ${i + 1}`
   })
   const sessionName = (i: number) => (i >= 0 ? (sessionNames[i] ?? `세션 ${i + 1}`) : '')
 
@@ -175,6 +180,36 @@ export default function TestCases() {
     next[j] = a
     patch({ checks: next })
     setStepIdx(j)
+  }
+
+  const setSessions = (next: string[], p?: Partial<TcData>) =>
+    patch({ sessions: next, ...(p ?? {}) })
+
+  /**
+   * 세션 자리를 뺀다.
+   *
+   * 스텝은 장비가 아니라 **자리 번호**를 들고 있어서, 자리를 빼면 뒤쪽
+   * 번호가 하나씩 당겨진다. 스텝을 그대로 두면 다음에 저장하는 순간
+   * 조용히 옆 장비로 명령이 나간다 — 옛 화면이 실제로 그랬다.
+   */
+  const removeSession = (i: number) => {
+    const gone = sessionNames[i] ?? `S${i + 1}`
+    const used = steps.filter((s) => sessionIndex(s.session) === i).length
+    const msg = used
+      ? `S${i + 1} (${gone}) 을 뺍니다.\n이 세션을 쓰는 스텝 ${used}개는 세션이 비워집니다.\n계속할까요?`
+      : `S${i + 1} (${gone}) 을 뺄까요?`
+    if (!window.confirm(msg)) return
+    setSessions(
+      sessionIds.filter((_, j) => j !== i),
+      {
+        checks: steps.map((s) => {
+          const k = sessionIndex(s.session)
+          if (k < 0) return s
+          if (k === i) return { ...s, session: '' }
+          return k > i ? { ...s, session: k - 1 } : s
+        }),
+      },
+    )
   }
 
   const removeStep = (i: number) => {
@@ -415,16 +450,14 @@ export default function TestCases() {
                 <button className="btn small" type="button" disabled>
                   ⏹
                 </button>
-                {sessionNames.length === 0 ? (
-                  <span className="muted small">세션 없음 — 세션 설정은 다음 작업에서 붙입니다</span>
-                ) : (
-                  sessionNames.map((nm, i) => (
-                    <span className="tc-sess" key={i}>
-                      <i />
-                      {nm}
-                    </span>
-                  ))
-                )}
+                <TcSessionBar
+                  sessions={sessionIds}
+                  devices={devices}
+                  onAdd={(id) => setSessions([...sessionIds, id])}
+                  onPick={(i, id) => setSessions(sessionIds.map((v, j) => (j === i ? id : v)))}
+                  onRemove={removeSession}
+                  onMsg={(kind, text) => setMsg({ kind, text })}
+                />
                 <span className="sp" />
                 {runStat.done > 0 && (
                   <span className="muted small">
