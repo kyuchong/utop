@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { categoryApi, reqApi, apiFetch } from '@/api/client'
 import { buildCategoryTree, reqPk, type Requirement } from '@/types'
+import { missingRequired, useCustomFields } from '@/hooks/useCustomFields'
+import CustomFieldInputs from './CustomFieldInputs'
 import MarkdownEditor from './MarkdownEditorLazy'
 import './ReqForm.css'
 
@@ -28,6 +30,9 @@ export default function ReqForm({ editing, onClose }: Props) {
   const [priority, setPriority] = useState(PRIORITIES[1]!)
   const [desc, setDesc] = useState('')
   const [error, setError] = useState('')
+  // 설정 → 커스텀 필드에서 팀이 늘린 칸. 값은 data->'custom' 에 산다.
+  const [custom, setCustom] = useState<Record<string, unknown>>({})
+  const cf = useCustomFields('req')
 
   // 파일 등록 / 벡터 저장
   const fileRef = useRef<HTMLInputElement>(null)
@@ -111,6 +116,11 @@ ${md}` : md))
     setStatus(editing?.status || STATUSES[0]!)
     setPriority(editing?.priority || PRIORITIES[1]!)
     setDesc(typeof editing?.desc === 'string' ? editing.desc : '')
+    // 화면에 안 보이는 칸(show_form 이 꺼진 것)의 값도 통째로 들고 있다가
+    // 그대로 돌려보낸다. 저장은 data 를 통째로 덮어쓰기 때문에, 여기서
+    // 빠뜨리면 안 보이는 칸의 값이 조용히 사라진다.
+    const c = editing?.custom
+    setCustom(c && typeof c === 'object' ? { ...(c as Record<string, unknown>) } : {})
     setError('')
   }, [editing])
 
@@ -140,6 +150,7 @@ ${md}` : md))
         status,
         priority,
         desc: desc.trim(),
+        custom,
       })
     },
     onSuccess: () => {
@@ -164,6 +175,13 @@ ${md}` : md))
   const submit = () => {
     if (!title.trim()) {
       setError('제목을 입력하세요')
+      return
+    }
+    // 필수는 보이는 칸만 따진다. 숨긴 칸을 필수로 걸어두면 고칠 방법이
+    // 없는 채로 저장이 막힌다.
+    const miss = missingRequired(cf.inForm, custom)
+    if (miss) {
+      setError(`'${miss}' 을 입력하세요`)
       return
     }
     saveM.mutate()
@@ -350,6 +368,12 @@ ${md}` : md))
               }
             />
           </div>
+
+          <CustomFieldInputs
+            fields={cf.inForm}
+            values={custom}
+            onChange={(k, v) => setCustom((c) => ({ ...c, [k]: v }))}
+          />
         </div>
 
         <div className="modal-foot">

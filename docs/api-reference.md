@@ -3,7 +3,7 @@
 
 # API Reference
 
-총 라우트 수: **266** (그룹 81개)
+총 라우트 수: **269** (그룹 81개)
 
 `auth` 컬럼은 endpoint 시그니처에서 감지한 인증/권한 의존성 이름 (best-effort).
 
@@ -121,12 +121,15 @@
 |---|---|---|---|
 | POST | `/api/convert/markdown` |  |  |
 
-## `/api/custom-fields` (2개)
+## `/api/custom-fields` (5개)
 
 | method | path | summary | auth |
 |---|---|---|---|
 | GET | `/api/custom-fields` |  |  |
+| GET | `/api/custom-fields` |  |  |
 | POST | `/api/custom-fields` |  |  |
+| POST | `/api/custom-fields` |  |  |
+| DELETE | `/api/custom-fields/{cf_id}` |  |  |
 
 ## `/api/cycle` (8개)
 

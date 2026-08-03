@@ -2421,6 +2421,42 @@ async def codes_delete(kind: str, value: str):
     return {"success": True}
 
 
+# ───────────────────────────────────────────
+# 커스텀 필드
+#
+# 팀마다 TC·요구사항에 적어두고 싶은 항목이 다르다. 컬럼을 늘리는 대신
+# 여기서 정의만 관리하고, 값은 data->'custom' 에 담는다.
+# ───────────────────────────────────────────
+@app.get("/api/custom-fields")
+async def custom_fields_list(target: str = ""):
+    items = await db.cf_list(target)
+    for it in items:
+        it["used"] = await db.cf_usage(it["target"], it["key"])
+    return {"items": items, "targets": db.CF_TARGETS, "types": db.CF_TYPES}
+
+
+@app.post("/api/custom-fields")
+async def custom_fields_save(payload: dict):
+    try:
+        cf_id = await db.cf_upsert(payload)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"success": True, "id": cf_id}
+
+
+@app.delete("/api/custom-fields/{cf_id}")
+async def custom_fields_delete(cf_id: int):
+    cur = await db.cf_get(cf_id)
+    if cur is None:
+        raise HTTPException(404, "없는 필드입니다")
+    # 값은 data->'custom' 에 그대로 남는다. 지우는 것은 정의뿐이라
+    # 되돌리려면 같은 키로 다시 만들면 값이 도로 보인다. 그래서 쓰는 건수가
+    # 있어도 막지 않고, 몇 건인지만 화면이 미리 물어보게 한다.
+    if not await db.cf_delete(cf_id):
+        raise HTTPException(404, "없는 필드입니다")
+    return {"success": True}
+
+
 @app.get("/api/device-catalog2")
 async def device_catalog_list(kind: str = ""):
     items = await db.catalog_list(kind)

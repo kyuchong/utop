@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, tcApi } from '@/api/client'
 import { reqLabel, reqPk, type TestCaseMeta } from '@/types'
 import { useCodes } from '@/hooks/useCodes'
+import { missingRequired, useCustomFields } from '@/hooks/useCustomFields'
+import CustomFieldInputs from './CustomFieldInputs'
 import './ReqForm.css'
 
 interface Props {
@@ -31,6 +33,9 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
   const [status, setStatus] = useState(FB_STATUS[0]!)
   const [severity, setSeverity] = useState(FB_SEVERITY[1]!)
   const [error, setError] = useState('')
+  // 설정 → 커스텀 필드에서 팀이 늘린 칸. 값은 data->'custom' 에 산다.
+  const [custom, setCustom] = useState<Record<string, unknown>>({})
+  const cf = useCustomFields('tc')
 
   useEffect(() => {
     setTcid(editing?.tcid ?? '')
@@ -39,6 +44,11 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
     setType(editing?.type ?? '')
     setStatus(editing?.status || FB_STATUS[0]!)
     setSeverity(editing?.severity || FB_SEVERITY[1]!)
+    // 화면에 안 보이는 칸의 값까지 통째로 들고 있다가 그대로 돌려보낸다.
+    // 저장이 data 를 통째로 덮어쓰므로(main.py:save_tc) 여기서 빠뜨리면
+    // 숨긴 칸의 값이 조용히 사라진다.
+    const c = editing?.custom
+    setCustom(c && typeof c === 'object' ? { ...(c as Record<string, unknown>) } : {})
     setError('')
   }, [editing, presetReqId])
 
@@ -65,6 +75,7 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
         type: type.trim(),
         status,
         severity,
+        custom,
       }),
     onSuccess: () => {
       invalidate()
@@ -89,6 +100,13 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
     }
     if (!name.trim()) {
       setError('제목을 입력하세요')
+      return
+    }
+    // 필수는 보이는 칸만 따진다. 숨긴 칸을 필수로 걸어두면 고칠 방법이
+    // 없는 채로 저장이 막힌다.
+    const miss = missingRequired(cf.inForm, custom)
+    if (miss) {
+      setError(`'${miss}' 을 입력하세요`)
       return
     }
     saveM.mutate()
@@ -182,6 +200,12 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
               </select>
             </label>
           </div>
+
+          <CustomFieldInputs
+            fields={cf.inForm}
+            values={custom}
+            onChange={(k, v) => setCustom((c) => ({ ...c, [k]: v }))}
+          />
 
           {!isNew && (
             <div className="hint">

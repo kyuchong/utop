@@ -216,6 +216,41 @@ INSERT INTO code_item (kind, value, sort_order)
 SELECT DISTINCT 'tc_status', status, 9 FROM tc WHERE status IS NOT NULL AND status <> ''
 ON CONFLICT (kind, value) DO NOTHING;
 
+-- ── 커스텀 필드 ────────────────────────────────────────────────
+-- 팀마다 TC·요구사항에 적어두고 싶은 항목이 다르다(수행자, 시험 환경,
+-- 고객사, 관련 이슈…). 그때마다 컬럼을 늘리고 배포하면 따라갈 수 없다.
+--
+-- 값은 여기가 아니라 tc.data->'custom' / req.data->'custom' 에 key 로 들어간다.
+-- 이 테이블은 '무슨 칸이 있는지' 만 정한다. 값을 여기에 같이 넣으면
+-- 요구사항 하나를 읽는 데 조인이 하나 더 붙는다.
+--
+-- target 을 두는 이유: TC 와 요구사항은 쓰는 사람도 시점도 다르다.
+-- 한 목록으로 두면 TC 에만 필요한 칸이 요구사항 편집 화면까지 따라온다.
+CREATE TABLE IF NOT EXISTS custom_field (
+  id          BIGSERIAL PRIMARY KEY,
+  target      TEXT NOT NULL,            -- tc | req
+  key         TEXT NOT NULL,            -- data->'custom' 안의 키. 영문/숫자/_ 만
+  label       TEXT NOT NULL,            -- 화면에 보이는 이름
+  type        TEXT NOT NULL DEFAULT 'text',  -- text|textarea|number|select|date|checkbox
+  options     TEXT,                     -- select 일 때 줄바꿈으로 구분한 값 목록
+  required    BOOLEAN NOT NULL DEFAULT false,
+  -- 어디에 보일지. 둘 다 끄면 값은 남지만 화면에서 사라진다 —
+  -- 쓰던 칸을 지우기 전에 잠시 숨겨보는 용도다.
+  show_form   BOOLEAN NOT NULL DEFAULT true,   -- 편집 화면
+  show_list   BOOLEAN NOT NULL DEFAULT false,  -- 목록 열
+  sort_order  INT DEFAULT 0,
+  note        TEXT,
+  created_at  TIMESTAMPTZ DEFAULT now(),
+  updated_at  TIMESTAMPTZ DEFAULT now()
+);
+-- key 는 target 안에서만 유일하면 된다. TC 의 'owner' 와 요구사항의 'owner' 는
+-- 서로 다른 칸일 수 있다.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_custom_field ON custom_field(target, key);
+CREATE INDEX IF NOT EXISTS idx_custom_field_target ON custom_field(target);
+DROP TRIGGER IF EXISTS trg_custom_field_updated ON custom_field;
+CREATE TRIGGER trg_custom_field_updated BEFORE UPDATE ON custom_field
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- ── 장비 카탈로그 (제조사 · 제품군 · 모델 · 랩) ────────────────
 -- 장비를 등록할 때마다 제조사와 모델을 손으로 치면 '유비쿼스' 와
 -- '유비쿼스(주)' 로 갈려 같은 것이 둘로 보인다. 여기에 한 번 등록해 두고

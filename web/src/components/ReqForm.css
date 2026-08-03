@@ -118,6 +118,43 @@
   color: var(--c-text-faint);
 }
 
+/* ── 커스텀 필드 ─────────────────────────────────────────────
+   설정에서 팀이 늘린 칸. 기본 칸과 섞이면 어디까지가 원래 있던 것인지
+   알 수 없어서 가로줄로 나눈다. */
+.cf-sep {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+  font-size: var(--fs-label);
+  color: var(--c-text-faint);
+}
+
+.cf-sep::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--c-border);
+}
+
+/* 위쪽 `.fld input { width: 100% }` 이 체크박스까지 늘려 버린다.
+   되돌린 뒤 글자 옆에 붙인다. */
+.cf-check {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.cf-check input[type='checkbox'] {
+  width: auto;
+  margin: 0;
+}
+
+/* 필수 표시. 색만으로 구분하면 색각 이상에서 안 보인다 — 글자(*)가 본체다. */
+.req-mark {
+  color: var(--c-fail);
+}
+
 .btn.danger {
   color: var(--c-fail);
   border-color: #e6c2c2;

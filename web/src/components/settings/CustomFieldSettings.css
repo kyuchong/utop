@@ -1,0 +1,146 @@
+/* 커스텀 필드 설정.
+   접두사가 cf- 인 이유: 이 화면의 .dc-row 와 행 높이·칸 수가 달라서
+   같은 이름을 쓰면 한쪽을 고칠 때 다른 쪽이 함께 틀어진다
+   (Settings.css:159 에 같은 이유가 적혀 있다). */
+
+/* ── 추가·수정 폼 ─────────────────────────────────────────────
+   `.set-page .fld` 는 84px 라벨 + 값의 격자다. 여기 라벨은
+   '이름 (화면에 보입니다)' 처럼 길어서 그 폭에 안 들어간다.
+   이 폼 안에서만 위아래로 되돌린다. */
+.cf-form .fld {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  margin-bottom: 0;
+}
+
+.cf-form .fld > span {
+  text-align: left;
+}
+
+.cf-form .frow {
+  margin-bottom: var(--sp-3);
+}
+
+.cf-form .fld.wide {
+  margin-bottom: var(--sp-3);
+}
+
+.cf-form .fld input,
+.cf-form .fld select,
+.cf-form .fld textarea {
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 8px 9px;
+  background: var(--c-surface);
+  font: inherit;
+  color: inherit;
+  width: 100%;
+}
+
+.cf-form .fld textarea {
+  resize: vertical;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.cf-form .fld input:disabled {
+  background: var(--c-surface-alt);
+  color: var(--c-text-faint);
+}
+
+/* 세 가지를 한 줄에 둔다. 어디에 보일지는 함께 판단하는 값이라
+   따로 떨어뜨리면 하나만 켜고 나머지를 잊는다. */
+.cf-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-4, 16px);
+  padding: var(--sp-2) 0;
+}
+
+.cf-flags label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-label);
+}
+
+.cf-flags input[type='checkbox'] {
+  width: auto;
+  margin: 0;
+}
+
+.cf-form-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+/* ── 목록 ────────────────────────────────────────────────── */
+.cf-add {
+  margin-left: auto;
+}
+
+.cf-list {
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.cf-row {
+  display: grid;
+  /* 이름 · 종류 · 편집 · 목록 · 쓰는중 · 버튼 */
+  grid-template-columns: minmax(0, 1fr) 90px 44px 44px 70px auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+
+.cf-row:last-child {
+  border-bottom: 0;
+}
+
+.cf-row.th {
+  background: var(--c-surface-alt);
+  font-size: var(--fs-label);
+  color: var(--c-text-faint);
+}
+
+.cf-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-where {
+  text-align: center;
+}
+
+.cf-where input[type='checkbox'] {
+  margin: 0;
+}
+
+.cf-used {
+  text-align: right;
+}
+
+.cf-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+/* 좁은 화면에서는 격자가 무너지는 대신 가로로 흐르게 둔다 —
+   칸이 겹쳐 읽을 수 없게 되는 것보다 낫다. */
+@media (max-width: 780px) {
+  .cf-list {
+    overflow-x: auto;
+  }
+
+  .cf-row {
+    min-width: 620px;
+  }
+}

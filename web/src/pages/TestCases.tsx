@@ -11,6 +11,7 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
+import { cfDisplay, useCustomFields } from '@/hooks/useCustomFields'
 import './TestCases.css'
 
 /**
@@ -41,6 +42,23 @@ export default function TestCases() {
 
   const tcs = tcQ.data?.tcs ?? []
   const reqs = reqQ.data?.reqs ?? []
+
+  // 목록에 열로 붙일 커스텀 필드 (설정 → 커스텀 필드에서 켠 것).
+  // .tcr 는 격자라서 열이 늘면 템플릿도 함께 늘려야 한다 — CSS 에 고정해
+  // 두면 열을 켜는 순간 마지막 칸이 격자 밖으로 밀려난다.
+  const cfCols = useCustomFields('tc').inList
+  const gridCols = useMemo(
+    () =>
+      [
+        'minmax(220px, 1fr)',
+        'minmax(160px, 1fr)',
+        '110px',
+        '60px',
+        ...cfCols.map(() => 'minmax(70px, 110px)'),
+        '96px',
+      ].join(' '),
+    [cfCols],
+  )
 
   /** req PK/label 양쪽으로 찾을 수 있게 (tc.req_id 에 무엇이 들었는지 데이터마다 다름) */
   const reqByKey = useMemo(() => {
@@ -141,11 +159,16 @@ export default function TestCases() {
 
         <div className="scroll">
           <div className="tc-table">
-            <div className="tcr th">
+            <div className="tcr th" style={{ gridTemplateColumns: gridCols }}>
               <div>Test Case</div>
               <div>요구사항</div>
               <div>유형</div>
               <div>Step</div>
+              {cfCols.map((f) => (
+                <div key={f.key} className="ell" title={f.label}>
+                  {f.label}
+                </div>
+              ))}
               <div>상태</div>
             </div>
 
@@ -165,6 +188,7 @@ export default function TestCases() {
                     key={t.tcid}
                     type="button"
                     className="tcr"
+                    style={{ gridTemplateColumns: gridCols }}
                     onClick={() => setOpenId(t.tcid)}
                     title="클릭하면 상세로 들어갑니다"
                   >
@@ -183,6 +207,17 @@ export default function TestCases() {
                     </div>
                     <div>{t.type ? <span className="tag">{t.type}</span> : null}</div>
                     <div className="muted small">{t._cli_count ?? '-'}</div>
+                    {cfCols.map((f) => {
+                      const v = cfDisplay(
+                        f,
+                        (t.custom as Record<string, unknown> | undefined)?.[f.key],
+                      )
+                      return (
+                        <div className="muted small ell" key={f.key} title={v}>
+                          {v}
+                        </div>
+                      )
+                    })}
                     <div className={`status ${statusClass(t.status)}`}>
                       ● {t.status || '미실행'}
                     </div>

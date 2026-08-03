@@ -9,7 +9,7 @@ PostgreSQL 커넥션 풀 + 공통 CRUD 헬퍼.
 - 모든 함수는 async. 동기 컨텍스트에서 부를 때는 asyncio.run 또는 이벤트루프에 태워야 함.
 """
 from __future__ import annotations
-import os, json
+import os, json, re
 from typing import Any, Optional
 from pathlib import Path
 
@@ -1068,3 +1068,130 @@ async def code_usage(kind: str, value: str) -> int:
             ) or 0
     async with pool().acquire() as c:
         return await c.fetchval(f"SELECT count(*) FROM tc WHERE {col}=$1", value) or 0
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 커스텀 필드
+#
+# 값은 tc.data->'custom' / req.data->'custom' 에 들어간다. 여기서는 정의만
+# 다룬다 — schema.sql 의 custom_field 주석에 왜 나눴는지 적어 두었다.
+# ══════════════════════════════════════════════════════════════════════
+CF_TARGETS = {"tc": "테스트케이스", "req": "요구사항"}
+CF_TYPES = {
+    "text": "한 줄 글",
+    "textarea": "여러 줄 글",
+    "number": "숫자",
+    "select": "고르기",
+    "date": "날짜",
+    "checkbox": "예/아니오",
+}
+
+# data->'custom' 의 키로 그대로 쓰이므로 JSON 키에 안전한 것만 받는다.
+# 한글 키도 JSON 은 받지만, 나중에 CSV 머리글이나 URL 파라미터로 나갈 때
+# 인코딩이 갈려 같은 칸이 둘로 보인다.
+_CF_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,39}$")
+
+
+async def cf_list(target: str = "") -> list[dict]:
+    async with pool().acquire() as c:
+        if target:
+            rows = await c.fetch(
+                "SELECT * FROM custom_field WHERE target=$1 ORDER BY sort_order, label",
+                target,
+            )
+        else:
+            rows = await c.fetch(
+                "SELECT * FROM custom_field ORDER BY target, sort_order, label"
+            )
+        return [dict(r) for r in rows]
+
+
+async def cf_upsert(item: dict) -> int:
+    target = (item.get("target") or "").strip()
+    key = (item.get("key") or "").strip()
+    label = (item.get("label") or "").strip()
+    ftype = (item.get("type") or "text").strip()
+
+    if target not in CF_TARGETS:
+        raise ValueError(f"알 수 없는 대상입니다: {target}")
+    if not _CF_KEY_RE.match(key):
+        raise ValueError("키는 영문으로 시작하고 영문·숫자·_ 만 쓸 수 있습니다 (40자 이내)")
+    if not label:
+        raise ValueError("이름을 입력하세요")
+    if ftype not in CF_TYPES:
+        raise ValueError(f"알 수 없는 종류입니다: {ftype}")
+
+    options = (item.get("options") or "").strip()
+    if ftype == "select" and not options:
+        raise ValueError("고르기 항목은 고를 값을 한 줄에 하나씩 적어야 합니다")
+
+    # id 가 오면 그 행을 고친다. key 를 바꾸는 경우가 있어서 (target, key)
+    # 충돌 규칙만으로는 '이름만 고치기' 와 '키까지 고치기' 를 구분할 수 없다.
+    cf_id = item.get("id")
+    async with pool().acquire() as c:
+        if cf_id:
+            try:
+                row = await c.fetchrow(
+                    """UPDATE custom_field SET
+                         key=$2, label=$3, type=$4, options=$5, required=$6,
+                         show_form=$7, show_list=$8, sort_order=$9, note=$10
+                       WHERE id=$1 RETURNING id""",
+                    int(cf_id), key, label, ftype, options or None,
+                    bool(item.get("required")), bool(item.get("show_form", True)),
+                    bool(item.get("show_list")), int(item.get("sort_order") or 0),
+                    (item.get("note") or "").strip() or None,
+                )
+            except asyncpg.UniqueViolationError as e:
+                # 키를 이미 있는 것으로 바꾸려 한 경우. 드라이버 메시지를 그대로
+                # 올리면 무엇을 고쳐야 할지 알 수 없다.
+                raise ValueError(f"'{key}' 키는 이미 있습니다") from e
+            if row is None:
+                raise ValueError("없는 필드입니다")
+            return row["id"]
+        row = await c.fetchrow(
+            """INSERT INTO custom_field
+                 (target, key, label, type, options, required,
+                  show_form, show_list, sort_order, note)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+               ON CONFLICT (target, key) DO UPDATE SET
+                 label=EXCLUDED.label, type=EXCLUDED.type, options=EXCLUDED.options,
+                 required=EXCLUDED.required, show_form=EXCLUDED.show_form,
+                 show_list=EXCLUDED.show_list, sort_order=EXCLUDED.sort_order,
+                 note=EXCLUDED.note
+               RETURNING id""",
+            target, key, label, ftype, options or None,
+            bool(item.get("required")), bool(item.get("show_form", True)),
+            bool(item.get("show_list")), int(item.get("sort_order") or 0),
+            (item.get("note") or "").strip() or None,
+        )
+        return row["id"]
+
+
+async def cf_get(cf_id: int) -> Optional[dict]:
+    async with pool().acquire() as c:
+        row = await c.fetchrow("SELECT * FROM custom_field WHERE id=$1", cf_id)
+        return dict(row) if row else None
+
+
+async def cf_delete(cf_id: int) -> bool:
+    async with pool().acquire() as c:
+        r = await c.execute("DELETE FROM custom_field WHERE id=$1", cf_id)
+        return r.endswith(" 1")
+
+
+async def cf_usage(target: str, key: str) -> int:
+    """이 칸에 값이 들어 있는 건수.
+
+    정의를 지워도 값은 data->'custom' 에 그대로 남는다 — 화면에서만 사라진다.
+    지우기 전에 몇 건이 값을 갖고 있는지는 알려줘야 판단할 수 있다.
+    """
+    table = {"tc": "tc", "req": "req"}.get(target)
+    if not table:
+        return 0
+    async with pool().acquire() as c:
+        # 값이 비어 있으면 안 쓰는 것으로 본다. jsonb 의 `?` (키 존재) 는
+        # 굳이 쓰지 않는다 — 빈 문자열로 저장된 것까지 '쓰는 중' 이 된다.
+        return await c.fetchval(
+            f"SELECT count(*) FROM {table} WHERE coalesce(data->'custom'->>$1, '') <> ''",
+            key,
+        ) or 0

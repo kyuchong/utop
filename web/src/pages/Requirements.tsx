@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, reqApi, tcApi } from '@/api/client'
+import { api, categoryApi, reqApi, tcApi } from '@/api/client'
 import CategoryTree from '@/components/CategoryTree'
 import ReqForm from '@/components/ReqForm'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
@@ -17,6 +17,7 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
+import { cfDisplay, useCustomFields } from '@/hooks/useCustomFields'
 import './Requirements.css'
 
 /** REQ 하나에 달린 TC 집계 */
@@ -99,8 +100,18 @@ export default function Requirements() {
     queryFn: ({ signal }) => api.listTestCases(signal),
   })
 
+  // 분류 이름은 트리만 알고 있었다. 2열 머리에 '지금 무엇으로 걸렀는지'
+  // 를 적으려면 여기서도 필요하다. 같은 queryKey 라 요청은 늘지 않는다.
+  const catQ = useQuery({
+    queryKey: ['req-categories'],
+    queryFn: ({ signal }) => categoryApi.list(signal),
+  })
+
   const allReqs = reqQ.data?.reqs ?? []
   const tcs = tcQ.data?.tcs ?? []
+
+  // 목록에 열로 붙일 커스텀 필드 (설정 → 커스텀 필드에서 켠 것)
+  const cfCols = useCustomFields('req').inList
 
   // 분류 필터. 어느 단계를 고르든, 그 아래에 달린 것까지 함께 보여야 자연스럽다.
   // 요구사항이 cat1/cat2/cat3 에 조상들을 그대로 담고 있으므로 셋 중 하나만
@@ -181,6 +192,26 @@ export default function Requirements() {
     () => reqs.find((r) => reqPk(r) === selected),
     [reqs, selected],
   )
+
+  /**
+   * 지금 걸려 있는 분류의 경로. 'IPv4 > L2 > VLAN' 처럼 조상까지 적는다.
+   *
+   * 트리에서 파랗게 칠해진 줄만으로는 부족하다 — 트리를 스크롤해 내리면
+   * 그 줄이 화면 밖으로 나가고, 2열에 왜 5건만 있는지 알 수 없어진다.
+   */
+  const catPath = useMemo((): string[] => {
+    if (!catFilter || catFilter === UNCATEGORIZED) return []
+    const byId = new Map((catQ.data?.categories ?? []).map((c) => [c.id, c]))
+    const out: string[] = []
+    let cur = byId.get(catFilter)
+    // 분류가 지워졌는데 필터만 남은 경우가 있다. 그때는 빈 배열이 되어
+    // 아래에서 '알 수 없는 분류' 로 표시된다.
+    while (cur) {
+      out.unshift(cur.name)
+      cur = cur.parent_id ? byId.get(cur.parent_id) : undefined
+    }
+    return out
+  }, [catFilter, catQ.data])
 
   /** 선택된 REQ 에 연결된 TC — 양쪽 정본의 합집합 */
   /**
@@ -328,6 +359,32 @@ export default function Requirements() {
                   ? `${reqs.length}건`
                   : `${reqs.length} / ${allReqs.length}건`}
               </span>
+              {/* 무엇으로 걸렀는지. 트리의 파란 줄은 스크롤하면 안 보인다.
+                  '하위 포함' 을 함께 적는 이유는, 5건이 이 분류의 것인지
+                  아래 분류까지 합친 것인지가 숫자만으로는 안 보여서다. */}
+              {catFilter && (
+                <span className="cat-chip" title={catPath.join(' > ')}>
+                  {catFilter === UNCATEGORIZED ? (
+                    '미분류'
+                  ) : catPath.length === 0 ? (
+                    '지워진 분류'
+                  ) : (
+                    <>
+                      {catPath[catPath.length - 1]}
+                      <span className="muted"> · 하위 포함</span>
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    className="cat-chip-x"
+                    onClick={() => setCatFilter(null)}
+                    aria-label="분류 필터 해제"
+                    title="분류 필터 해제"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
             </span>
             <div className="page-head-actions">
               <button
@@ -390,6 +447,11 @@ export default function Requirements() {
             />
             <span className="req-id">REQ ID</span>
             <span className="req-name">제목</span>
+            {cfCols.map((f) => (
+              <span className="req-cf" key={f.key} title={f.label}>
+                {f.label}
+              </span>
+            ))}
             <span className="req-stat">TC</span>
           </div>
 
@@ -438,6 +500,17 @@ export default function Requirements() {
                     <span className="req-name" title={r.title ?? ''}>
                       {r.title || '(제목 없음)'}
                     </span>
+                    {cfCols.map((f) => {
+                      const v = cfDisplay(
+                        f,
+                        (r.custom as Record<string, unknown> | undefined)?.[f.key],
+                      )
+                      return (
+                        <span className="req-cf" key={f.key} title={v}>
+                          {v}
+                        </span>
+                      )
+                    })}
                     <span className="req-stat">
                       {stat.total === 0 ? (
                         <span className="muted small">TC 0</span>
