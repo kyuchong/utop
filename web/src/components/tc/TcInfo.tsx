@@ -61,7 +61,18 @@ export default function TcInfo({ data, onChange }: Props) {
         <div className="tc-card-head">
           <b>기본</b>
         </div>
-        <div className="tc-grid">
+        {/* 윗줄은 '무엇에 대한 시험인가', 아랫줄은 '어떤 시험인가'.
+            요구사항과 제목은 글이라 넓게, 고르는 값 다섯은 좁게 한 줄에
+            나란히 둔다 — 한 격자에 섞어 흘려보내면 제목이 셀렉트만큼
+            좁아져서 긴 제목을 못 읽는다. */}
+        <div className="tc-grid tc-grid-2">
+          <label className="fld">
+            <span>요구사항</span>
+            <input
+              value={data.req_id ?? ''}
+              onChange={(e) => onChange({ req_id: e.target.value })}
+            />
+          </label>
           <label className="fld">
             <span>제목</span>
             <input
@@ -70,18 +81,14 @@ export default function TcInfo({ data, onChange }: Props) {
               onChange={(e) => onChange({ name: e.target.value })}
             />
           </label>
+        </div>
+
+        <div className="tc-grid tc-grid-5">
           {pick('상태', 'status', STATUSES)}
           {pick('실행 타입', 'run_type', RUN_TYPES)}
           {pick('심각도', 'severity', SEVERITIES)}
           {pick('유형', 'type', TYPES)}
           {pick('발생 구분', 'origin', ORIGINS)}
-          <label className="fld">
-            <span>요구사항</span>
-            <input
-              value={data.req_id ?? ''}
-              onChange={(e) => onChange({ req_id: e.target.value })}
-            />
-          </label>
         </div>
       </section>
 

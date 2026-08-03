@@ -244,3 +244,18 @@
 /* 고른 장비가 슬롯 조건과 어긋날 때. 막지는 않는다 — 조건은 거들 뿐이고
    특정 장비로만 되는 시험도 있다. 다만 눈에 띄어야 한다. */
 .slot-warn { color: var(--c-fail); }
+
+/* 정보 탭 기본 카드 — 두 줄로 나눈다.
+   윗줄은 '무엇에 대한 시험인가'(요구사항·제목), 아랫줄은 '어떤 시험인가'
+   (상태·실행타입·심각도·유형·발생구분). 한 격자에 섞으면 제목이 셀렉트만큼
+   좁아져서 긴 제목을 못 읽는다. */
+.tc-grid-2 { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+.tc-grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+/* 좁아지면 억지로 다섯을 붙이지 않는다 — 라벨이 잘려서 무슨 칸인지 모른다 */
+@media (max-width: 900px) {
+  .tc-grid-2 { grid-template-columns: minmax(0, 1fr); }
+  .tc-grid-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.tc-grid + .tc-grid { margin-top: var(--sp-2); }
