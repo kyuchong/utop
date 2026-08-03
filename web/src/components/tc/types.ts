@@ -216,12 +216,21 @@ export const STEP_KINDS: Array<{
   { k: 'loop', label: 'Loop', group: 'flow', icon: 'loop' },
   { k: 'switch', label: 'Switch', group: 'flow', icon: 'switch' },
   { k: 'wait', label: 'Wait', group: 'flow', icon: 'clock' },
-  { k: 'connect', label: 'Connect', group: 'conn', icon: 'plug' },
-  { k: 'disconnect', label: 'Close', group: 'conn', icon: 'unplug' },
   { k: 'model', label: 'Model', group: 'etc', icon: 'chip' },
   { k: 'comment', label: 'Comment', group: 'etc', icon: 'note' },
   { k: 'message', label: 'Message', group: 'etc', icon: 'note' },
   { k: 'manual', label: 'Manual', group: 'etc', icon: 'hand' },
+  // 접속은 맨 뒤로. **안 넣어도 돌아간다** — CLI 스텝이 세션이 없으면
+  // 알아서 연다(runner.ts). 앞에 두면 '이걸 먼저 넣어야 하나' 를 매번
+  // 생각하게 되는데, 실제로 필요한 것은 656스텝 중 15건뿐이다.
+  //
+  // 그래도 남기는 이유: 로그인 과정 자체를 시험하거나(배너·계정 실패),
+  // 재부팅 뒤 다시 붙는 시점을 못박아야 하는 시험이 있다.
+  //
+  // 'Close' 라고 적어 뒀더니 Connect 의 짝으로 안 읽혔다. 저장되는 값은
+  // 그대로 두고 이름만 짝에 맞춘다.
+  { k: 'connect', label: 'Connect', group: 'conn', icon: 'plug' },
+  { k: 'disconnect', label: 'Disconnect', group: 'conn', icon: 'unplug' },
 ]
 
 const KIND_MAP = new Map(STEP_KINDS.map((x) => [x.k, x]))

@@ -43,6 +43,33 @@ export default function TcSessionBar({
     return m
   }, [devices])
 
+  /**
+   * 연결 끊기.
+   *
+   * 세션은 한 번 열리면 서버에 남아 다음 스텝이 그대로 이어 쓴다(그래야
+   * enable 과 config 모드가 유지된다). 그런데 끊을 방법이 화면에 없었다 —
+   * × 는 자리를 빼는 것이지 연결을 끊는 것이 아니다.
+   *
+   * 장비를 재부팅했거나 다른 계정으로 다시 붙어야 할 때 필요하다.
+   */
+  const close = async (i: number, dev: Device) => {
+    setTesting(i)
+    try {
+      const r = await apiFetch('/api/session-close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(connParams(dev)),
+      })
+      const d = (await r.json()) as { ok?: boolean; error?: string }
+      if (d.ok) onMsg('ok', `S${i + 1} ${deviceLabel(dev)} 연결을 끊었습니다`)
+      else onMsg('err', `S${i + 1} 끊지 못했습니다 — ${d.error || '이유 불명'}`)
+    } catch (e) {
+      onMsg('err', `끊지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setTesting(null)
+    }
+  }
+
   const test = async (i: number, dev: Device) => {
     if (!dev.ip) {
       onMsg('err', `${deviceLabel(dev)} 에 IP 가 없습니다 — 장비 등록에서 넣으세요`)
@@ -104,6 +131,16 @@ export default function TcSessionBar({
               onClick={() => dev && void test(i, dev)}
             >
               {testing === i ? '…' : '⚡'}
+            </button>
+            <button
+              type="button"
+              className="tc-sess-b"
+              disabled={!dev || testing !== null}
+              title="연결 끊기 — 자리는 그대로 두고 접속만 끊습니다"
+              aria-label={`S${i + 1} 연결 끊기`}
+              onClick={() => dev && void close(i, dev)}
+            >
+              ⏏
             </button>
             <button
               type="button"

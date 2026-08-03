@@ -123,6 +123,35 @@ export default function TcTerminal({
   }
 
   /**
+   * 연결 끊기.
+   *
+   * 열어 둔 세션은 서버에 남아 다음 스텝이 그대로 이어 쓴다 — 그래야
+   * enable 과 config 모드가 유지된다. 장비를 재부팅했거나 다른 계정으로
+   * 다시 붙어야 할 때는 끊어야 한다. 화면에 그 길이 없었다.
+   */
+  const close = async () => {
+    if (!dev) return
+    setBusy(true)
+    try {
+      await apiFetch('/api/session-close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(connParams(dev)),
+      })
+      setPrompts((v) => {
+        const n = { ...v }
+        delete n[idx]
+        return n
+      })
+      setNote('')
+    } catch (e) {
+      setNote(`끊지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /**
    * 명령 보내기.
    *
    * SSE 로 받는다. 응답을 다 모아 한 번에 보여주면 `show running-config`
@@ -263,6 +292,17 @@ export default function TcTerminal({
           <input type="checkbox" checked={rec} onChange={(e) => setRec(e.target.checked)} />
           기록
         </label>
+        {prompt && (
+          <button
+            className="btn small"
+            type="button"
+            disabled={busy}
+            title="이 세션의 접속을 끊습니다 — 재부팅 뒤 다시 붙을 때"
+            onClick={() => void close()}
+          >
+            ⏏ 끊기
+          </button>
+        )}
         <span className="sp" />
         <button className="btn small" type="button" onClick={onClose}>
           닫기
