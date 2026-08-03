@@ -3,7 +3,7 @@
 
 # API Reference
 
-총 라우트 수: **235** (그룹 71개)
+총 라우트 수: **266** (그룹 81개)
 
 `auth` 컬럼은 endpoint 시그니처에서 감지한 인증/권한 의존성 이름 (best-effort).
 
@@ -95,6 +95,14 @@
 |---|---|---|---|
 | POST | `/api/cli-complete` | 터미널 Tab 자동완성: 영속 세션에 '부분명령+Tab'을 보내 장비가 완성한 명령을 읽어 반환. |  |
 
+## `/api/codes` (3개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/codes` | 드롭다운에 들어가는 값 목록. 화면은 여기서만 읽는다. |  |
+| POST | `/api/codes` |  |  |
+| DELETE | `/api/codes/{kind}/{value}` |  |  |
+
 ## `/api/confluence` (7개)
 
 | method | path | summary | auth |
@@ -106,6 +114,12 @@
 | POST | `/api/confluence/search` | 라이브 Confluence 검색만 (FAB 단계별 표시용). live_query 꺼져있으면 빈 결과. |  |
 | POST | `/api/confluence/sync` |  | token param |
 | POST | `/api/confluence/test` |  | token param |
+
+## `/api/convert` (1개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| POST | `/api/convert/markdown` |  |  |
 
 ## `/api/custom-fields` (2개)
 
@@ -156,6 +170,20 @@
 | GET | `/api/device-catalog/backups` | 자동 백업 목록 (최근 순). |  |
 | GET | `/api/device-catalog/backups/{name}` |  |  |
 
+## `/api/device-catalog2` (3개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/device-catalog2` |  |  |
+| POST | `/api/device-catalog2` |  |  |
+| DELETE | `/api/device-catalog2/{kind}/{name}` |  |  |
+
+## `/api/device-roles` (1개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/device-roles` |  |  |
+
 ## `/api/devices` (6개)
 
 | method | path | summary | auth |
@@ -166,6 +194,19 @@
 | PUT | `/api/devices/{device_id}` |  |  |
 | POST | `/api/devices/{device_id}/command` |  |  |
 | POST | `/api/devices/{device_id}/connect` |  |  |
+
+## `/api/devices2` (8개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/devices2` |  |  |
+| POST | `/api/devices2` |  |  |
+| GET | `/api/devices2/export.csv` | 장비 목록을 CSV 로. 비밀번호는 기본적으로 비운다. |  |
+| POST | `/api/devices2/import-csv` | CSV 로 일괄 등록·수정. IP 가 키라 같은 IP 는 덮어쓴다. |  |
+| POST | `/api/devices2/import-legacy` | 옛 devices.json 을 PG 로 옮긴다. 여러 번 눌러도 안전하다(IP 기준 upsert). |  |
+| DELETE | `/api/devices2/{dev_id}` |  |  |
+| GET | `/api/devices2/{dev_id}` |  |  |
+| POST | `/api/devices2/{dev_id}/check` | 접속해 보고 결과를 남긴다. |  |
 
 ## `/api/dify` (7개)
 
@@ -192,6 +233,12 @@
 |---|---|---|---|
 | GET | `/api/global-params` |  |  |
 | POST | `/api/global-params` |  |  |
+
+## `/api/health` (1개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/health` | 도커 헬스체크가 부르는 곳. 로그인 없이 열려 있다. |  |
 
 ## `/api/help` (2개)
 
@@ -272,6 +319,16 @@
 | POST | `/api/llms/reorder` | LLM 목록 순서 재배치 (드래그) |  |
 | DELETE | `/api/llms/{llm_id}` |  |  |
 | PUT | `/api/llms/{llm_id}` |  |  |
+
+## `/api/locks` (5개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/locks` | 지금 잡혀 있는 자원 전부. 화면이 '누가 언제부터' 를 보여줄 수 있게 |  |
+| POST | `/api/locks` |  |  |
+| DELETE | `/api/locks/by-cycle/{cycle_id}` | 사이클이 끝나면 그 사이클이 잡은 것을 한꺼번에 푼다. |  |
+| DELETE | `/api/locks/{resource_id}` | 해제는 잡은 본인과 관리자만. 남의 시험을 아무나 끊을 수 없어야 한다. |  |
+| POST | `/api/locks/{resource_id}/heartbeat` |  |  |
 
 ## `/api/login` (1개)
 
@@ -429,7 +486,7 @@
 | GET | `/api/release-summary` |  |  |
 | POST | `/api/release-summary` |  |  |
 
-## `/api/req` (4개)
+## `/api/req` (5개)
 
 | method | path | summary | auth |
 |---|---|---|---|
@@ -437,6 +494,23 @@
 | DELETE | `/api/req/{req_id}` |  |  |
 | GET | `/api/req/{req_id}` |  |  |
 | POST | `/api/req/{req_id}` |  |  |
+| POST | `/api/req/{req_id}/embed` |  |  |
+
+## `/api/req-categories` (5개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/req-categories` |  |  |
+| POST | `/api/req-categories` |  |  |
+| POST | `/api/req-categories/reorder` | 형제 순서 재배치 + 필요하면 상위 이동까지 한 번에. |  |
+| DELETE | `/api/req-categories/{cat_id}` | 하위 분류까지 함께 지운다. 요구사항은 지우지 않고 '미분류'가 된다. |  |
+| PUT | `/api/req-categories/{cat_id}` |  |  |
+
+## `/api/req-images` (1개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/req-images/{name}` |  |  |
 
 ## `/api/resource` (4개)
 
@@ -543,7 +617,7 @@
 | POST | `/api/stc/traffic/run` |  |  |
 | POST | `/api/stc/traffic/stop` |  |  |
 
-## `/api/tc` (11개)
+## `/api/tc` (12개)
 
 | method | path | summary | auth |
 |---|---|---|---|
@@ -551,6 +625,7 @@
 | DELETE | `/api/tc/{tc_id}` |  |  |
 | GET | `/api/tc/{tc_id}` |  |  |
 | POST | `/api/tc/{tc_id}` |  |  |
+| POST | `/api/tc/{tc_id}/generate` | 자연어 한 줄 → 슬롯·스텝 제안. 저장하지 않고 돌려만 준다. |  |
 | POST | `/api/tc/{tc_id}/run` | 단일 TC 개별 실행. body: device_id(특정 장비), cycle_id(해당 Cycle 장비로 실행하고 결과 반영). |  |
 | DELETE | `/api/tc/{tc_id}/run-history` |  |  |
 | GET | `/api/tc/{tc_id}/run-history` |  |  |
@@ -580,6 +655,12 @@
 |---|---|---|---|
 | GET | `/api/ui-options` |  |  |
 | POST | `/api/ui-options` |  | token param |
+
+## `/api/upload` (1개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| POST | `/api/upload/image` |  |  |
 
 ## `/api/users` (5개)
 

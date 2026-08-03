@@ -23,7 +23,7 @@
 
 ## 아키텍처 핵심 원칙
 
-1. **PostgreSQL 이 정본**. `tc`/`req`/`cycle`/`manuals` 등 리소스는 DB row 가 정본이며 파일은 이관 후 삭제됨. 컨테이너 파일(`data/state/board.json` 등)만 아직 파일 정본.
+1. **PostgreSQL 이 정본**. `tc`/`req`/`cycle`/`manuals` 등 리소스는 물론 컨테이너 자료(게시판·도움말·UI 옵션 등)도 `app_kv` 테이블로 옮겼다. 파일 정본은 없다.
 2. **파일 접근은 헬퍼로만**. DB 는 `backend/db.py` 의 `kv_get/kv_set/tc_upsert` 등, 파일은 `load_json/save_json`. `_kv_load_sync/_kv_save_sync` 는 sync 컨텍스트 진입점.
 3. **프론트는 탑메뉴 폴더로 분할**. 새 페이지는 `frontend/static/js/<탑메뉴>/<name>.js` 로 추가하고 `index.html` 에 `<script>` 태그 등록 + `_shared/06-nav-misc.js` 에 라우팅. 폴더가 곧 담당 메뉴다.
 4. **`data/` 는 용도별 폴더**. 루트에 파일을 새로 만들지 않는다 — 설정은 `data/config/`, 외부 연동은 `data/integrations/`, 런타임 상태는 `data/state/`, MIB 추출물은 `data/snmp/`.

@@ -85,11 +85,11 @@ Cycle 결과의 step 에는 `result`, `reason`, `output`, `pass_criteria` 를 �
 - 실행 중 Dashboard 는 WebSocket 이벤트에 의존한다. 폴링으로 실행 중 상태를 무리하게 대체하지 않는다.
 - 실행한 시험 목록은 서버 부담을 고려해 5초 이상 주기로 유지한다.
 - UI 변경 시 기존 색상 변수와 인라인 스타일 패턴을 우선 사용한다.
-- TC/REQ/Cycle ID 는 URL 및 파일 경로 (Baseline 등) 에 쓰이므로 `safe_name` 또는 encode 처리를 주의한다.
+- TC/REQ/Cycle ID 는 URL 에 쓰이므로 `encodeURIComponent` 처리를 주의한다.
 
 ## 수정 시 주의사항
 
-- `data/devices/devices.json` 에는 실제 IP, username, password, enable password 가 들어간다. 외부 공유/커밋 시 반드시 마스킹한다.
+- `device` / `device_access` 테이블에는 실제 IP, username, password, enable password 가 평문으로 들어간다(2026-08-02 결정). DB 덤프를 외부로 공유하거나 커밋하지 않는다. 장비 CSV 내보내기는 기본적으로 비밀번호를 뺀다.
 - `backend/main.py` 의 `ssh_exec` 이름은 남아 있지만 내부 구현은 Netmiko 이다. 호출부 호환성을 위해 이름을 쉽게 바꾸지 않는다.
 - Netmiko 는 내부적으로 Paramiko 를 사용하므로 warning 에 Paramiko 가 보일 수 있다. 앱 코드에서 직접 Paramiko 를 쓰는 것은 피한다.
 - `scripts/launcher.py` 는 서버 프로세스 종료 처리와 연관되어 있다. Ctrl+C, 창 닫기, 서버 중지 동작을 깨뜨리지 않도록 주의한다.

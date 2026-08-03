@@ -10,6 +10,7 @@ main.py 의 top-level 부작용은 dotenv 로드와 SNMP enum 파일 읽기(~2.5
 from __future__ import annotations
 import argparse
 import inspect
+import os
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -25,6 +26,15 @@ except Exception:
     pass
 
 sys.path.insert(0, str(BACKEND))
+
+# db.py 는 DATABASE_URL 이 없으면 import 단계에서 예외를 던진다. 이 도구는
+# 라우트 선언만 읽고 DB 에 붙지 않으므로 없으면 자리표시자를 넣어 준다.
+#
+# .env 의 DATABASE_URL 은 주석 상태가 기본이다 — 도커 compose 가 직접
+# 넘겨주기 때문이다. 그래서 호스트에서 이 도구(와 tools/verify.py)를 돌리면
+# 늘 실패했다. 도커 안에서만 검사할 수 있는 도구는 쓰이지 않는다.
+os.environ.setdefault("DATABASE_URL", "postgresql://placeholder@127.0.0.1:5432/placeholder")
+
 import main  # type: ignore
 
 APP = main.app

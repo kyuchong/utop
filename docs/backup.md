@@ -6,7 +6,7 @@
 ## ⚠️ 경고
 
 **백업 파일에는 다음 민감 정보가 포함된다:**
-- `data/devices/devices.json` — 장비 SSH/Telnet 계정 평문 비밀번호 137대
+- `device` / `device_access` 테이블 — 장비 SSH/Telnet 계정 평문 비밀번호 (DB 백업 파일이 곧 사내 장비 전체의 비밀번호다)
 - `data/integrations/llms.json` / `jira.json` / `confluence_config.json` — API 키·토큰·비번
 - `data/backups/device_catalog/` — 장비 카탈로그 자동 백업 (평문 비번)
 - PostgreSQL `app_kv` 안 `users` 키 — 사용자 계정 SHA256 해시

@@ -172,6 +172,9 @@ def load_json(path: Path) -> dict:
 
 
 def save_json(path: Path, data: dict):
+    # 상위 폴더가 없으면 만든다. 새로 클론한 곳에는 data/state 가 없어서
+    # import 단계의 초기화(FOLDERS_FILE 등)가 FileNotFoundError 로 죽었다.
+    path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 

@@ -34,11 +34,14 @@ _kv_save_sync("board", data)
 
 `_kv_load_sync` 는 startup 훅이 채운 캐시에서 반환한다. 캐시가 없으면 등록된 fallback 파일에서 읽는다. sync 컨텍스트에서 event loop 재진입을 피하려는 설계이므로 async 함수에서는 `db.kv_get` 을 직접 사용한다.
 
-## 파일 정본 (아직 DB 이관 안 됨)
+## 파일 정본
 
-- `data/devices/devices.json` — 장비 목록 (실제 IP/username/password/enable password 포함)
-- `data/state/board.json` / `folders.json` / `manual_folders.json` / `projects.json`, `data/config/help.json` / `permissions.json` / `page_ai.json` / `ui_options.json`, `data/integrations/dify_assistants.json` — 컨테이너 파일 중 `_KV_MIGRATIONS` 목록 밖의 것
-- `data/integrations/llms.json` / `jira.json` / `confluence_config.json` — 자격증명 포함, gitignore (`.sample` 만 커밋)
+없다. v2 는 전부 PostgreSQL 이다.
+
+- 장비는 `device` / `device_access` / `device_interface` 테이블
+- 게시판·도움말·권한·UI 옵션 등 컨테이너 자료는 `app_kv` 테이블
+- 자격증명(LLM·Jira·Confluence)만 `data/integrations/*.json` 에 남아 있고 gitignore 다
+  (`.sample` 만 커밋). 이것도 DB 로 옮길 때는 암호화를 함께 정해야 한다.
 
 ## 🚫 Baseline 스펙 (제거 예정)
 
