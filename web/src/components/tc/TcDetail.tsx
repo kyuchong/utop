@@ -212,13 +212,12 @@ export default function TcDetail({ tcid, onClose }: Props) {
                     ))}
                   </select>
                 </label>
-                <label className="fld">
-                  <span>고객사</span>
-                  <input
-                    value={d.customer ?? ''}
-                    onChange={(e) => patch({ customer: e.target.value })}
-                  />
-                </label>
+                {/* 「고객사」 는 여기 있었지만 뺐다(2026-08-03).
+                    자유 입력이라 'LG U+' / 'LGU+' / '엘지유플러스' 로 갈렸고,
+                    다른 칸과 달리 고를 값을 정할 데가 없었다.
+                    필요하면 설정 → 커스텀 필드에서 「고르기」로 만든다.
+                    이미 저장된 d.customer 값은 지우지 않는다 — 이 화면은
+                    d 를 통째로 저장하므로 화면에서만 사라진다. */}
                 <label className="fld">
                   <span>발생 구분</span>
                   <select value={d.origin ?? ''} onChange={(e) => patch({ origin: e.target.value })}>

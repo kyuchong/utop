@@ -10,16 +10,35 @@ interface Item {
   used?: number
 }
 
+interface Props {
+  /** 'tc' | 'req' — 서버의 kind 접두사와 같다 */
+  target: 'tc' | 'req'
+}
+
+const TITLE: Record<string, { h: string; p: string }> = {
+  tc: {
+    h: 'TC INFO 필드',
+    p: 'TC 상세 「기본」 카드의 상태·유형·심각도처럼 고를 값을 여기서 정합니다. 고치면 TC 상세와 추가 창에 함께 반영됩니다.',
+  },
+  req: {
+    h: '요구사항 INFO 필드',
+    p: '요구사항 편집 창의 상태·우선순위에서 고를 값을 여기서 정합니다. 전에는 코드에 박혀 있어 배포해야 늘릴 수 있었습니다.',
+  },
+}
+
 /**
  * 코드 목록 관리.
  *
  * 화면의 드롭다운에 들어가는 값을 여기서 정한다. 전에는 TcForm.tsx 와
  * TcDetail.tsx 에 같은 목록이 따로 박혀 있어서 서로 어긋날 수 있었고,
  * 항목 하나 늘리려면 배포를 해야 했다.
+ *
+ * TC 와 요구사항이 같은 화면을 쓴다 — 하는 일이 똑같아서 따로 만들면
+ * 한쪽만 고치는 일이 생긴다. 서버의 kind 접두사(tc_ / req_)로 가른다.
  */
-export default function CodeSettings() {
+export default function CodeSettings({ target }: Props) {
   const qc = useQueryClient()
-  const [kind, setKind] = useState('tc_type')
+  const [kind, setKind] = useState(target === 'req' ? 'req_status' : 'tc_type')
   const [draft, setDraft] = useState('')
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
 
@@ -32,13 +51,18 @@ export default function CodeSettings() {
     },
   })
 
-  const kinds = listQ.data?.kinds ?? {}
+  // 이 화면 것만 남긴다. 접두사로 가르므로 서버에 종류를 늘려도
+  // 화면 코드를 고칠 일이 없다.
+  const kinds = Object.fromEntries(
+    Object.entries(listQ.data?.kinds ?? {}).filter(([k]) => k.startsWith(`${target}_`)),
+  )
   const items = (listQ.data?.items ?? []).filter((i) => i.kind === kind)
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['codes'] })
-    // TC 폼들이 이 목록을 읽는다 — 고치면 바로 반영되어야 한다
+    // 편집 폼들이 이 목록을 읽는다 — 고치면 바로 반영되어야 한다
     void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
+    void qc.invalidateQueries({ queryKey: ['req', 'list'] })
   }
 
   const saveM = useMutation({
@@ -99,11 +123,9 @@ export default function CodeSettings() {
     <div className="set-page">
       <div className="set-head">
         <div>
-          <h3>TC INFO 필드</h3>
+          <h3>{TITLE[target]!.h}</h3>
           <p className="muted small">
-            TC 상세 「기본」 카드의 상태·유형·심각도처럼 <b>고를 값</b>을 여기서 정합니다.
-            고치면 TC 상세와 추가 창에 함께 반영됩니다.
-            칸 자체를 늘리는 것은 「커스텀 필드」에서 합니다.
+            {TITLE[target]!.p} 칸 자체를 늘리는 것은 「커스텀 필드」에서 합니다.
           </p>
         </div>
       </div>

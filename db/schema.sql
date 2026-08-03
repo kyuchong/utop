@@ -207,6 +207,14 @@ INSERT INTO code_item (kind, value, sort_order) VALUES
   ('tc_type','FT',1),       ('tc_type','Function',2)
 ON CONFLICT (kind, value) DO NOTHING;
 
+-- 요구사항 쪽. 지금까지 ReqForm.tsx 에 배열로 박혀 있어 어디서도 고칠 수
+-- 없었다. TC 와 같은 자리에서 관리한다.
+INSERT INTO code_item (kind, value, sort_order) VALUES
+  ('req_status','작성중',1), ('req_status','검토중',2), ('req_status','검토완료',3),
+  ('req_status','보류',4),   ('req_status','폐기',5),
+  ('req_priority','High',1), ('req_priority','Medium',2), ('req_priority','Low',3)
+ON CONFLICT (kind, value) DO NOTHING;
+
 -- 이미 쓰고 있는 값도 목록으로 끌어올린다. 손으로 넣은 유형이 목록에
 -- 없으면 그 TC 를 편집할 때 값이 사라진 것처럼 보인다.
 INSERT INTO code_item (kind, value, sort_order)
@@ -214,6 +222,12 @@ SELECT DISTINCT 'tc_type', type, 9 FROM tc WHERE type IS NOT NULL AND type <> ''
 ON CONFLICT (kind, value) DO NOTHING;
 INSERT INTO code_item (kind, value, sort_order)
 SELECT DISTINCT 'tc_status', status, 9 FROM tc WHERE status IS NOT NULL AND status <> ''
+ON CONFLICT (kind, value) DO NOTHING;
+INSERT INTO code_item (kind, value, sort_order)
+SELECT DISTINCT 'req_status', status, 9 FROM req WHERE status IS NOT NULL AND status <> ''
+ON CONFLICT (kind, value) DO NOTHING;
+INSERT INTO code_item (kind, value, sort_order)
+SELECT DISTINCT 'req_priority', priority, 9 FROM req WHERE priority IS NOT NULL AND priority <> ''
 ON CONFLICT (kind, value) DO NOTHING;
 
 -- ── 커스텀 필드 ────────────────────────────────────────────────

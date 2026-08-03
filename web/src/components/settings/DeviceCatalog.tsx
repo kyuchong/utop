@@ -42,6 +42,9 @@ export default function DeviceCatalog() {
   const [kind, setKind] = useState('lab')
   const [draft, setDraft] = useState<Item>({ kind: 'lab', name: '' })
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
+  // 여러 줄 붙여넣기로 한 번에 등록하는 칸
+  const [bulkOpen, setBulkOpen] = useState(false)
+  const [bulk, setBulk] = useState('')
 
   const listQ = useQuery({
     queryKey: ['device-catalog'],
@@ -103,6 +106,90 @@ export default function DeviceCatalog() {
     saveM.mutate({ ...draft, kind })
   }
 
+  /**
+   * 여러 줄을 한 번에 등록.
+   *
+   * 모델은 한 시리즈에 열 개씩 되는 일이 흔한데, 한 줄씩 넣으면 Vendor·
+   * 제품군·모델그룹을 매번 다시 고르게 된다. 공통 값은 위에서 한 번만
+   * 고르고 이름만 줄로 붙여넣는다.
+   *
+   * 엑셀에서 그대로 붙여넣는 경우가 많아 탭·쉼표로 나뉜 둘째 칸을
+   * 인터페이스로 받는다 — 시리즈 안에서도 포트 수는 다를 수 있다.
+   */
+  const bulkM = useMutation({
+    mutationFn: async (lines: string[]) => {
+      // 순차로 넣는다. 한꺼번에 던지면 어디까지 들어갔는지 알 수 없어
+      // 실패한 것만 다시 시도할 수가 없다.
+      const done: string[] = []
+      const failed: Array<{ name: string; why: string }> = []
+      for (const line of lines) {
+        // 첫 구분자에서만 자르고 나머지는 통째로 인터페이스로 본다.
+        // split(re, 2) 를 쓰면 'E6100-48T, gi1/0/1-48, te1/1-4' 에서
+        // te1/1-4 가 조용히 사라진다 — 인터페이스 자체에 쉼표가 들어간다.
+        const at = line.search(/[\t,]/)
+        const name = (at < 0 ? line : line.slice(0, at)).trim()
+        const rawIf = at < 0 ? '' : line.slice(at + 1)
+        if (!name) continue
+        const item: Item = {
+          ...draft,
+          kind,
+          name,
+          // 줄에 인터페이스가 적혀 있으면 그것을, 없으면 위에서 고른 공통값을 쓴다
+          interfaces: (rawIf ?? '').trim() || draft.interfaces || null,
+        }
+        try {
+          const r = await apiFetch('/api/device-catalog2', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item),
+          })
+          const b = await r.json().catch(() => ({}))
+          if (!r.ok) throw new Error(b.detail || '저장 실패')
+          done.push(name)
+        } catch (e) {
+          failed.push({ name, why: e instanceof Error ? e.message : String(e) })
+        }
+      }
+      return { done, failed }
+    },
+    onSuccess: ({ done, failed }) => {
+      void qc.invalidateQueries({ queryKey: ['device-catalog'] })
+      void qc.invalidateQueries({ queryKey: ['device-roles'] })
+      if (failed.length === 0) {
+        setBulk('')
+        setBulkOpen(false)
+        setNote({ kind: 'ok', msg: `${done.length}건 등록했습니다` })
+        return
+      }
+      // 실패한 줄만 칸에 남긴다 — 고쳐서 그대로 다시 누르면 된다.
+      setBulk(failed.map((f) => f.name).join('\n'))
+      setNote({
+        kind: 'err',
+        msg:
+          `${done.length}건 등록, ${failed.length}건 실패. 실패한 것만 칸에 남겨뒀습니다 — ` +
+          failed
+            .slice(0, 3)
+            .map((f) => `${f.name}: ${f.why}`)
+            .join(' / ') +
+          (failed.length > 3 ? ` 외 ${failed.length - 3}건` : ''),
+      })
+    },
+    onError: (e) => setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) }),
+  })
+
+  const bulkLines = bulk
+    .split('\n')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  const submitBulk = () => {
+    if (bulkLines.length === 0) {
+      setNote({ kind: 'err', msg: '한 줄에 하나씩 이름을 적으세요' })
+      return
+    }
+    bulkM.mutate(bulkLines)
+  }
+
   return (
     <div className="set-page">
       <div className="set-head">
@@ -143,17 +230,29 @@ export default function DeviceCatalog() {
         <div className="set-card-head">
           <b>{cur.label} 추가</b>
           <span className="muted small">{cur.desc}</span>
+          <button
+            className="btn small dc-bulk-toggle"
+            type="button"
+            onClick={() => {
+              setBulkOpen((v) => !v)
+              setNote({ kind: '', msg: '' })
+            }}
+          >
+            {bulkOpen ? '하나씩 추가' : '일괄 추가'}
+          </button>
         </div>
 
         <div className="dc-add">
-          <input
-            placeholder={cur.label}
-            value={draft.name}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') submit()
-            }}
-          />
+          {!bulkOpen && (
+            <input
+              placeholder={cur.label}
+              value={draft.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submit()
+              }}
+            />
+          )}
           {kind === 'model' && (
             <>
               <select
@@ -190,10 +289,49 @@ export default function DeviceCatalog() {
               />
             </>
           )}
-          <button className="btn primary" type="button" onClick={submit} disabled={saveM.isPending}>
-            추가
-          </button>
+          {!bulkOpen && (
+            <button
+              className="btn primary"
+              type="button"
+              onClick={submit}
+              disabled={saveM.isPending}
+            >
+              추가
+            </button>
+          )}
         </div>
+
+        {/* 일괄 추가. 위의 Vendor·제품군·모델그룹은 그대로 쓰고 이름만
+            줄로 받는다 — 시리즈 하나에 모델이 열 개씩 되는 일이 흔한데
+            한 줄씩 넣으면 공통 값을 매번 다시 고르게 된다. */}
+        {bulkOpen && (
+          <div className="dc-bulk">
+            <textarea
+              rows={7}
+              value={bulk}
+              placeholder={
+                kind === 'model'
+                  ? 'E6100-24T\nE6100-48T, gi1/0/1-48, te1/1-4\nE6200-24T'
+                  : `${cur.label} 을 한 줄에 하나씩\n\n예:\nLAB-1\nLAB-2`
+              }
+              onChange={(e) => setBulk(e.target.value)}
+            />
+            <div className="dc-bulk-foot">
+              <span className="muted small">
+                {bulkLines.length > 0 ? `${bulkLines.length}건` : '한 줄에 하나씩'}
+                {kind === 'model' && ' · 이름 뒤에 쉼표나 탭으로 인터페이스를 따로 적을 수 있습니다'}
+              </span>
+              <button
+                className="btn primary"
+                type="button"
+                onClick={submitBulk}
+                disabled={bulkM.isPending || bulkLines.length === 0}
+              >
+                {bulkM.isPending ? '등록 중…' : `${bulkLines.length || ''}건 등록`}
+              </button>
+            </div>
+          </div>
+        )}
 
         {kind === 'model' && (
           <div className="hint">

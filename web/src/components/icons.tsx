@@ -152,3 +152,75 @@ export const IconInstrument = (p: P) => (
     <path d="M3 12h3l3-7 4 14 3-7h5" />
   </Svg>
 )
+
+/* ── 설정 화면 항목 ────────────────────────────────────────────
+   왼쪽 메뉴와 같은 규격(18px·stroke·currentColor)을 쓴다. 설정 안에서만
+   다른 모양을 쓰면 같은 앱으로 안 보인다. */
+
+/** LLM 설정 (신경망 — 노드가 이어진 모양) */
+export const IconLlm = (p: P) => (
+  <Svg {...p}>
+    <circle cx="5" cy="6" r="2" />
+    <circle cx="5" cy="18" r="2" />
+    <circle cx="12" cy="12" r="2.2" />
+    <circle cx="19" cy="8" r="2" />
+    <circle cx="19" cy="17" r="2" />
+    <path d="M7 6.9 10 11M7 17.1 10 13M14 11.2 17 8.7M14 12.9 17.2 16" />
+  </Svg>
+)
+
+/** 장비 카탈로그 (목록이 붙은 상자) */
+export const IconCatalog = (p: P) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M3 9h18M8 4v16M11.5 13h6M11.5 16h4" />
+  </Svg>
+)
+
+/** TC INFO 필드 (고를 값 목록 — 체크가 붙은 항목) */
+export const IconCodeList = (p: P) => (
+  <Svg {...p}>
+    <path d="M9 6h12M9 12h12M9 18h12" />
+    <path d="m3 5.6 1.4 1.4L7 4.4" />
+    <path d="m3 11.6 1.4 1.4L7 10.4" />
+    <path d="m3 17.6 1.4 1.4L7 16.4" />
+  </Svg>
+)
+
+/** 요구사항 INFO 필드 (문서에 붙은 고를 값 목록) */
+export const IconReqCodeList = (p: P) => (
+  <Svg {...p}>
+    <path d="M5 3h9l5 5v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+    <path d="M14 3v5h5" />
+    <path d="M11 13h5M11 17h3" />
+    <path d="m7 12.6.9.9L10 11.6" />
+    <path d="m7 16.6.9.9L10 15.6" />
+  </Svg>
+)
+
+/** 커스텀 필드 (칸을 새로 더한다 — 입력칸 + 더하기) */
+export const IconCustomField = (p: P) => (
+  <Svg {...p}>
+    <rect x="3" y="5" width="12" height="5" rx="1.5" />
+    <rect x="3" y="14" width="12" height="5" rx="1.5" />
+    <path d="M19 6.5v6M22 9.5h-6" />
+  </Svg>
+)
+
+/** 계정 관리 (사람 여럿) */
+export const IconAccounts = (p: P) => (
+  <Svg {...p}>
+    <circle cx="9" cy="8" r="3.2" />
+    <path d="M3 20c0-3.3 2.7-5.2 6-5.2s6 1.9 6 5.2" />
+    <path d="M16.5 5.2a3.2 3.2 0 0 1 0 5.9M18 14.4c2 .6 3.5 2.2 3.5 4.6" />
+  </Svg>
+)
+
+/** 페이지별 접근 권한 (잠금) */
+export const IconPerms = (p: P) => (
+  <Svg {...p}>
+    <rect x="4" y="10" width="16" height="10" rx="2" />
+    <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    <path d="M12 14v2.5" />
+  </Svg>
+)

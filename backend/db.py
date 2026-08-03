@@ -1007,12 +1007,16 @@ async def catalog_usage(kind: str, name: str) -> int:
 # 코드에 박아두면 항목 하나 늘릴 때마다 배포를 해야 하고, 같은 목록이
 # 여러 파일에 흩어져 서로 어긋난다. 화면은 여기서만 읽는다.
 # ══════════════════════════════════════════════════════════════════════
+# 앞의 tc_ / req_ 가 어느 화면 것인지를 가른다. 설정 화면이 이 접두사로
+# 탭을 나누므로, 새 종류를 넣을 때 접두사를 빼면 어느 쪽에도 안 뜬다.
 CODE_KINDS = {
     "tc_type": "TC 유형",
     "tc_status": "TC 상태",
     "tc_severity": "TC 중요도",
     "tc_run_type": "실행 타입",
     "tc_origin": "발생 구분",
+    "req_status": "요구사항 상태",
+    "req_priority": "요구사항 우선순위",
 }
 
 
@@ -1052,22 +1056,29 @@ async def code_delete(kind: str, value: str) -> bool:
 
 
 async def code_usage(kind: str, value: str) -> int:
-    """지우기 전에 쓰는 TC 가 몇 건인지. 쓰는 것이 있는데 지우면 그 TC 의
+    """지우기 전에 몇 건이 쓰고 있는지. 쓰는 것이 있는데 지우면 그 행의
     값이 목록에 없어져 편집할 때 빈 칸이 된다."""
+    # 메타 컬럼이 있는 것 — (테이블, 컬럼)
     col = {
-        "tc_type": "type", "tc_status": "status", "tc_severity": "severity",
+        "tc_type": ("tc", "type"),
+        "tc_status": ("tc", "status"),
+        "tc_severity": ("tc", "severity"),
+        "req_status": ("req", "status"),
+        "req_priority": ("req", "priority"),
     }.get(kind)
-    if not col:
-        # run_type·origin 은 메타 컬럼이 없어 data 안에 있다
-        key = {"tc_run_type": "run_type", "tc_origin": "origin"}.get(kind)
-        if not key:
-            return 0
+    if col:
+        table, name = col
         async with pool().acquire() as c:
-            return await c.fetchval(
-                "SELECT count(*) FROM tc WHERE data->>$1 = $2", key, value
-            ) or 0
+            return await c.fetchval(f"SELECT count(*) FROM {table} WHERE {name}=$1", value) or 0
+
+    # run_type·origin 은 메타 컬럼이 없어 data 안에 있다
+    key = {"tc_run_type": "run_type", "tc_origin": "origin"}.get(kind)
+    if not key:
+        return 0
     async with pool().acquire() as c:
-        return await c.fetchval(f"SELECT count(*) FROM tc WHERE {col}=$1", value) or 0
+        return await c.fetchval(
+            "SELECT count(*) FROM tc WHERE data->>$1 = $2", key, value
+        ) or 0
 
 
 # ══════════════════════════════════════════════════════════════════════

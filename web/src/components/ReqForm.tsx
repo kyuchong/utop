@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { categoryApi, reqApi, apiFetch } from '@/api/client'
 import { buildCategoryTree, reqPk, type Requirement } from '@/types'
+import { useCodes } from '@/hooks/useCodes'
 import { missingRequired, useCustomFields } from '@/hooks/useCustomFields'
 import CustomFieldInputs from './CustomFieldInputs'
 import MarkdownEditor from './MarkdownEditorLazy'
@@ -13,8 +14,10 @@ interface Props {
   onClose: () => void
 }
 
-const STATUSES = ['작성중', '검토중', '검토완료', '보류', '폐기']
-const PRIORITIES = ['High', 'Medium', 'Low']
+// 서버가 아직 값을 안 준 첫 렌더에서 드롭다운이 비지 않도록 하는 기본값.
+// 진짜 목록은 설정 → 요구사항 INFO 필드에 있다.
+const FB_STATUS = ['작성중', '검토중', '검토완료', '보류', '폐기']
+const FB_PRIORITY = ['High', 'Medium', 'Low']
 
 export default function ReqForm({ editing, onClose }: Props) {
   const qc = useQueryClient()
@@ -26,8 +29,10 @@ export default function ReqForm({ editing, onClose }: Props) {
   const [cat2, setCat2] = useState('')
   const [cat3, setCat3] = useState('')
   const [cat4, setCat4] = useState('')
-  const [status, setStatus] = useState(STATUSES[0]!)
-  const [priority, setPriority] = useState(PRIORITIES[1]!)
+  const STATUSES = useCodes('req_status', FB_STATUS)
+  const PRIORITIES = useCodes('req_priority', FB_PRIORITY)
+  const [status, setStatus] = useState(FB_STATUS[0]!)
+  const [priority, setPriority] = useState(FB_PRIORITY[1]!)
   const [desc, setDesc] = useState('')
   const [error, setError] = useState('')
   // 설정 → 커스텀 필드에서 팀이 늘린 칸. 값은 data->'custom' 에 산다.
@@ -113,8 +118,8 @@ ${md}` : md))
     setCat2(editing?.cat2 ?? '')
     setCat3(editing?.cat3 ?? '')
     setCat4(editing?.cat4 ?? '')
-    setStatus(editing?.status || STATUSES[0]!)
-    setPriority(editing?.priority || PRIORITIES[1]!)
+    setStatus(editing?.status || FB_STATUS[0]!)
+    setPriority(editing?.priority || FB_PRIORITY[1]!)
     setDesc(typeof editing?.desc === 'string' ? editing.desc : '')
     // 화면에 안 보이는 칸(show_form 이 꺼진 것)의 값도 통째로 들고 있다가
     // 그대로 돌려보낸다. 저장은 data 를 통째로 덮어쓰기 때문에, 여기서
