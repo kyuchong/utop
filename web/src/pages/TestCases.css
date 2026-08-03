@@ -135,9 +135,12 @@
   background: var(--c-surface);
 }
 
-.tc-listcol,
-.tc-seqcol { flex: 0 0 auto; min-width: 0; }
-.tc-detcol { flex: 1; min-width: 0; }
+.tc-listcol { flex: 0 0 auto; min-width: 0; }
+
+/* 작업하는 곳이 가장 넓어야 한다. 전에는 반대로 두어(2열 고정 · 3열 flex)
+   스텝 목록이 좁고 오른쪽 절반이 비었다. */
+.tc-seqcol { flex: 1; min-width: 0; }
+.tc-detcol { flex: 0 0 420px; min-width: 0; }
 
 /* 양 끝 열은 살짝 가라앉혀 가운데(작업하는 곳)를 앞으로 낸다 */
 .tc-split .tc-listcol { background: var(--tc-bg); }
@@ -280,13 +283,18 @@
 }
 
 .sq { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.sq-list { flex: 1; min-height: 0; overflow: auto; padding: 6px; }
+
+/* 「+ 스텝」이 목록 바로 아래 붙어야 한다. 바닥에 고정하면 스텝이 적을 때
+   화면 끝까지 내려가 손이 멀다. */
+.sq-scroll { flex: 1; min-height: 0; overflow: auto; }
+.sq-list { padding: 6px 6px 0; }
 
 /* 줄마다 선을 긋지 않는다. 스텝이 30개면 선이 30줄이 되어 내용보다
    선이 먼저 보인다. 간격과 hover 로 가른다. */
 .sq-row {
   display: grid;
-  grid-template-columns: 18px 20px minmax(74px, auto) 1fr 24px;
+  grid-template-columns: 18px 20px minmax(74px, auto) 1fr 54px 24px;
+  position: relative;
   align-items: center;
   gap: var(--sp-2);
   width: 100%;
@@ -319,6 +327,31 @@
   text-align: right;
 }
 
+/* 블록 안이라는 것을 세로선으로 보인다. 들여쓰기만으로는 If 아래인지
+   그냥 띄운 것인지 구분이 안 된다. */
+.sq-row[data-depth="1"]::before,
+.sq-row[data-depth="2"]::before,
+.sq-row[data-depth="3"]::before {
+  content: '';
+  position: absolute;
+  left: 66px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #ead9b3;
+}
+
+.sq-row[data-depth="2"]::after,
+.sq-row[data-depth="3"]::after {
+  content: '';
+  position: absolute;
+  left: 82px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #ead9b3;
+}
+
 .sq-act {
   display: flex;
   align-items: center;
@@ -335,6 +368,19 @@
 .g-flow { color: #c08a2e; }
 .g-conn { color: #2f8f5b; }
 .g-etc { color: #98a2ac; }
+
+/* 결과를 줄 끝에 적는다. 아이콘만으로는 PASS 와 미실행이 잘 안 갈린다. */
+.sq-res {
+  font-size: var(--fs-xs);
+  text-align: right;
+  color: var(--c-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sq-res.pass { color: var(--c-pass); font-weight: 600; }
+.sq-res.fail { color: var(--c-fail); font-weight: 600; }
 
 .sq-sum {
   min-width: 0;
@@ -364,7 +410,7 @@
 .sq-run:hover { background: var(--c-surface); color: var(--c-primary); }
 
 /* 스텝 추가 — 종류를 여기서 고른다 */
-.sq-add { border-top: 1px solid var(--tc-line); }
+.sq-add { margin: 2px 6px 10px; }
 
 .sq-add > summary {
   padding: 9px var(--sp-3);

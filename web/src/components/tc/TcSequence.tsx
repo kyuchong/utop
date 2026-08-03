@@ -59,7 +59,8 @@ export default function TcSequence({
 
   return (
     <div className="sq">
-      <div className="sq-list">
+      <div className="sq-scroll">
+        <div className="sq-list">
         {steps.length === 0 ? (
           <div className="empty">
             아직 스텝이 없습니다.
@@ -77,6 +78,7 @@ export default function TcSequence({
                 role="button"
                 tabIndex={0}
                 className={`sq-row${i === selected ? ' on' : ''}${s.skip ? ' skip' : ''}`}
+                data-depth={depth || undefined}
                 onClick={() => onSelect(i)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -95,6 +97,13 @@ export default function TcSequence({
                 </span>
                 <span className="sq-sum" title={summary(s)}>
                   {summary(s) || <span className="muted">—</span>}
+                </span>
+                {/* 결과를 줄 끝에 적는다. 아이콘만으로는 PASS 와 미실행이
+                    잘 안 갈린다. */}
+                {/* 미실행은 글자를 안 적는다. 대부분의 줄이 미실행이라
+                    같은 말이 반복되어 PASS·FAIL 이 묻힌다. ○ 로 충분하다. */}
+                <span className={`sq-res ${st.cls}`}>
+                  {st.cls === 'idle' ? '' : st.label}
                 </span>
                 <span className="sq-tail">
                   {onRun && (
@@ -115,9 +124,10 @@ export default function TcSequence({
             )
           })
         )}
-      </div>
 
-      {/* 스텝 추가. 종류를 여기서 고르므로 왼쪽에 팔레트를 따로 두지 않는다. */}
+      {/* 스텝 추가. 마지막 줄 바로 아래에 둔다 — 바닥에 고정하면 스텝이
+          적을 때 화면 끝까지 내려가 손이 멀다.
+          종류를 여기서 고르므로 왼쪽에 팔레트를 따로 두지 않는다. */}
       <details className="sq-add">
         <summary>＋ 스텝</summary>
         <div className="sq-add-list">
@@ -139,6 +149,8 @@ export default function TcSequence({
           ))}
         </div>
       </details>
+        </div>
+      </div>
     </div>
   )
 }
