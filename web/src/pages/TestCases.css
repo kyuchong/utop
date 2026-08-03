@@ -158,12 +158,9 @@
   align-items: center;
   gap: 6px;
   margin-right: auto;
-  /* 열 이름은 내용이 아니라 이름표다. 작고 흐리게. */
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--c-text-faint);
-  text-transform: uppercase;
+  /* 요구사항 화면의 .panel-name 과 같은 모양이어야 한다. 여기만 작은
+     대문자로 두었더니 화면을 옮길 때 글자 크기가 바뀌어 보였다. */
+  font-weight: 700;
 }
 
 .tc-search { padding: 2px var(--sp-3) var(--sp-2); }
@@ -231,10 +228,13 @@
   gap: 0;
 }
 
+/* 요구사항 목록은 평소 보통 굵기, 고른 줄만 굵다. 같은 규칙을 쓴다. */
 .tc-item-txt b {
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1.4;
 }
+
+.tc-item.on .tc-item-txt b { font-weight: 700; }
 
 .tc-item-txt b,
 .tc-item-txt span {
@@ -370,6 +370,8 @@
 .g-etc { color: #98a2ac; }
 
 /* 결과를 줄 끝에 적는다. 아이콘만으로는 PASS 와 미실행이 잘 안 갈린다. */
+.sq-sum.mono { font-family: var(--font-mono); }
+
 .sq-res {
   font-size: var(--fs-xs);
   text-align: right;
@@ -382,11 +384,13 @@
 .sq-res.pass { color: var(--c-pass); font-weight: 600; }
 .sq-res.fail { color: var(--c-fail); font-weight: 600; }
 
+/* 요약은 기본 글꼴이다. 전부 고정폭으로 두었더니 'U9532H 접속' 같은
+   한글까지 고정폭이 되어 다른 화면과 글자가 달라 보였다.
+   명령·값처럼 고정폭이 필요한 것만 .mono 를 붙인다. */
 .sq-sum {
   min-width: 0;
   font-size: var(--fs-sm);
   color: var(--c-text);
-  font-family: var(--font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

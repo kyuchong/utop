@@ -95,7 +95,12 @@ export default function TcSequence({
                   <StepIcon name={info.icon} className={`sq-ic g-${info.group}`} />
                   {info.label}
                 </span>
-                <span className="sq-sum" title={summary(s)}>
+                {/* 명령·값만 고정폭. 'U9532H 접속' 같은 한글까지 고정폭으로
+                    두면 다른 화면과 글자가 달라 보인다. */}
+                <span
+                  className={`sq-sum${s.kind === 'cli' || s.kind === 'instrument' ? ' mono' : ''}`}
+                  title={summary(s)}
+                >
                   {summary(s) || <span className="muted">—</span>}
                 </span>
                 {/* 결과를 줄 끝에 적는다. 아이콘만으로는 PASS 와 미실행이
