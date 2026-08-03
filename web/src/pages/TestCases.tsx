@@ -7,6 +7,8 @@ import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import ReqPicker from '@/components/tc/ReqPicker'
 import TcSessionBar from '@/components/tc/TcSessionBar'
+import TcInfo from '@/components/tc/TcInfo'
+import TcHistory from '@/components/tc/TcHistory'
 import { deviceLabel } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
@@ -326,7 +328,9 @@ export default function TestCases() {
             sec: Math.round((Date.now() - began) / 1000),
             sessions: sessionNames,
           }),
-        }).catch((e) => console.warn('[TestCases.doRun] 이력 저장 실패:', e))
+        })
+          .then(() => qc.invalidateQueries({ queryKey: ['tc', openId, 'run-history'] }))
+          .catch((e) => console.warn('[TestCases.doRun] 이력 저장 실패:', e))
       }
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
@@ -515,13 +519,13 @@ export default function TestCases() {
           <section className="panel">
             <div className="empty">왼쪽에서 테스트케이스를 고르세요.</div>
           </section>
-        ) : tab !== 'steps' ? (
-          <section className="panel">
-            <div className="empty">
-              「{tab === 'info' ? '정보' : '이력'}」 는 다음 작업으로 붙입니다.
-              <br />
-              <span className="muted small">스텝 화면부터 자리를 잡고 옮깁니다.</span>
-            </div>
+        ) : tab === 'info' ? (
+          <section className="panel tc-tabcol">
+            <TcInfo data={d} onChange={patch} />
+          </section>
+        ) : tab === 'history' ? (
+          <section className="panel tc-tabcol">
+            <TcHistory tcid={openId} />
           </section>
         ) : (
           <>

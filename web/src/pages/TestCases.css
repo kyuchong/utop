@@ -143,6 +143,36 @@
 /* 작업하는 곳이 가장 넓어야 한다. 전에는 반대로 두어(2열 고정 · 3열 flex)
    스텝 목록이 좁고 오른쪽 절반이 비었다. */
 .tc-seqcol { flex: 1; min-width: 0; }
+
+/* 정보·이력은 3열을 쓰지 않는다. 고른 TC 한 건의 이야기라 열을 나눌
+   것이 없고, 나누면 카드가 좁아 읽기만 나빠진다. */
+.tc-tabcol { flex: 1; min-width: 0; overflow: auto; padding: var(--sp-3); }
+
+/* 실행 이력 표 */
+.th-list { border: 1px solid var(--tc-line); border-radius: var(--tc-r); overflow: hidden; }
+
+.th-row {
+  display: grid;
+  grid-template-columns: 130px 100px 120px 80px minmax(0, 1fr) 40px;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--tc-div);
+  font-size: var(--fs-sm);
+}
+
+.th-row:last-child { border-bottom: 0; }
+
+.th-row.th {
+  background: var(--tc-bg);
+  color: var(--c-text-faint);
+  font-size: var(--fs-xs);
+}
+
+.th-at { font-variant-numeric: tabular-nums; }
+.th-dev { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.th-row .status.pass { color: var(--c-pass); }
+.th-row .status.fail { color: var(--c-fail); }
 .tc-detcol { flex: 0 0 420px; min-width: 0; }
 
 /* 양 끝 열은 살짝 가라앉혀 가운데(작업하는 곳)를 앞으로 낸다 */
