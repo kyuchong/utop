@@ -68,10 +68,26 @@ function blankStep(kind: StepKind): TcStep {
  * 전에는 TC 를 누르면 화면이 통째로 상세로 바뀌어 목록이 사라졌다. 89건을
  * 훑을 때 그것이 가장 불편했다.
  */
+/**
+ * 새로고침해도 보던 자리로 돌아온다.
+ *
+ * 스텝을 쓰다가 새로고침하면 TC 89건 목록 앞으로 튕겨서 트리를 다시 펼치고
+ * 다시 찾아 들어가야 했다. 화면 이름은 이미 App.tsx 가 기억하고 있으니,
+ * 여기서는 그 안에서 무엇을 보고 있었는지를 기억한다.
+ */
+const OPEN_KEY = 'utop.tc.open'
+const TAB_KEY = 'utop.tc.tab'
+const TABS: Tab[] = ['steps', 'info', 'manual', 'history', 'cycle']
+
 export default function TestCases() {
   const qc = useQueryClient()
-  const [tab, setTab] = useState<Tab>('steps')
-  const [openId, setOpenId] = useState('')
+  const [tab, setTab] = useState<Tab>(() => {
+    const v = localStorage.getItem(TAB_KEY) as Tab | null
+    // 저장된 값이 지금 없는 탭일 수 있다(탭 이름을 바꾼 뒤). 빈 화면이 뜨느니
+    // 기본으로 돌린다.
+    return v && TABS.includes(v) ? v : 'steps'
+  })
+  const [openId, setOpenId] = useState(() => localStorage.getItem(OPEN_KEY) || '')
   const [stepIdx, setStepIdx] = useState(-1)
   const [menuOpen, setMenuOpen] = useState(false)
   /** 명령어 캡쳐를 열면 3열이 그것으로 바뀐다 — 캡쳐하는 동안 스텝 세부는 볼 일이 없다 */
@@ -113,6 +129,25 @@ export default function TestCases() {
   })
 
   const tcs = tcQ.data?.tcs ?? []
+
+  useEffect(() => {
+    localStorage.setItem(TAB_KEY, tab)
+  }, [tab])
+
+  useEffect(() => {
+    localStorage.setItem(OPEN_KEY, openId)
+  }, [openId])
+
+  /**
+   * 기억해 둔 TC 가 그새 지워졌을 수 있다.
+   *
+   * 그냥 두면 3열이 계속 '불러오는 중' 이거나 빈 채로 남아서 화면이 고장난
+   * 것처럼 보인다. 목록이 오면 확인하고 지운다.
+   */
+  useEffect(() => {
+    if (!openId || tcQ.isLoading || tcs.length === 0) return
+    if (!tcs.some((x) => x.tcid === openId)) setOpenId('')
+  }, [openId, tcs, tcQ.isLoading])
 
   const devices = useMemo(() => devQ.data?.devices ?? [], [devQ.data])
 

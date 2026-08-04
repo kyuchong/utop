@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, categoryApi, reqApi, tcApi } from '@/api/client'
 import ReqTree from '@/components/ReqTree'
@@ -27,8 +27,14 @@ import './Requirements.css'
  * 둘이 어긋난 데이터가 실제로 있을 수 있어 합집합으로 본다.
  * 어느 쪽에만 있는지는 행에 표시해 준다.
  */
+/** 새로고침해도 보던 자리로 (TestCases.tsx 와 같은 뜻) */
+const SEL_KEY = 'utop.req.sel'
+const FOLDER_KEY = 'utop.req.folder'
+
 export default function Requirements() {
-  const [selected, setSelected] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string | null>(
+    () => localStorage.getItem(SEL_KEY) || null,
+  )
   /**
    * 고른 폴더. undefined = 안 고름 · null = 미분류.
    *
@@ -36,7 +42,11 @@ export default function Requirements() {
    * TC 가 전부 모인다. '이 묶음의 시험이 다 됐나' 는 요구사항 한 건이
    * 아니라 묶음 단위로 묻게 된다.
    */
-  const [selectedFolder, setSelectedFolder] = useState<string | null | undefined>(undefined)
+  const [selectedFolder, setSelectedFolder] = useState<string | null | undefined>(() => {
+    // 'null'(미분류)과 '안 고름'(undefined)을 문자열 하나로 갈라 담는다
+    const v = localStorage.getItem(FOLDER_KEY)
+    return v === null || v === '' ? undefined : v === '\u0000' ? null : v
+  })
   // 여러 건을 골라 한 번에 지우기
   const [picked, setPicked] = useState<Set<string>>(new Set())
   /** 고른 폴더. 요구사항과 함께 지울 수 있어야 정리가 한 번에 끝난다. */
@@ -59,6 +69,17 @@ export default function Requirements() {
   const [catW, setCatW] = useResizableWidth('utop.req.catW3', 230, 150, 460)
 
   const qc = useQueryClient()
+
+  useEffect(() => {
+    localStorage.setItem(SEL_KEY, selected ?? '')
+  }, [selected])
+
+  useEffect(() => {
+    localStorage.setItem(
+      FOLDER_KEY,
+      selectedFolder === undefined ? '' : selectedFolder === null ? '\u0000' : selectedFolder,
+    )
+  }, [selectedFolder])
 
   const removeManyM = useMutation({
     mutationFn: async ({ reqIds, folderIds }: { reqIds: string[]; folderIds: string[] }) => {
