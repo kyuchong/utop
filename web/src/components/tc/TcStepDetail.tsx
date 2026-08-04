@@ -60,13 +60,32 @@ export default function TcStepDetail({
   const info = stepKindInfo(kind)
   const result = stepResult(step)
   const verdict = stepStatus(step)
+  /**
+   * 어떤 칸을 띄울지는 종류가 정한다.
+   *
+   * 656스텝을 세어 보고 잡았다. `step`(Test Step) 3건 · `data` 3건 ·
+   * `rca` 0건 · `note` 0건 — 아무도 안 쓰는 칸을 모든 종류에 띄우고 있었다.
+   * 반대로 `output` 은 if 103 · wait 16 · connect 15 · disconnect 15 건이
+   * 있는데 그 줄들에는 Result 칸이 없었다.
+   */
   /** CLI 로는 못 하는 것들 — 세션 없이도 돈다 */
   const isNet =
     kind === 'ping' || kind === 'snmp_get' || kind === 'snmp_set' || kind === 'snmp_trap'
-  /** 응답을 받아 판정하는 스텝. 판정 칸과 Result 를 띄운다 */
-  const isRun = kind === 'cli' || kind === 'instrument' || isNet
-  const needsSession =
-    kind === 'cli' || kind === 'instrument' || kind === 'connect' || kind === 'disconnect' || isNet
+  /** 명령을 보내는 것 */
+  const isCmd = kind === 'cli' || kind === 'instrument'
+  /** 접속·해제 */
+  const isConn = kind === 'connect' || kind === 'disconnect'
+  /** 응답을 받아 판정할 수 있는 것. 판정 칸을 띄운다 */
+  const isRun = isCmd || isNet || isConn
+  /**
+   * 결과 칸을 띄운다.
+   *
+   * 판정하는 것뿐 아니라 **결과가 남아 있는 모든 줄**에 띄운다. 옛 자료의
+   * if·wait 줄에도 output 이 들어 있는데, 안 띄우면 그 103건을 화면에서
+   * 영영 못 본다.
+   */
+  const hasResult = isRun || !!result
+  const needsSession = isCmd || isConn || isNet
   const depth = Math.min(Math.max(Number(step.indent) || 0, 0), 4)
   /** 반복 방식 — 자료에 '몇 회' 와 '범위' 두 형태가 섞여 있다 */
   const loopByRange = step.forFrom !== undefined && step.forTo !== undefined
@@ -177,19 +196,6 @@ export default function TcStepDetail({
                 이 TC 에 등록된 세션이 없습니다 — 위 실행 줄의 「+ 세션」 으로 장비를 넣으세요.
               </span>
             )}
-          </label>
-        )}
-
-        {/* 주석·메시지·모델은 내용 칸이 따로 있다. 여기까지 띄우면 같은 것을
-            두 칸에 적게 된다. */}
-        {!isNoteKind(kind) && kind !== 'model' && (
-          <label className="sd-f">
-            <span>Test Step</span>
-            <input
-              value={step.step ?? ''}
-              placeholder="무엇을 하는가"
-              onChange={(e) => onChange({ step: e.target.value })}
-            />
           </label>
         )}
 
@@ -641,6 +647,16 @@ export default function TcStepDetail({
 
           {isRun && (
             <>
+              {/* 사람이 읽는 한 줄. 옛 자료에서 656 중 3건만 쓰였지만,
+                  줄만 보고 '이게 뭐였더라' 하는 일이 있어 남긴다. */}
+              <label className="sd-f">
+                <span>이 스텝을 한마디로</span>
+                <input
+                  value={step.step ?? ''}
+                  placeholder="예) 부팅 후 시스템 정보 확인"
+                  onChange={(e) => onChange({ step: e.target.value })}
+                />
+              </label>
               <label className="sd-f">
                 <span>판정 영역 — 응답에서 이 부분만 본다</span>
                 <input
@@ -671,26 +687,19 @@ export default function TcStepDetail({
             </>
           )}
 
-          {kind !== 'manual' && (
+          {/* 실패했을 때 볼 곳은 '실패할 수 있는 줄' 에만. If·Loop 은 실패라는
+              것이 없다. */}
+          {isRun && (
             <label className="sd-f">
-              <span>Test Data — 사람이 읽는 값</span>
-              <input
-                value={step.data ?? ''}
-                placeholder={kind === 'cli' ? '명령은 위 칸에 적는다' : ''}
-                onChange={(e) => onChange({ data: e.target.value })}
+              <span>실패했을 때 볼 곳</span>
+              <textarea
+                rows={2}
+                value={step.rca ?? ''}
+                placeholder="예) 링크가 안 올라오면 SFP 광 세기부터 본다"
+                onChange={(e) => onChange({ rca: e.target.value })}
               />
             </label>
           )}
-
-          <label className="sd-f">
-            <span>실패했을 때 볼 곳</span>
-            <textarea
-              rows={2}
-              value={step.rca ?? ''}
-              placeholder="예) 링크가 안 올라오면 SFP 광 세기부터 본다"
-              onChange={(e) => onChange({ rca: e.target.value })}
-            />
-          </label>
 
           <label className="sd-f">
             <span>메모</span>
@@ -703,7 +712,7 @@ export default function TcStepDetail({
         </details>
         )}
 
-        {isRun && (
+        {hasResult && (
           <>
             <div className="sd-rlab">
               <span>Result</span>
