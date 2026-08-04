@@ -11222,6 +11222,45 @@ async def tc_describe(tc_id: str, payload: dict):
     }
 
 
+@app.get("/api/tc/{tc_id}/cycles")
+async def tc_cycles(tc_id: str):
+    """이 TC 가 어느 사이클에서 돌았고 결과가 어땠나.
+
+    실행 이력(`/run-history`)과 다른 질문이다. 저쪽은 '이 화면에서 언제
+    돌렸나' 고, 이쪽은 '어느 배포 검증에 들어갔나' 다. 자료도 다른 곳에
+    있다 — 이력은 파일, 사이클은 DB 의 cycle 테이블이다.
+    """
+    tc_id = _tc_id_norm(tc_id)
+    rows = await db.cycle_of_tc(tc_id)
+    out = []
+    for r in rows:
+        fail = int(r.get("steps_fail") or 0)
+        ok = int(r.get("steps_pass") or 0)
+        # 옛 자료에는 item.status 가 없다. 스텝 집계로 만든다 —
+        # 하나라도 실패면 FAIL, 하나도 안 돈 것은 미실행이다.
+        status = (r.get("status") or "").upper()
+        if status not in ("PASS", "FAIL"):
+            status = "FAIL" if fail else ("PASS" if ok else "")
+        at = r.get("executed_at") or r.get("start_date") or r.get("created_at") or ""
+        if not at and r.get("updated_at") is not None:
+            at = str(r["updated_at"])
+        out.append({
+            "cycle_id": r.get("cycle_id") or "",
+            "model": r.get("model") or "",
+            "version": r.get("version") or "",
+            "at": str(at)[:19],
+            "by": r.get("executed_by") or "",
+            "auto": str(r.get("executed_auto") or "").lower() in ("1", "true", "y", "yes"),
+            "device": r.get("device") or "",
+            "status": status,
+            "pass": ok,
+            "fail": fail,
+            "steps": int(r.get("steps_count") or 0),
+            "issues": int(r.get("issues") or 0),
+        })
+    return {"ok": True, "cycles": out}
+
+
 @app.get("/api/llm-choices")
 async def llm_choices():
     """글을 맡길 수 있는 것들. 화면의 고르는 칸이 이것을 읽는다.

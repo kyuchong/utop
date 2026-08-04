@@ -22,6 +22,7 @@ import {
 import TcInfo from '@/components/tc/TcInfo'
 import TcManual from '@/components/tc/TcManual'
 import TcHistory from '@/components/tc/TcHistory'
+import TcCycles from '@/components/tc/TcCycles'
 import { deviceLabel } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
@@ -36,7 +37,7 @@ import {
 } from '@/components/tc/types'
 import './TestCases.css'
 
-type Tab = 'steps' | 'info' | 'manual' | 'history'
+type Tab = 'steps' | 'info' | 'manual' | 'history' | 'cycle'
 
 /** 새 스텝의 기본값. 종류마다 처음부터 채워둬야 자연스러운 값이 다르다. */
 function blankStep(kind: StepKind): TcStep {
@@ -472,6 +473,7 @@ export default function TestCases() {
               ['info', '정보'],
               ['manual', 'Manual Step'],
               ['history', '실행 이력'],
+              ['cycle', '사이클'],
             ] as const).map(([k, label]) => (
               <button
                 key={k}
@@ -616,6 +618,10 @@ export default function TestCases() {
         ) : tab === 'history' ? (
           <section className="panel tc-tabcol">
             <TcHistory tcid={openId} />
+          </section>
+        ) : tab === 'cycle' ? (
+          <section className="panel tc-tabcol">
+            <TcCycles tcid={openId} />
           </section>
         ) : (
           <>

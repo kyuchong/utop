@@ -3,7 +3,7 @@
 
 # API Reference
 
-총 라우트 수: **270** (그룹 81개)
+총 라우트 수: **273** (그룹 82개)
 
 `auth` 컬럼은 endpoint 시그니처에서 감지한 인증/권한 의존성 이름 (best-effort).
 
@@ -311,6 +311,12 @@
 |---|---|---|---|
 | POST | `/api/llm/ask` | 자연어 질문 → 학습 데이터 검색 + LLM(gemma) 요약 답변 (근거 포함). | token param |
 | POST | `/api/llm/generate` | 자연어 시험 목적 → 시험 절차(steps) 생성. 등록 LLM(vLLM) + 학습 예시 few-shot + JSON 강제. | token param |
+
+## `/api/llm-choices` (1개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/llm-choices` | 글을 맡길 수 있는 것들. 화면의 고르는 칸이 이것을 읽는다. |  |
 
 ## `/api/llms` (7개)
 
@@ -621,7 +627,7 @@
 | POST | `/api/stc/traffic/run` |  |  |
 | POST | `/api/stc/traffic/stop` |  |  |
 
-## `/api/tc` (12개)
+## `/api/tc` (14개)
 
 | method | path | summary | auth |
 |---|---|---|---|
@@ -629,6 +635,8 @@
 | DELETE | `/api/tc/{tc_id}` |  |  |
 | GET | `/api/tc/{tc_id}` |  |  |
 | POST | `/api/tc/{tc_id}` |  |  |
+| GET | `/api/tc/{tc_id}/cycles` | 이 TC 가 어느 사이클에서 돌았고 결과가 어땠나. |  |
+| POST | `/api/tc/{tc_id}/describe` | 스텝을 읽고 시험 목적·사전 준비 조건을 제안한다. 저장하지 않는다. |  |
 | POST | `/api/tc/{tc_id}/generate` | 자연어 한 줄 → 슬롯·스텝 제안. 저장하지 않고 돌려만 준다. |  |
 | POST | `/api/tc/{tc_id}/run` | 단일 TC 개별 실행. body: device_id(특정 장비), cycle_id(해당 Cycle 장비로 실행하고 결과 반영). |  |
 | DELETE | `/api/tc/{tc_id}/run-history` |  |  |

@@ -323,6 +323,46 @@ async def cycle_delete(cid: str) -> bool:
         return r.endswith(" 1")
 
 
+async def cycle_of_tc(tcid: str) -> list[dict]:
+    """이 TC 가 들어간 사이클과, 그 안에서 이 TC 가 낸 결과.
+
+    사이클 전체를 읽어와 파이썬에서 훑지 않는다. 사이클 하나에 items 가
+    수십 개고 그 안에 스텝 출력까지 들어 있어서, 23개만 되어도 수 MB 를
+    끌어오게 된다. 필요한 것은 그중 이 TC 한 줄뿐이다.
+
+    items[].tcid 로 찾는다. 사이클 item 에는 status 가 없는 경우가 많아
+    (옛 자료) 판정은 `_steps_fail`/`_steps_pass` 로 만든다 — 하나라도
+    실패면 FAIL 이다.
+    """
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            """
+            SELECT
+              cy.data->>'id'            AS cycle_id,
+              cy.data->>'model'         AS model,
+              cy.data->>'version'       AS version,
+              cy.data->>'start_date'    AS start_date,
+              cy.data->>'created_at'    AS created_at,
+              cy.updated_at             AS updated_at,
+              it->>'executed_at'        AS executed_at,
+              it->>'executed_by'        AS executed_by,
+              it->>'executed_auto'      AS executed_auto,
+              it->>'devName'            AS device,
+              it->>'status'             AS status,
+              COALESCE((it->>'_steps_pass')::int, 0)  AS steps_pass,
+              COALESCE((it->>'_steps_fail')::int, 0)  AS steps_fail,
+              COALESCE((it->>'_steps_count')::int, 0) AS steps_count,
+              COALESCE(jsonb_array_length(it->'issues'), 0) AS issues
+            FROM cycle cy,
+                 LATERAL jsonb_array_elements(COALESCE(cy.data->'items', '[]'::jsonb)) it
+            WHERE it->>'tcid' = $1
+            ORDER BY cy.updated_at DESC
+            """,
+            tcid,
+        )
+        return [dict(r) for r in rows]
+
+
 async def cycle_list_full() -> list[dict]:
     async with pool().acquire() as c:
         rows = await c.fetch("SELECT data FROM cycle ORDER BY updated_at DESC")
