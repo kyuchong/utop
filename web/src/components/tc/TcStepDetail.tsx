@@ -22,6 +22,8 @@ interface Props {
   onChange: (patch: Partial<TcStep>) => void
   onMove: (dir: -1 | 1) => void
   onRemove: () => void
+  /** 바로 아래에 같은 스텝 하나 더 */
+  onDuplicate: () => void
   onRun?: () => void
 }
 
@@ -44,6 +46,7 @@ export default function TcStepDetail({
   onChange,
   onMove,
   onRemove,
+  onDuplicate,
   onRun,
 }: Props) {
   const [picked, setPicked] = useState('')
@@ -138,6 +141,16 @@ export default function TcStepDetail({
         >
           <IconIndent />
         </button>
+        {/* 비슷한 명령을 줄줄이 만드는 일이 잦다 — show interface 1 · 2 · 3.
+            결과는 안 따라온다. */}
+        <button
+          className="btn small"
+          type="button"
+          title="바로 아래에 같은 스텝 하나 더 (결과는 빼고)"
+          onClick={onDuplicate}
+        >
+          복제
+        </button>
         <button className="btn small danger" type="button" onClick={onRemove}>
           삭제
         </button>
@@ -167,7 +180,10 @@ export default function TcStepDetail({
 
         {needsSession && (
           <label className="sd-f">
-            <span>Session</span>
+            {/* ping·SNMP 은 세션으로 접속하는 게 아니라 그 장비의 IP 만
+                빌려 쓴다. 같은 'Session' 이라고 적어 두면 CLI 처럼
+                세션을 여는 줄로 읽힌다. */}
+            <span>{isNet ? 'Session — 이 장비의 IP 로 보냅니다' : 'Session'}</span>
             {/* 자료는 자리 번호(0,1)를 담는다. 화면에는 장비 이름을 보이되
                 저장은 번호 그대로 한다 — 옛 화면과 값이 갈리면 안 된다. */}
             <select

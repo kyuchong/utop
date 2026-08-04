@@ -269,6 +269,34 @@ export default function TestCases() {
     )
   }
 
+  /**
+   * 스텝 복제.
+   *
+   * 바로 아래에 넣는다. 비슷한 명령을 줄줄이 만드는 일이 잦은데
+   * (show interface 1 · 2 · 3 …) 지금은 매번 새로 만들어 다시 쳐야 했다.
+   *
+   * **결과는 안 가져온다.** output·판정·실행 시각을 복사하면 돌려보지도
+   * 않은 줄이 PASS 로 앉아 있게 된다.
+   */
+  const duplicateStep = (i: number) => {
+    const src = steps[i]
+    if (!src) return
+    const {
+      output: _o,
+      response: _r,
+      status: _s,
+      repeatResult: _rr,
+      reason: _rs,
+      executed_at: _at,
+      ...rest
+    } = src
+    const next = [...steps]
+    next.splice(i + 1, 0, { ...rest })
+    patch({ checks: next })
+    setStepIdx(i + 1)
+    setMsg({ kind: 'ok', text: `${i + 1}번 줄을 복제했습니다` })
+  }
+
   const removeStep = (i: number) => {
     if (!window.confirm(`스텝 ${i + 1} 을 지웁니다. 계속할까요?`)) return
     patch({ checks: steps.filter((_, j) => j !== i) })
@@ -783,6 +811,7 @@ export default function TestCases() {
                 onChange={(p) => stepIdx >= 0 && patchStep(stepIdx, p)}
                 onMove={(dir) => stepIdx >= 0 && moveStep(stepIdx, dir)}
                 onRemove={() => stepIdx >= 0 && removeStep(stepIdx)}
+                onDuplicate={() => stepIdx >= 0 && duplicateStep(stepIdx)}
                 onRun={running || stepIdx < 0 ? undefined : () => void doRun(stepIdx, true)}
               />
               )}
