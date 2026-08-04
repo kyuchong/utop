@@ -20,6 +20,7 @@ import {
   uniqueTcId,
 } from '@/components/tc/portable'
 import TcInfo from '@/components/tc/TcInfo'
+import TcManual from '@/components/tc/TcManual'
 import TcHistory from '@/components/tc/TcHistory'
 import { deviceLabel } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
@@ -35,7 +36,7 @@ import {
 } from '@/components/tc/types'
 import './TestCases.css'
 
-type Tab = 'steps' | 'info' | 'history'
+type Tab = 'steps' | 'info' | 'manual' | 'history'
 
 /** 새 스텝의 기본값. 종류마다 처음부터 채워둬야 자연스러운 값이 다르다. */
 function blankStep(kind: StepKind): TcStep {
@@ -140,6 +141,8 @@ export default function TestCases() {
   }, [fullQ.data])
 
   const steps = (d.checks ?? []) as TcStep[]
+  /** 수동 절차 몇 개인가. 탭에 숫자를 달아 두면 있는지 없는지 눌러보지 않아도 안다 */
+  const manualCount = steps.filter((s) => s.kind === 'manual').length
   /**
    * 이 TC 가 쓰는 세션. 자료에는 `sessions: ["dev-…"]` 처럼 장비 id 배열이
    * 들어 있고, 스텝의 session 은 그 배열의 자리 번호다.
@@ -463,9 +466,12 @@ export default function TestCases() {
         {openId && (
           <div className="seg" role="tablist">
             {([
-              ['steps', '스텝'],
+              // '스텝' 이 아니라 Automation 이다 — 장비에 명령을 보내 자동으로
+              // 도는 절차. 사람이 하는 것은 Manual Step 탭에 있다.
+              ['steps', 'Automation'],
               ['info', '정보'],
-              ['history', '이력'],
+              ['manual', 'Manual Step'],
+              ['history', '실행 이력'],
             ] as const).map(([k, label]) => (
               <button
                 key={k}
@@ -477,6 +483,7 @@ export default function TestCases() {
               >
                 {label}
                 {k === 'steps' && steps.length > 0 && <span className="cnt">{steps.length}</span>}
+                {k === 'manual' && manualCount > 0 && <span className="cnt">{manualCount}</span>}
               </button>
             ))}
           </div>
@@ -601,6 +608,10 @@ export default function TestCases() {
         ) : tab === 'info' ? (
           <section className="panel tc-tabcol">
             <TcInfo data={d} onChange={patch} tcid={openId} />
+          </section>
+        ) : tab === 'manual' ? (
+          <section className="panel tc-tabcol">
+            <TcManual data={d} onChange={patch} />
           </section>
         ) : tab === 'history' ? (
           <section className="panel tc-tabcol">

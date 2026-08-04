@@ -124,12 +124,18 @@ export interface TcStep {
   /** Test Data — 보낼 값. kind=cli 는 아래 cli 를 쓴다 */
   data?: string
   data_img?: string
+  /**
+   * 사진 폭(px). 붙여넣은 화면 캡쳐는 크기가 제각각이라 그대로 두면
+   * 어떤 줄은 글씨가 안 보이고 어떤 줄은 한 화면을 다 먹는다.
+   */
+  data_img_w?: number
   /** kind=cli 의 실제 명령. data 와 나뉘어 있는 것은 옛 화면 구조 그대로다 */
   cli?: string
 
   /** Expected — 기대 결과 */
   expected?: string
   expected_img?: string
+  expected_img_w?: number
   /** 판정 기준 (문자열 포함 · 정규식) */
   criteria?: string
   /**

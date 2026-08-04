@@ -307,3 +307,129 @@
   background: var(--c-surface);
   max-width: 160px;
 }
+
+/* ── 수동 절차 ──────────────────────────────────────────────
+   스텝 탭이 '만드는 자리' 라면 여기는 '읽는 자리' 다. 할 일과 기대 결과를
+   나란히 펼치고 사진을 붙인다 — '이 화면이 이렇게 나와야 한다' 는 글로
+   못 적는다. */
+.mn-note {
+  margin-bottom: var(--sp-2);
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-info);
+  color: #355f8c;
+  font-size: var(--fs-sm);
+}
+
+.mn-list { border: 1px solid var(--c-border-soft); border-radius: var(--radius-sm); overflow: hidden; }
+
+.mn-row {
+  display: grid;
+  /* 사진을 글칸과 한 칸에 묶었다. 사진 열을 따로 두면 그 열 폭에 갇혀서
+     아무리 늘려도 안 커진다. */
+  grid-template-columns: 46px minmax(0, 1fr) minmax(0, 1fr) 118px 34px;
+  gap: var(--sp-2);
+  align-items: start;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+
+.mn-row:last-child { border-bottom: 0; }
+
+.mn-row.th {
+  background: var(--c-surface-alt);
+  color: #5b6670;
+  font-size: var(--fs-label);
+  align-items: center;
+  padding: 6px 10px;
+}
+
+.mn-row textarea {
+  width: 100%;
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  padding: 5px 7px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.mn-row textarea:focus {
+  outline: none;
+  border-color: var(--c-primary);
+}
+
+/* 이 탭 안의 번호와 전체 스텝 번호를 함께 적는다. 하나만 적으면 스텝 탭에서
+   같은 줄을 못 찾는다. */
+.mn-n {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  padding-top: 5px;
+}
+
+.mn-n small { font-weight: 400; font-size: 10px; color: var(--c-text-faint); }
+
+.mn-cell { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+
+/* 사진 상자. 오른쪽 아래 모서리를 끌어 크기를 맞춘다 —
+   브라우저가 만들어 주는 손잡이라 따로 그릴 것이 없다.
+   resize 는 overflow 가 visible 이 아니어야 동작한다. */
+.mn-imgbox {
+  position: relative;
+  resize: horizontal;
+  overflow: hidden;
+  min-width: 70px;
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-border-soft);
+  /* 손잡이가 사진에 가려 안 보이지 않게 아래를 조금 비운다 */
+  padding-bottom: 9px;
+  background: var(--c-surface-alt);
+}
+
+.mn-imgbox img { width: 100%; display: block; }
+.mn-imgbox .if-x { position: absolute; top: 2px; right: 2px; background: rgb(255 255 255 / 0.85); }
+
+/* 사진 넣는 자리. 붙여넣기가 되는 곳이라는 것을 글로 알린다 —
+   Ctrl+V 가 되는 줄 모르면 아무도 안 쓴다. */
+.mn-add {
+  border: 1px dashed var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--c-text-faint);
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: 5px 7px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.mn-add:hover:not(:disabled) { border-color: var(--c-primary); color: var(--c-primary); }
+
+.mn-v { display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-start; }
+
+.mn-clear {
+  border: 0;
+  background: none;
+  color: var(--c-text-faint);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  padding: 3px 2px;
+}
+
+.mn-clear:hover { color: var(--c-fail); }
+
+.mn-ops { display: flex; flex-direction: column; gap: 1px; }
+
+@media (max-width: 900px) {
+  /* 좁으면 할 일과 기대 결과를 위아래로 */
+  .mn-row { grid-template-columns: 40px minmax(0, 1fr) 30px; }
+  .mn-row.th { display: none; }
+  .mn-cell { grid-column: 2; }
+  .mn-v { grid-column: 2; }
+}
