@@ -362,15 +362,31 @@ async function runOne(
   let acc = ''
   let err = ''
   const flush = throttled((s) => ctx.onStep(i, { output: s, executed_at: at }))
+  /**
+   * 방금 명령을 찍었는가.
+   *
+   * 명령 뒤에 줄을 바꿔 주지 않으면 장비 응답 첫 줄이 명령에 붙는다 —
+   * `$ show envTue Aug 04 2026 …` 처럼. 그렇다고 모든 조각에서 앞 빈 줄을
+   * 걷어내면 출력 중간의 의미 있는 빈 줄까지 사라진다. 명령 **바로 뒤**
+   * 한 번만 걷어낸다.
+   */
+  let afterCmd = false
   try {
     await readSse('/api/run-cli-stream', body, ctx.signal, (e) => {
       if (e.cmd != null) {
         // 명령이 여러 개면 어디까지 갔는지 보여야 한다
         if (commands.length > 1) ctx.onLog({ i, text: `▸ ${e.cmd}`, kind: 'info' })
-        acc += (acc ? '\n' : '') + `$ ${e.cmd}`
+        if (acc && !acc.endsWith('\n')) acc += '\n'
+        acc += `$ ${e.cmd}\n`
+        afterCmd = true
         flush(acc, true)
       } else if (e.o != null) {
-        acc += e.o
+        let chunk = e.o
+        if (afterCmd) {
+          chunk = chunk.replace(/^\r?\n/, '')
+          if (chunk !== '') afterCmd = false
+        }
+        acc += chunk
         flush(acc)
       } else if (e.err) {
         err = e.err
