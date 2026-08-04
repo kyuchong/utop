@@ -1,6 +1,10 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { apiFetch } from '@/api/client'
 import { IconIndent, IconOutdent } from '../icons'
 import { JUDGE_TYPES } from './judge'
+import PickList, { type PickItem } from './PickList'
+import { useGlobalParams } from './useGlobalParams'
 import {
   isNoteKind,
   sessionIndex,
@@ -19,6 +23,8 @@ interface Props {
   total: number
   /** 이 TC 가 쓰는 세션들. 사람이 읽는 이름 배열 (자리 번호가 곧 인덱스) */
   sessions: string[]
+  /** 이 스텝이 붙는 장비의 모델. 그 모델의 전역 파라미터를 함께 보여준다 */
+  model?: string
   onChange: (patch: Partial<TcStep>) => void
   onMove: (dir: -1 | 1) => void
   onRemove: () => void
@@ -43,6 +49,7 @@ export default function TcStepDetail({
   index,
   total,
   sessions,
+  model,
   onChange,
   onMove,
   onRemove,
@@ -50,6 +57,38 @@ export default function TcStepDetail({
   onRun,
 }: Props) {
   const [picked, setPicked] = useState('')
+  /** 지금 열려 있는 고르기 목록 — 어느 칸에 넣을지까지 담는다 */
+  const [pick, setPick] = useState<'' | 'oid' | 'param-cli' | 'param-crit'>('')
+  const [oidQ, setOidQ] = useState('')
+
+  const gp = useGlobalParams(model)
+
+  /**
+   * MIB 에서 뽑아 둔 OID 이름표.
+   *
+   * 수만 개일 수 있어 서버에서 찾는다. 창을 열 때만 부른다 — 스텝을 고를
+   * 때마다 부르면 목록을 안 쓰는 사람도 매번 값을 치른다.
+   */
+  const oidQuery = useQuery({
+    queryKey: ['snmp-oids', oidQ],
+    enabled: pick === 'oid',
+    queryFn: async () => {
+      const r = await apiFetch(`/api/snmp-oids?q=${encodeURIComponent(oidQ)}&limit=200`)
+      if (!r.ok) throw new Error('OID 목록을 불러오지 못했습니다')
+      return (await r.json()) as {
+        oids?: Array<{ oid: string; name: string }>
+        total?: number
+        hint?: string
+      }
+    },
+  })
+
+  const oidItems: PickItem[] = (oidQuery.data?.oids ?? []).map((o) => ({
+    value: o.oid,
+    label: o.name,
+    note: '',
+  }))
+
 
   if (!step) {
     return (
@@ -57,6 +96,13 @@ export default function TcStepDetail({
         <div className="empty">가운데에서 스텝을 고르세요.</div>
       </div>
     )
+  }
+
+  /** 고른 것을 칸에 넣는다. 커서 자리를 모르므로 뒤에 붙인다. */
+  const put = (field: 'cli' | 'criteria' | 'oid', v: string) => {
+    if (field === 'oid') return onChange({ oid: v })
+    const cur = String((field === 'cli' ? step.cli ?? step.data : step.criteria) ?? '')
+    onChange({ [field]: cur ? `${cur}${cur.endsWith(' ') ? '' : ' '}${v}` : v })
   }
 
   const kind = (step.kind || 'cli') as StepKind
@@ -218,7 +264,32 @@ export default function TcStepDetail({
         {/* 종류마다 Test Data 가 가리키는 것이 다르다 */}
         {(kind === 'cli' || kind === 'instrument') && (
           <label className="sd-f">
-            <span>{STEP_CONTENT[kind]?.label ?? '보낼 명령'}</span>
+            <span className="sd-lab">
+              {STEP_CONTENT[kind]?.label ?? '보낼 명령'}
+              {/* 전역 파라미터를 눌러 넣는다. 손으로 ${이름} 을 치면 오타가
+                  나도 실행할 때 가서야 안다. */}
+              <button
+                type="button"
+                className="sd-pickbtn"
+                title="전역 파라미터 넣기"
+                onClick={() => setPick(pick === 'param-cli' ? '' : 'param-cli')}
+              >
+                {'${ } 파라미터'}
+              </button>
+            </span>
+            {pick === 'param-cli' && (
+              <PickList
+                title="전역 파라미터"
+                items={gp.items}
+                loading={gp.loading}
+                empty={gp.empty}
+                onClose={() => setPick('')}
+                onPick={(x) => {
+                  put('cli', x.value)
+                  setPick('')
+                }}
+              />
+            )}
             {/* 여러 줄이다. 실제 자료에 'enable / log session / conf t / epon'
                 처럼 한 스텝에 명령이 여러 개 들어 있다. input 으로 두면
                 고치는 순간 줄바꿈이 사라져 명령이 한 줄로 붙어버린다. */}
@@ -265,7 +336,36 @@ export default function TcStepDetail({
         )}
         {(kind === 'snmp_get' || kind === 'snmp_set' || kind === 'snmp_trap') && (
           <label className="sd-f">
-            <span>OID</span>
+            <span className="sd-lab">
+              OID
+              {/* 1.3.6.1.2.1.1.3.0 을 외우거나 문서를 뒤지게 두지 않는다.
+                  MIB 에서 뽑아 둔 이름표에서 골라 넣는다. */}
+              <button
+                type="button"
+                className="sd-pickbtn"
+                title="MIB 이름으로 찾기"
+                onClick={() => setPick(pick === 'oid' ? '' : 'oid')}
+              >
+                🔎 이름으로 찾기
+              </button>
+            </span>
+            {pick === 'oid' && (
+              <PickList
+                title="OID 찾기"
+                items={oidItems}
+                loading={oidQuery.isLoading}
+                empty={
+                  oidQuery.data?.hint ||
+                  (oidQ ? '찾는 이름이 없습니다.' : 'MIB 이름표가 비어 있습니다.')
+                }
+                onSearch={setOidQ}
+                onClose={() => setPick('')}
+                onPick={(x) => {
+                  put('oid', x.value)
+                  setPick('')
+                }}
+              />
+            )}
             <input
               className="mono"
               value={step.oid ?? ''}
@@ -577,7 +677,30 @@ export default function TcStepDetail({
             이름이라 거기에 contains 를 써 넣으면 옛 화면 배지가 깨진다. */}
         {isRun && (
           <div className="sd-f">
-            <span>Expected</span>
+            <span className="sd-lab">
+              Expected
+              <button
+                type="button"
+                className="sd-pickbtn"
+                title="전역 파라미터 넣기"
+                onClick={() => setPick(pick === 'param-crit' ? '' : 'param-crit')}
+              >
+                {'${ } 파라미터'}
+              </button>
+            </span>
+            {pick === 'param-crit' && (
+              <PickList
+                title="전역 파라미터"
+                items={gp.items}
+                loading={gp.loading}
+                empty={gp.empty}
+                onClose={() => setPick('')}
+                onPick={(x) => {
+                  put('criteria', x.value)
+                  setPick('')
+                }}
+              />
+            )}
             <div className="sd-row">
               <select
                 className="sd-crit"

@@ -5015,6 +5015,37 @@ def _snmp_close(eng):
     except Exception:
         pass
 
+@app.get("/api/snmp-oids")
+async def snmp_oids(q: str = "", limit: int = 50):
+    """MIB 에서 뽑아 둔 OID 이름표를 찾는다.
+
+    화면에서 OID 를 손으로 치게 두면 `1.3.6.1.2.1.1.3.0` 를 외우거나 문서를
+    뒤져야 한다. 이름으로 찾아 눌러 넣게 한다.
+
+    자료는 `data/snmp/snmp_names.json` 이고 `tools/mib_enums.py` 가 만든다.
+    없으면 빈 목록을 주되 어디서 만드는지 함께 알려 준다 — 빈 화면만 보면
+    기능이 고장난 줄 안다.
+    """
+    _load_snmp_enums()
+    n = (q or "").strip().lower()
+    lim = max(1, min(300, int(limit or 50)))
+    out = []
+    for oid, name in SNMP_OID_NAMES.items():
+        if n and n not in oid.lower() and n not in str(name).lower():
+            continue
+        out.append({"oid": oid, "name": name})
+        if len(out) >= lim:
+            break
+    # 이름 순이 사람이 찾기 좋다. OID 숫자순은 트리 구조라 눈에 안 들어온다.
+    out.sort(key=lambda x: str(x["name"]))
+    return {
+        "oids": out,
+        "total": len(SNMP_OID_NAMES),
+        "source": "data/snmp/snmp_names.json",
+        "hint": "" if SNMP_OID_NAMES else "MIB 를 아직 안 뽑았습니다 — data/MIB/ 에 파일을 넣고 tools/mib_enums.py 를 돌리세요",
+    }
+
+
 @app.post("/api/snmp-get")
 async def snmp_get_api(payload: dict):
     _load_snmp_enums()   # JSON(MIB 추출) 변경 시 자동 재로드 → mib_enums.py 재실행만으로 반영(서버 재시작 불필요)

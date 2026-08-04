@@ -33,6 +33,14 @@ export interface RunCtx {
   /** 지금 어느 줄을 돌고 있는지 */
   onAt: (i: number) => void
   onLog: (line: RunLog) => void
+  /**
+   * 전역 파라미터 — 변수의 시작값.
+   *
+   * iTest 의 parameter file 에 해당한다. 스텝에 `${포트}` 라고 적어 두면
+   * 여기 값이 들어간다. 응답에서 뽑은 변수가 같은 이름이면 그것이 이긴다 —
+   * 돌면서 알아낸 값이 미리 적어 둔 값보다 최신이다.
+   */
+  params?: Record<string, string>
   signal: AbortSignal
 }
 
@@ -437,7 +445,7 @@ async function runOne(
  * 그 사실을 로그에 남긴다(조용히 지나가면 안 돈 줄 모른다).
  */
 export async function runSteps(ctx: RunCtx, from = 0, only = false): Promise<RunResult> {
-  const vars: Record<string, string> = {}
+  const vars: Record<string, string> = { ...(ctx.params ?? {}) }
   let pass = 0
   let fail = 0
   let done = 0

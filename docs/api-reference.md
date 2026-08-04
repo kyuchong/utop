@@ -3,7 +3,7 @@
 
 # API Reference
 
-총 라우트 수: **274** (그룹 83개)
+총 라우트 수: **275** (그룹 84개)
 
 `auth` 컬럼은 endpoint 시그니처에서 감지한 인증/권한 의존성 이름 (best-effort).
 
@@ -597,6 +597,12 @@
 | method | path | summary | auth |
 |---|---|---|---|
 | POST | `/api/snmp-get` |  |  |
+
+## `/api/snmp-oids` (1개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| GET | `/api/snmp-oids` | MIB 에서 뽑아 둔 OID 이름표를 찾는다. |  |
 
 ## `/api/snmp-set` (1개)
 

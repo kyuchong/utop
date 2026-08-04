@@ -9,6 +9,7 @@ import TcTree from '@/components/tc/TcTree'
 import TcSessionBar from '@/components/tc/TcSessionBar'
 import TcTerminal from '@/components/tc/TcTerminal'
 import TcSaveAs from '@/components/tc/TcSaveAs'
+import { useGlobalParams } from '@/components/tc/useGlobalParams'
 import {
   buildTcFile,
   downloadJson,
@@ -191,6 +192,16 @@ export default function TestCases() {
     return dev ? deviceLabel(dev) : `세션 ${i + 1}`
   })
   const sessionName = (i: number) => (i >= 0 ? (sessionNames[i] ?? `세션 ${i + 1}`) : '')
+
+  /**
+   * 이 TC 가 붙는 장비의 모델.
+   *
+   * 전역 파라미터가 모델별로 갈려 있어서(E6100 의 포트 이름과 E5724RL 의
+   * 것이 다르다) 어느 모델 것을 쓸지 정해야 한다. 첫 세션의 장비를 쓴다 —
+   * 세션이 여럿이어도 시험 대상(DUT)은 보통 첫 자리다.
+   */
+  const tcModel = devById.get(sessionIds[0] ?? '')?.model ?? ''
+  const gp = useGlobalParams(tcModel)
 
   const patch = (p: Partial<TcData>) => {
     setD((c) => ({ ...c, ...p }))
@@ -446,6 +457,7 @@ export default function TestCases() {
             setStepIdx(i)
           },
           onLog: (l) => setRunLog((v) => [...v.slice(-400), l]),
+          params: gp.values,
           signal: ac.signal,
         },
         from,
@@ -770,14 +782,52 @@ export default function TestCases() {
                   onRun={running ? undefined : (i) => void doRun(i, true)}
                 />
               )}
-              {runLog.length > 0 && (
-                <div className="tc-runlog">
-                  {runLog.slice(-6).map((l, i) => (
-                    <div className={`rl ${l.kind}`} key={i}>
-                      <span className="rl-n">{l.i + 1}</span>
-                      {l.text}
-                    </div>
-                  ))}
+              {/* 실행 판.
+                  전에는 아래에 여섯 줄짜리 회색 글이라 돌고 있는지도 잘
+                  몰랐다. 돌 때는 크게, 끝나면 결과만 남기고 접힌다. */}
+              {(running || runLog.length > 0) && (
+                <div className={`tc-runbox${running ? ' live' : ''}`}>
+                  <div className="rb-head">
+                    <span className={`rb-dot${running ? ' on' : ''}`} />
+                    <b>
+                      {running
+                        ? runAt >= 0
+                          ? `${runAt + 1}번 줄 실행 중`
+                          : '실행 중'
+                        : '실행 끝'}
+                    </b>
+                    {/* 얼마나 남았는지. 막대가 없으면 30줄짜리 시험에서
+                        언제 끝날지 짐작할 수가 없다. */}
+                    <span className="rb-bar">
+                      <i style={{ width: `${steps.length ? ((runAt + 1) / steps.length) * 100 : 0}%` }} />
+                    </span>
+                    <span className="rb-cnt">
+                      {Math.max(runAt + 1, runStat.done)} / {steps.length}
+                    </span>
+                    {runStat.pass > 0 && <b className="status pass">PASS {runStat.pass}</b>}
+                    {runStat.fail > 0 && <b className="status fail">FAIL {runStat.fail}</b>}
+                    {running ? (
+                      <button
+                        className="btn small danger"
+                        type="button"
+                        onClick={() => runAbort.current?.abort()}
+                      >
+                        ⏹ 중지
+                      </button>
+                    ) : (
+                      <button className="btn small" type="button" onClick={() => setRunLog([])}>
+                        닫기
+                      </button>
+                    )}
+                  </div>
+                  <div className="rb-log">
+                    {runLog.slice(-40).map((l, i) => (
+                      <div className={`rl ${l.kind}`} key={i}>
+                        <span className="rl-n">{l.i + 1}</span>
+                        <span className="rl-t">{l.text}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </section>
@@ -813,6 +863,7 @@ export default function TestCases() {
                 index={stepIdx}
                 total={steps.length}
                 sessions={sessionNames}
+                model={tcModel}
                 onChange={(p) => stepIdx >= 0 && patchStep(stepIdx, p)}
                 onMove={(dir) => stepIdx >= 0 && moveStep(stepIdx, dir)}
                 onRemove={() => stepIdx >= 0 && removeStep(stepIdx)}

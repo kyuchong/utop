@@ -410,39 +410,105 @@
 /* 지금 돌고 있는 줄. 고른 줄과 겹칠 수 있어 색이 아니라 왼쪽 띠로 표시한다 */
 .sq-row.now { background: #eef6ff; box-shadow: inset 2px 0 0 var(--c-primary); }
 
-/* 실행 로그 — 최근 몇 줄만. 전체 로그는 스텝의 Result 에 남는다.
-   여기는 '지금 어디까지 갔나' 를 보는 자리라 길면 오히려 안 읽힌다. */
-.tc-runlog {
+/* ── 실행 판 ────────────────────────────────────────────────
+   전에는 목록 아래 여섯 줄짜리 회색 글이라 돌고 있는지도 잘 몰랐다.
+   돌 때는 눈에 띄게, 끝나면 결과만 남긴다. */
+.tc-runbox {
   flex: none;
   border-top: 1px solid var(--tc-line);
-  padding: 5px var(--sp-3);
-  background: var(--tc-bg);
-  font-size: var(--fs-xs);
-  max-height: 118px;
-  overflow: auto;
+  background: var(--c-surface);
 }
 
-.tc-runlog .rl {
+/* 도는 동안은 위쪽에 파란 선을 그어 '지금 살아 있다' 를 보인다 */
+.tc-runbox.live { border-top: 2px solid var(--c-primary); }
+
+.rb-head {
   display: flex;
-  gap: 7px;
-  padding: 1px 0;
-  color: var(--c-text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 7px var(--sp-3);
+  font-size: var(--fs-sm);
 }
 
-.tc-runlog .rl-n {
+.rb-head b { font-weight: 600; white-space: nowrap; }
+
+/* 도는 동안 깜박이는 점. 로그가 잠잠한 명령(오래 걸리는 show)에서도
+   멈춘 게 아니라는 것을 알린다. */
+.rb-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   flex: none;
-  width: 18px;
+  background: var(--c-idle);
+}
+
+.rb-dot.on { background: var(--c-primary); animation: rb-blink 1s ease-in-out infinite; }
+
+@keyframes rb-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* 어디까지 왔나. 30줄짜리 시험에서 막대가 없으면 언제 끝날지 짐작할 수 없다 */
+.rb-bar {
+  flex: 1;
+  min-width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--tc-hover);
+  overflow: hidden;
+}
+
+.rb-bar i {
+  display: block;
+  height: 100%;
+  background: var(--c-primary);
+  transition: width 0.25s ease;
+}
+
+.rb-cnt {
+  flex: none;
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-faint);
+}
+
+.rb-head .status.pass { color: var(--c-pass); }
+.rb-head .status.fail { color: var(--c-fail); }
+
+.rb-log {
+  max-height: 190px;
+  overflow: auto;
+  padding: 0 var(--sp-3) 8px;
+  font-size: var(--fs-xs);
+}
+
+.rb-log .rl {
+  display: flex;
+  gap: 8px;
+  padding: 2px 0;
+  color: var(--c-text-muted);
+}
+
+.rb-log .rl-n {
+  flex: none;
+  width: 20px;
   text-align: right;
   color: var(--c-text-faint);
   font-variant-numeric: tabular-nums;
 }
 
-.tc-runlog .rl.pass { color: var(--c-pass); }
-.tc-runlog .rl.fail { color: var(--c-fail); }
-.tc-runlog .rl.skip { color: var(--c-text-faint); }
+.rb-log .rl-t {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 결과는 색으로. 40줄이 흘러가도 PASS·FAIL 은 눈에 걸려야 한다 */
+.rb-log .rl.pass .rl-t { color: var(--c-pass); }
+.rb-log .rl.fail .rl-t { color: var(--c-fail); font-weight: 600; }
+.rb-log .rl.skip .rl-t { color: var(--c-text-faint); }
 
 /* 1.1.2 까지 들어간다.
    왼쪽 정렬이다 — 오른쪽 정렬로 두면 '1' 과 '4.1' 의 시작 자리가 달라서
@@ -1123,4 +1189,99 @@
 .sq-row.message.on:hover {
   background: #c3d9f4;
   box-shadow: inset 4px 0 0 #1b529f, inset 0 -1px 0 #b0cbec;
+}
+
+/* ── 찾아서 눌러 넣기 (OID · 전역 파라미터) ─────────────────
+   손으로 치게 두면 1.3.6.1.2.1.1.3.0 을 외우거나 ${이름} 에 오타를 내고,
+   실행할 때 가서야 안다. */
+.sd-lab {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+}
+
+.sd-pickbtn {
+  margin-left: auto;
+  border: 1px solid var(--tc-line);
+  background: var(--c-surface);
+  color: var(--c-text-muted);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 10px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+
+.sd-pickbtn:hover { border-color: var(--c-primary); color: var(--c-primary); }
+
+.pk {
+  position: relative;
+  z-index: 5;
+  margin-bottom: 5px;
+  border: 1px solid var(--c-primary);
+  border-radius: var(--tc-r);
+  background: var(--c-surface);
+  box-shadow: 0 6px 20px rgba(16, 24, 40, 0.14);
+  overflow: hidden;
+}
+
+.pk-top {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 9px;
+  background: var(--tc-bg);
+  font-size: var(--fs-xs);
+}
+
+.pk-q {
+  width: 100%;
+  border: 0 !important;
+  border-bottom: 1px solid var(--tc-line) !important;
+  border-radius: 0 !important;
+  padding: 6px 9px !important;
+  font-size: var(--fs-sm);
+}
+
+.pk-q:focus { outline: none; box-shadow: none !important; }
+
+.pk-body { max-height: 240px; overflow: auto; }
+
+.pk-row {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 5px 9px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  color: var(--c-text);
+}
+
+.pk-row.on { background: var(--tc-sel); }
+.pk-row b { font-weight: 600; white-space: nowrap; }
+
+.pk-note {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pk-val {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--c-text-muted);
+  max-width: 46%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
