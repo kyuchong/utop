@@ -184,15 +184,25 @@ export default function TestCases() {
     },
   })
 
+  /** 어느 TC 를 화면에 올려 두었나. 저장 뒤 다시 읽어온 것과 구분한다 */
+  const loadedId = useRef('')
+
   useEffect(() => {
-    if (fullQ.data) {
-      setD(fullQ.data)
-      setDirty(false)
+    if (!fullQ.data) return
+    setD(fullQ.data)
+    setDirty(false)
+    // **다른 TC 로 옮겼을 때만** 고른 줄을 되돌린다.
+    //
+    // 저장하면 서버에서 다시 읽어오는데, 그때도 되돌리고 있었다. 그래서
+    // 저장 버튼을 누르는 순간 3열이 '스텝을 고르세요' 로 비었다 — 한 줄
+    // 고치고 저장할 때마다 그 줄을 다시 찾아 눌러야 했다.
+    if (loadedId.current !== openId) {
+      loadedId.current = openId
       setStepIdx(-1)
       // 고른 줄은 자리 번호라 다른 TC 에서는 엉뚱한 줄을 가리킨다
       setPicked(new Set())
     }
-  }, [fullQ.data])
+  }, [fullQ.data, openId])
 
   const steps = (d.checks ?? []) as TcStep[]
   /** 탭에 숫자를 달아 두면 있는지 없는지 눌러보지 않아도 안다 */
@@ -209,6 +219,29 @@ export default function TestCases() {
     return dev ? deviceLabel(dev) : `세션 ${i + 1}`
   })
   const sessionName = (i: number) => (i >= 0 ? (sessionNames[i] ?? `세션 ${i + 1}`) : '')
+
+  /**
+   * 스텝별로 이 TC 안에서 쓰이는 변수 이름.
+   *
+   * 같은 이름을 두 스텝이 뽑으면 뒤엣것이 앞엣것을 덮는다. 그런데 화면
+   * 어디에도 안 나와서, 뒤 스텝의 `${var1}` 이 왜 엉뚱한 값인지 알 수가
+   * 없었다. 지금 고른 스텝을 뺀 나머지가 쓰는 이름을 넘겨 준다.
+   */
+  const varsByStep = useMemo(
+    () =>
+      steps.map((s) =>
+        [
+          ...(s.queries ?? []).map((x) => x.var),
+          ...(s.extracts ?? []).map((x) => x.var),
+        ].filter((x): x is string => !!x),
+      ),
+    [steps],
+  )
+
+  const takenVars = useMemo(
+    () => varsByStep.filter((_, i) => i !== stepIdx).flat(),
+    [varsByStep, stepIdx],
+  )
 
   /**
    * 이 TC 가 붙는 장비의 모델.
@@ -1007,6 +1040,7 @@ export default function TestCases() {
                 total={steps.length}
                 sessions={sessionNames}
                 params={gp}
+                takenVars={takenVars}
                 onChange={(p) => stepIdx >= 0 && patchStep(stepIdx, p)}
                 onMove={(dir) => stepIdx >= 0 && moveStep(stepIdx, dir)}
                 onRemove={() => stepIdx >= 0 && removeStep(stepIdx)}

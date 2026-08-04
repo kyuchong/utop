@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { IconIndent, IconOutdent } from '../icons'
-import { JUDGE_TYPES, subVars } from './judge'
+import { extractOne, JUDGE_TYPES, subVars } from './judge'
 import PickList, { type PickItem } from './PickList'
 import {
   isNoteKind,
@@ -24,6 +24,8 @@ interface Props {
   sessions: string[]
   /** 이 TC 에 깔린 전역 파라미터 — 넣는 목록과 '지금 값' 에 쓴다 */
   params: { values: Record<string, string>; items: PickItem[]; loading: boolean; empty: string }
+  /** 다른 스텝이 이미 쓰고 있는 변수 이름 — 겹치면 뒤엣것이 앞엣것을 덮는다 */
+  takenVars: string[]
   onChange: (patch: Partial<TcStep>) => void
   onMove: (dir: -1 | 1) => void
   onRemove: () => void
@@ -49,6 +51,7 @@ export default function TcStepDetail({
   total,
   sessions,
   params: gp,
+  takenVars,
   onChange,
   onMove,
   onRemove,
@@ -182,6 +185,11 @@ export default function TcStepDetail({
   const hasResult = isRun || !!result
   const needsSession = isCmd || isConn || isNet
   const depth = Math.min(Math.max(Number(step.indent) || 0, 0), 4)
+  /** 이 스텝이 뽑는 이름 */
+  const mine = [
+    ...(step.queries ?? []).map((x) => x.var),
+    ...(step.extracts ?? []).map((x) => x.var),
+  ].filter((x): x is string => !!x)
   /** 반복 방식 — 자료에 '몇 회' 와 '범위' 두 형태가 섞여 있다 */
   const loopByRange = step.forFrom !== undefined && step.forTo !== undefined
 
@@ -762,41 +770,56 @@ export default function TcStepDetail({
 
         {/* 응답에서 뽑아둔 변수. 정규식이 그대로 보이면 무섭게 보이므로
             변수 이름을 앞에 세운다. */}
+        {/* 뽑은 값.
+            이름만 보이면 그 식이 무엇을 집고 있는지 돌려보기 전에는 알 수
+            없다. 지금 응답에 대 보고 실제로 뽑히는 값을 함께 적는다. */}
         {(step.queries?.length || step.extracts?.length) ? (
-          <div className="sd-vars">
-            <span className="sd-vars-lb">뽑은 값</span>
-            {(step.queries ?? []).map((q, i) => (
-              <span className="sd-var" key={`q${i}`} title={q.q ?? ''}>
-                ${q.var || '?'}
-                <button
-                  type="button"
-                  className="sd-var-x"
-                  aria-label={`${q.var || '변수'} 지우기`}
-                  onClick={() =>
-                    onChange({ queries: (step.queries ?? []).filter((_, j) => j !== i) })
-                  }
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            {/* extracts 는 옛 이름이다. 새로 만들지 않고 있는 것만 보인다. */}
-            {(step.extracts ?? []).map((x, i) => (
-              <span className="sd-var" key={`x${i}`} title={x.rule ?? ''}>
-                ${x.var || '?'}
-                <button
-                  type="button"
-                  className="sd-var-x"
-                  aria-label={`${x.var || '변수'} 지우기`}
-                  onClick={() =>
-                    onChange({ extracts: (step.extracts ?? []).filter((_, j) => j !== i) })
-                  }
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            <span className="sd-hint">뒤 스텝에서 {'${이름}'} 으로 쓴다</span>
+          <div className="sd-f">
+            <span>뽑은 값</span>
+            <div className="sd-vlist">
+              {[
+                ...(step.queries ?? []).map((x, i) => ({
+                  key: `q${i}`,
+                  name: x.var,
+                  rule: x.q,
+                  drop: () =>
+                    onChange({ queries: (step.queries ?? []).filter((_, j) => j !== i) }),
+                })),
+                ...(step.extracts ?? []).map((x, i) => ({
+                  key: `x${i}`,
+                  name: x.var,
+                  rule: x.rule,
+                  drop: () =>
+                    onChange({ extracts: (step.extracts ?? []).filter((_, j) => j !== i) }),
+                })),
+              ].map((v) => {
+                const got = v.rule ? extractOne(v.rule, result) : null
+                return (
+                  <div className="sd-vrow" key={v.key}>
+                    <span className="sd-var">${v.name || '?'}</span>
+                    {v.name && takenVars.includes(v.name) && (
+                      <b className="sd-vdup" title="다른 스텝도 이 이름을 뽑습니다 — 뒤엣것이 앞엣것을 덮습니다">
+                        겹침
+                      </b>
+                    )}
+                    <span className={`sd-vval${got == null ? ' none' : ''}`}>
+                      {result
+                        ? got == null
+                          ? '이 응답에서는 안 잡힙니다'
+                          : got || '(빈 값)'
+                        : '아직 실행 전'}
+                    </span>
+                    <code className="sd-vrule" title={v.rule ?? ''}>
+                      {v.rule}
+                    </code>
+                    <button type="button" className="if-x" aria-label="지우기" onClick={v.drop}>
+                      ×
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+            <span className="sd-hint">뒤 스텝에서 {'${이름}'} 으로 씁니다</span>
           </div>
         ) : null}
 
@@ -936,12 +959,39 @@ export default function TcStepDetail({
                         className="btn small"
                         type="button"
                         onClick={() => {
-                          const name = window.prompt('변수 이름', 'var1')
+                          /**
+                           * 겹치지 않는 이름을 먼저 내놓는다.
+                           *
+                           * 같은 이름을 두 스텝이 뽑으면 뒤엣것이 앞엣것을
+                           * 덮는다 — 그러면 앞 스텝을 참조하던 곳이 조용히
+                           * 다른 값을 보게 된다. 늘 'var1' 을 내놓고 있었다.
+                           */
+                          const used = new Set([...takenVars, ...mine])
+                          let seed = 'var1'
+                          for (let n = 1; n < 999; n++) {
+                            if (!used.has(`var${n}`)) {
+                              seed = `var${n}`
+                              break
+                            }
+                          }
+                          const name = window.prompt('변수 이름', seed)
                           if (!name) return
+                          if (used.has(name.trim())) {
+                            window.alert(
+                              `「${name.trim()}」 은 이 시험에서 이미 쓰고 있습니다.\n` +
+                                '같은 이름을 두 번 뽑으면 뒤엣것이 앞엣것을 덮습니다.',
+                            )
+                            return
+                          }
                           // 고른 글자를 그대로 찾는 정규식으로 만든다. 사람이
                           // 정규식을 짜지 않아도 되게 하는 것이 요점이다.
                           const esc = picked.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-                          onChange({ queries: [...(step.queries ?? []), { q: `(${esc})`, var: name }] })
+                          onChange({
+                            queries: [
+                              ...(step.queries ?? []),
+                              { q: `(${esc})`, var: name.trim() },
+                            ],
+                          })
                         }}
                       >
                         변수로

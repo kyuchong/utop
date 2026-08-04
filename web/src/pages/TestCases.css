@@ -710,7 +710,9 @@
 
 .sd-row { display: flex; gap: 6px; align-items: center; }
 .sd-row > input { min-width: 0; }
-.sd-crit { flex: 0 0 132px; }
+/* 판정 방식. '출력에 있으면 합격' 이 안 잘려야 한다 — 잘리면 무엇을
+   고른 것인지 알 수 없다. */
+.sd-crit { flex: 0 0 158px; }
 .sd-tilde { color: var(--c-text-faint); }
 .sd-narrow { flex: 0 0 56px; }
 
@@ -779,8 +781,46 @@
 .sd-more[open] > summary::before { content: '▾ '; }
 .sd-more > summary:hover { color: var(--c-primary); }
 
-/* 뽑아둔 변수. 정규식을 그대로 보이면 무섭게 읽히므로 이름만 세운다 —
-   실제 식은 title 로 붙여 둔다. */
+/* 뽑은 값. 이름만 보이면 그 식이 무엇을 집고 있는지 돌려보기 전에는 알 수
+   없다. 지금 응답에 대 보고 실제로 뽑히는 값을 함께 적는다. */
+.sd-vlist { display: flex; flex-direction: column; gap: 3px; }
+
+.sd-vrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 5px;
+  border-radius: var(--tc-r);
+  background: var(--tc-bg);
+}
+
+/* 실제로 뽑힌 값 — 이것이 이 줄의 주인공이다 */
+.sd-vval {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--c-pass);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sd-vval.none { color: var(--c-fail); font-family: inherit; }
+
+/* 식은 참고. 정규식을 크게 보이면 무섭게 읽힌다 */
+.sd-vrule {
+  flex: 0 1 40%;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--c-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 뽑아둔 변수 — 이름표 */
 .sd-vars {
   display: flex;
   flex-wrap: wrap;
@@ -1428,6 +1468,17 @@
   font-size: 10px;
   color: #97620d;
   background: #fdf1e3;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+/* 다른 스텝도 같은 이름을 뽑고 있다. 뒤엣것이 앞엣것을 덮으므로,
+   앞 스텝을 참조하던 곳이 조용히 다른 값을 보게 된다. */
+.sd-vdup {
+  flex: none;
+  font-size: 10px;
+  color: #8a2a2a;
+  background: #fdecec;
   border-radius: 4px;
   padding: 1px 5px;
 }

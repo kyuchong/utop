@@ -189,9 +189,13 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
   // contains — 한 줄이면 콤마로 나눈 OR (docs/conventions.md)
   const toks = criteria.split(',').map((s) => s.trim()).filter(Boolean)
   const hit = toks.find(has)
-  return hit
-    ? { verdict: 'Pass', reason: '' }
-    : { verdict: 'Fail', reason: `"${criteria}" 가 출력에 없음` }
+  if (!hit) return { verdict: 'Fail', reason: `"${criteria}" 가 출력에 없음` }
+  // 어느 줄에서 맞았는지 적는다. PASS 만 보고 '정말 맞게 본 건가' 를
+  // 다시 확인하려면 응답을 눈으로 훑어야 했다.
+  const where =
+    scoped.split(/\r?\n/).find((l) => l.toLowerCase().includes(hit.toLowerCase())) ??
+    raw.split(/\r?\n/).find((l) => l.toLowerCase().includes(hit.toLowerCase()))
+  return { verdict: 'Pass', reason: where ? where.trim().slice(0, 120) : '' }
 }
 
 /**
@@ -201,6 +205,20 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
  * 이다. 134스텝이 `/\d+\s+\[E\d+\]…/m` 같은 식을 갖고 있다.
  * 캡처그룹 1 이 있으면 그것을, 없으면 매칭 전체를 담는다.
  */
+/**
+ * 식 하나를 응답에 대 보고 뽑히는 값.
+ *
+ * 화면이 '이 변수가 지금 무엇을 뽑고 있나' 를 보여주는 데 쓴다. 이름만
+ * 보이면 식이 맞는지 돌려보기 전에는 알 수 없다.
+ */
+export function extractOne(rule: string, text: string): string | null {
+  const re = toRegExp(rule)
+  if (!re) return null
+  const m = re.exec(String(text ?? ''))
+  if (!m) return null
+  return (m[1] ?? m[0] ?? '').trim()
+}
+
 export function extractVars(step: TcStep, output: string): Record<string, string> {
   const out: Record<string, string> = {}
   const rules: Array<{ name?: string; rule?: string }> = [
