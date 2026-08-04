@@ -493,3 +493,48 @@
   .cy-row { grid-template-columns: minmax(0, 1fr) 130px 110px; }
   .cy-row.th { display: none; }
 }
+
+/* 사진 크게 보기.
+   새 탭으로 띄우면 돌아올 때 이 화면이 처음으로 돌아가서 보던 TC 와 줄을
+   다시 찾아야 한다. 화면 위에 덮어 띄우고 닫으면 그대로 돌아온다. */
+.mn-open {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: zoom-in;
+}
+
+.mn-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgb(16 22 30 / 0.88);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+}
+
+.mn-lb-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  max-width: 1100px;
+  color: #cfd8e3;
+}
+
+.mn-lb-bar .sp { margin-left: auto; }
+.mn-lb-bar .muted { color: #9fb0c2; }
+
+.mn-lightbox img {
+  max-width: 100%;
+  max-height: calc(100vh - 90px);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  cursor: default;
+}

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { TcData, TcStep } from './types'
 import './tc.css'
@@ -30,6 +30,8 @@ interface Props {
 export default function TcManual({ data, onChange }: Props) {
   const all = (data.checks ?? []) as TcStep[]
   const [busy, setBusy] = useState(-1)
+  /** 크게 보고 있는 사진. 새 탭으로 띄우면 돌아올 때 화면이 처음으로 돌아간다 */
+  const [big, setBig] = useState('')
   const target = useRef<{ i: number; field: 'data_img' | 'expected_img' } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -56,6 +58,13 @@ export default function TcManual({ data, onChange }: Props) {
     next[j] = a
     onChange({ checks: next })
   }
+
+  useEffect(() => {
+    if (!big) return
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setBig('')
+    window.addEventListener('keydown', esc)
+    return () => window.removeEventListener('keydown', esc)
+  }, [big])
 
   const upload = async (file: File) => {
     const t = target.current
@@ -119,10 +128,12 @@ export default function TcManual({ data, onChange }: Props) {
           if (now > 0 && now !== w) setStep(i, { [wKey]: now } as Partial<TcStep>)
         }}
       >
-        {/* 눌러서 원본 크기로. 줄여 놓으면 글자가 안 읽힌다 */}
-        <a href={src} target="_blank" rel="noreferrer">
+        {/* 눌러서 크게. 줄여 놓으면 글자가 안 읽힌다.
+            새 탭으로 띄우지 않는다 — 돌아오면 이 화면이 처음으로 돌아가서
+            보던 TC 와 줄을 다시 찾아야 한다. */}
+        <button type="button" className="mn-open" onClick={() => setBig(src)} title="크게 보기">
           <img src={src} alt="" />
-        </a>
+        </button>
         <button
           type="button"
           className="if-x"
@@ -187,6 +198,27 @@ export default function TcManual({ data, onChange }: Props) {
 
   return (
     <div className="tc-pane">
+      {/* 크게 보기. 이 화면 위에 덮어 띄우고 닫으면 그대로 돌아온다. */}
+      {big && (
+        <div
+          className="mn-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label="사진 크게 보기"
+          onClick={() => setBig('')}
+        >
+          <div className="mn-lb-bar">
+            <span className="muted small">아무 데나 누르거나 Esc 로 닫습니다</span>
+            <span className="sp" />
+            <button className="btn small" type="button" onClick={() => setBig('')}>
+              닫기
+            </button>
+          </div>
+          {/* 사진을 눌렀을 때는 안 닫는다 — 확대해 보다가 잘못 눌러 닫히면 성가시다 */}
+          <img src={big} alt="" onClick={(e) => e.stopPropagation()} />
+        </div>
+      )}
+
       <input
         ref={fileRef}
         type="file"
