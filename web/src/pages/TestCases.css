@@ -376,7 +376,7 @@
    선이 먼저 보인다. 간격과 hover 로 가른다. */
 .sq-row {
   display: grid;
-  grid-template-columns: 18px 34px minmax(74px, auto) 24px 1fr 54px 24px;
+  grid-template-columns: 18px 52px minmax(74px, auto) 24px 1fr 54px 24px;
   position: relative;
   align-items: center;
   gap: var(--sp-2);
@@ -444,12 +444,17 @@
 .tc-runlog .rl.fail { color: var(--c-fail); }
 .tc-runlog .rl.skip { color: var(--c-text-faint); }
 
-/* 1.1.2 까지 들어간다. 자릿수가 늘어도 오른쪽 정렬이라 Action 열은 안 밀린다 */
+/* 1.1.2 까지 들어간다.
+   왼쪽 정렬이다 — 오른쪽 정렬로 두면 '1' 과 '4.1' 의 시작 자리가 달라서
+   훑을 때 눈이 좌우로 흔들리고, 자릿수가 늘면 앞이 잘린 것처럼 보인다.
+   iTest 의 Steps 표도 번호를 왼쪽에 붙여 둔다. */
 .sq-n {
-  font-size: 10.5px;
+  font-size: 11px;
   font-variant-numeric: tabular-nums;
   color: var(--c-text-faint);
-  text-align: right;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 /* 블록 안이라는 것을 세로선으로 보인다. 들여쓰기만으로는 If 아래인지
