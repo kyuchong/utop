@@ -198,9 +198,17 @@ export default function TcSequence({
                     잘 안 갈린다. */}
                 {/* 미실행은 글자를 안 적는다. 대부분의 줄이 미실행이라
                     같은 말이 반복되어 PASS·FAIL 이 묻힌다. ○ 로 충분하다. */}
-                <span className={`sq-res ${st.cls}`}>
-                  {st.cls === 'idle' ? '' : st.label}
-                </span>
+                {/* If 는 판정을 안 낸다. 대신 참이었는지를 적는다 —
+                    안 적으면 돌리고 나서도 어느 갈래로 갔는지 모른다. */}
+                {s.kind === 'if' && st.cls === 'idle' && s.condResult ? (
+                  <span className={`sq-res cond-${s.condResult === 'Y' ? 'y' : 'n'}`}>
+                    {s.condResult === 'Y' ? '참' : '거짓'}
+                  </span>
+                ) : (
+                  <span className={`sq-res ${st.cls}`}>
+                    {st.cls === 'idle' ? '' : st.label}
+                  </span>
+                )}
                 <span className="sq-tail">
                   {onRun && (
                     <button

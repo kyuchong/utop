@@ -1496,3 +1496,8 @@
 
 .sd-cond.yes { background: #eef6ef; color: #2f7d4f; }
 .sd-cond.no { background: #fdf3f3; color: #8a2a2a; }
+
+/* If 의 참·거짓. 판정(PASS·FAIL)과는 다른 값이라 색도 갈라 쓴다 —
+   If 는 갈래를 고를 뿐 합격·불합격을 내지 않는다. */
+.sq-res.cond-y { color: #1f7a45; font-weight: 600; }
+.sq-res.cond-n { color: #97620d; font-weight: 600; }

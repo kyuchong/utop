@@ -69,6 +69,14 @@ export type StepKind =
   | 'snmp_get'
   | 'snmp_set'
   | 'snmp_trap'
+  /**
+   * 두 값을 견주어 **합격·불합격을 낸다.**
+   *
+   * If 는 갈래를 고를 뿐이라 조건이 거짓이어도 불합격이 아니다. '이 값이
+   * 저 값과 같아야 한다' 가 곧 시험인 경우가 그것과 다르다 — 그럴 때 쓴다.
+   * 장비로는 아무것도 안 나간다.
+   */
+  | 'diff'
   // 흐름
   | 'if'
   | 'loop'
@@ -177,6 +185,21 @@ export interface TcStep {
 
   /** kind=if · switch */
   condition?: string
+  /**
+   * kind=if — 조건이 거짓이면 **불합격**으로 본다.
+   *
+   * If 는 본래 흐름을 가르는 줄이라 자체로 합격·불합격을 내지 않는다
+   * (iTest 도 그렇다). 그런데 조건을 그대로 판정으로 쓰고 싶을 때가 있다 —
+   * '모델이 E5924RL 이어야 한다' 처럼. 그럴 때 켠다.
+   */
+  assertIf?: boolean
+  /**
+   * kind=if — 지난번에 돌렸을 때 조건이 참이었나. 'Y' · 'N' · 없음.
+   *
+   * 판정(status)과는 다른 값이다. If 는 판정을 안 내지만 참이었는지는
+   * 줄에 보여야 한다 — 안 보이면 돌리고 나서도 어느 갈래로 갔는지 모른다.
+   */
+  condResult?: string
   switchExpr?: string
   /** kind=loop */
   loopMode?: string
@@ -185,6 +208,11 @@ export interface TcStep {
   forFrom?: number
   forTo?: number
   forStep?: number
+  /** kind=diff — 견줄 두 값과 견주는 법 */
+  cmpLeft?: string
+  cmpOp?: string
+  cmpRight?: string
+
   /** kind=wait */
   waitSec?: number
   /**
@@ -249,6 +277,7 @@ export type StepIcon =
   | 'hand'
   | 'ping'
   | 'snmp'
+  | 'diff'
 
 export const STEP_KINDS: Array<{
   k: StepKind
@@ -269,6 +298,7 @@ export const STEP_KINDS: Array<{
   { k: 'snmp_get', label: 'SNMP Get', group: 'run', icon: 'snmp' },
   { k: 'snmp_set', label: 'SNMP Set', group: 'run', icon: 'snmp' },
   { k: 'snmp_trap', label: 'Trap 대기', group: 'run', icon: 'snmp' },
+  { k: 'diff', label: '값 비교', group: 'run', icon: 'diff' },
   { k: 'instrument', label: '계측기', group: 'run', icon: 'meter' },
   { k: 'if', label: 'If', group: 'flow', icon: 'branch' },
   { k: 'loop', label: 'Loop', group: 'flow', icon: 'loop' },
@@ -345,6 +375,7 @@ export function stepKindInfo(k?: string) {
  */
 export const STEP_CONTENT: Record<string, { label: string; hint?: string }> = {
   cli: { label: '보낼 명령', hint: '여러 줄이면 위에서부터 차례로 보냅니다' },
+  diff: { label: '견줄 두 값', hint: '같으면 합격 · 다르면 불합격. 장비로는 아무것도 안 나갑니다' },
   instrument: { label: '보낼 명령' },
   ping: { label: '대상 IP' },
   snmp_get: { label: 'OID' },
@@ -376,6 +407,8 @@ export function stepSummary(s: TcStep): string {
     return `${(s.oid || '').trim()}${s.snmpValue ? ` = ${s.snmpValue}` : ''}`.trim()
   if (k === 'snmp_trap')
     return `${(s.oid || '아무 Trap').trim()} · ${s.trapSec ?? 15}초 대기`
+  if (k === 'diff')
+    return `${(s.cmpLeft || '').trim()} ${s.cmpOp || '=='} ${(s.cmpRight || '').trim()}`.trim()
   if (k === 'wait') return s.waitSec ? `${s.waitSec}초` : (s.data || '').trim()
   if (k === 'if') return (s.condition || s.step || '').trim()
   if (k === 'switch') return (s.switchExpr || s.step || '').trim()

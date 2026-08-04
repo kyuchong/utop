@@ -2,6 +2,7 @@ import {
   IconBranch,
   IconChip,
   IconCli,
+  IconDiff,
   IconClock,
   IconHand,
   IconLoop,
@@ -29,6 +30,7 @@ const MAP = {
   hand: IconHand,
   ping: IconPing,
   snmp: IconSnmp,
+  diff: IconDiff,
 } as const
 
 /**

@@ -174,6 +174,8 @@ export default function TcStepDetail({
   /** 접속·해제 */
   const isConn = kind === 'connect' || kind === 'disconnect'
   /** 응답을 받아 판정할 수 있는 것. 판정 칸을 띄운다 */
+  /** 값만 견주는 줄. 장비로 아무것도 안 나가지만 합격·불합격은 낸다 */
+  const isDiff = kind === 'diff'
   const isRun = isCmd || isNet || isConn
   /**
    * 결과 칸을 띄운다.
@@ -182,7 +184,7 @@ export default function TcStepDetail({
    * if·wait 줄에도 output 이 들어 있는데, 안 띄우면 그 103건을 화면에서
    * 영영 못 본다.
    */
-  const hasResult = isRun || !!result
+  const hasResult = isRun || isDiff || !!result
   const needsSession = isCmd || isConn || isNet
   const depth = Math.min(Math.max(Number(step.indent) || 0, 0), 4)
   /** 이 스텝이 뽑는 이름 */
@@ -489,6 +491,62 @@ export default function TcStepDetail({
             </div>
           </details>
         )}
+        {kind === 'diff' && (
+          <>
+            <div className="sd-f">
+              <span className="sd-lab">
+                견줄 두 값
+                {paramPick('cmpLeft', 'p-cl').btn}
+              </span>
+              {paramPick('cmpLeft', 'p-cl').list}
+              <div className="sd-row">
+                <input
+                  className="mono"
+                  value={step.cmpLeft ?? ''}
+                  placeholder="${var1}"
+                  onChange={(e) => onChange({ cmpLeft: e.target.value })}
+                />
+                <select
+                  className="sd-narrow2"
+                  value={step.cmpOp || '=='}
+                  onChange={(e) => onChange({ cmpOp: e.target.value })}
+                >
+                  <option value="==">같다</option>
+                  <option value="!=">다르다</option>
+                  <option value="포함">포함한다</option>
+                  <option value=">">크다</option>
+                  <option value="<">작다</option>
+                  <option value=">=">크거나 같다</option>
+                  <option value="<=">작거나 같다</option>
+                </select>
+                <input
+                  className="mono"
+                  value={step.cmpRight ?? ''}
+                  placeholder="E5924RL"
+                  onChange={(e) => onChange({ cmpRight: e.target.value })}
+                />
+              </div>
+              <span className="sd-hint">
+                앞 스텝에서 뽑은 값은 <b>{'${이름}'}</b>, 그냥 글자는 그대로 적습니다.
+                맞으면 <b>합격</b>, 아니면 <b>불합격</b>입니다. 장비로는 아무것도 안 나갑니다.
+              </span>
+            </div>
+
+            {/* 돌려보기 전에 지금 값으로 어떻게 되는지 */}
+            {(step.cmpLeft || step.cmpRight) &&
+              (() => {
+                const r = evalCondWhy(
+                  `${step.cmpLeft ?? ''} ${step.cmpOp || '=='} ${step.cmpRight ?? ''}`,
+                  gp.values,
+                )
+                return (
+                  <span className={`sd-cond${r.ok ? ' yes' : ' no'}`}>
+                    지금은 <b>{r.ok ? '합격' : '불합격'}</b> — {r.why}
+                  </span>
+                )
+              })()}
+          </>
+        )}
         {kind === 'if' && (
           <>
             <label className="sd-f">
@@ -520,8 +578,27 @@ export default function TcStepDetail({
                 <b> {'${이름}'}</b> 으로 넣는다. 숫자끼리면 숫자로 견준다.
               </span>
             </label>
+            {/* If 는 본래 흐름을 가르는 줄이라 합격·불합격을 안 낸다.
+                그런데 조건을 그대로 판정으로 쓰고 싶을 때가 있다 —
+                '모델이 E5924RL 이어야 한다' 처럼. */}
+            <label className="sd-chk">
+              <input
+                type="checkbox"
+                checked={!!step.assertIf}
+                onChange={(e) => onChange({ assertIf: e.target.checked })}
+              />
+              조건이 거짓이면 <b>불합격</b>으로 본다
+            </label>
+
             <div className="sd-blk">
               이 아래로 <b>한 칸 더 들여쓴 줄</b>이 If 의 몸통이다. 머리의 ⇥ 로 넣는다.
+              {!step.assertIf && (
+                <>
+                  <br />
+                  If 는 갈래를 고를 뿐이라 그 자체로는 합격·불합격을 내지 않는다 —
+                  돌리고 나면 줄 끝에 <b>참·거짓</b>만 적힌다.
+                </>
+              )}
             </div>
           </>
         )}
@@ -840,7 +917,7 @@ export default function TcStepDetail({
             주석·메시지·모델에는 아예 안 띄운다. 장비로 아무것도 안 나가는
             줄이라 Test Data 도 RCA 도 채울 값이 없다 — 빈 칸을 세 개 띄워
             두면 '뭘 채워야 하나' 를 매번 생각하게 된다. */}
-        {!isNoteKind(kind) && kind !== 'model' && (
+        {!isNoteKind(kind) && kind !== 'model' && !isDiff && (
         <details className="sd-more">
           <summary>세부</summary>
 

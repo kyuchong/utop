@@ -205,6 +205,27 @@ async function runOne(
     return ''
   }
 
+  /**
+   * 값 비교 — 두 값을 견주어 합격·불합격을 낸다.
+   *
+   * If 와 다르다. If 는 갈래를 고를 뿐이라 조건이 거짓이어도 불합격이
+   * 아니다. 여기는 '이 값이 저 값과 같아야 한다' 가 곧 시험인 경우다.
+   * 장비로는 아무것도 안 나간다.
+   */
+  if (kind === 'diff') {
+    const expr = `${step.cmpLeft ?? ''} ${step.cmpOp || '=='} ${step.cmpRight ?? ''}`
+    const { ok, why } = evalCondWhy(expr, vars)
+    ctx.onStep(i, {
+      output: why,
+      reason: why,
+      executed_at: at,
+      status: ok ? 'PASS' : 'FAIL',
+      repeatResult: ok ? 'Pass' : 'Fail',
+    })
+    ctx.onLog({ i, text: why, kind: ok ? 'pass' : 'fail' })
+    return ok ? 'Pass' : 'Fail'
+  }
+
   if (kind === 'wait') {
     const sec = Math.max(0, Number(step.waitSec ?? 0))
     ctx.onLog({ i, text: `${sec}초 기다림`, kind: 'info' })
@@ -521,7 +542,30 @@ export async function runSteps(ctx: RunCtx, from = 0, only = false): Promise<Run
         const { ok: yes, why } = evalCondWhy(String(s.condition ?? ''), vars)
         // 무엇과 무엇을 견줘서 그렇게 됐는지 적는다. '조건 참' 만 적혀
         // 있으면 왜 참인지 다시 짚어야 한다.
-        ctx.onLog({ i, text: `조건 ${yes ? '참' : '거짓'} — ${why}`, kind: yes ? 'info' : 'skip' })
+        //
+        // 참·거짓은 판정(status)이 아니라 `condResult` 에 남긴다 — If 는
+        // 본래 합격·불합격을 내지 않는다. 다만 줄에 아무 표시도 안 남으면
+        // 돌리고 나서도 어느 갈래로 갔는지 모른다.
+        const assert = !!s.assertIf
+        ctx.onStep(i, {
+          condResult: yes ? 'Y' : 'N',
+          output: why,
+          reason: why,
+          executed_at: new Date().toISOString(),
+          ...(assert
+            ? { status: yes ? 'PASS' : 'FAIL', repeatResult: yes ? 'Pass' : 'Fail' }
+            : { status: '', repeatResult: '' }),
+        })
+        ctx.onLog({
+          i,
+          text: `조건 ${yes ? '참' : '거짓'} — ${why}`,
+          kind: assert ? (yes ? 'pass' : 'fail') : yes ? 'info' : 'skip',
+        })
+        if (assert) {
+          if (yes) pass++
+          else fail++
+          done++
+        }
         if (yes) await walk(i + 1, body)
         i = body
         continue

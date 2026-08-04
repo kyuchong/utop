@@ -271,6 +271,14 @@ export const IconHand = (p: P) => (
   </SmallSvg>
 )
 
+/** 값 비교 — 두 값을 저울에 */
+export const IconDiff = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M4 9h16M4 15h16" />
+    <path d="M9 4 5 20M19 4l-4 16" />
+  </SmallSvg>
+)
+
 /** Ping — 되돌아오는 신호 */
 export const IconPing = (p: P) => (
   <SmallSvg {...p}>
