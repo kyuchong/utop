@@ -2,10 +2,14 @@ FROM python:3.12-slim
 
 # netmiko/paramiko 가 장비에 붙을 때 쓰는 클라이언트, pg_dump(백업 도구용),
 # Pillow 빌드에 필요한 최소 패키지.
+#
+# iputils-ping — Ping 스텝(`/api/ping`)이 `ping` 명령을 subprocess 로 부른다.
+# slim 이미지에는 없어서 그 스텝이 늘 '[Errno 2] ping' 으로 실패했다.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       openssh-client \
       telnet \
       postgresql-client \
+      iputils-ping \
       curl \
     && rm -rf /var/lib/apt/lists/*
 
