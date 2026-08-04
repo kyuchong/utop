@@ -630,7 +630,12 @@ export default function TcStepDetail({
         ) : null}
 
         {/* 자주 안 건드리는 칸. 늘 펼쳐 두면 어느 칸을 채워야 하는지 매번
-            판단하게 된다. */}
+            판단하게 된다.
+
+            주석·메시지·모델에는 아예 안 띄운다. 장비로 아무것도 안 나가는
+            줄이라 Test Data 도 RCA 도 채울 값이 없다 — 빈 칸을 세 개 띄워
+            두면 '뭘 채워야 하나' 를 매번 생각하게 된다. */}
+        {!isNoteKind(kind) && kind !== 'model' && (
         <details className="sd-more">
           <summary>세부</summary>
 
@@ -696,6 +701,7 @@ export default function TcStepDetail({
             />
           </label>
         </details>
+        )}
 
         {isRun && (
           <>
