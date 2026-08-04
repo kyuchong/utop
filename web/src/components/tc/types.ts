@@ -333,7 +333,27 @@ export function stepResult(s: TcStep): string {
 }
 
 /**
- * 이 스텝의 판정 결과 — 'PASS' · 'FAIL' · ''(미실행).
+ * 스텝에 찍을 수 있는 상태.
+ *
+ * Zephyr Enterprise 를 따른다 — 실행 전이 Unexecuted 이고, 거기서
+ * Pass · Fail · WIP · Blocked 넷 중 하나가 된다. 이 넷은 Zephyr 에서도
+ * 지울 수 없는 기본값이다.
+ *
+ * 합격/불합격 둘만 두면 '해봤는데 아직 판단 못 하겠다'(WIP)와 '앞 단계가
+ * 막혀서 못 해봤다'(Blocked)를 적을 데가 없다. 그러면 사람들이 그것을
+ * 불합격으로 적고, 나중에 진짜 결함과 구분이 안 된다.
+ */
+export const STEP_STATUSES: Array<{ v: string; label: string; cls: string; mark: string }> = [
+  { v: 'PASS', label: '합격', cls: 'pass', mark: '✔' },
+  { v: 'FAIL', label: '불합격', cls: 'fail', mark: '✖' },
+  { v: 'WIP', label: '진행 중', cls: 'wip', mark: '◐' },
+  { v: 'BLOCKED', label: '막힘', cls: 'blocked', mark: '⊘' },
+]
+
+const STATUS_MAP = new Map(STEP_STATUSES.map((x) => [x.v, x]))
+
+/**
+ * 이 스텝의 상태 — 'PASS' · 'FAIL' · 'WIP' · 'BLOCKED' · ''(미실행).
  *
  * 이름이 두 벌이다. 옛 화면은 `repeatResult` 에 'Pass'/'Fail' 을 적고,
  * 새 화면은 `status` 에 'PASS'/'FAIL' 을 적는다. 실제 자료에는 옛 이름만
@@ -342,7 +362,27 @@ export function stepResult(s: TcStep): string {
  */
 export function stepStatus(s: TcStep): string {
   const v = String(s.status ?? s.repeatResult ?? '').trim().toUpperCase()
-  return v === 'PASS' || v === 'FAIL' ? v : ''
+  return STATUS_MAP.has(v) ? v : ''
+}
+
+/** 상태 하나의 표시 정보. 모르는 값이면 미실행으로 본다. */
+export function stepStatusInfo(v: string) {
+  return STATUS_MAP.get(v) ?? { v: '', label: '미실행', cls: 'idle', mark: '○' }
+}
+
+/**
+ * 상태를 찍을 때 함께 넣을 값.
+ *
+ * 옛 화면은 `repeatResult` 만 읽으므로 Pass/Fail 은 그쪽에도 적는다.
+ * WIP·Blocked 는 옛 화면에 없는 상태라 비운다 — 억지로 Fail 로 적으면
+ * 저쪽 집계가 틀린다.
+ */
+export function stepStatusPatch(v: string): Partial<TcStep> {
+  return {
+    status: v,
+    repeatResult: v === 'PASS' ? 'Pass' : v === 'FAIL' ? 'Fail' : '',
+    ...(v ? { executed_at: new Date().toISOString() } : {}),
+  }
 }
 
 /**

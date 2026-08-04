@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
-import { stepStatus, type TcData, type TcStep } from './types'
+import type { TcData, TcStep } from './types'
 import './tc.css'
 
 interface Props {
@@ -9,19 +9,23 @@ interface Props {
 }
 
 /**
- * 수동 절차 — 사람이 읽고 따라 하는 시험서.
+ * Manual Step — 사람이 읽고 따라 하는 시험서.
  *
- * 스텝 탭과 무엇이 다른가: 스텝 탭은 **만드는 자리**라 한 줄에 요약만 보이고
- * 세부는 3열에 있다. 여기는 **읽는 자리**다. 할 일과 기대 결과를 나란히 펼쳐
- * 놓고, 사진을 붙인다.
+ * 칸이 셋이다: **Test Step**(무엇을 한다) · **Test Data**(무엇을 넣는다) ·
+ * **Expected**(무엇이 나와야 한다). 뒤 둘에는 사진이 붙는다.
+ *
+ * **결과·판정 칸은 두지 않는다.** 여기는 시험서를 *쓰는* 자리지 *돌리는*
+ * 자리가 아니다. 사람이 보고 판단하는 것이라 미리 적을 값이 없다 —
+ * 결과는 실제로 돌릴 때(사이클·실행) 붙는다. 옛 화면도 같은 이유로
+ * 수동 스텝에서 결과와 RCA 를 뺐다.
  *
  * 사진이 이 탭의 이유다. '이 화면이 이렇게 나와야 한다' 는 글로 못 적는다.
  * 3열 스텝 세부에는 사진 칸이 없다 — 좁아서 못 넣는다.
  *
  * ⚠ 이 탭은 **수동 스텝만** 보인다. 옛 화면이 Manual/Automation 두 탭으로
  * 스텝을 갈라 놓아서 656스텝 중 7개만 보이던 일이 있었다. 그래서 여기는
- * '전부' 인 척하지 않는다 — 머리에 전체 스텝 수를 함께 적고, 시험 전체는
- * 스텝 탭에 있다고 말한다.
+ * '전부' 인 척하지 않는다 — 머리에 전체 스텝 수를 함께 적고, 나머지는
+ * Automation 탭에 있다고 말한다.
  */
 export default function TcManual({ data, onChange }: Props) {
   const all = (data.checks ?? []) as TcStep[]
@@ -131,19 +135,26 @@ export default function TcManual({ data, onChange }: Props) {
     )
   }
 
-  /** 글칸 + 그 아래 사진. 한 칸으로 묶어야 사진을 폭 끝까지 늘릴 수 있다. */
+  /**
+   * 글칸 + 그 아래 사진. 한 칸으로 묶어야 사진을 폭 끝까지 늘릴 수 있다.
+   *
+   * 사진은 **Test Data 와 Expected** 에만 붙는다. Test Step 은 '무엇을
+   * 하는가' 라 글이면 되고, 사진이 필요한 것은 '무엇을 넣었나' 와
+   * '무엇이 나와야 하나' 다.
+   */
   const cell = (
     i: number,
     s: TcStep,
-    textKey: 'step' | 'expected',
-    field: 'data_img' | 'expected_img',
+    textKey: 'step' | 'data' | 'expected',
+    field: 'data_img' | 'expected_img' | null,
     placeholder: string,
   ) => (
     <div
       className="mn-cell"
-      onDragOver={(e) => e.preventDefault()}
+      onDragOver={(e) => field && e.preventDefault()}
       onDrop={(e) => {
-        if (grabFrom(i, field, e.dataTransfer?.items, e.dataTransfer?.files)) e.preventDefault()
+        if (field && grabFrom(i, field, e.dataTransfer?.items, e.dataTransfer?.files))
+          e.preventDefault()
       }}
     >
       <textarea
@@ -153,11 +164,12 @@ export default function TcManual({ data, onChange }: Props) {
         onChange={(e) => setStep(i, { [textKey]: e.target.value } as Partial<TcStep>)}
         onPaste={(e) => {
           // 글자를 붙여넣는 경우가 훨씬 많으므로, 사진일 때만 가로챈다
-          if (grabFrom(i, field, e.clipboardData?.items, e.clipboardData?.files)) e.preventDefault()
+          if (field && grabFrom(i, field, e.clipboardData?.items, e.clipboardData?.files))
+            e.preventDefault()
         }}
       />
-      {img(i, s, field)}
-      {!s[field] && (
+      {field && img(i, s, field)}
+      {field && !s[field] && (
         <button
           type="button"
           className="mn-add"
@@ -188,9 +200,9 @@ export default function TcManual({ data, onChange }: Props) {
 
       <section className="tc-card">
         <div className="tc-card-head">
-          <b>수동 절차</b>
+          <b>Manual Step</b>
           <span className="muted small">
-            {idxs.length}개 · 사람이 직접 하고 직접 판정합니다
+            {idxs.length}개 · 사람이 읽고 따라 하는 절차입니다
           </span>
           <button className="btn small" type="button" onClick={add}>
             ＋ 수동 스텝
@@ -202,13 +214,13 @@ export default function TcManual({ data, onChange }: Props) {
         {all.length > idxs.length && (
           <div className="mn-note">
             이 시험은 전부 <b>{all.length}스텝</b>이고 그중 수동이 {idxs.length}개입니다.
-            나머지는 「스텝」 탭에 있습니다.
+            나머지는 「Automation」 탭에 있습니다.
           </div>
         )}
 
         {idxs.length === 0 ? (
           <div className="empty">
-            수동 절차가 없습니다.
+            Manual Step 이 없습니다.
             <br />
             <span className="muted small">
               장비에 명령을 보내는 대신 사람이 해야 하는 일 — 전원을 내린다, 케이블을
@@ -219,16 +231,15 @@ export default function TcManual({ data, onChange }: Props) {
           <div className="mn-list">
             <div className="mn-row th">
               <span>#</span>
-              <span>할 일 · 사진</span>
-              <span>이렇게 되어야 한다 · 사진</span>
-              <span>판정</span>
+              <span>Test Step</span>
+              <span>Test Data · 사진</span>
+              <span>Expected · 사진</span>
               <span />
             </div>
 
             {idxs.map((i, n) => {
               const s = all[i]
               if (!s) return null
-              const v = stepStatus(s)
               return (
                 <div className="mn-row" key={i}>
                   {/* 원본 번호를 적는다. 스텝 탭에서 몇 번째 줄인지 찾아갈 수
@@ -238,56 +249,12 @@ export default function TcManual({ data, onChange }: Props) {
                     <small>#{i + 1}</small>
                   </span>
 
-                  {cell(i, s, 'step', 'data_img', '예) 장비 전원을 내렸다가 30초 뒤 다시 올린다')}
-                  {cell(
-                    i,
-                    s,
-                    'expected',
-                    'expected_img',
-                    '예) 부팅이 끝나고 전면 LED 가 초록으로 바뀐다',
-                  )}
+                  {cell(i, s, 'step', null, '예) 장비 전원을 내렸다가 다시 올린다')}
+                  {cell(i, s, 'data', 'data_img', '무엇을 넣었나 · 어떤 화면이었나')}
+                  {cell(i, s, 'expected', 'expected_img', '예) 전면 LED 가 초록으로 바뀐다')}
 
                   {/* 자동으로 판정할 수 없는 스텝이라 사람이 찍는다.
                       3열과 같은 값을 쓴다 — 어느 쪽에서 찍든 같은 결과다. */}
-                  <div className="mn-v">
-                    <button
-                      type="button"
-                      className={`btn small${v === 'PASS' ? ' primary' : ''}`}
-                      onClick={() =>
-                        setStep(i, {
-                          status: 'PASS',
-                          repeatResult: 'Pass',
-                          executed_at: new Date().toISOString(),
-                        })
-                      }
-                    >
-                      합격
-                    </button>
-                    <button
-                      type="button"
-                      className={`btn small${v === 'FAIL' ? ' danger' : ''}`}
-                      onClick={() =>
-                        setStep(i, {
-                          status: 'FAIL',
-                          repeatResult: 'Fail',
-                          executed_at: new Date().toISOString(),
-                        })
-                      }
-                    >
-                      불합격
-                    </button>
-                    {v && (
-                      <button
-                        type="button"
-                        className="mn-clear"
-                        title="판정 지우기"
-                        onClick={() => setStep(i, { status: '', repeatResult: '' })}
-                      >
-                        지움
-                      </button>
-                    )}
-                  </div>
-
                   <div className="mn-ops">
                     <button
                       type="button"

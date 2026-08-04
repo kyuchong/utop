@@ -327,7 +327,7 @@
   display: grid;
   /* 사진을 글칸과 한 칸에 묶었다. 사진 열을 따로 두면 그 열 폭에 갇혀서
      아무리 늘려도 안 커진다. */
-  grid-template-columns: 46px minmax(0, 1fr) minmax(0, 1fr) 118px 34px;
+  grid-template-columns: 44px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 34px;
   gap: var(--sp-2);
   align-items: start;
   padding: 8px 10px;
@@ -431,7 +431,6 @@
   .mn-row { grid-template-columns: 40px minmax(0, 1fr) 30px; }
   .mn-row.th { display: none; }
   .mn-cell { grid-column: 2; }
-  .mn-v { grid-column: 2; }
 }
 
 /* ── 사이클 ─────────────────────────────────────────────────

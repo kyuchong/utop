@@ -467,11 +467,15 @@ export default function TestCases() {
         {openId && (
           <div className="seg" role="tablist">
             {([
-              // '스텝' 이 아니라 Automation 이다 — 장비에 명령을 보내 자동으로
-              // 도는 절차. 사람이 하는 것은 Manual Step 탭에 있다.
-              ['steps', 'Automation'],
+              // 정보 → Manual → Automation 순. 시험을 만드는 순서와 같다 —
+              // 무엇을 시험할지 적고, 사람이 할 일을 적고, 그중 자동으로
+              // 돌릴 것을 만든다.
+              //
+              // 'Automation' 은 '스텝' 이 아니다 — 장비에 명령을 보내 자동으로
+              // 도는 절차고, 사람이 하는 것은 Manual Step 에 있다.
               ['info', '정보'],
               ['manual', 'Manual Step'],
+              ['steps', 'Automation'],
               ['history', '실행 이력'],
               ['cycle', '사이클'],
             ] as const).map(([k, label]) => (
