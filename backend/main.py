@@ -4442,6 +4442,17 @@ async def run_cli_stream(payload: dict):
     commands = payload.get("commands") or ([payload["command"]] if payload.get("command") else [])
     host_ok = bool(params["host"])
     ent = _get_conn_entry(params) if host_ok else None
+    # 프롬프트가 온 뒤에도 얼마나 더 기다릴 것인가.
+    #
+    # 프롬프트 뒤에 늦게 올라오는 syslog 를 놓치지 않으려는 대기다. 예전에는
+    # 2.0 이 코드에 박혀 있어서 **명령마다 2초**가 그냥 나갔다 — 명령 10개짜리
+    # 스텝이면 순수 대기만 20초다. 기본을 낮추고 부르는 쪽이 정하게 한다.
+    # 뭔가 오면 그때부터 다시 이 시간만큼 연장하므로, 실제로 늦게 오는
+    # 출력이 있으면 짧게 잡아도 놓치지 않는다.
+    try:
+        _quiet_wait = min(30.0, max(0.0, float(payload.get("tail_wait", 0.3) or 0)))
+    except Exception:
+        _quiet_wait = 0.3
     def _sse(obj):
         return "data: " + _jstr.dumps(obj, ensure_ascii=False) + "\n\n"
     async def _gen():
@@ -4505,7 +4516,7 @@ async def run_cli_stream(payload: dict):
                                     yield _sse({"o": _emit})
                                     await asyncio.sleep(0)
                             if pr and pending.strip() and _restr.search(pr, pending.strip()):
-                                _quiet_dl = _tstr.time() + 2.0
+                                _quiet_dl = _tstr.time() + _quiet_wait
                                 _saw_more = False
                                 while _tstr.time() < _quiet_dl:
                                     try: _ch2 = conn.read_channel() or ""
@@ -4520,7 +4531,7 @@ async def run_cli_stream(payload: dict):
                                                 yield _sse({"o": pending[:_last_nl + 1]})
                                                 pending = pending[_last_nl + 1:]
                                         await asyncio.sleep(0)
-                                        _quiet_dl = _tstr.time() + 2.0
+                                        _quiet_dl = _tstr.time() + _quiet_wait
                                     else:
                                         await asyncio.sleep(0.05)
                                 if _saw_more and pending.strip() and not _restr.search(pr, pending.strip()):

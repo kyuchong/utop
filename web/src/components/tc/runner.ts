@@ -358,7 +358,14 @@ async function runOne(
    * 세션은 백엔드가 알아서 잡는다 — `require_session` 이어도 conn 이 없으면
    * `_ensure_conn` 으로 열고, 못 열 때만 err 를 보낸다.
    */
-  const body = { ...conn, commands, require_session: true }
+  const body = {
+    ...conn,
+    commands,
+    require_session: true,
+    // 프롬프트 뒤 대기. 스텝마다 올릴 수 있다 — reload 처럼 한참 뒤에
+    // 뭔가 더 뱉는 명령이 있다.
+    ...(step.tailWait !== undefined ? { tail_wait: step.tailWait } : {}),
+  }
   let acc = ''
   let err = ''
   const flush = throttled((s) => ctx.onStep(i, { output: s, executed_at: at }))

@@ -686,6 +686,28 @@ export default function TcStepDetail({
                   문구가 든 줄만. 비우면 응답 전체.
                 </span>
               </label>
+              {(kind === 'cli' || kind === 'instrument') && (
+                <label className="sd-f">
+                  <span>응답 기다림 (초)</span>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={step.tailWait ?? ''}
+                    placeholder="0.3"
+                    onChange={(e) =>
+                      onChange({
+                        tailWait: e.target.value === '' ? undefined : Number(e.target.value),
+                      })
+                    }
+                  />
+                  <span className="sd-hint">
+                    프롬프트가 온 뒤에도 이만큼 더 기다립니다 — 늦게 올라오는 syslog 를
+                    받으려는 것입니다. 대부분 기본값이면 되고, <b>reload</b> 처럼 한참 뒤에
+                    뭔가 더 뱉는 명령에만 올리세요. 올리는 만큼 그 스텝이 느려집니다.
+                  </span>
+                </label>
+              )}
+
               <label className="sd-f">
                 <span>판정에서 뺄 줄</span>
                 <textarea

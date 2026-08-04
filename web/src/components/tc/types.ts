@@ -187,6 +187,14 @@ export interface TcStep {
   forStep?: number
   /** kind=wait */
   waitSec?: number
+  /**
+   * kind=cli — 프롬프트가 온 뒤 얼마나 더 기다릴지(초).
+   *
+   * 프롬프트 뒤에 늦게 올라오는 syslog 를 받으려는 대기다. 기본 0.3 초면
+   * 대부분 충분하고, `reload` 처럼 한참 뒤에 뭔가 더 뱉는 명령에만 올린다.
+   * 예전에는 2초가 코드에 박혀 있어 명령마다 그만큼 그냥 나갔다.
+   */
+  tailWait?: number
 
   /**
    * kind=ping · snmp_* — 어디로 보내는가.
