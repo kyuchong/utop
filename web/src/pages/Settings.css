@@ -303,3 +303,113 @@
 .seg-btn.seg-add:hover {
   color: var(--c-primary);
 }
+
+/* ── 전역 파라미터 ──────────────────────────────────────────
+   iTest 의 parameter file 에 해당한다. 공통에 적고 모델에서 예외만 덮는
+   것이 이 파일을 쓰는 방식이라, 왼쪽에 공통을 맨 위에 둔다. */
+.gp { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+
+.gp-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: 0 0 var(--sp-3);
+}
+
+.gp-head .sp { margin-left: auto; }
+.gp-head code,
+.gp .empty code {
+  font-family: var(--font-mono);
+  background: var(--c-surface-alt);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+.gp-body { display: flex; gap: var(--sp-3); min-height: 0; flex: 1; }
+
+.gp-side {
+  flex: 0 0 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: auto;
+  border-right: 1px solid var(--c-border-soft);
+  padding-right: var(--sp-2);
+}
+
+.gp-m {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 6px 9px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+  cursor: pointer;
+}
+
+.gp-m:hover { background: var(--c-surface-alt); }
+.gp-m.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 600; }
+.gp-n { margin-left: auto; font-size: var(--fs-xs); color: var(--c-text-faint); }
+
+.gp-add {
+  margin-top: var(--sp-2);
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  padding: 5px 7px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.gp-main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+
+.gp-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-2);
+}
+
+.gp-title .sp { margin-left: auto; }
+
+.gp-list {
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  overflow: auto;
+}
+
+.gp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 110px minmax(0, 1.2fr) 30px;
+  gap: var(--sp-2);
+  align-items: center;
+  padding: 5px 9px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+
+.gp-row:last-child { border-bottom: 0; }
+
+.gp-row.th {
+  background: var(--c-surface-alt);
+  color: #5b6670;
+  font-size: var(--fs-label);
+}
+
+.gp-row input {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  background: none;
+}
+
+.gp-row input:hover { border-color: var(--c-border-soft); }
+.gp-row input:focus { outline: none; border-color: var(--c-primary); background: var(--c-surface); }
+.gp-row input.mono { font-family: var(--font-mono); }

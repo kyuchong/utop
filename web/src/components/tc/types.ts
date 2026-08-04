@@ -485,6 +485,14 @@ export interface TcData {
   object_md?: string
   /** 사전 준비 조건 */
   precondition_md?: string
+  /**
+   * 이 TC 가 쓸 전역 파라미터 파일.
+   *
+   * 비우면 장비 모델에 맞는 파일이 자동으로 붙는다 — 대부분 그것으로 된다.
+   * 랩마다 값이 다른 시험처럼 모델과 무관하게 파일을 못박아야 할 때만 적는다.
+   * 공통(`__global__`)은 늘 깔리고 그 위를 이 파일이 덮는다.
+   */
+  param_file?: string
   slots?: TcSlot[]
   links?: TcLink[]
   /** 스텝. 옛 이름이 checks 라 그대로 쓴다 */

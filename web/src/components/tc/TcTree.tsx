@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { api, categoryApi } from '@/api/client'
+import { api, apiFetch, categoryApi } from '@/api/client'
 import {
   buildCategoryTree,
   naturalCompare,
@@ -23,6 +23,9 @@ interface Props {
   /** 지금 열려 있는 TC */
   openId: string
   onOpen: (tcid: string) => void
+  /** 지금 열려 있는 파라미터 파일 (`__global__` 또는 모델명) */
+  paramKey: string
+  onOpenParam: (key: string) => void
 }
 
 /** 이 요구사항이 놓인 가장 깊은 분류 id. 없으면 null(미분류) */
@@ -41,7 +44,7 @@ function reqFolder(r: Requirement): string | null {
  * TC 는 폴더에 직접 들어가지 않는다 — 요구사항에 붙고, 요구사항이 폴더에
  * 들어간다. 그래서 층이 셋이다.
  */
-export default function TcTree({ tcs, openId, onOpen }: Props) {
+export default function TcTree({ tcs, openId, onOpen, paramKey, onOpenParam }: Props) {
   const [q, setQ] = useState('')
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
     try {
@@ -54,6 +57,22 @@ export default function TcTree({ tcs, openId, onOpen }: Props) {
   useEffect(() => {
     localStorage.setItem('utop.tctree.open', JSON.stringify([...openIds]))
   }, [openIds])
+
+  /**
+   * 전역 파라미터 파일 목록.
+   *
+   * iTest 가 `parameter_files/` 를 탐색기 폴더로 두는 것과 같다. 설정 안에
+   * 넣어 두면 스텝을 쓰다가 값을 하나 고치려고 화면을 떠나야 한다.
+   */
+  const gpQ = useQuery({
+    queryKey: ['global-params'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/global-params')
+      if (!r.ok) throw new Error('전역 파라미터를 불러오지 못했습니다')
+      return (await r.json()) as Record<string, unknown>
+    },
+    staleTime: 60_000,
+  })
 
   const reqQ = useQuery({
     queryKey: ['req', 'list'],
@@ -252,6 +271,20 @@ export default function TcTree({ tcs, openId, onOpen }: Props) {
     )
   }
 
+  /** 파일 목록. 공통이 늘 맨 위고, 없어도 자리는 있다 */
+  const paramFiles = (() => {
+    const d = gpQ.data ?? {}
+    const rest = Object.keys(d)
+      .filter((k) => k !== '__global__' && k !== '__gp_folders__')
+      .sort()
+    return ['__global__', ...rest]
+  })()
+
+  const paramCount = (k: string) => {
+    const v = (gpQ.data ?? {})[k]
+    return Array.isArray(v) ? v.filter((r) => (r as { name?: string })?.name).length || '' : ''
+  }
+
   const uncat = reqsOf(null)
   const orphanShown = orphans.filter(tcMatch)
   const loading = reqQ.isLoading || catQ.isLoading
@@ -268,6 +301,42 @@ export default function TcTree({ tcs, openId, onOpen }: Props) {
       </div>
 
       <div className="rt-body">
+        {/* 고정 폴더. 지우거나 옮길 수 없고 늘 맨 위다 — 시스템 폴더지
+            사람이 만든 분류가 아니다. 요구사항 트리와 선으로 가른다. */}
+        <div className="tt-fixed">
+          <div
+            className="rt-fold"
+            role="button"
+            tabIndex={0}
+            onClick={() => toggle('__params__')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                toggle('__params__')
+              }
+            }}
+          >
+            <span className={`rt-caret${isOpen('__params__') ? ' open' : ''}`}>
+              <IconChevron />
+            </span>
+            <b className="rt-fname">Global Parameter</b>
+            <span className="rt-cnt">{paramFiles.length}</span>
+          </div>
+          {isOpen('__params__') &&
+            paramFiles.map((k) => (
+              <button
+                key={k}
+                type="button"
+                className={`tt-tc tt-param${paramKey === k ? ' on' : ''}`}
+                style={{ paddingLeft: 24 }}
+                onClick={() => onOpenParam(k)}
+              >
+                <span className="tt-tc-nm">{k === '__global__' ? '공통' : k}</span>
+                <span className="tt-n">{paramCount(k)}</span>
+              </button>
+            ))}
+        </div>
+
         {loading ? (
           <div className="empty">불러오는 중…</div>
         ) : (

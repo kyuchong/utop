@@ -373,6 +373,17 @@ export const IconCustomField = (p: P) => (
   </Svg>
 )
 
+/** 전역 파라미터 (이름표가 붙은 값들) */
+export const IconGlobalParam = (p: P) => (
+  <Svg {...p}>
+    <path d="M4 7h7M4 12h5M4 17h7" />
+    <path d="M14 7h6M12 12h8M14 17h6" />
+    <circle cx="12.5" cy="7" r="1.3" />
+    <circle cx="10.5" cy="12" r="1.3" />
+    <circle cx="12.5" cy="17" r="1.3" />
+  </Svg>
+)
+
 /** 계정 관리 (사람 여럿) */
 export const IconAccounts = (p: P) => (
   <Svg {...p}>

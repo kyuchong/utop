@@ -1313,3 +1313,14 @@
 
 .sq-bulk .sp { margin-left: auto; }
 .sq-bulk b { color: var(--c-primary); white-space: nowrap; }
+
+/* 고정 폴더 — 지우거나 옮길 수 없고 늘 맨 위다.
+   사람이 만든 분류가 아니라 시스템 폴더라, 아래 요구사항 트리와 선으로
+   가른다. */
+.tt-fixed {
+  padding-bottom: 4px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--tc-line);
+}
+
+.tt-param .tt-tc-nm { font-family: var(--font-mono); font-size: var(--fs-xs); }

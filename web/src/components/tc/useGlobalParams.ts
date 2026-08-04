@@ -28,7 +28,7 @@ const FOLDER_KEY = '__gp_folders__'
  * 모델 것이 공통 것을 덮는다 — 공통에 적어 두고 특정 모델만 예외를 두는
  * 것이 이 파일을 쓰는 이유다.
  */
-export function useGlobalParams(model?: string) {
+export function useGlobalParams(model?: string, override?: string) {
   const q = useQuery({
     queryKey: ['global-params'],
     queryFn: async () => {
@@ -65,15 +65,22 @@ export function useGlobalParams(model?: string) {
     }
   }
 
+  // 공통은 늘 깔린다. 그 위에 파일 하나가 덮는다 —
+  // TC 가 못박았으면(override) 그것, 아니면 장비 모델 것.
   take(GLOBAL_KEY, '공통')
-  if (model && model !== GLOBAL_KEY && model !== FOLDER_KEY) take(model, model)
+  const use = (override || model || '').trim()
+  if (use && use !== GLOBAL_KEY && use !== FOLDER_KEY) take(use, use)
 
   return {
     values,
     items,
     loading: q.isLoading,
-    /** 어느 모델 것까지 섞였는지 — 화면에 밝힌다 */
-    model: model || '',
+    /** 어느 파일까지 섞였는지 — 화면에 밝힌다 */
+    model: use,
+    /** TC 가 못박았는가, 장비 모델에서 따라왔는가 */
+    pinned: !!override,
+    /** 고를 수 있는 파일 이름 */
+    files: Object.keys(q.data ?? {}).filter((k) => k !== FOLDER_KEY),
     empty: q.isLoading
       ? ''
       : '전역 파라미터가 없습니다 — 상단 메뉴의 「전역 파라미터」 에서 만드세요.',

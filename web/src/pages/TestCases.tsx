@@ -10,6 +10,7 @@ import TcSessionBar from '@/components/tc/TcSessionBar'
 import TcTerminal from '@/components/tc/TcTerminal'
 import TcSaveAs from '@/components/tc/TcSaveAs'
 import { useGlobalParams } from '@/components/tc/useGlobalParams'
+import GlobalParams from '@/components/settings/GlobalParams'
 import {
   buildTcFile,
   downloadJson,
@@ -93,6 +94,14 @@ export default function TestCases() {
   const [menuOpen, setMenuOpen] = useState(false)
   /** 명령어 캡쳐를 열면 3열이 그것으로 바뀐다 — 캡쳐하는 동안 스텝 세부는 볼 일이 없다 */
   const [termOpen, setTermOpen] = useState(false)
+  /**
+   * 지금 열어 둔 전역 파라미터 파일.
+   *
+   * 트리의 고정 폴더에서 고르면 오른쪽이 그 파일 편집으로 바뀐다. TC 와
+   * 파라미터는 같은 트리에 있지만 둘 중 하나만 열려 있다 — iTest 도
+   * 탐색기에서 test case 와 parameter file 을 같은 자리에서 연다.
+   */
+  const [paramKey, setParamKey] = useState('')
   const [form, setForm] = useState<TestCaseMeta | null | undefined>(undefined)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
@@ -208,7 +217,7 @@ export default function TestCases() {
    * 세션이 여럿이어도 시험 대상(DUT)은 보통 첫 자리다.
    */
   const tcModel = devById.get(sessionIds[0] ?? '')?.model ?? ''
-  const gp = useGlobalParams(tcModel)
+  const gp = useGlobalParams(tcModel, d.param_file)
 
   const patch = (p: Partial<TcData>) => {
     setD((c) => ({ ...c, ...p }))
@@ -591,7 +600,15 @@ export default function TestCases() {
           요구사항으로 좁히는 일은 1열 트리가 맡는다. */}
       <div className="tc-bar">
         <span className="tc-bar-ttl">
-          {openId ? (
+          {paramKey ? (
+            <>
+              <b>전역 파라미터</b>
+              <span className="muted small">
+                {' '}
+                {paramKey === '__global__' ? '공통' : paramKey}
+              </span>
+            </>
+          ) : openId ? (
             <>
               <b>{d.name || '(제목 없음)'}</b>
               <span className="muted small"> {openId}</span>
@@ -601,7 +618,7 @@ export default function TestCases() {
           )}
         </span>
 
-        {openId && (
+        {openId && !paramKey && (
           <div className="seg" role="tablist">
             {([
               // 정보 → Manual → Automation 순. 시험을 만드는 순서와 같다 —
@@ -707,7 +724,7 @@ export default function TestCases() {
             </>
           )}
         </div>
-        {openId && (
+        {openId && !paramKey && (
           <button
             className="btn primary"
             type="button"
@@ -734,7 +751,16 @@ export default function TestCases() {
           {tcQ.isLoading ? (
             <div className="empty">불러오는 중…</div>
           ) : (
-            <TcTree tcs={tcs} openId={openId} onOpen={pickTc} />
+            <TcTree
+              tcs={tcs}
+              openId={paramKey ? '' : openId}
+              onOpen={(id) => {
+                setParamKey('')
+                pickTc(id)
+              }}
+              paramKey={paramKey}
+              onOpenParam={setParamKey}
+            />
           )}
         </section>
 
@@ -744,13 +770,23 @@ export default function TestCases() {
           getOrigin={() => splitRef.current?.getBoundingClientRect().left ?? 0}
         />
 
-        {!openId ? (
+        {paramKey ? (
+          <section className="panel tc-tabcol">
+            <GlobalParams only={paramKey} />
+          </section>
+        ) : !openId ? (
           <section className="panel">
             <div className="empty">왼쪽에서 테스트케이스를 고르세요.</div>
           </section>
         ) : tab === 'info' ? (
           <section className="panel tc-tabcol">
-            <TcInfo data={d} onChange={patch} tcid={openId} />
+            <TcInfo
+              data={d}
+              onChange={patch}
+              tcid={openId}
+              model={tcModel}
+              paramFiles={gp.files}
+            />
           </section>
         ) : tab === 'manual' ? (
           <section className="panel tc-tabcol">
