@@ -55,6 +55,34 @@ export default function TcSequence({
   onRun,
 }: Props) {
   const hidden = hide ? steps.filter(hide).length : 0
+
+  /**
+   * 줄 번호 — 블록 안은 1.1, 1.2 로.
+   *
+   * 그냥 1,2,3 으로 매기면 블록에 넣고 뺀 것이 번호에 안 나타난다. 주석
+   * 아래로 들여쓴 CLI 가 2번이 되어 버려서, 그 줄이 앞 줄의 몸통이라는
+   * 것을 번호만 봐서는 알 수 없다.
+   *
+   * 감춘 줄(수동 스텝)은 번호를 먹지 않는다. 여기 안 나오는 줄이 번호를
+   * 가져가면 3,5,6 처럼 끊겨서 잘못된 것처럼 보인다.
+   */
+  const numbers: string[] = []
+  {
+    const stack: number[] = []
+    steps.forEach((s, i) => {
+      if (hide?.(s)) {
+        numbers[i] = ''
+        return
+      }
+      // 한 번에 두 칸 이상 깊어질 수는 없다. 자료가 그래도 1.0.1 같은
+      // 번호가 나오지 않게 막는다.
+      const want = Math.min(Math.max(Number(s.indent) || 0, 0), 4)
+      const d = Math.min(want, stack.length)
+      stack.length = d + 1
+      stack[d] = (stack[d] ?? 0) + 1
+      numbers[i] = stack.slice(0, d + 1).join('.')
+    })
+  }
   /** 한 줄 요약. 접속 계열은 세션 이름이 곧 내용이라 여기서 붙인다. */
   const summary = (s: TcStep) => {
     const k = s.kind || 'cli'
@@ -117,7 +145,7 @@ export default function TcSequence({
                 >
                   {i === runningAt ? '▸' : st.mark}
                 </span>
-                <span className="sq-n">{i + 1}</span>
+                <span className="sq-n">{numbers[i]}</span>
                 <span className="sq-act" style={{ marginLeft: depth * 16 }}>
                   <StepIcon name={info.icon} className={`sq-ic g-${info.group}`} />
                   {info.label}
