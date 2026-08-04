@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
+import { IconChevron } from '@/components/icons'
+import '@/components/ReqTree.css'
 
 /** 파라미터 한 줄. 옛 화면(07-global-params.js)이 쓰는 모양 그대로다. */
 interface Row {
@@ -50,6 +52,15 @@ export default function GlobalParams({ only }: Props) {
   const [data, setData] = useState<File>({})
   const [dirty, setDirty] = useState(false)
   const [msg, setMsg] = useState('')
+  /**
+   * 아직 파라미터가 하나도 없는 그룹.
+   *
+   * 그룹은 `group` 경로로만 존재하므로 줄이 없으면 화면에서 사라진다.
+   * 만들자마자 없어지면 만들 수가 없어서, 저장 전까지 여기 들고 있는다.
+   */
+  const [emptyGroups, setEmptyGroups] = useState<string[]>([])
+  /** 접힌 그룹 */
+  const [shut, setShut] = useState<Set<string>>(new Set())
 
   const q = useQuery({
     queryKey: ['global-params'],
@@ -73,6 +84,11 @@ export default function GlobalParams({ only }: Props) {
   useEffect(() => {
     if (only) setSel(only)
   }, [only])
+
+  // 파일이 바뀌면 그 파일의 빈 그룹만 뜻이 있다
+  useEffect(() => {
+    setEmptyGroups([])
+  }, [sel])
 
   useEffect(() => {
     if (q.data) {
@@ -123,8 +139,72 @@ export default function GlobalParams({ only }: Props) {
   const setCell = (i: number, key: keyof Row, v: string) =>
     setRows(cur.map((r, j) => (j === i ? { ...r, [key]: v } : r)))
 
-  const add = () => setRows([...cur, { group: '', name: '', value: '', desc: '' }])
+  /**
+   * 하위 그룹.
+   *
+   * 자료 모양은 그대로 두고 `group` 을 **경로**로 읽는다 — `QoS/class1`.
+   * 새 필드를 만들면 옛 화면이 못 읽고, 한쪽에서 고친 것이 다른 쪽에서
+   * 안 보이면 어느 것이 맞는지 알 수 없게 된다.
+   *
+   * iTest 도 파라미터를 그룹 단위로 묶고 그룹째 잘라 붙인다.
+   */
+  const path = (r: Row) => (r.group || '').trim().replace(/^\/+|\/+$/g, '')
+
+  /** 이 경로 바로 아래의 그룹 이름들 */
+  const childGroups = (base: string): string[] => {
+    const pre = base ? base + '/' : ''
+    const s = new Set<string>()
+    for (const r of cur) {
+      const g = path(r)
+      if (!g.startsWith(pre)) continue
+      const rest = g.slice(pre.length)
+      if (!rest) continue
+      const head = rest.split('/')[0]
+      if (head) s.add(head)
+    }
+    // 비어 있는 그룹도 자리를 지킨다 — 만들자마자 사라지면 만들 수가 없다
+    for (const g of emptyGroups) {
+      if (!g.startsWith(pre)) continue
+      const head = g.slice(pre.length).split('/')[0]
+      if (head) s.add(head)
+    }
+    return [...s].sort()
+  }
+
+  /** 이 경로에 바로 달린 줄 (원본 자리 번호와 함께) */
+  const rowsAt = (base: string) =>
+    cur.map((r, i) => ({ r, i })).filter(({ r }) => path(r) === base)
+
+  const groups = childGroups('')
+
+  const add = (group: string) =>
+    setRows([...cur, { group, name: '', value: '', desc: '' }])
   const del = (i: number) => setRows(cur.filter((_, j) => j !== i))
+
+  /** 그룹을 지우면 그 아래 것이 전부 사라진다 — 몇 개인지 말해 준다 */
+  const delGroup = (g: string) => {
+    const n = cur.filter((r) => path(r) === g || path(r).startsWith(g + '/')).length
+    if (n > 0 && !window.confirm(`「${g}」 아래 파라미터 ${n}개가 함께 사라집니다. 계속할까요?`))
+      return
+    setRows(cur.filter((r) => path(r) !== g && !path(r).startsWith(g + '/')))
+    setEmptyGroups((s) => s.filter((x) => x !== g && !x.startsWith(g + '/')))
+  }
+
+  /** 그룹 이름 바꾸기 — 아래 것의 경로도 함께 */
+  const renameGroup = (g: string, name: string) => {
+    const parent = g.includes('/') ? g.slice(0, g.lastIndexOf('/')) : ''
+    const next = (parent ? parent + '/' : '') + name.trim()
+    if (!name.trim() || next === g) return
+    setRows(
+      cur.map((r) => {
+        const cp = path(r)
+        if (cp === g) return { ...r, group: next }
+        if (cp.startsWith(g + '/')) return { ...r, group: next + cp.slice(g.length) }
+        return r
+      }),
+    )
+    setEmptyGroups((s) => s.map((x) => (x === g || x.startsWith(g + '/') ? next + x.slice(g.length) : x)))
+  }
 
   const addModel = (m: string) => {
     if (!m || data[m]) {
@@ -134,6 +214,100 @@ export default function GlobalParams({ only }: Props) {
     setData((d) => ({ ...d, [m]: [] }))
     setDirty(true)
     setSel(m)
+  }
+
+  /** 한 칸 */
+  const cell = (i: number, key: keyof Row, ph: string, mono = false) => (
+    <input
+      className={mono ? 'mono' : ''}
+      value={cur[i]?.[key] ?? ''}
+      placeholder={ph}
+      onChange={(e) => setCell(i, key, e.target.value)}
+    />
+  )
+
+  /**
+   * 한 단계를 그린다 — 그 자리의 줄들과 하위 그룹.
+   *
+   * 깊이는 막지 않는다. 사람이 필요한 만큼 나눈다.
+   */
+  const node = (base: string, depth: number): ReactElement => {
+    const mine = rowsAt(base)
+    const kids = childGroups(base)
+    return (
+      <div key={base || '__root__'}>
+        {mine.map(({ i }) => (
+          <div className="gp-row" key={i} style={{ paddingLeft: 10 + depth * 16 }}>
+            {cell(i, 'name', '업링크', true)}
+            {cell(i, 'value', 'gi0/24', true)}
+            {cell(i, 'desc', '설명 (선택)')}
+            <button type="button" className="if-x" aria-label="지우기" onClick={() => del(i)}>
+              ×
+            </button>
+          </div>
+        ))}
+
+        {kids.map((g) => {
+          const full = (base ? base + '/' : '') + g
+          const open = !shut.has(full)
+          const n = cur.filter(
+            (r) => path(r) === full || path(r).startsWith(full + '/'),
+          ).length
+          return (
+            <div key={full}>
+              <div className="gp-grp" style={{ paddingLeft: 10 + depth * 16 }}>
+                <button
+                  type="button"
+                  className={`rt-caret${open ? ' open' : ''}`}
+                  aria-label={open ? '접기' : '펼치기'}
+                  onClick={() =>
+                    setShut((s) => {
+                      const x = new Set(s)
+                      if (x.has(full)) x.delete(full)
+                      else x.add(full)
+                      return x
+                    })
+                  }
+                >
+                  <IconChevron />
+                </button>
+                <input
+                  className="gp-gname"
+                  value={g}
+                  onChange={(e) => renameGroup(full, e.target.value)}
+                />
+                <span className="gp-n">{n || ''}</span>
+                <button
+                  type="button"
+                  className="gp-op"
+                  title="이 그룹에 파라미터"
+                  onClick={() => add(full)}
+                >
+                  ＋ 값
+                </button>
+                <button
+                  type="button"
+                  className="gp-op"
+                  title="이 그룹 아래에 그룹"
+                  onClick={() => setEmptyGroups((s) => [...s, full + '/새 그룹'])}
+                >
+                  ＋ 하위
+                </button>
+                <button
+                  type="button"
+                  className="if-x"
+                  aria-label="그룹 지우기"
+                  onClick={() => delGroup(full)}
+                >
+                  ×
+                </button>
+              </div>
+              {open && node(full, depth + 1)}
+            </div>
+          )
+        })}
+      </div>
+    )
   }
 
   if (q.isLoading) return <div className="empty">불러오는 중…</div>
@@ -208,12 +382,19 @@ export default function GlobalParams({ only }: Props) {
               <span className="muted small">같은 이름이면 공통 값을 덮습니다</span>
             )}
             <span className="sp" />
-            <button className="btn small" type="button" onClick={add}>
-              + 파라미터
+            <button className="btn small" type="button" onClick={() => add('')}>
+              ＋ 파라미터
+            </button>
+            <button
+              className="btn small"
+              type="button"
+              onClick={() => setEmptyGroups((s) => [...s, '새 그룹'])}
+            >
+              ＋ 그룹
             </button>
           </div>
 
-          {cur.length === 0 ? (
+          {cur.length === 0 && groups.length === 0 ? (
             <div className="empty">
               아직 없습니다.
               <br />
@@ -223,49 +404,7 @@ export default function GlobalParams({ only }: Props) {
               </span>
             </div>
           ) : (
-            <div className="gp-list">
-              <div className="gp-row th">
-                <span>이름</span>
-                <span>값</span>
-                <span>묶음</span>
-                <span>설명</span>
-                <span />
-              </div>
-              {cur.map((r, i) => (
-                <div className="gp-row" key={i}>
-                  <input
-                    className="mono"
-                    value={r.name ?? ''}
-                    placeholder="업링크"
-                    onChange={(e) => setCell(i, 'name', e.target.value)}
-                  />
-                  <input
-                    className="mono"
-                    value={r.value ?? ''}
-                    placeholder="gi0/24"
-                    onChange={(e) => setCell(i, 'value', e.target.value)}
-                  />
-                  <input
-                    value={r.group ?? ''}
-                    placeholder="포트"
-                    onChange={(e) => setCell(i, 'group', e.target.value)}
-                  />
-                  <input
-                    value={r.desc ?? ''}
-                    placeholder="설명 (선택)"
-                    onChange={(e) => setCell(i, 'desc', e.target.value)}
-                  />
-                  <button
-                    type="button"
-                    className="if-x"
-                    aria-label="지우기"
-                    onClick={() => del(i)}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
+            <div className="gp-tree">{node('', 0)}</div>
           )}
         </div>
       </div>
