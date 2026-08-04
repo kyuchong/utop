@@ -304,6 +304,59 @@ export function stepKindInfo(k?: string) {
   )
 }
 
+/**
+ * 종류마다 '내용' 이 어느 칸에 들어가는가.
+ *
+ * 흩어져 있으면 화면마다 다른 칸을 읽게 된다 — 실제로 Manual 스텝의
+ * `data` 를 실행기가 CLI 명령으로 읽어 장비에 보낸 일이 있었다.
+ * 한 곳에 적어 두고 화면·실행기·요약이 모두 이것을 따른다.
+ *
+ * | 종류        | 내용 칸                 | 저장 필드                        | 장비로 나가나 |
+ * |------------|------------------------|---------------------------------|------------|
+ * | cli        | 보낼 명령 (여러 줄)       | cli                             | 예          |
+ * | instrument | 보낼 명령                | cli                             | 예          |
+ * | ping       | 대상 IP · 횟수           | host · pingCount                | 예          |
+ * | snmp_get   | OID                    | oid                             | 예          |
+ * | snmp_set   | OID · 넣을 값           | oid · snmpValue · snmpType      | 예          |
+ * | snmp_trap  | OID · 기다릴 초          | oid · trapSec                   | 아니오(수신) |
+ * | if         | 조건                    | condition                       | 아니오       |
+ * | loop       | 범위 또는 횟수            | forFrom·forTo·forStep / loopCount | 아니오     |
+ * | switch     | 기준 값                  | switchExpr                      | 아니오       |
+ * | wait       | 기다릴 초                | waitSec                         | 아니오       |
+ * | comment    | 주석                    | text                            | **아니오**   |
+ * | message    | 출력할 글                | text                            | **아니오**   |
+ * | manual     | 할 일 · 넣을 값 · 기대결과  | step · data · expected          | **아니오**   |
+ * | connect    | (세션만)                 | session                         | 예(접속)     |
+ * | disconnect | (세션만)                 | session                         | 예(해제)     |
+ * | model      | 모델 이름                | modelName · model               | 아니오       |
+ *
+ * **Comment 와 Message 는 다르다.** Comment 는 사람이 읽는 주석이라 실행할
+ * 때 아무 일도 하지 않는다. Message 는 실행 로그에 그 글을 찍는다 —
+ * 긴 절차에서 '여기부터 2단계' 같은 표시를 남기는 데 쓴다. 그래서 Message
+ * 는 ${변수} 를 넣으면 그 값이 찍히고 Comment 는 안 찍힌다.
+ */
+export const STEP_CONTENT: Record<string, { label: string; hint?: string }> = {
+  cli: { label: '보낼 명령', hint: '여러 줄이면 위에서부터 차례로 보냅니다' },
+  instrument: { label: '보낼 명령' },
+  ping: { label: '대상 IP' },
+  snmp_get: { label: 'OID' },
+  snmp_set: { label: 'OID · 넣을 값' },
+  snmp_trap: { label: 'OID · 기다릴 초' },
+  if: { label: '조건' },
+  loop: { label: '반복' },
+  switch: { label: '기준 값' },
+  wait: { label: '기다릴 초' },
+  comment: { label: '주석', hint: '실행되지 않습니다. 사람이 읽는 설명입니다' },
+  message: { label: '출력할 글', hint: '실행 로그에 찍힙니다. ${변수} 를 넣으면 그 값이 들어갑니다' },
+  manual: { label: '할 일' },
+  model: { label: '모델 이름' },
+}
+
+/** 실행할 때 장비로 아무것도 안 나가는 종류. 줄 색을 달리해 한눈에 가른다. */
+export function isNoteKind(k?: string): boolean {
+  return k === 'comment' || k === 'message'
+}
+
 /** 2열에 한 줄로 보일 요약. 종류마다 읽어야 할 값이 다르다. */
 export function stepSummary(s: TcStep): string {
   const k = s.kind || 'cli'
@@ -328,6 +381,7 @@ export function stepSummary(s: TcStep): string {
   if (k === 'connect' || k === 'disconnect') return ''
   if (k === 'model') return (s.modelName || s.model || '').trim()
   if (k === 'comment' || k === 'message') return (s.text || s.desc || s.step || '').trim()
+  if (k === 'manual') return (s.step || s.data || '').trim()
   return (s.step || s.data || '').trim()
 }
 

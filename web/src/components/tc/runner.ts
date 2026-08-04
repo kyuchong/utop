@@ -112,8 +112,18 @@ async function runOne(
   const kind = step.kind || 'cli'
   const at = new Date().toISOString()
 
+  /**
+   * 주석 · 메시지 · 모델 — 장비로 아무것도 안 나간다.
+   *
+   * Comment 는 사람이 읽는 설명이라 실행할 때 아무 일도 하지 않는다.
+   * Message 는 실행 로그에 그 글을 찍는다 — 긴 절차에서 '여기부터 2단계'
+   * 같은 표시를 남기는 데 쓴다. 그래서 Message 만 ${변수} 를 풀어준다.
+   */
   if (kind === 'comment' || kind === 'message' || kind === 'model') {
-    ctx.onLog({ i, text: stepSummary(step) || '(내용 없음)', kind: 'info' })
+    const raw = stepSummary(step) || '(내용 없음)'
+    const text = kind === 'message' ? subVars(raw, vars) : raw
+    ctx.onLog({ i, text, kind: 'info' })
+    if (kind === 'message') ctx.onStep(i, { output: text, executed_at: at })
     return ''
   }
 

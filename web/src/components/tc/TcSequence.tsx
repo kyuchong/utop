@@ -1,6 +1,7 @@
 import StepIcon from './StepIcon'
 import {
   ADD_KINDS,
+  isNoteKind,
   sessionIndex,
   stepKindInfo,
   stepStatus,
@@ -96,9 +97,11 @@ export default function TcSequence({
                 key={i}
                 role="button"
                 tabIndex={0}
+                // 주석·메시지는 장비로 아무것도 안 나간다. 줄 색을 달리해
+                // 훑을 때 '이건 설명' 이 한눈에 갈리게 한다.
                 className={`sq-row${i === selected ? ' on' : ''}${s.skip ? ' skip' : ''}${
                   i === runningAt ? ' now' : ''
-                }`}
+                }${isNoteKind(s.kind) ? ` note ${s.kind}` : ''}`}
                 data-depth={depth || undefined}
                 onClick={() => onSelect(i)}
                 onKeyDown={(e) => {

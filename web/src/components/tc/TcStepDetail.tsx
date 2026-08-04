@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { IconIndent, IconOutdent } from '../icons'
 import { JUDGE_TYPES } from './judge'
 import {
+  isNoteKind,
   sessionIndex,
+  STEP_CONTENT,
   STEP_KINDS,
   stepKindInfo,
   stepResult,
@@ -178,19 +180,23 @@ export default function TcStepDetail({
           </label>
         )}
 
-        <label className="sd-f">
-          <span>Test Step</span>
-          <input
-            value={step.step ?? ''}
-            placeholder="무엇을 하는가"
-            onChange={(e) => onChange({ step: e.target.value })}
-          />
-        </label>
+        {/* 주석·메시지·모델은 내용 칸이 따로 있다. 여기까지 띄우면 같은 것을
+            두 칸에 적게 된다. */}
+        {!isNoteKind(kind) && kind !== 'model' && (
+          <label className="sd-f">
+            <span>Test Step</span>
+            <input
+              value={step.step ?? ''}
+              placeholder="무엇을 하는가"
+              onChange={(e) => onChange({ step: e.target.value })}
+            />
+          </label>
+        )}
 
         {/* 종류마다 Test Data 가 가리키는 것이 다르다 */}
-        {kind === 'cli' && (
+        {(kind === 'cli' || kind === 'instrument') && (
           <label className="sd-f">
-            <span>Test Data — 보낼 명령</span>
+            <span>{STEP_CONTENT[kind]?.label ?? '보낼 명령'}</span>
             {/* 여러 줄이다. 실제 자료에 'enable / log session / conf t / epon'
                 처럼 한 스텝에 명령이 여러 개 들어 있다. input 으로 두면
                 고치는 순간 줄바꿈이 사라져 명령이 한 줄로 붙어버린다. */}
@@ -201,6 +207,9 @@ export default function TcStepDetail({
               placeholder="show system information"
               onChange={(e) => onChange({ cli: e.target.value })}
             />
+            {STEP_CONTENT[kind]?.hint && (
+              <span className="sd-hint">{STEP_CONTENT[kind]?.hint}</span>
+            )}
           </label>
         )}
         {/* CLI 로는 못 하는 것들. 세션이 없어도 되지만, 세션을 골라 두면
@@ -456,13 +465,23 @@ export default function TcStepDetail({
             />
           </label>
         )}
-        {(kind === 'comment' || kind === 'message') && (
+        {/* Comment 와 Message 는 저장 칸(text)이 같지만 하는 일이 다르다.
+            Comment 는 실행할 때 아무 일도 안 하고, Message 는 로그에 찍힌다.
+            같은 라벨을 달아 두면 무엇을 쓰는 칸인지 알 수 없다. */}
+        {isNoteKind(kind) && (
           <label className="sd-f">
-            <span>내용</span>
-            <input
+            <span>{STEP_CONTENT[kind]?.label ?? '내용'}</span>
+            <textarea
+              rows={2}
               value={step.text ?? step.desc ?? ''}
+              placeholder={
+                kind === 'comment'
+                  ? '예) 여기부터 VLAN 설정을 확인한다'
+                  : '예) ${model} 재부팅 완료 — 링크 확인 시작'
+              }
               onChange={(e) => onChange({ text: e.target.value })}
             />
+            <span className="sd-hint">{STEP_CONTENT[kind]?.hint}</span>
           </label>
         )}
         {kind === 'manual' && (
