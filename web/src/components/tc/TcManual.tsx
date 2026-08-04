@@ -179,7 +179,7 @@ export default function TcManual({ data, onChange }: Props) {
             fileRef.current?.click()
           }}
         >
-          {busy === i ? '올리는 중…' : '사진 — 붙여넣기(Ctrl+V) · 끌어놓기 · 눌러서 고르기'}
+          {busy === i ? '올리는 중…' : '＋ 사진 — Ctrl+V 로 붙여넣기'}
         </button>
       )}
     </div>
@@ -232,8 +232,8 @@ export default function TcManual({ data, onChange }: Props) {
             <div className="mn-row th">
               <span>#</span>
               <span>Test Step</span>
-              <span>Test Data · 사진</span>
-              <span>Expected · 사진</span>
+              <span>Test Data</span>
+              <span>Expected</span>
               <span />
             </div>
 

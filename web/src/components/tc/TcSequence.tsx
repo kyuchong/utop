@@ -19,6 +19,14 @@ interface Props {
   sessionName: (i: number) => string
   /** 지금 돌고 있는 줄. -1 이면 안 돌고 있다 */
   runningAt?: number
+  /**
+   * 이 목록에서 감출 줄.
+   *
+   * 걸러낸 배열을 넘기지 않는 이유: 줄 번호와 고르기·실행이 전부 원본
+   * 자리 번호로 돌아간다. 걸러서 넘기면 3번째 줄을 눌렀는데 5번째 스텝이
+   * 고쳐진다 — 옛 화면이 그렇게 틀렸다.
+   */
+  hide?: (s: TcStep) => boolean
   /** 이 스텝만 실행 */
   onRun?: (i: number) => void
 }
@@ -42,8 +50,10 @@ export default function TcSequence({
   onAdd,
   sessionName,
   runningAt = -1,
+  hide,
   onRun,
 }: Props) {
+  const hidden = hide ? steps.filter(hide).length : 0
   /** 한 줄 요약. 접속 계열은 세션 이름이 곧 내용이라 여기서 붙인다. */
   const summary = (s: TcStep) => {
     const k = s.kind || 'cli'
@@ -65,14 +75,19 @@ export default function TcSequence({
     <div className="sq">
       <div className="sq-scroll">
         <div className="sq-list">
-        {steps.length === 0 ? (
+        {steps.length - hidden === 0 ? (
           <div className="empty">
-            아직 스텝이 없습니다.
+            아직 자동 스텝이 없습니다.
             <br />
-            <span className="muted small">아래에서 종류를 골라 추가하세요.</span>
+            <span className="muted small">
+              {hidden > 0
+                ? `수동 스텝 ${hidden}개는 「Manual Step」 탭에 있습니다.`
+                : '아래에서 종류를 골라 추가하세요.'}
+            </span>
           </div>
         ) : (
           steps.map((s, i) => {
+            if (hide?.(s)) return null
             const info = stepKindInfo(s.kind)
             const st = stat(s)
             const depth = Math.min(Math.max(Number(s.indent) || 0, 0), 4)
@@ -157,6 +172,11 @@ export default function TcSequence({
       {/* 스텝 추가. 마지막 줄 바로 아래에 둔다 — 바닥에 고정하면 스텝이
           적을 때 화면 끝까지 내려가 손이 멀다.
           종류를 여기서 고르므로 왼쪽에 팔레트를 따로 두지 않는다. */}
+      {/* 감춘 것이 있으면 밝힌다. 조용히 빼면 '분명히 만들었는데 없다' 가 된다. */}
+      {hidden > 0 && steps.length - hidden > 0 && (
+        <div className="sq-hidden">수동 스텝 {hidden}개는 「Manual Step」 탭에 있습니다.</div>
+      )}
+
       <details className="sq-add">
         <summary>＋ 스텝</summary>
         <div className="sq-add-list">

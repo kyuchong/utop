@@ -142,8 +142,9 @@ export default function TestCases() {
   }, [fullQ.data])
 
   const steps = (d.checks ?? []) as TcStep[]
-  /** 수동 절차 몇 개인가. 탭에 숫자를 달아 두면 있는지 없는지 눌러보지 않아도 안다 */
+  /** 탭에 숫자를 달아 두면 있는지 없는지 눌러보지 않아도 안다 */
   const manualCount = steps.filter((s) => s.kind === 'manual').length
+  const autoCount = steps.length - manualCount
   /**
    * 이 TC 가 쓰는 세션. 자료에는 `sessions: ["dev-…"]` 처럼 장비 id 배열이
    * 들어 있고, 스텝의 session 은 그 배열의 자리 번호다.
@@ -488,7 +489,7 @@ export default function TestCases() {
                 onClick={() => setTab(k)}
               >
                 {label}
-                {k === 'steps' && steps.length > 0 && <span className="cnt">{steps.length}</span>}
+                {k === 'steps' && autoCount > 0 && <span className="cnt">{autoCount}</span>}
                 {k === 'manual' && manualCount > 0 && <span className="cnt">{manualCount}</span>}
               </button>
             ))}
@@ -696,6 +697,8 @@ export default function TestCases() {
                   onAdd={addStep}
                   sessionName={sessionName}
                   runningAt={runAt}
+                  // 수동 스텝은 여기 안 나온다. 별개 탭이다.
+                  hide={(s) => s.kind === 'manual'}
                   onRun={running ? undefined : (i) => void doRun(i, true)}
                 />
               )}

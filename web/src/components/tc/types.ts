@@ -269,18 +269,22 @@ export const STEP_KINDS: Array<{
   { k: 'model', label: 'Model', group: 'etc', icon: 'chip', hidden: true },
   { k: 'comment', label: 'Comment', group: 'etc', icon: 'note' },
   { k: 'message', label: 'Message', group: 'etc', icon: 'note' },
-  { k: 'manual', label: 'Manual', group: 'etc', icon: 'hand' },
-  // 접속은 맨 뒤로. **안 넣어도 돌아간다** — CLI 스텝이 세션이 없으면
-  // 알아서 연다(runner.ts). 앞에 두면 '이걸 먼저 넣어야 하나' 를 매번
-  // 생각하게 되는데, 실제로 필요한 것은 656스텝 중 15건뿐이다.
+  // 수동 스텝은 Manual Step 탭에서 만든다. Automation 의 「+ 스텝」 에
+  // 두면 같은 것을 두 군데서 만들게 되고, 어느 탭 것인지 헷갈린다.
+  { k: 'manual', label: 'Manual', group: 'etc', icon: 'hand', hidden: true },
+  // 접속은 「+ 스텝」 에 안 내놓는다. **안 넣어도 돌아간다** — CLI 스텝이
+  // 세션이 없으면 알아서 연다(runner.ts). 내놓으면 '이걸 먼저 넣어야 하나'
+  // 를 매번 생각하게 되는데, 실제로 쓰는 것은 656스텝 중 31건뿐이다.
   //
-  // 그래도 남기는 이유: 로그인 과정 자체를 시험하거나(배너·계정 실패),
-  // 재부팅 뒤 다시 붙는 시점을 못박아야 하는 시험이 있다.
+  // 종류 자체를 지우지는 않는다. 이미 저장된 31건이 있고, 지우면 그 줄의
+  // Action 칸이 빈 채로 떠서 다른 칸을 고치는 순간 조용히 다른 종류가 된다.
+  // 로그인 과정 자체를 시험하거나(배너·계정 실패) 재부팅 뒤 다시 붙는
+  // 시점을 못박아야 하는 시험은 그 31건이 계속 쓴다.
   //
   // 'Close' 라고 적어 뒀더니 Connect 의 짝으로 안 읽혔다. 저장되는 값은
   // 그대로 두고 이름만 짝에 맞춘다.
-  { k: 'connect', label: 'Connect', group: 'conn', icon: 'plug' },
-  { k: 'disconnect', label: 'Disconnect', group: 'conn', icon: 'unplug' },
+  { k: 'connect', label: 'Connect', group: 'conn', icon: 'plug', hidden: true },
+  { k: 'disconnect', label: 'Disconnect', group: 'conn', icon: 'unplug', hidden: true },
 ]
 
 const KIND_MAP = new Map(STEP_KINDS.map((x) => [x.k, x]))

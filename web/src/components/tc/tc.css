@@ -344,21 +344,20 @@
   padding: 6px 10px;
 }
 
+/* 박스 안에 들었으므로 입력칸은 테두리를 갖지 않는다 — 박스 안에 박스가
+   생기면 어디까지가 한 칸인지 안 읽힌다. */
 .mn-row textarea {
   width: 100%;
-  border: 1px solid var(--c-border-soft);
-  border-radius: var(--radius-sm);
-  padding: 5px 7px;
+  border: 0;
+  background: none;
+  padding: 1px 1px 2px;
   font: inherit;
   font-size: var(--fs-sm);
   line-height: 1.6;
   resize: vertical;
 }
 
-.mn-row textarea:focus {
-  outline: none;
-  border-color: var(--c-primary);
-}
+.mn-row textarea:focus { outline: none; }
 
 /* 이 탭 안의 번호와 전체 스텝 번호를 함께 적는다. 하나만 적으면 스텝 탭에서
    같은 줄을 못 찾는다. */
@@ -373,7 +372,21 @@
 
 .mn-n small { font-weight: 400; font-size: 10px; color: var(--c-text-faint); }
 
-.mn-cell { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+/* 칸 하나가 곧 박스다. 글과 사진이 **한 박스 안에** 있어야 'Test Data 는
+   이것' 으로 읽힌다. 전에는 입력칸에만 테두리가 있어서 사진이 박스 밖
+   아래에 따로 붙어 보였다. */
+.mn-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  padding: 5px 6px;
+}
+
+.mn-cell:focus-within { border-color: var(--c-primary); }
 
 /* 사진 상자. 오른쪽 아래 모서리를 끌어 크기를 맞춘다 —
    브라우저가 만들어 주는 손잡이라 따로 그릴 것이 없다.
@@ -385,7 +398,6 @@
   min-width: 70px;
   max-width: 100%;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--c-border-soft);
   /* 손잡이가 사진에 가려 안 보이지 않게 아래를 조금 비운다 */
   padding-bottom: 9px;
   background: var(--c-surface-alt);

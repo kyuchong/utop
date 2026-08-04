@@ -1061,3 +1061,14 @@
 .modal.sa .modal-foot { gap: 6px; }
 
 .sd-narrow2 { flex: 0 0 96px; }
+
+/* 이 목록에서 감춘 줄이 있다는 것을 밝힌다. 조용히 빼면 '분명히 만들었는데
+   없다' 가 된다 — 옛 화면이 656스텝 중 649를 그렇게 감췄다. */
+.sq-hidden {
+  margin: 4px 8px 0;
+  padding: 5px 9px;
+  border-radius: var(--tc-r);
+  background: var(--tc-bg);
+  color: var(--c-text-faint);
+  font-size: var(--fs-xs);
+}
