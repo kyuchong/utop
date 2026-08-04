@@ -355,18 +355,37 @@ async function runOne(
     const path = kind === 'connect' ? '/api/session-open' : '/api/session-close'
     const r = await post(path, kind === 'connect' ? { ...conn, fast: true } : conn, ctx.signal)
     const ok = !!r.ok
+    const out = String(r.login_log ?? r.error ?? '')
     const text = ok
       ? `${deviceLabel(dev)} ${kind === 'connect' ? '접속' : '해제'}${r.prompt ? ` · ${String(r.prompt).trim()}` : ''}`
       : `${deviceLabel(dev)} ${kind === 'connect' ? '접속' : '해제'} 실패 — ${String(r.error ?? '')}`
+
+    /**
+     * 판정기준을 적었으면 로그인 로그에도 대 본다.
+     *
+     * 3열에는 Expected 칸을 띄워 놓고 실행기는 안 보고 있었다 — 적어 둔
+     * 기준이 조용히 무시되면 '봤다고 생각한 것' 을 안 보게 된다.
+     * 접속 자체가 실패하면 기준을 볼 것도 없이 불합격이다.
+     */
+    const hasCrit = !!String(step.criteria ?? step.expected ?? '').trim()
+    const j =
+      ok && hasCrit
+        ? judge(step, out || text, vars)
+        : { verdict: (ok ? 'Pass' : 'Fail') as Verdict, reason: ok ? '' : String(r.error ?? '') }
+
     ctx.onStep(i, {
-      output: String(r.login_log ?? r.error ?? text),
+      output: out || text,
       executed_at: at,
-      status: ok ? 'PASS' : 'FAIL',
-      repeatResult: ok ? 'Pass' : 'Fail',
-      reason: ok ? '' : String(r.error ?? ''),
+      status: j.verdict ? j.verdict.toUpperCase() : '',
+      repeatResult: j.verdict,
+      reason: j.reason,
     })
-    ctx.onLog({ i, text, kind: ok ? 'pass' : 'fail' })
-    return ok ? 'Pass' : 'Fail'
+    ctx.onLog({
+      i,
+      text: `${text}${j.reason ? ` — ${j.reason}` : ''}`,
+      kind: j.verdict === 'Pass' ? 'pass' : j.verdict === 'Fail' ? 'fail' : 'info',
+    })
+    return j.verdict
   }
 
   // cli · instrument · manual · auto — 명령을 보내는 것들
