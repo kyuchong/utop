@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi } from '@/api/client'
 import {
   buildCategoryTree,
@@ -45,7 +45,10 @@ function reqFolder(r: Requirement): string | null {
  * 들어간다. 그래서 층이 셋이다.
  */
 export default function TcTree({ tcs, openId, onOpen, paramKey, onOpenParam }: Props) {
+  const qc = useQueryClient()
   const [q, setQ] = useState('')
+  /** 파라미터 파일 새로 만들기 — 이름을 적는 중인가 */
+  const [newParam, setNewParam] = useState<string | null>(null)
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('utop.tctree.open') || '[]')
@@ -72,6 +75,42 @@ export default function TcTree({ tcs, openId, onOpen, paramKey, onOpenParam }: P
       return (await r.json()) as Record<string, unknown>
     },
     staleTime: 60_000,
+  })
+
+  /**
+   * 등록된 장비의 모델.
+   *
+   * 파일 이름을 손으로만 치게 두면 오타 난 이름이 생기고, 그 파일은 어느
+   * TC 에도 안 붙는다 — 파일 이름이 곧 모델명이라 한 글자만 틀려도 못 만난다.
+   * 고를 수 있게 해 둔다.
+   */
+  const devQ = useQuery({
+    queryKey: ['devices2'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/devices2')
+      if (!r.ok) throw new Error('장비를 불러오지 못했습니다')
+      return (await r.json()) as { devices?: Array<{ model?: string | null }> }
+    },
+    staleTime: 60_000,
+  })
+
+  const addParamM = useMutation({
+    mutationFn: async (name: string) => {
+      const cur = (gpQ.data ?? {}) as Record<string, unknown>
+      if (cur[name] !== undefined) return name
+      const r = await apiFetch('/api/global-params', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...cur, [name]: [] }),
+      })
+      if (!r.ok) throw new Error('만들지 못했습니다')
+      return name
+    },
+    onSuccess: (name) => {
+      setNewParam(null)
+      void qc.invalidateQueries({ queryKey: ['global-params'] })
+      onOpenParam(name)
+    },
   })
 
   const reqQ = useQuery({
@@ -271,6 +310,14 @@ export default function TcTree({ tcs, openId, onOpen, paramKey, onOpenParam }: P
     )
   }
 
+  /** 아직 파일이 없는 장비 모델 — 고를 수 있게 */
+  const models = (() => {
+    const d = (gpQ.data ?? {}) as Record<string, unknown>
+    const s = new Set<string>()
+    for (const x of devQ.data?.devices ?? []) if (x.model && d[x.model] === undefined) s.add(x.model)
+    return [...s].sort()
+  })()
+
   /** 파일 목록. 공통이 늘 맨 위고, 없어도 자리는 있다 */
   const paramFiles = (() => {
     const d = gpQ.data ?? {}
@@ -321,7 +368,53 @@ export default function TcTree({ tcs, openId, onOpen, paramKey, onOpenParam }: P
             </span>
             <b className="rt-fname">Global Parameter</b>
             <span className="rt-cnt">{paramFiles.length}</span>
+            {/* 새 파일. 폴더 줄에 둬야 '여기 아래에 만든다' 가 읽힌다 */}
+            <button
+              type="button"
+              className="tt-add"
+              title="파라미터 파일 만들기"
+              onClick={(e) => {
+                e.stopPropagation()
+                setOpenIds((s) => new Set(s).add('__params__'))
+                setNewParam('')
+              }}
+            >
+              ＋
+            </button>
           </div>
+
+          {newParam !== null && (
+            <div className="rt-add" style={{ paddingLeft: 22 }}>
+              {/* 모델명을 고르거나 직접 친다. datalist 라 둘 다 된다 */}
+              <input
+                autoFocus
+                list="tt-models"
+                value={newParam}
+                placeholder="모델명 (예: E4320-24TX)"
+                onChange={(e) => setNewParam(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newParam.trim()) addParamM.mutate(newParam.trim())
+                  if (e.key === 'Escape') setNewParam(null)
+                }}
+              />
+              <datalist id="tt-models">
+                {models.map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+              <button
+                className="btn small primary"
+                type="button"
+                disabled={!newParam.trim() || addParamM.isPending}
+                onClick={() => newParam.trim() && addParamM.mutate(newParam.trim())}
+              >
+                만들기
+              </button>
+              <button className="btn small" type="button" onClick={() => setNewParam(null)}>
+                취소
+              </button>
+            </div>
+          )}
           {isOpen('__params__') &&
             paramFiles.map((k) => (
               <button

@@ -1324,3 +1324,19 @@
 }
 
 .tt-param .tt-tc-nm { font-family: var(--font-mono); font-size: var(--fs-xs); }
+
+/* 폴더 줄의 ＋ — 평소엔 흐리게, 그 줄에 왔을 때만 */
+.tt-add {
+  border: 0;
+  background: none;
+  color: var(--c-text-faint);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0;
+}
+
+.tt-fixed .rt-fold:hover .tt-add { opacity: 1; }
+.tt-add:hover { background: var(--c-surface); color: var(--c-primary); }
