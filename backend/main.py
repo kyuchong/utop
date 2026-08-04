@@ -50,7 +50,7 @@ app = FastAPI(title="NetTest Automation")
 # 응답 gzip 압축 (>= 500 bytes 자동) — JSON 은 압축률 매우 높음. 브라우저는 자동으로 Accept-Encoding: gzip 보냄.
 # 단, SSE 스트리밍 경로는 gzip 대상에서 제외 — gzip 은 청크를 버퍼링해서 한꺼번에 flush 하므로 스트리밍이 죽음.
 # 스트리밍 경로는 요청 시 Accept-Encoding 헤더를 서버 진입 직전에 제거해 GZipMiddleware 가 skip 하도록 유도한다.
-_SSE_PATH_PREFIXES = ("/api/chat/local/stream", "/api/dify/chat", "/api/chat/stream", "/api/jira/ask-stream", "/api/run-cli-stream")
+_SSE_PATH_PREFIXES = ("/api/chat/local/stream", "/api/dify/chat", "/api/chat/stream", "/api/jira/ask-stream", "/api/run-cli-stream", "/api/ping-stream")
 
 @app.middleware("http")
 async def _disable_gzip_for_sse(request, call_next):
@@ -4740,6 +4740,81 @@ def session_close(payload: dict):
         ent["conn"] = None
         ent["ts"] = 0.0
         return {"ok": True}
+
+@app.post("/api/ping-stream")
+async def ping_stream(payload: dict):
+    """ping 을 줄 단위로 흘려보낸다 (SSE).
+
+    `/api/ping` 은 다 끝난 뒤 한 번에 준다. 재부팅 시험에서는 그게 쓸모가
+    없다 — '안 되고… 안 되고… 됐다' 가 실시간으로 보여야 언제 살아났는지
+    안다. 4번을 다 기다린 뒤 결과만 보면 그 순간을 놓친다.
+
+    subprocess 를 asyncio 로 띄워 stdout 을 한 줄씩 읽어 보낸다.
+    """
+    from fastapi.responses import StreamingResponse
+    import json as _jp
+
+    host = (payload.get("host") or "").strip()
+    try:
+        count = max(1, min(60, int(payload.get("count", 4) or 4)))
+    except Exception:
+        count = 4
+
+    def _sse(obj):
+        return "data: " + _jp.dumps(obj, ensure_ascii=False) + "\n\n"
+
+    async def _gen():
+        if not host:
+            yield _sse({"err": "대상 IP 가 없습니다"})
+            yield _sse({"done": True, "alive": False})
+            return
+        # -c 는 리눅스. 컨테이너 안에서만 도므로 윈도우 분기는 두지 않는다.
+        proc = None
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "ping", "-c", str(count), "-W", "2", host,
+                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT,
+            )
+        except FileNotFoundError:
+            yield _sse({"err": "이미지에 ping 이 없습니다"})
+            yield _sse({"done": True, "alive": False})
+            return
+        except Exception as e:
+            yield _sse({"err": str(e)[:300]})
+            yield _sse({"done": True, "alive": False})
+            return
+
+        try:
+            assert proc.stdout is not None
+            while True:
+                # ping -c N 은 대략 N초가 걸린다. 넉넉히 잡되 영영 매달리지는
+                # 않게 한 줄마다 상한을 둔다.
+                try:
+                    line = await asyncio.wait_for(proc.stdout.readline(), timeout=count + 20)
+                except asyncio.TimeoutError:
+                    yield _sse({"err": "응답이 너무 늦습니다"})
+                    break
+                if not line:
+                    break
+                yield _sse({"o": line.decode("utf-8", "replace")})
+            rc = await proc.wait()
+        except Exception as e:
+            print(f"[ping_stream] 읽기 실패: {e}", flush=True)
+            rc = 1
+        finally:
+            try:
+                if proc and proc.returncode is None:
+                    proc.kill()
+            except Exception as e:
+                print(f"[ping_stream] 정리 실패: {e}", flush=True)
+        yield _sse({"done": True, "alive": rc == 0})
+
+    return StreamingResponse(
+        _gen(),
+        media_type="text/event-stream",
+        headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache", "Content-Encoding": "identity"},
+    )
+
 
 @app.post("/api/ping")
 def ping_host(payload: dict):

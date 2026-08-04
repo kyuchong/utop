@@ -67,6 +67,58 @@ async function post(path: string, body: unknown, signal: AbortSignal) {
   return (await r.json()) as Record<string, unknown>
 }
 
+/**
+ * SSE 를 읽어 오는 대로 넘긴다.
+ *
+ * cli 와 ping 이 같은 모양으로 받는다 — `{cmd}` `{o}` `{err}` `{done}`.
+ * 다 모아 한 번에 보여주면 긴 명령이나 ping 4번 동안 화면이 멈춘 것처럼
+ * 보이고, 장비가 느린 건지 걸린 건지 알 수가 없다.
+ */
+async function readSse(
+  path: string,
+  body: unknown,
+  signal: AbortSignal,
+  on: (e: { cmd?: string; o?: string; err?: string; done?: boolean; alive?: boolean }) => void,
+): Promise<void> {
+  const res = await apiFetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal,
+  })
+  if (!res.ok || !res.body) throw new Error(`스트리밍 실패 (${res.status})`)
+  const reader = res.body.getReader()
+  const dec = new TextDecoder()
+  let buf = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buf += dec.decode(value, { stream: true })
+    let cut: number
+    while ((cut = buf.indexOf('\n\n')) >= 0) {
+      const evt = buf.slice(0, cut)
+      buf = buf.slice(cut + 2)
+      if (!evt.startsWith('data: ')) continue
+      try {
+        on(JSON.parse(evt.slice(6)))
+      } catch {
+        /* 깨진 조각은 버린다 — 다음 이벤트가 온다 */
+      }
+    }
+  }
+}
+
+/** 화면을 너무 자주 고치지 않게 짧게 모아 내보낸다 */
+function throttled(send: (s: string) => void) {
+  let last = 0
+  return (text: string, force = false) => {
+    const now = Date.now()
+    if (!force && now - last < 80) return
+    last = now
+    send(text)
+  }
+}
+
 /** 스텝이 쓰는 장비. 자리가 비었거나 없는 장비면 이유를 돌려준다. */
 function deviceOf(ctx: RunCtx, step: TcStep): { dev?: Device; error?: string } {
   const k = sessionIndex(step.session)
@@ -177,10 +229,53 @@ async function runOne(
       version: step.snmpVersion || undefined,
       port: step.snmpPort || undefined,
     }
+    // ping 만 스트리밍이다. SNMP 는 한 번 물어 한 번 받는 것이라 나눌 것이
+    // 없다. ping 은 1초에 하나씩 나오므로 그때그때 보여야 한다 —
+    // 재부팅 시험에서 '언제 살아났나' 가 바로 그 줄에 있다.
+    if (kind === 'ping') {
+      let acc = ''
+      let alive = false
+      let perr = ''
+      const flush = throttled((s) => ctx.onStep(i, { output: s, executed_at: at }))
+      try {
+        await readSse('/api/ping-stream', { host, count: step.pingCount ?? 4 }, ctx.signal, (e) => {
+          if (e.o != null) {
+            acc += e.o
+            flush(acc)
+          } else if (e.err) perr = e.err
+          if (e.done) alive = !!e.alive
+        })
+      } catch (e) {
+        if (e instanceof DOMException && e.name === 'AbortError') throw e
+        perr = e instanceof Error ? e.message : String(e)
+      }
+      flush(acc || `[오류] ${perr}`, true)
+
+      Object.assign(vars, extractVars(step, acc))
+      const hasCrit = !!String(step.criteria ?? step.expected ?? '').trim()
+      const j = hasCrit
+        ? judge(step, acc, vars)
+        : {
+            verdict: (alive ? 'Pass' : 'Fail') as Verdict,
+            reason: alive ? '' : perr || '응답 없음',
+          }
+      ctx.onStep(i, {
+        output: acc || `[오류] ${perr}`,
+        executed_at: at,
+        status: j.verdict ? j.verdict.toUpperCase() : '',
+        repeatResult: j.verdict,
+        reason: j.reason,
+      })
+      ctx.onLog({
+        i,
+        text: `${host} ping${j.reason ? ` — ${j.reason}` : alive ? ' — 응답 있음' : ''}`,
+        kind: j.verdict === 'Pass' ? 'pass' : j.verdict === 'Fail' ? 'fail' : 'info',
+      })
+      return j.verdict
+    }
+
     const [path, body] =
-      kind === 'ping'
-        ? ['/api/ping', { host, count: step.pingCount ?? 4 }]
-        : kind === 'snmp_get'
+      kind === 'snmp_get'
           ? ['/api/snmp-get', snmp]
           : kind === 'snmp_set'
             ? ['/api/snmp-set', { ...snmp, value: subVars(String(step.snmpValue ?? ''), vars), type: step.snmpType || undefined }]
@@ -199,8 +294,7 @@ async function runOne(
     // 판정기준을 안 적었으면 '됐나 안 됐나' 로 본다 — ping 은 그것만으로
     // 충분한 경우가 대부분이다.
     const hasCriteria = !!String(step.criteria ?? step.expected ?? '').trim()
-    const okByItself =
-      kind === 'ping' ? !!r.alive : kind === 'snmp_trap' ? !!r.trap : !!r.ok
+    const okByItself = kind === 'snmp_trap' ? !!r.trap : !!r.ok
     const j = hasCriteria
       ? judge(step, output, vars)
       : { verdict: (okByItself ? 'Pass' : 'Fail') as Verdict, reason: okByItself ? '' : String(r.error ?? '응답 없음') }
@@ -254,34 +348,42 @@ async function runOne(
     return ''
   }
 
-  const body = { ...conn, commands, repeat: 1, interval: 1, cmd_delay: 100, require_session: true }
-  let r = await post('/api/run-cli', body, ctx.signal)
-  if (r.no_session) {
-    // Connect 스텝 없이 한 줄만 돌려보는 일이 잦다. 세션이 없으면 열고 한 번
-    // 더 시도한다 — require_session 을 빼면 매 스텝마다 새로 접속해서
-    // enable 도 config 모드도 그때그때 풀린다.
-    ctx.onLog({ i, text: `${deviceLabel(dev)} 세션을 엽니다`, kind: 'info' })
-    const open = await post('/api/session-open', { ...conn, fast: true }, ctx.signal)
-    if (!open.ok) {
-      const err = `접속 실패 — ${String(open.error ?? '')}`
-      ctx.onStep(i, { output: `[오류] ${err}`, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: err })
-      ctx.onLog({ i, text: err, kind: 'fail' })
-      return 'Fail'
-    }
-    r = await post('/api/run-cli', body, ctx.signal)
+  /**
+   * 응답을 SSE 로 받아 오는 대로 그 줄에 쌓는다.
+   *
+   * 전에는 다 끝난 뒤 한 번에 넣었다. `show running-config` 처럼 긴 명령은
+   * 몇 초 동안 화면이 멈춘 것처럼 보이고, 장비가 느리게 뱉는 중인지 아니면
+   * 걸린 것인지 알 수가 없었다. 이제 나오는 대로 보인다.
+   *
+   * 세션은 백엔드가 알아서 잡는다 — `require_session` 이어도 conn 이 없으면
+   * `_ensure_conn` 으로 열고, 못 열 때만 err 를 보낸다.
+   */
+  const body = { ...conn, commands, require_session: true }
+  let acc = ''
+  let err = ''
+  const flush = throttled((s) => ctx.onStep(i, { output: s, executed_at: at }))
+  try {
+    await readSse('/api/run-cli-stream', body, ctx.signal, (e) => {
+      if (e.cmd != null) {
+        // 명령이 여러 개면 어디까지 갔는지 보여야 한다
+        if (commands.length > 1) ctx.onLog({ i, text: `▸ ${e.cmd}`, kind: 'info' })
+        acc += (acc ? '\n' : '') + `$ ${e.cmd}`
+        flush(acc, true)
+      } else if (e.o != null) {
+        acc += e.o
+        flush(acc)
+      } else if (e.err) {
+        err = e.err
+      }
+    })
+    flush(acc, true)
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e
+    err = e instanceof Error ? e.message : String(e)
   }
 
-  const outputs = Array.isArray(r.outputs) ? (r.outputs as unknown[]) : []
-  const output = outputs.length
-    ? outputs
-        .map((o) =>
-          typeof o === 'string' ? o : String((o as Record<string, unknown>)?.output ?? ''),
-        )
-        .join('\n')
-    : String(r.output ?? r.error ?? '')
-
-  if (!r.ok && !output.trim()) {
-    const err = String(r.error ?? '실행 실패')
+  const output = acc
+  if (err && !output.trim()) {
     ctx.onStep(i, { output: `[오류] ${err}`, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: err })
     ctx.onLog({ i, text: err, kind: 'fail' })
     return 'Fail'

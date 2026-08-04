@@ -439,7 +439,12 @@ export default function TestCases() {
           sessions: sessionIds,
           devById,
           onStep: patchStep,
-          onAt: setRunAt,
+          // 돌고 있는 줄을 따라간다. 3열이 그 줄의 응답이 자라는 것을
+          // 보여주므로, 안 따라가면 스트리밍이 보이지 않는다.
+          onAt: (i) => {
+            setRunAt(i)
+            setStepIdx(i)
+          },
           onLog: (l) => setRunLog((v) => [...v.slice(-400), l]),
           signal: ac.signal,
         },

@@ -3,7 +3,7 @@
 
 # API Reference
 
-총 라우트 수: **273** (그룹 82개)
+총 라우트 수: **274** (그룹 83개)
 
 `auth` 컬럼은 endpoint 시그니처에서 감지한 인증/권한 의존성 이름 (best-effort).
 
@@ -453,6 +453,12 @@
 | method | path | summary | auth |
 |---|---|---|---|
 | POST | `/api/ping` |  |  |
+
+## `/api/ping-stream` (1개)
+
+| method | path | summary | auth |
+|---|---|---|---|
+| POST | `/api/ping-stream` | ping 을 줄 단위로 흘려보낸다 (SSE). |  |
 
 ## `/api/procedures` (4개)
 
