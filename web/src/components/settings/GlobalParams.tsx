@@ -61,6 +61,14 @@ export default function GlobalParams({ only }: Props) {
   const [emptyGroups, setEmptyGroups] = useState<string[]>([])
   /** 접힌 그룹 */
   const [shut, setShut] = useState<Set<string>>(new Set())
+  /**
+   * 이름을 고치는 중인 그룹.
+   *
+   * 글자마다 경로를 갈아치우면 'AB' 를 치는 사이 'A' 라는 그룹이 잠깐
+   * 생기고, 그 이름이 이미 있으면 거기로 합쳐져 버린다. 다 치고 나서
+   * (Enter·포커스 아웃) 한 번에 바꾼다.
+   */
+  const [editing, setEditing] = useState<{ path: string; text: string } | null>(null)
 
   const q = useQuery({
     queryKey: ['global-params'],
@@ -177,6 +185,21 @@ export default function GlobalParams({ only }: Props) {
 
   const groups = childGroups('')
 
+  /**
+   * 겹치지 않는 새 그룹 이름.
+   *
+   * 늘 '새 그룹' 으로 만들었더니 두 번째부터 같은 경로가 되어 하나로
+   * 합쳐졌다 — 그룹은 경로로만 존재하기 때문이다.
+   */
+  const freshGroup = (base: string) => {
+    const used = new Set(childGroups(base))
+    if (!used.has('새 그룹')) return (base ? base + '/' : '') + '새 그룹'
+    for (let n = 2; n < 500; n++) {
+      if (!used.has(`새 그룹 ${n}`)) return (base ? base + '/' : '') + `새 그룹 ${n}`
+    }
+    return (base ? base + '/' : '') + `새 그룹 ${Date.now()}`
+  }
+
   const add = (group: string) =>
     setRows([...cur, { group, name: '', value: '', desc: '' }])
   const del = (i: number) => setRows(cur.filter((_, j) => j !== i))
@@ -195,6 +218,11 @@ export default function GlobalParams({ only }: Props) {
     const parent = g.includes('/') ? g.slice(0, g.lastIndexOf('/')) : ''
     const next = (parent ? parent + '/' : '') + name.trim()
     if (!name.trim() || next === g) return
+    // 형제 중에 같은 이름이 있으면 두 그룹이 조용히 하나가 된다
+    if (childGroups(parent).includes(name.trim())) {
+      setMsg(`「${name.trim()}」 은 이미 있습니다`)
+      return
+    }
     setRows(
       cur.map((r) => {
         const cp = path(r)
@@ -273,8 +301,22 @@ export default function GlobalParams({ only }: Props) {
                 </button>
                 <input
                   className="gp-gname"
-                  value={g}
-                  onChange={(e) => renameGroup(full, e.target.value)}
+                  value={editing?.path === full ? editing.text : g}
+                  onFocus={() => setEditing({ path: full, text: g })}
+                  onChange={(e) =>
+                    setEditing({ path: full, text: e.target.value })
+                  }
+                  onBlur={() => {
+                    if (editing?.path === full) renameGroup(full, editing.text)
+                    setEditing(null)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur()
+                    if (e.key === 'Escape') {
+                      setEditing(null)
+                      e.currentTarget.blur()
+                    }
+                  }}
                 />
                 <span className="gp-n">{n || ''}</span>
                 <button
@@ -289,7 +331,7 @@ export default function GlobalParams({ only }: Props) {
                   type="button"
                   className="gp-op"
                   title="이 그룹 아래에 그룹"
-                  onClick={() => setEmptyGroups((s) => [...s, full + '/새 그룹'])}
+                  onClick={() => setEmptyGroups((s) => [...s, freshGroup(full)])}
                 >
                   ＋ 하위
                 </button>
@@ -388,7 +430,7 @@ export default function GlobalParams({ only }: Props) {
             <button
               className="btn small"
               type="button"
-              onClick={() => setEmptyGroups((s) => [...s, '새 그룹'])}
+              onClick={() => setEmptyGroups((s) => [...s, freshGroup('')])}
             >
               ＋ 그룹
             </button>
