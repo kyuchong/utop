@@ -1340,3 +1340,22 @@
 
 .tt-fixed .rt-fold:hover .tt-add { opacity: 1; }
 .tt-add:hover { background: var(--c-surface); color: var(--c-primary); }
+
+/* 지금 값이 무엇이 되는가.
+   ${업링크} 라고 적어 두면 돌려보기 전에는 무엇으로 나갈지 알 수 없고,
+   이름을 잘못 적었을 때도 실행할 때 가서야 안다. 바로 아래 보여준다. */
+.sd-prev {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+
+.sd-prev code {
+  font-family: var(--font-mono);
+  background: #eef6ef;
+  color: #2f7d4f;
+  border-radius: 3px;
+  padding: 1px 5px;
+  word-break: break-all;
+}

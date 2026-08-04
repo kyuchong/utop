@@ -59,7 +59,9 @@ export function useGlobalParams(model?: string, override?: string) {
         items.push({
           value: `\${${name}}`,
           label: name,
-          note: [p.value, p.desc || p.group, from].filter(Boolean).join(' · '),
+          // 그룹 경로를 함께 보인다 — 파일 안이 여러 단계로 나뉘면 이름만
+          // 봐서는 어느 것인지 모른다
+          note: [p.group, p.desc, from].filter(Boolean).join(' · '),
         })
       }
     }

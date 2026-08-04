@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { IconIndent, IconOutdent } from '../icons'
-import { JUDGE_TYPES } from './judge'
+import { JUDGE_TYPES, subVars } from './judge'
 import PickList, { type PickItem } from './PickList'
 import { useGlobalParams } from './useGlobalParams'
 import {
@@ -58,7 +58,8 @@ export default function TcStepDetail({
 }: Props) {
   const [picked, setPicked] = useState('')
   /** 지금 열려 있는 고르기 목록 — 어느 칸에 넣을지까지 담는다 */
-  const [pick, setPick] = useState<'' | 'oid' | 'param-cli' | 'param-crit'>('')
+  /** 어느 칸에 넣을 목록을 열어 두었나 */
+  const [pick, setPick] = useState('')
   const [oidQ, setOidQ] = useState('')
 
   const gp = useGlobalParams(model)
@@ -98,12 +99,60 @@ export default function TcStepDetail({
     )
   }
 
-  /** 고른 것을 칸에 넣는다. 커서 자리를 모르므로 뒤에 붙인다. */
-  const put = (field: 'cli' | 'criteria' | 'oid', v: string) => {
-    if (field === 'oid') return onChange({ oid: v })
-    const cur = String((field === 'cli' ? step.cli ?? step.data : step.criteria) ?? '')
-    onChange({ [field]: cur ? `${cur}${cur.endsWith(' ') ? '' : ' '}${v}` : v })
+  /**
+   * 파라미터 넣기 단추 + 목록.
+   *
+   * 칸마다 따로 짜면 어떤 칸에는 있고 어떤 칸에는 없게 된다 — 실제로
+   * 명령과 Expected 에만 있었다. 한 군데서 만들어 필요한 칸에 건다.
+   */
+  const paramPick = (field: keyof TcStep, key: string) => ({
+    btn: (
+      <button
+        type="button"
+        className="sd-pickbtn"
+        title="전역 파라미터 넣기"
+        onClick={() => setPick(pick === key ? '' : key)}
+      >
+        {'${ } 파라미터'}
+      </button>
+    ),
+    list:
+      pick === key ? (
+        <PickList
+          title="전역 파라미터"
+          items={gp.items}
+          loading={gp.loading}
+          empty={gp.empty}
+          onClose={() => setPick('')}
+          onPick={(x) => {
+            const cur = String(step[field] ?? '')
+            onChange({
+              [field]: cur ? `${cur}${cur.endsWith(' ') ? '' : ' '}${x.value}` : x.value,
+            } as Partial<TcStep>)
+            setPick('')
+          }}
+        />
+      ) : null,
+  })
+
+  /**
+   * 지금 값이 무엇이 되는가.
+   *
+   * `${업링크}` 라고 적어 두면 돌려보기 전에는 무엇으로 나갈지 알 수 없다.
+   * 이름을 잘못 적었을 때도 실행할 때 가서야 안다. 바로 아래 보여준다.
+   */
+  const preview = (text?: string) => {
+    const s = String(text ?? '')
+    if (!s.includes('$')) return null
+    const done = subVars(s, gp.values)
+    if (done === s) return null
+    return (
+      <span className="sd-prev">
+        지금 값 <code>{done.length > 120 ? `${done.slice(0, 120)}…` : done}</code>
+      </span>
+    )
   }
+
 
   const kind = (step.kind || 'cli') as StepKind
   const info = stepKindInfo(kind)
@@ -268,28 +317,9 @@ export default function TcStepDetail({
               {STEP_CONTENT[kind]?.label ?? '보낼 명령'}
               {/* 전역 파라미터를 눌러 넣는다. 손으로 ${이름} 을 치면 오타가
                   나도 실행할 때 가서야 안다. */}
-              <button
-                type="button"
-                className="sd-pickbtn"
-                title="전역 파라미터 넣기"
-                onClick={() => setPick(pick === 'param-cli' ? '' : 'param-cli')}
-              >
-                {'${ } 파라미터'}
-              </button>
+              {paramPick('cli', 'p-cli').btn}
             </span>
-            {pick === 'param-cli' && (
-              <PickList
-                title="전역 파라미터"
-                items={gp.items}
-                loading={gp.loading}
-                empty={gp.empty}
-                onClose={() => setPick('')}
-                onPick={(x) => {
-                  put('cli', x.value)
-                  setPick('')
-                }}
-              />
-            )}
+            {paramPick('cli', 'p-cli').list}
             {/* 여러 줄이다. 실제 자료에 'enable / log session / conf t / epon'
                 처럼 한 스텝에 명령이 여러 개 들어 있다. input 으로 두면
                 고치는 순간 줄바꿈이 사라져 명령이 한 줄로 붙어버린다. */}
@@ -300,6 +330,7 @@ export default function TcStepDetail({
               placeholder="show system information"
               onChange={(e) => onChange({ cli: e.target.value })}
             />
+            {preview(step.cli ?? step.data)}
             {STEP_CONTENT[kind]?.hint && (
               <span className="sd-hint">{STEP_CONTENT[kind]?.hint}</span>
             )}
@@ -310,13 +341,18 @@ export default function TcStepDetail({
             ping 으로 살아나는지 보는 것이 바로 이 스텝의 쓸모다. */}
         {isNet && (
           <label className="sd-f">
-            <span>대상 IP</span>
+            <span className="sd-lab">
+              대상 IP
+              {paramPick('host', 'p-host').btn}
+            </span>
+            {paramPick('host', 'p-host').list}
             <input
               className="mono"
               value={step.host ?? ''}
               placeholder={sessions.length ? '비우면 세션 장비' : '220.1.1.254'}
               onChange={(e) => onChange({ host: e.target.value })}
             />
+            {preview(step.host)}
           </label>
         )}
         {kind === 'ping' && (
@@ -348,7 +384,9 @@ export default function TcStepDetail({
               >
                 🔎 이름으로 찾기
               </button>
+              {paramPick('oid', 'p-oid').btn}
             </span>
+            {paramPick('oid', 'p-oid').list}
             {pick === 'oid' && (
               <PickList
                 title="OID 찾기"
@@ -361,7 +399,7 @@ export default function TcStepDetail({
                 onSearch={setOidQ}
                 onClose={() => setPick('')}
                 onPick={(x) => {
-                  put('oid', x.value)
+                  onChange({ oid: x.value })
                   setPick('')
                 }}
               />
@@ -372,6 +410,7 @@ export default function TcStepDetail({
               placeholder={kind === 'snmp_trap' ? '비우면 아무 Trap' : '1.3.6.1.2.1.1.3.0'}
               onChange={(e) => onChange({ oid: e.target.value })}
             />
+            {preview(step.oid)}
           </label>
         )}
         {kind === 'snmp_set' && (
@@ -384,6 +423,7 @@ export default function TcStepDetail({
                 placeholder="1"
                 onChange={(e) => onChange({ snmpValue: e.target.value })}
               />
+              {paramPick('snmpValue', 'p-sval').btn}
               <select
                 className="sd-narrow2"
                 value={step.snmpType ?? ''}
@@ -396,6 +436,8 @@ export default function TcStepDetail({
                 <option value="a">주소 a</option>
               </select>
             </div>
+            {paramPick('snmpValue', 'p-sval').list}
+            {preview(step.snmpValue)}
           </div>
         )}
         {kind === 'snmp_trap' && (
@@ -445,13 +487,18 @@ export default function TcStepDetail({
         {kind === 'if' && (
           <>
             <label className="sd-f">
-              <span>조건 — 참일 때만 아래 블록을 돈다</span>
+              <span className="sd-lab">
+                조건 — 참일 때만 아래 블록을 돈다
+                {paramPick('condition', 'p-cond').btn}
+              </span>
+              {paramPick('condition', 'p-cond').list}
               <input
                 className="mono"
                 value={step.condition ?? ''}
                 placeholder="${model} == 'U9532H'"
                 onChange={(e) => onChange({ condition: e.target.value })}
               />
+              {preview(step.condition)}
               <span className="sd-hint">
                 쓸 수 있는 것: <b>== != &gt; &lt; &gt;= &lt;= 포함</b>. 앞 스텝에서 뽑은 값은
                 <b> {'${이름}'}</b> 으로 넣는다. 숫자끼리면 숫자로 견준다.
@@ -679,28 +726,9 @@ export default function TcStepDetail({
           <div className="sd-f">
             <span className="sd-lab">
               Expected
-              <button
-                type="button"
-                className="sd-pickbtn"
-                title="전역 파라미터 넣기"
-                onClick={() => setPick(pick === 'param-crit' ? '' : 'param-crit')}
-              >
-                {'${ } 파라미터'}
-              </button>
+              {paramPick('criteria', 'p-crit').btn}
             </span>
-            {pick === 'param-crit' && (
-              <PickList
-                title="전역 파라미터"
-                items={gp.items}
-                loading={gp.loading}
-                empty={gp.empty}
-                onClose={() => setPick('')}
-                onPick={(x) => {
-                  put('criteria', x.value)
-                  setPick('')
-                }}
-              />
-            )}
+            {paramPick('criteria', 'p-crit').list}
             <div className="sd-row">
               <select
                 className="sd-crit"
@@ -725,6 +753,7 @@ export default function TcStepDetail({
                 onChange={(e) => onChange({ criteria: e.target.value })}
               />
             </div>
+            {preview(step.criteria ?? step.expected)}
             {step.type !== 'none' && (
               <span className="sd-hint">
                 대소문자는 안 가립니다. 한 줄에 콤마로 여러 개를 적으면 그 중 하나만
