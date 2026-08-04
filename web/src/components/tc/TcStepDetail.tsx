@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { IconIndent, IconOutdent } from '../icons'
-import { extractOne, JUDGE_TYPES, subVars } from './judge'
+import { evalCondWhy, extractOne, JUDGE_TYPES, subVars } from './judge'
 import PickList, { type PickItem } from './PickList'
 import {
   isNoteKind,
@@ -504,6 +504,17 @@ export default function TcStepDetail({
                 onChange={(e) => onChange({ condition: e.target.value })}
               />
               {preview(step.condition)}
+              {/* 지금 값으로 견주면 어떻게 되는지. 돌려보기 전에 알아야
+                  '늘 참인 조건' 을 안 만든다. */}
+              {String(step.condition ?? '').trim() &&
+                (() => {
+                  const r = evalCondWhy(String(step.condition), gp.values)
+                  return (
+                    <span className={`sd-cond${r.ok ? ' yes' : ' no'}`}>
+                      지금은 <b>{r.ok ? '참' : '거짓'}</b> — {r.why}
+                    </span>
+                  )
+                })()}
               <span className="sd-hint">
                 쓸 수 있는 것: <b>== != &gt; &lt; &gt;= &lt;= 포함</b>. 앞 스텝에서 뽑은 값은
                 <b> {'${이름}'}</b> 으로 넣는다. 숫자끼리면 숫자로 견준다.

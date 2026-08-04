@@ -1482,3 +1482,17 @@
   border-radius: 4px;
   padding: 1px 5px;
 }
+
+/* If 조건이 지금 값으로 어떻게 되는가.
+   돌려보기 전에 알아야 '늘 참인 조건' 을 안 만든다 — `=` 하나만 쓴 식이
+   무조건 참이 되던 때가 그랬다. */
+.sd-cond {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  border-radius: var(--tc-r);
+  padding: 4px 8px;
+}
+
+.sd-cond.yes { background: #eef6ef; color: #2f7d4f; }
+.sd-cond.no { background: #fdf3f3; color: #8a2a2a; }

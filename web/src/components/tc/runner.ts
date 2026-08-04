@@ -1,7 +1,7 @@
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
 import { connParams, CLI_PROTOCOLS, deviceLabel, protocolOf } from './device'
-import { evalCond, extractVars, judge, subVars, type Verdict } from './judge'
+import { evalCondWhy, extractVars, judge, subVars, type Verdict } from './judge'
 import { sessionIndex, stepSummary, type TcStep } from './types'
 
 /**
@@ -518,8 +518,10 @@ export async function runSteps(ctx: RunCtx, from = 0, only = false): Promise<Run
 
       if (kind === 'if') {
         const body = blockEnd(ctx.steps, i)
-        const yes = evalCond(String(s.condition ?? ''), vars)
-        ctx.onLog({ i, text: `조건 ${yes ? '참' : '거짓'} — ${s.condition ?? ''}`, kind: 'info' })
+        const { ok: yes, why } = evalCondWhy(String(s.condition ?? ''), vars)
+        // 무엇과 무엇을 견줘서 그렇게 됐는지 적는다. '조건 참' 만 적혀
+        // 있으면 왜 참인지 다시 짚어야 한다.
+        ctx.onLog({ i, text: `조건 ${yes ? '참' : '거짓'} — ${why}`, kind: yes ? 'info' : 'skip' })
         if (yes) await walk(i + 1, body)
         i = body
         continue

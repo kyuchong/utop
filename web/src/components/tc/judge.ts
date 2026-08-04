@@ -243,14 +243,43 @@ export function extractVars(step: TcStep, output: string): Record<string, string
  * 만들지 않는다.
  */
 export function evalCond(expr: string, vars: Record<string, string>): boolean {
-  const s = subVars(expr ?? '', vars).trim()
-  if (!s) return true
+  return evalCondWhy(expr, vars).ok
+}
 
-  const m = /^(.*?)\s*(==|!=|>=|<=|>|<|포함|contains)\s*(.*)$/.exec(s)
+/**
+ * If 의 조건 · Switch 의 기준값 — 왜 그렇게 됐는지까지.
+ *
+ * 자료에 있는 것은 `${a} == 'x'` 정도의 아주 단순한 식뿐이라 파서를 두지
+ * 않는다. eval 도 쓰지 않는다 — 저장된 문자열이 그대로 실행되는 길을
+ * 만들지 않는다.
+ *
+ * **못 알아들은 식은 거짓이다.** 전에는 '값이 비어 있지 않으면 참' 갈래로
+ * 떨어져서, `${a} = ${b}` 처럼 `=` 를 하나만 쓴 식이 늘 참이 됐다. 조건이
+ * 조용히 늘 참이면 If 를 안 쓴 것과 같은데 화면에는 '조건 참' 이라고
+ * 적히니 알아챌 수가 없다.
+ */
+export function evalCondWhy(
+  expr: string,
+  vars: Record<string, string>,
+): { ok: boolean; why: string } {
+  const raw = String(expr ?? '').trim()
+  if (!raw) return { ok: true, why: '조건이 비어 있어 늘 참입니다' }
+
+  const s = subVars(raw, vars).trim()
+
+  /** 안 바뀐 `${이름}` — 그런 변수가 없다는 뜻이다 */
+  const missing = [...s.matchAll(/\$\{?(\w+)\}?/g)].map((m) => m[1])
+
+  // `=` 하나도 견줌으로 받는다. 사람은 그렇게 쓴다.
+  // `<>` 도 다름으로 받는다(옛 자료·다른 도구 습관).
+  const m = /^(.*?)\s*(==|!=|<>|>=|<=|=|>|<|포함|contains)\s*(.*)$/.exec(s)
   if (!m) {
-    // 식이 아니라 값 하나면 '비어 있지 않은가' 로 본다
-    return !!s && s.toLowerCase() !== 'false' && s !== '0'
+    return {
+      ok: false,
+      why: `견줌으로 읽을 수 없습니다 — == != > < >= <= 포함 중 하나가 있어야 합니다`,
+    }
   }
+
   const strip = (v: string) => v.trim().replace(/^['"]|['"]$/g, '')
   const a = strip(m[1] ?? '')
   const b = strip(m[3] ?? '')
@@ -259,20 +288,37 @@ export function evalCond(expr: string, vars: Record<string, string>): boolean {
   const nb = Number(b)
   const numeric = a !== '' && b !== '' && Number.isFinite(na) && Number.isFinite(nb)
 
+  let ok: boolean
   switch (op) {
-    case '==':
-      return numeric ? na === nb : a.toLowerCase() === b.toLowerCase()
     case '!=':
-      return numeric ? na !== nb : a.toLowerCase() !== b.toLowerCase()
+    case '<>':
+      ok = numeric ? na !== nb : a.toLowerCase() !== b.toLowerCase()
+      break
     case '>':
-      return numeric ? na > nb : a > b
+      ok = numeric ? na > nb : a > b
+      break
     case '<':
-      return numeric ? na < nb : a < b
+      ok = numeric ? na < nb : a < b
+      break
     case '>=':
-      return numeric ? na >= nb : a >= b
+      ok = numeric ? na >= nb : a >= b
+      break
     case '<=':
-      return numeric ? na <= nb : a <= b
+      ok = numeric ? na <= nb : a <= b
+      break
+    case '포함':
+    case 'contains':
+      ok = a.toLowerCase().includes(b.toLowerCase())
+      break
     default:
-      return a.toLowerCase().includes(b.toLowerCase())
+      ok = numeric ? na === nb : a.toLowerCase() === b.toLowerCase()
   }
+
+  // 무엇과 무엇을 견줬는지 적는다. 이것이 없으면 참·거짓만 보고
+  // 왜 그런지 다시 짚어야 한다.
+  const shown = `'${a}' ${op} '${b}'`
+  const warn = missing.length
+    ? ` · ${missing.map((x) => `\${${x}}`).join(', ')} 은 없는 변수라 글자 그대로 견줬습니다`
+    : ''
+  return { ok, why: shown + warn }
 }
