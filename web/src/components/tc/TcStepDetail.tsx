@@ -4,7 +4,6 @@ import { apiFetch } from '@/api/client'
 import { IconIndent, IconOutdent } from '../icons'
 import { JUDGE_TYPES, subVars } from './judge'
 import PickList, { type PickItem } from './PickList'
-import { useGlobalParams } from './useGlobalParams'
 import {
   isNoteKind,
   sessionIndex,
@@ -23,8 +22,8 @@ interface Props {
   total: number
   /** 이 TC 가 쓰는 세션들. 사람이 읽는 이름 배열 (자리 번호가 곧 인덱스) */
   sessions: string[]
-  /** 이 스텝이 붙는 장비의 모델. 그 모델의 전역 파라미터를 함께 보여준다 */
-  model?: string
+  /** 이 TC 에 깔린 전역 파라미터 — 넣는 목록과 '지금 값' 에 쓴다 */
+  params: { values: Record<string, string>; items: PickItem[]; loading: boolean; empty: string }
   onChange: (patch: Partial<TcStep>) => void
   onMove: (dir: -1 | 1) => void
   onRemove: () => void
@@ -49,7 +48,7 @@ export default function TcStepDetail({
   index,
   total,
   sessions,
-  model,
+  params: gp,
   onChange,
   onMove,
   onRemove,
@@ -61,8 +60,6 @@ export default function TcStepDetail({
   /** 어느 칸에 넣을 목록을 열어 두었나 */
   const [pick, setPick] = useState('')
   const [oidQ, setOidQ] = useState('')
-
-  const gp = useGlobalParams(model)
 
   /**
    * MIB 에서 뽑아 둔 OID 이름표.

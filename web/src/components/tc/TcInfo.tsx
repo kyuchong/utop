@@ -20,10 +20,6 @@ interface Props {
   onChange: (patch: Partial<TcData>) => void
   /** 지금 열려 있는 TC. 목적을 뽑아 달라고 할 때 필요하다 */
   tcid: string
-  /** 이 TC 가 붙는 장비 모델 — 파라미터가 자동으로 어느 파일을 쓰는지 */
-  model?: string
-  /** 고를 수 있는 파라미터 파일 */
-  paramFiles?: string[]
 }
 
 /**
@@ -33,7 +29,7 @@ interface Props {
  * 그래서 거기 있던 시험 목적·사전 준비 조건도 여기로 들어온다 — 어느
  * 탭에도 없으면 옛 화면으로 돌아가야 고칠 수 있다.
  */
-export default function TcInfo({ data, onChange, tcid, model, paramFiles = [] }: Props) {
+export default function TcInfo({ data, onChange, tcid }: Props) {
   /**
    * 스텝을 읽고 목적·사전조건을 제안받는다.
    *
@@ -135,33 +131,6 @@ export default function TcInfo({ data, onChange, tcid, model, paramFiles = [] }:
             나란히 둔다 — 한 격자에 섞어 흘려보내면 제목이 셀렉트만큼
             좁아져서 긴 제목을 못 읽는다. */}
         <div className="tc-grid tc-grid-2">
-          {/* iTest 는 parameter file 을 골라 붙인다. 여기서는 안 고르면
-              장비 모델에 맞는 파일이 저절로 붙는다 — 대부분 그것으로 된다.
-              모델과 무관하게 못박아야 할 때만 고른다. */}
-          <label className="fld">
-            <span>파라미터 파일</span>
-            <select
-              value={data.param_file ?? ''}
-              onChange={(e) => onChange({ param_file: e.target.value })}
-            >
-              <option value="">
-                자동{model ? ` — 장비 모델(${model})` : ' — 공통만'}
-              </option>
-              {paramFiles
-                .filter((f) => f !== '__global__')
-                .map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              {/* 지운 파일을 가리키고 있을 수 있다. 자리를 만들지 않으면
-                  다른 칸을 고치는 순간 조용히 '자동' 이 된다. */}
-              {data.param_file && !paramFiles.includes(data.param_file) && (
-                <option value={data.param_file}>{data.param_file} (없는 파일)</option>
-              )}
-            </select>
-          </label>
-
           <label className="fld">
             <span>요구사항</span>
             <input

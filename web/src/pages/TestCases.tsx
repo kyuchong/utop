@@ -7,6 +7,7 @@ import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTree from '@/components/tc/TcTree'
 import TcSessionBar from '@/components/tc/TcSessionBar'
+import TcParamBar from '@/components/tc/TcParamBar'
 import TcTerminal from '@/components/tc/TcTerminal'
 import TcSaveAs from '@/components/tc/TcSaveAs'
 import { useGlobalParams } from '@/components/tc/useGlobalParams'
@@ -216,8 +217,20 @@ export default function TestCases() {
    * 것이 다르다) 어느 모델 것을 쓸지 정해야 한다. 첫 세션의 장비를 쓴다 —
    * 세션이 여럿이어도 시험 대상(DUT)은 보통 첫 자리다.
    */
-  const tcModel = devById.get(sessionIds[0] ?? '')?.model ?? ''
-  const gp = useGlobalParams(tcModel, d.param_file)
+  /**
+   * 이 TC 가 쓰는 파라미터 파일.
+   *
+   * 고른 것이 없으면 안 붙는다 — 전에는 장비 모델과 이름이 같은 파일이
+   * 자동으로 붙었는데, iTest 에 없는 규칙인 데다 아무도 못 알아챘다.
+   * 옛 값(param_file, 하나만 고르던 때)은 읽어서 이어 준다.
+   */
+  const paramFiles = useMemo(() => {
+    const v = d.param_files
+    if (Array.isArray(v)) return v.filter((x) => typeof x === 'string' && x)
+    return d.param_file ? [d.param_file] : []
+  }, [d.param_files, d.param_file])
+
+  const gp = useGlobalParams(paramFiles)
 
   const patch = (p: Partial<TcData>) => {
     setD((c) => ({ ...c, ...p }))
@@ -780,13 +793,7 @@ export default function TestCases() {
           </section>
         ) : tab === 'info' ? (
           <section className="panel tc-tabcol">
-            <TcInfo
-              data={d}
-              onChange={patch}
-              tcid={openId}
-              model={tcModel}
-              paramFiles={gp.files}
-            />
+            <TcInfo data={d} onChange={patch} tcid={openId} />
           </section>
         ) : tab === 'manual' ? (
           <section className="panel tc-tabcol">
@@ -842,6 +849,15 @@ export default function TestCases() {
                 >
                   ⌨ 명령어 캡쳐
                 </button>
+                {/* 어느 파라미터 파일이 붙어 있나. 실행 줄에 둔다 —
+                    정보 탭 깊숙이 두면 지금 무엇이 깔려 있는지 모른 채
+                    스텝을 쓰게 된다. */}
+                <TcParamBar
+                  files={paramFiles}
+                  all={gp.files}
+                  used={gp.used}
+                  onChange={(next) => patch({ param_files: next, param_file: '' })}
+                />
                 <TcSessionBar
                   sessions={sessionIds}
                   devices={devices}
@@ -990,7 +1006,7 @@ export default function TestCases() {
                 index={stepIdx}
                 total={steps.length}
                 sessions={sessionNames}
-                model={tcModel}
+                params={gp}
                 onChange={(p) => stepIdx >= 0 && patchStep(stepIdx, p)}
                 onMove={(dir) => stepIdx >= 0 && moveStep(stepIdx, dir)}
                 onRemove={() => stepIdx >= 0 && removeStep(stepIdx)}

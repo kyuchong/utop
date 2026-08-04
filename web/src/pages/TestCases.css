@@ -1359,3 +1359,75 @@
   padding: 1px 5px;
   word-break: break-all;
 }
+
+/* ── 이 TC 에 붙은 파라미터 파일 ────────────────────────────
+   iTest 처럼 고른다. 실행 줄에 둔다 — 정보 탭 깊숙이 두면 지금 무엇이
+   깔려 있는지 모른 채 스텝을 쓰고, ${업링크} 가 왜 안 바뀌는지 한참 찾는다. */
+.tc-parbar { position: relative; display: inline-flex; }
+
+.tc-parpanel {
+  position: absolute;
+  left: 0;
+  top: 30px;
+  z-index: 21;
+  width: 300px;
+  background: var(--c-surface);
+  border: 1px solid var(--tc-line);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.12);
+}
+
+.tc-parpanel-head,
+.tc-parpanel-foot {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 7px 10px;
+  font-size: var(--fs-sm);
+}
+
+.tc-parpanel-head { border-bottom: 1px solid var(--tc-line); }
+.tc-parpanel-foot { border-top: 1px solid var(--tc-line); }
+.tc-parpanel-foot .sp { margin-left: auto; }
+.tc-parpanel-foot code {
+  font-family: var(--font-mono);
+  background: var(--tc-hover);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+.tc-parlist { max-height: 240px; overflow: auto; padding: 5px; }
+
+.tc-par {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 7px;
+  border-radius: var(--tc-r);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.tc-par:hover { background: var(--tc-hover); }
+.tc-par.on { background: var(--tc-sel); }
+.tc-par input { margin: 0; }
+.tc-par-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 몇 번째로 깔리는가 — 뒤가 앞을 덮으므로 순서가 값이다 */
+.tc-par-n {
+  flex: none;
+  font-size: 10px;
+  color: var(--c-primary);
+  background: var(--c-surface);
+  border-radius: 999px;
+  padding: 1px 6px;
+}
+
+.tc-par-inc {
+  flex: none;
+  font-size: 10px;
+  color: #97620d;
+  background: #fdf1e3;
+  border-radius: 4px;
+  padding: 1px 5px;
+}

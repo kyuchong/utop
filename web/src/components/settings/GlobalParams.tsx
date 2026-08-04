@@ -22,6 +22,13 @@ const label = (k: string) => (k === GLOBAL ? '공통 (모든 모델)' : k)
 const GLOBAL = '__global__'
 /** 옛 화면의 폴더 목록. 여기서는 안 건드리고 그대로 넘긴다 */
 const FOLDERS = '__gp_folders__'
+/**
+ * 파일이 끌어다 쓰는 다른 파일 — iTest 의 Include 탭.
+ *
+ * `{ "E4320": ["공통"] }` 처럼 담는다. 공통을 여기 걸어 두고 파일마다
+ * 예외만 적는 것이 iTest 의 쓰는 법이다.
+ */
+const INCLUDES = '__includes__'
 
 /**
  * 전역 파라미터.
@@ -122,11 +129,27 @@ export default function GlobalParams({ only }: Props) {
     onError: (e) => setMsg(e instanceof Error ? e.message : String(e)),
   })
 
-  /** 값이 든 모델만. 옛 화면의 폴더 키는 목록에 안 낸다. */
+  /** 값이 든 파일만. 옛 화면의 폴더 키와 include 표는 목록에 안 낸다. */
   const models = useMemo(
-    () => Object.keys(data).filter((k) => k !== GLOBAL && k !== FOLDERS).sort(),
+    () =>
+      Object.keys(data)
+        .filter((k) => k !== GLOBAL && k !== FOLDERS && k !== INCLUDES)
+        .sort(),
     [data],
   )
+
+  /** 이 파일이 끌어다 쓰는 파일들 */
+  const incMap = (data[INCLUDES] ?? {}) as Record<string, unknown>
+  const includes: string[] = Array.isArray(incMap[sel]) ? (incMap[sel] as string[]) : []
+
+  const setIncludes = (next: string[]) => {
+    setData((d) => ({ ...d, [INCLUDES]: { ...((d[INCLUDES] ?? {}) as object), [sel]: next } }))
+    setDirty(true)
+    setMsg('')
+  }
+
+  /** 고를 수 있는 파일 — 자기 자신은 뺀다(자기를 끌어다 쓸 수는 없다) */
+  const canInclude = [GLOBAL, ...models].filter((k) => k !== sel && !includes.includes(k))
 
   /** 등록된 장비의 모델 — 아직 파라미터가 없는 것도 고를 수 있어야 한다 */
   const known = useMemo(() => {
@@ -434,6 +457,42 @@ export default function GlobalParams({ only }: Props) {
             >
               ＋ 그룹
             </button>
+          </div>
+
+          {/* iTest 의 Include 탭. 공통을 여기 걸어 두고 이 파일에는 예외만
+              적는다 — 파일마다 같은 값을 베껴 적으면 한 곳을 고칠 때 전부
+              찾아다녀야 한다. */}
+          <div className="gp-inc">
+            <span className="muted small">이 파일이 끌어다 쓰는 파일</span>
+            {includes.map((f) => (
+              <span className="gp-inc-x" key={f}>
+                {f === GLOBAL ? '공통' : f}
+                <button
+                  type="button"
+                  aria-label={`${f} 빼기`}
+                  onClick={() => setIncludes(includes.filter((x) => x !== f))}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            {canInclude.length > 0 && (
+              <select
+                className="gp-inc-add"
+                value=""
+                onChange={(e) => e.target.value && setIncludes([...includes, e.target.value])}
+              >
+                <option value="">+ 끌어다 쓰기…</option>
+                {canInclude.map((f) => (
+                  <option key={f} value={f}>
+                    {f === GLOBAL ? '공통' : f}
+                  </option>
+                ))}
+              </select>
+            )}
+            {includes.length > 0 && (
+              <span className="muted small">먼저 깔리고 이 파일이 그 위를 덮습니다</span>
+            )}
           </div>
 
           {cur.length === 0 && groups.length === 0 ? (

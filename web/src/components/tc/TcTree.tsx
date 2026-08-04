@@ -322,7 +322,7 @@ export default function TcTree({ tcs, openId, onOpen, paramKey, onOpenParam }: P
   const paramFiles = (() => {
     const d = gpQ.data ?? {}
     const rest = Object.keys(d)
-      .filter((k) => k !== '__global__' && k !== '__gp_folders__')
+      .filter((k) => k !== '__global__' && k !== '__gp_folders__' && k !== '__includes__')
       .sort()
     return ['__global__', ...rest]
   })()
