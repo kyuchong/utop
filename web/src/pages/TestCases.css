@@ -376,7 +376,7 @@
    선이 먼저 보인다. 간격과 hover 로 가른다. */
 .sq-row {
   display: grid;
-  grid-template-columns: 18px 52px minmax(74px, auto) 24px 1fr 54px 24px;
+  grid-template-columns: 15px 18px 52px minmax(74px, auto) 24px 1fr 54px 24px;
   position: relative;
   align-items: center;
   gap: var(--sp-2);
@@ -1285,3 +1285,31 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 여러 줄 고르기 — 평소엔 흐리게. 30줄에 체크박스가 진하게 서 있으면
+   그것부터 눈에 들어온다. */
+.sq-pick {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  opacity: 0.3;
+  cursor: pointer;
+}
+
+.sq-row:hover .sq-pick,
+.sq-pick:checked { opacity: 1; }
+
+/* 고른 줄이 있을 때만 뜨는 띠 */
+.sq-bulk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px var(--sp-3);
+  background: var(--tc-sel);
+  border-bottom: 1px solid var(--tc-line);
+  font-size: var(--fs-sm);
+}
+
+.sq-bulk .sp { margin-left: auto; }
+.sq-bulk b { color: var(--c-primary); white-space: nowrap; }

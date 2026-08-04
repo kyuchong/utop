@@ -28,7 +28,7 @@ import { deviceLabel } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { type TestCaseMeta } from '@/types'
-import { runSteps, type RunLog } from '@/components/tc/runner'
+import { runPicked, runSteps, type RunCtx, type RunLog } from '@/components/tc/runner'
 import {
   sessionIndex,
   stepStatus,
@@ -100,6 +100,11 @@ export default function TestCases() {
   // 편집 중인 TC 전체. 목록의 메타가 아니라 스텝까지 든 원본이다.
   const [d, setD] = useState<TcData>({})
   const [dirty, setDirty] = useState(false)
+
+  /** 여러 줄 고르기. 지우거나 건너뛰기를 한 번에 하려는 것 */
+  const [picked, setPicked] = useState<Set<number>>(new Set())
+  /** shift 범위 고르기의 기준 */
+  const lastPick = useRef(-1)
 
   const [running, setRunning] = useState(false)
   /** 지금 돌고 있는 줄. -1 이면 안 돌고 있다 */
@@ -174,6 +179,8 @@ export default function TestCases() {
       setD(fullQ.data)
       setDirty(false)
       setStepIdx(-1)
+      // 고른 줄은 자리 번호라 다른 TC 에서는 엉뚱한 줄을 가리킨다
+      setPicked(new Set())
     }
   }, [fullQ.data])
 
@@ -229,6 +236,12 @@ export default function TestCases() {
     setStepIdx(next.length - 1)
   }
 
+  /** 줄이 늘거나 자리가 바뀌면 고른 번호가 다른 줄을 가리킨다 */
+  const clearPicked = () => {
+    setPicked(new Set())
+    lastPick.current = -1
+  }
+
   const moveStep = (i: number, dir: -1 | 1) => {
     const j = i + dir
     if (j < 0 || j >= steps.length) return
@@ -238,6 +251,7 @@ export default function TestCases() {
     next[j] = a
     patch({ checks: next })
     setStepIdx(j)
+    clearPicked()
   }
 
   const setSessions = (next: string[], p?: Partial<TcData>) =>
@@ -308,10 +322,51 @@ export default function TestCases() {
     setMsg({ kind: 'ok', text: `${i + 1}번 줄을 복제했습니다` })
   }
 
-  const removeStep = (i: number) => {
-    if (!window.confirm(`스텝 ${i + 1} 을 지웁니다. 계속할까요?`)) return
-    patch({ checks: steps.filter((_, j) => j !== i) })
+  /**
+   * 줄 고르기. shift 를 누른 채면 앞서 고른 줄부터 여기까지.
+   *
+   * 30줄짜리 시험에서 가운데 열 줄을 지우려면 하나씩 누르는 것으로는
+   * 못 쓴다.
+   */
+  const pickStep = (i: number, range: boolean) => {
+    setPicked((cur) => {
+      const n = new Set(cur)
+      if (range && lastPick.current >= 0) {
+        const [a, b] = lastPick.current < i ? [lastPick.current, i] : [i, lastPick.current]
+        for (let k = a; k <= b; k++) n.add(k)
+      } else if (n.has(i)) n.delete(i)
+      else n.add(i)
+      return n
+    })
+    lastPick.current = i
+  }
+
+  /**
+   * 묻지 않고 지운다.
+   *
+   * 저장 전까지 서버에는 아무 일도 일어나지 않는다 — 잘못 지웠으면 저장을
+   * 안 하고 다시 열면 된다. 매번 창을 띄우면 그 창을 안 읽고 누르게 된다.
+   * 대신 몇 개를 지웠는지는 알린다.
+   */
+  const removeSteps = (idx: number[]) => {
+    if (idx.length === 0) return
+    const gone = new Set(idx)
+    patch({ checks: steps.filter((_, j) => !gone.has(j)) })
     setStepIdx(-1)
+    setPicked(new Set())
+    lastPick.current = -1
+    setMsg({
+      kind: '',
+      text: `스텝 ${idx.length}개를 지웠습니다 — 저장 전까지는 되돌릴 수 있습니다`,
+    })
+  }
+
+  const removeStep = (i: number) => removeSteps([i])
+
+  /** 고른 줄을 한꺼번에 건너뛰기 / 되돌리기 */
+  const skipPicked = (on: boolean) => {
+    patch({ checks: steps.map((s, j) => (picked.has(j) ? { ...s, skip: on } : s)) })
+    setMsg({ kind: '', text: `스텝 ${picked.size}개를 ${on ? '건너뜁니다' : '다시 돌립니다'}` })
   }
 
   const saveM = useMutation({
@@ -431,7 +486,7 @@ export default function TestCases() {
    */
   const runAbort = useRef<AbortController | null>(null)
 
-  const doRun = async (from: number, only: boolean) => {
+  const doRun = async (from: number, only: boolean, pick?: number[]) => {
     if (running) return
     if (sessionIds.length === 0) {
       setMsg({ kind: 'err', text: '세션이 없습니다 — 「+ 세션」 으로 장비를 넣으세요' })
@@ -441,11 +496,14 @@ export default function TestCases() {
     runAbort.current = ac
     setRunning(true)
     setRunLog([])
-    setMsg({ kind: '', text: only ? '스텝 실행 중…' : '실행 중…' })
+    setMsg({
+      kind: '',
+      text: pick ? `고른 ${pick.length}줄 실행 중…` : only ? '스텝 실행 중…' : '실행 중…',
+    })
     const began = Date.now()
     try {
-      const r = await runSteps(
-        {
+      // 타입을 못박아 둔다 — 인라인 리터럴이라 콜백 인자를 추론해 주지 않는다
+      const ctx: RunCtx = {
           steps,
           sessions: sessionIds,
           devById,
@@ -459,17 +517,15 @@ export default function TestCases() {
           onLog: (l) => setRunLog((v) => [...v.slice(-400), l]),
           params: gp.values,
           signal: ac.signal,
-        },
-        from,
-        only,
-      )
+      }
+      const r = pick ? await runPicked(ctx, pick) : await runSteps(ctx, from, only)
       setMsg({
         kind: r.fail > 0 ? 'err' : 'ok',
         text: `${r.stopped ? '중지됨 · ' : ''}PASS ${r.pass} · FAIL ${r.fail}`,
       })
       // 실행 이력은 전체 실행만 남긴다. 한 줄씩 돌려보는 것까지 쌓으면
       // 이력이 편집 기록이 되어 '언제 통째로 돌렸나' 를 못 찾는다.
-      if (!only && !r.stopped) {
+      if (!only && !pick && !r.stopped) {
         void apiFetch(`/api/tc/${encodeURIComponent(openId)}/run-history`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -767,6 +823,39 @@ export default function TestCases() {
                   </span>
                 )}
               </div>
+              {/* 고른 줄이 있을 때만 뜨는 띠. 늘 띄워 두면 자리만 먹는다 */}
+              {picked.size > 0 && (
+                <div className="sq-bulk">
+                  <b>{picked.size}개 골랐습니다</b>
+                  <span className="muted small">shift 를 누른 채 누르면 그 사이가 모두</span>
+                  <span className="sp" />
+                  <button
+                    className="btn small primary"
+                    type="button"
+                    disabled={running}
+                    title="고른 줄만 번호순으로 돌립니다"
+                    onClick={() => void doRun(0, false, [...picked])}
+                  >
+                    ▶ 고른 것만
+                  </button>
+                  <button className="btn small" type="button" onClick={() => skipPicked(true)}>
+                    건너뛰기
+                  </button>
+                  <button className="btn small" type="button" onClick={() => skipPicked(false)}>
+                    되돌리기
+                  </button>
+                  <button
+                    className="btn small danger"
+                    type="button"
+                    onClick={() => removeSteps([...picked])}
+                  >
+                    삭제
+                  </button>
+                  <button className="btn small" type="button" onClick={clearPicked}>
+                    해제
+                  </button>
+                </div>
+              )}
               {fullQ.isLoading ? (
                 <div className="empty">불러오는 중…</div>
               ) : (
@@ -777,6 +866,8 @@ export default function TestCases() {
                   onAdd={addStep}
                   sessionName={sessionName}
                   runningAt={runAt}
+                  picked={picked}
+                  onPick={pickStep}
                   // 수동 스텝은 여기 안 나온다. 별개 탭이다.
                   hide={(s) => s.kind === 'manual'}
                   onRun={running ? undefined : (i) => void doRun(i, true)}

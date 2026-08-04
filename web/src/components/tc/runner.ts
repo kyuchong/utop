@@ -444,6 +444,46 @@ async function runOne(
  * switch 스텝이 없다시피 해서 규칙을 확인할 자료가 없다. 만나면 건너뛰고
  * 그 사실을 로그에 남긴다(조용히 지나가면 안 돈 줄 모른다).
  */
+/**
+ * 고른 줄만 돌린다.
+ *
+ * 블록을 펴지 않는다 — 고른 것이 If 라면 그 조건만 보고 몸통은 안 돈다.
+ * '이 줄들만' 이라고 한 뜻이 그것이다. 순서는 화면에 보이는 대로(번호순)
+ * 지킨다. 건너뛰기가 걸린 줄은 골랐어도 안 돈다 — 두 표시가 부딪히면
+ * '안 돈다' 가 이겨야 안전하다.
+ */
+export async function runPicked(ctx: RunCtx, pick: number[]): Promise<RunResult> {
+  const vars: Record<string, string> = { ...(ctx.params ?? {}) }
+  let pass = 0
+  let fail = 0
+  let done = 0
+  let stopped = false
+
+  try {
+    for (const i of [...pick].sort((a, b) => a - b)) {
+      if (ctx.signal.aborted) {
+        stopped = true
+        break
+      }
+      const s = ctx.steps[i]
+      if (!s) continue
+      ctx.onAt(i)
+      if (s.skip) {
+        ctx.onLog({ i, text: '건너뜀', kind: 'skip' })
+        continue
+      }
+      const v = await runOne(ctx, i, vars)
+      if (v === 'Pass') pass++
+      else if (v === 'Fail') fail++
+      if (v) done++
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') stopped = true
+    else throw e
+  }
+  return { pass, fail, done, stopped }
+}
+
 export async function runSteps(ctx: RunCtx, from = 0, only = false): Promise<RunResult> {
   const vars: Record<string, string> = { ...(ctx.params ?? {}) }
   let pass = 0

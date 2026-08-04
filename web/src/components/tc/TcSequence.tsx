@@ -20,6 +20,10 @@ interface Props {
   sessionName: (i: number) => string
   /** 지금 돌고 있는 줄. -1 이면 안 돌고 있다 */
   runningAt?: number
+  /** 여러 줄 고르기 — 한 번에 지우거나 건너뛰기 위한 것 */
+  picked: Set<number>
+  /** shift 를 누른 채 누르면 앞서 고른 줄부터 여기까지 한꺼번에 */
+  onPick: (i: number, range: boolean) => void
   /**
    * 이 목록에서 감출 줄.
    *
@@ -51,6 +55,8 @@ export default function TcSequence({
   onAdd,
   sessionName,
   runningAt = -1,
+  picked,
+  onPick,
   hide,
   onRun,
 }: Props) {
@@ -139,6 +145,21 @@ export default function TcSequence({
                   }
                 }}
               >
+                {/* 여러 줄 고르기. 평소엔 흐리게 두고 고를 때만 눈에 들어온다 —
+                    30줄에 체크박스가 진하게 서 있으면 그것부터 보인다. */}
+                <input
+                  type="checkbox"
+                  className="sq-pick"
+                  aria-label={`${i + 1}번 줄 고르기`}
+                  checked={picked.has(i)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onPick(i, e.shiftKey)
+                  }}
+                  onChange={() => {
+                    /* onClick 에서 처리한다 — shift 를 알아야 해서 */
+                  }}
+                />
                 <span
                   className={`sq-st ${i === runningAt ? 'now' : st.cls}`}
                   title={i === runningAt ? '실행 중' : st.label}
