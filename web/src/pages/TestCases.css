@@ -1074,17 +1074,21 @@
 }
 
 /* 주석·메시지 줄 — 장비로 아무것도 안 나간다.
-   훑을 때 '이건 설명' 이 한눈에 갈려야 한다. 색은 상태에만 쓴다는 규칙을
-   지키려고 채도를 낮게 두고, 왼쪽 띠로만 종류를 가른다. */
-.sq-row.note { background: #fbfbfa; }
-.sq-row.note .sq-sum { color: var(--c-text-muted); }
+   iTest 도 이 둘을 색으로 가른다. 훑을 때 '이건 설명' 이 한눈에 읽혀야
+   한다. 배경은 거의 그대로 두고 글자와 아이콘에 색을 준다 — 줄 전체를
+   물들이면 30줄짜리 목록이 알록달록해진다. */
+.sq-row.note { background: #fcfcfb; }
 .sq-row.note:hover { background: var(--tc-hover); }
-
-/* 주석 — 회색. 읽고 지나가는 줄이다 */
-.sq-row.comment { box-shadow: inset 2px 0 0 #cfd6dd, inset 0 -1px 0 var(--tc-div); }
-.sq-row.comment .sq-sum { font-style: italic; }
-
-/* 메시지 — 로그에 찍히므로 주석보다는 한 겹 진하게 */
-.sq-row.message { box-shadow: inset 2px 0 0 #9fc0d8, inset 0 -1px 0 var(--tc-div); }
-
 .sq-row.note.on { background: var(--tc-sel); }
+
+/* 주석 — 초록. 코드 주석의 관례 색이다 */
+.sq-row.comment { box-shadow: inset 2px 0 0 #7fae8f, inset 0 -1px 0 var(--tc-div); }
+.sq-row.comment .sq-act,
+.sq-row.comment .sq-ic,
+.sq-row.comment .sq-sum { color: #2f7d4f; }
+
+/* 메시지 — 파랑. 로그에 실제로 찍히는 줄이라 주석과 갈라야 한다 */
+.sq-row.message { box-shadow: inset 2px 0 0 #7fa6d8, inset 0 -1px 0 var(--tc-div); }
+.sq-row.message .sq-act,
+.sq-row.message .sq-ic,
+.sq-row.message .sq-sum { color: #2d6fd4; }
