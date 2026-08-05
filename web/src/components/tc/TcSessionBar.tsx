@@ -133,10 +133,9 @@ export default function TcSessionBar({
             {dev && (
               <span className={`tc-sess-ip${isMeter(dev) ? ' meter' : ''}`}>
                 {isMeter(dev) ? (
-                  <>
-                    <b>계측기 · {deviceTag(dev)}</b>
-                    {meterTransport(dev)} {dev.ip}
-                  </>
+                  // 고르는 칸이 이미 `210.1.2.248 · N2X` 라 여기서 종류와
+                  // IP 를 또 적으면 같은 말이 세 번이다. 붙는 방식만 적는다.
+                  <>계측기 · {meterTransport(dev)}</>
                 ) : (
                   <>
                     {proto.toUpperCase()} {dev.ip}

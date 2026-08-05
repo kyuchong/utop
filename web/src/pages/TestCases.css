@@ -1879,11 +1879,12 @@ table.tb tr.r-bad td:first-child {
   border-radius: 8px;
 }
 
-/* 계측기 세션. 스위치와 하는 일이 아주 달라 한눈에 갈려야 한다 */
+/* 계측기 세션. 스위치와 하는 일이 아주 달라 한눈에 갈려야 한다.
+   자리 번호는 글자색만 바꾼다 — 배경을 깔면 S3 글자가 안 보인다. */
 .tc-sess.meter .tc-sess-n {
-  background: var(--c-draft);
-}
-.tc-sess-ip.meter b {
   color: var(--c-draft);
-  margin-right: 5px;
+}
+.tc-sess-ip.meter {
+  color: var(--c-draft);
+  white-space: nowrap;
 }
