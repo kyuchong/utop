@@ -43,10 +43,23 @@ function authHeaders(extra?: Record<string, string>): Record<string, string> {
  */
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const tk = getToken()
+  /*
+   * 글자로 된 몸통이면 JSON 이라고 알려 준다.
+   *
+   * 안 붙이면 브라우저가 `text/plain` 으로 보내고, FastAPI 의 `data: dict`
+   * 는 그것을 못 읽어 422 로 거절한다. 화면에서는 「그냥 아무 일도 안
+   * 일어난다」 로 보여서 어디가 틀렸는지 찾기가 아주 어렵다.
+   *
+   * FormData 에는 붙이면 안 된다 — 브라우저가 경계 문자열을 넣어 스스로
+   * 정해야 한다.
+   */
+  const given = (init.headers as Record<string, string> | undefined) ?? {}
+  const isText = typeof init.body === 'string'
   return fetch(path, {
     ...init,
     headers: {
-      ...(init.headers as Record<string, string> | undefined),
+      ...(isText && !('Content-Type' in given) ? { 'Content-Type': 'application/json' } : {}),
+      ...given,
       ...(tk ? { Authorization: `Bearer ${tk}` } : {}),
     },
   })

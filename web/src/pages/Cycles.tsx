@@ -6,6 +6,7 @@ import CycleReport from '@/components/cycle/CycleReport'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import type { Device } from '@/pages/Devices'
 import { IconChevron } from '@/components/icons'
+import type { TestCaseMeta } from '@/types'
 import './Cycles.css'
 
 /** 사이클 한 건 — 목록용 요약(`/api/cycle?meta=1`) */
@@ -28,6 +29,7 @@ export interface CycleMeta {
 /** 항목 요약 — 결과는 저장돼 있지 않고 스텝에서 계산한다 */
 export interface CycleItemLite {
   tcid: string
+  req_id?: string | null
   name?: string | null
   assignee?: string | null
   executed_at?: string | null
@@ -378,6 +380,33 @@ function CycleDetail({
   /** 돌릴 항목 */
   const [pick, setPick] = useState<Set<number>>(new Set())
   const { st, run, stop } = useCycleRun(devices)
+  /** 항목 추가 창 */
+  const [adding, setAdding] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  /**
+   * 항목을 넣고 뺀다.
+   *
+   * 사이클을 만들 때만 고를 수 있으면, 시험 하나를 빠뜨렸을 때 사이클을
+   * 다시 만들어야 한다. 그러면 이미 돌린 결과가 통째로 날아간다.
+   */
+  const saveItems = async (next: CycleItemLite[]) => {
+    setSaving(true)
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycle.id)}`)
+      const full = r.ok ? ((await r.json()) as Record<string, unknown>) : {}
+      const w = await apiFetch(`/api/cycle/${encodeURIComponent(cycle.id)}`, {
+        method: 'POST',
+        body: JSON.stringify({ ...full, id: cycle.id, items: next }),
+      })
+      if (!w.ok) throw new Error(String(w.status))
+      onSaved()
+    } catch {
+      window.alert('저장하지 못했습니다')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const items = cycle.items ?? []
   const counts = { pass: 0, fail: 0, wip: 0, none: 0 }
@@ -410,6 +439,22 @@ function CycleDetail({
         <span className="sp" />
         {/* 결과서는 보고서 화면을 거치지 않는다 — 「버전명 기준으로 사이클이
             끝나면」 이라는 말 그대로 이 회차에서 바로 뽑는다 */}
+        <button className="btn small" type="button" onClick={() => setAdding(true)}>
+          + 항목
+        </button>
+        {pick.size > 0 && (
+          <button
+            className="btn small"
+            type="button"
+            disabled={saving || st.on}
+            onClick={() => {
+              if (!window.confirm(`고른 ${pick.size}건을 이 사이클에서 뺍니다.`)) return
+              void saveItems(items.filter((_, i) => !pick.has(i))).then(() => setPick(new Set()))
+            }}
+          >
+            {pick.size}건 빼기
+          </button>
+        )}
         <button className="btn small" type="button" onClick={() => setReport(true)}>
           고객사 결과서
         </button>
@@ -435,6 +480,17 @@ function CycleDetail({
           </button>
         )}
       </div>
+
+      {adding && (
+        <CyclePickTc
+          have={new Set(items.map((x) => x.tcid))}
+          onClose={() => setAdding(false)}
+          onAdd={(rows) => {
+            setAdding(false)
+            void saveItems([...items, ...rows])
+          }}
+        />
+      )}
 
       {report && (
         <CycleReport
@@ -549,6 +605,124 @@ function CycleDetail({
         )}
         <RunPane st={st} />
       </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 이 사이클에 넣을 시험 고르기.
+ *
+ * 이미 들어 있는 것은 목록에 두되 못 고르게 한다. 안 보이게 치우면 「분명
+ * 넣었는데 왜 없지」 하고 다시 찾게 된다.
+ */
+function CyclePickTc({
+  have,
+  onClose,
+  onAdd,
+}: {
+  have: Set<string | undefined>
+  onClose: () => void
+  onAdd: (rows: CycleItemLite[]) => void
+}) {
+  const [q, setQ] = useState('')
+  const [pick, setPick] = useState<Set<string>>(new Set())
+
+  const tcQ = useQuery({
+    queryKey: ['tcs'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/tc?meta=1')
+      if (!r.ok) throw new Error('시험 목록을 불러오지 못했습니다')
+      return (await r.json()) as { tcs: TestCaseMeta[] }
+    },
+  })
+
+  const rows = useMemo(() => {
+    const n = q.trim().toLowerCase()
+    const all = tcQ.data?.tcs ?? []
+    if (!n) return all
+    return all.filter((x) => `${x.name ?? ''} ${x.tcid}`.toLowerCase().includes(n))
+  }, [tcQ.data, q])
+
+  return (
+    <div className="modal-back" onMouseDown={onClose}>
+      <div
+        className="modal cn"
+        role="dialog"
+        aria-modal="true"
+        aria-label="사이클에 시험 넣기"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">
+          <b>시험 넣기 {pick.size > 0 && `· ${pick.size}건`}</b>
+          <span className="sp" />
+          <button className="btn small" type="button" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="cn-pickhead">
+          <input
+            className="cn-q"
+            value={q}
+            placeholder="이름 · ID 로 찾기"
+            onChange={(e) => setQ(e.target.value)}
+          />
+        </div>
+        <div className="cn-list">
+          {tcQ.isLoading ? (
+            <div className="empty">불러오는 중…</div>
+          ) : (
+            rows.map((x) => {
+              const already = have.has(x.tcid)
+              return (
+                <label className={`cn-row${already ? ' off' : ''}`} key={x.tcid}>
+                  <input
+                    type="checkbox"
+                    disabled={already}
+                    checked={pick.has(x.tcid)}
+                    onChange={(e) =>
+                      setPick((s) => {
+                        const n = new Set(s)
+                        if (e.target.checked) n.add(x.tcid)
+                        else n.delete(x.tcid)
+                        return n
+                      })
+                    }
+                  />
+                  <span className="cn-nm">{x.name || '(제목 없음)'}</span>
+                  <span className="muted small">{already ? '이미 있음' : x.tcid}</span>
+                </label>
+              )
+            })
+          )}
+        </div>
+        <div className="modal-foot">
+          <span className="sp" />
+          <button className="btn" type="button" onClick={onClose}>
+            취소
+          </button>
+          <button
+            className="btn primary"
+            type="button"
+            disabled={!pick.size}
+            onClick={() => {
+              const all = tcQ.data?.tcs ?? []
+              onAdd(
+                [...pick].map((id) => {
+                  const x = all.find((y) => y.tcid === id)
+                  return {
+                    tcid: id,
+                    name: x?.name ?? '',
+                    req_id: x?.req_id ?? '',
+                    steps: [],
+                  } as CycleItemLite
+                }),
+              )
+            }}
+          >
+            넣기
+          </button>
+        </div>
       </div>
     </div>
   )

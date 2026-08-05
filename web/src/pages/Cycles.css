@@ -464,3 +464,6 @@
 @keyframes cy-blink {
   50% { opacity: 0; }
 }
+
+/* 이미 들어 있는 시험. 안 보이게 치우면 「분명 넣었는데 왜 없지」 한다 */
+.cn-row.off { opacity: 0.45; cursor: default; }
