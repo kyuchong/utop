@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import CycleNew from '@/components/cycle/CycleNew'
+import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
+import StepCards from '@/components/cycle/StepCards'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import type { Device } from '@/pages/Devices'
 import { IconChevron } from '@/components/icons'
@@ -222,9 +223,12 @@ function build(
 
 export default function Cycles() {
   const [open, setOpen] = useState<Set<string>>(new Set())
+  const qc = useQueryClient()
   const [making, setMaking] = useState(false)
   /** 우클릭 메뉴 — 어느 사이클 위에서, 화면 어디에 */
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null)
+  /** 고칠 사이클 */
+  const [editId, setEditId] = useState('')
   const [sel, setSel] = useState('')
   const [q, setQ] = useState('')
 
@@ -374,18 +378,30 @@ export default function Cycles() {
             setMenu(null)
             void listQ.refetch()
           }}
+          onEdit={(id) => {
+            setMenu(null)
+            setEditId(id)
+          }}
         />
       )}
 
-      {making && (
-        <CycleNew
+      {/* 만들기와 고치기가 같은 창이다. 다르게 만들면 「만들 때는 되는데
+          고칠 때는 안 되는 것」 이 반드시 생긴다. */}
+      {(making || editId) && (
+        <CycleEdit
+          cycleId={editId || undefined}
           folders={vgQ.data?.groups ?? {}}
-          onClose={() => setMaking(false)}
+          onClose={() => {
+            setMaking(false)
+            setEditId('')
+          }}
           onDone={(id) => {
             setMaking(false)
+            setEditId('')
             setSel(id)
             void listQ.refetch()
             void vgQ.refetch()
+            void qc.invalidateQueries({ queryKey: ['cycle-full', id] })
           }}
         />
       )}
@@ -718,11 +734,13 @@ function CycleMenu({
   cycle,
   onClose,
   onChanged,
+  onEdit,
 }: {
   at: { id: string; x: number; y: number }
   cycle?: CycleMeta
   onClose: () => void
   onChanged: () => void
+  onEdit: (id: string) => void
 }) {
   useEffect(() => {
     const away = () => onClose()
@@ -786,7 +804,8 @@ function CycleMenu({
       onMouseDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {item('버전 이름 바꾸기', () => void rename())}
+      {item('사이클 수정 (항목·기간)', () => onEdit(at.id))}
+      {item('버전 이름만 바꾸기', () => void rename())}
       <hr />
       {item('지우기', () => void del())}
     </div>
@@ -966,19 +985,6 @@ function StepDetail({
 }) {
   const steps = item.steps ?? []
   /** 출력을 펼친 스텝. 전부 펼쳐 두면 긴 출력에 묻혀 목록이 안 보인다 */
-  /*
-   * 처음에 어느 줄을 펼칠까.
-   *
-   * 깨진 줄이 있으면 그것을 — 아홉 단계 중 셋째가 깨졌으면 그걸 찾아
-   * 누르게 하지 않는다. 다 통과했으면 첫 줄을 편다. 아무것도 안 펼치면
-   * 「스텝은 보이는데 내용이 없다」 가 된다.
-   */
-  const [openStep, setOpenStep] = useState(() => {
-    const bad = steps.findIndex((s) => String(s.result ?? '').toLowerCase() === 'fail')
-    return bad >= 0 ? bad : steps.length ? 0 : -1
-  })
-  // 도는 동안에는 그 스텝을 편다 — 무엇을 하고 있는지가 곧 보고 싶은 것이다
-  const shown = runningAt >= 0 ? runningAt : openStep
 
   return (
     <div className="cy-steps-pane">
@@ -996,66 +1002,8 @@ function StepDetail({
         </button>
       </div>
 
-      {steps.length === 0 ? (
-        <div className="empty">아직 실행하지 않았습니다.</div>
-      ) : (
-        <div className="cy-sp-list">
-          {steps.map((s, i) => {
-            const r = String(s.result ?? '').trim()
-            const cls = r.toLowerCase() === 'pass' ? 'pass' : r.toLowerCase() === 'fail' ? 'fail' : ''
-            const out = String(s.output ?? '').trim()
-            const on = shown === i
-            const running = runningAt === i
-            return (
-              <div className={`cy-sp ${cls}${on ? ' on' : ''}${running ? ' running' : ''}`} key={i}>
-                <div
-                  className="cy-sp-row"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setOpenStep(on ? -1 : i)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      setOpenStep(on ? -1 : i)
-                    }
-                  }}
-                >
-                  {/* 도는 줄에는 점이 뛴다. 「지금 여기」 를 글자로 적으면
-                      눈이 훑다가 놓친다 */}
-                  <span className="cy-sp-n">{running ? <i className="cy-sp-live" /> : i + 1}</span>
-                  <span className="cy-sp-act">{s.action || (s.waitSec ? '대기' : 'CLI')}</span>
-                  <span className="cy-sp-cli mono">
-                    {String(s.cli ?? '').split('\n')[0] || s.desc || '—'}
-                  </span>
-                  {s.criteria && (
-                    <span className="cy-sp-crit" title={`판정기준 · ${s.type || 'contains'}`}>
-                      {s.criteria}
-                    </span>
-                  )}
-                  <span className={`cy-sp-v ${cls}`}>{r || '–'}</span>
-                </div>
-                {on && (
-                  <div className="cy-sp-body">
-                    {s.desc && <div className="cy-sp-desc">{s.desc}</div>}
-                    {/* 명령이 여러 줄인 스텝이 있다. 첫 줄만 보이는 목록과
-                        달리 여기서는 통째로 보여야 무엇을 보냈는지 안다 */}
-                    {s.cli && <pre className="cy-sp-cmd">{s.cli}</pre>}
-                    {out ? (
-                      // 도는 중에는 받는 대로 차오른다. 커서를 붙여 두면
-                      // 멈춘 것과 기다리는 것이 구분된다
-                      <pre className={`cy-sp-out${running ? ' live' : ''}`}>{out}</pre>
-                    ) : (
-                      <div className="muted small">
-                        {running ? '응답을 기다리는 중…' : '받은 출력이 없습니다.'}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {/* 스텝별 결과 손으로 정하기는 아직 안 붙였다 — 항목 결과가 먼저다 */}
+      <StepCards item={item} runningAt={runningAt} />
     </div>
   )
 }

@@ -1,0 +1,170 @@
+import { useState } from 'react'
+import type { CycleItemLite, CycleStep, Verdict } from '@/pages/Cycles'
+import { RESULTS, verdictClass } from '@/pages/Cycles'
+
+/** 판정 종류를 사람 말로 */
+const TYPE_LABEL: Record<string, string> = {
+  contains: '문구 검증',
+  contains_all: '문구 검증 (모두 포함)',
+  notcontains: '없어야 함',
+  line: '항목(키 : 값) 일치',
+  table: '표에서 행·열로',
+  expr: '값끼리 견주기',
+  none: '판정 안 함',
+}
+
+/** 판정기준을 조각으로 — 출력에서 이 조각들을 찾아 물들인다 */
+function tokens(step: CycleStep): string[] {
+  const c = String(step.criteria ?? '').trim()
+  if (!c) return []
+  const type = String(step.type ?? 'contains')
+  if (type === 'expr' || type === 'table') return []
+  if (type === 'line') {
+    const at = c.indexOf(':')
+    return [at >= 0 ? c.slice(at + 1).trim() : c].filter(Boolean)
+  }
+  return c
+    .split(/\r?\n|,/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+}
+
+const esc = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+/**
+ * 출력에서 판정에 걸린 문구를 물들인다.
+ *
+ * 이것이 이 화면의 핵심이다. `PASS` 세 글자만 보고는 **무엇을 보고 통과라
+ * 했는지** 알 수 없어서, 결국 판정기준과 출력을 눈으로 대조하게 된다.
+ * 걸린 자리를 칠해 두면 그 일이 없어진다.
+ */
+function mark(out: string, toks: string[], ok: boolean): string {
+  let html = esc(out)
+  for (const t of toks) {
+    if (!t) continue
+    const re = new RegExp(esc(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi')
+    html = html.replace(re, (m) => `<mark class="${ok ? 'hit' : 'miss'}">${m}</mark>`)
+  }
+  return html
+}
+
+interface Props {
+  item: CycleItemLite
+  /** 지금 도는 스텝. 안 돌면 -1 */
+  runningAt: number
+  /** 실행 당시 자료인가 — 그렇다면 지금 TC 와 다를 수 있다 */
+  onSetResult?: (result: string) => void
+}
+
+/**
+ * 항목 하나의 스텝 — 실행 당시(as-run) 그대로.
+ *
+ * 옛 화면의 「Test Procedure Details」 를 옮겼다. 스텝마다 네 칸이다 —
+ * **무엇을 하려 했나 · 무엇을 보냈나 · 무엇이 나와야 하나 · 무엇이
+ * 나왔나.** 이 넷이 나란히 있어야 왜 그렇게 판정됐는지가 읽힌다.
+ */
+export default function StepCards({ item, runningAt, onSetResult }: Props) {
+  const steps = (item.steps ?? []) as CycleStep[]
+  const [only, setOnly] = useState(false)
+
+  const shown = only
+    ? steps.filter((s) => String(s.result ?? '').toLowerCase() === 'fail')
+    : steps
+
+  if (!steps.length) return <div className="empty">아직 실행하지 않았습니다.</div>
+
+  return (
+    <div className="sc">
+      <div className="sc-note">
+        <span>
+          절차·결과는 <b>실행 당시</b> 그대로입니다. 그 뒤에 시험을 고쳤다면 지금 TC 와 다를 수
+          있습니다.
+        </span>
+        <span className="sp" />
+        <label className="sc-only">
+          <input type="checkbox" checked={only} onChange={(e) => setOnly(e.target.checked)} />
+          깨진 것만
+        </label>
+      </div>
+
+      {shown.map((s) => {
+        const i = steps.indexOf(s)
+        const r = String(s.result ?? '').trim()
+        const bad = r === 'Fail' || r === '불합격'
+        const running = runningAt === i
+        const out = String(s.output ?? '')
+        const toks = tokens(s)
+        return (
+          <div className={`sc-card${bad ? ' bad' : ''}${running ? ' running' : ''}`} key={i}>
+            <div className="sc-head">
+              <b>Step#{i + 1}</b>
+              <span className="sc-kind">{s.action || (s.waitSec ? '대기' : 'CLI')}</span>
+              <span className="sp" />
+              {running ? (
+                <span className="sc-running">도는 중</span>
+              ) : onSetResult ? (
+                <select
+                  className={`sc-v ${verdictClass((r || '') as Verdict)}`}
+                  value={r}
+                  onChange={(e) => onSetResult(e.target.value)}
+                  title="결과를 손으로 정합니다"
+                >
+                  {RESULTS.map((x) => (
+                    <option key={x.v} value={x.v}>
+                      {x.label}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <span className={`sc-v ${verdictClass((r || '') as Verdict)}`}>{r || '미실행'}</span>
+              )}
+            </div>
+
+            {s.desc && (
+              <div className="sc-sec">
+                <i>시험 목적</i>
+                <div>{s.desc}</div>
+              </div>
+            )}
+
+            {s.cli && (
+              <div className="sc-sec">
+                <i>TEST DATA</i>
+                <pre className="sc-cmd">{s.cli}</pre>
+              </div>
+            )}
+
+            {s.criteria && (
+              <div className="sc-sec">
+                <i>EXPECTED RESULT</i>
+                <div className="sc-exp">
+                  <span className="sc-type">{TYPE_LABEL[String(s.type ?? 'contains')] ?? s.type}</span>
+                  {s.criteria}
+                </div>
+              </div>
+            )}
+
+            <div className="sc-sec">
+              <i>ACTUAL DATA</i>
+              {out.trim() ? (
+                // 판정에 걸린 문구를 물들인다. 자료는 우리 서버에서 온
+                // 것이고 넣기 전에 이스케이프한다.
+                <pre
+                  className={`sc-out${running ? ' live' : ''}`}
+                  dangerouslySetInnerHTML={{ __html: mark(out, toks, !bad) }}
+                />
+              ) : (
+                <div className="muted small">
+                  {running ? '응답을 기다리는 중…' : '받은 출력이 없습니다.'}
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
+
+      {shown.length === 0 && <div className="empty">깨진 스텝이 없습니다.</div>}
+    </div>
+  )
+}
