@@ -5393,6 +5393,43 @@ async def get_all_cycles(meta: int = 0):
         return {"cycles": await db.cycle_list_meta()}
     return {"cycles": await db.cycle_list_full()}
 
+# 버전그룹 폴더 — `{ "<모델명>": ["R200", "R300"] }`
+#
+# 모델그룹·모델명은 장비 카탈로그가 master 다. 자유 입력으로 두었더니
+# `E4320-24P_2` 같은 것이 생겼다. 버전그룹만 사람이 만든다 — R200, R300
+# 은 카탈로그가 알 수 없는, 이 회차 묶음의 이름이라서다.
+#
+# **파일이 아니라 DB 에 둔다.** 옛 사이클 폴더는
+# `data/state/cycle_folders.json` 이었고, 자료를 옮길 때 딸려오지 않아
+# 사이클 23건이 전부 이름 없는 폴더를 가리키게 됐다.
+_VGROUP_KV = "cycle_version_groups"
+
+
+@app.get("/api/cycle-version-groups")
+async def get_cycle_version_groups():
+    return {"groups": await db.kv_get(_VGROUP_KV) or {}}
+
+
+@app.post("/api/cycle-version-groups")
+async def save_cycle_version_groups(payload: dict):
+    groups = payload.get("groups")
+    if not isinstance(groups, dict):
+        raise HTTPException(400, "groups 는 { 모델명: [버전그룹…] } 이어야 합니다")
+    clean = {}
+    for model, arr in groups.items():
+        m = str(model).strip()
+        if not m or not isinstance(arr, list):
+            continue
+        seen = []
+        for g in arr:
+            g = str(g).strip()
+            if g and g not in seen:
+                seen.append(g)
+        clean[m] = seen
+    await db.kv_set(_VGROUP_KV, clean)
+    return {"ok": True, "groups": clean}
+
+
 CYCLE_FOLDERS_FILE = DATA_DIR / "state" / "cycle_folders.json"
 
 @app.get("/api/cycle-folders")
