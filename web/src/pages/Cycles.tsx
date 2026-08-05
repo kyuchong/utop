@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import CycleNew from '@/components/cycle/CycleNew'
@@ -30,6 +30,8 @@ export interface CycleMeta {
 export interface CycleItemLite {
   tcid: string
   req_id?: string | null
+  /** 사람이 손으로 정한 결과. 있으면 스텝 집계보다 이것이 이긴다 */
+  result?: string | null
   name?: string | null
   assignee?: string | null
   executed_at?: string | null
@@ -53,41 +55,57 @@ export interface CycleStep {
   manual?: boolean
 }
 
-export type Verdict = 'pass' | 'fail' | 'wip' | 'none'
-
 /**
  * 항목 하나의 결과.
  *
- * 자료에 항목 결과가 **없다.** 스텝 결과만 있다(Pass 16,328 · Fail 151 ·
- * 빈값 3,283). 그래서 셈해서 만든다.
+ * 옛 화면(`cycleItemStatus`)의 규칙을 그대로 옮겼다. 처음엔 내가 임의로
+ * 적합/부적합/보류/미실행 넷으로 줄여 놨는데, 실제로는 여섯 가지고 무엇보다
+ * **수동 스텝을 빼고 센다** — 사람이 눈으로 보는 것은 사람이 따로 적는다.
  *
- *  · 하나라도 Fail → 부적합. 한 군데가 깨지면 그 시험은 깨진 것이다
- *  · 다 Pass → 적합
- *  · 돌다 만 것이 있으면 → 보류. '아직 안 봤다' 를 적합으로 세면 안 된다
- *  · 아무것도 안 돌았으면 → 미실행
+ *  · 자동 스텝이 하나도 없으면 → 스텝 자체가 없으면 미실행, 있으면 제외
+ *  · 하나라도 Fail → Fail. 한 군데가 깨지면 그 시험은 깨진 것이다
+ *  · Fail 없고 Pass 있으면 → Pass (제외가 섞여 있어도)
+ *  · 둘 다 없으면 → 그중 아무 값(WIP·Blocked·진행불가)
  */
-export function itemVerdict(it: CycleItemLite): Verdict {
-  const steps = it.steps ?? []
-  if (!steps.length) return 'none'
-  let pass = 0
-  let fail = 0
-  let blank = 0
-  for (const s of steps) {
-    const r = String(s.result ?? '').trim().toLowerCase()
-    if (r === 'fail') fail++
-    else if (r === 'pass') pass++
-    else blank++
-  }
-  if (fail) return 'fail'
-  if (!pass) return 'none'
-  return blank ? 'wip' : 'pass'
+export type Verdict = 'Pass' | 'Fail' | 'WIP' | 'Blocked' | '진행불가' | ''
+
+/** 사람이 직접 고를 수 있는 값. 옛 `DEFAULT_RESULT_STATUSES` 와 같다 */
+export const RESULTS: Array<{ v: Verdict; label: string; cls: string }> = [
+  { v: 'Pass', label: 'Pass', cls: 'pass' },
+  { v: 'Fail', label: 'Fail', cls: 'fail' },
+  { v: 'WIP', label: 'WIP', cls: 'wip' },
+  { v: 'Blocked', label: 'Blocked', cls: 'blocked' },
+  { v: '진행불가', label: '진행불가', cls: 'na' },
+  { v: '', label: '미실행', cls: 'none' },
+]
+
+const CLS: Record<string, string> = {
+  Pass: 'pass',
+  Fail: 'fail',
+  WIP: 'wip',
+  Blocked: 'blocked',
+  진행불가: 'na',
+  '': 'none',
 }
 
-const VERDICT_LABEL: Record<Verdict, string> = {
-  pass: '적합',
-  fail: '부적합',
-  wip: '보류',
-  none: '미실행',
+export const verdictClass = (v: Verdict) => CLS[v] ?? 'none'
+export const verdictLabel = (v: Verdict) => (v === '' ? '미실행' : v)
+
+const isFail = (r: string) => r === 'Fail' || r === '불합격'
+const isPass = (r: string) => r === 'Pass' || r === '합격'
+
+export function itemVerdict(it: CycleItemLite): Verdict {
+  // 사람이 손으로 정한 값이 있으면 그것이 이긴다
+  if (it.result) return it.result as Verdict
+  const steps = it.steps ?? []
+  // 수동 스텝은 자동 판정에서 뺀다
+  const auto = steps.filter((s) => !(s.manual || s.action === '수동'))
+  if (!auto.length) return steps.length ? '진행불가' : ''
+  if (auto.length === 1) return ((auto[0]?.result ?? '') as Verdict) || ''
+  if (auto.some((s) => isFail(String(s.result ?? '')))) return 'Fail'
+  if (auto.some((s) => isPass(String(s.result ?? '')))) return 'Pass'
+  const mixed = auto.find((s) => s.result && !isPass(String(s.result)))
+  return ((mixed?.result ?? '') as Verdict) || ''
 }
 
 /** 장비 카탈로그의 모델 — 모델그룹의 주인 */
@@ -205,6 +223,8 @@ function build(
 export default function Cycles() {
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [making, setMaking] = useState(false)
+  /** 우클릭 메뉴 — 어느 사이클 위에서, 화면 어디에 */
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   const [sel, setSel] = useState('')
   const [q, setQ] = useState('')
 
@@ -295,6 +315,12 @@ export default function Cycles() {
               else toggle(n.key)
             }
           }}
+          onContextMenu={(e) => {
+            if (!n.cycle) return
+            e.preventDefault()
+            setSel(n.cycle.id)
+            setMenu({ id: n.cycle.id, x: e.clientX, y: e.clientY })
+          }}
         >
           <span className={`cy-caret${isOpen ? ' open' : ''}`}>
             {leaf ? <span className="cy-dot" /> : <IconChevron />}
@@ -339,6 +365,18 @@ export default function Cycles() {
         </div>
       </section>
 
+      {menu && (
+        <CycleMenu
+          at={menu}
+          cycle={cycles.find((c) => c.id === menu.id)}
+          onClose={() => setMenu(null)}
+          onChanged={() => {
+            setMenu(null)
+            void listQ.refetch()
+          }}
+        />
+      )}
+
       {making && (
         <CycleNew
           folders={vgQ.data?.groups ?? {}}
@@ -373,7 +411,8 @@ function CycleDetail({
   devices: Device[]
   onSaved: () => void
 }) {
-  const [only, setOnly] = useState<Verdict | ''>('')
+  /** 걸러 보기. null 이면 전부 — '' 는 「미실행」 이라는 뜻이라 못 쓴다 */
+  const [only, setOnly] = useState<Verdict | null>(null)
   const [report, setReport] = useState(false)
   /** 고른 항목 — 누르면 스텝과 실행 내역이 아래에 열린다 */
   const [openItem, setOpenItem] = useState(-1)
@@ -408,6 +447,10 @@ function CycleDetail({
    * 사이클을 만들 때만 고를 수 있으면, 시험 하나를 빠뜨렸을 때 사이클을
    * 다시 만들어야 한다. 그러면 이미 돌린 결과가 통째로 날아간다.
    */
+  /** 결과를 손으로 정한다 */
+  const setResult = (tcid: string, result: string) =>
+    saveItems((cur) => cur.map((x) => (x.tcid === tcid ? { ...x, result } : x)))
+
   const saveItems = async (edit: (cur: CycleItemLite[]) => CycleItemLite[]) => {
     setSaving(true)
     try {
@@ -434,11 +477,12 @@ function CycleDetail({
   }
 
   const items = fullQ.data?.items ?? cycle.items ?? []
-  const counts = { pass: 0, fail: 0, wip: 0, none: 0 }
-  for (const it of items) counts[itemVerdict(it)]++
+  const counts: Record<string, number> = {}
+  for (const r of RESULTS) counts[r.v] = 0
+  for (const it of items) counts[itemVerdict(it)] = (counts[itemVerdict(it)] ?? 0) + 1
   const total = items.length || 1
 
-  const rows = only ? items.filter((it) => itemVerdict(it) === only) : items
+  const rows = only !== null ? items.filter((it) => itemVerdict(it) === only) : items
 
   /*
    * 실행 중에는 **도는 항목**을 따라간다.
@@ -537,25 +581,26 @@ function CycleDetail({
 
       {/* 한 줄로 지금 어디까지 왔나. 숫자만 늘어놓으면 눈으로 못 센다 */}
       <div className="cy-bar" aria-hidden="true">
-        <span className="pass" style={{ flexGrow: counts.pass }} />
-        <span className="fail" style={{ flexGrow: counts.fail }} />
-        <span className="wip" style={{ flexGrow: counts.wip }} />
-        <span className="none" style={{ flexGrow: counts.none }} />
+        {RESULTS.map((r) => (
+          <span key={r.v} className={r.cls} style={{ flexGrow: counts[r.v] ?? 0 }} />
+        ))}
       </div>
       <div className="cy-legend">
-        {(['pass', 'fail', 'wip', 'none'] as const).map((k) => (
+        {/* 0건인 것도 자리를 지킨다 — 사라졌다 나타나면 누르려던 자리가
+            매번 달라진다 */}
+        {RESULTS.map((r) => (
           <button
-            key={k}
+            key={r.v}
             type="button"
-            className={`cy-leg ${k}${only === k ? ' on' : ''}`}
-            title={only === k ? '전부 보기' : `${VERDICT_LABEL[k]} 만 보기`}
-            onClick={() => setOnly(only === k ? '' : k)}
+            className={`cy-leg ${r.cls}${only === r.v ? ' on' : ''}`}
+            title={only === r.v ? '전부 보기' : `${r.label} 만 보기`}
+            onClick={() => setOnly(only === r.v ? null : r.v)}
           >
-            <b>{counts[k]}</b> {VERDICT_LABEL[k]}
+            <b>{counts[r.v] ?? 0}</b> {r.label}
           </button>
         ))}
         <span className="sp" />
-        <span className="muted small">{Math.round(((total - counts.none) / total) * 100)}% 진행</span>
+        <span className="muted small">{Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행</span>
       </div>
 
       <div className="cy-cols">
@@ -611,7 +656,21 @@ function CycleDetail({
                   </i>
                 )}
               </span>
-              <span className={`cy-v ${v}`}>{VERDICT_LABEL[v]}</span>
+              {/* 결과를 손으로 정할 수 있어야 한다. 수동 시험도 있고,
+                  자동으로 돌았는데 사람이 달리 판단하는 경우도 있다 */}
+              <select
+                className={`cy-v ${verdictClass(v)}`}
+                value={v}
+                title="결과를 손으로 정합니다"
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => void setResult(it.tcid, e.target.value)}
+              >
+                {RESULTS.map((r) => (
+                  <option key={r.v} value={r.v}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
               <span className="muted">{it.assignee || it.executed_by || '–'}</span>
               <span className="muted small">
                 {it.executed_at ? it.executed_at.slice(5, 16) : '–'}
@@ -644,6 +703,92 @@ function CycleDetail({
         <RunPane st={st} />
       </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * 사이클 우클릭 메뉴.
+ *
+ * 옛 화면이 트리에서 우클릭으로 하던 것들이다. 화면 위쪽 단추로 다 빼
+ * 놓으면 단추가 여섯 개가 되고, 그중 넷은 어쩌다 한 번 쓴다.
+ */
+function CycleMenu({
+  at,
+  cycle,
+  onClose,
+  onChanged,
+}: {
+  at: { id: string; x: number; y: number }
+  cycle?: CycleMeta
+  onClose: () => void
+  onChanged: () => void
+}) {
+  useEffect(() => {
+    const away = () => onClose()
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    // 이 메뉴를 연 우클릭이 그대로 '바깥 누름' 으로 잡히지 않게 한 박자 늦춘다
+    const timer = setTimeout(() => {
+      window.addEventListener('mousedown', away)
+      window.addEventListener('contextmenu', away)
+    }, 0)
+    window.addEventListener('keydown', esc)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('mousedown', away)
+      window.removeEventListener('contextmenu', away)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [onClose])
+
+  const rename = async () => {
+    const now = `${cycle?.model ?? ''} ${cycle?.version ?? ''}`.trim()
+    const v = window.prompt('버전 이름', cycle?.version ?? '')
+    if (v === null || v.trim() === (cycle?.version ?? '')) return
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(at.id)}`)
+      if (!r.ok) throw new Error(String(r.status))
+      const full = (await r.json()) as Record<string, unknown>
+      const w = await apiFetch(`/api/cycle/${encodeURIComponent(at.id)}`, {
+        method: 'POST',
+        body: JSON.stringify({ ...full, id: at.id, version: v.trim() }),
+      })
+      if (!w.ok) throw new Error(String(w.status))
+      onChanged()
+    } catch {
+      window.alert(`이름을 바꾸지 못했습니다 — ${now}`)
+    }
+  }
+
+  const del = async () => {
+    // 사이클을 지우면 그 안의 실행 결과가 같이 사라진다. 이름을 보여 주고 묻는다
+    const nm = `${cycle?.model ?? ''} ${cycle?.version ?? ''}`.trim() || at.id
+    if (!window.confirm(`「${nm}」 을 지웁니다. 이 회차의 실행 결과도 같이 사라집니다.`)) return
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(at.id)}`, { method: 'DELETE' })
+      if (!r.ok) throw new Error(String(r.status))
+      onChanged()
+    } catch {
+      window.alert('지우지 못했습니다')
+    }
+  }
+
+  const item = (label: string, fn: () => void) => (
+    <button type="button" onClick={fn}>
+      {label}
+    </button>
+  )
+
+  return (
+    <div
+      className="cy-menu"
+      style={{ left: at.x, top: at.y }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {item('버전 이름 바꾸기', () => void rename())}
+      <hr />
+      {item('지우기', () => void del())}
     </div>
   )
 }

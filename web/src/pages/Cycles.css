@@ -467,3 +467,51 @@
 
 /* 이미 들어 있는 시험. 안 보이게 치우면 「분명 넣었는데 왜 없지」 한다 */
 .cn-row.off { opacity: 0.45; cursor: default; }
+
+/* 트리 우클릭 메뉴 — 어쩌다 쓰는 것을 위쪽 단추로 다 빼면 여섯 개가 된다 */
+.cy-menu {
+  position: fixed;
+  z-index: 80;
+  min-width: 180px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(20, 30, 60, 0.18);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.cy-menu button {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--c-text);
+  cursor: pointer;
+}
+.cy-menu button:hover { background: var(--c-surface-2); }
+.cy-menu hr { border: 0; border-top: 1px solid var(--c-border-soft); margin: 4px 0; }
+.cy-menu button:last-child { color: var(--c-fail); }
+
+/* 결과 여섯 가지 */
+.cy-bar .wip { background: #f5b731; }
+.cy-bar .blocked { background: #e8820c; }
+.cy-bar .na { background: #999; }
+.cy-leg.blocked b { color: #e8820c; }
+.cy-leg.na b { color: #999; }
+select.cy-v {
+  border: 1px solid transparent;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 1px 2px;
+}
+select.cy-v:hover { border-color: var(--c-border); }
+select.cy-v.wip { color: #f5b731; }
+select.cy-v.blocked { color: #e8820c; }
+select.cy-v.na { color: #999; }
