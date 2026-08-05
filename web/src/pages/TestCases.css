@@ -1501,3 +1501,7 @@
    If 는 갈래를 고를 뿐 합격·불합격을 내지 않는다. */
 .sq-res.cond-y { color: #1f7a45; font-weight: 600; }
 .sq-res.cond-n { color: #97620d; font-weight: 600; }
+
+/* 왼쪽·오른쪽 각각 넣기 — 한쪽에만 두면 반대쪽은 손으로 쳐야 한다 */
+.sd-two { margin-left: auto; display: inline-flex; gap: 4px; }
+.sd-two .sd-pickbtn { margin-left: 0; }

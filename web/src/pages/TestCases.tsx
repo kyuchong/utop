@@ -31,8 +31,11 @@ import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { type TestCaseMeta } from '@/types'
 import { runPicked, runSteps, type RunCtx, type RunLog } from '@/components/tc/runner'
+import { extractOne } from '@/components/tc/judge'
+import type { PickItem } from '@/components/tc/PickList'
 import {
   sessionIndex,
+  stepResult,
   stepStatus,
   type StepKind,
   type TcData,
@@ -244,6 +247,39 @@ export default function TestCases() {
   )
 
   /**
+   * 앞 스텝이 뽑아 둔 변수와 지금 값.
+   *
+   * 전역 파라미터만 목록에 있어서 `${var1}` 은 손으로 쳐야 했다. 무엇을
+   * 뽑아 뒀는지 화면 어디에도 안 보이니 값 비교를 쓸 수가 없었다.
+   * 마지막 실행의 응답에 식을 대 보고 값까지 함께 보인다.
+   */
+  const stepVars = useMemo(() => {
+    const items: PickItem[] = []
+    const values: Record<string, string> = {}
+    steps.forEach((s, i) => {
+      // 뒤 스텝의 변수는 아직 안 뽑혔다 — 고른 줄보다 앞엣것만
+      if (stepIdx >= 0 && i >= stepIdx) return
+      const out = stepResult(s)
+      const rules = [
+        ...(s.queries ?? []).map((x) => ({ name: x.var, rule: x.q })),
+        ...(s.extracts ?? []).map((x) => ({ name: x.var, rule: x.rule })),
+      ]
+      for (const r of rules) {
+        if (!r.name) continue
+        const got = r.rule ? extractOne(r.rule, out) : null
+        if (got != null) values[r.name] = got
+        items.push({
+          value: `\${${r.name}}`,
+          label: r.name,
+          note: [got ?? '아직 안 뽑힘', `스텝 ${i + 1}`].join(' · '),
+        })
+      }
+    })
+    return { items, values }
+  }, [steps, stepIdx])
+
+
+  /**
    * 이 TC 가 붙는 장비의 모델.
    *
    * 전역 파라미터가 모델별로 갈려 있어서(E6100 의 포트 이름과 E5724RL 의
@@ -264,6 +300,17 @@ export default function TestCases() {
   }, [d.param_files, d.param_file])
 
   const gp = useGlobalParams(paramFiles)
+
+  /** 스텝 변수가 전역 파라미터를 덮는다 — 돌면서 알아낸 값이 최신이다 */
+  const stepParams = useMemo(
+    () => ({
+      values: { ...gp.values, ...stepVars.values },
+      items: [...stepVars.items, ...gp.items],
+      loading: gp.loading,
+      empty: gp.empty,
+    }),
+    [gp.values, gp.items, gp.loading, gp.empty, stepVars],
+  )
 
   const patch = (p: Partial<TcData>) => {
     setD((c) => ({ ...c, ...p }))
@@ -1072,7 +1119,7 @@ export default function TestCases() {
                 index={stepIdx}
                 total={steps.length}
                 sessions={sessionNames}
-                params={gp}
+                params={stepParams}
                 takenVars={takenVars}
                 onChange={(p) => stepIdx >= 0 && patchStep(stepIdx, p)}
                 onMove={(dir) => stepIdx >= 0 && moveStep(stepIdx, dir)}

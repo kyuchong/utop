@@ -113,13 +113,13 @@ export default function TcStepDetail({
         title="전역 파라미터 넣기"
         onClick={() => setPick(pick === key ? '' : key)}
       >
-        {'${ } 파라미터'}
+        {'${ } 값 넣기'}
       </button>
     ),
     list:
       pick === key ? (
         <PickList
-          title="전역 파라미터"
+          title="뽑은 값 · 전역 파라미터"
           items={gp.items}
           loading={gp.loading}
           empty={gp.empty}
@@ -496,9 +496,14 @@ export default function TcStepDetail({
             <div className="sd-f">
               <span className="sd-lab">
                 견줄 두 값
-                {paramPick('cmpLeft', 'p-cl').btn}
+                {/* 왼쪽·오른쪽 각각. 한쪽에만 두면 반대쪽은 손으로 쳐야 한다 */}
+                <span className="sd-two">
+                  {paramPick('cmpLeft', 'p-cl').btn}
+                  {paramPick('cmpRight', 'p-cr').btn}
+                </span>
               </span>
               {paramPick('cmpLeft', 'p-cl').list}
+              {paramPick('cmpRight', 'p-cr').list}
               <div className="sd-row">
                 <input
                   className="mono"
