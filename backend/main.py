@@ -3,6 +3,7 @@ import sys
 import json
 import re
 import asyncio
+import httpx
 import platform
 import socket
 import subprocess
@@ -860,6 +861,9 @@ async def api_health():
 # 로그인 없이 열어두는 경로. 접두사로 비교한다.
 _AUTH_PUBLIC = (
     "/api/login",
+    # 서버끼리 부르는 자리라 사람의 세션이 없다. 대신 N2X_RELAY_KEY 로
+    # 자기가 확인하고, 열쇠가 안 정해져 있으면 아예 거절한다.
+    "/api/n2x/send",
     "/api/logout",
     "/api/health",
     "/api/req-images/",     # 마크다운 안 <img> 는 헤더를 못 붙인다
@@ -5663,6 +5667,26 @@ async def stc_server_status(port: int = 8888):
 # 실행 PC 가 리눅스로 바뀌면 이 경로는 없다. 코드를 고치지 않고 바꿀 수
 # 있게 환경변수로 뺀다 — 리눅스용 N2X Tcl 이 있으면 그 경로를 넣으면 된다.
 N2X_TCLSH = os.environ.get("N2X_TCLSH") or r"C:\N2xTcl85\bin\n2xtclsh85.exe"
+
+# ── N2X 중계 ────────────────────────────────────────────────
+#
+# N2X 는 STC 와 처지가 다르다. STC 는 REST 서버를 **네트워크 너머로**
+# 가리킬 수 있어서 리눅스 백엔드에서도 붙지만, N2X 는 백엔드가 있는 그
+# 기계에서 Tcl 프로세스를 직접 띄운다. 실행 PC 를 리눅스로 옮기는 순간
+# 이 길이 끊긴다.
+#
+# 그래서 윈도우 PC 한 대에 백엔드를 하나 더 띄우고 N2X 명령만 그리로
+# 넘긴다. 시험은 리눅스가 돌리고, Tcl 만 건너간다.
+#
+#   리눅스 백엔드  ──HTTP──▶  윈도우 백엔드  ──▶  N2X Tcl  ──▶  섀시
+#     N2X_RELAY_URL              N2X_RELAY_KEY
+#
+# 비워 두면 예전처럼 이 기계에서 직접 띄운다 — 실행 PC 가 윈도우면 아무
+# 설정도 필요 없다. 즉 어느 쪽을 골라도 이 코드 하나로 된다.
+N2X_RELAY_URL = (os.environ.get("N2X_RELAY_URL") or "").rstrip("/")
+# 중계는 로그인 세션이 아니라 이 열쇠로 연다. 계측기를 아무나 못 돌리게
+# 하려면 양쪽에 같은 값을 넣어야 한다.
+N2X_RELAY_KEY = os.environ.get("N2X_RELAY_KEY") or ""
 N2X_DAEMON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "n2x", "n2x_daemon.tcl")
 _n2x_daemons = {}            # key "server|label" -> {proc, lock, ready}
 _n2x_reg_lock = threading.Lock()
@@ -5768,6 +5792,33 @@ def _n2x_get_daemon(server, label):
         return nd
 
 def _n2x_send(server, label, cmd, _retry=True):
+    """N2X 명령 한 줄. 중계가 설정돼 있으면 그리로, 아니면 이 기계에서 직접.
+
+    모든 N2X 기능(ports · reserve · release · traffic · ping)이 이 함수
+    하나를 지난다. 그래서 여기 한 곳만 갈라 두면 기능마다 따로 손볼 것이
+    없다.
+    """
+    if N2X_RELAY_URL:
+        try:
+            # N2X 명령은 길다 — ports 스캔이 45초, traffic 이 60초까지 간다.
+            # 중계 타임아웃은 그보다 넉넉해야 중간에 끊기지 않는다.
+            r = httpx.post(
+                N2X_RELAY_URL + "/api/n2x/send",
+                json={"server": server, "label": label, "cmd": cmd, "key": N2X_RELAY_KEY},
+                timeout=150,
+            )
+            if r.status_code != 200:
+                return {"ok": False,
+                        "error": f"N2X 중계 오류 {r.status_code} — {r.text[:200]}"}
+            return r.json()
+        except Exception as e:
+            _n2x_log(f"[N2X] relay failed url={N2X_RELAY_URL} err={e}")
+            return {"ok": False,
+                    "error": f"N2X 중계에 못 붙었습니다 ({N2X_RELAY_URL}) — {e}"}
+    return _n2x_send_local(server, label, cmd, _retry)
+
+
+def _n2x_send_local(server, label, cmd, _retry=True):
     """상주 데몬에 한 줄 명령 전송 → JSON 응답. 데몬 EOF(=크래시) 감지 시 1회 자동 재기동+재시도.
     NOTE: reserve/release 는 이미 서버에 반영됐을 가능성이 있어 auto-retry 하지 않는다(중복 명령 방지)."""
     # reserve/release 는 부작용 있는 명령 — retry 금지
@@ -5816,7 +5867,7 @@ def _n2x_send(server, label, cmd, _retry=True):
                 with _n2x_reg_lock:
                     _n2x_daemons.pop(server + "|" + label, None)
                 if _retry:
-                    return _n2x_send(server, label, cmd, _retry=False)
+                    return _n2x_send_local(server, label, cmd, _retry=False)
                 return {"ok": False, "error": "데몬 재기동 실패 — 백엔드 로그 확인"}
             proc.stdin.write(cmd + "\n")
             proc.stdin.flush()
@@ -5864,7 +5915,7 @@ def _n2x_send(server, label, cmd, _retry=True):
                 with _n2x_reg_lock:
                     _n2x_daemons.pop(server + "|" + label, None)
                 if _retry:
-                    return _n2x_send(server, label, cmd, _retry=False)
+                    return _n2x_send_local(server, label, cmd, _retry=False)
                 return {"ok": False, "error": "데몬 응답 없음(연결 끊김): " + (err[:200] if err else "원인 불명 — 백엔드 로그 확인")}
             return json.loads(line)
         except (BrokenPipeError, OSError) as e:
@@ -5873,7 +5924,7 @@ def _n2x_send(server, label, cmd, _retry=True):
             with _n2x_reg_lock:
                 _n2x_daemons.pop(server + "|" + label, None)
             if _retry:
-                return _n2x_send(server, label, cmd, _retry=False)
+                return _n2x_send_local(server, label, cmd, _retry=False)
             return {"ok": False, "error": "데몬 파이프 끊김 — 다시 시도"}
         except Exception as e:
             return {"ok": False, "error": str(e)}
@@ -5881,6 +5932,26 @@ def _n2x_send(server, label, cmd, _retry=True):
         if not _lock_transferred[0]:
             try: d["lock"].release()
             except Exception: pass
+
+@app.post("/api/n2x/send")
+def n2x_send_relay(data: dict):
+    """중계 창구 — 다른 UTOP 백엔드가 보낸 N2X 명령을 이 기계에서 실행한다.
+
+    이 기계에 N2X Tcl 이 깔려 있어야 한다. 리눅스 백엔드가 여기로 넘긴다.
+
+    로그인 세션이 아니라 열쇠로 연다 — 서버끼리 부르는 자리라 사람의
+    세션이 없다. 열쇠를 안 정해 두면 아무나 계측기를 돌릴 수 있으므로
+    비어 있으면 아예 막는다.
+    """
+    if not N2X_RELAY_KEY:
+        return {"ok": False, "error": "이 서버는 중계로 열려 있지 않습니다 (N2X_RELAY_KEY 없음)"}
+    if str(data.get("key") or "") != N2X_RELAY_KEY:
+        return {"ok": False, "error": "중계 열쇠가 다릅니다"}
+    cmd = str(data.get("cmd") or "").strip()
+    if not cmd:
+        return {"ok": False, "error": "cmd 필요"}
+    return _n2x_send_local(str(data.get("server") or ""), str(data.get("label") or "utop"), cmd)
+
 
 @app.get("/api/n2x/ping")
 def n2x_ping(server: str = "210.1.2.248", label: str = "utop"):
