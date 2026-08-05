@@ -1516,3 +1516,176 @@
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
 }
+
+/* ── 표에서 고르기 ──
+   show int status 처럼 줄이 수십 개인 응답은 글자를 끌어서 볼 수 없다.
+   표로 펼쳐 놓고 누르게 한다. */
+.tb-wrap {
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: var(--c-surface);
+  overflow: hidden;
+}
+.tb-top,
+.tb-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--c-surface-2);
+  border-bottom: 1px solid var(--c-border);
+}
+.tb-foot {
+  border-bottom: 0;
+  border-top: 1px solid var(--c-border);
+  flex-wrap: wrap;
+}
+.tb-top .muted {
+  flex: 1;
+  min-width: 0;
+}
+.tb-say {
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--c-border);
+}
+.tb-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+.tb-sent {
+  font-size: var(--fs-sm);
+}
+/* 고른 조건. 눌러서 =/≠ 를 뒤집고 ✕ 로 뺀다 */
+.tb-chip {
+  display: inline-flex;
+  align-items: center;
+  margin: 0 4px;
+  border: 1px solid var(--c-accent);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.tb-chip button {
+  border: 0;
+  background: transparent;
+  padding: 2px 8px;
+  font-size: var(--fs-xs);
+  color: var(--c-text);
+  cursor: pointer;
+}
+.tb-chip button:hover {
+  background: var(--c-accent-soft);
+}
+.tb-chip .x {
+  padding: 2px 6px;
+  color: var(--c-text-faint);
+  border-left: 1px solid var(--c-border);
+}
+.tb-scroll {
+  max-height: 340px;
+  overflow: auto;
+}
+table.tb {
+  border-collapse: collapse;
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+table.tb th,
+table.tb td {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--c-border-soft);
+  text-align: left;
+}
+table.tb thead th {
+  position: sticky;
+  top: 0;
+  background: var(--c-surface-2);
+  color: var(--c-text-muted);
+  border-bottom: 1px solid var(--c-border);
+  z-index: 1;
+}
+table.tb td {
+  cursor: pointer;
+}
+table.tb td:hover {
+  background: var(--c-accent-soft);
+}
+table.tb .k {
+  font-weight: 600;
+}
+table.tb .tb-pick {
+  width: 26px;
+  cursor: default;
+}
+table.tb .tb-pick:hover {
+  background: none;
+}
+/* 안 고른 행은 옅게 — 무엇을 보고 있는지가 한눈에 */
+table.tb tr.off td {
+  opacity: 0.4;
+}
+table.tb tr.on td {
+  background: var(--c-accent-soft);
+}
+table.tb td.ok {
+  background: var(--c-pass-soft);
+  color: var(--c-pass);
+  font-weight: 600;
+}
+table.tb td.bad {
+  background: var(--c-fail-soft);
+  color: var(--c-fail);
+  font-weight: 600;
+}
+table.tb td.on {
+  outline: 1px dashed var(--c-border-strong);
+  outline-offset: -1px;
+}
+.tb-live {
+  font-size: var(--fs-xs);
+}
+.tb-live.ok {
+  color: var(--c-pass);
+}
+.tb-live.bad {
+  color: var(--c-fail);
+}
+.tb-code {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 행별 참/거짓. 28행짜리 표에서 전체 결과만 보면 어느 행 때문에 떨어졌는지
+   다시 눈으로 찾아야 한다 */
+table.tb .tb-v {
+  width: 30px;
+  text-align: center;
+  cursor: default;
+  font-weight: 700;
+}
+table.tb .tb-v:hover {
+  background: none;
+}
+table.tb tr.r-ok .tb-v {
+  color: var(--c-pass);
+}
+table.tb tr.r-bad .tb-v {
+  color: var(--c-fail);
+}
+/* 어긋난 행은 왼쪽에 붉은 선 — 스크롤하며 훑을 때 눈에 걸린다 */
+table.tb tr.r-bad td:first-child {
+  box-shadow: inset 2px 0 0 var(--c-fail);
+}

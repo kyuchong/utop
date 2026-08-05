@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { IconIndent, IconOutdent } from '../icons'
-import { evalCondWhy, extractOne, JUDGE_TYPES, subVars } from './judge'
+import { evalCondWhy, extractOne, JUDGE_TYPES, parseTable, subVars } from './judge'
+import TcTable from './TcTable'
 import PickList, { type PickItem } from './PickList'
 import {
   ADD_KINDS,
@@ -59,6 +60,7 @@ export default function TcStepDetail({
   onRun,
 }: Props) {
   const [picked, setPicked] = useState('')
+  const [tblOpen, setTblOpen] = useState(false)
   /** 지금 열려 있는 고르기 목록 — 어느 칸에 넣을지까지 담는다 */
   /** 어느 칸에 넣을 목록을 열어 두었나 */
   const [pick, setPick] = useState('')
@@ -185,6 +187,9 @@ export default function TcStepDetail({
    * 영영 못 본다.
    */
   const hasResult = isRun || isDiff || !!result
+  // 표로 읽히는 응답인지. 되는 응답에만 단추를 내놓는다 — 안 되는 곳에
+  // 있으면 눌러 보고 나서야 안 된다는 걸 안다.
+  const isTbl = useMemo(() => (result ? !!parseTable(result) : false), [result])
   const needsSession = isCmd || isConn || isNet
   const depth = Math.min(Math.max(Number(step.indent) || 0, 0), 4)
   /** 이 스텝이 뽑는 이름 */
@@ -891,6 +896,27 @@ export default function TcStepDetail({
                 onChange={(e) => onChange({ criteria: e.target.value })}
               />
             </div>
+            {String(step.type) === 'table' && (
+              <span className="sd-hint">
+                {isTbl ? (
+                  <>
+                    <button
+                      className="btn small"
+                      type="button"
+                      onClick={() => setTblOpen(true)}
+                    >
+                      표에서 고르기
+                    </button>{' '}
+                    아래 Result 를 표로 펼쳐 놓고, <b>볼 행</b>과 <b>그 행이 어때야 하는지</b>를
+                    눌러서 만듭니다.
+                  </>
+                ) : (
+                  <>
+                    먼저 이 스텝을 <b>실행</b>해서 표 응답을 받아야 고를 수 있습니다.
+                  </>
+                )}
+              </span>
+            )}
             {preview(step.criteria ?? step.expected)}
             {String(step.type) === 'expr' && String(step.criteria ?? '').trim() && (
               (() => {
@@ -1067,13 +1093,35 @@ export default function TcStepDetail({
                 </button>
               )}
             </div>
-            {result ? (
+            {result && tblOpen ? (
+              <TcTable
+                text={result}
+                criteria={String(step.criteria ?? step.expected ?? '')}
+                onClose={() => setTblOpen(false)}
+                onApply={(c) => {
+                  onChange({ type: 'table', criteria: c })
+                  setTblOpen(false)
+                }}
+              />
+            ) : result ? (
               <>
                 {/* onMouseUp 으로 잡는 이유: onSelect 는 pre 에서 안 뜬다 */}
                 <pre className="sd-res" onMouseUp={grab}>
                   {result}
                 </pre>
                 <div className="sd-pick">
+                  {/* 표 응답은 끌어서 고를 것이 아니다. `show int status` 를
+                      contains 로 보면 28포트 중 아무 줄의 connected 나 걸려서
+                      하나만 죽어도 합격이 나온다. */}
+                  {isTbl && (
+                    <button
+                      className="btn small primary"
+                      type="button"
+                      onClick={() => setTblOpen(true)}
+                    >
+                      표로 판정 만들기
+                    </button>
+                  )}
                   {/* 응답 전체를 담는다. 글자를 끌어야만 되면 긴 출력을
                       통째로 쓰고 싶을 때 방법이 없다 — 다음 스텝에서
                       이번 출력과 견주는 시험이 그것이다. */}

@@ -26,6 +26,7 @@ export const JUDGE_TYPES: Array<[string, string]> = [
   ['contains_all', '모두 있으면 합격'],
   ['notcontains', '있으면 불합격'],
   ['line', '항목(키 : 값) 일치'],
+  ['table', '표에서 행·열로 판정'],
   ['none', '판정 안 함 (조회만)'],
 ]
 
@@ -143,6 +144,204 @@ export function looksLikeError(output: string): string {
  * 매칭은 대소문자를 구분하지 않는다 — 장비·펌웨어마다 CLI 출력의 대소문자가
  * 달라서 구분하면 같은 시험이 장비만 바꿔도 깨진다(docs/conventions.md).
  */
+/* ────────────────────────── 표 판정 ──────────────────────────
+ *
+ * `show int status` 처럼 줄이 수십 개인 표는 contains 로는 못 본다.
+ * "Gi0/1 이 connected 인가" 를 contains 로 쓰면 아무 줄의 connected 나
+ * 걸리고, 28포트 중 하나만 죽어도 합격이 나온다.
+ *
+ * 옛 화면(_judgeTable)이 쓰던 규칙을 그대로 옮겼다:
+ *
+ *     Port=Gi0/1,Gi0/2 => Status=connected Vlan=210
+ *     └─ 볼 행 고르기 ─┘    └── 그 행들이 이래야 한다 ──┘
+ *
+ * 다만 이 문법을 손으로 치라고 하면 아무도 안 쓴다. 화면에서는 표를
+ * 그려 놓고 눌러서 만들게 하고, 이 글자는 그 결과로만 남는다.
+ */
+
+export interface Tbl {
+  /** 열 이름. 이름이 빈 열도 자리를 지키느라 그대로 둔다 */
+  cols: string[]
+  /** 자료 행 */
+  rows: string[][]
+}
+
+/**
+ * 고정폭 표 읽기.
+ *
+ * `-----  ------  ---` 구분선의 대시 덩어리로 열 자리를 잡는다. 공백으로
+ * 쪼개면 안 된다 — 이름 칸이 빈 줄(Gi0/4)에서 열이 통째로 밀린다.
+ */
+export function parseTable(text: string): Tbl | null {
+  const lines = String(text ?? '').split(/\r?\n/)
+  const sepIdx = lines.findIndex((l) => /-{3,}/.test(l) && /^[\s-]+$/.test(l))
+  if (sepIdx < 1) return null
+  const sep = lines[sepIdx] ?? ''
+  const ranges: Array<[number, number]> = []
+  const re = /-+/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(sep))) ranges.push([m.index, m.index + m[0].length])
+  if (!ranges.length) return null
+
+  const cell = (line: string, i: number) => {
+    const r = ranges[i]
+    if (!r) return ''
+    // 마지막 열은 구분선보다 길어질 수 있다 (Type 처럼)
+    const end = i === ranges.length - 1 ? Math.max(line.length, r[1]) : r[1]
+    return String(line ?? '').slice(r[0], end).trim()
+  }
+
+  const cols = ranges.map((_, i) => cell(lines[sepIdx - 1] ?? '', i))
+  const rows: string[][] = []
+  for (let i = sepIdx + 1; i < lines.length; i++) {
+    const ln = lines[i] ?? ''
+    if (!ln.trim()) continue
+    // 프롬프트 줄(`SWITCH#`)은 자료가 아니다
+    if (/^[\w.-]+[#>]\s*$/.test(ln.trim())) continue
+    rows.push(ranges.map((_, c) => cell(ln, c)))
+  }
+  return rows.length ? { cols, rows } : null
+}
+
+interface Tok {
+  col: string
+  val: string
+  /** `!=` — 이 값이면 안 된다 */
+  neq: boolean
+}
+
+/** `Status=connected Type="Not Present"` → 토큰들. 값에 공백이 있으면 따옴표. */
+function parseToks(s: string): Tok[] {
+  const out: Tok[] = []
+  const re = /([\w .\/-]+?)\s*(!=|=)\s*("[^"]*"|\S*)/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(String(s ?? '')))) {
+    const val = (m[3] ?? '').replace(/^"|"$/g, '')
+    out.push({ col: (m[1] ?? '').trim(), val: val.trim(), neq: m[2] === '!=' })
+  }
+  return out
+}
+
+/** 값에 공백이 있으면 따옴표를 씌워 돌려준다 (`Not Present` → `"Not Present"`) */
+export function quoteVal(v: string): string {
+  return /\s/.test(v) ? `"${v}"` : v
+}
+
+/** 눌러서 고른 것을 판정기준 글자로. 화면과 엔진이 같은 문법을 쓰게 한다. */
+export function buildTableCriteria(
+  keyCol: string,
+  keys: string[],
+  checks: Array<{ col: string; val: string; neq?: boolean }>,
+): string {
+  const left = keys.length ? `${keyCol}=${keys.map(quoteVal).join(',')}` : `${keyCol}=*`
+  const right = checks.map((c) => `${c.col}${c.neq ? '!=' : '='}${quoteVal(c.val)}`).join(' ')
+  return `${left} => ${right}`
+}
+
+/** 판정기준 글자를 다시 눌린 상태로. 열었을 때 전에 고른 것이 그대로 보여야 한다. */
+export function readTableCriteria(criteria: string): {
+  keyCol: string
+  keys: string[]
+  checks: Tok[]
+} | null {
+  const s = String(criteria ?? '')
+  if (!s.includes('=>')) return null
+  const [l = '', ...rest] = s.split('=>')
+  const f = parseToks(l)[0]
+  if (!f) return null
+  return {
+    keyCol: f.col,
+    keys: f.val === '*' ? [] : f.val.split(',').map((x) => x.trim()).filter(Boolean),
+    checks: parseToks(rest.join('=>')),
+  }
+}
+
+/**
+ * 표 판정.
+ *
+ * 고른 행이 **하나도 없으면 불합격**이다. 필터가 헛도는데 합격이 나오면
+ * 포트를 안 보고 통과한 것을 모른 채 넘어간다.
+ */
+export function judgeTable(
+  output: string,
+  criteria: string,
+): { verdict: Verdict; reason: string } {
+  const tbl = parseTable(output)
+  if (!tbl) return { verdict: 'Fail', reason: '표를 못 읽었습니다 — 구분선(---) 이 있는 출력이어야 합니다' }
+
+  const s = String(criteria ?? '')
+  let filters: Tok[]
+  let checks: Tok[]
+  if (s.includes('=>')) {
+    const [l = '', ...rest] = s.split('=>')
+    filters = parseToks(l)
+    checks = parseToks(rest.join('=>'))
+  } else {
+    const toks = parseToks(s)
+    checks = toks.slice(0, 1)
+    filters = toks.slice(1)
+  }
+  if (!checks.length || !checks[0]?.col)
+    return {
+      verdict: 'Fail',
+      reason: '판정기준이 비었습니다 — 「표에서 고르기」 로 만드세요',
+    }
+
+  const at = (name: string) =>
+    tbl.cols.findIndex((c) => c.toLowerCase() === String(name).toLowerCase())
+  for (const c of [...checks, ...filters]) {
+    if (c.col && at(c.col) < 0)
+      return {
+        verdict: 'Fail',
+        reason: `"${c.col}" 열이 없습니다 · 있는 열: ${tbl.cols.filter(Boolean).join(', ')}`,
+      }
+  }
+
+  const eq = (cv: string, v: string) =>
+    v === '*'
+      ? cv !== ''
+      : v.includes(',')
+        ? v.split(',').map((x) => x.trim().toLowerCase()).includes(cv.toLowerCase())
+        : cv.toLowerCase() === v.toLowerCase()
+
+  let checked = 0
+  const fails: string[] = []
+  for (const row of tbl.rows) {
+    const cellOf = (n: string) => row[at(n)] ?? ''
+    let keep = true
+    for (const f of filters) {
+      let r = eq(cellOf(f.col), f.val)
+      if (f.neq) r = !r
+      if (!r) {
+        keep = false
+        break
+      }
+    }
+    if (!keep) continue
+    checked++
+    for (const c of checks) {
+      const cv = cellOf(c.col)
+      let ok = eq(cv, c.val)
+      if (c.neq) ok = !ok
+      if (!ok) {
+        fails.push(`${row[0] || '(행)'} → ${c.col} 이 ${cv || '(빈값)'}`)
+        break
+      }
+    }
+  }
+
+  if (checked === 0)
+    return { verdict: 'Fail', reason: '고른 행이 하나도 없습니다 — 행 조건을 확인하세요' }
+  const what = checks.map((c) => `${c.col}${c.neq ? '≠' : '='}${c.val}`).join(' · ')
+  if (!fails.length) return { verdict: 'Pass', reason: `${checked}행 모두 ${what}` }
+  return {
+    verdict: 'Fail',
+    reason: `${checked}행 중 ${fails.length}행 어긋남 — ${fails.slice(0, 6).join(' | ')}${
+      fails.length > 6 ? ` 외 ${fails.length - 6}행` : ''
+    }`,
+  }
+}
+
 export function judge(step: TcStep, output: string, vars: Record<string, string> = {}): {
   verdict: Verdict
   reason: string
@@ -170,6 +369,10 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
   }
 
   const criteria = subVars(rawCriteria, vars).trim()
+
+  // 표는 판정 영역/제외 줄을 적용하지 않는다 — 머리글과 구분선이 잘리면
+  // 열 자리를 못 잡는다. 행을 고르는 것은 표 판정 자신의 필터가 한다.
+  if (type === 'table') return judgeTable(String(output ?? ''), criteria)
 
   const scoped = applyExclude(applyQuery(output, step.query as string | undefined), step.excludeLines)
   const raw = applyExclude(String(output ?? ''), step.excludeLines)
