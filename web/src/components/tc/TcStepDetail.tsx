@@ -847,17 +847,33 @@ export default function TcStepDetail({
               <input
                 className="mono"
                 value={step.criteria ?? step.expected ?? ''}
-                placeholder="Model Name"
+                placeholder={String(step.type) === 'expr' ? '${var1} == ${var2}' : 'Model Name'}
                 onChange={(e) => onChange({ criteria: e.target.value })}
               />
             </div>
             {preview(step.criteria ?? step.expected)}
-            {step.type !== 'none' && (
+            {String(step.type) === 'expr' && String(step.criteria ?? '').trim() && (
+              (() => {
+                const r = evalCondWhy(String(step.criteria), gp.values)
+                return (
+                  <span className={`sd-cond${r.ok ? ' yes' : ' no'}`}>
+                    지금은 <b>{r.ok ? '합격' : '불합격'}</b> — {r.why}
+                  </span>
+                )
+              })()
+            )}
+            {String(step.type) === 'expr' ? (
+              <span className="sd-hint">
+                응답을 뒤지지 않고 <b>값끼리</b> 견줍니다 — 앞 스텝에서 뽑은 값과
+                이번 값이 같아야 하는 시험에 씁니다. 쓸 수 있는 것:
+                <b> == != &gt; &lt; &gt;= &lt;= 포함</b>
+              </span>
+            ) : step.type !== 'none' ? (
               <span className="sd-hint">
                 대소문자는 안 가립니다. 한 줄에 콤마로 여러 개를 적으면 그 중 하나만
                 맞아도 합격입니다.
               </span>
-            )}
+            ) : null}
           </div>
         )}
 
@@ -1038,6 +1054,38 @@ export default function TcStepDetail({
                   {result}
                 </pre>
                 <div className="sd-pick">
+                  {/* 응답 전체를 담는다. 글자를 끌어야만 되면 긴 출력을
+                      통째로 쓰고 싶을 때 방법이 없다 — 다음 스텝에서
+                      이번 출력과 견주는 시험이 그것이다. */}
+                  <button
+                    className="btn small"
+                    type="button"
+                    onClick={() => {
+                      const used = new Set([...takenVars, ...mine])
+                      let seed = 'out1'
+                      for (let n = 1; n < 999; n++) {
+                        if (!used.has(`out${n}`)) {
+                          seed = `out${n}`
+                          break
+                        }
+                      }
+                      const name = window.prompt('변수 이름 (응답 전체를 담습니다)', seed)
+                      if (!name) return
+                      if (used.has(name.trim())) {
+                        window.alert(`「${name.trim()}」 은 이 시험에서 이미 쓰고 있습니다.`)
+                        return
+                      }
+                      onChange({
+                        queries: [
+                          ...(step.queries ?? []),
+                          // 무엇이든 통째로 잡는 식
+                          { q: '([\\s\\S]*)', var: name.trim() },
+                        ],
+                      })
+                    }}
+                  >
+                    전체를 변수로
+                  </button>
                   {picked ? (
                     <>
                       <span className="sd-var">{picked.length > 28 ? `${picked.slice(0, 28)}…` : picked}</span>

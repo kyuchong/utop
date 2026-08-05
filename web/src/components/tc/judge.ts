@@ -18,6 +18,9 @@ export const JUDGE_TYPES: Array<[string, string]> = [
   ['contains_all', '모두 있으면 합격'],
   ['notcontains', '있으면 불합격'],
   ['line', '항목(키 : 값) 일치'],
+  // 옛 자료에도 있던 종류다. 응답이 아니라 **변수끼리** 견준다 —
+  // 앞 스텝에서 뽑은 값과 이번 값이 같아야 하는 시험이 그것이다.
+  ['expr', '변수 식이 참이면 합격'],
   ['none', '판정 안 함 (조회만)'],
 ]
 
@@ -145,8 +148,23 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
   const err = looksLikeError(output)
   if (err) return { verdict: 'Fail', reason: `장비 오류 응답 — "${err}"` }
 
-  const criteria = subVars(String(step.criteria ?? step.expected ?? ''), vars).trim()
-  if (!criteria) return { verdict: '', reason: '판정기준 없음' }
+  const rawCriteria = String(step.criteria ?? step.expected ?? '').trim()
+  if (!rawCriteria) return { verdict: '', reason: '판정기준 없음' }
+
+  /**
+   * 변수 식.
+   *
+   * 응답을 뒤지는 것이 아니라 값끼리 견준다 — `${var1} == ${var2}`.
+   * 여기서는 subVars 를 미리 하면 안 된다. evalCondWhy 가 안 바뀐 이름을
+   * 찾아 '그런 변수가 없다' 고 알려 주는데, 미리 바꿔 버리면 그 말을
+   * 못 한다.
+   */
+  if (type === 'expr') {
+    const r = evalCondWhy(rawCriteria, vars)
+    return { verdict: r.ok ? 'Pass' : 'Fail', reason: r.why }
+  }
+
+  const criteria = subVars(rawCriteria, vars).trim()
 
   const scoped = applyExclude(applyQuery(output, step.query as string | undefined), step.excludeLines)
   const raw = applyExclude(String(output ?? ''), step.excludeLines)
