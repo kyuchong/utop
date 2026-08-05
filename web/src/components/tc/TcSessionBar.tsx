@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
-import { connParams, deviceLabel, deviceTag, isMeter, meterTransport, protocolOf } from './device'
+import { connParams, deviceLabel, deviceTag, isMeter, protocolOf } from './device'
 
 interface Props {
   /** 이 TC 가 쓰는 세션 — `data.sessions`, 장비 id 배열 */
@@ -133,46 +133,45 @@ export default function TcSessionBar({
                 )
               })}
             </select>
-            {/* 계측기는 SSH 로 안 붙는다. 등록할 때 접속 방식이 SSH 로
-                남아 있어도 그대로 적으면 화면이 거짓말을 한다 — 실제로
-                무엇으로 붙는지를 적는다. */}
-            {dev && (
-              <span className={`tc-sess-ip${isMeter(dev) ? ' meter' : ''}`}>
-                {isMeter(dev) ? (
-                  // 고르는 칸이 이미 `210.1.2.248 · N2X` 라 여기서 종류와
-                  // IP 를 또 적으면 같은 말이 세 번이다. 붙는 방식만 적는다.
-                  <>계측기 · {meterTransport(dev)}</>
-                ) : (
-                  <>
+            {/* 잘못 앉은 줄에 설명을 늘어놓지 않는다.
+                무엇이 잘못됐고 어떻게 고치는지를 한 줄로 두고, 고치는
+                단추를 바로 옆에 놓는다 — 오른쪽 끝의 ✕ 를 찾아 누르게
+                하면 그 사이에 왜 지우는지를 잊는다. */}
+            {dev && isMeter(dev) ? (
+              <span className="tc-sess-fix">
+                <b>계측기</b>는 세션이 아닙니다. 토폴로지 탭에서 씁니다
+                <button type="button" onClick={() => onRemove(i)}>
+                  이 자리 빼기
+                </button>
+              </span>
+            ) : (
+              <>
+                {dev && (
+                  <span className="tc-sess-ip">
                     {proto.toUpperCase()} {dev.ip}
-                  </>
+                  </span>
                 )}
-              </span>
+                <button
+                  type="button"
+                  className="tc-sess-b"
+                  disabled={!dev || testing !== null}
+                  title="연결 확인"
+                  onClick={() => dev && void test(i, dev)}
+                >
+                  {testing === i ? '…' : '⚡'}
+                </button>
+                <button
+                  type="button"
+                  className="tc-sess-b"
+                  disabled={!dev || testing !== null}
+                  title="연결 끊기 — 자리는 그대로 두고 접속만 끊습니다"
+                  aria-label={`S${i + 1} 연결 끊기`}
+                  onClick={() => dev && void close(i, dev)}
+                >
+                  ⏏
+                </button>
+              </>
             )}
-            {dev && isMeter(dev) && (
-              <span className="tc-sess-warn" title="계측기는 토폴로지 탭에서 씁니다">
-                계측기는 세션이 아닙니다 — 토폴로지에서 배선으로 씁니다
-              </span>
-            )}
-            <button
-              type="button"
-              className="tc-sess-b"
-              disabled={!dev || isMeter(dev) || testing !== null}
-              title="연결 확인"
-              onClick={() => dev && void test(i, dev)}
-            >
-              {testing === i ? '…' : '⚡'}
-            </button>
-            <button
-              type="button"
-              className="tc-sess-b"
-              disabled={!dev || testing !== null}
-              title="연결 끊기 — 자리는 그대로 두고 접속만 끊습니다"
-              aria-label={`S${i + 1} 연결 끊기`}
-              onClick={() => dev && void close(i, dev)}
-            >
-              ⏏
-            </button>
             <button
               type="button"
               className="tc-sess-x"
@@ -235,7 +234,11 @@ export default function TcSessionBar({
           <div className="tc-sesspanel">
             <div className="tc-sesspanel-head">
               <b>세션 {sessions.length}개</b>
-              <span className="muted small">장비 {devCount}대</span>
+              {/* '세션 3개 · 장비 2대' 만 보면 왜 숫자가 다른지 모른다.
+                  같은 장비를 두 자리에 앉히는 일이 흔해서 그렇다. */}
+              <span className="muted small">
+                장비 {devCount}대{sessions.length > devCount && ' — 같은 장비를 여러 자리에'}
+              </span>
               <span className="sp" />
               <button className="btn small" type="button" onClick={() => setPick(true)}>
                 + 세션

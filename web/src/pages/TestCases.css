@@ -1889,12 +1889,39 @@ table.tb tr.r-bad td:first-child {
   white-space: nowrap;
 }
 
-/* 계측기가 세션에 앉아 있을 때. 왜 여기 있으면 안 되는지 그 자리에서 */
-.tc-sess-warn {
+/* 잘못 앉은 줄. 무엇이 잘못됐고 어떻게 고치는지를 한 줄에, 고치는 단추도
+   바로 옆에 — 오른쪽 끝 ✕ 를 찾아 누르게 하면 그 사이에 이유를 잊는다 */
+.tc-sess-fix {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
   font-size: var(--fs-xs);
   color: var(--c-draft);
-  background: var(--c-surface-2);
+}
+.tc-sess-fix b {
+  font-weight: 700;
+}
+.tc-sess-fix button {
+  border: 1px solid var(--c-draft);
+  background: transparent;
+  color: var(--c-draft);
   border-radius: 999px;
-  padding: 1px 8px;
+  padding: 1px 9px;
+  font: inherit;
+  cursor: pointer;
   white-space: nowrap;
+}
+.tc-sess-fix button:hover {
+  background: var(--c-draft);
+  color: #fff;
+}
+
+/* 세션 패널 — 잘못 앉은 줄이 길어져도 글자가 안 잘리게 */
+.tc-sesspanel {
+  min-width: 380px;
+}
+.tc-sesspanel-body .tc-sess {
+  width: 100%;
 }
