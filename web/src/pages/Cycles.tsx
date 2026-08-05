@@ -386,7 +386,17 @@ function CycleDetail({
 
   const rows = only ? items.filter((it) => itemVerdict(it) === only) : items
 
-  const cur = openItem >= 0 ? items[openItem] : undefined
+  /*
+   * 실행 중에는 **도는 항목**을 따라간다.
+   *
+   * 사람이 손으로 쫓아 누르게 하면 항목이 넘어갈 때마다 다시 눌러야 한다.
+   * 다른 항목을 일부러 열어 두었으면 그건 그대로 둔다 — 보던 것을
+   * 빼앗지 않는다.
+   */
+  const followAt = st.on && openItem < 0 ? st.itemAt : openItem
+  const cur = followAt >= 0 ? items[followAt] : undefined
+  /** 지금 도는 항목이면 저장된 스텝 대신 받는 중인 것을 보여 준다 */
+  const liveNow = st.on && followAt === st.itemAt && st.liveSteps.length > 0
 
   return (
     <div className="cy-detail">
@@ -529,7 +539,11 @@ function CycleDetail({
           TC 화면과 같은 모양이라 오갈 때 눈이 안 헤맨다. */}
       <div className="cy-side">
         {cur ? (
-          <StepDetail item={cur} onClose={() => setOpenItem(-1)} />
+          <StepDetail
+            item={liveNow ? { ...cur, steps: st.liveSteps } : cur}
+            runningAt={liveNow ? st.stepAt : -1}
+            onClose={() => setOpenItem(-1)}
+          />
         ) : (
           <div className="empty">항목을 누르면 스텝이 보입니다.</div>
         )}
@@ -583,12 +597,23 @@ function RunPane({ st }: { st: ReturnType<typeof useCycleRun>['st'] }) {
  * 를 보려고 TC 화면으로 건너가면 그 사이에 무엇을 보러 갔는지 잊는다.
  * 명령과 그때 받은 출력을 여기서 바로 편다.
  */
-function StepDetail({ item, onClose }: { item: CycleItemLite; onClose: () => void }) {
+function StepDetail({
+  item,
+  runningAt,
+  onClose,
+}: {
+  item: CycleItemLite
+  /** 지금 도는 스텝 번호. 안 돌면 -1 */
+  runningAt: number
+  onClose: () => void
+}) {
   const steps = item.steps ?? []
   /** 출력을 펼친 스텝. 전부 펼쳐 두면 긴 출력에 묻혀 목록이 안 보인다 */
   const [openStep, setOpenStep] = useState(() =>
     steps.findIndex((s) => String(s.result ?? '').toLowerCase() === 'fail'),
   )
+  // 도는 동안에는 그 스텝을 편다 — 무엇을 하고 있는지가 곧 보고 싶은 것이다
+  const shown = runningAt >= 0 ? runningAt : openStep
 
   return (
     <div className="cy-steps-pane">
@@ -614,9 +639,10 @@ function StepDetail({ item, onClose }: { item: CycleItemLite; onClose: () => voi
             const r = String(s.result ?? '').trim()
             const cls = r.toLowerCase() === 'pass' ? 'pass' : r.toLowerCase() === 'fail' ? 'fail' : ''
             const out = String(s.output ?? '').trim()
-            const on = openStep === i
+            const on = shown === i
+            const running = runningAt === i
             return (
-              <div className={`cy-sp ${cls}${on ? ' on' : ''}`} key={i}>
+              <div className={`cy-sp ${cls}${on ? ' on' : ''}${running ? ' running' : ''}`} key={i}>
                 <div
                   className="cy-sp-row"
                   role="button"
@@ -629,7 +655,9 @@ function StepDetail({ item, onClose }: { item: CycleItemLite; onClose: () => voi
                     }
                   }}
                 >
-                  <span className="cy-sp-n">{i + 1}</span>
+                  {/* 도는 줄에는 점이 뛴다. 「지금 여기」 를 글자로 적으면
+                      눈이 훑다가 놓친다 */}
+                  <span className="cy-sp-n">{running ? <i className="cy-sp-live" /> : i + 1}</span>
                   <span className="cy-sp-act">{s.action || (s.waitSec ? '대기' : 'CLI')}</span>
                   <span className="cy-sp-cli mono">
                     {String(s.cli ?? '').split('\n')[0] || s.desc || '—'}
@@ -648,9 +676,13 @@ function StepDetail({ item, onClose }: { item: CycleItemLite; onClose: () => voi
                         달리 여기서는 통째로 보여야 무엇을 보냈는지 안다 */}
                     {s.cli && <pre className="cy-sp-cmd">{s.cli}</pre>}
                     {out ? (
-                      <pre className="cy-sp-out">{out}</pre>
+                      // 도는 중에는 받는 대로 차오른다. 커서를 붙여 두면
+                      // 멈춘 것과 기다리는 것이 구분된다
+                      <pre className={`cy-sp-out${running ? ' live' : ''}`}>{out}</pre>
                     ) : (
-                      <div className="muted small">받은 출력이 없습니다.</div>
+                      <div className="muted small">
+                        {running ? '응답을 기다리는 중…' : '받은 출력이 없습니다.'}
+                      </div>
                     )}
                   </div>
                 )}

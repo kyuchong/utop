@@ -19,6 +19,14 @@ export interface RunState {
   stepCount: number
   stepName: string
   /**
+   * 지금 도는 항목의 스텝들 — **받는 대로** 갱신된다.
+   *
+   * 실행기가 응답을 80ms 마다 올려 주므로 출력이 차오르는 것이 그대로
+   * 보인다. 스텝이 끝나야 결과가 툭 나오면 멈춘 것인지 도는 것인지 알 수
+   * 없다.
+   */
+  liveSteps: TcStep[]
+  /**
    * 오간 것.
    *
    * iTest 가 좋은 점이 실행 진행이 다 보이는 것이다. 스텝이 끝나야 결과가
@@ -37,6 +45,7 @@ const EMPTY: RunState = {
   stepAt: -1,
   stepCount: 0,
   stepName: '',
+  liveSteps: [],
   log: [],
 }
 
@@ -133,7 +142,7 @@ export function useCycleRun(devices: Device[]) {
 
         const steps = (tc.checks ?? []).slice()
         const sessions = Array.isArray(tc.sessions) ? (tc.sessions as string[]) : []
-        setSt((s) => ({ ...s, stepCount: steps.length }))
+        setSt((s) => ({ ...s, stepCount: steps.length, liveSteps: steps.slice() }))
 
         await runSteps(
           {
@@ -142,7 +151,11 @@ export function useCycleRun(devices: Device[]) {
             devById,
             onStep: (i, patch) => {
               const cur = steps[i]
-              if (cur) steps[i] = { ...cur, ...patch }
+              if (!cur) return
+              steps[i] = { ...cur, ...patch }
+              // 화면이 곧바로 따라오게 새 배열로 갈아 끼운다. 같은 배열을
+              // 고치면 React 가 안 바뀐 줄 알고 다시 안 그린다.
+              setSt((s) => ({ ...s, liveSteps: steps.slice() }))
             },
             onAt: (i) =>
               setSt((s) => ({

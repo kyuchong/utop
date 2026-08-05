@@ -436,3 +436,31 @@
   border: 1px dashed var(--c-border);
   border-radius: 8px;
 }
+
+/* 지금 도는 스텝. 「지금 여기」 를 글자로 적으면 눈이 훑다가 놓친다 */
+.cy-sp.running .cy-sp-row { background: var(--c-accent-soft); }
+.cy-sp-live {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  animation: cy-pulse 1s ease-in-out infinite;
+}
+@keyframes cy-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+/* 받는 중인 출력 — 커서가 있으면 멈춘 것과 기다리는 것이 구분된다 */
+.cy-sp-out.live::after {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 13px;
+  vertical-align: -2px;
+  background: var(--c-pass);
+  animation: cy-blink 1.05s step-end infinite;
+}
+@keyframes cy-blink {
+  50% { opacity: 0; }
+}
