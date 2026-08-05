@@ -988,7 +988,29 @@ export default function TestCases() {
                   </span>
                 )}
               </div>
-              {/* 고른 줄이 있을 때만 뜨는 띠. 늘 띄워 두면 자리만 먹는다 */}
+              {fullQ.isLoading ? (
+                <div className="empty">불러오는 중…</div>
+              ) : (
+                <TcSequence
+                  steps={steps}
+                  selected={stepIdx}
+                  onSelect={setStepIdx}
+                  onAdd={addStep}
+                  sessionName={sessionName}
+                  runningAt={runAt}
+                  picked={picked}
+                  onPick={pickStep}
+                  // 수동 스텝은 여기 안 나온다. 별개 탭이다.
+                  hide={(s) => s.kind === 'manual'}
+                  onRun={running ? undefined : (i) => void doRun(i, true)}
+                />
+              )}
+              {/* 실행 판.
+                  전에는 아래에 여섯 줄짜리 회색 글이라 돌고 있는지도 잘
+                  몰랐다. 돌 때는 크게, 끝나면 결과만 남기고 접힌다. */}
+              {/* 고른 줄이 있을 때만 뜬다. 목록 **아래**에 둔다 — 위에 두면 띠가
+                  나타나는 순간 줄이 통째로 아래로 밀려서, 방금 누른 칸이
+                  손 밑에서 달아난다. */}
               {picked.size > 0 && (
                 <div className="sq-bulk">
                   <b>{picked.size}개 골랐습니다</b>
@@ -1021,26 +1043,6 @@ export default function TestCases() {
                   </button>
                 </div>
               )}
-              {fullQ.isLoading ? (
-                <div className="empty">불러오는 중…</div>
-              ) : (
-                <TcSequence
-                  steps={steps}
-                  selected={stepIdx}
-                  onSelect={setStepIdx}
-                  onAdd={addStep}
-                  sessionName={sessionName}
-                  runningAt={runAt}
-                  picked={picked}
-                  onPick={pickStep}
-                  // 수동 스텝은 여기 안 나온다. 별개 탭이다.
-                  hide={(s) => s.kind === 'manual'}
-                  onRun={running ? undefined : (i) => void doRun(i, true)}
-                />
-              )}
-              {/* 실행 판.
-                  전에는 아래에 여섯 줄짜리 회색 글이라 돌고 있는지도 잘
-                  몰랐다. 돌 때는 크게, 끝나면 결과만 남기고 접힌다. */}
               {(running || runLog.length > 0) && (
                 <div className={`tc-runbox${running ? ' live' : ''}`}>
                   <div className="rb-head">

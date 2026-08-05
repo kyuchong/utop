@@ -1339,15 +1339,18 @@
 .sq-row:hover .sq-pick,
 .sq-pick:checked { opacity: 1; }
 
-/* 고른 줄이 있을 때만 뜨는 띠 */
+/* 고른 줄이 있을 때만 뜨는 띠.
+   목록 아래에 둔다 — 위에 두면 띠가 나타나는 순간 줄이 통째로 아래로
+   밀려서, 방금 누른 칸이 손 밑에서 달아난다. */
 .sq-bulk {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
   padding: 6px var(--sp-3);
   background: var(--tc-sel);
-  border-bottom: 1px solid var(--tc-line);
+  border-top: 1px solid var(--tc-line);
   font-size: var(--fs-sm);
 }
 
