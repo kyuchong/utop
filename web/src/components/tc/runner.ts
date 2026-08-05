@@ -1,7 +1,15 @@
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
 import { connParams, CLI_PROTOCOLS, deviceLabel, protocolOf } from './device'
-import { evalCondWhy, extractVars, judge, subVars, type Verdict } from './judge'
+import {
+  diffLines,
+  diffText,
+  evalCondWhy,
+  extractVars,
+  judge,
+  subVars,
+  type Verdict,
+} from './judge'
 import { sessionIndex, stepSummary, type TcStep } from './types'
 
 /**
@@ -213,8 +221,40 @@ async function runOne(
    * 장비로는 아무것도 안 나간다.
    */
   if (kind === 'diff') {
-    const expr = `${step.cmpLeft ?? ''} ${step.cmpOp || '=='} ${step.cmpRight ?? ''}`
-    const { ok, why } = evalCondWhy(expr, vars)
+    const left = subVars(String(step.cmpLeft ?? ''), vars)
+    const right = subVars(String(step.cmpRight ?? ''), vars)
+    const op = step.cmpOp || '=='
+    const multi = left.includes('\n') || right.includes('\n')
+
+    /**
+     * 여러 줄이면 줄 단위로 견준다.
+     *
+     * `running-config` 를 통째로 담아 견주는 것이 이 스텝의 본래 쓸모다.
+     * 그때 '같다/다르다' 만 말하면 쓸 수가 없다 — 어느 줄이 다른지 보여야
+     * 고칠 데를 안다.
+     */
+    if (multi && (op === '==' || op === '!=')) {
+      const d = diffLines(left, right, step.excludeLines)
+      const ok = op === '==' ? d.same : !d.same
+      const body = diffText(d)
+      const head = d.same
+        ? '두 값이 같습니다'
+        : `다른 줄 ${d.onlyA.length + d.onlyB.length}개`
+      ctx.onStep(i, {
+        output: body,
+        reason: head,
+        executed_at: at,
+        status: ok ? 'PASS' : 'FAIL',
+        repeatResult: ok ? 'Pass' : 'Fail',
+      })
+      ctx.onLog({ i, text: head, kind: ok ? 'pass' : 'fail' })
+      return ok ? 'Pass' : 'Fail'
+    }
+
+    const { ok, why } = evalCondWhy(
+      `${step.cmpLeft ?? ''} ${op} ${step.cmpRight ?? ''}`,
+      vars,
+    )
     ctx.onStep(i, {
       output: why,
       reason: why,

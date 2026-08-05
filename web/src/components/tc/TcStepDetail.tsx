@@ -5,10 +5,10 @@ import { IconIndent, IconOutdent } from '../icons'
 import { evalCondWhy, extractOne, JUDGE_TYPES, subVars } from './judge'
 import PickList, { type PickItem } from './PickList'
 import {
+  ADD_KINDS,
   isNoteKind,
   sessionIndex,
   STEP_CONTENT,
-  STEP_KINDS,
   stepKindInfo,
   stepResult,
   stepStatus,
@@ -271,12 +271,19 @@ export default function TcStepDetail({
 
         <label className="sd-f">
           <span>Action</span>
+          {/* 새로 고를 수 있는 것만 내놓는다. 이미 저장된 옛 종류
+              (Connect·Disconnect·Model·Manual)는 자리를 만들어 살려 둔다 —
+              목록에 없는 값을 그냥 두면 칸이 빈 채로 뜨고, 다른 칸을 고치는
+              순간 조용히 다른 종류가 된다. 실제 자료에 31건이 있다. */}
           <select value={kind} onChange={(e) => onChange({ kind: e.target.value as StepKind })}>
-            {STEP_KINDS.map((k) => (
+            {ADD_KINDS.map((k) => (
               <option key={k.k} value={k.k}>
                 {k.label}
               </option>
             ))}
+            {!ADD_KINDS.some((k) => k.k === kind) && (
+              <option value={kind}>{info.label} (옛 방식)</option>
+            )}
           </select>
         </label>
 
@@ -534,8 +541,27 @@ export default function TcStepDetail({
               <span className="sd-hint">
                 앞 스텝에서 뽑은 값은 <b>{'${이름}'}</b>, 그냥 글자는 그대로 적습니다.
                 맞으면 <b>합격</b>, 아니면 <b>불합격</b>입니다. 장비로는 아무것도 안 나갑니다.
+                <br />
+                여러 줄짜리끼리 견주면 <b>어느 줄이 다른지</b> 보여줍니다.
               </span>
             </div>
+
+            {/* running-config 를 견줄 때 uptime·카운터처럼 돌릴 때마다
+                달라지는 줄을 안 빼면 늘 다르다고 나온다. */}
+            <label className="sd-f">
+              <span>견줄 때 뺄 줄</span>
+              <textarea
+                className="mono"
+                rows={2}
+                value={step.excludeLines ?? ''}
+                placeholder={'uptime\nlast change'}
+                onChange={(e) => onChange({ excludeLines: e.target.value })}
+              />
+              <span className="sd-hint">
+                한 줄에 하나. 그 문구가 든 줄은 견줄 때 통째로 뺍니다 — 돌릴 때마다
+                달라지는 시각·카운터가 여기 옵니다.
+              </span>
+            </label>
 
             {/* 돌려보기 전에 지금 값으로 어떻게 되는지 */}
             {(step.cmpLeft || step.cmpRight) &&
@@ -864,9 +890,8 @@ export default function TcStepDetail({
             )}
             {String(step.type) === 'expr' ? (
               <span className="sd-hint">
-                응답을 뒤지지 않고 <b>값끼리</b> 견줍니다 — 앞 스텝에서 뽑은 값과
-                이번 값이 같아야 하는 시험에 씁니다. 쓸 수 있는 것:
-                <b> == != &gt; &lt; &gt;= &lt;= 포함</b>
+                옛 방식입니다 — 값끼리 견주는 것은 이제 <b>Diff 스텝</b>에서 합니다.
+                쓸 수 있는 것: <b>== != &gt; &lt; &gt;= &lt;= 포함</b>
               </span>
             ) : step.type !== 'none' ? (
               <span className="sd-hint">

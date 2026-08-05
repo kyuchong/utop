@@ -298,7 +298,7 @@ export const STEP_KINDS: Array<{
   { k: 'snmp_get', label: 'SNMP Get', group: 'run', icon: 'snmp' },
   { k: 'snmp_set', label: 'SNMP Set', group: 'run', icon: 'snmp' },
   { k: 'snmp_trap', label: 'Trap 대기', group: 'run', icon: 'snmp' },
-  { k: 'diff', label: '값 비교', group: 'run', icon: 'diff' },
+  { k: 'diff', label: 'Diff', group: 'run', icon: 'diff' },
   { k: 'instrument', label: '계측기', group: 'run', icon: 'meter' },
   { k: 'if', label: 'If', group: 'flow', icon: 'branch' },
   { k: 'loop', label: 'Loop', group: 'flow', icon: 'loop' },
@@ -375,7 +375,7 @@ export function stepKindInfo(k?: string) {
  */
 export const STEP_CONTENT: Record<string, { label: string; hint?: string }> = {
   cli: { label: '보낼 명령', hint: '여러 줄이면 위에서부터 차례로 보냅니다' },
-  diff: { label: '견줄 두 값', hint: '같으면 합격 · 다르면 불합격. 장비로는 아무것도 안 나갑니다' },
+  diff: { label: '견줄 두 값', hint: '같으면 합격 · 다르면 불합격. 여러 줄이면 어느 줄이 다른지 보여줍니다' },
   instrument: { label: '보낼 명령' },
   ping: { label: '대상 IP' },
   snmp_get: { label: 'OID' },

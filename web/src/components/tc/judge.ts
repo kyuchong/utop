@@ -12,15 +12,20 @@ import type { TcStep } from './types'
  */
 export type Verdict = 'Pass' | 'Fail' | ''
 
-/** 판정 종류. 옛 화면 메뉴와 같은 넷만 새로 쓴다 — 나머지는 읽기만 한다. */
+/**
+ * 판정 종류.
+ *
+ * 여기는 **응답을 보는 판정**만 내놓는다. 값끼리 견주는 것은 별개 줄
+ * (Diff 스텝)에서 한다 — 명령을 보낸 줄의 Expected 칸에서 변수끼리
+ * 견주는 것은 자리가 어색하고, 실제로 잘 안 쓰게 된다.
+ *
+ * `expr` 은 옛 자료에 있어서 판정 로직은 남기되 목록에는 안 내놓는다.
+ */
 export const JUDGE_TYPES: Array<[string, string]> = [
   ['contains', '출력에 있으면 합격'],
   ['contains_all', '모두 있으면 합격'],
   ['notcontains', '있으면 불합격'],
   ['line', '항목(키 : 값) 일치'],
-  // 옛 자료에도 있던 종류다. 응답이 아니라 **변수끼리** 견준다 —
-  // 앞 스텝에서 뽑은 값과 이번 값이 같아야 하는 시험이 그것이다.
-  ['expr', '변수 식이 참이면 합격'],
   ['none', '판정 안 함 (조회만)'],
 ]
 
@@ -339,4 +344,64 @@ export function evalCondWhy(
     ? ` · ${missing.map((x) => `\${${x}}`).join(', ')} 은 없는 변수라 글자 그대로 견줬습니다`
     : ''
   return { ok, why: shown + warn }
+}
+
+
+/**
+ * 두 글뭉치를 줄 단위로 견준다.
+ *
+ * `running-config` 처럼 여러 줄짜리를 견줄 때 '같다/다르다' 만으로는 쓸 수
+ * 없다. **어느 줄이 다른지** 보여야 한다.
+ *
+ * 순서까지 따지지 않고 '한쪽에만 있는 줄' 을 찾는다. 장비 출력은 항목
+ * 차례가 판올림마다 바뀌는데, 그때마다 전부 다르다고 하면 쓸모가 없다.
+ *
+ * 매번 달라지는 줄(uptime·카운터)은 `제외 줄` 로 뺀다 — 안 빼면 늘 다르다.
+ */
+export function diffLines(
+  a: string,
+  b: string,
+  exclude?: string,
+): { same: boolean; onlyA: string[]; onlyB: string[] } {
+  const prep = (s: string) =>
+    applyExclude(String(s ?? ''), exclude)
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+
+  const la = prep(a)
+  const lb = prep(b)
+
+  // 같은 줄이 여러 번 나오는 경우까지 세려면 개수를 센다 — 집합으로만
+  // 보면 '두 번 있던 줄이 한 번이 된' 변화를 놓친다.
+  const count = (arr: string[]) => {
+    const m = new Map<string, number>()
+    for (const l of arr) m.set(l, (m.get(l) ?? 0) + 1)
+    return m
+  }
+  const ca = count(la)
+  const cb = count(lb)
+
+  const onlyA: string[] = []
+  const onlyB: string[] = []
+  for (const [l, n] of ca) {
+    const d = n - (cb.get(l) ?? 0)
+    for (let i = 0; i < d; i++) onlyA.push(l)
+  }
+  for (const [l, n] of cb) {
+    const d = n - (ca.get(l) ?? 0)
+    for (let i = 0; i < d; i++) onlyB.push(l)
+  }
+  return { same: onlyA.length === 0 && onlyB.length === 0, onlyA, onlyB }
+}
+
+/** 다른 줄을 사람이 읽는 모양으로. 너무 길면 자른다 */
+export function diffText(d: { onlyA: string[]; onlyB: string[] }, cap = 80): string {
+  if (d.onlyA.length === 0 && d.onlyB.length === 0) return '두 값이 같습니다'
+  const out: string[] = [`왼쪽에만 ${d.onlyA.length}줄 · 오른쪽에만 ${d.onlyB.length}줄`, '']
+  for (const l of d.onlyA.slice(0, cap)) out.push(`- ${l}`)
+  if (d.onlyA.length > cap) out.push(`  … 왼쪽 ${d.onlyA.length - cap}줄 더`)
+  for (const l of d.onlyB.slice(0, cap)) out.push(`+ ${l}`)
+  if (d.onlyB.length > cap) out.push(`  … 오른쪽 ${d.onlyB.length - cap}줄 더`)
+  return out.join('\n')
 }
