@@ -742,3 +742,18 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
   max-height: 220px;
   overflow: auto;
 }
+
+/* ── TC 생성 (말로 시험 만들기) ── */
+.aitc { display: flex; flex: 1; min-height: 0; }
+.aitc-main { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.aitc-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 14px 6px;
+  flex-wrap: wrap;
+}
+.aitc-head .muted { flex: 1; min-width: 260px; }
+.aitc-body { flex: 1; min-height: 0; overflow: auto; padding-bottom: 14px; }
+/* 이 화면에서는 넓게 쓴다 — 사이클 트리 폭에 맞춰 좁게 둘 이유가 없다 */
+.aitc-body .ask { max-width: 900px; padding: 0 14px 14px; }

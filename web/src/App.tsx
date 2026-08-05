@@ -5,6 +5,7 @@ import { authApi, getToken, setToken, type MeUser } from '@/api/client'
 import Requirements from '@/pages/Requirements'
 import TestCases from '@/pages/TestCases'
 import Settings from '@/pages/Settings'
+import AiTc from '@/pages/AiTc'
 import Cycles from '@/pages/Cycles'
 import Devices from '@/pages/Devices'
 import Instruments from '@/pages/Instruments'
@@ -67,6 +68,8 @@ export default function App() {
         <Requirements />
       ) : page === 'testcases' ? (
         <TestCases />
+      ) : page === 'ai-tc' ? (
+        <AiTc />
       ) : page === 'cycles' ? (
         <Cycles />
       ) : page === 'devices' ? (

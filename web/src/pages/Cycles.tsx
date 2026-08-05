@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import AskBar from '@/components/cycle/AskBar'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
@@ -355,9 +354,6 @@ export default function Cycles() {
             + 사이클
           </button>
         </div>
-        {/* 말로 시키기. 트리 위에 둔다 — 「무엇을 시험할까」 가 「어느
-            사이클을 볼까」 보다 먼저 오는 질문이다. */}
-        <AskBar devices={devQ.data?.devices ?? []} />
         <input
           className="cy-q"
           value={q}

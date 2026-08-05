@@ -5497,10 +5497,9 @@ async def nl_plan(payload: dict):
     if err:
         raise HTTPException(502, err)
 
-    try:
-        plan = json.loads(ans or "{}")
-    except Exception:
-        raise HTTPException(502, "AI 응답을 읽지 못했습니다")
+    plan, perr = _json_from_llm(ans)
+    if plan is None:
+        raise HTTPException(502, f"AI 응답을 읽지 못했습니다 — {perr}")
 
     # 지어낸 tcid 를 걸러낸다. 없는 것을 돌리려다 실패하면 왜인지 알기 어렵다
     known = {str(t.get("tcid")) for t in tcs}
@@ -5522,6 +5521,58 @@ async def nl_plan(payload: dict):
         # 지어낸 것이 있었다는 사실도 알려 준다 — 조용히 지우면 왜 빠졌는지 모른다
         "dropped": dropped,
     }
+
+
+def _json_from_llm(text):
+    """LLM 이 돌려준 글에서 JSON 을 꺼낸다.
+
+    `guided_json` 을 줘도 모델이 ```json 울타리를 씌워 보내는 일이 흔하다
+    (gemma 가 그렇다). 앞뒤에 설명을 한 줄 붙이기도 한다. 그대로
+    `json.loads` 하면 「AI 응답을 읽지 못했습니다」 만 뜨고, 무엇이 왔는지
+    알 수가 없다.
+
+    울타리를 벗기고, 그래도 안 되면 첫 `{` 부터 짝이 맞는 `}` 까지를 잘라
+    본다. 끝내 못 읽으면 받은 글을 함께 돌려줘 화면이 보여 줄 수 있게 한다.
+    """
+    s = str(text or "").strip()
+    if not s:
+        return None, "빈 응답"
+    # ```json … ``` 벗기기
+    if s.startswith("```"):
+        s = s.split("\n", 1)[-1]
+        if s.rstrip().endswith("```"):
+            s = s.rstrip()[:-3]
+        s = s.strip()
+    try:
+        return json.loads(s), None
+    except Exception:
+        pass
+    # 첫 { 부터 짝이 맞는 } 까지
+    start = s.find("{")
+    if start >= 0:
+        depth, in_str, esc = 0, False, False
+        for i in range(start, len(s)):
+            ch = s[i]
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+                continue
+            if ch == '"':
+                in_str = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(s[start:i + 1]), None
+                    except Exception:
+                        break
+    return None, "받은 글: " + str(text or "")[:300]
 
 
 # ── 자연어로 **새 시험 만들기** ──────────────────────────────
@@ -5657,10 +5708,9 @@ async def nl_make_tc(payload: dict):
     )
     if err:
         raise HTTPException(502, err)
-    try:
-        draft = json.loads(ans or "{}")
-    except Exception:
-        raise HTTPException(502, "AI 응답을 읽지 못했습니다")
+    draft, perr = _json_from_llm(ans)
+    if draft is None:
+        raise HTTPException(502, f"AI 응답을 읽지 못했습니다 — {perr}")
 
     # 조회가 아닌 명령은 잘라낸다. 조용히 지우지 않고 무엇을 왜 뺐는지 알린다
     keep, cut = [], []
