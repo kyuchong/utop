@@ -188,11 +188,14 @@ export default function TcSequence({
                 })()}
                 {/* 명령·값만 고정폭. 'U9532H 접속' 같은 한글까지 고정폭으로
                     두면 다른 화면과 글자가 달라 보인다. */}
+                {/* 명령이 먼저다 — 사람이 훑을 때 찾는 것은 명령이다.
+                    설명은 있으면 뒤에 옅게 붙인다. */}
                 <span
                   className={`sq-sum${s.kind === 'cli' || s.kind === 'instrument' ? ' mono' : ''}`}
-                  title={summary(s)}
+                  title={[summary(s), s.step].filter(Boolean).join('  —  ')}
                 >
                   {summary(s) || <span className="muted">—</span>}
+                  {s.step && <span className="sq-desc">{s.step}</span>}
                 </span>
                 {/* 결과를 줄 끝에 적는다. 아이콘만으로는 PASS 와 미실행이
                     잘 안 갈린다. */}

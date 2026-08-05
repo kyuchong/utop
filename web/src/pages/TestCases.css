@@ -1508,3 +1508,11 @@
 /* 왼쪽·오른쪽 각각 넣기 — 한쪽에만 두면 반대쪽은 손으로 쳐야 한다 */
 .sd-two { margin-left: auto; display: inline-flex; gap: 4px; }
 .sd-two .sd-pickbtn { margin-left: 0; }
+
+/* 스텝 설명. 명령 뒤에 옅게 — 훑을 때 찾는 것은 명령이라 그것이 먼저다 */
+.sq-desc {
+  margin-left: 8px;
+  font-family: var(--font-ui);
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}

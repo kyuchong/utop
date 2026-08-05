@@ -269,6 +269,17 @@ export default function TcStepDetail({
           이 스텝 건너뛰기
         </label>
 
+        {/* 사람이 읽는 한 줄. 세부에 묻어 두었더니 있는 줄도 몰랐다 —
+            목록에서 이 줄이 무엇인지 알려주는 것이라 맨 위가 맞다. */}
+        <label className="sd-f">
+          <span>설명</span>
+          <input
+            value={step.step ?? ''}
+            placeholder="이 스텝을 한마디로 (선택) — 목록에 함께 보입니다"
+            onChange={(e) => onChange({ step: e.target.value })}
+          />
+        </label>
+
         <label className="sd-f">
           <span>Action</span>
           {/* 새로 고를 수 있는 것만 내놓는다. 이미 저장된 옛 종류
@@ -972,32 +983,24 @@ export default function TcStepDetail({
 
           {isRun && (
             <>
-              {/* 사람이 읽는 한 줄. 옛 자료에서 656 중 3건만 쓰였지만,
-                  줄만 보고 '이게 뭐였더라' 하는 일이 있어 남긴다. */}
-              <label className="sd-f">
-                <span>이 스텝을 한마디로</span>
-                <input
-                  value={step.step ?? ''}
-                  placeholder="예) 부팅 후 시스템 정보 확인"
-                  onChange={(e) => onChange({ step: e.target.value })}
-                />
-              </label>
+
               <label className="sd-f">
                 <span>판정 영역 — 응답에서 이 부분만 본다</span>
                 <input
                   className="mono"
                   value={String(step.query ?? '')}
-                  placeholder="Port 1/1 .. Port 1/8  ·  /Rate\s+(\d+)/"
+                  placeholder="비우면 응답 전체"
                   onChange={(e) => onChange({ query: e.target.value })}
                 />
                 <span className="sd-hint">
-                  <b>시작..끝</b> 두 마커 줄 사이 · <b>/식/</b> 정규식 매칭 · 그냥 문구면 그
-                  문구가 든 줄만. 비우면 응답 전체.
+                  아래 <b>Result 에서 볼 부분을 마우스로 끌고</b> 「이 부분만 판정」 을
+                  누르면 여기 채워집니다. 손으로 적을 때는 <b>시작..끝</b>(두 줄 사이) ·
+                  <b>/식/</b>(정규식) · 그냥 문구(그 문구가 든 줄만).
                 </span>
               </label>
               {(kind === 'cli' || kind === 'instrument') && (
                 <label className="sd-f">
-                  <span>응답 기다림 (초)</span>
+                  <span>응답 더 기다리기 (초)</span>
                   <input
                     type="number"
                     step="0.1"
@@ -1010,9 +1013,8 @@ export default function TcStepDetail({
                     }
                   />
                   <span className="sd-hint">
-                    프롬프트가 온 뒤에도 이만큼 더 기다립니다 — 늦게 올라오는 syslog 를
-                    받으려는 것입니다. 대부분 기본값이면 되고, <b>reload</b> 처럼 한참 뒤에
-                    뭔가 더 뱉는 명령에만 올리세요. 올리는 만큼 그 스텝이 느려집니다.
+                    <b>reload</b> 처럼 프롬프트가 온 뒤에도 한참 더 뱉는 명령에만 올리세요.
+                    나머지는 손댈 일이 없습니다.
                   </span>
                 </label>
               )}
@@ -1034,25 +1036,15 @@ export default function TcStepDetail({
             </>
           )}
 
-          {/* 실패했을 때 볼 곳은 '실패할 수 있는 줄' 에만. If·Loop 은 실패라는
-              것이 없다. */}
-          {isRun && (
-            <label className="sd-f">
-              <span>실패했을 때 볼 곳</span>
-              <textarea
-                rows={2}
-                value={step.rca ?? ''}
-                placeholder="예) 링크가 안 올라오면 SFP 광 세기부터 본다"
-                onChange={(e) => onChange({ rca: e.target.value })}
-              />
-            </label>
-          )}
 
+          {/* 메모 하나면 된다. 「실패했을 때 볼 곳」 을 따로 뒀었는데
+              656스텝 중 0건이 쓰고 있었고, 무슨 칸인지도 안 읽혔다. */}
           <label className="sd-f">
             <span>메모</span>
             <textarea
               rows={2}
               value={step.note ?? ''}
+              placeholder="예) 링크가 안 올라오면 SFP 광 세기부터 본다"
               onChange={(e) => onChange({ note: e.target.value })}
             />
           </label>
@@ -1120,9 +1112,47 @@ export default function TcStepDetail({
                       <button
                         className="btn small"
                         type="button"
-                        onClick={() => onChange({ critMode: 'contains', criteria: picked })}
+                        onClick={() => onChange({ criteria: picked })}
                       >
                         Expected 로
+                      </button>
+                      {/* 끌어서 판정 영역·제외 줄을 만든다. `시작..끝` 문법을
+                          손으로 짜게 두면 아무도 안 쓴다. */}
+                      <button
+                        className="btn small"
+                        type="button"
+                        title="고른 부분만 판정 대상으로 삼습니다"
+                        onClick={() => {
+                          const ls = picked.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
+                          const a = ls[0]
+                          const b = ls[ls.length - 1]
+                          if (!a) return
+                          // 한 줄만 골랐으면 그 문구가 든 줄만, 여러 줄이면
+                          // 첫 줄과 끝 줄 사이
+                          onChange({ query: ls.length > 1 && b && b !== a ? `${a} .. ${b}` : a })
+                          setPicked('')
+                        }}
+                      >
+                        이 부분만 판정
+                      </button>
+                      <button
+                        className="btn small"
+                        type="button"
+                        title="고른 줄을 판정에서 뺍니다"
+                        onClick={() => {
+                          const ls = picked.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
+                          const cur = String(step.excludeLines ?? '')
+                            .split(/\r?\n/)
+                            .map((x) => x.trim())
+                            .filter(Boolean)
+                          // 같은 줄을 두 번 넣지 않는다
+                          const next = [...cur]
+                          for (const l of ls) if (!next.includes(l)) next.push(l)
+                          onChange({ excludeLines: next.join('\n') })
+                          setPicked('')
+                        }}
+                      >
+                        이 줄 빼기
                       </button>
                       <button
                         className="btn small"
