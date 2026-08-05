@@ -715,7 +715,10 @@ export default function TestCases() {
       {bulkOpen && <TcBulkForm onClose={() => setBulkOpen(false)} />}
       {bulkEdit && (
         <TcBulkEdit
-          ids={[...pickedTc]}
+          items={[...pickedTc].map((id) => ({
+            tcid: id,
+            name: tcs.find((x) => x.tcid === id)?.name,
+          }))}
           onClose={() => setBulkEdit(false)}
           onDone={(text) => {
             setBulkEdit(false)

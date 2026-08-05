@@ -1961,12 +1961,55 @@ table.tb tr.r-bad td:first-child {
 }
 
 /* ── 한꺼번에 고치기 팝업 ── */
+/* 열두 건을 한 번에 고치는 창이다. 560px 안에 글칸 셋과 그림을 넣으면
+   세 줄짜리 상자에 목적을 적게 되고, 무엇에 들어가는지도 안 보인다. */
 .modal.bk {
-  width: 560px;
-  max-width: 94vw;
+  width: 980px;
+  max-width: 96vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+/* 왼쪽 = 넣을 내용, 오른쪽 = 들어갈 시험 */
+.bk-cols {
+  display: flex;
+  min-height: 0;
+  flex: 1;
 }
 .bk-list {
+  flex: 1;
+  min-width: 0;
   padding: 4px 0;
+  overflow: auto;
+}
+/* 「12건」 이라는 숫자만 보고 덮어쓰기를 누르게 하면 안 된다 */
+.bk-targets {
+  flex: 0 0 240px;
+  border-left: 1px solid var(--c-border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--c-surface-2);
+}
+.bk-thead {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+.bk-targets ul {
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+  overflow: auto;
+  min-height: 0;
+}
+.bk-targets li {
+  padding: 3px 12px;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .bk-row {
   padding: 8px 14px;
@@ -1986,6 +2029,9 @@ table.tb tr.r-bad td:first-child {
 }
 .bk-body textarea {
   width: 100%;
+  /* 늘려 쓸 수 있게. 목적이 열 줄인 시험도 있다 */
+  resize: vertical;
+  min-height: 90px;
 }
 .bk-pic {
   display: flex;
@@ -2004,8 +2050,8 @@ table.tb tr.r-bad td:first-child {
   outline: none;
 }
 .bk-pic img {
-  max-width: 200px;
-  max-height: 120px;
+  max-width: 100%;
+  max-height: 220px;
   border-radius: 6px;
 }
 /* 되돌릴 수 없는 쪽이 기본이 되면 안 된다 */

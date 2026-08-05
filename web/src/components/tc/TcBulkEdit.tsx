@@ -3,8 +3,8 @@ import { apiFetch, tcApi } from '@/api/client'
 import type { TcData } from './types'
 
 interface Props {
-  /** 고른 TC id 들 */
-  ids: string[]
+  /** 고른 TC — id 와 이름. 이름이 있어야 무엇을 고치는지 눈으로 센다 */
+  items: Array<{ tcid: string; name?: string | null }>
   onClose: () => void
   /** 다 끝난 뒤 — 목록을 다시 읽고 알림을 띄운다 */
   onDone: (msg: string) => void
@@ -33,7 +33,8 @@ interface Fill {
  * 끝나면 몇 건에 들어갔고 몇 건을 건너뛰었는지 말해 준다 — 「12건 저장」
  * 만 보면 덮였는지 아닌지를 알 수 없다.
  */
-export default function TcBulkEdit({ ids, onClose, onDone }: Props) {
+export default function TcBulkEdit({ items, onClose, onDone }: Props) {
+  const ids = items.map((x) => x.tcid)
   const [fill, setFill] = useState<Fill>({ object_md: true, precondition_md: false, image: false })
   const [obj, setObj] = useState('')
   const [pre, setPre] = useState('')
@@ -62,9 +63,9 @@ export default function TcBulkEdit({ ids, onClose, onDone }: Props) {
     }
   }
 
-  const grab = (items?: DataTransferItemList | null, files?: FileList | null) => {
+  const grab = (dt?: DataTransferItemList | null, files?: FileList | null) => {
     let f: File | null = null
-    for (const it of Array.from(items ?? [])) {
+    for (const it of Array.from(dt ?? [])) {
       if (it.kind === 'file' && it.type.startsWith('image/')) {
         f = it.getAsFile()
         if (f) break
@@ -156,12 +157,13 @@ export default function TcBulkEdit({ ids, onClose, onDone }: Props) {
           </button>
         </div>
 
+        <div className="bk-cols">
         <div className="bk-list">
           {row(
             'object_md',
             '시험 목적',
             <textarea
-              rows={3}
+              rows={7}
               value={obj}
               placeholder="이 시험으로 무엇을 확인하는가"
               onChange={(e) => setObj(e.target.value)}
@@ -171,7 +173,7 @@ export default function TcBulkEdit({ ids, onClose, onDone }: Props) {
             'precondition_md',
             '사전 준비 조건',
             <textarea
-              rows={3}
+              rows={7}
               value={pre}
               placeholder="시험 전에 갖춰져 있어야 하는 것"
               onChange={(e) => setPre(e.target.value)}
@@ -220,6 +222,20 @@ export default function TcBulkEdit({ ids, onClose, onDone }: Props) {
               )}
             </div>,
           )}
+        </div>
+
+        {/* 무엇에 들어가는지 보여 준다. 「12건」 이라는 숫자만 보고 덮어쓰기를
+            누르게 하면 안 된다 — 잘못 고른 한 건이 그 안에 있어도 모른다. */}
+        <div className="bk-targets">
+          <div className="bk-thead">들어갈 시험 {ids.length}건</div>
+          <ul>
+            {items.map((x) => (
+              <li key={x.tcid} title={x.tcid}>
+                {x.name || x.tcid}
+              </li>
+            ))}
+          </ul>
+        </div>
         </div>
 
         <div className="bk-mode">
