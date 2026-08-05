@@ -377,6 +377,24 @@ function CycleDetail({
   const [report, setReport] = useState(false)
   /** 고른 항목 — 누르면 스텝과 실행 내역이 아래에 열린다 */
   const [openItem, setOpenItem] = useState(-1)
+  /*
+   * 목록(`?meta=1`)이 주는 항목은 **요약본**이다. 스텝에서 `cli`·`output`·
+   * `criteria` 가 떨어져 나가 있어서
+   *
+   *   · 스텝 세부에 명령도 출력도 안 보이고
+   *   · 그걸 되저장하면 **실행 결과가 통째로 날아간다**
+   *
+   * 그래서 사이클을 고르면 온전한 것을 한 번 더 읽는다. 트리·집계는
+   * 요약본으로 충분하지만 여기서는 아니다.
+   */
+  const fullQ = useQuery({
+    queryKey: ['cycle-full', cycle.id],
+    queryFn: async () => {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycle.id)}`)
+      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      return (await r.json()) as { items?: CycleItemLite[] }
+    },
+  })
   /** 돌릴 항목 */
   const [pick, setPick] = useState<Set<number>>(new Set())
   const { st, run, stop } = useCycleRun(devices)
@@ -390,25 +408,30 @@ function CycleDetail({
    * 사이클을 만들 때만 고를 수 있으면, 시험 하나를 빠뜨렸을 때 사이클을
    * 다시 만들어야 한다. 그러면 이미 돌린 결과가 통째로 날아간다.
    */
-  const saveItems = async (next: CycleItemLite[]) => {
+  const saveItems = async (edit: (cur: CycleItemLite[]) => CycleItemLite[]) => {
     setSaving(true)
     try {
+      // 저장 직전에 온전한 것을 다시 읽는다. 화면에 들고 있던 것으로
+      // 덮으면, 그 사이에 남이 돌린 결과를 지운다.
       const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycle.id)}`)
-      const full = r.ok ? ((await r.json()) as Record<string, unknown>) : {}
+      if (!r.ok) throw new Error(String(r.status))
+      const full = (await r.json()) as Record<string, unknown>
+      const cur = Array.isArray(full.items) ? (full.items as CycleItemLite[]) : []
       const w = await apiFetch(`/api/cycle/${encodeURIComponent(cycle.id)}`, {
         method: 'POST',
-        body: JSON.stringify({ ...full, id: cycle.id, items: next }),
+        body: JSON.stringify({ ...full, id: cycle.id, items: edit(cur) }),
       })
       if (!w.ok) throw new Error(String(w.status))
+      await fullQ.refetch()
       onSaved()
-    } catch {
-      window.alert('저장하지 못했습니다')
+    } catch (e) {
+      window.alert(e instanceof Error ? `저장하지 못했습니다 — ${e.message}` : '저장하지 못했습니다')
     } finally {
       setSaving(false)
     }
   }
 
-  const items = cycle.items ?? []
+  const items = fullQ.data?.items ?? cycle.items ?? []
   const counts = { pass: 0, fail: 0, wip: 0, none: 0 }
   for (const it of items) counts[itemVerdict(it)]++
   const total = items.length || 1
@@ -449,7 +472,12 @@ function CycleDetail({
             disabled={saving || st.on}
             onClick={() => {
               if (!window.confirm(`고른 ${pick.size}건을 이 사이클에서 뺍니다.`)) return
-              void saveItems(items.filter((_, i) => !pick.has(i))).then(() => setPick(new Set()))
+              // 자리 번호가 아니라 tcid 로 뺀다 — 걸러 보고 있으면 번호가
+              // 어긋나서 엉뚱한 것이 빠진다
+              const ids = new Set([...pick].map((i) => items[i]?.tcid).filter(Boolean))
+              void saveItems((cur) => cur.filter((x) => !ids.has(x.tcid))).then(() =>
+                setPick(new Set()),
+              )
             }}
           >
             {pick.size}건 빼기
@@ -487,7 +515,11 @@ function CycleDetail({
           onClose={() => setAdding(false)}
           onAdd={(rows) => {
             setAdding(false)
-            void saveItems([...items, ...rows])
+            // 이미 있는 것은 안 넣는다 — 창을 두 번 열면 두 벌이 된다
+            void saveItems((cur) => {
+              const have = new Set(cur.map((x) => x.tcid))
+              return [...cur, ...rows.filter((x) => !have.has(x.tcid))]
+            })
           }}
         />
       )}
