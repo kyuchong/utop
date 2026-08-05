@@ -5500,6 +5500,10 @@ async def nl_plan(payload: dict):
     plan, perr = _json_from_llm(ans)
     if plan is None:
         raise HTTPException(502, f"AI 응답을 읽지 못했습니다 — {perr}")
+    if isinstance(plan, list):
+        plan = {"tcids": [x for x in plan if isinstance(x, str)], "why": ""}
+    if not isinstance(plan, dict):
+        raise HTTPException(502, f"AI 응답이 예상 밖입니다 — {str(ans)[:200]}")
 
     # 지어낸 tcid 를 걸러낸다. 없는 것을 돌리려다 실패하면 왜인지 알기 어렵다
     known = {str(t.get("tcid")) for t in tcs}
@@ -5692,7 +5696,13 @@ async def nl_make_tc(payload: dict):
         "3. 스텝마다 판정기준(criteria)을 적는다. type 은 contains(문구 포함) 또는 "
         "contains_all(모두 포함) 또는 none(조회만).\n"
         "4. 스텝은 2~6개. 많을수록 좋은 것이 아니다.\n"
-        "5. desc 는 그 스텝이 무엇을 확인하는지 한국어 한 줄."
+        "5. desc 는 그 스텝이 무엇을 확인하는지 한국어 한 줄.\n\n"
+        "아래 꼴 그대로, **다른 말 없이 JSON 만** 답한다:\n"
+        '{"name":"E5724RL 시스템 정보 확인","object":"모델명과 메모리를 확인한다",'
+        '"device_ip":"210.1.1.254","steps":['
+        '{"desc":"모델명을 확인한다","cli":"show system","type":"contains","criteria":"E5724RL"},'
+        '{"desc":"메모리 용량을 확인한다","cli":"show memory usage","type":"none","criteria":""}'
+        ']}'
     )
     user_p = (
         f"사람이 한 말: {text}\n\n"
@@ -5712,26 +5722,62 @@ async def nl_make_tc(payload: dict):
     if draft is None:
         raise HTTPException(502, f"AI 응답을 읽지 못했습니다 — {perr}")
 
+    # 최상위를 배열로 보내는 일이 있다. 스키마를 줘도 그렇다.
+    #   · [{...steps...}]        → 스텝 목록 그 자체
+    #   · [{"name":…, "steps":…}] → 감싼 것이 하나뿐
+    # 여기서 받아 주지 않으면 500 이 나고, 화면에는 이유가 안 보인다.
+    if isinstance(draft, list):
+        if len(draft) == 1 and isinstance(draft[0], dict) and "steps" in draft[0]:
+            draft = draft[0]
+        else:
+            draft = {"name": text[:40], "steps": [x for x in draft if isinstance(x, dict)]}
+    if not isinstance(draft, dict):
+        raise HTTPException(502, f"AI 응답이 예상 밖입니다 — {str(ans)[:200]}")
+
     # 조회가 아닌 명령은 잘라낸다. 조용히 지우지 않고 무엇을 왜 뺐는지 알린다
+    # 모델이 스키마를 무시하고 제 나름의 이름을 쓴다.
+    #
+    #   {"cmd": "show version", "criteria": "contains", "value": "E4300"}
+    #
+    # `cmd` 가 명령이고 `criteria` 자리에 **판정 종류**가, `value` 에 기준이
+    # 들어 있다. 이름 하나 다르다고 빈 화면을 보여 줄 이유가 없다.
+    _TYPES = {"contains", "contains_all", "notcontains", "line", "none", "expr", "table"}
+
+    def _pick(s, *names):
+        for n in names:
+            v = s.get(n)
+            if v not in (None, ""):
+                return str(v).strip()
+        return ""
+
     keep, cut = [], []
     for s in (draft.get("steps") or []):
-        cli = str((s or {}).get("cli") or "").strip()
+        if not isinstance(s, dict):
+            continue
+        cli = _pick(s, "cli", "cmd", "command", "input")
         if not cli:
             continue
         if not _is_read_only(cli):
             cut.append(cli.splitlines()[0])
             continue
+        kind = _pick(s, "type", "judge", "mode")
+        crit = _pick(s, "criteria", "value", "expected", "expect")
+        # `criteria` 자리에 종류가 들어온 경우 — 서로 바꿔 놓는다
+        if not kind and crit in _TYPES:
+            kind, crit = crit, _pick(s, "value", "expected", "expect")
+        if kind not in _TYPES:
+            kind = "contains" if crit else "none"
         keep.append({
-            "desc": str(s.get("desc") or "").strip(),
+            "desc": _pick(s, "desc", "description", "purpose"),
             "cli": cli,
-            "type": str(s.get("type") or "contains"),
-            "criteria": str(s.get("criteria") or "").strip(),
+            "type": kind,
+            "criteria": crit,
         })
 
     dev_ips = {str(d.get("ip")) for d in devices}
     ip = str(draft.get("device_ip") or "")
     return {
-        "name": str(draft.get("name") or "").strip() or text[:40],
+        "name": str(draft.get("name") or draft.get("title") or "").strip() or text[:40],
         "object": str(draft.get("object") or "").strip(),
         "device_ip": ip if ip in dev_ips else "",
         "steps": keep,
