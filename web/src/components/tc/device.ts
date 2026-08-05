@@ -68,11 +68,14 @@ export function deviceLabel(dev: Device): string {
  * 없어서 CLI 스텝에 계측기를 앉히는 일이 생긴다.
  */
 export function isMeter(d: Device): boolean {
-  return (
-    d.role === '계측기' ||
-    d.device_group === '계측기' ||
-    /spirent|stc|ixia|n2x/i.test(`${d.model ?? ''} ${d.name ?? ''} ${d.vendor ?? ''}`)
-  )
+  // 이름·모델에 'ixia' 가 들었는지로 넘겨짚지 않는다.
+  //
+  // 「계측기」 화면은 `role === '계측기'` 만 보고, 「장비」 화면은 그것만
+  // 뺀다. 여기서만 넓게 잡으면 모델명에 N2X 가 든 장비가 두 목록 어디에도
+  // 안 나오면서 세션에서는 빠지고 배선 목록에는 뜬다 — 어디서 고쳐야
+  // 하는지 알 수 없는 상태가 된다. 옛 화면(`_isInstrument`)도 역할로만
+  // 봤다.
+  return d.role === '계측기' || d.device_group === '계측기'
 }
 
 /** N2X 인가 STC 인가. 포트 표기도 부르는 API 도 다르다 */
