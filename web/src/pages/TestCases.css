@@ -1804,3 +1804,77 @@ table.tb tr.r-bad td:first-child {
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
 }
+
+/* ── 구성도 그림 ──
+   시험 문서에 이미 구성도가 있는 경우가 많다. 다시 그리게 하면 아무도 안
+   쓴다 — 캡쳐해서 Ctrl+V 하는 것이 실제로 하는 일이다. */
+.tp-pic:focus {
+  outline: none;
+}
+.tp-picempty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border: 1px dashed var(--c-border);
+  border-radius: 8px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+.tp-pic:focus .tp-picempty {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft);
+}
+.tp-picempty span {
+  flex: 1;
+}
+.tp-picbox {
+  position: relative;
+  display: inline-block;
+  resize: horizontal;
+  overflow: hidden;
+  min-width: 160px;
+  max-width: 100%;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+}
+.tp-picopen {
+  display: block;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: zoom-in;
+  width: 100%;
+}
+.tp-picbox img {
+  display: block;
+  width: 100%;
+}
+/* 그림만 있고 배선이 없으면 실행기는 아무것도 모른다 */
+.tp-warn {
+  font-size: var(--fs-xs);
+  color: var(--c-fail);
+  background: var(--c-fail-soft);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.tp-bigwrap {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  cursor: zoom-out;
+}
+.tp-bigwrap img {
+  max-width: 96vw;
+  max-height: 86vh;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 8px;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
 import { deviceLabel } from './device'
@@ -62,6 +62,54 @@ export default function TcTopology({
   const [adding, setAdding] = useState(false)
   /** 기본값을 펼친 배선 줄. 평소엔 접혀 있다 — 대개 손댈 일이 없다 */
   const [open, setOpen] = useState<number | null>(null)
+  /** 그림을 크게 볼 때. 새 탭으로 띄우면 돌아와서 이 TC 를 다시 찾아야 한다 */
+  const [big, setBig] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!big) return
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setBig(false)
+    window.addEventListener('keydown', esc)
+    return () => window.removeEventListener('keydown', esc)
+  }, [big])
+
+  /**
+   * 그림 넣기 — 붙여넣기 · 끌어놓기 · 고르기.
+   *
+   * 시험 문서에 이미 구성도가 있는 경우가 많다. 다시 그리라고 하면 아무도
+   * 안 한다. 화면을 캡쳐해서 Ctrl+V 하는 것이 실제로 하는 일이다.
+   */
+  const upload = async (file: File) => {
+    setBusy(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const r = await apiFetch('/api/upload/image', { method: 'POST', body: fd })
+      const b = (await r.json().catch(() => ({}))) as { url?: string; name?: string; detail?: string }
+      if (!r.ok) throw new Error(b.detail || '올리지 못했습니다')
+      onChange({ topo_img: b.url || b.name })
+    } catch (e) {
+      onMsg('err', e instanceof Error ? e.message : '올리지 못했습니다')
+    } finally {
+      setBusy(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  const grab = (items?: DataTransferItemList | null, files?: FileList | null) => {
+    let f: File | null = null
+    for (const it of Array.from(items ?? [])) {
+      if (it.kind === 'file' && it.type.startsWith('image/')) {
+        f = it.getAsFile()
+        if (f) break
+      }
+    }
+    if (!f) f = Array.from(files ?? []).find((x) => x.type.startsWith('image/')) ?? null
+    if (!f) return false
+    void upload(f)
+    return true
+  }
 
   const set = (i: number, patch: Partial<TcWire>) =>
     onChange({ wiring: wiring.map((w, n) => (n === i ? { ...w, ...patch } : w)) })
@@ -154,6 +202,77 @@ export default function TcTopology({
       </div>
 
       {adding && <MeterForm onSave={addMeter} onClose={() => setAdding(false)} />}
+
+      {/* 구성도 그림. 사람이 보는 것 — 배선 표를 대신하지는 못한다 */}
+      <div
+        className={`tp-pic${data.topo_img ? ' has' : ''}`}
+        tabIndex={0}
+        onPaste={(e) => {
+          if (grab(e.clipboardData?.items, e.clipboardData?.files)) e.preventDefault()
+        }}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          if (grab(e.dataTransfer?.items, e.dataTransfer?.files)) e.preventDefault()
+        }}
+      >
+        {data.topo_img ? (
+          <div
+            className="tp-picbox"
+            style={data.topo_img_w ? { width: data.topo_img_w } : undefined}
+            onPointerUp={(e) => {
+              const now = Math.round(e.currentTarget.offsetWidth)
+              if (now > 0 && now !== data.topo_img_w) onChange({ topo_img_w: now })
+            }}
+          >
+            <button type="button" className="tp-picopen" onClick={() => setBig(true)} title="크게 보기">
+              <img src={data.topo_img} alt="구성도" />
+            </button>
+            <button
+              type="button"
+              className="if-x"
+              aria-label="그림 지우기"
+              onClick={() => onChange({ topo_img: '', topo_img_w: undefined })}
+            >
+              ×
+            </button>
+          </div>
+        ) : (
+          <div className="tp-picempty">
+            <b>구성도 그림</b>
+            <span>
+              여기를 누르고 <b>Ctrl+V</b> — 문서에 있는 구성도를 그대로 붙여넣으세요. 끌어다
+              놓아도 됩니다.
+            </span>
+            <button
+              className="btn small"
+              type="button"
+              disabled={busy}
+              onClick={() => fileRef.current?.click()}
+            >
+              {busy ? '올리는 중…' : '파일에서'}
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) void upload(f)
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* 그림은 사람이 보는 것이고 배선 표는 기계가 읽는 것이다.
+          그림만 있으면 실행기는 아무것도 모른다 — 그렇다고 말해 준다. */}
+      {data.topo_img && !wiring.length && (
+        <div className="tp-warn">
+          그림은 <b>사람이 보는 것</b>입니다. 트래픽을 흘리려면 그림에 그려진 대로{' '}
+          <b>어느 포트가 어느 계측기 포트에 꽂혔는지</b>를 아래에 한 번 적어야 합니다.
+        </div>
+      )}
 
       {!sessions.length ? (
         <div className="empty">
@@ -276,6 +395,17 @@ export default function TcTopology({
               </div>
             )
           })}
+        </div>
+      )}
+
+      {big && data.topo_img && (
+        <div className="tp-bigwrap" onClick={() => setBig(false)}>
+          <div className="tp-bigbar">
+            <button className="btn small" type="button" onClick={() => setBig(false)}>
+              닫기
+            </button>
+          </div>
+          <img src={data.topo_img} alt="구성도" />
         </div>
       )}
 
