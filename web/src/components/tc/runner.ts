@@ -10,7 +10,7 @@ import {
   subVars,
   type Verdict,
 } from './judge'
-import { sessionIndex, stepSummary, type TcStep } from './types'
+import { sessionIndex, stepResult, stepSummary, type TcStep } from './types'
 
 /**
  * 스텝 실행기.
@@ -532,8 +532,30 @@ async function runOne(
  * 지킨다. 건너뛰기가 걸린 줄은 골랐어도 안 돈다 — 두 표시가 부딪히면
  * '안 돈다' 가 이겨야 안전하다.
  */
+/**
+ * 앞 스텝들이 **지난번에** 뽑아 둔 값을 먼저 깔아 둔다.
+ *
+ * 한 줄만 돌리면 앞의 CLI 스텝이 이번에 안 돈다. 그래서 `${var1}` 이
+ * '그런 변수 없다' 로 남고, 편집 화면에는 '지금은 합격' 이라고 떠 있는데
+ * 돌리면 불합격이 나왔다 — 화면과 실행이 서로 다른 값을 보고 있었다.
+ *
+ * 저장된 응답에 그 스텝의 식을 다시 대 본다. 편집 화면이 미리보기에 쓰는
+ * 것과 같은 값이다.
+ */
+function seedVars(ctx: RunCtx, upto: number, vars: Record<string, string>) {
+  for (let i = 0; i < upto && i < ctx.steps.length; i++) {
+    const s = ctx.steps[i]
+    if (!s) continue
+    const out = stepResult(s)
+    if (!out) continue
+    Object.assign(vars, extractVars(s, out))
+  }
+}
+
 export async function runPicked(ctx: RunCtx, pick: number[]): Promise<RunResult> {
   const vars: Record<string, string> = { ...(ctx.params ?? {}) }
+  // 고른 줄 중 가장 앞엣것보다 앞은 이번에 안 돈다 — 지난 값을 깔아 둔다
+  seedVars(ctx, Math.min(...pick, ctx.steps.length), vars)
   let pass = 0
   let fail = 0
   let done = 0
@@ -566,6 +588,8 @@ export async function runPicked(ctx: RunCtx, pick: number[]): Promise<RunResult>
 
 export async function runSteps(ctx: RunCtx, from = 0, only = false): Promise<RunResult> {
   const vars: Record<string, string> = { ...(ctx.params ?? {}) }
+  // 「여기부터」·「이 스텝만」 이면 앞은 이번에 안 돈다 — 지난 값을 깔아 둔다
+  if (from > 0 || only) seedVars(ctx, from, vars)
   let pass = 0
   let fail = 0
   let done = 0
