@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
-import { deviceLabel } from './device'
+import { deviceLabel, isMeter, meterKind } from './device'
 import { wireValues, type TcData, type TcWire } from './types'
 
 interface Props {
@@ -11,21 +11,6 @@ interface Props {
   /** 장비 목록을 다시 읽어 달라 — 계측기를 여기서 새로 만들었을 때 */
   onDevicesChanged?: () => void
   onMsg: (kind: 'ok' | 'err', text: string) => void
-}
-
-/** 계측기인가. 옛 화면과 같은 기준 — role 이 '계측기' 거나 이름에 표가 난다 */
-export function isMeter(d: Device): boolean {
-  return (
-    d.role === '계측기' ||
-    d.device_group === '계측기' ||
-    /spirent|stc|ixia|n2x/i.test(`${d.model ?? ''} ${d.name ?? ''} ${d.vendor ?? ''}`)
-  )
-}
-
-/** N2X 인가 STC 인가. 포트 표기도 부르는 API 도 다르다 */
-export function meterKind(d: Device | undefined): 'n2x' | 'stc' {
-  if (!d) return 'n2x'
-  return /spirent|stc/i.test(`${d.model ?? ''} ${d.name ?? ''} ${d.vendor ?? ''}`) ? 'stc' : 'n2x'
 }
 
 /**

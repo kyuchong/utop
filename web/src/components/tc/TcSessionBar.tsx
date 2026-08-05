@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
-import { connParams, deviceLabel, protocolOf } from './device'
+import { connParams, deviceLabel, deviceTag, isMeter, protocolOf } from './device'
 
 interface Props {
   /** 이 TC 가 쓰는 세션 — `data.sessions`, 장비 id 배열 */
@@ -100,7 +100,10 @@ export default function TcSessionBar({
     // 명령이 나간다.
     const proto = dev ? protocolOf(dev) : ''
     return (
-      <span className={`tc-sess${dev ? '' : ' gone'}`} key={`${id}-${i}`}>
+      <span
+        className={`tc-sess${dev ? '' : ' gone'}${dev && isMeter(dev) ? ' meter' : ''}`}
+        key={`${id}-${i}`}
+      >
             {/* 스텝 줄·터미널의 자리 표시와 같은 색을 쓴다 — 색이 곧 자리다 */}
             <b className="tc-sess-n" data-s={i % 4}>
               S{i + 1}
@@ -112,14 +115,25 @@ export default function TcSessionBar({
               onChange={(e) => onPick(i, e.target.value)}
             >
               {!dev && <option value={id}>{id} (없는 장비)</option>}
-              {devices.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {deviceLabel(d)}
-                </option>
-              ))}
+              {/* 이름을 안 적어 둔 장비가 많아 IP 만 뜬다. 그러면
+                  220.1.1.254 와 210.1.2.248 중 어느 쪽이 계측기인지 모른다 */}
+              {devices.map((d) => {
+                const tag = deviceTag(d)
+                return (
+                  <option key={d.id} value={d.id}>
+                    {deviceLabel(d)}
+                    {tag ? ` · ${tag}` : ''}
+                  </option>
+                )
+              })}
             </select>
+            {/* 계측기도 SSH 로 등록돼 있을 수 있다 — 섀시에 CLI 가 있는
+                장비도 있다. 그래서 접속 방식을 지우지 않고, 그 앞에
+                '계측기' 를 덧붙인다. 무엇인지와 어떻게 붙는지는 서로
+                다른 이야기다. */}
             {dev && (
-              <span className="tc-sess-ip">
+              <span className={`tc-sess-ip${isMeter(dev) ? ' meter' : ''}`}>
+                {isMeter(dev) && <b>계측기 · {deviceTag(dev)}</b>}
                 {proto.toUpperCase()} {dev.ip}
               </span>
             )}

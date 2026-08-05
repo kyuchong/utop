@@ -1878,3 +1878,12 @@ table.tb tr.r-bad td:first-child {
   background: #fff;
   border-radius: 8px;
 }
+
+/* 계측기 세션. 스위치와 하는 일이 아주 달라 한눈에 갈려야 한다 */
+.tc-sess.meter .tc-sess-n {
+  background: var(--c-draft);
+}
+.tc-sess-ip.meter b {
+  color: var(--c-draft);
+  margin-right: 5px;
+}

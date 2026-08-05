@@ -27,7 +27,7 @@ import TcManual from '@/components/tc/TcManual'
 import TcTopology from '@/components/tc/TcTopology'
 import TcHistory from '@/components/tc/TcHistory'
 import TcCycles from '@/components/tc/TcCycles'
-import { deviceLabel } from '@/components/tc/device'
+import { deviceLabel, isMeter } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { type TestCaseMeta } from '@/types'
@@ -225,7 +225,10 @@ export default function TestCases() {
     // 이름이 있으면 IP 도 함께. 이름만 보이면 같은 이름의 장비가 랩마다
     // 있을 때 어느 것인지 모른다.
     const nm = deviceLabel(dev)
-    return dev.ip && nm !== dev.ip ? `${nm} (${dev.ip})` : nm
+    const base = dev.ip && nm !== dev.ip ? `${nm} (${dev.ip})` : nm
+    // 계측기는 표를 낸다. 이름을 안 적어 둔 장비가 많아 IP 만 뜨는데,
+    // 그러면 스텝의 세션 칸에서 계측기를 스위치인 줄 알고 고른다.
+    return isMeter(dev) ? `${base} · 계측기` : base
   })
   const sessionName = (i: number) => (i >= 0 ? (sessionNames[i] ?? `세션 ${i + 1}`) : '')
 

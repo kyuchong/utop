@@ -59,3 +59,35 @@ export function connParams(dev: Device, want?: string): ConnParams {
 export function deviceLabel(dev: Device): string {
   return (dev.name || dev.ip || dev.id || '').trim()
 }
+
+/**
+ * 계측기인가.
+ *
+ * 계측기와 스위치는 하는 일이 아주 다르다 — 계측기에는 CLI 로 명령을 보내지
+ * 않고, 트래픽을 흘리는 데만 쓴다. 목록에 IP 만 뜨면 어느 쪽인지 알 수
+ * 없어서 CLI 스텝에 계측기를 앉히는 일이 생긴다.
+ */
+export function isMeter(d: Device): boolean {
+  return (
+    d.role === '계측기' ||
+    d.device_group === '계측기' ||
+    /spirent|stc|ixia|n2x/i.test(`${d.model ?? ''} ${d.name ?? ''} ${d.vendor ?? ''}`)
+  )
+}
+
+/** N2X 인가 STC 인가. 포트 표기도 부르는 API 도 다르다 */
+export function meterKind(d: Device | undefined): 'n2x' | 'stc' {
+  if (!d) return 'n2x'
+  return /spirent|stc/i.test(`${d.model ?? ''} ${d.name ?? ''} ${d.vendor ?? ''}`) ? 'stc' : 'n2x'
+}
+
+/**
+ * 목록에 붙일 짧은 꼬리표 — 계측기면 N2X·STC, 아니면 역할이나 모델.
+ *
+ * 이름을 안 적어 둔 장비가 많아 `deviceLabel` 이 IP 만 내놓는 일이 흔하다.
+ * 그러면 `220.1.1.254` 와 `210.1.2.248` 중 어느 쪽이 계측기인지 모른다.
+ */
+export function deviceTag(d: Device): string {
+  if (isMeter(d)) return meterKind(d) === 'stc' ? 'STC' : 'N2X'
+  return (d.role || d.model || '').trim()
+}
