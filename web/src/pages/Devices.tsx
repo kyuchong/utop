@@ -135,7 +135,14 @@ export default function Devices({ me }: Props) {
   })
   const lockQ = useLocks()
 
-  const devices = devQ.data?.devices ?? []
+  /*
+   * 계측기는 여기 안 나온다 — 「계측기」 화면이 따로 있다.
+   *
+   * 두 화면에 같은 장비가 나오면 어느 쪽에서 고쳐야 하는지 매번 생각하게
+   * 되고, 「장비 3대」 라는 숫자도 계측기를 세는지 아닌지 알 수 없다.
+   * 등록부(device 표)는 같이 쓰되 보이는 자리는 하나여야 한다.
+   */
+  const devices = (devQ.data?.devices ?? []).filter((d) => d.role !== '계측기')
   const lockBy = useMemo(() => {
     const m = new Map<string, Lock>()
     for (const l of lockQ.data?.locks ?? []) m.set(l.resource_id, l)

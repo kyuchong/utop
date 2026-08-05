@@ -484,7 +484,6 @@ export default function DeviceForm({ editing, onClose }: Props) {
                             onChange={(e) => setAccField(p.v, 'port', Number(e.target.value))}
                           />
                         )}
-                        {p.hint && <span className="muted small">{p.hint}</span>}
                         {p.v === 'snmp' && (
                           <input
                             placeholder="community (public)"

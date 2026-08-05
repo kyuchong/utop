@@ -759,10 +759,15 @@ def _dev_out(row) -> dict:
     return dict(row)
 
 
-PROTOCOLS = ("telnet", "ssh", "console", "snmp")
+# 계측기(n2x·stc)도 여기 있어야 한다. 없으면 저장할 때 그 줄만 조용히
+# 버려져서, 화면에서 켜고 저장해도 다시 열면 꺼져 있다 — 왜 안 되는지
+# 알 방법이 없다.
+PROTOCOLS = ("telnet", "ssh", "console", "snmp", "n2x", "stc")
 # console 은 기본 포트가 없다. 터미널 서버가 장비마다 7001, 7002 … 로
 # 배정하므로 사람이 적어야 한다. 0 을 넣어두면 접속 시도에서 바로 드러난다.
-_DEFAULT_PORT = {"telnet": 23, "ssh": 22, "console": 0, "snmp": 161}
+# n2x 도 0 이다 — 붙을 TCP 포트가 아예 없고 Tcl 이 알아서 붙는다.
+# stc 의 8888 은 Spirent REST 서버 포트지 섀시 포트가 아니다.
+_DEFAULT_PORT = {"telnet": 23, "ssh": 22, "console": 0, "snmp": 161, "n2x": 0, "stc": 8888}
 # CLI 세션을 열 수 있는 방식. 스텝의 cli 명령은 이 셋으로만 보낼 수 있다.
 # snmp 는 조회용이라 명령을 실행하지 못한다.
 CLI_PROTOCOLS = ("telnet", "ssh", "console")
