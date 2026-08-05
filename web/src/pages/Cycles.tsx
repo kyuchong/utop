@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import CycleReport from '@/components/cycle/CycleReport'
 import { IconChevron } from '@/components/icons'
 import './Cycles.css'
 
@@ -314,6 +315,7 @@ export default function Cycles() {
 /** 사이클 한 건 — 항목과 진행 */
 function CycleDetail({ cycle }: { cycle: CycleMeta }) {
   const [only, setOnly] = useState<Verdict | ''>('')
+  const [report, setReport] = useState(false)
 
   const items = cycle.items ?? []
   const counts = { pass: 0, fail: 0, wip: 0, none: 0 }
@@ -331,7 +333,22 @@ function CycleDetail({ cycle }: { cycle: CycleMeta }) {
         <span className="muted small">
           {items.length}건{cycle.assignee ? ` · 담당 ${cycle.assignee}` : ''}
         </span>
+        <span className="sp" />
+        {/* 결과서는 보고서 화면을 거치지 않는다 — 「버전명 기준으로 사이클이
+            끝나면」 이라는 말 그대로 이 회차에서 바로 뽑는다 */}
+        <button className="btn small" type="button" onClick={() => setReport(true)}>
+          고객사 결과서
+        </button>
       </div>
+
+      {report && (
+        <CycleReport
+          cycleId={cycle.id}
+          model={cycle.model}
+          version={cycle.version}
+          onClose={() => setReport(false)}
+        />
+      )}
 
       {/* 한 줄로 지금 어디까지 왔나. 숫자만 늘어놓으면 눈으로 못 센다 */}
       <div className="cy-bar" aria-hidden="true">

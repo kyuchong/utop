@@ -172,3 +172,57 @@
 .cy-v.fail { color: var(--c-fail); font-weight: 600; }
 .cy-v.wip { color: var(--c-draft); font-weight: 600; }
 .cy-v.none { color: var(--c-text-faint); }
+
+/* ── 고객사 결과서 미리보기 ──
+   16:9 슬라이드를 실제 크기(1280×720)로 그린 뒤 줄여서 보여 준다. 그래야
+   화면에서 본 것과 파일이 같다. */
+.modal.rp {
+  width: 1400px;
+  max-width: 96vw;
+  height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+.rp-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 22px;
+  background: var(--c-surface-2);
+}
+.rp-slide {
+  position: relative;
+  width: 1280px;
+  height: 720px;
+  margin: 0 auto 16px;
+  background: #fff;
+  border: 1px solid var(--c-border-strong);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  transform-origin: top center;
+  /* 미리보기 폭에 맞춰 줄인다 */
+  zoom: 0.78;
+}
+.rp-page {
+  width: 1280px;
+  height: 720px;
+  padding: 24px 30px;
+  box-sizing: border-box;
+  overflow: hidden;
+  font-family: 'Malgun Gothic', AppleGothic, sans-serif;
+  color: #111;
+}
+.rp-no {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  z-index: 5;
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(28, 34, 52, 0.72);
+  border-radius: 20px;
+  padding: 3px 11px;
+  font-family: var(--font-mono);
+}
+.cy-head .sp { margin-left: auto; }
