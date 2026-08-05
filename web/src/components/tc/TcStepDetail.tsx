@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { IconIndent, IconOutdent } from '../icons'
@@ -189,7 +189,11 @@ export default function TcStepDetail({
   const hasResult = isRun || isDiff || !!result
   // 표로 읽히는 응답인지. 되는 응답에만 단추를 내놓는다 — 안 되는 곳에
   // 있으면 눌러 보고 나서야 안 된다는 걸 안다.
-  const isTbl = useMemo(() => (result ? !!parseTable(result) : false), [result])
+  //
+  // useMemo 를 쓰면 안 된다. 이 줄은 위의 `if (!step) return` 아래라
+  // 스텝을 고르지 않은 render 에서는 훅이 하나 줄어든다. 다시 고르는
+  // 순간 React 가 훅 수가 늘었다며 통째로 죽는다 — 흰 화면.
+  const isTbl = result ? !!parseTable(result) : false
   const needsSession = isCmd || isConn || isNet
   const depth = Math.min(Math.max(Number(step.indent) || 0, 0), 4)
   /** 이 스텝이 뽑는 이름 */
