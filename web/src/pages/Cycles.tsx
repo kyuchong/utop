@@ -386,6 +386,8 @@ function CycleDetail({
 
   const rows = only ? items.filter((it) => itemVerdict(it) === only) : items
 
+  const cur = openItem >= 0 ? items[openItem] : undefined
+
   return (
     <div className="cy-detail">
       <div className="cy-head">
@@ -456,38 +458,7 @@ function CycleDetail({
         <span className="muted small">{Math.round(((total - counts.none) / total) * 100)}% 진행</span>
       </div>
 
-      {/* 실행 진행. iTest 가 좋은 점이 이것이 다 보인다는 것이다 —
-          스텝이 끝나야 결과가 툭 나오면 멈춘 것인지 도는 것인지 모른다 */}
-      {(st.on || st.log.length > 0) && (
-        <div className={`cy-run${st.on ? ' on' : ''}`}>
-          <div className="cy-run-head">
-            <b>{st.on ? '실행 중' : '실행 마침'}</b>
-            <span className="muted small">
-              항목 {st.done}/{st.total}
-              {st.itemName && ` · ${st.itemName}`}
-              {st.stepAt >= 0 && ` · 스텝 ${st.stepAt + 1}/${st.stepCount}`}
-            </span>
-            {st.stepName && <code className="cy-run-cmd">{st.stepName}</code>}
-          </div>
-          <div className="cy-run-bar" aria-hidden="true">
-            <span style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
-          </div>
-          {/* 마지막 줄이 늘 보이게 뒤집어 쌓는다 — 스크롤을 따라 내리게
-              하면 사람이 손으로 쫓아가야 한다 */}
-          <div className="cy-run-log">
-            {st.log
-              .slice(-300)
-              .reverse()
-              .map((l, i) => (
-                <div className={`cy-run-line ${l.kind}`} key={i}>
-                  {l.i >= 0 && <b>{l.i + 1}</b>}
-                  {l.text}
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
-
+      <div className="cy-cols">
       <div className="cy-list">
         <div className="cy-row cy-hd">
           <span className="cy-ck" />
@@ -553,12 +524,57 @@ function CycleDetail({
         {rows.length === 0 && <div className="empty">해당하는 항목이 없습니다.</div>}
       </div>
 
-      {openItem >= 0 && items[openItem] && (
-        <StepDetail item={items[openItem]} onClose={() => setOpenItem(-1)} />
-      )}
+      {/* 오른쪽 칸 — 고른 항목의 스텝, 그리고 실행 중이면 오간 것.
+          목록 안에서 펼치면 줄이 아래로 밀려서 방금 보던 자리를 놓친다.
+          TC 화면과 같은 모양이라 오갈 때 눈이 안 헤맨다. */}
+      <div className="cy-side">
+        {cur ? (
+          <StepDetail item={cur} onClose={() => setOpenItem(-1)} />
+        ) : (
+          <div className="empty">항목을 누르면 스텝이 보입니다.</div>
+        )}
+        <RunPane st={st} />
+      </div>
+      </div>
     </div>
   )
 }
+
+/** 실행 진행 — 오른쪽 칸 아래에 붙는다 */
+function RunPane({ st }: { st: ReturnType<typeof useCycleRun>['st'] }) {
+  if (!st.on && st.log.length === 0) return null
+  return (
+
+        <div className={`cy-run${st.on ? ' on' : ''}`}>
+          <div className="cy-run-head">
+            <b>{st.on ? '실행 중' : '실행 마침'}</b>
+            <span className="muted small">
+              항목 {st.done}/{st.total}
+              {st.itemName && ` · ${st.itemName}`}
+              {st.stepAt >= 0 && ` · 스텝 ${st.stepAt + 1}/${st.stepCount}`}
+            </span>
+            {st.stepName && <code className="cy-run-cmd">{st.stepName}</code>}
+          </div>
+          <div className="cy-run-bar" aria-hidden="true">
+            <span style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
+          </div>
+          {/* 마지막 줄이 늘 보이게 뒤집어 쌓는다 — 스크롤을 따라 내리게
+              하면 사람이 손으로 쫓아가야 한다 */}
+          <div className="cy-run-log">
+            {st.log
+              .slice(-300)
+              .reverse()
+              .map((l, i) => (
+                <div className={`cy-run-line ${l.kind}`} key={i}>
+                  {l.i >= 0 && <b>{l.i + 1}</b>}
+                  {l.text}
+                </div>
+              ))}
+          </div>
+        </div>
+  )
+}
+
 
 /**
  * 항목 하나의 스텝과 실행 내역.

@@ -131,12 +131,32 @@
 .cy-leg.fail b { color: var(--c-fail); }
 .cy-leg.wip b { color: var(--c-draft); }
 
+/* 항목 목록 | 스텝 세부 — 목록 안에서 펼치면 줄이 아래로 밀려서 방금
+   보던 자리를 놓친다. TC 화면과 같은 모양으로 나눈다. */
+.cy-cols {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
 .cy-list {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: auto;
   border: 1px solid var(--c-border);
   border-radius: 8px;
+}
+.cy-side {
+  flex: 0 0 46%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+@media (max-width: 1200px) {
+  .cy-side { flex-basis: 40%; }
 }
 .cy-row {
   display: grid;
@@ -233,13 +253,12 @@
 .cy-row[role='button'] { cursor: pointer; }
 .cy-row.on { outline: 2px solid var(--c-primary); outline-offset: -2px; }
 .cy-steps-pane {
-  margin-top: 10px;
   border: 1px solid var(--c-border);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-  max-height: 46%;
-  min-height: 140px;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 .cy-sp-head {
@@ -303,8 +322,8 @@
 .cy-run {
   border: 1px solid var(--c-border);
   border-radius: 8px;
-  margin-bottom: 10px;
   overflow: hidden;
+  flex: 0 0 auto;
 }
 .cy-run.on { border-color: var(--c-primary); }
 .cy-run-head {
@@ -407,3 +426,13 @@
 }
 .cn-row:hover { background: var(--c-surface-2); }
 .cn-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 오른쪽 칸의 빈 자리 */
+.cy-side .empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--c-border);
+  border-radius: 8px;
+}
