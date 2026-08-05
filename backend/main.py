@@ -3,6 +3,7 @@ import sys
 import json
 import re
 import asyncio
+import platform
 import socket
 import subprocess
 import threading
@@ -5659,7 +5660,9 @@ async def stc_server_status(port: int = 8888):
     }
 
 # ── IXIA N2X 트래픽 시험 (상주 데몬: n2xtclsh85 가 세션을 계속 유지) ──
-N2X_TCLSH = r"C:\N2xTcl85\bin\n2xtclsh85.exe"
+# 실행 PC 가 리눅스로 바뀌면 이 경로는 없다. 코드를 고치지 않고 바꿀 수
+# 있게 환경변수로 뺀다 — 리눅스용 N2X Tcl 이 있으면 그 경로를 넣으면 된다.
+N2X_TCLSH = os.environ.get("N2X_TCLSH") or r"C:\N2xTcl85\bin\n2xtclsh85.exe"
 N2X_DAEMON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "n2x", "n2x_daemon.tcl")
 _n2x_daemons = {}            # key "server|label" -> {proc, lock, ready}
 _n2x_reg_lock = threading.Lock()
@@ -5706,8 +5709,14 @@ def _n2x_drain_stderr(proc):
 
 def _n2x_start_daemon(server, label):
     """새 데몬 프로세스 기동 + ready 대기. 성공 시 {proc, lock, ready} 반환, 실패 시 {error}."""
-    if not os.path.exists(N2X_TCLSH) or not os.path.exists(N2X_DAEMON):
-        return {"error": "N2X Tcl 환경 없음"}
+    # 무엇이 없는지 말해 준다. "N2X Tcl 환경 없음" 만 보면 섀시가 안 켜진
+    # 건지, 이 서버에 뭘 깔아야 하는 건지 알 수가 없다.
+    if not os.path.exists(N2X_TCLSH):
+        return {"error": f"N2X Tcl 이 이 서버에 없습니다 — 찾은 곳: {N2X_TCLSH} "
+                         f"(N2X_TCLSH 환경변수로 경로를 지정하세요. "
+                         f"지금 이 서버는 {platform.system()} 입니다)"}
+    if not os.path.exists(N2X_DAEMON):
+        return {"error": f"N2X 데몬 스크립트가 없습니다 — {N2X_DAEMON}"}
     try:
         proc = subprocess.Popen(
             [N2X_TCLSH, N2X_DAEMON, server, label],
