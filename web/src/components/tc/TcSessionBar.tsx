@@ -133,15 +133,14 @@ export default function TcSessionBar({
                 )
               })}
             </select>
-            {/* 잘못 앉은 줄에 설명을 늘어놓지 않는다.
-                무엇이 잘못됐고 어떻게 고치는지를 한 줄로 두고, 고치는
-                단추를 바로 옆에 놓는다 — 오른쪽 끝의 ✕ 를 찾아 누르게
-                하면 그 사이에 왜 지우는지를 잊는다. */}
+            {/* 줄은 300px 짜리 칩이다. 여기에 문장을 넣었더니 글자가 세로로
+                감겨 읽을 수도 없게 됐다. 줄에는 표와 단추만 두고, 왜인지는
+                패널 아래에 **한 번만** 적는다. */}
             {dev && isMeter(dev) ? (
               <span className="tc-sess-fix">
-                <b>계측기</b>는 세션이 아닙니다. 토폴로지 탭에서 씁니다
-                <button type="button" onClick={() => onRemove(i)}>
-                  이 자리 빼기
+                <b>계측기</b>
+                <button type="button" title="세션에서 이 자리를 뺍니다" onClick={() => onRemove(i)}>
+                  빼기
                 </button>
               </span>
             ) : (
@@ -245,6 +244,15 @@ export default function TcSessionBar({
               </button>
             </div>
             <div className="tc-sesspanel-body">{sessions.map(row)}</div>
+            {/* 줄마다 되풀이하지 않는다. 같은 말이 세 번 보이면 아무도 안 읽는다 */}
+            {sessions.some((s) => {
+              const d = devById.get(s)
+              return d && isMeter(d)
+            }) && (
+              <div className="tc-sesspanel-note">
+                계측기는 세션이 아닙니다 — <b>토폴로지</b> 탭에서 배선으로 씁니다.
+              </div>
+            )}
           </div>
         </>
       )}
@@ -303,7 +311,15 @@ function DevicePicker({ devices, sessions, onAdd, onClose }: PickProps) {
   const taken = new Map<string, number>()
   for (const id of sessions) taken.set(id, (taken.get(id) ?? 0) + 1)
 
-  const byLab = devices.filter((d) => !lab || (d.lab ?? '') === lab)
+  /*
+   * 계측기는 세션에 앉히지 않는다.
+   *
+   * 세션 드롭다운에서만 걸렀더니 「+ 세션」 으로 여는 이 창에는 그대로
+   * 나와서, 막아 놓은 자리를 옆문으로 다시 들어갈 수 있었다. 한 곳만
+   * 막는 것은 안 막은 것과 같다.
+   */
+  const pickable = devices.filter((d) => !isMeter(d))
+  const byLab = pickable.filter((d) => !lab || (d.lab ?? '') === lab)
   const byVendor = byLab.filter((d) => !vendor || (d.vendor ?? '') === vendor)
   const byRole = byVendor.filter((d) => !role || (d.role ?? '') === role)
 

@@ -1894,11 +1894,11 @@ table.tb tr.r-bad td:first-child {
 .tc-sess-fix {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
+  gap: 6px;
   font-size: var(--fs-xs);
   color: var(--c-draft);
+  /* 줄은 300px 칩이다. 감기면 글자가 세로로 눕는다 */
+  white-space: nowrap;
 }
 .tc-sess-fix b {
   font-weight: 700;
@@ -1918,10 +1918,10 @@ table.tb tr.r-bad td:first-child {
   color: #fff;
 }
 
-/* 세션 패널 — 잘못 앉은 줄이 길어져도 글자가 안 잘리게 */
-.tc-sesspanel {
-  min-width: 380px;
-}
-.tc-sesspanel-body .tc-sess {
-  width: 100%;
+/* 계측기가 앉아 있을 때만 뜨는 안내. 줄마다 되풀이하면 아무도 안 읽는다 */
+.tc-sesspanel-note {
+  padding: 7px 10px;
+  border-top: 1px solid var(--tc-line);
+  font-size: var(--fs-xs);
+  color: var(--c-draft);
 }
