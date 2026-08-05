@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
-import { connParams, deviceLabel, deviceTag, isMeter, protocolOf } from './device'
+import { connParams, deviceLabel, deviceTag, isMeter, meterTransport, protocolOf } from './device'
 
 interface Props {
   /** 이 TC 가 쓰는 세션 — `data.sessions`, 장비 id 배열 */
@@ -127,14 +127,21 @@ export default function TcSessionBar({
                 )
               })}
             </select>
-            {/* 계측기도 SSH 로 등록돼 있을 수 있다 — 섀시에 CLI 가 있는
-                장비도 있다. 그래서 접속 방식을 지우지 않고, 그 앞에
-                '계측기' 를 덧붙인다. 무엇인지와 어떻게 붙는지는 서로
-                다른 이야기다. */}
+            {/* 계측기는 SSH 로 안 붙는다. 등록할 때 접속 방식이 SSH 로
+                남아 있어도 그대로 적으면 화면이 거짓말을 한다 — 실제로
+                무엇으로 붙는지를 적는다. */}
             {dev && (
               <span className={`tc-sess-ip${isMeter(dev) ? ' meter' : ''}`}>
-                {isMeter(dev) && <b>계측기 · {deviceTag(dev)}</b>}
-                {proto.toUpperCase()} {dev.ip}
+                {isMeter(dev) ? (
+                  <>
+                    <b>계측기 · {deviceTag(dev)}</b>
+                    {meterTransport(dev)} {dev.ip}
+                  </>
+                ) : (
+                  <>
+                    {proto.toUpperCase()} {dev.ip}
+                  </>
+                )}
               </span>
             )}
             <button

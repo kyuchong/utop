@@ -91,3 +91,18 @@ export function deviceTag(d: Device): string {
   if (isMeter(d)) return meterKind(d) === 'stc' ? 'STC' : 'N2X'
   return (d.role || d.model || '').trim()
 }
+
+/**
+ * 계측기에 어떻게 붙는가 — 사람이 읽는 한 줄.
+ *
+ * 계측기는 SSH 로 안 붙는다. 등록할 때 접속 방식이 SSH 로 남아 있으면
+ * 화면이 거짓말을 한다.
+ *
+ *  · N2X  — 백엔드가 N2X Tcl(`n2xtclsh85`) 을 띄워 두고 그 프로세스와
+ *           주고받는다. Tcl 쪽이 Agilent API 로 섀시에 붙는다
+ *  · STC  — Spirent REST 서버(기본 localhost:8888)에 HTTP 로 말하고,
+ *           그 서버가 섀시에 붙는다
+ */
+export function meterTransport(d: Device): string {
+  return meterKind(d) === 'stc' ? `REST ${d.port ?? 8888}` : 'Tcl 세션'
+}

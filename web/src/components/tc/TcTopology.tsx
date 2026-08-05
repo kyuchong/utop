@@ -152,6 +152,9 @@ export default function TcTopology({
           role: '계측기',
           vendor: f.kind === 'stc' ? 'Spirent' : 'IXIA',
           model: f.kind === 'stc' ? 'Spirent TestCenter' : 'IXIA-N2X',
+          // 계측기는 SSH·Telnet 이 아니다. 비워 두면 기본값이 붙어
+          // 목록에 'SSH' 로 뜬다 — 붙지도 않을 방식을 적어 두는 셈이다.
+          protocol: f.kind,
           ...(f.kind === 'stc' ? { port: 8888 } : {}),
         }),
       })
