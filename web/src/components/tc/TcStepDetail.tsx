@@ -302,9 +302,12 @@ export default function TcStepDetail({
               }
             >
               <option value="">(없음)</option>
+              {/* 자리 번호를 앞에 세운다. 같은 장비를 두 자리에 앉히는 일이
+                  흔해서(S1·S2 둘 다 220.1.1.254) 이름만으로는 어느 세션인지
+                  알 수 없다 — 목록에 똑같은 줄이 둘 뜬다. */}
               {sessions.map((nm, i) => (
                 <option key={i} value={i}>
-                  {nm}
+                  S{i + 1} · {nm}
                 </option>
               ))}
               {/* 이 TC 에 세션이 등록돼 있지 않은데 스텝은 번호를 갖고 있는

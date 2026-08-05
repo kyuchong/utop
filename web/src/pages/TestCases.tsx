@@ -219,7 +219,11 @@ export default function TestCases() {
   const sessionIds = Array.isArray(d.sessions) ? (d.sessions as string[]) : []
   const sessionNames = sessionIds.map((id, i) => {
     const dev = devById.get(id)
-    return dev ? deviceLabel(dev) : `세션 ${i + 1}`
+    if (!dev) return `세션 ${i + 1}`
+    // 이름이 있으면 IP 도 함께. 이름만 보이면 같은 이름의 장비가 랩마다
+    // 있을 때 어느 것인지 모른다.
+    const nm = deviceLabel(dev)
+    return dev.ip && nm !== dev.ip ? `${nm} (${dev.ip})` : nm
   })
   const sessionName = (i: number) => (i >= 0 ? (sessionNames[i] ?? `세션 ${i + 1}`) : '')
 
