@@ -115,9 +115,15 @@ export default function TcSessionBar({
               onChange={(e) => onPick(i, e.target.value)}
             >
               {!dev && <option value={id}>{id} (없는 장비)</option>}
-              {/* 이름을 안 적어 둔 장비가 많아 IP 만 뜬다. 그러면
-                  220.1.1.254 와 210.1.2.248 중 어느 쪽이 계측기인지 모른다 */}
-              {devices.map((d) => {
+              {/*
+                세션은 **명령을 보내는 자리**다. 계측기에는 CLI 로 명령을
+                보내지 않는다 — N2X 는 Tcl, STC 는 REST 로 붙고, 어느 포트에
+                꽂혔는지는 토폴로지가 안다. 그래서 목록에서 뺀다.
+
+                이미 앉혀 둔 것은 남겨 둔다. 조용히 사라지면 왜 없어졌는지
+                모른 채 스텝의 세션 번호만 어긋난다.
+              */}
+              {devices.filter((d) => !isMeter(d) || d.id === id).map((d) => {
                 const tag = deviceTag(d)
                 return (
                   <option key={d.id} value={d.id}>
@@ -143,10 +149,15 @@ export default function TcSessionBar({
                 )}
               </span>
             )}
+            {dev && isMeter(dev) && (
+              <span className="tc-sess-warn" title="계측기는 토폴로지 탭에서 씁니다">
+                계측기는 세션이 아닙니다 — 토폴로지에서 배선으로 씁니다
+              </span>
+            )}
             <button
               type="button"
               className="tc-sess-b"
-              disabled={!dev || testing !== null}
+              disabled={!dev || isMeter(dev) || testing !== null}
               title="연결 확인"
               onClick={() => dev && void test(i, dev)}
             >

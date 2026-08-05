@@ -1888,3 +1888,13 @@ table.tb tr.r-bad td:first-child {
   color: var(--c-draft);
   white-space: nowrap;
 }
+
+/* 계측기가 세션에 앉아 있을 때. 왜 여기 있으면 안 되는지 그 자리에서 */
+.tc-sess-warn {
+  font-size: var(--fs-xs);
+  color: var(--c-draft);
+  background: var(--c-surface-2);
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}

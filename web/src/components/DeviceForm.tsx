@@ -40,6 +40,8 @@ const PROTOS: Array<{
   cli: boolean
   ownHost: boolean
   hint: string
+  /** 계측기 전용. 스위치 등록 화면에는 안 나온다 */
+  meter?: boolean
 }> = [
   { v: 'telnet', label: 'Telnet', port: 23, cli: true, ownHost: false, hint: '' },
   { v: 'ssh', label: 'SSH', port: 22, cli: true, ownHost: false, hint: '' },
@@ -52,6 +54,35 @@ const PROTOS: Array<{
     hint: '콘솔서버 주소와 이 장비에 배정된 포트',
   },
   { v: 'snmp', label: 'SNMP', port: 161, cli: false, ownHost: false, hint: '조회 전용' },
+  /*
+   * 계측기는 Telnet·SSH 로 안 붙는다.
+   *
+   *  · N2X — 백엔드가 N2X Tcl(`n2xtclsh85`)을 상주 프로세스로 띄우고
+   *    stdin/stdout 으로 주고받는다. Tcl 쪽이 Agilent API 로 섀시에 붙는다.
+   *    등록할 TCP 포트가 없다
+   *  · STC — Spirent REST 서버(기본 8888)에 HTTP 로 말하고 그 서버가
+   *    섀시에 붙는다. 이 포트는 REST 서버 포트지 섀시 포트가 아니다
+   *
+   * 이 둘이 목록에 없어서 계측기를 SSH 로 등록하게 돼 있었다.
+   */
+  {
+    v: 'n2x',
+    label: 'N2X (Tcl)',
+    port: 0,
+    cli: false,
+    ownHost: false,
+    hint: '백엔드의 N2X Tcl 이 섀시에 붙습니다 — 포트 없음',
+    meter: true,
+  },
+  {
+    v: 'stc',
+    label: 'STC (REST)',
+    port: 8888,
+    cli: false,
+    ownHost: true,
+    hint: 'Spirent REST 서버 주소와 포트 (섀시 포트가 아닙니다)',
+    meter: true,
+  },
 ]
 
 /**
@@ -158,6 +189,14 @@ export default function DeviceForm({ editing, onClose }: Props) {
   })
 
   const set = <K extends keyof Device>(k: K, v: Device[K]) => setF((c) => ({ ...c, [k]: v }))
+
+  /**
+   * 계측기인가 — 역할로만 본다.
+   *
+   * 이름·모델로 넘겨짚으면 등록하는 도중(아직 모델을 안 고른 때)에 목록이
+   * 왔다 갔다 한다. 여기서는 사람이 고른 역할이 곧 답이다.
+   */
+  const isMeterRole = (f.role ?? '') === '계측기'
 
   const setAccField = (proto: string, k: keyof DeviceAccess, v: unknown) =>
     setAcc((c) => ({ ...c, [proto]: { ...(c[proto] ?? { protocol: proto }), [k]: v } as DeviceAccess }))
@@ -401,7 +440,11 @@ export default function DeviceForm({ editing, onClose }: Props) {
             </div>
 
             <div className="acc-list">
-              {PROTOS.map((p) => {
+              {/* 계측기에는 Tcl·REST 만, 스위치에는 Telnet·SSH·Console·SNMP 만.
+                  안 쓰는 방식이 늘 보이면 무엇을 골라야 하는지 흐려진다.
+                  이미 켜 둔 것은 역할이 달라도 그대로 보여 준다 — 안 그러면
+                  고칠 방법 없이 남는다. */}
+              {PROTOS.filter((p) => !!p.meter === isMeterRole || !!acc[p.v]).map((p) => {
                 const on = !!acc[p.v]
                 const a = acc[p.v] ?? ({ protocol: p.v } as DeviceAccess)
                 return (
@@ -430,13 +473,18 @@ export default function DeviceForm({ editing, onClose }: Props) {
                             onChange={(e) => setAccField(p.v, 'host', e.target.value)}
                           />
                         )}
-                        <input
-                          className="acc-port"
-                          type="number"
-                          placeholder={String(p.port)}
-                          value={a.port ?? p.port}
-                          onChange={(e) => setAccField(p.v, 'port', Number(e.target.value))}
-                        />
+                        {/* N2X 는 붙을 TCP 포트가 없다 — Tcl 이 알아서 붙는다.
+                            빈 칸을 내놓으면 무엇을 적어야 하나 헤매게 된다. */}
+                        {p.port > 0 && (
+                          <input
+                            className="acc-port"
+                            type="number"
+                            placeholder={String(p.port)}
+                            value={a.port ?? p.port}
+                            onChange={(e) => setAccField(p.v, 'port', Number(e.target.value))}
+                          />
+                        )}
+                        {p.hint && <span className="muted small">{p.hint}</span>}
                         {p.v === 'snmp' && (
                           <input
                             placeholder="community (public)"
