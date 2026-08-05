@@ -24,6 +24,7 @@ import {
 } from '@/components/tc/portable'
 import TcInfo from '@/components/tc/TcInfo'
 import TcManual from '@/components/tc/TcManual'
+import TcTopology from '@/components/tc/TcTopology'
 import TcHistory from '@/components/tc/TcHistory'
 import TcCycles from '@/components/tc/TcCycles'
 import { deviceLabel } from '@/components/tc/device'
@@ -43,7 +44,7 @@ import {
 } from '@/components/tc/types'
 import './TestCases.css'
 
-type Tab = 'steps' | 'info' | 'manual' | 'history' | 'cycle'
+type Tab = 'steps' | 'info' | 'topo' | 'manual' | 'history' | 'cycle'
 
 /** 새 스텝의 기본값. 종류마다 처음부터 채워둬야 자연스러운 값이 다르다. */
 function blankStep(kind: StepKind): TcStep {
@@ -83,7 +84,7 @@ function blankStep(kind: StepKind): TcStep {
  */
 const OPEN_KEY = 'utop.tc.open'
 const TAB_KEY = 'utop.tc.tab'
-const TABS: Tab[] = ['steps', 'info', 'manual', 'history', 'cycle']
+const TABS: Tab[] = ['steps', 'info', 'topo', 'manual', 'history', 'cycle']
 
 export default function TestCases() {
   const qc = useQueryClient()
@@ -210,6 +211,7 @@ export default function TestCases() {
   const steps = (d.checks ?? []) as TcStep[]
   /** 탭에 숫자를 달아 두면 있는지 없는지 눌러보지 않아도 안다 */
   const manualCount = steps.filter((s) => s.kind === 'manual').length
+  const wireCount = (d.wiring ?? []).length
   const autoCount = steps.length - manualCount
   /**
    * 이 TC 가 쓰는 세션. 자료에는 `sessions: ["dev-…"]` 처럼 장비 id 배열이
@@ -758,6 +760,9 @@ export default function TestCases() {
               // 'Automation' 은 '스텝' 이 아니다 — 장비에 명령을 보내 자동으로
               // 도는 절차고, 사람이 하는 것은 Manual Step 에 있다.
               ['info', '정보'],
+              // 배선은 랩의 사실이라 시험 내용보다 앞이다 — 여기가 정해져야
+              // 스텝이 장비 포트 이름으로 말할 수 있다.
+              ['topo', '토폴로지'],
               ['manual', 'Manual Step'],
               ['steps', 'Automation'],
               ['history', '실행 이력'],
@@ -774,6 +779,7 @@ export default function TestCases() {
                 {label}
                 {k === 'steps' && autoCount > 0 && <span className="cnt">{autoCount}</span>}
                 {k === 'manual' && manualCount > 0 && <span className="cnt">{manualCount}</span>}
+                {k === 'topo' && wireCount > 0 && <span className="cnt">{wireCount}</span>}
               </button>
             ))}
           </div>
@@ -911,6 +917,16 @@ export default function TestCases() {
         ) : tab === 'info' ? (
           <section className="panel tc-tabcol">
             <TcInfo data={d} onChange={patch} tcid={openId} />
+          </section>
+        ) : tab === 'topo' ? (
+          <section className="panel tc-tabcol">
+            <TcTopology
+              data={d}
+              devices={devices}
+              onChange={patch}
+              onDevicesChanged={() => void devQ.refetch()}
+              onMsg={(kind, text) => setMsg({ kind, text })}
+            />
           </section>
         ) : tab === 'manual' ? (
           <section className="panel tc-tabcol">

@@ -1,188 +1,333 @@
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
-import type { TcData, TcLink } from './types'
+import { deviceLabel } from './device'
+import type { TcData, TcWire } from './types'
 
 interface Props {
   data: TcData
+  devices: Device[]
   onChange: (patch: Partial<TcData>) => void
+  /** 장비 목록을 다시 읽어 달라 — 계측기를 여기서 새로 만들었을 때 */
+  onDevicesChanged?: () => void
+  onMsg: (kind: 'ok' | 'err', text: string) => void
+}
+
+/** 계측기인가. 옛 화면과 같은 기준 — role 이 '계측기' 거나 이름에 표가 난다 */
+export function isMeter(d: Device): boolean {
+  return (
+    d.role === '계측기' ||
+    d.device_group === '계측기' ||
+    /spirent|stc|ixia|n2x/i.test(`${d.model ?? ''} ${d.name ?? ''} ${d.vendor ?? ''}`)
+  )
+}
+
+/** N2X 인가 STC 인가. 포트 표기도 부르는 API 도 다르다 */
+export function meterKind(d: Device | undefined): 'n2x' | 'stc' {
+  if (!d) return 'n2x'
+  return /spirent|stc/i.test(`${d.model ?? ''} ${d.name ?? ''} ${d.vendor ?? ''}`) ? 'stc' : 'n2x'
 }
 
 /**
- * 시험 구성도.
+ * 토폴로지 — 무엇이 무엇에 꽂혀 있나.
  *
- * 슬롯끼리 어느 인터페이스로 물려 있는지를 적는다. 그림을 그리는 것이
- * 목적이 아니라 '어느 포트에 꽂혀 있는가' 를 자료로 남기는 것이 목적이다 —
- * 자연어로 스텝을 만들 때 "업링크 포트" 가 실제로 어디인지 알아야 한다.
+ * 여기 적는 것은 **랩의 사실**이지 시험의 내용이 아니다. 한 번 적어 두면
+ * 시험은 장비 포트 이름(`Gi0/1`)으로만 말하고, 계측기 포트(`4106/1`)는
+ * 여기서 풀린다. 배선이 바뀌면 이 줄만 고치고, 그 배선을 쓰는 시험은 한
+ * 건도 안 건드린다.
  *
- * 인터페이스 목록은 슬롯에 물린 장비에서 가져온다. 장비를 아직 안 정한
- * 슬롯은 직접 입력한다.
+ * 옛 계측기 창은 스트림 하나에 필드가 60개, 편집 탭이 9개였다. 그런데
+ * `meterCfg` 10건 중 9건이 손도 안 댄 기본값이다 — 아무도 못 쓴 것이다.
+ * 채워져 있던 것은 포트·MAC·IP·부하뿐이고 MAC·IP 는 아무 값이나 되면
+ * 되는 것이라 사람이 정할 이유가 없다. 그래서 여기서는 **꽂힌 자리만**
+ * 묻는다.
  */
-export default function TcTopology({ data, onChange }: Props) {
-  const slots = data.slots ?? []
-  const links = data.links ?? []
+export default function TcTopology({
+  data,
+  devices,
+  onChange,
+  onDevicesChanged,
+  onMsg,
+}: Props) {
+  // TcData 는 세션을 느슨하게 들고 있다(옛 자료에 문자열도 있었다).
+  // 여기서 한 번 걸러 쓴다 — TestCases 도 같은 방식이다.
+  const sessions = Array.isArray(data.sessions) ? (data.sessions as string[]) : []
+  const wiring = data.wiring ?? []
+  const meters = devices.filter(isMeter)
+  const devById = new Map(devices.map((d) => [d.id, d]))
 
-  const devQ = useQuery({
-    queryKey: ['devices'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/devices2')
-      if (!r.ok) throw new Error('장비를 불러오지 못했습니다')
-      return (await r.json()) as { devices: Device[] }
-    },
-  })
-  const byIp = new Map((devQ.data?.devices ?? []).map((d) => [d.ip, d]))
+  /** 계측기별로 불러온 포트 목록 */
+  const [ports, setPorts] = useState<Record<string, string[]>>({})
+  const [loading, setLoading] = useState('')
+  const [adding, setAdding] = useState(false)
 
-  const ifsOf = (slotKey: string): string[] => {
-    const s = slots.find((x) => x.key === slotKey)
-    if (!s?.device_ip) return []
-    return (byIp.get(s.device_ip)?.interfaces ?? []).map((i) => i.name)
-  }
+  const set = (i: number, patch: Partial<TcWire>) =>
+    onChange({ wiring: wiring.map((w, n) => (n === i ? { ...w, ...patch } : w)) })
 
-  const label = (k: string) => {
-    const s = slots.find((x) => x.key === k)
-    return s ? `${s.key}${s.label ? ` · ${s.label}` : ''}` : k
-  }
-
-  const setLink = (i: number, patch: Partial<TcLink>) =>
-    onChange({ links: links.map((l, j) => (j === i ? { ...l, ...patch } : l)) })
-
-  const addLink = () =>
+  const add = () =>
     onChange({
-      links: [
-        ...links,
-        {
-          from_slot: slots[0]?.key ?? '',
-          to_slot: slots[1]?.key ?? slots[0]?.key ?? '',
-        },
-      ],
+      wiring: [...wiring, { session: 0, port: '', meter: meters[0]?.id ?? '', meterPort: '' }],
     })
 
-  if (slots.length === 0) {
-    return (
-      <div className="tc-pane">
-        <div className="empty">
-          먼저 <b>Environment</b> 에서 슬롯을 만드세요. 구성도는 슬롯끼리 잇는 것입니다.
-        </div>
-      </div>
-    )
+  /**
+   * 계측기에 직접 물어 포트 목록을 받아 온다.
+   *
+   * `4106/1` 을 손으로 치게 하면 안 된다 — 한 글자만 틀려도 실행해 봐야
+   * 알고, 그때는 트래픽이 이미 엉뚱한 데로 간 뒤다.
+   */
+  const loadPorts = async (meterId: string) => {
+    const dev = devById.get(meterId)
+    if (!dev) return
+    setLoading(meterId)
+    try {
+      const got: string[] = []
+      if (meterKind(dev) === 'n2x') {
+        const r = await apiFetch(`/api/n2x/ports?server=${encodeURIComponent(dev.ip)}`)
+        const j = await r.json().catch(() => ({}))
+        if (!j?.ok) throw new Error(j?.error || '계측기가 응답하지 않습니다')
+        for (const m of j.modules ?? [])
+          for (const p of m.portList ?? []) got.push(`${m.id}/${p.port}`)
+      } else {
+        const r = await apiFetch('/api/stc/conncheck', {
+          method: 'POST',
+          body: JSON.stringify({ chassis: dev.ip, restPort: dev.port ?? 8888 }),
+        })
+        const j = await r.json().catch(() => ({}))
+        if (!j?.ok) throw new Error(j?.error || '계측기가 응답하지 않습니다')
+        for (const m of j.modules ?? [])
+          for (const p of m.ports ?? []) got.push(String(p.location ?? p.name ?? p))
+      }
+      setPorts((x) => ({ ...x, [meterId]: got }))
+      onMsg(got.length ? 'ok' : 'err', got.length ? `포트 ${got.length}개` : '포트가 없습니다')
+    } catch (e) {
+      onMsg('err', e instanceof Error ? e.message : '포트를 불러오지 못했습니다')
+    } finally {
+      setLoading('')
+    }
+  }
+
+  /** 계측기를 그 자리에서 만든다. 장비 화면까지 다녀오게 하면 흐름이 끊긴다 */
+  const addMeter = async (f: { name: string; ip: string; kind: 'n2x' | 'stc' }) => {
+    try {
+      const r = await apiFetch('/api/devices2', {
+        method: 'POST',
+        body: JSON.stringify({
+          ip: f.ip.trim(),
+          name: f.name.trim() || f.ip.trim(),
+          role: '계측기',
+          vendor: f.kind === 'stc' ? 'Spirent' : 'IXIA',
+          model: f.kind === 'stc' ? 'Spirent TestCenter' : 'IXIA-N2X',
+          ...(f.kind === 'stc' ? { port: 8888 } : {}),
+        }),
+      })
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || '만들지 못했습니다')
+      onMsg('ok', '계측기를 등록했습니다')
+      setAdding(false)
+      onDevicesChanged?.()
+    } catch (e) {
+      onMsg('err', e instanceof Error ? e.message : '만들지 못했습니다')
+    }
   }
 
   return (
-    <div className="tc-pane">
-      <section className="tc-card">
-        <div className="tc-card-head">
-          <b>연결</b>
-          <span className="muted small">어느 포트끼리 물려 있는가</span>
-          <button className="btn small" type="button" onClick={addLink}>
-            + 연결
-          </button>
+    <div className="tp">
+      <div className="tp-head">
+        <b>배선</b>
+        <span className="muted small">
+          여기 적는 것은 <b>랩의 사실</b>입니다. 한 번 적어 두면 시험은 <code>Gi0/1</code> 처럼
+          장비 포트로만 말하고, 계측기 포트는 여기서 풀립니다.
+        </span>
+        <span className="sp" />
+        <button className="btn small" type="button" onClick={() => setAdding(true)}>
+          계측기 등록
+        </button>
+        <button
+          className="btn primary small"
+          type="button"
+          onClick={add}
+          disabled={!sessions.length}
+        >
+          배선 추가
+        </button>
+      </div>
+
+      {adding && <MeterForm onSave={addMeter} onClose={() => setAdding(false)} />}
+
+      {!sessions.length ? (
+        <div className="empty">
+          먼저 <b>세션</b>에 장비를 앉히세요. 배선은 그 장비의 포트를 가리킵니다.
         </div>
-
-        {links.length === 0 ? (
-          <div className="empty">아직 연결이 없습니다.</div>
-        ) : (
-          <div className="link-rows">
-            {links.map((l, i) => (
-              <div className="link-row2" key={i}>
-                <select
-                  value={l.from_slot}
-                  onChange={(e) => setLink(i, { from_slot: e.target.value, from_if: '' })}
-                >
-                  {slots.map((s) => (
-                    <option key={s.key} value={s.key}>
-                      {label(s.key)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  list={`if-${l.from_slot}`}
-                  className="link-if"
-                  placeholder="포트"
-                  value={l.from_if ?? ''}
-                  onChange={(e) => setLink(i, { from_if: e.target.value })}
-                />
-                <span className="link-arrow">↔</span>
-                <select
-                  value={l.to_slot}
-                  onChange={(e) => setLink(i, { to_slot: e.target.value, to_if: '' })}
-                >
-                  {slots.map((s) => (
-                    <option key={s.key} value={s.key}>
-                      {label(s.key)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  list={`if-${l.to_slot}`}
-                  className="link-if"
-                  placeholder="포트"
-                  value={l.to_if ?? ''}
-                  onChange={(e) => setLink(i, { to_if: e.target.value })}
-                />
-                <input
-                  placeholder="설명 (1G · 광)"
-                  value={l.note ?? ''}
-                  onChange={(e) => setLink(i, { note: e.target.value })}
-                />
-                <button
-                  type="button"
-                  className="if-x"
-                  onClick={() => onChange({ links: links.filter((_, j) => j !== i) })}
-                  aria-label="연결 삭제"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* 슬롯마다 그 장비의 포트를 자동완성으로 준다 */}
-        {slots.map((s) => (
-          <datalist id={`if-${s.key}`} key={s.key}>
-            {ifsOf(s.key).map((n) => (
-              <option key={n} value={n} />
-            ))}
-          </datalist>
-        ))}
-
-        <div className="hint">
-          장비를 정한 슬롯은 포트 칸에서 그 장비의 인터페이스가 자동완성됩니다.
-          아직 안 정한 슬롯은 직접 적으세요.
+      ) : !wiring.length ? (
+        <div className="empty">
+          아직 배선이 없습니다. 계측기를 쓰는 시험이라면 <b>어느 포트끼리 꽂혀 있는지</b> 한 번만
+          적어 두면 됩니다.
         </div>
-      </section>
-
-      <section className="tc-card">
-        <div className="tc-card-head">
-          <b>구성 요약</b>
-          <span className="muted small">지금까지 적은 것</span>
-        </div>
-        <div className="topo-sum">
-          {slots.map((s) => {
-            const dev = s.device_ip ? byIp.get(s.device_ip) : undefined
-            const mine = links.filter((l) => l.from_slot === s.key || l.to_slot === s.key)
+      ) : (
+        <div className="tp-list">
+          {wiring.map((w, i) => {
+            const dev = devById.get(sessions[w.session] ?? '')
+            const meter = devById.get(w.meter)
+            const ifs = dev?.interfaces ?? []
+            const mports = ports[w.meter] ?? []
             return (
-              <div className="topo-node" key={s.key}>
-                <b>{label(s.key)}</b>
-                <span className="muted small">
-                  {dev ? `${dev.ip}${dev.model ? ` · ${dev.model}` : ''}` : s.family || '미정'}
+              <div className="tp-row" key={i}>
+                <span className="tp-side">
+                  <select
+                    value={w.session}
+                    onChange={(e) => set(i, { session: Number(e.target.value), port: '' })}
+                  >
+                    {sessions.map((sid, n) => {
+                      const d = devById.get(sid)
+                      return (
+                        <option key={n} value={n}>
+                          S{n + 1} · {d ? deviceLabel(d) : sid}
+                        </option>
+                      )
+                    })}
+                  </select>
+                  {/* 포트 이름은 장비에 등록된 것에서 고른다. 없으면 직접 친다 */}
+                  {ifs.length ? (
+                    <select value={w.port} onChange={(e) => set(i, { port: e.target.value })}>
+                      <option value="">포트…</option>
+                      {ifs.map((f) => (
+                        <option key={f.name} value={f.name}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      className="mono"
+                      value={w.port}
+                      placeholder="Gi0/1"
+                      onChange={(e) => set(i, { port: e.target.value })}
+                    />
+                  )}
                 </span>
-                <span className="muted small">
-                  {mine.length === 0
-                    ? '연결 없음'
-                    : mine
-                        .map((l) =>
-                          l.from_slot === s.key
-                            ? `${l.from_if || '?'} → ${label(l.to_slot)}:${l.to_if || '?'}`
-                            : `${l.to_if || '?'} → ${label(l.from_slot)}:${l.from_if || '?'}`,
-                        )
-                        .join(' · ')}
+
+                <span className="tp-link" aria-hidden="true">
+                  ↔
                 </span>
+
+                <span className="tp-side">
+                  <select
+                    value={w.meter}
+                    onChange={(e) => set(i, { meter: e.target.value, meterPort: '' })}
+                  >
+                    <option value="">계측기…</option>
+                    {meters.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {deviceLabel(m)} · {meterKind(m) === 'stc' ? 'STC' : 'N2X'}
+                      </option>
+                    ))}
+                  </select>
+                  {mports.length ? (
+                    <select
+                      value={w.meterPort}
+                      onChange={(e) => set(i, { meterPort: e.target.value })}
+                    >
+                      <option value="">포트…</option>
+                      {mports.map((p) => (
+                        <option key={p} value={p}>
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      className="mono"
+                      value={w.meterPort}
+                      placeholder={meterKind(meter) === 'stc' ? '1/1/3' : '4106/1'}
+                      onChange={(e) => set(i, { meterPort: e.target.value })}
+                    />
+                  )}
+                  <button
+                    className="btn small"
+                    type="button"
+                    disabled={!w.meter || loading === w.meter}
+                    title="계측기에 직접 물어 포트 목록을 받아옵니다"
+                    onClick={() => loadPorts(w.meter)}
+                  >
+                    {loading === w.meter ? '…' : '불러오기'}
+                  </button>
+                </span>
+
+                <button
+                  className="btn small"
+                  type="button"
+                  title="이 배선 지우기"
+                  onClick={() => onChange({ wiring: wiring.filter((_, n) => n !== i) })}
+                >
+                  ✕
+                </button>
               </div>
             )
           })}
         </div>
-      </section>
+      )}
+
+      {!meters.length && (
+        <div className="tp-note">
+          등록된 계측기가 없습니다. <b>계측기 등록</b>을 누르면 여기서 바로 만듭니다 — 섀시 주소만
+          있으면 되고, 포트는 계측기에 물어봅니다.
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 계측기 등록 — 묻는 것은 셋뿐이다. 나머지는 섀시가 알고 있다 */
+function MeterForm({
+  onSave,
+  onClose,
+}: {
+  onSave: (f: { name: string; ip: string; kind: 'n2x' | 'stc' }) => void
+  onClose: () => void
+}) {
+  const [name, setName] = useState('')
+  const [ip, setIp] = useState('')
+  const [kind, setKind] = useState<'n2x' | 'stc'>('n2x')
+
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', esc)
+    return () => window.removeEventListener('keydown', esc)
+  }, [onClose])
+
+  return (
+    <div className="tp-form">
+      <label>
+        종류
+        <select value={kind} onChange={(e) => setKind(e.target.value as 'n2x' | 'stc')}>
+          <option value="n2x">IXIA N2X</option>
+          <option value="stc">Spirent TestCenter</option>
+        </select>
+      </label>
+      <label>
+        섀시 주소
+        <input
+          className="mono"
+          value={ip}
+          placeholder="210.1.2.248"
+          onChange={(e) => setIp(e.target.value)}
+        />
+      </label>
+      <label>
+        이름 <span className="muted small">(선택)</span>
+        <input value={name} placeholder="랩 N2X" onChange={(e) => setName(e.target.value)} />
+      </label>
+      <span className="sp" />
+      <button className="btn small" type="button" onClick={onClose}>
+        취소
+      </button>
+      <button
+        className="btn primary small"
+        type="button"
+        disabled={!ip.trim()}
+        onClick={() => onSave({ name, ip, kind })}
+      >
+        등록
+      </button>
     </div>
   )
 }

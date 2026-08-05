@@ -1689,3 +1689,83 @@ table.tb tr.r-bad .tb-v {
 table.tb tr.r-bad td:first-child {
   box-shadow: inset 2px 0 0 var(--c-fail);
 }
+
+/* ── 토폴로지(배선) ──
+   랩의 사실을 한 번만 적는 곳. 옛 계측기 창은 스트림 하나에 필드가 60개,
+   탭이 9개였고 10건 중 9건이 손도 안 댄 기본값이었다. 여기는 꽂힌 자리만
+   묻는다. */
+.tp {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  min-height: 0;
+  overflow: auto;
+}
+.tp-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tp-head .muted {
+  flex: 1;
+  min-width: 220px;
+}
+.tp-list {
+  display: flex;
+  flex-direction: column;
+}
+/* 한 줄이 배선 하나. 장비 쪽 ↔ 계측기 쪽 */
+.tp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.tp-row:hover {
+  background: var(--c-surface-2);
+}
+.tp-side {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.tp-side select,
+.tp-side input {
+  min-width: 0;
+  flex: 1;
+}
+/* 꽂힌 자리를 눈으로 잇는다 */
+.tp-link {
+  color: var(--c-text-faint);
+  flex: 0 0 auto;
+  font-size: var(--fs-md);
+}
+.tp-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid var(--c-accent);
+  border-radius: 8px;
+  background: var(--c-accent-soft);
+}
+.tp-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+.tp-note {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  padding: 8px 10px;
+  border: 1px dashed var(--c-border);
+  border-radius: 8px;
+}

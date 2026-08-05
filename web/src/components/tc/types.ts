@@ -499,6 +499,28 @@ export function sessionIndex(v: string | number | undefined): number {
   return Number.isFinite(n) ? n : -1
 }
 
+/**
+ * 배선 한 줄 — 장비 포트 하나가 계측기 포트 하나에 꽂혀 있다.
+ *
+ * 트래픽 스텝은 **장비 포트 이름으로만** 말한다(`Gi0/1 → Gi0/2`). 계측기
+ * 포트(`4106/1` · `1/1/3`)는 여기서 풀어 준다. 랩 배선이 바뀌면 이 줄만
+ * 고치면 되고, 그 배선을 쓰는 시험은 한 건도 안 건드린다.
+ *
+ * 옛 방식은 TC 마다 `meterCfg` 에 포트·MAC·IP·게이트웨이를 손으로 적었다.
+ * 그건 시험의 내용이 아니라 랩의 사실이라, 시험이 백 개면 백 번 다시
+ * 적어야 했다. `meterCfg` 10건 중 9건이 손도 안 댄 기본값인 이유다.
+ */
+export interface TcWire {
+  /** 장비 쪽 — 세션 자리 번호. 어느 장비인지는 `data.sessions` 가 정한다 */
+  session: number
+  /** 장비 포트 이름 (Gi0/1) */
+  port: string
+  /** 계측기 장비 id */
+  meter: string
+  /** 계측기 포트. N2X 는 `4106/1`, STC 는 `1/1/3` */
+  meterPort: string
+}
+
 export interface TcData {
   tcid?: string
   name?: string
@@ -528,6 +550,14 @@ export interface TcData {
    * iTest 에 없는 규칙인 데다 파일 이름을 모델명과 한 글자도 안 틀리게
    * 맞춰야 도는 것을 아무도 못 알아챈다. 그래서 고르게 바꿨다.
    */
+  /**
+   * 랩 배선. 어느 장비 포트가 어느 계측기 포트에 꽂혀 있나.
+   *
+   * 세션과 같은 '자리' 개념을 쓴다 — 스텝이 `session: 0` 을 들고 있듯이
+   * 배선도 자리 번호를 든다. 그래서 같은 시험을 랩마다 다른 장비로 돌려도
+   * 배선만 갈아 끼우면 된다.
+   */
+  wiring?: TcWire[]
   param_files?: string[]
   /** 옛 이름 — 하나만 고르던 때의 값. 읽기만 한다 */
   param_file?: string

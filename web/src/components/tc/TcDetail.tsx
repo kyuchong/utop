@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, tcApi } from '@/api/client'
 import TcEnvironment from './TcEnvironment'
-import TcTopology from './TcTopology'
 import TcSteps from './TcSteps'
 import TcGenerate from './TcGenerate'
 import { useCodes } from '@/hooks/useCodes'
@@ -291,7 +290,8 @@ export default function TcDetail({ tcid, onClose }: Props) {
         ) : tab === 'env' ? (
           <TcEnvironment data={d} onChange={patch} />
         ) : tab === 'topo' ? (
-          <TcTopology data={d} onChange={patch} />
+          // 구성도는 새 화면(TestCases 의 토폴로지 탭)으로 옮겼다
+          <div className="tc-pane" />
         ) : tab === 'manual' ? (
           <TcSteps mode="manual" data={d} onChange={patch} />
         ) : tab === 'auto' ? (
