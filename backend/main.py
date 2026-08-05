@@ -5410,6 +5410,120 @@ async def get_cycle_version_groups():
     return {"groups": await db.kv_get(_VGROUP_KV) or {}}
 
 
+# ── 자연어로 시험 짜기 ──────────────────────────────────────
+#
+# 「E5724RL 시스템 정보 시험해줘」 한 줄로 돌아가게 하는 자리.
+#
+# **LLM 이 시험을 지어내게 하지 않는다.** 있는 TC 중에서 고르게만 한다.
+# 스텝을 자유롭게 만들게 하면 그럴듯한데 틀린 시험이 나오고, 그건 사람이
+# 검토하는 데 더 오래 걸린다. 고르게 하면 결과가 「이 3건」 이라 눈으로
+# 바로 확인된다.
+#
+# 고른 뒤에 무엇을 할지는 화면이 정한다 — 여기서는 계획만 돌려준다.
+
+_NL_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "model": {"type": "string"},
+        "tcids": {"type": "array", "items": {"type": "string"}},
+        "device_ip": {"type": "string"},
+        "why": {"type": "string"},
+    },
+    "required": ["tcids", "why"],
+}
+
+
+@app.post("/api/nl/plan")
+async def nl_plan(payload: dict):
+    """말 한 줄 → 돌릴 시험 목록. 고르기만 하고 실행하지는 않는다."""
+    text = str(payload.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "무엇을 시험할지 적어 주세요")
+
+    tcs = await db.tc_list_meta()
+    models = [c["name"] for c in await db.catalog_list("model")]
+    devices = await db.device_list()
+    reqs = await db.req_list_full()
+
+    # 근거를 넓게 준다.
+    #
+    # TC 이름만 보고 고르면 「시스템 정보」 같은 말에는 맞지만 「Gi0/1 링크
+    # 시험」 처럼 장비·포트를 가리키는 말에는 못 맞춘다. 어떤 장비가 있고
+    # 무슨 포트가 달렸는지, 그 시험이 어느 요구사항 아래인지까지 함께
+    # 준다 — 위에서부터 쌓인 것이 다 근거다.
+    req_by_id = {}
+    for r in reqs:
+        rid = str(r.get("reqid") or r.get("id") or "")
+        if rid:
+            req_by_id[rid] = str(r.get("title") or "")
+
+    lines = []
+    for t in tcs:
+        nm = str(t.get("name") or "").strip()
+        if not nm:
+            continue
+        rt = req_by_id.get(str(t.get("req_id") or ""), "")
+        lines.append(f"{t.get('tcid')}\t{nm}\t{rt}")
+
+    dev_lines = []
+    for d in devices:
+        if d.get("role") == "계측기":
+            continue
+        ifs = [str(i.get("name")) for i in (d.get("interfaces") or [])][:12]
+        dev_lines.append(
+            f"{d.get('ip')}\t{d.get('model') or ''}\t{d.get('role') or ''}"
+            f"\t포트: {', '.join(ifs) or '(등록 안 됨)'}"
+        )
+
+    sys_p = (
+        "너는 네트워크 장비 시험 담당자를 돕는다. 사람이 한 말에 맞는 시험을 "
+        "**아래 목록에서 고르기만** 한다. 목록에 없는 tcid 는 절대 만들지 않는다. "
+        "맞는 것이 없으면 tcids 를 빈 배열로 두고 why 에 그렇게 적는다. "
+        "말에 장비나 모델이 나오면 model 과 device_ip 에 **등록된 것 중에서** 골라 적는다. "
+        "why 는 왜 이것들을 골랐는지 한국어 한두 문장."
+    )
+    user_p = (
+        f"사람이 한 말: {text}\n\n"
+        f"등록된 모델: {', '.join(models) or '(없음)'}\n\n"
+        "등록된 장비 (IP<TAB>모델<TAB>역할<TAB>포트):\n" + "\n".join(dev_lines) + "\n\n"
+        "시험 목록 (tcid<TAB>이름<TAB>요구사항):\n" + "\n".join(lines)
+    )
+
+    ans, err = await _ai_chat(
+        [{"role": "system", "content": sys_p}, {"role": "user", "content": user_p}],
+        max_tokens=800,
+        json_schema=_NL_SCHEMA,
+    )
+    if err:
+        raise HTTPException(502, err)
+
+    try:
+        plan = json.loads(ans or "{}")
+    except Exception:
+        raise HTTPException(502, "AI 응답을 읽지 못했습니다")
+
+    # 지어낸 tcid 를 걸러낸다. 없는 것을 돌리려다 실패하면 왜인지 알기 어렵다
+    known = {str(t.get("tcid")) for t in tcs}
+    picked = [x for x in (plan.get("tcids") or []) if str(x) in known]
+    dropped = [x for x in (plan.get("tcids") or []) if str(x) not in known]
+    by_id = {str(t.get("tcid")): t for t in tcs}
+
+    # 장비도 실제로 있는 것만 남긴다
+    dev_ips = {str(d.get("ip")) for d in devices}
+    dev_ip = str(plan.get("device_ip") or "")
+    return {
+        "model": plan.get("model") or "",
+        "device_ip": dev_ip if dev_ip in dev_ips else "",
+        "why": plan.get("why") or "",
+        "tcs": [
+            {"tcid": x, "name": by_id[str(x)].get("name") or "", "req_id": by_id[str(x)].get("req_id") or ""}
+            for x in picked
+        ],
+        # 지어낸 것이 있었다는 사실도 알려 준다 — 조용히 지우면 왜 빠졌는지 모른다
+        "dropped": dropped,
+    }
+
+
 @app.post("/api/cycle-version-groups")
 async def save_cycle_version_groups(payload: dict):
     groups = payload.get("groups")

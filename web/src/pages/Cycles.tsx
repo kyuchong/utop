@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import AskBar from '@/components/cycle/AskBar'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
@@ -229,6 +230,8 @@ export default function Cycles() {
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   /** 고칠 사이클 */
   const [editId, setEditId] = useState('')
+  /** 말로 찾은 결과 — 만들기 창에 미리 채워 넣는다 */
+  const [ask, setAsk] = useState<{ model: string; tcs: Array<{ tcid: string; name?: string | null; req_id?: string | null }> } | null>(null)
   const [sel, setSel] = useState('')
   const [q, setQ] = useState('')
 
@@ -352,6 +355,14 @@ export default function Cycles() {
             + 사이클
           </button>
         </div>
+        {/* 말로 시키기. 트리 위에 둔다 — 「무엇을 시험할까」 가 「어느
+            사이클을 볼까」 보다 먼저 오는 질문이다. */}
+        <AskBar
+          onMake={(model, tcs) => {
+            setAsk({ model, tcs })
+            setMaking(true)
+          }}
+        />
         <input
           className="cy-q"
           value={q}
@@ -391,13 +402,16 @@ export default function Cycles() {
         <CycleEdit
           cycleId={editId || undefined}
           folders={vgQ.data?.groups ?? {}}
+          preset={ask ?? undefined}
           onClose={() => {
             setMaking(false)
             setEditId('')
+            setAsk(null)
           }}
           onDone={(id) => {
             setMaking(false)
             setEditId('')
+            setAsk(null)
             setSel(id)
             void listQ.refetch()
             void vgQ.refetch()

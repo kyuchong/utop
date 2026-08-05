@@ -26,6 +26,8 @@ interface Props {
   /** 고칠 사이클. 없으면 새로 만든다 */
   cycleId?: string
   folders: Record<string, string[]>
+  /** 말로 찾아 온 것 — 모델과 시험을 미리 채워 둔다 */
+  preset?: { model?: string; tcs: Array<{ tcid: string; name?: string | null; req_id?: string | null }> }
   onClose: () => void
   onDone: (cycleId: string) => void
 }
@@ -48,7 +50,7 @@ interface CatItem {
  * 만들기와 고치기가 같은 창이다. 다르게 만들면 「만들 때는 되는데 고칠
  * 때는 안 되는 것」 이 반드시 생긴다.
  */
-export default function CycleEdit({ cycleId, folders, onClose, onDone }: Props) {
+export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }: Props) {
   const editing = !!cycleId
 
   const [model, setModel] = useState('')
@@ -106,6 +108,21 @@ export default function CycleEdit({ cycleId, folders, onClose, onDone }: Props) 
       return (await r.json()) as Record<string, unknown>
     },
   })
+
+  // 말로 찾아 온 것을 한 번만 채운다. 그 뒤에 사람이 빼거나 더한 것을
+  // 되돌리면 안 되므로 preset 이 바뀔 때만 움직인다.
+  useEffect(() => {
+    if (!preset) return
+    if (preset.model) setModel(preset.model)
+    setPicked(
+      preset.tcs.map((t) => ({
+        tcid: t.tcid,
+        name: t.name ?? '',
+        req_id: t.req_id ?? '',
+        steps: [],
+      })),
+    )
+  }, [preset])
 
   useEffect(() => {
     const d = cycQuery.data
