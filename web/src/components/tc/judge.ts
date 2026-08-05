@@ -324,7 +324,8 @@ export function judgeTable(
       let ok = eq(cv, c.val)
       if (c.neq) ok = !ok
       if (!ok) {
-        fails.push(`${row[0] || '(행)'} → ${c.col} 이 ${cv || '(빈값)'}`)
+        // 「Status 이」/「Speed 가」 처럼 조사를 틀리느니 콜론으로 둔다
+        fails.push(`${row[0] || '(행)'} ${c.col}: ${cv || '(빈값)'}`)
         break
       }
     }
