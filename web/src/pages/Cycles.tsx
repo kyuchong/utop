@@ -422,6 +422,8 @@ function CycleDetail({
         body: JSON.stringify({ ...full, id: cycle.id, items: edit(cur) }),
       })
       if (!w.ok) throw new Error(String(w.status))
+      // 온전한 것과 목록 요약을 둘 다 다시 읽는다. 요약만 두면 트리의
+      // 숫자가 안 맞고, 온전한 것만 두면 방금 넣은 항목이 목록에 안 뜬다
       await fullQ.refetch()
       onSaved()
     } catch (e) {
@@ -628,6 +630,10 @@ function CycleDetail({
       <div className="cy-side">
         {cur ? (
           <StepDetail
+            // 항목이 바뀌면 새로 만든다. 안 그러면 처음 계산한 「펼칠 스텝」
+            // 을 그대로 들고 있어서, 부적합이 없는 항목으로 옮기면 아무
+            // 줄도 안 펼쳐진다 — 스텝은 보이는데 내용이 안 보인다
+            key={cur.tcid ?? ''}
             item={liveNow ? { ...cur, steps: st.liveSteps } : cur}
             runningAt={liveNow ? st.stepAt : -1}
             onClose={() => setOpenItem(-1)}
@@ -815,9 +821,17 @@ function StepDetail({
 }) {
   const steps = item.steps ?? []
   /** 출력을 펼친 스텝. 전부 펼쳐 두면 긴 출력에 묻혀 목록이 안 보인다 */
-  const [openStep, setOpenStep] = useState(() =>
-    steps.findIndex((s) => String(s.result ?? '').toLowerCase() === 'fail'),
-  )
+  /*
+   * 처음에 어느 줄을 펼칠까.
+   *
+   * 깨진 줄이 있으면 그것을 — 아홉 단계 중 셋째가 깨졌으면 그걸 찾아
+   * 누르게 하지 않는다. 다 통과했으면 첫 줄을 편다. 아무것도 안 펼치면
+   * 「스텝은 보이는데 내용이 없다」 가 된다.
+   */
+  const [openStep, setOpenStep] = useState(() => {
+    const bad = steps.findIndex((s) => String(s.result ?? '').toLowerCase() === 'fail')
+    return bad >= 0 ? bad : steps.length ? 0 : -1
+  })
   // 도는 동안에는 그 스텝을 편다 — 무엇을 하고 있는지가 곧 보고 싶은 것이다
   const shown = runningAt >= 0 ? runningAt : openStep
 
