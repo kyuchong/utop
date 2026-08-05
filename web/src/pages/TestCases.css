@@ -1769,3 +1769,38 @@ table.tb tr.r-bad td:first-child {
   border: 1px dashed var(--c-border);
   border-radius: 8px;
 }
+
+/* 배선 한 줄 + 펼친 기본값 */
+.tp-item {
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.tp-item .tp-row {
+  border-bottom: 0;
+}
+/* 이 포트가 늘 쓰는 값. 대개 손댈 일이 없어 접어 둔다 */
+.tp-def {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 10px 10px 14px;
+  background: var(--c-surface-2);
+}
+.tp-def label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+.tp-def input {
+  width: 150px;
+}
+.tp-def .tp-mask {
+  width: 56px;
+}
+.tp-defnote {
+  flex: 1 0 100%;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}

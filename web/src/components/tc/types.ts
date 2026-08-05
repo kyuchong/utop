@@ -519,6 +519,53 @@ export interface TcWire {
   meter: string
   /** 계측기 포트. N2X 는 `4106/1`, STC 는 `1/1/3` */
   meterPort: string
+
+  /*
+   * 이 포트가 늘 쓰는 값.
+   *
+   * 순수 부하 시험이면 아무 값이나 되지만, **그때만** 그렇다. 멀티캐스트는
+   * 그룹 주소가 시험의 본체고, 라우팅은 router-id·네트워크가 곧 시험
+   * 대상이고, MAC learning 은 MAC 을 늘려 가며 잰다 — 실제로 옛 자료의
+   * 스트림도 `srcMacMod: '증가', srcMacStep: '10'` 을 쓰고 있었다.
+   *
+   * 그래서 값을 없애는 대신 **자리를 옮겼다.** 이 포트가 늘 쓰는 값은
+   * 랩의 사실이라 여기 한 번 적고, 시험마다 다른 것(부하·프레임·증가
+   * 패턴·프로토콜)만 스텝에서 정한다.
+   *
+   * 비워 두면 자리 번호로 자동으로 채운다. 다만 몰래 정하지 않고 무엇으로
+   * 채웠는지 화면에 보여 준다.
+   */
+  mac?: string
+  ip?: string
+  /** 접두 길이. `24` 처럼 숫자만 */
+  mask?: string
+  gw?: string
+  vlan?: string
+}
+
+/**
+ * 이 포트가 실제로 쓸 값.
+ *
+ * 안 적은 칸은 자리 번호로 만든다 — 1번 배선이면 `…:01` / `1.1.1.1`,
+ * 2번이면 `…:02` / `2.1.1.1`. 옛 자료가 손으로 적어 두던 것과 같은 꼴이라
+ * 눈에 익다.
+ */
+export function wireValues(w: TcWire, i: number): {
+  mac: string
+  ip: string
+  mask: string
+  gw: string
+  vlan: string
+} {
+  const n = i + 1
+  const two = String(n).padStart(2, '0')
+  return {
+    mac: (w.mac ?? '').trim() || `00:00:00:00:00:${two}`,
+    ip: (w.ip ?? '').trim() || `${n}.1.1.1`,
+    mask: (w.mask ?? '').trim() || '24',
+    gw: (w.gw ?? '').trim() || `${n}.1.1.254`,
+    vlan: (w.vlan ?? '').trim(),
+  }
 }
 
 export interface TcData {

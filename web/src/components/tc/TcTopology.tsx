@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
 import { deviceLabel } from './device'
-import type { TcData, TcWire } from './types'
+import { wireValues, type TcData, type TcWire } from './types'
 
 interface Props {
   data: TcData
@@ -60,6 +60,8 @@ export default function TcTopology({
   const [ports, setPorts] = useState<Record<string, string[]>>({})
   const [loading, setLoading] = useState('')
   const [adding, setAdding] = useState(false)
+  /** 기본값을 펼친 배선 줄. 평소엔 접혀 있다 — 대개 손댈 일이 없다 */
+  const [open, setOpen] = useState<number | null>(null)
 
   const set = (i: number, patch: Partial<TcWire>) =>
     onChange({ wiring: wiring.map((w, n) => (n === i ? { ...w, ...patch } : w)) })
@@ -170,7 +172,8 @@ export default function TcTopology({
             const ifs = dev?.interfaces ?? []
             const mports = ports[w.meter] ?? []
             return (
-              <div className="tp-row" key={i}>
+              <div className="tp-item" key={i}>
+                <div className="tp-row">
                 <span className="tp-side">
                   <select
                     value={w.session}
@@ -253,6 +256,14 @@ export default function TcTopology({
                 </span>
 
                 <button
+                  className={`btn small${open === i ? ' primary' : ''}`}
+                  type="button"
+                  title="이 포트가 늘 쓰는 MAC · IP"
+                  onClick={() => setOpen(open === i ? null : i)}
+                >
+                  기본값
+                </button>
+                <button
                   className="btn small"
                   type="button"
                   title="이 배선 지우기"
@@ -260,6 +271,8 @@ export default function TcTopology({
                 >
                   ✕
                 </button>
+                </div>
+                {open === i && <WireDefaults w={w} i={i} onSet={(pt) => set(i, pt)} />}
               </div>
             )
           })}
@@ -272,6 +285,77 @@ export default function TcTopology({
           있으면 되고, 포트는 계측기에 물어봅니다.
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * 이 포트가 늘 쓰는 값.
+ *
+ * 비워 두면 자리 번호로 채우되, **무엇으로 채웠는지 자리표시로 보여 준다.**
+ * 몰래 정해 두면 멀티캐스트나 라우팅 시험에서 왜 안 되는지 알 수가 없다.
+ */
+function WireDefaults({
+  w,
+  i,
+  onSet,
+}: {
+  w: TcWire
+  i: number
+  onSet: (patch: Partial<TcWire>) => void
+}) {
+  const v = wireValues(w, i)
+  return (
+    <div className="tp-def">
+      <label>
+        MAC
+        <input
+          className="mono"
+          value={w.mac ?? ''}
+          placeholder={v.mac}
+          onChange={(e) => onSet({ mac: e.target.value })}
+        />
+      </label>
+      <label>
+        IP
+        <input
+          className="mono"
+          value={w.ip ?? ''}
+          placeholder={v.ip}
+          onChange={(e) => onSet({ ip: e.target.value })}
+        />
+      </label>
+      <label>
+        /
+        <input
+          className="mono tp-mask"
+          value={w.mask ?? ''}
+          placeholder={v.mask}
+          onChange={(e) => onSet({ mask: e.target.value })}
+        />
+      </label>
+      <label>
+        게이트웨이
+        <input
+          className="mono"
+          value={w.gw ?? ''}
+          placeholder={v.gw}
+          onChange={(e) => onSet({ gw: e.target.value })}
+        />
+      </label>
+      <label>
+        VLAN
+        <input
+          className="mono tp-mask"
+          value={w.vlan ?? ''}
+          placeholder="없음"
+          onChange={(e) => onSet({ vlan: e.target.value })}
+        />
+      </label>
+      <span className="tp-defnote">
+        비워 두면 옅게 적힌 값을 씁니다. 순수 부하 시험이면 손댈 일이 없고,
+        <b> 멀티캐스트·라우팅·MAC learning</b> 처럼 주소가 곧 시험 내용일 때만 정하세요.
+      </span>
     </div>
   )
 }
