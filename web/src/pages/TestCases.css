@@ -1925,3 +1925,109 @@ table.tb tr.r-bad td:first-child {
   font-size: var(--fs-xs);
   color: var(--c-draft);
 }
+
+/* ── 여러 건 고르기 ──
+   같은 목적·사전 준비를 열두 건에 손으로 열두 번 적는 일이 있었다. */
+.tt-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+/* 네모는 단추 밖에 둔다 — 안에 넣으면 고를 때마다 TC 가 열려서
+   열두 건을 고르는 동안 화면이 열두 번 바뀐다 */
+.tt-ck {
+  flex: 0 0 auto;
+  margin: 0 2px 0 0;
+  cursor: pointer;
+}
+.tt-row .tt-tc {
+  flex: 1;
+  min-width: 0;
+  padding-left: 2px;
+}
+/* 고른 것이 있을 때만. 목록 아래에 둔다 — 위에 두면 네모를 누를 때마다
+   막대가 생겼다 사라지며 줄이 위아래로 밀린다 */
+.tt-bulk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-top: 1px solid var(--tc-line);
+  background: var(--c-surface-2);
+  font-size: var(--fs-xs);
+}
+.tt-bulk .sp {
+  margin-left: auto;
+}
+
+/* ── 한꺼번에 고치기 팝업 ── */
+.modal.bk {
+  width: 560px;
+  max-width: 94vw;
+}
+.bk-list {
+  padding: 4px 0;
+}
+.bk-row {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.bk-row.on {
+  background: var(--c-surface-2);
+}
+.bk-name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+.bk-body {
+  padding: 7px 0 2px 22px;
+}
+.bk-body textarea {
+  width: 100%;
+}
+.bk-pic {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px;
+  border: 1px dashed var(--c-border);
+  border-radius: 8px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+.bk-pic:focus {
+  border-color: var(--c-accent);
+  background: var(--c-accent-soft);
+  outline: none;
+}
+.bk-pic img {
+  max-width: 200px;
+  max-height: 120px;
+  border-radius: 6px;
+}
+/* 되돌릴 수 없는 쪽이 기본이 되면 안 된다 */
+.bk-mode {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-top: 1px solid var(--c-border);
+  font-size: var(--fs-xs);
+}
+.bk-mode label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+}
+.bk-danger {
+  color: var(--c-fail);
+}
+.bk-warn {
+  flex: 1 0 100%;
+  color: var(--c-fail);
+}

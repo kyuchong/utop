@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import TcBulkForm from '@/components/TcBulkForm'
+import TcBulkEdit from '@/components/tc/TcBulkEdit'
 import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTree from '@/components/tc/TcTree'
@@ -149,6 +150,19 @@ export default function TestCases() {
   })
 
   const tcs = tcQ.data?.tcs ?? []
+
+  /** 한꺼번에 고치려고 고른 TC 들. 스텝 고르기(`picked`)와 다른 것이다 */
+  const [pickedTc, setPickedTc] = useState<Set<string>>(new Set())
+  const [bulkEdit, setBulkEdit] = useState(false)
+  const pickTcs = (ids: string[], on: boolean) =>
+    setPickedTc((s) => {
+      const n = new Set(s)
+      for (const id of ids) {
+        if (on) n.add(id)
+        else n.delete(id)
+      }
+      return n
+    })
 
   useEffect(() => {
     localStorage.setItem(TAB_KEY, tab)
@@ -699,6 +713,20 @@ export default function TestCases() {
     <>
       {form !== undefined && <TcForm editing={form} onClose={() => setForm(undefined)} />}
       {bulkOpen && <TcBulkForm onClose={() => setBulkOpen(false)} />}
+      {bulkEdit && (
+        <TcBulkEdit
+          ids={[...pickedTc]}
+          onClose={() => setBulkEdit(false)}
+          onDone={(text) => {
+            setBulkEdit(false)
+            setPickedTc(new Set())
+            setMsg({ kind: 'ok', text })
+            void tcQ.refetch()
+            // 지금 열어 둔 TC 도 방금 바뀌었을 수 있다
+            void qc.invalidateQueries({ queryKey: ['tc', openId] })
+          }}
+        />
+      )}
       {saveAs && (
         <TcSaveAs
           title={saveAs.title}
@@ -753,6 +781,10 @@ export default function TestCases() {
           )}
         </span>
 
+        {/* 제목과 탭 사이를 벌린다. 붙여 두면 제목이 눌려 잘리고 오른쪽은
+            텅 빈다 — 넓은 화면일수록 심하다. */}
+        <span className="sp" />
+
         {openId && !paramKey && (
           <div className="seg" role="tablist">
             {([
@@ -788,7 +820,6 @@ export default function TestCases() {
           </div>
         )}
 
-        <span className="sp" />
         {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
 
         {/* ⋯ — 자주 안 쓰는 것은 접어 둔다 */}
@@ -899,7 +930,28 @@ export default function TestCases() {
               }}
               paramKey={paramKey}
               onOpenParam={setParamKey}
+              picked={pickedTc}
+              onPick={pickTcs}
             />
+          )}
+          {/* 고른 것이 있을 때만 뜬다. 늘 있으면 목록이 그만큼 좁아진다.
+              목록 아래에 둔다 — 위에 두면 네모를 누를 때마다 막대가
+              생겼다 사라지며 줄이 위아래로 밀린다. */}
+          {pickedTc.size > 0 && (
+            <div className="tt-bulk">
+              <b>{pickedTc.size}건</b> 고름
+              <span className="sp" />
+              <button className="btn small" type="button" onClick={() => setPickedTc(new Set())}>
+                해제
+              </button>
+              <button
+                className="btn primary small"
+                type="button"
+                onClick={() => setBulkEdit(true)}
+              >
+                Bulk 수정
+              </button>
+            </div>
           )}
         </section>
 
