@@ -40,6 +40,8 @@ const PROTOS: Array<{
   cli: boolean
   ownHost: boolean
   hint: string
+  /** 주소 칸에 적을 것 — 방식마다 다르다 */
+  hostLabel?: string
   /** 계측기 전용. 스위치 등록 화면에는 안 나온다 */
   meter?: boolean
 }> = [
@@ -51,6 +53,7 @@ const PROTOS: Array<{
     port: 7001,
     cli: true,
     ownHost: true,
+    hostLabel: '콘솔서버 IP',
     hint: '콘솔서버 주소와 이 장비에 배정된 포트',
   },
   { v: 'snmp', label: 'SNMP', port: 161, cli: false, ownHost: false, hint: '조회 전용' },
@@ -80,7 +83,8 @@ const PROTOS: Array<{
     port: 8888,
     cli: false,
     ownHost: true,
-    hint: 'Spirent REST 서버 주소와 포트 (섀시 포트가 아닙니다)',
+    hostLabel: 'REST 서버 IP (비우면 이 서버)',
+    hint: 'stcweb.exe 가 도는 PC. 비우면 백엔드가 스스로 띄웁니다 — 윈도우일 때만',
     meter: true,
   },
 ]
@@ -468,7 +472,9 @@ export default function DeviceForm({ editing, onClose }: Props) {
                         {p.ownHost && (
                           <input
                             className="acc-host"
-                            placeholder="콘솔서버 IP"
+                            // 「콘솔서버 IP」 가 박혀 있어서 STC 를 켜면
+                            // 섀시 주소를 적으라는 말인지 알 수 없었다
+                            placeholder={p.hostLabel ?? '주소'}
                             value={a.host ?? ''}
                             onChange={(e) => setAccField(p.v, 'host', e.target.value)}
                           />
