@@ -296,3 +296,114 @@
 }
 .cy-sp-cmd { background: var(--c-surface); border: 1px solid var(--c-border); color: var(--c-pass); }
 .cy-sp-out { background: var(--c-surface); border: 1px solid var(--c-border); }
+
+/* ── 실행 진행 ──
+   iTest 가 좋은 점이 이것이 다 보인다는 것이다. 스텝이 끝나야 결과가 툭
+   나오면 멈춘 것인지 도는 것인지 알 수 없다. */
+.cy-run {
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.cy-run.on { border-color: var(--c-primary); }
+.cy-run-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--c-surface-2);
+  font-size: var(--fs-xs);
+  flex-wrap: wrap;
+}
+.cy-run-cmd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 46%;
+}
+.cy-run-bar {
+  height: 3px;
+  background: var(--c-surface-2);
+}
+.cy-run-bar span {
+  display: block;
+  height: 100%;
+  background: var(--c-primary);
+  transition: width 0.2s;
+}
+/* 마지막 줄이 늘 보이게 뒤집어 쌓는다 — 스크롤을 손으로 쫓지 않게 */
+.cy-run-log {
+  max-height: 190px;
+  overflow: auto;
+  padding: 5px 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+.cy-run-line {
+  padding: 1px 10px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.cy-run-line b {
+  display: inline-block;
+  min-width: 20px;
+  margin-right: 6px;
+  color: var(--c-text-faint);
+  text-align: right;
+}
+.cy-run-line.pass { color: var(--c-pass); }
+.cy-run-line.fail { color: var(--c-fail); }
+.cy-run-line.skip { color: var(--c-text-faint); }
+
+.cy-row { grid-template-columns: 22px 1fr 64px 88px 104px 52px; }
+.cy-ck { justify-self: center; }
+/* 지금 도는 줄 */
+.cy-row.running { background: var(--c-accent-soft); }
+
+/* ── 사이클 만들기 ── */
+.modal.cn {
+  width: 860px;
+  max-width: 96vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+.cn-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--c-border);
+}
+.cn-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+.cn-hint { font-style: normal; color: var(--c-text-faint); }
+.cn-pick { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.cn-pickhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+}
+.cn-q { flex: 1; }
+.cn-list { flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--c-border); }
+.cn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px;
+  border-bottom: 1px solid var(--c-border-soft);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.cn-row:hover { background: var(--c-surface-2); }
+.cn-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import CycleNew from '@/components/cycle/CycleNew'
 import CycleReport from '@/components/cycle/CycleReport'
+import { useCycleRun } from '@/components/cycle/useCycleRun'
+import type { Device } from '@/pages/Devices'
 import { IconChevron } from '@/components/icons'
 import './Cycles.css'
 
@@ -199,6 +202,7 @@ function build(
 
 export default function Cycles() {
   const [open, setOpen] = useState<Set<string>>(new Set())
+  const [making, setMaking] = useState(false)
   const [sel, setSel] = useState('')
   const [q, setQ] = useState('')
 
@@ -230,6 +234,16 @@ export default function Cycles() {
       if (!r.ok) throw new Error('버전그룹을 불러오지 못했습니다')
       return (await r.json()) as { groups: Record<string, string[]> }
     },
+  })
+
+  const devQ = useQuery({
+    queryKey: ['devices2'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/devices2')
+      if (!r.ok) throw new Error('장비를 불러오지 못했습니다')
+      return (await r.json()) as { devices: Device[] }
+    },
+    staleTime: 60_000,
   })
 
   const cycles = useMemo(() => listQ.data?.cycles ?? [], [listQ.data])
@@ -301,6 +315,10 @@ export default function Cycles() {
       <section className="panel cy-tree">
         <div className="cy-top">
           <b>사이클 {cycles.length}건</b>
+          <span className="sp" />
+          <button className="btn primary small" type="button" onClick={() => setMaking(true)}>
+            + 사이클
+          </button>
         </div>
         <input
           className="cy-q"
@@ -319,19 +337,47 @@ export default function Cycles() {
         </div>
       </section>
 
+      {making && (
+        <CycleNew
+          folders={vgQ.data?.groups ?? {}}
+          onClose={() => setMaking(false)}
+          onDone={(id) => {
+            setMaking(false)
+            setSel(id)
+            void listQ.refetch()
+            void vgQ.refetch()
+          }}
+        />
+      )}
+
       <section className="panel cy-main">
-        {cur ? <CycleDetail cycle={cur} /> : <div className="empty">왼쪽에서 사이클을 고르세요.</div>}
+        {cur ? (
+          <CycleDetail cycle={cur} devices={devQ.data?.devices ?? []} onSaved={() => void listQ.refetch()} />
+        ) : (
+          <div className="empty">왼쪽에서 사이클을 고르세요.</div>
+        )}
       </section>
     </div>
   )
 }
 
 /** 사이클 한 건 — 항목과 진행 */
-function CycleDetail({ cycle }: { cycle: CycleMeta }) {
+function CycleDetail({
+  cycle,
+  devices,
+  onSaved,
+}: {
+  cycle: CycleMeta
+  devices: Device[]
+  onSaved: () => void
+}) {
   const [only, setOnly] = useState<Verdict | ''>('')
   const [report, setReport] = useState(false)
   /** 고른 항목 — 누르면 스텝과 실행 내역이 아래에 열린다 */
   const [openItem, setOpenItem] = useState(-1)
+  /** 돌릴 항목 */
+  const [pick, setPick] = useState<Set<number>>(new Set())
+  const { st, run, stop } = useCycleRun(devices)
 
   const items = cycle.items ?? []
   const counts = { pass: 0, fail: 0, wip: 0, none: 0 }
@@ -355,6 +401,27 @@ function CycleDetail({ cycle }: { cycle: CycleMeta }) {
         <button className="btn small" type="button" onClick={() => setReport(true)}>
           고객사 결과서
         </button>
+        {st.on ? (
+          <button className="btn small danger" type="button" onClick={stop}>
+            ⏹ 멈추기
+          </button>
+        ) : (
+          <button
+            className="btn primary small"
+            type="button"
+            disabled={!items.length}
+            onClick={() =>
+              void run(
+                cycle.id,
+                items,
+                pick.size ? [...pick].sort((a, b) => a - b) : items.map((_, i) => i),
+                '',
+              ).then(onSaved)
+            }
+          >
+            ▶ {pick.size ? `고른 ${pick.size}건` : '전체'} 실행
+          </button>
+        )}
       </div>
 
       {report && (
@@ -389,8 +456,41 @@ function CycleDetail({ cycle }: { cycle: CycleMeta }) {
         <span className="muted small">{Math.round(((total - counts.none) / total) * 100)}% 진행</span>
       </div>
 
+      {/* 실행 진행. iTest 가 좋은 점이 이것이 다 보인다는 것이다 —
+          스텝이 끝나야 결과가 툭 나오면 멈춘 것인지 도는 것인지 모른다 */}
+      {(st.on || st.log.length > 0) && (
+        <div className={`cy-run${st.on ? ' on' : ''}`}>
+          <div className="cy-run-head">
+            <b>{st.on ? '실행 중' : '실행 마침'}</b>
+            <span className="muted small">
+              항목 {st.done}/{st.total}
+              {st.itemName && ` · ${st.itemName}`}
+              {st.stepAt >= 0 && ` · 스텝 ${st.stepAt + 1}/${st.stepCount}`}
+            </span>
+            {st.stepName && <code className="cy-run-cmd">{st.stepName}</code>}
+          </div>
+          <div className="cy-run-bar" aria-hidden="true">
+            <span style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
+          </div>
+          {/* 마지막 줄이 늘 보이게 뒤집어 쌓는다 — 스크롤을 따라 내리게
+              하면 사람이 손으로 쫓아가야 한다 */}
+          <div className="cy-run-log">
+            {st.log
+              .slice(-300)
+              .reverse()
+              .map((l, i) => (
+                <div className={`cy-run-line ${l.kind}`} key={i}>
+                  {l.i >= 0 && <b>{l.i + 1}</b>}
+                  {l.text}
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
       <div className="cy-list">
         <div className="cy-row cy-hd">
+          <span className="cy-ck" />
           <span>시험</span>
           <span>결과</span>
           <span>담당</span>
@@ -404,7 +504,7 @@ function CycleDetail({ cycle }: { cycle: CycleMeta }) {
           const at = items.indexOf(it)
           return (
             <div
-              className={`cy-row v-${v}${openItem === at ? ' on' : ''}`}
+              className={`cy-row v-${v}${openItem === at ? ' on' : ''}${st.itemAt === at ? ' running' : ''}`}
               key={`${it.tcid}-${i}`}
               role="button"
               tabIndex={0}
@@ -417,6 +517,21 @@ function CycleDetail({ cycle }: { cycle: CycleMeta }) {
                 }
               }}
             >
+              <input
+                type="checkbox"
+                className="cy-ck"
+                checked={pick.has(at)}
+                aria-label={`${it.name || it.tcid} 고르기`}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) =>
+                  setPick((s) => {
+                    const n = new Set(s)
+                    if (e.target.checked) n.add(at)
+                    else n.delete(at)
+                    return n
+                  })
+                }
+              />
               <span className="cy-tc" title={it.tcid}>
                 {it.name || it.tcid}
                 {steps.length > 0 && (
