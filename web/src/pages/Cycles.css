@@ -684,13 +684,28 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
   font-size: var(--fs-xs);
   color: var(--c-fail);
 }
+/* 왼쪽에서 고치고 오른쪽에서 결과를 본다. 위아래로 두면 출력을 보려고
+   내리는 순간 고치던 칸이 화면에서 사라진다. */
 .ask-plan {
   margin-top: 8px;
-  border: 1px solid var(--c-accent);
-  border-radius: 8px;
-  background: var(--c-accent-soft);
-  padding: 8px 10px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
   font-size: var(--fs-xs);
+}
+.ask-left,
+.ask-right {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.ask-left { border-color: var(--c-accent); background: var(--c-accent-soft); }
+.ask-right { align-self: stretch; min-height: 200px; display: flex; flex-direction: column; }
+.ask-right .empty { margin: auto; }
+@media (max-width: 980px) {
+  .ask-plan { flex-direction: column; }
 }
 .ask-why { margin-bottom: 6px; }
 .ask-list { margin: 0 0 6px; padding-left: 16px; }
@@ -756,7 +771,7 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
 .aitc-head .muted { flex: 1; min-width: 260px; }
 .aitc-body { flex: 1; min-height: 0; overflow: auto; padding-bottom: 14px; }
 /* 이 화면에서는 넓게 쓴다 — 사이클 트리 폭에 맞춰 좁게 둘 이유가 없다 */
-.aitc-body .ask { max-width: 900px; padding: 0 14px 14px; }
+.aitc-body .ask { padding: 0 14px 14px; }
 
 /* 판정기준이 빈 스텝 — 돌기만 하고 아무것도 확인하지 못한다 */
 .ask-need {
@@ -787,4 +802,44 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 「오류만 없으면」 은 적을 것이 없다 */
+.ask-nocrit {
+  flex: 1;
+  min-width: 0;
+  align-self: center;
+  color: var(--c-text-muted);
+}
+
+/* 판정기준 제안 — 누르기만 하면 된다.
+   누구나 쓰는 도구인데 판정기준은 기술자만 안다. 그게 학습 곡선의 본체라
+   사람에게 묻지 않고 출력을 보고 만들어 준다. */
+.ask-sug {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.ask-sug-t { color: var(--c-text-muted); }
+.ask-sug button {
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--c-text);
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ask-sug button:hover { border-color: var(--c-accent); background: var(--c-accent-soft); }
+.ask-sug button.on {
+  border-color: var(--c-primary);
+  background: var(--c-primary);
+  color: #fff;
 }

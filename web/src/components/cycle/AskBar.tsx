@@ -19,6 +19,49 @@ interface Draft {
   cut?: string[]
 }
 
+
+/** 제안 하나 — 눌러서 그대로 판정기준이 된다 */
+interface Suggest {
+  label: string
+  type: string
+  criteria: string
+}
+
+/**
+ * 받은 출력에서 판정기준을 **제안**한다.
+ *
+ * 누구나 쓰는 도구인데 판정기준은 기술자만 안다 — 이것이 학습 곡선의
+ * 본체다. `contains` 가 뭔지, 무슨 문구를 적어야 하는지 알아야 하니까.
+ *
+ * 그래서 사람에게 묻지 않고 **출력을 보고 만들어 준다.** 장비 출력은
+ * 대개 `항목 : 값` 꼴이라 그대로 판정이 된다.
+ *
+ *     Model Name : E5010-24C   →  「모델명이 E5010-24C 인가」
+ *     Main Memory Size : 1 GB  →  「메모리가 1 GB 인가」
+ *
+ * AI 를 부르지 않는다. 즉시 뜨고, 늘 같은 답을 내고, 틀려도 눈에 보인다.
+ */
+function suggest(output: string): Suggest[] {
+  const out: Suggest[] = []
+  const seen = new Set<string>()
+  for (const raw of String(output ?? '').split(/\r?\n/)) {
+    const line = raw.trim()
+    // `항목 : 값` — 콜론 앞뒤에 글자가 있어야 한다
+    const m = /^([A-Za-z][A-Za-z0-9 _./#-]{2,30}?)\s*:\s*(\S.*)$/.exec(line)
+    if (!m) continue
+    const key = (m[1] ?? '').trim()
+    const val = (m[2] ?? '').trim()
+    // 시각·프롬프트처럼 돌 때마다 바뀌는 것은 기준이 될 수 없다
+    if (!val || val.length > 40) continue
+    if (/^\d{1,2}:\d{2}/.test(val) || /\b(19|20)\d\d\b/.test(val)) continue
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ label: `${key} 가 ${val}`, type: 'contains', criteria: val })
+    if (out.length >= 6) break
+  }
+  return out
+}
+
 interface Props {
   devices: Device[]
 }
@@ -180,6 +223,9 @@ export default function AskBar({ devices }: Props) {
 
       {draft && (
         <div className="ask-plan">
+          {/* 왼쪽에서 고치고 오른쪽에서 결과를 본다. 위아래로 두면 출력을
+              보려고 내리는 순간 고치던 칸이 화면에서 사라진다. */}
+          <div className="ask-left">
           <div className="ask-why">
             <b>{draft.name}</b>
             {draft.object && <div className="muted small">{draft.object}</div>}
@@ -203,10 +249,10 @@ export default function AskBar({ devices }: Props) {
           ) : (
             <div className="ask-steps">
               {/* 고칠 수 있게 둔다. 대개 명령은 맞는데 판정기준이 아쉽다 */}
-              {draft.steps.some((s) => !s.criteria) && (
+              {draft.steps.some((s) => s.type === 'none') && (
                 <div className="ask-need">
-                  판정기준이 빈 스텝이 있습니다 — 돌기만 하고 아무것도 확인하지 못합니다.
-                  <b> 돌린 뒤 출력에서 끌어</b> 채울 수 있습니다.
+                  「판정 안 함」 인 스텝이 있습니다 — 돌기만 하고 아무것도 확인하지 못합니다.
+                  <b> 오류만 없으면 합격</b> 으로 바꾸거나, 돌린 뒤 출력에서 끌어 채우세요.
                 </div>
               )}
               {draft.steps.map((s, i) => (
@@ -225,17 +271,26 @@ export default function AskBar({ devices }: Props) {
                       value={s.type ?? 'contains'}
                       onChange={(e) => setStep(i, { type: e.target.value })}
                     >
+                      <option value="ok">오류만 없으면 합격</option>
                       <option value="contains">문구 포함</option>
                       <option value="contains_all">모두 포함</option>
                       <option value="notcontains">있으면 불합격</option>
                       <option value="none">판정 안 함</option>
                     </select>
-                    <input
-                      className={!s.criteria && s.type !== 'none' ? 'need' : undefined}
-                      value={s.criteria ?? ''}
-                      placeholder="판정기준 — 이 문구가 나오면 합격"
-                      onChange={(e) => setStep(i, { criteria: e.target.value })}
-                    />
+                    {/* 「오류만 없으면」 은 적을 것이 없다. 빈 칸을 내놓으면
+                        무엇을 적어야 하나 또 헤매게 된다. */}
+                    {s.type === 'ok' || s.type === 'none' ? (
+                      <span className="ask-nocrit">
+                        {s.type === 'ok' ? '명령이 오류 없이 응답하면 합격' : '아무것도 확인하지 않음'}
+                      </span>
+                    ) : (
+                      <input
+                        className={!s.criteria ? 'need' : undefined}
+                        value={s.criteria ?? ''}
+                        placeholder="판정기준 — 이 문구가 나오면 합격"
+                        onChange={(e) => setStep(i, { criteria: e.target.value })}
+                      />
+                    )}
                   </div>
                 </div>
               ))}
@@ -280,8 +335,13 @@ export default function AskBar({ devices }: Props) {
             </button>
           </div>
 
+          </div>
+
           {/* 결과 — 스텝마다 판정과 받은 출력 */}
-          {ran && (
+          <div className="ask-right">
+          {!ran ? (
+            <div className="empty">돌리면 여기에 결과가 나옵니다.</div>
+          ) : (
             <div className="ask-res">
               {ran.map((s, i) => {
                 const r = String(s.repeatResult ?? s.status ?? '').trim()
@@ -319,6 +379,31 @@ export default function AskBar({ devices }: Props) {
                         >
                           {s.output}
                         </pre>
+                        {/* 눌러서 정한다. 무엇을 적어야 하는지 몰라도 된다 */}
+                        {suggest(String(s.output ?? '')).length > 0 && (
+                          <div className="ask-sug">
+                            <span className="ask-sug-t">이걸로 판정할까요?</span>
+                            {suggest(String(s.output ?? '')).map((g, k) => (
+                              <button
+                                key={k}
+                                type="button"
+                                className={
+                                  draft.steps[i]?.criteria === g.criteria ? 'on' : undefined
+                                }
+                                onClick={() => setStep(i, { type: g.type, criteria: g.criteria })}
+                              >
+                                {g.label}
+                              </button>
+                            ))}
+                            <button
+                              type="button"
+                              className={draft.steps[i]?.type === 'ok' ? 'on' : undefined}
+                              onClick={() => setStep(i, { type: 'ok', criteria: '' })}
+                            >
+                              오류만 없으면
+                            </button>
+                          </div>
+                        )}
                         {grab?.i === i && (
                           <div className="ask-r-grab">
                             <code>{grab.text.slice(0, 60)}</code>
@@ -344,6 +429,7 @@ export default function AskBar({ devices }: Props) {
               })}
             </div>
           )}
+          </div>
         </div>
       )}
     </div>

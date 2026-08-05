@@ -25,6 +25,7 @@ export const JUDGE_TYPES: Array<[string, string]> = [
   ['contains', '출력에 있으면 합격'],
   ['contains_all', '모두 있으면 합격'],
   ['notcontains', '있으면 불합격'],
+  ['ok', '오류만 없으면 합격'],
   ['line', '항목(키 : 값) 일치'],
   ['table', '표에서 행·열로 판정'],
   ['none', '판정 안 함 (조회만)'],
@@ -352,6 +353,25 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
 
   const err = looksLikeError(output)
   if (err) return { verdict: 'Fail', reason: `장비 오류 응답 — "${err}"` }
+
+  /*
+   * 오류만 없으면 합격.
+   *
+   * 조회 시험에 무엇을 판정기준으로 넣을지가 늘 애매하다. `show cpu usage`
+   * 에 무엇을 적어야 하나? 값은 돌 때마다 다르고, 항목 이름을 적으면
+   * 「명령이 통했다」 를 확인하는 셈인데 그러려고 문구를 외워 적는 것은
+   * 번거롭다.
+   *
+   * 그 뜻을 그대로 판정으로 만든다. 명령이 먹혔고 뭔가 돌아왔으면 합격.
+   * 위에서 `looksLikeError` 가 이미 걸렀으니 여기서는 응답이 있었는지만
+   * 본다.
+   */
+  if (type === 'ok') {
+    const body = String(output ?? '').trim()
+    return body
+      ? { verdict: 'Pass', reason: '오류 없이 응답했습니다' }
+      : { verdict: 'Fail', reason: '응답이 비었습니다' }
+  }
 
   const rawCriteria = String(step.criteria ?? step.expected ?? '').trim()
   if (!rawCriteria) return { verdict: '', reason: '판정기준 없음' }
