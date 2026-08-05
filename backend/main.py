@@ -5524,6 +5524,171 @@ async def nl_plan(payload: dict):
     }
 
 
+# ── 자연어로 **새 시험 만들기** ──────────────────────────────
+#
+# 있는 시험을 찾아 주는 것이 아니라, 있는 것을 **참고해서** 새 시험을
+# 짜고 돌리고 결과를 알려 주는 것이 목적이다.
+#
+# 다만 1차는 **조회 명령만** 짓게 한다. 설정을 바꾸는 명령을 AI 가 지어내
+# 장비로 보내면 되돌릴 수가 없다. 조회는 틀려도 「출력이 없다」 로 끝난다.
+
+# 이 랩에서 실제로 통한 조회 명령의 머리말. 여기 없는 것은 안 내보낸다.
+_READ_HEADS = (
+    "show", "display", "get", "dir", "more", "cat", "ping", "traceroute",
+    "do show", "showtech", "who", "history",
+)
+# 한 글자라도 걸리면 자른다 — 조회처럼 보여도 뒤에 붙는 경우가 있다
+_WRITE_WORDS = (
+    "configure", "conf t", "config t", "write", "wr ", "reload", "erase",
+    "delete", "format", "copy ", "clear ", "no ", "set ", "shutdown",
+    "reset", "reboot", "boot ", "upgrade", "install", "restore", "factory",
+)
+
+
+def _is_read_only(cli: str) -> bool:
+    """조회 명령인가. SNMP OID(숫자와 점)도 조회로 본다."""
+    s = str(cli or "").strip().lower()
+    if not s:
+        return False
+    for line in s.splitlines():
+        ln = line.strip()
+        if not ln:
+            continue
+        if all(ch.isdigit() or ch == "." for ch in ln):   # OID
+            continue
+        if any(w in ln for w in _WRITE_WORDS):
+            return False
+        if not any(ln.startswith(h) for h in _READ_HEADS):
+            return False
+    return True
+
+
+_TC_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "object": {"type": "string"},
+        "device_ip": {"type": "string"},
+        "steps": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "desc": {"type": "string"},
+                    "cli": {"type": "string"},
+                    "type": {"type": "string"},
+                    "criteria": {"type": "string"},
+                },
+                "required": ["desc", "cli"],
+            },
+        },
+    },
+    "required": ["name", "steps"],
+}
+
+
+@app.post("/api/nl/tc")
+async def nl_make_tc(payload: dict):
+    """말 한 줄 → **새 시험 초안**. 만들기만 하고 저장·실행은 화면이 한다."""
+    text = str(payload.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "무엇을 시험할지 적어 주세요")
+
+    devices = [d for d in await db.device_list() if d.get("role") != "계측기"]
+    tcs = await db.tc_list_full()
+
+    # 이 랩에서 실제로 통한 명령을 모은다.
+    #
+    # 이것이 이 기능의 근거다. 일반적인 네트워크 지식으로 명령을 지으면
+    # 이 장비에서 안 통하는 것이 나온다. 여기서 실제로 오간 것을 주면
+    # 「이 장비가 알아듣는 말」 안에서 고르게 된다.
+    seen, cmds = set(), []
+    for tc in tcs:
+        for c in (tc.get("checks") or []):
+            cli = str((c or {}).get("cli") or "").strip()
+            if not cli or not _is_read_only(cli):
+                continue
+            head = cli.splitlines()[0].strip()
+            if head in seen:
+                continue
+            seen.add(head)
+            cmds.append(head)
+    cmds = cmds[:120]
+
+    # 비슷한 시험의 판정기준을 예로 준다 — 무엇을 어떻게 보는지의 본
+    samples = []
+    for tc in tcs[:40]:
+        for c in (tc.get("checks") or [])[:3]:
+            cli = str((c or {}).get("cli") or "").strip()
+            cr = str((c or {}).get("criteria") or "").strip()
+            if cli and cr and _is_read_only(cli):
+                samples.append(f"{cli.splitlines()[0]} → [{c.get('type') or 'contains'}] {cr}")
+        if len(samples) >= 25:
+            break
+
+    dev_lines = [
+        f"{d.get('ip')}\t{d.get('model') or ''}\t{d.get('role') or ''}"
+        for d in devices
+    ]
+
+    sys_p = (
+        "너는 네트워크 장비 시험 절차를 짠다. 사람이 말한 것을 확인할 수 있는 "
+        "**조회 시험**을 만든다.\n"
+        "규칙:\n"
+        "1. 명령은 아래 「이 랩에서 통한 명령」 에 있는 것을 그대로 쓰거나 그 꼴을 따른다. "
+        "일반적인 지식으로 새 명령을 지어내지 않는다.\n"
+        "2. **조회 명령만.** configure·write·reload·no·set·clear 같은 것은 절대 쓰지 않는다.\n"
+        "3. 스텝마다 판정기준(criteria)을 적는다. type 은 contains(문구 포함) 또는 "
+        "contains_all(모두 포함) 또는 none(조회만).\n"
+        "4. 스텝은 2~6개. 많을수록 좋은 것이 아니다.\n"
+        "5. desc 는 그 스텝이 무엇을 확인하는지 한국어 한 줄."
+    )
+    user_p = (
+        f"사람이 한 말: {text}\n\n"
+        "등록된 장비 (IP<TAB>모델<TAB>역할):\n" + "\n".join(dev_lines) + "\n\n"
+        "이 랩에서 통한 명령:\n" + "\n".join(cmds) + "\n\n"
+        "판정기준 예:\n" + "\n".join(samples)
+    )
+
+    ans, err = await _ai_chat(
+        [{"role": "system", "content": sys_p}, {"role": "user", "content": user_p}],
+        max_tokens=1400,
+        json_schema=_TC_SCHEMA,
+    )
+    if err:
+        raise HTTPException(502, err)
+    try:
+        draft = json.loads(ans or "{}")
+    except Exception:
+        raise HTTPException(502, "AI 응답을 읽지 못했습니다")
+
+    # 조회가 아닌 명령은 잘라낸다. 조용히 지우지 않고 무엇을 왜 뺐는지 알린다
+    keep, cut = [], []
+    for s in (draft.get("steps") or []):
+        cli = str((s or {}).get("cli") or "").strip()
+        if not cli:
+            continue
+        if not _is_read_only(cli):
+            cut.append(cli.splitlines()[0])
+            continue
+        keep.append({
+            "desc": str(s.get("desc") or "").strip(),
+            "cli": cli,
+            "type": str(s.get("type") or "contains"),
+            "criteria": str(s.get("criteria") or "").strip(),
+        })
+
+    dev_ips = {str(d.get("ip")) for d in devices}
+    ip = str(draft.get("device_ip") or "")
+    return {
+        "name": str(draft.get("name") or "").strip() or text[:40],
+        "object": str(draft.get("object") or "").strip(),
+        "device_ip": ip if ip in dev_ips else "",
+        "steps": keep,
+        "cut": cut,
+    }
+
+
 @app.post("/api/cycle-version-groups")
 async def save_cycle_version_groups(payload: dict):
     groups = payload.get("groups")

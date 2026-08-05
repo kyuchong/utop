@@ -357,12 +357,7 @@ export default function Cycles() {
         </div>
         {/* 말로 시키기. 트리 위에 둔다 — 「무엇을 시험할까」 가 「어느
             사이클을 볼까」 보다 먼저 오는 질문이다. */}
-        <AskBar
-          onMake={(model, tcs) => {
-            setAsk({ model, tcs })
-            setMaking(true)
-          }}
-        />
+        <AskBar devices={devQ.data?.devices ?? []} />
         <input
           className="cy-q"
           value={q}

@@ -698,3 +698,47 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
 .ask-list i { color: var(--c-text-faint); font-style: normal; margin-left: 6px; }
 .ask-drop { color: var(--c-draft); margin-bottom: 6px; }
 .ask-act { display: flex; gap: 6px; }
+
+/* 말로 만든 시험 — 초안과 결과 */
+.ask-dev { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: var(--fs-xs); }
+.ask-steps { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.ask-step {
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: var(--c-surface);
+}
+.ask-step-h { display: flex; gap: 6px; align-items: baseline; margin-bottom: 4px; }
+.ask-step-h b { color: var(--c-text-faint); }
+.ask-step input { width: 100%; }
+.ask-step-c { display: flex; gap: 4px; margin-top: 4px; }
+.ask-step-c select { flex: 0 0 auto; }
+.ask-step-c input { flex: 1; min-width: 0; }
+.ask-res { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.ask-r {
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: var(--c-surface);
+}
+.ask-r.bad { border-color: var(--c-fail); }
+.ask-r.on { border-color: var(--c-primary); }
+.ask-r-h { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); }
+.ask-r-h .sp { margin-left: auto; }
+.ask-r-h code { font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-r-v { font-weight: 700; color: var(--c-text-faint); }
+.ask-r-v.pass { color: var(--c-pass); }
+.ask-r-v.fail { color: var(--c-fail); }
+.ask-r-why { font-size: var(--fs-xs); color: var(--c-text-muted); margin-top: 2px; }
+.ask-r-out {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  border-radius: 5px;
+  background: var(--c-surface-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 220px;
+  overflow: auto;
+}
