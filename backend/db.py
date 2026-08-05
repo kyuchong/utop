@@ -26,13 +26,21 @@ for _p in [_here / ".env", _here.parent / ".env"]:
 # 접속 정보는 소스에 두지 않는다. DATABASE_URL 환경변수(.env 또는 compose)로 전달할 것.
 # 폴백에도 비밀번호를 넣지 않는다 — 저장소에 평문 자격증명이 남는 경로를 아예 없앤다.
 DSN = os.environ.get("DATABASE_URL")
-if not DSN:
-    raise RuntimeError(
-        "DATABASE_URL 이 설정되지 않았습니다.\n"
-        "  · docker 로 실행: .env 에 POSTGRES_PASSWORD 를 넣으면 compose 가 자동으로 만들어 줍니다.\n"
-        "  · 직접 실행    : .env 에 DATABASE_URL=postgresql://사용자:비번@호스트:포트/DB 를 넣으세요.\n"
-        "  참고: .env.example"
-    )
+
+_NO_DSN = (
+    "DATABASE_URL 이 설정되지 않았습니다.\n"
+    "  · docker 로 실행: .env 에 POSTGRES_PASSWORD 를 넣으면 compose 가 자동으로 만들어 줍니다.\n"
+    "  · 직접 실행    : .env 에 DATABASE_URL=postgresql://사용자:비번@호스트:포트/DB 를 넣으세요.\n"
+    "  참고: .env.example"
+)
+
+# 여기서 raise 하지 않는다 — **import 하는 것만으로** 죽으면 DB 를 아예 안
+# 쓰는 방식으로 띄울 수가 없다. N2X 중계는 계측기 서버 위에서 도는데,
+# 거기에 시험 자료용 DB 를 물리게 하면 랩 네트워크에 구멍이 하나 더 나고
+# DB 가 잠깐 흔들릴 때 계측기까지 같이 멈춘다.
+#
+# 대신 실제로 붙으려 할 때(init_pool) 같은 말로 막는다. DB 를 쓰는 길은
+# 여전히 한 발짝도 못 간다.
 
 _pool: Optional[asyncpg.Pool] = None
 
@@ -47,6 +55,8 @@ async def init_pool(min_size: int = 2, max_size: int = 20) -> asyncpg.Pool:
       - init=_init_conn : 매 커넥션 오픈 시 JSONB 자동 변환 코덱 등록
     """
     global _pool
+    if not DSN:
+        raise RuntimeError(_NO_DSN)
     if _pool is None:
         _pool = await asyncpg.create_pool(
             dsn=DSN,

@@ -902,6 +902,17 @@ async def _session_of(token: str):
 @app.middleware("http")
 async def _require_login(request, call_next):
     path = request.url.path
+    # 중계 전용 서버는 N2X 창구와 상태 확인만 연다. DB 가 없으니 다른
+    # 창구는 어차피 터지고, 열어 두면 이 서버가 시험 서버인 줄 알고
+    # 붙었다가 알 수 없는 오류만 본다.
+    if N2X_RELAY_ONLY and path.startswith("/api/") and not (
+        path.startswith("/api/n2x/") or path.startswith("/api/health")
+    ):
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            {"detail": "이 서버는 N2X 중계 전용입니다 — 시험 서버로 접속하세요"},
+            status_code=503,
+        )
     if request.method == "OPTIONS" or not path.startswith("/api/"):
         return await call_next(request)      # 화면·정적 파일은 통과
     if any(path.startswith(p) for p in _AUTH_PUBLIC):
@@ -5687,6 +5698,13 @@ N2X_RELAY_URL = (os.environ.get("N2X_RELAY_URL") or "").rstrip("/")
 # 중계는 로그인 세션이 아니라 이 열쇠로 연다. 계측기를 아무나 못 돌리게
 # 하려면 양쪽에 같은 값을 넣어야 한다.
 N2X_RELAY_KEY = os.environ.get("N2X_RELAY_KEY") or ""
+# 중계 전용으로 뜬다 — DB 도 RAG 도 잡지 않는다.
+#
+# 중계는 N2X 앱 서버(윈도우) 위에 올라간다. 그 기계는 계측기를 돌리는 것이
+# 일이지 시험 자료를 들고 있지 않다. 거기에 PostgreSQL 을 물리게 하면
+# 랩 네트워크에 구멍을 하나 더 내는 셈이고, DB 가 잠깐 흔들리면 계측기까지
+# 같이 멈춘다.
+N2X_RELAY_ONLY = (os.environ.get("N2X_RELAY_ONLY") or "").strip() not in ("", "0", "false")
 N2X_DAEMON = os.path.join(os.path.dirname(os.path.abspath(__file__)), "n2x", "n2x_daemon.tcl")
 _n2x_daemons = {}            # key "server|label" -> {proc, lock, ready}
 _n2x_reg_lock = threading.Lock()
@@ -7279,6 +7297,9 @@ def _embed_save():
 async def _db_init():
     """PostgreSQL 커넥션 풀 초기화 (필수 — 이후 모든 데이터 접근이 db.* 로 감).
     정리·백필 작업은 서버 기동을 막지 않도록 백그라운드로 미룸."""
+    if N2X_RELAY_ONLY:
+        print("[startup] N2X 중계 전용 — DB 를 잡지 않습니다", flush=True)
+        return
     await db.init_pool()
     # 스키마를 기동할 때마다 적용한다. 도커 initdb 훅은 볼륨이 빌 때 한 번만
     # 돌아서, 이미 쓰고 있는 설치처에는 나중에 추가한 컬럼이 반영되지 않는다.
@@ -7419,6 +7440,8 @@ async def _db_close():
 
 @app.on_event("startup")
 async def _rag_warmup():
+    if N2X_RELAY_ONLY:
+        return
     """시작 시 임베딩 캐시(.npy)·코퍼스를 백그라운드로 미리 로드 → 첫 RAG 질의도 빠름."""
     import threading
     def _warm():
