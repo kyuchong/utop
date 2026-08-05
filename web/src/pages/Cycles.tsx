@@ -31,7 +31,21 @@ export interface CycleItemLite {
   executed_by?: string | null
   executed_auto?: boolean
   issues?: unknown[]
-  steps?: Array<{ result?: string | null; manual?: boolean }>
+  steps?: CycleStep[]
+}
+
+/** 스텝 한 줄 — 실행하고 나면 output·result 가 채워진다 */
+export interface CycleStep {
+  desc?: string | null
+  cli?: string | null
+  action?: string | null
+  criteria?: string | null
+  type?: string | null
+  result?: string | null
+  output?: string | null
+  waitSec?: number | null
+  executed_at?: string | null
+  manual?: boolean
 }
 
 export type Verdict = 'pass' | 'fail' | 'wip' | 'none'
@@ -316,6 +330,8 @@ export default function Cycles() {
 function CycleDetail({ cycle }: { cycle: CycleMeta }) {
   const [only, setOnly] = useState<Verdict | ''>('')
   const [report, setReport] = useState(false)
+  /** 고른 항목 — 누르면 스텝과 실행 내역이 아래에 열린다 */
+  const [openItem, setOpenItem] = useState(-1)
 
   const items = cycle.items ?? []
   const counts = { pass: 0, fail: 0, wip: 0, none: 0 }
@@ -385,8 +401,22 @@ function CycleDetail({ cycle }: { cycle: CycleMeta }) {
           const v = itemVerdict(it)
           const steps = it.steps ?? []
           const bad = steps.filter((s) => String(s.result ?? '').toLowerCase() === 'fail').length
+          const at = items.indexOf(it)
           return (
-            <div className={`cy-row v-${v}`} key={`${it.tcid}-${i}`}>
+            <div
+              className={`cy-row v-${v}${openItem === at ? ' on' : ''}`}
+              key={`${it.tcid}-${i}`}
+              role="button"
+              tabIndex={0}
+              title="누르면 스텝과 실행 내역"
+              onClick={() => setOpenItem(openItem === at ? -1 : at)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  setOpenItem(openItem === at ? -1 : at)
+                }
+              }}
+            >
               <span className="cy-tc" title={it.tcid}>
                 {it.name || it.tcid}
                 {steps.length > 0 && (
@@ -407,6 +437,97 @@ function CycleDetail({ cycle }: { cycle: CycleMeta }) {
         })}
         {rows.length === 0 && <div className="empty">해당하는 항목이 없습니다.</div>}
       </div>
+
+      {openItem >= 0 && items[openItem] && (
+        <StepDetail item={items[openItem]} onClose={() => setOpenItem(-1)} />
+      )}
+    </div>
+  )
+}
+
+/**
+ * 항목 하나의 스텝과 실행 내역.
+ *
+ * 「부적합」 세 글자만 보고는 아무것도 못 한다. **어느 스텝이 왜** 떨어졌는지
+ * 를 보려고 TC 화면으로 건너가면 그 사이에 무엇을 보러 갔는지 잊는다.
+ * 명령과 그때 받은 출력을 여기서 바로 편다.
+ */
+function StepDetail({ item, onClose }: { item: CycleItemLite; onClose: () => void }) {
+  const steps = item.steps ?? []
+  /** 출력을 펼친 스텝. 전부 펼쳐 두면 긴 출력에 묻혀 목록이 안 보인다 */
+  const [openStep, setOpenStep] = useState(() =>
+    steps.findIndex((s) => String(s.result ?? '').toLowerCase() === 'fail'),
+  )
+
+  return (
+    <div className="cy-steps-pane">
+      <div className="cy-sp-head">
+        <b>{item.name || item.tcid}</b>
+        <span className="muted small">{steps.length}단계</span>
+        {item.executed_at && (
+          <span className="muted small">
+            {item.executed_at.slice(0, 16)} · {item.executed_by || '–'}
+          </span>
+        )}
+        <span className="sp" />
+        <button className="btn small" type="button" onClick={onClose}>
+          닫기
+        </button>
+      </div>
+
+      {steps.length === 0 ? (
+        <div className="empty">아직 실행하지 않았습니다.</div>
+      ) : (
+        <div className="cy-sp-list">
+          {steps.map((s, i) => {
+            const r = String(s.result ?? '').trim()
+            const cls = r.toLowerCase() === 'pass' ? 'pass' : r.toLowerCase() === 'fail' ? 'fail' : ''
+            const out = String(s.output ?? '').trim()
+            const on = openStep === i
+            return (
+              <div className={`cy-sp ${cls}${on ? ' on' : ''}`} key={i}>
+                <div
+                  className="cy-sp-row"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setOpenStep(on ? -1 : i)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      setOpenStep(on ? -1 : i)
+                    }
+                  }}
+                >
+                  <span className="cy-sp-n">{i + 1}</span>
+                  <span className="cy-sp-act">{s.action || (s.waitSec ? '대기' : 'CLI')}</span>
+                  <span className="cy-sp-cli mono">
+                    {String(s.cli ?? '').split('\n')[0] || s.desc || '—'}
+                  </span>
+                  {s.criteria && (
+                    <span className="cy-sp-crit" title={`판정기준 · ${s.type || 'contains'}`}>
+                      {s.criteria}
+                    </span>
+                  )}
+                  <span className={`cy-sp-v ${cls}`}>{r || '–'}</span>
+                </div>
+                {on && (
+                  <div className="cy-sp-body">
+                    {s.desc && <div className="cy-sp-desc">{s.desc}</div>}
+                    {/* 명령이 여러 줄인 스텝이 있다. 첫 줄만 보이는 목록과
+                        달리 여기서는 통째로 보여야 무엇을 보냈는지 안다 */}
+                    {s.cli && <pre className="cy-sp-cmd">{s.cli}</pre>}
+                    {out ? (
+                      <pre className="cy-sp-out">{out}</pre>
+                    ) : (
+                      <div className="muted small">받은 출력이 없습니다.</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

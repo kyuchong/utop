@@ -226,3 +226,73 @@
   font-family: var(--font-mono);
 }
 .cy-head .sp { margin-left: auto; }
+
+/* ── 항목 하나의 스텝·실행 내역 ──
+   「부적합」 세 글자만 보고는 아무것도 못 한다. 어느 스텝이 왜 떨어졌는지
+   보려고 TC 화면으로 건너가면 무엇을 보러 갔는지 잊는다. */
+.cy-row[role='button'] { cursor: pointer; }
+.cy-row.on { outline: 2px solid var(--c-primary); outline-offset: -2px; }
+.cy-steps-pane {
+  margin-top: 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  max-height: 46%;
+  min-height: 140px;
+  overflow: hidden;
+}
+.cy-sp-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--c-surface-2);
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-xs);
+}
+.cy-sp-head .sp { margin-left: auto; }
+.cy-sp-list { overflow: auto; min-height: 0; }
+.cy-sp-row {
+  display: grid;
+  grid-template-columns: 26px 58px 1fr auto 52px;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--c-border-soft);
+  font-size: var(--fs-xs);
+}
+.cy-sp-row:hover { background: var(--c-surface-2); }
+.cy-sp.on .cy-sp-row { background: var(--c-accent-soft); }
+.cy-sp.fail .cy-sp-row { background: var(--c-fail-soft); }
+.cy-sp-n { color: var(--c-text-faint); text-align: right; font-variant-numeric: tabular-nums; }
+.cy-sp-act { color: var(--c-text-muted); }
+.cy-sp-cli { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 판정기준을 목록에 함께 — 무엇을 보고 갈랐는지가 결과 옆에 있어야 한다 */
+.cy-sp-crit {
+  color: var(--c-text-faint);
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cy-sp-v { text-align: center; font-weight: 600; color: var(--c-text-faint); }
+.cy-sp-v.pass { color: var(--c-pass); }
+.cy-sp-v.fail { color: var(--c-fail); }
+.cy-sp-body { padding: 6px 10px 10px 44px; background: var(--c-surface-2); }
+.cy-sp-desc { font-size: var(--fs-xs); color: var(--c-text-muted); margin-bottom: 5px; }
+.cy-sp-cmd,
+.cy-sp-out {
+  margin: 0 0 6px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 320px;
+  overflow: auto;
+}
+.cy-sp-cmd { background: var(--c-surface); border: 1px solid var(--c-border); color: var(--c-pass); }
+.cy-sp-out { background: var(--c-surface); border: 1px solid var(--c-border); }
