@@ -5693,15 +5693,19 @@ async def nl_make_tc(payload: dict):
         "1. 명령은 아래 「이 랩에서 통한 명령」 에 있는 것을 그대로 쓰거나 그 꼴을 따른다. "
         "일반적인 지식으로 새 명령을 지어내지 않는다.\n"
         "2. **조회 명령만.** configure·write·reload·no·set·clear 같은 것은 절대 쓰지 않는다.\n"
-        "3. 스텝마다 판정기준(criteria)을 적는다. type 은 contains(문구 포함) 또는 "
-        "contains_all(모두 포함) 또는 none(조회만).\n"
+        "3. **스텝마다 판정기준(criteria)을 반드시 적는다.** 비워 두면 그 스텝은 "
+        "돌기만 하고 아무것도 확인하지 못한다. 출력에 늘 나오는 **항목 이름**을 "
+        "기준으로 삼으면 안전하다 — 값은 장비마다 다르지만 이름은 같다. "
+        "예: `show cpu usage` → `Average CPU load`, `show memory usage` → `Total`. "
+        "type 은 contains(문구 포함) 또는 contains_all(여럿을 콤마로, 모두 포함). "
+        "none 은 정말 확인할 것이 없을 때만.\n"
         "4. 스텝은 2~6개. 많을수록 좋은 것이 아니다.\n"
         "5. desc 는 그 스텝이 무엇을 확인하는지 한국어 한 줄.\n\n"
         "아래 꼴 그대로, **다른 말 없이 JSON 만** 답한다:\n"
         '{"name":"E5724RL 시스템 정보 확인","object":"모델명과 메모리를 확인한다",'
         '"device_ip":"210.1.1.254","steps":['
         '{"desc":"모델명을 확인한다","cli":"show system","type":"contains","criteria":"E5724RL"},'
-        '{"desc":"메모리 용량을 확인한다","cli":"show memory usage","type":"none","criteria":""}'
+        '{"desc":"메모리 용량을 확인한다","cli":"show memory usage","type":"contains","criteria":"Total"}'
         ']}'
     )
     user_p = (
@@ -5767,6 +5771,10 @@ async def nl_make_tc(payload: dict):
             kind, crit = crit, _pick(s, "value", "expected", "expect")
         if kind not in _TYPES:
             kind = "contains" if crit else "none"
+        # 기준이 비었는데 contains 라고 온 것은 판정을 못 한다.
+        # none 으로 바꾸되, 화면이 「채워야 한다」 고 말할 수 있게 표시한다.
+        if kind != "none" and not crit:
+            kind = "none"
         keep.append({
             "desc": _pick(s, "desc", "description", "purpose"),
             "cli": cli,

@@ -757,3 +757,34 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
 .aitc-body { flex: 1; min-height: 0; overflow: auto; padding-bottom: 14px; }
 /* 이 화면에서는 넓게 쓴다 — 사이클 트리 폭에 맞춰 좁게 둘 이유가 없다 */
 .aitc-body .ask { max-width: 900px; padding: 0 14px 14px; }
+
+/* 판정기준이 빈 스텝 — 돌기만 하고 아무것도 확인하지 못한다 */
+.ask-need {
+  font-size: var(--fs-xs);
+  color: var(--c-draft);
+  background: var(--c-surface-2);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.ask-step input.need { border-color: var(--c-draft); }
+/* 출력에서 끌어 판정기준으로 */
+.ask-r-out { cursor: text; }
+.ask-r-grab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+  padding: 5px 7px;
+  border: 1px solid var(--c-accent);
+  border-radius: 6px;
+  background: var(--c-accent-soft);
+  font-size: var(--fs-xs);
+}
+.ask-r-grab code {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

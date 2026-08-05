@@ -47,6 +47,8 @@ export default function AskBar({ devices }: Props) {
   const [at, setAt] = useState(-1)
   const [running, setRunning] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
+  /** 출력에서 끌어 놓은 글자 — 판정기준으로 삼는다 */
+  const [grab, setGrab] = useState<{ i: number; text: string } | null>(null)
 
   const usable = devices.filter((d) => d.role !== '계측기')
 
@@ -201,6 +203,12 @@ export default function AskBar({ devices }: Props) {
           ) : (
             <div className="ask-steps">
               {/* 고칠 수 있게 둔다. 대개 명령은 맞는데 판정기준이 아쉽다 */}
+              {draft.steps.some((s) => !s.criteria) && (
+                <div className="ask-need">
+                  판정기준이 빈 스텝이 있습니다 — 돌기만 하고 아무것도 확인하지 못합니다.
+                  <b> 돌린 뒤 출력에서 끌어</b> 채울 수 있습니다.
+                </div>
+              )}
               {draft.steps.map((s, i) => (
                 <div className="ask-step" key={i}>
                   <div className="ask-step-h">
@@ -223,6 +231,7 @@ export default function AskBar({ devices }: Props) {
                       <option value="none">판정 안 함</option>
                     </select>
                     <input
+                      className={!s.criteria && s.type !== 'none' ? 'need' : undefined}
                       value={s.criteria ?? ''}
                       placeholder="판정기준 — 이 문구가 나오면 합격"
                       onChange={(e) => setStep(i, { criteria: e.target.value })}
@@ -284,12 +293,52 @@ export default function AskBar({ devices }: Props) {
                       <b>{i + 1}</b>
                       <code>{String(s.cli ?? '').split('\n')[0]}</code>
                       <span className="sp" />
+                      {/* 돌았는데 「대기」 로 보이면 안 된다. 판정을 안 한
+                          것과 아직 안 돈 것은 다르다. */}
                       <span className={`ask-r-v ${bad ? 'fail' : r ? 'pass' : ''}`}>
-                        {on ? '도는 중' : r || '대기'}
+                        {on
+                          ? '도는 중'
+                          : r
+                            ? r
+                            : s.output
+                              ? '판정 안 함'
+                              : '대기'}
                       </span>
                     </div>
                     {s.reason && <div className="ask-r-why">{s.reason}</div>}
-                    {s.output && <pre className="ask-r-out">{s.output}</pre>}
+                    {s.output && (
+                      <>
+                        {/* 판정기준은 출력을 보고 정하는 것이 제일 정확하다.
+                            AI 가 비워 둔 스텝도 여기서 끌어 채우면 된다. */}
+                        <pre
+                          className="ask-r-out"
+                          onMouseUp={() => {
+                            const sel = window.getSelection()?.toString().trim() ?? ''
+                            if (sel) setGrab({ i, text: sel })
+                          }}
+                        >
+                          {s.output}
+                        </pre>
+                        {grab?.i === i && (
+                          <div className="ask-r-grab">
+                            <code>{grab.text.slice(0, 60)}</code>
+                            <button
+                              className="btn small primary"
+                              type="button"
+                              onClick={() => {
+                                setStep(i, { type: 'contains', criteria: grab.text })
+                                setGrab(null)
+                              }}
+                            >
+                              판정기준으로
+                            </button>
+                            <button className="btn small" type="button" onClick={() => setGrab(null)}>
+                              취소
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )
               })}
