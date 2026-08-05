@@ -574,9 +574,42 @@ export default function TestCases() {
           signal: ac.signal,
       }
       const r = pick ? await runPicked(ctx, pick) : await runSteps(ctx, from, only)
+      /**
+       * 전체를 끝까지 돌렸으면 TC 상태도 함께 정한다.
+       *
+       * 한 줄이라도 불합격이면 TC 는 불합격이다. 스텝 판정은 다 되는데
+       * TC 상태는 사람이 손으로 고르고 있어서, 목록의 점과 실제 결과가
+       * 어긋난 채로 남았다.
+       *
+       * 고른 줄만·한 줄만 돌린 것으로는 안 정한다 — 시험 전체를 본 것이
+       * 아니라서 그 결과로 TC 를 판정하면 틀린다. 중지한 것도 마찬가지다.
+       *
+       * 저장은 안 한다. 실행 결과도 저장 전이므로, 여기만 먼저 서버에
+       * 넣으면 상태와 스텝이 어긋난다.
+       */
+      let stamped = ''
+      if (!only && !pick && !r.stopped) {
+        setD((c) => {
+          const arr = (c.checks ?? []) as TcStep[]
+          let f = 0
+          let p2 = 0
+          for (const s of arr) {
+            const v = stepStatus(s)
+            if (v === 'FAIL') f++
+            else if (v === 'PASS') p2++
+          }
+          if (f === 0 && p2 === 0) return c
+          stamped = f > 0 ? 'FAIL' : 'PASS'
+          return { ...c, status: stamped }
+        })
+        setDirty(true)
+      }
+
       setMsg({
         kind: r.fail > 0 ? 'err' : 'ok',
-        text: `${r.stopped ? '중지됨 · ' : ''}PASS ${r.pass} · FAIL ${r.fail}`,
+        text:
+          `${r.stopped ? '중지됨 · ' : ''}PASS ${r.pass} · FAIL ${r.fail}` +
+          (stamped ? ` · TC 를 ${stamped} 로 두었습니다 (저장해야 남습니다)` : ''),
       })
       // 실행 이력은 전체 실행만 남긴다. 한 줄씩 돌려보는 것까지 쌓으면
       // 이력이 편집 기록이 되어 '언제 통째로 돌렸나' 를 못 찾는다.
