@@ -74,7 +74,9 @@
   --radius-sm: 5px;
 
   --topbar-h: 44px;
-  --nav-w: 185px;
+  /* 메뉴 이름이 「Requirements」 정도라 185px 은 남았다. 남는 폭은 목록이
+     가져간다 — 트리에서 한 글자라도 더 보이는 편이 낫다. */
+  --nav-w: 156px;
   --nav-w-collapsed: 56px;
 
   /* ── 목록 한 줄 ──

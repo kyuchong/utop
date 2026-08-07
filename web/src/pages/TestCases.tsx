@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
+import ListHead from '@/components/ListHead'
 import TcBulkForm from '@/components/TcBulkForm'
 import TcBulkEdit from '@/components/tc/TcBulkEdit'
 import { useMultiSelect } from '@/components/useMultiSelect'
@@ -910,15 +911,56 @@ export default function TestCases() {
       <div className="split tc-split" ref={splitRef}>
         {/* 1열 — 폴더 · 요구사항 · TC 트리 (요구사항 화면과 같은 모양) */}
         <section className="panel tc-listcol" style={{ flexBasis: listW }}>
-          <div className="tc-col-head">
-            <span className="panel-name">
-              TC
-              <span className="muted small">{tcs.length}건</span>
-            </span>
-            <button className="btn small" type="button" onClick={() => setForm(null)}>
-              +
-            </button>
-          </div>
+          {/* 요구사항 화면과 **같은 부품**을 쓴다. 저마다 만들면 또 어긋난다 */}
+          <ListHead
+            name="시험항목"
+            count={tcs.length}
+            picked={
+              pickedTc.size > 0 ? (
+                <>
+                  <button className="btn small" type="button" onClick={tcSel.clear}>
+                    해제
+                  </button>
+                  <button
+                    className="btn primary small"
+                    type="button"
+                    onClick={() => setBulkEdit(true)}
+                  >
+                    {pickedTc.size}건 고치기
+                  </button>
+                </>
+              ) : undefined
+            }
+            add={{ title: '시험 만들기', onClick: () => setForm(null) }}
+            menu={
+              <>
+                <button type="button" onClick={() => setForm(null)}>
+                  시험 만들기
+                </button>
+                <button
+                  type="button"
+                  disabled={!openId}
+                  onClick={() => {
+                    const meta = tcs.find((x) => x.tcid === openId)
+                    if (meta) setForm(meta)
+                  }}
+                >
+                  선택 시험 편집
+                </button>
+                <button type="button" onClick={() => setBulkOpen(true)}>
+                  시험 일괄 생성
+                </button>
+                <hr />
+                <button
+                  type="button"
+                  disabled={!pickedTc.size}
+                  onClick={() => setBulkEdit(true)}
+                >
+                  고른 {pickedTc.size}건 한꺼번에 고치기
+                </button>
+              </>
+            }
+          />
           {tcQ.isLoading ? (
             <div className="empty">불러오는 중…</div>
           ) : (
@@ -935,25 +977,7 @@ export default function TestCases() {
               onPickClick={tcSel.onClick}
             />
           )}
-          {/* 고른 것이 있을 때만 뜬다. 늘 있으면 목록이 그만큼 좁아진다.
-              목록 아래에 둔다 — 위에 두면 네모를 누를 때마다 막대가
-              생겼다 사라지며 줄이 위아래로 밀린다. */}
-          {pickedTc.size > 0 && (
-            <div className="tt-bulk">
-              <b>{pickedTc.size}건</b> 고름
-              <span className="sp" />
-              <button className="btn small" type="button" onClick={tcSel.clear}>
-                해제
-              </button>
-              <button
-                className="btn primary small"
-                type="button"
-                onClick={() => setBulkEdit(true)}
-              >
-                Bulk 수정
-              </button>
-            </div>
-          )}
+
         </section>
 
         <Resizer

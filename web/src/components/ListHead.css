@@ -1,0 +1,53 @@
+/* 목록 칸의 머리줄 — 세 화면이 같은 부품을 쓴다.
+   저마다 다르게 만들어져 있었다: 요구사항은 「요구사항 29건」 에 단추 넷,
+   TC 와 사이클은 「TC 89건」 에 + 하나. 같은 자리에 같은 모양이 있어야
+   화면을 옮겨도 손이 같은 데로 간다. */
+.lh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 6px;
+}
+.lh .sp { margin-left: auto; }
+.lh-name {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.lh-name b {
+  font-weight: 700;
+  color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.lh-more { position: relative; display: inline-flex; }
+.lh-menu {
+  position: absolute;
+  right: 0;
+  top: 28px;
+  z-index: 41;
+  min-width: 184px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  box-shadow: 0 10px 30px rgba(20, 30, 60, 0.18);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.lh-menu button {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: var(--r-box);
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--c-text);
+  cursor: pointer;
+}
+.lh-menu button:hover:not(:disabled) { background: var(--c-surface-2); }
+.lh-menu button:disabled { color: var(--c-text-faint); cursor: default; }
+.lh-menu hr { border: 0; border-top: 1px solid var(--c-border-soft); margin: 4px 0; }

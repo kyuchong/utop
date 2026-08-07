@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import ListHead from '@/components/ListHead'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
@@ -359,15 +360,25 @@ export default function Cycles() {
     // 매번 「여긴 어디가 목록이지」 를 다시 찾지 않게.
     <div className="split cy">
       <section className="panel cy-tree">
-        <div className="tc-col-head">
-          <span className="panel-name">
-            사이클
-            <span className="muted small">{cycles.length}건</span>
-          </span>
-          <button className="btn small" type="button" title="사이클 만들기" onClick={() => setMaking(true)}>
-            +
-          </button>
-        </div>
+        <ListHead
+          name="사이클"
+          count={cycles.length}
+          add={{ title: '사이클 만들기', onClick: () => setMaking(true) }}
+          menu={
+            <>
+              <button type="button" onClick={() => setMaking(true)}>
+                사이클 만들기
+              </button>
+              <button type="button" disabled={!sel} onClick={() => sel && setEditId(sel)}>
+                선택 사이클 편집
+              </button>
+              <hr />
+              <button type="button" onClick={() => void listQ.refetch()}>
+                다시 읽기
+              </button>
+            </>
+          }
+        />
         <input
           className="cy-q"
           value={q}

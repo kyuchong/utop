@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, categoryApi, reqApi, tcApi } from '@/api/client'
+import ListHead from '@/components/ListHead'
 import ReqTree from '@/components/ReqTree'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import { IconTcDoc } from '@/components/icons'
@@ -44,7 +45,6 @@ export default function Requirements() {
    * TC 가 전부 모인다. '이 묶음의 시험이 다 됐나' 는 요구사항 한 건이
    * 아니라 묶음 단위로 묻게 된다.
    */
-  const [moreOpen, setMoreOpen] = useState(false)
   /** 보기 방식 — 트리 안에 있던 단추를 ⋯ 로 옮겼다 */
   const [fullId, setFullId] = useState(false)
   const [foldersOnly, setFoldersOnly] = useState(false)
@@ -354,101 +354,57 @@ export default function Requirements() {
             있었다. Zephyr Enterprise 처럼 폴더 안에 요구사항을 둔다. */}
         <section className="panel req-tree-panel" style={{ flexBasis: catW }}>
           {/* 한 줄에 다 넣는다. 건수를 따로 아래에 두면 그만큼 목록이 준다. */}
-          <div className="rt-actions">
-            <span className="rt-count">
-              요구사항 <b>{allReqs.length}</b>건
-            </span>
-            {picked.size > 0 && (
-              <button
-                className="btn small danger"
-                type="button"
-                onClick={doRemovePicked}
-                disabled={removeManyM.isPending}
-              >
-                {removeManyM.isPending
-                  ? '삭제 중…'
-                  : `${picked.size}건 삭제`}
-              </button>
-            )}
-            <span className="sp" />
-            {/* 늘 쓰는 것 하나만 밖에 두고 나머지는 ⋯ 안으로.
-                단추 넷이 줄 하나를 다 먹고 있었는데, 그중 셋은 어쩌다 한 번
-                쓴다. 목록이 그만큼 짧아졌다. */}
-            <button className="btn small primary" type="button" onClick={() => setForm(null)}>
-              + REQ
-            </button>
-            <div className="rt-more">
-              <button
-                className="btn small"
-                type="button"
-                aria-haspopup="menu"
-                aria-expanded={moreOpen}
-                title="더 보기"
-                onClick={() => setMoreOpen((v) => !v)}
-              >
-                ⋯
-              </button>
-              {moreOpen && (
-                <>
-                  <div className="rt-more-back" onClick={() => setMoreOpen(false)} />
-                  <div className="rt-more-menu" role="menu">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMoreOpen(false)
-                        setForm(null)
-                      }}
-                    >
-                      요구사항 만들기
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!selectedReq}
-                      onClick={() => {
-                        setMoreOpen(false)
-                        if (selectedReq) setForm(selectedReq)
-                      }}
-                    >
-                      고른 요구사항 편집
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMoreOpen(false)
-                        setAddFolder((n) => n + 1)
-                      }}
-                    >
-                      폴더 추가
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMoreOpen(false)
-                        setBulkOpen(true)
-                      }}
-                    >
-                      일괄 생성
-                    </button>
-                    <hr />
-                    {/* 보기 방식 — 켜져 있으면 표시가 남는다 */}
-                    <button type="button" onClick={() => setFoldersOnly((v) => !v)}>
-                      {foldersOnly ? '✓ ' : ''}폴더 구조만 보기
-                    </button>
-                    <button type="button" onClick={() => setFullId((v) => !v)}>
-                      {fullId ? '✓ ' : ''}전체 ID 보기
-                    </button>
-                    <hr />
-                    <button type="button" onClick={() => setSort('id')}>
-                      {sort === 'id' ? '✓ ' : ''}ID 순으로
-                    </button>
-                    <button type="button" onClick={() => setSort('title')}>
-                      {sort === 'title' ? '✓ ' : ''}제목 순으로
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+          <ListHead
+            name="요구사항"
+            count={allReqs.length}
+            picked={
+              picked.size > 0 ? (
+                <button
+                  className="btn small danger"
+                  type="button"
+                  onClick={doRemovePicked}
+                  disabled={removeManyM.isPending}
+                >
+                  {removeManyM.isPending ? '삭제 중…' : `${picked.size}건 삭제`}
+                </button>
+              ) : undefined
+            }
+            add={{ title: '요구사항 만들기', onClick: () => setForm(null) }}
+            menu={
+              <>
+                <button type="button" onClick={() => setForm(null)}>
+                  요구사항 만들기
+                </button>
+                <button
+                  type="button"
+                  disabled={!selectedReq}
+                  onClick={() => selectedReq && setForm(selectedReq)}
+                >
+                  선택 요구사항 편집
+                </button>
+                <button type="button" onClick={() => setAddFolder((n) => n + 1)}>
+                  최상위 폴더 추가
+                </button>
+                <button type="button" onClick={() => setBulkOpen(true)}>
+                  요구사항 일괄 생성
+                </button>
+                <hr />
+                <button type="button" onClick={() => setFoldersOnly((v) => !v)}>
+                  {foldersOnly ? '✓ ' : ''}폴더 구조만 보기
+                </button>
+                <button type="button" onClick={() => setFullId((v) => !v)}>
+                  {fullId ? '✓ ' : ''}전체 ID 보기
+                </button>
+                <hr />
+                <button type="button" onClick={() => setSort('id')}>
+                  {sort === 'id' ? '✓ ' : ''}ID 순으로 정렬
+                </button>
+                <button type="button" onClick={() => setSort('title')}>
+                  {sort === 'title' ? '✓ ' : ''}제목 순으로 정렬
+                </button>
+              </>
+            }
+          />
           {loading ? (
             <div className="empty">불러오는 중…</div>
           ) : (
