@@ -150,7 +150,9 @@
   /* ID 칸을 148px 로 못박았더니 `PERF-001` 처럼 짧은 것 뒤가 통째로
      비었다. 글자만큼만 쓰고 나머지는 제목이 가져간다 — 같은 폴더 안은
      ID 길이가 대개 같아서 저절로 줄이 맞는다. */
-  grid-template-columns: 16px 16px auto minmax(0, 1fr) auto;
+  /* ID 칸은 글자만큼(`max-content`). `auto` 로 두었더니 칸이 좁아질 때
+     같이 줄어들어 `P…` 처럼 뭉개졌다. 줄어들 몫은 제목이 진다. */
+  grid-template-columns: 16px 16px max-content minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
   padding: var(--row-py) var(--row-px);
@@ -194,8 +196,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  /* 아주 긴 ID 가 제목을 밀어내지 않게 */
-  max-width: 168px;
 }
 
 .rt-title {

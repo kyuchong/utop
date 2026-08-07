@@ -2082,7 +2082,7 @@ table.tb tr.r-bad td:first-child {
    붙는다. 격자를 그만큼 늘리지 않으면 제목이 오른쪽 끝으로 밀리고 숫자는
    다음 줄로 떨어진다. */
 .rt-req.tt-req {
-  grid-template-columns: 16px 16px 16px auto minmax(0, 1fr) auto;
+  grid-template-columns: 16px 16px 16px max-content minmax(0, 1fr) auto;
 }
 .tt-ck-gap { width: 13px; }
 
