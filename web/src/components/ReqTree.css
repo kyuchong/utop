@@ -418,4 +418,7 @@
   flex: none;
   display: inline-flex;
   align-items: center;
+  /* 줄 높이(26px)를 밀지 않게. 세로 정렬은 flex 가 맡는다 */
+  line-height: 1;
+  margin-right: 1px;
 }

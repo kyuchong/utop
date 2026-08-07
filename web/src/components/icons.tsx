@@ -128,8 +128,8 @@ export const IconChevron = (p: P) => (
  */
 export const IconFolder = ({ open, ...rest }: P & { open?: boolean }) => (
   <svg
-    width="15"
-    height="15"
+    width="17"
+    height="17"
     viewBox="0 0 16 16"
     aria-hidden="true"
     focusable="false"
