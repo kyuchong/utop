@@ -26,6 +26,9 @@ export function useMultiSelect<T extends string | number>() {
    */
   const onClick = useCallback(
     (id: T, e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }, order: T[]) => {
+      // 브라우저가 이미 잡아 둔 글자 선택을 턴다. `user-select: none` 이
+      // 새로 잡히는 것은 막지만, 그 전에 잡힌 것은 남아 있다.
+      if (e.shiftKey) window.getSelection?.()?.removeAllRanges()
       const multi = e.ctrlKey || e.metaKey
       if (e.shiftKey && anchor.current !== null) {
         const a = order.indexOf(anchor.current)

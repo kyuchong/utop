@@ -2096,3 +2096,10 @@ table.tb tr.r-bad td:first-child {
 /* 아이콘과 ID 사이가 벌어져 보였다 — 격자 사이 간격이 아이콘에도 그대로
    붙어서다. 아이콘 뒤만 좁힌다. */
 
+
+/* Shift+누르기가 글자 선택으로도 잡힌다 — 트리에서는 막는다 */
+.tt-row,
+.tt-tc {
+  user-select: none;
+  -webkit-user-select: none;
+}

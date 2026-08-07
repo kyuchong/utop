@@ -510,6 +510,20 @@
 .rt-more-menu button:disabled { color: var(--c-text-faint); cursor: default; }
 .rt-more-menu hr { border: 0; border-top: 1px solid var(--c-border-soft); margin: 4px 0; }
 
+/*
+ * 트리에서는 글자를 끌어 잡지 않는다.
+ *
+ * Shift+누르기는 브라우저가 **글자 선택 늘리기**로도 받는다. 그래서
+ * 범위를 고르면 줄마다 글자가 파랗게 잡혀 화면이 엉망이 됐다(Edge 에서
+ * 특히 눈에 띈다). 여기서 끌어 잡을 글자는 없다 — 옮기려면 줄을 끈다.
+ */
+.rt,
+.rt-fold,
+.rt-req {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 /* Ctrl·Shift 로 고른 줄. 네모를 없앤 대신 줄 자체가 칠해진다.
    **한 건만 고른 것도 같은 표시**를 쓴다 — 여럿일 때만 선이 서면
    「지금 무엇이 골라져 있나」 가 개수에 따라 달라 보인다. */

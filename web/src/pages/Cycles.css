@@ -801,3 +801,12 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: var(--r-chip); b
   box-shadow: inset 2px 0 0 var(--c-primary);
 }
 .cy-row { grid-template-columns: 1fr 64px 88px 104px 52px; }
+
+/* Shift+누르기가 글자 선택으로도 잡힌다 — 목록에서는 막는다.
+   스텝 카드의 출력은 그대로 둔다. 거기는 글자를 끌어 판정기준으로
+   삼는 자리라 선택이 되어야 한다. */
+.cy-node,
+.cy-list .cy-row {
+  user-select: none;
+  -webkit-user-select: none;
+}
