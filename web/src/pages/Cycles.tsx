@@ -363,6 +363,7 @@ export default function Cycles() {
         <ListHead
           name="사이클"
           count={cycles.length}
+          search={{ value: q, placeholder: '모델 · 버전으로 찾기', onChange: setQ }}
           add={{ title: '사이클 만들기', onClick: () => setMaking(true) }}
           menu={
             <>
@@ -378,12 +379,6 @@ export default function Cycles() {
               </button>
             </>
           }
-        />
-        <input
-          className="cy-q"
-          value={q}
-          placeholder="모델 · 버전으로 찾기"
-          onChange={(e) => setQ(e.target.value)}
         />
         <div className="cy-body">
           {listQ.isLoading ? (
@@ -563,6 +558,14 @@ function CycleDetail({
         <button className="btn small" type="button" onClick={() => setAdding(true)}>
           + 항목
         </button>
+        {pick.size > 0 && (
+          <span className="lh-picked">
+            {pick.size}건 선택됨
+            <button type="button" onClick={sel.clear} title="선택 해제">
+              ✕
+            </button>
+          </span>
+        )}
         {pick.size > 0 && (
           <button
             className="btn small"

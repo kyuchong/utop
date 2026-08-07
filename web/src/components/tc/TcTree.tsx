@@ -28,6 +28,8 @@ interface Props {
   onOpenParam: (key: string) => void
   /** 한꺼번에 고친다고 고른 TC 들 */
   picked: Set<string>
+  /** 찾는 글자 — 머리줄에서 받는다 */
+  q?: string
   /** 줄을 눌렀다 — Ctrl·Shift 는 화면이 판단한다 */
   onPickClick: (
     id: string,
@@ -59,10 +61,10 @@ export default function TcTree({
   paramKey,
   onOpenParam,
   picked,
+  q = '',
   onPickClick,
 }: Props) {
   const qc = useQueryClient()
-  const [q, setQ] = useState('')
   /** 파라미터 파일 새로 만들기 — 이름을 적는 중인가 */
   const [newParam, setNewParam] = useState<string | null>(null)
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
@@ -410,15 +412,6 @@ export default function TcTree({
 
   return (
     <div className="rt tt">
-      <div className="rt-search">
-        <input
-          value={q}
-          placeholder="TC · 요구사항 검색"
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === 'Escape' && setQ('')}
-        />
-      </div>
-
       <div className="rt-body">
         {/* 고정 폴더. 지우거나 옮길 수 없고 늘 맨 위다 — 시스템 폴더지
             사람이 만든 분류가 아니다. 요구사항 트리와 선으로 가른다. */}

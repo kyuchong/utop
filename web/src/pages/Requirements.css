@@ -550,3 +550,9 @@
 }
 
 .rt-count b { color: var(--c-text); }
+
+/* 커버리지 표도 누르는 줄이다 */
+.tc-body .tr {
+  user-select: none;
+  -webkit-user-select: none;
+}

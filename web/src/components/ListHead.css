@@ -85,3 +85,10 @@
   font: inherit;
 }
 .lh-menu button.danger { color: var(--c-fail); }
+
+/* 머리줄의 글자도 끌리지 않게 — 이름을 눌러 끌면 선택이 잡힌다 */
+.lh-name,
+.lh-picked {
+  user-select: none;
+  -webkit-user-select: none;
+}

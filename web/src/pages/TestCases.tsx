@@ -160,6 +160,8 @@ export default function TestCases() {
    * 파일 탐색기·iTest 처럼 **Ctrl·Shift** 로 고른다.
    */
   const tcSel = useMultiSelect<string>()
+  /** 찾는 글자 — 트리 안에 있던 줄을 머리줄로 올렸다 */
+  const [treeQ, setTreeQ] = useState('')
   const pickedTc = tcSel.picked
   const [bulkEdit, setBulkEdit] = useState(false)
 
@@ -917,20 +919,17 @@ export default function TestCases() {
             count={tcs.length}
             picked={
               pickedTc.size > 0 ? (
-                <>
-                  <button className="btn small" type="button" onClick={tcSel.clear}>
-                    해제
+                // 세 화면이 같은 말을 쓴다 — 「N건 선택됨」 · ✕ 로 해제.
+                // 무엇을 할지는 ⋯ 안에서 고른다.
+                <span className="lh-picked">
+                  {pickedTc.size}건 선택됨
+                  <button type="button" onClick={tcSel.clear} title="선택 해제">
+                    ✕
                   </button>
-                  <button
-                    className="btn primary small"
-                    type="button"
-                    onClick={() => setBulkEdit(true)}
-                  >
-                    {pickedTc.size}건 고치기
-                  </button>
-                </>
+                </span>
               ) : undefined
             }
+            search={{ value: treeQ, placeholder: 'TC · 요구사항 검색', onChange: setTreeQ }}
             add={{ title: '시험 만들기', onClick: () => setForm(null) }}
             menu={
               <>
@@ -950,14 +949,14 @@ export default function TestCases() {
                 <button type="button" onClick={() => setBulkOpen(true)}>
                   시험 일괄 생성
                 </button>
-                <hr />
-                <button
-                  type="button"
-                  disabled={!pickedTc.size}
-                  onClick={() => setBulkEdit(true)}
-                >
-                  고른 {pickedTc.size}건 한꺼번에 고치기
-                </button>
+                {pickedTc.size > 0 && (
+                  <>
+                    <hr />
+                    <button type="button" onClick={() => setBulkEdit(true)}>
+                      선택한 {pickedTc.size}건 한꺼번에 고치기
+                    </button>
+                  </>
+                )}
               </>
             }
           />
@@ -974,6 +973,7 @@ export default function TestCases() {
               paramKey={paramKey}
               onOpenParam={setParamKey}
               picked={pickedTc}
+              q={treeQ}
               onPickClick={tcSel.onClick}
             />
           )}
