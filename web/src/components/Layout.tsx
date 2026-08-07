@@ -14,6 +14,8 @@ import {
   IconSettings,
   IconTestCase,
 } from './icons'
+import TopSearch from './TopSearch'
+import TopStatus from './TopStatus'
 import './Layout.css'
 
 export interface NavItem {
@@ -77,13 +79,15 @@ const COLLAPSE_KEY = 'utop.nav.collapsed'
 interface Props {
   /** 로그인한 사람 (좌측 하단에 표시) */
   user?: { username?: string; name?: string; role?: string } | null
+  /** 위쪽 찾기에서 고른 것으로 옮겨 간다 */
+  onGoto?: (kind: 'req' | 'tc', id: string) => void
   onLogout?: () => void
   current: string
   onNavigate: (key: string) => void
   children: ReactNode
 }
 
-export default function Layout({ user, onLogout, current, onNavigate, children }: Props) {
+export default function Layout({ user, onLogout, current, onNavigate, onGoto, children }: Props) {
   // 접힘 상태는 사람마다 취향이 갈리므로 브라우저에 기억시킨다.
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSE_KEY) === '1',
@@ -98,9 +102,11 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
       <header className="topbar">
         <div className="topbar-logo">UTOP</div>
         <div className="topbar-chip">QA Management</div>
-        <div className="topbar-search" role="search">
-          Requirement / TC 검색
-        </div>
+        {/* 위쪽은 화면 이동이 아니라 **어느 화면에 있든 알아야 하는 것**을
+            둔다 — 이동은 왼쪽 메뉴가 맡는다. */}
+        <TopSearch onGo={onGoto ?? (() => {})} />
+        <span className="topbar-sp" />
+        <TopStatus me={user} />
       </header>
 
       <div className="app-body">

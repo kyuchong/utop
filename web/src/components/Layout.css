@@ -340,3 +340,117 @@
 .nav-item.on[data-key] {
   box-shadow: inset 3px 0 0 var(--nav-c, var(--c-primary));
 }
+
+/* ── 상단 바 ──
+   여기는 화면 이동이 아니라 **어느 화면에 있든 알아야 하는 것**을 둔다.
+   이동은 왼쪽 메뉴가 맡는다. */
+.topbar-sp { margin-left: auto; }
+
+/* 찾기 — 「Requirement / TC 검색」 이라고 글자만 적혀 있고 눌러도 아무
+   일도 안 났다 */
+.tsr { position: relative; flex: 1; max-width: 420px; margin-left: 16px; }
+.tsr-in {
+  width: 100%;
+  height: 28px;
+  border: 1px solid var(--c-border-nav);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--c-topbar-item);
+  padding: 0 12px;
+  font-size: var(--fs-xs);
+}
+.tsr-in::placeholder { color: var(--c-topbar-item); opacity: 0.6; }
+.tsr-in:focus { outline: none; border-color: var(--c-primary); background: rgba(255, 255, 255, 0.14); }
+.tsr-pop {
+  position: absolute;
+  top: 34px;
+  left: 0;
+  right: 0;
+  z-index: 90;
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 34px rgba(20, 30, 60, 0.22);
+  padding: 4px;
+}
+.tsr-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--c-text);
+  cursor: pointer;
+}
+.tsr-row.on { background: var(--c-surface-2); }
+/* 어느 쪽에서 찾았는지가 먼저다 — 이름만 보면 요구사항인지 시험인지 모른다 */
+.tsr-k {
+  flex: none;
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: var(--fs-xs);
+  color: #fff;
+}
+.tsr-k.req { background: #1f5fa8; }
+.tsr-k.tc { background: #1f7a45; }
+.tsr-t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tsr-s { flex: none; color: var(--c-text-faint); font-family: var(--font-mono); }
+
+/* 내가 쓰는 장비 — 잡아 놓고 잊는 일이 실제로 생긴다 */
+.ts { position: relative; margin-right: 12px; }
+.ts-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--c-border-nav);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--c-topbar-item);
+  padding: 3px 11px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ts-chip:hover { background: rgba(255, 255, 255, 0.1); }
+.ts-dot { width: 7px; height: 7px; border-radius: 50%; background: #6b7280; }
+.ts-chip.on .ts-dot { background: #19c98a; }
+.ts-others { font-style: normal; opacity: 0.6; }
+.ts-pop {
+  position: absolute;
+  right: 0;
+  top: 32px;
+  z-index: 90;
+  min-width: 300px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 34px rgba(20, 30, 60, 0.22);
+  padding: 6px;
+  color: var(--c-text);
+}
+.ts-pop-h { display: flex; align-items: baseline; gap: 8px; padding: 4px 8px 8px; }
+.ts-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-top: 1px solid var(--c-border-soft);
+  font-size: var(--fs-xs);
+}
+.ts-row .sp { margin-left: auto; }
+.ts-id { font-family: var(--font-mono); }
+.ts-foot {
+  padding: 7px 8px 3px;
+  border-top: 1px solid var(--c-border-soft);
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}

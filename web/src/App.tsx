@@ -63,6 +63,17 @@ export default function App() {
       }}
       current={page}
       onNavigate={setPage}
+      onGoto={(kind, id) => {
+        // 찾은 것을 그 화면에서 연다. 화면만 바꾸고 「직접 찾으세요」 하면
+        // 찾은 보람이 없다.
+        if (kind === 'tc') {
+          localStorage.setItem('utop.tc.open', id)
+          setPage('testcases')
+        } else {
+          localStorage.setItem('utop.req.sel', id)
+          setPage('requirements')
+        }
+      }}
     >
       {page === 'requirements' ? (
         <Requirements />
