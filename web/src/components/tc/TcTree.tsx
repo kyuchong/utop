@@ -315,7 +315,13 @@ export default function TcTree({
           <span className={`rt-caret${open ? ' open' : ''}`}>
             {mine.length > 0 ? <IconChevron /> : <span className="rt-dot" />}
           </span>
-          {mine.length > 0 && groupCk(mine.map((x) => x.tcid), full)}
+          {/* TC 가 없는 요구사항에도 자리를 지킨다. 안 그리면 뒤 칸이
+              한 칸씩 밀려서 제목과 숫자가 엉뚱한 데로 간다. */}
+          {mine.length > 0 ? (
+            groupCk(mine.map((x) => x.tcid), full)
+          ) : (
+            <span className="tt-ck-gap" aria-hidden="true" />
+          )}
           <span className="rt-id" title={full}>
             {shortReqId(full, folderName) || '(ID 없음)'}
           </span>

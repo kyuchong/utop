@@ -2077,3 +2077,11 @@ table.tb tr.r-bad td:first-child {
   flex: 1 0 100%;
   color: var(--c-fail);
 }
+
+/* TC 트리의 요구사항 줄은 요구사항 화면보다 칸이 하나 많다 — 펼침 화살표가
+   붙는다. 격자를 그만큼 늘리지 않으면 제목이 오른쪽 끝으로 밀리고 숫자는
+   다음 줄로 떨어진다. */
+.rt-req.tt-req {
+  grid-template-columns: 16px 16px auto minmax(0, 1fr) auto;
+}
+.tt-ck-gap { width: 13px; }
