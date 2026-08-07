@@ -68,6 +68,21 @@ export default function Requirements() {
   const picked = treeSel.picked
   const pickedReqs = [...picked].filter((x) => x.startsWith('req:')).map((x) => x.slice(4))
   const pickedCats = [...picked].filter((x) => x.startsWith('cat:')).map((x) => x.slice(4))
+
+  /**
+   * 무엇을 몇 개 골랐는지.
+   *
+   * 「1건 선택됨」 만 적으면 폴더를 골랐는데도 요구사항을 고른 것처럼
+   * 읽힌다. 지우면 벌어지는 일이 서로 달라서(폴더는 안에 든 것이 미분류로
+   * 나가고, 요구사항은 TC 까지 사라진다) 무엇을 쥐고 있는지가 분명해야
+   * 한다.
+   */
+  const pickedLabel =
+    pickedCats.length === 0
+      ? `요구사항 ${pickedReqs.length}건`
+      : pickedReqs.length === 0
+        ? `폴더 ${pickedCats.length}개`
+        : `폴더 ${pickedCats.length} · 요구사항 ${pickedReqs.length}`
   /** 고른 폴더. 요구사항과 함께 지울 수 있어야 정리가 한 번에 끝난다. */
   /** 버튼 줄에서 트리에게 보내는 신호 (숫자가 늘면 트리가 반응한다) */
   const [addFolder, setAddFolder] = useState(0)
@@ -369,7 +384,7 @@ export default function Requirements() {
                 // 이미 지운 것처럼 읽혔다. 몇 개 골랐는지만 알리고, 지우는
                 // 것은 ⋯ 안에 둔다 — 되돌릴 수 없는 일은 한 걸음 안쪽에.
                 <span className="lh-picked">
-                  {picked.size}건 선택됨
+                  {pickedLabel} 선택됨
                   <button type="button" onClick={treeSel.clear} title="선택 해제">
                     ✕
                   </button>
@@ -409,7 +424,7 @@ export default function Requirements() {
                       disabled={removeManyM.isPending}
                       onClick={doRemovePicked}
                     >
-                      {removeManyM.isPending ? '삭제 중…' : `선택한 ${picked.size}건 삭제`}
+                      {removeManyM.isPending ? '삭제 중…' : `선택한 ${pickedLabel} 삭제`}
                     </button>
                   </>
                 )}
