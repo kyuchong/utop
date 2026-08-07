@@ -14,7 +14,7 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
-import { IconChevron } from './icons'
+import { IconChevron, IconFolder } from './icons'
 import './ReqTree.css'
 
 interface Props {
@@ -488,6 +488,13 @@ export default function ReqTree({
           >
             {hasKids ? <IconChevron /> : <span className="rt-dot" />}
           </button>
+
+          {/* 폴더 아이콘. 굵기만으로는 폴더와 항목이 잘 안 갈린다 —
+              iTest 도 폴더에 아이콘을 두고, 펼친 것과 닫힌 것의 모양을
+              달리해 상태까지 한 번에 읽히게 한다. */}
+          <span className="rt-ficon" aria-hidden="true">
+            <IconFolder open={open} />
+          </span>
 
           {renaming === n.id ? (
             // 창을 띄우지 않고 그 자리에서 고친다

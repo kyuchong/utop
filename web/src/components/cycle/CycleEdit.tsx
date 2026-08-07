@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi } from '@/api/client'
-import { IconChevron } from '@/components/icons'
+import { IconChevron, IconFolder } from '@/components/icons'
 import {
   buildCategoryTree,
   reqLabel,
@@ -266,6 +266,9 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
         >
           <span className={`ce-caret${on ? ' open' : ''}`}>
             <IconChevron />
+          </span>
+          <span className="rt-ficon" aria-hidden="true">
+            <IconFolder open={on} />
           </span>
           <b>{n.name}</b>
         </div>

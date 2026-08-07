@@ -12,7 +12,7 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
-import { IconChevron } from '../icons'
+import { IconChevron, IconFolder } from '../icons'
 // 요구사항 화면과 **같은 트리로 보여야 한다**. 줄 높이·글자·구분선을 여기서
 // 다시 정하면 두 화면을 오가며 같은 것이 달라 보인다. 그 화면의 규칙을
 // 그대로 가져다 쓰고, TC 줄만 이 화면 CSS 에서 더한다.
@@ -355,6 +355,10 @@ export default function TcTree({
             <IconChevron />
           </span>
           {groupCk(deepTcs(n).map((x) => x.tcid), n.name)}
+          {/* 요구사항 화면과 같은 폴더 표시 */}
+          <span className="rt-ficon" aria-hidden="true">
+            <IconFolder open={open} />
+          </span>
           <b className="rt-fname" title={n.name}>
             {n.name}
           </b>

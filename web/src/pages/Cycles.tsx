@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import PageMark from '@/components/PageMark'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import type { Device } from '@/pages/Devices'
-import { IconChevron } from '@/components/icons'
+import { IconChevron, IconFolder } from '@/components/icons'
 import type { TestCaseMeta } from '@/types'
 // 요구사항 화면의 트리 규칙을 그대로 쓴다 — 줄 높이·색·여백이 한 곳에서만
 // 정해져야 세 화면이 같아 보인다.
@@ -335,6 +334,12 @@ export default function Cycles() {
           <span className={`rt-caret${isOpen ? ' open' : ''}`}>
             {leaf ? <span className="rt-dot" /> : <IconChevron />}
           </span>
+          {/* 모델그룹 · 모델 · 버전그룹은 폴더, 버전(사이클)은 항목 */}
+          {!leaf && (
+            <span className="rt-ficon" aria-hidden="true">
+              <IconFolder open={isOpen} />
+            </span>
+          )}
           <span className={`${n.cycle ? 'rt-title' : 'rt-fname'} cy-nm${n.empty ? ' empty' : ''}`}>
             {n.label}
           </span>
@@ -351,15 +356,7 @@ export default function Cycles() {
   return (
     // 요구사항·TC 화면과 **같은 뼈대**를 쓴다. 세 화면을 오가는 사람이
     // 매번 「여긴 어디가 목록이지」 를 다시 찾지 않게.
-    <>
-      <PageMark
-        kind="cycle"
-        name="사이클"
-        count={`${cycles.length}건`}
-        sub="이 버전에서 무엇을 돌렸나 — 회차로 묶어 돌리고 결과서를 낸다"
-      />
-
-      <div className="split cy">
+    <div className="split cy">
       <section className="panel cy-tree">
         <div className="tc-col-head">
           <span className="panel-name">
@@ -434,8 +431,7 @@ export default function Cycles() {
           <div className="empty">왼쪽에서 사이클을 고르세요.</div>
         )}
       </section>
-      </div>
-    </>
+    </div>
   )
 }
 

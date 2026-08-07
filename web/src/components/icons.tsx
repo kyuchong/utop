@@ -116,6 +116,26 @@ export const IconChevron = (p: P) => (
   </Svg>
 )
 
+/**
+ * 폴더.
+ *
+ * 트리에서 「이 줄이 폴더인가 항목인가」 는 글자 굵기만으로는 잘 안 갈린다.
+ * iTest 도 폴더에 아이콘을 둔다 — 펼쳐진 것과 닫힌 것의 모양이 달라서
+ * 상태까지 한 번에 읽힌다.
+ */
+export const IconFolder = (p: P & { open?: boolean }) => {
+  const { open, ...rest } = p
+  return (
+    <Svg width="14" height="14" strokeWidth="1.7" {...rest}>
+      {open ? (
+        <path d="M3 8h15l-2.4 8.6a1 1 0 0 1-1 .7H4a1 1 0 0 1-1-1V8Zm0 0V5.6a1 1 0 0 1 1-1h4.2l1.6 2h5.4a1 1 0 0 1 1 1V8" />
+      ) : (
+        <path d="M3 6.6a1 1 0 0 1 1-1h4.2l1.6 2h9.2a1 1 0 0 1 1 1v8.8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6.6Z" />
+      )}
+    </Svg>
+  )
+}
+
 /** 드래그 손잡이 (점 6개) */
 export const IconGrip = (p: P) => (
   <Svg width="12" height="14" strokeWidth="0" {...p}>
