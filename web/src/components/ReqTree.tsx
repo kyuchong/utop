@@ -452,7 +452,9 @@ export default function ReqTree({
         role="button"
         tabIndex={0}
         className={`rt-req${pk === selected ? ' on' : ''}${
-          picked.has(pk) ? ' picked' : ''
+          // 담을 때 `req:` 를 붙였으니 볼 때도 붙여야 한다. 안 붙여서
+          // 고르기는 되는데 칠해지지가 않았다.
+          picked.has(`req:${pk}`) ? ' picked' : ''
         }${drag?.kind === 'req' && drag.id === pk ? ' dragging' : ''}`}
         style={{ paddingLeft: 8 + depth * 14 }}
         // Ctrl·Shift 로 여러 개. 그냥 누르면 하나만 골라 연다.
