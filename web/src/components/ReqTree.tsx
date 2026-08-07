@@ -29,14 +29,23 @@ interface Props {
    */
   selectedFolder: string | null | undefined
   onSelectFolder: (catId: string | null) => void
-  /** 여러 건 고르기 (삭제용) */
+  /**
+   * 여러 건 고르기 — `req:<pk>` · `cat:<id>` 로 섞어 담는다.
+   *
+   * 폴더와 요구사항을 따로 담으면 Shift 범위가 둘 사이를 못 건넌다.
+   * 화면에 보이는 대로 이어져 있어야 「여기부터 저기까지」 가 맞는다.
+   */
   picked: Set<string>
   /** 보기 방식 — ⋯ 메뉴에서 켠다 */
   view?: { fullId: boolean; foldersOnly: boolean }
-  onPick: (reqPk: string) => void
-  /** 고른 폴더. 바깥 버튼에서 삭제하려고 올려 보낸다 */
-  pickedFolders: Set<string>
-  onPickFolder: (catId: string) => void
+  /** 줄을 눌렀다 — Ctrl·Shift 는 화면이 판단한다 */
+  onRowClick: (
+    id: string,
+    e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean },
+    order: string[],
+  ) => void
+  /** 폴더 안의 차례 — ⋯ 메뉴에서 고른다 */
+  sort?: 'id' | 'title'
   /** 「+ 폴더」를 바깥 버튼 줄에서 누를 수 있게 */
   addFolderSignal: number
 }
@@ -74,9 +83,8 @@ export default function ReqTree({
   onSelectFolder,
   view,
   picked,
-  onPick,
-  pickedFolders,
-  onPickFolder,
+  onRowClick,
+  sort = 'id',
   addFolderSignal,
 }: Props) {
   const qc = useQueryClient()
@@ -263,10 +271,43 @@ export default function ReqTree({
       if (arr) arr.push(r)
       else m.set(k, [r])
     }
+    /*
+     * 폴더 안의 차례.
+     *
+     * ID 순이 기본이다 — 요구사항은 번호로 부르는 일이 많고, 번호가
+     * 이어져 있어야 빠진 것이 눈에 띈다. 제목순은 「무엇에 대한 것인지」
+     * 로 훑을 때 쓴다.
+     */
     for (const arr of m.values())
-      arr.sort((a, b) => naturalCompare(reqLabel(a) || '', reqLabel(b) || ''))
+      arr.sort((a, b) =>
+        sort === 'title'
+          ? naturalCompare(a.title || '', b.title || '')
+          : naturalCompare(reqLabel(a) || '', reqLabel(b) || ''),
+      )
     return m
-  }, [reqs])
+  }, [reqs, sort])
+
+  const needle0 = q.trim().toLowerCase()
+
+  /**
+   * 지금 보이는 줄의 차례 — 폴더와 요구사항이 섞여 있다.
+   *
+   * Shift 범위가 **화면에 보이는 그대로** 잡히려면 접힌 가지를 건너뛰고
+   * 눈에 든 것만 세야 한다.
+   */
+  const rowOrder = (): string[] => {
+    const out: string[] = []
+    const walk = (n: CategoryTreeNode) => {
+      out.push(`cat:${n.id}`)
+      if (!openIds.has(n.id) && !needle0) return
+      if (!foldersOnly)
+        for (const r of byFolder.get(n.id) ?? []) out.push(`req:${reqPk(r)}`)
+      n.children.forEach(walk)
+    }
+    tree.forEach(walk)
+    if (!foldersOnly) for (const r of byFolder.get(null) ?? []) out.push(`req:${reqPk(r)}`)
+    return out
+  }
 
   const needle = q.trim().toLowerCase()
   const match = (r: Requirement) =>
@@ -409,10 +450,15 @@ export default function ReqTree({
         role="button"
         tabIndex={0}
         className={`rt-req${pk === selected ? ' on' : ''}${
-          drag?.kind === 'req' && drag.id === pk ? ' dragging' : ''
-        }`}
+          picked.has(pk) ? ' picked' : ''
+        }${drag?.kind === 'req' && drag.id === pk ? ' dragging' : ''}`}
         style={{ paddingLeft: 8 + depth * 14 }}
-        onClick={() => !justDragged.current && onSelect(pk)}
+        // Ctrl·Shift 로 여러 개. 그냥 누르면 하나만 골라 연다.
+        onClick={(e) => {
+          if (justDragged.current) return
+          onRowClick(`req:${pk}`, e, rowOrder())
+          if (!e.ctrlKey && !e.metaKey && !e.shiftKey) onSelect(pk)
+        }}
         onPointerDown={(e) => beginDrag(e, 'req', pk)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -421,15 +467,6 @@ export default function ReqTree({
           }
         }}
       >
-        <input
-          type="checkbox"
-          className="rt-pick"
-          aria-label={`${full} 선택`}
-          checked={picked.has(pk)}
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          onChange={() => onPick(pk)}
-        />
         <span className="rt-dicon" aria-hidden="true">
           <IconReqDoc />
         </span>
@@ -459,16 +496,20 @@ export default function ReqTree({
         <div
           data-folder={n.id}
           className={`rt-fold${selectedFolder === n.id ? ' on' : ''}${
-            over === n.id && drag ? ' dropinto' : ''
-          }${drag?.kind === 'cat' && drag.id === n.id ? ' dragging' : ''}${
-            clip?.id === n.id ? ' copied' : ''
-          }`}
+            picked.has(`cat:${n.id}`) ? ' picked' : ''
+          }${over === n.id && drag ? ' dropinto' : ''}${
+            drag?.kind === 'cat' && drag.id === n.id ? ' dragging' : ''
+          }${clip?.id === n.id ? ' copied' : ''}`}
           style={{ paddingLeft: 4 + (n.depth - 1) * 14 }}
           tabIndex={0}
           // 폴더를 누르면 그 아래 요구사항의 TC 를 오른쪽에 모아 보인다.
           // 폴더는 펼치는 것 말고 할 일이 없었는데, 실제로는 '이 묶음의
           // 시험이 다 됐나' 를 폴더 단위로 보는 일이 가장 잦다.
-          onClick={() => !justDragged.current && onSelectFolder(n.id)}
+          onClick={(e) => {
+            if (justDragged.current) return
+            onRowClick(`cat:${n.id}`, e, rowOrder())
+            if (!e.ctrlKey && !e.metaKey && !e.shiftKey) onSelectFolder(n.id)
+          }}
           onPointerDown={(e) => beginDrag(e, 'cat', n.id)}
           // 우클릭이 곧 메뉴다. Zephyr·탐색기와 같아 배울 것이 없다.
           onContextMenu={(e) => {
@@ -492,15 +533,6 @@ export default function ReqTree({
             }
           }}
         >
-          <input
-            type="checkbox"
-            className="rt-pick"
-            aria-label={`${n.name} 폴더 선택`}
-            checked={pickedFolders.has(n.id)}
-            onClick={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            onChange={() => onPickFolder(n.id)}
-          />
           <button
             type="button"
             className={`rt-caret${open ? ' open' : ''}`}
@@ -673,7 +705,6 @@ export default function ReqTree({
             setCtx({ x: e.clientX, y: e.clientY, cat: { id: '', name: '', depth: 0, children: [] } as unknown as CategoryTreeNode })
           }}
         >
-          <span className="rt-pick-sp" />
           <span className="rt-caret" />
           <b className="rt-fname">미분류</b>
           <span className="rt-cnt">{uncat.length || ''}</span>

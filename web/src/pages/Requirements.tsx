@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, categoryApi, reqApi, tcApi } from '@/api/client'
 import ReqTree from '@/components/ReqTree'
+import { useMultiSelect } from '@/components/useMultiSelect'
 import { IconTcDoc } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
@@ -47,15 +48,25 @@ export default function Requirements() {
   /** 보기 방식 — 트리 안에 있던 단추를 ⋯ 로 옮겼다 */
   const [fullId, setFullId] = useState(false)
   const [foldersOnly, setFoldersOnly] = useState(false)
+  /** 폴더 안의 차례 — ID 순이 기본. 번호가 이어져야 빠진 것이 눈에 띈다 */
+  const [sort, setSort] = useState<'id' | 'title'>('id')
   const [selectedFolder, setSelectedFolder] = useState<string | null | undefined>(() => {
     // 'null'(미분류)과 '안 고름'(undefined)을 문자열 하나로 갈라 담는다
     const v = localStorage.getItem(FOLDER_KEY)
     return v === null || v === '' ? undefined : v === '\u0000' ? null : v
   })
   // 여러 건을 골라 한 번에 지우기
-  const [picked, setPicked] = useState<Set<string>>(new Set())
+  /**
+   * 트리에서 고른 줄 — `req:<pk>` · `cat:<id>` 를 한 자루에 담는다.
+   *
+   * 따로 담으면 Shift 범위가 폴더와 요구사항 사이를 못 건넌다. 화면에
+   * 보이는 대로 이어져 있어야 「여기부터 저기까지」 가 맞는다.
+   */
+  const treeSel = useMultiSelect<string>()
+  const picked = treeSel.picked
+  const pickedReqs = [...picked].filter((x) => x.startsWith('req:')).map((x) => x.slice(4))
+  const pickedCats = [...picked].filter((x) => x.startsWith('cat:')).map((x) => x.slice(4))
   /** 고른 폴더. 요구사항과 함께 지울 수 있어야 정리가 한 번에 끝난다. */
-  const [pickedFolders, setPickedFolders] = useState<Set<string>>(new Set())
   /** 버튼 줄에서 트리에게 보내는 신호 (숫자가 늘면 트리가 반응한다) */
   const [addFolder, setAddFolder] = useState(0)
   // undefined = 폼 닫힘 / null = 새로 만들기 / Requirement = 편집
@@ -108,8 +119,7 @@ export default function Requirements() {
       return ok
     },
     onSuccess: () => {
-      setPicked(new Set())
-      setPickedFolders(new Set())
+      treeSel.clear()
       void qc.invalidateQueries({ queryKey: ['req', 'list'] })
       void qc.invalidateQueries({ queryKey: ['req-categories'] })
       void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
@@ -281,25 +291,9 @@ export default function Requirements() {
     })
   }, [linked, q, statusFilter])
 
-  const togglePick = (id: string) =>
-    setPicked((s) => {
-      const n = new Set(s)
-      if (n.has(id)) n.delete(id)
-      else n.add(id)
-      return n
-    })
-
-  const togglePickFolder = (id: string) =>
-    setPickedFolders((s) => {
-      const n = new Set(s)
-      if (n.has(id)) n.delete(id)
-      else n.add(id)
-      return n
-    })
-
   const doRemovePicked = () => {
-    const ids = [...picked]
-    const folderIds = [...pickedFolders]
+    const ids = pickedReqs
+    const folderIds = pickedCats
     if (ids.length === 0 && folderIds.length === 0) return
     const tcCount = ids.reduce((a, id) => {
       const r = allReqs.find((x) => reqPk(x) === id)
@@ -364,7 +358,7 @@ export default function Requirements() {
             <span className="rt-count">
               요구사항 <b>{allReqs.length}</b>건
             </span>
-            {(picked.size > 0 || pickedFolders.size > 0) && (
+            {picked.size > 0 && (
               <button
                 className="btn small danger"
                 type="button"
@@ -373,7 +367,7 @@ export default function Requirements() {
               >
                 {removeManyM.isPending
                   ? '삭제 중…'
-                  : `${picked.size + pickedFolders.size}건 삭제`}
+                  : `${picked.size}건 삭제`}
               </button>
             )}
             <span className="sp" />
@@ -398,6 +392,15 @@ export default function Requirements() {
                 <>
                   <div className="rt-more-back" onClick={() => setMoreOpen(false)} />
                   <div className="rt-more-menu" role="menu">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreOpen(false)
+                        setForm(null)
+                      }}
+                    >
+                      요구사항 만들기
+                    </button>
                     <button
                       type="button"
                       disabled={!selectedReq}
@@ -434,6 +437,13 @@ export default function Requirements() {
                     <button type="button" onClick={() => setFullId((v) => !v)}>
                       {fullId ? '✓ ' : ''}전체 ID 보기
                     </button>
+                    <hr />
+                    <button type="button" onClick={() => setSort('id')}>
+                      {sort === 'id' ? '✓ ' : ''}ID 순으로
+                    </button>
+                    <button type="button" onClick={() => setSort('title')}>
+                      {sort === 'title' ? '✓ ' : ''}제목 순으로
+                    </button>
                   </div>
                 </>
               )}
@@ -453,16 +463,15 @@ export default function Requirements() {
                 setSelectedFolder(undefined)
               }}
               view={{ fullId, foldersOnly }}
-            selectedFolder={selectedFolder}
+              selectedFolder={selectedFolder}
               onSelectFolder={(id) => {
                 setSelectedFolder(id)
                 setSelected(null)
                 setTab('tc')
               }}
               picked={picked}
-              onPick={togglePick}
-              pickedFolders={pickedFolders}
-              onPickFolder={togglePickFolder}
+              onRowClick={treeSel.onClick}
+              sort={sort}
               addFolderSignal={addFolder}
             />
           )}

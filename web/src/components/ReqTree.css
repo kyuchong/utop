@@ -436,6 +436,8 @@
   display: inline-flex;
   align-items: center;
   line-height: 1;
+  /* 격자 사이 간격(7px)이 아이콘 뒤에도 붙어 벌어져 보였다 */
+  margin-right: -5px;
 }
 
 /* 끌고 있는 것이 커서를 따라다닌다.
@@ -497,3 +499,10 @@
 .rt-more-menu button:hover:not(:disabled) { background: var(--c-surface-2); }
 .rt-more-menu button:disabled { color: var(--c-text-faint); cursor: default; }
 .rt-more-menu hr { border: 0; border-top: 1px solid var(--c-border-soft); margin: 4px 0; }
+
+/* Ctrl·Shift 로 고른 줄. 네모를 없앤 대신 줄 자체가 칠해진다 */
+.rt-req.picked,
+.rt-fold.picked {
+  background: var(--c-primary-bg);
+  box-shadow: inset 2px 0 0 var(--c-primary);
+}

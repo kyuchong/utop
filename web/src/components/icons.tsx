@@ -181,35 +181,41 @@ export const IconFolder = ({ open, ...rest }: P & { open?: boolean }) => (
  * 안 갈렸다.** 둘 다 그냥 글자였다. ID 앞에 작은 표를 둔다.
  */
 export const IconReqDoc = (p: P) => (
-  <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false" {...p}>
+  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false" {...p}>
+    {/* 세로로 길쭉하면 옆 글자와 안 맞는다. 폭을 넓혀 정사각에 가깝게 */}
     <path
-      d="M4 2h5l3 3v9a.6.6 0 0 1-.6.6H4a.6.6 0 0 1-.6-.6V2.6A.6.6 0 0 1 4 2Z"
+      d="M2.6 2.6h6.2l3.6 3.4v7.4a.6.6 0 0 1-.6.6H2.6a.6.6 0 0 1-.6-.6V3.2a.6.6 0 0 1 .6-.6Z"
       fill="#dbeafe"
       stroke="#2563eb"
-      strokeWidth="0.9"
+      strokeWidth="1"
       strokeLinejoin="round"
     />
-    <path d="M9 2v3h3" fill="none" stroke="#2563eb" strokeWidth="0.9" strokeLinejoin="round" />
-    <path d="M5.4 8h5M5.4 10.4h5M5.4 12.8h3" stroke="#2563eb" strokeWidth="0.9" strokeLinecap="round" />
+    <path d="M8.8 2.6v3.4h3.6" fill="none" stroke="#2563eb" strokeWidth="1" strokeLinejoin="round" />
+    <path
+      d="M4.4 8.6h6M4.4 10.8h6M4.4 13h3.6"
+      stroke="#2563eb"
+      strokeWidth="1"
+      strokeLinecap="round"
+    />
   </svg>
 )
 
 /** 시험 한 건 — 확인 표가 붙은 종이 */
 export const IconTcDoc = (p: P) => (
-  <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false" {...p}>
+  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false" {...p}>
     <path
-      d="M4 2h5l3 3v9a.6.6 0 0 1-.6.6H4a.6.6 0 0 1-.6-.6V2.6A.6.6 0 0 1 4 2Z"
+      d="M2.6 2.6h6.2l3.6 3.4v7.4a.6.6 0 0 1-.6.6H2.6a.6.6 0 0 1-.6-.6V3.2a.6.6 0 0 1 .6-.6Z"
       fill="#dcfce7"
       stroke="#15803d"
-      strokeWidth="0.9"
+      strokeWidth="1"
       strokeLinejoin="round"
     />
-    <path d="M9 2v3h3" fill="none" stroke="#15803d" strokeWidth="0.9" strokeLinejoin="round" />
+    <path d="M8.8 2.6v3.4h3.6" fill="none" stroke="#15803d" strokeWidth="1" strokeLinejoin="round" />
     <path
-      d="m5.6 10.6 1.5 1.6 3-3.6"
+      d="m4.4 10.4 2 2 3.6-4.4"
       fill="none"
       stroke="#15803d"
-      strokeWidth="1.3"
+      strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
