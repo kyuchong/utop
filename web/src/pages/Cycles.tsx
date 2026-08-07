@@ -8,6 +8,9 @@ import { useCycleRun } from '@/components/cycle/useCycleRun'
 import type { Device } from '@/pages/Devices'
 import { IconChevron } from '@/components/icons'
 import type { TestCaseMeta } from '@/types'
+// 요구사항 화면의 트리 규칙을 그대로 쓴다 — 줄 높이·색·여백이 한 곳에서만
+// 정해져야 세 화면이 같아 보인다.
+import '@/components/ReqTree.css'
 import './Cycles.css'
 
 /** 사이클 한 건 — 목록용 요약(`/api/cycle?meta=1`) */
@@ -309,7 +312,7 @@ export default function Cycles() {
     return (
       <div key={n.key}>
         <div
-          className="cy-node"
+          className={`${n.cycle ? 'rt-req' : 'rt-fold'} cy-node${n.cycle?.id === sel ? ' on' : ''}`}
           role="button"
           tabIndex={0}
           style={{ paddingLeft: 6 + n.depth * 14 }}
@@ -328,14 +331,14 @@ export default function Cycles() {
             setMenu({ id: n.cycle.id, x: e.clientX, y: e.clientY })
           }}
         >
-          <span className={`cy-caret${isOpen ? ' open' : ''}`}>
-            {leaf ? <span className="cy-dot" /> : <IconChevron />}
+          <span className={`rt-caret${isOpen ? ' open' : ''}`}>
+            {leaf ? <span className="rt-dot" /> : <IconChevron />}
           </span>
-          <span className={`cy-nm${n.cycle?.id === sel ? ' on' : ''}${n.empty ? ' empty' : ''}`}>
+          <span className={`${n.cycle ? 'rt-title' : 'rt-fname'} cy-nm${n.empty ? ' empty' : ''}`}>
             {n.label}
           </span>
           {/* 잎은 항목 수, 가지는 사이클 수 — 뜻이 다르니 제목으로 갈라 둔다 */}
-          <span className="cy-cnt" title={n.cycle ? '시험 항목' : '사이클'}>
+          <span className="rt-cnt" title={n.cycle ? '시험 항목' : '사이클'}>
             {n.count || ''}
           </span>
         </div>
@@ -345,13 +348,17 @@ export default function Cycles() {
   }
 
   return (
-    <div className="cy">
+    // 요구사항·TC 화면과 **같은 뼈대**를 쓴다. 세 화면을 오가는 사람이
+    // 매번 「여긴 어디가 목록이지」 를 다시 찾지 않게.
+    <div className="split cy">
       <section className="panel cy-tree">
-        <div className="cy-top">
-          <b>사이클 {cycles.length}건</b>
-          <span className="sp" />
-          <button className="btn primary small" type="button" onClick={() => setMaking(true)}>
-            + 사이클
+        <div className="tc-col-head">
+          <span className="panel-name">
+            사이클
+            <span className="muted small">{cycles.length}건</span>
+          </span>
+          <button className="btn small" type="button" title="사이클 만들기" onClick={() => setMaking(true)}>
+            +
           </button>
         </div>
         <input

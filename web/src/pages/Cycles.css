@@ -1,12 +1,6 @@
-/* 사이클 — 왼쪽 트리, 오른쪽 항목.
-   트리는 폴더가 아니라 값에서 선다: 모델그룹 · 모델은 장비 카탈로그가
-   주인이고, 버전그룹만 사람이 만든다. */
-.cy {
-  display: flex;
-  gap: 10px;
-  min-height: 0;
-  flex: 1;
-}
+/* 사이클 — 요구사항·TC 화면과 **같은 뼈대**(.split + .panel).
+   세 화면을 오가는 사람이 매번 「여긴 어디가 목록이지」 를 다시 찾지 않게. */
+.cy.split { gap: 0; }
 .cy-tree {
   flex: 0 0 300px;
   display: flex;
@@ -19,66 +13,19 @@
   display: flex;
   min-height: 0;
 }
-.cy-top {
-  padding: 10px 12px 6px;
-}
-.cy-q {
-  margin: 0 10px 8px;
-}
+.cy-q { margin: 0 10px 8px; }
 .cy-body {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding-bottom: 8px;
+  padding: 0 4px 8px;
 }
-.cy-node {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px 4px 0;
-  cursor: pointer;
-  border-bottom: 1px solid var(--c-border-soft);
-  font-size: var(--fs-xs);
-}
-.cy-node:hover {
-  background: var(--c-surface-2);
-}
-.cy-caret {
-  flex: 0 0 16px;
-  display: inline-flex;
-  justify-content: center;
-  color: var(--c-text-faint);
-  transition: transform 0.12s;
-}
-.cy-caret.open {
-  transform: rotate(90deg);
-}
-.cy-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--c-text-faint);
-}
-.cy-nm {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.cy-nm.on {
-  font-weight: 700;
-  color: var(--c-primary);
-}
+/* 줄 자체는 요구사항 트리(ReqTree.css)의 .rt-fold/.rt-req 를 쓴다.
+   여기서는 사이클에만 있는 것만 더한다. */
+.cy-node { cursor: pointer; }
 /* 사이클이 아직 없는 버전그룹. 만들어 놓고 안 보이면 또 만든다 */
-.cy-nm.empty {
-  color: var(--c-text-faint);
-}
-.cy-cnt {
-  flex: 0 0 auto;
-  color: var(--c-text-faint);
-  font-variant-numeric: tabular-nums;
-}
+.cy-nm.empty { color: var(--c-text-faint); }
+
 
 /* ── 사이클 한 건 ── */
 .cy-detail {
