@@ -117,24 +117,62 @@ export const IconChevron = (p: P) => (
 )
 
 /**
- * 폴더.
+ * 폴더 — iTest(Eclipse) 처럼 **속이 채워진** 노란 폴더.
  *
- * 트리에서 「이 줄이 폴더인가 항목인가」 는 글자 굵기만으로는 잘 안 갈린다.
- * iTest 도 폴더에 아이콘을 둔다 — 펼쳐진 것과 닫힌 것의 모양이 달라서
- * 상태까지 한 번에 읽힌다.
+ * 처음엔 선만 그렸더니 옆의 글자와 굵기가 비슷해 눈에 안 띄었다. 폴더가
+ * 폴더로 보이려면 바탕이 칠해져 있어야 한다. 펼친 것은 앞장이 열려
+ * 비스듬한 모양이라, 아이콘만 보고도 접혔는지 펼쳤는지 안다.
+ *
+ * 색은 테마를 안 탄다. 폴더는 어느 화면에서나 폴더고, 밝은 화면에서나
+ * 어두운 화면에서나 같은 노랑이라야 눈이 바로 찾는다.
  */
-export const IconFolder = (p: P & { open?: boolean }) => {
-  const { open, ...rest } = p
-  return (
-    <Svg width="14" height="14" strokeWidth="1.7" {...rest}>
-      {open ? (
-        <path d="M3 8h15l-2.4 8.6a1 1 0 0 1-1 .7H4a1 1 0 0 1-1-1V8Zm0 0V5.6a1 1 0 0 1 1-1h4.2l1.6 2h5.4a1 1 0 0 1 1 1V8" />
-      ) : (
-        <path d="M3 6.6a1 1 0 0 1 1-1h4.2l1.6 2h9.2a1 1 0 0 1 1 1v8.8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6.6Z" />
-      )}
-    </Svg>
-  )
-}
+export const IconFolder = ({ open, ...rest }: P & { open?: boolean }) => (
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 16 16"
+    aria-hidden="true"
+    focusable="false"
+    {...rest}
+  >
+    {open ? (
+      <>
+        <path
+          d="M1.5 4.2a.7.7 0 0 1 .7-.7h3.4l1.2 1.4h5.5a.7.7 0 0 1 .7.7v1.6H1.5V4.2Z"
+          fill="#e8b53d"
+          stroke="#b8860b"
+          strokeWidth="0.7"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M1.5 12.5 3.3 7.2a.7.7 0 0 1 .66-.48h10.1a.5.5 0 0 1 .47.66l-1.63 4.8a.7.7 0 0 1-.66.48H1.5Z"
+          fill="#f5cd63"
+          stroke="#b8860b"
+          strokeWidth="0.7"
+          strokeLinejoin="round"
+        />
+      </>
+    ) : (
+      <>
+        <path
+          d="M1.5 4.2a.7.7 0 0 1 .7-.7h3.4l1.2 1.4h6.5a.7.7 0 0 1 .7.7v6.7a.7.7 0 0 1-.7.7H2.2a.7.7 0 0 1-.7-.7V4.2Z"
+          fill="#f0c14b"
+          stroke="#b8860b"
+          strokeWidth="0.7"
+          strokeLinejoin="round"
+        />
+        {/* 앞장 — 위쪽 띠와 갈라 놓아야 폴더처럼 보인다 */}
+        <path
+          d="M1.5 6.4h13v5.9a.7.7 0 0 1-.7.7H2.2a.7.7 0 0 1-.7-.7V6.4Z"
+          fill="#f7d573"
+          stroke="#b8860b"
+          strokeWidth="0.7"
+          strokeLinejoin="round"
+        />
+      </>
+    )}
+  </svg>
+)
 
 /** 드래그 손잡이 (점 6개) */
 export const IconGrip = (p: P) => (

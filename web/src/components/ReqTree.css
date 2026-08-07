@@ -411,11 +411,11 @@
 .rt-clip .btn { margin-left: auto; }
 
 /* 폴더 아이콘. 굵기만으로는 폴더와 항목이 잘 안 갈린다 — iTest 도 폴더에
-   아이콘을 두고, 펼친 것과 닫힌 것의 모양을 달리해 상태까지 읽히게 한다. */
+   아이콘을 두고, 펼친 것과 닫힌 것의 모양을 달리해 상태까지 읽히게 한다.
+   색은 아이콘 안에 박아 둔다 — 폴더는 어느 화면에서나 같은 노랑이라야
+   눈이 바로 찾는다. */
 .rt-ficon {
   flex: none;
   display: inline-flex;
   align-items: center;
-  color: #d0a33a;
 }
-.rt-fold.on .rt-ficon { color: var(--c-primary); }
