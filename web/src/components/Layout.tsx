@@ -124,6 +124,8 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
                   key={key}
                   type="button"
                   className={`nav-item${key === current ? ' on' : ''}`}
+                  // 화면마다 다른 색을 입히려면 어느 항목인지 CSS 가 알아야 한다
+                  data-key={key}
                   aria-current={key === current ? 'page' : undefined}
                   onClick={() => onNavigate(key)}
                   // 접힌 상태에서는 글자가 안 보이므로 이름을 툴팁으로 남긴다.

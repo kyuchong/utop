@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
+import PageMark from '@/components/PageMark'
 import TcBulkForm from '@/components/TcBulkForm'
 import TcBulkEdit from '@/components/tc/TcBulkEdit'
 import TcSequence from '@/components/tc/TcSequence'
@@ -761,6 +762,13 @@ export default function TestCases() {
           데이터를 불러오지 못했습니다 — {(error as Error).message}
         </div>
       ) : null}
+
+      <PageMark
+        kind="tc"
+        name="시험항목"
+        count={`${tcs.length}건`}
+        sub="어떻게 확인할 것인가 — 절차와 판정을 적는다"
+      />
 
       {/* 상단 한 줄 — 어느 TC 를 보고 있는지 · 탭.
           요구사항으로 좁히는 일은 1열 트리가 맡는다. */}

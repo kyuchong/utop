@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, categoryApi, reqApi, tcApi } from '@/api/client'
 import ReqTree from '@/components/ReqTree'
+import PageMark from '@/components/PageMark'
 import ReqForm from '@/components/ReqForm'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import ReqBulkForm from '@/components/ReqBulkForm'
@@ -347,6 +348,13 @@ export default function Requirements() {
           데이터를 불러오지 못했습니다 — {(error as Error).message}
         </div>
       ) : null}
+
+      <PageMark
+        kind="req"
+        name="요구사항"
+        count={`${allReqs.length}건`}
+        sub="무엇을 만들기로 했나 — 시험은 여기에 붙는다"
+      />
 
       <div className="split" ref={splitRef}>
         {/* ── 왼쪽: 폴더 + 요구사항 한 트리 ─────────────────

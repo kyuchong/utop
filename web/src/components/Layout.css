@@ -328,3 +328,15 @@
 .app.nav-collapsed .nav-user-who {
   display: none;
 }
+
+/* 고른 메뉴에 화면 색을 입힌다.
+   PageMark 와 같은 색을 써야 「메뉴에서 고른 것」 과 「지금 보는 화면」 이
+   한눈에 이어진다. 색만으로 어느 화면인지 알게 하는 것이 목적이다. */
+.nav-item.on[data-key='requirements'] { --nav-c: #1f5fa8; }
+.nav-item.on[data-key='testcases'] { --nav-c: #1f7a45; }
+.nav-item.on[data-key='cycles'] { --nav-c: #7c3aed; }
+.nav-item.on[data-key='executions'] { --nav-c: #97620d; }
+.nav-item.on[data-key='ai-tc'] { --nav-c: #b03060; }
+.nav-item.on[data-key] {
+  box-shadow: inset 3px 0 0 var(--nav-c, var(--c-primary));
+}

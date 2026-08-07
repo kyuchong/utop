@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import PageMark from '@/components/PageMark'
 import AskBar from '@/components/cycle/AskBar'
 import type { Device } from '@/pages/Devices'
 import './Cycles.css'
@@ -28,13 +29,11 @@ export default function AiTc() {
   return (
     <div className="aitc">
       <section className="panel aitc-main">
-        <div className="aitc-head">
-          <b>말로 시험 만들기</b>
-          <span className="muted small">
-            이 랩에서 통한 명령으로 짜고, 돌려 보고, 쓸 만하면 시험으로 남깁니다.
-            지금은 <b>조회 시험</b>만 만듭니다.
-          </span>
-        </div>
+        <PageMark
+          kind="ai"
+          name="TC 생성"
+          sub="말로 시험을 짜고, 돌려 보고, 쓸 만하면 남긴다 — 지금은 조회 시험만"
+        />
         <div className="aitc-body">
           <AskBar devices={devQ.data?.devices ?? []} />
         </div>
