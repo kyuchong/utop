@@ -120,6 +120,10 @@ export default function Requirements() {
       }
       return ok
     },
+    onError: (e) => {
+      // 조용히 실패하면 「눌러도 안 된다」 로만 남는다
+      window.alert(`삭제하지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
+    },
     onSuccess: () => {
       treeSel.clear()
       void qc.invalidateQueries({ queryKey: ['req', 'list'] })
@@ -613,8 +617,12 @@ export default function Requirements() {
                         <span className="rt-dicon" aria-hidden="true">
                           <IconTcDoc />
                         </span>
-                        <div className="tc-name">{t.name || '(제목 없음)'}</div>
-                        <div className="id-cell">{t.tcid}</div>
+                        {/* ID 는 안 적는다. 이 표는 「이 요구사항이 무엇으로
+                            덮여 있나」 를 보는 자리고, 그때 필요한 것은
+                            이름이다. ID 는 눌러 들어가면 나온다. */}
+                        <div className="tc-name" title={t.tcid}>
+                          {t.name || '(제목 없음)'}
+                        </div>
                       </div>
                       {folderMode && (
                         <div className="fold-req">

@@ -52,8 +52,14 @@ export function useMultiSelect<T extends string | number>() {
         anchor.current = id
         return
       }
-      // 그냥 누름 — 여러 개 고른 것을 푼다
-      setPicked(new Set())
+      /*
+       * 그냥 누름 — **그것 하나만** 고른 것이 된다.
+       *
+       * 전에는 비웠다. 그랬더니 「열려 있는 줄」 과 「고른 줄」 이 따로
+       * 놀아서, 한 줄을 눌러 놓고도 「0건 선택됨」 이었다. 화면에 칠해진
+       * 것과 세는 것이 다르면 안 된다.
+       */
+      setPicked(new Set([id]))
       anchor.current = id
     },
     [],
