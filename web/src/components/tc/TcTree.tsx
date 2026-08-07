@@ -12,7 +12,7 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
-import { IconChevron, IconFolder } from '../icons'
+import { IconChevron, IconFolder, IconReqDoc, IconTcDoc } from '../icons'
 // 요구사항 화면과 **같은 트리로 보여야 한다**. 줄 높이·글자·구분선을 여기서
 // 다시 정하면 두 화면을 오가며 같은 것이 달라 보인다. 그 화면의 규칙을
 // 그대로 가져다 쓰고, TC 줄만 이 화면 CSS 에서 더한다.
@@ -256,6 +256,10 @@ export default function TcTree({
         onClick={() => onOpen(t.tcid)}
         title={t.tcid}
       >
+        {/* 요구사항 줄과 갈리게. 둘 다 그냥 글자였다 */}
+        <span className="rt-dicon" aria-hidden="true">
+          <IconTcDoc />
+        </span>
         <span className={`tc-dot ${statusClass(t.status)}`} />
         <span className="tt-tc-nm">{t.name || '(제목 없음)'}</span>
         {typeof t._cli_count === 'number' && t._cli_count > 0 && (
@@ -322,6 +326,9 @@ export default function TcTree({
           ) : (
             <span className="tt-ck-gap" aria-hidden="true" />
           )}
+          <span className="rt-dicon" aria-hidden="true">
+            <IconReqDoc />
+          </span>
           <span className="rt-id" title={full}>
             {shortReqId(full, folderName) || '(ID 없음)'}
           </span>

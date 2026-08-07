@@ -14,7 +14,7 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
-import { IconChevron, IconFolder } from './icons'
+import { IconChevron, IconFolder, IconReqDoc } from './icons'
 import './ReqTree.css'
 
 interface Props {
@@ -103,6 +103,14 @@ export default function ReqTree({
   const [clip, setClip] = useState<CategoryTreeNode | null>(null)
   const [error, setError] = useState('')
   const [drag, setDrag] = useState<{ kind: 'req' | 'cat'; id: string } | null>(null)
+  /**
+   * 끌고 있는 것이 커서를 따라다닌다.
+   *
+   * iTest 는 무엇을 쥐었는지 커서 옆에 그대로 붙여 보여 준다. 지금까지는
+   * 원래 줄이 옅어지는 것뿐이라, 여러 줄을 지나다 보면 무엇을 쥐고
+   * 있었는지 잊는다.
+   */
+  const [ghost, setGhost] = useState<{ x: number; y: number; label: string } | null>(null)
   const [over, setOver] = useState<string | null | undefined>(undefined)
   const [fullId, setFullId] = useState(false)
   /** 폴더 구조만 보기 — 정리할 때 요구사항이 사이에 끼면 트리가 길다 */
@@ -298,6 +306,13 @@ export default function ReqTree({
    * 체크박스가 있으면 시작조차 안 되고 원격데스크톱에서 자주 먹통이 되기
    * 때문이다.
    */
+  /** 끌고 있는 것의 이름 — 커서 옆에 적는다 */
+  const dragLabel = (kind: 'req' | 'cat', id: string) => {
+    if (kind === 'cat') return cats.find((c) => c.id === id)?.name ?? '폴더'
+    const r = reqs.find((x) => reqPk(x) === id)
+    return r ? r.title || reqLabel(r) : '요구사항'
+  }
+
   const beginDrag = (e: React.PointerEvent, kind: 'req' | 'cat', id: string) => {
     if (e.button !== 0) return
     const x0 = e.clientX
@@ -312,6 +327,7 @@ export default function ReqTree({
         document.body.style.userSelect = 'none'
         document.body.style.cursor = 'grabbing'
       }
+      setGhost({ x: ev.clientX, y: ev.clientY, label: dragLabel(kind, id) })
       const el = document.elementFromPoint(ev.clientX, ev.clientY)
       const row = el?.closest('[data-folder]') as HTMLElement | null
       if (row) setOver(row.dataset.folder || null)
@@ -325,6 +341,7 @@ export default function ReqTree({
       document.body.style.userSelect = ''
       document.body.style.cursor = ''
       setDrag(null)
+      setGhost(null)
       setOver(undefined)
       if (!started) return
       justDragged.current = true
@@ -407,6 +424,9 @@ export default function ReqTree({
           onPointerDown={(e) => e.stopPropagation()}
           onChange={() => onPick(pk)}
         />
+        <span className="rt-dicon" aria-hidden="true">
+          <IconReqDoc />
+        </span>
         <span className="rt-id" title={full}>
           {shown || '(ID 없음)'}
         </span>
@@ -669,6 +689,13 @@ export default function ReqTree({
           <span className="rt-cnt">{uncat.length || ''}</span>
         </div>
         {uncat.map((r) => reqRow(r, 1, null))}
+
+        {ghost && (
+          <div className="rt-ghost" style={{ left: ghost.x + 14, top: ghost.y + 12 }}>
+            {drag?.kind === 'cat' ? <IconFolder /> : <IconReqDoc />}
+            {ghost.label}
+          </div>
+        )}
 
         {drag && (
           <div className="rt-hint">

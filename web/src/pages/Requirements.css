@@ -239,8 +239,8 @@
 
 .tc-cell .id-cell {
   flex: none;
-  order: 2;
   line-height: 1.3;
+  color: var(--c-text-faint);
 }
 
 .tc-name {

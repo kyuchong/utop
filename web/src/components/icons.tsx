@@ -174,6 +174,48 @@ export const IconFolder = ({ open, ...rest }: P & { open?: boolean }) => (
   </svg>
 )
 
+/**
+ * 요구사항 한 건 — 글이 적힌 종이.
+ *
+ * 트리에서 폴더는 노란 폴더로 갈리는데, **요구사항 줄과 시험 줄은 서로
+ * 안 갈렸다.** 둘 다 그냥 글자였다. ID 앞에 작은 표를 둔다.
+ */
+export const IconReqDoc = (p: P) => (
+  <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false" {...p}>
+    <path
+      d="M4 2h5l3 3v9a.6.6 0 0 1-.6.6H4a.6.6 0 0 1-.6-.6V2.6A.6.6 0 0 1 4 2Z"
+      fill="#dbeafe"
+      stroke="#2563eb"
+      strokeWidth="0.9"
+      strokeLinejoin="round"
+    />
+    <path d="M9 2v3h3" fill="none" stroke="#2563eb" strokeWidth="0.9" strokeLinejoin="round" />
+    <path d="M5.4 8h5M5.4 10.4h5M5.4 12.8h3" stroke="#2563eb" strokeWidth="0.9" strokeLinecap="round" />
+  </svg>
+)
+
+/** 시험 한 건 — 확인 표가 붙은 종이 */
+export const IconTcDoc = (p: P) => (
+  <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false" {...p}>
+    <path
+      d="M4 2h5l3 3v9a.6.6 0 0 1-.6.6H4a.6.6 0 0 1-.6-.6V2.6A.6.6 0 0 1 4 2Z"
+      fill="#dcfce7"
+      stroke="#15803d"
+      strokeWidth="0.9"
+      strokeLinejoin="round"
+    />
+    <path d="M9 2v3h3" fill="none" stroke="#15803d" strokeWidth="0.9" strokeLinejoin="round" />
+    <path
+      d="m5.6 10.6 1.5 1.6 3-3.6"
+      fill="none"
+      stroke="#15803d"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+)
+
 /** 드래그 손잡이 (점 6개) */
 export const IconGrip = (p: P) => (
   <Svg width="12" height="14" strokeWidth="0" {...p}>

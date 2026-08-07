@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, categoryApi, reqApi, tcApi } from '@/api/client'
 import ReqTree from '@/components/ReqTree'
+import { IconTcDoc } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import ReqBulkForm from '@/components/ReqBulkForm'
@@ -579,9 +580,12 @@ export default function Requirements() {
                     return (
                     <div className="tr" key={t.tcid}>
                       <div className="tc-cell">
-                        {/* 읽는 것은 제목이다. ID 는 참조 번호라 작게 위에 둔다. */}
-                        <div className="id-cell">{t.tcid}</div>
+                        {/* 읽는 것은 제목이다. ID 는 참조 번호라 뒤에 작게 */}
+                        <span className="rt-dicon" aria-hidden="true">
+                          <IconTcDoc />
+                        </span>
                         <div className="tc-name">{t.name || '(제목 없음)'}</div>
+                        <div className="id-cell">{t.tcid}</div>
                       </div>
                       {folderMode && (
                         <div className="fold-req">
