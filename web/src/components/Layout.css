@@ -355,11 +355,13 @@
   border: 1px solid var(--c-border-nav);
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
-  color: var(--c-topbar-item);
+  /* 어두운 바탕이라 글자는 흰색이어야 한다. `--c-topbar-item` 은 흐린
+     회색이라 친 글자가 바탕에 묻혀 안 보였다. */
+  color: #fff;
   padding: 0 12px;
   font-size: var(--fs-xs);
 }
-.tsr-in::placeholder { color: var(--c-topbar-item); opacity: 0.6; }
+.tsr-in::placeholder { color: #fff; opacity: 0.45; }
 .tsr-in:focus { outline: none; border-color: var(--c-primary); background: rgba(255, 255, 255, 0.14); }
 .tsr-pop {
   position: absolute;

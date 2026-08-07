@@ -510,9 +510,13 @@
 .rt-more-menu button:disabled { color: var(--c-text-faint); cursor: default; }
 .rt-more-menu hr { border: 0; border-top: 1px solid var(--c-border-soft); margin: 4px 0; }
 
-/* Ctrl·Shift 로 고른 줄. 네모를 없앤 대신 줄 자체가 칠해진다 */
+/* Ctrl·Shift 로 고른 줄. 네모를 없앤 대신 줄 자체가 칠해진다.
+   **한 건만 고른 것도 같은 표시**를 쓴다 — 여럿일 때만 선이 서면
+   「지금 무엇이 골라져 있나」 가 개수에 따라 달라 보인다. */
 .rt-req.picked,
-.rt-fold.picked {
+.rt-fold.picked,
+.rt-req.on,
+.rt-fold.on {
   background: var(--c-primary-bg);
   box-shadow: inset 2px 0 0 var(--c-primary);
 }

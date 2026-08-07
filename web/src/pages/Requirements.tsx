@@ -361,14 +361,15 @@ export default function Requirements() {
             count={allReqs.length}
             picked={
               picked.size > 0 ? (
-                <button
-                  className="btn small danger"
-                  type="button"
-                  onClick={doRemovePicked}
-                  disabled={removeManyM.isPending}
-                >
-                  {removeManyM.isPending ? '삭제 중…' : `${picked.size}건 삭제`}
-                </button>
+                // 「3건 삭제」 라고 적어 두었더니 눌러야 지워지는 단추인데
+                // 이미 지운 것처럼 읽혔다. 몇 개 골랐는지만 알리고, 지우는
+                // 것은 ⋯ 안에 둔다 — 되돌릴 수 없는 일은 한 걸음 안쪽에.
+                <span className="lh-picked">
+                  {picked.size}건 선택됨
+                  <button type="button" onClick={treeSel.clear} title="선택 해제">
+                    ✕
+                  </button>
+                </span>
               ) : undefined
             }
             search={{
@@ -395,6 +396,19 @@ export default function Requirements() {
                 <button type="button" onClick={() => setBulkOpen(true)}>
                   요구사항 일괄 생성
                 </button>
+                {picked.size > 0 && (
+                  <>
+                    <hr />
+                    <button
+                      type="button"
+                      className="danger"
+                      disabled={removeManyM.isPending}
+                      onClick={doRemovePicked}
+                    >
+                      {removeManyM.isPending ? '삭제 중…' : `선택한 ${picked.size}건 삭제`}
+                    </button>
+                  </>
+                )}
                 <hr />
                 <button type="button" onClick={() => setFoldersOnly((v) => !v)}>
                   {foldersOnly ? '✓ ' : ''}폴더 구조만 보기

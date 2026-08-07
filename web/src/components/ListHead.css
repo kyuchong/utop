@@ -61,3 +61,27 @@
 .lh-menu button:hover:not(:disabled) { background: var(--c-surface-2); }
 .lh-menu button:disabled { color: var(--c-text-faint); cursor: default; }
 .lh-menu hr { border: 0; border-top: 1px solid var(--c-border-soft); margin: 4px 0; }
+
+/* 몇 개 골랐는지. 「3건 삭제」 라고 적어 두었더니 눌러야 지워지는 단추인데
+   이미 지운 것처럼 읽혔다. 지우는 것은 ⋯ 안에 둔다 — 되돌릴 수 없는 일은
+   한 걸음 안쪽에. */
+.lh-picked {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 4px 1px 9px;
+  border: 1px solid var(--c-primary);
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  color: var(--c-primary);
+  white-space: nowrap;
+}
+.lh-picked button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 3px;
+  font: inherit;
+}
+.lh-menu button.danger { color: var(--c-fail); }
