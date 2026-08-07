@@ -120,7 +120,7 @@
 .dev-proto {
   margin-left: 6px;
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--r-chip);
   background: #eef2f6;
   color: #48525c;
   font-size: 10px;

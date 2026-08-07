@@ -10,7 +10,7 @@
 .login-box {
   width: 340px;
   padding: var(--sp-6);
-  border-radius: 10px;
+  border-radius: var(--r-card);
   background: var(--c-surface);
   box-shadow: 0 12px 40px rgb(0 0 0 / 0.35);
   display: flex;

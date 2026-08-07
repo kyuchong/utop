@@ -14,7 +14,7 @@
 .resizer-grip {
   width: 2px;
   height: 40px;
-  border-radius: 2px;
+  border-radius: var(--r-chip);
   background: #d4dae4;
   transition: background 0.12s ease, height 0.12s ease;
 }

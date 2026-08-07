@@ -76,7 +76,7 @@
   padding: 4px;
   background: var(--c-surface);
   border: 1px solid var(--tc-line);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   /* 떠 있는 것이라 그림자를 준다. 얕게 두 겹으로 둬야 종이처럼 보인다. */
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.12);
 }
@@ -278,7 +278,7 @@
   max-width: 130px;
   cursor: pointer;
   padding: 1px 2px;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
 }
 
 .tc-sess-dev:hover { background: var(--c-surface); }
@@ -331,7 +331,7 @@
 .dp-f select,
 .dp-f input {
   border: 1px solid #e8ecf0;
-  border-radius: 6px;
+  border-radius: var(--r-box);
   padding: 5px 8px;
   font: inherit;
   font-size: var(--fs-sm);
@@ -347,7 +347,7 @@
   align-items: center;
   gap: var(--sp-2);
   padding: 5px 10px;
-  border-radius: 6px;
+  border-radius: var(--r-box);
 }
 
 .dp-row.th {
@@ -454,7 +454,7 @@
   flex: 1;
   min-width: 40px;
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--r-chip);
   background: var(--tc-hover);
   overflow: hidden;
 }
@@ -748,7 +748,7 @@
 .sd-hint code {
   font-family: var(--font-mono);
   background: var(--tc-hover);
-  border-radius: 3px;
+  border-radius: var(--r-chip);
   padding: 0 3px;
 }
 
@@ -835,7 +835,7 @@
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   background: #fdf6e3;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   padding: 2px 6px;
   color: #8a6100;
 }
@@ -991,7 +991,7 @@
   border: 1px solid #2f4152;
   background: transparent;
   color: #8fb9d9;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   font: inherit;
   font-size: 10px;
   padding: 1px 6px;
@@ -1051,7 +1051,7 @@
   font-weight: 700;
   line-height: 1.5;
   padding: 0 4px;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1091,7 +1091,7 @@
   flex-direction: column;
   background: var(--c-surface);
   border: 1px solid var(--tc-line);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.12);
 }
 
@@ -1136,7 +1136,7 @@
   font-weight: 700;
   color: #97620d;
   background: #fdf1e3;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   padding: 1px 5px;
   white-space: nowrap;
 }
@@ -1245,7 +1245,7 @@
   border: 1px solid var(--tc-line);
   background: var(--c-surface);
   color: var(--c-text-muted);
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   font: inherit;
   font-size: 10px;
   padding: 1px 6px;
@@ -1377,7 +1377,7 @@
   font-size: 13px;
   line-height: 1;
   padding: 2px 4px;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   opacity: 0;
 }
 
@@ -1398,7 +1398,7 @@
   font-family: var(--font-mono);
   background: #eef6ef;
   color: #2f7d4f;
-  border-radius: 3px;
+  border-radius: var(--r-chip);
   padding: 1px 5px;
   word-break: break-all;
 }
@@ -1416,7 +1416,7 @@
   width: 300px;
   background: var(--c-surface);
   border: 1px solid var(--tc-line);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px rgba(16, 24, 40, 0.12);
 }
 
@@ -1435,7 +1435,7 @@
 .tc-parpanel-foot code {
   font-family: var(--font-mono);
   background: var(--tc-hover);
-  border-radius: 3px;
+  border-radius: var(--r-chip);
   padding: 0 4px;
 }
 
@@ -1471,7 +1471,7 @@
   font-size: 10px;
   color: #97620d;
   background: #fdf1e3;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   padding: 1px 5px;
 }
 
@@ -1482,7 +1482,7 @@
   font-size: 10px;
   color: #8a2a2a;
   background: #fdecec;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   padding: 1px 5px;
 }
 
@@ -1522,7 +1522,7 @@
    표로 펼쳐 놓고 누르게 한다. */
 .tb-wrap {
   border: 1px solid var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   background: var(--c-surface);
   overflow: hidden;
 }
@@ -1752,7 +1752,7 @@ table.tb tr.r-bad td:first-child {
   flex-wrap: wrap;
   padding: 10px 12px;
   border: 1px solid var(--c-accent);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   background: var(--c-accent-soft);
 }
 .tp-form label {
@@ -1767,7 +1767,7 @@ table.tb tr.r-bad td:first-child {
   color: var(--c-text-muted);
   padding: 8px 10px;
   border: 1px dashed var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
 }
 
 /* 배선 한 줄 + 펼친 기본값 */
@@ -1817,7 +1817,7 @@ table.tb tr.r-bad td:first-child {
   gap: 10px;
   padding: 14px;
   border: 1px dashed var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   font-size: var(--fs-xs);
   color: var(--c-text-muted);
 }
@@ -1836,7 +1836,7 @@ table.tb tr.r-bad td:first-child {
   min-width: 160px;
   max-width: 100%;
   border: 1px solid var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
 }
 .tp-picopen {
   display: block;
@@ -1855,7 +1855,7 @@ table.tb tr.r-bad td:first-child {
   font-size: var(--fs-xs);
   color: var(--c-fail);
   background: var(--c-fail-soft);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   padding: 8px 10px;
 }
 .tp-bigwrap {
@@ -1876,7 +1876,7 @@ table.tb tr.r-bad td:first-child {
   max-height: 86vh;
   object-fit: contain;
   background: #fff;
-  border-radius: 8px;
+  border-radius: var(--r-card);
 }
 
 /* 계측기 세션. 스위치와 하는 일이 아주 달라 한눈에 갈려야 한다.
@@ -2040,7 +2040,7 @@ table.tb tr.r-bad td:first-child {
   flex-wrap: wrap;
   padding: 10px;
   border: 1px dashed var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   font-size: var(--fs-xs);
   color: var(--c-text-muted);
 }
@@ -2052,7 +2052,7 @@ table.tb tr.r-bad td:first-child {
 .bk-pic img {
   max-width: 100%;
   max-height: 220px;
-  border-radius: 6px;
+  border-radius: var(--r-box);
 }
 /* 되돌릴 수 없는 쪽이 기본이 되면 안 된다 */
 .bk-mode {

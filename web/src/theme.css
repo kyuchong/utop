@@ -82,6 +82,19 @@
      같은 도구로 안 보이고, 무엇보다 **한 화면에 들어가는 줄 수가 다르다.**
      위아래를 같이 봐야 하는 일이 많은데 줄이 크면 그만큼 덜 보인다.
      여기 한 곳에서 정한다. */
+  /* ── 모서리 ──
+     8·7·6·5·4·3·2px 이 뒤섞여 있었다. 한 화면 안에서도 상자마다 달라서
+     같은 사람이 만든 것처럼 안 보인다. 눈금을 셋으로 줄인다.
+       card — 패널·카드처럼 스스로 서는 상자
+       box  — 그 안에 드는 상자 (출력·입력 묶음)
+       chip — 배지·꼬리표처럼 작은 것 */
+  --r-card: 8px;
+  --r-box: 6px;
+  --r-chip: 4px;
+
+  /* 카드 안쪽 여백 — 카드마다 8/9/10/13px 로 달랐다 */
+  --card-pad: 8px 10px;
+
   --row-h: 26px;
   --row-py: 3px;
   --row-px: 8px;
@@ -129,7 +142,7 @@ button {
 .btn {
   background: var(--c-surface);
   border: 1px solid #b6bec8;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-box);
   padding: 7px 11px;
   color: var(--c-text);
   white-space: nowrap;
@@ -153,7 +166,7 @@ button {
 .tag {
   font-size: var(--fs-xs);
   padding: 3px 7px;
-  border-radius: 10px;
+  border-radius: var(--r-card);
   background: #eef2f6;
   color: #48525c;
   white-space: nowrap;
@@ -181,7 +194,7 @@ button {
 .panel {
   background: var(--c-surface);
   border: 1px solid var(--c-border);
-  border-radius: 7px;
+  border-radius: var(--r-box);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -232,7 +245,7 @@ button {
 .seg {
   display: inline-flex;
   border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-box);
   overflow: hidden;
   background: var(--c-surface-alt);
 }

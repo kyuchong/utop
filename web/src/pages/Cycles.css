@@ -92,7 +92,7 @@
   min-height: 0;
   overflow: auto;
   border: 1px solid var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
 }
 .cy-side {
   flex: 0 0 46%;
@@ -202,7 +202,7 @@
 .cy-row.on { outline: 2px solid var(--c-primary); outline-offset: -2px; }
 .cy-steps-pane {
   border: 1px solid var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -254,7 +254,7 @@
 .cy-sp-out {
   margin: 0 0 6px;
   padding: 7px 9px;
-  border-radius: 6px;
+  border-radius: var(--r-box);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   white-space: pre-wrap;
@@ -270,7 +270,7 @@
    나오면 멈춘 것인지 도는 것인지 알 수 없다. */
 .cy-run {
   border: 1px solid var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   overflow: hidden;
   flex: 0 0 auto;
 }
@@ -384,7 +384,7 @@
   align-items: center;
   justify-content: center;
   border: 1px dashed var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
 }
 
 /* 지금 도는 스텝. 「지금 여기」 를 글자로 적으면 눈이 훑다가 놓친다 */
@@ -425,7 +425,7 @@
   min-width: 180px;
   background: var(--c-surface);
   border: 1px solid var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   box-shadow: 0 10px 30px rgba(20, 30, 60, 0.18);
   padding: 4px;
   display: flex;
@@ -436,7 +436,7 @@
   background: transparent;
   text-align: left;
   padding: 6px 10px;
-  border-radius: 6px;
+  border-radius: var(--r-box);
   font: inherit;
   font-size: var(--fs-xs);
   color: var(--c-text);
@@ -476,7 +476,7 @@ select.cy-v.na { color: #999; }
   gap: 10px;
   padding: 6px 9px;
   margin-bottom: 8px;
-  border-radius: 6px;
+  border-radius: var(--r-box);
   background: var(--c-surface-2);
   font-size: var(--fs-xs);
   color: var(--c-text-muted);
@@ -485,8 +485,8 @@ select.cy-v.na { color: #999; }
 .sc-only { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer; }
 .sc-card {
   border: 1px solid var(--c-border);
-  border-radius: 8px;
-  padding: 8px 10px 10px;
+  border-radius: var(--r-card);
+  padding: var(--card-pad);
   margin-bottom: 8px;
 }
 .sc-card.bad { border-color: var(--c-fail); }
@@ -495,7 +495,7 @@ select.cy-v.na { color: #999; }
 .sc-head .sp { margin-left: auto; }
 .sc-kind {
   border: 1px solid var(--c-border);
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   padding: 0 5px;
   color: var(--c-text-muted);
 }
@@ -506,7 +506,7 @@ select.cy-v.na { color: #999; }
 .sc-v.wip { color: #f5b731; }
 .sc-v.blocked { color: #e8820c; }
 .sc-v.na { color: #999; }
-select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
+select.sc-v { border: 1px solid var(--c-border); border-radius: var(--r-chip); background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
 .sc-sec { margin-top: 7px; }
 .sc-sec > i {
   display: block;
@@ -521,7 +521,7 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
 .sc-type {
   background: var(--c-accent-soft);
   color: var(--c-accent);
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   padding: 0 6px;
   font-size: var(--fs-xs);
   white-space: nowrap;
@@ -531,7 +531,7 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
   margin: 0;
   padding: 7px 9px;
   border: 1px solid var(--c-border);
-  border-radius: 6px;
+  border-radius: var(--r-box);
   background: var(--c-surface-2);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
@@ -574,7 +574,7 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
   display: flex;
   flex-direction: column;
   border: 1px solid var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   overflow: hidden;
 }
 .ce-colhead {
@@ -649,7 +649,7 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
   flex: 1;
   min-width: 0;
   border: 1px solid var(--c-border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   padding: 8px 10px;
 }
 .ask-left { border-color: var(--c-accent); background: var(--c-accent-soft); }
@@ -670,8 +670,8 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
 .ask-steps { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .ask-step {
   border: 1px solid var(--c-border);
-  border-radius: 6px;
-  padding: 6px 8px;
+  border-radius: var(--r-box);
+  padding: var(--card-pad);
   background: var(--c-surface);
 }
 .ask-step-h { display: flex; gap: 6px; align-items: baseline; margin-bottom: 4px; }
@@ -683,8 +683,8 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
 .ask-res { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
 .ask-r {
   border: 1px solid var(--c-border);
-  border-radius: 6px;
-  padding: 5px 8px;
+  border-radius: var(--r-box);
+  padding: var(--card-pad);
   background: var(--c-surface);
 }
 .ask-r.bad { border-color: var(--c-fail); }
@@ -699,7 +699,7 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
 .ask-r-out {
   margin: 4px 0 0;
   padding: 6px 8px;
-  border-radius: 5px;
+  border-radius: var(--r-box);
   background: var(--c-surface-2);
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
@@ -729,7 +729,7 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
   font-size: var(--fs-xs);
   color: var(--c-draft);
   background: var(--c-surface-2);
-  border-radius: 6px;
+  border-radius: var(--r-box);
   padding: 6px 8px;
 }
 .ask-step input.need { border-color: var(--c-draft); }
@@ -742,7 +742,7 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: 4px; background:
   margin-top: 5px;
   padding: 5px 7px;
   border: 1px solid var(--c-accent);
-  border-radius: 6px;
+  border-radius: var(--r-box);
   background: var(--c-accent-soft);
   font-size: var(--fs-xs);
 }
