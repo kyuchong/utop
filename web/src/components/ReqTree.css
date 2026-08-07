@@ -62,7 +62,7 @@
    달랐고 선 간격이 들쭉날쭉했다. 두 줄 모두 같은 값으로 못박는다. */
 .rt-fold,
 .rt-req {
-  min-height: 28px;
+  min-height: var(--row-h);
   box-sizing: border-box;
 }
 
@@ -70,7 +70,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 6px;
+  padding: var(--row-py) var(--row-px);
   border-radius: var(--rt-r);
   white-space: nowrap;
   position: relative;

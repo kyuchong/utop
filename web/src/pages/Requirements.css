@@ -206,7 +206,7 @@
   display: grid;
   grid-template-columns: 1fr 110px 60px 96px;
   align-items: center;
-  min-height: 47px;
+  min-height: var(--row-h);
   border-bottom: 1px solid var(--c-border-soft);
 }
 
@@ -215,7 +215,7 @@
 }
 
 .tr > div {
-  padding: 0 9px;
+  padding: var(--row-py) var(--row-px);
   min-width: 0;
 }
 
@@ -223,20 +223,32 @@
   background: var(--c-surface-alt);
   color: #5b6670;
   font-size: var(--fs-label);
-  min-height: 36px;
+  min-height: var(--row-h);
 }
 
 /* 연결된 TC 행: ID 는 작게 위, 제목은 본문 크기로 아래.
    읽는 것은 제목이므로 ID 보다 제목이 커야 한다. */
+/* ID 와 제목을 위아래로 두었더니 줄이 47px 이 됐다. 한 줄에 나란히 둔다 —
+   읽는 것은 제목이고 ID 는 곁들이다. */
 .tc-cell {
   min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .tc-cell .id-cell {
+  flex: none;
+  order: 2;
   line-height: 1.3;
 }
 
 .tc-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--fs-md);
   color: var(--c-text);
   line-height: 1.35;
