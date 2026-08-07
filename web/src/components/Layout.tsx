@@ -7,6 +7,7 @@ import {
   IconExecution,
   IconKnowledge,
   IconPanelToggle,
+  IconPlug,
   IconRelease,
   IconRequirements,
   IconDevice,
@@ -55,10 +56,19 @@ export const NAV: NavGroup[] = [
     ],
   },
   {
-    title: 'MANAGEMENT',
+    /*
+     * INTEGRATION — 밖과 이어지는 것들.
+     *
+     * 「MANAGEMENT」 였는데, 여기 있는 것이 실은 전부 Jira 다.
+     * `/api/jira/defect/*` 가 말해 준다 — 결함은 우리가 따로 들고 있는
+     * 자료가 아니라 **Jira 이슈**고, 릴리즈도 Jira 의 fixVersion 이다.
+     * 이름이 하는 일과 맞아야 어디를 눌러야 할지 헤매지 않는다.
+     */
+    title: 'INTEGRATION',
     items: [
       { key: 'defects', label: 'Defects', Icon: IconDefect },
       { key: 'releases', label: 'Releases', Icon: IconRelease },
+      { key: 'jira', label: 'Jira 연동', Icon: IconPlug },
     ],
   },
   {

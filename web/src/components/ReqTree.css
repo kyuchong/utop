@@ -147,12 +147,16 @@
 /* ── 요구사항 줄 ─────────────────────────────────────────── */
 .rt-req {
   display: grid;
-  /* ID 칸을 148px 로 못박았더니 `PERF-001` 처럼 짧은 것 뒤가 통째로
-     비었다. 글자만큼만 쓰고 나머지는 제목이 가져간다 — 같은 폴더 안은
-     ID 길이가 대개 같아서 저절로 줄이 맞는다. */
-  /* ID 칸은 글자만큼(`max-content`). `auto` 로 두었더니 칸이 좁아질 때
-     같이 줄어들어 `P…` 처럼 뭉개졌다. 줄어들 몫은 제목이 진다. */
-  grid-template-columns: 16px 16px max-content minmax(0, 1fr) auto;
+  /*
+   * 표 · ID · 제목 · 수 — 넷.
+   *
+   * 네모를 걷어냈는데 그 칸(16px)을 안 지워서, ID 가 16px 짜리 칸에
+   * 들어가 제목 위로 넘쳐 겹쳐 그려졌다.
+   *
+   * ID 칸은 글자만큼(`max-content`). 좁아질 때 줄어들 몫은 제목이 진다 —
+   * 제목은 잘려도 앞부분으로 알아보지만 ID 는 한 글자만 잘려도 못 쓴다.
+   */
+  grid-template-columns: 16px max-content minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
   padding: var(--row-py) var(--row-px);
