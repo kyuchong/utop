@@ -7,6 +7,8 @@ interface Props {
   count?: number
   /** 여러 개 골랐을 때 나오는 것 (삭제 같은 것) */
   picked?: ReactNode
+  /** 찾는 칸 — 이름 오른쪽에 붙인다 */
+  search?: { value: string; placeholder: string; onChange: (v: string) => void }
   /** 늘 쓰는 것 하나. 「+ 만들기」 */
   add?: { title: string; onClick: () => void }
   /** ⋯ 안에 들어갈 것들 */
@@ -25,7 +27,7 @@ interface Props {
  * 늘 쓰는 것 하나만 밖에 두고 나머지는 ⋯ 안에 넣는다. 단추가 넷이면 줄
  * 하나를 다 먹는데 그중 셋은 어쩌다 한 번 쓴다.
  */
-export default function ListHead({ name, count, picked, add, menu }: Props) {
+export default function ListHead({ name, count, picked, search, add, menu }: Props) {
   const [open, setOpen] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
 
@@ -50,8 +52,16 @@ export default function ListHead({ name, count, picked, add, menu }: Props) {
         {name}
         {count !== undefined && <b>{count}</b>}
       </span>
+      {search && (
+        <input
+          className="lh-q"
+          value={search.value}
+          placeholder={search.placeholder}
+          onChange={(e) => search.onChange(e.target.value)}
+        />
+      )}
       {picked}
-      <span className="sp" />
+      {!search && <span className="sp" />}
       {add && (
         <button className="btn small primary" type="button" title={add.title} onClick={add.onClick}>
           +

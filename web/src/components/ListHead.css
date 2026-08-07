@@ -6,7 +6,17 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px 6px;
+  padding: 0 10px;
+  /* 2열의 탭 줄과 같은 높이·같은 선. 한쪽만 선이 없으면 두 칸의 머리가
+     어긋나 보인다. */
+  min-height: 46px;
+  border-bottom: 1px solid var(--c-border);
+}
+/* 찾는 칸은 이름 오른쪽에. 아래에 따로 두면 그 줄만큼 목록이 준다 */
+.lh-q {
+  flex: 1;
+  min-width: 90px;
+  height: 26px;
 }
 .lh .sp { margin-left: auto; }
 .lh-name {

@@ -193,9 +193,15 @@
 .rt-id {
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  /*
+   * 줄어들지 않는다.
+   *
+   * `overflow: hidden` 을 두면 격자 칸의 최소 크기가 0 이 되어, 칸이
+   * `max-content` 여도 0까지 눌린다. 그래서 `PERF-001` 이 `P…` 가 됐다.
+   * ID 는 한 글자만 잘려도 못 쓰니, 줄어들 몫은 제목이 진다.
+   */
+  min-width: max-content;
 }
 
 .rt-title {

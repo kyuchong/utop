@@ -42,7 +42,7 @@ export const NAV: NavGroup[] = [
     title: 'QUALITY',
     items: [
       { key: 'requirements', label: 'Requirements', Icon: IconRequirements },
-      { key: 'testcases', label: 'Test Cases', Icon: IconTestCase },
+      { key: 'testcases', label: 'Coverage', Icon: IconTestCase },
       { key: 'cycles', label: 'Cycles', Icon: IconCycle },
       { key: 'executions', label: 'Executions', Icon: IconExecution },
     ],

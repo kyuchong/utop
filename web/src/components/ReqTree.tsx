@@ -38,6 +38,8 @@ interface Props {
   picked: Set<string>
   /** 보기 방식 — ⋯ 메뉴에서 켠다 */
   view?: { fullId: boolean; foldersOnly: boolean }
+  /** 찾는 글자 — 머리줄에서 받는다 */
+  q?: string
   /** 줄을 눌렀다 — Ctrl·Shift 는 화면이 판단한다 */
   onRowClick: (
     id: string,
@@ -82,6 +84,7 @@ export default function ReqTree({
   selectedFolder,
   onSelectFolder,
   view,
+  q = '',
   picked,
   onRowClick,
   sort = 'id',
@@ -101,7 +104,6 @@ export default function ReqTree({
     localStorage.setItem('utop.reqtree.open', JSON.stringify([...openIds]))
   }, [openIds])
 
-  const [q, setQ] = useState('')
   /** 우클릭 메뉴 */
   const [ctx, setCtx] = useState<Ctx | null>(null)
   /** 제자리 이름 변경 중인 폴더 id */
@@ -635,15 +637,6 @@ export default function ReqTree({
         justDragged.current = false
       }}
     >
-      <div className="rt-search">
-        <input
-          value={q}
-          placeholder="REQ ID · 제목 검색"
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => e.key === 'Escape' && setQ('')}
-        />
-      </div>
-
       {error && <div className="rt-error">{error}</div>}
 
       {clip && (

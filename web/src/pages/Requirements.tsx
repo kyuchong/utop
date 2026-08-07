@@ -50,6 +50,8 @@ export default function Requirements() {
   const [foldersOnly, setFoldersOnly] = useState(false)
   /** 폴더 안의 차례 — ID 순이 기본. 번호가 이어져야 빠진 것이 눈에 띈다 */
   const [sort, setSort] = useState<'id' | 'title'>('id')
+  /** 찾는 글자 — 트리 안에 있던 줄을 머리줄로 올렸다 */
+  const [treeQ, setTreeQ] = useState('')
   const [selectedFolder, setSelectedFolder] = useState<string | null | undefined>(() => {
     // 'null'(미분류)과 '안 고름'(undefined)을 문자열 하나로 갈라 담는다
     const v = localStorage.getItem(FOLDER_KEY)
@@ -369,6 +371,11 @@ export default function Requirements() {
                 </button>
               ) : undefined
             }
+            search={{
+              value: treeQ,
+              placeholder: 'REQ ID · 제목 검색',
+              onChange: setTreeQ,
+            }}
             add={{ title: '요구사항 만들기', onClick: () => setForm(null) }}
             menu={
               <>
@@ -419,6 +426,7 @@ export default function Requirements() {
                 setSelectedFolder(undefined)
               }}
               view={{ fullId, foldersOnly }}
+              q={treeQ}
               selectedFolder={selectedFolder}
               onSelectFolder={(id) => {
                 setSelectedFolder(id)
