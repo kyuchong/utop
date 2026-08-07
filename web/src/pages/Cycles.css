@@ -794,3 +794,10 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: var(--r-chip); b
   background: var(--c-primary);
   color: #fff;
 }
+
+/* Ctrl·Shift 로 고른 항목. 네모 없이 줄 자체가 칠해진다 */
+.cy-row.picked {
+  background: var(--c-primary-bg);
+  box-shadow: inset 2px 0 0 var(--c-primary);
+}
+.cy-row { grid-template-columns: 1fr 64px 88px 104px 52px; }

@@ -28,8 +28,12 @@ interface Props {
   onOpenParam: (key: string) => void
   /** 한꺼번에 고친다고 고른 TC 들 */
   picked: Set<string>
-  /** 여러 건을 한 번에 켜고 끈다 — 요구사항 줄·폴더 줄의 네모가 쓴다 */
-  onPick: (ids: string[], on: boolean) => void
+  /** 줄을 눌렀다 — Ctrl·Shift 는 화면이 판단한다 */
+  onPickClick: (
+    id: string,
+    e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean },
+    order: string[],
+  ) => void
 }
 
 /** 이 요구사항이 놓인 가장 깊은 분류 id. 없으면 null(미분류) */
@@ -55,7 +59,7 @@ export default function TcTree({
   paramKey,
   onOpenParam,
   picked,
-  onPick,
+  onPickClick,
 }: Props) {
   const qc = useQueryClient()
   const [q, setQ] = useState('')
@@ -218,7 +222,7 @@ export default function TcTree({
     reqsOf(n.id).reduce((a, r) => a + shownTcs(r).length, 0) +
     n.children.reduce((a, k) => a + countDeep(k), 0)
 
-  /** 이 폴더 아래(하위 폴더까지)의 TC 전부. 폴더 네모가 켜고 끌 대상 */
+  /** 이 폴더 아래(하위 폴더까지)의 TC 전부 */
   const deepTcs = (n: CategoryTreeNode): TestCaseMeta[] => [
     ...reqsOf(n.id).flatMap((r) => shownTcs(r)),
     ...n.children.flatMap(deepTcs),
@@ -235,6 +239,32 @@ export default function TcTree({
   /** 검색 중에는 전부 펼친다 — 접힌 가지 안에 있으면 찾은 보람이 없다 */
   const isOpen = (id: string) => (needle ? true : openIds.has(id))
 
+  /**
+   * 지금 화면에 보이는 TC 차례.
+   *
+   * Shift 범위는 **눈에 보이는 순서**로 잡혀야 한다. 접힌 가지 안의 것을
+   * 세면 「여기부터 저기까지」 가 화면과 달라진다.
+   */
+  const shownOrder = (() => {
+    const out: string[] = []
+    const walk = (n: CategoryTreeNode) => {
+      if (!isOpen(n.id)) return
+      for (const r of reqsOf(n.id)) {
+        if (!isOpen(reqPk(r))) continue
+        for (const x of shownTcs(r)) out.push(x.tcid)
+      }
+      n.children.forEach(walk)
+    }
+    tree.forEach(walk)
+    for (const r of reqsOf(null)) {
+      if (!isOpen(reqPk(r))) continue
+      for (const x of shownTcs(r)) out.push(x.tcid)
+    }
+    return out
+  })()
+
+
+
   /*
    * TC 줄.
    *
@@ -243,17 +273,15 @@ export default function TcTree({
    */
   const tcRow = (t: TestCaseMeta, depth: number) => (
     <div className="tt-row" key={t.tcid} style={{ paddingLeft: 10 + depth * 14 }}>
-      <input
-        type="checkbox"
-        className="tt-ck"
-        checked={picked.has(t.tcid)}
-        aria-label={`${t.name || t.tcid} 고르기`}
-        onChange={(e) => onPick([t.tcid], e.target.checked)}
-      />
       <button
         type="button"
-        className={`tt-tc${openId === t.tcid ? ' on' : ''}`}
-        onClick={() => onOpen(t.tcid)}
+        className={`tt-tc${openId === t.tcid ? ' on' : ''}${picked.has(t.tcid) ? ' picked' : ''}`}
+        // Ctrl·Shift 로 여러 개. 파일 탐색기·iTest 와 같은 규칙이라
+        // 손이 이미 아는 방식이다.
+        onClick={(e) => {
+          onPickClick(t.tcid, e, shownOrder)
+          if (!e.ctrlKey && !e.metaKey && !e.shiftKey) onOpen(t.tcid)
+        }}
         title={t.tcid}
       >
         {/* 요구사항 줄과 갈리게. 둘 다 그냥 글자였다 */}
@@ -268,33 +296,6 @@ export default function TcTree({
       </button>
     </div>
   )
-
-  /** 이 묶음이 다 골라졌나 · 일부인가 */
-  const state = (ids: string[]): 'on' | 'some' | 'off' => {
-    if (!ids.length) return 'off'
-    const n = ids.filter((x) => picked.has(x)).length
-    return n === 0 ? 'off' : n === ids.length ? 'on' : 'some'
-  }
-
-  /** 요구사항 줄·폴더 줄에 붙는 네모. 그 아래 TC 를 통째로 켜고 끈다 */
-  const groupCk = (ids: string[], label: string) => {
-    const s = state(ids)
-    return (
-      <input
-        type="checkbox"
-        className="tt-ck"
-        checked={s === 'on'}
-        ref={(el) => {
-          // 일부만 골라진 상태를 눈으로 구분한다 — 다 고른 것과 같아 보이면
-          // 폴더를 다시 눌러 통째로 꺼 버린다
-          if (el) el.indeterminate = s === 'some'
-        }}
-        aria-label={`${label} 아래 시험 ${ids.length}건 고르기`}
-        onClick={(e) => e.stopPropagation()}
-        onChange={(e) => onPick(ids, e.target.checked)}
-      />
-    )
-  }
 
   const reqRow = (r: Requirement, depth: number, folderName: string | null) => {
     const pk = reqPk(r)
@@ -321,11 +322,6 @@ export default function TcTree({
           </span>
           {/* TC 가 없는 요구사항에도 자리를 지킨다. 안 그리면 뒤 칸이
               한 칸씩 밀려서 제목과 숫자가 엉뚱한 데로 간다. */}
-          {mine.length > 0 ? (
-            groupCk(mine.map((x) => x.tcid), full)
-          ) : (
-            <span className="tt-ck-gap" aria-hidden="true" />
-          )}
           <span className="rt-dicon" aria-hidden="true">
             <IconReqDoc />
           </span>
@@ -367,7 +363,6 @@ export default function TcTree({
           <span className={`rt-caret${open ? ' open' : ''}`}>
             <IconChevron />
           </span>
-          {groupCk(deepTcs(n).map((x) => x.tcid), n.name)}
           {/* 요구사항 화면과 같은 폴더 표시 */}
           <span className="rt-ficon" aria-hidden="true">
             <IconFolder open={open} />

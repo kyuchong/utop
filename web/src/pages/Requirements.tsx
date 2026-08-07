@@ -43,6 +43,10 @@ export default function Requirements() {
    * TC 가 전부 모인다. '이 묶음의 시험이 다 됐나' 는 요구사항 한 건이
    * 아니라 묶음 단위로 묻게 된다.
    */
+  const [moreOpen, setMoreOpen] = useState(false)
+  /** 보기 방식 — 트리 안에 있던 단추를 ⋯ 로 옮겼다 */
+  const [fullId, setFullId] = useState(false)
+  const [foldersOnly, setFoldersOnly] = useState(false)
   const [selectedFolder, setSelectedFolder] = useState<string | null | undefined>(() => {
     // 'null'(미분류)과 '안 고름'(undefined)을 문자열 하나로 갈라 담는다
     const v = localStorage.getItem(FOLDER_KEY)
@@ -360,14 +364,6 @@ export default function Requirements() {
             <span className="rt-count">
               요구사항 <b>{allReqs.length}</b>건
             </span>
-            <button
-              className="btn small"
-              type="button"
-              disabled={!selectedReq}
-              onClick={() => selectedReq && setForm(selectedReq)}
-            >
-              편집
-            </button>
             {(picked.size > 0 || pickedFolders.size > 0) && (
               <button
                 className="btn small danger"
@@ -381,22 +377,67 @@ export default function Requirements() {
               </button>
             )}
             <span className="sp" />
-            <button className="btn small" type="button" onClick={() => setBulkOpen(true)}>
-              일괄
-            </button>
+            {/* 늘 쓰는 것 하나만 밖에 두고 나머지는 ⋯ 안으로.
+                단추 넷이 줄 하나를 다 먹고 있었는데, 그중 셋은 어쩌다 한 번
+                쓴다. 목록이 그만큼 짧아졌다. */}
             <button className="btn small primary" type="button" onClick={() => setForm(null)}>
               + REQ
             </button>
-            {/* 폴더 만들기는 요구사항 만들기 오른쪽에. 둘 다 '새로 만드는'
-                일이라 붙여 두고, 자주 쓰는 + REQ 를 왼쪽에 둔다. */}
-            <button
-              className="btn small"
-              type="button"
-              title="폴더 추가"
-              onClick={() => setAddFolder((n) => n + 1)}
-            >
-              + 폴더
-            </button>
+            <div className="rt-more">
+              <button
+                className="btn small"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={moreOpen}
+                title="더 보기"
+                onClick={() => setMoreOpen((v) => !v)}
+              >
+                ⋯
+              </button>
+              {moreOpen && (
+                <>
+                  <div className="rt-more-back" onClick={() => setMoreOpen(false)} />
+                  <div className="rt-more-menu" role="menu">
+                    <button
+                      type="button"
+                      disabled={!selectedReq}
+                      onClick={() => {
+                        setMoreOpen(false)
+                        if (selectedReq) setForm(selectedReq)
+                      }}
+                    >
+                      고른 요구사항 편집
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreOpen(false)
+                        setAddFolder((n) => n + 1)
+                      }}
+                    >
+                      폴더 추가
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMoreOpen(false)
+                        setBulkOpen(true)
+                      }}
+                    >
+                      일괄 생성
+                    </button>
+                    <hr />
+                    {/* 보기 방식 — 켜져 있으면 표시가 남는다 */}
+                    <button type="button" onClick={() => setFoldersOnly((v) => !v)}>
+                      {foldersOnly ? '✓ ' : ''}폴더 구조만 보기
+                    </button>
+                    <button type="button" onClick={() => setFullId((v) => !v)}>
+                      {fullId ? '✓ ' : ''}전체 ID 보기
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
           {loading ? (
             <div className="empty">불러오는 중…</div>
@@ -411,7 +452,8 @@ export default function Requirements() {
                 setSelected(pk)
                 setSelectedFolder(undefined)
               }}
-              selectedFolder={selectedFolder}
+              view={{ fullId, foldersOnly }}
+            selectedFolder={selectedFolder}
               onSelectFolder={(id) => {
                 setSelectedFolder(id)
                 setSelected(null)

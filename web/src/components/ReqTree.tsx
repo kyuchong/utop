@@ -31,6 +31,8 @@ interface Props {
   onSelectFolder: (catId: string | null) => void
   /** 여러 건 고르기 (삭제용) */
   picked: Set<string>
+  /** 보기 방식 — ⋯ 메뉴에서 켠다 */
+  view?: { fullId: boolean; foldersOnly: boolean }
   onPick: (reqPk: string) => void
   /** 고른 폴더. 바깥 버튼에서 삭제하려고 올려 보낸다 */
   pickedFolders: Set<string>
@@ -70,6 +72,7 @@ export default function ReqTree({
   onSelect,
   selectedFolder,
   onSelectFolder,
+  view,
   picked,
   onPick,
   pickedFolders,
@@ -112,9 +115,12 @@ export default function ReqTree({
    */
   const [ghost, setGhost] = useState<{ x: number; y: number; label: string } | null>(null)
   const [over, setOver] = useState<string | null | undefined>(undefined)
-  const [fullId, setFullId] = useState(false)
+  // 「폴더만 · 전체 ID」 는 ⋯ 메뉴로 옮겼다. 상태는 화면이 들고 있고
+  // 여기서는 받아 쓴다 — 단추가 트리 위 줄을 먹고 있었다.
+  const fullId = view?.fullId ?? false
+  const foldersOnly = view?.foldersOnly ?? false
   /** 폴더 구조만 보기 — 정리할 때 요구사항이 사이에 끼면 트리가 길다 */
-  const [foldersOnly, setFoldersOnly] = useState(false)
+
 
   const treeRef = useRef<HTMLDivElement>(null)
   /**
@@ -604,22 +610,6 @@ export default function ReqTree({
           onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => e.key === 'Escape' && setQ('')}
         />
-        <button
-          type="button"
-          className={`rt-toggle${foldersOnly ? ' on' : ''}`}
-          title="폴더 구조만 보기 — 정리할 때 트리가 짧아집니다"
-          onClick={() => setFoldersOnly((v) => !v)}
-        >
-          폴더만
-        </button>
-        <button
-          type="button"
-          className={`rt-toggle${fullId ? ' on' : ''}`}
-          title={fullId ? '짧게 보기' : '전체 ID 보기'}
-          onClick={() => setFullId((v) => !v)}
-        >
-          ID
-        </button>
       </div>
 
       {error && <div className="rt-error">{error}</div>}

@@ -5,6 +5,7 @@ import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
+import { useMultiSelect } from '@/components/useMultiSelect'
 import type { Device } from '@/pages/Devices'
 import { IconChevron, IconFolder } from '@/components/icons'
 import type { TestCaseMeta } from '@/types'
@@ -468,8 +469,14 @@ function CycleDetail({
       return (await r.json()) as { items?: CycleItemLite[] }
     },
   })
-  /** 돌릴 항목 */
-  const [pick, setPick] = useState<Set<number>>(new Set())
+  /**
+   * 돌리거나 뺄 항목.
+   *
+   * 줄마다 네모를 두는 대신 **Ctrl·Shift** 로 고른다 — 파일 탐색기·iTest 와
+   * 같은 규칙이라 손이 이미 아는 방식이다.
+   */
+  const sel = useMultiSelect<number>()
+  const pick = sel.picked
   const { st, run, stop } = useCycleRun(devices)
   /** 항목 추가 창 */
   const [adding, setAdding] = useState(false)
@@ -555,9 +562,7 @@ function CycleDetail({
               // 자리 번호가 아니라 tcid 로 뺀다 — 걸러 보고 있으면 번호가
               // 어긋나서 엉뚱한 것이 빠진다
               const ids = new Set([...pick].map((i) => items[i]?.tcid).filter(Boolean))
-              void saveItems((cur) => cur.filter((x) => !ids.has(x.tcid))).then(() =>
-                setPick(new Set()),
-              )
+              void saveItems((cur) => cur.filter((x) => !ids.has(x.tcid))).then(sel.clear)
             }}
           >
             {pick.size}건 빼기
@@ -640,7 +645,6 @@ function CycleDetail({
       <div className="cy-cols">
       <div className="cy-list">
         <div className="cy-row cy-hd">
-          <span className="cy-ck" />
           <span>시험</span>
           <span>결과</span>
           <span>담당</span>
@@ -654,12 +658,19 @@ function CycleDetail({
           const at = items.indexOf(it)
           return (
             <div
-              className={`cy-row v-${v}${openItem === at ? ' on' : ''}${st.itemAt === at ? ' running' : ''}`}
+              className={`cy-row v-${v}${openItem === at ? ' on' : ''}${
+                pick.has(at) ? ' picked' : ''
+              }${st.itemAt === at ? ' running' : ''}`}
               key={`${it.tcid}-${i}`}
               role="button"
               tabIndex={0}
-              title="누르면 스텝과 실행 내역"
-              onClick={() => setOpenItem(openItem === at ? -1 : at)}
+              title="누르면 스텝과 실행 내역 · Ctrl·Shift 로 여러 개"
+              onClick={(e) => {
+                sel.onClick(at, e, rows.map((x) => items.indexOf(x)))
+                // 그냥 누른 것이면 그 항목을 연다
+                if (!e.ctrlKey && !e.metaKey && !e.shiftKey)
+                  setOpenItem(openItem === at ? -1 : at)
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault()
@@ -667,21 +678,6 @@ function CycleDetail({
                 }
               }}
             >
-              <input
-                type="checkbox"
-                className="cy-ck"
-                checked={pick.has(at)}
-                aria-label={`${it.name || it.tcid} 고르기`}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) =>
-                  setPick((s) => {
-                    const n = new Set(s)
-                    if (e.target.checked) n.add(at)
-                    else n.delete(at)
-                    return n
-                  })
-                }
-              />
               <span className="cy-tc" title={it.tcid}>
                 {it.name || it.tcid}
                 {steps.length > 0 && (

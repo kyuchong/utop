@@ -4,6 +4,7 @@ import { api, apiFetch, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import TcBulkForm from '@/components/TcBulkForm'
 import TcBulkEdit from '@/components/tc/TcBulkEdit'
+import { useMultiSelect } from '@/components/useMultiSelect'
 import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTree from '@/components/tc/TcTree'
@@ -151,18 +152,15 @@ export default function TestCases() {
 
   const tcs = tcQ.data?.tcs ?? []
 
-  /** 한꺼번에 고치려고 고른 TC 들. 스텝 고르기(`picked`)와 다른 것이다 */
-  const [pickedTc, setPickedTc] = useState<Set<string>>(new Set())
+  /**
+   * 한꺼번에 고치려고 고른 TC 들. 스텝 고르기(`picked`)와 다른 것이다.
+   *
+   * 줄마다 네모를 두었더니 목록이 좁아지고 다른 도구와 다르게 동작했다.
+   * 파일 탐색기·iTest 처럼 **Ctrl·Shift** 로 고른다.
+   */
+  const tcSel = useMultiSelect<string>()
+  const pickedTc = tcSel.picked
   const [bulkEdit, setBulkEdit] = useState(false)
-  const pickTcs = (ids: string[], on: boolean) =>
-    setPickedTc((s) => {
-      const n = new Set(s)
-      for (const id of ids) {
-        if (on) n.add(id)
-        else n.delete(id)
-      }
-      return n
-    })
 
   useEffect(() => {
     localStorage.setItem(TAB_KEY, tab)
@@ -722,7 +720,7 @@ export default function TestCases() {
           onClose={() => setBulkEdit(false)}
           onDone={(text) => {
             setBulkEdit(false)
-            setPickedTc(new Set())
+            tcSel.clear()
             setMsg({ kind: 'ok', text })
             void tcQ.refetch()
             // 지금 열어 둔 TC 도 방금 바뀌었을 수 있다
@@ -934,7 +932,7 @@ export default function TestCases() {
               paramKey={paramKey}
               onOpenParam={setParamKey}
               picked={pickedTc}
-              onPick={pickTcs}
+              onPickClick={tcSel.onClick}
             />
           )}
           {/* 고른 것이 있을 때만 뜬다. 늘 있으면 목록이 그만큼 좁아진다.
@@ -944,7 +942,7 @@ export default function TestCases() {
             <div className="tt-bulk">
               <b>{pickedTc.size}건</b> 고름
               <span className="sp" />
-              <button className="btn small" type="button" onClick={() => setPickedTc(new Set())}>
+              <button className="btn small" type="button" onClick={tcSel.clear}>
                 해제
               </button>
               <button
