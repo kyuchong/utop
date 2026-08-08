@@ -11,6 +11,10 @@ aiofiles==23.2.1
 python-dotenv==1.2.2
 httpx==0.27.0
 netmiko
+# SNMP 스텝(get·set·trap). 없으면 스텝이 「pysnmp 미설치」 로 실패한다 —
+# 코드가 이미 쓰고 있는데 목록에만 빠져 있었다.
+# hlapi.v3arch.asyncio 를 쓰므로 6.x 이상이어야 한다.
+pysnmp==7.1.28
 python-pptx
 Pillow
 stcrestclient
