@@ -7,10 +7,20 @@ param(
     [int]$Port = 5099,
     [string]$Key = $env:N2X_RELAY_KEY,
     [string]$Tclsh = $(if ($env:N2X_TCLSH) { $env:N2X_TCLSH } else { "C:\Program Files (x86)\N2xTcl85\bin\n2xtclsh85.exe" }),
-    [string]$Daemon = $(Join-Path $PSScriptRoot "n2x_daemon.tcl")
+    [string]$Daemon = ""
 )
 
 $ErrorActionPreference = "Stop"
+
+# Resolve daemon path across PowerShell versions ($PSScriptRoot can be empty on old ones)
+if (-not $Daemon) {
+    $dir = $PSScriptRoot
+    if (-not $dir -and $PSCommandPath) { $dir = Split-Path -Parent $PSCommandPath }
+    if (-not $dir -and $MyInvocation.MyCommand.Path) { $dir = Split-Path -Parent $MyInvocation.MyCommand.Path }
+    if (-not $dir) { $dir = (Get-Location).Path }
+    $Daemon = Join-Path $dir "n2x_daemon.tcl"
+}
+
 $script:daemons = @{}
 
 function Start-Daemon($server, $label) {
