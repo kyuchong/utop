@@ -222,6 +222,14 @@ export const IconTcDoc = (p: P) => (
   </svg>
 )
 
+/** 돋보기 */
+export const IconSearch = (p: P) => (
+  <Svg width="15" height="15" strokeWidth="2" {...p}>
+    <circle cx="11" cy="11" r="6" />
+    <path d="m20 20-4.4-4.4" />
+  </Svg>
+)
+
 /** 드래그 손잡이 (점 6개) */
 export const IconGrip = (p: P) => (
   <Svg width="12" height="14" strokeWidth="0" {...p}>

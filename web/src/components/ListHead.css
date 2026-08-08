@@ -12,11 +12,49 @@
   min-height: 46px;
   border-bottom: 1px solid var(--c-border);
 }
-/* 찾는 칸은 이름 오른쪽에. 아래에 따로 두면 그 줄만큼 목록이 준다 */
-.lh-q {
-  flex: 1;
-  min-width: 90px;
+/*
+ * 찾기 — 평소에는 돋보기, 누르면 **왼쪽으로 자란다.**
+ *
+ * 늘 펼쳐 두면 이름과 단추 사이를 그만큼 먹는다. 오른쪽으로 자라게 하면
+ * `+` 와 `⋯` 가 밀려서 손이 가던 자리가 움직인다.
+ */
+.lh-find {
+  display: inline-flex;
+  align-items: center;
+  flex-direction: row-reverse;
+  min-width: 0;
+}
+.lh-findbtn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
   height: 26px;
+  border: 1px solid transparent;
+  border-radius: var(--r-box);
+  background: transparent;
+  color: var(--c-text-muted);
+  cursor: pointer;
+  padding: 0;
+}
+.lh-findbtn:hover { background: var(--c-surface-2); }
+.lh-find.on .lh-findbtn { color: var(--c-primary); }
+.lh-q {
+  width: 0;
+  min-width: 0;
+  height: 26px;
+  padding: 0;
+  border-width: 0;
+  opacity: 0;
+  transition: width 0.16s ease, opacity 0.12s ease;
+}
+.lh-find.on .lh-q {
+  width: 168px;
+  padding: 0 8px;
+  border-width: 1px;
+  opacity: 1;
+  margin-right: 4px;
 }
 .lh .sp { margin-left: auto; }
 .lh-name {

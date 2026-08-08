@@ -7,6 +7,7 @@ import { useMultiSelect } from '@/components/useMultiSelect'
 import { IconTcDoc } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
+import ReqBulkEdit from '@/components/ReqBulkEdit'
 import ReqBulkForm from '@/components/ReqBulkForm'
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
@@ -52,6 +53,7 @@ export default function Requirements() {
   const [sort, setSort] = useState<'id' | 'title'>('id')
   /** 찾는 글자 — 트리 안에 있던 줄을 머리줄로 올렸다 */
   const [treeQ, setTreeQ] = useState('')
+  const [bulkEditOpen, setBulkEditOpen] = useState(false)
   const [selectedFolder, setSelectedFolder] = useState<string | null | undefined>(() => {
     // 'null'(미분류)과 '안 고름'(undefined)을 문자열 하나로 갈라 담는다
     const v = localStorage.getItem(FOLDER_KEY)
@@ -325,6 +327,20 @@ export default function Requirements() {
       {form !== undefined && (
         <ReqForm editing={form} onClose={() => setForm(undefined)} />
       )}
+      {bulkEditOpen && (
+        <ReqBulkEdit
+          ids={pickedReqs}
+          onClose={() => setBulkEditOpen(false)}
+          onDone={(msg) => {
+            setBulkEditOpen(false)
+            treeSel.clear()
+            window.alert(msg)
+            void qc.invalidateQueries({ queryKey: ['req', 'list'] })
+            void qc.invalidateQueries({ queryKey: ['reqs'] })
+          }}
+        />
+      )}
+
       {bulkOpen && <ReqBulkForm onClose={() => setBulkOpen(false)} />}
       {tcForm !== undefined && (
         <TcForm
@@ -405,6 +421,9 @@ export default function Requirements() {
                 {picked.size > 1 && (
                   <>
                     <hr />
+                    <button type="button" onClick={() => setBulkEditOpen(true)}>
+                      선택한 {picked.size}건 한꺼번에 고치기
+                    </button>
                     <button
                       type="button"
                       className="danger"

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { IconSearch } from './icons'
 import './ListHead.css'
 
 interface Props {
@@ -30,6 +31,15 @@ interface Props {
 export default function ListHead({ name, count, picked, search, add, menu }: Props) {
   const [open, setOpen] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
+  /**
+   * 찾는 칸을 펼쳤는가.
+   *
+   * 늘 펼쳐 두면 이름과 단추 사이를 그만큼 먹는다. 찾는 일은 가끔이라
+   * 평소에는 돋보기 하나로 두고, 누르면 **왼쪽으로 자라** 자리를 만든다 —
+   * 오른쪽으로 자라면 `+` 와 `⋯` 를 밀어내서 손이 가던 자리가 움직인다.
+   */
+  const [qOpen, setQOpen] = useState(false)
+  const qRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -52,16 +62,42 @@ export default function ListHead({ name, count, picked, search, add, menu }: Pro
         {name}
         {count !== undefined && <b>{count}</b>}
       </span>
-      {search && (
-        <input
-          className="lh-q"
-          value={search.value}
-          placeholder={search.placeholder}
-          onChange={(e) => search.onChange(e.target.value)}
-        />
-      )}
       {picked}
-      {!search && <span className="sp" />}
+      <span className="sp" />
+      {search && (
+        <span className={`lh-find${qOpen || search.value ? ' on' : ''}`}>
+          <input
+            ref={qRef}
+            className="lh-q"
+            value={search.value}
+            placeholder={search.placeholder}
+            onChange={(e) => search.onChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') {
+                search.onChange('')
+                setQOpen(false)
+                e.currentTarget.blur()
+              }
+            }}
+            // 비어 있을 때만 접는다. 글자가 남아 있는데 접으면 왜 목록이
+            // 걸러져 있는지 알 수 없다.
+            onBlur={() => !search.value && setQOpen(false)}
+          />
+          <button
+            type="button"
+            className="lh-findbtn"
+            title="찾기"
+            aria-label="찾기"
+            onClick={() => {
+              setQOpen(true)
+              // 펼쳐진 다음에 focus 해야 한다
+              setTimeout(() => qRef.current?.focus(), 0)
+            }}
+          >
+            <IconSearch />
+          </button>
+        </span>
+      )}
       {add && (
         <button className="btn small primary" type="button" title={add.title} onClick={add.onClick}>
           +
