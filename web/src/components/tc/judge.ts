@@ -404,20 +404,63 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
     return scoped.toLowerCase().includes(t) || raw.toLowerCase().includes(t)
   }
 
+  /**
+   * 어느 줄에서 걸렸나 — 근거는 「있다/없다」 가 아니라 **그 줄**이다.
+   *
+   * 적합인데 근거가 비어 있으면 「정말 맞게 본 건가」 를 확인하려고 결국
+   * 출력을 눈으로 훑게 된다. 그럴 거면 판정이 왜 있나.
+   */
+  const lineOf = (tok: string): string => {
+    const t = tok.toLowerCase()
+    const hit =
+      scoped.split(/\r?\n/).find((l) => l.toLowerCase().includes(t)) ??
+      raw.split(/\r?\n/).find((l) => l.toLowerCase().includes(t))
+    return (hit ?? '').trim().slice(0, 100)
+  }
+
   if (type === 'notcontains') {
-    const hit = criteria.split(',').map((s) => s.trim()).filter(Boolean).find(has)
-    return hit
-      ? { verdict: 'Fail', reason: `있으면 안 되는 "${hit}" 가 출력에 있음` }
-      : { verdict: 'Pass', reason: '' }
+    const toks = criteria.split(',').map((s) => s.trim()).filter(Boolean)
+    const hit = toks.find(has)
+    if (hit) {
+      return {
+        verdict: 'Fail',
+        reason: `있으면 안 되는 "${hit}" 가 있음 → ${lineOf(hit)}`,
+      }
+    }
+    // 무엇을 찾아봤는지 남긴다. 「없음」 만 적으면 무엇을 안 찾았는지 모른다.
+    return {
+      verdict: 'Pass',
+      reason: `${toks.map((t) => `"${t}"`).join(' · ')} ${toks.length > 1 ? '모두 ' : ''}없음`,
+    }
   }
 
   if (type === 'contains_all') {
     const toks = criteria.split(/\r?\n|,/).map((s) => s.trim()).filter(Boolean)
     if (toks.length === 0) return { verdict: '', reason: '판정기준 없음' }
-    const miss = toks.find((t) => !has(t))
-    return miss
-      ? { verdict: 'Fail', reason: `"${miss}" 가 출력에 없음` }
-      : { verdict: 'Pass', reason: '' }
+    const miss = toks.filter((t) => !has(t))
+    if (miss.length) {
+      /*
+       * 못 찾은 것을 **전부** 적는다.
+       *
+       * 전에는 처음 하나만 적었다. 셋이 빠졌는데 하나만 고치고 다시
+       * 돌리면 또 하나가 나오고, 그렇게 세 번을 돌게 된다.
+       */
+      const found = toks.filter((t) => has(t))
+      return {
+        verdict: 'Fail',
+        reason:
+          `${toks.length}개 중 ${miss.length}개 없음 — ${miss.map((t) => `"${t}"`).join(' · ')}` +
+          (found.length ? ` (찾은 것: ${found.map((t) => `"${t}"`).join(' · ')})` : ''),
+      }
+    }
+    // 무엇이 있어서 적합인지 — 찾은 줄까지 함께
+    const one = toks.length === 1
+    return {
+      verdict: 'Pass',
+      reason: one
+        ? `"${toks[0]}" 있음 → ${lineOf(toks[0] as string)}`
+        : `${toks.length}개 모두 있음 — ${toks.map((t) => `"${t}"`).join(' · ')}`,
+    }
   }
 
   if (type === 'line') {
@@ -436,13 +479,22 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
   // contains — 한 줄이면 콤마로 나눈 OR (docs/conventions.md)
   const toks = criteria.split(',').map((s) => s.trim()).filter(Boolean)
   const hit = toks.find(has)
-  if (!hit) return { verdict: 'Fail', reason: `"${criteria}" 가 출력에 없음` }
+  if (!hit) {
+    // 여럿 중 하나면 되는 판정이다. 무엇들을 찾았는지 다 적어야 왜 안
+    // 걸렸는지 안다 — 「기준이 출력에 없음」 만으로는 오타인지 진짜
+    // 없는 것인지 못 가린다.
+    return {
+      verdict: 'Fail',
+      reason:
+        toks.length > 1
+          ? `${toks.map((t) => `"${t}"`).join(' · ')} 중 아무것도 없음`
+          : `"${criteria}" 가 출력에 없음`,
+    }
+  }
   // 어느 줄에서 맞았는지 적는다. PASS 만 보고 '정말 맞게 본 건가' 를
   // 다시 확인하려면 응답을 눈으로 훑어야 했다.
-  const where =
-    scoped.split(/\r?\n/).find((l) => l.toLowerCase().includes(hit.toLowerCase())) ??
-    raw.split(/\r?\n/).find((l) => l.toLowerCase().includes(hit.toLowerCase()))
-  return { verdict: 'Pass', reason: where ? where.trim().slice(0, 120) : '' }
+  const where = lineOf(hit)
+  return { verdict: 'Pass', reason: where ? `"${hit}" 있음 → ${where}` : `"${hit}" 있음` }
 }
 
 /**
