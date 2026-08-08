@@ -3,6 +3,7 @@
    TC 와 사이클은 「TC 89건」 에 + 하나. 같은 자리에 같은 모양이 있어야
    화면을 옮겨도 손이 같은 데로 간다. */
 .lh {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -40,21 +41,31 @@
 }
 .lh-findbtn:hover { background: var(--c-surface-2); }
 .lh-find.on .lh-findbtn { color: var(--c-primary); }
+/*
+ * 펼친 칸은 **왼쪽 글자 위를 덮는다.**
+ *
+ * 자리를 밀어내면 이름과 「N건 선택됨」 이 좁아지거나 줄이 접힌다. 찾는
+ * 동안만 잠깐 가리는 편이 낫다 — 다 찾고 접으면 그대로 돌아온다.
+ * 그래서 바탕을 칠한다. 비치면 밑의 글자와 겹쳐 둘 다 안 읽힌다.
+ */
 .lh-q {
+  position: absolute;
+  right: 40px;
   width: 0;
   min-width: 0;
   height: 26px;
   padding: 0;
   border-width: 0;
   opacity: 0;
+  background: var(--c-surface);
+  z-index: 5;
   transition: width 0.16s ease, opacity 0.12s ease;
 }
 .lh-find.on .lh-q {
-  width: 168px;
-  padding: 0 8px;
+  width: min(230px, calc(100% - 90px));
+  padding: 0 9px;
   border-width: 1px;
   opacity: 1;
-  margin-right: 4px;
 }
 .lh .sp { margin-left: auto; }
 .lh-name {

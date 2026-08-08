@@ -2113,6 +2113,8 @@ table.tb tr.r-bad td:first-child {
   background: var(--c-primary-bg);
   box-shadow: inset 2px 0 0 var(--c-primary);
 }
+/* 고른 줄은 첫째든 셋째든 같아 보여야 한다 */
+.tt-tc.picked .tt-tc-nm { font-weight: 700; color: var(--c-primary); }
 
 /* 아이콘과 ID 사이가 벌어져 보였다 — 격자 사이 간격이 아이콘에도 그대로
    붙어서다. 아이콘 뒤만 좁힌다. */
