@@ -809,150 +809,6 @@ export default function TestCases() {
 
       {/* 상단 한 줄 — 어느 TC 를 보고 있는지 · 탭.
           요구사항으로 좁히는 일은 1열 트리가 맡는다. */}
-      <div className="tc-bar">
-        <span className="tc-bar-ttl">
-          {paramKey ? (
-            <>
-              <b>전역 파라미터</b>
-              <span className="muted small">
-                {' '}
-                {paramKey === '__global__' ? '공통' : paramKey}
-              </span>
-            </>
-          ) : openId ? (
-            <>
-              <b>{d.name || '(제목 없음)'}</b>
-              <span className="muted small"> {openId}</span>
-            </>
-          ) : (
-            <span className="muted">왼쪽에서 테스트케이스를 고르세요</span>
-          )}
-        </span>
-
-        {/* 제목과 탭 사이를 벌린다. 붙여 두면 제목이 눌려 잘리고 오른쪽은
-            텅 빈다 — 넓은 화면일수록 심하다. */}
-        <span className="sp" />
-
-        {openId && !paramKey && (
-          <div className="seg" role="tablist">
-            {([
-              // 정보 → Manual → Automation 순. 시험을 만드는 순서와 같다 —
-              // 무엇을 시험할지 적고, 사람이 할 일을 적고, 그중 자동으로
-              // 돌릴 것을 만든다.
-              //
-              // 'Automation' 은 '스텝' 이 아니다 — 장비에 명령을 보내 자동으로
-              // 도는 절차고, 사람이 하는 것은 Manual Step 에 있다.
-              ['info', '정보'],
-              // 배선은 랩의 사실이라 시험 내용보다 앞이다 — 여기가 정해져야
-              // 스텝이 장비 포트 이름으로 말할 수 있다.
-              ['topo', '토폴로지'],
-              ['manual', 'Manual Step'],
-              ['steps', 'Automation'],
-              ['history', '실행 이력'],
-              ['cycle', '사이클'],
-            ] as const).map(([k, label]) => (
-              <button
-                key={k}
-                type="button"
-                role="tab"
-                aria-selected={tab === k}
-                className={`seg-btn${tab === k ? ' on' : ''}`}
-                onClick={() => setTab(k)}
-              >
-                {label}
-                {k === 'steps' && autoCount > 0 && <span className="cnt">{autoCount}</span>}
-                {k === 'manual' && manualCount > 0 && <span className="cnt">{manualCount}</span>}
-                {k === 'topo' && wireCount > 0 && <span className="cnt">{wireCount}</span>}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
-
-        {/* ⋯ — 자주 안 쓰는 것은 접어 둔다 */}
-        <div className="tc-more">
-          <button
-            className="btn tc-dots"
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            ⋯
-          </button>
-          {menuOpen && (
-            <>
-              <div className="tc-menu-back" onClick={() => setMenuOpen(false)} />
-              <div className="tc-menu" role="menu">
-                <button type="button" disabled={!openId}>
-                  ✨ AI 로 만들기
-                </button>
-                {/* 「⌨ 명령어 캡쳐」 는 실행 줄에 있다. 같은 것을 여기 또 두면
-                    어느 쪽이 무엇인지 생각하게 된다. */}
-                <hr />
-                {/* 랩마다 UTOP 이 따로 서 있어서 한쪽에서 만든 시험을 다른
-                    쪽에서 그대로 돌리고 싶은 일이 잦다. DB 를 통째로 옮기면
-                    장비 비밀번호까지 따라가므로, 시험 하나만 파일로 뗀다. */}
-                <button
-                  type="button"
-                  disabled={!openId}
-                  onClick={() => {
-                    setMenuOpen(false)
-                    setSaveAs({
-                      title: '다른 이름으로 저장',
-                      // 같은 요구사항 묶음의 다음 번호. TC ID 앞부분이 곧
-                      // 그 요구사항이라(U-REQ-SYS-HW-TC-004) 앞은 지키고
-                      // 번호만 올린다.
-                      id: nextTcId(openId, takenIds),
-                      name: `${d.name ?? ''} 복사`.trim(),
-                      data: d,
-                    })
-                  }}
-                >
-                  다른 이름으로 저장
-                </button>
-                <button
-                  type="button"
-                  disabled={!openId}
-                  onClick={() => {
-                    setMenuOpen(false)
-                    exportTc()
-                  }}
-                >
-                  파일로 내보내기
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    fileRef.current?.click()
-                  }}
-                >
-                  파일에서 가져오기
-                </button>
-                <hr />
-                <button type="button" onClick={() => { setMenuOpen(false); setBulkOpen(true) }}>
-                  일괄 생성
-                </button>
-                <button type="button" onClick={() => { setMenuOpen(false); setForm(null) }}>
-                  + Test Case
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-        {openId && !paramKey && (
-          <button
-            className="btn primary"
-            type="button"
-            disabled={saveM.isPending || !dirty}
-            onClick={() => saveM.mutate()}
-          >
-            {saveM.isPending ? '저장 중…' : dirty ? '저장' : '저장됨'}
-          </button>
-        )}
-      </div>
 
       <div className="split tc-split" ref={splitRef}>
         {/* 1열 — 폴더 · 요구사항 · TC 트리 (요구사항 화면과 같은 모양) */}
@@ -1080,6 +936,29 @@ export default function TestCases() {
           <>
             {/* 2열 — 스텝 요약 */}
             <section className="panel tc-seqcol" style={{ flexBasis: seqW }}>
+              {/* 시험 이름은 절차 바로 위에. 위쪽 전체 폭에 두었더니 「무엇을
+                  보고 있나」 와 「무엇을 하나」 가 화면 양끝으로 갈라졌다. */}
+              <div className="tc-seqhead">
+          <span className="tc-bar-ttl">
+            {paramKey ? (
+              <>
+                <b>전역 파라미터</b>
+                <span className="muted small">
+                  {' '}
+                  {paramKey === '__global__' ? '공통' : paramKey}
+                </span>
+              </>
+            ) : openId ? (
+              <>
+                <b>{d.name || '(제목 없음)'}</b>
+                <span className="muted small"> {openId}</span>
+              </>
+            ) : (
+              <span className="muted">왼쪽에서 테스트케이스를 고르세요</span>
+            )}
+          </span>
+          {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
+              </div>
               <div className="tc-run">
                 <button
                   className="btn small primary"
@@ -1258,6 +1137,127 @@ export default function TestCases() {
 
             {/* 3열 — 스텝 세부, 또는 캡쳐하는 동안은 명령어 캡쳐 */}
             <section className={`panel tc-detcol${termOpen ? ' wide' : ''}`}>
+              {/* 탭은 **이 칸이 무엇을 보여줄지** 고르는 것이라 이 칸 머리에
+                  있어야 한다. 위쪽 전체 폭에 두면 어느 칸이 바뀌는지 안 보인다. */}
+              <div className="tc-dethead">
+          {openId && !paramKey && (
+            <div className="seg" role="tablist">
+              {([
+                // 정보 → Manual → Automation 순. 시험을 만드는 순서와 같다 —
+                // 무엇을 시험할지 적고, 사람이 할 일을 적고, 그중 자동으로
+                // 돌릴 것을 만든다.
+                //
+                // 'Automation' 은 '스텝' 이 아니다 — 장비에 명령을 보내 자동으로
+                // 도는 절차고, 사람이 하는 것은 Manual Step 에 있다.
+                ['info', '정보'],
+                // 배선은 랩의 사실이라 시험 내용보다 앞이다 — 여기가 정해져야
+                // 스텝이 장비 포트 이름으로 말할 수 있다.
+                ['topo', '토폴로지'],
+                ['manual', 'Manual Step'],
+                ['steps', 'Automation'],
+                ['history', '실행 이력'],
+                ['cycle', '사이클'],
+              ] as const).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === k}
+                  className={`seg-btn${tab === k ? ' on' : ''}`}
+                  onClick={() => setTab(k)}
+                >
+                  {label}
+                  {k === 'steps' && autoCount > 0 && <span className="cnt">{autoCount}</span>}
+                  {k === 'manual' && manualCount > 0 && <span className="cnt">{manualCount}</span>}
+                  {k === 'topo' && wireCount > 0 && <span className="cnt">{wireCount}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ⋯ — 자주 안 쓰는 것은 접어 둔다 */}
+          <div className="tc-more">
+            <button
+              className="btn tc-dots"
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              ⋯
+            </button>
+            {menuOpen && (
+              <>
+                <div className="tc-menu-back" onClick={() => setMenuOpen(false)} />
+                <div className="tc-menu" role="menu">
+                  <button type="button" disabled={!openId}>
+                    ✨ AI 로 만들기
+                  </button>
+                  {/* 「⌨ 명령어 캡쳐」 는 실행 줄에 있다. 같은 것을 여기 또 두면
+                      어느 쪽이 무엇인지 생각하게 된다. */}
+                  <hr />
+                  {/* 랩마다 UTOP 이 따로 서 있어서 한쪽에서 만든 시험을 다른
+                      쪽에서 그대로 돌리고 싶은 일이 잦다. DB 를 통째로 옮기면
+                      장비 비밀번호까지 따라가므로, 시험 하나만 파일로 뗀다. */}
+                  <button
+                    type="button"
+                    disabled={!openId}
+                    onClick={() => {
+                      setMenuOpen(false)
+                      setSaveAs({
+                        title: '다른 이름으로 저장',
+                        // 같은 요구사항 묶음의 다음 번호. TC ID 앞부분이 곧
+                        // 그 요구사항이라(U-REQ-SYS-HW-TC-004) 앞은 지키고
+                        // 번호만 올린다.
+                        id: nextTcId(openId, takenIds),
+                        name: `${d.name ?? ''} 복사`.trim(),
+                        data: d,
+                      })
+                    }}
+                  >
+                    다른 이름으로 저장
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!openId}
+                    onClick={() => {
+                      setMenuOpen(false)
+                      exportTc()
+                    }}
+                  >
+                    파일로 내보내기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      fileRef.current?.click()
+                    }}
+                  >
+                    파일에서 가져오기
+                  </button>
+                  <hr />
+                  <button type="button" onClick={() => { setMenuOpen(false); setBulkOpen(true) }}>
+                    일괄 생성
+                  </button>
+                  <button type="button" onClick={() => { setMenuOpen(false); setForm(null) }}>
+                    + Test Case
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          {openId && !paramKey && (
+            <button
+              className="btn primary"
+              type="button"
+              disabled={saveM.isPending || !dirty}
+              onClick={() => saveM.mutate()}
+            >
+              {saveM.isPending ? '저장 중…' : dirty ? '저장' : '저장됨'}
+            </button>
+          )}
+              </div>
               {termOpen ? (
                 <TcTerminal
                   sessions={sessionIds}

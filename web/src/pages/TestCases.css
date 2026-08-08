@@ -28,7 +28,7 @@
 }
 
 /* ── 상단 한 줄 ───────────────────────────────────────────── */
-.tc-bar {
+.tc-bar-unused {
   display: flex;
   align-items: center;
   gap: 7px;
@@ -2136,3 +2136,23 @@ table.tb tr.r-bad td:first-child {
 .sd-f > .pk {
   grid-column: 2;
 }
+
+/* ── 머리줄을 칸 안으로 ──
+   위쪽 전체 폭에 제목과 탭을 나란히 두었더니 「무엇을 보고 있나」 와
+   「이 칸이 무엇을 보여주나」 가 화면 양끝으로 갈라졌다. 각자 제 칸으로
+   들어간다. */
+.tc-seqhead,
+.tc-dethead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--c-border);
+  flex-wrap: wrap;
+}
+.tc-seqhead .sp,
+.tc-dethead .sp { margin-left: auto; }
+.tc-seqhead b { font-size: var(--fs-md); }
+.tc-dethead .seg { flex: 0 1 auto; min-width: 0; }
+.tc-dethead .btn { flex: none; }
