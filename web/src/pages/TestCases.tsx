@@ -39,10 +39,11 @@ import { deviceLabel, isMeter } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { type TestCaseMeta } from '@/types'
-import { runPicked, runSteps, type RunCtx, type RunLog } from '@/components/tc/runner'
+import { blockEnd, runPicked, runSteps, type RunCtx, type RunLog } from '@/components/tc/runner'
 import { extractOne } from '@/components/tc/judge'
 import type { PickItem } from '@/components/tc/PickList'
 import {
+  needsDevice,
   sessionIndex,
   stepResult,
   stepStatus,
@@ -749,10 +750,48 @@ export default function TestCases({ me }: PageProps) {
    */
   const runAbort = useRef<AbortController | null>(null)
 
+  /**
+   * 고른 줄이 블록(반복)인데 몸통이 비었나 · 몇 줄을 넣을 수 있나.
+   *
+   * 33건 중 2건이 이 꼴이었다 — 들여쓰기를 안 해서 빈 것을 10번 돌고
+   * 아래는 한 번만 돌았다. 손으로 한 줄씩 「→」 를 누르게 하지 않는다.
+   */
+  const blockInfo = (() => {
+    const s = stepIdx >= 0 ? steps[stepIdx] : undefined
+    if (!s || s.kind !== 'loop') return undefined
+    const base = Number(s.indent ?? 0)
+    const end = blockEnd(steps, stepIdx)
+    // 같은 깊이로 뒤에 남은 줄 — 이 중 몇 개까지 안에 넣을 수 있다
+    let after = 0
+    for (let j = end; j < steps.length; j++) {
+      if (Number(steps[j]?.indent ?? 0) < base) break
+      after++
+    }
+    return {
+      empty: end <= stepIdx + 1,
+      after,
+      wrap: (n: number) => {
+        const next = steps.map((x, j) =>
+          j > stepIdx && j <= stepIdx + n ? { ...x, indent: Number(x.indent ?? 0) + 1 } : x,
+        )
+        patch({ checks: next })
+        setMsg({ kind: 'ok', text: `아래 ${n}줄을 반복 안에 넣었습니다` })
+      },
+    }
+  })()
+
   const doRun = async (from: number, only: boolean, pick?: number[]) => {
     if (running) return
-    if (sessionIds.length === 0) {
-      setMsg({ kind: 'err', text: '세션이 없습니다 — 「+ 세션」 으로 장비를 넣으세요' })
+    /*
+     * 장비가 정말 필요한 줄이 있을 때만 막는다.
+     *
+     * 전에는 세션이 하나도 없으면 무조건 막았다. 그런데 Diff·If·Wait·
+     * Message 는 장비로 아무것도 안 나간다 — 두 값을 견주거나 기다릴
+     * 뿐이다. 그래서 Diff 만 있는 시험은 아예 못 돌렸다.
+     */
+    const about = pick ? pick.map((n) => steps[n]) : only ? [steps[from]] : steps.slice(from)
+    if (sessionIds.length === 0 && about.some((x) => x && needsDevice(x))) {
+      setMsg({ kind: 'err', text: '장비가 필요한 스텝이 있습니다 — 「+ 세션」 으로 장비를 넣으세요' })
       return
     }
     const ac = new AbortController()
@@ -1455,6 +1494,7 @@ export default function TestCases({ me }: PageProps) {
                 onRemove={() => stepIdx >= 0 && removeStep(stepIdx)}
                 onDuplicate={() => stepIdx >= 0 && duplicateStep(stepIdx)}
                 onRun={running || stepIdx < 0 ? undefined : () => void doRun(stepIdx, true)}
+                block={blockInfo}
               />
               )}
             </section>

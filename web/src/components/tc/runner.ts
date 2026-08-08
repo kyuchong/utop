@@ -28,7 +28,13 @@ export interface RunLog {
   /** 스텝 번호(0-기준). -1 은 실행 전체에 대한 줄 */
   i: number
   text: string
-  kind: 'info' | 'pass' | 'fail' | 'skip'
+  /**
+   * `warn` 은 「돌긴 했는데 네가 바란 대로는 아니다」 다.
+   *
+   * 빈 반복처럼 실패도 성공도 아닌 것이 있다. info 로 적으면 묻히고
+   * fail 로 적으면 안 깨진 시험이 깨진 것이 된다.
+   */
+  kind: 'info' | 'pass' | 'fail' | 'skip' | 'warn'
 }
 
 export interface RunCtx {
@@ -682,6 +688,24 @@ export async function runSteps(ctx: RunCtx, from = 0, only = false): Promise<Run
           s.forFrom !== undefined && s.forTo !== undefined
             ? Math.max(0, Math.floor((to0 - from0) / stepBy) + 1)
             : Math.max(1, Number(s.loopCount ?? 1))
+        /*
+         * 몸통이 비었으면 그 자리에서 말한다.
+         *
+         * 반복의 몸통은 **들여쓴 줄**로 정해진다. 들여쓰기를 안 하면 빈
+         * 것을 10번 반복하고 아래 줄은 한 번만 돈다 — 그런데 아무 말이
+         * 없어서, 10번 돈 줄 알고 결과를 읽게 된다. 조용히 아무것도 안
+         * 하는 것이 틀리게 하는 것보다 나쁘다.
+         */
+        if (body <= i + 1) {
+          ctx.onLog({
+            i,
+            kind: 'warn',
+            text: `반복 안에 든 스텝이 없습니다 — 아무것도 ${times}회 돌지 않았습니다. 아래 줄을 「→」 로 들여써서 반복 안에 넣으세요`,
+          })
+          ctx.onStep(i, { output: '반복 안에 든 스텝이 없습니다', executed_at: new Date().toISOString() })
+          i = body
+          continue
+        }
         ctx.onLog({ i, text: `${times}회 반복`, kind: 'info' })
         for (let n = 0; n < Math.min(times, 1000); n++) {
           if (ctx.signal.aborted) break

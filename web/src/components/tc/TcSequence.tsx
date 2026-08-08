@@ -1,4 +1,5 @@
 import StepIcon from './StepIcon'
+import { blockEnd } from './runner'
 import {
   ADD_KINDS,
   isNoteKind,
@@ -196,6 +197,15 @@ export default function TcSequence({
                 >
                   {summary(s) || <span className="muted">—</span>}
                   {s.step && <span className="sq-desc">{s.step}</span>}
+                  {/* 반복인데 안에 든 줄이 없다.
+                      들여쓰기를 안 하면 빈 것을 N번 돌고 아래 줄은 한 번만
+                      돈다 — 그런데 화면에는 아무 표시가 없어서 N번 돈 줄
+                      알고 결과를 읽게 된다. */}
+                  {s.kind === 'loop' && blockEnd(steps, i) <= i + 1 && (
+                    <span className="sq-warn" title="아래 줄을 「→」 로 들여써야 반복 안에 들어갑니다">
+                      비어 있음
+                    </span>
+                  )}
                 </span>
                 {/* 결과를 줄 끝에 적는다. 아이콘만으로는 PASS 와 미실행이
                     잘 안 갈린다. */}

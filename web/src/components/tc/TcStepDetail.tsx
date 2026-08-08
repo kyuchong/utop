@@ -34,6 +34,14 @@ interface Props {
   /** 바로 아래에 같은 스텝 하나 더 */
   onDuplicate: () => void
   onRun?: () => void
+  /**
+   * 이 블록 뒤의 줄이 몇 개나 밖에 있나 · 그중 n 개를 안으로 넣기.
+   *
+   * 반복의 몸통은 들여쓴 줄로 정해지는데, 그것을 모르면 빈 반복이 된다 —
+   * 조용히 아무것도 안 하고 아래는 한 번만 돈다. 손으로 한 줄씩 「→」 를
+   * 누르게 하지 말고 여기서 한 번에 넣는다.
+   */
+  block?: { empty: boolean; after: number; wrap: (n: number) => void }
 }
 
 /**
@@ -59,6 +67,7 @@ export default function TcStepDetail({
   onRemove,
   onDuplicate,
   onRun,
+  block,
 }: Props) {
   const [picked, setPicked] = useState('')
   const [tblOpen, setTblOpen] = useState(false)
@@ -678,6 +687,40 @@ export default function TcStepDetail({
         )}
         {kind === 'loop' && (
           <>
+            {/* 몸통이 비었다.
+                반복의 몸통은 들여쓴 줄로 정해진다. 그걸 모르면 빈 것을
+                N번 돌고 아래 줄은 한 번만 돈다 — 그러고도 아무 말이
+                없어서 N번 돈 줄 알고 결과를 읽게 된다. */}
+            {block?.empty && (
+              <div className="sd-warn">
+                <b>이 반복 안에 든 스텝이 없습니다.</b>
+                <span>
+                  아래 줄을 <b>「→」</b> 로 들여써야 반복 안에 들어갑니다. 지금 그대로 돌리면
+                  아무것도 반복되지 않고 아래 줄은 한 번만 돕니다.
+                </span>
+                {block.after > 0 && (
+                  <div className="sd-warn-act">
+                    {[1, 2, 3, 5].
+                      filter((n) => n <= block.after).
+                      map((n) => (
+                        <button
+                          key={n}
+                          className="btn small"
+                          type="button"
+                          onClick={() => block.wrap(n)}
+                        >
+                          아래 {n}줄 넣기
+                        </button>
+                      ))}
+                    {block.after > 5 && (
+                      <button className="btn small" type="button" onClick={() => block.wrap(block.after)}>
+                        아래 {block.after}줄 전부
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="sd-f">
               <span>반복 방식</span>
               <div className="seg sd-seg">

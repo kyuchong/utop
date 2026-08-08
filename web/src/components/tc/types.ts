@@ -337,6 +337,24 @@ const KIND_MAP = new Map(STEP_KINDS.map((x) => [x.k, x]))
 /** 「+ 스텝」 에 내놓을 것. 옛 자료에만 남은 종류는 뺀다. */
 export const ADD_KINDS = STEP_KINDS.filter((x) => !x.hidden)
 
+/**
+ * 이 스텝이 장비를 필요로 하나.
+ *
+ * 「세션이 없으면 실행 금지」 로 막고 있었다. 그런데 Diff·If·Wait·
+ * Message 는 장비로 아무것도 안 나간다 — 두 값을 견주거나 기다릴 뿐이다.
+ * 그래서 Diff 만 있는 시험은 아예 못 돌렸고, 눌러도 아무 일도 안
+ * 일어나는 것처럼 보였다.
+ *
+ * Ping·SNMP 는 대상 IP 를 직접 적었으면 세션이 필요 없다. 세션 장비의
+ * IP 를 빌려 쓸 때만 필요하다.
+ */
+export function needsDevice(s: TcStep): boolean {
+  const k = (s.kind || 'cli') as StepKind
+  if (k === 'cli' || k === 'instrument' || k === 'connect' || k === 'disconnect') return true
+  if (k === 'ping' || k === 'snmp_get' || k === 'snmp_set') return !String(s.host ?? '').trim()
+  return false
+}
+
 /** 모르는 종류가 와도 화면이 비지 않게 한다 — 옛 자료에 무엇이 있을지 모른다 */
 export function stepKindInfo(k?: string) {
   return (

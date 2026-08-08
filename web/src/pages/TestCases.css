@@ -2325,3 +2325,38 @@ table.tb tr.r-bad td:first-child {
   white-space: nowrap;
 }
 .pp-note { color: var(--c-text-faint); white-space: nowrap; }
+
+/* 반복인데 안에 든 줄이 없다. 조용히 아무것도 안 하는 것이 틀리게 하는
+   것보다 나쁘다 — 눈에 걸려야 한다 */
+.sq-warn {
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid #f0b429;
+  border-radius: var(--r-chip, 4px);
+  background: #fff8e6;
+  color: #8a5a00;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 실행 로그의 경고 — 실패도 성공도 아닌 것 */
+.rl-line.warn, .cy-run-line.warn { color: #8a5a00; }
+
+/* 반복인데 몸통이 비었다는 알림 — 고칠 단추를 함께 둔다.
+   무엇이 잘못됐는지만 말하고 어떻게 고치는지 안 알려주면,
+   들여쓰기라는 규칙을 모르는 사람은 여기서 막힌다 */
+.sd-warn {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid #f0b429;
+  border-left-width: 3px;
+  border-radius: var(--r-box, 6px);
+  background: #fff8e6;
+  color: #6b4600;
+  font-size: var(--fs-xs);
+}
+.sd-warn-act { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
