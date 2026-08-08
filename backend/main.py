@@ -2681,9 +2681,16 @@ async def devices2_check(dev_id: str, protocol: str = ""):
         if want and proto != want:
             continue
         host = (a.get("host") or d.get("ip") or "").strip()
-        ok, err = await loop.run_in_executor(
-            None, _probe_sync, proto, host, a.get("port") or 0
-        )
+        # N2X 는 TCP 포트가 없다. 소켓으로 찔러 보는 대신, 중계로 ping 을
+        # 보내 실제 섀시 세션이 열리는지 본다. STC 는 REST 라 그 쪽으로.
+        if proto == "n2x":
+            r = await loop.run_in_executor(None, _n2x_send, host, str(d.get("id") or "utop"), "ping")
+            ok = bool(isinstance(r, dict) and r.get("ok"))
+            err = "" if ok else str((r or {}).get("error") or "N2X 응답 없음")
+        else:
+            ok, err = await loop.run_in_executor(
+                None, _probe_sync, proto, host, a.get("port") or 0
+            )
         await db.device_access_mark(d["id"], proto, ok, err)
         out.append({"protocol": proto, "host": host, "port": a.get("port"),
                     "ok": ok, "error": err})
