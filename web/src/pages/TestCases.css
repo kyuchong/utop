@@ -2171,6 +2171,19 @@ table.tb tr.r-bad td:first-child {
 .tc-seqhead .sp,
 .tc-dethead .sp { margin-left: auto; }
 
+/* 화면 전체의 알림. 전에는 「스텝을 골랐을 때 뜨는 띠」 안에만 있어서
+   저장했다는 말도 오류도 스텝을 골라야만 보였다 */
+.tc-msg {
+  font-size: 12px;
+  color: var(--muted, #666);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 34ch;
+}
+.tc-msg.ok { color: #1a7f37; }
+.tc-msg.err { color: #c62828; }
+
 /* 남이 저장했다는 알림. 제목 옆에 붙지만 눈에는 걸려야 한다 —
    놓치면 낡은 것을 계속 고치게 된다 */
 .tc-remote {
@@ -2184,6 +2197,13 @@ table.tb tr.r-bad td:first-child {
   color: #8a5a00;
   font-size: 12px;
   white-space: nowrap;
+}
+/* 이미 읽어온 뒤 — 할 일이 없으니 톤을 낮춘다. 노란 띠는 「내가 눌러야
+   하는 것」 에만 쓴다 */
+.tc-remote.done {
+  border-color: #9ec5fe;
+  background: #eef5ff;
+  color: #0a58ca;
 }
 .tc-seqhead b { font-size: var(--fs-md); }
 .tc-dethead .seg { flex: 0 1 auto; min-width: 0; }

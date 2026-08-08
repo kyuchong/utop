@@ -179,8 +179,14 @@ export default function TestCases({ me }: PageProps) {
    * 사람이 앞사람 것을 조용히 덮는다.
    */
   const meName = me?.name || me?.username || ''
-  /** 남이 저장했는데 내 손에 고친 것이 있어 아직 안 읽어온 상태 */
-  const [remoteSave, setRemoteSave] = useState('')
+  /**
+   * 남이 저장했다.
+   *
+   * `kept` 는 「내가 고친 게 있어 아직 안 읽어왔다」 — 이때는 띠가 남아
+   * 있어야 하고 내가 눌러야 읽어온다. 아니면 이미 읽어온 뒤라 잠깐만
+   * 알리고 사라진다.
+   */
+  const [remote, setRemote] = useState<{ user: string; kept: boolean } | null>(null)
   /**
    * 남이 저장하면 그 자리에서 반영한다.
    *
@@ -194,15 +200,22 @@ export default function TestCases({ me }: PageProps) {
   const presence = usePresence(openId ? `tc:${openId}` : 'tc', meName, (m) => {
     if (m.type !== 'tc_updated' || !openId || m.tcid !== openId) return
     if (m.user && m.user === meName) return // 내가 방금 저장한 것
+    const who = m.user || '다른 사람'
     if (dirty) {
-      setRemoteSave(m.user || '다른 사람')
+      setRemote({ user: who, kept: true })
       return
     }
     void qc.invalidateQueries({ queryKey: ['tc', openId] })
-    setMsg({ kind: 'ok', text: `${m.user || '다른 사람'} 님이 저장해서 새로 읽었습니다` })
+    setRemote({ user: who, kept: false })
   })
   // 다른 시험으로 옮기면 지난 알림은 지운다
-  useEffect(() => setRemoteSave(''), [openId])
+  useEffect(() => setRemote(null), [openId])
+  // 이미 읽어온 뒤의 알림은 잠깐만. 계속 붙어 있으면 장식이 되어 안 읽힌다
+  useEffect(() => {
+    if (!remote || remote.kept) return
+    const t = setTimeout(() => setRemote(null), 8000)
+    return () => clearTimeout(t)
+  }, [remote])
   const pickedTc = tcSel.picked
   const [bulkEdit, setBulkEdit] = useState(false)
 
@@ -592,7 +605,7 @@ export default function TestCases({ me }: PageProps) {
     },
     onSuccess: () => {
       setDirty(false)
-      setRemoteSave('')
+      setRemote(null)
       setMsg({ kind: 'ok', text: '저장했습니다' })
       void qc.invalidateQueries({ queryKey: ['tc', openId] })
       void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
@@ -605,7 +618,7 @@ export default function TestCases({ me }: PageProps) {
         if (window.confirm(`${m}\n\n지금 저장된 것을 불러올까요? 내가 고친 것은 사라집니다.`)) {
           void qc.invalidateQueries({ queryKey: ['tc', openId] })
           setDirty(false)
-          setRemoteSave('')
+          setRemote(null)
         }
         return
       }
@@ -842,26 +855,37 @@ export default function TestCases({ me }: PageProps) {
                   {/* 지금 이 시험을 누가 같이 보고 있나 — 제목 바로 옆.
                       혼자면 아무것도 안 뜬다. 둘부터 뜬다. */}
                   <PresenceBar users={presence.users} me={meName} />
-                  {/* 남이 저장했는데 내 손에 고친 것이 있어 못 읽어온 경우.
-                      덮지 않고 여기서 묻는다 — 누르는 것은 내가 고른다. */}
-                  {remoteSave && (
-                    <span className="tc-remote">
-                      {remoteSave} 님이 저장했습니다
-                      <button
-                        className="btn small"
-                        type="button"
-                        onClick={() => {
-                          if (!window.confirm('지금 저장된 것을 불러올까요? 내가 고친 것은 사라집니다.'))
-                            return
-                          void qc.invalidateQueries({ queryKey: ['tc', openId] })
-                          setDirty(false)
-                          setRemoteSave('')
-                        }}
-                      >
-                        불러오기
-                      </button>
+                  {/* 남이 저장했다. 내가 고친 게 있으면 덮지 않고 여기서
+                      묻는다 — 누르는 것은 내가 고른다. 아니면 이미 읽어온
+                      뒤라 잠깐 알리고 사라진다. */}
+                  {remote && (
+                    <span className={`tc-remote${remote.kept ? '' : ' done'}`}>
+                      {remote.kept
+                        ? `${remote.user} 님이 저장했습니다`
+                        : `${remote.user} 님이 저장해서 새로 읽었습니다`}
+                      {remote.kept && (
+                        <button
+                          className="btn small"
+                          type="button"
+                          onClick={() => {
+                            if (
+                              !window.confirm('지금 저장된 것을 불러올까요? 내가 고친 것은 사라집니다.')
+                            )
+                              return
+                            void qc.invalidateQueries({ queryKey: ['tc', openId] })
+                            setDirty(false)
+                            setRemote(null)
+                          }}
+                        >
+                          불러오기
+                        </button>
+                      )}
                     </span>
                   )}
+                  {/* 화면 전체의 알림. 전에는 「스텝을 골랐을 때 뜨는 띠」
+                      안에만 있어서, 저장했다는 말도 오류도 스텝을 골라야만
+                      보였다. 늘 보이는 자리로 올린다. */}
+                  {msg.text && <span className={`tc-msg ${msg.kind}`}>{msg.text}</span>}
                   {/* 제목과 탭 사이를 벌린다. 탭은 오른쪽 끝에 ⋯·저장과
                       한 덩이로 — 「이 시험의 무엇을 볼까」 를 고르는 것들이라
                       모여 있어야 손이 한 곳으로 간다. */}
@@ -1277,7 +1301,6 @@ export default function TestCases({ me }: PageProps) {
                 <div className="sq-bulk">
                   <b>{picked.size}개 골랐습니다</b>
                   <span className="muted small">shift 를 누른 채 누르면 그 사이가 모두</span>
-                  {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
                   <button
                     className="btn small primary"
                     type="button"
