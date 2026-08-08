@@ -1,0 +1,27 @@
+/* N2X 포트 현황 — 누가 어느 포트를 쓰나. 빈 포트가 먼저 보여야 한다 */
+.np { width: min(760px, 94vw); }
+.np-sum { font-size: var(--fs-xs); }
+.np-sum .ok { color: var(--c-pass); }
+.np-sum .no { color: var(--c-fail); }
+.np-body { max-height: 70vh; overflow: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 12px; }
+.np-mod { border: 1px solid var(--c-border); border-radius: var(--r-box); padding: 8px 10px; }
+.np-mh { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.np-ports { display: flex; flex-wrap: wrap; gap: 5px; }
+.np-port {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 54px;
+  padding: 4px 6px;
+  border-radius: var(--r-chip);
+  font-size: var(--fs-xs);
+  border: 1px solid transparent;
+}
+.np-port b { font-size: 14px; }
+.np-who { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60px; }
+/* 빈 포트 = 초록(쓸 수 있음), 남이 씀 = 회색, 내 것 = 파랑 */
+.np-port.free { background: #dcfce7; color: #15803d; border-color: #86efac; }
+.np-port.used { background: var(--c-surface-2); color: var(--c-text-muted); }
+.np-port.mine { background: var(--c-primary-soft, #eef4ff); color: var(--c-primary); border-color: var(--c-primary); }
+.np-err { padding: 12px; color: var(--c-fail); white-space: pre-wrap; word-break: break-all; }
+.np-stale { padding: 4px 2px; }

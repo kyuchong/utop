@@ -166,9 +166,10 @@
 .dev-row.inst {
   grid-template-columns:
     84px                   /* LAB */
-    minmax(150px, 1fr)     /* IP */
-    minmax(90px, 0.8fr)    /* 제조사 */
-    minmax(120px, 1.2fr)   /* 모델명 */
-    110px                  /* 포트 */
-    minmax(240px, 1.6fr);  /* 사용 현황 */
+    minmax(140px, 1fr)     /* IP */
+    minmax(80px, 0.7fr)    /* 제조사 */
+    minmax(110px, 1.1fr)   /* 모델명 */
+    96px                   /* 포트 */
+    84px                   /* 포트 현황 버튼 */
+    minmax(210px, 1.4fr);  /* 사용 현황 */
 }
