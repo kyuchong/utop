@@ -694,6 +694,19 @@ export default function TestCases({ me }: PageProps) {
   })
 
   /**
+   * 끝까지 돌리고 나면 저절로 저장한다.
+   *
+   * `setD` 는 곧바로 반영되지 않으므로 실행이 끝나고 상태가 자리를 잡은
+   * 다음에 부른다. 남이 먼저 저장했으면 여기서도 409 가 나는데, 그때는
+   * 늘 하던 대로 띠로 알린다 — 조용히 덮지 않는다.
+   */
+  useEffect(() => {
+    if (!autoSave.current || running || !dirty || saveM.isPending) return
+    autoSave.current = false
+    saveM.mutate()
+  }, [running, dirty, saveM])
+
+  /**
    * 다른 이름으로 저장 · 파일에서 가져오기.
    *
    * 둘 다 '내용은 이미 있고 새 ID 만 정하면 되는' 일이라 한 창을 쓴다.
@@ -794,6 +807,8 @@ export default function TestCases({ me }: PageProps) {
    * 끝날 때마다 결과가 그 줄에 바로 박힌다.
    */
   const runAbort = useRef<AbortController | null>(null)
+  /** 끝까지 돌린 뒤 저절로 저장할까 — 결과는 사실이지 편집이 아니다 */
+  const autoSave = useRef(false)
 
   /**
    * 고른 줄이 블록(반복)인데 몸통이 비었나 · 몇 줄을 넣을 수 있나.
@@ -895,13 +910,29 @@ export default function TestCases({ me }: PageProps) {
           return { ...c, status: stamped }
         })
         setDirty(true)
+        /*
+         * 끝까지 돌린 결과는 저절로 저장한다.
+         *
+         * 전에는 손으로 저장을 눌러야 했다. 그래서 통째로 돌려 놓고
+         * 저장을 잊고 나가면 **응답도 판정도 전부 사라졌다** — 남는 것은
+         * 실행 이력의 요약 한 줄(pass/fail/소요)뿐이라 「무엇이 나왔길래
+         * 그렇게 판정됐나」 를 다시 못 봤다.
+         *
+         * 결과는 사실이지 편집이 아니다. 잊었다고 잃을 것이 아니다.
+         * 사이클 쪽은 실행기가 이미 그렇게 저장하고 있어서, 두 화면이
+         * 다르게 굴던 것이기도 하다.
+         *
+         * 한 줄만·고른 줄만 돌린 것은 저장하지 않는다 — 시험 삼아 눌러
+         * 보는 일이 잦고, 그때마다 저장하면 남의 결과를 덮는다.
+         */
+        autoSave.current = true
       }
 
       setMsg({
         kind: r.fail > 0 ? 'err' : 'ok',
         text:
           `${r.stopped ? '중지됨 · ' : ''}PASS ${r.pass} · FAIL ${r.fail}` +
-          (stamped ? ` · TC 를 ${stamped} 로 두었습니다 (저장해야 남습니다)` : ''),
+          (stamped ? ` · TC 를 ${stamped} 로 두었습니다` : ''),
       })
       // 실행 이력은 전체 실행만 남긴다. 한 줄씩 돌려보는 것까지 쌓으면
       // 이력이 편집 기록이 되어 '언제 통째로 돌렸나' 를 못 찾는다.
