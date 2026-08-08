@@ -12058,12 +12058,21 @@ async def run_queue(payload: dict, request: Request):
 
 
 @app.get("/api/runs")
-async def run_list(cycle_id: str = "", active: int = 0):
+async def run_list(
+    cycle_id: str = "", active: int = 0, limit: int = 200,
+    status: str = "", who: str = "", q: str = "",
+):
+    """실행 목록.
+
+    `cycle_id` 가 있으면 그 사이클의 것, 없으면 **전부**. 「어제 밤에 뭐가
+    돌았나」 는 사이클을 하나씩 열어서는 못 답한다 — Executions 화면이
+    그 자리다.
+    """
     if active:
         return {"runs": await db.run_active(cycle_id)}
-    if not cycle_id:
-        raise HTTPException(400, "cycle_id 가 필요합니다")
-    return {"runs": await db.run_recent(cycle_id)}
+    if cycle_id:
+        return {"runs": await db.run_recent(cycle_id)}
+    return {"runs": await db.run_all(limit, status, who, q), "people": await db.run_people()}
 
 
 @app.get("/api/runs/{run_id}")

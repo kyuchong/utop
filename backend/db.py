@@ -1353,6 +1353,43 @@ async def run_recent(cycle_id: str, limit: int = 20) -> list:
         ]
 
 
+async def run_all(limit: int = 200, status: str = "", who: str = "", q: str = "") -> list:
+    """사이클을 가리지 않고 최근 실행 — Executions 화면이 쓴다.
+
+    「어제 밤에 뭐가 돌았나」 는 사이클을 하나씩 열어서는 못 답한다.
+    """
+    where, args = [], []
+    if status:
+        args.append(status)
+        where.append(f"status = ${len(args)}")
+    if who:
+        args.append(who)
+        where.append(f"started_by = ${len(args)}")
+    if q:
+        args.append(f"%{q}%")
+        where.append(f"(cycle_name ILIKE ${len(args)} OR cycle_id ILIKE ${len(args)})")
+    args.append(int(limit))
+    sql = (
+        "SELECT " + _RUN_COLS + " FROM cycle_run"
+        + (" WHERE " + " AND ".join(where) if where else "")
+        + f" ORDER BY queued_at DESC LIMIT ${len(args)}"
+    )
+    async with pool().acquire() as c:
+        return [_run_row(r) for r in await c.fetch(sql, *args)]
+
+
+async def run_people() -> list:
+    """실행을 건 사람들 — 거르개 목록에 쓴다"""
+    async with pool().acquire() as c:
+        return [
+            r["started_by"]
+            for r in await c.fetch(
+                "SELECT DISTINCT started_by FROM cycle_run "
+                "WHERE coalesce(started_by,'') <> '' ORDER BY started_by"
+            )
+        ]
+
+
 async def run_claim(worker: str) -> Optional[dict]:
     """대기 중인 것 하나를 집는다.
 

@@ -8,6 +8,7 @@ import TestCases from '@/pages/TestCases'
 import Settings from '@/pages/Settings'
 import AiTc from '@/pages/AiTc'
 import Cycles from '@/pages/Cycles'
+import Executions from '@/pages/Executions'
 import Devices from '@/pages/Devices'
 import Instruments from '@/pages/Instruments'
 
@@ -88,6 +89,8 @@ export default function App() {
         <AiTc />
       ) : page === 'cycles' ? (
         <Cycles />
+      ) : page === 'executions' ? (
+        <Executions />
       ) : page === 'devices' ? (
         <Devices me={user} />
       ) : page === 'instruments' ? (
