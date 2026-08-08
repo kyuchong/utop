@@ -230,6 +230,23 @@ export const IconSearch = (p: P) => (
   </Svg>
 )
 
+/**
+ * 칸 접기·펴기.
+ *
+ * 처음엔 `‹` 를 썼는데 그건 「뒤로」 로 읽힌다. 네모(칸) 안에 세로 선을
+ * 그어 왼쪽 조각을 칠하고 화살표를 붙였다 — **무엇이** 어느 쪽으로
+ * 움직이는지가 한눈에 보인다. 접힌 띠에서는 `open` 을 줘 반대로 그린다.
+ */
+export const IconPanel = ({ open, ...p }: P & { open?: boolean }) => (
+  <Svg width="15" height="15" strokeWidth="1.6" {...p}>
+    <rect x="3" y="4.5" width="18" height="15" rx="2" />
+    {/* 왼쪽 조각이 목록 칸 */}
+    <path d="M9 4.5v15" />
+    {/* 접을 때는 왼쪽으로, 펼 때는 오른쪽으로 */}
+    <path d={open ? 'M12 12h6m-2.5-2.5L18 12l-2.5 2.5' : 'M18 12h-6m2.5-2.5L12 12l2.5 2.5'} />
+  </Svg>
+)
+
 /** 드래그 손잡이 (점 6개) */
 export const IconGrip = (p: P) => (
   <Svg width="12" height="14" strokeWidth="0" {...p}>

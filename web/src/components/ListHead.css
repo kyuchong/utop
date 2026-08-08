@@ -17,20 +17,24 @@
    한 손가락으로 된다 */
 .lh-fold {
   flex: none;
-  width: 18px;
-  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   padding: 0;
-  border: 0;
+  /* 옅게 두면 아무도 못 찾는다. 테두리와 바탕을 줘서 「누르는 것」 으로
+     보이게 한다 — 옆의 이름·숫자는 글자고 이것만 단추다 */
+  border: 1px solid var(--c-border, #d8d8d8);
   border-radius: var(--r-chip, 4px);
-  background: transparent;
-  color: var(--c-muted, #888);
-  font-size: 17px;
-  line-height: 1;
+  background: var(--c-panel, #f6f7f9);
+  color: var(--c-text, #444);
   cursor: pointer;
 }
 .lh-fold:hover {
-  background: var(--c-hover, #f0f0f0);
-  color: var(--c-text, #222);
+  border-color: var(--c-primary, #2563eb);
+  background: #eef4ff;
+  color: var(--c-primary, #2563eb);
 }
 /*
  * 찾기 — 평소에는 돋보기, 누르면 **왼쪽으로 자란다.**

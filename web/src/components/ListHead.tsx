@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { IconSearch } from './icons'
+import { IconPanel, IconSearch } from './icons'
 import './ListHead.css'
 
 interface Props {
@@ -81,7 +81,7 @@ export default function ListHead({
           aria-label="목록 접기"
           onClick={onCollapse}
         >
-          ‹
+          <IconPanel />
         </button>
       )}
       <span className="lh-name">

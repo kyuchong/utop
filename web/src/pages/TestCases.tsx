@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import ListHead from '@/components/ListHead'
+import { IconPanel } from '@/components/icons'
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
@@ -1102,7 +1103,7 @@ export default function TestCases({ me }: PageProps) {
             title="시험 항목 펼치기"
             onClick={() => setListOpen(true)}
           >
-            <span className="tc-fold-i">›</span>
+            <IconPanel open />
             <span className="tc-fold-t">시험항목 {tcs.length}</span>
           </button>
         )}
