@@ -798,7 +798,9 @@ export default function TestCases() {
                   // 스텝이 장비 포트 이름으로 말할 수 있다.
                   ['topo', '토폴로지'],
                   ['manual', 'Manual Step'],
-                  ['steps', 'Automation'],
+                  // 「Manual Step」 과 짝이 되게 「Automation Step」 — 둘 다
+              // 절차를 적는 자리고, 사람이 하느냐 자동으로 도느냐만 다르다.
+              ['steps', 'Automation Step'],
                   ['history', '실행 이력'],
                   ['cycle', '사이클'],
                 ] as const).map(([k, label]) => (
