@@ -217,12 +217,30 @@ export default function TcTree({
     return reqHit ? all : all.filter(tcMatch)
   }
 
+  const reqHit = (r: Requirement) =>
+    reqLabel(r).toLowerCase().includes(needle) || (r.title ?? '').toLowerCase().includes(needle)
+
+  /**
+   * 이 폴더 아래 보일 요구사항.
+   *
+   * 전에는 **TC 가 붙은 것만** 보였다. 그러니 요구사항 화면과 커버리지
+   * 화면의 트리가 서로 달라 보였고 — 같은 폴더를 열었는데 있어야 할 줄이
+   * 없다 — 무엇보다 **아직 시험이 없는 요구사항에 시험을 붙일 수가
+   * 없었다.** 커버리지는 「어디가 비었나」 를 보는 자리인데 정작 빈 곳이
+   * 안 보였던 셈이다.
+   *
+   * 그래서 그냥 다 보인다. 거르는 것은 검색할 때뿐이다.
+   */
   const reqsOf = (folderId: string | null) =>
-    (byFolder.get(folderId) ?? []).filter((r) => shownTcs(r).length > 0)
+    (byFolder.get(folderId) ?? []).filter((r) => !needle || reqHit(r) || shownTcs(r).length > 0)
 
   const countDeep = (n: CategoryTreeNode): number =>
     reqsOf(n.id).reduce((a, r) => a + shownTcs(r).length, 0) +
     n.children.reduce((a, k) => a + countDeep(k), 0)
+
+  /** 이 가지에 보일 요구사항이 하나라도 있나 — 검색했을 때 가지를 접는 기준 */
+  const hasReqDeep = (n: CategoryTreeNode): boolean =>
+    reqsOf(n.id).length > 0 || n.children.some(hasReqDeep)
 
   /** 이 폴더 아래(하위 폴더까지)의 TC 전부 */
   const deepTcs = (n: CategoryTreeNode): TestCaseMeta[] => [
@@ -342,9 +360,10 @@ export default function TcTree({
 
   const renderFolder = (n: CategoryTreeNode) => {
     const total = countDeep(n)
-    // TC 가 하나도 없는 가지는 접어두는 게 아니라 아예 안 보인다. 이 화면은
-    // TC 를 고르는 자리라, 빈 폴더는 고를 것이 없는 줄일 뿐이다.
-    if (total === 0) return null
+    // 폴더는 요구사항 화면과 **똑같이** 다 보인다. 전에는 TC 가 없는 가지를
+    // 통째로 감췄는데, 두 화면의 트리가 달라 보이는 원인이었다.
+    // 검색할 때만, 걸린 것이 하나도 없는 가지를 접는다.
+    if (needle && !hasReqDeep(n)) return null
     const open = isOpen(n.id)
     const mine = reqsOf(n.id)
     return (
