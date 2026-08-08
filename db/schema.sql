@@ -515,6 +515,9 @@ CREATE INDEX IF NOT EXISTS idx_cycle_run_queued ON cycle_run(queued_at DESC);
 CREATE TABLE IF NOT EXISTS cycle_run_log (
   run_id        TEXT NOT NULL REFERENCES cycle_run(id) ON DELETE CASCADE,
   seq           BIGINT NOT NULL,
+  -- 몇 번째 항목인지. 이게 있어야 로그를 그 항목의 스텝 밑에 붙일 수 있다.
+  -- 스텝 번호만으로는 64건짜리 사이클에서 어느 항목의 3번인지 모른다.
+  item_at       INT DEFAULT -1,
   -- 몇 번째 스텝인지 (-1 이면 항목 단위 알림)
   i             INT DEFAULT -1,
   -- info | send | recv | pass | fail | warn
@@ -523,3 +526,7 @@ CREATE TABLE IF NOT EXISTS cycle_run_log (
   at            TIMESTAMPTZ DEFAULT now(),
   PRIMARY KEY (run_id, seq)
 );
+
+-- 이미 만들어진 표에도 붙인다. schema.sql 은 기동할 때마다 도는데
+-- CREATE TABLE IF NOT EXISTS 는 이미 있는 표의 칸을 늘려 주지 않는다.
+ALTER TABLE cycle_run_log ADD COLUMN IF NOT EXISTS item_at INT DEFAULT -1;

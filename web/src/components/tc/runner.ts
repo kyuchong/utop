@@ -586,6 +586,24 @@ export async function runPicked(ctx: RunCtx, pick: number[]): Promise<RunResult>
   return { pass, fail, done, stopped }
 }
 
+/**
+ * 스텝 하나를 돌리고 **얼마나 걸렸는지** 남긴다.
+ *
+ * 전에는 `executed_at`(언제 시작했나)만 있었다. 그래서 부팅 시험이 40초
+ * 걸리던 것이 3분이 돼도 아무도 몰랐다 — 결과는 여전히 Pass 니까.
+ * 성능이 무너지는 것은 판정으로 안 잡히고 시간으로 잡힌다.
+ *
+ * 스텝을 도는 자리가 여기 하나뿐이라, 감싸면 종류에 상관없이 전부 잡힌다.
+ */
+async function runOneTimed(ctx: RunCtx, i: number, vars: Record<string, string>): Promise<Verdict> {
+  const t0 = Date.now()
+  try {
+    return await runOne(ctx, i, vars)
+  } finally {
+    ctx.onStep(i, { took_ms: Date.now() - t0 })
+  }
+}
+
 export async function runSteps(ctx: RunCtx, from = 0, only = false): Promise<RunResult> {
   const vars: Record<string, string> = { ...(ctx.params ?? {}) }
   // 「여기부터」·「이 스텝만」 이면 앞은 이번에 안 돈다 — 지난 값을 깔아 둔다
@@ -681,7 +699,7 @@ export async function runSteps(ctx: RunCtx, from = 0, only = false): Promise<Run
         continue
       }
 
-      count(await runOne(ctx, i, vars))
+      count(await runOneTimed(ctx, i, vars))
       i++
     }
   }
@@ -691,7 +709,7 @@ export async function runSteps(ctx: RunCtx, from = 0, only = false): Promise<Run
       // 한 줄만 돌릴 때는 블록을 펴지 않는다. If 의 몸통까지 따라가면
       // '이 스텝만' 이라는 말과 어긋난다.
       ctx.onAt(from)
-      count(await runOne(ctx, from, vars))
+      count(await runOneTimed(ctx, from, vars))
     } else {
       await walk(from, ctx.steps.length)
     }

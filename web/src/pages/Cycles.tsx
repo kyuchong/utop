@@ -58,6 +58,13 @@ export interface CycleStep {
   output?: string | null
   waitSec?: number | null
   executed_at?: string | null
+  /** 왜 그렇게 판정했나. 실행기가 적어 두는데 화면에 안 나오고 있었다 */
+  reason?: string | null
+  /** 얼마나 걸렸나 (밀리초) */
+  took_ms?: number | null
+  /** 실행기가 적는 판정. 옛 자료의 result 와 다르다 */
+  status?: string | null
+  repeatResult?: string | null
   manual?: boolean
 }
 
@@ -711,8 +718,19 @@ function CycleDetail({
               </select>
               <span className="muted">{it.assignee || it.executed_by || '–'}</span>
               <span className="muted small">
-                {it.executed_at ? it.executed_at.slice(5, 16) : '–'}
-                {it.executed_auto && <b title="자동으로 돌았습니다"> ⚡</b>}
+                {/* 도는 동안은 시각 대신 진행을 보여 준다. 「언제 돌았나」 는
+                    끝난 뒤에 궁금한 것이고, 도는 동안 궁금한 것은
+                    「어디까지 갔나」 다. */}
+                {st.itemAt === at && st.on ? (
+                  <b className="cy-now">
+                    실행 중{st.stepAt >= 0 && ` · 스텝 ${st.stepAt + 1}/${st.stepCount}`}
+                  </b>
+                ) : (
+                  <>
+                    {it.executed_at ? it.executed_at.slice(5, 16) : '–'}
+                    {it.executed_auto && <b title="자동으로 돌았습니다"> ⚡</b>}
+                  </>
+                )}
               </span>
               <span className="muted">{(it.issues?.length ?? 0) || '–'}</span>
             </div>
@@ -952,54 +970,46 @@ function CyclePickTc({
   )
 }
 
-/** 실행 진행 — 오른쪽 칸 아래에 붙는다 */
+/**
+ * 실행 진행 — 한 줄.
+ *
+ * 전에는 여기에 로그를 통째로 쏟았다. 그런데 그 내용이 위 스텝 카드와
+ * 거의 겹친다 — 명령도 출력도 판정도 카드에 있고, 판정에 걸린 문구는
+ * 색까지 칠해져 있다. 「'E5010-24C' == 'E5010-24C'」 를 아래에서 다시
+ * 읽을 이유가 없다.
+ *
+ * 그래서 **판정 근거는 스텝 카드로 올리고**(`sc-why`) 여기는 한 줄만
+ * 남긴다 — 지금 무엇이 도는가. 원본 로그는 Executions 화면에서 본다.
+ * 거기가 「무슨 일이 있었나」 를 보는 자리고, 장비 연결 실패처럼 어느
+ * 스텝에도 안 붙는 줄까지 거기 있어야 한다.
+ */
 function RunPane({ st }: { st: ReturnType<typeof useCycleRun>['st'] }) {
-  if (!st.on && st.log.length === 0) return null
+  if (!st.runId) return null
+  const label = st.waiting
+    ? '실행 대기'
+    : st.on
+      ? '실행 중'
+      : st.status === 'stopped'
+        ? '멈춤'
+        : st.status === 'failed'
+          ? '실행 실패'
+          : '실행 마침'
   return (
-
-        <div className={`cy-run${st.on ? ' on' : ''}`}>
-          <div className="cy-run-head">
-            {/* 실행은 서버가 한다. 그래서 「누가 걸었나」 와 「아직 안
-                집혔나」 를 말해 줘야 한다 — 내 창에서 도는 것이 아니니
-                아무 말이 없으면 걸리긴 한 건지 알 수 없다. */}
-            <b>
-              {st.waiting
-                ? '실행 대기'
-                : st.on
-                  ? '실행 중'
-                  : st.status === 'stopped'
-                    ? '멈춤'
-                    : st.status === 'failed'
-                      ? '실행 실패'
-                      : '실행 마침'}
-            </b>
-            <span className="muted small">
-              항목 {st.done}/{st.total}
-              {st.who && ` · ${st.who} 님이 걸었습니다`}
-              {st.itemName && ` · ${st.itemName}`}
-              {st.stepAt >= 0 && ` · 스텝 ${st.stepAt + 1}/${st.stepCount}`}
-            </span>
-            {st.waiting && <span className="muted small">실행 서버가 집기를 기다립니다…</span>}
-            {st.error && <span className="muted small err">{st.error}</span>}
-            {st.stepName && <code className="cy-run-cmd">{st.stepName}</code>}
-          </div>
-          <div className="cy-run-bar" aria-hidden="true">
-            <span style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
-          </div>
-          {/* 마지막 줄이 늘 보이게 뒤집어 쌓는다 — 스크롤을 따라 내리게
-              하면 사람이 손으로 쫓아가야 한다 */}
-          <div className="cy-run-log">
-            {st.log
-              .slice(-300)
-              .reverse()
-              .map((l, i) => (
-                <div className={`cy-run-line ${l.kind}`} key={i}>
-                  {l.i >= 0 && <b>{l.i + 1}</b>}
-                  {l.text}
-                </div>
-              ))}
-          </div>
-        </div>
+    <div className={`cy-run${st.on ? ' on' : ''}`}>
+      <b>{label}</b>
+      <span className="muted small">
+        {st.done}/{st.total}
+        {st.who && ` · ${st.who}`}
+        {st.itemName && ` · ${st.itemName}`}
+        {st.stepAt >= 0 && ` · 스텝 ${st.stepAt + 1}/${st.stepCount}`}
+      </span>
+      {st.waiting && <span className="muted small">실행 서버가 집기를 기다립니다…</span>}
+      {st.error && <span className="muted small err">{st.error}</span>}
+      {st.stepName && <code className="cy-run-cmd">{st.stepName}</code>}
+      <span className="cy-run-bar" aria-hidden="true">
+        <span style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
+      </span>
+    </div>
   )
 }
 

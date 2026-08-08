@@ -176,6 +176,13 @@ export interface TcStep {
   response?: string
   /** 실행 시각 (ISO) */
   executed_at?: string
+  /**
+   * 이 스텝이 얼마나 걸렸나 (밀리초).
+   *
+   * 결과가 Pass 여도 40초 걸리던 것이 3분이 되면 무언가 무너진 것이다.
+   * 그것은 판정으로 안 잡히고 시간으로 잡힌다.
+   */
+  took_ms?: number
   /** PASS · FAIL · 빈 값(미실행) */
   status?: string
 

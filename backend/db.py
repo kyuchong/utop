@@ -1429,17 +1429,33 @@ async def run_log_add(run_id: str, lines: list) -> int:
     """로그를 붙이고 마지막 seq 를 돌려준다."""
     if not lines:
         return 0
+
+    def _idx(v) -> int:
+        """번호 하나. **0 을 -1 로 만들지 않는다.**
+
+        `int(v or -1)` 로 적었다가 첫 스텝(0번)의 로그가 전부 -1 로
+        저장됐다. 파이썬에서 0 은 거짓이다. 로그를 스텝 밑에 붙일 때
+        첫 스텝만 아무것도 안 붙는 꼴이 된다.
+        """
+        try:
+            return -1 if v is None else int(v)
+        except Exception:
+            return -1
     async with pool().acquire() as c:
         base = await c.fetchval(
             "SELECT coalesce(max(seq), 0) FROM cycle_run_log WHERE run_id=$1", run_id
         ) or 0
         rows = [
-            (run_id, base + n + 1, int(x.get("i", -1) or -1), str(x.get("kind") or ""), str(x.get("text") or ""))
+            (
+                run_id, base + n + 1,
+                _idx(x.get("at")), _idx(x.get("i")),
+                str(x.get("kind") or ""), str(x.get("text") or ""),
+            )
             for n, x in enumerate(lines)
         ]
         await c.executemany(
-            "INSERT INTO cycle_run_log (run_id, seq, i, kind, text) VALUES ($1,$2,$3,$4,$5) "
-            "ON CONFLICT DO NOTHING",
+            "INSERT INTO cycle_run_log (run_id, seq, item_at, i, kind, text) "
+            "VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING",
             rows,
         )
         return base + len(rows)
@@ -1448,9 +1464,9 @@ async def run_log_add(run_id: str, lines: list) -> int:
 async def run_log_get(run_id: str, after: int = 0, limit: int = 5000) -> list:
     async with pool().acquire() as c:
         return [
-            {"seq": r["seq"], "i": r["i"], "kind": r["kind"], "text": r["text"]}
+            {"seq": r["seq"], "at": r["item_at"], "i": r["i"], "kind": r["kind"], "text": r["text"]}
             for r in await c.fetch(
-                "SELECT seq, i, kind, text FROM cycle_run_log WHERE run_id=$1 AND seq>$2 "
+                "SELECT seq, item_at, i, kind, text FROM cycle_run_log WHERE run_id=$1 AND seq>$2 "
                 "ORDER BY seq LIMIT $3",
                 run_id, int(after), int(limit),
             )

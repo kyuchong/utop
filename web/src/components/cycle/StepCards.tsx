@@ -30,6 +30,14 @@ function tokens(step: CycleStep): string[] {
     .filter(Boolean)
 }
 
+/** 걸린 시간을 사람 말로. 3분인지 3초인지가 한눈에 보여야 한다 */
+function took(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}초`
+  const m = Math.floor(ms / 60_000)
+  return `${m}분 ${Math.round((ms % 60_000) / 1000)}초`
+}
+
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
@@ -95,6 +103,8 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
         const r = stepVerdict(s as TcStep)
         const bad = r === 'Fail' || r === '불합격'
         const running = runningAt === i
+        // 판정은 없어도 돌기는 돈 스텝인가
+        const ran = !!s.executed_at || typeof s.took_ms === 'number'
         const out = String(s.output ?? '')
         const toks = tokens(s)
         return (
@@ -102,6 +112,16 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
             <div className="sc-head">
               <b>Step#{i + 1}</b>
               <span className="sc-kind">{s.action || (s.waitSec ? '대기' : 'CLI')}</span>
+              {/* 언제 · 얼마나. 결과가 Pass 여도 40초 걸리던 것이 3분이
+                  되면 무언가 무너진 것이다 — 그것은 판정으로 안 잡힌다. */}
+              {(s.executed_at || typeof s.took_ms === 'number') && (
+                <span className="sc-when">
+                  {s.executed_at && String(s.executed_at).slice(11, 19)}
+                  {typeof s.took_ms === 'number' &&
+                    s.took_ms >= 0 &&
+                    `${s.executed_at ? ' · ' : ''}${took(s.took_ms)}`}
+                </span>
+              )}
               <span className="sp" />
               {running ? (
                 <span className="sc-running">도는 중</span>
@@ -119,7 +139,11 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
                   ))}
                 </select>
               ) : (
-                <span className={`sc-v ${verdictClass((r || '') as Verdict)}`}>{r || '미실행'}</span>
+                <span className={`sc-v ${verdictClass((r || '') as Verdict)}`}>
+                  {/* 판정을 안 내는 스텝(대기·메시지·접속)도 돌기는 돈다.
+                      그것을 「미실행」 이라 쓰면 안 돌아간 것으로 읽힌다. */}
+                  {r || (ran ? '실행함' : '미실행')}
+                </span>
               )}
             </div>
 
@@ -162,6 +186,17 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
                 </div>
               )}
             </div>
+
+            {/* 왜 그렇게 판정했나.
+                실행기가 이미 적어 두는데 화면에 안 나오고 있었다. 그래서
+                아래에 실행 로그 판을 따로 두고 거기서 「'E5010-24C' ==
+                'E5010-24C'」 를 읽어야 했다 — 카드 안에서 끝나야 한다. */}
+            {s.reason && (
+              <div className={`sc-why${bad ? ' bad' : ''}`}>
+                <i>판정</i>
+                <span>{s.reason}</span>
+              </div>
+            )}
           </div>
         )
       })}

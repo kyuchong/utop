@@ -69,16 +69,26 @@ interface Item {
  * 않는다** — 보고 있는 사람은 지금 무엇이 도는지가 궁금하다.
  */
 class Pusher {
-  private logs: RunLog[] = []
+  private logs: Array<RunLog & { at: number }> = []
   private patch: Record<string, unknown> = {}
   private last = 0
+  /**
+   * 지금 몇 번째 항목인가.
+   *
+   * 로그에 스텝 번호만 있으면 64건짜리 사이클에서 「3번 스텝」 이 어느
+   * 항목의 3번인지 모른다. 나중에 로그를 그 항목 밑에 붙이려면 필요하다.
+   */
+  private at = -1
   /** 서버가 「멈추라」 고 했나 */
   stop = false
 
   constructor(private runId: string) {}
 
+  itemAt(n: number): void {
+    this.at = n
+  }
   addLog(x: RunLog): void {
-    this.logs.push(x)
+    this.logs.push({ ...x, at: this.at })
   }
   set(p: Record<string, unknown>): void {
     Object.assign(this.patch, p)
@@ -136,6 +146,7 @@ async function doRun(run: Run): Promise<void> {
     const it = all[at]
     if (!it?.tcid) continue
 
+    push.itemAt(at)
     push.set({ item_at: at, item_name: it.name || it.tcid, step_at: -1, step_count: 0, step_name: '' })
     push.addLog({ i: -1, kind: 'info', text: `▶ ${it.name || it.tcid}` })
 
@@ -223,7 +234,14 @@ async function doRun(run: Run): Promise<void> {
   })
   await call(`/api/runner/${run.id}/finish`, {
     status: stopped ? 'stopped' : 'done',
-    logs: [{ i: -1, kind: 'info', text: stopped ? `⏹ 멈췄습니다 (${n}/${run.picked.length})` : `✔ ${n}건 끝` }],
+    logs: [
+      {
+        i: -1,
+        at: -1,
+        kind: 'info',
+        text: stopped ? `⏹ 멈췄습니다 (${n}/${run.picked.length})` : `✔ ${n}건 끝`,
+      },
+    ],
   })
   log(`끝 ${run.id} — ${n}/${run.picked.length}${stopped ? ' (멈춤)' : ''}`)
 }
