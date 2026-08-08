@@ -513,12 +513,23 @@ export default function TestCases({ me }: PageProps) {
    * 실행 중에는 스텝 결과가 잇달아 들어와서 닫힌 값(steps)을 쓰면 앞의
    * 결과가 뒤 결과에 덮여 사라진다.
    */
-  const patchStep = (i: number, p: Partial<TcStep>) => {
+  /**
+   * 스텝 하나를 고친다.
+   *
+   * `fromRun` 이면 저장을 재촉하지 않는다. TC 화면의 실행은 **스텝이 잘
+   * 만들어졌는지 보는 자리**지 결과를 남기는 자리가 아니다 — 결과를
+   * 남기는 것은 사이클이고 거기서는 실행기가 알아서 저장한다.
+   *
+   * 전에는 실행만 해도 「저장 안 됨」 이 되어서, 아무것도 안 고쳤는데
+   * 저장을 누르거나 나갈 때 물음창을 받아야 했다. 새로고침하면 사라지는
+   * 것이 맞다.
+   */
+  const patchStep = (i: number, p: Partial<TcStep>, fromRun = false) => {
     setD((c) => {
       const arr = (c.checks ?? []) as TcStep[]
       return { ...c, checks: arr.map((s, j) => (j === i ? { ...s, ...p } : s)) }
     })
-    setDirty(true)
+    if (!fromRun) setDirty(true)
   }
 
   const addStep = (kind: StepKind) => {
@@ -694,19 +705,6 @@ export default function TestCases({ me }: PageProps) {
   })
 
   /**
-   * 끝까지 돌리고 나면 저절로 저장한다.
-   *
-   * `setD` 는 곧바로 반영되지 않으므로 실행이 끝나고 상태가 자리를 잡은
-   * 다음에 부른다. 남이 먼저 저장했으면 여기서도 409 가 나는데, 그때는
-   * 늘 하던 대로 띠로 알린다 — 조용히 덮지 않는다.
-   */
-  useEffect(() => {
-    if (!autoSave.current || running || !dirty || saveM.isPending) return
-    autoSave.current = false
-    saveM.mutate()
-  }, [running, dirty, saveM])
-
-  /**
    * 다른 이름으로 저장 · 파일에서 가져오기.
    *
    * 둘 다 '내용은 이미 있고 새 ID 만 정하면 되는' 일이라 한 창을 쓴다.
@@ -807,8 +805,6 @@ export default function TestCases({ me }: PageProps) {
    * 끝날 때마다 결과가 그 줄에 바로 박힌다.
    */
   const runAbort = useRef<AbortController | null>(null)
-  /** 끝까지 돌린 뒤 저절로 저장할까 — 결과는 사실이지 편집이 아니다 */
-  const autoSave = useRef(false)
 
   /**
    * 고른 줄이 블록(반복)인데 몸통이 비었나 · 몇 줄을 넣을 수 있나.
@@ -869,7 +865,7 @@ export default function TestCases({ me }: PageProps) {
           steps,
           sessions: sessionIds,
           devById,
-          onStep: patchStep,
+          onStep: (i, p) => patchStep(i, p, true),
           // 돌고 있는 줄을 따라간다. 3열이 그 줄의 응답이 자라는 것을
           // 보여주므로, 안 따라가면 스트리밍이 보이지 않는다.
           onAt: (i) => {
@@ -881,58 +877,19 @@ export default function TestCases({ me }: PageProps) {
           signal: ac.signal,
       }
       const r = pick ? await runPicked(ctx, pick) : await runSteps(ctx, from, only)
-      /**
-       * 전체를 끝까지 돌렸으면 TC 상태도 함께 정한다.
+      /*
+       * TC 상태는 여기서 안 건드린다.
        *
-       * 한 줄이라도 불합격이면 TC 는 불합격이다. 스텝 판정은 다 되는데
-       * TC 상태는 사람이 손으로 고르고 있어서, 목록의 점과 실제 결과가
-       * 어긋난 채로 남았다.
+       * 전에는 끝까지 돌리면 TC 를 PASS/FAIL 로 도장 찍고 「저장해야
+       * 남습니다」 를 붙였다. 그런데 이 화면의 실행은 **스텝이 잘
+       * 만들어졌는지 보는 자리**다 — 돌려 보고, 응답을 뜯어 보고, 판정
+       * 기준을 고친다. 그때마다 저장을 재촉받을 이유가 없다.
        *
-       * 고른 줄만·한 줄만 돌린 것으로는 안 정한다 — 시험 전체를 본 것이
-       * 아니라서 그 결과로 TC 를 판정하면 틀린다. 중지한 것도 마찬가지다.
-       *
-       * 저장은 안 한다. 실행 결과도 저장 전이므로, 여기만 먼저 서버에
-       * 넣으면 상태와 스텝이 어긋난다.
+       * 결과를 남기는 것은 사이클이고, 거기서는 실행기가 알아서 저장한다.
        */
-      let stamped = ''
-      if (!only && !pick && !r.stopped) {
-        setD((c) => {
-          const arr = (c.checks ?? []) as TcStep[]
-          let f = 0
-          let p2 = 0
-          for (const s of arr) {
-            const v = stepStatus(s)
-            if (v === 'FAIL') f++
-            else if (v === 'PASS') p2++
-          }
-          if (f === 0 && p2 === 0) return c
-          stamped = f > 0 ? 'FAIL' : 'PASS'
-          return { ...c, status: stamped }
-        })
-        setDirty(true)
-        /*
-         * 끝까지 돌린 결과는 저절로 저장한다.
-         *
-         * 전에는 손으로 저장을 눌러야 했다. 그래서 통째로 돌려 놓고
-         * 저장을 잊고 나가면 **응답도 판정도 전부 사라졌다** — 남는 것은
-         * 실행 이력의 요약 한 줄(pass/fail/소요)뿐이라 「무엇이 나왔길래
-         * 그렇게 판정됐나」 를 다시 못 봤다.
-         *
-         * 결과는 사실이지 편집이 아니다. 잊었다고 잃을 것이 아니다.
-         * 사이클 쪽은 실행기가 이미 그렇게 저장하고 있어서, 두 화면이
-         * 다르게 굴던 것이기도 하다.
-         *
-         * 한 줄만·고른 줄만 돌린 것은 저장하지 않는다 — 시험 삼아 눌러
-         * 보는 일이 잦고, 그때마다 저장하면 남의 결과를 덮는다.
-         */
-        autoSave.current = true
-      }
-
       setMsg({
         kind: r.fail > 0 ? 'err' : 'ok',
-        text:
-          `${r.stopped ? '중지됨 · ' : ''}PASS ${r.pass} · FAIL ${r.fail}` +
-          (stamped ? ` · TC 를 ${stamped} 로 두었습니다` : ''),
+        text: `${r.stopped ? '중지됨 · ' : ''}PASS ${r.pass} · FAIL ${r.fail}`,
       })
       // 실행 이력은 전체 실행만 남긴다. 한 줄씩 돌려보는 것까지 쌓으면
       // 이력이 편집 기록이 되어 '언제 통째로 돌렸나' 를 못 찾는다.
