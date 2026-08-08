@@ -165,6 +165,50 @@ export default function TestCases() {
   const pickedTc = tcSel.picked
   const [bulkEdit, setBulkEdit] = useState(false)
 
+  /**
+   * 고른 시험 지우기.
+   *
+   * 하나씩 순서대로 지운다. 한꺼번에 던지면 어디까지 지워졌는지 알 수 없어
+   * 실패했을 때 무엇을 다시 해야 하는지 말해줄 수 없다.
+   */
+  const removeTcs = useMutation({
+    mutationFn: async (ids: string[]) => {
+      let ok = 0
+      for (const id of ids) {
+        await tcApi.remove(id)
+        ok++
+      }
+      return ok
+    },
+    onError: (e) =>
+      window.alert(`삭제하지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`),
+    onSuccess: (n) => {
+      tcSel.clear()
+      setMsg({ kind: 'ok', text: `${n}건을 지웠습니다` })
+      void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
+      void qc.invalidateQueries({ queryKey: ['tcs'] })
+    },
+  })
+
+  const doRemoveTcs = () => {
+    const ids = [...pickedTc]
+    if (!ids.length) return
+    const names = ids
+      .map((id) => tcs.find((x) => x.tcid === id)?.name || id)
+      .slice(0, 5)
+      .join('\n · ')
+    // 무엇이 사라지는지 적는다. 사이클에 들어 있던 항목도 같이 정리된다.
+    if (
+      !window.confirm(
+        `시험 ${ids.length}건을 지웁니다.\n\n · ${names}${ids.length > 5 ? '\n …' : ''}\n\n` +
+          '이 시험의 절차와 실행 이력이 함께 사라지고, 사이클에 들어 있던 항목에서도 빠집니다.\n' +
+          '휴지통에 남지만 화면에서는 되돌릴 수 없습니다. 계속할까요?',
+      )
+    )
+      return
+    removeTcs.mutate(ids)
+  }
+
   useEffect(() => {
     localStorage.setItem(TAB_KEY, tab)
   }, [tab])
@@ -949,11 +993,23 @@ export default function TestCases() {
                 <button type="button" onClick={() => setBulkOpen(true)}>
                   시험 일괄 생성
                 </button>
-                {pickedTc.size > 1 && (
+                {/* 고른 것에 대한 일. 지우는 것은 하나부터, 한꺼번에
+                    고치는 것은 둘부터 — 한 건은 그냥 열어서 고치면 된다. */}
+                {pickedTc.size > 0 && (
                   <>
                     <hr />
-                    <button type="button" onClick={() => setBulkEdit(true)}>
-                      선택한 {pickedTc.size}건 한꺼번에 고치기
+                    {pickedTc.size > 1 && (
+                      <button type="button" onClick={() => setBulkEdit(true)}>
+                        선택한 {pickedTc.size}건 한꺼번에 고치기
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="danger"
+                      disabled={removeTcs.isPending}
+                      onClick={doRemoveTcs}
+                    >
+                      {removeTcs.isPending ? '삭제 중…' : `선택한 ${pickedTc.size}건 삭제`}
                     </button>
                   </>
                 )}
