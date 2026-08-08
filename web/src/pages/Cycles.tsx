@@ -65,6 +65,18 @@ export interface CycleStep {
   took_ms?: number | null
   /** 반복 안이면 회차마다의 결과 */
   rounds?: StepRound[] | null
+  /**
+   * Manual 스텝은 다른 칸을 쓴다 — 사람이 읽는 시험서라서.
+   * `step`(무엇을 하나) · `data`(Test Data) · `expected`(나와야 하는 것),
+   * 그리고 **사진**. 카드가 desc·cli·criteria 만 읽어서 수동 스텝이
+   * 통째로 비어 보였다.
+   */
+  step?: string | null
+  data?: string | null
+  expected?: string | null
+  data_img?: string | null
+  expected_img?: string | null
+  expected_img_w?: number | null
   /** Diff — 견줄 두 값이 곧 판정 기준이다 */
   kind?: string | null
   cmpLeft?: string | null

@@ -263,10 +263,28 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
               )}
             </div>
 
-            {s.desc && (
+            {(s.desc || s.step) && (
               <div className="sc-sec">
-                <i>시험 목적</i>
-                <div>{s.desc}</div>
+                {/* Manual 은 「무엇을 하나」 가 곧 절차다 */}
+                <i>{s.kind === 'manual' ? '시험 절차' : '시험 목적'}</i>
+                <div className="sc-txt">{s.desc || s.step}</div>
+              </div>
+            )}
+
+            {/* Manual 스텝은 `data`·`expected` 와 사진에 내용을 넣는다.
+                카드가 desc·cli·criteria 만 읽어서 통째로 비어 보였다. */}
+            {s.kind === 'manual' && (s.data || s.data_img) && (
+              <div className="sc-sec">
+                <i>TEST DATA</i>
+                {s.data && <div className="sc-txt">{s.data}</div>}
+                {s.data_img && <img className="sc-img" src={s.data_img} alt="" />}
+              </div>
+            )}
+            {s.kind === 'manual' && (s.expected || s.expected_img) && (
+              <div className="sc-sec">
+                <i>EXPECTED RESULT</i>
+                {s.expected && <div className="sc-txt">{s.expected}</div>}
+                {s.expected_img && <img className="sc-img" src={s.expected_img} alt="" />}
               </div>
             )}
 

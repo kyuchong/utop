@@ -1061,3 +1061,13 @@ table.tb td.k {
 .cy-kind.manual { background: #fff8e6; color: #8a5a00; }
 .cy-kind.auto { background: var(--c-primary-soft, #eef4ff); color: var(--c-primary); }
 .cy-kind.mixed { background: var(--c-surface-2); color: var(--c-text-muted); }
+
+/* Manual 은 사람이 읽는 시험서다 — 줄바꿈을 지키고 사진도 그린다 */
+.sc-txt { white-space: pre-wrap; word-break: break-word; }
+.sc-img {
+  display: block;
+  max-width: 100%;
+  margin-top: 6px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box);
+}
