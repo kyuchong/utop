@@ -677,6 +677,7 @@
  * 수가 반이 되고, 이름이 세로로 나란해서 훑기도 쉽다.
  */
 .sd-f {
+  position: relative;
   display: grid;
   grid-template-columns: 84px minmax(0, 1fr);
   align-items: center;
@@ -1267,8 +1268,18 @@
   gap: 6px;
 }
 
+/*
+ * 「${ } 값 넣기」 는 칸 **오른쪽 끝**에.
+ *
+ * 이름을 왼쪽으로 옮기면서 이 단추도 이름 칸으로 딸려 들어가, 「보낼 명령」
+ * 밑에 세로로 붙어 이름이 두 줄이 됐다. 넣을 자리는 오른쪽 입력칸이니
+ * 단추도 그 위 오른쪽에 있어야 손이 짧다.
+ */
 .sd-pickbtn {
-  margin-left: auto;
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
   border: 1px solid var(--tc-line);
   background: var(--c-surface);
   color: var(--c-text-muted);
