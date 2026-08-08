@@ -434,7 +434,77 @@ async function runOne(
     return j.verdict
   }
 
-  // cli · instrument · manual · auto — 명령을 보내는 것들
+  /**
+   * 계측기 동작 — N2X·STC 에 시키는 것.
+   *
+   * 백엔드가 이미 traffic/start·stat·stop·clear·ports 를 데몬 명령으로
+   * 옮겨 준다. 여기서는 스텝의 칸을 그 몸통으로 바꿔 보낸다. raw Tcl 은
+   * `meterAct` 가 없을 때만(옛 자료) CLI 로 흘려보낸다.
+   *
+   * 판정은 「통계 읽기」 에서 난다 — 손실이 허용치를 넘으면 불합격.
+   * 트래픽이 얼마를 흘렸느냐가 곧 시험 결과인 경우가 그것이다.
+   */
+  if (kind === 'instrument' && step.meterAct) {
+    const dev = deviceOf(ctx, step).dev
+    const server = (step.host || dev?.ip || '210.1.2.248').trim()
+    const label = String((dev?.id ?? 'utop'))
+    const act = step.meterAct
+    const port = (p: string): { module: string; port: string } => {
+      const m = /(\d+)\s*[/\-]\s*(\d+)/.exec(p || '')
+      return { module: m?.[1] ?? '101', port: m?.[2] ?? '1' }
+    }
+    const paths: Record<string, string> = {
+      ports: '/api/n2x/ports',
+      traffic_start: '/api/n2x/traffic/start',
+      traffic_stat: '/api/n2x/traffic/stat',
+      traffic_stop: '/api/n2x/traffic/stop',
+      traffic_clear: '/api/n2x/traffic/clear',
+    }
+    const body: Record<string, unknown> = { server, label }
+    if (act === 'traffic_start') {
+      const tx = port(subVars(step.txPort ?? '', vars))
+      const rx = port(subVars(step.rxPort ?? '', vars))
+      body.streams = [
+        {
+          module: tx.module,
+          txPort: tx.port,
+          rxPort: rx.port,
+          pps: step.meterPps ?? 1000,
+          size: step.meterSize ?? 64,
+        },
+      ]
+      body.dur = step.meterDur ?? 0
+    }
+    let j: Record<string, unknown> = {}
+    try {
+      j = await post(paths[act] ?? '/api/n2x/ping', body, ctx.signal)
+    } catch (e) {
+      const err = e instanceof Error ? e.message : String(e)
+      ctx.onStep(i, { output: `[계측기 오류] ${err}`, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: err })
+      ctx.onLog({ i, text: err, kind: 'fail' })
+      return 'Fail'
+    }
+    const pretty = JSON.stringify(j, null, 2)
+    // 「통계 읽기」 만 합격·불합격을 낸다. 나머지는 시켰다는 기록이다.
+    if (act === 'traffic_stat') {
+      const rows = (j.stats as Array<Record<string, number>>) ?? []
+      const loss = rows.reduce((a, r) => a + (Number(r.loss ?? r.lost ?? 0) || 0), 0)
+      const rx = rows.reduce((a, r) => a + (Number(r.rx ?? r.received ?? 0) || 0), 0)
+      const cap = step.meterMaxLoss ?? 0
+      const ok = j.ok !== false && loss <= cap
+      const reason = j.ok === false ? String(j.error ?? '통계 실패')
+        : `받음 ${rx} · 손실 ${loss}${cap ? ` (허용 ${cap})` : ''}`
+      ctx.onStep(i, { output: pretty, executed_at: at, status: ok ? 'PASS' : 'FAIL', repeatResult: ok ? 'Pass' : 'Fail', reason })
+      ctx.onLog({ i, text: `통계 — ${reason}`, kind: ok ? 'pass' : 'fail' })
+      return ok ? 'Pass' : 'Fail'
+    }
+    const ok = j.ok !== false
+    ctx.onStep(i, { output: pretty, executed_at: at, status: ok ? 'PASS' : '', repeatResult: ok ? 'Pass' : '', reason: ok ? '' : String(j.error ?? '') })
+    ctx.onLog({ i, text: `${act} — ${ok ? '보냄' : String(j.error ?? '실패')}`, kind: ok ? 'info' : 'fail' })
+    return ok ? 'Pass' : 'Fail'
+  }
+
+  // cli · instrument(raw) · manual · auto — 명령을 보내는 것들
   const cmdText = subVars(String(step.cli ?? step.data ?? ''), vars)
   const commands = cmdText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
   if (commands.length === 0) {

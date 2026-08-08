@@ -2415,3 +2415,7 @@ table.tb tr.r-bad td:first-child {
 }
 .tc-round-only { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
 .tc-round-q { width: 92px; font-size: 12px; }
+
+/* 계측기 동작 편집 — 두 칸씩 나란히 */
+.sd-meter { display: flex; flex-direction: column; gap: 8px; }
+.sd-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

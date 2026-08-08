@@ -263,6 +263,36 @@ export interface TcStep {
   host?: string
   /** kind=ping — 몇 번 */
   pingCount?: number
+  /**
+   * kind=instrument — 계측기(N2X·STC)에 무엇을 시킬까.
+   *
+   * 전에는 계측기 스텝이 명령 한 줄(raw Tcl)만 받았다. 그래서 스텝을
+   * 쓰는 사람이 `tstart 10 101 1 …` 같은 것을 외워 적어야 했다.
+   * 동작을 고르고 칸을 채우면 실행기가 알아서 명령으로 옮긴다.
+   *
+   *   ports         — 예약된 포트 확인
+   *   traffic_start — 트래픽 시작 (TX→RX, 속도, 시간)
+   *   traffic_stat  — 지금 통계 읽기 (손실·지연). 판정은 여기서
+   *   traffic_stop  — 트래픽 정지
+   *   traffic_clear — 스트림 비우기
+   */
+  meterAct?:
+    | 'ports'
+    | 'traffic_start'
+    | 'traffic_stat'
+    | 'traffic_stop'
+    | 'traffic_clear'
+  /** traffic_start — 보내는 포트 / 받는 포트 (모듈/포트, 예: "101/1") */
+  txPort?: string
+  rxPort?: string
+  /** 초당 패킷 수. 비우면 데몬 기본값 */
+  meterPps?: number
+  /** 패킷 크기(바이트) */
+  meterSize?: number
+  /** 보낼 시간(초). 0/비움 = 연속(정지할 때까지) */
+  meterDur?: number
+  /** traffic_stat 판정 — 허용 손실 패킷 수(넘으면 불합격). 비우면 0 */
+  meterMaxLoss?: number
   /** kind=snmp_* */
   oid?: string
   community?: string
