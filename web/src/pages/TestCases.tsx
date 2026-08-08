@@ -4,6 +4,7 @@ import { api, apiFetch, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import ListHead from '@/components/ListHead'
 import PresenceBar from '@/components/PresenceBar'
+import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
 import TcBulkForm from '@/components/TcBulkForm'
 import TcBulkEdit from '@/components/tc/TcBulkEdit'
@@ -180,12 +181,17 @@ export default function TestCases({ me }: PageProps) {
    */
   const meName = me?.name || me?.username || ''
   /**
-   * 남이 저장했다.
+   * 남이 저장한 이력 — 새것이 앞이다.
    *
-   * `kept` 는 「내가 고친 게 있어 아직 안 읽어왔다」 — 이때는 띠가 남아
-   * 있어야 하고 내가 눌러야 읽어온다. 아니면 이미 읽어온 뒤라 잠깐만
-   * 알리고 사라진다.
+   * 전에는 저장될 때마다 띠가 떴다 사라졌다. 연달아 저장되면 앞의 것이
+   * 밀려서 누가 언제 했는지가 안 남고, 잠깐 자리를 비우면 통째로 놓쳤다.
+   * 종에 쌓아 두고 숫자만 보인다.
+   *
+   * `kept` 는 「내가 고친 게 있어 아직 안 읽어왔다」 — 이것만은 종에
+   * 묻으면 안 된다. 내가 눌러야 하는 일이라 띠로 남는다.
    */
+  const [saves, setSaves] = useState<SaveEvent[]>([])
+  const [seen, setSeen] = useState(0)
   const [remote, setRemote] = useState<{ user: string; kept: boolean } | null>(null)
   /**
    * 남이 저장하면 그 자리에서 반영한다.
@@ -201,21 +207,20 @@ export default function TestCases({ me }: PageProps) {
     if (m.type !== 'tc_updated' || !openId || m.tcid !== openId) return
     if (m.user && m.user === meName) return // 내가 방금 저장한 것
     const who = m.user || '다른 사람'
+    // 20건까지만. 그 아래는 아무도 안 본다
+    setSaves((c) => [{ user: who, at: Date.now(), kept: dirty }, ...c].slice(0, 20))
     if (dirty) {
       setRemote({ user: who, kept: true })
       return
     }
     void qc.invalidateQueries({ queryKey: ['tc', openId] })
-    setRemote({ user: who, kept: false })
   })
-  // 다른 시험으로 옮기면 지난 알림은 지운다
-  useEffect(() => setRemote(null), [openId])
-  // 이미 읽어온 뒤의 알림은 잠깐만. 계속 붙어 있으면 장식이 되어 안 읽힌다
+  // 다른 시험으로 옮기면 지난 것은 지운다 — 이 시험의 이력이지 내 이력이 아니다
   useEffect(() => {
-    if (!remote || remote.kept) return
-    const t = setTimeout(() => setRemote(null), 8000)
-    return () => clearTimeout(t)
-  }, [remote])
+    setRemote(null)
+    setSaves([])
+    setSeen(0)
+  }, [openId])
   const pickedTc = tcSel.picked
   const [bulkEdit, setBulkEdit] = useState(false)
 
@@ -855,31 +860,32 @@ export default function TestCases({ me }: PageProps) {
                   {/* 지금 이 시험을 누가 같이 보고 있나 — 제목 바로 옆.
                       혼자면 아무것도 안 뜬다. 둘부터 뜬다. */}
                   <PresenceBar users={presence.users} me={meName} />
-                  {/* 남이 저장했다. 내가 고친 게 있으면 덮지 않고 여기서
-                      묻는다 — 누르는 것은 내가 고른다. 아니면 이미 읽어온
-                      뒤라 잠깐 알리고 사라진다. */}
-                  {remote && (
-                    <span className={`tc-remote${remote.kept ? '' : ' done'}`}>
-                      {remote.kept
-                        ? `${remote.user} 님이 저장했습니다`
-                        : `${remote.user} 님이 저장해서 새로 읽었습니다`}
-                      {remote.kept && (
-                        <button
-                          className="btn small"
-                          type="button"
-                          onClick={() => {
-                            if (
-                              !window.confirm('지금 저장된 것을 불러올까요? 내가 고친 것은 사라집니다.')
-                            )
-                              return
-                            void qc.invalidateQueries({ queryKey: ['tc', openId] })
-                            setDirty(false)
-                            setRemote(null)
-                          }}
-                        >
-                          불러오기
-                        </button>
-                      )}
+                  {/* 누가 저장했나 — 쌓아 두고 숫자만. 「함께 보는 중」 옆이다 */}
+                  <SaveBell
+                    items={saves}
+                    unseen={Math.max(0, saves.length - seen)}
+                    onSeen={() => setSeen(saves.length)}
+                  />
+                  {/* 내가 고친 게 있어 못 읽어온 경우만 띠로 남는다. 덮지
+                      않고 여기서 묻는다 — 누르는 것은 내가 고른다. */}
+                  {remote?.kept && (
+                    <span className="tc-remote">
+                      {remote.user} 님이 저장했습니다
+                      <button
+                        className="btn small"
+                        type="button"
+                        onClick={() => {
+                          if (
+                            !window.confirm('지금 저장된 것을 불러올까요? 내가 고친 것은 사라집니다.')
+                          )
+                            return
+                          void qc.invalidateQueries({ queryKey: ['tc', openId] })
+                          setDirty(false)
+                          setRemote(null)
+                        }}
+                      >
+                        불러오기
+                      </button>
                     </span>
                   )}
                   {/* 화면 전체의 알림. 전에는 「스텝을 골랐을 때 뜨는 띠」

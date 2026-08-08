@@ -2198,13 +2198,6 @@ table.tb tr.r-bad td:first-child {
   font-size: 12px;
   white-space: nowrap;
 }
-/* 이미 읽어온 뒤 — 할 일이 없으니 톤을 낮춘다. 노란 띠는 「내가 눌러야
-   하는 것」 에만 쓴다 */
-.tc-remote.done {
-  border-color: #9ec5fe;
-  background: #eef5ff;
-  color: #0a58ca;
-}
 .tc-seqhead b { font-size: var(--fs-md); }
 .tc-dethead .seg { flex: 0 1 auto; min-width: 0; }
 .tc-dethead .btn { flex: none; }

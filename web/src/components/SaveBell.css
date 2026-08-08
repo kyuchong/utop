@@ -1,0 +1,89 @@
+/* 누가 저장했나 — 종. 「함께 보는 중」 바로 오른쪽에 선다 */
+.sb {
+  position: relative;
+  display: inline-flex;
+}
+
+.sb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  border: 1px solid var(--line, #d8d8d8);
+  border-radius: var(--r-chip, 4px);
+  background: transparent;
+  color: var(--muted, #666);
+  cursor: pointer;
+  line-height: 1;
+}
+.sb-btn:hover {
+  background: var(--hover, #f2f2f2);
+  color: var(--fg, #222);
+}
+/* 안 본 것이 있을 때만 색을 준다 — 늘 칠해 두면 있고 없고를 구분 못 한다 */
+.sb-btn.on {
+  border-color: #f0b429;
+  background: #fff8e6;
+  color: #8a5a00;
+}
+.sb-n {
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 12px;
+  text-align: center;
+}
+
+.sb-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 40;
+  min-width: 210px;
+  max-width: 300px;
+  border: 1px solid var(--line, #d8d8d8);
+  border-radius: var(--r-box, 6px);
+  background: var(--bg, #fff);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 14%);
+  overflow: hidden;
+}
+.sb-head {
+  padding: 5px 9px;
+  border-bottom: 1px solid var(--line, #e5e5e5);
+  font-size: 12px;
+  font-weight: 700;
+}
+.sb-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.sb-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 9px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--line-soft, #f0f0f0);
+}
+.sb-list li:last-child { border-bottom: 0; }
+.sb-t {
+  margin-left: auto;
+  color: var(--muted, #888);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.sb-kept {
+  padding: 0 4px;
+  border-radius: var(--r-chip, 4px);
+  background: #fff8e6;
+  color: #8a5a00;
+  font-size: 11px;
+}
+.sb-foot {
+  padding: 4px 9px;
+  border-top: 1px solid var(--line, #e5e5e5);
+  color: var(--muted, #888);
+  font-size: 11px;
+}
