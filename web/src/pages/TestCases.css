@@ -687,7 +687,9 @@
 .sd-f > span {
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
-  text-align: right;
+  /* 왼쪽 정렬. 오른쪽에 맞췄더니 이름이 들쭉날쭉해 세로로 안 훑힌다 —
+     「설명 / Action / Session」 의 첫 글자가 한 줄로 서야 한다. */
+  text-align: left;
   /* 여러 줄짜리 칸(보낼 명령)에서는 이름이 위에 붙어야 읽힌다 */
   align-self: start;
   padding-top: 5px;

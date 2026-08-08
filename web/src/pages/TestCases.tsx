@@ -781,6 +781,10 @@ export default function TestCases() {
                       </>
                     )}
                   </span>
+                  {/* 제목과 탭 사이를 벌린다. 탭은 오른쪽 끝에 ⋯·저장과
+                      한 덩이로 — 「이 시험의 무엇을 볼까」 를 고르는 것들이라
+                      모여 있어야 손이 한 곳으로 간다. */}
+                  <span className="sp" />
             {openId && !paramKey && (
               <div className="seg" role="tablist">
                 {([
@@ -1193,7 +1197,6 @@ export default function TestCases() {
                   <b>{picked.size}개 골랐습니다</b>
                   <span className="muted small">shift 를 누른 채 누르면 그 사이가 모두</span>
                   {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
-                  <span className="sp" />
                   <button
                     className="btn small primary"
                     type="button"
