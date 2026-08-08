@@ -39,6 +39,11 @@ services:
       DIFY_FILE_VAR: ${DIFY_FILE_VAR:-}
       # 실행기가 자기를 밝히는 열쇠. 없으면 실행 대기줄이 아예 안 열린다.
       RUNNER_KEY: ${RUNNER_KEY:-}
+      # N2X 중계. .env 에 넣어도 여기서 넘기지 않으면 컨테이너 안까지 안 온다.
+      # 있으면 N2X 명령이 그 윈도우 중계로 나간다. 없으면 이 기계에서
+      # 직접(리눅스라 실패) — 그래서 반드시 넘겨야 한다.
+      N2X_RELAY_URL: ${N2X_RELAY_URL:-}
+      N2X_RELAY_KEY: ${N2X_RELAY_KEY:-}
       TZ: ${TZ:-Asia/Seoul}
     volumes:
       - app-data:/app/data
