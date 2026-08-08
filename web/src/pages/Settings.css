@@ -504,12 +504,106 @@
 /* 설정 항목을 묶는다.
    일곱 개가 평평하게 늘어서 있으면, 무엇을 고치러 왔든 매번 일곱 줄을
    다 읽게 된다. 왼쪽 큰 메뉴와 같은 말로 묶어 둔다 */
-.set-nav-grp + .set-nav-grp { margin-top: 10px; }
+/* 묶음 사이를 벌린다. 붙여 두면 묶은 티가 안 나서 결국 다시 일곱 줄을
+   훑게 된다 — 묶는 값은 이 여백에서 나온다 */
+.set-nav-grp + .set-nav-grp {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--c-border-soft, #f0f0f0);
+}
 .set-nav-grpt {
-  padding: 4px 12px 3px;
+  padding: 0 12px 6px;
   color: var(--c-text-faint);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.4px;
   text-transform: uppercase;
 }
+
+/* Jira 연동 — 붙는 것 · 기본값 · 자주 쓰는 프로젝트 */
+.set-page { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+.set-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.set-head .sp { margin-left: auto; }
+.jira-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.jira-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+.jira-t { font-size: var(--fs-md); }
+.jira-f { display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-xs); }
+.jira-f > span { color: var(--c-text-muted); }
+.jira-row { display: flex; gap: 6px; align-items: center; }
+.jira-row select { flex: 1; min-width: 0; }
+.jira-ck { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); }
+.jira-act { display: flex; gap: 6px; margin-top: 4px; }
+.jira-note { margin: 0; }
+.jira-favs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 320px;
+  overflow: auto;
+}
+.jira-fav { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); }
+
+/* 프로젝트 패널 설정 */
+.jp-auto {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  background: var(--c-surface-2);
+}
+.jp-auto.on { border-color: var(--c-primary); background: var(--c-primary-soft, #eef4ff); }
+.jp-auto p { margin: 2px 0 0; }
+.jp-auto .sp { margin-left: auto; }
+.jp-sw { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 700; }
+.jp-cols { display: flex; gap: 12px; align-items: flex-start; min-height: 0; }
+.jp-list { flex: 0 0 240px; padding: 6px; max-height: 60vh; overflow: auto; }
+.jp-lh { padding: 4px 6px 6px; font-size: var(--fs-xs); color: var(--c-text-muted); }
+.jp-empty { padding: 6px; }
+.jp-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: var(--r-chip);
+  background: transparent;
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.jp-item:hover { background: var(--c-hover, #f4f5f7); }
+.jp-item.on { background: var(--c-primary-soft, #eef4ff); }
+.jp-item .sp { margin-left: auto; }
+.jp-tag {
+  padding: 0 5px;
+  border-radius: var(--r-chip);
+  background: var(--c-surface-2);
+  color: var(--c-text-muted);
+  font-size: 11px;
+}
+.jp-tag.on { background: var(--c-primary-soft, #eef4ff); color: var(--c-primary); font-weight: 700; }
+.jp-kinds {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.jp-kind { padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
+.jp-kh { display: flex; align-items: center; gap: 6px; }
+.jp-kh .sp { margin-left: auto; }
+.jp-kt { padding: 1px 8px; border-radius: var(--r-chip); background: var(--c-surface-2); }
+.jp-kt.defect { background: #fee2e2; color: #b91c1c; }
+.jp-kt.cr { background: #ede9fe; color: #6d28d9; }
+.jp-panel { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); padding: 2px 0; }
+.jp-panel .sp { margin-left: auto; }
+.jp-models textarea { width: 100%; font-family: var(--font-mono); font-size: var(--fs-xs); }

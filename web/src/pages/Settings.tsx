@@ -3,6 +3,8 @@ import LlmSettings from '@/components/settings/LlmSettings'
 import DeviceCatalog from '@/components/settings/DeviceCatalog'
 import CodeSettings from '@/components/settings/CodeSettings'
 import CustomFieldSettings from '@/components/settings/CustomFieldSettings'
+import JiraSettings from '@/components/settings/JiraSettings'
+import JiraPanels from '@/components/settings/JiraPanels'
 import {
   IconAccounts,
   IconCatalog,
@@ -17,7 +19,7 @@ import './Settings.css'
 
 // 'chat' 은 없앴다 — Chat 모델 설정은 'llm' 안의 탭으로 들어갔다.
 // 서버 연결과 모델 설정을 따로 두면 같은 모델을 두 군데서 고치게 된다.
-type Section = 'llm' | 'accounts' | 'perms' | 'catalog' | 'codes' | 'reqcodes' | 'fields' | 'jira'
+type Section = 'llm' | 'accounts' | 'perms' | 'catalog' | 'codes' | 'reqcodes' | 'fields' | 'jira' | 'jirapanels'
 
 /**
  * 설정 화면.
@@ -60,7 +62,10 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
   },
   {
     title: 'Integrations',
-    items: [{ key: 'jira', label: 'Jira 연동', icon: IconPlug, ready: false }],
+    items: [
+      { key: 'jira', label: 'Jira 연동', icon: IconPlug, ready: true },
+      { key: 'jirapanels', label: 'Jira 프로젝트 패널 설정', icon: IconPerms, ready: true },
+    ],
   },
   {
     title: 'Account',
@@ -112,6 +117,10 @@ export default function Settings() {
           <CodeSettings target="req" />
         ) : sec === 'fields' ? (
           <CustomFieldSettings />
+        ) : sec === 'jira' ? (
+          <JiraSettings />
+        ) : sec === 'jirapanels' ? (
+          <JiraPanels />
         ) : (
           <div className="set-todo">
             <b>{cur.label}</b>
