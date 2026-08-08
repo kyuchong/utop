@@ -1027,9 +1027,13 @@ export default function TestCases() {
           getOrigin={() => splitRef.current?.getBoundingClientRect().left ?? 0}
         />
 
+        {/* 오른쪽은 늘 한 칸이다. 그 안에서 탭이 무엇을 보여줄지 정하고,
+            Automation 일 때만 다시 좌우로 나뉜다. 바깥 칸 수가 탭마다
+            달라지면 옮길 때마다 화면이 통째로 흔들린다. */}
+        <div className="tc-content">
+          {openId && !paramKey && detHead}
         {paramKey ? (
           <section className="panel tc-tabcol">
-            {detHead}
             <GlobalParams only={paramKey} />
           </section>
         ) : !openId ? (
@@ -1038,12 +1042,10 @@ export default function TestCases() {
           </section>
         ) : tab === 'info' ? (
           <section className="panel tc-tabcol">
-            {detHead}
             <TcInfo data={d} onChange={patch} tcid={openId} />
           </section>
         ) : tab === 'topo' ? (
           <section className="panel tc-tabcol">
-            {detHead}
             <TcTopology
               data={d}
               devices={devices}
@@ -1054,22 +1056,21 @@ export default function TestCases() {
           </section>
         ) : tab === 'manual' ? (
           <section className="panel tc-tabcol">
-            {detHead}
             <TcManual data={d} onChange={patch} />
           </section>
         ) : tab === 'history' ? (
           <section className="panel tc-tabcol">
-            {detHead}
             <TcHistory tcid={openId} />
           </section>
         ) : tab === 'cycle' ? (
           <section className="panel tc-tabcol">
-            {detHead}
             <TcCycles tcid={openId} />
           </section>
         ) : (
-          <>
-            {/* 2열 — 스텝 요약 */}
+          // Automation 만 안에서 좌우로 나뉜다 — 목록과 세부.
+          // 바깥 칸 수는 그대로라 탭을 옮겨도 화면이 출렁이지 않는다.
+          <div className="tc-inner">
+            {/* 목록 */}
             <section className="panel tc-seqcol" style={{ flexBasis: seqW }}>
               {/* 시험 이름은 절차 바로 위에. 위쪽 전체 폭에 두었더니 「무엇을
                   보고 있나」 와 「무엇을 하나」 가 화면 양끝으로 갈라졌다. */}
@@ -1304,8 +1305,9 @@ export default function TestCases() {
               />
               )}
             </section>
-          </>
+          </div>
         )}
+        </div>
       </div>
     </>
   )

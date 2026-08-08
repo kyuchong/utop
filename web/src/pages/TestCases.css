@@ -2160,3 +2160,34 @@ table.tb tr.r-bad td:first-child {
 .tc-seqhead b { font-size: var(--fs-md); }
 .tc-dethead .seg { flex: 0 1 auto; min-width: 0; }
 .tc-dethead .btn { flex: none; }
+
+/* ── 오른쪽은 늘 한 칸 ──
+   Automation 만 3열이고 나머지 탭은 2열이라, 탭을 옮길 때마다 화면이
+   통째로 흔들렸다. 바깥 칸 수를 고정하고 **안에서** 나눈다 — iTest 도
+   왼쪽 탐색기 + 오른쪽 편집 영역이고 그 편집 영역이 스스로 쪼개진다. */
+.tc-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box);
+  overflow: hidden;
+}
+/* 안쪽 칸들은 카드를 또 그리지 않는다 — 카드 안의 카드가 된다 */
+.tc-content > .panel,
+.tc-inner > .panel {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.tc-content > .tc-dethead { flex: none; }
+.tc-inner {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+/* 목록과 세부 사이만 선으로 가른다 */
+.tc-inner > .tc-detcol { border-left: 1px solid var(--c-border); }
