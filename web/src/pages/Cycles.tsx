@@ -912,7 +912,6 @@ function CycleDetail({
         ) : (
           <div className="empty">항목을 누르면 스텝이 보입니다.</div>
         )}
-        <RunPane st={st} />
       </div>
       </div>
     </div>
@@ -1125,97 +1124,6 @@ function CyclePickTc({
     </div>
   )
 }
-
-/**
- * 실행 콘솔 — iTest 의 Response 창 자리.
- *
- * 한 줄로 줄였다가 되돌린다. 「실행 마침」 넉 자로는 **무슨 일이
- * 있었는지**를 알 수 없다. 사이클은 64건이 서버에서 도는 자리라, 지금
- * 무엇이 오가는지 보이는 창이 있어야 기다릴지 말지를 정한다.
- *
- * 스텝 카드가 대신할 수 없는 것이 여기 있다 — 장비 연결 실패, 세션 끊김,
- * 항목이 넘어가는 순간처럼 **어느 스텝에도 안 붙는 줄**이다.
- *
- * 회차로 거를 수 있다. 10회 반복이면 로그가 열 배가 되는데, 「7회차에
- * 무엇이 오갔나」 를 그 안에서 눈으로 찾을 수는 없다.
- */
-function RunPane({ st }: { st: ReturnType<typeof useCycleRun>['st'] }) {
-  const [open, setOpen] = useState(true)
-  /** 로그를 어느 스텝 것만 볼까. -2 면 전부 */
-  const [onlyFail, setOnlyFail] = useState(false)
-
-  if (!st.runId) return null
-  const label = st.waiting
-    ? '실행 대기'
-    : st.on
-      ? '실행 중'
-      : st.status === 'stopped'
-        ? '멈춤'
-        : st.status === 'failed'
-          ? '실행 실패'
-          : '실행 마침'
-
-  const lines = onlyFail
-    ? st.log.filter((l) => l.kind === 'fail' || l.kind === 'warn')
-    : st.log
-
-  return (
-    <div className={`cy-run${st.on ? ' on' : ''}`}>
-      <div className="cy-run-head">
-        <button
-          type="button"
-          className="cy-run-fold"
-          title={open ? '접기' : '펼치기'}
-          onClick={() => setOpen((v) => !v)}
-        >
-          {open ? '▾' : '▸'}
-        </button>
-        <b>{label}</b>
-        {st.who && <span className="cy-live-who">{st.who} 님</span>}
-        <span className="muted small">
-          {st.done}/{st.total}
-          {st.itemName && ` · ${st.itemName}`}
-          {st.stepAt >= 0 && ` · 스텝 ${st.stepAt + 1}/${st.stepCount}`}
-        </span>
-        {st.waiting && <span className="muted small">실행 서버가 집기를 기다립니다…</span>}
-        {st.error && <span className="muted small err">{st.error}</span>}
-        <span className="sp" />
-        <span className="muted small">{st.log.length}줄</span>
-        <label className="cy-run-only">
-          <input
-            type="checkbox"
-            checked={onlyFail}
-            onChange={(e) => setOnlyFail(e.target.checked)}
-          />
-          깨진 것만
-        </label>
-      </div>
-      <div className="cy-run-bar" aria-hidden="true">
-        <span style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
-      </div>
-      {open && (
-        <div className="cy-run-log">
-          {/* 마지막 줄이 늘 보이게 뒤집어 쌓는다 — 스크롤을 손으로 쫓지 않게 */}
-          {lines
-            .slice(-600)
-            .reverse()
-            .map((l, i) => (
-              <div className={`cy-run-line ${l.kind}`} key={i}>
-                {l.i >= 0 && <b>{l.i + 1}</b>}
-                {l.text}
-              </div>
-            ))}
-          {lines.length === 0 && (
-            <div className="muted small cy-run-empty">
-              {onlyFail ? '깨진 줄이 없습니다.' : '아직 오간 것이 없습니다.'}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
 
 /**
  * 항목 하나의 스텝과 실행 내역.
