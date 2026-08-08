@@ -9,7 +9,7 @@ import { useCycleRun } from '@/components/cycle/useCycleRun'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import { IconChevron, IconFolder } from '@/components/icons'
 import type { TestCaseMeta } from '@/types'
-import { stepVerdict, type TcStep } from '@/components/tc/types'
+import { stepVerdict, type StepRound, type TcStep } from '@/components/tc/types'
 // 요구사항 화면의 트리 규칙을 그대로 쓴다 — 줄 높이·색·여백이 한 곳에서만
 // 정해져야 세 화면이 같아 보인다.
 import '@/components/ReqTree.css'
@@ -62,6 +62,8 @@ export interface CycleStep {
   reason?: string | null
   /** 얼마나 걸렸나 (밀리초) */
   took_ms?: number | null
+  /** 반복 안이면 회차마다의 결과 */
+  rounds?: StepRound[] | null
   /** 실행기가 적는 판정. 옛 자료의 result 와 다르다 */
   status?: string | null
   repeatResult?: string | null

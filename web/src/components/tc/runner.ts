@@ -10,7 +10,7 @@ import {
   subVars,
   type Verdict,
 } from './judge'
-import { sessionIndex, stepResult, stepSummary, type TcStep } from './types'
+import { sessionIndex, stepResult, stepSummary, type StepRound, type TcStep } from './types'
 
 /**
  * 스텝 실행기.
@@ -610,7 +610,26 @@ async function runOneTimed(ctx: RunCtx, i: number, vars: Record<string, string>)
   }
 }
 
-export async function runSteps(ctx: RunCtx, from = 0, only = false): Promise<RunResult> {
+export async function runSteps(ctx0: RunCtx, from = 0, only = false): Promise<RunResult> {
+  /*
+   * 스텝에 무엇을 적었는지 우리도 들고 있는다.
+   *
+   * 반복 안의 스텝은 회차마다 같은 자리에 결과를 덮어쓴다. 그래서 3회
+   * 중 2회차만 깨져도 마지막 회차가 덮어서 **결과가 적합**이 됐다.
+   * 100번 돌려 3번 깨지는 것을 잡는 게 반복 시험의 목적인데 그것이
+   * 통째로 사라진 셈이다.
+   *
+   * 화면이 `steps` 를 어떻게 들고 있는지는 화면마다 다르다(어떤 곳은
+   * 새 배열로 갈아 끼운다). 그러니 여기서 직접 적어 둔다.
+   */
+  const lastPatch = new Map<number, Partial<TcStep>>()
+  const ctx: RunCtx = {
+    ...ctx0,
+    onStep: (i, patch) => {
+      lastPatch.set(i, { ...(lastPatch.get(i) ?? {}), ...patch })
+      ctx0.onStep(i, patch)
+    },
+  }
   const vars: Record<string, string> = { ...(ctx.params ?? {}) }
   // 「여기부터」·「이 스텝만」 이면 앞은 이번에 안 돈다 — 지난 값을 깔아 둔다
   if (from > 0 || only) seedVars(ctx, from, vars)
@@ -707,10 +726,136 @@ export async function runSteps(ctx: RunCtx, from = 0, only = false): Promise<Run
           continue
         }
         ctx.onLog({ i, text: `${times}회 반복`, kind: 'info' })
-        for (let n = 0; n < Math.min(times, 1000); n++) {
+
+        /**
+         * 회차마다의 결과를 모은다.
+         *
+         * 마지막 회차가 앞을 덮으면 안 된다 — 3회 중 2회차만 깨져도
+         * 그 시험은 깨진 것이다. 깨진 회차의 **출력과 근거**를 그대로
+         * 들고 있다가 끝에 되돌려 놓는다. 고칠 사람이 볼 것은 통과한
+         * 회차가 아니라 깨진 회차다.
+         */
+        const tally = new Map<
+          number,
+          {
+            runs: number
+            fails: number
+            firstFailAt: number
+            keep?: Partial<TcStep>
+            rounds: StepRound[]
+          }
+        >()
+        /**
+         * 회차 출력의 한도 (스텝 하나당 글자 수).
+         *
+         * 다 남기는 것이 맞다 — 「3회차에 뭐가 나왔더라」 를 못 보면 반복
+         * 시험을 왜 하나. 처음엔 통과한 회차를 버리려 했는데, 실제 자료를
+         * 재 보니 그럴 이유가 없었다.
+         *
+         *   스텝 출력 평균 371바이트 · 최대 4KB (506스텝 기준)
+         *   지금 가장 큰 사이클 6.6MB · DB 전체 19MB
+         *
+         * 100회 × 스텝 6개라도 220KB 다. 사이클 한 건이 이미 그 서른 배다.
+         * 그래서 한도는 **폭주만 막는 선**으로 둔다 — 평균 크기로 5천 회쯤
+         * 되어야 걸리는 값이고, 반복은 1000회에서 이미 잘린다. 사실상
+         * 안 걸린다는 뜻이다.
+         *
+         * 걸리면 통과한 회차부터 버린다. 깨진 회차는 끝까지 들고 있는다 —
+         * 고칠 사람이 볼 것은 그쪽이다. 버렸으면 버렸다고 화면에 말한다.
+         */
+        const OUT_BUDGET = 2_000_000
+        const rounds = Math.min(times, 1000)
+        for (let n = 0; n < rounds; n++) {
           if (ctx.signal.aborted) break
           if (s.loopVar) vars[s.loopVar] = String(from0 + n * stepBy)
+          for (let j = i + 1; j < body; j++) lastPatch.delete(j)
           await walk(i + 1, body)
+          for (let j = i + 1; j < body; j++) {
+            const got = lastPatch.get(j)
+            if (!got) continue
+            const t = tally.get(j) ?? { runs: 0, fails: 0, firstFailAt: 0, rounds: [] }
+            t.runs++
+            const bad = String(got.status ?? '').toUpperCase() === 'FAIL'
+            /*
+             * 회차마다 한 줄씩 남긴다.
+             *
+             * 출력은 **깨진 회차와 마지막 회차만**. 100회분을 다 담으면
+             * 사이클 한 건이 메가바이트가 되고, 통과한 회차의 출력은
+             * 아무도 안 본다.
+             */
+            t.rounds.push({
+              n: n + 1,
+              status: String(got.status ?? ''),
+              reason: String(got.reason ?? ''),
+              took_ms: typeof got.took_ms === 'number' ? got.took_ms : undefined,
+              output: String(got.output ?? ''),
+            })
+            if (bad) {
+              t.fails++
+              // 처음 깨진 회차의 것만 붙든다. 뒤엣것으로 바꾸면 「몇 회차에
+              // 처음 깨졌나」 를 잃는다
+              if (!t.keep) {
+                t.keep = { ...got }
+                t.firstFailAt = n + 1
+              }
+            }
+            tally.set(j, t)
+          }
+        }
+
+        /**
+         * 너무 커지면 통과한 회차의 출력부터 버린다.
+         *
+         * 깨진 회차와 마지막 회차는 남긴다. 버렸으면 버렸다고 적어야
+         * 「출력이 왜 없지」 를 안 헤맨다.
+         */
+        for (const t of tally.values()) {
+          let size = t.rounds.reduce((a, r) => a + (r.output?.length ?? 0), 0)
+          if (size <= OUT_BUDGET) continue
+          let dropped = 0
+          for (let k = 0; k < t.rounds.length - 1 && size > OUT_BUDGET; k++) {
+            const r = t.rounds[k]
+            if (!r?.output) continue
+            if (String(r.status ?? '').toUpperCase() === 'FAIL') continue
+            size -= r.output.length
+            r.output = ''
+            r.trimmed = true
+            dropped++
+          }
+          if (dropped) {
+            ctx.onLog({
+              i: -1,
+              kind: 'warn',
+              text: `회차 출력이 너무 커서 통과한 ${dropped}회차의 출력은 남기지 않았습니다 (깨진 회차는 그대로 있습니다)`,
+            })
+          }
+        }
+
+        // 모은 것을 되돌려 놓는다
+        for (const [j, t] of tally) {
+          if (t.runs <= 1) continue // 한 번만 돈 것은 건드릴 것이 없다
+          if (t.fails > 0 && t.keep) {
+            ctx.onStep(j, {
+              ...t.keep,
+              rounds: t.rounds,
+              status: 'FAIL',
+              repeatResult: 'Fail',
+              reason: `${t.runs}회 중 ${t.fails}회 부적합 (처음 ${t.firstFailAt}회차) — ${
+                t.keep.reason ?? ''
+              }`.trim(),
+            })
+            ctx.onLog({
+              i: j,
+              kind: 'fail',
+              text: `${t.runs}회 중 ${t.fails}회 부적합 — 처음 깨진 것은 ${t.firstFailAt}회차`,
+            })
+          } else if (t.fails === 0) {
+            const cur = lastPatch.get(j) ?? {}
+            ctx.onStep(j, {
+              rounds: t.rounds,
+              reason: `${t.runs}회 모두 적합${cur.reason ? ` — ${cur.reason}` : ''}`,
+            })
+          }
         }
         i = body
         continue

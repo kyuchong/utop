@@ -55,6 +55,18 @@ export interface TcLink {
  * 값은 옛 화면이 쓰던 문자열 그대로다. 이름을 바꾸면 이미 저장된 656스텝을
  * 전부 고쳐야 하고, 옛 화면과도 갈린다.
  */
+/** 반복 한 회차의 결과 */
+export interface StepRound {
+  /** 몇 회차 (1부터) */
+  n: number
+  status?: string
+  reason?: string
+  took_ms?: number
+  output?: string
+  /** 너무 커서 출력을 버렸다 — 「출력이 왜 없지」 를 안 헤매게 */
+  trimmed?: boolean
+}
+
 export type StepKind =
   // 실행
   | 'cli'
@@ -183,6 +195,17 @@ export interface TcStep {
    * 그것은 판정으로 안 잡히고 시간으로 잡힌다.
    */
   took_ms?: number
+  /**
+   * 반복 안에서 회차마다 어땠나.
+   *
+   * 회차마다 같은 자리에 결과를 덮어쓰니 마지막 것만 남았다. 10회 중
+   * 7회차에 깨져도 10회차가 통과하면 「적합」 이었다 — 100번 돌려 3번
+   * 깨지는 것을 잡는 게 반복 시험의 목적인데 그것이 사라진 셈이다.
+   *
+   * 출력도 회차마다 남긴다. 다만 한도가 있어서, 너무 커지면 **통과한
+   * 회차부터** 버린다 — 깨진 회차는 끝까지 들고 있는다.
+   */
+  rounds?: StepRound[]
   /** PASS · FAIL · 빈 값(미실행) */
   status?: string
 

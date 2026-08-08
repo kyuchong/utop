@@ -855,3 +855,36 @@ table.tb td.k {
   white-space: nowrap;
   max-width: 46ch;
 }
+
+/* 회차 — 반복 안의 스텝은 회차마다 결과가 다르다.
+   숫자를 늘어놓고 누르면 그 회차를 편다. 깨진 회차는 붉게 —
+   100개가 늘어서 있어도 깨진 것이 어디인지 한눈에 보여야 한다 */
+.sc-rounds { display: flex; flex-wrap: wrap; gap: 3px; }
+.sc-round {
+  min-width: 24px;
+  padding: 1px 5px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-chip);
+  background: var(--c-surface);
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.sc-round:hover { border-color: var(--c-primary); }
+.sc-round.bad {
+  border-color: var(--c-fail);
+  background: var(--c-fail-soft);
+  color: var(--c-fail);
+  font-weight: 700;
+}
+.sc-round.on { outline: 2px solid var(--c-primary); outline-offset: -1px; }
+.sc-round-det {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box);
+  background: var(--c-surface-2);
+}
+.sc-round-head { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); }
+.sc-round-why { margin: 4px 0; font-size: var(--fs-xs); color: var(--c-text); }

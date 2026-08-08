@@ -76,6 +76,8 @@ interface Props {
 export default function StepCards({ item, runningAt, onSetResult }: Props) {
   const steps = (item.steps ?? []) as CycleStep[]
   const [only, setOnly] = useState(false)
+  /** 펼쳐 본 회차 — `스텝-회차` */
+  const [openRound, setOpenRound] = useState('')
 
   const shown = only
     ? steps.filter((s) => stepVerdict(s as TcStep).toLowerCase() === 'fail')
@@ -186,6 +188,58 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
                 </div>
               )}
             </div>
+
+            {/* 회차별 이력.
+                반복 안의 스텝은 회차마다 결과가 다르다. 「3회 중 1회
+                부적합」 만 적으면 몇 회차에 어떻게 깨졌는지를 다시 못
+                찾는다 — 그게 반복 시험에서 유일하게 궁금한 것이다. */}
+            {(s.rounds?.length ?? 0) > 1 && (
+              <div className="sc-sec">
+                <i>회차</i>
+                <div className="sc-rounds">
+                  {(s.rounds ?? []).map((rd) => {
+                    const rbad = String(rd.status ?? '').toUpperCase() === 'FAIL'
+                    const on = openRound === `${i}-${rd.n}`
+                    return (
+                      <button
+                        key={rd.n}
+                        type="button"
+                        className={`sc-round${rbad ? ' bad' : ''}${on ? ' on' : ''}`}
+                        title={rd.reason || ''}
+                        onClick={() => setOpenRound(on ? '' : `${i}-${rd.n}`)}
+                      >
+                        {rd.n}
+                      </button>
+                    )
+                  })}
+                </div>
+                {(() => {
+                  const rd = (s.rounds ?? []).find((x) => openRound === `${i}-${x.n}`)
+                  if (!rd) return null
+                  return (
+                    <div className="sc-round-det">
+                      <div className="sc-round-head">
+                        <b>{rd.n}회차</b>
+                        <span className={`sc-v ${verdictClass((rd.status === 'FAIL' ? 'Fail' : rd.status === 'PASS' ? 'Pass' : '') as Verdict)}`}>
+                          {rd.status || '–'}
+                        </span>
+                        {typeof rd.took_ms === 'number' && (
+                          <span className="sc-when">{took(rd.took_ms)}</span>
+                        )}
+                      </div>
+                      {rd.reason && <div className="sc-round-why">{rd.reason}</div>}
+                      {rd.output ? (
+                        <pre className="sc-out">{rd.output}</pre>
+                      ) : (
+                        <div className="muted small">
+                          이 회차의 출력은 남기지 않았습니다 — 깨진 회차와 마지막 회차만 남깁니다.
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
 
             {/* 왜 그렇게 판정했나.
                 실행기가 이미 적어 두는데 화면에 안 나오고 있었다. 그래서
