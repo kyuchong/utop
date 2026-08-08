@@ -125,3 +125,16 @@
 .ex-line.fail { color: var(--c-fail); }
 .ex-line.warn { color: #8a5a00; }
 .ex-line.skip { color: var(--c-text-faint); }
+
+/* 지금 무엇이 살아 있나 — 이력을 훑기 전에 이것부터 */
+.ex-live {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-primary-soft, #eef4ff);
+  font-size: var(--fs-xs);
+}
+.ex-live b { color: var(--c-primary); }
+.ex-dethead .sp { margin-left: auto; }

@@ -103,6 +103,56 @@ export default function Executions() {
 
   const runs = useMemo(() => listQ.data?.runs ?? [], [listQ.data])
   const cur = runs.find((r) => r.id === sel)
+  const live = runs.filter((r) => r.status === 'running')
+  const queued = runs.filter((r) => r.status === 'queued')
+
+  /** 멈추기 — 실행기가 스텝 사이에서 보고 스스로 내려온다 */
+  const stop = async (id: string) => {
+    await apiFetch(`/api/runs/${encodeURIComponent(id)}/stop`, { method: 'POST' })
+    void qc.invalidateQueries({ queryKey: ['runs'] })
+  }
+
+  /**
+   * 다시 걸기.
+   *
+   * 이력만 보는 화면이면 여기서 할 일이 없다. 밤새 돌린 것이 5건 깨졌으면
+   * **그 5건만** 다시 거는 것이 다음 할 일이다 — 64건을 통째로 다시 돌릴
+   * 이유가 없다.
+   */
+  const [busy, setBusy] = useState('')
+  const again = async (r: Run, failedOnly: boolean) => {
+    setBusy(r.id)
+    try {
+      let pick: number[] | undefined
+      if (failedOnly) {
+        const c = await apiFetch(`/api/cycle/${encodeURIComponent(r.cycle_id)}`)
+        if (!c.ok) throw new Error('사이클을 읽지 못했습니다')
+        const j = (await c.json()) as { items?: { steps?: { status?: string }[] }[] }
+        pick = (j.items ?? [])
+          .map((it, i) => ({ i, bad: (it.steps ?? []).some((x) => x.status === 'FAIL') }))
+          .filter((x) => x.bad)
+          .map((x) => x.i)
+        if (!pick.length) {
+          window.alert('깨진 항목이 없습니다.')
+          return
+        }
+      }
+      const res = await apiFetch('/api/runs', {
+        method: 'POST',
+        body: JSON.stringify({ cycle_id: r.cycle_id, ...(pick ? { pick } : {}) }),
+      })
+      const j = (await res.json().catch(() => ({}))) as { detail?: string }
+      if (!res.ok) {
+        window.alert(j.detail || `다시 걸지 못했습니다 (${res.status})`)
+        return
+      }
+      void qc.invalidateQueries({ queryKey: ['runs'] })
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy('')
+    }
+  }
 
   const detQ = useQuery({
     queryKey: ['run', sel],
@@ -158,6 +208,21 @@ export default function Executions() {
           count={runs.length}
           search={{ value: q, placeholder: '사이클 이름으로 찾기', onChange: setQ }}
         />
+
+        {/* 지금 무엇이 살아 있나. 이력을 훑기 전에 이것부터 눈에 들어와야
+            한다 — 밤새 돌린 것이 아직 도는 중인지 끝났는지가 먼저다. */}
+        {(live.length > 0 || queued.length > 0) && (
+          <div className="ex-live">
+            {live.length > 0 && (
+              <b>
+                ● 도는 중 {live.length}건
+                {live[0]?.cycle_name && ` — ${live[0].cycle_name}`}
+                {live[0]?.started_by && ` (${live[0].started_by})`}
+              </b>
+            )}
+            {queued.length > 0 && <span className="muted small">대기 {queued.length}건</span>}
+          </div>
+        )}
 
         <div className="ex-filters">
           <select value={status} onChange={(e) => setStatus(e.target.value)}>
@@ -245,6 +310,33 @@ export default function Executions() {
                 {cur.worker && ` · ${cur.worker}`}
               </span>
               {cur.error && <span className="muted small err">{cur.error}</span>}
+              <span className="sp" />
+              {/* 보기만 하는 화면이면 여기서 할 일이 없다. 밤새 돌린 것이
+                  5건 깨졌으면 그 5건만 다시 거는 것이 다음 할 일이다. */}
+              {cur.status === 'running' || cur.status === 'queued' ? (
+                <button className="btn small danger" type="button" onClick={() => void stop(cur.id)}>
+                  ⏹ 멈추기
+                </button>
+              ) : (
+                <>
+                  <button
+                    className="btn small"
+                    type="button"
+                    disabled={busy === cur.id}
+                    onClick={() => void again(cur, true)}
+                  >
+                    깨진 항목만 다시
+                  </button>
+                  <button
+                    className="btn small primary"
+                    type="button"
+                    disabled={busy === cur.id}
+                    onClick={() => void again(cur, false)}
+                  >
+                    ▶ 전체 다시 걸기
+                  </button>
+                </>
+              )}
             </div>
 
             {/* 로그를 거른다.
