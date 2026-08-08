@@ -283,6 +283,29 @@ export default function Cycles() {
   const [sel, setSel] = useState('')
   const [q, setQ] = useState('')
 
+  /**
+   * 지금 도는 실행 — 사이클을 안 열어 봐도 알아야 한다.
+   *
+   * 실행이 서버에서 도니 내 창에서 시작한 것이 아닐 수 있다. 트리에
+   * 표시가 없으면 남이 돌리는 사이클을 열어서 또 걸게 된다 — 그러면
+   * 「이미 돌고 있습니다」 로 막히고 나서야 안다.
+   */
+  const runsQ = useQuery({
+    queryKey: ['runs', 'active'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/runs?active=1')
+      if (!r.ok) throw new Error('실행을 불러오지 못했습니다')
+      return (await r.json()) as { runs: { cycle_id: string; started_by?: string | null }[] }
+    },
+    // WebSocket 이 알려 주지만, 놓쳤을 때를 대비해 가끔 물어본다
+    refetchInterval: 30_000,
+  })
+  const running = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of runsQ.data?.runs ?? []) m.set(r.cycle_id, r.started_by || '누군가')
+    return m
+  }, [runsQ.data])
+
   const listQ = useQuery({
     queryKey: ['cycles'],
     queryFn: async () => {
@@ -379,6 +402,14 @@ export default function Cycles() {
           <span className={`${n.cycle ? 'rt-title' : 'rt-fname'} cy-nm${n.empty ? ' empty' : ''}`}>
             {n.label}
           </span>
+          {/* 지금 누가 돌리고 있나.
+              실행이 서버에서 도니 내 창에서 시작한 것이 아닐 수 있다.
+              표시가 없으면 남이 돌리는 사이클을 열어 또 걸게 된다. */}
+          {n.cycle && running.has(n.cycle.id) && (
+            <span className="cy-runmark" title={`${running.get(n.cycle.id)} 님이 돌리는 중`}>
+              ● {running.get(n.cycle.id)}
+            </span>
+          )}
           {/* 잎은 항목 수, 가지는 사이클 수 — 뜻이 다르니 제목으로 갈라 둔다 */}
           <span className="rt-cnt" title={n.cycle ? '시험 항목' : '사이클'}>
             {n.count || ''}
@@ -703,6 +734,9 @@ function CycleDetail({
         {st.on ? (
           <span className="cy-live">
             <b>{st.waiting ? '실행 대기' : '실행 중'}</b>
+            {/* 누가 돌리고 있나. 실행이 서버에서 도니 내 창에서 시작한 것이
+                아닐 수 있다 — 이름이 없으면 남의 실행을 내가 멈추게 된다. */}
+            {st.who && <em className="cy-live-who">{st.who} 님</em>}
             <span>
               총 {st.total}항목 중 {Math.min(st.done + 1, st.total)}항목 진행 (
               {Math.round((st.done / (st.total || 1)) * 100)}%)

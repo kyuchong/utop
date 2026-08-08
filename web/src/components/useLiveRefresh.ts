@@ -61,6 +61,12 @@ function invalidate(qc: QueryClient, m: Msg) {
     return
   }
 
+  // ── 실행. 트리의 「돌고 있음」 표시가 이것으로 산다
+  if (t === 'run_progress') {
+    void qc.invalidateQueries({ queryKey: ['runs', 'active'] })
+    return
+  }
+
   // ── 사이클
   if (t === 'cycle_updated' || t === 'cycle_deleted' || t.startsWith('cycle_run_')) {
     void qc.invalidateQueries({ queryKey: ['cycles'] })

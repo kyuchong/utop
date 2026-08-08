@@ -934,3 +934,17 @@ table.tb td.k {
   white-space: nowrap;
 }
 .cy-live-step { font-variant-numeric: tabular-nums; color: var(--c-text-muted); }
+
+/* 트리에서 「지금 돌고 있음」 — 누가 돌리는지까지.
+   표시가 없으면 남이 돌리는 사이클을 열어 또 걸게 된다 */
+.cy-runmark {
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: var(--r-chip);
+  background: var(--c-primary-soft, #eef4ff);
+  color: var(--c-primary);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.cy-live-who { font-style: normal; font-weight: 700; color: var(--c-primary); }
