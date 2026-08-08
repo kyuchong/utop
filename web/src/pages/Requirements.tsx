@@ -418,12 +418,17 @@ export default function Requirements() {
                 <button type="button" onClick={() => setBulkOpen(true)}>
                   요구사항 일괄 생성
                 </button>
-                {picked.size > 1 && (
+                {/* 고른 것에 대한 일 — 하나여도 할 수 있어야 한다. 「N건
+                    선택됨」 만 둘부터 뜨는 것이지, 지우고 고치는 것을
+                    막을 이유는 없다. */}
+                {picked.size > 0 && (
                   <>
                     <hr />
-                    <button type="button" onClick={() => setBulkEditOpen(true)}>
-                      선택한 {picked.size}건 한꺼번에 고치기
-                    </button>
+                    {picked.size > 1 && (
+                      <button type="button" onClick={() => setBulkEditOpen(true)}>
+                        선택한 {picked.size}건 한꺼번에 고치기
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="danger"
