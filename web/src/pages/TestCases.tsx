@@ -27,6 +27,7 @@ import {
 } from '@/components/tc/portable'
 import TcInfo from '@/components/tc/TcInfo'
 import TcManual from '@/components/tc/TcManual'
+import TcEnv from '@/components/tc/TcEnv'
 import TcTopology from '@/components/tc/TcTopology'
 import TcHistory from '@/components/tc/TcHistory'
 import TcCycles from '@/components/tc/TcCycles'
@@ -47,7 +48,7 @@ import {
 } from '@/components/tc/types'
 import './TestCases.css'
 
-type Tab = 'steps' | 'info' | 'topo' | 'manual' | 'history' | 'cycle'
+type Tab = 'steps' | 'info' | 'env' | 'topo' | 'manual' | 'history' | 'cycle'
 
 /** 새 스텝의 기본값. 종류마다 처음부터 채워둬야 자연스러운 값이 다르다. */
 function blankStep(kind: StepKind): TcStep {
@@ -87,7 +88,7 @@ function blankStep(kind: StepKind): TcStep {
  */
 const OPEN_KEY = 'utop.tc.open'
 const TAB_KEY = 'utop.tc.tab'
-const TABS: Tab[] = ['steps', 'info', 'topo', 'manual', 'history', 'cycle']
+const TABS: Tab[] = ['steps', 'info', 'env', 'topo', 'manual', 'history', 'cycle']
 
 export default function TestCases() {
   const qc = useQueryClient()
@@ -761,6 +762,25 @@ export default function TestCases() {
    */
   const detHead = (
                 <div className="tc-dethead">
+                  {/* 제목을 탭 왼쪽에. 줄을 따로 쓰면 그만큼 목록이 줄고,
+                      「무엇을 보고 있나」 와 「그것의 무엇을 보나」 는 나란히
+                      있는 편이 읽힌다. */}
+                  <span className="tc-bar-ttl">
+                    {paramKey ? (
+                      <>
+                        <b>전역 파라미터</b>
+                        <span className="muted small">
+                          {' '}
+                          {paramKey === '__global__' ? '공통' : paramKey}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <b>{d.name || '(제목 없음)'}</b>
+                        <span className="muted small"> {openId}</span>
+                      </>
+                    )}
+                  </span>
             {openId && !paramKey && (
               <div className="seg" role="tablist">
                 {([
@@ -771,6 +791,9 @@ export default function TestCases() {
                   // 'Automation' 은 '스텝' 이 아니다 — 장비에 명령을 보내 자동으로
                   // 도는 절차고, 사람이 하는 것은 Manual Step 에 있다.
                   ['info', '정보'],
+              // 시험 목적·사전 준비 조건. 「돌리기 전에 갖춰져야 하는 것」 이라
+              // 토폴로지 바로 앞이 자리다.
+              ['env', 'Environment'],
                   // 배선은 랩의 사실이라 시험 내용보다 앞이다 — 여기가 정해져야
                   // 스텝이 장비 포트 이름으로 말할 수 있다.
                   ['topo', '토폴로지'],
@@ -1042,7 +1065,11 @@ export default function TestCases() {
           </section>
         ) : tab === 'info' ? (
           <section className="panel tc-tabcol">
-            <TcInfo data={d} onChange={patch} tcid={openId} />
+            <TcInfo data={d} onChange={patch} />
+          </section>
+        ) : tab === 'env' ? (
+          <section className="panel tc-tabcol">
+            <TcEnv data={d} onChange={patch} tcid={openId} />
           </section>
         ) : tab === 'topo' ? (
           <section className="panel tc-tabcol">
@@ -1072,29 +1099,6 @@ export default function TestCases() {
           <div className="tc-inner">
             {/* 목록 */}
             <section className="panel tc-seqcol" style={{ flexBasis: seqW }}>
-              {/* 시험 이름은 절차 바로 위에. 위쪽 전체 폭에 두었더니 「무엇을
-                  보고 있나」 와 「무엇을 하나」 가 화면 양끝으로 갈라졌다. */}
-              <div className="tc-seqhead">
-          <span className="tc-bar-ttl">
-            {paramKey ? (
-              <>
-                <b>전역 파라미터</b>
-                <span className="muted small">
-                  {' '}
-                  {paramKey === '__global__' ? '공통' : paramKey}
-                </span>
-              </>
-            ) : openId ? (
-              <>
-                <b>{d.name || '(제목 없음)'}</b>
-                <span className="muted small"> {openId}</span>
-              </>
-            ) : (
-              <span className="muted">왼쪽에서 테스트케이스를 고르세요</span>
-            )}
-          </span>
-          {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
-              </div>
               <div className="tc-run">
                 <button
                   className="btn small primary"
@@ -1186,6 +1190,7 @@ export default function TestCases() {
                 <div className="sq-bulk">
                   <b>{picked.size}개 골랐습니다</b>
                   <span className="muted small">shift 를 누른 채 누르면 그 사이가 모두</span>
+                  {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
                   <span className="sp" />
                   <button
                     className="btn small primary"

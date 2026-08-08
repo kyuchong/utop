@@ -2191,3 +2191,15 @@ table.tb tr.r-bad td:first-child {
 }
 /* 목록과 세부 사이만 선으로 가른다 */
 .tc-inner > .tc-detcol { border-left: 1px solid var(--c-border); }
+
+/* 제목은 탭 왼쪽. 줄을 따로 쓰면 그만큼 목록이 줄고, 「무엇을 보고 있나」
+   와 「그것의 무엇을 보나」 는 나란히 있는 편이 읽힌다. */
+.tc-dethead .tc-bar-ttl {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 6px;
+}
+.tc-dethead .tc-bar-ttl b { font-size: var(--fs-md); }
