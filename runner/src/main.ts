@@ -235,22 +235,51 @@ async function login(): Promise<void> {
   setToken(String(r.token || ''))
 }
 
+/**
+ * API 가 뜰 때까지 기다린다.
+ *
+ * 도커가 실행기를 API 보다 먼저 띄우는 일이 흔하다. 그때 나는 오류를
+ * 그대로 찍으면 「고장났다」 로 읽힌다 — 실제로는 3초 뒤에 붙는다.
+ * 기다리는 중이라고 말하고, 오래 걸릴 때만 목소리를 키운다.
+ */
+async function waitForApi(): Promise<void> {
+  for (let n = 1; ; n++) {
+    try {
+      const r = await fetch(API + '/api/health')
+      if (r.ok) {
+        if (n > 1) log('API 붙음')
+        return
+      }
+    } catch {
+      // 아직 안 떴다
+    }
+    if (n === 1) log('API 를 기다리는 중…')
+    else if (n % 20 === 0) log(`API 가 아직 안 뜹니다 (${n}번째) — ${API} 를 확인하세요`)
+    await sleep(3000)
+  }
+}
+
 async function main(): Promise<void> {
   if (!KEY) {
-    console.error('RUNNER_KEY 가 없습니다. 실행기를 띄우지 않습니다.')
+    console.error('RUNNER_KEY 가 없습니다 — .env 에 넣어야 사이클을 돌릴 수 있습니다.')
     process.exit(1)
   }
   log(`실행기 시작 — ${NAME} → ${API}`)
+  await waitForApi()
 
+  let loggedIn = false
+  let quiet = 0
   for (;;) {
     try {
-      if (!process.env.__LOGGED_IN) {
+      if (!loggedIn) {
         await login()
-        process.env.__LOGGED_IN = '1'
+        loggedIn = true
+        log('대기 중 — 걸린 일감이 없습니다')
       }
       const r = await call('/api/runner/claim', { worker: NAME })
       const run = r.run as Run | null
       if (!run) {
+        quiet = 0
         await sleep(IDLE_MS)
         continue
       }
@@ -266,8 +295,10 @@ async function main(): Promise<void> {
       }
     } catch (e) {
       // 토큰이 만료됐거나 API 가 잠깐 내려간 것일 수 있다. 다시 로그인한다.
-      log('대기 중 오류', String(e))
-      process.env.__LOGGED_IN = ''
+      // 잠깐 끊긴 것까지 매번 찍으면 로그가 오류로 도배된다.
+      loggedIn = false
+      if (quiet === 0 || quiet % 20 === 0) log('API 와 다시 붙는 중…', String(e))
+      quiet++
       await sleep(IDLE_MS * 2)
     }
   }
