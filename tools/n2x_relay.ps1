@@ -1,7 +1,10 @@
-﻿# N2X relay (PowerShell) - no install needed. Uses built-in .NET HttpListener.
-# Run (admin PowerShell):
-#   powershell -ExecutionPolicy Bypass -File n2x_relay.ps1 -Key mykey123 -Tclsh "C:\Program Files (x86)\N2xTcl85\bin\n2xtclsh85.exe"
-# Keep n2x_daemon.tcl in the SAME folder. Open firewall TCP 5099 inbound.
+﻿# N2X relay (PowerShell) - no install. No ConvertTo-Json/ConvertFrom-Json
+# (some Windows Server PowerShell builds miss or mishandle them). We forward the
+# daemon's raw JSON line verbatim, and build small JSON by hand.
+#
+# Run (admin PowerShell), keep n2x_daemon.tcl reachable:
+#   powershell -ExecutionPolicy Bypass -File n2x_relay.ps1 -Key mykey123 -Tclsh "C:\Program Files (x86)\N2xTcl85\bin\n2xtclsh85.exe" -Daemon "C:\utop-n2x\n2x\n2x_daemon.tcl"
+# Firewall: allow TCP 5099 inbound.
 
 param(
     [int]$Port = 5099,
@@ -12,7 +15,6 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Resolve daemon path across PowerShell versions ($PSScriptRoot can be empty on old ones)
 if (-not $Daemon) {
     $dir = $PSScriptRoot
     if (-not $dir -and $PSCommandPath) { $dir = Split-Path -Parent $PSCommandPath }
@@ -22,6 +24,18 @@ if (-not $Daemon) {
 }
 
 $script:daemons = @{}
+
+function Esc([string]$s) {
+    if ($null -eq $s) { return "" }
+    $s.Replace("\", "\\").Replace('"', '\"').Replace("`r", "").Replace("`n", "\n").Replace("`t", " ")
+}
+function ErrJson([string]$msg) { return '{"ok":false,"error":"' + (Esc $msg) + '"}' }
+
+function Field([string]$body, [string]$name) {
+    $m = [regex]::Match($body, '"' + $name + '"\s*:\s*"((?:[^"\\]|\\.)*)"')
+    if ($m.Success) { return $m.Groups[1].Value.Replace('\"', '"').Replace('\\', '\') }
+    return ""
+}
 
 function Start-Daemon($server, $label) {
     if (-not (Test-Path $Tclsh))  { return @{ error = "n2xtclsh not found: $Tclsh" } }
@@ -41,13 +55,10 @@ function Start-Daemon($server, $label) {
         return @{ error = "N2X connect timeout - check chassis/server" }
     }
     $ready = $t.Result
-    try {
-        $rj = $ready | ConvertFrom-Json
-        if ($rj.ready -eq $false) {
-            try { $p.Kill() } catch {}
-            return @{ error = "N2X session failed: $($rj.error)" }
-        }
-    } catch {}
+    if ($ready -like '*"ready":false*') {
+        try { $p.Kill() } catch {}
+        return @{ error = "N2X session failed: $ready" }
+    }
     return @{ proc = $p }
 }
 
@@ -64,7 +75,7 @@ function Get-Daemon($server, $label) {
 
 function Send-Cmd($server, $label, $cmd) {
     $d = Get-Daemon $server $label
-    if ($d.error) { return @{ ok = $false; error = $d.error } }
+    if ($d.error) { return (ErrJson $d.error) }
     $p = $d.proc
     try {
         $p.StandardInput.WriteLine($cmd.TrimEnd())
@@ -72,22 +83,19 @@ function Send-Cmd($server, $label, $cmd) {
     } catch {
         $script:daemons.Remove("$server|$label")
         $d = Get-Daemon $server $label
-        if ($d.error) { return @{ ok = $false; error = $d.error } }
+        if ($d.error) { return (ErrJson $d.error) }
         $p = $d.proc
         $p.StandardInput.WriteLine($cmd.TrimEnd())
         $p.StandardInput.Flush()
     }
     $t = $p.StandardOutput.ReadLineAsync()
-    if (-not $t.Wait(150000)) {
-        return @{ ok = $false; error = "N2X response timeout" }
-    }
+    if (-not $t.Wait(150000)) { return (ErrJson "N2X response timeout") }
     $line = $t.Result
-    try { return ($line | ConvertFrom-Json) }
-    catch { return @{ ok = $false; error = "bad response: $line" } }
+    if (-not $line) { return (ErrJson "empty response from N2X") }
+    return $line
 }
 
-function Write-Json($ctx, $code, $obj) {
-    $json = $obj | ConvertTo-Json -Depth 20 -Compress
+function Write-Body($ctx, $code, [string]$json) {
     $buf = [System.Text.Encoding]::UTF8.GetBytes($json)
     $ctx.Response.StatusCode = $code
     $ctx.Response.ContentType = "application/json; charset=utf-8"
@@ -121,24 +129,28 @@ while ($listener.IsListening) {
     Write-Host "[$stamp] IN  $($req.HttpMethod) $($req.Url.AbsolutePath)"
     try {
         if ($req.HttpMethod -eq "GET" -and $req.Url.AbsolutePath -like "/health*") {
-            Write-Json $ctx 200 @{ ok = $true; tclsh = (Test-Path $Tclsh); daemon = (Test-Path $Daemon) }
+            $ok1 = if (Test-Path $Tclsh) { "true" } else { "false" }
+            $ok2 = if (Test-Path $Daemon) { "true" } else { "false" }
+            Write-Body $ctx 200 ('{"ok":true,"tclsh":' + $ok1 + ',"daemon":' + $ok2 + '}')
             continue
         }
         if ($req.HttpMethod -ne "POST" -or $req.Url.AbsolutePath -notlike "/api/n2x/send*") {
-            Write-Json $ctx 404 @{ ok = $false; error = "not found" }
+            Write-Body $ctx 404 (ErrJson "not found")
             continue
         }
         $body = (New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)).ReadToEnd()
-        $d = $body | ConvertFrom-Json
-        if (-not $Key) { Write-Json $ctx 503 @{ ok = $false; error = "relay has no key (-Key)" }; continue }
-        if ("$($d.key)" -ne $Key) { Write-Json $ctx 403 @{ ok = $false; error = "bad key" }; continue }
-        $server = "$($d.server)".Trim()
-        $label  = if ($d.label) { "$($d.label)".Trim() } else { "utop" }
-        $cmd    = "$($d.cmd)".Trim()
-        if (-not $server -or -not $cmd) { Write-Json $ctx 400 @{ ok = $false; error = "server and cmd required" }; continue }
-        Write-Host "[$stamp] $cmd"
-        Write-Json $ctx 200 (Send-Cmd $server $label $cmd)
+        $rkey   = Field $body "key"
+        $server = (Field $body "server").Trim()
+        $label  = (Field $body "label").Trim(); if (-not $label) { $label = "utop" }
+        $cmd    = (Field $body "cmd").Trim()
+        if (-not $Key)          { Write-Body $ctx 503 (ErrJson "relay has no key (-Key)"); continue }
+        if ($rkey -ne $Key)     { Write-Body $ctx 403 (ErrJson "bad key"); continue }
+        if (-not $server -or -not $cmd) { Write-Body $ctx 400 (ErrJson "server and cmd required"); continue }
+        Write-Host "[$stamp]     -> $cmd"
+        $out = Send-Cmd $server $label $cmd
+        Write-Host "[$stamp]     <- $out"
+        Write-Body $ctx 200 $out
     } catch {
-        try { Write-Json $ctx 500 @{ ok = $false; error = "$_" } } catch {}
+        try { Write-Body $ctx 500 (ErrJson "$_") } catch {}
     }
 }
