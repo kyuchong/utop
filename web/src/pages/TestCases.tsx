@@ -1271,11 +1271,10 @@ export default function TestCases() {
               }}
             />
 
-            {/* 3열 — 스텝 세부, 또는 캡쳐하는 동안은 명령어 캡쳐 */}
+            {/* 세부 — 스텝 하나, 또는 캡쳐하는 동안은 명령어 캡쳐.
+                탭 줄은 이 칸 위(오른쪽 칸 머리)에 한 번만 그린다. 여기에도
+                두었더니 같은 줄이 두 번 나왔다. */}
             <section className={`panel tc-detcol${termOpen ? ' wide' : ''}`}>
-              {/* 탭은 **이 칸이 무엇을 보여줄지** 고르는 것이라 이 칸 머리에
-                  있어야 한다. 위쪽 전체 폭에 두면 어느 칸이 바뀌는지 안 보인다. */}
-              {detHead}
               {termOpen ? (
                 <TcTerminal
                   sessions={sessionIds}
