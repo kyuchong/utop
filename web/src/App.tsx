@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Layout from '@/components/Layout'
 import Login from '@/components/Login'
 import { authApi, getToken, setToken, type MeUser } from '@/api/client'
+import { useLiveRefresh } from '@/components/useLiveRefresh'
 import Requirements from '@/pages/Requirements'
 import TestCases from '@/pages/TestCases'
 import Settings from '@/pages/Settings'
@@ -49,6 +50,10 @@ export default function App() {
       .then((r) => setUser(r.user))
       .catch(() => setUser(null))
   }, [])
+
+  // 남이 바꾼 것을 어느 화면에 있든 바로 들여온다. 화면마다 따로 붙이면
+  // 또 어느 하나가 빠지므로 여기 한 곳에서 듣는다.
+  useLiveRefresh()
 
   if (user === undefined) return <div className="empty">확인 중…</div>
   if (user === null) return <Login onDone={setUser} />

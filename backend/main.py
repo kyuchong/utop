@@ -89,20 +89,30 @@ app.mount("/static", _CachedStatic(directory=str(FRONTEND_DIR / "static")), name
 
 
 # ══════════════════════════════════════════════════════════════════════
-# API 응답 캐시 헤더 — 새로고침 반복 시 브라우저 HTTP 캐시에서 즉시 응답
-# 대상: 자주 조회되지만 초 단위로 낡아도 되는 목록·메타 API
-# 방식: max-age=10 (10초 즉시 캐시) + stale-while-revalidate=60 (10-70초 사이는
-#       캐시 표시 + 백그라운드 갱신, 사용자 대기 없음).
-# 실시간 정확도는 WebSocket (tc_updated, cycle_updated 등) 이 보장.
+# API 응답 캐시 헤더
+#
+# 전에는 이 목록 전부에 max-age=10 + stale-while-revalidate=60 을 걸고
+# 「실시간 정확도는 WebSocket 이 보장한다」 고 적어 두었다. 그게 틀렸다 —
+# **WebSocket 이 시켜서 다시 읽는 것도 같은 캐시를 지나간다.** 남이 저장해서
+# 다시 읽어도 브라우저가 묵은 응답을 그대로 내주니, 화면이 늘 한 판씩
+# 늦었다. 남이 고친 것을 보려면 새로고침을 눌러야 했다.
+#
+# 그래서 둘로 가른다.
+#
+#  · 같이 고치는 자료 — 캐시하지 않는다. 여럿이 한 시험을 놓고 일하는
+#    도구에서 10초 묵은 값은 10초짜리 오답이다
+#  · 잘 안 바뀌는 설정 — 짧게 캐시한다. 로고·도움말 같은 것
+#
+# `public` 도 `private` 로 바꾼다. 로그인한 사람에 따라 달라지는 응답을
+# 공용 캐시에 담게 두면 안 된다.
 # ══════════════════════════════════════════════════════════════════════
-_CACHEABLE_PATHS = (
+_LIVE_PATHS = (
     "/api/tc",              # ?meta=1 목록 및 단건
     "/api/cycle",           # ?meta=1 목록 및 단건
     "/api/req",             # 목록 및 단건
-    "/api/manuals",         # 목록
-    "/api/board",           # 게시판
+    "/api/manuals",
+    "/api/board",
     "/api/racks",
-    "/api/device-catalog",
     "/api/devices",
     "/api/procedures",
     "/api/folders",
@@ -110,11 +120,15 @@ _CACHEABLE_PATHS = (
     "/api/manual-folders",
     "/api/custom-fields",
     "/api/permissions",
+    "/api/global-params",
+)
+
+_CACHEABLE_PATHS = (
+    "/api/device-catalog",
     "/api/branding",
     "/api/help",
     "/api/llms",
     "/api/prompts",
-    "/api/global-params",
     "/api/page-ai",
     "/api/dify/assistants",
     "/api/ui-options",
@@ -136,11 +150,18 @@ async def _api_cache_headers(request, call_next):
                 if "cache-control" not in {k.lower() for k in resp.headers.keys()}:
                     resp.headers["Cache-Control"] = "no-store"
                 return resp
+            _has = "cache-control" in {k.lower() for k in resp.headers.keys()}
+            # 같이 고치는 자료 — 늘 서버에 물어본다
+            for p in _LIVE_PATHS:
+                if path == p or path.startswith(p + "/") or path.startswith(p + "?"):
+                    if not _has:
+                        resp.headers["Cache-Control"] = "no-store"
+                    return resp
             for p in _CACHEABLE_PATHS:
                 if path == p or path.startswith(p + "/") or path.startswith(p + "?"):
                     # 이미 다른 미들웨어·엔드포인트가 Cache-Control 지정했으면 존중
-                    if "cache-control" not in {k.lower() for k in resp.headers.keys()}:
-                        resp.headers["Cache-Control"] = "public, max-age=10, stale-while-revalidate=60"
+                    if not _has:
+                        resp.headers["Cache-Control"] = "private, max-age=30"
                     break
     except Exception:
         pass
