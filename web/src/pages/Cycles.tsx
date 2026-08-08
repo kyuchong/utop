@@ -159,6 +159,26 @@ export function firstFail(steps: CycleStep[]): { at: number; reason: string } | 
   return null
 }
 
+/**
+ * 이 항목이 사람이 할 일인가 장비가 할 일인가.
+ *
+ * Manual 만 있는 시험을 자동으로 돌린 줄 알고 「왜 안 돌았지」 하는 일이
+ * 있었다. 스텝을 열어 보기 전에 목록에서 갈려야 한다.
+ */
+function kindOf(steps: CycleStep[]): 'manual' | 'auto' | 'mixed' | '' {
+  if (!steps.length) return ''
+  let m = 0
+  let a = 0
+  for (const s of steps) {
+    if (s.kind === 'manual' || s.manual || s.action === '수동') m++
+    else if (s.kind === 'comment' || s.kind === 'message') continue
+    else a++
+  }
+  if (m && a) return 'mixed'
+  if (m) return 'manual'
+  return a ? 'auto' : ''
+}
+
 /** 장비 카탈로그의 모델 — 모델그룹의 주인 */
 interface CatModel {
   name: string
@@ -834,6 +854,16 @@ function CycleDetail({
         ))}
       </div>
       <div className="cy-legend">
+        {/* 「전체」 가 없었다. 하나를 누르면 그것만 남는데, 되돌리려면 같은
+            것을 다시 눌러야 한다는 걸 알 수가 없었다. */}
+        <button
+          type="button"
+          className={`cy-leg${only === null ? ' on' : ''}`}
+          title="전부 보기"
+          onClick={() => setOnly(null)}
+        >
+          <b>{items.length}</b> 전체
+        </button>
         {/* 0건인 것도 자리를 지킨다 — 사라졌다 나타나면 누르려던 자리가
             매번 달라진다 */}
         {RESULTS.map((r) => (
@@ -858,6 +888,7 @@ function CycleDetail({
         <div className="cy-row cy-hd">
           <span>TC ID</span>
           <span>시험</span>
+          <span>타입</span>
           <span>결과</span>
           <span>담당</span>
           <span>실행</span>
@@ -924,6 +955,18 @@ function CycleDetail({
                     )}
                   </i>
                 )}
+              </span>
+              {/* 사람이 할 일인가 장비가 할 일인가.
+                  Manual 만 있는 시험을 자동으로 돌린 줄 알고 「왜 안 돌았지」
+                  하는 일이 있었다. 목록에서 갈려야 한다. */}
+              <span className={`cy-kind ${kindOf(steps)}`}>
+                {kindOf(steps) === 'manual'
+                  ? 'Manual'
+                  : kindOf(steps) === 'mixed'
+                    ? '섞임'
+                    : kindOf(steps) === 'auto'
+                      ? 'Auto'
+                      : '–'}
               </span>
               {/* 결과를 손으로 정할 수 있어야 한다. 수동 시험도 있고,
                   자동으로 돌았는데 사람이 달리 판단하는 경우도 있다 */}

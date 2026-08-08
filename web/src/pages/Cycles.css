@@ -87,6 +87,7 @@
   min-height: 0;
 }
 .cy-list {
+  overflow-x: auto;
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -107,8 +108,11 @@
 }
 .cy-row {
   display: grid;
-  grid-template-columns: minmax(90px, 168px) 1fr 64px 88px 104px 52px;
-  gap: 8px;
+  /* 칸마다 최소 폭을 준다. 안 주면 좁을 때 TC ID 가 0px 로 눌리고
+     머리글이 두 줄로 접힌다. 그보다는 가로로 미는 편이 낫다. */
+  grid-template-columns: minmax(112px, 150px) minmax(120px, 1fr) 60px 58px 62px 78px 38px;
+  gap: 6px;
+  min-width: 600px;
   align-items: center;
   padding: var(--row-py) var(--row-px);
   min-height: var(--row-h);
@@ -271,7 +275,6 @@
 /* 목록에서 지금 도는 항목 */
 .cy-now { color: var(--c-primary); }
 
-.cy-row { grid-template-columns: 22px 1fr 64px 88px 104px 52px; }
 .cy-ck { justify-self: center; }
 /* 지금 도는 줄 */
 .cy-row.running { background: var(--c-accent-soft); }
@@ -795,7 +798,6 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: var(--r-chip); b
   background: var(--c-primary-bg);
   box-shadow: inset 2px 0 0 var(--c-primary);
 }
-.cy-row { grid-template-columns: 1fr 64px 88px 104px 52px; }
 
 /* Shift+누르기가 글자 선택으로도 잡힌다 — 목록에서는 막는다.
    스텝 카드의 출력은 그대로 둔다. 거기는 글자를 끌어 판정기준으로
@@ -1043,3 +1045,19 @@ table.tb td.k {
   font-size: var(--fs-xs);
   white-space: pre-wrap;
 }
+
+/* 종류 뱃지 — 사람이 할 일과 장비가 할 일이 눈으로 갈려야 한다 */
+.sc-kind.k-manual { background: #fff8e6; color: #8a5a00; }
+
+/* 실행 타입 — 사람이 할 일인가 장비가 할 일인가 */
+.cy-kind {
+  padding: 0 5px;
+  border-radius: var(--r-chip);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--c-text-muted);
+}
+.cy-kind.manual { background: #fff8e6; color: #8a5a00; }
+.cy-kind.auto { background: var(--c-primary-soft, #eef4ff); color: var(--c-primary); }
+.cy-kind.mixed { background: var(--c-surface-2); color: var(--c-text-muted); }

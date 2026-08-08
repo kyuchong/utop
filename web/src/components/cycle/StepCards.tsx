@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { CycleItemLite, CycleStep, Verdict } from '@/pages/Cycles'
 import { RESULTS, verdictClass } from '@/pages/Cycles'
-import { stepVerdict, type TcStep } from '@/components/tc/types'
+import { stepKindInfo, stepVerdict, type TcStep } from '@/components/tc/types'
 
 /** 판정 종류를 사람 말로 */
 /** 그 판정이 실제로 무엇을 보는지 — 이름만으로는 안 갈린다 */
@@ -221,7 +221,13 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
           <div className={`sc-card${bad ? ' bad' : ''}${running ? ' running' : ''}`} key={i}>
             <div className="sc-head">
               <b>Step#{i + 1}</b>
-              <span className="sc-kind">{s.action || (s.waitSec ? '대기' : 'CLI')}</span>
+              {/* 종류는 `kind` 가 정한다.
+                  전에는 `action` 만 보고 비어 있으면 무조건 CLI 라고 적었다.
+                  그래서 Manual 스텝만 있는 시험이 사이클에서는 automation
+                  으로 보였다 — 사람이 할 일을 장비가 한 것처럼. */}
+              <span className={`sc-kind k-${s.kind || 'cli'}`}>
+                {stepKindInfo(s.kind ?? undefined).label}
+              </span>
               {/* 언제 · 얼마나. 결과가 Pass 여도 40초 걸리던 것이 3분이
                   되면 무언가 무너진 것이다 — 그것은 판정으로 안 잡힌다. */}
               {(s.executed_at || typeof s.took_ms === 'number') && (
