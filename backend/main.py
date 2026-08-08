@@ -12161,3 +12161,59 @@ async def runner_login(payload: dict):
     }
     _save_one_session(token)
     return {"token": token}
+
+
+# ══════════════════════════════════════════════════════════════════════
+# Reports — 집계
+#
+# 「지금 이 장비 이 버전이 몇 % 왔나 · 어디가 깨졌나」 는 사이클을 하나씩
+# 열어서는 못 답한다. 사이클 24건을 화면이 하나씩 읽게 하면 느리기도 하고,
+# 무엇보다 같은 셈을 화면마다 다시 짜게 된다.
+#
+# 여기서 한 번에 세어 내려준다.
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/api/report/summary")
+async def report_summary():
+    cycles = await db.cycle_list_meta()
+    rows = []
+    for c in cycles:
+        cid = c.get("id")
+        cname = c.get("name") or ""
+        model = c.get("model") or ""
+        version = c.get("version") or ""
+        vg = c.get("version_group") or ""
+        for it in (c.get("items") or []):
+            if not isinstance(it, dict):
+                continue
+            # 옛 자료(_verdict 가 없는 요약)는 여기서 다시 센다
+            v = it.get("_verdict")
+            if v is None:
+                v = db.item_verdict(it, it.get("steps") or [])
+            steps = it.get("steps") or []
+            manual = [s for s in steps if s.get("manual") or s.get("action") == "수동"]
+            rows.append({
+                "cycle_id": cid,
+                "cycle": cname or f"{model} {version}".strip(),
+                "model": model,
+                "version": version,
+                "version_group": vg,
+                "tcid": it.get("tcid") or "",
+                "name": it.get("name") or "",
+                "req_id": it.get("req_id") or "",
+                "severity": it.get("severity") or "",
+                "assignee": it.get("assignee") or it.get("executed_by") or "",
+                "executed_at": it.get("executed_at") or "",
+                "auto": bool(it.get("executed_auto")),
+                # 사람이 할 일인가 장비가 할 일인가
+                "kind": ("manual" if manual and len(manual) == len(steps)
+                         else "mixed" if manual else "auto" if steps else ""),
+                "verdict": v or "",
+                "steps": len(steps),
+                "fail_steps": int(it.get("_steps_fail") or 0),
+            })
+    return {"rows": rows, "cycles": [
+        {"id": c.get("id"), "name": c.get("name"), "model": c.get("model"),
+         "version": c.get("version"), "version_group": c.get("version_group")}
+        for c in cycles
+    ]}

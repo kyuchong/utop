@@ -393,6 +393,37 @@ async def cycle_list_full() -> list[dict]:
         return [r["data"] for r in rows]
 
 
+def step_verdict(s: dict) -> str:
+    """스텝 하나의 판정 — 옛 칸과 지금 칸을 함께 본다.
+
+    화면 쪽(types.ts stepVerdict)과 같은 규칙이다. 여기만 `result` 를 보고
+    있어서, 실행기가 status/repeatResult 에 적은 결과가 집계에서 통째로
+    빠졌다. 사람이 손으로 적은 result 가 먼저다.
+    """
+    if not isinstance(s, dict):
+        return ""
+    r = str(s.get("result") or "").strip()
+    if r:
+        return r
+    v = str(s.get("status") or s.get("repeatResult") or "").strip().upper()
+    return {"PASS": "Pass", "FAIL": "Fail", "WIP": "WIP", "BLOCKED": "Blocked"}.get(v, "")
+
+
+def item_verdict(it: dict, steps: list) -> str:
+    """항목 하나의 결과 — 화면(Cycles.itemVerdict)과 같은 규칙."""
+    if str(it.get("result") or "").strip():
+        return str(it["result"]).strip()
+    auto = [s for s in steps if not (s.get("manual") or s.get("action") == "수동")]
+    if not auto:
+        return "진행불가" if steps else ""
+    if any(str(s.get("result") or "").lower() == "fail" for s in auto):
+        return "Fail"
+    if any(str(s.get("result") or "").lower() == "pass" for s in auto):
+        return "Pass"
+    mixed = next((s for s in auto if s.get("result")), None)
+    return str(mixed.get("result")) if mixed else ""
+
+
 def _cycle_item_meta_lite(it: dict) -> dict:
     """UI 목록·판정 집계용 최소 필드 (기존 서버 _cycle_item_meta_lite 재현)."""
     m = {k: it.get(k) for k in ("tcid","name","req_id","severity","priority","assignee",
@@ -400,7 +431,7 @@ def _cycle_item_meta_lite(it: dict) -> dict:
     _stp = it.get("steps") or []
     _p = _f = _o = 0
     for s in _stp:
-        r = (s or {}).get("result") or ""
+        r = step_verdict(s)
         if r == "Pass": _p += 1
         elif r == "Fail": _f += 1
         elif r: _o += 1
@@ -408,8 +439,10 @@ def _cycle_item_meta_lite(it: dict) -> dict:
     m["_steps_pass"] = _p
     m["_steps_fail"] = _f
     m["_steps_other"] = _o
-    m["steps"] = [{"result": s.get("result",""), "action": s.get("action",""),
+    m["steps"] = [{"result": step_verdict(s), "action": s.get("action",""),
+                   "kind": s.get("kind",""),
                    "manual": bool(s.get("manual"))} for s in _stp if isinstance(s, dict)]
+    m["_verdict"] = item_verdict(it, m["steps"])
     return m
 
 

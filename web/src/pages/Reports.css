@@ -1,0 +1,127 @@
+/* Reports — 지금 어디까지 왔나.
+   사이클 화면은 한 사이클을 붙들고 보는 자리고, 여기는 전부를 한 장에
+   놓고 거른다. 숫자·그림·목록이 같은 거르개를 본다 */
+.rp { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+.rp-tabs { align-self: flex-start; }
+.rp-body { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; }
+
+.rp-filters {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: var(--fs-xs);
+}
+.rp-filters .sp { margin-left: auto; }
+.rp-filters select, .rp-q { font-size: var(--fs-xs); }
+.rp-q { min-width: 220px; }
+
+/* 숫자부터. 회의에서 먼저 읽히는 것이 숫자다 */
+.rp-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+.rp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  background: var(--c-surface);
+  text-align: left;
+}
+.rp-card i { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-muted); }
+.rp-card b { font-size: 26px; font-variant-numeric: tabular-nums; }
+.rp-card.click { cursor: pointer; }
+.rp-card.click:hover { border-color: currentColor; }
+.rp-card.click.on { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
+.rp-pct { color: var(--c-primary); }
+
+.rp-charts {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .rp-charts { grid-template-columns: 1fr; }
+}
+.rp-chart { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.rp-ct { font-size: var(--fs-md); }
+.rp-donut { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.rp-dn { font-size: 30px; font-weight: 800; fill: var(--c-text); }
+.rp-dl { font-size: 12px; fill: var(--c-text-muted); }
+.rp-leg { display: flex; flex-direction: column; gap: 4px; }
+.rp-legi {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: var(--r-chip);
+}
+.rp-legi:hover, .rp-legi.on { background: var(--c-hover, #f2f4f7); }
+.rp-dot { width: 10px; height: 10px; border-radius: 2px; }
+
+/* 어느 버전이 무너졌나 — 불합격 많은 순 */
+.rp-bars { display: flex; flex-direction: column; gap: 3px; max-height: 300px; overflow: auto; }
+.rp-bar {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) 1fr 36px;
+  gap: 8px;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  padding: 2px 4px;
+  border-radius: var(--r-chip);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.rp-bar:hover, .rp-bar.on { background: var(--c-hover, #f2f4f7); }
+.rp-bnm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.rp-btrack { display: flex; height: 12px; border-radius: 3px; overflow: hidden; background: var(--c-surface-2); }
+.rp-bseg { height: 100%; }
+.rp-bn { text-align: right; font-variant-numeric: tabular-nums; color: var(--c-text-muted); }
+
+.rp-table { padding: 0; overflow: auto; min-height: 220px; }
+.rp-row {
+  display: grid;
+  grid-template-columns: 58px minmax(110px, 150px) minmax(160px, 1fr) 62px minmax(110px, 180px) minmax(110px, 170px) 78px;
+  gap: 6px;
+  align-items: center;
+  padding: var(--row-py) var(--row-px);
+  min-height: var(--row-h);
+  border-bottom: 1px solid var(--c-border-soft, #f1f1f1);
+  font-size: var(--fs-xs);
+  min-width: 780px;
+}
+.rp-row.head {
+  position: sticky;
+  top: 0;
+  background: var(--c-surface-2);
+  color: var(--c-text-muted);
+  font-weight: 600;
+  z-index: 1;
+}
+.rp-v { font-weight: 700; }
+.rp-tcid, .rp-req, .rp-cyc {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-primary);
+  font-size: var(--fs-xs);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.rp-tcid:hover, .rp-req:hover, .rp-cyc:hover { text-decoration: underline; }
+.rp-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-bad { margin-left: 6px; font-style: normal; color: var(--c-fail); }
+.rp-more { padding: 6px 10px; }

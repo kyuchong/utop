@@ -98,12 +98,19 @@
   left: calc(var(--nav-w-collapsed) - 16px);
 }
 
+/* 묶음 사이에 선을 긋는다. 설정 화면과 같은 규칙 —
+   붙여 두면 묶은 티가 안 나서 결국 전부 훑게 된다 */
+.nav-section + .nav-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgb(255 255 255 / 10%);
+}
 .nav-group {
   font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.06em;
   color: #6a747e;
-  margin: 10px var(--sp-3) 4px;
+  margin: 0 var(--sp-3) 5px;
   white-space: nowrap;
 }
 
@@ -161,11 +168,11 @@
 }
 
 .app.nav-collapsed .nav-group {
-  /* 그룹 제목 대신 가는 구분선만 남긴다 */
+  /* 접히면 제목은 감춘다. 구분선은 .nav-section 이 이미 그으므로
+     여기서 또 그으면 선이 두 줄이 된다 */
   height: 0;
-  margin: 10px 6px;
+  margin: 0;
   overflow: hidden;
-  border-top: 1px solid var(--c-border-soft);
 }
 
 .app.nav-collapsed .nav-item {

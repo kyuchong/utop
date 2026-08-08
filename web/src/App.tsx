@@ -9,7 +9,7 @@ import TestCases from '@/pages/TestCases'
 import Settings from '@/pages/Settings'
 import AiTc from '@/pages/AiTc'
 import Cycles from '@/pages/Cycles'
-import Executions from '@/pages/Executions'
+import Reports from '@/pages/Reports'
 import Devices from '@/pages/Devices'
 import Instruments from '@/pages/Instruments'
 
@@ -109,7 +109,7 @@ export default function App() {
       ) : page === 'cycles' ? (
         <Cycles />
       ) : page === 'executions' ? (
-        <Executions />
+        <Reports />
       ) : page === 'devices' ? (
         <Devices me={user} />
       ) : page === 'instruments' ? (

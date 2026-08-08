@@ -524,11 +524,19 @@
 .set-page { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
 .set-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .set-head .sp { margin-left: auto; }
+/* 세 덩이를 나란히. auto-fit 으로 두었더니 「자주 쓰는 프로젝트」 만
+   아래로 떨어져서 두 줄이 됐다 — 세 덩이는 한눈에 놓여야 한다 */
 .jira-cols {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   align-items: start;
+}
+@media (max-width: 1100px) {
+  .jira-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .jira-cols { grid-template-columns: 1fr; }
 }
 .jira-card { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
 .jira-t { font-size: var(--fs-md); }
