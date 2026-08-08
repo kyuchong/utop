@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { getToken } from '@/api/client'
 
+/** 서버가 보내는 소식 */
+export interface WsMsg {
+  type?: string
+  page?: string
+  users?: string[]
+  controller?: string | null
+  /** tc_updated 따위에 실려 오는 것 */
+  tcid?: string
+  user?: string
+}
+
 /** 지금 이 화면을 보고 있는 사람들 */
 export interface Presence {
   users: string[]
@@ -24,11 +35,15 @@ export interface Presence {
  * 대신 **누가 있는지 보여 주고**, 저장할 때 남이 먼저 저장했으면 그때
  * 알린다(`useSaveGuard`). 막는 것보다 알리는 편이 낫다.
  */
-export function usePresence(page: string, me: string): Presence {
+export function usePresence(page: string, me: string, onMsg?: (m: WsMsg) => void): Presence {
   const [st, setSt] = useState<Presence>({ users: [], controller: null, connected: false })
   const wsRef = useRef<WebSocket | null>(null)
   const pageRef = useRef(page)
   pageRef.current = page
+  // 콜백은 매 렌더 새로 만들어진다. ref 로 받아야 그때마다 소켓을 다시
+  // 열지 않는다 — 다시 열면 접속자 목록이 깜빡인다.
+  const msgRef = useRef(onMsg)
+  msgRef.current = onMsg
 
   useEffect(() => {
     if (!me) return
@@ -48,13 +63,14 @@ export function usePresence(page: string, me: string): Presence {
       }
       ws.onmessage = (e) => {
         try {
-          const m = JSON.parse(String(e.data)) as {
-            type?: string
-            page?: string
-            users?: string[]
-            controller?: string | null
+          const m = JSON.parse(String(e.data)) as WsMsg
+          if (m.type !== 'presence') {
+            // 접속자 말고 다른 소식(저장됨 같은 것)은 화면에 넘긴다.
+            // 소켓을 화면마다 또 열 이유가 없다 — 하나로 같이 쓴다.
+            msgRef.current?.(m)
+            return
           }
-          if (m.type !== 'presence' || m.page !== pageRef.current) return
+          if (m.page !== pageRef.current) return
           setSt({ users: m.users ?? [], controller: m.controller ?? null, connected: true })
         } catch {
           // 우리 것이 아닌 메시지는 그냥 흘린다

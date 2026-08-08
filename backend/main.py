@@ -3432,7 +3432,11 @@ async def save_tc(tc_id: str, data: dict):
         pass
     await db.tc_upsert(tc_id, data)
     # broadcast 는 fire-and-forget (다수 접속 시 순차 send 대기로 응답 느려짐)
-    try: asyncio.create_task(broadcast({"type": "tc_updated", "tcid": tc_id}))
+    #
+    # 누가 저장했는지 함께 싣는다 — 받는 쪽이 「내가 방금 저장한 것」 을
+    # 걸러내야 하고, 남이 저장한 것이면 이름을 말해 줘야 한다.
+    _by = str(data.get("updated_by") or "").strip()
+    try: asyncio.create_task(broadcast({"type": "tc_updated", "tcid": tc_id, "user": _by}))
     except Exception: pass
     return {"success": True}
 

@@ -2170,6 +2170,21 @@ table.tb tr.r-bad td:first-child {
 }
 .tc-seqhead .sp,
 .tc-dethead .sp { margin-left: auto; }
+
+/* 남이 저장했다는 알림. 제목 옆에 붙지만 눈에는 걸려야 한다 —
+   놓치면 낡은 것을 계속 고치게 된다 */
+.tc-remote {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  border: 1px solid #f0b429;
+  border-radius: var(--r-chip);
+  background: #fff8e6;
+  color: #8a5a00;
+  font-size: 12px;
+  white-space: nowrap;
+}
 .tc-seqhead b { font-size: var(--fs-md); }
 .tc-dethead .seg { flex: 0 1 auto; min-width: 0; }
 .tc-dethead .btn { flex: none; }
