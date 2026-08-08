@@ -558,7 +558,7 @@ function CycleDetail({
         <button className="btn small" type="button" onClick={() => setAdding(true)}>
           + 항목
         </button>
-        {pick.size > 0 && (
+        {pick.size > 1 && (
           <span className="lh-picked">
             {pick.size}건 선택됨
             <button type="button" onClick={sel.clear} title="선택 해제">

@@ -300,7 +300,6 @@ export default function ReqTree({
   const rowOrder = (): string[] => {
     const out: string[] = []
     const walk = (n: CategoryTreeNode) => {
-      out.push(`cat:${n.id}`)
       if (!openIds.has(n.id) && !needle0) return
       if (!foldersOnly)
         for (const r of byFolder.get(n.id) ?? []) out.push(`req:${reqPk(r)}`)
@@ -500,7 +499,7 @@ export default function ReqTree({
         <div
           data-folder={n.id}
           className={`rt-fold${selectedFolder === n.id ? ' on' : ''}${
-            picked.has(`cat:${n.id}`) ? ' picked' : ''
+            ''
           }${over === n.id && drag ? ' dropinto' : ''}${
             drag?.kind === 'cat' && drag.id === n.id ? ' dragging' : ''
           }${clip?.id === n.id ? ' copied' : ''}`}
@@ -509,11 +508,10 @@ export default function ReqTree({
           // 폴더를 누르면 그 아래 요구사항의 TC 를 오른쪽에 모아 보인다.
           // 폴더는 펼치는 것 말고 할 일이 없었는데, 실제로는 '이 묶음의
           // 시험이 다 됐나' 를 폴더 단위로 보는 일이 가장 잦다.
-          onClick={(e) => {
-            if (justDragged.current) return
-            onRowClick(`cat:${n.id}`, e, rowOrder())
-            if (!e.ctrlKey && !e.metaKey && !e.shiftKey) onSelectFolder(n.id)
-          }}
+          // 폴더는 고르는 것이 아니라 **여는** 것이다. 골라 봐야 할 수 있는
+          // 일이 요구사항과 달라서(지우면 안에 든 것이 미분류로 나간다),
+          // 같은 자루에 담으면 「N건 선택됨」 이 무엇을 가리키는지 흐려진다.
+          onClick={() => !justDragged.current && onSelectFolder(n.id)}
           onPointerDown={(e) => beginDrag(e, 'cat', n.id)}
           // 우클릭이 곧 메뉴다. Zephyr·탐색기와 같아 배울 것이 없다.
           onContextMenu={(e) => {

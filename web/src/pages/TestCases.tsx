@@ -918,7 +918,7 @@ export default function TestCases() {
             name="시험항목"
             count={tcs.length}
             picked={
-              pickedTc.size > 0 ? (
+              pickedTc.size > 1 ? (
                 // 세 화면이 같은 말을 쓴다 — 「N건 선택됨」 · ✕ 로 해제.
                 // 무엇을 할지는 ⋯ 안에서 고른다.
                 <span className="lh-picked">
@@ -949,7 +949,7 @@ export default function TestCases() {
                 <button type="button" onClick={() => setBulkOpen(true)}>
                   시험 일괄 생성
                 </button>
-                {pickedTc.size > 0 && (
+                {pickedTc.size > 1 && (
                   <>
                     <hr />
                     <button type="button" onClick={() => setBulkEdit(true)}>
