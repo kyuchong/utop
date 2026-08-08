@@ -1,16 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { getToken } from '@/api/client'
+import { onWs, onWsOpen, sendWs, type WsMsg } from '@/api/wsBus'
 
-/** 서버가 보내는 소식 */
-export interface WsMsg {
-  type?: string
-  page?: string
-  users?: string[]
-  controller?: string | null
-  /** tc_updated 따위에 실려 오는 것 */
-  tcid?: string
-  user?: string
-}
+export type { WsMsg }
 
 /** 지금 이 화면을 보고 있는 사람들 */
 export interface Presence {
@@ -33,72 +24,51 @@ export interface Presence {
  * 못 들어오고, 잠근 사람이 자리를 뜨면 아무도 못 고친다.
  *
  * 대신 **누가 있는지 보여 주고**, 저장할 때 남이 먼저 저장했으면 그때
- * 알린다(`useSaveGuard`). 막는 것보다 알리는 편이 낫다.
+ * 알린다. 막는 것보다 알리는 편이 낫다.
+ *
+ * 소켓은 탭에 하나뿐이다(`wsBus`). 화면마다 따로 열면 서버가 접속자를
+ * 그 배로 센다.
  */
 export function usePresence(page: string, me: string, onMsg?: (m: WsMsg) => void): Presence {
   const [st, setSt] = useState<Presence>({ users: [], controller: null, connected: false })
-  const wsRef = useRef<WebSocket | null>(null)
   const pageRef = useRef(page)
   pageRef.current = page
-  // 콜백은 매 렌더 새로 만들어진다. ref 로 받아야 그때마다 소켓을 다시
-  // 열지 않는다 — 다시 열면 접속자 목록이 깜빡인다.
+  // 콜백은 매 렌더 새로 만들어진다. ref 로 받아야 그때마다 다시 붙지 않는다.
   const msgRef = useRef(onMsg)
   msgRef.current = onMsg
+  const meRef = useRef(me)
+  meRef.current = me
 
   useEffect(() => {
     if (!me) return
-    let dead = false
-    let timer: number | undefined
-
-    const open = () => {
-      if (dead) return
-      const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-      const tk = getToken()
-      const ws = new WebSocket(`${proto}://${location.host}/ws${tk ? `?token=${tk}` : ''}`)
-      wsRef.current = ws
-
-      ws.onopen = () => {
-        setSt((s) => ({ ...s, connected: true }))
-        ws.send(JSON.stringify({ type: 'presence', user: me, page: pageRef.current }))
+    const off = onWs((m) => {
+      if (m.type !== 'presence') {
+        // 접속자 말고 다른 소식(저장됨 같은 것)은 화면에 넘긴다
+        msgRef.current?.(m)
+        return
       }
-      ws.onmessage = (e) => {
-        try {
-          const m = JSON.parse(String(e.data)) as WsMsg
-          if (m.type !== 'presence') {
-            // 접속자 말고 다른 소식(저장됨 같은 것)은 화면에 넘긴다.
-            // 소켓을 화면마다 또 열 이유가 없다 — 하나로 같이 쓴다.
-            msgRef.current?.(m)
-            return
-          }
-          if (m.page !== pageRef.current) return
-          setSt({ users: m.users ?? [], controller: m.controller ?? null, connected: true })
-        } catch {
-          // 우리 것이 아닌 메시지는 그냥 흘린다
-        }
-      }
-      // 끊기면 다시 붙는다. 랩 네트워크는 끊겼다 붙었다 한다
-      ws.onclose = () => {
-        setSt((s) => ({ ...s, connected: false }))
-        if (!dead) timer = window.setTimeout(open, 3000)
-      }
-      ws.onerror = () => ws.close()
-    }
-
-    open()
+      if (m.page !== pageRef.current) return
+      setSt({
+        users: (m.users as string[]) ?? [],
+        controller: (m.controller as string | null) ?? null,
+        connected: true,
+      })
+    })
+    // 붙을 때마다 지금 보고 있는 자리를 알린다 — 끊겼다 붙으면 서버는
+    // 나를 잊어버린 상태다
+    const offOpen = onWsOpen(() => {
+      setSt((s) => ({ ...s, connected: true }))
+      sendWs({ type: 'presence', user: meRef.current, page: pageRef.current })
+    })
     return () => {
-      dead = true
-      if (timer) clearTimeout(timer)
-      wsRef.current?.close()
-      wsRef.current = null
+      off()
+      offOpen()
     }
   }, [me])
 
   // 보던 것을 바꾸면 그 자리를 알린다
   useEffect(() => {
-    const ws = wsRef.current
-    if (ws && ws.readyState === 1 && me) {
-      ws.send(JSON.stringify({ type: 'presence', user: me, page }))
-    }
+    if (me) sendWs({ type: 'presence', user: me, page })
   }, [page, me])
 
   return st

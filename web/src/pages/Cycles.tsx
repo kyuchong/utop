@@ -7,7 +7,6 @@ import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import { useMultiSelect } from '@/components/useMultiSelect'
-import type { Device } from '@/pages/Devices'
 import { IconChevron, IconFolder } from '@/components/icons'
 import type { TestCaseMeta } from '@/types'
 // 요구사항 화면의 트리 규칙을 그대로 쓴다 — 줄 높이·색·여백이 한 곳에서만
@@ -269,16 +268,6 @@ export default function Cycles() {
     },
   })
 
-  const devQ = useQuery({
-    queryKey: ['devices2'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/devices2')
-      if (!r.ok) throw new Error('장비를 불러오지 못했습니다')
-      return (await r.json()) as { devices: Device[] }
-    },
-    staleTime: 60_000,
-  })
-
   const cycles = useMemo(() => listQ.data?.cycles ?? [], [listQ.data])
   const shown = useMemo(() => {
     const n = q.trim().toLowerCase()
@@ -433,7 +422,7 @@ export default function Cycles() {
 
       <section className="panel cy-main">
         {cur ? (
-          <CycleDetail cycle={cur} devices={devQ.data?.devices ?? []} onSaved={() => void listQ.refetch()} />
+          <CycleDetail cycle={cur} onSaved={() => void listQ.refetch()} />
         ) : (
           <div className="empty">왼쪽에서 사이클을 고르세요.</div>
         )}
@@ -445,11 +434,9 @@ export default function Cycles() {
 /** 사이클 한 건 — 항목과 진행 */
 function CycleDetail({
   cycle,
-  devices,
   onSaved,
 }: {
   cycle: CycleMeta
-  devices: Device[]
   onSaved: () => void
 }) {
   /** 걸러 보기. null 이면 전부 — '' 는 「미실행」 이라는 뜻이라 못 쓴다 */
@@ -483,7 +470,7 @@ function CycleDetail({
    */
   const sel = useMultiSelect<number>()
   const pick = sel.picked
-  const { st, run, stop } = useCycleRun(devices)
+  const { st, run, stop } = useCycleRun(cycle.id)
   /** 항목 추가 창 */
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -586,7 +573,7 @@ function CycleDetail({
           고객사 결과서
         </button>
         {st.on ? (
-          <button className="btn small danger" type="button" onClick={stop}>
+          <button className="btn small danger" type="button" onClick={() => void stop()}>
             ⏹ 멈추기
           </button>
         ) : (
@@ -594,14 +581,15 @@ function CycleDetail({
             className="btn primary small"
             type="button"
             disabled={!items.length}
-            onClick={() =>
-              void run(
-                cycle.id,
-                items,
-                pick.size ? [...pick].sort((a, b) => a - b) : items.map((_, i) => i),
-                '',
-              ).then(onSaved)
-            }
+            onClick={() => {
+              // 여기서 돌리지 않는다. 줄에 걸어 놓고 손을 뗀다 — 창을
+              // 닫아도 실행 서버가 계속 돌린다.
+              void run(pick.size ? [...pick].sort((a, b) => a - b) : items.map((_, i) => i)).then(
+                (err) => {
+                  if (err) window.alert(err)
+                },
+              )
+            }}
           >
             ▶ {pick.size ? `고른 ${pick.size}건` : '전체'} 실행
           </button>
@@ -965,12 +953,28 @@ function RunPane({ st }: { st: ReturnType<typeof useCycleRun>['st'] }) {
 
         <div className={`cy-run${st.on ? ' on' : ''}`}>
           <div className="cy-run-head">
-            <b>{st.on ? '실행 중' : '실행 마침'}</b>
+            {/* 실행은 서버가 한다. 그래서 「누가 걸었나」 와 「아직 안
+                집혔나」 를 말해 줘야 한다 — 내 창에서 도는 것이 아니니
+                아무 말이 없으면 걸리긴 한 건지 알 수 없다. */}
+            <b>
+              {st.waiting
+                ? '실행 대기'
+                : st.on
+                  ? '실행 중'
+                  : st.status === 'stopped'
+                    ? '멈춤'
+                    : st.status === 'failed'
+                      ? '실행 실패'
+                      : '실행 마침'}
+            </b>
             <span className="muted small">
               항목 {st.done}/{st.total}
+              {st.who && ` · ${st.who} 님이 걸었습니다`}
               {st.itemName && ` · ${st.itemName}`}
               {st.stepAt >= 0 && ` · 스텝 ${st.stepAt + 1}/${st.stepCount}`}
             </span>
+            {st.waiting && <span className="muted small">실행 서버가 집기를 기다립니다…</span>}
+            {st.error && <span className="muted small err">{st.error}</span>}
             {st.stepName && <code className="cy-run-cmd">{st.stepName}</code>}
           </div>
           <div className="cy-run-bar" aria-hidden="true">

@@ -219,8 +219,10 @@ export default function TestCases({ me }: PageProps) {
    */
   const presence = usePresence(openId ? `tc:${openId}` : 'tc', meName, (m) => {
     if (m.type !== 'tc_updated' || !openId || m.tcid !== openId) return
-    if (m.user && m.user === meName) return // 내가 방금 저장한 것
-    const who = m.user || '다른 사람'
+    // 소식은 서버가 보내는 것이라 무슨 값이 올지 화면이 정할 수 없다
+    const by = typeof m.user === 'string' ? m.user : ''
+    if (by && by === meName) return // 내가 방금 저장한 것
+    const who = by || '다른 사람'
     // 20건까지만. 그 아래는 아무도 안 본다
     setSaves((c) => [{ user: who, at: Date.now(), kept: dirty }, ...c].slice(0, 20))
     if (dirty) {

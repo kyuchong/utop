@@ -464,3 +464,62 @@ CREATE TABLE IF NOT EXISTS rag_embed (
   created_at    TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_rag_embed_key ON rag_embed(key);
+
+-- ══════════════════════════════════════════════════════════════════════
+-- 사이클 서버 실행 (cycle_run / cycle_run_log)
+--
+-- 실행을 브라우저가 붙들고 있었다. 64건을 걸어 놓고 탭을 닫으면 거기서
+-- 멈췄고, 자리를 뜰 수가 없었다. 실행 서버를 따로 둔 의미도 없었다.
+--
+-- 그래서 실행을 **일감**으로 만든다. 화면은 줄에 걸어 놓고 손을 떼고,
+-- 실행기(runner 컨테이너)가 집어서 돌린다. 진행은 여기에 쌓이므로
+-- 브라우저를 닫았다 다시 열어도 처음부터 다 볼 수 있다.
+--
+-- 로그를 표로 따로 두는 이유: 한 실행에 수천 줄이 쌓이는데 jsonb 배열에
+-- 담으면 한 줄 붙일 때마다 통째로 다시 쓴다. seq 로 잘라 읽어야 화면이
+-- "내가 본 다음 것부터" 를 물을 수 있다.
+-- ══════════════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS cycle_run (
+  id            TEXT PRIMARY KEY,
+  cycle_id      TEXT NOT NULL,
+  cycle_name    TEXT,
+  -- 돌릴 항목의 자리 번호들. 비면 전체
+  picked        JSONB NOT NULL DEFAULT '[]'::jsonb,
+  -- queued | running | done | stopped | failed
+  status        TEXT NOT NULL DEFAULT 'queued',
+  -- 사람이 멈춤을 눌렀다. 실행기가 보고 스스로 내려온다
+  stop_asked    BOOLEAN DEFAULT false,
+  started_by    TEXT,
+  -- 어느 실행기가 집었나. 여러 대를 둘 때 누가 도는지 안다
+  worker        TEXT,
+  total         INT DEFAULT 0,
+  done          INT DEFAULT 0,
+  item_at       INT DEFAULT -1,
+  item_name     TEXT,
+  step_at       INT DEFAULT -1,
+  step_count    INT DEFAULT 0,
+  step_name     TEXT,
+  -- 지금 도는 항목의 스텝들 (결과가 차오르는 그대로)
+  live_steps    JSONB,
+  error         TEXT,
+  queued_at     TIMESTAMPTZ DEFAULT now(),
+  started_at    TIMESTAMPTZ,
+  ended_at      TIMESTAMPTZ,
+  -- 살아있음 신호. 끊긴 지 오래면 화면에서 '응답 없음' 으로 보여준다
+  heartbeat_at  TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_cycle_run_cycle  ON cycle_run(cycle_id);
+CREATE INDEX IF NOT EXISTS idx_cycle_run_status ON cycle_run(status);
+CREATE INDEX IF NOT EXISTS idx_cycle_run_queued ON cycle_run(queued_at DESC);
+
+CREATE TABLE IF NOT EXISTS cycle_run_log (
+  run_id        TEXT NOT NULL REFERENCES cycle_run(id) ON DELETE CASCADE,
+  seq           BIGINT NOT NULL,
+  -- 몇 번째 스텝인지 (-1 이면 항목 단위 알림)
+  i             INT DEFAULT -1,
+  -- info | send | recv | pass | fail | warn
+  kind          TEXT,
+  text          TEXT,
+  at            TIMESTAMPTZ DEFAULT now(),
+  PRIMARY KEY (run_id, seq)
+);

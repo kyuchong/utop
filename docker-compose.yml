@@ -37,6 +37,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       DIFY_BASE_URL: ${DIFY_BASE_URL:-}
       DIFY_FILE_VAR: ${DIFY_FILE_VAR:-}
+      # 실행기가 자기를 밝히는 열쇠. 없으면 실행 대기줄이 아예 안 열린다.
+      RUNNER_KEY: ${RUNNER_KEY:-}
       TZ: ${TZ:-Asia/Seoul}
     volumes:
       - app-data:/app/data
@@ -59,6 +61,30 @@ services:
       - api
     ports:
       - '${WEB_PORT:-9000}:80'
+
+  # 사이클 실행기.
+  #
+  # 전에는 브라우저가 실행을 붙들고 있었다. 64건을 걸어 놓고 탭을 닫으면
+  # 거기서 멈췄고, 자리를 뜰 수가 없었다.
+  #
+  # 화면과 **같은** runner.ts·judge.ts 를 Node 로 묶어 돈다. 판정기가 두
+  # 벌이면 한 화면에서 적합인 것이 다른 화면에서 부적합이 된다.
+  #
+  # 장비에는 직접 안 붙는다 — API 를 통해 붙으므로 여기에는 ssh 도
+  # telnet 도 필요 없다. 실행 서버를 253 에 따로 두려면 이 서비스만
+  # 거기서 띄우고 API_BASE 를 213 으로 향하게 하면 된다.
+  runner:
+    build:
+      context: .
+      dockerfile: runner/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      API_BASE: ${RUNNER_API_BASE:-http://api:8000}
+      RUNNER_KEY: ${RUNNER_KEY:-}
+      RUNNER_NAME: ${RUNNER_NAME:-runner}
+      TZ: ${TZ:-Asia/Seoul}
 
 volumes:
   db-data:

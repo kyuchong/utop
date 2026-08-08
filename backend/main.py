@@ -9,6 +9,7 @@ import socket
 import subprocess
 import threading
 import contextvars
+from uuid import uuid4 as _uuid4
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -885,6 +886,9 @@ _AUTH_PUBLIC = (
     # 서버끼리 부르는 자리라 사람의 세션이 없다. 대신 N2X_RELAY_KEY 로
     # 자기가 확인하고, 열쇠가 안 정해져 있으면 아예 거절한다.
     "/api/n2x/send",
+    # 실행기(runner 컨테이너)가 부르는 자리. 사람의 세션이 없어서 RUNNER_KEY
+    # 로 자기가 확인한다. 열쇠가 안 정해져 있으면 아예 거절한다.
+    "/api/runner/",
     "/api/logout",
     "/api/health",
     "/api/req-images/",     # 마크다운 안 <img> 는 헤더를 못 붙인다
@@ -11971,3 +11975,180 @@ async def llm_choices():
     if claude_client is not None:
         out.append({"id": "claude", "name": "Claude", "model": "claude-sonnet-4-5", "local": False})
     return {"choices": out}
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 사이클 서버 실행
+#
+# 전에는 브라우저가 실행을 붙들고 있었다. 64건을 걸어 놓고 탭을 닫으면
+# 거기서 멈췄고, 자리를 뜰 수가 없었다. 253 을 실행 서버로 둔 의미도
+# 여기서 생긴다.
+#
+# 화면은 **일감을 줄에 걸어 놓고 손을 뗀다.** 실행기(runner 컨테이너)가
+# 집어서 돌리고 진행을 여기로 올린다. 서버가 그것을 WebSocket 으로 뿌리면
+# 보고 있던 사람들 화면이 같이 움직이고, 안 보고 있었어도 나중에 열어
+# 처음부터 다 볼 수 있다.
+#
+# 판정기는 한 벌이다. 실행기는 화면과 **같은 runner.ts·judge.ts** 를 Node 로
+# 묶어 돈다 — 두 벌이면 한 화면에서 적합인 것이 다른 화면에서 부적합이 된다.
+# ══════════════════════════════════════════════════════════════════════
+
+# 실행기가 자기를 밝히는 열쇠. 사람의 세션이 없는 자리라 이것으로 가른다.
+RUNNER_KEY = os.environ.get("RUNNER_KEY") or ""
+
+
+def _runner_guard(key: str):
+    if not RUNNER_KEY:
+        raise HTTPException(503, "RUNNER_KEY 가 정해져 있지 않습니다")
+    if str(key or "") != RUNNER_KEY:
+        raise HTTPException(403, "실행기 열쇠가 맞지 않습니다")
+
+
+async def _run_push(run: dict, logs: list = None):
+    """진행을 보고 있는 사람들에게 그대로 넘긴다."""
+    try:
+        msg = {"type": "run_progress", "run": run}
+        if logs:
+            msg["logs"] = logs
+        asyncio.create_task(broadcast(msg))
+    except Exception:
+        pass
+
+
+@app.post("/api/runs")
+async def run_queue(payload: dict, request: Request):
+    """실행을 줄에 건다. 돌리는 것은 실행기가 한다."""
+    cycle_id = str(payload.get("cycle_id") or "").strip()
+    if not cycle_id:
+        raise HTTPException(400, "cycle_id 가 필요합니다")
+    cyc = await db.cycle_get(cycle_id)
+    if cyc is None:
+        raise HTTPException(404, "사이클을 찾을 수 없습니다")
+
+    picked = [int(x) for x in (payload.get("pick") or []) if str(x).lstrip("-").isdigit()]
+    items = cyc.get("items") if isinstance(cyc.get("items"), list) else []
+    if not picked:
+        picked = list(range(len(items)))
+    if not picked:
+        raise HTTPException(400, "돌릴 항목이 없습니다")
+
+    # 같은 사이클을 둘이 동시에 돌리면 결과를 서로 덮는다. 한 번에 하나만.
+    live = await db.run_active(cycle_id)
+    if live:
+        raise HTTPException(
+            409,
+            f"이 사이클은 이미 돌고 있습니다 ({live[0].get('started_by') or '누군가'}). "
+            "끝나거나 멈춘 뒤에 다시 거세요.",
+        )
+
+    # 누가 걸었나. 화면에 「누가 돌리고 있나」 를 보여야 남이 멈추기 전에
+    # 한 번 묻게 된다.
+    who = ""
+    try:
+        who = _user_of(_token_from(request)) or ""
+    except Exception:
+        pass
+    run_id = _uuid4().hex[:16]
+    run = await db.run_create(
+        run_id, cycle_id, str(cyc.get("name") or ""), picked,
+        who or str(payload.get("who") or ""), len(picked),
+    )
+    await _run_push(run)
+    return {"ok": True, "run": run}
+
+
+@app.get("/api/runs")
+async def run_list(cycle_id: str = "", active: int = 0):
+    if active:
+        return {"runs": await db.run_active(cycle_id)}
+    if not cycle_id:
+        raise HTTPException(400, "cycle_id 가 필요합니다")
+    return {"runs": await db.run_recent(cycle_id)}
+
+
+@app.get("/api/runs/{run_id}")
+async def run_one(run_id: str, after: int = 0):
+    """진행 + 지난 로그.
+
+    브라우저를 닫았다 다시 열면 `after=0` 으로 통째로 받아 그대로 다시
+    그린다. 이어서 볼 때는 마지막으로 본 seq 를 준다.
+    """
+    run = await db.run_get(run_id)
+    if run is None:
+        raise HTTPException(404, "실행을 찾을 수 없습니다")
+    return {"run": run, "logs": await db.run_log_get(run_id, after)}
+
+
+@app.post("/api/runs/{run_id}/stop")
+async def run_stop(run_id: str):
+    ok = await db.run_stop_ask(run_id)
+    run = await db.run_get(run_id)
+    if run:
+        await _run_push(run)
+    return {"ok": ok, "run": run}
+
+
+# ── 여기부터는 실행기가 부르는 자리 ──────────────────────────────
+
+@app.post("/api/runner/claim")
+async def run_claim(payload: dict):
+    _runner_guard(payload.get("key"))
+    # 죽은 실행을 먼저 걷어낸다. 안 그러면 running 인 채로 영원히 남아
+    # 화면은 계속 도는 줄 알고 기다린다.
+    await db.run_sweep_dead()
+    run = await db.run_claim(str(payload.get("worker") or "runner"))
+    if run:
+        await _run_push(run)
+    return {"run": run}
+
+
+@app.post("/api/runner/{run_id}/progress")
+async def run_progress(run_id: str, payload: dict):
+    _runner_guard(payload.get("key"))
+    logs = payload.get("logs") if isinstance(payload.get("logs"), list) else []
+    if logs:
+        await db.run_log_add(run_id, logs)
+    patch = {k: v for k, v in (payload.get("patch") or {}).items()}
+    run = await db.run_progress(run_id, patch)
+    if run is None:
+        raise HTTPException(404, "실행을 찾을 수 없습니다")
+    await _run_push(run, logs)
+    # 멈춤을 부탁받았는지 실행기에게 알려준다 — 스텝 사이에서 스스로 내려온다
+    return {"ok": True, "stop": bool(run.get("stop_asked"))}
+
+
+@app.post("/api/runner/{run_id}/finish")
+async def run_done(run_id: str, payload: dict):
+    _runner_guard(payload.get("key"))
+    logs = payload.get("logs") if isinstance(payload.get("logs"), list) else []
+    if logs:
+        await db.run_log_add(run_id, logs)
+    run = await db.run_finish(
+        run_id, str(payload.get("status") or "done"), str(payload.get("error") or "")
+    )
+    if run is None:
+        raise HTTPException(404, "실행을 찾을 수 없습니다")
+    await _run_push(run, logs)
+    return {"ok": True}
+
+
+@app.post("/api/runner/login")
+async def runner_login(payload: dict):
+    """실행기에게 보통 세션을 하나 내준다.
+
+    실행기는 사이클·TC 를 읽고 장비 세션을 열고 결과를 저장한다 — 사람이
+    하는 일과 똑같다. 그래서 인증 길을 따로 파지 않고 **평범한 토큰**을
+    준다. 그러면 지금 있는 권한 검사가 그대로 적용된다.
+
+    누가 무엇을 했는지는 남아야 하므로 실행기 자신의 이름으로 남긴다.
+    """
+    _runner_guard(payload.get("key"))
+    token = _secrets.token_hex(16)
+    SESSIONS[token] = {
+        "username": "runner",
+        "role": "관리자",
+        "name": "실행 서버",
+        "ts": datetime.now().timestamp(),
+    }
+    _save_one_session(token)
+    return {"token": token}

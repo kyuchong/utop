@@ -1279,3 +1279,197 @@ async def cf_usage(target: str, key: str) -> int:
             f"SELECT count(*) FROM {table} WHERE coalesce(data->'custom'->>$1, '') <> ''",
             key,
         ) or 0
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 사이클 서버 실행 — 일감 줄
+#
+# 실행을 브라우저가 붙들고 있었다. 64건을 걸어 놓고 탭을 닫으면 거기서
+# 멈췄고, 자리를 뜰 수가 없었다.
+#
+# 화면은 줄에 걸어 놓고 손을 떼고, 실행기가 집어서 돌린다. 진행과 로그는
+# 여기 쌓이므로 브라우저를 닫았다 다시 열어도 처음부터 다 볼 수 있다.
+# ══════════════════════════════════════════════════════════════════════
+
+_RUN_COLS = (
+    "id, cycle_id, cycle_name, picked, status, stop_asked, started_by, worker, "
+    "total, done, item_at, item_name, step_at, step_count, step_name, live_steps, "
+    "error, queued_at, started_at, ended_at, heartbeat_at"
+)
+
+
+def _run_row(r) -> dict:
+    d = dict(r)
+    for k in ("picked", "live_steps"):
+        v = d.get(k)
+        if isinstance(v, str):
+            try:
+                d[k] = json.loads(v)
+            except Exception:
+                d[k] = None
+    for k in ("queued_at", "started_at", "ended_at", "heartbeat_at"):
+        if d.get(k) is not None:
+            d[k] = d[k].isoformat()
+    return d
+
+
+async def run_create(run_id: str, cycle_id: str, cycle_name: str, picked: list, who: str, total: int) -> dict:
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "INSERT INTO cycle_run (id, cycle_id, cycle_name, picked, started_by, total) "
+            "VALUES ($1,$2,$3,$4::jsonb,$5,$6) RETURNING " + _RUN_COLS,
+            run_id, cycle_id, cycle_name, json.dumps(picked or []), who, int(total or 0),
+        )
+        return _run_row(r)
+
+
+async def run_get(run_id: str) -> Optional[dict]:
+    async with pool().acquire() as c:
+        r = await c.fetchrow("SELECT " + _RUN_COLS + " FROM cycle_run WHERE id=$1", run_id)
+        return _run_row(r) if r else None
+
+
+async def run_active(cycle_id: str = "") -> list:
+    """아직 안 끝난 실행. 화면이 붙을 자리를 찾을 때 쓴다."""
+    q = "SELECT " + _RUN_COLS + " FROM cycle_run WHERE status IN ('queued','running')"
+    args = []
+    if cycle_id:
+        q += " AND cycle_id=$1"
+        args.append(cycle_id)
+    q += " ORDER BY queued_at"
+    async with pool().acquire() as c:
+        return [_run_row(r) for r in await c.fetch(q, *args)]
+
+
+async def run_recent(cycle_id: str, limit: int = 20) -> list:
+    async with pool().acquire() as c:
+        return [
+            _run_row(r)
+            for r in await c.fetch(
+                "SELECT " + _RUN_COLS + " FROM cycle_run WHERE cycle_id=$1 "
+                "ORDER BY queued_at DESC LIMIT $2",
+                cycle_id, int(limit),
+            )
+        ]
+
+
+async def run_claim(worker: str) -> Optional[dict]:
+    """대기 중인 것 하나를 집는다.
+
+    `FOR UPDATE SKIP LOCKED` 로 집어야 실행기를 여러 대 두어도 같은 일감을
+    둘이 집지 않는다. 지금은 한 대지만 253 을 실행 서버로 두면 늘어난다.
+    """
+    async with pool().acquire() as c:
+        async with c.transaction():
+            r = await c.fetchrow(
+                "SELECT id FROM cycle_run WHERE status='queued' "
+                "ORDER BY queued_at FOR UPDATE SKIP LOCKED LIMIT 1"
+            )
+            if not r:
+                return None
+            got = await c.fetchrow(
+                "UPDATE cycle_run SET status='running', worker=$2, started_at=now(), "
+                "heartbeat_at=now() WHERE id=$1 RETURNING " + _RUN_COLS,
+                r["id"], worker,
+            )
+            return _run_row(got)
+
+
+_RUN_PATCHABLE = (
+    "done", "item_at", "item_name", "step_at", "step_count", "step_name", "live_steps",
+)
+
+
+async def run_progress(run_id: str, patch: dict) -> Optional[dict]:
+    """진행을 고친다. 실행기가 자주 부르므로 필요한 칸만 건드린다."""
+    sets, args = [], []
+    for k in _RUN_PATCHABLE:
+        if k not in patch:
+            continue
+        args.append(json.dumps(patch[k]) if k == "live_steps" else patch[k])
+        sets.append(f"{k}=${len(args)}" + ("::jsonb" if k == "live_steps" else ""))
+    sets.append("heartbeat_at=now()")
+    args.append(run_id)
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            f"UPDATE cycle_run SET {', '.join(sets)} WHERE id=${len(args)} RETURNING " + _RUN_COLS,
+            *args,
+        )
+        return _run_row(r) if r else None
+
+
+async def run_finish(run_id: str, status: str, error: str = "") -> Optional[dict]:
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "UPDATE cycle_run SET status=$2, error=$3, ended_at=now(), heartbeat_at=now(), "
+            "item_at=-1, step_at=-1 WHERE id=$1 RETURNING " + _RUN_COLS,
+            run_id, status, error or None,
+        )
+        return _run_row(r) if r else None
+
+
+async def run_stop_ask(run_id: str) -> bool:
+    """멈춤을 부탁한다.
+
+    바로 죽이지 않는다 — 실행기가 스텝 사이에서 보고 스스로 내려와야
+    장비 세션이 열린 채로 남지 않는다. 아직 안 집힌 것은 그 자리에서 끝낸다.
+    """
+    async with pool().acquire() as c:
+        r = await c.execute(
+            "UPDATE cycle_run SET stop_asked=true, "
+            "status=CASE WHEN status='queued' THEN 'stopped' ELSE status END, "
+            "ended_at=CASE WHEN status='queued' THEN now() ELSE ended_at END "
+            "WHERE id=$1 AND status IN ('queued','running')",
+            run_id,
+        )
+        return r.endswith(" 1")
+
+
+async def run_log_add(run_id: str, lines: list) -> int:
+    """로그를 붙이고 마지막 seq 를 돌려준다."""
+    if not lines:
+        return 0
+    async with pool().acquire() as c:
+        base = await c.fetchval(
+            "SELECT coalesce(max(seq), 0) FROM cycle_run_log WHERE run_id=$1", run_id
+        ) or 0
+        rows = [
+            (run_id, base + n + 1, int(x.get("i", -1) or -1), str(x.get("kind") or ""), str(x.get("text") or ""))
+            for n, x in enumerate(lines)
+        ]
+        await c.executemany(
+            "INSERT INTO cycle_run_log (run_id, seq, i, kind, text) VALUES ($1,$2,$3,$4,$5) "
+            "ON CONFLICT DO NOTHING",
+            rows,
+        )
+        return base + len(rows)
+
+
+async def run_log_get(run_id: str, after: int = 0, limit: int = 5000) -> list:
+    async with pool().acquire() as c:
+        return [
+            {"seq": r["seq"], "i": r["i"], "kind": r["kind"], "text": r["text"]}
+            for r in await c.fetch(
+                "SELECT seq, i, kind, text FROM cycle_run_log WHERE run_id=$1 AND seq>$2 "
+                "ORDER BY seq LIMIT $3",
+                run_id, int(after), int(limit),
+            )
+        ]
+
+
+async def run_sweep_dead(stale_sec: int = 180) -> int:
+    """신호가 끊긴 지 오래인 실행을 실패로 내린다.
+
+    실행기가 죽거나 서버가 내려가면 'running' 인 채로 영원히 남는다. 그러면
+    화면은 계속 도는 줄 알고 기다리고, 다시 돌릴 수도 없다.
+    """
+    async with pool().acquire() as c:
+        r = await c.execute(
+            "UPDATE cycle_run SET status='failed', ended_at=now(), "
+            "error=coalesce(error, '실행기 응답이 끊겼습니다') "
+            f"WHERE status='running' AND heartbeat_at < now() - interval '{int(stale_sec)} seconds'"
+        )
+        try:
+            return int(r.rsplit(" ", 1)[-1])
+        except Exception:
+            return 0
