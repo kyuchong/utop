@@ -112,11 +112,13 @@ Write-Host ("  n2xtclsh : {0}  ({1})" -f $Tclsh, $(if (Test-Path $Tclsh) {"OK"} 
 Write-Host ("  daemon   : {0}  ({1})" -f $Daemon, $(if (Test-Path $Daemon) {"OK"} else {"MISSING!"}))
 Write-Host ("  key      : {0}" -f $(if ($Key) {"set"} else {"NONE - use -Key"}))
 Write-Host ("=" * 56)
+Write-Host "Listening. Waiting for requests on port $Port ..."
 
 while ($listener.IsListening) {
     $ctx = $listener.GetContext()
     $req = $ctx.Request
     $stamp = (Get-Date).ToString("HH:mm:ss")
+    Write-Host "[$stamp] IN  $($req.HttpMethod) $($req.Url.AbsolutePath)"
     try {
         if ($req.HttpMethod -eq "GET" -and $req.Url.AbsolutePath -like "/health*") {
             Write-Json $ctx 200 @{ ok = $true; tclsh = (Test-Path $Tclsh); daemon = (Test-Path $Daemon) }
