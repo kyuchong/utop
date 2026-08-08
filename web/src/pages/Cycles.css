@@ -964,3 +964,28 @@ table.tb td.k {
   white-space: nowrap;
   max-width: 40%;
 }
+
+/* 1열 접기 — TC 화면과 같은 모양(.tc-fold)을 쓴다.
+   두 화면이 다르게 생기면 오갈 때마다 눈이 다시 찾는다 */
+.cy .tc-fold {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 30px;
+  padding: 10px 0;
+  border: 0;
+  border-right: 1px solid var(--c-border);
+  background: linear-gradient(180deg, #eaf1ff, #dfe9fd);
+  color: var(--c-primary);
+  cursor: pointer;
+}
+.cy .tc-fold:hover { background: linear-gradient(180deg, #dbe7ff, #cddcfb); }
+.cy .tc-fold-t {
+  writing-mode: vertical-rl;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}

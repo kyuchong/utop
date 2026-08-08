@@ -7,7 +7,7 @@ import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import { useMultiSelect } from '@/components/useMultiSelect'
-import { IconChevron, IconFolder } from '@/components/icons'
+import { IconChevron, IconFolder, IconPanel } from '@/components/icons'
 import type { TestCaseMeta } from '@/types'
 import { stepVerdict, type StepRound, type TcStep } from '@/components/tc/types'
 // 요구사항 화면의 트리 규칙을 그대로 쓴다 — 줄 높이·색·여백이 한 곳에서만
@@ -301,6 +301,18 @@ export default function Cycles() {
   const [editId, setEditId] = useState('')
   /** 말로 찾은 결과 — 만들기 창에 미리 채워 넣는다 */
   const [ask, setAsk] = useState<{ model: string; tcs: Array<{ tcid: string; name?: string | null; req_id?: string | null }> } | null>(null)
+  /**
+   * 1열을 접어 뒀나 — TC 화면과 같은 규칙.
+   *
+   * 64건짜리 사이클의 항목과 스텝을 들여다볼 때는 트리가 자리만 먹는다.
+   */
+  const [treeOpen, setTreeOpen] = useState(
+    () => localStorage.getItem('utop.cycle.treeOpen') !== '0',
+  )
+  useEffect(() => {
+    localStorage.setItem('utop.cycle.treeOpen', treeOpen ? '1' : '0')
+  }, [treeOpen])
+
   const [sel, setSel] = useState(() => localStorage.getItem(CY_SEL_KEY) || '')
   useEffect(() => {
     localStorage.setItem(CY_SEL_KEY, sel)
@@ -448,10 +460,25 @@ export default function Cycles() {
     // 요구사항·TC 화면과 **같은 뼈대**를 쓴다. 세 화면을 오가는 사람이
     // 매번 「여긴 어디가 목록이지」 를 다시 찾지 않게.
     <div className="split cy">
+      {/* 접었을 때 — 세로 띠 하나만 남는다. TC 화면과 같은 모양이다.
+          아주 없애면 다시 펼 길이 없어지고 어디에 있었는지도 잊는다. */}
+      {!treeOpen && (
+        <button
+          type="button"
+          className="tc-fold"
+          title="사이클 펼치기"
+          onClick={() => setTreeOpen(true)}
+        >
+          <IconPanel open />
+          <span className="tc-fold-t">사이클 {cycles.length}</span>
+        </button>
+      )}
+      {treeOpen && (
       <section className="panel cy-tree">
         <ListHead
           name="사이클"
           count={cycles.length}
+          onCollapse={() => setTreeOpen(false)}
           search={{ value: q, placeholder: '모델 · 버전으로 찾기', onChange: setQ }}
           add={{ title: '사이클 만들기', onClick: () => setMaking(true) }}
           menu={
@@ -479,6 +506,7 @@ export default function Cycles() {
           )}
         </div>
       </section>
+      )}
 
       {menu && (
         <CycleMenu
