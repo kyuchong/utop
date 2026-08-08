@@ -707,6 +707,51 @@ function CycleDetail({
         />
       )}
 
+      {/* 돌고 있을 때의 진행판.
+          옛 화면은 「총 66항목 중 1항목 진행 (2%)」 를 창으로 크게 띄웠다.
+          내가 그것을 오른쪽 아래 한 줄로 줄여 놨더니 아무도 못 봤다.
+          크게, 맨 위에, 도는 동안만. */}
+      {st.on && (
+        <div className="cy-prog">
+          <div className="cy-prog-top">
+            <b className="cy-prog-t">{st.waiting ? '실행 대기' : '시험 절차 실행 중'}</b>
+            {st.who && <span className="cy-prog-who">{st.who} 님</span>}
+            <span className="sp" />
+            <button className="btn small danger" type="button" onClick={() => void stop()}>
+              ⏹ 중지
+            </button>
+          </div>
+          <div className="cy-prog-n">
+            총 {st.total}항목 중 <b>{Math.min(st.done + 1, st.total)}</b>항목 진행 (
+            {Math.round((st.done / (st.total || 1)) * 100)}%)
+          </div>
+          <div className="cy-prog-bar" aria-hidden="true">
+            <span style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
+          </div>
+          <div className="cy-prog-now">
+            {st.waiting ? (
+              '실행 서버가 집기를 기다립니다…'
+            ) : (
+              <>
+                {st.itemName || '…'}
+                {st.stepAt >= 0 && (
+                  <span className="cy-prog-step">
+                    {' '}
+                    · 스텝 {st.stepAt + 1}/{st.stepCount}
+                  </span>
+                )}
+                {st.stepName && <code className="cy-prog-cmd">{st.stepName}</code>}
+              </>
+            )}
+            {!follow && (
+              <button className="btn small" type="button" onClick={() => setFollow(true)}>
+                도는 항목 따라가기
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 한 줄로 지금 어디까지 왔나. 숫자만 늘어놓으면 눈으로 못 센다 */}
       <div className="cy-bar" aria-hidden="true">
         {RESULTS.map((r) => (
@@ -728,39 +773,9 @@ function CycleDetail({
           </button>
         ))}
         <span className="sp" />
-        {/* 도는 동안에는 「몇 항목 중 몇 번째」 가 먼저다.
-            옛 화면은 이것을 큰 창으로 띄웠다 — 66항목을 도는데 지금 어디쯤인지
-            모르면 기다릴지 말지를 못 정한다. 구석의 한 줄로는 안 보였다. */}
-        {st.on ? (
-          <span className="cy-live">
-            <b>{st.waiting ? '실행 대기' : '실행 중'}</b>
-            {/* 누가 돌리고 있나. 실행이 서버에서 도니 내 창에서 시작한 것이
-                아닐 수 있다 — 이름이 없으면 남의 실행을 내가 멈추게 된다. */}
-            {st.who && <em className="cy-live-who">{st.who} 님</em>}
-            <span>
-              총 {st.total}항목 중 {Math.min(st.done + 1, st.total)}항목 진행 (
-              {Math.round((st.done / (st.total || 1)) * 100)}%)
-            </span>
-            {st.itemName && <em>{st.itemName}</em>}
-            {st.stepAt >= 0 && (
-              <span className="cy-live-step">
-                스텝 {st.stepAt + 1}/{st.stepCount}
-              </span>
-            )}
-            {!follow && (
-              <button className="btn small" type="button" onClick={() => setFollow(true)}>
-                도는 항목 따라가기
-              </button>
-            )}
-            <button className="btn small danger" type="button" onClick={() => void stop()}>
-              ⏹ 멈추기
-            </button>
-          </span>
-        ) : (
-          <span className="muted small">
-            {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
-          </span>
-        )}
+        <span className="muted small">
+          {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
+        </span>
       </div>
 
       <div className="cy-cols">

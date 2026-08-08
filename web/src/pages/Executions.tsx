@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { onWs } from '@/api/wsBus'
 import ListHead from '@/components/ListHead'
+import StepCards from '@/components/cycle/StepCards'
+import { itemVerdict, verdictClass, type CycleItemLite } from '@/pages/Cycles'
 import './Executions.css'
 
 /** 실행 한 건 */
@@ -153,6 +155,32 @@ export default function Executions() {
       setBusy('')
     }
   }
+
+  /**
+   * 그 실행이 돈 사이클의 항목들.
+   *
+   * 로그만 있으면 얇다 — 「무엇이 오갔나」 는 알아도 「그 스텝의 명령이
+   * 뭐였고 무엇이 나왔고 왜 그렇게 판정됐나」 를 모른다. 사이클 화면에서
+   * 보던 스텝 카드를 여기서도 그대로 쓴다.
+   *
+   * 스텝 결과는 사이클 문서에 있고 나중 실행이 덮는다. 그래서 **가장
+   * 최근 실행이 아니면** 그렇다고 말해 준다 — 옛 실행을 골라 놓고 최신
+   * 결과를 보면서 헷갈리는 것보다 낫다.
+   */
+  const cycQ = useQuery({
+    queryKey: ['cycle-full', cur?.cycle_id ?? ''],
+    enabled: !!cur?.cycle_id,
+    queryFn: async () => {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cur?.cycle_id ?? '')}`)
+      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      return (await r.json()) as { items?: CycleItemLite[] }
+    },
+  })
+  const [openItem, setOpenItem] = useState(-1)
+  useEffect(() => setOpenItem(-1), [sel])
+  const exItems = cycQ.data?.items ?? []
+  /** 이 실행이 그 사이클의 가장 최근 것인가 */
+  const isLatest = !!cur && runs.find((r) => r.cycle_id === cur.cycle_id)?.id === cur.id
 
   const detQ = useQuery({
     queryKey: ['run', sel],
@@ -365,6 +393,35 @@ export default function Executions() {
                 깨진 것만
               </label>
             </div>
+
+            {/* 항목과 스텝 — 로그만으로는 「왜 그렇게 판정됐나」 를 모른다 */}
+            <div className="ex-items">
+              {exItems.map((it, i) => {
+                const v = itemVerdict(it)
+                return (
+                  <button
+                    key={`${it.tcid}-${i}`}
+                    type="button"
+                    className={`ex-item${openItem === i ? ' on' : ''}`}
+                    onClick={() => setOpenItem(openItem === i ? -1 : i)}
+                  >
+                    <span className={`ex-iv ${verdictClass(v)}`}>{v || '미실행'}</span>
+                    <span className="ex-inm">{it.name || it.tcid}</span>
+                  </button>
+                )
+              })}
+            </div>
+            {openItem >= 0 && exItems[openItem] && (
+              <div className="ex-steps">
+                {!isLatest && (
+                  <div className="ex-old">
+                    이 사이클을 그 뒤에 또 돌렸습니다 — 아래 스텝은 <b>가장 최근</b> 결과입니다.
+                    이 실행의 것은 아래 로그로 보세요.
+                  </div>
+                )}
+                <StepCards key={openItem} item={exItems[openItem]} runningAt={-1} />
+              </div>
+            )}
 
             <div className="ex-log" ref={logRef}>
               {detQ.isLoading ? (

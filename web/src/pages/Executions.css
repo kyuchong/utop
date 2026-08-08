@@ -138,3 +138,47 @@
 }
 .ex-live b { color: var(--c-primary); }
 .ex-dethead .sp { margin-left: auto; }
+
+/* 항목 · 스텝 — 로그만으로는 「왜 그렇게 판정됐나」 를 모른다 */
+.ex-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border);
+  max-height: 108px;
+  overflow-y: auto;
+}
+.ex-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 2px 7px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-chip);
+  background: var(--c-surface);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.ex-item:hover { border-color: var(--c-primary); }
+.ex-item.on { border-color: var(--c-primary); background: var(--c-primary-soft, #eef4ff); }
+.ex-iv { font-weight: 700; }
+.ex-iv.pass { color: var(--c-pass); }
+.ex-iv.fail { color: var(--c-fail); }
+.ex-inm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 30ch; }
+.ex-steps {
+  max-height: 46%;
+  overflow: auto;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--c-border);
+}
+.ex-old {
+  margin-bottom: 6px;
+  padding: 5px 8px;
+  border: 1px solid #f0b429;
+  border-radius: var(--r-box);
+  background: #fff8e6;
+  color: #6b4600;
+  font-size: var(--fs-xs);
+}

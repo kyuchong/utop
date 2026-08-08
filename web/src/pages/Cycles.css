@@ -930,16 +930,6 @@ table.tb td.k {
 /* 도는 동안의 진행 — 카운터 줄 오른쪽에 크게.
    옛 화면은 이것을 창으로 띄웠다. 66항목을 도는데 지금 어디쯤인지
    모르면 기다릴지 말지를 못 정한다 */
-.cy-live {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 2px 8px;
-  border: 1px solid var(--c-primary);
-  border-radius: var(--r-chip);
-  background: var(--c-primary-soft, #eef4ff);
-  font-size: var(--fs-xs);
-}
 .cy-live b { color: var(--c-primary); }
 .cy-live em {
   font-style: normal;
@@ -964,3 +954,71 @@ table.tb td.k {
   white-space: nowrap;
 }
 .cy-live-who { font-style: normal; font-weight: 700; color: var(--c-primary); }
+
+/* 돌고 있을 때의 진행판.
+   옛 화면은 「총 66항목 중 1항목 진행 (2%)」 를 창으로 크게 띄웠다.
+   그것을 오른쪽 아래 한 줄로 줄여 놨더니 아무도 못 봤다.
+   크게, 맨 위에, 도는 동안만. */
+.cy-prog {
+  margin: 0 0 8px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--c-primary);
+  border-radius: var(--r-card);
+  background: var(--c-primary-soft, #eef4ff);
+}
+.cy-prog-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cy-prog-top .sp { margin-left: auto; }
+.cy-prog-t {
+  font-size: var(--fs-md);
+  color: var(--c-primary);
+}
+/* 도는 동안 깜빡인다 — 멈춘 것과 도는 것이 눈으로 갈려야 한다 */
+.cy-prog-t::before {
+  content: '● ';
+  animation: cy-blink 1.2s ease-in-out infinite;
+}
+@keyframes cy-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+.cy-prog-who { font-weight: 700; color: var(--c-primary); }
+.cy-prog-n {
+  margin-top: 6px;
+  font-size: var(--fs-lg, 15px);
+  font-variant-numeric: tabular-nums;
+}
+.cy-prog-n b { font-size: 1.25em; color: var(--c-primary); }
+.cy-prog-bar {
+  height: 8px;
+  margin: 6px 0;
+  border-radius: 4px;
+  background: #fff;
+  overflow: hidden;
+}
+.cy-prog-bar span {
+  display: block;
+  height: 100%;
+  background: var(--c-primary);
+  transition: width 0.25s;
+}
+.cy-prog-now {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: var(--fs-xs);
+  color: var(--c-text);
+}
+.cy-prog-step { color: var(--c-text-muted); font-variant-numeric: tabular-nums; }
+.cy-prog-cmd {
+  font-family: var(--font-mono);
+  color: var(--c-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 40%;
+}
