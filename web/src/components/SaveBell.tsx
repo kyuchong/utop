@@ -17,14 +17,20 @@ interface Props {
   onSeen: () => void
 }
 
-function ago(t: number, now: number): string {
-  const s = Math.max(0, Math.floor((now - t) / 1000))
-  if (s < 60) return '방금'
-  const m = Math.floor(s / 60)
-  if (m < 60) return `${m}분 전`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h}시간 전`
-  return `${Math.floor(h / 24)}일 전`
+/**
+ * 언제 저장했나 — 시각 그대로.
+ *
+ * 「3분 전」 은 읽기는 편한데 남기지를 못한다. 시험 이력을 대조할 때는
+ * 「그때 그 실행이 몇 시였지」 와 맞춰 봐야 하고, 화면을 캡처해 두면
+ * 「방금」 이 무슨 뜻이었는지 알 수 없다.
+ */
+function stamp(t: number): string {
+  const d = new Date(t)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return (
+    `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ` +
+    `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+  )
 }
 
 /**
@@ -42,16 +48,7 @@ function ago(t: number, now: number): string {
  */
 export default function SaveBell({ items, unseen, onSeen }: Props) {
   const [open, setOpen] = useState(false)
-  const [now, setNow] = useState(() => items[0]?.at ?? 0)
   const boxRef = useRef<HTMLDivElement>(null)
-
-  // 「3분 전」 이 3분 전에 멈춰 있으면 거짓말이 된다
-  useEffect(() => {
-    if (!open) return
-    setNow(Date.now())
-    const t = setInterval(() => setNow(Date.now()), 30_000)
-    return () => clearInterval(t)
-  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -96,9 +93,12 @@ export default function SaveBell({ items, unseen, onSeen }: Props) {
           <ul className="sb-list">
             {items.map((x, i) => (
               <li key={`${x.at}-${i}`}>
-                <b>{x.user}</b>
-                <span className="sb-t">{ago(x.at, now || x.at)}</span>
-                {x.kept && <span className="sb-kept">안 읽어옴</span>}
+                <span className="sb-who">
+                  <b>{x.user}</b>
+                  {x.kept && <span className="sb-kept">안 읽어옴</span>}
+                </span>
+                {/* 시각은 아래 줄로. 한 줄에 붙이면 이름이 길 때 밀린다 */}
+                <span className="sb-t">{stamp(x.at)}</span>
               </li>
             ))}
           </ul>

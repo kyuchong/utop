@@ -38,8 +38,8 @@
   top: calc(100% + 4px);
   left: 0;
   z-index: 40;
-  min-width: 210px;
-  max-width: 300px;
+  min-width: 240px;
+  max-width: 320px;
   border: 1px solid var(--line, #d8d8d8);
   border-radius: var(--r-box, 6px);
   background: var(--bg, #fff);
@@ -61,18 +61,24 @@
 }
 .sb-list li {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 4px 9px;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 9px;
   font-size: 12px;
   border-bottom: 1px solid var(--line-soft, #f0f0f0);
 }
 .sb-list li:last-child { border-bottom: 0; }
+.sb-who {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
 .sb-t {
-  margin-left: auto;
   color: var(--muted, #888);
   font-size: 11px;
   white-space: nowrap;
+  /* 숫자 폭을 맞춰야 여러 줄이 세로로 정렬돼 읽힌다 */
+  font-variant-numeric: tabular-nums;
 }
 .sb-kept {
   padding: 0 4px;
