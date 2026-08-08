@@ -842,3 +842,16 @@ table.tb td.k {
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* 왜 깨졌나 — 항목 이름 아래 한 줄.
+   여기 없으면 항목을 열고 스텝을 하나씩 눌러 들어가야 안다.
+   길면 자른다. 전체는 마우스를 올리면 나온다 */
+.cy-why {
+  margin-left: 6px;
+  color: var(--c-fail);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 46ch;
+}

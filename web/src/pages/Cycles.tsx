@@ -126,6 +126,31 @@ export function itemVerdict(it: CycleItemLite): Verdict {
   return ((mixed ? stepVerdict(mixed as TcStep) : '') as Verdict) || ''
 }
 
+/**
+ * 이 항목이 **왜** 깨졌나 — 처음 깨진 스텝과 그 근거.
+ *
+ * 전에는 「3단계 중 1 부적합」 까지만 보였다. 그래서 무엇이 왜 깨졌는지
+ * 알려면 항목을 열고 스텝을 하나씩 눌러 들어가야 했다. 64건짜리 사이클에서
+ * 깨진 것이 다섯이면 그 짓을 다섯 번 한다.
+ *
+ * 처음 깨진 것만 본다. 앞이 깨지면 뒤는 대개 그 여파라 나열해 봐야
+ * 원인이 묻힌다 — 고칠 곳은 첫 번째다.
+ */
+export function firstFail(steps: CycleStep[]): { at: number; reason: string } | null {
+  for (let i = 0; i < steps.length; i++) {
+    const st = steps[i]
+    if (!st || st.manual || st.action === '수동') continue
+    if (!isFail(stepVerdict(st as TcStep))) continue
+    // 근거가 없으면 출력 첫 줄이라도 — 아무것도 없는 것보다 낫다
+    const why =
+      String(st.reason ?? '').trim() ||
+      String(st.output ?? '').trim().split(/\r?\n/)[0] ||
+      ''
+    return { at: i, reason: why }
+  }
+  return null
+}
+
 /** 장비 카탈로그의 모델 — 모델그룹의 주인 */
 interface CatModel {
   name: string
@@ -670,6 +695,7 @@ function CycleDetail({
           const v = itemVerdict(it)
           const steps = it.steps ?? []
           const bad = steps.filter((s) => isFail(stepVerdict(s as TcStep))).length
+          const why = bad ? firstFail(steps as CycleStep[]) : null
           const at = items.indexOf(it)
           return (
             <div
@@ -698,6 +724,13 @@ function CycleDetail({
                 {steps.length > 0 && (
                   <i className="cy-steps">
                     {bad ? `${steps.length}단계 중 ${bad} 부적합` : `${steps.length}단계`}
+                    {/* 왜 깨졌나 — 여기 없으면 항목을 열고 스텝을 하나씩
+                        눌러 들어가야 안다. 64건 중 다섯이 깨지면 다섯 번. */}
+                    {why && (
+                      <b className="cy-why" title={why.reason}>
+                        #{why.at + 1} {why.reason}
+                      </b>
+                    )}
                   </i>
                 )}
               </span>
