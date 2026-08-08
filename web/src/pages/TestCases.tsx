@@ -344,6 +344,51 @@ export default function TestCases({ me }: PageProps) {
   }, [fullQ.data, openId])
 
   const steps = (d.checks ?? []) as TcStep[]
+
+  /**
+   * 어느 회차를 보고 있나. 0 이면 「전체」 — 합쳐진 결과.
+   *
+   * 반복 시험에서 궁금한 것은 「7회차에 무슨 일이 있었나」 다. 그런데
+   * 스텝마다 회차를 따로 누르면 7회차를 보려고 스텝 수만큼 눌러야 한다.
+   * 회차를 하나 고르면 **목록 전체가 그 회차로** 바뀌어야 한다.
+   *
+   * 세로로 1회·2회…10회를 늘어놓지 않는 이유는 100회를 돌리면 못 쓰기
+   * 때문이다. 고르는 방식은 회차가 늘어도 견딘다.
+   */
+  const [viewRound, setViewRound] = useState(0)
+  /** 깨진 회차만 보기 — 1000회를 돌리면 늘어놓은 것만으로는 못 찾는다 */
+  const [badOnly, setBadOnly] = useState(false)
+  /** 이 시험이 몇 회차까지 돌았나 */
+  const roundMax = steps.reduce((a, x) => Math.max(a, x.rounds?.length ?? 0), 0)
+  /** 한 스텝이라도 깨진 회차 — 100번 돌려 3번 깨졌으면 궁금한 것은 그 3번이다 */
+  const badRounds = Array.from({ length: roundMax }, (_, n) => n + 1).filter((n) =>
+    steps.some(
+      (x) => String(x.rounds?.find((r) => r.n === n)?.status ?? '').toUpperCase() === 'FAIL',
+    ),
+  )
+  useEffect(() => setViewRound(0), [openId])
+
+  /**
+   * 고른 회차의 눈으로 본 스텝들.
+   *
+   * 반복 밖의 스텝은 회차가 없다 — 그대로 둔다. 한 번만 돌았으니 그것이
+   * 그 회차의 결과다.
+   */
+  const shownSteps =
+    viewRound > 0 && roundMax > 0
+      ? steps.map((x) => {
+          const rd = x.rounds?.find((r) => r.n === viewRound)
+          if (!rd) return x
+          return {
+            ...x,
+            status: rd.status ?? '',
+            repeatResult: rd.status === 'PASS' ? 'Pass' : rd.status === 'FAIL' ? 'Fail' : '',
+            reason: rd.reason ?? '',
+            output: rd.output ?? '',
+            took_ms: rd.took_ms,
+          } as TcStep
+        })
+      : steps
   /** 탭에 숫자를 달아 두면 있는지 없는지 눌러보지 않아도 안다 */
   const manualCount = steps.filter((s) => s.kind === 'manual').length
   const wireCount = (d.wiring ?? []).length
@@ -1353,11 +1398,84 @@ export default function TestCases({ me }: PageProps) {
                   </span>
                 )}
               </div>
+
+              {/* 회차 고르기.
+                  반복 시험에서 궁금한 것은 「7회차에 무슨 일이 있었나」 다.
+                  회차를 고르면 **목록 전체가 그 회차로** 바뀐다 — 스텝마다
+                  따로 눌러 다니지 않는다. 100회여도 견딘다. */}
+              {roundMax > 1 && (
+                <div className="tc-rounds">
+                  <span className="muted small">
+                    회차 {roundMax}
+                    {badRounds.length > 0 && (
+                      <>
+                        {' · '}
+                        <b className="status fail">부적합 {badRounds.length}</b>
+                      </>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    className={`sc-round${viewRound === 0 ? ' on' : ''}`}
+                    title="회차를 합친 결과 — 한 번이라도 깨졌으면 부적합"
+                    onClick={() => setViewRound(0)}
+                  >
+                    전체
+                  </button>
+                  {/* 이력은 다 남긴다. 다만 1000개를 늘어놓으면 못 쓴다 —
+                      찾는 쪽을 붙인다. 100번 돌려 3번 깨졌으면 궁금한 것은
+                      그 3번이고, 나머지 997개는 자리만 먹는다. */}
+                  {badRounds.length > 0 && (
+                    <label className="tc-round-only">
+                      <input
+                        type="checkbox"
+                        checked={badOnly}
+                        onChange={(e) => setBadOnly(e.target.checked)}
+                      />
+                      깨진 것만
+                    </label>
+                  )}
+                  {roundMax > 30 && (
+                    <input
+                      className="tc-round-q"
+                      type="number"
+                      min={1}
+                      max={roundMax}
+                      placeholder="회차로 가기"
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter') return
+                        const n = Number((e.target as HTMLInputElement).value)
+                        if (n >= 1 && n <= roundMax) setViewRound(n)
+                      }}
+                    />
+                  )}
+                  <span className="tc-round-list">
+                    {(badOnly ? badRounds : Array.from({ length: roundMax }, (_, n) => n + 1)).map(
+                      (n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={`sc-round${badRounds.includes(n) ? ' bad' : ''}${
+                            viewRound === n ? ' on' : ''
+                          }`}
+                          onClick={() => setViewRound(viewRound === n ? 0 : n)}
+                        >
+                          {n}
+                        </button>
+                      ),
+                    )}
+                  </span>
+                  {viewRound > 0 && (
+                    <span className="muted small">{viewRound}회차의 결과를 보고 있습니다</span>
+                  )}
+                </div>
+              )}
+
               {fullQ.isLoading ? (
                 <div className="empty">불러오는 중…</div>
               ) : (
                 <TcSequence
-                  steps={steps}
+                  steps={shownSteps}
                   selected={stepIdx}
                   onSelect={setStepIdx}
                   onAdd={addStep}
@@ -1483,7 +1601,7 @@ export default function TestCases({ me }: PageProps) {
                 />
               ) : (
               <TcStepDetail
-                step={stepIdx >= 0 ? (steps[stepIdx] ?? null) : null}
+                step={stepIdx >= 0 ? (shownSteps[stepIdx] ?? null) : null}
                 index={stepIdx}
                 total={steps.length}
                 sessions={sessionNames}

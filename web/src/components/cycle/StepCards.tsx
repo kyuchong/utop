@@ -32,6 +32,8 @@ function tokens(step: CycleStep): string[] {
 
 /** 걸린 시간을 사람 말로. 3분인지 3초인지가 한눈에 보여야 한다 */
 function took(ms: number): string {
+  // 0ms 는 「안 쟀나」 로 읽힌다. 잰 것이 맞고 그만큼 빨랐을 뿐이다
+  if (ms < 1) return '<1ms'
   if (ms < 1000) return `${ms}ms`
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}초`
   const m = Math.floor(ms / 60_000)
@@ -74,16 +76,50 @@ interface Props {
  * 나왔나.** 이 넷이 나란히 있어야 왜 그렇게 판정됐는지가 읽힌다.
  */
 export default function StepCards({ item, runningAt, onSetResult }: Props) {
-  const steps = (item.steps ?? []) as CycleStep[]
+  const all = (item.steps ?? []) as CycleStep[]
   const [only, setOnly] = useState(false)
-  /** 펼쳐 본 회차 — `스텝-회차` */
+  /**
+   * 어느 회차를 보고 있나. 0 이면 「전체」 — 합쳐진 결과.
+   *
+   * 스텝마다 회차를 따로 누르면 7회차를 보려고 스텝 수만큼 눌러야 한다.
+   * 회차를 하나 고르면 **모든 스텝이 그 회차로** 바뀌어야 한다.
+   * TC 화면과 같은 방식이다 — 오갈 때 눈이 안 헤맨다.
+   */
+  const [viewRound, setViewRound] = useState(0)
+  const [badOnly, setBadOnly] = useState(false)
+  /** 스텝 하나 안에서 펼쳐 본 회차 — `스텝-회차` */
   const [openRound, setOpenRound] = useState('')
+
+  const roundMax = all.reduce((a, x) => Math.max(a, x.rounds?.length ?? 0), 0)
+  /** 한 스텝이라도 깨진 회차 — 100번 돌려 3번 깨졌으면 궁금한 것은 그 3번이다 */
+  const badRounds = Array.from({ length: roundMax }, (_, n) => n + 1).filter((n) =>
+    all.some(
+      (x) => String(x.rounds?.find((r) => r.n === n)?.status ?? '').toUpperCase() === 'FAIL',
+    ),
+  )
+
+  /** 고른 회차의 눈으로 본 스텝들. 반복 밖의 스텝은 회차가 없어 그대로다 */
+  const steps: CycleStep[] =
+    viewRound > 0
+      ? all.map((x) => {
+          const rd = x.rounds?.find((r) => r.n === viewRound)
+          if (!rd) return x
+          return {
+            ...x,
+            status: rd.status ?? '',
+            repeatResult: rd.status === 'PASS' ? 'Pass' : rd.status === 'FAIL' ? 'Fail' : '',
+            reason: rd.reason ?? '',
+            output: rd.output ?? '',
+            took_ms: rd.took_ms ?? null,
+          }
+        })
+      : all
 
   const shown = only
     ? steps.filter((s) => stepVerdict(s as TcStep).toLowerCase() === 'fail')
     : steps
 
-  if (!steps.length) return <div className="empty">아직 실행하지 않았습니다.</div>
+  if (!all.length) return <div className="empty">아직 실행하지 않았습니다.</div>
 
   return (
     <div className="sc">
@@ -98,6 +134,66 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
           깨진 것만
         </label>
       </div>
+
+      {/* 회차 고르기 — 이력은 다 남기고, 찾는 것은 여기서.
+          1000개를 늘어놓으면 못 쓴다. 깨진 회차만 걸러 보고, 번호로 바로 간다. */}
+      {roundMax > 1 && (
+        <div className="sc-roundbar">
+          <span className="muted small">
+            회차 {roundMax}
+            {badRounds.length > 0 && <b className="sc-badn"> · 부적합 {badRounds.length}</b>}
+          </span>
+          <button
+            type="button"
+            className={`sc-round${viewRound === 0 ? ' on' : ''}`}
+            title="회차를 합친 결과 — 한 번이라도 깨졌으면 부적합"
+            onClick={() => setViewRound(0)}
+          >
+            전체
+          </button>
+          {badRounds.length > 0 && (
+            <label className="sc-only">
+              <input
+                type="checkbox"
+                checked={badOnly}
+                onChange={(e) => setBadOnly(e.target.checked)}
+              />
+              깨진 회차만
+            </label>
+          )}
+          {roundMax > 30 && (
+            <input
+              className="sc-roundq"
+              type="number"
+              min={1}
+              max={roundMax}
+              placeholder="회차로 가기"
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return
+                const n = Number((e.target as HTMLInputElement).value)
+                if (n >= 1 && n <= roundMax) setViewRound(n)
+              }}
+            />
+          )}
+          <span className="sc-roundlist">
+            {(badOnly ? badRounds : Array.from({ length: roundMax }, (_, n) => n + 1)).map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`sc-round${badRounds.includes(n) ? ' bad' : ''}${
+                  viewRound === n ? ' on' : ''
+                }`}
+                onClick={() => setViewRound(viewRound === n ? 0 : n)}
+              >
+                {n}
+              </button>
+            ))}
+          </span>
+          {viewRound > 0 && (
+            <span className="muted small">{viewRound}회차의 결과를 보고 있습니다</span>
+          )}
+        </div>
+      )}
 
       {shown.map((s) => {
         const i = steps.indexOf(s)
@@ -163,6 +259,18 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
               </div>
             )}
 
+            {/* Diff 는 `criteria` 가 없다 — **견줄 두 값이 곧 판정 기준**이다.
+                그것을 안 보여줘서 「Diff 는 판정 기준이 없다」 로 읽혔다. */}
+            {!s.criteria && s.kind === 'diff' && (s.cmpLeft || s.cmpRight) && (
+              <div className="sc-sec">
+                <i>EXPECTED RESULT</i>
+                <div className="sc-exp">
+                  <span className="sc-type">두 값 견주기</span>
+                  {`${s.cmpLeft ?? ''} ${s.cmpOp || '=='} ${s.cmpRight ?? ''}`}
+                </div>
+              </div>
+            )}
+
             {s.criteria && (
               <div className="sc-sec">
                 <i>EXPECTED RESULT</i>
@@ -193,7 +301,7 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
                 반복 안의 스텝은 회차마다 결과가 다르다. 「3회 중 1회
                 부적합」 만 적으면 몇 회차에 어떻게 깨졌는지를 다시 못
                 찾는다 — 그게 반복 시험에서 유일하게 궁금한 것이다. */}
-            {(s.rounds?.length ?? 0) > 1 && (
+            {viewRound === 0 && (s.rounds?.length ?? 0) > 1 && (
               <div className="sc-sec">
                 <i>회차</i>
                 <div className="sc-rounds">

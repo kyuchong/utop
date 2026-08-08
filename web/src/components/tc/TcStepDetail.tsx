@@ -71,6 +71,8 @@ export default function TcStepDetail({
 }: Props) {
   const [picked, setPicked] = useState('')
   const [tblOpen, setTblOpen] = useState(false)
+  /** 펼쳐 본 회차. 0 이면 안 폈다 */
+  const [round, setRound] = useState(0)
   /** 지금 열려 있는 고르기 목록 — 어느 칸에 넣을지까지 담는다 */
   /** 어느 칸에 넣을 목록을 열어 두었나 */
   const [pick, setPick] = useState('')
@@ -1143,6 +1145,57 @@ export default function TcStepDetail({
                 </button>
               )}
             </div>
+
+            {/* 회차 — 반복 안의 스텝은 회차마다 결과가 다르다.
+                「10회 모두 적합」 만 적으면 몇 회차에 어떻게 깨졌는지 다시
+                못 찾는다. 그게 반복 시험에서 유일하게 궁금한 것이다.
+                사이클 화면과 같은 모양을 쓴다 — 오갈 때 눈이 안 헤맨다. */}
+            {(step.rounds?.length ?? 0) > 1 && (
+              <div className="sd-rounds-wrap">
+                <span className="sd-rlab-i">회차</span>
+                <div className="sc-rounds">
+                  {(step.rounds ?? []).map((rd) => {
+                    const rbad = String(rd.status ?? '').toUpperCase() === 'FAIL'
+                    const on = round === rd.n
+                    return (
+                      <button
+                        key={rd.n}
+                        type="button"
+                        className={`sc-round${rbad ? ' bad' : ''}${on ? ' on' : ''}`}
+                        title={rd.reason || ''}
+                        onClick={() => setRound(on ? 0 : rd.n)}
+                      >
+                        {rd.n}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            {(() => {
+              const rd = (step.rounds ?? []).find((x) => x.n === round)
+              if (!rd) return null
+              return (
+                <div className="sd-round-det">
+                  <div className="sd-rlab">
+                    <b>{rd.n}회차</b>
+                    {rd.status && (
+                      <span className={`status ${rd.status.toLowerCase()}`}>{rd.status}</span>
+                    )}
+                    {rd.reason && <span className="sd-why">{rd.reason}</span>}
+                  </div>
+                  {rd.output ? (
+                    <pre className="sd-res">{rd.output}</pre>
+                  ) : (
+                    <div className="muted small">
+                      {rd.trimmed
+                        ? '이 회차의 출력은 너무 커서 남기지 않았습니다 — 깨진 회차는 그대로 있습니다.'
+                        : '이 회차의 출력이 없습니다.'}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
             {result && tblOpen ? (
               <TcTable
                 text={result}

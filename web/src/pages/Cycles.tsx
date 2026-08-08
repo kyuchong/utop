@@ -64,6 +64,11 @@ export interface CycleStep {
   took_ms?: number | null
   /** 반복 안이면 회차마다의 결과 */
   rounds?: StepRound[] | null
+  /** Diff — 견줄 두 값이 곧 판정 기준이다 */
+  kind?: string | null
+  cmpLeft?: string | null
+  cmpOp?: string | null
+  cmpRight?: string | null
   /** 실행기가 적는 판정. 옛 자료의 result 와 다르다 */
   status?: string | null
   repeatResult?: string | null
@@ -511,6 +516,12 @@ function CycleDetail({
   const sel = useMultiSelect<number>()
   const pick = sel.picked
   const { st, run, stop } = useCycleRun(cycle.id)
+  /**
+   * 도는 항목을 따라갈까.
+   *
+   * 실행을 걸면 켜지고, 도는 중에 다른 항목을 누르면 꺼진다.
+   */
+  const [follow, setFollow] = useState(true)
   /** 항목 추가 창 */
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -561,11 +572,15 @@ function CycleDetail({
   /*
    * 실행 중에는 **도는 항목**을 따라간다.
    *
-   * 사람이 손으로 쫓아 누르게 하면 항목이 넘어갈 때마다 다시 눌러야 한다.
-   * 다른 항목을 일부러 열어 두었으면 그건 그대로 둔다 — 보던 것을
-   * 빼앗지 않는다.
+   * 전에는 항목을 하나라도 열어 두면 안 따라갔다. 「보던 것을 빼앗지
+   * 않는다」 는 뜻이었는데, 실제로는 사람들이 늘 무언가 열어 둔 채로
+   * 실행을 걸어서 결국 **한 번도 안 따라갔다.** 66항목을 도는 동안 손으로
+   * 쫓아 눌러야 했다.
+   *
+   * 그래서 기본이 따라가기다. 도는 중에 다른 항목을 **일부러 누르면**
+   * 그때부터 따라가기를 끈다 — 보려고 누른 것을 빼앗지는 않는다.
    */
-  const followAt = st.on && openItem < 0 ? st.itemAt : openItem
+  const followAt = st.on && follow ? st.itemAt : openItem
   const cur = followAt >= 0 ? items[followAt] : undefined
   /** 지금 도는 항목이면 저장된 스텝 대신 받는 중인 것을 보여 준다 */
   const liveNow = st.on && followAt === st.itemAt && st.liveSteps.length > 0
@@ -624,6 +639,7 @@ function CycleDetail({
             onClick={() => {
               // 여기서 돌리지 않는다. 줄에 걸어 놓고 손을 뗀다 — 창을
               // 닫아도 실행 서버가 계속 돌린다.
+              setFollow(true)
               void run(pick.size ? [...pick].sort((a, b) => a - b) : items.map((_, i) => i)).then(
                 (err) => {
                   if (err) window.alert(err)
@@ -681,7 +697,36 @@ function CycleDetail({
           </button>
         ))}
         <span className="sp" />
-        <span className="muted small">{Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행</span>
+        {/* 도는 동안에는 「몇 항목 중 몇 번째」 가 먼저다.
+            옛 화면은 이것을 큰 창으로 띄웠다 — 66항목을 도는데 지금 어디쯤인지
+            모르면 기다릴지 말지를 못 정한다. 구석의 한 줄로는 안 보였다. */}
+        {st.on ? (
+          <span className="cy-live">
+            <b>{st.waiting ? '실행 대기' : '실행 중'}</b>
+            <span>
+              총 {st.total}항목 중 {Math.min(st.done + 1, st.total)}항목 진행 (
+              {Math.round((st.done / (st.total || 1)) * 100)}%)
+            </span>
+            {st.itemName && <em>{st.itemName}</em>}
+            {st.stepAt >= 0 && (
+              <span className="cy-live-step">
+                스텝 {st.stepAt + 1}/{st.stepCount}
+              </span>
+            )}
+            {!follow && (
+              <button className="btn small" type="button" onClick={() => setFollow(true)}>
+                도는 항목 따라가기
+              </button>
+            )}
+            <button className="btn small danger" type="button" onClick={() => void stop()}>
+              ⏹ 멈추기
+            </button>
+          </span>
+        ) : (
+          <span className="muted small">
+            {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
+          </span>
+        )}
       </div>
 
       <div className="cy-cols">
@@ -711,8 +756,11 @@ function CycleDetail({
               onClick={(e) => {
                 sel.onClick(at, e, rows.map((x) => items.indexOf(x)))
                 // 그냥 누른 것이면 그 항목을 연다
-                if (!e.ctrlKey && !e.metaKey && !e.shiftKey)
+                if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
                   setOpenItem(openItem === at ? -1 : at)
+                  // 보려고 누른 것을 빼앗지 않는다 — 여기서부터 따라가기를 끈다
+                  setFollow(false)
+                }
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {

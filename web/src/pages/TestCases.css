@@ -2360,3 +2360,58 @@ table.tb tr.r-bad td:first-child {
   font-size: var(--fs-xs);
 }
 .sd-warn-act { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+
+/* 회차 — 사이클 화면(.sc-rounds)과 같은 모양을 쓴다.
+   두 화면이 다르게 생기면 오갈 때마다 눈이 다시 찾는다 */
+.sd-rounds-wrap { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 4px; }
+.sd-rlab-i { flex: none; color: var(--c-muted, #888); font-size: 12px; }
+.sc-rounds { display: flex; flex-wrap: wrap; gap: 3px; }
+.sc-round {
+  min-width: 24px;
+  padding: 1px 5px;
+  border: 1px solid var(--c-border, #d8d8d8);
+  border-radius: var(--r-chip, 4px);
+  background: transparent;
+  color: var(--c-muted, #777);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.sc-round:hover { border-color: var(--c-primary, #2563eb); }
+.sc-round.bad {
+  border-color: #c62828;
+  background: #fdeaea;
+  color: #c62828;
+  font-weight: 700;
+}
+.sc-round.on { outline: 2px solid var(--c-primary, #2563eb); outline-offset: -1px; }
+.sd-round-det {
+  margin: 4px 0 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--c-border, #e2e2e2);
+  border-radius: var(--r-box, 6px);
+  background: var(--c-surface-2, #fafafa);
+}
+
+/* 회차 고르기 줄 — 실행 줄 바로 아래 */
+.tc-rounds {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--c-border, #eee);
+}
+
+/* 회차가 1000개여도 견디게 — 목록은 접히고 넘치면 스스로 굴린다 */
+.tc-round-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-height: 72px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.tc-round-only { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+.tc-round-q { width: 92px; font-size: 12px; }

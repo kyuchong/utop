@@ -888,3 +888,49 @@ table.tb td.k {
 }
 .sc-round-head { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); }
 .sc-round-why { margin: 4px 0; font-size: var(--fs-xs); color: var(--c-text); }
+
+/* 회차 고르기 줄 — 이력은 다 남기고 찾는 것은 여기서 */
+.sc-roundbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 5px 0 7px;
+  border-bottom: 1px solid var(--c-border);
+  margin-bottom: 8px;
+}
+.sc-badn { color: var(--c-fail); }
+.sc-roundq { width: 92px; font-size: var(--fs-xs); }
+.sc-roundlist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-height: 72px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 도는 동안의 진행 — 카운터 줄 오른쪽에 크게.
+   옛 화면은 이것을 창으로 띄웠다. 66항목을 도는데 지금 어디쯤인지
+   모르면 기다릴지 말지를 못 정한다 */
+.cy-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 8px;
+  border: 1px solid var(--c-primary);
+  border-radius: var(--r-chip);
+  background: var(--c-primary-soft, #eef4ff);
+  font-size: var(--fs-xs);
+}
+.cy-live b { color: var(--c-primary); }
+.cy-live em {
+  font-style: normal;
+  color: var(--c-text-muted);
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cy-live-step { font-variant-numeric: tabular-nums; color: var(--c-text-muted); }
