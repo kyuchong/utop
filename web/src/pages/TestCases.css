@@ -2216,3 +2216,52 @@ table.tb tr.r-bad td:first-child {
   margin-right: 6px;
 }
 .tc-dethead .tc-bar-ttl b { font-size: var(--fs-md); }
+
+/* ── 전역 파라미터 고르기 창 ──
+   칸 옆에 목록을 띄우면 파일이 여럿이고 값이 수십 개일 때 이름만 보고
+   골라야 한다. 창으로 띄우고 파일별로 묶는다. */
+.modal.pp {
+  width: 620px;
+  max-width: 94vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+.pp-q { margin: 8px 12px; }
+.pp-body { flex: 1; min-height: 0; overflow: auto; padding-bottom: 8px; }
+/* 어느 파일 것인가 — 같은 이름이 여러 파일에 있으면 뒤가 앞을 덮는다 */
+.pp-file {
+  position: sticky;
+  top: 0;
+  background: var(--c-surface-2);
+  padding: 4px 12px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.pp-row {
+  display: grid;
+  grid-template-columns: minmax(0, 240px) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: baseline;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: var(--row-py) 12px;
+  min-height: var(--row-h);
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--c-text);
+  cursor: pointer;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.pp-row.on { background: var(--c-accent-soft); }
+.pp-name { font-family: var(--font-mono); color: var(--c-primary); }
+.pp-val {
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pp-note { color: var(--c-text-faint); white-space: nowrap; }

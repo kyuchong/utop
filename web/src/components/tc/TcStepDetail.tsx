@@ -4,6 +4,7 @@ import { apiFetch } from '@/api/client'
 import { IconIndent, IconOutdent } from '../icons'
 import { evalCondWhy, extractOne, JUDGE_TYPES, parseTable, subVars } from './judge'
 import TcTable from './TcTable'
+import ParamPicker from './ParamPicker'
 import PickList, { type PickItem } from './PickList'
 import {
   ADD_KINDS,
@@ -120,9 +121,11 @@ export default function TcStepDetail({
     ),
     list:
       pick === key ? (
-        <PickList
-          title="뽑은 값 · 전역 파라미터"
+        // 목록을 칸 옆에 띄우면 파일이 여럿이고 값이 수십 개일 때
+        // 이름만 보고 골라야 한다. 창으로 띄우고 파일별로 묶는다.
+        <ParamPicker
           items={gp.items}
+          values={gp.values}
           loading={gp.loading}
           empty={gp.empty}
           onClose={() => setPick('')}
