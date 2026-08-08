@@ -67,7 +67,7 @@ function span(a?: string | null, b?: string | null): string {
 }
 
 /**
- * Executions — 무슨 일이 있었나.
+ * Reports — 무슨 일이 있었나.
  *
  * 메뉴에는 있는데 페이지가 없었다. 만들 수가 없었다 — **보여 줄 것이
  * 없었으니까.** 실행이 브라우저 안에서만 일어나서 창을 닫으면 흔적도 없이

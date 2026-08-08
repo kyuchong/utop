@@ -500,3 +500,16 @@
   font-size: var(--fs-xs);
   color: var(--c-text-muted);
 }
+
+/* 설정 항목을 묶는다.
+   일곱 개가 평평하게 늘어서 있으면, 무엇을 고치러 왔든 매번 일곱 줄을
+   다 읽게 된다. 왼쪽 큰 메뉴와 같은 말로 묶어 둔다 */
+.set-nav-grp + .set-nav-grp { margin-top: 10px; }
+.set-nav-grpt {
+  padding: 4px 12px 3px;
+  color: var(--c-text-faint);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}

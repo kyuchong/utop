@@ -2,7 +2,7 @@
    세 화면을 오가는 사람이 매번 「여긴 어디가 목록이지」 를 다시 찾지 않게. */
 .cy.split { gap: 0; }
 .cy-tree {
-  flex: 0 0 300px;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -96,7 +96,7 @@
   border-radius: var(--r-card);
 }
 .cy-side {
-  flex: 0 0 46%;
+  flex: 0 0 auto;
   min-width: 0;
   display: flex;
   flex-direction: column;

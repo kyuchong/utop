@@ -7,7 +7,6 @@ import {
   IconExecution,
   IconKnowledge,
   IconPanelToggle,
-  IconPlug,
   IconRelease,
   IconRequirements,
   IconDevice,
@@ -45,7 +44,10 @@ export const NAV: NavGroup[] = [
       { key: 'requirements', label: 'Requirements', Icon: IconRequirements },
       { key: 'testcases', label: 'Coverage', Icon: IconTestCase },
       { key: 'cycles', label: 'Cycles', Icon: IconCycle },
-      { key: 'executions', label: 'Executions', Icon: IconExecution },
+      /* iTest 의 「Test Reports」 자리다 — 지나간 실행을 시간순으로 훑는
+         곳. 「Executions」 는 「여기서 실행하나」 로 읽혔다. 실행은
+         사이클에서 건다. */
+      { key: 'executions', label: 'Reports', Icon: IconExecution },
     ],
   },
   {
@@ -68,7 +70,9 @@ export const NAV: NavGroup[] = [
     items: [
       { key: 'defects', label: 'Defects', Icon: IconDefect },
       { key: 'releases', label: 'Releases', Icon: IconRelease },
-      { key: 'jira', label: 'Jira 연동', Icon: IconPlug },
+      /* Jira 연동(붙이는 설정)은 설정 화면으로 옮겼다. 여기 있는 것은
+         Jira 에서 가져다 **보는** 것이고, 붙이는 일은 한 번 하고 마는
+         설정이다. 두 군데 있으면 어느 쪽인지 매번 생각하게 된다. */
     ],
   },
   {

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import ListHead from '@/components/ListHead'
+import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { goto } from '@/api/goto'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
@@ -342,6 +343,9 @@ export default function Cycles() {
   const [treeOpen, setTreeOpen] = useState(
     () => localStorage.getItem('utop.cycle.treeOpen') !== '0',
   )
+  /** 1열 폭 — 끌어서 바꾼다. TC 화면과 같은 부품을 쓴다 */
+  const splitRef = useRef<HTMLDivElement>(null)
+  const [treeW, setTreeW] = useResizableWidth('utop.cycle.treeW', 250, 170, 460)
   useEffect(() => {
     localStorage.setItem('utop.cycle.treeOpen', treeOpen ? '1' : '0')
   }, [treeOpen])
@@ -492,7 +496,7 @@ export default function Cycles() {
   return (
     // 요구사항·TC 화면과 **같은 뼈대**를 쓴다. 세 화면을 오가는 사람이
     // 매번 「여긴 어디가 목록이지」 를 다시 찾지 않게.
-    <div className="split cy">
+    <div className="split cy" ref={splitRef}>
       {/* 접었을 때 — 세로 띠 하나만 남는다. TC 화면과 같은 모양이다.
           아주 없애면 다시 펼 길이 없어지고 어디에 있었는지도 잊는다. */}
       {!treeOpen && (
@@ -507,7 +511,7 @@ export default function Cycles() {
         </button>
       )}
       {treeOpen && (
-      <section className="panel cy-tree">
+      <section className="panel cy-tree" style={{ flexBasis: treeW }}>
         <ListHead
           name="사이클"
           count={cycles.length}
@@ -539,6 +543,15 @@ export default function Cycles() {
           )}
         </div>
       </section>
+      )}
+
+      {/* 1열 ↔ 나머지. TC 화면과 같은 손잡이를 쓴다 */}
+      {treeOpen && (
+        <Resizer
+          label="사이클 목록 폭 조절"
+          onResize={setTreeW}
+          getOrigin={() => splitRef.current?.getBoundingClientRect().left ?? 0}
+        />
       )}
 
       {menu && (
@@ -638,6 +651,9 @@ function CycleDetail({
    * 실행을 걸면 켜지고, 도는 중에 다른 항목을 누르면 꺼진다.
    */
   const [follow, setFollow] = useState(true)
+  /** 3열(스텝 세부) 폭 — 끌어서 바꾼다 */
+  const colsRef = useRef<HTMLDivElement>(null)
+  const [sideW, setSideW] = useResizableWidth('utop.cycle.sideW', 520, 280, 1200)
   /** 항목 추가 창 */
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -895,7 +911,7 @@ function CycleDetail({
         </span>
       </div>
 
-      <div className="cy-cols">
+      <div className="cy-cols" ref={colsRef}>
       <div className="cy-list">
         <div className="cy-row cy-hd">
           <span>TC ID</span>
@@ -1021,7 +1037,17 @@ function CycleDetail({
       {/* 오른쪽 칸 — 고른 항목의 스텝, 그리고 실행 중이면 오간 것.
           목록 안에서 펼치면 줄이 아래로 밀려서 방금 보던 자리를 놓친다.
           TC 화면과 같은 모양이라 오갈 때 눈이 안 헤맨다. */}
-      <div className="cy-side">
+      {/* 2열 ↔ 3열. 스텝 세부를 넓게 볼 때가 있고, 64건 목록을 넓게 볼
+          때가 있다 — 어느 쪽이 넓어야 하는지는 그때그때 다르다.
+          손잡이는 **오른쪽 칸**의 폭을 정한다. 그래서 원점을 오른쪽 끝에
+          두고 거꾸로 잰다. */}
+      <Resizer
+        label="스텝 세부 폭 조절"
+        onResize={(w) => setSideW(Math.max(280, (colsRef.current?.clientWidth ?? 900) - w))}
+        getOrigin={() => colsRef.current?.getBoundingClientRect().left ?? 0}
+      />
+
+      <div className="cy-side" style={{ flexBasis: sideW }}>
         {cur ? (
           <StepDetail
             // 항목이 바뀌면 새로 만든다. 안 그러면 처음 계산한 「펼칠 스텝」
