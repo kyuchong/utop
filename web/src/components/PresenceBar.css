@@ -1,0 +1,32 @@
+/* 같이 보고 있는 사람.
+   나 혼자면 안 보인다 — 혼자일 때도 동그라미가 있으면 늘 있는 장식이 되어
+   정작 둘이 됐을 때 눈에 안 띈다. */
+.pb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  white-space: nowrap;
+}
+.pb-av {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border: 2px solid var(--c-surface);
+  margin-left: -7px;
+  flex-shrink: 0;
+}
+.pb-av:first-child { margin-left: 0; }
+.pb-av.me { background: var(--c-primary); }
+.pb-av.more { background: #5b6b85; }
+.pb-n {
+  margin-left: 8px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--c-text-muted);
+}

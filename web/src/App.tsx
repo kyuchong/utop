@@ -78,7 +78,7 @@ export default function App() {
       {page === 'requirements' ? (
         <Requirements />
       ) : page === 'testcases' ? (
-        <TestCases />
+        <TestCases me={user} />
       ) : page === 'ai-tc' ? (
         <AiTc />
       ) : page === 'cycles' ? (

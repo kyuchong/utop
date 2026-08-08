@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import ListHead from '@/components/ListHead'
+import PresenceBar from '@/components/PresenceBar'
+import { usePresence } from '@/components/usePresence'
 import TcBulkForm from '@/components/TcBulkForm'
 import TcBulkEdit from '@/components/tc/TcBulkEdit'
 import { useMultiSelect } from '@/components/useMultiSelect'
@@ -90,7 +92,12 @@ const OPEN_KEY = 'utop.tc.open'
 const TAB_KEY = 'utop.tc.tab'
 const TABS: Tab[] = ['steps', 'info', 'env', 'topo', 'manual', 'history', 'cycle']
 
-export default function TestCases() {
+interface PageProps {
+  /** 지금 사람. 같이 보고 있는 사람을 가리는 데 쓴다 */
+  me?: { username?: string; name?: string } | null
+}
+
+export default function TestCases({ me }: PageProps) {
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>(() => {
     const v = localStorage.getItem(TAB_KEY) as Tab | null
@@ -163,6 +170,16 @@ export default function TestCases() {
   const tcSel = useMultiSelect<string>()
   /** 찾는 글자 — 트리 안에 있던 줄을 머리줄로 올렸다 */
   const [treeQ, setTreeQ] = useState('')
+
+  /**
+   * 같은 시험을 누가 같이 보고 있나.
+   *
+   * 「여러 사람이 동시에 붙는다」 가 리눅스로 옮긴 이유였는데 화면에는
+   * 그 흔적이 없었다. 같은 것을 둘이 열어 놓고 각자 고치면 나중에 저장한
+   * 사람이 앞사람 것을 조용히 덮는다.
+   */
+  const meName = me?.name || me?.username || ''
+  const presence = usePresence(openId ? `tc:${openId}` : 'tc', meName)
   const pickedTc = tcSel.picked
   const [bulkEdit, setBulkEdit] = useState(false)
 
@@ -544,6 +561,8 @@ export default function TestCases() {
     mutationFn: async () => {
       // checks 를 항상 함께 보낸다. 빠지면 서버가 옛 값을 되살려
       // 방금 지운 스텝이 다시 나타난다(main.py 의 보존 장치).
+      // 읽을 때 받은 `_rev` 를 같이 보낸다. 그 사이에 남이 저장했으면
+      // 서버가 409 로 막는다 — 조용히 덮는 것보다 낫다.
       await tcApi.save(openId, { ...d, checks: d.checks ?? [] })
     },
     onSuccess: () => {
@@ -552,7 +571,19 @@ export default function TestCases() {
       void qc.invalidateQueries({ queryKey: ['tc', openId] })
       void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
     },
-    onError: (e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) }),
+    onError: (e) => {
+      const m = e instanceof Error ? e.message : String(e)
+      // 남이 먼저 저장한 경우 — 무엇을 해야 하는지까지 말한다
+      if (m.includes('다른 사람이 먼저')) {
+        setMsg({ kind: 'err', text: m })
+        if (window.confirm(`${m}\n\n지금 저장된 것을 불러올까요? 내가 고친 것은 사라집니다.`)) {
+          void qc.invalidateQueries({ queryKey: ['tc', openId] })
+          setDirty(false)
+        }
+        return
+      }
+      setMsg({ kind: 'err', text: m })
+    },
   })
 
   /**
@@ -1196,6 +1227,7 @@ export default function TestCases() {
                 <div className="sq-bulk">
                   <b>{picked.size}개 골랐습니다</b>
                   <span className="muted small">shift 를 누른 채 누르면 그 사이가 모두</span>
+                  <PresenceBar users={presence.users} me={meName} />
                   {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
                   <button
                     className="btn small primary"

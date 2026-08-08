@@ -204,8 +204,22 @@ async def tc_upsert(tcid: str, data: dict) -> None:
 
 async def tc_get(tcid: str) -> Optional[dict]:
     async with pool().acquire() as c:
-        row = await c.fetchrow("SELECT data FROM tc WHERE tcid=$1", tcid)
-        return row["data"] if row else None
+        row = await c.fetchrow("SELECT data, updated_at FROM tc WHERE tcid=$1", tcid)
+        if not row:
+            return None
+        d = dict(row["data"] or {})
+        # 저장할 때 「내가 읽은 뒤에 남이 고쳤나」 를 가리는 데 쓴다.
+        # 자료 안의 updated_at 은 화면이 덮어쓰기도 해서 믿을 수 없다 —
+        # 표의 값이 사실이다.
+        d["_rev"] = row["updated_at"].isoformat() if row["updated_at"] else ""
+        return d
+
+
+async def tc_rev(tcid: str) -> Optional[str]:
+    """지금 표에 적힌 마지막 저장 시각. 저장 직전에 견준다."""
+    async with pool().acquire() as c:
+        v = await c.fetchval("SELECT updated_at FROM tc WHERE tcid=$1", tcid)
+        return v.isoformat() if v else None
 
 
 async def tc_delete(tcid: str) -> bool:

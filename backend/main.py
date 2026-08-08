@@ -3383,6 +3383,27 @@ def _tc_snap_save(tc_id: str, prev: dict) -> None:
 @app.post("/api/tc/{tc_id}")
 async def save_tc(tc_id: str, data: dict):
     tc_id = _tc_id_norm(tc_id)
+    """
+    저장.
+
+    여러 사람이 같은 시험을 열어 두는 일이 잦다. 잠그지는 않는다 — 대개는
+    한 사람이 보기만 하고, 잠가 버리면 보려던 사람이 못 들어오고 잠근
+    사람이 자리를 뜨면 아무도 못 고친다.
+
+    대신 **내가 읽은 뒤에 남이 저장했으면 그때 알린다.** 조용히 덮는 것보다
+    낫다. 화면이 `_rev`(읽을 때 받은 값)를 같이 보내면 여기서 견준다.
+    """
+    _base = str(data.pop("_rev", "") or "")
+    if _base:
+        _now = await db.tc_rev(tc_id)
+        if _now and _now != _base:
+            who = str((data.get("updated_by") or "")).strip()
+            raise HTTPException(
+                409,
+                f"이 시험을 다른 사람이 먼저 저장했습니다 ({_now[:16].replace('T', ' ')}). "
+                "새로 읽어 확인한 뒤 다시 저장하세요."
+                + (f" (내 이름: {who})" if who else ""),
+            )
     # ★ 안전장치: payload 에 checks 필드가 없거나 배열이 아닌데 DB 에 기존 checks 가 있으면
     #    lazy load 미로드 상태의 tc 를 그대로 저장 시도한 것 → checks 보존해서 스텝 유실 방지.
     #    (프론트 lazy loading 제거했지만 캐시된 옛 코드/외부 API 호출 등에 대한 서버측 마지막 방어선)
