@@ -1,6 +1,6 @@
-﻿# N2X relay (PowerShell) - no install. No ConvertTo-Json/ConvertFrom-Json
-# (some Windows Server PowerShell builds miss or mishandle them). We forward the
-# daemon's raw JSON line verbatim, and build small JSON by hand.
+﻿# N2X relay (PowerShell) - no install. No ConvertTo-Json/ConvertFrom-Json,
+# no ReadLineAsync (needs .NET 4.5). Uses event-based line reading so it works
+# on stock Windows Server .NET 4.0.
 #
 # Run (admin PowerShell), keep n2x_daemon.tcl reachable:
 #   powershell -ExecutionPolicy Bypass -File n2x_relay.ps1 -Key mykey123 -Tclsh "C:\Program Files (x86)\N2xTcl85\bin\n2xtclsh85.exe" -Daemon "C:\utop-n2x\n2x\n2x_daemon.tcl"
@@ -37,6 +37,16 @@ function Field([string]$body, [string]$name) {
     return ""
 }
 
+# read one line from a synchronized queue, waiting up to $ms (no ReadLineAsync)
+function Wait-Line($q, [int]$ms) {
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($sw.ElapsedMilliseconds -lt $ms) {
+        if ($q.Count -gt 0) { return [string]$q.Dequeue() }
+        Start-Sleep -Milliseconds 40
+    }
+    return $null
+}
+
 function Start-Daemon($server, $label) {
     if (-not (Test-Path $Tclsh))  { return @{ error = "n2xtclsh not found: $Tclsh" } }
     if (-not (Test-Path $Daemon)) { return @{ error = "n2x_daemon.tcl not found: $Daemon" } }
@@ -49,48 +59,54 @@ function Start-Daemon($server, $label) {
     $psi.RedirectStandardError  = $true
     $psi.CreateNoWindow = $true
     $p = [System.Diagnostics.Process]::Start($psi)
-    $t = $p.StandardOutput.ReadLineAsync()
-    if (-not $t.Wait(45000)) {
+
+    # collect stdout lines via event (works on .NET 4.0)
+    $q = [System.Collections.Queue]::Synchronized((New-Object System.Collections.Queue))
+    $ev = Register-ObjectEvent -InputObject $p -EventName OutputDataReceived -MessageData $q -Action {
+        if ($null -ne $EventArgs.Data) { $Event.MessageData.Enqueue($EventArgs.Data) }
+    }
+    $p.BeginOutputReadLine()
+
+    $ready = Wait-Line $q 45000
+    if ($null -eq $ready) {
         try { $p.Kill() } catch {}
         return @{ error = "N2X connect timeout - check chassis/server" }
     }
-    $ready = $t.Result
     if ($ready -like '*"ready":false*') {
         try { $p.Kill() } catch {}
         return @{ error = "N2X session failed: $ready" }
     }
-    return @{ proc = $p }
+    return @{ proc = $p; queue = $q; event = $ev }
 }
 
 function Get-Daemon($server, $label) {
     $k = "$server|$label"
     $d = $script:daemons[$k]
-    if ($d -and -not $d.HasExited) { return @{ proc = $d } }
+    if ($d -and -not $d.proc.HasExited) { return @{ ok = $true; d = $d } }
     if ($d) { $script:daemons.Remove($k) }
     $nd = Start-Daemon $server $label
-    if ($nd.error) { return $nd }
-    $script:daemons[$k] = $nd.proc
-    return $nd
+    if ($nd.error) { return @{ error = $nd.error } }
+    $script:daemons[$k] = $nd
+    return @{ ok = $true; d = $nd }
 }
 
 function Send-Cmd($server, $label, $cmd) {
-    $d = Get-Daemon $server $label
-    if ($d.error) { return (ErrJson $d.error) }
-    $p = $d.proc
+    $g = Get-Daemon $server $label
+    if ($g.error) { return (ErrJson $g.error) }
+    $d = $g.d
     try {
-        $p.StandardInput.WriteLine($cmd.TrimEnd())
-        $p.StandardInput.Flush()
+        $d.proc.StandardInput.WriteLine($cmd.TrimEnd())
+        $d.proc.StandardInput.Flush()
     } catch {
         $script:daemons.Remove("$server|$label")
-        $d = Get-Daemon $server $label
-        if ($d.error) { return (ErrJson $d.error) }
-        $p = $d.proc
-        $p.StandardInput.WriteLine($cmd.TrimEnd())
-        $p.StandardInput.Flush()
+        $g = Get-Daemon $server $label
+        if ($g.error) { return (ErrJson $g.error) }
+        $d = $g.d
+        $d.proc.StandardInput.WriteLine($cmd.TrimEnd())
+        $d.proc.StandardInput.Flush()
     }
-    $t = $p.StandardOutput.ReadLineAsync()
-    if (-not $t.Wait(150000)) { return (ErrJson "N2X response timeout") }
-    $line = $t.Result
+    $line = Wait-Line $d.queue 150000
+    if ($null -eq $line) { return (ErrJson "N2X response timeout") }
     if (-not $line) { return (ErrJson "empty response from N2X") }
     return $line
 }
