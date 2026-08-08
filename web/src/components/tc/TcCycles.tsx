@@ -53,7 +53,7 @@ export default function TcCycles({ tcid }: Props) {
     <div className="tc-pane">
       <section className="tc-card">
         <div className="tc-card-head">
-          <b>사이클</b>
+          <b>Cycle</b>
           <span className="muted small">
             {rows.length}개에 들어감
             {done.length > 0 && ` · 실행 ${done.length} · FAIL ${failed}`}

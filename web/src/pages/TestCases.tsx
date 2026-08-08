@@ -139,6 +139,19 @@ export default function TestCases({ me }: PageProps) {
 
   const splitRef = useRef<HTMLDivElement>(null)
   const [listW, setListW] = useResizableWidth('utop.tc.listW', 250, 170, 460)
+  /**
+   * 1열을 접어 뒀나.
+   *
+   * 스텝을 들여다볼 때는 목록이 자리만 먹는다. 폭 조절로 줄일 수는 있지만
+   * 끝까지 줄여도 170px 이 남고, 다시 늘릴 때 아까 그 폭을 손으로 찾아야
+   * 한다. 접으면 폭은 그대로 기억해 두었다가 펼 때 되돌린다.
+   */
+  const [listOpen, setListOpen] = useState(
+    () => localStorage.getItem('utop.tc.listOpen') !== '0',
+  )
+  useEffect(() => {
+    localStorage.setItem('utop.tc.listOpen', listOpen ? '1' : '0')
+  }, [listOpen])
   // 기본값을 바꿀 때는 key 도 올린다 — 이미 저장된 옛 값이 이겨서 아무도
   // 변화를 못 본다(Resizer.tsx 주석). 3열이 남는 폭을 갖게 되면서 2열의
   // 적정 폭도 달라졌다.
@@ -905,19 +918,19 @@ export default function TestCases({ me }: PageProps) {
                   //
                   // 'Automation' 은 '스텝' 이 아니다 — 장비에 명령을 보내 자동으로
                   // 도는 절차고, 사람이 하는 것은 Manual Step 에 있다.
-                  ['info', '정보'],
-              // 시험 목적·사전 준비 조건. 「돌리기 전에 갖춰져야 하는 것」 이라
-              // 토폴로지 바로 앞이 자리다.
-              ['env', 'Environment'],
+                  ['info', 'Info'],
+                  // 시험 목적·사전 준비 조건. 「돌리기 전에 갖춰져야 하는 것」
+                  // 이라 토폴로지 바로 앞이 자리다.
+                  ['env', 'Object'],
                   // 배선은 랩의 사실이라 시험 내용보다 앞이다 — 여기가 정해져야
                   // 스텝이 장비 포트 이름으로 말할 수 있다.
-                  ['topo', '토폴로지'],
-                  ['manual', 'Manual Step'],
-                  // 「Manual Step」 과 짝이 되게 「Automation Step」 — 둘 다
-              // 절차를 적는 자리고, 사람이 하느냐 자동으로 도느냐만 다르다.
-              ['steps', 'Automation Step'],
-                  ['history', '실행 이력'],
-                  ['cycle', '사이클'],
+                  ['topo', 'Topology'],
+                  ['manual', 'Manual'],
+                  // 「Manual」 과 짝이 되게 「Automation」 — 둘 다 절차를 적는
+                  // 자리고, 사람이 하느냐 자동으로 도느냐만 다르다.
+                  ['steps', 'Automation'],
+                  ['history', 'Execution'],
+                  ['cycle', 'Cycle'],
                 ] as const).map(([k, label]) => (
                   <button
                     key={k}
@@ -1080,12 +1093,27 @@ export default function TestCases({ me }: PageProps) {
           요구사항으로 좁히는 일은 1열 트리가 맡는다. */}
 
       <div className="split tc-split" ref={splitRef}>
+        {/* 접었을 때 — 세로 띠 하나만 남는다.
+            아주 없애면 다시 펼 길이 없어지고, 어디에 있었는지도 잊는다. */}
+        {!listOpen && (
+          <button
+            type="button"
+            className="tc-fold"
+            title="시험 항목 펼치기"
+            onClick={() => setListOpen(true)}
+          >
+            <span className="tc-fold-i">›</span>
+            <span className="tc-fold-t">시험항목 {tcs.length}</span>
+          </button>
+        )}
         {/* 1열 — 폴더 · 요구사항 · TC 트리 (요구사항 화면과 같은 모양) */}
+        {listOpen && (
         <section className="panel tc-listcol" style={{ flexBasis: listW }}>
           {/* 요구사항 화면과 **같은 부품**을 쓴다. 저마다 만들면 또 어긋난다 */}
           <ListHead
             name="시험항목"
             count={tcs.length}
+            onCollapse={() => setListOpen(false)}
             picked={
               pickedTc.size > 1 ? (
                 // 세 화면이 같은 말을 쓴다 — 「N건 선택됨」 · ✕ 로 해제.
@@ -1160,12 +1188,15 @@ export default function TestCases({ me }: PageProps) {
           )}
 
         </section>
+        )}
 
-        <Resizer
-          label="TC 목록 폭 조절"
-          onResize={setListW}
-          getOrigin={() => splitRef.current?.getBoundingClientRect().left ?? 0}
-        />
+        {listOpen && (
+          <Resizer
+            label="TC 목록 폭 조절"
+            onResize={setListW}
+            getOrigin={() => splitRef.current?.getBoundingClientRect().left ?? 0}
+          />
+        )}
 
         {/* 오른쪽은 늘 한 칸이다. 그 안에서 탭이 무엇을 보여줄지 정하고,
             Automation 일 때만 다시 좌우로 나뉜다. 바깥 칸 수가 탭마다

@@ -232,7 +232,7 @@ export default function TcManual({ data, onChange }: Props) {
 
       <section className="tc-card">
         <div className="tc-card-head">
-          <b>Manual Step</b>
+          <b>Manual</b>
           <span className="muted small">
             {idxs.length}개 · 사람이 읽고 따라 하는 절차입니다
           </span>
@@ -252,7 +252,7 @@ export default function TcManual({ data, onChange }: Props) {
 
         {idxs.length === 0 ? (
           <div className="empty">
-            Manual Step 이 없습니다.
+            Manual 스텝이 없습니다.
             <br />
             <span className="muted small">
               장비에 명령을 보내는 대신 사람이 해야 하는 일 — 전원을 내린다, 케이블을

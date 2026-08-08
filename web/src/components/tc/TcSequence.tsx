@@ -116,7 +116,7 @@ export default function TcSequence({
             <br />
             <span className="muted small">
               {hidden > 0
-                ? `수동 스텝 ${hidden}개는 「Manual Step」 탭에 있습니다.`
+                ? `수동 스텝 ${hidden}개는 「Manual」 탭에 있습니다.`
                 : '아래에서 종류를 골라 추가하세요.'}
             </span>
           </div>
@@ -237,7 +237,7 @@ export default function TcSequence({
           종류를 여기서 고르므로 왼쪽에 팔레트를 따로 두지 않는다. */}
       {/* 감춘 것이 있으면 밝힌다. 조용히 빼면 '분명히 만들었는데 없다' 가 된다. */}
       {hidden > 0 && steps.length - hidden > 0 && (
-        <div className="sq-hidden">수동 스텝 {hidden}개는 「Manual Step」 탭에 있습니다.</div>
+        <div className="sq-hidden">수동 스텝 {hidden}개는 「Manual」 탭에 있습니다.</div>
       )}
 
       <details className="sq-add">

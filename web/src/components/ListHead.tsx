@@ -14,6 +14,13 @@ interface Props {
   add?: { title: string; onClick: () => void }
   /** ⋯ 안에 들어갈 것들 */
   menu?: ReactNode
+  /**
+   * 이 칸을 왼쪽으로 접기. 주면 이름 왼쪽에 ◂ 가 붙는다.
+   *
+   * 스텝을 들여다볼 때는 목록이 자리만 먹는다. 폭 조절로 줄일 수는 있지만
+   * 끝까지 줄여도 남고, 다시 늘릴 때 아까 그 폭을 손으로 찾아야 한다.
+   */
+  onCollapse?: () => void
 }
 
 /**
@@ -28,7 +35,15 @@ interface Props {
  * 늘 쓰는 것 하나만 밖에 두고 나머지는 ⋯ 안에 넣는다. 단추가 넷이면 줄
  * 하나를 다 먹는데 그중 셋은 어쩌다 한 번 쓴다.
  */
-export default function ListHead({ name, count, picked, search, add, menu }: Props) {
+export default function ListHead({
+  name,
+  count,
+  picked,
+  search,
+  add,
+  menu,
+  onCollapse,
+}: Props) {
   const [open, setOpen] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
   /**
@@ -58,6 +73,17 @@ export default function ListHead({ name, count, picked, search, add, menu }: Pro
 
   return (
     <div className="lh">
+      {onCollapse && (
+        <button
+          type="button"
+          className="lh-fold"
+          title="목록 접기"
+          aria-label="목록 접기"
+          onClick={onCollapse}
+        >
+          ‹
+        </button>
+      )}
       <span className="lh-name">
         {name}
         {count !== undefined && <b>{count}</b>}

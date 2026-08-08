@@ -118,6 +118,32 @@
 
 .tc-listcol { flex: 0 0 auto; min-width: 0; }
 
+/* 1열을 접었을 때 남는 세로 띠.
+   아주 없애면 다시 펼 길이 없어지고 어디에 있었는지도 잊는다. 이름과
+   건수를 세로로 세워 두면 접어 놓고도 무엇이 접혀 있는지 안다. */
+.tc-fold {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 26px;
+  padding: 8px 0;
+  border: 0;
+  border-right: 1px solid var(--c-border);
+  background: var(--c-panel, #fafafa);
+  color: var(--c-muted, #888);
+  cursor: pointer;
+}
+.tc-fold:hover { background: var(--c-hover, #f0f0f0); color: var(--c-text, #222); }
+.tc-fold-i { font-size: 17px; line-height: 1; }
+.tc-fold-t {
+  writing-mode: vertical-rl;
+  font-size: 12px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
 /* 2열은 드래그한 폭을 지키고, 3열이 남는 곳을 다 가져간다.
    전에는 반대였다 — 2열이 flex:1 이라 가운데 손잡이를 끌어도 결국 남는
    폭을 2열이 도로 가져가서 아무 변화가 없었고, 3열은 420px 에 묶여 있었다.

@@ -68,7 +68,7 @@ export default function TcHistory({ tcid }: Props) {
     <div className="tc-pane">
       <section className="tc-card">
         <div className="tc-card-head">
-          <b>실행 이력</b>
+          <b>Execution</b>
           <span className="muted small">{rows.length}건 · 모든 사용자 · 최근 100건</span>
           {rows.length > 0 && (
             <button

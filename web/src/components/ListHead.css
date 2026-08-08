@@ -13,6 +13,25 @@
   min-height: 46px;
   border-bottom: 1px solid var(--c-border);
 }
+/* 접기 — 이름 왼쪽. 펼치는 단추와 같은 자리에 있어야 접었다 폈다가
+   한 손가락으로 된다 */
+.lh-fold {
+  flex: none;
+  width: 18px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-chip, 4px);
+  background: transparent;
+  color: var(--c-muted, #888);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+}
+.lh-fold:hover {
+  background: var(--c-hover, #f0f0f0);
+  color: var(--c-text, #222);
+}
 /*
  * 찾기 — 평소에는 돋보기, 누르면 **왼쪽으로 자란다.**
  *
