@@ -9,6 +9,7 @@ import { useCycleRun } from '@/components/cycle/useCycleRun'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import { IconChevron, IconFolder } from '@/components/icons'
 import type { TestCaseMeta } from '@/types'
+import { stepVerdict, type TcStep } from '@/components/tc/types'
 // 요구사항 화면의 트리 규칙을 그대로 쓴다 — 줄 높이·색·여백이 한 곳에서만
 // 정해져야 세 화면이 같아 보인다.
 import '@/components/ReqTree.css'
@@ -106,11 +107,16 @@ export function itemVerdict(it: CycleItemLite): Verdict {
   // 수동 스텝은 자동 판정에서 뺀다
   const auto = steps.filter((s) => !(s.manual || s.action === '수동'))
   if (!auto.length) return steps.length ? '진행불가' : ''
-  if (auto.length === 1) return ((auto[0]?.result ?? '') as Verdict) || ''
-  if (auto.some((s) => isFail(String(s.result ?? '')))) return 'Fail'
-  if (auto.some((s) => isPass(String(s.result ?? '')))) return 'Pass'
-  const mixed = auto.find((s) => s.result && !isPass(String(s.result)))
-  return ((mixed?.result ?? '') as Verdict) || ''
+  // 스텝 판정은 한 곳에서만 읽는다(types.ts) — 실행기는 status·repeatResult 에
+  // 적고 옛 자료는 result 에 있다
+  if (auto.length === 1) return (stepVerdict(auto[0] as TcStep) as Verdict) || ''
+  if (auto.some((s) => isFail(stepVerdict(s as TcStep)))) return 'Fail'
+  if (auto.some((s) => isPass(stepVerdict(s as TcStep)))) return 'Pass'
+  const mixed = auto.find((s) => {
+    const v = stepVerdict(s as TcStep)
+    return v && !isPass(v)
+  })
+  return ((mixed ? stepVerdict(mixed as TcStep) : '') as Verdict) || ''
 }
 
 /** 장비 카탈로그의 모델 — 모델그룹의 주인 */
@@ -656,7 +662,7 @@ function CycleDetail({
         {rows.map((it, i) => {
           const v = itemVerdict(it)
           const steps = it.steps ?? []
-          const bad = steps.filter((s) => String(s.result ?? '').toLowerCase() === 'fail').length
+          const bad = steps.filter((s) => isFail(stepVerdict(s as TcStep))).length
           const at = items.indexOf(it)
           return (
             <div

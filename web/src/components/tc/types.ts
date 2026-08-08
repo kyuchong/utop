@@ -464,6 +464,27 @@ export function stepStatus(s: TcStep): string {
   return STATUS_MAP.has(v) ? v : ''
 }
 
+/**
+ * 이 스텝의 판정 — 사이클 쪽 말(`Pass`·`Fail`·`WIP`·`Blocked`)로.
+ *
+ * 사이클 화면·결과서는 스텝의 `result` 를 읽고 있었다. 그런데 **아무도
+ * 거기에 안 쓴다** — 실행기는 `status`(PASS)와 `repeatResult`(Pass)에
+ * 적는다. 그래서 자동으로 돌린 항목이 전부 「미실행」 으로 보였고,
+ * 고객사 결과서에도 판정이 안 찍혔다.
+ *
+ * 읽는 자리가 넷이었다(항목 판정 · 실패 개수 · 스텝 카드 · 결과서).
+ * 저마다 고치면 또 하나가 빠지므로 여기 한 곳에 둔다.
+ *
+ * 옛 자료에는 `result` 에 값이 든 것이 남아 있다. 그것이 먼저다 — 사람이
+ * 손으로 적어 둔 것일 수 있고, 그 위에 자동 판정을 덮으면 안 된다.
+ */
+export function stepVerdict(s: TcStep): string {
+  const legacy = String((s as { result?: unknown }).result ?? '').trim()
+  if (legacy) return legacy
+  const v = stepStatus(s)
+  return v === 'PASS' ? 'Pass' : v === 'FAIL' ? 'Fail' : v === 'WIP' ? 'WIP' : v === 'BLOCKED' ? 'Blocked' : ''
+}
+
 /** 상태 하나의 표시 정보. 모르는 값이면 미실행으로 본다. */
 export function stepStatusInfo(v: string) {
   return STATUS_MAP.get(v) ?? { v: '', label: '미실행', cls: 'idle', mark: '○' }

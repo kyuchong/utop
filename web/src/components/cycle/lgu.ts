@@ -14,13 +14,17 @@
  * 걸러서, 그 뒤에 생긴 ping · snmp · diff · 계측기 스텝이 결과서에서
  * 통째로 빠졌다. 사람이 만든 시험이 문서에 안 나오면 안 만든 것과 같다.
  */
+import { stepVerdict, type TcStep } from '@/components/tc/types'
 
 export interface LguStep {
   desc?: string | null
   cli?: string | null
   action?: string | null
   criteria?: string | null
+  /** 옛 자료. 지금 실행기는 아래 둘에 적는다 */
   result?: string | null
+  status?: string | null
+  repeatResult?: string | null
   output?: string | null
   waitSec?: number | null
   kind?: string | null
@@ -113,7 +117,8 @@ export function resultBlocks(tc: LguTc): Block[] {
     return [{ text: '시험 결과 데이터 없음 — 시험 실행 후 출력됩니다.', lines: 1 }]
   return tc.steps.map((s, i) => {
     let r = `Step ${i + 1}. ${String(s.desc ?? '').trim() || String(s.cli ?? '').trim()}`
-    if (s.result) r += `  [${s.result}]`
+    const sv = stepVerdict(s as TcStep)
+    if (sv) r += `  [${sv}]`
     if (s.cli) r += `\n$ ${s.cli}`
     const o = String(s.output ?? '').trim()
     if (o) r += `\n${o}`
@@ -215,16 +220,18 @@ export function page2(tc: LguTc, range: [number, number]): string {
     ? mine
         .map(({ s, i }) => {
           const rc =
-            s.result === 'Pass' || s.result === '합격'
+            stepVerdict(s as TcStep) === 'Pass' || stepVerdict(s as TcStep) === '합격'
               ? '#00875a'
-              : s.result === 'Fail' || s.result === '불합격'
+              : stepVerdict(s as TcStep) === 'Fail' || stepVerdict(s as TcStep) === '불합격'
                 ? '#d12d49'
                 : '#888'
           const out = String(s.output ?? '').trim()
           return (
             '<div style="margin-bottom:9px;border-bottom:1px dashed #ccc;padding-bottom:7px;">' +
             `<div style="font-size:11.5px;font-weight:700;color:#111;">Step ${i + 1}. ${esc(s.desc || s.cli || s.action || '')}` +
-            (s.result ? ` <span style="color:${rc};font-weight:800;">[${esc(s.result)}]</span>` : '') +
+            (stepVerdict(s as TcStep)
+              ? ` <span style="color:${rc};font-weight:800;">[${esc(stepVerdict(s as TcStep))}]</span>`
+              : '') +
             '</div>' +
             (s.cli
               ? `<div style="font-family:Consolas,monospace;font-size:10px;color:#00733a;margin-top:2px;">$ ${esc(s.cli)}</div>`

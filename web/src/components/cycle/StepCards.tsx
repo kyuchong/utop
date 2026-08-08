@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { CycleItemLite, CycleStep, Verdict } from '@/pages/Cycles'
 import { RESULTS, verdictClass } from '@/pages/Cycles'
+import { stepVerdict, type TcStep } from '@/components/tc/types'
 
 /** 판정 종류를 사람 말로 */
 const TYPE_LABEL: Record<string, string> = {
@@ -69,7 +70,7 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
   const [only, setOnly] = useState(false)
 
   const shown = only
-    ? steps.filter((s) => String(s.result ?? '').toLowerCase() === 'fail')
+    ? steps.filter((s) => stepVerdict(s as TcStep).toLowerCase() === 'fail')
     : steps
 
   if (!steps.length) return <div className="empty">아직 실행하지 않았습니다.</div>
@@ -90,7 +91,8 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
 
       {shown.map((s) => {
         const i = steps.indexOf(s)
-        const r = String(s.result ?? '').trim()
+        // 판정은 한 곳에서만 읽는다(types.ts)
+        const r = stepVerdict(s as TcStep)
         const bad = r === 'Fail' || r === '불합격'
         const running = runningAt === i
         const out = String(s.output ?? '')
