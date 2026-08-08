@@ -177,6 +177,10 @@ interface Node {
   empty?: boolean
 }
 
+/** 보던 자리를 기억한다 — 화면 이름은 App 이, 그 안은 여기가 */
+const CY_SEL_KEY = 'utop.cycle.sel'
+const CY_OPEN_KEY = 'utop.cycle.open'
+
 const NO_CAT = '(카탈로그에 없는 모델)'
 const NO_GROUP = '(버전그룹 없음)'
 
@@ -271,7 +275,24 @@ function build(
 }
 
 export default function Cycles() {
-  const [open, setOpen] = useState<Set<string>>(new Set())
+  /**
+   * 새로고침해도 보던 자리로 돌아온다.
+   *
+   * TC 화면은 이미 그렇게 하는데(`utop.tc.open`) 사이클만 안 하고 있었다.
+   * 새로고침하면 트리가 통째로 접히고 「왼쪽에서 사이클을 고르세요」 로
+   * 튕겨서, 64건짜리를 보다가 매번 다시 찾아 들어가야 했다.
+   */
+  const [open, setOpen] = useState<Set<string>>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(CY_OPEN_KEY) || '[]') as string[]
+      return new Set(Array.isArray(v) ? v : [])
+    } catch {
+      return new Set()
+    }
+  })
+  useEffect(() => {
+    localStorage.setItem(CY_OPEN_KEY, JSON.stringify([...open]))
+  }, [open])
   const qc = useQueryClient()
   const [making, setMaking] = useState(false)
   /** 우클릭 메뉴 — 어느 사이클 위에서, 화면 어디에 */
@@ -280,7 +301,10 @@ export default function Cycles() {
   const [editId, setEditId] = useState('')
   /** 말로 찾은 결과 — 만들기 창에 미리 채워 넣는다 */
   const [ask, setAsk] = useState<{ model: string; tcs: Array<{ tcid: string; name?: string | null; req_id?: string | null }> } | null>(null)
-  const [sel, setSel] = useState('')
+  const [sel, setSel] = useState(() => localStorage.getItem(CY_SEL_KEY) || '')
+  useEffect(() => {
+    localStorage.setItem(CY_SEL_KEY, sel)
+  }, [sel])
   const [q, setQ] = useState('')
 
   /**
