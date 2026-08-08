@@ -4,6 +4,18 @@ import { RESULTS, verdictClass } from '@/pages/Cycles'
 import { stepVerdict, type TcStep } from '@/components/tc/types'
 
 /** 판정 종류를 사람 말로 */
+/** 그 판정이 실제로 무엇을 보는지 — 이름만으로는 안 갈린다 */
+const RULE_HINT: Record<string, string> = {
+  contains: '아래 중 하나라도 응답에 있으면 합격',
+  contains_all: '아래가 모두 응답에 있어야 합격',
+  notcontains: '아래가 하나도 없어야 합격',
+  line: '그 항목 줄을 찾아 값이 같아야 합격',
+  table: '고른 행이 모두 조건을 만족해야 합격',
+  expr: '두 값을 견주어 맞으면 합격',
+  ok: '오류 없이 응답하면 합격',
+  none: '판정하지 않는다',
+}
+
 const TYPE_LABEL: Record<string, string> = {
   contains: '문구 검증',
   contains_all: '문구 검증 (모두 포함)',
@@ -64,8 +76,8 @@ interface Props {
   item: CycleItemLite
   /** 지금 도는 스텝. 안 돌면 -1 */
   runningAt: number
-  /** 실행 당시 자료인가 — 그렇다면 지금 TC 와 다를 수 있다 */
-  onSetResult?: (result: string) => void
+  /** 스텝 하나의 결과를 손으로 정한다 (스텝 번호, 값) */
+  onSetResult?: (at: number, result: string) => void
 }
 
 /**
@@ -227,7 +239,7 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
                 <select
                   className={`sc-v ${verdictClass((r || '') as Verdict)}`}
                   value={r}
-                  onChange={(e) => onSetResult(e.target.value)}
+                  onChange={(e) => onSetResult(i, e.target.value)}
                   title="결과를 손으로 정합니다"
                 >
                   {RESULTS.map((x) => (
@@ -274,10 +286,30 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
             {s.criteria && (
               <div className="sc-sec">
                 <i>EXPECTED RESULT</i>
+                {/* 판정 기준을 조각으로 펴 놓는다.
+                    전에는 「문구 검증  E5010-24C」 한 줄이라, 조건이 여럿일
+                    때 무엇 무엇을 보는지 · 그중 무엇이 걸리고 무엇이
+                    안 걸렸는지가 안 보였다. */}
                 <div className="sc-exp">
-                  <span className="sc-type">{TYPE_LABEL[String(s.type ?? 'contains')] ?? s.type}</span>
-                  {s.criteria}
+                  <span className="sc-type">
+                    {TYPE_LABEL[String(s.type ?? 'contains')] ?? s.type}
+                  </span>
+                  <span className="sc-rule">{RULE_HINT[String(s.type ?? 'contains')] ?? ''}</span>
                 </div>
+                {toks.length > 0 ? (
+                  <div className="sc-toks">
+                    {toks.map((t, n) => {
+                      const found = out.toLowerCase().includes(t.toLowerCase())
+                      return (
+                        <span key={`${t}-${n}`} className={`sc-tok${found ? ' hit' : ' miss'}`}>
+                          {found ? '✔' : '✕'} {t}
+                        </span>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <pre className="sc-crit">{s.criteria}</pre>
+                )}
               </div>
             )}
 

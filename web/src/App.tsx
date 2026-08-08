@@ -3,6 +3,7 @@ import Layout from '@/components/Layout'
 import Login from '@/components/Login'
 import { authApi, getToken, setToken, type MeUser } from '@/api/client'
 import { useLiveRefresh } from '@/components/useLiveRefresh'
+import { onGoto as onGotoEvent } from '@/api/goto'
 import Requirements from '@/pages/Requirements'
 import TestCases from '@/pages/TestCases'
 import Settings from '@/pages/Settings'
@@ -55,6 +56,24 @@ export default function App() {
   // 남이 바꾼 것을 어느 화면에 있든 바로 들여온다. 화면마다 따로 붙이면
   // 또 어느 하나가 빠지므로 여기 한 곳에서 듣는다.
   useLiveRefresh()
+
+  // 다른 화면의 것을 열어 달라는 부탁 (사이클에서 TC ID 를 누른 것 따위)
+  useEffect(
+    () =>
+      onGotoEvent((kind, id) => {
+        if (kind === 'tc') {
+          localStorage.setItem('utop.tc.open', id)
+          setPage('testcases')
+        } else if (kind === 'cycle') {
+          localStorage.setItem('utop.cycle.sel', id)
+          setPage('cycles')
+        } else {
+          localStorage.setItem('utop.req.sel', id)
+          setPage('requirements')
+        }
+      }),
+    [],
+  )
 
   if (user === undefined) return <div className="empty">확인 중…</div>
   if (user === null) return <Login onDone={setUser} />

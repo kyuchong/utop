@@ -107,7 +107,7 @@
 }
 .cy-row {
   display: grid;
-  grid-template-columns: 1fr 64px 88px 104px 52px;
+  grid-template-columns: minmax(90px, 168px) 1fr 64px 88px 104px 52px;
   gap: 8px;
   align-items: center;
   padding: var(--row-py) var(--row-px);
@@ -523,8 +523,23 @@ select.sc-v { border: 1px solid var(--c-border); border-radius: var(--r-chip); b
 .sc-cmd { color: var(--c-pass); }
 /* 판정에 걸린 자리. PASS 세 글자만 보고는 무엇을 보고 통과라 했는지
    알 수 없어서 결국 기준과 출력을 눈으로 대조하게 된다 */
-.sc-out mark.hit { background: var(--c-pass-soft); color: var(--c-pass); font-weight: 700; }
-.sc-out mark.miss { background: var(--c-fail-soft); color: var(--c-fail); font-weight: 700; }
+/* 판정에 걸린 문구 — 확 보여야 한다.
+   이것이 이 화면의 핵심이다. PASS 세 글자만 보고는 무엇을 보고 통과라
+   했는지 알 수 없어서, 결국 판정기준과 출력을 눈으로 대조하게 된다. */
+.sc-out mark.hit {
+  background: #16a34a;
+  color: #fff;
+  font-weight: 700;
+  padding: 0 3px;
+  border-radius: 3px;
+}
+.sc-out mark.miss {
+  background: #dc2626;
+  color: #fff;
+  font-weight: 700;
+  padding: 0 3px;
+  border-radius: 3px;
+}
 .sc-out.live::after {
   content: '';
   display: inline-block;
@@ -988,4 +1003,43 @@ table.tb td.k {
   font-weight: 700;
   letter-spacing: 1px;
   white-space: nowrap;
+}
+
+/* TC ID — 누르면 그 시험으로 간다.
+   이름은 「sysDescr Get 동작 확인」 처럼 겹치는 것이 많아서 ID 가 없으면
+   어느 시험인지 대려면 결국 열어 봐야 했다 */
+.cy-tcid {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-primary);
+  font-size: var(--fs-xs);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.cy-tcid:hover { text-decoration: underline; }
+
+/* 판정 기준을 조각으로 — 무엇 무엇을 보는지, 그중 무엇이 걸렸는지 */
+.sc-rule { color: var(--c-text-muted); }
+.sc-toks { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.sc-tok {
+  padding: 1px 6px;
+  border-radius: var(--r-chip);
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+.sc-tok.hit { background: #dcfce7; color: #15803d; }
+.sc-tok.miss { background: #fee2e2; color: #b91c1c; }
+.sc-crit {
+  margin: 4px 0 0;
+  padding: 4px 8px;
+  border-radius: var(--r-chip);
+  background: var(--c-surface-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: pre-wrap;
 }

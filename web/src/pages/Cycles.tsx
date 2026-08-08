@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import ListHead from '@/components/ListHead'
+import { goto } from '@/api/goto'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
@@ -615,9 +616,31 @@ function CycleDetail({
    * 사이클을 만들 때만 고를 수 있으면, 시험 하나를 빠뜨렸을 때 사이클을
    * 다시 만들어야 한다. 그러면 이미 돌린 결과가 통째로 날아간다.
    */
-  /** 결과를 손으로 정한다 */
+  /** 항목 결과를 손으로 정한다 */
   const setResult = (tcid: string, result: string) =>
     saveItems((cur) => cur.map((x) => (x.tcid === tcid ? { ...x, result } : x)))
+
+  /**
+   * 스텝 하나의 결과를 손으로 정한다.
+   *
+   * 자동 판정이 늘 맞지는 않는다 — 장비가 이상한 응답을 냈는데 판정
+   * 기준이 느슨해서 통과하거나, 반대로 사람 눈에는 맞는데 문구 한 글자가
+   * 달라 깨지기도 한다. 그때 고칠 수 있어야 결과서가 사실이 된다.
+   *
+   * `result` 에 적는다. 옛 자료와 같은 칸이고, `stepVerdict` 가 그것을
+   * 자동 판정보다 먼저 본다 — 사람이 적은 것이 이긴다.
+   */
+  const setStepResult = (tcid: string, at: number, result: string) =>
+    saveItems((cur) =>
+      cur.map((x) =>
+        x.tcid === tcid
+          ? {
+              ...x,
+              steps: (x.steps ?? []).map((sx, j) => (j === at ? { ...sx, result } : sx)),
+            }
+          : x,
+      ),
+    )
 
   const saveItems = async (edit: (cur: CycleItemLite[]) => CycleItemLite[]) => {
     setSaving(true)
@@ -833,6 +856,7 @@ function CycleDetail({
       <div className="cy-cols">
       <div className="cy-list">
         <div className="cy-row cy-hd">
+          <span>TC ID</span>
           <span>시험</span>
           <span>결과</span>
           <span>담당</span>
@@ -870,6 +894,22 @@ function CycleDetail({
                 }
               }}
             >
+              {/* TC ID 를 따로 세운다.
+                  전에는 이름만 보였다. 이름은 「sysDescr Get 동작 확인」
+                  처럼 겹치는 것이 많아서, 어느 시험인지 대려면 결국 열어
+                  봐야 했다. 누르면 그 시험으로 간다 — 판정 기준을 고치러
+                  가는 일이 잦다. */}
+              <button
+                type="button"
+                className="cy-tcid"
+                title={`${it.tcid} — 누르면 이 시험으로 갑니다`}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (it.tcid) goto('tc', it.tcid)
+                }}
+              >
+                {it.tcid || '–'}
+              </button>
               <span className="cy-tc" title={it.tcid}>
                 {it.name || it.tcid}
                 {steps.length > 0 && (
@@ -935,6 +975,7 @@ function CycleDetail({
             key={cur.tcid ?? ''}
             item={liveNow ? { ...cur, steps: st.liveSteps } : cur}
             runningAt={liveNow ? st.stepAt : -1}
+            onSetStep={(at, v) => void setStepResult(cur.tcid ?? '', at, v)}
             onClose={() => setOpenItem(-1)}
           />
         ) : (
@@ -1163,11 +1204,14 @@ function CyclePickTc({
 function StepDetail({
   item,
   runningAt,
+  onSetStep,
   onClose,
 }: {
   item: CycleItemLite
   /** 지금 도는 스텝 번호. 안 돌면 -1 */
   runningAt: number
+  /** 스텝 하나의 결과를 손으로 정한다 */
+  onSetStep?: (at: number, result: string) => void
   onClose: () => void
 }) {
   const steps = item.steps ?? []
@@ -1189,8 +1233,9 @@ function StepDetail({
         </button>
       </div>
 
-      {/* 스텝별 결과 손으로 정하기는 아직 안 붙였다 — 항목 결과가 먼저다 */}
-      <StepCards item={item} runningAt={runningAt} />
+      {/* 자동 판정이 늘 맞지는 않는다. 스텝마다 손으로 고칠 수 있어야
+          결과서가 사실이 된다 */}
+      <StepCards item={item} runningAt={runningAt} onSetResult={onSetStep} />
     </div>
   )
 }
