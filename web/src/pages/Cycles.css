@@ -1276,3 +1276,35 @@ table.tb td.k {
   border-radius: var(--radius-sm);
   background: var(--page-tint, var(--c-surface-alt));
 }
+
+/* ── 1열(트리)과 2열(표)의 줄 높이를 같게 ────────────────────
+   표 줄 안의 셀렉트·입력칸이 제 높이를 갖는 바람에 줄이 --row-h(26px)를
+   넘겨, 트리 줄보다 두꺼워지고 구분선 간격이 어긋났다. 칸을 줄 안에
+   맞춰 넣어 두 열이 같은 박자로 그어지게 한다. */
+.cy-row {
+  box-sizing: border-box;
+}
+.cy-row .cy-v,
+.cy-row .cy-note input {
+  height: 20px;
+  line-height: 18px;
+  padding-top: 0;
+  padding-bottom: 0;
+  box-sizing: border-box;
+}
+.cy-row .cy-ck input {
+  width: 13px;
+  height: 13px;
+}
+/* 트리 줄도 같은 값으로 못박는다 — 폴더 아이콘(17px)이 줄을 밀지 않게 */
+.cy-tree .rt-fold,
+.cy-tree .rt-req {
+  box-sizing: border-box;
+  min-height: var(--row-h);
+}
+.cy-tree .rt-ficon svg,
+.cy-tree .rt-dicon svg {
+  width: 15px;
+  height: 15px;
+  display: block;
+}
