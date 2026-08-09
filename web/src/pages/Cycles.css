@@ -1552,3 +1552,17 @@ table.tb td.k {
   color: var(--c-text-faint);
   font-size: var(--fs-xs);
 }
+
+/* 둘째 머리 줄 — 보고(AI 요약·보고서·PPTX·메트릭스)와 실행.
+   첫 줄(제목 + 항목에 하는 일)과 성격이 달라 그 사이에도 선을 둔다.
+   첫 줄의 선은 1열·3열과 같은 46px 에 있어 서로 마주 본다. */
+.cy-head2 {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 14px;
+  border-bottom: 1px solid var(--c-border);
+}
+.cy-head2 .rq-actions { flex-wrap: wrap; row-gap: 4px; align-items: center; }

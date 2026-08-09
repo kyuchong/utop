@@ -1173,7 +1173,12 @@ function CycleDetail({
               </option>
             ))}
           </select>
-          <span className="rq-adiv" aria-hidden="true" />
+        </div>
+      </div>
+
+      {/* 둘째 줄 — 보고·실행. 첫 줄(항목에 하는 일)과 성격이 달라 선으로 가른다 */}
+      <div className="cy-head2">
+        <div className="rq-actions">
           <button
             className="btn"
             type="button"
@@ -1357,7 +1362,7 @@ function CycleDetail({
         >
           <b>{items.length}</b>
           <span className="cy-stat-lb">
-            총항목 <i>{Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행</i>
+            총항목 <i>{Math.round(((total - (counts[''] ?? 0)) / total) * 100)}%</i>
           </span>
         </button>
         {RESULTS.map((r) => {
