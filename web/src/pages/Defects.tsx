@@ -117,7 +117,9 @@ export default function Defects() {
                     <td>{d.jira_project || '–'}</td>
                     <td>{d.project_name || '–'}</td>
                     <td>{d.issue_type || '–'}</td>
-                    <td className="dfl-title">{d.title || d.tc_name || '–'}</td>
+                    <td className="dfl-title" title={d.title || d.tc_name || ''}>
+                      {d.title || d.tc_name || '–'}
+                    </td>
                     <td>
                       {d.jira_key ? (
                         <span className="dfl-jira" title="Jira 이슈 키">

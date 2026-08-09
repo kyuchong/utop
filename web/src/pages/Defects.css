@@ -56,13 +56,20 @@
 .dfl-tablewrap {
   overflow-x: auto;
 }
-/* 폭을 100% 로 늘리면 남는 자리가 칸 사이로 흩어져 글자끼리 멀어진다.
-   내용만큼만 차지하게 두고 모두 왼쪽에 붙인다 — 넘치면 감싼 칸이 민다. */
+/* 남는 자리를 칸 사이로 흩뿌리지 않는다 — 글자끼리 멀어져 읽기 나쁘다.
+   대신 **제목이 남는 자리를 다 가져간다**. 결함에서 제일 많이 읽는 것이
+   제목이고, 나머지(프로젝트·유형·날짜)는 길이가 정해져 있다. */
 .dfl-table {
-  width: auto;
+  width: 100%;
+  table-layout: auto;
   border-collapse: collapse;
   font-size: var(--fs-sm);
   white-space: nowrap;
+}
+/* 제목 말고는 내용만큼만 */
+.dfl-table th:not(:nth-child(5)),
+.dfl-table td:not(:nth-child(5)) {
+  width: 1%;
 }
 .dfl-table th {
   position: sticky;
@@ -125,5 +132,12 @@
   }
 }
 
-/* 제목은 길어도 칸을 밀지 않게 — 표 전체가 가로로 늘어나면 나머지가 멀어진다 */
-.dfl-table .dfl-title { max-width: 520px; }
+/* 제목 — 남는 자리를 다 쓰고, 그래도 넘치면 … 로 자른다.
+   전체는 마우스를 올리면 나온다. */
+.dfl-table .dfl-title {
+  width: auto;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
