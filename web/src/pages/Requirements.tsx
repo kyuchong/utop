@@ -658,7 +658,10 @@ export default function Requirements() {
         {/* ── 가운데: Detail 일 때만 — 형제 요구사항을 좁게 ──────
             어느 하나를 읽다가 옆 것으로 넘어가는 일이 잦다. 이 목록이
             없으면 그때마다 List 로 돌아갔다 다시 들어와야 한다. */}
-        {view === 'detail' && selectedReq && midReqs.length > 1 && (
+        {/* 1건뿐이어도 띄운다. 「2건 이상일 때만」 으로 두었더니 폴더에 하나만
+            있는 요구사항에서는 이 열이 통째로 사라져, 열이 있다 없다 하는
+            것으로 보였다. */}
+        {view === 'detail' && selectedReq && (
           <>
           <section className="panel rq-mid" ref={midRef} style={{ flexBasis: midW }}>
             <div className="rq-mid-h">
