@@ -1,0 +1,135 @@
+/* 결함 등록 창 — 아홉 칸 + 깨진 스텝 */
+.modal.dfx {
+  max-width: 760px;
+}
+
+.dfx-body {
+  gap: var(--sp-4);
+}
+
+.dfx-fld {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.dfx-fld > span {
+  font-size: var(--fs-sm);
+  color: var(--c-text-faint);
+}
+.dfx-fld input,
+.dfx-fld select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+}
+.dfx-fld input.ro {
+  background: var(--c-surface-alt);
+  color: var(--c-text-faint);
+}
+.dfx-fld.wide {
+  width: 100%;
+}
+
+/* 아홉 칸 — 3열 */
+.dfx-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-3) var(--sp-4);
+}
+@media (max-width: 620px) {
+  .dfx-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.dfx-key {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--c-ok, #1f9d55);
+}
+
+/* 깨진 스텝 */
+.dfx-steps {
+  border-top: 1px solid var(--c-border);
+  padding-top: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.dfx-sh {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--c-text-faint);
+}
+.dfx-step {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-3);
+  background: var(--c-surface-alt);
+}
+.dfx-step.fail {
+  border-color: var(--c-danger, #d9534f);
+}
+.dfx-st-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sm);
+}
+.dfx-st-h > b {
+  color: var(--c-text-faint);
+}
+.dfx-badge {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--c-surface);
+  color: var(--c-text-faint);
+}
+.dfx-badge.fail {
+  background: var(--c-danger, #d9534f);
+  color: #fff;
+}
+.dfx-badge.pass {
+  background: var(--c-ok, #1f9d55);
+  color: #fff;
+}
+.dfx-cli,
+.dfx-out {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--c-code-bg, #1e2430);
+  color: var(--c-code-fg, #d7dee8);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--fs-xs);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 220px;
+  overflow: auto;
+}
+.dfx-meta {
+  margin-top: 4px;
+  font-size: var(--fs-sm);
+}
+.dfx-meta .k {
+  display: inline-block;
+  min-width: 66px;
+  color: var(--c-text-faint);
+  font-weight: 600;
+}
+
+.dfx-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  border-top: 1px solid var(--c-border);
+}

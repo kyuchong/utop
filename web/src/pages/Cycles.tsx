@@ -7,6 +7,7 @@ import { goto } from '@/api/goto'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
+import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import { IconChevron, IconFolder, IconPanel } from '@/components/icons'
@@ -660,6 +661,24 @@ function CycleDetail({
   /** 3열(스텝 세부) 폭 — 끌어서 바꾼다 */
   const colsRef = useRef<HTMLDivElement>(null)
   const [sideW, setSideW] = useResizableWidth('utop.cycle.sideW', 520, 280, 1200)
+
+  /**
+   * 지금 열어 둔 항목에 걸린 결함. 「결함 등록」 을 「결함 봄」 으로 가른다.
+   * 항목 하나에 결함 하나다.
+   */
+  const [itemDefect, setItemDefect] = useState<DefectRec | null>(null)
+  /** 결함 등록 창을 연 항목(없으면 안 뜬다) */
+  const [defectFor, setDefectFor] = useState<CycleItemLite | null>(null)
+  const loadItemDefect = async (tcid: string) => {
+    if (!tcid) { setItemDefect(null); return }
+    try {
+      const r = await apiFetch(`/api/defects/for-item?cycle_id=${encodeURIComponent(cycle.id)}&tcid=${encodeURIComponent(tcid)}`)
+      const j = (await r.json()) as { defect: DefectRec | null }
+      setItemDefect(j.defect ?? null)
+    } catch {
+      setItemDefect(null)
+    }
+  }
   /** 항목 추가 창 */
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -759,6 +778,12 @@ function CycleDetail({
   const cur = followAt >= 0 ? items[followAt] : undefined
   /** 지금 도는 항목이면 저장된 스텝 대신 받는 중인 것을 보여 준다 */
   const liveNow = st.on && followAt === st.itemAt && st.liveSteps.length > 0
+
+  // 열어 둔 항목이 바뀌면 그 항목의 결함을 읽어 단추를 「등록/봄」 으로 가른다
+  useEffect(() => {
+    void loadItemDefect(cur?.tcid ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cur?.tcid, cycle.id])
 
   return (
     <div className="cy-detail">
@@ -1075,6 +1100,11 @@ function CycleDetail({
             onSetImg={(at, file) => void setStepImg(cur.tcid ?? '', at, file)}
             onSetImgUrl={(at, url) => void setStepField(cur.tcid ?? '', at, { actual_img: url })}
             onSetTxt={(at, txt) => void setStepField(cur.tcid ?? '', at, { actual_txt: txt })}
+            // 부적합일 때만 결함 등록 단추를 준다 — 통과한 항목엔 걸 일이 없다
+            onIssue={
+              itemVerdict(cur) === 'Fail' || itemDefect ? () => setDefectFor(cur) : undefined
+            }
+            defect={itemDefect}
             onClose={() => setOpenItem(-1)}
           />
         ) : (
@@ -1082,6 +1112,16 @@ function CycleDetail({
         )}
       </div>
       </div>
+
+      {defectFor && (
+        <DefectDialog
+          cycle={{ id: cycle.id, model: cycle.model, version: cycle.version }}
+          item={defectFor}
+          existing={itemDefect}
+          onClose={() => setDefectFor(null)}
+          onSaved={(d) => setItemDefect(d)}
+        />
+      )}
     </div>
   )
 }
@@ -1307,6 +1347,8 @@ function StepDetail({
   onSetImg,
   onSetImgUrl,
   onSetTxt,
+  onIssue,
+  defect,
   onClose,
 }: {
   item: CycleItemLite
@@ -1317,6 +1359,8 @@ function StepDetail({
   onSetImg?: (at: number, file: File) => void
   onSetImgUrl?: (at: number, url: string) => void
   onSetTxt?: (at: number, txt: string) => void
+  onIssue?: () => void
+  defect?: DefectRec | null
   onClose: () => void
 }) {
   const steps = item.steps ?? []
@@ -1333,6 +1377,19 @@ function StepDetail({
           </span>
         )}
         <span className="sp" />
+        {/* 스텝 닫기 왼쪽에 결함 등록 단추. 누르면 창이 떠서 UTOP 에 먼저
+            쌓고, 그 창의 「지라에 등록」 으로 Jira 이슈를 만든다. 이미 걸린
+            항목은 「결함 봄」(지라에 올렸으면 이슈 키)으로 바뀐다. */}
+        {onIssue && (
+          <button
+            className={`btn small${defect ? '' : ' danger'}`}
+            type="button"
+            onClick={onIssue}
+            title={defect ? `결함 ${defect.id}${defect.jira_key ? ` · ${defect.jira_key}` : ''}` : '깨진 스텝으로 결함을 등록합니다'}
+          >
+            {defect ? `● ${defect.jira_key || '결함 봄'}` : '＋ 결함 등록'}
+          </button>
+        )}
         <button className="btn small" type="button" onClick={onClose}>
           닫기
         </button>

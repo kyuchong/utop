@@ -530,3 +530,55 @@ CREATE TABLE IF NOT EXISTS cycle_run_log (
 -- 이미 만들어진 표에도 붙인다. schema.sql 은 기동할 때마다 도는데
 -- CREATE TABLE IF NOT EXISTS 는 이미 있는 표의 칸을 늘려 주지 않는다.
 ALTER TABLE cycle_run_log ADD COLUMN IF NOT EXISTS item_at INT DEFAULT -1;
+
+-- ══════════════════════════════════════════════════════════════════════
+-- 결함 (defect) — UTOP 안에 먼저 쌓고, 나중에 Jira 로 밀지 정한다
+--
+-- 사이클을 돌리다 시험이 깨지면 그 자리에서 이슈를 건다. 바로 Jira 로
+-- 올리지 않는 이유: 64건 돌려 20건 깨지면 그중 열여덟은 같은 원인이거나
+-- 시험이 잘못된 것이다. UTOP 에 모아 두고 사람이 추린 뒤에 민다.
+--
+-- 스텝 내용을 통째로 담는다(steps jsonb) — 「무엇이 어떻게 깨졌나」 를
+-- 나중에 Jira 로 밀 때 다시 찾지 않게.
+-- ══════════════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS defect (
+  id            TEXT PRIMARY KEY,
+  title         TEXT,
+  -- open | pushed | closed
+  status        TEXT NOT NULL DEFAULT 'open',
+  severity      TEXT,
+  -- 어디서 났나
+  cycle_id      TEXT,
+  cycle_name    TEXT,
+  tcid          TEXT,
+  tc_name       TEXT,
+  model         TEXT,
+  version       TEXT,
+  -- 깨진 스텝의 자세한 내용 (명령·판정기준·출력·근거·사진…)
+  steps         JSONB,
+  note          TEXT,
+  -- 이슈 등록 칸 — 프로젝트 키·프로젝트명·이슈유형·우선순위·수정버전·구성요소·보고자
+  jira_project  TEXT,          -- 프로젝트 키
+  project_name  TEXT,          -- 프로젝트명
+  issue_type    TEXT,          -- 이슈유형 (Defect/Bug/CR…)
+  priority      TEXT,          -- 우선순위
+  fix_version   TEXT,          -- 수정버전
+  component     TEXT,          -- 구성요소
+  reporter      TEXT,          -- 보고자 (Jira 계정)
+  -- Jira 로 민 뒤 채워진다
+  jira_key      TEXT,
+  created_by    TEXT,          -- 등록자
+  created_at    TIMESTAMPTZ DEFAULT now(),   -- 등록일
+  updated_at    TIMESTAMPTZ DEFAULT now()
+);
+-- 이미 만들어진 표에도 칸을 보탠다(있으면 지나간다)
+ALTER TABLE defect ADD COLUMN IF NOT EXISTS project_name TEXT;
+ALTER TABLE defect ADD COLUMN IF NOT EXISTS issue_type   TEXT;
+ALTER TABLE defect ADD COLUMN IF NOT EXISTS priority     TEXT;
+ALTER TABLE defect ADD COLUMN IF NOT EXISTS fix_version  TEXT;
+ALTER TABLE defect ADD COLUMN IF NOT EXISTS component    TEXT;
+ALTER TABLE defect ADD COLUMN IF NOT EXISTS reporter     TEXT;
+CREATE INDEX IF NOT EXISTS idx_defect_status  ON defect(status);
+CREATE INDEX IF NOT EXISTS idx_defect_cycle   ON defect(cycle_id);
+CREATE INDEX IF NOT EXISTS idx_defect_tcid    ON defect(tcid);
+CREATE INDEX IF NOT EXISTS idx_defect_created ON defect(created_at DESC);

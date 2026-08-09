@@ -1559,3 +1559,100 @@ async def run_sweep_dead(stale_sec: int = 180) -> int:
             return int(r.rsplit(" ", 1)[-1])
         except Exception:
             return 0
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 결함 (defect) — UTOP 안에 먼저 쌓고, 나중에 Jira 로 민다
+# ══════════════════════════════════════════════════════════════════════
+_DEFECT_COLS = (
+    "id, title, status, severity, cycle_id, cycle_name, tcid, tc_name, model, "
+    "version, steps, note, jira_project, project_name, issue_type, priority, "
+    "fix_version, component, reporter, jira_key, created_by, created_at, updated_at"
+)
+
+
+def _defect_row(r) -> dict:
+    d = dict(r)
+    v = d.get("steps")
+    if isinstance(v, str):
+        try:
+            d["steps"] = json.loads(v)
+        except Exception:
+            d["steps"] = None
+    for k in ("created_at", "updated_at"):
+        if d.get(k) is not None:
+            d[k] = d[k].isoformat()
+    return d
+
+
+async def defect_create(d: dict) -> dict:
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "INSERT INTO defect (id, title, status, severity, cycle_id, cycle_name, "
+            "tcid, tc_name, model, version, steps, note, jira_project, project_name, "
+            "issue_type, priority, fix_version, component, reporter, jira_key, created_by) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) "
+            "RETURNING " + _DEFECT_COLS,
+            d["id"], d.get("title"), d.get("status", "open"), d.get("severity"),
+            d.get("cycle_id"), d.get("cycle_name"), d.get("tcid"), d.get("tc_name"),
+            d.get("model"), d.get("version"), json.dumps(d.get("steps") or []),
+            d.get("note"), d.get("jira_project"), d.get("project_name"),
+            d.get("issue_type"), d.get("priority"), d.get("fix_version"),
+            d.get("component"), d.get("reporter"), d.get("jira_key"), d.get("created_by"),
+        )
+        return _defect_row(r)
+
+
+async def defect_list(status: str = "", cycle_id: str = "", limit: int = 300) -> list:
+    where, args = [], []
+    if status:
+        args.append(status); where.append(f"status = ${len(args)}")
+    if cycle_id:
+        args.append(cycle_id); where.append(f"cycle_id = ${len(args)}")
+    args.append(int(limit))
+    sql = ("SELECT " + _DEFECT_COLS + " FROM defect"
+           + (" WHERE " + " AND ".join(where) if where else "")
+           + f" ORDER BY created_at DESC LIMIT ${len(args)}")
+    async with pool().acquire() as c:
+        return [_defect_row(r) for r in await c.fetch(sql, *args)]
+
+
+async def defect_get(did: str):
+    async with pool().acquire() as c:
+        r = await c.fetchrow("SELECT " + _DEFECT_COLS + " FROM defect WHERE id=$1", did)
+        return _defect_row(r) if r else None
+
+
+async def defect_by_item(cycle_id: str, tcid: str):
+    """한 사이클의 한 항목에 이미 건 결함 — 항목 하나에 하나만 걸게."""
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "SELECT " + _DEFECT_COLS + " FROM defect WHERE cycle_id=$1 AND tcid=$2 "
+            "ORDER BY created_at DESC LIMIT 1",
+            cycle_id, tcid,
+        )
+        return _defect_row(r) if r else None
+
+
+_DEFECT_PATCH = ("title", "status", "severity", "note", "jira_key", "jira_project",
+                 "project_name", "issue_type", "priority", "fix_version", "component", "reporter")
+
+
+async def defect_update(did: str, patch: dict):
+    sets, args = [], []
+    for k in _DEFECT_PATCH:
+        if k in patch:
+            args.append(patch[k]); sets.append(f"{k}=${len(args)}")
+    if not sets:
+        return await defect_get(did)
+    sets.append("updated_at=now()")
+    args.append(did)
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            f"UPDATE defect SET {', '.join(sets)} WHERE id=${len(args)} RETURNING " + _DEFECT_COLS, *args)
+        return _defect_row(r) if r else None
+
+
+async def defect_delete(did: str) -> bool:
+    async with pool().acquire() as c:
+        return (await c.execute("DELETE FROM defect WHERE id=$1", did)).endswith(" 1")

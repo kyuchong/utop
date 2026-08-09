@@ -12259,3 +12259,166 @@ async def report_summary():
          "version": c.get("version"), "version_group": c.get("version_group")}
         for c in cycles
     ]}
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 결함 (defect) — 사이클에서 「이슈 생성」 으로 걸고, Defects 화면에서 Jira 로 민다
+#
+# 항목 하나에 결함 하나. 바로 Jira 로 올리지 않는다 — 64건 돌려 20건 깨지면
+# 그중 열여덟은 같은 원인이거나 시험이 잘못된 것이다. UTOP 에 모아 사람이
+# 추린 뒤에 민다.
+# ══════════════════════════════════════════════════════════════════════
+
+@app.get("/api/defects")
+async def defect_list_api(status: str = "", cycle_id: str = ""):
+    return {"defects": await db.defect_list(status, cycle_id)}
+
+
+@app.get("/api/defects/for-item")
+async def defect_for_item(cycle_id: str, tcid: str):
+    """이 항목에 이미 건 결함이 있나 — 버튼이 「생성」/「봄」 을 가른다."""
+    return {"defect": await db.defect_by_item(cycle_id, tcid)}
+
+
+@app.post("/api/defects")
+async def defect_create_api(payload: dict, request: Request):
+    """사이클 항목에서 결함을 하나 만든다. 깨진 스텝 내용을 통째로 담는다."""
+    cid = str(payload.get("cycle_id") or "").strip()
+    tcid = str(payload.get("tcid") or "").strip()
+    if not tcid:
+        raise HTTPException(400, "tcid 가 필요합니다")
+    # 같은 항목에 이미 있으면 그것을 돌려준다 — 항목 하나에 하나만.
+    exist = await db.defect_by_item(cid, tcid)
+    if exist:
+        return {"defect": exist, "existed": True}
+    who = ""
+    try:
+        who = _user_of(_token_from(request)) or ""
+    except Exception:
+        pass
+    did = "DEF-" + _uuid4().hex[:10]
+    d = await db.defect_create({
+        "id": did,
+        "title": str(payload.get("title") or payload.get("tc_name") or tcid),
+        "severity": payload.get("severity"),
+        "cycle_id": cid,
+        "cycle_name": payload.get("cycle_name"),
+        "tcid": tcid,
+        "tc_name": payload.get("tc_name"),
+        "model": payload.get("model"),
+        "version": payload.get("version"),
+        "steps": payload.get("steps") or [],
+        "note": payload.get("note"),
+        # 이슈 등록 칸 — 프로젝트 키·프로젝트명·이슈유형·우선순위·수정버전·구성요소·보고자
+        "jira_project": payload.get("jira_project"),
+        "project_name": payload.get("project_name"),
+        "issue_type": payload.get("issue_type"),
+        "priority": payload.get("priority"),
+        "fix_version": payload.get("fix_version"),
+        "component": payload.get("component"),
+        "reporter": payload.get("reporter"),
+        "created_by": who,
+    })
+    try: asyncio.create_task(broadcast({"type": "defect_updated", "id": did}))
+    except Exception: pass
+    return {"defect": d, "existed": False}
+
+
+def _defect_jira_body(d: dict) -> str:
+    """결함의 깨진 스텝을 Jira wiki 마크업 설명으로 편다."""
+    L = []
+    L.append("h3. 시험 정보")
+    L.append("|| 항목 || 내용 |")
+    L.append(f"| 사이클 | {d.get('cycle_name') or d.get('cycle_id') or '-'} |")
+    L.append(f"| 시험 | {d.get('tc_name') or ''} ({d.get('tcid') or ''}) |")
+    L.append(f"| 모델 | {d.get('model') or '-'} |")
+    L.append(f"| 버전 | {d.get('version') or '-'} |")
+    steps = d.get("steps") or []
+    if steps:
+        L.append("")
+        L.append("h3. 시험 절차 및 결과")
+        for s in steps:
+            no = s.get("no") or ""
+            st = s.get("status") or ""
+            desc = (s.get("desc") or s.get("cli") or "").strip()
+            L.append(f"h4. #{no} {desc}  ({st})")
+            if s.get("cli"):
+                L.append("*명령*")
+                L.append("{code}" + str(s["cli"]) + "{code}")
+            if s.get("criteria"):
+                L.append(f"*판정 기준*: {s['criteria']}")
+            if s.get("reason"):
+                L.append(f"*판정 근거*: {s['reason']}")
+            out = str(s.get("output") or "").strip()
+            if out:
+                L.append("*출력*")
+                L.append("{code}" + out[:3000] + "{code}")
+    return "\n".join(L)
+
+
+@app.post("/api/defects/{did}/push")
+async def defect_push_jira(did: str, payload: dict = None):
+    """결함을 Jira 이슈로 올린다. 프로젝트 키·이슈유형·우선순위·수정버전·구성요소·보고자를 함께 실어 보낸다."""
+    payload = payload or {}
+    d = await db.defect_get(did)
+    if d is None:
+        raise HTTPException(404, "결함을 찾을 수 없습니다")
+    if d.get("jira_key"):
+        return {"ok": True, "key": d["jira_key"], "existed": True, "defect": d}
+    # 화면에서 고친 칸이 오면 그것으로 덮는다(먼저 저장하지 않았어도 밀 수 있게)
+    proj = payload.get("jira_project") or d.get("jira_project")
+    itype = payload.get("issue_type") or d.get("issue_type") or "Defect"
+    if not proj:
+        return {"ok": False, "error": "프로젝트 키가 필요합니다"}
+    fields = {}
+    fv = payload.get("fix_version") or d.get("fix_version")
+    if fv:
+        fields["fixVersions"] = [{"name": fv}]
+    comp = payload.get("component") or d.get("component")
+    if comp:
+        fields["components"] = [{"name": comp}]
+    rep = payload.get("reporter") or d.get("reporter")
+    if rep:
+        fields["reporter"] = {"name": rep}
+    body = {
+        "project": proj,
+        "issuetype": itype,
+        "summary": d.get("title") or d.get("tc_name") or did,
+        "description": _defect_jira_body(d),
+        "labels": ["utop"],
+    }
+    prio = payload.get("priority") or d.get("priority")
+    if prio:
+        body["priority"] = prio
+    if fields:
+        body["fields"] = fields
+    res = await jira_create_issue(body)
+    if not res.get("ok"):
+        return res
+    key = res.get("key", "")
+    upd = await db.defect_update(did, {
+        "status": "pushed", "jira_key": key,
+        "jira_project": proj, "issue_type": itype,
+        "priority": prio, "fix_version": fv, "component": comp, "reporter": rep,
+    })
+    try: asyncio.create_task(broadcast({"type": "defect_updated", "id": did}))
+    except Exception: pass
+    return {"ok": True, "key": key, "url": res.get("url"), "defect": upd}
+
+
+@app.patch("/api/defects/{did}")
+async def defect_update_api(did: str, payload: dict):
+    d = await db.defect_update(did, payload)
+    if d is None:
+        raise HTTPException(404, "결함을 찾을 수 없습니다")
+    try: asyncio.create_task(broadcast({"type": "defect_updated", "id": did}))
+    except Exception: pass
+    return {"defect": d}
+
+
+@app.delete("/api/defects/{did}")
+async def defect_delete_api(did: str):
+    ok = await db.defect_delete(did)
+    try: asyncio.create_task(broadcast({"type": "defect_updated", "id": did}))
+    except Exception: pass
+    return {"ok": ok}
