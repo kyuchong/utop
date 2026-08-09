@@ -68,6 +68,11 @@ export default function App() {
         } else if (kind === 'cycle') {
           localStorage.setItem('utop.cycle.sel', id)
           setPage('cycles')
+        } else if (kind === 'report') {
+          // 지나간 실행을 시간순으로 보는 화면. 어느 회차에서 왔는지 남겨
+          // 그 화면이 그것부터 보여 줄 수 있게 한다.
+          localStorage.setItem('utop.report.cycle', id)
+          setPage('executions')
         } else {
           localStorage.setItem('utop.req.sel', id)
           setPage('requirements')

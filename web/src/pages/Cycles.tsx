@@ -8,6 +8,7 @@ import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
 import CycleItemEdit from '@/components/cycle/CycleItemEdit'
+import CycleInsight from '@/components/cycle/CycleInsight'
 import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import { useMultiSelect } from '@/components/useMultiSelect'
@@ -837,7 +838,7 @@ function CycleDetail({
 
   /** 3열(스텝 세부) 폭 — 끌어서 바꾼다 */
   const colsRef = useRef<HTMLDivElement>(null)
-  const [sideW, setSideW] = useResizableWidth('utop.cycle.sideW', 520, 280, 1200)
+  const [sideW, setSideW] = useResizableWidth('utop.cycle.sideW2', 760, 320, 1400)
 
   /**
    * 지금 열어 둔 항목에 걸린 결함. 「결함 등록」 을 「결함 봄」 으로 가른다.
@@ -860,6 +861,8 @@ function CycleDetail({
   const [adding, setAdding] = useState(false)
   /** 고치는 항목들 — 한 건이면 Edit, 여럿이면 Bulk Edit (같은 창) */
   const [editing, setEditing] = useState<CycleItemLite[] | null>(null)
+  /** 회차를 놓고 보는 창 — AI 요약 · 메트릭스 */
+  const [insight, setInsight] = useState<'ai' | 'metrics' | null>(null)
   const [saving, setSaving] = useState(false)
 
   /**
@@ -1093,6 +1096,31 @@ function CycleDetail({
               </option>
             ))}
           </select>
+          <span className="rq-adiv" aria-hidden="true" />
+          <button
+            className="btn"
+            type="button"
+            title="이 회차의 결과를 글로 정리합니다"
+            onClick={() => setInsight('ai')}
+          >
+            AI 요약
+          </button>
+          <button
+            className="btn"
+            type="button"
+            title="지나간 실행을 시간순으로 보는 화면으로 갑니다"
+            onClick={() => goto('report', cycle.id)}
+          >
+            보고서
+          </button>
+          <button
+            className="btn"
+            type="button"
+            title="이 회차를 결과·담당자·유형으로 세어 봅니다"
+            onClick={() => setInsight('metrics')}
+          >
+            메트릭스
+          </button>
         </div>
       </div>
 
@@ -1157,6 +1185,16 @@ function CycleDetail({
           {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
         </b>
       </div>
+
+      {insight && (
+        <CycleInsight
+          mode={insight}
+          cycleId={cycle.id}
+          title={[cycle.model, cycle.version].filter(Boolean).join(' · ') || cycle.id}
+          items={items}
+          onClose={() => setInsight(null)}
+        />
+      )}
 
       {editing && (
         <CycleItemEdit

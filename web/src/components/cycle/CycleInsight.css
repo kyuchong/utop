@@ -1,0 +1,62 @@
+/* 회차 한 건을 놓고 보는 창 — AI 요약 · 메트릭스 */
+.modal.cin { max-width: 720px; max-height: 84vh; }
+.cin-body { gap: var(--sp-4); }
+
+.cin-text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.65;
+  color: var(--c-text);
+}
+
+/* 한눈에 보는 숫자 넷 */
+.cin-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.cin-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-alt);
+}
+.cin-card b { font-size: var(--fs-lg); }
+.cin-card b.no { color: var(--c-fail); }
+.cin-lb { font-size: var(--fs-xs); color: var(--c-text-faint); }
+
+.cin-sec { display: flex; flex-direction: column; gap: 5px; }
+.cin-h {
+  font-size: var(--fs-label);
+  font-weight: 700;
+  color: var(--c-text-faint);
+}
+.cin-row {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-sm);
+}
+.cin-nm {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--c-text-muted);
+}
+.cin-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--c-surface-alt);
+  overflow: hidden;
+}
+.cin-fill { height: 100%; background: var(--c-border-strong); }
+.cin-fill.v-pass { background: var(--c-pass); }
+.cin-fill.v-fail { background: var(--c-fail); }
+.cin-fill.v-wip { background: var(--c-draft); }
+.cin-row b .no { color: var(--c-fail); font-weight: 700; }
