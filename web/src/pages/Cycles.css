@@ -1363,3 +1363,74 @@ table.tb td.k {
   flex: 1;
   min-height: 0;
 }
+
+/* ── ① 칸마다 제목 — 세 칸의 역할이 이름으로 먼저 읽히게 ─────── */
+.cy-cardh {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 0 8px;
+  min-width: 0;
+}
+.cy-cardh > b {
+  font-size: var(--fs-md);
+  color: var(--c-primary);
+  white-space: nowrap;
+}
+.cy-cardh > .muted {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 2열 제목은 카드 안쪽 여백에 맞춘다 */
+.cy-detail > .cy-cardh { padding: 10px 14px 6px; }
+
+/* ── ② 통계 카드 — 작은 글자 카운터는 눈에 안 들어온다 ────────── */
+.cy-stats {
+  flex: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: 8px;
+  margin: 10px 14px 0;
+}
+.cy-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 10px;
+  border: 1px solid var(--c-border);
+  border-top: 3px solid var(--c-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.cy-stat > b {
+  font-size: 22px;
+  line-height: 1.1;
+  font-weight: 700;
+}
+.cy-stat-lb { font-size: var(--fs-xs); color: var(--c-text-muted); }
+.cy-stat-pc { font-size: var(--fs-xs); color: var(--c-text-faint); }
+.cy-stat:hover { background: var(--c-surface-2); }
+/* 고른 것은 테두리로 — 색을 더 칠하면 숫자가 안 읽힌다 */
+.cy-stat.on { box-shadow: inset 0 0 0 1px var(--c-primary); }
+
+.cy-stat.total { border-top-color: var(--c-text); }
+.cy-stat.total > b { color: var(--c-text); }
+.cy-stat.pass { border-top-color: var(--c-pass); }
+.cy-stat.pass > b { color: var(--c-pass); }
+.cy-stat.fail { border-top-color: var(--c-fail); }
+.cy-stat.fail > b { color: var(--c-fail); }
+.cy-stat.wip { border-top-color: var(--c-draft); }
+.cy-stat.wip > b { color: var(--c-draft); }
+.cy-stat.blocked { border-top-color: #8b5cf6; }
+.cy-stat.blocked > b { color: #8b5cf6; }
+.cy-stat.na { border-top-color: #f59e0b; }
+.cy-stat.na > b { color: #b45309; }
+.cy-stat.none { border-top-color: var(--c-border-strong); }
+.cy-stat.none > b { color: var(--c-text-faint); }

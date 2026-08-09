@@ -1021,6 +1021,15 @@ function CycleDetail({
 
   return (
     <div className="cy-detail">
+      {/* ① 이 칸이 무엇을 하는 곳인지 — 제목이 있어야 세 칸의 역할이 먼저
+          읽힌다. 요구사항·TC 화면의 머리줄과 같은 뜻이다. */}
+      <div className="cy-cardh">
+        <b>Cycle Execution</b>
+        <span className="muted small">
+          {[cycle.model, cycle.version].filter(Boolean).join(' · ')}
+        </span>
+      </div>
+
       {/* ② 공통 액션 바 — 요구사항·시험항목과 **같은 차례**.
           Edit·Bulk Edit | Add·Delete·Export. 세 화면을 오가는 사람이 매번
           어디에 무엇이 있는지 다시 찾지 않게. */}
@@ -1103,35 +1112,6 @@ function CycleDetail({
             메트릭스
           </button>
           <span className="rq-adiv" aria-hidden="true" />
-          {/* 지금 상태 — 결과 카운터와 진행률. 줄을 따로 두었더니 표가 그만큼
-              좁아져서 이 줄에 함께 놓는다. 누르면 그 결과만 걸러 본다. */}
-        {/* 결과 카운터 — 누르면 그 결과만 걸러 본다. */}
-        <div className="cy-legend">
-          <button
-            type="button"
-            className={`cy-leg${only === null ? ' on' : ''}`}
-            title="전부 보기"
-            onClick={() => setOnly(null)}
-          >
-            <b>{items.length}</b> 전체
-          </button>
-          {RESULTS.map((r) => (
-            <button
-              key={r.v}
-              type="button"
-              className={`cy-leg ${r.cls}${only === r.v ? ' on' : ''}`}
-              title={only === r.v ? '전부 보기' : `${r.label} 만 보기`}
-              onClick={() => setOnly(only === r.v ? null : r.v)}
-            >
-              <b>{counts[r.v] ?? 0}</b> {r.label}
-            </button>
-          ))}
-        </div>
-        {/* 미실행 바로 오른쪽에 구분자 하나 두고 진행률 */}
-        <span className="cy-div" aria-hidden="true" />
-        <b className="cy-pct">
-          {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
-        </b>
           <span className="rq-adiv" aria-hidden="true" />
           {/* 실행 — 사이클에만 있는 일이라 맨 오른쪽에 따로 세운다 */}
           {st.on ? (
@@ -1271,6 +1251,41 @@ function CycleDetail({
       )}
 
       {/* 한 줄로 지금 어디까지 왔나. 숫자만 늘어놓으면 눈으로 못 센다 */}
+      {/* ② 통계 — 작은 글자 카운터는 눈에 안 들어온다. 큰 칸으로 세워
+          「지금 어디까지 왔나」 를 먼저 읽게. 누르면 그 결과만 걸러 본다. */}
+      <div className="cy-stats">
+        <button
+          type="button"
+          className={`cy-stat total${only === null ? ' on' : ''}`}
+          title="전부 보기"
+          onClick={() => setOnly(null)}
+        >
+          <b>{items.length}</b>
+          <span className="cy-stat-lb">총항목</span>
+          <span className="cy-stat-pc">
+            {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
+          </span>
+        </button>
+        {RESULTS.map((r) => {
+          const n = counts[r.v] ?? 0
+          return (
+            <button
+              key={r.v}
+              type="button"
+              className={`cy-stat ${r.cls}${only === r.v ? ' on' : ''}`}
+              title={only === r.v ? '전부 보기' : `${r.label} 만 보기`}
+              onClick={() => setOnly(only === r.v ? null : r.v)}
+            >
+              <b>{n}</b>
+              <span className="cy-stat-lb">{r.label}</span>
+              <span className="cy-stat-pc">
+                {items.length ? Math.round((n / items.length) * 100) : 0}%
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
       <div className="cy-bar" aria-hidden="true">
         {RESULTS.map((r) => (
           <span key={r.v} className={r.cls} style={{ flexGrow: counts[r.v] ?? 0 }} />
@@ -1478,6 +1493,10 @@ function CycleDetail({
 
       {view === 'detail' && (
       <div className="cy-side" style={{ flexBasis: sideW }}>
+        <div className="cy-cardh">
+          <b>Test Procedure Details</b>
+          <span className="muted small">{cur ? cur.name || cur.tcid : '항목을 고르세요'}</span>
+        </div>
         {cur ? (
           <StepDetail
             // 항목이 바뀌면 새로 만든다. 안 그러면 처음 계산한 「펼칠 스텝」
