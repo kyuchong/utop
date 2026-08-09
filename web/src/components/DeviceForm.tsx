@@ -133,6 +133,76 @@ function DL({ id, items }: { id: string; items?: string[] }) {
   )
 }
 
+/**
+ * 고르거나 직접 치거나 — 드롭다운 하나로.
+ *
+ * datalist 는 브라우저마다(특히 Edge) 목록이 잘 안 떠서 「그냥 입력칸」
+ * 처럼 보였다. 제품군처럼 확실한 드롭다운으로 바꾸되, 목록에 없는 값도
+ * 넣을 수 있어야 하니 「＋ 직접 입력」 을 끝에 둔다. 그걸 고르면 칸이
+ * 입력으로 바뀌고, 「목록」 으로 되돌아간다.
+ */
+function Combo({
+  value,
+  items,
+  placeholder,
+  onChange,
+  autoFocus,
+}: {
+  value: string
+  items?: string[]
+  placeholder?: string
+  onChange: (v: string) => void
+  autoFocus?: boolean
+}) {
+  const list = items ?? []
+  // 값이 목록에 없으면(옛 자료·새로 친 것) 처음부터 입력 모드
+  const [typing, setTyping] = useState(() => !!value && !list.includes(value))
+  if (typing || list.length === 0) {
+    return (
+      <div className="combo">
+        <input
+          autoFocus={autoFocus}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        {list.length > 0 && (
+          <button
+            type="button"
+            className="combo-back"
+            title="목록에서 고르기"
+            onClick={() => {
+              onChange('')
+              setTyping(false)
+            }}
+          >
+            목록
+          </button>
+        )}
+      </div>
+    )
+  }
+  return (
+    <select
+      value={value}
+      onChange={(e) => {
+        if (e.target.value === '__type__') {
+          onChange('')
+          setTyping(true)
+        } else onChange(e.target.value)
+      }}
+    >
+      <option value="">(선택)</option>
+      {list.map((v) => (
+        <option key={v} value={v}>
+          {v}
+        </option>
+      ))}
+      <option value="__type__">＋ 직접 입력</option>
+    </select>
+  )
+}
+
 export default function DeviceForm({ editing, onClose }: Props) {
   const qc = useQueryClient()
   const isNew = editing === null
@@ -350,51 +420,44 @@ export default function DeviceForm({ editing, onClose }: Props) {
         <div className="modal-body">
           {error && <div className="form-error">{error}</div>}
 
-          <div className="frow">
+          {/* LAB · 제조사 · 제품군 · 모델명 을 한 줄에. 모두 「고르거나
+              직접 입력」 하는 드롭다운(Combo) 이라 생김새가 같다. */}
+          <div className="frow frow-4">
             <label className="fld">
               <span>LAB</span>
-              <input
+              <Combo
                 autoFocus
-                list="lab-list"
                 value={f.lab ?? ''}
+                items={rolesQ.data?.labs}
                 placeholder="Lab#1"
-                onChange={(e) => set('lab', e.target.value)}
+                onChange={(v) => set('lab', v)}
               />
-              {/* 이미 쓰던 랩 이름을 골라 쓰게 한다. 손으로 치면
-                  'Lab#1' 과 'lab1' 이 갈려 같은 랩이 둘로 보인다. */}
-              <DL id="lab-list" items={rolesQ.data?.labs} />
-            </label>
-            <label className="fld">
-              <span>제품군</span>
-              <select value={f.role ?? ''} onChange={(e) => set('role', e.target.value)}>
-                <option value="">(선택)</option>
-                {(rolesQ.data?.roles ?? []).map((r) => (
-                  <option key={r}>{r}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="frow">
-            <label className="fld">
-              <span>모델명</span>
-              <input
-                list="model-list"
-                value={f.model ?? ''}
-                placeholder="E6100-48X"
-                onChange={(e) => pickModel(e.target.value)}
-              />
-              <DL id="model-list" items={rolesQ.data?.models} />
             </label>
             <label className="fld">
               <span>제조사</span>
-              <input
-                list="vendor-list"
+              <Combo
                 value={f.vendor ?? ''}
+                items={rolesQ.data?.vendors}
                 placeholder="유비쿼스"
-                onChange={(e) => set('vendor', e.target.value)}
+                onChange={(v) => set('vendor', v)}
               />
-              <DL id="vendor-list" items={rolesQ.data?.vendors} />
+            </label>
+            <label className="fld">
+              <span>제품군</span>
+              <Combo
+                value={f.role ?? ''}
+                items={rolesQ.data?.roles}
+                onChange={(v) => set('role', v)}
+              />
+            </label>
+            <label className="fld">
+              <span>모델명</span>
+              <Combo
+                value={f.model ?? ''}
+                items={rolesQ.data?.models}
+                placeholder="E6100-48X"
+                onChange={(v) => pickModel(v)}
+              />
             </label>
           </div>
 
@@ -591,7 +654,10 @@ export default function DeviceForm({ editing, onClose }: Props) {
             </div>
           </div>
 
-          {/* ── 인터페이스 ── */}
+          {/* ── 인터페이스 ── 계측기는 안 보인다.
+              계측기 포트는 섀시에서 읽는다(포트 현황). 여기 손으로 적는
+              것은 스위치 포트(gi1/0/1…)라 계측기에는 쓸모가 없다. */}
+          {!isMeterRole && (
           <div className="fld wide">
             <div className="fld-head">
               <span>인터페이스 {ifs.length > 0 && `(${ifs.length})`}</span>
@@ -654,6 +720,7 @@ export default function DeviceForm({ editing, onClose }: Props) {
               </div>
             )}
           </div>
+          )}
         </div>
 
         <div className="modal-foot">

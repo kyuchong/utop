@@ -173,3 +173,11 @@
     84px                   /* 포트 현황 버튼 */
     minmax(210px, 1.4fr);  /* 사용 현황 */
 }
+
+/* 장비 편집 — LAB·제조사·제품군·모델명 한 줄 4칸 */
+.frow-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+@media (max-width: 720px) { .frow-4 { grid-template-columns: repeat(2, 1fr); } }
+/* 고르거나 직접 입력 — 드롭다운/입력 + 「목록」 되돌리기 */
+.combo { display: flex; gap: 4px; }
+.combo > input { flex: 1; min-width: 0; }
+.combo-back { flex: none; padding: 0 8px; font-size: var(--fs-xs); white-space: nowrap; }
