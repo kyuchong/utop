@@ -78,6 +78,10 @@ interface Props {
   runningAt: number
   /** 스텝 하나의 결과를 손으로 정한다 (스텝 번호, 값) */
   onSetResult?: (at: number, result: string) => void
+  /** 수동 스텝 ACTUAL DATA — 사진 올리기(파일) · URL 지정 · 글 */
+  onSetImg?: (at: number, file: File) => void
+  onSetImgUrl?: (at: number, url: string) => void
+  onSetTxt?: (at: number, txt: string) => void
 }
 
 /**
@@ -87,7 +91,7 @@ interface Props {
  * **무엇을 하려 했나 · 무엇을 보냈나 · 무엇이 나와야 하나 · 무엇이
  * 나왔나.** 이 넷이 나란히 있어야 왜 그렇게 판정됐는지가 읽힌다.
  */
-export default function StepCards({ item, runningAt, onSetResult }: Props) {
+export default function StepCards({ item, runningAt, onSetResult, onSetImg, onSetImgUrl, onSetTxt }: Props) {
   const all = (item.steps ?? []) as CycleStep[]
   const [only, setOnly] = useState(false)
   /**
@@ -265,8 +269,9 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
 
             {(s.desc || s.step) && (
               <div className="sc-sec">
-                {/* Manual 은 「무엇을 하나」 가 곧 절차다 */}
-                <i>{s.kind === 'manual' ? '시험 절차' : '시험 목적'}</i>
+                {/* Manual 은 「무엇을 하나」 가 곧 절차다. 다른 라벨이 다
+                    영문이라 통일한다. */}
+                <i>{s.kind === 'manual' ? 'Test Step' : '시험 목적'}</i>
                 <div className="sc-txt">{s.desc || s.step}</div>
               </div>
             )}
@@ -346,9 +351,42 @@ export default function StepCards({ item, runningAt, onSetResult }: Props) {
                   className={`sc-out${running ? ' live' : ''}`}
                   dangerouslySetInnerHTML={{ __html: mark(out, toks, !bad) }}
                 />
-              ) : (
+              ) : s.kind !== 'manual' ? (
                 <div className="muted small">
                   {running ? '응답을 기다리는 중…' : '받은 출력이 없습니다.'}
+                </div>
+              ) : null}
+              {/* 수동 시험은 자동 출력이 없다. 시험자가 결과 화면을 캡쳐해
+                  붙인다 — 「해봤더니 이랬다」 의 증거다. */}
+              {s.kind === 'manual' && onSetImg && (
+                <div className="sc-actual">
+                  {s.actual_txt !== undefined || onSetImg ? (
+                    <textarea
+                      className="sc-actual-txt"
+                      rows={2}
+                      value={s.actual_txt ?? ''}
+                      placeholder="본 것을 적거나, 화면을 Ctrl+V 로 붙여넣기"
+                      onChange={(e) => onSetTxt?.(i, e.target.value)}
+                      onPaste={(e) => {
+                        const f = [...(e.clipboardData?.items ?? [])]
+                          .find((x) => x.type.startsWith('image/'))?.getAsFile()
+                        if (f) {
+                          e.preventDefault()
+                          void onSetImg(i, f)
+                        }
+                      }}
+                    />
+                  ) : null}
+                  {s.actual_img && <img className="sc-img" src={s.actual_img} alt="" />}
+                  {s.actual_img && (
+                    <button
+                      type="button"
+                      className="sc-img-x"
+                      onClick={() => onSetImgUrl?.(i, '')}
+                    >
+                      사진 지우기
+                    </button>
+                  )}
                 </div>
               )}
             </div>

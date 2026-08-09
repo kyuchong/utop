@@ -274,11 +274,11 @@ export default function TcManual({ data, onChange }: Props) {
               if (!s) return null
               return (
                 <div className="mn-row" key={i}>
-                  {/* 원본 번호를 적는다. 스텝 탭에서 몇 번째 줄인지 찾아갈 수
-                      있어야 한다 — 여기 번호만 적으면 서로 다른 번호가 둘이 된다 */}
+                  {/* 번호 하나만. 큰 번호 옆에 작은 #N 을 또 붙이니 같은
+                      번호가 둘로 보여 지저분했다. 전체에서 몇 번째인지는
+                      마우스를 올리면 나온다. */}
                   <span className="mn-n" title={`전체 ${i + 1}번째 스텝`}>
                     {n + 1}
-                    <small>#{i + 1}</small>
                   </span>
 
                   {cell(i, s, 'step', null, '예) 장비 전원을 내렸다가 다시 올린다')}

@@ -36,6 +36,7 @@
   padding: 12px 14px;
 }
 .cy-head {
+  flex-wrap: wrap;
   display: flex;
   align-items: baseline;
   gap: 10px;
@@ -483,13 +484,7 @@ select.cy-v.na { color: #999; }
   color: var(--c-text-muted);
 }
 .sc-running { color: var(--c-primary); font-weight: 600; }
-.sc-v { font-weight: 700; }
-.sc-v.pass { color: var(--c-pass); }
-.sc-v.fail { color: var(--c-fail); }
-.sc-v.wip { color: #f5b731; }
-.sc-v.blocked { color: #e8820c; }
-.sc-v.na { color: #999; }
-select.sc-v { border: 1px solid var(--c-border); border-radius: var(--r-chip); background: transparent; font: inherit; font-weight: 700; cursor: pointer; }
+/* sc-v 배지는 아래에 새로 정의 (글자색→바탕색) */
 .sc-sec { margin-top: 7px; }
 .sc-sec > i {
   display: block;
@@ -1074,3 +1069,52 @@ table.tb td.k {
 
 /* 진행률 — 카운터 줄 오른쪽 끝. 흐릿한 회색이던 것을 또렷하게 */
 .cy-pct { color: var(--c-primary); font-size: var(--fs-sm); }
+
+/* 제목 줄로 올라온 범례 — 버전명·N건 오른쪽. 칩은 작게 */
+.cy-head .cy-legend { margin: 0; padding: 0; border: 0; background: transparent; }
+
+/* 결과 배지 — 글자색만이던 것을 바탕색 배지로. 한눈에 갈린다.
+   select 이지만 배경·색을 줘서 배지처럼 보인다 */
+.cy-v {
+  border: 1px solid transparent;
+  border-radius: var(--r-chip);
+  padding: 1px 6px;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+}
+.cy-v.pass    { background: #dcfce7; color: #15803d; border-color: #86efac; }
+.cy-v.fail    { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+.cy-v.wip     { background: #fef9c3; color: #a16207; border-color: #fde047; }
+.cy-v.blocked { background: #e5e7eb; color: #374151; border-color: #d1d5db; }
+.cy-v.na      { background: #fae8ff; color: #86198f; border-color: #f0abfc; }
+.cy-v.none    { background: var(--c-surface-2); color: var(--c-text-muted); border-color: var(--c-border); }
+
+/* 스텝 결과 배지 — cy-v 와 같은 규칙 */
+.sc-v {
+  border: 1px solid transparent;
+  border-radius: var(--r-chip);
+  padding: 1px 7px;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+}
+.sc-v.pass    { background: #dcfce7; color: #15803d; border-color: #86efac; }
+.sc-v.fail    { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
+.sc-v.wip     { background: #fef9c3; color: #a16207; border-color: #fde047; }
+.sc-v.blocked { background: #e5e7eb; color: #374151; border-color: #d1d5db; }
+.sc-v.na      { background: #fae8ff; color: #86198f; border-color: #f0abfc; }
+.sc-v.none    { background: var(--c-surface-2); color: var(--c-text-muted); border-color: var(--c-border); }
+
+/* 수동 ACTUAL DATA — 결과 글·사진 붙여넣기 */
+.sc-actual { display: flex; flex-direction: column; gap: 6px; }
+.sc-actual-txt { width: 100%; font: inherit; padding: 6px 8px; border: 1px solid var(--c-border); border-radius: var(--r-box); }
+.sc-img-x {
+  align-self: flex-start;
+  border: 1px dashed var(--c-border);
+  background: transparent;
+  color: var(--c-text-muted);
+  border-radius: var(--r-chip);
+  padding: 2px 8px;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.sc-img-x:hover { border-color: var(--c-fail); color: var(--c-fail); }

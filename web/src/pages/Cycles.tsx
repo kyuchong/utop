@@ -86,6 +86,9 @@ export interface CycleStep {
   /** 실행기가 적는 판정. 옛 자료의 result 와 다르다 */
   status?: string | null
   repeatResult?: string | null
+  /** 수동 시험 ACTUAL DATA — 시험자가 붙이는 결과 화면·글 */
+  actual_img?: string | null
+  actual_txt?: string | null
   manual?: boolean
 }
 
@@ -129,7 +132,10 @@ const isFail = (r: string) => r === 'Fail' || r === '불합격'
 const isPass = (r: string) => r === 'Pass' || r === '합격'
 
 export function itemVerdict(it: CycleItemLite): Verdict {
-  // 사람이 손으로 정한 값이 있으면 그것이 이긴다
+  // 사람이 손으로 정한 값이 이긴다. '미실행' 은 표식이다 — 빈 값('')은
+  // 「덮어쓴 것 없음」 이라 스텝에서 다시 계산되므로, 「강제 미실행」 을
+  // 이 문자열로 구분해서 저장한다(표시할 때는 다시 '' 로 돌린다).
+  if (it.result === '미실행') return ''
   if (it.result) return it.result as Verdict
   const steps = it.steps ?? []
   // 수동 스텝은 자동 판정에서 뺀다
@@ -679,16 +685,31 @@ function CycleDetail({
    * 자동 판정보다 먼저 본다 — 사람이 적은 것이 이긴다.
    */
   const setStepResult = (tcid: string, at: number, result: string) =>
+    setStepField(tcid, at, { result })
+
+  /** 스텝 하나의 아무 칸이나 저장한다 (결과·수동 ACTUAL 등) */
+  const setStepField = (tcid: string, at: number, patch: Partial<CycleStep>) =>
     saveItems((cur) =>
       cur.map((x) =>
         x.tcid === tcid
-          ? {
-              ...x,
-              steps: (x.steps ?? []).map((sx, j) => (j === at ? { ...sx, result } : sx)),
-            }
+          ? { ...x, steps: (x.steps ?? []).map((sx, j) => (j === at ? { ...sx, ...patch } : sx)) }
           : x,
       ),
     )
+
+  /** 수동 ACTUAL DATA 에 붙인 사진을 올리고 URL 을 저장한다 */
+  const setStepImg = async (tcid: string, at: number, file: File) => {
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const r = await apiFetch('/api/upload/image', { method: 'POST', body: fd })
+      const b = (await r.json().catch(() => ({}))) as { url?: string; name?: string; detail?: string }
+      if (!r.ok) throw new Error(b.detail || '사진을 올리지 못했습니다')
+      await setStepField(tcid, at, { actual_img: b.url || b.name })
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+    }
+  }
 
   const saveItems = async (edit: (cur: CycleItemLite[]) => CycleItemLite[]) => {
     setSaving(true)
@@ -748,7 +769,33 @@ function CycleDetail({
         <span className="muted small">
           {items.length}건{cycle.assignee ? ` · 담당 ${cycle.assignee}` : ''}
         </span>
+        {/* 결과 카운터 — 버전명·N건 바로 오른쪽. 누르면 그 결과만 걸러 본다.
+            진행률은 오른쪽 끝(실행 단추 옆)에 따로 둔다. */}
+        <div className="cy-legend">
+          <button
+            type="button"
+            className={`cy-leg${only === null ? ' on' : ''}`}
+            title="전부 보기"
+            onClick={() => setOnly(null)}
+          >
+            <b>{items.length}</b> 전체
+          </button>
+          {RESULTS.map((r) => (
+            <button
+              key={r.v}
+              type="button"
+              className={`cy-leg ${r.cls}${only === r.v ? ' on' : ''}`}
+              title={only === r.v ? '전부 보기' : `${r.label} 만 보기`}
+              onClick={() => setOnly(only === r.v ? null : r.v)}
+            >
+              <b>{counts[r.v] ?? 0}</b> {r.label}
+            </button>
+          ))}
+        </div>
         <span className="sp" />
+        <b className="cy-pct">
+          {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
+        </b>
         {/* 결과서는 보고서 화면을 거치지 않는다 — 「버전명 기준으로 사이클이
             끝나면」 이라는 말 그대로 이 회차에서 바로 뽑는다 */}
         <button className="btn small" type="button" onClick={() => setAdding(true)}>
@@ -875,37 +922,6 @@ function CycleDetail({
         </div>
       )}
 
-      {/* 카운터·진행률을 막대 **위** 한 줄로. 전에는 막대 아래에 흩어져
-          있어 「지금 몇 % 인가」 를 위아래로 훑어야 했다. */}
-      <div className="cy-legend">
-        {/* 「전체」 가 없었다. 하나를 누르면 그것만 남는데, 되돌리려면 같은
-            것을 다시 눌러야 한다는 걸 알 수가 없었다. */}
-        <button
-          type="button"
-          className={`cy-leg${only === null ? ' on' : ''}`}
-          title="전부 보기"
-          onClick={() => setOnly(null)}
-        >
-          <b>{items.length}</b> 전체
-        </button>
-        {/* 0건인 것도 자리를 지킨다 — 사라졌다 나타나면 누르려던 자리가
-            매번 달라진다 */}
-        {RESULTS.map((r) => (
-          <button
-            key={r.v}
-            type="button"
-            className={`cy-leg ${r.cls}${only === r.v ? ' on' : ''}`}
-            title={only === r.v ? '전부 보기' : `${r.label} 만 보기`}
-            onClick={() => setOnly(only === r.v ? null : r.v)}
-          >
-            <b>{counts[r.v] ?? 0}</b> {r.label}
-          </button>
-        ))}
-        <span className="sp" />
-        <b className="cy-pct">
-          {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
-        </b>
-      </div>
       {/* 한 줄로 지금 어디까지 왔나. 숫자만 늘어놓으면 눈으로 못 센다 */}
       <div className="cy-bar" aria-hidden="true">
         {RESULTS.map((r) => (
@@ -928,7 +944,6 @@ function CycleDetail({
           const v = itemVerdict(it)
           const steps = it.steps ?? []
           const bad = steps.filter((s) => isFail(stepVerdict(s as TcStep))).length
-          const why = bad ? firstFail(steps as CycleStep[]) : null
           const at = items.indexOf(it)
           return (
             <div
@@ -973,16 +988,10 @@ function CycleDetail({
               </button>
               <span className="cy-tc" title={it.tcid}>
                 {it.name || it.tcid}
+                {/* 부적합 근거는 오른쪽 스텝 카드에 있다 — 목록엔 단계 수만 */}
                 {steps.length > 0 && (
                   <i className="cy-steps">
                     {bad ? `${steps.length}단계 중 ${bad} 부적합` : `${steps.length}단계`}
-                    {/* 왜 깨졌나 — 여기 없으면 항목을 열고 스텝을 하나씩
-                        눌러 들어가야 안다. 64건 중 다섯이 깨지면 다섯 번. */}
-                    {why && (
-                      <b className="cy-why" title={why.reason}>
-                        #{why.at + 1} {why.reason}
-                      </b>
-                    )}
                   </i>
                 )}
               </span>
@@ -1005,7 +1014,11 @@ function CycleDetail({
                 value={v}
                 title="결과를 손으로 정합니다"
                 onClick={(e) => e.stopPropagation()}
-                onChange={(e) => void setResult(it.tcid, e.target.value)}
+                onChange={(e) =>
+                  // 미실행('')을 고르면 「강제 미실행」 표식으로 저장한다.
+                  // 빈 값으로 두면 스텝에서 다시 계산돼 안 바뀐 것처럼 보인다.
+                  void setResult(it.tcid, e.target.value === '' ? '미실행' : e.target.value)
+                }
               >
                 {RESULTS.map((r) => (
                   <option key={r.v} value={r.v}>
@@ -1059,6 +1072,9 @@ function CycleDetail({
             item={liveNow ? { ...cur, steps: st.liveSteps } : cur}
             runningAt={liveNow ? st.stepAt : -1}
             onSetStep={(at, v) => void setStepResult(cur.tcid ?? '', at, v)}
+            onSetImg={(at, file) => void setStepImg(cur.tcid ?? '', at, file)}
+            onSetImgUrl={(at, url) => void setStepField(cur.tcid ?? '', at, { actual_img: url })}
+            onSetTxt={(at, txt) => void setStepField(cur.tcid ?? '', at, { actual_txt: txt })}
             onClose={() => setOpenItem(-1)}
           />
         ) : (
@@ -1288,6 +1304,9 @@ function StepDetail({
   item,
   runningAt,
   onSetStep,
+  onSetImg,
+  onSetImgUrl,
+  onSetTxt,
   onClose,
 }: {
   item: CycleItemLite
@@ -1295,6 +1314,9 @@ function StepDetail({
   runningAt: number
   /** 스텝 하나의 결과를 손으로 정한다 */
   onSetStep?: (at: number, result: string) => void
+  onSetImg?: (at: number, file: File) => void
+  onSetImgUrl?: (at: number, url: string) => void
+  onSetTxt?: (at: number, txt: string) => void
   onClose: () => void
 }) {
   const steps = item.steps ?? []
@@ -1318,7 +1340,14 @@ function StepDetail({
 
       {/* 자동 판정이 늘 맞지는 않는다. 스텝마다 손으로 고칠 수 있어야
           결과서가 사실이 된다 */}
-      <StepCards item={item} runningAt={runningAt} onSetResult={onSetStep} />
+      <StepCards
+        item={item}
+        runningAt={runningAt}
+        onSetResult={onSetStep}
+        onSetImg={onSetImg}
+        onSetImgUrl={onSetImgUrl}
+        onSetTxt={onSetTxt}
+      />
     </div>
   )
 }
