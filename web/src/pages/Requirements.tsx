@@ -97,6 +97,9 @@ export default function Requirements() {
   // 패널 폭은 사람마다 선호가 다르다. 드래그로 맞추고 브라우저에 기억시킨다.
   const splitRef = useRef<HTMLDivElement>(null)
   const [catW, setCatW] = useResizableWidth('utop.req.catW3', 230, 150, 460)
+  /** Detail 가운데(형제 요구사항) 폭 — 제목이 길어 좁으면 다 못 읽는다 */
+  const midRef = useRef<HTMLElement>(null)
+  const [midW, setMidW] = useResizableWidth('utop.req.midW', 320, 180, 620)
 
   /**
    * 폴더 트리를 폈나. 사이클·TC 화면과 같은 접기다.
@@ -656,7 +659,8 @@ export default function Requirements() {
             어느 하나를 읽다가 옆 것으로 넘어가는 일이 잦다. 이 목록이
             없으면 그때마다 List 로 돌아갔다 다시 들어와야 한다. */}
         {view === 'detail' && selectedReq && midReqs.length > 1 && (
-          <section className="panel rq-mid">
+          <>
+          <section className="panel rq-mid" ref={midRef} style={{ flexBasis: midW }}>
             <div className="rq-mid-h">
               {folderMode ? folderName : '요구사항'} · {midReqs.length}
             </div>
@@ -681,6 +685,13 @@ export default function Requirements() {
               })}
             </div>
           </section>
+          {/* 가운데 목록 ↔ 상세. 제목이 길어 좁으면 다 못 읽는다 */}
+          <Resizer
+            label="요구사항 목록 폭 조절"
+            onResize={setMidW}
+            getOrigin={() => midRef.current?.getBoundingClientRect().left ?? 0}
+          />
+          </>
         )}
 
         {/* ── 오른쪽: 탭에 따라 내용이 바뀐다 ─────────────── */}
