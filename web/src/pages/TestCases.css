@@ -2511,3 +2511,36 @@ table.tb tr.r-bad td:first-child {
   min-width: 14px;
 }
 .tc-mapn.has { color: var(--c-pass, #1f7a45); font-weight: 700; }
+
+/* ── List 카드 — 요구사항 화면과 같은 모양 ────────────────────
+   카드 안에는 표만. Select All 은 카드 밖 위에 둔다. */
+.tc-listview .rq-list { padding: 0 14px 12px; gap: 0; }
+.tc-listview .tc-listhead { padding: 0 0 0 0; }
+.tc-listview .rq-selbar {
+  flex: none;
+  border-bottom: 0;
+  padding: 8px 2px;
+}
+.tc-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--c-surface);
+}
+.tc-card > .rq-table {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+}
+.tc-card > .bottom {
+  flex: none;
+  margin: 0;
+  padding: 6px 12px;
+  border-top: 1px solid var(--c-border-soft);
+}

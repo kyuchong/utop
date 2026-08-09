@@ -1610,6 +1610,10 @@ export default function TestCases({ me }: PageProps) {
                 <span className="muted small">Selected : {listPick.size}</span>
               </div>
 
+              {/* 카드는 자료(표)가 담기는 그릇이다. 위 「Select All」 은 그
+                  자료를 두고 하는 말이라 카드 밖에 둔다 — 안에 있으면 표의
+                  첫 줄처럼 보이고 카드 경계가 흐려진다. */}
+              <div className="tc-card">
               <div className="rq-table">
                 <div className="rq-tr tc-tr rq-th">
                   <div />
@@ -1705,6 +1709,7 @@ export default function TestCases({ me }: PageProps) {
               </div>
               <div className="bottom">
                 <span>시험 {listRows.length}건</span>
+              </div>
               </div>
             </div>
           </section>

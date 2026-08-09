@@ -1343,8 +1343,11 @@ table.tb td.k {
   flex: none;
   margin: 10px 14px 0;
 }
+/* 칸 사이 간격은 요구사항·시험항목과 같아야 한다 — 그쪽은 손잡이(8px)
+   하나뿐인데 여기만 gap 10px + 좌우 여백 14px 이라 넓어 보였다. */
 .cy-detail > .cy-cols {
-  padding: 0 14px 12px;
+  padding: 0;
+  gap: 0;
 }
 
 /* 목록 칸 — 「몇 개 골랐나」 는 카드 밖 위에, 표는 카드 안에 */
