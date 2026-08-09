@@ -155,8 +155,11 @@ function Combo({
   autoFocus?: boolean
 }) {
   const list = items ?? []
-  // 값이 목록에 없으면(옛 자료·새로 친 것) 처음부터 입력 모드
-  const [typing, setTyping] = useState(() => !!value && !list.includes(value))
+  // 「직접 입력」 을 눌러 입력 모드로 들어갔나. 값이 목록에 없다고
+  // 자동으로 입력 모드가 되지는 않는다 — 목록이 늦게 로딩되는 사이에
+  // 저장된 값이 「없는 값」 으로 오해돼 사라지는 일이 있었다.
+  const [typing, setTyping] = useState(false)
+
   if (typing || list.length === 0) {
     return (
       <div className="combo">
@@ -171,10 +174,7 @@ function Combo({
             type="button"
             className="combo-back"
             title="목록에서 고르기"
-            onClick={() => {
-              onChange('')
-              setTyping(false)
-            }}
+            onClick={() => setTyping(false)}
           >
             목록
           </button>
@@ -182,17 +182,24 @@ function Combo({
       </div>
     )
   }
+  // 저장된 값이 목록에 없으면(옛 자료·다른 곳에서 친 것) 그 값을 옵션으로
+  // 넣어 지킨다. 안 그러면 select 가 (선택) 으로 튕겨 값이 사라진다.
+  const extra = value && !list.includes(value) ? [value] : []
   return (
     <select
       value={value}
       onChange={(e) => {
         if (e.target.value === '__type__') {
-          onChange('')
           setTyping(true)
         } else onChange(e.target.value)
       }}
     >
       <option value="">(선택)</option>
+      {extra.map((v) => (
+        <option key={v} value={v}>
+          {v}
+        </option>
+      ))}
       {list.map((v) => (
         <option key={v} value={v}>
           {v}
@@ -229,12 +236,17 @@ export default function DeviceForm({ editing, onClose }: Props) {
     setF({
       id: editing?.id ?? '',
       ip: editing?.ip ?? '',
+      // LAB 이 빠져 있어서 편집을 열면 늘 비어 보였다 — 저장은 돼 있는데
+      // 폼이 안 받아서, 저장을 누르면 LAB 이 지워졌다.
+      lab: editing?.lab ?? '',
+      name: editing?.name ?? '',
       model: editing?.model ?? '',
       vendor: editing?.vendor ?? '',
       device_group: editing?.device_group ?? '',
       role: editing?.role ?? '',
       username: editing?.username ?? '',
       password: editing?.password ?? '',
+      enable_password: editing?.enable_password ?? '',
     })
     setIfs(editing?.interfaces ?? [])
     const m: Record<string, DeviceAccess> = {}
@@ -319,7 +331,16 @@ export default function DeviceForm({ editing, onClose }: Props) {
     setBulk('')
   }
 
-  const body = () => ({ ...f, interfaces: ifs, access: Object.values(acc) })
+  const body = () => {
+    // 역할에 맞는 접속방식만 저장한다. 계측기에 SSH 가 켜진 채로 남으면
+    // 다음에 열 때 또 SSH 가 떠서 혼란을 준다.
+    const meter = (f.role ?? '') === '계측기'
+    const kept = Object.values(acc).filter((a) => {
+      const proto = PROTOS.find((p) => p.v === a.protocol)
+      return proto ? !!proto.meter === meter : true
+    })
+    return { ...f, interfaces: ifs, access: kept }
+  }
 
   const saveM = useMutation({
     mutationFn: async () => {
@@ -507,11 +528,12 @@ export default function DeviceForm({ editing, onClose }: Props) {
             </div>
 
             <div className="acc-list">
-              {/* 계측기에는 Tcl·REST 만, 스위치에는 Telnet·SSH·Console·SNMP 만.
-                  안 쓰는 방식이 늘 보이면 무엇을 골라야 하는지 흐려진다.
-                  이미 켜 둔 것은 역할이 달라도 그대로 보여 준다 — 안 그러면
-                  고칠 방법 없이 남는다. */}
-              {PROTOS.filter((p) => !!p.meter === isMeterRole || !!acc[p.v]).map((p) => {
+              {/* 계측기에는 계측기용(N2X·STC)만, 스위치에는 스위치용
+                  (Telnet·SSH·Console·SNMP)만. 전에는 「켜져 있으면 역할이
+                  달라도 보여 준다」 였는데, 계측기에 SSH 가 잘못 켜져 저장된
+                  것이 계측기 편집에 SSH 로 떠서 헷갈렸다. 역할에 맞는 것만
+                  보이고, 안 맞게 켜진 것은 저장할 때 걸러낸다. */}
+              {PROTOS.filter((p) => !!p.meter === isMeterRole).map((p) => {
                 const on = !!acc[p.v]
                 const a = acc[p.v] ?? ({ protocol: p.v } as DeviceAccess)
                 return (
