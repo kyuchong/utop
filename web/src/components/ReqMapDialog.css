@@ -207,3 +207,17 @@
 
 /* 요구사항 제목 앞 아이콘 — 목록 화면과 같은 것 */
 .rmd-icon { flex: none; display: inline-flex; align-items: center; line-height: 1; }
+
+/* 시험 하나에 요구사항 붙이기 — 한 칸짜리 연결이라 목록 하나면 된다 */
+.modal.tmr { max-width: 820px; height: 74vh; }
+.tmr-body { flex: 1; min-height: 0; overflow: auto; }
+.tmr-path {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.modal.tmr .rmd-tc input { flex: none; }

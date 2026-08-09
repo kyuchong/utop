@@ -9,6 +9,7 @@ import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
 import TcBulkForm from '@/components/TcBulkForm'
 import TcBulkEdit from '@/components/tc/TcBulkEdit'
+import TcMapReqDialog from '@/components/tc/TcMapReqDialog'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
@@ -211,6 +212,8 @@ export default function TestCases({ me }: PageProps) {
   const [selReq, setSelReq] = useState<string | null>(null)
   /** List 표에서 체크한 TC */
   const [listPick, setListPick] = useState<Set<string>>(new Set())
+  /** REQ Map — 이 시험에 요구사항을 붙이는 창 */
+  const [mapTc, setMapTc] = useState<TestCaseMeta | null>(null)
 
   /** List 표에 「연결된 요구사항」 을 적고 폴더로 좁히려면 이것들이 필요하다 */
   const reqQ = useQuery({
@@ -232,6 +235,31 @@ export default function TestCases({ me }: PageProps) {
     }
     return m
   }, [reqQ.data])
+
+  /**
+   * 이 시험을 가리키는 요구사항들 (tcid → 요구사항 PK 집합).
+   *
+   * 연결의 정본이 두 군데다 — tc.req_id 한 칸과, 요구사항이 들고 있는
+   * tc[] 참조. 둘이 어긋난 자료가 실제로 있어서 합집합으로 센다.
+   */
+  const reqsOfTc = useMemo(() => {
+    const m = new Map<string, Set<string>>()
+    const add = (tcid: string, pk: string) => {
+      const s0 = m.get(tcid) ?? new Set<string>()
+      s0.add(pk)
+      m.set(tcid, s0)
+    }
+    for (const r of reqQ.data?.reqs ?? []) {
+      const pk = reqPk(r)
+      const label = reqLabel(r)
+      for (const t of tcs) {
+        const k = t.req_id || ''
+        if (k && (k === pk || k === label)) add(t.tcid, pk)
+      }
+      for (const ref of r.tc ?? []) if (ref?.tcid) add(ref.tcid, pk)
+    }
+    return m
+  }, [reqQ.data, tcs])
 
   /** 이 폴더(하위 포함)에 속한 요구사항인가 — 조상 사슬을 요구사항이 들고 있다 */
   const inFolder = (r: Requirement | undefined, folder: string) =>
@@ -1212,6 +1240,7 @@ export default function TestCases({ me }: PageProps) {
   return (
     <>
       {form !== undefined && <TcForm editing={form} onClose={() => setForm(undefined)} />}
+      {mapTc && <TcMapReqDialog tc={mapTc} onClose={() => setMapTc(null)} />}
       {bulkOpen && <TcBulkForm onClose={() => setBulkOpen(false)} />}
       {bulkEdit && (
         <TcBulkEdit
@@ -1585,6 +1614,7 @@ export default function TestCases({ me }: PageProps) {
                 <div className="rq-tr tc-tr rq-th">
                   <div />
                   <div>요구사항</div>
+                  <div>REQ Map</div>
                   <div>TC ID</div>
                   <div>이름</div>
                   <div>유형</div>
@@ -1627,6 +1657,21 @@ export default function TestCases({ me }: PageProps) {
                           ) : (
                             <span className="muted">–</span>
                           )}
+                        </div>
+                        <div className="tc-map">
+                          <button
+                            type="button"
+                            className="linkish"
+                            title="이 시험에 요구사항을 붙입니다"
+                            onClick={() => setMapTc(t)}
+                          >
+                            Map
+                          </button>
+                          <span
+                            className={`tc-mapn${(reqsOfTc.get(t.tcid)?.size ?? 0) ? ' has' : ''}`}
+                          >
+                            {reqsOfTc.get(t.tcid)?.size ?? 0}
+                          </span>
                         </div>
                         <div className="rq-id" title={t.tcid}>
                           {t.tcid}
