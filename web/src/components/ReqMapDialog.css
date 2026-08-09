@@ -1,0 +1,205 @@
+/* 요구사항 ↔ 시험 연결 창 — 폴더 | 요구사항 | 시험(추가 여부) 3열 */
+.modal.rmd {
+  max-width: 1180px;
+  width: 96vw;
+  height: 82vh;
+}
+
+.rmd-cols {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 230px 320px 1fr;
+}
+
+.rmd-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--c-border);
+}
+.rmd-col:last-child { border-right: 0; }
+
+.rmd-ch {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface-alt);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  color: #5b6670;
+}
+.rmd-ch .sp { margin-left: auto; }
+.rmd-only {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 400;
+  cursor: pointer;
+}
+.rmd-only input { margin: 0; }
+
+.rmd-find {
+  flex: none;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.rmd-find input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.rmd-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 0;
+}
+
+/* 1열 — 폴더 */
+.rmd-fold {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+}
+.rmd-fold:hover { background: var(--c-surface-2); }
+.rmd-fold.on { background: var(--c-primary-bg); }
+.rmd-fold.on .rmd-fname { color: var(--c-primary); font-weight: 700; }
+.rmd-fold.top:not(.on) { background: #fdf6e2; }
+.rmd-fname {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rmd-caret {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--c-text-faint);
+  cursor: pointer;
+}
+.rmd-caret svg { width: 12px; height: 12px; transition: transform 0.12s; }
+.rmd-caret.open svg { transform: rotate(90deg); }
+.rmd-caret:disabled { cursor: default; }
+.rmd-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--c-border-strong, #b9c1ca);
+}
+.rmd-ficon { flex: none; display: inline-flex; align-items: center; }
+
+/* 2열 — 요구사항 */
+.rmd-req {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+  cursor: pointer;
+}
+.rmd-req:hover { background: var(--c-surface-2); }
+.rmd-req.on { background: var(--c-primary-bg); }
+.rmd-req.on .rmd-rt { color: var(--c-primary); font-weight: 700; }
+.rmd-rid {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  white-space: nowrap;
+}
+.rmd-rt {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rmd-rn {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+.rmd-rn.has { color: var(--c-pass, #1f7a45); font-weight: 700; }
+
+/* 3열 — 시험. 체크가 「이렇게 하겠다」 는 표시다 */
+.rmd-tc {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.rmd-tc:hover { background: var(--c-surface-2); }
+.rmd-tc input { margin: 0; flex: none; }
+.rmd-tc.add { background: #eef7ee; }
+.rmd-tc.drop { background: #fdf4f4; }
+.rmd-tn {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rmd-own {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: #97620d;
+  background: #fef6e7;
+  border-radius: var(--r-chip);
+  padding: 0 7px;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rmd-mark {
+  flex: none;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  border-radius: var(--r-chip);
+  padding: 0 7px;
+}
+.rmd-mark.add { background: var(--c-pass, #1f7a45); color: #fff; }
+.rmd-mark.drop { background: var(--c-fail, #c0392b); color: #fff; }
+.rmd-st { flex: none; font-size: var(--fs-xs); }
+
+/* 바닥 — 무엇이 바뀌는지 세어 보여 준다 */
+.rmd-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--c-border);
+}
+.rmd-foot .sp { margin-left: auto; }
+.rmd-diff { display: inline-flex; gap: 10px; font-size: var(--fs-sm); }
+.rmd-diff .add { color: var(--c-pass, #1f7a45); }
+.rmd-diff .drop { color: var(--c-fail, #c0392b); }

@@ -7,6 +7,7 @@ import { useMultiSelect } from '@/components/useMultiSelect'
 import { IconPanel, IconTcDoc } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import ReqBulkForm from '@/components/ReqBulkForm'
+import ReqMapDialog from '@/components/ReqMapDialog'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
@@ -86,6 +87,8 @@ export default function Requirements() {
   const [form, setForm] = useState<Requirement | null | undefined>(undefined)
   /** 붙여넣기로 여러 건 들여오기(Import) */
   const [importOpen, setImportOpen] = useState(false)
+  /** Map — 요구사항에 시험 붙이는 창(폴더 | 요구사항 | 시험) */
+  const [mapFor, setMapFor] = useState<Requirement | null>(null)
   // undefined = 닫힘 / { } = 새 TC(요구사항 미리 연결)
   const [tcForm, setTcForm] = useState<{ reqId: string } | undefined>(undefined)
   const [tcLinkOpen, setTcLinkOpen] = useState(false)
@@ -470,6 +473,7 @@ export default function Requirements() {
       {importOpen && (
         <ReqBulkForm presetFolder={selectedFolder ?? null} onClose={() => setImportOpen(false)} />
       )}
+      {mapFor && <ReqMapDialog req={mapFor} onClose={() => setMapFor(null)} />}
 
       {tcForm !== undefined && (
         <TcForm
@@ -869,8 +873,8 @@ export default function Requirements() {
                           <button
                             type="button"
                             className="linkish"
-                            title="이 요구사항의 시험(커버리지) 보기"
-                            onClick={() => goDetail(pk, 'tc')}
+                            title="이 요구사항에 시험을 붙입니다"
+                            onClick={() => setMapFor(r)}
                           >
                             Map
                           </button>
