@@ -1068,6 +1068,14 @@ function CycleDetail({
           >
             Export
           </button>
+          <button
+            className="btn"
+            type="button"
+            title="고객사 양식 슬라이드를 미리 보고 PPTX 로 내려받습니다"
+            onClick={() => setReport(true)}
+          >
+            PPTX
+          </button>
         </div>
       </div>
 
@@ -1120,15 +1128,6 @@ function CycleDetail({
             </option>
           ))}
         </select>
-        <span className="rq-adiv" aria-hidden="true" />
-        <button
-          className="btn"
-          type="button"
-          title="고객사 양식 슬라이드를 미리 보고 PPTX 로 내려받습니다"
-          onClick={() => setReport(true)}
-        >
-          결과서 PPTX
-        </button>
       </div>
 
       {/* ③ 진행 요약 — 카운터·진행률은 「하는 일」 이 아니라 「지금 상태」 다.

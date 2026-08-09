@@ -448,9 +448,9 @@
 /* ── 사이클 ─────────────────────────────────────────────────
    이 TC 가 어느 배포 검증에 들어갔고 결과가 어땠나. 실행 이력과 다른
    질문이라 표도 다르다 — 저쪽은 시각이 주인공이고 여기는 버전이다. */
-.cy-list { border: 1px solid var(--c-border-soft); border-radius: var(--radius-sm); overflow: hidden; }
+.tcyc-list { border: 1px solid var(--c-border-soft); border-radius: var(--radius-sm); overflow: hidden; }
 
-.cy-row {
+.tcyc-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 130px 150px 90px 70px 130px;
   gap: var(--sp-2);
@@ -460,10 +460,10 @@
   font-size: var(--fs-sm);
 }
 
-.cy-row:last-child { border-bottom: 0; }
-.cy-row:not(.th):hover { background: var(--c-surface-alt); }
+.tcyc-row:last-child { border-bottom: 0; }
+.tcyc-row:not(.th):hover { background: var(--c-surface-alt); }
 
-.cy-row.th {
+.tcyc-row.th {
   background: var(--c-surface-alt);
   color: #5b6670;
   font-size: var(--fs-label);
@@ -476,8 +476,8 @@
 .cy-at { font-variant-numeric: tabular-nums; font-size: var(--fs-xs); }
 .cy-at small { margin-left: 5px; color: var(--c-text-faint); }
 
-.cy-row .status.pass { color: var(--c-pass); }
-.cy-row .status.fail { color: var(--c-fail); }
+.tcyc-row .status.pass { color: var(--c-pass); }
+.tcyc-row .status.fail { color: var(--c-fail); }
 
 .cy-iss {
   margin-left: 6px;
@@ -490,8 +490,8 @@
 }
 
 @media (max-width: 1000px) {
-  .cy-row { grid-template-columns: minmax(0, 1fr) 130px 110px; }
-  .cy-row.th { display: none; }
+  .tcyc-row { grid-template-columns: minmax(0, 1fr) 130px 110px; }
+  .tcyc-row.th { display: none; }
 }
 
 /* 사진 크게 보기.

@@ -69,8 +69,8 @@ export default function TcCycles({ tcid }: Props) {
             </span>
           </div>
         ) : (
-          <div className="cy-list">
-            <div className="cy-row th">
+          <div className="tcyc-list">
+            <div className="tcyc-row th">
               <span>사이클</span>
               <span>장비</span>
               <span>실행</span>
@@ -79,7 +79,7 @@ export default function TcCycles({ tcid }: Props) {
               <span>결과</span>
             </div>
             {rows.map((r, i) => (
-              <div className="cy-row" key={`${r.cycle_id}-${i}`}>
+              <div className="tcyc-row" key={`${r.cycle_id}-${i}`}>
                 <span className="cy-nm">
                   <b>{r.version || '(버전 없음)'}</b>
                   <span className="muted small">{r.model || r.cycle_id}</span>
