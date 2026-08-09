@@ -682,7 +682,93 @@ export function wireValues(w: TcWire, i: number): {
   }
 }
 
+/**
+ * 계측기 스트림 한 줄.
+ *
+ * **옛 화면(트래픽 스튜디오)이 쓰던 자료 그대로다.** 이미 저장된 TC 가
+ * 있고 백엔드 변환기도 이 이름을 본다 — 새로 지으면 그것들이 다 깨진다.
+ * 그래서 이름을 하나도 바꾸지 않았다. 값이 다 문자열인 것도 그래서다.
+ */
+export interface MeterStream {
+  name?: string
+  /** 켜진 스트림만 보낸다 */
+  enabled?: boolean
+  /** 보내는/받는 포트 — "모듈/포트" */
+  src?: string
+  dst?: string
+  /** 같은 줄을 몇 개로 불릴까 */
+  count?: string
+  packetType?: string
+
+  /* L2 */
+  srcMac?: string
+  dstMac?: string
+  srcMacTo?: string
+  dstMacTo?: string
+  srcMacMod?: string
+  dstMacMod?: string
+  srcMacStep?: string
+  dstMacStep?: string
+  vlan?: string
+  vlanTo?: string
+  vlanMod?: string
+  vlanStep?: string
+  prio?: string
+  etherType?: string
+
+  /* L3 */
+  srcIp?: string
+  dstIp?: string
+  srcIpTo?: string
+  dstIpTo?: string
+  srcIpMod?: string
+  dstIpMod?: string
+  gw?: string
+  dscp?: string
+  ttl?: string
+
+  /* L4 */
+  l4proto?: string
+  srcPort?: string
+  dstPort?: string
+
+  /* 보내는 양 */
+  frameType?: string
+  minByte?: string
+  maxByte?: string
+  byteType?: string
+  load?: string
+  unit?: string
+  frameCnt?: string
+  burst?: string
+  gap?: string
+  direction?: string
+
+  /* 프로토콜 — 화면은 아직 없지만 자료는 지키고 넘긴다 */
+  [k: string]: unknown
+}
+
+/** 계측기 설정 — TC 하나가 쓰는 섀시와 스트림들 */
+export interface MeterCfg {
+  chassis?: string
+  restPort?: number
+  n2xLabel?: string
+  vendor?: string
+  model?: string
+  /** 이 시험이 쓰는 포트 — "모듈/포트" 목록 */
+  ports?: string[]
+  streams?: MeterStream[]
+  [k: string]: unknown
+}
+
 export interface TcData {
+  /**
+   * 계측기 설정 — 트래픽 탭이 읽고 쓴다.
+   *
+   * 스텝은 「시작·정지·조회」 만 시키고, 무엇을 어떻게 보낼지는 여기 있다.
+   * 스트림이 여럿이고 VLAN·MAC 증가·L3/L4 까지 있어서 스텝 칸에는 안 들어간다.
+   */
+  meterCfg?: MeterCfg
   tcid?: string
   name?: string
   status?: string

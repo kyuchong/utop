@@ -34,6 +34,7 @@ import TcInfo from '@/components/tc/TcInfo'
 import TcManual from '@/components/tc/TcManual'
 import TcEnv from '@/components/tc/TcEnv'
 import TcTopology from '@/components/tc/TcTopology'
+import TcTraffic from '@/components/tc/TcTraffic'
 import TcHistory from '@/components/tc/TcHistory'
 import TcCycles from '@/components/tc/TcCycles'
 import { deviceLabel, isMeter } from '@/components/tc/device'
@@ -60,7 +61,7 @@ import {
 } from '@/components/tc/types'
 import './TestCases.css'
 
-type Tab = 'steps' | 'info' | 'env' | 'topo' | 'manual' | 'history' | 'cycle'
+type Tab = 'steps' | 'info' | 'env' | 'topo' | 'traffic' | 'manual' | 'history' | 'cycle'
 
 /** 새 스텝의 기본값. 종류마다 처음부터 채워둬야 자연스러운 값이 다르다. */
 function blankStep(kind: StepKind): TcStep {
@@ -100,7 +101,7 @@ function blankStep(kind: StepKind): TcStep {
  */
 const OPEN_KEY = 'utop.tc.open'
 const TAB_KEY = 'utop.tc.tab'
-const TABS: Tab[] = ['steps', 'info', 'env', 'topo', 'manual', 'history', 'cycle']
+const TABS: Tab[] = ['steps', 'info', 'env', 'topo', 'traffic', 'manual', 'history', 'cycle']
 
 interface PageProps {
   /** 지금 사람. 같이 보고 있는 사람을 가리는 데 쓴다 */
@@ -991,6 +992,8 @@ export default function TestCases({ me }: PageProps) {
           steps,
           sessions: sessionIds,
           devById,
+          // 계측기 스텝이 볼 트래픽 설정 — Traffic 탭이 정한 것
+          meterCfg: d.meterCfg,
           onStep: (i, p) => patchStep(i, p, true),
           // 돌고 있는 줄을 따라간다. 3열이 그 줄의 응답이 자라는 것을
           // 보여주므로, 안 따라가면 스트리밍이 보이지 않는다.
@@ -1126,6 +1129,9 @@ export default function TestCases({ me }: PageProps) {
                   // 배선은 랩의 사실이라 시험 내용보다 앞이다 — 여기가 정해져야
                   // 스텝이 장비 포트 이름으로 말할 수 있다.
                   ['topo', 'Topology'],
+                  // 계측기 트래픽 — 배선(Topology) 다음이다. 어느 포트에
+                  // 꽂혔는지가 정해져야 무엇을 보낼지 적을 수 있다.
+                  ['traffic', 'Traffic'],
                   ['manual', 'Manual'],
                   // 「Manual」 과 짝이 되게 「Automation」 — 둘 다 절차를 적는
                   // 자리고, 사람이 하느냐 자동으로 도느냐만 다르다.
@@ -1734,6 +1740,10 @@ export default function TestCases({ me }: PageProps) {
               onMsg={(kind, text) => setMsg({ kind, text })}
             />
           </section>
+        ) : tab === 'traffic' ? (
+          <section className="panel tc-tabcol">
+            <TcTraffic data={d} onChange={patch} />
+          </section>
         ) : tab === 'manual' ? (
           <section className="panel tc-tabcol">
             <TcManual data={d} onChange={patch} />
@@ -2030,6 +2040,8 @@ export default function TestCases({ me }: PageProps) {
                 onRemove={() => stepIdx >= 0 && removeStep(stepIdx)}
                 onDuplicate={() => stepIdx >= 0 && duplicateStep(stepIdx)}
                 onRun={running || stepIdx < 0 ? undefined : () => void doRun(stepIdx, true)}
+                meterCfg={d.meterCfg}
+                onGoTraffic={() => setTab('traffic')}
                 block={blockInfo}
               />
               )}

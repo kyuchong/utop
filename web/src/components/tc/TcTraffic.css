@@ -1,0 +1,169 @@
+/* 계측기 트래픽 스튜디오 — 스트림을 짓고 측정을 읽는다 */
+.tt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-3);
+  min-height: 0;
+  overflow: auto;
+}
+
+.tt-sec {
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  background: var(--c-surface);
+}
+.tt-sh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface-alt);
+  border-radius: var(--r-card) var(--r-card) 0 0;
+}
+.tt-sh .sp { margin-left: auto; }
+
+/* 칸 하나 */
+.tt-f {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.tt-f > span {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+.tt-f input,
+.tt-f select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.tt-basic {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 160px minmax(240px, 2fr);
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+}
+.tt-wide { grid-column: auto; }
+
+/* 스트림 표 — 칸이 많아 가로로 민다 */
+.tt-tablewrap { overflow-x: auto; }
+.tt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.tt-table th {
+  text-align: left;
+  font-weight: 700;
+  color: #5b6670;
+  background: var(--c-surface-alt);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--c-border);
+}
+.tt-table td {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.tt-table tbody tr { cursor: pointer; }
+.tt-table tbody tr:hover { background: var(--c-surface-2); }
+.tt-table tbody tr.on { background: #d6e4ff; }
+.tt-table tbody tr.picked { background: #f7f4fd; }
+.tt-empty {
+  text-align: center;
+  color: var(--c-text-faint);
+  padding: 18px;
+}
+.tt-in {
+  width: 110px;
+  padding: 3px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--c-text);
+}
+.tt-in:hover { border-color: var(--c-border); }
+.tt-in:focus {
+  border-color: var(--c-primary);
+  background: var(--c-surface);
+  outline: none;
+}
+
+/* 고른 스트림의 속성 */
+.tt-edit { border-top: 1px solid var(--c-border); }
+.tt-eh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+}
+.tt-tag {
+  font-size: var(--fs-xs);
+  padding: 1px 8px;
+  border-radius: var(--r-chip);
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  font-weight: 700;
+}
+.tt-layers {
+  display: flex;
+  gap: 2px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--c-border);
+  flex-wrap: wrap;
+}
+.tt-layer {
+  border: 0;
+  background: transparent;
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.tt-layer.on {
+  color: var(--c-primary);
+  font-weight: 700;
+  box-shadow: inset 0 -2px 0 var(--c-primary);
+}
+.tt-panel {
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.tt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--sp-3);
+}
+.tt-box {
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-3);
+}
+.tt-bh {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-faint);
+  margin-bottom: 6px;
+}
+.tt-hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  line-height: 1.5;
+}

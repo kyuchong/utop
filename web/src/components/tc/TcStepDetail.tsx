@@ -15,6 +15,7 @@ import {
   stepKindInfo,
   stepResult,
   stepStatus,
+  type MeterCfg,
   type StepKind,
   type TcStep,
 } from './types'
@@ -35,6 +36,10 @@ interface Props {
   /** 바로 아래에 같은 스텝 하나 더 */
   onDuplicate: () => void
   onRun?: () => void
+  /** TC 의 Traffic 탭이 정한 트래픽 설정 — 계측기 스텝이 보여 준다 */
+  meterCfg?: MeterCfg
+  /** 계측기 스텝에서 Traffic 탭으로 건너뛰기 */
+  onGoTraffic?: () => void
   /**
    * 이 블록 뒤의 줄이 몇 개나 밖에 있나 · 그중 n 개를 안으로 넣기.
    *
@@ -68,6 +73,8 @@ export default function TcStepDetail({
   onRemove,
   onDuplicate,
   onRun,
+  meterCfg,
+  onGoTraffic,
   block,
 }: Props) {
   const [picked, setPicked] = useState('')
@@ -373,7 +380,14 @@ export default function TcStepDetail({
 
         {/* 종류마다 Test Data 가 가리키는 것이 다르다 */}
         {/* 계측기 — 어느 섀시·어느 포트인지까지 화면에서 정한다 */}
-        {kind === 'instrument' && <TcMeterStep step={step} onChange={onChange} />}
+        {kind === 'instrument' && (
+          <TcMeterStep
+            step={step}
+            meterCfg={meterCfg}
+            onChange={onChange}
+            onGoTraffic={onGoTraffic}
+          />
+        )}
 
         {kind === 'cli' && (
           <label className="sd-f">

@@ -10,7 +10,15 @@ import {
   subVars,
   type Verdict,
 } from './judge'
-import { sessionIndex, stepResult, stepSummary, type StepRound, type TcStep } from './types'
+import {
+  sessionIndex,
+  stepResult,
+  stepSummary,
+  type MeterCfg,
+  type MeterStream,
+  type StepRound,
+  type TcStep,
+} from './types'
 
 /**
  * 스텝 실행기.
@@ -39,6 +47,13 @@ export interface RunLog {
 
 export interface RunCtx {
   steps: TcStep[]
+  /**
+   * 계측기 설정 — Traffic 탭이 정한 것.
+   *
+   * 스텝은 「시작·정지·조회」 만 시키고 무엇을 어떻게 보낼지는 여기 있다.
+   * 없으면 스텝이 제 칸으로 한 줄짜리 스트림을 만든다(옛 자료).
+   */
+  meterCfg?: MeterCfg
   /** `data.sessions` — 자리 번호 → 장비 id */
   sessions: string[]
   devById: Map<string, Device>
@@ -456,13 +471,16 @@ async function runOne(
      * 없으면(=늘 없다) 무엇을 골랐든 N2X 로 나갔다 — STC 를 골라도 조용히
      * 엉뚱한 섀시를 두드렸다.
      */
-    const host = (step.host || '').trim()
+    // 이름을 mcfg 로 둔다 — 아래 STC 가 제 설정을 cfg 로 짓는다
+    const mcfg: MeterCfg = ctx.meterCfg ?? {}
+    // 섀시는 Traffic 탭이 정한 것이 먼저다. 스텝에 적힌 것은 옛 자료다.
+    const host = (mcfg.chassis || step.host || '').trim()
     const meterDev =
       [...ctx.devById.values()].find((d) => (d.ip ?? '').trim() === host && isMeter(d)) ??
       // 스텝에 주소가 없으면 옛 자료다 — 그때는 세션 장비를 본다
       (host ? undefined : deviceOf(ctx, step).dev)
     const server = (host || meterDev?.ip || '').trim()
-    const label = String(meterDev?.id ?? 'utop')
+    const label = String(mcfg.n2xLabel || meterDev?.id || 'utop')
     const act = step.meterAct
 
     if (!server) {
@@ -493,10 +511,35 @@ async function runOne(
         chassis: server,
         restIp: 'localhost',
         restPort: 8888,
-        ports: [subVars(step.txPort ?? '', vars), subVars(step.rxPort ?? '', vars)].filter(Boolean),
+        ports: (mcfg.ports?.length
+          ? mcfg.ports
+          : [step.txPort ?? '', step.rxPort ?? '']
+        )
+          .map((x) => subVars(String(x), vars))
+          .filter(Boolean),
         streams:
-          act === 'traffic_start'
-            ? [
+          act !== 'traffic_start'
+            ? []
+            : (mcfg.streams ?? []).filter((x) => x.enabled !== false).length
+              ? (mcfg.streams ?? [])
+                  .filter((x) => x.enabled !== false)
+                  .map((x: MeterStream, n) => ({
+                    name: String(x.name ?? `SB_${n + 1}`),
+                    src: subVars(String(x.src ?? ''), vars),
+                    dst: subVars(String(x.dst ?? ''), vars),
+                    count: x.count ?? '1',
+                    minByte: x.minByte ?? '64',
+                    maxByte: x.maxByte ?? x.minByte ?? '64',
+                    byteType: x.byteType ?? 'Fixed',
+                    unit: x.unit ?? 'Mbps',
+                    rate: x.load ?? '10',
+                    srcMac: x.srcMac,
+                    dstMac: x.dstMac,
+                    srcIp: subVars(String(x.srcIp ?? ''), vars),
+                    dstIp: subVars(String(x.dstIp ?? ''), vars),
+                    gw: subVars(String(x.gw ?? ''), vars),
+                  }))
+              : [
                 {
                   name: `UTOP_${i + 1}`,
                   src: subVars(step.txPort ?? '', vars),
@@ -511,8 +554,7 @@ async function runOne(
                   ...(step.meterDstIp ? { dstIp: subVars(step.meterDstIp, vars) } : {}),
                   ...(step.meterGw ? { gw: subVars(step.meterGw, vars) } : {}),
                 },
-              ]
-            : [],
+              ],
       }
       let sj: Record<string, unknown> = {}
       try {
@@ -555,26 +597,54 @@ async function runOne(
     if (act === 'traffic_start') {
       const tx = port(subVars(step.txPort ?? '', vars))
       const rx = port(subVars(step.rxPort ?? '', vars))
-      // 프레임 주소를 함께 보낸다. 빈 칸은 빼서 데몬 기본값이 살게 둔다 —
-      // 빈 문자열을 보내면 「비었다」 가 아니라 「빈 값으로 설정」 이 된다.
-      const frame: Record<string, unknown> = {
-        srcMac: subVars(step.meterSrcMac ?? '', vars),
-        dstMac: subVars(step.meterDstMac ?? '', vars),
-        srcIp: subVars(step.meterSrcIp ?? '', vars),
-        dstIp: subVars(step.meterDstIp ?? '', vars),
-        proto: step.meterProto ?? '',
+      /**
+       * 무엇을 보낼까.
+       *
+       * Traffic 탭이 스트림을 정해 놓았으면 **그것을 전부** 보낸다 — 스트림이
+       * 여럿인 시험(양방향·VLAN 여러 개)이 그래야 돈다. 정해 둔 것이 없으면
+       * 스텝의 칸으로 한 줄짜리를 만든다(옛 자료가 그렇게 돌던 방식).
+       */
+      const on = (mcfg.streams ?? []).filter((x) => x.enabled !== false)
+      const clean = (o: Record<string, unknown>) => {
+        for (const k of Object.keys(o)) if (o[k] === '' || o[k] == null) delete o[k]
+        return o
       }
-      for (const k of Object.keys(frame)) if (!frame[k]) delete frame[k]
-      body.streams = [
-        {
-          module: tx.module,
-          txPort: tx.port,
-          rxPort: rx.port,
-          pps: step.meterPps ?? 1000,
-          size: step.meterSize ?? 64,
-          ...frame,
-        },
-      ]
+      const split = (p: string) => {
+        const m = /(\d+)\s*[/\-]\s*(\d+)/.exec(subVars(p || '', vars))
+        return { mod: m?.[1] ?? '', port: m?.[2] ?? '' }
+      }
+      body.streams = on.length
+        ? on.map((x: MeterStream) => {
+            const a = split(String(x.src ?? ''))
+            const b = split(String(x.dst ?? ''))
+            return clean({
+              txMod: a.mod,
+              txPort: a.port,
+              rxMod: b.mod,
+              rxPort: b.port,
+              pps: x.load,
+              npkt: x.frameCnt,
+              frame: x.minByte,
+              proto: String(x.l4proto ?? '').toLowerCase(),
+              srcMac: subVars(String(x.srcMac ?? ''), vars),
+              dstMac: subVars(String(x.dstMac ?? ''), vars),
+              srcIp: subVars(String(x.srcIp ?? ''), vars),
+              dstIp: subVars(String(x.dstIp ?? ''), vars),
+            })
+          })
+        : [
+            clean({
+              module: tx.module,
+              txPort: tx.port,
+              rxPort: rx.port,
+              pps: step.meterPps ?? 1000,
+              size: step.meterSize ?? 64,
+              srcMac: subVars(step.meterSrcMac ?? '', vars),
+              dstMac: subVars(step.meterDstMac ?? '', vars),
+              srcIp: subVars(step.meterSrcIp ?? '', vars),
+              dstIp: subVars(step.meterDstIp ?? '', vars),
+            }),
+          ]
       body.dur = step.meterDur ?? 0
     }
     let j: Record<string, unknown> = {}

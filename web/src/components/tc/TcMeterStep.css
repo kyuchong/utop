@@ -31,3 +31,33 @@
   color: var(--c-pass, #18864b);
   font-weight: 700;
 }
+
+/* 무엇으로 어디에 쏘는지 — 스텝에서는 읽기만 한다.
+   고치는 자리는 Traffic 탭 한 곳이다. */
+.ms-cfg {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  padding: 8px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-alt);
+  font-size: var(--fs-sm);
+}
+.ms-cfg.none {
+  border-style: dashed;
+  color: var(--c-text-faint);
+}
+.ms-cfg .sp {
+  flex: 1;
+}
+.ms-tag {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  color: var(--c-text-faint);
+}

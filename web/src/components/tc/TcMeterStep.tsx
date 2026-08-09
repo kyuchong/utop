@@ -1,40 +1,33 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isMeter, meterKind } from './device'
-import type { TcStep } from './types'
+import type { MeterCfg, TcStep } from './types'
 import type { Device } from '@/pages/Devices'
 import './TcMeterStep.css'
 
 interface Props {
   step: TcStep
+  /** TC 의 Traffic 탭이 정한 트래픽 설정 — 여기서는 보여 주기만 한다 */
+  meterCfg?: MeterCfg
   onChange: (patch: Partial<TcStep>) => void
-}
-
-/** 섀시에서 읽은 포트 한 개 */
-interface Port {
-  /** 화면·저장에 쓰는 이름. N2X 는 "모듈/포트", STC 는 "슬롯/포트" */
-  id: string
-  label: string
-  free: boolean
-  who: string
+  /** Traffic 탭으로 보내기 */
+  onGoTraffic?: () => void
 }
 
 /**
- * 계측기 스텝 설정.
+ * 계측기 스텝.
  *
- * 전에는 「어느 계측기인지」 가 화면에 없었다. 스텝의 세션에 묻혀 있어서,
- * 열어 보기 전에는 어느 섀시로 나가는지 알 수 없고 세션이 없으면 하드코딩된
- * 주소로 나갔다. 여기서 **계측기를 눈에 보이게 고른다.**
+ * 전에는 이 자리에 포트·속도·프레임 크기·MAC·IP 가 전부 있었다. 스텝을
+ * 세 개 쓰면(시작·조회·정지) 같은 설정을 세 번 적었고, 한 군데만 고치고
+ * 나머지를 잊으면 시작과 조회가 서로 다른 스트림을 보게 된다.
  *
- * 포트도 손으로 「101/1」 을 적게 두었다. 섀시에 물어보면 되는 것을 외워
- * 적게 하면 오타가 나고, 오타는 돌려 봐야 안다. 실제 포트를 읽어 고르게 하고,
- * 못 읽으면 그때만 손으로 적는다.
+ * 그래서 **무엇을 얼마나 보낼지는 TC 의 `Traffic` 탭에 한 벌로** 두고,
+ * 스텝에는 「지금 무엇을 하나」 만 남겼다 — 시작·정지·조회.
  */
-export default function TcMeterStep({ step, onChange }: Props) {
-  const [manual, setManual] = useState(false)
+export default function TcMeterStep({ step, meterCfg, onChange, onGoTraffic }: Props) {
+  const cfg = meterCfg ?? {}
 
-  /** 등록된 계측기 — 장비 목록에서 계측기만 추린다 */
   const devQ = useQuery({
     queryKey: ['devices2'],
     queryFn: async () => {
@@ -44,131 +37,74 @@ export default function TcMeterStep({ step, onChange }: Props) {
     },
     staleTime: 60_000,
   })
-  const meters = useMemo(
-    () => (devQ.data?.devices ?? []).filter((d) => isMeter(d)),
-    [devQ.data],
-  )
-
-  /** 지금 고른 계측기 — step.host 에 주소를 적어 둔다(실행기가 그것으로 나간다) */
-  const cur = meters.find((d) => (d.ip ?? '').trim() === (step.host ?? '').trim())
-  const kind = meterKind(cur)
+  const meters = useMemo(() => (devQ.data?.devices ?? []).filter((d) => isMeter(d)), [devQ.data])
 
   /**
-   * 섀시에서 포트를 읽는다.
+   * 어느 계측기로 나가나.
    *
-   * 계측기를 고르기 전에는 부르지 않는다 — 주소도 모르는데 물어봐야 답이 없고,
-   * N2X 는 세션을 하나 먹는다.
+   * Traffic 탭이 고른 것이 먼저다. 스텝의 `host` 는 탭이 생기기 전에 만든
+   * 옛 TC 를 위해 남겨 둔다 — 그때 적어 둔 주소를 지우면 그 TC 들이 갈 곳을
+   * 잃는다.
    */
-  const portQ = useQuery({
-    queryKey: ['meter-ports', kind, step.host],
-    enabled: !!step.host && !manual,
-    staleTime: 60_000,
-    queryFn: async (): Promise<Port[]> => {
-      if (kind === 'stc') {
-        const r = await apiFetch('/api/stc/conncheck', {
-          method: 'POST',
-          body: JSON.stringify({ chassis: step.host, restIp: 'localhost', restPort: 8888 }),
-        })
-        const j = (await r.json()) as {
-          ok?: boolean
-          error?: string
-          modules?: Array<{
-            slot?: string
-            port_detail?: Array<{ index: string; status: string; owner: string }>
-          }>
-        }
-        if (j.ok === false) throw new Error(j.error || '포트를 읽지 못했습니다')
-        const out: Port[] = []
-        for (const m of j.modules ?? []) {
-          for (const p of m.port_detail ?? []) {
-            const id = `${m.slot ?? '?'}/${p.index}`
-            out.push({
-              id,
-              label: id,
-              free: p.status === 'available',
-              who: p.status === 'available' ? '빈 포트' : p.owner || p.status,
-            })
-          }
-        }
-        return out
-      }
-      const r = await apiFetch(
-        `/api/n2x/ports?server=${encodeURIComponent(step.host ?? '')}&label=utop`,
-      )
-      const j = (await r.json()) as {
-        ok?: boolean
-        error?: string
-        modules?: Array<{
-          id: number
-          portList?: Array<{ port: number; label?: string; mine?: number; avail?: number }>
-        }>
-      }
-      if (j.ok === false) throw new Error(j.error || '포트를 읽지 못했습니다')
-      const out: Port[] = []
-      for (const m of j.modules ?? []) {
-        for (const p of m.portList ?? []) {
-          const id = `${m.id}/${p.port}`
-          out.push({
-            id,
-            label: id,
-            free: !!p.avail || !!p.mine,
-            who: p.mine ? '내 것' : p.avail ? '빈 포트' : p.label || '사용 중',
-          })
-        }
-      }
-      return out
-    },
-  })
-
-  const ports = portQ.data ?? []
-  const canPick = !manual && ports.length > 0
-
-  /** 포트 고르는 칸 — 섀시를 못 읽으면 손으로 적는 칸이 된다 */
-  const portField = (which: 'txPort' | 'rxPort', label: string, ph: string) => (
-    <label className="sd-f">
-      <span>{label}</span>
-      {canPick ? (
-        <select value={step[which] ?? ''} onChange={(e) => onChange({ [which]: e.target.value })}>
-          <option value="">— 고르기 —</option>
-          {ports.map((p) => (
-            <option key={p.id} value={p.id} disabled={!p.free}>
-              {p.label} · {p.who}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          className="mono"
-          value={step[which] ?? ''}
-          placeholder={ph}
-          onChange={(e) => onChange({ [which]: e.target.value })}
-        />
-      )}
-    </label>
-  )
+  const host = (cfg.chassis || step.host || '').trim()
+  const cur = meters.find((d) => (d.ip ?? '').trim() === host)
+  const kind = meterKind(cur)
+  const fromTab = !!cfg.chassis
+  const streams = (cfg.streams ?? []).filter((s) => s.enabled !== false)
 
   return (
     <div className="sd-meter">
-      {/* 어느 계측기로 나가나 — 이것이 없으면 열어 보기 전엔 알 수 없었다 */}
-      <label className="sd-f">
-        <span>계측기</span>
-        <select
-          value={step.host ?? ''}
-          onChange={(e) => onChange({ host: e.target.value, txPort: '', rxPort: '' })}
-        >
-          <option value="">— 고르기 —</option>
-          {meters.map((d) => (
-            <option key={d.id} value={d.ip ?? ''}>
-              {d.name || d.id} · {d.ip} ({meterKind(d) === 'stc' ? 'STC' : 'N2X'})
-            </option>
-          ))}
-        </select>
-        <span className="sd-hint">
-          {step.host
-            ? '계측기는 세션(＋ 세션)에 넣지 않습니다 — 세션은 CLI(telnet·ssh)로 붙는 자리라 계측기는 거기서 막힙니다. 여기서 고른 것으로 나갑니다.'
-            : '여기서 고르세요. 계측기는 세션에 넣지 않습니다 — 안 고르면 실행할 때 실패합니다.'}
-        </span>
-      </label>
+      {/* 어디로 나가고, 무엇을 보내나 — 스텝에서는 읽기만 한다 */}
+      <div className={`ms-cfg${host ? '' : ' none'}`}>
+        {host ? (
+          <>
+            <b>{cur?.name || cur?.id || host}</b>
+            <span className="ms-tag">{kind === 'stc' ? 'STC' : 'N2X'}</span>
+            <span className="mono muted">{host}</span>
+            <span className="sp" />
+            <span className="muted small">
+              스트림 {streams.length}개 · 포트 {(cfg.ports ?? []).length || '—'}
+            </span>
+            {onGoTraffic && (
+              <button className="btn small" type="button" onClick={onGoTraffic}>
+                Traffic 탭에서 고치기
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <span>
+              계측기와 스트림이 아직 없습니다. <b>Traffic</b> 탭에서 계측기를 고르고 스트림을
+              만드세요 — 스텝은 그것을 시작·정지·조회만 합니다.
+            </span>
+            <span className="sp" />
+            {onGoTraffic && (
+              <button className="btn small primary" type="button" onClick={onGoTraffic}>
+                Traffic 탭 열기
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* 옛 TC 호환 — 탭에서 안 골랐고 스텝에만 주소가 있을 때만 보인다 */}
+      {!fromTab && (
+        <label className="sd-f">
+          <span>계측기 (이 스텝)</span>
+          <select value={step.host ?? ''} onChange={(e) => onChange({ host: e.target.value })}>
+            <option value="">— 고르기 —</option>
+            {meters.map((d) => (
+              <option key={d.id} value={d.ip ?? ''}>
+                {d.name || d.id} · {d.ip} ({meterKind(d) === 'stc' ? 'STC' : 'N2X'})
+              </option>
+            ))}
+          </select>
+          <span className="sd-hint">
+            계측기는 세션(＋ 세션)에 넣지 않습니다 — 세션은 CLI(telnet·ssh)로 붙는 자리라
+            계측기는 거기서 막힙니다.
+          </span>
+        </label>
+      )}
 
       <label className="sd-f">
         <span>계측기 동작</span>
@@ -186,143 +122,19 @@ export default function TcMeterStep({ step, onChange }: Props) {
 
       {step.meterAct === 'traffic_start' && (
         <>
-          <div className="ms-portbar">
-            <span className="muted small">
-              {!step.host
-                ? '계측기를 먼저 고르세요'
-                : portQ.isLoading
-                  ? '포트를 읽는 중…'
-                  : portQ.error
-                    ? `포트를 못 읽었습니다 — ${(portQ.error as Error).message}`
-                    : `포트 ${ports.length}개 · 빈 포트 ${ports.filter((p) => p.free).length}개`}
-            </span>
-            <span className="sp" />
-            <label className="ms-manual">
-              <input
-                type="checkbox"
-                checked={manual}
-                onChange={(e) => setManual(e.target.checked)}
-              />
-              직접 입력
-            </label>
-            {!manual && step.host && (
-              <button
-                className="btn small"
-                type="button"
-                onClick={() => void portQ.refetch()}
-                disabled={portQ.isFetching}
-              >
-                다시 읽기
-              </button>
-            )}
-          </div>
-
-          <div className="sd-2">
-            {portField('txPort', '보내는 포트 (TX)', '101/1')}
-            {portField('rxPort', '받는 포트 (RX)', '101/2')}
-          </div>
-
-          <div className="sd-3">
-            <label className="sd-f">
-              <span>속도 (pps)</span>
-              <input
-                type="number"
-                value={step.meterPps ?? ''}
-                placeholder="1000"
-                onChange={(e) => onChange({ meterPps: Number(e.target.value) || undefined })}
-              />
-            </label>
-            <label className="sd-f">
-              <span>패킷 크기 (byte)</span>
-              <input
-                type="number"
-                value={step.meterSize ?? ''}
-                placeholder="64"
-                onChange={(e) => onChange({ meterSize: Number(e.target.value) || undefined })}
-              />
-            </label>
-            <label className="sd-f">
-              <span>시간 (초, 0=연속)</span>
-              <input
-                type="number"
-                value={step.meterDur ?? ''}
-                placeholder="0"
-                onChange={(e) => onChange({ meterDur: Number(e.target.value) || undefined })}
-              />
-            </label>
-          </div>
+          <label className="sd-f">
+            <span>시간 (초, 0=연속)</span>
+            <input
+              type="number"
+              value={step.meterDur ?? ''}
+              placeholder="0"
+              onChange={(e) => onChange({ meterDur: Number(e.target.value) || undefined })}
+            />
+          </label>
           <span className="sd-hint">
-            시간을 0 으로 두면 「트래픽 정지」 스텝을 만날 때까지 계속 보냅니다.
-            보낸 뒤에는 「통계 읽기 · 판정」 스텝을 두어야 합격·불합격이 납니다.
+            0 으로 두면 「트래픽 정지」 스텝을 만날 때까지 계속 보냅니다. 보낸 뒤에는
+            「통계 읽기 · 판정」 스텝을 두어야 합격·불합격이 납니다.
           </span>
-
-          {/* 프레임 주소 — L2 는 MAC 만, L3 는 IP·게이트웨이까지 맞아야 흐른다 */}
-          <details className="sd-more ms-frame">
-            <summary>
-              프레임 설정 (MAC · IP)
-              {(step.meterSrcIp || step.meterDstIp || step.meterSrcMac || step.meterDstMac) && (
-                <i className="ms-set">정함</i>
-              )}
-            </summary>
-            <p className="sd-hint">
-              같은 VLAN 안에서 스위칭만 보는 <b>L2 시험</b>은 MAC 만 맞으면 흐릅니다.
-              <b>L3(라우팅)</b> 시험은 IP·게이트웨이가 맞지 않으면 장비가 넘겨 주지 않아
-              손실 100% 로 나옵니다 — 그때는 여기를 채우세요. 비우면 계측기 기본값입니다.
-            </p>
-            <div className="sd-2">
-              <label className="sd-f">
-                <span>보내는 MAC</span>
-                <input
-                  className="mono"
-                  value={step.meterSrcMac ?? ''}
-                  placeholder="00:00:00:00:00:01"
-                  onChange={(e) => onChange({ meterSrcMac: e.target.value })}
-                />
-              </label>
-              <label className="sd-f">
-                <span>받는 MAC</span>
-                <input
-                  className="mono"
-                  value={step.meterDstMac ?? ''}
-                  placeholder="00:00:00:00:00:02"
-                  onChange={(e) => onChange({ meterDstMac: e.target.value })}
-                />
-              </label>
-            </div>
-            <div className="sd-2">
-              <label className="sd-f">
-                <span>보내는 IP</span>
-                <input
-                  className="mono"
-                  value={step.meterSrcIp ?? ''}
-                  placeholder="1.1.1.1"
-                  onChange={(e) => onChange({ meterSrcIp: e.target.value })}
-                />
-              </label>
-              <label className="sd-f">
-                <span>받는 IP</span>
-                <input
-                  className="mono"
-                  value={step.meterDstIp ?? ''}
-                  placeholder="2.1.1.1"
-                  onChange={(e) => onChange({ meterDstIp: e.target.value })}
-                />
-              </label>
-            </div>
-            <label className="sd-f">
-              <span>게이트웨이 (L3 일 때)</span>
-              <input
-                className="mono"
-                value={step.meterGw ?? ''}
-                placeholder="1.1.1.254 — 장비의 그 포트 IP"
-                onChange={(e) => onChange({ meterGw: e.target.value })}
-              />
-              <span className="sd-hint">
-                보내는 쪽이 붙은 <b>장비 포트의 IP</b> 입니다. 이것이 틀리면 프레임이
-                장비로 안 갑니다.
-              </span>
-            </label>
-          </details>
         </>
       )}
 

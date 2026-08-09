@@ -1,6 +1,6 @@
 import { apiFetch, setToken } from './api'
 import { runSteps, type RunLog } from '@/components/tc/runner'
-import type { TcStep } from '@/components/tc/types'
+import type { MeterCfg, TcStep } from '@/components/tc/types'
 import type { Device } from '@/pages/Devices'
 
 /**
@@ -170,12 +170,17 @@ async function doRun(run: Run): Promise<void> {
     // 그동안 TC 를 고친 것이 반영되지 않는다.
     let steps: TcStep[] = []
     let sessions: string[] = []
+    // 계측기 스텝이 볼 트래픽 설정. 스텝에는 시작·정지·조회만 있고, 무엇을
+    // 얼마나 보낼지는 TC 의 Traffic 탭에 한 벌로 있다 — 스텝마다 되풀이해
+    // 적으면 한 군데만 고치고 나머지를 잊는다.
+    let meterCfg: MeterCfg | undefined
     try {
       const r = await apiFetch(`/api/tc/${encodeURIComponent(it.tcid)}`)
       if (!r.ok) throw new Error(String(r.status))
-      const tc = (await r.json()) as { checks?: TcStep[]; sessions?: unknown }
+      const tc = (await r.json()) as { checks?: TcStep[]; sessions?: unknown; meterCfg?: MeterCfg }
       steps = (tc.checks ?? []).slice()
       sessions = Array.isArray(tc.sessions) ? (tc.sessions as string[]) : []
+      meterCfg = tc.meterCfg
     } catch (e) {
       push.addLog({ i: -1, kind: 'fail', text: `${it.tcid} 를 불러오지 못했습니다 (${String(e)})` })
       n++
@@ -193,6 +198,7 @@ async function doRun(run: Run): Promise<void> {
         steps,
         sessions,
         devById,
+        meterCfg,
         onStep: (i, patch) => {
           const cur = steps[i]
           if (!cur) return
