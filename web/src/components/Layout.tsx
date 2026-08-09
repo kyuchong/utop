@@ -113,16 +113,6 @@ export default function Layout({ user, onLogout, current, onNavigate, onGoto, ch
 
   return (
     <div className={`app${collapsed ? ' nav-collapsed' : ''}`}>
-      <header className="topbar">
-        <div className="topbar-logo">UTOP</div>
-        <div className="topbar-chip">QA Management</div>
-        {/* 위쪽은 화면 이동이 아니라 **어느 화면에 있든 알아야 하는 것**을
-            둔다 — 이동은 왼쪽 메뉴가 맡는다. */}
-        <TopSearch onGo={onGoto ?? (() => {})} />
-        <span className="topbar-sp" />
-        <TopStatus me={user} />
-      </header>
-
       <div className="app-body">
         <nav className="nav" aria-label="주 메뉴">
           <button
@@ -135,6 +125,17 @@ export default function Layout({ user, onLogout, current, onNavigate, onGoto, ch
           >
             <IconPanelToggle />
           </button>
+
+          {/* 상단바를 없애고 그 안의 것을 메뉴로 옮겼다 — 로고·통합 찾기·
+              내 장비 현황. 화면 이동은 아래 메뉴가, 「어디 있든 알아야 하는
+              것」 은 여기 위가 맡는다. */}
+          <div className="nav-brand">
+            <span className="nav-logo">UTOP</span>
+            <span className="nav-brand-sub">QA Management</span>
+          </div>
+          <div className="nav-search">
+            <TopSearch onGo={onGoto ?? (() => {})} />
+          </div>
 
           {NAV.map((group, gi) => (
             <div className="nav-section" key={group.title ?? `g${gi}`}>
@@ -163,26 +164,31 @@ export default function Layout({ user, onLogout, current, onNavigate, onGoto, ch
             </div>
           ))}
 
-          {/* 사용자는 메뉴 맨 아래에 둔다. 오른쪽 위 구석은 눈이 잘 가지
-              않는 자리이고, 메뉴를 접어도 여기는 아이콘으로 남는다. */}
-          <div className="nav-user">
-            <div className="nav-user-face" title={user?.name || user?.username || ''}>
-              {(user?.name || user?.username || '?').slice(0, 1)}
+          {/* 아래쪽 — 내 장비 현황과 사용자. 오른쪽 위 구석은 눈이 잘 가지
+              않아 상단바에서 여기로 내렸다. 메뉴를 접어도 아이콘으로 남는다. */}
+          <div className="nav-foot">
+            <div className="nav-status">
+              <TopStatus me={user} />
             </div>
-            <div className="nav-user-who">
-              <div className="nav-user-name">{user?.name || user?.username || '알 수 없음'}</div>
-              {user?.role && user.role !== (user.name || user.username) && (
-                <div className="muted small">{user.role}</div>
-              )}
+            <div className="nav-user">
+              <div className="nav-user-face" title={user?.name || user?.username || ''}>
+                {(user?.name || user?.username || '?').slice(0, 1)}
+              </div>
+              <div className="nav-user-who">
+                <div className="nav-user-name">{user?.name || user?.username || '알 수 없음'}</div>
+                {user?.role && user.role !== (user.name || user.username) && (
+                  <div className="muted small">{user.role}</div>
+                )}
+              </div>
+              <button
+                type="button"
+                className="nav-user-out"
+                title="로그아웃"
+                onClick={onLogout}
+              >
+                ⏻
+              </button>
             </div>
-            <button
-              type="button"
-              className="nav-user-out"
-              title="로그아웃"
-              onClick={onLogout}
-            >
-              ⏻
-            </button>
           </div>
         </nav>
 

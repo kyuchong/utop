@@ -5,43 +5,8 @@
   background: var(--c-app-bg);
 }
 
-/* ── 상단바 ────────────────────────────────────────────────── */
-.topbar {
-  height: var(--topbar-h);
-  flex: none;
-  background: var(--c-topbar);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  padding: 0 var(--sp-5);
-  gap: var(--sp-5);
-}
-
-.topbar-logo {
-  font-size: var(--fs-xl);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.topbar-chip {
-  background: var(--c-topbar-item);
-  padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--radius);
-  color: #dce3ea;
-}
-
-.topbar-search {
-  margin-left: auto;
-  width: 270px;
-  background: var(--c-topbar-item);
-  padding: 5px var(--sp-3);
-  border-radius: var(--radius);
-  color: #c2ccd6;
-}
-
-.topbar-user {
-  color: #dce3ea;
-}
+/* 상단바는 없앴다 — 로고·통합 찾기·내 장비 현황을 왼쪽 메뉴로 내렸다.
+   (.nav-brand / .nav-search / .nav-status 참고) */
 
 /* ── 본문 ──────────────────────────────────────────────────── */
 .app-body {
@@ -59,12 +24,97 @@
   min-width: 0;
   background: var(--c-nav-bg);
   border-right: 1px solid var(--c-border-nav);
-  padding: 46px 10px var(--sp-4);
+  padding: 12px 10px var(--sp-4);
   /* 접힘 툴팁이 메뉴 바깥으로 나가야 하므로 자르지 않는다.
      항목이 화면 높이를 넘길 만큼 늘어나면 안쪽 래퍼에 스크롤을 주고
      툴팁을 position:fixed 로 바꿔야 한다. */
   overflow: visible;
   transition: width 0.15s ease;
+}
+
+/* ── 메뉴 머리 — 로고·통합 찾기 (옛 상단바 자리) ─────────────── */
+.nav-brand {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  /* 접기 버튼(오른쪽 위)과 겹치지 않게 오른쪽을 비운다 */
+  padding: 2px 30px 8px 6px;
+}
+.nav-logo {
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--c-text);
+}
+.nav-brand-sub {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  white-space: nowrap;
+}
+.nav-search {
+  margin-bottom: 10px;
+}
+/* 통합 찾기 — 밝은 메뉴 바탕에 맞춰 다시 칠한다(상단바용 흰 글자를 덮는다) */
+.nav-search .tsr {
+  margin: 0;
+  max-width: none;
+}
+.nav-search .tsr-in {
+  background: var(--c-surface);
+  color: var(--c-text);
+  border-color: var(--c-border);
+}
+.nav-search .tsr-in::placeholder {
+  color: var(--c-text-faint);
+  opacity: 1;
+}
+/* 결과 팝업은 좁은 메뉴 밖으로 넉넉히 펼친다 */
+.nav-search .tsr-pop {
+  min-width: 300px;
+}
+
+/* 접히면 로고는 이니셜만, 찾기는 감춘다 */
+.app.nav-collapsed .nav-brand {
+  padding: 2px 0 8px;
+  align-items: center;
+}
+.app.nav-collapsed .nav-brand-sub {
+  display: none;
+}
+.app.nav-collapsed .nav-search {
+  display: none;
+}
+
+/* ── 아래쪽 묶음 — 내 장비 현황 + 사용자 ─────────────────────── */
+.nav-foot {
+  margin-top: auto;
+}
+.nav-status {
+  padding: 6px 0 8px;
+}
+/* 장비 현황 칩도 밝은 바탕에 맞춘다 */
+.nav-status .ts {
+  margin: 0;
+}
+.nav-status .ts-chip {
+  width: 100%;
+  justify-content: flex-start;
+  color: var(--c-text-muted);
+  border-color: var(--c-border);
+}
+.nav-status .ts-chip:hover {
+  background: var(--c-surface-2);
+}
+/* 팝업은 메뉴 아래쪽에 있으니 위로 펼친다 */
+.nav-status .ts-pop {
+  top: auto;
+  bottom: 34px;
+  left: 0;
+  right: auto;
+}
+.app.nav-collapsed .nav-status .ts-chip {
+  justify-content: center;
+  padding: 6px 0;
 }
 
 /* ── 접기/펴기 토글 ──────────────────────────────────────────
@@ -351,7 +401,6 @@
 /* ── 상단 바 ──
    여기는 화면 이동이 아니라 **어느 화면에 있든 알아야 하는 것**을 둔다.
    이동은 왼쪽 메뉴가 맡는다. */
-.topbar-sp { margin-left: auto; }
 
 /* 찾기 — 「Requirement / TC 검색」 이라고 글자만 적혀 있고 눌러도 아무
    일도 안 났다 */

@@ -73,7 +73,6 @@
   --radius: 6px;
   --radius-sm: 5px;
 
-  --topbar-h: 44px;
   /* 「Requirements」 가 안 잘리는 최소가 이만큼이다. 156px 로 줄였더니
      바로 잘렸다 — 목록 한 글자 벌자고 메뉴 이름을 못 읽게 할 수는 없다. */
   --nav-w: 172px;
