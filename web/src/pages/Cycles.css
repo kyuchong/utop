@@ -1316,3 +1316,23 @@ table.tb td.k {
 .cy-list .cy-row:last-child { border-bottom: 0; }
 /* 머리 줄은 한 겹 더 진하게 — 표가 어디서 시작하는지 갈리게 */
 .cy-list .cy-row.cy-hd { border-bottom: 1px solid var(--c-border); }
+
+/* ── 머리 줄들은 눌리지 않는다 ────────────────────────────────
+   .cy-detail 이 flex 세로 칸이라, flex 를 안 준 자식은 기본값(0 1 auto)으로
+   **줄어든다.** 그래서 액션 바가 제 높이를 못 받아 단추 위가 잘렸다.
+   각 줄에 제 높이를 못박고, 사이에 선을 그어 무엇이 어느 묶음인지 가른다. */
+.cy-detail > .cy-head,
+.cy-detail > .cy-runbar,
+.cy-detail > .cy-sum,
+.cy-detail > .cy-bar {
+  flex: none;
+}
+.cy-detail > .cy-head {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--c-border-soft);
+  margin-bottom: 8px;
+}
+.cy-detail > .cy-sum {
+  padding-top: 8px;
+  border-top: 1px solid var(--c-border-soft);
+}
