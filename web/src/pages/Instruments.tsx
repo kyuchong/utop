@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import DeviceForm from '@/components/DeviceForm'
 import LockCell, { useLocks } from '@/components/LockCell'
-import N2xPorts from '@/components/N2xPorts'
+import MeterPorts from '@/components/MeterPorts'
 import type { Device } from '@/pages/Devices'
 import './Devices.css'
 
@@ -31,8 +31,13 @@ export default function Instruments({ me }: Props) {
   const [q, setQ] = useState('')
   const [form, setForm] = useState<Device | null | undefined>(undefined)
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
-  /** N2X 포트 현황을 볼 섀시 IP. 비면 안 봄 */
-  const [ports, setPorts] = useState('')
+  /** 포트 현황을 볼 계측기. 비면 안 봄 */
+  const [ports, setPorts] = useState<{
+    kind: 'n2x' | 'stc'
+    server: string
+    restIp?: string
+    restPort?: number
+  } | null>(null)
 
   const devQ = useQuery({
     queryKey: ['devices'],
@@ -133,22 +138,32 @@ export default function Instruments({ me }: Props) {
                   <span className="muted">
                     {acc ? `${acc.protocol.toUpperCase()} ${acc.port ?? ''}` : '–'}
                   </span>
-                  {/* N2X 는 포트 현황을 여기서 바로 본다 — 빈 포트가 있나,
-                      누가 잡고 있나. 시험 걸기 전에 궁금한 것이다. */}
-                  {(d.access ?? []).some((a) => a.protocol === 'n2x') ? (
-                    <button
-                      type="button"
-                      className="btn small"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setPorts(d.ip)
-                      }}
-                    >
-                      포트 현황
-                    </button>
-                  ) : (
-                    <span />
-                  )}
+                  {/* 포트 현황 — N2X·STC 둘 다. 빈 포트가 있나, 누가 잡고
+                      있나. 시험 걸기 전에 궁금한 것이다. */}
+                  {(() => {
+                    const n2x = (d.access ?? []).find((a) => a.protocol === 'n2x')
+                    const stc = (d.access ?? []).find((a) => a.protocol === 'stc')
+                    if (!n2x && !stc) return <span />
+                    return (
+                      <button
+                        type="button"
+                        className="btn small"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (stc)
+                            setPorts({
+                              kind: 'stc',
+                              server: d.ip,
+                              restIp: stc.host || 'localhost',
+                              restPort: stc.port || 8888,
+                            })
+                          else setPorts({ kind: 'n2x', server: d.ip })
+                        }}
+                      >
+                        포트 현황
+                      </button>
+                    )
+                  })()}
                   <span className="dev-lock">
                     <LockCell
                       resourceId={d.id}
@@ -165,7 +180,15 @@ export default function Instruments({ me }: Props) {
           )}
         </div>
       </section>
-      {ports && <N2xPorts server={ports} onClose={() => setPorts('')} />}
+      {ports && (
+        <MeterPorts
+          kind={ports.kind}
+          server={ports.server}
+          restIp={ports.restIp}
+          restPort={ports.restPort}
+          onClose={() => setPorts(null)}
+        />
+      )}
     </>
   )
 }
