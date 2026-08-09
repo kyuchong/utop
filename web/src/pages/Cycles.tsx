@@ -1111,6 +1111,12 @@ function CycleDetail({
 
   return (
     <div className="cy-detail">
+      {/* 2열·3열을 **각자 카드**로 가른다. 한 카드에 두면 3열이 2열의
+          일부처럼 보인다 — 두 칸이 하는 일이 다르다. */}
+      <div className="cy-cols" ref={colsRef}>
+      {/* 2열 — 이 회차를 돌리고 결과를 보는 칸. 머리(제목·단추·통계·거르기)와
+          표가 한 카드에 든다. */}
+      <section className="panel cy-exec">
       {/* ① 이 칸이 무엇을 하는 곳인지 — 제목이 있어야 세 칸의 역할이 먼저
           읽힌다. 요구사항·TC 화면의 머리줄과 같은 뜻이다. */}
       <div className="cy-cardh">
@@ -1436,9 +1442,7 @@ function CycleDetail({
         ))}
       </div>
 
-      <div className="cy-cols" ref={colsRef}>
-      {/* 목록 칸 — 「몇 개 골랐나」 는 카드 **밖 위**에, 표는 카드 안에.
-          카드는 자료가 담기는 곳이고, 고른 수는 그 자료를 두고 하는 말이다. */}
+      {/* 「몇 개 골랐나」 는 표 바로 위에 */}
       <div className="cy-listwrap">
         <div className="cy-selbar">
           <label className="rq-selall">
@@ -1637,6 +1641,8 @@ function CycleDetail({
       </div>
       </div>
 
+      </section>
+
       {/* 오른쪽 칸 — 고른 항목의 스텝, 그리고 실행 중이면 오간 것.
           목록 안에서 펼치면 줄이 아래로 밀려서 방금 보던 자리를 놓친다.
           TC 화면과 같은 모양이라 오갈 때 눈이 안 헤맨다. */}
@@ -1654,7 +1660,7 @@ function CycleDetail({
       )}
 
       {view === 'detail' && (
-      <div className="cy-side" style={{ flexBasis: sideW }}>
+      <section className="panel cy-side" style={{ flexBasis: sideW }}>
         <div className="cy-cardh">
           <b>Test Procedure Details</b>
           <span className="muted small">{cur ? cur.name || cur.tcid : '항목을 고르세요'}</span>
@@ -1681,7 +1687,7 @@ function CycleDetail({
         ) : (
           <div className="empty">항목을 누르면 스텝이 보입니다.</div>
         )}
-      </div>
+      </section>
       )}
       </div>
 

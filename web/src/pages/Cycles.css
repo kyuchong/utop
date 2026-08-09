@@ -1480,3 +1480,36 @@ table.tb td.k {
 }
 .cy-gicon { flex: none; display: inline-flex; align-items: center; }
 .cy-gicon svg { width: 14px; height: 14px; display: block; }
+
+/* ── 2열·3열을 각자 카드로 ────────────────────────────────────
+   바깥(.cy-main)은 카드 옷을 벗고 자리만 잡는다. 안에서 두 칸이 각자
+   카드가 되어 사이에 틈이 생긴다 — 그 틈이 두 칸을 가르는 선이다. */
+.cy-main.panel {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.cy-detail { padding: 0; }
+.cy-detail > .cy-cols {
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+}
+/* 2열 — 머리와 표가 한 카드에 */
+.cy-exec {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.cy-exec > .cy-listwrap { padding: 0 14px 12px; }
+/* 3열 — 자기 카드 */
+.cy-side.panel {
+  padding: 0 12px 12px;
+  overflow: hidden;
+}
+.cy-side > .cy-cardh { padding: 10px 2px 6px; }
+/* 표는 카드 안이라 테두리를 한 번 더 두르지 않는다 */
+.cy-exec .cy-list { border-color: var(--c-border-soft); }
