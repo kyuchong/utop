@@ -1614,11 +1614,11 @@ export default function TestCases({ me }: PageProps) {
                 <div className="rq-tr tc-tr rq-th">
                   <div />
                   <div>요구사항</div>
-                  <div>REQ Map</div>
                   <div>TC ID</div>
                   <div>이름</div>
                   <div>유형</div>
                   <div>스텝</div>
+                  <div>REQ Map</div>
                   <div>상태</div>
                 </div>
                 {listRows.length === 0 ? (
@@ -1658,21 +1658,6 @@ export default function TestCases({ me }: PageProps) {
                             <span className="muted">–</span>
                           )}
                         </div>
-                        <div className="tc-map">
-                          <button
-                            type="button"
-                            className="linkish"
-                            title="이 시험에 요구사항을 붙입니다"
-                            onClick={() => setMapTc(t)}
-                          >
-                            Map
-                          </button>
-                          <span
-                            className={`tc-mapn${(reqsOfTc.get(t.tcid)?.size ?? 0) ? ' has' : ''}`}
-                          >
-                            {reqsOfTc.get(t.tcid)?.size ?? 0}
-                          </span>
-                        </div>
                         <div className="rq-id" title={t.tcid}>
                           {t.tcid}
                         </div>
@@ -1695,6 +1680,21 @@ export default function TestCases({ me }: PageProps) {
                         </div>
                         <div>{t.type ? <span className="tag">{t.type}</span> : '–'}</div>
                         <div className="muted small">{t._cli_count ?? 0}</div>
+                        <div className="tc-map">
+                          <button
+                            type="button"
+                            className="linkish"
+                            title="이 시험에 요구사항을 붙입니다"
+                            onClick={() => setMapTc(t)}
+                          >
+                            Map
+                          </button>
+                          <span
+                            className={`tc-mapn${(reqsOfTc.get(t.tcid)?.size ?? 0) ? ' has' : ''}`}
+                          >
+                            {reqsOfTc.get(t.tcid)?.size ?? 0}
+                          </span>
+                        </div>
                         <div className={`status ${statusClass(t.status)}`}>
                           ● {t.status || '미실행'}
                         </div>
