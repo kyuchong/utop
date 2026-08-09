@@ -2436,60 +2436,6 @@ table.tb tr.r-bad td:first-child {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* List 보기 칸 — 바깥에 padding·overflow 를 주지 않는다.
-   .tc-tabcol 을 쓰면 스크롤이 두 겹이 되어 머리줄이 잘렸다. */
-.tc-listview {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 0;
-}
-.tc-listview .rq-list {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 0;
-  gap: 0;
-  overflow: hidden;
-}
-/* 1열 머리줄(.lh, 46px)과 같은 높이·같은 선 — 두 칸의 머리가 맞아야 한다 */
-.tc-listhead {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 46px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--c-border);
-}
-.tc-listview .rq-selbar {
-  flex: none;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--c-border-soft);
-}
-/* 표만 스크롤한다 */
-.tc-listview .rq-table {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  border: 0;
-  border-radius: 0;
-}
-.tc-listview .rq-tr.rq-th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-.tc-listview .bottom {
-  flex: none;
-  margin: 0;
-  padding: 6px 12px;
-  border-top: 1px solid var(--c-border);
-}
 
 /* 빵부스러기의 요구사항 — 폴더(흐린 글자)와 시험 이름(굵게) 사이 */
 .tc-crumb-req { color: var(--c-primary); }
@@ -2512,35 +2458,39 @@ table.tb tr.r-bad td:first-child {
 }
 .tc-mapn.has { color: var(--c-pass, #1f7a45); font-weight: 700; }
 
-/* ── List 카드 — 요구사항 화면과 같은 모양 ────────────────────
-   카드 안에는 표만. Select All 은 카드 밖 위에 둔다. */
-.tc-listview .rq-list { padding: 0 14px 12px; gap: 0; }
-.tc-listview .tc-listhead { padding: 0 0 0 0; }
-.tc-listview .rq-selbar {
-  flex: none;
-  border-bottom: 0;
-  padding: 8px 2px;
-}
-.tc-card {
+
+/* ── List 보기 — 요구사항 화면과 **같은 부품·같은 여백**을 쓴다.
+   여기서 따로 값을 주면 두 화면이 또 어긋난다. 다른 것은 열 구성뿐이다. */
+.tc-listview {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
   overflow: hidden;
-  background: var(--c-surface);
+  padding: 0;
 }
-.tc-card > .rq-table {
+/* 머리줄만 1열(.lh, 46px)과 높이를 맞춘다 */
+.tc-listhead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--c-border);
+}
+/* 그 아래는 요구사항의 .rq-list 규칙(padding·gap)이 그대로 먹는다.
+   90건이라 표만 스크롤시킨다 — 머리 행은 붙여 둔다. */
+.tc-listview .rq-list { overflow: hidden; }
+.tc-listview .rq-table {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  border: 0;
-  border-radius: 0;
 }
-.tc-card > .bottom {
-  flex: none;
-  margin: 0;
-  padding: 6px 12px;
-  border-top: 1px solid var(--c-border-soft);
+.tc-listview .rq-tr.rq-th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
+.tc-listview .bottom { flex: none; margin-top: 0; }
