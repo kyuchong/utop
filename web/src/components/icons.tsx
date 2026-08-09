@@ -540,3 +540,38 @@ export const IconPerms = (p: P) => (
     <path d="M12 14v2.5" />
   </Svg>
 )
+
+/* ── 우클릭 메뉴 아이콘 ────────────────────────────────────────
+   글자를 다 읽기 전에 무엇인지 알게 한다. 왼쪽 메뉴와 같은 규격
+   (18px·stroke·currentColor)이라 같은 앱으로 보인다. */
+
+/** 고치기 (연필) */
+export const IconEdit = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M4 20h4L19 9a2 2 0 0 0-3-3L5 17z" />
+    <path d="M15 6l3 3" />
+  </SmallSvg>
+)
+
+/** 슬라이드 (발표 화면) */
+export const IconSlide = (p: P) => (
+  <SmallSvg {...p}>
+    <rect x="3" y="4" width="18" height="12" rx="1.5" />
+    <path d="M12 16v4M9 20h6" />
+  </SmallSvg>
+)
+
+/** 이름표 (라벨) */
+export const IconTag = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9z" />
+    <circle cx="7.5" cy="7.5" r="1.2" />
+  </SmallSvg>
+)
+
+/** 버리기 (휴지통) */
+export const IconTrash = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13" />
+  </SmallSvg>
+)

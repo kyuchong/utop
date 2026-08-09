@@ -12,7 +12,18 @@ import CycleInsight from '@/components/cycle/CycleInsight'
 import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import { useMultiSelect } from '@/components/useMultiSelect'
-import { IconChevron, IconFolder, IconPanel } from '@/components/icons'
+import {
+  IconChevron,
+  IconEdit,
+  IconExecution,
+  IconFolder,
+  IconPanel,
+  IconPlay,
+  IconReqDoc,
+  IconSlide,
+  IconTag,
+  IconTrash,
+} from '@/components/icons'
 import type { TestCaseMeta } from '@/types'
 import { stepVerdict, type StepRound, type TcStep } from '@/components/tc/types'
 // 요구사항 화면의 트리 규칙을 그대로 쓴다 — 줄 높이·색·여백이 한 곳에서만
@@ -1864,8 +1875,12 @@ function CycleMenu({
     }
   }
 
-  const item = (label: string, fn: () => void) => (
+  /** 메뉴 한 줄 — 아이콘이 있어야 글자를 다 읽기 전에 무엇인지 안다 */
+  const item = (Icon: React.ComponentType, label: string, fn: () => void) => (
     <button type="button" onClick={fn}>
+      <span className="cy-mi" aria-hidden="true">
+        <Icon />
+      </span>
       {label}
     </button>
   )
@@ -1877,15 +1892,16 @@ function CycleMenu({
       onMouseDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {item('사이클 수정 (항목·제목)', () => onEdit(at.id))}
-      {item('세부 내역 (Details)', () => onDo('details'))}
-      {item('보고서 출력 (AI 요약 PDF)', () => onDo('ai'))}
-      {item('PPTX 출력 (AI 요약)', () => onDo('pptx'))}
+      {item(IconEdit, '사이클 수정 (항목·제목)', () => onEdit(at.id))}
+      {item(IconReqDoc, '세부 내역 (Details)', () => onDo('details'))}
+      {item(IconExecution, '보고서 출력 (AI 요약 PDF)', () => onDo('ai'))}
+      {item(IconSlide, 'PPTX 출력 (AI 요약)', () => onDo('pptx'))}
       <hr />
-      {item('Test Cycle 자동 실행 (Automation)', () => onDo('run'))}
+      {item(IconPlay, 'Test Cycle 자동 실행 (Automation)', () => onDo('run'))}
       <hr />
-      {item('버전 이름만 바꾸기', () => void rename())}
-      {item('사이클 삭제', () => void del())}
+      {item(IconTag, '버전 이름만 바꾸기', () => void rename())}
+      <hr />
+      {item(IconTrash, '사이클 삭제', () => void del())}
     </div>
   )
 }

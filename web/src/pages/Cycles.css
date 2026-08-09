@@ -1632,3 +1632,19 @@ table.tb td.k {
 .cy-bar .blocked { background: #7c3aed; }
 .cy-bar .na { background: #b45309; }
 .cy-bar .none { background: #4b555f; }
+
+/* 우클릭 메뉴의 아이콘 — 글자와 나란히 */
+.cy-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cy-mi {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--c-text-faint);
+}
+.cy-mi svg { width: 15px; height: 15px; display: block; }
+/* 지우는 것은 아이콘도 빨갛게 — 되돌릴 수 없는 일이다 */
+.cy-menu button:last-child .cy-mi { color: var(--c-fail); }
