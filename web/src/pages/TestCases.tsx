@@ -1463,16 +1463,16 @@ export default function TestCases({ me }: PageProps) {
                         : listRows
                       const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
                       const csv = [
-                        ['TC ID', '이름', '유형', '스텝', '상태', '요구사항'].map(esc).join(','),
+                        ['요구사항', 'TC ID', '이름', '유형', '스텝', '상태'].map(esc).join(','),
                         ...rows.map((t) => {
                           const r = reqByKey.get(t.req_id || '')
                           return [
+                            r ? r.title || reqLabel(r) : '',
                             t.tcid,
                             t.name ?? '',
                             t.type ?? '',
                             t._cli_count ?? 0,
                             t.status ?? '',
-                            r ? r.title || reqLabel(r) : '',
                           ]
                             .map(esc)
                             .join(',')
@@ -1519,9 +1519,9 @@ export default function TestCases({ me }: PageProps) {
               <div className="rq-table">
                 <div className="rq-tr tc-tr rq-th">
                   <div />
-                  <div>TC ID</div>
-                  <div>Name</div>
                   <div>요구사항</div>
+                  <div>TC ID</div>
+                  <div>이름</div>
                   <div>유형</div>
                   <div>스텝</div>
                   <div>상태</div>
@@ -1551,6 +1551,18 @@ export default function TestCases({ me }: PageProps) {
                             }
                           />
                         </div>
+                        <div className="tc-req">
+                          {r ? (
+                            <>
+                              <span className="rq-icon" aria-hidden="true">
+                                <IconReqDoc />
+                              </span>
+                              <span title={reqLabel(r)}>{r.title || reqLabel(r)}</span>
+                            </>
+                          ) : (
+                            <span className="muted">–</span>
+                          )}
+                        </div>
                         <div className="rq-id" title={t.tcid}>
                           {t.tcid}
                         </div>
@@ -1570,18 +1582,6 @@ export default function TestCases({ me }: PageProps) {
                           >
                             {t.name || '(제목 없음)'}
                           </button>
-                        </div>
-                        <div className="tc-req">
-                          {r ? (
-                            <>
-                              <span className="rq-icon" aria-hidden="true">
-                                <IconReqDoc />
-                              </span>
-                              <span title={reqLabel(r)}>{r.title || reqLabel(r)}</span>
-                            </>
-                          ) : (
-                            <span className="muted">–</span>
-                          )}
                         </div>
                         <div>{t.type ? <span className="tag">{t.type}</span> : '–'}</div>
                         <div className="muted small">{t._cli_count ?? 0}</div>

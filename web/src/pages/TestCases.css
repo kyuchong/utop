@@ -2423,7 +2423,7 @@ table.tb tr.r-bad td:first-child {
 /* ── List 보기 — 시험 목록 표 (요구사항 화면과 같은 부품을 쓴다) ──
    열 구성만 다르다: 체크 · TC ID · 이름 · 요구사항 · 유형 · 스텝 · 상태 */
 .rq-tr.tc-tr {
-  grid-template-columns: 34px 190px 1fr 240px 96px 60px 104px;
+  grid-template-columns: 34px 240px 190px 1fr 96px 60px 104px;
 }
 .tc-req {
   display: flex;
