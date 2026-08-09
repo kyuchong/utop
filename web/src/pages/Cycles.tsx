@@ -1020,32 +1020,6 @@ function CycleDetail({
       <div className="cy-head">
         <div className="rq-actions">
           <button
-            className="btn"
-            type="button"
-            disabled={pick.size !== 1}
-            title={pick.size === 1 ? '고른 항목을 고칩니다' : '한 건만 골랐을 때 켜집니다'}
-            onClick={() => setEditing([...pick].map((i) => items[i]!).filter(Boolean))}
-          >
-            Edit
-          </button>
-          <button
-            className="btn"
-            type="button"
-            disabled={pick.size < 2}
-            title={
-              pick.size >= 2
-                ? `고른 ${pick.size}건의 결과·담당자·메모를 한꺼번에 고칩니다`
-                : '둘 이상 골랐을 때 켜집니다'
-            }
-            onClick={() => setEditing([...pick].map((i) => items[i]!).filter(Boolean))}
-          >
-            Bulk Edit
-          </button>
-          <span className="rq-adiv" aria-hidden="true" />
-          <button className="btn" type="button" onClick={() => setAdding(true)}>
-            Add
-          </button>
-          <button
             className="btn danger"
             type="button"
             disabled={!pick.size || saving || st.on}
@@ -1067,14 +1041,6 @@ function CycleDetail({
             onClick={exportItems}
           >
             Export
-          </button>
-          <button
-            className="btn"
-            type="button"
-            title="고객사 양식 슬라이드를 미리 보고 PPTX 로 내려받습니다"
-            onClick={() => setReport(true)}
-          >
-            PPTX
           </button>
           {/* 결과만 빠르게 바꿀 때 — 담당자·메모까지 함께면 Bulk Edit 로 */}
           <select
@@ -1112,6 +1078,14 @@ function CycleDetail({
             onClick={() => goto('report', cycle.id)}
           >
             보고서
+          </button>
+          <button
+            className="btn"
+            type="button"
+            title="고객사 양식 슬라이드를 미리 보고 PPTX 로 내려받습니다"
+            onClick={() => setReport(true)}
+          >
+            PPTX
           </button>
           <button
             className="btn"
