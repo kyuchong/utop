@@ -1651,3 +1651,30 @@ table.tb td.k {
 .cy-mi svg { width: 15px; height: 15px; display: block; }
 /* 지우는 것은 아이콘도 빨갛게 — 되돌릴 수 없는 일이다 */
 .cy-menu button:last-child .cy-mi { color: var(--c-fail); }
+
+/* 말로 시험 만들기 — 설정 허용 스위치.
+   켜면 장비 설정이 바뀌는 시험이 만들어진다. 모르고 지나치지 않게 켠 뒤에는
+   눈에 띄게 물들인다. */
+.ask-cfg {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.ask-cfg.on {
+  border-color: #f0a04b;
+  background: #fff8ee;
+}
+.ask-cfg input { margin: 2px 0 0; flex: none; }
+.ask-cfg > span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ask-cfg b { font-size: var(--fs-sm); }
+.ask-cfg.on b { color: #9a5b06; }
+.ask-cfg i {
+  font-style: normal;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}

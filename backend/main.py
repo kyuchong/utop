@@ -5719,6 +5719,47 @@ _WRITE_WORDS = (
 )
 
 
+# 설정 시험에서만 푸는 명령. 「무엇을 풀지」 를 여기 한 곳에 적어 둔다 —
+# 여러 군데 흩어 두면 한쪽만 고쳐 놓고 풀린 줄 안다.
+_CONFIG_HEADS = (
+    "configure terminal", "conf t", "config t", "end", "exit",
+    "interface", "int ", "no shutdown", "shutdown",
+)
+# 무엇을 풀어 주든 이것만은 못 지나간다. 되돌릴 수 없거나 장비가 죽는다.
+_NEVER_WORDS = (
+    "reload", "reboot", "erase", "format", "factory", "upgrade", "firmware",
+    "install", "restore", "write ", "wr ", "copy ", "delete", "rmdir",
+    "clear config", "halt", "boot ",
+)
+
+
+def _config_allowed(cli: str) -> bool:
+    """설정 시험에서 이 명령을 써도 되나 (allow_config 일 때만 부른다).
+
+    허용 목록 방식이다 — 「막을 것을 적는」 방식은 새 명령이 생길 때마다
+    구멍이 난다. 링크를 내리고 올리는 시험에 필요한 것만 연다.
+    """
+    s0 = str(cli or "").strip().lower()
+    if not s0:
+        return False
+    for line in s0.splitlines():
+        ln = line.strip()
+        if not ln:
+            continue
+        if any(w in ln for w in _NEVER_WORDS):
+            return False
+        if any(ch.isdigit() or ch == "." for ch in ln) and all(
+            ch.isdigit() or ch == "." for ch in ln
+        ):
+            continue                      # OID
+        if any(ln.startswith(h) for h in _READ_HEADS):
+            continue                      # 조회는 언제나 된다
+        if any(ln.startswith(h) for h in _CONFIG_HEADS):
+            continue
+        return False
+    return True
+
+
 def _is_read_only(cli: str) -> bool:
     """조회 명령인가. SNMP OID(숫자와 점)도 조회로 본다."""
     s = str(cli or "").strip().lower()
@@ -5743,17 +5784,22 @@ _TC_SCHEMA = {
         "name": {"type": "string"},
         "object": {"type": "string"},
         "device_ip": {"type": "string"},
+        "device_ips": {"type": "array", "items": {"type": "string"}},
         "steps": {
             "type": "array",
             "items": {
                 "type": "object",
                 "properties": {
                     "desc": {"type": "string"},
+                    "kind": {"type": "string"},
                     "cli": {"type": "string"},
                     "type": {"type": "string"},
                     "criteria": {"type": "string"},
+                    "session": {"type": "integer"},
+                    "loopCount": {"type": "integer"},
+                    "waitSec": {"type": "number"},
                 },
-                "required": ["desc", "cli"],
+                "required": ["desc"],
             },
         },
     },
@@ -5767,6 +5813,8 @@ async def nl_make_tc(payload: dict):
     text = str(payload.get("text") or "").strip()
     if not text:
         raise HTTPException(400, "무엇을 시험할지 적어 주세요")
+    # 설정 시험(링크 down/up 같은 것)은 사람이 켤 때만 만든다. 기본은 조회다.
+    allow_config = bool(payload.get("allow_config"))
 
     devices = [d for d in await db.device_list() if d.get("role") != "계측기"]
     tcs = await db.tc_list_full()
@@ -5811,8 +5859,15 @@ async def nl_make_tc(payload: dict):
         "규칙:\n"
         "1. 명령은 아래 「이 랩에서 통한 명령」 에 있는 것을 그대로 쓰거나 그 꼴을 따른다. "
         "일반적인 지식으로 새 명령을 지어내지 않는다.\n"
-        "2. **조회 명령만.** configure·write·reload·no·set·clear 같은 것은 절대 쓰지 않는다.\n"
-        "3. **스텝마다 판정기준(criteria)을 반드시 적는다.** 비워 두면 그 스텝은 "
+        + ("2. **설정 시험이다.** 아래만 쓸 수 있다 — configure terminal · interface <이름> · "
+           "shutdown · no shutdown · end · exit, 그리고 조회 명령(show…). "
+           "reload·write·copy·erase·factory 는 절대 쓰지 않는다.\n"
+           "2-1. 링크를 내렸으면 **반드시 다시 올린다**(no shutdown). 내려 둔 채 끝내면 "
+           "다음 시험이 전부 깨진다.\n"
+           "2-2. 상태가 반영되기까지 시간이 걸린다 — 내리고/올린 **뒤에 wait 스텝**을 둔다.\n"
+           if allow_config else
+           "2. **조회 명령만.** configure·write·reload·no·set·clear 같은 것은 절대 쓰지 않는다.\n")
+        + "3. **스텝마다 판정기준(criteria)을 반드시 적는다.** 비워 두면 그 스텝은 "
         "돌기만 하고 아무것도 확인하지 못한다. 출력에 늘 나오는 **항목 이름**을 "
         "기준으로 삼으면 안전하다 — 값은 장비마다 다르지만 이름은 같다. "
         "예: `show cpu usage` → `Average CPU load`, `show memory usage` → `Total`. "
@@ -5820,14 +5875,34 @@ async def nl_make_tc(payload: dict):
         "응답하면 합격」 이라는 뜻이고, 조회 시험은 대개 이것이면 된다. criteria 는 "
         "비워 둔다. type 은 contains(문구 포함) · contains_all(콤마로 여럿, 모두 포함) · "
         "ok(오류만 없으면) 중 하나. none 은 쓰지 않는다.\n"
-        "4. 스텝은 2~6개. 많을수록 좋은 것이 아니다.\n"
-        "5. desc 는 그 스텝이 무엇을 확인하는지 한국어 한 줄.\n\n"
+        "4. 스텝은 2~10개. 많을수록 좋은 것이 아니다.\n"
+        "5. desc 는 그 스텝이 무엇을 확인하는지 한국어 한 줄.\n"
+        "6. 스텝 종류(kind): cli(명령·기본) · wait(기다리기, waitSec 초) · "
+        "loop(여기부터 아래를 loopCount 번 되풀이). loop 는 되풀이할 묶음 **앞**에 한 번 둔다.\n"
+        "7. 장비가 둘이면 session 으로 가른다 — 0 이 첫 장비, 1 이 둘째. "
+        "device_ips 에 쓴 차례와 같다. 장비가 하나면 session 은 적지 않는다.\n\n"
         "아래 꼴 그대로, **다른 말 없이 JSON 만** 답한다:\n"
         '{"name":"E5724RL 시스템 정보 확인","object":"모델명과 메모리를 확인한다",'
         '"device_ip":"210.1.1.254","steps":['
         '{"desc":"모델명을 확인한다","cli":"show system","type":"contains","criteria":"E5724RL"},'
         '{"desc":"CPU 사용량이 조회되는지 확인한다","cli":"show cpu usage","type":"ok","criteria":""}'
         ']}'
+        + ("\n설정 시험 예 (링크를 내렸다 올리며 상대 장비에서 확인):\n"
+           '{"name":"gi0/1 링크 down/up 100회","object":"링크를 내렸다 올리며 상대에서 상태를 본다",'
+           '"device_ips":["210.1.1.254","210.1.1.253"],"steps":['
+           '{"desc":"100회 되풀이","kind":"loop","loopCount":100},'
+           '{"desc":"A 장비 gi0/1 을 내린다","kind":"cli","session":0,'
+           '"cli":"configure terminal\\ninterface gi0/1\\nshutdown","type":"ok","criteria":""},'
+           '{"desc":"상태가 반영되기를 기다린다","kind":"wait","waitSec":2},'
+           '{"desc":"B 장비에서 링크가 내려갔는지 본다","kind":"cli","session":1,'
+           '"cli":"show interface gi0/2","type":"contains","criteria":"down"},'
+           '{"desc":"A 장비 gi0/1 을 올린다","kind":"cli","session":0,'
+           '"cli":"configure terminal\\ninterface gi0/1\\nno shutdown","type":"ok","criteria":""},'
+           '{"desc":"상태가 반영되기를 기다린다","kind":"wait","waitSec":2},'
+           '{"desc":"B 장비에서 링크가 올라왔는지 본다","kind":"cli","session":1,'
+           '"cli":"show interface gi0/2","type":"contains","criteria":"up"}'
+           ']}'
+           if allow_config else "")
     )
     user_p = (
         f"사람이 한 말: {text}\n\n"
@@ -5875,14 +5950,35 @@ async def nl_make_tc(payload: dict):
                 return str(v).strip()
         return ""
 
+    def _num(v, dflt=0):
+        try:
+            return type(dflt)(v)
+        except Exception:
+            return dflt
+
     keep, cut = [], []
     for s in (draft.get("steps") or []):
         if not isinstance(s, dict):
             continue
+
+        # 명령이 아닌 스텝 — 되풀이(loop)·기다리기(wait). cli 가 없어도 산다.
+        skind = _pick(s, "kind", "step_kind").lower()
+        if skind in ("loop", "wait"):
+            row = {"desc": _pick(s, "desc", "description", "purpose"), "kind": skind}
+            if skind == "loop":
+                row["loopCount"] = max(1, _num(s.get("loopCount") or s.get("count"), 1))
+            else:
+                row["waitSec"] = max(0.1, _num(s.get("waitSec") or s.get("sec"), 1.0))
+            keep.append(row)
+            continue
+
         cli = _pick(s, "cli", "cmd", "command", "input")
         if not cli:
             continue
-        if not _is_read_only(cli):
+        # 설정 시험이면 허용 목록까지, 아니면 조회만. 어느 쪽이든 되돌릴 수
+        # 없는 명령은 못 지나간다.
+        ok_cmd = _config_allowed(cli) if allow_config else _is_read_only(cli)
+        if not ok_cmd:
             cut.append(cli.splitlines()[0])
             continue
         kind = _pick(s, "type", "judge", "mode")
@@ -5896,21 +5992,31 @@ async def nl_make_tc(payload: dict):
         # 「오류만 없으면 합격」 으로 돌린다 — 조회 시험의 기본값이다.
         if kind in ("contains", "contains_all", "notcontains", "line") and not crit:
             kind = "ok"
-        keep.append({
+        row = {
             "desc": _pick(s, "desc", "description", "purpose"),
+            "kind": "cli",
             "cli": cli,
             "type": kind,
             "criteria": crit,
-        })
+        }
+        # 장비가 둘 이상일 때만 세션을 싣는다 — 하나뿐이면 0 이 당연해서 군더더기다
+        if s.get("session") is not None:
+            row["session"] = max(0, _num(s.get("session"), 0))
+        keep.append(row)
 
     dev_ips = {str(d.get("ip")) for d in devices}
     ip = str(draft.get("device_ip") or "")
+    ips = [str(x) for x in (draft.get("device_ips") or []) if str(x) in dev_ips]
+    if not ips and ip in dev_ips:
+        ips = [ip]
     return {
         "name": str(draft.get("name") or draft.get("title") or "").strip() or text[:40],
         "object": str(draft.get("object") or "").strip(),
-        "device_ip": ip if ip in dev_ips else "",
+        "device_ip": ips[0] if ips else "",
+        "device_ips": ips,
         "steps": keep,
         "cut": cut,
+        "allow_config": allow_config,
     }
 
 
@@ -9006,15 +9112,18 @@ async def ai_search_all(payload: dict):
 
 # ── S6: 자연어 시험 진행 (실험적) — 자연어 → CLI 변환 → 실행 → 결과 판정 ──
 def _nl_cmd_allowed(cmd, allow_config=False):
-    """생성된 CLI 안전 필터: 파괴적 명령 차단, 기본은 조회성 명령만 허용."""
+    """생성된 CLI 안전 필터.
+
+    allow_config 면 설정 허용 목록(_config_allowed)까지 열고, 아니면 조회만.
+    어느 쪽이든 _NEVER_WORDS 는 못 지나간다 — TC 초안과 **같은 정책**을 쓴다.
+    """
     c = str(cmd or "").strip().lower()
     if not c:
         return False
-    for b in ("reload", "reboot", "erase", "format", "factory", "upgrade", "firmware", "write ", "copy ", "delete", "remove", "clear config", "rmdir", "halt", "shutdown"):
-        if b in c:
-            return False
+    if any(b in c for b in _NEVER_WORDS):
+        return False
     if allow_config:
-        return True
+        return _config_allowed(cmd)
     head = c.split()[0]
     return head in ("show", "display", "ping", "traceroute", "dir", "more", "cat", "get", "status", "monitor")
 

@@ -9,14 +9,23 @@ interface DraftStep {
   cli: string
   type?: string
   criteria?: string
+  /** cli(기본) · wait(기다리기) · loop(되풀이) */
+  kind?: string
+  /** 장비가 둘 이상일 때 몇 번째 것으로 보낼까 (0부터) */
+  session?: number
+  loopCount?: number
+  waitSec?: number
 }
 
 interface Draft {
   name: string
   object?: string
   device_ip?: string
+  /** 장비가 둘 이상인 시험 — 차례가 곧 session 번호다 */
+  device_ips?: string[]
   steps: DraftStep[]
   cut?: string[]
+  allow_config?: boolean
 }
 
 
@@ -83,6 +92,14 @@ export default function AskBar({ devices }: Props) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
+  /**
+   * 설정 명령을 쓰는 시험을 만들까.
+   *
+   * 기본은 꺼짐이다. 켜면 configure terminal · interface · shutdown ·
+   * no shutdown 까지 지을 수 있다 — 링크를 내렸다 올리는 시험이 그것이다.
+   * reload·write·copy·erase 는 켜도 못 지나간다.
+   */
+  const [allowConfig, setAllowConfig] = useState(false)
   const [devId, setDevId] = useState('')
   const [err, setErr] = useState('')
   /** 돌린 결과 — 스텝마다 판정과 출력 */
@@ -103,7 +120,7 @@ export default function AskBar({ devices }: Props) {
     try {
       const r = await apiFetch('/api/nl/tc', {
         method: 'POST',
-        body: JSON.stringify({ text: text.trim() }),
+        body: JSON.stringify({ text: text.trim(), allow_config: allowConfig }),
       })
       const b = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(b.detail || `만들지 못했습니다 (${r.status})`)
@@ -132,15 +149,23 @@ export default function AskBar({ devices }: Props) {
     if (!draft || !devId) return
     const ac = new AbortController()
     abortRef.current = ac
-    const steps: TcStep[] = draft.steps.map((s) => ({
-      kind: 'cli',
-      indent: 0,
-      session: 0,
-      desc: s.desc,
-      cli: s.cli,
-      type: s.type || 'contains',
-      criteria: s.criteria || '',
-    }))
+    // 초안의 종류를 그대로 살린다 — loop·wait 를 cli 로 뭉개면 되풀이가 사라진다
+    const steps: TcStep[] = draft.steps.map((s) => {
+      const k = (s.kind || 'cli') as TcStep['kind']
+      if (k === 'loop')
+        return { kind: 'loop', indent: 0, desc: s.desc, loopCount: s.loopCount ?? 1 } as TcStep
+      if (k === 'wait')
+        return { kind: 'wait', indent: 0, desc: s.desc, waitSec: s.waitSec ?? 1 } as TcStep
+      return {
+        kind: 'cli',
+        indent: 0,
+        session: s.session ?? 0,
+        desc: s.desc,
+        cli: s.cli,
+        type: s.type || 'contains',
+        criteria: s.criteria || '',
+      } as TcStep
+    })
     setRan(steps.slice())
     setRunning(true)
     setAt(-1)
@@ -218,6 +243,24 @@ export default function AskBar({ devices }: Props) {
           {busy ? '만드는 중…' : '만들기'}
         </button>
       </div>
+
+      {/* 설정 시험은 사람이 켤 때만. 켜 두면 말 한 줄에 장비 설정이 바뀌는
+          시험이 만들어진다 — 그것을 모르고 돌리는 일이 없어야 한다. */}
+      <label className={`ask-cfg${allowConfig ? ' on' : ''}`}>
+        <input
+          type="checkbox"
+          checked={allowConfig}
+          onChange={(e) => setAllowConfig(e.target.checked)}
+        />
+        <span>
+          <b>설정 시험 허용</b>
+          <i>
+            {allowConfig
+              ? 'configure terminal · interface · shutdown · no shutdown 까지 만듭니다. reload·write·copy·erase 는 켜도 막습니다.'
+              : '지금은 조회 명령만 만듭니다. 링크를 내렸다 올리는 시험을 만들려면 켜세요.'}
+          </i>
+        </span>
+      </label>
 
       {err && <div className="ask-err">{err}</div>}
 
