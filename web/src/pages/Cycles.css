@@ -1330,14 +1330,14 @@ table.tb td.k {
    액션 바가 오다 보니 선이 더 아래에 그어져 두 칸의 머리가 어긋났다.
    2열 액션 바를 **같은 46px** 로 두고 바깥 여백을 없앤다. */
 .cy-detail { padding: 0; }
-.cy-detail > .cy-head {
+.cy-exec > .cy-head {
   min-height: 46px;
   padding: 4px 14px;
   margin: 0;
   border-bottom: 1px solid var(--c-border);
 }
 /* 단추가 늘어 한 줄에 안 들어가면 접힌다 — 가로로 밀려 잘리지 않게 */
-.cy-detail > .cy-head .rq-actions { flex-wrap: wrap; row-gap: 4px; }
+.cy-exec > .cy-head .rq-actions { flex-wrap: wrap; row-gap: 4px; }
 /* 머리 아래 것들은 제 여백을 스스로 갖는다 */
 .cy-detail > .cy-bar {
   margin: 10px 14px 0;
@@ -1513,3 +1513,42 @@ table.tb td.k {
 .cy-side > .cy-cardh { padding: 10px 2px 6px; }
 /* 표는 카드 안이라 테두리를 한 번 더 두르지 않는다 */
 .cy-exec .cy-list { border-color: var(--c-border-soft); }
+
+/* ── 세 칸의 머리 구분선을 같은 높이에 ────────────────────────
+   1열은 ListHead(46px), 2열은 제목+단추 한 줄, 3열은 제목 한 줄 — 모두 46px
+   에 아래선을 둬야 선이 마주 본다. */
+.cy-cardt {
+  flex: none;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-right: 10px;
+  min-width: 0;
+}
+.cy-cardt > b { color: var(--c-primary); white-space: nowrap; }
+.cy-cardt > .muted {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cy-side > .cy-cardh {
+  min-height: 46px;
+  align-items: center;
+  padding: 0 2px;
+  margin: 0;
+  border-bottom: 1px solid var(--c-border);
+}
+
+/* ② 통계 카드는 두 줄 — 수 / 이름·비율 */
+.cy-stat-lb {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+}
+.cy-stat-lb > i {
+  font-style: normal;
+  color: var(--c-text-faint);
+  font-size: var(--fs-xs);
+}

@@ -1117,19 +1117,18 @@ function CycleDetail({
       {/* 2열 — 이 회차를 돌리고 결과를 보는 칸. 머리(제목·단추·통계·거르기)와
           표가 한 카드에 든다. */}
       <section className="panel cy-exec">
-      {/* ① 이 칸이 무엇을 하는 곳인지 — 제목이 있어야 세 칸의 역할이 먼저
-          읽힌다. 요구사항·TC 화면의 머리줄과 같은 뜻이다. */}
-      <div className="cy-cardh">
-        <b>Cycle Execution</b>
-        <span className="muted small">
-          {[cycle.model, cycle.version].filter(Boolean).join(' · ')}
-        </span>
-      </div>
-
       {/* ② 공통 액션 바 — 요구사항·시험항목과 **같은 차례**.
           Edit·Bulk Edit | Add·Delete·Export. 세 화면을 오가는 사람이 매번
           어디에 무엇이 있는지 다시 찾지 않게. */}
       <div className="cy-head">
+        {/* ① 제목을 단추와 한 줄에 둔다 — 세 칸의 머리가 모두 한 줄이라야
+            구분선이 같은 높이에서 만난다. */}
+        <span className="cy-cardt">
+          <b>Cycle Execution</b>
+          <span className="muted small">
+            {[cycle.model, cycle.version].filter(Boolean).join(' · ')}
+          </span>
+        </span>
         <div className="rq-actions">
           <button
             className="btn danger"
@@ -1357,9 +1356,8 @@ function CycleDetail({
           onClick={() => setOnly(null)}
         >
           <b>{items.length}</b>
-          <span className="cy-stat-lb">총항목</span>
-          <span className="cy-stat-pc">
-            {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
+          <span className="cy-stat-lb">
+            총항목 <i>{Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행</i>
           </span>
         </button>
         {RESULTS.map((r) => {
@@ -1373,9 +1371,8 @@ function CycleDetail({
               onClick={() => setOnly(only === r.v ? null : r.v)}
             >
               <b>{n}</b>
-              <span className="cy-stat-lb">{r.label}</span>
-              <span className="cy-stat-pc">
-                {items.length ? Math.round((n / items.length) * 100) : 0}%
+              <span className="cy-stat-lb">
+                {r.label} <i>{items.length ? Math.round((n / items.length) * 100) : 0}%</i>
               </span>
             </button>
           )
