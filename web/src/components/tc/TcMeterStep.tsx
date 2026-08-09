@@ -163,12 +163,11 @@ export default function TcMeterStep({ step, onChange }: Props) {
             </option>
           ))}
         </select>
-        {!step.host && (
-          <span className="sd-hint">
-            고르지 않으면 이 스텝의 세션 장비로 나갑니다. 장비도 없으면 실행할 때
-            실패합니다 — 여기서 정해 두세요.
-          </span>
-        )}
+        <span className="sd-hint">
+          {step.host
+            ? '계측기는 세션(＋ 세션)에 넣지 않습니다 — 세션은 CLI(telnet·ssh)로 붙는 자리라 계측기는 거기서 막힙니다. 여기서 고른 것으로 나갑니다.'
+            : '여기서 고르세요. 계측기는 세션에 넣지 않습니다 — 안 고르면 실행할 때 실패합니다.'}
+        </span>
       </label>
 
       <label className="sd-f">

@@ -1,6 +1,6 @@
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
-import { connParams, CLI_PROTOCOLS, deviceLabel, protocolOf } from './device'
+import { connParams, CLI_PROTOCOLS, deviceLabel, isMeter, meterKind, protocolOf } from './device'
 import {
   diffLines,
   diffText,
@@ -445,9 +445,24 @@ async function runOne(
    * 트래픽이 얼마를 흘렸느냐가 곧 시험 결과인 경우가 그것이다.
    */
   if (kind === 'instrument' && step.meterAct) {
-    const dev = deviceOf(ctx, step).dev
-    const server = (step.host || dev?.ip || '').trim()
-    const label = String((dev?.id ?? 'utop'))
+    /**
+     * 계측기는 **세션에 넣지 않는다.**
+     *
+     * 세션은 CLI(telnet·ssh)로 붙는 자리다 — 계측기는 그렇게 안 붙는다.
+     * 넣어 두면 deviceOf 의 프로토콜 검사에서 막힌다. 그래서 스텝이 들고
+     * 있는 주소(step.host)로 **장비 목록에서 직접 찾는다.**
+     *
+     * 이 찾기가 중요하다. 전에는 세션 장비로 N2X·STC 를 갈랐는데, 세션이
+     * 없으면(=늘 없다) 무엇을 골랐든 N2X 로 나갔다 — STC 를 골라도 조용히
+     * 엉뚱한 섀시를 두드렸다.
+     */
+    const host = (step.host || '').trim()
+    const meterDev =
+      [...ctx.devById.values()].find((d) => (d.ip ?? '').trim() === host && isMeter(d)) ??
+      // 스텝에 주소가 없으면 옛 자료다 — 그때는 세션 장비를 본다
+      (host ? undefined : deviceOf(ctx, step).dev)
+    const server = (host || meterDev?.ip || '').trim()
+    const label = String(meterDev?.id ?? 'utop')
     const act = step.meterAct
 
     if (!server) {
@@ -465,7 +480,7 @@ async function runOne(
      * 경로도 몸통도 갈라 보낸다. 전에는 STC 를 골라도 N2X 로 나가 조용히
      * 엉뚱한 섀시를 두드렸다.
      */
-    const isStc = /stc|spirent/i.test(String(dev?.vendor ?? '') + String(dev?.model ?? ''))
+    const isStc = meterKind(meterDev) === 'stc'
     if (isStc) {
       const stcAct: Record<string, string> = {
         ports: 'query',
