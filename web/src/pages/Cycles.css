@@ -1339,7 +1339,8 @@ table.tb td.k {
 /* 단추가 늘어 한 줄에 안 들어가면 접힌다 — 가로로 밀려 잘리지 않게 */
 .cy-exec > .cy-head .rq-actions { flex-wrap: wrap; row-gap: 4px; }
 /* 머리 아래 것들은 제 여백을 스스로 갖는다 */
-.cy-detail > .cy-bar {
+.cy-exec > .cy-bar {
+  flex: none;
   margin: 10px 14px 0;
 }
 .cy-detail > .cy-cols {

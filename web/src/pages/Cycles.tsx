@@ -1363,6 +1363,13 @@ function CycleDetail({
       )}
 
       {/* 한 줄로 지금 어디까지 왔나. 숫자만 늘어놓으면 눈으로 못 센다 */}
+      {/* 한눈에 — 카드로 세기 전에 띠로 먼저 보인다 */}
+      <div className="cy-bar" aria-hidden="true">
+        {RESULTS.map((r) => (
+          <span key={r.v} className={r.cls} style={{ flexGrow: counts[r.v] ?? 0 }} />
+        ))}
+      </div>
+
       {/* ② 통계 — 작은 글자 카운터는 눈에 안 들어온다. 큰 칸으로 세워
           「지금 어디까지 왔나」 를 먼저 읽게. 누르면 그 결과만 걸러 본다. */}
       <div className="cy-stats">
@@ -1448,12 +1455,6 @@ function CycleDetail({
         <span className="muted small">
           {rows.length === items.length ? `${items.length}건` : `${rows.length} / ${items.length}건`}
         </span>
-      </div>
-
-      <div className="cy-bar" aria-hidden="true">
-        {RESULTS.map((r) => (
-          <span key={r.v} className={r.cls} style={{ flexGrow: counts[r.v] ?? 0 }} />
-        ))}
       </div>
 
       {/* 「몇 개 골랐나」 는 표 바로 위에 */}
