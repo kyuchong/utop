@@ -78,7 +78,8 @@
 .rmd-fold:hover { background: var(--c-surface-2); }
 .rmd-fold.on { background: var(--c-primary-bg); }
 .rmd-fold.on .rmd-fname { color: var(--c-primary); font-weight: 700; }
-.rmd-fold.top:not(.on) { background: #fdf6e2; }
+.rmd-fold.top:not(.on) { background: var(--page-tint, #fdf6e2); }
+.rmd-fold.top .rmd-fname { color: var(--page-ink, inherit); font-weight: 700; }
 .rmd-fname {
   min-width: 0;
   overflow: hidden;

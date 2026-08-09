@@ -536,8 +536,13 @@
   box-shadow: inset 2px 0 0 var(--c-primary);
 }
 
-/* 최상단(1단계) 폴더만 노란 바탕 — 하위 폴더는 바탕 없음(Zephyr 방식).
+/* 최상단(1단계) 폴더만 바탕색 — 하위 폴더는 바탕 없음(Zephyr 방식).
+   색은 **그 화면의 색**을 쓴다(--page-tint·--page-ink). 요구사항은 파랑,
+   커버리지는 녹색, 사이클은 보라 — 바탕색과 이어져 어디 있는지 한눈에.
    고른 폴더(.on)일 때는 선택색이 이겨야 하므로 :not(.on) 로 비켜 준다. */
-.rt-fold.rt-top:not(.on) { background: #fdf6e2; }
-.rt-fold.rt-top:not(.on):hover { background: #f7edcf; }
-.rt-fold.rt-top .rt-fname { font-weight: 700; }
+.rt-fold.rt-top:not(.on) { background: var(--page-tint, #fdf6e2); }
+.rt-fold.rt-top:not(.on):hover { background: var(--page-bg, #f7edcf); }
+.rt-fold.rt-top .rt-fname {
+  font-weight: 700;
+  color: var(--page-ink, inherit);
+}

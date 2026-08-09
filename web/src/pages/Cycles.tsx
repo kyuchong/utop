@@ -517,7 +517,9 @@ export default function Cycles() {
     return (
       <div key={n.key}>
         <div
-          className={`${n.cycle ? 'rt-req' : 'rt-fold'} cy-node${n.cycle?.id === sel ? ' on' : ''}`}
+          className={`${n.cycle ? 'rt-req' : 'rt-fold'} cy-node${
+            n.cycle?.id === sel ? ' on' : ''
+          }${!n.cycle && n.depth === 0 ? ' rt-top' : ''}`}
           role="button"
           tabIndex={0}
           style={{ paddingLeft: 6 + n.depth * 14 }}

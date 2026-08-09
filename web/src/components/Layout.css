@@ -500,6 +500,12 @@
    카드(패널)는 흰색 그대로 두고 **그 뒤 바탕만** 물들인다. 메뉴를 안 봐도
    지금 어느 화면인지 색으로 먼저 읽힌다. 아주 옅게 — 글자 대비를 해치면
    안 되니 색조만 얹는 정도로. */
-.main[data-page='requirements'] { background: #eff5fc; }  /* 연한 파랑 */
-.main[data-page='testcases']    { background: #eef7f0; }  /* 연한 녹색 */
-.main[data-page='cycles']       { background: #f3f0fa; }  /* 연한 보라 */
+/* 화면색은 한 곳에서 정한다 — 바탕·최상위 폴더·그 글자가 같은 색을 쓴다 */
+.main[data-page='requirements'] { --page-bg: #dfeafa; --page-tint: #e8f1fd; --page-ink: #1f5fa8; }
+.main[data-page='testcases']    { --page-bg: #dff0e4; --page-tint: #e9f6ec; --page-ink: #1f7a45; }
+.main[data-page='cycles']       { --page-bg: #e8e2f7; --page-tint: #f0ebfb; --page-ink: #5b3bb5; }
+.main[data-page='requirements'],
+.main[data-page='testcases'],
+.main[data-page='cycles'] {
+  background: var(--page-bg);
+}
