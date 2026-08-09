@@ -2493,3 +2493,12 @@ table.tb tr.r-bad td:first-child {
 
 /* 빵부스러기의 요구사항 — 폴더(흐린 글자)와 시험 이름(굵게) 사이 */
 .tc-crumb-req { color: var(--c-primary); }
+
+/* 액션 바 안의 구분자 — 「고른 것에 하는 일」 과 「새로 만드는 일」 을 가른다 */
+.rq-adiv {
+  width: 1px;
+  align-self: stretch;
+  min-height: 18px;
+  margin: 0 4px;
+  background: var(--c-border);
+}

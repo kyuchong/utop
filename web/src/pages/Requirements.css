@@ -756,3 +756,12 @@
   vertical-align: -3px;
 }
 .rq-mid-row .rq-icon { margin-right: 0; }
+
+/* 액션 바 안의 구분자 — 「고른 것에 하는 일」 과 「새로 만드는 일」 을 가른다 */
+.rq-adiv {
+  width: 1px;
+  align-self: stretch;
+  min-height: 18px;
+  margin: 0 4px;
+  background: var(--c-border);
+}

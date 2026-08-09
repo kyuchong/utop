@@ -1215,7 +1215,7 @@ export default function TestCases({ me }: PageProps) {
       {bulkOpen && <TcBulkForm onClose={() => setBulkOpen(false)} />}
       {bulkEdit && (
         <TcBulkEdit
-          items={[...pickedTc].map((id) => ({
+          items={[...(view === 'list' ? listPick : pickedTc)].map((id) => ({
             tcid: id,
             name: tcs.find((x) => x.tcid === id)?.name,
           }))}
@@ -1223,6 +1223,7 @@ export default function TestCases({ me }: PageProps) {
           onDone={(text) => {
             setBulkEdit(false)
             tcSel.clear()
+            setListPick(new Set())
             setMsg({ kind: 'ok', text })
             void tcQ.refetch()
             // 지금 열어 둔 TC 도 방금 바뀌었을 수 있다
@@ -1462,6 +1463,37 @@ export default function TestCases({ me }: PageProps) {
             <div className="rq-list">
               <div className="tc-listhead">
                 <div className="rq-actions">
+                  {/* 한 건이면 Edit, 둘 이상이면 Bulk Edit 만 켜진다 —
+                      무엇이 눌리는지가 고른 수로 정해져 헷갈릴 일이 없다. */}
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={listPick.size !== 1}
+                    title={
+                      listPick.size === 1 ? '고른 시험을 고칩니다' : '한 건만 골랐을 때 켜집니다'
+                    }
+                    onClick={() => {
+                      const id = [...listPick][0]
+                      const meta = tcs.find((x) => x.tcid === id)
+                      if (meta) setForm(meta)
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={listPick.size < 2}
+                    title={
+                      listPick.size >= 2
+                        ? `고른 ${listPick.size}건을 한꺼번에 고칩니다`
+                        : '둘 이상 골랐을 때 켜집니다'
+                    }
+                    onClick={() => setBulkEdit(true)}
+                  >
+                    Bulk Edit
+                  </button>
+                  <span className="rq-adiv" aria-hidden="true" />
                   <button className="btn" type="button" onClick={() => setForm(null)}>
                     Add
                   </button>

@@ -7,6 +7,7 @@ import { useMultiSelect } from '@/components/useMultiSelect'
 import { IconPanel, IconReqDoc, IconTcDoc } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import ReqBulkForm from '@/components/ReqBulkForm'
+import ReqBulkEdit from '@/components/ReqBulkEdit'
 import ReqMapDialog from '@/components/ReqMapDialog'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import TcForm from '@/components/TcForm'
@@ -89,6 +90,8 @@ export default function Requirements() {
   const [importOpen, setImportOpen] = useState(false)
   /** Map — 요구사항에 시험 붙이는 창(폴더 | 요구사항 | 시험) */
   const [mapFor, setMapFor] = useState<Requirement | null>(null)
+  /** 고른 여러 건을 한꺼번에 고치는 창 */
+  const [bulkEditOpen, setBulkEditOpen] = useState(false)
   // undefined = 닫힘 / { } = 새 TC(요구사항 미리 연결)
   const [tcForm, setTcForm] = useState<{ reqId: string } | undefined>(undefined)
   const [tcLinkOpen, setTcLinkOpen] = useState(false)
@@ -474,6 +477,19 @@ export default function Requirements() {
         <ReqBulkForm presetFolder={selectedFolder ?? null} onClose={() => setImportOpen(false)} />
       )}
       {mapFor && <ReqMapDialog req={mapFor} onClose={() => setMapFor(null)} />}
+      {bulkEditOpen && (
+        <ReqBulkEdit
+          ids={pickedInList.map(reqPk)}
+          onClose={() => setBulkEditOpen(false)}
+          onDone={(msg) => {
+            setBulkEditOpen(false)
+            setListPick(new Set())
+            window.alert(msg)
+            void qc.invalidateQueries({ queryKey: ['req', 'list'] })
+            void qc.invalidateQueries({ queryKey: ['reqs'] })
+          }}
+        />
+      )}
 
       {tcForm !== undefined && (
         <TcForm
@@ -714,6 +730,34 @@ export default function Requirements() {
               /* 표에 대한 일 — 표 바로 위 이 줄에 둔다. 고른 것이 있어야
                  되는 것(Clone·Delete)은 그때만 켜진다. */
               <div className="rq-actions">
+                {/* 한 건이면 Edit, 둘 이상이면 Bulk Edit 만 켜진다 */}
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={pickedInList.length !== 1}
+                  title={
+                    pickedInList.length === 1
+                      ? '고른 요구사항을 고칩니다'
+                      : '한 건만 골랐을 때 켜집니다'
+                  }
+                  onClick={() => pickedInList[0] && setForm(pickedInList[0])}
+                >
+                  Edit
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={pickedInList.length < 2}
+                  title={
+                    pickedInList.length >= 2
+                      ? `고른 ${pickedInList.length}건을 한꺼번에 고칩니다`
+                      : '둘 이상 골랐을 때 켜집니다'
+                  }
+                  onClick={() => setBulkEditOpen(true)}
+                >
+                  Bulk Edit
+                </button>
+                <span className="rq-adiv" aria-hidden="true" />
                 <button className="btn" type="button" onClick={() => setForm(null)}>
                   Add
                 </button>
