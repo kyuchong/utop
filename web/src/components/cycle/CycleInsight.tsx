@@ -137,9 +137,27 @@ export default function CycleInsight({ mode, cycleId, title, items, onClose }: P
           <span className="muted small">{title}</span>
           <span className="sp" />
           {mode === 'ai' && (
-            <button className="btn small" type="button" disabled={busy} onClick={() => void make()}>
-              {busy ? '만드는 중…' : text ? '다시 만들기' : '요약 만들기'}
-            </button>
+            <>
+              <button
+                className="btn small"
+                type="button"
+                disabled={busy}
+                onClick={() => void make()}
+              >
+                {busy ? '만드는 중…' : text ? '다시 만들기' : '요약 만들기'}
+              </button>
+              {/* 브라우저 인쇄로 PDF 를 뽑는다 — 따로 만드는 것보다 글꼴·
+                  줄바꿈이 화면과 같아서 어긋날 일이 없다 */}
+              <button
+                className="btn small"
+                type="button"
+                disabled={!text}
+                title="인쇄 창에서 「PDF 로 저장」 을 고르세요"
+                onClick={() => window.print()}
+              >
+                PDF 저장
+              </button>
+            </>
           )}
           <button className="modal-x" type="button" onClick={onClose}>
             ✕

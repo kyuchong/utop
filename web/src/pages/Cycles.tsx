@@ -353,6 +353,16 @@ export default function Cycles() {
   const [making, setMaking] = useState(false)
   /** 우클릭 메뉴 — 어느 사이클 위에서, 화면 어디에 */
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null)
+  /**
+   * 우클릭 메뉴가 시킨 일 — 사이클 상세가 받아 한다.
+   *
+   * 메뉴는 트리(페이지)에 있고 그 일을 할 줄 아는 것은 상세라, 신호로
+   * 건넨다. 숫자를 함께 올려 같은 일을 두 번 시켜도 전달된다.
+   */
+  const [act, setAct] = useState<{ what: 'details' | 'ai' | 'pptx' | 'run'; n: number } | null>(
+    null,
+  )
+
   /** 폴더 우클릭 메뉴 — 폴더째 지우거나, 그 안 사이클을 한꺼번에 지운다 */
   const [folderMenu, setFolderMenu] = useState<{ node: Node; x: number; y: number } | null>(null)
   /** 고칠 사이클 */
@@ -733,6 +743,13 @@ export default function Cycles() {
             setMenu(null)
             setEditId(id)
           }}
+          onDo={(what) => {
+            // 그 사이클을 먼저 연다 — 안 열려 있으면 시킬 데가 없다
+            setSel(menu.id)
+            setMenu(null)
+            if (what === 'details') setView('detail')
+            setAct((a) => ({ what, n: (a?.n ?? 0) + 1 }))
+          }}
         />
       )}
 
@@ -779,7 +796,7 @@ export default function Cycles() {
 
       <section className="panel cy-main">
         {cur ? (
-          <CycleDetail cycle={cur} view={view} onSaved={() => void listQ.refetch()} />
+          <CycleDetail cycle={cur} view={view} act={act} onSaved={() => void listQ.refetch()} />
         ) : (
           <div className="empty">왼쪽에서 사이클을 고르세요.</div>
         )}
@@ -793,11 +810,14 @@ export default function Cycles() {
 function CycleDetail({
   cycle,
   view,
+  act,
   onSaved,
 }: {
   cycle: CycleMeta
   /** list = 표만 넓게 · detail = 표 + 스텝 세부 */
   view: 'list' | 'detail'
+  /** 트리 우클릭 메뉴가 시킨 일 */
+  act?: { what: 'details' | 'ai' | 'pptx' | 'run'; n: number } | null
   onSaved: () => void
 }) {
   /** 걸러 보기. null 이면 전부 — '' 는 「미실행」 이라는 뜻이라 못 쓴다 */
@@ -879,6 +899,25 @@ function CycleDetail({
   const [insight, setInsight] = useState<'ai' | 'metrics' | null>(null)
   /** 제목 줄의 「⋯」 — 요약·보고서·내보내기 */
   const [headMenu, setHeadMenu] = useState(false)
+
+  /**
+   * 트리 우클릭 메뉴가 시킨 일을 여기서 한다.
+   *
+   * 숫자(n)가 올라갈 때만 움직인다 — 같은 일을 두 번 시켜도 전달되고,
+   * 다른 것 때문에 다시 그려질 때 엉뚱하게 또 돌지 않는다.
+   */
+  const actN = useRef(0)
+  useEffect(() => {
+    if (!act || act.n === actN.current) return
+    actN.current = act.n
+    if (act.what === 'ai') setInsight('ai')
+    else if (act.what === 'pptx') setReport(true)
+    else if (act.what === 'run') {
+      if (items.length) startRun(items.map((_, i) => i))
+    }
+    // 'details' 는 페이지가 보기만 바꾸면 끝이라 여기서 할 일이 없다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [act])
   /**
    * 표 줄 우클릭 메뉴.
    *
@@ -1766,12 +1805,15 @@ function CycleMenu({
   onClose,
   onChanged,
   onEdit,
+  onDo,
 }: {
   at: { id: string; x: number; y: number }
   cycle?: CycleMeta
   onClose: () => void
   onChanged: () => void
   onEdit: (id: string) => void
+  /** 사이클 상세가 맡은 일 — 세부 내역·요약·PPTX·자동 실행 */
+  onDo: (what: 'details' | 'ai' | 'pptx' | 'run') => void
 }) {
   useEffect(() => {
     const away = () => onClose()
@@ -1835,10 +1877,15 @@ function CycleMenu({
       onMouseDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {item('사이클 수정 (항목·기간)', () => onEdit(at.id))}
-      {item('버전 이름만 바꾸기', () => void rename())}
+      {item('사이클 수정 (항목·제목)', () => onEdit(at.id))}
+      {item('세부 내역 (Details)', () => onDo('details'))}
+      {item('보고서 출력 (AI 요약 PDF)', () => onDo('ai'))}
+      {item('PPTX 출력 (AI 요약)', () => onDo('pptx'))}
       <hr />
-      {item('지우기', () => void del())}
+      {item('Test Cycle 자동 실행 (Automation)', () => onDo('run'))}
+      <hr />
+      {item('버전 이름만 바꾸기', () => void rename())}
+      {item('사이클 삭제', () => void del())}
     </div>
   )
 }

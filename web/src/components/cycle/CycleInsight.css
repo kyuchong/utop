@@ -60,3 +60,21 @@
 .cin-fill.v-fail { background: var(--c-fail); }
 .cin-fill.v-wip { background: var(--c-draft); }
 .cin-row b .no { color: var(--c-fail); font-weight: 700; }
+
+/* 인쇄(PDF)할 때는 이 창만 남긴다 — 뒤 화면까지 같이 나오면 못 쓴다 */
+@media print {
+  body * { visibility: hidden; }
+  .modal.cin,
+  .modal.cin * { visibility: visible; }
+  .modal.cin {
+    position: absolute;
+    inset: 0;
+    max-width: none;
+    max-height: none;
+    box-shadow: none;
+    border: 0;
+  }
+  .modal.cin .modal-head .btn,
+  .modal.cin .modal-x { display: none; }
+  .modal-back { background: #fff; }
+}
