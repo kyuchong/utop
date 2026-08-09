@@ -34,13 +34,13 @@
   transition: width 0.15s ease;
 }
 
-/* ── 메뉴 머리 — 로고·통합 찾기 (옛 상단바 자리) ─────────────── */
+/* ── 메뉴 머리 — 로고 자리(비워 둠) ──────────────────────────
+   나중에 로고 이미지를 여기 넣는다. 지금은 비어 있어도 높이는 잡아 둔다 —
+   로고를 넣어도 아래 메뉴가 안 밀리게. 오른쪽은 접기 버튼과 안 겹치게 비운다. */
 .nav-brand {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.15;
-  /* 접기 버튼(오른쪽 위)과 겹치지 않게 오른쪽을 비운다 */
-  padding: 2px 30px 8px 6px;
+  min-height: 34px;
+  margin-bottom: 6px;
+  padding: 2px 30px 0 6px;
 }
 .nav-logo {
   font-size: var(--fs-lg);
@@ -53,38 +53,9 @@
   color: rgb(255 255 255 / 55%);
   white-space: nowrap;
 }
-.nav-search {
-  margin-bottom: 10px;
-}
-/* 통합 찾기 — 어두운 메뉴에 맞춰 흰 글자 + 반투명 바탕 */
-.nav-search .tsr {
-  margin: 0;
-  max-width: none;
-}
-.nav-search .tsr-in {
-  background: rgb(255 255 255 / 8%);
-  color: #fff;
-  border-color: rgb(255 255 255 / 16%);
-}
-.nav-search .tsr-in::placeholder {
-  color: rgb(255 255 255 / 45%);
-  opacity: 1;
-}
-/* 결과 팝업은 좁은 메뉴 밖으로 넉넉히 펼친다 */
-.nav-search .tsr-pop {
-  min-width: 300px;
-}
-
-/* 접히면 로고는 이니셜만, 찾기는 감춘다 */
+/* 접히면 로고 자리도 가운데로 */
 .app.nav-collapsed .nav-brand {
-  padding: 2px 0 8px;
-  align-items: center;
-}
-.app.nav-collapsed .nav-brand-sub {
-  display: none;
-}
-.app.nav-collapsed .nav-search {
-  display: none;
+  padding: 2px 0 0;
 }
 
 /* ── 아래쪽 묶음 — 내 장비 현황 + 사용자 ─────────────────────── */
