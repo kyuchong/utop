@@ -1129,6 +1129,10 @@ function CycleDetail({
             {[cycle.model, cycle.version].filter(Boolean).join(' · ')}
           </span>
         </span>
+      </div>
+
+      {/* 둘째 줄 — 보고·실행. 첫 줄(항목에 하는 일)과 성격이 달라 선으로 가른다 */}
+      <div className="cy-head2">
         <div className="rq-actions">
           {/* 실행이 먼저다 — 이 화면에서 가장 자주 누른다 */}
           {st.on ? (
@@ -1191,12 +1195,7 @@ function CycleDetail({
               </option>
             ))}
           </select>
-        </div>
-      </div>
-
-      {/* 둘째 줄 — 보고·실행. 첫 줄(항목에 하는 일)과 성격이 달라 선으로 가른다 */}
-      <div className="cy-head2">
-        <div className="rq-actions">
+          <span className="rq-adiv" aria-hidden="true" />
           <button
             className="btn"
             type="button"
