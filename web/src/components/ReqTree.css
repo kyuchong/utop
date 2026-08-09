@@ -9,7 +9,9 @@
   --rt-line: #e8ecf0;
   /* 줄 구분선. 테두리색(--rt-line)보다 더 옅어야 '선을 그었다'는 느낌이
      안 난다 — 있는 줄 모르지만 없으면 눈이 새는 정도. */
-  --rt-div: #f0f3f6;
+  /* 줄 사이 구분선. 너무 옅으면 화면 바탕색(연파랑·연녹색·연보라)에
+     묻혀 아예 안 보인다. */
+  --rt-div: #dde3ea;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -78,12 +80,12 @@
 }
 
 .rt-fold { cursor: pointer; }
-.rt-fold:hover { background: var(--rt-hover); box-shadow: none; }
+.rt-fold:hover { background: var(--rt-hover); }
 
 /* 고른 폴더. 요구사항 줄과 같은 표시를 쓴다 — 둘 중 어느 것이 골라져
    있는지가 오른쪽 패널이 무엇을 보여주는지를 정한다. */
 .rt-fold.on,
-.rt-fold.on:hover { background: var(--rt-sel); box-shadow: none; }
+.rt-fold.on:hover { background: var(--rt-sel); }
 .rt-fold.on .rt-fname { color: var(--c-primary); }
 
 /* 끌어온 요구사항을 받을 수 있는 폴더 */
@@ -171,8 +173,7 @@
 }
 
 /* 고르거나 마우스를 올린 줄에서는 선을 지운다 — 채움이 이미 경계다 */
-.rt-req:hover,
-.rt-req.on { box-shadow: none; }
+
 
 .rt-req:hover { background: var(--rt-hover); }
 .rt-req.on { background: var(--rt-sel); }
