@@ -101,8 +101,8 @@ export default function Requirements() {
   /**
    * 폴더 트리를 폈나. 사이클·TC 화면과 같은 접기다.
    *
-   * Detail 로 넘어가면 자동으로 접는다 — 폴더·목록·상세 셋을 다 펴면 상세가
-   * 좁아서 못 읽는다. 다른 폴더로 가려면 다시 펴면 된다.
+   * 접고 펴는 것은 **사람만** 한다. 화면이 알아서 접으면, 줄 하나 누를
+   * 때마다 왼쪽이 움직여 눈이 따라다녀야 한다.
    */
   const [treeOpen, setTreeOpen] = useState(
     () => localStorage.getItem('utop.req.treeOpen') !== '0',
@@ -341,23 +341,21 @@ export default function Requirements() {
   const error = reqQ.error ?? tcQ.error
 
   /**
-   * 한 건을 넓게 본다 — 폴더 트리는 접는다.
+   * 한 건을 넓게 본다.
    *
-   * 폴더는 어느 것을 보는지 정하는 자리고, Detail 에서는 이미 정해져 있다.
-   * 셋을 다 펴 두면 정작 읽어야 할 상세가 좁아진다.
+   * 폴더 트리는 **건드리지 않는다.** 전에는 여기서 접었는데, 줄 하나 누를
+   * 때마다 왼쪽이 접혔다 펴졌다 해서 화면이 튀고 지금 어느 폴더에 있는지
+   * 감각을 잃었다. 트리는 230px 이라 셋을 펴 둬도 상세가 넉넉하다 —
+   * 좁으면 사람이 접기 단추로 접으면 된다.
    */
   const goDetail = (pk: string, to: typeof tab = 'info') => {
     setSelected(pk)
     setTab(to)
     setView('detail')
-    setTreeOpen(false)
   }
 
-  /** 표로 돌아온다 — 고르는 자리가 다시 필요하니 폴더를 편다 */
-  const goList = () => {
-    setView('list')
-    setTreeOpen(true)
-  }
+  /** 표로 돌아온다 */
+  const goList = () => setView('list')
 
   // ── List 액션 바 ────────────────────────────────────────────
   const pickedInList = sortedFolderReqs.filter((r) => listPick.has(reqPk(r)))
