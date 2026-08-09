@@ -499,7 +499,7 @@ export default function ReqTree({
         <div
           data-folder={n.id}
           className={`rt-fold${selectedFolder === n.id ? ' on' : ''}${
-            ''
+            n.depth === 1 ? ' rt-top' : ''
           }${over === n.id && drag ? ' dropinto' : ''}${
             drag?.kind === 'cat' && drag.id === n.id ? ' dragging' : ''
           }${clip?.id === n.id ? ' copied' : ''}`}

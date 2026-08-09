@@ -535,3 +535,9 @@
   background: var(--c-primary-bg);
   box-shadow: inset 2px 0 0 var(--c-primary);
 }
+
+/* 최상단(1단계) 폴더만 노란 바탕 — 하위 폴더는 바탕 없음(Zephyr 방식).
+   고른 폴더(.on)일 때는 선택색이 이겨야 하므로 :not(.on) 로 비켜 준다. */
+.rt-fold.rt-top:not(.on) { background: #fdf6e2; }
+.rt-fold.rt-top:not(.on):hover { background: #f7edcf; }
+.rt-fold.rt-top .rt-fname { font-weight: 700; }

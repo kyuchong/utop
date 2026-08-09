@@ -556,3 +556,60 @@
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* ── List 모드 — 폴더 안 요구사항 표 (Zephyr 방식) ──────────────
+   ID · Name · Map Test Case · Coverage · Priority. 한 줄 클릭 → 상세. */
+.rq-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-3) var(--sp-4);
+  gap: var(--sp-3);
+}
+.rq-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.rq-table {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.rq-tr {
+  display: grid;
+  grid-template-columns: 72px 1fr 96px 168px 96px;
+  align-items: center;
+  min-height: var(--row-h);
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.rq-tr:last-child { border-bottom: 0; }
+.rq-tr > div { padding: var(--row-py) var(--row-px); min-width: 0; }
+.rq-tr.rq-th {
+  background: var(--c-surface-alt);
+  color: #5b6670;
+  font-size: var(--fs-label);
+  font-weight: 700;
+}
+.rq-tr:not(.rq-th):hover { background: var(--c-surface-2); }
+.rq-id { color: var(--c-text-faint); font-family: var(--font-mono); }
+.rq-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rq-name .linkish { font-size: var(--fs-md); }
+.rq-cov.covered { color: var(--c-pass, #1f7a45); }
+.rq-cov.none { color: var(--c-text-faint); }
+.rq-prio {
+  display: inline-block;
+  font-size: var(--fs-xs);
+  padding: 1px 8px;
+  border-radius: var(--r-chip);
+  background: var(--c-surface-alt);
+  color: var(--c-text-muted);
+}
+.rq-prio.p-high, .rq-prio.p-critical { background: #fdecea; color: #c0392b; }
+.rq-prio.p-medium { background: #fef6e7; color: #97620d; }
+.rq-prio.p-low { background: #eef5ee; color: #2f7a45; }

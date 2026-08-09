@@ -224,6 +224,27 @@ export default function Requirements() {
     )
   }, [allReqs, selectedFolder])
 
+  /** 이 요구사항을 덮는 TC 수 — tc.req_id 와 req.tc[] 참조의 합집합 */
+  const covCount = useMemo(
+    () => (r: Requirement): number => {
+      const ids = new Set(tcsFor(r).map((t) => t.tcid))
+      for (const ref of r.tc ?? []) if (ref?.tcid) ids.add(ref.tcid)
+      return ids.size
+    },
+    [tcsFor],
+  )
+
+  /** List 모드 표에 뿌릴 — 이 폴더의 요구사항을 정렬해 둔 것 */
+  const sortedFolderReqs = useMemo(() => {
+    const arr = [...folderReqs]
+    arr.sort((a, b) =>
+      sort === 'title'
+        ? (a.title || '').localeCompare(b.title || '', 'ko')
+        : (reqLabel(a) || '').localeCompare(reqLabel(b) || '', 'ko', { numeric: true }),
+    )
+    return arr
+  }, [folderReqs, sort])
+
   /** 선택된 REQ 에 연결된 TC — 양쪽 정본의 합집합 */
   /**
    * 연결 해제. tc.req_id 를 비우는 것이 전부다 — TC 자체는 남는다.
@@ -569,7 +590,87 @@ export default function Requirements() {
           </div>
 
           {!selectedReq && !folderMode ? (
-            <div className="empty">왼쪽에서 요구사항이나 폴더를 선택하세요.</div>
+            <div className="empty">왼쪽에서 폴더나 요구사항을 선택하세요.</div>
+          ) : folderMode ? (
+            /* ── List 모드 — 이 폴더의 요구사항을 표로 (Zephyr 방식) ──
+               한 줄을 누르면 그 요구사항 상세로 들어간다(Detail). */
+            <div className="rq-list scroll">
+              <div className="rq-actions">
+                <button className="btn small" type="button" onClick={() => setForm(null)}>
+                  + 요구사항
+                </button>
+                <button className="btn small" type="button" onClick={() => setBulkOpen(true)}>
+                  일괄 생성
+                </button>
+                <span className="sp" />
+                <span className="muted small">{folderReqs.length}건</span>
+              </div>
+              <div className="rq-table">
+                <div className="rq-tr rq-th">
+                  <div>ID</div>
+                  <div>Name</div>
+                  <div>Map Test Case</div>
+                  <div>Coverage</div>
+                  <div>Priority</div>
+                </div>
+                {folderReqs.length === 0 ? (
+                  <div className="empty">이 폴더에 요구사항이 없습니다.</div>
+                ) : (
+                  sortedFolderReqs.map((r) => {
+                    const n = covCount(r)
+                    const pk = reqPk(r)
+                    return (
+                      <div className="rq-tr" key={pk}>
+                        <div className="rq-id">{reqLabel(r) || '–'}</div>
+                        <div className="rq-name">
+                          <button
+                            type="button"
+                            className="linkish"
+                            title="상세 보기"
+                            onClick={() => {
+                              setSelected(pk)
+                              setSelectedFolder(undefined)
+                              setTab('info')
+                            }}
+                          >
+                            {r.title || '(제목 없음)'}
+                          </button>
+                        </div>
+                        <div>
+                          <button
+                            type="button"
+                            className="linkish"
+                            title="이 요구사항의 시험(커버리지) 보기"
+                            onClick={() => {
+                              setSelected(pk)
+                              setSelectedFolder(undefined)
+                              setTab('tc')
+                            }}
+                          >
+                            Map
+                          </button>
+                        </div>
+                        <div className={`rq-cov ${n > 0 ? 'covered' : 'none'}`}>
+                          {n > 0 ? `${n} Testcase(s) Covered` : 'Not Covered'}
+                        </div>
+                        <div>
+                          {r.priority ? (
+                            <span className={`rq-prio p-${String(r.priority).toLowerCase()}`}>
+                              {r.priority}
+                            </span>
+                          ) : (
+                            <span className="muted">–</span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+              <div className="bottom">
+                <span>요구사항 {folderReqs.length}건</span>
+              </div>
+            </div>
           ) : !folderMode && selectedReq && tab !== 'tc' ? (
             <ReqDetail req={selectedReq} tcs={linked} tab={tab} />
           ) : (
