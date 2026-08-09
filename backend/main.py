@@ -2690,6 +2690,17 @@ async def devices2_check(dev_id: str, protocol: str = ""):
             r = await loop.run_in_executor(None, _n2x_send, host, "utop", "ping")
             ok = bool(isinstance(r, dict) and r.get("ok"))
             err = "" if ok else str((r or {}).get("error") or "N2X 응답 없음")
+        elif proto == "stc":
+            # STC 는 REST 서버(host)에 붙고, 그 서버가 섀시(장비 ip)로 연결한다.
+            # 소켓만 찔러 보면 REST 서버가 살아있는지만 알지 섀시까지는 모른다.
+            # 실제 섀시 인벤토리를 읽어 본다.
+            r = await stc_conncheck({
+                "chassis": (d.get("ip") or "").strip(),
+                "restIp": host or "localhost",
+                "restPort": a.get("port") or 8888,
+            })
+            ok = bool(isinstance(r, dict) and r.get("ok"))
+            err = "" if ok else str((r or {}).get("error") or "STC 응답 없음")
         else:
             ok, err = await loop.run_in_executor(
                 None, _probe_sync, proto, host, a.get("port") or 0
