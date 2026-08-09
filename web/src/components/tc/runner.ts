@@ -404,51 +404,6 @@ async function runOne(
     return j.verdict
   }
 
-  const { dev, error } = deviceOf(ctx, step)
-  if (!dev) {
-    ctx.onStep(i, { output: `[오류] ${error}`, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: error })
-    ctx.onLog({ i, text: error ?? '실행할 수 없습니다', kind: 'fail' })
-    return 'Fail'
-  }
-  const conn = connParams(dev)
-
-  if (kind === 'connect' || kind === 'disconnect') {
-    const path = kind === 'connect' ? '/api/session-open' : '/api/session-close'
-    const r = await post(path, kind === 'connect' ? { ...conn, fast: true } : conn, ctx.signal)
-    const ok = !!r.ok
-    const out = String(r.login_log ?? r.error ?? '')
-    const text = ok
-      ? `${deviceLabel(dev)} ${kind === 'connect' ? '접속' : '해제'}${r.prompt ? ` · ${String(r.prompt).trim()}` : ''}`
-      : `${deviceLabel(dev)} ${kind === 'connect' ? '접속' : '해제'} 실패 — ${String(r.error ?? '')}`
-
-    /**
-     * 판정기준을 적었으면 로그인 로그에도 대 본다.
-     *
-     * 3열에는 Expected 칸을 띄워 놓고 실행기는 안 보고 있었다 — 적어 둔
-     * 기준이 조용히 무시되면 '봤다고 생각한 것' 을 안 보게 된다.
-     * 접속 자체가 실패하면 기준을 볼 것도 없이 불합격이다.
-     */
-    const hasCrit = !!String(step.criteria ?? step.expected ?? '').trim()
-    const j =
-      ok && hasCrit
-        ? judge(step, out || text, vars)
-        : { verdict: (ok ? 'Pass' : 'Fail') as Verdict, reason: ok ? '' : String(r.error ?? '') }
-
-    ctx.onStep(i, {
-      output: out || text,
-      executed_at: at,
-      status: j.verdict ? j.verdict.toUpperCase() : '',
-      repeatResult: j.verdict,
-      reason: j.reason,
-    })
-    ctx.onLog({
-      i,
-      text: `${text}${j.reason ? ` — ${j.reason}` : ''}`,
-      kind: j.verdict === 'Pass' ? 'pass' : j.verdict === 'Fail' ? 'fail' : 'info',
-    })
-    return j.verdict
-  }
-
   /**
    * 계측기 동작 — N2X·STC 에 시키는 것.
    *
@@ -458,6 +413,11 @@ async function runOne(
    *
    * 판정은 「통계 읽기」 에서 난다 — 손실이 허용치를 넘으면 불합격.
    * 트래픽이 얼마를 흘렸느냐가 곧 시험 결과인 경우가 그것이다.
+   *
+   * **이 자리가 아래 `deviceOf` 가드보다 위여야 한다.** 밑에 두었더니
+   * 계측기 줄도 그 가드에 먼저 걸려 「S1 자리에 장비가 없습니다 — 「+
+   * 세션」 으로 넣으세요」 로 죽었다. 세션 창에는 CLI 장비만 나오니 시키는
+   * 대로 할 수도 없다. 계측기는 세션을 안 쓴다 — 가드를 만나기 전에 간다.
    */
   // 옛 자료에는 kind 가 instrument 인데 CLI 를 그대로 담은 줄이 있다.
   // 그 줄은 아래 CLI 길로 보낸다. 그것 말고는 전부 계측기로 다룬다 —
@@ -679,6 +639,52 @@ async function runOne(
     ctx.onLog({ i, text: `${act} — ${ok ? '보냄' : String(j.error ?? '실패')}`, kind: ok ? 'info' : 'fail' })
     return ok ? 'Pass' : 'Fail'
   }
+
+  const { dev, error } = deviceOf(ctx, step)
+  if (!dev) {
+    ctx.onStep(i, { output: `[오류] ${error}`, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: error })
+    ctx.onLog({ i, text: error ?? '실행할 수 없습니다', kind: 'fail' })
+    return 'Fail'
+  }
+  const conn = connParams(dev)
+
+  if (kind === 'connect' || kind === 'disconnect') {
+    const path = kind === 'connect' ? '/api/session-open' : '/api/session-close'
+    const r = await post(path, kind === 'connect' ? { ...conn, fast: true } : conn, ctx.signal)
+    const ok = !!r.ok
+    const out = String(r.login_log ?? r.error ?? '')
+    const text = ok
+      ? `${deviceLabel(dev)} ${kind === 'connect' ? '접속' : '해제'}${r.prompt ? ` · ${String(r.prompt).trim()}` : ''}`
+      : `${deviceLabel(dev)} ${kind === 'connect' ? '접속' : '해제'} 실패 — ${String(r.error ?? '')}`
+
+    /**
+     * 판정기준을 적었으면 로그인 로그에도 대 본다.
+     *
+     * 3열에는 Expected 칸을 띄워 놓고 실행기는 안 보고 있었다 — 적어 둔
+     * 기준이 조용히 무시되면 '봤다고 생각한 것' 을 안 보게 된다.
+     * 접속 자체가 실패하면 기준을 볼 것도 없이 불합격이다.
+     */
+    const hasCrit = !!String(step.criteria ?? step.expected ?? '').trim()
+    const j =
+      ok && hasCrit
+        ? judge(step, out || text, vars)
+        : { verdict: (ok ? 'Pass' : 'Fail') as Verdict, reason: ok ? '' : String(r.error ?? '') }
+
+    ctx.onStep(i, {
+      output: out || text,
+      executed_at: at,
+      status: j.verdict ? j.verdict.toUpperCase() : '',
+      repeatResult: j.verdict,
+      reason: j.reason,
+    })
+    ctx.onLog({
+      i,
+      text: `${text}${j.reason ? ` — ${j.reason}` : ''}`,
+      kind: j.verdict === 'Pass' ? 'pass' : j.verdict === 'Fail' ? 'fail' : 'info',
+    })
+    return j.verdict
+  }
+
 
   // cli · instrument(raw) · manual · auto — 명령을 보내는 것들
   const cmdText = subVars(String(step.cli ?? step.data ?? ''), vars)
