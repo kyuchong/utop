@@ -164,3 +164,14 @@
   user-select: none;
   -webkit-user-select: none;
 }
+
+/* ⋯ 안의 안내 한 줄 — 누를 것이 아니라 어디서 하는지 알려 주는 글 */
+.lh-hint {
+  margin: 2px 0 4px;
+  padding: 0 10px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  line-height: 1.4;
+  white-space: normal;
+  max-width: 210px;
+}

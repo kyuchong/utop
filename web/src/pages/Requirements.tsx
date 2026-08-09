@@ -47,7 +47,8 @@ export default function Requirements() {
    * 아니라 묶음 단위로 묻게 된다.
    */
   /** 보기 방식 — 트리 안에 있던 단추를 ⋯ 로 옮겼다 */
-  const [fullId, setFullId] = useState(false)
+  /** 트리에 요구사항을 안 그리므로 축약 ID 규칙은 쓰이지 않는다 */
+  const fullId = false
   /**
    * 1열은 **폴더만** 보여 준다.
    *
@@ -61,8 +62,8 @@ export default function Requirements() {
   useEffect(() => {
     localStorage.setItem('utop.req.foldersOnly', foldersOnly ? '1' : '0')
   }, [foldersOnly])
-  /** 폴더 안의 차례 — ID 순이 기본. 번호가 이어져야 빠진 것이 눈에 띈다 */
-  const [sort, setSort] = useState<'id' | 'title'>('id')
+  /** 폴더 안의 차례 — ID 순. 번호가 이어져야 빠진 것이 눈에 띈다 */
+  const sort: 'id' | 'title' = 'id'
   /** 찾는 글자 — 트리 안에 있던 줄을 머리줄로 올렸다 */
   const [treeQ, setTreeQ] = useState('')
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
@@ -81,7 +82,6 @@ export default function Requirements() {
   const treeSel = useMultiSelect<string>()
   const picked = treeSel.picked
   const pickedReqs = [...picked].filter((x) => x.startsWith('req:')).map((x) => x.slice(4))
-  const pickedCats: string[] = []
   /** 고른 폴더. 요구사항과 함께 지울 수 있어야 정리가 한 번에 끝난다. */
   /** 버튼 줄에서 트리에게 보내는 신호 (숫자가 늘면 트리가 반응한다) */
   const [addFolder, setAddFolder] = useState(0)
@@ -138,38 +138,6 @@ export default function Requirements() {
     )
   }, [selectedFolder])
 
-  const removeManyM = useMutation({
-    mutationFn: async ({ reqIds, folderIds }: { reqIds: string[]; folderIds: string[] }) => {
-      // 순차 삭제. 한꺼번에 던지면 어디까지 지워졌는지 알 수 없어
-      // 실패했을 때 무엇을 다시 시도해야 하는지 말해줄 수 없다.
-      let ok = 0
-      for (const id of reqIds) {
-        await reqApi.remove(id)
-        ok++
-      }
-      // 폴더는 나중에. 요구사항을 먼저 지워야 '안에 든 것' 셈이 맞는다.
-      // 조상을 지우면 자손은 CASCADE 로 함께 사라져 404 가 날 수 있어 넘긴다.
-      for (const id of folderIds) {
-        try {
-          await categoryApi.remove(id)
-          ok++
-        } catch (e) {
-          if (!(e instanceof Error) || !e.message.includes('찾을 수 없')) throw e
-        }
-      }
-      return ok
-    },
-    onError: (e) => {
-      // 조용히 실패하면 「눌러도 안 된다」 로만 남는다
-      window.alert(`삭제하지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
-    },
-    onSuccess: () => {
-      treeSel.clear()
-      void qc.invalidateQueries({ queryKey: ['req', 'list'] })
-      void qc.invalidateQueries({ queryKey: ['req-categories'] })
-      void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
-    },
-  })
 
   const reqQ = useQuery({
     queryKey: ['req', 'list'],
@@ -235,6 +203,9 @@ export default function Requirements() {
   /** 폴더 모드 — 요구사항 한 건이 아니라 묶음을 보고 있다 */
   const folderMode = selectedFolder !== undefined
 
+  /** 1열 머리줄에 적을 수 — 이제 이 칸의 주인은 폴더다 */
+  const folderCount = (catQ.data?.categories ?? []).length
+
   const folderName = useMemo(() => {
     if (selectedFolder === undefined) return ''
     if (selectedFolder === null) return '미분류'
@@ -275,12 +246,10 @@ export default function Requirements() {
   const sortedFolderReqs = useMemo(() => {
     const arr = [...folderReqs]
     arr.sort((a, b) =>
-      sort === 'title'
-        ? (a.title || '').localeCompare(b.title || '', 'ko')
-        : (reqLabel(a) || '').localeCompare(reqLabel(b) || '', 'ko', { numeric: true }),
+      (reqLabel(a) || '').localeCompare(reqLabel(b) || '', 'ko', { numeric: true }),
     )
     return arr
-  }, [folderReqs, sort])
+  }, [folderReqs])
 
   /** TC 표가 폴더 묶음을 보여 주는 중인가 — 그때만 「요구사항」 열이 뜬다 */
   const tcByFolder = !selectedReq && folderMode
@@ -369,25 +338,6 @@ export default function Requirements() {
     })
   }, [linked, q, statusFilter])
 
-  const doRemovePicked = () => {
-    const ids = pickedReqs
-    const folderIds = pickedCats
-    if (ids.length === 0 && folderIds.length === 0) return
-    const tcCount = ids.reduce((a, id) => {
-      const r = allReqs.find((x) => reqPk(x) === id)
-      return a + (r ? tcsFor(r).length : 0)
-    }, 0)
-    const lines: string[] = []
-    if (ids.length > 0) lines.push(`요구사항 ${ids.length}건을 삭제합니다.`)
-    if (folderIds.length > 0)
-      lines.push(
-        `폴더 ${folderIds.length}개를 삭제합니다. 안에 있던 요구사항은 지워지지 않고 미분류가 됩니다.`,
-      )
-    if (tcCount > 0) lines.push(`연결된 TC ${tcCount}건도 함께 사라집니다.`)
-    lines.push('되돌릴 수 없습니다. 계속할까요?')
-    if (!window.confirm(lines.join('\n'))) return
-    removeManyM.mutate({ reqIds: ids, folderIds })
-  }
 
   const loading = reqQ.isLoading || tcQ.isLoading
   const error = reqQ.error ?? tcQ.error
@@ -555,6 +505,61 @@ export default function Requirements() {
         </div>
       ) : null}
 
+      {/* ── 맨 위 줄 — 지금 어디를 보고 있나 + 보기 방식 ────────────
+          트리·표 위 전체 폭에 걸친다(Zephyr 와 같은 자리). 늘 떠 있다 —
+          모드에 따라 사라지면 「내가 어디 있더라」 를 화면에서 못 읽는다. */}
+      <div className="rq-bar">
+        <span className="rq-crumb">
+          <span className="muted">요구사항</span>
+          {folderMode && (
+            <>
+              <span className="rq-crumb-sep">›</span>
+              <b>{folderName}</b>
+            </>
+          )}
+          {view === 'detail' && selectedReq && (
+            <>
+              <span className="rq-crumb-sep">›</span>
+              <b>{selectedReq.title || reqLabel(selectedReq) || '(제목 없음)'}</b>
+            </>
+          )}
+          <span className="muted small">
+            {view === 'detail' && selectedReq
+              ? reqLabel(selectedReq)
+              : folderMode
+                ? `${folderReqs.length}건 · 하위 폴더 포함`
+                : '폴더를 고르세요'}
+          </span>
+        </span>
+        <span className="sp" />
+        {/* List(표로 여럿) ↔ Detail(한 건 넓게). Detail 로 가면 폴더가
+            자동으로 접힌다 — 셋을 다 펴면 정작 상세가 좁아진다. */}
+        <div className="rq-view" role="tablist" aria-label="보기 방식">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'detail'}
+            className={`rq-view-b${view === 'detail' ? ' on' : ''}`}
+            disabled={!selectedReq}
+            title={selectedReq ? '한 건을 넓게 봅니다' : '먼저 요구사항을 고르세요'}
+            onClick={() => selectedReq && goDetail(reqPk(selectedReq), tab)}
+          >
+            Detail
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'list'}
+            className={`rq-view-b${view === 'list' ? ' on' : ''}`}
+            disabled={!folderMode}
+            title={folderMode ? '이 폴더의 요구사항을 표로 봅니다' : '먼저 폴더를 고르세요'}
+            onClick={goList}
+          >
+            List
+          </button>
+        </div>
+      </div>
+
       <div className="split" ref={splitRef}>
         {/* 접었을 때 — 세로 띠 하나만 남는다. 사이클·TC 화면과 같은 모양.
             아주 없애면 다시 펼 길이 없어지고 어디 있었는지도 잊는다. */}
@@ -576,83 +581,40 @@ export default function Requirements() {
         {treeOpen && (
         <section className="panel req-tree-panel" style={{ flexBasis: catW }}>
           {/* 한 줄에 다 넣는다. 건수를 따로 아래에 두면 그만큼 목록이 준다. */}
+          {/* 1열은 폴더만 다룬다 — 요구사항을 만들고 고치고 지우는 일은
+              전부 2열 표(Add·Clone·Delete·Export)가 맡는다. 두 군데에
+              같은 일이 있으면 어디를 눌러야 할지 매번 생각하게 된다. */}
           <ListHead
-            name="요구사항"
-            count={allReqs.length}
+            name="폴더"
+            count={folderCount}
             onCollapse={() => setTreeOpen(false)}
-            picked={
-              // 한 건만 고른 것은 그냥 여는 것이라 알릴 것이 없다.
-              // 둘부터가 「여럿을 쥐고 있다」 는 뜻이다.
-              picked.size > 1 ? (
-                // 「3건 삭제」 라고 적어 두었더니 눌러야 지워지는 단추인데
-                // 이미 지운 것처럼 읽혔다. 몇 개 골랐는지만 알리고, 지우는
-                // 것은 ⋯ 안에 둔다 — 되돌릴 수 없는 일은 한 걸음 안쪽에.
-                <span className="lh-picked">
-                  {picked.size}건 선택됨
-                  <button type="button" onClick={treeSel.clear} title="선택 해제">
-                    ✕
-                  </button>
-                </span>
-              ) : undefined
-            }
             search={{
               value: treeQ,
-              placeholder: 'REQ ID · 제목 검색',
+              placeholder: '폴더 이름으로 찾기',
               onChange: setTreeQ,
             }}
-            add={{ title: '요구사항 만들기', onClick: () => setForm(null) }}
+            add={{ title: '최상위 폴더 추가', onClick: () => setAddFolder((n) => n + 1) }}
             menu={
               <>
-                <button type="button" onClick={() => setForm(null)}>
-                  요구사항 만들기
-                </button>
-                <button
-                  type="button"
-                  disabled={!selectedReq}
-                  onClick={() => selectedReq && setForm(selectedReq)}
-                >
-                  선택 요구사항 편집
-                </button>
                 <button type="button" onClick={() => setAddFolder((n) => n + 1)}>
                   최상위 폴더 추가
                 </button>
-                <button type="button" onClick={() => setBulkOpen(true)}>
-                  요구사항 일괄 생성
-                </button>
-                {/* 고른 것에 대한 일 — 하나여도 할 수 있어야 한다. 「N건
-                    선택됨」 만 둘부터 뜨는 것이지, 지우고 고치는 것을
-                    막을 이유는 없다. */}
-                {picked.size > 0 && (
-                  <>
-                    <hr />
-                    {picked.size > 1 && (
-                      <button type="button" onClick={() => setBulkEditOpen(true)}>
-                        선택한 {picked.size}건 한꺼번에 고치기
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="danger"
-                      disabled={removeManyM.isPending}
-                      onClick={doRemovePicked}
-                    >
-                      {removeManyM.isPending ? '삭제 중…' : `선택한 ${picked.size}건 삭제`}
-                    </button>
-                  </>
-                )}
+                <p className="lh-hint">
+                  하위 폴더 추가 · 이름 바꾸기 · 삭제는 폴더를 우클릭하세요.
+                </p>
                 <hr />
                 <button type="button" onClick={() => setFoldersOnly((v) => !v)}>
-                  {foldersOnly ? '✓ ' : ''}폴더 구조만 보기
-                </button>
-                <button type="button" onClick={() => setFullId((v) => !v)}>
-                  {fullId ? '✓ ' : ''}전체 ID 보기
+                  {foldersOnly ? '✓ ' : ''}폴더만 보기
                 </button>
                 <hr />
-                <button type="button" onClick={() => setSort('id')}>
-                  {sort === 'id' ? '✓ ' : ''}ID 순으로 정렬
-                </button>
-                <button type="button" onClick={() => setSort('title')}>
-                  {sort === 'title' ? '✓ ' : ''}제목 순으로 정렬
+                <button
+                  type="button"
+                  onClick={() => {
+                    void catQ.refetch()
+                    void reqQ.refetch()
+                  }}
+                >
+                  다시 읽기
                 </button>
               </>
             }
@@ -733,61 +695,6 @@ export default function Requirements() {
 
         {/* ── 오른쪽: 탭에 따라 내용이 바뀐다 ─────────────── */}
         <section className="panel tc-panel">
-          {/* 맨 위 줄 — 지금 어디를 보고 있나(빵부스러기) + 보기 방식.
-              Zephyr 처럼 늘 떠 있다. 모드에 따라 사라지면 「내가 어디
-              있더라」 를 화면에서 못 읽는다. */}
-          <div className="rq-bar">
-            <span className="rq-crumb">
-              <span className="muted">요구사항</span>
-              {folderMode && (
-                <>
-                  <span className="rq-crumb-sep">›</span>
-                  <b>{folderName}</b>
-                </>
-              )}
-              {view === 'detail' && selectedReq && (
-                <>
-                  <span className="rq-crumb-sep">›</span>
-                  <b>{selectedReq.title || reqLabel(selectedReq) || '(제목 없음)'}</b>
-                </>
-              )}
-              <span className="muted small">
-                {view === 'detail' && selectedReq
-                  ? reqLabel(selectedReq)
-                  : folderMode
-                    ? `${folderReqs.length}건 · 하위 폴더 포함`
-                    : '폴더를 고르세요'}
-              </span>
-            </span>
-            <span className="sp" />
-            {/* List(표로 여럿) ↔ Detail(한 건 넓게). Detail 로 가면 폴더가
-                자동으로 접힌다 — 셋을 다 펴면 정작 상세가 좁아진다. */}
-            <div className="rq-view" role="tablist" aria-label="보기 방식">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === 'detail'}
-                className={`rq-view-b${view === 'detail' ? ' on' : ''}`}
-                disabled={!selectedReq}
-                title={selectedReq ? '한 건을 넓게 봅니다' : '먼저 요구사항을 고르세요'}
-                onClick={() => selectedReq && goDetail(reqPk(selectedReq), tab)}
-              >
-                Detail
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === 'list'}
-                className={`rq-view-b${view === 'list' ? ' on' : ''}`}
-                disabled={!folderMode}
-                title={folderMode ? '이 폴더의 요구사항을 표로 봅니다' : '먼저 폴더를 고르세요'}
-                onClick={goList}
-              >
-                List
-              </button>
-            </div>
-          </div>
-
           <div className="panel-title">
             {/* 폴더를 보고 있을 때는 탭을 띄우지 않는다. REQ Info·Details·
                 이력은 요구사항 한 건에만 있는 것이라, 폴더에 걸어두면 늘
