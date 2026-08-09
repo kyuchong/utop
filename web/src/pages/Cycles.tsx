@@ -858,8 +858,6 @@ function CycleDetail({
   /** 항목 추가 창 */
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
-  /** 상단 「⋯」 메뉴 (항목 수정·선택 실행·전체 실행) */
-  const [headMenu, setHeadMenu] = useState(false)
 
   /**
    * 항목을 넣고 뺀다.
@@ -983,13 +981,56 @@ function CycleDetail({
   return (
     <div className="cy-detail">
       <div className="cy-head">
-        <b>
-          {[cycle.model, cycle.version].filter(Boolean).join(' · ') || cycle.name || cycle.id}
-        </b>
-        <span className="muted small">
-          {items.length}건{cycle.assignee ? ` · 담당 ${cycle.assignee}` : ''}
-        </span>
-        {/* 제목만 왼쪽에 남기고, 카운터부터는 오른쪽으로 몰아 놓는다. */}
+        {/* 제목은 위 빵부스러기에 있다. 이 줄은 요구사항·TC 화면과 같이
+            **하는 일**을 왼쪽에 늘어놓는 자리다. */}
+        <div className="rq-actions">
+          {st.on ? (
+            <button className="btn danger" type="button" onClick={() => void stop()}>
+              ⏹ 멈추기
+            </button>
+          ) : (
+            <>
+              <button
+                className="btn primary"
+                type="button"
+                disabled={!pick.size || saving}
+                title={pick.size ? `고른 ${pick.size}건을 돌립니다` : '먼저 항목을 고르세요'}
+                onClick={() => startRun([...pick].sort((a, b) => a - b))}
+              >
+                ▶ 선택 실행{pick.size ? ` (${pick.size})` : ''}
+              </button>
+              <button
+                className="btn"
+                type="button"
+                disabled={!items.length || saving}
+                onClick={() => startRun(items.map((_, i) => i))}
+              >
+                ▶ 전체 실행 ({items.length})
+              </button>
+            </>
+          )}
+          <span className="rq-adiv" aria-hidden="true" />
+          <button className="btn" type="button" onClick={() => setAdding(true)}>
+            항목 수정
+          </button>
+          <button
+            className="btn danger"
+            type="button"
+            disabled={!pick.size || saving || st.on}
+            onClick={() => {
+              if (!window.confirm(`고른 ${pick.size}건을 이 사이클에서 뺍니다.`)) return
+              // 자리 번호가 아니라 tcid 로 뺀다 — 걸러 보고 있으면 번호가
+              // 어긋나서 엉뚱한 것이 빠진다
+              const ids = new Set([...pick].map((i) => items[i]?.tcid).filter(Boolean))
+              void saveItems((cur) => cur.filter((x) => !ids.has(x.tcid))).then(sel.clear)
+            }}
+          >
+            빼기{pick.size ? ` (${pick.size})` : ''}
+          </button>
+          <button className="btn" type="button" onClick={() => setReport(true)}>
+            고객사 결과서
+          </button>
+        </div>
         <span className="sp" />
         {/* 결과 카운터 — 누르면 그 결과만 걸러 본다. */}
         <div className="cy-legend">
@@ -1018,94 +1059,6 @@ function CycleDetail({
         <b className="cy-pct">
           {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
         </b>
-        {/* 결과서는 보고서 화면을 거치지 않는다 — 「버전명 기준으로 사이클이
-            끝나면」 이라는 말 그대로 이 회차에서 바로 뽑는다 */}
-        <button className="btn small" type="button" onClick={() => setReport(true)}>
-          고객사 결과서
-        </button>
-        {pick.size > 1 && (
-          <span className="lh-picked">
-            {pick.size}건 선택됨
-            <button type="button" onClick={sel.clear} title="선택 해제">
-              ✕
-            </button>
-          </span>
-        )}
-        {pick.size > 0 && (
-          <button
-            className="btn small"
-            type="button"
-            disabled={saving || st.on}
-            onClick={() => {
-              if (!window.confirm(`고른 ${pick.size}건을 이 사이클에서 뺍니다.`)) return
-              // 자리 번호가 아니라 tcid 로 뺀다 — 걸러 보고 있으면 번호가
-              // 어긋나서 엉뚱한 것이 빠진다
-              const ids = new Set([...pick].map((i) => items[i]?.tcid).filter(Boolean))
-              void saveItems((cur) => cur.filter((x) => !ids.has(x.tcid))).then(sel.clear)
-            }}
-          >
-            {pick.size}건 빼기
-          </button>
-        )}
-        {st.on ? (
-          <button className="btn small danger" type="button" onClick={() => void stop()}>
-            ⏹ 멈추기
-          </button>
-        ) : (
-          // 항목 수정·선택 실행·전체 실행을 「⋯」 하나로 모은다.
-          <div className="cy-hmenu">
-            <button
-              className="btn small"
-              type="button"
-              title="항목 수정 · 선택 실행 · 전체 실행"
-              aria-haspopup="menu"
-              aria-expanded={headMenu}
-              onClick={() => setHeadMenu((v) => !v)}
-            >
-              ⋯
-            </button>
-            {headMenu && (
-              <>
-                <div className="cy-hmenu-back" onClick={() => setHeadMenu(false)} />
-                <div className="cy-hmenu-pop" role="menu">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setHeadMenu(false)
-                      setAdding(true)
-                    }}
-                  >
-                    항목 수정
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    disabled={!pick.size || saving}
-                    title={pick.size ? '' : '먼저 항목을 고르세요'}
-                    onClick={() => {
-                      setHeadMenu(false)
-                      startRun([...pick].sort((a, b) => a - b))
-                    }}
-                  >
-                    선택 실행{pick.size ? ` (${pick.size})` : ''}
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    disabled={!items.length || saving}
-                    onClick={() => {
-                      setHeadMenu(false)
-                      startRun(items.map((_, i) => i))
-                    }}
-                  >
-                    전체 실행 ({items.length})
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
       </div>
 
       {adding && (
