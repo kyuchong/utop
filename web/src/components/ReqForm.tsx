@@ -113,6 +113,20 @@ ${md}` : md))
 
   useEffect(() => {
     setReqid(editing?.reqid ?? '')
+    // 새로 만들 때는 서버가 주차별로 매기는 다음 ID(REQ-2615-0001)를 받아
+    // 채운다. 사람이 못 바꾼다 — 규칙(연·ISO주차·순번)이 깨지면 추적성이
+    // 흐트러진다.
+    if (editing === null) {
+      void (async () => {
+        try {
+          const r = await apiFetch('/api/req-next-id')
+          const j = (await r.json()) as { reqid?: string }
+          if (j.reqid) setReqid(j.reqid)
+        } catch {
+          /* 실패해도 저장 시 서버가 채운다 */
+        }
+      })()
+    }
     setTitle(editing?.title ?? '')
     setCat1(editing?.cat1 ?? '')
     setCat2(editing?.cat2 ?? '')
@@ -225,11 +239,15 @@ ${md}` : md))
 
           <div className="frow">
             <label className="fld">
-              <span>REQ ID</span>
+              <span>REQ ID {isNew ? '· 자동 부여' : '· 고정'}</span>
+              {/* ID 는 사람이 못 바꾼다. 새로 만들면 서버가 주차별로 매기고
+                  (REQ-2615-0001), 이미 있는 것은 그대로 잠근다 — 바꾸면
+                  붙어 있는 TC·추적성이 어긋난다. */}
               <input
-                value={reqid}
-                placeholder="REQ-001"
-                onChange={(e) => setReqid(e.target.value)}
+                value={reqid || (isNew ? '자동 부여 중…' : '')}
+                readOnly
+                className="ro"
+                title="요구사항 ID 는 자동으로 매겨지며 수정할 수 없습니다"
               />
             </label>
             <label className="fld">

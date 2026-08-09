@@ -866,3 +866,10 @@
   .acc-hd { display: none; }
   .acc-c-port, .acc-c-def, .acc-c-acct, .acc-c-btn { grid-column: 2; }
 }
+
+/* 자동 부여·고정 필드(REQ ID) — 손대는 칸이 아님을 색으로 알린다 */
+.fld input.ro {
+  background: var(--c-surface-alt);
+  color: var(--c-text-muted);
+  cursor: default;
+}

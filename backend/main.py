@@ -3221,6 +3221,33 @@ async def get_req(req_id: str):
     return r
 
 # REQ 저장 (생성/수정)
+@app.get("/api/req-next-id")
+async def req_next_id():
+    """다음 요구사항 ID — REQ-<연2><ISO주차2>-<주차별 순번4>.
+
+    2026년 ISO 15주차의 첫 건이면 REQ-2615-0001. 순번은 그 주차 안에서만
+    센다(다음 주면 다시 0001). 그 프리픽스의 현재 최대 순번 +1 을 서버에서
+    매겨, 두 사람이 같은 순간에 만들어도 안 겹친다(겹치면 save_req 가 한 번
+    더 올려 준다)."""
+    from datetime import datetime as _dt
+    import re as _re_r
+    iso = _dt.now().isocalendar()
+    yy = iso[0] % 100
+    ww = iso[1]
+    prefix = "REQ-%02d%02d-" % (yy, ww)
+    async with db.pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT data->>'reqid' AS reqid FROM req WHERE data->>'reqid' LIKE $1",
+            prefix + "%",
+        )
+    mx = 0
+    for r in rows:
+        m = _re_r.match("^" + _re_r.escape(prefix) + r"(\d+)$", r["reqid"] or "")
+        if m:
+            mx = max(mx, int(m.group(1)))
+    return {"reqid": prefix + str(mx + 1).zfill(4), "prefix": prefix, "seq": mx + 1}
+
+
 @app.post("/api/req/{req_id}")
 async def save_req(req_id: str, data: dict, response: Response):
     import time as _tm
