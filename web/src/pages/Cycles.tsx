@@ -794,8 +794,10 @@ function CycleDetail({
         <span className="muted small">
           {items.length}건{cycle.assignee ? ` · 담당 ${cycle.assignee}` : ''}
         </span>
-        {/* 결과 카운터 — 버전명·N건 바로 오른쪽. 누르면 그 결과만 걸러 본다.
-            진행률은 오른쪽 끝(실행 단추 옆)에 따로 둔다. */}
+        {/* 결과 카운터를 바 가운데로 민다. 앞뒤로 스페이서를 하나씩 두면
+            제목은 왼쪽, 카운터는 가운데, 진행률·단추는 오른쪽에 놓인다. */}
+        <span className="sp" />
+        {/* 결과 카운터 — 누르면 그 결과만 걸러 본다. */}
         <div className="cy-legend">
           <button
             type="button"
