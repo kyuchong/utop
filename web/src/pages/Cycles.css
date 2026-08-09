@@ -1396,14 +1396,17 @@ table.tb td.k {
   gap: 8px;
   margin: 10px 14px 0;
 }
+/* 카드마다 제 색을 --sc 하나로 들고 있다가 테두리·숫자·고른 상태에 쓴다.
+   같은 색을 세 군데 따로 적으면 하나만 고쳤을 때 어긋난다. */
 .cy-stat {
+  --sc: var(--c-border-strong);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
   padding: 8px 10px;
-  border: 1px solid var(--c-border);
-  border-top: 3px solid var(--c-border-strong);
+  border: 1px solid var(--sc);
+  border-top-width: 3px;
   border-radius: var(--radius-sm);
   background: var(--c-surface);
   font: inherit;
@@ -1414,27 +1417,30 @@ table.tb td.k {
   font-size: 22px;
   line-height: 1.1;
   font-weight: 700;
+  color: var(--sc);
 }
 .cy-stat-lb { font-size: var(--fs-xs); color: var(--c-text-muted); }
-.cy-stat-pc { font-size: var(--fs-xs); color: var(--c-text-faint); }
 .cy-stat:hover { background: var(--c-surface-2); }
-/* 고른 것은 테두리로 — 색을 더 칠하면 숫자가 안 읽힌다 */
-.cy-stat.on { box-shadow: inset 0 0 0 1px var(--c-primary); }
 
-.cy-stat.total { border-top-color: var(--c-text); }
-.cy-stat.total > b { color: var(--c-text); }
-.cy-stat.pass { border-top-color: var(--c-pass); }
-.cy-stat.pass > b { color: var(--c-pass); }
-.cy-stat.fail { border-top-color: var(--c-fail); }
-.cy-stat.fail > b { color: var(--c-fail); }
-.cy-stat.wip { border-top-color: var(--c-draft); }
-.cy-stat.wip > b { color: var(--c-draft); }
-.cy-stat.blocked { border-top-color: #8b5cf6; }
-.cy-stat.blocked > b { color: #8b5cf6; }
-.cy-stat.na { border-top-color: #f59e0b; }
-.cy-stat.na > b { color: #b45309; }
-.cy-stat.none { border-top-color: var(--c-border-strong); }
-.cy-stat.none > b { color: var(--c-text-faint); }
+/* 고르면 색을 뒤집는다 — 바탕이 그 색, 글자는 흰색.
+   무엇으로 걸러 보고 있는지가 한눈에 들어와야 한다. */
+.cy-stat.on {
+  background: var(--sc);
+  border-color: var(--sc);
+}
+.cy-stat.on > b,
+.cy-stat.on .cy-stat-lb,
+.cy-stat.on .cy-stat-lb > i {
+  color: #fff;
+}
+
+.cy-stat.total { --sc: #131920; }
+.cy-stat.pass { --sc: var(--c-pass); }
+.cy-stat.fail { --sc: var(--c-fail); }
+.cy-stat.wip { --sc: var(--c-draft); }
+.cy-stat.blocked { --sc: #7c3aed; }
+.cy-stat.na { --sc: #b45309; }
+.cy-stat.none { --sc: #626d78; }
 
 /* ── ③ 좁혀 보기 줄 ────────────────────────────────────────── */
 .cy-filters {
