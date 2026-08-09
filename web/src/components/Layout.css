@@ -22,8 +22,10 @@
   /* 플렉스 아이템의 기본 min-width 는 auto(=min-content) 라서, 이게 없으면
      접었을 때 width:56px 이 min-content(185px)로 되밀려 폭이 안 줄어든다. */
   min-width: 0;
-  background: var(--c-nav-bg);
-  border-right: 1px solid var(--c-border-nav);
+  /* Zephyr Enterprise 처럼 어두운 메뉴 + 흰 글자. */
+  background: var(--c-nav-dark);
+  color: var(--c-nav-fg);
+  border-right: 1px solid rgb(255 255 255 / 8%);
   padding: 12px 10px var(--sp-4);
   /* 접힘 툴팁이 메뉴 바깥으로 나가야 하므로 자르지 않는다.
      항목이 화면 높이를 넘길 만큼 늘어나면 안쪽 래퍼에 스크롤을 주고
@@ -44,28 +46,28 @@
   font-size: var(--fs-lg);
   font-weight: 800;
   letter-spacing: 0.02em;
-  color: var(--c-text);
+  color: var(--c-nav-fg-strong);
 }
 .nav-brand-sub {
   font-size: var(--fs-xs);
-  color: var(--c-text-faint);
+  color: rgb(255 255 255 / 55%);
   white-space: nowrap;
 }
 .nav-search {
   margin-bottom: 10px;
 }
-/* 통합 찾기 — 밝은 메뉴 바탕에 맞춰 다시 칠한다(상단바용 흰 글자를 덮는다) */
+/* 통합 찾기 — 어두운 메뉴에 맞춰 흰 글자 + 반투명 바탕 */
 .nav-search .tsr {
   margin: 0;
   max-width: none;
 }
 .nav-search .tsr-in {
-  background: var(--c-surface);
-  color: var(--c-text);
-  border-color: var(--c-border);
+  background: rgb(255 255 255 / 8%);
+  color: #fff;
+  border-color: rgb(255 255 255 / 16%);
 }
 .nav-search .tsr-in::placeholder {
-  color: var(--c-text-faint);
+  color: rgb(255 255 255 / 45%);
   opacity: 1;
 }
 /* 결과 팝업은 좁은 메뉴 밖으로 넉넉히 펼친다 */
@@ -92,18 +94,18 @@
 .nav-status {
   padding: 6px 0 8px;
 }
-/* 장비 현황 칩도 밝은 바탕에 맞춘다 */
+/* 장비 현황 칩도 어두운 바탕에 맞춘다 */
 .nav-status .ts {
   margin: 0;
 }
 .nav-status .ts-chip {
   width: 100%;
   justify-content: flex-start;
-  color: var(--c-text-muted);
-  border-color: var(--c-border);
+  color: var(--c-nav-fg);
+  border-color: rgb(255 255 255 / 16%);
 }
 .nav-status .ts-chip:hover {
-  background: var(--c-surface-2);
+  background: rgb(255 255 255 / 8%);
 }
 /* 팝업은 메뉴 아래쪽에 있으니 위로 펼친다 */
 .nav-status .ts-pop {
@@ -159,7 +161,7 @@
   font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: #6a747e;
+  color: rgb(255 255 255 / 42%);
   margin: 0 var(--sp-3) 5px;
   white-space: nowrap;
 }
@@ -177,7 +179,7 @@
   border-radius: var(--radius);
   margin: 1px 0;
   background: transparent;
-  color: var(--c-text);
+  color: var(--c-nav-fg);
 }
 
 .nav-icon {
@@ -187,7 +189,7 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  color: var(--c-text-muted);
+  color: rgb(255 255 255 / 60%);
 }
 
 .nav-label {
@@ -197,17 +199,23 @@
 }
 
 .nav-item:hover {
-  background: #e3e7ec;
+  background: rgb(255 255 255 / 8%);
+  color: var(--c-nav-fg-strong);
+}
+.nav-item:hover .nav-icon {
+  color: var(--c-nav-fg-strong);
 }
 
+/* 지금 보는 화면 — 왼쪽에 강조 띠 하나 두고 밝게. */
 .nav-item.on {
-  background: var(--c-primary-bg);
-  color: var(--c-primary);
+  background: rgb(255 255 255 / 12%);
+  color: var(--c-nav-fg-strong);
   font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--c-primary);
 }
 
 .nav-item.on .nav-icon {
-  color: var(--c-primary);
+  color: var(--c-nav-fg-strong);
 }
 
 /* ── 접힌 상태 — 아이콘만 남는 좁은 레일 ───────────────────── */
@@ -327,7 +335,7 @@
 .nav-user {
   margin-top: auto;
   padding-top: var(--sp-2);
-  border-top: 1px solid var(--c-border-nav);
+  border-top: 1px solid rgb(255 255 255 / 10%);
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -352,6 +360,10 @@
   flex: 1;
   min-width: 0;
 }
+/* 어두운 메뉴에서 보조 글자(역할 등)도 읽히게 */
+.nav .muted {
+  color: rgb(255 255 255 / 50%);
+}
 
 .nav-user-name {
   font-size: var(--fs-sm);
@@ -367,13 +379,13 @@
   border: 0;
   border-radius: var(--r-chip);
   background: transparent;
-  color: var(--c-text-faint);
+  color: rgb(255 255 255 / 55%);
   font-size: var(--fs-md);
 }
 
 .nav-user-out:hover {
-  background: #fdeaea;
-  color: var(--c-fail);
+  background: rgb(220 70 70 / 22%);
+  color: #ff8a8a;
 }
 
 /* 접힌 상태에서는 얼굴만 */
