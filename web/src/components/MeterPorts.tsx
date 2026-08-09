@@ -163,7 +163,8 @@ export default function MeterPorts({ kind, server, restIp, restPort, onClose }: 
           ) : all.length === 0 ? (
             <div className="empty">포트 정보가 없습니다.</div>
           ) : (
-            mods.map((m) => (
+            // 포트 없는 빈 슬롯(0포트)은 안 그린다 — 자리만 먹는다
+            mods.filter((m) => m.list.length > 0).map((m) => (
               <div key={m.id} className="np-mod">
                 <div className="np-mh">
                   <b>모듈 {m.id}</b>

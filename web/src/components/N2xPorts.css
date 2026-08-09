@@ -1,6 +1,6 @@
 /* N2X 포트 현황 — 누가 어느 포트를 쓰나. 빈 포트가 먼저 보여야 한다 */
 /* 16포트가 한 줄에 다 들어오게. 공용 .modal 의 max-width 를 여기서 푼다 */
-.np.np { width: min(1040px, 96vw); max-width: min(1040px, 96vw); }
+.np.np { width: min(1280px, 97vw); max-width: min(1280px, 97vw); }
 .np-sum { font-size: var(--fs-xs); }
 .np-sum .ok { color: var(--c-pass); }
 .np-sum .no { color: var(--c-fail); }
@@ -11,7 +11,7 @@
    좁으면 스스로 줄바꿈되도록 auto-fill 로 최소폭만 준다 */
 .np-ports {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
   gap: 5px;
 }
 .np-port {
@@ -25,7 +25,15 @@
   border: 1px solid transparent;
 }
 .np-port b { font-size: 14px; }
-.np-who { font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60px; }
+/* 사용 중인 포트의 이름이 다 보여야 한다. 넘치면 두 줄로 접고,
+   그래도 길면 자르되 마우스를 올리면 전체가 title 로 나온다 */
+.np-who {
+  font-size: 10px;
+  line-height: 1.15;
+  text-align: center;
+  word-break: break-all;
+  max-width: 100%;
+}
 /* 빈 포트 = 초록(쓸 수 있음), 남이 씀 = 회색, 내 것 = 파랑 */
 .np-port.free { background: #dcfce7; color: #15803d; border-color: #86efac; }
 .np-port.used { background: var(--c-surface-2); color: var(--c-text-muted); }

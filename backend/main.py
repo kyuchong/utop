@@ -6818,10 +6818,29 @@ async def stc_server_start(data: dict = None):
     return {"ok": False, "error": "REST 서버가 시간 내 포트 " + str(port) + " 를 열지 못함"}
 
 
+# STC 인벤토리 캐시 — 매번 ChassisConnect 하면 수십 초가 걸린다.
+# N2X ports 처럼 잠깐(기본 60초) 담아 두고, 그 안의 재조회는 즉시 돌려준다.
+# 「새로고침」(force) 이면 무시하고 다시 읽는다.
+_STC_CC_CACHE = {}   # "chassis|rest_ip:rest_port" -> {"ts": t, "data": {...}}
+_STC_CC_TTL = 60
+
+
 @app.post("/api/stc/conncheck")
 async def stc_conncheck(data: dict = None):
-    """실제 섀시 연결 확인 (트래픽 생성 없음). 섀시/모듈 인벤토리를 반환."""
+    """실제 섀시 연결 확인 (트래픽 생성 없음). 섀시/모듈 인벤토리를 반환.
+
+    매번 새 세션을 열고 섀시에 접속하므로 수십 초 걸린다. 그래서 결과를
+    잠깐 캐시한다 — 포트 현황을 다시 열거나 다른 사람이 같은 섀시를 봐도
+    바로 뜬다. force=1 이면 캐시를 건너뛴다.
+    """
     data = data or {}
+    _ck = str(data.get("chassis") or "") + "|" + str(data.get("restIp") or "") + ":" + str(data.get("restPort") or "")
+    if not data.get("force"):
+        hit = _STC_CC_CACHE.get(_ck)
+        if hit and (_t.time() - hit["ts"]) < _STC_CC_TTL:
+            d = dict(hit["data"]); d["cached"] = True
+            d["cache_age"] = round(_t.time() - hit["ts"])
+            return d
     chassis = (data.get("chassis") or "192.168.5.100").strip()
     rest_ip = (data.get("restIp") or "localhost").strip()
     rest_port = int(data.get("restPort") or 8888)
@@ -6858,6 +6877,8 @@ async def stc_conncheck(data: dict = None):
                 continue
     if result is None:
         return {"ok": False, "error": "결과 파싱 실패", "raw": text[-500:]}
+    if isinstance(result, dict) and result.get("ok"):
+        _STC_CC_CACHE[_ck] = {"ts": _t.time(), "data": result}
     return result
 
 # ───────────────────────────────────────────
