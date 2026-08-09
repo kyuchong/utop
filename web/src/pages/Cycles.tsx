@@ -863,6 +863,13 @@ function CycleDetail({
   const [editing, setEditing] = useState<CycleItemLite[] | null>(null)
   /** 회차를 놓고 보는 창 — AI 요약 · 메트릭스 */
   const [insight, setInsight] = useState<'ai' | 'metrics' | null>(null)
+  /**
+   * 표 줄 우클릭 메뉴.
+   *
+   * 결과·담당자·메모를 고치는 길이다. 위 단추 줄에서 뺐으니 여기 둔다 —
+   * 트리에서 사이클을 우클릭하면 항목을 넣고 빼듯, 항목은 항목 줄에서.
+   */
+  const [rowMenu, setRowMenu] = useState<{ at: number; x: number; y: number } | null>(null)
   const [saving, setSaving] = useState(false)
 
   /**
@@ -1156,6 +1163,19 @@ function CycleDetail({
       </div>
 
 
+      {rowMenu && (
+        <CycleRowMenu
+          at={rowMenu}
+          count={pick.size}
+          onClose={() => setRowMenu(null)}
+          onEdit={() => {
+            const rows = [...pick].map((i) => items[i]!).filter(Boolean)
+            setRowMenu(null)
+            setEditing(rows)
+          }}
+        />
+      )}
+
       {insight && (
         <CycleInsight
           mode={insight}
@@ -1329,6 +1349,13 @@ function CycleDetail({
                   e.preventDefault()
                   setOpenItem(openItem === at ? -1 : at)
                 }
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                // 안 고른 줄에서 눌렀으면 그 줄만 고른 것으로 본다 —
+                // 엉뚱한 것이 고쳐지지 않게
+                if (!pick.has(at)) sel.set([at])
+                setRowMenu({ at, x: e.clientX, y: e.clientY })
               }}
             >
               {/* TC ID 를 따로 세운다.
@@ -1573,6 +1600,53 @@ function CycleMenu({
       {item('버전 이름만 바꾸기', () => void rename())}
       <hr />
       {item('지우기', () => void del())}
+    </div>
+  )
+}
+
+/**
+ * 항목 줄 우클릭 메뉴 — 결과·담당자·메모 고치기.
+ *
+ * 위 단추 줄에서 Edit·Bulk Edit 를 뺐으니 여기 둔다. 한 건이면 「고치기」,
+ * 여럿이면 「N건 한꺼번에 고치기」 — 창은 같은 것이다.
+ */
+function CycleRowMenu({
+  at,
+  count,
+  onClose,
+  onEdit,
+}: {
+  at: { x: number; y: number }
+  count: number
+  onClose: () => void
+  onEdit: () => void
+}) {
+  useEffect(() => {
+    const away = () => onClose()
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const t = setTimeout(() => {
+      window.addEventListener('mousedown', away)
+      window.addEventListener('contextmenu', away)
+    }, 0)
+    window.addEventListener('keydown', esc)
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener('mousedown', away)
+      window.removeEventListener('contextmenu', away)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [onClose])
+
+  return (
+    <div
+      className="cy-menu"
+      style={{ left: at.x, top: at.y }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      <button type="button" onClick={onEdit}>
+        {count > 1 ? `${count}건 한꺼번에 고치기` : '고치기 (결과·담당자·메모)'}
+      </button>
     </div>
   )
 }
