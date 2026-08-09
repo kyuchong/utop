@@ -1345,3 +1345,21 @@ table.tb td.k {
 .cy-detail > .cy-cols {
   padding: 0 14px 12px;
 }
+
+/* 목록 칸 — 「몇 개 골랐나」 는 카드 밖 위에, 표는 카드 안에 */
+.cy-listwrap {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.cy-listwrap > .cy-selbar {
+  flex: none;
+  border-bottom: 0;
+  padding: 0 2px 6px;
+}
+.cy-listwrap > .cy-list {
+  flex: 1;
+  min-height: 0;
+}

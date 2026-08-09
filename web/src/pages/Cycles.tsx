@@ -1278,9 +1278,9 @@ function CycleDetail({
       </div>
 
       <div className="cy-cols" ref={colsRef}>
-      <div className="cy-list">
-        {/* 고른 것에 하는 일 — Zephyr 의 Select All · Change Bulk Status.
-            스무 건을 돌리고 하나씩 드롭다운을 여는 것은 일이 아니다. */}
+      {/* 목록 칸 — 「몇 개 골랐나」 는 카드 **밖 위**에, 표는 카드 안에.
+          카드는 자료가 담기는 곳이고, 고른 수는 그 자료를 두고 하는 말이다. */}
+      <div className="cy-listwrap">
         <div className="cy-selbar">
           <label className="rq-selall">
             <input
@@ -1301,6 +1301,7 @@ function CycleDetail({
           <span className="rq-seldiv" aria-hidden="true" />
           <span className="muted small">Selected : {pick.size}</span>
         </div>
+        <div className="cy-list">
         <div className="cy-row cy-hd">
           <span />
           <span>TC ID</span>
@@ -1456,6 +1457,7 @@ function CycleDetail({
           )
         })}
         {rows.length === 0 && <div className="empty">해당하는 항목이 없습니다.</div>}
+      </div>
       </div>
 
       {/* 오른쪽 칸 — 고른 항목의 스텝, 그리고 실행 중이면 오간 것.
