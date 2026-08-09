@@ -113,7 +113,7 @@
   display: grid;
   /* 칸마다 최소 폭을 준다. 안 주면 좁을 때 TC ID 가 0px 로 눌리고
      머리글이 두 줄로 접힌다. 그보다는 가로로 미는 편이 낫다. */
-  grid-template-columns: 28px minmax(104px, 140px) minmax(120px, 1fr) 56px 58px 60px minmax(90px, 160px) 78px 38px;
+  grid-template-columns: 28px minmax(104px, 140px) minmax(120px, 1fr) 56px 58px 68px 68px 108px 38px;
   gap: 6px;
   min-width: 600px;
   align-items: center;
@@ -1335,4 +1335,11 @@ table.tb td.k {
 .cy-detail > .cy-sum {
   padding-top: 8px;
   border-top: 1px solid var(--c-border-soft);
+}
+
+/* 담당자·실행자 — 이름이 길면 자른다. 전체는 마우스를 올리면 나온다 */
+.cy-who {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

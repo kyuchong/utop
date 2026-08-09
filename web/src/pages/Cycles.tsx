@@ -903,9 +903,6 @@ function CycleDetail({
     URL.revokeObjectURL(a.href)
   }
 
-  /** 이 회차의 메모 한 줄 */
-  const setNote = (tcid: string, note: string) =>
-    saveItems((cur) => cur.map((x) => (x.tcid === tcid ? { ...x, note } : x)))
 
   /**
    * 고른 항목의 결과를 한꺼번에 바꾼다 (Zephyr 의 Change Bulk Status).
@@ -1279,11 +1276,11 @@ function CycleDetail({
         <div className="cy-row cy-hd">
           <span />
           <span>TC ID</span>
-          <span>시험</span>
+          <span>TC summary</span>
           <span>타입</span>
           <span>결과</span>
-          <span>담당</span>
-          <span>메모</span>
+          <span>담당자</span>
+          <span>실행자</span>
           <span>실행</span>
           <span>결함</span>
         </div>
@@ -1397,18 +1394,12 @@ function CycleDetail({
                   </option>
                 ))}
               </select>
-              <span className="muted">{it.assignee || it.executed_by || '–'}</span>
-              {/* 이 회차에만 남기는 한 줄 — 「왜 이렇게 판정했나」 를 적어 둔다 */}
-              <span className="cy-note" onClick={(e) => e.stopPropagation()}>
-                <input
-                  defaultValue={it.note ?? ''}
-                  placeholder="메모"
-                  title="이 회차의 메모"
-                  onBlur={(e) => {
-                    if ((it.note ?? '') !== e.target.value)
-                      void setNote(it.tcid, e.target.value)
-                  }}
-                />
+              {/* 맡은 사람과 실제로 돌린 사람은 다르다 — 둘을 갈라 적는다 */}
+              <span className="muted cy-who" title={it.assignee ?? ''}>
+                {it.assignee || '–'}
+              </span>
+              <span className="muted cy-who" title={it.executed_by ?? ''}>
+                {it.executed_by || '–'}
               </span>
               <span className="muted small">
                 {/* 도는 동안은 시각 대신 진행을 보여 준다. 「언제 돌았나」 는
@@ -1420,7 +1411,7 @@ function CycleDetail({
                   </b>
                 ) : (
                   <>
-                    {it.executed_at ? it.executed_at.slice(5, 16) : '–'}
+                    {it.executed_at ? it.executed_at.slice(0, 16) : '–'}
                     {it.executed_auto && <b title="자동으로 돌았습니다"> ⚡</b>}
                   </>
                 )}
