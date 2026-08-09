@@ -1,18 +1,25 @@
 /* N2X 포트 현황 — 누가 어느 포트를 쓰나. 빈 포트가 먼저 보여야 한다 */
-.np { width: min(760px, 94vw); }
+/* 16포트가 한 줄에 다 들어오게. 공용 .modal 의 max-width 를 여기서 푼다 */
+.np.np { width: min(1040px, 96vw); max-width: min(1040px, 96vw); }
 .np-sum { font-size: var(--fs-xs); }
 .np-sum .ok { color: var(--c-pass); }
 .np-sum .no { color: var(--c-fail); }
 .np-body { max-height: 70vh; overflow: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 12px; }
 .np-mod { border: 1px solid var(--c-border); border-radius: var(--r-box); padding: 8px 10px; }
 .np-mh { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
-.np-ports { display: flex; flex-wrap: wrap; gap: 5px; }
+/* 한 모듈의 포트를 격자로 — 16개가 한 줄에 떨어지게 16열 고정.
+   좁으면 스스로 줄바꿈되도록 auto-fill 로 최소폭만 준다 */
+.np-ports {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(52px, 1fr));
+  gap: 5px;
+}
 .np-port {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 54px;
-  padding: 4px 6px;
+  min-width: 0;
+  padding: 4px 4px;
   border-radius: var(--r-chip);
   font-size: var(--fs-xs);
   border: 1px solid transparent;
