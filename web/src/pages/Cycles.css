@@ -113,7 +113,7 @@
   display: grid;
   /* 칸마다 최소 폭을 준다. 안 주면 좁을 때 TC ID 가 0px 로 눌리고
      머리글이 두 줄로 접힌다. 그보다는 가로로 미는 편이 낫다. */
-  grid-template-columns: minmax(112px, 150px) minmax(120px, 1fr) 60px 58px 62px 78px 38px;
+  grid-template-columns: 28px minmax(104px, 140px) minmax(120px, 1fr) 56px 58px 60px minmax(90px, 160px) 78px 38px;
   gap: 6px;
   min-width: 600px;
   align-items: center;
@@ -1191,3 +1191,45 @@ table.tb td.k {
   cursor: pointer;
 }
 .sc-img-x:hover { border-color: var(--c-fail); color: var(--c-fail); }
+
+/* 고른 것에 하는 일 — Select All · Selected : N · 결과 일괄 변경 */
+.cy-selbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.cy-selbar .sp { margin-left: auto; }
+.cy-bulk {
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: 2px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+}
+.cy-bulk:disabled { color: var(--c-text-faint); }
+
+/* 줄 맨 앞 체크박스 · 메모 칸 */
+.cy-ck { display: flex; align-items: center; }
+.cy-ck input { margin: 0; }
+.cy-note { display: flex; align-items: center; min-width: 0; }
+.cy-note input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: 2px 6px;
+  color: var(--c-text);
+}
+.cy-note input:hover { border-color: var(--c-border); }
+.cy-note input:focus {
+  border-color: var(--c-primary);
+  background: var(--c-surface);
+  outline: none;
+}

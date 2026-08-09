@@ -46,6 +46,8 @@ export interface CycleItemLite {
   executed_at?: string | null
   executed_by?: string | null
   executed_auto?: boolean
+  /** 이 회차에만 남기는 한 줄 메모 (Zephyr 의 Notes) */
+  note?: string | null
   issues?: unknown[]
   steps?: CycleStep[]
 }
@@ -796,6 +798,23 @@ function CycleDetail({
   const setResult = (tcid: string, result: string) =>
     saveItems((cur) => cur.map((x) => (x.tcid === tcid ? { ...x, result } : x)))
 
+  /** 이 회차의 메모 한 줄 */
+  const setNote = (tcid: string, note: string) =>
+    saveItems((cur) => cur.map((x) => (x.tcid === tcid ? { ...x, note } : x)))
+
+  /**
+   * 고른 항목의 결과를 한꺼번에 바꾼다 (Zephyr 의 Change Bulk Status).
+   *
+   * 수동 시험 스무 건을 돌리고 나서 하나씩 드롭다운을 여는 것은 일이 아니다.
+   */
+  const setResultMany = (result: string) => {
+    const ids = new Set([...pick].map((i) => items[i]?.tcid).filter(Boolean))
+    if (!ids.size) return
+    return saveItems((cur) =>
+      cur.map((x) => (ids.has(x.tcid) ? { ...x, result } : x)),
+    )
+  }
+
   /**
    * 스텝 하나의 결과를 손으로 정한다.
    *
@@ -1094,12 +1113,56 @@ function CycleDetail({
 
       <div className="cy-cols" ref={colsRef}>
       <div className="cy-list">
+        {/* 고른 것에 하는 일 — Zephyr 의 Select All · Change Bulk Status.
+            스무 건을 돌리고 하나씩 드롭다운을 여는 것은 일이 아니다. */}
+        <div className="cy-selbar">
+          <label className="rq-selall">
+            <input
+              type="checkbox"
+              checked={rows.length > 0 && pick.size === rows.length}
+              ref={(el) => {
+                if (el) el.indeterminate = pick.size > 0 && pick.size < rows.length
+              }}
+              disabled={!rows.length}
+              onChange={() =>
+                pick.size === rows.length
+                  ? sel.clear()
+                  : sel.set(rows.map((x) => items.indexOf(x)))
+              }
+            />
+            Select All
+          </label>
+          <span className="rq-seldiv" aria-hidden="true" />
+          <span className="muted small">Selected : {pick.size}</span>
+          <span className="sp" />
+          <select
+            className="cy-bulk"
+            value=""
+            disabled={!pick.size || saving}
+            title={pick.size ? `고른 ${pick.size}건의 결과를 한꺼번에 바꿉니다` : '먼저 항목을 고르세요'}
+            onChange={(e) => {
+              const v = e.target.value
+              if (!v) return
+              void setResultMany(v === '미실행' ? '미실행' : v)
+              e.target.value = ''
+            }}
+          >
+            <option value="">결과 일괄 변경…</option>
+            {RESULTS.map((r) => (
+              <option key={r.v} value={r.v === '' ? '미실행' : r.v}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="cy-row cy-hd">
+          <span />
           <span>TC ID</span>
           <span>시험</span>
           <span>타입</span>
           <span>결과</span>
           <span>담당</span>
+          <span>메모</span>
           <span>실행</span>
           <span>결함</span>
         </div>
@@ -1147,6 +1210,21 @@ function CycleDetail({
                   처럼 겹치는 것이 많아서, 어느 시험인지 대려면 결국 열어
                   봐야 했다. 누르면 그 시험으로 간다 — 판정 기준을 고치러
                   가는 일이 잦다. */}
+              {/* 체크박스 — Ctrl·Shift 로 고르는 것은 그대로 두고, 눈에
+                  보이는 방법도 함께 준다(Zephyr 와 같은 자리) */}
+              <span className="cy-ck" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={pick.has(at)}
+                  aria-label={`${it.name || it.tcid} 고르기`}
+                  onChange={() => {
+                    const n = new Set(pick)
+                    if (n.has(at)) n.delete(at)
+                    else n.add(at)
+                    sel.set([...n])
+                  }}
+                />
+              </span>
               <button
                 type="button"
                 className="cy-tcid"
@@ -1199,6 +1277,18 @@ function CycleDetail({
                 ))}
               </select>
               <span className="muted">{it.assignee || it.executed_by || '–'}</span>
+              {/* 이 회차에만 남기는 한 줄 — 「왜 이렇게 판정했나」 를 적어 둔다 */}
+              <span className="cy-note" onClick={(e) => e.stopPropagation()}>
+                <input
+                  defaultValue={it.note ?? ''}
+                  placeholder="메모"
+                  title="이 회차의 메모"
+                  onBlur={(e) => {
+                    if ((it.note ?? '') !== e.target.value)
+                      void setNote(it.tcid, e.target.value)
+                  }}
+                />
+              </span>
               <span className="muted small">
                 {/* 도는 동안은 시각 대신 진행을 보여 준다. 「언제 돌았나」 는
                     끝난 뒤에 궁금한 것이고, 도는 동안 궁금한 것은
