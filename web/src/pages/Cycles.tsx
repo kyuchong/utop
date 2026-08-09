@@ -1076,6 +1076,26 @@ function CycleDetail({
           >
             PPTX
           </button>
+          {/* 결과만 빠르게 바꿀 때 — 담당자·메모까지 함께면 Bulk Edit 로 */}
+          <select
+            className="cy-bulk"
+            value=""
+            disabled={!pick.size || saving}
+            title={pick.size ? `고른 ${pick.size}건의 결과를 한꺼번에 바꿉니다` : '먼저 항목을 고르세요'}
+            onChange={(e) => {
+              const v = e.target.value
+              if (!v) return
+              void setResultMany(v === '미실행' ? '미실행' : v)
+              e.target.value = ''
+            }}
+          >
+            <option value="">일괄 변경…</option>
+            {RESULTS.map((r) => (
+              <option key={r.v} value={r.v === '' ? '미실행' : r.v}>
+                {r.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -1107,27 +1127,6 @@ function CycleDetail({
             </button>
           </>
         )}
-        <span className="rq-adiv" aria-hidden="true" />
-        {/* 결과만 빠르게 바꿀 때 — 담당자·메모까지 함께면 Bulk Edit 로 */}
-        <select
-          className="cy-bulk"
-          value=""
-          disabled={!pick.size || saving}
-          title={pick.size ? `고른 ${pick.size}건의 결과를 한꺼번에 바꿉니다` : '먼저 항목을 고르세요'}
-          onChange={(e) => {
-            const v = e.target.value
-            if (!v) return
-            void setResultMany(v === '미실행' ? '미실행' : v)
-            e.target.value = ''
-          }}
-        >
-          <option value="">결과 일괄 변경…</option>
-          {RESULTS.map((r) => (
-            <option key={r.v} value={r.v === '' ? '미실행' : r.v}>
-              {r.label}
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* ③ 진행 요약 — 카운터·진행률은 「하는 일」 이 아니라 「지금 상태」 다.
