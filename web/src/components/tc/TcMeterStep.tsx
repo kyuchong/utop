@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isMeter, meterKind } from './device'
-import type { MeterCfg, TcStep } from './types'
+import { METER_ACT_LABEL, type MeterCfg, type TcStep } from './types'
 import type { Device } from '@/pages/Devices'
 import './TcMeterStep.css'
 
@@ -50,6 +50,8 @@ export default function TcMeterStep({ step, meterCfg, onChange, onGoTraffic }: P
   const cur = meters.find((d) => (d.ip ?? '').trim() === host)
   const kind = meterKind(cur)
   const fromTab = !!cfg.chassis
+  /** 아직 안 고른 줄은 「트래픽 시작」 이다 — 드롭다운이 그렇게 보이고 있다 */
+  const act = step.meterAct ?? 'traffic_start'
   const streams = (cfg.streams ?? []).filter((s) => s.enabled !== false)
 
   return (
@@ -109,18 +111,18 @@ export default function TcMeterStep({ step, meterCfg, onChange, onGoTraffic }: P
       <label className="sd-f">
         <span>계측기 동작</span>
         <select
-          value={step.meterAct ?? 'traffic_start'}
+          value={act}
           onChange={(e) => onChange({ meterAct: e.target.value as TcStep['meterAct'] })}
         >
-          <option value="ports">포트 확인</option>
-          <option value="traffic_start">트래픽 시작</option>
-          <option value="traffic_stat">통계 읽기 · 판정</option>
-          <option value="traffic_stop">트래픽 정지</option>
-          <option value="traffic_clear">스트림 비우기</option>
+          {Object.entries(METER_ACT_LABEL).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
         </select>
       </label>
 
-      {step.meterAct === 'traffic_start' && (
+      {act === 'traffic_start' && (
         <>
           <label className="sd-f">
             <span>시간 (초, 0=연속)</span>
@@ -138,7 +140,7 @@ export default function TcMeterStep({ step, meterCfg, onChange, onGoTraffic }: P
         </>
       )}
 
-      {step.meterAct === 'traffic_stat' && (
+      {act === 'traffic_stat' && (
         <label className="sd-f">
           <span>허용 손실 (패킷 수)</span>
           <input

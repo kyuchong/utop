@@ -176,7 +176,9 @@ export default function TcSequence({
                     흔해서 장비 이름만으로는 안 갈린다 — iTest 도 Session 을
                     별도 열로 둔다. */}
                 {(() => {
-                  const k = sessionIndex(s.session)
+                  // 계측기는 세션으로 안 나간다 — 섀시 주소로 곧장 간다.
+                  // S1 이 붙어 있으면 그 장비로 나가는 줄로 읽힌다.
+                  const k = s.kind === 'instrument' ? -1 : sessionIndex(s.session)
                   return (
                     <span className="sq-s">
                       {k >= 0 && (
@@ -192,7 +194,7 @@ export default function TcSequence({
                 {/* 명령이 먼저다 — 사람이 훑을 때 찾는 것은 명령이다.
                     설명은 있으면 뒤에 옅게 붙인다. */}
                 <span
-                  className={`sq-sum${s.kind === 'cli' || s.kind === 'instrument' ? ' mono' : ''}`}
+                  className={`sq-sum${s.kind === 'cli' ? ' mono' : ''}`}
                   title={[summary(s), s.step].filter(Boolean).join('  —  ')}
                 >
                   {summary(s) || <span className="muted">—</span>}

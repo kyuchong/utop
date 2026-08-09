@@ -459,7 +459,11 @@ async function runOne(
    * 판정은 「통계 읽기」 에서 난다 — 손실이 허용치를 넘으면 불합격.
    * 트래픽이 얼마를 흘렸느냐가 곧 시험 결과인 경우가 그것이다.
    */
-  if (kind === 'instrument' && step.meterAct) {
+  // 옛 자료에는 kind 가 instrument 인데 CLI 를 그대로 담은 줄이 있다.
+  // 그 줄은 아래 CLI 길로 보낸다. 그것 말고는 전부 계측기로 다룬다 —
+  // 전에는 meterAct 가 비어 있으면(새로 만든 줄이 늘 그렇다) 계측기 길로
+  // 못 들어가 「보낼 명령이 없습니다」 로 조용히 건너뛰었다.
+  if (kind === 'instrument' && (step.meterAct || !String(step.cli ?? step.data ?? '').trim())) {
     /**
      * 계측기는 **세션에 넣지 않는다.**
      *
@@ -481,7 +485,7 @@ async function runOne(
       (host ? undefined : deviceOf(ctx, step).dev)
     const server = (host || meterDev?.ip || '').trim()
     const label = String(mcfg.n2xLabel || meterDev?.id || 'utop')
-    const act = step.meterAct
+    const act = step.meterAct ?? 'traffic_start'
 
     if (!server) {
       const err = '계측기를 고르지 않았습니다 — 스텝에서 계측기를 정하세요'

@@ -418,7 +418,16 @@ export const ADD_KINDS = STEP_KINDS.filter((x) => !x.hidden)
  */
 export function needsDevice(s: TcStep): boolean {
   const k = (s.kind || 'cli') as StepKind
-  if (k === 'cli' || k === 'instrument' || k === 'connect' || k === 'disconnect') return true
+  if (k === 'cli' || k === 'connect' || k === 'disconnect') return true
+  /*
+   * 계측기는 세션이 필요 없다.
+   *
+   * 세션은 CLI(telnet·ssh)로 붙는 자리인데 계측기는 그렇게 안 붙는다 —
+   * 섀시 주소로 곧장 나간다. 그런데 여기서 true 를 내주는 바람에, 계측기
+   * 스텝 하나뿐인 시험을 돌리려 하면 「+ 세션으로 장비를 넣으세요」 가
+   * 떴다. 넣을 수도 없다(세션 목록에 계측기는 안 나온다).
+   */
+  if (k === 'instrument') return false
   if (k === 'ping' || k === 'snmp_get' || k === 'snmp_set') return !String(s.host ?? '').trim()
   return false
 }
@@ -445,7 +454,7 @@ export function stepKindInfo(k?: string) {
  * | 종류        | 내용 칸                 | 저장 필드                        | 장비로 나가나 |
  * |------------|------------------------|---------------------------------|------------|
  * | cli        | 보낼 명령 (여러 줄)       | cli                             | 예          |
- * | instrument | 보낼 명령                | cli                             | 예          |
+ * | instrument | 계측기 동작               | meterAct (설정은 TC 의 meterCfg)  | 예(섀시)     |
  * | ping       | 대상 IP · 횟수           | host · pingCount                | 예          |
  * | snmp_get   | OID                    | oid                             | 예          |
  * | snmp_set   | OID · 넣을 값           | oid · snmpValue · snmpType      | 예          |
@@ -466,10 +475,25 @@ export function stepKindInfo(k?: string) {
  * 긴 절차에서 '여기부터 2단계' 같은 표시를 남기는 데 쓴다. 그래서 Message
  * 는 ${변수} 를 넣으면 그 값이 찍히고 Comment 는 안 찍힌다.
  */
+/**
+ * 계측기가 하는 일의 이름.
+ *
+ * 스텝 세부의 드롭다운과 2열 요약이 같은 글자를 써야 한다 — 따로 적어
+ * 두면 한쪽만 고치게 되고, 목록에서 「포트 확인」 인 줄이 열어 보면
+ * 「트래픽 시작」 인 일이 생긴다.
+ */
+export const METER_ACT_LABEL: Record<string, string> = {
+  ports: '포트 확인',
+  traffic_start: '트래픽 시작',
+  traffic_stat: '통계 읽기 · 판정',
+  traffic_stop: '트래픽 정지',
+  traffic_clear: '스트림 비우기',
+}
+
 export const STEP_CONTENT: Record<string, { label: string; hint?: string }> = {
   cli: { label: '보낼 명령', hint: '여러 줄이면 위에서부터 차례로 보냅니다' },
   diff: { label: '견줄 두 값', hint: '같으면 합격 · 다르면 불합격. 여러 줄이면 어느 줄이 다른지 보여줍니다' },
-  instrument: { label: '보낼 명령' },
+  instrument: { label: '계측기 동작' },
   ping: { label: '대상 IP' },
   snmp_get: { label: 'OID' },
   snmp_set: { label: 'OID · 넣을 값' },
@@ -512,6 +536,13 @@ export function stepSummary(s: TcStep): string {
   }
   // 세션 번호만 찍으면 '0' 이 되어 아무 뜻이 없다. 부르는 쪽에서 장비
   // 이름을 붙여 주도록 여기서는 비워 둔다.
+  if (k === 'instrument') {
+    const t = METER_ACT_LABEL[s.meterAct ?? 'traffic_start'] ?? String(s.meterAct ?? '')
+    if (s.meterAct === 'traffic_start' && s.meterDur) return `${t} · ${s.meterDur}초`
+    if (s.meterAct === 'traffic_stat')
+      return `${t} · 허용 손실 ${s.meterMaxLoss ?? 0}`
+    return t
+  }
   if (k === 'connect' || k === 'disconnect') return ''
   if (k === 'model') return (s.modelName || s.model || '').trim()
   if (k === 'comment' || k === 'message') return (s.text || s.desc || s.step || '').trim()
