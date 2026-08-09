@@ -1309,3 +1309,10 @@ table.tb td.k {
   height: 15px;
   display: block;
 }
+
+/* 2열(항목 표) 줄 구분선 — 1열 트리(--rt-div)와 **같은 진하기**로.
+   기본값(--c-border-soft #dfe4ea)은 너무 옅어 흰 카드 위에서 안 보였다. */
+.cy-list .cy-row { border-bottom: 1px solid #dde3ea; }
+.cy-list .cy-row:last-child { border-bottom: 0; }
+/* 머리 줄은 한 겹 더 진하게 — 표가 어디서 시작하는지 갈리게 */
+.cy-list .cy-row.cy-hd { border-bottom: 1px solid var(--c-border); }
