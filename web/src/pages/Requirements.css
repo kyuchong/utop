@@ -579,7 +579,7 @@
 }
 .rq-tr {
   display: grid;
-  grid-template-columns: 34px 108px 1fr 96px 168px 96px;
+  grid-template-columns: 34px 200px 1fr 96px 150px 90px;
   align-items: center;
   min-height: var(--row-h);
   border-bottom: 1px solid var(--c-border-soft);
@@ -593,7 +593,14 @@
   font-weight: 700;
 }
 .rq-tr:not(.rq-th):hover { background: var(--c-surface-2); }
-.rq-id { color: var(--c-text-faint); font-family: var(--font-mono); }
+/* ID 는 한 줄로. 좁아서 두 줄로 깨지면 번호가 이어지는지 눈으로 못 센다 */
+.rq-id {
+  color: var(--c-text-faint);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .rq-name {
   overflow: hidden;
   text-overflow: ellipsis;

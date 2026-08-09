@@ -6,9 +6,8 @@ import ReqTree from '@/components/ReqTree'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import { IconPanel, IconTcDoc } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
-import Resizer, { useResizableWidth } from '@/components/Resizer'
-import ReqBulkEdit from '@/components/ReqBulkEdit'
 import ReqBulkForm from '@/components/ReqBulkForm'
+import Resizer, { useResizableWidth } from '@/components/Resizer'
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
 import TcLinkForm from '@/components/TcLinkForm'
@@ -66,7 +65,6 @@ export default function Requirements() {
   const sort: 'id' | 'title' = 'id'
   /** 찾는 글자 — 트리 안에 있던 줄을 머리줄로 올렸다 */
   const [treeQ, setTreeQ] = useState('')
-  const [bulkEditOpen, setBulkEditOpen] = useState(false)
   const [selectedFolder, setSelectedFolder] = useState<string | null | undefined>(() => {
     // 'null'(미분류)과 '안 고름'(undefined)을 문자열 하나로 갈라 담는다
     const v = localStorage.getItem(FOLDER_KEY)
@@ -81,13 +79,13 @@ export default function Requirements() {
    */
   const treeSel = useMultiSelect<string>()
   const picked = treeSel.picked
-  const pickedReqs = [...picked].filter((x) => x.startsWith('req:')).map((x) => x.slice(4))
   /** 고른 폴더. 요구사항과 함께 지울 수 있어야 정리가 한 번에 끝난다. */
   /** 버튼 줄에서 트리에게 보내는 신호 (숫자가 늘면 트리가 반응한다) */
   const [addFolder, setAddFolder] = useState(0)
   // undefined = 폼 닫힘 / null = 새로 만들기 / Requirement = 편집
   const [form, setForm] = useState<Requirement | null | undefined>(undefined)
-  const [bulkOpen, setBulkOpen] = useState(false)
+  /** 붙여넣기로 여러 건 들여오기(Import) */
+  const [importOpen, setImportOpen] = useState(false)
   // undefined = 닫힘 / { } = 새 TC(요구사항 미리 연결)
   const [tcForm, setTcForm] = useState<{ reqId: string } | undefined>(undefined)
   const [tcLinkOpen, setTcLinkOpen] = useState(false)
@@ -461,23 +459,17 @@ export default function Requirements() {
   return (
     <>
       {form !== undefined && (
-        <ReqForm editing={form} onClose={() => setForm(undefined)} />
-      )}
-      {bulkEditOpen && (
-        <ReqBulkEdit
-          ids={pickedReqs}
-          onClose={() => setBulkEditOpen(false)}
-          onDone={(msg) => {
-            setBulkEditOpen(false)
-            treeSel.clear()
-            window.alert(msg)
-            void qc.invalidateQueries({ queryKey: ['req', 'list'] })
-            void qc.invalidateQueries({ queryKey: ['reqs'] })
-          }}
+        <ReqForm
+          editing={form}
+          // 1열에서 열어 둔 폴더에 넣는다 — 대·중·소분류가 그 사슬로 채워진다
+          presetFolder={selectedFolder ?? null}
+          onClose={() => setForm(undefined)}
         />
       )}
+      {importOpen && (
+        <ReqBulkForm presetFolder={selectedFolder ?? null} onClose={() => setImportOpen(false)} />
+      )}
 
-      {bulkOpen && <ReqBulkForm onClose={() => setBulkOpen(false)} />}
       {tcForm !== undefined && (
         <TcForm
           editing={null}
@@ -706,8 +698,13 @@ export default function Requirements() {
                 <button className="btn" type="button" onClick={() => setForm(null)}>
                   Add
                 </button>
-                <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
-                  일괄 생성
+                <button
+                  className="btn"
+                  type="button"
+                  title="엑셀·문서에서 붙여넣어 여러 건을 한 번에 들여옵니다"
+                  onClick={() => setImportOpen(true)}
+                >
+                  Import
                 </button>
                 <button
                   className="btn"
@@ -841,7 +838,9 @@ export default function Requirements() {
                             onChange={() => togglePick(pk)}
                           />
                         </div>
-                        <div className="rq-id">{reqLabel(r) || '–'}</div>
+                        <div className="rq-id" title={reqLabel(r)}>
+                          {reqLabel(r) || '–'}
+                        </div>
                         <div className="rq-name">
                           {/* 폴더는 그대로 둔다 — Detail 의 가운데 목록이
                               이 폴더의 형제들을 보여 줘야 하니까. */}

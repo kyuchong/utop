@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { categoryApi, reqApi } from '@/api/client'
 import { buildCategoryTree } from '@/types'
 import './ReqForm.css'
 
 interface Props {
+  /** 1열에서 열어 둔 폴더 — 대·중·소분류를 미리 채운다 */
+  presetFolder?: string | null
   onClose: () => void
 }
 
@@ -39,7 +41,7 @@ function parseLines(text: string): Parsed[] {
   return out.filter((r) => r.title)
 }
 
-export default function ReqBulkForm({ onClose }: Props) {
+export default function ReqBulkForm({ presetFolder, onClose }: Props) {
   const qc = useQueryClient()
   const [text, setText] = useState('')
   const [cat1, setCat1] = useState('')
@@ -55,6 +57,26 @@ export default function ReqBulkForm({ onClose }: Props) {
   const tree = useMemo(() => buildCategoryTree(catQ.data?.categories ?? []), [catQ.data])
   const lv2 = useMemo(() => tree.find((p) => p.id === cat1)?.children ?? [], [tree, cat1])
   const lv3 = useMemo(() => lv2.find((p) => p.id === cat2)?.children ?? [], [lv2, cat2])
+
+  /**
+   * 열어 둔 폴더의 조상 사슬로 분류를 미리 채운다 — ReqForm 과 같은 규칙.
+   * 붙여넣기 한 뭉치가 방금 보고 있던 폴더로 들어간다.
+   */
+  useEffect(() => {
+    if (!presetFolder) return
+    const all = catQ.data?.categories ?? []
+    if (!all.length) return
+    const byId = new Map(all.map((c) => [c.id, c]))
+    const chain: string[] = []
+    let cur = byId.get(presetFolder)
+    while (cur && chain.length < 3) {
+      chain.unshift(cur.id)
+      cur = cur.parent_id ? byId.get(cur.parent_id) : undefined
+    }
+    setCat1(chain[0] ?? '')
+    setCat2(chain[1] ?? '')
+    setCat3(chain[2] ?? '')
+  }, [presetFolder, catQ.data])
 
   const parsed = useMemo(() => parseLines(text), [text])
 

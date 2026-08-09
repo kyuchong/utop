@@ -11,6 +11,13 @@ import './ReqForm.css'
 interface Props {
   /** null 이면 새로 만들기, 값이 있으면 그 요구사항 편집 */
   editing: Requirement | null
+  /**
+   * 새로 만들 때 미리 넣어 둘 폴더(그 폴더의 id).
+   *
+   * 1열에서 폴더를 열어 놓고 「Add」 를 눌렀으면 그 폴더에 넣으려는 것이다.
+   * 분류를 다시 고르게 하면 방금 고른 것을 한 번 더 고르는 셈이다.
+   */
+  presetFolder?: string | null
   onClose: () => void
 }
 
@@ -19,7 +26,7 @@ interface Props {
 const FB_STATUS = ['작성중', '검토중', '검토완료', '보류', '폐기']
 const FB_PRIORITY = ['High', 'Medium', 'Low']
 
-export default function ReqForm({ editing, onClose }: Props) {
+export default function ReqForm({ editing, presetFolder, onClose }: Props) {
   const qc = useQueryClient()
   const isNew = editing === null
 
@@ -151,6 +158,30 @@ ${md}` : md))
     () => buildCategoryTree(catQ.data?.categories ?? []),
     [catQ.data],
   )
+
+  /**
+   * 새로 만들 때, 열어 둔 폴더의 **조상 사슬**로 대·중·소분류를 채운다.
+   *
+   * 폴더가 3단계 아래면 cat1·cat2·cat3 가 그 사슬대로 들어간다. ReqTree 가
+   * 요구사항을 옮길 때 쓰는 규칙과 같다 — 그래야 트리에서 같은 자리에 뜬다.
+   * 분류 목록이 늦게 와도 되게, 목록이 도착한 뒤에 한 번 채운다.
+   */
+  useEffect(() => {
+    if (!isNew || !presetFolder) return
+    const all = catQ.data?.categories ?? []
+    if (!all.length) return
+    const byId = new Map(all.map((c) => [c.id, c]))
+    const chain: string[] = []
+    let cur = byId.get(presetFolder)
+    while (cur && chain.length < 4) {
+      chain.unshift(cur.id)
+      cur = cur.parent_id ? byId.get(cur.parent_id) : undefined
+    }
+    setCat1(chain[0] ?? '')
+    setCat2(chain[1] ?? '')
+    setCat3(chain[2] ?? '')
+    setCat4(chain[3] ?? '')
+  }, [isNew, presetFolder, catQ.data])
   const lv2 = useMemo(() => tree.find((p) => p.id === cat1)?.children ?? [], [tree, cat1])
   const lv3 = useMemo(() => lv2.find((p) => p.id === cat2)?.children ?? [], [lv2, cat2])
 
