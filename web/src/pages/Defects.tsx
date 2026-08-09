@@ -97,33 +97,27 @@ export default function Defects() {
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>제목</th>
                   <th>프로젝트 키</th>
                   <th>프로젝트명</th>
                   <th>이슈유형</th>
+                  <th>제목</th>
+                  <th>상태</th>
                   <th>우선순위</th>
                   <th>수정버전</th>
                   <th>구성요소</th>
                   <th>보고자</th>
                   <th>등록자</th>
                   <th>등록일</th>
-                  <th>상태</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((d) => (
                   <tr key={d.id} onClick={() => setOpen(d)} className="dfl-row">
                     <td className="mono">{d.id}</td>
-                    <td className="dfl-title">{d.title || d.tc_name || '–'}</td>
                     <td>{d.jira_project || '–'}</td>
                     <td>{d.project_name || '–'}</td>
                     <td>{d.issue_type || '–'}</td>
-                    <td>{d.priority || '–'}</td>
-                    <td>{d.fix_version || '–'}</td>
-                    <td>{d.component || '–'}</td>
-                    <td>{d.reporter || '–'}</td>
-                    <td>{d.created_by || '–'}</td>
-                    <td className="muted small">{fmtDate(d.created_at)}</td>
+                    <td className="dfl-title">{d.title || d.tc_name || '–'}</td>
                     <td>
                       {d.jira_key ? (
                         <span className="dfl-jira" title="Jira 이슈 키">
@@ -133,6 +127,12 @@ export default function Defects() {
                         <span className={`dfl-badge ${d.status}`}>{d.status === 'closed' ? '닫힘' : '미등록'}</span>
                       )}
                     </td>
+                    <td>{d.priority || '–'}</td>
+                    <td>{d.fix_version || '–'}</td>
+                    <td>{d.component || '–'}</td>
+                    <td>{d.reporter || '–'}</td>
+                    <td>{d.created_by || '–'}</td>
+                    <td className="muted small">{fmtDate(d.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
