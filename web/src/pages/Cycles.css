@@ -1343,3 +1343,30 @@ table.tb td.k {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── 1열·2열의 머리 구분선을 같은 높이에 ──────────────────────
+   1열은 ListHead(.lh) 46px 아래 선이 그어진다. 2열은 안쪽 여백(12px) 뒤에
+   액션 바가 오다 보니 선이 더 아래에 그어져 두 칸의 머리가 어긋났다.
+   2열 액션 바를 **같은 46px** 로 두고 바깥 여백을 없앤다. */
+.cy-detail { padding: 0; }
+.cy-detail > .cy-head {
+  min-height: 46px;
+  padding: 0 14px;
+  margin: 0;
+  border-bottom: 1px solid var(--c-border);
+}
+/* 머리 아래 것들은 제 여백을 스스로 갖는다 */
+.cy-detail > .cy-runbar {
+  margin: 10px 14px 0;
+}
+.cy-detail > .cy-sum {
+  margin: 0 14px;
+  padding-top: 8px;
+}
+.cy-detail > .cy-bar {
+  margin-left: 14px;
+  margin-right: 14px;
+}
+.cy-detail > .cy-cols {
+  padding: 0 14px 12px;
+}
