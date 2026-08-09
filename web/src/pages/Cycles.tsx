@@ -966,10 +966,16 @@ function CycleDetail({
           <span>결함</span>
         </div>
         {rows.map((it, i) => {
-          const v = itemVerdict(it)
-          const steps = it.steps ?? []
-          const bad = steps.filter((s) => isFail(stepVerdict(s as TcStep))).length
           const at = items.indexOf(it)
+          // 지금 도는 항목이면 스텝 결과가 차오르는 그대로(st.liveSteps)로
+          // 판정을 계산한다. 안 그러면 스텝 세부창에선 Pass 가 뜨는데 목록의
+          // 결과 칸은 실행 전 값 그대로라 「스텝은 Pass 인데 항목은 미실행」
+          // 으로 어긋난다. 다 끝나면 저장→새로고침으로 같은 값이 굳는다.
+          const liveHere = st.on && st.itemAt === at && st.liveSteps.length > 0
+          const shown = liveHere ? ({ ...it, steps: st.liveSteps as CycleStep[] }) : it
+          const v = itemVerdict(shown)
+          const steps = shown.steps ?? []
+          const bad = steps.filter((s) => isFail(stepVerdict(s as TcStep))).length
           return (
             <div
               className={`cy-row v-${v}${openItem === at ? ' on' : ''}${

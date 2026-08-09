@@ -137,6 +137,20 @@ async function doRun(run: Run): Promise<void> {
   let n = 0
   let stopped = false
 
+  // 지금까지의 결과를 통째로 저장한다. 항목마다 부르므로 실패해도 로그만
+  // 남기고 계속 돈다 — 저장 한 번 실패가 실행을 멈추게 하지 않는다.
+  const saveAll = async (): Promise<void> => {
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(run.cycle_id)}`, {
+        method: 'POST',
+        body: JSON.stringify({ ...cycle, id: run.cycle_id, items: all }),
+      })
+      if (!r.ok) throw new Error(String(r.status))
+    } catch (e) {
+      push.addLog({ i: -1, kind: 'fail', text: `결과를 저장하지 못했습니다 (${String(e)})` })
+    }
+  }
+
   for (const at of run.picked) {
     await push.flush(true)
     if (push.stop) {
@@ -209,23 +223,19 @@ async function doRun(run: Run): Promise<void> {
     n++
     push.set({ done: n, live_steps: steps })
     await push.flush(true)
+    // 항목이 끝날 때마다 저장한다. 전에는 마지막에 한 번만 저장해서, 도는
+    // 동안 이미 끝난 1·2·3 항목이 목록에선 「미실행」 그대로였다(그 결과가
+    // 아직 서버에 없으니). 지금 저장하면 cycle_updated 로 다른 화면까지
+    // 그 자리에서 초록으로 바뀐다. 중간에 죽어도 여기까지는 남는다.
+    await saveAll()
     if (push.stop) {
       stopped = true
       break
     }
   }
 
-  // 결과 저장. 여기까지 온 것은 어떻게든 남겨야 한다 — 멈췄더라도
-  // 그때까지 돈 것은 결과다.
-  try {
-    const r = await apiFetch(`/api/cycle/${encodeURIComponent(run.cycle_id)}`, {
-      method: 'POST',
-      body: JSON.stringify({ ...cycle, id: run.cycle_id, items: all }),
-    })
-    if (!r.ok) throw new Error(String(r.status))
-  } catch (e) {
-    push.addLog({ i: -1, kind: 'fail', text: `결과를 저장하지 못했습니다 (${String(e)})` })
-  }
+  // 멈췄거나 끝났으면 마지막 상태를 한 번 더 굳힌다.
+  await saveAll()
 
   push.addLog({
     i: -1,
