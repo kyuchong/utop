@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, categoryApi, reqApi, tcApi } from '@/api/client'
+import { api, apiFetch, categoryApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
 import ReqTree from '@/components/ReqTree'
 import { useMultiSelect } from '@/components/useMultiSelect'
@@ -100,6 +100,10 @@ export default function Requirements() {
   useEffect(() => {
     localStorage.setItem('utop.req.treeOpen', treeOpen ? '1' : '0')
   }, [treeOpen])
+
+  /** List 표에서 체크한 요구사항(PK) — 액션 바의 대상 */
+  const [listPick, setListPick] = useState<Set<string>>(new Set())
+  const [listBusy, setListBusy] = useState('')
 
   /** 보기 — list(표로 여럿) · detail(한 건 넓게) */
   const [view, setView] = useState<'list' | 'detail'>(
@@ -395,6 +399,103 @@ export default function Requirements() {
     setTreeOpen(true)
   }
 
+  // ── List 액션 바 ────────────────────────────────────────────
+  const pickedInList = sortedFolderReqs.filter((r) => listPick.has(reqPk(r)))
+  const allListPicked = sortedFolderReqs.length > 0 && pickedInList.length === sortedFolderReqs.length
+
+  const toggleAllList = () =>
+    setListPick(allListPicked ? new Set() : new Set(sortedFolderReqs.map(reqPk)))
+
+  const togglePick = (pk: string) =>
+    setListPick((s) => {
+      const n = new Set(s)
+      if (n.has(pk)) n.delete(pk)
+      else n.add(pk)
+      return n
+    })
+
+  /** 고른 것을 이 폴더에 복제한다 — ID 는 서버가 새로 매긴다 */
+  const clonePicked = async () => {
+    if (!pickedInList.length) return
+    if (!window.confirm(`고른 ${pickedInList.length}건을 복제합니다.`)) return
+    setListBusy('clone')
+    try {
+      for (const r of pickedInList) {
+        const nres = await apiFetch('/api/req-next-id')
+        const nid = ((await nres.json()) as { reqid?: string }).reqid ?? ''
+        const pk = `rq-${Date.now()}-${Math.floor(Math.random() * 1e4)}`
+        const { id: _id, reqid: _rid, tc: _tc, ...rest } = r as Record<string, unknown>
+        await apiFetch(`/api/req/${encodeURIComponent(pk)}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            ...rest,
+            id: pk,
+            reqid: nid,
+            title: `${r.title ?? ''} (복사)`,
+            tc: [],
+          }),
+        })
+      }
+      setListPick(new Set())
+      void qc.invalidateQueries({ queryKey: ['req', 'list'] })
+      void qc.invalidateQueries({ queryKey: ['reqs'] })
+    } catch (e) {
+      window.alert(`복제하지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setListBusy('')
+    }
+  }
+
+  /** 고른 것을 지운다 */
+  const deletePicked = async () => {
+    if (!pickedInList.length) return
+    if (
+      !window.confirm(
+        `고른 요구사항 ${pickedInList.length}건을 삭제합니다.\n되돌릴 수 없습니다. 계속할까요?`,
+      )
+    )
+      return
+    setListBusy('del')
+    try {
+      for (const r of pickedInList) await reqApi.remove(reqPk(r))
+      setListPick(new Set())
+      void qc.invalidateQueries({ queryKey: ['req', 'list'] })
+      void qc.invalidateQueries({ queryKey: ['req-categories'] })
+    } catch (e) {
+      window.alert(`삭제하지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setListBusy('')
+    }
+  }
+
+  /** 보고 있는 표를 CSV 로 — 고른 것이 있으면 그것만 */
+  const exportList = () => {
+    const rows = pickedInList.length ? pickedInList : sortedFolderReqs
+    if (!rows.length) return
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const csv = [
+      ['Requirement ID', 'Name', 'Coverage', 'Priority', 'Status'].map(esc).join(','),
+      ...rows.map((r) =>
+        [
+          reqLabel(r),
+          r.title ?? '',
+          covCount(r) > 0 ? `${covCount(r)} Testcase(s) Covered` : 'Not Covered',
+          r.priority ?? '',
+          r.status ?? '',
+        ]
+          .map(esc)
+          .join(','),
+      ),
+    ].join('\r\n')
+    // 엑셀이 한글을 깨뜨리지 않게 BOM 을 붙인다
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `요구사항_${folderName || '전체'}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
   return (
     <>
       {form !== undefined && (
@@ -625,11 +726,12 @@ export default function Requirements() {
                 이력은 요구사항 한 건에만 있는 것이라, 폴더에 걸어두면 늘
                 비어 있는 탭이 넷 생긴다. 폴더에서는 TC 목록 하나면 된다. */}
             {view === 'list' && folderMode ? (
-              <span className="fold-title">
-                <b>📁 {folderName}</b>
-                <span className="muted small">
-                  요구사항 {folderReqs.length}건 · 하위 폴더 포함
-                </span>
+              /* 빵부스러기 — 지금 어느 폴더를 보고 있나 */
+              <span className="rq-crumb">
+                <span className="muted">요구사항</span>
+                <span className="rq-crumb-sep">›</span>
+                <b>{folderName}</b>
+                <span className="muted small">{folderReqs.length}건 · 하위 폴더 포함</span>
               </span>
             ) : (
             <div className="seg" role="tablist">
@@ -720,19 +822,64 @@ export default function Requirements() {
             /* ── List 모드 — 이 폴더의 요구사항을 표로 (Zephyr 방식) ──
                한 줄을 누르면 그 요구사항 상세로 들어간다(Detail). */
             <div className="rq-list scroll">
+              {/* 액션 바 — 고른 것이 있어야 되는 것은 그때만 켜진다 */}
               <div className="rq-actions">
-                <button className="btn small" type="button" onClick={() => setForm(null)}>
-                  + 요구사항
+                <button className="btn" type="button" onClick={() => setForm(null)}>
+                  Add
                 </button>
-                <button className="btn small" type="button" onClick={() => setBulkOpen(true)}>
+                <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
                   일괄 생성
                 </button>
-                <span className="sp" />
-                <span className="muted small">{folderReqs.length}건</span>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={!pickedInList.length || !!listBusy}
+                  onClick={() => void clonePicked()}
+                >
+                  {listBusy === 'clone' ? '복제 중…' : 'Clone'}
+                </button>
+                <button
+                  className="btn danger"
+                  type="button"
+                  disabled={!pickedInList.length || !!listBusy}
+                  onClick={() => void deletePicked()}
+                >
+                  {listBusy === 'del' ? '삭제 중…' : 'Delete'}
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={!sortedFolderReqs.length}
+                  onClick={exportList}
+                  title={pickedInList.length ? '고른 것만 내보냅니다' : '이 폴더 전체를 내보냅니다'}
+                >
+                  Export
+                </button>
               </div>
+
+              {/* 몇 개 골랐나 — 표 위에 늘 보여야 지운 뒤 「몇 개였지」 를 안 묻는다 */}
+              <div className="rq-selbar">
+                <label className="rq-selall">
+                  <input
+                    type="checkbox"
+                    checked={allListPicked}
+                    ref={(el) => {
+                      if (el)
+                        el.indeterminate = pickedInList.length > 0 && !allListPicked
+                    }}
+                    disabled={!sortedFolderReqs.length}
+                    onChange={toggleAllList}
+                  />
+                  Select All
+                </label>
+                <span className="rq-seldiv" aria-hidden="true" />
+                <span className="muted small">Selected : {pickedInList.length}</span>
+              </div>
+
               <div className="rq-table">
                 <div className="rq-tr rq-th">
-                  <div>ID</div>
+                  <div />
+                  <div>Requirement ID</div>
                   <div>Name</div>
                   <div>Map Test Case</div>
                   <div>Coverage</div>
@@ -745,7 +892,15 @@ export default function Requirements() {
                     const n = covCount(r)
                     const pk = reqPk(r)
                     return (
-                      <div className="rq-tr" key={pk}>
+                      <div className={`rq-tr${listPick.has(pk) ? ' picked' : ''}`} key={pk}>
+                        <div className="rq-ck">
+                          <input
+                            type="checkbox"
+                            checked={listPick.has(pk)}
+                            aria-label={`${r.title || pk} 고르기`}
+                            onChange={() => togglePick(pk)}
+                          />
+                        </div>
                         <div className="rq-id">{reqLabel(r) || '–'}</div>
                         <div className="rq-name">
                           {/* 폴더는 그대로 둔다 — Detail 의 가운데 목록이

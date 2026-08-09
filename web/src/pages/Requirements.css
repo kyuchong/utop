@@ -579,7 +579,7 @@
 }
 .rq-tr {
   display: grid;
-  grid-template-columns: 72px 1fr 96px 168px 96px;
+  grid-template-columns: 34px 108px 1fr 96px 168px 96px;
   align-items: center;
   min-height: var(--row-h);
   border-bottom: 1px solid var(--c-border-soft);
@@ -685,3 +685,39 @@
 .rq-view-b:hover:not(:disabled):not(.on) { background: var(--c-surface-2); }
 .rq-view-b.on { background: var(--c-primary); color: #fff; font-weight: 700; }
 .rq-view-b:disabled { color: var(--c-text-faint); cursor: default; }
+
+/* 체크박스 칸 · 고른 줄 */
+.rq-ck { display: flex; align-items: center; }
+.rq-ck input { margin: 0; }
+.rq-tr.picked { background: var(--c-primary-bg); }
+
+/* Select All | Selected : N */
+.rq-selbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 2px;
+}
+.rq-selall {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.rq-selall input { margin: 0; }
+.rq-seldiv {
+  width: 1px;
+  align-self: stretch;
+  min-height: 14px;
+  background: var(--c-border);
+}
+
+/* 빵부스러기 */
+.rq-crumb {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
+.rq-crumb-sep { color: var(--c-text-faint); }
