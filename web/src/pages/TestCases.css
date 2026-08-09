@@ -2419,3 +2419,25 @@ table.tb tr.r-bad td:first-child {
 /* 계측기 동작 편집 — 두 칸씩 나란히 */
 .sd-meter { display: flex; flex-direction: column; gap: 8px; }
 .sd-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* ── List 보기 — 시험 목록 표 (요구사항 화면과 같은 부품을 쓴다) ──
+   열 구성만 다르다: 체크 · TC ID · 이름 · 요구사항 · 유형 · 스텝 · 상태 */
+.rq-tr.tc-tr {
+  grid-template-columns: 34px 190px 1fr 240px 96px 60px 104px;
+}
+.tc-req {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.tc-req > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 표 안의 액션 바는 머리줄 안에 든다 — 요구사항 화면과 같은 자리 */
+.tc-tabcol .rq-list .panel-title {
+  padding-left: 0;
+  padding-right: 0;
+}

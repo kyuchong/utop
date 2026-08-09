@@ -36,6 +36,17 @@ interface Props {
     e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean },
     order: string[],
   ) => void
+  /**
+   * List 보기에서 「어디를 볼지」 를 정한다.
+   *
+   * 넘겨 주면 폴더·요구사항 줄이 **고를 수 있는 것**이 된다(펼치기는 그대로).
+   * 안 넘기면 지금까지처럼 펼치기만 한다 — Detail 보기는 그대로다.
+   */
+  selectedFolder?: string | null
+  onSelectFolder?: (id: string | null) => void
+  /** 고른 요구사항 PK */
+  selectedReq?: string | null
+  onSelectReq?: (pk: string) => void
 }
 
 /** 이 요구사항이 놓인 가장 깊은 분류 id. 없으면 null(미분류) */
@@ -63,6 +74,10 @@ export default function TcTree({
   picked,
   q = '',
   onPickClick,
+  selectedFolder,
+  onSelectFolder,
+  selectedReq,
+  onSelectReq,
 }: Props) {
   const qc = useQueryClient()
   /** 파라미터 파일 새로 만들기 — 이름을 적는 중인가 */
@@ -325,21 +340,33 @@ export default function TcTree({
     return (
       <div key={pk}>
         <div
-          className="rt-req tt-req"
+          className={`rt-req tt-req${selectedReq === pk ? ' on' : ''}`}
           role="button"
           tabIndex={0}
           style={{ paddingLeft: 4 + depth * 14 }}
-          onClick={() => toggle(pk)}
+          // List 보기에서는 고르는 것이 먼저다 — 그 요구사항의 TC 를 표에
+          // 띄운다. Detail 보기(핸들러 없음)에서는 지금까지처럼 펼치기만.
+          onClick={() => (onSelectReq ? onSelectReq(pk) : toggle(pk))}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
-              toggle(pk)
+              if (onSelectReq) onSelectReq(pk)
+              else toggle(pk)
             }
           }}
         >
-          <span className={`rt-caret${open ? ' open' : ''}`}>
+          <button
+            type="button"
+            className={`rt-caret${open ? ' open' : ''}`}
+            aria-label={open ? '접기' : '펼치기'}
+            disabled={mine.length === 0}
+            onClick={(e) => {
+              e.stopPropagation()
+              toggle(pk)
+            }}
+          >
             {mine.length > 0 ? <IconChevron /> : <span className="rt-dot" />}
-          </span>
+          </button>
           {/* TC 가 없는 요구사항에도 자리를 지킨다. 안 그리면 뒤 칸이
               한 칸씩 밀려서 제목과 숫자가 엉뚱한 데로 간다. */}
           <span className="rt-dicon" aria-hidden="true">
@@ -369,21 +396,32 @@ export default function TcTree({
     return (
       <div key={n.id}>
         <div
-          className="rt-fold"
+          className={`rt-fold${selectedFolder === n.id ? ' on' : ''}${
+            n.depth === 1 ? ' rt-top' : ''
+          }`}
           role="button"
           tabIndex={0}
           style={{ paddingLeft: 4 + (n.depth - 1) * 14 }}
-          onClick={() => toggle(n.id)}
+          onClick={() => (onSelectFolder ? onSelectFolder(n.id) : toggle(n.id))}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
-              toggle(n.id)
+              if (onSelectFolder) onSelectFolder(n.id)
+              else toggle(n.id)
             }
           }}
         >
-          <span className={`rt-caret${open ? ' open' : ''}`}>
+          <button
+            type="button"
+            className={`rt-caret${open ? ' open' : ''}`}
+            aria-label={open ? '접기' : '펼치기'}
+            onClick={(e) => {
+              e.stopPropagation()
+              toggle(n.id)
+            }}
+          >
             <IconChevron />
-          </span>
+          </button>
           {/* 요구사항 화면과 같은 폴더 표시 */}
           <span className="rt-ficon" aria-hidden="true">
             <IconFolder open={open} />

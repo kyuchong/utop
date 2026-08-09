@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, apiFetch, tcApi } from '@/api/client'
+import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import ListHead from '@/components/ListHead'
-import { IconPanel } from '@/components/icons'
+import { IconPanel, IconReqDoc, IconTcDoc } from '@/components/icons'
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
@@ -38,7 +38,13 @@ import TcCycles from '@/components/tc/TcCycles'
 import { deviceLabel, isMeter } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
-import { type TestCaseMeta } from '@/types'
+import {
+  reqLabel,
+  reqPk,
+  statusClass,
+  type Requirement,
+  type TestCaseMeta,
+} from '@/types'
 import { blockEnd, runPicked, runSteps, type RunCtx, type RunLog } from '@/components/tc/runner'
 import { extractOne } from '@/components/tc/judge'
 import type { PickItem } from '@/components/tc/PickList'
@@ -186,6 +192,79 @@ export default function TestCases({ me }: PageProps) {
   const tcSel = useMultiSelect<string>()
   /** 찾는 글자 — 트리 안에 있던 줄을 머리줄로 올렸다 */
   const [treeQ, setTreeQ] = useState('')
+
+  /**
+   * 보기 — list(표로 여럿) · detail(한 건을 짜는 편집기).
+   *
+   * 요구사항 화면과 같은 뼈대다. Detail 은 지금까지의 화면 그대로고
+   * (트리 | 스텝 목록 | 스텝 상세), List 는 그 자리를 TC 목록 표가 쓴다.
+   * 열을 늘리지 않는 것이 핵심 — 늘리면 정작 스텝 짜는 칸이 좁아진다.
+   */
+  const [view, setView] = useState<'list' | 'detail'>(
+    () => (localStorage.getItem('utop.tc.view') === 'list' ? 'list' : 'detail'),
+  )
+  useEffect(() => {
+    localStorage.setItem('utop.tc.view', view)
+  }, [view])
+  /** List 에서 무엇으로 좁혀 볼지 — 폴더 또는 요구사항 */
+  const [selFolder, setSelFolder] = useState<string | null>(null)
+  const [selReq, setSelReq] = useState<string | null>(null)
+  /** List 표에서 체크한 TC */
+  const [listPick, setListPick] = useState<Set<string>>(new Set())
+
+  /** List 표에 「연결된 요구사항」 을 적고 폴더로 좁히려면 이것들이 필요하다 */
+  const reqQ = useQuery({
+    queryKey: ['req', 'list'],
+    queryFn: ({ signal }) => api.listRequirements(signal),
+  })
+  const catQ = useQuery({
+    queryKey: ['req-categories'],
+    queryFn: ({ signal }) => categoryApi.list(signal),
+  })
+
+  /** req_id(PK 또는 라벨) → 그 요구사항. TC 가 어느 요구사항 것인지 적으려고 */
+  const reqByKey = useMemo(() => {
+    const m = new Map<string, Requirement>()
+    for (const r of reqQ.data?.reqs ?? []) {
+      m.set(reqPk(r), r)
+      const l = reqLabel(r)
+      if (l) m.set(l, r)
+    }
+    return m
+  }, [reqQ.data])
+
+  /** 이 폴더(하위 포함)에 속한 요구사항인가 — 조상 사슬을 요구사항이 들고 있다 */
+  const inFolder = (r: Requirement | undefined, folder: string) =>
+    !!r && (r.cat1 === folder || r.cat2 === folder || r.cat3 === folder || r.cat4 === folder)
+
+  /**
+   * List 표에 뿌릴 TC.
+   *
+   * 트리에서 요구사항을 골랐으면 그 요구사항 것만, 폴더를 골랐으면 그 폴더
+   * (하위 포함) 아래 요구사항의 것 전부. 아무것도 안 골랐으면 다 보여 준다 —
+   * 「고르기 전엔 텅 빈 화면」 이 제일 답답하다.
+   */
+  const listRows = useMemo(() => {
+    const n = treeQ.trim().toLowerCase()
+    return tcs.filter((t) => {
+      const r = reqByKey.get(t.req_id || '')
+      if (selReq && (t.req_id || '') !== selReq && (r ? reqPk(r) : '') !== selReq) return false
+      if (!selReq && selFolder && !inFolder(r, selFolder)) return false
+      if (!n) return true
+      return t.tcid.toLowerCase().includes(n) || (t.name ?? '').toLowerCase().includes(n)
+    })
+  }, [tcs, reqByKey, selReq, selFolder, treeQ])
+
+  /** 지금 보고 있는 자리 이름 — 빵부스러기에 적는다 */
+  const whereName = useMemo(() => {
+    if (selReq) {
+      const r = reqByKey.get(selReq)
+      return r ? r.title || reqLabel(r) : ''
+    }
+    if (selFolder)
+      return (catQ.data?.categories ?? []).find((c) => c.id === selFolder)?.name ?? ''
+    return ''
+  }, [selReq, selFolder, reqByKey, catQ.data])
 
   /**
    * 같은 시험을 누가 같이 보고 있나.
@@ -1164,8 +1243,52 @@ export default function TestCases({ me }: PageProps) {
         </div>
       ) : null}
 
-      {/* 상단 한 줄 — 어느 TC 를 보고 있는지 · 탭.
-          요구사항으로 좁히는 일은 1열 트리가 맡는다. */}
+      {/* 맨 위 줄 — 지금 어디를 보고 있나 + 보기 방식.
+          요구사항 화면(.rq-bar)과 **같은 자리·같은 모양**이다. 두 화면을
+          오가는 사람이 매번 다시 찾지 않게. */}
+      <div className="rq-bar">
+        <span className="rq-crumb">
+          <span className="muted">시험항목</span>
+          {whereName && (
+            <>
+              <span className="rq-crumb-sep">›</span>
+              <b>{whereName}</b>
+            </>
+          )}
+          {view === 'detail' && openId && (
+            <>
+              <span className="rq-crumb-sep">›</span>
+              <b>{d.name || openId}</b>
+            </>
+          )}
+          <span className="muted small">
+            {view === 'list' ? `${listRows.length}건` : openId || '고른 것 없음'}
+          </span>
+        </span>
+        <span className="sp" />
+        <div className="rq-view" role="tablist" aria-label="보기 방식">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'detail'}
+            className={`rq-view-b${view === 'detail' ? ' on' : ''}`}
+            title="한 건을 열어 시험을 짭니다"
+            onClick={() => setView('detail')}
+          >
+            Detail
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'list'}
+            className={`rq-view-b${view === 'list' ? ' on' : ''}`}
+            title="이 자리의 시험을 표로 봅니다"
+            onClick={() => setView('list')}
+          >
+            List
+          </button>
+        </div>
+      </div>
 
       <div className="split tc-split" ref={splitRef}>
         {/* 접었을 때 — 세로 띠 하나만 남는다.
@@ -1259,6 +1382,27 @@ export default function TestCases({ me }: PageProps) {
               picked={pickedTc}
               q={treeQ}
               onPickClick={tcSel.onClick}
+              // List 보기에서만 폴더·요구사항이 「고를 수 있는 것」 이 된다.
+              // Detail 에서는 넘기지 않아 지금까지처럼 펼치기만 한다.
+              selectedFolder={view === 'list' ? selFolder : undefined}
+              onSelectFolder={
+                view === 'list'
+                  ? (id) => {
+                      setSelFolder(id)
+                      setSelReq(null)
+                      setListPick(new Set())
+                    }
+                  : undefined
+              }
+              selectedReq={view === 'list' ? selReq : undefined}
+              onSelectReq={
+                view === 'list'
+                  ? (pk) => {
+                      setSelReq(pk)
+                      setListPick(new Set())
+                    }
+                  : undefined
+              }
             />
           )}
 
@@ -1277,8 +1421,184 @@ export default function TestCases({ me }: PageProps) {
             Automation 일 때만 다시 좌우로 나뉜다. 바깥 칸 수가 탭마다
             달라지면 옮길 때마다 화면이 통째로 흔들린다. */}
         <div className="tc-content">
-          {openId && !paramKey && detHead}
-        {paramKey ? (
+          {view === 'detail' && openId && !paramKey && detHead}
+        {view === 'list' ? (
+          /* ── List — 이 자리의 시험을 표로 (요구사항 화면과 같은 모양) ──
+             열을 늘리지 않는다. 표가 편집기 자리를 대신 쓴다. */
+          <section className="panel tc-tabcol">
+            <div className="rq-list scroll">
+              <div className="panel-title">
+                <div className="rq-actions">
+                  <button className="btn" type="button" onClick={() => setForm(null)}>
+                    Add
+                  </button>
+                  <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
+                    Import
+                  </button>
+                  <button
+                    className="btn danger"
+                    type="button"
+                    disabled={!listPick.size}
+                    onClick={() => {
+                      const ids = [...listPick]
+                      if (!window.confirm(`고른 시험 ${ids.length}건을 삭제합니다.\n되돌릴 수 없습니다.`))
+                        return
+                      void (async () => {
+                        for (const id of ids) await tcApi.remove(id)
+                        setListPick(new Set())
+                        void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
+                      })()
+                    }}
+                  >
+                    Delete
+                  </button>
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={!listRows.length}
+                    title={listPick.size ? '고른 것만 내보냅니다' : '이 자리 전체를 내보냅니다'}
+                    onClick={() => {
+                      const rows = listPick.size
+                        ? listRows.filter((t) => listPick.has(t.tcid))
+                        : listRows
+                      const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+                      const csv = [
+                        ['TC ID', '이름', '유형', '스텝', '상태', '요구사항'].map(esc).join(','),
+                        ...rows.map((t) => {
+                          const r = reqByKey.get(t.req_id || '')
+                          return [
+                            t.tcid,
+                            t.name ?? '',
+                            t.type ?? '',
+                            t._cli_count ?? 0,
+                            t.status ?? '',
+                            r ? r.title || reqLabel(r) : '',
+                          ]
+                            .map(esc)
+                            .join(',')
+                        }),
+                      ].join('\r\n')
+                      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+                      const a = document.createElement('a')
+                      a.href = URL.createObjectURL(blob)
+                      a.download = `시험항목_${whereName || '전체'}.csv`
+                      a.click()
+                      URL.revokeObjectURL(a.href)
+                    }}
+                  >
+                    Export
+                  </button>
+                </div>
+              </div>
+
+              <div className="rq-selbar">
+                <label className="rq-selall">
+                  <input
+                    type="checkbox"
+                    checked={listRows.length > 0 && listPick.size === listRows.length}
+                    ref={(el) => {
+                      if (el)
+                        el.indeterminate =
+                          listPick.size > 0 && listPick.size < listRows.length
+                    }}
+                    disabled={!listRows.length}
+                    onChange={() =>
+                      setListPick(
+                        listPick.size === listRows.length
+                          ? new Set()
+                          : new Set(listRows.map((t) => t.tcid)),
+                      )
+                    }
+                  />
+                  Select All
+                </label>
+                <span className="rq-seldiv" aria-hidden="true" />
+                <span className="muted small">Selected : {listPick.size}</span>
+              </div>
+
+              <div className="rq-table">
+                <div className="rq-tr tc-tr rq-th">
+                  <div />
+                  <div>TC ID</div>
+                  <div>Name</div>
+                  <div>요구사항</div>
+                  <div>유형</div>
+                  <div>스텝</div>
+                  <div>상태</div>
+                </div>
+                {listRows.length === 0 ? (
+                  <div className="empty">이 자리에 시험이 없습니다.</div>
+                ) : (
+                  listRows.map((t) => {
+                    const r = reqByKey.get(t.req_id || '')
+                    return (
+                      <div
+                        className={`rq-tr tc-tr${listPick.has(t.tcid) ? ' picked' : ''}`}
+                        key={t.tcid}
+                      >
+                        <div className="rq-ck">
+                          <input
+                            type="checkbox"
+                            checked={listPick.has(t.tcid)}
+                            aria-label={`${t.name || t.tcid} 고르기`}
+                            onChange={() =>
+                              setListPick((sv) => {
+                                const n = new Set(sv)
+                                if (n.has(t.tcid)) n.delete(t.tcid)
+                                else n.add(t.tcid)
+                                return n
+                              })
+                            }
+                          />
+                        </div>
+                        <div className="rq-id" title={t.tcid}>
+                          {t.tcid}
+                        </div>
+                        <div className="rq-name">
+                          <span className="rq-icon" aria-hidden="true">
+                            <IconTcDoc />
+                          </span>
+                          {/* 누르면 그 시험을 열어 짠다 — Detail 로 넘어간다 */}
+                          <button
+                            type="button"
+                            className="linkish"
+                            title="열어서 시험 짜기"
+                            onClick={() => {
+                              pickTc(t.tcid)
+                              setView('detail')
+                            }}
+                          >
+                            {t.name || '(제목 없음)'}
+                          </button>
+                        </div>
+                        <div className="tc-req">
+                          {r ? (
+                            <>
+                              <span className="rq-icon" aria-hidden="true">
+                                <IconReqDoc />
+                              </span>
+                              <span title={reqLabel(r)}>{r.title || reqLabel(r)}</span>
+                            </>
+                          ) : (
+                            <span className="muted">–</span>
+                          )}
+                        </div>
+                        <div>{t.type ? <span className="tag">{t.type}</span> : '–'}</div>
+                        <div className="muted small">{t._cli_count ?? 0}</div>
+                        <div className={`status ${statusClass(t.status)}`}>
+                          ● {t.status || '미실행'}
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+              </div>
+              <div className="bottom">
+                <span>시험 {listRows.length}건</span>
+              </div>
+            </div>
+          </section>
+        ) : paramKey ? (
           <section className="panel tc-tabcol">
             <GlobalParams only={paramKey} />
           </section>
