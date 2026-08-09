@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, tcApi } from '@/api/client'
+import { api, apiFetch, tcApi } from '@/api/client'
 import { reqLabel, reqPk } from '@/types'
 import './ReqForm.css'
 
@@ -20,10 +20,11 @@ interface Parsed {
  * TC 일괄 생성.
  *
  * 시험 항목은 보통 엑셀 표로 넘어온다. 한 줄에 한 건씩 붙여넣게 한다.
- * 열 순서: TC ID · 제목 · 유형(선택). 탭 또는 쉼표로 나눈다.
+ * 열 순서: 제목 · 유형(선택). 탭 또는 쉼표로 나눈다.
  *
- * TC 는 요구사항과 달리 tcid 가 곧 PK 라서 비워둘 수 없다. ID 가 없는 줄은
- * 만들 수 없으므로 미리보기에서 빨갛게 표시하고 생성 대상에서 뺀다.
+ * **ID 는 안 적는다.** 서버가 주차별로 매긴다(TC-2632-0001) — 요구사항과
+ * 같은 규칙이다. 사람이 적게 두면 제각각이 되고, tcid 는 곧 PK 라 겹치면
+ * 남의 시험을 덮는다.
  */
 function parseLines(text: string): Parsed[] {
   const out: Parsed[] = []
@@ -32,14 +33,14 @@ function parseLines(text: string): Parsed[] {
     if (!line) continue
     const sep = line.includes('\t') ? '\t' : line.includes(',') ? ',' : ''
     if (!sep) {
-      // 구분자가 없으면 ID 만 있는 줄로 본다 (제목은 나중에 채우게)
-      out.push({ tcid: line, name: '', type: '' })
+      // 구분자가 없으면 제목만 있는 줄이다 — ID 는 서버가 매긴다
+      out.push({ tcid: '', name: line, type: '' })
       continue
     }
     const cols = line.split(sep).map((c) => c.trim())
-    out.push({ tcid: cols[0] ?? '', name: cols[1] ?? '', type: cols[2] ?? '' })
+    out.push({ tcid: '', name: cols[0] ?? '', type: cols[1] ?? '' })
   }
-  return out
+  return out.filter((r) => r.name)
 }
 
 export default function TcBulkForm({ presetReqId, onClose }: Props) {
@@ -67,7 +68,7 @@ export default function TcBulkForm({ presetReqId, onClose }: Props) {
   )
 
   const parsed = useMemo(() => parseLines(text), [text])
-  const valid = useMemo(() => parsed.filter((r) => r.tcid), [parsed])
+  const valid = useMemo(() => parsed.filter((r) => r.name), [parsed])
   const dupes = useMemo(
     () => valid.filter((r) => existing.has(r.tcid)).length,
     [valid, existing],
@@ -80,8 +81,13 @@ export default function TcBulkForm({ presetReqId, onClose }: Props) {
       // 순차 저장. save_tc 는 기존 스텝을 보존하려고 저장 전에 이전 값을 읽는다.
       for (const r of valid) {
         try {
-          await tcApi.save(r.tcid, {
-            tcid: r.tcid,
+          // 한 건씩 받아 쓴다 — 미리 여러 개 받아 두면 그 사이 남이 만든
+          // 것과 겹칠 수 있다(서버는 「지금 최대 +1」 을 준다).
+          const nres = await apiFetch('/api/tc-next-id')
+          const tcid = ((await nres.json()) as { tcid?: string }).tcid || ''
+          if (!tcid) throw new Error('ID 를 받지 못했습니다')
+          await tcApi.save(tcid, {
+            tcid,
             name: r.name,
             type: r.type,
             status,

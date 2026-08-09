@@ -182,7 +182,11 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
           </div>
         </nav>
 
-        <main className="main">{children}</main>
+        {/* 화면마다 바탕색을 달리한다 — 카드는 흰색 그대로 두고 그 뒤만
+            물들여, 지금 어느 화면에 있는지 색으로 먼저 알게. */}
+        <main className="main" data-page={current}>
+          {children}
+        </main>
       </div>
     </div>
   )

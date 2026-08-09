@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, tcApi } from '@/api/client'
+import { api, apiFetch, tcApi } from '@/api/client'
 import { reqLabel, reqPk, type TestCaseMeta } from '@/types'
 import { useCodes } from '@/hooks/useCodes'
 import { missingRequired, useCustomFields } from '@/hooks/useCustomFields'
@@ -39,6 +39,20 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
 
   useEffect(() => {
     setTcid(editing?.tcid ?? '')
+    // 새로 만들 때는 서버가 주차별로 매기는 다음 ID(TC-2632-0001)를 받아
+    // 채운다. 사람이 못 바꾼다 — tcid 는 곧 PK 라, 손으로 바꾸면 남의
+    // 시험을 덮거나 사이클·실행 이력의 참조가 끊긴다.
+    if (editing === null) {
+      void (async () => {
+        try {
+          const r = await apiFetch('/api/tc-next-id')
+          const j = (await r.json()) as { tcid?: string }
+          if (j.tcid) setTcid(j.tcid)
+        } catch {
+          /* 실패해도 저장할 때 사람이 볼 수 있게 빈 칸으로 둔다 */
+        }
+      })()
+    }
     setName(editing?.name ?? '')
     setReqId(editing?.req_id ?? presetReqId ?? '')
     setType(editing?.type ?? '')
@@ -140,12 +154,14 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
 
           <div className="frow">
             <label className="fld">
-              <span>TC ID{!isNew && ' (변경 불가)'}</span>
+              <span>TC ID {isNew ? '· 자동 부여' : '· 고정'}</span>
+              {/* ID 는 사람이 못 바꾼다. 새로 만들면 서버가 주차별로 매기고
+                  (TC-2632-0001), 이미 있는 것은 그대로 잠근다. */}
               <input
-                value={tcid}
-                disabled={!isNew}
-                placeholder="TC-E6100-RATE-001"
-                onChange={(e) => setTcid(e.target.value)}
+                value={tcid || (isNew ? '자동 부여 중…' : '')}
+                readOnly
+                className="ro"
+                title="시험 ID 는 자동으로 매겨지며 수정할 수 없습니다"
               />
             </label>
             <label className="fld">

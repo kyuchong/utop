@@ -267,6 +267,25 @@ export default function TestCases({ me }: PageProps) {
   }, [selReq, selFolder, reqByKey, catQ.data])
 
   /**
+   * 열어 둔 시험이 **어느 폴더의 어느 요구사항** 것인가.
+   *
+   * 이것이 없으면 Detail 에서 「이 시험이 어디 것이지」 를 알 길이 없다 —
+   * 트리를 눈으로 되짚거나 Info 탭의 날 PK(req-1781…)를 봐야 했다.
+   */
+  const detailPath = useMemo(() => {
+    if (!openId) return { folders: [] as string[], req: '' }
+    const t = tcs.find((x) => x.tcid === openId)
+    const r = t ? reqByKey.get(t.req_id || '') : undefined
+    if (!r) return { folders: [], req: '' }
+    const byId = new Map((catQ.data?.categories ?? []).map((c) => [c.id, c]))
+    const folders = [r.cat1, r.cat2, r.cat3, r.cat4]
+      .filter(Boolean)
+      .map((id) => byId.get(id as string)?.name ?? '')
+      .filter(Boolean)
+    return { folders, req: r.title || reqLabel(r) }
+  }, [openId, tcs, reqByKey, catQ.data])
+
+  /**
    * 같은 시험을 누가 같이 보고 있나.
    *
    * 「여러 사람이 동시에 붙는다」 가 리눅스로 옮긴 이유였는데 화면에는
@@ -1257,6 +1276,20 @@ export default function TestCases({ me }: PageProps) {
           )}
           {view === 'detail' && openId && (
             <>
+              {detailPath.folders.map((f) => (
+                <span key={f}>
+                  <span className="rq-crumb-sep">›</span>
+                  <span className="muted">{f}</span>
+                </span>
+              ))}
+              {detailPath.req && (
+                <>
+                  <span className="rq-crumb-sep">›</span>
+                  <span className="tc-crumb-req" title="이 시험이 붙은 요구사항">
+                    {detailPath.req}
+                  </span>
+                </>
+              )}
               <span className="rq-crumb-sep">›</span>
               <b>{d.name || openId}</b>
             </>

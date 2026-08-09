@@ -1,3 +1,7 @@
+import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { api, categoryApi } from '@/api/client'
+import { reqLabel, reqPk } from '@/types'
 import { useCodes } from '@/hooks/useCodes'
 import { useCustomFields } from '@/hooks/useCustomFields'
 import CustomFieldInputs from '../CustomFieldInputs'
@@ -25,6 +29,41 @@ interface Props {
  * 탭에도 없으면 옛 화면으로 돌아가야 고칠 수 있다.
  */
 export default function TcInfo({ data, onChange }: Props) {
+  /**
+   * 붙일 요구사항을 **고른다.**
+   *
+   * 전에는 날 PK(req-1781166316119)를 글자로 적게 두었다. 그 번호만 보고는
+   * 어느 요구사항인지 알 수 없고, 한 글자만 틀려도 연결이 조용히 끊긴다.
+   * 폴더 경로까지 붙여 목록으로 보여 준다.
+   */
+  const reqQ = useQuery({
+    queryKey: ['req', 'list'],
+    queryFn: ({ signal }) => api.listRequirements(signal),
+  })
+  const catQ = useQuery({
+    queryKey: ['req-categories'],
+    queryFn: ({ signal }) => categoryApi.list(signal),
+  })
+  const reqOpts = useMemo(() => {
+    const byId = new Map((catQ.data?.categories ?? []).map((c) => [c.id, c]))
+    return (reqQ.data?.reqs ?? [])
+      .map((r) => {
+        const path = [r.cat1, r.cat2, r.cat3, r.cat4]
+          .filter(Boolean)
+          .map((id) => byId.get(id as string)?.name ?? '')
+          .filter(Boolean)
+          .join(' › ')
+        return {
+          pk: reqPk(r),
+          label: `${path ? path + ' › ' : ''}${r.title || reqLabel(r) || '(제목 없음)'}`,
+        }
+      })
+      .sort((a, b) => a.label.localeCompare(b.label, 'ko'))
+  }, [reqQ.data, catQ.data])
+
+  /** 지금 값이 목록에 없을 수도 있다(옛 자료는 라벨로 저장돼 있다) */
+  const cur = String(data.req_id ?? '')
+  const known = reqOpts.some((o) => o.pk === cur)
 
   const STATUSES = useCodes('tc_status', FB_STATUS)
   const SEVERITIES = useCodes('tc_severity', FB_SEVERITY)
@@ -69,10 +108,20 @@ export default function TcInfo({ data, onChange }: Props) {
         <div className="tc-grid tc-grid-2">
           <label className="fld">
             <span>요구사항</span>
-            <input
-              value={data.req_id ?? ''}
+            <select
+              value={known ? cur : ''}
               onChange={(e) => onChange({ req_id: e.target.value })}
-            />
+            >
+              <option value="">(연결 안 함)</option>
+              {/* 옛 자료가 목록에 없는 값을 들고 있으면 그것도 보여 준다 —
+                  안 그러면 저장할 때 조용히 연결이 끊긴다 */}
+              {!known && cur && <option value={cur}>{cur} (목록에 없음)</option>}
+              {reqOpts.map((o) => (
+                <option key={o.pk} value={o.pk}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="fld">
             <span>제목</span>

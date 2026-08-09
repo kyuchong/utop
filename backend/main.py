@@ -3248,6 +3248,27 @@ async def req_next_id():
     return {"reqid": prefix + str(mx + 1).zfill(4), "prefix": prefix, "seq": mx + 1}
 
 
+@app.get("/api/tc-next-id")
+async def tc_next_id():
+    """다음 시험 ID — TC-<연2><ISO주차2>-<주차별 순번4>.
+
+    요구사항(REQ-2632-0001)과 같은 규칙이라 나란히 읽힌다. tcid 는 곧 PK 라
+    겹치면 남의 시험을 덮어쓴다 — 그래서 그 프리픽스의 현재 최대 순번 +1 을
+    서버가 매긴다."""
+    from datetime import datetime as _dt
+    import re as _re_t
+    iso = _dt.now().isocalendar()
+    prefix = "TC-%02d%02d-" % (iso[0] % 100, iso[1])
+    async with db.pool().acquire() as c:
+        rows = await c.fetch("SELECT tcid FROM tc WHERE tcid LIKE $1", prefix + "%")
+    mx = 0
+    for r in rows:
+        m = _re_t.match("^" + _re_t.escape(prefix) + r"(\d+)$", r["tcid"] or "")
+        if m:
+            mx = max(mx, int(m.group(1)))
+    return {"tcid": prefix + str(mx + 1).zfill(4), "prefix": prefix, "seq": mx + 1}
+
+
 @app.post("/api/req/{req_id}")
 async def save_req(req_id: str, data: dict, response: Response):
     import time as _tm

@@ -2490,3 +2490,6 @@ table.tb tr.r-bad td:first-child {
   padding: 6px 12px;
   border-top: 1px solid var(--c-border);
 }
+
+/* 빵부스러기의 요구사항 — 폴더(흐린 글자)와 시험 이름(굵게) 사이 */
+.tc-crumb-req { color: var(--c-primary); }
