@@ -659,13 +659,13 @@ export default function Cycles() {
           onClick={() => setTreeOpen(true)}
         >
           <IconPanel open />
-          <span className="tc-fold-t">사이클 {cycles.length}</span>
+          <span className="tc-fold-t">Cycle Tree {cycles.length}</span>
         </button>
       )}
       {treeOpen && (
       <section className="panel cy-tree" style={{ flexBasis: treeW }}>
         <ListHead
-          name="사이클"
+          name="Cycle Tree"
           count={cycles.length}
           onCollapse={() => setTreeOpen(false)}
           search={{ value: q, placeholder: '모델 · 버전으로 찾기', onChange: setQ }}
