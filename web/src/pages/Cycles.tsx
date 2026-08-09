@@ -365,6 +365,18 @@ export default function Cycles() {
   const [treeOpen, setTreeOpen] = useState(
     () => localStorage.getItem('utop.cycle.treeOpen') !== '0',
   )
+  /**
+   * 보기 — detail(항목 + 스텝 세부) · list(항목 표만 넓게).
+   *
+   * 요구사항·TC 화면과 같은 토글이다. Detail 이 지금까지의 화면이고,
+   * List 는 스텝 칸을 접어 표를 넓게 쓴다 — 결과를 훑고 일괄로 고칠 때.
+   */
+  const [view, setView] = useState<'list' | 'detail'>(
+    () => (localStorage.getItem('utop.cycle.view') === 'list' ? 'list' : 'detail'),
+  )
+  useEffect(() => {
+    localStorage.setItem('utop.cycle.view', view)
+  }, [view])
   /** 1열 폭 — 끌어서 바꾼다. TC 화면과 같은 부품을 쓴다 */
   const splitRef = useRef<HTMLDivElement>(null)
   const [treeW, setTreeW] = useResizableWidth('utop.cycle.treeW', 250, 170, 460)
@@ -574,9 +586,66 @@ export default function Cycles() {
     )
   }
 
+  /** 빵부스러기에 적을 길 — 모델그룹 › 모델 › 버전그룹 › 버전 */
+  const crumbs = useMemo(() => {
+    if (!cur) return []
+    const g = new Map(models.map((m) => [m.name, (m.model_group ?? '').trim()]))
+    const model = String(cur.model ?? '').trim()
+    return [g.get(model) || '', model, String(cur.version_group ?? '').trim()].filter(Boolean)
+  }, [cur, models])
+
   return (
     // 요구사항·TC 화면과 **같은 뼈대**를 쓴다. 세 화면을 오가는 사람이
     // 매번 「여긴 어디가 목록이지」 를 다시 찾지 않게.
+    <>
+      {/* 맨 위 줄 — 지금 어디를 보고 있나. 요구사항·TC 화면(.rq-bar)과
+          같은 자리·같은 모양이다. */}
+      <div className="rq-bar">
+        <span className="rq-crumb">
+          <span className="muted">사이클</span>
+          {crumbs.map((c) => (
+            <span key={c}>
+              <span className="rq-crumb-sep">›</span>
+              <span className="muted">{c}</span>
+            </span>
+          ))}
+          {cur && (
+            <>
+              <span className="rq-crumb-sep">›</span>
+              <b>{String(cur.version ?? '').trim() || cur.name || cur.id}</b>
+            </>
+          )}
+          <span className="muted small">
+            {cur ? `${cur._item_count ?? 0}건` : '왼쪽에서 사이클을 고르세요'}
+          </span>
+        </span>
+        <span className="sp" />
+        {/* Detail = 항목 + 스텝 세부(지금 화면), List = 항목 표만 넓게.
+            요구사항·TC 와 같은 토글이다. */}
+        <div className="rq-view" role="tablist" aria-label="보기 방식">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'detail'}
+            className={`rq-view-b${view === 'detail' ? ' on' : ''}`}
+            title="항목과 스텝 세부를 함께 봅니다"
+            onClick={() => setView('detail')}
+          >
+            Detail
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === 'list'}
+            className={`rq-view-b${view === 'list' ? ' on' : ''}`}
+            title="항목 표만 넓게 봅니다"
+            onClick={() => setView('list')}
+          >
+            List
+          </button>
+        </div>
+      </div>
+
     <div className="split cy" ref={splitRef}>
       {/* 접었을 때 — 세로 띠 하나만 남는다. TC 화면과 같은 모양이다.
           아주 없애면 다시 펼 길이 없어지고 어디에 있었는지도 잊는다. */}
@@ -694,21 +763,25 @@ export default function Cycles() {
 
       <section className="panel cy-main">
         {cur ? (
-          <CycleDetail cycle={cur} onSaved={() => void listQ.refetch()} />
+          <CycleDetail cycle={cur} view={view} onSaved={() => void listQ.refetch()} />
         ) : (
           <div className="empty">왼쪽에서 사이클을 고르세요.</div>
         )}
       </section>
     </div>
+    </>
   )
 }
 
 /** 사이클 한 건 — 항목과 진행 */
 function CycleDetail({
   cycle,
+  view,
   onSaved,
 }: {
   cycle: CycleMeta
+  /** list = 표만 넓게 · detail = 표 + 스텝 세부 */
+  view: 'list' | 'detail'
   onSaved: () => void
 }) {
   /** 걸러 보기. null 이면 전부 — '' 는 「미실행」 이라는 뜻이라 못 쓴다 */
@@ -1318,12 +1391,16 @@ function CycleDetail({
           때가 있다 — 어느 쪽이 넓어야 하는지는 그때그때 다르다.
           손잡이는 **오른쪽 칸**의 폭을 정한다. 그래서 원점을 오른쪽 끝에
           두고 거꾸로 잰다. */}
-      <Resizer
-        label="스텝 세부 폭 조절"
-        onResize={(w) => setSideW(Math.max(280, (colsRef.current?.clientWidth ?? 900) - w))}
-        getOrigin={() => colsRef.current?.getBoundingClientRect().left ?? 0}
-      />
+      {/* List 에서는 스텝 칸을 접어 표를 넓게 쓴다 */}
+      {view === 'detail' && (
+        <Resizer
+          label="스텝 세부 폭 조절"
+          onResize={(w) => setSideW(Math.max(280, (colsRef.current?.clientWidth ?? 900) - w))}
+          getOrigin={() => colsRef.current?.getBoundingClientRect().left ?? 0}
+        />
+      )}
 
+      {view === 'detail' && (
       <div className="cy-side" style={{ flexBasis: sideW }}>
         {cur ? (
           <StepDetail
@@ -1348,6 +1425,7 @@ function CycleDetail({
           <div className="empty">항목을 누르면 스텝이 보입니다.</div>
         )}
       </div>
+      )}
       </div>
 
       {defectFor && (
