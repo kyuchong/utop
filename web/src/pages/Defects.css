@@ -56,8 +56,10 @@
 .dfl-tablewrap {
   overflow-x: auto;
 }
+/* 폭을 100% 로 늘리면 남는 자리가 칸 사이로 흩어져 글자끼리 멀어진다.
+   내용만큼만 차지하게 두고 모두 왼쪽에 붙인다 — 넘치면 감싼 칸이 민다. */
 .dfl-table {
-  width: 100%;
+  width: auto;
   border-collapse: collapse;
   font-size: var(--fs-sm);
   white-space: nowrap;
@@ -74,6 +76,7 @@
   border-bottom: 1px solid var(--c-border);
 }
 .dfl-table td {
+  text-align: left;
   padding: 8px 12px;
   border-bottom: 1px solid var(--c-border);
 }
@@ -121,3 +124,6 @@
     color: #f0a59d;
   }
 }
+
+/* 제목은 길어도 칸을 밀지 않게 — 표 전체가 가로로 늘어나면 나머지가 멀어진다 */
+.dfl-table .dfl-title { max-width: 520px; }
