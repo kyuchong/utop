@@ -700,7 +700,41 @@ export default function Requirements() {
                 이력은 요구사항 한 건에만 있는 것이라, 폴더에 걸어두면 늘
                 비어 있는 탭이 넷 생긴다. 폴더에서는 TC 목록 하나면 된다. */}
             {view === 'list' && folderMode ? (
-              <span className="muted small">이 폴더의 요구사항</span>
+              /* 표에 대한 일 — 표 바로 위 이 줄에 둔다. 고른 것이 있어야
+                 되는 것(Clone·Delete)은 그때만 켜진다. */
+              <div className="rq-actions">
+                <button className="btn" type="button" onClick={() => setForm(null)}>
+                  Add
+                </button>
+                <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
+                  일괄 생성
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={!pickedInList.length || !!listBusy}
+                  onClick={() => void clonePicked()}
+                >
+                  {listBusy === 'clone' ? '복제 중…' : 'Clone'}
+                </button>
+                <button
+                  className="btn danger"
+                  type="button"
+                  disabled={!pickedInList.length || !!listBusy}
+                  onClick={() => void deletePicked()}
+                >
+                  {listBusy === 'del' ? '삭제 중…' : 'Delete'}
+                </button>
+                <button
+                  className="btn"
+                  type="button"
+                  disabled={!sortedFolderReqs.length}
+                  onClick={exportList}
+                  title={pickedInList.length ? '고른 것만 내보냅니다' : '이 폴더 전체를 내보냅니다'}
+                >
+                  Export
+                </button>
+              </div>
             ) : (
             <div className="seg" role="tablist">
               {([
@@ -763,41 +797,6 @@ export default function Requirements() {
             /* ── List 모드 — 이 폴더의 요구사항을 표로 (Zephyr 방식) ──
                한 줄을 누르면 그 요구사항 상세로 들어간다(Detail). */
             <div className="rq-list scroll">
-              {/* 액션 바 — 고른 것이 있어야 되는 것은 그때만 켜진다 */}
-              <div className="rq-actions">
-                <button className="btn" type="button" onClick={() => setForm(null)}>
-                  Add
-                </button>
-                <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
-                  일괄 생성
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={!pickedInList.length || !!listBusy}
-                  onClick={() => void clonePicked()}
-                >
-                  {listBusy === 'clone' ? '복제 중…' : 'Clone'}
-                </button>
-                <button
-                  className="btn danger"
-                  type="button"
-                  disabled={!pickedInList.length || !!listBusy}
-                  onClick={() => void deletePicked()}
-                >
-                  {listBusy === 'del' ? '삭제 중…' : 'Delete'}
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={!sortedFolderReqs.length}
-                  onClick={exportList}
-                  title={pickedInList.length ? '고른 것만 내보냅니다' : '이 폴더 전체를 내보냅니다'}
-                >
-                  Export
-                </button>
-              </div>
-
               {/* 몇 개 골랐나 — 표 위에 늘 보여야 지운 뒤 「몇 개였지」 를 안 묻는다 */}
               <div className="rq-selbar">
                 <label className="rq-selall">
