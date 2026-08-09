@@ -48,7 +48,19 @@ export default function Requirements() {
    */
   /** 보기 방식 — 트리 안에 있던 단추를 ⋯ 로 옮겼다 */
   const [fullId, setFullId] = useState(false)
-  const [foldersOnly, setFoldersOnly] = useState(false)
+  /**
+   * 1열은 **폴더만** 보여 준다.
+   *
+   * 요구사항은 2열 표에 뜬다(Zephyr 방식). 트리에도 같이 깔면 같은 것이
+   * 두 군데 보여 어느 쪽을 눌러야 하는지 매번 생각하게 된다. 굳이 트리에서
+   * 보고 싶으면 ⋯ 에서 끌 수 있다.
+   */
+  const [foldersOnly, setFoldersOnly] = useState(
+    () => localStorage.getItem('utop.req.foldersOnly') !== '0',
+  )
+  useEffect(() => {
+    localStorage.setItem('utop.req.foldersOnly', foldersOnly ? '1' : '0')
+  }, [foldersOnly])
   /** 폴더 안의 차례 — ID 순이 기본. 번호가 이어져야 빠진 것이 눈에 띈다 */
   const [sort, setSort] = useState<'id' | 'title'>('id')
   /** 찾는 글자 — 트리 안에 있던 줄을 머리줄로 올렸다 */
@@ -721,18 +733,67 @@ export default function Requirements() {
 
         {/* ── 오른쪽: 탭에 따라 내용이 바뀐다 ─────────────── */}
         <section className="panel tc-panel">
+          {/* 맨 위 줄 — 지금 어디를 보고 있나(빵부스러기) + 보기 방식.
+              Zephyr 처럼 늘 떠 있다. 모드에 따라 사라지면 「내가 어디
+              있더라」 를 화면에서 못 읽는다. */}
+          <div className="rq-bar">
+            <span className="rq-crumb">
+              <span className="muted">요구사항</span>
+              {folderMode && (
+                <>
+                  <span className="rq-crumb-sep">›</span>
+                  <b>{folderName}</b>
+                </>
+              )}
+              {view === 'detail' && selectedReq && (
+                <>
+                  <span className="rq-crumb-sep">›</span>
+                  <b>{selectedReq.title || reqLabel(selectedReq) || '(제목 없음)'}</b>
+                </>
+              )}
+              <span className="muted small">
+                {view === 'detail' && selectedReq
+                  ? reqLabel(selectedReq)
+                  : folderMode
+                    ? `${folderReqs.length}건 · 하위 폴더 포함`
+                    : '폴더를 고르세요'}
+              </span>
+            </span>
+            <span className="sp" />
+            {/* List(표로 여럿) ↔ Detail(한 건 넓게). Detail 로 가면 폴더가
+                자동으로 접힌다 — 셋을 다 펴면 정작 상세가 좁아진다. */}
+            <div className="rq-view" role="tablist" aria-label="보기 방식">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'detail'}
+                className={`rq-view-b${view === 'detail' ? ' on' : ''}`}
+                disabled={!selectedReq}
+                title={selectedReq ? '한 건을 넓게 봅니다' : '먼저 요구사항을 고르세요'}
+                onClick={() => selectedReq && goDetail(reqPk(selectedReq), tab)}
+              >
+                Detail
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'list'}
+                className={`rq-view-b${view === 'list' ? ' on' : ''}`}
+                disabled={!folderMode}
+                title={folderMode ? '이 폴더의 요구사항을 표로 봅니다' : '먼저 폴더를 고르세요'}
+                onClick={goList}
+              >
+                List
+              </button>
+            </div>
+          </div>
+
           <div className="panel-title">
             {/* 폴더를 보고 있을 때는 탭을 띄우지 않는다. REQ Info·Details·
                 이력은 요구사항 한 건에만 있는 것이라, 폴더에 걸어두면 늘
                 비어 있는 탭이 넷 생긴다. 폴더에서는 TC 목록 하나면 된다. */}
             {view === 'list' && folderMode ? (
-              /* 빵부스러기 — 지금 어느 폴더를 보고 있나 */
-              <span className="rq-crumb">
-                <span className="muted">요구사항</span>
-                <span className="rq-crumb-sep">›</span>
-                <b>{folderName}</b>
-                <span className="muted small">{folderReqs.length}건 · 하위 폴더 포함</span>
-              </span>
+              <span className="muted small">이 폴더의 요구사항</span>
             ) : (
             <div className="seg" role="tablist">
               {([
@@ -787,33 +848,6 @@ export default function Requirements() {
                 </button>
               </div>
             )}
-            {/* List(표로 여럿) ↔ Detail(한 건 넓게). Detail 로 가면 폴더가
-                자동으로 접힌다 — 셋을 다 펴면 정작 상세가 좁아진다. */}
-            <span className="sp" />
-            <div className="rq-view" role="tablist" aria-label="보기 방식">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === 'detail'}
-                className={`rq-view-b${view === 'detail' ? ' on' : ''}`}
-                disabled={!selectedReq}
-                title={selectedReq ? '한 건을 넓게 봅니다' : '먼저 요구사항을 고르세요'}
-                onClick={() => selectedReq && goDetail(reqPk(selectedReq), tab)}
-              >
-                Detail
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === 'list'}
-                className={`rq-view-b${view === 'list' ? ' on' : ''}`}
-                disabled={!folderMode}
-                title={folderMode ? '이 폴더의 요구사항을 표로 봅니다' : '먼저 폴더를 고르세요'}
-                onClick={goList}
-              >
-                List
-              </button>
-            </div>
           </div>
 
           {!selectedReq && !folderMode ? (

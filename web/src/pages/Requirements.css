@@ -721,3 +721,15 @@
   min-width: 0;
 }
 .rq-crumb-sep { color: var(--c-text-faint); }
+
+/* 오른쪽 패널 맨 위 줄 — 빵부스러기 + 보기 방식. 늘 떠 있다. */
+.rq-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--c-border);
+  min-height: 34px;
+}
+.rq-bar .sp { margin-left: auto; }
