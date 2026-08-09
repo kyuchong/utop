@@ -1204,8 +1204,9 @@ table.tb td.k {
 .cy-selbar .sp { margin-left: auto; }
 .cy-bulk {
   font: inherit;
-  font-size: var(--fs-xs);
-  padding: 2px 8px;
+  font-size: var(--fs-sm);
+  /* 옆 단추와 같은 높이로 — 한 줄에서 위아래가 어긋나면 눈에 걸린다 */
+  padding: 5px 9px;
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   background: var(--c-surface);
@@ -1244,7 +1245,7 @@ table.tb td.k {
 }
 /* 액션 바와 카운터가 한 줄에서 같은 높이로 */
 .cy-head .rq-actions { align-items: center; }
-.cy-head .rq-actions .btn { line-height: 1.2; }
+
 
 /* ── ② 실행 바 / ③ 진행 요약 — 줄을 나눈다 ──────────────────
    한 줄에 큰 단추와 작은 카운터를 섞으면 글자 크기가 달라 높이가 어긋난다.

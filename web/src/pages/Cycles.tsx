@@ -1020,7 +1020,7 @@ function CycleDetail({
       <div className="cy-head">
         <div className="rq-actions">
           <button
-            className="btn small"
+            className="btn"
             type="button"
             disabled={pick.size !== 1}
             title={pick.size === 1 ? '고른 항목을 고칩니다' : '한 건만 골랐을 때 켜집니다'}
@@ -1029,7 +1029,7 @@ function CycleDetail({
             Edit
           </button>
           <button
-            className="btn small"
+            className="btn"
             type="button"
             disabled={pick.size < 2}
             title={
@@ -1042,11 +1042,11 @@ function CycleDetail({
             Bulk Edit
           </button>
           <span className="rq-adiv" aria-hidden="true" />
-          <button className="btn small" type="button" onClick={() => setAdding(true)}>
+          <button className="btn" type="button" onClick={() => setAdding(true)}>
             Add
           </button>
           <button
-            className="btn small danger"
+            className="btn danger"
             type="button"
             disabled={!pick.size || saving || st.on}
             onClick={() => {
@@ -1060,7 +1060,7 @@ function CycleDetail({
             Delete{pick.size ? ` (${pick.size})` : ''}
           </button>
           <button
-            className="btn small"
+            className="btn"
             type="button"
             disabled={!items.length}
             title={pick.size ? '고른 것만 내보냅니다' : '이 사이클 전체를 내보냅니다'}
@@ -1075,13 +1075,13 @@ function CycleDetail({
           섞으면 세 화면이 또 달라 보이고 단추가 넘쳐 높이가 어긋난다. */}
       <div className="cy-runbar">
         {st.on ? (
-          <button className="btn small danger" type="button" onClick={() => void stop()}>
+          <button className="btn danger" type="button" onClick={() => void stop()}>
             <i className="cy-play">⏹</i> 멈추기
           </button>
         ) : (
           <>
             <button
-              className="btn primary small"
+              className="btn primary"
               type="button"
               disabled={!pick.size || saving}
               title={pick.size ? `고른 ${pick.size}건을 돌립니다` : '먼저 항목을 고르세요'}
@@ -1090,7 +1090,7 @@ function CycleDetail({
               <i className="cy-play">▶</i> 실행{pick.size ? ` (${pick.size})` : ''}
             </button>
             <button
-              className="btn small"
+              className="btn"
               type="button"
               disabled={!items.length || saving}
               onClick={() => startRun(items.map((_, i) => i))}
@@ -1122,7 +1122,7 @@ function CycleDetail({
         </select>
         <span className="rq-adiv" aria-hidden="true" />
         <button
-          className="btn small"
+          className="btn"
           type="button"
           title="고객사 양식 슬라이드를 미리 보고 PPTX 로 내려받습니다"
           onClick={() => setReport(true)}
