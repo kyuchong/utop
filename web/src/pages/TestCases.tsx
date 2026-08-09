@@ -1425,9 +1425,9 @@ export default function TestCases({ me }: PageProps) {
         {view === 'list' ? (
           /* ── List — 이 자리의 시험을 표로 (요구사항 화면과 같은 모양) ──
              열을 늘리지 않는다. 표가 편집기 자리를 대신 쓴다. */
-          <section className="panel tc-tabcol">
-            <div className="rq-list scroll">
-              <div className="panel-title">
+          <section className="panel tc-listview">
+            <div className="rq-list">
+              <div className="tc-listhead">
                 <div className="rq-actions">
                   <button className="btn" type="button" onClick={() => setForm(null)}>
                     Add

@@ -2436,8 +2436,57 @@ table.tb tr.r-bad td:first-child {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 표 안의 액션 바는 머리줄 안에 든다 — 요구사항 화면과 같은 자리 */
-.tc-tabcol .rq-list .panel-title {
-  padding-left: 0;
-  padding-right: 0;
+/* List 보기 칸 — 바깥에 padding·overflow 를 주지 않는다.
+   .tc-tabcol 을 쓰면 스크롤이 두 겹이 되어 머리줄이 잘렸다. */
+.tc-listview {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+.tc-listview .rq-list {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+/* 1열 머리줄(.lh, 46px)과 같은 높이·같은 선 — 두 칸의 머리가 맞아야 한다 */
+.tc-listhead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 46px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--c-border);
+}
+.tc-listview .rq-selbar {
+  flex: none;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+/* 표만 스크롤한다 */
+.tc-listview .rq-table {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+}
+.tc-listview .rq-tr.rq-th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.tc-listview .bottom {
+  flex: none;
+  margin: 0;
+  padding: 6px 12px;
+  border-top: 1px solid var(--c-border);
 }
