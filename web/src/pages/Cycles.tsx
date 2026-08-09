@@ -685,6 +685,20 @@ export default function Cycles() {
             </>
           }
         />
+        {/* ③ 찾기를 머리줄 아래 제자리에 늘 띄운다 — 돋보기를 눌러야 나오면
+            거기 있는 줄 모른다. */}
+        <div className="cy-find">
+          <input
+            value={q}
+            placeholder="모델 · 버전으로 찾기"
+            onChange={(e) => setQ(e.target.value)}
+          />
+          {q && (
+            <button type="button" title="지우기" onClick={() => setQ('')}>
+              ✕
+            </button>
+          )}
+        </div>
         <div className="cy-body">
           {listQ.isLoading ? (
             <div className="empty">불러오는 중…</div>
@@ -1237,7 +1251,6 @@ function CycleDetail({
           >
             Export
           </button>
-          <span className="rq-adiv" aria-hidden="true" />
         </div>
       </div>
 

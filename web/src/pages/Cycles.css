@@ -1566,3 +1566,43 @@ table.tb td.k {
   border-bottom: 1px solid var(--c-border);
 }
 .cy-head2 .rq-actions { flex-wrap: wrap; row-gap: 4px; align-items: center; }
+
+/* ① 단추 줄은 낮게 — 자료가 보일 자리를 단추가 먹지 않게 */
+.cy-head2 {
+  min-height: 36px;
+  padding: 3px 14px;
+}
+.cy-head2 .btn,
+.cy-head2 .cy-bulk {
+  padding: 3px 9px;
+  font-size: var(--fs-xs);
+}
+
+/* ③ 1열 찾기 — 머리줄 바로 아래 제자리에 */
+.cy-find {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.cy-find input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-xs);
+}
+.cy-find button {
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: var(--c-text-faint);
+  cursor: pointer;
+  padding: 2px 4px;
+}
