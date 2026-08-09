@@ -81,6 +81,11 @@ function invalidate(qc: QueryClient, m: Msg) {
     void qc.invalidateQueries({ queryKey: ['devices2'] })
     void qc.invalidateQueries({ queryKey: ['locks'] })
   }
+
+  // ── 결함
+  if (t === 'defect_updated') {
+    void qc.invalidateQueries({ queryKey: ['defects'] })
+  }
 }
 
 export function useLiveRefresh(): void {

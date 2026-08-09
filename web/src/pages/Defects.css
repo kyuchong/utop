@@ -1,0 +1,123 @@
+.dfl {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.dfl-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.dfl-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--c-surface-alt);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+.dfl-tab {
+  border: 0;
+  background: transparent;
+  color: var(--c-text-faint);
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  cursor: pointer;
+}
+.dfl-tab.on {
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+.dfl-search {
+  width: 260px;
+  padding: 6px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+}
+
+.dfl-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.dfl-tablewrap {
+  overflow-x: auto;
+}
+.dfl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.dfl-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  font-weight: 600;
+  color: var(--c-text-faint);
+  background: var(--c-surface);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--c-border);
+}
+.dfl-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--c-border);
+}
+.dfl-row {
+  cursor: pointer;
+}
+.dfl-row:hover {
+  background: var(--c-surface-alt);
+}
+.dfl-table td.mono {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--c-text-faint);
+}
+.dfl-title {
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dfl-jira {
+  font-weight: 700;
+  color: var(--c-ok, #1f9d55);
+}
+.dfl-badge {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--c-surface-alt);
+  color: var(--c-text-faint);
+}
+.dfl-badge.open {
+  background: #fdecea;
+  color: #c0392b;
+}
+.dfl-badge.closed {
+  background: var(--c-surface-alt);
+  color: var(--c-text-faint);
+}
+
+@media (prefers-color-scheme: dark) {
+  .dfl-badge.open {
+    background: #4a1f1c;
+    color: #f0a59d;
+  }
+}

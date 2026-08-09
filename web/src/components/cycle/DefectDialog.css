@@ -53,6 +53,11 @@
   font-weight: 700;
   color: var(--c-ok, #1f9d55);
 }
+.dfx-saved {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-ok, #1f9d55);
+}
 
 /* 깨진 스텝 */
 .dfx-steps {

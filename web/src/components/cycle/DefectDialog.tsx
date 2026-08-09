@@ -9,6 +9,8 @@ export interface DefectRec {
   id: string
   status: string
   title?: string
+  tcid?: string | null
+  tc_name?: string | null
   jira_key?: string | null
   jira_project?: string | null
   project_name?: string | null
@@ -23,12 +25,15 @@ export interface DefectRec {
 }
 
 interface Props {
-  cycle: { id: string; model?: string | null; version?: string | null }
-  item: CycleItemLite
-  /** 이 항목에 이미 걸린 결함 (있으면 그 값으로 채운다) */
+  /** 사이클에서 열 때만 준다. Defects 목록에서 열면 없다(이미 저장된 결함이라) */
+  cycle?: { id: string; model?: string | null; version?: string | null }
+  item?: CycleItemLite
+  /** 이미 걸린 결함 (있으면 그 값으로 채운다). 목록에서 열면 반드시 있다 */
   existing: DefectRec | null
   onClose: () => void
   onSaved: (d: DefectRec) => void
+  /** 결함이 지워졌을 때(목록에서 삭제) */
+  onDeleted?: (id: string) => void
 }
 
 const isFail = (r: string) => r === 'Fail' || r === '불합격'
@@ -65,6 +70,22 @@ function briefsOf(item: CycleItemLite): StepBrief[] {
   }))
 }
 
+/** 이미 저장된 결함의 steps(JSONB)를 그대로 읽는다 — 목록에서 열 때 */
+function briefsFromDefect(d: DefectRec | null): StepBrief[] {
+  const arr = Array.isArray(d?.steps) ? (d!.steps as Array<Record<string, unknown>>) : []
+  return arr.map((x, i) => ({
+    no: Number(x.no ?? i + 1),
+    kind: String(x.kind ?? 'cli'),
+    desc: String(x.desc ?? ''),
+    cli: String(x.cli ?? ''),
+    criteria: String(x.criteria ?? ''),
+    status: String(x.status ?? ''),
+    reason: String(x.reason ?? ''),
+    output: String(x.output ?? ''),
+    actual_img: String(x.actual_img ?? ''),
+  }))
+}
+
 /** "2026년 8월 9일 14:30:05" */
 function fmtDate(iso?: string | null): string {
   if (!iso) return '지금(등록 시)'
@@ -84,22 +105,23 @@ function fmtDate(iso?: string | null): string {
  * UTOP 안에는 먼저 저장하고(항목당 하나), 「지라에 등록」 을 누를 때 실제로
  * 이슈가 생긴다 — 64건 돌려 20건 깨졌다고 이슈 20개가 한꺼번에 생기지 않게.
  */
-export default function DefectDialog({ cycle, item, existing, onClose, onSaved }: Props) {
-  const briefs = useMemo(() => briefsOf(item), [item])
+export default function DefectDialog({ cycle, item, existing, onClose, onSaved, onDeleted }: Props) {
+  const briefs = useMemo(() => (item ? briefsOf(item) : briefsFromDefect(existing)), [item, existing])
   const failN = briefs.filter((b) => b.status === 'Fail').length
+  const heading = item ? item.name || item.tcid : existing?.tc_name || existing?.title || existing?.id || '결함'
 
   // 아홉 칸
   const [proj, setProj] = useState(existing?.jira_project ?? '')
   const [projName, setProjName] = useState(existing?.project_name ?? '')
   const [itype, setItype] = useState(existing?.issue_type ?? 'Defect')
   const [prio, setPrio] = useState(existing?.priority ?? 'Major')
-  const [fixv, setFixv] = useState(existing?.fix_version ?? cycle.version ?? '')
-  const [comp, setComp] = useState(existing?.component ?? cycle.model ?? '')
+  const [fixv, setFixv] = useState(existing?.fix_version ?? cycle?.version ?? '')
+  const [comp, setComp] = useState(existing?.component ?? cycle?.model ?? '')
   const [reporter, setReporter] = useState(existing?.reporter ?? '')
   const [me, setMe] = useState(existing?.created_by ?? '')
   const [title, setTitle] = useState(
     existing?.title ??
-      `[${cycle.model ?? ''} ${cycle.version ?? ''}] ${item.name || item.tcid}${
+      `[${cycle?.model ?? ''} ${cycle?.version ?? ''}] ${item?.name || item?.tcid || ''}${
         briefs[0] ? ` — ${briefs[0].reason || briefs[0].desc}` : ''
       }`.trim(),
   )
@@ -193,6 +215,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
   /** UTOP 안에 저장(항목당 하나). 이미 있으면 그대로 쓴다. */
   const save = async (): Promise<DefectRec | null> => {
     if (defect) return defect
+    if (!item || !cycle) return null // 목록에서 연 경우엔 이미 저장돼 있어 만들 일이 없다
     setBusy('save')
     try {
       const r = await apiFetch('/api/defects', {
@@ -218,12 +241,64 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
       const j = (await r.json()) as { defect: DefectRec; existed?: boolean }
       setDefect(j.defect)
       onSaved(j.defect)
-      setMsg({ kind: 'ok', text: j.existed ? `이미 걸린 결함입니다 (${j.defect.id})` : `UTOP에 저장했습니다 (${j.defect.id})` })
+      setMsg({ kind: 'ok', text: j.existed ? `이미 등록된 결함입니다 (${j.defect.id})` : `UTOP에 등록했습니다 (${j.defect.id})` })
       return j.defect
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
       return null
     } finally {
+      setBusy('')
+    }
+  }
+
+  // 창이 열리면 곧바로 UTOP 에 결함을 등록한다. 「등록」 은 버튼을 누르는
+  // 순간 끝나야 한다 — 창만 보고 닫아도 Defects 에 남아 있게. 지라로 올리는
+  // 것은 그다음 「지라에 등록」 을 눌러야 일어난다.
+  useEffect(() => {
+    if (!existing && item && cycle) void save()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /** 아홉 칸을 고치면 UTOP 에 반영한다(지라로 안 올려도 값이 남게) */
+  const patchFields = async () => {
+    if (!defect) return
+    setBusy('save')
+    try {
+      const r = await apiFetch(`/api/defects/${encodeURIComponent(defect.id)}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          title,
+          jira_project: proj,
+          project_name: projName,
+          issue_type: itype,
+          priority: prio,
+          fix_version: fixv,
+          component: comp,
+          reporter,
+        }),
+      })
+      const j = (await r.json()) as { defect: DefectRec }
+      setDefect(j.defect)
+      onSaved(j.defect)
+      setMsg({ kind: 'ok', text: '저장했습니다' })
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setBusy('')
+    }
+  }
+
+  /** 결함을 지운다(목록에서 열었을 때) */
+  const remove = async () => {
+    if (!defect) return
+    if (!window.confirm(`결함 ${defect.id} 를 삭제할까요?`)) return
+    setBusy('del')
+    try {
+      await apiFetch(`/api/defects/${encodeURIComponent(defect.id)}`, { method: 'DELETE' })
+      onDeleted?.(defect.id)
+      onClose()
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
       setBusy('')
     }
   }
@@ -272,9 +347,9 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
     <div className="modal-back" onMouseDown={onClose}>
       <div className="modal dfx" role="dialog" aria-modal="true" aria-label="결함 등록" onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <b>결함 등록</b>
+          <b>결함 {defect ? defect.id : '등록'}</b>
           <span className="muted small">
-            {item.name || item.tcid} · 깨진 스텝 {failN}개
+            {heading} · 깨진 스텝 {failN}개
           </span>
           <span className="sp" />
           {pushed && <span className="dfx-key">● {defect?.jira_key}</span>}
@@ -411,18 +486,29 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved }
         </div>
 
         <div className="modal-foot dfx-foot">
+          {/* 등록 상태를 눈에 보이게 — 창을 열면 이미 UTOP 에 남아 있다 */}
+          {defect ? (
+            <span className="dfx-saved">✓ UTOP에 등록됨 · {defect.id}</span>
+          ) : (
+            <span className="muted small">등록 중…</span>
+          )}
           {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
           <span className="sp" />
+          {defect && (
+            <button className="btn ghost" type="button" disabled={!!busy} onClick={() => void remove()}>
+              {busy === 'del' ? '삭제 중…' : '삭제'}
+            </button>
+          )}
           {pushed ? (
             <button className="btn" type="button" onClick={onClose}>
               닫기
             </button>
           ) : (
             <>
-              <button className="btn" type="button" disabled={!!busy} onClick={() => void save()}>
-                {busy === 'save' ? '저장 중…' : 'UTOP에 저장'}
+              <button className="btn" type="button" disabled={!!busy || !defect} onClick={() => void patchFields()}>
+                {busy === 'save' ? '저장 중…' : '변경 저장'}
               </button>
-              <button className="btn primary" type="button" disabled={!!busy || !proj} onClick={() => void push()}>
+              <button className="btn primary" type="button" disabled={!!busy || !proj || !defect} onClick={() => void push()}>
                 {busy === 'push' ? '지라 등록 중…' : '지라에 등록'}
               </button>
             </>
