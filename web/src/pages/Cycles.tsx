@@ -1121,8 +1121,13 @@ function CycleDetail({
           ))}
         </select>
         <span className="rq-adiv" aria-hidden="true" />
-        <button className="btn small" type="button" onClick={() => setReport(true)}>
-          고객사 결과서
+        <button
+          className="btn small"
+          type="button"
+          title="고객사 양식 슬라이드를 미리 보고 PPTX 로 내려받습니다"
+          onClick={() => setReport(true)}
+        >
+          결과서 PPTX
         </button>
       </div>
 
