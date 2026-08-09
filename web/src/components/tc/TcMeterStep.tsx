@@ -255,6 +255,74 @@ export default function TcMeterStep({ step, onChange }: Props) {
             시간을 0 으로 두면 「트래픽 정지」 스텝을 만날 때까지 계속 보냅니다.
             보낸 뒤에는 「통계 읽기 · 판정」 스텝을 두어야 합격·불합격이 납니다.
           </span>
+
+          {/* 프레임 주소 — L2 는 MAC 만, L3 는 IP·게이트웨이까지 맞아야 흐른다 */}
+          <details className="sd-more ms-frame">
+            <summary>
+              프레임 설정 (MAC · IP)
+              {(step.meterSrcIp || step.meterDstIp || step.meterSrcMac || step.meterDstMac) && (
+                <i className="ms-set">정함</i>
+              )}
+            </summary>
+            <p className="sd-hint">
+              같은 VLAN 안에서 스위칭만 보는 <b>L2 시험</b>은 MAC 만 맞으면 흐릅니다.
+              <b>L3(라우팅)</b> 시험은 IP·게이트웨이가 맞지 않으면 장비가 넘겨 주지 않아
+              손실 100% 로 나옵니다 — 그때는 여기를 채우세요. 비우면 계측기 기본값입니다.
+            </p>
+            <div className="sd-2">
+              <label className="sd-f">
+                <span>보내는 MAC</span>
+                <input
+                  className="mono"
+                  value={step.meterSrcMac ?? ''}
+                  placeholder="00:00:00:00:00:01"
+                  onChange={(e) => onChange({ meterSrcMac: e.target.value })}
+                />
+              </label>
+              <label className="sd-f">
+                <span>받는 MAC</span>
+                <input
+                  className="mono"
+                  value={step.meterDstMac ?? ''}
+                  placeholder="00:00:00:00:00:02"
+                  onChange={(e) => onChange({ meterDstMac: e.target.value })}
+                />
+              </label>
+            </div>
+            <div className="sd-2">
+              <label className="sd-f">
+                <span>보내는 IP</span>
+                <input
+                  className="mono"
+                  value={step.meterSrcIp ?? ''}
+                  placeholder="1.1.1.1"
+                  onChange={(e) => onChange({ meterSrcIp: e.target.value })}
+                />
+              </label>
+              <label className="sd-f">
+                <span>받는 IP</span>
+                <input
+                  className="mono"
+                  value={step.meterDstIp ?? ''}
+                  placeholder="2.1.1.1"
+                  onChange={(e) => onChange({ meterDstIp: e.target.value })}
+                />
+              </label>
+            </div>
+            <label className="sd-f">
+              <span>게이트웨이 (L3 일 때)</span>
+              <input
+                className="mono"
+                value={step.meterGw ?? ''}
+                placeholder="1.1.1.254 — 장비의 그 포트 IP"
+                onChange={(e) => onChange({ meterGw: e.target.value })}
+              />
+              <span className="sd-hint">
+                보내는 쪽이 붙은 <b>장비 포트의 IP</b> 입니다. 이것이 틀리면 프레임이
+                장비로 안 갑니다.
+              </span>
+            </label>
+          </details>
         </>
       )}
 

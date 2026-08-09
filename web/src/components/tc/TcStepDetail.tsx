@@ -195,6 +195,15 @@ export default function TcStepDetail({
   const isDiff = kind === 'diff'
   const isRun = isCmd || isNet || isConn
   /**
+   * 계측기 스텝인가.
+   *
+   * 계측기는 CLI 와 닮은 데가 거의 없다 — 세션으로 붙지 않고, 판정도
+   * 문구 검증이 아니라 「통계 읽기」 의 손실 수로 난다. 그런데 kind 가
+   * isCmd 에 묶여 있어 CLI 칸(Session·Expected·판정 영역·프롬프트 대기)이
+   * 그대로 따라 떴다. 여기서 갈라낸다.
+   */
+  const isMeterStep = kind === 'instrument'
+  /**
    * 결과 칸을 띄운다.
    *
    * 판정하는 것뿐 아니라 **결과가 남아 있는 모든 줄**에 띄운다. 옛 자료의
@@ -209,7 +218,7 @@ export default function TcStepDetail({
   // 스텝을 고르지 않은 render 에서는 훅이 하나 줄어든다. 다시 고르는
   // 순간 React 가 훅 수가 늘었다며 통째로 죽는다 — 흰 화면.
   const isTbl = result ? !!parseTable(result) : false
-  const needsSession = isCmd || isConn || isNet
+  const needsSession = (isCmd || isConn || isNet) && kind !== 'instrument'
   const depth = Math.min(Math.max(Number(step.indent) || 0, 0), 4)
   /** 이 스텝이 뽑는 이름 */
   const mine = [
@@ -921,7 +930,7 @@ export default function TcStepDetail({
         {/* 판정은 실행하는 스텝에만 둔다.
             고르는 값은 `type` 이다 — critMode 는 '라인 선택' 같은 표시용
             이름이라 거기에 contains 를 써 넣으면 옛 화면 배지가 깨진다. */}
-        {isRun && (
+        {isRun && !isMeterStep && (
           <div className="sd-f">
             <span className="sd-lab">
               Expected
@@ -1063,7 +1072,7 @@ export default function TcStepDetail({
         <details className="sd-more">
           <summary>세부</summary>
 
-          {isRun && (
+          {isRun && !isMeterStep && (
             <>
 
               <label className="sd-f">
@@ -1080,7 +1089,7 @@ export default function TcStepDetail({
                   <b>/식/</b>(정규식) · 그냥 문구(그 문구가 든 줄만).
                 </span>
               </label>
-              {(kind === 'cli' || kind === 'instrument') && (
+              {kind === 'cli' && (
                 <label className="sd-f">
                   <span>응답 더 기다리기 (초)</span>
                   <input

@@ -293,6 +293,21 @@ export interface TcStep {
   meterDur?: number
   /** traffic_stat 판정 — 허용 손실 패킷 수(넘으면 불합격). 비우면 0 */
   meterMaxLoss?: number
+  /**
+   * 보낼 프레임의 주소.
+   *
+   * L2(같은 VLAN 안에서 스위칭) 시험은 MAC 만 맞으면 흐른다. **L3(라우팅)**
+   * 시험은 IP·게이트웨이가 맞지 않으면 장비가 아예 넘겨 주지 않는다 —
+   * 손실 100% 로 나오고, 왜 안 되는지는 계측기 화면을 열어야 안다.
+   * 비워 두면 데몬 기본값을 쓴다.
+   */
+  meterSrcMac?: string
+  meterDstMac?: string
+  meterSrcIp?: string
+  meterDstIp?: string
+  meterGw?: string
+  /** eth · ipv4 · udp … 비우면 데몬 기본 */
+  meterProto?: string
   /** kind=snmp_* */
   oid?: string
   community?: string

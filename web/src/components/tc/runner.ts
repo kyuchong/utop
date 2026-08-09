@@ -505,6 +505,11 @@ async function runOne(
                   byteType: 'Fixed',
                   unit: 'fps',
                   rate: step.meterPps ?? 1000,
+                  ...(step.meterSrcMac ? { srcMac: subVars(step.meterSrcMac, vars) } : {}),
+                  ...(step.meterDstMac ? { dstMac: subVars(step.meterDstMac, vars) } : {}),
+                  ...(step.meterSrcIp ? { srcIp: subVars(step.meterSrcIp, vars) } : {}),
+                  ...(step.meterDstIp ? { dstIp: subVars(step.meterDstIp, vars) } : {}),
+                  ...(step.meterGw ? { gw: subVars(step.meterGw, vars) } : {}),
                 },
               ]
             : [],
@@ -550,6 +555,16 @@ async function runOne(
     if (act === 'traffic_start') {
       const tx = port(subVars(step.txPort ?? '', vars))
       const rx = port(subVars(step.rxPort ?? '', vars))
+      // 프레임 주소를 함께 보낸다. 빈 칸은 빼서 데몬 기본값이 살게 둔다 —
+      // 빈 문자열을 보내면 「비었다」 가 아니라 「빈 값으로 설정」 이 된다.
+      const frame: Record<string, unknown> = {
+        srcMac: subVars(step.meterSrcMac ?? '', vars),
+        dstMac: subVars(step.meterDstMac ?? '', vars),
+        srcIp: subVars(step.meterSrcIp ?? '', vars),
+        dstIp: subVars(step.meterDstIp ?? '', vars),
+        proto: step.meterProto ?? '',
+      }
+      for (const k of Object.keys(frame)) if (!frame[k]) delete frame[k]
       body.streams = [
         {
           module: tx.module,
@@ -557,6 +572,7 @@ async function runOne(
           rxPort: rx.port,
           pps: step.meterPps ?? 1000,
           size: step.meterSize ?? 64,
+          ...frame,
         },
       ]
       body.dur = step.meterDur ?? 0

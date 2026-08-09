@@ -21,3 +21,13 @@
   grid-template-columns: repeat(3, 1fr);
   gap: var(--sp-2);
 }
+
+/* 프레임 설정 — 채워 두었으면 접혀 있어도 표시가 나야 한다 */
+.ms-frame > summary { cursor: pointer; }
+.ms-set {
+  margin-left: 6px;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  color: var(--c-pass, #18864b);
+  font-weight: 700;
+}
