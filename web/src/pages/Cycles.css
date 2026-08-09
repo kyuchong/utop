@@ -1440,7 +1440,7 @@ table.tb td.k {
 .cy-stat.wip { --sc: var(--c-draft); }
 .cy-stat.blocked { --sc: #7c3aed; }
 .cy-stat.na { --sc: #b45309; }
-.cy-stat.none { --sc: #626d78; }
+.cy-stat.none { --sc: #4b555f; }
 
 /* ── ③ 좁혀 보기 줄 ────────────────────────────────────────── */
 .cy-filters {

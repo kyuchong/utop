@@ -877,6 +877,8 @@ function CycleDetail({
   const [editing, setEditing] = useState<CycleItemLite[] | null>(null)
   /** 회차를 놓고 보는 창 — AI 요약 · 메트릭스 */
   const [insight, setInsight] = useState<'ai' | 'metrics' | null>(null)
+  /** 제목 줄의 「⋯」 — 요약·보고서·내보내기 */
+  const [headMenu, setHeadMenu] = useState(false)
   /**
    * 표 줄 우클릭 메뉴.
    *
@@ -1143,6 +1145,80 @@ function CycleDetail({
             {[cycle.model, cycle.version].filter(Boolean).join(' · ')}
           </span>
         </span>
+        <span className="sp" />
+        {/* 어쩌다 한 번 쓰는 것들은 「⋯」 안에 둔다 — 늘 펴 두면 자주 쓰는
+            실행 단추가 그만큼 밀린다. */}
+        <div className="cy-hmenu">
+          <button
+            className="btn small"
+            type="button"
+            title="요약 · 보고서 · 내보내기"
+            aria-haspopup="menu"
+            aria-expanded={headMenu}
+            onClick={() => setHeadMenu((v) => !v)}
+          >
+            ⋯
+          </button>
+          {headMenu && (
+            <>
+              <div className="cy-hmenu-back" onClick={() => setHeadMenu(false)} />
+              <div className="cy-hmenu-pop" role="menu">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setHeadMenu(false)
+                    setInsight('ai')
+                  }}
+                >
+                  AI 요약
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setHeadMenu(false)
+                    goto('report', cycle.id)
+                  }}
+                >
+                  보고서
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setHeadMenu(false)
+                    setInsight('metrics')
+                  }}
+                >
+                  메트릭스
+                </button>
+                <hr />
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setHeadMenu(false)
+                    setReport(true)
+                  }}
+                >
+                  PPTX (고객사 결과서)
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={!items.length}
+                  onClick={() => {
+                    setHeadMenu(false)
+                    exportItems()
+                  }}
+                >
+                  Export (CSV)
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* 둘째 줄 — 보고·실행. 첫 줄(항목에 하는 일)과 성격이 달라 선으로 가른다 */}
@@ -1209,48 +1285,7 @@ function CycleDetail({
               </option>
             ))}
           </select>
-          <span className="rq-adiv" aria-hidden="true" />
-          <button
-            className="btn"
-            type="button"
-            title="이 회차의 결과를 글로 정리합니다"
-            onClick={() => setInsight('ai')}
-          >
-            AI 요약
-          </button>
-          <button
-            className="btn"
-            type="button"
-            title="지나간 실행을 시간순으로 보는 화면으로 갑니다"
-            onClick={() => goto('report', cycle.id)}
-          >
-            보고서
-          </button>
-          <button
-            className="btn"
-            type="button"
-            title="고객사 양식 슬라이드를 미리 보고 PPTX 로 내려받습니다"
-            onClick={() => setReport(true)}
-          >
-            PPTX
-          </button>
-          <button
-            className="btn"
-            type="button"
-            title="이 회차를 결과·담당자·유형으로 세어 봅니다"
-            onClick={() => setInsight('metrics')}
-          >
-            메트릭스
-          </button>
-          <button
-            className="btn"
-            type="button"
-            disabled={!items.length}
-            title={pick.size ? '고른 것만 내보냅니다' : '이 사이클 전체를 내보냅니다'}
-            onClick={exportItems}
-          >
-            Export
-          </button>
+
         </div>
       </div>
 
