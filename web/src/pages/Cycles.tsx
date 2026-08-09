@@ -1121,37 +1121,34 @@ function CycleDetail({
           >
             메트릭스
           </button>
+          <span className="rq-adiv" aria-hidden="true" />
+          {/* 실행 — 사이클에만 있는 일이라 맨 오른쪽에 따로 세운다 */}
+          {st.on ? (
+            <button className="btn danger" type="button" onClick={() => void stop()}>
+              <i className="cy-play">⏹</i> 멈추기
+            </button>
+          ) : (
+            <>
+              <button
+                className="btn primary"
+                type="button"
+                disabled={!pick.size || saving}
+                title={pick.size ? `고른 ${pick.size}건을 돌립니다` : '먼저 항목을 고르세요'}
+                onClick={() => startRun([...pick].sort((a, b) => a - b))}
+              >
+                <i className="cy-play">▶</i> 실행{pick.size ? ` (${pick.size})` : ''}
+              </button>
+              <button
+                className="btn"
+                type="button"
+                disabled={!items.length || saving}
+                onClick={() => startRun(items.map((_, i) => i))}
+              >
+                <i className="cy-play">▶</i> 전체 실행 ({items.length})
+              </button>
+            </>
+          )}
         </div>
-      </div>
-
-      {/* ③ 실행 바 — 사이클에만 있는 일이라 자기 줄을 준다. 공통 바에
-          섞으면 세 화면이 또 달라 보이고 단추가 넘쳐 높이가 어긋난다. */}
-      <div className="cy-runbar">
-        {st.on ? (
-          <button className="btn danger" type="button" onClick={() => void stop()}>
-            <i className="cy-play">⏹</i> 멈추기
-          </button>
-        ) : (
-          <>
-            <button
-              className="btn primary"
-              type="button"
-              disabled={!pick.size || saving}
-              title={pick.size ? `고른 ${pick.size}건을 돌립니다` : '먼저 항목을 고르세요'}
-              onClick={() => startRun([...pick].sort((a, b) => a - b))}
-            >
-              <i className="cy-play">▶</i> 실행{pick.size ? ` (${pick.size})` : ''}
-            </button>
-            <button
-              className="btn"
-              type="button"
-              disabled={!items.length || saving}
-              onClick={() => startRun(items.map((_, i) => i))}
-            >
-              <i className="cy-play">▶</i> 전체 실행 ({items.length})
-            </button>
-          </>
-        )}
       </div>
 
       {/* ③ 진행 요약 — 카운터·진행률은 「하는 일」 이 아니라 「지금 상태」 다.

@@ -1264,19 +1264,6 @@ table.tb td.k {
 .cy-sum .sp { margin-left: auto; }
 .cy-sum .cy-legend { margin: 0; }
 
-/* ③ 실행 바 — 사이클에만 있는 일. 옅은 바탕으로 「여기가 실행하는 자리」
-   임을 눈에 먼저 넣는다. 공통 액션 바(②)와 섞지 않는다. */
-.cy-runbar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  flex-wrap: wrap;
-  margin-top: 6px;
-  padding: 6px 8px;
-  border: 1px solid var(--c-border-soft);
-  border-radius: var(--radius-sm);
-  background: var(--page-tint, var(--c-surface-alt));
-}
 
 /* ── 1열(트리)과 2열(표)의 줄 높이를 같게 ────────────────────
    표 줄 안의 셀렉트·입력칸이 제 높이를 갖는 바람에 줄이 --row-h(26px)를
@@ -1322,7 +1309,6 @@ table.tb td.k {
    **줄어든다.** 그래서 액션 바가 제 높이를 못 받아 단추 위가 잘렸다.
    각 줄에 제 높이를 못박고, 사이에 선을 그어 무엇이 어느 묶음인지 가른다. */
 .cy-detail > .cy-head,
-.cy-detail > .cy-runbar,
 .cy-detail > .cy-sum,
 .cy-detail > .cy-bar {
   flex: none;
@@ -1351,17 +1337,17 @@ table.tb td.k {
 .cy-detail { padding: 0; }
 .cy-detail > .cy-head {
   min-height: 46px;
-  padding: 0 14px;
+  padding: 4px 14px;
   margin: 0;
   border-bottom: 1px solid var(--c-border);
 }
+/* 단추가 늘어 한 줄에 안 들어가면 접힌다 — 가로로 밀려 잘리지 않게 */
+.cy-detail > .cy-head .rq-actions { flex-wrap: wrap; row-gap: 4px; }
 /* 머리 아래 것들은 제 여백을 스스로 갖는다 */
-.cy-detail > .cy-runbar {
-  margin: 10px 14px 0;
-}
 .cy-detail > .cy-sum {
-  margin: 0 14px;
-  padding-top: 8px;
+  margin: 10px 14px 0;
+  padding-top: 0;
+  border-top: 0;
 }
 .cy-detail > .cy-bar {
   margin-left: 14px;
