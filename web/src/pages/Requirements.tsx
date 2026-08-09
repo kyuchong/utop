@@ -96,10 +96,10 @@ export default function Requirements() {
 
   // 패널 폭은 사람마다 선호가 다르다. 드래그로 맞추고 브라우저에 기억시킨다.
   const splitRef = useRef<HTMLDivElement>(null)
-  const [catW, setCatW] = useResizableWidth('utop.req.catW3', 230, 150, 460)
+  const [catW, setCatW] = useResizableWidth('utop.req.catW4', 186, 130, 460)
   /** Detail 가운데(형제 요구사항) 폭 — 제목이 길어 좁으면 다 못 읽는다 */
   const midRef = useRef<HTMLElement>(null)
-  const [midW, setMidW] = useResizableWidth('utop.req.midW', 320, 180, 620)
+  const [midW, setMidW] = useResizableWidth('utop.req.midW2', 430, 200, 760)
 
   /**
    * 폴더 트리를 폈나. 사이클·TC 화면과 같은 접기다.
