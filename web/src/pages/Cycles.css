@@ -1607,3 +1607,12 @@ table.tb td.k {
   cursor: pointer;
   padding: 2px 4px;
 }
+
+/* 결과 배지(select)를 눌러 펼친 목록은 흰 바탕이어야 한다.
+   배지 자체에 준 바탕색(연초록·연빨강…)이 option 까지 물들어 글자가 묻혔다. */
+.cy-v option,
+.sc-v option {
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-weight: 400;
+}
