@@ -55,6 +55,8 @@ interface Run {
 interface Item {
   tcid?: string
   name?: string | null
+  /** 사람이 손으로 정한 결과. 자동 실행이 다시 돌면 지운다 */
+  result?: string | null
   steps?: unknown[]
   executed_at?: string | null
   executed_by?: string | null
@@ -217,6 +219,10 @@ async function doRun(run: Run): Promise<void> {
     )
 
     it.steps = steps
+    // 사람이 손으로 정한 옛 결과를 지운다. 안 지우면 항목 판정에서 그 값이
+    // 스텝을 이겨서, 방금 세 스텝 다 Pass 인데도 목록엔 옛 Fail 이 남는다.
+    // 방금 돈 것이 최신이다 — 자동 실행이 손 결과를 덮는다.
+    it.result = ''
     it.executed_at = new Date().toISOString().slice(0, 19).replace('T', ' ')
     it.executed_by = run.started_by || '실행 서버'
     it.executed_auto = true

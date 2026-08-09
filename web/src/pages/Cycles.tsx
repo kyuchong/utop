@@ -972,7 +972,10 @@ function CycleDetail({
           // 결과 칸은 실행 전 값 그대로라 「스텝은 Pass 인데 항목은 미실행」
           // 으로 어긋난다. 다 끝나면 저장→새로고침으로 같은 값이 굳는다.
           const liveHere = st.on && st.itemAt === at && st.liveSteps.length > 0
-          const shown = liveHere ? ({ ...it, steps: st.liveSteps as CycleStep[] }) : it
+          // 도는 항목은 방금 받은 스텝이 판정한다. result(손으로 정한 값)를
+          // 비워서 옛 Fail 이 새 Pass 를 가리지 않게 — 실행기도 저장할 때
+          // 같은 이유로 result 를 지운다.
+          const shown = liveHere ? ({ ...it, steps: st.liveSteps as CycleStep[], result: '' }) : it
           const v = itemVerdict(shown)
           const steps = shown.steps ?? []
           const bad = steps.filter((s) => isFail(stepVerdict(s as TcStep))).length
