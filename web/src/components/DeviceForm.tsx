@@ -491,31 +491,40 @@ export default function DeviceForm({ editing, onClose }: Props) {
                 onChange={(e) => set('ip', e.target.value)}
               />
             </label>
-            <label className="fld">
-              <span>계정</span>
-              <input
-                list="user-list"
-                value={f.username ?? ''}
-                onChange={(e) => set('username', e.target.value)}
-              />
-              <DL id="user-list" items={rolesQ.data?.usernames} />
-            </label>
-            <label className="fld">
-              <span>비밀번호</span>
-              <input
-                type="password"
-                value={f.password ?? ''}
-                onChange={(e) => set('password', e.target.value)}
-              />
-            </label>
-            <label className="fld">
-              <span>enable</span>
-              <input
-                type="password"
-                value={f.enable_password ?? ''}
-                onChange={(e) => set('enable_password', e.target.value)}
-              />
-            </label>
+            {/* 계정·비밀번호·enable 은 **공용**이다. Telnet·SSH 가 대개 같은
+                것을 쓰므로 여기 한 번만 적고, 접속방식은 이걸 그대로 쓴다.
+                방식만 계정이 다를 때 그 줄에서 「계정 다름」 을 켠다.
+                계측기는 계정을 안 쓴다. */}
+            {!isMeterRole && (
+              <>
+                <label className="fld">
+                  <span>공용 계정</span>
+                  <input
+                    list="user-list"
+                    placeholder="admin"
+                    value={f.username ?? ''}
+                    onChange={(e) => set('username', e.target.value)}
+                  />
+                  <DL id="user-list" items={rolesQ.data?.usernames} />
+                </label>
+                <label className="fld">
+                  <span>공용 비밀번호</span>
+                  <input
+                    type="password"
+                    value={f.password ?? ''}
+                    onChange={(e) => set('password', e.target.value)}
+                  />
+                </label>
+                <label className="fld">
+                  <span>enable</span>
+                  <input
+                    type="password"
+                    value={f.enable_password ?? ''}
+                    onChange={(e) => set('enable_password', e.target.value)}
+                  />
+                </label>
+              </>
+            )}
           </div>
 
           {/* ── 접속 방식 ── */}
@@ -527,136 +536,100 @@ export default function DeviceForm({ editing, onClose }: Props) {
               </span>
             </div>
 
-            <div className="acc-list">
-              {/* 계측기에는 계측기용(N2X·STC)만, 스위치에는 스위치용
-                  (Telnet·SSH·Console·SNMP)만. 전에는 「켜져 있으면 역할이
-                  달라도 보여 준다」 였는데, 계측기에 SSH 가 잘못 켜져 저장된
-                  것이 계측기 편집에 SSH 로 떠서 헷갈렸다. 역할에 맞는 것만
-                  보이고, 안 맞게 켜진 것은 저장할 때 걸러낸다. */}
+            <div className="acc-tbl">
+              <div className="acc-tr acc-hd">
+                <span>사용</span>
+                <span>방식</span>
+                <span>포트 · 주소</span>
+                <span>기본</span>
+                <span>계정</span>
+                <span></span>
+              </div>
               {PROTOS.filter((p) => !!p.meter === isMeterRole).map((p) => {
                 const on = !!acc[p.v]
                 const a = acc[p.v] ?? ({ protocol: p.v } as DeviceAccess)
+                const ownAcct = !!a.username || !!a.password || !!a.enable_password
                 return (
-                  <div className={`acc-row${on ? ' on' : ''}`} key={p.v}>
-                    <label className="acc-name">
-                      <input
-                        type="checkbox"
-                        checked={on}
-                        onChange={(e) => toggleProto(p, e.target.checked)}
-                      />
+                  <div className={`acc-tr${on ? ' on' : ''}`} key={p.v}>
+                    <span className="acc-c-on">
+                      <input type="checkbox" checked={on} onChange={(e) => toggleProto(p, e.target.checked)} />
+                    </span>
+                    <span className="acc-c-name">
                       <b>{p.label}</b>
                       {a.last_status && (
                         <span className={`status ${a.last_status === 'ok' ? 'pass' : 'fail'}`}>
                           {a.last_status === 'ok' ? '연결됨' : '실패'}
                         </span>
                       )}
-                    </label>
-
-                    {on && (
-                      <div className="acc-fields">
-                        {p.ownHost && (
-                          <input
-                            className="acc-host"
-                            // 「콘솔서버 IP」 가 박혀 있어서 STC 를 켜면
-                            // 섀시 주소를 적으라는 말인지 알 수 없었다
-                            placeholder={p.hostLabel ?? '주소'}
-                            value={a.host ?? ''}
-                            onChange={(e) => setAccField(p.v, 'host', e.target.value)}
-                          />
-                        )}
-                        {/* N2X 는 붙을 TCP 포트가 없다 — Tcl 이 알아서 붙는다.
-                            빈 칸을 내놓으면 무엇을 적어야 하나 헤매게 된다. */}
-                        {p.port > 0 && (
-                          <input
-                            className="acc-port"
-                            type="number"
-                            placeholder={String(p.port)}
-                            value={a.port ?? p.port}
-                            onChange={(e) => setAccField(p.v, 'port', Number(e.target.value))}
-                          />
-                        )}
-                        {p.v === 'snmp' && (
-                          <input
-                            placeholder="community (public)"
-                            value={a.community ?? ''}
-                            onChange={(e) => setAccField(p.v, 'community', e.target.value)}
-                          />
-                        )}
-                        {p.cli && (
-                          <label className="acc-def" title="스텝이 방식을 안 적었을 때 쓰는 접속">
-                            <input
-                              type="radio"
-                              name="acc-default"
-                              checked={!!a.is_default}
-                              onChange={() =>
-                                setAcc((c) => {
-                                  const n: Record<string, DeviceAccess> = {}
-                                  for (const [k, v] of Object.entries(c))
-                                    n[k] = { ...v, is_default: k === p.v }
-                                  return n
-                                })
-                              }
-                            />
-                            기본
-                          </label>
-                        )}
-                        {/* 계정은 보통 telnet/ssh 가 같은 것을 쓴다. 위의 공용 계정을
-                            그대로 쓰고, 이 방식만 다를 때에만 펼쳐서 덮는다. */}
-                        {p.cli && (
-                          <label className="acc-def">
-                            <input
-                              type="checkbox"
-                              checked={!!a.username || !!a.password || !!a.enable_password}
-                              onChange={(e) => {
-                                if (e.target.checked) setAccField(p.v, 'username', ' ')
-                                else
-                                  setAcc((c) => ({
-                                    ...c,
-                                    [p.v]: {
-                                      ...(c[p.v] ?? { protocol: p.v }),
-                                      username: '',
-                                      password: '',
-                                      enable_password: '',
-                                    } as DeviceAccess,
-                                  }))
-                              }}
-                            />
-                            계정 다름
-                          </label>
-                        )}
-                        {p.cli && (!!a.username || !!a.password || !!a.enable_password) && (
-                          <>
-                            <input
-                              placeholder="계정"
-                              value={(a.username ?? '').trim()}
-                              onChange={(e) => setAccField(p.v, 'username', e.target.value)}
-                            />
-                            <input
-                              type="password"
-                              placeholder="비밀번호"
-                              value={a.password ?? ''}
-                              onChange={(e) => setAccField(p.v, 'password', e.target.value)}
-                            />
-                            <input
-                              type="password"
-                              placeholder="enable"
-                              value={a.enable_password ?? ''}
-                              onChange={(e) => setAccField(p.v, 'enable_password', e.target.value)}
-                            />
-                          </>
-                        )}
-                        <button
-                          className="btn small"
-                          type="button"
-                          disabled={busy}
+                    </span>
+                    <span className="acc-c-port">
+                      {on ? (
+                        <>
+                          {p.ownHost && (
+                            <input className="acc-host" placeholder={p.hostLabel ?? '주소'}
+                              value={a.host ?? ''} onChange={(e) => setAccField(p.v, 'host', e.target.value)} />
+                          )}
+                          {p.port > 0 && (
+                            <input className="acc-port" type="number" placeholder={String(p.port)}
+                              value={a.port ?? p.port} onChange={(e) => setAccField(p.v, 'port', Number(e.target.value))} />
+                          )}
+                          {p.v === 'snmp' && (
+                            <input className="acc-comm" placeholder="community (public)"
+                              value={a.community ?? ''} onChange={(e) => setAccField(p.v, 'community', e.target.value)} />
+                          )}
+                          {!p.ownHost && p.port === 0 && p.v !== 'snmp' && (
+                            <span className="muted small">{p.hint ?? '포트 없음'}</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="acc-off">—</span>
+                      )}
+                    </span>
+                    <span className="acc-c-def">
+                      {on && p.cli ? (
+                        <label title="스텝이 방식을 안 적었을 때 쓰는 접속">
+                          <input type="radio" name="acc-default" checked={!!a.is_default}
+                            onChange={() =>
+                              setAcc((c) => {
+                                const n: Record<string, DeviceAccess> = {}
+                                for (const [k, v] of Object.entries(c)) n[k] = { ...v, is_default: k === p.v }
+                                return n
+                              })
+                            } />
+                        </label>
+                      ) : null}
+                    </span>
+                    <span className="acc-c-acct">
+                      {on && p.cli ? (
+                        ownAcct ? (
+                          <span className="acc-acct-in">
+                            <input placeholder="계정" value={(a.username ?? '').trim()}
+                              onChange={(e) => setAccField(p.v, 'username', e.target.value)} />
+                            <input type="password" placeholder="비밀번호" value={a.password ?? ''}
+                              onChange={(e) => setAccField(p.v, 'password', e.target.value)} />
+                            <input type="password" placeholder="enable" value={a.enable_password ?? ''}
+                              onChange={(e) => setAccField(p.v, 'enable_password', e.target.value)} />
+                            <button type="button" className="acc-acct-x" title="공용 계정으로 되돌리기"
+                              onClick={() =>
+                                setAcc((c) => ({ ...c, [p.v]: { ...(c[p.v] ?? { protocol: p.v }),
+                                  username: '', password: '', enable_password: '' } as DeviceAccess }))
+                              }>공용으로</button>
+                          </span>
+                        ) : (
+                          <button type="button" className="acc-acct-diff"
+                            onClick={() => setAccField(p.v, 'username', ' ')}>공용 계정 · 다르게</button>
+                        )
+                      ) : null}
+                    </span>
+                    <span className="acc-c-btn">
+                      {on && (
+                        <button className="btn small" type="button" disabled={busy}
                           title="저장한 뒤 이 방식으로만 붙어 봅니다"
-                          onClick={() => checkM.mutate(p.v)}
-                        >
+                          onClick={() => checkM.mutate(p.v)}>
                           {probing === p.v ? '확인 중…' : '확인'}
                         </button>
-                        {p.hint && <span className="muted small">{p.hint}</span>}
-                      </div>
-                    )}
+                      )}
+                    </span>
                   </div>
                 )
               })}

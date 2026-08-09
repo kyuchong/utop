@@ -801,3 +801,68 @@
 /* 이번에 새로 가져온 줄 — 저장 전에 무엇이 바뀌는지 보이게 */
 .lk-row.added { background: #f2fbf5; }
 .lk-row.added:hover { background: #fdf4f4; }
+
+/* ── 접속 방식 표 ── 줄마다 칸이 흐르던 것을 격자로 정렬한다.
+   사용 · 방식 · 포트/주소 · 기본 · 계정 · 확인 */
+.acc-tbl {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.acc-tr {
+  display: grid;
+  grid-template-columns: 44px 132px minmax(180px, 1fr) 48px minmax(220px, 1.5fr) 72px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.acc-tr:last-child { border-bottom: 0; }
+.acc-tr.on { background: var(--c-surface-info); }
+.acc-hd {
+  background: var(--c-surface-2);
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.acc-c-on { display: flex; justify-content: center; }
+.acc-c-on input { width: auto; }
+.acc-c-name { display: flex; align-items: center; gap: 6px; }
+.acc-c-def { display: flex; justify-content: center; }
+.acc-c-def input { width: auto; }
+.acc-c-btn { display: flex; justify-content: flex-end; }
+.acc-off { color: var(--c-text-faint); }
+
+/* 포트/주소·계정 칸 안의 입력들 */
+.acc-c-port, .acc-c-acct { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.acc-c-port input, .acc-c-acct input {
+  width: auto;
+  padding: 4px 7px;
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+.acc-port { flex: 0 0 66px; }
+.acc-host { flex: 0 0 128px; }
+.acc-comm { flex: 1 1 auto; }
+.acc-acct-in { display: flex; gap: 5px; flex: 1 1 auto; min-width: 0; }
+.acc-acct-in input { flex: 1 1 0; }
+.acc-acct-diff, .acc-acct-x {
+  border: 1px dashed var(--c-border);
+  background: transparent;
+  color: var(--c-text-muted);
+  border-radius: var(--r-chip);
+  padding: 3px 8px;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.acc-acct-diff:hover, .acc-acct-x:hover { border-color: var(--c-primary); color: var(--c-primary); }
+.acc-acct-x { flex: none; }
+
+@media (max-width: 900px) {
+  /* 좁으면 표 대신 줄바꿈 허용 */
+  .acc-tr { grid-template-columns: 44px 1fr; }
+  .acc-hd { display: none; }
+  .acc-c-port, .acc-c-def, .acc-c-acct, .acc-c-btn { grid-column: 2; }
+}
