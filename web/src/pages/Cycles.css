@@ -202,6 +202,50 @@
 }
 .cy-head .sp { margin-left: auto; }
 
+/* 미실행 카운터와 진행률 사이 구분자 — 세로 짧은 줄 하나 */
+.cy-div {
+  width: 1px;
+  align-self: stretch;
+  min-height: 16px;
+  margin: 0 2px;
+  background: var(--c-border-strong, var(--c-border));
+}
+
+/* 상단 「⋯」 메뉴 — 항목 수정·선택 실행·전체 실행.
+   우클릭 메뉴(.cy-menu)와 이름이 겹치면 안 돼 hmenu 로 따로 둔다. */
+.cy-hmenu { position: relative; }
+.cy-hmenu-back {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+.cy-hmenu-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 41;
+  min-width: 160px;
+  padding: 4px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  display: flex;
+  flex-direction: column;
+}
+.cy-hmenu-pop button {
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--c-text);
+  font: inherit;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.cy-hmenu-pop button:hover:not(:disabled) { background: var(--c-surface-alt); }
+.cy-hmenu-pop button:disabled { color: var(--c-text-faint); cursor: default; }
+
 /* ── 항목 하나의 스텝·실행 내역 ──
    「부적합」 세 글자만 보고는 아무것도 못 한다. 어느 스텝이 왜 떨어졌는지
    보려고 TC 화면으로 건너가면 무엇을 보러 갔는지 잊는다. */

@@ -216,6 +216,11 @@ interface Node {
   count: number
   /** 사이클이 아직 없는 빈 폴더인가 */
   empty?: boolean
+  /** 폴더 종류 — 버전그룹만 사람이 만든 것이라 지울 수 있다 */
+  kind?: 'mgroup' | 'model' | 'vgroup'
+  /** 버전그룹 폴더가 매달린 모델·그룹 이름 (폴더를 지울 때 KV 에서 뺀다) */
+  model?: string
+  vgroup?: string
 }
 
 /** 보던 자리를 기억한다 — 화면 이름은 App 이, 그 안은 여기가 */
@@ -281,6 +286,9 @@ function build(
           key: `${mg}/${model}/${vg}`,
           label: vg,
           depth: 2,
+          kind: 'vgroup',
+          model,
+          vgroup: vg,
           count: list.length,
           empty: list.length === 0,
           children: list
@@ -300,6 +308,8 @@ function build(
         key: `${mg}/${model}`,
         label: model,
         depth: 1,
+        kind: 'model',
+        model,
         count: vNodes.reduce((a, n) => a + n.count, 0),
         children: vNodes,
       })
@@ -308,6 +318,7 @@ function build(
       key: mg,
       label: mg,
       depth: 0,
+      kind: 'mgroup',
       count: mNodes.reduce((a, n) => a + n.count, 0),
       children: mNodes,
     })
@@ -338,6 +349,8 @@ export default function Cycles() {
   const [making, setMaking] = useState(false)
   /** 우클릭 메뉴 — 어느 사이클 위에서, 화면 어디에 */
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null)
+  /** 폴더 우클릭 메뉴 — 폴더째 지우거나, 그 안 사이클을 한꺼번에 지운다 */
+  const [folderMenu, setFolderMenu] = useState<{ node: Node; x: number; y: number } | null>(null)
   /** 고칠 사이클 */
   const [editId, setEditId] = useState('')
   /** 말로 찾은 결과 — 만들기 창에 미리 채워 넣는다 */
@@ -445,6 +458,59 @@ export default function Cycles() {
       return n
     })
 
+  /** 이 폴더(가지) 아래 사이클 id 를 모두 모은다 — 한꺼번에 지우려고 */
+  const cycleIdsUnder = (n: Node): string[] =>
+    n.cycle ? [n.cycle.id] : n.children.flatMap(cycleIdsUnder)
+
+  /** 사이클 여러 개를 한꺼번에 지운다 */
+  const deleteCycles = async (ids: string[]): Promise<boolean> => {
+    let ok = true
+    for (const id of ids) {
+      try {
+        const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`, { method: 'DELETE' })
+        if (!r.ok) ok = false
+      } catch {
+        ok = false
+      }
+    }
+    if (sel && ids.includes(sel)) setSel('')
+    await listQ.refetch()
+    return ok
+  }
+
+  /** 폴더 아래 사이클을 모두 지운다(폴더 자체는 둔다) */
+  const deleteFolderCycles = async (n: Node) => {
+    const ids = cycleIdsUnder(n)
+    if (!ids.length) return
+    if (!window.confirm(`「${n.label}」 아래 사이클 ${ids.length}건을 지웁니다.\n각 회차의 실행 결과도 함께 사라집니다.`)) return
+    const ok = await deleteCycles(ids)
+    if (!ok) window.alert('일부를 지우지 못했습니다.')
+  }
+
+  /** 버전그룹 폴더를 지운다 — 그 안 사이클까지 함께, 그리고 폴더 목록에서도 뺀다 */
+  const deleteFolder = async (n: Node) => {
+    if (n.kind !== 'vgroup' || !n.model || !n.vgroup) return
+    const ids = cycleIdsUnder(n)
+    const msg = ids.length
+      ? `버전그룹 폴더 「${n.label}」 을 지웁니다.\n그 안 사이클 ${ids.length}건과 실행 결과도 함께 사라집니다.`
+      : `빈 버전그룹 폴더 「${n.label}」 을 지웁니다.`
+    if (!window.confirm(msg)) return
+    if (ids.length) await deleteCycles(ids)
+    // 폴더 목록(KV)에서도 이 버전그룹을 뺀다 — 안 그러면 빈 폴더로 되살아난다
+    try {
+      const cur = (vgQ.data?.groups ?? {}) as Record<string, string[]>
+      const next: Record<string, string[]> = { ...cur }
+      next[n.model] = (next[n.model] ?? []).filter((g) => g !== n.vgroup)
+      await apiFetch('/api/cycle-version-groups', {
+        method: 'POST',
+        body: JSON.stringify({ groups: next }),
+      })
+      await vgQ.refetch()
+    } catch {
+      window.alert('폴더 목록을 갱신하지 못했습니다.')
+    }
+  }
+
   const renderNode = (n: Node): React.ReactNode => {
     const isOpen = open.has(n.key) || !!q.trim()
     const leaf = n.children.length === 0
@@ -464,10 +530,14 @@ export default function Cycles() {
             }
           }}
           onContextMenu={(e) => {
-            if (!n.cycle) return
             e.preventDefault()
-            setSel(n.cycle.id)
-            setMenu({ id: n.cycle.id, x: e.clientX, y: e.clientY })
+            if (n.cycle) {
+              setSel(n.cycle.id)
+              setMenu({ id: n.cycle.id, x: e.clientX, y: e.clientY })
+            } else {
+              // 폴더 — 폴더째 지우거나 그 안 사이클을 한꺼번에 지운다
+              setFolderMenu({ node: n, x: e.clientX, y: e.clientY })
+            }
           }}
         >
           <span className={`rt-caret${isOpen ? ' open' : ''}`}>
@@ -577,6 +647,23 @@ export default function Cycles() {
         />
       )}
 
+      {folderMenu && (
+        <FolderMenu
+          at={folderMenu}
+          onClose={() => setFolderMenu(null)}
+          onDeleteCycles={() => {
+            const n = folderMenu.node
+            setFolderMenu(null)
+            void deleteFolderCycles(n)
+          }}
+          onDeleteFolder={() => {
+            const n = folderMenu.node
+            setFolderMenu(null)
+            void deleteFolder(n)
+          }}
+        />
+      )}
+
       {/* 만들기와 고치기가 같은 창이다. 다르게 만들면 「만들 때는 되는데
           고칠 때는 안 되는 것」 이 반드시 생긴다. */}
       {(making || editId) && (
@@ -658,6 +745,18 @@ function CycleDetail({
    * 실행을 걸면 켜지고, 도는 중에 다른 항목을 누르면 꺼진다.
    */
   const [follow, setFollow] = useState(true)
+
+  /**
+   * 실행을 건다. 여기서 돌리지 않는다 — 줄에 걸어 놓고 손을 뗀다.
+   * 창을 닫아도 실행 서버가 계속 돌린다.
+   */
+  const startRun = (idxs: number[]) => {
+    setFollow(true)
+    void run(idxs).then((err) => {
+      if (err) window.alert(err)
+    })
+  }
+
   /** 3열(스텝 세부) 폭 — 끌어서 바꾼다 */
   const colsRef = useRef<HTMLDivElement>(null)
   const [sideW, setSideW] = useResizableWidth('utop.cycle.sideW', 520, 280, 1200)
@@ -682,6 +781,8 @@ function CycleDetail({
   /** 항목 추가 창 */
   const [adding, setAdding] = useState(false)
   const [saving, setSaving] = useState(false)
+  /** 상단 「⋯」 메뉴 (항목 수정·선택 실행·전체 실행) */
+  const [headMenu, setHeadMenu] = useState(false)
 
   /**
    * 항목을 넣고 뺀다.
@@ -794,8 +895,7 @@ function CycleDetail({
         <span className="muted small">
           {items.length}건{cycle.assignee ? ` · 담당 ${cycle.assignee}` : ''}
         </span>
-        {/* 결과 카운터를 바 가운데로 민다. 앞뒤로 스페이서를 하나씩 두면
-            제목은 왼쪽, 카운터는 가운데, 진행률·단추는 오른쪽에 놓인다. */}
+        {/* 제목만 왼쪽에 남기고, 카운터부터는 오른쪽으로 몰아 놓는다. */}
         <span className="sp" />
         {/* 결과 카운터 — 누르면 그 결과만 걸러 본다. */}
         <div className="cy-legend">
@@ -819,14 +919,15 @@ function CycleDetail({
             </button>
           ))}
         </div>
-        <span className="sp" />
+        {/* 미실행 바로 오른쪽에 구분자 하나 두고 진행률 */}
+        <span className="cy-div" aria-hidden="true" />
         <b className="cy-pct">
           {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
         </b>
         {/* 결과서는 보고서 화면을 거치지 않는다 — 「버전명 기준으로 사이클이
             끝나면」 이라는 말 그대로 이 회차에서 바로 뽑는다 */}
-        <button className="btn small" type="button" onClick={() => setAdding(true)}>
-          + 항목
+        <button className="btn small" type="button" onClick={() => setReport(true)}>
+          고객사 결과서
         </button>
         {pick.size > 1 && (
           <span className="lh-picked">
@@ -852,31 +953,64 @@ function CycleDetail({
             {pick.size}건 빼기
           </button>
         )}
-        <button className="btn small" type="button" onClick={() => setReport(true)}>
-          고객사 결과서
-        </button>
         {st.on ? (
           <button className="btn small danger" type="button" onClick={() => void stop()}>
             ⏹ 멈추기
           </button>
         ) : (
-          <button
-            className="btn primary small"
-            type="button"
-            disabled={!items.length}
-            onClick={() => {
-              // 여기서 돌리지 않는다. 줄에 걸어 놓고 손을 뗀다 — 창을
-              // 닫아도 실행 서버가 계속 돌린다.
-              setFollow(true)
-              void run(pick.size ? [...pick].sort((a, b) => a - b) : items.map((_, i) => i)).then(
-                (err) => {
-                  if (err) window.alert(err)
-                },
-              )
-            }}
-          >
-            ▶ {pick.size ? `고른 ${pick.size}건` : '전체'} 실행
-          </button>
+          // 항목 수정·선택 실행·전체 실행을 「⋯」 하나로 모은다.
+          <div className="cy-hmenu">
+            <button
+              className="btn small"
+              type="button"
+              title="항목 수정 · 선택 실행 · 전체 실행"
+              aria-haspopup="menu"
+              aria-expanded={headMenu}
+              onClick={() => setHeadMenu((v) => !v)}
+            >
+              ⋯
+            </button>
+            {headMenu && (
+              <>
+                <div className="cy-hmenu-back" onClick={() => setHeadMenu(false)} />
+                <div className="cy-hmenu-pop" role="menu">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setHeadMenu(false)
+                      setAdding(true)
+                    }}
+                  >
+                    항목 수정
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!pick.size || saving}
+                    title={pick.size ? '' : '먼저 항목을 고르세요'}
+                    onClick={() => {
+                      setHeadMenu(false)
+                      startRun([...pick].sort((a, b) => a - b))
+                    }}
+                  >
+                    선택 실행{pick.size ? ` (${pick.size})` : ''}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={!items.length || saving}
+                    onClick={() => {
+                      setHeadMenu(false)
+                      startRun(items.map((_, i) => i))
+                    }}
+                  >
+                    전체 실행 ({items.length})
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
 
@@ -1222,6 +1356,70 @@ function CycleMenu({
       {item('버전 이름만 바꾸기', () => void rename())}
       <hr />
       {item('지우기', () => void del())}
+    </div>
+  )
+}
+
+/**
+ * 폴더 우클릭 메뉴.
+ *
+ * 사이클 하나가 아니라 **폴더째** 손보는 자리. 그 안 사이클(버전)을 한꺼번에
+ * 지우거나, 사람이 만든 버전그룹 폴더 자체를 지운다. 카탈로그가 주인인
+ * 모델·모델그룹 폴더는 지울 수 없다 — 장비 목록에서 오는 것이라서다.
+ */
+function FolderMenu({
+  at,
+  onClose,
+  onDeleteCycles,
+  onDeleteFolder,
+}: {
+  at: { node: Node; x: number; y: number }
+  onClose: () => void
+  onDeleteCycles: () => void
+  onDeleteFolder: () => void
+}) {
+  useEffect(() => {
+    const away = () => onClose()
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    const timer = setTimeout(() => {
+      window.addEventListener('mousedown', away)
+      window.addEventListener('contextmenu', away)
+    }, 0)
+    window.addEventListener('keydown', esc)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('mousedown', away)
+      window.removeEventListener('contextmenu', away)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [onClose])
+
+  const n = at.node
+  const isVGroup = n.kind === 'vgroup'
+  return (
+    <div
+      className="cy-menu"
+      style={{ left: at.x, top: at.y }}
+      onMouseDown={(e) => e.stopPropagation()}
+      onContextMenu={(e) => e.preventDefault()}
+    >
+      {n.count > 0 ? (
+        <button type="button" onClick={onDeleteCycles}>
+          이 폴더의 사이클 {n.count}건 지우기
+        </button>
+      ) : (
+        <button type="button" disabled>
+          지울 사이클이 없습니다
+        </button>
+      )}
+      {isVGroup && (
+        <>
+          <hr />
+          <button type="button" onClick={onDeleteFolder}>
+            버전그룹 폴더 지우기{n.count ? ` (사이클 ${n.count}건 포함)` : ''}
+          </button>
+        </>
+      )}
     </div>
   )
 }
