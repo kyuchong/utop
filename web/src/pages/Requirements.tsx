@@ -4,7 +4,7 @@ import { api, apiFetch, categoryApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
 import ReqTree from '@/components/ReqTree'
 import { useMultiSelect } from '@/components/useMultiSelect'
-import { IconPanel, IconTcDoc } from '@/components/icons'
+import { IconPanel, IconReqDoc, IconTcDoc } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import ReqBulkForm from '@/components/ReqBulkForm'
 import ReqMapDialog from '@/components/ReqMapDialog'
@@ -686,6 +686,9 @@ export default function Requirements() {
                     }}
                   >
                     <span className="rq-mid-id">{reqLabel(r) || '–'}</span>
+                    <span className="rq-icon" aria-hidden="true">
+                      <IconReqDoc />
+                    </span>
                     <span className="rq-mid-t">{r.title || '(제목 없음)'}</span>
                   </button>
                 )
@@ -860,6 +863,9 @@ export default function Requirements() {
                         <div className="rq-name">
                           {/* 폴더는 그대로 둔다 — Detail 의 가운데 목록이
                               이 폴더의 형제들을 보여 줘야 하니까. */}
+                          <span className="rq-icon" aria-hidden="true">
+                            <IconReqDoc />
+                          </span>
                           <button
                             type="button"
                             className="linkish"

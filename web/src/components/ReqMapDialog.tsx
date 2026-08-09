@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, categoryApi, tcApi } from '@/api/client'
-import { IconChevron, IconFolder } from '@/components/icons'
+import { IconChevron, IconFolder, IconReqDoc } from '@/components/icons'
 import {
   buildCategoryTree,
   reqLabel,
@@ -269,6 +269,9 @@ export default function ReqMapDialog({ req, onClose }: Props) {
                       onClick={() => setCurPk(pk)}
                     >
                       <span className="rmd-rid">{reqLabel(r) || '–'}</span>
+                      <span className="rmd-icon" aria-hidden="true">
+                        <IconReqDoc />
+                      </span>
                       <span className="rmd-rt">{r.title || '(제목 없음)'}</span>
                       <span className={`rmd-rn${n ? ' has' : ''}`}>{n || ''}</span>
                     </button>

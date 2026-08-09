@@ -203,3 +203,6 @@
 .rmd-diff { display: inline-flex; gap: 10px; font-size: var(--fs-sm); }
 .rmd-diff .add { color: var(--c-pass, #1f7a45); }
 .rmd-diff .drop { color: var(--c-fail, #c0392b); }
+
+/* 요구사항 제목 앞 아이콘 — 목록 화면과 같은 것 */
+.rmd-icon { flex: none; display: inline-flex; align-items: center; line-height: 1; }

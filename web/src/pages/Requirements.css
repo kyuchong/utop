@@ -745,3 +745,14 @@
   min-height: 34px;
 }
 .rq-bar .sp { margin-left: auto; }
+
+/* 요구사항 제목 앞 아이콘 — 폴더(노란 폴더)와 갈리게 */
+.rq-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  margin-right: 5px;
+  vertical-align: -3px;
+}
+.rq-mid-row .rq-icon { margin-right: 0; }
