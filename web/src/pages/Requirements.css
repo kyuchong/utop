@@ -642,9 +642,11 @@
 }
 .rq-mid-list { flex: 1; min-height: 0; overflow: auto; }
 .rq-mid-row {
+  /* ID 와 제목을 한 줄에. 위아래로 쌓으면 줄 높이가 두 배가 되어 한 화면에
+     들어오는 건수가 반으로 준다 — 옆 것으로 넘어가려고 두는 목록인데. */
   display: flex;
-  flex-direction: column;
-  gap: 1px;
+  align-items: baseline;
+  gap: 8px;
   width: 100%;
   text-align: left;
   border: 0;
@@ -658,11 +660,15 @@
 .rq-mid-row.on { background: var(--c-primary-bg); }
 .rq-mid-row.on .rq-mid-t { color: var(--c-primary); font-weight: 700; }
 .rq-mid-id {
+  flex: none;
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
   font-family: var(--font-mono);
+  white-space: nowrap;
 }
 .rq-mid-t {
+  flex: 1;
+  min-width: 0;
   font-size: var(--fs-sm);
   color: var(--c-text);
   overflow: hidden;
