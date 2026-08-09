@@ -1130,6 +1130,33 @@ function CycleDetail({
           </span>
         </span>
         <div className="rq-actions">
+          {/* 실행이 먼저다 — 이 화면에서 가장 자주 누른다 */}
+          {st.on ? (
+            <button className="btn danger" type="button" onClick={() => void stop()}>
+              <i className="cy-play">⏹</i> 멈추기
+            </button>
+          ) : (
+            <>
+              <button
+                className="btn primary"
+                type="button"
+                disabled={!pick.size || saving}
+                title={pick.size ? `고른 ${pick.size}건을 돌립니다` : '먼저 항목을 고르세요'}
+                onClick={() => startRun([...pick].sort((a, b) => a - b))}
+              >
+                <i className="cy-play">▶</i> 실행{pick.size ? ` (${pick.size})` : ''}
+              </button>
+              <button
+                className="btn"
+                type="button"
+                disabled={!items.length || saving}
+                onClick={() => startRun(items.map((_, i) => i))}
+              >
+                <i className="cy-play">▶</i> 전체 실행 ({items.length})
+              </button>
+            </>
+          )}
+          <span className="rq-adiv" aria-hidden="true" />
           <button
             className="btn danger"
             type="button"
@@ -1143,15 +1170,6 @@ function CycleDetail({
             }}
           >
             Delete{pick.size ? ` (${pick.size})` : ''}
-          </button>
-          <button
-            className="btn"
-            type="button"
-            disabled={!items.length}
-            title={pick.size ? '고른 것만 내보냅니다' : '이 사이클 전체를 내보냅니다'}
-            onClick={exportItems}
-          >
-            Export
           </button>
           {/* 결과만 빠르게 바꿀 때 — 담당자·메모까지 함께면 Bulk Edit 로 */}
           <select
@@ -1211,34 +1229,16 @@ function CycleDetail({
           >
             메트릭스
           </button>
+          <button
+            className="btn"
+            type="button"
+            disabled={!items.length}
+            title={pick.size ? '고른 것만 내보냅니다' : '이 사이클 전체를 내보냅니다'}
+            onClick={exportItems}
+          >
+            Export
+          </button>
           <span className="rq-adiv" aria-hidden="true" />
-          <span className="rq-adiv" aria-hidden="true" />
-          {/* 실행 — 사이클에만 있는 일이라 맨 오른쪽에 따로 세운다 */}
-          {st.on ? (
-            <button className="btn danger" type="button" onClick={() => void stop()}>
-              <i className="cy-play">⏹</i> 멈추기
-            </button>
-          ) : (
-            <>
-              <button
-                className="btn primary"
-                type="button"
-                disabled={!pick.size || saving}
-                title={pick.size ? `고른 ${pick.size}건을 돌립니다` : '먼저 항목을 고르세요'}
-                onClick={() => startRun([...pick].sort((a, b) => a - b))}
-              >
-                <i className="cy-play">▶</i> 실행{pick.size ? ` (${pick.size})` : ''}
-              </button>
-              <button
-                className="btn"
-                type="button"
-                disabled={!items.length || saving}
-                onClick={() => startRun(items.map((_, i) => i))}
-              >
-                <i className="cy-play">▶</i> 전체 실행 ({items.length})
-              </button>
-            </>
-          )}
         </div>
       </div>
 
