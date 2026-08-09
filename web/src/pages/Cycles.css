@@ -1145,7 +1145,7 @@ table.tb td.k {
 .cy-pct { color: var(--c-primary); font-size: var(--fs-sm); }
 
 /* 제목 줄로 올라온 범례 — 버전명·N건 오른쪽. 칩은 작게 */
-.cy-head .cy-legend { margin: 0; padding: 0; border: 0; background: transparent; }
+.cy-head .cy-legend { margin: 0; padding: 0; border: 0; background: transparent; flex-wrap: nowrap; }
 
 /* 결과 배지 — 글자색만이던 것을 바탕색 배지로. 한눈에 갈린다.
    select 이지만 배경·색을 줘서 배지처럼 보인다 */
@@ -1309,7 +1309,6 @@ table.tb td.k {
    **줄어든다.** 그래서 액션 바가 제 높이를 못 받아 단추 위가 잘렸다.
    각 줄에 제 높이를 못박고, 사이에 선을 그어 무엇이 어느 묶음인지 가른다. */
 .cy-detail > .cy-head,
-.cy-detail > .cy-sum,
 .cy-detail > .cy-bar {
   flex: none;
 }
@@ -1317,10 +1316,6 @@ table.tb td.k {
   padding-bottom: 8px;
   border-bottom: 1px solid var(--c-border-soft);
   margin-bottom: 8px;
-}
-.cy-detail > .cy-sum {
-  padding-top: 8px;
-  border-top: 1px solid var(--c-border-soft);
 }
 
 /* 담당자·실행자 — 이름이 길면 자른다. 전체는 마우스를 올리면 나온다 */
@@ -1344,14 +1339,8 @@ table.tb td.k {
 /* 단추가 늘어 한 줄에 안 들어가면 접힌다 — 가로로 밀려 잘리지 않게 */
 .cy-detail > .cy-head .rq-actions { flex-wrap: wrap; row-gap: 4px; }
 /* 머리 아래 것들은 제 여백을 스스로 갖는다 */
-.cy-detail > .cy-sum {
-  margin: 10px 14px 0;
-  padding-top: 0;
-  border-top: 0;
-}
 .cy-detail > .cy-bar {
-  margin-left: 14px;
-  margin-right: 14px;
+  margin: 10px 14px 0;
 }
 .cy-detail > .cy-cols {
   padding: 0 14px 12px;

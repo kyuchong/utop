@@ -1122,6 +1122,36 @@ function CycleDetail({
             메트릭스
           </button>
           <span className="rq-adiv" aria-hidden="true" />
+          {/* 지금 상태 — 결과 카운터와 진행률. 줄을 따로 두었더니 표가 그만큼
+              좁아져서 이 줄에 함께 놓는다. 누르면 그 결과만 걸러 본다. */}
+        {/* 결과 카운터 — 누르면 그 결과만 걸러 본다. */}
+        <div className="cy-legend">
+          <button
+            type="button"
+            className={`cy-leg${only === null ? ' on' : ''}`}
+            title="전부 보기"
+            onClick={() => setOnly(null)}
+          >
+            <b>{items.length}</b> 전체
+          </button>
+          {RESULTS.map((r) => (
+            <button
+              key={r.v}
+              type="button"
+              className={`cy-leg ${r.cls}${only === r.v ? ' on' : ''}`}
+              title={only === r.v ? '전부 보기' : `${r.label} 만 보기`}
+              onClick={() => setOnly(only === r.v ? null : r.v)}
+            >
+              <b>{counts[r.v] ?? 0}</b> {r.label}
+            </button>
+          ))}
+        </div>
+        {/* 미실행 바로 오른쪽에 구분자 하나 두고 진행률 */}
+        <span className="cy-div" aria-hidden="true" />
+        <b className="cy-pct">
+          {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
+        </b>
+          <span className="rq-adiv" aria-hidden="true" />
           {/* 실행 — 사이클에만 있는 일이라 맨 오른쪽에 따로 세운다 */}
           {st.on ? (
             <button className="btn danger" type="button" onClick={() => void stop()}>
@@ -1151,37 +1181,6 @@ function CycleDetail({
         </div>
       </div>
 
-      {/* ③ 진행 요약 — 카운터·진행률은 「하는 일」 이 아니라 「지금 상태」 다.
-          실행 바와 한 줄에 섞으면 글자 크기가 달라 높이가 어긋난다. */}
-      <div className="cy-sum">
-        {/* 결과 카운터 — 누르면 그 결과만 걸러 본다. */}
-        <div className="cy-legend">
-          <button
-            type="button"
-            className={`cy-leg${only === null ? ' on' : ''}`}
-            title="전부 보기"
-            onClick={() => setOnly(null)}
-          >
-            <b>{items.length}</b> 전체
-          </button>
-          {RESULTS.map((r) => (
-            <button
-              key={r.v}
-              type="button"
-              className={`cy-leg ${r.cls}${only === r.v ? ' on' : ''}`}
-              title={only === r.v ? '전부 보기' : `${r.label} 만 보기`}
-              onClick={() => setOnly(only === r.v ? null : r.v)}
-            >
-              <b>{counts[r.v] ?? 0}</b> {r.label}
-            </button>
-          ))}
-        </div>
-        {/* 미실행 바로 오른쪽에 구분자 하나 두고 진행률 */}
-        <span className="cy-div" aria-hidden="true" />
-        <b className="cy-pct">
-          {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
-        </b>
-      </div>
 
       {insight && (
         <CycleInsight
