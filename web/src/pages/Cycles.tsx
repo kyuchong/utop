@@ -875,12 +875,8 @@ function CycleDetail({
         </div>
       )}
 
-      {/* 한 줄로 지금 어디까지 왔나. 숫자만 늘어놓으면 눈으로 못 센다 */}
-      <div className="cy-bar" aria-hidden="true">
-        {RESULTS.map((r) => (
-          <span key={r.v} className={r.cls} style={{ flexGrow: counts[r.v] ?? 0 }} />
-        ))}
-      </div>
+      {/* 카운터·진행률을 막대 **위** 한 줄로. 전에는 막대 아래에 흩어져
+          있어 「지금 몇 % 인가」 를 위아래로 훑어야 했다. */}
       <div className="cy-legend">
         {/* 「전체」 가 없었다. 하나를 누르면 그것만 남는데, 되돌리려면 같은
             것을 다시 눌러야 한다는 걸 알 수가 없었다. */}
@@ -906,9 +902,15 @@ function CycleDetail({
           </button>
         ))}
         <span className="sp" />
-        <span className="muted small">
+        <b className="cy-pct">
           {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
-        </span>
+        </b>
+      </div>
+      {/* 한 줄로 지금 어디까지 왔나. 숫자만 늘어놓으면 눈으로 못 센다 */}
+      <div className="cy-bar" aria-hidden="true">
+        {RESULTS.map((r) => (
+          <span key={r.v} className={r.cls} style={{ flexGrow: counts[r.v] ?? 0 }} />
+        ))}
       </div>
 
       <div className="cy-cols" ref={colsRef}>

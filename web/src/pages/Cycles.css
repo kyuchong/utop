@@ -1071,3 +1071,6 @@ table.tb td.k {
   border: 1px solid var(--c-border);
   border-radius: var(--r-box);
 }
+
+/* 진행률 — 카운터 줄 오른쪽 끝. 흐릿한 회색이던 것을 또렷하게 */
+.cy-pct { color: var(--c-primary); font-size: var(--fs-sm); }
