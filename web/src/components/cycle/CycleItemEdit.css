@@ -1,0 +1,43 @@
+/* 사이클 항목 고치기 — 한 건이든 여럿이든 같은 창 */
+.modal.cie { max-width: 520px; }
+.cie-body { gap: var(--sp-3); }
+.cie-hint { margin: 0; }
+
+.cie-fld {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cie-fld > input[type='checkbox'] { margin: 0; flex: none; }
+.cie-lb {
+  flex: none;
+  width: 62px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-faint);
+}
+.cie-fld.on .cie-lb { color: var(--c-text); }
+.cie-fld > input:not([type='checkbox']),
+.cie-fld > select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+}
+.cie-fld > input:disabled,
+.cie-fld > select:disabled {
+  background: var(--c-surface-alt);
+  color: var(--c-text-faint);
+}
+
+.cie-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
+  border-top: 1px solid var(--c-border);
+}
+.cie-foot .sp { margin-left: auto; }

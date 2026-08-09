@@ -7,6 +7,7 @@ import { goto } from '@/api/goto'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
+import CycleItemEdit from '@/components/cycle/CycleItemEdit'
 import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import { useMultiSelect } from '@/components/useMultiSelect'
@@ -857,6 +858,8 @@ function CycleDetail({
   }
   /** 항목 추가 창 */
   const [adding, setAdding] = useState(false)
+  /** 고치는 항목들 — 한 건이면 Edit, 여럿이면 Bulk Edit (같은 창) */
+  const [editing, setEditing] = useState<CycleItemLite[] | null>(null)
   const [saving, setSaving] = useState(false)
 
   /**
@@ -868,6 +871,37 @@ function CycleDetail({
   /** 항목 결과를 손으로 정한다 */
   const setResult = (tcid: string, result: string) =>
     saveItems((cur) => cur.map((x) => (x.tcid === tcid ? { ...x, result } : x)))
+
+  /**
+   * 고른 항목(없으면 전체)을 CSV 로 — 요구사항·시험항목의 Export 와 같다.
+   * 결과서(고객사용 슬라이드)와는 쓰임이 다르다. 이쪽은 자료다.
+   */
+  const exportItems = () => {
+    const rows = pick.size ? [...pick].map((i) => items[i]!).filter(Boolean) : items
+    if (!rows.length) return
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const csv = [
+      ['TC ID', '시험', '결과', '담당', '메모', '실행'].map(esc).join(','),
+      ...rows.map((it) =>
+        [
+          it.tcid,
+          it.name ?? '',
+          verdictLabel(itemVerdict(it)),
+          it.assignee || it.executed_by || '',
+          it.note ?? '',
+          it.executed_at ?? '',
+        ]
+          .map(esc)
+          .join(','),
+      ),
+    ].join('\r\n')
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `사이클_${[cycle.model, cycle.version].filter(Boolean).join('_') || cycle.id}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
 
   /** 이 회차의 메모 한 줄 */
   const setNote = (tcid: string, note: string) =>
@@ -980,41 +1014,39 @@ function CycleDetail({
 
   return (
     <div className="cy-detail">
+      {/* ② 공통 액션 바 — 요구사항·시험항목과 **같은 차례**.
+          Edit·Bulk Edit | Add·Delete·Export. 세 화면을 오가는 사람이 매번
+          어디에 무엇이 있는지 다시 찾지 않게. */}
       <div className="cy-head">
-        {/* 제목은 위 빵부스러기에 있다. 이 줄은 요구사항·TC 화면과 같이
-            **하는 일**을 왼쪽에 늘어놓는 자리다. */}
         <div className="rq-actions">
-          {st.on ? (
-            <button className="btn danger" type="button" onClick={() => void stop()}>
-              ⏹ 멈추기
-            </button>
-          ) : (
-            <>
-              <button
-                className="btn primary"
-                type="button"
-                disabled={!pick.size || saving}
-                title={pick.size ? `고른 ${pick.size}건을 돌립니다` : '먼저 항목을 고르세요'}
-                onClick={() => startRun([...pick].sort((a, b) => a - b))}
-              >
-                ▶ 선택 실행{pick.size ? ` (${pick.size})` : ''}
-              </button>
-              <button
-                className="btn"
-                type="button"
-                disabled={!items.length || saving}
-                onClick={() => startRun(items.map((_, i) => i))}
-              >
-                ▶ 전체 실행 ({items.length})
-              </button>
-            </>
-          )}
-          <span className="rq-adiv" aria-hidden="true" />
-          <button className="btn" type="button" onClick={() => setAdding(true)}>
-            항목 수정
+          <button
+            className="btn small"
+            type="button"
+            disabled={pick.size !== 1}
+            title={pick.size === 1 ? '고른 항목을 고칩니다' : '한 건만 골랐을 때 켜집니다'}
+            onClick={() => setEditing([...pick].map((i) => items[i]!).filter(Boolean))}
+          >
+            Edit
           </button>
           <button
-            className="btn danger"
+            className="btn small"
+            type="button"
+            disabled={pick.size < 2}
+            title={
+              pick.size >= 2
+                ? `고른 ${pick.size}건의 결과·담당자·메모를 한꺼번에 고칩니다`
+                : '둘 이상 골랐을 때 켜집니다'
+            }
+            onClick={() => setEditing([...pick].map((i) => items[i]!).filter(Boolean))}
+          >
+            Bulk Edit
+          </button>
+          <span className="rq-adiv" aria-hidden="true" />
+          <button className="btn small" type="button" onClick={() => setAdding(true)}>
+            Add
+          </button>
+          <button
+            className="btn small danger"
             type="button"
             disabled={!pick.size || saving || st.on}
             onClick={() => {
@@ -1025,13 +1057,78 @@ function CycleDetail({
               void saveItems((cur) => cur.filter((x) => !ids.has(x.tcid))).then(sel.clear)
             }}
           >
-            빼기{pick.size ? ` (${pick.size})` : ''}
+            Delete{pick.size ? ` (${pick.size})` : ''}
           </button>
-          <button className="btn" type="button" onClick={() => setReport(true)}>
-            고객사 결과서
+          <button
+            className="btn small"
+            type="button"
+            disabled={!items.length}
+            title={pick.size ? '고른 것만 내보냅니다' : '이 사이클 전체를 내보냅니다'}
+            onClick={exportItems}
+          >
+            Export
           </button>
         </div>
-        <span className="sp" />
+      </div>
+
+      {/* ③ 실행 바 — 사이클에만 있는 일이라 자기 줄을 준다. 공통 바에
+          섞으면 세 화면이 또 달라 보이고 단추가 넘쳐 높이가 어긋난다. */}
+      <div className="cy-runbar">
+        {st.on ? (
+          <button className="btn small danger" type="button" onClick={() => void stop()}>
+            <i className="cy-play">⏹</i> 멈추기
+          </button>
+        ) : (
+          <>
+            <button
+              className="btn primary small"
+              type="button"
+              disabled={!pick.size || saving}
+              title={pick.size ? `고른 ${pick.size}건을 돌립니다` : '먼저 항목을 고르세요'}
+              onClick={() => startRun([...pick].sort((a, b) => a - b))}
+            >
+              <i className="cy-play">▶</i> 실행{pick.size ? ` (${pick.size})` : ''}
+            </button>
+            <button
+              className="btn small"
+              type="button"
+              disabled={!items.length || saving}
+              onClick={() => startRun(items.map((_, i) => i))}
+            >
+              <i className="cy-play">▶</i> 전체 실행 ({items.length})
+            </button>
+          </>
+        )}
+        <span className="rq-adiv" aria-hidden="true" />
+        {/* 결과만 빠르게 바꿀 때 — 담당자·메모까지 함께면 Bulk Edit 로 */}
+        <select
+          className="cy-bulk"
+          value=""
+          disabled={!pick.size || saving}
+          title={pick.size ? `고른 ${pick.size}건의 결과를 한꺼번에 바꿉니다` : '먼저 항목을 고르세요'}
+          onChange={(e) => {
+            const v = e.target.value
+            if (!v) return
+            void setResultMany(v === '미실행' ? '미실행' : v)
+            e.target.value = ''
+          }}
+        >
+          <option value="">결과 일괄 변경…</option>
+          {RESULTS.map((r) => (
+            <option key={r.v} value={r.v === '' ? '미실행' : r.v}>
+              {r.label}
+            </option>
+          ))}
+        </select>
+        <span className="rq-adiv" aria-hidden="true" />
+        <button className="btn small" type="button" onClick={() => setReport(true)}>
+          고객사 결과서
+        </button>
+      </div>
+
+      {/* ③ 진행 요약 — 카운터·진행률은 「하는 일」 이 아니라 「지금 상태」 다.
+          실행 바와 한 줄에 섞으면 글자 크기가 달라 높이가 어긋난다. */}
+      <div className="cy-sum">
         {/* 결과 카운터 — 누르면 그 결과만 걸러 본다. */}
         <div className="cy-legend">
           <button
@@ -1060,6 +1157,21 @@ function CycleDetail({
           {Math.round(((total - (counts[''] ?? 0)) / total) * 100)}% 진행
         </b>
       </div>
+
+      {editing && (
+        <CycleItemEdit
+          items={editing}
+          results={RESULTS}
+          onClose={() => setEditing(null)}
+          onApply={async (patch) => {
+            const ids = new Set(editing.map((x) => x.tcid))
+            await saveItems((cur) =>
+              cur.map((x) => (ids.has(x.tcid) ? { ...x, ...patch } : x)),
+            )
+            sel.clear()
+          }}
+        />
+      )}
 
       {adding && (
         <CyclePickTc
@@ -1160,26 +1272,6 @@ function CycleDetail({
           </label>
           <span className="rq-seldiv" aria-hidden="true" />
           <span className="muted small">Selected : {pick.size}</span>
-          <span className="sp" />
-          <select
-            className="cy-bulk"
-            value=""
-            disabled={!pick.size || saving}
-            title={pick.size ? `고른 ${pick.size}건의 결과를 한꺼번에 바꿉니다` : '먼저 항목을 고르세요'}
-            onChange={(e) => {
-              const v = e.target.value
-              if (!v) return
-              void setResultMany(v === '미실행' ? '미실행' : v)
-              e.target.value = ''
-            }}
-          >
-            <option value="">결과 일괄 변경…</option>
-            {RESULTS.map((r) => (
-              <option key={r.v} value={r.v === '' ? '미실행' : r.v}>
-                {r.label}
-              </option>
-            ))}
-          </select>
         </div>
         <div className="cy-row cy-hd">
           <span />

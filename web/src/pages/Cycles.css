@@ -201,6 +201,7 @@
   font-family: var(--font-mono);
 }
 .cy-head .sp { margin-left: auto; }
+.cy-pct { white-space: nowrap; }
 
 /* 미실행 카운터와 진행률 사이 구분자 — 세로 짧은 줄 하나 */
 .cy-div {
@@ -1232,4 +1233,46 @@ table.tb td.k {
   border-color: var(--c-primary);
   background: var(--c-surface);
   outline: none;
+}
+
+/* 실행 표시(▶·⏹)는 글자라 본문 크기로 크게 뜬다. 한 단계 줄여 단추 높이를
+   키우지 않게 한다 — 오른쪽 카운터 줄과 높이가 맞아야 한다. */
+.cy-play {
+  font-style: normal;
+  font-size: 0.85em;
+  margin-right: 2px;
+}
+/* 액션 바와 카운터가 한 줄에서 같은 높이로 */
+.cy-head .rq-actions { align-items: center; }
+.cy-head .rq-actions .btn { line-height: 1.2; }
+
+/* ── ② 실행 바 / ③ 진행 요약 — 줄을 나눈다 ──────────────────
+   한 줄에 큰 단추와 작은 카운터를 섞으면 글자 크기가 달라 높이가 어긋난다.
+   「하는 일」 과 「지금 상태」 는 성격도 다르다. */
+.cy-head {
+  min-height: 34px;
+  padding-bottom: 2px;
+}
+.cy-sum {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.cy-sum .sp { margin-left: auto; }
+.cy-sum .cy-legend { margin: 0; }
+
+/* ③ 실행 바 — 사이클에만 있는 일. 옅은 바탕으로 「여기가 실행하는 자리」
+   임을 눈에 먼저 넣는다. 공통 액션 바(②)와 섞지 않는다. */
+.cy-runbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-top: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--page-tint, var(--c-surface-alt));
 }
