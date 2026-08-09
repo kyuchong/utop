@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import ListHead from '@/components/ListHead'
@@ -995,7 +995,97 @@ function CycleDetail({
   for (const it of items) counts[itemVerdict(it)] = (counts[itemVerdict(it)] ?? 0) + 1
   const total = items.length || 1
 
-  const rows = only !== null ? items.filter((it) => itemVerdict(it) === only) : items
+  /**
+   * ③ 좁혀 보기 — 결과(통계 카드)에 더해 심각도·타입·발생구분·글자로 거른다.
+   *
+   * 64건이 넘어가면 결과만으로는 못 좁힌다. 「고객이 낸 것 중 Blocker 만」
+   * 같은 물음이 실제로 자주 나온다.
+   */
+  const [fSev, setFSev] = useState('')
+  const [fType, setFType] = useState('')
+  const [fKind, setFKind] = useState('')
+  const [fq, setFq] = useState('')
+
+  /** 시험 메타(심각도·타입·발생구분)는 TC 에 있다 — 항목에는 없다 */
+  const tcMetaQ = useQuery({
+    queryKey: ['tc', 'list', 'meta'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/tc?meta=1')
+      if (!r.ok) throw new Error('시험 목록을 불러오지 못했습니다')
+      return (await r.json()) as { tcs: TestCaseMeta[] }
+    },
+    staleTime: 60_000,
+  })
+  const tcMeta = useMemo(() => {
+    const m = new Map<string, TestCaseMeta>()
+    for (const t of tcMetaQ.data?.tcs ?? []) m.set(t.tcid, t)
+    return m
+  }, [tcMetaQ.data])
+
+  /** 요구사항 이름 — 묶음 머리에 적는다. 번호만으로는 무엇인지 모른다 */
+  const reqQ2 = useQuery({
+    queryKey: ['req', 'list'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/req')
+      if (!r.ok) throw new Error('요구사항을 불러오지 못했습니다')
+      return (await r.json()) as { reqs: Array<{ reqid?: string; id?: string; title?: string }> }
+    },
+    staleTime: 60_000,
+  })
+  const reqName = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of reqQ2.data?.reqs ?? []) {
+      const t = r.title ?? ''
+      if (r.reqid) m.set(r.reqid, t)
+      if (r.id) m.set(r.id, t)
+    }
+    return m
+  }, [reqQ2.data])
+
+  /** 거를 값 목록 — 이 회차에 실제로 있는 것만 띄운다 */
+  const opts = useMemo(() => {
+    const sev = new Set<string>()
+    const typ = new Set<string>()
+    const kin = new Set<string>()
+    for (const it of items) {
+      const t = tcMeta.get(it.tcid)
+      if (t?.severity) sev.add(String(t.severity))
+      if (t?.type) typ.add(String(t.type))
+      if (t?.kind) kin.add(String(t.kind))
+    }
+    const srt = (a: string, b: string) => a.localeCompare(b, 'ko')
+    return { sev: [...sev].sort(srt), typ: [...typ].sort(srt), kin: [...kin].sort(srt) }
+  }, [items, tcMeta])
+
+  const rows = useMemo(() => {
+    const n = fq.trim().toLowerCase()
+    const out = items.filter((it) => {
+      if (only !== null && itemVerdict(it) !== only) return false
+      const t = tcMeta.get(it.tcid)
+      if (fSev && String(t?.severity ?? '') !== fSev) return false
+      if (fType && String(t?.type ?? '') !== fType) return false
+      if (fKind && String(t?.kind ?? '') !== fKind) return false
+      if (!n) return true
+      return (
+        it.tcid.toLowerCase().includes(n) || (it.name ?? '').toLowerCase().includes(n)
+      )
+    })
+    // 같은 요구사항끼리 붙여 둔다 — 흩어져 있으면 묶음 머리가 여러 번 뜬다.
+    // 그 안의 차례는 원래 자리를 지킨다(사람이 정한 순서다).
+    const order = new Map<string, number>()
+    out.forEach((x) => {
+      const k = String(x.req_id ?? '')
+      if (!order.has(k)) order.set(k, order.size)
+    })
+    return out
+      .map((x, i) => ({ x, i }))
+      .sort(
+        (a, b) =>
+          (order.get(String(a.x.req_id ?? '')) ?? 0) -
+            (order.get(String(b.x.req_id ?? '')) ?? 0) || a.i - b.i,
+      )
+      .map((v) => v.x)
+  }, [items, only, tcMeta, fSev, fType, fKind, fq])
 
   /*
    * 실행 중에는 **도는 항목**을 따라간다.
@@ -1286,6 +1376,60 @@ function CycleDetail({
         })}
       </div>
 
+      {/* ③ 좁혀 보기 — 이 회차에 실제로 있는 값만 띄운다 */}
+      <div className="cy-filters">
+        <select value={fSev} onChange={(e) => setFSev(e.target.value)} title="심각도">
+          <option value="">심각도: 전체</option>
+          {opts.sev.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+        <select value={fType} onChange={(e) => setFType(e.target.value)} title="타입">
+          <option value="">타입: 전체</option>
+          {opts.typ.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+        <select value={fKind} onChange={(e) => setFKind(e.target.value)} title="발생구분">
+          <option value="">발생구분: 전체</option>
+          {opts.kin.map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+        <input
+          className="cy-fq"
+          value={fq}
+          placeholder="TC ID · 제목 검색"
+          onChange={(e) => setFq(e.target.value)}
+        />
+        {(only !== null || fSev || fType || fKind || fq) && (
+          <button
+            className="btn small"
+            type="button"
+            title="걸러 놓은 것을 모두 풉니다"
+            onClick={() => {
+              setOnly(null)
+              setFSev('')
+              setFType('')
+              setFKind('')
+              setFq('')
+            }}
+          >
+            ✕ 조건 지우기
+          </button>
+        )}
+        <span className="sp" />
+        <span className="muted small">
+          {rows.length === items.length ? `${items.length}건` : `${rows.length} / ${items.length}건`}
+        </span>
+      </div>
+
       <div className="cy-bar" aria-hidden="true">
         {RESULTS.map((r) => (
           <span key={r.v} className={r.cls} style={{ flexGrow: counts[r.v] ?? 0 }} />
@@ -1330,6 +1474,12 @@ function CycleDetail({
         </div>
         {rows.map((it, i) => {
           const at = items.indexOf(it)
+          // ④ 요구사항별 묶음. 앞 줄과 요구사항이 다르면 머리줄을 하나 끼운다 —
+          // 같은 요구사항의 시험이 흩어져 있으면 「이 요구사항은 다 됐나」 를
+          // 눈으로 세어야 한다.
+          const rid = String(it.req_id ?? '')
+          const newGroup = i === 0 || String(rows[i - 1]?.req_id ?? '') !== rid
+          const gRows = newGroup ? rows.filter((x) => String(x.req_id ?? '') === rid) : []
           // 지금 도는 항목이면 스텝 결과가 차오르는 그대로(st.liveSteps)로
           // 판정을 계산한다. 안 그러면 스텝 세부창에선 Pass 가 뜨는데 목록의
           // 결과 칸은 실행 전 값 그대로라 「스텝은 Pass 인데 항목은 미실행」
@@ -1343,11 +1493,22 @@ function CycleDetail({
           const steps = shown.steps ?? []
           const bad = steps.filter((s) => isFail(stepVerdict(s as TcStep))).length
           return (
+            <React.Fragment key={`${it.tcid}-${i}`}>
+            {newGroup && (
+              <div className="cy-grow" title={rid || '요구사항 없음'}>
+                <span className="cy-gicon" aria-hidden="true">
+                  <IconFolder open />
+                </span>
+                <b>{reqName.get(rid) || rid || '(요구사항 없음)'}</b>
+                {rid && <span className="muted small">{rid}</span>}
+                <span className="sp" />
+                <span className="muted small">{gRows.length}건</span>
+              </div>
+            )}
             <div
               className={`cy-row v-${v}${openItem === at ? ' on' : ''}${
                 pick.has(at) ? ' picked' : ''
               }${st.itemAt === at ? ' running' : ''}`}
-              key={`${it.tcid}-${i}`}
               role="button"
               tabIndex={0}
               title="누르면 스텝과 실행 내역 · Ctrl·Shift 로 여러 개"
@@ -1469,6 +1630,7 @@ function CycleDetail({
               </span>
               <span className="muted">{(it.issues?.length ?? 0) || '–'}</span>
             </div>
+            </React.Fragment>
           )
         })}
         {rows.length === 0 && <div className="empty">해당하는 항목이 없습니다.</div>}

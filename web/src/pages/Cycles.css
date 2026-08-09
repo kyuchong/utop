@@ -1434,3 +1434,49 @@ table.tb td.k {
 .cy-stat.na > b { color: #b45309; }
 .cy-stat.none { border-top-color: var(--c-border-strong); }
 .cy-stat.none > b { color: var(--c-text-faint); }
+
+/* ── ③ 좁혀 보기 줄 ────────────────────────────────────────── */
+.cy-filters {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 14px 0;
+}
+.cy-filters .sp { margin-left: auto; }
+.cy-filters select,
+.cy-filters input {
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: 4px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+}
+.cy-fq { min-width: 200px; }
+
+/* ── ④ 요구사항별 묶음 머리줄 ─────────────────────────────── */
+.cy-grow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  background: var(--page-tint, var(--c-surface-alt));
+  border-bottom: 1px solid #dde3ea;
+  font-size: var(--fs-xs);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.cy-grow .sp { margin-left: auto; }
+.cy-grow > b {
+  color: var(--page-ink, var(--c-text));
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cy-gicon { flex: none; display: inline-flex; align-items: center; }
+.cy-gicon svg { width: 14px; height: 14px; display: block; }
