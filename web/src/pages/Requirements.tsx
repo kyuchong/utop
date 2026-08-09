@@ -4,7 +4,7 @@ import { api, categoryApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
 import ReqTree from '@/components/ReqTree'
 import { useMultiSelect } from '@/components/useMultiSelect'
-import { IconTcDoc } from '@/components/icons'
+import { IconPanel, IconTcDoc } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import ReqBulkEdit from '@/components/ReqBulkEdit'
@@ -87,6 +87,27 @@ export default function Requirements() {
   // 패널 폭은 사람마다 선호가 다르다. 드래그로 맞추고 브라우저에 기억시킨다.
   const splitRef = useRef<HTMLDivElement>(null)
   const [catW, setCatW] = useResizableWidth('utop.req.catW3', 230, 150, 460)
+
+  /**
+   * 폴더 트리를 폈나. 사이클·TC 화면과 같은 접기다.
+   *
+   * Detail 로 넘어가면 자동으로 접는다 — 폴더·목록·상세 셋을 다 펴면 상세가
+   * 좁아서 못 읽는다. 다른 폴더로 가려면 다시 펴면 된다.
+   */
+  const [treeOpen, setTreeOpen] = useState(
+    () => localStorage.getItem('utop.req.treeOpen') !== '0',
+  )
+  useEffect(() => {
+    localStorage.setItem('utop.req.treeOpen', treeOpen ? '1' : '0')
+  }, [treeOpen])
+
+  /** 보기 — list(표로 여럿) · detail(한 건 넓게) */
+  const [view, setView] = useState<'list' | 'detail'>(
+    () => (localStorage.getItem('utop.req.view') === 'detail' ? 'detail' : 'list'),
+  )
+  useEffect(() => {
+    localStorage.setItem('utop.req.view', view)
+  }, [view])
 
   const qc = useQueryClient()
 
@@ -245,6 +266,15 @@ export default function Requirements() {
     return arr
   }, [folderReqs, sort])
 
+  /** TC 표가 폴더 묶음을 보여 주는 중인가 — 그때만 「요구사항」 열이 뜬다 */
+  const tcByFolder = !selectedReq && folderMode
+
+  /** Detail 가운데 목록 — 보고 있는 폴더의 형제 요구사항들 */
+  const midReqs = useMemo(
+    () => (folderMode ? sortedFolderReqs : selectedReq ? [selectedReq] : []),
+    [folderMode, sortedFolderReqs, selectedReq],
+  )
+
   /** 선택된 REQ 에 연결된 TC — 양쪽 정본의 합집합 */
   /**
    * 연결 해제. tc.req_id 를 비우는 것이 전부다 — TC 자체는 남는다.
@@ -274,7 +304,10 @@ export default function Requirements() {
    * ownerOf 는 그 줄이 어느 요구사항의 것인지 — 폴더 모드에서만 쓴다.
    */
   const { linked, ownerOf } = useMemo(() => {
-    const targets = folderMode ? folderReqs : selectedReq ? [selectedReq] : []
+    // 요구사항을 고른 상태면 그 한 건이 먼저다. 폴더가 아직 골라져 있어도
+    // (Detail 의 가운데 목록이 쓰라고 남겨 둔 것이라) 그 폴더 전체를 모으면
+    // 엉뚱하게 형제들 TC 까지 딸려 온다.
+    const targets = selectedReq ? [selectedReq] : folderMode ? folderReqs : []
     const out: TestCaseMeta[] = []
     const owner = new Map<string, Requirement>()
     const seen = new Set<string>()
@@ -343,6 +376,25 @@ export default function Requirements() {
   const loading = reqQ.isLoading || tcQ.isLoading
   const error = reqQ.error ?? tcQ.error
 
+  /**
+   * 한 건을 넓게 본다 — 폴더 트리는 접는다.
+   *
+   * 폴더는 어느 것을 보는지 정하는 자리고, Detail 에서는 이미 정해져 있다.
+   * 셋을 다 펴 두면 정작 읽어야 할 상세가 좁아진다.
+   */
+  const goDetail = (pk: string, to: typeof tab = 'info') => {
+    setSelected(pk)
+    setTab(to)
+    setView('detail')
+    setTreeOpen(false)
+  }
+
+  /** 표로 돌아온다 — 고르는 자리가 다시 필요하니 폴더를 편다 */
+  const goList = () => {
+    setView('list')
+    setTreeOpen(true)
+  }
+
   return (
     <>
       {form !== undefined && (
@@ -391,15 +443,30 @@ export default function Requirements() {
       ) : null}
 
       <div className="split" ref={splitRef}>
+        {/* 접었을 때 — 세로 띠 하나만 남는다. 사이클·TC 화면과 같은 모양.
+            아주 없애면 다시 펼 길이 없어지고 어디 있었는지도 잊는다. */}
+        {!treeOpen && (
+          <button
+            type="button"
+            className="tc-fold"
+            title="폴더 펼치기"
+            onClick={() => setTreeOpen(true)}
+          >
+            <IconPanel open />
+            <span className="tc-fold-t">폴더 {allReqs.length}</span>
+          </button>
+        )}
         {/* ── 왼쪽: 폴더 + 요구사항 한 트리 ─────────────────
             전에는 분류 트리와 요구사항 목록이 따로였다. 자료가 29건 ·
             분류 20개라 전체가 한 화면에 들어오는데 두 단계로 고르게 하고
             있었다. Zephyr Enterprise 처럼 폴더 안에 요구사항을 둔다. */}
+        {treeOpen && (
         <section className="panel req-tree-panel" style={{ flexBasis: catW }}>
           {/* 한 줄에 다 넣는다. 건수를 따로 아래에 두면 그만큼 목록이 준다. */}
           <ListHead
             name="요구사항"
             count={allReqs.length}
+            onCollapse={() => setTreeOpen(false)}
             picked={
               // 한 건만 고른 것은 그냥 여는 것이라 알릴 것이 없다.
               // 둘부터가 「여럿을 쥐고 있다」 는 뜻이다.
@@ -487,16 +554,20 @@ export default function Requirements() {
               // 요구사항과 폴더는 둘 중 하나만 골라져 있다. 오른쪽 패널이
               // 무엇을 보여줄지가 여기서 갈리므로 서로를 지운다.
               onSelect={(pk) => {
+                // 트리에서 요구사항을 고르면 그 한 건을 보는 것이다 → Detail.
+                // 폴더는 지우지 않는다(가운데 목록이 형제를 보여 줘야 한다).
                 setSelected(pk)
-                setSelectedFolder(undefined)
+                setView('detail')
+                setTab('info')
               }}
               view={{ fullId, foldersOnly }}
               q={treeQ}
               selectedFolder={selectedFolder}
               onSelectFolder={(id) => {
+                // 폴더를 열면 그 안 요구사항을 표로 훑는 것이다 → List
                 setSelectedFolder(id)
                 setSelected(null)
-                setTab('tc')
+                setView('list')
               }}
               picked={picked}
               onRowClick={treeSel.onClick}
@@ -505,13 +576,47 @@ export default function Requirements() {
             />
           )}
         </section>
+        )}
 
-        <Resizer
-          label="요구사항 트리 폭 조절"
-          onResize={setCatW}
-          getOrigin={() => splitRef.current?.getBoundingClientRect().left ?? 0}
-        />
+        {treeOpen && (
+          <Resizer
+            label="요구사항 트리 폭 조절"
+            onResize={setCatW}
+            getOrigin={() => splitRef.current?.getBoundingClientRect().left ?? 0}
+          />
+        )}
 
+
+        {/* ── 가운데: Detail 일 때만 — 형제 요구사항을 좁게 ──────
+            어느 하나를 읽다가 옆 것으로 넘어가는 일이 잦다. 이 목록이
+            없으면 그때마다 List 로 돌아갔다 다시 들어와야 한다. */}
+        {view === 'detail' && selectedReq && midReqs.length > 1 && (
+          <section className="panel rq-mid">
+            <div className="rq-mid-h">
+              {folderMode ? folderName : '요구사항'} · {midReqs.length}
+            </div>
+            <div className="rq-mid-list scroll">
+              {midReqs.map((r) => {
+                const pk = reqPk(r)
+                return (
+                  <button
+                    key={pk}
+                    type="button"
+                    className={`rq-mid-row${pk === selected ? ' on' : ''}`}
+                    title={r.title || pk}
+                    onClick={() => {
+                      setSelected(pk)
+                      setTab('info')
+                    }}
+                  >
+                    <span className="rq-mid-id">{reqLabel(r) || '–'}</span>
+                    <span className="rq-mid-t">{r.title || '(제목 없음)'}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        )}
 
         {/* ── 오른쪽: 탭에 따라 내용이 바뀐다 ─────────────── */}
         <section className="panel tc-panel">
@@ -519,19 +624,12 @@ export default function Requirements() {
             {/* 폴더를 보고 있을 때는 탭을 띄우지 않는다. REQ Info·Details·
                 이력은 요구사항 한 건에만 있는 것이라, 폴더에 걸어두면 늘
                 비어 있는 탭이 넷 생긴다. 폴더에서는 TC 목록 하나면 된다. */}
-            {folderMode ? (
+            {view === 'list' && folderMode ? (
               <span className="fold-title">
                 <b>📁 {folderName}</b>
                 <span className="muted small">
                   요구사항 {folderReqs.length}건 · 하위 폴더 포함
                 </span>
-                <button
-                  className="btn small"
-                  type="button"
-                  onClick={() => setSelectedFolder(undefined)}
-                >
-                  닫기
-                </button>
               </span>
             ) : (
             <div className="seg" role="tablist">
@@ -555,7 +653,7 @@ export default function Requirements() {
               ))}
             </div>
             )}
-            {tab === 'tc' && !folderMode && (
+            {tab === 'tc' && selectedReq && (
               <div className="page-head-actions">
                 <button
                   className="btn"
@@ -587,11 +685,38 @@ export default function Requirements() {
                 </button>
               </div>
             )}
+            {/* List(표로 여럿) ↔ Detail(한 건 넓게). Detail 로 가면 폴더가
+                자동으로 접힌다 — 셋을 다 펴면 정작 상세가 좁아진다. */}
+            <span className="sp" />
+            <div className="rq-view" role="tablist" aria-label="보기 방식">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'detail'}
+                className={`rq-view-b${view === 'detail' ? ' on' : ''}`}
+                disabled={!selectedReq}
+                title={selectedReq ? '한 건을 넓게 봅니다' : '먼저 요구사항을 고르세요'}
+                onClick={() => selectedReq && goDetail(reqPk(selectedReq), tab)}
+              >
+                Detail
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'list'}
+                className={`rq-view-b${view === 'list' ? ' on' : ''}`}
+                disabled={!folderMode}
+                title={folderMode ? '이 폴더의 요구사항을 표로 봅니다' : '먼저 폴더를 고르세요'}
+                onClick={goList}
+              >
+                List
+              </button>
+            </div>
           </div>
 
           {!selectedReq && !folderMode ? (
             <div className="empty">왼쪽에서 폴더나 요구사항을 선택하세요.</div>
-          ) : folderMode ? (
+          ) : view === 'list' && folderMode ? (
             /* ── List 모드 — 이 폴더의 요구사항을 표로 (Zephyr 방식) ──
                한 줄을 누르면 그 요구사항 상세로 들어간다(Detail). */
             <div className="rq-list scroll">
@@ -623,15 +748,13 @@ export default function Requirements() {
                       <div className="rq-tr" key={pk}>
                         <div className="rq-id">{reqLabel(r) || '–'}</div>
                         <div className="rq-name">
+                          {/* 폴더는 그대로 둔다 — Detail 의 가운데 목록이
+                              이 폴더의 형제들을 보여 줘야 하니까. */}
                           <button
                             type="button"
                             className="linkish"
                             title="상세 보기"
-                            onClick={() => {
-                              setSelected(pk)
-                              setSelectedFolder(undefined)
-                              setTab('info')
-                            }}
+                            onClick={() => goDetail(pk, 'info')}
                           >
                             {r.title || '(제목 없음)'}
                           </button>
@@ -641,11 +764,7 @@ export default function Requirements() {
                             type="button"
                             className="linkish"
                             title="이 요구사항의 시험(커버리지) 보기"
-                            onClick={() => {
-                              setSelected(pk)
-                              setSelectedFolder(undefined)
-                              setTab('tc')
-                            }}
+                            onClick={() => goDetail(pk, 'tc')}
                           >
                             Map
                           </button>
@@ -671,10 +790,10 @@ export default function Requirements() {
                 <span>요구사항 {folderReqs.length}건</span>
               </div>
             </div>
-          ) : !folderMode && selectedReq && tab !== 'tc' ? (
+          ) : selectedReq && tab !== 'tc' ? (
             <ReqDetail req={selectedReq} tcs={linked} tab={tab} />
           ) : (
-            <div className={`tc-body scroll${folderMode ? ' by-folder' : ''}`}>
+            <div className="tc-body scroll">
               {/* 커버리지 상태. 목록만 있으면 '이 요구사항이 덮였나' 를
                   눈으로 세어야 한다. 한 줄로 먼저 답한다. */}
               <div className={`cov-bar ${linked.length === 0 ? 'none' : cov.fail > 0 ? 'bad' : cov.idle > 0 ? 'warn' : 'good'}`}>
@@ -682,7 +801,7 @@ export default function Requirements() {
                   <>
                     <b>미커버</b>
                     <span className="muted small">
-                      {folderMode
+                      {tcByFolder
                         ? folderReqs.length === 0
                           ? '이 폴더에 요구사항이 없습니다.'
                           : `요구사항 ${folderReqs.length}건 중 TC 가 붙은 것이 없습니다.`
@@ -722,7 +841,7 @@ export default function Requirements() {
                   <div>Test Case</div>
                   {/* 폴더는 요구사항 여럿을 모아 보이므로 어느 것의 TC 인지
                       적어야 한다. 한 건만 볼 때는 자명해서 열을 안 만든다. */}
-                  {folderMode && <div>요구사항</div>}
+                  {tcByFolder && <div>요구사항</div>}
                   <div>유형</div>
                   <div>Step</div>
                   <div>상태</div>
@@ -751,7 +870,7 @@ export default function Requirements() {
                           {t.name || '(제목 없음)'}
                         </div>
                       </div>
-                      {folderMode && (
+                      {tcByFolder && (
                         <div className="fold-req">
                           <button
                             type="button"
@@ -800,7 +919,7 @@ export default function Requirements() {
 
               <div className="bottom">
                 <span>
-                  {folderMode
+                  {tcByFolder
                     ? `요구사항 ${folderReqs.length}건 · TC ${linked.length}건`
                     : `${linked.length}개 TC 연결`}
                   {shown.length !== linked.length && ` · ${shown.length}개 표시`}

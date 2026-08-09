@@ -613,3 +613,75 @@
 .rq-prio.p-high, .rq-prio.p-critical { background: #fdecea; color: #c0392b; }
 .rq-prio.p-medium { background: #fef6e7; color: #97620d; }
 .rq-prio.p-low { background: #eef5ee; color: #2f7a45; }
+
+/* ── Detail 가운데 좁은 목록 — 형제 요구사항 ───────────────────
+   읽다가 옆 것으로 넘어가는 일이 잦다. 없으면 List 로 되돌아갔다 와야 한다. */
+.rq-mid {
+  flex: none;
+  width: 210px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.rq-mid-h {
+  flex: none;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-label);
+  color: var(--c-text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rq-mid-list { flex: 1; min-height: 0; overflow: auto; }
+.rq-mid-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+  cursor: pointer;
+}
+.rq-mid-row:hover { background: var(--c-surface-2); }
+.rq-mid-row.on { background: var(--c-primary-bg); }
+.rq-mid-row.on .rq-mid-t { color: var(--c-primary); font-weight: 700; }
+.rq-mid-id {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  font-family: var(--font-mono);
+}
+.rq-mid-t {
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Detail / List 토글 ────────────────────────────────────── */
+.rq-view {
+  flex: none;
+  display: inline-flex;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.rq-view-b {
+  border: 0;
+  background: transparent;
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: 3px 12px;
+  cursor: pointer;
+}
+.rq-view-b + .rq-view-b { border-left: 1px solid var(--c-border); }
+.rq-view-b:hover:not(:disabled):not(.on) { background: var(--c-surface-2); }
+.rq-view-b.on { background: var(--c-primary); color: #fff; font-weight: 700; }
+.rq-view-b:disabled { color: var(--c-text-faint); cursor: default; }
