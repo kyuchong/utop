@@ -1622,3 +1622,13 @@ table.tb td.k {
   color: var(--c-text);
   font-weight: 400;
 }
+
+/* 진행 띠의 색을 실행결과 카드와 **같게** 맞춘다.
+   미실행이 var(--c-border-strong) 였는데 그 값이 없어 흰색으로 비쳤다 —
+   띠에서 제일 알아야 할 것이 「아직 안 한 것」 인데 안 보였다. */
+.cy-bar .pass { background: var(--c-pass); }
+.cy-bar .fail { background: var(--c-fail); }
+.cy-bar .wip { background: var(--c-draft); }
+.cy-bar .blocked { background: #7c3aed; }
+.cy-bar .na { background: #b45309; }
+.cy-bar .none { background: #4b555f; }
