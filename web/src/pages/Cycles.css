@@ -371,6 +371,33 @@
 .cn-row:hover { background: var(--c-surface-2); }
 .cn-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* 요구사항으로 묶은 시험 고르기 — 요구사항 머리 + 그 밑 시험들 */
+.cn-greq {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: var(--row-py) 12px;
+  background: var(--c-surface-2);
+  border-bottom: 1px solid var(--c-border-soft);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  cursor: default;
+}
+.cn-gtitle { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cn-gcaret {
+  border: 0;
+  background: transparent;
+  color: var(--c-text-faint);
+  display: inline-flex;
+  padding: 0;
+  cursor: pointer;
+  transform: rotate(-90deg);
+  transition: transform 0.1s;
+}
+.cn-gcaret.open { transform: rotate(0deg); }
+.cn-row.cn-sub { padding-left: 34px; }
+
 /* 오른쪽 칸의 빈 자리 */
 .cy-side .empty {
   flex: 1;

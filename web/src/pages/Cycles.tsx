@@ -1441,6 +1441,8 @@ function CyclePickTc({
 }) {
   const [q, setQ] = useState('')
   const [pick, setPick] = useState<Set<string>>(new Set())
+  /** 접은 요구사항 — 기본은 다 펼쳐 「모두 보이게」 */
+  const [closed, setClosed] = useState<Set<string>>(new Set())
 
   const tcQ = useQuery({
     queryKey: ['tcs'],
@@ -1450,13 +1452,74 @@ function CyclePickTc({
       return (await r.json()) as { tcs: TestCaseMeta[] }
     },
   })
+  // 요구사항 제목 — 시험을 그 요구사항 밑에 묶어 보여 준다
+  const reqQ = useQuery({
+    queryKey: ['reqs'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/req')
+      if (!r.ok) throw new Error('요구사항을 불러오지 못했습니다')
+      return (await r.json()) as { reqs: Array<{ reqid?: string; id?: string; title?: string }> }
+    },
+  })
 
-  const rows = useMemo(() => {
+  const reqTitle = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of reqQ.data?.reqs ?? []) {
+      const id = String(r.reqid ?? r.id ?? '').trim()
+      if (id) m.set(id, r.title ?? '')
+    }
+    return m
+  }, [reqQ.data])
+
+  /** 요구사항별로 묶는다. 검색은 요구사항 제목·시험 이름·ID 를 모두 훑는다. */
+  const groups = useMemo(() => {
     const n = q.trim().toLowerCase()
     const all = tcQ.data?.tcs ?? []
-    if (!n) return all
-    return all.filter((x) => `${x.name ?? ''} ${x.tcid}`.toLowerCase().includes(n))
-  }, [tcQ.data, q])
+    const byReq = new Map<string, TestCaseMeta[]>()
+    for (const x of all) {
+      const rid = String(x.req_id ?? '').trim()
+      const reqHit = !n || `${rid} ${reqTitle.get(rid) ?? ''}`.toLowerCase().includes(n)
+      const tcHit = !n || `${x.name ?? ''} ${x.tcid}`.toLowerCase().includes(n)
+      if (n && !reqHit && !tcHit) continue
+      const key = rid || '__none'
+      if (!byReq.has(key)) byReq.set(key, [])
+      byReq.get(key)!.push(x)
+    }
+    return [...byReq.entries()]
+      .sort((a, b) =>
+        a[0] === '__none' ? 1 : b[0] === '__none' ? -1 : a[0].localeCompare(b[0], 'ko'),
+      )
+      .map(([key, tcs]) => ({
+        key,
+        rid: key === '__none' ? '' : key,
+        title: key === '__none' ? '(요구사항 없음)' : reqTitle.get(key) || key,
+        tcs: tcs.slice().sort((a, b) => a.tcid.localeCompare(b.tcid, 'ko')),
+      }))
+  }, [tcQ.data, reqTitle, q])
+
+  const setPicked = (id: string, on: boolean) =>
+    setPick((s) => {
+      const n = new Set(s)
+      if (on) n.add(id)
+      else n.delete(id)
+      return n
+    })
+
+  /** 이 요구사항에서 아직 안 든(고를 수 있는) 시험 id */
+  const pickableOf = (g: { tcs: TestCaseMeta[] }) =>
+    g.tcs.filter((x) => !have.has(x.tcid)).map((x) => x.tcid)
+
+  const toggleGroup = (g: { key: string; tcs: TestCaseMeta[] }) => {
+    const ids = pickableOf(g)
+    const allOn = ids.length > 0 && ids.every((id) => pick.has(id))
+    setPick((s) => {
+      const n = new Set(s)
+      ids.forEach((id) => (allOn ? n.delete(id) : n.add(id)))
+      return n
+    })
+  }
+
+  const total = tcQ.data?.tcs?.length ?? 0
 
   return (
     <div className="modal-back" onMouseDown={onClose}>
@@ -1469,6 +1532,9 @@ function CyclePickTc({
       >
         <div className="modal-head">
           <b>시험 넣기 {pick.size > 0 && `· ${pick.size}건`}</b>
+          <span className="muted small">
+            요구사항 {groups.length} · 시험 {total}
+          </span>
           <span className="sp" />
           <button className="btn small" type="button" onClick={onClose}>
             ✕
@@ -1478,34 +1544,71 @@ function CyclePickTc({
           <input
             className="cn-q"
             value={q}
-            placeholder="이름 · ID 로 찾기"
+            placeholder="요구사항 · 시험 이름 · ID 로 찾기"
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
         <div className="cn-list">
-          {tcQ.isLoading ? (
+          {tcQ.isLoading || reqQ.isLoading ? (
             <div className="empty">불러오는 중…</div>
+          ) : groups.length === 0 ? (
+            <div className="empty">해당하는 시험이 없습니다.</div>
           ) : (
-            rows.map((x) => {
-              const already = have.has(x.tcid)
+            groups.map((g) => {
+              const ids = pickableOf(g)
+              const on = ids.length > 0 && ids.every((id) => pick.has(id))
+              const some = ids.some((id) => pick.has(id))
+              const isClosed = closed.has(g.key) && !q.trim()
               return (
-                <label className={`cn-row${already ? ' off' : ''}`} key={x.tcid}>
-                  <input
-                    type="checkbox"
-                    disabled={already}
-                    checked={pick.has(x.tcid)}
-                    onChange={(e) =>
-                      setPick((s) => {
-                        const n = new Set(s)
-                        if (e.target.checked) n.add(x.tcid)
-                        else n.delete(x.tcid)
-                        return n
-                      })
-                    }
-                  />
-                  <span className="cn-nm">{x.name || '(제목 없음)'}</span>
-                  <span className="muted small">{already ? '이미 있음' : x.tcid}</span>
-                </label>
+                <div className="cn-grp" key={g.key}>
+                  <div className="cn-greq">
+                    <button
+                      type="button"
+                      className={`cn-gcaret${isClosed ? '' : ' open'}`}
+                      title={isClosed ? '펼치기' : '접기'}
+                      onClick={() =>
+                        setClosed((s) => {
+                          const n = new Set(s)
+                          if (n.has(g.key)) n.delete(g.key)
+                          else n.add(g.key)
+                          return n
+                        })
+                      }
+                    >
+                      <IconChevron />
+                    </button>
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      ref={(el) => {
+                        if (el) el.indeterminate = !on && some
+                      }}
+                      disabled={ids.length === 0}
+                      title="이 요구사항의 시험 모두 고르기"
+                      onChange={() => toggleGroup(g)}
+                    />
+                    <span className="cn-gtitle">{g.title}</span>
+                    {g.rid && <span className="muted small">{g.rid}</span>}
+                    <span className="sp" />
+                    <span className="muted small">{g.tcs.length}건</span>
+                  </div>
+                  {!isClosed &&
+                    g.tcs.map((x) => {
+                      const already = have.has(x.tcid)
+                      return (
+                        <label className={`cn-row cn-sub${already ? ' off' : ''}`} key={x.tcid}>
+                          <input
+                            type="checkbox"
+                            disabled={already}
+                            checked={pick.has(x.tcid)}
+                            onChange={(e) => setPicked(x.tcid, e.target.checked)}
+                          />
+                          <span className="cn-nm">{x.name || '(제목 없음)'}</span>
+                          <span className="muted small">{already ? '이미 있음' : x.tcid}</span>
+                        </label>
+                      )
+                    })}
+                </div>
               )
             })
           )}
