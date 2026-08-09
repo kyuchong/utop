@@ -6,6 +6,7 @@ import { evalCondWhy, extractOne, JUDGE_TYPES, parseTable, subVars } from './jud
 import TcTable from './TcTable'
 import ParamPicker from './ParamPicker'
 import PickList, { type PickItem } from './PickList'
+import TcMeterStep from './TcMeterStep'
 import {
   ADD_KINDS,
   isNoteKind,
@@ -362,86 +363,9 @@ export default function TcStepDetail({
         )}
 
         {/* 종류마다 Test Data 가 가리키는 것이 다르다 */}
-        {/* 계측기 — 동작을 고르고 칸을 채운다. raw Tcl 을 외워 적지 않는다 */}
-        {kind === 'instrument' && (
-          <div className="sd-meter">
-            <label className="sd-f">
-              <span>계측기 동작</span>
-              <select
-                value={step.meterAct ?? 'traffic_start'}
-                onChange={(e) => onChange({ meterAct: e.target.value as TcStep['meterAct'] })}
-              >
-                <option value="ports">포트 확인</option>
-                <option value="traffic_start">트래픽 시작</option>
-                <option value="traffic_stat">통계 읽기 · 판정</option>
-                <option value="traffic_stop">트래픽 정지</option>
-                <option value="traffic_clear">스트림 비우기</option>
-              </select>
-            </label>
-            {step.meterAct === 'traffic_start' && (
-              <>
-                <div className="sd-2">
-                  <label className="sd-f">
-                    <span>보내는 포트 (TX)</span>
-                    <input
-                      className="mono"
-                      value={step.txPort ?? ''}
-                      placeholder="101/1"
-                      onChange={(e) => onChange({ txPort: e.target.value })}
-                    />
-                  </label>
-                  <label className="sd-f">
-                    <span>받는 포트 (RX)</span>
-                    <input
-                      className="mono"
-                      value={step.rxPort ?? ''}
-                      placeholder="101/2"
-                      onChange={(e) => onChange({ rxPort: e.target.value })}
-                    />
-                  </label>
-                </div>
-                <div className="sd-2">
-                  <label className="sd-f">
-                    <span>속도 (pps)</span>
-                    <input
-                      type="number"
-                      value={step.meterPps ?? ''}
-                      placeholder="1000"
-                      onChange={(e) => onChange({ meterPps: Number(e.target.value) || undefined })}
-                    />
-                  </label>
-                  <label className="sd-f">
-                    <span>시간 (초, 0=연속)</span>
-                    <input
-                      type="number"
-                      value={step.meterDur ?? ''}
-                      placeholder="0"
-                      onChange={(e) => onChange({ meterDur: Number(e.target.value) || undefined })}
-                    />
-                  </label>
-                </div>
-                <span className="sd-hint">
-                  포트는 배선(Topology)의 이름을 그대로 씁니다. 시간을 0 으로 두면
-                  「트래픽 정지」 스텝을 만날 때까지 계속 보냅니다.
-                </span>
-              </>
-            )}
-            {step.meterAct === 'traffic_stat' && (
-              <label className="sd-f">
-                <span>허용 손실 (패킷 수)</span>
-                <input
-                  type="number"
-                  value={step.meterMaxLoss ?? ''}
-                  placeholder="0"
-                  onChange={(e) => onChange({ meterMaxLoss: Number(e.target.value) || 0 })}
-                />
-                <span className="sd-hint">
-                  손실이 이 수를 넘으면 <b>불합격</b>입니다. 비우면 0 — 한 패킷도 잃으면 안 됩니다.
-                </span>
-              </label>
-            )}
-          </div>
-        )}
+        {/* 계측기 — 어느 섀시·어느 포트인지까지 화면에서 정한다 */}
+        {kind === 'instrument' && <TcMeterStep step={step} onChange={onChange} />}
+
         {kind === 'cli' && (
           <label className="sd-f">
             <span className="sd-lab">

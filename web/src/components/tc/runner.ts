@@ -446,9 +446,80 @@ async function runOne(
    */
   if (kind === 'instrument' && step.meterAct) {
     const dev = deviceOf(ctx, step).dev
-    const server = (step.host || dev?.ip || '210.1.2.248').trim()
+    const server = (step.host || dev?.ip || '').trim()
     const label = String((dev?.id ?? 'utop'))
     const act = step.meterAct
+
+    if (!server) {
+      const err = '계측기를 고르지 않았습니다 — 스텝에서 계측기를 정하세요'
+      ctx.onStep(i, { output: `[계측기 오류] ${err}`, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: err })
+      ctx.onLog({ i, text: err, kind: 'fail' })
+      return 'Fail'
+    }
+
+    /**
+     * STC 는 N2X 와 명령 모양이 다르다.
+     *
+     * N2X 는 «server + streams» 한 벌이면 되지만, STC 는 세션에 포트를 붙이고
+     * 스트림을 지은 뒤 generator 를 돌린다(build→start→query→stop). 그래서
+     * 경로도 몸통도 갈라 보낸다. 전에는 STC 를 골라도 N2X 로 나가 조용히
+     * 엉뚱한 섀시를 두드렸다.
+     */
+    const isStc = /stc|spirent/i.test(String(dev?.vendor ?? '') + String(dev?.model ?? ''))
+    if (isStc) {
+      const stcAct: Record<string, string> = {
+        ports: 'query',
+        traffic_start: 'start',
+        traffic_stat: 'query',
+        traffic_stop: 'stop',
+        traffic_clear: 'close',
+      }
+      const cfg: Record<string, unknown> = {
+        chassis: server,
+        restIp: 'localhost',
+        restPort: 8888,
+        ports: [subVars(step.txPort ?? '', vars), subVars(step.rxPort ?? '', vars)].filter(Boolean),
+        streams:
+          act === 'traffic_start'
+            ? [
+                {
+                  name: `UTOP_${i + 1}`,
+                  src: subVars(step.txPort ?? '', vars),
+                  dst: subVars(step.rxPort ?? '', vars),
+                  minByte: step.meterSize ?? 64,
+                  byteType: 'Fixed',
+                  unit: 'fps',
+                  rate: step.meterPps ?? 1000,
+                },
+              ]
+            : [],
+      }
+      let sj: Record<string, unknown> = {}
+      try {
+        sj = await post(`/api/stc/meter/${stcAct[act] ?? 'query'}`, { cfg }, ctx.signal)
+      } catch (e) {
+        const err = e instanceof Error ? e.message : String(e)
+        ctx.onStep(i, { output: `[계측기 오류] ${err}`, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: err })
+        ctx.onLog({ i, text: err, kind: 'fail' })
+        return 'Fail'
+      }
+      const text = String(sj.text ?? '')
+      if (act === 'traffic_stat') {
+        // stc_meter.py 가 「총 TX n · RX n · 손실 n」 을 찍는다
+        const m = /손실\s+(\d+)/.exec(text)
+        const loss = m ? Number(m[1]) : 0
+        const cap = step.meterMaxLoss ?? 0
+        const ok = sj.ok !== false && loss <= cap
+        const reason = sj.ok === false ? '통계 실패' : `손실 ${loss}${cap ? ` (허용 ${cap})` : ''}`
+        ctx.onStep(i, { output: text, executed_at: at, status: ok ? 'PASS' : 'FAIL', repeatResult: ok ? 'Pass' : 'Fail', reason })
+        ctx.onLog({ i, text: `통계 — ${reason}`, kind: ok ? 'pass' : 'fail' })
+        return ok ? 'Pass' : 'Fail'
+      }
+      const ok = sj.ok !== false
+      ctx.onStep(i, { output: text, executed_at: at, status: ok ? 'PASS' : '', repeatResult: ok ? 'Pass' : '', reason: ok ? '' : text.slice(0, 200) })
+      ctx.onLog({ i, text: `${act} — ${ok ? '보냄' : '실패'}`, kind: ok ? 'info' : 'fail' })
+      return ok ? 'Pass' : 'Fail'
+    }
     const port = (p: string): { module: string; port: string } => {
       const m = /(\d+)\s*[/\-]\s*(\d+)/.exec(p || '')
       return { module: m?.[1] ?? '101', port: m?.[2] ?? '1' }
