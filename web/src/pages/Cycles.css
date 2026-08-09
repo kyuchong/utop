@@ -38,7 +38,9 @@
 .cy-head {
   flex-wrap: wrap;
   display: flex;
-  align-items: baseline;
+  /* 세로 가운데 정렬 — 카운터·「80% 진행」·단추의 글자 크기가 제각각이라
+     baseline 으로 두면 위아래로 어긋나 보인다. 한 줄에서 가운데로 맞춘다. */
+  align-items: center;
   gap: 10px;
 }
 /* 지금 어디까지 왔나. 숫자만 늘어놓으면 눈으로 못 센다 */
