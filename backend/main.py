@@ -249,6 +249,24 @@ async def _broadcast_presence(page):
             del page_controller[page]
     await broadcast({"type": "presence", "page": page, "users": users, "controller": ctrl})
 
+async def _broadcast_focus(page):
+    """이 화면에서 누가 어느 항목을 보고 있나 — {항목번호: [사람…]}"""
+    if not page:
+        return
+    at = {}
+    for st in list(ws_state.values()):
+        if st.get("page") != page:
+            continue
+        f = st.get("focus")
+        u = st.get("user")
+        if f is None or not u:
+            continue
+        at.setdefault(str(f), [])
+        if u not in at[str(f)]:
+            at[str(f)].append(u)
+    await broadcast({"type": "focus", "page": page, "at": at})
+
+
 @app.post("/api/broadcast-reload")
 async def broadcast_reload(payload: dict = None):
     # 접속 중인 모든 클라이언트에 강제 새로고침 신호 브로드캐스트.
@@ -7395,8 +7413,14 @@ async def get_cycle(cycle_id: str):
 @app.post("/api/cycle/{cycle_id}")
 async def save_cycle(cycle_id: str, data: dict):
     await db.cycle_upsert(cycle_id, data)
-    try: asyncio.create_task(broadcast({"type": "cycle_updated", "cycle_id": cycle_id}))
-    except Exception: pass
+    # 누가 고쳤는지 함께 싣는다. 받는 쪽이 「내가 방금 저장한 것」 을 걸러야
+    # 하고, 남이 한 것이면 이름을 말해 줘야 한다 — 사이클은 여럿이 나눠
+    # 돌리는 자리라 「누가 3번을 Fail 로 바꿨나」 가 곧 알아야 할 일이다.
+    _by = str((data or {}).get("updated_by") or "").strip()
+    try:
+        asyncio.create_task(broadcast({"type": "cycle_updated", "cycle_id": cycle_id, "user": _by}))
+    except Exception:
+        pass
     return {"success": True}
 
 @app.delete("/api/cycle/{cycle_id}")
@@ -10387,6 +10411,17 @@ async def websocket_endpoint(websocket: WebSocket):
                     await _broadcast_presence(old)
                 if st["page"]:
                     await _broadcast_presence(st["page"])
+            elif t == "focus" and st is not None:
+                # 같은 사이클 안에서 **어느 항목**을 보고 있나.
+                #
+                # 접속자(presence)는 화면 단위라, 사이클을 같이 보고 있다는
+                # 것까지만 안다. 사이클은 항목을 나눠 돌리는 자리라 정작
+                # 부딪히는 곳은 항목이다 — 둘이 같은 항목에 결과를 찍으면
+                # 나중 사람이 앞사람 것을 덮는다.
+                st["focus"] = msg.get("at")
+                pg = msg.get("page") or st.get("page")
+                if pg:
+                    await _broadcast_focus(pg)
             elif t == "takeover":
                 pg = msg.get("page"); u = msg.get("user")
                 if pg and u:
@@ -10398,6 +10433,7 @@ async def websocket_endpoint(websocket: WebSocket):
             active_connections.remove(websocket)
         if st and st.get("page"):
             await _broadcast_presence(st["page"])
+            await _broadcast_focus(st["page"])
     except Exception:
         ws_state.pop(id(websocket), None)
         if websocket in active_connections:

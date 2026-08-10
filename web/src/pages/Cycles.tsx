@@ -12,6 +12,9 @@ import CycleInsight from '@/components/cycle/CycleInsight'
 import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import { useMultiSelect } from '@/components/useMultiSelect'
+import PresenceBar from '@/components/PresenceBar'
+import { usePresence } from '@/components/usePresence'
+import { sendWs } from '@/api/wsBus'
 import {
   IconChevron,
   IconEdit,
@@ -352,7 +355,11 @@ function build(
   return nodes
 }
 
-export default function Cycles() {
+interface PageProps {
+  me?: { username?: string; name?: string } | null
+}
+
+export default function Cycles({ me }: PageProps) {
   /**
    * 새로고침해도 보던 자리로 돌아온다.
    *
@@ -818,7 +825,13 @@ export default function Cycles() {
 
       <section className="panel cy-main">
         {cur ? (
-          <CycleDetail cycle={cur} view={view} act={act} onSaved={() => void listQ.refetch()} />
+          <CycleDetail
+            cycle={cur}
+            view={view}
+            act={act}
+            meName={me?.name || me?.username || ''}
+            onSaved={() => void listQ.refetch()}
+          />
         ) : (
           <div className="empty">왼쪽에서 사이클을 고르세요.</div>
         )}
@@ -833,9 +846,12 @@ function CycleDetail({
   cycle,
   view,
   act,
+  meName,
   onSaved,
 }: {
   cycle: CycleMeta
+  /** 지금 사람 — 접속자 표시와 「누가 고쳤나」 에 쓴다 */
+  meName: string
   /** list = 표만 넓게 · detail = 표 + 스텝 세부 */
   view: 'list' | 'detail'
   /** 트리 우클릭 메뉴가 시킨 일 */
@@ -847,6 +863,50 @@ function CycleDetail({
   const [report, setReport] = useState(false)
   /** 고른 항목 — 누르면 스텝과 실행 내역이 아래에 열린다 */
   const [openItem, setOpenItem] = useState(-1)
+
+  /**
+   * 이 사이클을 누가 같이 보고 있나 · 남이 무엇을 고쳤나.
+   *
+   * 사이클은 **여럿이 나눠 돌리는 자리**다. 요구사항·시험항목에는 접속자
+   * 표시가 있는데 정작 부딪히기 쉬운 여기에는 없었다. 둘이 같은 항목에
+   * 결과를 찍으면 나중 사람이 앞사람 것을 조용히 덮는다.
+   *
+   * 막지는 않는다 — 랩에서는 같은 사이클을 여럿이 보는 일이 잦고, 잠가
+   * 버리면 보려던 사람이 못 들어온다. 대신 **누가 있는지 보여 주고**,
+   * 남이 고치면 그때 알린다.
+   */
+  const [remote, setRemote] = useState<{ user: string; at: number } | null>(null)
+  /** 항목마다 누가 보고 있나 — 서버가 모아 준다 */
+  const [focus, setFocus] = useState<Record<string, string[]>>({})
+  const page = `cycle:${cycle.id}`
+  const presence = usePresence(page, meName, (m) => {
+    if (m.type === 'focus' && m.page === page) {
+      setFocus((m.at as Record<string, string[]>) ?? {})
+      return
+    }
+    if (m.type !== 'cycle_updated' || m.cycle_id !== cycle.id) return
+    const by = typeof m.user === 'string' ? m.user : ''
+    if (by && by === meName) return // 내가 방금 저장한 것
+    setRemote({ user: by || '다른 사람', at: Date.now() })
+  })
+
+  // 지금 어느 항목을 보고 있는지 알린다. 항목이 곧 부딪히는 자리다.
+  useEffect(() => {
+    if (meName) sendWs({ type: 'focus', user: meName, page, at: openItem })
+  }, [openItem, page, meName])
+  // 이 사이클을 떠나면 자리를 비운다
+  useEffect(
+    () => () => {
+      if (meName) sendWs({ type: 'focus', user: meName, page, at: -1 })
+    },
+    [page, meName],
+  )
+  /** 남이 고쳤다는 알림은 잠깐만 띄운다 — 계속 있으면 배경이 된다 */
+  useEffect(() => {
+    if (!remote) return
+    const t = setTimeout(() => setRemote(null), 12000)
+    return () => clearTimeout(t)
+  }, [remote])
   /*
    * 목록(`?meta=1`)이 주는 항목은 **요약본**이다. 스텝에서 `cli`·`output`·
    * `criteria` 가 떨어져 나가 있어서
@@ -1052,7 +1112,9 @@ function CycleDetail({
       const cur = Array.isArray(full.items) ? (full.items as CycleItemLite[]) : []
       const w = await apiFetch(`/api/cycle/${encodeURIComponent(cycle.id)}`, {
         method: 'POST',
-        body: JSON.stringify({ ...full, id: cycle.id, items: edit(cur) }),
+        // 누가 고쳤는지 함께 보낸다 — 받는 쪽이 「내가 방금 한 것」 을
+        // 걸러야 하고, 남이 한 것이면 이름을 말해 줘야 한다
+        body: JSON.stringify({ ...full, id: cycle.id, items: edit(cur), updated_by: meName }),
       })
       if (!w.ok) throw new Error(String(w.status))
       // 온전한 것과 목록 요약을 둘 다 다시 읽는다. 요약만 두면 트리의
@@ -1205,6 +1267,8 @@ function CycleDetail({
           <span className="muted small">
             {[cycle.model, cycle.version].filter(Boolean).join(' · ')}
           </span>
+          {/* 누가 같이 보고 있나. 혼자면 안 뜬다 — 늘 있으면 장식이 된다 */}
+          <PresenceBar users={presence.users} me={meName} />
         </span>
         <span className="sp" />
         {/* 어쩌다 한 번 쓰는 것들은 「⋯」 안에 둔다 — 늘 펴 두면 자주 쓰는
@@ -1466,6 +1530,19 @@ function CycleDetail({
         ))}
       </div>
 
+      {/* 남이 고쳤다. 조용히 갱신되면 내가 보던 값이 언제 바뀌었는지
+          모른다 — 사이클은 여럿이 나눠 돌리는 자리라 특히 그렇다.
+          막지는 않고 알리기만 한다. 12초 뒤 사라진다. */}
+      {remote && (
+        <div className="cy-remote">
+          <b>{remote.user}</b> 님이 이 사이클을 고쳤습니다 — 지금 보이는 것이 최신입니다.
+          <span className="sp" />
+          <button className="btn small" type="button" onClick={() => setRemote(null)}>
+            닫기
+          </button>
+        </div>
+      )}
+
       {/* ② 통계 — 작은 글자 카운터는 눈에 안 들어온다. 큰 칸으로 세워
           「지금 어디까지 왔나」 를 먼저 읽게. 누르면 그 결과만 걸러 본다. */}
       <div className="cy-stats">
@@ -1657,6 +1734,21 @@ function CycleDetail({
                   가는 일이 잦다. */}
               {/* 체크박스 — Ctrl·Shift 로 고르는 것은 그대로 두고, 눈에
                   보이는 방법도 함께 준다(Zephyr 와 같은 자리) */}
+              {/* 이 항목을 나 말고 누가 보고 있나.
+                  사이클은 항목을 나눠 돌리는 자리라, 부딪히는 곳이 여기다 —
+                  둘이 같은 항목에 결과를 찍으면 나중 사람이 앞사람 것을
+                  덮는다. 막지는 않고, 있다는 것만 알린다. */}
+              {(() => {
+                const who = (focus[String(at)] ?? []).filter((u) => u !== meName)
+                if (!who.length) return null
+                return (
+                  <span className="cy-eyes" title={`${who.join(', ')} 님이 보는 중`}>
+                    {who.slice(0, 3).map((u) => (
+                      <i key={u}>{(u.trim()[0] || '?').toUpperCase()}</i>
+                    ))}
+                  </span>
+                )
+              })()}
               <span className="cy-ck" onClick={(e) => e.stopPropagation()}>
                 <input
                   type="checkbox"

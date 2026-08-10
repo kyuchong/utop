@@ -102,7 +102,7 @@ export default function App() {
       ) : page === 'ai-tc' ? (
         <AiTc />
       ) : page === 'cycles' ? (
-        <Cycles />
+        <Cycles me={user} />
       ) : page === 'executions' ? (
         <Reports />
       ) : page === 'defects' ? (
