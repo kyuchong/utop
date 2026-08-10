@@ -172,13 +172,20 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
             <div className="empty">시험 자료를 모으는 중…</div>
           ) : slides.length ? (
             slides.map((html, i) => (
-              <div className="rp-slide" key={i}>
+              /* 줄인 크기를 **감싸는 상자**가 잡는다.
+                 전에는 슬라이드에 바로 `transform` 을 걸고 음수 여백으로
+                 남는 자리를 되돌렸다. 그 계산이 어긋나면 장이 서로 겹치거나
+                 눌려서 표가 통째로 안 보이는 그림이 된다. 감싸는 상자가
+                 줄어든 크기를 그대로 차지하면 되돌릴 것이 없다. */
+              <div className="rp-wrap" key={i}>
+                <div className="rp-slide">
                 <span className="rp-no">
                   {i + 1} / {slides.length}
                 </span>
                 {/* 양식은 옛 화면의 HTML 을 그대로 옮긴 것이라 문자열로 그린다.
                     자료는 우리 서버에서 온 것이고 넣기 전에 이스케이프한다. */}
                 <div className="rp-page" dangerouslySetInnerHTML={{ __html: html }} />
+                </div>
               </div>
             ))
           ) : (

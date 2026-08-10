@@ -165,30 +165,34 @@
   padding: 18px 22px;
   background: var(--c-surface-2);
 }
+/*
+ * 미리보기 한 장.
+ *
+ * 1280×720 을 그대로 그리고 0.78 로 줄인다. `transform` 은 자리를 차지하는
+ * 크기를 안 줄이므로 **감싸는 상자**(`.rp-wrap`)가 줄어든 크기를 갖는다 —
+ * 전에는 음수 여백으로 되돌렸는데, 그 계산이 어긋나면 장이 서로 겹쳐서
+ * 표가 통째로 안 보였다. 되돌릴 것이 없으면 어긋날 것도 없다.
+ *
+ * `zoom` 은 안 쓴다. Firefox 가 126 버전 전까지 무시한다.
+ */
+.rp-wrap {
+  width: 998px;
+  height: 562px;
+  margin: 0 auto 16px;
+  overflow: hidden;
+}
 .rp-slide {
   position: relative;
   width: 1280px;
   height: 720px;
-  margin: 0 auto 16px;
   background: #fff;
   border: 1px solid var(--c-border-strong);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
   overflow: hidden;
-  /*
-   * 미리보기 폭에 맞춰 줄인다.
-   *
-   * `zoom` 을 쓰고 있었는데 Firefox 는 126 버전 전까지 그것을 **무시한다**.
-   * 그러면 1280px 짜리 장이 그대로 나와 화면을 넘고, 보는 사람에게는
-   * 「표가 안 보이고 상자가 눌린」 그림이 된다. `transform` 은 어디서나
-   * 같게 동작한다.
-   *
-   * 다만 `transform` 은 자리를 차지하는 크기를 안 줄인다 — 줄어든 만큼
-   * (720 × 0.22 = 158.4px) 아래 여백에서 되돌려야 장 사이가 안 벌어진다.
-   */
   transform: scale(0.78);
-  transform-origin: top center;
-  margin: 0 auto -142px;
+  transform-origin: top left;
 }
+
 .rp-page {
   width: 1280px;
   height: 720px;
