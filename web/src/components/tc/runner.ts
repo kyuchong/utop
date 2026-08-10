@@ -794,6 +794,10 @@ async function runOne(
               unit: x.unit,
               npkt: x.frameCnt,
               frame: x.minByte,
+              // 크기 모드가 Random 이면 최대까지 보낸다 — 그 사이에서 무작위
+              ...(String(x.byteType ?? '').toLowerCase().startsWith('rand')
+                ? { frameMax: x.maxByte }
+                : {}),
               proto: frameKind(x),
               srcMac: subVars(String(x.srcMac ?? ''), vars),
               dstMac: subVars(String(x.dstMac ?? ''), vars),

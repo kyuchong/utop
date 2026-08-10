@@ -7026,7 +7026,7 @@ def _n2x_specs(streams):
         return str(v if v is not None else "").strip().replace(",", "").replace(" ", "")
     # unit 은 맨 뒤에 붙인다 — 자리로 읽는 형식이라, 중간에 끼우면 옛 spec 이
     # 통째로 어긋난다. 없으면 데몬이 pps 로 본다.
-    keys = ["txMod", "txPort", "rxMod", "rxPort", "proto", "frame", "pps", "npkt", "srcMac", "dstMac", "srcIp", "dstIp", "unit"]
+    keys = ["txMod", "txPort", "rxMod", "rxPort", "proto", "frame", "pps", "npkt", "srcMac", "dstMac", "srcIp", "dstIp", "unit", "frameMax"]
     specs = []
     for s in streams:
         # 송신 모듈만 주면 수신 모듈도 동일하게

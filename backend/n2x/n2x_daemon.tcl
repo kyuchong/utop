@@ -10,7 +10,7 @@
 #
 # 고칠 때마다 올린다. 서버가 `ver` 로 물어 제 사본과 견주고, 다르면
 # 화면에 「윈도우의 데몬이 옛 것」 이라고 적는다.
-set DAEMON_VER 12
+set DAEMON_VER 13
 # 명령: ports | reserve <mod> <port> | release <mod> <port>
 #       traffic <mod> <tx> <rx> <pps> <npkt> <dur> <frame> | ping | quit
 lappend auto_path "C:/N2xTcl85/lib"
@@ -374,6 +374,8 @@ proc _build_streams {specs} {
         set proto [lindex $f 4]; set frame [lindex $f 5]; set pps [lindex $f 6]; set npkt [lindex $f 7]
         set srcMac [lindex $f 8]; set dstMac [lindex $f 9]; set srcIp [lindex $f 10]; set dstIp [lindex $f 11]
         set unit [lindex $f 12]
+        # 13번 칸이 있으면 프레임 길이를 그 사이에서 무작위로 (min=frame)
+        set frameMax [lindex $f 13]
         set hTx [getPort $txM $txP]; set hRx [getPort $rxM $rxP]
         if {$hTx eq ""} { lappend ::g_badPorts "$txM/$txP" }
         if {$hRx eq ""} { lappend ::g_badPorts "$rxM/$rxP" }
@@ -415,7 +417,14 @@ proc _build_streams {specs} {
         #
         # 못 정하면 그렇다고 남긴다. 조용히 틀리는 것이 제일 나쁘다.
         if {$frame ne "" && $frame > 0} {
-            if {[catch {AgtInvoke AgtStreamGroup SetLength $hSG AGT_PACKET_LENGTH_FIXED $frame}]} {
+            # 최대 길이가 따로 오면 그 사이에서 무작위로. 인자는 한 덩어리로
+            # 넘긴다 — `{64 1518}`. 따로 두 개로 주면 「인자가 많다」 고 한다.
+            if {$frameMax ne "" && [string is integer -strict $frameMax] && $frameMax > $frame} {
+                set _lenArgs [list AGT_PACKET_LENGTH_RANDOM [list $frame $frameMax]]
+            } else {
+                set _lenArgs [list AGT_PACKET_LENGTH_FIXED $frame]
+            }
+            if {[catch {eval AgtInvoke AgtStreamGroup SetLength $hSG $_lenArgs}]} {
                 set ::g_frameSet "no"
             } else {
                 set ::g_frameSet "yes"
