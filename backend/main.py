@@ -6495,6 +6495,35 @@ def _n2x_get_daemon(server, label):
         _n2x_daemons[key] = nd
         return nd
 
+# 데몬이 내주는 잘못 코드 → 사람이 읽는 말.
+#
+# 문구를 Tcl 안에 한국어로 적어 두었더니 그대로 깨져 나왔다
+# (`∞£åφÜ¿φÒ£ ∞èñφè¬ …`). Windows 의 Tcl 은 .tcl 파일을 시스템 인코딩으로
+# 읽는데 파일은 UTF-8 이라, 한글이 그 자리에서 어긋난다. 데몬은 ASCII 만
+# 말하고 한국어는 여기서 붙인다.
+_N2X_ERRS = {
+    "no_valid_stream":
+        "스트림을 하나도 만들지 못했습니다 — 그 포트를 이 세션이 잡고 있지 않습니다",
+}
+
+
+def _n2x_humanize(res):
+    """데몬 응답의 error 를 사람이 읽는 말로 바꾼다. 모르는 것은 그대로 둔다."""
+    if not isinstance(res, dict):
+        return res
+    code = str(res.get("error") or "")
+    ko = _N2X_ERRS.get(code)
+    if not ko:
+        return res
+    bad = str(res.get("badPorts") or "").strip()
+    if bad:
+        ko += f" (못 잡은 포트: {bad}). 「포트 확인」 으로 실제 포트 번호를 보고 Traffic 탭의 시험 포트와 맞추세요"
+    out = dict(res)
+    out["error"] = ko
+    out["code"] = code
+    return out
+
+
 def _n2x_send(server, label, cmd, _retry=True):
     """N2X 명령 한 줄. 중계가 설정돼 있으면 그리로, 아니면 이 기계에서 직접.
 
@@ -6939,8 +6968,9 @@ def n2x_traffic_start(data: dict):
     streams = _n2x_streams_from(data)
     if not streams:
         return {"ok": False, "error": "streams(또는 module/txPort/rxPort) 필요"}
-    return _n2x_send(str(data.get("server", "210.1.2.248")), str(data.get("label", "utop")),
-                     "tstart " + str(data.get("dur") or 0) + " " + " ".join(_n2x_specs(streams)))
+    return _n2x_humanize(_n2x_send(
+        str(data.get("server", "210.1.2.248")), str(data.get("label", "utop")),
+        "tstart " + str(data.get("dur") or 0) + " " + " ".join(_n2x_specs(streams))))
 
 
 @app.post("/api/n2x/traffic/stat")

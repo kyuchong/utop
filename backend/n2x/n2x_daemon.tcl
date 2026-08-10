@@ -89,6 +89,7 @@ proc cmd_traffic {mod tx rx pps npkt dur fb} {
 
 # 다중 스트림 — 각 spec="txM,txP,rxM,rxP,proto,frame,pps,npkt,srcMac,dstMac,srcIp,dstIp" (빈값/-=미설정)
 set ::g_sg {}; set ::g_hStats ""    ;# 비동기 전송용 전역 상태 (구성된 스트림그룹/통계 핸들)
+set ::g_badPorts {}                  ;# 핸들을 못 잡은 포트 — 에러에 적어 준다
 set ::g_statKeys {}                  ;# 실제 선택된 통계 항목(이름 순서) — GetStreamStatistics 행 매핑용
 # 통계 항목을 풍부하게 선택(지연 min/max·송수신 바이트). 상수 미지원이면 단계적으로 폴백.
 proc _select_stats {hStats} {
@@ -123,6 +124,7 @@ proc _select_stats {hStats} {
 # NOTE: 이전 세션에 트래픽이 남아 있으면 "Cannot add ... list is in use" 에러 발생 →
 #       StopTest 후 실제로 STOPPED 상태가 될 때까지 폴링, 리스트 잠금 해제 확실히 대기.
 proc _build_streams {specs} {
+    set ::g_badPorts {}
     catch {AgtInvoke AgtTestController StopTest}
     # 테스트가 실제로 STOPPED 될 때까지 최대 5초 폴링 (RemoveAll 이 잠긴 리스트에서 실패하는 것 방지)
     set _tries 0
@@ -158,6 +160,8 @@ proc _build_streams {specs} {
         set proto [lindex $f 4]; set frame [lindex $f 5]; set pps [lindex $f 6]; set npkt [lindex $f 7]
         set srcMac [lindex $f 8]; set dstMac [lindex $f 9]; set srcIp [lindex $f 10]; set dstIp [lindex $f 11]
         set hTx [getPort $txM $txP]; set hRx [getPort $rxM $rxP]
+        if {$hTx eq ""} { lappend ::g_badPorts "$txM/$txP" }
+        if {$hRx eq ""} { lappend ::g_badPorts "$rxM/$rxP" }
         if {$hTx eq "" || $hRx eq ""} continue
         lappend allPorts $hTx $hRx
         if {$pps eq ""} { set pps 1000 }
@@ -221,7 +225,7 @@ proc _read_stats {} {
 }
 # 동기(기존 호환): 구성 + StartTest + 종료까지 대기 + 통계
 proc cmd_traffic_multi {dur specs} {
-    if {[_build_streams $specs] == 0} { return "{\"ok\":false,\"error\":\"유효한 스트림 없음(포트 예약 확인)\"}" }
+    if {[_build_streams $specs] == 0} { return "{\"ok\":false,\"error\":\"no_valid_stream\",\"badPorts\":\"[join $::g_badPorts ,]\"}" }
     AgtInvoke AgtTestController SetTestMode AGT_TEST_ONCE
     AgtInvoke AgtTestController SetTestDuration $dur
     AgtInvoke AgtTestController StartTest
@@ -231,7 +235,7 @@ proc cmd_traffic_multi {dur specs} {
 }
 # 비동기 시작 — 구성 + StartTest 후 즉시 리턴(대기 X). dur 비거나 0이면 사실상 연속(1시간)
 proc cmd_tstart {dur specs} {
-    if {[_build_streams $specs] == 0} { return "{\"ok\":false,\"error\":\"유효한 스트림 없음(포트 예약 확인)\"}" }
+    if {[_build_streams $specs] == 0} { return "{\"ok\":false,\"error\":\"no_valid_stream\",\"badPorts\":\"[join $::g_badPorts ,]\"}" }
     AgtInvoke AgtTestController SetTestMode AGT_TEST_ONCE
     if {$dur ne "" && $dur > 0} { AgtInvoke AgtTestController SetTestDuration $dur } else { AgtInvoke AgtTestController SetTestDuration 3600 }
     AgtInvoke AgtTestController StartTest

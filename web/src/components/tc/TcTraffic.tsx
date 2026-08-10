@@ -203,6 +203,54 @@ export default function TcTraffic({ data, onChange }: Props) {
     }
   }
 
+  /**
+   * 섀시에 실제로 꽂힌 포트를 읽어 온다.
+   *
+   * 포트를 손으로 적게 두었더니 「1/1」 같은 짐작이 들어가고, 그러면
+   * 트래픽을 시작할 때 스트림이 하나도 안 만들어진다 — 그 자리에 포트가
+   * 없으니 핸들을 못 잡는다. 실제 번호를 보고 고르게 한다.
+   */
+  const [chassisPorts, setChassisPorts] = useState<
+    Array<{ id: string; free: boolean; who: string }>
+  >([])
+  const readPorts = async () => {
+    if (!cfg.chassis) {
+      setMsg('계측기를 먼저 고르세요')
+      return
+    }
+    setBusy('ports')
+    setMsg('')
+    try {
+      const q = `/api/n2x/ports?server=${encodeURIComponent(cfg.chassis)}&label=${encodeURIComponent(cfg.n2xLabel || 'utop')}`
+      const r = await apiFetch(q)
+      const j = (await r.json()) as {
+        ok?: boolean
+        error?: string
+        modules?: Array<{
+          id: number
+          portList?: Array<{ port: number; label?: string; mine?: number; avail?: number }>
+        }>
+      }
+      if (j.ok === false) throw new Error(j.error || '포트를 읽지 못했습니다')
+      const out: Array<{ id: string; free: boolean; who: string }> = []
+      for (const m of j.modules ?? []) {
+        for (const x of m.portList ?? []) {
+          out.push({
+            id: `${m.id}/${x.port}`,
+            free: !!x.avail || !!x.mine,
+            who: x.mine ? '내 것' : x.avail ? '빈 포트' : x.label || '사용 중',
+          })
+        }
+      }
+      setChassisPorts(out)
+      setMsg(`포트 ${out.length}개 · 쓸 수 있는 것 ${out.filter((x) => x.free).length}개`)
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy('')
+    }
+  }
+
   const s = streams[sel]
 
   /** 표 안에서 바로 고치는 칸 */
@@ -281,9 +329,23 @@ export default function TcTraffic({ data, onChange }: Props) {
             )}
           </label>
           <label className="tt-f tt-wide">
-            <span>시험 포트 (쉼표, 예: 4106/1,4106/2)</span>
+            <span>
+              시험 포트 (쉼표, 예: 4106/1,4106/2)
+              {kind !== 'stc' && (
+                <button
+                  className="btn small tt-portbtn"
+                  type="button"
+                  disabled={!!busy || !cfg.chassis}
+                  title="섀시에 실제로 꽂힌 포트를 읽어 옵니다"
+                  onClick={() => void readPorts()}
+                >
+                  {busy === 'ports' ? '읽는 중…' : '섀시에서 읽기'}
+                </button>
+              )}
+            </span>
             <input
               className="mono"
+              list="tt-chassis-ports"
               value={ports.join(',')}
               placeholder="4106/1,4106/2"
               onChange={(e) => {
@@ -291,6 +353,35 @@ export default function TcTraffic({ data, onChange }: Props) {
                 setCfg({ ports: pp.length ? pp : ['1/1', '1/2'] })
               }}
             />
+            {chassisPorts.length > 0 && (
+              <>
+                <datalist id="tt-chassis-ports">
+                  {chassisPorts.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.who}
+                    </option>
+                  ))}
+                </datalist>
+                {/* 눌러서 넣는다. 목록만 보여 주면 옮겨 적다가 또 틀린다. */}
+                <span className="tt-ports">
+                  {chassisPorts.map((x) => (
+                    <button
+                      key={x.id}
+                      type="button"
+                      className={`tt-port${ports.includes(x.id) ? ' on' : ''}${x.free ? '' : ' busy'}`}
+                      title={x.who}
+                      onClick={() => {
+                        const has = ports.includes(x.id)
+                        const next = has ? ports.filter((y) => y !== x.id) : [...ports, x.id]
+                        setCfg({ ports: next.length ? next : ['1/1', '1/2'] })
+                      }}
+                    >
+                      {x.id}
+                    </button>
+                  ))}
+                </span>
+              </>
+            )}
           </label>
         </div>
       </section>

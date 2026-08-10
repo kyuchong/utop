@@ -167,3 +167,34 @@
   color: var(--c-text-faint);
   line-height: 1.5;
 }
+
+/* 섀시에서 읽은 포트 — 눌러서 시험 포트에 넣고 뺀다.
+   목록만 보여 주면 옮겨 적다가 또 틀린다. */
+.tt-portbtn { margin-left: 8px; }
+
+.tt-ports {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.tt-port {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  padding: 2px 7px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.tt-port:hover { border-color: var(--c-primary); color: var(--c-primary); }
+.tt-port.on {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: #fff;
+  font-weight: 600;
+}
+/* 남이 잡고 있는 포트. 막지는 않는다 — 곧 놓을 수도 있고, 그 판단은 사람이 한다 */
+.tt-port.busy { opacity: 0.5; text-decoration: line-through; }
+.tt-port.busy.on { opacity: 1; text-decoration: none; }
