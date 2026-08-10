@@ -525,7 +525,18 @@ async function runOne(
     const act = step.meterAct ?? 'traffic_start'
 
     if (!server) {
-      const err = '계측기를 고르지 않았습니다 — 스텝에서 계측기를 정하세요'
+      /*
+       * 어느 쪽이 비었는지 갈라서 말한다.
+       *
+       * 「계측기를 고르지 않았습니다」 만 내놓으면, 화면에서 분명히 골라
+       * 두고도 사이클에서만 이 말이 나올 때 어디를 봐야 할지 모른다.
+       * 실제로 그랬다 — TC 화면(브라우저)에서는 되는데 사이클(실행 서버)
+       * 에서만 죽었다. 설정이 아예 안 온 것과 안 고른 것은 다르다.
+       */
+      const err =
+        ctx.meterCfg === undefined
+          ? '계측기 설정이 실행기에 오지 않았습니다 — TC 의 Traffic 탭에서 골랐다면 실행 서버(runner)가 옛 코드입니다. runner 를 다시 배포하세요'
+          : '계측기를 고르지 않았습니다 — TC 의 Traffic 탭에서 계측기를 고르세요'
       ctx.onStep(i, { output: `[계측기 오류] ${err}`, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: err })
       ctx.onLog({ i, text: err, kind: 'fail' })
       return 'Fail'
