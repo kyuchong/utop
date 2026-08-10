@@ -141,18 +141,39 @@ export default function TcMeterStep({ step, meterCfg, onChange, onGoTraffic }: P
       )}
 
       {act === 'traffic_stat' && (
-        <label className="sd-f">
-          <span>허용 손실 (패킷 수)</span>
-          <input
-            type="number"
-            value={step.meterMaxLoss ?? ''}
-            placeholder="0"
-            onChange={(e) => onChange({ meterMaxLoss: Number(e.target.value) || 0 })}
-          />
-          <span className="sd-hint">
-            표의 <b>Rx Packet Loss</b> 가 이 수를 넘으면 불합격입니다. 비우면 0.
-          </span>
-        </label>
+        <>
+          <label className="sd-f">
+            <span>판정</span>
+            <select
+              value={step.meterJudge ?? 'loss'}
+              onChange={(e) => onChange({ meterJudge: e.target.value as 'loss' | 'none' })}
+            >
+              <option value="loss">손실로 판정</option>
+              <option value="none">판정 안 함 — 사람이 정함</option>
+            </select>
+            <span className="sd-hint">
+              트래픽이 <b>흐르는 도중</b>에 읽으면 아직 도착하지 않은 패킷이 손실로 잡힙니다.
+              「보내는 중인지 본다」 가 목적인 스텝은 그것으로 떨어질 수밖에 없는데, 시험이
+              깨진 것은 아닙니다. 그럴 때 「판정 안 함」 으로 두면 값만 남기고 결과는 비워
+              둡니다 — 보고 직접 찍으시면 됩니다.
+            </span>
+          </label>
+
+          {(step.meterJudge ?? 'loss') === 'loss' && (
+            <label className="sd-f">
+              <span>허용 손실 (패킷 수)</span>
+              <input
+                type="number"
+                value={step.meterMaxLoss ?? ''}
+                placeholder="0"
+                onChange={(e) => onChange({ meterMaxLoss: Number(e.target.value) || 0 })}
+              />
+              <span className="sd-hint">
+                표의 <b>Rx Packet Loss</b> 가 이 수를 넘으면 불합격입니다. 비우면 0.
+              </span>
+            </label>
+          )}
+        </>
       )}
     </div>
   )

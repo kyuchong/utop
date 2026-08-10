@@ -467,11 +467,38 @@
 .sq-st.now { color: var(--c-primary); }
 
 /* 지금 돌고 있는 줄. 고른 줄과 겹칠 수 있어 색이 아니라 왼쪽 띠로 표시한다.
-   글자도 굵게 — 30줄을 훑을 때 옅은 파랑만으로는 눈에 안 걸린다. */
-.sq-row.now { background: #eef6ff; box-shadow: inset 2px 0 0 var(--c-primary); }
+   글자도 굵게 — 30줄을 훑을 때 옅은 파랑만으로는 눈에 안 걸린다.
+
+   깜빡인다. 30줄짜리 시험은 화면 밖까지 가는데, 멎어 있는 표시는 「지금」
+   인지 「아까 지나간 자리」 인지 안 갈린다. 움직이는 것은 눈이 먼저 찾는다.
+   글자는 안 건드린다 — 글자가 깜빡이면 읽을 수가 없다. */
+.sq-row.now {
+  background: #eef6ff;
+  box-shadow: inset 2px 0 0 var(--c-primary);
+  animation: sq-live 1.1s ease-in-out infinite alternate;
+}
 .sq-row.now .sq-act,
 .sq-row.now .sq-sum,
 .sq-row.now .sq-n { font-weight: 700; color: var(--c-text); }
+
+@keyframes sq-live {
+  from { background: #eef6ff; box-shadow: inset 2px 0 0 var(--c-primary); }
+  to   { background: #dbeafe; box-shadow: inset 4px 0 0 var(--c-primary); }
+}
+
+/* 돌고 있는 표시(▸)도 함께. 줄을 안 보고 있어도 여기가 뛴다 */
+.sq-st.now { animation: sq-pulse 1.1s ease-in-out infinite; }
+@keyframes sq-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* 움직임을 줄이라고 해 둔 사람에게는 깜빡이지 않는다. 그래도 어디가
+   도는지는 알아야 하므로 색과 굵기는 그대로 둔다. */
+@media (prefers-reduced-motion: reduce) {
+  .sq-row.now,
+  .sq-st.now { animation: none; }
+}
 
 /* 1.1.2 까지 들어간다.
    왼쪽 정렬이다 — 오른쪽 정렬로 두면 '1' 과 '4.1' 의 시작 자리가 달라서
@@ -489,10 +516,21 @@
 /* 어느 줄에 딸린 것인지 — 폴더 트리처럼 ├ · └ 로 잇는다.
    전에는 줄 높이만큼 세로선을 통째로 그었다. 그 선은 「블록 안」 이라는
    것만 말할 뿐, 1.1 이 1 에 딸렸다는 것을 보여주지는 않았다. */
-.sq-row[data-depth="1"] { --gx: 66px; }
-.sq-row[data-depth="2"] { --gx: 82px; }
-.sq-row[data-depth="3"] { --gx: 98px; }
-.sq-row[data-depth="4"] { --gx: 114px; }
+/*
+ * 세로선이 서는 자리.
+ *
+ * 번호 칸에 그으면 「1.1 이 1 에 딸렸다」 가 아니라 번호끼리 이어진 것으로
+ * 보인다. 딸린 관계는 Action 칸에서 생긴다 — 접기 단추(∨)가 거기 있고,
+ * 들여쓰기도 그 칸에 준다. 어미 줄의 접기 단추 한가운데에서 내려온다.
+ *
+ * 자리 계산: 왼쪽 여백 8 + 체크 15 + 8 + 상태 18 + 8 + 번호 52 + 8 = 117
+ * 이 Action 칸의 시작이고, 접기 단추(14px)의 한가운데가 +7 이다. 한 칸
+ * 깊어질 때마다 16px(`.sq-act` 의 들여쓰기)씩 안으로.
+ */
+.sq-row[data-depth="1"] { --gx: 124px; }
+.sq-row[data-depth="2"] { --gx: 140px; }
+.sq-row[data-depth="3"] { --gx: 156px; }
+.sq-row[data-depth="4"] { --gx: 172px; }
 
 /* 세로 — 마지막 자식은 제 자리까지만 내려온다(└) */
 .sq-row[data-kid]::before {

@@ -189,7 +189,24 @@ function statNum(v: unknown): number {
 export function judgeMeterStats(
   rows: MeterStat[],
   step: TcStep,
-): { ok: boolean; reason: string } {
+): { ok: boolean; reason: string; skip?: boolean } {
+  /*
+   * 판정하지 않기로 한 스텝.
+   *
+   * 트래픽이 흐르는 도중에 읽으면 아직 도착하지 않은 패킷이 손실로 잡힌다.
+   * 「보내는 중인지 본다」 가 목적인 스텝은 그것으로 떨어질 수밖에 없는데,
+   * 시험이 깨진 것은 아니다. 값은 그대로 남기고 판정만 사람에게 넘긴다.
+   */
+  if (step.meterJudge === 'none') {
+    const tx = rows.reduce((a, x) => a + statNum(x.tx), 0)
+    const rx = rows.reduce((a, x) => a + statNum(x.rx), 0)
+    const loss = rows.reduce((a, x) => a + statNum(x.loss), 0)
+    return {
+      ok: true,
+      skip: true,
+      reason: `보냄 ${tx} · 받음 ${rx} · 손실 ${loss} — 판정하지 않습니다(사람이 정함)`,
+    }
+  }
   if (!rows.length) {
     return { ok: false, reason: '통계가 비어 있습니다 — 트래픽을 시작하지 않았거나 스트림이 만들어지지 않았습니다' }
   }
@@ -771,12 +788,21 @@ async function runOne(
       // 데몬이 주는 칸 이름은 `streams` 다. 전에는 `j.stats` 를 읽어서 늘
       // 빈 배열이었고, 그래서 「받음 0 · 손실 0」 으로 **무조건 합격**했다.
       const rows = (j.streams as MeterStat[]) ?? (j.stats as MeterStat[]) ?? []
-      const v = j.ok === false
-        ? { ok: false, reason: String(j.error ?? '통계 실패') }
-        : judgeMeterStats(rows, step)
-      ctx.onStep(i, { output: pretty, executed_at: at, status: v.ok ? 'PASS' : 'FAIL', repeatResult: v.ok ? 'Pass' : 'Fail', reason: v.reason })
-      ctx.onLog({ i, text: `통계 — ${v.reason}`, kind: v.ok ? 'pass' : 'fail' })
-      return v.ok ? 'Pass' : 'Fail'
+      const v: { ok: boolean; reason: string; skip?: boolean } =
+        j.ok === false
+          ? { ok: false, reason: String(j.error ?? '통계 실패') }
+          : judgeMeterStats(rows, step)
+      // 판정 안 하기로 한 스텝은 결과를 비워 둔다. PASS 로 찍으면 안 본 것이
+      // 통과한 것으로 남아, 나중에 그 시험을 믿을 수 없게 된다.
+      ctx.onStep(i, {
+        output: pretty,
+        executed_at: at,
+        status: v.skip ? '' : v.ok ? 'PASS' : 'FAIL',
+        repeatResult: v.skip ? '' : v.ok ? 'Pass' : 'Fail',
+        reason: v.reason,
+      })
+      ctx.onLog({ i, text: `통계 — ${v.reason}`, kind: v.skip ? 'skip' : v.ok ? 'pass' : 'fail' })
+      return v.skip ? '' : v.ok ? 'Pass' : 'Fail'
     }
     const ok = j.ok !== false
     // 실패인데 status 를 비워 두고 있었다 — 목록에는 「미실행」 으로 남고
