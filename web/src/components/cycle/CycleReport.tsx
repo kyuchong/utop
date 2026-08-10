@@ -172,20 +172,34 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
             <div className="empty">시험 자료를 모으는 중…</div>
           ) : slides.length ? (
             slides.map((html, i) => (
-              /* 줄인 크기를 **감싸는 상자**가 잡는다.
-                 전에는 슬라이드에 바로 `transform` 을 걸고 음수 여백으로
-                 남는 자리를 되돌렸다. 그 계산이 어긋나면 장이 서로 겹치거나
-                 눌려서 표가 통째로 안 보이는 그림이 된다. 감싸는 상자가
-                 줄어든 크기를 그대로 차지하면 되돌릴 것이 없다. */
+              /*
+               * 장 하나를 **iframe 안에** 그린다.
+               *
+               * 앱의 CSS 가 이 안에 못 들어온다. 밖에서 이 장을 눌러 표가
+               * 통째로 안 보이는 일이 되풀이됐는데, 어느 규칙이 그랬는지
+               * 원격으로는 짚을 수가 없었다. 격리하면 그런 일이 아예 안
+               * 생긴다 — 결과서 미리보기는 「우리 화면」 이 아니라 「저쪽
+               * 문서」 라서, 우리 규칙이 닿지 않는 편이 옳기도 하다.
+               *
+               * 1280×720 을 0.78 로 줄여 998×562 로 보인다.
+               */
               <div className="rp-wrap" key={i}>
-                <div className="rp-slide">
                 <span className="rp-no">
                   {i + 1} / {slides.length}
                 </span>
-                {/* 양식은 옛 화면의 HTML 을 그대로 옮긴 것이라 문자열로 그린다.
-                    자료는 우리 서버에서 온 것이고 넣기 전에 이스케이프한다. */}
-                <div className="rp-page" dangerouslySetInnerHTML={{ __html: html }} />
-                </div>
+                <iframe
+                  className="rp-frame"
+                  title={`${i + 1}장`}
+                  sandbox=""
+                  srcDoc={
+                    '<!doctype html><meta charset="utf-8">' +
+                    '<style>html,body{margin:0;padding:0;background:#fff}' +
+                    '.p{width:1280px;height:720px;padding:24px 30px;box-sizing:border-box;' +
+                    'overflow:hidden;transform:scale(0.78);transform-origin:top left;' +
+                    "font-family:'Malgun Gothic',AppleGothic,sans-serif;color:#111}</style>" +
+                    `<div class="p">${html}</div>`
+                  }
+                />
               </div>
             ))
           ) : (
