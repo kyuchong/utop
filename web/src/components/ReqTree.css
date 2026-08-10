@@ -547,3 +547,26 @@
   font-weight: 700;
   color: var(--page-ink, inherit);
 }
+
+/* 폴더 줄 오른쪽 — 요구사항 수와 시험 수.
+   하나만 적으면 그 수가 무엇인지 알 수 없다. 커버리지에서 궁금한 것은
+   둘의 비다 — 요구사항 7건에 시험 0건이면 아직 손도 안 댄 폴더다. */
+.rt-cnts {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  margin-left: auto;
+}
+.rt-cnts i {
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 1.5;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rt-cq { background: #fff4e0; color: #9a6400; }
+.rt-ct { background: #e8f1ff; color: #1b529f; }

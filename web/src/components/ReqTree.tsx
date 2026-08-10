@@ -320,6 +320,25 @@ export default function ReqTree({
     (byFolder.get(n.id) ?? []).filter(match).length +
     n.children.reduce((a, k) => a + countDeep(k), 0)
 
+  /**
+   * 이 폴더 아래 요구사항 수와 그것들이 물고 있는 시험 수.
+   *
+   * 전에는 수가 하나뿐이라 「22」 가 요구사항인지 시험인지 알 수 없었다.
+   * 커버리지를 볼 때 궁금한 것은 **둘의 비**다 — 요구사항 7건에 시험이
+   * 0건이면 그 폴더는 아직 손도 안 댄 것이다.
+   */
+  const countDeep2 = (n: CategoryTreeNode): { req: number; tc: number } => {
+    const mine = (byFolder.get(n.id) ?? []).filter(match)
+    let req = mine.length
+    let tc = mine.reduce((a, r) => a + tcsFor(r).length, 0)
+    for (const k of n.children) {
+      const c = countDeep2(k)
+      req += c.req
+      tc += c.tc
+    }
+    return { req, tc }
+  }
+
   const toggle = (id: string) =>
     setOpenIds((s) => {
       const n = new Set(s)
@@ -491,6 +510,7 @@ export default function ReqTree({
     const open = needle ? true : openIds.has(n.id)
     const mine = foldersOnly ? [] : (byFolder.get(n.id) ?? []).filter(match)
     const total = countDeep(n)
+    const cnt = countDeep2(n)
     if (needle && total === 0 && !foldersOnly) return null
     const hasKids = n.children.length > 0 || mine.length > 0
 
@@ -586,7 +606,19 @@ export default function ReqTree({
             </b>
           )}
 
-          <span className="rt-cnt">{total || ''}</span>
+          {/* 요구사항 수 · 시험 수. 하나만 적으면 그 수가 무엇인지 모른다 */}
+          <span className="rt-cnts">
+            {cnt.req > 0 && (
+              <i className="rt-cq" title={`요구사항 ${cnt.req}건`}>
+                REQ {cnt.req}
+              </i>
+            )}
+            {cnt.tc > 0 && (
+              <i className="rt-ct" title={`시험 ${cnt.tc}건`}>
+                TC {cnt.tc}
+              </i>
+            )}
+          </span>
         </div>
 
         {addingTo === n.id && (

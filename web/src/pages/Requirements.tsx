@@ -590,6 +590,16 @@ export default function Requirements() {
           </span>
         </span>
         <span className="sp" />
+        {/* 찾기는 맨 위 줄에 둔다.
+            1열 머리줄의 돋보기 안에 숨어 있었다 — 폴더가 스물다섯이면
+            찾는 일이 잦은데 누를 것을 한 번 더 눌러야 했다. 여기라면 늘
+            보이고, 1열을 접어도 그대로 쓸 수 있다. */}
+        <input
+          className="rq-find"
+          value={treeQ}
+          placeholder="폴더·요구사항 찾기"
+          onChange={(e) => setTreeQ(e.target.value)}
+        />
         {/* List(표로 여럿) ↔ Detail(한 건 넓게). Detail 로 가면 폴더가
             자동으로 접힌다 — 셋을 다 펴면 정작 상세가 좁아진다. */}
         <div className="rq-view" role="tablist" aria-label="보기 방식">
@@ -643,14 +653,10 @@ export default function Requirements() {
               전부 2열 표(Add·Clone·Delete·Export)가 맡는다. 두 군데에
               같은 일이 있으면 어디를 눌러야 할지 매번 생각하게 된다. */}
           <ListHead
-            name="폴더"
+            name="Requirement Tree"
+            big
             count={folderCount}
             onCollapse={() => setTreeOpen(false)}
-            search={{
-              value: treeQ,
-              placeholder: '폴더 이름으로 찾기',
-              onChange: setTreeQ,
-            }}
             add={{ title: '최상위 폴더 추가', onClick: () => setAddFolder((n) => n + 1) }}
             menu={
               <>

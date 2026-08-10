@@ -786,3 +786,18 @@
   margin: 0 4px;
   background: var(--c-border);
 }
+
+/* 맨 위 줄의 찾기. 1열 머리줄 돋보기 안에 숨어 있던 것을 꺼냈다 —
+   폴더가 스물다섯이면 찾는 일이 잦고, 1열을 접어도 쓸 수 있어야 한다. */
+.rq-find {
+  width: 260px;
+  max-width: 32vw;
+  padding: 4px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+.rq-find:focus { outline: none; border-color: var(--c-primary); }
