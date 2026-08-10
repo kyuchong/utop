@@ -472,10 +472,25 @@
 /* ── 실행 판 ────────────────────────────────────────────────
    전에는 목록 아래 여섯 줄짜리 회색 글이라 돌고 있는지도 잘 몰랐다.
    돌 때는 눈에 띄게, 끝나면 결과만 남긴다. */
+/* 3열 아래에 붙는다. 스텝 하나를 고르고 나면 늘 비던 자리다 —
+   목록(2열)은 목록대로 두고, 「지금 무슨 일이 있나」 는 여기서 본다.
+   위쪽 세부가 아무리 길어도 이 판은 안 밀린다. */
 .tc-runbox {
   flex: none;
+  margin-top: auto;
   border-top: 1px solid var(--tc-line);
   background: var(--c-surface);
+}
+
+/* 세부와 실행 판이 세로로 쌓인다. 세부가 남는 자리를 갖고, 판은 바닥에. */
+.tc-detcol {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.tc-detcol > .sd {
+  flex: 1;
+  min-height: 0;
 }
 
 /* 도는 동안은 위쪽에 파란 선을 그어 '지금 살아 있다' 를 보인다 */
