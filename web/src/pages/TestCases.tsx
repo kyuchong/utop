@@ -285,16 +285,64 @@ export default function TestCases({ me }: PageProps) {
     })
   }, [tcs, reqByKey, selReq, selFolder, treeQ])
 
-  /** 지금 보고 있는 자리 이름 — 빵부스러기에 적는다 */
-  const whereName = useMemo(() => {
+  /**
+   * 지금 보고 있는 자리까지의 길 — 조상부터 차례로.
+   *
+   * 이름 하나만 적으면 「ENV」 가 어느 ENV 인지 모른다. 폴더 이름은
+   * 흔해서 대분류 여럿 밑에 같은 이름이 있고, 1열을 접으면 트리에서
+   * 짚어 볼 수도 없다. 요구사항 화면과 같은 규칙이다.
+   *
+   * 폴더는 `parent_id` 를 거슬러 올라가고, 요구사항은 제 `cat1~cat4` 에
+   * 조상 사슬을 이미 들고 있다 — 그것을 그대로 쓴다.
+   */
+  const wherePath = useMemo(() => {
+    const all = catQ.data?.categories ?? []
+    const byId = new Map(all.map((c) => [c.id, c]))
     if (selReq) {
       const r = reqByKey.get(selReq)
-      return r ? r.title || reqLabel(r) : ''
+      if (!r) return []
+      const folders = [r.cat1, r.cat2, r.cat3, r.cat4]
+        .filter(Boolean)
+        .map((id) => ({ id: id as string, name: byId.get(id as string)?.name ?? '' }))
+        .filter((f) => f.name)
+      return [...folders, { id: '', name: r.title || reqLabel(r) }]
     }
-    if (selFolder)
-      return (catQ.data?.categories ?? []).find((c) => c.id === selFolder)?.name ?? ''
-    return ''
+    if (selFolder) {
+      const out: Array<{ id: string; name: string }> = []
+      let at: string | null = selFolder
+      // 자료가 어긋나 고리가 생기면 영원히 돈다 — 본 것은 다시 안 본다
+      const seen = new Set<string>()
+      while (at && !seen.has(at)) {
+        seen.add(at)
+        const c = byId.get(at)
+        if (!c) {
+          out.unshift({ id: at, name: '(없는 폴더)' })
+          break
+        }
+        out.unshift({ id: c.id, name: c.name })
+        at = c.parent_id ?? null
+      }
+      return out
+    }
+    return []
   }, [selReq, selFolder, reqByKey, catQ.data])
+
+  /**
+   * 빵부스러기의 폴더를 눌렀을 때.
+   *
+   * 트리에서 그 폴더를 누른 것과 **같은 일**이 나야 한다. 안 그러면
+   * 머리줄만 바뀌고 보던 시험이 그대로 남아 어디에 있는지가 어긋난다.
+   * Detail 에서 눌렀으면 List 로 나온다 — 폴더는 여럿을 보는 자리다.
+   */
+  const goFolder = (id: string) => {
+    setSelFolder(id)
+    setSelReq(null)
+    setListPick(new Set())
+    setView('list')
+  }
+
+  /** 길의 끝 — 내려받는 파일 이름 같은 데 쓴다 */
+  const whereName = wherePath.length ? (wherePath[wherePath.length - 1]?.name ?? '') : ''
 
   /**
    * 열어 둔 시험이 **어느 폴더의 어느 요구사항** 것인가.
@@ -303,15 +351,15 @@ export default function TestCases({ me }: PageProps) {
    * 트리를 눈으로 되짚거나 Info 탭의 날 PK(req-1781…)를 봐야 했다.
    */
   const detailPath = useMemo(() => {
-    if (!openId) return { folders: [] as string[], req: '' }
+    if (!openId) return { folders: [] as Array<{ id: string; name: string }>, req: '' }
     const t = tcs.find((x) => x.tcid === openId)
     const r = t ? reqByKey.get(t.req_id || '') : undefined
     if (!r) return { folders: [], req: '' }
     const byId = new Map((catQ.data?.categories ?? []).map((c) => [c.id, c]))
     const folders = [r.cat1, r.cat2, r.cat3, r.cat4]
       .filter(Boolean)
-      .map((id) => byId.get(id as string)?.name ?? '')
-      .filter(Boolean)
+      .map((id) => ({ id: id as string, name: byId.get(id as string)?.name ?? '' }))
+      .filter((f) => f.name)
     return { folders, req: r.title || reqLabel(r) }
   }, [openId, tcs, reqByKey, catQ.data])
 
@@ -1323,19 +1371,41 @@ export default function TestCases({ me }: PageProps) {
           오가는 사람이 매번 다시 찾지 않게. */}
       <div className="rq-bar">
         <span className="rq-crumb">
-          <span className="muted">시험항목</span>
-          {whereName && (
-            <>
-              <span className="rq-crumb-sep">›</span>
-              <b>{whereName}</b>
-            </>
-          )}
+          <span className="muted">Test Cases</span>
+          {/* 조상까지 다 적는다. 마지막(지금 자리)만 진하게 — 앞엣것은
+              어디에 있는지를 알려주는 길잡이지 지금 보는 것이 아니다.
+              눌러서 그 폴더로 올라갈 수 있다. */}
+          {view === 'list' &&
+            wherePath.map((f, i) => (
+              <span className="rq-crumb-seg" key={f.id || `x${i}`}>
+                <span className="rq-crumb-sep">›</span>
+                {i === wherePath.length - 1 || !f.id ? (
+                  <b>{f.name}</b>
+                ) : (
+                  <button
+                    type="button"
+                    className="rq-crumb-up"
+                    onClick={() => goFolder(f.id)}
+                    title={`${f.name} 으로`}
+                  >
+                    {f.name}
+                  </button>
+                )}
+              </span>
+            ))}
           {view === 'detail' && openId && (
             <>
-              {detailPath.folders.map((f) => (
-                <span key={f}>
+              {detailPath.folders.map((f, i) => (
+                <span className="rq-crumb-seg" key={f.id || `d${i}`}>
                   <span className="rq-crumb-sep">›</span>
-                  <span className="muted">{f}</span>
+                  <button
+                    type="button"
+                    className="rq-crumb-up"
+                    onClick={() => goFolder(f.id)}
+                    title={`${f.name} 으로`}
+                  >
+                    {f.name}
+                  </button>
                 </span>
               ))}
               {detailPath.req && (
