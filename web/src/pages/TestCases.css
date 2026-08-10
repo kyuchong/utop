@@ -466,37 +466,66 @@
 .sq-st.idle { color: #cfd6dd; }
 .sq-st.now { color: var(--c-primary); }
 
-/* 지금 돌고 있는 줄. 고른 줄과 겹칠 수 있어 색이 아니라 왼쪽 띠로 표시한다.
-   글자도 굵게 — 30줄을 훑을 때 옅은 파랑만으로는 눈에 안 걸린다.
+/* 지금 돌고 있는 줄.
+   30줄짜리 시험은 화면 밖까지 간다. 멎어 있는 표시로는 「지금」 인지
+   「아까 지나간 자리」 인지 안 갈려서, 옅은 파랑 한 겹으로는 눈에 안
+   걸렸다. 빛이 한쪽에서 다른 쪽으로 훑고 지나가게 한다 — 진행 중인
+   것은 움직여야 진행 중으로 읽힌다.
 
-   깜빡인다. 30줄짜리 시험은 화면 밖까지 가는데, 멎어 있는 표시는 「지금」
-   인지 「아까 지나간 자리」 인지 안 갈린다. 움직이는 것은 눈이 먼저 찾는다.
-   글자는 안 건드린다 — 글자가 깜빡이면 읽을 수가 없다. */
+   글자는 건드리지 않는다. 글자가 깜빡이면 읽을 수가 없다. */
 .sq-row.now {
-  background: #eef6ff;
-  box-shadow: inset 2px 0 0 var(--c-primary);
-  animation: sq-live 1.1s ease-in-out infinite alternate;
+  background-color: #dbeafe;
+  background-image: linear-gradient(
+    100deg,
+    rgba(59, 130, 246, 0) 18%,
+    rgba(59, 130, 246, 0.3) 42%,
+    rgba(59, 130, 246, 0.55) 50%,
+    rgba(59, 130, 246, 0.3) 58%,
+    rgba(59, 130, 246, 0) 82%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation:
+    sq-sweep 1.05s linear infinite,
+    sq-band 0.85s ease-in-out infinite alternate;
 }
 .sq-row.now .sq-act,
 .sq-row.now .sq-sum,
 .sq-row.now .sq-n { font-weight: 700; color: var(--c-text); }
 
-@keyframes sq-live {
-  from { background: #eef6ff; box-shadow: inset 2px 0 0 var(--c-primary); }
-  to   { background: #dbeafe; box-shadow: inset 4px 0 0 var(--c-primary); }
+/* 빛이 훑고 지나간다 */
+@keyframes sq-sweep {
+  from { background-position: -70% 0; }
+  to { background-position: 170% 0; }
 }
 
-/* 돌고 있는 표시(▸)도 함께. 줄을 안 보고 있어도 여기가 뛴다 */
-.sq-st.now { animation: sq-pulse 1.1s ease-in-out infinite; }
+/* 왼쪽 띠가 함께 뛴다. 줄이 화면 끝에 걸려 있어도 이것은 보인다 */
+/* 양쪽에 대괄호를 세운다 — 「여기부터 여기까지가 지금」.
+   한쪽만 있으면 줄 색이 옅어 어디서 끝나는지 안 보인다. */
+@keyframes sq-band {
+  from {
+    box-shadow: inset 3px 0 0 var(--c-primary), inset -3px 0 0 var(--c-primary);
+  }
+  to {
+    box-shadow: inset 6px 0 0 #1d4ed8, inset -6px 0 0 #1d4ed8;
+  }
+}
+
+/* 돌고 있는 표시(▸). 줄을 안 보고 있어도 여기가 뛴다 */
+.sq-st.now { animation: sq-pulse 0.85s ease-in-out infinite; }
 @keyframes sq-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.25; }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(1.45); }
 }
 
-/* 움직임을 줄이라고 해 둔 사람에게는 깜빡이지 않는다. 그래도 어디가
-   도는지는 알아야 하므로 색과 굵기는 그대로 둔다. */
+/* 움직임을 줄이라고 해 둔 사람에게는 훑지 않는다. 그래도 어디가 도는지는
+   알아야 하므로 색과 굵기, 왼쪽 띠는 그대로 둔다. */
 @media (prefers-reduced-motion: reduce) {
-  .sq-row.now,
+  .sq-row.now {
+    background-image: none;
+    animation: none;
+    box-shadow: inset 4px 0 0 var(--c-primary), inset -4px 0 0 var(--c-primary);
+  }
   .sq-st.now { animation: none; }
 }
 
@@ -591,6 +620,14 @@ button.sq-caret svg { width: 11px; height: 11px; }
 
 /* 결과를 줄 끝에 적는다. 아이콘만으로는 PASS 와 미실행이 잘 안 갈린다. */
 .sq-sum.mono { font-family: var(--font-mono); }
+
+/* 도는 동안의 결과 칸. PASS·FAIL 과 같은 자리라 같은 크기로 두되,
+   색과 깜빡임으로 「아직 안 끝났다」 를 말한다. */
+.sq-res.run {
+  color: var(--c-primary);
+  font-weight: 700;
+  animation: sq-pulse 0.85s ease-in-out infinite;
+}
 
 .sq-res {
   font-size: var(--fs-xs);
@@ -1247,9 +1284,11 @@ button.sq-caret svg { width: 11px; height: 11px; }
 /* 주석 — 초록. 코드 주석의 관례 색이다.
    바탕은 밝게 두고 왼쪽 띠로 가른다. 진한 초록을 줄 전체에 깔았더니
    주석 몇 줄이 목록에서 제일 먼저 보였다 — 정작 안 읽는 줄인데. */
+/* 왼쪽 띠는 안 쓴다. 그 자리는 「지금 도는 줄」 이 쓰는 자리라, 주석에도
+   띠가 있으면 훑을 때 둘이 같은 무게로 보인다. 바탕색만으로 갈린다. */
 .sq-row.comment {
   background: #f0faf4;
-  box-shadow: inset 4px 0 0 #4fa877, inset 0 -1px 0 #dcefe3;
+  box-shadow: inset 0 -1px 0 #dcefe3;
 }
 
 .sq-row.comment:hover { background: #e7f6ed; }
@@ -1274,7 +1313,7 @@ button.sq-caret svg { width: 11px; height: 11px; }
 .sq-row.comment.on,
 .sq-row.comment.on:hover {
   background: #dcefe3;
-  box-shadow: inset 4px 0 0 #2f7d4f, inset 0 -1px 0 #c6dfd0;
+  box-shadow: inset 0 -1px 0 #c6dfd0;
 }
 
 .sq-row.message.on,

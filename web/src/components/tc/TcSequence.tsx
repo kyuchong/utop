@@ -287,7 +287,12 @@ export default function TcSequence({
                     같은 말이 반복되어 PASS·FAIL 이 묻힌다. ○ 로 충분하다. */}
                 {/* If 는 판정을 안 낸다. 대신 참이었는지를 적는다 —
                     안 적으면 돌리고 나서도 어느 갈래로 갔는지 모른다. */}
-                {s.kind === 'if' && st.cls === 'idle' && s.condResult ? (
+                {i === runningAt ? (
+                  /* 도는 동안은 옛 결과가 아니라 지금을 적는다. 두 번째로
+                     돌릴 때 앞서 찍힌 PASS 가 그대로 남아 있으면, 방금
+                     통과한 것처럼 읽힌다. */
+                  <span className="sq-res run">실행 중</span>
+                ) : s.kind === 'if' && st.cls === 'idle' && s.condResult ? (
                   <span className={`sq-res cond-${s.condResult === 'Y' ? 'y' : 'n'}`}>
                     {s.condResult === 'Y' ? '참' : '거짓'}
                   </span>
