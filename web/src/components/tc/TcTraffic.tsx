@@ -92,7 +92,43 @@ export default function TcTraffic({ data, onChange }: Props) {
 
   const cfg: MeterCfg = data.meterCfg ?? {}
   const streams = cfg.streams ?? []
-  const ports = cfg.ports?.length ? cfg.ports : ['1/1', '1/2']
+  /**
+   * 이 시험이 쓰는 포트.
+   *
+   * 비어 있으면 비어 있는 것이다. 전에는 비면 `1/1,1/2` 로 되돌렸는데,
+   * 그 번호는 아무 근거 없는 짐작이라 그대로 트래픽이 나가면 스트림이
+   * 하나도 안 만들어진다. 게다가 지울 수가 없었다 — 지우는 순간 도로
+   * 그 둘이 들어왔다.
+   */
+  const ports = cfg.ports ?? []
+
+  /**
+   * 포트 고르는 칸에 넣을 목록.
+   *
+   * 지금 그 스트림이 가리키는 포트가 시험 포트 목록에서 빠졌을 수 있다
+   * (포트를 바꿨을 때). 그때 목록에 없다고 빼 버리면 칸이 빈 채로 뜨고,
+   * 사람이 손대지 않았는데 다음 저장에서 조용히 빈 값이 된다. 지금 값은
+   * 늘 남긴다 — 틀린 것이 보여야 고칠 수 있다.
+   */
+  /**
+   * 시험 포트에 없는 자리를 가리키는 스트림.
+   *
+   * 이것이 트래픽 시작이 「스트림을 하나도 만들지 못했습니다」 로 죽는
+   * 이유다. 돌려 보고 나서야 알던 것을 여기서 미리 보인다.
+   */
+  const badStreams = (cfg.streams ?? [])
+    .map((x, i) => ({ x, i }))
+    .filter(({ x }) => x.enabled !== false)
+    .filter(({ x }) => {
+      const a = String(x.src ?? '').trim()
+      const b = String(x.dst ?? '').trim()
+      return !a || !b || !ports.includes(a) || !ports.includes(b)
+    })
+
+  const portOpts = (cur?: string) => {
+    const v = (cur ?? '').trim()
+    return v && !ports.includes(v) ? [v, ...ports] : ports
+  }
 
   const devQ = useQuery({
     queryKey: ['devices2'],
@@ -116,7 +152,7 @@ export default function TcTraffic({ data, onChange }: Props) {
 
   const addStream = () => {
     const n = streams.length + 1
-    setCfg({ streams: [...streams, newStream(n, ports[0] ?? '1/1', ports[1] ?? ports[0] ?? '1/2')] })
+    setCfg({ streams: [...streams, newStream(n, ports[0] ?? '', ports[1] ?? ports[0] ?? '')] })
     setSel(streams.length)
   }
   const copyStream = () => {
@@ -350,7 +386,7 @@ export default function TcTraffic({ data, onChange }: Props) {
               placeholder="4106/1,4106/2"
               onChange={(e) => {
                 const pp = e.target.value.split(',').map((x) => x.trim()).filter(Boolean)
-                setCfg({ ports: pp.length ? pp : ['1/1', '1/2'] })
+                setCfg({ ports: pp })
               }}
             />
             {chassisPorts.length > 0 && (
@@ -373,7 +409,7 @@ export default function TcTraffic({ data, onChange }: Props) {
                       onClick={() => {
                         const has = ports.includes(x.id)
                         const next = has ? ports.filter((y) => y !== x.id) : [...ports, x.id]
-                        setCfg({ ports: next.length ? next : ['1/1', '1/2'] })
+                        setCfg({ ports: next })
                       }}
                     >
                       {x.id}
@@ -390,6 +426,12 @@ export default function TcTraffic({ data, onChange }: Props) {
       <section className="tt-sec">
         <div className="tt-sh">
           <b>스트림</b>
+          {badStreams.length > 0 && (
+            <span className="tt-warn">
+              시험 포트에 없는 자리를 가리키는 스트림 {badStreams.length}개 —
+              이대로 시작하면 스트림이 만들어지지 않습니다
+            </span>
+          )}
           <button className="btn small" type="button" onClick={addStream}>
             ＋ 추가
           </button>
@@ -465,7 +507,8 @@ export default function TcTraffic({ data, onChange }: Props) {
                         value={row.src ?? ''}
                         onChange={(e) => setStream(i, { src: e.target.value })}
                       >
-                        {ports.map((p) => (
+                        <option value="">— 고르기 —</option>
+                        {portOpts(row.src).map((p) => (
                           <option key={p} value={p}>
                             {p}
                           </option>
@@ -478,7 +521,8 @@ export default function TcTraffic({ data, onChange }: Props) {
                         value={row.dst ?? ''}
                         onChange={(e) => setStream(i, { dst: e.target.value })}
                       >
-                        {ports.map((p) => (
+                        <option value="">— 고르기 —</option>
+                        {portOpts(row.dst).map((p) => (
                           <option key={p} value={p}>
                             {p}
                           </option>
@@ -525,8 +569,8 @@ export default function TcTraffic({ data, onChange }: Props) {
             <div className="tt-panel">
               {layer === 'port' && (
                 <div className="tt-grid">
-                  {fld('보내는 포트 (SRC)', 'src', '', ports)}
-                  {fld('받는 포트 (DST)', 'dst', '', ports)}
+                  {fld('보내는 포트 (SRC)', 'src', '', portOpts(s?.src as string | undefined))}
+                  {fld('받는 포트 (DST)', 'dst', '', portOpts(s?.dst as string | undefined))}
                   {fld('방향', 'direction', '', ['단방향', '양방향'])}
                 </div>
               )}

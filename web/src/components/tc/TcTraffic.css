@@ -198,3 +198,14 @@
 /* 남이 잡고 있는 포트. 막지는 않는다 — 곧 놓을 수도 있고, 그 판단은 사람이 한다 */
 .tt-port.busy { opacity: 0.5; text-decoration: line-through; }
 .tt-port.busy.on { opacity: 1; text-decoration: none; }
+
+/* 지금 이대로 돌리면 안 되는 것 — 돌려 보고 나서야 알던 것을 미리 적는다 */
+.tt-warn {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: #b45309;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+}
