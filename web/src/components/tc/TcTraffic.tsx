@@ -882,14 +882,11 @@ export default function TcTraffic({ data, onChange }: Props) {
                     const rate = tx > 0 ? (loss / tx) * 100 : 0
                     return (
                       <tr key={i} className={loss > 0 ? 'bad' : undefined}>
+                        {/* 「4106/1→4106/2, Stream_1_1」 — 쓰시던 양식 그대로.
+                            어느 포트에서 어디로 가는 스트림인지가 이름보다 먼저다. */}
                         <td className="mono">
+                          {st?.src ? `${st.src}→${st.dst}, ` : ''}
                           {String(r.name ?? st?.name ?? `Stream_${i + 1}`)}
-                          {st?.src && (
-                            <span className="muted">
-                              {' '}
-                              {st.src}→{st.dst}
-                            </span>
-                          )}
                         </td>
                         <td>{show(r.tx)}</td>
                         <td>{show(r.rx)}</td>
