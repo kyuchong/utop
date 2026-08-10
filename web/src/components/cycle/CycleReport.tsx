@@ -141,7 +141,7 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
   return (
     <div className="modal-back" onMouseDown={() => !busy && onClose()}>
       <div
-        className="modal rp"
+        className="modal cyrp"
         role="dialog"
         aria-modal="true"
         aria-label="고객사 결과서 미리보기"
@@ -167,7 +167,7 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
           </button>
         </div>
 
-        <div className="rp-body">
+        <div className="cyrp-body">
           {loading ? (
             <div className="empty">시험 자료를 모으는 중…</div>
           ) : slides.length ? (
@@ -183,12 +183,12 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
                *
                * 1280×720 을 0.78 로 줄여 998×562 로 보인다.
                */
-              <div className="rp-wrap" key={i}>
-                <span className="rp-no">
+              <div className="cyrp-wrap" key={i}>
+                <span className="cyrp-no">
                   {i + 1} / {slides.length}
                 </span>
                 <iframe
-                  className="rp-frame"
+                  className="cyrp-frame"
                   title={`${i + 1}장`}
                   sandbox=""
                   srcDoc={
