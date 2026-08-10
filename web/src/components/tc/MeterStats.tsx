@@ -81,8 +81,6 @@ export default function MeterStats({ rows, streams = [], keys = [], placeholder 
     return `${path}${String(r.name ?? st?.name ?? `Stream_${i + 1}`)}`
   }
 
-  const sum = (k: keyof StatRow) => rows.reduce((a, x) => a + statNum(x[k]), 0)
-
   return (
     <div className="ms-wrap">
       <table className="ms-table">
@@ -142,27 +140,6 @@ export default function MeterStats({ rows, streams = [], keys = [], placeholder 
                   </tr>
                 )
               })}
-              {/* 합계 — 스트림이 여럿이면 한 줄씩 더해 보는 것이 일이다 */}
-              {rows.length > 1 &&
-                (() => {
-                  const loss = sum('loss')
-                  const mis = sum('misorder')
-                  return (
-                    <tr className="ms-sum">
-                      <td>합계 {rows.length}줄</td>
-                      <td>{sum('tx').toLocaleString()}</td>
-                      <td>{sum('rx').toLocaleString()}</td>
-                      <td>{sum('txOct').toLocaleString()}</td>
-                      <td>{sum('rxOct').toLocaleString()}</td>
-                      <td>{sum('txTput').toFixed(3)}</td>
-                      <td>{sum('rxTput').toFixed(3)}</td>
-                      <td className={loss > 0 ? 'bad' : undefined}>{loss.toLocaleString()}</td>
-                      {/* 지연은 더하면 뜻이 없다 — 제일 나쁜 것을 적는다 */}
-                      <td>{rows.reduce((a, x) => Math.max(a, statNum(x.latency)), 0).toFixed(2)}</td>
-                      <td className={mis > 0 ? 'bad' : undefined}>{mis.toLocaleString()}</td>
-                    </tr>
-                  )
-                })()}
             </>
           )}
         </tbody>

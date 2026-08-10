@@ -1,5 +1,16 @@
 # N2X 영구 세션 데몬 — 한 번 연결 후 세션 유지. stdin 명령(한 줄) → stdout JSON(한 줄)
 # 사용법: n2xtclsh85 n2x_daemon.tcl <server> <label>
+#
+# DAEMON_VER — 이 파일이 몇 번째 판인가.
+#
+# 이 스크립트는 리눅스 컨테이너가 아니라 **윈도우(N2X 기계)의 사본**이
+# 돈다(tools/n2x_relay.py 가 옆에 둔 파일을 띄운다). 그래서 저장소만
+# 고치고 컨테이너를 다시 올려도 실제로 도는 것은 안 바뀐다 — 부하 단위를
+# 고쳤는데도 계속 100pps 로 나가던 것이 이것이었다.
+#
+# 고칠 때마다 올린다. 서버가 `ver` 로 물어 제 사본과 견주고, 다르면
+# 화면에 「윈도우의 데몬이 옛 것」 이라고 적는다.
+set DAEMON_VER 2
 # 명령: ports | reserve <mod> <port> | release <mod> <port>
 #       traffic <mod> <tx> <rx> <pps> <npkt> <dur> <frame> | ping | quit
 lappend auto_path "C:/N2xTcl85/lib"
@@ -297,7 +308,8 @@ while {[gets stdin line] >= 0} {
     if {$cmd eq "quit"} break
     if {[catch {
         switch -- $cmd {
-            ping    { set out "{\"ok\":true,\"session\":$session}" }
+            ping    { set out "{\"ok\":true,\"session\":$session,\"ver\":$::DAEMON_VER}" }
+            ver     { set out "{\"ok\":true,\"ver\":$::DAEMON_VER}" }
             ports   { set out [cmd_ports] }
             reserve { if {[catch {AgtInvoke AgtPortSelector AddPort [lindex $parts 1] [lindex $parts 2]} h]} { set out "{\"ok\":false,\"error\":\"[jstr $h]\"}" } else { set out "{\"ok\":true,\"reserved\":\"[lindex $parts 1]/[lindex $parts 2]\"}" } }
             release { if {[catch {AgtInvoke AgtPortSelector FindPortHandle [lindex $parts 1] [lindex $parts 2]} h]} { set out "{\"ok\":false,\"error\":\"[jstr $h]\"}" } elseif {[catch {AgtInvoke AgtPortSelector RemovePort $h} rr]} { set out "{\"ok\":false,\"error\":\"[jstr $rr]\"}" } else { set out "{\"ok\":true,\"released\":\"[lindex $parts 1]/[lindex $parts 2]\"}" } }

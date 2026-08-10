@@ -441,7 +441,8 @@
   gap: var(--sp-2);
   width: 100%;
   text-align: left;
-  padding: 5px 8px;
+  /* 줄 간격. 18줄짜리 시험이면 이 4px 이 한 화면에 두 줄을 더 넣는다. */
+  padding: 2px 8px;
   border: 0;
   border-radius: var(--tc-r);
   background: transparent;

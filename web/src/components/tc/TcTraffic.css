@@ -306,3 +306,17 @@
   margin-bottom: var(--sp-2);
   line-height: 1.5;
 }
+
+/* N2X 기계의 데몬이 옛 판일 때. 여기 안 적으면 「고쳤는데 왜 안 먹지」 가
+   된다 — 실제로 도는 것은 그 기계의 사본이다. */
+.tt-stale {
+  margin-bottom: var(--sp-3);
+  padding: 8px 12px;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-sm);
+  background: #fff7ed;
+  color: #b45309;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  line-height: 1.5;
+}

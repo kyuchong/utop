@@ -62,12 +62,6 @@
   box-shadow: inset 3px 0 0 var(--c-fail, #c0392b);
 }
 
-.ms-table .ms-sum td {
-  font-weight: 700;
-  border-top: 2px solid var(--c-border);
-  background: var(--c-surface-alt);
-}
-
 .ms-empty {
   text-align: center;
   color: var(--c-text-faint);

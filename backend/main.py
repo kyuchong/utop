@@ -6704,6 +6704,48 @@ def n2x_diag(server: str = "210.1.2.248", label: str = "utop"):
     out["target_alive"] = any(d["key"] == f"{server}|{label}" and d["alive"] for d in out["daemons"])
     return out
 
+def _n2x_local_ver() -> int:
+    """저장소에 있는 n2x_daemon.tcl 의 판. 없으면 0."""
+    try:
+        import re as _re
+        with open(N2X_DAEMON, encoding="utf-8") as f:
+            mm = _re.search(r"^set DAEMON_VER (\d+)", f.read(), _re.M)
+        return int(mm.group(1)) if mm else 0
+    except Exception:
+        return 0
+
+
+@app.get("/api/n2x/ver")
+def n2x_ver(server: str = "210.1.2.248", label: str = "utop"):
+    """
+    윈도우에서 도는 데몬이 몇 번째 판인가.
+
+    이 스크립트는 리눅스가 아니라 N2X 기계의 사본이 돈다. 저장소만 고치고
+    컨테이너를 다시 올려도 실제로 도는 것은 안 바뀐다 — 그런데 화면에는
+    그 사실이 어디에도 안 나와서, 고친 것이 왜 안 먹는지 알 수가 없었다.
+    """
+    want = _n2x_local_ver()
+    res = _n2x_send(server, label, "ver")
+    got = 0
+    if isinstance(res, dict):
+        try:
+            got = int(res.get("ver") or 0)
+        except Exception:
+            got = 0
+    stale = want > 0 and got < want
+    return {
+        "ok": True,
+        "local": want,
+        "remote": got,
+        "stale": stale,
+        "note": (
+            f"N2X 기계의 n2x_daemon.tcl 이 옛 판입니다 (거기 {got or '알 수 없음'} · 여기 {want}). "
+            "backend/n2x/n2x_daemon.tcl 을 그 기계의 중계 폴더로 복사하고 n2x_relay.py 를 다시 띄우세요."
+            if stale else ""
+        ),
+    }
+
+
 @app.post("/api/n2x/reset")
 def n2x_reset(data: dict):
     """

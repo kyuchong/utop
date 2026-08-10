@@ -309,6 +309,27 @@ export default function TcTraffic({ data, onChange }: Props) {
   const [chassisPorts, setChassisPorts] = useState<
     Array<{ id: string; free: boolean; who: string; state: string; up: boolean }>
   >([])
+  /**
+   * N2X 기계의 데몬이 옛 판인가.
+   *
+   * 이 스크립트는 리눅스가 아니라 그 기계의 사본이 돈다. 저장소만 고치고
+   * 서버를 다시 올려도 실제로 도는 것은 안 바뀌는데, 화면에는 그 사실이
+   * 어디에도 없었다 — 부하 단위를 고쳐도 계속 100pps 로 나가는 이유를
+   * 알 길이 없었다.
+   */
+  const [stale, setStale] = useState('')
+  const checkVer = async () => {
+    if (!cfg.chassis || kind === 'stc') return
+    try {
+      const q = `/api/n2x/ver?server=${encodeURIComponent(cfg.chassis)}&label=${encodeURIComponent(cfg.n2xLabel || 'utop')}`
+      const r = await apiFetch(q)
+      const j = (await r.json()) as { stale?: boolean; note?: string }
+      setStale(j.stale ? String(j.note ?? '') : '')
+    } catch {
+      /* 못 물어봐도 하던 일은 계속한다 */
+    }
+  }
+
   const readPorts = async () => {
     if (!cfg.chassis) {
       setMsg('계측기를 먼저 고르세요')
@@ -355,6 +376,7 @@ export default function TcTraffic({ data, onChange }: Props) {
         }
       }
       setChassisPorts(out)
+      void checkVer()
       const down = out.filter((x) => x.free && !x.up).length
       setMsg(
         `포트 ${out.length}개 · 쓸 수 있는 것 ${out.filter((x) => x.free).length}개` +
@@ -405,6 +427,8 @@ export default function TcTraffic({ data, onChange }: Props) {
 
   return (
     <div className="tt">
+      {stale && <div className="tt-stale">⚠ {stale}</div>}
+
       {/* ── 기본 정보 ── */}
       <section className="tt-sec">
         <div className="tt-sh">
