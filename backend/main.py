@@ -7410,6 +7410,74 @@ async def get_cycle(cycle_id: str):
         raise HTTPException(404, "Cycle을 찾을 수 없습니다")
     return d
 
+@app.get("/api/pptx-templates")
+def pptx_templates():
+    """고를 수 있는 고객사 양식. 파일이 없는 것은 빼고 준다."""
+    import pptx_tpl
+    return {"templates": pptx_tpl.list_templates()}
+
+
+@app.post("/api/pptx-render")
+async def pptx_render(payload: dict):
+    """
+    고객사 양식에 값을 채워 결과서를 만든다.
+
+    **내용은 화면이 조립해서 보낸다.** 미리보기가 쓰는 것과 같은 자료·같은
+    쪽 나누기를 그대로 쓰기 위해서다 — 서버에서 따로 조립하면 두 벌이 되고,
+    한쪽만 고치는 순간 화면에서 본 장수와 파일의 장수가 어긋난다.
+
+    서버가 하는 일은 하나다: 고객사가 준 pptx 를 열어 **그 안의 장을 복제해
+    값만 갈아 끼운다.** 글꼴·표선·색·머리글은 손대지 않으므로 받는 쪽 눈에는
+    자기네 양식 그대로다.
+    """
+    import pptx_tpl
+    from pptx import Presentation
+
+    tid = str((payload or {}).get("template") or "lguplus")
+    tpl = pptx_tpl.TEMPLATES.get(tid)
+    if not tpl:
+        raise HTTPException(400, f"모르는 양식입니다: {tid}")
+    path = pptx_tpl.TPL_DIR / str(tpl["file"])
+    if not path.exists():
+        raise HTTPException(404, f"양식 파일이 없습니다: {path.name}")
+
+    slides = (payload or {}).get("slides") or []
+    if not slides:
+        raise HTTPException(400, "채울 내용이 없습니다")
+
+    prs = Presentation(str(path))
+    src_first = prs.slides[int(tpl["first"])]
+    src_more = prs.slides[int(tpl["more"])]
+    n_tpl = len(list(prs.slides))
+
+    for sl in slides:
+        kind = str((sl or {}).get("kind") or "first")
+        vals = {k: str(v if v is not None else "") for k, v in ((sl or {}).get("values") or {}).items()}
+        if kind == "more":
+            new = pptx_tpl.clone_slide(prs, src_more)
+            pptx_tpl.fill(new, tpl["more_spots"], vals)
+        else:
+            new = pptx_tpl.clone_slide(prs, src_first)
+            pptx_tpl.fill(new, tpl["spots"], vals)
+
+    # 본보기 장은 결과에 남기지 않는다. 뒤에서부터 빼야 번호가 안 밀린다.
+    for i in range(n_tpl - 1, -1, -1):
+        pptx_tpl.drop_slide(prs, i)
+
+    import io
+    from fastapi.responses import StreamingResponse
+    buf = io.BytesIO()
+    prs.save(buf)
+    buf.seek(0)
+    name = pptx_tpl.safe(str((payload or {}).get("name") or "결과서")) + ".pptx"
+    from urllib.parse import quote
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"},
+    )
+
+
 @app.post("/api/cycle/{cycle_id}")
 async def save_cycle(cycle_id: str, data: dict):
     await db.cycle_upsert(cycle_id, data)
