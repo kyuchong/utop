@@ -47,7 +47,7 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
-import { blockEnd, runPicked, runSteps, type RunCtx, type RunLog } from '@/components/tc/runner'
+import { blockEnd, runPicked, runSteps, type RunCtx } from '@/components/tc/runner'
 import { extractOne } from '@/components/tc/judge'
 import type { PickItem } from '@/components/tc/PickList'
 import {
@@ -145,7 +145,6 @@ export default function TestCases({ me }: PageProps) {
   const [running, setRunning] = useState(false)
   /** 지금 돌고 있는 줄. -1 이면 안 돌고 있다 */
   const [runAt, setRunAt] = useState(-1)
-  const [runLog, setRunLog] = useState<RunLog[]>([])
 
   const splitRef = useRef<HTMLDivElement>(null)
   const [listW, setListW] = useResizableWidth('utop.tc.listW', 250, 170, 460)
@@ -1045,7 +1044,6 @@ export default function TestCases({ me }: PageProps) {
     const ac = new AbortController()
     runAbort.current = ac
     setRunning(true)
-    setRunLog([])
     setMsg({
       kind: '',
       text: pick ? `고른 ${pick.length}줄 실행 중…` : only ? '스텝 실행 중…' : '실행 중…',
@@ -1066,7 +1064,9 @@ export default function TestCases({ me }: PageProps) {
             setRunAt(i)
             setStepIdx(i)
           },
-          onLog: (l) => setRunLog((v) => [...v.slice(-400), l]),
+          // 실행 판을 없앴다. 무슨 일이 있었나는 스텝 줄과 그 줄의
+          // Result 에 남는다 — 로그를 따로 쌓아 둘 자리가 없다.
+          onLog: () => {},
           params: gp.values,
           signal: ac.signal,
       }
@@ -2083,59 +2083,6 @@ export default function TestCases({ me }: PageProps) {
                 onGoTraffic={() => setTab('traffic')}
                 block={blockInfo}
               />
-              )}
-
-              {/* 실행 판.
-
-                  스텝 목록(2열) 아래에 있었다. 18줄짜리 시험을 돌리면
-                  목록이 그만큼 눌려서, 어느 줄이 도는지 보려면 스크롤을
-                  해야 했다. 3열 아래는 스텝 하나를 고르고 나면 늘 비어
-                  있던 자리다 — 목록은 목록대로 두고, 「지금 무슨 일이
-                  있나」 는 여기서 본다. */}
-              {(running || runLog.length > 0) && (
-                <div className={`tc-runbox${running ? ' live' : ''}`}>
-                  <div className="rb-head">
-                    <span className={`rb-dot${running ? ' on' : ''}`} />
-                    <b>
-                      {running
-                        ? runAt >= 0
-                          ? `${runAt + 1}번 줄 실행 중`
-                          : '실행 중'
-                        : '실행 끝'}
-                    </b>
-                    {/* 얼마나 남았는지. 막대가 없으면 30줄짜리 시험에서
-                        언제 끝날지 짐작할 수가 없다. */}
-                    <span className="rb-bar">
-                      <i style={{ width: `${steps.length ? ((runAt + 1) / steps.length) * 100 : 0}%` }} />
-                    </span>
-                    <span className="rb-cnt">
-                      {Math.max(runAt + 1, runStat.done)} / {steps.length}
-                    </span>
-                    {runStat.pass > 0 && <b className="status pass">PASS {runStat.pass}</b>}
-                    {runStat.fail > 0 && <b className="status fail">FAIL {runStat.fail}</b>}
-                    {running ? (
-                      <button
-                        className="btn small danger"
-                        type="button"
-                        onClick={() => runAbort.current?.abort()}
-                      >
-                        ⏹ 중지
-                      </button>
-                    ) : (
-                      <button className="btn small" type="button" onClick={() => setRunLog([])}>
-                        닫기
-                      </button>
-                    )}
-                  </div>
-                  <div className="rb-log">
-                    {runLog.slice(-40).map((l, i) => (
-                      <div className={`rl ${l.kind}`} key={i}>
-                        <span className="rl-n">{l.i + 1}</span>
-                        <span className="rl-t">{l.text}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               )}
             </section>
           </div>
