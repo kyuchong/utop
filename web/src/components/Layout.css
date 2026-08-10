@@ -500,10 +500,20 @@
    카드(패널)는 흰색 그대로 두고 **그 뒤 바탕만** 물들인다. 메뉴를 안 봐도
    지금 어느 화면인지 색으로 먼저 읽힌다. 아주 옅게 — 글자 대비를 해치면
    안 되니 색조만 얹는 정도로. */
-/* 화면색은 한 곳에서 정한다 — 바탕·최상위 폴더·그 글자가 같은 색을 쓴다 */
-.main[data-page='requirements'] { --page-bg: #dfeafa; --page-tint: #e8f1fd; --page-ink: #1f5fa8; }
-.main[data-page='testcases']    { --page-bg: #dff0e4; --page-tint: #e9f6ec; --page-ink: #1f7a45; }
-.main[data-page='cycles']       { --page-bg: #e8e2f7; --page-tint: #f0ebfb; --page-ink: #5b3bb5; }
+/* 바탕은 세 화면 다 같은 옅은 회색이다.
+   전에는 파랑·초록·보라로 갈라 두었다. 어느 화면인지는 그것으로 알 수
+   있었지만, 색이 있는 바탕 위에서는 흰 카드가 떠 보이고 그 안의 표·배지
+   색까지 그 색조에 얹혀 읽혔다. 화면 이름은 왼쪽 메뉴와 빵부스러기가
+   이미 말해 준다 — 바탕은 카드를 받쳐 주기만 하면 된다.
+
+   최상위 폴더 줄에 쓰는 색조(`--page-tint`·`--page-ink`)는 화면마다 그대로
+   둔다. 그것은 바탕이 아니라 「이 줄이 뿌리」 라는 표시다. */
+.main[data-page='requirements'] { --page-tint: #e8f1fd; --page-ink: #1f5fa8; }
+.main[data-page='testcases']    { --page-tint: #e9f6ec; --page-ink: #1f7a45; }
+.main[data-page='cycles']       { --page-tint: #f0ebfb; --page-ink: #5b3bb5; }
+.main[data-page='requirements'],
+.main[data-page='testcases'],
+.main[data-page='cycles'] { --page-bg: #f2f4f7; }
 .main[data-page='requirements'],
 .main[data-page='testcases'],
 .main[data-page='cycles'] {

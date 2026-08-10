@@ -630,16 +630,26 @@
   min-height: 0;
   overflow: hidden;
 }
+/* 2열 머리 — 1열의 「Requirement Tree」 와 같은 자리·같은 무게.
+   전에는 「ENV · 2」 만 있어서 이 칸이 무엇을 담는지 폴더 이름에 가렸다. */
 .rq-mid-h {
   flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: var(--sp-2) var(--sp-3);
   border-bottom: 1px solid var(--c-border);
-  font-size: var(--fs-label);
-  color: var(--c-text-faint);
+  font-size: var(--fs-sm);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
+.rq-mid-h b { font-weight: 700; }
+.rq-mid-hn {
+  font-weight: 700;
+  color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.rq-mid-h .sp { margin-left: auto; }
 .rq-mid-list { flex: 1; min-height: 0; overflow: auto; }
 .rq-mid-row {
   /* ID 와 제목을 한 줄에. 위아래로 쌓으면 줄 높이가 두 배가 되어 한 화면에
@@ -787,27 +797,17 @@
   background: var(--c-border);
 }
 
-/* 맨 위 줄의 찾기. 1열 머리줄 돋보기 안에 숨어 있던 것을 꺼냈다 —
-   폴더가 스물다섯이면 찾는 일이 잦고, 1열을 접어도 쓸 수 있어야 한다. */
-.rq-find {
-  width: 260px;
-  max-width: 32vw;
-  padding: 4px 10px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  background: var(--c-surface);
-  color: var(--c-text);
-  font: inherit;
-  font-size: var(--fs-sm);
-}
-.rq-find:focus { outline: none; border-color: var(--c-primary); }
 
 /* 폴더만 찾는 칸 — 트리 바로 위. 위 줄의 찾기는 요구사항용이라 둘이 안 섞인다. */
+/* 구분선에 붙어 있으면 머리줄의 일부처럼 보인다. 위아래로 띄워
+   「이건 따로 하는 일」 로 읽히게 한다. */
 .rq-ffind {
   position: relative;
   flex: none;
-  padding: 0 var(--sp-2) var(--sp-2);
+  padding: var(--sp-2) var(--sp-2);
 }
+/* 2열 것은 목록 바로 위라 아래 여백만 준다 */
+.rq-midfind { padding-bottom: var(--sp-2); }
 .rq-ffind input {
   width: 100%;
   box-sizing: border-box;

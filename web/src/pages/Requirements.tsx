@@ -595,16 +595,6 @@ export default function Requirements() {
           </span>
         </span>
         <span className="sp" />
-        {/* 찾기는 맨 위 줄에 둔다.
-            **요구사항만** 찾는다. 폴더는 1열에서 따로 찾는다 — 하나로
-            묶으면 「ENV」 를 칠 때 그 이름을 가진 요구사항까지 딸려 나와,
-            폴더를 찾으려던 사람이 결과를 헤집게 된다. */}
-        <input
-          className="rq-find"
-          value={treeQ}
-          placeholder="요구사항 찾기"
-          onChange={(e) => setTreeQ(e.target.value)}
-        />
         {/* List(표로 여럿) ↔ Detail(한 건 넓게). Detail 로 가면 폴더가
             자동으로 접힌다 — 셋을 다 펴면 정작 상세가 좁아진다. */}
         <div className="rq-view" role="tablist" aria-label="보기 방식">
@@ -753,8 +743,28 @@ export default function Requirements() {
         {view === 'detail' && selectedReq && (
           <>
           <section className="panel rq-mid" ref={midRef} style={{ flexBasis: midW }}>
+            {/* 1열의 「Requirement Tree」 와 같은 자리·같은 무게로 둔다.
+                전에는 「ENV · 2」 만 있어서, 이 칸이 무엇을 담는 자리인지
+                폴더 이름에 가려 안 읽혔다. */}
             <div className="rq-mid-h">
-              {folderMode ? folderName : '요구사항'} · {midReqs.length}
+              <b>Requirements List</b>
+              <span className="rq-mid-hn">{midReqs.length}</span>
+              <span className="sp" />
+              {folderMode && <span className="muted small">{folderName}</span>}
+            </div>
+            {/* 찾기는 찾는 것 바로 위에 둔다. 화면 맨 위 오른쪽에 있었더니
+                눈은 목록에 있는데 손은 저 멀리로 갔다. */}
+            <div className="rq-ffind rq-midfind">
+              <input
+                value={treeQ}
+                placeholder="요구사항 찾기"
+                onChange={(e) => setTreeQ(e.target.value)}
+              />
+              {treeQ && (
+                <button type="button" title="지우기" onClick={() => setTreeQ('')}>
+                  ✕
+                </button>
+              )}
             </div>
             <div className="rq-mid-list scroll">
               {midReqs.map((r) => {
