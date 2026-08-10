@@ -466,8 +466,12 @@
 .sq-st.idle { color: #cfd6dd; }
 .sq-st.now { color: var(--c-primary); }
 
-/* 지금 돌고 있는 줄. 고른 줄과 겹칠 수 있어 색이 아니라 왼쪽 띠로 표시한다 */
+/* 지금 돌고 있는 줄. 고른 줄과 겹칠 수 있어 색이 아니라 왼쪽 띠로 표시한다.
+   글자도 굵게 — 30줄을 훑을 때 옅은 파랑만으로는 눈에 안 걸린다. */
 .sq-row.now { background: #eef6ff; box-shadow: inset 2px 0 0 var(--c-primary); }
+.sq-row.now .sq-act,
+.sq-row.now .sq-sum,
+.sq-row.now .sq-n { font-weight: 700; color: var(--c-text); }
 
 /* 1.1.2 까지 들어간다.
    왼쪽 정렬이다 — 오른쪽 정렬로 두면 '1' 과 '4.1' 의 시작 자리가 달라서
@@ -482,29 +486,35 @@
   overflow: hidden;
 }
 
-/* 블록 안이라는 것을 세로선으로 보인다. 들여쓰기만으로는 If 아래인지
-   그냥 띄운 것인지 구분이 안 된다. */
-.sq-row[data-depth="1"]::before,
-.sq-row[data-depth="2"]::before,
-.sq-row[data-depth="3"]::before {
-  content: '';
-  position: absolute;
-  left: 66px;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: #ead9b3;
-}
+/* 어느 줄에 딸린 것인지 — 폴더 트리처럼 ├ · └ 로 잇는다.
+   전에는 줄 높이만큼 세로선을 통째로 그었다. 그 선은 「블록 안」 이라는
+   것만 말할 뿐, 1.1 이 1 에 딸렸다는 것을 보여주지는 않았다. */
+.sq-row[data-depth="1"] { --gx: 66px; }
+.sq-row[data-depth="2"] { --gx: 82px; }
+.sq-row[data-depth="3"] { --gx: 98px; }
+.sq-row[data-depth="4"] { --gx: 114px; }
 
-.sq-row[data-depth="2"]::after,
-.sq-row[data-depth="3"]::after {
+/* 세로 — 마지막 자식은 제 자리까지만 내려온다(└) */
+.sq-row[data-kid]::before {
   content: '';
   position: absolute;
-  left: 82px;
+  left: var(--gx);
   top: 0;
   bottom: 0;
   width: 1px;
-  background: #ead9b3;
+  background: var(--c-border);
+}
+.sq-row[data-kid='last']::before { bottom: 50%; }
+
+/* 가로 — 그 줄로 들어가는 갈래 */
+.sq-row[data-kid]::after {
+  content: '';
+  position: absolute;
+  left: var(--gx);
+  top: 50%;
+  width: 9px;
+  height: 1px;
+  background: var(--c-border);
 }
 
 /* 접기 단추 자리. 블록이 아닌 줄에도 같은 폭을 비워 둔다 — 안 그러면

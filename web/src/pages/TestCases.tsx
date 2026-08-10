@@ -942,6 +942,50 @@ export default function TestCases({ me }: PageProps) {
 
   const takenIds = useMemo(() => new Set(tcs.map((t) => t.tcid)), [tcs])
 
+  const [cloning, setCloning] = useState(false)
+  /**
+   * 고른 시험을 그대로 하나 더 만든다.
+   *
+   * 목록 응답에는 스텝이 없다. 그것만 베끼면 이름만 같은 빈 껍데기가
+   * 나오므로 한 건씩 원본을 읽어 통째로 옮긴다 — 느리지만 몇 건 고르는
+   * 일이고, 빈 껍데기를 받아 손으로 다시 짜는 것보다 낫다.
+   *
+   * 새 번호는 같은 묶음의 다음 번호다. TC ID 앞부분이 곧 그 요구사항이라
+   * (U-REQ-SYS-HW-TC-004) 앞은 지키고 번호만 올린다.
+   */
+  const clonePicked = async () => {
+    const ids = [...listPick]
+    if (!ids.length || cloning) return
+    setCloning(true)
+    const taken = new Set(takenIds)
+    const made: string[] = []
+    try {
+      for (const id of ids) {
+        const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`)
+        if (!r.ok) throw new Error(`${id} 를 읽지 못했습니다`)
+        const src = (await r.json()) as TcData & { _rev?: string }
+        delete src._rev
+        const nid = nextTcId(id, taken)
+        taken.add(nid)
+        await tcApi.save(nid, {
+          ...src,
+          tcid: nid,
+          name: `${src.name ?? id} 복사`.trim(),
+          checks: src.checks ?? [],
+          updated_by: meName,
+        })
+        made.push(nid)
+      }
+      setListPick(new Set())
+      void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
+      setMsg({ kind: 'ok', text: `${made.length}건을 복사했습니다 — ${made.join(', ')}` })
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setCloning(false)
+    }
+  }
+
   const saveAsM = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
       const src = saveAs?.data ?? {}
@@ -1649,6 +1693,22 @@ export default function TestCases({ me }: PageProps) {
                   <span className="rq-adiv" aria-hidden="true" />
                   <button className="btn" type="button" onClick={() => setForm(null)}>
                     Add
+                  </button>
+                  {/* 고른 것을 그대로 하나 더 만든다.
+                      스텝까지 통째로 베낀다 — 이름만 같은 빈 껍데기를 만들면
+                      결국 손으로 다시 짜야 하고, 그럴 바엔 Add 를 쓴다. */}
+                  <button
+                    className="btn"
+                    type="button"
+                    disabled={listPick.size === 0 || cloning}
+                    title={
+                      listPick.size
+                        ? `고른 ${listPick.size}건을 복사합니다 (스텝까지)`
+                        : '복사할 시험을 고르세요'
+                    }
+                    onClick={() => void clonePicked()}
+                  >
+                    {cloning ? '복사 중…' : 'Clone'}
                   </button>
                   <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
                     Import

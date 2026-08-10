@@ -166,6 +166,19 @@ export default function TcSequence({
             const isShut = shut.has(i)
             const st = stat(s)
             const depth = Math.min(Math.max(Number(s.indent) || 0, 0), 4)
+            /*
+             * 트리 가이드를 그리려면 「내가 이 묶음의 마지막인가」 를 알아야
+             * 한다. 마지막이면 └, 아니면 ├ 다. 다음에 나오는(감춘 줄은
+             * 건너뛴) 줄이 나보다 얕으면 내가 마지막이다.
+             */
+            let kid: 'mid' | 'last' | undefined
+            if (depth > 0) {
+              let nx = i + 1
+              while (nx < steps.length && (hide?.(steps[nx]!) || folded.has(nx))) nx++
+              const nd =
+                nx < steps.length ? Math.min(Math.max(Number(steps[nx]?.indent) || 0, 0), 4) : 0
+              kid = nx >= steps.length || nd < depth ? 'last' : 'mid'
+            }
             return (
               <div
                 key={i}
@@ -177,6 +190,7 @@ export default function TcSequence({
                   i === runningAt ? ' now' : ''
                 }${isNoteKind(s.kind) ? ` note ${s.kind}` : ''}`}
                 data-depth={depth || undefined}
+                data-kid={kid}
                 onClick={() => onSelect(i)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {

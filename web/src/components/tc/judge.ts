@@ -173,10 +173,61 @@ export interface Tbl {
  * `-----  ------  ---` 구분선의 대시 덩어리로 열 자리를 잡는다. 공백으로
  * 쪼개면 안 된다 — 이름 칸이 빈 줄(Gi0/4)에서 열이 통째로 밀린다.
  */
+/**
+ * 구분선이 없는 표 — 머리줄의 글자 자리로 열을 잡는다.
+ *
+ * `show ip interface brief` 처럼 `---` 없이 칸만 맞춰 찍는 장비가 많다.
+ * 구분선만 찾다가 못 찾으면 「표가 아니다」 로 봤는데, 사람 눈에는 분명한
+ * 표다. 그래서 「표로 판정 만들기」 단추가 안 나오고, 판정도 「표를 못
+ * 읽었습니다」 로 떨어졌다.
+ *
+ * 머리줄 후보는 **두 칸 이상 띄어 나뉜 낱말이 셋 이상**인 줄이다. 둘까지
+ * 받아 주면 보통 문장도 표로 읽혀 엉뚱한 것이 잡힌다.
+ */
+function tableByHeader(lines: string[]): Tbl | null {
+  const cut = (ln: string): Array<{ at: number; w: string }> => {
+    const out: Array<{ at: number; w: string }> = []
+    const re = /\S(?:.*?\S)??(?=\s{2,}|$)/g
+    let m: RegExpExecArray | null
+    while ((m = re.exec(ln))) {
+      if (m[0]) out.push({ at: m.index, w: m[0] })
+      if (re.lastIndex === m.index) re.lastIndex++
+    }
+    return out
+  }
+
+  // 머리줄은 앞쪽에 있다. 스무 줄까지만 본다 — 그 아래에 있으면 표가 아니다.
+  for (let h = 0; h < Math.min(lines.length, 20); h++) {
+    const head = lines[h] ?? ''
+    if (!head.trim()) continue
+    const cells = cut(head)
+    if (cells.length < 3) continue
+    const starts = cells.map((c) => c.at)
+    const cols = cells.map((c) => c.w.trim())
+
+    const rows: string[][] = []
+    for (let i = h + 1; i < lines.length; i++) {
+      const ln = lines[i] ?? ''
+      if (!ln.trim()) continue
+      if (/^[\w.-]+[#>]\s*$/.test(ln.trim())) continue
+      // 머리줄과 자리가 안 맞는 줄은 자료가 아니다 — 명령 메아리·날짜 따위
+      if (cut(ln).length < 2) continue
+      rows.push(
+        starts.map((st, c) => {
+          const end = c === starts.length - 1 ? Math.max(ln.length, st) : (starts[c + 1] ?? ln.length)
+          return ln.slice(st, end).trim()
+        }),
+      )
+    }
+    if (rows.length) return { cols, rows }
+  }
+  return null
+}
+
 export function parseTable(text: string): Tbl | null {
   const lines = String(text ?? '').split(/\r?\n/)
   const sepIdx = lines.findIndex((l) => /-{3,}/.test(l) && /^[\s-]+$/.test(l))
-  if (sepIdx < 1) return null
+  if (sepIdx < 1) return tableByHeader(lines)
   const sep = lines[sepIdx] ?? ''
   const ranges: Array<[number, number]> = []
   const re = /-+/g
@@ -268,7 +319,11 @@ export function judgeTable(
   criteria: string,
 ): { verdict: Verdict; reason: string } {
   const tbl = parseTable(output)
-  if (!tbl) return { verdict: 'Fail', reason: '표를 못 읽었습니다 — 구분선(---) 이 있는 출력이어야 합니다' }
+  if (!tbl)
+    return {
+      verdict: 'Fail',
+      reason: '표를 못 읽었습니다 — 머리줄과 자료가 칸으로 나뉜 출력이어야 합니다',
+    }
 
   const s = String(criteria ?? '')
   let filters: Tok[]
