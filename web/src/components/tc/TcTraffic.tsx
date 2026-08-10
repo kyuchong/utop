@@ -346,6 +346,18 @@ export default function TcTraffic({ data, onChange }: Props) {
     }
   }
 
+  /*
+   * 탭을 열면 바로 판을 확인한다.
+   *
+   * 「섀시에서 읽기」 를 눌렀을 때만 물어보게 해 두었더니, 그 단추를 안
+   * 누른 사람에게는 「옛 판입니다」 가 영영 안 보였다 — 내려받을 자리도
+   * 그 띠 안에 있어서, 알아야 할 사람이 못 보는 꼴이었다.
+   */
+  useEffect(() => {
+    void checkVer()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfg.chassis, kind])
+
   const readPorts = async () => {
     if (!cfg.chassis) {
       setMsg('계측기를 먼저 고르세요')
