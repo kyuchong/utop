@@ -550,7 +550,10 @@ export default function Requirements() {
           모드에 따라 사라지면 「내가 어디 있더라」 를 화면에서 못 읽는다. */}
       <div className="rq-bar">
         <span className="rq-crumb">
-          <span className="muted">Requirements</span>
+          {/* 이 화면이 무엇인가 — 빵부스러기의 머리다. 옅은 작은 글씨로
+              두었더니 뒤따르는 폴더 이름과 무게가 같아, 어디를 보고 있는지
+              읽으려면 줄 전체를 훑어야 했다. */}
+          <span className="rq-crumb-root">Requirements</span>
           {/* 조상까지 다 적는다. 마지막(지금 폴더)만 진하게 — 앞엣것은
               어디에 있는지를 알려주는 길잡이지 지금 보는 것이 아니다.
               눌러서 그 폴더로 올라갈 수 있다. */}
