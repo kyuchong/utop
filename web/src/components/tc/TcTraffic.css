@@ -25,15 +25,22 @@
 .tt-sh .sp { margin-left: auto; }
 
 /* 칸 하나 */
+/* 이름표를 칸 **왼쪽**에 둔다.
+   위에 얹으면 칸 하나가 두 줄을 먹는다 — L2 Ethernet 한 장에 칸이 열
+   개가 넘으니 그것만으로 화면 한 폭이 날아간다. 옆에 두면 절반이 된다. */
 .tt-f {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  gap: var(--sp-2);
   min-width: 0;
 }
 .tt-f > span {
+  flex: none;
+  width: 96px;
+  text-align: right;
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
+  line-height: 1.25;
 }
 .tt-f input,
 .tt-f select {
@@ -145,15 +152,17 @@
   flex-direction: column;
   gap: var(--sp-3);
 }
+/* 이름표가 옆으로 갔으니 칸 하나가 그만큼 넓어야 한다. 좁으면 이름표와
+   입력칸이 서로 밀려 두 줄로 접힌다 — 줄이려던 것을 도로 늘리는 셈이다. */
 .tt-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: var(--sp-3);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 6px var(--sp-4);
 }
 .tt-box {
   border: 1px solid var(--c-border-soft);
   border-radius: var(--radius-sm);
-  padding: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
 }
 .tt-bh {
   font-size: var(--fs-xs);
@@ -272,11 +281,6 @@
   line-height: 1.5;
 }
 
-/* 링크가 안 올라온 포트. 잡을 수는 있지만 트래픽은 안 흐른다 —
-   Rx 0 을 보고 설정부터 뒤지지 않게 여기서 먼저 보인다. */
-.tt-port.down { border-style: dashed; border-color: #d97706; color: #b45309; }
-.tt-port.down::after { content: ' ⚠'; }
-
 /* 머리줄은 가운데로, 두 줄로 접힌다 — 쓰시던 양식이 그렇다.
    「Tx Test / Packets」 처럼 접혀야 열 폭이 숫자에 맞는다. */
 .tt-stat th {
@@ -330,3 +334,15 @@
   font-weight: 400;
 }
 .tt-stale-do a { color: #9a3412; font-weight: 700; }
+
+/* 내 세션이 잡고 있는 포트 = 예약된 포트.
+   「리저브 했는지」 를 눈으로 답한다 — 섀시가 포트마다 어느 세션이 쥐고
+   있는지 알려주고, 그것이 내 세션이면 내 것이다. */
+.tt-port.mine {
+  border-color: #2f7d4f;
+  color: #1d6039;
+  background: #f0faf4;
+  font-weight: 600;
+}
+.tt-port.mine::before { content: '✔ '; }
+.tt-port.mine.on { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }

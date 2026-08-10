@@ -307,7 +307,7 @@ export default function TcTraffic({ data, onChange }: Props) {
    * 없으니 핸들을 못 잡는다. 실제 번호를 보고 고르게 한다.
    */
   const [chassisPorts, setChassisPorts] = useState<
-    Array<{ id: string; free: boolean; who: string; state: string; up: boolean }>
+    Array<{ id: string; free: boolean; mine: boolean; who: string; state: string; lock: string }>
   >([])
   /**
    * N2X 기계의 데몬이 옛 판인가.
@@ -367,36 +367,50 @@ export default function TcTraffic({ data, onChange }: Props) {
             mine?: number
             avail?: number
             state?: string
+            lock?: string
           }>
         }>
       }
       if (j.ok === false) throw new Error(j.error || '포트를 읽지 못했습니다')
-      const out: Array<{ id: string; free: boolean; who: string; state: string; up: boolean }> = []
+      const out: Array<{
+        id: string
+        free: boolean
+        /** 내 세션이 잡고 있나 — 이것이 「예약됨」 이다 */
+        mine: boolean
+        who: string
+        state: string
+        lock: string
+      }> = []
       for (const m of j.modules ?? []) {
         for (const x of m.portList ?? []) {
           /*
-           * 링크가 죽은 포트를 알아야 한다.
+           * `GetPortState` 는 **링크가 아니라 소유 상태**다.
            *
-           * 트래픽을 아무리 잘 지어 보내도 선이 안 붙어 있으면 Rx 는 0 이다.
-           * 그때 화면에는 「받은 패킷이 없습니다」 만 남아서, 설정을 뒤지다가
-           * 한참 뒤에야 케이블을 본다. 섀시가 아는 것을 그대로 적어 준다.
+           * 링크가 죽은 포트를 표시해 보려고 이 값으로 넘겨짚었는데, 섀시
+           * 44개 포트가 전부 `AGT_PORT_LOCKED` 하나로만 나온다. 링크를
+           * 아는 값이 아니었다 — 멀쩡한 포트에 ⚠ 를 붙여 케이블을 뒤지게
+           * 만들 뻔했다. 아는 것만 적는다.
            */
-          const st = String(x.state ?? '')
           out.push({
             id: `${m.id}/${x.port}`,
             free: !!x.avail || !!x.mine,
-            who: x.mine ? '내 것' : x.avail ? '빈 포트' : x.label || '사용 중',
-            state: st,
-            up: /UP|READY|LINK_OK/i.test(st) && !/DOWN|NO_LINK|NOT_/i.test(st),
+            mine: !!x.mine,
+            who: x.mine ? '내가 잡음(예약됨)' : x.avail ? '빈 포트' : `남이 씀${x.label ? ` — ${x.label}` : ''}`,
+            state: String(x.state ?? ''),
+            lock: String(x.lock ?? ''),
           })
         }
       }
       setChassisPorts(out)
       void checkVer()
-      const down = out.filter((x) => x.free && !x.up).length
+      // 「예약했나」 를 여기서 답한다. 섀시는 포트마다 어느 세션이 쥐고
+      // 있는지를 `lock` 으로 알려주고, 그것이 내 세션이면 내가 잡은 것이다.
+      const mineN = out.filter((x) => x.mine).length
+      const freeN = out.filter((x) => !x.mine && x.free).length
       setMsg(
-        `포트 ${out.length}개 · 쓸 수 있는 것 ${out.filter((x) => x.free).length}개` +
-          (down ? ` · 링크가 안 올라온 것 ${down}개` : ''),
+        `포트 ${out.length}개 · 내가 잡은 것 ${mineN}개 · 빈 포트 ${freeN}개 · 남이 쓰는 것 ${
+          out.length - mineN - freeN
+        }개`,
       )
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e))
@@ -541,7 +555,7 @@ export default function TcTraffic({ data, onChange }: Props) {
                     <button
                       key={x.id}
                       type="button"
-                      className={`tt-port${ports.includes(x.id) ? ' on' : ''}${x.free ? '' : ' busy'}${x.free && !x.up ? ' down' : ''}`}
+                      className={`tt-port${ports.includes(x.id) ? ' on' : ''}${x.free ? '' : ' busy'}`}
                       title={`${x.who}${x.state ? ` · ${x.state}` : ''}`}
                       onClick={() => {
                         const has = ports.includes(x.id)
