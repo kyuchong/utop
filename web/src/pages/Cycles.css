@@ -174,9 +174,20 @@
   border: 1px solid var(--c-border-strong);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
   overflow: hidden;
+  /*
+   * 미리보기 폭에 맞춰 줄인다.
+   *
+   * `zoom` 을 쓰고 있었는데 Firefox 는 126 버전 전까지 그것을 **무시한다**.
+   * 그러면 1280px 짜리 장이 그대로 나와 화면을 넘고, 보는 사람에게는
+   * 「표가 안 보이고 상자가 눌린」 그림이 된다. `transform` 은 어디서나
+   * 같게 동작한다.
+   *
+   * 다만 `transform` 은 자리를 차지하는 크기를 안 줄인다 — 줄어든 만큼
+   * (720 × 0.22 = 158.4px) 아래 여백에서 되돌려야 장 사이가 안 벌어진다.
+   */
+  transform: scale(0.78);
   transform-origin: top center;
-  /* 미리보기 폭에 맞춰 줄인다 */
-  zoom: 0.78;
+  margin: 0 auto -142px;
 }
 .rp-page {
   width: 1280px;
