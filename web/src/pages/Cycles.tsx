@@ -13,6 +13,7 @@ import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import PresenceBar from '@/components/PresenceBar'
+import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
 import { sendWs } from '@/api/wsBus'
 import {
@@ -875,7 +876,16 @@ function CycleDetail({
    * 버리면 보려던 사람이 못 들어온다. 대신 **누가 있는지 보여 주고**,
    * 남이 고치면 그때 알린다.
    */
-  const [remote, setRemote] = useState<{ user: string; at: number } | null>(null)
+  /**
+   * 남이 고친 이력 — 새것이 앞이다.
+   *
+   * 처음엔 띠로 띄웠는데, 한 사람이 연달아 저장하면 앞의 것이 뒤의 것에
+   * 밀려 **누가 무엇을 언제** 했는지가 안 남았다. 사이클은 여럿이 나눠
+   * 돌리는 자리라 그 이력이 곧 알아야 할 일이다. 시험항목 화면과 같은
+   * 종에 쌓아 두고 숫자만 보인다.
+   */
+  const [saves, setSaves] = useState<SaveEvent[]>([])
+  const [seen, setSeen] = useState(0)
   /** 항목마다 누가 보고 있나 — 서버가 모아 준다 */
   const [focus, setFocus] = useState<Record<string, string[]>>({})
   const page = `cycle:${cycle.id}`
@@ -887,7 +897,8 @@ function CycleDetail({
     if (m.type !== 'cycle_updated' || m.cycle_id !== cycle.id) return
     const by = typeof m.user === 'string' ? m.user : ''
     if (by && by === meName) return // 내가 방금 저장한 것
-    setRemote({ user: by || '다른 사람', at: Date.now() })
+    // 20건까지만. 그 아래는 아무도 안 본다
+    setSaves((c) => [{ user: by || '다른 사람', at: Date.now() }, ...c].slice(0, 20))
   })
 
   // 지금 어느 항목을 보고 있는지 알린다. 항목이 곧 부딪히는 자리다.
@@ -901,12 +912,11 @@ function CycleDetail({
     },
     [page, meName],
   )
-  /** 남이 고쳤다는 알림은 잠깐만 띄운다 — 계속 있으면 배경이 된다 */
+  // 다른 사이클로 옮기면 지난 것은 지운다 — 이 사이클의 이력이지 내 이력이 아니다
   useEffect(() => {
-    if (!remote) return
-    const t = setTimeout(() => setRemote(null), 12000)
-    return () => clearTimeout(t)
-  }, [remote])
+    setSaves([])
+    setSeen(0)
+  }, [cycle.id])
   /*
    * 목록(`?meta=1`)이 주는 항목은 **요약본**이다. 스텝에서 `cli`·`output`·
    * `criteria` 가 떨어져 나가 있어서
@@ -1269,6 +1279,12 @@ function CycleDetail({
           </span>
           {/* 누가 같이 보고 있나. 혼자면 안 뜬다 — 늘 있으면 장식이 된다 */}
           <PresenceBar users={presence.users} me={meName} />
+          {/* 남이 고친 이력. 띠로 띄우면 연달아 저장할 때 앞의 것이 밀린다 */}
+          <SaveBell
+            items={saves}
+            unseen={Math.max(0, saves.length - seen)}
+            onSeen={() => setSeen(saves.length)}
+          />
         </span>
         <span className="sp" />
         {/* 어쩌다 한 번 쓰는 것들은 「⋯」 안에 둔다 — 늘 펴 두면 자주 쓰는
@@ -1530,19 +1546,6 @@ function CycleDetail({
         ))}
       </div>
 
-      {/* 남이 고쳤다. 조용히 갱신되면 내가 보던 값이 언제 바뀌었는지
-          모른다 — 사이클은 여럿이 나눠 돌리는 자리라 특히 그렇다.
-          막지는 않고 알리기만 한다. 12초 뒤 사라진다. */}
-      {remote && (
-        <div className="cy-remote">
-          <b>{remote.user}</b> 님이 이 사이클을 고쳤습니다 — 지금 보이는 것이 최신입니다.
-          <span className="sp" />
-          <button className="btn small" type="button" onClick={() => setRemote(null)}>
-            닫기
-          </button>
-        </div>
-      )}
-
       {/* ② 통계 — 작은 글자 카운터는 눈에 안 들어온다. 큰 칸으로 세워
           「지금 어디까지 왔나」 를 먼저 읽게. 누르면 그 결과만 걸러 본다. */}
       <div className="cy-stats">
@@ -1735,21 +1738,21 @@ function CycleDetail({
               {/* 체크박스 — Ctrl·Shift 로 고르는 것은 그대로 두고, 눈에
                   보이는 방법도 함께 준다(Zephyr 와 같은 자리) */}
               {/* 이 항목을 나 말고 누가 보고 있나.
-                  사이클은 항목을 나눠 돌리는 자리라, 부딪히는 곳이 여기다 —
-                  둘이 같은 항목에 결과를 찍으면 나중 사람이 앞사람 것을
-                  덮는다. 막지는 않고, 있다는 것만 알린다. */}
-              {(() => {
-                const who = (focus[String(at)] ?? []).filter((u) => u !== meName)
-                if (!who.length) return null
-                return (
-                  <span className="cy-eyes" title={`${who.join(', ')} 님이 보는 중`}>
-                    {who.slice(0, 3).map((u) => (
-                      <i key={u}>{(u.trim()[0] || '?').toUpperCase()}</i>
-                    ))}
-                  </span>
-                )
-              })()}
+                  **칸을 새로 만들지 않는다** — 격자에 자식을 하나 더 넣으면
+                  그 줄만 칸이 밀려 머리글과 어긋난다. 체크박스 칸 위에
+                  얹는다. */}
               <span className="cy-ck" onClick={(e) => e.stopPropagation()}>
+                {(() => {
+                  const who = (focus[String(at)] ?? []).filter((u) => u !== meName)
+                  if (!who.length) return null
+                  return (
+                    <span className="cy-eyes" title={`${who.join(', ')} 님이 보는 중`}>
+                      {who.slice(0, 2).map((u) => (
+                        <i key={u}>{(u.trim()[0] || '?').toUpperCase()}</i>
+                      ))}
+                    </span>
+                  )
+                })()}
                 <input
                   type="checkbox"
                   checked={pick.has(at)}

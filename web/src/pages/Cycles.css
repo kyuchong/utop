@@ -1692,39 +1692,29 @@ table.tb td.k {
   color: var(--c-text-faint);
 }
 
-/* 남이 고쳤다는 알림. 사이클은 여럿이 나눠 돌리는 자리라, 조용히 갱신되면
-   내가 보던 값이 언제 바뀌었는지 모른다. 막지는 않고 알리기만 한다. */
-.cy-remote {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  margin: 0 var(--sp-3) var(--sp-2);
-  padding: 7px 11px;
-  border: 1px solid #bfdbfe;
-  border-radius: var(--radius-sm);
-  background: #eff6ff;
-  color: #1e40af;
-  font-size: var(--fs-sm);
-}
-.cy-remote .sp { margin-left: auto; }
-
 /* 이 항목을 누가 보고 있나 — 이름 첫 글자만. 여럿이 같은 항목에 결과를
-   찍으면 나중 사람이 앞사람 것을 덮으므로, 있다는 것만 미리 알린다. */
+   찍으면 나중 사람이 앞사람 것을 덮으므로, 있다는 것만 미리 알린다.
+   체크박스 칸 위에 겹쳐 둔다 — 격자에 칸을 하나 더 만들면 그 줄만
+   밀려서 머리글과 어긋난다. */
+.cy-ck { position: relative; }
 .cy-eyes {
+  position: absolute;
+  left: -2px;
+  top: -9px;
   display: inline-flex;
-  gap: 2px;
-  margin-right: 2px;
+  gap: 1px;
+  pointer-events: none;
 }
 .cy-eyes i {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--c-primary);
   color: #fff;
   font-style: normal;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  line-height: 16px;
+  line-height: 14px;
+  box-shadow: 0 0 0 1.5px var(--c-surface);
   text-align: center;
 }
