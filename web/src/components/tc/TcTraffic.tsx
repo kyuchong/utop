@@ -330,6 +330,22 @@ export default function TcTraffic({ data, onChange }: Props) {
     }
   }
 
+  /** 데몬 스크립트를 받아 저장한다 — N2X 기계에 옮길 그 파일 */
+  const getDaemon = async () => {
+    try {
+      const r = await apiFetch('/api/n2x/daemon.tcl')
+      if (!r.ok) throw new Error(String(r.status))
+      const blob = await r.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = 'n2x_daemon.tcl'
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } catch (e) {
+      setMsg(`내려받지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
   const readPorts = async () => {
     if (!cfg.chassis) {
       setMsg('계측기를 먼저 고르세요')
@@ -427,7 +443,24 @@ export default function TcTraffic({ data, onChange }: Props) {
 
   return (
     <div className="tt">
-      {stale && <div className="tt-stale">⚠ {stale}</div>}
+      {stale && (
+        <div className="tt-stale">
+          ⚠ {stale}
+          {/* 어디서 받는지가 없으면 저장소를 뒤지거나 사람에게 물어야 한다.
+              그 기계에서 이 링크를 열면 바로 받아진다. */}
+          <div className="tt-stale-do">
+            {/* 그냥 링크로 두면 안 된다 — 이 자리는 로그인이 필요한데
+                브라우저가 여는 링크에는 우리 열쇠가 안 붙어서 401 만 본다.
+                눌러서 받아 저장한다. */}
+            <button type="button" className="btn small" onClick={() => void getDaemon()}>
+              n2x_daemon.tcl 내려받기
+            </button>
+            <span className="muted small">
+              N2X 기계에서 이 링크를 열어 중계 폴더에 덮어쓰고, n2x_relay.py 를 다시 띄우세요.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* ── 기본 정보 ── */}
       <section className="tt-sec">

@@ -320,3 +320,13 @@
   font-weight: 600;
   line-height: 1.5;
 }
+
+.tt-stale-do {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-weight: 400;
+}
+.tt-stale-do a { color: #9a3412; font-weight: 700; }

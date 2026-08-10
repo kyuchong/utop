@@ -6715,6 +6715,40 @@ def _n2x_local_ver() -> int:
         return 0
 
 
+@app.get("/api/n2x/daemon.tcl")
+def n2x_daemon_file():
+    """
+    지금 서버가 갖고 있는 데몬 스크립트를 그대로 내려준다.
+
+    이 파일은 N2X 기계(윈도우)의 사본이 도는데, 그것을 어디서 받아야 하는지가
+    어디에도 없었다. 저장소를 뒤지거나 사람에게 물어야 했다. 서버가 제
+    사본을 내주면 그 기계에서 브라우저로 열어 받으면 끝난다 — 판이 어긋날
+    자리도 그만큼 줄어든다.
+    """
+    if not os.path.exists(N2X_DAEMON):
+        raise HTTPException(404, f"데몬 스크립트가 없습니다 — {N2X_DAEMON}")
+    return FileResponse(
+        N2X_DAEMON,
+        media_type="text/plain; charset=utf-8",
+        filename="n2x_daemon.tcl",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@app.get("/api/n2x/relay.py")
+def n2x_relay_file():
+    """중계 스크립트도 같은 자리에서. 처음 깔 때 이것부터 필요하다."""
+    p = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools", "n2x_relay.py")
+    if not os.path.exists(p):
+        raise HTTPException(404, f"중계 스크립트가 없습니다 — {p}")
+    return FileResponse(
+        p,
+        media_type="text/plain; charset=utf-8",
+        filename="n2x_relay.py",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/api/n2x/ver")
 def n2x_ver(server: str = "210.1.2.248", label: str = "utop"):
     """
