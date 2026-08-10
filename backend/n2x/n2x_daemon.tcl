@@ -120,6 +120,26 @@ proc _select_stats {hStats} {
     }
     set ::g_statKeys $keymap
 }
+# 부하 단위 → AGT 상수 후보.
+#
+# 화면에서 「100 Percent」 를 넣어도 여기서 pps 로 박아 보내고 있었다 —
+# 100pps 가 나갔다. 단위마다 상수 이름이 빌드별로 조금씩 달라서, 통계
+# 항목을 고를 때처럼 후보를 늘어놓고 되는 것을 쓴다.
+proc _load_units {unit} {
+    set u [string tolower [string trim $unit]]
+    if {[string match "*percent*" $u] || [string match "*%*" $u]} {
+        return {AGT_UNITS_PERCENT_MAX_RATE AGT_UNITS_PERCENT AGT_UNITS_PERCENT_LINE_RATE}
+    }
+    if {[string match "*mbps*" $u] || [string match "*mb/s*" $u]} {
+        return {AGT_UNITS_MEGABITS_PER_SEC AGT_UNITS_MBITS_PER_SEC AGT_UNITS_BITS_PER_SEC}
+    }
+    if {$u eq "bps" || [string match "*bits*" $u]} {
+        return {AGT_UNITS_BITS_PER_SEC}
+    }
+    # fps · frames/sec · 빈값 — 예전부터 쓰던 기본
+    return {AGT_UNITS_PACKETS_PER_SEC AGT_UNITS_FRAMES_PER_SEC}
+}
+
 # 스트림 구성 (StartTest 직전까지). 전역 ::g_sg/::g_hStats 에 저장. 반환=스트림 수
 # NOTE: 이전 세션에 트래픽이 남아 있으면 "Cannot add ... list is in use" 에러 발생 →
 #       StopTest 후 실제로 STOPPED 상태가 될 때까지 폴링, 리스트 잠금 해제 확실히 대기.
@@ -159,15 +179,23 @@ proc _build_streams {specs} {
         set txM [lindex $f 0]; set txP [lindex $f 1]; set rxM [lindex $f 2]; set rxP [lindex $f 3]
         set proto [lindex $f 4]; set frame [lindex $f 5]; set pps [lindex $f 6]; set npkt [lindex $f 7]
         set srcMac [lindex $f 8]; set dstMac [lindex $f 9]; set srcIp [lindex $f 10]; set dstIp [lindex $f 11]
+        set unit [lindex $f 12]
         set hTx [getPort $txM $txP]; set hRx [getPort $rxM $rxP]
         if {$hTx eq ""} { lappend ::g_badPorts "$txM/$txP" }
         if {$hRx eq ""} { lappend ::g_badPorts "$rxM/$rxP" }
         if {$hTx eq "" || $hRx eq ""} continue
         lappend allPorts $hTx $hRx
         if {$pps eq ""} { set pps 1000 }
+        set unitCands [_load_units $unit]
         catch { foreach _hp [AgtInvoke AgtProfileList ListProfilesOnPort $hTx] { catch {AgtInvoke AgtProfileList Remove $_hp} } }
         set hProfile [AgtInvoke AgtProfileList AddProfile $hTx AGT_CONSTANT_PROFILE]
-        AgtInvoke AgtConstantProfile SetAverageLoad $hProfile $pps AGT_UNITS_PACKETS_PER_SEC
+        # 단위마다 상수 이름이 빌드별로 다르다. 되는 것이 나올 때까지 넣어
+        # 보고, 다 안 되면 pps 로 떨어뜨린다 — 아무것도 안 보내는 것보다 낫다.
+        set _lset 0
+        foreach _u $unitCands {
+            if {![catch {AgtInvoke AgtConstantProfile SetAverageLoad $hProfile $pps $_u}]} { set _lset 1; break }
+        }
+        if {!$_lset} { AgtInvoke AgtConstantProfile SetAverageLoad $hProfile $pps AGT_UNITS_PACKETS_PER_SEC }
         if {$npkt ne "" && $npkt > 0} { AgtInvoke AgtConstantProfile SetNumberOfPacketsToInject $hProfile $npkt }
         set hParams [AgtInvoke AgtStreamGroupList AddStreamGroupsWithExistingProfile $hProfile AGT_PACKET_STREAM_GROUP 1]
         set hSG [lindex $hParams 0]; set hPdu [lindex $hParams 1]

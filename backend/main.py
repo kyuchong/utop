@@ -6948,7 +6948,9 @@ def _n2x_streams_from(data: dict):
 def _n2x_specs(streams):
     def _clean(v):
         return str(v if v is not None else "").strip().replace(",", "").replace(" ", "")
-    keys = ["txMod", "txPort", "rxMod", "rxPort", "proto", "frame", "pps", "npkt", "srcMac", "dstMac", "srcIp", "dstIp"]
+    # unit 은 맨 뒤에 붙인다 — 자리로 읽는 형식이라, 중간에 끼우면 옛 spec 이
+    # 통째로 어긋난다. 없으면 데몬이 pps 로 본다.
+    keys = ["txMod", "txPort", "rxMod", "rxPort", "proto", "frame", "pps", "npkt", "srcMac", "dstMac", "srcIp", "dstIp", "unit"]
     specs = []
     for s in streams:
         # 송신 모듈만 주면 수신 모듈도 동일하게

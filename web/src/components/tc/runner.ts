@@ -718,6 +718,9 @@ async function runOne(
               rxMod: b.mod,
               rxPort: b.port,
               pps: x.load,
+              // 단위를 같이 보낸다. 전에는 값만 보내서 「100 Percent」 가
+              // 100pps 로 나갔다 — 설정과 실제가 달라도 알 길이 없었다.
+              unit: x.unit,
               npkt: x.frameCnt,
               frame: x.minByte,
               proto: frameKind(x),
