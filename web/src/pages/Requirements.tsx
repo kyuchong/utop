@@ -659,7 +659,6 @@ export default function Requirements() {
               같은 일이 있으면 어디를 눌러야 할지 매번 생각하게 된다. */}
           <ListHead
             name="Requirement Tree"
-            big
             count={folderCount}
             onCollapse={() => setTreeOpen(false)}
             add={{ title: '최상위 폴더 추가', onClick: () => setAddFolder((n) => n + 1) }}

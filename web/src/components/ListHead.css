@@ -178,9 +178,3 @@
 
 /* 1열 머리줄은 「무엇을 보는 자리인가」 를 먼저 말한다. 작은 글씨로 두면
    그 아래 트리와 무게가 같아져 눈에 안 걸린다. */
-.lh-name.big {
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: -0.2px;
-  color: var(--c-text);
-}

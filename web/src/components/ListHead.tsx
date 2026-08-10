@@ -6,8 +6,6 @@ interface Props {
   /** 이 칸이 무엇인가 — 「요구사항」 「시험항목」 「사이클」 */
   name: string
   count?: number
-  /** 이 칸의 주인 이름을 크게. 1열처럼 「무엇을 보는 자리인가」 가 먼저일 때 */
-  big?: boolean
   /** 여러 개 골랐을 때 나오는 것 (삭제 같은 것) */
   picked?: ReactNode
   /** 찾는 칸 — 이름 오른쪽에 붙인다 */
@@ -40,7 +38,6 @@ interface Props {
 export default function ListHead({
   name,
   count,
-  big,
   picked,
   search,
   add,
@@ -87,7 +84,7 @@ export default function ListHead({
           <IconPanel />
         </button>
       )}
-      <span className={`lh-name${big ? ' big' : ''}`}>
+      <span className="lh-name">
         {name}
         {count !== undefined && <b>{count}</b>}
       </span>
