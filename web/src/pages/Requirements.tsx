@@ -213,11 +213,36 @@ export default function Requirements() {
   /** 1열 머리줄에 적을 수 — 이제 이 칸의 주인은 폴더다 */
   const folderCount = (catQ.data?.categories ?? []).length
 
-  const folderName = useMemo(() => {
-    if (selectedFolder === undefined) return ''
-    if (selectedFolder === null) return '미분류'
-    return (catQ.data?.categories ?? []).find((c) => c.id === selectedFolder)?.name ?? '(없는 폴더)'
+  /**
+   * 고른 폴더까지의 길 — 조상부터 차례로.
+   *
+   * 이름만 적으면 「Spec」 이 어느 Spec 인지 모른다. 폴더 이름은 흔해서
+   * 여러 대분류 밑에 같은 이름이 있다(Spec · L2 · ENV 가 실제로 그렇다).
+   * 1열이 접혀 있으면 트리에서 짚어 볼 수도 없다.
+   */
+  const folderPath = useMemo(() => {
+    if (selectedFolder === undefined) return []
+    if (selectedFolder === null) return [{ id: null as string | null, name: '미분류' }]
+    const all = catQ.data?.categories ?? []
+    const out: Array<{ id: string | null; name: string }> = []
+    let at: string | null = selectedFolder
+    // 자료가 어긋나 고리가 생기면 여기서 영원히 돈다 — 본 것은 다시 안 본다
+    const seen = new Set<string>()
+    while (at && !seen.has(at)) {
+      seen.add(at)
+      const c = all.find((x) => x.id === at)
+      if (!c) {
+        out.unshift({ id: at, name: '(없는 폴더)' })
+        break
+      }
+      out.unshift({ id: c.id, name: c.name })
+      at = c.parent_id ?? null
+    }
+    return out
   }, [selectedFolder, catQ.data])
+
+  /** 길의 끝 — 지금 보고 있는 그 폴더 */
+  const folderName = folderPath.length ? (folderPath[folderPath.length - 1]?.name ?? '') : ''
 
   /**
    * 이 폴더에 속한 요구사항 — 하위 폴더까지.
@@ -523,13 +548,33 @@ export default function Requirements() {
           모드에 따라 사라지면 「내가 어디 있더라」 를 화면에서 못 읽는다. */}
       <div className="rq-bar">
         <span className="rq-crumb">
-          <span className="muted">요구사항</span>
-          {folderMode && (
-            <>
+          <span className="muted">Requirements</span>
+          {/* 조상까지 다 적는다. 마지막(지금 폴더)만 진하게 — 앞엣것은
+              어디에 있는지를 알려주는 길잡이지 지금 보는 것이 아니다.
+              눌러서 그 폴더로 올라갈 수 있다. */}
+          {folderPath.map((f, i) => (
+            <span className="rq-crumb-seg" key={f.id ?? `u${i}`}>
               <span className="rq-crumb-sep">›</span>
-              <b>{folderName}</b>
-            </>
-          )}
+              {i === folderPath.length - 1 ? (
+                <b>{f.name}</b>
+              ) : (
+                <button
+                  type="button"
+                  className="rq-crumb-up"
+                  onClick={() => {
+                    // 트리에서 그 폴더를 누른 것과 같아야 한다 — 안 그러면
+                    // 빵부스러기만 바뀌고 보던 요구사항이 그대로 남는다
+                    setSelectedFolder(f.id)
+                    setSelected(null)
+                    setView('list')
+                  }}
+                  title={`${f.name} 으로`}
+                >
+                  {f.name}
+                </button>
+              )}
+            </span>
+          ))}
           {view === 'detail' && selectedReq && (
             <>
               <span className="rq-crumb-sep">›</span>

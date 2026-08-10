@@ -4063,6 +4063,27 @@ def _netmiko_params(p: dict) -> dict:
         "global_delay_factor": 0.5,  # 출력 안정성 (0.1은 출력 잘림 발생)
     }
 
+def _conn_fail_msg(params: dict, err: Exception) -> str:
+    """
+    접속 실패를 사람이 쓸 수 있게 적는다.
+
+    netmiko 는 「어디에 못 붙었나」 를 맨 끝에 적는다 —
+    `Device settings: cisco_ios 220.1.12.3:22`. 그 문장을 앞에서 200자로
+    자르고 있었더니 하필 그 줄이 잘려 「cisco_ios 220.1」 만 남았다.
+    반토막 주소는 오해를 부른다 — 등록이 잘못된 줄 알고 장비를 뒤진다.
+
+    그래서 **주소를 맨 앞으로 끌어온다.** 뒤엣말은 잘려도 되지만 어디에
+    못 붙었는지는 잘리면 안 된다.
+    """
+    who = f"{params.get('host', '')}:{params.get('port', '')}"
+    proto = "telnet" if "telnet" in str(params.get("device_type", "")) else "ssh"
+    body = " ".join(str(err).split())
+    if len(body) > 300:
+        # 가운데를 접는다. 끝에도 쓸 말이 있다.
+        body = body[:200] + " … " + body[-80:]
+    return f"{proto} {who} 에 붙지 못했습니다 — {body}"
+
+
 @app.post("/api/lab-test")
 def lab_test(payload: dict):
     # tcl(IXIA N2X 계측기): telnet/ssh가 아니라 Tcl 데몬(9001)으로 연결 — N2X 데몬에 ping
@@ -4302,7 +4323,7 @@ def run_cli(payload: dict):
                         conn = _ensure_conn(ent, params)
                         _auto_reconn = True
                     except Exception as _re0:
-                        return {"ok": False, "error": "세션이 열려 있지 않습니다 — 먼저 Session Open 스텝을 실행하세요 · 자동 재접속 실패: " + str(_re0), "no_session": True, "outputs": []}
+                        return {"ok": False, "error": "세션이 열려 있지 않습니다 — 먼저 Session Open 스텝을 실행하세요 · 자동 재접속 실패: " + _conn_fail_msg(params, _re0), "no_session": True, "outputs": []}
                 ent["ts"] = _t.time()
                 _force_enable(conn, params, ent)  # 안전망: 세션이 아직 User EXEC(>)면 enable 재시도 (paging 은 세션당 1회)
                 if _auto_reconn:
@@ -4601,7 +4622,7 @@ async def run_cli_stream(payload: dict):
                         try:
                             conn = _ensure_conn(ent, params)
                         except Exception as _re0s:
-                            yield _sse({"err": "세션이 열려 있지 않습니다 — 자동 재접속 실패: " + str(_re0s)[:200]}); yield _sse({"done": True}); return
+                            yield _sse({"err": "세션이 열려 있지 않습니다 — 자동 재접속 실패: " + _conn_fail_msg(params, _re0s)}); yield _sse({"done": True}); return
                     ent["ts"] = _t.time(); _force_enable(conn, params, ent)
                 else:
                     conn = _ensure_conn(ent, params)
