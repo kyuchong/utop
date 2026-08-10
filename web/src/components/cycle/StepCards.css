@@ -1,0 +1,9 @@
+
+/* 계측기 원문 — 표로 읽었을 때는 접어 둔다. 못 읽었다고 감추면
+   그때야말로 아무것도 모르므로 지우지는 않는다. */
+.sc-raw > summary {
+  cursor: pointer;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  padding: 6px 0 2px;
+}

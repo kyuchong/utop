@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { CycleItemLite, CycleStep, Verdict } from '@/pages/Cycles'
 import { RESULTS, verdictClass } from '@/pages/Cycles'
-import { stepKindInfo, stepVerdict, type TcStep } from '@/components/tc/types'
+import { METER_ACT_LABEL, stepKindInfo, stepVerdict, type TcStep } from '@/components/tc/types'
+import MeterStats, { parseMeterOutput } from '@/components/tc/MeterStats'
 
 /** 판정 종류를 사람 말로 */
 /** 그 판정이 실제로 무엇을 보는지 — 이름만으로는 안 갈린다 */
@@ -220,6 +221,8 @@ export default function StepCards({ item, runningAt, onSetResult, onSetImg, onSe
         // 판정은 없어도 돌기는 돈 스텝인가
         const ran = !!s.executed_at || typeof s.took_ms === 'number'
         const out = String(s.output ?? '')
+        /** 계측기 응답이면 표로 읽는다. 아니면 null 이고 원문 그대로 나간다 */
+        const meterOut = s.kind === 'instrument' ? parseMeterOutput(out) : null
         const toks = tokens(s)
         return (
           <div className={`sc-card${bad ? ' bad' : ''}${running ? ' running' : ''}`} key={i}>
@@ -300,6 +303,34 @@ export default function StepCards({ item, runningAt, onSetResult, onSetImg, onSe
               </div>
             )}
 
+            {/*
+              계측기 스텝.
+
+              CLI 는 「무엇을 보냈나(cli)」 와 「무엇이 나와야 하나(criteria)」
+              가 칸에 있는데, 계측기는 그 둘이 없다. 그래서 이 카드에
+              ACTUAL DATA 하나만 뜨고, 무엇을 시킨 것인지조차 안 보였다 —
+              같은 시험을 TC 화면에서 보면 다 나오는데.
+            */}
+            {s.kind === 'instrument' && (
+              <div className="sc-sec">
+                <i>TEST DATA</i>
+                <div className="sc-txt">
+                  {METER_ACT_LABEL[String(s.meterAct ?? 'traffic_start')] ?? String(s.meterAct)}
+                  {s.meterAct === 'traffic_start' && s.meterDur ? ` · ${s.meterDur}초` : ''}
+                  {s.host ? ` · ${s.host}` : ''}
+                </div>
+              </div>
+            )}
+            {s.kind === 'instrument' && s.meterAct === 'traffic_stat' && (
+              <div className="sc-sec">
+                <i>EXPECTED RESULT</i>
+                <div className="sc-exp">
+                  <span className="sc-type">손실 판정</span>
+                  Rx Packet Loss ≤ {s.meterMaxLoss ?? 0}
+                </div>
+              </div>
+            )}
+
             {/* Diff 는 `criteria` 가 없다 — **견줄 두 값이 곧 판정 기준**이다.
                 그것을 안 보여줘서 「Diff 는 판정 기준이 없다」 로 읽혔다. */}
             {!s.criteria && s.kind === 'diff' && (s.cmpLeft || s.cmpRight) && (
@@ -344,7 +375,18 @@ export default function StepCards({ item, runningAt, onSetResult, onSetImg, onSe
 
             <div className="sc-sec">
               <i>ACTUAL DATA</i>
-              {out.trim() ? (
+              {/* 계측기 응답은 표로. TC 화면과 같은 부품을 쓴다 —
+                  두 화면이 같은 측정을 다르게 보이면 어느 쪽을 믿을지
+                  매번 생각하게 된다. */}
+              {meterOut ? (
+                <>
+                  <MeterStats rows={meterOut.rows} keys={meterOut.keys} />
+                  <details className="sc-raw">
+                    <summary>계측기가 답한 그대로</summary>
+                    <pre className="sc-out">{out}</pre>
+                  </details>
+                </>
+              ) : out.trim() ? (
                 // 판정에 걸린 문구를 물들인다. 자료는 우리 서버에서 온
                 // 것이고 넣기 전에 이스케이프한다.
                 <pre

@@ -106,6 +106,17 @@ export interface CycleStep {
   actual_img?: string | null
   actual_txt?: string | null
   manual?: boolean
+  /**
+   * 계측기 스텝.
+   *
+   * CLI 는 「무엇을 보냈나(cli)」 와 「무엇이 나와야 하나(criteria)」 가
+   * 칸에 있는데 계측기는 그 둘이 없다. 그래서 사이클 카드에 ACTUAL DATA
+   * 하나만 뜨고 무엇을 시킨 것인지도 안 보였다. 여기 있어야 카드가 읽는다.
+   */
+  meterAct?: string | null
+  meterDur?: number | null
+  meterMaxLoss?: number | null
+  host?: string | null
 }
 
 /**
