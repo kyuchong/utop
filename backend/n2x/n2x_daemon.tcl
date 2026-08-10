@@ -10,7 +10,7 @@
 #
 # 고칠 때마다 올린다. 서버가 `ver` 로 물어 제 사본과 견주고, 다르면
 # 화면에 「윈도우의 데몬이 옛 것」 이라고 적는다.
-set DAEMON_VER 7
+set DAEMON_VER 8
 # 명령: ports | reserve <mod> <port> | release <mod> <port>
 #       traffic <mod> <tx> <rx> <pps> <npkt> <dur> <frame> | ping | quit
 lappend auto_path "C:/N2xTcl85/lib"
@@ -216,16 +216,16 @@ proc _load_norm {val unit} {
     set u [string tolower [string trim $unit]]
     if {![string is double -strict $val]} { set val 0 }
     if {[string match "*percent*" $u] || [string match "*%*" $u]} {
-        return [list [expr {double($val) * 10.0}] AGT_UNITS_MBITS_PER_SEC "percent→Mb/s"]
+        return [list [expr {double($val) * 10.0}] AGT_UNITS_MBITS_PER_SEC "percent -> Mb/s"]
     }
     if {[string match "*kbps*" $u] || [string match "*kb/s*" $u]} {
-        return [list [expr {double($val) / 1000.0}] AGT_UNITS_MBITS_PER_SEC "kbps→Mb/s"]
+        return [list [expr {double($val) / 1000.0}] AGT_UNITS_MBITS_PER_SEC "kbps -> Mb/s"]
     }
     if {[string match "*mbps*" $u] || [string match "*mb/s*" $u]} {
         return [list $val AGT_UNITS_MBITS_PER_SEC ""]
     }
     if {$u eq "bps" || [string match "*bits*" $u]} {
-        return [list [expr {double($val) / 1000000.0}] AGT_UNITS_MBITS_PER_SEC "bps→Mb/s"]
+        return [list [expr {double($val) / 1000000.0}] AGT_UNITS_MBITS_PER_SEC "bps -> Mb/s"]
     }
     # fps · frames/sec · 빈값 — 초당 프레임 수
     return [list $val AGT_UNITS_PACKETS_PER_SEC ""]
