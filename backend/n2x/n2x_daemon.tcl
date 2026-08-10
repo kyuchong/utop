@@ -10,7 +10,7 @@
 #
 # 고칠 때마다 올린다. 서버가 `ver` 로 물어 제 사본과 견주고, 다르면
 # 화면에 「윈도우의 데몬이 옛 것」 이라고 적는다.
-set DAEMON_VER 4
+set DAEMON_VER 5
 # 명령: ports | reserve <mod> <port> | release <mod> <port>
 #       traffic <mod> <tx> <rx> <pps> <npkt> <dur> <frame> | ping | quit
 lappend auto_path "C:/N2xTcl85/lib"
@@ -132,6 +132,22 @@ proc _select_stats {hStats} {
     }
     set ::g_statKeys $keymap
 }
+# 진단용 — 한 줄을 그대로 실행해 결과를 돌려준다.
+#
+# 매체·링크를 읽는 호출 이름이 빌드마다 달라서, 후보를 적어 보내고 →
+# 파일을 옮기고 → 데몬을 다시 띄우고 → 결과를 보고 → 또 후보를 적는
+# 왕복이 계속됐다. 한 번에 끝나지 않는 종류의 일이다.
+#
+# 그래서 물어볼 통로를 둔다. 열쇠(N2X_RELAY_KEY)를 아는 쪽만 부를 수
+# 있고, 우리 랩의 계측기 하나에만 닿는다. 알아낼 것을 알아낸 뒤에는
+# 지워도 되는 자리다.
+proc cmd_raw {line} {
+    if {[catch {uplevel #0 $line} r]} {
+        return "{\"ok\":false,\"error\":\"[jstr $r]\"}"
+    }
+    return "{\"ok\":true,\"result\":\"[jstr $r]\"}"
+}
+
 # ── 포트 매체(광/RJ45) ────────────────────────────────────────────
 #
 # Tri-Rate 카드는 한 포트에 광(SFP)과 RJ45 가 같이 달려 있다. 지금 어느
@@ -417,6 +433,7 @@ while {[gets stdin line] >= 0} {
             ver     { set out "{\"ok\":true,\"ver\":$::DAEMON_VER}" }
             uprobe  { set out [cmd_uprobe [lindex $parts 1] [lindex $parts 2]] }
             mprobe  { set out [cmd_mprobe [lindex $parts 1] [lindex $parts 2]] }
+            raw     { set out [cmd_raw [string range $line 4 end]] }
             media   { set out [cmd_media [lindex $parts 1] [lindex $parts 2] [lindex $parts 3]] }
             ports   { set out [cmd_ports] }
             reserve { if {[catch {AgtInvoke AgtPortSelector AddPort [lindex $parts 1] [lindex $parts 2]} h]} { set out "{\"ok\":false,\"error\":\"[jstr $h]\"}" } else { set out "{\"ok\":true,\"reserved\":\"[lindex $parts 1]/[lindex $parts 2]\"}" } }
