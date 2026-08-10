@@ -41,7 +41,7 @@
 }
 .tt-f > span {
   flex: none;
-  width: 104px;
+  width: 84px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -50,6 +50,11 @@
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
   line-height: 1.25;
+  /* 이름표는 짧다. 길면 줄이 접혀 칸 높이가 들쭉날쭉해진다 —
+     긴 안내는 칸 안내(placeholder)로 내린다. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 /* 입력칸이 남는 자리를 갖는다. 100% 로 두면 이름표를 옆으로 옮긴 뜻이
    없어진다 — 제 폭을 다 차지해 이름표를 아래로 밀어낸다. */
@@ -66,8 +71,8 @@
 .tt-f > .sd-hint {
   flex-basis: 100%;
   min-width: 0;
-  max-width: calc(100% - 104px - var(--sp-2));
-  margin-left: calc(104px + var(--sp-2));
+  max-width: calc(100% - 84px - var(--sp-2));
+  margin-left: calc(84px + var(--sp-2));
 }
 .tt-f input,
 .tt-f select {

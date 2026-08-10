@@ -515,31 +515,32 @@ export default function TcTraffic({ data, onChange }: Props) {
               />
             )}
           </label>
+          {/* 시험 포트 — 이름표에 긴 안내문과 단추를 같이 넣었더니
+              104px 짜리 칸을 넘겨 카드 밖으로 삐져나왔다. 이름표는 짧게,
+              예시는 칸 안내로, 단추는 칸 뒤에 둔다. */}
           <label className="tt-f tt-wide">
-            <span>
-              시험 포트 (쉼표, 예: 4106/1,4106/2)
-              {kind !== 'stc' && (
-                <button
-                  className="btn small tt-portbtn"
-                  type="button"
-                  disabled={!!busy || !cfg.chassis}
-                  title="섀시에 실제로 꽂힌 포트를 읽어 옵니다"
-                  onClick={() => void readPorts()}
-                >
-                  {busy === 'ports' ? '읽는 중…' : '섀시에서 읽기'}
-                </button>
-              )}
-            </span>
+            <span>시험 포트</span>
             <input
               className="mono"
               list="tt-chassis-ports"
               value={ports.join(',')}
-              placeholder="4106/1,4106/2"
+              placeholder="쉼표로 나눠 적습니다 — 예: 4106/1,4106/2"
               onChange={(e) => {
                 const pp = e.target.value.split(',').map((x) => x.trim()).filter(Boolean)
                 setCfg({ ports: pp })
               }}
             />
+            {kind !== 'stc' && (
+              <button
+                className="btn small"
+                type="button"
+                disabled={!!busy || !cfg.chassis}
+                title="섀시에 실제로 꽂힌 포트를 읽어 옵니다"
+                onClick={() => void readPorts()}
+              >
+                {busy === 'ports' ? '읽는 중…' : '섀시에서 읽기'}
+              </button>
+            )}
             {chassisPorts.length > 0 && (
               <>
                 <datalist id="tt-chassis-ports">
@@ -555,12 +556,15 @@ export default function TcTraffic({ data, onChange }: Props) {
                     <button
                       key={x.id}
                       type="button"
-                      className={`tt-port${ports.includes(x.id) ? ' on' : ''}${x.free ? '' : ' busy'}`}
-                      title={`${x.who}${x.state ? ` · ${x.state}` : ''}`}
+                      className={`tt-port${ports.includes(x.id) ? ' on' : ''}${
+                        x.free ? '' : ' busy'
+                      }${x.mine ? ' mine' : ''}`}
+                      title={`${x.who}${x.lock && x.lock !== '0' ? ` · 세션 ${x.lock}` : ''}`}
                       onClick={() => {
                         const has = ports.includes(x.id)
-                        const next = has ? ports.filter((y) => y !== x.id) : [...ports, x.id]
-                        setCfg({ ports: next })
+                        setCfg({
+                          ports: has ? ports.filter((y) => y !== x.id) : [...ports, x.id],
+                        })
                       }}
                     >
                       {x.id}
