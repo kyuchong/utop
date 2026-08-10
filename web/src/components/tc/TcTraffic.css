@@ -5,10 +5,12 @@
   gap: var(--sp-4);
   padding: var(--sp-3);
   min-height: 0;
+  min-width: 0;
   overflow: auto;
 }
 
 .tt-sec {
+  min-width: 0;
   border: 1px solid var(--c-border);
   border-radius: var(--r-card);
   background: var(--c-surface);
@@ -57,11 +59,14 @@
   width: auto;
   min-width: 0;
 }
-/* 칸 아래로 흐르는 것들 — 이름표 폭만큼 들여 쓴다 */
+/* 칸 아래로 흐르는 것들 — 이름표 폭만큼 들여 쓴다.
+   폭을 묶어 두지 않으면 알약이 안 접히고 한 줄로 뻗어 카드를 밀어낸다. */
 .tt-f > .tt-ports,
 .tt-f > .tt-mods,
 .tt-f > .sd-hint {
   flex-basis: 100%;
+  min-width: 0;
+  max-width: calc(100% - 104px - var(--sp-2));
   margin-left: calc(104px + var(--sp-2));
 }
 .tt-f input,
@@ -79,11 +84,13 @@
 
 .tt-basic {
   display: grid;
-  grid-template-columns: minmax(200px, 1fr) 160px minmax(240px, 2fr);
-  gap: var(--sp-3);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--sp-2) var(--sp-4);
   padding: var(--sp-3);
 }
-.tt-wide { grid-column: auto; }
+/* 시험 포트는 제 줄을 통째로 쓴다. 44개짜리 알약 목록이 딸려 있어서,
+   한 칸에 우겨 넣으면 그 칸이 늘어나 카드 전체가 옆으로 밀린다. */
+.tt-wide { grid-column: 1 / -1; }
 
 /* 스트림 표 — 칸이 많아 가로로 민다 */
 .tt-tablewrap { overflow-x: auto; }
@@ -208,6 +215,9 @@
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 6px;
+  /* 44개가 한 줄로 뻗지 않게. 많으면 접고, 그래도 넘치면 제 안에서 구른다 */
+  max-height: 132px;
+  overflow-y: auto;
 }
 .tt-port {
   font-family: var(--font-mono);
