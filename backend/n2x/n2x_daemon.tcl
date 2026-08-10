@@ -10,7 +10,7 @@
 #
 # 고칠 때마다 올린다. 서버가 `ver` 로 물어 제 사본과 견주고, 다르면
 # 화면에 「윈도우의 데몬이 옛 것」 이라고 적는다.
-set DAEMON_VER 11
+set DAEMON_VER 12
 # 명령: ports | reserve <mod> <port> | release <mod> <port>
 #       traffic <mod> <tx> <rx> <pps> <npkt> <dur> <frame> | ping | quit
 lappend auto_path "C:/N2xTcl85/lib"
@@ -401,10 +401,21 @@ proc _build_streams {specs} {
         set hdr "ethernet ipv4 udp"
         if {$proto eq "tcp"} { set hdr "ethernet ipv4 tcp" } elseif {$proto eq "ipv4"} { set hdr "ethernet ipv4" } elseif {$proto eq "eth"} { set hdr "ethernet" }
         AgtInvoke AgtStreamGroup SetPduHeaders $hSG $hdr
-        # 프레임 길이. 못 정하면 그렇다고 남긴다 — 조용히 64바이트로 나가는
-        # 것이 제일 나쁘다. 시험은 돌고 결과도 나오는데 잰 것이 딴것이 된다.
+        # 프레임 길이.
+        #
+        # `SetFrameLength ... AGT_FIXED_FRAME_LENGTH` 를 쓰고 있었는데 이
+        # 빌드에는 그런 이름이 없다. `catch` 로 감싸 두어 거절당해도 조용히
+        # 넘어갔고, **늘 64바이트로 나갔다** — 1518B 로 적고 재 보면 패킷
+        # 수가 64B 일 때의 수와 정확히 맞아떨어졌다. 시험은 돌고 결과도
+        # 나오는데 잰 것이 딴것이었다.
+        #
+        # 맞는 이름은 `SetLength <hSG> AGT_PACKET_LENGTH_FIXED <길이>` 다.
+        # 섀시에 하나씩 넣어 보고 찾았다 — `GetLength` 가
+        # `AGT_PACKET_LENGTH_FIXED {64}` 를 돌려주는 것이 실마리였다.
+        #
+        # 못 정하면 그렇다고 남긴다. 조용히 틀리는 것이 제일 나쁘다.
         if {$frame ne "" && $frame > 0} {
-            if {[catch {AgtInvoke AgtStreamGroup SetFrameLength $hSG AGT_FIXED_FRAME_LENGTH $frame}]} {
+            if {[catch {AgtInvoke AgtStreamGroup SetLength $hSG AGT_PACKET_LENGTH_FIXED $frame}]} {
                 set ::g_frameSet "no"
             } else {
                 set ::g_frameSet "yes"
