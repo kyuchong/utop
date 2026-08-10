@@ -373,7 +373,7 @@ export default function TcTraffic({ data, onChange }: Props) {
    * 없으니 핸들을 못 잡는다. 실제 번호를 보고 고르게 한다.
    */
   const [chassisPorts, setChassisPorts] = useState<
-    Array<{ id: string; free: boolean; who: string }>
+    Array<{ id: string; free: boolean; who: string; state: string; up: boolean }>
   >([])
   const readPorts = async () => {
     if (!cfg.chassis) {
@@ -390,22 +390,42 @@ export default function TcTraffic({ data, onChange }: Props) {
         error?: string
         modules?: Array<{
           id: number
-          portList?: Array<{ port: number; label?: string; mine?: number; avail?: number }>
+          portList?: Array<{
+            port: number
+            label?: string
+            mine?: number
+            avail?: number
+            state?: string
+          }>
         }>
       }
       if (j.ok === false) throw new Error(j.error || '포트를 읽지 못했습니다')
-      const out: Array<{ id: string; free: boolean; who: string }> = []
+      const out: Array<{ id: string; free: boolean; who: string; state: string; up: boolean }> = []
       for (const m of j.modules ?? []) {
         for (const x of m.portList ?? []) {
+          /*
+           * 링크가 죽은 포트를 알아야 한다.
+           *
+           * 트래픽을 아무리 잘 지어 보내도 선이 안 붙어 있으면 Rx 는 0 이다.
+           * 그때 화면에는 「받은 패킷이 없습니다」 만 남아서, 설정을 뒤지다가
+           * 한참 뒤에야 케이블을 본다. 섀시가 아는 것을 그대로 적어 준다.
+           */
+          const st = String(x.state ?? '')
           out.push({
             id: `${m.id}/${x.port}`,
             free: !!x.avail || !!x.mine,
             who: x.mine ? '내 것' : x.avail ? '빈 포트' : x.label || '사용 중',
+            state: st,
+            up: /UP|READY|LINK_OK/i.test(st) && !/DOWN|NO_LINK|NOT_/i.test(st),
           })
         }
       }
       setChassisPorts(out)
-      setMsg(`포트 ${out.length}개 · 쓸 수 있는 것 ${out.filter((x) => x.free).length}개`)
+      const down = out.filter((x) => x.free && !x.up).length
+      setMsg(
+        `포트 ${out.length}개 · 쓸 수 있는 것 ${out.filter((x) => x.free).length}개` +
+          (down ? ` · 링크가 안 올라온 것 ${down}개` : ''),
+      )
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e))
     } finally {
@@ -530,8 +550,8 @@ export default function TcTraffic({ data, onChange }: Props) {
                     <button
                       key={x.id}
                       type="button"
-                      className={`tt-port${ports.includes(x.id) ? ' on' : ''}${x.free ? '' : ' busy'}`}
-                      title={x.who}
+                      className={`tt-port${ports.includes(x.id) ? ' on' : ''}${x.free ? '' : ' busy'}${x.free && !x.up ? ' down' : ''}`}
+                      title={`${x.who}${x.state ? ` · ${x.state}` : ''}`}
                       onClick={() => {
                         const has = ports.includes(x.id)
                         const next = has ? ports.filter((y) => y !== x.id) : [...ports, x.id]

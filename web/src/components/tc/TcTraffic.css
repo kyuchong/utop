@@ -271,3 +271,8 @@
   font-size: var(--fs-xs);
   line-height: 1.5;
 }
+
+/* 링크가 안 올라온 포트. 잡을 수는 있지만 트래픽은 안 흐른다 —
+   Rx 0 을 보고 설정부터 뒤지지 않게 여기서 먼저 보인다. */
+.tt-port.down { border-style: dashed; border-color: #d97706; color: #b45309; }
+.tt-port.down::after { content: ' ⚠'; }
