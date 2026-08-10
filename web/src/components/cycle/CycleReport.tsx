@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { buildSlides, type LguStep, type LguTc } from './lgu'
 import { saveLguPptx } from './lguPptx'
+import { saveTplPptx } from './tplPptx'
 
 interface Props {
   cycleId: string
@@ -106,14 +107,30 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
 
   const slides = useMemo(() => (tcs.length ? buildSlides(tcs) : []), [tcs])
 
+  /**
+   * 저장 — **고객사가 준 pptx 를 채운다.**
+   *
+   * 전에는 브라우저가 표와 글자를 직접 그렸다. 자리를 아무리 맞춰도
+   * 글꼴·표선·머리글이 저쪽 것과 미묘하게 달라, 받는 쪽에서 결국 자기
+   * 양식으로 다시 옮겼다. 이제 저쪽 파일을 그대로 열어 값만 갈아 끼운다.
+   *
+   * 양식 파일이 없거나 서버가 옛것이면 옛 방식으로 떨어뜨린다 — 결과서를
+   * 아예 못 만드는 것보다 낫다.
+   */
   const save = async () => {
     setBusy(true)
     setMsg('만드는 중…')
     try {
-      const n = await saveLguPptx(tcs, { model, version })
-      setMsg(`${n}장 저장했습니다`)
+      const n = await saveTplPptx(tcs, { model, version })
+      setMsg(`${n}장 저장했습니다 — 고객사 양식`)
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : '저장하지 못했습니다')
+      const why = e instanceof Error ? e.message : String(e)
+      try {
+        const n = await saveLguPptx(tcs, { model, version })
+        setMsg(`${n}장 저장했습니다 (양식 파일을 못 써서 옛 방식으로 — ${why})`)
+      } catch (e2) {
+        setMsg(e2 instanceof Error ? e2.message : '저장하지 못했습니다')
+      }
     } finally {
       setBusy(false)
     }
