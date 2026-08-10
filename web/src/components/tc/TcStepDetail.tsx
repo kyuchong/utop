@@ -1264,6 +1264,26 @@ export default function TcStepDetail({
                       rows={meterOut.rows}
                       streams={meterCfg?.streams}
                       keys={meterOut.keys}
+                      /* 칸을 누르면 그 자리가 판정 규칙이 된다.
+                         열 이름과 스트림 번호를 손으로 적게 하면 오타가
+                         나고, 오타는 돌려 봐야 안다. 본 것을 그대로 누른다.
+                         비교는 「이상」 으로, 값은 지금 값으로 채워 둔다 —
+                         대개 「이만큼은 나와야 한다」 를 적으려는 것이다. */
+                      onPickCell={
+                        step.meterAct === 'traffic_stat'
+                          ? (field, idx, value) => {
+                              const rules = [...(step.meterRules ?? [])]
+                              // 같은 칸을 또 누르면 늘리지 않고 값만 새로 잡는다
+                              const at = rules.findIndex(
+                                (r) => r.field === field && r.idx === idx,
+                              )
+                              const next = { field, idx, op: '>=' as const, value }
+                              if (at >= 0) rules[at] = { ...rules[at], ...next }
+                              else rules.push(next)
+                              onChange({ meterJudge: 'rule', meterRules: rules })
+                            }
+                          : undefined
+                      }
                     />
                     <details className="sd-more sd-rawout">
                       <summary>계측기가 답한 그대로</summary>

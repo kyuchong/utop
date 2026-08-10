@@ -87,3 +87,21 @@
   font-size: var(--fs-sm);
 }
 .ms-each .sd-hint { flex-basis: 100%; margin-left: 20px; }
+
+/* 표에서 고른 값 — 규칙 한 줄이 「어느 칸 · 어느 스트림 · 어떻게 · 얼마」 다.
+   가로로 늘어놓아야 한 줄이 한 문장으로 읽힌다. */
+.ms-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-alt);
+}
+.ms-rules-h { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+.ms-rules-none { padding: 2px 0; }
+.ms-rule { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ms-rule select, .ms-rule input { font: inherit; }
+.ms-rule .ms-op { width: 110px; }
+.ms-rule .ms-val { width: 110px; }

@@ -11,10 +11,12 @@ import {
   type Verdict,
 } from './judge'
 import {
+  METER_FIELDS,
   sessionIndex,
   stepResult,
   stepSummary,
   type MeterCfg,
+  type MeterRule,
   type MeterStream,
   type StepRound,
   type TcStep,
@@ -197,6 +199,47 @@ export function judgeMeterStats(
    * 「보내는 중인지 본다」 가 목적인 스텝은 그것으로 떨어질 수밖에 없는데,
    * 시험이 깨진 것은 아니다. 값은 그대로 남기고 판정만 사람에게 넘긴다.
    */
+  /*
+   * 표에서 고른 칸으로 판정.
+   *
+   * 「Rx Test Packets 가 100 이상이면 합격」 처럼, 표의 어느 칸을 무엇과
+   * 견주는가가 곧 판정이다. 손실 하나로는 못 보는 시험이 많다 — 받은
+   * 개수·속도·지연이 다 시험 항목이 된다.
+   *
+   * 규칙은 **모두** 맞아야 합격이다. 하나라도 어긋나면 그 자리를 적는다.
+   */
+  if (step.meterJudge === 'rule') {
+    const rules = step.meterRules ?? []
+    if (!rules.length) {
+      return { ok: true, skip: true, reason: '판정 규칙이 없습니다 — 표에서 칸을 골라 정하세요' }
+    }
+    const pick = (r: MeterRule): number =>
+      r.idx === undefined
+        ? rows.reduce((a, x) => a + statNum(x[r.field]), 0)
+        : statNum(rows.find((x, k) => (typeof x.idx === 'number' ? x.idx : k) === r.idx)?.[r.field])
+    const cmp = (a: number, op: string, b: number): boolean =>
+      op === '>=' ? a >= b
+        : op === '<=' ? a <= b
+        : op === '>' ? a > b
+        : op === '<' ? a < b
+        : op === '!=' ? a !== b
+        : a === b
+    const bad: string[] = []
+    const said: string[] = []
+    for (const r of rules) {
+      const got = pick(r)
+      const where = `${METER_FIELDS.find((f) => f.k === r.field)?.label ?? r.field}${
+        r.idx === undefined ? '(합계)' : `(스트림 ${r.idx + 1})`
+      }`
+      const ok = cmp(got, r.op, r.value)
+      said.push(`${where} ${got}`)
+      if (!ok) bad.push(`${where} ${got} — ${r.op} ${r.value} 이어야 합니다`)
+    }
+    return bad.length
+      ? { ok: false, reason: bad.join(' / ') }
+      : { ok: true, reason: said.join(' · ') }
+  }
+
   if (step.meterJudge === 'none') {
     const tx = rows.reduce((a, x) => a + statNum(x.tx), 0)
     const rx = rows.reduce((a, x) => a + statNum(x.rx), 0)

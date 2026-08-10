@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isMeter, meterKind } from './device'
-import { METER_ACT_LABEL, type MeterCfg, type TcStep } from './types'
+import { METER_ACT_LABEL, METER_FIELDS, type MeterCfg, type MeterRule, type TcStep } from './types'
 import type { Device } from '@/pages/Devices'
 import './TcMeterStep.css'
 
@@ -53,6 +53,12 @@ export default function TcMeterStep({ step, meterCfg, onChange, onGoTraffic }: P
   /** 아직 안 고른 줄은 「트래픽 시작」 이다 — 드롭다운이 그렇게 보이고 있다 */
   const act = step.meterAct ?? 'traffic_start'
   const streams = (cfg.streams ?? []).filter((s) => s.enabled !== false)
+
+  /** 규칙 한 줄 고치기 */
+  const setRule = (n: number, patch: Partial<MeterRule>) =>
+    onChange({
+      meterRules: (step.meterRules ?? []).map((x, k) => (k === n ? { ...x, ...patch } : x)),
+    })
 
   return (
     <div className="sd-meter">
@@ -146,9 +152,12 @@ export default function TcMeterStep({ step, meterCfg, onChange, onGoTraffic }: P
             <span>판정</span>
             <select
               value={step.meterJudge ?? 'loss'}
-              onChange={(e) => onChange({ meterJudge: e.target.value as 'loss' | 'none' })}
+              onChange={(e) =>
+                onChange({ meterJudge: e.target.value as 'loss' | 'rule' | 'none' })
+              }
             >
               <option value="loss">손실로 판정</option>
+              <option value="rule">표에서 고른 값으로 판정</option>
               <option value="none">판정 안 함 — 사람이 정함</option>
             </select>
             <span className="sd-hint">
@@ -158,6 +167,81 @@ export default function TcMeterStep({ step, meterCfg, onChange, onGoTraffic }: P
               둡니다 — 보고 직접 찍으시면 됩니다.
             </span>
           </label>
+
+          {step.meterJudge === 'rule' && (
+            <div className="ms-rules">
+              <div className="ms-rules-h">
+                <b>표에서 고른 값</b>
+                <span className="muted small">
+                  아래 결과 표의 <b>칸을 누르면</b> 규칙이 하나 생깁니다. 모두 맞아야 합격입니다.
+                </span>
+              </div>
+              {(step.meterRules ?? []).length === 0 ? (
+                <div className="muted small ms-rules-none">
+                  아직 없습니다 — 이 스텝을 한 번 실행해서 표를 받은 뒤, 보고 싶은 칸을 누르세요.
+                </div>
+              ) : (
+                (step.meterRules ?? []).map((r, n) => (
+                  <div className="ms-rule" key={n}>
+                    <select
+                      value={r.field}
+                      onChange={(e) => setRule(n, { field: e.target.value })}
+                    >
+                      {METER_FIELDS.map((f) => (
+                        <option key={f.k} value={f.k}>
+                          {f.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={r.idx === undefined ? '' : String(r.idx)}
+                      onChange={(e) =>
+                        setRule(n, {
+                          idx: e.target.value === '' ? undefined : Number(e.target.value),
+                        })
+                      }
+                    >
+                      <option value="">합계</option>
+                      {(meterCfg?.streams ?? []).map((x, k) => (
+                        <option key={k} value={k}>
+                          {x.name || `스트림 ${k + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="ms-op"
+                      value={r.op}
+                      onChange={(e) => setRule(n, { op: e.target.value as MeterRule['op'] })}
+                    >
+                      <option value=">=">이상 (≥)</option>
+                      <option value="<=">이하 (≤)</option>
+                      <option value="==">같음 (=)</option>
+                      <option value="!=">다름 (≠)</option>
+                      <option value=">">초과 (&gt;)</option>
+                      <option value="<">미만 (&lt;)</option>
+                    </select>
+                    <input
+                      className="ms-val"
+                      type="number"
+                      step="any"
+                      value={r.value}
+                      onChange={(e) => setRule(n, { value: Number(e.target.value) || 0 })}
+                    />
+                    <button
+                      type="button"
+                      className="btn small danger"
+                      title="이 규칙을 지웁니다"
+                      onClick={() =>
+                        onChange({ meterRules: (step.meterRules ?? []).filter((_, k) => k !== n) })
+                      }
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
 
           {(step.meterJudge ?? 'loss') === 'loss' && (
             <label className="sd-f">

@@ -51,6 +51,14 @@ interface Props {
   keys?: string[]
   /** 아직 안 읽었을 때 스트림 이름만이라도 줄로 보여준다 */
   placeholder?: boolean
+  /**
+   * 칸을 눌렀을 때 — 그 자리를 판정 규칙으로 삼는다.
+   *
+   * 「어느 칸을 무엇과 견주는가」 가 곧 판정이다. 열 이름과 스트림 번호를
+   * 손으로 적게 하면 오타가 나고, 오타는 돌려 봐야 안다. 본 것을 그대로
+   * 누르게 한다.
+   */
+  onPickCell?: (field: string, idx: number, value: number) => void
 }
 
 /**
@@ -63,7 +71,13 @@ interface Props {
  * Traffic 탭과 스텝 결과가 같은 부품을 쓴다. 두 벌로 두면 한쪽만 고치게
  * 되고, 그러면 같은 측정이 화면마다 다르게 보인다.
  */
-export default function MeterStats({ rows, streams = [], keys = [], placeholder }: Props) {
+export default function MeterStats({
+  rows,
+  streams = [],
+  keys = [],
+  placeholder,
+  onPickCell,
+}: Props) {
   const has = (k: string) => keys.length === 0 || keys.includes(k)
   const th = (label: string, k: string) => (
     <th
@@ -126,17 +140,33 @@ export default function MeterStats({ rows, streams = [], keys = [], placeholder 
                 return (
                   <tr key={i} className={loss > 0 ? 'bad' : undefined}>
                     <td className="mono">{label(r, i)}</td>
-                    <td>{show(r.tx)}</td>
-                    <td>{show(r.rx)}</td>
-                    <td>{show(r.txOct)}</td>
-                    <td>{show(r.rxOct)}</td>
-                    <td>{show(r.txTput, 3)}</td>
-                    <td>{show(r.rxTput, 3)}</td>
-                    <td className={loss > 0 ? 'bad' : undefined}>{show(r.loss)}</td>
-                    <td>{show(r.latency, 2)}</td>
-                    <td className={statNum(r.misorder) > 0 ? 'bad' : undefined}>
-                      {show(r.misorder)}
-                    </td>
+                    {(
+                      [
+                        ['tx', 0],
+                        ['rx', 0],
+                        ['txOct', 0],
+                        ['rxOct', 0],
+                        ['txTput', 3],
+                        ['rxTput', 3],
+                        ['loss', 0],
+                        ['latency', 2],
+                        ['misorder', 0],
+                      ] as Array<[string, number]>
+                    ).map(([f, dg]) => {
+                      const v = statNum(r[f])
+                      const isBad = (f === 'loss' || f === 'misorder') && v > 0
+                      const idx = typeof r.idx === 'number' ? r.idx : i
+                      return (
+                        <td
+                          key={f}
+                          className={`${isBad ? 'bad' : ''}${onPickCell ? ' pick' : ''}`}
+                          title={onPickCell ? '이 칸으로 판정 규칙을 만듭니다' : undefined}
+                          onClick={onPickCell ? () => onPickCell(f, idx, v) : undefined}
+                        >
+                          {show(r[f], dg)}
+                        </td>
+                      )
+                    })}
                   </tr>
                 )
               })}

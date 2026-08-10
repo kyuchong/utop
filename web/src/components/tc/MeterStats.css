@@ -73,3 +73,12 @@
   color: var(--c-text-faint);
   padding: 5px 2px 0;
 }
+
+/* 눌러서 판정 규칙으로 삼는 칸. 누를 수 있다는 것만 알리고,
+   평소에는 표를 읽는 데 방해가 안 되게 둔다. */
+.ms-table td.pick { cursor: pointer; }
+.ms-table td.pick:hover {
+  background: var(--c-surface-alt);
+  box-shadow: inset 0 0 0 1px var(--c-primary);
+  border-radius: 3px;
+}

@@ -119,6 +119,40 @@ export interface TcExtract {
 }
 
 /**
+ * 통계 표에서 고른 한 칸을 규칙으로.
+ *
+ * 「Rx Test Packets 가 100 이상이면 합격」 처럼, **표의 어느 칸을 무엇과
+ * 견주는가**가 곧 판정이다. 손실 하나로는 못 보는 시험이 많다 — 받은
+ * 개수, 속도, 지연이 다 시험 항목이 된다.
+ *
+ * `idx` 가 없으면 모든 스트림을 더해서 본다. 있으면 그 스트림만.
+ * `var` 를 적으면 그 값이 변수로 남아 뒷 스텝에서 `${이름}` 으로 쓰인다.
+ */
+export interface MeterRule {
+  /** 표의 열 — tx · rx · txOct · rxOct · txTput · rxTput · loss · latency · misorder */
+  field: string
+  /** 스트림 차례(0-기준). 없으면 합계 */
+  idx?: number
+  op: '>=' | '<=' | '==' | '!=' | '>' | '<'
+  value: number
+  /** 이 값에 붙일 변수 이름 (선택) */
+  var?: string
+}
+
+/** 표의 열 이름 — 화면과 판정이 같은 말을 쓰게 한 곳에 둔다 */
+export const METER_FIELDS: Array<{ k: string; label: string }> = [
+  { k: 'tx', label: 'Tx Test Packets' },
+  { k: 'rx', label: 'Rx Test Packets' },
+  { k: 'txOct', label: 'Tx Test Octets' },
+  { k: 'rxOct', label: 'Rx Test Octets' },
+  { k: 'txTput', label: 'Tx Throughput (Mb/s)' },
+  { k: 'rxTput', label: 'Rx Throughput (Mb/s)' },
+  { k: 'loss', label: 'Rx Packet Loss' },
+  { k: 'latency', label: 'Avg Latency (us)' },
+  { k: 'misorder', label: 'Sequence Errors' },
+]
+
+/**
  * 스텝 하나.
  *
  * 한 배열(checks)에 종류가 섞여 순서대로 들어간다. 나누면 순서가 어긋난다.
@@ -299,18 +333,22 @@ export interface TcStep {
    * 이것을 읽어 「3초 · 2초 남음」 으로 세어 주기 때문이다.
    */
   waitLeft?: number
+
   /**
    * 통계를 어떻게 판정하나.
    *
    *  · `loss`(기본) — Rx Packet Loss 가 허용치 이하면 합격
+   *  · `rule`      — 표에서 고른 칸들이 모두 조건을 만족하면 합격
    *  · `none`      — 판정하지 않는다. 사람이 보고 정한다
    *
    * `none` 이 필요한 이유: 트래픽이 흐르는 **도중에** 읽으면 아직 도착하지
    * 않은 패킷이 손실로 잡힌다. 보내는 중을 확인하는 스텝은 그것으로 떨어질
    * 수밖에 없는데, 시험이 깨진 것은 아니다.
    */
-  meterJudge?: 'loss' | 'none'
+  meterJudge?: 'loss' | 'rule' | 'none'
   meterMaxLoss?: number
+  /** 표에서 고른 칸들. `meterJudge === 'rule'` 일 때 본다 */
+  meterRules?: MeterRule[]
   /**
    * 보낼 프레임의 주소.
    *
