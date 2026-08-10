@@ -490,6 +490,14 @@ export default function TestCases({ me }: PageProps) {
   const fullQ = useQuery({
     queryKey: ['tc', openId],
     enabled: !!openId,
+    /*
+     * 창을 다시 눌렀다고 다시 읽지 않는다.
+     *
+     * 기본값이 「창에 포커스가 오면 다시 읽기」 인데, 그 값이 오면 아래
+     * effect 가 화면을 통째로 갈아 끼웠다. 시험을 짜다가 다른 창을 잠깐
+     * 보고 오면 손댄 것이 사라졌다 — 그것도 조용히.
+     */
+    refetchOnWindowFocus: false,
     queryFn: async () => {
       const r = await apiFetch(`/api/tc/${encodeURIComponent(openId)}`)
       if (!r.ok) throw new Error('TC 를 불러오지 못했습니다')
@@ -500,8 +508,31 @@ export default function TestCases({ me }: PageProps) {
   /** 어느 TC 를 화면에 올려 두었나. 저장 뒤 다시 읽어온 것과 구분한다 */
   const loadedId = useRef('')
 
+  /**
+   * 안 저장한 것이 있나 — effect 안에서 「지금」 값을 봐야 한다.
+   *
+   * `dirty` 를 의존성에 넣으면 저장 직후 dirty 가 false 로 바뀌는 순간
+   * effect 가 **아직 갱신 안 된 옛 자료**로 다시 돌아 방금 저장한 것을
+   * 화면에서 되돌린다. ref 로 읽는다.
+   */
+  const dirtyRef = useRef(false)
+  useEffect(() => {
+    dirtyRef.current = dirty
+  }, [dirty])
+
   useEffect(() => {
     if (!fullQ.data) return
+    /*
+     * 읽어온 것이 내 손의 것을 덮지 않는다.
+     *
+     * Traffic 탭에서 계측기를 고르고 저장을 안 한 채 다른 창을 보고 오면,
+     * 다시 읽어온 값이 그것을 지우고 「저장됨」 으로 바꿔 놓았다. 고친 줄
+     * 알고 사이클을 돌리면 그제서야 「계측기를 고르지 않았습니다」 가 났다.
+     *
+     * 같은 시험을 보고 있고 안 저장한 것이 있으면 그대로 둔다. 남이
+     * 저장한 경우는 위 presence 가 띠로 알린다 — 불러올지는 사람이 고른다.
+     */
+    if (loadedId.current === openId && dirtyRef.current) return
     setD(fullQ.data)
     setDirty(false)
     // **다른 TC 로 옮겼을 때만** 고른 줄을 되돌린다.
