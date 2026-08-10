@@ -10,7 +10,7 @@
 #
 # 고칠 때마다 올린다. 서버가 `ver` 로 물어 제 사본과 견주고, 다르면
 # 화면에 「윈도우의 데몬이 옛 것」 이라고 적는다.
-set DAEMON_VER 6
+set DAEMON_VER 7
 # 명령: ports | reserve <mod> <port> | release <mod> <port>
 #       traffic <mod> <tx> <rx> <pps> <npkt> <dur> <frame> | ping | quit
 lappend auto_path "C:/N2xTcl85/lib"
@@ -197,31 +197,41 @@ proc cmd_media {mod port val} {
     return "{\"ok\":false,\"error\":\"media_unsupported\",\"port\":\"$mod/$port\"}"
 }
 
-# 부하 단위 → AGT 상수 후보.
+# 부하 단위 → (값, AGT 상수).
 #
-# 화면에서 「100 Percent」 를 넣어도 여기서 pps 로 박아 보내고 있었다 —
-# 100pps 가 나갔다. 단위마다 상수 이름이 빌드별로 조금씩 달라서, 통계
-# 항목을 고를 때처럼 후보를 늘어놓고 되는 것을 쓴다.
-proc _load_units {unit} {
+# 이 섀시가 받아 주는 상수는 **딱 둘**이다. 후보 13개를 실제로 넣어 보고
+# 확인했다(`uprobe`):
+#
+#   AGT_UNITS_PACKETS_PER_SEC   ✔      AGT_UNITS_MBITS_PER_SEC   ✔
+#   PERCENT 계열 4개 · BITS 계열 4개 · MEGABITS 계열 2개 · FRAMES  전부 거절
+#
+# 그래서 Percent 와 bps 는 API 에 맡길 수가 없다. **우리가 Mb/s 로 바꿔서**
+# 넣는다. 안 그러면 「받아 주는 것이 없다」 며 pps 로 떨어져서, 화면에
+# 「50%」 라고 적었는데 50pps 가 나간다 — 실제로 그랬다.
+#
+# 회선 속도는 1000 Mb/s(GbE)로 본다. 이 카드가 10/100/1000 인데 링크는
+# 1G 로 잡힌다. 100M 로 잡힌 포트에 %를 쓰면 열 배로 나가므로, 그때는
+# Mbps 로 적는 편이 낫다.
+proc _load_norm {val unit} {
     set u [string tolower [string trim $unit]]
+    if {![string is double -strict $val]} { set val 0 }
     if {[string match "*percent*" $u] || [string match "*%*" $u]} {
-        return {AGT_UNITS_PERCENT_MAX_RATE AGT_UNITS_PERCENT_LINE_RATE AGT_UNITS_PERCENT
-                AGT_UNITS_PERCENT_OF_MAX_RATE}
+        return [list [expr {double($val) * 10.0}] AGT_UNITS_MBITS_PER_SEC "percent→Mb/s"]
+    }
+    if {[string match "*kbps*" $u] || [string match "*kb/s*" $u]} {
+        return [list [expr {double($val) / 1000.0}] AGT_UNITS_MBITS_PER_SEC "kbps→Mb/s"]
     }
     if {[string match "*mbps*" $u] || [string match "*mb/s*" $u]} {
-        # 210.1.2.248 이 실제로 받아 준 이름이 MBITS_PER_SEC 이다. 먼저 넣는다 —
-        # 뒤에 두면 앞의 후보들이 거절당하는 동안 시간만 쓴다.
-        return {AGT_UNITS_MBITS_PER_SEC AGT_UNITS_MEGABITS_PER_SEC
-                AGT_UNITS_MEGABITS_PER_SECOND AGT_UNITS_MBPS}
+        return [list $val AGT_UNITS_MBITS_PER_SEC ""]
     }
     if {$u eq "bps" || [string match "*bits*" $u]} {
-        return {AGT_UNITS_BITS_PER_SEC AGT_UNITS_BITS_PER_SECOND}
+        return [list [expr {double($val) / 1000000.0}] AGT_UNITS_MBITS_PER_SEC "bps→Mb/s"]
     }
-    # fps · frames/sec · 빈값 — 예전부터 쓰던 기본
-    return {AGT_UNITS_FRAMES_PER_SEC AGT_UNITS_PACKETS_PER_SEC}
+    # fps · frames/sec · 빈값 — 초당 프레임 수
+    return [list $val AGT_UNITS_PACKETS_PER_SEC ""]
 }
 
-# 이 빌드가 어떤 단위 상수를 받아 주나.
+# 이 빌드가 어떤 단위 상수를 받아 주나.# 이 빌드가 어떤 단위 상수를 받아 주나.
 #
 # 이름을 짐작해서 하나 박아 두면, 안 되는 빌드에서는 조용히 다음 후보로
 # 넘어가다 마지막에 pps 로 떨어진다 — 화면은 Mbps 인데 나가는 것은 pps 다.
@@ -298,16 +308,14 @@ proc _build_streams {specs} {
         if {$hTx eq "" || $hRx eq ""} continue
         lappend allPorts $hTx $hRx
         if {$pps eq ""} { set pps 1000 }
-        set unitCands [_load_units $unit]
+        set _n [_load_norm $pps $unit]
+        set _load [lindex $_n 0]; set _u [lindex $_n 1]; set _how [lindex $_n 2]
         catch { foreach _hp [AgtInvoke AgtProfileList ListProfilesOnPort $hTx] { catch {AgtInvoke AgtProfileList Remove $_hp} } }
         set hProfile [AgtInvoke AgtProfileList AddProfile $hTx AGT_CONSTANT_PROFILE]
-        # 단위마다 상수 이름이 빌드별로 다르다. 되는 것이 나올 때까지 넣어
-        # 보고, 다 안 되면 pps 로 떨어뜨린다 — 아무것도 안 보내는 것보다 낫다.
-        set _lset ""
-        foreach _u $unitCands {
-            if {![catch {AgtInvoke AgtConstantProfile SetAverageLoad $hProfile $pps $_u}]} { set _lset $_u; break }
-        }
-        if {$_lset eq ""} {
+        # 못 넣으면 pps 로 떨어뜨린다 — 아무것도 안 보내는 것보다 낫다.
+        set _lset "$_u"
+        if {$_how ne ""} { append _lset " ($_how)" }
+        if {[catch {AgtInvoke AgtConstantProfile SetAverageLoad $hProfile $_load $_u}]} {
             AgtInvoke AgtConstantProfile SetAverageLoad $hProfile $pps AGT_UNITS_PACKETS_PER_SEC
             set _lset "AGT_UNITS_PACKETS_PER_SEC(fallback)"
         }
