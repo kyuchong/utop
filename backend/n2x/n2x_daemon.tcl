@@ -10,7 +10,7 @@
 #
 # 고칠 때마다 올린다. 서버가 `ver` 로 물어 제 사본과 견주고, 다르면
 # 화면에 「윈도우의 데몬이 옛 것」 이라고 적는다.
-set DAEMON_VER 3
+set DAEMON_VER 4
 # 명령: ports | reserve <mod> <port> | release <mod> <port>
 #       traffic <mod> <tx> <rx> <pps> <npkt> <dur> <frame> | ping | quit
 lappend auto_path "C:/N2xTcl85/lib"
@@ -132,6 +132,71 @@ proc _select_stats {hStats} {
     }
     set ::g_statKeys $keymap
 }
+# ── 포트 매체(광/RJ45) ────────────────────────────────────────────
+#
+# Tri-Rate 카드는 한 포트에 광(SFP)과 RJ45 가 같이 달려 있다. 지금 어느
+# 쪽으로 잡혀 있느냐에 따라 케이블을 제대로 꽂아도 링크가 안 붙는다 —
+# 보내기는 나가는데 하나도 안 돌아오는 그림이 정확히 이것이다.
+#
+# 그런데 이 API 이름이 빌드마다 다르다. 짐작해서 하나 박아 두면 안 되는
+# 빌드에서 데몬이 죽는다. 통계 항목을 고를 때처럼 **하나씩 넣어 보고**
+# 되는 것만 쓴다. 여기서는 되는지 안 되는지를 그대로 적어 돌려준다 —
+# 「안 됩니다」 만 오면 다음에 무엇을 해 볼지 알 수가 없다.
+proc cmd_mprobe {mod port} {
+    set h [getPort $mod $port]
+    set out {}
+    foreach c {
+        {AgtPortSelector GetPortMedia mp}
+        {AgtPortSelector GetMediaType mp}
+        {AgtPortSelector GetPhysicalInterface mp}
+        {AgtPortConfig GetMediaType h}
+        {AgtPortConfig GetPortMedia h}
+        {AgtEthernetPort GetMediaType h}
+        {AgtEthernetPort GetPhysicalMedium h}
+        {AgtEthernetPhy GetMediaType h}
+        {AgtPhysicalLayer GetMediaType h}
+        {AgtEthernetPort GetLinkState h}
+        {AgtPortSelector GetLinkState mp}
+        {AgtEthernetPort GetSpeed h}
+    } {
+        set obj [lindex $c 0]; set m [lindex $c 1]; set kind [lindex $c 2]
+        if {$kind eq "mp"} { set a [list $mod $port] } else { set a [list $h] }
+        if {$h eq "" && $kind eq "h"} {
+            lappend out "{\"call\":\"$obj $m\",\"ok\":false,\"v\":\"핸들 없음\"}"
+            continue
+        }
+        if {[catch {eval AgtInvoke $obj $m $a} v]} {
+            lappend out "{\"call\":\"$obj $m\",\"ok\":false,\"v\":\"[jstr $v]\"}"
+        } else {
+            lappend out "{\"call\":\"$obj $m\",\"ok\":true,\"v\":\"[jstr $v]\"}"
+        }
+    }
+    return "{\"ok\":true,\"port\":\"$mod/$port\",\"handle\":\"[jstr $h]\",\"tried\":\[[join $out ,]\]}"
+}
+
+# 매체를 바꾼다. 되는 setter 가 나올 때까지 넣어 보고, 무엇으로 됐는지 적는다.
+proc cmd_media {mod port val} {
+    set h [getPort $mod $port]
+    foreach c {
+        {AgtPortSelector SetPortMedia mp}
+        {AgtPortSelector SetMediaType mp}
+        {AgtPortSelector SetPhysicalInterface mp}
+        {AgtPortConfig SetMediaType h}
+        {AgtPortConfig SetPortMedia h}
+        {AgtEthernetPort SetMediaType h}
+        {AgtEthernetPort SetPhysicalMedium h}
+        {AgtEthernetPhy SetMediaType h}
+    } {
+        set obj [lindex $c 0]; set m [lindex $c 1]; set kind [lindex $c 2]
+        if {$kind eq "mp"} { set a [list $mod $port] } else { set a [list $h] }
+        if {$h eq "" && $kind eq "h"} continue
+        if {![catch {eval AgtInvoke $obj $m $a $val}]} {
+            return "{\"ok\":true,\"port\":\"$mod/$port\",\"set\":\"[jstr $val]\",\"call\":\"$obj $m\"}"
+        }
+    }
+    return "{\"ok\":false,\"error\":\"media_unsupported\",\"port\":\"$mod/$port\"}"
+}
+
 # 부하 단위 → AGT 상수 후보.
 #
 # 화면에서 「100 Percent」 를 넣어도 여기서 pps 로 박아 보내고 있었다 —
@@ -351,6 +416,8 @@ while {[gets stdin line] >= 0} {
             ping    { set out "{\"ok\":true,\"session\":$session,\"ver\":$::DAEMON_VER}" }
             ver     { set out "{\"ok\":true,\"ver\":$::DAEMON_VER}" }
             uprobe  { set out [cmd_uprobe [lindex $parts 1] [lindex $parts 2]] }
+            mprobe  { set out [cmd_mprobe [lindex $parts 1] [lindex $parts 2]] }
+            media   { set out [cmd_media [lindex $parts 1] [lindex $parts 2] [lindex $parts 3]] }
             ports   { set out [cmd_ports] }
             reserve { if {[catch {AgtInvoke AgtPortSelector AddPort [lindex $parts 1] [lindex $parts 2]} h]} { set out "{\"ok\":false,\"error\":\"[jstr $h]\"}" } else { set out "{\"ok\":true,\"reserved\":\"[lindex $parts 1]/[lindex $parts 2]\"}" } }
             release { if {[catch {AgtInvoke AgtPortSelector FindPortHandle [lindex $parts 1] [lindex $parts 2]} h]} { set out "{\"ok\":false,\"error\":\"[jstr $h]\"}" } elseif {[catch {AgtInvoke AgtPortSelector RemovePort $h} rr]} { set out "{\"ok\":false,\"error\":\"[jstr $rr]\"}" } else { set out "{\"ok\":true,\"released\":\"[lindex $parts 1]/[lindex $parts 2]\"}" } }
