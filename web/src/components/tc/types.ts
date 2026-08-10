@@ -294,6 +294,27 @@ export interface TcStep {
   /** traffic_stat 판정 — 허용 손실 패킷 수(넘으면 불합격). 비우면 0 */
   meterMaxLoss?: number
   /**
+   * 계측기 판정 기준 — 「통계 읽기 · 판정」 스텝이 본다.
+   *
+   * 비운 칸은 **안 본다**. 0 은 값이다 — 손실 0 을 요구하는 것과
+   * 손실을 안 보는 것은 다르다. 그래서 number|undefined 로 두고
+   * 화면에서도 빈 칸을 0 으로 채우지 않는다.
+   *
+   * 열 이름은 N2X 의 Streams 측정과 짝이 맞는다:
+   *  · maxLossPct  ← Rx Packet Loss / Tx Test Packets
+   *  · minRx       ← Rx Test Packets
+   *  · minRxMbps   ← Rx Throughput (Mb/s)
+   *  · maxLatency  ← Avg Latency (us)
+   *  · maxMisorder ← Sequence Errors
+   */
+  meterMaxLossPct?: number
+  meterMinRx?: number
+  meterMinRxMbps?: number
+  meterMaxLatency?: number
+  meterMaxMisorder?: number
+  /** 스트림마다 따로 볼까, 다 더해서 볼까. 기본은 스트림마다 */
+  meterJudgeEach?: boolean
+  /**
    * 보낼 프레임의 주소.
    *
    * L2(같은 VLAN 안에서 스위칭) 시험은 MAC 만 맞으면 흐른다. **L3(라우팅)**

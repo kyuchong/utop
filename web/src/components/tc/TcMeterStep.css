@@ -61,3 +61,29 @@
   border: 1px solid var(--c-border);
   color: var(--c-text-faint);
 }
+
+/* 판정 기준 — 여섯 칸이 나란히 있으면 무엇을 채워야 할지 모른다.
+   테두리로 묶고 머리줄에 「비운 칸은 안 봅니다」 를 한 번만 적는다. */
+.ms-judge {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-alt);
+}
+.ms-judge-h {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.ms-each {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: var(--fs-sm);
+}
+.ms-each .sd-hint { flex-basis: 100%; margin-left: 20px; }

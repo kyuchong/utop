@@ -246,12 +246,12 @@ proc cmd_tstat {} {
     if {$::g_hStats eq ""} { return "{\"ok\":true,\"state\":\"idle\",\"running\":false,\"streams\":\[\]}" }
     set st ""; catch {AgtInvoke AgtTestController GetTestState} st
     set run "true"; if {$st eq "AGT_TEST_STOPPED" || $st eq ""} { set run "false" }
-    return "{\"ok\":true,\"state\":\"$st\",\"running\":$run,\"streams\":\[[_read_stats]\]}"
+    return "{\"ok\":true,\"state\":\"$st\",\"running\":$run,\"keys\":\"[join $::g_statKeys ,]\",\"streams\":\[[_read_stats]\]}"
 }
 # 비동기 정지 — StopTest 후 누적 통계 반환
 proc cmd_tstop {} {
     catch {AgtInvoke AgtTestController StopTest}
-    return "{\"ok\":true,\"stopped\":true,\"streams\":\[[_read_stats]\]}"
+    return "{\"ok\":true,\"stopped\":true,\"keys\":\"[join $::g_statKeys ,]\",\"streams\":\[[_read_stats]\]}"
 }
 # 클리어 — 정지 + 통계/구성 제거(다음 start 시 0부터)
 proc cmd_tclear {} {

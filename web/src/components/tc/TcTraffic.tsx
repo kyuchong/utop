@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isMeter, meterKind } from './device'
@@ -83,6 +83,59 @@ const LAYERS: Array<{ k: Layer; label: string }> = [
  * 자료(`meterCfg`)는 **옛 화면 것을 그대로** 쓴다. 이미 저장된 TC 가 있고
  * 백엔드 변환기도 이 이름을 보기 때문이다 — 새로 지으면 그것들이 다 깨진다.
  */
+/**
+ * 측정 한 줄 — N2X 데몬이 주는 그대로.
+ *
+ * `idx` 는 스트림 차례다. 이름을 붙여 보내지 않으므로 그것으로 되짚어
+ * 어느 스트림인지 적는다.
+ */
+interface StatRow {
+  idx?: number
+  tx?: unknown
+  rx?: unknown
+  loss?: unknown
+  latency?: unknown
+  misorder?: unknown
+  txOct?: unknown
+  rxOct?: unknown
+  txTput?: unknown
+  rxTput?: unknown
+  /** STC 는 이름을 함께 준다 */
+  name?: unknown
+  [k: string]: unknown
+}
+
+/** 「-」·빈칸·글자가 섞여 온다. 못 읽으면 0 이다 */
+function num(v: unknown): number {
+  const n = Number(String(v ?? '').replace(/,/g, ''))
+  return Number.isFinite(n) ? n : 0
+}
+
+/** 값이 없으면 「–」. 0 은 값이다 — 「–」 로 적으면 안 잰 것처럼 보인다 */
+function show(v: unknown, digits = 0): string {
+  const raw = String(v ?? '').trim()
+  if (!raw || raw === '-') return '–'
+  const n = Number(raw.replace(/,/g, ''))
+  if (!Number.isFinite(n)) return raw
+  return digits ? n.toFixed(digits) : n.toLocaleString()
+}
+
+/** 바이트를 사람이 읽는 크기로. 12자리 숫자는 눈으로 못 센다 */
+function bytes(v: unknown): string {
+  const n = num(v)
+  const raw = String(v ?? '').trim()
+  if (!raw || raw === '-') return '–'
+  if (n < 1024) return `${n} B`
+  const u = ['KB', 'MB', 'GB', 'TB']
+  let x = n / 1024
+  let i = 0
+  while (x >= 1024 && i < u.length - 1) {
+    x /= 1024
+    i++
+  }
+  return `${x.toFixed(1)} ${u[i]}`
+}
+
 export default function TcTraffic({ data, onChange }: Props) {
   const [sel, setSel] = useState(0)
   const [layer, setLayer] = useState<Layer>('l2')
@@ -124,6 +177,20 @@ export default function TcTraffic({ data, onChange }: Props) {
       const b = String(x.dst ?? '').trim()
       return !a || !b || !ports.includes(a) || !ports.includes(b)
     })
+
+  /**
+   * 이 열을 이 섀시가 재나.
+   *
+   * 데몬이 고른 항목 목록(`keys`)에 없으면 값이 영영 안 온다. 값이 없는
+   * 것과 못 재는 것은 다르다 — 못 재는 것이면 기준을 걸어 봐야 소용없다.
+   */
+  const has = (k: string) => statKeys.length === 0 || statKeys.includes(k)
+  const th = (label: string, k: string) => (
+    <th className={has(k) ? undefined : 'tt-off'} title={has(k) ? undefined : '이 섀시가 재지 않는 항목입니다'}>
+      {label}
+      {!has(k) && ' *'}
+    </th>
+  )
 
   const portOpts = (cur?: string) => {
     const v = (cur ?? '').trim()
@@ -170,8 +237,30 @@ export default function TcTraffic({ data, onChange }: Props) {
     setSel(0)
   }
 
-  /** 측정 결과 — 섀시에서 지금 값을 읽는다 */
-  const [stats, setStats] = useState<Array<Record<string, unknown>>>([])
+  /**
+   * 측정 결과 — 섀시에서 지금 값을 읽는다.
+   *
+   * 데몬이 주는 이름을 그대로 쓴다(`txTput`·`rxTput`·`misorder`…). 전에는
+   * 화면이 `txRate`·`rxRate` 를 찾고 있어서 속도 칸이 늘 「–」 였다 —
+   * 값은 오고 있었는데 아무도 안 읽었다.
+   */
+  const [stats, setStats] = useState<StatRow[]>([])
+  /** 지금 돌고 있나. 조회를 되풀이할지 여기서 정한다 */
+  const [running, setRunning] = useState(false)
+  /** 돌고 있는 동안 2초마다 다시 읽는다 */
+  const [live, setLive] = useState(false)
+  /**
+   * 이 섀시가 실제로 재 주는 항목.
+   *
+   * N2X 빌드마다 되는 통계 상수가 다르다. 데몬이 하나씩 넣어 보고 받아
+   * 주는 것만 고르는데(`_select_stats`), 그 결과를 화면이 몰랐다. 그래서
+   * Throughput 칸이 늘 「–」 여도 「안 흐르나」 인지 「이 섀시가 안 재나」
+   * 인지 알 수 없었다. 이제 안 재는 열은 흐리게 두고 그렇다고 적는다.
+   */
+  const [statKeys, setStatKeys] = useState<string[]>([])
+  /** 데몬이 돌려준 그대로 — 무엇이 오는지 눈으로 보는 자리 */
+  const [raw, setRaw] = useState('')
+  const [rawOpen, setRawOpen] = useState(false)
   const readStats = async () => {
     if (!cfg.chassis) {
       setMsg('계측기를 먼저 고르세요')
@@ -190,18 +279,55 @@ export default function TcTraffic({ data, onChange }: Props) {
         ok?: boolean
         error?: string
         text?: string
-        streams?: Array<Record<string, unknown>>
+        state?: string
+        running?: boolean
+        keys?: string
+        streams?: StatRow[]
       }
+      setRaw(JSON.stringify(j, null, 2))
       if (j.ok === false) throw new Error(j.error || '측정을 읽지 못했습니다')
-      setStats(j.streams ?? [])
+      const rows = j.streams ?? []
+      setStats(rows)
+      setRunning(!!j.running)
+      setStatKeys(String(j.keys ?? '').split(',').map((x) => x.trim()).filter(Boolean))
       if (kind === 'stc' && j.text) setMsg(j.text.split('\n').slice(0, 3).join(' · '))
-      else setMsg(`측정 ${(j.streams ?? []).length}줄을 읽었습니다`)
+      else {
+        const t = rows.reduce((a, x) => a + num(x.tx), 0)
+        const rr = rows.reduce((a, x) => a + num(x.rx), 0)
+        const l = rows.reduce((a, x) => a + num(x.loss), 0)
+        setMsg(
+          rows.length
+            ? `${j.running ? '보내는 중' : '멈춤'} · 보냄 ${t.toLocaleString()} · 받음 ${rr.toLocaleString()} · 손실 ${l.toLocaleString()}`
+            : '아직 스트림이 없습니다 — 「트래픽 시작」 뒤에 조회하세요',
+        )
+      }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e))
     } finally {
       setBusy('')
     }
   }
+
+  /**
+   * 실시간 조회.
+   *
+   * 트래픽은 몇 분씩 돈다. 그동안 손으로 「측정 조회」 를 누르고 있으면
+   * 그게 일이 된다. 켜 두면 2초마다 읽고, 멈추면 저절로 끈다 — 아무도
+   * 안 보는 화면이 섀시를 계속 두들기지 않게.
+   */
+  useEffect(() => {
+    if (!live || kind === 'stc' || !cfg.chassis) return
+    const t = setInterval(() => {
+      void readStats()
+    }, 2000)
+    return () => clearInterval(t)
+    // readStats 는 매 렌더 새로 만들어진다 — 넣으면 2초마다 타이머가 갈린다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live, kind, cfg.chassis])
+
+  useEffect(() => {
+    if (live && !running && stats.length > 0) setLive(false)
+  }, [live, running, stats.length])
 
   /**
    * 섀시가 붙잡고 있는 세션을 놓게 한다.
@@ -674,6 +800,22 @@ export default function TcTraffic({ data, onChange }: Props) {
             {busy === 'stat' ? '읽는 중…' : '측정 조회'}
           </button>
           {kind !== 'stc' && (
+            <label className="tt-live" title="켜 두면 2초마다 다시 읽습니다">
+              <input type="checkbox" checked={live} onChange={(e) => setLive(e.target.checked)} />
+              실시간
+            </label>
+          )}
+          {stats.length > 0 && (
+            <span className={`tt-state${running ? ' on' : ''}`}>
+              {running ? '● 보내는 중' : '○ 멈춤'}
+            </span>
+          )}
+          {raw && (
+            <button className="btn small" type="button" onClick={() => setRawOpen((v) => !v)}>
+              {rawOpen ? '원본 닫기' : '원본'}
+            </button>
+          )}
+          {kind !== 'stc' && (
             <button
               className="btn small"
               type="button"
@@ -688,17 +830,34 @@ export default function TcTraffic({ data, onChange }: Props) {
           <span className="sp" />
           {msg && <span className="muted small">{msg}</span>}
         </div>
+        {/* 계측기가 뭐라고 답했는지 그대로. 값이 안 맞을 때 여기부터 본다 —
+            화면이 잘못 읽는 것인지, 애초에 안 오는 것인지가 여기서 갈린다. */}
+        {rawOpen && <pre className="tt-raw">{raw}</pre>}
+        {statKeys.length > 0 && statKeys.length < 9 && (
+          <div className="tt-note">
+            이 섀시가 재는 항목은 {statKeys.length}가지입니다 — <b>*</b> 표시한 열은 값이 오지
+            않습니다. 그 열에는 판정 기준을 걸어도 소용없습니다.
+          </div>
+        )}
         <div className="tt-tablewrap">
-          <table className="tt-table">
+          <table className="tt-table tt-stat">
             <thead>
+              {/* 열 이름·차례는 N2X 의 Setup Measurements→Streams 와 같다.
+                  쓰던 분들이 계측기 화면과 나란히 놓고 대 보는 자리라,
+                  여기서만 다른 말로 적으면 그때마다 짝을 맞춰야 한다.
+                  손실률만 하나 더 붙였다 — 판정이 그것으로 난다. */}
               <tr>
                 <th>Stream</th>
-                <th>Tx 패킷</th>
-                <th>Rx 패킷</th>
-                <th>손실</th>
-                <th>Tx (Mb/s)</th>
-                <th>Rx (Mb/s)</th>
-                <th>지연 (us)</th>
+                {th('Tx Test Packets', 'tx')}
+                {th('Rx Test Packets', 'rx')}
+                {th('Tx Test Octets', 'txoct')}
+                {th('Rx Test Octets', 'rxoct')}
+                {th('Tx Throughput (Mb/s)', 'txtput')}
+                {th('Rx Throughput (Mb/s)', 'rxtput')}
+                {th('Rx Packet Loss', 'loss')}
+                <th>손실률</th>
+                {th('Avg Latency (us)', 'lat')}
+                {th('Sequence Errors', 'seq')}
               </tr>
             </thead>
             <tbody>
@@ -708,26 +867,73 @@ export default function TcTraffic({ data, onChange }: Props) {
                     <td className="mono">
                       {row.src}→{row.dst}, {row.name}
                     </td>
-                    <td>–</td>
-                    <td>–</td>
-                    <td>–</td>
-                    <td>–</td>
-                    <td>–</td>
-                    <td>–</td>
+                    {Array.from({ length: 10 }, (_, k) => (
+                      <td key={k}>–</td>
+                    ))}
                   </tr>
                 ))
               ) : (
-                stats.map((r, i) => (
-                  <tr key={i}>
-                    <td className="mono">{String(r.name ?? streams[i]?.name ?? i + 1)}</td>
-                    <td>{String(r.tx ?? '–')}</td>
-                    <td>{String(r.rx ?? r.received ?? '–')}</td>
-                    <td>{String(r.loss ?? r.lost ?? '–')}</td>
-                    <td>{String(r.txRate ?? '–')}</td>
-                    <td>{String(r.rxRate ?? '–')}</td>
-                    <td>{String(r.latency ?? '–')}</td>
-                  </tr>
-                ))
+                <>
+                  {stats.map((r, i) => {
+                    // 데몬은 이름을 안 보낸다. idx 로 스트림을 되짚는다.
+                    const st = streams[typeof r.idx === 'number' ? r.idx : i]
+                    const tx = num(r.tx)
+                    const loss = num(r.loss)
+                    const rate = tx > 0 ? (loss / tx) * 100 : 0
+                    return (
+                      <tr key={i} className={loss > 0 ? 'bad' : undefined}>
+                        <td className="mono">
+                          {String(r.name ?? st?.name ?? `Stream_${i + 1}`)}
+                          {st?.src && (
+                            <span className="muted">
+                              {' '}
+                              {st.src}→{st.dst}
+                            </span>
+                          )}
+                        </td>
+                        <td>{show(r.tx)}</td>
+                        <td>{show(r.rx)}</td>
+                        <td title={bytes(r.txOct)}>{show(r.txOct)}</td>
+                        <td title={bytes(r.rxOct)}>{show(r.rxOct)}</td>
+                        <td>{show(r.txTput, 3)}</td>
+                        <td>{show(r.rxTput, 3)}</td>
+                        <td className={loss > 0 ? 'bad' : undefined}>{show(r.loss)}</td>
+                        <td className={loss > 0 ? 'bad' : undefined}>
+                          {tx > 0 ? `${rate.toFixed(2)}%` : '–'}
+                        </td>
+                        <td>{show(r.latency, 2)}</td>
+                        <td className={num(r.misorder) > 0 ? 'bad' : undefined}>
+                          {show(r.misorder)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  {/* 합계 — 스트림이 여럿이면 한 줄씩 더해 보는 것이 일이다 */}
+                  {stats.length > 1 &&
+                    (() => {
+                      const tx = stats.reduce((a, x) => a + num(x.tx), 0)
+                      const rx = stats.reduce((a, x) => a + num(x.rx), 0)
+                      const loss = stats.reduce((a, x) => a + num(x.loss), 0)
+                      const mis = stats.reduce((a, x) => a + num(x.misorder), 0)
+                      return (
+                        <tr className="tt-sum">
+                          <td>합계 {stats.length}줄</td>
+                          <td>{tx.toLocaleString()}</td>
+                          <td>{rx.toLocaleString()}</td>
+                          <td>{stats.reduce((a, x) => a + num(x.txOct), 0).toLocaleString()}</td>
+                          <td>{stats.reduce((a, x) => a + num(x.rxOct), 0).toLocaleString()}</td>
+                          <td>{stats.reduce((a, x) => a + num(x.txTput), 0).toFixed(3)}</td>
+                          <td>{stats.reduce((a, x) => a + num(x.rxTput), 0).toFixed(3)}</td>
+                          <td className={loss > 0 ? 'bad' : undefined}>{loss.toLocaleString()}</td>
+                          <td className={loss > 0 ? 'bad' : undefined}>
+                            {tx > 0 ? `${((loss / tx) * 100).toFixed(2)}%` : '–'}
+                          </td>
+                          <td>–</td>
+                          <td className={mis > 0 ? 'bad' : undefined}>{mis.toLocaleString()}</td>
+                        </tr>
+                      )
+                    })()}
+                </>
               )}
             </tbody>
           </table>
