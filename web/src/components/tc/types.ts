@@ -292,6 +292,13 @@ export interface TcStep {
   /** 보낼 시간(초). 0/비움 = 연속(정지할 때까지) */
   meterDur?: number
   /** traffic_stat 판정 — 허용 손실 패킷 수(넘으면 불합격). 비우면 0 */
+  /**
+   * 기다리는 줄이 지금 몇 초 남았나 — 도는 동안에만 있다.
+   *
+   * 저장할 값이 아니다. 다 기다리면 지운다. 두는 이유는 2열 목록이
+   * 이것을 읽어 「3초 · 2초 남음」 으로 세어 주기 때문이다.
+   */
+  waitLeft?: number
   meterMaxLoss?: number
   /**
    * 계측기 판정 기준 — 「통계 읽기 · 판정」 스텝이 본다.
@@ -558,7 +565,11 @@ export function stepSummary(s: TcStep): string {
     return `${(s.oid || '아무 Trap').trim()} · ${s.trapSec ?? 15}초 대기`
   if (k === 'diff')
     return `${(s.cmpLeft || '').trim()} ${s.cmpOp || '=='} ${(s.cmpRight || '').trim()}`.trim()
-  if (k === 'wait') return s.waitSec ? `${s.waitSec}초` : (s.data || '').trim()
+  if (k === 'wait') {
+    const base = s.waitSec ? `${s.waitSec}초` : (s.data || '').trim()
+    // 도는 중이면 세어 준다. 60초짜리 앞에서 멍하니 있지 않게.
+    return s.waitLeft ? `${base} · ${s.waitLeft}초 남음` : base
+  }
   if (k === 'if') return (s.condition || s.step || '').trim()
   if (k === 'switch') return (s.switchExpr || s.step || '').trim()
   if (k === 'loop') {

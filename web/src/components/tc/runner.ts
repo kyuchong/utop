@@ -391,10 +391,26 @@ async function runOne(
     return ok ? 'Pass' : 'Fail'
   }
 
+  /**
+   * 기다리기.
+   *
+   * 전에는 통째로 한 번 자고 일어났다. 60초짜리 Wait 를 만나면 화면이
+   * 1분 동안 아무 말도 안 해서, 기다리는 중인지 걸린 것인지 알 수가
+   * 없었다. **1초씩 세면서 남은 시간을 되돌린다.**
+   *
+   * 멈춤도 이 김에 듣는다. 통째로 자면 「중지」 를 눌러도 그 60초가
+   * 다 갈 때까지 안 멈췄다.
+   */
   if (kind === 'wait') {
-    const sec = Math.max(0, Number(step.waitSec ?? 0))
+    const sec = Math.min(Math.max(0, Number(step.waitSec ?? 0)), 600)
     ctx.onLog({ i, text: `${sec}초 기다림`, kind: 'info' })
-    await sleep(Math.min(sec, 600) * 1000, ctx.signal)
+    for (let left = sec; left > 0; left--) {
+      ctx.onStep(i, { waitLeft: left, output: `${sec}초 중 ${left}초 남음` })
+      await sleep(1000, ctx.signal)
+    }
+    // 남은 시간은 지운다 — 안 지우면 다 기다린 줄이 목록에 「1초 남음」 인
+    // 채로 남고, 그것이 저장까지 따라간다.
+    ctx.onStep(i, { waitLeft: undefined, output: `${sec}초 기다렸습니다`, executed_at: at })
     return ''
   }
 
