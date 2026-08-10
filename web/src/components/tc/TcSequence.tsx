@@ -1,7 +1,10 @@
+import { useMemo, useState } from 'react'
 import StepIcon from './StepIcon'
+import { IconChevron } from '../icons'
 import { blockEnd } from './runner'
 import {
   ADD_KINDS,
+  isBlockKind,
   isNoteKind,
   sessionIndex,
   stepKindInfo,
@@ -64,6 +67,34 @@ export default function TcSequence({
   const hidden = hide ? steps.filter(hide).length : 0
 
   /**
+   * 접어 둔 블록의 여는 줄 번호.
+   *
+   * 반복 하나에 스무 줄이 들어가면 그 아래 절차가 화면 밖으로 밀린다.
+   * 1열 폴더처럼 접어 두고 필요할 때만 편다.
+   *
+   * 자리 번호로 기억한다 — 스텝에는 고유한 id 가 없다. 줄을 넣거나 지우면
+   * 번호가 밀리므로, 지금 그 자리가 정말 블록인지 그릴 때 다시 본다.
+   */
+  const [shut, setShut] = useState<Set<number>>(new Set())
+  const toggleShut = (i: number) =>
+    setShut((c) => {
+      const n = new Set(c)
+      if (!n.delete(i)) n.add(i)
+      return n
+    })
+
+  /** 접힌 블록의 몸통 — 그리지 않는다 */
+  const folded = useMemo(() => {
+    const out = new Set<number>()
+    shut.forEach((i) => {
+      const s = steps[i]
+      if (!s || !isBlockKind(s.kind)) return
+      for (let j = i + 1; j < blockEnd(steps, i); j++) out.add(j)
+    })
+    return out
+  }, [shut, steps])
+
+  /**
    * 줄 번호 — 블록 안은 1.1, 1.2 로.
    *
    * 그냥 1,2,3 으로 매기면 블록에 넣고 뺀 것이 번호에 안 나타난다. 주석
@@ -124,7 +155,11 @@ export default function TcSequence({
         ) : (
           steps.map((s, i) => {
             if (hide?.(s)) return null
+            if (folded.has(i)) return null
             const info = stepKindInfo(s.kind)
+            const isBlock = isBlockKind(s.kind)
+            const body = isBlock ? blockEnd(steps, i) - i - 1 : 0
+            const isShut = shut.has(i)
             const st = stat(s)
             const depth = Math.min(Math.max(Number(s.indent) || 0, 0), 4)
             return (
@@ -169,6 +204,24 @@ export default function TcSequence({
                 </span>
                 <span className="sq-n">{numbers[i]}</span>
                 <span className="sq-act" style={{ marginLeft: depth * 16 }}>
+                  {/* 블록만 접힌다. 아닌 줄에도 같은 폭을 비워 두어야
+                      Action 글자가 들쭉날쭉하지 않다. */}
+                  {isBlock && body > 0 ? (
+                    <button
+                      type="button"
+                      className={`rt-caret sq-caret${isShut ? '' : ' open'}`}
+                      title={isShut ? `펴기 (${body}줄)` : '접기'}
+                      aria-label={isShut ? '펴기' : '접기'}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleShut(i)
+                      }}
+                    >
+                      <IconChevron />
+                    </button>
+                  ) : (
+                    <span className="sq-caret" />
+                  )}
                   <StepIcon name={info.icon} className={`sq-ic g-${info.group}`} />
                   {info.label}
                 </span>
@@ -198,6 +251,7 @@ export default function TcSequence({
                   title={[summary(s), s.step].filter(Boolean).join('  —  ')}
                 >
                   {summary(s) || <span className="muted">—</span>}
+                  {isShut && body > 0 && <span className="sq-folded">＋{body}줄</span>}
                   {s.step && <span className="sq-desc">{s.step}</span>}
                   {/* 반복인데 안에 든 줄이 없다.
                       들여쓰기를 안 하면 빈 것을 N번 돌고 아래 줄은 한 번만

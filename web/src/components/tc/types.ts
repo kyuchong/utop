@@ -508,6 +508,17 @@ export const STEP_CONTENT: Record<string, { label: string; hint?: string }> = {
   model: { label: '모델 이름' },
 }
 
+/**
+ * 아래 줄들을 몸통으로 거느리는 종류.
+ *
+ * 몸통은 `indent` 로만 정해진다 — 여는 줄보다 깊은 동안이 그 블록이다.
+ * 그래서 「여는 줄 바로 뒤」 에 같은 깊이로 무언가를 끼우면 거기서
+ * 몸통이 끊긴다. 넣는 자리·접는 자리 모두 이것을 봐야 한다.
+ */
+export function isBlockKind(k?: string): boolean {
+  return k === 'loop' || k === 'if' || k === 'switch'
+}
+
 /** 실행할 때 장비로 아무것도 안 나가는 종류. 줄 색을 달리해 한눈에 가른다. */
 export function isNoteKind(k?: string): boolean {
   return k === 'comment' || k === 'message'

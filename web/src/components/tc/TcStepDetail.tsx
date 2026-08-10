@@ -310,7 +310,11 @@ export default function TcStepDetail({
         </label>
 
         {/* 사람이 읽는 한 줄. 세부에 묻어 두었더니 있는 줄도 몰랐다 —
-            목록에서 이 줄이 무엇인지 알려주는 것이라 맨 위가 맞다. */}
+            목록에서 이 줄이 무엇인지 알려주는 것이라 맨 위가 맞다.
+
+            Wait 는 뺀다. 「3초 기다림」 이 목록에 이미 그대로 나와서, 설명에
+            더 적을 것이 없다 — 빈 칸만 하나 늘어난다. */}
+        {kind !== 'wait' && (
         <label className="sd-f">
           <span>설명</span>
           <input
@@ -319,6 +323,7 @@ export default function TcStepDetail({
             onChange={(e) => onChange({ step: e.target.value })}
           />
         </label>
+        )}
 
         <label className="sd-f">
           <span>Action</span>
@@ -1082,7 +1087,7 @@ export default function TcStepDetail({
             주석·메시지·모델에는 아예 안 띄운다. 장비로 아무것도 안 나가는
             줄이라 Test Data 도 RCA 도 채울 값이 없다 — 빈 칸을 세 개 띄워
             두면 '뭘 채워야 하나' 를 매번 생각하게 된다. */}
-        {!isNoteKind(kind) && kind !== 'model' && !isDiff && (
+        {!isNoteKind(kind) && kind !== 'model' && !isDiff && kind !== 'wait' && (
         <details className="sd-more">
           <summary>세부</summary>
 

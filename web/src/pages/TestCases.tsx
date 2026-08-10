@@ -51,6 +51,7 @@ import { blockEnd, runPicked, runSteps, type RunCtx, type RunLog } from '@/compo
 import { extractOne } from '@/components/tc/judge'
 import type { PickItem } from '@/components/tc/PickList'
 import {
+  isBlockKind,
   needsDevice,
   sessionIndex,
   stepResult,
@@ -659,10 +660,29 @@ export default function TestCases({ me }: PageProps) {
     if (!fromRun) setDirty(true)
   }
 
+  /**
+   * 스텝을 넣는다 — **고른 줄 바로 아래**.
+   *
+   * 전에는 늘 맨 끝에 붙였다. 30줄짜리 절차 가운데에 한 줄을 끼우려면
+   * 끝에 만들고 「▲」 를 스물몇 번 눌러 올려야 했다.
+   *
+   * 블록(반복·조건)을 고른 채로 넣으면 그 **몸통 뒤**로 간다. 여는 줄
+   * 바로 뒤에 같은 깊이로 넣으면 거기서 몸통이 끊겨, 반복 안에 있던
+   * 줄들이 조용히 밖으로 나온다.
+   */
   const addStep = (kind: StepKind) => {
-    const next = [...steps, blankStep(kind)]
+    const cur = stepIdx >= 0 ? steps[stepIdx] : undefined
+    const at = cur
+      ? isBlockKind(cur.kind)
+        ? blockEnd(steps, stepIdx)
+        : stepIdx + 1
+      : steps.length
+    // 깊이는 고른 줄을 따라간다 — 반복 안에서 넣으면 그 안에 남는다
+    const born = { ...blankStep(kind), ...(cur?.indent ? { indent: cur.indent } : {}) }
+    const next = [...steps.slice(0, at), born, ...steps.slice(at)]
     patch({ checks: next })
-    setStepIdx(next.length - 1)
+    setStepIdx(at)
+    clearPicked()
   }
 
   /** 줄이 늘거나 자리가 바뀌면 고른 번호가 다른 줄을 가리킨다 */
