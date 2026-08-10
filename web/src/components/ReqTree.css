@@ -558,15 +558,17 @@
   flex: none;
   margin-left: auto;
 }
+/* 배지는 옅은 회색 하나로. 색을 갈라 두었더니 폴더 이름보다 먼저
+   읽혔다 — 이 수는 곁들이는 값이지 그 줄의 주인이 아니다. */
 .rt-cnts i {
   font-style: normal;
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  line-height: 1.5;
-  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.6;
+  padding: 0 5px;
   border-radius: 999px;
+  background: var(--c-surface-alt);
+  color: var(--c-text-faint);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.rt-cq { background: #fff4e0; color: #9a6400; }
-.rt-ct { background: #e8f1ff; color: #1b529f; }

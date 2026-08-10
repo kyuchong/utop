@@ -67,6 +67,8 @@ export default function Requirements() {
   const sort: 'id' | 'title' = 'id'
   /** 찾는 글자 — 트리 안에 있던 줄을 머리줄로 올렸다 */
   const [treeQ, setTreeQ] = useState('')
+  /** 폴더 이름으로 찾기 — 요구사항 찾기와 갈라 둔다 */
+  const [folderQ, setFolderQ] = useState('')
   const [selectedFolder, setSelectedFolder] = useState<string | null | undefined>(() => {
     // 'null'(미분류)과 '안 고름'(undefined)을 문자열 하나로 갈라 담는다
     const v = localStorage.getItem(FOLDER_KEY)
@@ -591,13 +593,13 @@ export default function Requirements() {
         </span>
         <span className="sp" />
         {/* 찾기는 맨 위 줄에 둔다.
-            1열 머리줄의 돋보기 안에 숨어 있었다 — 폴더가 스물다섯이면
-            찾는 일이 잦은데 누를 것을 한 번 더 눌러야 했다. 여기라면 늘
-            보이고, 1열을 접어도 그대로 쓸 수 있다. */}
+            **요구사항만** 찾는다. 폴더는 1열에서 따로 찾는다 — 하나로
+            묶으면 「ENV」 를 칠 때 그 이름을 가진 요구사항까지 딸려 나와,
+            폴더를 찾으려던 사람이 결과를 헤집게 된다. */}
         <input
           className="rq-find"
           value={treeQ}
-          placeholder="폴더·요구사항 찾기"
+          placeholder="요구사항 찾기"
           onChange={(e) => setTreeQ(e.target.value)}
         />
         {/* List(표로 여럿) ↔ Detail(한 건 넓게). Detail 로 가면 폴더가
@@ -683,6 +685,19 @@ export default function Requirements() {
               </>
             }
           />
+          {/* 폴더만 찾는다. 위 줄의 찾기는 요구사항용이라 서로 안 섞인다. */}
+          <div className="rq-ffind">
+            <input
+              value={folderQ}
+              placeholder="폴더 찾기"
+              onChange={(e) => setFolderQ(e.target.value)}
+            />
+            {folderQ && (
+              <button type="button" title="지우기" onClick={() => setFolderQ('')}>
+                ✕
+              </button>
+            )}
+          </div>
           {loading ? (
             <div className="empty">불러오는 중…</div>
           ) : (
@@ -701,6 +716,7 @@ export default function Requirements() {
               }}
               view={{ fullId, foldersOnly }}
               q={treeQ}
+              folderQ={folderQ}
               selectedFolder={selectedFolder}
               onSelectFolder={(id) => {
                 // 폴더를 열면 그 안 요구사항을 표로 훑는 것이다 → List

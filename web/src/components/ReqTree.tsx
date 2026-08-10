@@ -21,6 +21,14 @@ interface Props {
   reqs: Requirement[]
   /** req PK → 그 요구사항에 달린 TC */
   tcsFor: (r: Requirement) => TestCaseMeta[]
+  /**
+   * 폴더 이름으로 거르기.
+   *
+   * 요구사항 찾기(`q`)와 갈라 둔다. 하나로 묶으면 「ENV」 를 칠 때 그
+   * 이름을 가진 요구사항까지 딸려 나와, 정작 폴더를 찾으려던 사람이
+   * 결과를 헤집게 된다. 찾는 것이 다르면 칸도 달라야 한다.
+   */
+  folderQ?: string
   selected: string | null
   onSelect: (reqPk: string) => void
   /**
@@ -79,6 +87,7 @@ interface Ctx {
 export default function ReqTree({
   reqs,
   tcsFor,
+  folderQ = '',
   selected,
   onSelect,
   selectedFolder,
@@ -316,6 +325,13 @@ export default function ReqTree({
     reqLabel(r).toLowerCase().includes(needle) ||
     (r.title ?? '').toLowerCase().includes(needle)
 
+  /** 폴더 이름이 걸리나 — 제 이름이든, 아래 어느 폴더든 */
+  const fNeedle = folderQ.trim().toLowerCase()
+  const folderHit = (n: CategoryTreeNode): boolean =>
+    !fNeedle ||
+    n.name.toLowerCase().includes(fNeedle) ||
+    n.children.some(folderHit)
+
   const countDeep = (n: CategoryTreeNode): number =>
     (byFolder.get(n.id) ?? []).filter(match).length +
     n.children.reduce((a, k) => a + countDeep(k), 0)
@@ -507,7 +523,9 @@ export default function ReqTree({
   }
 
   const renderFolder = (n: CategoryTreeNode) => {
-    const open = needle ? true : openIds.has(n.id)
+    // 폴더를 찾는 중이면 안 걸린 가지는 통째로 감춘다
+    if (!folderHit(n)) return null
+    const open = needle || fNeedle ? true : openIds.has(n.id)
     const mine = foldersOnly ? [] : (byFolder.get(n.id) ?? []).filter(match)
     const total = countDeep(n)
     const cnt = countDeep2(n)
@@ -606,18 +624,17 @@ export default function ReqTree({
             </b>
           )}
 
-          {/* 요구사항 수 · 시험 수. 하나만 적으면 그 수가 무엇인지 모른다 */}
+          {/* 요구사항 수 · 시험 수.
+              **0 도 적는다.** 없을 때 안 적으면 「아직 안 센 것」 인지
+              「세어 보니 0」 인지 구별이 안 된다 — 커버리지에서 0 은
+              그 자체가 읽어야 할 값이다. */}
           <span className="rt-cnts">
-            {cnt.req > 0 && (
-              <i className="rt-cq" title={`요구사항 ${cnt.req}건`}>
-                REQ {cnt.req}
-              </i>
-            )}
-            {cnt.tc > 0 && (
-              <i className="rt-ct" title={`시험 ${cnt.tc}건`}>
-                TC {cnt.tc}
-              </i>
-            )}
+            <i className="rt-cq" title={`요구사항 ${cnt.req}건`}>
+              REQ {cnt.req}
+            </i>
+            <i className="rt-ct" title={`시험 ${cnt.tc}건`}>
+              TC {cnt.tc}
+            </i>
           </span>
         </div>
 

@@ -801,3 +801,33 @@
   font-size: var(--fs-sm);
 }
 .rq-find:focus { outline: none; border-color: var(--c-primary); }
+
+/* 폴더만 찾는 칸 — 트리 바로 위. 위 줄의 찾기는 요구사항용이라 둘이 안 섞인다. */
+.rq-ffind {
+  position: relative;
+  flex: none;
+  padding: 0 var(--sp-2) var(--sp-2);
+}
+.rq-ffind input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 24px 4px 9px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-xs);
+}
+.rq-ffind input:focus { outline: none; border-color: var(--c-primary); }
+.rq-ffind button {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-60%);
+  border: 0;
+  background: none;
+  padding: 0 4px;
+  color: var(--c-text-faint);
+  cursor: pointer;
+}
