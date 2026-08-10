@@ -49,7 +49,14 @@ export function protocolOf(dev: Device, want?: string): string {
   )
   const def = cli.find((a) => a.is_default)
   if (def) return def.protocol
-  if (cli.length) return cli[0]!.protocol
+  // 「기본」 표시가 없으면 차례로 고른다. 등록 순서를 그대로 쓰면 안 된다 —
+  // 서버가 protocol 이름 순으로 주므로 ssh 가 telnet 보다 앞이라, 둘 다
+  // 등록한 장비는 늘 ssh 로 나갔다. 유비쿼스는 telnet 이 주력이다
+  // (backend/db.py 의 CLI_PROTOCOLS 와 같은 차례).
+  for (const want of CLI_PROTOCOLS) {
+    const hit = cli.find((a) => a.protocol === want)
+    if (hit) return hit.protocol
+  }
 
   // 접속을 하나도 안 등록한 옛 장비 — 그때는 장비 칸을 믿는 수밖에 없다
   return (dev.protocol || '').trim().toLowerCase() || 'telnet'

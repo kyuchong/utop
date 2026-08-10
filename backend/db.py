@@ -987,6 +987,34 @@ async def _device_set_access(c, dev_id: str, rows: list) -> None:
                 )
 
 
+async def device_access_set_default(dev_id: str, protocol: str) -> bool:
+    """
+    이 장비가 무엇으로 붙는지를 정한다.
+
+    `device.protocol` 칸이 아니라 `device_access.is_default` 가 진짜다.
+    저 칸은 스키마 기본값이 'ssh' 라 아무도 안 고치고 남아 있어서,
+    telnet 장비에도 ssh 가 적혀 있다. 여기서 고치는 것은 표 쪽이다.
+    """
+    proto = (protocol or "").strip().lower()
+    if proto not in CLI_PROTOCOLS:
+        raise ValueError(f"CLI 로 붙을 수 없는 방식입니다: {protocol}")
+    async with pool().acquire() as c:
+        async with c.transaction():
+            n = await c.fetchval(
+                "SELECT count(*) FROM device_access WHERE device_id=$1 AND protocol=$2",
+                dev_id, proto,
+            )
+            if not n:
+                return False
+            await c.execute(
+                "UPDATE device_access SET is_default = (protocol=$2) WHERE device_id=$1",
+                dev_id, proto,
+            )
+            # 옛 칸도 같이 맞춰 둔다. 아직 저것을 읽는 자리(engine.py)가 있다.
+            await c.execute("UPDATE device SET protocol=$2 WHERE id=$1", dev_id, proto)
+    return True
+
+
 async def device_access_mark(dev_id: str, protocol: str, ok: bool, error: str = "") -> None:
     """연결 확인 결과를 남긴다. 목록의 Telnet/SSH 연결상태가 이걸 읽는다."""
     async with pool().acquire() as c:

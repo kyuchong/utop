@@ -317,10 +317,33 @@
   border-radius: var(--r-chip);
 }
 
+/* 펼친 목록에서는 장비 칸이 남는 자리를 갖는다. 줄에서는 300px 짜리
+   칩이라 좁게 두어야 하지만, 여기서는 이름이 잘릴 이유가 없다. */
+.tc-sesspanel-body .tc-sess-dev { max-width: none; flex: 1; min-width: 0; }
+
 .tc-sess-dev:hover { background: var(--c-surface); }
 .tc-sess-dev:focus { outline: none; background: var(--c-surface); }
 
-.tc-sess-ip { font-family: var(--font-mono); color: var(--c-text-faint); }
+.tc-sess-ip {
+  font-family: var(--font-mono);
+  color: var(--c-text-faint);
+  white-space: nowrap;
+  flex: none;
+}
+
+/* 접속 방식 고르기 — 줄 안에 끼는 것이라 칸처럼 보이면 안 된다.
+   글자 그대로 두되, 누를 수 있다는 것만 밑줄로 알린다. */
+.tc-sess-proto {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--c-text-muted);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.tc-sess-proto:hover { color: var(--c-primary); }
 
 .tc-sess-b,
 .tc-sess-x {
@@ -1162,7 +1185,9 @@ button.sq-caret svg { width: 11px; height: 11px; }
   left: 0;
   top: 30px;
   z-index: 21;
-  width: 340px;
+  /* 장비 한 줄에 이름·IP·모델·제품군·접속·랩이 다 들어간다. 340px 에서는
+     장비 고르는 칸이 눌려 접속 방식이 화면 밖으로 밀려났다. */
+  width: min(680px, calc(100vw - 32px));
   max-height: 320px;
   display: flex;
   flex-direction: column;

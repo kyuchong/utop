@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
-import { connParams, deviceLabel, deviceTag, isMeter, protocolOf } from './device'
+import { CLI_PROTOCOLS, connParams, deviceLabel, deviceTag, isMeter, protocolOf } from './device'
 
 interface Props {
   /** 이 TC 가 쓰는 세션 — `data.sessions`, 장비 id 배열 */
@@ -36,6 +37,31 @@ export default function TcSessionBar({
   const [panel, setPanel] = useState(false)
   /** 연결 확인 중인 자리 */
   const [testing, setTesting] = useState<number | null>(null)
+  const qc = useQueryClient()
+
+  /**
+   * 이 장비가 무엇으로 붙을지 바꾼다.
+   *
+   * 「telnet 인데 왜 22번으로 나가지」 를 알아차리는 자리는 여기인데,
+   * 고치는 자리는 장비 화면이었다. 알아차린 자리에서 고치게 한다.
+   *
+   * 장비의 성질이라 TC 가 아니라 **장비에** 저장한다 — 같은 장비를 쓰는
+   * 다른 시험도 같이 고쳐진다. 그게 맞다. 한 장비가 시험마다 다른 방식으로
+   * 붙지는 않는다.
+   */
+  const setProto = async (dev: Device, protocol: string) => {
+    try {
+      const r = await apiFetch(`/api/devices2/${encodeURIComponent(dev.id)}/default-protocol`, {
+        method: 'POST',
+        body: JSON.stringify({ protocol }),
+      })
+      if (!r.ok) throw new Error(((await r.json()) as { detail?: string }).detail || String(r.status))
+      await qc.invalidateQueries({ queryKey: ['devices2'] })
+      onMsg('ok', `${deviceLabel(dev)} 는 이제 ${protocol.toUpperCase()} 로 붙습니다`)
+    } catch (e) {
+      onMsg('err', `접속 방식을 바꾸지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
 
   const devById = useMemo(() => {
     const m = new Map<string, Device>()
@@ -164,11 +190,31 @@ export default function TcSessionBar({
             ) : (
               <>
                 {dev && (
-                  <span
-                    className="tc-sess-ip"
-                    title={`${proto.toUpperCase()} ${conn?.host ?? dev.ip}:${conn?.port ?? ''} 로 붙습니다 — 장비 화면의 「접속」 에서 바꿉니다`}
-                  >
-                    {proto.toUpperCase()} {dev.ip}
+                  <span className="tc-sess-ip">
+                    {/* 무엇으로 붙나 — 여기서 바로 바꾼다.
+                        등록된 접속이 하나뿐이면 고를 것이 없으니 글자로 둔다. */}
+                    {(() => {
+                      const opts = (dev.access ?? [])
+                        .filter((a) => CLI_PROTOCOLS.includes(a.protocol) && a.enabled !== false)
+                        .map((a) => a.protocol)
+                      if (opts.length < 2) return proto.toUpperCase()
+                      return (
+                        <select
+                          className="tc-sess-proto"
+                          value={proto}
+                          title="이 장비가 무엇으로 붙을지 — 장비에 저장됩니다"
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => void setProto(dev, e.target.value)}
+                        >
+                          {opts.map((x) => (
+                            <option key={x} value={x}>
+                              {x.toUpperCase()}
+                            </option>
+                          ))}
+                        </select>
+                      )
+                    })()}{' '}
+                    {dev.ip}
                     {conn?.port ? `:${conn.port}` : ''}
                   </span>
                 )}

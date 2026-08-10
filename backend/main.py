@@ -2779,6 +2779,24 @@ async def devices2_save(payload: dict):
     return {"success": True, "id": dev_id}
 
 
+@app.post("/api/devices2/{dev_id}/default-protocol")
+async def devices2_set_default_protocol(dev_id: str, payload: dict):
+    """
+    이 장비가 무엇으로 붙는지 바꾼다.
+
+    전에는 장비 화면까지 가야 했다. 시험을 짜다가 「telnet 인데 왜 22번으로
+    나가지」 를 알아차리는 자리는 세션 줄인데, 고치는 자리는 딴 데였다.
+    """
+    proto = str((payload or {}).get("protocol") or "").strip().lower()
+    try:
+        ok = await db.device_access_set_default(dev_id, proto)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    if not ok:
+        raise HTTPException(404, f"이 장비에 {proto} 접속이 등록되어 있지 않습니다")
+    return {"success": True, "protocol": proto}
+
+
 @app.delete("/api/devices2/{dev_id}")
 async def devices2_delete(dev_id: str):
     if not await db.device_delete(dev_id):
