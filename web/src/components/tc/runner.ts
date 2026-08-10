@@ -180,81 +180,30 @@ function statNum(v: unknown): number {
 /**
  * 계측기 통계로 합격·불합격을 낸다.
  *
- * 기준을 비운 칸은 **안 본다**. 0 은 값이다 — 「손실 0 이어야 한다」 와
- * 「손실을 안 본다」 는 다르다. 그래서 undefined 검사를 한다.
+ * 보는 것은 표의 **Rx Packet Loss** 하나다. 스트림마다 본다 — 둘 중 하나가
+ * 통째로 죽어도 합만 보면 「손실 50%」 로 뭉개져 어느 쪽인지 모른다.
  *
- * 판정은 스트림마다 하는 것이 기본이다. 두 스트림 중 하나가 통째로 죽어도
- * 합만 보면 「손실 50%」 로 뭉개져 어느 쪽인지 모른다. 합으로 보고 싶으면
- * `meterJudgeEach` 를 끈다.
- *
- * 이유를 길게 적는 이유: 여기서 「Fail」 세 글자만 남기면, 나중에 왜
- * 떨어졌는지 알려고 통계를 다시 돌려야 한다. 그때 트래픽은 이미 없다.
+ * 이유를 적어 두는 이유: 「Fail」 세 글자만 남기면 나중에 왜 떨어졌는지
+ * 알려고 다시 돌려야 하는데, 그때 트래픽은 이미 없다.
  */
 export function judgeMeterStats(
   rows: MeterStat[],
   step: TcStep,
 ): { ok: boolean; reason: string } {
-  const each = step.meterJudgeEach !== false
-  const groups: Array<{ name: string; rows: MeterStat[] }> = each
-    ? rows.map((r, k) => ({ name: `스트림 ${(typeof r.idx === 'number' ? r.idx : k) + 1}`, rows: [r] }))
-    : [{ name: '합계', rows }]
-
   if (!rows.length) {
     return { ok: false, reason: '통계가 비어 있습니다 — 트래픽을 시작하지 않았거나 스트림이 만들어지지 않았습니다' }
   }
-
+  const cap = step.meterMaxLoss ?? 0
   const bad: string[] = []
   const said: string[] = []
-  for (const g of groups) {
-    const tx = g.rows.reduce((a, r) => a + statNum(r.tx), 0)
-    const rx = g.rows.reduce((a, r) => a + statNum(r.rx), 0)
-    const loss = g.rows.reduce((a, r) => a + statNum(r.loss), 0)
-    const mis = g.rows.reduce((a, r) => a + statNum(r.misorder), 0)
-    const rxMbps = g.rows.reduce((a, r) => a + statNum(r.rxTput), 0)
-    // 지연은 더하면 뜻이 없다 — 제일 나쁜 것을 본다
-    const lat = g.rows.reduce((a, r) => Math.max(a, statNum(r.latency)), 0)
-    const pct = tx > 0 ? (loss / tx) * 100 : 0
-
-    const fail: string[] = []
-    const cap = step.meterMaxLoss
-    if (cap !== undefined && loss > cap) fail.push(`손실 ${loss} > 허용 ${cap}`)
-    if (step.meterMaxLossPct !== undefined && pct > step.meterMaxLossPct)
-      fail.push(`손실률 ${pct.toFixed(2)}% > 허용 ${step.meterMaxLossPct}%`)
-    if (step.meterMinRx !== undefined && rx < step.meterMinRx)
-      fail.push(`받음 ${rx} < 최소 ${step.meterMinRx}`)
-    if (step.meterMinRxMbps !== undefined && rxMbps < step.meterMinRxMbps)
-      fail.push(`수신 ${rxMbps.toFixed(3)}Mb/s < 최소 ${step.meterMinRxMbps}Mb/s`)
-    if (step.meterMaxLatency !== undefined && lat > step.meterMaxLatency)
-      fail.push(`지연 ${lat.toFixed(2)}us > 허용 ${step.meterMaxLatency}us`)
-    if (step.meterMaxMisorder !== undefined && mis > step.meterMaxMisorder)
-      fail.push(`순서 오류 ${mis} > 허용 ${step.meterMaxMisorder}`)
-
-    said.push(`${g.name}: 보냄 ${tx} · 받음 ${rx} · 손실 ${loss}(${pct.toFixed(2)}%)`)
-    if (fail.length) bad.push(`${g.name} — ${fail.join(', ')}`)
-  }
-
-  /*
-   * 기준을 하나도 안 적었으면 무엇으로 떨어뜨릴 것인가.
-   *
-   * 그때 무조건 합격을 주면 「돌아갔다」 와 「통과했다」 가 같은 말이 된다.
-   * 기본은 **손실 0** 이다 — 트래픽 시험에서 제일 흔한 기준이고, 옛
-   * 화면도 그랬다.
-   */
-  const none =
-    step.meterMaxLoss === undefined &&
-    step.meterMaxLossPct === undefined &&
-    step.meterMinRx === undefined &&
-    step.meterMinRxMbps === undefined &&
-    step.meterMaxLatency === undefined &&
-    step.meterMaxMisorder === undefined
-  if (none) {
-    const loss = rows.reduce((a, r) => a + statNum(r.loss), 0)
-    const rx = rows.reduce((a, r) => a + statNum(r.rx), 0)
-    if (rx <= 0) return { ok: false, reason: `${said.join(' / ')} — 받은 패킷이 없습니다` }
-    if (loss > 0) return { ok: false, reason: `${said.join(' / ')} — 손실이 있습니다(기준을 안 적으면 손실 0)` }
-    return { ok: true, reason: said.join(' / ') }
-  }
-
+  rows.forEach((r, k) => {
+    const name = `스트림 ${(typeof r.idx === 'number' ? r.idx : k) + 1}`
+    const tx = statNum(r.tx)
+    const rx = statNum(r.rx)
+    const loss = statNum(r.loss)
+    said.push(`${name}: 보냄 ${tx} · 받음 ${rx} · 손실 ${loss}`)
+    if (loss > cap) bad.push(`${name} 손실 ${loss} > 허용 ${cap}`)
+  })
   return bad.length
     ? { ok: false, reason: bad.join(' / ') }
     : { ok: true, reason: said.join(' / ') }

@@ -124,9 +124,7 @@ export default function MeterStats({ rows, streams = [], keys = [], placeholder 
           ) : (
             <>
               {rows.map((r, i) => {
-                const tx = statNum(r.tx)
                 const loss = statNum(r.loss)
-                const pct = tx > 0 ? (loss / tx) * 100 : 0
                 return (
                   <tr key={i} className={loss > 0 ? 'bad' : undefined}>
                     <td className="mono">{label(r, i)}</td>
@@ -136,15 +134,7 @@ export default function MeterStats({ rows, streams = [], keys = [], placeholder 
                     <td>{show(r.rxOct)}</td>
                     <td>{show(r.txTput, 3)}</td>
                     <td>{show(r.rxTput, 3)}</td>
-                    {/* 손실률은 열을 따로 두지 않는다 — 쓰시던 양식에 없다.
-                        판정은 이 값으로 나므로 손실이 있을 때만 아래에 적는다. */}
-                    <td
-                      className={loss > 0 ? 'bad' : undefined}
-                      title={tx > 0 ? `손실률 ${pct.toFixed(2)}%` : undefined}
-                    >
-                      {show(r.loss)}
-                      {loss > 0 && tx > 0 && <i className="ms-pct">{pct.toFixed(2)}%</i>}
-                    </td>
+                    <td className={loss > 0 ? 'bad' : undefined}>{show(r.loss)}</td>
                     <td>{show(r.latency, 2)}</td>
                     <td className={statNum(r.misorder) > 0 ? 'bad' : undefined}>
                       {show(r.misorder)}
@@ -155,27 +145,18 @@ export default function MeterStats({ rows, streams = [], keys = [], placeholder 
               {/* 합계 — 스트림이 여럿이면 한 줄씩 더해 보는 것이 일이다 */}
               {rows.length > 1 &&
                 (() => {
-                  const tx = sum('tx')
                   const loss = sum('loss')
                   const mis = sum('misorder')
                   return (
                     <tr className="ms-sum">
                       <td>합계 {rows.length}줄</td>
-                      <td>{tx.toLocaleString()}</td>
+                      <td>{sum('tx').toLocaleString()}</td>
                       <td>{sum('rx').toLocaleString()}</td>
                       <td>{sum('txOct').toLocaleString()}</td>
                       <td>{sum('rxOct').toLocaleString()}</td>
                       <td>{sum('txTput').toFixed(3)}</td>
                       <td>{sum('rxTput').toFixed(3)}</td>
-                      <td
-                        className={loss > 0 ? 'bad' : undefined}
-                        title={tx > 0 ? `손실률 ${((loss / tx) * 100).toFixed(2)}%` : undefined}
-                      >
-                        {loss.toLocaleString()}
-                        {loss > 0 && tx > 0 && (
-                          <i className="ms-pct">{((loss / tx) * 100).toFixed(2)}%</i>
-                        )}
-                      </td>
+                      <td className={loss > 0 ? 'bad' : undefined}>{loss.toLocaleString()}</td>
                       {/* 지연은 더하면 뜻이 없다 — 제일 나쁜 것을 적는다 */}
                       <td>{rows.reduce((a, x) => Math.max(a, statNum(x.latency)), 0).toFixed(2)}</td>
                       <td className={mis > 0 ? 'bad' : undefined}>{mis.toLocaleString()}</td>

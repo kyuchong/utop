@@ -54,30 +54,6 @@ export default function TcMeterStep({ step, meterCfg, onChange, onGoTraffic }: P
   const act = step.meterAct ?? 'traffic_start'
   const streams = (cfg.streams ?? []).filter((s) => s.enabled !== false)
 
-  /**
-   * 판정 기준 한 칸.
-   *
-   * 비운 칸은 안 본다 — 그래서 `Number(x) || 0` 을 쓰면 안 된다. 그것을
-   * 쓰면 지우는 순간 0 이 되어, 「안 본다」 가 「0 이어야 한다」 로 바뀐다.
-   * 실제로 허용 손실 칸이 그랬다.
-   */
-  const crit = (label: string, k: keyof TcStep, ph: string, from: string) => (
-    <label className="sd-f">
-      <span>{label}</span>
-      <input
-        type="number"
-        step="any"
-        value={step[k] === undefined ? '' : String(step[k])}
-        placeholder={`${ph} — 비우면 안 봄`}
-        onChange={(e) => {
-          const raw = e.target.value.trim()
-          onChange({ [k]: raw === '' ? undefined : Number(raw) } as Partial<TcStep>)
-        }}
-      />
-      <span className="sd-hint">{from}</span>
-    </label>
-  )
-
   return (
     <div className="sd-meter">
       {/* 어디로 나가고, 무엇을 보내나 — 스텝에서는 읽기만 한다 */}
@@ -165,42 +141,18 @@ export default function TcMeterStep({ step, meterCfg, onChange, onGoTraffic }: P
       )}
 
       {act === 'traffic_stat' && (
-        <div className="ms-judge">
-          <div className="ms-judge-h">
-            <b>판정 기준</b>
-            <span className="muted small">
-              비운 칸은 안 봅니다. 하나도 안 적으면 <b>손실 0</b> 이 기준입니다.
-            </span>
-          </div>
-
-          {/* 열 이름은 N2X 의 Streams 측정과 짝을 맞춘다 — 계측기 화면과
-              나란히 놓고 대 보는 자리라 여기서만 다른 말로 적으면 안 된다 */}
-          <div className="sd-2">
-            {crit('허용 손실 (패킷 수)', 'meterMaxLoss', '0', 'Rx Packet Loss')}
-            {crit('허용 손실률 (%)', 'meterMaxLossPct', '0.1', 'Loss ÷ Tx Test Packets')}
-          </div>
-          <div className="sd-2">
-            {crit('최소 수신 (패킷 수)', 'meterMinRx', '1', 'Rx Test Packets')}
-            {crit('최소 수신 속도 (Mb/s)', 'meterMinRxMbps', '90', 'Rx Throughput')}
-          </div>
-          <div className="sd-2">
-            {crit('허용 지연 (us)', 'meterMaxLatency', '1000', 'Avg Latency')}
-            {crit('허용 순서 오류', 'meterMaxMisorder', '0', 'Sequence Errors')}
-          </div>
-
-          <label className="ms-each">
-            <input
-              type="checkbox"
-              checked={step.meterJudgeEach !== false}
-              onChange={(e) => onChange({ meterJudgeEach: e.target.checked })}
-            />
-            스트림마다 따로 본다
-            <span className="sd-hint">
-              끄면 모든 스트림을 더해서 봅니다. 켜 두는 편이 낫습니다 — 두 스트림 중 하나가
-              통째로 죽어도 합만 보면 「손실 50%」 로 뭉개져 어느 쪽인지 모릅니다.
-            </span>
-          </label>
-        </div>
+        <label className="sd-f">
+          <span>허용 손실 (패킷 수)</span>
+          <input
+            type="number"
+            value={step.meterMaxLoss ?? ''}
+            placeholder="0"
+            onChange={(e) => onChange({ meterMaxLoss: Number(e.target.value) || 0 })}
+          />
+          <span className="sd-hint">
+            표의 <b>Rx Packet Loss</b> 가 이 수를 넘으면 불합격입니다. 비우면 0.
+          </span>
+        </label>
       )}
     </div>
   )

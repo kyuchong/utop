@@ -57,14 +57,6 @@
   box-shadow: inset 3px 0 0 var(--c-fail, #c0392b);
 }
 
-.ms-pct {
-  display: block;
-  font-style: normal;
-  font-size: var(--fs-xs);
-  font-weight: 400;
-  opacity: 0.85;
-}
-
 .ms-table .ms-sum td {
   font-weight: 700;
   border-top: 2px solid var(--c-border);
