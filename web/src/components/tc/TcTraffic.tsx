@@ -112,19 +112,19 @@ export default function TcTraffic({ data, onChange }: Props) {
    * 늘 남긴다 — 틀린 것이 보여야 고칠 수 있다.
    */
   /**
-   * 시험 포트에 없는 자리를 가리키는 스트림.
+   * 보낼 곳이 안 정해진 스트림.
    *
-   * 이것이 트래픽 시작이 「스트림을 하나도 만들지 못했습니다」 로 죽는
-   * 이유다. 돌려 보고 나서야 알던 것을 여기서 미리 보인다.
+   * 처음엔 「시험 포트 목록에 없는 포트를 쓰면」 경고하게 했는데, 그것은
+   * 틀린 말이었다 — N2X 는 시험 포트 칸을 안 본다. 스트림의 SRC/DST 를
+   * 그대로 쓴다(그 칸은 STC 가 포트를 잡을 때 쓴다). 멀쩡히 도는 설정에
+   * 붉은 경고를 띄워 사람을 헷갈리게 했다.
+   *
+   * 정말 못 도는 것은 **SRC 나 DST 가 비어 있을 때** 하나다.
    */
   const badStreams = (cfg.streams ?? [])
     .map((x, i) => ({ x, i }))
     .filter(({ x }) => x.enabled !== false)
-    .filter(({ x }) => {
-      const a = String(x.src ?? '').trim()
-      const b = String(x.dst ?? '').trim()
-      return !a || !b || !ports.includes(a) || !ports.includes(b)
-    })
+    .filter(({ x }) => !String(x.src ?? '').trim() || !String(x.dst ?? '').trim())
 
   const portOpts = (cur?: string) => {
     const v = (cur ?? '').trim()
@@ -583,8 +583,7 @@ export default function TcTraffic({ data, onChange }: Props) {
           <b>스트림</b>
           {badStreams.length > 0 && (
             <span className="tt-warn">
-              시험 포트에 없는 자리를 가리키는 스트림 {badStreams.length}개 —
-              이대로 시작하면 스트림이 만들어지지 않습니다
+              보낼 곳이 안 정해진 스트림 {badStreams.length}개 — SRC·DST 를 고르세요
             </span>
           )}
           <button className="btn small" type="button" onClick={addStream}>
