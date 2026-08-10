@@ -7,6 +7,7 @@ import TcTable from './TcTable'
 import ParamPicker from './ParamPicker'
 import PickList, { type PickItem } from './PickList'
 import TcMeterStep from './TcMeterStep'
+import MeterStats, { parseMeterOutput } from './MeterStats'
 import {
   ADD_KINDS,
   isNoteKind,
@@ -225,6 +226,8 @@ export default function TcStepDetail({
   // 스텝을 고르지 않은 render 에서는 훅이 하나 줄어든다. 다시 고르는
   // 순간 React 가 훅 수가 늘었다며 통째로 죽는다 — 흰 화면.
   const isTbl = result ? !!parseTable(result) : false
+  /** 계측기 응답이면 표로 읽는다. 아니면 null 이고 원문 그대로 나간다 */
+  const meterOut = isMeterStep ? parseMeterOutput(result) : null
   const needsSession = (isCmd || isConn || isNet) && kind !== 'instrument'
   const depth = Math.min(Math.max(Number(step.indent) || 0, 0), 4)
   /** 이 스텝이 뽑는 이름 */
@@ -1244,10 +1247,37 @@ export default function TcStepDetail({
               />
             ) : result ? (
               <>
-                {/* onMouseUp 으로 잡는 이유: onSelect 는 pre 에서 안 뜬다 */}
+                {/*
+                  계측기 응답은 표로 보여준다.
+
+                  날 JSON 으로 두었더니 무엇이 왔는지는 알 수 있어도
+                  「스트림 2번이 하나도 못 받았다」 를 읽으려면 중괄호를
+                  세어야 했다. Traffic 탭과 **같은 부품**을 쓴다 — 두 벌로
+                  두면 한쪽만 고치게 되고, 같은 측정이 화면마다 달라진다.
+
+                  원문은 접어서 남긴다. 못 읽었다고 감추면 그때야말로
+                  아무것도 모른다.
+                */}
+                {meterOut ? (
+                  <>
+                    <MeterStats
+                      rows={meterOut.rows}
+                      streams={meterCfg?.streams}
+                      keys={meterOut.keys}
+                    />
+                    <details className="sd-more sd-rawout">
+                      <summary>계측기가 답한 그대로</summary>
+                      <pre className="sd-res" onMouseUp={grab}>
+                        {result}
+                      </pre>
+                    </details>
+                  </>
+                ) : (
+                /* onMouseUp 으로 잡는 이유: onSelect 는 pre 에서 안 뜬다 */
                 <pre className="sd-res" onMouseUp={grab}>
                   {result}
                 </pre>
+                )}
                 <div className="sd-pick">
                   {/* 표 응답은 끌어서 고를 것이 아니다. `show int status` 를
                       contains 로 보면 28포트 중 아무 줄의 connected 나 걸려서

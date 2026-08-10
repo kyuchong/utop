@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isMeter, meterKind } from './device'
+import MeterStats, { statNum as num, type StatRow } from './MeterStats'
 import type { MeterCfg, MeterStream, TcData } from './types'
 import type { Device } from '@/pages/Devices'
 import './TcTraffic.css'
@@ -83,59 +84,6 @@ const LAYERS: Array<{ k: Layer; label: string }> = [
  * 자료(`meterCfg`)는 **옛 화면 것을 그대로** 쓴다. 이미 저장된 TC 가 있고
  * 백엔드 변환기도 이 이름을 보기 때문이다 — 새로 지으면 그것들이 다 깨진다.
  */
-/**
- * 측정 한 줄 — N2X 데몬이 주는 그대로.
- *
- * `idx` 는 스트림 차례다. 이름을 붙여 보내지 않으므로 그것으로 되짚어
- * 어느 스트림인지 적는다.
- */
-interface StatRow {
-  idx?: number
-  tx?: unknown
-  rx?: unknown
-  loss?: unknown
-  latency?: unknown
-  misorder?: unknown
-  txOct?: unknown
-  rxOct?: unknown
-  txTput?: unknown
-  rxTput?: unknown
-  /** STC 는 이름을 함께 준다 */
-  name?: unknown
-  [k: string]: unknown
-}
-
-/** 「-」·빈칸·글자가 섞여 온다. 못 읽으면 0 이다 */
-function num(v: unknown): number {
-  const n = Number(String(v ?? '').replace(/,/g, ''))
-  return Number.isFinite(n) ? n : 0
-}
-
-/** 값이 없으면 「–」. 0 은 값이다 — 「–」 로 적으면 안 잰 것처럼 보인다 */
-function show(v: unknown, digits = 0): string {
-  const raw = String(v ?? '').trim()
-  if (!raw || raw === '-') return '–'
-  const n = Number(raw.replace(/,/g, ''))
-  if (!Number.isFinite(n)) return raw
-  return digits ? n.toFixed(digits) : n.toLocaleString()
-}
-
-/** 바이트를 사람이 읽는 크기로. 12자리 숫자는 눈으로 못 센다 */
-function bytes(v: unknown): string {
-  const n = num(v)
-  const raw = String(v ?? '').trim()
-  if (!raw || raw === '-') return '–'
-  if (n < 1024) return `${n} B`
-  const u = ['KB', 'MB', 'GB', 'TB']
-  let x = n / 1024
-  let i = 0
-  while (x >= 1024 && i < u.length - 1) {
-    x /= 1024
-    i++
-  }
-  return `${x.toFixed(1)} ${u[i]}`
-}
-
 export default function TcTraffic({ data, onChange }: Props) {
   const [sel, setSel] = useState(0)
   const [layer, setLayer] = useState<Layer>('l2')
@@ -177,20 +125,6 @@ export default function TcTraffic({ data, onChange }: Props) {
       const b = String(x.dst ?? '').trim()
       return !a || !b || !ports.includes(a) || !ports.includes(b)
     })
-
-  /**
-   * 이 열을 이 섀시가 재나.
-   *
-   * 데몬이 고른 항목 목록(`keys`)에 없으면 값이 영영 안 온다. 값이 없는
-   * 것과 못 재는 것은 다르다 — 못 재는 것이면 기준을 걸어 봐야 소용없다.
-   */
-  const has = (k: string) => statKeys.length === 0 || statKeys.includes(k)
-  const th = (label: string, k: string) => (
-    <th className={has(k) ? undefined : 'tt-off'} title={has(k) ? undefined : '이 섀시가 재지 않는 항목입니다'}>
-      {label}
-      {!has(k) && ' *'}
-    </th>
-  )
 
   const portOpts = (cur?: string) => {
     const v = (cur ?? '').trim()
@@ -853,117 +787,12 @@ export default function TcTraffic({ data, onChange }: Props) {
         {/* 계측기가 뭐라고 답했는지 그대로. 값이 안 맞을 때 여기부터 본다 —
             화면이 잘못 읽는 것인지, 애초에 안 오는 것인지가 여기서 갈린다. */}
         {rawOpen && <pre className="tt-raw">{raw}</pre>}
-        {statKeys.length > 0 && statKeys.length < 9 && (
-          <div className="tt-note">
-            이 섀시가 재는 항목은 {statKeys.length}가지입니다 — <b>*</b> 표시한 열은 값이 오지
-            않습니다. 그 열에는 판정 기준을 걸어도 소용없습니다.
-          </div>
-        )}
-        <div className="tt-tablewrap">
-          <table className="tt-table tt-stat">
-            <thead>
-              {/* 열 이름·차례는 N2X 의 Setup Measurements→Streams 와 같다.
-                  쓰던 분들이 계측기 화면과 나란히 놓고 대 보는 자리라,
-                  여기서만 다른 말로 적으면 그때마다 짝을 맞춰야 한다.
-                  손실률만 하나 더 붙였다 — 판정이 그것으로 난다. */}
-              <tr>
-                <th>Stream</th>
-                {th('Tx Test Packets', 'tx')}
-                {th('Rx Test Packets', 'rx')}
-                {th('Tx Test Octets', 'txoct')}
-                {th('Rx Test Octets', 'rxoct')}
-                {th('Tx Throughput (Mb/s)', 'txtput')}
-                {th('Rx Throughput (Mb/s)', 'rxtput')}
-                {th('Rx Packet Loss', 'loss')}
-                {th('Avg Latency (us)', 'lat')}
-                {th('Sequence Errors', 'seq')}
-              </tr>
-            </thead>
-            <tbody>
-              {stats.length === 0 ? (
-                streams.map((row, i) => (
-                  <tr key={i}>
-                    <td className="mono">
-                      {row.src}→{row.dst}, {row.name}
-                    </td>
-                    {Array.from({ length: 9 }, (_, k) => (
-                      <td key={k}>–</td>
-                    ))}
-                  </tr>
-                ))
-              ) : (
-                <>
-                  {stats.map((r, i) => {
-                    // 데몬은 이름을 안 보낸다. idx 로 스트림을 되짚는다.
-                    const st = streams[typeof r.idx === 'number' ? r.idx : i]
-                    const tx = num(r.tx)
-                    const loss = num(r.loss)
-                    const rate = tx > 0 ? (loss / tx) * 100 : 0
-                    return (
-                      <tr key={i} className={loss > 0 ? 'bad' : undefined}>
-                        {/* 「4106/1→4106/2, Stream_1_1」 — 쓰시던 양식 그대로.
-                            어느 포트에서 어디로 가는 스트림인지가 이름보다 먼저다. */}
-                        <td className="mono">
-                          {st?.src ? `${st.src}→${st.dst}, ` : ''}
-                          {String(r.name ?? st?.name ?? `Stream_${i + 1}`)}
-                        </td>
-                        <td>{show(r.tx)}</td>
-                        <td>{show(r.rx)}</td>
-                        <td title={bytes(r.txOct)}>{show(r.txOct)}</td>
-                        <td title={bytes(r.rxOct)}>{show(r.rxOct)}</td>
-                        <td>{show(r.txTput, 3)}</td>
-                        <td>{show(r.rxTput, 3)}</td>
-                        {/* 손실률은 열을 따로 두지 않는다 — 쓰시던 양식에 없다.
-                            판정은 이 값으로 나므로 마우스를 올리면 나온다. */}
-                        <td
-                          className={loss > 0 ? 'bad' : undefined}
-                          title={tx > 0 ? `손실률 ${rate.toFixed(2)}%` : undefined}
-                        >
-                          {show(r.loss)}
-                          {loss > 0 && tx > 0 && <i className="tt-pct">{rate.toFixed(2)}%</i>}
-                        </td>
-                        <td>{show(r.latency, 2)}</td>
-                        <td className={num(r.misorder) > 0 ? 'bad' : undefined}>
-                          {show(r.misorder)}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  {/* 합계 — 스트림이 여럿이면 한 줄씩 더해 보는 것이 일이다 */}
-                  {stats.length > 1 &&
-                    (() => {
-                      const tx = stats.reduce((a, x) => a + num(x.tx), 0)
-                      const rx = stats.reduce((a, x) => a + num(x.rx), 0)
-                      const loss = stats.reduce((a, x) => a + num(x.loss), 0)
-                      const mis = stats.reduce((a, x) => a + num(x.misorder), 0)
-                      return (
-                        <tr className="tt-sum">
-                          <td>합계 {stats.length}줄</td>
-                          <td>{tx.toLocaleString()}</td>
-                          <td>{rx.toLocaleString()}</td>
-                          <td>{stats.reduce((a, x) => a + num(x.txOct), 0).toLocaleString()}</td>
-                          <td>{stats.reduce((a, x) => a + num(x.rxOct), 0).toLocaleString()}</td>
-                          <td>{stats.reduce((a, x) => a + num(x.txTput), 0).toFixed(3)}</td>
-                          <td>{stats.reduce((a, x) => a + num(x.rxTput), 0).toFixed(3)}</td>
-                          <td
-                            className={loss > 0 ? 'bad' : undefined}
-                            title={tx > 0 ? `손실률 ${((loss / tx) * 100).toFixed(2)}%` : undefined}
-                          >
-                            {loss.toLocaleString()}
-                            {loss > 0 && tx > 0 && (
-                              <i className="tt-pct">{((loss / tx) * 100).toFixed(2)}%</i>
-                            )}
-                          </td>
-                          <td>–</td>
-                          <td className={mis > 0 ? 'bad' : undefined}>{mis.toLocaleString()}</td>
-                        </tr>
-                      )
-                    })()}
-                </>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <MeterStats
+          rows={stats}
+          streams={streams}
+          keys={statKeys}
+          placeholder
+        />
       </section>
     </div>
   )

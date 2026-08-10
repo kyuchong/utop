@@ -1,0 +1,84 @@
+/* 측정 결과 표 — Traffic 탭과 스텝 결과가 같은 것을 쓴다.
+   열 이름·차례는 N2X 의 Setup Measurements→Streams 그대로. */
+
+.ms-wrap {
+  overflow-x: auto;
+}
+
+.ms-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+
+/* 머리줄은 가운데로, 두 줄로 접힌다 — 「Tx Test / Packets」.
+   그래야 열 폭이 숫자에 맞는다. */
+.ms-table th {
+  text-align: center;
+  white-space: normal;
+  line-height: 1.35;
+  vertical-align: bottom;
+  font-weight: 600;
+  color: var(--c-text-faint);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+.ms-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border);
+}
+
+/* 숫자를 오른쪽으로 몰아야 자릿수가 눈에 잡힌다. 이름 칸만 왼쪽. */
+.ms-table td:not(:first-child) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.ms-table td.mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+/* 이 섀시가 안 재는 열. 지우지는 않는다 — 없어지면 왜 없는지도 모른다 */
+.ms-table th.ms-off {
+  color: var(--c-text-faint);
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* 손실·순서 오류가 있는 줄. 시험이 깨진 자리라 훑다가 걸려야 한다 */
+.ms-table td.bad {
+  color: var(--c-fail, #c0392b);
+  font-weight: 600;
+}
+.ms-table tr.bad td:first-child {
+  box-shadow: inset 3px 0 0 var(--c-fail, #c0392b);
+}
+
+.ms-pct {
+  display: block;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.ms-table .ms-sum td {
+  font-weight: 700;
+  border-top: 2px solid var(--c-border);
+  background: var(--c-surface-alt);
+}
+
+.ms-empty {
+  text-align: center;
+  color: var(--c-text-faint);
+  padding: 14px;
+}
+
+.ms-note {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  padding: 5px 2px 0;
+}
