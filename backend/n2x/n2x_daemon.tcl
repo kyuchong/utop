@@ -10,7 +10,7 @@
 #
 # 고칠 때마다 올린다. 서버가 `ver` 로 물어 제 사본과 견주고, 다르면
 # 화면에 「윈도우의 데몬이 옛 것」 이라고 적는다.
-set DAEMON_VER 10
+set DAEMON_VER 11
 # 명령: ports | reserve <mod> <port> | release <mod> <port>
 #       traffic <mod> <tx> <rx> <pps> <npkt> <dur> <frame> | ping | quit
 lappend auto_path "C:/N2xTcl85/lib"
@@ -241,6 +241,22 @@ proc _load_norm {val unit {frame 64}} {
     }
     # fps · frames/sec · 빈값 — 초당 프레임 수
     return [list $val AGT_UNITS_PACKETS_PER_SEC ""]
+}
+
+# `AgtInvoke` 하나만 부르는 좁은 통로.
+#
+# 전에 둔 `raw` 는 아무 Tcl 이나 돌릴 수 있었다. 그래서 `AgtHelp` 를
+# 불렀더니 도움말이 **콘솔로** 쏟아졌고, 그 콘솔이 우리가 JSON 을 주고받는
+# 줄이라 그 뒤로 요청과 응답이 한 칸씩 어긋난 채로 갔다.
+#
+# 여기는 `AgtInvoke` 만 부른다. 그것은 값을 돌려주지 콘솔에 찍지 않는다.
+# 이름을 하나 알아낼 때마다 파일을 윈도우로 실어 나르지 않아도 된다 —
+# 그 왕복이 이 일을 며칠짜리로 만들고 있었다.
+proc cmd_inv {rest} {
+    if {[catch {eval AgtInvoke $rest} r]} {
+        return "{\"ok\":false,\"error\":\"[jstr $r]\"}"
+    }
+    return "{\"ok\":true,\"result\":\"[jstr $r]\"}"
 }
 
 # 프레임 길이를 어떻게 정하나 — 이 빌드가 받아 주는 이름 찾기.
@@ -491,6 +507,7 @@ while {[gets stdin line] >= 0} {
             ver     { set out "{\"ok\":true,\"ver\":$::DAEMON_VER}" }
             uprobe  { set out [cmd_uprobe [lindex $parts 1] [lindex $parts 2]] }
             fprobe  { set out [cmd_fprobe [lindex $parts 1] [lindex $parts 2] [lindex $parts 3]] }
+            inv     { set out [cmd_inv [string range $line 4 end]] }
             mprobe  { set out [cmd_mprobe [lindex $parts 1] [lindex $parts 2]] }
             media   { set out [cmd_media [lindex $parts 1] [lindex $parts 2] [lindex $parts 3]] }
             ports   { set out [cmd_ports] }
