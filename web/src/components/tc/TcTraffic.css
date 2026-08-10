@@ -276,3 +276,21 @@
    Rx 0 을 보고 설정부터 뒤지지 않게 여기서 먼저 보인다. */
 .tt-port.down { border-style: dashed; border-color: #d97706; color: #b45309; }
 .tt-port.down::after { content: ' ⚠'; }
+
+/* 머리줄은 가운데로, 두 줄로 접힌다 — 쓰시던 양식이 그렇다.
+   「Tx Test / Packets」 처럼 접혀야 열 폭이 숫자에 맞는다. */
+.tt-stat th {
+  text-align: center;
+  white-space: normal;
+  line-height: 1.35;
+  vertical-align: bottom;
+}
+
+/* 손실률 — 열을 따로 두지 않고 손실 옆에 작게. 0 일 때는 안 나온다. */
+.tt-pct {
+  display: block;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  opacity: 0.85;
+}

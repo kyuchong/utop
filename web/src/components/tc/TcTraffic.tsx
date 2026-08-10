@@ -875,7 +875,6 @@ export default function TcTraffic({ data, onChange }: Props) {
                 {th('Tx Throughput (Mb/s)', 'txtput')}
                 {th('Rx Throughput (Mb/s)', 'rxtput')}
                 {th('Rx Packet Loss', 'loss')}
-                <th>손실률</th>
                 {th('Avg Latency (us)', 'lat')}
                 {th('Sequence Errors', 'seq')}
               </tr>
@@ -887,7 +886,7 @@ export default function TcTraffic({ data, onChange }: Props) {
                     <td className="mono">
                       {row.src}→{row.dst}, {row.name}
                     </td>
-                    {Array.from({ length: 10 }, (_, k) => (
+                    {Array.from({ length: 9 }, (_, k) => (
                       <td key={k}>–</td>
                     ))}
                   </tr>
@@ -914,9 +913,14 @@ export default function TcTraffic({ data, onChange }: Props) {
                         <td title={bytes(r.rxOct)}>{show(r.rxOct)}</td>
                         <td>{show(r.txTput, 3)}</td>
                         <td>{show(r.rxTput, 3)}</td>
-                        <td className={loss > 0 ? 'bad' : undefined}>{show(r.loss)}</td>
-                        <td className={loss > 0 ? 'bad' : undefined}>
-                          {tx > 0 ? `${rate.toFixed(2)}%` : '–'}
+                        {/* 손실률은 열을 따로 두지 않는다 — 쓰시던 양식에 없다.
+                            판정은 이 값으로 나므로 마우스를 올리면 나온다. */}
+                        <td
+                          className={loss > 0 ? 'bad' : undefined}
+                          title={tx > 0 ? `손실률 ${rate.toFixed(2)}%` : undefined}
+                        >
+                          {show(r.loss)}
+                          {loss > 0 && tx > 0 && <i className="tt-pct">{rate.toFixed(2)}%</i>}
                         </td>
                         <td>{show(r.latency, 2)}</td>
                         <td className={num(r.misorder) > 0 ? 'bad' : undefined}>
@@ -941,9 +945,14 @@ export default function TcTraffic({ data, onChange }: Props) {
                           <td>{stats.reduce((a, x) => a + num(x.rxOct), 0).toLocaleString()}</td>
                           <td>{stats.reduce((a, x) => a + num(x.txTput), 0).toFixed(3)}</td>
                           <td>{stats.reduce((a, x) => a + num(x.rxTput), 0).toFixed(3)}</td>
-                          <td className={loss > 0 ? 'bad' : undefined}>{loss.toLocaleString()}</td>
-                          <td className={loss > 0 ? 'bad' : undefined}>
-                            {tx > 0 ? `${((loss / tx) * 100).toFixed(2)}%` : '–'}
+                          <td
+                            className={loss > 0 ? 'bad' : undefined}
+                            title={tx > 0 ? `손실률 ${((loss / tx) * 100).toFixed(2)}%` : undefined}
+                          >
+                            {loss.toLocaleString()}
+                            {loss > 0 && tx > 0 && (
+                              <i className="tt-pct">{((loss / tx) * 100).toFixed(2)}%</i>
+                            )}
                           </td>
                           <td>–</td>
                           <td className={mis > 0 ? 'bad' : undefined}>{mis.toLocaleString()}</td>
