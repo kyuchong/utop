@@ -1,5 +1,7 @@
 import PptxGenJS from 'pptxgenjs'
 import { methodBlocks, resultBlocks, slideRanges, type LguTc } from './lgu'
+import { stepLines, termShot, type TermLine } from './termShot'
+import { stepVerdict, type TcStep } from '@/components/tc/types'
 
 /**
  * LG U+ 양식 PPTX 파일 만들기.
@@ -172,12 +174,31 @@ export async function saveLguPptx(
       const s = p.addSlide()
       frame(s, '시험결과', no++)
       const tag = r.result.length > 1 ? ` (${i + 1}/${r.result.length})` : ''
+      /*
+       * 결과는 **터미널 화면 그림**으로 넣는다.
+       *
+       * 글자로 넣으면 PowerPoint 가 제 폰트로 다시 흘려서 `show interface`
+       * 표의 세로줄이 어긋난다 — 고정폭이 아니면 읽을 수가 없다. 그리고
+       * 고객사 결과서는 증거라, 검은 화면에 흰 글씨 그대로여야 「장비에서
+       * 본 것」 으로 읽힌다.
+       *
+       * 표에는 빈 칸을 두고 그림을 그 위에 얹는다 — 표 칸에는 그림을
+       * 못 넣는다.
+       */
+      const lines: TermLine[] = []
+      tc.steps.slice(from, to).forEach((st, k) => {
+        if (k) lines.push({ text: '' })
+        lines.push(...stepLines(st, from + k + 1, String(stepVerdict(st as TcStep) || '')))
+      })
+      const shot = lines.length
+        ? termShot(lines, [tc.tcid, tc.name].filter(Boolean).join(' · '))
+        : null
       s.addTable(
         [
           head(tc),
           [cell('시험 결과' + tag, { fill: YEL, bold: true, align: 'center', colspan: 6 })],
           [
-            cell(rBlocks.slice(from, to).map((b) => b.text).join('\n\n'), {
+            cell(shot ? '' : rBlocks.slice(from, to).map((b) => b.text).join('\n\n'), {
               colspan: 6,
               valign: 'top',
               fontSize: 9,
@@ -198,6 +219,22 @@ export async function saveLguPptx(
           autoPage: false,
         },
       )
+      // 표 칸에는 그림을 못 넣는다. 결과 칸 자리에 맞춰 위에 얹는다.
+      if (shot) {
+        const BX = LX + 0.06
+        const BY = 1.0 + 0.45 + 0.34 + 0.05
+        const BW = 12.5 - 0.12
+        const BH = 4.6 - 0.1
+        // 비율을 지킨다 — 늘리면 글자가 뭉개져 캡처로 안 보인다
+        const k = Math.min(BW / shot.w, BH / shot.h)
+        const w = shot.w * k
+        const h = shot.h * k
+        try {
+          s.addImage({ data: shot.data, x: BX + (BW - w) / 2, y: BY, w, h })
+        } catch {
+          // 그림 하나 때문에 결과서 전체가 안 나오면 안 된다
+        }
+      }
     })
   }
 
