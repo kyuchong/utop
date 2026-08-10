@@ -32,15 +32,37 @@
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  /* 알약 목록처럼 칸 아래로 흘러야 하는 것이 있다. 안 감싸면 옆으로
+     비집고 들어가 입력칸을 눌러 버린다 — 실제로 화면이 그렇게 무너졌다. */
+  flex-wrap: wrap;
   min-width: 0;
 }
 .tt-f > span {
   flex: none;
-  width: 96px;
+  width: 104px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
   text-align: right;
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
   line-height: 1.25;
+}
+/* 입력칸이 남는 자리를 갖는다. 100% 로 두면 이름표를 옆으로 옮긴 뜻이
+   없어진다 — 제 폭을 다 차지해 이름표를 아래로 밀어낸다. */
+.tt-f > input,
+.tt-f > select {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+/* 칸 아래로 흐르는 것들 — 이름표 폭만큼 들여 쓴다 */
+.tt-f > .tt-ports,
+.tt-f > .tt-mods,
+.tt-f > .sd-hint {
+  flex-basis: 100%;
+  margin-left: calc(104px + var(--sp-2));
 }
 .tt-f input,
 .tt-f select {
