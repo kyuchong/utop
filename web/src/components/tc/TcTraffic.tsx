@@ -167,6 +167,42 @@ export default function TcTraffic({ data, onChange }: Props) {
     }
   }
 
+  /**
+   * 섀시가 붙잡고 있는 세션을 놓게 한다.
+   *
+   * N2X 는 동시에 열 수 있는 세션 수가 정해져 있다. 그것이 차면 트래픽
+   * 시작이 「The system already has maximum sessions running」 으로 막히는데,
+   * 화면에서는 손쓸 방법이 없어 계측기 앞까지 가야 했다. 세션은 우리가
+   * 띄운 Tcl 데몬이 하나씩 쥐고 있으므로 그것을 정리하면 자리가 난다.
+   *
+   * 남의 세션(다른 PC · N2X GUI)까지 끊지는 못한다 — 그때는 그렇다고 적어
+   * 준다. 그것까지 끊었다가는 남이 돌리던 시험을 끊는 셈이다.
+   */
+  const freeSessions = async () => {
+    if (!cfg.chassis) {
+      setMsg('계측기를 먼저 고르세요')
+      return
+    }
+    if (!window.confirm(`${cfg.chassis} 로 UTOP 이 열어 둔 N2X 세션을 정리합니다.\n돌고 있는 트래픽이 있으면 끊깁니다.`))
+      return
+    setBusy('free')
+    setMsg('')
+    try {
+      const r = await apiFetch('/api/n2x/reset', {
+        method: 'POST',
+        // 라벨을 비워 보낸다 — 이 섀시로 띄운 것을 전부 정리하라는 뜻
+        body: JSON.stringify({ server: cfg.chassis }),
+      })
+      const j = (await r.json()) as { ok?: boolean; count?: number; note?: string; error?: string }
+      if (j.ok === false) throw new Error(j.error || '정리하지 못했습니다')
+      setMsg(j.note || `세션 ${j.count ?? 0}개를 정리했습니다`)
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy('')
+    }
+  }
+
   const s = streams[sel]
 
   /** 표 안에서 바로 고치는 칸 */
@@ -502,6 +538,17 @@ export default function TcTraffic({ data, onChange }: Props) {
           >
             {busy === 'stat' ? '읽는 중…' : '측정 조회'}
           </button>
+          {kind !== 'stc' && (
+            <button
+              className="btn small"
+              type="button"
+              disabled={!!busy || !cfg.chassis}
+              title="「maximum sessions running」 으로 시작이 막힐 때 — UTOP 이 열어 둔 N2X 세션을 놓습니다"
+              onClick={() => void freeSessions()}
+            >
+              {busy === 'free' ? '정리 중…' : '세션 정리'}
+            </button>
+          )}
           <span className="muted small">지금 섀시의 값을 읽어 옵니다</span>
           <span className="sp" />
           {msg && <span className="muted small">{msg}</span>}

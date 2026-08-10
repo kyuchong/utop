@@ -444,7 +444,15 @@ async function runOne(
       // 스텝에 주소가 없으면 옛 자료다 — 그때는 세션 장비를 본다
       (host ? undefined : deviceOf(ctx, step).dev)
     const server = (host || meterDev?.ip || '').trim()
-    const label = String(mcfg.n2xLabel || meterDev?.id || 'utop')
+    /**
+     * N2X 세션 이름.
+     *
+     * 섀시는 동시에 열 수 있는 세션 수가 정해져 있고, **라벨 하나가 세션
+     * 하나**다. 전에는 여기서 장비 id(`210.1.2.248`)를 쓰고 화면에서는
+     * `utop` 을 써서, 같은 섀시에 두 세션이 열렸다 — 그 다음 시작이
+     * 「maximum sessions running」 으로 막혔다. 한 이름으로 통일한다.
+     */
+    const label = String(mcfg.n2xLabel || 'utop')
     const act = step.meterAct ?? 'traffic_start'
 
     if (!server) {
@@ -557,6 +565,40 @@ async function runOne(
       traffic_stop: '/api/n2x/traffic/stop',
       traffic_clear: '/api/n2x/traffic/clear',
     }
+    /**
+     * 포트 확인은 GET 이다.
+     *
+     * 여기서 POST 로 보내고 있었다. FastAPI 는 405 를 내주는데 그 몸통이
+     * `{"detail":"Method Not Allowed"}` 라 `ok` 칸이 없다 — 아래 판정이
+     * `ok !== false` 라서 **합격**으로 찍혔다. 계측기에 닿지도 않고 PASS 가
+     * 나던 것이 이것이다.
+     */
+    if (act === 'ports') {
+      const q = `/api/n2x/ports?server=${encodeURIComponent(server)}&label=${encodeURIComponent(label)}`
+      let jp: Record<string, unknown> = {}
+      try {
+        const r = await apiFetch(q, { signal: ctx.signal })
+        jp = (await r.json()) as Record<string, unknown>
+      } catch (e) {
+        const err = e instanceof Error ? e.message : String(e)
+        ctx.onStep(i, { output: `[계측기 오류] ${err}`, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: err })
+        ctx.onLog({ i, text: err, kind: 'fail' })
+        return 'Fail'
+      }
+      const okp = jp.ok !== false
+      const mods = Array.isArray(jp.modules) ? (jp.modules as unknown[]).length : 0
+      const why = okp ? `모듈 ${mods}개` : String(jp.error ?? '포트를 읽지 못했습니다')
+      ctx.onStep(i, {
+        output: JSON.stringify(jp, null, 2),
+        executed_at: at,
+        status: okp ? 'PASS' : 'FAIL',
+        repeatResult: okp ? 'Pass' : 'Fail',
+        reason: why,
+      })
+      ctx.onLog({ i, text: `포트 확인 — ${why}`, kind: okp ? 'pass' : 'fail' })
+      return okp ? 'Pass' : 'Fail'
+    }
+
     const body: Record<string, unknown> = { server, label }
     if (act === 'traffic_start') {
       const tx = port(subVars(step.txPort ?? '', vars))
@@ -635,7 +677,9 @@ async function runOne(
       return ok ? 'Pass' : 'Fail'
     }
     const ok = j.ok !== false
-    ctx.onStep(i, { output: pretty, executed_at: at, status: ok ? 'PASS' : '', repeatResult: ok ? 'Pass' : '', reason: ok ? '' : String(j.error ?? '') })
+    // 실패인데 status 를 비워 두고 있었다 — 목록에는 「미실행」 으로 남고
+    // 로그에만 실패가 찍혀서, 훑으면 안 돈 줄로 보였다.
+    ctx.onStep(i, { output: pretty, executed_at: at, status: ok ? 'PASS' : 'FAIL', repeatResult: ok ? 'Pass' : 'Fail', reason: ok ? '' : String(j.error ?? '') })
     ctx.onLog({ i, text: `${act} — ${ok ? '보냄' : String(j.error ?? '실패')}`, kind: ok ? 'info' : 'fail' })
     return ok ? 'Pass' : 'Fail'
   }

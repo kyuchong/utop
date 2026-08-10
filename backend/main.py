@@ -6659,21 +6659,39 @@ def n2x_diag(server: str = "210.1.2.248", label: str = "utop"):
 
 @app.post("/api/n2x/reset")
 def n2x_reset(data: dict):
-    """데몬 강제 재기동. 사용자가 연결 조회 실패 시 수동 트리거."""
+    """
+    데몬 강제 재기동 — 섀시가 붙잡고 있는 세션을 놓게 한다.
+
+    N2X 섀시는 동시에 열 수 있는 세션 수가 정해져 있다. 그것이 차면
+    「The system already has maximum sessions running」 로 트래픽 시작이
+    막힌다. 세션은 우리가 띄운 Tcl 데몬이 하나씩 쥐고 있으므로, 데몬을
+    죽이는 것이 곧 세션을 놓는 것이다.
+
+    **라벨을 안 주면 그 섀시로 띄운 데몬을 전부** 정리한다. 라벨 하나만
+    죽이게 두었더니, 화면마다 다른 라벨로 띄운 것들이 남아 아무리 눌러도
+    자리가 안 났다.
+    """
     server = str(data.get("server", "210.1.2.248"))
-    label = str(data.get("label", "utop"))
-    key = server + "|" + label
-    killed = False
+    label = str(data.get("label") or "").strip()
+    killed = []
     with _n2x_reg_lock:
-        d = _n2x_daemons.pop(key, None)
-        if d and d.get("proc"):
-            try:
-                d["proc"].kill()
-                killed = True
-            except Exception:
-                pass
-    _n2x_ports_cache_invalidate(server, label)
-    return {"ok": True, "killed": killed, "note": "다음 요청 시 데몬 재기동됨"}
+        if label:
+            keys = [k for k in list(_n2x_daemons) if k == server + "|" + label]
+        else:
+            keys = [k for k in list(_n2x_daemons) if k.startswith(server + "|")]
+        for k in keys:
+            d = _n2x_daemons.pop(k, None)
+            if d and d.get("proc"):
+                try:
+                    d["proc"].kill()
+                    killed.append(k.split("|", 1)[1])
+                except Exception:
+                    pass
+    for lb in (killed or [label or "utop"]):
+        _n2x_ports_cache_invalidate(server, lb)
+    return {"ok": True, "killed": killed, "count": len(killed),
+            "note": ("정리한 세션 " + ", ".join(killed)) if killed
+                    else "우리가 띄운 세션은 없었습니다 — 남은 세션은 다른 PC 나 N2X GUI 가 쥐고 있습니다"}
 
 # ── ports 응답 캐시 (server|label → {ts, data}) ─────────────────────────
 # N2X 서버는 매 조회마다 모든 모듈·포트를 순차 스캔해서 부하가 크고 느림.
@@ -6903,24 +6921,24 @@ def n2x_traffic_start(data: dict):
     streams = _n2x_streams_from(data)
     if not streams:
         return {"ok": False, "error": "streams(또는 module/txPort/rxPort) 필요"}
-    return _n2x_send(str(data.get("server", "210.1.2.248")), str(data.get("label", "2")),
+    return _n2x_send(str(data.get("server", "210.1.2.248")), str(data.get("label", "utop")),
                      "tstart " + str(data.get("dur") or 0) + " " + " ".join(_n2x_specs(streams)))
 
 
 @app.post("/api/n2x/traffic/stat")
 def n2x_traffic_stat(data: dict):
     # 실시간 통계 폴링 (전송 중에도 조회)
-    return _n2x_send(str(data.get("server", "210.1.2.248")), str(data.get("label", "2")), "tstat")
+    return _n2x_send(str(data.get("server", "210.1.2.248")), str(data.get("label", "utop")), "tstat")
 
 
 @app.post("/api/n2x/traffic/stop")
 def n2x_traffic_stop(data: dict):
-    return _n2x_send(str(data.get("server", "210.1.2.248")), str(data.get("label", "2")), "tstop")
+    return _n2x_send(str(data.get("server", "210.1.2.248")), str(data.get("label", "utop")), "tstop")
 
 
 @app.post("/api/n2x/traffic/clear")
 def n2x_traffic_clear(data: dict):
-    return _n2x_send(str(data.get("server", "210.1.2.248")), str(data.get("label", "2")), "tclear")
+    return _n2x_send(str(data.get("server", "210.1.2.248")), str(data.get("label", "utop")), "tclear")
 
 @app.post("/api/stc/meter/{action}")
 async def stc_meter_action(action: str, data: dict):

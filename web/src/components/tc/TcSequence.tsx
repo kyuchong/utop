@@ -4,7 +4,6 @@ import { IconChevron } from '../icons'
 import { blockEnd } from './runner'
 import {
   ADD_KINDS,
-  isBlockKind,
   isNoteKind,
   sessionIndex,
   stepKindInfo,
@@ -87,8 +86,7 @@ export default function TcSequence({
   const folded = useMemo(() => {
     const out = new Set<number>()
     shut.forEach((i) => {
-      const s = steps[i]
-      if (!s || !isBlockKind(s.kind)) return
+      if (!steps[i]) return
       for (let j = i + 1; j < blockEnd(steps, i); j++) out.add(j)
     })
     return out
@@ -157,8 +155,14 @@ export default function TcSequence({
             if (hide?.(s)) return null
             if (folded.has(i)) return null
             const info = stepKindInfo(s.kind)
-            const isBlock = isBlockKind(s.kind)
-            const body = isBlock ? blockEnd(steps, i) - i - 1 : 0
+            /*
+             * 접을 수 있나 — 종류가 아니라 **아래에 들여쓴 줄이 있나**로 본다.
+             *
+             * 처음엔 반복·조건만 접게 했다. 그런데 몸통은 indent 로만
+             * 정해져서, 주석 아래로 스텝을 들여쓰면 그 주석도 1.1 을
+             * 거느린 부모가 된다 — 번호는 그렇게 매기면서 접지는 못했다.
+             */
+            const body = blockEnd(steps, i) - i - 1
             const isShut = shut.has(i)
             const st = stat(s)
             const depth = Math.min(Math.max(Number(s.indent) || 0, 0), 4)
@@ -206,7 +210,7 @@ export default function TcSequence({
                 <span className="sq-act" style={{ marginLeft: depth * 16 }}>
                   {/* 블록만 접힌다. 아닌 줄에도 같은 폭을 비워 두어야
                       Action 글자가 들쭉날쭉하지 않다. */}
-                  {isBlock && body > 0 ? (
+                  {body > 0 ? (
                     <button
                       type="button"
                       className={`rt-caret sq-caret${isShut ? '' : ' open'}`}

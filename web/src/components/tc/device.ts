@@ -27,13 +27,32 @@ export function accessOf(dev: Device, protocol: string): DeviceAccess | undefine
   return (dev.access ?? []).find((a) => a.protocol === protocol)
 }
 
-/** 이 장비가 실제로 쓸 접속 방식. 지정이 없으면 장비의 기본값 */
+/**
+ * 이 장비가 실제로 쓸 접속 방식.
+ *
+ * 순서가 중요하다. 전에는 `dev.protocol` 을 제일 먼저 봤는데, 그 칸은
+ * 스키마에서 **`'ssh'` 가 기본값**이다(db/schema.sql). 접속 방식이
+ * device_access 표로 옮겨간 뒤로 아무도 그 칸을 고치지 않으니, telnet
+ * 으로 등록한 장비도 거기엔 여전히 `ssh` 가 적혀 있다 — 그래서 무엇을
+ * 골라 두든 22번 포트로 나갔다.
+ *
+ * 그래서 **등록된 접속(device_access)이 먼저**다. 「기본」 으로 표시된
+ * 것, 없으면 살아 있는 CLI 방식 중 첫 번째. `dev.protocol` 은 접속을
+ * 하나도 등록하지 않은 옛 장비에만 쓴다.
+ */
 export function protocolOf(dev: Device, want?: string): string {
-  const p = (want || dev.protocol || '').trim().toLowerCase()
-  if (p) return p
-  // 기본값도 없으면 등록된 방식 중 CLI 가 되는 첫 번째
-  const acc = (dev.access ?? []).find((a) => CLI_PROTOCOLS.includes(a.protocol))
-  return acc?.protocol ?? 'telnet'
+  const w = (want || '').trim().toLowerCase()
+  if (w) return w
+
+  const cli = (dev.access ?? []).filter(
+    (a) => CLI_PROTOCOLS.includes(a.protocol) && a.enabled !== false,
+  )
+  const def = cli.find((a) => a.is_default)
+  if (def) return def.protocol
+  if (cli.length) return cli[0]!.protocol
+
+  // 접속을 하나도 안 등록한 옛 장비 — 그때는 장비 칸을 믿는 수밖에 없다
+  return (dev.protocol || '').trim().toLowerCase() || 'telnet'
 }
 
 /**

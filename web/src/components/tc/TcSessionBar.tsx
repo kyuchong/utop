@@ -99,6 +99,9 @@ export default function TcSessionBar({
     // 그 자리를 남겨 둔다 — 조용히 다른 장비로 바뀌면 엉뚱한 곳에
     // 명령이 나간다.
     const proto = dev ? protocolOf(dev) : ''
+    // 포트까지 적는다. 「telnet 으로 등록했는데 왜 22번으로 나가나」 를
+    // 돌려 보고 나서야 알던 것이 여기서 바로 보인다.
+    const conn = dev ? connParams(dev) : undefined
     return (
       <span
         className={`tc-sess${dev ? '' : ' gone'}${dev && isMeter(dev) ? ' meter' : ''}`}
@@ -124,11 +127,26 @@ export default function TcSessionBar({
                 모른 채 스텝의 세션 번호만 어긋난다.
               */}
               {devices.filter((d) => !isMeter(d) || d.id === id).map((d) => {
-                const tag = deviceTag(d)
+                /*
+                 * 이름 하나로는 못 고른다.
+                 *
+                 * 이름을 안 적어 둔 장비가 많아 목록이 IP 만 스무 줄이 된다.
+                 * 그 상태로는 어느 것이 E5010 인지, 어느 랩에 있는지, 무엇으로
+                 * 붙는지를 목록에서 알 수 없어 열어 보고 닫기를 되풀이하게 된다.
+                 * 한 줄에 다 적는다 — 고르는 자리에서 필요한 것이 다 있어야 한다.
+                 */
+                const c = connParams(d)
+                const bits = [
+                  deviceLabel(d),
+                  d.name && d.ip !== d.name ? d.ip : '',
+                  d.model || '',
+                  deviceTag(d),
+                  isMeter(d) ? '' : `${c.protocol.toUpperCase()}:${c.port}`,
+                  d.lab || '',
+                ].filter(Boolean)
                 return (
                   <option key={d.id} value={d.id}>
-                    {deviceLabel(d)}
-                    {tag ? ` · ${tag}` : ''}
+                    {bits.join(' · ')}
                   </option>
                 )
               })}
@@ -146,8 +164,12 @@ export default function TcSessionBar({
             ) : (
               <>
                 {dev && (
-                  <span className="tc-sess-ip">
+                  <span
+                    className="tc-sess-ip"
+                    title={`${proto.toUpperCase()} ${conn?.host ?? dev.ip}:${conn?.port ?? ''} 로 붙습니다 — 장비 화면의 「접속」 에서 바꿉니다`}
+                  >
                     {proto.toUpperCase()} {dev.ip}
+                    {conn?.port ? `:${conn.port}` : ''}
                   </span>
                 )}
                 <button

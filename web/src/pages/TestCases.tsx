@@ -51,7 +51,6 @@ import { blockEnd, runPicked, runSteps, type RunCtx, type RunLog } from '@/compo
 import { extractOne } from '@/components/tc/judge'
 import type { PickItem } from '@/components/tc/PickList'
 import {
-  isBlockKind,
   needsDevice,
   sessionIndex,
   stepResult,
@@ -720,11 +719,9 @@ export default function TestCases({ me }: PageProps) {
    */
   const addStep = (kind: StepKind) => {
     const cur = stepIdx >= 0 ? steps[stepIdx] : undefined
-    const at = cur
-      ? isBlockKind(cur.kind)
-        ? blockEnd(steps, stepIdx)
-        : stepIdx + 1
-      : steps.length
+    // 아래에 들여쓴 줄을 거느리고 있으면 그 뒤로. 종류로 보지 않는다 —
+    // 주석 아래에 스텝을 들여쓴 것도 똑같이 몸통이다.
+    const at = cur ? blockEnd(steps, stepIdx) : steps.length
     // 깊이는 고른 줄을 따라간다 — 반복 안에서 넣으면 그 안에 남는다
     const born = { ...blankStep(kind), ...(cur?.indent ? { indent: cur.indent } : {}) }
     const next = [...steps.slice(0, at), born, ...steps.slice(at)]
