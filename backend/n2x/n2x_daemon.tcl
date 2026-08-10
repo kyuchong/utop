@@ -10,7 +10,7 @@
 #
 # 고칠 때마다 올린다. 서버가 `ver` 로 물어 제 사본과 견주고, 다르면
 # 화면에 「윈도우의 데몬이 옛 것」 이라고 적는다.
-set DAEMON_VER 8
+set DAEMON_VER 10
 # 명령: ports | reserve <mod> <port> | release <mod> <port>
 #       traffic <mod> <tx> <rx> <pps> <npkt> <dur> <frame> | ping | quit
 lappend auto_path "C:/N2xTcl85/lib"
@@ -102,6 +102,7 @@ proc cmd_traffic {mod tx rx pps npkt dur fb} {
 set ::g_sg {}; set ::g_hStats ""    ;# 비동기 전송용 전역 상태 (구성된 스트림그룹/통계 핸들)
 set ::g_badPorts {}                  ;# 핸들을 못 잡은 포트 — 에러에 적어 준다
 set ::g_loadUnit ""                  ;# 부하를 실제로 어떤 단위로 넣었나
+set ::g_frameSet ""                  ;# 프레임 길이를 실제로 정했나
 set ::g_statKeys {}                  ;# 실제 선택된 통계 항목(이름 순서) — GetStreamStatistics 행 매핑용
 # 통계 항목을 풍부하게 선택(지연 min/max·송수신 바이트). 상수 미지원이면 단계적으로 폴백.
 proc _select_stats {hStats} {
@@ -212,11 +213,22 @@ proc cmd_media {mod port val} {
 # 회선 속도는 1000 Mb/s(GbE)로 본다. 이 카드가 10/100/1000 인데 링크는
 # 1G 로 잡힌다. 100M 로 잡힌 포트에 %를 쓰면 열 배로 나가므로, 그때는
 # Mbps 로 적는 편이 낫다.
-proc _load_norm {val unit} {
+proc _load_norm {val unit {frame 64}} {
     set u [string tolower [string trim $unit]]
     if {![string is double -strict $val]} { set val 0 }
+    if {![string is integer -strict $frame] || $frame <= 0} { set frame 64 }
     if {[string match "*percent*" $u] || [string match "*%*" $u]} {
-        return [list [expr {double($val) * 10.0}] AGT_UNITS_MBITS_PER_SEC "percent -> Mb/s"]
+        # 회선 기준 %다 — 계측기 화면의 Percent 와 같은 뜻.
+        #
+        # `%×10 = Mb/s` 로 바꿨더니 어긋났다. 계측기의 Mb/s 는 **프레임
+        # 바이트만** 세는데(프리앰블 8 + 프레임간격 12 = 20바이트 제외),
+        # 회선은 그 20바이트까지 실어 나른다. 그래서 50% 라고 적으면
+        # 실제로는 회선의 65.6% 가 나갔다(64바이트 프레임 기준).
+        #
+        # 프레임 하나가 회선에서 차지하는 것은 `frame + 20` 바이트다.
+        # 초당 몇 개를 보낼지로 바꿔 넣으면 프레임 크기가 달라져도 맞는다.
+        set pps [expr {double($val) / 100.0 * 1.0e9 / ((double($frame) + 20.0) * 8.0)}]
+        return [list $pps AGT_UNITS_PACKETS_PER_SEC "percent of 1G line -> pps"]
     }
     if {[string match "*kbps*" $u] || [string match "*kb/s*" $u]} {
         return [list [expr {double($val) / 1000.0}] AGT_UNITS_MBITS_PER_SEC "kbps -> Mb/s"]
@@ -229,6 +241,50 @@ proc _load_norm {val unit} {
     }
     # fps · frames/sec · 빈값 — 초당 프레임 수
     return [list $val AGT_UNITS_PACKETS_PER_SEC ""]
+}
+
+# 프레임 길이를 어떻게 정하나 — 이 빌드가 받아 주는 이름 찾기.
+#
+# `SetFrameLength ... AGT_FIXED_FRAME_LENGTH` 을 `catch` 로 감싸 두었더니,
+# 거절당해도 조용히 넘어가 **늘 64바이트로 나갔다.** 1518B 로 적고 재 보면
+# 패킷 수가 64B 일 때의 수와 정확히 맞아떨어진다. 조용히 틀리는 것이
+# 제일 나쁘다 — 시험은 돌고 결과도 나오는데 잰 것이 딴것이다.
+proc cmd_fprobe {mod port len} {
+    set h [getPort $mod $port]
+    if {$h eq ""} { return "{\"ok\":false,\"error\":\"port_handle\"}" }
+    catch {AgtInvoke AgtTestController StopTest}
+    catch {AgtInvoke AgtStatisticsList RemoveAll}
+    catch {AgtInvoke AgtTrafficList RemoveAll}
+    catch {AgtInvoke AgtStreamGroupList RemoveAllStreamGroups}
+    catch { foreach _hp [AgtInvoke AgtProfileList ListProfilesOnPort $h] { catch {AgtInvoke AgtProfileList Remove $_hp} } }
+    if {[catch {AgtInvoke AgtProfileList AddProfile $h AGT_CONSTANT_PROFILE} hp]} {
+        return "{\"ok\":false,\"error\":\"profile: [jstr $hp]\"}"
+    }
+    if {[catch {AgtInvoke AgtStreamGroupList AddStreamGroupsWithExistingProfile $hp AGT_PACKET_STREAM_GROUP 1} pr]} {
+        return "{\"ok\":false,\"error\":\"sg: [jstr $pr]\"}"
+    }
+    set hSG [lindex $pr 0]
+    set out {}
+    foreach c [list \
+        [list SetFrameLength "AGT_FIXED_FRAME_LENGTH $len"] \
+        [list SetFrameLength "AGT_FRAME_LENGTH_FIXED $len"] \
+        [list SetFrameLength "AGT_FIXED $len"] \
+        [list SetFrameLength "$len"] \
+        [list SetFixedFrameLength "$len"] \
+        [list SetFrameSize "$len"] \
+        [list SetPduLength "$len"] \
+        [list SetFrameLengthMode "AGT_FIXED_FRAME_LENGTH"] \
+        [list GetFrameLength ""]] {
+        set m [lindex $c 0]; set a [lindex $c 1]
+        if {[catch {eval AgtInvoke AgtStreamGroup $m $hSG $a} e]} {
+            lappend out "{\"call\":\"AgtStreamGroup $m $a\",\"ok\":false,\"v\":\"[jstr $e]\"}"
+        } else {
+            lappend out "{\"call\":\"AgtStreamGroup $m $a\",\"ok\":true,\"v\":\"[jstr $e]\"}"
+        }
+    }
+    catch {AgtInvoke AgtStreamGroupList RemoveAllStreamGroups}
+    catch {AgtInvoke AgtProfileList Remove $hp}
+    return "{\"ok\":true,\"port\":\"$mod/$port\",\"len\":$len,\"tried\":\[[join $out ,]\]}"
 }
 
 # 이 빌드가 어떤 단위 상수를 받아 주나.# 이 빌드가 어떤 단위 상수를 받아 주나.
@@ -308,7 +364,7 @@ proc _build_streams {specs} {
         if {$hTx eq "" || $hRx eq ""} continue
         lappend allPorts $hTx $hRx
         if {$pps eq ""} { set pps 1000 }
-        set _n [_load_norm $pps $unit]
+        set _n [_load_norm $pps $unit $frame]
         set _load [lindex $_n 0]; set _u [lindex $_n 1]; set _how [lindex $_n 2]
         catch { foreach _hp [AgtInvoke AgtProfileList ListProfilesOnPort $hTx] { catch {AgtInvoke AgtProfileList Remove $_hp} } }
         set hProfile [AgtInvoke AgtProfileList AddProfile $hTx AGT_CONSTANT_PROFILE]
@@ -329,7 +385,15 @@ proc _build_streams {specs} {
         set hdr "ethernet ipv4 udp"
         if {$proto eq "tcp"} { set hdr "ethernet ipv4 tcp" } elseif {$proto eq "ipv4"} { set hdr "ethernet ipv4" } elseif {$proto eq "eth"} { set hdr "ethernet" }
         AgtInvoke AgtStreamGroup SetPduHeaders $hSG $hdr
-        if {$frame ne "" && $frame > 0} { catch {AgtInvoke AgtStreamGroup SetFrameLength $hSG AGT_FIXED_FRAME_LENGTH $frame} }
+        # 프레임 길이. 못 정하면 그렇다고 남긴다 — 조용히 64바이트로 나가는
+        # 것이 제일 나쁘다. 시험은 돌고 결과도 나오는데 잰 것이 딴것이 된다.
+        if {$frame ne "" && $frame > 0} {
+            if {[catch {AgtInvoke AgtStreamGroup SetFrameLength $hSG AGT_FIXED_FRAME_LENGTH $frame}]} {
+                set ::g_frameSet "no"
+            } else {
+                set ::g_frameSet "yes"
+            }
+        }
         if {$srcMac ne "" && $srcMac ne "-"} { catch {AgtInvoke AgtPduHeader SetFieldFixedValue $hPdu ethernet 1 source_address $srcMac} }
         if {$dstMac ne "" && $dstMac ne "-"} { catch {AgtInvoke AgtPduHeader SetFieldFixedValue $hPdu ethernet 1 destination_address $dstMac} }
         if {$srcIp ne "" && $srcIp ne "-"} { catch {AgtInvoke AgtPduHeader SetFieldFixedValue $hPdu ipv4 1 source_address $srcIp} }
@@ -393,7 +457,7 @@ proc cmd_tstart {dur specs} {
     AgtInvoke AgtTestController SetTestMode AGT_TEST_ONCE
     if {$dur ne "" && $dur > 0} { AgtInvoke AgtTestController SetTestDuration $dur } else { AgtInvoke AgtTestController SetTestDuration 3600 }
     AgtInvoke AgtTestController StartTest
-    return "{\"ok\":true,\"started\":true,\"count\":[llength $::g_sg],\"loadUnit\":\"[jstr $::g_loadUnit]\"}"
+    return "{\"ok\":true,\"started\":true,\"count\":[llength $::g_sg],\"loadUnit\":\"[jstr $::g_loadUnit]\",\"frameSet\":\"$::g_frameSet\"}"
 }
 # 비동기 통계 — 실시간 폴링용 (전송 중에도 조회)
 proc cmd_tstat {} {
@@ -426,6 +490,7 @@ while {[gets stdin line] >= 0} {
             ping    { set out "{\"ok\":true,\"session\":$session,\"ver\":$::DAEMON_VER}" }
             ver     { set out "{\"ok\":true,\"ver\":$::DAEMON_VER}" }
             uprobe  { set out [cmd_uprobe [lindex $parts 1] [lindex $parts 2]] }
+            fprobe  { set out [cmd_fprobe [lindex $parts 1] [lindex $parts 2] [lindex $parts 3]] }
             mprobe  { set out [cmd_mprobe [lindex $parts 1] [lindex $parts 2]] }
             media   { set out [cmd_media [lindex $parts 1] [lindex $parts 2] [lindex $parts 3]] }
             ports   { set out [cmd_ports] }
