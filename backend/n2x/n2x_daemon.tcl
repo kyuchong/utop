@@ -10,7 +10,7 @@
 #
 # 고칠 때마다 올린다. 서버가 `ver` 로 물어 제 사본과 견주고, 다르면
 # 화면에 「윈도우의 데몬이 옛 것」 이라고 적는다.
-set DAEMON_VER 2
+set DAEMON_VER 3
 # 명령: ports | reserve <mod> <port> | release <mod> <port>
 #       traffic <mod> <tx> <rx> <pps> <npkt> <dur> <frame> | ping | quit
 lappend auto_path "C:/N2xTcl85/lib"
@@ -101,6 +101,7 @@ proc cmd_traffic {mod tx rx pps npkt dur fb} {
 # 다중 스트림 — 각 spec="txM,txP,rxM,rxP,proto,frame,pps,npkt,srcMac,dstMac,srcIp,dstIp" (빈값/-=미설정)
 set ::g_sg {}; set ::g_hStats ""    ;# 비동기 전송용 전역 상태 (구성된 스트림그룹/통계 핸들)
 set ::g_badPorts {}                  ;# 핸들을 못 잡은 포트 — 에러에 적어 준다
+set ::g_loadUnit ""                  ;# 부하를 실제로 어떤 단위로 넣었나
 set ::g_statKeys {}                  ;# 실제 선택된 통계 항목(이름 순서) — GetStreamStatistics 행 매핑용
 # 통계 항목을 풍부하게 선택(지연 min/max·송수신 바이트). 상수 미지원이면 단계적으로 폴백.
 proc _select_stats {hStats} {
@@ -139,16 +140,49 @@ proc _select_stats {hStats} {
 proc _load_units {unit} {
     set u [string tolower [string trim $unit]]
     if {[string match "*percent*" $u] || [string match "*%*" $u]} {
-        return {AGT_UNITS_PERCENT_MAX_RATE AGT_UNITS_PERCENT AGT_UNITS_PERCENT_LINE_RATE}
+        return {AGT_UNITS_PERCENT_MAX_RATE AGT_UNITS_PERCENT_LINE_RATE AGT_UNITS_PERCENT
+                AGT_UNITS_PERCENT_OF_MAX_RATE}
     }
     if {[string match "*mbps*" $u] || [string match "*mb/s*" $u]} {
-        return {AGT_UNITS_MEGABITS_PER_SEC AGT_UNITS_MBITS_PER_SEC AGT_UNITS_BITS_PER_SEC}
+        return {AGT_UNITS_MEGABITS_PER_SEC AGT_UNITS_MEGABITS_PER_SECOND AGT_UNITS_MBITS_PER_SEC
+                AGT_UNITS_MBPS AGT_UNITS_BITS_PER_SEC}
     }
     if {$u eq "bps" || [string match "*bits*" $u]} {
-        return {AGT_UNITS_BITS_PER_SEC}
+        return {AGT_UNITS_BITS_PER_SEC AGT_UNITS_BITS_PER_SECOND}
     }
     # fps · frames/sec · 빈값 — 예전부터 쓰던 기본
-    return {AGT_UNITS_PACKETS_PER_SEC AGT_UNITS_FRAMES_PER_SEC}
+    return {AGT_UNITS_FRAMES_PER_SEC AGT_UNITS_PACKETS_PER_SEC}
+}
+
+# 이 빌드가 어떤 단위 상수를 받아 주나.
+#
+# 이름을 짐작해서 하나 박아 두면, 안 되는 빌드에서는 조용히 다음 후보로
+# 넘어가다 마지막에 pps 로 떨어진다 — 화면은 Mbps 인데 나가는 것은 pps 다.
+# 그것을 눈으로 볼 수가 없어서 「고쳤는데 왜 안 되지」 가 반복됐다.
+# 실제 포트에 프로파일을 하나 만들어 하나씩 넣어 보고, 되는 것만 적어 준다.
+proc cmd_uprobe {mod port} {
+    set h [getPort $mod $port]
+    if {$h eq ""} { return "{\"ok\":false,\"error\":\"port_handle\",\"port\":\"$mod/$port\"}" }
+    catch {AgtInvoke AgtTestController StopTest}
+    catch { foreach _hp [AgtInvoke AgtProfileList ListProfilesOnPort $h] { catch {AgtInvoke AgtProfileList Remove $_hp} } }
+    if {[catch {AgtInvoke AgtProfileList AddProfile $h AGT_CONSTANT_PROFILE} hp]} {
+        return "{\"ok\":false,\"error\":\"profile: [jstr $hp]\"}"
+    }
+    set all {}
+    foreach u {AGT_UNITS_FRAMES_PER_SEC AGT_UNITS_PACKETS_PER_SEC
+               AGT_UNITS_PERCENT_MAX_RATE AGT_UNITS_PERCENT_LINE_RATE AGT_UNITS_PERCENT
+               AGT_UNITS_PERCENT_OF_MAX_RATE
+               AGT_UNITS_BITS_PER_SEC AGT_UNITS_BITS_PER_SECOND
+               AGT_UNITS_KILOBITS_PER_SEC AGT_UNITS_MEGABITS_PER_SEC
+               AGT_UNITS_MEGABITS_PER_SECOND AGT_UNITS_MBITS_PER_SEC AGT_UNITS_MBPS} {
+        if {[catch {AgtInvoke AgtConstantProfile SetAverageLoad $hp 10 $u} e]} {
+            lappend all "{\"u\":\"$u\",\"ok\":false,\"err\":\"[jstr $e]\"}"
+        } else {
+            lappend all "{\"u\":\"$u\",\"ok\":true}"
+        }
+    }
+    catch {AgtInvoke AgtProfileList Remove $hp}
+    return "{\"ok\":true,\"port\":\"$mod/$port\",\"units\":\[[join $all ,]\]}"
 }
 
 # 스트림 구성 (StartTest 직전까지). 전역 ::g_sg/::g_hStats 에 저장. 반환=스트림 수
@@ -202,11 +236,17 @@ proc _build_streams {specs} {
         set hProfile [AgtInvoke AgtProfileList AddProfile $hTx AGT_CONSTANT_PROFILE]
         # 단위마다 상수 이름이 빌드별로 다르다. 되는 것이 나올 때까지 넣어
         # 보고, 다 안 되면 pps 로 떨어뜨린다 — 아무것도 안 보내는 것보다 낫다.
-        set _lset 0
+        set _lset ""
         foreach _u $unitCands {
-            if {![catch {AgtInvoke AgtConstantProfile SetAverageLoad $hProfile $pps $_u}]} { set _lset 1; break }
+            if {![catch {AgtInvoke AgtConstantProfile SetAverageLoad $hProfile $pps $_u}]} { set _lset $_u; break }
         }
-        if {!$_lset} { AgtInvoke AgtConstantProfile SetAverageLoad $hProfile $pps AGT_UNITS_PACKETS_PER_SEC }
+        if {$_lset eq ""} {
+            AgtInvoke AgtConstantProfile SetAverageLoad $hProfile $pps AGT_UNITS_PACKETS_PER_SEC
+            set _lset "AGT_UNITS_PACKETS_PER_SEC(폴백)"
+        }
+        # 무엇으로 나갔는지 남긴다. 화면이 이것을 그대로 보여준다 —
+        # 「Mbps 로 적었는데 pps 로 나갔다」 를 눈으로 볼 수 있어야 한다.
+        set ::g_loadUnit $_lset
         if {$npkt ne "" && $npkt > 0} { AgtInvoke AgtConstantProfile SetNumberOfPacketsToInject $hProfile $npkt }
         set hParams [AgtInvoke AgtStreamGroupList AddStreamGroupsWithExistingProfile $hProfile AGT_PACKET_STREAM_GROUP 1]
         set hSG [lindex $hParams 0]; set hPdu [lindex $hParams 1]
@@ -278,7 +318,7 @@ proc cmd_tstart {dur specs} {
     AgtInvoke AgtTestController SetTestMode AGT_TEST_ONCE
     if {$dur ne "" && $dur > 0} { AgtInvoke AgtTestController SetTestDuration $dur } else { AgtInvoke AgtTestController SetTestDuration 3600 }
     AgtInvoke AgtTestController StartTest
-    return "{\"ok\":true,\"started\":true,\"count\":[llength $::g_sg]}"
+    return "{\"ok\":true,\"started\":true,\"count\":[llength $::g_sg],\"loadUnit\":\"[jstr $::g_loadUnit]\"}"
 }
 # 비동기 통계 — 실시간 폴링용 (전송 중에도 조회)
 proc cmd_tstat {} {
@@ -310,6 +350,7 @@ while {[gets stdin line] >= 0} {
         switch -- $cmd {
             ping    { set out "{\"ok\":true,\"session\":$session,\"ver\":$::DAEMON_VER}" }
             ver     { set out "{\"ok\":true,\"ver\":$::DAEMON_VER}" }
+            uprobe  { set out [cmd_uprobe [lindex $parts 1] [lindex $parts 2]] }
             ports   { set out [cmd_ports] }
             reserve { if {[catch {AgtInvoke AgtPortSelector AddPort [lindex $parts 1] [lindex $parts 2]} h]} { set out "{\"ok\":false,\"error\":\"[jstr $h]\"}" } else { set out "{\"ok\":true,\"reserved\":\"[lindex $parts 1]/[lindex $parts 2]\"}" } }
             release { if {[catch {AgtInvoke AgtPortSelector FindPortHandle [lindex $parts 1] [lindex $parts 2]} h]} { set out "{\"ok\":false,\"error\":\"[jstr $h]\"}" } elseif {[catch {AgtInvoke AgtPortSelector RemovePort $h} rr]} { set out "{\"ok\":false,\"error\":\"[jstr $rr]\"}" } else { set out "{\"ok\":true,\"released\":\"[lindex $parts 1]/[lindex $parts 2]\"}" } }
