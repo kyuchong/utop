@@ -294,3 +294,15 @@
   font-weight: 400;
   opacity: 0.85;
 }
+
+/* 이 탭을 비우면 무엇이 되는지 — 채우기 전에 알아야 하는 것 */
+.tt-hint {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  background: var(--c-surface-alt);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 9px;
+  margin-bottom: var(--sp-2);
+  line-height: 1.5;
+}

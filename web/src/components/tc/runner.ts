@@ -735,6 +735,26 @@ async function runOne(
         for (const k of Object.keys(o)) if (o[k] === '' || o[k] == null) delete o[k]
         return o
       }
+      /**
+       * 프레임을 어떻게 지을까.
+       *
+       * 데몬은 `proto` 를 안 받으면 `ethernet ipv4 udp` 로 짓는다. L2 시험을
+       * 하려는데 IP·UDP 헤더가 붙어 나가고, IP 를 안 적었으니 0.0.0.0 이
+       * 실린다 — L2 는 그것을 안 보지만, 시험이 무엇을 보냈는지가 화면과
+       * 달라진다.
+       *
+       *  · L4 를 골랐으면(udp·tcp) 그대로
+       *  · 아니면 IP 를 적었을 때만 ipv4
+       *  · IP 도 안 적었으면 **ethernet 만** — 그것이 L2 시험이다
+       *
+       * 게이트웨이는 여기 없다. L2 는 GW 를 안 본다.
+       */
+      const frameKind = (x: MeterStream): string => {
+        const l4 = String(x.l4proto ?? '').trim().toLowerCase()
+        if (l4 === 'udp' || l4 === 'tcp') return l4
+        const hasIp = !!String(x.srcIp ?? '').trim() || !!String(x.dstIp ?? '').trim()
+        return hasIp ? 'ipv4' : 'eth'
+      }
       const split = (p: string) => {
         const m = /(\d+)\s*[/\-]\s*(\d+)/.exec(subVars(p || '', vars))
         return { mod: m?.[1] ?? '', port: m?.[2] ?? '' }
@@ -751,7 +771,7 @@ async function runOne(
               pps: x.load,
               npkt: x.frameCnt,
               frame: x.minByte,
-              proto: String(x.l4proto ?? '').toLowerCase(),
+              proto: frameKind(x),
               srcMac: subVars(String(x.srcMac ?? ''), vars),
               dstMac: subVars(String(x.dstMac ?? ''), vars),
               srcIp: subVars(String(x.srcIp ?? ''), vars),

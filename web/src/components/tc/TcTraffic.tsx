@@ -701,6 +701,13 @@ export default function TcTraffic({ data, onChange }: Props) {
 
               {layer === 'l3' && (
                 <>
+                  {/* 무엇이 나가는지를 여기서 정한다 — 비우면 L2 다.
+                      전에는 비워도 IPv4·UDP 헤더가 붙어 나갔다. */}
+                  <div className="tt-hint">
+                    <b>비우면 L2(Ethernet) 프레임</b>으로 나갑니다 — MAC 만 보고 흐릅니다.
+                    IP 를 적으면 IPv4 헤더가 붙고, L4 를 고르면 UDP·TCP 까지 붙습니다.
+                    Gateway 는 L3 일 때만 쓰입니다.
+                  </div>
                   <div className="tt-box">
                     <div className="tt-bh">L3 Source</div>
                     <div className="tt-grid">
