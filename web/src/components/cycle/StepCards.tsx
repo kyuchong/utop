@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { CycleItemLite, CycleStep, Verdict } from '@/pages/Cycles'
 import { RESULTS, verdictClass } from '@/pages/Cycles'
 import { METER_ACT_LABEL, stepKindInfo, stepVerdict, type TcStep } from '@/components/tc/types'
@@ -107,6 +107,25 @@ export default function StepCards({ item, runningAt, onSetResult, onSetImg, onSe
   /** 스텝 하나 안에서 펼쳐 본 회차 — `스텝-회차` */
   const [openRound, setOpenRound] = useState('')
 
+  /**
+   * 지금 도는 스텝을 가운데로 따라간다.
+   *
+   * 18줄짜리 절차를 돌리면 도는 줄이 금세 화면 밖으로 나간다. 그때마다
+   * 손으로 굴려 찾아야 했고, 찾고 나면 이미 다음 줄로 넘어가 있었다.
+   *
+   * 사람이 손으로 굴리면 따라가기를 멈춘다 — 앞 스텝의 응답을 들여다보는
+   * 중에 화면이 저 혼자 움직이면 읽던 자리를 잃는다. 도는 줄이 바뀌고
+   * 사람이 3초 넘게 손을 안 대면 다시 따라간다.
+   */
+  const liveRef = useRef<HTMLDivElement | null>(null)
+  const wrapRef = useRef<HTMLDivElement | null>(null)
+  const touched = useRef(0)
+  useEffect(() => {
+    if (runningAt < 0) return
+    if (Date.now() - touched.current < 3000) return
+    liveRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [runningAt])
+
   const roundMax = all.reduce((a, x) => Math.max(a, x.rounds?.length ?? 0), 0)
   /** 한 스텝이라도 깨진 회차 — 100번 돌려 3번 깨졌으면 궁금한 것은 그 3번이다 */
   const badRounds = Array.from({ length: roundMax }, (_, n) => n + 1).filter((n) =>
@@ -139,7 +158,13 @@ export default function StepCards({ item, runningAt, onSetResult, onSetImg, onSe
   if (!all.length) return <div className="empty">아직 실행하지 않았습니다.</div>
 
   return (
-    <div className="sc">
+    <div
+      className="sc"
+      ref={wrapRef}
+      // 손으로 굴리는 중에는 따라가지 않는다
+      onWheel={() => (touched.current = Date.now())}
+      onTouchMove={() => (touched.current = Date.now())}
+    >
       <div className="sc-note">
         <span>
           절차·결과는 <b>실행 당시</b> 그대로입니다. 그 뒤에 시험을 고쳤다면 지금 TC 와 다를 수
@@ -225,7 +250,11 @@ export default function StepCards({ item, runningAt, onSetResult, onSetImg, onSe
         const meterOut = s.kind === 'instrument' ? parseMeterOutput(out) : null
         const toks = tokens(s)
         return (
-          <div className={`sc-card${bad ? ' bad' : ''}${running ? ' running' : ''}`} key={i}>
+          <div
+            className={`sc-card${bad ? ' bad' : ''}${running ? ' running' : ''}`}
+            key={i}
+            ref={running ? liveRef : undefined}
+          >
             <div className="sc-head">
               <b>Step#{i + 1}</b>
               {/* 종류는 `kind` 가 정한다.

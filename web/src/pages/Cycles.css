@@ -512,7 +512,20 @@ select.cy-v.na { color: #999; }
   margin-bottom: 8px;
 }
 .sc-card.bad { border-color: var(--c-fail); }
-.sc-card.running { border-color: var(--c-primary); }
+/* 지금 도는 스텝. 화면이 여기로 따라오므로, 따라온 자리가 어디인지
+   한눈에 걸려야 한다 — 테두리만으로는 스무 장 중에서 안 보인다. */
+.sc-card.running {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.18);
+  animation: sc-live 1.1s ease-in-out infinite alternate;
+}
+@keyframes sc-live {
+  from { box-shadow: 0 0 0 2px rgb(59 130 246 / 0.14); }
+  to { box-shadow: 0 0 0 5px rgb(59 130 246 / 0.28); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sc-card.running { animation: none; }
+}
 .sc-head { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); }
 .sc-head .sp { margin-left: auto; }
 
