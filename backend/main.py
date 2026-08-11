@@ -1811,6 +1811,162 @@ async def learn_procedure_delete(lp_id: str, token: str = ""):
     _save_learned(store)
     return {"ok": True, "removed": n0 - len(store["items"])}
 
+def _llm_pick():
+    """
+    쓸 수 있는 로컬 LLM 하나.
+
+    고르는 규칙이 `/api/llm/generate` 안에 박혀 있어서, 다른 곳에서 LLM 을
+    쓰려면 그 여든 줄을 통째로 베껴야 했다. 한 곳으로 뺀다.
+    """
+    init_llms_file()
+    llms = load_json(LLMS_FILE).get("llms") or []
+    for l in llms:
+        if not (l.get("status", "active") == "active" and l.get("endpoint")):
+            continue
+        t = str(l.get("type") or "").lower()
+        if t in ("local", "vllm", "openai", "openai-compatible", ""):
+            return l
+    return None
+
+
+async def _llm_json(llm, sys_p, user_p, schema, timeout=120):
+    """LLM 에게 JSON 하나를 받는다. `guided_json` 이 없는 판이면 한 번 더 물러선다."""
+    import httpx
+    body = {
+        "model": llm.get("model") or "",
+        "messages": [{"role": "system", "content": sys_p}, {"role": "user", "content": user_p}],
+        "temperature": 0.1,
+        "max_tokens": 1536,
+        "guided_json": schema,
+    }
+    headers = {"Content-Type": "application/json"}
+    if llm.get("apikey"):
+        headers["Authorization"] = f"Bearer {llm['apikey']}"
+    url = str(llm["endpoint"]).rstrip("/") + "/chat/completions"
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        r = await client.post(url, headers=headers, json=body)
+        if r.status_code != 200:
+            body.pop("guided_json", None)
+            body["response_format"] = {"type": "json_object"}
+            r = await client.post(url, headers=headers, json=body)
+        if r.status_code != 200:
+            raise RuntimeError(f"LLM {r.status_code}: {r.text[:300]}")
+        data = r.json()
+        txt = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
+    m = re.search(r"\{.*\}", txt, re.S)
+    return json.loads(m.group(0) if m else txt)
+
+
+@app.post("/api/llm/wiring")
+async def llm_wiring(payload: dict):
+    """
+    말로 적은 배선을 줄로 옮긴다.
+
+    「E5724RL 1번 2번 포트를 N2X 4106/3, 4106/4 에 물렸어」 같은 문장을
+    받아 배선 줄을 만든다.
+
+    **지어낸 이름은 버린다.** 장비·포트 목록은 이미 자료로 있으므로, 그
+    안에 없는 것은 서버에서 걸러 내고 무엇을 버렸는지 함께 알린다.
+    로컬 모델은 그럴듯한 포트 이름을 곧잘 지어내는데, 그것이 그대로
+    저장되면 실행할 때까지 아무도 모른다 — 조용히 틀리는 것이 제일 나쁘다.
+
+    저장은 하지 않는다. 화면이 그림으로 보여 주고 사람이 정한다.
+    """
+    say = str(payload.get("text") or "").strip()
+    if not say:
+        return {"ok": False, "error": "무엇을 어떻게 물렸는지 적어 주세요"}
+    devs = payload.get("devices") or []      # [{id,label,ports:[...]}]
+    meters = payload.get("meters") or []     # [{id,label,ports:[...]}]
+    if not devs or not meters:
+        return {"ok": False, "error": "장비와 계측기가 있어야 배선을 그립니다"}
+
+    llm = _llm_pick()
+    if not llm:
+        return {"ok": False, "error": "등록된 로컬 LLM 이 없습니다 — 설정 › LLM 설정에서 켜세요"}
+
+    def _one(x):
+        return {
+            "id": str(x.get("id") or ""),
+            "label": str(x.get("label") or x.get("id") or ""),
+            "ports": [str(p) for p in (x.get("ports") or [])][:200],
+        }
+
+    D = [_one(x) for x in devs]
+    M = [_one(x) for x in meters]
+    schema = {
+        "type": "object",
+        "properties": {
+            "wires": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "dev": {"type": "string"},
+                        "port": {"type": "string"},
+                        "meter": {"type": "string"},
+                        "meterPort": {"type": "string"},
+                    },
+                    "required": ["dev", "port", "meter", "meterPort"],
+                },
+            }
+        },
+        "required": ["wires"],
+    }
+    sys_p = (
+        "당신은 네트워크 시험 랩의 배선을 정리한다. 사람이 말한 연결을 "
+        "'장비 포트 ↔ 계측기 포트' 줄로 옮긴다.\n"
+        "규칙:\n"
+        "1) dev·meter 는 반드시 주어진 목록의 id 를 그대로 쓴다.\n"
+        "2) port·meterPort 는 반드시 그 장비/계측기의 ports 목록에 있는 값을 그대로 쓴다.\n"
+        "3) 목록에 없으면 그 줄은 만들지 않는다. 비슷한 이름을 지어내지 마라.\n"
+        "4) 한 포트는 한 번만 쓴다.\n"
+        "5) JSON 만 출력한다."
+    )
+    user_p = (
+        "장비:\n" + json.dumps(D, ensure_ascii=False) +
+        "\n계측기:\n" + json.dumps(M, ensure_ascii=False) +
+        "\n\n사람이 말한 배선:\n" + say +
+        "\n\n{\"wires\":[...]} 로만 출력하라."
+    )
+    try:
+        got = await _llm_json(llm, sys_p, user_p, schema)
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:300]}
+
+    dmap = {x["id"]: set(x["ports"]) for x in D}
+    mmap = {x["id"]: set(x["ports"]) for x in M}
+    # 이름으로 부른 것도 받아 준다 — 사람도 모델도 id 보다 이름을 쓴다
+    dbyname = {x["label"]: x["id"] for x in D}
+    mbyname = {x["label"]: x["id"] for x in M}
+    out, dropped = [], []
+    seen = set()
+    for w in (got.get("wires") or []):
+        dv = str(w.get("dev") or "")
+        mt = str(w.get("meter") or "")
+        dv = dv if dv in dmap else dbyname.get(dv, dv)
+        mt = mt if mt in mmap else mbyname.get(mt, mt)
+        pt = str(w.get("port") or "")
+        mp = str(w.get("meterPort") or "")
+        why = ""
+        if dv not in dmap:
+            why = f"{w.get('dev')} 라는 장비가 없습니다"
+        elif pt not in dmap[dv]:
+            why = f"{dv} 에 {pt} 포트가 없습니다"
+        elif mt not in mmap:
+            why = f"{w.get('meter')} 라는 계측기가 없습니다"
+        elif mp not in mmap[mt]:
+            why = f"{mt} 에 {mp} 포트가 없습니다"
+        elif (dv, pt) in seen or (mt, mp) in seen:
+            why = "이미 쓴 포트입니다"
+        if why:
+            dropped.append(why)
+            continue
+        seen.add((dv, pt))
+        seen.add((mt, mp))
+        out.append({"dev": dv, "port": pt, "meter": mt, "meterPort": mp})
+    return {"ok": True, "wires": out, "dropped": dropped}
+
+
 @app.post("/api/llm/generate")
 async def llm_generate(payload: dict, token: str = ""):
     """자연어 시험 목적 → 시험 절차(steps) 생성. 등록 LLM(vLLM) + 학습 예시 few-shot + JSON 강제."""

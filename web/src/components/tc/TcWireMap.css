@@ -111,3 +111,29 @@
 @media (max-width: 720px) {
   .wm-cols { grid-template-columns: 1fr; }
 }
+
+/* 말로 적는 칸 */
+.wm-ai {
+  display: flex;
+  gap: 6px;
+}
+.wm-ai input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+.wm-ai .btn { flex: none; }
+/* 그린 결과 · 버린 줄. 버린 것을 안 적으면 왜 안 그려졌는지 모른다 */
+.wm-note {
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-alt);
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+}

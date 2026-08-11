@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
 import { deviceLabel, isMeter, meterKind } from './device'
 import type { TcWire } from './types'
@@ -36,6 +37,10 @@ type Side =
 
 export default function TcWireMap({ wiring, devices, sessions, ports, onChange }: Props) {
   const [held, setHeld] = useState<Side>(null)
+  /** 말로 적는 칸 — 「E5724RL 1·2번을 N2X 4106/3, 4106/4 에 물렸어」 */
+  const [say, setSay] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
   const devById = useMemo(() => new Map(devices.map((d) => [d.id, d])), [devices])
 
   /** 왼쪽에 세울 장비 — 시험에 앉힌 것이 먼저, 그 뒤에 나머지 */
@@ -105,6 +110,67 @@ export default function TcWireMap({ wiring, devices, sessions, ports, onChange }
       ? held.kind === 'dev' && held.dev === side.dev && held.port === side.port
       : held.kind === 'meter' && held.meter === side.meter && held.port === side.port)
 
+  /**
+   * 말한 것을 배선으로.
+   *
+   * **저장하지 않는다.** 그린 것을 그림으로 보여 주고 사람이 정한다 —
+   * 모델이 지어낸 포트가 그대로 저장되면 실행할 때까지 아무도 모른다.
+   * 서버도 목록에 없는 것은 걸러 내고 무엇을 버렸는지 돌려준다.
+   */
+  const askAi = async () => {
+    if (!say.trim()) return
+    setBusy(true)
+    setNote('')
+    try {
+      const r = await apiFetch('/api/llm/wiring', {
+        method: 'POST',
+        body: JSON.stringify({
+          text: say,
+          devices: leftDevs.map((d) => ({
+            id: d.id,
+            label: deviceLabel(d),
+            ports: (d.interfaces ?? []).map((x) => String((x as { name?: string })?.name ?? x)),
+          })),
+          meters: meters.map((m) => ({
+            id: m.id,
+            label: deviceLabel(m),
+            ports: ports[m.id] ?? [],
+          })),
+        }),
+      })
+      const j = (await r.json()) as {
+        ok?: boolean
+        error?: string
+        wires?: Array<{ dev: string; port: string; meter: string; meterPort: string }>
+        dropped?: string[]
+      }
+      if (j.ok === false) throw new Error(j.error || '만들지 못했습니다')
+      const add: TcWire[] = []
+      for (const w of j.wires ?? []) {
+        // 이미 있는 줄은 다시 만들지 않는다
+        if (wiring.some((x) => devOf(x) === w.dev && x.port === w.port)) continue
+        const at = sessions.indexOf(w.dev)
+        add.push({
+          session: at < 0 ? 0 : at,
+          ...(at < 0 ? { dev: w.dev } : {}),
+          port: w.port,
+          meter: w.meter,
+          meterPort: w.meterPort,
+        })
+      }
+      onChange([...wiring, ...add])
+      const bad = (j.dropped ?? []).length
+      setNote(
+        `${add.length}줄 그렸습니다${bad ? ` · ${bad}줄은 버렸습니다 — ${(j.dropped ?? []).join(' / ')}` : ''}. 맞는지 보고 저장하세요.`,
+      )
+      if (add.length) setSay('')
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const cell = (
     on: boolean,
     hold: boolean,
@@ -126,6 +192,23 @@ export default function TcWireMap({ wiring, devices, sessions, ports, onChange }
 
   return (
     <div className="wm">
+      {/* 말로 적기. 랩 배선은 「1·2번을 3·4번에」 처럼 말로 하는 편이
+          빠르다 — 포트를 여덟 번 누르는 것보다. 그린 뒤에 눈으로 보고
+          고칠 수 있으니 틀려도 잃을 것이 없다. */}
+      <div className="wm-ai">
+        <input
+          value={say}
+          placeholder="말로 적어도 됩니다 — 예: E5724RL 1·2번 포트를 N2X 4106/3, 4106/4 에 물렸어"
+          onChange={(e) => setSay(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void askAi()
+          }}
+        />
+        <button className="btn small primary" type="button" disabled={busy || !say.trim()} onClick={() => void askAi()}>
+          {busy ? '그리는 중…' : '✨ 그리기'}
+        </button>
+      </div>
+      {note && <div className="wm-note">{note}</div>}
       <div className="wm-hint">
         {held
           ? '이제 반대쪽 포트를 누르세요 — 선이 그어집니다'
