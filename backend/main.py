@@ -1836,6 +1836,19 @@ LLM_PURPOSES: dict[str, dict] = {
             "5) JSON 만 출력한다."
         ),
     },
+    "similar": {
+        "label": "닮은 시험 찾기",
+        "hint": "하려는 것과 가장 가까운 기존 시험을 고릅니다.",
+        "system": (
+            "당신은 네트워크 시험 담당자다. 사람이 하려는 시험과 가장 가까운 것을 "
+            "주어진 목록에서 고른다.\n"
+            "규칙:\n"
+            "1) 목록에 있는 tcid 만 쓴다. 새로 만들지 마라.\n"
+            "2) 가까운 것부터 최대 3개.\n"
+            "3) 가까운 것이 없으면 빈 배열을 준다. 억지로 채우지 마라.\n"
+            "4) JSON 만 출력한다."
+        ),
+    },
     "steps": {
         "label": "시험 절차 만들기",
         "hint": "시험 목적을 CLI 스텝 묶음으로 만듭니다.",
@@ -1952,6 +1965,106 @@ async def _llm_json(llm, sys_p, user_p, schema, timeout=120):
         txt = (((data.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
     m = re.search(r"\{.*\}", txt, re.S)
     return json.loads(m.group(0) if m else txt)
+
+
+@app.post("/api/llm/similar")
+async def llm_similar(payload: dict):
+    """
+    목적 한 줄과 **닮은 시험**을 찾는다.
+
+    이 시스템에는 이미 검증된 시험이 쌓여 있다. 어떤 것은 여덟 번씩
+    돌았고 판정 기준도 그만큼 다듬어졌다. 그런데 새 시험을 만들 때 그것을
+    쓰지 않고 매번 빈 화면에서 시작한다 — 가장 좋은 자산을 놀리고 있다.
+
+    그래서 **짓지 않고 찾는다.** AI 는 「성능」 이 「트래픽 2포트 시험」 인
+    것을 알아보는 데만 쓴다. 절차·판정은 이미 있는 것을 그대로 옮긴다 —
+    지어낼 자리가 없으니 틀릴 자리도 없다.
+
+    LLM 이 없거나 답을 못 줘도 글자 맞춤으로 찾아 준다. 찾는 일이 아예
+    안 되는 것보다는 덜 똑똑해도 되는 편이 낫다.
+    """
+    want = str(payload.get("purpose") or "").strip()
+    models = [str(x) for x in (payload.get("models") or []) if str(x).strip()]
+    if not want:
+        return {"ok": False, "error": "무엇을 시험하려는지 한 줄 적어 주세요"}
+
+    try:
+        metas = await db.tc_list_meta()
+    except Exception:
+        metas = []
+    if not metas:
+        return {"ok": True, "items": []}
+
+    # 글자 맞춤 — 이름·요구사항에 든 낱말이 몇 개나 겹치나
+    words = [w for w in re.split(r"[\s·,/()]+", want) if len(w) > 1]
+
+    def _score(t):
+        name = f"{t.get('name') or ''} {t.get('req_id') or ''} {t.get('type') or ''}"
+        low = name.lower()
+        s = sum(2 for w in words if w.lower() in low)
+        # 같은 계열 장비로 돌린 적이 있으면 크게 친다 — 그 랩에서 실제로 된 것이다
+        for m in models:
+            if m and m.lower() in low:
+                s += 3
+        # 여러 번 돌아간 것일수록 믿을 만하다
+        s += min(3, int(t.get("run_count") or 0))
+        if str(t.get("status") or "").upper() == "PASS":
+            s += 1
+        return s
+
+    #
+    # 고를 거리를 넉넉히 준다.
+    #
+    # 처음에는 글자 맞춤 상위 여덟 개만 LLM 에게 보였다. 그랬더니 「E4320
+    # 성능」 을 물었을 때 이름에 E4320 이 든 시험만 올라오고, 정작 맞는
+    # 「N2X 트래픽 2포트 시험」 은 후보에도 못 들었다 — 그 이름에는 E4320 이
+    # 없기 때문이다. 뜻으로 고르라고 시켜 놓고 글자로 미리 걸러 버린 셈이다.
+    ranked = sorted(metas, key=_score, reverse=True)
+    top = ranked[:40]
+
+    # LLM 이 있으면 그중에서 고르게 한다 — 낱말이 안 겹쳐도 뜻이 닿는 것이 있다
+    llm = _llm_pick("similar")
+    picked = []
+    if llm and len(top) > 1:
+        brief = [
+            {"tcid": t.get("tcid"), "name": t.get("name"), "type": t.get("type"), "req": t.get("req_id")}
+            for t in top
+        ]
+        schema = {
+            "type": "object",
+            "properties": {"tcids": {"type": "array", "items": {"type": "string"}}},
+            "required": ["tcids"],
+        }
+        sys_p = _prompt_of("similar")["system"]
+        user_p = (
+            "시험 목록:\n" + json.dumps(brief, ensure_ascii=False) +
+            "\n\n사람이 하려는 것:\n" + want +
+            "\n\n가장 가까운 것부터 최대 3개의 tcid 만 {\"tcids\":[...]} 로 출력하라."
+        )
+        try:
+            got = await _llm_json(llm, sys_p, user_p, schema, timeout=60)
+            ids = [str(x) for x in (got.get("tcids") or [])]
+            byid = {str(t.get("tcid")): t for t in top}
+            picked = [byid[i] for i in ids if i in byid]
+        except Exception:
+            picked = []
+
+    order = picked + [t for t in top if t not in picked]
+    return {
+        "ok": True,
+        "items": [
+            {
+                "tcid": t.get("tcid"),
+                "name": t.get("name"),
+                "type": t.get("type"),
+                "req_id": t.get("req_id"),
+                "runs": int(t.get("run_count") or 0),
+                "status": t.get("status") or "",
+                "why": "AI 가 고름" if t in picked else "이름이 닮음",
+            }
+            for t in order[:5]
+        ],
+    }
 
 
 @app.post("/api/llm/wiring")

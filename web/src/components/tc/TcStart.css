@@ -1,0 +1,136 @@
+/*
+ * 시험 시작하기.
+ *
+ * 한 화면에 다 담는다. 단계를 나누면 「다음」 을 다섯 번 눌러야 하고,
+ * 그러면 사람은 읽지 않고 누른다.
+ */
+.tcstart {
+  width: min(760px, 96vw);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  box-shadow: 0 8px 40px rgba(16, 24, 40, 0.22);
+  overflow: hidden;
+}
+.tcs-h {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--c-border);
+}
+.tcs-h .sp { margin-left: auto; }
+.tcs-b {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 무엇을 하려는가 — 이 한 줄이 시작이다 */
+.tcs-ask { display: flex; gap: 8px; }
+.tcs-ask input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+}
+
+.tcs-devs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+.tcs-chip {
+  padding: 2px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.tcs-chip.on {
+  border-color: var(--c-primary);
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  font-weight: 700;
+}
+
+.tcs-err {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: #fdecec;
+  color: #a33;
+  font-size: var(--fs-sm);
+}
+
+/* 닮은 시험 — 몇 번 돌았는지가 곧 믿을 만한 정도다 */
+.tcs-list { display: flex; flex-direction: column; gap: 6px; }
+.tcs-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tcs-item:hover { border-color: var(--c-primary); background: var(--c-surface-2); }
+
+/* 안 맞는 것만 한 자리에 */
+.tcs-sum {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tcs-sum-h { display: flex; align-items: center; gap: 8px; }
+.tcs-sum-h .sp { margin-left: auto; }
+.tcs-sum-t { font-size: var(--fs-sm); color: var(--c-text); }
+.tcs-ok {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: #e8f5ed;
+  color: #12643a;
+  font-size: var(--fs-sm);
+}
+.tcs-gap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: var(--fs-sm);
+  box-shadow: inset 0 -1px 0 var(--c-border-soft);
+}
+.tcs-gap-w { flex: none; width: 76px; color: var(--c-text-muted); font-size: var(--fs-xs); }
+.tcs-gap-b { color: var(--c-text-faint); text-decoration: line-through; }
+.tcs-gap i { font-style: normal; color: var(--c-text-faint); }
+.tcs-do {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}

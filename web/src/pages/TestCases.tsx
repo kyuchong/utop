@@ -14,6 +14,7 @@ import { useMultiSelect } from '@/components/useMultiSelect'
 import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTree from '@/components/tc/TcTree'
+import TcStart from '@/components/tc/TcStart'
 import TcSessionBar from '@/components/tc/TcSessionBar'
 import TcParamBar from '@/components/tc/TcParamBar'
 import TcTerminal from '@/components/tc/TcTerminal'
@@ -135,6 +136,8 @@ export default function TestCases({ me }: PageProps) {
   const [gpOpen, setGpOpen] = useState(false)
   const [form, setForm] = useState<TestCaseMeta | null | undefined>(undefined)
   const [bulkOpen, setBulkOpen] = useState(false)
+  /** 「시험 시작하기」 — 닮은 시험을 찾아 베낀다 */
+  const [startOpen, setStartOpen] = useState(false)
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
 
   // 편집 중인 TC 전체. 목록의 메타가 아니라 스텝까지 든 원본이다.
@@ -1398,6 +1401,17 @@ export default function TestCases({ me }: PageProps) {
       )}
       {mapTc && <TcMapReqDialog tc={mapTc} onClose={() => setMapTc(null)} />}
       {bulkOpen && <TcBulkForm onClose={() => setBulkOpen(false)} />}
+      {startOpen && (
+        <TcStart
+          devices={devices}
+          onClose={() => setStartOpen(false)}
+          onMade={(id) => {
+            setStartOpen(false)
+            void tcQ.refetch()
+            pickTc(id)
+          }}
+        />
+      )}
       {bulkEdit && (
         <TcBulkEdit
           items={[...(view === 'list' ? listPick : pickedTc)].map((id) => ({
@@ -1690,6 +1704,16 @@ export default function TestCases({ me }: PageProps) {
                     Bulk Edit
                   </button>
                   <span className="rq-adiv" aria-hidden="true" />
+                  {/* 빈 화면에서 짜는 것(Add)보다 이쪽이 먼저다 — 이미
+                      검증된 시험이 아흔 개나 쌓여 있다 */}
+                  <button
+                    className="btn primary"
+                    type="button"
+                    title="하려는 것을 한 줄 적으면 닮은 시험을 찾아 베껴 줍니다"
+                    onClick={() => setStartOpen(true)}
+                  >
+                    ✨ 시험 시작하기
+                  </button>
                   <button className="btn" type="button" onClick={() => setForm(null)}>
                     Add
                   </button>
