@@ -181,16 +181,19 @@ export default function TcTopology({
         </button>
         {/* 왜 꺼져 있는지를 단추가 스스로 말해야 한다. 아래 안내는 표가
             비었을 때만 뜨는데, 사람 눈은 꺼진 단추에 먼저 간다. */}
+        {/*
+          세션이 없어도 적을 수 있어야 한다.
+          
+          「먼저 세션에 장비를 앉히세요」 로 꺼 두었는데, 계측기끼리만
+          거는 시험이나 랩 배선을 먼저 적어 두는 일이 있다. 무엇보다
+          배선은 **랩의 사실**이라 시험 구성보다 먼저 있는 것이다.
+          장비 쪽은 나중에 세션을 붙이면 고르면 된다.
+        */}
         <button
           className="btn primary small"
           type="button"
           onClick={add}
-          disabled={!sessions.length}
-          title={
-            sessions.length
-              ? '장비 포트 ↔ 계측기 포트 한 줄을 더합니다'
-              : '먼저 세션에 장비를 앉히세요 — Automation 탭의 「+ 세션」. 배선은 그 장비의 포트를 가리킵니다.'
-          }
+          title="장비 포트 ↔ 계측기 포트 한 줄을 더합니다"
         >
           배선 추가
         </button>
@@ -269,11 +272,7 @@ export default function TcTopology({
         </div>
       )}
 
-      {!sessions.length ? (
-        <div className="empty">
-          먼저 <b>세션</b>에 장비를 앉히세요. 배선은 그 장비의 포트를 가리킵니다.
-        </div>
-      ) : !wiring.length ? (
+      {!wiring.length ? (
         <div className="empty">
           아직 배선이 없습니다. 계측기를 쓰는 시험이라면 <b>어느 포트끼리 꽂혀 있는지</b> 한 번만
           적어 두면 됩니다.
@@ -293,6 +292,9 @@ export default function TcTopology({
                     value={w.session}
                     onChange={(e) => set(i, { session: Number(e.target.value), port: '' })}
                   >
+                    {/* 세션이 아직 없으면 그렇다고 적는다 — 빈 칸이면
+                        고를 것이 없는 것인지 안 고른 것인지 안 갈린다 */}
+                    {!sessions.length && <option value={0}>세션 없음 — 나중에</option>}
                     {sessions.map((sid, n) => {
                       const d = devById.get(sid)
                       return (
