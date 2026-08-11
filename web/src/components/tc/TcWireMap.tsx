@@ -41,6 +41,15 @@ export default function TcWireMap({ wiring, devices, sessions, ports, onChange }
   const [say, setSay] = useState('')
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
+  /**
+   * 지금 보고 있는 장비 · 계측기.
+   *
+   * 등록된 장비의 포트를 한꺼번에 늘어놓았더니 스물넉 장짜리 장비가 둘만
+   * 되어도 마흔여덟 줄이 됐다. 어느 것이 어느 장비 것인지 머리글을 위로
+   * 올려 가며 확인해야 한다. 장비를 먼저 고르고 그 포트만 본다.
+   */
+  const [atDev, setAtDev] = useState('')
+  const [atMeter, setAtMeter] = useState('')
   const devById = useMemo(() => new Map(devices.map((d) => [d.id, d])), [devices])
 
   /** 왼쪽에 세울 장비 — 시험에 앉힌 것이 먼저, 그 뒤에 나머지 */
@@ -192,13 +201,20 @@ export default function TcWireMap({ wiring, devices, sessions, ports, onChange }
 
   return (
     <div className="wm">
-      {/* 말로 적기. 랩 배선은 「1·2번을 3·4번에」 처럼 말로 하는 편이
-          빠르다 — 포트를 여덟 번 누르는 것보다. 그린 뒤에 눈으로 보고
-          고칠 수 있으니 틀려도 잃을 것이 없다. */}
+      {/*
+        말로 적기.
+        
+        「무엇을 어떻게 적어야 하나」 가 첫 벽이다. 빈 칸에 「자연어로
+        적으세요」 만 있으면 아무도 못 적는다 — 무슨 말을 알아듣는지
+        모르기 때문이다.
+        
+        그래서 **이 랩의 진짜 이름으로** 예를 만들어 보여 준다. 누르면
+        그대로 칸에 들어가니, 처음 쓰는 사람은 눌러서 숫자만 고치면 된다.
+      */}
       <div className="wm-ai">
         <input
           value={say}
-          placeholder="말로 적어도 됩니다 — 예: E5724RL 1·2번 포트를 N2X 4106/3, 4106/4 에 물렸어"
+          placeholder="어느 포트를 어디에 물렸는지 그냥 적으세요"
           onChange={(e) => setSay(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') void askAi()
@@ -208,6 +224,29 @@ export default function TcWireMap({ wiring, devices, sessions, ports, onChange }
           {busy ? '그리는 중…' : '✨ 그리기'}
         </button>
       </div>
+      {/* 이 랩의 진짜 이름으로 만든 예 — 누르면 칸에 들어간다 */}
+      {(() => {
+        const d = leftDevs.find((x) => x.id === atDev) ?? leftDevs[0]
+        const m = meters.find((x) => x.id === atMeter) ?? meters[0]
+        if (!d || !m) return null
+        const dp = (d.interfaces ?? []).map((x) => String((x as { name?: string })?.name ?? x))
+        const mp = ports[m.id] ?? []
+        if (dp.length < 2 || mp.length < 2) return null
+        const eg = [
+          `${deviceLabel(d)} ${dp[0]} 를 ${deviceLabel(m)} ${mp[0]} 에 물렸어`,
+          `${deviceLabel(d)} ${dp[0]}, ${dp[1]} 를 ${mp[0]}, ${mp[1]} 에 각각 물렸어`,
+        ]
+        return (
+          <div className="wm-eg">
+            <span>이렇게 적으면 됩니다 — 눌러 보세요</span>
+            {eg.map((t) => (
+              <button key={t} type="button" onClick={() => setSay(t)}>
+                {t}
+              </button>
+            ))}
+          </div>
+        )
+      })()}
       {note && <div className="wm-note">{note}</div>}
       <div className="wm-hint">
         {held
@@ -216,11 +255,26 @@ export default function TcWireMap({ wiring, devices, sessions, ports, onChange }
       </div>
       <div className="wm-cols">
         <div className="wm-col">
-          <div className="wm-ch">장비</div>
+          <div className="wm-ch">
+            장비
+            {leftDevs.length > 1 && (
+              <select
+                value={atDev || leftDevs[0]?.id || ''}
+                onChange={(e) => setAtDev(e.target.value)}
+              >
+                {leftDevs.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {deviceLabel(d)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
           {leftDevs.length === 0 ? (
             <div className="empty">등록된 장비가 없습니다.</div>
           ) : (
-            leftDevs.map((d) => {
+            [leftDevs.find((d) => d.id === atDev) ?? leftDevs[0]].filter(Boolean).map((d) => {
+              if (!d) return null
               const ifs = d.interfaces ?? []
               return (
                 <div className="wm-box" key={d.id}>
@@ -252,11 +306,26 @@ export default function TcWireMap({ wiring, devices, sessions, ports, onChange }
         </div>
 
         <div className="wm-col">
-          <div className="wm-ch">계측기</div>
+          <div className="wm-ch">
+            계측기
+            {meters.length > 1 && (
+              <select
+                value={atMeter || meters[0]?.id || ''}
+                onChange={(e) => setAtMeter(e.target.value)}
+              >
+                {meters.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {deviceLabel(m)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
           {meters.length === 0 ? (
             <div className="empty">등록된 계측기가 없습니다.</div>
           ) : (
-            meters.map((m) => {
+            [meters.find((m) => m.id === atMeter) ?? meters[0]].filter(Boolean).map((m) => {
+              if (!m) return null
               const list = ports[m.id] ?? []
               return (
                 <div className="wm-box" key={m.id}>

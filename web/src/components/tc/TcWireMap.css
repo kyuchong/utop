@@ -27,9 +27,25 @@
   min-width: 0;
 }
 .wm-ch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--c-text-muted);
+}
+/* 어느 장비를 볼까 — 포트를 다 늘어놓으면 마흔 줄이 넘는다 */
+.wm-ch select {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 6px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 400;
 }
 .wm-box {
   border: 1px solid var(--c-border-soft);
@@ -136,4 +152,34 @@
   background: var(--c-surface-alt);
   color: var(--c-text-muted);
   font-size: var(--fs-xs);
+}
+
+/*
+ * 이 랩의 진짜 이름으로 만든 예.
+ *
+ * 「자연어로 적으세요」 만 있으면 아무도 못 적는다 — 무슨 말을 알아듣는지
+ * 모르기 때문이다. 눌러서 숫자만 고치면 되게 한다.
+ */
+.wm-eg {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+.wm-eg button {
+  padding: 2px 8px;
+  border: 1px dashed var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface);
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.wm-eg button:hover {
+  border-style: solid;
+  border-color: var(--c-primary);
+  color: var(--c-primary);
 }

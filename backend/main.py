@@ -1811,22 +1811,119 @@ async def learn_procedure_delete(lp_id: str, token: str = ""):
     _save_learned(store)
     return {"ok": True, "removed": n0 - len(store["items"])}
 
-def _llm_pick():
+#
+# 용도별 프롬프트.
+#
+# 프롬프트를 코드에 박아 두면 한 글자 고치는 데도 배포를 해야 한다. 랩에
+# 쓰는 말은 현장에서 자꾸 바뀌고(장비 계열이 늘거나 부르는 이름이 다르거나),
+# 그때마다 사람이 기다려야 한다. 설정에 두고 화면에서 고친다.
+#
+# 여기 적은 것은 **기본값**이다. 설정에 없으면 이것을 쓴다 — 처음 쓰는
+# 사람이 빈 화면을 보지 않도록.
+#
+LLM_PURPOSES: dict[str, dict] = {
+    "wiring": {
+        "label": "배선 그리기",
+        "hint": "말로 적은 랩 배선을 「장비 포트 ↔ 계측기 포트」 줄로 옮깁니다.",
+        "system": (
+            "당신은 네트워크 시험 랩의 배선을 정리한다. 사람이 말한 연결을 "
+            "'장비 포트 ↔ 계측기 포트' 줄로 옮긴다.\n"
+            "규칙:\n"
+            "1) dev·meter 는 반드시 주어진 목록의 id 를 그대로 쓴다.\n"
+            "2) port·meterPort 는 반드시 그 장비/계측기의 ports 목록에 있는 값을 그대로 쓴다.\n"
+            "3) 목록에 없으면 그 줄은 만들지 않는다. 비슷한 이름을 지어내지 마라.\n"
+            "4) 한 포트는 한 번만 쓴다.\n"
+            "5) JSON 만 출력한다."
+        ),
+    },
+    "steps": {
+        "label": "시험 절차 만들기",
+        "hint": "시험 목적을 CLI 스텝 묶음으로 만듭니다.",
+        "system": "",  # 지금은 /api/llm/generate 안의 긴 규칙을 그대로 쓴다
+    },
+}
+
+
+def _prompt_of(purpose: str) -> dict:
+    """이 용도에 쓸 프롬프트와 LLM. 설정에 있으면 그것, 없으면 기본값."""
+    base = LLM_PURPOSES.get(purpose) or {}
+    saved = {}
+    if PROMPTS_FILE.exists():
+        try:
+            saved = (load_json(PROMPTS_FILE).get("purposes") or {}).get(purpose) or {}
+        except Exception:
+            saved = {}
+    return {
+        "label": saved.get("label") or base.get("label") or purpose,
+        "hint": base.get("hint") or "",
+        "system": (saved.get("system") or "").strip() or base.get("system") or "",
+        "llm": saved.get("llm") or "",
+    }
+
+
+def _llm_pick(purpose: str = ""):
     """
     쓸 수 있는 로컬 LLM 하나.
 
     고르는 규칙이 `/api/llm/generate` 안에 박혀 있어서, 다른 곳에서 LLM 을
     쓰려면 그 여든 줄을 통째로 베껴야 했다. 한 곳으로 뺀다.
+
+    용도에 붙여 둔 LLM 이 있으면 그것을 먼저 쓴다 — 배선처럼 짧은 일에는
+    작은 모델을, 절차 만들기에는 큰 모델을 붙일 수 있어야 한다.
     """
     init_llms_file()
     llms = load_json(LLMS_FILE).get("llms") or []
-    for l in llms:
+
+    def _ok(l):
         if not (l.get("status", "active") == "active" and l.get("endpoint")):
-            continue
+            return False
         t = str(l.get("type") or "").lower()
-        if t in ("local", "vllm", "openai", "openai-compatible", ""):
+        return t in ("local", "vllm", "openai", "openai-compatible", "")
+
+    want = _prompt_of(purpose).get("llm") if purpose else ""
+    if want:
+        for l in llms:
+            if str(l.get("id") or "") == want and _ok(l):
+                return l
+    for l in llms:
+        if _ok(l):
             return l
     return None
+
+
+@app.get("/api/llm/purposes")
+async def llm_purposes():
+    """용도 목록 — 화면이 이것으로 설정 칸을 그린다. 기본 프롬프트도 함께 준다."""
+    out = []
+    for k, v in LLM_PURPOSES.items():
+        cur = _prompt_of(k)
+        out.append({
+            "id": k,
+            "label": cur["label"],
+            "hint": v.get("hint") or "",
+            "system": cur["system"],
+            "llm": cur["llm"],
+            "default": v.get("system") or "",
+        })
+    return {"purposes": out}
+
+
+@app.post("/api/llm/purposes")
+async def llm_purposes_save(data: dict):
+    """용도별 프롬프트·LLM 저장. 다른 설정(prompts.json)은 건드리지 않는다."""
+    cur = load_json(PROMPTS_FILE) if PROMPTS_FILE.exists() else {}
+    ps = dict(cur.get("purposes") or {})
+    for k, v in (data.get("purposes") or {}).items():
+        if k not in LLM_PURPOSES:
+            continue
+        ps[k] = {
+            "system": str((v or {}).get("system") or ""),
+            "llm": str((v or {}).get("llm") or ""),
+        }
+    cur["purposes"] = ps
+    PROMPTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    save_json(PROMPTS_FILE, cur)
+    return {"ok": True}
 
 
 async def _llm_json(llm, sys_p, user_p, schema, timeout=120):
@@ -1880,9 +1977,10 @@ async def llm_wiring(payload: dict):
     if not devs or not meters:
         return {"ok": False, "error": "장비와 계측기가 있어야 배선을 그립니다"}
 
-    llm = _llm_pick()
+    llm = _llm_pick("wiring")
     if not llm:
         return {"ok": False, "error": "등록된 로컬 LLM 이 없습니다 — 설정 › LLM 설정에서 켜세요"}
+    sys_p = _prompt_of("wiring")["system"]
 
     def _one(x):
         return {
@@ -1912,16 +2010,6 @@ async def llm_wiring(payload: dict):
         },
         "required": ["wires"],
     }
-    sys_p = (
-        "당신은 네트워크 시험 랩의 배선을 정리한다. 사람이 말한 연결을 "
-        "'장비 포트 ↔ 계측기 포트' 줄로 옮긴다.\n"
-        "규칙:\n"
-        "1) dev·meter 는 반드시 주어진 목록의 id 를 그대로 쓴다.\n"
-        "2) port·meterPort 는 반드시 그 장비/계측기의 ports 목록에 있는 값을 그대로 쓴다.\n"
-        "3) 목록에 없으면 그 줄은 만들지 않는다. 비슷한 이름을 지어내지 마라.\n"
-        "4) 한 포트는 한 번만 쓴다.\n"
-        "5) JSON 만 출력한다."
-    )
     user_p = (
         "장비:\n" + json.dumps(D, ensure_ascii=False) +
         "\n계측기:\n" + json.dumps(M, ensure_ascii=False) +
