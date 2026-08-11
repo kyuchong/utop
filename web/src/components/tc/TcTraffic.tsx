@@ -633,6 +633,51 @@ export default function TcTraffic({ data, onChange }: Props) {
    * 손으로도 적게 두면 시작·걸음·개수와 어긋난 값이 남는다. 무엇으로
    * 정해지는지가 보이도록 흐리게 두고 잠근다.
    */
+  /**
+   * 걸음 칸.
+   *
+   * 모드가 「고정」 이면 걸음은 아무 뜻이 없다. 그런데 적을 수는 있어서,
+   * 3 으로 키워 놓고 왜 끝 주소가 안 움직이냐고 보게 된다. 고정일 때는
+   * 잠그고 왜 잠겼는지 적는다.
+   */
+  const fldStep = (k: keyof MeterStream, modK: keyof MeterStream, fromK: keyof MeterStream) => {
+    const fixed = String(s?.[modK] ?? '고정') === '고정'
+    // 시작이 비어 있으면 셈할 것이 없다. L3 는 새 스트림에서 비어 있으므로
+    // 이 경우가 흔하다 — 잠긴 까닭을 적어 두지 않으면 고장으로 읽힌다.
+    const noFrom = !String(s?.[fromK] ?? '').trim()
+    const why = noFrom
+      ? 'From 을 먼저 적으세요'
+      : fixed
+        ? '모드를 「증가」 나 「감소」 로 바꾸면 켜집니다'
+        : ''
+    /*
+     * 걸음을 키워도 끝이 안 움직이는 까닭은 대개 **개수가 1** 이라서다.
+     * 주소가 하나뿐이니 걸을 데가 없다. 그 말을 여기 적어 둔다 — 안 적으면
+     * 고장으로 읽히고, 실제로 그렇게 읽혔다.
+     */
+    const one = !fixed && !noFrom && (Number(s?.count) || 1) <= 1
+    return (
+      <>
+        <label className="tt-f" title={why}>
+          <span>Step</span>
+          <input
+            className="mono"
+            style={{ width: 48 }}
+            disabled={fixed || noFrom}
+            value={fixed || noFrom ? '' : String(s?.[k] ?? '1')}
+            placeholder="–"
+            onChange={(e) => setStream(sel, { [k]: e.target.value })}
+          />
+        </label>
+        {one && (
+          <span className="tt-warn small" title="「포트 · 방향」 갈래의 「개수」">
+            개수가 1이라 주소가 하나뿐입니다
+          </span>
+        )}
+      </>
+    )
+  }
+
   const fldRO = (label: string, k: keyof MeterStream, w = 110) => (
     <label className="tt-f" title="From · Step · 개수로 저절로 정해집니다">
       <span>{label}</span>
@@ -1122,23 +1167,26 @@ export default function TcTraffic({ data, onChange }: Props) {
                 <div className="tt-grid">
                   {fld('From', 'srcMac', '00:00:00:00:00:01', undefined, 140)}
                   {fldRO('To', 'srcMacTo', 140)}
-                  {fld('Step', 'srcMacStep', '1', undefined, 48)}
                   {fld('모드', 'srcMacMod', '', MODS, 88)}
+                  {fldStep('srcMacStep', 'srcMacMod', 'srcMac')}
                 </div>
                 <div className="tt-sub">DST MAC</div>
                 <div className="tt-grid">
                   {fld('From', 'dstMac', '00:00:00:00:00:02', undefined, 140)}
                   {fldRO('To', 'dstMacTo', 140)}
-                  {fld('Step', 'dstMacStep', '1', undefined, 48)}
                   {fld('모드', 'dstMacMod', '', MODS, 88)}
+                  {fldStep('dstMacStep', 'dstMacMod', 'dstMac')}
                 </div>
                 <div className="tt-sub">VLAN</div>
                 <div className="tt-grid">
                   {fld('VLAN ID', 'vlan', '없으면 비움', undefined, 92)}
+                  {/* 끝 VLAN 이 안 보였다. 셈은 하고 있었는데 그릴 자리가
+                      없어서, 몇 번부터 몇 번까지 나가는지 알 길이 없었다. */}
+                  {fldRO('To', 'vlanTo', 92)}
                   {fld('모드', 'vlanMod', '', MODS, 88)}
-                  {fld('Step', 'vlanStep', '1', undefined, 48)}
+                  {fldStep('vlanStep', 'vlanMod', 'vlan')}
                   {fld('802.1p', 'prio', '0', undefined, 44)}
-                  {fld('E-Type', 'etherType', '', ETYPES, 92)}
+                  {fld('E-Type', 'etherType', '', ETYPES, 132)}
                 </div>
               </div>
 
@@ -1157,15 +1205,15 @@ export default function TcTraffic({ data, onChange }: Props) {
                 <div className="tt-grid">
                   {fld('From', 'srcIp', '1.1.1.1', undefined, 124)}
                   {fldRO('To', 'srcIpTo', 124)}
-                  {fld('Step', 'srcIpStep', '1', undefined, 48)}
                   {fld('모드', 'srcIpMod', '', MODS, 88)}
+                  {fldStep('srcIpStep', 'srcIpMod', 'srcIp')}
                 </div>
                 <div className="tt-sub">DST IP</div>
                 <div className="tt-grid">
                   {fld('From', 'dstIp', '2.1.1.1', undefined, 124)}
                   {fldRO('To', 'dstIpTo', 124)}
-                  {fld('Step', 'dstIpStep', '1', undefined, 48)}
                   {fld('모드', 'dstIpMod', '', MODS, 88)}
+                  {fldStep('dstIpStep', 'dstIpMod', 'dstIp')}
                 </div>
                 <div className="tt-sub">L4</div>
                 <div className="tt-grid">
