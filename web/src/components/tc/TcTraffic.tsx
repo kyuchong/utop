@@ -670,8 +670,8 @@ export default function TcTraffic({ data, onChange }: Props) {
           />
         </label>
         {one && (
-          <span className="tt-warn small" title="「포트 · 방향」 갈래의 「개수」">
-            개수가 1이라 주소가 하나뿐입니다
+          <span className="tt-warn small" title="「포트 · 방향 · 부하」 갈래의 「주소 수」">
+            주소 수가 1이라 걸을 데가 없습니다
           </span>
         )}
       </>
@@ -1150,10 +1150,24 @@ export default function TcTraffic({ data, onChange }: Props) {
                   {fld('방향', 'direction', '', ['단방향', '양방향'], 88)}
                   {fld('SRC Port', 'src', '', portOpts(s?.src as string | undefined), 104)}
                   {fld('DST Port', 'dst', '', portOpts(s?.dst as string | undefined), 104)}
-                  {/* 이 스트림이 몇 갈래로 불어나는가. MAC·IP·VLAN 의 「To」
-                      가 이 수로 정해진다 — 표에서 뺐더니 걸음을 아무리
-                      키워도 끝 주소가 안 움직였다. */}
-                  {fld('개수', 'count', '1', undefined, 56)}
+                  {/* 한 스트림이 **몇 개의 주소를 훑는가.** 표에 있던
+                      「S.CNT」 가 이것이다 — 표를 줄이며 뺐더니 걸음을
+                      아무리 키워도 끝 주소가 안 움직였다.
+                      「개수」 만으로는 무엇의 개수인지 안 읽혀서 이름을
+                      고쳤다. */}
+                  <label
+                    className="tt-f"
+                    title="이 스트림이 훑는 주소 수(옛 S.CNT). MAC·IP·VLAN 의 From 에서 Step 씩 이만큼 늘려 갑니다 — 1 이면 한 주소뿐이라 Step 이 아무 일도 안 합니다."
+                  >
+                    <span>주소 수</span>
+                    <input
+                      className="mono"
+                      style={{ width: 56 }}
+                      value={String(s?.count ?? '1')}
+                      placeholder="1"
+                      onChange={(e) => setStream(sel, { count: e.target.value })}
+                    />
+                  </label>
                 </div>
               </div>
 
