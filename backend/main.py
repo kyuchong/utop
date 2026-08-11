@@ -7059,7 +7059,7 @@ def _n2x_streams_from(data: dict):
 #
 # 데몬은 윈도우에서 도는 Tcl 이라 한글이 그대로 가면 깨진다(전에 오류
 # 메시지가 그렇게 깨져 읽을 수가 없었다). 여기서 ASCII 로 바꿔 보낸다.
-_N2X_MODS = {"증가": "inc", "감소": "dec", "무작위": "rand"}
+_N2X_MODS = {"증가": "inc", "감소": "dec", "무작위": "rand", "Yes": "inc", "No": "fix"}
 
 
 def _n2x_specs(streams):

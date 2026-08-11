@@ -66,7 +66,7 @@ function numToIp(n: number): string {
 function endOf(from: string, mod: string, cnt: string, kind: 'mac' | 'ip'): string {
   const n = Math.max(1, Number(cnt) || 1)
   const dir = mod === '감소' ? -1 : 1
-  if (mod !== '증가' && mod !== '감소') return from
+  if (incOf(mod) === 'No') return from
   if (kind === 'mac') {
     const a = macToNum(from)
     return a === null ? from : numToMac(a + BigInt(dir * (n - 1)))
@@ -85,7 +85,7 @@ function listOf(from: string, mod: string, cnt: string, kind: 'mac' | 'ip'): str
   const n = Math.max(1, Number(cnt) || 1)
   const dir = mod === '감소' ? -1 : 1
   if (!String(from ?? '').trim()) return []
-  if (mod !== '증가' && mod !== '감소') return [from]
+  if (incOf(mod) === 'No') return [from]
   const out: string[] = []
   if (kind === 'mac') {
     const a = macToNum(from)
@@ -163,7 +163,23 @@ function newStream(n: number, a: string, b: string): MeterStream {
   }
 }
 
-const MODS = ['고정', '증가', '감소', '무작위']
+/*
+ * 늘릴까 말까 — **Yes / No**.
+ *
+ * 「고정·증가·감소·무작위」 넷으로 두었는데, N2X 는 칸마다 「늘릴래?」 를
+ * 예·아니오로 묻는다. 화면이 계측기와 다른 말을 쓰면 옮겨 적을 때마다
+ * 머리로 한 번 번역해야 한다.
+ *
+ * 옛 자료에는 「증가」·「고정」 이 그대로 들어 있다. 읽을 때만 Yes/No 로
+ * 보여 주고(`incOf`), 새로 고르면 Yes/No 로 적힌다.
+ */
+const MODS = ['Yes', 'No']
+
+/** 이 칸이 늘어나는가 — 옛 말(증가·감소)도 함께 읽는다 */
+function incOf(v: unknown): 'Yes' | 'No' {
+  const t = String(v ?? '').trim()
+  return t === 'Yes' || t === '증가' || t === '감소' ? 'Yes' : 'No'
+}
 const UNITS = ['Mbps', 'Percent(%)', 'Frames/sec(fps)', 'bps']
 const BYTEMODES = ['Fixed', 'Increment', 'Decrement', 'Random']
 const L4 = ['TCP', 'UDP', 'ICMP', '없음']
@@ -694,14 +710,14 @@ export default function TcTraffic({ data, onChange }: Props) {
    * 잠그고 왜 잠겼는지 적는다.
    */
   const fldStep = (k: keyof MeterStream, modK: keyof MeterStream, fromK: keyof MeterStream) => {
-    const fixed = String(s?.[modK] ?? '고정') === '고정'
+    const fixed = incOf(s?.[modK]) === 'No'
     // 시작이 비어 있으면 셈할 것이 없다. L3 는 새 스트림에서 비어 있으므로
     // 이 경우가 흔하다 — 잠긴 까닭을 적어 두지 않으면 고장으로 읽힌다.
     const noFrom = !String(s?.[fromK] ?? '').trim()
     const why = noFrom
       ? 'From 을 먼저 적으세요'
       : fixed
-        ? '모드를 「증가」 나 「감소」 로 바꾸면 켜집니다'
+        ? '「증가」 를 Yes 로 바꾸면 켜집니다'
         : ''
     return (
       <>
@@ -735,6 +751,24 @@ export default function TcTraffic({ data, onChange }: Props) {
    * 절반이 빈 입력칸이었다. 값이 짧으면 칸도 짧아야 한 줄에 여럿이
    * 서고, 그래야 눈이 옆으로 훑어 읽는다.
    */
+  /** 늘림 여부 칸 — Yes/No. 옛 말이 들어 있어도 Yes/No 로 보여 준다. */
+  const fldInc = (k: keyof MeterStream) => (
+    <label className="tt-f" title="Yes 면 개수만큼 늘려 가며 보냅니다 (N2X 와 같은 방식)">
+      <span>증가</span>
+      <select
+        style={{ width: 62 }}
+        value={incOf(s?.[k])}
+        onChange={(e) => setStream(sel, { [k]: e.target.value })}
+      >
+        {MODS.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+
   const fld = (
     label: string,
     k: keyof MeterStream,
@@ -1159,13 +1193,20 @@ export default function TcTraffic({ data, onChange }: Props) {
                         }}
                       />
                     </td>
+                    {/* 체크 대신 Yes/No 로 적는다. 계측기 화면이 그렇게
+                        적고, 무엇보다 인쇄한 결과서에서 체크는 켠 것인지
+                        칸이 빈 것인지 안 갈린다. */}
                     <td>
-                      <input
-                        type="checkbox"
-                        checked={row.enabled !== false}
-                        title="끄면 이 스트림은 안 보냅니다"
-                        onChange={(e) => setStream(i, { enabled: e.target.checked })}
-                      />
+                      <select
+                        className="tt-in"
+                        style={{ width: 62 }}
+                        value={row.enabled === false ? 'No' : 'Yes'}
+                        title="No 면 이 스트림은 안 보냅니다"
+                        onChange={(e) => setStream(i, { enabled: e.target.value === 'Yes' })}
+                      >
+                        <option>Yes</option>
+                        <option>No</option>
+                      </select>
                     </td>
                     <td>{cell(i, 'name', 140)}</td>
                     {/* 여기서 바로 고친다. 아래로 내려가 다시 찾을 것 없이
@@ -1344,14 +1385,14 @@ export default function TcTraffic({ data, onChange }: Props) {
                 <div className="tt-grid">
                   {fld('From', 'srcMac', '00:00:00:00:00:01', undefined, 140)}
                   {fldRO('To', 'srcMacTo', 140)}
-                  {fld('모드', 'srcMacMod', '', MODS, 88)}
+                  {fldInc('srcMacMod')}
                   {fldStep('srcMacStep', 'srcMacMod', 'srcMac')}
                 </div>
                 <div className="tt-sub">DST MAC</div>
                 <div className="tt-grid">
                   {fld('From', 'dstMac', '00:00:00:00:00:02', undefined, 140)}
                   {fldRO('To', 'dstMacTo', 140)}
-                  {fld('모드', 'dstMacMod', '', MODS, 88)}
+                  {fldInc('dstMacMod')}
                   {fldStep('dstMacStep', 'dstMacMod', 'dstMac')}
                 </div>
                 <div className="tt-sub">VLAN</div>
@@ -1360,7 +1401,7 @@ export default function TcTraffic({ data, onChange }: Props) {
                   {/* 끝 VLAN 이 안 보였다. 셈은 하고 있었는데 그릴 자리가
                       없어서, 몇 번부터 몇 번까지 나가는지 알 길이 없었다. */}
                   {fldRO('To', 'vlanTo', 92)}
-                  {fld('모드', 'vlanMod', '', MODS, 88)}
+                  {fldInc('vlanMod')}
                   {fldStep('vlanStep', 'vlanMod', 'vlan')}
                   {fld('802.1p', 'prio', '0', undefined, 44)}
                   {fld('E-Type', 'etherType', '', ETYPES, 132)}
@@ -1382,14 +1423,14 @@ export default function TcTraffic({ data, onChange }: Props) {
                 <div className="tt-grid">
                   {fld('From', 'srcIp', '1.1.1.1', undefined, 124)}
                   {fldRO('To', 'srcIpTo', 124)}
-                  {fld('모드', 'srcIpMod', '', MODS, 88)}
+                  {fldInc('srcIpMod')}
                   {fldStep('srcIpStep', 'srcIpMod', 'srcIp')}
                 </div>
                 <div className="tt-sub">DST IP</div>
                 <div className="tt-grid">
                   {fld('From', 'dstIp', '2.1.1.1', undefined, 124)}
                   {fldRO('To', 'dstIpTo', 124)}
-                  {fld('모드', 'dstIpMod', '', MODS, 88)}
+                  {fldInc('dstIpMod')}
                   {fldStep('dstIpStep', 'dstIpMod', 'dstIp')}
                 </div>
                 <div className="tt-sub">L4</div>
