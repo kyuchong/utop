@@ -270,14 +270,28 @@
 .tc-dot.draft { background: var(--c-draft); }
 
 /* ── 2열: 실행 바 + 스텝 ─────────────────────────────────── */
+/*
+ * 실행 줄도 **한 줄**이다 — 3열 머리와 같은 46px.
+ *
+ * 접히게 두었더니 좁은 창에서 88px 이 되어, 옆 칸 머리(46px)와 층이
+ * 졌다. 두 칸이 나란한데 머리 높이가 다르면 어디까지가 머리인지 안
+ * 읽힌다. 좁으면 옆으로 굴린다.
+ */
 .tc-run {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 7px var(--sp-3);
-  flex-wrap: wrap;
+  min-height: 46px;
+  box-sizing: border-box;
+  padding: 0 var(--sp-3);
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
   border-bottom: 1px solid var(--tc-line);
 }
+/* 굴러가는 줄 안의 것들은 안 줄어든다 — 줄어들면 글자가 잘린다 */
+.tc-run > * { flex: none; }
 
 .tc-run .sp { margin-left: auto; }
 
@@ -2223,14 +2237,26 @@ table.tb tr.r-bad td:first-child {
    「이 칸이 무엇을 보여주나」 가 화면 양끝으로 갈라졌다. 각자 제 칸으로
    들어간다. */
 .tc-seqhead,
+/*
+ * 탭 줄은 **한 줄**이다.
+ *
+ * `flex-wrap: wrap` 이라 1280px 창에서 탭 여덟 개가 석 줄로 접혀 이 줄이
+ * 107px 이 됐다. 카드로 떼어 놓으니 그 뭉치가 위에 따로 뜬 판처럼 보였다
+ * — 「상·하로 갈라졌다」 는 것이 이것이다. 접지 않고, 좁으면 옆으로
+ * 굴린다. 높이가 46px 로 고정되어야 세 칸의 머리가 한 줄에서 만난다.
+ */
 .tc-dethead {
   display: flex;
   align-items: center;
   gap: 8px;
   min-height: 46px;
+  box-sizing: border-box;
   padding: 0 10px;
   border-bottom: 1px solid var(--c-border);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 .tc-seqhead .sp,
 .tc-dethead .sp { margin-left: auto; }
@@ -2288,16 +2314,24 @@ table.tb tr.r-bad td:first-child {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-/* 안쪽 칸도 저마다 카드 — 1열과 같은 테두리·모서리·바탕 */
-.tc-content > .panel,
-.tc-content > .tc-dethead,
-.tc-inner > .panel {
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: var(--r-box);
   overflow: hidden;
+}
+/*
+ * 안쪽 칸은 카드를 또 그리지 않는다.
+ *
+ * 저마다 카드를 주었더니 탭 줄이 위에 따로 뜬 판이 되어 화면이 상·하로
+ * 갈라져 보였다. 탭은 아래 두 칸을 **함께** 바꾸는 것이라 그 둘을 덮는
+ * 카드의 머리여야 한다. 세 칸으로 읽히는 것은 사이의 세로선이 맡는다 —
+ * 2열·3열 저마다 46px 머리를 달아 두었으므로 칸의 경계는 그대로 보인다.
+ */
+.tc-content > .panel,
+.tc-inner > .panel {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 .tc-content > .tc-dethead { flex: none; }
 .tc-inner {
@@ -2305,6 +2339,8 @@ table.tb tr.r-bad td:first-child {
   min-height: 0;
   display: flex;
 }
+/* 목록과 세부 사이만 선으로 가른다 */
+.tc-inner > .tc-detcol { border-left: 1px solid var(--c-border); }
 
 /*
  * 칸 머리 — 1열의 `.lh` 와 **같은 46px**. 여기가 어긋나면 세 칸의 구분선이
