@@ -65,8 +65,15 @@ export default function Requirements() {
   }, [foldersOnly])
   /** 폴더 안의 차례 — ID 순. 번호가 이어져야 빠진 것이 눈에 띈다 */
   const sort: 'id' | 'title' = 'id'
-  /** 찾는 글자 — 트리 안에 있던 줄을 머리줄로 올렸다 */
-  const [treeQ, setTreeQ] = useState('')
+  /**
+   * 2열 목록에서 찾는 글자.
+   *
+   * 이 칸은 2열 위에 있다. 그런데 값을 1열 트리에 물려 두어서, 여기에
+   * 「PERF」 를 치면 **1열이 걸러지고 2열은 그대로**였다 — 보는 자리와
+   * 걸러지는 자리가 어긋나 있었다. 이제 2열 목록만 거른다. 1열은 바로
+   * 위의 폴더 찾기가 맡는다.
+   */
+  const [listQ, setListQ] = useState('')
   /** 폴더 이름으로 찾기 — 요구사항 찾기와 갈라 둔다 */
   const [folderQ, setFolderQ] = useState('')
   const [selectedFolder, setSelectedFolder] = useState<string | null | undefined>(() => {
@@ -249,22 +256,43 @@ export default function Requirements() {
   /**
    * 이 폴더에 속한 요구사항 — 하위 폴더까지.
    *
-   * 요구사항은 cat1~cat4 에 자기가 놓인 폴더의 **조상 사슬 전체**를 들고
-   * 있다(ReqTree 의 moveReqM 이 그렇게 채운다). 그래서 넷 중 하나만
-   * 맞으면 그 폴더의 자손이다 — 분류 트리를 따로 훑을 필요가 없다.
+   * 전에는 요구사항이 들고 있는 조상 사슬(`cat1~cat4`)에서 고른 폴더를
+   * 찾았다. 그것이 **다 채워져 있을 때만** 맞는 방법이다. 옛 자료나 손으로
+   * 옮긴 것은 제가 놓인 칸만 차 있고 위쪽이 비어 있어서, PERF 를 누르면
+   * 그 아래 L2·IPv4 의 요구사항이 통째로 빠졌다 — 트리의 수(REQ 10)와
+   * 2열에 뜨는 수가 서로 달랐다.
+   *
+   * **분류 트리를 직접 훑는다.** 고른 폴더와 그 자손의 id 를 모아 두고,
+   * 요구사항이 놓인 칸이 그 안에 있으면 내 것이다. 사슬이 비어 있어도
+   * 맞는다 — 트리가 사실이고 사슬은 그 사본이다.
    */
   const folderReqs = useMemo(() => {
     if (selectedFolder === undefined) return []
     if (selectedFolder === null)
       return allReqs.filter((r) => !r.cat1 && !r.cat2 && !r.cat3 && !r.cat4)
-    return allReqs.filter(
-      (r) =>
-        r.cat1 === selectedFolder ||
-        r.cat2 === selectedFolder ||
-        r.cat3 === selectedFolder ||
-        r.cat4 === selectedFolder,
-    )
-  }, [allReqs, selectedFolder])
+    const cats = catQ.data?.categories ?? []
+    const kids = new Map<string | null, string[]>()
+    for (const c of cats) {
+      const k = c.parent_id ?? null
+      if (!kids.has(k)) kids.set(k, [])
+      kids.get(k)!.push(c.id)
+    }
+    // 고른 폴더 + 그 아래 전부. 자료가 어긋나 고리가 생겨도 안 돌게 본 것은 건너뛴다
+    const ids = new Set<string>()
+    const walk = (id: string) => {
+      if (ids.has(id)) return
+      ids.add(id)
+      for (const k of kids.get(id) ?? []) walk(k)
+    }
+    walk(selectedFolder)
+    const at = (r: Requirement) => (r.cat4 || r.cat3 || r.cat2 || r.cat1 || null) as string | null
+    return allReqs.filter((r) => {
+      const f = at(r)
+      if (f && ids.has(f)) return true
+      // 사슬이 남아 있으면 그것도 본다 — 폴더가 지워진 옛 자료를 위해
+      return [r.cat1, r.cat2, r.cat3, r.cat4].some((c) => c && ids.has(c as string))
+    })
+  }, [allReqs, selectedFolder, catQ.data])
 
   /** 이 요구사항을 덮는 TC 수 — tc.req_id 와 req.tc[] 참조의 합집합 */
   const covCount = useMemo(
@@ -289,10 +317,16 @@ export default function Requirements() {
   const tcByFolder = !selectedReq && folderMode
 
   /** Detail 가운데 목록 — 보고 있는 폴더의 형제 요구사항들 */
-  const midReqs = useMemo(
-    () => (folderMode ? sortedFolderReqs : selectedReq ? [selectedReq] : []),
-    [folderMode, sortedFolderReqs, selectedReq],
-  )
+  const midReqs = useMemo(() => {
+    const base = folderMode ? sortedFolderReqs : selectedReq ? [selectedReq] : []
+    const n = listQ.trim().toLowerCase()
+    if (!n) return base
+    return base.filter(
+      (r) =>
+        (r.reqid ?? '').toLowerCase().includes(n) ||
+        (r.title ?? '').toLowerCase().includes(n),
+    )
+  }, [folderMode, sortedFolderReqs, selectedReq, listQ])
 
   /** 선택된 REQ 에 연결된 TC — 양쪽 정본의 합집합 */
   /**
@@ -707,7 +741,6 @@ export default function Requirements() {
                 setTab('info')
               }}
               view={{ fullId, foldersOnly }}
-              q={treeQ}
               folderQ={folderQ}
               selectedFolder={selectedFolder}
               onSelectFolder={(id) => {
@@ -761,18 +794,17 @@ export default function Requirements() {
               <b>Requirements List</b>
               <span className="rq-mid-hn">{midReqs.length}</span>
               <span className="sp" />
-              {folderMode && <span className="muted small">{folderName}</span>}
             </div>
             {/* 찾기는 찾는 것 바로 위에 둔다. 화면 맨 위 오른쪽에 있었더니
                 눈은 목록에 있는데 손은 저 멀리로 갔다. */}
             <div className="rq-ffind rq-midfind">
               <input
-                value={treeQ}
+                value={listQ}
                 placeholder="요구사항 찾기"
-                onChange={(e) => setTreeQ(e.target.value)}
+                onChange={(e) => setListQ(e.target.value)}
               />
-              {treeQ && (
-                <button type="button" title="지우기" onClick={() => setTreeQ('')}>
+              {listQ && (
+                <button type="button" title="지우기" onClick={() => setListQ('')}>
                   ✕
                 </button>
               )}
