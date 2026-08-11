@@ -758,6 +758,15 @@ export function sessionIndex(v: string | number | undefined): number {
 export interface TcWire {
   /** 장비 쪽 — 세션 자리 번호. 어느 장비인지는 `data.sessions` 가 정한다 */
   session: number
+  /**
+   * 세션에 없는 장비를 곧바로 가리킬 때.
+   *
+   * 장비 쪽을 세션 자리(S1·S2)로만 고르게 해 두었더니, 장비를 둘 등록해
+   * 놓고도 세션에 하나만 앉혀 두면 하나밖에 안 보였다. 배선은 랩의
+   * 사실이라 시험에 무엇을 앉혔는지와 상관없이 적을 수 있어야 한다.
+   * 이 값이 있으면 세션 자리보다 이것을 먼저 본다.
+   */
+  dev?: string
   /** 장비 포트 이름 (Gi0/1) */
   port: string
   /** 계측기 장비 id */

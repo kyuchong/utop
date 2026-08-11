@@ -280,7 +280,8 @@ export default function TcTopology({
       ) : (
         <div className="tp-list">
           {wiring.map((w, i) => {
-            const dev = devById.get(sessions[w.session] ?? '')
+            // 곧바로 고른 장비가 있으면 그것, 없으면 세션 자리의 장비
+            const dev = devById.get(w.dev || sessions[w.session] || '')
             const meter = devById.get(w.meter)
             const ifs = dev?.interfaces ?? []
             const mports = ports[w.meter] ?? []
@@ -288,21 +289,40 @@ export default function TcTopology({
               <div className="tp-item" key={i}>
                 <div className="tp-row">
                 <span className="tp-side">
+                  {/*
+                    장비를 **등록된 것 중에서 바로** 고른다.
+
+                    세션 자리(S1·S2)로만 고르게 해 두었더니, 장비를 둘
+                    등록해 놓고도 세션에 하나만 앉혀 두면 하나밖에 안
+                    보였다. 시험에 앉힌 것은 위쪽에 먼저 두고, 그 아래에
+                    등록된 장비를 다 편다.
+                  */}
                   <select
-                    value={w.session}
-                    onChange={(e) => set(i, { session: Number(e.target.value), port: '' })}
+                    value={w.dev ? `d:${w.dev}` : `s:${w.session}`}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      if (v.startsWith('d:')) set(i, { dev: v.slice(2), port: '' })
+                      else set(i, { dev: undefined, session: Number(v.slice(2)), port: '' })
+                    }}
                   >
-                    {/* 세션이 아직 없으면 그렇다고 적는다 — 빈 칸이면
-                        고를 것이 없는 것인지 안 고른 것인지 안 갈린다 */}
-                    {!sessions.length && <option value={0}>세션 없음 — 나중에</option>}
                     {sessions.map((sid, n) => {
                       const d = devById.get(sid)
                       return (
-                        <option key={n} value={n}>
+                        <option key={`s${n}`} value={`s:${n}`}>
                           S{n + 1} · {d ? deviceLabel(d) : sid}
                         </option>
                       )
                     })}
+                    {/* 시험에 안 앉힌 장비도 고를 수 있다 — 배선은 랩의
+                        사실이라 시험 구성과 따로다. 계측기는 오른쪽에서
+                        고르므로 여기서는 뺀다. */}
+                    {devices
+                      .filter((d) => !isMeter(d) && !sessions.includes(d.id))
+                      .map((d) => (
+                        <option key={`d${d.id}`} value={`d:${d.id}`}>
+                          {deviceLabel(d)}
+                        </option>
+                      ))}
                   </select>
                   {/* 포트 이름은 장비에 등록된 것에서 고른다. 없으면 직접 친다 */}
                   {ifs.length ? (
