@@ -7101,9 +7101,15 @@ def n2x_traffic_start(data: dict):
     streams = _n2x_streams_from(data)
     if not streams:
         return {"ok": False, "error": "streams(또는 module/txPort/rxPort) 필요"}
+    # 보내는 줄을 그대로 남긴다.
+    #
+    # 「10 갈래로 잡았는데 두 줄만 나온다」 를 쫓는 데 한참 걸렸다. 화면 ·
+    # 서버 · 데몬 셋 중 어디서 값이 빠지는지 볼 데가 없었기 때문이다.
+    # 이 한 줄이면 무엇이 실제로 나갔는지 바로 보인다.
+    cmd = "tstart " + str(data.get("dur") or 0) + " " + " ".join(_n2x_specs(streams))
+    _n2x_log("[N2X] " + cmd)
     return _n2x_humanize(_n2x_send(
-        str(data.get("server", "210.1.2.248")), str(data.get("label", "utop")),
-        "tstart " + str(data.get("dur") or 0) + " " + " ".join(_n2x_specs(streams))))
+        str(data.get("server", "210.1.2.248")), str(data.get("label", "utop")), cmd))
 
 
 @app.post("/api/n2x/traffic/stat")
