@@ -64,6 +64,12 @@
 }
 .lh-findbtn:hover { background: var(--c-surface-2); }
 .lh-find.on .lh-findbtn { color: var(--c-primary); }
+/* 켠 채로 두는 단추 — 찾기와 달리 눌린 상태가 계속 보여야 한다 */
+.lh-gp.on {
+  color: var(--c-primary);
+  background: var(--c-primary-bg);
+  border-color: var(--c-primary);
+}
 /*
  * 펼친 칸은 **왼쪽 글자 위를 덮는다.**
  *

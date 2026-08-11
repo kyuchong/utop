@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import ListHead from '@/components/ListHead'
-import { IconPanel, IconReqDoc, IconTcDoc } from '@/components/icons'
+import { IconPanel, IconParam, IconReqDoc, IconTcDoc } from '@/components/icons'
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
@@ -1575,14 +1575,16 @@ export default function TestCases({ me }: PageProps) {
             /* 파라미터는 시험이 아니라 **시험이 쓰는 값**이다. 트리에 폴더인
                척 끼워 두는 것보다 칸 머리에서 켜고 끄는 편이 맞다. */
             extra={
+              /* 찾기 단추와 **같은 모양**으로 나란히 둔다. 글자로 두었더니
+                 「Coverage Tree 89」 옆에서 폭을 크게 먹어 이름이 밀렸다. */
               <button
-                className={`btn small${gpOpen ? ' primary' : ''}`}
+                className={`lh-findbtn lh-gp${gpOpen ? ' on' : ''}`}
                 type="button"
                 title="전역 파라미터 — 스텝에서 ${이름} 으로 쓰는 값"
                 aria-pressed={gpOpen}
                 onClick={() => setGpOpen((v) => !v)}
               >
-                Global Parameter
+                <IconParam />
               </button>
             }
             /* 만들기·일괄·삭제·내보내기는 List 의 일 줄에 있다. 여기 또 두면
