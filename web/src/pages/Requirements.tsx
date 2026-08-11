@@ -580,7 +580,7 @@ export default function Requirements() {
               )}
             </span>
           ))}
-          {view === 'detail' && selectedReq && (
+            {view === 'detail' && selectedReq && (
             <>
               <span className="rq-crumb-sep">›</span>
               <b>{selectedReq.title || reqLabel(selectedReq) || '(제목 없음)'}</b>
@@ -711,10 +711,17 @@ export default function Requirements() {
               folderQ={folderQ}
               selectedFolder={selectedFolder}
               onSelectFolder={(id) => {
-                // 폴더를 열면 그 안 요구사항을 표로 훑는 것이다 → List
                 setSelectedFolder(id)
                 setSelected(null)
-                setView('list')
+                /*
+                 * Detail 을 보고 있었으면 Detail 을 지킨다.
+                 *
+                 * 폴더를 누를 때마다 List 로 튕겼다. 그런데 2열 목록이
+                 * 하위 폴더까지 훑어 모아 주므로, Detail 에서 폴더를 누르는
+                 * 것은 「이 묶음을 2열로 보겠다」 는 뜻이다. 튕기면 그 목록을
+                 * 볼 수가 없다. 처음부터 List 였으면 List 그대로.
+                 */
+                if (view !== 'detail') setView('list')
               }}
               picked={picked}
               onRowClick={treeSel.onClick}
@@ -740,7 +747,11 @@ export default function Requirements() {
         {/* 1건뿐이어도 띄운다. 「2건 이상일 때만」 으로 두었더니 폴더에 하나만
             있는 요구사항에서는 이 열이 통째로 사라져, 열이 있다 없다 하는
             것으로 보였다. */}
-        {view === 'detail' && selectedReq && (
+        {/* 폴더를 고른 것만으로도 띄운다.
+            전에는 요구사항을 골라야 나왔다. 그래서 1열에서 상위 폴더를
+            누르면 그 아래 요구사항이 어디에도 안 보였다 — 하위 폴더까지
+            훑어 모은 목록이 정작 필요한 때가 그때인데. */}
+        {view === 'detail' && (selectedReq || folderMode) && (
           <>
           <section className="panel rq-mid" ref={midRef} style={{ flexBasis: midW }}>
             {/* 1열의 「Requirement Tree」 와 같은 자리·같은 무게로 둔다.

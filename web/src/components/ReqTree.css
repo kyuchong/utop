@@ -572,3 +572,11 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* 폴더 층을 아이콘 색으로 가른다.
+   들여쓰기만으로는 1차·2차·3차가 한눈에 안 갈린다 — 폭을 줄여 두면
+   들여쓴 폭이 몇 픽셀이라 층이 뭉개진다. 짙을수록 위층. */
+.rt-fold[data-depth='1'] .rt-ficon { color: #b8860b; }
+.rt-fold[data-depth='2'] .rt-ficon { color: #d4a13a; }
+.rt-fold[data-depth='3'] .rt-ficon { color: #e3c069; }
+.rt-fold[data-depth='4'] .rt-ficon { color: #ead8a4; }

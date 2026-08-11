@@ -541,6 +541,10 @@ export default function ReqTree({
           }${over === n.id && drag ? ' dropinto' : ''}${
             drag?.kind === 'cat' && drag.id === n.id ? ' dragging' : ''
           }${clip?.id === n.id ? ' copied' : ''}`}
+          /* 몇 층인가. 아이콘 색을 이것으로 가른다 — 들여쓰기만으로는
+             1차·2차·3차가 한눈에 안 갈린다. 특히 폭을 줄여 놓으면 들여쓴
+             폭이 몇 픽셀이라 층이 뭉개진다. */
+          data-depth={Math.min(n.depth, 4)}
           style={{ paddingLeft: 4 + (n.depth - 1) * 14 }}
           tabIndex={0}
           // 폴더를 누르면 그 아래 요구사항의 TC 를 오른쪽에 모아 보인다.

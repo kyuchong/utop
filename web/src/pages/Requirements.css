@@ -637,7 +637,10 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: var(--sp-2) var(--sp-3);
+  /* 1열 머리(`.lh`)·3열 탭 줄과 **같은 높이**여야 세 칸의 구분선이 한 줄에서
+     만난다. 여백으로 맞추면 글자 크기가 바뀔 때마다 어긋난다. */
+  min-height: 46px;
+  padding: 0 10px;
   border-bottom: 1px solid var(--c-border);
   font-size: var(--fs-sm);
   white-space: nowrap;
@@ -652,22 +655,29 @@
 .rq-mid-h .sp { margin-left: auto; }
 .rq-mid-list { flex: 1; min-height: 0; overflow: auto; }
 .rq-mid-row {
-  /* ID 와 제목을 한 줄에. 위아래로 쌓으면 줄 높이가 두 배가 되어 한 화면에
-     들어오는 건수가 반으로 준다 — 옆 것으로 넘어가려고 두는 목록인데. */
+  /* 1열 트리 줄과 **같은 모양**으로 둔다 — 높이·여백·구분선·고른 표시.
+     두 칸이 나란한데 줄 생김새가 다르면 옮겨 볼 때마다 눈이 다시 맞춘다. */
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
   width: 100%;
   text-align: left;
+  /* 1열 트리 줄과 같은 값을 쓴다 — 높이·여백·구분선·고른 색.
+     따로 적으면 한쪽만 바뀌어 두 칸이 어긋난다. */
+  padding: var(--row-py) var(--row-px);
+  min-height: var(--row-h);
+  box-sizing: border-box;
   border: 0;
+  box-shadow: inset 0 -1px 0 #dde3ea;
   background: transparent;
+  color: var(--c-text);
   font: inherit;
-  padding: 5px 10px;
-  border-bottom: 1px solid var(--c-border-soft);
   cursor: pointer;
 }
-.rq-mid-row:hover { background: var(--c-surface-2); }
-.rq-mid-row.on { background: var(--c-primary-bg); }
+/* 트리(`.rt`)가 쓰는 값과 같은 색. 그쪽 변수는 `.rt` 안에서만 사니
+   여기서는 값을 그대로 적는다 — 다르면 두 칸의 고른 줄이 달라 보인다. */
+.rq-mid-row:hover { background: #f2f5f8; }
+.rq-mid-row.on { background: #eaf1fb; }
 .rq-mid-row.on .rq-mid-t { color: var(--c-primary); font-weight: 700; }
 .rq-mid-id {
   flex: none;
