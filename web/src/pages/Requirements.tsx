@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { goto } from '@/api/goto'
+import { gotoClick, gotoHref } from '@/api/goto'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
@@ -1176,14 +1176,14 @@ export default function Requirements() {
                             무엇이 들었는지 보려면 TC 화면으로 가 이름을
                             다시 찾아야 했다. 사이클·실행 이력이 이미 같은
                             식으로 여는데 여기만 빠져 있었다. */}
-                        <button
-                          type="button"
+                        <a
                           className="tc-name linkish"
-                          title={`${t.tcid} — 누르면 이 시험으로 갑니다`}
-                          onClick={() => goto('tc', t.tcid)}
+                          href={gotoHref('tc', t.tcid)}
+                          title={`${t.tcid} — 누르면 이 시험으로 갑니다 (Ctrl+클릭·오른쪽 단추로 새 탭)`}
+                          onClick={(e) => gotoClick(e, 'tc', t.tcid)}
                         >
                           {t.name || '(제목 없음)'}
-                        </button>
+                        </a>
                       </div>
                       {tcByFolder && (
                         <div className="fold-req">

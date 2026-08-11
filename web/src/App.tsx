@@ -54,6 +54,37 @@ export default function App() {
       .catch(() => setUser(null))
   }, [])
 
+  /**
+   * 주소로 들어온 부탁 — `?tc=U-…`.
+   *
+   * 새 탭에서 링크를 열면 이 창은 처음부터 시작한다. 기억해 둔 화면이
+   * 아니라 **주소가 가리키는 것**부터 보여야 한다. 읽은 뒤 주소는
+   * 지운다 — 남겨 두면 새로 고칠 때마다 같은 곳으로 되돌아가, 그 뒤에
+   * 무엇을 열어 두었든 없던 일이 된다.
+   */
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search)
+    const kinds = [
+      ['tc', 'utop.tc.open', 'testcases'],
+      ['req', 'utop.req.sel', 'requirements'],
+      ['cycle', 'utop.cycle.sel', 'cycles'],
+      ['report', 'utop.report.cycle', 'executions'],
+    ] as const
+    for (const [key, store, to] of kinds) {
+      const id = p.get(key)
+      if (!id) continue
+      try {
+        localStorage.setItem(store, id)
+      } catch {
+        /* 사생활 보호 모드 */
+      }
+      setPage(to)
+      break
+    }
+    if ([...p.keys()].some((k) => kinds.some(([key]) => key === k)))
+      window.history.replaceState(null, '', window.location.pathname)
+  }, [])
+
   // 남이 바꾼 것을 어느 화면에 있든 바로 들여온다. 화면마다 따로 붙이면
   // 또 어느 하나가 빠지므로 여기 한 곳에서 듣는다.
   useLiveRefresh()

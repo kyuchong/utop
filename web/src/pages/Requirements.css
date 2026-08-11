@@ -469,15 +469,29 @@
 .cov-bar.good { background: #e8f5ed; color: #12643a; }
 .cov-bar .muted { color: inherit; opacity: 0.85; }
 
-/* Coverages 표에 '해제' 열이 늘었다 */
+/*
+ * Coverages 표.
+ *
+ * 오른쪽 넷(유형·Step·상태·해제)은 **폭이 정해진 곁들이**다. 담기는 것은
+ * 「Function」·한 자리 수·「Draft」·단추 하나뿐인데 넉넉히 잡아 두었더니
+ * 340px 을 물고 있었고, 그만큼 시험 이름이 잘렸다. 이름은 OID 가 통째로
+ * 들어가 길다 — `ubiEnvMonTemperatureLowThreshold ( OID-1.3.6.1.4.1… )`.
+ * 곁들이는 글자가 딱 들어갈 만큼으로 줄이고 좌우 여백도 좁혀, 남는 폭을
+ * 전부 이름에 준다.
+ */
 .tc-body .tr {
-  grid-template-columns: 1fr 110px 60px 96px 64px;
+  grid-template-columns: 1fr 74px 46px 72px 50px;
 }
 
 /* 폴더를 골랐을 때 — '요구사항' 열이 하나 더 붙는다 */
 .tc-body.by-folder .tr {
-  grid-template-columns: 1fr 132px 110px 60px 96px 64px;
+  grid-template-columns: 1fr 124px 74px 46px 72px 50px;
 }
+
+/* 곁들이 칸은 좌우 여백을 좁힌다. 이름 칸은 그대로 둔다 — 글이 테두리에
+   붙으면 읽기 나쁘다. */
+.tc-body .tr > div + div { padding-left: 4px; padding-right: 4px; }
+.tc-body .tr > div:last-child { padding-right: 6px; }
 
 /* 폴더 이름 줄. 탭 자리를 대신 쓰므로 높이가 같아야 패널 머리가 안 흔들린다. */
 .fold-title {
@@ -522,12 +536,13 @@
 /* 시험 이름은 눌러 들어가지만 **읽는 글**이다. 파란 링크로 만들면 표
    전체가 링크밭이 되어 정작 어디를 읽어야 할지 모르게 된다. 평소에는
    본문 그대로 두고, 손을 올렸을 때만 누를 수 있다고 알린다. */
-button.tc-name {
+a.tc-name {
   text-align: left;
   font-size: var(--fs-md);
   color: var(--c-text);
+  text-decoration: none;
 }
-button.tc-name:hover { color: var(--c-primary); }
+a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 
 /* ── 2열 구조 (2026-08-03) ────────────────────────────────────
    분류 트리와 REQ 목록을 하나로 합쳤다. 요구사항 29건 · 분류 20개라

@@ -22,3 +22,32 @@ export function onGoto(f: (kind: GotoKind, id: string) => void): () => void {
   window.addEventListener('utop:goto', h)
   return () => window.removeEventListener('utop:goto', h)
 }
+
+/**
+ * 같은 곳으로 가는 **주소**.
+ *
+ * 여태 화면 이동은 단추였다. 그러니 오른쪽 단추를 눌러도 「새 탭에서
+ * 열기」 가 안 나왔다 — 브라우저는 링크에만 그것을 준다. 시험을 둘
+ * 나란히 놓고 견주려면 새 탭이 있어야 한다.
+ *
+ * 이 주소로 들어오면 App 이 읽어 그 화면을 연다(App.tsx 의 `?tc=` 처리).
+ * 왼쪽 단추로 그냥 누를 때는 새로 읽지 않고 지금 창에서 넘어간다 —
+ * 페이지를 다시 받으면 몇 초가 든다.
+ */
+export function gotoHref(kind: GotoKind, id: string): string {
+  return `${window.location.pathname}?${kind}=${encodeURIComponent(id)}`
+}
+
+/**
+ * 링크를 눌렀을 때. Ctrl·Shift·가운데 단추는 **브라우저에게 맡긴다** —
+ * 새 탭·새 창은 사람이 그 방식으로 부탁한 것이다.
+ */
+export function gotoClick(
+  e: { button: number; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean; preventDefault(): void },
+  kind: GotoKind,
+  id: string,
+): void {
+  if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return
+  e.preventDefault()
+  goto(kind, id)
+}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi } from '@/api/client'
 import {
@@ -262,6 +262,59 @@ export default function TcTree({
     ...reqsOf(n.id).flatMap((r) => shownTcs(r)),
     ...n.children.flatMap(deepTcs),
   ]
+
+  /**
+   * 열어 둔 TC 를 트리에서 **드러낸다.**
+   *
+   * 요구사항 화면에서 시험 이름을 누르면 이 화면으로 넘어와 오른쪽에는
+   * 그 시험이 열린다. 그런데 왼쪽 트리는 접힌 그대로라, 방금 연 것이
+   * 어디 있는지 폴더를 하나씩 눌러 다시 찾아야 했다 — 이미 찾아 준
+   * 것을 사람이 또 찾는 셈이다.
+   *
+   * 그 TC 를 물고 있는 요구사항과 그 위 폴더 사슬을 펴고, 그 줄로
+   * 굴려 준다. 사람이 손으로 접은 것을 되돌리지 않도록 **연 것이
+   * 바뀔 때 한 번만** 한다.
+   */
+  const revealed = useRef('')
+  useEffect(() => {
+    if (!openId || tree.length === 0 || reqs.length === 0) return
+    if (revealed.current === openId) return
+    revealed.current = openId
+
+    const holder = reqs.find((r) => tcsFor(r).some((t) => t.tcid === openId))
+    const want = new Set<string>()
+    if (holder) {
+      want.add(reqPk(holder))
+      const fid = reqFolder(holder)
+      if (fid) {
+        // 그 폴더까지 내려가는 길 — 지나온 폴더를 모두 편다
+        const walk = (n: CategoryTreeNode, path: string[]): boolean => {
+          const here = [...path, n.id]
+          if (n.id === fid) {
+            here.forEach((x) => want.add(x))
+            return true
+          }
+          return n.children.some((k) => walk(k, here))
+        }
+        tree.some((n) => walk(n, []))
+      }
+    }
+    if (want.size)
+      setOpenIds((prev) => {
+        const m = new Set(prev)
+        want.forEach((x) => m.add(x))
+        return m
+      })
+
+    // 펴는 것은 다음 그림에서 일어난다. 그때 줄이 생기므로 그 뒤에 굴린다.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        document
+          .querySelector('.tt-tc.on')
+          ?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
+      ),
+    )
+  }, [openId, tree, reqs, tcsFor])
 
   const toggle = (id: string) =>
     setOpenIds((s) => {
