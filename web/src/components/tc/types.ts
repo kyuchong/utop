@@ -755,6 +755,21 @@ export function sessionIndex(v: string | number | undefined): number {
  * 그건 시험의 내용이 아니라 랩의 사실이라, 시험이 백 개면 백 번 다시
  * 적어야 했다. `meterCfg` 10건 중 9건이 손도 안 댄 기본값인 이유다.
  */
+/**
+ * 장비끼리 물린 선.
+ *
+ * 배선을 「장비 포트 ↔ 계측기 포트」 로만 적게 해 두었다. 그런데 랩에서는
+ * DUT 끼리 물리는 일이 더 흔하다 — 두 대를 업링크로 잇고 그 사이로
+ * 트래픽을 흘리는 시험이 그렇다. 계측기가 아예 안 끼는 시험도 있다.
+ *
+ * 트래픽은 계측기 배선만 보므로(`wiring`) 이것과 섞지 않고 따로 둔다.
+ * 여기 적는 것은 **랩이 어떻게 생겼나**이고, 그림과 결과서가 읽는다.
+ */
+export interface TcPortLink {
+  a: { dev: string; port: string }
+  b: { dev: string; port: string }
+}
+
 export interface TcWire {
   /** 장비 쪽 — 세션 자리 번호. 어느 장비인지는 `data.sessions` 가 정한다 */
   session: number
@@ -947,6 +962,8 @@ export interface TcData {
    * 배선만 갈아 끼우면 된다.
    */
   wiring?: TcWire[]
+  /** 장비끼리 물린 선 — 계측기가 안 끼는 배선 */
+  portLinks?: TcPortLink[]
   /**
    * 토폴로지 그림.
    *

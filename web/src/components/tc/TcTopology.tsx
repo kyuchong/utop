@@ -39,6 +39,7 @@ export default function TcTopology({
   // 여기서 한 번 걸러 쓴다 — TestCases 도 같은 방식이다.
   const sessions = Array.isArray(data.sessions) ? (data.sessions as string[]) : []
   const wiring = data.wiring ?? []
+  const links = data.portLinks ?? []
   const meters = devices.filter(isMeter)
   const devById = new Map(devices.map((d) => [d.id, d]))
 
@@ -304,10 +305,16 @@ export default function TcTopology({
           wiring={wiring}
           devices={devices}
           sessions={sessions}
+          links={links}
           ports={ports}
           loading={loading}
           onLoadPorts={(id) => void loadPorts(id)}
-          onChange={(w) => onChange({ wiring: w })}
+          onChange={(v) =>
+            onChange({
+              ...(v.wiring ? { wiring: v.wiring } : {}),
+              ...(v.links ? { portLinks: v.links } : {}),
+            })
+          }
         />
       ) : !wiring.length ? (
         <div className="empty">
