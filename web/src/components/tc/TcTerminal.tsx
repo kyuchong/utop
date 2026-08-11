@@ -255,7 +255,8 @@ export default function TcTerminal({
     return (
       <div className="tm">
         <div className="tm-head">
-          <b>명령어 캡쳐</b>
+          {/* 이름은 이 칸의 머리가 적는다. 여기서 또 적으면 같은 말이 두 줄로
+              쌓인다 — 이 줄은 다루는 것들만 담는다. */}
           <span className="sp" />
           <button className="btn small" type="button" onClick={onClose}>
             닫기
@@ -273,7 +274,6 @@ export default function TcTerminal({
   return (
     <div className="tm">
       <div className="tm-head">
-        <b>명령어 캡쳐</b>
         {/* 같은 장비를 두 자리에 앉히는 일이 흔해서 이름만으로는 안 갈린다.
             자리 번호를 앞에, IP 를 뒤에 둔다. */}
         <select value={idx} onChange={(e) => setIdx(Number(e.target.value))}>

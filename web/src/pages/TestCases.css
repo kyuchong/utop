@@ -2307,38 +2307,6 @@ table.tb tr.r-bad td:first-child {
 }
 
 /*
- * 1열도 같은 결로 나눈다 — 머리 한 장, 몸 한 장.
- *
- * 오른쪽은 탭 줄이 2·3열을 함께 바꾸는 것이라 그 줄만 따로 떠 있다.
- * 1열이 통짜 카드면 1열의 구분선(105px)과 2·3열의 구분선(156px)이 층이
- * 져서, 폭을 조절할 때마다 눈이 다시 맞춘다. 1열도 머리와 몸을 갈라
- * 두면 셋의 구분선이 한 줄에서 만난다.
- */
-.tc-split .tc-listcol {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  overflow: visible;
-}
-.tc-split .tc-listcol > * {
-  background: var(--c-surface);
-  border: 1px solid var(--c-border);
-  border-radius: var(--r-box);
-  overflow: hidden;
-}
-.tc-split .tc-listcol > .lh { flex: none; }
-.tc-split .tc-listcol > .rt,
-.tc-split .tc-listcol > .empty {
-  flex: 1;
-  min-height: 0;
-}
-/* 몸이 제 카드가 됐으니 머리 밑줄은 겹선이 된다 */
-.tc-split .tc-listcol > .lh { border-bottom: 1px solid var(--c-border); }
-
-/*
  * 칸 머리 — 1열의 `.lh` 와 **같은 46px**. 여기가 어긋나면 세 칸의 구분선이
  * 층이 져서, 폭을 조절할 때마다 눈이 다시 맞춘다.
  */
@@ -2356,6 +2324,10 @@ table.tb tr.r-bad td:first-child {
   font-size: var(--fs-sm);
 }
 .tc-colh b { font-weight: 700; }
+.tc-colh .sp { margin-left: auto; }
+/* 메뉴는 이 칸 안쪽 아래로 펼쳐진다 — 칸이 화면 높이만큼 길어서 잘리지
+   않는다. 모서리를 둥글게 자르는 `overflow: hidden` 은 그대로 둔다. */
+.tc-colh .tc-more { position: relative; }
 
 /* 제목은 탭 왼쪽. 줄을 따로 쓰면 그만큼 목록이 줄고, 「무엇을 보고 있나」
    와 「그것의 무엇을 보나」 는 나란히 있는 편이 읽힌다. */

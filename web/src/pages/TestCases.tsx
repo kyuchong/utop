@@ -119,6 +119,8 @@ export default function TestCases({ me }: PageProps) {
   const [openId, setOpenId] = useState(() => localStorage.getItem(OPEN_KEY) || '')
   const [stepIdx, setStepIdx] = useState(-1)
   const [menuOpen, setMenuOpen] = useState(false)
+  /** 3열 머리의 ⋯ — 이 칸을 무엇으로 쓸지 고르는 자리 */
+  const [detMenu, setDetMenu] = useState(false)
   /** 명령어 캡쳐를 열면 3열이 그것으로 바뀐다 — 캡쳐하는 동안 스텝 세부는 볼 일이 없다 */
   const [termOpen, setTermOpen] = useState(false)
   /**
@@ -454,44 +456,6 @@ export default function TestCases({ me }: PageProps) {
    * 하나씩 순서대로 지운다. 한꺼번에 던지면 어디까지 지워졌는지 알 수 없어
    * 실패했을 때 무엇을 다시 해야 하는지 말해줄 수 없다.
    */
-  const removeTcs = useMutation({
-    mutationFn: async (ids: string[]) => {
-      let ok = 0
-      for (const id of ids) {
-        await tcApi.remove(id)
-        ok++
-      }
-      return ok
-    },
-    onError: (e) =>
-      window.alert(`삭제하지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`),
-    onSuccess: (n) => {
-      tcSel.clear()
-      setMsg({ kind: 'ok', text: `${n}건을 지웠습니다` })
-      void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
-      void qc.invalidateQueries({ queryKey: ['tcs'] })
-    },
-  })
-
-  const doRemoveTcs = () => {
-    const ids = [...pickedTc]
-    if (!ids.length) return
-    const names = ids
-      .map((id) => tcs.find((x) => x.tcid === id)?.name || id)
-      .slice(0, 5)
-      .join('\n · ')
-    // 무엇이 사라지는지 적는다. 사이클에 들어 있던 항목도 같이 정리된다.
-    if (
-      !window.confirm(
-        `시험 ${ids.length}건을 지웁니다.\n\n · ${names}${ids.length > 5 ? '\n …' : ''}\n\n` +
-          '이 시험의 절차와 실행 이력이 함께 사라지고, 사이클에 들어 있던 항목에서도 빠집니다.\n' +
-          '휴지통에 남지만 화면에서는 되돌릴 수 없습니다. 계속할까요?',
-      )
-    )
-      return
-    removeTcs.mutate(ids)
-  }
-
   useEffect(() => {
     localStorage.setItem(TAB_KEY, tab)
   }, [tab])
@@ -1605,7 +1569,7 @@ export default function TestCases({ me }: PageProps) {
             picked={
               pickedTc.size > 1 ? (
                 // 세 화면이 같은 말을 쓴다 — 「N건 선택됨」 · ✕ 로 해제.
-                // 무엇을 할지는 ⋯ 안에서 고른다.
+                // 무엇을 할지는 List 의 일 줄에서 고른다.
                 <span className="lh-picked">
                   {pickedTc.size}건 선택됨
                   <button type="button" onClick={tcSel.clear} title="선택 해제">
@@ -1615,59 +1579,9 @@ export default function TestCases({ me }: PageProps) {
               ) : undefined
             }
             search={{ value: treeQ, placeholder: 'TC · 요구사항 검색', onChange: setTreeQ }}
-            add={{ title: '시험 만들기', onClick: () => setForm(null) }}
-            menu={
-              <>
-                <button type="button" onClick={() => setForm(null)}>
-                  시험 만들기
-                </button>
-                <button
-                  type="button"
-                  disabled={!openId}
-                  onClick={() => {
-                    const meta = tcs.find((x) => x.tcid === openId)
-                    if (meta) setForm(meta)
-                  }}
-                >
-                  선택 시험 편집
-                </button>
-                <button type="button" onClick={() => setBulkOpen(true)}>
-                  시험 일괄 생성
-                </button>
-                {/* 요구사항 화면의 `⋯` 에는 있는데 여기만 List 에 숨어
-                    있었다. 고른 것이 있으면 그것만, 없으면 트리에 보이는
-                    것을 그대로 내보낸다. */}
-                <button
-                  type="button"
-                  disabled={tcs.length === 0}
-                  onClick={() =>
-                    exportCsv(pickedTc.size ? tcs.filter((t) => pickedTc.has(t.tcid)) : tcs)
-                  }
-                >
-                  {pickedTc.size ? `선택한 ${pickedTc.size}건 내보내기` : '전체 내보내기 (CSV)'}
-                </button>
-                {/* 고른 것에 대한 일. 지우는 것은 하나부터, 한꺼번에
-                    고치는 것은 둘부터 — 한 건은 그냥 열어서 고치면 된다. */}
-                {pickedTc.size > 0 && (
-                  <>
-                    <hr />
-                    {pickedTc.size > 1 && (
-                      <button type="button" onClick={() => setBulkEdit(true)}>
-                        선택한 {pickedTc.size}건 한꺼번에 고치기
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="danger"
-                      disabled={removeTcs.isPending}
-                      onClick={doRemoveTcs}
-                    >
-                      {removeTcs.isPending ? '삭제 중…' : `선택한 ${pickedTc.size}건 삭제`}
-                    </button>
-                  </>
-                )}
-              </>
-            }
+            /* 만들기·일괄·삭제·내보내기는 List 의 일 줄에 있다. 여기 또 두면
+               같은 일이 두 자리에 있어 어느 쪽이 무엇인지 생각하게 된다.
+               이 칸은 찾아 들어가는 자리라 찾기 하나면 된다. */
           />
           {tcQ.isLoading ? (
             <div className="empty">불러오는 중…</div>
@@ -2016,16 +1930,6 @@ export default function TestCases({ me }: PageProps) {
                 >
                   ⏹
                 </button>
-                {/* 스텝을 손으로 만들지 않고 쳐서 만드는 길. ⋯ 안에 숨기면
-                    처음 오는 사람이 못 찾는다 — 여기가 그 사람의 첫 30초다. */}
-                <button
-                  className={`btn small${termOpen ? ' primary' : ''}`}
-                  type="button"
-                  title="장비에 붙어 명령을 치면 그대로 스텝이 됩니다"
-                  onClick={() => setTermOpen((v) => !v)}
-                >
-                  ⌨ 명령어 캡쳐
-                </button>
                 {/* 어느 파라미터 파일이 붙어 있나. 실행 줄에 둔다 —
                     정보 탭 깊숙이 두면 지금 무엇이 깔려 있는지 모른 채
                     스텝을 쓰게 된다. */}
@@ -2196,6 +2100,38 @@ export default function TestCases({ me }: PageProps) {
                   46px 라야 세 칸의 구분선이 한 줄에서 만난다. */}
               <div className="tc-colh">
                 <b>{termOpen ? '명령어 캡쳐' : '스텝 상세'}</b>
+                <span className="sp" />
+                {/* 캡쳐는 **이 칸을 바꾸는 일**이라 이 칸 머리에 둔다.
+                    2열 실행 줄에 있을 때는 왼쪽을 눌러 오른쪽이 바뀌는
+                    꼴이었고, 그 줄은 「돌리는」 것들만 있어야 읽힌다. */}
+                <div className="tc-more">
+                  <button
+                    className="btn tc-dots"
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={detMenu}
+                    onClick={() => setDetMenu((v) => !v)}
+                  >
+                    ⋯
+                  </button>
+                  {detMenu && (
+                    <>
+                      <div className="tc-menu-back" onClick={() => setDetMenu(false)} />
+                      <div className="tc-menu" role="menu">
+                        <button
+                          type="button"
+                          title="장비에 붙어 명령을 치면 그대로 스텝이 됩니다"
+                          onClick={() => {
+                            setTermOpen((v) => !v)
+                            setDetMenu(false)
+                          }}
+                        >
+                          {termOpen ? '⌨ 명령어 캡쳐 닫기' : '⌨ 명령어 캡쳐'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               {termOpen ? (
                 <TcTerminal
