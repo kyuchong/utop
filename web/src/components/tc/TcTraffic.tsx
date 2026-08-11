@@ -99,12 +99,6 @@ function listOf(from: string, mod: string, cnt: string, kind: 'mac' | 'ip'): str
   return out
 }
 
-/** 길면 앞뒤만 — 천 개를 다 적어도 읽지 못한다 */
-function brief(xs: string[], keep = 6): string {
-  if (xs.length <= keep) return xs.join(', ')
-  return `${xs.slice(0, 3).join(', ')} … ${xs.slice(-2).join(', ')}  (${xs.length}개)`
-}
-
 function newStream(n: number, a: string, b: string): MeterStream {
   return {
     name: `Stream_${n}`,
@@ -808,69 +802,118 @@ export default function TcTraffic({ data, onChange }: Props) {
               </button>
             </div>
             <div className="tt-pv-b">
-              {streams.filter((x) => x.enabled !== false).length === 0 ? (
-                <div className="empty">보낼 스트림이 없습니다 — 「활성」 을 켜세요.</div>
-              ) : (
-                streams
-                  .map((x, i) => ({ x, i }))
-                  .filter(({ x }) => x.enabled !== false)
-                  .map(({ x, i }) => {
-                    const srcMacs = listOf(x.srcMac ?? '', x.srcMacMod ?? '', x.srcMacStep ?? '1', 'mac')
-                    const dstMacs = listOf(x.dstMac ?? '', x.dstMacMod ?? '', x.dstMacStep ?? '1', 'mac')
-                    const srcIps = listOf(x.srcIp ?? '', x.srcIpMod ?? '', x.srcIpStep ?? '1', 'ip')
-                    const dstIps = listOf(x.dstIp ?? '', x.dstIpMod ?? '', x.dstIpStep ?? '1', 'ip')
-                    const vlans = listOf(x.vlan ?? '', x.vlanMod ?? '', x.vlanStep ?? '1', 'ip')
-                    const row = (k: string, v: string) =>
-                      v ? (
-                        <div className="tt-pv-r" key={k}>
-                          <span>{k}</span>
-                          <b className="mono">{v}</b>
-                        </div>
-                      ) : null
-                    return (
-                      <div className="tt-pv-s" key={i}>
-                        <div className="tt-pv-t">
-                          <b>{x.name || `Stream_${i + 1}`}</b>
-                          <span className="tt-tag">{headerOf(x)}</span>
-                          <span className="muted small">
-                            {x.src || '–'} → {x.dst || '–'} · {x.direction || '단방향'}
-                          </span>
-                        </div>
-                        {row('보내는 양', `${x.load || '–'} ${x.unit || ''}`)}
-                        {row(
-                          '프레임',
-                          x.byteType === 'Random'
-                            ? `${x.minByte || 64}–${x.maxByte || 1518} B 무작위`
-                            : `${x.minByte || 64} B 고정`,
-                        )}
-                        {row('SRC MAC', brief(srcMacs))}
-                        {row('DST MAC', brief(dstMacs))}
-                        {row('VLAN', brief(vlans))}
-                        {row('SRC IP', brief(srcIps))}
-                        {row('DST IP', brief(dstIps))}
-                        {row('GW', x.gw ?? '')}
-                        {row(
-                          'L4',
-                          x.l4proto && x.l4proto !== '없음'
-                            ? `${x.l4proto} ${x.srcPort || '–'} → ${x.dstPort || '–'}`
-                            : '',
-                        )}
+              {(() => {
+                /*
+                 * 계측기가 만들 스트림을 **하나하나 늘어놓는다.**
+                 *
+                 * 처음에는 스트림마다 「SRC MAC 은 이것부터 저것까지」 식으로
+                 * 적었다. 그것은 지금 화면에 적힌 값을 옮겨 적은 것일 뿐이라
+                 * 새로 알게 되는 것이 없다. 알고 싶은 것은 「그래서 계측기에
+                 * 몇 줄이 생기고 그 줄들이 각각 무엇인가」 다 — 개수 10 이면
+                 * 열 줄이 생기고 그 열 줄의 MAC·IP·VLAN 이 어떻게 다른가.
+                 */
+                const on = streams.filter((x) => x.enabled !== false)
+                type Row = {
+                  no: number
+                  name: string
+                  path: string
+                  sMac: string
+                  dMac: string
+                  vlan: string
+                  sIp: string
+                  dIp: string
+                }
+                const rows: Row[] = []
+                let over = 0
+                for (const x of on) {
+                  const sM = listOf(x.srcMac ?? '', x.srcMacMod ?? '', x.srcMacStep ?? '1', 'mac')
+                  const dM = listOf(x.dstMac ?? '', x.dstMacMod ?? '', x.dstMacStep ?? '1', 'mac')
+                  const sI = listOf(x.srcIp ?? '', x.srcIpMod ?? '', x.srcIpStep ?? '1', 'ip')
+                  const dI = listOf(x.dstIp ?? '', x.dstIpMod ?? '', x.dstIpStep ?? '1', 'ip')
+                  const vl = listOf(x.vlan ?? '', x.vlanMod ?? '', x.vlanStep ?? '1', 'ip')
+                  // 이 스트림이 몇 줄로 펼쳐지나 — 늘어나는 것 중 가장 긴 것
+                  const n = Math.max(1, sM.length, dM.length, sI.length, dI.length, vl.length)
+                  const at = (a: string[], i: number) =>
+                    a.length ? (a[i] ?? a[a.length - 1] ?? '') : ''
+                  for (let i = 0; i < n; i++) {
+                    if (rows.length >= 200) {
+                      over += 1
+                      continue
+                    }
+                    rows.push({
+                      no: rows.length + 1,
+                      name: n > 1 ? `${x.name || 'Stream'}.${i + 1}` : x.name || 'Stream',
+                      path: `${x.src || '–'} → ${x.dst || '–'}`,
+                      sMac: at(sM, i),
+                      dMac: at(dM, i),
+                      vlan: at(vl, i),
+                      sIp: at(sI, i),
+                      dIp: at(dI, i),
+                    })
+                  }
+                }
+                if (!on.length)
+                  return <div className="empty">보낼 스트림이 없습니다 — 「활성」 을 켜세요.</div>
+                const one = on[0] ?? {}
+                return (
+                  <>
+                    <div className="tt-pv-sum">
+                      계측기에 <b>{rows.length + over}줄</b>이 생깁니다 · 스트림 {on.length}개 ·{' '}
+                      {one.byteType === 'Random'
+                        ? `${one.minByte || 64}–${one.maxByte || 1518}B 무작위`
+                        : `${one.minByte || 64}B 고정`}{' '}
+                      · 줄마다 {one.load || '–'} {one.unit || ''}
+                    </div>
+                    <div className="tt-pv-wrap">
+                      <table className="tt-table tt-pv-tbl">
+                        <thead>
+                          <tr>
+                            <th>#</th>
+                            <th>Stream</th>
+                            <th>경로</th>
+                            <th>SRC MAC</th>
+                            <th>DST MAC</th>
+                            <th>VLAN</th>
+                            <th>SRC IP</th>
+                            <th>DST IP</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((r) => (
+                            <tr key={r.no}>
+                              <td className="muted">{r.no}</td>
+                              <td>{r.name}</td>
+                              <td className="mono">{r.path}</td>
+                              <td className="mono">{r.sMac || '–'}</td>
+                              <td className="mono">{r.dMac || '–'}</td>
+                              <td className="mono">{r.vlan || '–'}</td>
+                              <td className="mono">{r.sIp || '–'}</td>
+                              <td className="mono">{r.dIp || '–'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {over > 0 && (
+                      <div className="muted small">
+                        …그리고 {over}줄 더. 여기서는 앞 200줄만 보입니다.
                       </div>
-                    )
-                  })
-              )}
+                    )}
+                  </>
+                )
+              })()}
               {/*
                 지금 계측기가 받는 것은 **한 값씩**이다. 데몬이
                 `SetFieldFixedValue` 로만 넣는다 — 목록을 넣는
                 `SetFieldValueList` 는 이 장비에 있지만 아직 안 쓴다.
-                그래서 위에 여럿으로 펼쳐 보여도 실제로 나가는 것은
-                첫 값 하나다. 이 말을 안 적으면 화면과 선로가 어긋난 채
-                시험이 돈다.
+                그래서 위에 여러 줄로 펼쳐 보여도 실제로 나가는 것은
+                스트림마다 첫 줄 하나다. 이 말을 안 적으면 화면과 선로가
+                어긋난 채 시험이 돈다.
               */}
               <div className="tt-hint">
-                <b>지금 계측기로 나가는 것은 각 줄의 첫 값 하나입니다.</b> 데몬이 값을
-                하나씩만 넣습니다(`SetFieldFixedValue`). 목록으로 뿌리는 것은 이 장비에
-                길이 있으니(`SetFieldValueList`) 이어서 붙이겠습니다.
+                <b>아직은 스트림마다 첫 줄 하나만 나갑니다.</b> 데몬이 값을 하나씩만
+                넣습니다(`SetFieldFixedValue`). 목록으로 뿌리는 길(`SetFieldValueList`)은
+                이 장비에 있으니 이어서 붙이겠습니다.
               </div>
             </div>
           </div>

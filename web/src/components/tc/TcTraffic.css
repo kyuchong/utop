@@ -588,3 +588,22 @@
   font-weight: 500;
   overflow-wrap: anywhere;
 }
+
+/* 미리보기 표 — 줄이 많아지므로 촘촘하게 */
+.tt-pv-sum {
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+}
+.tt-pv-wrap {
+  overflow: auto;
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+}
+.tt-pv-tbl th,
+.tt-pv-tbl td {
+  padding: 2px 8px;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.tt-pv-tbl tbody tr { cursor: default; }
+.tt-pv-tbl tbody tr:hover { background: var(--c-surface-2); }
