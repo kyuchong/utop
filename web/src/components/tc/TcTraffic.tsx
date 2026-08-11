@@ -323,6 +323,71 @@ export default function TcTraffic({ data, onChange }: Props) {
     }
   }
 
+  /**
+   * GW 에게 ARP 를 보내 **L2 DST 를 알아낸다.**
+   *
+   * L3 로 쏘려면 프레임의 목적지 MAC 이 첫 홉(=GW)의 MAC 이어야 한다.
+   * 지금까지는 그것을 사람이 장비에서 `show arp` 로 읽어 손으로 옮겨
+   * 적었다. 한 자만 틀려도 프레임이 장비로 안 가고 손실 100% 로 나오는데,
+   * 화면에는 「안 받았다」 만 뜬다 — 무엇이 틀렸는지가 안 보인다.
+   *
+   * 받아 온 MAC 은 고른 스트림의 L2 DST 에 바로 넣는다. 물어만 보고
+   * 적는 것은 사람에게 맡기면 옮겨 적다 또 틀린다.
+   */
+  const sendArp = async () => {
+    if (!cfg.chassis) return setMsg('계측기를 먼저 고르세요')
+    const gw = String(s?.gw ?? '').trim()
+    if (!gw) return setMsg('GW 를 먼저 적으세요 — 보내는 쪽이 붙은 장비 포트의 IP 입니다')
+    setBusy('arp')
+    setMsg('')
+    try {
+      if (kind === 'stc') {
+        const r = await apiFetch('/api/stc/meter/arp', {
+          method: 'POST',
+          body: JSON.stringify({
+            cfg: { chassis: cfg.chassis, restIp: 'localhost', restPort: cfg.restPort ?? 8888 },
+          }),
+        })
+        const j = (await r.json()) as { ok?: boolean; error?: string; text?: string; mac?: string }
+        setRaw(JSON.stringify(j, null, 2))
+        if (j.ok === false) throw new Error(j.error || 'ARP 를 보내지 못했습니다')
+        // 응답 어디에 있든 MAC 꼴을 찾아 쓴다 — 도구마다 적는 자리가 다르다
+        const mac = j.mac || (String(j.text ?? '').match(/([0-9a-f]{2}[:-]){5}[0-9a-f]{2}/i) ?? [])[0]
+        if (mac) {
+          setStream(sel, { dstMac: mac })
+          setMsg(`${gw} → ${mac} — L2 DST 에 넣었습니다`)
+        } else {
+          setMsg(`${gw} 의 MAC 을 못 받았습니다. 「원본」 을 열어 보세요`)
+        }
+      } else {
+        const r = await apiFetch('/api/n2x/arp', {
+          method: 'POST',
+          body: JSON.stringify({
+            server: cfg.chassis,
+            label: cfg.n2xLabel || 'utop',
+            port: s?.src ?? '',
+            gw,
+            srcIp: s?.srcIp ?? '',
+            srcMac: s?.srcMac ?? '',
+          }),
+        })
+        const j = (await r.json()) as { ok?: boolean; error?: string; mac?: string }
+        setRaw(JSON.stringify(j, null, 2))
+        if (j.ok === false) throw new Error(j.error || 'ARP 를 보내지 못했습니다')
+        if (j.mac) {
+          setStream(sel, { dstMac: j.mac })
+          setMsg(`${gw} → ${j.mac} — L2 DST 에 넣었습니다`)
+        } else {
+          setMsg(`${gw} 에서 답이 없습니다 — 선과 IP 를 보세요`)
+        }
+      }
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy('')
+    }
+  }
+
   /** 데몬 스크립트를 받아 저장한다 — N2X 기계에 옮길 그 파일 */
   const getDaemon = async () => {
     try {
@@ -798,7 +863,26 @@ export default function TcTraffic({ data, onChange }: Props) {
                 </div>
                 <div className="tt-sub">기타</div>
                 <div className="tt-grid">
-                  {fld('GW', 'gw', '1.1.1.254')}
+                  {/* GW 바로 옆에 둔다. 적어 넣은 그 값으로 물어보는 것이라
+                      떨어뜨려 놓으면 무엇에 대한 ARP 인지가 안 읽힌다. */}
+                  <label className="tt-f tt-gw">
+                    <span>GW</span>
+                    <input
+                      className="mono"
+                      value={String(s?.gw ?? '')}
+                      placeholder="1.1.1.254"
+                      onChange={(e) => setStream(sel, { gw: e.target.value })}
+                    />
+                    <button
+                      className="btn small"
+                      type="button"
+                      disabled={!!busy || !cfg.chassis || !String(s?.gw ?? '').trim()}
+                      title="이 GW 에게 ARP 를 보내 MAC 을 받아 L2 DST 에 넣습니다"
+                      onClick={() => void sendArp()}
+                    >
+                      {busy === 'arp' ? '…' : 'ARP Send'}
+                    </button>
+                  </label>
                   {fld('DSCP', 'dscp', '0')}
                   {fld('TTL', 'ttl', '64')}
                 </div>

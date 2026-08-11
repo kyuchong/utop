@@ -7096,6 +7096,51 @@ def n2x_traffic_stop(data: dict):
     return _n2x_send(str(data.get("server", "210.1.2.248")), str(data.get("label", "utop")), "tstop")
 
 
+@app.post("/api/n2x/arp")
+def n2x_arp(data: dict):
+    """
+    GW 에게 ARP 를 보내 MAC 을 받아 온다.
+
+    L3 로 쏘려면 프레임의 목적지 MAC 이 첫 홉(=GW)의 MAC 이어야 한다.
+    지금까지 그 값은 사람이 장비에서 `show arp` 로 읽어 손으로 옮겨 적었다.
+    한 자만 틀려도 프레임이 장비로 안 가고 손실 100% 로 나오는데, 화면에는
+    「안 받았다」 만 뜬다.
+
+    데몬이 그 명령을 아직 모르면 `unknown` 이 돌아온다. 그때는 **거짓으로
+    성공을 만들지 않는다** — 무엇이 없어서 못 하는지 그대로 말한다.
+    """
+    server = str(data.get("server") or "210.1.2.248")
+    label = str(data.get("label") or "utop")
+    port = str(data.get("port") or "").strip()
+    gw = str(data.get("gw") or "").strip()
+    if not gw:
+        return {"ok": False, "error": "GW 가 비어 있습니다"}
+    if not port:
+        return {"ok": False, "error": "이 스트림의 보내는 포트가 비어 있습니다"}
+    mod, _, pnum = port.partition("/")
+    res = _n2x_send(
+        server,
+        label,
+        "arp %s %s %s %s %s"
+        % (
+            mod or "-",
+            pnum or "-",
+            gw,
+            str(data.get("srcIp") or "-").strip() or "-",
+            str(data.get("srcMac") or "-").strip() or "-",
+        ),
+    )
+    if isinstance(res, dict) and str(res.get("error") or "") == "unknown":
+        return {
+            "ok": False,
+            "error": (
+                "이 N2X 데몬은 아직 ARP 를 모릅니다. n2x_daemon.tcl 을 새 판으로 "
+                "바꾸고 n2x_relay.py 를 다시 띄우세요."
+            ),
+        }
+    return res
+
+
 @app.post("/api/n2x/traffic/clear")
 def n2x_traffic_clear(data: dict):
     return _n2x_send(str(data.get("server", "210.1.2.248")), str(data.get("label", "utop")), "tclear")
