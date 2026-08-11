@@ -1532,15 +1532,18 @@ export default function TestCases({ me }: PageProps) {
             onClick={() => setListOpen(true)}
           >
             <IconPanel open />
-            <span className="tc-fold-t">시험항목 {tcs.length}</span>
+            <span className="tc-fold-t">Coverage {tcs.length}</span>
           </button>
         )}
         {/* 1열 — 폴더 · 요구사항 · TC 트리 (요구사항 화면과 같은 모양) */}
         {listOpen && (
         <section className="panel tc-listcol" style={{ flexBasis: listW }}>
           {/* 요구사항 화면과 **같은 부품**을 쓴다. 저마다 만들면 또 어긋난다 */}
+          {/* 이 칸은 폴더 → 요구사항 → 시험 순으로 걸린다. 담긴 것은 시험이지만
+              읽히는 것은 「어느 요구사항이 무엇으로 덮였나」 다 — 그래서
+              Coverage 다. */}
           <ListHead
-            name="시험항목"
+            name="Coverage"
             count={tcs.length}
             onCollapse={() => setListOpen(false)}
             picked={
