@@ -43,7 +43,7 @@ function newStream(n: number, a: string, b: string): MeterStream {
     vlanMod: '고정',
     vlanStep: '1',
     prio: '0',
-    etherType: '0x0800',
+    etherType: '0x0800 (IPv4)',
     srcIp: '',
     dstIp: '',
     srcIpTo: '',
@@ -83,11 +83,23 @@ const L4 = ['TCP', 'UDP', 'ICMP', '없음']
  */
 type Layer = 'send' | 'l2' | 'l3'
 const LAYERS: Array<{ k: Layer; label: string }> = [
-  { k: 'send', label: '포트 · 부하' },
-  { k: 'l2', label: 'L2 Ethernet' },
-  { k: 'l3', label: 'L3 IP' },
+  { k: 'send', label: '포트 · 방향 · 부하' },
+  { k: 'l2', label: 'L2 Packet' },
+  { k: 'l3', label: 'L3 Packet · L4' },
 ]
-const ETYPES = ['0x0800', '0x0806', '0x86DD', '0x8100']
+/*
+ * Ether-Type — 번호 뒤에 이름을 붙인다.
+ *
+ * `0x0806` 만 적혀 있으면 그것이 ARP 인지 IPv6 인지 외우고 있어야 한다.
+ * 고를 때 바로 알아보게 이름을 같이 적는다. 계측기로 나갈 때는 앞의
+ * 번호만 쓴다(`etherNum`).
+ */
+const ETYPES = ['0x0800 (IPv4)', '0x0806 (ARP)', '0x86DD (IPv6)', '0x8100 (VLAN)']
+
+/** 「0x0806 (ARP)」 에서 계측기가 받는 부분만 */
+export function etherNum(v: string): string {
+  return String(v ?? '').trim().split(/\s+/)[0] || ''
+}
 
 /**
  * 계측기 트래픽 스튜디오.
@@ -563,7 +575,19 @@ export default function TcTraffic({ data, onChange }: Props) {
       {opts ? (
         <select
           style={{ width: w }}
-          value={String(s?.[k] ?? '')}
+          /*
+           * 골라 둔 값이 목록에 없으면 빈 칸으로 보인다.
+           *
+           * Ether-Type 에 이름을 붙이면서(`0x0806` → `0x0806 (ARP)`) 전에
+           * 저장된 시험이 다 그 꼴이 됐다. 앞머리가 같은 것을 찾아 잇는다 —
+           * 옛 자료를 손대지 않고도 제 값이 보인다.
+           */
+          value={
+            opts.includes(String(s?.[k] ?? ''))
+              ? String(s?.[k] ?? '')
+              : (opts.find((o) => o.split(/\s+/)[0] === String(s?.[k] ?? '').trim()) ??
+                String(s?.[k] ?? ''))
+          }
           onChange={(e) => setStream(sel, { [k]: e.target.value })}
         >
           {opts.map((o) => (
@@ -963,15 +987,16 @@ export default function TcTraffic({ data, onChange }: Props) {
               {/* 포트·방향과 L4 를 한 묶음으로 둔다. 셋씩 짜리 둘을 따로
                   두었더니 그 줄이 통째로 비어 60px 씩 버렸다. 둘 다
                   「어디로 나가나」 라 뜻도 가깝다. */}
+              {/* 물리 포트만. 방향이 먼저다 — 어느 쪽으로 흐르는지를 정하고
+                  나서 그 양끝을 고른다. TCP·UDP 의 포트 번호는 여기가 아니라
+                  L3 IP 에 있다. 같은 「포트」 라도 하나는 계측기 구멍이고
+                  하나는 L4 번호라, 나란히 두면 서로 헷갈린다. */}
               <div className="tt-box">
-                <div className="tt-bh">포트 · 방향 · L4</div>
+                <div className="tt-bh">포트 · 방향</div>
                 <div className="tt-grid">
-                  {fld('SRC', 'src', '', portOpts(s?.src as string | undefined), 104)}
-                  {fld('DST', 'dst', '', portOpts(s?.dst as string | undefined), 104)}
                   {fld('방향', 'direction', '', ['단방향', '양방향'], 88)}
-                  {fld('프로토콜', 'l4proto', '', L4, 84)}
-                  {fld('S.Port', 'srcPort', '', undefined, 64)}
-                  {fld('D.Port', 'dstPort', '', undefined, 64)}
+                  {fld('SRC Port', 'src', '', portOpts(s?.src as string | undefined), 104)}
+                  {fld('DST Port', 'dst', '', portOpts(s?.dst as string | undefined), 104)}
                 </div>
               </div>
 
@@ -980,7 +1005,7 @@ export default function TcTraffic({ data, onChange }: Props) {
 
               {layer === 'l2' && (
               <div className="tt-box">
-                <div className="tt-bh">L2 Ethernet</div>
+                <div className="tt-bh">L2 Packet</div>
                 <div className="tt-sub">SRC MAC</div>
                 <div className="tt-grid">
                   {fld('From', 'srcMac', '00:00:00:00:00:01', undefined, 140)}
@@ -1009,7 +1034,7 @@ export default function TcTraffic({ data, onChange }: Props) {
 
               {layer === 'l3' && (
               <div className="tt-box">
-                <div className="tt-bh">L3 IP</div>
+                <div className="tt-bh">L3 Packet</div>
                 {/* 무엇이 나가는지를 여기서 정한다 — 비우면 L2 다.
                     전에는 비워도 IPv4·UDP 헤더가 붙어 나갔다. */}
                 <div className="tt-hint">
@@ -1027,6 +1052,12 @@ export default function TcTraffic({ data, onChange }: Props) {
                   {fld('From', 'dstIp', '2.1.1.1', undefined, 124)}
                   {fld('To', 'dstIpTo', '비우면 자동', undefined, 124)}
                   {fld('모드', 'dstIpMod', '', MODS, 88)}
+                </div>
+                <div className="tt-sub">L4</div>
+                <div className="tt-grid">
+                  {fld('프로토콜', 'l4proto', '', L4, 84)}
+                  {fld('S.Port', 'srcPort', '', undefined, 64)}
+                  {fld('D.Port', 'dstPort', '', undefined, 64)}
                 </div>
                 <div className="tt-sub">기타</div>
                 <div className="tt-grid">
