@@ -1095,7 +1095,10 @@ export default function Requirements() {
           ) : selectedReq && tab !== 'tc' ? (
             <ReqDetail req={selectedReq} tcs={linked} tab={tab} />
           ) : (
-            <div className="tc-body scroll">
+            /* 폴더를 볼 때는 「요구사항」 열이 하나 더 붙는다. 이 표시가
+               없으면 표는 다섯 칸인데 줄에는 여섯 칸이 들어가, 마지막
+               「해제」 단추가 다음 줄로 접혀 한 줄이 두 줄로 보였다. */
+            <div className={`tc-body scroll${tcByFolder ? ' by-folder' : ''}`}>
               {/* 커버리지 상태. 목록만 있으면 '이 요구사항이 덮였나' 를
                   눈으로 세어야 한다. 한 줄로 먼저 답한다. */}
               <div className={`cov-bar ${linked.length === 0 ? 'none' : cov.fail > 0 ? 'bad' : cov.idle > 0 ? 'warn' : 'good'}`}>
