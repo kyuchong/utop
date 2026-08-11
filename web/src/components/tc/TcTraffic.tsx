@@ -13,6 +13,62 @@ interface Props {
 }
 
 /** 새 스트림 한 줄 — 옛 화면(_meterNewStream)과 같은 기본값 */
+/*
+ * 끝 주소는 **스스로 셈한다.**
+ *
+ * From·Step·개수를 적어 놓고도 To 를 손으로 또 적어야 했다. 셋 중 하나만
+ * 고쳐도 To 가 옛 값으로 남는데 화면에는 아무 표시가 없어서, 계측기는
+ * 열 개를 뿌리는데 사람은 백 개인 줄 알고 판정 기준을 세웠다.
+ *
+ * 「고정」 이면 끝이 곧 시작이다. 「증가·감소」 면 시작에서 걸음 × (개수-1)
+ * 만큼 간 자리다.
+ */
+function macToNum(v: string): bigint | null {
+  const h = String(v ?? '').replace(/[^0-9a-f]/gi, '')
+  if (h.length !== 12) return null
+  try {
+    return BigInt('0x' + h)
+  } catch {
+    return null
+  }
+}
+
+function numToMac(n: bigint): string {
+  const h = (n & 0xffffffffffffn).toString(16).padStart(12, '0')
+  return (h.match(/.{2}/g) ?? []).join(':')
+}
+
+function ipToNum(v: string): number | null {
+  const p = String(v ?? '').trim().split('.')
+  if (p.length !== 4) return null
+  let n = 0
+  for (const x of p) {
+    const d = Number(x)
+    if (!Number.isInteger(d) || d < 0 || d > 255) return null
+    n = n * 256 + d
+  }
+  return n
+}
+
+function numToIp(n: number): string {
+  const m = ((n % 4294967296) + 4294967296) % 4294967296
+  return [(m >>> 24) & 255, (m >>> 16) & 255, (m >>> 8) & 255, m & 255].join('.')
+}
+
+/** 개수 · 걸음 · 모드로 정해지는 끝 주소. 셀 수 없으면 시작을 그대로 준다. */
+function endOf(from: string, mod: string, step: string, count: string, kind: 'mac' | 'ip'): string {
+  const n = Math.max(1, Number(count) || 1)
+  const st = Number(step) || 1
+  const dir = mod === '감소' ? -1 : 1
+  if (mod !== '증가' && mod !== '감소') return from
+  if (kind === 'mac') {
+    const a = macToNum(from)
+    return a === null ? from : numToMac(a + BigInt(dir * st * (n - 1)))
+  }
+  const a = ipToNum(from)
+  return a === null ? from : numToIp(a + dir * st * (n - 1))
+}
+
 function newStream(n: number, a: string, b: string): MeterStream {
   return {
     name: `Stream_${n}`,
@@ -177,7 +233,22 @@ export default function TcTraffic({ data, onChange }: Props) {
 
   const setCfg = (patch: Partial<MeterCfg>) => onChange({ meterCfg: { ...cfg, ...patch } })
   const setStream = (i: number, patch: Partial<MeterStream>) =>
-    setCfg({ streams: streams.map((s, j) => (j === i ? { ...s, ...patch } : s)) })
+    setCfg({
+      streams: streams.map((s, j) => {
+        if (j !== i) return s
+        const v = { ...s, ...patch }
+        // 시작·걸음·개수·모드 중 무엇이 바뀌든 끝은 따라 바뀐다
+        const c = v.count ?? '1'
+        return {
+          ...v,
+          srcMacTo: endOf(v.srcMac ?? '', v.srcMacMod ?? '', v.srcMacStep ?? '1', c, 'mac'),
+          dstMacTo: endOf(v.dstMac ?? '', v.dstMacMod ?? '', v.dstMacStep ?? '1', c, 'mac'),
+          srcIpTo: endOf(v.srcIp ?? '', v.srcIpMod ?? '', v.srcIpStep ?? '1', c, 'ip'),
+          dstIpTo: endOf(v.dstIp ?? '', v.dstIpMod ?? '', v.dstIpStep ?? '1', c, 'ip'),
+          vlanTo: endOf(v.vlan ?? '', v.vlanMod ?? '', v.vlanStep ?? '1', c, 'ip'),
+        }
+      }),
+    })
 
   const addStream = () => {
     const n = streams.length + 1
@@ -372,9 +443,10 @@ export default function TcTraffic({ data, onChange }: Props) {
    * 받아 온 MAC 은 고른 스트림의 L2 DST 에 바로 넣는다. 물어만 보고
    * 적는 것은 사람에게 맡기면 옮겨 적다 또 틀린다.
    */
-  const sendArp = async () => {
+  const sendArp = async (at = sel) => {
+    const row = streams[at]
     if (!cfg.chassis) return setMsg('계측기를 먼저 고르세요')
-    const gw = String(s?.gw ?? '').trim()
+    const gw = String(row?.gw ?? '').trim()
     if (!gw) return setMsg('GW 를 먼저 적으세요 — 보내는 쪽이 붙은 장비 포트의 IP 입니다')
     setBusy('arp')
     setMsg('')
@@ -392,7 +464,7 @@ export default function TcTraffic({ data, onChange }: Props) {
         // 응답 어디에 있든 MAC 꼴을 찾아 쓴다 — 도구마다 적는 자리가 다르다
         const mac = j.mac || (String(j.text ?? '').match(/([0-9a-f]{2}[:-]){5}[0-9a-f]{2}/i) ?? [])[0]
         if (mac) {
-          setStream(sel, { dstMac: mac })
+          setStream(at, { dstMac: mac })
           setMsg(`${gw} → ${mac} — L2 DST 에 넣었습니다`)
         } else {
           setMsg(`${gw} 의 MAC 을 못 받았습니다. 「원본」 을 열어 보세요`)
@@ -403,17 +475,17 @@ export default function TcTraffic({ data, onChange }: Props) {
           body: JSON.stringify({
             server: cfg.chassis,
             label: cfg.n2xLabel || 'utop',
-            port: s?.src ?? '',
+            port: row?.src ?? '',
             gw,
-            srcIp: s?.srcIp ?? '',
-            srcMac: s?.srcMac ?? '',
+            srcIp: row?.srcIp ?? '',
+            srcMac: row?.srcMac ?? '',
           }),
         })
         const j = (await r.json()) as { ok?: boolean; error?: string; mac?: string }
         setRaw(JSON.stringify(j, null, 2))
         if (j.ok === false) throw new Error(j.error || 'ARP 를 보내지 못했습니다')
         if (j.mac) {
-          setStream(sel, { dstMac: j.mac })
+          setStream(at, { dstMac: j.mac })
           setMsg(`${gw} → ${j.mac} — L2 DST 에 넣었습니다`)
         } else {
           setMsg(`${gw} 에서 답이 없습니다 — 선과 IP 를 보세요`)
@@ -553,6 +625,19 @@ export default function TcTraffic({ data, onChange }: Props) {
       onChange={(e) => setStream(i, { [k]: e.target.value })}
       onFocus={() => setSel(i)}
     />
+  )
+
+  /**
+   * 셈해서 나오는 칸 — 읽기만.
+   *
+   * 손으로도 적게 두면 시작·걸음·개수와 어긋난 값이 남는다. 무엇으로
+   * 정해지는지가 보이도록 흐리게 두고 잠근다.
+   */
+  const fldRO = (label: string, k: keyof MeterStream, w = 110) => (
+    <label className="tt-f" title="From · Step · 개수로 저절로 정해집니다">
+      <span>{label}</span>
+      <input className="mono tt-ro" style={{ width: w }} readOnly value={String(s?.[k] ?? '')} />
+    </label>
   )
 
   /**
@@ -800,12 +885,18 @@ export default function TcTraffic({ data, onChange }: Props) {
                 <th title="부하와 단위">로드</th>
                 <th title="프레임 크기와 모드">바이트</th>
                 <th title="적어 넣은 값으로 정해지는 헤더">헤더</th>
+                {/* L3 로 쏠 때 꼭 채워야 하는 셋. 여기 없으면 세부로 들어가
+                    적고 다시 나와야 했다 — 처음 쓰는 사람이 제일 자주
+                    걸리는 자리다. */}
+                <th title="보내는 쪽 IP — 비우면 L2 로 나갑니다">SRC IP</th>
+                <th title="첫 홉(장비 포트)의 IP">Gateway</th>
+                <th title="GW 에게 ARP 를 보내 그 MAC 을 L2 DST 에 넣습니다">ARP</th>
               </tr>
             </thead>
             <tbody>
               {streams.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="tt-empty">
+                  <td colSpan={11} className="tt-empty">
                     스트림이 없습니다. 「＋ 추가」 를 누르세요.
                   </td>
                 </tr>
@@ -915,6 +1006,23 @@ export default function TcTraffic({ data, onChange }: Props) {
                     <td>
                       <span className="tt-tag">{headerOf(row)}</span>
                     </td>
+                    <td>{cell(i, 'srcIp', 104)}</td>
+                    <td>{cell(i, 'gw', 104)}</td>
+                    <td>
+                      <button
+                        className="btn small"
+                        type="button"
+                        disabled={!!busy || !cfg.chassis || !String(row.gw ?? '').trim()}
+                        title="이 GW 에게 ARP 를 보내 MAC 을 받아 L2 DST 에 넣습니다"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSel(i)
+                          void sendArp(i)
+                        }}
+                      >
+                        {busy === 'arp' && sel === i ? '…' : 'ARP'}
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -997,6 +1105,10 @@ export default function TcTraffic({ data, onChange }: Props) {
                   {fld('방향', 'direction', '', ['단방향', '양방향'], 88)}
                   {fld('SRC Port', 'src', '', portOpts(s?.src as string | undefined), 104)}
                   {fld('DST Port', 'dst', '', portOpts(s?.dst as string | undefined), 104)}
+                  {/* 이 스트림이 몇 갈래로 불어나는가. MAC·IP·VLAN 의 「To」
+                      가 이 수로 정해진다 — 표에서 뺐더니 걸음을 아무리
+                      키워도 끝 주소가 안 움직였다. */}
+                  {fld('개수', 'count', '1', undefined, 56)}
                 </div>
               </div>
 
@@ -1009,14 +1121,14 @@ export default function TcTraffic({ data, onChange }: Props) {
                 <div className="tt-sub">SRC MAC</div>
                 <div className="tt-grid">
                   {fld('From', 'srcMac', '00:00:00:00:00:01', undefined, 140)}
-                  {fld('To', 'srcMacTo', '비우면 자동', undefined, 140)}
+                  {fldRO('To', 'srcMacTo', 140)}
                   {fld('Step', 'srcMacStep', '1', undefined, 48)}
                   {fld('모드', 'srcMacMod', '', MODS, 88)}
                 </div>
                 <div className="tt-sub">DST MAC</div>
                 <div className="tt-grid">
                   {fld('From', 'dstMac', '00:00:00:00:00:02', undefined, 140)}
-                  {fld('To', 'dstMacTo', '비우면 자동', undefined, 140)}
+                  {fldRO('To', 'dstMacTo', 140)}
                   {fld('Step', 'dstMacStep', '1', undefined, 48)}
                   {fld('모드', 'dstMacMod', '', MODS, 88)}
                 </div>
@@ -1044,13 +1156,15 @@ export default function TcTraffic({ data, onChange }: Props) {
                 <div className="tt-sub">SRC IP</div>
                 <div className="tt-grid">
                   {fld('From', 'srcIp', '1.1.1.1', undefined, 124)}
-                  {fld('To', 'srcIpTo', '비우면 자동', undefined, 124)}
+                  {fldRO('To', 'srcIpTo', 124)}
+                  {fld('Step', 'srcIpStep', '1', undefined, 48)}
                   {fld('모드', 'srcIpMod', '', MODS, 88)}
                 </div>
                 <div className="tt-sub">DST IP</div>
                 <div className="tt-grid">
                   {fld('From', 'dstIp', '2.1.1.1', undefined, 124)}
-                  {fld('To', 'dstIpTo', '비우면 자동', undefined, 124)}
+                  {fldRO('To', 'dstIpTo', 124)}
+                  {fld('Step', 'dstIpStep', '1', undefined, 48)}
                   {fld('모드', 'dstIpMod', '', MODS, 88)}
                 </div>
                 <div className="tt-sub">L4</div>
@@ -1080,7 +1194,7 @@ export default function TcTraffic({ data, onChange }: Props) {
                       type="button"
                       disabled={!!busy || !cfg.chassis || !String(s?.gw ?? '').trim()}
                       title="이 GW 에게 ARP 를 보내 MAC 을 받아 L2 DST 에 넣습니다"
-                      onClick={() => void sendArp()}
+                      onClick={() => void sendArp(sel)}
                     >
                       {busy === 'arp' ? '…' : 'ARP Send'}
                     </button>

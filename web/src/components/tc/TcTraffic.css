@@ -510,3 +510,10 @@
   color: var(--c-text-faint);
 }
 .tt-pair > .tt-in + .tt-in { margin-left: 3px; }
+
+/* 셈해서 나오는 칸 — 적는 칸과 달라 보여야 손이 안 간다 */
+.tt-ro {
+  background: var(--c-surface-alt) !important;
+  color: var(--c-text-muted);
+  cursor: default;
+}

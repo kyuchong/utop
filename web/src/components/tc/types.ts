@@ -825,6 +825,8 @@ export interface MeterStream {
   dstIpTo?: string
   srcIpMod?: string
   dstIpMod?: string
+  srcIpStep?: string
+  dstIpStep?: string
   gw?: string
   dscp?: string
   ttl?: string
