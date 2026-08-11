@@ -519,3 +519,29 @@
 .main[data-page='cycles'] {
   background: var(--page-bg);
 }
+
+/* 옛 판으로 보고 있다는 알림 — 화면 맨 위를 가로지른다.
+   같은 자료를 서로 다른 수로 읽는 일이 이것 때문에 났다. */
+.stale-build {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  background: #fff4d6;
+  border-bottom: 1px solid #e6c46a;
+  color: #7a5200;
+  font-size: var(--fs-sm);
+}
+.stale-build button {
+  border: 1px solid #d9a92b;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: #7a5200;
+  padding: 2px 10px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}

@@ -3,6 +3,7 @@ import Layout from '@/components/Layout'
 import Login from '@/components/Login'
 import { authApi, getToken, setToken, type MeUser } from '@/api/client'
 import { useLiveRefresh } from '@/components/useLiveRefresh'
+import { useFreshBuild } from '@/components/useFreshBuild'
 import { onGoto as onGotoEvent } from '@/api/goto'
 import Requirements from '@/pages/Requirements'
 import TestCases from '@/pages/TestCases'
@@ -89,6 +90,15 @@ export default function App() {
   // 또 어느 하나가 빠지므로 여기 한 곳에서 듣는다.
   useLiveRefresh()
 
+  /*
+   * 이 화면이 옛 판인가.
+   *
+   * 서버를 새로 올려도 브라우저는 받아 둔 파일을 계속 쓴다. 그래서 한
+   * 사람은 새 화면, 한 사람은 옛 화면을 보고 — 자료는 하나뿐인데 —
+   * 서로 다른 수를 읽는다. 20줄과 200줄이 그렇게 갈렸다.
+   */
+  const staleBuild = useFreshBuild()
+
   // 다른 화면의 것을 열어 달라는 부탁 (사이클에서 TC ID 를 누른 것 따위)
   useEffect(
     () =>
@@ -116,6 +126,15 @@ export default function App() {
   if (user === null) return <Login onDone={setUser} />
 
   return (
+    <>
+      {staleBuild && (
+        <div className="stale-build">
+          새 판이 올라왔습니다 — 지금 화면은 옛 판이라 값이 다르게 보일 수 있습니다.
+          <button type="button" onClick={() => window.location.reload()}>
+            새로 고치기
+          </button>
+        </div>
+      )}
     <Layout
       user={user}
       onLogout={() => {
@@ -152,5 +171,6 @@ export default function App() {
         </div>
       )}
     </Layout>
+    </>
   )
 }

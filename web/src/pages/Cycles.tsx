@@ -888,6 +888,15 @@ function CycleDetail({
   const [seen, setSeen] = useState(0)
   /** 항목마다 누가 보고 있나 — 서버가 모아 준다 */
   const [focus, setFocus] = useState<Record<string, string[]>>({})
+  /**
+   * 방금 들어온 사람 · 나간 사람.
+   *
+   * 접속자 띠는 늘 거기 있어서, 보고 있지 않으면 누가 새로 들어온 것을
+   * 모른다. 같은 사이클을 둘이 만지다가 나중에 저장한 사람이 앞사람 것을
+   * 덮는 일이 그래서 난다. 들고 남을 몇 초간 띄워 눈에 걸리게 한다.
+   */
+  const [joined, setJoined] = useState<{ who: string; how: 'in' | 'out' } | null>(null)
+  const prevUsers = useRef<string[]>([])
   const page = `cycle:${cycle.id}`
   const presence = usePresence(page, meName, (m) => {
     if (m.type === 'focus' && m.page === page) {
@@ -902,6 +911,20 @@ function CycleDetail({
   })
 
   // 지금 어느 항목을 보고 있는지 알린다. 항목이 곧 부딪히는 자리다.
+  // 접속자가 바뀌면 그 사람 이름을 잠깐 띄운다
+  useEffect(() => {
+    const now = presence.users.filter((u) => u !== meName)
+    const was = prevUsers.current
+    prevUsers.current = now
+    if (!was.length && !now.length) return
+    const came = now.find((u) => !was.includes(u))
+    const left = was.find((u) => !now.includes(u))
+    if (!came && !left) return
+    setJoined(came ? { who: came, how: 'in' } : { who: left as string, how: 'out' })
+    const t = setTimeout(() => setJoined(null), 6000)
+    return () => clearTimeout(t)
+  }, [presence.users, meName])
+
   useEffect(() => {
     if (meName) sendWs({ type: 'focus', user: meName, page, at: openItem })
   }, [openItem, page, meName])
@@ -1279,6 +1302,11 @@ function CycleDetail({
           </span>
           {/* 누가 같이 보고 있나. 혼자면 안 뜬다 — 늘 있으면 장식이 된다 */}
           <PresenceBar users={presence.users} me={meName} />
+          {joined && (
+            <span className={`cy-join ${joined.how}`}>
+              {joined.who} 님이 {joined.how === 'in' ? '들어왔습니다' : '나갔습니다'}
+            </span>
+          )}
           {/* 남이 고친 이력. 띠로 띄우면 연달아 저장할 때 앞의 것이 밀린다 */}
           <SaveBell
             items={saves}
@@ -1701,9 +1729,13 @@ function CycleDetail({
               </div>
             )}
             <div
+              /* 남이 같이 보고 있으면 줄에 테두리를 두른다 — 눈 표시는
+                 체크박스 자리에 작아서 그냥 지나쳤다 */
               className={`cy-row v-${v}${openItem === at ? ' on' : ''}${
                 pick.has(at) ? ' picked' : ''
-              }${st.itemAt === at ? ' running' : ''}`}
+              }${st.itemAt === at ? ' running' : ''}${
+                (focus[String(at)] ?? []).some((u) => u !== meName) ? ' watched' : ''
+              }`}
               role="button"
               tabIndex={0}
               title="누르면 스텝과 실행 내역 · Ctrl·Shift 로 여러 개"
@@ -1765,6 +1797,12 @@ function CycleDetail({
                   }}
                 />
               </span>
+              {st.itemAt === at && (
+                <span className="cy-live-chip" title="지금 이 항목을 돌리는 중입니다">
+                  <i />
+                  실행 중
+                </span>
+              )}
               <button
                 type="button"
                 className="cy-tcid"

@@ -338,7 +338,65 @@
 
 .cy-ck { justify-self: center; }
 /* 지금 도는 줄 */
-.cy-row.running { background: var(--c-accent-soft); }
+/*
+ * 지금 돌고 있는 줄.
+ *
+ * 옅은 바탕 하나뿐이었다. 스무 줄짜리 사이클을 곁눈으로 보다가 「어디까지
+ * 갔지」 를 찾으려면 눈으로 훑어야 했다. 왼쪽에 굵은 띠를 세우고 숨쉬듯
+ * 밝기를 바꾼다 — 멀리서도 한 줄이 살아 있는 것이 보인다.
+ *
+ * 애니메이션을 끄고 쓰는 사람에게는 띠만 남긴다(`prefers-reduced-motion`).
+ */
+.cy-row.running {
+  background: var(--c-accent-soft);
+  position: relative;
+  box-shadow: inset 3px 0 0 var(--c-primary);
+  animation: cy-live 1.2s ease-in-out infinite alternate;
+}
+@keyframes cy-live {
+  from { background: var(--c-accent-soft); }
+  to   { background: color-mix(in srgb, var(--c-primary) 14%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cy-row.running { animation: none; }
+}
+/* 「실행 중」 알림표 — 줄 안에서 제일 먼저 눈에 든다 */
+.cy-live-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.cy-live-chip i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #fff;
+  animation: cy-blink 1s steps(2, end) infinite;
+}
+@keyframes cy-blink { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) {
+  .cy-live-chip i { animation: none; }
+}
+
+/*
+ * 남이 같이 보고 있다.
+ *
+ * 눈 표시가 체크박스 자리에 작게 얹혀 있어서, 같은 항목을 둘이 만지고
+ * 있어도 모르고 지나쳤다. 테두리를 둘러 줄 자체가 「남도 여기 있다」 고
+ * 말하게 한다.
+ */
+.cy-row.watched { box-shadow: inset 0 0 0 1px var(--c-warn, #d98324); }
+.cy-row.running.watched {
+  box-shadow: inset 3px 0 0 var(--c-primary), inset 0 0 0 1px var(--c-warn, #d98324);
+}
 
 /* ── 사이클 만들기 ── */
 .modal.cn {
@@ -1730,4 +1788,20 @@ table.tb td.k {
   line-height: 14px;
   box-shadow: 0 0 0 1.5px var(--c-surface);
   text-align: center;
+}
+
+/* 방금 들고 난 사람 — 몇 초만 떴다 사라진다 */
+.cy-join {
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+  animation: cy-join-in 0.25s ease-out;
+}
+.cy-join.in { background: var(--c-primary-bg); color: var(--c-primary); }
+.cy-join.out { background: var(--c-surface-alt); color: var(--c-text-muted); }
+@keyframes cy-join-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: none; }
 }
