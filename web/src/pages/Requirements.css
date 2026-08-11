@@ -686,6 +686,18 @@
   font-family: var(--font-mono);
   white-space: nowrap;
 }
+/* 오른쪽 끝의 TC 수 — 1열 트리의 「TC n」 과 같은 크기·같은 회색 */
+.rq-mid-n {
+  flex: none;
+  margin-left: auto;
+  padding: 0 5px;
+  border-radius: 3px;
+  background: #eef1f5;
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .rq-mid-t {
   flex: 1;
   min-width: 0;
@@ -716,7 +728,10 @@
 .rq-view-b + .rq-view-b { border-left: 1px solid var(--c-border); }
 .rq-view-b:hover:not(:disabled):not(.on) { background: var(--c-surface-2); }
 .rq-view-b.on { background: var(--c-primary); color: #fff; font-weight: 700; }
-.rq-view-b:disabled { color: var(--c-text-faint); cursor: default; }
+/* 켜진 것은 흐리게 하지 않는다. 폴더만 골랐을 때 Detail 이 켜진 채
+   꺼져 있어서, 파란 바탕에 흐린 회색 글자가 얹혀 안 읽혔다. */
+.rq-view-b:disabled:not(.on) { color: var(--c-text-faint); }
+.rq-view-b:disabled { cursor: default; }
 
 /* 체크박스 칸 · 고른 줄 */
 .rq-ck { display: flex; align-items: center; }

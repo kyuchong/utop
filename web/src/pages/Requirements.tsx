@@ -632,14 +632,21 @@ export default function Requirements() {
         {/* List(표로 여럿) ↔ Detail(한 건 넓게). Detail 로 가면 폴더가
             자동으로 접힌다 — 셋을 다 펴면 정작 상세가 좁아진다. */}
         <div className="rq-view" role="tablist" aria-label="보기 방식">
+          {/* Detail 은 폴더만 골라도 켠다. 폴더를 고르면 이미 Detail 로
+              들어가는데 단추는 꺼져 있어서, 켜진 파란 바탕에 흐린 글자가
+              얹혀 「Detail」 이 안 읽혔다. */}
           <button
             type="button"
             role="tab"
             aria-selected={view === 'detail'}
             className={`rq-view-b${view === 'detail' ? ' on' : ''}`}
-            disabled={!selectedReq}
-            title={selectedReq ? '한 건을 넓게 봅니다' : '먼저 요구사항을 고르세요'}
-            onClick={() => selectedReq && goDetail(reqPk(selectedReq), tab)}
+            disabled={!selectedReq && !folderMode}
+            title={
+              selectedReq || folderMode
+                ? '한 건을 넓게 봅니다'
+                : '먼저 폴더나 요구사항을 고르세요'
+            }
+            onClick={() => (selectedReq ? goDetail(reqPk(selectedReq), tab) : setView('detail'))}
           >
             Detail
           </button>
@@ -828,6 +835,9 @@ export default function Requirements() {
                       <IconReqDoc />
                     </span>
                     <span className="rq-mid-t">{r.title || '(제목 없음)'}</span>
+                    {/* 트리 줄과 같은 자리·같은 뜻으로 오른쪽에. 어느 요구사항에
+                        시험이 붙었나가 목록에서 바로 읽혀야 고를 수 있다. */}
+                    <span className="rq-mid-n">TC {covCount(r)}</span>
                   </button>
                 )
               })}
@@ -848,7 +858,17 @@ export default function Requirements() {
             {/* 폴더를 보고 있을 때는 탭을 띄우지 않는다. REQ Info·Details·
                 이력은 요구사항 한 건에만 있는 것이라, 폴더에 걸어두면 늘
                 비어 있는 탭이 넷 생긴다. 폴더에서는 TC 목록 하나면 된다. */}
-            {view === 'list' && folderMode ? (
+            {folderMode && !selectedReq && view === 'detail' ? (
+              /* Detail 에서 폴더를 고른 참 — 아래는 이 폴더의 TC 목록이다.
+                 전에는 여기에도 REQ Info·Details·이력 탭이 떴다. 고른
+                 요구사항이 없으니 어느 탭을 눌러도 같은 TC 목록이 나왔고,
+                 「REQ Info」 가 켜진 채 TC 표가 있는 앞뒤 안 맞는 화면이
+                 됐다. 폴더에서는 볼 것이 하나뿐이라 탭이 필요 없다. */
+              <div className="rq-mid-h rq-tc-h">
+                <b>Test Cases</b>
+                <span className="rq-mid-hn">{linked.length}</span>
+              </div>
+            ) : view === 'list' && folderMode ? (
               /* 표에 대한 일 — 표 바로 위 이 줄에 둔다. 고른 것이 있어야
                  되는 것(Clone·Delete)은 그때만 켜진다. */
               <div className="rq-actions">
