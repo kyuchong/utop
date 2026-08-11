@@ -119,7 +119,18 @@ export default function Instruments({ me }: Props) {
             </div>
           ) : (
             shown.map((d) => {
-              const acc = (d.access ?? [])[0]
+              /*
+               * 이 계측기가 **실제로 쓰는** 접속.
+               *
+               * 그냥 첫 줄을 집었더니, 예전에 딸려 들어온 ssh 줄이 앞에
+               * 있는 계측기가 STC 인데도 「SSH 22」 로 나왔다. 계측기는
+               * n2x·stc 로 말한다 — 켜져 있는 그 줄이 이 칸의 답이다.
+               */
+              const rows = (d.access ?? []).filter((a) => a.enabled !== false)
+              const acc =
+                rows.find((a) => a.protocol === 'n2x' || a.protocol === 'stc') ??
+                rows[0] ??
+                (d.access ?? [])[0]
               return (
                 <div
                   key={d.id}
@@ -135,8 +146,16 @@ export default function Instruments({ me }: Props) {
                   <b className="dev-name">{d.ip}</b>
                   <span className="muted ell">{d.vendor || '–'}</span>
                   <span className="muted ell">{d.model || '–'}</span>
-                  <span className="muted">
-                    {acc ? `${acc.protocol.toUpperCase()} ${acc.port ?? ''}` : '–'}
+                  {/* 중계가 장비와 **다른 자리**에 있는 일이 흔하다 — STC 는
+                      샤시가 192.168.5.100 인데 REST 는 220.1.1.241:8888 에
+                      떠 있다. 그때는 그 주소까지 적는다. 안 적으면 왜
+                      닿는지 안 닿는지를 이 화면에서 알 수가 없다. */}
+                  <span className="muted ell">
+                    {acc
+                      ? `${acc.protocol.toUpperCase()}${
+                          acc.host && acc.host !== d.ip ? ` ${acc.host}` : ''
+                        }${acc.port ? `:${acc.port}` : ''}`
+                      : '–'}
                   </span>
                   {/* 포트 현황 — N2X·STC 둘 다. 빈 포트가 있나, 누가 잡고
                       있나. 시험 걸기 전에 궁금한 것이다. */}
