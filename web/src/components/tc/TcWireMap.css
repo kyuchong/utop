@@ -1,0 +1,113 @@
+/*
+ * 배선 그림.
+ *
+ * 두 칸을 나란히 두고 포트를 늘어놓는다. 선을 실제로 긋지는 않는다 —
+ * 포트가 스무 개를 넘으면 선이 서로 겹쳐 오히려 못 읽는다. 이어진
+ * 포트에 상대의 이름을 적어 두는 편이 눈으로 따라가기 쉽다.
+ */
+.wm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wm-hint {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+.wm-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: start;
+}
+.wm-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.wm-ch {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-muted);
+}
+.wm-box {
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
+.wm-bh {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wm-none {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+
+/* 포트 한 칸 */
+.wm-port {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 2px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.wm-port:hover { background: var(--c-surface-2); }
+.wm-port > i {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+}
+.wm-port > span {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+/* 이어진 곳의 상대 — 옅게, 자리가 좁으면 줄인다 */
+.wm-port > b {
+  min-width: 0;
+  margin-left: auto;
+  font-weight: 500;
+  color: var(--c-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wm-port.on > i {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+}
+.wm-port.on { background: var(--c-primary-bg); }
+/* 지금 고른 포트 — 반대쪽을 누르기를 기다리는 중 */
+.wm-port.held {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 2px var(--c-primary-bg);
+}
+.wm-port.held > i {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  animation: wm-wait 0.9s ease-in-out infinite alternate;
+}
+@keyframes wm-wait { from { opacity: 0.35; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .wm-port.held > i { animation: none; }
+}
+
+@media (max-width: 720px) {
+  .wm-cols { grid-template-columns: 1fr; }
+}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
 import { deviceLabel, isMeter, meterKind } from './device'
+import TcWireMap from './TcWireMap'
 import { wireValues, type TcData, type TcWire } from './types'
 
 interface Props {
@@ -49,6 +50,9 @@ export default function TcTopology({
   const [open, setOpen] = useState<number | null>(null)
   /** 그림을 크게 볼 때. 새 탭으로 띄우면 돌아와서 이 TC 를 다시 찾아야 한다 */
   const [big, setBig] = useState(false)
+  /** 그림으로 이을까, 표로 적을까. 그림이 기본이다 — 랩에서 하는 일은
+      「이 포트에서 저 포트로」 하나뿐이라 그림 쪽이 손이 덜 간다. */
+  const [asMap, setAsMap] = useState(true)
   const [busy, setBusy] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -189,14 +193,37 @@ export default function TcTopology({
           배선은 **랩의 사실**이라 시험 구성보다 먼저 있는 것이다.
           장비 쪽은 나중에 세션을 붙이면 고르면 된다.
         */}
-        <button
-          className="btn primary small"
-          type="button"
-          onClick={add}
-          title="장비 포트 ↔ 계측기 포트 한 줄을 더합니다"
-        >
-          배선 추가
-        </button>
+        {/* 그림 ↔ 표. 그림에서 못 하는 것(기본 MAC·IP)은 표에 있다 */}
+        <div className="seg" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={asMap}
+            className={`seg-btn${asMap ? ' on' : ''}`}
+            onClick={() => setAsMap(true)}
+          >
+            그림
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={!asMap}
+            className={`seg-btn${!asMap ? ' on' : ''}`}
+            onClick={() => setAsMap(false)}
+          >
+            표
+          </button>
+        </div>
+        {!asMap && (
+          <button
+            className="btn primary small"
+            type="button"
+            onClick={add}
+            title="장비 포트 ↔ 계측기 포트 한 줄을 더합니다"
+          >
+            배선 추가
+          </button>
+        )}
       </div>
 
       {adding && <MeterForm onSave={addMeter} onClose={() => setAdding(false)} />}
@@ -272,7 +299,15 @@ export default function TcTopology({
         </div>
       )}
 
-      {!wiring.length ? (
+      {asMap ? (
+        <TcWireMap
+          wiring={wiring}
+          devices={devices}
+          sessions={sessions}
+          ports={ports}
+          onChange={(w) => onChange({ wiring: w })}
+        />
+      ) : !wiring.length ? (
         <div className="empty">
           아직 배선이 없습니다. 계측기를 쓰는 시험이라면 <b>어느 포트끼리 꽂혀 있는지</b> 한 번만
           적어 두면 됩니다.
