@@ -10,7 +10,7 @@
 #
 # 고칠 때마다 올린다. 서버가 `ver` 로 물어 제 사본과 견주고, 다르면
 # 화면에 「윈도우의 데몬이 옛 것」 이라고 적는다.
-set DAEMON_VER 15
+set DAEMON_VER 16
 # 명령: ports | reserve <mod> <port> | release <mod> <port>
 #       traffic <mod> <tx> <rx> <pps> <npkt> <dur> <frame> | ping | quit
 lappend auto_path "C:/N2xTcl85/lib"
@@ -333,6 +333,20 @@ proc _setField {hPdu proto idx field from mod cnt kind} {
     catch {AgtInvoke AgtPduHeader SetFieldFixedValue $hPdu $proto $idx $field $from}
 }
 
+# 목록에서 제 차례 것. 목록이 없으면 적힌 값 그대로.
+proc _pick {lst i dflt} {
+    if {![llength $lst]} { return $dflt }
+    if {$i < [llength $lst]} { return [lindex $lst $i] }
+    return [lindex $lst end]
+}
+
+# 한 칸에 한 값. 갈래를 여럿 만들었으니 갈래마다 값이 하나면 된다 —
+# 목록을 통째로 넣는 것보다 통계가 갈래별로 갈라져 읽기 좋다.
+proc _one {hPdu proto idx field v} {
+    if {$v eq "" || $v eq "-"} { return }
+    catch {AgtInvoke AgtPduHeader SetFieldFixedValue $hPdu $proto $idx $field $v}
+}
+
 proc cmd_inv {rest} {
     if {[catch {eval AgtInvoke $rest} r]} {
         return "{\"ok\":false,\"error\":\"[jstr $r]\"}"
@@ -501,43 +515,60 @@ proc _build_streams {specs} {
         } else {
             if {$_nflow > 1} { lappend ::g_ranged "streams:$_nflow" }
         }
-        set hSG [lindex $hParams 0]; set hPdu [lindex $hParams 1]
-        AgtInvoke AgtStreamGroup SetExpectedDestinationPorts $hSG $hRx
+        #
+        # 돌려주는 것은 **핸들 두 벌**이다 — 스트림그룹 목록과 PDU 목록.
+        #   {98 99 ... 107} {98 99 ... 107}
+        # 여태 `[lindex $hParams 0]` 로 첫 칸을 통째로 집어 열 개짜리 목록을
+        # 핸들 하나인 양 넘겼다. 그러니 갈래를 열 개 만들어 놓고도 손대는
+        # 것은 한 덩어리뿐이었고, 통계도 한 줄만 나왔다.
+        # 하나씩 꺼내 저마다 꾸민다.
+        #
+        set sgList [lindex $hParams 0]
+        set pduList [lindex $hParams 1]
         set hdr "ethernet ipv4 udp"
         if {$proto eq "tcp"} { set hdr "ethernet ipv4 tcp" } elseif {$proto eq "ipv4"} { set hdr "ethernet ipv4" } elseif {$proto eq "eth"} { set hdr "ethernet" }
-        AgtInvoke AgtStreamGroup SetPduHeaders $hSG $hdr
-        # 프레임 길이.
-        #
-        # `SetFrameLength ... AGT_FIXED_FRAME_LENGTH` 를 쓰고 있었는데 이
-        # 빌드에는 그런 이름이 없다. `catch` 로 감싸 두어 거절당해도 조용히
-        # 넘어갔고, **늘 64바이트로 나갔다** — 1518B 로 적고 재 보면 패킷
-        # 수가 64B 일 때의 수와 정확히 맞아떨어졌다. 시험은 돌고 결과도
-        # 나오는데 잰 것이 딴것이었다.
-        #
-        # 맞는 이름은 `SetLength <hSG> AGT_PACKET_LENGTH_FIXED <길이>` 다.
-        # 섀시에 하나씩 넣어 보고 찾았다 — `GetLength` 가
-        # `AGT_PACKET_LENGTH_FIXED {64}` 를 돌려주는 것이 실마리였다.
-        #
-        # 못 정하면 그렇다고 남긴다. 조용히 틀리는 것이 제일 나쁘다.
-        if {$frame ne "" && $frame > 0} {
-            # 최대 길이가 따로 오면 그 사이에서 무작위로. 인자는 한 덩어리로
-            # 넘긴다 — `{64 1518}`. 따로 두 개로 주면 「인자가 많다」 고 한다.
-            if {$frameMax ne "" && [string is integer -strict $frameMax] && $frameMax > $frame} {
-                set _lenArgs [list AGT_PACKET_LENGTH_RANDOM [list $frame $frameMax]]
-            } else {
-                set _lenArgs [list AGT_PACKET_LENGTH_FIXED $frame]
+
+        # 갈래마다 하나씩 나눠 가질 주소들. 비면 모두 같은 값을 쓴다.
+        set lSrcMac [_vlist $srcMac $srcMacMod $cnt mac]
+        set lDstMac [_vlist $dstMac $dstMacMod $cnt mac]
+        set lSrcIp  [_vlist $srcIp  $srcIpMod  $cnt ip]
+        set lDstIp  [_vlist $dstIp  $dstIpMod  $cnt ip]
+
+        set sub 0
+        foreach hSG $sgList hPdu $pduList {
+            if {$hSG eq ""} continue
+            AgtInvoke AgtStreamGroup SetExpectedDestinationPorts $hSG $hRx
+            AgtInvoke AgtStreamGroup SetPduHeaders $hSG $hdr
+            # 프레임 길이.
+            #
+            # `SetFrameLength ... AGT_FIXED_FRAME_LENGTH` 를 쓰고 있었는데 이
+            # 빌드에는 그런 이름이 없다. `catch` 로 감싸 두어 거절당해도 조용히
+            # 넘어갔고, **늘 64바이트로 나갔다** — 1518B 로 적고 재 보면 패킷
+            # 수가 64B 일 때의 수와 정확히 맞아떨어졌다. 시험은 돌고 결과도
+            # 나오는데 잰 것이 딴것이었다.
+            #
+            # 맞는 이름은 `SetLength <hSG> AGT_PACKET_LENGTH_FIXED <길이>` 다.
+            if {$frame ne "" && $frame > 0} {
+                if {$frameMax ne "" && [string is integer -strict $frameMax] && $frameMax > $frame} {
+                    set _lenArgs [list AGT_PACKET_LENGTH_RANDOM [list $frame $frameMax]]
+                } else {
+                    set _lenArgs [list AGT_PACKET_LENGTH_FIXED $frame]
+                }
+                if {[catch {eval AgtInvoke AgtStreamGroup SetLength $hSG $_lenArgs}]} {
+                    set ::g_frameSet "no"
+                } else {
+                    set ::g_frameSet "yes"
+                }
             }
-            if {[catch {eval AgtInvoke AgtStreamGroup SetLength $hSG $_lenArgs}]} {
-                set ::g_frameSet "no"
-            } else {
-                set ::g_frameSet "yes"
-            }
+            # 이 갈래 몫의 주소. 목록이 있으면 제 차례 것을, 없으면 적힌 값 그대로.
+            _one $hPdu ethernet 1 source_address      [_pick $lSrcMac $sub $srcMac]
+            _one $hPdu ethernet 1 destination_address [_pick $lDstMac $sub $dstMac]
+            _one $hPdu ipv4     1 source_address      [_pick $lSrcIp  $sub $srcIp]
+            _one $hPdu ipv4     1 destination_address [_pick $lDstIp  $sub $dstIp]
+            lappend sgInfo [list $hSG $hRx $idx $sub]
+            incr sub
         }
-        _setField $hPdu ethernet 1 source_address      $srcMac $srcMacMod $cnt mac
-        _setField $hPdu ethernet 1 destination_address $dstMac $dstMacMod $cnt mac
-        _setField $hPdu ipv4     1 source_address      $srcIp  $srcIpMod  $cnt ip
-        _setField $hPdu ipv4     1 destination_address $dstIp  $dstIpMod  $cnt ip
-        lappend sgInfo [list $hSG $hRx $idx]
+        if {$sub > 1} { lappend ::g_ranged "flows:$sub" }
         incr idx
     }
     if {![llength $sgInfo]} { set ::g_sg {}; set ::g_hStats ""; return 0 }
@@ -558,6 +589,7 @@ proc _read_stats {} {
     set rows {}
     foreach si $::g_sg {
         set hSG [lindex $si 0]; set hRx [lindex $si 1]; set ix [lindex $si 2]
+        set sb [lindex $si 3]; if {$sb eq ""} { set sb 0 }
         set res ""; catch {AgtInvoke AgtStatistics GetStreamStatistics $::g_hStats $hSG 0 $hRx} res
         set row [lindex $res 1]; if {[llength $row] < 2} { set row $res }
         array set V {tx 0 rx 0 txoct - rxoct - txtput - rxtput - loss 0 lat 0 seq 0}
@@ -576,7 +608,7 @@ proc _read_stats {} {
                 rxtput { set V(rxtput) [format %.3f $v] }
             }
         }
-        lappend rows "{\"idx\":$ix,\"tx\":$V(tx),\"rx\":$V(rx),\"txOct\":\"$V(txoct)\",\"rxOct\":\"$V(rxoct)\",\"txTput\":\"$V(txtput)\",\"rxTput\":\"$V(rxtput)\",\"loss\":$V(loss),\"latency\":\"$V(lat)\",\"misorder\":$V(seq)}"
+        lappend rows "{\"idx\":$ix,\"sub\":$sb,\"tx\":$V(tx),\"rx\":$V(rx),\"txOct\":\"$V(txoct)\",\"rxOct\":\"$V(rxoct)\",\"txTput\":\"$V(txtput)\",\"rxTput\":\"$V(rxtput)\",\"loss\":$V(loss),\"latency\":\"$V(lat)\",\"misorder\":$V(seq)}"
     }
     return [join $rows ,]
 }
