@@ -346,36 +346,80 @@ export default function TcWireMap({
               left = plainIds.slice(0, half)
               right = plainIds.slice(half)
             }
-            const BW = 150
-            const BH = 40
-            const GAP = 26
-            const X2 = 330
+            //
+            // 자리.
+            //
+            // 처음에는 상자를 크게 그리고 선을 곧게 그었더니, 같은 칸에
+            // 있는 두 장비를 잇는 선이 상자를 가로질러 지나갔다. 같은
+            // 칸끼리는 바깥으로 돌려 긋는다.
+            //
+            const BW = 132
+            const BH = 42
+            const GAP = 22
+            const PAD = 30   // 같은 칸끼리 도는 선이 나갈 자리
+            const X2 = 300
             const rowsN = Math.max(left.length, right.length, 1)
-            const H = rowsN * (BH + GAP) + 20
+            const H = rowsN * (BH + GAP) + 16
             const yOf = (list: string[], i: number) =>
               (H - (list.length * (BH + GAP) - GAP)) / 2 + i * (BH + GAP)
-            const at = (id: string): { x: number; y: number } | null => {
+            const at = (id: string): { x: number; y: number; side: 'l' | 'r' } | null => {
               const li = left.indexOf(id)
-              if (li >= 0) return { x: 0, y: yOf(left, li) }
+              if (li >= 0) return { x: PAD, y: yOf(left, li), side: 'l' }
               const ri = right.indexOf(id)
-              if (ri >= 0) return { x: X2, y: yOf(right, ri) }
+              if (ri >= 0) return { x: PAD + X2, y: yOf(right, ri), side: 'r' }
               return null
             }
+            const W = PAD * 2 + X2 + BW
             return (
-              <svg viewBox={`0 0 ${X2 + BW} ${H}`} className="wm-svg">
+              <svg
+                viewBox={`0 0 ${W} ${H}`}
+                width={W}
+                height={H}
+                className="wm-svg"
+              >
                 {rows.map((r) => {
                   const a = at(r.aDev)
                   const b = at(r.bDev)
                   if (!a || !b) return null
-                  const x1 = a.x < b.x ? a.x + BW : a.x
-                  const x2 = a.x < b.x ? b.x : b.x + BW
                   const y1 = a.y + BH / 2
                   const y2 = b.y + BH / 2
-                  const mx = (x1 + x2) / 2
+                  let d: string
+                  let lx: number
+                  let ly: number
+                  if (a.side === b.side) {
+                    // 같은 칸끼리 — 바깥으로 돌린다. 곧게 그으면 상자를 가로지른다.
+                    const out = a.side === 'l' ? a.x - PAD + 6 : a.x + BW + PAD - 6
+                    const ex = a.side === 'l' ? a.x : a.x + BW
+                    d = `M${ex},${y1} C${out},${y1} ${out},${y2} ${ex},${y2}`
+                    lx = a.side === 'l' ? out + 4 : out - 4
+                    ly = (y1 + y2) / 2 + 3
+                  } else {
+                    const x1 = a.x < b.x ? a.x + BW : a.x
+                    const x2 = a.x < b.x ? b.x : b.x + BW
+                    const mx = (x1 + x2) / 2
+                    d = `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`
+                    lx = mx
+                    ly = (y1 + y2) / 2 - 3
+                  }
                   return (
                     <g key={r.k} className={r.kind === 'wire' ? 'wm-l wire' : 'wm-l'}>
-                      <path d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} />
-                      <text x={mx} y={(y1 + y2) / 2 - 4} textAnchor="middle">
+                      <path d={d} />
+                      {/* 글자 뒤에 흰 테를 두른다 — 선 위에 겹쳐도 읽힌다 */}
+                      {/* 바깥으로 도는 선은 가장자리에 붙으므로 글자를
+                          안쪽으로 흘린다 — 가운데 맞춤이면 잘린다 */}
+                      <text
+                        x={lx}
+                        y={ly}
+                        textAnchor={a.side === b.side ? (a.side === 'l' ? 'start' : 'end') : 'middle'}
+                        className="wm-lt-bg"
+                      >
+                        {r.aPort} ↔ {r.bPort}
+                      </text>
+                      <text
+                        x={lx}
+                        y={ly}
+                        textAnchor={a.side === b.side ? (a.side === 'l' ? 'start' : 'end') : 'middle'}
+                      >
                         {r.aPort} ↔ {r.bPort}
                       </text>
                     </g>
@@ -384,14 +428,32 @@ export default function TcWireMap({
                 {[...left, ...right].map((id) => {
                   const pos = at(id)
                   if (!pos) return null
-                  const d = devById.get(id)
-                  const meter = isMeter(d ?? ({} as Device))
+                  const dv = devById.get(id)
+                  const meter = isMeter(dv ?? ({} as Device))
+                  const nm = dv ? deviceShort(dv) : id
+                  // 같은 모델이 둘이면 이름만으로는 안 갈린다 — IP 를 밑에 적는다
+                  const dup = ids.some((o) => o !== id && deviceShort(devById.get(o) ?? ({} as Device)) === nm)
+                  const ip = dup ? (dv?.ip || dv?.id || '') : ''
                   return (
                     <g key={id} className={`wm-n${meter ? ' meter' : ''}`}>
-                      <rect x={pos.x} y={pos.y} width={BW} height={BH} rx="6" />
-                      <text x={pos.x + BW / 2} y={pos.y + BH / 2 + 4} textAnchor="middle">
-                        {d ? deviceShort(d) : id}
+                      <rect x={pos.x} y={pos.y} width={BW} height={BH} rx="5" />
+                      <text
+                        x={pos.x + BW / 2}
+                        y={pos.y + (ip ? BH / 2 - 2 : BH / 2 + 4)}
+                        textAnchor="middle"
+                      >
+                        {nm}
                       </text>
+                      {ip && (
+                        <text
+                          x={pos.x + BW / 2}
+                          y={pos.y + BH / 2 + 11}
+                          textAnchor="middle"
+                          className="wm-nip"
+                        >
+                          {ip}
+                        </text>
+                      )}
                     </g>
                   )
                 })}
