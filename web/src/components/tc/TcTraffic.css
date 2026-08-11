@@ -49,7 +49,9 @@
  */
 .tt-f > span {
   flex: none;
-  width: 56px;
+  /* 48px. 56 이면 L2 의 넷(From·To·Step·모드)이 16px 모자라 한 개가 다음
+     줄로 넘어간다 — 이름표가 제일 긴 「프레임 수」 도 48 에 들어간다. */
+  width: 48px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -66,12 +68,15 @@
 }
 /* 입력칸이 남는 자리를 갖는다. 100% 로 두면 이름표를 옆으로 옮긴 뜻이
    없어진다 — 제 폭을 다 차지해 이름표를 아래로 밀어낸다. */
+/* 칸 폭은 `fld` 가 값 길이에 맞춰 인라인으로 준다. 여기서 늘리면 그것이
+   덮여 다시 다 같은 폭이 된다. */
 .tt-f > input,
 .tt-f > select {
-  flex: 1;
-  width: auto;
+  flex: none;
   min-width: 0;
 }
+/* 시험 포트처럼 한 줄을 다 쓰는 칸만 늘어난다 */
+.tt-f.tt-wide > input { flex: 1; width: auto; }
 /* 칸 아래로 흐르는 것들 — 이름표 폭만큼 들여 쓴다.
    폭을 묶어 두지 않으면 알약이 안 접히고 한 줄로 뻗어 카드를 밀어낸다. */
 .tt-f > .tt-ports,
@@ -79,12 +84,11 @@
 .tt-f > .sd-hint {
   flex-basis: 100%;
   min-width: 0;
-  max-width: calc(100% - 56px - 4px);
-  margin-left: calc(56px + 4px);
+  max-width: calc(100% - 48px - 4px);
+  margin-left: calc(48px + 4px);
 }
 .tt-f input,
 .tt-f select {
-  width: 100%;
   box-sizing: border-box;
   padding: 3px 6px;
   border: 1px solid var(--c-border);
@@ -204,11 +208,23 @@
  * 부하·단위·프레임까지 보려고 아래로 계속 굴려야 했다. 이름표를 줄인
  * 만큼 칸도 줄인다 — 값은 MAC 17자·IP 15자가 최대다.
  */
+/*
+ * 칸은 **담기는 값만큼만** 넓다.
+ *
+ * 격자로 두었더니 스무 칸이 다 같은 폭이 됐다. TTL(세 자리)이 MAC(열일곱
+ * 자)과 같은 자리를 먹으니 화면의 절반이 빈 입력칸이었고, 한 줄에 서너
+ * 개밖에 못 서서 묶음이 세로로 길어졌다.
+ *
+ * 흘려 놓고 칸마다 제 폭을 준다(`fld` 의 `w`). 짧은 칸이 짧아지니 한
+ * 줄에 여럿이 서고, 눈이 옆으로 훑어 읽는다.
+ */
 .tt-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 3px 8px;
+  align-items: center;
 }
+.tt-grid > .tt-f { flex: none; }
 .tt-box {
   border: 1px solid var(--c-border-soft);
   border-radius: var(--radius-sm);
@@ -431,10 +447,7 @@
   gap: var(--sp-2);
   align-items: start;
 }
-/* 넓어진 만큼 칸도 여러 줄로 — 이름표가 56px 이라 150px 이면 값이 다 보인다 */
-.tt-all .tt-grid {
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-}
+
 
 /* 묶음 안의 작은 제목. 상자를 또 겹치면 테두리가 세 겹이 된다 */
 .tt-sub {
@@ -449,8 +462,7 @@
   font-size: var(--fs-xs);
 }
 
-/* GW 칸은 값 + 단추라 한 칸을 넘겨 쓴다 — 좁으면 단추가 눌려 안 읽힌다 */
-.tt-gw { grid-column: span 2; }
+/* GW 는 값 + 단추라 한 칸보다 넓다. 흘려 놓았으니 자리는 알아서 잡힌다 */
 .tt-gw > .btn { flex: none; }
 
 /* 「＋ 44개 중 고르기」 — 칩과 같은 크기지만 고르는 것이 아니라 여는 것 */
@@ -458,3 +470,17 @@
   border-style: dashed !important;
   color: var(--c-text-muted);
 }
+
+/*
+ * 이름표는 **값 옆**에 둔다 — 위로 올려 봤지만 재 보니 더 나빴다.
+ *
+ * 「위에 두면 가로로 더 들어가지 않겠나」 로 한 번 해 봤다. 그런데 칸
+ * 폭이 「이름표 글자 폭」 과 「값 폭」 중 큰 쪽이 되어서, 「프레임 수」
+ * 같은 이름표가 76px 짜리 값보다 넓어졌다. 게다가 한 칸이 두 줄(이름표 +
+ * 값)이라 키도 커진다.
+ *
+ * 재 본 값 — L2 Ethernet 묶음:
+ *   옆에 두기: 205px, 한 줄에 4·4·4·1개
+ *   위에 두기: 218px, 한 줄에 3·1·3·1·3·2개
+ * 전체로는 376px 대 396px 이다. 옆에 두는 쪽이 짧고 더 많이 들어간다.
+ */

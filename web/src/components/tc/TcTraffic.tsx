@@ -20,7 +20,16 @@ function newStream(n: number, a: string, b: string): MeterStream {
     src: a,
     dst: b,
     count: '1',
-    packetType: 'IPv4/Ethernet',
+    /*
+     * 새 스트림은 **L2 로 시작한다.**
+     *
+     * IP 와 L4 를 미리 채워 두었더니, L2 시험을 하려는 사람이 그것을 하나씩
+     * 지워야 했다 — 안 지우면 IPv4+TCP 로 나가고, 장비가 라우팅을 안 하니
+     * 손실 100% 로 보인다. 랩에서 제일 잦은 것이 L2 라 그것을 기본으로
+     * 둔다. IP 를 적는 순간 IPv4 가 되고(위 표의 「헤더」 칸이 그때 바뀐다),
+     * L4 를 고르면 UDP·TCP 까지 붙는다.
+     */
+    packetType: 'Ethernet',
     srcMac: '00:00:00:00:00:01',
     dstMac: '00:00:00:00:00:02',
     srcMacTo: '00:00:00:00:00:01',
@@ -35,16 +44,16 @@ function newStream(n: number, a: string, b: string): MeterStream {
     vlanStep: '1',
     prio: '0',
     etherType: '0x0800',
-    srcIp: '1.1.1.1',
-    dstIp: '2.1.1.1',
-    srcIpTo: '1.1.1.1',
-    dstIpTo: '2.1.1.1',
+    srcIp: '',
+    dstIp: '',
+    srcIpTo: '',
+    dstIpTo: '',
     srcIpMod: '고정',
     dstIpMod: '고정',
-    gw: '1.1.1.254',
+    gw: '',
     dscp: '0',
     ttl: '64',
-    l4proto: 'TCP',
+    l4proto: '없음',
     srcPort: '',
     dstPort: '',
     frameType: 'Ethernet II',
@@ -519,12 +528,29 @@ export default function TcTraffic({ data, onChange }: Props) {
     />
   )
 
-  /** 속성 편집의 한 칸 */
-  const fld = (label: string, k: keyof MeterStream, ph?: string, opts?: string[]) => (
+  /**
+   * 속성 편집의 한 칸.
+   *
+   * 폭(`w`)을 **담기는 값에 맞춰** 받는다. 스무 칸을 다 같은 폭으로
+   * 두었더니 TTL(세 자리)이 MAC(열일곱 자)과 같은 자리를 먹어, 화면의
+   * 절반이 빈 입력칸이었다. 값이 짧으면 칸도 짧아야 한 줄에 여럿이
+   * 서고, 그래야 눈이 옆으로 훑어 읽는다.
+   */
+  const fld = (
+    label: string,
+    k: keyof MeterStream,
+    ph?: string,
+    opts?: string[],
+    w = 110,
+  ) => (
     <label className="tt-f">
       <span>{label}</span>
       {opts ? (
-        <select value={String(s?.[k] ?? '')} onChange={(e) => setStream(sel, { [k]: e.target.value })}>
+        <select
+          style={{ width: w }}
+          value={String(s?.[k] ?? '')}
+          onChange={(e) => setStream(sel, { [k]: e.target.value })}
+        >
           {opts.map((o) => (
             <option key={o} value={o}>
               {o}
@@ -534,6 +560,7 @@ export default function TcTraffic({ data, onChange }: Props) {
       ) : (
         <input
           className="mono"
+          style={{ width: w }}
           value={String(s?.[k] ?? '')}
           placeholder={ph}
           onChange={(e) => setStream(sel, { [k]: e.target.value })}
@@ -794,7 +821,7 @@ export default function TcTraffic({ data, onChange }: Props) {
           <div className="tt-edit">
             <div className="tt-eh">
               <b>{s.name || `Stream_${sel + 1}`}</b>
-              <span className="tt-tag">{s.packetType || 'IPv4/Ethernet'}</span>
+              <span className="tt-tag">{headerOf(s)}</span>
               <span className="muted small">— 속성 편집</span>
             </div>
             {/*
@@ -810,15 +837,15 @@ export default function TcTraffic({ data, onChange }: Props) {
               <div className="tt-box">
                 <div className="tt-bh">Traffic Load</div>
                 <div className="tt-grid">
-                  {fld('부하', 'load', '10')}
-                  {fld('단위', 'unit', '', UNITS)}
-                  {fld('프레임', 'frameType', 'Ethernet II')}
-                  {fld('크기', 'byteType', '', BYTEMODES)}
-                  {fld('최소', 'minByte', '64')}
-                  {fld('최대', 'maxByte', '1518')}
-                  {fld('프레임 수', 'frameCnt', '0 = 연속')}
-                  {fld('버스트', 'burst', '1')}
-                  {fld('간격', 'gap', '0')}
+                  {fld('부하', 'load', '10', undefined, 64)}
+                  {fld('단위', 'unit', '', UNITS, 96)}
+                  {fld('프레임', 'frameType', 'Ethernet II', undefined, 116)}
+                  {fld('크기', 'byteType', '', BYTEMODES, 92)}
+                  {fld('최소', 'minByte', '64', undefined, 56)}
+                  {fld('최대', 'maxByte', '1518', undefined, 56)}
+                  {fld('프레임 수', 'frameCnt', '0 = 연속', undefined, 76)}
+                  {fld('버스트', 'burst', '1', undefined, 56)}
+                  {fld('간격', 'gap', '0', undefined, 56)}
                 </div>
               </div>
 
@@ -828,12 +855,12 @@ export default function TcTraffic({ data, onChange }: Props) {
               <div className="tt-box">
                 <div className="tt-bh">포트 · 방향 · L4</div>
                 <div className="tt-grid">
-                  {fld('SRC', 'src', '', portOpts(s?.src as string | undefined))}
-                  {fld('DST', 'dst', '', portOpts(s?.dst as string | undefined))}
-                  {fld('방향', 'direction', '', ['단방향', '양방향'])}
-                  {fld('프로토콜', 'l4proto', '', L4)}
-                  {fld('S.Port', 'srcPort', '')}
-                  {fld('D.Port', 'dstPort', '')}
+                  {fld('SRC', 'src', '', portOpts(s?.src as string | undefined), 104)}
+                  {fld('DST', 'dst', '', portOpts(s?.dst as string | undefined), 104)}
+                  {fld('방향', 'direction', '', ['단방향', '양방향'], 88)}
+                  {fld('프로토콜', 'l4proto', '', L4, 84)}
+                  {fld('S.Port', 'srcPort', '', undefined, 64)}
+                  {fld('D.Port', 'dstPort', '', undefined, 64)}
                 </div>
               </div>
 
@@ -841,25 +868,25 @@ export default function TcTraffic({ data, onChange }: Props) {
                 <div className="tt-bh">L2 Ethernet</div>
                 <div className="tt-sub">SRC MAC</div>
                 <div className="tt-grid">
-                  {fld('From', 'srcMac', '00:00:00:00:00:01')}
-                  {fld('To', 'srcMacTo', '비우면 자동')}
-                  {fld('Step', 'srcMacStep', '1')}
-                  {fld('모드', 'srcMacMod', '', MODS)}
+                  {fld('From', 'srcMac', '00:00:00:00:00:01', undefined, 140)}
+                  {fld('To', 'srcMacTo', '비우면 자동', undefined, 140)}
+                  {fld('Step', 'srcMacStep', '1', undefined, 48)}
+                  {fld('모드', 'srcMacMod', '', MODS, 88)}
                 </div>
                 <div className="tt-sub">DST MAC</div>
                 <div className="tt-grid">
-                  {fld('From', 'dstMac', '00:00:00:00:00:02')}
-                  {fld('To', 'dstMacTo', '비우면 자동')}
-                  {fld('Step', 'dstMacStep', '1')}
-                  {fld('모드', 'dstMacMod', '', MODS)}
+                  {fld('From', 'dstMac', '00:00:00:00:00:02', undefined, 140)}
+                  {fld('To', 'dstMacTo', '비우면 자동', undefined, 140)}
+                  {fld('Step', 'dstMacStep', '1', undefined, 48)}
+                  {fld('모드', 'dstMacMod', '', MODS, 88)}
                 </div>
                 <div className="tt-sub">VLAN</div>
                 <div className="tt-grid">
-                  {fld('VLAN ID', 'vlan', '비우면 태그 없음')}
-                  {fld('모드', 'vlanMod', '', MODS)}
-                  {fld('Step', 'vlanStep', '1')}
-                  {fld('802.1p', 'prio', '0')}
-                  {fld('E-Type', 'etherType', '', ETYPES)}
+                  {fld('VLAN ID', 'vlan', '없으면 비움', undefined, 92)}
+                  {fld('모드', 'vlanMod', '', MODS, 88)}
+                  {fld('Step', 'vlanStep', '1', undefined, 48)}
+                  {fld('802.1p', 'prio', '0', undefined, 44)}
+                  {fld('E-Type', 'etherType', '', ETYPES, 92)}
                 </div>
               </div>
 
@@ -868,29 +895,33 @@ export default function TcTraffic({ data, onChange }: Props) {
                 {/* 무엇이 나가는지를 여기서 정한다 — 비우면 L2 다.
                     전에는 비워도 IPv4·UDP 헤더가 붙어 나갔다. */}
                 <div className="tt-hint">
-                  <b>비우면 L2(Ethernet)</b> 로 나갑니다. IP 를 적으면 IPv4 헤더가, L4 를
-                  고르면 UDP·TCP 까지 붙습니다.
+                  <b>비우면 L2</b> 로 나갑니다 — 위 표의 「헤더」 칸이 지금 무엇으로 나가는지
+                  알려 줍니다.
                 </div>
                 <div className="tt-sub">SRC IP</div>
                 <div className="tt-grid">
-                  {fld('From', 'srcIp', '1.1.1.1')}
-                  {fld('To', 'srcIpTo', '비우면 자동')}
-                  {fld('모드', 'srcIpMod', '', MODS)}
+                  {fld('From', 'srcIp', '1.1.1.1', undefined, 124)}
+                  {fld('To', 'srcIpTo', '비우면 자동', undefined, 124)}
+                  {fld('모드', 'srcIpMod', '', MODS, 88)}
                 </div>
                 <div className="tt-sub">DST IP</div>
                 <div className="tt-grid">
-                  {fld('From', 'dstIp', '2.1.1.1')}
-                  {fld('To', 'dstIpTo', '비우면 자동')}
-                  {fld('모드', 'dstIpMod', '', MODS)}
+                  {fld('From', 'dstIp', '2.1.1.1', undefined, 124)}
+                  {fld('To', 'dstIpTo', '비우면 자동', undefined, 124)}
+                  {fld('모드', 'dstIpMod', '', MODS, 88)}
                 </div>
                 <div className="tt-sub">기타</div>
                 <div className="tt-grid">
                   {/* GW 바로 옆에 둔다. 적어 넣은 그 값으로 물어보는 것이라
                       떨어뜨려 놓으면 무엇에 대한 ARP 인지가 안 읽힌다. */}
-                  <label className="tt-f tt-gw">
+                  <label
+                    className="tt-f tt-gw"
+                    title="보내는 쪽이 붙은 장비 포트의 IP 입니다. 틀리면 프레임이 장비로 안 가고 손실 100% 로 나옵니다."
+                  >
                     <span>GW</span>
                     <input
                       className="mono"
+                      style={{ width: 124 }}
                       value={String(s?.gw ?? '')}
                       placeholder="1.1.1.254"
                       onChange={(e) => setStream(sel, { gw: e.target.value })}
@@ -905,13 +936,9 @@ export default function TcTraffic({ data, onChange }: Props) {
                       {busy === 'arp' ? '…' : 'ARP Send'}
                     </button>
                   </label>
-                  {fld('DSCP', 'dscp', '0')}
-                  {fld('TTL', 'ttl', '64')}
+                  {fld('DSCP', 'dscp', '0', undefined, 48)}
+                  {fld('TTL', 'ttl', '64', undefined, 48)}
                 </div>
-                <p className="tt-hint">
-                  GW 는 보내는 쪽이 붙은 <b>장비 포트의 IP</b> 입니다. 틀리면 프레임이 장비로
-                  안 가고 손실 100% 로 나옵니다.
-                </p>
               </div>
 
             </div>
