@@ -9,6 +9,8 @@ import './MeterStats.css'
  */
 export interface StatRow {
   idx?: number
+  /** 그 스트림의 몇 번째 갈래인가(0-기준). 갈래를 여럿 뿌릴 때 붙는다 */
+  sub?: number
   tx?: unknown
   rx?: unknown
   txOct?: unknown
@@ -89,10 +91,20 @@ export default function MeterStats({
     </th>
   )
 
+  /**
+   * 줄 이름.
+   *
+   * 한 스트림을 열 갈래로 뿌리면 열 줄이 나오는데 이름이 다 같았다 —
+   * `Stream_1` 이 열 번. 어느 갈래가 죽었는지 짚을 수가 없다. 몇 번째
+   * 갈래인지를 뒤에 붙인다(`Stream_1.3`). 갈래가 하나뿐이면 안 붙인다.
+   */
   const label = (r: StatRow, i: number) => {
     const st = streams[typeof r.idx === 'number' ? r.idx : i]
     const path = st?.src ? `${st.src}→${st.dst}, ` : ''
-    return `${path}${String(r.name ?? st?.name ?? `Stream_${i + 1}`)}`
+    const base = String(r.name ?? st?.name ?? `Stream_${i + 1}`)
+    const nSub = rows.filter((x) => x.idx === r.idx).length
+    const sub = typeof r.sub === 'number' && nSub > 1 ? `.${r.sub + 1}` : ''
+    return `${path}${base}${sub}`
   }
 
   return (

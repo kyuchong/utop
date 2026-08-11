@@ -193,21 +193,42 @@ export default function TcMeterStep({ step, meterCfg, onChange, onGoTraffic }: P
                         </option>
                       ))}
                     </select>
+                    {/* 어느 줄을 볼까. 스무 갈래를 뿌리면 「합계가 얼마」
+                        만으로는 못 잡는다 — 한 갈래만 죽어도 합계는
+                        멀쩡해 보인다. */}
                     <select
-                      value={r.idx === undefined ? '' : String(r.idx)}
-                      onChange={(e) =>
-                        setRule(n, {
-                          idx: e.target.value === '' ? undefined : Number(e.target.value),
-                        })
+                      value={
+                        r.scope ??
+                        (r.idx === undefined ? 'sum' : `#${r.idx}`)
                       }
+                      onChange={(e) => {
+                        const v = e.target.value
+                        if (v.startsWith('#'))
+                          setRule(n, { scope: undefined, idx: Number(v.slice(1)) })
+                        else setRule(n, { scope: v as MeterRule['scope'], idx: undefined })
+                      }}
                     >
-                      <option value="">합계</option>
+                      <option value="sum">합계</option>
+                      <option value="avg">평균</option>
+                      <option value="max">가장 큰 줄</option>
+                      <option value="min">가장 작은 줄</option>
+                      <option value="each">모든 줄이</option>
+                      <option value="any">어느 한 줄이라도</option>
                       {(meterCfg?.streams ?? []).map((x, k) => (
-                        <option key={k} value={k}>
+                        <option key={k} value={`#${k}`}>
                           {x.name || `스트림 ${k + 1}`}
                         </option>
                       ))}
                     </select>
+                    {/* 일부 줄만 — 「1-10」 · 「1,3,5」. 비우면 전부.
+                        포트별로 갈라 재거나 한 묶음만 떼어 보는 시험이 있다. */}
+                    <input
+                      className="ms-pick"
+                      value={r.pick ?? ''}
+                      placeholder="줄 (전부)"
+                      title="볼 줄만 적습니다 — 1-10 · 1,3,5. 비우면 전부."
+                      onChange={(e) => setRule(n, { pick: e.target.value })}
+                    />
                     <select
                       className="ms-op"
                       value={r.op}
@@ -219,14 +240,44 @@ export default function TcMeterStep({ step, meterCfg, onChange, onGoTraffic }: P
                       <option value="!=">다름 (≠)</option>
                       <option value=">">초과 (&gt;)</option>
                       <option value="<">미만 (&lt;)</option>
+                      <option value="between">사이</option>
+                      <option value="~">오차 이내 (±%)</option>
                     </select>
-                    <input
-                      className="ms-val"
-                      type="number"
-                      step="any"
-                      value={r.value}
-                      onChange={(e) => setRule(n, { value: Number(e.target.value) || 0 })}
-                    />
+                    {/* 숫자 대신 다른 칸과 견줄 수 있다. 「받은 것이 보낸
+                        것과 같은가」 가 가장 흔한 판정인데, 보낸 개수는
+                        시험마다 달라 숫자로 적어 둘 수가 없었다. */}
+                    <select
+                      value={r.rhsField ?? ''}
+                      title="숫자 대신 다른 칸과 견줍니다"
+                      onChange={(e) => setRule(n, { rhsField: e.target.value || undefined })}
+                    >
+                      <option value="">숫자와</option>
+                      {METER_FIELDS.map((f) => (
+                        <option key={f.k} value={f.k}>
+                          {f.label} 과
+                        </option>
+                      ))}
+                    </select>
+                    {!r.rhsField && (
+                      <input
+                        className="ms-val"
+                        type="number"
+                        step="any"
+                        value={r.value}
+                        onChange={(e) => setRule(n, { value: Number(e.target.value) || 0 })}
+                      />
+                    )}
+                    {(r.op === 'between' || r.op === '~') && (
+                      <input
+                        className="ms-val"
+                        type="number"
+                        step="any"
+                        value={r.value2 ?? 0}
+                        placeholder={r.op === '~' ? '±%' : '위끝'}
+                        title={r.op === '~' ? '허용 오차 퍼센트' : '사이의 위끝'}
+                        onChange={(e) => setRule(n, { value2: Number(e.target.value) || 0 })}
+                      />
+                    )}
                     <button
                       type="button"
                       className="btn small danger"

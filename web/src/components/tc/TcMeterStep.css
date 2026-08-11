@@ -105,3 +105,9 @@
 .ms-rule select, .ms-rule input { font: inherit; }
 .ms-rule .ms-op { width: 110px; }
 .ms-rule .ms-val { width: 110px; }
+
+/* 규칙 한 줄이 길어졌다 — 어느 줄·무엇과·얼마 까지 담는다 */
+.ms-pick {
+  width: 84px;
+  box-sizing: border-box;
+}

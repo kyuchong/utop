@@ -213,27 +213,133 @@ export function judgeMeterStats(
     if (!rules.length) {
       return { ok: true, skip: true, reason: '판정 규칙이 없습니다 — 표에서 칸을 골라 정하세요' }
     }
-    const pick = (r: MeterRule): number =>
-      r.idx === undefined
-        ? rows.reduce((a, x) => a + statNum(x[r.field]), 0)
-        : statNum(rows.find((x, k) => (typeof x.idx === 'number' ? x.idx : k) === r.idx)?.[r.field])
-    const cmp = (a: number, op: string, b: number): boolean =>
-      op === '>=' ? a >= b
-        : op === '<=' ? a <= b
-        : op === '>' ? a > b
-        : op === '<' ? a < b
-        : op === '!=' ? a !== b
+    /**
+     * 「1-10」 · 「1,3,5」 를 줄 번호로. 비면 전부.
+     *
+     * 사람이 세는 번호는 1부터다. 안쪽에서 쓰는 자리는 0부터라 여기서
+     * 한 번만 옮긴다 — 두 군데서 옮기면 언젠가 한 칸 어긋난다.
+     */
+    const picked = (spec?: string): number[] | null => {
+      const t = String(spec ?? '').trim()
+      if (!t) return null
+      const out: number[] = []
+      for (const part of t.split(',')) {
+        const m = /^\s*(\d+)\s*-\s*(\d+)\s*$/.exec(part)
+        if (m) {
+          const a = Number(m[1]); const b = Number(m[2])
+          for (let i = Math.min(a, b); i <= Math.max(a, b); i++) out.push(i - 1)
+        } else {
+          const n = Number(part.trim())
+          if (Number.isFinite(n) && n >= 1) out.push(n - 1)
+        }
+      }
+      return out
+    }
+
+    /** 그 칸의 줄별 값들 — 골라 둔 줄만. 판정은 다 여기서 시작한다 */
+    const colOf = (field: string, r?: MeterRule): number[] => {
+      const only = picked(r?.pick)
+      return rows
+        .filter((_, i) => (only ? only.includes(i) : true))
+        .map((x) => statNum(x[field]))
+    }
+
+    /**
+     * 견줄 한 값을 뽑는다.
+     *
+     * `each`·`any` 는 줄마다 따로 보는 것이라 여기서 한 값으로 못 줄인다 —
+     * 그때는 `null` 을 주고 부르는 쪽이 줄마다 돈다.
+     */
+    const one = (r: MeterRule, field: string): number | null => {
+      const col = colOf(field, r)
+      const sc = r.scope ?? (r.idx === undefined ? 'sum' : undefined)
+      if (sc === 'each' || sc === 'any') return null
+      if (sc === 'sum') return col.reduce((a, b) => a + b, 0)
+      if (sc === 'avg') return col.length ? col.reduce((a, b) => a + b, 0) / col.length : 0
+      if (sc === 'max') return col.length ? Math.max(...col) : 0
+      if (sc === 'min') return col.length ? Math.min(...col) : 0
+      const at = rows.findIndex((x, k) => (typeof x.idx === 'number' ? x.idx : k) === r.idx)
+      return statNum(rows[at < 0 ? 0 : at]?.[field])
+    }
+
+    /**
+     * 두 수를 견준다.
+     *
+     * 「사이」 와 「오차 이내」 를 더했다. 받은 개수가 보낸 개수와 **딱**
+     * 같기를 바라는 시험은 드물다 — 마지막 몇 개는 늘 도중에 있다. 0.1%
+     * 안이면 합격, 이 말을 숫자 하나로는 적을 수가 없었다.
+     */
+    const cmp = (a: number, r: MeterRule, b: number): boolean => {
+      if (r.op === 'between') {
+        const lo = Math.min(b, r.value2 ?? b)
+        const hi = Math.max(b, r.value2 ?? b)
+        return a >= lo && a <= hi
+      }
+      if (r.op === '~') {
+        const tol = Math.abs(r.value2 ?? 0)
+        if (b === 0) return a === 0
+        return Math.abs(a - b) / Math.abs(b) * 100 <= tol
+      }
+      return r.op === '>=' ? a >= b
+        : r.op === '<=' ? a <= b
+        : r.op === '>' ? a > b
+        : r.op === '<' ? a < b
+        : r.op === '!=' ? a !== b
         : a === b
+    }
+
+    const label = (k: string) => METER_FIELDS.find((f) => f.k === k)?.label ?? k
+    const scopeWord = (r: MeterRule) => {
+      const sc = r.scope ?? (r.idx === undefined ? 'sum' : undefined)
+      const only = String(r.pick ?? '').trim()
+      const some = only ? ` ${only}번 줄` : ''
+      return sc === 'sum' ? `합계${some}`
+        : sc === 'avg' ? `평균${some}`
+        : sc === 'max' ? `가장 큰 줄${some}`
+        : sc === 'min' ? `가장 작은 줄${some}`
+        : sc === 'each' ? `모든 줄${some}`
+        : sc === 'any' ? `어느 한 줄${some}`
+        : `스트림 ${(r.idx ?? 0) + 1}`
+    }
+    const rhsWord = (r: MeterRule) =>
+      r.rhsField
+        ? r.op === '~'
+          ? `${label(r.rhsField)} 의 ±${r.value2 ?? 0}% 안`
+          : `${label(r.rhsField)}`
+        : r.op === 'between'
+          ? `${r.value} ~ ${r.value2 ?? r.value} 사이`
+          : r.op === '~'
+            ? `${r.value} 의 ±${r.value2 ?? 0}% 안`
+            : `${r.op} ${r.value}`
+
     const bad: string[] = []
     const said: string[] = []
     for (const r of rules) {
-      const got = pick(r)
-      const where = `${METER_FIELDS.find((f) => f.k === r.field)?.label ?? r.field}${
-        r.idx === undefined ? '(합계)' : `(스트림 ${r.idx + 1})`
-      }`
-      const ok = cmp(got, r.op, r.value)
+      const where = `${label(r.field)}(${scopeWord(r)})`
+      const sc = r.scope ?? (r.idx === undefined ? 'sum' : undefined)
+      if (sc === 'each' || sc === 'any') {
+        // 줄마다 본다. 「모든 줄」 은 하나만 어긋나도, 「어느 한 줄」 은
+        // 하나도 안 맞을 때만 불합격이다.
+        const L = colOf(r.field, r)
+        const R = r.rhsField ? colOf(r.rhsField, r) : null
+        const okEach = L.map((v, i) => cmp(v, r, R ? (R[i] ?? 0) : r.value))
+        const hit = okEach.filter(Boolean).length
+        said.push(`${where} ${hit}/${L.length} 줄 맞음`)
+        if (sc === 'each' && hit < L.length) {
+          const at = okEach.findIndex((x) => !x)
+          bad.push(
+            `${where} — ${at + 1}번 줄이 ${L[at]} 로 어긋납니다 (${rhsWord(r)} 이어야 합니다)`,
+          )
+        }
+        if (sc === 'any' && hit === 0) {
+          bad.push(`${where} — 맞는 줄이 하나도 없습니다 (${rhsWord(r)})`)
+        }
+        continue
+      }
+      const got = one(r, r.field) ?? 0
+      const want = r.rhsField ? (one(r, r.rhsField) ?? 0) : r.value
       said.push(`${where} ${got}`)
-      if (!ok) bad.push(`${where} ${got} — ${r.op} ${r.value} 이어야 합니다`)
+      if (!cmp(got, r, want)) bad.push(`${where} ${got} — ${rhsWord(r)} 이어야 합니다`)
     }
     return bad.length
       ? { ok: false, reason: bad.join(' / ') }
