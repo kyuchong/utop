@@ -6784,17 +6784,33 @@ def n2x_ver(server: str = "210.1.2.248", label: str = "utop"):
             got = int(res.get("ver") or 0)
         except Exception:
             got = 0
-    stale = want > 0 and got < want
+
+    # 「닿았는데 옛 판」 과 「아예 안 닿는다」 는 다른 일이다.
+    #
+    # 전에는 둘을 하나로 묶어 「옛 판입니다 (거기 알 수 없음)」 이라고 했다.
+    # 주소를 잘못 적어 중계가 없는 자리를 고른 사람에게 이 말은 거짓이고,
+    # 시키는 대로 파일을 복사해도 아무것도 안 바뀐다 — 고칠 곳은 주소다.
+    reachable = got > 0
+    stale = reachable and want > got
+    if not reachable:
+        note = (
+            f"N2X 중계에 닿지 않습니다 ({server}). 주소가 맞는지, 그 기계에서 "
+            "n2x_relay.py 가 떠 있는지 보세요."
+        )
+    elif stale:
+        note = (
+            f"N2X 기계의 n2x_daemon.tcl 이 옛 판입니다 (거기 {got} · 여기 {want}). "
+            "backend/n2x/n2x_daemon.tcl 을 그 기계의 중계 폴더로 복사하고 n2x_relay.py 를 다시 띄우세요."
+        )
+    else:
+        note = ""
     return {
         "ok": True,
         "local": want,
         "remote": got,
+        "reachable": reachable,
         "stale": stale,
-        "note": (
-            f"N2X 기계의 n2x_daemon.tcl 이 옛 판입니다 (거기 {got or '알 수 없음'} · 여기 {want}). "
-            "backend/n2x/n2x_daemon.tcl 을 그 기계의 중계 폴더로 복사하고 n2x_relay.py 를 다시 띄우세요."
-            if stale else ""
-        ),
+        "note": note,
     }
 
 

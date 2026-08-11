@@ -179,11 +179,18 @@ export default function TcTopology({
         <button className="btn small" type="button" onClick={() => setAdding(true)}>
           계측기 등록
         </button>
+        {/* 왜 꺼져 있는지를 단추가 스스로 말해야 한다. 아래 안내는 표가
+            비었을 때만 뜨는데, 사람 눈은 꺼진 단추에 먼저 간다. */}
         <button
           className="btn primary small"
           type="button"
           onClick={add}
           disabled={!sessions.length}
+          title={
+            sessions.length
+              ? '장비 포트 ↔ 계측기 포트 한 줄을 더합니다'
+              : '먼저 세션에 장비를 앉히세요 — Automation 탭의 「+ 세션」. 배선은 그 장비의 포트를 가리킵니다.'
+          }
         >
           배선 추가
         </button>

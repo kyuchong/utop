@@ -318,13 +318,16 @@ export default function TcTraffic({ data, onChange }: Props) {
    * 알 길이 없었다.
    */
   const [stale, setStale] = useState('')
+  /** 옛 판이라 파일을 옮겨야 하는가 — 아예 안 닿는 것과 다르다 */
+  const [staleFix, setStaleFix] = useState(false)
   const checkVer = async () => {
     if (!cfg.chassis || kind === 'stc') return
     try {
       const q = `/api/n2x/ver?server=${encodeURIComponent(cfg.chassis)}&label=${encodeURIComponent(cfg.n2xLabel || 'utop')}`
       const r = await apiFetch(q)
-      const j = (await r.json()) as { stale?: boolean; note?: string }
-      setStale(j.stale ? String(j.note ?? '') : '')
+      const j = (await r.json()) as { stale?: boolean; reachable?: boolean; note?: string }
+      setStale(String(j.note ?? ''))
+      setStaleFix(!!j.stale)
     } catch {
       /* 못 물어봐도 하던 일은 계속한다 */
     }
@@ -473,7 +476,10 @@ export default function TcTraffic({ data, onChange }: Props) {
         <div className="tt-stale">
           ⚠ {stale}
           {/* 어디서 받는지가 없으면 저장소를 뒤지거나 사람에게 물어야 한다.
-              그 기계에서 이 링크를 열면 바로 받아진다. */}
+              그 기계에서 이 링크를 열면 바로 받아진다.
+              닿지도 않는데 이 단추를 보이면 안 된다 — 파일을 옮겨도 안
+              바뀐다. 그때 고칠 곳은 주소다. */}
+          {staleFix && (
           <div className="tt-stale-do">
             {/* 그냥 링크로 두면 안 된다 — 이 자리는 로그인이 필요한데
                 브라우저가 여는 링크에는 우리 열쇠가 안 붙어서 401 만 본다.
@@ -485,6 +491,7 @@ export default function TcTraffic({ data, onChange }: Props) {
               N2X 기계에서 이 링크를 열어 중계 폴더에 덮어쓰고, n2x_relay.py 를 다시 띄우세요.
             </span>
           </div>
+          )}
         </div>
       )}
 
@@ -621,16 +628,19 @@ export default function TcTraffic({ data, onChange }: Props) {
             <thead>
               <tr>
                 <th />
-                <th>활성</th>
-                <th>SRC Port</th>
-                <th>DST Port</th>
+                {/* 머리글은 짧게. 열이 열한 개라 「L2 Destination」 같은 긴
+                    말이 칸 폭을 정해 버려서, 정작 값(MAC·IP)이 잘렸다.
+                    전체 이름은 아래 속성 편집에 그대로 있다. */}
+                <th title="이 스트림을 보낼지">활성</th>
+                <th title="보내는 포트">S.Port</th>
+                <th title="받는 포트">D.Port</th>
                 <th>Stream Name</th>
-                <th>Stream.CNT</th>
-                <th>L2 Source</th>
-                <th>L2 Destination</th>
-                <th>L3 Source</th>
-                <th>L3 Destination</th>
-                <th>Gateway</th>
+                <th title="Stream 개수">S.CNT</th>
+                <th title="L2 Source MAC">L2 SRC</th>
+                <th title="L2 Destination MAC">L2 DST</th>
+                <th title="L3 Source IP">L3 SRC</th>
+                <th title="L3 Destination IP">L3 DST</th>
+                <th title="Gateway">GW</th>
               </tr>
             </thead>
             <tbody>
@@ -695,13 +705,14 @@ export default function TcTraffic({ data, onChange }: Props) {
                         ))}
                       </select>
                     </td>
-                    <td>{cell(i, 'name', 150)}</td>
-                    <td>{cell(i, 'count', 70)}</td>
-                    <td>{cell(i, 'srcMac', 150)}</td>
-                    <td>{cell(i, 'dstMac', 150)}</td>
-                    <td>{cell(i, 'srcIp', 120)}</td>
-                    <td>{cell(i, 'dstIp', 120)}</td>
-                    <td>{cell(i, 'gw', 120)}</td>
+                    <td>{cell(i, 'name', 120)}</td>
+                    <td>{cell(i, 'count', 52)}</td>
+                    {/* MAC 은 17자, IP 는 15자. 딱 그만큼만 준다 */}
+                    <td>{cell(i, 'srcMac', 132)}</td>
+                    <td>{cell(i, 'dstMac', 132)}</td>
+                    <td>{cell(i, 'srcIp', 104)}</td>
+                    <td>{cell(i, 'dstIp', 104)}</td>
+                    <td>{cell(i, 'gw', 104)}</td>
                   </tr>
                 ))
               )}
@@ -745,11 +756,11 @@ export default function TcTraffic({ data, onChange }: Props) {
                 <div className="tt-grid">
                   {fld('부하', 'load', '10')}
                   {fld('단위', 'unit', '', UNITS)}
-                  {fld('프레임 종류', 'frameType', 'Ethernet II')}
-                  {fld('최소 크기', 'minByte', '64')}
-                  {fld('최대 크기', 'maxByte', '1518')}
-                  {fld('크기 모드', 'byteType', '', BYTEMODES)}
-                  {fld('프레임 수 (0=연속)', 'frameCnt', '0')}
+                  {fld('프레임', 'frameType', 'Ethernet II')}
+                  {fld('최소', 'minByte', '64')}
+                  {fld('최대', 'maxByte', '1518')}
+                  {fld('크기', 'byteType', '', BYTEMODES)}
+                  {fld('프레임 수', 'frameCnt', '0 = 연속')}
                   {fld('버스트', 'burst', '1')}
                   {fld('간격', 'gap', '0')}
                 </div>
@@ -758,19 +769,19 @@ export default function TcTraffic({ data, onChange }: Props) {
               {layer === 'l2' && (
                 <>
                   <div className="tt-box">
-                    <div className="tt-bh">L2 Source MAC</div>
+                    <div className="tt-bh">L2 SRC MAC</div>
                     <div className="tt-grid">
                       {fld('From', 'srcMac', '00:00:00:00:00:01')}
-                      {fld('To (자동)', 'srcMacTo', '00:00:00:00:00:0a')}
+                      {fld('To', 'srcMacTo', '비우면 자동')}
                       {fld('Step', 'srcMacStep', '1')}
                       {fld('모드', 'srcMacMod', '', MODS)}
                     </div>
                   </div>
                   <div className="tt-box">
-                    <div className="tt-bh">L2 Destination MAC</div>
+                    <div className="tt-bh">L2 DST MAC</div>
                     <div className="tt-grid">
                       {fld('From', 'dstMac', '00:00:00:00:00:02')}
-                      {fld('To (자동)', 'dstMacTo', '')}
+                      {fld('To', 'dstMacTo', '비우면 자동')}
                       {fld('Step', 'dstMacStep', '1')}
                       {fld('모드', 'dstMacMod', '', MODS)}
                     </div>
@@ -779,7 +790,7 @@ export default function TcTraffic({ data, onChange }: Props) {
                     {fld('VLAN ID', 'vlan', '비우면 태그 없음')}
                     {fld('VLAN 모드', 'vlanMod', '', MODS)}
                     {fld('VLAN Step', 'vlanStep', '1')}
-                    {fld('Priority (802.1p)', 'prio', '0')}
+                    {fld('802.1p', 'prio', '0')}
                     {fld('Ether-Type', 'etherType', '', ETYPES)}
                   </div>
                 </>
@@ -795,18 +806,18 @@ export default function TcTraffic({ data, onChange }: Props) {
                     Gateway 는 L3 일 때만 쓰입니다.
                   </div>
                   <div className="tt-box">
-                    <div className="tt-bh">L3 Source</div>
+                    <div className="tt-bh">L3 SRC IP</div>
                     <div className="tt-grid">
                       {fld('From', 'srcIp', '1.1.1.1')}
-                      {fld('To (자동)', 'srcIpTo', '')}
+                      {fld('To', 'srcIpTo', '비우면 자동')}
                       {fld('모드', 'srcIpMod', '', MODS)}
                     </div>
                   </div>
                   <div className="tt-box">
-                    <div className="tt-bh">L3 Destination</div>
+                    <div className="tt-bh">L3 DST IP</div>
                     <div className="tt-grid">
                       {fld('From', 'dstIp', '2.1.1.1')}
-                      {fld('To (자동)', 'dstIpTo', '')}
+                      {fld('To', 'dstIpTo', '비우면 자동')}
                       {fld('모드', 'dstIpMod', '', MODS)}
                     </div>
                   </div>
@@ -825,8 +836,8 @@ export default function TcTraffic({ data, onChange }: Props) {
               {layer === 'l4' && (
                 <div className="tt-grid">
                   {fld('프로토콜', 'l4proto', '', L4)}
-                  {fld('보내는 포트', 'srcPort', '')}
-                  {fld('받는 포트', 'dstPort', '')}
+                  {fld('S.Port', 'srcPort', '')}
+                  {fld('D.Port', 'dstPort', '')}
                 </div>
               )}
             </div>

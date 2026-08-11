@@ -41,7 +41,7 @@
 }
 .tt-f > span {
   flex: none;
-  width: 84px;
+  width: 62px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -71,8 +71,8 @@
 .tt-f > .sd-hint {
   flex-basis: 100%;
   min-width: 0;
-  max-width: calc(100% - 84px - var(--sp-2));
-  margin-left: calc(84px + var(--sp-2));
+  max-width: calc(100% - 62px - var(--sp-2));
+  margin-left: calc(62px + var(--sp-2));
 }
 .tt-f input,
 .tt-f select {
@@ -110,11 +110,12 @@
   font-weight: 700;
   color: #5b6670;
   background: var(--c-surface-alt);
-  padding: 6px 8px;
+  padding: 5px 6px;
+  white-space: nowrap;
   border-bottom: 1px solid var(--c-border);
 }
 .tt-table td {
-  padding: 3px 8px;
+  padding: 2px 6px;
   border-bottom: 1px solid var(--c-border-soft);
 }
 .tt-table tbody tr { cursor: pointer; }
@@ -188,10 +189,17 @@
 }
 /* 이름표가 옆으로 갔으니 칸 하나가 그만큼 넓어야 한다. 좁으면 이름표와
    입력칸이 서로 밀려 두 줄로 접힌다 — 줄이려던 것을 도로 늘리는 셈이다. */
+/*
+ * 속성 편집의 칸 배치.
+ *
+ * 한 칸을 260px 로 잡아 두었더니 1000px 짜리 자리에 셋밖에 안 들어가,
+ * 부하·단위·프레임까지 보려고 아래로 계속 굴려야 했다. 이름표를 줄인
+ * 만큼 칸도 줄인다 — 값은 MAC 17자·IP 15자가 최대다.
+ */
 .tt-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 6px var(--sp-4);
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 4px var(--sp-3);
 }
 .tt-box {
   border: 1px solid var(--c-border-soft);
