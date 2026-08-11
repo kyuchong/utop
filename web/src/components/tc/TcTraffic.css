@@ -412,16 +412,30 @@
  * `align-items: start` 가 없으면 짧은 묶음이 긴 묶음 높이만큼 늘어나
  * 빈 칸이 생긴다.
  */
+/*
+ * 묶음은 **넓게, 두 줄로.**
+ *
+ * 여러 번 돌아왔다. 다섯을 한 줄에 세우면 칸 높이가 제일 큰 것(L3 IP,
+ * 396px)에 맞춰져 짧은 것 아래로 300px 씩 빈 자리가 남았다. 신문처럼
+ * 흘려 보니(`columns`) 크로뮴이 안 쪼개지는 묶음을 못 나눠 오히려 582px
+ * 이 됐다.
+ *
+ * 답은 **묶음을 넓게 잡는 것**이었다. 폭이 두 배가 되면 그 안의 칸이
+ * 네 줄로 서서 묶음 키가 절반이 된다 — L2 가 292 → 170px 이다. 키가
+ * 고만고만해지니 빈 자리도 같이 사라진다. 좁은 화면에서는 한 줄로
+ * 접힌다.
+ */
 .tt-all {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
   gap: var(--sp-2);
   align-items: start;
 }
-/* 묶음 안은 두 칸씩 — 이름표를 줄였으니 150px 이면 값이 다 보인다 */
+/* 넓어진 만큼 칸도 여러 줄로 — 이름표가 56px 이라 150px 이면 값이 다 보인다 */
 .tt-all .tt-grid {
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
 }
+
 /* 묶음 안의 작은 제목. 상자를 또 겹치면 테두리가 세 겹이 된다 */
 .tt-sub {
   margin: 4px 0 2px;

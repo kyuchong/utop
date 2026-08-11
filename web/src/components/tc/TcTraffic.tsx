@@ -805,15 +805,8 @@ export default function TcTraffic({ data, onChange }: Props) {
               아래로 접힌다.
             */}
             <div className="tt-all">
-              <div className="tt-box">
-                <div className="tt-bh">포트 · 방향</div>
-                <div className="tt-grid">
-                  {fld('SRC', 'src', '', portOpts(s?.src as string | undefined))}
-                  {fld('DST', 'dst', '', portOpts(s?.dst as string | undefined))}
-                  {fld('방향', 'direction', '', ['단방향', '양방향'])}
-                </div>
-              </div>
-
+              {/* 자주 만지는 것이 먼저다 — 부하와 단위는 시험마다 바뀌고
+                  포트는 한 번 정하면 그대로다. */}
               <div className="tt-box">
                 <div className="tt-bh">Traffic Load</div>
                 <div className="tt-grid">
@@ -826,6 +819,21 @@ export default function TcTraffic({ data, onChange }: Props) {
                   {fld('프레임 수', 'frameCnt', '0 = 연속')}
                   {fld('버스트', 'burst', '1')}
                   {fld('간격', 'gap', '0')}
+                </div>
+              </div>
+
+              {/* 포트·방향과 L4 를 한 묶음으로 둔다. 셋씩 짜리 둘을 따로
+                  두었더니 그 줄이 통째로 비어 60px 씩 버렸다. 둘 다
+                  「어디로 나가나」 라 뜻도 가깝다. */}
+              <div className="tt-box">
+                <div className="tt-bh">포트 · 방향 · L4</div>
+                <div className="tt-grid">
+                  {fld('SRC', 'src', '', portOpts(s?.src as string | undefined))}
+                  {fld('DST', 'dst', '', portOpts(s?.dst as string | undefined))}
+                  {fld('방향', 'direction', '', ['단방향', '양방향'])}
+                  {fld('프로토콜', 'l4proto', '', L4)}
+                  {fld('S.Port', 'srcPort', '')}
+                  {fld('D.Port', 'dstPort', '')}
                 </div>
               </div>
 
@@ -906,14 +914,6 @@ export default function TcTraffic({ data, onChange }: Props) {
                 </p>
               </div>
 
-              <div className="tt-box">
-                <div className="tt-bh">L4 / 포트</div>
-                <div className="tt-grid">
-                  {fld('프로토콜', 'l4proto', '', L4)}
-                  {fld('S.Port', 'srcPort', '')}
-                  {fld('D.Port', 'dstPort', '')}
-                </div>
-              </div>
             </div>
           </div>
         )}
