@@ -73,6 +73,20 @@ const MODS = ['고정', '증가', '감소', '무작위']
 const UNITS = ['Mbps', 'Percent(%)', 'Frames/sec(fps)', 'bps']
 const BYTEMODES = ['Fixed', 'Increment', 'Decrement', 'Random']
 const L4 = ['TCP', 'UDP', 'ICMP', '없음']
+
+/*
+ * 스트림 속성의 갈래.
+ *
+ * 전에 다섯이었을 때는 「부하를 고치고 L2 를 보려면」 탭을 예닐곱 번
+ * 오갔다. 셋으로 묶으니 한 번에 손대는 것이 한 갈래 안에 다 있다 —
+ * 어디로 얼마나 / MAC 과 VLAN / IP 와 GW.
+ */
+type Layer = 'send' | 'l2' | 'l3'
+const LAYERS: Array<{ k: Layer; label: string }> = [
+  { k: 'send', label: '포트 · 부하' },
+  { k: 'l2', label: 'L2 Ethernet' },
+  { k: 'l3', label: 'L3 IP' },
+]
 const ETYPES = ['0x0800', '0x0806', '0x86DD', '0x8100']
 
 /**
@@ -91,6 +105,7 @@ export default function TcTraffic({ data, onChange }: Props) {
   const [busy, setBusy] = useState('')
   /** 섀시 포트 칩을 다 펴 두었나 — 44개가 늘 세 줄을 먹는다 */
   const [portsOpen, setPortsOpen] = useState(false)
+  const [layer, setLayer] = useState<Layer>('send')
 
   const cfg: MeterCfg = data.meterCfg ?? {}
   const streams = cfg.streams ?? []
@@ -742,26 +757,31 @@ export default function TcTraffic({ data, onChange }: Props) {
               <tr>
                 <th />
                 {/*
-                  표는 **고르는 자리**다.
+                  이 표는 **처음 쓰는 사람의 자리**다.
 
-                  열한 칸 중 일곱(포트·MAC·IP·GW)이 아래 편집기와 같은 값을
-                  그리고 있었다. 같은 것을 두 군데서 고칠 수 있으니 어느
-                  쪽이 진짜인지 매번 생각하게 되고, 가로 스크롤(1140px)도
-                  거기서 나왔다. 고칠 곳은 아래 하나로 모으고, 여기에는
-                  **아래를 봐서는 한눈에 안 보이는 것**만 남긴다.
+                  MAC 도 VLAN 도 몰라도 여기 여섯 칸만 채우면 트래픽이
+                  나간다 — 어디서 어디로(경로), 한쪽인가 양쪽인가(방향),
+                  얼마나(로드), 얼마짜리로(바이트). 「헤더」 는 적어 넣은
+                  값으로 저절로 정해지므로 고칠 수 없다.
+
+                  MAC·VLAN·IP 를 손보는 것은 아래 「스트림 세부」 다. 전에는
+                  그것들을 이 표에도 늘어놓아 열한 칸이었는데, 같은 값을 두
+                  군데서 고칠 수 있으니 어느 쪽이 진짜인지 매번 생각하게 됐고
+                  가로 스크롤(1140px)도 거기서 나왔다.
                 */}
                 <th title="이 스트림을 보낼지">활성</th>
                 <th>Stream Name</th>
                 <th title="보내는 포트 → 받는 포트">경로</th>
-                <th title="부하와 단위">부하</th>
-                <th title="프레임 크기와 모드">프레임</th>
+                <th title="한쪽으로만 보낼지, 서로 보낼지">방향</th>
+                <th title="부하와 단위">로드</th>
+                <th title="프레임 크기와 모드">바이트</th>
                 <th title="적어 넣은 값으로 정해지는 헤더">헤더</th>
               </tr>
             </thead>
             <tbody>
               {streams.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="tt-empty">
+                  <td colSpan={8} className="tt-empty">
                     스트림이 없습니다. 「＋ 추가」 를 누르세요.
                   </td>
                 </tr>
@@ -793,16 +813,78 @@ export default function TcTraffic({ data, onChange }: Props) {
                       />
                     </td>
                     <td>{cell(i, 'name', 140)}</td>
-                    <td className="mono small">
-                      {row.src || '–'} → {row.dst || '–'}
+                    {/* 여기서 바로 고친다. 아래로 내려가 다시 찾을 것 없이
+                        한 줄 안에서 끝나야 처음 쓰는 사람이 붙는다. */}
+                    <td className="tt-pair">
+                      <select
+                        className="tt-in"
+                        style={{ width: 84 }}
+                        value={row.src ?? ''}
+                        onChange={(e) => setStream(i, { src: e.target.value })}
+                      >
+                        <option value="">—</option>
+                        {portOpts(row.src).map((x) => (
+                          <option key={x} value={x}>
+                            {x}
+                          </option>
+                        ))}
+                      </select>
+                      <i>→</i>
+                      <select
+                        className="tt-in"
+                        style={{ width: 84 }}
+                        value={row.dst ?? ''}
+                        onChange={(e) => setStream(i, { dst: e.target.value })}
+                      >
+                        <option value="">—</option>
+                        {portOpts(row.dst).map((x) => (
+                          <option key={x} value={x}>
+                            {x}
+                          </option>
+                        ))}
+                      </select>
                     </td>
-                    <td className="mono small">
-                      {row.load || '–'} {row.unit || ''}
+                    <td>
+                      <select
+                        className="tt-in"
+                        style={{ width: 82 }}
+                        value={row.direction ?? '단방향'}
+                        onChange={(e) => setStream(i, { direction: e.target.value })}
+                      >
+                        <option>단방향</option>
+                        <option>양방향</option>
+                      </select>
                     </td>
-                    <td className="mono small">
-                      {row.byteType === 'Random'
-                        ? `${row.minByte || 64}–${row.maxByte || 1518} Random`
-                        : `${row.minByte || 64} Fixed`}
+                    <td className="tt-pair">
+                      {cell(i, 'load', 52)}
+                      <select
+                        className="tt-in"
+                        style={{ width: 92 }}
+                        value={row.unit ?? 'Mbps'}
+                        onChange={(e) => setStream(i, { unit: e.target.value })}
+                      >
+                        {UNITS.map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="tt-pair">
+                      {cell(i, 'minByte', 52)}
+                      {row.byteType === 'Random' && cell(i, 'maxByte', 52)}
+                      <select
+                        className="tt-in"
+                        style={{ width: 86 }}
+                        value={row.byteType ?? 'Fixed'}
+                        onChange={(e) => setStream(i, { byteType: e.target.value })}
+                      >
+                        {BYTEMODES.map((b) => (
+                          <option key={b} value={b}>
+                            {b}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     {/* 적어 넣은 값으로 정해진다. 「비우면 L2」 규칙이 편집기
                         안내문에만 있어서 여기서 제일 자주 틀렸다. */}
@@ -831,7 +913,36 @@ export default function TcTraffic({ data, onChange }: Props) {
               번 오간다. 다 펴 놓고 옆으로 늘어놓는다. 자리가 좁으면
               아래로 접힌다.
             */}
+            {/*
+              세 갈래.
+                ① 보내기  — 어디로, 얼마나 (포트·방향·L4 · Traffic Load)
+                ② L2      — MAC 과 VLAN
+                ③ L3      — IP 와 GW
+              다 펴 놓으면 312px 을 먹는데, 한 번에 손대는 것은 대개 한
+              갈래다. 갈라 두면 100px 안쪽으로 줄고 그만큼 표와 측정
+              결과가 위로 올라온다. 갈래 이름 옆의 점은 그 갈래에 적힌
+              것이 있다는 뜻이라, 닫아 두어도 무엇이 채워졌는지 보인다.
+            */}
+            <div className="tt-layers" role="tablist">
+              {LAYERS.map((l) => (
+                <button
+                  key={l.k}
+                  type="button"
+                  role="tab"
+                  aria-selected={layer === l.k}
+                  className={`tt-layer${layer === l.k ? ' on' : ''}`}
+                  onClick={() => setLayer(l.k)}
+                >
+                  {l.label}
+                  {l.k === 'l2' && String(s?.vlan ?? '').trim() && <i className="tt-dot" />}
+                  {l.k === 'l3' && headerOf(s) !== 'L2' && <i className="tt-dot" />}
+                </button>
+              ))}
+            </div>
+
             <div className="tt-all">
+              {layer === 'send' && (
+              <>
               {/* 자주 만지는 것이 먼저다 — 부하와 단위는 시험마다 바뀌고
                   포트는 한 번 정하면 그대로다. */}
               <div className="tt-box">
@@ -864,6 +975,10 @@ export default function TcTraffic({ data, onChange }: Props) {
                 </div>
               </div>
 
+              </>
+              )}
+
+              {layer === 'l2' && (
               <div className="tt-box">
                 <div className="tt-bh">L2 Ethernet</div>
                 <div className="tt-sub">SRC MAC</div>
@@ -890,6 +1005,9 @@ export default function TcTraffic({ data, onChange }: Props) {
                 </div>
               </div>
 
+              )}
+
+              {layer === 'l3' && (
               <div className="tt-box">
                 <div className="tt-bh">L3 IP</div>
                 {/* 무엇이 나가는지를 여기서 정한다 — 비우면 L2 다.
@@ -940,7 +1058,7 @@ export default function TcTraffic({ data, onChange }: Props) {
                   {fld('TTL', 'ttl', '64', undefined, 48)}
                 </div>
               </div>
-
+              )}
             </div>
           </div>
         )}
