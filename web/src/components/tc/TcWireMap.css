@@ -112,3 +112,38 @@
   font-size: var(--fs-xs);
   font-weight: 700;
 }
+
+/*
+ * 구성도.
+ *
+ * 글 목록만으로는 「이게 어떻게 생긴 랩인가」 가 안 그려진다. 장비를
+ * 네모로 두고 물린 데를 선으로 잇는다 — 사람이 종이에 그리는 그대로다.
+ */
+.wm-pic {
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-alt);
+  padding: 8px;
+}
+.wm-svg { width: 100%; height: auto; display: block; }
+.wm-n rect {
+  fill: var(--c-surface);
+  stroke: var(--c-border);
+  stroke-width: 1.2;
+}
+.wm-n.meter rect { stroke: var(--c-primary); }
+.wm-n text {
+  font-size: 11px;
+  fill: var(--c-text);
+  font-weight: 700;
+}
+.wm-l path {
+  fill: none;
+  stroke: var(--c-text-faint);
+  stroke-width: 1.4;
+}
+.wm-l.wire path { stroke: var(--c-primary); }
+.wm-l text {
+  font-size: 9px;
+  fill: var(--c-text-muted);
+}

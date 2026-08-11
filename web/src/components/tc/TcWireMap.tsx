@@ -84,12 +84,26 @@ export default function TcWireMap({
 
   /** 이어진 것 전부 — 한 줄씩 글로 */
   const rows = useMemo(() => {
-    const out: Array<{ k: string; a: string; b: string; kind: 'wire' | 'link'; at: number }> = []
+    const out: Array<{
+      k: string
+      a: string
+      b: string
+      aDev: string
+      aPort: string
+      bDev: string
+      bPort: string
+      kind: 'wire' | 'link'
+      at: number
+    }> = []
     wiring.forEach((w, i) => {
       out.push({
         k: `w${i}`,
         a: `${nameOf(devOf(w))} ${w.port}`,
         b: `${nameOf(w.meter)} ${w.meterPort}`,
+        aDev: devOf(w),
+        aPort: w.port,
+        bDev: w.meter,
+        bPort: w.meterPort,
         kind: 'wire',
         at: i,
       })
@@ -99,6 +113,10 @@ export default function TcWireMap({
         k: `l${i}`,
         a: `${nameOf(l.a.dev)} ${l.a.port}`,
         b: `${nameOf(l.b.dev)} ${l.b.port}`,
+        aDev: l.a.dev,
+        aPort: l.a.port,
+        bDev: l.b.dev,
+        bPort: l.b.port,
         kind: 'link',
         at: i,
       })
@@ -296,7 +314,94 @@ export default function TcWireMap({
       })()}
       {note && <div className="wm-note">{note}</div>}
 
-      {/* 이어진 것 — 글로 보여야 옮겨 적을 수 있다 */}
+      {/*
+        구성도.
+        
+        글 목록만으로는 「이게 어떻게 생긴 랩인가」 가 안 그려진다. 장비를
+        네모로 두고 물린 데를 선으로 잇는다 — 사람이 종이에 그리는 그대로다.
+        선 가운데에 포트를 적어, 그림만 보고도 결과서에 옮겨 적을 수 있게 한다.
+      */}
+      {rows.length > 0 && (
+        <div className="wm-pic">
+          {(() => {
+            // 그림에 나올 장비 — 왼쪽은 장비, 오른쪽은 계측기가 자연스럽다
+            const ids = [...new Set(rows.flatMap((r) => [r.aDev, r.bDev]))]
+            //
+            // 어느 쪽에 세울까.
+            //
+            // 계측기는 오른쪽, 장비는 왼쪽이 자연스럽다. 다만 계측기가 안
+            // 끼는 배선(장비끼리)이면 오른쪽이 비어 선을 그을 데가 없다 —
+            // 그때는 장비를 반씩 갈라 세운다. 처음에 「없으면 통째로 다시
+            // 쓴다」 로 두었더니 같은 장비가 양쪽에 두 번 그려졌다.
+            //
+            const meterIds = ids.filter((i) => isMeter(devById.get(i) ?? ({} as Device)))
+            const plainIds = ids.filter((i) => !meterIds.includes(i))
+            let left: string[]
+            let right: string[]
+            if (meterIds.length) {
+              left = plainIds
+              right = meterIds
+            } else {
+              const half = Math.ceil(plainIds.length / 2)
+              left = plainIds.slice(0, half)
+              right = plainIds.slice(half)
+            }
+            const BW = 150
+            const BH = 40
+            const GAP = 26
+            const X2 = 330
+            const rowsN = Math.max(left.length, right.length, 1)
+            const H = rowsN * (BH + GAP) + 20
+            const yOf = (list: string[], i: number) =>
+              (H - (list.length * (BH + GAP) - GAP)) / 2 + i * (BH + GAP)
+            const at = (id: string): { x: number; y: number } | null => {
+              const li = left.indexOf(id)
+              if (li >= 0) return { x: 0, y: yOf(left, li) }
+              const ri = right.indexOf(id)
+              if (ri >= 0) return { x: X2, y: yOf(right, ri) }
+              return null
+            }
+            return (
+              <svg viewBox={`0 0 ${X2 + BW} ${H}`} className="wm-svg">
+                {rows.map((r) => {
+                  const a = at(r.aDev)
+                  const b = at(r.bDev)
+                  if (!a || !b) return null
+                  const x1 = a.x < b.x ? a.x + BW : a.x
+                  const x2 = a.x < b.x ? b.x : b.x + BW
+                  const y1 = a.y + BH / 2
+                  const y2 = b.y + BH / 2
+                  const mx = (x1 + x2) / 2
+                  return (
+                    <g key={r.k} className={r.kind === 'wire' ? 'wm-l wire' : 'wm-l'}>
+                      <path d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} />
+                      <text x={mx} y={(y1 + y2) / 2 - 4} textAnchor="middle">
+                        {r.aPort} ↔ {r.bPort}
+                      </text>
+                    </g>
+                  )
+                })}
+                {[...left, ...right].map((id) => {
+                  const pos = at(id)
+                  if (!pos) return null
+                  const d = devById.get(id)
+                  const meter = isMeter(d ?? ({} as Device))
+                  return (
+                    <g key={id} className={`wm-n${meter ? ' meter' : ''}`}>
+                      <rect x={pos.x} y={pos.y} width={BW} height={BH} rx="6" />
+                      <text x={pos.x + BW / 2} y={pos.y + BH / 2 + 4} textAnchor="middle">
+                        {d ? deviceShort(d) : id}
+                      </text>
+                    </g>
+                  )
+                })}
+              </svg>
+            )
+          })()}
+        </div>
+      )}
+
+      {/* 이어진 것 — 글로도 적는다. 그림은 한눈에, 글은 옮겨 적을 때 쓴다 */}
       <div className="wm-list">
         <div className="wm-lh">이어진 배선 {rows.length}</div>
         {rows.length === 0 ? (
