@@ -55,18 +55,54 @@ function numToIp(n: number): string {
   return [(m >>> 24) & 255, (m >>> 16) & 255, (m >>> 8) & 255, m & 255].join('.')
 }
 
-/** 개수 · 걸음 · 모드로 정해지는 끝 주소. 셀 수 없으면 시작을 그대로 준다. */
-function endOf(from: string, mod: string, step: string, count: string, kind: 'mac' | 'ip'): string {
-  const n = Math.max(1, Number(count) || 1)
-  const st = Number(step) || 1
+/**
+ * 끝 주소.
+ *
+ * 개수는 **몇 개**를 뜻한다. 10 이라 적으면 시작부터 열 개이니 끝은
+ * 시작 + 9 다. 처음에는 「한 칸에 얼마씩」 으로 잡고 개수를 따로 두었는데,
+ * 그러면 10 을 적어도 개수가 1인 한 끝이 그대로라 「반영이 안 된다」 로
+ * 보인다. 계측기 화면들이 쓰는 뜻(Count)에 맞춘다.
+ */
+function endOf(from: string, mod: string, cnt: string, kind: 'mac' | 'ip'): string {
+  const n = Math.max(1, Number(cnt) || 1)
   const dir = mod === '감소' ? -1 : 1
   if (mod !== '증가' && mod !== '감소') return from
   if (kind === 'mac') {
     const a = macToNum(from)
-    return a === null ? from : numToMac(a + BigInt(dir * st * (n - 1)))
+    return a === null ? from : numToMac(a + BigInt(dir * (n - 1)))
   }
   const a = ipToNum(from)
-  return a === null ? from : numToIp(a + dir * st * (n - 1))
+  return a === null ? from : numToIp(a + dir * (n - 1))
+}
+
+/**
+ * 주소 목록 — 시작에서 개수만큼.
+ *
+ * 「From 1, To 10」 만 보고는 그 사이가 어떻게 채워지는지 알 수 없다.
+ * 미리보기는 실제로 나갈 값을 늘어놓아 보여 준다.
+ */
+function listOf(from: string, mod: string, cnt: string, kind: 'mac' | 'ip'): string[] {
+  const n = Math.max(1, Number(cnt) || 1)
+  const dir = mod === '감소' ? -1 : 1
+  if (!String(from ?? '').trim()) return []
+  if (mod !== '증가' && mod !== '감소') return [from]
+  const out: string[] = []
+  if (kind === 'mac') {
+    const a = macToNum(from)
+    if (a === null) return [from]
+    for (let i = 0; i < n; i++) out.push(numToMac(a + BigInt(dir * i)))
+    return out
+  }
+  const a = ipToNum(from)
+  if (a === null) return [from]
+  for (let i = 0; i < n; i++) out.push(numToIp(a + dir * i))
+  return out
+}
+
+/** 길면 앞뒤만 — 천 개를 다 적어도 읽지 못한다 */
+function brief(xs: string[], keep = 6): string {
+  if (xs.length <= keep) return xs.join(', ')
+  return `${xs.slice(0, 3).join(', ')} … ${xs.slice(-2).join(', ')}  (${xs.length}개)`
 }
 
 function newStream(n: number, a: string, b: string): MeterStream {
@@ -86,10 +122,18 @@ function newStream(n: number, a: string, b: string): MeterStream {
      * L4 를 고르면 UDP·TCP 까지 붙는다.
      */
     packetType: 'Ethernet',
-    srcMac: '00:00:00:00:00:01',
-    dstMac: '00:00:00:00:00:02',
-    srcMacTo: '00:00:00:00:00:01',
-    dstMacTo: '00:00:00:00:00:02',
+    /*
+     * MAC 은 **줄마다 다르게** 시작한다.
+     *
+     * 늘 01·02 로 만들었더니 스트림을 넷 만들면 넷이 같은 MAC 으로 나갔다.
+     * 장비는 그것을 한 대로 보고 MAC 표를 한 줄만 잡는다 — 포트가 바뀔
+     * 때마다 학습이 흔들리고, 무엇이 어느 스트림의 것인지도 못 가린다.
+     * 첫 줄 01·02, 둘째 줄 03·04 … 로 벌려 둔다.
+     */
+    srcMac: numToMac(BigInt(n * 2 - 1)),
+    dstMac: numToMac(BigInt(n * 2)),
+    srcMacTo: numToMac(BigInt(n * 2 - 1)),
+    dstMacTo: numToMac(BigInt(n * 2)),
     srcMacMod: '고정',
     dstMacMod: '고정',
     srcMacStep: '1',
@@ -173,6 +217,8 @@ export default function TcTraffic({ data, onChange }: Props) {
   const [busy, setBusy] = useState('')
   /** 섀시 포트 칩을 다 펴 두었나 — 44개가 늘 세 줄을 먹는다 */
   const [portsOpen, setPortsOpen] = useState(false)
+  /** 무엇이 나갈지 미리 보여 주는 창 */
+  const [preview, setPreview] = useState(false)
   const [layer, setLayer] = useState<Layer>('send')
 
   const cfg: MeterCfg = data.meterCfg ?? {}
@@ -237,15 +283,14 @@ export default function TcTraffic({ data, onChange }: Props) {
       streams: streams.map((s, j) => {
         if (j !== i) return s
         const v = { ...s, ...patch }
-        // 시작·걸음·개수·모드 중 무엇이 바뀌든 끝은 따라 바뀐다
-        const c = v.count ?? '1'
+        // 시작·개수·모드 중 무엇이 바뀌든 끝은 따라 바뀐다
         return {
           ...v,
-          srcMacTo: endOf(v.srcMac ?? '', v.srcMacMod ?? '', v.srcMacStep ?? '1', c, 'mac'),
-          dstMacTo: endOf(v.dstMac ?? '', v.dstMacMod ?? '', v.dstMacStep ?? '1', c, 'mac'),
-          srcIpTo: endOf(v.srcIp ?? '', v.srcIpMod ?? '', v.srcIpStep ?? '1', c, 'ip'),
-          dstIpTo: endOf(v.dstIp ?? '', v.dstIpMod ?? '', v.dstIpStep ?? '1', c, 'ip'),
-          vlanTo: endOf(v.vlan ?? '', v.vlanMod ?? '', v.vlanStep ?? '1', c, 'ip'),
+          srcMacTo: endOf(v.srcMac ?? '', v.srcMacMod ?? '', v.srcMacStep ?? '1', 'mac'),
+          dstMacTo: endOf(v.dstMac ?? '', v.dstMacMod ?? '', v.dstMacStep ?? '1', 'mac'),
+          srcIpTo: endOf(v.srcIp ?? '', v.srcIpMod ?? '', v.srcIpStep ?? '1', 'ip'),
+          dstIpTo: endOf(v.dstIp ?? '', v.dstIpMod ?? '', v.dstIpStep ?? '1', 'ip'),
+          vlanTo: endOf(v.vlan ?? '', v.vlanMod ?? '', v.vlanStep ?? '1', 'ip'),
         }
       }),
     })
@@ -258,7 +303,21 @@ export default function TcTraffic({ data, onChange }: Props) {
   const copyStream = () => {
     const src = streams[sel]
     if (!src) return
-    setCfg({ streams: [...streams, { ...src, name: `${src.name ?? 'Stream'}_사본` }] })
+    // 사본도 MAC 을 벌린다 — 그대로 베끼면 장비가 둘을 한 대로 본다
+    const n = streams.length + 1
+    setCfg({
+      streams: [
+        ...streams,
+        {
+          ...src,
+          name: `${src.name ?? 'Stream'}_사본`,
+          srcMac: numToMac(BigInt(n * 2 - 1)),
+          dstMac: numToMac(BigInt(n * 2)),
+          srcMacTo: endOf(numToMac(BigInt(n * 2 - 1)), src.srcMacMod ?? '', src.srcMacStep ?? '1', 'mac'),
+          dstMacTo: endOf(numToMac(BigInt(n * 2)), src.dstMacMod ?? '', src.dstMacStep ?? '1', 'mac'),
+        },
+      ],
+    })
     setSel(streams.length)
   }
   const delStreams = () => {
@@ -650,30 +709,19 @@ export default function TcTraffic({ data, onChange }: Props) {
       : fixed
         ? '모드를 「증가」 나 「감소」 로 바꾸면 켜집니다'
         : ''
-    /*
-     * 걸음을 키워도 끝이 안 움직이는 까닭은 대개 **개수가 1** 이라서다.
-     * 주소가 하나뿐이니 걸을 데가 없다. 그 말을 여기 적어 둔다 — 안 적으면
-     * 고장으로 읽히고, 실제로 그렇게 읽혔다.
-     */
-    const one = !fixed && !noFrom && (Number(s?.count) || 1) <= 1
     return (
       <>
         <label className="tt-f" title={why}>
-          <span>Step</span>
+          <span>개수</span>
           <input
             className="mono"
-            style={{ width: 48 }}
+            style={{ width: 56 }}
             disabled={fixed || noFrom}
             value={fixed || noFrom ? '' : String(s?.[k] ?? '1')}
             placeholder="–"
             onChange={(e) => setStream(sel, { [k]: e.target.value })}
           />
         </label>
-        {one && (
-          <span className="tt-warn small" title="「포트 · 방향 · 부하」 갈래의 「주소 수」">
-            주소 수가 1이라 걸을 데가 없습니다
-          </span>
-        )}
       </>
     )
   }
@@ -740,6 +788,94 @@ export default function TcTraffic({ data, onChange }: Props) {
 
   return (
     <div className="tt">
+      {/*
+        미리보기.
+        「이 값들이 실제로 어떤 프레임이 되는가」 를 돌려 보기 전에 보여
+        준다. 표와 세부에 흩어진 것을 머릿속에서 합쳐야만 알 수 있었고,
+        그래서 틀린 채로 돌리고 손실 100% 를 보고서야 되짚었다.
+      */}
+      {preview && (
+        <div className="tt-pv-back" onClick={() => setPreview(false)}>
+          <div className="tt-pv" onClick={(e) => e.stopPropagation()}>
+            <div className="tt-pv-h">
+              <b>계측기에 만들어질 스트림</b>
+              <span className="muted small">
+                {kind === 'stc' ? 'STC' : 'N2X'} · {cfg.chassis || '계측기 안 고름'}
+              </span>
+              <span className="sp" />
+              <button className="btn small" type="button" onClick={() => setPreview(false)}>
+                닫기
+              </button>
+            </div>
+            <div className="tt-pv-b">
+              {streams.filter((x) => x.enabled !== false).length === 0 ? (
+                <div className="empty">보낼 스트림이 없습니다 — 「활성」 을 켜세요.</div>
+              ) : (
+                streams
+                  .map((x, i) => ({ x, i }))
+                  .filter(({ x }) => x.enabled !== false)
+                  .map(({ x, i }) => {
+                    const srcMacs = listOf(x.srcMac ?? '', x.srcMacMod ?? '', x.srcMacStep ?? '1', 'mac')
+                    const dstMacs = listOf(x.dstMac ?? '', x.dstMacMod ?? '', x.dstMacStep ?? '1', 'mac')
+                    const srcIps = listOf(x.srcIp ?? '', x.srcIpMod ?? '', x.srcIpStep ?? '1', 'ip')
+                    const dstIps = listOf(x.dstIp ?? '', x.dstIpMod ?? '', x.dstIpStep ?? '1', 'ip')
+                    const vlans = listOf(x.vlan ?? '', x.vlanMod ?? '', x.vlanStep ?? '1', 'ip')
+                    const row = (k: string, v: string) =>
+                      v ? (
+                        <div className="tt-pv-r" key={k}>
+                          <span>{k}</span>
+                          <b className="mono">{v}</b>
+                        </div>
+                      ) : null
+                    return (
+                      <div className="tt-pv-s" key={i}>
+                        <div className="tt-pv-t">
+                          <b>{x.name || `Stream_${i + 1}`}</b>
+                          <span className="tt-tag">{headerOf(x)}</span>
+                          <span className="muted small">
+                            {x.src || '–'} → {x.dst || '–'} · {x.direction || '단방향'}
+                          </span>
+                        </div>
+                        {row('보내는 양', `${x.load || '–'} ${x.unit || ''}`)}
+                        {row(
+                          '프레임',
+                          x.byteType === 'Random'
+                            ? `${x.minByte || 64}–${x.maxByte || 1518} B 무작위`
+                            : `${x.minByte || 64} B 고정`,
+                        )}
+                        {row('SRC MAC', brief(srcMacs))}
+                        {row('DST MAC', brief(dstMacs))}
+                        {row('VLAN', brief(vlans))}
+                        {row('SRC IP', brief(srcIps))}
+                        {row('DST IP', brief(dstIps))}
+                        {row('GW', x.gw ?? '')}
+                        {row(
+                          'L4',
+                          x.l4proto && x.l4proto !== '없음'
+                            ? `${x.l4proto} ${x.srcPort || '–'} → ${x.dstPort || '–'}`
+                            : '',
+                        )}
+                      </div>
+                    )
+                  })
+              )}
+              {/*
+                지금 계측기가 받는 것은 **한 값씩**이다. 데몬이
+                `SetFieldFixedValue` 로만 넣는다 — 목록을 넣는
+                `SetFieldValueList` 는 이 장비에 있지만 아직 안 쓴다.
+                그래서 위에 여럿으로 펼쳐 보여도 실제로 나가는 것은
+                첫 값 하나다. 이 말을 안 적으면 화면과 선로가 어긋난 채
+                시험이 돈다.
+              */}
+              <div className="tt-hint">
+                <b>지금 계측기로 나가는 것은 각 줄의 첫 값 하나입니다.</b> 데몬이 값을
+                하나씩만 넣습니다(`SetFieldFixedValue`). 목록으로 뿌리는 것은 이 장비에
+                길이 있으니(`SetFieldValueList`) 이어서 붙이겠습니다.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {stale && (
         <div className="tt-stale">
           ⚠ {stale}
@@ -882,6 +1018,17 @@ export default function TcTraffic({ data, onChange }: Props) {
       <section className="tt-sec">
         <div className="tt-sh">
           <b>스트림</b>
+          {/* 무엇이 나갈지 눌러서 보고 시작한다. 표와 세부에 흩어진 값이
+              실제로 어떤 프레임이 되는지는 지금까지 돌려 보기 전에는
+              알 수가 없었다. */}
+          <button
+            className="btn small"
+            type="button"
+            disabled={!streams.length}
+            onClick={() => setPreview(true)}
+          >
+            미리보기
+          </button>
           {badStreams.length > 0 && (
             <span className="tt-warn">
               보낼 곳이 안 정해진 스트림 {badStreams.length}개 — SRC·DST 를 고르세요
@@ -928,7 +1075,11 @@ export default function TcTraffic({ data, onChange }: Props) {
                 <th title="보내는 포트 → 받는 포트">경로</th>
                 <th title="한쪽으로만 보낼지, 서로 보낼지">방향</th>
                 <th title="부하와 단위">로드</th>
-                <th title="프레임 크기와 모드">바이트</th>
+                {/* 바이트(크기·모드)는 「포트 · 방향 · 부하」 갈래로 옮겼다.
+                    한 번 정하면 시험 내내 그대로라 줄마다 보일 것이 아니다.
+                    대신 줄마다 다른 MAC 을 여기서 본다. */}
+                <th title="보내는 쪽 MAC">S.Mac</th>
+                <th title="받는 쪽 MAC — ARP 를 누르면 GW 의 MAC 이 들어옵니다">D.Mac</th>
                 <th title="적어 넣은 값으로 정해지는 헤더">헤더</th>
                 {/* L3 로 쏠 때 꼭 채워야 하는 셋. 여기 없으면 세부로 들어가
                     적고 다시 나와야 했다 — 처음 쓰는 사람이 제일 자주
@@ -1030,22 +1181,8 @@ export default function TcTraffic({ data, onChange }: Props) {
                         ))}
                       </select>
                     </td>
-                    <td className="tt-pair">
-                      {cell(i, 'minByte', 52)}
-                      {row.byteType === 'Random' && cell(i, 'maxByte', 52)}
-                      <select
-                        className="tt-in"
-                        style={{ width: 86 }}
-                        value={row.byteType ?? 'Fixed'}
-                        onChange={(e) => setStream(i, { byteType: e.target.value })}
-                      >
-                        {BYTEMODES.map((b) => (
-                          <option key={b} value={b}>
-                            {b}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
+                    <td>{cell(i, 'srcMac', 136)}</td>
+                    <td>{cell(i, 'dstMac', 136)}</td>
                     {/* 적어 넣은 값으로 정해진다. 「비우면 L2」 규칙이 편집기
                         안내문에만 있어서 여기서 제일 자주 틀렸다. */}
                     <td>
@@ -1150,24 +1287,6 @@ export default function TcTraffic({ data, onChange }: Props) {
                   {fld('방향', 'direction', '', ['단방향', '양방향'], 88)}
                   {fld('SRC Port', 'src', '', portOpts(s?.src as string | undefined), 104)}
                   {fld('DST Port', 'dst', '', portOpts(s?.dst as string | undefined), 104)}
-                  {/* 한 스트림이 **몇 개의 주소를 훑는가.** 표에 있던
-                      「S.CNT」 가 이것이다 — 표를 줄이며 뺐더니 걸음을
-                      아무리 키워도 끝 주소가 안 움직였다.
-                      「개수」 만으로는 무엇의 개수인지 안 읽혀서 이름을
-                      고쳤다. */}
-                  <label
-                    className="tt-f"
-                    title="이 스트림이 훑는 주소 수(옛 S.CNT). MAC·IP·VLAN 의 From 에서 Step 씩 이만큼 늘려 갑니다 — 1 이면 한 주소뿐이라 Step 이 아무 일도 안 합니다."
-                  >
-                    <span>주소 수</span>
-                    <input
-                      className="mono"
-                      style={{ width: 56 }}
-                      value={String(s?.count ?? '1')}
-                      placeholder="1"
-                      onChange={(e) => setStream(sel, { count: e.target.value })}
-                    />
-                  </label>
                 </div>
               </div>
 

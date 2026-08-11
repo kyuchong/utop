@@ -517,3 +517,74 @@
   color: var(--c-text-muted);
   cursor: default;
 }
+
+/* ── 미리보기 창 ── */
+.tt-pv-back {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(16, 24, 40, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.tt-pv {
+  width: min(880px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  box-shadow: 0 8px 40px rgba(16, 24, 40, 0.22);
+  overflow: hidden;
+}
+.tt-pv-h {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--c-border);
+}
+.tt-pv-h .sp { margin-left: auto; }
+.tt-pv-b {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tt-pv-s {
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+.tt-pv-t {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+/* 이름표는 폭을 묶어 둔다 — 값이 한 줄에서 시작해야 눈이 따라 내려간다 */
+.tt-pv-r {
+  display: flex;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+}
+.tt-pv-r > span {
+  flex: none;
+  width: 76px;
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+}
+.tt-pv-r > b {
+  min-width: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
