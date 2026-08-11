@@ -7055,12 +7055,33 @@ def _n2x_streams_from(data: dict):
     return streams
 
 
+# 화면의 말 → 데몬의 말.
+#
+# 데몬은 윈도우에서 도는 Tcl 이라 한글이 그대로 가면 깨진다(전에 오류
+# 메시지가 그렇게 깨져 읽을 수가 없었다). 여기서 ASCII 로 바꿔 보낸다.
+_N2X_MODS = {"증가": "inc", "감소": "dec", "무작위": "rand"}
+
+
 def _n2x_specs(streams):
     def _clean(v):
-        return str(v if v is not None else "").strip().replace(",", "").replace(" ", "")
+        t = str(v if v is not None else "").strip()
+        t = _N2X_MODS.get(t, t)
+        return t.replace(",", "").replace(" ", "")
     # unit 은 맨 뒤에 붙인다 — 자리로 읽는 형식이라, 중간에 끼우면 옛 spec 이
     # 통째로 어긋난다. 없으면 데몬이 pps 로 본다.
-    keys = ["txMod", "txPort", "rxMod", "rxPort", "proto", "frame", "pps", "npkt", "srcMac", "dstMac", "srcIp", "dstIp", "unit", "frameMax"]
+    #
+    # 뒤의 일곱은 **주소를 여럿으로 뿌리기** 위한 것이다.
+    #
+    # 여태 계측기에는 값이 하나씩만 갔다(`SetFieldFixedValue`). 화면에서는
+    # 「01 부터 열 개」 로 적어 두고 선로에는 01 하나만 나갔는데, 화면
+    # 어디에도 그 말이 없었다 — 시험은 돌고 결과도 나오는데 잰 것이 딴것이다.
+    # 시작 · 개수 · 모드를 함께 보내고, 데몬이 목록을 만들어
+    # `SetFieldValueList` 로 넣는다.
+    keys = [
+        "txMod", "txPort", "rxMod", "rxPort", "proto", "frame", "pps", "npkt",
+        "srcMac", "dstMac", "srcIp", "dstIp", "unit", "frameMax",
+        "cnt", "srcMacMod", "dstMacMod", "srcIpMod", "dstIpMod", "vlan", "vlanMod",
+    ]
     specs = []
     for s in streams:
         # 송신 모듈만 주면 수신 모듈도 동일하게

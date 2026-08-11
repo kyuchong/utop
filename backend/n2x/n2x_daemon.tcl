@@ -10,7 +10,7 @@
 #
 # 고칠 때마다 올린다. 서버가 `ver` 로 물어 제 사본과 견주고, 다르면
 # 화면에 「윈도우의 데몬이 옛 것」 이라고 적는다.
-set DAEMON_VER 13
+set DAEMON_VER 14
 # 명령: ports | reserve <mod> <port> | release <mod> <port>
 #       traffic <mod> <tx> <rx> <pps> <npkt> <dur> <frame> | ping | quit
 lappend auto_path "C:/N2xTcl85/lib"
@@ -103,6 +103,8 @@ set ::g_sg {}; set ::g_hStats ""    ;# 비동기 전송용 전역 상태 (구성
 set ::g_badPorts {}                  ;# 핸들을 못 잡은 포트 — 에러에 적어 준다
 set ::g_loadUnit ""                  ;# 부하를 실제로 어떤 단위로 넣었나
 set ::g_frameSet ""                  ;# 프레임 길이를 실제로 정했나
+set ::g_ranged {}                    ;# 목록으로 뿌린 칸 — "field:개수"
+set ::g_rangeFail {}                 ;# 목록 넣기를 거절당한 칸
 set ::g_statKeys {}                  ;# 실제 선택된 통계 항목(이름 순서) — GetStreamStatistics 행 매핑용
 # 통계 항목을 풍부하게 선택(지연 min/max·송수신 바이트). 상수 미지원이면 단계적으로 폴백.
 proc _select_stats {hStats} {
@@ -252,6 +254,85 @@ proc _load_norm {val unit {frame 64}} {
 # 여기는 `AgtInvoke` 만 부른다. 그것은 값을 돌려주지 콘솔에 찍지 않는다.
 # 이름을 하나 알아낼 때마다 파일을 윈도우로 실어 나르지 않아도 된다 —
 # 그 왕복이 이 일을 며칠짜리로 만들고 있었다.
+#
+# 주소 목록 만들기.
+#
+# 여태 값은 하나씩만 넣었다(`SetFieldFixedValue`). 화면에서는 「01 부터
+# 열 개」 로 적어 두고 선로에는 01 하나만 나갔는데, 화면 어디에도 그 말이
+# 없었다 — 시험은 돌고 결과도 나오는데 잰 것이 딴것이다.
+#
+# 이 빌드에는 목록을 넣는 `SetFieldValueList` 가 있다(찔러서 확인했다).
+# 시작·개수·모드로 목록을 만들어 그것으로 넣는다.
+#
+
+# MAC 문자열 → 정수. 구분자는 아무거나(: 든 - 든 없든).
+proc _mac2num {v} {
+    regsub -all {[^0-9a-fA-F]} $v "" h
+    if {[string length $h] != 12} { return "" }
+    scan $h %llx n
+    return $n
+}
+proc _num2mac {n} {
+    set h [format %012llx [expr {$n & 0xffffffffffff}]]
+    set out {}
+    foreach i {0 2 4 6 8 10} { lappend out [string range $h $i [expr {$i+1}]] }
+    return [join $out :]
+}
+proc _ip2num {v} {
+    set p [split $v .]
+    if {[llength $p] != 4} { return "" }
+    set n 0
+    foreach x $p {
+        if {![string is integer -strict $x] || $x < 0 || $x > 255} { return "" }
+        set n [expr {$n * 256 + $x}]
+    }
+    return $n
+}
+proc _num2ip {n} {
+    set m [expr {$n % 4294967296}]
+    return "[expr {($m >> 24) & 255}].[expr {($m >> 16) & 255}].[expr {($m >> 8) & 255}].[expr {$m & 255}]"
+}
+
+# 시작 · 개수 · 모드로 값 목록. 셀 수 없거나 「고정」 이면 빈 목록(= 한 값).
+proc _vlist {from mod cnt kind} {
+    if {$from eq "" || $from eq "-"} { return {} }
+    if {$mod ne "inc" && $mod ne "dec"} { return {} }
+    if {![string is integer -strict $cnt] || $cnt < 2} { return {} }
+    set dir [expr {$mod eq "dec" ? -1 : 1}]
+    if {$kind eq "mac"} {
+        set a [_mac2num $from]
+        if {$a eq ""} { return {} }
+        set out {}
+        for {set i 0} {$i < $cnt} {incr i} { lappend out [_num2mac [expr {$a + $dir * $i}]] }
+        return $out
+    }
+    set a [_ip2num $from]
+    if {$a eq ""} { return {} }
+    set out {}
+    for {set i 0} {$i < $cnt} {incr i} { lappend out [_num2ip [expr {$a + $dir * $i}]] }
+    return $out
+}
+
+#
+# 한 칸을 넣는다 — 여럿이면 목록으로, 아니면 한 값으로.
+#
+# 목록 넣기가 거절당하면 **조용히 넘기지 않는다.** 예전에 프레임 길이를
+# `catch` 로 감싸 두었다가 늘 64바이트로 나갔고, 그것을 알아채는 데 한참
+# 걸렸다. 여기서는 실패를 적어 두어 `tstart` 응답으로 올려 보낸다.
+#
+proc _setField {hPdu proto idx field from mod cnt kind} {
+    if {$from eq "" || $from eq "-"} { return }
+    set lst [_vlist $from $mod $cnt $kind]
+    if {[llength $lst] > 1} {
+        if {![catch {AgtInvoke AgtPduHeader SetFieldValueList $hPdu $proto $idx $field $lst}]} {
+            lappend ::g_ranged "$field:[llength $lst]"
+            return
+        }
+        lappend ::g_rangeFail $field
+    }
+    catch {AgtInvoke AgtPduHeader SetFieldFixedValue $hPdu $proto $idx $field $from}
+}
+
 proc cmd_inv {rest} {
     if {[catch {eval AgtInvoke $rest} r]} {
         return "{\"ok\":false,\"error\":\"[jstr $r]\"}"
@@ -339,6 +420,7 @@ proc cmd_uprobe {mod port} {
 #       StopTest 후 실제로 STOPPED 상태가 될 때까지 폴링, 리스트 잠금 해제 확실히 대기.
 proc _build_streams {specs} {
     set ::g_badPorts {}
+    set ::g_ranged {}; set ::g_rangeFail {}
     catch {AgtInvoke AgtTestController StopTest}
     # 테스트가 실제로 STOPPED 될 때까지 최대 5초 폴링 (RemoveAll 이 잠긴 리스트에서 실패하는 것 방지)
     set _tries 0
@@ -376,6 +458,11 @@ proc _build_streams {specs} {
         set unit [lindex $f 12]
         # 13번 칸이 있으면 프레임 길이를 그 사이에서 무작위로 (min=frame)
         set frameMax [lindex $f 13]
+        # 14~20: 주소를 여럿으로 뿌리기 — 개수와 칸별 모드, 그리고 VLAN
+        set cnt [lindex $f 14]
+        set srcMacMod [lindex $f 15]; set dstMacMod [lindex $f 16]
+        set srcIpMod [lindex $f 17]; set dstIpMod [lindex $f 18]
+        set vlan [lindex $f 19]; set vlanMod [lindex $f 20]
         set hTx [getPort $txM $txP]; set hRx [getPort $rxM $rxP]
         if {$hTx eq ""} { lappend ::g_badPorts "$txM/$txP" }
         if {$hRx eq ""} { lappend ::g_badPorts "$rxM/$rxP" }
@@ -397,7 +484,23 @@ proc _build_streams {specs} {
         # 「Mbps 로 적었는데 pps 로 나갔다」 를 눈으로 볼 수 있어야 한다.
         set ::g_loadUnit $_lset
         if {$npkt ne "" && $npkt > 0} { AgtInvoke AgtConstantProfile SetNumberOfPacketsToInject $hProfile $npkt }
-        set hParams [AgtInvoke AgtStreamGroupList AddStreamGroupsWithExistingProfile $hProfile AGT_PACKET_STREAM_GROUP 1]
+        #
+        # 마지막 인자가 **이 묶음에 몇 갈래를 둘까** 다.
+        #
+        # 여태 1 로 박아 두었다. 그래서 화면에서 「10 갈래」 로 적어 두어도
+        # 계측기에는 스트림 하나만 생겼고, 통계도 한 줄만 나왔다 —
+        # 「2포트 20플로우로 잡았는데 두 줄만 보인다」 가 이것이다.
+        # 주소 목록의 길이와 같아야 목록이 갈래마다 하나씩 배분된다.
+        set _nflow 1
+        if {[string is integer -strict $cnt] && $cnt > 1} { set _nflow $cnt }
+        if {[catch {AgtInvoke AgtStreamGroupList AddStreamGroupsWithExistingProfile $hProfile AGT_PACKET_STREAM_GROUP $_nflow} hParams]} {
+            # 갈래를 여럿 못 만드는 빌드면 하나로라도 만든다. 조용히 넘기면
+            # 왜 한 줄만 나오는지 알 길이 없으므로 남겨서 올려 보낸다.
+            lappend ::g_rangeFail "streams:$_nflow"
+            set hParams [AgtInvoke AgtStreamGroupList AddStreamGroupsWithExistingProfile $hProfile AGT_PACKET_STREAM_GROUP 1]
+        } else {
+            if {$_nflow > 1} { lappend ::g_ranged "streams:$_nflow" }
+        }
         set hSG [lindex $hParams 0]; set hPdu [lindex $hParams 1]
         AgtInvoke AgtStreamGroup SetExpectedDestinationPorts $hSG $hRx
         set hdr "ethernet ipv4 udp"
@@ -430,10 +533,10 @@ proc _build_streams {specs} {
                 set ::g_frameSet "yes"
             }
         }
-        if {$srcMac ne "" && $srcMac ne "-"} { catch {AgtInvoke AgtPduHeader SetFieldFixedValue $hPdu ethernet 1 source_address $srcMac} }
-        if {$dstMac ne "" && $dstMac ne "-"} { catch {AgtInvoke AgtPduHeader SetFieldFixedValue $hPdu ethernet 1 destination_address $dstMac} }
-        if {$srcIp ne "" && $srcIp ne "-"} { catch {AgtInvoke AgtPduHeader SetFieldFixedValue $hPdu ipv4 1 source_address $srcIp} }
-        if {$dstIp ne "" && $dstIp ne "-"} { catch {AgtInvoke AgtPduHeader SetFieldFixedValue $hPdu ipv4 1 destination_address $dstIp} }
+        _setField $hPdu ethernet 1 source_address      $srcMac $srcMacMod $cnt mac
+        _setField $hPdu ethernet 1 destination_address $dstMac $dstMacMod $cnt mac
+        _setField $hPdu ipv4     1 source_address      $srcIp  $srcIpMod  $cnt ip
+        _setField $hPdu ipv4     1 destination_address $dstIp  $dstIpMod  $cnt ip
         lappend sgInfo [list $hSG $hRx $idx]
         incr idx
     }
@@ -493,7 +596,7 @@ proc cmd_tstart {dur specs} {
     AgtInvoke AgtTestController SetTestMode AGT_TEST_ONCE
     if {$dur ne "" && $dur > 0} { AgtInvoke AgtTestController SetTestDuration $dur } else { AgtInvoke AgtTestController SetTestDuration 3600 }
     AgtInvoke AgtTestController StartTest
-    return "{\"ok\":true,\"started\":true,\"count\":[llength $::g_sg],\"loadUnit\":\"[jstr $::g_loadUnit]\",\"frameSet\":\"$::g_frameSet\"}"
+    return "{\"ok\":true,\"started\":true,\"count\":[llength $::g_sg],\"loadUnit\":\"[jstr $::g_loadUnit]\",\"frameSet\":\"$::g_frameSet\",\"ranged\":\"[jstr [join $::g_ranged ,]]\",\"rangeFail\":\"[jstr [join $::g_rangeFail ,]]\"}"
 }
 # 비동기 통계 — 실시간 폴링용 (전송 중에도 조회)
 proc cmd_tstat {} {

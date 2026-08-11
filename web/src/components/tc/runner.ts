@@ -650,6 +650,28 @@ async function runOne(
                     srcIp: subVars(String(x.srcIp ?? ''), vars),
                     dstIp: subVars(String(x.dstIp ?? ''), vars),
                     gw: subVars(String(x.gw ?? ''), vars),
+                    /*
+                     * 주소를 여럿으로 뿌리는 데 쓰는 것들.
+                     *
+                     * 여태 안 보냈다. 화면에서는 「01 부터 열 개」 로 적어
+                     * 두고 선로에는 01 하나만 나갔는데 화면 어디에도 그
+                     * 말이 없었다 — 시험은 돌고 결과도 나오는데 잰 것이
+                     * 딴것이다. 개수는 각 칸의 「개수」 중 가장 큰 것이다.
+                     */
+                    cnt: String(
+                      Math.max(
+                        1,
+                        ...[x.srcMacStep, x.dstMacStep, x.srcIpStep, x.dstIpStep, x.vlanStep].map(
+                          (v) => Number(v) || 1,
+                        ),
+                      ),
+                    ),
+                    srcMacMod: x.srcMacMod ?? '고정',
+                    dstMacMod: x.dstMacMod ?? '고정',
+                    srcIpMod: x.srcIpMod ?? '고정',
+                    dstIpMod: x.dstIpMod ?? '고정',
+                    vlan: x.vlan ?? '',
+                    vlanMod: x.vlanMod ?? '고정',
                   }))
               : [
                 {

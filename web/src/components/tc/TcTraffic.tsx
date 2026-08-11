@@ -911,9 +911,10 @@ export default function TcTraffic({ data, onChange }: Props) {
                 어긋난 채 시험이 돈다.
               */}
               <div className="tt-hint">
-                <b>아직은 스트림마다 첫 줄 하나만 나갑니다.</b> 데몬이 값을 하나씩만
-                넣습니다(`SetFieldFixedValue`). 목록으로 뿌리는 길(`SetFieldValueList`)은
-                이 장비에 있으니 이어서 붙이겠습니다.
+                이대로 계측기에 만들어집니다. 옛 판 데몬(13 이하)은 갈래를 하나만
+                만들고 값도 하나씩만 넣으니, 위 줄 수와 실제가 다르면{' '}
+                <b>N2X 기계의 n2x_daemon.tcl 을 새 판으로 바꾸세요</b> — 기본 정보의 띠가
+                알려 줍니다.
               </div>
             </div>
           </div>
