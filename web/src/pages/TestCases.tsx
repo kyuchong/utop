@@ -343,6 +343,39 @@ export default function TestCases({ me }: PageProps) {
   const whereName = wherePath.length ? (wherePath[wherePath.length - 1]?.name ?? '') : ''
 
   /**
+   * 목록을 CSV 로.
+   *
+   * List 의 `Export` 안에 박혀 있었다. 그래서 Detail 로 트리를 훑다가
+   * 내보내려면 List 로 건너가야 했다 — 요구사항 화면은 `⋯` 에 있는데
+   * 여기만 그랬다. 둘이 같은 것을 쓰도록 밖으로 뽑는다.
+   */
+  const exportCsv = (rows: TestCaseMeta[]) => {
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const csv = [
+      ['요구사항', 'TC ID', '이름', '유형', '스텝', '상태'].map(esc).join(','),
+      ...rows.map((t) => {
+        const r = reqByKey.get(t.req_id || '')
+        return [
+          r ? r.title || reqLabel(r) : '',
+          t.tcid,
+          t.name ?? '',
+          t.type ?? '',
+          t._cli_count ?? 0,
+          t.status ?? '',
+        ]
+          .map(esc)
+          .join(',')
+      }),
+    ].join('\r\n')
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `시험항목_${whereName || '전체'}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
+  /**
    * 열어 둔 시험이 **어느 폴더의 어느 요구사항** 것인가.
    *
    * 이것이 없으면 Detail 에서 「이 시험이 어디 것이지」 를 알 길이 없다 —
@@ -1601,6 +1634,18 @@ export default function TestCases({ me }: PageProps) {
                 <button type="button" onClick={() => setBulkOpen(true)}>
                   시험 일괄 생성
                 </button>
+                {/* 요구사항 화면의 `⋯` 에는 있는데 여기만 List 에 숨어
+                    있었다. 고른 것이 있으면 그것만, 없으면 트리에 보이는
+                    것을 그대로 내보낸다. */}
+                <button
+                  type="button"
+                  disabled={tcs.length === 0}
+                  onClick={() =>
+                    exportCsv(pickedTc.size ? tcs.filter((t) => pickedTc.has(t.tcid)) : tcs)
+                  }
+                >
+                  {pickedTc.size ? `선택한 ${pickedTc.size}건 내보내기` : '전체 내보내기 (CSV)'}
+                </button>
                 {/* 고른 것에 대한 일. 지우는 것은 하나부터, 한꺼번에
                     고치는 것은 둘부터 — 한 건은 그냥 열어서 고치면 된다. */}
                 {pickedTc.size > 0 && (
@@ -1761,34 +1806,11 @@ export default function TestCases({ me }: PageProps) {
                     type="button"
                     disabled={!listRows.length}
                     title={listPick.size ? '고른 것만 내보냅니다' : '이 자리 전체를 내보냅니다'}
-                    onClick={() => {
-                      const rows = listPick.size
-                        ? listRows.filter((t) => listPick.has(t.tcid))
-                        : listRows
-                      const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-                      const csv = [
-                        ['요구사항', 'TC ID', '이름', '유형', '스텝', '상태'].map(esc).join(','),
-                        ...rows.map((t) => {
-                          const r = reqByKey.get(t.req_id || '')
-                          return [
-                            r ? r.title || reqLabel(r) : '',
-                            t.tcid,
-                            t.name ?? '',
-                            t.type ?? '',
-                            t._cli_count ?? 0,
-                            t.status ?? '',
-                          ]
-                            .map(esc)
-                            .join(',')
-                        }),
-                      ].join('\r\n')
-                      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
-                      const a = document.createElement('a')
-                      a.href = URL.createObjectURL(blob)
-                      a.download = `시험항목_${whereName || '전체'}.csv`
-                      a.click()
-                      URL.revokeObjectURL(a.href)
-                    }}
+                    onClick={() =>
+                      exportCsv(
+                        listPick.size ? listRows.filter((t) => listPick.has(t.tcid)) : listRows,
+                      )
+                    }
                   >
                     Export
                   </button>
@@ -2170,6 +2192,11 @@ export default function TestCases({ me }: PageProps) {
                 탭 줄은 이 칸 위(오른쪽 칸 머리)에 한 번만 그린다. 여기에도
                 두었더니 같은 줄이 두 번 나왔다. */}
             <section className={`panel tc-detcol${termOpen ? ' wide' : ''}`}>
+              {/* 3열도 제 머리를 단다. 1열(`Coverage`)·2열(실행 띠)과 같은
+                  46px 라야 세 칸의 구분선이 한 줄에서 만난다. */}
+              <div className="tc-colh">
+                <b>{termOpen ? '명령어 캡쳐' : '스텝 상세'}</b>
+              </div>
               {termOpen ? (
                 <TcTerminal
                   sessions={sessionIds}
