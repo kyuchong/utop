@@ -33,20 +33,28 @@
 .tt-f {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  /* 이름표와 값 사이는 붙인다 — 칸이 스무 개 넘어서 여백 하나가 스무 번 */
+  gap: 4px;
   /* 알약 목록처럼 칸 아래로 흘러야 하는 것이 있다. 안 감싸면 옆으로
      비집고 들어가 입력칸을 눌러 버린다 — 실제로 화면이 그렇게 무너졌다. */
   flex-wrap: wrap;
   min-width: 0;
 }
+/*
+ * 이름표는 **왼쪽 맞춤**이다.
+ *
+ * 오른쪽으로 밀어 두었더니 「부하」 두 글자 앞에 빈 자리가 40px 씩
+ * 남았다. 칸이 스무 개가 넘으니 그 빈 자리가 화면의 절반이다. 왼쪽에
+ * 붙이면 눈이 이름표 첫 글자를 한 줄로 따라 내려갈 수 있다.
+ */
 .tt-f > span {
   flex: none;
-  width: 62px;
+  width: 56px;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  text-align: right;
+  justify-content: flex-start;
+  gap: 4px;
+  text-align: left;
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
   line-height: 1.25;
@@ -71,14 +79,14 @@
 .tt-f > .sd-hint {
   flex-basis: 100%;
   min-width: 0;
-  max-width: calc(100% - 62px - var(--sp-2));
-  margin-left: calc(62px + var(--sp-2));
+  max-width: calc(100% - 56px - 4px);
+  margin-left: calc(56px + 4px);
 }
 .tt-f input,
 .tt-f select {
   width: 100%;
   box-sizing: border-box;
-  padding: 5px 8px;
+  padding: 3px 6px;
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   background: var(--c-surface);
@@ -198,13 +206,13 @@
  */
 .tt-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 4px var(--sp-3);
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 3px 8px;
 }
 .tt-box {
   border: 1px solid var(--c-border-soft);
   border-radius: var(--radius-sm);
-  padding: var(--sp-2) var(--sp-3);
+  padding: 6px 8px;
 }
 .tt-bh {
   font-size: var(--fs-xs);
@@ -391,3 +399,38 @@
 }
 .tt-port.mine::before { content: '✔ '; }
 .tt-port.mine.on { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+
+
+/*
+ * 스트림 속성 — 층을 **다 펴서** 옆으로.
+ *
+ * 탭으로 갈라 두었을 때는 한 번에 한 겹만 보였다. 부하를 고치고 L2 를
+ * 보려면 탭을 옮겨야 하고, 옮기면 방금 무엇을 적었는지가 사라진다 —
+ * 스트림 하나를 맞추는 데 탭을 예닐곱 번 오갔다.
+ *
+ * 자리가 넓으면 다섯 묶음이 옆으로 늘어서고, 좁으면 아래로 접힌다.
+ * `align-items: start` 가 없으면 짧은 묶음이 긴 묶음 높이만큼 늘어나
+ * 빈 칸이 생긴다.
+ */
+.tt-all {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--sp-2);
+  align-items: start;
+}
+/* 묶음 안은 두 칸씩 — 이름표를 줄였으니 150px 이면 값이 다 보인다 */
+.tt-all .tt-grid {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+/* 묶음 안의 작은 제목. 상자를 또 겹치면 테두리가 세 겹이 된다 */
+.tt-sub {
+  margin: 4px 0 2px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-muted);
+}
+.tt-all .tt-box > .tt-sub:first-of-type { margin-top: 2px; }
+.tt-all .tt-hint {
+  margin: 2px 0;
+  font-size: var(--fs-xs);
+}

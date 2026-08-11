@@ -66,15 +66,6 @@ const BYTEMODES = ['Fixed', 'Increment', 'Decrement', 'Random']
 const L4 = ['TCP', 'UDP', 'ICMP', '없음']
 const ETYPES = ['0x0800', '0x0806', '0x86DD', '0x8100']
 
-type Layer = 'port' | 'load' | 'l2' | 'l3' | 'l4'
-const LAYERS: Array<{ k: Layer; label: string }> = [
-  { k: 'port', label: '물리 포트 매핑' },
-  { k: 'load', label: 'Traffic Load' },
-  { k: 'l2', label: 'L2 Ethernet' },
-  { k: 'l3', label: 'L3 IP' },
-  { k: 'l4', label: 'L4 / 포트' },
-]
-
 /**
  * 계측기 트래픽 스튜디오.
  *
@@ -86,7 +77,6 @@ const LAYERS: Array<{ k: Layer; label: string }> = [
  */
 export default function TcTraffic({ data, onChange }: Props) {
   const [sel, setSel] = useState(0)
-  const [layer, setLayer] = useState<Layer>('l2')
   const [pick, setPick] = useState<Set<number>>(new Set())
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState('')
@@ -728,118 +718,104 @@ export default function TcTraffic({ data, onChange }: Props) {
               <span className="tt-tag">{s.packetType || 'IPv4/Ethernet'}</span>
               <span className="muted small">— 속성 편집</span>
             </div>
-            <div className="tt-layers" role="tablist">
-              {LAYERS.map((l) => (
-                <button
-                  key={l.k}
-                  type="button"
-                  role="tab"
-                  aria-selected={layer === l.k}
-                  className={`tt-layer${layer === l.k ? ' on' : ''}`}
-                  onClick={() => setLayer(l.k)}
-                >
-                  {l.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="tt-panel">
-              {layer === 'port' && (
+            {/*
+              층을 탭으로 갈라 두었더니 한 번에 한 겹만 보였다. 부하를
+              고치고 L2 를 보려면 탭을 옮겨야 하고, 옮기면 방금 무엇을
+              적었는지가 사라진다 — 스트림 하나를 맞추는 데 탭을 예닐곱
+              번 오간다. 다 펴 놓고 옆으로 늘어놓는다. 자리가 좁으면
+              아래로 접힌다.
+            */}
+            <div className="tt-all">
+              <div className="tt-box">
+                <div className="tt-bh">포트 · 방향</div>
                 <div className="tt-grid">
-                  {fld('보내는 포트 (SRC)', 'src', '', portOpts(s?.src as string | undefined))}
-                  {fld('받는 포트 (DST)', 'dst', '', portOpts(s?.dst as string | undefined))}
+                  {fld('SRC', 'src', '', portOpts(s?.src as string | undefined))}
+                  {fld('DST', 'dst', '', portOpts(s?.dst as string | undefined))}
                   {fld('방향', 'direction', '', ['단방향', '양방향'])}
                 </div>
-              )}
+              </div>
 
-              {layer === 'load' && (
+              <div className="tt-box">
+                <div className="tt-bh">Traffic Load</div>
                 <div className="tt-grid">
                   {fld('부하', 'load', '10')}
                   {fld('단위', 'unit', '', UNITS)}
                   {fld('프레임', 'frameType', 'Ethernet II')}
+                  {fld('크기', 'byteType', '', BYTEMODES)}
                   {fld('최소', 'minByte', '64')}
                   {fld('최대', 'maxByte', '1518')}
-                  {fld('크기', 'byteType', '', BYTEMODES)}
                   {fld('프레임 수', 'frameCnt', '0 = 연속')}
                   {fld('버스트', 'burst', '1')}
                   {fld('간격', 'gap', '0')}
                 </div>
-              )}
+              </div>
 
-              {layer === 'l2' && (
-                <>
-                  <div className="tt-box">
-                    <div className="tt-bh">L2 SRC MAC</div>
-                    <div className="tt-grid">
-                      {fld('From', 'srcMac', '00:00:00:00:00:01')}
-                      {fld('To', 'srcMacTo', '비우면 자동')}
-                      {fld('Step', 'srcMacStep', '1')}
-                      {fld('모드', 'srcMacMod', '', MODS)}
-                    </div>
-                  </div>
-                  <div className="tt-box">
-                    <div className="tt-bh">L2 DST MAC</div>
-                    <div className="tt-grid">
-                      {fld('From', 'dstMac', '00:00:00:00:00:02')}
-                      {fld('To', 'dstMacTo', '비우면 자동')}
-                      {fld('Step', 'dstMacStep', '1')}
-                      {fld('모드', 'dstMacMod', '', MODS)}
-                    </div>
-                  </div>
-                  <div className="tt-grid">
-                    {fld('VLAN ID', 'vlan', '비우면 태그 없음')}
-                    {fld('VLAN 모드', 'vlanMod', '', MODS)}
-                    {fld('VLAN Step', 'vlanStep', '1')}
-                    {fld('802.1p', 'prio', '0')}
-                    {fld('Ether-Type', 'etherType', '', ETYPES)}
-                  </div>
-                </>
-              )}
+              <div className="tt-box">
+                <div className="tt-bh">L2 Ethernet</div>
+                <div className="tt-sub">SRC MAC</div>
+                <div className="tt-grid">
+                  {fld('From', 'srcMac', '00:00:00:00:00:01')}
+                  {fld('To', 'srcMacTo', '비우면 자동')}
+                  {fld('Step', 'srcMacStep', '1')}
+                  {fld('모드', 'srcMacMod', '', MODS)}
+                </div>
+                <div className="tt-sub">DST MAC</div>
+                <div className="tt-grid">
+                  {fld('From', 'dstMac', '00:00:00:00:00:02')}
+                  {fld('To', 'dstMacTo', '비우면 자동')}
+                  {fld('Step', 'dstMacStep', '1')}
+                  {fld('모드', 'dstMacMod', '', MODS)}
+                </div>
+                <div className="tt-sub">VLAN</div>
+                <div className="tt-grid">
+                  {fld('VLAN ID', 'vlan', '비우면 태그 없음')}
+                  {fld('모드', 'vlanMod', '', MODS)}
+                  {fld('Step', 'vlanStep', '1')}
+                  {fld('802.1p', 'prio', '0')}
+                  {fld('E-Type', 'etherType', '', ETYPES)}
+                </div>
+              </div>
 
-              {layer === 'l3' && (
-                <>
-                  {/* 무엇이 나가는지를 여기서 정한다 — 비우면 L2 다.
-                      전에는 비워도 IPv4·UDP 헤더가 붙어 나갔다. */}
-                  <div className="tt-hint">
-                    <b>비우면 L2(Ethernet) 프레임</b>으로 나갑니다 — MAC 만 보고 흐릅니다.
-                    IP 를 적으면 IPv4 헤더가 붙고, L4 를 고르면 UDP·TCP 까지 붙습니다.
-                    Gateway 는 L3 일 때만 쓰입니다.
-                  </div>
-                  <div className="tt-box">
-                    <div className="tt-bh">L3 SRC IP</div>
-                    <div className="tt-grid">
-                      {fld('From', 'srcIp', '1.1.1.1')}
-                      {fld('To', 'srcIpTo', '비우면 자동')}
-                      {fld('모드', 'srcIpMod', '', MODS)}
-                    </div>
-                  </div>
-                  <div className="tt-box">
-                    <div className="tt-bh">L3 DST IP</div>
-                    <div className="tt-grid">
-                      {fld('From', 'dstIp', '2.1.1.1')}
-                      {fld('To', 'dstIpTo', '비우면 자동')}
-                      {fld('모드', 'dstIpMod', '', MODS)}
-                    </div>
-                  </div>
-                  <div className="tt-grid">
-                    {fld('Gateway', 'gw', '1.1.1.254')}
-                    {fld('DSCP', 'dscp', '0')}
-                    {fld('TTL', 'ttl', '64')}
-                  </div>
-                  <p className="tt-hint">
-                    Gateway 는 보내는 쪽이 붙은 <b>장비 포트의 IP</b> 입니다. 이것이 틀리면
-                    프레임이 장비로 안 가고 손실 100% 로 나옵니다.
-                  </p>
-                </>
-              )}
+              <div className="tt-box">
+                <div className="tt-bh">L3 IP</div>
+                {/* 무엇이 나가는지를 여기서 정한다 — 비우면 L2 다.
+                    전에는 비워도 IPv4·UDP 헤더가 붙어 나갔다. */}
+                <div className="tt-hint">
+                  <b>비우면 L2(Ethernet)</b> 로 나갑니다. IP 를 적으면 IPv4 헤더가, L4 를
+                  고르면 UDP·TCP 까지 붙습니다.
+                </div>
+                <div className="tt-sub">SRC IP</div>
+                <div className="tt-grid">
+                  {fld('From', 'srcIp', '1.1.1.1')}
+                  {fld('To', 'srcIpTo', '비우면 자동')}
+                  {fld('모드', 'srcIpMod', '', MODS)}
+                </div>
+                <div className="tt-sub">DST IP</div>
+                <div className="tt-grid">
+                  {fld('From', 'dstIp', '2.1.1.1')}
+                  {fld('To', 'dstIpTo', '비우면 자동')}
+                  {fld('모드', 'dstIpMod', '', MODS)}
+                </div>
+                <div className="tt-sub">기타</div>
+                <div className="tt-grid">
+                  {fld('GW', 'gw', '1.1.1.254')}
+                  {fld('DSCP', 'dscp', '0')}
+                  {fld('TTL', 'ttl', '64')}
+                </div>
+                <p className="tt-hint">
+                  GW 는 보내는 쪽이 붙은 <b>장비 포트의 IP</b> 입니다. 틀리면 프레임이 장비로
+                  안 가고 손실 100% 로 나옵니다.
+                </p>
+              </div>
 
-              {layer === 'l4' && (
+              <div className="tt-box">
+                <div className="tt-bh">L4 / 포트</div>
                 <div className="tt-grid">
                   {fld('프로토콜', 'l4proto', '', L4)}
                   {fld('S.Port', 'srcPort', '')}
                   {fld('D.Port', 'dstPort', '')}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         )}
