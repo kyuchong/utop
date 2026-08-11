@@ -275,7 +275,10 @@
  *
  * 접히게 두었더니 좁은 창에서 88px 이 되어, 옆 칸 머리(46px)와 층이
  * 졌다. 두 칸이 나란한데 머리 높이가 다르면 어디까지가 머리인지 안
- * 읽힌다. 좁으면 옆으로 굴린다.
+ * 읽힌다. 접지 않고 좁으면 옆으로 굴린다.
+ *
+ * 다만 자르는 것은 **안쪽 띠**다. 줄 자체를 자르면 파라미터·세션 단추가
+ * 아래로 펼치는 것이 줄 높이에 잘려 안 보인다.
  */
 .tc-run {
   display: flex;
@@ -285,13 +288,17 @@
   box-sizing: border-box;
   padding: 0 var(--sp-3);
   flex-wrap: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
+  overflow: visible;
+  /* 안의 글자도 안 접는다. 「1/4 · PASS 1 · FAIL 0」 이 두 줄로 접혀
+     줄 높이가 67px 이 됐다 — 접히는 것이 줄이든 글자든 결과는 같다. */
+  white-space: nowrap;
   border-bottom: 1px solid var(--tc-line);
 }
-/* 굴러가는 줄 안의 것들은 안 줄어든다 — 줄어들면 글자가 잘린다 */
-.tc-run > * { flex: none; }
+/* 좁아지면 파라미터·세션 칩부터 줄어든다. 돌리는 단추는 안 줄인다 —
+   그것이 이 줄에서 제일 자주 눌리는 것이다. */
+.tc-run > .btn { flex: none; }
+.tc-run > .tc-parbar,
+.tc-run > .tc-sess { min-width: 0; }
 
 .tc-run .sp { margin-left: auto; }
 
@@ -2242,8 +2249,13 @@ table.tb tr.r-bad td:first-child {
  *
  * `flex-wrap: wrap` 이라 1280px 창에서 탭 여덟 개가 석 줄로 접혀 이 줄이
  * 107px 이 됐다. 카드로 떼어 놓으니 그 뭉치가 위에 따로 뜬 판처럼 보였다
- * — 「상·하로 갈라졌다」 는 것이 이것이다. 접지 않고, 좁으면 옆으로
- * 굴린다. 높이가 46px 로 고정되어야 세 칸의 머리가 한 줄에서 만난다.
+ * — 「상·하로 갈라졌다」 는 것이 이것이다. 접지 않고, 좁으면 **탭만**
+ * 옆으로 굴린다. 높이가 46px 로 고정되어야 세 칸의 머리가 한 줄에서
+ * 만난다.
+ *
+ * 줄 전체를 잘라서는 안 된다. 여기에 `overflow` 를 걸었더니 그 안의
+ * `⋯` 메뉴가 줄 높이(46px)에 잘려 5px 만 보였다 — 눌러도 아무것도 안
+ * 뜨는 것처럼 보인다. 자르는 것은 탭 묶음 하나뿐이다.
  */
 .tc-dethead {
   display: flex;
@@ -2254,6 +2266,10 @@ table.tb tr.r-bad td:first-child {
   padding: 0 10px;
   border-bottom: 1px solid var(--c-border);
   flex-wrap: nowrap;
+  overflow: visible;
+  white-space: nowrap;
+}
+.tc-dethead > .seg {
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
