@@ -802,6 +802,23 @@ export default function Requirements() {
               <b>Requirements List</b>
               <span className="rq-mid-hn">{midReqs.length}</span>
               <span className="sp" />
+              {/* 만들기는 목록 위에 둔다. List 에만 있어서, Detail 로 폴더를
+                  훑다가 빠진 것을 찾으면 List 로 건너갔다 만들고 다시
+                  돌아와야 했다. 1열 트리의 `+` 와 같은 자리·같은 모양이다.
+                  넣을 폴더는 지금 보고 있는 그 폴더다(`presetFolder`). */}
+              <button
+                className="btn small primary"
+                type="button"
+                disabled={!folderMode}
+                title={
+                  folderMode
+                    ? '이 폴더에 요구사항을 만듭니다'
+                    : '먼저 폴더를 고르세요'
+                }
+                onClick={() => setForm(null)}
+              >
+                +
+              </button>
             </div>
             {/* 찾기는 찾는 것 바로 위에 둔다. 화면 맨 위 오른쪽에 있었더니
                 눈은 목록에 있는데 손은 저 멀리로 갔다. */}
