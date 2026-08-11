@@ -124,13 +124,15 @@ export default function TestCases({ me }: PageProps) {
   /** 명령어 캡쳐를 열면 3열이 그것으로 바뀐다 — 캡쳐하는 동안 스텝 세부는 볼 일이 없다 */
   const [termOpen, setTermOpen] = useState(false)
   /**
-   * 지금 열어 둔 전역 파라미터 파일.
+   * 전역 파라미터를 보고 있는가.
    *
-   * 트리의 고정 폴더에서 고르면 오른쪽이 그 파일 편집으로 바뀐다. TC 와
-   * 파라미터는 같은 트리에 있지만 둘 중 하나만 열려 있다 — iTest 도
-   * 탐색기에서 test case 와 parameter file 을 같은 자리에서 연다.
+   * 전에는 트리 맨 위의 고정 폴더에서 파일을 하나 골라 열었다. 그 줄은
+   * 폴더인 척하면서 폴더가 아니었고(지울 수도 옮길 수도 없다), 시험을
+   * 찾는 눈길이 매번 그것을 넘어가야 했다. 이제 칸 머리의 단추 하나로
+   * 켜고, 2열에 **파일 목록과 편집을 함께** 편다 — 값을 고치려고 파일을
+   * 하나씩 골라 들어갈 일이 없다.
    */
-  const [paramKey, setParamKey] = useState('')
+  const [gpOpen, setGpOpen] = useState(false)
   const [form, setForm] = useState<TestCaseMeta | null | undefined>(undefined)
   const [bulkOpen, setBulkOpen] = useState(false)
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
@@ -1196,20 +1198,8 @@ export default function TestCases({ me }: PageProps) {
                       「무엇을 보고 있나」 와 「그것의 무엇을 보나」 는 나란히
                       있는 편이 읽힌다. */}
                   <span className="tc-bar-ttl">
-                    {paramKey ? (
-                      <>
-                        <b>전역 파라미터</b>
-                        <span className="muted small">
-                          {' '}
-                          {paramKey === '__global__' ? '공통' : paramKey}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <b>{d.name || '(제목 없음)'}</b>
-                        <span className="muted small"> {openId}</span>
-                      </>
-                    )}
+                    <b>{d.name || '(제목 없음)'}</b>
+                    <span className="muted small"> {openId}</span>
                   </span>
                   {/* 지금 이 시험을 누가 같이 보고 있나 — 제목 바로 옆.
                       혼자면 아무것도 안 뜬다. 둘부터 뜬다. */}
@@ -1250,7 +1240,7 @@ export default function TestCases({ me }: PageProps) {
                       한 덩이로 — 「이 시험의 무엇을 볼까」 를 고르는 것들이라
                       모여 있어야 손이 한 곳으로 간다. */}
                   <span className="sp" />
-            {openId && !paramKey && (
+            {openId && !gpOpen && (
               <div className="seg" role="tablist">
                 {([
                   // 정보 → Manual → Automation 순. 시험을 만드는 순서와 같다 —
@@ -1365,7 +1355,7 @@ export default function TestCases({ me }: PageProps) {
                 </>
               )}
             </div>
-            {openId && !paramKey && (
+            {openId && !gpOpen && (
               <button
                 className="btn primary"
                 type="button"
@@ -1463,7 +1453,10 @@ export default function TestCases({ me }: PageProps) {
           오가는 사람이 매번 다시 찾지 않게. */}
       <div className="rq-bar">
         <span className="rq-crumb">
-          <span className="muted">Test Cases</span>
+          {/* 요구사항 화면의 「Requirements」 와 같은 자리·같은 무게.
+              이 화면이 담는 것은 「어느 요구사항이 무엇으로 덮였나」 라
+              차림표·칸 머리와 같은 말을 쓴다. */}
+          <span className="rq-crumb-root">Coverage</span>
           {/* 조상까지 다 적는다. 마지막(지금 자리)만 진하게 — 앞엣것은
               어디에 있는지를 알려주는 길잡이지 지금 보는 것이 아니다.
               눌러서 그 폴더로 올라갈 수 있다. */}
@@ -1552,7 +1545,7 @@ export default function TestCases({ me }: PageProps) {
             onClick={() => setListOpen(true)}
           >
             <IconPanel open />
-            <span className="tc-fold-t">Coverage {tcs.length}</span>
+            <span className="tc-fold-t">Coverage Tree {tcs.length}</span>
           </button>
         )}
         {/* 1열 — 폴더 · 요구사항 · TC 트리 (요구사항 화면과 같은 모양) */}
@@ -1563,7 +1556,7 @@ export default function TestCases({ me }: PageProps) {
               읽히는 것은 「어느 요구사항이 무엇으로 덮였나」 다 — 그래서
               Coverage 다. */}
           <ListHead
-            name="Coverage"
+            name="Coverage Tree"
             count={tcs.length}
             onCollapse={() => setListOpen(false)}
             picked={
@@ -1579,6 +1572,19 @@ export default function TestCases({ me }: PageProps) {
               ) : undefined
             }
             search={{ value: treeQ, placeholder: 'TC · 요구사항 검색', onChange: setTreeQ }}
+            /* 파라미터는 시험이 아니라 **시험이 쓰는 값**이다. 트리에 폴더인
+               척 끼워 두는 것보다 칸 머리에서 켜고 끄는 편이 맞다. */
+            extra={
+              <button
+                className={`btn small${gpOpen ? ' primary' : ''}`}
+                type="button"
+                title="전역 파라미터 — 스텝에서 ${이름} 으로 쓰는 값"
+                aria-pressed={gpOpen}
+                onClick={() => setGpOpen((v) => !v)}
+              >
+                Global Parameter
+              </button>
+            }
             /* 만들기·일괄·삭제·내보내기는 List 의 일 줄에 있다. 여기 또 두면
                같은 일이 두 자리에 있어 어느 쪽이 무엇인지 생각하게 된다.
                이 칸은 찾아 들어가는 자리라 찾기 하나면 된다. */
@@ -1588,13 +1594,11 @@ export default function TestCases({ me }: PageProps) {
           ) : (
             <TcTree
               tcs={tcs}
-              openId={paramKey ? '' : openId}
+              openId={gpOpen ? '' : openId}
               onOpen={(id) => {
-                setParamKey('')
+                setGpOpen(false)
                 pickTc(id)
               }}
-              paramKey={paramKey}
-              onOpenParam={setParamKey}
               picked={pickedTc}
               q={treeQ}
               onPickClick={tcSel.onClick}
@@ -1637,8 +1641,16 @@ export default function TestCases({ me }: PageProps) {
             Automation 일 때만 다시 좌우로 나뉜다. 바깥 칸 수가 탭마다
             달라지면 옮길 때마다 화면이 통째로 흔들린다. */}
         <div className="tc-content">
-          {view === 'detail' && openId && !paramKey && detHead}
-        {view === 'list' ? (
+          {view === 'detail' && openId && !gpOpen && detHead}
+        {gpOpen ? (
+          /* 파일 목록까지 통째로 — `only` 를 안 준다. 하나만 주면 옆의
+             파일로 넘어갈 길이 없어 되돌아 나와야 한다.
+             List·Detail 어느 쪽에서 켜든 여기가 먼저다. 뒤에 두었더니
+             List 에서는 단추가 먹통이었다. */
+          <section className="panel tc-tabcol">
+            <GlobalParams />
+          </section>
+        ) : view === 'list' ? (
           /* ── List — 이 자리의 시험을 표로 (요구사항 화면과 같은 모양) ──
              열을 늘리지 않는다. 표가 편집기 자리를 대신 쓴다. */
           <section className="panel tc-listview">
@@ -1854,10 +1866,7 @@ export default function TestCases({ me }: PageProps) {
               </div>
             </div>
           </section>
-        ) : paramKey ? (
-          <section className="panel tc-tabcol">
-            <GlobalParams only={paramKey} />
-          </section>
+
         ) : !openId ? (
           <section className="panel">
             <div className="empty">왼쪽에서 테스트케이스를 고르세요.</div>

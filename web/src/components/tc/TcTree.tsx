@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, apiFetch, categoryApi } from '@/api/client'
+import { useQuery } from '@tanstack/react-query'
+import { api, categoryApi } from '@/api/client'
 import {
   buildCategoryTree,
   naturalCompare,
@@ -23,9 +23,6 @@ interface Props {
   /** 지금 열려 있는 TC */
   openId: string
   onOpen: (tcid: string) => void
-  /** 지금 열려 있는 파라미터 파일 (`__global__` 또는 모델명) */
-  paramKey: string
-  onOpenParam: (key: string) => void
   /** 한꺼번에 고친다고 고른 TC 들 */
   picked: Set<string>
   /** 찾는 글자 — 머리줄에서 받는다 */
@@ -69,8 +66,6 @@ export default function TcTree({
   tcs,
   openId,
   onOpen,
-  paramKey,
-  onOpenParam,
   picked,
   q = '',
   onPickClick,
@@ -79,9 +74,6 @@ export default function TcTree({
   selectedReq,
   onSelectReq,
 }: Props) {
-  const qc = useQueryClient()
-  /** 파라미터 파일 새로 만들기 — 이름을 적는 중인가 */
-  const [newParam, setNewParam] = useState<string | null>(null)
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('utop.tctree.open') || '[]')
@@ -93,58 +85,6 @@ export default function TcTree({
   useEffect(() => {
     localStorage.setItem('utop.tctree.open', JSON.stringify([...openIds]))
   }, [openIds])
-
-  /**
-   * 전역 파라미터 파일 목록.
-   *
-   * iTest 가 `parameter_files/` 를 탐색기 폴더로 두는 것과 같다. 설정 안에
-   * 넣어 두면 스텝을 쓰다가 값을 하나 고치려고 화면을 떠나야 한다.
-   */
-  const gpQ = useQuery({
-    queryKey: ['global-params'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/global-params')
-      if (!r.ok) throw new Error('전역 파라미터를 불러오지 못했습니다')
-      return (await r.json()) as Record<string, unknown>
-    },
-    staleTime: 60_000,
-  })
-
-  /**
-   * 등록된 장비의 모델.
-   *
-   * 파일 이름을 손으로만 치게 두면 오타 난 이름이 생기고, 그 파일은 어느
-   * TC 에도 안 붙는다 — 파일 이름이 곧 모델명이라 한 글자만 틀려도 못 만난다.
-   * 고를 수 있게 해 둔다.
-   */
-  const devQ = useQuery({
-    queryKey: ['devices2'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/devices2')
-      if (!r.ok) throw new Error('장비를 불러오지 못했습니다')
-      return (await r.json()) as { devices?: Array<{ model?: string | null }> }
-    },
-    staleTime: 60_000,
-  })
-
-  const addParamM = useMutation({
-    mutationFn: async (name: string) => {
-      const cur = (gpQ.data ?? {}) as Record<string, unknown>
-      if (cur[name] !== undefined) return name
-      const r = await apiFetch('/api/global-params', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...cur, [name]: [] }),
-      })
-      if (!r.ok) throw new Error('만들지 못했습니다')
-      return name
-    },
-    onSuccess: (name) => {
-      setNewParam(null)
-      void qc.invalidateQueries({ queryKey: ['global-params'] })
-      onOpenParam(name)
-    },
-  })
 
   const reqQ = useQuery({
     queryKey: ['req', 'list'],
@@ -494,28 +434,6 @@ export default function TcTree({
     )
   }
 
-  /** 아직 파일이 없는 장비 모델 — 고를 수 있게 */
-  const models = (() => {
-    const d = (gpQ.data ?? {}) as Record<string, unknown>
-    const s = new Set<string>()
-    for (const x of devQ.data?.devices ?? []) if (x.model && d[x.model] === undefined) s.add(x.model)
-    return [...s].sort()
-  })()
-
-  /** 파일 목록. 공통이 늘 맨 위고, 없어도 자리는 있다 */
-  const paramFiles = (() => {
-    const d = gpQ.data ?? {}
-    const rest = Object.keys(d)
-      .filter((k) => k !== '__global__' && k !== '__gp_folders__' && k !== '__includes__')
-      .sort()
-    return ['__global__', ...rest]
-  })()
-
-  const paramCount = (k: string) => {
-    const v = (gpQ.data ?? {})[k]
-    return Array.isArray(v) ? v.filter((r) => (r as { name?: string })?.name).length || '' : ''
-  }
-
   const uncat = reqsOf(null)
   const orphanShown = orphans.filter(tcMatch)
   const loading = reqQ.isLoading || catQ.isLoading
@@ -523,88 +441,10 @@ export default function TcTree({
   return (
     <div className="rt tt">
       <div className="rt-body">
-        {/* 고정 폴더. 지우거나 옮길 수 없고 늘 맨 위다 — 시스템 폴더지
-            사람이 만든 분류가 아니다. 요구사항 트리와 선으로 가른다. */}
-        <div className="tt-fixed">
-          <div
-            className="rt-fold"
-            role="button"
-            tabIndex={0}
-            onClick={() => toggle('__params__')}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                toggle('__params__')
-              }
-            }}
-          >
-            <span className={`rt-caret${isOpen('__params__') ? ' open' : ''}`}>
-              <IconChevron />
-            </span>
-            <b className="rt-fname">Global Parameter</b>
-            <span className="rt-cnt">{paramFiles.length}</span>
-            {/* 새 파일. 폴더 줄에 둬야 '여기 아래에 만든다' 가 읽힌다 */}
-            <button
-              type="button"
-              className="tt-add"
-              title="파라미터 파일 만들기"
-              onClick={(e) => {
-                e.stopPropagation()
-                setOpenIds((s) => new Set(s).add('__params__'))
-                setNewParam('')
-              }}
-            >
-              ＋
-            </button>
-          </div>
-
-          {newParam !== null && (
-            <div className="rt-add" style={{ paddingLeft: 22 }}>
-              {/* 모델명을 고르거나 직접 친다. datalist 라 둘 다 된다 */}
-              <input
-                autoFocus
-                list="tt-models"
-                value={newParam}
-                placeholder="모델명 (예: E4320-24TX)"
-                onChange={(e) => setNewParam(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && newParam.trim()) addParamM.mutate(newParam.trim())
-                  if (e.key === 'Escape') setNewParam(null)
-                }}
-              />
-              <datalist id="tt-models">
-                {models.map((m) => (
-                  <option key={m} value={m} />
-                ))}
-              </datalist>
-              <button
-                className="btn small primary"
-                type="button"
-                disabled={!newParam.trim() || addParamM.isPending}
-                onClick={() => newParam.trim() && addParamM.mutate(newParam.trim())}
-              >
-                만들기
-              </button>
-              <button className="btn small" type="button" onClick={() => setNewParam(null)}>
-                취소
-              </button>
-            </div>
-          )}
-          {isOpen('__params__') &&
-            paramFiles.map((k) => (
-              <button
-                key={k}
-                type="button"
-                className={`tt-tc tt-param${paramKey === k ? ' on' : ''}`}
-                style={{ paddingLeft: 24 }}
-                onClick={() => onOpenParam(k)}
-              >
-                <span className="tt-tc-nm">{k === '__global__' ? '공통' : k}</span>
-                <span className="tt-n">{paramCount(k)}</span>
-              </button>
-            ))}
-        </div>
-
+        {/* 전역 파라미터는 이 트리에서 뺐다. 여기 있을 때는 폴더인 척
+            하면서 폴더가 아니었고(지울 수도 옮길 수도 없다), 시험을 찾는
+            눈길이 매번 그 줄을 넘어가야 했다. 이제 칸 머리의 단추로 열어
+            2열 전체에서 본다 — 파일 목록과 편집이 함께 있는 자리다. */}
         {loading ? (
           <div className="empty">불러오는 중…</div>
         ) : (

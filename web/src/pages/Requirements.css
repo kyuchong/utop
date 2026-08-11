@@ -607,9 +607,20 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   grid-template-columns: 34px 200px 1fr 96px 150px 90px;
   align-items: center;
   min-height: var(--row-h);
-  border-bottom: 1px solid var(--c-border-soft);
+  /*
+   * 구분선은 **줄 안쪽**에 그린다.
+   *
+   * `border-bottom` 이면 그 1px 이 줄 높이에 더해져 한 줄이 26.5px 이
+   * 된다(내용 25.5 + 선 1). 옆 칸의 트리 줄은 26px 이라, 스무 줄쯤
+   * 내려가면 두 칸의 가로선이 10px 씩 어긋나 보인다 — 시험항목 화면을
+   * List 로 보면 1열과 2열의 선이 따로 놀았다.
+   *
+   * 그림자로 그으면 선이 높이를 안 먹어서 딱 26px 로 맞는다. 트리 줄과
+   * 2열 목록 줄도 같은 방식이다.
+   */
+  box-shadow: inset 0 -1px 0 var(--c-border-soft);
 }
-.rq-tr:last-child { border-bottom: 0; }
+.rq-tr:last-child { box-shadow: none; }
 .rq-tr > div { padding: var(--row-py) var(--row-px); min-width: 0; }
 .rq-tr.rq-th {
   background: var(--c-surface-alt);

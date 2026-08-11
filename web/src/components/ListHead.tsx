@@ -10,6 +10,13 @@ interface Props {
   picked?: ReactNode
   /** 찾는 칸 — 이름 오른쪽에 붙인다 */
   search?: { value: string; placeholder: string; onChange: (v: string) => void }
+  /**
+   * 찾기 오른쪽에 붙일 것.
+   *
+   * 「+ 만들기」 처럼 정해진 모양이 아니라 화면마다 다른 단추가 하나씩
+   * 필요할 때가 있다 — 시험항목 칸의 「전역 파라미터」 가 그렇다.
+   */
+  extra?: ReactNode
   /** 늘 쓰는 것 하나. 「+ 만들기」 */
   add?: { title: string; onClick: () => void }
   /** ⋯ 안에 들어갈 것들 */
@@ -40,6 +47,7 @@ export default function ListHead({
   count,
   picked,
   search,
+  extra,
   add,
   menu,
   onCollapse,
@@ -124,6 +132,7 @@ export default function ListHead({
           </button>
         </span>
       )}
+      {extra}
       {add && (
         <button className="btn small primary" type="button" title={add.title} onClick={add.onClick}>
           +
