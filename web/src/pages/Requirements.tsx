@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { goto } from '@/api/goto'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
@@ -1171,9 +1172,18 @@ export default function Requirements() {
                         {/* ID 는 안 적는다. 이 표는 「이 요구사항이 무엇으로
                             덮여 있나」 를 보는 자리고, 그때 필요한 것은
                             이름이다. ID 는 눌러 들어가면 나온다. */}
-                        <div className="tc-name" title={t.tcid}>
+                        {/* 눌러 들어간다. 이 표에서 시험 하나를 찾아 놓고도
+                            무엇이 들었는지 보려면 TC 화면으로 가 이름을
+                            다시 찾아야 했다. 사이클·실행 이력이 이미 같은
+                            식으로 여는데 여기만 빠져 있었다. */}
+                        <button
+                          type="button"
+                          className="tc-name linkish"
+                          title={`${t.tcid} — 누르면 이 시험으로 갑니다`}
+                          onClick={() => goto('tc', t.tcid)}
+                        >
                           {t.name || '(제목 없음)'}
-                        </div>
+                        </button>
                       </div>
                       {tcByFolder && (
                         <div className="fold-req">

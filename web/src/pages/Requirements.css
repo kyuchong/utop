@@ -519,6 +519,16 @@
 .linkish:hover:not(:disabled) { text-decoration: underline; }
 .linkish:disabled { color: var(--c-text-faint); cursor: default; }
 
+/* 시험 이름은 눌러 들어가지만 **읽는 글**이다. 파란 링크로 만들면 표
+   전체가 링크밭이 되어 정작 어디를 읽어야 할지 모르게 된다. 평소에는
+   본문 그대로 두고, 손을 올렸을 때만 누를 수 있다고 알린다. */
+button.tc-name {
+  text-align: left;
+  font-size: var(--fs-md);
+  color: var(--c-text);
+}
+button.tc-name:hover { color: var(--c-primary); }
+
 /* ── 2열 구조 (2026-08-03) ────────────────────────────────────
    분류 트리와 REQ 목록을 하나로 합쳤다. 요구사항 29건 · 분류 20개라
    전체가 한 화면에 들어오는데 두 단계로 고르게 하고 있었다.
