@@ -1385,7 +1385,30 @@ export default function TestCases({ me }: PageProps) {
 
   return (
     <>
-      {form !== undefined && <TcForm editing={form} onClose={() => setForm(undefined)} />}
+      {form !== undefined && (
+        <TcForm
+          editing={form}
+          /*
+           * 새로 만들 때 **서 있는 자리의 요구사항**에 미리 걸어 둔다.
+           *
+           * 전에는 늘 「(연결 안 함)」 이었다. MGMT-001 아래에서 `+` 를
+           * 눌러도 만들어진 시험은 미분류로 떨어졌고, 트리에서 사라진 것을
+           * 다시 찾아 손으로 연결해야 했다 — 어디서 눌렀는지가 화면에
+           * 뻔히 보이는데 그것을 안 쓰고 있었다.
+           *
+           * List 에서는 트리에서 고른 요구사항, Detail 에서는 지금 열어 둔
+           * 시험이 걸린 요구사항이 그 자리다.
+           */
+          presetReqId={
+            form === null
+              ? (view === 'list' && selReq
+                  ? selReq
+                  : tcs.find((x) => x.tcid === openId)?.req_id) || undefined
+              : undefined
+          }
+          onClose={() => setForm(undefined)}
+        />
+      )}
       {mapTc && <TcMapReqDialog tc={mapTc} onClose={() => setMapTc(null)} />}
       {bulkOpen && <TcBulkForm onClose={() => setBulkOpen(false)} />}
       {bulkEdit && (
