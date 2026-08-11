@@ -615,3 +615,49 @@
 .jp-panel { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); padding: 2px 0; }
 .jp-panel .sp { margin-left: auto; }
 .jp-models textarea { width: 100%; font-family: var(--font-mono); font-size: var(--fs-xs); }
+
+/* ── 용도별 프롬프트 ──
+   한 용도가 한 덩어리다. 모델과 말투를 함께 보아야 「이 모델에 이렇게
+   말하면 이렇게 나온다」 가 이어진다. */
+.ps-item {
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.ps-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.ps-h .sp { margin-left: auto; }
+.ps-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.ps-row > span {
+  flex: none;
+  width: 84px;
+  padding-top: 4px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+.ps-row select,
+.ps-row textarea {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+.ps-row textarea {
+  font-family: var(--font-mono);
+  line-height: 1.55;
+  resize: vertical;
+}

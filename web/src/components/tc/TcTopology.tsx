@@ -305,6 +305,8 @@ export default function TcTopology({
           devices={devices}
           sessions={sessions}
           ports={ports}
+          loading={loading}
+          onLoadPorts={(id) => void loadPorts(id)}
           onChange={(w) => onChange({ wiring: w })}
         />
       ) : !wiring.length ? (

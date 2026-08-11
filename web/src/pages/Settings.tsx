@@ -1,5 +1,6 @@
 import { useState, type ComponentType } from 'react'
 import LlmSettings from '@/components/settings/LlmSettings'
+import PromptSettings from '@/components/settings/PromptSettings'
 import DeviceCatalog from '@/components/settings/DeviceCatalog'
 import CodeSettings from '@/components/settings/CodeSettings'
 import CustomFieldSettings from '@/components/settings/CustomFieldSettings'
@@ -19,7 +20,7 @@ import './Settings.css'
 
 // 'chat' 은 없앴다 — Chat 모델 설정은 'llm' 안의 탭으로 들어갔다.
 // 서버 연결과 모델 설정을 따로 두면 같은 모델을 두 군데서 고치게 된다.
-type Section = 'llm' | 'accounts' | 'perms' | 'catalog' | 'codes' | 'reqcodes' | 'fields' | 'jira' | 'jirapanels'
+type Section = 'llm' | 'prompts' | 'accounts' | 'perms' | 'catalog' | 'codes' | 'reqcodes' | 'fields' | 'jira' | 'jirapanels'
 
 /**
  * 설정 화면.
@@ -46,7 +47,11 @@ interface SecItem {
 const GROUPS: Array<{ title: string; items: SecItem[] }> = [
   {
     title: 'AI',
-    items: [{ key: 'llm', label: 'LLM 설정', icon: IconLlm, ready: true }],
+    items: [
+      { key: 'llm', label: 'LLM 설정', icon: IconLlm, ready: true },
+      // 프롬프트는 LLM 옆에 둔다 — 모델과 말투는 함께 만지는 것이다
+      { key: 'prompts', label: '용도별 프롬프트', icon: IconLlm, ready: true },
+    ],
   },
   {
     title: 'Quality',
@@ -109,6 +114,8 @@ export default function Settings() {
       <section className="set-body">
         {sec === 'llm' ? (
           <LlmSettings />
+        ) : sec === 'prompts' ? (
+          <PromptSettings />
         ) : sec === 'catalog' ? (
           <DeviceCatalog />
         ) : sec === 'codes' ? (

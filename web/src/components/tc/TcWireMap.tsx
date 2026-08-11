@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
-import { deviceLabel, isMeter, meterKind } from './device'
+import { deviceLabel, deviceShort, isMeter, meterKind } from './device'
 import type { TcWire } from './types'
 import './TcWireMap.css'
 
@@ -26,6 +26,10 @@ interface Props {
   sessions: string[]
   /** 계측기별로 읽어 둔 포트 */
   ports: Record<string, string[]>
+  /** 지금 포트를 읽고 있는 계측기 id */
+  loading?: string
+  /** 계측기에 직접 물어 포트를 받아 온다 */
+  onLoadPorts?: (meterId: string) => void
   onChange: (w: TcWire[]) => void
 }
 
@@ -35,7 +39,15 @@ type Side =
   | { kind: 'meter'; meter: string; port: string }
   | null
 
-export default function TcWireMap({ wiring, devices, sessions, ports, onChange }: Props) {
+export default function TcWireMap({
+  wiring,
+  devices,
+  sessions,
+  ports,
+  loading,
+  onLoadPorts,
+  onChange,
+}: Props) {
   const [held, setHeld] = useState<Side>(null)
   /** 말로 적는 칸 — 「E5724RL 1·2번을 N2X 4106/3, 4106/4 에 물렸어」 */
   const [say, setSay] = useState('')
@@ -137,12 +149,12 @@ export default function TcWireMap({ wiring, devices, sessions, ports, onChange }
           text: say,
           devices: leftDevs.map((d) => ({
             id: d.id,
-            label: deviceLabel(d),
+            label: deviceShort(d),
             ports: (d.interfaces ?? []).map((x) => String((x as { name?: string })?.name ?? x)),
           })),
           meters: meters.map((m) => ({
             id: m.id,
-            label: deviceLabel(m),
+            label: deviceShort(m),
             ports: ports[m.id] ?? [],
           })),
         }),
@@ -233,8 +245,8 @@ export default function TcWireMap({ wiring, devices, sessions, ports, onChange }
         const mp = ports[m.id] ?? []
         if (dp.length < 2 || mp.length < 2) return null
         const eg = [
-          `${deviceLabel(d)} ${dp[0]} 를 ${deviceLabel(m)} ${mp[0]} 에 물렸어`,
-          `${deviceLabel(d)} ${dp[0]}, ${dp[1]} 를 ${mp[0]}, ${mp[1]} 에 각각 물렸어`,
+          `${deviceShort(d)} ${dp[0]} 를 ${deviceShort(m)} ${mp[0]} 에 물렸어`,
+          `${deviceShort(d)} ${dp[0]}, ${dp[1]} 를 ${mp[0]}, ${mp[1]} 에 각각 물렸어`,
         ]
         return (
           <div className="wm-eg">
@@ -308,6 +320,24 @@ export default function TcWireMap({ wiring, devices, sessions, ports, onChange }
         <div className="wm-col">
           <div className="wm-ch">
             계측기
+            {/* 포트를 여기서 바로 읽는다. 「아래 표의 불러오기를 누르세요」
+                라고만 적어 두었더니, 그림을 쓰는 사람은 표로 내려갔다
+                돌아와야 했다 — 그림만 보고 끝나야 한다. */}
+            {(() => {
+              const m = meters.find((x) => x.id === atMeter) ?? meters[0]
+              if (!m) return null
+              return (
+                <button
+                  className="btn small"
+                  type="button"
+                  disabled={loading === m.id}
+                  title="계측기에 직접 물어 포트 목록을 받아옵니다"
+                  onClick={() => onLoadPorts?.(m.id)}
+                >
+                  {loading === m.id ? '읽는 중…' : '불러오기'}
+                </button>
+              )
+            })()}
             {meters.length > 1 && (
               <select
                 value={atMeter || meters[0]?.id || ''}
@@ -334,7 +364,7 @@ export default function TcWireMap({ wiring, devices, sessions, ports, onChange }
                   </div>
                   {list.length === 0 ? (
                     <div className="wm-none">
-                      포트를 아직 안 읽었습니다 — 아래 표의 「불러오기」 를 누르세요
+                      포트를 아직 안 읽었습니다 — 위의 「불러오기」 를 누르세요
                     </div>
                   ) : (
                     list.map((p) => {

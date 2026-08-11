@@ -82,8 +82,26 @@ export function connParams(dev: Device, want?: string): ConnParams {
 }
 
 /** 목록·칩에 적는 이름. 이름이 없으면 IP 가 곧 이름이다. */
+/**
+ * 사람이 부르는 이름.
+ *
+ * IP 만 보여 주고 있었다. 랩에서 장비를 부르는 말은 「E5010-24C」 지
+ * 「210.1.1.254」 가 아니다 — 아무것도 모르는 사람에게 IP 만 늘어놓으면
+ * 어느 것이 무엇인지 알 길이 없고, 말로 시킬 때도 IP 를 외워 적어야 한다.
+ * 모델명을 앞에 세우고 IP 는 뒤에 곁들인다.
+ */
 export function deviceLabel(dev: Device): string {
-  return (dev.name || dev.ip || dev.id || '').trim()
+  const nm = (dev.name || '').trim()
+  const model = (dev.model || '').trim()
+  const ip = (dev.ip || dev.id || '').trim()
+  const head = nm || model
+  if (!head) return ip
+  return ip && ip !== head ? `${head} (${ip})` : head
+}
+
+/** 말로 시킬 때 쓰는 짧은 이름 — 괄호 없이 모델명만 */
+export function deviceShort(dev: Device): string {
+  return ((dev.name || dev.model || dev.ip || dev.id) ?? '').trim()
 }
 
 /**
