@@ -825,6 +825,38 @@ async function runOne(
               dstMac: subVars(String(x.dstMac ?? ''), vars),
               srcIp: subVars(String(x.srcIp ?? ''), vars),
               dstIp: subVars(String(x.dstIp ?? ''), vars),
+              /*
+               * 몇 갈래로 뿌릴까와 어느 칸을 늘릴까.
+               *
+               * 이 파일에는 스트림을 꾸리는 자리가 **둘**이다. 처음에 다른
+               * 쪽에 넣었더니 화면·서버·데몬을 다 고쳐 놓고도 계측기에는
+               * 계속 두 줄만 생겼다 — 보낸 줄을 찍어 보고서야 알았다
+               * (`…,Percent(%),,,,,,,,` 로 뒤가 통째로 비어 있었다).
+               * 트래픽 시작이 쓰는 것은 이쪽이다.
+               *
+               * 갈래 수는 각 칸의 「개수」 중 가장 큰 것이다 — MAC 을 열,
+               * IP 를 다섯으로 잡으면 열 갈래가 생기고 IP 는 다섯째부터
+               * 마지막 값이 이어진다.
+               */
+              cnt: String(
+                Math.max(
+                  1,
+                  ...[x.srcMacStep, x.dstMacStep, x.srcIpStep, x.dstIpStep, x.vlanStep]
+                    .map((v, i) =>
+                      // 늘리지 않기로 한 칸의 개수는 안 센다
+                      [x.srcMacMod, x.dstMacMod, x.srcIpMod, x.dstIpMod, x.vlanMod][i] === 'Yes' ||
+                      [x.srcMacMod, x.dstMacMod, x.srcIpMod, x.dstIpMod, x.vlanMod][i] === '증가'
+                        ? Number(v) || 1
+                        : 1,
+                    ),
+                ),
+              ),
+              srcMacMod: x.srcMacMod,
+              dstMacMod: x.dstMacMod,
+              srcIpMod: x.srcIpMod,
+              dstIpMod: x.dstIpMod,
+              vlan: x.vlan,
+              vlanMod: x.vlanMod,
             })
           })
         : [
