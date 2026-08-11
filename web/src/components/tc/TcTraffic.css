@@ -438,3 +438,9 @@
 /* GW 칸은 값 + 단추라 한 칸을 넘겨 쓴다 — 좁으면 단추가 눌려 안 읽힌다 */
 .tt-gw { grid-column: span 2; }
 .tt-gw > .btn { flex: none; }
+
+/* 「＋ 44개 중 고르기」 — 칩과 같은 크기지만 고르는 것이 아니라 여는 것 */
+.tt-portmore {
+  border-style: dashed !important;
+  color: var(--c-text-muted);
+}

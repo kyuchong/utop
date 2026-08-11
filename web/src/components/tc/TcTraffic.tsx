@@ -80,6 +80,8 @@ export default function TcTraffic({ data, onChange }: Props) {
   const [pick, setPick] = useState<Set<number>>(new Set())
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState('')
+  /** 섀시 포트 칩을 다 펴 두었나 — 44개가 늘 세 줄을 먹는다 */
+  const [portsOpen, setPortsOpen] = useState(false)
 
   const cfg: MeterCfg = data.meterCfg ?? {}
   const streams = cfg.streams ?? []
@@ -492,6 +494,21 @@ export default function TcTraffic({ data, onChange }: Props) {
   const s = streams[sel]
 
   /** 표 안에서 바로 고치는 칸 */
+  /**
+   * 이 스트림이 실제로 무엇으로 나가는가.
+   *
+   * 「IP 를 비우면 L2 로 나간다」 는 규칙이 편집기 안내문에만 있었다.
+   * 그래서 IPv4 로 쏘는 줄 알고 IP 를 안 적어 L2 로 나가는 일이 제일
+   * 잦았다 — 장비는 라우팅을 안 하니 손실 100% 로 보이고, 화면 어디에도
+   * 왜 그런지가 없다. 목록에서 바로 읽히게 한다.
+   */
+  const headerOf = (r: MeterStream): string => {
+    const ip = String(r.srcIp ?? '').trim() || String(r.dstIp ?? '').trim()
+    if (!ip) return 'L2'
+    const l4 = String(r.l4proto ?? '').trim()
+    return l4 && l4 !== '없음' ? `IPv4+${l4}` : 'IPv4'
+  }
+
   const cell = (i: number, k: keyof MeterStream, w?: number) => (
     <input
       className="tt-in mono"
@@ -624,9 +641,14 @@ export default function TcTraffic({ data, onChange }: Props) {
                     </option>
                   ))}
                 </datalist>
-                {/* 눌러서 넣는다. 목록만 보여 주면 옮겨 적다가 또 틀린다. */}
+                {/*
+                  눌러서 넣는다. 목록만 보여 주면 옮겨 적다가 또 틀린다.
+
+                  다만 44개를 늘 펴 두면 세 줄을 먹는다 — 정작 쓰는 것은
+                  둘이다. 고른 것만 늘 보이고 나머지는 접는다.
+                */}
                 <span className="tt-ports">
-                  {chassisPorts.map((x) => (
+                  {(portsOpen ? chassisPorts : chassisPorts.filter((x) => ports.includes(x.id))).map((x) => (
                     <button
                       key={x.id}
                       type="button"
@@ -644,6 +666,15 @@ export default function TcTraffic({ data, onChange }: Props) {
                       {x.id}
                     </button>
                   ))}
+                  <button
+                    type="button"
+                    className="tt-port tt-portmore"
+                    onClick={() => setPortsOpen((v) => !v)}
+                  >
+                    {portsOpen
+                      ? '접기'
+                      : `＋ ${chassisPorts.length}개 중 고르기`}
+                  </button>
                 </span>
               </>
             )}
@@ -683,25 +714,27 @@ export default function TcTraffic({ data, onChange }: Props) {
             <thead>
               <tr>
                 <th />
-                {/* 머리글은 짧게. 열이 열한 개라 「L2 Destination」 같은 긴
-                    말이 칸 폭을 정해 버려서, 정작 값(MAC·IP)이 잘렸다.
-                    전체 이름은 아래 속성 편집에 그대로 있다. */}
+                {/*
+                  표는 **고르는 자리**다.
+
+                  열한 칸 중 일곱(포트·MAC·IP·GW)이 아래 편집기와 같은 값을
+                  그리고 있었다. 같은 것을 두 군데서 고칠 수 있으니 어느
+                  쪽이 진짜인지 매번 생각하게 되고, 가로 스크롤(1140px)도
+                  거기서 나왔다. 고칠 곳은 아래 하나로 모으고, 여기에는
+                  **아래를 봐서는 한눈에 안 보이는 것**만 남긴다.
+                */}
                 <th title="이 스트림을 보낼지">활성</th>
-                <th title="보내는 포트">S.Port</th>
-                <th title="받는 포트">D.Port</th>
                 <th>Stream Name</th>
-                <th title="Stream 개수">S.CNT</th>
-                <th title="L2 Source MAC">L2 SRC</th>
-                <th title="L2 Destination MAC">L2 DST</th>
-                <th title="L3 Source IP">L3 SRC</th>
-                <th title="L3 Destination IP">L3 DST</th>
-                <th title="Gateway">GW</th>
+                <th title="보내는 포트 → 받는 포트">경로</th>
+                <th title="부하와 단위">부하</th>
+                <th title="프레임 크기와 모드">프레임</th>
+                <th title="적어 넣은 값으로 정해지는 헤더">헤더</th>
               </tr>
             </thead>
             <tbody>
               {streams.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="tt-empty">
+                  <td colSpan={7} className="tt-empty">
                     스트림이 없습니다. 「＋ 추가」 를 누르세요.
                   </td>
                 </tr>
@@ -732,42 +765,23 @@ export default function TcTraffic({ data, onChange }: Props) {
                         onChange={(e) => setStream(i, { enabled: e.target.checked })}
                       />
                     </td>
-                    <td>
-                      <select
-                        className="tt-in"
-                        value={row.src ?? ''}
-                        onChange={(e) => setStream(i, { src: e.target.value })}
-                      >
-                        <option value="">— 고르기 —</option>
-                        {portOpts(row.src).map((p) => (
-                          <option key={p} value={p}>
-                            {p}
-                          </option>
-                        ))}
-                      </select>
+                    <td>{cell(i, 'name', 140)}</td>
+                    <td className="mono small">
+                      {row.src || '–'} → {row.dst || '–'}
                     </td>
-                    <td>
-                      <select
-                        className="tt-in"
-                        value={row.dst ?? ''}
-                        onChange={(e) => setStream(i, { dst: e.target.value })}
-                      >
-                        <option value="">— 고르기 —</option>
-                        {portOpts(row.dst).map((p) => (
-                          <option key={p} value={p}>
-                            {p}
-                          </option>
-                        ))}
-                      </select>
+                    <td className="mono small">
+                      {row.load || '–'} {row.unit || ''}
                     </td>
-                    <td>{cell(i, 'name', 120)}</td>
-                    <td>{cell(i, 'count', 52)}</td>
-                    {/* MAC 은 17자, IP 는 15자. 딱 그만큼만 준다 */}
-                    <td>{cell(i, 'srcMac', 132)}</td>
-                    <td>{cell(i, 'dstMac', 132)}</td>
-                    <td>{cell(i, 'srcIp', 104)}</td>
-                    <td>{cell(i, 'dstIp', 104)}</td>
-                    <td>{cell(i, 'gw', 104)}</td>
+                    <td className="mono small">
+                      {row.byteType === 'Random'
+                        ? `${row.minByte || 64}–${row.maxByte || 1518} Random`
+                        : `${row.minByte || 64} Fixed`}
+                    </td>
+                    {/* 적어 넣은 값으로 정해진다. 「비우면 L2」 규칙이 편집기
+                        안내문에만 있어서 여기서 제일 자주 틀렸다. */}
+                    <td>
+                      <span className="tt-tag">{headerOf(row)}</span>
+                    </td>
                   </tr>
                 ))
               )}
