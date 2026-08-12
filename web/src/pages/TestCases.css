@@ -2592,7 +2592,7 @@ table.tb tr.r-bad td:first-child {
      REQ Map 60 · 상태 70. 이름이 그만큼 더 갖는다. */
   /* REQ Map 을 60 으로 줄였더니 「Map 1」 이 「M…」 으로 잘렸다 — 78. */
   grid-template-columns:
-    30px 96px 196px minmax(140px, 1fr)
+    30px 96px 210px minmax(140px, 1fr)
     64px 40px 78px 70px;
   column-gap: 10px;
 }
