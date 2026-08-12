@@ -195,9 +195,16 @@ export function layout(
     const p1 = edgePt(e.A, e.sa, fracOf(e.l.a, e.sa, e.l.k))
     const p2 = edgePt(e.B, e.sb, fracOf(e.l.b, e.sb, e.l.k))
     const k = Math.max(28, Math.hypot(p2.x - p1.x, p2.y - p1.y) / 3)
+    /*
+     * 밖으로 나가는 손잡이를 판 안에 눌러 담는다.
+     *
+     * 윗변끼리 이으면 곡선이 위로 크게 부풀어 판 위쪽(0)을 넘어갔고,
+     * 판은 넘친 것을 잘라 내므로 선의 머리가 싹둑 잘려 보였다. 왼쪽도
+     * 마찬가지다. 아래·오른쪽은 판이 따라 늘어나므로 둘 일이 없다.
+     */
     const out = (s: Side, p: { x: number; y: number }) => ({
-      x: p.x + AWAY[s].x * k,
-      y: p.y + AWAY[s].y * k,
+      x: Math.max(4, p.x + AWAY[s].x * k),
+      y: Math.max(4, p.y + AWAY[s].y * k),
     })
     return { l: e.l, sa: e.sa, sb: e.sb, p1, p2, c1: out(e.sa, p1), c2: out(e.sb, p2) }
   })
