@@ -78,6 +78,8 @@ export default function TcCanvas({
 
   // ── 끌기 ────────────────────────────────────────────────
   const onDown = (e: React.PointerEvent, id: string) => {
+    // 이을 상대를 고르는 중이면 끌지 않는다 — 누르는 순간 이어야 한다
+    if (from) return
     const box = boxRef.current?.getBoundingClientRect()
     if (!box) return
     const p = posOf(id)
@@ -110,6 +112,13 @@ export default function TcCanvas({
       return n
     })
   }, [placed, onPlaced])
+
+  // 잘못 눌렀을 때 빠져나갈 길. 없으면 판을 새로 고치는 수밖에 없다.
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setFrom('')
+    window.addEventListener('keydown', esc)
+    return () => window.removeEventListener('keydown', esc)
+  }, [])
 
   useEffect(() => {
     window.addEventListener('pointermove', onMove)
@@ -245,8 +254,8 @@ export default function TcCanvas({
         </select>
         <span className="muted small">
           {from
-            ? '이제 이을 상대 네모의 점을 누르세요'
-            : '네모를 끌어 옮기고, 옆의 점을 눌러 다른 네모의 점을 누르면 이어집니다'}
+            ? '이제 이을 상대 네모를 누르세요 (Esc 로 무르기)'
+            : '네모를 끌어 옮깁니다 · 옆의 점을 누른 뒤 상대 네모를 누르면 이어집니다'}
         </span>
         <span className="sp" />
         <span className="muted small">
@@ -299,24 +308,36 @@ export default function TcCanvas({
               return (
                 <div
                   key={p.dev}
-                  className={`cv-node${meter ? ' meter' : ''}${from === p.dev ? ' from' : ''}`}
+                  className={`cv-node${meter ? ' meter' : ''}${from === p.dev ? ' from' : ''}${
+                    from && from !== p.dev ? ' aim' : ''
+                  }`}
                   style={{ left: at.x, top: at.y, width: W, height: H }}
                   onPointerDown={(e) => onDown(e, p.dev)}
+                  onClick={() => {
+                    // 이을 상대를 고르는 중이면 네모 아무 데나 눌러도 된다.
+                    // 점만 눌러야 하면 「어디를 눌러야 하나」 를 배워야 한다.
+                    if (from && from !== p.dev) tapDot(p.dev)
+                  }}
                 >
                   <b>{nm}</b>
                   {dup && <i>{d?.ip || p.dev}</i>}
                   {meter && <em>{meterKind(d as Device) === 'stc' ? 'STC' : 'N2X'}</em>}
                   {/* 잇는 점. 네모를 끄는 것과 헷갈리지 않게 점만 누른다 */}
-                  <button
-                    type="button"
-                    className="cv-dot"
-                    title={from ? '여기에 잇습니다' : '여기서 선을 시작합니다'}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      tapDot(p.dev)
-                    }}
-                  />
+                  {/* 점은 양옆에. 한쪽에만 두었더니 어느 쪽으로 이어야
+                      하는지 헷갈렸다 — 둘 다 같은 일을 한다. */}
+                  {(['l', 'r'] as const).map((side) => (
+                    <button
+                      key={side}
+                      type="button"
+                      className={`cv-dot ${side}`}
+                      title={from ? '여기에 잇습니다' : '여기서 선을 시작합니다'}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        tapDot(p.dev)
+                      }}
+                    />
+                  ))}
                   <button
                     type="button"
                     className="cv-x"
