@@ -1,6 +1,6 @@
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
-import { connParams, CLI_PROTOCOLS, deviceLabel, isMeter, meterKind, protocolOf } from './device'
+import { connParams, deviceShort, CLI_PROTOCOLS, deviceLabel, isMeter, meterKind, protocolOf } from './device'
 import {
   diffLines,
   diffText,
@@ -1109,7 +1109,14 @@ async function runOne(
         // 명령이 여러 개면 어디까지 갔는지 보여야 한다
         if (commands.length > 1) ctx.onLog({ i, text: `▸ ${e.cmd}`, kind: 'info' })
         if (acc && !acc.endsWith('\n')) acc += '\n'
-        acc += `$ ${e.cmd}\n`
+        /*
+         * 프롬프트는 장비 이름으로.
+         *
+         * `$` 로 찍었더니 결과서까지 전부 `$ show system` 으로 나갔다 —
+         * 실제 장비는 `E5010-24C#` 처럼 제 이름을 찍는다. 증거로 읽히려면
+         * 캡처도 그렇게 보여야 한다.
+         */
+        acc += `${dev ? deviceShort(dev) + '#' : '$'} ${e.cmd}\n`
         afterCmd = true
         flush(acc, true)
       } else if (e.o != null) {

@@ -6,6 +6,7 @@ import { saveLguPptx } from './lguPptx'
 import { saveTplPptx } from './tplPptx'
 import { wireShot } from '@/components/tc/wireMermaid'
 import { boardShot } from '@/components/tc/boardShot'
+import { deviceShort } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import type { TcPortLink, TcWire } from '@/components/tc/types'
 
@@ -62,12 +63,19 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
    */
   const bodyRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(0.78)
+  /** 지금 보고 있는 장 — 스크롤을 따라간다 */
+  const [cur, setCur] = useState(1)
   useEffect(() => {
     const el = bodyRef.current
     if (!el) return
     const fit = () => {
       const w = el.clientWidth - 44 // 좌우 여백
-      if (w > 0) setScale(Math.max(0.4, Math.min(1.4, w / 1280)))
+      // 높이에도 맞춘다. 폭에만 맞췄더니 큰 화면에서 장의 아래가 잘려
+      // 「전체가 보이지 않는」 상태가 됐다 — 한 장은 통째로 보여야 한다.
+      const h = el.clientHeight - 40
+      if (w > 0 && h > 0) {
+        setScale(Math.max(0.4, Math.min(1.4, Math.min(w / 1280, h / 720))))
+      }
     }
     fit()
     const ro = new ResizeObserver(fit)
@@ -180,13 +188,20 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
         reqid: it.req_id ?? '',
         spec: (e?.object_md || e?.precondition_md || '').trim(),
         topoImg: e?.topo_img || drawn[it.tcid ?? ''] || '',
+        // CLI 프롬프트 — 세션 첫 장비의 이름(#). 결과서의 `$` 가 장비
+        // 이름으로 바뀐다. 장비를 모르면 `$` 그대로.
+        prompt: (() => {
+          const sess = Array.isArray(e?.sessions) ? (e?.sessions as string[]) : []
+          const d = (devQ.data ?? []).find((x) => x.id === sess[0])
+          return d ? `${deviceShort(d)}#` : ''
+        })(),
         remark: '',
         // 종류로 거르지 않는다. 옛 코드가 cli·wait 만 실어서 ping·snmp·
         // diff·계측기 스텝이 결과서에서 통째로 빠졌다.
         steps: it.steps ?? [],
       }
     })
-  }, [items, tcQ.data, drawn])
+  }, [items, tcQ.data, drawn, devQ.data])
 
   const slides = useMemo(() => (tcs.length ? buildSlides(tcs) : []), [tcs])
 
@@ -231,26 +246,40 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="modal-head">
-          <b>고객사 결과서 — {[model, version].filter(Boolean).join(' ')}</b>
-          <span className="muted small">
-            {loading ? '불러오는 중…' : `${tcs.length}건 · ${slides.length}장`}
-          </span>
+          {/* 옛 화면과 같은 낱말·같은 자리 — 사람들이 이미 그 화면에 익숙하다 */}
+          <b>
+            고객사 PPTX 결과서 미리보기 — {[model, version].filter(Boolean).join(' ')}
+            {loading ? '' : ` · ${tcs.length}건`}
+          </b>
           <span className="sp" />
           {msg && <span className="muted small">{msg}</span>}
+          {!loading && slides.length > 0 && (
+            <span className="cyrp-cnt">
+              {cur} / {slides.length} 슬라이드
+            </span>
+          )}
           <button
-            className="btn primary small"
+            className="btn cyrp-save"
             type="button"
             disabled={busy || loading || !slides.length}
             onClick={() => void save()}
           >
-            {busy ? '…' : 'PPTX 저장'}
+            {busy ? '…' : '⬇ PPTX 저장'}
           </button>
           <button className="btn small" type="button" disabled={busy} onClick={onClose}>
             ✕
           </button>
         </div>
 
-        <div className="cyrp-body" ref={bodyRef}>
+        <div
+          className="cyrp-body"
+          ref={bodyRef}
+          onScroll={(e) => {
+            const el = e.currentTarget
+            const one = Math.round(720 * scale) + 16
+            setCur(Math.min(slides.length, Math.max(1, Math.round(el.scrollTop / one) + 1)))
+          }}
+        >
           {loading ? (
             <div className="empty">시험 자료를 모으는 중…</div>
           ) : slides.length ? (

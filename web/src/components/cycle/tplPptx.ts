@@ -57,12 +57,13 @@ async function asData(src: string): Promise<string> {
 function stepText(
   s: { desc?: unknown; cli?: unknown; output?: unknown },
   no: number,
+  prompt = '$',
 ): string {
   const out: string[] = []
   const desc = String(s.desc ?? '').trim()
   const cli = String(s.cli ?? '').trim()
   out.push(`${no}. ${desc || cli}`)
-  if (cli) for (const c of cli.split(/\r?\n/)) out.push(`   $ ${c}`)
+  if (cli) for (const c of cli.split(/\r?\n/)) out.push(`   ${prompt} ${c}`)
   const o = String(s.output ?? '').trim()
   if (o) for (const l of o.split(/\r?\n/)) out.push(`   ${l}`)
   return out.join('\n')
@@ -110,7 +111,7 @@ export function buildTplSlides(tcs: LguTc[]): TplSlide[] {
       const lines: TermLine[] = []
       tc.steps.slice(from, to).forEach((st, k) => {
         if (k) lines.push({ text: '' })
-        lines.push(...stepLines(st, from + k + 1, String(stepVerdict(st as TcStep) || '')))
+        lines.push(...stepLines(st, from + k + 1, String(stepVerdict(st as TcStep) || ''), tc.prompt || '$'))
       })
       let shot: { data: string } | null = null
       try {
@@ -121,7 +122,7 @@ export function buildTplSlides(tcs: LguTc[]): TplSlide[] {
         shot = null
       }
       const body = tc.steps.length
-        ? tc.steps.slice(from, to).map((s, k) => stepText(s, from + k + 1)).join('\n\n')
+        ? tc.steps.slice(from, to).map((s, k) => stepText(s, from + k + 1, tc.prompt || '$')).join('\n\n')
         : resultBlocks(tc).map((b) => b.text).join('\n\n')
       out.push({
         kind: 'more',

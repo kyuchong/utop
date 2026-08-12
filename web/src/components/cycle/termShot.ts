@@ -127,6 +127,8 @@ export function stepLines(
   step: { desc?: unknown; cli?: unknown; output?: unknown },
   no: number,
   verdict: string,
+  /** CLI 프롬프트 — 장비 이름(#). 없으면 $ */
+  prompt = '$',
 ): TermLine[] {
   const out: TermLine[] = []
   const desc = String(step.desc ?? '').trim()
@@ -135,8 +137,14 @@ export function stepLines(
     text: `Step ${no}. ${desc || cli}${verdict ? `  [${verdict}]` : ''}`,
     kind: verdict === 'Fail' || verdict === '불합격' ? 'fail' : verdict ? 'pass' : 'head',
   })
-  if (cli) for (const c of cli.split(/\r?\n/)) out.push({ text: `$ ${c}`, kind: 'cmd' })
+  if (cli) for (const c of cli.split(/\r?\n/)) out.push({ text: `${prompt} ${c}`, kind: 'cmd' })
   const o = String(step.output ?? '').trim()
-  if (o) for (const l of o.split(/\r?\n/)) out.push({ text: l, kind: 'out' })
+  if (o)
+    for (const l of o.split(/\r?\n/))
+      out.push({
+        // 옛 기록의 `$ ` 는 우리가 박은 것 — 장비 이름으로 갈아 끼운다
+        text: prompt !== '$' && l.startsWith('$ ') ? prompt + l.slice(1) : l,
+        kind: l.startsWith('$ ') ? 'cmd' : 'out',
+      })
   return out
 }

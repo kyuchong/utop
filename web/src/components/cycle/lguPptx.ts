@@ -192,7 +192,7 @@ export async function saveLguPptx(
       const lines: TermLine[] = []
       tc.steps.slice(from, to).forEach((st, k) => {
         if (k) lines.push({ text: '' })
-        lines.push(...stepLines(st, from + k + 1, String(stepVerdict(st as TcStep) || '')))
+        lines.push(...stepLines(st, from + k + 1, String(stepVerdict(st as TcStep) || ''), tc.prompt || '$'))
       })
       const shot = lines.length
         ? termShot(lines, [tc.tcid, tc.name].filter(Boolean).join(' · '))

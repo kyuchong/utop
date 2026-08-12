@@ -16,6 +16,17 @@
  */
 import { stepVerdict, type TcStep } from '@/components/tc/types'
 
+/**
+ * 옛 실행 기록의 `$ ` 프롬프트를 장비 이름으로 바꾼다.
+ *
+ * 실행기가 `$` 로 찍던 시절의 출력이 그대로 남아 있다 — 줄 머리의
+ * `$ ` 만 우리가 박은 것이므로 그것만 갈아 끼운다.
+ */
+export function promptize(out: string, prompt?: string | null): string {
+  if (!prompt || prompt === '$') return out
+  return out.replace(/^\$ /gm, `${prompt} `)
+}
+
 export interface LguStep {
   desc?: string | null
   cli?: string | null
@@ -38,6 +49,8 @@ export interface LguTc {
   spec?: string | null
   /** 구성도 그림 (url) */
   topoImg?: string | null
+  /** CLI 프롬프트 — 장비 이름(#). 없으면 $ */
+  prompt?: string | null
   remark?: string | null
   steps: LguStep[]
 }
@@ -119,8 +132,8 @@ export function resultBlocks(tc: LguTc): Block[] {
     let r = `Step ${i + 1}. ${String(s.desc ?? '').trim() || String(s.cli ?? '').trim()}`
     const sv = stepVerdict(s as TcStep)
     if (sv) r += `  [${sv}]`
-    if (s.cli) r += `\n$ ${s.cli}`
-    const o = String(s.output ?? '').trim()
+    if (s.cli) r += `\n${tc.prompt || '$'} ${s.cli}`
+    const o = promptize(String(s.output ?? '').trim(), tc.prompt)
     if (o) r += `\n${o}`
     const lines = r
       .split('\n')
@@ -225,7 +238,7 @@ export function page2(tc: LguTc, range: [number, number]): string {
               : stepVerdict(s as TcStep) === 'Fail' || stepVerdict(s as TcStep) === '불합격'
                 ? '#d12d49'
                 : '#888'
-          const out = String(s.output ?? '').trim()
+          const out = promptize(String(s.output ?? '').trim(), tc.prompt)
           return (
             '<div style="margin-bottom:9px;border-bottom:1px dashed #ccc;padding-bottom:7px;">' +
             `<div style="font-size:11.5px;font-weight:700;color:#111;">Step ${i + 1}. ${esc(s.desc || s.cli || s.action || '')}` +
@@ -234,7 +247,7 @@ export function page2(tc: LguTc, range: [number, number]): string {
               : '') +
             '</div>' +
             (s.cli
-              ? `<div style="font-family:Consolas,monospace;font-size:10px;color:#00733a;margin-top:2px;">$ ${esc(s.cli)}</div>`
+              ? `<div style="font-family:Consolas,monospace;font-size:10px;color:#00733a;margin-top:2px;">${esc(tc.prompt || '$')} ${esc(s.cli)}</div>`
               : '') +
             (out
               ? `<pre style="display:inline-block;max-width:100%;margin:4px 0 0;white-space:pre;overflow-x:auto;font-family:Consolas,monospace;font-size:9px;line-height:1.45;color:#1c2030;background:#f5f6f8;border:1px solid #d8dce3;border-radius:4px;padding:7px 9px;box-sizing:border-box;">${esc(out)}</pre>`

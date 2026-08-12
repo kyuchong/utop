@@ -148,6 +148,25 @@
 .cy-v.wip { color: var(--c-draft); font-weight: 600; }
 .cy-v.none { color: var(--c-text-faint); }
 
+/* 옛 화면과 같은 붉은 저장 단추와 장수 표시 */
+.cyrp-cnt {
+  padding: 4px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--c-text);
+  white-space: nowrap;
+}
+.btn.cyrp-save {
+  background: #c0392b;
+  border-color: #c0392b;
+  color: #fff;
+  font-weight: 700;
+}
+.btn.cyrp-save:hover:not(:disabled) { background: #a93226; }
+.btn.cyrp-save:disabled { opacity: 0.5; }
+
 /* ── 고객사 결과서 미리보기 ──
    16:9 슬라이드를 실제 크기(1280×720)로 그린 뒤 줄여서 보여 준다. 그래야
    화면에서 본 것과 파일이 같다. */
