@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, categoryApi } from '@/api/client'
 import { reqLabel, reqPk } from '@/types'
@@ -29,6 +29,15 @@ interface Props {
  * 탭에도 없으면 옛 화면으로 돌아가야 고칠 수 있다.
  */
 export default function TcInfo({ data, onChange }: Props) {
+  /*
+   * 요구사항 고르기 — **검색해서 고른다.**
+   * 네이티브 셀렉트는 수십 건이 되면 스크롤로 훑는 수밖에 없다.
+   * 글자를 치면 경로·이름으로 걸러진 것만 남는다.
+   */
+  const [reqOpen, setReqOpen] = useState(false)
+  const [reqQtext, setReqQtext] = useState('')
+  const reqBoxRef = useRef<HTMLDivElement>(null)
+
   /**
    * 붙일 요구사항을 **고른다.**
    *
@@ -106,23 +115,62 @@ export default function TcInfo({ data, onChange }: Props) {
             나란히 둔다 — 한 격자에 섞어 흘려보내면 제목이 셀렉트만큼
             좁아져서 긴 제목을 못 읽는다. */}
         <div className="tc-grid tc-grid-2">
-          <label className="fld">
+          <div className="fld" ref={reqBoxRef}>
             <span>요구사항</span>
-            <select
-              value={known ? cur : ''}
-              onChange={(e) => onChange({ req_id: e.target.value })}
-            >
-              <option value="">(연결 안 함)</option>
-              {/* 옛 자료가 목록에 없는 값을 들고 있으면 그것도 보여 준다 —
-                  안 그러면 저장할 때 조용히 연결이 끊긴다 */}
-              {!known && cur && <option value={cur}>{cur} (목록에 없음)</option>}
-              {reqOpts.map((o) => (
-                <option key={o.pk} value={o.pk}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
+            <div className="req-combo">
+              <input
+                value={
+                  reqOpen
+                    ? reqQtext
+                    : known
+                      ? (reqOpts.find((o) => o.pk === cur)?.label ?? '')
+                      : cur
+                        ? `${cur} (목록에 없음)`
+                        : '(연결 안 함)'
+                }
+                placeholder="검색해서 고르세요"
+                onFocus={() => {
+                  setReqOpen(true)
+                  setReqQtext('')
+                }}
+                onChange={(e) => setReqQtext(e.target.value)}
+                onBlur={() => setTimeout(() => setReqOpen(false), 150)}
+              />
+              {reqOpen && (
+                <div className="req-combo-list">
+                  <button
+                    type="button"
+                    className="muted"
+                    onMouseDown={() => {
+                      onChange({ req_id: '' })
+                      setReqOpen(false)
+                    }}
+                  >
+                    (연결 안 함)
+                  </button>
+                  {reqOpts
+                    .filter((o) => {
+                      const n = reqQtext.trim().toLowerCase()
+                      return !n || o.label.toLowerCase().includes(n)
+                    })
+                    .slice(0, 60)
+                    .map((o) => (
+                      <button
+                        key={o.pk}
+                        type="button"
+                        className={o.pk === cur ? 'on' : ''}
+                        onMouseDown={() => {
+                          onChange({ req_id: o.pk })
+                          setReqOpen(false)
+                        }}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
           <label className="fld">
             <span>제목</span>
             <input

@@ -2699,3 +2699,38 @@ table.tb tr.r-bad td:first-child {
 }
 .tc-listview .bottom { padding: 0 var(--row-px); }
 .tc-listview .bottom { flex: none; margin-top: 0; }
+
+
+/* ── 요구사항 검색 콤보 (Info 탭) ── */
+.req-combo { position: relative; }
+.req-combo input { width: 100%; }
+.req-combo-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 2px);
+  z-index: 30;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.14);
+  padding: 4px;
+}
+.req-combo-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: 0;
+  background: none;
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.req-combo-list button:hover { background: var(--c-surface-2); }
+.req-combo-list button.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
+.req-combo-list button.muted { color: var(--c-text-faint); }
