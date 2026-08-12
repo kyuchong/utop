@@ -2130,6 +2130,14 @@ async def llm_wiring(payload: dict):
 
     D = [_one(x) for x in devs]
     M = [_one(x) for x in meters]
+    # 계측기 포트를 안 불러왔으면 여기서 멈춘다. 빈 목록으로 LLM 에 보내면
+    # 「목록에 없으면 만들지 마라」 규칙 때문에 빈손으로 돌아오는데, 화면은
+    # 그걸 「못 알아들었다」 로 보여 줬다 — 이유를 말해야 사람이 고친다.
+    if not any(m["ports"] for m in M):
+        return {
+            "ok": False,
+            "error": "계측기 포트 목록이 비어 있습니다 — 결선 줄에서 계측기를 고르고 「불러오기」 를 먼저 누르세요.",
+        }
     schema = {
         "type": "object",
         "properties": {
@@ -2191,6 +2199,17 @@ async def llm_wiring(payload: dict):
         seen.add((dv, pt))
         seen.add((mt, mp))
         out.append({"dev": dv, "port": pt, "meter": mt, "meterPort": mp})
+    if not out and not dropped:
+        # LLM 이 규칙대로 「목록에 없으면 안 만든다」 를 지켜 빈손으로 온 것 —
+        # 대개 포트 이름이 등록 목록과 다르다. 무엇이 있는지 알려 준다.
+        avail = " · ".join(
+            f"{x['label']}: {', '.join(x['ports'][:6])}{'…' if len(x['ports']) > 6 else ''}"
+            for x in (D + M)[:4] if x["ports"]
+        )
+        return {
+            "ok": False,
+            "error": f"문장의 포트 이름이 등록 목록에 없는 것 같습니다. 등록된 포트 — {avail}",
+        }
     return {"ok": True, "wires": out, "dropped": dropped}
 
 
