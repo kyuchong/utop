@@ -1227,91 +1227,9 @@ export default function TestCases({ me }: PageProps) {
    */
   const detHead = (
                 <div className="tc-dethead">
-                  {/* 이름·ID 는 위 빵부스러기에 이미 있다. 여기에도 적었더니
-                      같은 글이 두 줄로 보였다 — 이 줄은 알림·탭 몫이다. */}
-                  {/* 지금 이 시험을 누가 같이 보고 있나 — 제목 바로 옆.
-                      혼자면 아무것도 안 뜬다. 둘부터 뜬다. */}
-                  <PresenceBar users={presence.users} me={meName} />
-                  {/* 누가 저장했나 — 쌓아 두고 숫자만. 「함께 보는 중」 옆이다 */}
-                  <SaveBell
-                    items={saves}
-                    unseen={Math.max(0, saves.length - seen)}
-                    onSeen={() => setSeen(saves.length)}
-                  />
-                  {/* 내가 고친 게 있어 못 읽어온 경우만 띠로 남는다. 덮지
-                      않고 여기서 묻는다 — 누르는 것은 내가 고른다. */}
-                  {remote?.kept && (
-                    <span className="tc-remote">
-                      {remote.user} 님이 저장했습니다
-                      <button
-                        className="btn small"
-                        type="button"
-                        onClick={() => {
-                          if (
-                            !window.confirm('지금 저장된 것을 불러올까요? 내가 고친 것은 사라집니다.')
-                          )
-                            return
-                          void qc.invalidateQueries({ queryKey: ['tc', openId] })
-                          setDirty(false)
-                          setRemote(null)
-                        }}
-                      >
-                        불러오기
-                      </button>
-                    </span>
-                  )}
-                  {/* 화면 전체의 알림. 전에는 「스텝을 골랐을 때 뜨는 띠」
-                      안에만 있어서, 저장했다는 말도 오류도 스텝을 골라야만
-                      보였다. 늘 보이는 자리로 올린다. */}
-                  {msg.text && <span className={`tc-msg ${msg.kind}`}>{msg.text}</span>}
-                  {/* 제목과 탭 사이를 벌린다. 탭은 오른쪽 끝에 ⋯·저장과
-                      한 덩이로 — 「이 시험의 무엇을 볼까」 를 고르는 것들이라
-                      모여 있어야 손이 한 곳으로 간다. */}
-                  <span className="sp" />
-            {openId && !gpOpen && (
-              <div className="seg" role="tablist">
-                {([
-                  // 정보 → Manual → Automation 순. 시험을 만드는 순서와 같다 —
-                  // 무엇을 시험할지 적고, 사람이 할 일을 적고, 그중 자동으로
-                  // 돌릴 것을 만든다.
-                  //
-                  // 'Automation' 은 '스텝' 이 아니다 — 장비에 명령을 보내 자동으로
-                  // 도는 절차고, 사람이 하는 것은 Manual Step 에 있다.
-                  ['info', 'Info'],
-                  // 시험 목적·사전 준비 조건. 「돌리기 전에 갖춰져야 하는 것」
-                  // 이라 토폴로지 바로 앞이 자리다.
-                  ['env', 'Object'],
-                  // 배선은 랩의 사실이라 시험 내용보다 앞이다 — 여기가 정해져야
-                  // 스텝이 장비 포트 이름으로 말할 수 있다.
-                  ['topo', 'Topology'],
-                  // 계측기 트래픽 — 배선(Topology) 다음이다. 어느 포트에
-                  // 꽂혔는지가 정해져야 무엇을 보낼지 적을 수 있다.
-                  ['traffic', 'Traffic'],
-                  ['manual', 'Manual'],
-                  // 「Manual」 과 짝이 되게 「Automation」 — 둘 다 절차를 적는
-                  // 자리고, 사람이 하느냐 자동으로 도느냐만 다르다.
-                  ['steps', 'Automation'],
-                  ['history', 'Execution'],
-                  ['cycle', 'Cycle'],
-                ] as const).map(([k, label]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    role="tab"
-                    aria-selected={tab === k}
-                    className={`seg-btn${tab === k ? ' on' : ''}`}
-                    onClick={() => setTab(k)}
-                  >
-                    {label}
-                    {k === 'steps' && autoCount > 0 && <span className="cnt">{autoCount}</span>}
-                    {k === 'manual' && manualCount > 0 && <span className="cnt">{manualCount}</span>}
-                    {k === 'topo' && wireCount > 0 && <span className="cnt">{wireCount}</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* ⋯ — 자주 안 쓰는 것은 접어 둔다 */}
+                  {/* ⋯ · 저장 · 탭을 **왼쪽**에 — 화면 오른쪽 끝까지
+                      손이 가야 했다. 알림(함께 보는 중·저장 종)은
+                      오른쪽으로 밀어 둔다. */}
             <div className="tc-more">
               <button
                 className="btn tc-dots"
@@ -1393,6 +1311,87 @@ export default function TestCases({ me }: PageProps) {
                 {saveM.isPending ? '저장 중…' : dirty ? '저장' : '저장됨'}
               </button>
             )}
+            {openId && !gpOpen && (
+              <div className="seg" role="tablist">
+                {([
+                  // 정보 → Manual → Automation 순. 시험을 만드는 순서와 같다 —
+                  // 무엇을 시험할지 적고, 사람이 할 일을 적고, 그중 자동으로
+                  // 돌릴 것을 만든다.
+                  //
+                  // 'Automation' 은 '스텝' 이 아니다 — 장비에 명령을 보내 자동으로
+                  // 도는 절차고, 사람이 하는 것은 Manual Step 에 있다.
+                  ['info', 'Info'],
+                  // 시험 목적·사전 준비 조건. 「돌리기 전에 갖춰져야 하는 것」
+                  // 이라 토폴로지 바로 앞이 자리다.
+                  ['env', 'Object'],
+                  // 배선은 랩의 사실이라 시험 내용보다 앞이다 — 여기가 정해져야
+                  // 스텝이 장비 포트 이름으로 말할 수 있다.
+                  ['topo', 'Topology'],
+                  // 계측기 트래픽 — 배선(Topology) 다음이다. 어느 포트에
+                  // 꽂혔는지가 정해져야 무엇을 보낼지 적을 수 있다.
+                  ['traffic', 'Traffic'],
+                  ['manual', 'Manual'],
+                  // 「Manual」 과 짝이 되게 「Automation」 — 둘 다 절차를 적는
+                  // 자리고, 사람이 하느냐 자동으로 도느냐만 다르다.
+                  ['steps', 'Automation'],
+                  ['history', 'Execution'],
+                  ['cycle', 'Cycle'],
+                ] as const).map(([k, label]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === k}
+                    className={`seg-btn${tab === k ? ' on' : ''}`}
+                    onClick={() => setTab(k)}
+                  >
+                    {label}
+                    {k === 'steps' && autoCount > 0 && <span className="cnt">{autoCount}</span>}
+                    {k === 'manual' && manualCount > 0 && <span className="cnt">{manualCount}</span>}
+                    {k === 'topo' && wireCount > 0 && <span className="cnt">{wireCount}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+                  <span className="sp" />
+
+                  {/* 이름·ID 는 위 빵부스러기에 이미 있다. 여기에도 적었더니
+                      같은 글이 두 줄로 보였다 — 이 줄은 알림·탭 몫이다. */}
+                  {/* 지금 이 시험을 누가 같이 보고 있나 — 제목 바로 옆.
+                      혼자면 아무것도 안 뜬다. 둘부터 뜬다. */}
+                  <PresenceBar users={presence.users} me={meName} />
+                  {/* 누가 저장했나 — 쌓아 두고 숫자만. 「함께 보는 중」 옆이다 */}
+                  <SaveBell
+                    items={saves}
+                    unseen={Math.max(0, saves.length - seen)}
+                    onSeen={() => setSeen(saves.length)}
+                  />
+                  {/* 내가 고친 게 있어 못 읽어온 경우만 띠로 남는다. 덮지
+                      않고 여기서 묻는다 — 누르는 것은 내가 고른다. */}
+                  {remote?.kept && (
+                    <span className="tc-remote">
+                      {remote.user} 님이 저장했습니다
+                      <button
+                        className="btn small"
+                        type="button"
+                        onClick={() => {
+                          if (
+                            !window.confirm('지금 저장된 것을 불러올까요? 내가 고친 것은 사라집니다.')
+                          )
+                            return
+                          void qc.invalidateQueries({ queryKey: ['tc', openId] })
+                          setDirty(false)
+                          setRemote(null)
+                        }}
+                      >
+                        불러오기
+                      </button>
+                    </span>
+                  )}
+                  {/* 화면 전체의 알림. 전에는 「스텝을 골랐을 때 뜨는 띠」
+                      안에만 있어서, 저장했다는 말도 오류도 스텝을 골라야만
+                      보였다. 늘 보이는 자리로 올린다. */}
+                  {msg.text && <span className={`tc-msg ${msg.kind}`}>{msg.text}</span>}
                 </div>
   )
 
