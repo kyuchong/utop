@@ -292,10 +292,32 @@ export function layout(
     return i < 0 ? 0.5 : (i + 1) / (arr.length + 1)
   }
 
+  /** 그 자리가 네모 안인가 — 테두리에 살짝 걸치는 것은 봐준다 */
+  const inBox = (q: { x: number; y: number }, n: { x: number; y: number }) =>
+    q.x > n.x + 2 && q.x < n.x + W - 2 && q.y > n.y + 2 && q.y < n.y + H - 2
+
   return ends.map((e) => {
-    const p1 = edgePt(e.A, e.sa, fracOf(e.l.a, e.sa, e.l.k))
-    const p2 = edgePt(e.B, e.sb, fracOf(e.l.b, e.sb, e.l.k))
-    const { d, mid, pts } = elbow(p1, e.sa, p2, e.sb)
-    return { l: e.l, sa: e.sa, sb: e.sb, p1, p2, d, mid, pts }
+    const build = (sa: Side, sb: Side) => {
+      const p1 = edgePt(e.A, sa, fracOf(e.l.a, sa, e.l.k))
+      const p2 = edgePt(e.B, sb, fracOf(e.l.b, sb, e.l.k))
+      return { sa, sb, p1, p2, ...elbow(p1, sa, p2, sb) }
+    }
+    let r = build(e.sa, e.sb)
+    /*
+     * **네모 안에서 꺾이면 다시 잡는다.**
+     *
+     * 위에서 내려온 선이 상대 네모 안에서 꺾여 옆으로 빠져나왔다가 도로
+     * 들어갔다. 네모가 선 위에 얹히니 가운데는 가려지고 삐져나온 토막만
+     * 보여서, 「어디에도 안 닿은 선」 이 상자 옆에 붙어 있는 그림이 됐다.
+     *
+     * 어느 자리가 나쁜지 하나하나 따지는 대신, 그려 보고 꺾인 자리가
+     * 네모 속이면 자리를 보고 다시 그린다.
+     */
+    const bends = r.pts.slice(1, -1)
+    if (bends.some((q) => inBox(q, e.A) || inBox(q, e.B))) {
+      const auto = sideToward(e.bc.x - e.ac.x, e.bc.y - e.ac.y)
+      r = build(auto, FACING[auto])
+    }
+    return { l: e.l, sa: r.sa, sb: r.sb, p1: r.p1, p2: r.p2, d: r.d, mid: r.mid, pts: r.pts }
   })
 }
