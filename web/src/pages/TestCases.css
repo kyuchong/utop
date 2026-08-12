@@ -2587,7 +2587,7 @@ table.tb tr.r-bad td:first-child {
      REQ Map 78 · 상태 64. TC ID·스텝 열은 없앴다 — ID 는 이름 툴팁과
      빵부스러기가, 스텝 수는 이름 꼬리 숫자가 말한다. */
   grid-template-columns:
-    30px 170px minmax(160px, 1fr)
+    30px 200px minmax(160px, 1fr)
     74px 78px 64px;
   column-gap: 8px;
 }
