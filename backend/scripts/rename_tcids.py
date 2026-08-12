@@ -163,7 +163,9 @@ async def main() -> None:
         if h.exists():
             shutil.move(str(h), str(h.parent / (safe(new) + ".json")))
 
-    print("반영 완료 — 화면은 새로 고침하면 새 ID 로 보입니다")
+    print("반영 완료.")
+    print("※ api 서버가 옛 목록을 캐시로 들고 있습니다 — 재시작해야 화면에 보입니다:")
+    print("   docker compose -p utop restart api   (그 뒤 브라우저 Ctrl+Shift+R)")
     await con.close()
 
 
