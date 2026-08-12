@@ -4,6 +4,7 @@ import type { Device } from '@/pages/Devices'
 import { deviceLabel, isMeter, meterKind } from './device'
 import TcWireMap from './TcWireMap'
 import TcCanvas from './TcCanvas'
+import { wireShot } from './wireMermaid'
 import { wireValues, type TcData, type TcWire } from './types'
 
 interface Props {
@@ -56,6 +57,8 @@ export default function TcTopology({
       「이 포트에서 저 포트로」 하나뿐이라 그림 쪽이 손이 덜 간다. */
   const [asMap, setAsMap] = useState(true)
   const [busy, setBusy] = useState(false)
+  /** 구성도를 굽는 중 — mermaid 를 그때 내려받으므로 처음 한 번은 좀 걸린다 */
+  const [drawing, setDrawing] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -85,6 +88,34 @@ export default function TcTopology({
     } finally {
       setBusy(false)
       if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  /**
+   * 배선대로 구성도를 그린다.
+   *
+   * 여태 구성도는 다른 문서에서 캡쳐해 붙였다. 그러면 배선을 고쳐도 그림은
+   * 옛것 그대로 남아서, 결과서에 실린 그림과 실제로 흘린 트래픽이 다르다 —
+   * 증거 노릇을 못 한다. 배선 자료는 이미 아래에 있으니 그것으로 그린다.
+   *
+   * 올려 두는 것은 지어낸 그림이 아니라 **지금 이 배선의 사진**이다. 배선을
+   * 고치면 다시 눌러야 하고, 그래서 단추 이름도 「다시 그리기」 다.
+   */
+  const drawWires = async () => {
+    if (!wiring.length && !links.length) {
+      return onMsg('err', '이을 배선이 없습니다 — 아래에서 포트를 먼저 이어 주세요')
+    }
+    setDrawing(true)
+    try {
+      const shot = await wireShot({ devices, wiring, links, sessions })
+      if (!shot) throw new Error('그리지 못했습니다')
+      const blob = await (await fetch(shot.data)).blob()
+      await upload(new File([blob], 'topology.png', { type: 'image/png' }))
+      onMsg('ok', '배선대로 구성도를 그렸습니다')
+    } catch (e) {
+      onMsg('err', e instanceof Error ? e.message : '그리지 못했습니다')
+    } finally {
+      setDrawing(false)
     }
   }
 
@@ -243,33 +274,60 @@ export default function TcTopology({
         }}
       >
         {data.topo_img ? (
-          <div
-            className="tp-picbox"
-            style={data.topo_img_w ? { width: data.topo_img_w } : undefined}
-            onPointerUp={(e) => {
-              const now = Math.round(e.currentTarget.offsetWidth)
-              if (now > 0 && now !== data.topo_img_w) onChange({ topo_img_w: now })
-            }}
-          >
-            <button type="button" className="tp-picopen" onClick={() => setBig(true)} title="크게 보기">
-              <img src={data.topo_img} alt="구성도" />
-            </button>
-            <button
-              type="button"
-              className="if-x"
-              aria-label="그림 지우기"
-              onClick={() => onChange({ topo_img: '', topo_img_w: undefined })}
+          <div className="tp-picwrap">
+            <div
+              className="tp-picbox"
+              style={data.topo_img_w ? { width: data.topo_img_w } : undefined}
+              onPointerUp={(e) => {
+                const now = Math.round(e.currentTarget.offsetWidth)
+                if (now > 0 && now !== data.topo_img_w) onChange({ topo_img_w: now })
+              }}
             >
-              ×
-            </button>
+              <button type="button" className="tp-picopen" onClick={() => setBig(true)} title="크게 보기">
+                <img src={data.topo_img} alt="구성도" />
+              </button>
+              <button
+                type="button"
+                className="if-x"
+                aria-label="그림 지우기"
+                onClick={() => onChange({ topo_img: '', topo_img_w: undefined })}
+              >
+                ×
+              </button>
+            </div>
+            {/* 배선을 고친 뒤 그림만 옛것으로 남는 것을 막는다 */}
+            {(wiring.length > 0 || links.length > 0) && (
+              <button
+                className="btn small"
+                type="button"
+                disabled={busy || drawing}
+                title="지금 배선대로 구성도를 다시 그립니다"
+                onClick={() => void drawWires()}
+              >
+                {drawing ? '그리는 중…' : '배선대로 다시 그리기'}
+              </button>
+            )}
           </div>
         ) : (
           <div className="tp-picempty">
             <b>구성도 그림</b>
             <span>
-              여기를 누르고 <b>Ctrl+V</b> — 문서에 있는 구성도를 그대로 붙여넣으세요. 끌어다
-              놓아도 됩니다.
+              아래에 배선을 이어 두었다면 <b>배선대로 그리기</b> 한 번이면 됩니다. 문서에 있는
+              구성도를 쓰려면 여기를 누르고 <b>Ctrl+V</b>, 끌어다 놓아도 됩니다.
             </span>
+            <button
+              className="btn primary small"
+              type="button"
+              disabled={busy || drawing || (!wiring.length && !links.length)}
+              title={
+                wiring.length || links.length
+                  ? '아래 배선 그대로 구성도를 그립니다'
+                  : '먼저 아래에서 포트를 이어 주세요'
+              }
+              onClick={() => void drawWires()}
+            >
+              {drawing ? '그리는 중…' : '배선대로 그리기'}
+            </button>
             <button
               className="btn small"
               type="button"

@@ -250,3 +250,84 @@ def fill(slide, spots: dict[str, Spot], values: dict[str, str]) -> None:
 
 def safe(s: str) -> str:
     return re.sub(r'[\\/:*?"<>|]+', "_", str(s or "")).strip() or "report"
+
+
+# ── 본보기로 얹혀 있던 것 걷어내기 ──────────────────────────────────
+#
+# 고객사가 준 양식은 **다 채워진 예시**다. 첫 장에는 구성도 사진이,
+# 이어지는 장에는 「1. 시스템 정보 확인」 같은 글상자와 그때 찍은 화면
+# 두 장이 얹혀 있다. 장을 복제하면 그것들도 같이 따라와서, 만든 결과서
+# 모든 쪽에 남의 시험 화면이 실린다 — 표 안의 진짜 결과를 덮고 앉는다.
+#
+# 표와 제목은 양식이고, 그 위에 얹힌 그림·글상자는 예시다. 그래서
+# **표보다 아래에 있는 그림과 글상자**를 걷어낸다. 제목("시험절차")과
+# 쪽번호는 표보다 위에 있으므로 그대로 남는다.
+def strip_samples(slide) -> list[tuple[int, int, int, int]]:
+    """예시로 얹힌 것을 걷어내고, **그림이 있던 자리**를 돌려준다."""
+    top_of_table = None
+    for sh in slide.shapes:
+        if getattr(sh, "has_table", False):
+            t = sh.top
+            if t is not None and (top_of_table is None or t < top_of_table):
+                top_of_table = t
+    if top_of_table is None:
+        return []
+
+    spots: list[tuple[int, int, int, int]] = []
+    for sh in list(slide.shapes):
+        if getattr(sh, "has_table", False):
+            continue
+        # 개체 틀(쪽번호·날짜)은 양식의 뼈대다. 표보다 아래에 있다고 걷으면
+        # 쪽번호가 통째로 사라진다 — 처음에 그렇게 걷어 냈었다.
+        if getattr(sh, "is_placeholder", False):
+            continue
+        top = sh.top
+        if top is None or top < top_of_table:
+            continue  # 제목
+        # `shape_type` 은 모르는 도형에서 예외를 던진다. 그림은 `image` 를
+        # 들고 있는 것으로 가려낸다 — 이쪽이 안 깨진다.
+        is_pic = hasattr(sh, "image")
+        is_box = getattr(sh, "has_text_frame", False)
+        if not (is_pic or is_box):
+            continue
+        if is_pic:
+            spots.append((int(sh.left or 0), int(sh.top or 0), int(sh.width or 0), int(sh.height or 0)))
+        sh._element.getparent().remove(sh._element)
+    # 큰 것부터 — 첫 장의 구성도 자리가 제일 크다
+    spots.sort(key=lambda r: r[2] * r[3], reverse=True)
+    return spots
+
+
+def decode_img(src: str) -> bytes | None:
+    """`data:image/png;base64,…` 를 알맹이로. 아니면 None."""
+    import base64
+
+    s = str(src or "")
+    m = re.match(r"^data:image/[a-zA-Z.+-]+;base64,(.+)$", s, re.S)
+    if not m:
+        return None
+    try:
+        return base64.b64decode(m.group(1))
+    except Exception:
+        return None
+
+
+def place_pic(slide, blob: bytes, rect: tuple[int, int, int, int]) -> None:
+    """
+    자리에 그림을 앉힌다 — **비율을 지키며 가운데로**.
+
+    자리에 딱 맞춰 늘리면 구성도의 글자가 눌려 읽히지 않는다. 결과서의
+    구성도는 「어느 포트가 어디에 꽂혔나」 를 읽는 그림이라 글자가 살아야
+    한다.
+    """
+    import io
+
+    left, top, w, h = rect
+    pic = slide.shapes.add_picture(io.BytesIO(blob), left, top)
+    if not pic.width or not pic.height or not w or not h:
+        return
+    k = min(w / pic.width, h / pic.height)
+    pic.width = int(pic.width * k)
+    pic.height = int(pic.height * k)
+    pic.left = int(left + (w - pic.width) / 2)
+    pic.top = int(top + (h - pic.height) / 2)

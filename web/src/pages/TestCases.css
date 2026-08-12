@@ -1951,6 +1951,13 @@ table.tb tr.r-bad td:first-child {
 .tp-picempty span {
   flex: 1;
 }
+/* 그림 옆에 「다시 그리기」 를 둔다. 그림 안에 넣으면 늘리는 손잡이
+   (resize)와 겹쳐서 잡을 수가 없다. */
+.tp-picwrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
 .tp-picbox {
   position: relative;
   display: inline-block;

@@ -4,6 +4,9 @@ import { apiFetch } from '@/api/client'
 import { buildSlides, type LguStep, type LguTc } from './lgu'
 import { saveLguPptx } from './lguPptx'
 import { saveTplPptx } from './tplPptx'
+import { wireShot } from '@/components/tc/wireMermaid'
+import type { Device } from '@/pages/Devices'
+import type { TcPortLink, TcWire } from '@/components/tc/types'
 
 interface Props {
   cycleId: string
@@ -24,11 +27,14 @@ interface CycleFull {
   }>
 }
 
-/** TC 쪽에서만 얻을 수 있는 것 — 시험 규격과 구성도 */
+/** TC 쪽에서만 얻을 수 있는 것 — 시험 규격과 구성도, 그리고 배선 */
 interface TcExtra {
   object_md?: string | null
   precondition_md?: string | null
   topo_img?: string | null
+  wiring?: TcWire[] | null
+  portLinks?: TcPortLink[] | null
+  sessions?: unknown
 }
 
 /**
@@ -87,6 +93,55 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
     },
   })
 
+  /** 장비 — 구성도를 그릴 때 이름·IP·랩을 여기서 읽는다 */
+  const devQ = useQuery({
+    queryKey: ['report-devices'],
+    enabled: items.length > 0,
+    queryFn: async () => {
+      // `/api/devices` 는 옛 JSON 파일을 읽는 라우트다. 화면이 쓰는 것은
+      // 표(db)를 읽는 `devices2` 다 — 옛쪽은 파일이 없으면 500 이 난다.
+      const r = await apiFetch('/api/devices2')
+      if (!r.ok) return [] as Device[]
+      const j = (await r.json()) as { devices?: Device[] }
+      return (j.devices ?? []) as Device[]
+    },
+  })
+
+  /**
+   * 구성도를 **배선으로 그려 둔다.**
+   *
+   * 붙여 넣은 그림이 있으면 그것을 쓴다 — 사람이 고른 것이 먼저다. 없는
+   * 시험은 여태 「(구성도 없음)」 으로 나갔는데, 배선은 적혀 있는데 그림만
+   * 없어서 그랬다. 있는 자료로 그리면 될 일이었다.
+   */
+  const [drawn, setDrawn] = useState<Record<string, string>>({})
+  useEffect(() => {
+    const extra = tcQ.data
+    const devices = devQ.data
+    if (!extra || !devices?.length) return
+    let alive = true
+    void (async () => {
+      const out: Record<string, string> = {}
+      for (const [tcid, e] of extra) {
+        if (e.topo_img) continue
+        const wiring = (e.wiring ?? []) as TcWire[]
+        const links = (e.portLinks ?? []) as TcPortLink[]
+        if (!wiring.length && !links.length) continue
+        const sessions = Array.isArray(e.sessions) ? (e.sessions as string[]) : []
+        try {
+          const shot = await wireShot({ devices, wiring, links, sessions })
+          if (shot) out[tcid] = shot.data
+        } catch {
+          // 그림 하나 못 그렸다고 결과서를 막지 않는다
+        }
+      }
+      if (alive && Object.keys(out).length) setDrawn(out)
+    })()
+    return () => {
+      alive = false
+    }
+  }, [tcQ.data, devQ.data])
+
   const tcs: LguTc[] = useMemo(() => {
     const extra = tcQ.data
     return items.map((it) => {
@@ -96,14 +151,14 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
         name: it.name ?? '',
         reqid: it.req_id ?? '',
         spec: (e?.object_md || e?.precondition_md || '').trim(),
-        topoImg: e?.topo_img || '',
+        topoImg: e?.topo_img || drawn[it.tcid ?? ''] || '',
         remark: '',
         // 종류로 거르지 않는다. 옛 코드가 cli·wait 만 실어서 ping·snmp·
         // diff·계측기 스텝이 결과서에서 통째로 빠졌다.
         steps: it.steps ?? [],
       }
     })
-  }, [items, tcQ.data])
+  }, [items, tcQ.data, drawn])
 
   const slides = useMemo(() => (tcs.length ? buildSlides(tcs) : []), [tcs])
 

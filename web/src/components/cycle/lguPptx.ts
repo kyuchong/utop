@@ -157,7 +157,11 @@ export async function saveLguPptx(
       if (tc.topoImg && i === 0) {
         try {
           s.addImage({
-            path: tc.topoImg,
+            // 배선으로 그린 구성도는 data URL 이다. pptxgenjs 는 주소는
+            // `path`, 알맹이는 `data` 로 받는다 — 섞으면 그림이 안 실린다.
+            ...(tc.topoImg.startsWith('data:')
+              ? { data: tc.topoImg }
+              : { path: tc.topoImg }),
             x: LX + 6.25,
             y: 1.5,
             w: 6.05,
