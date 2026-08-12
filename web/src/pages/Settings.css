@@ -619,6 +619,42 @@
 /* ── 용도별 프롬프트 ──
    한 용도가 한 덩어리다. 모델과 말투를 함께 보아야 「이 모델에 이렇게
    말하면 이렇게 나온다」 가 이어진다. */
+/* 두 칸 — 왼쪽은 모델·안내, 오른쪽은 프롬프트가 주인공 */
+.ps-two {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.ps-left { display: flex; flex-direction: column; gap: 12px; }
+.ps-name { display: flex; flex-direction: column; gap: 4px; }
+.ps-fld { display: flex; flex-direction: column; gap: 4px; }
+.ps-fld > span { font-size: var(--fs-xs); color: var(--c-text-muted); }
+.ps-fld select {
+  padding: 6px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+.ps-right { display: flex; flex-direction: column; gap: 6px; }
+.ps-ph { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--c-text-muted); }
+.ps-ph .sp { margin-left: auto; }
+.ps-right textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  resize: vertical;
+}
+
 /* 용도 탭 — 한 번에 하나만 본다 */
 .ps-tabs {
   display: flex;

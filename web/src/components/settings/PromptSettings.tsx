@@ -37,7 +37,7 @@ export default function PromptSettings() {
   const [llms, setLlms] = useState<Llm[]>([])
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
-  /** 열려 있는 탭 — 용도 하나 */
+  /** 열려 있는 탭 — 용도 하나. 세로로 다 펼치니 어디를 고치는지 놓쳤다 */
   const [tab, setTab] = useState('')
 
   useEffect(() => {
@@ -92,8 +92,6 @@ export default function PromptSettings() {
         <div className="empty">불러오는 중…</div>
       ) : (
         <>
-          {/* 용도마다 탭 하나. 세로로 다 펼쳐 놓으니 스크롤이 길어져
-              어느 용도를 고치고 있는지 놓쳤다 — 한 번에 하나만 본다. */}
           <div className="ps-tabs" role="tablist">
             {items.map((x) => (
               <button
@@ -110,46 +108,52 @@ export default function PromptSettings() {
           {items
             .filter((x) => x.id === (tab || items[0]?.id))
             .map((x) => (
-          <div className="ps-item" key={x.id}>
-            <div className="ps-h">
-              <b>{x.label}</b>
-              <span className="muted small">{x.hint}</span>
-              <span className="sp" />
-              {/* 되돌리기 — 고치다 망가뜨려도 원래대로 돌아갈 길이 있어야
-                  사람이 마음 놓고 고친다 */}
-              <button
-                className="btn small"
-                type="button"
-                disabled={!x.default || x.system === x.default}
-                title="처음 값으로 되돌립니다"
-                onClick={() => set(x.id, { system: x.default })}
-              >
-                기본값으로
-              </button>
+          <div className="ps-item ps-two" key={x.id}>
+            {/* 왼쪽 — 무엇에 쓰는 것인지와 쓸 모델 */}
+            <div className="ps-left">
+              <div className="ps-name">
+                <b>{x.label}</b>
+                <span className="muted small">{x.hint}</span>
+              </div>
+              <label className="ps-fld">
+                <span>사용 LLM</span>
+                <select value={x.llm} onChange={(e) => set(x.id, { llm: e.target.value })}>
+                  {/* 안 고르면 켜져 있는 것 중 첫 번째를 쓴다 — 모델이 하나뿐인
+                      랩에서 매번 고르게 하면 손만 간다 */}
+                  <option value="">아무거나 (켜져 있는 첫 번째)</option>
+                  {llms.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name || l.model || l.endpoint}
+                      {l.status && l.status !== 'active' ? ' (꺼짐)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-            <label className="ps-row">
-              <span>쓸 모델</span>
-              <select value={x.llm} onChange={(e) => set(x.id, { llm: e.target.value })}>
-                {/* 안 고르면 켜져 있는 것 중 첫 번째를 쓴다 — 모델이 하나뿐인
-                    랩에서 매번 고르게 하면 손만 간다 */}
-                <option value="">아무거나 (켜져 있는 첫 번째)</option>
-                {llms.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name || l.model || l.endpoint}
-                    {l.status && l.status !== 'active' ? ' (꺼짐)' : ''}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="ps-row ps-tall">
-              <span>이렇게 말한다</span>
+            {/* 오른쪽 — 시스템 프롬프트가 주인공이다. 크게. */}
+            <div className="ps-right">
+              <div className="ps-ph">
+                <span>시스템 프롬프트</span>
+                <span className="sp" />
+                {/* 되돌리기 — 고치다 망가뜨려도 원래대로 돌아갈 길이 있어야
+                    사람이 마음 놓고 고친다 */}
+                <button
+                  className="btn small"
+                  type="button"
+                  disabled={!x.default || x.system === x.default}
+                  title="처음 값으로 되돌립니다"
+                  onClick={() => set(x.id, { system: x.default })}
+                >
+                  ↺ 기본값
+                </button>
+              </div>
               <textarea
-                rows={8}
+                rows={22}
                 value={x.system}
                 placeholder="비우면 기본값을 씁니다"
                 onChange={(e) => set(x.id, { system: e.target.value })}
               />
-            </label>
+            </div>
           </div>
             ))}
         </>
