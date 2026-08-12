@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Device } from '@/pages/Devices'
 import { deviceFull, deviceShort, isMeter, meterKind } from './device'
-import { H, SIDES, W, edgePt, layout, portTag, type BoardLine, type Side } from './board'
+import { H, NARROW, SIDES, W, edgePt, layout, portTag, type BoardLine, type Side } from './board'
 import type { TcPortLink, TcWire } from './types'
 import './TcCanvas.css'
 
@@ -392,8 +392,22 @@ export default function TcCanvas({
                     >
                       <title>눌러서 끊기</title>
                     </path>
-                    {tag(e.sa, p1, l.pa, `${l.k}a`, true)}
-                    {tag(e.sb, p2, l.pb, `${l.k}b`, false)}
+                    {gap < NARROW ? (
+                      // 틈이 좁으면 자리가 없다 — 붙여서 하나로
+                      <g className="cv-pt">
+                        <text x={mx} y={my - 3} textAnchor="middle" className="cv-lt-bg">
+                          {l.pa} ↔ {l.pb}
+                        </text>
+                        <text x={mx} y={my - 3} textAnchor="middle">
+                          {l.pa} ↔ {l.pb}
+                        </text>
+                      </g>
+                    ) : (
+                      <>
+                        {tag(e.sa, p1, l.pa, `${l.k}a`, true)}
+                        {tag(e.sb, p2, l.pb, `${l.k}b`, false)}
+                      </>
+                    )}
                     <g
                       className="cv-cut"
                       onClick={(ev) => {

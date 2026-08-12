@@ -79,12 +79,18 @@ export function sideToward(dx: number, dy: number): Side {
 }
 
 /**
- * 포트 이름을 놓을 자리.
+ * 이만큼도 안 떨어져 있으면 포트 이름 둘을 양 끝에 못 나눠 적는다.
  *
- * 두 네모가 붙어 있으면 양쪽 이름이 그 좁은 틈으로 서로 파고들어
- * 「Gi0/1」 둘이 「Gi0/11」 한 덩어리로 보였다. 가까우면 선을 사이에 두고
- * 위·아래(세로로 이었으면 좌·우)로 갈라 놓는다.
+ * 네모 둘이 붙어 있으면 그 좁은 틈에 이름이 서로 파고들어 「Gi0/1」 둘이
+ * 「Gi0/11」 한 덩어리로 보였다. 위아래로 갈라 봐도 선이 여럿이면 이번엔
+ * 다른 선의 이름과 겹친다 — 틈이 좁으면 애초에 자리가 없는 것이다.
+ *
+ * 그때는 선 하나에 이름 하나로, 「Gi0/1 ↔ Gi0/9」 처럼 붙여 적는다.
+ * 왼쪽 것이 왼쪽 장비 포트다.
  */
+export const NARROW = 130
+
+/** 포트 이름을 놓을 자리 — 넉넉할 때 양 끝에 나눠 적는 쪽 */
 export function portTag(
   side: Side,
   p: { x: number; y: number },
@@ -95,7 +101,7 @@ export function portTag(
   const along = Math.max(8, Math.min(13, gap * 0.28))
   // 기준선이 글자 아래라 위로 나갈 때는 더 올린다
   const base = a.y < -0.3 ? -2 : a.y > 0.3 ? 10 : 4
-  const push = gap < 120 ? (first ? 9 : -9) : 0
+  const push = first ? 9 : -9
   /*
    * 밀어내는 쪽은 **세상 기준**으로 고정한다.
    *

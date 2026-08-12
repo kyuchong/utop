@@ -1,6 +1,6 @@
 import type { Device } from '@/pages/Devices'
 import { deviceShort, isMeter, meterKind } from './device'
-import { H, W, layout, portTag, type BoardLine, type Side } from './board'
+import { H, NARROW, W, layout, portTag, type BoardLine, type Side } from './board'
 import { svgToPng, type Shot } from './wireMermaid'
 import type { TcPortLink, TcWire } from './types'
 
@@ -104,6 +104,13 @@ export function boardSvg(g: BoardInput): string {
   // 포트 이름 — 붙는 자리 옆에. 선을 다 그은 뒤에 얹어야 글자가 안 묻힌다
   for (const e of layout(lines, posOf)) {
     const gap = Math.hypot(e.p2.x - e.p1.x, e.p2.y - e.p1.y)
+    if (gap < NARROW) {
+      // 틈이 좁으면 자리가 없다 — 선 하나에 이름 하나로 붙여 적는다
+      const mx = (e.p1.x + e.p2.x + e.c1.x + e.c2.x) / 4
+      const my = (e.p1.y + e.p2.y + e.c1.y + e.c2.y) / 4
+      out.push(label(mx, my - 3, `${e.l.pa} ↔ ${e.l.pb}`, 'middle', 11, true))
+      continue
+    }
     const tag = (s: Side, p: { x: number; y: number }, txt: string, first: boolean) => {
       if (!txt) return
       const at = portTag(s, p, gap, first)
