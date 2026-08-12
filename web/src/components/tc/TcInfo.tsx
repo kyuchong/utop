@@ -55,13 +55,31 @@ export default function TcInfo({ data, onChange }: Props) {
   })
   const reqOpts = useMemo(() => {
     const byId = new Map((catQ.data?.categories ?? []).map((c) => [c.id, c]))
+    /*
+     * 경로는 **트리를 걸어 올라가** 만든다.
+     *
+     * cat1~4 를 그대로 이어 붙였더니, 사슬이 덜 적힌 옛 자료는 경로가
+     * 중간부터 시작해(「ENV › …」) 최상위 폴더 이름(「11. U-REQ-SYS」)이
+     * 붙은 것과 안 붙은 것이 섞였다 — 숫자가 있다 없다 해 보였다.
+     * 가장 깊은 분류에서 parent 를 거슬러 오르면 늘 최상위부터다.
+     */
+    const pathOf = (r: (typeof reqQ.data extends { reqs: infer T } ? T : never) extends Array<infer U> ? U : never) => {
+      const deepest = (r.cat4 || r.cat3 || r.cat2 || r.cat1 || '') as string
+      const names: string[] = []
+      let at: string | null = deepest || null
+      const seen = new Set<string>()
+      while (at && !seen.has(at)) {
+        seen.add(at)
+        const c = byId.get(at)
+        if (!c) break
+        names.unshift(c.name)
+        at = (c.parent_id ?? null) as string | null
+      }
+      return names.join(' › ')
+    }
     return (reqQ.data?.reqs ?? [])
       .map((r) => {
-        const path = [r.cat1, r.cat2, r.cat3, r.cat4]
-          .filter(Boolean)
-          .map((id) => byId.get(id as string)?.name ?? '')
-          .filter(Boolean)
-          .join(' › ')
+        const path = pathOf(r)
         return {
           pk: reqPk(r),
           label: `${path ? path + ' › ' : ''}${r.title || reqLabel(r) || '(제목 없음)'}`,
