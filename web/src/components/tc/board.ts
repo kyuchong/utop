@@ -96,7 +96,14 @@ export function portTag(
   // 기준선이 글자 아래라 위로 나갈 때는 더 올린다
   const base = a.y < -0.3 ? -2 : a.y > 0.3 ? 10 : 4
   const push = gap < 120 ? (first ? 9 : -9) : 0
-  const perp = { x: -a.y, y: a.x }
+  /*
+   * 밀어내는 쪽은 **세상 기준**으로 고정한다.
+   *
+   * 나가는 쪽을 기준으로 잡았더니(`-a.y, a.x`) 양 끝의 변이 서로 반대라
+   * 방향도 같이 뒤집혀, 위아래로 갈라 놓은 둘이 도로 같은 줄에 앉았다.
+   * 옆으로 이은 선이면 위·아래로, 위아래로 이은 선이면 좌·우로.
+   */
+  const perp = Math.abs(a.x) >= Math.abs(a.y) ? { x: 0, y: 1 } : { x: 1, y: 0 }
   return {
     x: p.x + a.x * along + perp.x * push,
     y: p.y + a.y * along + perp.y * push + base,
