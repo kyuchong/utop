@@ -3,6 +3,7 @@ import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
 import { deviceLabel, isMeter, meterKind } from './device'
 import TcWireMap from './TcWireMap'
+import TcCanvas from './TcCanvas'
 import { wireValues, type TcData, type TcWire } from './types'
 
 interface Props {
@@ -301,6 +302,24 @@ export default function TcTopology({
       )}
 
       {asMap ? (
+        <>
+        {/* 판 — 놓고 끌고 잇는다. 아래 칸은 골라서 잇는 길이다.
+            둘 다 같은 자료를 쓴다 — 손에 맞는 쪽으로 하면 된다. */}
+        <TcCanvas
+          devices={devices}
+          wiring={wiring}
+          links={links}
+          sessions={sessions}
+          ports={ports}
+          placed={data.topoNodes ?? []}
+          onPlaced={(v) => onChange({ topoNodes: v })}
+          onChange={(v) =>
+            onChange({
+              ...(v.wiring ? { wiring: v.wiring } : {}),
+              ...(v.links ? { portLinks: v.links } : {}),
+            })
+          }
+        />
         <TcWireMap
           wiring={wiring}
           devices={devices}
@@ -316,6 +335,7 @@ export default function TcTopology({
             })
           }
         />
+        </>
       ) : !wiring.length ? (
         <div className="empty">
           아직 배선이 없습니다. 계측기를 쓰는 시험이라면 <b>어느 포트끼리 꽂혀 있는지</b> 한 번만
