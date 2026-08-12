@@ -115,7 +115,7 @@ export default function Requirements() {
   const [catW, setCatW] = useResizableWidth('utop.req.catW5', 210, 150, 460)
   /** Detail 가운데(형제 요구사항) 폭 — 제목이 길어 좁으면 다 못 읽는다 */
   const midRef = useRef<HTMLElement>(null)
-  const [midW, setMidW] = useResizableWidth('utop.req.midW2', 430, 200, 760)
+  const [midW, setMidW] = useResizableWidth('utop.req.listW1', 620, 340, 980)
 
   /**
    * 폴더 트리를 폈나. 사이클·TC 화면과 같은 접기다.
@@ -135,12 +135,11 @@ export default function Requirements() {
   const [listBusy, setListBusy] = useState('')
 
   /** 보기 — list(표로 여럿) · detail(한 건 넓게) */
-  const [view, setView] = useState<'list' | 'detail'>(
-    () => (localStorage.getItem('utop.req.view') === 'detail' ? 'detail' : 'list'),
-  )
-  useEffect(() => {
-    localStorage.setItem('utop.req.view', view)
-  }, [view])
+  /*
+   * Detail/List 토글을 없앴다 — 고른 것이 화면을 정한다.
+   * 폴더를 고르면 2열 표가 그 폴더의 요구사항을 보여 주고,
+   * 표에서 한 건을 고르면 3열이 그 상세를 보여 준다.
+   */
 
   const qc = useQueryClient()
 
@@ -422,11 +421,9 @@ export default function Requirements() {
   const goDetail = (pk: string, to: typeof tab = 'info') => {
     setSelected(pk)
     setTab(to)
-    setView('detail')
   }
 
   /** 표로 돌아온다 */
-  const goList = () => setView('list')
 
   // ── List 액션 바 ────────────────────────────────────────────
   const pickedInList = sortedFolderReqs.filter((r) => listPick.has(reqPk(r)))
@@ -606,7 +603,6 @@ export default function Requirements() {
                     // 빵부스러기만 바뀌고 보던 요구사항이 그대로 남는다
                     setSelectedFolder(f.id)
                     setSelected(null)
-                    setView('list')
                   }}
                   title={`${f.name} 으로`}
                 >
@@ -615,14 +611,14 @@ export default function Requirements() {
               )}
             </span>
           ))}
-            {view === 'detail' && selectedReq && (
+            {selectedReq && (
             <>
               <span className="rq-crumb-sep">›</span>
               <b>{selectedReq.title || reqLabel(selectedReq) || '(제목 없음)'}</b>
             </>
           )}
           <span className="muted small">
-            {view === 'detail' && selectedReq
+            {selectedReq
               ? reqLabel(selectedReq)
               : folderMode
                 ? `${folderReqs.length}건 · 하위 폴더 포함`
@@ -630,39 +626,6 @@ export default function Requirements() {
           </span>
         </span>
         <span className="sp" />
-        {/* List(표로 여럿) ↔ Detail(한 건 넓게). Detail 로 가면 폴더가
-            자동으로 접힌다 — 셋을 다 펴면 정작 상세가 좁아진다. */}
-        <div className="rq-view" role="tablist" aria-label="보기 방식">
-          {/* Detail 은 폴더만 골라도 켠다. 폴더를 고르면 이미 Detail 로
-              들어가는데 단추는 꺼져 있어서, 켜진 파란 바탕에 흐린 글자가
-              얹혀 「Detail」 이 안 읽혔다. */}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'detail'}
-            className={`rq-view-b${view === 'detail' ? ' on' : ''}`}
-            disabled={!selectedReq && !folderMode}
-            title={
-              selectedReq || folderMode
-                ? '한 건을 넓게 봅니다'
-                : '먼저 폴더나 요구사항을 고르세요'
-            }
-            onClick={() => (selectedReq ? goDetail(reqPk(selectedReq), tab) : setView('detail'))}
-          >
-            Detail
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'list'}
-            className={`rq-view-b${view === 'list' ? ' on' : ''}`}
-            disabled={!folderMode}
-            title={folderMode ? '이 폴더의 요구사항을 표로 봅니다' : '먼저 폴더를 고르세요'}
-            onClick={goList}
-          >
-            List
-          </button>
-        </div>
       </div>
 
       <div className="split" ref={splitRef}>
@@ -745,7 +708,6 @@ export default function Requirements() {
                 // 트리에서 요구사항을 고르면 그 한 건을 보는 것이다 → Detail.
                 // 폴더는 지우지 않는다(가운데 목록이 형제를 보여 줘야 한다).
                 setSelected(pk)
-                setView('detail')
                 setTab('info')
               }}
               view={{ fullId, foldersOnly }}
@@ -754,15 +716,6 @@ export default function Requirements() {
               onSelectFolder={(id) => {
                 setSelectedFolder(id)
                 setSelected(null)
-                /*
-                 * Detail 을 보고 있었으면 Detail 을 지킨다.
-                 *
-                 * 폴더를 누를 때마다 List 로 튕겼다. 그런데 2열 목록이
-                 * 하위 폴더까지 훑어 모아 주므로, Detail 에서 폴더를 누르는
-                 * 것은 「이 묶음을 2열로 보겠다」 는 뜻이다. 튕기면 그 목록을
-                 * 볼 수가 없다. 처음부터 List 였으면 List 그대로.
-                 */
-                if (view !== 'detail') setView('list')
               }}
               picked={picked}
               onRowClick={treeSel.onClick}
@@ -792,103 +745,28 @@ export default function Requirements() {
             전에는 요구사항을 골라야 나왔다. 그래서 1열에서 상위 폴더를
             누르면 그 아래 요구사항이 어디에도 안 보였다 — 하위 폴더까지
             훑어 모은 목록이 정작 필요한 때가 그때인데. */}
-        {view === 'detail' && (selectedReq || folderMode) && (
-          <>
-          <section className="panel rq-mid" ref={midRef} style={{ flexBasis: midW }}>
-            {/* 1열의 「Requirement Tree」 와 같은 자리·같은 무게로 둔다.
-                전에는 「ENV · 2」 만 있어서, 이 칸이 무엇을 담는 자리인지
-                폴더 이름에 가려 안 읽혔다. */}
-            <div className="rq-mid-h">
-              <b>Requirements List</b>
-              <span className="rq-mid-hn">{midReqs.length}</span>
-              <span className="sp" />
-              {/* 만들기는 목록 위에 둔다. List 에만 있어서, Detail 로 폴더를
-                  훑다가 빠진 것을 찾으면 List 로 건너갔다 만들고 다시
-                  돌아와야 했다. 1열 트리의 `+` 와 같은 자리·같은 모양이다.
-                  넣을 폴더는 지금 보고 있는 그 폴더다(`presetFolder`). */}
-              <button
-                className="btn small primary"
-                type="button"
-                disabled={!folderMode}
-                title={
-                  folderMode
-                    ? '이 폴더에 요구사항을 만듭니다'
-                    : '먼저 폴더를 고르세요'
-                }
-                onClick={() => setForm(null)}
-              >
-                +
+        {/* ── 2열: 이 폴더의 요구사항 표 — 옛 List 화면 그대로 ──
+            토글을 없앴다. 폴더를 고르면 여기가 그 폴더의 표고, 표에서
+            한 건을 고르면 3열이 상세다 — 고른 것이 화면을 정한다. */}
+        <section className="panel rq-listcol" ref={midRef} style={{ flexBasis: midW }}>
+          <div className="rq-mid-h">
+            <b>Requirements</b>
+            <span className="rq-mid-hn">{midReqs.length}</span>
+            <span className="sp" />
+          </div>
+          <div className="rq-ffind rq-midfind">
+            <input
+              value={listQ}
+              placeholder="요구사항 찾기"
+              onChange={(e) => setListQ(e.target.value)}
+            />
+            {listQ && (
+              <button type="button" title="지우기" onClick={() => setListQ('')}>
+                ✕
               </button>
-            </div>
-            {/* 찾기는 찾는 것 바로 위에 둔다. 화면 맨 위 오른쪽에 있었더니
-                눈은 목록에 있는데 손은 저 멀리로 갔다. */}
-            <div className="rq-ffind rq-midfind">
-              <input
-                value={listQ}
-                placeholder="요구사항 찾기"
-                onChange={(e) => setListQ(e.target.value)}
-              />
-              {listQ && (
-                <button type="button" title="지우기" onClick={() => setListQ('')}>
-                  ✕
-                </button>
-              )}
-            </div>
-            <div className="rq-mid-list scroll">
-              {midReqs.map((r) => {
-                const pk = reqPk(r)
-                return (
-                  <button
-                    key={pk}
-                    type="button"
-                    className={`rq-mid-row${pk === selected ? ' on' : ''}`}
-                    title={r.title || pk}
-                    onClick={() => {
-                      setSelected(pk)
-                      setTab('info')
-                    }}
-                  >
-                    <span className="rq-mid-id">{reqLabel(r) || '–'}</span>
-                    <span className="rq-icon" aria-hidden="true">
-                      <IconReqDoc />
-                    </span>
-                    <span className="rq-mid-t">{r.title || '(제목 없음)'}</span>
-                    {/* 트리 줄과 같은 자리·같은 뜻으로 오른쪽에. 어느 요구사항에
-                        시험이 붙었나가 목록에서 바로 읽혀야 고를 수 있다. */}
-                    <span className="rq-mid-n">TC {covCount(r)}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </section>
-          {/* 가운데 목록 ↔ 상세. 제목이 길어 좁으면 다 못 읽는다 */}
-          <Resizer
-            label="요구사항 목록 폭 조절"
-            onResize={setMidW}
-            getOrigin={() => midRef.current?.getBoundingClientRect().left ?? 0}
-          />
-          </>
-        )}
-
-        {/* ── 오른쪽: 탭에 따라 내용이 바뀐다 ─────────────── */}
-        <section className="panel tc-panel">
-          <div className="panel-title">
-            {/* 폴더를 보고 있을 때는 탭을 띄우지 않는다. REQ Info·Details·
-                이력은 요구사항 한 건에만 있는 것이라, 폴더에 걸어두면 늘
-                비어 있는 탭이 넷 생긴다. 폴더에서는 TC 목록 하나면 된다. */}
-            {folderMode && !selectedReq && view === 'detail' ? (
-              /* Detail 에서 폴더를 고른 참 — 아래는 이 폴더의 TC 목록이다.
-                 전에는 여기에도 REQ Info·Details·이력 탭이 떴다. 고른
-                 요구사항이 없으니 어느 탭을 눌러도 같은 TC 목록이 나왔고,
-                 「REQ Info」 가 켜진 채 TC 표가 있는 앞뒤 안 맞는 화면이
-                 됐다. 폴더에서는 볼 것이 하나뿐이라 탭이 필요 없다. */
-              <div className="rq-mid-h rq-tc-h">
-                <b>Test Cases</b>
-                <span className="rq-mid-hn">{linked.length}</span>
-              </div>
-            ) : view === 'list' && folderMode ? (
-              /* 표에 대한 일 — 표 바로 위 이 줄에 둔다. 고른 것이 있어야
-                 되는 것(Clone·Delete)은 그때만 켜진다. */
+            )}
+          </div>
+          {/* 표에 대한 일 — 표 바로 위. 고른 것이 있어야 되는 것은 그때만 켜진다 */}
               <div className="rq-actions">
                 {/* 한 건이면 Edit, 둘 이상이면 Bulk Edit 만 켜진다 */}
                 <button
@@ -955,7 +833,116 @@ export default function Requirements() {
                   Export
                 </button>
               </div>
-            ) : (
+
+          <div className="rq-list scroll">
+            <div className="rq-selbar">
+              <label className="rq-selall">
+                <input
+                  type="checkbox"
+                  checked={allListPicked}
+                  ref={(el) => {
+                    if (el) el.indeterminate = pickedInList.length > 0 && !allListPicked
+                  }}
+                  disabled={!sortedFolderReqs.length}
+                  onChange={toggleAllList}
+                />
+                Select All
+              </label>
+              <span className="rq-seldiv" aria-hidden="true" />
+              <span className="muted small">Selected : {pickedInList.length}</span>
+            </div>
+
+            <div className="rq-table">
+              <div className="rq-tr rq-th">
+                <div />
+                <div>Requirement ID</div>
+                <div>Name</div>
+                <div>Map Test Case</div>
+                <div>Coverage</div>
+                <div>Priority</div>
+              </div>
+              {midReqs.length === 0 ? (
+                <div className="empty">
+                  {folderMode ? '이 폴더에 요구사항이 없습니다.' : '왼쪽에서 폴더를 고르세요.'}
+                </div>
+              ) : (
+                midReqs.map((r) => {
+                  const n = covCount(r)
+                  const pk = reqPk(r)
+                  return (
+                    <div
+                      className={`rq-tr${listPick.has(pk) ? ' picked' : ''}${pk === selected ? ' on' : ''}`}
+                      key={pk}
+                    >
+                      <div className="rq-ck">
+                        <input
+                          type="checkbox"
+                          checked={listPick.has(pk)}
+                          aria-label={`${r.title || pk} 고르기`}
+                          onChange={() => togglePick(pk)}
+                        />
+                      </div>
+                      <div className="rq-id" title={reqLabel(r)}>
+                        {reqLabel(r) || '–'}
+                      </div>
+                      <div className="rq-name">
+                        <span className="rq-icon" aria-hidden="true">
+                          <IconReqDoc />
+                        </span>
+                        <button
+                          type="button"
+                          className="linkish"
+                          title="상세 보기 — 3열에 뜹니다"
+                          onClick={() => goDetail(pk, 'info')}
+                        >
+                          {r.title || '(제목 없음)'}
+                        </button>
+                      </div>
+                      <div>
+                        <button
+                          type="button"
+                          className="linkish"
+                          title="이 요구사항에 시험을 붙입니다"
+                          onClick={() => setMapFor(r)}
+                        >
+                          Map
+                        </button>
+                      </div>
+                      <div className={`rq-cov ${n > 0 ? 'covered' : 'none'}`}>
+                        {n > 0 ? `${n} Testcase(s) Covered` : 'Not Covered'}
+                      </div>
+                      <div>
+                        {r.priority ? (
+                          <span className={`rq-prio p-${String(r.priority).toLowerCase()}`}>
+                            {r.priority}
+                          </span>
+                        ) : (
+                          <span className="muted">–</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+            <div className="bottom">
+              <span>요구사항 {midReqs.length}건</span>
+            </div>
+          </div>
+        </section>
+        <Resizer
+          label="요구사항 표 폭 조절"
+          onResize={setMidW}
+          getOrigin={() => midRef.current?.getBoundingClientRect().left ?? 0}
+        />
+
+        {/* ── 오른쪽: 탭에 따라 내용이 바뀐다 ─────────────── */}
+        <section className="panel tc-panel">
+          <div className="panel-title">
+            {/* 폴더를 보고 있을 때는 탭을 띄우지 않는다. REQ Info·Details·
+                이력은 요구사항 한 건에만 있는 것이라, 폴더에 걸어두면 늘
+                비어 있는 탭이 넷 생긴다. 폴더에서는 TC 목록 하나면 된다. */}
+            {selectedReq ? (
             <div className="seg" role="tablist">
               {([
                 ['info', 'REQ Info'],
@@ -976,6 +963,12 @@ export default function Requirements() {
                 </button>
               ))}
             </div>
+            ) : (
+              /* 아직 아무것도 안 골랐다 — 이 칸이 무엇을 보여줄 자리인지만 적는다 */
+              <div className="rq-mid-h rq-tc-h">
+                <b>REQ Details</b>
+                <span className="muted small">가운데 표에서 요구사항을 고르세요</span>
+              </div>
             )}
             {tab === 'tc' && selectedReq && (
               <div className="page-head-actions">
@@ -1011,106 +1004,9 @@ export default function Requirements() {
             )}
           </div>
 
-          {!selectedReq && !folderMode ? (
-            <div className="empty">왼쪽에서 폴더나 요구사항을 선택하세요.</div>
-          ) : view === 'list' && folderMode ? (
-            /* ── List 모드 — 이 폴더의 요구사항을 표로 (Zephyr 방식) ──
-               한 줄을 누르면 그 요구사항 상세로 들어간다(Detail). */
-            <div className="rq-list scroll">
-              {/* 몇 개 골랐나 — 표 위에 늘 보여야 지운 뒤 「몇 개였지」 를 안 묻는다 */}
-              <div className="rq-selbar">
-                <label className="rq-selall">
-                  <input
-                    type="checkbox"
-                    checked={allListPicked}
-                    ref={(el) => {
-                      if (el)
-                        el.indeterminate = pickedInList.length > 0 && !allListPicked
-                    }}
-                    disabled={!sortedFolderReqs.length}
-                    onChange={toggleAllList}
-                  />
-                  Select All
-                </label>
-                <span className="rq-seldiv" aria-hidden="true" />
-                <span className="muted small">Selected : {pickedInList.length}</span>
-              </div>
-
-              <div className="rq-table">
-                <div className="rq-tr rq-th">
-                  <div />
-                  <div>Requirement ID</div>
-                  <div>Name</div>
-                  <div>Map Test Case</div>
-                  <div>Coverage</div>
-                  <div>Priority</div>
-                </div>
-                {folderReqs.length === 0 ? (
-                  <div className="empty">이 폴더에 요구사항이 없습니다.</div>
-                ) : (
-                  sortedFolderReqs.map((r) => {
-                    const n = covCount(r)
-                    const pk = reqPk(r)
-                    return (
-                      <div className={`rq-tr${listPick.has(pk) ? ' picked' : ''}`} key={pk}>
-                        <div className="rq-ck">
-                          <input
-                            type="checkbox"
-                            checked={listPick.has(pk)}
-                            aria-label={`${r.title || pk} 고르기`}
-                            onChange={() => togglePick(pk)}
-                          />
-                        </div>
-                        <div className="rq-id" title={reqLabel(r)}>
-                          {reqLabel(r) || '–'}
-                        </div>
-                        <div className="rq-name">
-                          {/* 폴더는 그대로 둔다 — Detail 의 가운데 목록이
-                              이 폴더의 형제들을 보여 줘야 하니까. */}
-                          <span className="rq-icon" aria-hidden="true">
-                            <IconReqDoc />
-                          </span>
-                          <button
-                            type="button"
-                            className="linkish"
-                            title="상세 보기"
-                            onClick={() => goDetail(pk, 'info')}
-                          >
-                            {r.title || '(제목 없음)'}
-                          </button>
-                        </div>
-                        <div>
-                          <button
-                            type="button"
-                            className="linkish"
-                            title="이 요구사항에 시험을 붙입니다"
-                            onClick={() => setMapFor(r)}
-                          >
-                            Map
-                          </button>
-                        </div>
-                        <div className={`rq-cov ${n > 0 ? 'covered' : 'none'}`}>
-                          {n > 0 ? `${n} Testcase(s) Covered` : 'Not Covered'}
-                        </div>
-                        <div>
-                          {r.priority ? (
-                            <span className={`rq-prio p-${String(r.priority).toLowerCase()}`}>
-                              {r.priority}
-                            </span>
-                          ) : (
-                            <span className="muted">–</span>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-              <div className="bottom">
-                <span>요구사항 {folderReqs.length}건</span>
-              </div>
-            </div>
-          ) : selectedReq && tab !== 'tc' ? (
+          {!selectedReq ? (
+            <div className="empty">가운데 표에서 요구사항을 고르세요.</div>
+          ) : tab !== 'tc' ? (
             <ReqDetail req={selectedReq} tcs={linked} tab={tab} />
           ) : (
             /* 폴더를 볼 때는 「요구사항」 열이 하나 더 붙는다. 이 표시가
