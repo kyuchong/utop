@@ -120,8 +120,17 @@ export function boardSvg(g: BoardInput): string {
   for (const e of laid) {
     const gap = Math.hypot(e.p2.x - e.p1.x, e.p2.y - e.p1.y)
     if (gap < NARROW) {
-      // 틈이 좁으면 자리가 없다 — 선 하나에 이름 하나로 붙여 적는다
-      out.push(label(e.mid.x, e.mid.y - 3, `${e.l.pa} ↔ ${e.l.pb}`, 'middle', 11, true))
+      // 틈이 좁으면 자리가 없다 — 선 가운데 알약 하나로
+      const txt = `${e.l.pa} ↔ ${e.l.pb}`
+      const w2 = txt.length * 6.2 + 16
+      out.push(
+        `<rect x="${e.mid.x - w2 / 2}" y="${e.mid.y - 10}" width="${w2}" height="18" rx="9" ` +
+          `fill="#fff" stroke="${INK.wire}" stroke-width="1"/>`,
+      )
+      out.push(
+        `<text x="${e.mid.x}" y="${e.mid.y + 3}" text-anchor="middle" font-family='${FONT}' ` +
+          `font-size="11" font-weight="700" fill="${INK.wire}">${esc(txt)}</text>`,
+      )
       continue
     }
     const tag = (s: Side, p: { x: number; y: number }, txt: string) => {
@@ -133,7 +142,9 @@ export function boardSvg(g: BoardInput): string {
     tag(e.sb, e.p2, e.l.pb)
   }
 
+  let no = 0
   for (const p of g.placed) {
+    no += 1
     const d = byId.get(p.dev)
     const meter = d ? isMeter(d) : false
     const cx = p.x + W / 2
@@ -143,18 +154,30 @@ export function boardSvg(g: BoardInput): string {
     )
     const nm = d ? deviceShort(d) : p.dev
     const sub = [d?.ip || p.dev, d?.lab].filter(Boolean).join(' · ')
+    const kind = meter
+      ? [meterKind(d as Device) === 'stc' ? 'STC' : 'N2X', d?.vendor].filter(Boolean).join(' · ')
+      : [d?.role, d?.vendor].filter(Boolean).join(' · ')
+    // 번호 배지 — 판과 같은 「#1」. 목록·말과 그림을 잇는 이름표다.
     out.push(
-      `<text x="${cx}" y="${p.y + 22}" text-anchor="middle" font-family='${FONT}' font-size="13" ` +
+      `<rect x="${p.x + 5}" y="${p.y + 4}" width="22" height="13" rx="6.5" ` +
+        `fill="${meter ? '#dbe7ff' : '#eef1f5'}"/>`,
+    )
+    out.push(
+      `<text x="${p.x + 16}" y="${p.y + 14}" text-anchor="middle" font-family='${FONT}' ` +
+        `font-size="8.5" font-weight="700" fill="${INK.meterEdge}">#${no}</text>`,
+    )
+    out.push(
+      `<text x="${cx}" y="${p.y + 24}" text-anchor="middle" font-family='${FONT}' font-size="13" ` +
         `font-weight="700" fill="${INK.text}">${esc(nm)}</text>`,
     )
     out.push(
-      `<text x="${cx}" y="${p.y + 37}" text-anchor="middle" font-family='${FONT}' font-size="10.5" ` +
+      `<text x="${cx}" y="${p.y + 39}" text-anchor="middle" font-family='${FONT}' font-size="10.5" ` +
         `fill="${INK.sub}">${esc(sub)}</text>`,
     )
-    if (meter) {
+    if (kind) {
       out.push(
-        `<text x="${cx}" y="${p.y + 50}" text-anchor="middle" font-family='${FONT}' font-size="9.5" ` +
-          `fill="${INK.meterEdge}" font-weight="700">${esc(meterKind(d as Device) === 'stc' ? 'STC' : 'N2X')}</text>`,
+        `<text x="${cx}" y="${p.y + 53}" text-anchor="middle" font-family='${FONT}' font-size="9.5" ` +
+          `fill="${meter ? INK.meterEdge : INK.sub}" font-weight="700">${esc(kind)}</text>`,
       )
     }
   }

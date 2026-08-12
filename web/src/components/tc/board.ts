@@ -10,7 +10,9 @@
  */
 
 export const W = 152
-export const H = 56
+// 역할·벤더 줄이 들어가면서 한 줄 키웠다 — 갑갑하면 글자를 줄이게 되고,
+// 그러면 읽는 그림이 아니게 된다
+export const H = 66
 
 /** 선이 붙는 자리 — 네 변과 네 모서리, 여덟 군데 */
 export const SIDES = ['t', 'tr', 'r', 'br', 'b', 'bl', 'l', 'tl'] as const

@@ -430,12 +430,17 @@ export default function TcCanvas({
                       <title>눌러서 끊기</title>
                     </path>
                     {gap < NARROW ? (
-                      // 틈이 좁으면 자리가 없다 — 붙여서 하나로
-                      <g className="cv-pt">
-                        <text x={mx} y={my - 3} textAnchor="middle" className="cv-lt-bg">
-                          {l.pa} ↔ {l.pb}
-                        </text>
-                        <text x={mx} y={my - 3} textAnchor="middle">
+                      // 틈이 좁으면 자리가 없다 — 선 가운데 알약 하나로.
+                      // 맨글자보다 테두리 있는 알약이 선 위에서 잘 읽힌다.
+                      <g className="cv-pt cv-pill">
+                        <rect
+                          x={mx - (`${l.pa} ↔ ${l.pb}`.length * 3.1 + 8)}
+                          y={my - 10}
+                          width={`${l.pa} ↔ ${l.pb}`.length * 6.2 + 16}
+                          height={17}
+                          rx={8.5}
+                        />
+                        <text x={mx} y={my + 2} textAnchor="middle">
                           {l.pa} ↔ {l.pb}
                         </text>
                       </g>
@@ -471,11 +476,15 @@ export default function TcCanvas({
                 />
               )}
             </svg>
-            {placed.map((p) => {
+            {placed.map((p, pi) => {
               const d = byId.get(p.dev)
               const nm = d ? deviceShort(d) : p.dev
               const at = posOf(p.dev)
               const meter = isMeter(d ?? ({} as Device))
+              // 역할·벤더 — 장비를 잘못 고르는 사고를 그림에서 한 번 더 막는다
+              const kind = meter
+                ? [meterKind(d as Device) === 'stc' ? 'STC' : 'N2X', d?.vendor].filter(Boolean).join(' · ')
+                : [d?.role, d?.vendor].filter(Boolean).join(' · ')
               return (
                 <div
                   key={p.dev}
@@ -491,12 +500,14 @@ export default function TcCanvas({
                     if (from && from !== p.dev) tapDot(p.dev)
                   }}
                 >
+                  {/* 번호 배지 — 「1번 장비」 로 부를 수 있게 한다 */}
+                  <span className="cv-no">#{pi + 1}</span>
                   <b>{nm}</b>
                   {/* 랩과 IP 를 늘 적는다. 같은 모델이 둘일 때만 적게
                       해 두었더니, 한 대뿐일 때도 「이게 어느 랩 것이지」 를
                       알 수 없었다. */}
                   <i>{[d?.ip || p.dev, d?.lab].filter(Boolean).join(' · ')}</i>
-                  {meter && <em>{meterKind(d as Device) === 'stc' ? 'STC' : 'N2X'}</em>}
+                  {kind && <em>{kind}</em>}
                   {/* 잇는 점. 네모를 끄는 것과 헷갈리지 않게 점만 누른다.
                       여덟 군데 — 네 변과 네 모서리. 양옆 둘만 두었더니
                       비스듬히 놓인 장비끼리는 어디서 시작해야 하는지
