@@ -47,17 +47,6 @@ const INK = {
 
 const FONT = '"Malgun Gothic", "맑은 고딕", sans-serif'
 
-/** 글자 하나 — 흰 테를 둘러 선 위에서도 읽히게 */
-function label(x: number, y: number, txt: string, anchor: string, size: number, bold = false) {
-  const common = `x="${x}" y="${y}" text-anchor="${anchor}" font-family='${FONT}' font-size="${size}"${
-    bold ? ' font-weight="700"' : ''
-  }`
-  return (
-    `<text ${common} fill="#fff" stroke="#fff" stroke-width="3.5" stroke-linejoin="round">${esc(txt)}</text>` +
-    `<text ${common} fill="${INK.text}">${esc(txt)}</text>`
-  )
-}
-
 export function boardSvg(g: BoardInput): string {
   const byId = new Map(g.devices.map((d) => [d.id, d]))
   const devOf = (w: TcWire) => w.dev || g.sessions[w.session] || ''
@@ -177,7 +166,15 @@ export function boardSvg(g: BoardInput): string {
     const tag = (s: Side, p: { x: number; y: number }, txt: string) => {
       if (!txt) return
       const at = portTag(s, p)
-      out.push(label(at.x, at.y, txt, at.anchor, 11, true))
+      const w2 = txt.length * 6.2 + 12
+      out.push(
+        `<rect x="${at.x - w2 / 2}" y="${at.y - 8}" width="${w2}" height="16" rx="8" ` +
+          `fill="#fff" stroke="${INK.line}" stroke-width="1"/>`,
+      )
+      out.push(
+        `<text x="${at.x}" y="${at.y + 3.5}" text-anchor="middle" font-family='${FONT}' ` +
+          `font-size="10.5" font-weight="700" fill="${INK.text}">${esc(txt)}</text>`,
+      )
     }
     tag(e.sa, e.p1, e.l.pa)
     tag(e.sb, e.p2, e.l.pb)

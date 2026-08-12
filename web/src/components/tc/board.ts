@@ -99,27 +99,21 @@ export function sideToward(dx: number, dy: number): Side {
  */
 export const NARROW = 130
 
-/** 포트 이름을 놓을 자리 — 넉넉할 때 양 끝에 나눠 적는 쪽 */
-export function portTag(
-  side: Side,
-  p: { x: number; y: number },
-): { x: number; y: number; anchor: 'start' | 'middle' | 'end' } {
+/**
+ * 포트 이름 자리 — **선 위의 알약**.
+ *
+ * 상자 옆에 맨글자로 붙였더니 상자 테두리에 걸리고 선에 깔려 읽을 수
+ * 없는 그림이 몇 번이고 나왔다. 밀어 놓는 방식은 배치가 바뀔 때마다
+ * 어딘가에서 또 걸린다 — 그만둔다.
+ *
+ * 붙는 자리에서 선을 따라 한 뼘 나간 곳에, 흰 바탕 알약으로 앉는다.
+ * 상자 밖이고, 선은 알약이 덮으니 겹칠 자리가 없다. 어느 장비 것인지는
+ * 그 장비에서 나온 선 위에 있으므로 그대로 읽힌다.
+ */
+export function portTag(side: Side, p: { x: number; y: number }): { x: number; y: number } {
   const a = AWAY[side]
-  /*
-   * **장비에 딱 붙여 적는다.**
-   *
-   * 선 가운데 쪽으로 밀어 놓았더니 이름이 허공에 떠서 「Te0/7 이 뭐냐」 는
-   * 말이 나왔다 — 어느 장비 것인지 알 수가 없다. 실제 구성도는 포트 이름을
-   * 그 장비 바로 옆에 적는다. 꽂힌 자리에서 손가락 하나 폭만 띄운다.
-   */
-  const along = 6
-  // 기준선이 글자 아래라 위로 나갈 때는 더 올린다
-  const base = a.y < -0.3 ? -3 : a.y > 0.3 ? 11 : -4
-  return {
-    x: p.x + a.x * along,
-    y: p.y + a.y * along + base,
-    anchor: a.x > 0.3 ? 'start' : a.x < -0.3 ? 'end' : 'middle',
-  }
+  const along = 24
+  return { x: p.x + a.x * along, y: p.y + a.y * along }
 }
 
 /** 판에 그릴 선 하나 */

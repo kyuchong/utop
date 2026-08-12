@@ -605,12 +605,11 @@ export default function TcCanvas({
                 const one = (sd: Side, pt: { x: number; y: number }, txt: string, key: string) => {
                   if (!txt) return null
                   const at = portTag(sd, pt)
+                  const w2 = txt.length * 6.2 + 12
                   return (
-                    <g key={key} className="cv-pt">
-                      <text x={at.x} y={at.y} textAnchor={at.anchor} className="cv-lt-bg">
-                        {txt}
-                      </text>
-                      <text x={at.x} y={at.y} textAnchor={at.anchor}>
+                    <g key={key} className="cv-pt cv-pill">
+                      <rect x={at.x - w2 / 2} y={at.y - 8} width={w2} height={16} rx={8} />
+                      <text x={at.x} y={at.y + 3} textAnchor="middle">
                         {txt}
                       </text>
                     </g>
