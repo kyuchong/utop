@@ -141,6 +141,38 @@ export default function ChatLlmSettings() {
   const set = <K extends keyof Llm>(k: K, v: Llm[K]) =>
     setDraft((d) => (d ? { ...d, [k]: v } : d))
 
+  /**
+   * 공급자를 고르면 **그 공급자의 기본값을 채운다.**
+   *
+   * Anthropic 을 골라 놓고도 엔드포인트·모델·호환 모드를 손으로 다 적어야
+   * 했다 — 정답이 하나뿐인 칸들이다. 키만 넣으면 되게 채워 준다.
+   * 이미 그 공급자의 값이면(사람이 고쳐 둔 것이면) 안 덮는다.
+   */
+  const setType = (t: string) =>
+    setDraft((d) => {
+      if (!d) return d
+      if (t === 'anthropic') {
+        const fresh = !d.endpoint || !d.endpoint.includes('anthropic.com')
+        return {
+          ...d,
+          type: t,
+          compat_mode: 'anthropic',
+          ...(fresh
+            ? {
+                endpoint: 'https://api.anthropic.com',
+                model: 'claude-sonnet-5',
+                context_size: 200000,
+                max_tokens: 8192,
+                completion_mode: 'chat',
+                vision_support: 'support',
+                structured_output: 'support',
+              }
+            : {}),
+        }
+      }
+      return { ...d, type: t }
+    })
+
   const pick = (l: Llm) => {
     if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 옮길까요?')) return
     setSel(l.id ?? '')
@@ -289,7 +321,7 @@ export default function ChatLlmSettings() {
                 placeholder="이름 (예: Gemma4)"
                 onChange={(e) => set('name', e.target.value)}
               />
-              <select value={draft.type} onChange={(e) => set('type', e.target.value)}>
+              <select value={draft.type} onChange={(e) => setType(e.target.value)}>
                 {TYPES.map(([v, l]) => (
                   <option key={v} value={v}>
                     {l}
