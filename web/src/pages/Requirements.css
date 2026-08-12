@@ -585,7 +585,15 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 /* ── List 모드 — 폴더 안 요구사항 표 (Zephyr 방식) ──────────────
    ID · Name · Map Test Case · Coverage · Priority. 한 줄 클릭 → 상세. */
 .rq-listcol .rq-list { overflow-x: auto; }
-.rq-listcol .rq-table { min-width: 640px; }
+/* 표 상자가 제 폭에 갇힌 채 안에서 내용을 잘랐다(overflow:hidden) —
+   바깥 목록은 넘친 줄을 모르니 스크롤이 안 생겼다. 상자가 내용만큼
+   커지게 하면 목록이 대신 스크롤한다. */
+.rq-listcol .rq-table {
+  width: max-content;
+  min-width: 100%;
+}
+.rq-listcol .rq-selbar,
+.rq-listcol .bottom { flex: none; }
 .rq-list {
   flex: 1;
   min-height: 0;
