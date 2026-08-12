@@ -32,6 +32,10 @@ export interface LguStep {
   cli?: string | null
   action?: string | null
   criteria?: string | null
+  /** SNMP OID · Ping 대상처럼 명령 아닌 스텝의 값 */
+  data?: string | null
+  /** 판정 기준 */
+  expected?: string | null
   /** 옛 자료. 지금 실행기는 아래 둘에 적는다 */
   result?: string | null
   status?: string | null
@@ -64,15 +68,46 @@ const esc = (s: unknown) =>
 const nl = (s: unknown) => esc(s).replace(/\r?\n/g, '<br>')
 
 /** 스텝 한 줄의 이름. 설명이 없으면 명령을, 그것도 없으면 종류를 쓴다 */
+/**
+ * 스텝 하나를 절차 글로.
+ *
+ * 설명 한 줄만 적었더니 시험 방법이 「1. -」 로 나왔다 — 계측기·SNMP
+ * 스텝은 desc 도 cli 도 비어 있어 제목 만들 재료가 없었다. 결과서의
+ * 시험 방법은 「무엇을 보내서 무엇을 확인하나」 가 읽혀야 하므로,
+ * 종류·명령·판정 기준까지 적는다.
+ */
 export function stepTitle(s: LguStep, i: number): string {
-  const wait = (s.waitSec ?? 0) > 0 && !String(s.cli ?? '').trim()
-  const head = wait
+  const cli = String(s.cli ?? '').trim()
+  const data = String(s.data ?? '').trim()
+  const kind = String(s.kind ?? '').toLowerCase()
+  const wait = (s.waitSec ?? 0) > 0 && !cli
+
+  // 종류별로 「무엇을 하는 스텝인가」
+  const doing = wait
     ? `대기 ${s.waitSec}초`
-    : String(s.desc ?? '').trim() ||
-      String(s.cli ?? '').trim().split('\n')[0] ||
-      String(s.action ?? '').trim() ||
-      '-'
-  return `${i + 1}. ${head}`
+    : kind === 'snmpget'
+      ? `SNMP Get ${data}`.trim()
+      : kind === 'snmpset'
+        ? `SNMP Set ${data}`.trim()
+        : kind === 'ping'
+          ? `Ping ${data}`.trim()
+          : kind === 'trap'
+            ? 'SNMP Trap 대기'
+            : kind === 'diff'
+              ? '이전 결과와 비교(Diff)'
+              : kind === 'meter' || kind === 'instrument'
+                ? '계측기 트래픽 실행·통계 확인'
+                : cli.split('\n')[0] || data || String(s.action ?? '').trim()
+
+  const head = String(s.desc ?? '').trim() || doing || '-'
+  const out = [`${i + 1}. ${head}`]
+  // 설명이 따로 있으면 실제로 보내는 것도 적는다 — 방법은 재현 절차다
+  if (String(s.desc ?? '').trim() && doing && doing !== head) out.push(`   - ${doing}`)
+  else if (cli && cli.includes('\n'))
+    for (const c of cli.split('\n').slice(1, 4)) out.push(`   - ${c.trim()}`)
+  const crit = String(s.criteria ?? s.expected ?? '').trim()
+  if (crit) out.push(`   - 판정: ${crit.split('\n')[0]}`)
+  return out.join('\n')
 }
 
 /** 한 덩이가 몇 줄쯤 되나 — 슬라이드를 나누는 데만 쓴다 */
@@ -121,7 +156,10 @@ export function methodBlocks(tc: LguTc): Block[] {
   if (!tc.steps.length) return [{ text: '(시험 절차 없음)', lines: 1 }]
   return tc.steps.map((s, i) => {
     const t = stepTitle(s, i)
-    return { text: t, lines: Math.max(1, Math.ceil(t.length / 70)) }
+    const lines = t
+      .split('\n')
+      .reduce((a, ln) => a + Math.max(1, Math.ceil((ln.length || 1) / 70)), 0)
+    return { text: t, lines }
   })
 }
 
