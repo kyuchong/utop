@@ -341,11 +341,14 @@ export function page2(tc: LguTc, range: [number, number]): string {
               ? ` <span style="color:${rc};font-weight:800;">[${esc(stepVerdict(s as TcStep))}]</span>`
               : '') +
             '</div>' +
+            /* 파일의 터미널 캡쳐와 같은 모양 — 검은 바탕에 명령은 하늘색.
+               미리보기는 밝은 상자, 파일은 검은 화면이라 「포맷이 다르다」
+               는 말이 나왔다. 같은 자료는 같은 옷을 입어야 한다. */
             (s.cli
-              ? `<div style="font-family:Consolas,monospace;font-size:10px;color:#00733a;margin-top:2px;">${esc(tc.prompt || '$')} ${esc(s.cli)}</div>`
+              ? `<div style="font-family:Consolas,monospace;font-size:10px;color:#7fd1ff;background:#1e2227;margin-top:3px;padding:5px 9px 0;border-radius:4px 4px 0 0;">${esc(tc.prompt || '$')} ${esc(s.cli)}</div>`
               : '') +
             (out
-              ? `<pre style="display:inline-block;max-width:100%;margin:4px 0 0;white-space:pre;overflow-x:auto;font-family:Consolas,monospace;font-size:9px;line-height:1.45;color:#1c2030;background:#f5f6f8;border:1px solid #d8dce3;border-radius:4px;padding:7px 9px;box-sizing:border-box;">${esc(out)}</pre>`
+              ? `<pre style="display:block;max-width:100%;margin:0;white-space:pre;overflow-x:auto;font-family:Consolas,monospace;font-size:9px;line-height:1.45;color:#d7dee6;background:#1e2227;border-radius:${s.cli ? '0 0 4px 4px' : '4px'};padding:${s.cli ? '3px' : '7px'} 9px 7px;box-sizing:border-box;">${esc(out)}</pre>`
               : '') +
             '</div>'
           )
