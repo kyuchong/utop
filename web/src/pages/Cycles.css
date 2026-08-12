@@ -171,9 +171,10 @@
    16:9 슬라이드를 실제 크기(1280×720)로 그린 뒤 줄여서 보여 준다. 그래야
    화면에서 본 것과 파일이 같다. */
 .modal.cyrp {
-  /* 화면에 꽉 차게 — 장 배율이 몸통 폭을 따라오므로 클수록 크게 보인다 */
-  width: 96vw;
-  max-width: 96vw;
+  /* 장은 높이에 맞춰지므로 모달 폭을 다 쓰지 못한다 —
+     양옆이 빈 채로 넓기만 해서 줄였다 */
+  width: 86vw;
+  max-width: 1560px;
   height: 94vh;
   display: flex;
   flex-direction: column;
