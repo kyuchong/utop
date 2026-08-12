@@ -591,6 +591,10 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 .rq-listcol .rq-table {
   width: max-content;
   min-width: 100%;
+  /* 세로도 같은 병이었다 — flex 자식이라 짜부라지며 제 overflow:hidden
+     으로 줄을 잘랐고, 목록은 넘침을 몰라 스크롤이 안 생겼다.
+     표가 제 키를 지키면 목록이 대신 스크롤한다. */
+  flex: none;
 }
 .rq-listcol .rq-selbar,
 .rq-listcol .bottom { flex: none; }
