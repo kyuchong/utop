@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
-import { deviceLabel, deviceShort, isMeter } from './device'
+import { deviceFull, deviceShort, isMeter } from './device'
 import type { TcPortLink, TcWire } from './types'
 import './TcWireMap.css'
 
@@ -232,7 +232,8 @@ export default function TcWireMap({
         >
           {all.map((x) => (
             <option key={x.id} value={x.id}>
-              {isMeter(x) ? `[계측기] ${deviceLabel(x)}` : deviceLabel(x)}
+              {isMeter(x) ? '[계측기] ' : ''}
+              {deviceFull(x)}
             </option>
           ))}
         </select>
@@ -314,155 +315,8 @@ export default function TcWireMap({
       })()}
       {note && <div className="wm-note">{note}</div>}
 
-      {/*
-        구성도.
-        
-        글 목록만으로는 「이게 어떻게 생긴 랩인가」 가 안 그려진다. 장비를
-        네모로 두고 물린 데를 선으로 잇는다 — 사람이 종이에 그리는 그대로다.
-        선 가운데에 포트를 적어, 그림만 보고도 결과서에 옮겨 적을 수 있게 한다.
-      */}
-      {rows.length > 0 && (
-        <div className="wm-pic">
-          {(() => {
-            // 그림에 나올 장비 — 왼쪽은 장비, 오른쪽은 계측기가 자연스럽다
-            const ids = [...new Set(rows.flatMap((r) => [r.aDev, r.bDev]))]
-            //
-            // 어느 쪽에 세울까.
-            //
-            // 계측기는 오른쪽, 장비는 왼쪽이 자연스럽다. 다만 계측기가 안
-            // 끼는 배선(장비끼리)이면 오른쪽이 비어 선을 그을 데가 없다 —
-            // 그때는 장비를 반씩 갈라 세운다. 처음에 「없으면 통째로 다시
-            // 쓴다」 로 두었더니 같은 장비가 양쪽에 두 번 그려졌다.
-            //
-            const meterIds = ids.filter((i) => isMeter(devById.get(i) ?? ({} as Device)))
-            const plainIds = ids.filter((i) => !meterIds.includes(i))
-            let left: string[]
-            let right: string[]
-            if (meterIds.length) {
-              left = plainIds
-              right = meterIds
-            } else {
-              const half = Math.ceil(plainIds.length / 2)
-              left = plainIds.slice(0, half)
-              right = plainIds.slice(half)
-            }
-            //
-            // 자리.
-            //
-            // 처음에는 상자를 크게 그리고 선을 곧게 그었더니, 같은 칸에
-            // 있는 두 장비를 잇는 선이 상자를 가로질러 지나갔다. 같은
-            // 칸끼리는 바깥으로 돌려 긋는다.
-            //
-            const BW = 132
-            const BH = 42
-            const GAP = 22
-            const PAD = 30   // 같은 칸끼리 도는 선이 나갈 자리
-            const X2 = 300
-            const rowsN = Math.max(left.length, right.length, 1)
-            const H = rowsN * (BH + GAP) + 16
-            const yOf = (list: string[], i: number) =>
-              (H - (list.length * (BH + GAP) - GAP)) / 2 + i * (BH + GAP)
-            const at = (id: string): { x: number; y: number; side: 'l' | 'r' } | null => {
-              const li = left.indexOf(id)
-              if (li >= 0) return { x: PAD, y: yOf(left, li), side: 'l' }
-              const ri = right.indexOf(id)
-              if (ri >= 0) return { x: PAD + X2, y: yOf(right, ri), side: 'r' }
-              return null
-            }
-            const W = PAD * 2 + X2 + BW
-            return (
-              <svg
-                viewBox={`0 0 ${W} ${H}`}
-                width={W}
-                height={H}
-                className="wm-svg"
-              >
-                {rows.map((r) => {
-                  const a = at(r.aDev)
-                  const b = at(r.bDev)
-                  if (!a || !b) return null
-                  const y1 = a.y + BH / 2
-                  const y2 = b.y + BH / 2
-                  let d: string
-                  let lx: number
-                  let ly: number
-                  if (a.side === b.side) {
-                    // 같은 칸끼리 — 바깥으로 돌린다. 곧게 그으면 상자를 가로지른다.
-                    const out = a.side === 'l' ? a.x - PAD + 6 : a.x + BW + PAD - 6
-                    const ex = a.side === 'l' ? a.x : a.x + BW
-                    d = `M${ex},${y1} C${out},${y1} ${out},${y2} ${ex},${y2}`
-                    lx = a.side === 'l' ? out + 4 : out - 4
-                    ly = (y1 + y2) / 2 + 3
-                  } else {
-                    const x1 = a.x < b.x ? a.x + BW : a.x
-                    const x2 = a.x < b.x ? b.x : b.x + BW
-                    const mx = (x1 + x2) / 2
-                    d = `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`
-                    lx = mx
-                    ly = (y1 + y2) / 2 - 3
-                  }
-                  return (
-                    <g key={r.k} className={r.kind === 'wire' ? 'wm-l wire' : 'wm-l'}>
-                      <path d={d} />
-                      {/* 글자 뒤에 흰 테를 두른다 — 선 위에 겹쳐도 읽힌다 */}
-                      {/* 바깥으로 도는 선은 가장자리에 붙으므로 글자를
-                          안쪽으로 흘린다 — 가운데 맞춤이면 잘린다 */}
-                      <text
-                        x={lx}
-                        y={ly}
-                        textAnchor={a.side === b.side ? (a.side === 'l' ? 'start' : 'end') : 'middle'}
-                        className="wm-lt-bg"
-                      >
-                        {r.aPort} ↔ {r.bPort}
-                      </text>
-                      <text
-                        x={lx}
-                        y={ly}
-                        textAnchor={a.side === b.side ? (a.side === 'l' ? 'start' : 'end') : 'middle'}
-                      >
-                        {r.aPort} ↔ {r.bPort}
-                      </text>
-                    </g>
-                  )
-                })}
-                {[...left, ...right].map((id) => {
-                  const pos = at(id)
-                  if (!pos) return null
-                  const dv = devById.get(id)
-                  const meter = isMeter(dv ?? ({} as Device))
-                  const nm = dv ? deviceShort(dv) : id
-                  // 같은 모델이 둘이면 이름만으로는 안 갈린다 — IP 를 밑에 적는다
-                  const dup = ids.some((o) => o !== id && deviceShort(devById.get(o) ?? ({} as Device)) === nm)
-                  const ip = dup ? (dv?.ip || dv?.id || '') : ''
-                  return (
-                    <g key={id} className={`wm-n${meter ? ' meter' : ''}`}>
-                      <rect x={pos.x} y={pos.y} width={BW} height={BH} rx="5" />
-                      <text
-                        x={pos.x + BW / 2}
-                        y={pos.y + (ip ? BH / 2 - 2 : BH / 2 + 4)}
-                        textAnchor="middle"
-                      >
-                        {nm}
-                      </text>
-                      {ip && (
-                        <text
-                          x={pos.x + BW / 2}
-                          y={pos.y + BH / 2 + 11}
-                          textAnchor="middle"
-                          className="wm-nip"
-                        >
-                          {ip}
-                        </text>
-                      )}
-                    </g>
-                  )
-                })}
-              </svg>
-            )
-          })()}
-        </div>
-      )}
-
+      {/* 구성도는 위의 판이 그린다. 여기서도 그렸더니 같은 그림이 두 번
+          나와, 어느 것을 봐야 하는지 알 수 없었다. */}
       {/* 이어진 것 — 글로도 적는다. 그림은 한눈에, 글은 옮겨 적을 때 쓴다 */}
       <div className="wm-list">
         <div className="wm-lh">이어진 배선 {rows.length}</div>

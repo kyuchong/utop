@@ -15,7 +15,8 @@
   color: var(--c-text);
   font: inherit;
   font-size: var(--fs-sm);
-  max-width: 300px;
+  /* 랩·제품군까지 적으므로 좁으면 뒤가 잘린다 */
+  max-width: 420px;
 }
 
 .cv-box {
@@ -75,7 +76,11 @@
   font-style: normal;
   font-size: 9px;
   color: var(--c-text-faint);
-  line-height: 1.1;
+  line-height: 1.15;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .cv-node.meter em { color: var(--c-primary); }
 
@@ -153,7 +158,7 @@
 
 /* 어느 포트끼리인가 */
 .cv-ask {
-  width: min(420px, 94vw);
+  width: min(560px, 94vw);
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -166,14 +171,15 @@
 .cv-ask-h { display: flex; align-items: center; gap: 8px; }
 .cv-ask-h .sp { margin-left: auto; }
 .cv-pick { display: flex; align-items: center; gap: 8px; }
+/* 어느 장비인지가 여기서 갈린다. 잘못 고르면 남의 장비에 설정이
+   들어가므로, 좁혀서 자르지 않고 두 줄로라도 다 보인다. */
 .cv-pick > span {
   flex: none;
-  width: 130px;
+  width: 230px;
   font-size: var(--fs-xs);
-  color: var(--c-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--c-text);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 .cv-pick select {
   flex: 1;

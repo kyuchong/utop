@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Device } from '@/pages/Devices'
-import { deviceShort, isMeter, meterKind } from './device'
+import { deviceFull, deviceShort, isMeter, meterKind } from './device'
 import type { TcPortLink, TcWire } from './types'
 import './TcCanvas.css'
 
@@ -220,7 +220,7 @@ export default function TcCanvas({
     const d = byId.get(id)
     return (
       <label className="cv-pick">
-        <span>{d ? deviceShort(d) : id}</span>
+        <span title={d ? deviceFull(d) : id}>{d ? deviceFull(d) : id}</span>
         <select value={v} onChange={(e) => set(e.target.value)} disabled={!list.length}>
           <option value="">
             {list.length
@@ -247,8 +247,8 @@ export default function TcCanvas({
           <option value="">＋ 장비 · 계측기 놓기…</option>
           {canAdd.map((d) => (
             <option key={d.id} value={d.id}>
-              {isMeter(d) ? `[계측기] ${deviceShort(d)}` : deviceShort(d)}
-              {d.ip ? ` (${d.ip})` : ''}
+              {isMeter(d) ? '[계측기] ' : ''}
+              {deviceFull(d)}
             </option>
           ))}
         </select>
@@ -277,20 +277,51 @@ export default function TcCanvas({
           <>
             <svg className="cv-svg">
               {lines.map((l) => {
+                /*
+                 * 선이 나가는 쪽을 **자리로 정한다.**
+                 *
+                 * 늘 오른쪽으로 내보내고 왼쪽으로 받게 해 두었더니, 상대가
+                 * 왼쪽이나 아래에 있으면 선이 네모를 감아 돌며 꼬였다.
+                 * 가까운 변에서 나가고 가까운 변으로 들어가야 한다.
+                 */
                 const A = posOf(l.a)
                 const B = posOf(l.b)
-                const x1 = A.x + W
-                const y1 = A.y + H / 2
-                const x2 = B.x
-                const y2 = B.y + H / 2
-                const mx = (x1 + x2) / 2
+                const ac = { x: A.x + W / 2, y: A.y + H / 2 }
+                const bc = { x: B.x + W / 2, y: B.y + H / 2 }
+                const dx = bc.x - ac.x
+                const dy = bc.y - ac.y
+                let p1: { x: number; y: number }
+                let p2: { x: number; y: number }
+                let c1: { x: number; y: number }
+                let c2: { x: number; y: number }
+                if (Math.abs(dx) >= Math.abs(dy)) {
+                  // 옆으로 — 가까운 옆구리끼리
+                  const right = dx >= 0
+                  p1 = { x: right ? A.x + W : A.x, y: ac.y }
+                  p2 = { x: right ? B.x : B.x + W, y: bc.y }
+                  const k = Math.max(30, Math.abs(p2.x - p1.x) / 2)
+                  c1 = { x: p1.x + (right ? k : -k), y: p1.y }
+                  c2 = { x: p2.x + (right ? -k : k), y: p2.y }
+                } else {
+                  // 위아래로 — 가까운 위아래 변끼리
+                  const down = dy >= 0
+                  p1 = { x: ac.x, y: down ? A.y + H : A.y }
+                  p2 = { x: bc.x, y: down ? B.y : B.y + H }
+                  const k = Math.max(24, Math.abs(p2.y - p1.y) / 2)
+                  c1 = { x: p1.x, y: p1.y + (down ? k : -k) }
+                  c2 = { x: p2.x, y: p2.y + (down ? -k : k) }
+                }
+                const mx = (p1.x + p2.x) / 2
+                const my = (p1.y + p2.y) / 2 - 4
                 return (
                   <g key={l.k} className={l.wire ? 'cv-l wire' : 'cv-l'}>
-                    <path d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} />
-                    <text x={mx} y={(y1 + y2) / 2 - 4} textAnchor="middle" className="cv-lt-bg">
+                    <path
+                      d={`M${p1.x},${p1.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${p2.x},${p2.y}`}
+                    />
+                    <text x={mx} y={my} textAnchor="middle" className="cv-lt-bg">
                       {l.t}
                     </text>
-                    <text x={mx} y={(y1 + y2) / 2 - 4} textAnchor="middle">
+                    <text x={mx} y={my} textAnchor="middle">
                       {l.t}
                     </text>
                   </g>
@@ -300,9 +331,6 @@ export default function TcCanvas({
             {placed.map((p) => {
               const d = byId.get(p.dev)
               const nm = d ? deviceShort(d) : p.dev
-              const dup = placed.some(
-                (o) => o.dev !== p.dev && deviceShort(byId.get(o.dev) ?? ({} as Device)) === nm,
-              )
               const at = posOf(p.dev)
               const meter = isMeter(d ?? ({} as Device))
               return (
@@ -320,7 +348,10 @@ export default function TcCanvas({
                   }}
                 >
                   <b>{nm}</b>
-                  {dup && <i>{d?.ip || p.dev}</i>}
+                  {/* 랩과 IP 를 늘 적는다. 같은 모델이 둘일 때만 적게
+                      해 두었더니, 한 대뿐일 때도 「이게 어느 랩 것이지」 를
+                      알 수 없었다. */}
+                  <i>{[d?.ip || p.dev, d?.lab].filter(Boolean).join(' · ')}</i>
                   {meter && <em>{meterKind(d as Device) === 'stc' ? 'STC' : 'N2X'}</em>}
                   {/* 잇는 점. 네모를 끄는 것과 헷갈리지 않게 점만 누른다 */}
                   {/* 점은 양옆에. 한쪽에만 두었더니 어느 쪽으로 이어야

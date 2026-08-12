@@ -105,6 +105,32 @@ export function deviceShort(dev: Device): string {
 }
 
 /**
+ * 고를 때 보여 주는 **자세한 이름**.
+ *
+ * 「E6100」 만 적어 두었더니 랩에 같은 모델이 둘일 때 어느 것인지 알 수가
+ * 없었다. 장비를 잘못 고르면 남의 시험 장비에 설정을 밀어 넣는 일이
+ * 생긴다 — 되돌릴 수 없는 종류의 사고다.
+ *
+ * 그래서 고르는 자리에서는 아는 것을 다 적는다:
+ *   `E6100 · 220.1.12.3 · 7F_A구역 · L2 · Ubiquoss`
+ * 빠진 칸은 건너뛴다. 없는 것을 「–」 로 채우면 줄만 길어진다.
+ */
+export function deviceFull(dev: Device): string {
+  const bits = [
+    (dev.name || dev.model || '').trim(),
+    (dev.ip || dev.id || '').trim(),
+    (dev.lab || '').trim(),
+    (dev.role || '').trim(),
+    (dev.vendor || '').trim(),
+  ].filter(Boolean)
+  // 이름과 모델이 따로 있으면 모델도 적는다 — 이름은 랩마다 제멋대로다
+  if (dev.name && dev.model && dev.name.trim() !== dev.model.trim()) {
+    bits.splice(1, 0, dev.model.trim())
+  }
+  return [...new Set(bits)].join(' · ')
+}
+
+/**
  * 계측기인가.
  *
  * 계측기와 스위치는 하는 일이 아주 다르다 — 계측기에는 CLI 로 명령을 보내지
