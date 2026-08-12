@@ -69,7 +69,9 @@
 
 .tc-menu {
   position: absolute;
-  right: 0;
+  /* ⋯ 가 머리줄 왼쪽으로 오면서, 오른쪽 정렬로 펼치면 메뉴가 왼쪽
+     카드 밑으로 들어갔다. 단추의 왼끝에 맞춰 오른쪽으로 펼친다. */
+  left: 0;
   top: 34px;
   z-index: 21;
   min-width: 186px;
