@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
-import { deviceFull, deviceName, deviceShort, isMeter } from './device'
+import { deviceName, deviceShort, isMeter } from './device'
 import type { TcPortLink, TcWire } from './types'
 import './TcWireMap.css'
 
@@ -73,6 +73,19 @@ export default function TcWireMap({
     const i = (placed ?? []).indexOf(id)
     return i < 0 ? '' : `#${i + 1} `
   }
+
+  /**
+   * 결선 칸에 적는 이름 — **짧게**.
+   *
+   * 역할·벤더까지 다 적으니(deviceFull) 닫힌 드롭다운에서 뒤가 잘려
+   * IP 를 볼 수가 없었다. 여기선 번호·모델·IP·랩이면 장비가 갈린다 —
+   * 역할·벤더는 판의 카드에 이미 적혀 있다.
+   */
+  const pickName = (x: Device) =>
+    [deviceShort(x), (x.ip || '').trim(), (x.lab || '').trim()]
+      .filter(Boolean)
+      .filter((v, i, arr) => arr.indexOf(v) === i)
+      .join(' · ')
 
   const [aDev, setADev] = useState('')
   const [aPort, setAPort] = useState('')
@@ -279,7 +292,7 @@ export default function TcWireMap({
             <option key={x.id} value={x.id}>
               {noOf(x.id)}
               {isMeter(x) ? '[계측기] ' : ''}
-              {deviceFull(x)}
+              {pickName(x)}
             </option>
           ))}
         </select>
