@@ -155,7 +155,7 @@ export default function TestCases({ me }: PageProps) {
   const [runAt, setRunAt] = useState(-1)
 
   const splitRef = useRef<HTMLDivElement>(null)
-  const [listW, setListW] = useResizableWidth('utop.tc.listW', 250, 170, 460)
+  const [listW, setListW] = useResizableWidth('utop.tc.listW', 250, 170, 900)
   /**
    * 1열을 접어 뒀나.
    *

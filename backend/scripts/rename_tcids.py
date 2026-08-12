@@ -4,6 +4,10 @@
   docker compose -p utop exec -e DRY=1 api python /app/backend/scripts/rename_tcids.py   # 미리 보기
   docker compose -p utop exec -e DRY=0 api python /app/backend/scripts/rename_tcids.py   # 실제 반영
 
+강제 일련번호 — 전부를 「TC-3212-0001」 꼴로 다시 매길 때:
+  docker compose -p utop exec -e DRY=1 -e SERIAL=TC-3212 api python /app/backend/scripts/rename_tcids.py
+  (요구사항 폴더 → ID 순으로 줄 세워 0001부터. 이미 그 꼴인 것도 다시 매긴다)
+
 규칙(요구사항 폴더 기준):
  1) TC 를 요구사항 분류(cat1..cat4) 경로로 무리 짓는다.
  2) 무리 안에서 「PREFIX-TC-번호」 꼴이 절반 이상 같은 PREFIX 면 그것을
@@ -20,6 +24,8 @@ import asyncio, datetime, json, os, pathlib, re, shutil
 import asyncpg
 
 DRY = os.environ.get("DRY", "1") == "1"
+# 「TC-3212」 처럼 주면 전부를 그 접두어의 일련번호로 강제로 다시 매긴다
+SERIAL = os.environ.get("SERIAL", "").strip()
 DATA = pathlib.Path("/app/data")
 
 
@@ -48,31 +54,48 @@ async def main() -> None:
 
     pat = re.compile(r"^(.*)-TC-(\d+)$")
     plan: list[tuple[str, str]] = []
-    for key, g in groups.items():
-        counts: dict[str, int] = {}
-        for t in g["tcs"]:
-            m = pat.match(t["tcid"])
-            if m:
-                counts[m.group(1)] = counts.get(m.group(1), 0) + 1
-        best = max(counts.items(), key=lambda x: x[1])[0] if counts else None
-        prefix = best if best and counts[best] * 2 >= len(g["tcs"]) else "-".join(g["path"])
-        if not prefix:
-            skipped.extend(t["tcid"] for t in g["tcs"])
-            continue
-        used: set[int] = set()
-        move = []
-        for t in g["tcs"]:
-            m = pat.match(t["tcid"])
-            if m and m.group(1) == prefix and int(m.group(2)) not in used:
-                used.add(int(m.group(2)))
-            else:
-                move.append(t)
-        n = 1
-        for t in move:
-            while n in used:
-                n += 1
-            used.add(n)
-            plan.append((t["tcid"], f"{prefix}-TC-{n:03d}"))
+    if SERIAL:
+        # 강제 일련번호 — 폴더 경로 → 기존 ID 순으로 줄 세워 0001부터.
+        # 항목이 많아 하나씩 못 바꿀 때 쓰는 길이라, 이미 그 꼴인 것도
+        # 순서에 맞게 다시 받는다.
+        ordered: list = []
+        for key in sorted(groups.keys()):
+            ordered += sorted(groups[key]["tcs"], key=lambda t: t["tcid"])
+        ordered += [t for t in tcs if t["tcid"] in skipped]
+        n = 0
+        for t in ordered:
+            n += 1
+            new = f"{SERIAL}-{n:04d}"
+            if new != t["tcid"]:
+                plan.append((t["tcid"], new))
+        skipped = []
+        groups = {"(전체 일련번호)": {"path": [], "tcs": ordered}}
+    else:
+      for key, g in groups.items():
+          counts: dict[str, int] = {}
+          for t in g["tcs"]:
+              m = pat.match(t["tcid"])
+              if m:
+                  counts[m.group(1)] = counts.get(m.group(1), 0) + 1
+          best = max(counts.items(), key=lambda x: x[1])[0] if counts else None
+          prefix = best if best and counts[best] * 2 >= len(g["tcs"]) else "-".join(g["path"])
+          if not prefix:
+              skipped.extend(t["tcid"] for t in g["tcs"])
+              continue
+          used: set[int] = set()
+          move = []
+          for t in g["tcs"]:
+              m = pat.match(t["tcid"])
+              if m and m.group(1) == prefix and int(m.group(2)) not in used:
+                  used.add(int(m.group(2)))
+              else:
+                  move.append(t)
+          n = 1
+          for t in move:
+              while n in used:
+                  n += 1
+              used.add(n)
+              plan.append((t["tcid"], f"{prefix}-TC-{n:03d}"))
 
     print(f"TC {len(tcs)}건 · 무리 {len(groups)}개 · 바꿀 것 {len(plan)}건 · 그대로 {len(skipped)}건")
     for old, new in plan:

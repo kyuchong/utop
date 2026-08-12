@@ -2586,10 +2586,12 @@ table.tb tr.r-bad td:first-child {
    * 머리와 자료가 어긋난 표가 됐다. 전 줄이 같은 눈금을 쓰려면 수치로
    * 박는 수밖에 없다. 남는 폭은 이름 열 몫이다.
    */
+  /* 내용 실측에 맞춰 여백을 걷었다: 요구사항 96 · TC ID 196 · 유형 64 ·
+     REQ Map 60 · 상태 70. 이름이 그만큼 더 갖는다. */
   grid-template-columns:
-    34px 120px 205px minmax(140px, 1fr)
-    76px 46px 84px 88px;
-  column-gap: 12px;
+    30px 96px 196px minmax(140px, 1fr)
+    64px 40px 60px 70px;
+  column-gap: 10px;
 }
 .tc-req {
   display: flex;
