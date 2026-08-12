@@ -124,13 +124,13 @@ export function boardSvg(g: BoardInput): string {
       out.push(label(e.mid.x, e.mid.y - 3, `${e.l.pa} ↔ ${e.l.pb}`, 'middle', 11, true))
       continue
     }
-    const tag = (s: Side, p: { x: number; y: number }, txt: string, first: boolean) => {
+    const tag = (s: Side, p: { x: number; y: number }, txt: string) => {
       if (!txt) return
-      const at = portTag(s, p, gap, first)
+      const at = portTag(s, p)
       out.push(label(at.x, at.y, txt, at.anchor, 11, true))
     }
-    tag(e.sa, e.p1, e.l.pa, true)
-    tag(e.sb, e.p2, e.l.pb, false)
+    tag(e.sa, e.p1, e.l.pa)
+    tag(e.sb, e.p2, e.l.pb)
   }
 
   for (const p of g.placed) {

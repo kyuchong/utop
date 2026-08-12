@@ -105,6 +105,21 @@ export function deviceShort(dev: Device): string {
 }
 
 /**
+ * 목록에 적는 이름 — **같은 이름이 둘이면 IP 를 붙인다.**
+ *
+ * 랩에 E6100 이 두 대인데 배선 목록에는 둘 다 「E6100」 이라고만 적혀,
+ * 「이 Te0/7 은 어느 E6100 이냐」 를 그림에서 짚어 봐야 알았다. 겹칠
+ * 때만 붙이므로 한 대뿐인 랩에서는 줄이 길어지지 않는다.
+ */
+export function deviceName(dev: Device | undefined, all: Device[]): string {
+  if (!dev) return ''
+  const nm = deviceShort(dev)
+  const twin = all.some((x) => x.id !== dev.id && deviceShort(x) === nm)
+  const ip = (dev.ip || '').trim()
+  return twin && ip && ip !== nm ? `${nm} (${ip})` : nm
+}
+
+/**
  * 고를 때 보여 주는 **자세한 이름**.
  *
  * 「E6100」 만 적어 두었더니 랩에 같은 모델이 둘일 때 어느 것인지 알 수가

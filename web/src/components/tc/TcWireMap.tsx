@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
-import { deviceFull, deviceShort, isMeter } from './device'
+import { deviceFull, deviceName, deviceShort, isMeter } from './device'
 import type { TcPortLink, TcWire } from './types'
 import './TcWireMap.css'
 
@@ -74,7 +74,7 @@ export default function TcWireMap({
   const devOf = (w: TcWire) => w.dev || sessions[w.session] || ''
   const nameOf = (id: string) => {
     const d = devById.get(id)
-    return d ? deviceShort(d) : id
+    return d ? deviceName(d, devices) : id
   }
 
   /** 이미 물려 있나 — 같은 포트를 두 번 쓰면 실행할 때 엉킨다 */

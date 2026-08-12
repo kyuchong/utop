@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Device } from '@/pages/Devices'
-import { deviceFull, deviceShort, isMeter, meterKind } from './device'
+import { deviceFull, deviceName, deviceShort, isMeter, meterKind } from './device'
 import { H, NARROW, SIDES, W, edgePt, layout, portTag, type BoardLine, type Side } from './board'
 import type { TcPortLink, TcWire } from './types'
 import './TcCanvas.css'
@@ -162,7 +162,30 @@ export default function TcCanvas({
     if (!d) return
     setLive((s) => {
       const at = s[d.dev]
-      if (at) onPlaced(placed.map((p) => (p.dev === d.dev ? { ...p, ...at } : p)))
+      if (at) {
+        /*
+         * 겹쳐 놓지 못하게 한다.
+         *
+         * 네모를 남의 위에 떨어뜨리면 글자가 서로 가려 어느 장비인지도 못
+         * 읽는다. 구성도라고 부를 수가 없는 그림이 된다. 떨어뜨린 자리가
+         * 이미 차 있으면 빈자리로 내려 놓는다.
+         */
+        const others = placed.filter((p) => p.dev !== d.dev)
+        const hits = (x: number, y: number) =>
+          others.some((p) => {
+            const q = live[p.dev] ?? p
+            return Math.abs(q.x - x) < W + 12 && Math.abs(q.y - y) < H + 12
+          })
+        let { x, y } = at
+        for (let i = 0; i < 40 && hits(x, y); i++) {
+          y += 16
+          if (i % 8 === 7) {
+            x += 16
+            y = at.y
+          }
+        }
+        onPlaced(placed.map((p) => (p.dev === d.dev ? { ...p, x, y } : p)))
+      }
       const n = { ...s }
       delete n[d.dev]
       return n
@@ -366,15 +389,9 @@ export default function TcCanvas({
                  * 그려 주던 것도 이 때문이다.
                  */
                 const gap = Math.hypot(p2.x - p1.x, p2.y - p1.y)
-                const tag = (
-                  s: Side,
-                  p: { x: number; y: number },
-                  txt: string,
-                  key: string,
-                  first: boolean,
-                ) => {
+                const tag = (s: Side, p: { x: number; y: number }, txt: string, key: string) => {
                   if (!txt) return null
-                  const at = portTag(s, p, gap, first)
+                  const at = portTag(s, p)
                   return (
                     <g key={key} className="cv-pt">
                       <text x={at.x} y={at.y} textAnchor={at.anchor} className="cv-lt-bg">
@@ -424,8 +441,8 @@ export default function TcCanvas({
                       </g>
                     ) : (
                       <>
-                        {tag(e.sa, p1, l.pa, `${l.k}a`, true)}
-                        {tag(e.sb, p2, l.pb, `${l.k}b`, false)}
+                        {tag(e.sa, p1, l.pa, `${l.k}a`)}
+                        {tag(e.sb, p2, l.pb, `${l.k}b`)}
                       </>
                     )}
                     <g
@@ -521,13 +538,13 @@ export default function TcCanvas({
         <div className="cv-list">
           {lines.map((l) => (
             <div className="cv-row" key={l.k}>
-              <b>{deviceShort(byId.get(l.a) ?? ({} as Device))}</b>
+              <b>{deviceName(byId.get(l.a), devices)}</b>
               <i>·</i>
               <span>
                 {l.pa} ↔ {l.pb}
               </span>
               <i>·</i>
-              <b>{deviceShort(byId.get(l.b) ?? ({} as Device))}</b>
+              <b>{deviceName(byId.get(l.b), devices)}</b>
               {l.wire && <span className="cv-tag">계측기</span>}
               <span className="sp" />
               <button className="btn small" type="button" onClick={() => cut(l.wire ? 'wire' : 'link', l.at)}>

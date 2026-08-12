@@ -94,25 +94,21 @@ export const NARROW = 130
 export function portTag(
   side: Side,
   p: { x: number; y: number },
-  gap: number,
-  first: boolean,
 ): { x: number; y: number; anchor: 'start' | 'middle' | 'end' } {
   const a = AWAY[side]
-  const along = Math.max(8, Math.min(13, gap * 0.28))
-  // 기준선이 글자 아래라 위로 나갈 때는 더 올린다
-  const base = a.y < -0.3 ? -2 : a.y > 0.3 ? 10 : 4
-  const push = first ? 9 : -9
   /*
-   * 밀어내는 쪽은 **세상 기준**으로 고정한다.
+   * **장비에 딱 붙여 적는다.**
    *
-   * 나가는 쪽을 기준으로 잡았더니(`-a.y, a.x`) 양 끝의 변이 서로 반대라
-   * 방향도 같이 뒤집혀, 위아래로 갈라 놓은 둘이 도로 같은 줄에 앉았다.
-   * 옆으로 이은 선이면 위·아래로, 위아래로 이은 선이면 좌·우로.
+   * 선 가운데 쪽으로 밀어 놓았더니 이름이 허공에 떠서 「Te0/7 이 뭐냐」 는
+   * 말이 나왔다 — 어느 장비 것인지 알 수가 없다. 실제 구성도는 포트 이름을
+   * 그 장비 바로 옆에 적는다. 꽂힌 자리에서 손가락 하나 폭만 띄운다.
    */
-  const perp = Math.abs(a.x) >= Math.abs(a.y) ? { x: 0, y: 1 } : { x: 1, y: 0 }
+  const along = 6
+  // 기준선이 글자 아래라 위로 나갈 때는 더 올린다
+  const base = a.y < -0.3 ? -3 : a.y > 0.3 ? 11 : -4
   return {
-    x: p.x + a.x * along + perp.x * push,
-    y: p.y + a.y * along + perp.y * push + base,
+    x: p.x + a.x * along,
+    y: p.y + a.y * along + base,
     anchor: a.x > 0.3 ? 'start' : a.x < -0.3 ? 'end' : 'middle',
   }
 }
@@ -261,9 +257,20 @@ export function layout(
      * 자리를 보고 다시 정했다. 그래서 위쪽 점을 끌어도 선은 옆구리로
      * 나갔다 — 고른 대로 안 되니 고르는 뜻이 없었다.
      */
-    const auto = sideToward(bc.x - ac.x, bc.y - ac.y)
-    const sa = l.sa ?? auto
-    const sb = l.sb ?? FACING[sa]
+    const dx = bc.x - ac.x
+    const dy = bc.y - ac.y
+    const auto = sideToward(dx, dy)
+    /*
+     * 다만 **등지고 있으면 안 쓴다.**
+     *
+     * 고른 점을 그대로 밀어붙였더니, 네모를 옮겨 상대가 반대쪽으로 가 버린
+     * 선이 오른쪽으로 나갔다가 되돌아왔다. 직각으로 꺾으니 그 되돌아오는
+     * 토막이 「어디에도 안 닿은 선 도막」 처럼 보였다 — 구성도가 아니게
+     * 된다. 상대를 등지는 자리면 자리를 보고 다시 정한다.
+     */
+    const towards = (s: Side, ux: number, uy: number) => AWAY[s].x * ux + AWAY[s].y * uy > 0
+    const sa = l.sa && towards(l.sa, dx, dy) ? l.sa : auto
+    const sb = l.sb && towards(l.sb, -dx, -dy) ? l.sb : FACING[sa]
     return { l, A, B, ac, bc, sa, sb }
   })
 
