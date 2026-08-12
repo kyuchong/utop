@@ -138,8 +138,17 @@
 .cv-dot.tr { left: 100%; top: 0; }
 .cv-dot.bl { left: 0;    top: 100%; }
 .cv-dot.br { left: 100%; top: 100%; }
-/* 모서리 점은 「판에서 내리기(✕)」 와 겹친다. 그쪽을 피해 살짝 안으로. */
-.cv-dot.tr { margin-left: -14px; }
+/*
+ * 평소엔 감춘다.
+ *
+ * 네모마다 동그라미 여덟 개가 늘 떠 있으니 구성도가 아니라 무슨 계기판
+ * 처럼 보였다. 잇는 것은 가끔 하는 일이고, 그때만 있으면 된다 — 손이
+ * 네모에 닿으면 나온다.
+ */
+.cv-dot { opacity: 0; pointer-events: none; transition: opacity 0.12s; }
+.cv-node:hover .cv-dot,
+.cv-node.from .cv-dot,
+.cv-node.aim .cv-dot { opacity: 1; pointer-events: auto; }
 .cv-dot:hover { border-color: var(--c-primary); background: var(--c-primary); }
 .cv-node.from .cv-dot { border-color: var(--c-primary); background: var(--c-primary); }
 /* 고르는 중 — 나머지 네모가 「여기에 놓으세요」 로 보여야 한다 */
@@ -150,10 +159,11 @@
 }
 .cv-node.aim:hover { background: var(--c-primary-bg); }
 
+/* 판에서 내리기 — 모서리 점과 겹치지 않게 안으로 들여 놓는다 */
 .cv-x {
   position: absolute;
-  right: 2px;
-  top: 1px;
+  right: 6px;
+  top: 3px;
   width: 14px;
   height: 14px;
   padding: 0;

@@ -766,8 +766,9 @@ export function sessionIndex(v: string | number | undefined): number {
  * 여기 적는 것은 **랩이 어떻게 생겼나**이고, 그림과 결과서가 읽는다.
  */
 export interface TcPortLink {
-  a: { dev: string; port: string }
-  b: { dev: string; port: string }
+  /** `side` 는 판에서 **사람이 고른 점**이다 — 없으면 자리를 보고 정한다 */
+  a: { dev: string; port: string; side?: string }
+  b: { dev: string; port: string; side?: string }
 }
 
 export interface TcWire {
@@ -784,6 +785,10 @@ export interface TcWire {
   dev?: string
   /** 장비 포트 이름 (Gi0/1) */
   port: string
+  /** 판에서 사람이 고른 점 (t·tr·r·br·b·bl·l·tl). 없으면 자리를 보고 정한다 */
+  side?: string
+  /** 계측기 쪽에서 고른 점 */
+  meterSide?: string
   /** 계측기 장비 id */
   meter: string
   /** 계측기 포트. N2X 는 `4106/1`, STC 는 `1/1/3` */

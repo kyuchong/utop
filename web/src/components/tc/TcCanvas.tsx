@@ -49,7 +49,7 @@ export default function TcCanvas({
   /** 끄는 중인 네모 · 잇는 중에 고른 첫 점 */
   const drag = useRef<{ dev: string; dx: number; dy: number } | null>(null)
   const [from, setFrom] = useState('')
-  const [ask, setAsk] = useState<{ a: string; b: string } | null>(null)
+  const [ask, setAsk] = useState<{ a: string; b: string; sa?: Side; sb?: Side } | null>(null)
   const [aPort, setAPort] = useState('')
   const [bPort, setBPort] = useState('')
   const [note, setNote] = useState('')
@@ -58,7 +58,7 @@ export default function TcCanvas({
   /** 누른 선 — 끊는 단추를 띄운다 */
   const [pickLine, setPickLine] = useState('')
   /** 잇는 중 손끝을 따라오는 선 */
-  const linking = useRef<{ dev: string; moved: boolean } | null>(null)
+  const linking = useRef<{ dev: string; side: Side; moved: boolean } | null>(null)
   const [aim, setAim] = useState<{ x: number; y: number } | null>(null)
   const [aimFrom, setAimFrom] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const boxRef = useRef<HTMLDivElement>(null)
@@ -98,7 +98,7 @@ export default function TcCanvas({
     setAim(at)
     setFrom(id)
     setPickLine('')
-    linking.current = { dev: id, moved: false }
+    linking.current = { dev: id, side, moved: false }
   }
 
   // ── 끌기 ────────────────────────────────────────────────
@@ -137,10 +137,12 @@ export default function TcCanvas({
       linking.current = null
       setAim(null)
       const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null
+      const dot = el?.closest?.('.cv-dot') as HTMLElement | null
       const at = el?.closest?.('.cv-node') as HTMLElement | null
       const id = at?.dataset?.dev ?? ''
       if (id && id !== lk.dev) {
-        setAsk({ a: lk.dev, b: id })
+        // 점 위에 놓았으면 그 점에, 네모 아무 데나면 자리를 보고 정한다
+        setAsk({ a: lk.dev, b: id, sa: lk.side, sb: (dot?.dataset?.side as Side) || undefined })
         setAPort('')
         setBPort('')
         setNote('')
@@ -199,8 +201,12 @@ export default function TcCanvas({
     if (isMeter(A) && isMeter(B)) return setNote('계측기끼리는 잇지 않습니다')
     if (used(ask.a, aPort) || used(ask.b, bPort)) return setNote('이미 물려 있는 포트입니다')
     if (isMeter(A) || isMeter(B)) {
-      const d = isMeter(A) ? { dev: ask.b, port: bPort } : { dev: ask.a, port: aPort }
-      const m = isMeter(A) ? { dev: ask.a, port: aPort } : { dev: ask.b, port: bPort }
+      const d = isMeter(A)
+        ? { dev: ask.b, port: bPort, side: ask.sb }
+        : { dev: ask.a, port: aPort, side: ask.sa }
+      const m = isMeter(A)
+        ? { dev: ask.a, port: aPort, side: ask.sa }
+        : { dev: ask.b, port: bPort, side: ask.sb }
       const at = sessions.indexOf(d.dev)
       onChange({
         wiring: [
@@ -211,12 +217,20 @@ export default function TcCanvas({
             port: d.port,
             meter: m.dev,
             meterPort: m.port,
+            ...(d.side ? { side: d.side } : {}),
+            ...(m.side ? { meterSide: m.side } : {}),
           },
         ],
       })
     } else {
       onChange({
-        links: [...links, { a: { dev: ask.a, port: aPort }, b: { dev: ask.b, port: bPort } }],
+        links: [
+          ...links,
+          {
+            a: { dev: ask.a, port: aPort, ...(ask.sa ? { side: ask.sa } : {}) },
+            b: { dev: ask.b, port: bPort, ...(ask.sb ? { side: ask.sb } : {}) },
+          },
+        ],
       })
     }
     setAsk(null)
@@ -247,6 +261,8 @@ export default function TcCanvas({
         pb: w.meterPort,
         wire: true,
         at: i,
+        sa: w.side as Side | undefined,
+        sb: w.meterSide as Side | undefined,
       })
   })
   links.forEach((l, i) => {
@@ -259,6 +275,8 @@ export default function TcCanvas({
         pb: l.b.port,
         wire: false,
         at: i,
+        sa: l.a.side as Side | undefined,
+        sb: l.b.side as Side | undefined,
       })
   })
 
@@ -469,6 +487,7 @@ export default function TcCanvas({
                       key={side}
                       type="button"
                       className={`cv-dot ${side}`}
+                      data-side={side}
                       title={
                         from ? '여기에 잇습니다' : '여기를 끌어 상대 장비에 놓으면 이어집니다'
                       }

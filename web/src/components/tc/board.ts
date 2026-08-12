@@ -128,6 +128,9 @@ export interface BoardLine {
   /** 계측기로 가는 선인가 */
   wire: boolean
   at: number
+  /** 사람이 고른 점. 없으면 자리를 보고 정한다 */
+  sa?: Side
+  sb?: Side
 }
 
 export interface Laid {
@@ -157,8 +160,17 @@ export function layout(
     const B = posOf(l.b)
     const ac = { x: A.x + W / 2, y: A.y + H / 2 }
     const bc = { x: B.x + W / 2, y: B.y + H / 2 }
-    const sa = sideToward(bc.x - ac.x, bc.y - ac.y)
-    return { l, A, B, ac, bc, sa, sb: FACING[sa] }
+    /*
+     * 고른 점이 있으면 **그대로 쓴다.**
+     *
+     * 여태 고른 점은 「여기서 시작한다」 는 신호로만 쓰고, 붙는 자리는
+     * 자리를 보고 다시 정했다. 그래서 위쪽 점을 끌어도 선은 옆구리로
+     * 나갔다 — 고른 대로 안 되니 고르는 뜻이 없었다.
+     */
+    const auto = sideToward(bc.x - ac.x, bc.y - ac.y)
+    const sa = l.sa ?? auto
+    const sb = l.sb ?? FACING[sa]
+    return { l, A, B, ac, bc, sa, sb }
   })
 
   const slots = new Map<string, Array<{ k: string; order: number }>>()

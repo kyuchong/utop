@@ -67,11 +67,17 @@ export function boardSvg(g: BoardInput): string {
   const lines: BoardLine[] = []
   g.wiring.forEach((w, i) => {
     if (on.has(devOf(w)) && on.has(w.meter))
-      lines.push({ k: `w${i}`, a: devOf(w), b: w.meter, pa: w.port, pb: w.meterPort, wire: true, at: i })
+      lines.push({
+        k: `w${i}`, a: devOf(w), b: w.meter, pa: w.port, pb: w.meterPort, wire: true, at: i,
+        sa: w.side as Side | undefined, sb: w.meterSide as Side | undefined,
+      })
   })
   g.links.forEach((l, i) => {
     if (on.has(l.a.dev) && on.has(l.b.dev))
-      lines.push({ k: `l${i}`, a: l.a.dev, b: l.b.dev, pa: l.a.port, pb: l.b.port, wire: false, at: i })
+      lines.push({
+        k: `l${i}`, a: l.a.dev, b: l.b.dev, pa: l.a.port, pb: l.b.port, wire: false, at: i,
+        sa: l.a.side as Side | undefined, sb: l.b.side as Side | undefined,
+      })
   })
 
   // 그린 것을 다 감싸는 테두리. 판은 왼쪽 위가 비어 있는 일이 흔한데,
