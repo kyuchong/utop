@@ -63,8 +63,8 @@ export default function TcInfo({ data, onChange }: Props) {
      * 붙은 것과 안 붙은 것이 섞였다 — 숫자가 있다 없다 해 보였다.
      * 가장 깊은 분류에서 parent 를 거슬러 오르면 늘 최상위부터다.
      */
-    const pathOf = (r: (typeof reqQ.data extends { reqs: infer T } ? T : never) extends Array<infer U> ? U : never) => {
-      const deepest = (r.cat4 || r.cat3 || r.cat2 || r.cat1 || '') as string
+    const pathOf = (r: { cat1?: unknown; cat2?: unknown; cat3?: unknown; cat4?: unknown }) => {
+      const deepest = String(r.cat4 || r.cat3 || r.cat2 || r.cat1 || '')
       const names: string[] = []
       let at: string | null = deepest || null
       const seen = new Set<string>()

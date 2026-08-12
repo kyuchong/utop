@@ -2710,7 +2710,8 @@ table.tb tr.r-bad td:first-child {
   right: 0;
   top: calc(100% + 2px);
   z-index: 30;
-  max-height: 320px;
+  /* 낮으면 몇 줄 못 보고 스크롤만 한다 — 화면의 6할까지 쓴다 */
+  max-height: min(560px, 60vh);
   overflow-y: auto;
   background: var(--c-surface);
   border: 1px solid var(--c-border);
