@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, categoryApi } from '@/api/client'
 import {
+  MAX_CAT_DEPTH,
   buildCategoryTree,
   naturalCompare,
   reqLabel,
@@ -44,6 +45,8 @@ interface Props {
   /** 고른 요구사항 PK */
   selectedReq?: string | null
   onSelectReq?: (pk: string) => void
+  /** 「+ 폴더」 를 바깥 머리줄에서 누를 수 있게 — 숫자가 바뀌면 입력칸을 연다 */
+  addFolderSignal?: number
 }
 
 /** 이 요구사항이 놓인 가장 깊은 분류 id. 없으면 null(미분류) */
@@ -73,6 +76,7 @@ export default function TcTree({
   onSelectFolder,
   selectedReq,
   onSelectReq,
+  addFolderSignal = 0,
 }: Props) {
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
     try {
@@ -97,6 +101,73 @@ export default function TcTree({
 
   const reqs = reqQ.data?.reqs ?? []
   const tree = useMemo(() => buildCategoryTree(catQ.data?.categories ?? []), [catQ.data])
+
+  /* ── 폴더 다루기 — 요구사항 트리와 같은 문법 ──────────────────
+     같은 분류(req_category)를 쓰므로 여기서 만들고 고친 것이 요구사항
+     화면에도 그대로 나타난다. 우클릭 → 하위 추가·이름 변경·삭제,
+     이름 변경은 그 줄에서 바로. */
+  const qc = useQueryClient()
+  const invalidateCats = () => {
+    void qc.invalidateQueries({ queryKey: ['req-categories'] })
+    void qc.invalidateQueries({ queryKey: ['req', 'list'] })
+  }
+  const [ctx, setCtx] = useState<{ x: number; y: number; node: CategoryTreeNode } | null>(null)
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [renameText, setRenameText] = useState('')
+  const [addingTo, setAddingTo] = useState<string | null | undefined>(undefined)
+  const [draftName, setDraftName] = useState('')
+  const [catErr, setCatErr] = useState('')
+  const fail = (e: unknown) => setCatErr(e instanceof Error ? e.message : String(e))
+
+  const createM = useMutation({
+    mutationFn: ({ name, parentId }: { name: string; parentId: string | null }) =>
+      categoryApi.create(name, parentId),
+    onSuccess: (_d, v) => {
+      setAddingTo(undefined)
+      setDraftName('')
+      setCatErr('')
+      if (v.parentId) setOpenIds((x) => new Set(x).add(v.parentId as string))
+      invalidateCats()
+    },
+    onError: fail,
+  })
+  const renameM = useMutation({
+    mutationFn: ({ node, name }: { node: CategoryTreeNode; name: string }) =>
+      categoryApi.rename(node.id, name, (node.parent_id ?? null) as string | null),
+    onSuccess: () => {
+      setRenaming(null)
+      setCatErr('')
+      invalidateCats()
+    },
+    onError: fail,
+  })
+  const removeM = useMutation({
+    mutationFn: (id: string) => categoryApi.remove(id),
+    onSuccess: () => {
+      setCatErr('')
+      invalidateCats()
+    },
+    onError: fail,
+  })
+
+  // 바깥 「+」 — 최상위 폴더 입력칸
+  const firstSig = useRef(true)
+  useEffect(() => {
+    if (firstSig.current) {
+      firstSig.current = false
+      return
+    }
+    setAddingTo(null)
+    setDraftName('')
+  }, [addFolderSignal])
+
+  // 아무 데나 누르면 우클릭 메뉴를 닫는다
+  useEffect(() => {
+    if (!ctx) return
+    const off = () => setCtx(null)
+    window.addEventListener('pointerdown', off)
+    return () => window.removeEventListener('pointerdown', off)
+  }, [ctx])
 
   /**
    * req_id → TC.
@@ -404,6 +475,18 @@ export default function TcTree({
               if (onSelectFolder) onSelectFolder(n.id)
               else toggle(n.id)
             }
+            if (e.key === 'F2') {
+              e.preventDefault()
+              setCtx(null)
+              setRenaming(n.id)
+              setRenameText(n.name)
+            }
+          }}
+          onContextMenu={(e) => {
+            // 탐색기와 같은 우클릭 — 요구사항 트리와 같은 문법
+            e.preventDefault()
+            e.stopPropagation()
+            setCtx({ x: e.clientX, y: e.clientY, node: n })
           }}
         >
           <button
@@ -421,11 +504,64 @@ export default function TcTree({
           <span className="rt-ficon" aria-hidden="true">
             <IconFolder open={open} />
           </span>
-          <b className="rt-fname" title={n.name}>
-            {n.name}
-          </b>
+          {renaming === n.id ? (
+            // 창을 띄우지 않고 그 자리에서 고친다 (F2 · 두 번 누르기)
+            <input
+              autoFocus
+              className="rt-rename"
+              value={renameText}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setRenameText(e.target.value)}
+              onBlur={() => setRenaming(null)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && renameText.trim())
+                  renameM.mutate({ node: n, name: renameText.trim() })
+                if (e.key === 'Escape') setRenaming(null)
+              }}
+            />
+          ) : (
+            <b
+              className="rt-fname"
+              title={n.name}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                setRenaming(n.id)
+                setRenameText(n.name)
+              }}
+            >
+              {n.name}
+            </b>
+          )}
           <span className="rt-cnt">{total}</span>
         </div>
+        {addingTo === n.id && (
+          <div className="rt-add" style={{ paddingLeft: 8 + n.depth * 14 }}>
+            <input
+              autoFocus
+              value={draftName}
+              placeholder="폴더 이름"
+              onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && draftName.trim())
+                  createM.mutate({ name: draftName.trim(), parentId: n.id })
+                if (e.key === 'Escape') setAddingTo(undefined)
+              }}
+            />
+            <button
+              className="btn small primary"
+              type="button"
+              onClick={() =>
+                draftName.trim() && createM.mutate({ name: draftName.trim(), parentId: n.id })
+              }
+            >
+              추가
+            </button>
+            <button className="btn small" type="button" onClick={() => setAddingTo(undefined)}>
+              취소
+            </button>
+          </div>
+        )}
         {open && (
           <>
             {n.children.map(renderFolder)}
@@ -447,6 +583,35 @@ export default function TcTree({
             하면서 폴더가 아니었고(지울 수도 옮길 수도 없다), 시험을 찾는
             눈길이 매번 그 줄을 넘어가야 했다. 이제 칸 머리의 단추로 열어
             2열 전체에서 본다 — 파일 목록과 편집이 함께 있는 자리다. */}
+        {catErr && <div className="rt-error">{catErr}</div>}
+        {/* 최상위 폴더 추가 — 머리줄의 + 가 연다 */}
+        {addingTo === null && (
+          <div className="rt-add">
+            <input
+              autoFocus
+              value={draftName}
+              placeholder="새 최상위 폴더 이름"
+              onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && draftName.trim())
+                  createM.mutate({ name: draftName.trim(), parentId: null })
+                if (e.key === 'Escape') setAddingTo(undefined)
+              }}
+            />
+            <button
+              className="btn small primary"
+              type="button"
+              onClick={() =>
+                draftName.trim() && createM.mutate({ name: draftName.trim(), parentId: null })
+              }
+            >
+              추가
+            </button>
+            <button className="btn small" type="button" onClick={() => setAddingTo(undefined)}>
+              취소
+            </button>
+          </div>
+        )}
         {loading ? (
           <div className="empty">불러오는 중…</div>
         ) : (
@@ -487,6 +652,56 @@ export default function TcTree({
           </>
         )}
       </div>
+      {ctx && (
+        <div
+          className="rt-ctx"
+          style={{ left: ctx.x, top: ctx.y }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {ctx.node.depth < MAX_CAT_DEPTH && (
+            <button
+              type="button"
+              onClick={() => {
+                const n = ctx.node
+                setCtx(null)
+                setAddingTo(n.id)
+                setDraftName('')
+                setOpenIds((x) => new Set(x).add(n.id))
+              }}
+            >
+              하위 폴더 추가
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              const n = ctx.node
+              setCtx(null)
+              setRenaming(n.id)
+              setRenameText(n.name)
+            }}
+          >
+            이름 변경 <span className="rt-key">F2</span>
+          </button>
+          <hr />
+          <button
+            type="button"
+            className="danger"
+            onClick={() => {
+              const n = ctx.node
+              setCtx(null)
+              if (
+                window.confirm(
+                  `'${n.name}' 폴더를 지웁니다.\n하위 폴더도 함께 지워집니다. 요구사항·시험은 미분류로 남습니다.`,
+                )
+              )
+                removeM.mutate(n.id)
+            }}
+          >
+            삭제
+          </button>
+        </div>
+      )}
     </div>
   )
 }

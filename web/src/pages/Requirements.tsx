@@ -324,22 +324,34 @@ export default function Requirements() {
 
   /** 선택된 REQ 에 연결된 TC — 양쪽 정본의 합집합 */
   /**
-   * 연결 해제. tc.req_id 를 비우는 것이 전부다 — TC 자체는 남는다.
-   * 붙이는 창이 아니라 이 목록에서 한다(Zephyr 도 같은 구조다).
+   * 연결 해제 — **두 장부를 다 지운다.**
+   *
+   * 연결은 TC 의 req_id 와 요구사항의 tc[] 두 곳에 적힌다(일괄 생성이
+   * 뒤엣것을 쓴다). req_id 만 비웠더니 tc[] 로 이어진 줄은 해제를 눌러도
+   * 그대로 남았다. TC 자체는 지워지지 않는다.
    */
   const unlinkM = useMutation({
-    mutationFn: (t: TestCaseMeta) =>
-      tcApi.save(t.tcid, {
+    mutationFn: async (t: TestCaseMeta) => {
+      await tcApi.save(t.tcid, {
         tcid: t.tcid,
         name: t.name ?? '',
         type: t.type ?? '',
         status: t.status ?? '',
         severity: t.severity ?? '',
         req_id: '',
-      }),
+      })
+      const owner = ownerOf.get(t.tcid) ?? selectedReq
+      if (owner && (owner.tc ?? []).some((ref) => ref?.tcid === t.tcid)) {
+        await reqApi.save(reqPk(owner), {
+          ...owner,
+          tc: (owner.tc ?? []).filter((ref) => ref?.tcid !== t.tcid),
+        })
+      }
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
       void qc.invalidateQueries({ queryKey: ['req', 'list'] })
+      void qc.invalidateQueries({ queryKey: ['reqs'] })
     },
   })
 
