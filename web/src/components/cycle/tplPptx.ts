@@ -1,5 +1,7 @@
 import { apiFetch } from '@/api/client'
 import { methodBlocks, resultBlocks, slideRanges, type LguTc } from './lgu'
+import { stepLines, termShot, type TermLine } from './termShot'
+import { stepVerdict, type TcStep } from '@/components/tc/types'
 
 /**
  * **고객사가 준 pptx 를 그대로 채워** 결과서를 만든다.
@@ -21,6 +23,8 @@ interface TplSlide {
   values: Record<string, string>
   /** 구성도 — 첫 장에만. 서버가 양식의 그림 자리에 앉힌다 */
   topo?: string
+  /** 시험 결과 — 터미널 화면 그림 */
+  shot?: string
 }
 
 /**
@@ -91,12 +95,40 @@ export function buildTplSlides(tcs: LguTc[]): TplSlide[] {
       })
     })
     r.result.forEach(([from, to]) => {
+      /*
+       * 결과는 **터미널 화면 그림**으로 넣는다.
+       *
+       * 글자로 넣으면 PowerPoint 가 제 글꼴로 다시 흘려서 `show interface`
+       * 표의 세로줄이 어긋난다 — 고정폭이 아니면 읽을 수가 없다. 그리고
+       * 고객사 결과서는 증거라, 검은 화면에 흰 글씨 그대로여야 「장비에서
+       * 본 것」 으로 읽힌다. 옛 방식(`lguPptx`)은 이미 그렇게 하고 있었는데
+       * 양식 경로만 글자로 나가고 있었다.
+       *
+       * 그림을 못 구우면 글자로 떨어뜨린다 — 결과서가 아예 안 나오는
+       * 것보다 낫다.
+       */
+      const lines: TermLine[] = []
+      tc.steps.slice(from, to).forEach((st, k) => {
+        if (k) lines.push({ text: '' })
+        lines.push(...stepLines(st, from + k + 1, String(stepVerdict(st as TcStep) || '')))
+      })
+      let shot: { data: string } | null = null
+      try {
+        shot = lines.length
+          ? termShot(lines, [tc.tcid, tc.name].filter(Boolean).join(' · '))
+          : null
+      } catch {
+        shot = null
+      }
       const body = tc.steps.length
         ? tc.steps.slice(from, to).map((s, k) => stepText(s, from + k + 1)).join('\n\n')
         : resultBlocks(tc).map((b) => b.text).join('\n\n')
       out.push({
         kind: 'more',
-        values: { ...head, result: body, note: String(tc.remark ?? '') },
+        shot: shot?.data ?? '',
+        // 그림을 얹었으면 칸은 비운다. 둘 다 넣으면 그림 밑에 같은 글이
+        // 깔려 삐져나온다.
+        values: { ...head, result: shot ? '' : body, note: String(tc.remark ?? '') },
       })
     })
   }

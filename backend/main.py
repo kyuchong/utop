@@ -7906,12 +7906,17 @@ async def pptx_render(payload: dict):
             pptx_tpl.fill(new, tpl["spots"], vals)
         # 양식에 얹혀 있던 **예시 그림·글상자**를 걷는다. 안 걷으면 만든
         # 결과서 모든 쪽에 남의 시험 화면이 실려 진짜 결과를 덮는다.
-        spots = pptx_tpl.strip_samples(new)
-        # 걷어낸 그 자리에 이 시험의 구성도를 앉힌다
-        blob = pptx_tpl.decode_img(str((sl or {}).get("topo") or ""))
-        if blob and spots:
+        pptx_tpl.strip_samples(new)
+        # 그 위에 이 시험의 그림을 얹는다 — 구성도, 그리고 CLI 캡쳐
+        pics = tpl.get("more_pics" if kind == "more" else "pics") or {}
+        for name, spec in pics.items():
+            blob = pptx_tpl.decode_img(str((sl or {}).get(name) or ""))
+            if not blob:
+                continue
             try:
-                pptx_tpl.place_pic(new, blob, spots[0])
+                rect = pptx_tpl.pic_rect(new, spec)
+                if rect:
+                    pptx_tpl.place_pic(new, blob, rect)
             except Exception:
                 # 그림 하나 때문에 결과서 전체가 안 나오면 안 된다
                 pass

@@ -79,6 +79,24 @@ TEMPLATES: dict[str, dict[str, Any]] = {
         },
         # 이어지는 장의 결과 판이 담는 줄 수. 넘으면 장을 하나 더 만든다.
         "more_lines": 34,
+        # 그림을 앉힐 자리.
+        #
+        # 표 칸에는 그림을 못 넣는다. 그래서 칸의 **자리만** 표에서 재고,
+        # 그림은 그 위에 얹는다. 자리를 손으로 적어 두면 양식이 조금만
+        # 바뀌어도 엉뚱한 데에 얹힌다 — 표에서 재면 따라 움직인다.
+        "pics": {
+            # 구성도 — 「시험 구성도 및 준비사항」 아래 칸
+            "topo": {"tbl": 0, "row": 2, "col": 6},
+        },
+        "more_pics": {
+            # 시험 결과 — **표 폭 전체**를 쓴다.
+            #
+            # 이 줄은 왼쪽 7칸과 오른쪽 1칸으로 갈려 있다. 왼쪽 칸에만
+            # 넣으면 폭이 4.6인치라 108칸짜리 터미널 화면이 5pt 로 줄어
+            # 읽을 수가 없다. 가운데 세로선은 그림이 덮는다 — 고객사
+            # 예시도 이 판 위에 그림을 얹어 두었다.
+            "shot": {"tbl": 0, "row": 2, "full_row": True},
+        },
     },
 }
 
@@ -214,14 +232,14 @@ def set_text(cell, text: str, keep: bool = False) -> None:
             extra._r.getparent().remove(extra._r)
 
 
-def tables_of(slide) -> list:
-    """이 장의 표들 — 그룹 안에 든 것까지."""
+def table_shapes_of(slide) -> list:
+    """이 장에서 표를 담은 **도형**들 — 그룹 안에 든 것까지."""
     out: list = []
 
     def walk(shapes: Iterable):
         for sh in shapes:
             if getattr(sh, "has_table", False):
-                out.append(sh.table)
+                out.append(sh)
             if sh.shape_type == 6 or hasattr(sh, "shapes"):  # 그룹
                 try:
                     walk(sh.shapes)
@@ -230,6 +248,11 @@ def tables_of(slide) -> list:
 
     walk(slide.shapes)
     return out
+
+
+def tables_of(slide) -> list:
+    """이 장의 표들 — 그룹 안에 든 것까지."""
+    return [sh.table for sh in table_shapes_of(slide)]
 
 
 def fill(slide, spots: dict[str, Spot], values: dict[str, str]) -> None:
@@ -296,6 +319,52 @@ def strip_samples(slide) -> list[tuple[int, int, int, int]]:
     # 큰 것부터 — 첫 장의 구성도 자리가 제일 크다
     spots.sort(key=lambda r: r[2] * r[3], reverse=True)
     return spots
+
+
+def pic_rect(slide, spec: dict) -> tuple[int, int, int, int] | None:
+    """
+    표에서 **칸의 자리**를 잰다.
+
+    python-pptx 는 칸의 좌표를 알려 주지 않는다. 표의 자리에 앞선 열 폭과
+    앞선 행 높이를 더하면 나온다. 합쳐진 칸은 `span_width` 만큼 열을 먹는다.
+
+    `full_row` 면 그 줄 전체(표 폭)를 돌려준다.
+    """
+    shapes = table_shapes_of(slide)
+    ti = int(spec.get("tbl") or 0)
+    if ti >= len(shapes):
+        return None
+    # 도형에서 바로 꺼낸다. `sh.table` 은 부를 때마다 새 객체를 만들어서
+    # 표끼리 `is` 로 견주면 늘 어긋난다 — 그래서 자리를 못 찾았었다.
+    shape = shapes[ti]
+    tbl = shape.table
+    if shape.left is None or shape.top is None:
+        return None
+
+    cols = [int(c.width or 0) for c in tbl.columns]
+    rows = [int(r.height or 0) for r in tbl.rows]
+    r = int(spec.get("row") or 0)
+    if r >= len(rows):
+        return None
+    top = int(shape.top) + sum(rows[:r])
+    h = rows[r]
+
+    if spec.get("full_row"):
+        return (int(shape.left), top, sum(cols), h)
+
+    c = int(spec.get("col") or 0)
+    if c >= len(cols):
+        return None
+    try:
+        span = int(getattr(tbl.cell(r, c), "span_width", 1) or 1)
+    except Exception:
+        span = 1
+    left = int(shape.left) + sum(cols[:c])
+    w = sum(cols[c : c + span])
+    # 칸 선에 딱 붙으면 그림이 표를 먹은 것처럼 보인다. 조금 물린다.
+    pad_x = int(w * 0.03)
+    pad_y = int(h * 0.03)
+    return (left + pad_x, top + pad_y, max(1, w - pad_x * 2), max(1, h - pad_y * 2))
 
 
 def decode_img(src: str) -> bytes | None:
