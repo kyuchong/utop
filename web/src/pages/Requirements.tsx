@@ -11,9 +11,7 @@ import ReqBulkForm from '@/components/ReqBulkForm'
 import ReqBulkEdit from '@/components/ReqBulkEdit'
 import ReqMapDialog from '@/components/ReqMapDialog'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
-import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
-import TcLinkForm from '@/components/TcLinkForm'
 import TcBulkForm from '@/components/TcBulkForm'
 import {
   reqLabel,
@@ -103,8 +101,6 @@ export default function Requirements() {
   /** 고른 여러 건을 한꺼번에 고치는 창 */
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
   // undefined = 닫힘 / { } = 새 TC(요구사항 미리 연결)
-  const [tcForm, setTcForm] = useState<{ reqId: string } | undefined>(undefined)
-  const [tcLinkOpen, setTcLinkOpen] = useState(false)
   const [tcBulkOpen, setTcBulkOpen] = useState(false)
   const [tab, setTab] = useState<'info' | 'detail' | 'tc' | 'runs' | 'history'>('info')
   const [q, setQ] = useState('')
@@ -460,7 +456,9 @@ export default function Requirements() {
             ...rest,
             id: pk,
             reqid: nid,
-            title: `${r.title ?? ''} (복사)`,
+            // 제목은 그대로 둔다 — 복제는 ID 만 새로 받는 것이다.
+            // 「(복사)」 꼬리를 붙였더니 지우는 일이 하나 늘었다.
+            title: r.title ?? '',
             tc: [],
           }),
         })
@@ -553,20 +551,6 @@ export default function Requirements() {
         />
       )}
 
-      {tcForm !== undefined && (
-        <TcForm
-          editing={null}
-          presetReqId={tcForm.reqId}
-          onClose={() => setTcForm(undefined)}
-        />
-      )}
-      {tcLinkOpen && selectedReq && (
-        <TcLinkForm
-          req={selectedReq}
-          linked={linked}
-          onClose={() => setTcLinkOpen(false)}
-        />
-      )}
       {tcBulkOpen && selectedReq && (
         <TcBulkForm
           presetReqId={reqPk(selectedReq)}
@@ -976,35 +960,18 @@ export default function Requirements() {
                 <span className="muted small">가운데 표에서 요구사항을 고르세요</span>
               </div>
             )}
+            {/* 「TC 연결」 은 표의 Map 과, 「+ TC 생성」 은 Coverage 화면과
+                겹쳐서 소스째 걷어냈다 — 같은 일은 한 자리에서만 한다. */}
             {tab === 'tc' && selectedReq && (
               <div className="page-head-actions">
                 <button
                   className="btn"
                   type="button"
                   disabled={!selectedReq}
-                  onClick={() => setTcLinkOpen(true)}
-                  title="이미 있는 TC 를 이 요구사항에 붙입니다"
-                >
-                  TC 연결
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={!selectedReq}
+                  title="이 요구사항 밑에 시험 여러 건을 한 번에 만듭니다"
                   onClick={() => setTcBulkOpen(true)}
                 >
-                  일괄 생성
-                </button>
-                <button
-                  className="btn primary"
-                  type="button"
-                  disabled={!selectedReq}
-                  onClick={() =>
-                    // 새 TC 를 만들되 이 요구사항에 미리 연결해 둔다.
-                    selectedReq && setTcForm({ reqId: reqPk(selectedReq) })
-                  }
-                >
-                  + TC 생성
+                  Bulk Add
                 </button>
               </div>
             )}
@@ -1030,7 +997,7 @@ export default function Requirements() {
                         ? folderReqs.length === 0
                           ? '이 폴더에 요구사항이 없습니다.'
                           : `요구사항 ${folderReqs.length}건 중 TC 가 붙은 것이 없습니다.`
-                        : '이 요구사항을 검증하는 TC 가 없습니다. 「TC 연결」 또는 「+ TC 생성」'}
+                        : '이 요구사항을 검증하는 TC 가 없습니다. 2열 표의 「Map」 으로 붙이세요.'}
                     </span>
                   </>
                 ) : (
