@@ -173,6 +173,33 @@ export default function TcWireMap({
     setBPort('')
   }
 
+  /**
+   * 판에 없는 장비의 배선 — 유령이다.
+   *
+   * 판에 장비를 놓고 쓰는 시험에서, 어느 한쪽이 판에 없는 배선은 그림에
+   * 선이 안 그려지는데 포트는 「이미 물림」 으로 잠근다. 판을 안 쓰는
+   * (안 놓은) 시험에서는 따지지 않는다.
+   */
+  const ghostKeys = useMemo(() => {
+    const out = new Set<string>()
+    if (!placed?.length) return out
+    const on = new Set(placed)
+    for (const r of rows) {
+      if (!on.has(r.aDev) || !on.has(r.bDev)) out.add(r.k)
+    }
+    return out
+  }, [rows, placed])
+  const ghosts = rows.filter((r) => ghostKeys.has(r.k))
+
+  const cleanGhosts = () => {
+    const wi = new Set(ghosts.filter((g) => g.kind === 'wire').map((g) => g.at))
+    const li = new Set(ghosts.filter((g) => g.kind === 'link').map((g) => g.at))
+    onChange({
+      wiring: wiring.filter((_, i) => !wi.has(i)),
+      links: links.filter((_, i) => !li.has(i)),
+    })
+  }
+
   const cut = (r: { kind: 'wire' | 'link'; at: number }) => {
     if (r.kind === 'wire') onChange({ wiring: wiring.filter((_, i) => i !== r.at) })
     else onChange({ links: links.filter((_, i) => i !== r.at) })
@@ -338,7 +365,27 @@ export default function TcWireMap({
           나와, 어느 것을 봐야 하는지 알 수 없었다. */}
       {/* 이어진 것 — 글로도 적는다. 그림은 한눈에, 글은 옮겨 적을 때 쓴다 */}
       <div className="wm-list">
-        <div className="wm-lh">이어진 배선 {rows.length}</div>
+        <div className="wm-lh">
+          이어진 배선 {rows.length}
+          {ghosts.length > 0 && (
+            <>
+              <span className="sp" />
+              {/*
+                판에 없는 장비의 배선. 그림에는 선이 안 보이는데 포트만
+                「이미 물림」 으로 잠겨 있어, 왜 못 잇는지 알 수가 없었다 —
+                줄을 지우기 전까지 계속 물고 있는 것이다.
+              */}
+              <button
+                className="btn small"
+                type="button"
+                title="판에 없는 장비의 배선을 한 번에 끊습니다"
+                onClick={cleanGhosts}
+              >
+                판에 없는 배선 {ghosts.length}줄 정리
+              </button>
+            </>
+          )}
+        </div>
         {rows.length === 0 ? (
           <div className="wm-none">아직 없습니다. 위에서 양쪽 포트를 고르고 「연결」 을 누르세요.</div>
         ) : (
@@ -348,6 +395,11 @@ export default function TcWireMap({
               <i>↔</i>
               <b>{r.b}</b>
               {r.kind === 'wire' && <span className="wm-tag">계측기</span>}
+              {ghostKeys.has(r.k) && (
+                <span className="wm-tag ghost" title="판에 없는 장비의 배선 — 포트만 잡고 있습니다">
+                  판에 없음
+                </span>
+              )}
               <span className="sp" />
               <button className="btn small" type="button" onClick={() => cut(r)}>
                 끊기

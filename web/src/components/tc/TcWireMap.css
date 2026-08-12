@@ -104,6 +104,12 @@
 .wm-row b { font-weight: 600; font-family: var(--font-mono); font-size: var(--fs-xs); }
 .wm-row i { font-style: normal; color: var(--c-text-faint); }
 .wm-row .sp { margin-left: auto; }
+.wm-tag.ghost {
+  background: #fdecec;
+  color: #a33 !important;
+}
+.wm-lh { display: flex; align-items: center; gap: 8px; }
+.wm-lh .sp { margin-left: auto; }
 .wm-tag {
   padding: 0 6px;
   border-radius: 999px;
