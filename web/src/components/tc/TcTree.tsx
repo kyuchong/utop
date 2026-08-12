@@ -389,7 +389,8 @@ export default function TcTree({
         <span className="rt-dicon" aria-hidden="true">
           <IconTcDoc />
         </span>
-        <span className={`tc-dot ${statusClass(t.status)}`} />
+        {/* 상태 점은 걷어냈다 — 트리에선 거의 다 회색(미실행)이라 정보가
+            없고, 상태는 List 표의 상태 열이 말해 준다. */}
         <span className="tt-tc-nm">{t.name || '(제목 없음)'}</span>
         {typeof t._cli_count === 'number' && t._cli_count > 0 && (
           <span className="tt-n">{t._cli_count}</span>

@@ -259,17 +259,6 @@
   color: var(--c-text-faint);
 }
 
-.tc-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex: none;
-  background: var(--c-idle);
-}
-
-.tc-dot.pass { background: var(--c-pass); }
-.tc-dot.fail { background: var(--c-fail); }
-.tc-dot.draft { background: var(--c-draft); }
 
 /* ── 2열: 실행 바 + 스텝 ─────────────────────────────────── */
 /*
