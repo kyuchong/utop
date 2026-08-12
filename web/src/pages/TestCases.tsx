@@ -1707,16 +1707,6 @@ export default function TestCases({ me }: PageProps) {
                     Bulk Edit
                   </button>
                   <span className="rq-adiv" aria-hidden="true" />
-                  {/* 빈 화면에서 짜는 것(Add)보다 이쪽이 먼저다 — 이미
-                      검증된 시험이 아흔 개나 쌓여 있다 */}
-                  <button
-                    className="btn primary"
-                    type="button"
-                    title="하려는 것을 한 줄 적으면 닮은 시험을 찾아 베껴 줍니다"
-                    onClick={() => setStartOpen(true)}
-                  >
-                    ✨ 시험 시작하기
-                  </button>
                   <button className="btn" type="button" onClick={() => setForm(null)}>
                     Add
                   </button>
@@ -1769,6 +1759,15 @@ export default function TestCases({ me }: PageProps) {
                   >
                     Export
                   </button>
+                  {/* 시험 시작하기는 줄의 끝 — Export 오른쪽 고정석 */}
+                  <button
+                    className="btn primary"
+                    type="button"
+                    title="하려는 것을 한 줄 적으면 닮은 시험을 찾아 베껴 줍니다"
+                    onClick={() => setStartOpen(true)}
+                  >
+                    ✨ 시험 시작하기
+                  </button>
                 </div>
               </div>
 
@@ -1801,10 +1800,8 @@ export default function TestCases({ me }: PageProps) {
                 <div className="rq-tr tc-tr rq-th">
                   <div />
                   <div>요구사항</div>
-                  <div>TC ID</div>
                   <div>이름</div>
                   <div>유형</div>
-                  <div>스텝</div>
                   <div>REQ Map</div>
                   <div>상태</div>
                 </div>
@@ -1845,9 +1842,6 @@ export default function TestCases({ me }: PageProps) {
                             <span className="muted">–</span>
                           )}
                         </div>
-                        <div className="rq-id" title={t.tcid}>
-                          {t.tcid}
-                        </div>
                         <div className="rq-name">
                           <span className="rq-icon" aria-hidden="true">
                             <IconTcDoc />
@@ -1861,9 +1855,12 @@ export default function TestCases({ me }: PageProps) {
                           >
                             {t.name || '(제목 없음)'}
                           </button>
+                          {/* 스텝 수는 열로 두지 않고 이름 꼬리에 — 트리와 같은 문법 */}
+                          {typeof t._cli_count === 'number' && t._cli_count > 0 && (
+                            <span className="tt-n">{t._cli_count}</span>
+                          )}
                         </div>
                         <div>{t.type ? <span className="tag">{t.type}</span> : '–'}</div>
-                        <div className="muted small">{t._cli_count ?? 0}</div>
                         <div className="tc-map">
                           <button
                             type="button"

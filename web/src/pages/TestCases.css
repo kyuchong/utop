@@ -2583,10 +2583,13 @@ table.tb tr.r-bad td:first-child {
      REQ Map 60 · 상태 70. 이름이 그만큼 더 갖는다. */
   /* ID 를 TC-3212-0001 꼴로 줄인 뒤 실측: 요구사항 118(「시스템 정보
      조회」) · TC ID 112 · 유형 74(「Function」) · REQ Map 78. */
+  /* 열은 넷+체크: 요구사항 132 · 이름(1fr, 꼬리에 스텝 수) · 유형 74 ·
+     REQ Map 78 · 상태 64. TC ID·스텝 열은 없앴다 — ID 는 이름 툴팁과
+     빵부스러기가, 스텝 수는 이름 꼬리 숫자가 말한다. */
   grid-template-columns:
-    30px 118px 112px minmax(140px, 1fr)
-    74px 40px 78px 70px;
-  column-gap: 10px;
+    30px 132px minmax(160px, 1fr)
+    74px 78px 64px;
+  column-gap: 8px;
 }
 .tc-req {
   display: flex;
