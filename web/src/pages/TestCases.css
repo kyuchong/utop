@@ -258,12 +258,13 @@
   min-width: 18px;
   padding: 0 6px;
   border-radius: 999px;
-  background: var(--c-surface-2);
+  background: var(--c-surface-alt);
+  border: 1px solid var(--c-border-soft);
   color: var(--c-text-muted);
   font-size: var(--fs-xs);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  line-height: 16px;
+  line-height: 15px;
   text-align: center;
 }
 
