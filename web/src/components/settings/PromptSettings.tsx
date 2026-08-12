@@ -37,6 +37,8 @@ export default function PromptSettings() {
   const [llms, setLlms] = useState<Llm[]>([])
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
+  /** 열려 있는 탭 — 용도 하나 */
+  const [tab, setTab] = useState('')
 
   useEffect(() => {
     void (async () => {
@@ -89,7 +91,25 @@ export default function PromptSettings() {
       {items.length === 0 ? (
         <div className="empty">불러오는 중…</div>
       ) : (
-        items.map((x) => (
+        <>
+          {/* 용도마다 탭 하나. 세로로 다 펼쳐 놓으니 스크롤이 길어져
+              어느 용도를 고치고 있는지 놓쳤다 — 한 번에 하나만 본다. */}
+          <div className="ps-tabs" role="tablist">
+            {items.map((x) => (
+              <button
+                key={x.id}
+                type="button"
+                role="tab"
+                className={`ps-tab${(tab || items[0]?.id) === x.id ? ' on' : ''}`}
+                onClick={() => setTab(x.id)}
+              >
+                {x.label}
+              </button>
+            ))}
+          </div>
+          {items
+            .filter((x) => x.id === (tab || items[0]?.id))
+            .map((x) => (
           <div className="ps-item" key={x.id}>
             <div className="ps-h">
               <b>{x.label}</b>
@@ -131,7 +151,8 @@ export default function PromptSettings() {
               />
             </label>
           </div>
-        ))
+            ))}
+        </>
       )}
     </div>
   )

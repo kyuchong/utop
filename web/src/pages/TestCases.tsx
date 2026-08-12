@@ -1197,13 +1197,8 @@ export default function TestCases({ me }: PageProps) {
    */
   const detHead = (
                 <div className="tc-dethead">
-                  {/* 제목을 탭 왼쪽에. 줄을 따로 쓰면 그만큼 목록이 줄고,
-                      「무엇을 보고 있나」 와 「그것의 무엇을 보나」 는 나란히
-                      있는 편이 읽힌다. */}
-                  <span className="tc-bar-ttl">
-                    <b>{d.name || '(제목 없음)'}</b>
-                    <span className="muted small"> {openId}</span>
-                  </span>
+                  {/* 이름·ID 는 위 빵부스러기에 이미 있다. 여기에도 적었더니
+                      같은 글이 두 줄로 보였다 — 이 줄은 알림·탭 몫이다. */}
                   {/* 지금 이 시험을 누가 같이 보고 있나 — 제목 바로 옆.
                       혼자면 아무것도 안 뜬다. 둘부터 뜬다. */}
                   <PresenceBar users={presence.users} me={meName} />
@@ -2123,7 +2118,12 @@ export default function TestCases({ me }: PageProps) {
               getOrigin={() => {
                 const el = splitRef.current
                 if (!el) return 0
-                return el.getBoundingClientRect().left + listW + 6
+                /*
+                 * 1열이 접혀 있으면 왼쪽에는 30px 띠만 있다. 그런데 늘
+                 * listW 를 더해 기준을 잡으니 200px 넘게 어긋나서, 접힌
+                 * 상태에서는 조절바를 끌어도 폭이 안 바뀌는 것처럼 보였다.
+                 */
+                return el.getBoundingClientRect().left + (listOpen ? listW + 6 : 30)
               }}
             />
 

@@ -619,6 +619,31 @@
 /* ── 용도별 프롬프트 ──
    한 용도가 한 덩어리다. 모델과 말투를 함께 보아야 「이 모델에 이렇게
    말하면 이렇게 나온다」 가 이어진다. */
+/* 용도 탭 — 한 번에 하나만 본다 */
+.ps-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--c-border);
+  margin-bottom: 10px;
+}
+.ps-tab {
+  padding: 6px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.ps-tab.on {
+  color: var(--c-primary);
+  border-bottom-color: var(--c-primary);
+  font-weight: 700;
+}
+.ps-tab:hover:not(.on) { color: var(--c-text); }
+
 .ps-item {
   border: 1px solid var(--c-border-soft);
   border-radius: var(--radius);
