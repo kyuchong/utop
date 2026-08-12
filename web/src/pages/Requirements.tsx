@@ -446,9 +446,32 @@ export default function Requirements() {
     if (!window.confirm(`고른 ${pickedInList.length}건을 복제합니다.`)) return
     setListBusy('clone')
     try {
+      /*
+       * 새 ID 는 **원본의 다음 번호**다.
+       *
+       * 주차 번호(REQ-2633-0001)를 받았더니 복제본이 원본과 아무 상관
+       * 없는 이름이 됐다 — U-REQ-SYS-SW-IPv4_L2-001 을 복제하면
+       * …-002 가 나와야 어느 묶음의 것인지 읽힌다.
+       */
+      const takenRq = new Set(allReqs.map((x) => x.reqid ?? '').filter(Boolean))
       for (const r of pickedInList) {
-        const nres = await apiFetch('/api/req-next-id')
-        const nid = ((await nres.json()) as { reqid?: string }).reqid ?? ''
+        let nid = ''
+        const m = /^(.*?)(\d+)$/.exec(String(r.reqid ?? '').trim())
+        const pre = m?.[1]
+        const dig = m?.[2]
+        if (pre && dig) {
+          let max = Number(dig)
+          for (const t of takenRq) {
+            if (!t.startsWith(pre)) continue
+            const tail = t.slice(pre.length)
+            if (/^\d+$/.test(tail)) max = Math.max(max, Number(tail))
+          }
+          nid = pre + String(max + 1).padStart(dig.length, '0')
+          takenRq.add(nid)
+        } else {
+          const nres = await apiFetch('/api/req-next-id')
+          nid = ((await nres.json()) as { reqid?: string }).reqid ?? ''
+        }
         const pk = `rq-${Date.now()}-${Math.floor(Math.random() * 1e4)}`
         const { id: _id, reqid: _rid, tc: _tc, ...rest } = r as Record<string, unknown>
         await apiFetch(`/api/req/${encodeURIComponent(pk)}`, {
@@ -749,24 +772,11 @@ export default function Requirements() {
             토글을 없앴다. 폴더를 고르면 여기가 그 폴더의 표고, 표에서
             한 건을 고르면 3열이 상세다 — 고른 것이 화면을 정한다. */}
         <section className="panel rq-listcol" ref={midRef} style={{ flexBasis: midW }}>
-          <div className="rq-mid-h">
+          {/* 액션은 머리줄에 — 따로 한 줄을 먹고 있어서 표가 그만큼 짧았다 */}
+          <div className="rq-mid-h rq-mid-acts">
             <b>Requirements</b>
             <span className="rq-mid-hn">{midReqs.length}</span>
             <span className="sp" />
-          </div>
-          <div className="rq-ffind rq-midfind">
-            <input
-              value={listQ}
-              placeholder="요구사항 찾기"
-              onChange={(e) => setListQ(e.target.value)}
-            />
-            {listQ && (
-              <button type="button" title="지우기" onClick={() => setListQ('')}>
-                ✕
-              </button>
-            )}
-          </div>
-          {/* 표에 대한 일 — 표 바로 위. 고른 것이 있어야 되는 것은 그때만 켜진다 */}
               <div className="rq-actions">
                 {/* 한 건이면 Edit, 둘 이상이면 Bulk Edit 만 켜진다 */}
                 <button
@@ -833,7 +843,19 @@ export default function Requirements() {
                   Export
                 </button>
               </div>
-
+          </div>
+          <div className="rq-ffind rq-midfind">
+            <input
+              value={listQ}
+              placeholder="요구사항 찾기"
+              onChange={(e) => setListQ(e.target.value)}
+            />
+            {listQ && (
+              <button type="button" title="지우기" onClick={() => setListQ('')}>
+                ✕
+              </button>
+            )}
+          </div>
           <div className="rq-list scroll">
             <div className="rq-selbar">
               <label className="rq-selall">
@@ -857,8 +879,8 @@ export default function Requirements() {
                 <div />
                 <div>Requirement ID</div>
                 <div>Name</div>
-                <div>Map Test Case</div>
-                <div>Coverage</div>
+                <div>Map</div>
+                <div>TC</div>
                 <div>Priority</div>
               </div>
               {midReqs.length === 0 ? (
@@ -908,8 +930,12 @@ export default function Requirements() {
                           Map
                         </button>
                       </div>
-                      <div className={`rq-cov ${n > 0 ? 'covered' : 'none'}`}>
-                        {n > 0 ? `${n} Testcase(s) Covered` : 'Not Covered'}
+                      {/* 「65 Testcase(s) Covered」 는 자리만 먹는다 — 수만 있으면 된다 */}
+                      <div
+                        className={`rq-cov ${n > 0 ? 'covered' : 'none'}`}
+                        title={n > 0 ? `${n}개 시험이 덮고 있습니다` : '덮는 시험이 없습니다'}
+                      >
+                        {n > 0 ? `TC ${n}` : '미커버'}
                       </div>
                       <div>
                         {r.priority ? (

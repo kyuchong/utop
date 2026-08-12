@@ -602,9 +602,14 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   border-radius: var(--radius);
   overflow: hidden;
 }
+.rq-mid-acts .rq-actions { display: flex; gap: 4px; }
+.rq-mid-acts .rq-actions .btn { padding: 3px 8px; font-size: var(--fs-xs); }
 .rq-tr {
   display: grid;
-  grid-template-columns: 34px 200px 1fr 96px 150px 90px;
+  /* Name 이 주인공이다 — 나머지는 내용폭에 딱 붙인다.
+     Coverage 는 「TC 65」 로 줄여 56px 이면 된다. */
+  grid-template-columns: 28px fit-content(200px) minmax(0, 1fr) 40px 56px 64px;
+  column-gap: 10px;
   align-items: center;
   min-height: var(--row-h);
   /*
