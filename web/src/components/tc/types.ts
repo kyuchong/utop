@@ -990,6 +990,8 @@ export interface TcData {
    * 그렇다고 말해 준다.
    */
   topo_img?: string
+  /** 「배선대로 그리기」 로 구운 그림인가 — 배선이 없어지면 같이 지운다 */
+  topo_img_auto?: boolean
   /** 그림 폭. 늘여 놓은 것이 다시 열 때 그대로여야 한다 */
   topo_img_w?: number
   param_files?: string[]

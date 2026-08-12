@@ -62,6 +62,17 @@ export default function TcTopology({
   const [drawing, setDrawing] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  /*
+   * 배선이 다 없어졌는데 「배선대로 그리기」 로 구운 그림만 남으면, 그것은
+   * 이제 아무것도 아닌 배선의 사진이다 — 결과서에 옛 그림이 실린다.
+   * 구운 그림만 지운다. 문서에서 붙여 넣은 캡쳐는 사람 것이라 안 건드린다.
+   */
+  useEffect(() => {
+    if (data.topo_img && data.topo_img_auto && !wiring.length && !links.length) {
+      onChange({ topo_img: '', topo_img_w: undefined, topo_img_auto: undefined })
+    }
+  }, [data.topo_img, data.topo_img_auto, wiring.length, links.length]) // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!big) return
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && setBig(false)
@@ -120,7 +131,7 @@ export default function TcTopology({
       await upload(new File([blob], 'topology.png', { type: 'image/png' }))
       // 그림은 2배로 굽는다(인쇄용). 화면에는 절반 크기로 앉혀야 제 크기다 —
       // 그대로 두면 판보다 큰 그림이 화면을 덮는다.
-      onChange({ topo_img_w: Math.min(520, Math.round(shot.w / 2)) })
+      onChange({ topo_img_w: Math.min(520, Math.round(shot.w / 2)), topo_img_auto: true })
       onMsg('ok', '배선대로 구성도를 그렸습니다')
     } catch (e) {
       onMsg('err', e instanceof Error ? e.message : '그리지 못했습니다')
@@ -328,12 +339,9 @@ export default function TcTopology({
             </div>
           </div>
         ) : (
-          <div className="tp-picempty">
-            <b>구성도 그림</b>
-            <span>
-              아래에 배선을 이어 두었다면 <b>배선대로 그리기</b> 한 번이면 됩니다. 문서에 있는
-              구성도를 쓰려면 여기를 누르고 <b>Ctrl+V</b>, 끌어다 놓아도 됩니다.
-            </span>
+          <div className="tp-picempty slim">
+            <b>구성도 사진</b>
+            <span>배선을 이었으면 「배선대로 그리기」 한 번 · 문서 캡쳐는 여기 누르고 Ctrl+V</span>
             <button
               className="btn primary small"
               type="button"
@@ -400,6 +408,7 @@ export default function TcTopology({
         <TcWireMap
           wiring={wiring}
           devices={devices}
+          placed={(data.topoNodes ?? []).map((p) => p.dev)}
           sessions={sessions}
           links={links}
           ports={ports}

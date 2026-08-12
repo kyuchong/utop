@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Device } from '@/pages/Devices'
-import { deviceFull, deviceName, deviceShort, isMeter, meterKind } from './device'
+import { deviceFull, deviceShort, isMeter, meterKind } from './device'
 import { H, NARROW, SIDES, W, edgePt, layout, portTag, type BoardLine, type Side } from './board'
 import type { TcPortLink, TcWire } from './types'
 import './TcCanvas.css'
@@ -55,6 +55,10 @@ export default function TcCanvas({
   const [note, setNote] = useState('')
   /** 끄는 동안만 여기 담는다 — 매번 시험을 고치면 화면이 되돈다 */
   const [live, setLive] = useState<Record<string, { x: number; y: number }>>({})
+  /** 놓을 장비 고르기 — Lab → 제품군 → 장비 순으로 좁힌다 */
+  const [pkLab, setPkLab] = useState('')
+  const [pkRole, setPkRole] = useState('')
+  const [pkDev, setPkDev] = useState('')
   /** 누른 선 — 끊는 단추를 띄운다 */
   const [pickLine, setPickLine] = useState('')
   /** 잇는 중 손끝을 따라오는 선 */
@@ -343,15 +347,71 @@ export default function TcCanvas({
   return (
     <div className="cv">
       <div className="cv-bar">
-        <select value="" onChange={(e) => put(e.target.value)}>
-          <option value="">＋ 장비 · 계측기 놓기…</option>
-          {canAdd.map((d) => (
-            <option key={d.id} value={d.id}>
-              {isMeter(d) ? '[계측기] ' : ''}
-              {deviceFull(d)}
+        {/*
+          장비 고르기는 **등록할 때와 같은 차례**다: Lab → 제품군 → 장비 →
+          ＋추가. 한 드롭다운에 전부 부어 놓으니 같은 모델이 여럿일 때
+          헷갈렸다 — 단계로 좁히면 잘못 고를 자리가 줄어든다.
+        */}
+        <select
+          value={pkLab}
+          onChange={(e) => {
+            setPkLab(e.target.value)
+            setPkRole('')
+            setPkDev('')
+          }}
+        >
+          <option value="">Lab 전체</option>
+          {[...new Set(canAdd.map((d) => (d.lab || '').trim()).filter(Boolean))].map((v) => (
+            <option key={v} value={v}>
+              {v}
             </option>
           ))}
         </select>
+        <select
+          value={pkRole}
+          onChange={(e) => {
+            setPkRole(e.target.value)
+            setPkDev('')
+          }}
+        >
+          <option value="">제품군 전체</option>
+          {[...new Set(
+            canAdd
+              .filter((d) => !pkLab || (d.lab || '').trim() === pkLab)
+              .map((d) => (d.role || '').trim())
+              .filter(Boolean),
+          )].map((v) => (
+            <option key={v} value={v}>
+              {v}
+            </option>
+          ))}
+        </select>
+        <select value={pkDev} onChange={(e) => setPkDev(e.target.value)}>
+          <option value="">장비 고르기</option>
+          {canAdd
+            .filter(
+              (d) =>
+                (!pkLab || (d.lab || '').trim() === pkLab) &&
+                (!pkRole || (d.role || '').trim() === pkRole),
+            )
+            .map((d) => (
+              <option key={d.id} value={d.id}>
+                {isMeter(d) ? '[계측기] ' : ''}
+                {deviceFull(d)}
+              </option>
+            ))}
+        </select>
+        <button
+          className="btn primary small"
+          type="button"
+          disabled={!pkDev}
+          onClick={() => {
+            put(pkDev)
+            setPkDev('')
+          }}
+        >
+          ＋ 추가
+        </button>
         <span className="muted small">
           {from
             ? '이제 이을 상대 네모를 누르세요 (Esc 로 무르기)'
@@ -547,28 +607,9 @@ export default function TcCanvas({
         )}
       </div>
 
-      {/* 이어진 것 — 글로도 적는다. 결과서에 붙이는 것은 글이다 */}
-      {lines.length > 0 && (
-        <div className="cv-list">
-          {lines.map((l) => (
-            <div className="cv-row" key={l.k}>
-              <b>{deviceName(byId.get(l.a), devices)}</b>
-              <i>·</i>
-              <span>
-                {l.pa} ↔ {l.pb}
-              </span>
-              <i>·</i>
-              <b>{deviceName(byId.get(l.b), devices)}</b>
-              {l.wire && <span className="cv-tag">계측기</span>}
-              <span className="sp" />
-              <button className="btn small" type="button" onClick={() => cut(l.wire ? 'wire' : 'link', l.at)}>
-                끊기
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
+      {/* 목록은 아래(TcWireMap)에 한 벌만 둔다. 여기에도 그렸더니 같은
+          목록이 두 번 나와 화면만 길어졌다 — 선을 끊는 것은 판에서 선을
+          누르면 된다. */}
       {ask && (
         <div className="modal-back" onClick={() => setAsk(null)}>
           <div className="cv-ask" onClick={(e) => e.stopPropagation()}>

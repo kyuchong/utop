@@ -27,6 +27,8 @@ interface Props {
   wiring: TcWire[]
   links: TcPortLink[]
   devices: Device[]
+  /** 판에 놓인 장비 — 있으면 **이것만** 결선에 나온다 */
+  placed?: string[]
   sessions: string[]
   ports: Record<string, string[]>
   loading?: string
@@ -38,6 +40,7 @@ export default function TcWireMap({
   wiring,
   links,
   devices,
+  placed,
   sessions,
   ports,
   loading,
@@ -50,11 +53,26 @@ export default function TcWireMap({
 
   const devById = useMemo(() => new Map(devices.map((d) => [d.id, d])), [devices])
 
-  /** 고를 수 있는 것 — 시험에 앉힌 것이 먼저 */
+  /**
+   * 고를 수 있는 것.
+   *
+   * 판에 장비를 놓았으면 **놓은 것만** 나온다 — 등록장비 전부를 부어
+   * 놓으니 랩에 있지도 않은 장비끼리 이어지는 배선이 생겼다. 옛 화면도
+   * 배치한 장비만 결선에 내놓았다. 판이 비어 있을 때만 전부 보여 준다.
+   */
   const all = useMemo(() => {
+    if (placed?.length) {
+      return placed.map((id) => devices.find((d) => d.id === id)).filter(Boolean) as Device[]
+    }
     const first = sessions.map((s) => devices.find((d) => d.id === s)).filter(Boolean) as Device[]
     return [...first, ...devices.filter((d) => !sessions.includes(d.id))]
-  }, [devices, sessions])
+  }, [devices, sessions, placed])
+
+  /** 판의 번호 — 그림의 #1 과 목록의 #1 이 같은 장비여야 한다 */
+  const noOf = (id: string) => {
+    const i = (placed ?? []).indexOf(id)
+    return i < 0 ? '' : `#${i + 1} `
+  }
 
   const [aDev, setADev] = useState('')
   const [aPort, setAPort] = useState('')
@@ -74,7 +92,7 @@ export default function TcWireMap({
   const devOf = (w: TcWire) => w.dev || sessions[w.session] || ''
   const nameOf = (id: string) => {
     const d = devById.get(id)
-    return d ? deviceName(d, devices) : id
+    return noOf(id) + (d ? deviceName(d, devices) : id)
   }
 
   /** 이미 물려 있나 — 같은 포트를 두 번 쓰면 실행할 때 엉킨다 */
@@ -232,6 +250,7 @@ export default function TcWireMap({
         >
           {all.map((x) => (
             <option key={x.id} value={x.id}>
+              {noOf(x.id)}
               {isMeter(x) ? '[계측기] ' : ''}
               {deviceFull(x)}
             </option>

@@ -1939,6 +1939,11 @@ table.tb tr.r-bad td:first-child {
   align-items: center;
   gap: 10px;
   padding: 14px;
+}
+/* 한 줄 띠 — 사진이 없을 때 큰 상자가 화면 절반을 먹지 않게 */
+.tp-picempty.slim {
+  padding: 6px 12px;
+  font-size: var(--fs-xs);
   border: 1px dashed var(--c-border);
   border-radius: var(--r-card);
   font-size: var(--fs-xs);
