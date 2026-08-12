@@ -2578,8 +2578,11 @@ table.tb tr.r-bad td:first-child {
  * 정하고 남는 폭은 이름이 가져간다.
  */
 .rq-tr.tc-tr {
+  /* 요구사항·TC ID 는 **내용만큼만** 쓴다. minmax 로 못 박았더니
+     「SNMPv2」 여섯 글자 옆에 손바닥만 한 빈칸이 늘 붙어 다녔다 —
+     남는 폭은 이름 열 몫이다. */
   grid-template-columns:
-    34px minmax(140px, 220px) minmax(110px, 170px) minmax(140px, 1fr)
+    34px fit-content(220px) fit-content(200px) minmax(140px, 1fr)
     76px 46px 84px 88px;
 }
 .tc-req {
