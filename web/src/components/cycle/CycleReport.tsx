@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { buildSlides, type LguStep, type LguTc } from './lgu'
@@ -53,6 +53,27 @@ interface TcExtra {
 export default function CycleReport({ cycleId, model, version, onClose }: Props) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
+  /**
+   * 슬라이드 배율 — 몸통 폭에 맞춘다.
+   *
+   * 0.78 로 못 박아 두었더니 Full HD 화면에서도 998px 짜리 작은 장이
+   * 가운데 떠 있었다. 장은 1280×720 으로 그리고, 보여 줄 때만 몸통
+   * 폭에 맞춰 줄이거나 키운다 — 화면이 크면 꽉 찬다.
+   */
+  const bodyRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(0.78)
+  useEffect(() => {
+    const el = bodyRef.current
+    if (!el) return
+    const fit = () => {
+      const w = el.clientWidth - 44 // 좌우 여백
+      if (w > 0) setScale(Math.max(0.4, Math.min(1.4, w / 1280)))
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && !busy && onClose()
@@ -229,7 +250,7 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
           </button>
         </div>
 
-        <div className="cyrp-body">
+        <div className="cyrp-body" ref={bodyRef}>
           {loading ? (
             <div className="empty">시험 자료를 모으는 중…</div>
           ) : slides.length ? (
@@ -245,7 +266,11 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
                *
                * 1280×720 을 0.78 로 줄여 998×562 로 보인다.
                */
-              <div className="cyrp-wrap" key={i}>
+              <div
+                className="cyrp-wrap"
+                key={i}
+                style={{ width: Math.round(1280 * scale), height: Math.round(720 * scale) }}
+              >
                 <span className="cyrp-no">
                   {i + 1} / {slides.length}
                 </span>
@@ -253,11 +278,12 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
                   className="cyrp-frame"
                   title={`${i + 1}장`}
                   sandbox=""
+                  style={{ width: Math.round(1280 * scale), height: Math.round(720 * scale) }}
                   srcDoc={
                     '<!doctype html><meta charset="utf-8">' +
                     '<style>html,body{margin:0;padding:0;background:#fff}' +
                     '.p{width:1280px;height:720px;padding:24px 30px;box-sizing:border-box;' +
-                    'overflow:hidden;transform:scale(0.78);transform-origin:top left;' +
+                    `overflow:hidden;transform:scale(${scale});transform-origin:top left;` +
                     "font-family:'Malgun Gothic',AppleGothic,sans-serif;color:#111}</style>" +
                     `<div class="p">${html}</div>`
                   }

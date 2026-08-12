@@ -152,9 +152,10 @@
    16:9 슬라이드를 실제 크기(1280×720)로 그린 뒤 줄여서 보여 준다. 그래야
    화면에서 본 것과 파일이 같다. */
 .modal.cyrp {
-  width: 1400px;
+  /* 화면에 꽉 차게 — 장 배율이 몸통 폭을 따라오므로 클수록 크게 보인다 */
+  width: 96vw;
   max-width: 96vw;
-  height: 92vh;
+  height: 94vh;
   display: flex;
   flex-direction: column;
 }
@@ -176,8 +177,7 @@
  */
 .cyrp-wrap {
   position: relative;
-  width: 998px;
-  height: 562px;
+  /* 크기는 화면 폭에서 계산해 인라인으로 준다 */
   margin: 0 auto 16px;
   background: #fff;
   border: 1px solid var(--c-border-strong);
@@ -185,8 +185,6 @@
   overflow: hidden;
 }
 .cyrp-frame {
-  width: 998px;
-  height: 562px;
   border: 0;
   display: block;
 }
