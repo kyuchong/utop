@@ -414,7 +414,7 @@ export default function Requirements() {
    * 감각을 잃었다. 트리는 230px 이라 셋을 펴 둬도 상세가 넉넉하다 —
    * 좁으면 사람이 접기 단추로 접으면 된다.
    */
-  const goDetail = (pk: string, to: typeof tab = 'info') => {
+  const goDetail = (pk: string, to: typeof tab = tab) => {
     setSelected(pk)
     setTab(to)
   }
@@ -695,7 +695,6 @@ export default function Requirements() {
                 // 트리에서 요구사항을 고르면 그 한 건을 보는 것이다 → Detail.
                 // 폴더는 지우지 않는다(가운데 목록이 형제를 보여 줘야 한다).
                 setSelected(pk)
-                setTab('info')
               }}
               view={{ fullId, foldersOnly }}
               folderQ={folderQ}
@@ -879,7 +878,10 @@ export default function Requirements() {
                           type="button"
                           className="linkish"
                           title="상세 보기 — 3열에 뜹니다"
-                          onClick={() => goDetail(pk, 'info')}
+                          /* 탭은 안 건드린다 — Coverages 를 보며 여러
+                             요구사항을 훑을 때 매번 REQ Info 로 튕기면
+                             같은 탭을 계속 다시 눌러야 한다 */
+                          onClick={() => goDetail(pk)}
                         >
                           {r.title || '(제목 없음)'}
                         </button>
