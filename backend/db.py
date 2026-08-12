@@ -194,20 +194,33 @@ async def tc_upsert(tcid: str, data: dict) -> None:
             ON CONFLICT (tcid) DO UPDATE SET
               name=EXCLUDED.name, status=EXCLUDED.status, req_id=EXCLUDED.req_id,
               type=EXCLUDED.type, severity=EXCLUDED.severity, kind=EXCLUDED.kind,
-              created_by=EXCLUDED.created_by, updated_by=EXCLUDED.updated_by,
+              -- 생성자는 처음 것을 지킨다. EXCLUDED 로 덮으면 저장할 때마다
+              -- (대개 빈 값으로) 지워져 기록이 늘 비었다.
+              created_by=COALESCE(NULLIF(tc.created_by, ''), EXCLUDED.created_by),
+              updated_by=EXCLUDED.updated_by,
               step_count=EXCLUDED.step_count, data=EXCLUDED.data, updated_at=now()
             """,
             tcid, m["name"], m["status"], m["req_id"], m["type"], m["severity"], m["kind"],
-            m["created_by"], m["updated_by"], m["step_count"], data,
+            # 새로 만드는 건이면 만든 사람 = 저장한 사람
+            m["created_by"] or m["updated_by"], m["updated_by"], m["step_count"], data,
         )
 
 
 async def tc_get(tcid: str) -> Optional[dict]:
     async with pool().acquire() as c:
-        row = await c.fetchrow("SELECT data, updated_at FROM tc WHERE tcid=$1", tcid)
+        row = await c.fetchrow(
+            "SELECT data, created_by, updated_by, created_at, updated_at FROM tc WHERE tcid=$1",
+            tcid,
+        )
         if not row:
             return None
         d = dict(row["data"] or {})
+        # 기록(누가·언제)은 **표가 사실**이다. data 안에는 없거나 낡은 값이
+        # 들어 있어 화면의 「기록」 칸이 늘 – 였다.
+        d["created_by"] = row["created_by"] or d.get("created_by") or ""
+        d["updated_by"] = row["updated_by"] or d.get("updated_by") or ""
+        d["created_at"] = row["created_at"].isoformat() if row["created_at"] else ""
+        d["updated_at"] = row["updated_at"].isoformat() if row["updated_at"] else ""
         # 저장할 때 「내가 읽은 뒤에 남이 고쳤나」 를 가리는 데 쓴다.
         # 자료 안의 updated_at 은 화면이 덮어쓰기도 해서 믿을 수 없다 —
         # 표의 값이 사실이다.
@@ -534,7 +547,10 @@ async def req_upsert(rid: str, data: dict) -> None:
             ON CONFLICT (id) DO UPDATE SET
               reqid=EXCLUDED.reqid, title=EXCLUDED.title, folder=EXCLUDED.folder,
               status=EXCLUDED.status, priority=EXCLUDED.priority,
-              created_by=EXCLUDED.created_by, updated_by=EXCLUDED.updated_by,
+              -- 생성자는 처음 것을 지킨다. EXCLUDED 로 덮으면 저장할 때마다
+              -- (대개 빈 값으로) 지워져 기록이 늘 비었다.
+              created_by=COALESCE(NULLIF(tc.created_by, ''), EXCLUDED.created_by),
+              updated_by=EXCLUDED.updated_by,
               cat1=EXCLUDED.cat1, cat2=EXCLUDED.cat2, cat3=EXCLUDED.cat3, cat4=EXCLUDED.cat4,
               data=EXCLUDED.data, updated_at=now()
             """,

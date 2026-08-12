@@ -2736,3 +2736,16 @@ table.tb tr.r-bad td:first-child {
 .req-combo-list button:hover { background: var(--c-surface-2); }
 .req-combo-list button.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
 .req-combo-list button.muted { color: var(--c-text-faint); }
+
+
+/* Info 기본란 — ID(좁게) + 제목(넓게) 두 줄 */
+.tc-grid-idt {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 10px 12px;
+}
+.tc-grid-idt input[readonly] {
+  background: var(--c-surface-alt);
+  color: var(--c-text-muted);
+  cursor: default;
+}

@@ -92,6 +92,11 @@ export default function TcInfo({ data, onChange }: Props) {
 
   /** 지금 값이 목록에 없을 수도 있다(옛 자료는 라벨로 저장돼 있다) */
   const cur = String(data.req_id ?? '')
+  /** 고른 요구사항의 사람이 읽는 ID (REQ-2633-0003) */
+  const curReqId = useMemo(() => {
+    const r = (reqQ.data?.reqs ?? []).find((x) => reqPk(x) === cur)
+    return r ? reqLabel(r) || '' : ''
+  }, [reqQ.data, cur])
   const known = reqOpts.some((o) => o.pk === cur)
 
   const STATUSES = useCodes('tc_status', FB_STATUS)
@@ -134,9 +139,15 @@ export default function TcInfo({ data, onChange }: Props) {
             요구사항과 제목은 글이라 넓게, 고르는 값 다섯은 좁게 한 줄에
             나란히 둔다 — 한 격자에 섞어 흘려보내면 제목이 셀렉트만큼
             좁아져서 긴 제목을 못 읽는다. */}
-        <div className="tc-grid tc-grid-2">
+        {/* ID 와 제목을 나란히 — 「요구사항 ID · 제목 / 시험항목 ID · 제목」
+            두 줄. ID 는 참조 번호라 읽기 전용이다. */}
+        <div className="tc-grid tc-grid-idt">
+          <label className="fld">
+            <span>요구사항 ID</span>
+            <input value={curReqId || (cur ? cur : '–')} readOnly tabIndex={-1} />
+          </label>
           <div className="fld" ref={reqBoxRef}>
-            <span>요구사항</span>
+            <span>요구사항 제목</span>
             <div className="req-combo">
               <input
                 value={
@@ -192,7 +203,11 @@ export default function TcInfo({ data, onChange }: Props) {
             </div>
           </div>
           <label className="fld">
-            <span>제목</span>
+            <span>시험항목 ID</span>
+            <input value={String(data.tcid ?? '') || '–'} readOnly tabIndex={-1} />
+          </label>
+          <label className="fld">
+            <span>시험항목 제목</span>
             <input
               value={data.name ?? ''}
               placeholder="시험 제목"
