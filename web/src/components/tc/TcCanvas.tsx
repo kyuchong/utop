@@ -422,7 +422,17 @@ export default function TcCanvas({
           장비 {placed.length} · 선 {lines.length}
         </span>
         {placed.length > 0 && (
-          <button className="btn small" type="button" onClick={() => onPlaced([])}>
+          <button
+            className="btn small"
+            type="button"
+            title="판의 장비와 배선을 모두 지웁니다"
+            onClick={() => {
+              // 판이 곧 사실이다 — 판을 비우면 배선도 비운다. 장비만
+              // 사라지고 배선이 남으면 보이지 않는 선이 결과서에 실린다.
+              onChange({ wiring: [], links: [] })
+              onPlaced([])
+            }}
+          >
             판 비우기
           </button>
         )}
@@ -551,10 +561,21 @@ export default function TcCanvas({
                   <button
                     type="button"
                     className="cv-x"
-                    title="판에서 내립니다 — 배선은 남습니다"
+                    title="판에서 내리고 이 장비의 배선도 끊습니다"
                     onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => {
                       e.stopPropagation()
+                      /*
+                       * 배선도 같이 끊는다.
+                       *
+                       * 장비만 내리면 그 장비에 물린 배선이 자료에 남아,
+                       * 목록과 결과서가 유령 배선을 계속 잡고 있었다 —
+                       * 판에 없는 장비의 선이 결과서에 실린다.
+                       */
+                      onChange({
+                        wiring: wiring.filter((w) => devOf(w) !== p.dev && w.meter !== p.dev),
+                        links: links.filter((l) => l.a.dev !== p.dev && l.b.dev !== p.dev),
+                      })
                       onPlaced(placed.filter((x) => x.dev !== p.dev))
                     }}
                   >
