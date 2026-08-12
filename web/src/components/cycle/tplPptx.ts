@@ -74,8 +74,9 @@ export function buildTplSlides(tcs: LguTc[]): TplSlide[] {
   for (const tc of tcs) {
     const r = slideRanges(tc)
     const head = {
-      // TC_ID 는 아직 비운다 — 나중에 시험항목 번호가 정해지면 그것이 들어간다
-      tc_id: '',
+      // 미리보기와 같아야 한다 — 비워 두었더니 「파일이 다르다」 는 말이
+      // 나왔다. 화면에 보이는 그대로 나가는 것이 원칙이다.
+      tc_id: String(tc.tcid ?? ''),
       req_id: String(tc.reqid ?? ''),
       tc_name: String(tc.name ?? ''),
     }

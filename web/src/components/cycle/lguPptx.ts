@@ -130,7 +130,7 @@ export async function saveLguPptx(
               valign: 'top',
               fontSize: 9.5,
             }),
-            cell('시험 결과 참고 (다음장)', {
+            cell('뒷면 참조', {
               colspan: 2,
               align: 'center',
               valign: 'middle',

@@ -214,8 +214,28 @@ const COLG =
 const LOGO =
   '<span style="font-family:Arial,Helvetica,sans-serif;font-weight:800;font-size:23px;color:#A50034;letter-spacing:-0.5px;">LG U<span style="color:#E6007E;font-size:15px;vertical-align:super;font-weight:800;">+</span></span>'
 
+/*
+ * 머리·바닥은 **고객사 pptx 양식 그대로** 흉내 낸다.
+ *
+ * 미리보기와 내려받은 파일이 다르게 생기면 「어느 쪽이 진짜냐」 는 말이
+ * 나온다 — 양식(머리·바닥·법적 문구)은 파일을 따라가고, 내용은 미리보기
+ * 그대로 파일에 실린다. 서로가 서로를 베끼는 방향을 정해 둔 것이다.
+ */
 const pageHead = (ttl: string) =>
-  `<div style="display:flex;align-items:flex-end;justify-content:space-between;padding:0 6px 2px;"><div style="font-size:24px;font-weight:800;letter-spacing:6px;color:#111;">${ttl}</div>${LOGO}</div><div style="border-bottom:3px solid #111;"></div><div style="border-bottom:1.4px solid #111;margin-top:2px;margin-bottom:11px;"></div>`
+  `<div style="display:flex;align-items:center;justify-content:space-between;padding:0 6px 2px;">` +
+  `<div style="font-size:22px;font-weight:800;letter-spacing:4px;color:#111;">${ttl}</div>` +
+  `<div style="display:flex;align-items:center;gap:14px;">${LOGO}` +
+  `<span style="font-family:Arial,Helvetica,sans-serif;font-size:15px;font-weight:800;color:#111;">LG U+ Proprietary &amp; Confidential</span>` +
+  `</div></div>` +
+  `<div style="border-bottom:3px solid #111;"></div><div style="border-bottom:1.4px solid #111;margin-top:2px;margin-bottom:11px;"></div>`
+
+/** 바닥 — 양식의 법적 문구와 쪽번호 */
+const pageFoot = (no: number) =>
+  `<div style="position:absolute;left:30px;right:30px;bottom:14px;">` +
+  `<div style="text-align:right;font-size:12px;color:#111;margin-bottom:2px;">${no}</div>` +
+  `<div style="border-top:3px solid #111;"></div><div style="border-top:1.4px solid #111;margin-top:2px;"></div>` +
+  `<div style="font-size:9.5px;color:#333;margin-top:4px;">본 문서는 LG U+이 모든 지적재산권을 소유하고 있사오니, 해당 문서를 무단으로 전재/복사/변조/재배포 하지 마시기 바라며, 이를 위반할 경우 모든 법적 책임은 귀사에 있음을 알려드립니다</div>` +
+  `</div>`
 
 const headerRow = (tc: LguTc) =>
   '<tr>' +
@@ -254,7 +274,7 @@ export function page1(tc: LguTc, range: [number, number]): string {
     '<tr>' +
     val(method, 4, 'vertical-align:top;height:210px;line-height:1.55;overflow:hidden;') +
     val(
-      '<div style="text-align:center;font-weight:700;color:#333;padding-top:80px;">시험 결과 참고 (다음장)</div>',
+      '<div style="text-align:center;font-weight:700;color:#333;padding-top:80px;">뒷면 참조</div>',
       2,
       'vertical-align:middle;',
     ) +
@@ -313,5 +333,6 @@ export function buildSlides(tcs: LguTc[]): string[] {
     for (const range of r.method) out.push(page1(tc, range))
     for (const range of r.result) out.push(page2(tc, range))
   }
-  return out
+  // 쪽번호·법적 문구 바닥 — 장 전체 번호는 다 모은 뒤에야 안다
+  return out.map((html, i) => `<div style="position:relative;height:100%;">${html}${pageFoot(i + 1)}</div>`)
 }
