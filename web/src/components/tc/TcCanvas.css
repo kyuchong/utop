@@ -43,6 +43,8 @@
 .cv-l path { fill: none; stroke: #9aa4ae; stroke-width: 1.5; }
 .cv-l.wire path { stroke: var(--c-primary); stroke-width: 1.8; }
 .cv-l text { font-size: 9px; fill: var(--c-text-muted); font-family: var(--font-mono); }
+/* 포트 이름 — 이제 이것이 선의 주된 이름이다. 옅게 두면 안 읽힌다. */
+.cv-l .cv-pt text { fill: var(--c-text); font-weight: 600; }
 .cv-l .cv-lt-bg {
   stroke: var(--c-surface-alt);
   stroke-width: 3.5;
@@ -85,20 +87,28 @@
 .cv-node.meter em { color: var(--c-primary); }
 
 /* 잇는 점 — 양옆 가운데. 둘 다 같은 일을 한다 */
+/* 잇는 점 — 네 변과 네 모서리, 여덟 군데 */
 .cv-dot {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 13px;
-  height: 13px;
+  width: 11px;
+  height: 11px;
+  margin: -6px 0 0 -6px;   /* 점의 한가운데를 그 자리에 맞춘다 */
   padding: 0;
   border: 2px solid var(--c-border);
   border-radius: 50%;
   background: var(--c-surface);
   cursor: crosshair;
 }
-.cv-dot.l { left: -7px; }
-.cv-dot.r { right: -7px; }
+.cv-dot.l  { left: 0;    top: 50%; }
+.cv-dot.r  { left: 100%; top: 50%; }
+.cv-dot.t  { left: 50%;  top: 0; }
+.cv-dot.b  { left: 50%;  top: 100%; }
+.cv-dot.tl { left: 0;    top: 0; }
+.cv-dot.tr { left: 100%; top: 0; }
+.cv-dot.bl { left: 0;    top: 100%; }
+.cv-dot.br { left: 100%; top: 100%; }
+/* 모서리 점은 「판에서 내리기(✕)」 와 겹친다. 그쪽을 피해 살짝 안으로. */
+.cv-dot.tr { margin-left: -14px; }
 .cv-dot:hover { border-color: var(--c-primary); background: var(--c-primary); }
 .cv-node.from .cv-dot { border-color: var(--c-primary); background: var(--c-primary); }
 /* 고르는 중 — 나머지 네모가 「여기에 놓으세요」 로 보여야 한다 */

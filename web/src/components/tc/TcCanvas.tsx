@@ -32,8 +32,79 @@ interface Props {
   onChange: (v: { wiring?: TcWire[]; links?: TcPortLink[] }) => void
 }
 
-const W = 132
-const H = 46
+const W = 152
+const H = 56
+
+/**
+ * 선이 붙는 자리 — **여덟 군데**. 네 변과 네 모서리다.
+ *
+ * 넷만 두었더니 비스듬히 놓인 장비끼리 선이 변을 억지로 타고 돌았다.
+ * 실제 랩에서도 장비는 나란히만 놓이지 않는다.
+ */
+const SIDES = ['t', 'tr', 'r', 'br', 'b', 'bl', 'l', 'tl'] as const
+type Side = (typeof SIDES)[number]
+
+/** 변인가 모서리인가 — 모서리는 한 점이라 여럿을 벌려 놓을 수 없다 */
+const isEdge = (s: Side) => s === 'l' || s === 'r' || s === 't' || s === 'b'
+
+/** 그 자리의 좌표. `f` 는 변에서 어디쯤(0~1)인지 — 모서리는 안 쓴다. */
+function edgePt(p: { x: number; y: number }, side: Side, f: number) {
+  switch (side) {
+    case 'l':
+      return { x: p.x, y: p.y + H * f }
+    case 'r':
+      return { x: p.x + W, y: p.y + H * f }
+    case 't':
+      return { x: p.x + W * f, y: p.y }
+    case 'b':
+      return { x: p.x + W * f, y: p.y + H }
+    case 'tl':
+      return { x: p.x, y: p.y }
+    case 'tr':
+      return { x: p.x + W, y: p.y }
+    case 'bl':
+      return { x: p.x, y: p.y + H }
+    default:
+      return { x: p.x + W, y: p.y + H }
+  }
+}
+
+/** 그 자리에서 밖으로 나가는 쪽 */
+const AWAY: Record<Side, { x: number; y: number }> = {
+  t: { x: 0, y: -1 },
+  tr: { x: 0.71, y: -0.71 },
+  r: { x: 1, y: 0 },
+  br: { x: 0.71, y: 0.71 },
+  b: { x: 0, y: 1 },
+  bl: { x: -0.71, y: 0.71 },
+  l: { x: -1, y: 0 },
+  tl: { x: -0.71, y: -0.71 },
+}
+
+/** 마주 보는 자리 — 상대 네모는 반대쪽으로 받는다 */
+const FACING: Record<Side, Side> = {
+  t: 'b',
+  tr: 'bl',
+  r: 'l',
+  br: 'tl',
+  b: 't',
+  bl: 'tr',
+  l: 'r',
+  tl: 'br',
+}
+
+/**
+ * 상대가 어느 쪽에 있는가 — 여덟 방향 중 하나로.
+ *
+ * 45도씩 나눈다. 나란히 놓이면 옆구리로, 비스듬하면 모서리로 나간다.
+ */
+function sideToward(dx: number, dy: number): Side {
+  const deg = (Math.atan2(dy, dx) * 180) / Math.PI // -180 ~ 180, 아래가 +
+  const i = Math.round(((deg + 360) % 360) / 45) % 8
+  // 0도(오른쪽)부터 시계 방향으로
+  const ring: Side[] = ['r', 'br', 'b', 'bl', 'l', 'tl', 't', 'tr']
+  return ring[i] ?? 'r'
+}
 
 export default function TcCanvas({
   devices,
@@ -185,13 +256,25 @@ export default function TcCanvas({
 
   /** 그릴 선 — 판에 놓인 것끼리만 */
   const on = new Set(placed.map((p) => p.dev))
-  const lines: Array<{ k: string; a: string; b: string; t: string; wire: boolean; at: number }> = []
+  const lines: Array<{
+    k: string
+    a: string
+    b: string
+    /** 양 끝의 포트 — 선 가운데가 아니라 **붙는 자리**에 적는다 */
+    pa: string
+    pb: string
+    t: string
+    wire: boolean
+    at: number
+  }> = []
   wiring.forEach((w, i) => {
     if (on.has(devOf(w)) && on.has(w.meter))
       lines.push({
         k: `w${i}`,
         a: devOf(w),
         b: w.meter,
+        pa: w.port,
+        pb: w.meterPort,
         t: `${w.port} ↔ ${w.meterPort}`,
         wire: true,
         at: i,
@@ -203,11 +286,53 @@ export default function TcCanvas({
         k: `l${i}`,
         a: l.a.dev,
         b: l.b.dev,
+        pa: l.a.port,
+        pb: l.b.port,
         t: `${l.a.port} ↔ ${l.b.port}`,
         wire: false,
         at: i,
       })
   })
+
+  /*
+   * 선이 붙는 자리를 **변 위에 벌린다.**
+   *
+   * 장비 한 대에 선이 셋이면 셋 다 같은 변 한가운데로 몰려서, 어느 선이
+   * 어느 포트인지 눈으로 못 가린다 — 실제 장비는 포트가 스물여덟인데
+   * 그림에서는 한 점이었다.
+   *
+   * 그래서 두 번 센다. 먼저 선마다 어느 변으로 나갈지 정하고, 그 다음
+   * 같은 변을 쓰는 선들을 상대 쪽 자리 순으로 줄 세워 고르게 나눈다.
+   * 줄 세우지 않고 나누면 선끼리 서로 넘어가며 엇갈린다.
+   */
+  const ends = lines.map((l) => {
+    const A = posOf(l.a)
+    const B = posOf(l.b)
+    const ac = { x: A.x + W / 2, y: A.y + H / 2 }
+    const bc = { x: B.x + W / 2, y: B.y + H / 2 }
+    const sa = sideToward(bc.x - ac.x, bc.y - ac.y)
+    return { l, A, B, ac, bc, sa, sb: FACING[sa] }
+  })
+
+  const slots = new Map<string, Array<{ k: string; order: number }>>()
+  const claim = (dev: string, side: Side, k: string, order: number) => {
+    const key = `${dev}|${side}`
+    const arr = slots.get(key) ?? []
+    arr.push({ k, order })
+    slots.set(key, arr)
+  }
+  for (const e of ends) {
+    // 옆으로 나가면 상대의 높이로, 위아래로 나가면 상대의 가로 자리로 줄 세운다.
+    // 모서리는 한 점이라 나눌 것이 없다.
+    if (isEdge(e.sa)) claim(e.l.a, e.sa, e.l.k, e.sa === 'l' || e.sa === 'r' ? e.bc.y : e.bc.x)
+    if (isEdge(e.sb)) claim(e.l.b, e.sb, e.l.k, e.sb === 'l' || e.sb === 'r' ? e.ac.y : e.ac.x)
+  }
+  for (const arr of slots.values()) arr.sort((x, y) => x.order - y.order)
+  const fracOf = (dev: string, side: Side, k: string) => {
+    const arr = slots.get(`${dev}|${side}`) ?? []
+    const i = arr.findIndex((x) => x.k === k)
+    return i < 0 ? 0.5 : (i + 1) / (arr.length + 1)
+  }
 
   const canAdd = devices.filter((d) => !placed.some((p) => p.dev === d.id))
   const height = Math.max(
@@ -276,54 +401,63 @@ export default function TcCanvas({
         ) : (
           <>
             <svg className="cv-svg">
-              {lines.map((l) => {
+              {ends.map((e) => {
                 /*
-                 * 선이 나가는 쪽을 **자리로 정한다.**
+                 * 가까운 변에서 나가고 가까운 변으로 들어간다. 늘 오른쪽으로
+                 * 내보내고 왼쪽으로 받게 해 두었더니 상대가 왼쪽이나 아래에
+                 * 있으면 선이 네모를 감아 돌며 꼬였다.
                  *
-                 * 늘 오른쪽으로 내보내고 왼쪽으로 받게 해 두었더니, 상대가
-                 * 왼쪽이나 아래에 있으면 선이 네모를 감아 돌며 꼬였다.
-                 * 가까운 변에서 나가고 가까운 변으로 들어가야 한다.
+                 * 붙는 자리는 변 한가운데가 아니라 **제 차례**다. 위에서
+                 * 나눠 둔 몫을 여기서 쓴다.
                  */
-                const A = posOf(l.a)
-                const B = posOf(l.b)
-                const ac = { x: A.x + W / 2, y: A.y + H / 2 }
-                const bc = { x: B.x + W / 2, y: B.y + H / 2 }
-                const dx = bc.x - ac.x
-                const dy = bc.y - ac.y
-                let p1: { x: number; y: number }
-                let p2: { x: number; y: number }
-                let c1: { x: number; y: number }
-                let c2: { x: number; y: number }
-                if (Math.abs(dx) >= Math.abs(dy)) {
-                  // 옆으로 — 가까운 옆구리끼리
-                  const right = dx >= 0
-                  p1 = { x: right ? A.x + W : A.x, y: ac.y }
-                  p2 = { x: right ? B.x : B.x + W, y: bc.y }
-                  const k = Math.max(30, Math.abs(p2.x - p1.x) / 2)
-                  c1 = { x: p1.x + (right ? k : -k), y: p1.y }
-                  c2 = { x: p2.x + (right ? -k : k), y: p2.y }
-                } else {
-                  // 위아래로 — 가까운 위아래 변끼리
-                  const down = dy >= 0
-                  p1 = { x: ac.x, y: down ? A.y + H : A.y }
-                  p2 = { x: bc.x, y: down ? B.y : B.y + H }
-                  const k = Math.max(24, Math.abs(p2.y - p1.y) / 2)
-                  c1 = { x: p1.x, y: p1.y + (down ? k : -k) }
-                  c2 = { x: p2.x, y: p2.y + (down ? -k : k) }
+                const l = e.l
+                const p1 = edgePt(e.A, e.sa, fracOf(l.a, e.sa, l.k))
+                const p2 = edgePt(e.B, e.sb, fracOf(l.b, e.sb, l.k))
+                const out = (s: Side, p: { x: number; y: number }, k: number) => ({
+                  x: p.x + AWAY[s].x * k,
+                  y: p.y + AWAY[s].y * k,
+                })
+                const k = Math.max(
+                  28,
+                  Math.hypot(p2.x - p1.x, p2.y - p1.y) / 3,
+                )
+                const c1 = out(e.sa, p1, k)
+                const c2 = out(e.sb, p2, k)
+
+                /*
+                 * 포트 이름은 **붙는 자리 옆**에 적는다.
+                 *
+                 * 전에는 「Te0/3 ↔ 4106/3」 을 선 한가운데 하나로 적었다.
+                 * 그러면 어느 이름이 어느 쪽 장비 것인지 짚어 보아야 알고,
+                 * 선이 여럿이면 가운데 글자끼리 겹친다. 옛 화면이 포트까지
+                 * 그려 주던 것도 이 때문이다.
+                 */
+                const tag = (s: Side, p: { x: number; y: number }, txt: string, key: string) => {
+                  if (!txt) return null
+                  const at = out(s, p, 11)
+                  const anchor =
+                    AWAY[s].x > 0.3 ? 'start' : AWAY[s].x < -0.3 ? 'end' : 'middle'
+                  // 위로 나가면 글자를 조금 더 올린다 — 기준선이 글자 아래다
+                  const dy = AWAY[s].y < -0.3 ? -2 : AWAY[s].y > 0.3 ? 9 : 3
+                  return (
+                    <g key={key} className="cv-pt">
+                      <text x={at.x} y={at.y + dy} textAnchor={anchor} className="cv-lt-bg">
+                        {txt}
+                      </text>
+                      <text x={at.x} y={at.y + dy} textAnchor={anchor}>
+                        {txt}
+                      </text>
+                    </g>
+                  )
                 }
-                const mx = (p1.x + p2.x) / 2
-                const my = (p1.y + p2.y) / 2 - 4
+
                 return (
                   <g key={l.k} className={l.wire ? 'cv-l wire' : 'cv-l'}>
                     <path
                       d={`M${p1.x},${p1.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${p2.x},${p2.y}`}
                     />
-                    <text x={mx} y={my} textAnchor="middle" className="cv-lt-bg">
-                      {l.t}
-                    </text>
-                    <text x={mx} y={my} textAnchor="middle">
-                      {l.t}
-                    </text>
+                    {tag(e.sa, p1, l.pa, `${l.k}a`)}
+                    {tag(e.sb, p2, l.pb, `${l.k}b`)}
                   </g>
                 )
               })}
@@ -353,10 +487,11 @@ export default function TcCanvas({
                       알 수 없었다. */}
                   <i>{[d?.ip || p.dev, d?.lab].filter(Boolean).join(' · ')}</i>
                   {meter && <em>{meterKind(d as Device) === 'stc' ? 'STC' : 'N2X'}</em>}
-                  {/* 잇는 점. 네모를 끄는 것과 헷갈리지 않게 점만 누른다 */}
-                  {/* 점은 양옆에. 한쪽에만 두었더니 어느 쪽으로 이어야
-                      하는지 헷갈렸다 — 둘 다 같은 일을 한다. */}
-                  {(['l', 'r'] as const).map((side) => (
+                  {/* 잇는 점. 네모를 끄는 것과 헷갈리지 않게 점만 누른다.
+                      여덟 군데 — 네 변과 네 모서리. 양옆 둘만 두었더니
+                      비스듬히 놓인 장비끼리는 어디서 시작해야 하는지
+                      알 수 없었다. 여덟 다 같은 일을 한다. */}
+                  {SIDES.map((side) => (
                     <button
                       key={side}
                       type="button"

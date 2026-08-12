@@ -277,7 +277,10 @@ export default function TcTopology({
           <div className="tp-picwrap">
             <div
               className="tp-picbox"
-              style={data.topo_img_w ? { width: data.topo_img_w } : undefined}
+              // 그림이 원래 크기(2배로 구워 1200px 남짓)로 펴져 화면을 다
+              // 먹었다. 보기 좋은 크기로 앉히고, 더 보고 싶으면 오른쪽
+              // 아래를 끌거나 눌러서 크게 본다.
+              style={{ width: data.topo_img_w ?? 460 }}
               onPointerUp={(e) => {
                 const now = Math.round(e.currentTarget.offsetWidth)
                 if (now > 0 && now !== data.topo_img_w) onChange({ topo_img_w: now })
@@ -295,18 +298,24 @@ export default function TcTopology({
                 ×
               </button>
             </div>
-            {/* 배선을 고친 뒤 그림만 옛것으로 남는 것을 막는다 */}
-            {(wiring.length > 0 || links.length > 0) && (
-              <button
-                className="btn small"
-                type="button"
-                disabled={busy || drawing}
-                title="지금 배선대로 구성도를 다시 그립니다"
-                onClick={() => void drawWires()}
-              >
-                {drawing ? '그리는 중…' : '배선대로 다시 그리기'}
-              </button>
-            )}
+            {/* 그림이 둘로 보인다는 말을 들었다. 위는 결과서에 실릴
+                구성도이고 아래 판은 고치는 곳인데, 화면이 그렇다고 말해
+                주지 않으면 어느 것을 봐야 하는지 알 수가 없다. */}
+            <div className="tp-picside">
+              <b>결과서에 실릴 구성도</b>
+              <span>아래 판에서 고치고 다시 그리면 됩니다</span>
+              {(wiring.length > 0 || links.length > 0) && (
+                <button
+                  className="btn small"
+                  type="button"
+                  disabled={busy || drawing}
+                  title="지금 배선대로 구성도를 다시 그립니다"
+                  onClick={() => void drawWires()}
+                >
+                  {drawing ? '그리는 중…' : '배선대로 다시 그리기'}
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="tp-picempty">
