@@ -767,10 +767,10 @@ export default function Requirements() {
                 <button
                   className="btn"
                   type="button"
-                  title="엑셀·문서에서 붙여넣어 여러 건을 한 번에 들여옵니다"
+                  title="엑셀·문서에서 붙여넣어 여러 건을 한 번에 만듭니다"
                   onClick={() => setImportOpen(true)}
                 >
-                  Import
+                  Bulk Add
                 </button>
                 <button
                   className="btn"
