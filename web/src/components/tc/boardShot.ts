@@ -116,32 +116,6 @@ export function boardSvg(g: BoardInput): string {
     )
   }
 
-  // 포트 이름 — 붙는 자리 옆에. 선을 다 그은 뒤에 얹어야 글자가 안 묻힌다
-  for (const e of laid) {
-    const gap = Math.hypot(e.p2.x - e.p1.x, e.p2.y - e.p1.y)
-    if (gap < NARROW) {
-      // 틈이 좁으면 자리가 없다 — 선 가운데 알약 하나로
-      const txt = `${e.l.pa} ↔ ${e.l.pb}`
-      const w2 = txt.length * 6.2 + 16
-      out.push(
-        `<rect x="${e.mid.x - w2 / 2}" y="${e.mid.y - 10}" width="${w2}" height="18" rx="9" ` +
-          `fill="#fff" stroke="${INK.wire}" stroke-width="1"/>`,
-      )
-      out.push(
-        `<text x="${e.mid.x}" y="${e.mid.y + 3}" text-anchor="middle" font-family='${FONT}' ` +
-          `font-size="11" font-weight="700" fill="${INK.wire}">${esc(txt)}</text>`,
-      )
-      continue
-    }
-    const tag = (s: Side, p: { x: number; y: number }, txt: string) => {
-      if (!txt) return
-      const at = portTag(s, p)
-      out.push(label(at.x, at.y, txt, at.anchor, 11, true))
-    }
-    tag(e.sa, e.p1, e.l.pa)
-    tag(e.sb, e.p2, e.l.pb)
-  }
-
   let no = 0
   for (const p of g.placed) {
     no += 1
@@ -180,6 +154,33 @@ export function boardSvg(g: BoardInput): string {
           `fill="${meter ? INK.meterEdge : INK.sub}" font-weight="700">${esc(kind)}</text>`,
       )
     }
+  }
+
+  // 포트 이름은 **맨 나중에** — 네모까지 다 그린 위에 얹는다. 알약이 네모
+  // 밑에 깔려 반쯤 잘린 채 나온 적이 있다.
+  for (const e of laid) {
+    const gap = Math.hypot(e.p2.x - e.p1.x, e.p2.y - e.p1.y)
+    if (gap < NARROW) {
+      // 틈이 좁으면 자리가 없다 — 선 가운데 알약 하나로
+      const txt = `${e.l.pa} ↔ ${e.l.pb}`
+      const w2 = txt.length * 6.2 + 16
+      out.push(
+        `<rect x="${e.mid.x - w2 / 2}" y="${e.mid.y - 10}" width="${w2}" height="18" rx="9" ` +
+          `fill="#fff" stroke="${INK.wire}" stroke-width="1"/>`,
+      )
+      out.push(
+        `<text x="${e.mid.x}" y="${e.mid.y + 3}" text-anchor="middle" font-family='${FONT}' ` +
+          `font-size="11" font-weight="700" fill="${INK.wire}">${esc(txt)}</text>`,
+      )
+      continue
+    }
+    const tag = (s: Side, p: { x: number; y: number }, txt: string) => {
+      if (!txt) return
+      const at = portTag(s, p)
+      out.push(label(at.x, at.y, txt, at.anchor, 11, true))
+    }
+    tag(e.sa, e.p1, e.l.pa)
+    tag(e.sb, e.p2, e.l.pb)
   }
 
   out.push('</svg>')

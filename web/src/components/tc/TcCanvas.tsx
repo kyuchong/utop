@@ -378,7 +378,7 @@ export default function TcCanvas({
             <svg className="cv-svg">
               {ends.map((e) => {
                 const l = e.l
-                const { p1, p2, d, mid } = e
+                const { d, mid } = e
 
                 /*
                  * 포트 이름은 **붙는 자리 옆**에 적는다.
@@ -388,22 +388,6 @@ export default function TcCanvas({
                  * 선이 여럿이면 가운데 글자끼리 겹친다. 옛 화면이 포트까지
                  * 그려 주던 것도 이 때문이다.
                  */
-                const gap = Math.hypot(p2.x - p1.x, p2.y - p1.y)
-                const tag = (s: Side, p: { x: number; y: number }, txt: string, key: string) => {
-                  if (!txt) return null
-                  const at = portTag(s, p)
-                  return (
-                    <g key={key} className="cv-pt">
-                      <text x={at.x} y={at.y} textAnchor={at.anchor} className="cv-lt-bg">
-                        {txt}
-                      </text>
-                      <text x={at.x} y={at.y} textAnchor={at.anchor}>
-                        {txt}
-                      </text>
-                    </g>
-                  )
-                }
-
                 // 선 한가운데 — 끊는 단추를 여기 둔다
                 const mx = mid.x
                 const my = mid.y
@@ -429,27 +413,6 @@ export default function TcCanvas({
                     >
                       <title>눌러서 끊기</title>
                     </path>
-                    {gap < NARROW ? (
-                      // 틈이 좁으면 자리가 없다 — 선 가운데 알약 하나로.
-                      // 맨글자보다 테두리 있는 알약이 선 위에서 잘 읽힌다.
-                      <g className="cv-pt cv-pill">
-                        <rect
-                          x={mx - (`${l.pa} ↔ ${l.pb}`.length * 3.1 + 8)}
-                          y={my - 10}
-                          width={`${l.pa} ↔ ${l.pb}`.length * 6.2 + 16}
-                          height={17}
-                          rx={8.5}
-                        />
-                        <text x={mx} y={my + 2} textAnchor="middle">
-                          {l.pa} ↔ {l.pb}
-                        </text>
-                      </g>
-                    ) : (
-                      <>
-                        {tag(e.sa, p1, l.pa, `${l.k}a`)}
-                        {tag(e.sb, p2, l.pb, `${l.k}b`)}
-                      </>
-                    )}
                     <g
                       className="cv-cut"
                       onClick={(ev) => {
@@ -540,6 +503,46 @@ export default function TcCanvas({
                 </div>
               )
             })}
+            {/* 포트 이름·알약은 **맨 위층** — 네모 밑에 깔려 반쯤 잘린 채
+                보인 적이 있다. 라벨은 늘 그림의 맨 위에 있어야 한다. */}
+            <svg className="cv-svg cv-toplayer">
+              {ends.map((e) => {
+                const l = e.l
+                const gap = Math.hypot(e.p2.x - e.p1.x, e.p2.y - e.p1.y)
+                if (gap < NARROW) {
+                  const txt = `${l.pa} ↔ ${l.pb}`
+                  const w2 = txt.length * 6.2 + 16
+                  return (
+                    <g key={l.k} className="cv-pt cv-pill">
+                      <rect x={e.mid.x - w2 / 2} y={e.mid.y - 10} width={w2} height={17} rx={8.5} />
+                      <text x={e.mid.x} y={e.mid.y + 2} textAnchor="middle">
+                        {txt}
+                      </text>
+                    </g>
+                  )
+                }
+                const one = (sd: Side, pt: { x: number; y: number }, txt: string, key: string) => {
+                  if (!txt) return null
+                  const at = portTag(sd, pt)
+                  return (
+                    <g key={key} className="cv-pt">
+                      <text x={at.x} y={at.y} textAnchor={at.anchor} className="cv-lt-bg">
+                        {txt}
+                      </text>
+                      <text x={at.x} y={at.y} textAnchor={at.anchor}>
+                        {txt}
+                      </text>
+                    </g>
+                  )
+                }
+                return (
+                  <g key={l.k}>
+                    {one(e.sa, e.p1, l.pa, `${l.k}a`)}
+                    {one(e.sb, e.p2, l.pb, `${l.k}b`)}
+                  </g>
+                )
+              })}
+            </svg>
           </>
         )}
       </div>
