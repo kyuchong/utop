@@ -446,32 +446,12 @@ export default function Requirements() {
     if (!window.confirm(`고른 ${pickedInList.length}건을 복제합니다.`)) return
     setListBusy('clone')
     try {
-      /*
-       * 새 ID 는 **원본의 다음 번호**다.
-       *
-       * 주차 번호(REQ-2633-0001)를 받았더니 복제본이 원본과 아무 상관
-       * 없는 이름이 됐다 — U-REQ-SYS-SW-IPv4_L2-001 을 복제하면
-       * …-002 가 나와야 어느 묶음의 것인지 읽힌다.
-       */
-      const takenRq = new Set(allReqs.map((x) => x.reqid ?? '').filter(Boolean))
       for (const r of pickedInList) {
-        let nid = ''
-        const m = /^(.*?)(\d+)$/.exec(String(r.reqid ?? '').trim())
-        const pre = m?.[1]
-        const dig = m?.[2]
-        if (pre && dig) {
-          let max = Number(dig)
-          for (const t of takenRq) {
-            if (!t.startsWith(pre)) continue
-            const tail = t.slice(pre.length)
-            if (/^\d+$/.test(tail)) max = Math.max(max, Number(tail))
-          }
-          nid = pre + String(max + 1).padStart(dig.length, '0')
-          takenRq.add(nid)
-        } else {
-          const nres = await apiFetch('/api/req-next-id')
-          nid = ((await nres.json()) as { reqid?: string }).reqid ?? ''
-        }
+        /* 새 ID 는 **신규 생성과 같은 방식**으로 받는다 — Add 가 쓰는
+           /api/req-next-id 그대로. 복제라고 다른 규칙으로 매기면
+           「어느 ID 가 왜 이 모양이지」 를 두 가지로 기억해야 한다. */
+        const nres = await apiFetch('/api/req-next-id')
+        const nid = ((await nres.json()) as { reqid?: string }).reqid ?? ''
         const pk = `rq-${Date.now()}-${Math.floor(Math.random() * 1e4)}`
         const { id: _id, reqid: _rid, tc: _tc, ...rest } = r as Record<string, unknown>
         await apiFetch(`/api/req/${encodeURIComponent(pk)}`, {
