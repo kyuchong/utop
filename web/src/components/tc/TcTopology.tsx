@@ -108,7 +108,7 @@ export default function TcTopology({
     setDrawing(true)
     try {
       const shot = await wireShot({ devices, wiring, links, sessions })
-      if (!shot) throw new Error('그리지 못했습니다')
+      if (!shot) throw new Error('그릴 배선이 없습니다')
       const blob = await (await fetch(shot.data)).blob()
       await upload(new File([blob], 'topology.png', { type: 'image/png' }))
       onMsg('ok', '배선대로 구성도를 그렸습니다')
