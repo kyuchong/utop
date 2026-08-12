@@ -25,6 +25,8 @@
   align-items: center;
   gap: 4px;
   min-width: 0;
+  /* 남는 폭은 장비 이름 몫이다 — 포트 칸은 폭이 정해져 있다 */
+  flex: 1;
 }
 .wm-side select {
   min-width: 0;
@@ -36,8 +38,11 @@
   font: inherit;
   font-size: var(--fs-sm);
 }
-.wm-side select:first-child { max-width: 240px; }
-.wm-side select:nth-child(2) { min-width: 118px; }
+/* 장비 칸이 남는 폭을 다 쓴다. 240px 로 못 박았더니
+   「#1 E5010-24C · 210.1.1.254 · 7F_B구역 · …」 뒤가 잘려서,
+   같은 모델 두 대 중 어느 쪽인지 IP 를 볼 수가 없었다. */
+.wm-side select:first-child { flex: 1; }
+.wm-side select:nth-child(2) { flex: none; min-width: 118px; }
 
 /* 말로 잇기 — 곁길이다. 위의 칸만으로 다 할 수 있다. */
 .wm-ai { display: flex; gap: 6px; }
