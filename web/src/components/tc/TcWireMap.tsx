@@ -244,8 +244,15 @@ export default function TcWireMap({
       }
       if (j.ok === false) throw new Error(j.error || '만들지 못했습니다')
       const add: TcWire[] = []
+      /* 이미 물려 있어 건너뛴 것 — 이걸 조용히 버리고 「못 알아들었다」 고
+         말했었다. 알아들었는데 못 알아들었다고 하니 사람이 문장만 계속
+         고쳐 보게 된다. 무엇을 왜 안 더했는지 그대로 말한다. */
+      const dup: string[] = []
       for (const w of j.wires ?? []) {
-        if (used(w.dev, w.port) || used(w.meter, w.meterPort)) continue
+        if (used(w.dev, w.port) || used(w.meter, w.meterPort)) {
+          dup.push(`${nameOf(w.dev)} ${w.port} ↔ ${nameOf(w.meter)} ${w.meterPort}`)
+          continue
+        }
         const at = sessions.indexOf(w.dev)
         add.push({
           session: at < 0 ? 0 : at,
@@ -259,8 +266,12 @@ export default function TcWireMap({
       const bad = (j.dropped ?? []).length
       setNote(
         add.length
-          ? `${add.length}줄 이었습니다${bad ? ` · ${bad}줄은 못 이었습니다` : ''}. 아래에서 보고 저장하세요.`
-          : `못 알아들었습니다${bad ? ` — ${(j.dropped ?? []).join(' / ')}` : ''}. 아래 칸에서 골라 이어 주세요.`,
+          ? `${add.length}줄 이었습니다${dup.length ? ` · ${dup.length}줄은 이미 있습니다` : ''}${bad ? ` · ${bad}줄은 못 이었습니다` : ''}. 아래에서 보고 저장하세요.`
+          : dup.length
+            ? `이미 물려 있는 배선입니다 — ${dup.join(' / ')}`
+            : bad
+              ? `장비·포트 이름을 못 맞췄습니다 — ${(j.dropped ?? []).join(' / ')}. 「예)」 버튼의 실제 이름을 참고하세요.`
+              : '못 알아들었습니다. 아래 칸에서 골라 이어 주세요.',
       )
       if (add.length) setSay('')
     } catch (e) {
