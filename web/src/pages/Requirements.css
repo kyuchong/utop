@@ -626,9 +626,9 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 .rq-mid-acts .rq-actions .btn { padding: 5px 12px; font-size: var(--fs-sm); }
 .rq-tr {
   display: grid;
-  /* Name 이 주인공이다 — 나머지는 내용폭에 딱 붙인다.
-     Coverage 는 「TC 65」 로 줄여 56px 이면 된다. */
-  grid-template-columns: 28px fit-content(200px) minmax(0, 1fr) 40px 56px 64px;
+  /* 열은 고정폭 — fit-content 는 줄마다 grid 가 따로라 폭이 줄마다
+     달라져 머리와 자료가 어긋났다. Name 이 남는 폭을 다 갖는다. */
+  grid-template-columns: 28px 190px minmax(0, 1fr) 40px 56px 64px;
   column-gap: 10px;
   align-items: center;
   min-height: var(--row-h);
