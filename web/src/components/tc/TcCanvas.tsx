@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Device } from '@/pages/Devices'
 import { deviceFull, deviceShort, isMeter, meterKind } from './device'
+import { AWAY, H, SIDES, W, edgePt, layout, type BoardLine, type Side } from './board'
 import type { TcPortLink, TcWire } from './types'
 import './TcCanvas.css'
 
@@ -32,80 +33,6 @@ interface Props {
   onChange: (v: { wiring?: TcWire[]; links?: TcPortLink[] }) => void
 }
 
-const W = 152
-const H = 56
-
-/**
- * 선이 붙는 자리 — **여덟 군데**. 네 변과 네 모서리다.
- *
- * 넷만 두었더니 비스듬히 놓인 장비끼리 선이 변을 억지로 타고 돌았다.
- * 실제 랩에서도 장비는 나란히만 놓이지 않는다.
- */
-const SIDES = ['t', 'tr', 'r', 'br', 'b', 'bl', 'l', 'tl'] as const
-type Side = (typeof SIDES)[number]
-
-/** 변인가 모서리인가 — 모서리는 한 점이라 여럿을 벌려 놓을 수 없다 */
-const isEdge = (s: Side) => s === 'l' || s === 'r' || s === 't' || s === 'b'
-
-/** 그 자리의 좌표. `f` 는 변에서 어디쯤(0~1)인지 — 모서리는 안 쓴다. */
-function edgePt(p: { x: number; y: number }, side: Side, f: number) {
-  switch (side) {
-    case 'l':
-      return { x: p.x, y: p.y + H * f }
-    case 'r':
-      return { x: p.x + W, y: p.y + H * f }
-    case 't':
-      return { x: p.x + W * f, y: p.y }
-    case 'b':
-      return { x: p.x + W * f, y: p.y + H }
-    case 'tl':
-      return { x: p.x, y: p.y }
-    case 'tr':
-      return { x: p.x + W, y: p.y }
-    case 'bl':
-      return { x: p.x, y: p.y + H }
-    default:
-      return { x: p.x + W, y: p.y + H }
-  }
-}
-
-/** 그 자리에서 밖으로 나가는 쪽 */
-const AWAY: Record<Side, { x: number; y: number }> = {
-  t: { x: 0, y: -1 },
-  tr: { x: 0.71, y: -0.71 },
-  r: { x: 1, y: 0 },
-  br: { x: 0.71, y: 0.71 },
-  b: { x: 0, y: 1 },
-  bl: { x: -0.71, y: 0.71 },
-  l: { x: -1, y: 0 },
-  tl: { x: -0.71, y: -0.71 },
-}
-
-/** 마주 보는 자리 — 상대 네모는 반대쪽으로 받는다 */
-const FACING: Record<Side, Side> = {
-  t: 'b',
-  tr: 'bl',
-  r: 'l',
-  br: 'tl',
-  b: 't',
-  bl: 'tr',
-  l: 'r',
-  tl: 'br',
-}
-
-/**
- * 상대가 어느 쪽에 있는가 — 여덟 방향 중 하나로.
- *
- * 45도씩 나눈다. 나란히 놓이면 옆구리로, 비스듬하면 모서리로 나간다.
- */
-function sideToward(dx: number, dy: number): Side {
-  const deg = (Math.atan2(dy, dx) * 180) / Math.PI // -180 ~ 180, 아래가 +
-  const i = Math.round(((deg + 360) % 360) / 45) % 8
-  // 0도(오른쪽)부터 시계 방향으로
-  const ring: Side[] = ['r', 'br', 'b', 'bl', 'l', 'tl', 't', 'tr']
-  return ring[i] ?? 'r'
-}
-
 export default function TcCanvas({
   devices,
   wiring,
@@ -128,6 +55,12 @@ export default function TcCanvas({
   const [note, setNote] = useState('')
   /** 끄는 동안만 여기 담는다 — 매번 시험을 고치면 화면이 되돈다 */
   const [live, setLive] = useState<Record<string, { x: number; y: number }>>({})
+  /** 누른 선 — 끊는 단추를 띄운다 */
+  const [pickLine, setPickLine] = useState('')
+  /** 잇는 중 손끝을 따라오는 선 */
+  const linking = useRef<{ dev: string; moved: boolean } | null>(null)
+  const [aim, setAim] = useState<{ x: number; y: number } | null>(null)
+  const [aimFrom, setAimFrom] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const boxRef = useRef<HTMLDivElement>(null)
 
   const posOf = (id: string) => live[id] ?? placed.find((p) => p.dev === id) ?? { x: 0, y: 0 }
@@ -147,6 +80,27 @@ export default function TcCanvas({
       (l) => (l.a.dev === dev && l.a.port === port) || (l.b.dev === dev && l.b.port === port),
     )
 
+  /**
+   * 점을 눌러 **끌어서 잇는다.**
+   *
+   * 눌렀다 떼고 상대를 다시 누르는 방식만 있었다. 그러면 첫 번째를 누른
+   * 뒤 화면이 아무 말도 안 해서 눌린 건지 알 수 없고, 무르려면 Esc 를
+   * 알아야 했다. 끌면 선이 손끝을 따라오니 배울 것이 없다.
+   *
+   * 눌렀다 그 자리에서 떼면 예전처럼 「상대를 누르는」 방식으로 남는다 —
+   * 둘 다 되게 둔다.
+   */
+  const dotDown = (e: React.PointerEvent, id: string, side: Side) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const at = edgePt(posOf(id), side, 0.5)
+    setAimFrom(at)
+    setAim(at)
+    setFrom(id)
+    setPickLine('')
+    linking.current = { dev: id, moved: false }
+  }
+
   // ── 끌기 ────────────────────────────────────────────────
   const onDown = (e: React.PointerEvent, id: string) => {
     // 이을 상대를 고르는 중이면 끌지 않는다 — 누르는 순간 이어야 한다
@@ -159,8 +113,14 @@ export default function TcCanvas({
   }
 
   const onMove = useCallback((e: PointerEvent) => {
-    const d = drag.current
     const box = boxRef.current?.getBoundingClientRect()
+    const lk = linking.current
+    if (lk && box) {
+      lk.moved = true
+      setAim({ x: e.clientX - box.left, y: e.clientY - box.top })
+      return
+    }
+    const d = drag.current
     if (!d || !box) return
     setLive((s) => ({
       ...s,
@@ -171,7 +131,27 @@ export default function TcCanvas({
     }))
   }, [])
 
-  const onUp = useCallback(() => {
+  const onUp = useCallback((e: PointerEvent) => {
+    const lk = linking.current
+    if (lk) {
+      linking.current = null
+      setAim(null)
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null
+      const at = el?.closest?.('.cv-node') as HTMLElement | null
+      const id = at?.dataset?.dev ?? ''
+      if (id && id !== lk.dev) {
+        setAsk({ a: lk.dev, b: id })
+        setAPort('')
+        setBPort('')
+        setNote('')
+        setFrom('')
+      } else if (lk.moved) {
+        // 허공에 놓았다 — 무른다
+        setFrom('')
+      }
+      // 안 움직였으면 `from` 을 남긴다: 눌렀다 떼고 상대를 누르는 방식
+      return
+    }
     const d = drag.current
     drag.current = null
     if (!d) return
@@ -256,17 +236,7 @@ export default function TcCanvas({
 
   /** 그릴 선 — 판에 놓인 것끼리만 */
   const on = new Set(placed.map((p) => p.dev))
-  const lines: Array<{
-    k: string
-    a: string
-    b: string
-    /** 양 끝의 포트 — 선 가운데가 아니라 **붙는 자리**에 적는다 */
-    pa: string
-    pb: string
-    t: string
-    wire: boolean
-    at: number
-  }> = []
+  const lines: BoardLine[] = []
   wiring.forEach((w, i) => {
     if (on.has(devOf(w)) && on.has(w.meter))
       lines.push({
@@ -275,7 +245,6 @@ export default function TcCanvas({
         b: w.meter,
         pa: w.port,
         pb: w.meterPort,
-        t: `${w.port} ↔ ${w.meterPort}`,
         wire: true,
         at: i,
       })
@@ -288,51 +257,13 @@ export default function TcCanvas({
         b: l.b.dev,
         pa: l.a.port,
         pb: l.b.port,
-        t: `${l.a.port} ↔ ${l.b.port}`,
         wire: false,
         at: i,
       })
   })
 
-  /*
-   * 선이 붙는 자리를 **변 위에 벌린다.**
-   *
-   * 장비 한 대에 선이 셋이면 셋 다 같은 변 한가운데로 몰려서, 어느 선이
-   * 어느 포트인지 눈으로 못 가린다 — 실제 장비는 포트가 스물여덟인데
-   * 그림에서는 한 점이었다.
-   *
-   * 그래서 두 번 센다. 먼저 선마다 어느 변으로 나갈지 정하고, 그 다음
-   * 같은 변을 쓰는 선들을 상대 쪽 자리 순으로 줄 세워 고르게 나눈다.
-   * 줄 세우지 않고 나누면 선끼리 서로 넘어가며 엇갈린다.
-   */
-  const ends = lines.map((l) => {
-    const A = posOf(l.a)
-    const B = posOf(l.b)
-    const ac = { x: A.x + W / 2, y: A.y + H / 2 }
-    const bc = { x: B.x + W / 2, y: B.y + H / 2 }
-    const sa = sideToward(bc.x - ac.x, bc.y - ac.y)
-    return { l, A, B, ac, bc, sa, sb: FACING[sa] }
-  })
-
-  const slots = new Map<string, Array<{ k: string; order: number }>>()
-  const claim = (dev: string, side: Side, k: string, order: number) => {
-    const key = `${dev}|${side}`
-    const arr = slots.get(key) ?? []
-    arr.push({ k, order })
-    slots.set(key, arr)
-  }
-  for (const e of ends) {
-    // 옆으로 나가면 상대의 높이로, 위아래로 나가면 상대의 가로 자리로 줄 세운다.
-    // 모서리는 한 점이라 나눌 것이 없다.
-    if (isEdge(e.sa)) claim(e.l.a, e.sa, e.l.k, e.sa === 'l' || e.sa === 'r' ? e.bc.y : e.bc.x)
-    if (isEdge(e.sb)) claim(e.l.b, e.sb, e.l.k, e.sb === 'l' || e.sb === 'r' ? e.ac.y : e.ac.x)
-  }
-  for (const arr of slots.values()) arr.sort((x, y) => x.order - y.order)
-  const fracOf = (dev: string, side: Side, k: string) => {
-    const arr = slots.get(`${dev}|${side}`) ?? []
-    const i = arr.findIndex((x) => x.k === k)
-    return i < 0 ? 0.5 : (i + 1) / (arr.length + 1)
-  }
+  /** 붙는 자리 셈은 `board.ts` 한 벌뿐이다 — 결과서도 같은 것을 쓴다 */
+  const ends = layout(lines, posOf)
 
   const canAdd = devices.filter((d) => !placed.some((p) => p.dev === d.id))
   const height = Math.max(
@@ -402,27 +333,9 @@ export default function TcCanvas({
           <>
             <svg className="cv-svg">
               {ends.map((e) => {
-                /*
-                 * 가까운 변에서 나가고 가까운 변으로 들어간다. 늘 오른쪽으로
-                 * 내보내고 왼쪽으로 받게 해 두었더니 상대가 왼쪽이나 아래에
-                 * 있으면 선이 네모를 감아 돌며 꼬였다.
-                 *
-                 * 붙는 자리는 변 한가운데가 아니라 **제 차례**다. 위에서
-                 * 나눠 둔 몫을 여기서 쓴다.
-                 */
                 const l = e.l
-                const p1 = edgePt(e.A, e.sa, fracOf(l.a, e.sa, l.k))
-                const p2 = edgePt(e.B, e.sb, fracOf(l.b, e.sb, l.k))
-                const out = (s: Side, p: { x: number; y: number }, k: number) => ({
-                  x: p.x + AWAY[s].x * k,
-                  y: p.y + AWAY[s].y * k,
-                })
-                const k = Math.max(
-                  28,
-                  Math.hypot(p2.x - p1.x, p2.y - p1.y) / 3,
-                )
-                const c1 = out(e.sa, p1, k)
-                const c2 = out(e.sb, p2, k)
+                const { p1, p2, c1, c2 } = e
+                const d = `M${p1.x},${p1.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${p2.x},${p2.y}`
 
                 /*
                  * 포트 이름은 **붙는 자리 옆**에 적는다.
@@ -434,9 +347,8 @@ export default function TcCanvas({
                  */
                 const tag = (s: Side, p: { x: number; y: number }, txt: string, key: string) => {
                   if (!txt) return null
-                  const at = out(s, p, 11)
-                  const anchor =
-                    AWAY[s].x > 0.3 ? 'start' : AWAY[s].x < -0.3 ? 'end' : 'middle'
+                  const at = { x: p.x + AWAY[s].x * 11, y: p.y + AWAY[s].y * 11 }
+                  const anchor = AWAY[s].x > 0.3 ? 'start' : AWAY[s].x < -0.3 ? 'end' : 'middle'
                   // 위로 나가면 글자를 조금 더 올린다 — 기준선이 글자 아래다
                   const dy = AWAY[s].y < -0.3 ? -2 : AWAY[s].y > 0.3 ? 9 : 3
                   return (
@@ -451,16 +363,58 @@ export default function TcCanvas({
                   )
                 }
 
+                // 선 한가운데 — 끊는 단추를 여기 둔다
+                const mx = (p1.x + p2.x + c1.x + c2.x) / 4
+                const my = (p1.y + p2.y + c1.y + c2.y) / 4
+
                 return (
-                  <g key={l.k} className={l.wire ? 'cv-l wire' : 'cv-l'}>
+                  <g
+                    key={l.k}
+                    className={`cv-l${l.wire ? ' wire' : ''}${pickLine === l.k ? ' on' : ''}`}
+                  >
+                    <path d={d} />
+                    {/*
+                      선은 굵기가 2px 도 안 돼서 그대로는 눌러지지 않는다.
+                      보이지 않는 굵은 선을 밑에 깔아 누르는 자리를 넓힌다 —
+                      선을 지우려고 아래 목록까지 내려가야 했다.
+                    */}
                     <path
-                      d={`M${p1.x},${p1.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${p2.x},${p2.y}`}
-                    />
+                      className="cv-hit"
+                      d={d}
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        setPickLine(pickLine === l.k ? '' : l.k)
+                      }}
+                    >
+                      <title>눌러서 끊기</title>
+                    </path>
                     {tag(e.sa, p1, l.pa, `${l.k}a`)}
                     {tag(e.sb, p2, l.pb, `${l.k}b`)}
+                    <g
+                      className="cv-cut"
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        setPickLine('')
+                        cut(l.wire ? 'wire' : 'link', l.at)
+                      }}
+                    >
+                      <title>이 선을 끊습니다</title>
+                      <circle cx={mx} cy={my} r={9} />
+                      <text x={mx} y={my + 3.5} textAnchor="middle">
+                        ✕
+                      </text>
+                    </g>
                   </g>
                 )
               })}
+              {/* 잇는 중 — 손끝까지 끌리는 선. 어디로 가고 있는지 보여야
+                  「눌렀는데 아무 일도 안 난다」 가 안 된다. */}
+              {from && aim && (
+                <path
+                  className="cv-aimline"
+                  d={`M${aimFrom.x},${aimFrom.y} L${aim.x},${aim.y}`}
+                />
+              )}
             </svg>
             {placed.map((p) => {
               const d = byId.get(p.dev)
@@ -473,6 +427,7 @@ export default function TcCanvas({
                   className={`cv-node${meter ? ' meter' : ''}${from === p.dev ? ' from' : ''}${
                     from && from !== p.dev ? ' aim' : ''
                   }`}
+                  data-dev={p.dev}
                   style={{ left: at.x, top: at.y, width: W, height: H }}
                   onPointerDown={(e) => onDown(e, p.dev)}
                   onClick={() => {
@@ -496,12 +451,11 @@ export default function TcCanvas({
                       key={side}
                       type="button"
                       className={`cv-dot ${side}`}
-                      title={from ? '여기에 잇습니다' : '여기서 선을 시작합니다'}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        tapDot(p.dev)
-                      }}
+                      title={
+                        from ? '여기에 잇습니다' : '여기를 끌어 상대 장비에 놓으면 이어집니다'
+                      }
+                      onPointerDown={(e) => dotDown(e, p.dev, side)}
+                      onClick={(e) => e.stopPropagation()}
                     />
                   ))}
                   <button
@@ -530,7 +484,9 @@ export default function TcCanvas({
             <div className="cv-row" key={l.k}>
               <b>{deviceShort(byId.get(l.a) ?? ({} as Device))}</b>
               <i>·</i>
-              <span>{l.t}</span>
+              <span>
+                {l.pa} ↔ {l.pb}
+              </span>
               <i>·</i>
               <b>{deviceShort(byId.get(l.b) ?? ({} as Device))}</b>
               {l.wire && <span className="cv-tag">계측기</span>}

@@ -5,6 +5,7 @@ import { deviceLabel, isMeter, meterKind } from './device'
 import TcWireMap from './TcWireMap'
 import TcCanvas from './TcCanvas'
 import { wireShot } from './wireMermaid'
+import { boardShot } from './boardShot'
 import { wireValues, type TcData, type TcWire } from './types'
 
 interface Props {
@@ -107,7 +108,13 @@ export default function TcTopology({
     }
     setDrawing(true)
     try {
-      const shot = await wireShot({ devices, wiring, links, sessions })
+      // 판에 놓인 대로 굽는다. 사람이 옮겨 놓은 자리가 맞는 자리다 —
+      // 여기서 다시 늘어놓으면 화면과 결과서가 다른 그림이 된다.
+      const placed = data.topoNodes ?? []
+      const shot = placed.length
+        ? await boardShot({ devices, wiring, links, sessions, placed })
+        : // 판에 아무것도 안 놓은 시험 — 그때는 알아서 늘어놓는다
+          await wireShot({ devices, wiring, links, sessions })
       if (!shot) throw new Error('그릴 배선이 없습니다')
       const blob = await (await fetch(shot.data)).blob()
       await upload(new File([blob], 'topology.png', { type: 'image/png' }))

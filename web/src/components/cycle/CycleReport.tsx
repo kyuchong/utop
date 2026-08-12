@@ -5,6 +5,7 @@ import { buildSlides, type LguStep, type LguTc } from './lgu'
 import { saveLguPptx } from './lguPptx'
 import { saveTplPptx } from './tplPptx'
 import { wireShot } from '@/components/tc/wireMermaid'
+import { boardShot } from '@/components/tc/boardShot'
 import type { Device } from '@/pages/Devices'
 import type { TcPortLink, TcWire } from '@/components/tc/types'
 
@@ -35,6 +36,8 @@ interface TcExtra {
   wiring?: TcWire[] | null
   portLinks?: TcPortLink[] | null
   sessions?: unknown
+  /** 판에 놓인 자리 — 이대로 그려야 화면과 결과서가 같다 */
+  topoNodes?: Array<{ dev: string; x: number; y: number }> | null
 }
 
 /**
@@ -128,8 +131,12 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
         const links = (e.portLinks ?? []) as TcPortLink[]
         if (!wiring.length && !links.length) continue
         const sessions = Array.isArray(e.sessions) ? (e.sessions as string[]) : []
+        const placed = e.topoNodes ?? []
         try {
-          const shot = await wireShot({ devices, wiring, links, sessions })
+          // 판에 놓인 대로. 아무것도 안 놓았으면 알아서 늘어놓는다.
+          const shot = placed.length
+            ? await boardShot({ devices, wiring, links, sessions, placed })
+            : await wireShot({ devices, wiring, links, sessions })
           if (shot) out[tcid] = shot.data
         } catch {
           // 그림 하나 못 그렸다고 결과서를 막지 않는다
