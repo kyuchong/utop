@@ -12,7 +12,6 @@ import ReqBulkEdit from '@/components/ReqBulkEdit'
 import ReqMapDialog from '@/components/ReqMapDialog'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import ReqDetail from '@/components/ReqDetail'
-import TcBulkForm from '@/components/TcBulkForm'
 import {
   reqLabel,
   reqPk,
@@ -101,7 +100,6 @@ export default function Requirements() {
   /** 고른 여러 건을 한꺼번에 고치는 창 */
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
   // undefined = 닫힘 / { } = 새 TC(요구사항 미리 연결)
-  const [tcBulkOpen, setTcBulkOpen] = useState(false)
   const [tab, setTab] = useState<'info' | 'detail' | 'tc' | 'runs' | 'history'>('info')
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
@@ -551,12 +549,6 @@ export default function Requirements() {
         />
       )}
 
-      {tcBulkOpen && selectedReq && (
-        <TcBulkForm
-          presetReqId={reqPk(selectedReq)}
-          onClose={() => setTcBulkOpen(false)}
-        />
-      )}
 
       {error ? (
         <div className="load-error">
@@ -962,21 +954,8 @@ export default function Requirements() {
                 <span className="muted small">가운데 표에서 요구사항을 고르세요</span>
               </div>
             )}
-            {/* 「TC 연결」 은 표의 Map 과, 「+ TC 생성」 은 Coverage 화면과
-                겹쳐서 소스째 걷어냈다 — 같은 일은 한 자리에서만 한다. */}
-            {tab === 'tc' && selectedReq && (
-              <div className="page-head-actions">
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={!selectedReq}
-                  title="이 요구사항 밑에 시험 여러 건을 한 번에 만듭니다"
-                  onClick={() => setTcBulkOpen(true)}
-                >
-                  Bulk Add
-                </button>
-              </div>
-            )}
+            {/* TC 붙이기·만들기는 전부 2열 표의 Map 과 Coverage 화면 몫이다 —
+                여기 있던 TC 연결·일괄 생성·+ TC 생성은 소스째 걷어냈다. */}
           </div>
 
           {!selectedReq ? (

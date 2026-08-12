@@ -584,6 +584,8 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 
 /* ── List 모드 — 폴더 안 요구사항 표 (Zephyr 방식) ──────────────
    ID · Name · Map Test Case · Coverage · Priority. 한 줄 클릭 → 상세. */
+.rq-listcol .rq-list { overflow-x: auto; }
+.rq-listcol .rq-table { min-width: 640px; }
 .rq-list {
   flex: 1;
   min-height: 0;
@@ -602,8 +604,9 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   border-radius: var(--radius);
   overflow: hidden;
 }
-.rq-mid-acts .rq-actions { display: flex; gap: 4px; }
-.rq-mid-acts .rq-actions .btn { padding: 3px 8px; font-size: var(--fs-xs); }
+.rq-mid-acts .rq-actions { display: flex; gap: 5px; }
+/* 너무 작게 줄였더니 누르기가 어려웠다 — 본문 크기로 되돌린다 */
+.rq-mid-acts .rq-actions .btn { padding: 5px 12px; font-size: var(--fs-sm); }
 .rq-tr {
   display: grid;
   /* Name 이 주인공이다 — 나머지는 내용폭에 딱 붙인다.
@@ -872,8 +875,8 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   flex: none;
   padding: var(--sp-2) var(--sp-2);
 }
-/* 2열 것은 목록 바로 위라 아래 여백만 준다 */
-.rq-midfind { padding-bottom: var(--sp-2); }
+/* 2열 것 — 위아래로 빈 띠가 넓게 남아 표가 그만큼 짧았다. 바짝 붙인다 */
+.rq-midfind { padding: 2px var(--sp-2) 4px; }
 .rq-ffind input {
   width: 100%;
   box-sizing: border-box;
