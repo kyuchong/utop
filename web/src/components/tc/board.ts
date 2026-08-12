@@ -78,6 +78,32 @@ export function sideToward(dx: number, dy: number): Side {
   return ring[i] ?? 'r'
 }
 
+/**
+ * 포트 이름을 놓을 자리.
+ *
+ * 두 네모가 붙어 있으면 양쪽 이름이 그 좁은 틈으로 서로 파고들어
+ * 「Gi0/1」 둘이 「Gi0/11」 한 덩어리로 보였다. 가까우면 선을 사이에 두고
+ * 위·아래(세로로 이었으면 좌·우)로 갈라 놓는다.
+ */
+export function portTag(
+  side: Side,
+  p: { x: number; y: number },
+  gap: number,
+  first: boolean,
+): { x: number; y: number; anchor: 'start' | 'middle' | 'end' } {
+  const a = AWAY[side]
+  const along = Math.max(8, Math.min(13, gap * 0.28))
+  // 기준선이 글자 아래라 위로 나갈 때는 더 올린다
+  const base = a.y < -0.3 ? -2 : a.y > 0.3 ? 10 : 4
+  const push = gap < 120 ? (first ? 9 : -9) : 0
+  const perp = { x: -a.y, y: a.x }
+  return {
+    x: p.x + a.x * along + perp.x * push,
+    y: p.y + a.y * along + perp.y * push + base,
+    anchor: a.x > 0.3 ? 'start' : a.x < -0.3 ? 'end' : 'middle',
+  }
+}
+
 /** 판에 그릴 선 하나 */
 export interface BoardLine {
   k: string

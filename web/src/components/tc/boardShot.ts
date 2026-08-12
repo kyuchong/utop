@@ -1,6 +1,6 @@
 import type { Device } from '@/pages/Devices'
 import { deviceShort, isMeter, meterKind } from './device'
-import { AWAY, H, W, layout, type BoardLine, type Side } from './board'
+import { H, W, layout, portTag, type BoardLine, type Side } from './board'
 import { svgToPng, type Shot } from './wireMermaid'
 import type { TcPortLink, TcWire } from './types'
 
@@ -103,15 +103,14 @@ export function boardSvg(g: BoardInput): string {
 
   // 포트 이름 — 붙는 자리 옆에. 선을 다 그은 뒤에 얹어야 글자가 안 묻힌다
   for (const e of layout(lines, posOf)) {
-    const tag = (s: Side, p: { x: number; y: number }, txt: string) => {
+    const gap = Math.hypot(e.p2.x - e.p1.x, e.p2.y - e.p1.y)
+    const tag = (s: Side, p: { x: number; y: number }, txt: string, first: boolean) => {
       if (!txt) return
-      const at = { x: p.x + AWAY[s].x * 12, y: p.y + AWAY[s].y * 12 }
-      const anchor = AWAY[s].x > 0.3 ? 'start' : AWAY[s].x < -0.3 ? 'end' : 'middle'
-      const dy = AWAY[s].y < -0.3 ? -2 : AWAY[s].y > 0.3 ? 10 : 4
-      out.push(label(at.x, at.y + dy, txt, anchor, 11, true))
+      const at = portTag(s, p, gap, first)
+      out.push(label(at.x, at.y, txt, at.anchor, 11, true))
     }
-    tag(e.sa, e.p1, e.l.pa)
-    tag(e.sb, e.p2, e.l.pb)
+    tag(e.sa, e.p1, e.l.pa, true)
+    tag(e.sb, e.p2, e.l.pb, false)
   }
 
   for (const p of g.placed) {

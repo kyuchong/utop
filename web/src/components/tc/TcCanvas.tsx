@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Device } from '@/pages/Devices'
 import { deviceFull, deviceShort, isMeter, meterKind } from './device'
-import { AWAY, H, SIDES, W, edgePt, layout, type BoardLine, type Side } from './board'
+import { H, SIDES, W, edgePt, layout, portTag, type BoardLine, type Side } from './board'
 import type { TcPortLink, TcWire } from './types'
 import './TcCanvas.css'
 
@@ -345,18 +345,22 @@ export default function TcCanvas({
                  * 선이 여럿이면 가운데 글자끼리 겹친다. 옛 화면이 포트까지
                  * 그려 주던 것도 이 때문이다.
                  */
-                const tag = (s: Side, p: { x: number; y: number }, txt: string, key: string) => {
+                const gap = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+                const tag = (
+                  s: Side,
+                  p: { x: number; y: number },
+                  txt: string,
+                  key: string,
+                  first: boolean,
+                ) => {
                   if (!txt) return null
-                  const at = { x: p.x + AWAY[s].x * 11, y: p.y + AWAY[s].y * 11 }
-                  const anchor = AWAY[s].x > 0.3 ? 'start' : AWAY[s].x < -0.3 ? 'end' : 'middle'
-                  // 위로 나가면 글자를 조금 더 올린다 — 기준선이 글자 아래다
-                  const dy = AWAY[s].y < -0.3 ? -2 : AWAY[s].y > 0.3 ? 9 : 3
+                  const at = portTag(s, p, gap, first)
                   return (
                     <g key={key} className="cv-pt">
-                      <text x={at.x} y={at.y + dy} textAnchor={anchor} className="cv-lt-bg">
+                      <text x={at.x} y={at.y} textAnchor={at.anchor} className="cv-lt-bg">
                         {txt}
                       </text>
-                      <text x={at.x} y={at.y + dy} textAnchor={anchor}>
+                      <text x={at.x} y={at.y} textAnchor={at.anchor}>
                         {txt}
                       </text>
                     </g>
@@ -388,8 +392,8 @@ export default function TcCanvas({
                     >
                       <title>눌러서 끊기</title>
                     </path>
-                    {tag(e.sa, p1, l.pa, `${l.k}a`)}
-                    {tag(e.sb, p2, l.pb, `${l.k}b`)}
+                    {tag(e.sa, p1, l.pa, `${l.k}a`, true)}
+                    {tag(e.sb, p2, l.pb, `${l.k}b`, false)}
                     <g
                       className="cv-cut"
                       onClick={(ev) => {
