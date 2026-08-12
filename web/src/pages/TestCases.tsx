@@ -269,8 +269,36 @@ export default function TestCases({ me }: PageProps) {
   }, [reqQ.data, tcs])
 
   /** 이 폴더(하위 포함)에 속한 요구사항인가 — 조상 사슬을 요구사항이 들고 있다 */
-  const inFolder = (r: Requirement | undefined, folder: string) =>
-    !!r && (r.cat1 === folder || r.cat2 === folder || r.cat3 === folder || r.cat4 === folder)
+  /**
+   * 이 폴더와 그 밑 전부.
+   *
+   * cat1~4 만 봤더니 상위 폴더를 골라도 하위 폴더의 시험이 안 나왔다 —
+   * 요구사항이 조상 사슬을 다 안 들고 있는 자료가 있다. 요구사항 화면이
+   * 같은 병을 같은 방법(분류 트리 걷기)으로 고쳤다.
+   */
+  const folderSet = useMemo(() => {
+    if (!selFolder) return null
+    const cats = catQ.data?.categories ?? []
+    const kids = new Map<string | null, string[]>()
+    for (const c of cats) {
+      const k = (c.parent_id ?? null) as string | null
+      if (!kids.has(k)) kids.set(k, [])
+      kids.get(k)!.push(c.id)
+    }
+    const ids = new Set<string>()
+    const walk = (id: string) => {
+      if (ids.has(id)) return
+      ids.add(id)
+      for (const k of kids.get(id) ?? []) walk(k)
+    }
+    walk(selFolder)
+    return ids
+  }, [selFolder, catQ.data])
+
+  const inFolder = (r: Requirement | undefined, _folder: string) =>
+    !!r &&
+    !!folderSet &&
+    ([r.cat1, r.cat2, r.cat3, r.cat4].some((c) => c && folderSet.has(c as string)))
 
   /**
    * List 표에 뿌릴 TC.
@@ -288,7 +316,7 @@ export default function TestCases({ me }: PageProps) {
       if (!n) return true
       return t.tcid.toLowerCase().includes(n) || (t.name ?? '').toLowerCase().includes(n)
     })
-  }, [tcs, reqByKey, selReq, selFolder, treeQ])
+  }, [tcs, reqByKey, selReq, selFolder, folderSet, treeQ])
 
   /**
    * 지금 보고 있는 자리까지의 길 — 조상부터 차례로.
