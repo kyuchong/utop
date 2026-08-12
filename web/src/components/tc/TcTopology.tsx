@@ -131,7 +131,7 @@ export default function TcTopology({
       await upload(new File([blob], 'topology.png', { type: 'image/png' }))
       // 그림은 2배로 굽는다(인쇄용). 화면에는 절반 크기로 앉혀야 제 크기다 —
       // 그대로 두면 판보다 큰 그림이 화면을 덮는다.
-      onChange({ topo_img_w: Math.min(520, Math.round(shot.w / 2)), topo_img_auto: true })
+      onChange({ topo_img_w: Math.round(shot.w / 2), topo_img_auto: true })
       onMsg('ok', '배선대로 구성도를 그렸습니다')
     } catch (e) {
       onMsg('err', e instanceof Error ? e.message : '그리지 못했습니다')
