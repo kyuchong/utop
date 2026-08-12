@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import { buildSlides, type LguStep, type LguTc } from './lgu'
+import { buildSlides, meterTableText, type LguStep, type LguTc } from './lgu'
 import { saveLguPptx } from './lguPptx'
 import { saveTplPptx } from './tplPptx'
 import { wireShot } from '@/components/tc/wireMermaid'
@@ -198,7 +198,13 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
         remark: '',
         // 종류로 거르지 않는다. 옛 코드가 cli·wait 만 실어서 ping·snmp·
         // diff·계측기 스텝이 결과서에서 통째로 빠졌다.
-        steps: it.steps ?? [],
+        // 계측기 응답(JSON)은 화면처럼 표로 편다 — 200 갈래면 중괄호
+        // 200줄이 그대로 실렸었다.
+        steps: (it.steps ?? []).map((st) => {
+          if (String(st.kind ?? '') !== 'instrument') return st
+          const t = meterTableText(st.output)
+          return t ? { ...st, output: t } : st
+        }),
       }
     })
   }, [items, tcQ.data, drawn, devQ.data])

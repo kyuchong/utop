@@ -208,6 +208,14 @@ def set_text(cell, text: str, keep: bool = False) -> None:
     run = _first_run(base)
     if run is None:
         run = base.add_run()
+    # 우리가 넣는 값은 검정으로. 양식 견본이 이 칸에 빨강을 박아 두어
+    # (REQ ID 칸 FF0000) 채운 값까지 빨갛게 물들었다 — 견본 표시용
+    # 색이지 양식의 뜻이 아니다. 글꼴·크기·굵기는 그대로 둔다.
+    try:
+        from pptx.dml.color import RGBColor
+        run.font.color.rgb = RGBColor(0x11, 0x11, 0x11)
+    except Exception:
+        pass
     if keep:
         run.text = (run.text or "") + lines[0]
     else:

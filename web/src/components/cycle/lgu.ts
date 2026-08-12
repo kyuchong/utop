@@ -15,6 +15,42 @@
  * 통째로 빠졌다. 사람이 만든 시험이 문서에 안 나오면 안 만든 것과 같다.
  */
 import { stepVerdict, type TcStep } from '@/components/tc/types'
+import { parseMeterOutput } from '@/components/tc/MeterStats'
+
+/**
+ * 계측기 응답(JSON)을 **글 표**로.
+ *
+ * 화면은 표로 보여 주는데 결과서에는 JSON 원문이 그대로 실렸다 —
+ * 200 갈래면 중괄호 200줄이다. 같은 자료를 화면과 같은 표로 편다.
+ * 고정폭 글꼴에서 열이 맞도록 자리를 맞춘다.
+ */
+export function meterTableText(output?: string | null): string | null {
+  const m = parseMeterOutput(output ?? undefined)
+  if (!m || !m.rows.length) return null
+  const has = (k: string) => m.keys.length === 0 || m.keys.includes(k)
+  const cols: Array<[string, string]> = [
+    ['name', '스트림'],
+    ['tx', 'Tx pkts'],
+    ['rx', 'Rx pkts'],
+    ...(has('loss') ? ([['loss', 'Loss']] as Array<[string, string]>) : []),
+    ...(has('txTput') ? ([['txTput', 'Tx bps']] as Array<[string, string]>) : []),
+    ...(has('rxTput') ? ([['rxTput', 'Rx bps']] as Array<[string, string]>) : []),
+    ...(has('latency') ? ([['latency', 'Latency']] as Array<[string, string]>) : []),
+  ]
+  const cells = m.rows.map((r, i) => {
+    const nSub = m.rows.filter((x) => x.idx === r.idx).length
+    const sub = typeof r.sub === 'number' && nSub > 1 ? `.${r.sub + 1}` : ''
+    const nm = String(r.name ?? `Stream_${(r.idx ?? i) + 1}`) + sub
+    return cols.map(([k]) => (k === 'name' ? nm : String(r[k] ?? '-')))
+  })
+  const widths = cols.map(([, label], c) =>
+    Math.max(label.length, ...cells.map((row) => (row[c] ?? '').length)),
+  )
+  const line = (row: string[]) => row.map((v, c) => v.padEnd(widths[c] ?? 0)).join('  ')
+  const head = line(cols.map(([, l]) => l))
+  const rule = widths.map((w) => '-'.repeat(w)).join('  ')
+  return [head, rule, ...cells.map(line)].join('\n')
+}
 
 /**
  * 옛 실행 기록의 `$ ` 프롬프트를 장비 이름으로 바꾼다.
@@ -229,9 +265,10 @@ const pageHead = (ttl: string) =>
   `</div></div>` +
   `<div style="border-bottom:3px solid #111;"></div><div style="border-bottom:1.4px solid #111;margin-top:2px;margin-bottom:11px;"></div>`
 
-/** 바닥 — 양식의 법적 문구와 쪽번호 */
+/** 바닥 — 양식의 법적 문구와 쪽번호. 흐름 안에 둔다 —
+    절대배치로 띄웠더니 내용이 길면 표 위를 줄이 가로질렀다. */
 const pageFoot = (no: number) =>
-  `<div style="position:absolute;left:30px;right:30px;bottom:14px;">` +
+  `<div style="margin-top:10px;">` +
   `<div style="text-align:right;font-size:12px;color:#111;margin-bottom:2px;">${no}</div>` +
   `<div style="border-top:3px solid #111;"></div><div style="border-top:1.4px solid #111;margin-top:2px;"></div>` +
   `<div style="font-size:9.5px;color:#333;margin-top:4px;">본 문서는 LG U+이 모든 지적재산권을 소유하고 있사오니, 해당 문서를 무단으로 전재/복사/변조/재배포 하지 마시기 바라며, 이를 위반할 경우 모든 법적 책임은 귀사에 있음을 알려드립니다</div>` +
@@ -334,5 +371,5 @@ export function buildSlides(tcs: LguTc[]): string[] {
     for (const range of r.result) out.push(page2(tc, range))
   }
   // 쪽번호·법적 문구 바닥 — 장 전체 번호는 다 모은 뒤에야 안다
-  return out.map((html, i) => `<div style="position:relative;height:100%;">${html}${pageFoot(i + 1)}</div>`)
+  return out.map((html, i) => `<div>${html}${pageFoot(i + 1)}</div>`)
 }
