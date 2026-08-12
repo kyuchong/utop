@@ -937,8 +937,8 @@ export default function Requirements() {
             {selectedReq ? (
             <div className="seg" role="tablist">
               {([
-                ['info', 'REQ Info'],
-                ['detail', 'REQ Details'],
+                ['info', 'Info'],
+                ['detail', 'Intent'],
                 ['tc', 'Coverages'],
                 ['runs', 'Execution History'],
                 ['history', 'Change History'],
