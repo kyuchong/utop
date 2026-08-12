@@ -8,7 +8,6 @@ import {
   reqLabel,
   reqPk,
   shortReqId,
-  statusClass,
   type CategoryTreeNode,
   type Requirement,
   type TestCaseMeta,
