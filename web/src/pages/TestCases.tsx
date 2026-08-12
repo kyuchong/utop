@@ -118,6 +118,7 @@ export default function TestCases({ me }: PageProps) {
     return v && TABS.includes(v) ? v : 'steps'
   })
   const [openId, setOpenId] = useState(() => localStorage.getItem(OPEN_KEY) || '')
+  const view: 'list' | 'detail' = openId ? 'detail' : 'list'
   const [stepIdx, setStepIdx] = useState(-1)
   const [menuOpen, setMenuOpen] = useState(false)
   /** 3열 머리의 ⋯ — 이 칸을 무엇으로 쓸지 고르는 자리 */
@@ -208,12 +209,11 @@ export default function TestCases({ me }: PageProps) {
    * (트리 | 스텝 목록 | 스텝 상세), List 는 그 자리를 TC 목록 표가 쓴다.
    * 열을 늘리지 않는 것이 핵심 — 늘리면 정작 스텝 짜는 칸이 좁아진다.
    */
-  const [view, setView] = useState<'list' | 'detail'>(
-    () => (localStorage.getItem('utop.tc.view') === 'list' ? 'list' : 'detail'),
-  )
-  useEffect(() => {
-    localStorage.setItem('utop.tc.view', view)
-  }, [view])
+  /*
+   * Detail/List 토글을 없앴다 — 고른 것이 화면을 정한다.
+   * 폴더·요구사항을 고르면 List(그 묶음의 시험 표), 시험을 고르면
+   * Detail(스텝 편집기)이다. view 는 상태가 아니라 파생이다.
+   */
   /** List 에서 무엇으로 좁혀 볼지 — 폴더 또는 요구사항 */
   const [selFolder, setSelFolder] = useState<string | null>(null)
   const [selReq, setSelReq] = useState<string | null>(null)
@@ -340,10 +340,12 @@ export default function TestCases({ me }: PageProps) {
    * Detail 에서 눌렀으면 List 로 나온다 — 폴더는 여럿을 보는 자리다.
    */
   const goFolder = (id: string) => {
+    if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 옮길까요?')) return
     setSelFolder(id)
     setSelReq(null)
     setListPick(new Set())
-    setView('list')
+    // view 는 파생이다 — 편집기를 닫으면 곧 List 다
+    setOpenId('')
   }
 
   /** 길의 끝 — 내려받는 파일 이름 같은 데 쓴다 */
@@ -1519,28 +1521,6 @@ export default function TestCases({ me }: PageProps) {
           </span>
         </span>
         <span className="sp" />
-        <div className="rq-view" role="tablist" aria-label="보기 방식">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'detail'}
-            className={`rq-view-b${view === 'detail' ? ' on' : ''}`}
-            title="한 건을 열어 시험을 짭니다"
-            onClick={() => setView('detail')}
-          >
-            Detail
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'list'}
-            className={`rq-view-b${view === 'list' ? ' on' : ''}`}
-            title="이 자리의 시험을 표로 봅니다"
-            onClick={() => setView('list')}
-          >
-            List
-          </button>
-        </div>
       </div>
 
       <div className="split tc-split" ref={splitRef}>
@@ -1613,27 +1593,24 @@ export default function TestCases({ me }: PageProps) {
               picked={pickedTc}
               q={treeQ}
               onPickClick={tcSel.onClick}
-              // List 보기에서만 폴더·요구사항이 「고를 수 있는 것」 이 된다.
-              // Detail 에서는 넘기지 않아 지금까지처럼 펼치기만 한다.
-              selectedFolder={view === 'list' ? selFolder : undefined}
-              onSelectFolder={
-                view === 'list'
-                  ? (id) => {
-                      setSelFolder(id)
-                      setSelReq(null)
-                      setListPick(new Set())
-                    }
-                  : undefined
-              }
-              selectedReq={view === 'list' ? selReq : undefined}
-              onSelectReq={
-                view === 'list'
-                  ? (pk) => {
-                      setSelReq(pk)
-                      setListPick(new Set())
-                    }
-                  : undefined
-              }
+              /* 폴더·요구사항은 언제나 「고를 수 있는 것」 이다. 고르면
+                 편집기에서 나와 그 묶음의 표(List)가 된다 — 시험을 고르면
+                 다시 편집기다. 접기는 ▶ 화살표 몫이라 클릭과 안 섞인다. */
+              selectedFolder={selFolder}
+              onSelectFolder={(id) => {
+                if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 옮길까요?')) return
+                setSelFolder(id)
+                setSelReq(null)
+                setListPick(new Set())
+                setOpenId('')
+              }}
+              selectedReq={selReq}
+              onSelectReq={(pk) => {
+                if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 옮길까요?')) return
+                setSelReq(pk)
+                setListPick(new Set())
+                setOpenId('')
+              }}
             />
           )}
 
@@ -1849,10 +1826,7 @@ export default function TestCases({ me }: PageProps) {
                             type="button"
                             className="linkish"
                             title="열어서 시험 짜기"
-                            onClick={() => {
-                              pickTc(t.tcid)
-                              setView('detail')
-                            }}
+                            onClick={() => pickTc(t.tcid)}
                           >
                             {t.name || '(제목 없음)'}
                           </button>
