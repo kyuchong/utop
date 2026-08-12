@@ -137,12 +137,20 @@
   min-width: 0;
 }
 
+/* 폴더 오른쪽 수 — 맨숫자는 줄 끝에 묻힌다. 배지로. */
 .rt-cnt {
   margin-left: auto;
-  font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums;
-  color: var(--c-text-faint);
   flex: none;
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--c-surface-2);
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  text-align: center;
 }
 
 

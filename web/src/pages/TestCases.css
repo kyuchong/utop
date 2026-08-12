@@ -252,11 +252,19 @@
 }
 
 /* CLI 스텝 수. 몇 줄짜리 시험인지가 목록에서 가장 궁금하다. */
+/* 스텝 수 — 맨숫자로 두면 이름 꼬리에 묻힌다. 배지로. */
 .tt-n {
   flex: none;
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--c-surface-2);
+  color: var(--c-text-muted);
   font-size: var(--fs-xs);
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--c-text-faint);
+  line-height: 16px;
+  text-align: center;
 }
 
 
