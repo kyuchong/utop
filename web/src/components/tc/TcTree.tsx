@@ -300,7 +300,9 @@ export default function TcTree({
    * 열려서, 열두 건을 고르는 동안 화면이 열두 번 바뀐다.
    */
   const tcRow = (t: TestCaseMeta, depth: number) => (
-    <div className="tt-row" key={t.tcid} style={{ paddingLeft: 10 + depth * 14 }}>
+    // 요구사항 줄과 왼끝이 거의 같아 무엇이 무엇의 것인지 안 갈렸다.
+    // 요구사항의 접기 화살표 폭만큼 더 들여 「이 요구사항의 시험」 으로 읽히게.
+    <div className="tt-row" key={t.tcid} style={{ paddingLeft: 28 + depth * 14 }}>
       <button
         type="button"
         className={`tt-tc${openId === t.tcid ? ' on' : ''}${picked.has(t.tcid) ? ' picked' : ''}`}
