@@ -82,7 +82,9 @@ export default function TcInfo({ data, onChange }: Props) {
         const path = pathOf(r)
         return {
           pk: reqPk(r),
-          label: `${path ? path + ' › ' : ''}${r.title || reqLabel(r) || '(제목 없음)'}`,
+          // 폴더가 아예 없는 요구사항도 있다 — 빈 채로 두면 경로 있는
+          // 것들 사이에서 「왜 얘만 없지」 가 된다. 미분류라고 적는다.
+          label: `${path || '(미분류)'} › ${r.title || reqLabel(r) || '(제목 없음)'}`,
         }
       })
       .sort((a, b) => a.label.localeCompare(b.label, 'ko'))
