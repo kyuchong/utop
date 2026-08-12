@@ -1850,7 +1850,7 @@ export default function TestCases({ me }: PageProps) {
                           <button
                             type="button"
                             className="linkish"
-                            title="열어서 시험 짜기"
+                            title={`${t.tcid} — 열어서 시험 짜기`}
                             onClick={() => pickTc(t.tcid)}
                           >
                             {t.name || '(제목 없음)'}
