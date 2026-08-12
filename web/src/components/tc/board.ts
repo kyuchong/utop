@@ -72,9 +72,16 @@ export const FACING: Record<Side, Side> = {
  */
 export function sideToward(dx: number, dy: number): Side {
   const deg = (Math.atan2(dy, dx) * 180) / Math.PI // -180 ~ 180, 아래가 +
-  const i = Math.round(((deg + 360) % 360) / 45) % 8
-  // 0도(오른쪽)부터 시계 방향으로
-  const ring: Side[] = ['r', 'br', 'b', 'bl', 'l', 'tl', 't', 'tr']
+  /*
+   * 자동으로는 **네 변만** 쓴다.
+   *
+   * 모서리(45도)로도 내보냈더니 빗금 토막이 붙은 S자 선이 나왔다 —
+   * 실제 배선도의 선은 변에서 나와 직각으로만 꺾인다. 아래에 있는
+   * 장비로는 아랫변에서 나가 옆으로 꺾어 들어가는 것이 맞는 그림이다.
+   * 모서리는 사람이 점을 집어 골랐을 때만 쓴다.
+   */
+  const i = Math.round(((deg + 360) % 360) / 90) % 4
+  const ring: Side[] = ['r', 'b', 'l', 't']
   return ring[i] ?? 'r'
 }
 
