@@ -83,8 +83,15 @@ export function boardSvg(g: BoardInput): string {
   // 그린 것을 다 감싸는 테두리. 판은 왼쪽 위가 비어 있는 일이 흔한데,
   // 그대로 구우면 결과서에 빈 여백이 절반이다.
   const PAD = 42
+  const laid = layout(lines, posOf)
   const xs = g.placed.flatMap((p) => [p.x, p.x + W])
   const ys = g.placed.flatMap((p) => [p.y, p.y + H])
+  // 선도 센다. 네모만 세었더니 윗변·아랫변끼리 이은 곡선이 테두리 밖으로
+  // 부풀어 머리가 잘린 채로 결과서에 실렸다.
+  for (const e of laid) {
+    xs.push(e.p1.x, e.p2.x, e.c1.x, e.c2.x)
+    ys.push(e.p1.y, e.p2.y, e.c1.y, e.c2.y)
+  }
   if (!xs.length) return ''
   const x0 = Math.min(...xs) - PAD
   const y0 = Math.min(...ys) - PAD
@@ -99,7 +106,7 @@ export function boardSvg(g: BoardInput): string {
   out.push(`<rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#fff"/>`)
 
   // 선이 먼저 — 네모가 그 위에 얹혀야 선 끝이 네모 밑으로 숨는다
-  for (const e of layout(lines, posOf)) {
+  for (const e of laid) {
     const c = e.l.wire ? INK.wire : INK.line
     out.push(
       `<path d="M${e.p1.x},${e.p1.y} C${e.c1.x},${e.c1.y} ${e.c2.x},${e.c2.y} ${e.p2.x},${e.p2.y}" ` +
@@ -108,7 +115,7 @@ export function boardSvg(g: BoardInput): string {
   }
 
   // 포트 이름 — 붙는 자리 옆에. 선을 다 그은 뒤에 얹어야 글자가 안 묻힌다
-  for (const e of layout(lines, posOf)) {
+  for (const e of laid) {
     const gap = Math.hypot(e.p2.x - e.p1.x, e.p2.y - e.p1.y)
     if (gap < NARROW) {
       // 틈이 좁으면 자리가 없다 — 선 하나에 이름 하나로 붙여 적는다
