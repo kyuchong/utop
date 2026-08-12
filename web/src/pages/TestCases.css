@@ -2577,6 +2577,8 @@ table.tb tr.r-bad td:first-child {
  * 정작 읽어야 할 시험 이름은 한 글자도 안 보였다. 앞뒤는 최소·최대만
  * 정하고 남는 폭은 이름이 가져간다.
  */
+.rq-tr.tc-tr .rq-th > div,
+.rq-tr.tc-tr > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rq-tr.tc-tr {
   /*
    * 열은 **고정폭**이어야 한다.
@@ -2588,9 +2590,10 @@ table.tb tr.r-bad td:first-child {
    */
   /* 내용 실측에 맞춰 여백을 걷었다: 요구사항 96 · TC ID 196 · 유형 64 ·
      REQ Map 60 · 상태 70. 이름이 그만큼 더 갖는다. */
+  /* REQ Map 을 60 으로 줄였더니 「Map 1」 이 「M…」 으로 잘렸다 — 78. */
   grid-template-columns:
     30px 96px 196px minmax(140px, 1fr)
-    64px 40px 60px 70px;
+    64px 40px 78px 70px;
   column-gap: 10px;
 }
 .tc-req {
