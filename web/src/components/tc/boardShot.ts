@@ -89,8 +89,10 @@ export function boardSvg(g: BoardInput): string {
   // 선도 센다. 네모만 세었더니 윗변·아랫변끼리 이은 곡선이 테두리 밖으로
   // 부풀어 머리가 잘린 채로 결과서에 실렸다.
   for (const e of laid) {
-    xs.push(e.p1.x, e.p2.x, e.c1.x, e.c2.x)
-    ys.push(e.p1.y, e.p2.y, e.c1.y, e.c2.y)
+    for (const q of e.pts) {
+      xs.push(q.x)
+      ys.push(q.y)
+    }
   }
   if (!xs.length) return ''
   const x0 = Math.min(...xs) - PAD
@@ -109,8 +111,8 @@ export function boardSvg(g: BoardInput): string {
   for (const e of laid) {
     const c = e.l.wire ? INK.wire : INK.line
     out.push(
-      `<path d="M${e.p1.x},${e.p1.y} C${e.c1.x},${e.c1.y} ${e.c2.x},${e.c2.y} ${e.p2.x},${e.p2.y}" ` +
-        `fill="none" stroke="${c}" stroke-width="${e.l.wire ? 2 : 1.6}"/>`,
+      `<path d="${e.d}" fill="none" stroke="${c}" stroke-width="${e.l.wire ? 2 : 1.6}" ` +
+        `stroke-linejoin="round" stroke-linecap="round"/>`,
     )
   }
 
@@ -119,9 +121,7 @@ export function boardSvg(g: BoardInput): string {
     const gap = Math.hypot(e.p2.x - e.p1.x, e.p2.y - e.p1.y)
     if (gap < NARROW) {
       // 틈이 좁으면 자리가 없다 — 선 하나에 이름 하나로 붙여 적는다
-      const mx = (e.p1.x + e.p2.x + e.c1.x + e.c2.x) / 4
-      const my = (e.p1.y + e.p2.y + e.c1.y + e.c2.y) / 4
-      out.push(label(mx, my - 3, `${e.l.pa} ↔ ${e.l.pb}`, 'middle', 11, true))
+      out.push(label(e.mid.x, e.mid.y - 3, `${e.l.pa} ↔ ${e.l.pb}`, 'middle', 11, true))
       continue
     }
     const tag = (s: Side, p: { x: number; y: number }, txt: string, first: boolean) => {

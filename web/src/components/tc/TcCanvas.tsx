@@ -122,11 +122,14 @@ export default function TcCanvas({
     }
     const d = drag.current
     if (!d || !box) return
+    // 격자에 맞춰 놓는다. 손으로 대충 놓아도 줄이 맞아 구성도처럼 보인다 —
+    // 판 바탕의 점 간격(16px)과 같은 격자다.
+    const snap = (v: number) => Math.max(0, Math.round(v / 16) * 16)
     setLive((s) => ({
       ...s,
       [d.dev]: {
-        x: Math.max(0, Math.round(e.clientX - box.left - d.dx)),
-        y: Math.max(0, Math.round(e.clientY - box.top - d.dy)),
+        x: snap(e.clientX - box.left - d.dx),
+        y: snap(e.clientY - box.top - d.dy),
       },
     }))
   }, [])
@@ -240,7 +243,7 @@ export default function TcCanvas({
   const put = (id: string) => {
     if (!id || placed.some((p) => p.dev === id)) return
     const n = placed.length
-    onPlaced([...placed, { dev: id, x: 30 + (n % 3) * 200, y: 24 + Math.floor(n / 3) * 110 }])
+    onPlaced([...placed, { dev: id, x: 32 + (n % 3) * 208, y: 32 + Math.floor(n / 3) * 112 }])
   }
 
   const cut = (kind: 'wire' | 'link', at: number) => {
@@ -352,8 +355,7 @@ export default function TcCanvas({
             <svg className="cv-svg">
               {ends.map((e) => {
                 const l = e.l
-                const { p1, p2, c1, c2 } = e
-                const d = `M${p1.x},${p1.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${p2.x},${p2.y}`
+                const { p1, p2, d, mid } = e
 
                 /*
                  * 포트 이름은 **붙는 자리 옆**에 적는다.
@@ -386,8 +388,8 @@ export default function TcCanvas({
                 }
 
                 // 선 한가운데 — 끊는 단추를 여기 둔다
-                const mx = (p1.x + p2.x + c1.x + c2.x) / 4
-                const my = (p1.y + p2.y + c1.y + c2.y) / 4
+                const mx = mid.x
+                const my = mid.y
 
                 return (
                   <g

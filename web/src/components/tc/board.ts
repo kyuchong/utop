@@ -139,8 +139,102 @@ export interface Laid {
   sb: Side
   p1: { x: number; y: number }
   p2: { x: number; y: number }
-  c1: { x: number; y: number }
-  c2: { x: number; y: number }
+  /** 그릴 길 — 직각으로 꺾어 간다 */
+  d: string
+  /** 길의 한가운데. 이름표와 끊는 단추를 여기 둔다 */
+  mid: { x: number; y: number }
+  /** 그림 테두리를 잡을 때 쓰는 꺾인 자리들 */
+  pts: Array<{ x: number; y: number }>
+}
+
+/** 이 자리에서 나가는 길이 가로인가 세로인가 */
+function axisOf(s: Side, dx: number, dy: number): 'h' | 'v' {
+  if (s === 'l' || s === 'r') return 'h'
+  if (s === 't' || s === 'b') return 'v'
+  // 모서리는 더 먼 쪽을 따른다
+  return Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v'
+}
+
+/**
+ * 직각으로 꺾어 가는 길.
+ *
+ * 곡선으로 그었더니 랩 구성도라기보다 흐름도처럼 보였다. 실제 배선도는
+ * 가로·세로로만 꺾는다 — 어느 선이 어디로 가는지 눈으로 따라가기도
+ * 이쪽이 쉽다.
+ *
+ * 네모에서 조금 곧게 빠져나온 뒤(그루터기) 꺾는다. 바로 꺾으면 선이
+ * 네모 모서리에 붙어 어느 자리에서 나온 것인지 안 보인다.
+ */
+const STUB = 18
+
+function elbow(
+  p1: { x: number; y: number },
+  sa: Side,
+  p2: { x: number; y: number },
+  sb: Side,
+): { d: string; mid: { x: number; y: number }; pts: Array<{ x: number; y: number }> } {
+  const dx = p2.x - p1.x
+  const dy = p2.y - p1.y
+  const a1 = axisOf(sa, dx, dy)
+  const a2 = axisOf(sb, -dx, -dy)
+  const s1 = { x: p1.x + AWAY[sa].x * STUB, y: p1.y + AWAY[sa].y * STUB }
+  const s2 = { x: p2.x + AWAY[sb].x * STUB, y: p2.y + AWAY[sb].y * STUB }
+
+  const pts = [p1, s1]
+  if (a1 === 'h' && a2 === 'h') {
+    const mx = (s1.x + s2.x) / 2
+    pts.push({ x: mx, y: s1.y }, { x: mx, y: s2.y })
+  } else if (a1 === 'v' && a2 === 'v') {
+    const my = (s1.y + s2.y) / 2
+    pts.push({ x: s1.x, y: my }, { x: s2.x, y: my })
+  } else if (a1 === 'h') {
+    pts.push({ x: s2.x, y: s1.y })
+  } else {
+    pts.push({ x: s1.x, y: s2.y })
+  }
+  pts.push(s2, p2)
+
+  // 모서리를 조금 둥글려 준다 — 각진 채로는 인쇄했을 때 톱니처럼 보인다
+  const R = 6
+  let d = `M${pts[0]!.x},${pts[0]!.y}`
+  for (let i = 1; i < pts.length - 1; i++) {
+    const prev = pts[i - 1]!
+    const cur = pts[i]!
+    const next = pts[i + 1]!
+    const inLen = Math.hypot(cur.x - prev.x, cur.y - prev.y)
+    const outLen = Math.hypot(next.x - cur.x, next.y - cur.y)
+    const r = Math.min(R, inLen / 2, outLen / 2)
+    if (r < 1) {
+      d += ` L${cur.x},${cur.y}`
+      continue
+    }
+    const ax = cur.x - (cur.x - prev.x) * (r / (inLen || 1))
+    const ay = cur.y - (cur.y - prev.y) * (r / (inLen || 1))
+    const bx = cur.x + (next.x - cur.x) * (r / (outLen || 1))
+    const by = cur.y + (next.y - cur.y) * (r / (outLen || 1))
+    d += ` L${ax},${ay} Q${cur.x},${cur.y} ${bx},${by}`
+  }
+  const last = pts[pts.length - 1]!
+  d += ` L${last.x},${last.y}`
+
+  // 길이의 한가운데
+  let total = 0
+  for (let i = 1; i < pts.length; i++) total += Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y)
+  let walked = 0
+  let mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }
+  for (let i = 1; i < pts.length; i++) {
+    const seg = Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y)
+    if (walked + seg >= total / 2) {
+      const t = seg ? (total / 2 - walked) / seg : 0
+      mid = {
+        x: pts[i - 1]!.x + (pts[i]!.x - pts[i - 1]!.x) * t,
+        y: pts[i - 1]!.y + (pts[i]!.y - pts[i - 1]!.y) * t,
+      }
+      break
+    }
+    walked += seg
+  }
+  return { d, mid, pts }
 }
 
 /**
@@ -194,18 +288,7 @@ export function layout(
   return ends.map((e) => {
     const p1 = edgePt(e.A, e.sa, fracOf(e.l.a, e.sa, e.l.k))
     const p2 = edgePt(e.B, e.sb, fracOf(e.l.b, e.sb, e.l.k))
-    const k = Math.max(28, Math.hypot(p2.x - p1.x, p2.y - p1.y) / 3)
-    /*
-     * 밖으로 나가는 손잡이를 판 안에 눌러 담는다.
-     *
-     * 윗변끼리 이으면 곡선이 위로 크게 부풀어 판 위쪽(0)을 넘어갔고,
-     * 판은 넘친 것을 잘라 내므로 선의 머리가 싹둑 잘려 보였다. 왼쪽도
-     * 마찬가지다. 아래·오른쪽은 판이 따라 늘어나므로 둘 일이 없다.
-     */
-    const out = (s: Side, p: { x: number; y: number }) => ({
-      x: Math.max(4, p.x + AWAY[s].x * k),
-      y: Math.max(4, p.y + AWAY[s].y * k),
-    })
-    return { l: e.l, sa: e.sa, sb: e.sb, p1, p2, c1: out(e.sa, p1), c2: out(e.sb, p2) }
+    const { d, mid, pts } = elbow(p1, e.sa, p2, e.sb)
+    return { l: e.l, sa: e.sa, sb: e.sb, p1, p2, d, mid, pts }
   })
 }

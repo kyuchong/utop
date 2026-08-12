@@ -40,7 +40,7 @@
   font-size: var(--fs-sm);
 }
 .cv-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.cv-l path { fill: none; stroke: #9aa4ae; stroke-width: 1.5; }
+.cv-l path { fill: none; stroke: #9aa4ae; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
 .cv-l.wire path { stroke: var(--c-primary); stroke-width: 1.8; }
 
 /* 선을 누르는 자리.
