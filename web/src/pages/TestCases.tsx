@@ -121,6 +121,8 @@ export default function TestCases({ me }: PageProps) {
   const view: 'list' | 'detail' = openId ? 'detail' : 'list'
   const [stepIdx, setStepIdx] = useState(-1)
   const [menuOpen, setMenuOpen] = useState(false)
+  /** 1열 「+」 — 최상위 폴더 입력칸을 연다 (요구사항 화면과 같은 문법) */
+  const [addFolderN, setAddFolderN] = useState(0)
   /** 3열 머리의 ⋯ — 이 칸을 무엇으로 쓸지 고르는 자리 */
   const [detMenu, setDetMenu] = useState(false)
   /** 명령어 캡쳐를 열면 3열이 그것으로 바뀐다 — 캡쳐하는 동안 스텝 세부는 볼 일이 없다 */
@@ -1575,6 +1577,7 @@ export default function TestCases({ me }: PageProps) {
             name="Coverage Tree"
             count={tcs.length}
             onCollapse={() => setListOpen(false)}
+            add={{ title: '최상위 폴더 추가', onClick: () => setAddFolderN((n) => n + 1) }}
             picked={
               pickedTc.size > 1 ? (
                 // 세 화면이 같은 말을 쓴다 — 「N건 선택됨」 · ✕ 로 해제.
@@ -1631,6 +1634,7 @@ export default function TestCases({ me }: PageProps) {
                 setListPick(new Set())
                 setOpenId('')
               }}
+              addFolderSignal={addFolderN}
               selectedReq={selReq}
               onSelectReq={(pk) => {
                 if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 옮길까요?')) return
