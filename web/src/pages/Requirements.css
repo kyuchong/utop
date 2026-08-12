@@ -584,7 +584,12 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 
 /* ── List 모드 — 폴더 안 요구사항 표 (Zephyr 방식) ──────────────
    ID · Name · Map Test Case · Coverage · Priority. 한 줄 클릭 → 상세. */
-.rq-listcol .rq-list { overflow-x: auto; }
+.rq-listcol .rq-list {
+  overflow-x: auto;
+  /* 찾기 줄과 Select All 사이가 벌었다 — 목록 위 여백과 줄 간격을 줄인다 */
+  padding-top: 4px;
+  gap: 6px;
+}
 /* 표 상자가 제 폭에 갇힌 채 안에서 내용을 잘랐다(overflow:hidden) —
    바깥 목록은 넘친 줄을 모르니 스크롤이 안 생겼다. 상자가 내용만큼
    커지게 하면 목록이 대신 스크롤한다. */
@@ -887,8 +892,9 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   flex: none;
   padding: var(--sp-2) var(--sp-2);
 }
-/* 2열 것 — 위아래로 빈 띠가 넓게 남아 표가 그만큼 짧았다. 바짝 붙인다 */
-.rq-midfind { padding: 2px var(--sp-2) 4px; }
+/* 2열 찾기 — 위는 1열과 같은 숨(sp-2), 아래는 바짝. 위를 2px 로
+   붙였더니 1열과 리듬이 달라 어긋나 보였다. */
+.rq-midfind { padding: var(--sp-2) var(--sp-2) 2px; }
 .rq-ffind input {
   width: 100%;
   box-sizing: border-box;
