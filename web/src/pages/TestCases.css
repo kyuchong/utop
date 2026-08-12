@@ -2578,13 +2578,19 @@ table.tb tr.r-bad td:first-child {
  * 정하고 남는 폭은 이름이 가져간다.
  */
 .rq-tr.tc-tr {
-  /* 요구사항·TC ID 는 **내용만큼만** 쓴다. minmax 로 못 박았더니
-     「SNMPv2」 여섯 글자 옆에 손바닥만 한 빈칸이 늘 붙어 다녔다 —
-     남는 폭은 이름 열 몫이다. */
+  /*
+   * 요구사항·TC ID 는 내용만큼만 — 다만 **열 사이 간격이 있어야** 한다.
+   * 처음에 220px 로 못 박으니 「SNMPv2」 옆에 손바닥만 한 빈칸이 생겼고,
+   * fit-content 로만 바꾸니 이번엔 세 열이 붙어 한 덩어리로 읽혔다.
+   * 내용폭 + 24px 간격. 남는 폭은 이름 열 몫이다.
+   */
   grid-template-columns:
-    34px fit-content(220px) fit-content(200px) minmax(140px, 1fr)
+    34px fit-content(220px) fit-content(210px) minmax(140px, 1fr)
     76px 46px 84px 88px;
+  column-gap: 24px;
 }
+/* 왼쪽 고정 열들은 간격을 좁게 — 체크박스와 요구사항 사이가 벌어질 이유가 없다 */
+.rq-tr.tc-tr > :first-child { margin-right: -14px; }
 .tc-req {
   display: flex;
   align-items: center;
