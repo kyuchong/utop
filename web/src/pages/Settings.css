@@ -754,7 +754,7 @@
 .dc-table { display: flex; flex-direction: column; }
 .dc-tr {
   display: grid;
-  grid-template-columns: 150px 100px 80px 90px 110px minmax(110px, 1fr) 54px 130px;
+  grid-template-columns: 90px 110px 80px 110px 150px minmax(110px, 1fr) 50px 70px;
   gap: 8px;
   align-items: center;
   padding: 5px 8px;
@@ -764,3 +764,64 @@
 .dc-tr.dc-th { color: var(--c-text-faint); font-size: var(--fs-xs); }
 /* 목록에 없는 값 — 숨기지 말고 붉게 드러낸다 */
 .dc-warn { color: var(--c-fail); font-weight: 700; }
+
+
+/* ── 장비 카탈로그 v2 — 한 화면 ─────────────────────────────── */
+.dc2-cols { display: flex; gap: var(--sp-3); align-items: flex-start; }
+.dc2-side { flex: 0 0 270px; display: flex; flex-direction: column; gap: var(--sp-2); }
+.dc2-main { flex: 1; min-width: 0; }
+.dc2-sec {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  padding: 8px 10px;
+}
+.dc2-sech { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.dc2-chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.dc2-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 999px;
+  background: var(--c-surface-alt);
+  padding: 1px 4px 1px 9px;
+  font-size: var(--fs-sm);
+}
+.dc2-chip-nm { border: 0; background: transparent; padding: 0; font: inherit; cursor: pointer; }
+.dc2-chip-nm:hover { color: var(--c-primary); text-decoration: underline; }
+.dc2-used { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.dc2-chip-x {
+  border: 0;
+  background: transparent;
+  padding: 0 3px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  cursor: pointer;
+  border-radius: 50%;
+}
+.dc2-chip-x:hover { color: var(--c-fail); }
+.dc2-add {
+  border: 1px dashed var(--c-border);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: var(--fs-sm);
+  width: 110px;
+  background: transparent;
+}
+.dc2-new input, .dc2-new select,
+.dc-tr select, .dc2-if {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: var(--fs-sm);
+  padding: 2px 4px;
+}
+.dc-tr select:hover, .dc2-if:hover { border-color: var(--c-border); background: var(--c-surface); }
+.dc2-new input, .dc2-new select { border-color: var(--c-border); background: var(--c-surface); }
+.dc-tr select.dc-warn { color: var(--c-fail); font-weight: 700; }
+.dc2-bulk { padding: 8px; border-bottom: 1px solid var(--c-border-soft); }
+.dc2-bulk textarea { width: 100%; }
+.dc2-bulkfoot { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }

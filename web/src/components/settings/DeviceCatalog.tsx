@@ -15,36 +15,37 @@ interface Item {
   used?: number
 }
 
-// 넓은 것에서 좁은 것 순으로 둔다 — LAB 안에 장비가 있고, 장비는 Vendor 와
-// 제품군으로 갈리고, 모델그룹은 그 아래 시리즈, 모델명이 가장 아래다.
-// 등록할 때도 이 차례로 채우게 되므로 탭 순서가 곧 작업 순서가 된다.
-const KINDS: Array<{ v: string; label: string; desc: string }> = [
-  { v: 'lab', label: 'LAB', desc: '시험실' },
-  { v: 'vendor', label: 'Vendor', desc: '유비쿼스 · Cisco …' },
-  { v: 'operator', label: '사업자', desc: 'KT · LGU+ · SKB …' },
-  { v: 'family', label: '제품군', desc: 'L2 · L3 · OLT · ONT · CPE · HGW' },
-  { v: 'group', label: '모델그룹', desc: 'E6000 시리즈 · U9500 시리즈 …' },
-  { v: 'model', label: '모델명', desc: 'Vendor · 모델그룹 · 제품군 · 기본 인터페이스' },
+/** 왼쪽 분류 다섯 — 이름만 있는 것들. 모델은 오른쪽 표가 주인공이다 */
+const SIDE_KINDS: Array<{ v: string; label: string; hint: string }> = [
+  { v: 'lab', label: 'LAB', hint: '시험실' },
+  { v: 'vendor', label: '벤더', hint: 'UBIQUOSS · IXIA …' },
+  { v: 'operator', label: '사업자', hint: 'KT · LGU+ · 공공 …' },
+  { v: 'family', label: '제품군', hint: 'L2 · L3 · OLT …' },
+  { v: 'group', label: '모델그룹', hint: 'E61xx · UbiEnt …' },
 ]
 
+/** 새 모델 입력 줄의 빈 값 */
+const EMPTY_MODEL: Item = { kind: 'model', name: '' }
+
 /**
- * 장비 카탈로그.
+ * 장비 카탈로그 — 한 화면.
  *
- * 장비를 등록할 때마다 제조사와 모델을 손으로 치면 '유비쿼스' 와
- * '유비쿼스(주)' 로 갈려 같은 것이 둘로 보인다. 여기에 한 번 등록해 두고
- * 장비 등록에서는 고르기만 한다.
+ * 전에는 탭 여섯을 오가며 「고치기로 위에 올려서 다시 추가」 해야 했다.
+ * 이제 왼쪽에서 분류(LAB·벤더·사업자·제품군·모델그룹)를 알약으로 바로
+ * 만들고·이름 바꾸고·지우고, 오른쪽 모델 표에서는 **칸을 그 자리에서
+ * 고친다** — 콤보를 바꾸면 바로 저장된다.
  *
- * 모델에 기본 인터페이스를 적어두면 장비 등록에서 모델만 골라도 48포트가
- * 채워진다 — 같은 모델을 30대 등록할 때 이것이 가장 크게 줄여준다.
+ * 목록에 없는 저장값은 붉게 드러난다. 유비쿼스가 DB 에 숨은 채 화면은
+ * 빈 칸이던 일을 다시 만들지 않기 위해서다.
  */
 export default function DeviceCatalog() {
   const qc = useQueryClient()
-  // 처음 열리는 탭은 목록 첫 번째와 같아야 한다 — 다르면 어느 탭이 켜져
-  // 있는지 눈으로 한 번 더 찾아야 한다.
-  const [kind, setKind] = useState('lab')
-  const [draft, setDraft] = useState<Item>({ kind: 'lab', name: '' })
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
-  // 여러 줄 붙여넣기로 한 번에 등록하는 칸
+  /** 새 모델 줄 */
+  const [draft, setDraft] = useState<Item>(EMPTY_MODEL)
+  /** 분류마다 새 이름 입력칸 */
+  const [adds, setAdds] = useState<Record<string, string>>({})
+  /** 모델 일괄 추가 */
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulk, setBulk] = useState('')
 
@@ -56,9 +57,21 @@ export default function DeviceCatalog() {
       return (await r.json()) as { items: Item[] }
     },
   })
+  const all = listQ.data?.items ?? []
+  const of = (kind: string) => all.filter((i) => i.kind === kind)
+  const models = of('model')
+  const lists: Record<string, Item[]> = {
+    lab: of('lab'),
+    vendor: of('vendor'),
+    operator: of('operator'),
+    family: of('family'),
+    group: of('group'),
+  }
 
-  const items = (listQ.data?.items ?? []).filter((i) => i.kind === kind)
-  const cur = KINDS.find((k) => k.v === kind)!
+  const refetch = () => {
+    void qc.invalidateQueries({ queryKey: ['device-catalog'] })
+    void qc.invalidateQueries({ queryKey: ['device-roles'] })
+  }
 
   const saveM = useMutation({
     mutationFn: async (it: Item) => {
@@ -68,13 +81,13 @@ export default function DeviceCatalog() {
         body: JSON.stringify(it),
       })
       const b = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(b.detail || '저장하지 못했습니다')
+      if (!r.ok) throw new Error((b as { detail?: string }).detail || '저장하지 못했습니다')
+      return it
     },
-    onSuccess: () => {
-      setDraft({ kind, name: '' })
-      setNote({ kind: 'ok', msg: '저장했습니다' })
-      void qc.invalidateQueries({ queryKey: ['device-catalog'] })
-      void qc.invalidateQueries({ queryKey: ['device-roles'] })
+    onSuccess: (it) => {
+      setNote({ kind: 'ok', msg: `저장했습니다 — ${it.name}` })
+      if (it.kind === 'model' && it.name === draft.name.trim()) setDraft({ ...draft, name: '' })
+      refetch()
     },
     onError: (e) => setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) }),
   })
@@ -86,86 +99,59 @@ export default function DeviceCatalog() {
         { method: 'DELETE' },
       )
       const b = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(b.detail || '지우지 못했습니다')
+      if (!r.ok) throw new Error((b as { detail?: string }).detail || '지우지 못했습니다')
     },
     onSuccess: () => {
       setNote({ kind: 'ok', msg: '지웠습니다' })
-      void qc.invalidateQueries({ queryKey: ['device-catalog'] })
-      void qc.invalidateQueries({ queryKey: ['device-roles'] })
+      refetch()
     },
     onError: (e) => setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) }),
   })
 
   /** 이름 변경 — 그 이름을 쓰는 모델·장비까지 서버가 한 번에 바꾼다.
-      「고치기」 로 이름을 바꾸면 새 항목이 생겨 Spirent/SPIRENT 처럼
-      갈라졌다(겪었다). */
+      새 이름이 이미 있으면 병합된다 (Spirent → SPIRENT). */
   const renameM = useMutation({
     mutationFn: async (v: { kind: string; old: string; next: string }) => {
       const r = await apiFetch('/api/device-catalog2/rename', {
         method: 'POST',
         body: JSON.stringify({ kind: v.kind, old: v.old, new: v.next }),
       })
-      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { detail?: string }).detail || String(r.status))
+      if (!r.ok)
+        throw new Error(
+          ((await r.json().catch(() => ({}))) as { detail?: string }).detail || String(r.status),
+        )
     },
     onSuccess: () => {
       setNote({ kind: 'ok', msg: '이름을 바꿨습니다 — 쓰던 모델·장비도 함께 바뀌었습니다' })
-      void listQ.refetch()
+      refetch()
     },
     onError: (e) => setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) }),
   })
 
-  const vendors = (listQ.data?.items ?? []).filter((i) => i.kind === 'vendor')
-  const operators = (listQ.data?.items ?? []).filter((i) => i.kind === 'operator')
-  const groups = (listQ.data?.items ?? []).filter((i) => i.kind === 'group')
-  const families = (listQ.data?.items ?? []).filter((i) => i.kind === 'family')
-
-  const submit = () => {
-    if (!draft.name.trim()) {
-      setNote({ kind: 'err', msg: '이름을 입력하세요' })
-      return
-    }
-    saveM.mutate({ ...draft, kind })
-  }
-
-  /**
-   * 여러 줄을 한 번에 등록.
-   *
-   * 모델은 한 시리즈에 열 개씩 되는 일이 흔한데, 한 줄씩 넣으면 Vendor·
-   * 제품군·모델그룹을 매번 다시 고르게 된다. 공통 값은 위에서 한 번만
-   * 고르고 이름만 줄로 붙여넣는다.
-   *
-   * 엑셀에서 그대로 붙여넣는 경우가 많아 탭·쉼표로 나뉜 둘째 칸을
-   * 인터페이스로 받는다 — 시리즈 안에서도 포트 수는 다를 수 있다.
-   */
+  /** 여러 줄 한 번에 — 공통 값은 새 모델 줄에서 고른 것을 쓰고,
+      줄마다 「이름[, 인터페이스]」 로 받는다 (엑셀 붙여넣기 호환) */
   const bulkM = useMutation({
     mutationFn: async (lines: string[]) => {
-      // 순차로 넣는다. 한꺼번에 던지면 어디까지 들어갔는지 알 수 없어
-      // 실패한 것만 다시 시도할 수가 없다.
       const done: string[] = []
       const failed: Array<{ name: string; why: string }> = []
       for (const line of lines) {
-        // 첫 구분자에서만 자르고 나머지는 통째로 인터페이스로 본다.
-        // split(re, 2) 를 쓰면 'E6100-48T, gi1/0/1-48, te1/1-4' 에서
-        // te1/1-4 가 조용히 사라진다 — 인터페이스 자체에 쉼표가 들어간다.
         const at = line.search(/[\t,]/)
         const name = (at < 0 ? line : line.slice(0, at)).trim()
         const rawIf = at < 0 ? '' : line.slice(at + 1)
         if (!name) continue
-        const item: Item = {
-          ...draft,
-          kind,
-          name,
-          // 줄에 인터페이스가 적혀 있으면 그것을, 없으면 위에서 고른 공통값을 쓴다
-          interfaces: (rawIf ?? '').trim() || draft.interfaces || null,
-        }
         try {
           const r = await apiFetch('/api/device-catalog2', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(item),
+            body: JSON.stringify({
+              ...draft,
+              kind: 'model',
+              name,
+              interfaces: rawIf.trim() || draft.interfaces || null,
+            }),
           })
           const b = await r.json().catch(() => ({}))
-          if (!r.ok) throw new Error(b.detail || '저장 실패')
+          if (!r.ok) throw new Error((b as { detail?: string }).detail || '저장 실패')
           done.push(name)
         } catch (e) {
           failed.push({ name, why: e instanceof Error ? e.message : String(e) })
@@ -174,333 +160,273 @@ export default function DeviceCatalog() {
       return { done, failed }
     },
     onSuccess: ({ done, failed }) => {
-      void qc.invalidateQueries({ queryKey: ['device-catalog'] })
-      void qc.invalidateQueries({ queryKey: ['device-roles'] })
+      refetch()
       if (failed.length === 0) {
         setBulk('')
         setBulkOpen(false)
         setNote({ kind: 'ok', msg: `${done.length}건 등록했습니다` })
         return
       }
-      // 실패한 줄만 칸에 남긴다 — 고쳐서 그대로 다시 누르면 된다.
       setBulk(failed.map((f) => f.name).join('\n'))
       setNote({
         kind: 'err',
         msg:
-          `${done.length}건 등록, ${failed.length}건 실패. 실패한 것만 칸에 남겨뒀습니다 — ` +
-          failed
-            .slice(0, 3)
-            .map((f) => `${f.name}: ${f.why}`)
-            .join(' / ') +
+          `${done.length}건 등록, ${failed.length}건 실패 — ` +
+          failed.slice(0, 3).map((f) => `${f.name}: ${f.why}`).join(' / ') +
           (failed.length > 3 ? ` 외 ${failed.length - 3}건` : ''),
       })
     },
     onError: (e) => setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) }),
   })
 
-  const bulkLines = bulk
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean)
-
-  const submitBulk = () => {
-    if (bulkLines.length === 0) {
-      setNote({ kind: 'err', msg: '한 줄에 하나씩 이름을 적으세요' })
-      return
-    }
-    bulkM.mutate(bulkLines)
+  /** 표의 콤보 하나 — 값이 목록에 없으면 붉고, 그 값도 고를 수 있게 남긴다 */
+  const cellSelect = (
+    row: Item,
+    field: 'vendor' | 'operator' | 'family' | 'model_group',
+    listKind: string,
+  ) => {
+    const val = String(row[field] ?? '')
+    const list = lists[listKind] ?? []
+    const known = !val || list.some((x) => x.name === val)
+    return (
+      <select
+        className={known ? '' : 'dc-warn'}
+        value={val}
+        onChange={(e) => saveM.mutate({ ...row, kind: 'model', [field]: e.target.value })}
+      >
+        <option value="">–</option>
+        {!known && <option value={val}>{val} (목록에 없음)</option>}
+        {list.map((x) => (
+          <option key={x.name}>{x.name}</option>
+        ))}
+      </select>
+    )
   }
 
+  const bulkLines = bulk.split('\n').map((x) => x.trim()).filter(Boolean)
+
   return (
-    <div className="set-page">
+    <div className="set-page dc2">
       <div className="set-head">
         <div>
           <h3>장비 카탈로그</h3>
-          <p className="muted small">
-            여기 등록해두면 장비 등록 화면에서 고르기만 하면 됩니다.
-            손으로 칠 때마다 이름이 갈리는 것을 막습니다.
+          <p className="muted">
+            왼쪽에서 분류를 만들고, 오른쪽 표에서 모델의 칸을 <b>그 자리에서</b> 바꿉니다 —
+            콤보를 바꾸면 바로 저장됩니다. 붉은 값은 목록에 없는 것입니다.
           </p>
         </div>
       </div>
 
       {note.msg && <div className={`set-note ${note.kind}`}>{note.msg}</div>}
 
-      <div className="seg" role="tablist">
-        {KINDS.map((k) => (
-          <button
-            key={k.v}
-            type="button"
-            role="tab"
-            aria-selected={kind === k.v}
-            className={`seg-btn${kind === k.v ? ' on' : ''}`}
-            onClick={() => {
-              setKind(k.v)
-              setDraft({ kind: k.v, name: '' })
-              setNote({ kind: '', msg: '' })
-            }}
-          >
-            {k.label}
-            <span className="cnt">
-              {(listQ.data?.items ?? []).filter((i) => i.kind === k.v).length}
-            </span>
-          </button>
-        ))}
-      </div>
+      <div className="dc2-cols">
+        {/* ── 왼쪽: 분류 다섯 — 알약으로 만들고·바꾸고·지운다 ────── */}
+        <aside className="dc2-side">
+          {SIDE_KINDS.map((k) => (
+            <section className="dc2-sec" key={k.v}>
+              <div className="dc2-sech">
+                <b>{k.label}</b>
+                <span className="muted small">{lists[k.v]?.length ?? 0}</span>
+              </div>
+              <div className="dc2-chips">
+                {(lists[k.v] ?? []).map((it) => (
+                  <span
+                    className="dc2-chip"
+                    key={it.name}
+                    title={it.used ? `${it.used}대 사용 중` : ''}
+                  >
+                    <button
+                      type="button"
+                      className="dc2-chip-nm"
+                      title="누르면 이름을 바꿉니다 — 쓰던 모델·장비도 함께"
+                      onClick={() => {
+                        const next = window.prompt(`'${it.name}' 의 새 이름`, it.name)?.trim()
+                        if (next && next !== it.name)
+                          renameM.mutate({ kind: k.v, old: it.name, next })
+                      }}
+                    >
+                      {it.name}
+                    </button>
+                    {it.used ? <i className="dc2-used">{it.used}</i> : null}
+                    <button
+                      type="button"
+                      className="dc2-chip-x"
+                      aria-label={`${it.name} 지우기`}
+                      title="지우기 — 쓰는 장비가 있으면 어느 장비인지 알려줍니다"
+                      onClick={() => {
+                        if (window.confirm(`'${it.name}' 을 지울까요?`)) delM.mutate(it)
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+                <input
+                  className="dc2-add"
+                  placeholder={`+ ${k.label}`}
+                  title={k.hint}
+                  value={adds[k.v] ?? ''}
+                  onChange={(e) => setAdds((a) => ({ ...a, [k.v]: e.target.value }))}
+                  onKeyDown={(e) => {
+                    const name = (adds[k.v] ?? '').trim()
+                    if (e.key === 'Enter' && name) {
+                      saveM.mutate({ kind: k.v, name })
+                      setAdds((a) => ({ ...a, [k.v]: '' }))
+                    }
+                  }}
+                />
+              </div>
+            </section>
+          ))}
+        </aside>
 
-      <section className="set-card">
-        <div className="set-card-head">
-          <b>{cur.label} 추가</b>
-          <span className="muted small">{cur.desc}</span>
-          <button
-            className="btn small dc-bulk-toggle"
-            type="button"
-            onClick={() => {
-              setBulkOpen((v) => !v)
-              setNote({ kind: '', msg: '' })
-            }}
-          >
-            {bulkOpen ? '하나씩 추가' : '일괄 추가'}
-          </button>
-        </div>
-
-        <div className="dc-add">
-          {/* 모델은 단계로 고른다: 벤더 → 제품군 → 모델그룹 → 모델명.
-              상위는 등록된 것만 고르게 해서 이름이 갈리는 것을 막는다.
-              저장값이 목록에 없으면 숨기지 않고 「(목록에 없음)」 으로
-              드러낸다 — 유비쿼스가 DB 에 숨은 채 화면은 빈 칸이었다. */}
-          {kind === 'model' && (
-            <>
-              <select
-                value={draft.vendor ?? ''}
-                onChange={(e) => setDraft({ ...draft, vendor: e.target.value })}
-              >
-                <option value="">벤더</option>
-                {draft.vendor && !vendors.some((v) => v.name === draft.vendor) && (
-                  <option value={draft.vendor}>{draft.vendor} (목록에 없음)</option>
-                )}
-                {vendors.map((v) => (
-                  <option key={v.name}>{v.name}</option>
-                ))}
-              </select>
-              <select
-                value={draft.family ?? ''}
-                onChange={(e) => setDraft({ ...draft, family: e.target.value })}
-              >
-                <option value="">제품군</option>
-                {draft.family && !families.some((v) => v.name === draft.family) && (
-                  <option value={draft.family}>{draft.family} (목록에 없음)</option>
-                )}
-                {families.map((v) => (
-                  <option key={v.name}>{v.name}</option>
-                ))}
-              </select>
-              <select
-                value={draft.operator ?? ''}
-                onChange={(e) => setDraft({ ...draft, operator: e.target.value })}
-              >
-                <option value="">사업자</option>
-                {draft.operator && !operators.some((v) => v.name === draft.operator) && (
-                  <option value={draft.operator}>{draft.operator} (목록에 없음)</option>
-                )}
-                {operators.map((v) => (
-                  <option key={v.name}>{v.name}</option>
-                ))}
-              </select>
-              <select
-                value={draft.model_group ?? ''}
-                onChange={(e) => setDraft({ ...draft, model_group: e.target.value })}
-              >
-                <option value="">모델그룹</option>
-                {draft.model_group && !groups.some((v) => v.name === draft.model_group) && (
-                  <option value={draft.model_group}>{draft.model_group} (목록에 없음)</option>
-                )}
-                {groups.map((v) => (
-                  <option key={v.name}>{v.name}</option>
-                ))}
-              </select>
-            </>
-          )}
-          {!bulkOpen && (
-            <input
-              placeholder={kind === 'model' ? '모델명' : cur.label}
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') submit()
-              }}
-            />
-          )}
-          {kind === 'model' && (
-            <input
-              placeholder="기본 인터페이스 (gi1/0/1-48, te1/1-4)"
-              value={draft.interfaces ?? ''}
-              onChange={(e) => setDraft({ ...draft, interfaces: e.target.value })}
-            />
-          )}
-          {!bulkOpen && (
-            <button
-              className="btn primary"
-              type="button"
-              onClick={submit}
-              disabled={saveM.isPending}
-            >
-              추가
+        {/* ── 오른쪽: 모델 표 — 그 자리에서 고친다 ─────────────── */}
+        <section className="dc2-main">
+          <div className="dc2-sech">
+            <b>모델 {models.length}</b>
+            <span className="muted small">칸을 바꾸면 바로 저장됩니다</span>
+            <span className="sp" />
+            <button className="btn small" type="button" onClick={() => setBulkOpen((v) => !v)}>
+              {bulkOpen ? '하나씩 추가' : '일괄 추가'}
             </button>
-          )}
-        </div>
-
-        {/* 일괄 추가. 위의 Vendor·제품군·모델그룹은 그대로 쓰고 이름만
-            줄로 받는다 — 시리즈 하나에 모델이 열 개씩 되는 일이 흔한데
-            한 줄씩 넣으면 공통 값을 매번 다시 고르게 된다. */}
-        {bulkOpen && (
-          <div className="dc-bulk">
-            <textarea
-              rows={7}
-              value={bulk}
-              placeholder={
-                kind === 'model'
-                  ? 'E6100-24T\nE6100-48T, gi1/0/1-48, te1/1-4\nE6200-24T'
-                  : `${cur.label} 을 한 줄에 하나씩\n\n예:\nLAB-1\nLAB-2`
-              }
-              onChange={(e) => setBulk(e.target.value)}
-            />
-            <div className="dc-bulk-foot">
-              <span className="muted small">
-                {bulkLines.length > 0 ? `${bulkLines.length}건` : '한 줄에 하나씩'}
-                {kind === 'model' && ' · 이름 뒤에 쉼표나 탭으로 인터페이스를 따로 적을 수 있습니다'}
-              </span>
-              <button
-                className="btn primary"
-                type="button"
-                onClick={submitBulk}
-                disabled={bulkM.isPending || bulkLines.length === 0}
-              >
-                {bulkM.isPending ? '등록 중…' : `${bulkLines.length || ''}건 등록`}
-              </button>
-            </div>
           </div>
-        )}
 
-        {kind === 'model' && (
-          <div className="hint">
-            기본 인터페이스를 적어두면 장비 등록에서 이 모델을 고를 때 포트가 그대로
-            채워집니다. 같은 모델을 여러 대 등록할 때 가장 크게 줄여줍니다.
-          </div>
-        )}
-      </section>
-
-      <section className="set-card">
-        <div className="set-card-head">
-          <b>{cur.label} 목록</b>
-          <span className="muted small">{items.length}개</span>
-        </div>
-
-        {listQ.isLoading ? (
-          <div className="empty">불러오는 중…</div>
-        ) : items.length === 0 ? (
-          <div className="empty">아직 없습니다.</div>
-        ) : (
-          kind === 'model' ? (
-          /* 표로 — 칸이 정렬돼야 빈 값·어긋난 값이 한눈에 드러난다 */
           <div className="dc-table">
+            {/* 칸 차례는 등록 순서 그대로: 사업자→벤더→제품군→모델그룹→모델명 */}
             <div className="dc-tr dc-th">
-              <b>모델명</b>
+              <b>사업자</b>
               <b>벤더</b>
               <b>제품군</b>
-              <b>사업자</b>
               <b>모델그룹</b>
+              <b>모델명</b>
               <b>기본 인터페이스</b>
               <b>사용</b>
               <b />
             </div>
-            {items.map((it) => (
-              <div className="dc-tr" key={it.name}>
-                <b className="dc-name">{it.name}</b>
-                <span className={vendors.some((v) => v.name === it.vendor) ? '' : 'dc-warn'}>
-                  {it.vendor || '–'}
-                </span>
-                <span className={!it.family || families.some((v) => v.name === it.family) ? '' : 'dc-warn'}>
-                  {it.family || '–'}
-                </span>
-                <span className={!it.operator || operators.some((v) => v.name === it.operator) ? '' : 'dc-warn'}>
-                  {it.operator || '–'}
-                </span>
-                <span className={!it.model_group || groups.some((v) => v.name === it.model_group) ? '' : 'dc-warn'}>
-                  {it.model_group || '–'}
-                </span>
-                <span className="muted small dc-if" title={it.interfaces ?? ''}>
-                  {it.interfaces || '–'}
-                </span>
-                <span className="muted small">{it.used ? `${it.used}대` : '–'}</span>
-                <span className="dc-actions">
-                  <button className="btn small" type="button" onClick={() => setDraft({ ...it, kind })}>
-                    고치기
-                  </button>
-                  <button
-                    className="btn small danger"
-                    type="button"
-                    disabled={delM.isPending}
-                    title={it.used ? `${it.used}대가 쓰는 중 — 누르면 어느 장비인지 알려줍니다` : ''}
-                    onClick={() => {
-                      // 쓰는 장비가 있으면 서버가 이름·IP 를 찍어 거절한다 —
-                      // 잠가 두면 「왜 사용 중이라는 거야」 를 알 길이 없다
-                      if (window.confirm(`'${it.name}' 을 지울까요?`)) delM.mutate(it)
-                    }}
+
+            {/* 새 모델 줄 — 표 맨 위가 곧 등록 칸이다 */}
+            {!bulkOpen && (
+              <div className="dc-tr dc2-new">
+                {(['operator', 'vendor', 'family', 'model_group'] as const).map((f, i) => (
+                  <select
+                    key={f}
+                    value={String(draft[f] ?? '')}
+                    onChange={(e) => setDraft({ ...draft, [f]: e.target.value })}
                   >
-                    삭제
+                    <option value="">{['사업자', '벤더', '제품군', '모델그룹'][i]}</option>
+                    {(lists[f === 'model_group' ? 'group' : f] ?? []).map((x) => (
+                      <option key={x.name}>{x.name}</option>
+                    ))}
+                  </select>
+                ))}
+                <input
+                  placeholder="+ 새 모델명"
+                  value={draft.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && draft.name.trim())
+                      saveM.mutate({ ...draft, kind: 'model', name: draft.name.trim() })
+                  }}
+                />
+                <input
+                  placeholder="gi1/0/1-48, te1/1-4"
+                  value={draft.interfaces ?? ''}
+                  onChange={(e) => setDraft({ ...draft, interfaces: e.target.value })}
+                />
+                <span />
+                <span className="dc-actions">
+                  <button
+                    className="btn small primary"
+                    type="button"
+                    disabled={!draft.name.trim() || saveM.isPending}
+                    onClick={() =>
+                      saveM.mutate({ ...draft, kind: 'model', name: draft.name.trim() })
+                    }
+                  >
+                    추가
                   </button>
                 </span>
               </div>
-            ))}
-          </div>
-          ) : (
-          <div className="dc-list">
-            {items.map((it) => (
-              <div className="dc-row" key={it.name}>
-                <b className="dc-name">{it.name}</b>
-                {kind === 'group' && (
-                  <span className="muted small dc-meta">
-                    {(listQ.data?.items ?? [])
-                      .filter((m) => m.kind === 'model' && m.model_group === it.name)
-                      .map((m) => m.name)
-                      .join(' · ') || '속한 모델 없음'}
+            )}
+
+            {bulkOpen && (
+              <div className="dc2-bulk">
+                <p className="muted small">
+                  공통 값(벤더·제품군·사업자·모델그룹)은 새 모델 줄에서 고른 것을 씁니다. 한
+                  줄에 「이름[, 인터페이스]」 — 엑셀에서 붙여넣어도 됩니다.
+                </p>
+                <textarea
+                  rows={6}
+                  value={bulk}
+                  placeholder={'E6100-24T\nE6100-48T, gi1/0/1-48, te1/1-4'}
+                  onChange={(e) => setBulk(e.target.value)}
+                />
+                <div className="dc2-bulkfoot">
+                  <span className="muted small">
+                    {bulkLines.length ? `${bulkLines.length}건` : ''}
                   </span>
-                )}
-                <span className="muted small">{it.used ? `${it.used}대 사용 중` : ''}</span>
-                <span className="dc-actions">
-                  {/* 이름뿐인 항목이라 「고치기」 대신 진짜 이름 변경 —
-                      참조(모델·장비)까지 서버가 함께 바꾼다 */}
                   <button
-                    className="btn small"
+                    className="btn small primary"
                     type="button"
-                    onClick={() => {
-                      const next = window.prompt(`'${it.name}' 의 새 이름`, it.name)?.trim()
-                      if (next && next !== it.name)
-                        renameM.mutate({ kind, old: it.name, next })
-                    }}
+                    disabled={bulkM.isPending || bulkLines.length === 0}
+                    onClick={() => bulkM.mutate(bulkLines)}
                   >
-                    이름 변경
+                    {bulkM.isPending ? '등록 중…' : `${bulkLines.length || ''}건 등록`}
                   </button>
-                  <button
-                    className="btn small danger"
-                    type="button"
-                    disabled={delM.isPending}
-                    title={it.used ? `${it.used}대가 쓰는 중 — 누르면 어느 장비인지 알려줍니다` : ''}
-                    onClick={() => {
-                      // 쓰는 장비가 있으면 서버가 이름·IP 를 찍어 거절한다 —
-                      // 잠가 두면 「왜 사용 중이라는 거야」 를 알 길이 없다
-                      if (window.confirm(`'${it.name}' 을 지울까요?`)) delM.mutate(it)
-                    }}
-                  >
-                    삭제
-                  </button>
-                </span>
+                </div>
               </div>
-            ))}
+            )}
+
+            {listQ.isLoading ? (
+              <div className="empty">불러오는 중…</div>
+            ) : (
+              models.map((it) => (
+                <div className="dc-tr" key={it.name}>
+                  {cellSelect(it, 'operator', 'operator')}
+                  {cellSelect(it, 'vendor', 'vendor')}
+                  {cellSelect(it, 'family', 'family')}
+                  {cellSelect(it, 'model_group', 'group')}
+                  <b className="dc-name" title={it.name}>
+                    {it.name}
+                  </b>
+                  <input
+                    className="dc2-if"
+                    defaultValue={it.interfaces ?? ''}
+                    placeholder="–"
+                    title={it.interfaces ?? ''}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim()
+                      if (v !== (it.interfaces ?? '').trim())
+                        saveM.mutate({ ...it, kind: 'model', interfaces: v || null })
+                    }}
+                  />
+                  <span className="muted small">{it.used ? `${it.used}대` : '–'}</span>
+                  <span className="dc-actions">
+                    <button
+                      className="btn small danger"
+                      type="button"
+                      disabled={delM.isPending}
+                      title={
+                        it.used ? `${it.used}대가 쓰는 중 — 누르면 어느 장비인지 알려줍니다` : ''
+                      }
+                      onClick={() => {
+                        if (window.confirm(`'${it.name}' 을 지울까요?`)) delM.mutate(it)
+                      }}
+                    >
+                      삭제
+                    </button>
+                  </span>
+                </div>
+              ))
+            )}
           </div>
-          )
-        )}
-      </section>
+
+          <div className="hint">
+            기본 인터페이스를 적어두면 장비 등록에서 이 모델을 고를 때 포트가 그대로 채워집니다.
+            모델명 자체를 바꾸는 것은 사이클·시험이 물려 있어 막아 두었습니다.
+          </div>
+        </section>
+      </div>
     </div>
   )
 }
