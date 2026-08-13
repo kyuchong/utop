@@ -55,14 +55,16 @@
   /* 1920 화면 기준. 고정폭 합계 612px, 남는 폭을 네 칸이 나눠 갖는다.
      좁히면 머리글이 두 줄로 접혀 행 높이가 흔들리므로 아래 nowrap 과 함께 본다. */
   grid-template-columns:
-    84px                   /* LAB */
-    minmax(150px, 1fr)     /* 이름 · IP */
-    minmax(84px, 0.7fr)    /* 제조사 */
-    76px                   /* 제품군 */
-    minmax(110px, 1fr)     /* 모델명 */
+    76px                   /* 사업자 */
+    minmax(84px, 0.7fr)    /* 벤더 */
+    64px                   /* 제품군 */
+    88px                   /* 모델그룹 */
+    minmax(100px, 0.9fr)   /* 모델명 */
+    80px                   /* LAB */
+    minmax(130px, 1fr)     /* 이름 · IP */
     92px 92px 92px 92px    /* Telnet · SSH · Console · SNMP */
-    84px                   /* 인터페이스 */
-    minmax(190px, 1.3fr);  /* 사용 현황 */
+    72px                   /* 인터페이스 */
+    minmax(180px, 1.2fr);  /* 사용 현황 */
   align-items: center;
   min-height: 47px;
   border-bottom: 1px solid var(--c-border-soft);
@@ -182,3 +184,17 @@
 .combo { display: flex; gap: 4px; }
 .combo > input { flex: 1; min-width: 0; }
 .combo-back { flex: none; padding: 0 8px; font-size: var(--fs-xs); white-space: nowrap; }
+
+
+/* 빠른 등록 줄 — 카탈로그 등록줄과 같은 옅은 파랑 */
+.dev-row.dev-new { background: var(--c-primary-bg); }
+.dev-row.dev-new select,
+.dev-row.dev-new input {
+  width: 92%;
+  min-width: 0;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  font-size: var(--fs-sm);
+  padding: 3px 6px;
+}

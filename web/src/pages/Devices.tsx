@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, getToken } from '@/api/client'
-import DeviceForm from '@/components/DeviceForm'
+import DeviceForm, { expandRange } from '@/components/DeviceForm'
 import DeviceBulk from '@/components/DeviceBulk'
 import LockCell, { useLocks, type Lock } from '@/components/LockCell'
 import './Devices.css'
@@ -132,6 +132,69 @@ export default function Devices({ me }: Props) {
   const devQ = useQuery({
     queryKey: ['devices'],
     queryFn: () => getJson<{ devices: Device[] }>('/api/devices2'),
+  })
+  /** 사업자·모델그룹은 장비가 아니라 카탈로그의 모델이 들고 있다 */
+  const catQ = useQuery({
+    queryKey: ['device-catalog'],
+    queryFn: () =>
+      getJson<{ items: Array<{ kind: string; name: string; operator?: string | null; model_group?: string | null }> }>(
+        '/api/device-catalog2',
+      ),
+    staleTime: 60_000,
+  })
+  const modelMeta = useMemo(() => {
+    const m = new Map<string, { op: string; group: string; vendor: string; family: string; ifs: string }>()
+    for (const it of catQ.data?.items ?? [])
+      if (it.kind === 'model')
+        m.set(it.name, {
+          op: String(it.operator ?? '').trim(),
+          group: String(it.model_group ?? '').trim(),
+          vendor: String((it as { vendor?: string | null }).vendor ?? '').trim(),
+          family: String((it as { family?: string | null }).family ?? '').trim(),
+          ifs: String((it as { interfaces?: string | null }).interfaces ?? '').trim(),
+        })
+    return m
+  }, [catQ.data])
+  const catModels = useMemo(
+    () => (catQ.data?.items ?? []).filter((x) => x.kind === 'model').map((x) => x.name).sort((a, b) => a.localeCompare(b, 'ko')),
+    [catQ.data],
+  )
+  const catLabs = useMemo(
+    () => (catQ.data?.items ?? []).filter((x) => x.kind === 'lab').map((x) => x.name).sort((a, b) => a.localeCompare(b, 'ko')),
+    [catQ.data],
+  )
+
+  /**
+   * 빠른 등록 줄 — 카탈로그 모델 표와 같은 문법. 모델을 고르면 벤더·
+   * 제품군·모델그룹·인터페이스가 카탈로그에서 따라오고, LAB·IP 만 넣고
+   * 추가한다. 계정·프로토콜 같은 세부는 줄을 눌러 여는 기존 창 몫이다.
+   */
+  const [qa, setQa] = useState({ model: '', lab: '', ip: '' })
+  const qaMeta = modelMeta.get(qa.model)
+  const qaAdd = useMutation({
+    mutationFn: async () => {
+      const meta = modelMeta.get(qa.model)
+      const r = await apiFetch('/api/devices2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ip: qa.ip.trim(),
+          model: qa.model,
+          lab: qa.lab || null,
+          vendor: meta?.vendor || null,
+          role: meta?.family || null,
+          interfaces: meta?.ifs ? expandRange(meta.ifs).map((n) => ({ name: n, kind: 'general' })) : [],
+        }),
+      })
+      const b = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error((b as { detail?: string }).detail || `저장 실패 (${r.status})`)
+    },
+    onSuccess: () => {
+      setQa({ model: '', lab: '', ip: '' })
+      setMsg({ kind: 'ok', text: '등록했습니다 — 계정·접속은 줄을 눌러 채우세요' })
+      void qc.invalidateQueries({ queryKey: ['devices'] })
+    },
+    onError: (e) => setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) }),
   })
   const lockQ = useLocks()
 
@@ -289,18 +352,62 @@ export default function Devices({ me }: Props) {
           />
         </div>
 
+        {/* 칸 차례는 카탈로그 표와 같다: 사업자 → 벤더 → 제품군 →
+            모델그룹 → 모델명 → LAB. 그 뒤가 장비 고유(IP·접속·사용) */}
         <div className="dev-row th">
+          <span>사업자</span>
+          <span>벤더</span>
+          <span>제품군</span>
+          <span>모델그룹</span>
+          <span>모델명</span>
           <span>LAB</span>
           <span>IP</span>
-          <span>제조사</span>
-          <span>제품군</span>
-          <span>모델명</span>
           <span>Telnet</span>
           <span>SSH</span>
           <span>Console</span>
           <span>SNMP</span>
           <span>인터페이스</span>
           <span>사용 현황</span>
+        </div>
+
+        {/* 빠른 등록 줄 — 카탈로그 모델 표와 같은 문법. 표 맨 위가 곧 등록 칸 */}
+        <div className="dev-row dev-new">
+          <span className="muted ell">{qaMeta?.op || '–'}</span>
+          <span className="muted ell">{qaMeta?.vendor || '–'}</span>
+          <span className="muted ell">{qaMeta?.family || '–'}</span>
+          <span className="muted ell">{qaMeta?.group || '–'}</span>
+          <select value={qa.model} onChange={(e) => setQa({ ...qa, model: e.target.value })}>
+            <option value="">+ 모델</option>
+            {catModels.map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </select>
+          <select value={qa.lab} onChange={(e) => setQa({ ...qa, lab: e.target.value })}>
+            <option value="">LAB</option>
+            {catLabs.map((l) => (
+              <option key={l}>{l}</option>
+            ))}
+          </select>
+          <input
+            placeholder="IP"
+            value={qa.ip}
+            onChange={(e) => setQa({ ...qa, ip: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && qa.model && qa.ip.trim()) qaAdd.mutate()
+            }}
+          />
+          <span /><span /><span /><span />
+          <span className="muted">{qaMeta?.ifs ? expandRange(qaMeta.ifs).length : '–'}</span>
+          <span>
+            <button
+              className="btn small primary"
+              type="button"
+              disabled={!qa.model || !qa.ip.trim() || qaAdd.isPending}
+              onClick={() => qaAdd.mutate()}
+            >
+              추가
+            </button>
+          </span>
         </div>
 
         <div className="scroll">
@@ -325,13 +432,15 @@ export default function Devices({ me }: Props) {
                     if (e.key === 'Enter') setForm(d)
                   }}
                 >
-                  <span className="muted ell">{d.lab || '–'}</span>
-                  <b className="dev-name">{d.ip}</b>
+                  <span className="muted ell">{modelMeta.get(d.model ?? '')?.op || '–'}</span>
                   <span className="muted ell">{d.vendor || '–'}</span>
                   <span>
                     {d.role ? <span className="tag">{d.role}</span> : <span className="muted">–</span>}
                   </span>
+                  <span className="muted ell">{modelMeta.get(d.model ?? '')?.group || '–'}</span>
                   <span className="muted ell">{d.model || '–'}</span>
+                  <span className="muted ell">{d.lab || '–'}</span>
+                  <b className="dev-name">{d.ip}</b>
                   {PROTO_COLS.map((p) => (
                     <ProtoCell
                       key={p}
