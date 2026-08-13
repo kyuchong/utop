@@ -804,6 +804,10 @@ export default function Cycles({ me }: PageProps) {
         {cur ? (
           <CycleDetail
             cycle={cur}
+            /* 같은 모델의 다른 사이클 중 가장 최근 것 — 「지난 버전에선
+               됐는데 지금 깨진 것(회귀)」 을 대 보는 상대다. 목록이 이미
+               최신순이라 첫 번째가 그것이다. */
+            prev={cycles.find((c) => c.id !== cur.id && (c.model ?? '') === (cur.model ?? ''))}
             act={act}
             meName={me?.name || me?.username || ''}
             onSaved={() => void listQ.refetch()}
@@ -820,11 +824,14 @@ export default function Cycles({ me }: PageProps) {
 /** 사이클 한 건 — 항목과 진행 */
 function CycleDetail({
   cycle,
+  prev,
   act,
   meName,
   onSaved,
 }: {
   cycle: CycleMeta
+  /** 같은 모델의 직전 사이클 — 회귀(전엔 Pass, 지금 Fail)를 대 본다 */
+  prev?: CycleMeta
   /** 지금 사람 — 접속자 표시와 「누가 고쳤나」 에 쓴다 */
   meName: string
   /** 트리 우클릭 메뉴가 시킨 일 */
@@ -1201,9 +1208,41 @@ function CycleDetail({
     return { sev: [...sev].sort(srt), typ: [...typ].sort(srt), kin: [...kin].sort(srt) }
   }, [items, tcMeta])
 
+  /*
+   * 회귀 — **지난 사이클에선 Pass 였는데 이번에 Fail** 인 것.
+   *
+   * 사이클은 버전 검증이라, 정말 무서운 것은 「원래 깨져 있던 것」 이
+   * 아니라 **되던 것이 무너진 것**이다. 표에서 Fail 로만 보이면 그 둘이
+   * 섞여서, 회귀를 골라내려고 지난 결과서를 옆에 띄워 놓고 눈으로 대
+   * 보게 된다. 여기서 대 준다.
+   */
+  const prevQ = useQuery({
+    queryKey: ['cycle-full', prev?.id ?? ''],
+    enabled: Boolean(prev),
+    queryFn: async () => {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(prev!.id)}`)
+      if (!r.ok) throw new Error('지난 사이클을 불러오지 못했습니다')
+      return (await r.json()) as { items?: CycleItemLite[] }
+    },
+  })
+  const prevVerdict = useMemo(() => {
+    const m = new Map<string, Verdict>()
+    for (const it of prevQ.data?.items ?? []) m.set(it.tcid, itemVerdict(it))
+    return m
+  }, [prevQ.data])
+  const isRegress = (it: CycleItemLite) =>
+    itemVerdict(it) === 'Fail' && prevVerdict.get(it.tcid) === 'Pass'
+  const regressN = useMemo(
+    () => (prevVerdict.size ? items.filter(isRegress).length : 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, prevVerdict],
+  )
+  const [onlyRegress, setOnlyRegress] = useState(false)
+
   const rows = useMemo(() => {
     const n = fq.trim().toLowerCase()
     const out = items.filter((it) => {
+      if (onlyRegress && !isRegress(it)) return false
       if (only !== null && itemVerdict(it) !== only) return false
       const t = tcMeta.get(it.tcid)
       if (fSev && String(t?.severity ?? '') !== fSev) return false
@@ -1229,7 +1268,8 @@ function CycleDetail({
             (order.get(String(b.x.req_id ?? '')) ?? 0) || a.i - b.i,
       )
       .map((v) => v.x)
-  }, [items, only, tcMeta, fSev, fType, fKind, fq])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, only, onlyRegress, prevVerdict, tcMeta, fSev, fType, fKind, fq])
 
   /*
    * 실행 중에는 **도는 항목**을 따라간다.
@@ -1585,6 +1625,25 @@ function CycleDetail({
             </button>
           )
         })}
+        {/* 회귀 — 지난 사이클과 대 볼 상대가 있을 때만. 0이어도 띄운다 —
+            「회귀 0」 은 이번 버전이 되던 것을 안 무너뜨렸다는 **결과**다. */}
+        {prev && prevVerdict.size > 0 && (
+          <button
+            type="button"
+            className={`cy-stat regress${regressN ? ' hot' : ''}${onlyRegress ? ' on' : ''}`}
+            title={
+              onlyRegress
+                ? '전부 보기'
+                : `${prev.version || prev.name || '지난 사이클'} 에선 Pass 였는데 이번에 Fail 인 것만`
+            }
+            onClick={() => setOnlyRegress((v) => !v)}
+          >
+            <b>{regressN}</b>
+            <span className="cy-stat-lb">
+              회귀 <i>vs {prev.version || prev.name || '지난'}</i>
+            </span>
+          </button>
+        )}
       </div>
 
       {/* ③ 좁혀 보기 — 이 회차에 실제로 있는 값만 띄운다 */}
@@ -1619,13 +1678,14 @@ function CycleDetail({
           placeholder="TC ID · 제목 검색"
           onChange={(e) => setFq(e.target.value)}
         />
-        {(only !== null || fSev || fType || fKind || fq) && (
+        {(only !== null || onlyRegress || fSev || fType || fKind || fq) && (
           <button
             className="btn small"
             type="button"
             title="걸러 놓은 것을 모두 풉니다"
             onClick={() => {
               setOnly(null)
+              setOnlyRegress(false)
               setFSev('')
               setFType('')
               setFKind('')
@@ -1796,6 +1856,15 @@ function CycleDetail({
               </button>
               <span className="cy-tc" title={it.tcid}>
                 {it.name || it.tcid}
+                {/* 되던 것이 무너졌다 — Fail 중에서도 이것부터 봐야 한다 */}
+                {isRegress(it) && (
+                  <b
+                    className="cy-regchip"
+                    title={`${prev?.version || prev?.name || '지난 사이클'} 에선 Pass 였습니다`}
+                  >
+                    회귀
+                  </b>
+                )}
                 {/* 부적합 근거는 오른쪽 스텝 카드에 있다 — 목록엔 단계 수만 */}
                 {steps.length > 0 && (
                   <i className="cy-steps">

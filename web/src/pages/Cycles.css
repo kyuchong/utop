@@ -379,6 +379,20 @@
   .cy-row.running { animation: none; }
 }
 /* 「실행 중」 알림표 — 줄 안에서 제일 먼저 눈에 든다 */
+/* 회귀 배지 — 이름 뒤. Fail 줄 안에서도 이것부터 눈에 걸려야 한다 */
+.cy-regchip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #b3261e;
+  color: #fff;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  line-height: 16px;
+  vertical-align: 1px;
+}
+
 .cy-live-chip {
   display: inline-flex;
   align-items: center;
@@ -1540,6 +1554,10 @@ table.tb td.k {
 }
 
 .cy-stat.total { --sc: #131920; }
+/* 회귀 — 되던 것이 무너진 것. Fail 보다 진한 경보색이라야 한다.
+   0 일 때는 차분하게(그것도 좋은 소식이라 띄우긴 띄운다). */
+.cy-stat.regress { --sc: var(--c-border-strong); }
+.cy-stat.regress.hot { --sc: #b3261e; }
 .cy-stat.pass { --sc: var(--c-pass); }
 .cy-stat.fail { --sc: var(--c-fail); }
 .cy-stat.wip { --sc: var(--c-draft); }
