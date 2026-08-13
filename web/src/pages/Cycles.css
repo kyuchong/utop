@@ -743,6 +743,10 @@ select.cy-v.na { color: #999; }
 /* ── 사이클 만들기·수정 (3열 배정) ── */
 /* 가로는 화면을 다 쓴다 — 세 칸이 나눠 갖기엔 넓을수록 좋다 */
 .modal.ce { width: 98vw; max-width: 98vw; height: 94vh; display: flex; flex-direction: column; }
+/* 머리줄 — 공용 .modal-head 가 space-between 이라 아이템이 흩어졌다.
+   왼쪽에 제목·건수, 단추(취소·저장·✕)는 오른쪽 끝에 붙인다. */
+.modal.ce .modal-head { justify-content: flex-start; gap: 10px; }
+.modal.ce .modal-head .sp { flex: 1; }
 .ce-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

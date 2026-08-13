@@ -395,13 +395,12 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
              접고 펴는 것은 화살표 몫. 클릭마다 접히면 고르러 간 손이
              트리를 흔든다(사이클 트리에서 겪었다). */
           onClick={() => {
-            setOpenCat((s) => new Set(s).add(n.id))
+            // 펼치지도 접지도 않는다 — 그건 화살표 몫. 클릭은 고르기뿐이다.
             setCatSel(catSel === n.id ? '' : n.id)
             setReqSel('')
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
-              setOpenCat((s) => new Set(s).add(n.id))
               setCatSel(catSel === n.id ? '' : n.id)
               setReqSel('')
             }
