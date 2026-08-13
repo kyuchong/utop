@@ -609,6 +609,9 @@ export default function ReqTree({
               onChange={(e) => setRenameText(e.target.value)}
               onBlur={() => setRenaming(null)}
               onKeyDown={(e) => {
+                // 키가 폴더 줄로 새면 안 된다 — 줄이 스페이스를 「고르기」 로
+                // 가로채 preventDefault 해서 띄어쓰기가 안 먹었다
+                e.stopPropagation()
                 if (e.key === 'Enter' && renameText.trim())
                   renameM.mutate({ cat: n, name: renameText.trim() })
                 if (e.key === 'Escape') setRenaming(null)
