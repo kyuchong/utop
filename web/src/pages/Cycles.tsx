@@ -300,7 +300,15 @@ function build(
   catGroups: Array<{ name: string; family?: string | null }>,
   catFams: string[],
   folders: Record<string, string[]>,
+  hidden: Set<string>,
 ): Node[] {
+  /** 이 경로(또는 조상)가 트리에서 치워졌나 */
+  const isHidden = (path: string) => {
+    const parts = path.split('/')
+    for (let i = 1; i <= parts.length; i++)
+      if (hidden.has(parts.slice(0, i).join('/'))) return true
+    return false
+  }
   const groupOf = new Map(models.map((m) => [m.name, (m.model_group ?? '').trim()]))
   const famOf = new Map(models.map((m) => [m.name, (m.family ?? '').trim()]))
 
@@ -333,15 +341,15 @@ function build(
   // 「(제품군 없음)」 밑에 빈 폴더가 쏟아져 트리가 쓰레기장이 됐다.
   // 연결이 덜 된 것은 지금까지처럼 사이클이 생겨야 나타난다.
   // 제품군(L2·L3·OLT)은 빈 채로도 보인다 — 트리에서 만들고 바로 쓴다
-  for (const fam of catFams) if (!g.has(fam)) g.set(fam, new Map())
+  for (const fam of catFams) if (!isHidden(fam) && !g.has(fam)) g.set(fam, new Map())
   for (const gr of catGroups) {
     const fam = (gr.family ?? '').trim()
-    if (fam) ensureMg(fam, gr.name)
+    if (fam && !isHidden(`${fam}/${gr.name}`)) ensureMg(fam, gr.name)
   }
   for (const m of models) {
     const fam = (m.family ?? '').trim()
     const mg = (m.model_group ?? '').trim()
-    if (fam && mg) ensureModel(fam, mg, m.name)
+    if (fam && mg && !isHidden(`${fam}/${mg}/${m.name}`)) ensureModel(fam, mg, m.name)
   }
   const homeOf = (model: string): [string, string] => {
     const known = groupOf.has(model)
@@ -554,6 +562,33 @@ export default function Cycles({ me }: PageProps) {
     staleTime: 60_000,
   })
 
+  /**
+   * 트리에서 치운 카탈로그 폴더(경로).
+   *
+   * UbiEnt 같은 폴더는 장비 카탈로그의 씨앗이라, 아래 모델을 장비가
+   * 쓰고 있으면 카탈로그에서는 못 지운다. 그렇다고 사이클 트리에서
+   * 못 치우게 두면 트리가 남의 사정(장비 등록)에 볼모로 잡힌다 —
+   * 그래서 「사이클 트리에서만 숨긴다」. 카탈로그·장비는 그대로다.
+   * 사이클이 든 폴더는 숨겨도 사이클이 그 자리를 되살린다(보여야 하니까).
+   */
+  const hidQ = useQuery({
+    queryKey: ['cycle-hidden-folders'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/cycle-folders')
+      if (!r.ok) return { hidden: [] as string[] }
+      const j = (await r.json()) as { hidden?: string[] }
+      return { hidden: Array.isArray(j.hidden) ? j.hidden : [] }
+    },
+  })
+  const hidden = useMemo(() => new Set(hidQ.data?.hidden ?? []), [hidQ.data])
+  const saveHidden = async (next: Set<string>) => {
+    await apiFetch('/api/cycle-folders', {
+      method: 'POST',
+      body: JSON.stringify({ hidden: [...next] }),
+    })
+    await hidQ.refetch()
+  }
+
   // 버전그룹만 사람이 만드는 폴더. 사이클이 아직 없는 것도 보여야 한다
   const vgQ = useQuery({
     queryKey: ['cycle-version-groups'],
@@ -599,8 +634,8 @@ export default function Cycles({ me }: PageProps) {
     [catQ.data],
   )
   const tree = useMemo(
-    () => build(shown, models, catGroups, catFams, vgQ.data?.groups ?? {}),
-    [shown, models, catGroups, catFams, vgQ.data],
+    () => build(shown, models, catGroups, catFams, vgQ.data?.groups ?? {}, hidden),
+    [shown, models, catGroups, catFams, vgQ.data, hidden],
   )
   const cur = cycles.find((c) => c.id === sel)
 
@@ -698,11 +733,24 @@ export default function Cycles({ me }: PageProps) {
     }
     await catQ.refetch()
   }
+  /** 이 경로를 다시 보이게 — 만들었는데 숨김이 남아 있으면 안 보인다 */
+  const unhide = async (path: string) => {
+    const parts = path.split('/')
+    const next = new Set(hidden)
+    let dirty = false
+    for (let i = 1; i <= parts.length; i++) {
+      const k = parts.slice(0, i).join('/')
+      if (next.delete(k)) dirty = true
+    }
+    if (dirty) await saveHidden(next)
+  }
+
   const addFamily = async () => {
     const name = window.prompt('만들 제품군 이름 (예: L2 · L3 · OLT)')?.trim()
     if (!name) return
     try {
       await catalogAdd({ kind: 'family', name })
+      await unhide(name)
     } catch (e) {
       window.alert(`만들지 못했습니다 — ${e instanceof Error ? e.message : e}`)
     }
@@ -712,6 +760,7 @@ export default function Cycles({ me }: PageProps) {
     if (!name) return
     try {
       await catalogAdd({ kind: 'group', name, family: fam.startsWith('(') ? '' : fam })
+      await unhide(`${fam}/${name}`)
       setOpen((x) => new Set(x).add(fam))
     } catch (e) {
       window.alert(`만들지 못했습니다 — ${e instanceof Error ? e.message : e}`)
@@ -727,49 +776,43 @@ export default function Cycles({ me }: PageProps) {
         model_group: mg.startsWith('(') ? '' : mg,
         family: fam.startsWith('(') ? '' : fam,
       })
+      await unhide(`${fam}/${mg}/${name}`)
       setOpen((x) => new Set(x).add(`${fam}/${mg}`))
     } catch (e) {
       window.alert(`만들지 못했습니다 — ${e instanceof Error ? e.message : e}`)
     }
   }
   /**
-   * 제품군·모델그룹·모델 폴더 지우기 — 카탈로그에서 뺀다.
+   * 제품군·모델그룹·모델 폴더 지우기 = **사이클 트리에서 치우기**.
    *
-   * 순서가 있다: **하위부터**. 하위가 남아 있으면 그쪽이 이 폴더를 다시
-   * 만들어 내서(모델이 모델그룹 이름을 들고 있다) 지워도 되살아난다.
-   * 그래서 하위가 있으면 지우지 않고 이유를 말한다.
+   * 이 폴더들은 장비 카탈로그의 씨앗이라, 장비가 쓰는 모델이 아래 있으면
+   * 카탈로그에서는 지울 수 없다(지워지지도 않으면서 「안 지워져」 만
+   * 남았다). 그래서 트리에서는 숨김 목록으로 확실히 치우고, 카탈로그
+   * 정리는 되는 것만 조용히 시도한다. 장비·카탈로그 자료는 안 다친다.
    */
   const deleteCatalogNode = async (n: Node) => {
     if (n.count > 0) {
       window.alert('이 폴더에 사이클이 있습니다 — 사이클을 먼저 정리하세요')
       return
     }
-    if (n.children.length > 0) {
-      const what =
-        n.kind === 'family' ? '모델그룹' : n.kind === 'mgroup' ? '모델' : '버전그룹'
-      window.alert(
-        `아래 ${what} 폴더가 남아 있습니다 — 하위부터 지워야 합니다.\n` +
-          '하위가 남아 있으면 지워도 폴더가 다시 나타납니다.',
+    if (
+      !window.confirm(
+        `「${n.label}」 폴더를 사이클 트리에서 치웁니다.\n` +
+          '(장비 카탈로그와 장비 등록은 그대로 둡니다)',
       )
-      return
-    }
-    const kind = n.kind === 'family' ? 'family' : n.kind === 'mgroup' ? 'group' : 'model'
-    if (!window.confirm(`「${n.label}」 폴더를 지웁니다.`)) return
-    const r = await apiFetch(
-      `/api/device-catalog2/${kind}/${encodeURIComponent(n.label)}`,
-      { method: 'DELETE' },
     )
-    if (!r.ok) {
-      const b = (await r.json().catch(() => ({}))) as { detail?: string }
-      if (r.status === 404)
-        window.alert(
-          '카탈로그에 등록된 폴더가 아니라 지울 것이 없습니다.\n' +
-            '이 폴더는 하위(모델·사이클)가 있어서 보이는 것입니다 — 하위를 지우면 함께 사라집니다.',
-        )
-      else window.alert(`지우지 못했습니다 — ${b.detail || r.status}`)
       return
+    const next = new Set(hidden)
+    next.add(n.key)
+    await saveHidden(next)
+    // 하위까지 통째로 빈 폴더면 카탈로그에서도 정리한다 — 안 되면 그만
+    if (n.children.length === 0) {
+      const kind = n.kind === 'family' ? 'family' : n.kind === 'mgroup' ? 'group' : 'model'
+      await apiFetch(`/api/device-catalog2/${kind}/${encodeURIComponent(n.label)}`, {
+        method: 'DELETE',
+      }).catch(() => undefined)
+      await catQ.refetch()
     }
-    await catQ.refetch()
   }
   /** 버전그룹 이름 변경 — KV 와 그 안 사이클들의 version_group 을 함께 */
   const renameVGroup = async (n: Node) => {
@@ -1190,9 +1233,9 @@ export default function Cycles({ me }: PageProps) {
                   n.count > 0
                     ? '폴더 지우기 — 사이클이 있어 못 지웁니다'
                     : n.children.length > 0
-                      ? '폴더 지우기 — 하위 폴더부터 지우세요'
+                      ? '폴더 지우기 (하위 포함, 트리에서만)'
                       : '폴더 지우기',
-                disabled: n.count > 0 || n.children.length > 0,
+                disabled: n.count > 0,
                 fn: done(() => void deleteCatalogNode(n)),
               })
             if (n.count > 0)

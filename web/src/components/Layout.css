@@ -76,9 +76,11 @@
   text-overflow: ellipsis;
 }
 
-/* 접히면 로고 자리도 가운데로 — 마크만 남고 이름은 사라진다 */
+/* 접히면 로고 자리도 가운데로 — 마크만 남고 이름은 사라진다.
+   접기 단추가 위 오른쪽에 떠 있어서, 로고는 그 아래로 내린다 —
+   같은 높이에 두면 서로 걸친다(겪었다). */
 .app.nav-collapsed .nav-brand {
-  padding: 2px 0 0;
+  padding: 34px 0 0;
   justify-content: center;
 }
 .app.nav-collapsed .nav-logo-nm { display: none; }
