@@ -185,20 +185,20 @@
 .lk-when { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lk .btn { flex: none; }
 
-/* 계측기 표 — 접속 방식 열이 없어 6열이다 */
+/* 계측기 표 — 접속 방식 열이 없어 열 수·합이 장비와 다르다.
+   문법은 같다: 전부 고정폭, 남는 폭은 맨 끝 사용 현황만 갖는다 */
+.dev-table.inst > .scroll { min-width: 860px; }
 .dev-row.inst {
-  /* 장비 표의 열 합(1290px)은 여기 안 맞는다 — 계측기는 dev-table 밖이라
-     고정 하한만 풀어 준다. 간격(gap·padding)은 위 규칙을 그대로 물려받는다 */
-  min-width: 0;
+  min-width: 860px;
   grid-template-columns:
     84px                   /* LAB */
-    minmax(140px, 1fr)     /* IP */
-    minmax(80px, 0.7fr)    /* 제조사 */
-    minmax(110px, 1.1fr)   /* 모델명 */
+    140px                  /* IP */
+    110px                  /* 제조사 */
+    150px                  /* 모델명 */
     /* 중계 주소까지 적으므로(「STC 220.1.1.241:8888」) 96px 로는 잘린다 */
-    minmax(150px, 0.9fr)   /* 포트 */
+    200px                  /* 포트 */
     84px                   /* 포트 현황 버튼 */
-    minmax(210px, 1.4fr);  /* 사용 현황 */
+    minmax(210px, 1fr);    /* 사용 현황 */
 }
 
 /* 장비 편집 — LAB·제조사·제품군·모델명 한 줄 4칸 */

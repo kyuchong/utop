@@ -98,6 +98,7 @@ export default function Instruments({ me }: Props) {
           />
         </div>
 
+        <div className="dev-table inst">
         <div className="dev-row inst th">
           <span>LAB</span>
           <span>IP</span>
@@ -197,6 +198,7 @@ export default function Instruments({ me }: Props) {
               )
             })
           )}
+        </div>
         </div>
       </section>
       {ports && (
