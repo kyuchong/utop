@@ -296,6 +296,7 @@ const NO_GROUP = '(버전그룹 없음)'
 function build(
   cycles: CycleMeta[],
   models: CatModel[],
+  catGroups: Array<{ name: string; family?: string | null }>,
   folders: Record<string, string[]>,
 ): Node[] {
   const groupOf = new Map(models.map((m) => [m.name, (m.model_group ?? '').trim()]))
@@ -304,17 +305,30 @@ function build(
   /** 제품군 → 모델그룹 → 모델 → 버전그룹 → 사이클.
       최상위가 제품군(L2·L3·OLT)이라야 「L2 전체가 어떤가」 를 한 번에 본다. */
   const g = new Map<string, Map<string, Map<string, Map<string, CycleMeta[]>>>>()
-  const put = (fam: string, mg: string, model: string, vg: string, c?: CycleMeta) => {
+  const ensureMg = (fam: string, mg: string) => {
     let f = g.get(fam)
     if (!f) g.set(fam, (f = new Map()))
     let a = f.get(mg)
     if (!a) f.set(mg, (a = new Map()))
+    return a
+  }
+  const ensureModel = (fam: string, mg: string, model: string) => {
+    const a = ensureMg(fam, mg)
     let b = a.get(model)
     if (!b) a.set(model, (b = new Map()))
+    return b
+  }
+  const put = (fam: string, mg: string, model: string, vg: string, c?: CycleMeta) => {
+    const b = ensureModel(fam, mg, model)
     let arr = b.get(vg)
     if (!arr) b.set(vg, (arr = []))
     if (c) arr.push(c)
   }
+  // 카탈로그가 씨앗이다 — 사이클이 아직 없는 모델그룹·모델도 폴더로
+  // 보여야 트리에서 만들고 바로 이어서 쓸 수 있다
+  for (const gr of catGroups) ensureMg((gr.family ?? '').trim() || '(제품군 없음)', gr.name)
+  for (const m of models)
+    ensureModel((m.family ?? '').trim() || '(제품군 없음)', (m.model_group ?? '').trim() || '(모델그룹 없음)', m.name)
   const homeOf = (model: string): [string, string] => {
     const known = groupOf.has(model)
     if (!known) return [NO_CAT, NO_CAT]
@@ -371,6 +385,7 @@ function build(
           kind: 'model',
           model,
           count: vNodes.reduce((a, n) => a + n.count, 0),
+          empty: vNodes.length === 0,
           children: vNodes,
         })
       }
@@ -550,9 +565,13 @@ export default function Cycles({ me }: PageProps) {
     () => (catQ.data?.items ?? []).filter((x) => x.kind === 'model'),
     [catQ.data],
   )
+  const catGroups = useMemo(
+    () => (catQ.data?.items ?? []).filter((x) => x.kind === 'group'),
+    [catQ.data],
+  )
   const tree = useMemo(
-    () => build(shown, models, vgQ.data?.groups ?? {}),
-    [shown, models, vgQ.data],
+    () => build(shown, models, catGroups, vgQ.data?.groups ?? {}),
+    [shown, models, catGroups, vgQ.data],
   )
   const cur = cycles.find((c) => c.id === sel)
 
@@ -641,6 +660,93 @@ export default function Cycles({ me }: PageProps) {
       window.alert(`버전그룹을 만들지 못했습니다 — ${e instanceof Error ? e.message : e}`)
     }
   }
+  /** 카탈로그에 넣는다 — 모델그룹·모델 폴더는 카탈로그가 주인이라서 */
+  const catalogAdd = async (item: Record<string, string>) => {
+    const r = await apiFetch('/api/device-catalog2', { method: 'POST', body: JSON.stringify(item) })
+    if (!r.ok) {
+      const b = (await r.json().catch(() => ({}))) as { detail?: string }
+      throw new Error(b.detail || String(r.status))
+    }
+    await catQ.refetch()
+  }
+  const addMGroup = async (fam: string) => {
+    const name = window.prompt(`「${fam}」 밑에 만들 모델그룹 이름 (예: E6000 시리즈)`)?.trim()
+    if (!name) return
+    try {
+      await catalogAdd({ kind: 'group', name, family: fam.startsWith('(') ? '' : fam })
+      setOpen((x) => new Set(x).add(fam))
+    } catch (e) {
+      window.alert(`만들지 못했습니다 — ${e instanceof Error ? e.message : e}`)
+    }
+  }
+  const addModel = async (fam: string, mg: string) => {
+    const name = window.prompt(`「${mg}」 밑에 만들 모델명 (예: E6100)`)?.trim()
+    if (!name) return
+    try {
+      await catalogAdd({
+        kind: 'model',
+        name,
+        model_group: mg.startsWith('(') ? '' : mg,
+        family: fam.startsWith('(') ? '' : fam,
+      })
+      setOpen((x) => new Set(x).add(`${fam}/${mg}`))
+    } catch (e) {
+      window.alert(`만들지 못했습니다 — ${e instanceof Error ? e.message : e}`)
+    }
+  }
+  /** 빈 모델그룹·모델 폴더를 카탈로그에서 지운다. 사이클이 있으면 거절 */
+  const deleteCatalogNode = async (n: Node) => {
+    if (n.count > 0) {
+      window.alert('이 폴더에 사이클이 있어 지울 수 없습니다 — 사이클을 먼저 정리하세요')
+      return
+    }
+    const kind = n.kind === 'mgroup' ? 'group' : 'model'
+    if (!window.confirm(`「${n.label}」 폴더를 카탈로그에서 지웁니다.`)) return
+    const r = await apiFetch(
+      `/api/device-catalog2/${kind}/${encodeURIComponent(n.label)}`,
+      { method: 'DELETE' },
+    )
+    if (!r.ok) {
+      const b = (await r.json().catch(() => ({}))) as { detail?: string }
+      window.alert(`지우지 못했습니다 — ${b.detail || r.status}`)
+      return
+    }
+    await catQ.refetch()
+  }
+  /** 버전그룹 이름 변경 — KV 와 그 안 사이클들의 version_group 을 함께 */
+  const renameVGroup = async (n: Node) => {
+    const model = n.model ?? ''
+    const oldName = n.vgroup ?? ''
+    const name = window.prompt('버전그룹 이름', oldName)?.trim()
+    if (!name || name === oldName) return
+    try {
+      const cur = vgQ.data?.groups ?? {}
+      const arr = (cur[model] ?? []).map((x) => (x === oldName ? name : x))
+      const groups = { ...cur, [model]: arr.includes(name) ? arr : [...arr, name] }
+      const w = await apiFetch('/api/cycle-version-groups', {
+        method: 'POST',
+        body: JSON.stringify({ groups }),
+      })
+      if (!w.ok) throw new Error(String(w.status))
+      // 그 안 사이클들도 새 이름으로 — 통째로 읽어 통째로 저장한다
+      // (요약본을 되저장하면 실행 결과가 날아간다)
+      for (const c of cyclesUnder(n)) {
+        const r = await apiFetch(`/api/cycle/${encodeURIComponent(c.id)}`)
+        if (!r.ok) continue
+        const full = (await r.json()) as Record<string, unknown>
+        await apiFetch(`/api/cycle/${encodeURIComponent(c.id)}`, {
+          method: 'POST',
+          body: JSON.stringify({ ...full, id: c.id, version_group: name }),
+        })
+      }
+      await Promise.all([vgQ.refetch(), listQ.refetch()])
+    } catch (e) {
+      window.alert(`이름을 바꾸지 못했습니다 — ${e instanceof Error ? e.message : e}`)
+    }
+  }
+  /** 이 노드가 속한 제품군 — 트리 키의 첫 토막 */
+  const famOfNode = (n: Node) => n.key.split('/')[0] ?? ''
+
   /** 트리 키를 만들 때 쓰는 모델의 자리 (build 와 같은 규칙) */
   const pathOfModel = (model: string) => {
     const m = models.find((x) => x.name === model)
@@ -965,25 +1071,58 @@ export default function Cycles({ me }: PageProps) {
         <FolderMenu
           at={folderMenu}
           onClose={() => setFolderMenu(null)}
-          onAddVGroup={
-            folderMenu.node.kind === 'model'
-              ? () => {
-                  const n = folderMenu.node
-                  setFolderMenu(null)
-                  void addVGroup(n.label)
-                }
-              : undefined
-          }
-          onDeleteCycles={() => {
+          entries={(() => {
             const n = folderMenu.node
-            setFolderMenu(null)
-            void deleteFolderCycles(n)
-          }}
-          onDeleteFolder={() => {
-            const n = folderMenu.node
-            setFolderMenu(null)
-            void deleteFolder(n)
-          }}
+            const done = (fn: () => void) => () => {
+              setFolderMenu(null)
+              fn()
+            }
+            const out: MenuEntry[] = []
+            // 하위 폴더 추가 — 층마다 만드는 것이 다르다
+            if (n.kind === 'family')
+              out.push({ label: '+ 하위 폴더 추가 (모델그룹)', fn: done(() => void addMGroup(n.label)) })
+            else if (n.kind === 'mgroup')
+              out.push({
+                label: '+ 하위 폴더 추가 (모델)',
+                fn: done(() => void addModel(famOfNode(n), n.label)),
+              })
+            else if (n.kind === 'model')
+              out.push({
+                label: '+ 하위 폴더 추가 (버전그룹 · R300 같은 회차 묶음)',
+                fn: done(() => void addVGroup(n.label)),
+              })
+            // 이름 변경
+            if (n.kind === 'vgroup')
+              out.push({ label: '이름 변경', fn: done(() => void renameVGroup(n)) })
+            else
+              out.push({
+                label: '이름 변경 — 설정 → 장비 카탈로그에서',
+                fn: done(() =>
+                  window.alert(
+                    '제품군·모델그룹·모델 이름은 장비 카탈로그가 주인입니다.\n설정 → 장비 카탈로그에서 바꾸면 여기에도 반영됩니다.',
+                  ),
+                ),
+              })
+            out.push('hr')
+            // 삭제
+            if (n.kind === 'vgroup')
+              out.push({
+                label: `버전그룹 폴더 지우기${n.count ? ` (사이클 ${n.count}건 포함)` : ''}`,
+                fn: done(() => void deleteFolder(n)),
+              })
+            else if (n.kind === 'mgroup' || n.kind === 'model')
+              out.push({
+                label: n.count > 0 ? '폴더 지우기 — 사이클이 있어 못 지웁니다' : '폴더 지우기',
+                disabled: n.count > 0,
+                fn: done(() => void deleteCatalogNode(n)),
+              })
+            if (n.count > 0)
+              out.push({
+                label: `이 폴더의 사이클 ${n.count}건 지우기`,
+                fn: done(() => void deleteFolderCycles(n)),
+              })
+            return out
+          })()}
         />
       )}
 
@@ -2767,19 +2906,16 @@ function CycleRowMenu({
  * 지우거나, 사람이 만든 버전그룹 폴더 자체를 지운다. 카탈로그가 주인인
  * 모델·모델그룹 폴더는 지울 수 없다 — 장비 목록에서 오는 것이라서다.
  */
+type MenuEntry = { label: string; fn?: () => void; disabled?: boolean } | 'hr'
+
 function FolderMenu({
   at,
+  entries,
   onClose,
-  onAddVGroup,
-  onDeleteCycles,
-  onDeleteFolder,
 }: {
   at: { node: Node; x: number; y: number }
+  entries: MenuEntry[]
   onClose: () => void
-  /** 모델 폴더에서만 — 그 모델 밑에 버전그룹을 만든다 */
-  onAddVGroup?: () => void
-  onDeleteCycles: () => void
-  onDeleteFolder: () => void
 }) {
   useEffect(() => {
     const away = () => onClose()
@@ -2797,8 +2933,6 @@ function FolderMenu({
     }
   }, [onClose])
 
-  const n = at.node
-  const isVGroup = n.kind === 'vgroup'
   return (
     <div
       className="cy-menu"
@@ -2806,30 +2940,14 @@ function FolderMenu({
       onMouseDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {onAddVGroup && (
-        <>
-          <button type="button" onClick={onAddVGroup}>
-            + 버전그룹 추가 (R300 같은 회차 묶음)
+      {entries.map((en, i) =>
+        en === 'hr' ? (
+          <hr key={i} />
+        ) : (
+          <button key={i} type="button" disabled={en.disabled} onClick={en.fn}>
+            {en.label}
           </button>
-          <hr />
-        </>
-      )}
-      {n.count > 0 ? (
-        <button type="button" onClick={onDeleteCycles}>
-          이 폴더의 사이클 {n.count}건 지우기
-        </button>
-      ) : (
-        <button type="button" disabled>
-          지울 사이클이 없습니다
-        </button>
-      )}
-      {isVGroup && (
-        <>
-          <hr />
-          <button type="button" onClick={onDeleteFolder}>
-            버전그룹 폴더 지우기{n.count ? ` (사이클 ${n.count}건 포함)` : ''}
-          </button>
-        </>
+        ),
       )}
     </div>
   )
