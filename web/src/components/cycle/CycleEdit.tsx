@@ -187,23 +187,46 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
       .filter((v) => v && v !== '계측기' && !groupNames.has(v))
       .sort(srt)
   }, [models, modelQuery.data, vendor])
+  /**
+   * 모델그룹 후보 — 두 무더기로 가른다.
+   *
+   * 그룹의 제품군은 ① 그룹 행의 제품군 칸 ② 그 그룹을 쓰는 모델들의
+   * 제품군에서 추론한다. 제품군을 골랐을 때 「그 제품군 것」 과
+   * 「제품군 미지정」 을 갈라 보여준다 — 미지정을 숨기면 E61xx 처럼
+   * 연결이 덜 된 그룹이 「못 가져온다」 가 되고, 섞어 버리면 남의
+   * 그룹까지 쏟아져 어수선하다. 계측기 그룹은 뺀다.
+   */
   const mgroupOpts = useMemo(() => {
-    // 카탈로그의 「모델그룹」 항목이 정본이다 — 모델이 아직 참조 안 한
-    // 그룹(E43xx 등)도 골라져야 한다. 제품군을 골랐으면 그 제품군의
-    // 그룹 + 연결 안 된 그룹을 보여준다(연결 안 된 것을 숨기면
-    // 「못 가져온다」가 된다).
-    const rows = (modelQuery.data?.items ?? []).filter((x) => x.kind === 'group')
-    const fromRows = rows
-      .filter((g) => !family || !(g.family ?? '').trim() || (g.family ?? '').trim() === family)
-      .map((g) => g.name.trim())
-    const fromModels = models
-      .filter(
-        (m) =>
-          (!vendor || String(m.vendor ?? '').trim() === vendor) &&
-          (!family || (m.family ?? '').trim() === family),
-      )
-      .map((m) => (m.model_group ?? '').trim())
-    return [...new Set([...fromRows, ...fromModels])].filter(Boolean).sort(srt)
+    const rows = (modelQuery.data?.items ?? []).filter(
+      (x) =>
+        x.kind === 'group' &&
+        (x.family ?? '').trim() !== '계측기' &&
+        !/^(ixia|n2x|stc|spirent|testcenter)/i.test(x.name.trim()),
+    )
+    const famsOf = (g: string) => {
+      const set = new Set<string>()
+      const row = rows.find((r) => r.name.trim() === g)
+      if ((row?.family ?? '').trim()) set.add((row!.family ?? '').trim())
+      for (const m of models)
+        if ((m.model_group ?? '').trim() === g && (m.family ?? '').trim())
+          set.add((m.family ?? '').trim())
+      return set
+    }
+    const names = [...new Set([
+      ...rows.map((g) => g.name.trim()),
+      ...models
+        .filter((m) => !vendor || String(m.vendor ?? '').trim() === vendor)
+        .map((m) => (m.model_group ?? '').trim()),
+    ])].filter(Boolean).sort(srt)
+    const linked: string[] = []
+    const unlinked: string[] = []
+    for (const g of names) {
+      const fams = famsOf(g)
+      if (family && fams.has(family)) linked.push(g)
+      else if (fams.size === 0) unlinked.push(g)
+      else if (!family) linked.push(g)
+    }
+    return { linked, unlinked }
   }, [models, modelQuery.data, vendor, family])
   const modelOpts = useMemo(
     () =>
@@ -557,9 +580,16 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               }}
             >
               <option value="">전체</option>
-              {mgroupOpts.map((v) => (
+              {mgroupOpts.linked.map((v) => (
                 <option key={v} value={v}>{v}</option>
               ))}
+              {mgroupOpts.unlinked.length > 0 && (
+                <optgroup label="제품군 미지정 그룹">
+                  {mgroupOpts.unlinked.map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </label>
           <label>
