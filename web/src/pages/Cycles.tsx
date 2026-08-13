@@ -596,9 +596,18 @@ export default function Cycles({ me }: PageProps) {
   }
 
   /** 폴더 아래 사이클을 모두 지운다(폴더 자체는 둔다) */
+  /**
+   * 요구사항 트리와 같은 문법 — 창(prompt)이 아니라 **그 자리 입력칸**.
+   * addingTo: 부모 키(''=최상위) / undefined=닫힘. renaming: 고치는 중인 키.
+   */
+  const [addingTo, setAddingTo] = useState<string | undefined>(undefined)
+  const [draftName, setDraftName] = useState('')
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const [renameText, setRenameText] = useState('')
+
   /** 하위 폴더 추가 — 그냥 경로 하나 늘리는 일이다. 카탈로그 안 건드린다 */
-  const addFolder = async (parent: string) => {
-    const name = window.prompt(parent ? `「${parent.split('/').pop()}」 밑에 만들 폴더 이름` : '만들 최상위 폴더 이름')?.trim()
+  const addFolder = async (parent: string, name: string) => {
+    name = name.trim()
     if (!name) return
     if (name.includes('/')) {
       window.alert('폴더 이름에는 / 를 쓸 수 없습니다')
@@ -609,13 +618,16 @@ export default function Cycles({ me }: PageProps) {
       window.alert('폴더는 6층까지만 됩니다')
       return
     }
+    setAddingTo(undefined)
+    setDraftName('')
     await saveFolders([...freeFolders, path])
-    setOpen((x) => new Set(x).add(parent))
+    if (parent) setOpen((x) => new Set(x).add(parent))
   }
 
   /** 이름 변경 — 하위 경로와 그 안 사이클까지 같이 옮긴다 */
-  const renameFolder = async (n: Node) => {
-    const name = window.prompt('폴더 이름', n.label)?.trim()
+  const renameFolder = async (n: Node, name: string) => {
+    setRenaming(null)
+    name = name.trim()
     if (!name || name === n.label || name.includes('/')) return
     const parts = n.key.split('/')
     const next = [...parts.slice(0, -1), name].join('/')
@@ -701,6 +713,12 @@ export default function Cycles({ me }: PageProps) {
                 setSel('')
               }
             }
+            // 요구사항 트리와 같은 문법 — F2 로 제자리 이름 변경
+            if (e.key === 'F2' && !n.cycle) {
+              e.preventDefault()
+              setRenaming(n.key)
+              setRenameText(n.label)
+            }
           }}
           onContextMenu={(e) => {
             e.preventDefault()
@@ -738,9 +756,36 @@ export default function Cycles({ me }: PageProps) {
           )}
           {/* 빈 폴더 표시는 전용 클래스로 — 'empty' 는 「비어 있음」 안내문
               스타일과 이름이 겹쳐 줄이 64px 로 부풀었다(겪었다) */}
-          <span className={`${n.cycle ? 'rt-title' : 'rt-fname'} cy-nm${n.empty ? ' cy-nm-empty' : ''}`}>
-            {n.label}
-          </span>
+          {renaming === n.key ? (
+            // 창을 띄우지 않고 그 자리에서 고친다 (F2 · 더블클릭) — 요구사항과 동일
+            <input
+              autoFocus
+              className="rt-rename"
+              value={renameText}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => setRenameText(e.target.value)}
+              onBlur={() => setRenaming(null)}
+              onKeyDown={(e) => {
+                // 키가 폴더 줄로 새면 안 된다 — 스페이스를 줄이 가로챈다(겪었다)
+                e.stopPropagation()
+                if (e.key === 'Enter') void renameFolder(n, renameText)
+                if (e.key === 'Escape') setRenaming(null)
+              }}
+            />
+          ) : (
+            <span
+              className={`${n.cycle ? 'rt-title' : 'rt-fname'} cy-nm${n.empty ? ' cy-nm-empty' : ''}`}
+              onDoubleClick={(e) => {
+                if (n.cycle) return
+                e.stopPropagation()
+                setRenaming(n.key)
+                setRenameText(n.label)
+              }}
+            >
+              {n.label}
+            </span>
+          )}
           {/* 지금 누가 돌리고 있나.
               실행이 서버에서 도니 내 창에서 시작한 것이 아닐 수 있다.
               표시가 없으면 남이 돌리는 사이클을 열어 또 걸게 된다. */}
@@ -754,6 +799,27 @@ export default function Cycles({ me }: PageProps) {
             {n.count || ''}
           </span>
         </div>
+        {addingTo === n.key && (
+          <div className="rt-add" style={{ paddingLeft: 8 + (n.depth + 2) * 14 }}>
+            <input
+              autoFocus
+              value={draftName}
+              placeholder="폴더 이름"
+              onChange={(e) => setDraftName(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation()
+                if (e.key === 'Enter') void addFolder(n.key, draftName)
+                if (e.key === 'Escape') setAddingTo(undefined)
+              }}
+            />
+            <button className="btn small primary" type="button" onClick={() => void addFolder(n.key, draftName)}>
+              추가
+            </button>
+            <button className="btn small" type="button" onClick={() => setAddingTo(undefined)}>
+              취소
+            </button>
+          </div>
+        )}
         {isOpen && n.children.map(renderNode)}
       </div>
     )
@@ -833,6 +899,15 @@ export default function Cycles({ me }: PageProps) {
               <button type="button" onClick={() => setMaking(true)}>
                 사이클 만들기
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAddingTo('')
+                  setDraftName('')
+                }}
+              >
+                최상위 폴더 추가
+              </button>
               <button type="button" disabled={!sel} onClick={() => sel && setEditId(sel)}>
                 선택 사이클 편집
               </button>
@@ -907,6 +982,27 @@ export default function Cycles({ me }: PageProps) {
               {cycles.length || ''}
             </span>
           </div>
+          {addingTo === '' && (
+            <div className="rt-add" style={{ paddingLeft: 8 }}>
+              <input
+                autoFocus
+                value={draftName}
+                placeholder="새 최상위 폴더 이름"
+                onChange={(e) => setDraftName(e.target.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation()
+                  if (e.key === 'Enter') void addFolder('', draftName)
+                  if (e.key === 'Escape') setAddingTo(undefined)
+                }}
+              />
+              <button className="btn small primary" type="button" onClick={() => void addFolder('', draftName)}>
+                추가
+              </button>
+              <button className="btn small" type="button" onClick={() => setAddingTo(undefined)}>
+                취소
+              </button>
+            </div>
+          )}
           {listQ.isLoading ? (
             <div className="empty">불러오는 중…</div>
           ) : tree.length ? (
@@ -992,13 +1088,32 @@ export default function Cycles({ me }: PageProps) {
             }
             const out: MenuEntry[] = []
             if (n.key === '__root') {
-              out.push({ label: '+ 최상위 폴더 추가', fn: done(() => void addFolder('')) })
+              out.push({
+                label: '+ 최상위 폴더 추가',
+                fn: done(() => {
+                  setAddingTo('')
+                  setDraftName('')
+                }),
+              })
               return out
             }
             // 폴더는 그냥 폴더다 — 층 구분 없이 같은 세 가지
             if (n.key.split('/').length < 6)
-              out.push({ label: '+ 하위 폴더 추가', fn: done(() => void addFolder(n.key)) })
-            out.push({ label: '이름 변경', fn: done(() => void renameFolder(n)) })
+              out.push({
+                label: '+ 하위 폴더 추가',
+                fn: done(() => {
+                  setOpen((x) => new Set(x).add(n.key))
+                  setAddingTo(n.key)
+                  setDraftName('')
+                }),
+              })
+            out.push({
+              label: '이름 변경 (F2)',
+              fn: done(() => {
+                setRenaming(n.key)
+                setRenameText(n.label)
+              }),
+            })
             out.push('hr')
             out.push({
               label: n.count > 0 ? '폴더 지우기 — 사이클이 있어 못 지웁니다' : '폴더 지우기',
