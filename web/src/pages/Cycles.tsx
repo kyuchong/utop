@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import ListHead from '@/components/ListHead'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
-import { goto } from '@/api/goto'
+import { goto, onGoto, reflectUrl } from '@/api/goto'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
@@ -427,6 +427,18 @@ export default function Cycles({ me }: PageProps) {
   }, [treeOpen])
 
   const [sel, setSel] = useState(() => localStorage.getItem(CY_SEL_KEY) || '')
+  // 고르면 주소창에 남긴다 — 옛 화면의 #cycle=… 과 같은 일
+  useEffect(() => {
+    if (sel) reflectUrl('cycle', sel)
+  }, [sel])
+  // 링크·뒤로가기로 온 채 다른 사이클을 가리키면 갈아탄다
+  useEffect(
+    () =>
+      onGoto((kind, id) => {
+        if (kind === 'cycle' && id !== sel) setSel(id)
+      }),
+    [sel],
+  )
   useEffect(() => {
     localStorage.setItem(CY_SEL_KEY, sel)
   }, [sel])

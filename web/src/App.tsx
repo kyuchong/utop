@@ -4,7 +4,7 @@ import Login from '@/components/Login'
 import { authApi, getToken, setToken, type MeUser } from '@/api/client'
 import { useLiveRefresh } from '@/components/useLiveRefresh'
 import { useFreshBuild } from '@/components/useFreshBuild'
-import { onGoto as onGotoEvent } from '@/api/goto'
+import { goto, onGoto as onGotoEvent, reflectUrl } from '@/api/goto'
 import Requirements from '@/pages/Requirements'
 import TestCases from '@/pages/TestCases'
 import Settings from '@/pages/Settings'
@@ -64,26 +64,37 @@ export default function App() {
    * 무엇을 열어 두었든 없던 일이 된다.
    */
   useEffect(() => {
-    const p = new URLSearchParams(window.location.search)
     const kinds = [
       ['tc', 'utop.tc.open', 'testcases'],
       ['req', 'utop.req.sel', 'requirements'],
       ['cycle', 'utop.cycle.sel', 'cycles'],
       ['report', 'utop.report.cycle', 'executions'],
     ] as const
-    for (const [key, store, to] of kinds) {
-      const id = p.get(key)
-      if (!id) continue
-      try {
-        localStorage.setItem(store, id)
-      } catch {
-        /* 사생활 보호 모드 */
+    /*
+     * 주소를 **지우지 않는다.** 전에는 읽고 바로 지웠는데, 그러면 주소창이
+     * 늘 IP 뿐이라 지금 보는 것을 남에게 보낼 수가 없었다. 옛 화면이
+     * `#cycle=…` 로 하던 그 일이다. 뒤로가기도 이 주소들을 따라간다.
+     */
+    const apply = () => {
+      const p = new URLSearchParams(window.location.search)
+      for (const [key, store, to] of kinds) {
+        const id = p.get(key)
+        if (!id) continue
+        try {
+          localStorage.setItem(store, id)
+        } catch {
+          /* 사생활 보호 모드 */
+        }
+        setPage(to)
+        // 이미 그 화면에 있으면 페이지 전환이 안 일어난다 — 화면 안
+        // 선택은 goto 알림이 맡는다(각 화면이 듣는다).
+        goto(key, id)
+        break
       }
-      setPage(to)
-      break
     }
-    if ([...p.keys()].some((k) => kinds.some(([key]) => key === k)))
-      window.history.replaceState(null, '', window.location.pathname)
+    apply()
+    window.addEventListener('popstate', apply)
+    return () => window.removeEventListener('popstate', apply)
   }, [])
 
   // 남이 바꾼 것을 어느 화면에 있든 바로 들여온다. 화면마다 따로 붙이면
@@ -103,6 +114,7 @@ export default function App() {
   useEffect(
     () =>
       onGotoEvent((kind, id) => {
+        reflectUrl(kind, id)
         if (kind === 'tc') {
           localStorage.setItem('utop.tc.open', id)
           setPage('testcases')

@@ -51,3 +51,17 @@ export function gotoClick(
   e.preventDefault()
   goto(kind, id)
 }
+
+
+/**
+ * 지금 보고 있는 것을 **주소창에 남긴다.**
+ *
+ * 옛 화면은 `#cycle=…` 로 이걸 하고 있었다 — 주소를 복사해 남에게
+ * 보내면 그 사람이 같은 것을 연다. 뒤로가기도 이 기록을 따라간다.
+ * 같은 주소면 안 쌓는다(뒤로가기가 제자리걸음이 된다).
+ */
+export function reflectUrl(kind: GotoKind, id: string): void {
+  const want = `?${kind}=${encodeURIComponent(id)}`
+  if (window.location.search === want) return
+  window.history.pushState({ utop: true }, '', window.location.pathname + want)
+}

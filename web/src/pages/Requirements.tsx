@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { gotoClick, gotoHref } from '@/api/goto'
+import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
@@ -424,7 +424,17 @@ export default function Requirements() {
    * 감각을 잃었다. 트리는 230px 이라 셋을 펴 둬도 상세가 넉넉하다 —
    * 좁으면 사람이 접기 단추로 접으면 된다.
    */
+  // 링크·뒤로가기로 이 화면에 온 채 다른 요구사항을 가리키면 갈아탄다
+  useEffect(
+    () =>
+      onGoto((kind, id) => {
+        if (kind === 'req' && id !== selected) setSelected(id)
+      }),
+    [selected],
+  )
+
   const goDetail = (pk: string, to: typeof tab = tab) => {
+    reflectUrl('req', pk)
     setSelected(pk)
     setTab(to)
   }
@@ -699,6 +709,7 @@ export default function Requirements() {
                 // 트리에서 요구사항을 고르면 그 한 건을 보는 것이다 → Detail.
                 // 폴더는 지우지 않는다(가운데 목록이 형제를 보여 줘야 한다).
                 setSelected(pk)
+                reflectUrl('req', pk)
               }}
               view={{ fullId, foldersOnly }}
               folderQ={folderQ}

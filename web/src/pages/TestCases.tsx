@@ -41,6 +41,7 @@ import TcCycles from '@/components/tc/TcCycles'
 import { deviceLabel, isMeter } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
+import { onGoto, reflectUrl } from '@/api/goto'
 import {
   reqLabel,
   reqPk,
@@ -1084,7 +1085,21 @@ export default function TestCases({ me }: PageProps) {
     if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 옮길까요?')) return
     setOpenId(id)
     setMsg({ kind: '', text: '' })
+    // 주소창에 남긴다 — 이 주소를 남에게 보내면 같은 시험이 열린다
+    reflectUrl('tc', id)
   }
+
+  // 링크·뒤로가기로 이 화면에 온 채 다른 시험을 가리키면 갈아탄다
+  useEffect(
+    () =>
+      onGoto((kind, id) => {
+        if (kind === 'tc' && id !== openId) {
+          setOpenId(id)
+          setGpOpen(false)
+        }
+      }),
+    [openId],
+  )
 
   const runStat = useMemo(() => {
     let pass = 0
