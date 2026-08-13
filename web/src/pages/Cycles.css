@@ -24,7 +24,8 @@
    여기서는 사이클에만 있는 것만 더한다. */
 .cy-node { cursor: pointer; }
 /* 사이클이 아직 없는 버전그룹. 만들어 놓고 안 보이면 또 만든다 */
-.cy-nm.empty { color: var(--c-text-faint); }
+/* 빈 폴더 이름 — 옅게. ('.empty' 안내문 스타일과 절대 겹치지 말 것) */
+.cy-nm-empty { color: var(--c-text-faint); }
 
 
 /* ── 사이클 한 건 ── */

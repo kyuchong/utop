@@ -834,7 +834,9 @@ export default function Cycles({ me }: PageProps) {
               <IconFolder open={isOpen} />
             </span>
           )}
-          <span className={`${n.cycle ? 'rt-title' : 'rt-fname'} cy-nm${n.empty ? ' empty' : ''}`}>
+          {/* 빈 폴더 표시는 전용 클래스로 — 'empty' 는 「비어 있음」 안내문
+              스타일과 이름이 겹쳐 줄이 64px 로 부풀었다(겪었다) */}
+          <span className={`${n.cycle ? 'rt-title' : 'rt-fname'} cy-nm${n.empty ? ' cy-nm-empty' : ''}`}>
             {n.label}
           </span>
           {/* 지금 누가 돌리고 있나.
