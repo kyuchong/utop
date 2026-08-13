@@ -791,7 +791,20 @@ select.cy-v.na { color: #999; }
 .ce-cat, .ce-req { cursor: pointer; }
 .ce-cat:hover, .ce-req:hover, .ce-tc:hover { background: var(--c-surface-2); }
 .ce-req.on { background: var(--c-accent-soft); font-weight: 600; }
-.ce-caret { display: inline-flex; width: 14px; color: var(--c-text-faint); transition: transform 0.12s; }
+/* 단추로 바꿨어도 생김새는 예전 그대로 — 네모 테두리가 생기면
+   체크박스로 읽힌다(겪었다) */
+.ce-caret {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-text-faint);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
 .ce-caret.open { transform: rotate(90deg); }
 .ce-req-nm, .ce-tc-nm, .ce-item-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ce-n { color: var(--c-text-faint); font-variant-numeric: tabular-nums; }
