@@ -874,7 +874,8 @@ export default function Requirements() {
             <div className="rq-table">
               <div className="rq-tr rq-th">
                 <div />
-                <div>Requirement ID</div>
+                {/* ID 열은 뺐다 — 고르면 위 빵부스러기에 그대로 나온다.
+                    이 폭을 Name 이 갖는 편이 낫다. */}
                 <div>Name</div>
                 <div>Map</div>
                 <div>TC</div>
@@ -901,9 +902,6 @@ export default function Requirements() {
                           onChange={() => togglePick(pk)}
                         />
                       </div>
-                      <div className="rq-id" title={reqLabel(r)}>
-                        {reqLabel(r) || '–'}
-                      </div>
                       <div className="rq-name">
                         <span className="rq-icon" aria-hidden="true">
                           <IconReqDoc />
@@ -911,7 +909,7 @@ export default function Requirements() {
                         <button
                           type="button"
                           className="linkish"
-                          title="상세 보기 — 3열에 뜹니다"
+                          title={`${reqLabel(r)} — 상세는 3열에 뜹니다`}
                           /* 탭은 안 건드린다 — Coverages 를 보며 여러
                              요구사항을 훑을 때 매번 REQ Info 로 튕기면
                              같은 탭을 계속 다시 눌러야 한다 */

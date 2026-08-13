@@ -7,7 +7,6 @@ import {
   naturalCompare,
   reqLabel,
   reqPk,
-  shortReqId,
   type CategoryTreeNode,
   type Requirement,
   type TestCaseMeta,
@@ -398,7 +397,7 @@ export default function TcTree({
     </div>
   )
 
-  const reqRow = (r: Requirement, depth: number, folderName: string | null) => {
+  const reqRow = (r: Requirement, depth: number) => {
     const pk = reqPk(r)
     const mine = shownTcs(r)
     const open = isOpen(pk)
@@ -438,11 +437,10 @@ export default function TcTree({
           <span className="rt-dicon" aria-hidden="true">
             <IconReqDoc />
           </span>
-          <span className="rt-id" title={full}>
-            {shortReqId(full, folderName) || '(ID 없음)'}
-          </span>
-          <span className="rt-title" title={r.title ?? ''}>
-            {r.title || '(제목 없음)'}
+          {/* ID 는 안 그린다 — 고르면 위 빵부스러기와 Info 탭에 나온다.
+              트리는 이름을 읽는 자리다. 궁금하면 말풍선에 있다. */}
+          <span className="rt-title" title={[full, r.title].filter(Boolean).join(' — ')}>
+            {r.title || full || '(제목 없음)'}
           </span>
           <span className="rt-cnt">{mine.length || ''}</span>
         </div>
@@ -565,7 +563,7 @@ export default function TcTree({
         {open && (
           <>
             {n.children.map(renderFolder)}
-            {mine.map((r) => reqRow(r, n.depth, n.name))}
+            {mine.map((r) => reqRow(r, n.depth))}
           </>
         )}
       </div>
@@ -627,7 +625,7 @@ export default function TcTree({
                     {uncat.reduce((a, r) => a + shownTcs(r).length, 0)}
                   </span>
                 </div>
-                {uncat.map((r) => reqRow(r, 1, null))}
+                {uncat.map((r) => reqRow(r, 1))}
               </>
             )}
 
