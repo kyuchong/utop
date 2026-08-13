@@ -758,11 +758,14 @@
   border: 1px solid var(--c-border);
   border-radius: var(--radius);
   background: var(--c-surface);
-  overflow: hidden;
+  /* 열 합(≈900px)보다 좁으면 자르지 말고 가로로 민다 — 잘리면
+     삭제 버튼이 밖으로 나간 것처럼 보인다(실측 686px 에서 겪었다) */
+  overflow-x: auto;
 }
 .dc-tr {
   display: grid;
   grid-template-columns: 100px 120px 90px 120px minmax(140px, 1fr) minmax(140px, 1.3fr) 48px 64px;
+  min-width: 880px;
   gap: 8px;
   align-items: center;
   min-height: 34px;
