@@ -590,6 +590,36 @@ export default function Cycles({ me }: PageProps) {
     }
   }
 
+  /**
+   * 모델 밑에 버전그룹 폴더를 만든다.
+   *
+   * 트리의 최상위 두 층(모델그룹·모델)은 장비 카탈로그가 주인이라 여기서
+   * 못 만든다 — 모델은 장비 화면에서. 사람이 만드는 폴더는 버전그룹뿐인데
+   * 그 입구가 사이클 만들기 창 안에만 있어서, 트리에서 바로 만들게 한다.
+   */
+  const addVGroup = async (model: string) => {
+    const name = window.prompt(`「${model}」 밑에 만들 버전그룹 이름 (예: R300)`)?.trim()
+    if (!name) return
+    const cur = vgQ.data?.groups ?? {}
+    const groups = { ...cur, [model]: [...(cur[model] ?? []), name] }
+    try {
+      const r = await apiFetch('/api/cycle-version-groups', {
+        method: 'POST',
+        body: JSON.stringify({ groups }),
+      })
+      if (!r.ok) throw new Error(String(r.status))
+      await vgQ.refetch()
+      setOpen((x) => new Set(x).add(`${groupOfModel(model)}/${model}`))
+    } catch (e) {
+      window.alert(`버전그룹을 만들지 못했습니다 — ${e instanceof Error ? e.message : e}`)
+    }
+  }
+  /** 트리 키를 만들 때 쓰는 모델→모델그룹 (build 와 같은 규칙) */
+  const groupOfModel = (model: string) => {
+    const m = models.find((x) => x.name === model)
+    return m ? (m.model_group ?? '').trim() || '(모델그룹 없음)' : NO_CAT
+  }
+
   const renderNode = (n: Node): React.ReactNode => {
     const isOpen = open.has(n.key) || !!q.trim()
     const leaf = n.children.length === 0
@@ -865,6 +895,15 @@ export default function Cycles({ me }: PageProps) {
         <FolderMenu
           at={folderMenu}
           onClose={() => setFolderMenu(null)}
+          onAddVGroup={
+            folderMenu.node.kind === 'model'
+              ? () => {
+                  const n = folderMenu.node
+                  setFolderMenu(null)
+                  void addVGroup(n.label)
+                }
+              : undefined
+          }
           onDeleteCycles={() => {
             const n = folderMenu.node
             setFolderMenu(null)
@@ -2649,11 +2688,14 @@ function CycleRowMenu({
 function FolderMenu({
   at,
   onClose,
+  onAddVGroup,
   onDeleteCycles,
   onDeleteFolder,
 }: {
   at: { node: Node; x: number; y: number }
   onClose: () => void
+  /** 모델 폴더에서만 — 그 모델 밑에 버전그룹을 만든다 */
+  onAddVGroup?: () => void
   onDeleteCycles: () => void
   onDeleteFolder: () => void
 }) {
@@ -2682,6 +2724,14 @@ function FolderMenu({
       onMouseDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
     >
+      {onAddVGroup && (
+        <>
+          <button type="button" onClick={onAddVGroup}>
+            + 버전그룹 추가 (R300 같은 회차 묶음)
+          </button>
+          <hr />
+        </>
+      )}
       {n.count > 0 ? (
         <button type="button" onClick={onDeleteCycles}>
           이 폴더의 사이클 {n.count}건 지우기
