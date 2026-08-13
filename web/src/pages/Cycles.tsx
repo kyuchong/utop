@@ -932,7 +932,10 @@ export default function Cycles({ me }: PageProps) {
             </button>
           )}
         </div>
-        <div className="cy-body">
+        {/* `rt` 가 구분선·hover·선택색 변수를 들고 있다 — 빠지면 변수가
+            무효라 줄 사이 선이 통째로 사라진다(겪었다). 요구사항 트리와
+            같은 시각 규칙은 이 클래스 하나로 온다. */}
+        <div className="cy-body rt">
           {/* Root — 늘 맨 위에 있다. 누르면 전체 관제판, 올리면 전체 합산.
               「전체」 로 돌아가는 길이 빵부스러기에만 있으면 트리에서 길을
               잃는다. */}
