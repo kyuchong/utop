@@ -1075,7 +1075,7 @@ async def device_delete(dev_id: str) -> bool:
 # 테이블에 kind 로 구분해 담는다.
 # ══════════════════════════════════════════════════════════════════════
 # group = 모델군(시리즈). 시험은 보통 모델 하나가 아니라 시리즈 단위로 돈다.
-CATALOG_KINDS = ("vendor", "group", "family", "model", "lab")
+CATALOG_KINDS = ("vendor", "operator", "group", "family", "model", "lab")
 
 
 async def catalog_list(kind: str = "") -> list[dict]:
@@ -1101,15 +1101,17 @@ async def catalog_upsert(item: dict) -> None:
     async with pool().acquire() as c:
         await c.execute(
             """INSERT INTO device_catalog
-                 (kind, name, vendor, model_group, family, interfaces, note, sort_order)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+                 (kind, name, vendor, operator, model_group, family, interfaces, note, sort_order)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
                ON CONFLICT (kind, name) DO UPDATE SET
-                 vendor=EXCLUDED.vendor, model_group=EXCLUDED.model_group,
+                 vendor=EXCLUDED.vendor, operator=EXCLUDED.operator,
+                 model_group=EXCLUDED.model_group,
                  family=EXCLUDED.family,
                  interfaces=EXCLUDED.interfaces, note=EXCLUDED.note,
                  sort_order=EXCLUDED.sort_order""",
             kind, name,
             (item.get("vendor") or "").strip() or None,
+            (item.get("operator") or "").strip() or None,
             (item.get("model_group") or "").strip() or None,
             (item.get("family") or "").strip() or None,
             (item.get("interfaces") or "").strip() or None,

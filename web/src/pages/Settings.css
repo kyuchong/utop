@@ -754,7 +754,7 @@
 .dc-table { display: flex; flex-direction: column; }
 .dc-tr {
   display: grid;
-  grid-template-columns: 160px 110px 90px 110px minmax(120px, 1fr) 60px 130px;
+  grid-template-columns: 150px 100px 80px 90px 110px minmax(110px, 1fr) 54px 130px;
   gap: 8px;
   align-items: center;
   padding: 5px 8px;

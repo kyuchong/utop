@@ -6,6 +6,7 @@ interface Item {
   kind: string
   name: string
   vendor?: string | null
+  operator?: string | null
   /** kind=model 일 때 속한 모델그룹(시리즈) */
   model_group?: string | null
   family?: string | null
@@ -20,6 +21,7 @@ interface Item {
 const KINDS: Array<{ v: string; label: string; desc: string }> = [
   { v: 'lab', label: 'LAB', desc: '시험실' },
   { v: 'vendor', label: 'Vendor', desc: '유비쿼스 · Cisco …' },
+  { v: 'operator', label: '사업자', desc: 'KT · LGU+ · SKB …' },
   { v: 'family', label: '제품군', desc: 'L2 · L3 · OLT · ONT · CPE · HGW' },
   { v: 'group', label: '모델그룹', desc: 'E6000 시리즈 · U9500 시리즈 …' },
   { v: 'model', label: '모델명', desc: 'Vendor · 모델그룹 · 제품군 · 기본 인터페이스' },
@@ -95,6 +97,7 @@ export default function DeviceCatalog() {
   })
 
   const vendors = (listQ.data?.items ?? []).filter((i) => i.kind === 'vendor')
+  const operators = (listQ.data?.items ?? []).filter((i) => i.kind === 'operator')
   const groups = (listQ.data?.items ?? []).filter((i) => i.kind === 'group')
   const families = (listQ.data?.items ?? []).filter((i) => i.kind === 'family')
 
@@ -274,6 +277,18 @@ export default function DeviceCatalog() {
                 ))}
               </select>
               <select
+                value={draft.operator ?? ''}
+                onChange={(e) => setDraft({ ...draft, operator: e.target.value })}
+              >
+                <option value="">사업자</option>
+                {draft.operator && !operators.some((v) => v.name === draft.operator) && (
+                  <option value={draft.operator}>{draft.operator} (목록에 없음)</option>
+                )}
+                {operators.map((v) => (
+                  <option key={v.name}>{v.name}</option>
+                ))}
+              </select>
+              <select
                 value={draft.model_group ?? ''}
                 onChange={(e) => setDraft({ ...draft, model_group: e.target.value })}
               >
@@ -374,6 +389,7 @@ export default function DeviceCatalog() {
               <b>모델명</b>
               <b>벤더</b>
               <b>제품군</b>
+              <b>사업자</b>
               <b>모델그룹</b>
               <b>기본 인터페이스</b>
               <b>사용</b>
@@ -387,6 +403,9 @@ export default function DeviceCatalog() {
                 </span>
                 <span className={!it.family || families.some((v) => v.name === it.family) ? '' : 'dc-warn'}>
                   {it.family || '–'}
+                </span>
+                <span className={!it.operator || operators.some((v) => v.name === it.operator) ? '' : 'dc-warn'}>
+                  {it.operator || '–'}
                 </span>
                 <span className={!it.model_group || groups.some((v) => v.name === it.model_group) ? '' : 'dc-warn'}>
                   {it.model_group || '–'}

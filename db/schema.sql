@@ -289,6 +289,8 @@ CREATE TABLE IF NOT EXISTS device_catalog (
 -- 모델군(시리즈). E6000 시리즈 아래 E6100-48X · E6100-24X … 처럼 묶는다.
 -- 시험은 보통 모델 하나가 아니라 시리즈 단위로 도므로 이 층이 필요하다.
 ALTER TABLE device_catalog ADD COLUMN IF NOT EXISTS model_group TEXT;
+-- 사업자 (KT · LGU+ · SKB …) — 모델이 어느 사업자향인지
+ALTER TABLE device_catalog ADD COLUMN IF NOT EXISTS operator TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_device_catalog ON device_catalog(kind, name);
 CREATE INDEX IF NOT EXISTS idx_device_catalog_kind ON device_catalog(kind);
 
