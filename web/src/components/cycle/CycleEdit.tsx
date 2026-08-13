@@ -69,6 +69,11 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   /** 2열에서 체크한 TC */
   const [tcSel, setTcSel] = useState<Set<string>>(new Set())
   const [tcQ, setTcQ] = useState('')
+  /** 2열 거르개 — 옛 화면의 필터 줄. 자료에 실제로 있는 값만 띄운다 */
+  const [fSev, setFSev] = useState('')
+  const [fStat, setFStat] = useState('')
+  const [fKind, setFKind] = useState('')
+  const [fTyp, setFTyp] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
@@ -159,13 +164,40 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
 
   const pickedIds = useMemo(() => new Set(picked.map((x) => x.tcid)), [picked])
 
-  /** 2열에 내놓을 시험 — 요구사항으로 좁히고 글자로 거른다 */
+  /** 거르개에 띄울 값 — 이 목록에 실제로 있는 것만 */
+  const tcOpts = useMemo(() => {
+    const sev = new Set<string>()
+    const stat = new Set<string>()
+    const kin = new Set<string>()
+    const typ = new Set<string>()
+    for (const t of allTcs) {
+      if (t.severity) sev.add(String(t.severity))
+      if (t.status) stat.add(String(t.status))
+      if (t.kind) kin.add(String(t.kind))
+      if (t.type) typ.add(String(t.type))
+    }
+    const srt = (a: string, b: string) => a.localeCompare(b, 'ko')
+    return {
+      sev: [...sev].sort(srt),
+      stat: [...stat].sort(srt),
+      kin: [...kin].sort(srt),
+      typ: [...typ].sort(srt),
+    }
+  }, [allTcs])
+
+  /** 2열에 내놓을 시험 — 요구사항으로 좁히고 거르개·글자로 거른다 */
   const shownTcs = useMemo(() => {
     const base = reqSel ? (tcsByReq.get(reqSel) ?? []) : allTcs
     const n = tcQ.trim().toLowerCase()
-    if (!n) return base
-    return base.filter((t) => `${t.name ?? ''} ${t.tcid}`.toLowerCase().includes(n))
-  }, [reqSel, tcQ, tcsByReq, allTcs])
+    return base.filter((t) => {
+      if (fSev && String(t.severity ?? '') !== fSev) return false
+      if (fStat && String(t.status ?? '') !== fStat) return false
+      if (fKind && String(t.kind ?? '') !== fKind) return false
+      if (fTyp && String(t.type ?? '') !== fTyp) return false
+      if (!n) return true
+      return `${t.name ?? ''} ${t.tcid}`.toLowerCase().includes(n)
+    })
+  }, [reqSel, tcQ, tcsByReq, allTcs, fSev, fStat, fKind, fTyp])
 
   /** 3열 — 요구사항으로 묶는다. 여섯 건만 넘어도 평평하면 안 읽힌다 */
   const grouped = useMemo(() => {
@@ -196,6 +228,20 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
         }
       })
     if (add.length) setPicked((p) => [...p, ...add])
+    setTcSel(new Set())
+  }
+
+  /** 골라 둔 것 중 이미 배정된 것을 뺀다 — 결과가 있으면 묻는다 */
+  const unassign = (ids: string[]) => {
+    const away = new Set(ids.filter((id) => pickedIds.has(id)))
+    if (!away.size) return
+    const withRuns = picked.filter((x) => away.has(x.tcid) && (x.steps?.length ?? 0) > 0)
+    if (
+      withRuns.length &&
+      !window.confirm(`${withRuns.length}건은 실행 결과가 있습니다. 빼면 결과도 사라집니다. 뺄까요?`)
+    )
+      return
+    setPicked((p) => p.filter((x) => !away.has(x.tcid)))
     setTcSel(new Set())
   }
 
@@ -271,6 +317,19 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
             <IconFolder open={on} />
           </span>
           <b>{n.name}</b>
+          <span className="sp" />
+          {/* 이 폴더(하위 포함)의 TC 합계 — 옛 화면처럼 접은 채로도 크기가 보인다 */}
+          <span className="ce-n">
+            TC{' '}
+            {(() => {
+              const cnt = (x: CategoryTreeNode): number =>
+                reqs
+                  .filter((r) => (r.cat4 || r.cat3 || r.cat2 || r.cat1 || null) === x.id)
+                  .reduce((a, r) => a + (tcsByReq.get(reqPk(r)) ?? []).length, 0) +
+                x.children.reduce((a, k) => a + cnt(k), 0)
+              return cnt(n)
+            })()}
+          </span>
         </div>
         {on && (
           <>
@@ -406,6 +465,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               <button
                 className="btn small"
                 type="button"
+                title="보이는 것 전부 고르기"
                 onClick={() => setTcSel(new Set(shownTcs.map((t) => t.tcid)))}
               >
                 전체
@@ -413,11 +473,61 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               <button
                 className="btn primary small"
                 type="button"
-                disabled={!tcSel.size}
+                disabled={![...tcSel].some((id) => !pickedIds.has(id))}
                 onClick={() => assign([...tcSel])}
               >
                 → 배정
               </button>
+              <button
+                className="btn small danger"
+                type="button"
+                title="고른 것 중 이미 배정된 것을 뺍니다"
+                disabled={![...tcSel].some((id) => pickedIds.has(id))}
+                onClick={() => unassign([...tcSel])}
+              >
+                ← 해제
+              </button>
+            </div>
+            {/* 거르개 줄 — 옛 화면의 필터. 자료에 있는 값만 띄운다 */}
+            <div className="ce-filters">
+              <select value={fSev} onChange={(e) => setFSev(e.target.value)} title="심각도">
+                <option value="">심각도: 전체</option>
+                {tcOpts.sev.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              <select value={fStat} onChange={(e) => setFStat(e.target.value)} title="상태">
+                <option value="">상태: 전체</option>
+                {tcOpts.stat.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              <select value={fKind} onChange={(e) => setFKind(e.target.value)} title="발생구분">
+                <option value="">발생구분: 전체</option>
+                {tcOpts.kin.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              <select value={fTyp} onChange={(e) => setFTyp(e.target.value)} title="타입">
+                <option value="">타입: 전체</option>
+                {tcOpts.typ.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              {(fSev || fStat || fKind || fTyp) && (
+                <button
+                  className="btn small"
+                  type="button"
+                  onClick={() => {
+                    setFSev('')
+                    setFStat('')
+                    setFKind('')
+                    setFTyp('')
+                  }}
+                >
+                  ✕
+                </button>
+              )}
             </div>
             <input
               className="ce-q"
@@ -439,7 +549,6 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                     <label className={`ce-tc${already ? ' off' : ''}`} key={t.tcid}>
                       <input
                         type="checkbox"
-                        disabled={already}
                         checked={tcSel.has(t.tcid)}
                         onChange={(e) =>
                           setTcSel((s) => {
@@ -465,6 +574,20 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               <b>배정된 항목</b>
               <span className="ce-n">{picked.length}</span>
               <span className="sp" />
+              <button
+                className="btn small"
+                type="button"
+                disabled={!picked.length}
+                title="배정된 전 항목의 담당자를 한 번에 정합니다"
+                onClick={() => {
+                  const who = window.prompt('배정된 항목의 담당자', assignee)?.trim()
+                  if (who === undefined || who === null) return
+                  setPicked((p) => p.map((x) => ({ ...x, assignee: who })))
+                  if (!assignee.trim()) setAssignee(who)
+                }}
+              >
+                담당자 할당
+              </button>
               <button
                 className="btn small"
                 type="button"

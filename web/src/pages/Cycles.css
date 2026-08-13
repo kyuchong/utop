@@ -2121,3 +2121,20 @@ table.tb td.k {
 
 /* Root 줄 — 고른 상태(전체 보기)면 표시 */
 .cy-root.on { background: var(--c-primary-bg); box-shadow: inset 3px 0 0 var(--c-primary); }
+
+
+/* 사이클 만들기 — 2열 거르개 줄 (옛 화면의 필터) */
+.ce-filters {
+  display: flex;
+  gap: 6px;
+  padding: 0 var(--sp-2) 6px;
+  flex-wrap: wrap;
+}
+.ce-filters select {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  font-size: var(--fs-sm);
+  padding: 3px 6px;
+  max-width: 130px;
+}
