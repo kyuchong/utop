@@ -859,7 +859,40 @@ function CycleBoard({
       </div>
       {[...groups.entries()].map(([model, list]) => (
         <div key={model} className="cy-bgroup">
-          <div className="cy-bgt">{model}</div>
+          <div className="cy-bgt">
+            {model}
+            {/* 사이클별 Pass/Fail 추이 — 왼쪽이 과거. 이 모델이 좋아지고
+                있는지 나빠지고 있는지가 열기 전에 보인다. 목록이 최신순이라
+                뒤집어 그린다. 막대를 누르면 그 사이클이 열린다. */}
+            {list.length > 1 && (
+              <span className="cy-btrend" aria-label="사이클별 결과 추이">
+                {[...list].reverse().slice(-16).map((c) => {
+                  const its = c.items ?? []
+                  let pass = 0
+                  let fail = 0
+                  for (const it of its) {
+                    const v = itemVerdict(it)
+                    if (v === 'Pass') pass += 1
+                    else if (v === 'Fail') fail += 1
+                  }
+                  const rest = its.length - pass - fail
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className="cy-btr"
+                      title={`${c.version || c.name || c.id} — Pass ${pass} · Fail ${fail} · 나머지 ${rest}`}
+                      onClick={() => onPick(c.id)}
+                    >
+                      <i className="n" style={{ flexGrow: rest }} />
+                      <i className="f" style={{ flexGrow: fail }} />
+                      <i className="p" style={{ flexGrow: pass }} />
+                    </button>
+                  )
+                })}
+              </span>
+            )}
+          </div>
           <div className="cy-cards">
             {list.map((c) => {
               const items = c.items ?? []

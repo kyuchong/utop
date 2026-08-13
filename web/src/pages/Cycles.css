@@ -1855,11 +1855,35 @@ table.tb td.k {
 .cy-board-h > b { font-size: 17px; }
 .cy-bgroup { margin-bottom: var(--sp-4); }
 .cy-bgt {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
   font-weight: 700;
   color: var(--c-text-muted);
   font-size: var(--fs-sm);
   margin-bottom: var(--sp-2);
 }
+
+/* 모델별 추이 — 사이클 하나가 막대 하나. 아래부터 Pass(초록)·Fail(빨강),
+   나머지는 빈 회색. 열기 전에 흐름이 읽히는 것이 목적이라 작게 둔다. */
+.cy-btrend { display: inline-flex; align-items: flex-end; gap: 2px; }
+.cy-btr {
+  display: flex;
+  flex-direction: column;
+  width: 9px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  overflow: hidden;
+  background: transparent;
+  cursor: pointer;
+}
+.cy-btr > i { display: block; min-height: 0; }
+.cy-btr > i.p { background: var(--c-pass); }
+.cy-btr > i.f { background: var(--c-fail); }
+.cy-btr > i.n { background: var(--c-border-soft); }
+.cy-btr:hover { outline: 1px solid var(--c-primary); }
 .cy-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
