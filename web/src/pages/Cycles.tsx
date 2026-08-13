@@ -644,7 +644,10 @@ export default function Cycles({ me }: PageProps) {
           같은 자리·같은 모양이다. */}
       <div className="rq-bar">
         <span className="rq-crumb">
-          <span className="muted">사이클</span>
+          {/* 「사이클」 을 누르면 관제판(고른 것 없음)으로 돌아간다 */}
+          <button type="button" className="rq-crumb-home" onClick={() => setSel('')}>
+            사이클
+          </button>
           {crumbs.map((c) => (
             <span key={c}>
               <span className="rq-crumb-sep">›</span>
@@ -804,16 +807,15 @@ export default function Cycles({ me }: PageProps) {
         {cur ? (
           <CycleDetail
             cycle={cur}
-            /* 같은 모델의 다른 사이클 중 가장 최근 것 — 「지난 버전에선
-               됐는데 지금 깨진 것(회귀)」 을 대 보는 상대다. 목록이 이미
-               최신순이라 첫 번째가 그것이다. */
-            prev={cycles.find((c) => c.id !== cur.id && (c.model ?? '') === (cur.model ?? ''))}
+            /* 회귀를 대 볼 후보 — 나머지 사이클 전부. 기본은 같은 모델의
+               최신 것이지만, 사람이 아무 것이나 고를 수 있다. */
+            others={cycles.filter((c) => c.id !== cur.id)}
             act={act}
             meName={me?.name || me?.username || ''}
             onSaved={() => void listQ.refetch()}
           />
         ) : (
-          <div className="empty">왼쪽에서 사이클을 고르세요.</div>
+          <CycleBoard cycles={cycles} onPick={(id) => setSel(id)} />
         )}
       </section>
     </div>
@@ -821,17 +823,101 @@ export default function Cycles({ me }: PageProps) {
   )
 }
 
+/**
+ * 관제판 — 아직 아무 사이클도 안 골랐을 때.
+ *
+ * 전에는 「왼쪽에서 사이클을 고르세요」 한 줄이었다. 이 화면의 질문은
+ * 「이번 버전, 내보내도 되나」 인데, 그 답의 첫 장이 빈 벽이면 안 된다.
+ * 모델별로 사이클을 깔고, 카드마다 진행률과 Pass/Fail 을 바로 보여 준다 —
+ * 어디가 급한지 열기 전에 보인다.
+ */
+function CycleBoard({
+  cycles,
+  onPick,
+}: {
+  cycles: CycleMeta[]
+  onPick: (id: string) => void
+}) {
+  const groups = useMemo(() => {
+    const m = new Map<string, CycleMeta[]>()
+    for (const c of cycles) {
+      const k = String(c.model ?? '').trim() || '(모델 없음)'
+      const arr = m.get(k)
+      if (arr) arr.push(c)
+      else m.set(k, [c])
+    }
+    return m
+  }, [cycles])
+
+  return (
+    <div className="cy-board scroll">
+      <div className="cy-board-h">
+        <b>어느 버전을 검증할까요</b>
+        <span className="muted small">
+          카드를 누르면 실행 화면이 열립니다 · 색 띠는 Pass/Fail, 숫자는 실행 진행률
+        </span>
+      </div>
+      {[...groups.entries()].map(([model, list]) => (
+        <div key={model} className="cy-bgroup">
+          <div className="cy-bgt">{model}</div>
+          <div className="cy-cards">
+            {list.map((c) => {
+              const items = c.items ?? []
+              const counts: Record<string, number> = {}
+              for (const it of items) {
+                const v = itemVerdict(it)
+                counts[v] = (counts[v] ?? 0) + 1
+              }
+              const total = items.length
+              const done = total - (counts[''] ?? 0)
+              const pct = total ? Math.round((done / total) * 100) : 0
+              const fail = counts['Fail'] ?? 0
+              return (
+                <button key={c.id} type="button" className="cy-bcard" onClick={() => onPick(c.id)}>
+                  <span className="cy-bcard-t">
+                    <b>{c.version || c.name || c.id}</b>
+                    {c.version_group ? <i>{c.version_group}</i> : null}
+                  </span>
+                  {/* 결과 분포 띠 — 실행 화면 위의 것과 같은 문법 */}
+                  <span className="cy-bar" aria-hidden="true">
+                    {RESULTS.map((r) => (
+                      <span key={r.v} className={r.cls} style={{ flexGrow: counts[r.v] ?? 0 }} />
+                    ))}
+                    {total === 0 && <span className="none" style={{ flexGrow: 1 }} />}
+                  </span>
+                  <span className="cy-bcard-m">
+                    <b className={pct === 100 ? 'done' : ''}>{pct}%</b>
+                    <span className="muted small">
+                      {done}/{total}건 실행
+                    </span>
+                    {fail > 0 && <b className="bad">Fail {fail}</b>}
+                    <span className="sp" />
+                    {c.assignee && <span className="muted small">{c.assignee}</span>}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+      {cycles.length === 0 && (
+        <div className="empty">아직 사이클이 없습니다 — 왼쪽 위 ＋ 로 만드세요.</div>
+      )}
+    </div>
+  )
+}
+
 /** 사이클 한 건 — 항목과 진행 */
 function CycleDetail({
   cycle,
-  prev,
+  others,
   act,
   meName,
   onSaved,
 }: {
   cycle: CycleMeta
-  /** 같은 모델의 직전 사이클 — 회귀(전엔 Pass, 지금 Fail)를 대 본다 */
-  prev?: CycleMeta
+  /** 회귀를 대 볼 후보들 — 이 사이클을 뺀 전부. 기본은 같은 모델 최신 */
+  others: CycleMeta[]
   /** 지금 사람 — 접속자 표시와 「누가 고쳤나」 에 쓴다 */
   meName: string
   /** 트리 우클릭 메뉴가 시킨 일 */
@@ -1216,6 +1302,12 @@ function CycleDetail({
    * 섞여서, 회귀를 골라내려고 지난 결과서를 옆에 띄워 놓고 눈으로 대
    * 보게 된다. 여기서 대 준다.
    */
+  const [prevId, setPrevId] = useState('')
+  // 사이클을 갈아타면 비교 상대도 자동으로 돌아간다
+  useEffect(() => setPrevId(''), [cycle.id])
+  const prev = prevId
+    ? others.find((c) => c.id === prevId)
+    : others.find((c) => (c.model ?? '') === (cycle.model ?? ''))
   const prevQ = useQuery({
     queryKey: ['cycle-full', prev?.id ?? ''],
     enabled: Boolean(prev),
@@ -1625,24 +1717,46 @@ function CycleDetail({
             </button>
           )
         })}
-        {/* 회귀 — 지난 사이클과 대 볼 상대가 있을 때만. 0이어도 띄운다 —
-            「회귀 0」 은 이번 버전이 되던 것을 안 무너뜨렸다는 **결과**다. */}
-        {prev && prevVerdict.size > 0 && (
-          <button
-            type="button"
-            className={`cy-stat regress${regressN ? ' hot' : ''}${onlyRegress ? ' on' : ''}`}
-            title={
-              onlyRegress
-                ? '전부 보기'
-                : `${prev.version || prev.name || '지난 사이클'} 에선 Pass 였는데 이번에 Fail 인 것만`
-            }
-            onClick={() => setOnlyRegress((v) => !v)}
-          >
-            <b>{regressN}</b>
-            <span className="cy-stat-lb">
-              회귀 <i>vs {prev.version || prev.name || '지난'}</i>
-            </span>
-          </button>
+        {/* 회귀 — 대 볼 사이클이 하나라도 있으면 늘 띄운다. 0 이어도
+            띄운다: 「회귀 0」 은 되던 것을 안 무너뜨렸다는 **결과**다.
+            상대는 기본이 같은 모델 최신이고, 아래에서 갈아탈 수 있다. */}
+        {others.length > 0 && (
+          <div className={`cy-stat regress${regressN ? ' hot' : ''}${onlyRegress ? ' on' : ''}`}>
+            <button
+              type="button"
+              className="cy-reg-n"
+              title={
+                !prev
+                  ? '아래에서 비교할 사이클을 고르세요'
+                  : prevVerdict.size === 0
+                    ? `${prev.version || prev.name || '상대'} 에는 실행 결과가 없습니다`
+                    : onlyRegress
+                      ? '전부 보기'
+                      : `${prev.version || prev.name || '지난 사이클'} 에선 Pass 였는데 이번에 Fail 인 것만`
+              }
+              onClick={() => setOnlyRegress((v) => !v)}
+            >
+              <b>{prev && prevVerdict.size ? regressN : '–'}</b>
+              <span className="cy-stat-lb">회귀</span>
+            </button>
+            <select
+              className="cy-regpick"
+              value={prev?.id ?? ''}
+              title="어느 사이클과 대 볼까요"
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                setPrevId(e.target.value)
+                setOnlyRegress(false)
+              }}
+            >
+              {!prev && <option value="">vs (고르세요)</option>}
+              {others.map((c) => (
+                <option key={c.id} value={c.id}>
+                  vs {[c.model, c.version || c.name].filter(Boolean).join(' · ') || c.id}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
       </div>
 
@@ -1837,12 +1951,6 @@ function CycleDetail({
                   }}
                 />
               </span>
-              {st.itemAt === at && (
-                <span className="cy-live-chip" title="지금 이 항목을 돌리는 중입니다">
-                  <i />
-                  실행 중
-                </span>
-              )}
               <button
                 type="button"
                 className="cy-tcid"
@@ -1855,6 +1963,14 @@ function CycleDetail({
                 {it.tcid || '–'}
               </button>
               <span className="cy-tc" title={it.tcid}>
+                {/* 실행 중 표시는 격자 칸이 아니라 이름 칸 **안**에 —
+                    칸으로 끼우면 그 줄만 한 칸씩 밀린다(겪었다) */}
+                {st.itemAt === at && (
+                  <b className="cy-live-chip" title="지금 이 항목을 돌리는 중입니다">
+                    <i />
+                    실행 중
+                  </b>
+                )}
                 {it.name || it.tcid}
                 {/* 되던 것이 무너졌다 — Fail 중에서도 이것부터 봐야 한다 */}
                 {isRegress(it) && (
@@ -1915,8 +2031,8 @@ function CycleDetail({
                     끝난 뒤에 궁금한 것이고, 도는 동안 궁금한 것은
                     「어디까지 갔나」 다. */}
                 {st.itemAt === at && st.on ? (
-                  <b className="cy-now">
-                    실행 중{st.stepAt >= 0 && ` · 스텝 ${st.stepAt + 1}/${st.stepCount}`}
+                  <b className="cy-now" title="실행 중 — 지나간 스텝/전체">
+                    {st.stepAt >= 0 ? `${st.stepAt + 1}/${st.stepCount}` : '…'}
                   </b>
                 ) : (
                   <>

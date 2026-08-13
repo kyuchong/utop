@@ -352,7 +352,7 @@
    iTest 가 좋은 점이 이것이 다 보인다는 것이다. 스텝이 끝나야 결과가 툭
    나오면 멈춘 것인지 도는 것인지 알 수 없다. */
 /* 목록에서 지금 도는 항목 */
-.cy-now { color: var(--c-primary); }
+.cy-now { color: var(--c-primary); white-space: nowrap; }
 
 .cy-ck { justify-self: center; }
 /* 지금 도는 줄 */
@@ -393,6 +393,7 @@
   vertical-align: 1px;
 }
 
+.cy-tc .cy-live-chip { margin-right: 6px; margin-left: 0; vertical-align: 1px; }
 .cy-live-chip {
   display: inline-flex;
   align-items: center;
@@ -1841,3 +1842,86 @@ table.tb td.k {
   from { opacity: 0; transform: translateY(-3px); }
   to { opacity: 1; transform: none; }
 }
+
+
+/* ── 관제판 — 사이클을 고르기 전 첫 화면 ─────────────────────── */
+.cy-board { padding: var(--sp-3) var(--sp-4); }
+.cy-board-h {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.cy-board-h > b { font-size: 17px; }
+.cy-bgroup { margin-bottom: var(--sp-4); }
+.cy-bgt {
+  font-weight: 700;
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+  margin-bottom: var(--sp-2);
+}
+.cy-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--sp-2);
+}
+.cy-bcard {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cy-bcard:hover { border-color: var(--c-primary); background: var(--c-surface-info); }
+.cy-bcard-t { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.cy-bcard-t > b { font-size: var(--fs-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cy-bcard-t > i { color: var(--c-text-faint); font-style: normal; font-size: var(--fs-xs); }
+.cy-bcard .cy-bar { height: 6px; }
+.cy-bcard .cy-bar .none { background: var(--c-border-soft); }
+.cy-bcard-m { display: flex; align-items: baseline; gap: 8px; width: 100%; }
+.cy-bcard-m > b { font-size: 15px; }
+.cy-bcard-m > b.done { color: var(--c-pass); }
+.cy-bcard-m > b.bad { color: var(--c-fail); font-size: var(--fs-sm); }
+
+/* 빵부스러기의 「사이클」 — 관제판으로 돌아가는 길 */
+.rq-crumb-home {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.rq-crumb-home:hover { color: var(--c-primary); text-decoration: underline; }
+
+/* 회귀 카드 안 — 숫자 단추 + 상대 고르기 */
+.cy-stat.regress { gap: 3px; }
+.cy-reg-n {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  color: inherit;
+}
+.cy-reg-n > b { font-size: 22px; line-height: 1.1; font-weight: 700; color: var(--sc); }
+.cy-regpick {
+  max-width: 150px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  padding: 1px 2px;
+}
+.cy-stat.regress.on .cy-stat-lb,
+.cy-stat.regress.on .cy-reg-n > b { color: #fff; }
