@@ -41,6 +41,14 @@ const EMPTY_MODEL: Item = { kind: 'model', name: '' }
 export default function DeviceCatalog() {
   const qc = useQueryClient()
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
+  /** 두 탭 — 분류 등록 / 모델 목록. 보던 쪽을 기억한다 */
+  const [view, setView] = useState<'cls' | 'models'>(() =>
+    localStorage.getItem('utop.dc.view') === 'cls' ? 'cls' : 'models',
+  )
+  const pickView = (v: 'cls' | 'models') => {
+    setView(v)
+    localStorage.setItem('utop.dc.view', v)
+  }
   /** 새 모델 줄 */
   const [draft, setDraft] = useState<Item>(EMPTY_MODEL)
   /** 분류마다 새 이름 입력칸 */
@@ -211,16 +219,38 @@ export default function DeviceCatalog() {
         <div>
           <h3>장비 카탈로그</h3>
           <p className="muted">
-            왼쪽에서 분류를 만들고, 오른쪽 표에서 모델의 칸을 <b>그 자리에서</b> 바꿉니다 —
-            콤보를 바꾸면 바로 저장됩니다. 붉은 값은 목록에 없는 것입니다.
+            「분류 등록」 에서 LAB·벤더·사업자·제품군·모델그룹을 만들고, 「모델 목록」 표에서는
+            칸을 <b>그 자리에서</b> 바꿉니다 — 콤보를 바꾸면 바로 저장됩니다.
           </p>
         </div>
       </div>
 
+      <div className="seg" role="tablist">
+        {(
+          [
+            ['cls', '분류 등록'],
+            ['models', '모델 목록'],
+          ] as const
+        ).map(([k, label]) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={view === k}
+            className={`seg-btn${view === k ? ' on' : ''}`}
+            onClick={() => pickView(k)}
+          >
+            {label}
+            <span className="cnt">{k === 'models' ? models.length : SIDE_KINDS.reduce((a, x) => a + (lists[x.v]?.length ?? 0), 0)}</span>
+          </button>
+        ))}
+      </div>
+
       {note.msg && <div className={`set-note ${note.kind}`}>{note.msg}</div>}
 
-      <div className="dc2-cols">
-        {/* ── 왼쪽: 분류 다섯 — 알약으로 만들고·바꾸고·지운다 ────── */}
+      <div className={`dc2-cols dc2-${view}`}>
+        {/* ── 분류 다섯 — 알약으로 만들고·바꾸고·지운다 ────── */}
+        {view === 'cls' && (
         <aside className="dc2-side">
           {SIDE_KINDS.map((k) => (
             <section className="dc2-sec" key={k.v}>
@@ -279,8 +309,10 @@ export default function DeviceCatalog() {
             </section>
           ))}
         </aside>
+        )}
 
-        {/* ── 오른쪽: 모델 표 — 그 자리에서 고친다 ─────────────── */}
+        {/* ── 모델 표 — 그 자리에서 고친다 ─────────────── */}
+        {view === 'models' && (
         <section className="dc2-main">
           <div className="dc2-sech">
             <b>모델 {models.length}</b>
@@ -426,6 +458,7 @@ export default function DeviceCatalog() {
             모델명 자체를 바꾸는 것은 사이클·시험이 물려 있어 막아 두었습니다.
           </div>
         </section>
+        )}
       </div>
     </div>
   )

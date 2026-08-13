@@ -769,6 +769,8 @@
 /* ── 장비 카탈로그 v2 — 한 화면 ─────────────────────────────── */
 .dc2-cols { display: flex; gap: var(--sp-3); align-items: flex-start; }
 .dc2-side { flex: 0 0 270px; display: flex; flex-direction: column; gap: var(--sp-2); }
+/* 분류 등록 탭에서는 옆이 아니라 본문이다 — 넓게 편다 */
+.dc2-cls .dc2-side { flex: 1; max-width: 760px; }
 .dc2-main { flex: 1; min-width: 0; }
 .dc2-sec {
   border: 1px solid var(--c-border);
