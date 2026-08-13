@@ -100,7 +100,14 @@ export default function Requirements() {
   /** 고른 여러 건을 한꺼번에 고치는 창 */
   const [bulkEditOpen, setBulkEditOpen] = useState(false)
   // undefined = 닫힘 / { } = 새 TC(요구사항 미리 연결)
-  const [tab, setTab] = useState<'info' | 'detail' | 'tc' | 'runs' | 'history'>('info')
+  // 새로고침해도 보던 탭 그대로 — 화면마다 같은 약속이다
+  const [tab, setTab] = useState<'info' | 'detail' | 'tc' | 'runs' | 'history'>(() => {
+    const t = localStorage.getItem('utop.req.tab')
+    return t === 'detail' || t === 'tc' || t === 'runs' || t === 'history' ? t : 'info'
+  })
+  useEffect(() => {
+    localStorage.setItem('utop.req.tab', tab)
+  }, [tab])
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
 
