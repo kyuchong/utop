@@ -2160,3 +2160,75 @@ table.tb td.k {
   padding: 3px 6px;
   max-width: 130px;
 }
+
+
+/* ── 빵부스러기 콤보 — 트리를 대신하는 길 ────────────────────── */
+.cy-crumbbar { position: relative; }
+.cy-seg { position: relative; display: inline-flex; }
+.cy-seg-b {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  padding: 2px 9px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cy-seg-b:hover { border-color: var(--c-primary); }
+.cy-seg-b.empty { color: var(--c-text-faint); font-weight: 400; }
+.cy-seg-c { font-style: normal; color: var(--c-text-faint); font-size: 10px; }
+.cy-dd-back { position: fixed; inset: 0; z-index: 30; }
+.cy-dd {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 31;
+  min-width: 230px;
+  max-height: 60vh;
+  overflow-y: auto;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  box-shadow: 0 10px 28px rgb(0 0 0 / 14%);
+  padding: 4px;
+}
+.cy-dd hr { border: 0; border-top: 1px solid var(--c-border-soft); margin: 4px 0; }
+.cy-dd-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 6px 9px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cy-dd-row:hover { background: var(--c-surface-alt); }
+.cy-dd-row.on { background: var(--c-primary-bg); font-weight: 700; }
+.cy-dd-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cy-dd-add { color: var(--c-primary); }
+.cy-find-top { display: inline-flex; align-items: center; gap: 4px; }
+.cy-find-top input {
+  width: 200px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-size: var(--fs-sm);
+}
+
+/* 관제판 카드의 사업자 배지 */
+.cy-bop {
+  font-style: normal;
+  font-size: var(--fs-xs);
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--c-surface-alt);
+  border: 1px solid var(--c-border-soft);
+  color: var(--c-text-muted);
+}
