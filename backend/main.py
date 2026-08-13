@@ -5983,25 +5983,6 @@ async def get_all_cycles(meta: int = 0):
 _VGROUP_KV = "cycle_version_groups"
 
 
-@app.get("/api/branding")
-async def get_branding():
-    """로고·이름 브랜딩. 좌측 메뉴 머리가 읽는다."""
-    return await db.kv_get("branding", {}) or {}
-
-
-@app.post("/api/branding")
-async def set_branding(payload: dict):
-    logo = str(payload.get("logo") or "")
-    # 3MB 그림의 data URL 은 base64 로 4MB 남짓이다
-    if logo and len(logo) > 4_400_000:
-        raise HTTPException(400, "로고가 너무 큽니다 — 3MB 이하로 줄여 주세요")
-    if logo and not logo.startswith("data:image/"):
-        raise HTTPException(400, "그림 파일이 아닙니다")
-    data = {"logo": logo, "name": str(payload.get("name") or "").strip()}
-    await db.kv_set("branding", data)
-    return {"ok": True, **data}
-
-
 @app.get("/api/cycle-version-groups")
 async def get_cycle_version_groups():
     return {"groups": await db.kv_get(_VGROUP_KV) or {}}

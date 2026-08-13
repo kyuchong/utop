@@ -104,13 +104,15 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSE_KEY) === '1',
   )
-  /** 브랜딩 — 설정에서 올린 로고와 이름. 한 번만 읽는다 */
+  /** 브랜딩 — 설정에서 올린 로고와 이름(name_text). 한 번만 읽는다 */
   const [brand, setBrand] = useState<{ logo?: string; name?: string }>({})
   useEffect(() => {
     void (async () => {
       try {
         const r = await apiFetch('/api/branding')
-        if (r.ok) setBrand((await r.json()) as { logo?: string; name?: string })
+        if (!r.ok) return
+        const b = (await r.json()) as { logo?: string; name_text?: string }
+        setBrand({ logo: b.logo, name: b.name_text })
       } catch {
         /* 로고는 장식이다 — 못 읽어도 화면은 살아야 한다 */
       }

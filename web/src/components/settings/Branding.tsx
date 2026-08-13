@@ -18,9 +18,9 @@ export default function Branding() {
     void (async () => {
       const r = await apiFetch('/api/branding')
       if (!r.ok) return
-      const b = (await r.json()) as { logo?: string; name?: string }
+      const b = (await r.json()) as { logo?: string; name_text?: string }
       setLogo(b.logo ?? '')
-      setName(b.name ?? '')
+      setName(b.name_text ?? '')
     })()
   }, [])
 
@@ -42,13 +42,22 @@ export default function Branding() {
     setBusy(true)
     setMsg('')
     try {
+      // 옛 화면의 API 를 그대로 쓴다 — 이름과 로고가 딴 주소다
       const r = await apiFetch('/api/branding', {
         method: 'POST',
-        body: JSON.stringify({ logo, name }),
+        body: JSON.stringify({ name_text: name }),
       })
       if (!r.ok) {
         const b = (await r.json().catch(() => ({}))) as { detail?: string }
         throw new Error(b.detail || String(r.status))
+      }
+      const r2 = await apiFetch('/api/branding/logo', {
+        method: 'POST',
+        body: JSON.stringify({ logo }),
+      })
+      if (!r2.ok) {
+        const b = (await r2.json().catch(() => ({}))) as { detail?: string }
+        throw new Error(b.detail || String(r2.status))
       }
       setMsg('저장했습니다 — 화면을 새로고침하면 메뉴에 보입니다')
     } catch (e) {
