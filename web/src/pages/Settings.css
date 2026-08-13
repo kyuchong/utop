@@ -751,17 +751,38 @@
 
 
 /* ── 장비 카탈로그 — 모델명 표 ─────────────────────────────── */
-.dc-table { display: flex; flex-direction: column; }
+/* 모델 표 — 표답게: 테두리·줄무늬·한 줄 높이. 버튼은 칸 안에 산다 */
+.dc-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  overflow: hidden;
+}
 .dc-tr {
   display: grid;
-  grid-template-columns: 90px 110px 80px 110px 150px minmax(110px, 1fr) 50px 70px;
+  grid-template-columns: 100px 120px 90px 120px minmax(140px, 1fr) minmax(140px, 1.3fr) 48px 64px;
   gap: 8px;
   align-items: center;
-  padding: 5px 8px;
+  min-height: 34px;
+  padding: 3px 10px;
   border-bottom: 1px solid var(--c-border-soft);
 }
-.dc-tr > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dc-tr.dc-th { color: var(--c-text-faint); font-size: var(--fs-xs); }
+.dc-tr:last-child { border-bottom: 0; }
+.dc-tr:not(.dc-th):not(.dc2-new):nth-child(even) { background: var(--c-surface-alt); }
+.dc-tr:not(.dc-th):hover { background: var(--c-primary-bg); }
+.dc-tr > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.dc-tr.dc-th {
+  color: var(--c-text-faint);
+  font-size: var(--fs-xs);
+  background: var(--c-surface-alt);
+  border-bottom: 1px solid var(--c-border);
+}
+.dc-name { color: var(--c-text); }
+.dc-actions { display: flex; justify-content: flex-end; }
+.dc2-new { background: var(--c-primary-bg); }
+.dc2-if, .dc2-ifbtn { font-family: var(--font-mono); font-size: var(--fs-xs); }
 /* 목록에 없는 값 — 숨기지 말고 붉게 드러낸다 */
 .dc-warn { color: var(--c-fail); font-weight: 700; }
 
