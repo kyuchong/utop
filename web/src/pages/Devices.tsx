@@ -354,6 +354,7 @@ export default function Devices({ me }: Props) {
 
         {/* 칸 차례는 카탈로그 표와 같다: 사업자 → 벤더 → 제품군 →
             모델그룹 → 모델명 → LAB. 그 뒤가 장비 고유(IP·접속·사용) */}
+        <div className="dev-table">
         <div className="dev-row th">
           <span>사업자</span>
           <span>벤더</span>
@@ -464,6 +465,7 @@ export default function Devices({ me }: Props) {
               )
             })
           )}
+        </div>
         </div>
       </section>
     </>
