@@ -487,9 +487,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
       >
         <div className="modal-head">
           <b>{editing ? '사이클 수정' : '사이클 만들기'}</b>
-          <span className="muted small">
-            요구사항 {grouped.length} · 시험 {picked.length}
-          </span>
+          {/* 건수는 안 적는다 — 3열 머리(배정된 항목 N)가 이미 말한다 */}
           {err && <span className="muted small err">{err}</span>}
           <span className="sp" />
           {/* 단추는 위 오른쪽 한 곳에 — 아래에 또 두면 눈이 오르내린다 */}
