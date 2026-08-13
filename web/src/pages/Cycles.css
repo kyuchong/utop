@@ -2232,3 +2232,21 @@ table.tb td.k {
   border: 1px solid var(--c-border-soft);
   color: var(--c-text-muted);
 }
+
+
+/* 층 이름 라벨 달린 다섯 칸 + 범위 상태바 */
+.cy-slot { display: inline-flex; flex-direction: column; gap: 1px; }
+.cy-slot-lb { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); padding-left: 2px; }
+.cy-crumbbar { align-items: flex-end; gap: 8px; flex-wrap: wrap; padding-top: 4px; }
+.cy-crumbbar .rq-crumb-sep { display: none; }
+.cy-scopebar {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-self: center;
+  padding: 0 6px;
+}
+.cy-scopebar .cy-bar { height: 8px; }
+.cy-scopebar-t { font-size: var(--fs-xs); color: var(--c-text-muted); white-space: nowrap; }

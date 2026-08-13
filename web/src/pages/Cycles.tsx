@@ -442,13 +442,14 @@ export default function Cycles({ me }: PageProps) {
    * 트리를 없애고 이것이 길이 됐다: 조각을 누르면 그 아래 목록(콤보)이
    * 떨어지고, 앞 조각을 고르면 그 범위의 관제판이 보인다.
    */
-  const [crumb, setCrumb] = useState<{ fam: string; model: string; vg: string }>({
+  const [crumb, setCrumb] = useState<{ op: string; fam: string; model: string; vg: string }>({
+    op: '',
     fam: '',
     model: '',
     vg: '',
   })
   /** 열려 있는 콤보 — 조각 하나만 연다 */
-  const [dd, setDd] = useState<'' | 'fam' | 'model' | 'vg' | 'ver'>('')
+  const [dd, setDd] = useState<'' | 'op' | 'fam' | 'model' | 'vg' | 'ver'>('')
   // 고르면 주소창에 남긴다 — 옛 화면의 #cycle=… 과 같은 일
   useEffect(() => {
     if (sel) reflectUrl('cycle', sel)
@@ -784,18 +785,64 @@ export default function Cycles({ me }: PageProps) {
       const model = String(cur.model ?? '').trim()
       const m = models.find((x) => x.name === model)
       return {
+        op: modelOp.get(model) ?? '',
         fam: m ? (m.family ?? '').trim() || '(제품군 없음)' : NO_CAT,
         model,
         vg: String(cur.version_group ?? '').trim() || NO_GROUP,
       }
     }
     return crumb
-  }, [cur, crumb, models])
+  }, [cur, crumb, models, modelOp])
 
   /** 콤보에 띄울 형제 목록 — 트리에서 그 층을 꺼낸다 */
   const famNode = tree.find((n) => n.label === at.fam)
   const modelNode = famNode?.children.find((n) => n.label === at.model)
   const vgNode = modelNode?.children.find((n) => n.label === at.vg)
+
+  /** 사업자 거르개 — 그 사업자향 모델의 것만 */
+  const opPass = (model: string) => !at.op || (modelOp.get(model) ?? '') === at.op
+  /** 층별 후보 — 위 칸이 비어 있으면 전체에서 평평하게 모은다.
+      (제품군을 안 골라도 제품명 칸을 열면 모든 모델이 나온다 — 빠른 점프) */
+  const famList = useMemo(
+    () => tree.filter((f) => f.children.some((m) => opPass(m.label)) || f.children.length === 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tree, at.op],
+  )
+  const modelList = useMemo(() => {
+    const src = at.fam ? (famNode ? [famNode] : []) : tree
+    return src.flatMap((f) => f.children).filter((m) => opPass(m.label))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tree, at.fam, at.op])
+  const vgList = useMemo(() => {
+    const src = at.model ? (modelNode ? [modelNode] : []) : modelList
+    return src.flatMap((m) => m.children)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelList, at.model])
+  const verList = useMemo(() => {
+    const src = at.vg ? (vgNode ? [vgNode] : []) : vgList
+    return src.flatMap((v) => v.children)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vgList, at.vg])
+  const opList: Node[] = useMemo(() => {
+    const ops = [...new Set([...modelOp.values()].filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b, 'ko'),
+    )
+    return ops.map((o) => ({
+      key: `__op/${o}`,
+      label: o,
+      depth: 0,
+      count: cycles.filter((c) => (modelOp.get(String(c.model ?? '').trim()) ?? '') === o).length,
+      children: [],
+    }))
+  }, [modelOp, cycles])
+
+  /** 골라진 노드의 경로(fam/model/vg)를 crumb 로 푼다 — 평평 목록에서
+      깊은 것을 바로 집어도 위 칸들이 따라 채워진다 */
+  const crumbFromKey = (key: string) => {
+    const parts = key.split('/')
+    return { fam: parts[0] ?? '', model: parts[1] ?? '', vg: parts[2] ?? '' }
+  }
+
 
   /** 조각 요약 말풍선 글 */
   const sumOf = (n: Node) => {
@@ -812,7 +859,7 @@ export default function Cycles({ me }: PageProps) {
 
   /** 콤보 한 층 — 조각 단추 + 열리면 형제 목록 */
   const seg = (
-    level: 'fam' | 'model' | 'vg' | 'ver',
+    level: 'op' | 'fam' | 'model' | 'vg' | 'ver',
     label: string,
     list: Node[],
     onPick: (n: Node) => void,
@@ -884,52 +931,73 @@ export default function Cycles({ me }: PageProps) {
           조각을 누르면 형제 목록이 떨어지고, 앞 조각을 고르면 그 범위의
           관제판이 아래에 깔린다. 1열이 사라져 아래가 가로 전체를 쓴다. */}
       <div className="rq-bar cy-crumbbar">
-        <span className="rq-crumb">
-          <button
-            type="button"
-            className="rq-crumb-home"
-            onClick={() => {
-              setCrumb({ fam: '', model: '', vg: '' })
-              setSel('')
-              setDd('')
-            }}
-          >
-            사이클
-          </button>
-          <span className="rq-crumb-sep">›</span>
-          {seg('fam', at.fam, tree, (n) => {
-            setCrumb({ fam: n.label, model: '', vg: '' })
+        {/* 사장님 스케치 그대로: 사업자·제품군·제품명·버전그룹·버전명
+            다섯 칸이 늘 보인다(층 이름 라벨 포함) — 만들기 팝업과 같은
+            문법. 위 칸을 안 골라도 아래 칸을 열면 전체에서 고를 수 있고,
+            깊은 것을 집으면 위 칸들이 따라 채워진다. */}
+        <span className="cy-slot">
+          <i className="cy-slot-lb">사업자</i>
+          {seg('op', at.op, opList, (n) => {
+            setCrumb({ op: n.label === at.op ? '' : n.label, fam: '', model: '', vg: '' })
+            setSel('')
+          })}
+        </span>
+        <span className="cy-slot">
+          <i className="cy-slot-lb">제품군</i>
+          {seg('fam', at.fam, famList, (n) => {
+            setCrumb({ op: at.op, fam: n.label, model: '', vg: '' })
             setSel('')
           }, { label: '＋ 새 제품군', fn: () => void addFamily() })}
-          {at.fam && (
-            <>
-              <span className="rq-crumb-sep">›</span>
-              {seg('model', at.model, famNode?.children ?? [], (n) => {
-                setCrumb({ fam: at.fam, model: n.label, vg: '' })
-                setSel('')
-              }, { label: '＋ 새 모델', fn: () => void addModel(at.fam, '') })}
-            </>
-          )}
-          {at.model && (
-            <>
-              <span className="rq-crumb-sep">›</span>
-              {seg('vg', at.vg, modelNode?.children ?? [], (n) => {
-                setCrumb({ fam: at.fam, model: at.model, vg: n.label })
-                setSel('')
-              }, { label: '＋ 새 버전그룹', fn: () => void addVGroup(at.model) })}
-            </>
-          )}
-          {at.vg && (
-            <>
-              <span className="rq-crumb-sep">›</span>
-              {seg('ver', cur ? (String(cur.version ?? '').trim() || cur.name || cur.id) : '', vgNode?.children ?? [], (n) => {
-                if (n.cycle) setSel(n.cycle.id)
-              }, { label: '＋ 사이클 만들기', fn: () => setMaking(true) })}
-            </>
-          )}
-          {cur && <span className="muted small">{cur._item_count ?? 0}건</span>}
         </span>
-        <span className="sp" />
+        <span className="cy-slot">
+          <i className="cy-slot-lb">제품명</i>
+          {seg('model', at.model, modelList, (n) => {
+            setCrumb({ op: at.op, ...crumbFromKey(n.key), vg: '' })
+            setSel('')
+          }, at.fam ? { label: '＋ 새 모델', fn: () => void addModel(at.fam, '') } : undefined)}
+        </span>
+        <span className="cy-slot">
+          <i className="cy-slot-lb">버전그룹</i>
+          {seg('vg', at.vg, vgList, (n) => {
+            setCrumb({ op: at.op, ...crumbFromKey(n.key) })
+            setSel('')
+          }, at.model ? { label: '＋ 새 버전그룹', fn: () => void addVGroup(at.model) } : undefined)}
+        </span>
+        <span className="cy-slot">
+          <i className="cy-slot-lb">버전명</i>
+          {seg('ver', cur ? (String(cur.version ?? '').trim() || cur.name || cur.id) : '', verList, (n) => {
+            if (n.cycle) setSel(n.cycle.id)
+          }, { label: '＋ 사이클 만들기', fn: () => setMaking(true) })}
+        </span>
+
+        {/* 가운데 — 지금 범위의 상태바. 어디를 보고 있든 합산이 여기 뜬다 */}
+        {(() => {
+          const node = vgNode ?? modelNode ?? famNode
+          const cs = (node ? cyclesUnder(node) : cycles).filter((c) =>
+            opPass(String(c.model ?? '').trim()),
+          )
+          const a = cs.reduce(
+            (x, c) => {
+              const t = tallyOf(c)
+              return { t: x.t + t.t, p: x.p + t.p, f: x.f + t.f }
+            },
+            { t: 0, p: 0, f: 0 },
+          )
+          return (
+            <span className="cy-scopebar" title={`사이클 ${cs.length} · Pass ${a.p} · Fail ${a.f}`}>
+              <span className="cy-bar" aria-hidden="true">
+                <span className="pass" style={{ flexGrow: a.p }} />
+                <span className="fail" style={{ flexGrow: a.f }} />
+                <span className="none" style={{ flexGrow: a.t - a.p - a.f || (a.t ? 0 : 1) }} />
+              </span>
+              <span className="cy-scopebar-t">
+                {cs.length}개 · <b className="status pass">P {a.p}</b>{' '}
+                <b className="status fail">F {a.f}</b>
+              </span>
+            </span>
+          )
+        })()}
+
         <div className="cy-find cy-find-top">
           <input
             value={q}
