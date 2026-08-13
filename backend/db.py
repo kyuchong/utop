@@ -1132,9 +1132,19 @@ async def catalog_rename(kind: str, old: str, new: str) -> None:
     ref_dev = {"vendor": "vendor", "family": "role", "lab": "lab"}.get(kind)
     async with pool().acquire() as c:
         async with c.transaction():
-            r = await c.execute(
-                "UPDATE device_catalog SET name=$1 WHERE kind=$2 AND name=$3", new, kind, old
+            exists = await c.fetchval(
+                "SELECT 1 FROM device_catalog WHERE kind=$1 AND name=$2", kind, new
             )
+            if exists:
+                # 새 이름이 이미 있으면 **병합**이다 — Spirent 를 SPIRENT 로
+                # 바꾸는 일이 바로 이 경우다. 옛 항목을 지우고 참조만 옮긴다.
+                r = await c.execute(
+                    "DELETE FROM device_catalog WHERE kind=$1 AND name=$2", kind, old
+                )
+            else:
+                r = await c.execute(
+                    "UPDATE device_catalog SET name=$1 WHERE kind=$2 AND name=$3", new, kind, old
+                )
             if not r.endswith(" 1"):
                 raise ValueError("없는 항목입니다")
             if ref_cat:

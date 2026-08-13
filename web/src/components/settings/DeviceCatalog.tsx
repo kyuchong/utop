@@ -439,9 +439,11 @@ export default function DeviceCatalog() {
                   <button
                     className="btn small danger"
                     type="button"
-                    disabled={!!it.used || delM.isPending}
-                    title={it.used ? '쓰는 장비가 있어 지울 수 없습니다' : ''}
+                    disabled={delM.isPending}
+                    title={it.used ? `${it.used}대가 쓰는 중 — 누르면 어느 장비인지 알려줍니다` : ''}
                     onClick={() => {
+                      // 쓰는 장비가 있으면 서버가 이름·IP 를 찍어 거절한다 —
+                      // 잠가 두면 「왜 사용 중이라는 거야」 를 알 길이 없다
                       if (window.confirm(`'${it.name}' 을 지울까요?`)) delM.mutate(it)
                     }}
                   >
@@ -482,9 +484,11 @@ export default function DeviceCatalog() {
                   <button
                     className="btn small danger"
                     type="button"
-                    disabled={!!it.used || delM.isPending}
-                    title={it.used ? '쓰는 장비가 있어 지울 수 없습니다' : ''}
+                    disabled={delM.isPending}
+                    title={it.used ? `${it.used}대가 쓰는 중 — 누르면 어느 장비인지 알려줍니다` : ''}
                     onClick={() => {
+                      // 쓰는 장비가 있으면 서버가 이름·IP 를 찍어 거절한다 —
+                      // 잠가 두면 「왜 사용 중이라는 거야」 를 알 길이 없다
                       if (window.confirm(`'${it.name}' 을 지울까요?`)) delM.mutate(it)
                     }}
                   >
