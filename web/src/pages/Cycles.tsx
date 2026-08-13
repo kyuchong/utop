@@ -926,6 +926,10 @@ function CycleBoard({
                     {fail > 0 && <b className="bad">Fail {fail}</b>}
                     <span className="sp" />
                     {c.assignee && <span className="muted small">{c.assignee}</span>}
+                    {/* 마지막 움직임 — 죽은 사이클과 도는 사이클이 갈린다 */}
+                    {c._updated_at_pg && (
+                      <span className="muted small">{String(c._updated_at_pg).slice(0, 10)}</span>
+                    )}
                   </span>
                 </button>
               )
@@ -1287,6 +1291,8 @@ function CycleDetail({
   const [fSev, setFSev] = useState('')
   const [fType, setFType] = useState('')
   const [fKind, setFKind] = useState('')
+  /** 담당자 — 팀으로 나눠 돌릴 때 「내 것만」 을 본다. '\0' 은 미지정 */
+  const [fAss, setFAss] = useState('')
   const [fq, setFq] = useState('')
 
   /** 시험 메타(심각도·타입·발생구분)는 TC 에 있다 — 항목에는 없다 */
@@ -1337,7 +1343,18 @@ function CycleDetail({
       if (t?.kind) kin.add(String(t.kind))
     }
     const srt = (a: string, b: string) => a.localeCompare(b, 'ko')
-    return { sev: [...sev].sort(srt), typ: [...typ].sort(srt), kin: [...kin].sort(srt) }
+    // 담당자는 건수를 함께 — 「누가 몇 건 맡았나」 가 고르는 기준이다
+    const ass = new Map<string, number>()
+    for (const it of items) {
+      const k = String(it.assignee ?? '').trim()
+      ass.set(k, (ass.get(k) ?? 0) + 1)
+    }
+    return {
+      sev: [...sev].sort(srt),
+      typ: [...typ].sort(srt),
+      kin: [...kin].sort(srt),
+      ass: [...ass.entries()].sort((a, b) => srt(a[0], b[0])),
+    }
   }, [items, tcMeta])
 
   /*
@@ -1386,6 +1403,7 @@ function CycleDetail({
       if (fSev && String(t?.severity ?? '') !== fSev) return false
       if (fType && String(t?.type ?? '') !== fType) return false
       if (fKind && String(t?.kind ?? '') !== fKind) return false
+      if (fAss && String(it.assignee ?? '').trim() !== (fAss === '\0' ? '' : fAss)) return false
       if (!n) return true
       return (
         it.tcid.toLowerCase().includes(n) || (it.name ?? '').toLowerCase().includes(n)
@@ -1407,7 +1425,7 @@ function CycleDetail({
       )
       .map((v) => v.x)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, only, onlyRegress, prevVerdict, tcMeta, fSev, fType, fKind, fq])
+  }, [items, only, onlyRegress, prevVerdict, tcMeta, fSev, fType, fKind, fAss, fq])
 
   /*
    * 실행 중에는 **도는 항목**을 따라간다.
@@ -1843,13 +1861,21 @@ function CycleDetail({
             </option>
           ))}
         </select>
+        <select value={fAss} onChange={(e) => setFAss(e.target.value)} title="담당자 — 내 것만 보기">
+          <option value="">담당자: 전체</option>
+          {opts.ass.map(([v, n]) => (
+            <option key={v || '\0'} value={v || '\0'}>
+              {v || '(미지정)'} · {n}건
+            </option>
+          ))}
+        </select>
         <input
           className="cy-fq"
           value={fq}
           placeholder="TC ID · 제목 검색"
           onChange={(e) => setFq(e.target.value)}
         />
-        {(only !== null || onlyRegress || fSev || fType || fKind || fq) && (
+        {(only !== null || onlyRegress || fSev || fType || fKind || fAss || fq) && (
           <button
             className="btn small"
             type="button"
@@ -1860,6 +1886,7 @@ function CycleDetail({
               setFSev('')
               setFType('')
               setFKind('')
+              setFAss('')
               setFq('')
             }}
           >
