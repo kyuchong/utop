@@ -2076,3 +2076,43 @@ table.tb td.k {
 .cy-cols { overflow-x: auto; }
 .cy-exec { min-width: 640px; }
 .cy-side { min-width: 340px; }
+
+
+/* ── 트리 상태 요약 카드 — 마우스를 올리면 뜬다 ───────────────── */
+.cy-tip {
+  position: fixed;
+  z-index: 60;
+  min-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.cy-tip-h { display: flex; align-items: baseline; gap: 8px; }
+.cy-tip-h > b { font-size: var(--fs-md); }
+.cy-tip .cy-bar { height: 6px; }
+.cy-tip .cy-bar .none { background: var(--c-border-soft); }
+.cy-tip-r {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+.cy-tip-r > b { color: var(--c-text); margin-right: 6px; }
+.cy-tip-r > i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  align-self: center;
+  flex: none;
+}
+.cy-tip-r > i.pass { background: var(--c-pass); }
+.cy-tip-r > i.fail { background: var(--c-fail); }
+.cy-tip-r > i.none { background: var(--c-border-strong); }
+.cy-tip-r > .muted { margin-left: auto; }

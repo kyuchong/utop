@@ -436,6 +436,8 @@ export default function Cycles({ me }: PageProps) {
   const [sel, setSel] = useState(() => localStorage.getItem(CY_SEL_KEY) || '')
   /** 트리에서 폴더를 골랐으면 관제판을 그 묶음으로 좁힌다 */
   const [scope, setScope] = useState<{ label: string; ids: Set<string> } | null>(null)
+  /** 트리 줄 위에 뜨는 상태 요약 카드 */
+  const [tip, setTip] = useState<{ node: Node; x: number; y: number } | null>(null)
   // 고르면 주소창에 남긴다 — 옛 화면의 #cycle=… 과 같은 일
   useEffect(() => {
     if (sel) reflectUrl('cycle', sel)
@@ -600,34 +602,36 @@ export default function Cycles({ me }: PageProps) {
           role="button"
           tabIndex={0}
           style={{ paddingLeft: 6 + n.depth * 14 }}
-          /* 열지 않고도 상태가 읽히게 — 잎은 그 사이클, 가지는 그 아래 전부 */
-          title={(() => {
-            const cs = cyclesUnder(n)
-            const a = cs.reduce(
-              (x, c) => {
-                const t = tallyOf(c)
-                return { t: x.t + t.t, p: x.p + t.p, f: x.f + t.f }
-              },
-              { t: 0, p: 0, f: 0 },
-            )
-            const head = n.cycle ? '' : `사이클 ${cs.length} · `
-            return `${head}Pass ${a.p} · Fail ${a.f} · 나머지 ${a.t - a.p - a.f} (총 ${a.t}건)`
-          })()}
+          /* 열지 않고도 상태가 읽히게 — 색 막대가 든 요약 카드를 띄운다.
+             브라우저 기본 말풍선은 글자뿐이라 숫자가 안 읽혔다. */
+          onMouseEnter={(e) => {
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+            setTip({ node: n, x: r.right + 10, y: r.top - 4 })
+          }}
+          onMouseLeave={() => setTip(null)}
           onClick={() => {
+            setTip(null)
             if (n.cycle) {
               setSel(n.cycle.id)
               return
             }
-            toggle(n.key)
-            // 폴더를 고른 것이기도 하다 — 오른쪽에 그 묶음의 버전별 요약판
+            // 폴더 클릭은 **고르기**다 — 오른쪽에 그 묶음의 버전별 요약판.
+            // 접고 펴는 것은 화살표 단추 몫이라 여기서는 펼치기만 한다.
+            // 클릭할 때마다 접혔다 펴졌다 하면 고르러 간 손이 트리를 흔든다.
+            setOpen((x) => new Set(x).add(n.key))
             setScope({ label: n.label, ids: new Set(cyclesUnder(n).map((c) => c.id)) })
             setSel('')
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
-              if (n.cycle) setSel(n.cycle.id)
-              else toggle(n.key)
+              if (n.cycle) {
+                setSel(n.cycle.id)
+              } else {
+                setOpen((x) => new Set(x).add(n.key))
+                setScope({ label: n.label, ids: new Set(cyclesUnder(n).map((c) => c.id)) })
+                setSel('')
+              }
             }
           }}
           onContextMenu={(e) => {
@@ -641,9 +645,23 @@ export default function Cycles({ me }: PageProps) {
             }
           }}
         >
-          <span className={`rt-caret${isOpen ? ' open' : ''}`}>
-            {leaf ? <span className="rt-dot" /> : <IconChevron />}
-          </span>
+          {leaf ? (
+            <span className="rt-caret">
+              <span className="rt-dot" />
+            </span>
+          ) : (
+            <button
+              type="button"
+              className={`rt-caret${isOpen ? ' open' : ''}`}
+              aria-label={isOpen ? '접기' : '펼치기'}
+              onClick={(e) => {
+                e.stopPropagation()
+                toggle(n.key)
+              }}
+            >
+              <IconChevron />
+            </button>
+          )}
           {/* 모델그룹 · 모델 · 버전그룹은 폴더, 버전(사이클)은 항목 */}
           {!leaf && (
             <span className="rt-ficon" aria-hidden="true">
@@ -811,6 +829,37 @@ export default function Cycles({ me }: PageProps) {
           }}
         />
       )}
+
+      {tip && (() => {
+        const cs = cyclesUnder(tip.node)
+        const a = cs.reduce(
+          (x, c) => {
+            const t = tallyOf(c)
+            return { t: x.t + t.t, p: x.p + t.p, f: x.f + t.f }
+          },
+          { t: 0, p: 0, f: 0 },
+        )
+        const rest = a.t - a.p - a.f
+        return (
+          <div className="cy-tip" style={{ left: tip.x, top: Math.max(8, tip.y) }}>
+            <div className="cy-tip-h">
+              <b>{tip.node.label}</b>
+              {!tip.node.cycle && <span className="muted small">사이클 {cs.length}개</span>}
+            </div>
+            <div className="cy-bar" aria-hidden="true">
+              <span className="pass" style={{ flexGrow: a.p }} />
+              <span className="fail" style={{ flexGrow: a.f }} />
+              <span className="none" style={{ flexGrow: rest || (a.t ? 0 : 1) }} />
+            </div>
+            <div className="cy-tip-r">
+              <i className="pass" /> Pass <b>{a.p}</b>
+              <i className="fail" /> Fail <b>{a.f}</b>
+              <i className="none" /> 나머지 <b>{rest}</b>
+              <span className="muted small">총 {a.t}건</span>
+            </div>
+          </div>
+        )
+      })()}
 
       {folderMenu && (
         <FolderMenu
