@@ -741,7 +741,8 @@ select.cy-v.na { color: #999; }
 }
 
 /* ── 사이클 만들기·수정 (3열 배정) ── */
-.modal.ce { width: 1440px; max-width: 97vw; height: 92vh; display: flex; flex-direction: column; }
+/* 가로는 화면을 다 쓴다 — 세 칸이 나눠 갖기엔 넓을수록 좋다 */
+.modal.ce { width: 98vw; max-width: 98vw; height: 94vh; display: flex; flex-direction: column; }
 .ce-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

@@ -66,6 +66,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
 
   /** 1열에서 고른 요구사항 */
   const [reqSel, setReqSel] = useState('')
+  /** 폴더로 좁히기 — 폴더를 고르면 그 아래(하위 포함) 요구사항의 TC 전부 */
+  const [catSel, setCatSel] = useState('')
   const [openCat, setOpenCat] = useState<Set<string>>(new Set())
   const [reqQ, setReqQ] = useState('')
   /** 2열에서 체크한 TC */
@@ -153,15 +155,26 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   const reqs: Requirement[] = reqQuery.data?.reqs ?? []
   const cats = useMemo(() => buildCategoryTree(catQuery.data?.categories ?? []), [catQuery.data])
   const allTcs = tcQuery.data?.tcs ?? []
+  /** 계측기(IXIA·Spirent…)는 뺀다 — 사이클은 유비쿼스 장비 검증이다 */
+  const meterish = (x: CatItem) =>
+    (x.family ?? '').trim() === '계측기' ||
+    /^(ixia|spirent|testcenter)/i.test(String(x.vendor ?? '').trim()) ||
+    /^(ixia|n2x|stc|spirent|testcenter|n4u|n11u)/i.test(x.name.trim())
   const models = useMemo(
-    () => (modelQuery.data?.items ?? []).filter((x) => x.kind === 'model'),
+    () => (modelQuery.data?.items ?? []).filter((x) => x.kind === 'model' && !meterish(x)),
     [modelQuery.data],
   )
-  /** 제품군 → 모델그룹 → 모델명 — 옛 화면처럼 단계로 좁혀 고른다 */
-  const familyOpts = useMemo(
-    () => [...new Set(models.map((m) => (m.family ?? '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko')),
-    [models],
-  )
+  /** 제품군 → 모델그룹 → 모델명 — 옛 화면처럼 단계로 좁혀 고른다.
+      제품군 칸에 모델그룹 이름이 잘못 들어간 자료(E61xx)가 있어서,
+      모델그룹으로도 등록된 이름은 제품군 목록에서 거른다. */
+  const familyOpts = useMemo(() => {
+    const groupNames = new Set(
+      (modelQuery.data?.items ?? []).filter((x) => x.kind === 'group').map((x) => x.name.trim()),
+    )
+    return [...new Set(models.map((m) => (m.family ?? '').trim()).filter(Boolean))]
+      .filter((v) => v !== '계측기' && !groupNames.has(v))
+      .sort((a, b) => a.localeCompare(b, 'ko'))
+  }, [models, modelQuery.data])
   const mgroupOpts = useMemo(
     () =>
       [...new Set(
@@ -218,9 +231,36 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
     }
   }, [allTcs])
 
-  /** 2열에 내놓을 시험 — 요구사항으로 좁히고 거르개·글자로 거른다 */
+  /** 이 폴더(하위 포함) 아래 요구사항들의 pk */
+  const reqsUnderCat = useMemo(() => {
+    if (!catSel) return null
+    const ids = new Set<string>()
+    const walk = (n: CategoryTreeNode) => {
+      ids.add(n.id)
+      n.children.forEach(walk)
+    }
+    const start = (function find(list: CategoryTreeNode[]): CategoryTreeNode | undefined {
+      for (const n of list) {
+        if (n.id === catSel) return n
+        const hit = find(n.children)
+        if (hit) return hit
+      }
+      return undefined
+    })(cats)
+    if (start) walk(start)
+    const pks = new Set<string>()
+    for (const r of reqs)
+      if (ids.has(String(r.cat4 || r.cat3 || r.cat2 || r.cat1 || ''))) pks.add(reqPk(r))
+    return pks
+  }, [catSel, cats, reqs])
+
+  /** 2열에 내놓을 시험 — 요구사항·폴더로 좁히고 거르개·글자로 거른다 */
   const shownTcs = useMemo(() => {
-    const base = reqSel ? (tcsByReq.get(reqSel) ?? []) : allTcs
+    const base = reqSel
+      ? (tcsByReq.get(reqSel) ?? [])
+      : reqsUnderCat
+        ? allTcs.filter((t) => reqsUnderCat.has(String(t.req_id ?? '')))
+        : allTcs
     const n = tcQ.trim().toLowerCase()
     return base.filter((t) => {
       if (fSev && String(t.severity ?? '') !== fSev) return false
@@ -230,7 +270,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
       if (!n) return true
       return `${t.name ?? ''} ${t.tcid}`.toLowerCase().includes(n)
     })
-  }, [reqSel, tcQ, tcsByReq, allTcs, fSev, fStat, fKind, fTyp])
+  }, [reqSel, reqsUnderCat, tcQ, tcsByReq, allTcs, fSev, fStat, fKind, fTyp])
 
   /** 3열 — 요구사항으로 묶는다. 여섯 건만 넘어도 평평하면 안 읽힌다 */
   const grouped = useMemo(() => {
@@ -329,23 +369,42 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
     return (
       <div key={n.id}>
         <div
-          className="ce-cat"
+          className={`ce-cat${catSel === n.id ? ' on' : ''}`}
           role="button"
           tabIndex={0}
           style={{ paddingLeft: 4 + (n.depth - 1) * 12 }}
-          onClick={() =>
-            setOpenCat((s) => {
-              const x = new Set(s)
-              if (x.has(n.id)) x.delete(n.id)
-              else x.add(n.id)
-              return x
-            })
-          }
-          onKeyDown={(e) => e.key === 'Enter' && setOpenCat((s) => new Set(s).add(n.id))}
+          /* 클릭은 고르기다 — 그 폴더(하위 포함)의 TC 로 좁힌다.
+             접고 펴는 것은 화살표 몫. 클릭마다 접히면 고르러 간 손이
+             트리를 흔든다(사이클 트리에서 겪었다). */
+          onClick={() => {
+            setOpenCat((s) => new Set(s).add(n.id))
+            setCatSel(catSel === n.id ? '' : n.id)
+            setReqSel('')
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              setOpenCat((s) => new Set(s).add(n.id))
+              setCatSel(catSel === n.id ? '' : n.id)
+              setReqSel('')
+            }
+          }}
         >
-          <span className={`ce-caret${on ? ' open' : ''}`}>
+          <button
+            type="button"
+            className={`ce-caret${on ? ' open' : ''}`}
+            aria-label={on ? '접기' : '펼치기'}
+            onClick={(e) => {
+              e.stopPropagation()
+              setOpenCat((s) => {
+                const x = new Set(s)
+                if (x.has(n.id)) x.delete(n.id)
+                else x.add(n.id)
+                return x
+              })
+            }}
+          >
             <IconChevron />
-          </span>
+          </button>
           <span className="rt-ficon" aria-hidden="true">
             <IconFolder open={on} />
           </span>
@@ -386,7 +445,10 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
         role="button"
         tabIndex={0}
         style={{ paddingLeft: 10 + depth * 12 }}
-        onClick={() => setReqSel(reqSel === pk ? '' : pk)}
+        onClick={() => {
+          setReqSel(reqSel === pk ? '' : pk)
+          setCatSel('')
+        }}
         onKeyDown={(e) => e.key === 'Enter' && setReqSel(pk)}
       >
         <span className="ce-req-nm" title={reqLabel(r)}>
@@ -499,8 +561,15 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           <div className="ce-col">
             <div className="ce-colhead">
               <b>요구사항</b>
-              {reqSel && (
-                <button className="btn small" type="button" onClick={() => setReqSel('')}>
+              {(reqSel || catSel) && (
+                <button
+                  className="btn small"
+                  type="button"
+                  onClick={() => {
+                    setReqSel('')
+                    setCatSel('')
+                  }}
+                >
                   전체
                 </button>
               )}
@@ -622,8 +691,12 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                           })
                         }
                       />
-                      <span className="ce-tc-nm">{t.name || '(제목 없음)'}</span>
-                      <span className="muted small">{already ? '배정됨' : t.tcid}</span>
+                      {/* TC ID 는 안 적는다 — 읽는 것은 이름이고, ID 는
+                          말풍선에 있다. 칸이 줄면 이름이 덜 잘린다. */}
+                      <span className="ce-tc-nm" title={t.tcid}>
+                        {t.name || '(제목 없음)'}
+                      </span>
+                      {already && <span className="muted small">배정됨</span>}
                     </label>
                   )
                 })
