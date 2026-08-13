@@ -291,6 +291,8 @@ CREATE TABLE IF NOT EXISTS device_catalog (
 ALTER TABLE device_catalog ADD COLUMN IF NOT EXISTS model_group TEXT;
 -- 사업자 (KT · LGU+ · SKB …) — 모델이 어느 사업자향인지
 ALTER TABLE device_catalog ADD COLUMN IF NOT EXISTS operator TEXT;
+-- 모델이 어느 시험실(LAB) 소속인지
+ALTER TABLE device_catalog ADD COLUMN IF NOT EXISTS lab TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_device_catalog ON device_catalog(kind, name);
 CREATE INDEX IF NOT EXISTS idx_device_catalog_kind ON device_catalog(kind);
 

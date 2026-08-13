@@ -1101,10 +1101,10 @@ async def catalog_upsert(item: dict) -> None:
     async with pool().acquire() as c:
         await c.execute(
             """INSERT INTO device_catalog
-                 (kind, name, vendor, operator, model_group, family, interfaces, note, sort_order)
-               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+                 (kind, name, vendor, operator, lab, model_group, family, interfaces, note, sort_order)
+               VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
                ON CONFLICT (kind, name) DO UPDATE SET
-                 vendor=EXCLUDED.vendor, operator=EXCLUDED.operator,
+                 vendor=EXCLUDED.vendor, operator=EXCLUDED.operator, lab=EXCLUDED.lab,
                  model_group=EXCLUDED.model_group,
                  family=EXCLUDED.family,
                  interfaces=EXCLUDED.interfaces, note=EXCLUDED.note,
@@ -1112,6 +1112,7 @@ async def catalog_upsert(item: dict) -> None:
             kind, name,
             (item.get("vendor") or "").strip() or None,
             (item.get("operator") or "").strip() or None,
+            (item.get("lab") or "").strip() or None,
             (item.get("model_group") or "").strip() or None,
             (item.get("family") or "").strip() or None,
             (item.get("interfaces") or "").strip() or None,
