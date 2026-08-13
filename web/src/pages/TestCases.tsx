@@ -41,7 +41,7 @@ import TcCycles from '@/components/tc/TcCycles'
 import { deviceLabel, isMeter } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
-import { onGoto, reflectUrl } from '@/api/goto'
+import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import {
   reqLabel,
   reqPk,
@@ -1236,7 +1236,7 @@ export default function TestCases({ me }: PageProps) {
   }
 
   /*
-   * 3열 머리 — 탭 · ⋯ · 저장.
+   * 3열 머리 — 저장 · 탭 ····· ⋯.
    *
    * 3열 안에만 두었더니 Automation 이 아닌 탭에서는 3열 자체를 안 그려서
    * **탭이 통째로 사라졌다.** 어느 탭에 있든 같은 자리에 있어야 다음 탭으로
@@ -1244,80 +1244,9 @@ export default function TestCases({ me }: PageProps) {
    */
   const detHead = (
                 <div className="tc-dethead">
-                  {/* ⋯ · 저장 · 탭을 **왼쪽**에 — 화면 오른쪽 끝까지
-                      손이 가야 했다. 알림(함께 보는 중·저장 종)은
-                      오른쪽으로 밀어 둔다. */}
-            <div className="tc-more">
-              <button
-                className="btn tc-dots"
-                type="button"
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                onClick={() => setMenuOpen((v) => !v)}
-              >
-                ⋯
-              </button>
-              {menuOpen && (
-                <>
-                  <div className="tc-menu-back" onClick={() => setMenuOpen(false)} />
-                  <div className="tc-menu" role="menu">
-                    <button type="button" disabled={!openId}>
-                      ✨ AI 로 만들기
-                    </button>
-                    {/* 「⌨ 명령어 캡쳐」 는 실행 줄에 있다. 같은 것을 여기 또 두면
-                        어느 쪽이 무엇인지 생각하게 된다. */}
-                    <hr />
-                    {/* 랩마다 UTOP 이 따로 서 있어서 한쪽에서 만든 시험을 다른
-                        쪽에서 그대로 돌리고 싶은 일이 잦다. DB 를 통째로 옮기면
-                        장비 비밀번호까지 따라가므로, 시험 하나만 파일로 뗀다. */}
-                    <button
-                      type="button"
-                      disabled={!openId}
-                      onClick={() => {
-                        setMenuOpen(false)
-                        setSaveAs({
-                          title: '다른 이름으로 저장',
-                          // 같은 요구사항 묶음의 다음 번호. TC ID 앞부분이 곧
-                          // 그 요구사항이라(U-REQ-SYS-HW-TC-004) 앞은 지키고
-                          // 번호만 올린다.
-                          id: nextTcId(openId, takenIds),
-                          name: `${d.name ?? ''} 복사`.trim(),
-                          data: d,
-                        })
-                      }}
-                    >
-                      다른 이름으로 저장
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!openId}
-                      onClick={() => {
-                        setMenuOpen(false)
-                        exportTc()
-                      }}
-                    >
-                      파일로 내보내기
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuOpen(false)
-                        fileRef.current?.click()
-                      }}
-                    >
-                      파일에서 가져오기
-                    </button>
-                    <hr />
-                    <button type="button" onClick={() => { setMenuOpen(false); setBulkOpen(true) }}>
-                      일괄 생성
-                    </button>
-                    <button type="button" onClick={() => { setMenuOpen(false); setForm(null) }}>
-                      + Test Case
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+                  {/* 저장 · 탭은 **왼쪽**에 — 화면 오른쪽 끝까지 손이 가야
+                      했다. 알림(함께 보는 중·저장 종)과 ⋯ 는 오른쪽 끝 —
+                      ⋯ 는 가끔 쓰는 것들이라 눈에 걸리지 않는 자리가 맞다. */}
             {openId && !gpOpen && (
               <button
                 className="btn primary"
@@ -1409,6 +1338,77 @@ export default function TestCases({ me }: PageProps) {
                       안에만 있어서, 저장했다는 말도 오류도 스텝을 골라야만
                       보였다. 늘 보이는 자리로 올린다. */}
                   {msg.text && <span className={`tc-msg ${msg.kind}`}>{msg.text}</span>}
+                  <div className="tc-more">
+                    <button
+                      className="btn tc-dots"
+                      type="button"
+                      aria-haspopup="menu"
+                      aria-expanded={menuOpen}
+                      onClick={() => setMenuOpen((v) => !v)}
+                    >
+                      ⋯
+                    </button>
+                    {menuOpen && (
+                      <>
+                        <div className="tc-menu-back" onClick={() => setMenuOpen(false)} />
+                        <div className="tc-menu" role="menu">
+                          <button type="button" disabled={!openId}>
+                            ✨ AI 로 만들기
+                          </button>
+                          {/* 「⌨ 명령어 캡쳐」 는 실행 줄에 있다. 같은 것을 여기 또 두면
+                              어느 쪽이 무엇인지 생각하게 된다. */}
+                          <hr />
+                          {/* 랩마다 UTOP 이 따로 서 있어서 한쪽에서 만든 시험을 다른
+                              쪽에서 그대로 돌리고 싶은 일이 잦다. DB 를 통째로 옮기면
+                              장비 비밀번호까지 따라가므로, 시험 하나만 파일로 뗀다. */}
+                          <button
+                            type="button"
+                            disabled={!openId}
+                            onClick={() => {
+                              setMenuOpen(false)
+                              setSaveAs({
+                                title: '다른 이름으로 저장',
+                                // 같은 요구사항 묶음의 다음 번호. TC ID 앞부분이 곧
+                                // 그 요구사항이라(U-REQ-SYS-HW-TC-004) 앞은 지키고
+                                // 번호만 올린다.
+                                id: nextTcId(openId, takenIds),
+                                name: `${d.name ?? ''} 복사`.trim(),
+                                data: d,
+                              })
+                            }}
+                          >
+                            다른 이름으로 저장
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!openId}
+                            onClick={() => {
+                              setMenuOpen(false)
+                              exportTc()
+                            }}
+                          >
+                            파일로 내보내기
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMenuOpen(false)
+                              fileRef.current?.click()
+                            }}
+                          >
+                            파일에서 가져오기
+                          </button>
+                          <hr />
+                          <button type="button" onClick={() => { setMenuOpen(false); setBulkOpen(true) }}>
+                            일괄 생성
+                          </button>
+                          <button type="button" onClick={() => { setMenuOpen(false); setForm(null) }}>
+                            + Test Case
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
   )
 
@@ -1851,7 +1851,16 @@ export default function TestCases({ me }: PageProps) {
                               <span className="rq-icon" aria-hidden="true">
                                 <IconReqDoc />
                               </span>
-                              <span title={reqLabel(r)}>{r.title || reqLabel(r)}</span>
+                              {/* 누르면 요구사항 화면의 그 요구사항으로 —
+                                  시험↔요구사항↔사이클을 링크로 오간다 */}
+                              <a
+                                className="linkish"
+                                href={gotoHref('req', reqLabel(r) || reqPk(r))}
+                                title={`${reqLabel(r)} — 요구사항으로 이동`}
+                                onClick={(e) => gotoClick(e, 'req', reqLabel(r) || reqPk(r))}
+                              >
+                                {r.title || reqLabel(r)}
+                              </a>
                             </>
                           ) : (
                             <span className="muted">–</span>
