@@ -425,7 +425,11 @@ export default function DeviceCatalog() {
                     className="dc2-if"
                     defaultValue={it.interfaces ?? ''}
                     placeholder="–"
-                    title={it.interfaces ?? ''}
+                    title="고치고 Enter 또는 칸 밖 클릭 — 바로 저장됩니다"
+                    onKeyDown={(e) => {
+                      // Enter = 저장. 칸 밖 클릭(blur)과 같은 길로 태운다
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                    }}
                     onBlur={(e) => {
                       const v = e.target.value.trim()
                       if (v !== (it.interfaces ?? '').trim())
