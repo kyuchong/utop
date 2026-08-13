@@ -53,6 +53,8 @@ interface CatItem {
 export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }: Props) {
   const editing = !!cycleId
 
+  const [family, setFamily] = useState('')
+  const [mgroup, setMgroup] = useState('')
   const [model, setModel] = useState('')
   const [vgroup, setVgroup] = useState('')
   const [newVgroup, setNewVgroup] = useState('')
@@ -133,13 +135,20 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
     const d = cycQuery.data
     if (!d) return
     setModel(String(d.model ?? ''))
+    const m = (modelQuery.data?.items ?? []).find(
+      (x) => x.kind === 'model' && x.name === String(d.model ?? ''),
+    )
+    if (m) {
+      setFamily((m.family ?? '').trim())
+      setMgroup((m.model_group ?? '').trim())
+    }
     setVgroup(String(d.version_group ?? ''))
     setVersion(String(d.version ?? ''))
     setAssignee(String(d.assignee ?? ''))
     setStart(String(d.start_date ?? ''))
     setEnd(String(d.end_date ?? ''))
     setPicked(Array.isArray(d.items) ? (d.items as PickedItem[]) : [])
-  }, [cycQuery.data])
+  }, [cycQuery.data, modelQuery.data])
 
   const reqs: Requirement[] = reqQuery.data?.reqs ?? []
   const cats = useMemo(() => buildCategoryTree(catQuery.data?.categories ?? []), [catQuery.data])
@@ -147,6 +156,30 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   const models = useMemo(
     () => (modelQuery.data?.items ?? []).filter((x) => x.kind === 'model'),
     [modelQuery.data],
+  )
+  /** 제품군 → 모델그룹 → 모델명 — 옛 화면처럼 단계로 좁혀 고른다 */
+  const familyOpts = useMemo(
+    () => [...new Set(models.map((m) => (m.family ?? '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko')),
+    [models],
+  )
+  const mgroupOpts = useMemo(
+    () =>
+      [...new Set(
+        models
+          .filter((m) => !family || (m.family ?? '').trim() === family)
+          .map((m) => (m.model_group ?? '').trim())
+          .filter(Boolean),
+      )].sort((a, b) => a.localeCompare(b, 'ko')),
+    [models, family],
+  )
+  const modelOpts = useMemo(
+    () =>
+      models.filter(
+        (m) =>
+          (!family || (m.family ?? '').trim() === family) &&
+          (!mgroup || (m.model_group ?? '').trim() === mgroup),
+      ),
+    [models, family, mgroup],
   )
   const groups = folders[model] ?? []
 
@@ -382,15 +415,45 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
         </div>
 
         <div className="ce-form">
+          {/* 제품군 → 모델그룹 → 모델명 — 단계로 좁혀 고른다.
+              위를 바꾸면 아래 고른 것은 버린다(범위 밖일 수 있다). */}
           <label>
-            모델
+            제품군
+            <select
+              value={family}
+              onChange={(e) => {
+                setFamily(e.target.value)
+                setMgroup('')
+                setModel('')
+              }}
+            >
+              <option value="">전체</option>
+              {familyOpts.map((v) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            모델그룹
+            <select
+              value={mgroup}
+              onChange={(e) => {
+                setMgroup(e.target.value)
+                setModel('')
+              }}
+            >
+              <option value="">전체</option>
+              {mgroupOpts.map((v) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            모델명
             <select value={model} onChange={(e) => setModel(e.target.value)}>
               <option value="">고르세요</option>
-              {models.map((m) => (
-                <option key={m.name} value={m.name}>
-                  {m.name}
-                  {m.model_group ? ` · ${m.model_group}` : ''}
-                </option>
+              {modelOpts.map((m) => (
+                <option key={m.name} value={m.name}>{m.name}</option>
               ))}
             </select>
           </label>
@@ -410,7 +473,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
             <input value={newVgroup} placeholder="R300" onChange={(e) => setNewVgroup(e.target.value)} />
           </label>
           <label>
-            버전
+            버전명
             <input
               className="mono"
               value={version}

@@ -298,6 +298,7 @@ function build(
   cycles: CycleMeta[],
   models: CatModel[],
   catGroups: Array<{ name: string; family?: string | null }>,
+  catFams: string[],
   folders: Record<string, string[]>,
 ): Node[] {
   const groupOf = new Map(models.map((m) => [m.name, (m.model_group ?? '').trim()]))
@@ -331,6 +332,8 @@ function build(
   // 단, **연결이 온전한 것만**. 제품군이 빈 모델그룹까지 다 보여줬더니
   // 「(제품군 없음)」 밑에 빈 폴더가 쏟아져 트리가 쓰레기장이 됐다.
   // 연결이 덜 된 것은 지금까지처럼 사이클이 생겨야 나타난다.
+  // 제품군(L2·L3·OLT)은 빈 채로도 보인다 — 트리에서 만들고 바로 쓴다
+  for (const fam of catFams) if (!g.has(fam)) g.set(fam, new Map())
   for (const gr of catGroups) {
     const fam = (gr.family ?? '').trim()
     if (fam) ensureMg(fam, gr.name)
@@ -588,9 +591,16 @@ export default function Cycles({ me }: PageProps) {
     () => (catQ.data?.items ?? []).filter((x) => x.kind === 'group' && !meterish(x)),
     [catQ.data],
   )
+  const catFams = useMemo(
+    () =>
+      (catQ.data?.items ?? [])
+        .filter((x) => x.kind === 'family' && (x.name ?? '').trim() !== '계측기')
+        .map((x) => x.name.trim()),
+    [catQ.data],
+  )
   const tree = useMemo(
-    () => build(shown, models, catGroups, vgQ.data?.groups ?? {}),
-    [shown, models, catGroups, vgQ.data],
+    () => build(shown, models, catGroups, catFams, vgQ.data?.groups ?? {}),
+    [shown, models, catGroups, catFams, vgQ.data],
   )
   const cur = cycles.find((c) => c.id === sel)
 
@@ -688,6 +698,15 @@ export default function Cycles({ me }: PageProps) {
     }
     await catQ.refetch()
   }
+  const addFamily = async () => {
+    const name = window.prompt('만들 제품군 이름 (예: L2 · L3 · OLT)')?.trim()
+    if (!name) return
+    try {
+      await catalogAdd({ kind: 'family', name })
+    } catch (e) {
+      window.alert(`만들지 못했습니다 — ${e instanceof Error ? e.message : e}`)
+    }
+  }
   const addMGroup = async (fam: string) => {
     const name = window.prompt(`「${fam}」 밑에 만들 모델그룹 이름 (예: E6000 시리즈)`)?.trim()
     if (!name) return
@@ -719,7 +738,7 @@ export default function Cycles({ me }: PageProps) {
       window.alert('이 폴더에 사이클이 있어 지울 수 없습니다 — 사이클을 먼저 정리하세요')
       return
     }
-    const kind = n.kind === 'mgroup' ? 'group' : 'model'
+    const kind = n.kind === 'family' ? 'family' : n.kind === 'mgroup' ? 'group' : 'model'
     if (!window.confirm(`「${n.label}」 폴더를 카탈로그에서 지웁니다.`)) return
     const r = await apiFetch(
       `/api/device-catalog2/${kind}/${encodeURIComponent(n.label)}`,
@@ -1003,6 +1022,15 @@ export default function Cycles({ me }: PageProps) {
               })
             }}
             onMouseLeave={() => setTip(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setTip(null)
+              setFolderMenu({
+                node: { key: '__root', label: 'Root', depth: 0, count: cycles.length, children: [] },
+                x: e.clientX,
+                y: e.clientY,
+              })
+            }}
           >
             <span className="rt-caret">
               <span className="rt-dot" />
@@ -1099,6 +1127,11 @@ export default function Cycles({ me }: PageProps) {
               fn()
             }
             const out: MenuEntry[] = []
+            // Root — 제품군을 만든다
+            if (n.key === '__root') {
+              out.push({ label: '+ 하위 폴더 추가 (제품군 · L2/L3/OLT)', fn: done(() => void addFamily()) })
+              return out
+            }
             // 하위 폴더 추가 — 층마다 만드는 것이 다르다
             if (n.kind === 'family')
               out.push({ label: '+ 하위 폴더 추가 (모델그룹)', fn: done(() => void addMGroup(n.label)) })
@@ -1131,7 +1164,7 @@ export default function Cycles({ me }: PageProps) {
                 label: `버전그룹 폴더 지우기${n.count ? ` (사이클 ${n.count}건 포함)` : ''}`,
                 fn: done(() => void deleteFolder(n)),
               })
-            else if (n.kind === 'mgroup' || n.kind === 'model')
+            else if (n.kind === 'family' || n.kind === 'mgroup' || n.kind === 'model')
               out.push({
                 label: n.count > 0 ? '폴더 지우기 — 사이클이 있어 못 지웁니다' : '폴더 지우기',
                 disabled: n.count > 0,
