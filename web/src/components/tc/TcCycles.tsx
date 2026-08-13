@@ -1,3 +1,4 @@
+import { gotoClick, gotoHref } from '@/api/goto'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import './tc.css'
@@ -81,7 +82,16 @@ export default function TcCycles({ tcid }: Props) {
             {rows.map((r, i) => (
               <div className="tcyc-row" key={`${r.cycle_id}-${i}`}>
                 <span className="cy-nm">
-                  <b>{r.version || '(버전 없음)'}</b>
+                  {/* 누르면 그 사이클로 — Cycles 화면이 ?cycle= 딥링크를
+                      이미 받는다. 새 탭(Ctrl·우클릭)도 그대로 된다. */}
+                  <a
+                    className="linkish"
+                    href={gotoHref('cycle', r.cycle_id)}
+                    title="이 사이클로 이동 (Ctrl+클릭·오른쪽 단추로 새 탭)"
+                    onClick={(e) => gotoClick(e, 'cycle', r.cycle_id)}
+                  >
+                    <b>{r.version || '(버전 없음)'}</b>
+                  </a>
                   <span className="muted small">{r.model || r.cycle_id}</span>
                 </span>
                 <span className="muted small">{r.device || '–'}</span>
@@ -108,10 +118,6 @@ export default function TcCycles({ tcid }: Props) {
           </div>
         )}
 
-        <div className="hint">
-          줄을 눌러 그 사이클로 넘어가는 것은 Cycles 화면이 새 UI 로 옮겨진 뒤에
-          붙습니다. 그때까지 넘어가서 볼 만한 것은 이 줄에 적어 둡니다.
-        </div>
       </section>
     </div>
   )
