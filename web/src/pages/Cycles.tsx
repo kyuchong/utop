@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import ListHead from '@/components/ListHead'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { goto, onGoto, reflectUrl } from '@/api/goto'
 import CycleEdit from '@/components/cycle/CycleEdit'
@@ -20,6 +21,7 @@ import {
   IconEdit,
   IconExecution,
   IconFolder,
+  IconPanel,
   IconPlay,
   IconReqDoc,
   IconSlide,
@@ -275,6 +277,7 @@ function cyclesUnder(n: Node): CycleMeta[] {
 
 /** 보던 자리를 기억한다 — 화면 이름은 App 이, 그 안은 여기가 */
 const CY_SEL_KEY = 'utop.cycle.sel'
+const CY_OPEN_KEY = 'utop.cycle.open'
 
 const NO_CAT = '(카탈로그에 없는 모델)'
 const NO_GROUP = '(버전그룹 없음)'
@@ -409,6 +412,17 @@ export default function Cycles({ me }: PageProps) {
    * 새로고침하면 트리가 통째로 접히고 「왼쪽에서 사이클을 고르세요」 로
    * 튕겨서, 64건짜리를 보다가 매번 다시 찾아 들어가야 했다.
    */
+  const [open, setOpen] = useState<Set<string>>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(CY_OPEN_KEY) || '[]') as string[]
+      return new Set(Array.isArray(v) ? v : [])
+    } catch {
+      return new Set()
+    }
+  })
+  useEffect(() => {
+    localStorage.setItem(CY_OPEN_KEY, JSON.stringify([...open]))
+  }, [open])
   const qc = useQueryClient()
   const [making, setMaking] = useState(false)
   /** 우클릭 메뉴 — 어느 사이클 위에서, 화면 어디에 */
@@ -434,22 +448,21 @@ export default function Cycles({ me }: PageProps) {
    *
    * 64건짜리 사이클의 항목과 스텝을 들여다볼 때는 트리가 자리만 먹는다.
    */
+  const [treeOpen, setTreeOpen] = useState(
+    () => localStorage.getItem('utop.cycle.treeOpen') !== '0',
+  )
+  /** 1열 폭 — 끌어서 바꾼다. TC 화면과 같은 부품을 쓴다 */
   const splitRef = useRef<HTMLDivElement>(null)
+  const [treeW, setTreeW] = useResizableWidth('utop.cycle.treeW', 250, 170, 460)
+  useEffect(() => {
+    localStorage.setItem('utop.cycle.treeOpen', treeOpen ? '1' : '0')
+  }, [treeOpen])
 
   const [sel, setSel] = useState(() => localStorage.getItem(CY_SEL_KEY) || '')
-  /**
-   * 빵부스러기 조각 — 사이클을 안 골랐을 때 어디까지 내려와 있나.
-   * 트리를 없애고 이것이 길이 됐다: 조각을 누르면 그 아래 목록(콤보)이
-   * 떨어지고, 앞 조각을 고르면 그 범위의 관제판이 보인다.
-   */
-  const [crumb, setCrumb] = useState<{ op: string; fam: string; model: string; vg: string }>({
-    op: '',
-    fam: '',
-    model: '',
-    vg: '',
-  })
-  /** 열려 있는 콤보 — 조각 하나만 연다 */
-  const [dd, setDd] = useState<'' | 'op' | 'fam' | 'model' | 'vg' | 'ver'>('')
+  /** 트리에서 폴더를 골랐으면 관제판을 그 묶음으로 좁힌다 */
+  const [scope, setScope] = useState<{ label: string; ids: Set<string> } | null>(null)
+  /** 트리 줄 위에 뜨는 상태 요약 카드 */
+  const [tip, setTip] = useState<{ node: Node; x: number; y: number } | null>(null)
   // 고르면 주소창에 남긴다 — 옛 화면의 #cycle=… 과 같은 일
   useEffect(() => {
     if (sel) reflectUrl('cycle', sel)
@@ -591,6 +604,13 @@ export default function Cycles({ me }: PageProps) {
   )
   const cur = cycles.find((c) => c.id === sel)
 
+  const toggle = (k: string) =>
+    setOpen((s) => {
+      const n = new Set(s)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      return n
+    })
 
   /** 이 폴더(가지) 아래 사이클 id 를 모두 모은다 — 한꺼번에 지우려고 */
   const cycleIdsUnder = (n: Node): string[] =>
@@ -664,6 +684,7 @@ export default function Cycles({ me }: PageProps) {
       })
       if (!r.ok) throw new Error(String(r.status))
       await vgQ.refetch()
+      setOpen((x) => new Set(x).add(pathOfModel(model)))
     } catch (e) {
       window.alert(`버전그룹을 만들지 못했습니다 — ${e instanceof Error ? e.message : e}`)
     }
@@ -710,6 +731,7 @@ export default function Cycles({ me }: PageProps) {
         family: fam.startsWith('(') ? '' : fam,
       })
       await unhide(`${fam}/${mg}/${name}`)
+      setOpen((x) => new Set(x).add(`${fam}/${mg}`))
     } catch (e) {
       window.alert(`만들지 못했습니다 — ${e instanceof Error ? e.message : e}`)
     }
@@ -778,227 +800,202 @@ export default function Cycles({ me }: PageProps) {
     }
   }
 
-
-  /** 지금 서 있는 자리 — 사이클이 열려 있으면 그것에서 파생한다 */
-  const at = useMemo(() => {
-    if (cur) {
-      const model = String(cur.model ?? '').trim()
-      const m = models.find((x) => x.name === model)
-      return {
-        op: modelOp.get(model) ?? '',
-        fam: m ? (m.family ?? '').trim() || '(제품군 없음)' : NO_CAT,
-        model,
-        vg: String(cur.version_group ?? '').trim() || NO_GROUP,
-      }
-    }
-    return crumb
-  }, [cur, crumb, models, modelOp])
-
-  /** 콤보에 띄울 형제 목록 — 트리에서 그 층을 꺼낸다 */
-  const famNode = tree.find((n) => n.label === at.fam)
-  const modelNode = famNode?.children.find((n) => n.label === at.model)
-  const vgNode = modelNode?.children.find((n) => n.label === at.vg)
-
-  /** 사업자 거르개 — 그 사업자향 모델의 것만 */
-  const opPass = (model: string) => !at.op || (modelOp.get(model) ?? '') === at.op
-  /** 층별 후보 — 위 칸이 비어 있으면 전체에서 평평하게 모은다.
-      (제품군을 안 골라도 제품명 칸을 열면 모든 모델이 나온다 — 빠른 점프) */
-  const famList = useMemo(
-    () => tree.filter((f) => f.children.some((m) => opPass(m.label)) || f.children.length === 0),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tree, at.op],
-  )
-  const modelList = useMemo(() => {
-    const src = at.fam ? (famNode ? [famNode] : []) : tree
-    return src.flatMap((f) => f.children).filter((m) => opPass(m.label))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tree, at.fam, at.op])
-  const vgList = useMemo(() => {
-    const src = at.model ? (modelNode ? [modelNode] : []) : modelList
-    return src.flatMap((m) => m.children)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modelList, at.model])
-  const verList = useMemo(() => {
-    const src = at.vg ? (vgNode ? [vgNode] : []) : vgList
-    return src.flatMap((v) => v.children)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vgList, at.vg])
-  const opList: Node[] = useMemo(() => {
-    const ops = [...new Set([...modelOp.values()].filter(Boolean))].sort((a, b) =>
-      a.localeCompare(b, 'ko'),
-    )
-    return ops.map((o) => ({
-      key: `__op/${o}`,
-      label: o,
-      depth: 0,
-      count: cycles.filter((c) => (modelOp.get(String(c.model ?? '').trim()) ?? '') === o).length,
-      children: [],
-    }))
-  }, [modelOp, cycles])
-
-  /** 골라진 노드의 경로(fam/model/vg)를 crumb 로 푼다 — 평평 목록에서
-      깊은 것을 바로 집어도 위 칸들이 따라 채워진다 */
-  const crumbFromKey = (key: string) => {
-    const parts = key.split('/')
-    return { fam: parts[0] ?? '', model: parts[1] ?? '', vg: parts[2] ?? '' }
+  /** 트리 키를 만들 때 쓰는 모델의 자리 (build 와 같은 규칙) */
+  const pathOfModel = (model: string) => {
+    const m = models.find((x) => x.name === model)
+    if (!m) return `${NO_CAT}/${model}`
+    const fam = (m.family ?? '').trim() || '(제품군 없음)'
+    return `${fam}/${model}`
   }
 
-
-  /** 조각 요약 말풍선 글 */
-  const sumOf = (n: Node) => {
-    const cs = cyclesUnder(n)
-    const a = cs.reduce(
-      (x, c) => {
-        const t = tallyOf(c)
-        return { t: x.t + t.t, p: x.p + t.p, f: x.f + t.f }
-      },
-      { t: 0, p: 0, f: 0 },
+  const renderNode = (n: Node): React.ReactNode => {
+    const isOpen = open.has(n.key) || !!q.trim()
+    const leaf = n.children.length === 0
+    return (
+      <div key={n.key}>
+        <div
+          className={`${n.cycle ? 'rt-req' : 'rt-fold'} cy-node${
+            n.cycle?.id === sel ? ' on' : ''
+          }${!n.cycle && n.depth === 0 ? ' rt-top' : ''}`}
+          role="button"
+          tabIndex={0}
+          style={{ paddingLeft: 6 + (n.depth + 1) * 14 }}
+          /* 열지 않고도 상태가 읽히게 — 색 막대가 든 요약 카드를 띄운다.
+             브라우저 기본 말풍선은 글자뿐이라 숫자가 안 읽혔다. */
+          onMouseEnter={(e) => {
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+            setTip({ node: n, x: r.right + 10, y: r.top - 4 })
+          }}
+          onMouseLeave={() => setTip(null)}
+          onClick={() => {
+            setTip(null)
+            if (n.cycle) {
+              setSel(n.cycle.id)
+              return
+            }
+            // 폴더 클릭은 **고르기**다 — 오른쪽에 그 묶음의 버전별 요약판.
+            // 접고 펴는 것은 화살표 단추 몫이라 여기서는 펼치기만 한다.
+            // 클릭할 때마다 접혔다 펴졌다 하면 고르러 간 손이 트리를 흔든다.
+            setOpen((x) => new Set(x).add(n.key))
+            setScope({ label: n.label, ids: new Set(cyclesUnder(n).map((c) => c.id)) })
+            setSel('')
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              if (n.cycle) {
+                setSel(n.cycle.id)
+              } else {
+                setOpen((x) => new Set(x).add(n.key))
+                setScope({ label: n.label, ids: new Set(cyclesUnder(n).map((c) => c.id)) })
+                setSel('')
+              }
+            }
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            if (n.cycle) {
+              setSel(n.cycle.id)
+              setMenu({ id: n.cycle.id, x: e.clientX, y: e.clientY })
+            } else {
+              // 폴더 — 폴더째 지우거나 그 안 사이클을 한꺼번에 지운다
+              setFolderMenu({ node: n, x: e.clientX, y: e.clientY })
+            }
+          }}
+        >
+          {leaf ? (
+            <span className="rt-caret">
+              <span className="rt-dot" />
+            </span>
+          ) : (
+            <button
+              type="button"
+              className={`rt-caret${isOpen ? ' open' : ''}`}
+              aria-label={isOpen ? '접기' : '펼치기'}
+              onClick={(e) => {
+                e.stopPropagation()
+                toggle(n.key)
+              }}
+            >
+              <IconChevron />
+            </button>
+          )}
+          {/* 모델그룹 · 모델 · 버전그룹은 폴더, 버전(사이클)은 항목 */}
+          {!leaf && (
+            <span className="rt-ficon" aria-hidden="true">
+              <IconFolder open={isOpen} />
+            </span>
+          )}
+          {/* 빈 폴더 표시는 전용 클래스로 — 'empty' 는 「비어 있음」 안내문
+              스타일과 이름이 겹쳐 줄이 64px 로 부풀었다(겪었다) */}
+          <span className={`${n.cycle ? 'rt-title' : 'rt-fname'} cy-nm${n.empty ? ' cy-nm-empty' : ''}`}>
+            {n.label}
+          </span>
+          {/* 지금 누가 돌리고 있나.
+              실행이 서버에서 도니 내 창에서 시작한 것이 아닐 수 있다.
+              표시가 없으면 남이 돌리는 사이클을 열어 또 걸게 된다. */}
+          {n.cycle && running.has(n.cycle.id) && (
+            <span className="cy-runmark" title={`${running.get(n.cycle.id)} 님이 돌리는 중`}>
+              ● {running.get(n.cycle.id)}
+            </span>
+          )}
+          {/* 잎은 항목 수, 가지는 사이클 수 — 뜻이 다르니 제목으로 갈라 둔다 */}
+          <span className="rt-cnt" title={n.cycle ? '시험 항목' : '사이클'}>
+            {n.count || ''}
+          </span>
+        </div>
+        {isOpen && n.children.map(renderNode)}
+      </div>
     )
-    return `사이클 ${cs.length} · Pass ${a.p} · Fail ${a.f} · 나머지 ${a.t - a.p - a.f}`
   }
 
-  /** 콤보 한 층 — 조각 단추 + 열리면 형제 목록 */
-  const seg = (
-    level: 'op' | 'fam' | 'model' | 'vg' | 'ver',
-    label: string,
-    list: Node[],
-    onPick: (n: Node) => void,
-    extra?: { label: string; fn: () => void },
-  ) => (
-    <span className="cy-seg">
-      <button
-        type="button"
-        className={`cy-seg-b${label ? '' : ' empty'}`}
-        onClick={() => setDd(dd === level ? '' : level)}
-      >
-        {label || (level === 'ver' ? '버전 고르기' : '전체')} <i className="cy-seg-c">▾</i>
-      </button>
-      {dd === level && (
-        <>
-          <div className="cy-dd-back" onClick={() => setDd('')} />
-          <div className="cy-dd" role="menu">
-            {list.length === 0 && <div className="empty">비어 있습니다</div>}
-            {list.map((n) => (
-              <button
-                key={n.key}
-                type="button"
-                className={`cy-dd-row${n.label === label ? ' on' : ''}`}
-                title={sumOf(n)}
-                onClick={() => {
-                  setDd('')
-                  onPick(n)
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault()
-                  setDd('')
-                  if (n.cycle) setMenu({ id: n.cycle.id, x: e.clientX, y: e.clientY })
-                  else setFolderMenu({ node: n, x: e.clientX, y: e.clientY })
-                }}
-              >
-                <span className="cy-dd-nm">{n.label}</span>
-                {n.cycle && running.has(n.cycle.id) && (
-                  <span className="cy-runmark">● {running.get(n.cycle.id)}</span>
-                )}
-                <span className="rt-cnt">{n.count || ''}</span>
-              </button>
-            ))}
-            {extra && (
-              <>
-                <hr />
-                <button
-                  type="button"
-                  className="cy-dd-row cy-dd-add"
-                  onClick={() => {
-                    setDd('')
-                    extra.fn()
-                  }}
-                >
-                  {extra.label}
-                </button>
-              </>
-            )}
-          </div>
-        </>
-      )}
-    </span>
-  )
+  /** 빵부스러기에 적을 길 — 모델그룹 › 모델 › 버전그룹 › 버전 */
+  const crumbs = useMemo(() => {
+    if (!cur) return []
+    const g = new Map(models.map((m) => [m.name, (m.model_group ?? '').trim()]))
+    const model = String(cur.model ?? '').trim()
+    return [g.get(model) || '', model, String(cur.version_group ?? '').trim()].filter(Boolean)
+  }, [cur, models])
 
   return (
     // 요구사항·TC 화면과 **같은 뼈대**를 쓴다. 세 화면을 오가는 사람이
     // 매번 「여긴 어디가 목록이지」 를 다시 찾지 않게.
     <>
-      {/* 맨 위 줄 — 트리를 없애고 길이 된 빵부스러기 콤보.
-          조각을 누르면 형제 목록이 떨어지고, 앞 조각을 고르면 그 범위의
-          관제판이 아래에 깔린다. 1열이 사라져 아래가 가로 전체를 쓴다. */}
-      <div className="rq-bar cy-crumbbar">
-        {/* 사장님 스케치 그대로: 사업자·제품군·제품명·버전그룹·버전명
-            다섯 칸이 늘 보인다(층 이름 라벨 포함) — 만들기 팝업과 같은
-            문법. 위 칸을 안 골라도 아래 칸을 열면 전체에서 고를 수 있고,
-            깊은 것을 집으면 위 칸들이 따라 채워진다. */}
-        <span className="cy-slot">
-          <i className="cy-slot-lb">사업자</i>
-          {seg('op', at.op, opList, (n) => {
-            setCrumb({ op: n.label === at.op ? '' : n.label, fam: '', model: '', vg: '' })
-            setSel('')
-          })}
-        </span>
-        <span className="cy-slot">
-          <i className="cy-slot-lb">제품군</i>
-          {seg('fam', at.fam, famList, (n) => {
-            setCrumb({ op: at.op, fam: n.label, model: '', vg: '' })
-            setSel('')
-          }, { label: '＋ 새 제품군', fn: () => void addFamily() })}
-        </span>
-        <span className="cy-slot">
-          <i className="cy-slot-lb">제품명</i>
-          {seg('model', at.model, modelList, (n) => {
-            setCrumb({ op: at.op, ...crumbFromKey(n.key), vg: '' })
-            setSel('')
-          }, at.fam ? { label: '＋ 새 모델', fn: () => void addModel(at.fam, '') } : undefined)}
-        </span>
-        <span className="cy-slot">
-          <i className="cy-slot-lb">버전그룹</i>
-          {seg('vg', at.vg, vgList, (n) => {
-            setCrumb({ op: at.op, ...crumbFromKey(n.key) })
-            setSel('')
-          }, at.model ? { label: '＋ 새 버전그룹', fn: () => void addVGroup(at.model) } : undefined)}
-        </span>
-        <span className="cy-slot">
-          <i className="cy-slot-lb">버전명</i>
-          {seg('ver', cur ? (String(cur.version ?? '').trim() || cur.name || cur.id) : '', verList, (n) => {
-            if (n.cycle) setSel(n.cycle.id)
-          }, { label: '＋ 사이클 만들기', fn: () => setMaking(true) })}
-        </span>
-
-        {/* 가운데 — 지금 범위의 상태바. 어디를 보고 있든 합산이 여기 뜬다 */}
-        {(() => {
-          const node = vgNode ?? modelNode ?? famNode
-          const cs = (node ? cyclesUnder(node) : cycles).filter((c) =>
-            opPass(String(c.model ?? '').trim()),
-          )
-          const a = cs.reduce(
-            (x, c) => {
-              const t = tallyOf(c)
-              return { t: x.t + t.t, p: x.p + t.p, f: x.f + t.f }
-            },
-            { t: 0, p: 0, f: 0 },
-          )
-          return (
-            <span className="cy-scopebar" title={`사이클 ${cs.length} · Pass ${a.p} · Fail ${a.f}`}>
-              <span className="cy-bar" aria-hidden="true">
-                <span className="pass" style={{ flexGrow: a.p }} />
-                <span className="fail" style={{ flexGrow: a.f }} />
-                <span className="none" style={{ flexGrow: a.t - a.p - a.f || (a.t ? 0 : 1) }} />
-              </span>
-              <span className="cy-scopebar-t">
-                {cs.length}개 · <b className="status pass">P {a.p}</b>{' '}
-                <b className="status fail">F {a.f}</b>
-              </span>
+      {/* 맨 위 줄 — 지금 어디를 보고 있나. 요구사항·TC 화면(.rq-bar)과
+          같은 자리·같은 모양이다. */}
+      <div className="rq-bar">
+        <span className="rq-crumb">
+          {/* 「사이클」 을 누르면 관제판(고른 것 없음)으로 돌아간다 */}
+          <button
+            type="button"
+            className="rq-crumb-home"
+            onClick={() => {
+              setScope(null)
+              setSel('')
+            }}
+          >
+            사이클
+          </button>
+          {crumbs.map((c) => (
+            <span key={c}>
+              <span className="rq-crumb-sep">›</span>
+              <span className="muted">{c}</span>
             </span>
-          )
-        })()}
+          ))}
+          {cur && (
+            <>
+              <span className="rq-crumb-sep">›</span>
+              <b>{String(cur.version ?? '').trim() || cur.name || cur.id}</b>
+            </>
+          )}
+          <span className="muted small">
+            {cur ? `${cur._item_count ?? 0}건` : '왼쪽에서 사이클을 고르세요'}
+          </span>
+        </span>
+        <span className="sp" />
 
-        <div className="cy-find cy-find-top">
+      </div>
+
+    <div className="split cy" ref={splitRef}>
+      {/* 접었을 때 — 세로 띠 하나만 남는다. TC 화면과 같은 모양이다.
+          아주 없애면 다시 펼 길이 없어지고 어디에 있었는지도 잊는다. */}
+      {!treeOpen && (
+        <button
+          type="button"
+          className="tc-fold"
+          title="사이클 펼치기"
+          onClick={() => setTreeOpen(true)}
+        >
+          <IconPanel open />
+          <span className="tc-fold-t">Cycle Tree {cycles.length}</span>
+        </button>
+      )}
+      {treeOpen && (
+      <section className="panel cy-tree" style={{ flexBasis: treeW }}>
+        <ListHead
+          name="Cycle Tree"
+          count={cycles.length}
+          onCollapse={() => setTreeOpen(false)}
+          search={{ value: q, placeholder: '모델 · 버전으로 찾기', onChange: setQ }}
+          add={{ title: '사이클 만들기', onClick: () => setMaking(true) }}
+          menu={
+            <>
+              <button type="button" onClick={() => setMaking(true)}>
+                사이클 만들기
+              </button>
+              <button type="button" disabled={!sel} onClick={() => sel && setEditId(sel)}>
+                선택 사이클 편집
+              </button>
+              <hr />
+              <button type="button" onClick={() => void listQ.refetch()}>
+                다시 읽기
+              </button>
+            </>
+          }
+        />
+        {/* ③ 찾기를 머리줄 아래 제자리에 늘 띄운다 — 돋보기를 눌러야 나오면
+            거기 있는 줄 모른다. */}
+        <div className="cy-find">
           <input
             value={q}
             placeholder="모델 · 버전으로 찾기"
@@ -1010,12 +1007,76 @@ export default function Cycles({ me }: PageProps) {
             </button>
           )}
         </div>
-        <button className="btn small primary" type="button" onClick={() => setMaking(true)}>
-          ＋ 사이클
-        </button>
-      </div>
+        <div className="cy-body">
+          {/* Root — 늘 맨 위에 있다. 누르면 전체 관제판, 올리면 전체 합산.
+              「전체」 로 돌아가는 길이 빵부스러기에만 있으면 트리에서 길을
+              잃는다. */}
+          <div
+            className={`rt-fold cy-node rt-top cy-root${!sel && !scope ? ' on' : ''}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              setTip(null)
+              setScope(null)
+              setSel('')
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setScope(null)
+                setSel('')
+              }
+            }}
+            onMouseEnter={(e) => {
+              const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              setTip({
+                node: { key: '__root', label: 'Root', depth: 0, count: cycles.length, children: tree },
+                x: r.right + 10,
+                y: r.top - 4,
+              })
+            }}
+            onMouseLeave={() => setTip(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setTip(null)
+              setFolderMenu({
+                node: { key: '__root', label: 'Root', depth: 0, count: cycles.length, children: [] },
+                x: e.clientX,
+                y: e.clientY,
+              })
+            }}
+          >
+            <span className="rt-caret">
+              <span className="rt-dot" />
+            </span>
+            <span className="rt-ficon" aria-hidden="true">
+              <IconFolder open />
+            </span>
+            <span className="rt-fname cy-nm">Root</span>
+            <span className="rt-cnt" title="사이클">
+              {cycles.length || ''}
+            </span>
+          </div>
+          {listQ.isLoading ? (
+            <div className="empty">불러오는 중…</div>
+          ) : tree.length ? (
+            tree.map(renderNode)
+          ) : (
+            <div className="empty">사이클이 없습니다.</div>
+          )}
+        </div>
+      </section>
+      )}
 
-    <div className="split cy" ref={splitRef}>
+      {/* 1열 ↔ 나머지. TC 화면과 같은 손잡이를 쓴다 */}
+      {treeOpen && (
+        <Resizer
+          label="사이클 목록 폭 조절"
+          onResize={setTreeW}
+          getOrigin={() => splitRef.current?.getBoundingClientRect().left ?? 0}
+        />
+      )}
+
       {menu && (
         <CycleMenu
           at={menu}
@@ -1038,6 +1099,36 @@ export default function Cycles({ me }: PageProps) {
         />
       )}
 
+      {tip && (() => {
+        const cs = cyclesUnder(tip.node)
+        const a = cs.reduce(
+          (x, c) => {
+            const t = tallyOf(c)
+            return { t: x.t + t.t, p: x.p + t.p, f: x.f + t.f }
+          },
+          { t: 0, p: 0, f: 0 },
+        )
+        const rest = a.t - a.p - a.f
+        return (
+          <div className="cy-tip" style={{ left: tip.x, top: Math.max(8, tip.y) }}>
+            <div className="cy-tip-h">
+              <b>{tip.node.label}</b>
+              {!tip.node.cycle && <span className="muted small">사이클 {cs.length}개</span>}
+            </div>
+            <div className="cy-bar" aria-hidden="true">
+              <span className="pass" style={{ flexGrow: a.p }} />
+              <span className="fail" style={{ flexGrow: a.f }} />
+              <span className="none" style={{ flexGrow: rest || (a.t ? 0 : 1) }} />
+            </div>
+            <div className="cy-tip-r">
+              <i className="pass" /> Pass <b>{a.p}</b>
+              <i className="fail" /> Fail <b>{a.f}</b>
+              <i className="none" /> 나머지 <b>{rest}</b>
+              <span className="muted small">총 {a.t}건</span>
+            </div>
+          </div>
+        )
+      })()}
 
       {folderMenu && (
         <FolderMenu
@@ -1143,14 +1234,8 @@ export default function Cycles({ me }: PageProps) {
           />
         ) : (
           <CycleBoard
-            cycles={(() => {
-              // 빵부스러기에서 내려온 만큼 좁힌다 — 깊은 조각이 이긴다
-              const node = vgNode ?? modelNode ?? famNode
-              if (!node) return cycles
-              const ids = new Set(cyclesUnder(node).map((c) => c.id))
-              return cycles.filter((c) => ids.has(c.id))
-            })()}
-            scopeLabel={at.vg || at.model || at.fam || undefined}
+            cycles={scope ? cycles.filter((c) => scope.ids.has(c.id)) : cycles}
+            scopeLabel={scope?.label}
             modelOp={modelOp}
             onPick={(id) => setSel(id)}
           />
@@ -1176,7 +1261,7 @@ function CycleBoard({
   onPick,
 }: {
   cycles: CycleMeta[]
-  /** 빵부스러기에서 좁혀 온 이름 — 무엇을 보고 있는지 */
+  /** 트리에서 폴더를 골랐으면 그 이름 — 무엇으로 좁혀 보고 있는지 */
   scopeLabel?: string
   /** 모델 → 사업자 (카드 배지) */
   modelOp?: Map<string, string>
