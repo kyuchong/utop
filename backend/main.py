@@ -3002,7 +3002,14 @@ async def device_catalog_save(payload: dict):
 async def device_catalog_delete(kind: str, name: str):
     used = await db.catalog_usage(kind, name)
     if used:
-        raise HTTPException(400, f"{used}대가 쓰고 있어 지울 수 없습니다")
+        # 몇 대인지만 말하면 다음에 할 일을 모른다 — 어느 장비인지 찍어 준다
+        who = await db.catalog_users(kind, name)
+        tail = " …" if used > len(who) else ""
+        raise HTTPException(
+            400,
+            f"{used}대가 쓰고 있어 지울 수 없습니다 — {', '.join(who)}{tail}\n"
+            "장비 화면에서 이 장비의 모델을 바꾸거나 장비를 지운 뒤 다시 시도하세요",
+        )
     if not await db.catalog_delete(kind, name):
         raise HTTPException(404, "없는 항목입니다")
     return {"success": True}

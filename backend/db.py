@@ -1147,6 +1147,22 @@ async def catalog_usage(kind: str, name: str) -> int:
         return await c.fetchval(f"SELECT count(*) FROM device WHERE {col}=$1", name) or 0
 
 
+async def catalog_users(kind: str, name: str, limit: int = 5) -> list[str]:
+    """이 항목을 쓰는 장비들 — 「1대가 쓰고 있다」 만으로는 어느 장비를
+    치워야 하는지 알 수 없어서, 이름·IP 를 찍어 준다."""
+    if kind == "group":
+        q = ("SELECT name, ip FROM device WHERE model IN "
+             "(SELECT name FROM device_catalog WHERE kind='model' AND model_group=$1) LIMIT $2")
+    else:
+        col = {"vendor": "vendor", "family": "role", "model": "model", "lab": "lab"}.get(kind)
+        if not col:
+            return []
+        q = f"SELECT name, ip FROM device WHERE {col}=$1 LIMIT $2"
+    async with pool().acquire() as c:
+        rows = await c.fetch(q, name, limit)
+    return [f"{r['name'] or '(이름 없음)'} ({r['ip']})" for r in rows]
+
+
 # ══════════════════════════════════════════════════════════════════════
 # 코드 목록 (드롭다운에 들어가는 값)
 #
