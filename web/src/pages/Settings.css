@@ -722,3 +722,25 @@
   line-height: 1.55;
   resize: vertical;
 }
+
+
+/* ── 브랜딩 — 로고·이름 ─────────────────────────────────────── */
+.brand-set { padding: var(--sp-3) var(--sp-4); max-width: 560px; }
+.brand-set h3 { margin: 0 0 4px; }
+.brand-row { display: flex; align-items: center; gap: 10px; margin-top: var(--sp-3); }
+.brand-preview {
+  width: 56px;
+  height: 56px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface-alt);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex: none;
+}
+.brand-preview img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.brand-up { cursor: pointer; }
+.brand-nm { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-xs); color: var(--c-text-muted); flex: 1; }
+.brand-nm input { max-width: 260px; }

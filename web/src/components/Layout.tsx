@@ -15,6 +15,7 @@ import {
   IconTestCase,
 } from './icons'
 import TopStatus from './TopStatus'
+import { apiFetch } from '@/api/client'
 import './Layout.css'
 
 export interface NavItem {
@@ -103,6 +104,18 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSE_KEY) === '1',
   )
+  /** 브랜딩 — 설정에서 올린 로고와 이름. 한 번만 읽는다 */
+  const [brand, setBrand] = useState<{ logo?: string; name?: string }>({})
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await apiFetch('/api/branding')
+        if (r.ok) setBrand((await r.json()) as { logo?: string; name?: string })
+      } catch {
+        /* 로고는 장식이다 — 못 읽어도 화면은 살아야 한다 */
+      }
+    })()
+  }, [])
 
   useEffect(() => {
     localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0')
@@ -123,9 +136,12 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
             <IconPanelToggle />
           </button>
 
-          {/* 로고 자리 — 나중에 로고 이미지를 넣는다. 지금은 비워 두되
-              자리(높이)는 잡아 둬서 로고를 넣어도 아래 메뉴가 안 밀린다. */}
-          <div className="nav-brand" aria-label="로고 자리" />
+          {/* 로고 — 설정 → 브랜딩에서 올린다. 접으면 마크만, 펼치면
+              이름까지. 없으면 자리만 지킨다(아래 메뉴가 안 밀리게). */}
+          <div className="nav-brand" aria-label="로고">
+            {brand.logo && <img className="nav-logo-img" src={brand.logo} alt="로고" />}
+            {brand.name && <b className="nav-logo-nm">{brand.name}</b>}
+          </div>
 
           {NAV.map((group, gi) => (
             <div className="nav-section" key={group.title ?? `g${gi}`}>

@@ -53,10 +53,35 @@
   color: rgb(255 255 255 / 55%);
   white-space: nowrap;
 }
-/* 접히면 로고 자리도 가운데로 */
+/* 올린 로고 — 접으면 이것만 남는다 */
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.nav-logo-img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  border-radius: 6px;
+  flex: none;
+}
+.nav-logo-nm {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--c-nav-fg-strong);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 접히면 로고 자리도 가운데로 — 마크만 남고 이름은 사라진다 */
 .app.nav-collapsed .nav-brand {
   padding: 2px 0 0;
+  justify-content: center;
 }
+.app.nav-collapsed .nav-logo-nm { display: none; }
 
 /* ── 아래쪽 묶음 — 내 장비 현황 + 사용자 ─────────────────────── */
 .nav-foot {
