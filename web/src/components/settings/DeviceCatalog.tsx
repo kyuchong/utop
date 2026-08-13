@@ -56,6 +56,8 @@ export default function DeviceCatalog() {
   /** 모델 일괄 추가 */
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulk, setBulk] = useState('')
+  /** 인터페이스 큰 편집창 — U9500H 처럼 포트가 수십·수백이면 한 줄로 안 된다 */
+  const [ifEdit, setIfEdit] = useState<{ model: Item; text: string } | null>(null)
 
   const listQ = useQuery({
     queryKey: ['device-catalog'],
@@ -421,21 +423,16 @@ export default function DeviceCatalog() {
                   <b className="dc-name" title={it.name}>
                     {it.name}
                   </b>
-                  <input
-                    className="dc2-if"
-                    defaultValue={it.interfaces ?? ''}
-                    placeholder="–"
-                    title="고치고 Enter 또는 칸 밖 클릭 — 바로 저장됩니다"
-                    onKeyDown={(e) => {
-                      // Enter = 저장. 칸 밖 클릭(blur)과 같은 길로 태운다
-                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                    }}
-                    onBlur={(e) => {
-                      const v = e.target.value.trim()
-                      if (v !== (it.interfaces ?? '').trim())
-                        saveM.mutate({ ...it, kind: 'model', interfaces: v || null })
-                    }}
-                  />
+                  {/* 포트가 수십·수백 개라 한 줄 입력으로는 안 된다 —
+                      누르면 큰 편집창이 뜬다 */}
+                  <button
+                    type="button"
+                    className="dc2-if dc2-ifbtn"
+                    title={`${it.interfaces || '(없음)'} — 누르면 크게 편집`}
+                    onClick={() => setIfEdit({ model: it, text: it.interfaces ?? '' })}
+                  >
+                    {it.interfaces || '–'}
+                  </button>
                   <span className="muted small">{it.used ? `${it.used}대` : '–'}</span>
                   <span className="dc-actions">
                     <button
@@ -456,6 +453,47 @@ export default function DeviceCatalog() {
               ))
             )}
           </div>
+
+          {ifEdit && (
+            <div className="modal-back" onMouseDown={() => setIfEdit(null)}>
+              <div
+                className="modal dc2-ifmodal"
+                role="dialog"
+                aria-modal="true"
+                aria-label="기본 인터페이스 편집"
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div className="modal-head">
+                  <b>{ifEdit.model.name} — 기본 인터페이스</b>
+                  <span className="sp" />
+                  <button className="btn" type="button" onClick={() => setIfEdit(null)}>
+                    취소
+                  </button>
+                  <button
+                    className="btn primary"
+                    type="button"
+                    onClick={() => {
+                      const v = ifEdit.text.trim().replace(/\n+/g, ', ')
+                      saveM.mutate({ ...ifEdit.model, kind: 'model', interfaces: v || null })
+                      setIfEdit(null)
+                    }}
+                  >
+                    저장
+                  </button>
+                </div>
+                <p className="muted small">
+                  쉼표나 줄바꿈으로 나눠 적으세요 — 범위 표기(gi1/0/1-48, pon1/1-80)가 됩니다.
+                  줄바꿈은 저장할 때 쉼표로 합칩니다.
+                </p>
+                <textarea
+                  autoFocus
+                  rows={12}
+                  value={ifEdit.text}
+                  onChange={(e) => setIfEdit({ ...ifEdit, text: e.target.value })}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="hint">
             기본 인터페이스를 적어두면 장비 등록에서 이 모델을 고를 때 포트가 그대로 채워집니다.
