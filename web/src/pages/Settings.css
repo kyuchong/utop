@@ -791,6 +791,8 @@
 
 
 /* ── 장비 카탈로그 v2 — 한 화면 ─────────────────────────────── */
+/* 이 화면은 표가 주인공이라 720px 제한을 푼다 — 가로 전체를 쓴다 */
+.set-page.dc2 { max-width: none; }
 .dc2-cols { display: flex; gap: var(--sp-3); align-items: flex-start; }
 .dc2-side { flex: 0 0 270px; display: flex; flex-direction: column; gap: var(--sp-2); }
 /* 분류 등록 탭에서는 옆이 아니라 본문이다 — 넓게 편다 */
