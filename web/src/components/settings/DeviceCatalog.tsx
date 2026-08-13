@@ -260,6 +260,11 @@ export default function DeviceCatalog() {
                 onChange={(e) => setDraft({ ...draft, vendor: e.target.value })}
               >
                 <option value="">Vendor</option>
+                {/* 저장값이 목록에 없으면 숨기지 말고 드러낸다 — 「유비쿼스」가
+                    DB 에 숨어 있는데 화면은 빈 칸이라, 어긋난 줄도 몰랐다 */}
+                {draft.vendor && !vendors.some((v) => v.name === draft.vendor) && (
+                  <option value={draft.vendor}>{draft.vendor} (목록에 없음)</option>
+                )}
                 {vendors.map((v) => (
                   <option key={v.name}>{v.name}</option>
                 ))}

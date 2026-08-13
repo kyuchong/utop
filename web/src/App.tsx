@@ -155,7 +155,14 @@ export default function App() {
         setUser(null)
       }}
       current={page}
-      onNavigate={setPage}
+      onNavigate={(k) => {
+        // 메뉴로 화면을 옮기면 주소의 딥링크(?cycle=… 등)는 걷어낸다.
+        // 남겨 두면 다른 화면에서 새로고침해도 그 링크가 이겨서
+        // 사이클로 끌려간다(겪었다).
+        if (window.location.search)
+          window.history.replaceState({}, '', window.location.pathname)
+        setPage(k)
+      }}
     >
       {page === 'requirements' ? (
         <Requirements />
