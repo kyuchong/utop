@@ -235,6 +235,7 @@ interface CatModel {
   model_group?: string | null
   /** 제품군 — L2 · L3 · OLT … 트리의 최상위 층 */
   family?: string | null
+  vendor?: string | null
 }
 
 interface Node {
@@ -325,10 +326,20 @@ function build(
     if (c) arr.push(c)
   }
   // 카탈로그가 씨앗이다 — 사이클이 아직 없는 모델그룹·모델도 폴더로
-  // 보여야 트리에서 만들고 바로 이어서 쓸 수 있다
-  for (const gr of catGroups) ensureMg((gr.family ?? '').trim() || '(제품군 없음)', gr.name)
-  for (const m of models)
-    ensureModel((m.family ?? '').trim() || '(제품군 없음)', (m.model_group ?? '').trim() || '(모델그룹 없음)', m.name)
+  // 보여야 트리에서 만들고 바로 이어서 쓸 수 있다.
+  //
+  // 단, **연결이 온전한 것만**. 제품군이 빈 모델그룹까지 다 보여줬더니
+  // 「(제품군 없음)」 밑에 빈 폴더가 쏟아져 트리가 쓰레기장이 됐다.
+  // 연결이 덜 된 것은 지금까지처럼 사이클이 생겨야 나타난다.
+  for (const gr of catGroups) {
+    const fam = (gr.family ?? '').trim()
+    if (fam) ensureMg(fam, gr.name)
+  }
+  for (const m of models) {
+    const fam = (m.family ?? '').trim()
+    const mg = (m.model_group ?? '').trim()
+    if (fam && mg) ensureModel(fam, mg, m.name)
+  }
   const homeOf = (model: string): [string, string] => {
     const known = groupOf.has(model)
     if (!known) return [NO_CAT, NO_CAT]
@@ -561,12 +572,20 @@ export default function Cycles({ me }: PageProps) {
     )
   }, [cycles, q])
 
+  /**
+   * 계측기(IXIA·Spirent…)는 사이클 트리에서 뺀다 — 사이클은 유비쿼스
+   * 장비를 검증하는 것이고, 계측기는 시험 도구지 시험 대상이 아니다.
+   */
+  const meterish = (x: CatModel & { kind?: string }) =>
+    (x.family ?? '').trim() === '계측기' ||
+    /^(ixia|spirent|testcenter)/i.test(String(x.vendor ?? '').trim()) ||
+    /^(ixia|n2x|stc|spirent|testcenter|n4u|n11u)/i.test(x.name.trim())
   const models = useMemo(
-    () => (catQ.data?.items ?? []).filter((x) => x.kind === 'model'),
+    () => (catQ.data?.items ?? []).filter((x) => x.kind === 'model' && !meterish(x)),
     [catQ.data],
   )
   const catGroups = useMemo(
-    () => (catQ.data?.items ?? []).filter((x) => x.kind === 'group'),
+    () => (catQ.data?.items ?? []).filter((x) => x.kind === 'group' && !meterish(x)),
     [catQ.data],
   )
   const tree = useMemo(
