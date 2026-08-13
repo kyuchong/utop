@@ -1925,3 +1925,122 @@ table.tb td.k {
 }
 .cy-stat.regress.on .cy-stat-lb,
 .cy-stat.regress.on .cy-reg-n > b { color: #fff; }
+
+
+/* ── 실행 모드 — 도는 동안 화면이 통째로 이것이 된다 ──────────── */
+.cy-runmode {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  overflow: hidden;
+}
+.cy-run-band {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--c-primary-bg);
+}
+.cy-run-band > b { font-size: 15px; }
+.cy-run-band.done { background: var(--c-surface-alt); }
+.cy-run-meta { color: var(--c-text-muted); font-size: var(--fs-sm); }
+.cy-run-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  animation: cyrun-blink 1.2s infinite;
+  flex: none;
+}
+@keyframes cyrun-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .cy-run-dot { animation: none; } }
+.cy-run-prog { height: 6px; background: var(--c-surface-alt); }
+.cy-run-prog > span {
+  display: block;
+  height: 100%;
+  background: var(--c-primary);
+  transition: width 0.4s ease;
+}
+
+.cy-run-cols {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+}
+.cy-run-q { border-right: 1px solid var(--c-border-soft); }
+.cy-q-h {
+  padding: 8px 10px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  border-bottom: 1px solid var(--c-border-soft);
+  position: sticky;
+  top: 0;
+  background: var(--c-surface);
+}
+.cy-q-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+  font-size: var(--fs-sm);
+}
+.cy-q-row.now {
+  background: var(--c-primary-bg);
+  box-shadow: inset 3px 0 0 var(--c-primary);
+  font-weight: 700;
+}
+.cy-q-id { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cy-q-lb { margin-left: auto; font-size: var(--fs-xs); flex: none; }
+.cy-q-v { width: 8px; height: 8px; border-radius: 50%; background: var(--c-border-strong); flex: none; }
+.cy-q-v.pass { background: var(--c-pass); }
+.cy-q-v.fail { background: var(--c-fail); }
+.cy-q-v.wip { background: var(--c-draft); }
+.cy-q-v.blocked { background: #8a5fd6; }
+
+.cy-run-live { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.cy-run-liveh {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 14px 6px;
+}
+.cy-run-term {
+  flex: 1;
+  min-height: 200px;
+  margin: 0 14px 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: #16181d;
+  color: #d7dde4;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.65;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.cy-run-ln > i {
+  color: #7d8b9b;
+  font-style: normal;
+  margin-right: 8px;
+}
+.cy-run-ln.pass { color: #9fe1cb; }
+.cy-run-ln.fail { color: #f09595; }
+.cy-run-ln.warn { color: #fac775; }
+.cy-run-ln.skip { color: #8a94a0; }
+.cy-run-wait { color: #8a94a0; }
+
+.cy-run-sum {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--c-border-soft);
+  background: var(--c-surface-alt);
+}

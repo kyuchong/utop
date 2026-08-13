@@ -1050,6 +1050,19 @@ function CycleDetail({
     })
   }
 
+  /**
+   * 실행 모드 — 도는 동안 화면이 통째로 바뀐다.
+   *
+   * 표·필터·통계는 훑어보는 도구라 실행 중엔 소음이다. 그때 필요한 것은
+   * 「어디까지 왔고, 지금 뭐가 돌고, 방금 뭐가 깨졌나」 셋뿐이다. 팝업이
+   * 아니라 같은 화면의 전환이다 — 닫으면 실행이 어디 갔는지 모르게 되고,
+   * 끝난 뒤 결과와 이어지지 않는다.
+   */
+  const [runView, setRunView] = useState(false)
+  useEffect(() => {
+    if (st.on) setRunView(true)
+  }, [st.on])
+
   /** 3열(스텝 세부) 폭 — 끌어서 바꾼다 */
   const colsRef = useRef<HTMLDivElement>(null)
   const [sideW, setSideW] = useResizableWidth('utop.cycle.sideW2', 760, 320, 1400)
@@ -1397,6 +1410,17 @@ function CycleDetail({
     <div className="cy-detail">
       {/* 2열·3열을 **각자 카드**로 가른다. 한 카드에 두면 3열이 2열의
           일부처럼 보인다 — 두 칸이 하는 일이 다르다. */}
+      {runView ? (
+        <RunPane
+          cycle={cycle}
+          items={items}
+          st={st}
+          onStop={() => void stop()}
+          onExit={() => setRunView(false)}
+          isRegress={isRegress}
+          prevName={prev?.version || prev?.name || ""}
+        />
+      ) : (
       <div className="cy-cols" ref={colsRef}>
       {/* 2열 — 이 회차를 돌리고 결과를 보는 칸. 머리(제목·단추·통계·거르기)와
           표가 한 카드에 든다. */}
@@ -2099,6 +2123,7 @@ function CycleDetail({
       </section>
       )}
       </div>
+      )}
 
       {defectFor && (
         <DefectDialog
@@ -2211,6 +2236,192 @@ function CycleMenu({
       {item(IconTag, '버전 이름만 바꾸기', () => void rename())}
       <hr />
       {item(IconTrash, '사이클 삭제', () => void del())}
+    </div>
+  )
+}
+
+/**
+ * 실행 모드 — 목업 그대로.
+ *
+ *  · 위: 큰 진행 띠 — 몇 번째 항목·스텝, 경과, 중지
+ *  · 왼쪽: 항목 큐 — 도는 항목을 따라가고 지나간 줄은 결과 색으로 굳는다
+ *  · 오른쪽: 지금 도는 스텝의 실행 로그가 터미널로 흐른다
+ *  · 끝나면: 아래에 Pass·Fail·회귀 요약과 「표로 돌아가기」
+ */
+function RunPane({
+  cycle,
+  items,
+  st,
+  onStop,
+  onExit,
+  isRegress,
+  prevName,
+}: {
+  cycle: CycleMeta
+  items: CycleItemLite[]
+  st: ReturnType<typeof useCycleRun>['st']
+  onStop: () => void
+  onExit: () => void
+  isRegress: (it: CycleItemLite) => boolean
+  prevName: string
+}) {
+  // 경과 시간 — 붙은 순간부터 센다. 서버가 시작 시각을 안 주므로 근사치다.
+  const t0 = useRef(Date.now())
+  const [, tick] = useState(0)
+  useEffect(() => {
+    if (!st.on) return
+    const t = setInterval(() => tick((n) => n + 1), 1000)
+    return () => clearInterval(t)
+  }, [st.on])
+  useEffect(() => {
+    if (st.on) t0.current = Date.now()
+  }, [st.runId, st.on])
+  const sec = Math.max(0, Math.floor((Date.now() - t0.current) / 1000))
+  const mmss = `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`
+
+  // 로그 터미널 — 새 줄이 오면 바닥으로. 사람이 위로 올려 봤으면 안 뺏는다.
+  const termRef = useRef<HTMLDivElement>(null)
+  const stick = useRef(true)
+  useEffect(() => {
+    const el = termRef.current
+    if (el && stick.current) el.scrollTop = el.scrollHeight
+  }, [st.log.length])
+
+  // 도는 항목이 바뀌면 큐도 그 줄로
+  const queueRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    queueRef.current
+      ?.querySelector('.cy-q-row.now')
+      ?.scrollIntoView({ block: 'nearest' })
+  }, [st.itemAt])
+
+  const done = !st.on
+  const counts: Record<string, number> = {}
+  let regress = 0
+  for (const it of items) {
+    const v = itemVerdict(it)
+    counts[v] = (counts[v] ?? 0) + 1
+    if (isRegress(it)) regress += 1
+  }
+  const prog = st.total
+    ? (st.done + (st.stepCount > 0 ? Math.min(1, (st.stepAt + 1) / st.stepCount) : 0)) / st.total
+    : 0
+
+  return (
+    <div className="cy-runmode">
+      <div className={`cy-run-band${done ? ' done' : ''}`}>
+        {!done && <span className="cy-run-dot" aria-hidden="true" />}
+        <b>
+          {cycle.version || cycle.name || cycle.id}{' '}
+          {done ? (st.status === 'stopped' ? '중지됨' : '실행 끝') : st.waiting ? '실행 대기 중' : '실행 중'}
+        </b>
+        <span className="cy-run-meta">
+          항목 {Math.min(st.done + (st.on ? 1 : 0), st.total)}/{st.total}
+          {st.stepCount > 0 && ` · 스텝 ${st.stepAt + 1}/${st.stepCount}`}
+          {' · 경과 '}
+          {mmss}
+          {st.who && ` · ${st.who} 님이 걸었습니다`}
+        </span>
+        <span className="sp" />
+        {st.on ? (
+          <button className="btn danger" type="button" onClick={onStop}>
+            ⏹ 중지
+          </button>
+        ) : (
+          <button className="btn" type="button" onClick={onExit}>
+            표로 돌아가기 →
+          </button>
+        )}
+      </div>
+      <div className="cy-run-prog" aria-hidden="true">
+        <span style={{ width: `${Math.round(prog * 100)}%` }} />
+      </div>
+
+      <div className="cy-run-cols">
+        <div className="cy-run-q scroll" ref={queueRef}>
+          <div className="cy-q-h">항목 큐 — 도는 항목을 따라갑니다</div>
+          {items.map((it, i) => {
+            const v = itemVerdict(it)
+            const now = st.on && st.itemAt === i
+            const wait = st.on && i > st.itemAt && v === ''
+            return (
+              <div key={`${it.tcid}-${i}`} className={`cy-q-row${now ? ' now' : ''}`}>
+                {now ? (
+                  <span className="cy-run-dot" aria-hidden="true" />
+                ) : (
+                  <i className={`cy-q-v ${verdictClass(v)}`} aria-hidden="true" />
+                )}
+                <span className="cy-q-id" title={it.name || it.tcid}>
+                  {it.tcid}
+                </span>
+                {isRegress(it) && (
+                  <b className="cy-regchip" title={`${prevName || '지난 사이클'} 에선 Pass`}>
+                    회귀
+                  </b>
+                )}
+                <span className={`cy-q-lb status ${verdictClass(v)}`}>
+                  {now
+                    ? st.stepCount > 0
+                      ? `${st.stepAt + 1}/${st.stepCount}`
+                      : '…'
+                    : wait
+                      ? '대기'
+                      : verdictLabel(v)}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="cy-run-live">
+          <div className="cy-run-liveh">
+            <b>{st.itemName || (done ? '실행 기록' : '…')}</b>
+            {st.stepName && <span className="muted small">{st.stepName}</span>}
+            {st.error && <span className="tc-err">{st.error}</span>}
+          </div>
+          <div
+            className="cy-run-term"
+            ref={termRef}
+            onScroll={() => {
+              const el = termRef.current
+              if (el) stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40
+            }}
+          >
+            {st.log.length === 0 && (
+              <div className="cy-run-wait">
+                {st.waiting ? '실행기가 집어 가기를 기다립니다…' : '아직 받은 것이 없습니다'}
+              </div>
+            )}
+            {st.log.slice(-400).map((l, i) => (
+              <div key={i} className={`cy-run-ln ${l.kind}`}>
+                {l.i >= 0 && <i>#{l.i + 1}</i>}
+                {l.text}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {done && (
+        <div className="cy-run-sum">
+          <b>결과</b>
+          <span className="status pass">Pass {counts['Pass'] ?? 0}</span>
+          <span className="status fail">Fail {counts['Fail'] ?? 0}</span>
+          {regress > 0 ? (
+            <span className="status fail">
+              회귀 {regress}
+              {prevName && ` — ${prevName} 에선 Pass`}
+            </span>
+          ) : (
+            <span className="muted small">회귀 0{prevName && ` (vs ${prevName})`}</span>
+          )}
+          <span className="muted small">미실행 {counts[''] ?? 0}</span>
+          <span className="sp" />
+          <button className="btn primary" type="button" onClick={onExit}>
+            표로 돌아가기 →
+          </button>
+        </div>
+      )}
     </div>
   )
 }
