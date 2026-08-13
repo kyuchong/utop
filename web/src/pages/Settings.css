@@ -748,3 +748,19 @@
 .brand-f { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-xs); color: var(--c-text-muted); }
 .brand-f input[type='number'] { width: 72px; }
 .brand-f input[type='color'] { width: 44px; height: 28px; padding: 1px; border: 1px solid var(--c-border); border-radius: var(--radius-sm); background: var(--c-surface); }
+
+
+/* ── 장비 카탈로그 — 모델명 표 ─────────────────────────────── */
+.dc-table { display: flex; flex-direction: column; }
+.dc-tr {
+  display: grid;
+  grid-template-columns: 160px 110px 90px 110px minmax(120px, 1fr) 60px 130px;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.dc-tr > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-tr.dc-th { color: var(--c-text-faint); font-size: var(--fs-xs); }
+/* 목록에 없는 값 — 숨기지 말고 붉게 드러낸다 */
+.dc-warn { color: var(--c-fail); font-weight: 700; }

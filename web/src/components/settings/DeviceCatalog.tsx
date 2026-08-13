@@ -243,25 +243,17 @@ export default function DeviceCatalog() {
         </div>
 
         <div className="dc-add">
-          {!bulkOpen && (
-            <input
-              placeholder={cur.label}
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') submit()
-              }}
-            />
-          )}
+          {/* 모델은 단계로 고른다: 벤더 → 제품군 → 모델그룹 → 모델명.
+              상위는 등록된 것만 고르게 해서 이름이 갈리는 것을 막는다.
+              저장값이 목록에 없으면 숨기지 않고 「(목록에 없음)」 으로
+              드러낸다 — 유비쿼스가 DB 에 숨은 채 화면은 빈 칸이었다. */}
           {kind === 'model' && (
             <>
               <select
                 value={draft.vendor ?? ''}
                 onChange={(e) => setDraft({ ...draft, vendor: e.target.value })}
               >
-                <option value="">Vendor</option>
-                {/* 저장값이 목록에 없으면 숨기지 말고 드러낸다 — 「유비쿼스」가
-                    DB 에 숨어 있는데 화면은 빈 칸이라, 어긋난 줄도 몰랐다 */}
+                <option value="">벤더</option>
                 {draft.vendor && !vendors.some((v) => v.name === draft.vendor) && (
                   <option value={draft.vendor}>{draft.vendor} (목록에 없음)</option>
                 )}
@@ -270,29 +262,47 @@ export default function DeviceCatalog() {
                 ))}
               </select>
               <select
-                value={draft.model_group ?? ''}
-                onChange={(e) => setDraft({ ...draft, model_group: e.target.value })}
-              >
-                <option value="">모델그룹</option>
-                {groups.map((v) => (
-                  <option key={v.name}>{v.name}</option>
-                ))}
-              </select>
-              <select
                 value={draft.family ?? ''}
                 onChange={(e) => setDraft({ ...draft, family: e.target.value })}
               >
                 <option value="">제품군</option>
+                {draft.family && !families.some((v) => v.name === draft.family) && (
+                  <option value={draft.family}>{draft.family} (목록에 없음)</option>
+                )}
                 {families.map((v) => (
                   <option key={v.name}>{v.name}</option>
                 ))}
               </select>
-              <input
-                placeholder="기본 인터페이스 (gi1/0/1-48, te1/1-4)"
-                value={draft.interfaces ?? ''}
-                onChange={(e) => setDraft({ ...draft, interfaces: e.target.value })}
-              />
+              <select
+                value={draft.model_group ?? ''}
+                onChange={(e) => setDraft({ ...draft, model_group: e.target.value })}
+              >
+                <option value="">모델그룹</option>
+                {draft.model_group && !groups.some((v) => v.name === draft.model_group) && (
+                  <option value={draft.model_group}>{draft.model_group} (목록에 없음)</option>
+                )}
+                {groups.map((v) => (
+                  <option key={v.name}>{v.name}</option>
+                ))}
+              </select>
             </>
+          )}
+          {!bulkOpen && (
+            <input
+              placeholder={kind === 'model' ? '모델명' : cur.label}
+              value={draft.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submit()
+              }}
+            />
+          )}
+          {kind === 'model' && (
+            <input
+              placeholder="기본 인터페이스 (gi1/0/1-48, te1/1-4)"
+              value={draft.interfaces ?? ''}
+              onChange={(e) => setDraft({ ...draft, interfaces: e.target.value })}
+            />
           )}
           {!bulkOpen && (
             <button
@@ -357,16 +367,58 @@ export default function DeviceCatalog() {
         ) : items.length === 0 ? (
           <div className="empty">아직 없습니다.</div>
         ) : (
+          kind === 'model' ? (
+          /* 표로 — 칸이 정렬돼야 빈 값·어긋난 값이 한눈에 드러난다 */
+          <div className="dc-table">
+            <div className="dc-tr dc-th">
+              <b>모델명</b>
+              <b>벤더</b>
+              <b>제품군</b>
+              <b>모델그룹</b>
+              <b>기본 인터페이스</b>
+              <b>사용</b>
+              <b />
+            </div>
+            {items.map((it) => (
+              <div className="dc-tr" key={it.name}>
+                <b className="dc-name">{it.name}</b>
+                <span className={vendors.some((v) => v.name === it.vendor) ? '' : 'dc-warn'}>
+                  {it.vendor || '–'}
+                </span>
+                <span className={!it.family || families.some((v) => v.name === it.family) ? '' : 'dc-warn'}>
+                  {it.family || '–'}
+                </span>
+                <span className={!it.model_group || groups.some((v) => v.name === it.model_group) ? '' : 'dc-warn'}>
+                  {it.model_group || '–'}
+                </span>
+                <span className="muted small dc-if" title={it.interfaces ?? ''}>
+                  {it.interfaces || '–'}
+                </span>
+                <span className="muted small">{it.used ? `${it.used}대` : '–'}</span>
+                <span className="dc-actions">
+                  <button className="btn small" type="button" onClick={() => setDraft({ ...it, kind })}>
+                    고치기
+                  </button>
+                  <button
+                    className="btn small danger"
+                    type="button"
+                    disabled={!!it.used || delM.isPending}
+                    title={it.used ? '쓰는 장비가 있어 지울 수 없습니다' : ''}
+                    onClick={() => {
+                      if (window.confirm(`'${it.name}' 을 지울까요?`)) delM.mutate(it)
+                    }}
+                  >
+                    삭제
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+          ) : (
           <div className="dc-list">
             {items.map((it) => (
               <div className="dc-row" key={it.name}>
                 <b className="dc-name">{it.name}</b>
-                {kind === 'model' && (
-                  <span className="muted small dc-meta">
-                    {[it.vendor, it.model_group, it.family].filter(Boolean).join(' · ') || '–'}
-                    {it.interfaces ? ` · ${it.interfaces}` : ''}
-                  </span>
-                )}
                 {kind === 'group' && (
                   <span className="muted small dc-meta">
                     {(listQ.data?.items ?? [])
@@ -399,6 +451,7 @@ export default function DeviceCatalog() {
               </div>
             ))}
           </div>
+          )
         )}
       </section>
     </div>
