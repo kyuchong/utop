@@ -407,18 +407,6 @@ export default function Cycles({ me }: PageProps) {
   const [treeOpen, setTreeOpen] = useState(
     () => localStorage.getItem('utop.cycle.treeOpen') !== '0',
   )
-  /**
-   * 보기 — detail(항목 + 스텝 세부) · list(항목 표만 넓게).
-   *
-   * 요구사항·TC 화면과 같은 토글이다. Detail 이 지금까지의 화면이고,
-   * List 는 스텝 칸을 접어 표를 넓게 쓴다 — 결과를 훑고 일괄로 고칠 때.
-   */
-  const [view, setView] = useState<'list' | 'detail'>(
-    () => (localStorage.getItem('utop.cycle.view') === 'list' ? 'list' : 'detail'),
-  )
-  useEffect(() => {
-    localStorage.setItem('utop.cycle.view', view)
-  }, [view])
   /** 1열 폭 — 끌어서 바꾼다. TC 화면과 같은 부품을 쓴다 */
   const splitRef = useRef<HTMLDivElement>(null)
   const [treeW, setTreeW] = useResizableWidth('utop.cycle.treeW', 250, 170, 460)
@@ -674,30 +662,7 @@ export default function Cycles({ me }: PageProps) {
           </span>
         </span>
         <span className="sp" />
-        {/* Detail = 항목 + 스텝 세부(지금 화면), List = 항목 표만 넓게.
-            요구사항·TC 와 같은 토글이다. */}
-        <div className="rq-view" role="tablist" aria-label="보기 방식">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'detail'}
-            className={`rq-view-b${view === 'detail' ? ' on' : ''}`}
-            title="항목과 스텝 세부를 함께 봅니다"
-            onClick={() => setView('detail')}
-          >
-            Detail
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={view === 'list'}
-            className={`rq-view-b${view === 'list' ? ' on' : ''}`}
-            title="항목 표만 넓게 봅니다"
-            onClick={() => setView('list')}
-          >
-            List
-          </button>
-        </div>
+
       </div>
 
     <div className="split cy" ref={splitRef}>
@@ -789,7 +754,6 @@ export default function Cycles({ me }: PageProps) {
             // 그 사이클을 먼저 연다 — 안 열려 있으면 시킬 데가 없다
             setSel(menu.id)
             setMenu(null)
-            if (what === 'details') setView('detail')
             setAct((a) => ({ what, n: (a?.n ?? 0) + 1 }))
           }}
         />
@@ -840,7 +804,6 @@ export default function Cycles({ me }: PageProps) {
         {cur ? (
           <CycleDetail
             cycle={cur}
-            view={view}
             act={act}
             meName={me?.name || me?.username || ''}
             onSaved={() => void listQ.refetch()}
@@ -857,7 +820,6 @@ export default function Cycles({ me }: PageProps) {
 /** 사이클 한 건 — 항목과 진행 */
 function CycleDetail({
   cycle,
-  view,
   act,
   meName,
   onSaved,
@@ -865,8 +827,6 @@ function CycleDetail({
   cycle: CycleMeta
   /** 지금 사람 — 접속자 표시와 「누가 고쳤나」 에 쓴다 */
   meName: string
-  /** list = 표만 넓게 · detail = 표 + 스텝 세부 */
-  view: 'list' | 'detail'
   /** 트리 우클릭 메뉴가 시킨 일 */
   act?: { what: 'details' | 'ai' | 'pptx' | 'run'; n: number } | null
   onSaved: () => void
@@ -1284,6 +1244,14 @@ function CycleDetail({
    */
   const followAt = st.on && follow ? st.itemAt : openItem
   const cur = followAt >= 0 ? items[followAt] : undefined
+  /**
+   * 항목을 골랐으면 스텝 세부, 아니면 표만 넓게.
+   *
+   * Detail/List 토글을 없앴다 — 요구사항·Coverage 화면과 같은 문법이다.
+   * 「무엇을 보고 있나」 가 화면을 정하지, 사람이 보기 방식을 따로
+   * 고르게 하지 않는다. 실행 따라가기 중에는 도는 항목이 곧 고른 것이다.
+   */
+  const view: 'list' | 'detail' = followAt >= 0 ? 'detail' : 'list'
   /** 지금 도는 항목이면 저장된 스텝 대신 받는 중인 것을 보여 준다 */
   const liveNow = st.on && followAt === st.itemAt && st.liveSteps.length > 0
 
