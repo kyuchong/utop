@@ -1741,8 +1741,10 @@ export default function TestCases({ me }: PageProps) {
                   >
                     {cloning ? '복사 중…' : 'Clone'}
                   </button>
+                  {/* 여러 건을 한 번에 만드는 창 — 요구사항 화면과 같은 이름.
+                      「Import」 라고 하니 파일 가져오기로 읽혔다. */}
                   <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
-                    Import
+                    Bulk Add
                   </button>
                   <button
                     className="btn danger"
