@@ -104,15 +104,36 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSE_KEY) === '1',
   )
-  /** 브랜딩 — 설정에서 올린 로고와 이름(name_text). 한 번만 읽는다 */
-  const [brand, setBrand] = useState<{ logo?: string; name?: string }>({})
+  /** 브랜딩 — 설정에서 올린 로고·이름·글꼴. 한 번만 읽는다 */
+  const [brand, setBrand] = useState<{
+    logo?: string
+    name?: string
+    size?: string
+    color?: string
+    accent?: string
+    font?: string
+  }>({})
   useEffect(() => {
     void (async () => {
       try {
         const r = await apiFetch('/api/branding')
         if (!r.ok) return
-        const b = (await r.json()) as { logo?: string; name_text?: string }
-        setBrand({ logo: b.logo, name: b.name_text })
+        const b = (await r.json()) as {
+          logo?: string
+          name_text?: string
+          name_size?: string
+          name_color?: string
+          name_accent_color?: string
+          name_font?: string
+        }
+        setBrand({
+          logo: b.logo,
+          name: b.name_text,
+          size: b.name_size,
+          color: b.name_color,
+          accent: b.name_accent_color,
+          font: b.name_font,
+        })
       } catch {
         /* 로고는 장식이다 — 못 읽어도 화면은 살아야 한다 */
       }
@@ -142,7 +163,27 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
               이름까지. 없으면 자리만 지킨다(아래 메뉴가 안 밀리게). */}
           <div className="nav-brand" aria-label="로고">
             {brand.logo && <img className="nav-logo-img" src={brand.logo} alt="로고" />}
-            {brand.name && <b className="nav-logo-nm">{brand.name}</b>}
+            {brand.name && (
+              <b
+                className="nav-logo-nm"
+                style={{
+                  fontSize: brand.size ? `${Math.min(Number(brand.size) || 15, 40)}px` : undefined,
+                  color: brand.color || undefined,
+                  fontFamily: brand.font || undefined,
+                }}
+              >
+                {/* [Q] 처럼 대괄호로 감싼 글자는 강조 색 */}
+                {brand.name.split(/(\[[^\]]*\])/).map((seg, i) =>
+                  seg.startsWith('[') && seg.endsWith(']') ? (
+                    <i key={i} style={{ fontStyle: 'normal', color: brand.accent || '#e02020' }}>
+                      {seg.slice(1, -1)}
+                    </i>
+                  ) : (
+                    seg
+                  ),
+                )}
+              </b>
+            )}
           </div>
 
           {NAV.map((group, gi) => (

@@ -744,3 +744,7 @@
 .brand-up { cursor: pointer; }
 .brand-nm { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-xs); color: var(--c-text-muted); flex: 1; }
 .brand-nm input { max-width: 260px; }
+
+.brand-f { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-xs); color: var(--c-text-muted); }
+.brand-f input[type='number'] { width: 72px; }
+.brand-f input[type='color'] { width: 44px; height: 28px; padding: 1px; border: 1px solid var(--c-border); border-radius: var(--radius-sm); background: var(--c-surface); }

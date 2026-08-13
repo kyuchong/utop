@@ -11,6 +11,10 @@ import { apiFetch } from '@/api/client'
 export default function Branding() {
   const [logo, setLogo] = useState('')
   const [name, setName] = useState('')
+  const [size, setSize] = useState('')
+  const [color, setColor] = useState('#e8eaf0')
+  const [accent, setAccent] = useState('#e02020')
+  const [font, setFont] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -18,9 +22,20 @@ export default function Branding() {
     void (async () => {
       const r = await apiFetch('/api/branding')
       if (!r.ok) return
-      const b = (await r.json()) as { logo?: string; name_text?: string }
+      const b = (await r.json()) as {
+        logo?: string
+        name_text?: string
+        name_size?: string
+        name_color?: string
+        name_accent_color?: string
+        name_font?: string
+      }
       setLogo(b.logo ?? '')
       setName(b.name_text ?? '')
+      setSize(b.name_size ?? '')
+      if (b.name_color) setColor(b.name_color)
+      if (b.name_accent_color) setAccent(b.name_accent_color)
+      setFont(b.name_font ?? '')
     })()
   }, [])
 
@@ -45,7 +60,13 @@ export default function Branding() {
       // 옛 화면의 API 를 그대로 쓴다 — 이름과 로고가 딴 주소다
       const r = await apiFetch('/api/branding', {
         method: 'POST',
-        body: JSON.stringify({ name_text: name }),
+        body: JSON.stringify({
+          name_text: name,
+          name_size: size,
+          name_color: color,
+          name_accent_color: accent,
+          name_font: font,
+        }),
       })
       if (!r.ok) {
         const b = (await r.json().catch(() => ({}))) as { detail?: string }
@@ -95,12 +116,43 @@ export default function Branding() {
 
       <div className="brand-row">
         <label className="brand-nm">
-          표시 이름
+          표시 텍스트 (강조할 글자는 [ ]로 — 예: ubi[Q]uoss-TOP)
           <input
             value={name}
-            placeholder="ubiQuoss-TOP"
+            placeholder="ubi[Q]uoss-TOP"
             onChange={(e) => setName(e.target.value)}
           />
+        </label>
+      </div>
+      <div className="brand-row">
+        <label className="brand-f">
+          글자 크기(px)
+          <input
+            type="number"
+            min={10}
+            max={40}
+            value={size}
+            placeholder="15"
+            onChange={(e) => setSize(e.target.value)}
+          />
+        </label>
+        <label className="brand-f">
+          기본 색
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
+        </label>
+        <label className="brand-f">
+          강조 색 [ ]
+          <input type="color" value={accent} onChange={(e) => setAccent(e.target.value)} />
+        </label>
+        <label className="brand-f">
+          폰트
+          <select value={font} onChange={(e) => setFont(e.target.value)}>
+            <option value="">기본</option>
+            <option value="'Noto Sans KR', sans-serif">Noto Sans KR</option>
+            <option value="'Malgun Gothic', sans-serif">맑은 고딕</option>
+            <option value="Pretendard, sans-serif">Pretendard</option>
+            <option value="monospace">Monospace</option>
+          </select>
         </label>
       </div>
 
