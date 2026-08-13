@@ -15,6 +15,7 @@ export default function Branding() {
   const [color, setColor] = useState('#e8eaf0')
   const [accent, setAccent] = useState('#e02020')
   const [font, setFont] = useState('')
+  const [link, setLink] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -29,6 +30,7 @@ export default function Branding() {
         name_color?: string
         name_accent_color?: string
         name_font?: string
+        link_url?: string
       }
       setLogo(b.logo ?? '')
       setName(b.name_text ?? '')
@@ -36,6 +38,7 @@ export default function Branding() {
       if (b.name_color) setColor(b.name_color)
       if (b.name_accent_color) setAccent(b.name_accent_color)
       setFont(b.name_font ?? '')
+      setLink(b.link_url ?? '')
     })()
   }, [])
 
@@ -66,6 +69,7 @@ export default function Branding() {
           name_color: color,
           name_accent_color: accent,
           name_font: font,
+          link_url: link,
         }),
       })
       if (!r.ok) {
@@ -153,6 +157,17 @@ export default function Branding() {
             <option value="Pretendard, sans-serif">Pretendard</option>
             <option value="monospace">Monospace</option>
           </select>
+        </label>
+      </div>
+
+      <div className="brand-row">
+        <label className="brand-nm">
+          클릭하면 열 주소 (비우면 대시보드로 이동)
+          <input
+            value={link}
+            placeholder="https://www.ubiquoss.com"
+            onChange={(e) => setLink(e.target.value)}
+          />
         </label>
       </div>
 

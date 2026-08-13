@@ -1393,13 +1393,14 @@ async def api_branding_get():
             "name_size": b.get("name_size") or "", "name_color": b.get("name_color") or "",
             "name_font": b.get("name_font") or "", "name_accent_color": b.get("name_accent_color") or "",
             "fab_greeting": b.get("fab_greeting") or "", "fab_quick": (b.get("fab_quick") if isinstance(b.get("fab_quick"), list) else []),
-            "fab_prompt": b.get("fab_prompt") or "", "fab_rules": b.get("fab_rules") or ""}
+            "fab_prompt": b.get("fab_prompt") or "", "fab_rules": b.get("fab_rules") or "",
+            "link_url": b.get("link_url") or ""}
 
 @app.post("/api/branding")
 async def api_branding_save(payload: dict, token: str = ""):
     _require_admin(token)
     b = _load_branding()
-    for k in ("name_text", "name_size", "name_color", "name_font", "name_accent_color"):
+    for k in ("name_text", "name_size", "name_color", "name_font", "name_accent_color", "link_url"):
         if k in payload:
             b[k] = str(payload.get(k) or "")[:200]
     if "fab_greeting" in payload:

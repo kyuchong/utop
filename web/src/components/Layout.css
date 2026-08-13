@@ -53,11 +53,14 @@
   color: rgb(255 255 255 / 55%);
   white-space: nowrap;
 }
-/* 올린 로고 — 접으면 이것만 남는다 */
+/* 올린 로고 — 접으면 이것만 남는다. 아래 메뉴와는 가로 줄로 가른다 */
 .nav-brand {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgb(255 255 255 / 14%);
+  margin-bottom: 8px;
 }
 .nav-logo-img {
   width: 30px;

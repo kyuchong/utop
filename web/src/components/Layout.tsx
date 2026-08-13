@@ -112,6 +112,7 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
     color?: string
     accent?: string
     font?: string
+    link?: string
   }>({})
   useEffect(() => {
     void (async () => {
@@ -125,6 +126,7 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
           name_color?: string
           name_accent_color?: string
           name_font?: string
+          link_url?: string
         }
         setBrand({
           logo: b.logo,
@@ -133,6 +135,7 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
           color: b.name_color,
           accent: b.name_accent_color,
           font: b.name_font,
+          link: b.link_url,
         })
       } catch {
         /* 로고는 장식이다 — 못 읽어도 화면은 살아야 한다 */
@@ -160,8 +163,25 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
           </button>
 
           {/* 로고 — 설정 → 브랜딩에서 올린다. 접으면 마크만, 펼치면
-              이름까지. 없으면 자리만 지킨다(아래 메뉴가 안 밀리게). */}
-          <div className="nav-brand" aria-label="로고">
+              이름까지. 누르면 브랜딩에 적은 링크로, 없으면 대시보드로. */}
+          <div
+            className="nav-brand"
+            aria-label="로고"
+            role="button"
+            tabIndex={0}
+            style={{ cursor: 'pointer' }}
+            title={brand.link || '대시보드로'}
+            onClick={() => {
+              if (brand.link) window.open(brand.link, '_blank', 'noopener')
+              else onNavigate('dashboard')
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                if (brand.link) window.open(brand.link, '_blank', 'noopener')
+                else onNavigate('dashboard')
+              }
+            }}
+          >
             {brand.logo && <img className="nav-logo-img" src={brand.logo} alt="로고" />}
             {brand.name && (
               <b
