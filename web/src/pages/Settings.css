@@ -765,8 +765,8 @@
 .dc-tr {
   display: grid;
   /* 모델명은 반으로, 그만큼 인터페이스가 갖는다 — 긴 것은 인터페이스다 */
-  grid-template-columns: 100px 120px 90px 120px minmax(110px, 0.5fr) minmax(200px, 1.8fr) 48px 90px 64px;
-  min-width: 960px;
+  grid-template-columns: 100px 120px 90px 120px minmax(110px, 0.5fr) minmax(200px, 1.8fr) 48px 64px;
+  min-width: 880px;
   gap: 8px;
   align-items: center;
   min-height: 34px;

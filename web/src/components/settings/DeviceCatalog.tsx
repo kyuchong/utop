@@ -7,7 +7,6 @@ interface Item {
   name: string
   vendor?: string | null
   operator?: string | null
-  lab?: string | null
   /** kind=model 일 때 속한 모델그룹(시리즈) */
   model_group?: string | null
   family?: string | null
@@ -193,7 +192,7 @@ export default function DeviceCatalog() {
   /** 표의 콤보 하나 — 값이 목록에 없으면 붉고, 그 값도 고를 수 있게 남긴다 */
   const cellSelect = (
     row: Item,
-    field: 'vendor' | 'operator' | 'family' | 'model_group' | 'lab',
+    field: 'vendor' | 'operator' | 'family' | 'model_group',
     listKind: string,
   ) => {
     const val = String(row[field] ?? '')
@@ -336,7 +335,6 @@ export default function DeviceCatalog() {
               <b>모델명</b>
               <b>기본 인터페이스</b>
               <b>사용</b>
-              <b>LAB</b>
               <b />
             </div>
 
@@ -370,15 +368,6 @@ export default function DeviceCatalog() {
                   onChange={(e) => setDraft({ ...draft, interfaces: e.target.value })}
                 />
                 <span />
-                <select
-                  value={String(draft.lab ?? '')}
-                  onChange={(e) => setDraft({ ...draft, lab: e.target.value })}
-                >
-                  <option value="">LAB</option>
-                  {(lists.lab ?? []).map((x) => (
-                    <option key={x.name}>{x.name}</option>
-                  ))}
-                </select>
                 <span className="dc-actions">
                   <button
                     className="btn small primary"
@@ -445,7 +434,6 @@ export default function DeviceCatalog() {
                     {it.interfaces || '–'}
                   </button>
                   <span className="muted small">{it.used ? `${it.used}대` : '–'}</span>
-                  {cellSelect(it, 'lab', 'lab')}
                   <span className="dc-actions">
                     <button
                       className="btn small danger"

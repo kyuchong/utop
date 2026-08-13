@@ -66,7 +66,8 @@
     72px                   /* 인터페이스 */
     minmax(180px, 1.2fr);  /* 사용 현황 */
   align-items: center;
-  min-height: 47px;
+  /* 카탈로그 모델 표와 같은 밀도 — 47px 는 여백 낭비였다 */
+  min-height: 34px;
   border-bottom: 1px solid var(--c-border-soft);
   min-width: 0;
 }
@@ -103,11 +104,14 @@
 
 .dev-row.th {
   background: var(--c-surface-alt);
-  color: #5b6670;
-  font-size: var(--fs-label);
-  min-height: 36px;
+  color: var(--c-text-faint);
+  font-size: var(--fs-xs);
+  min-height: 30px;
   flex: none;
 }
+/* 짝수줄 줄무늬·hover — 카탈로그 모델 표와 같은 규칙 */
+.dev-row:not(.th):not(.dev-new):nth-child(even) { background: var(--c-surface-alt); }
+.dev-row[role='button']:hover { background: var(--c-primary-bg); }
 
 .dev-row[role='button'] { cursor: pointer; }
 .dev-row[role='button']:hover { background: var(--c-surface-info); }
