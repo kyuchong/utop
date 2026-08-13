@@ -11,21 +11,6 @@ interface Props {
 }
 
 /**
- * 인터페이스 종류.
- *
- * 스위치는 48포트가 전부 같은 포트라 업링크/가입자 구분이 없다. 어느 포트를
- * 업링크로 쓸지는 그 시험에서 어떻게 물리느냐의 문제이지 장비의 성질이 아니다.
- * 그래서 '일반' 이 기본값이다 — 여기서는 '어떤 포트가 있는가' 만 적고,
- * 역할은 시험 구성도에서 정한다. OLT 처럼 하드웨어로 갈리는 장비만 지정한다.
- */
-const IF_KINDS = [
-  { v: 'general', label: '일반' },
-  { v: 'subscriber', label: '가입자' },
-  { v: 'uplink', label: '업링크' },
-  { v: 'mgmt', label: '관리' },
-]
-
-/**
  * 접속 방식.
  *
  * 한 장비에 telnet 과 ssh 가 함께 열려 있는 것이 보통이고, TC 스텝마다 어느
@@ -227,8 +212,6 @@ export default function DeviceForm({ editing, onClose }: Props) {
   })
   const [ifs, setIfs] = useState<DeviceIf[]>([])
   const [acc, setAcc] = useState<Record<string, DeviceAccess>>({})
-  const [bulk, setBulk] = useState('')
-  const [bulkKind, setBulkKind] = useState('general')
   const [error, setError] = useState('')
   const [probe, setProbe] = useState('')
 
@@ -320,16 +303,6 @@ export default function DeviceForm({ editing, onClose }: Props) {
     }
   }
 
-  const addBulk = () => {
-    const names = expandRange(bulk)
-    if (names.length === 0) return
-    const have = new Set(ifs.map((i) => i.name))
-    setIfs([
-      ...ifs,
-      ...names.filter((n) => !have.has(n)).map((name) => ({ name, kind: bulkKind })),
-    ])
-    setBulk('')
-  }
 
   const body = () => {
     // 역할에 맞는 접속방식만 저장한다. 계측기에 SSH 가 켜진 채로 남으면
@@ -661,57 +634,43 @@ export default function DeviceForm({ editing, onClose }: Props) {
               </span>
             </div>
 
-            <div className="if-add">
-              <input
-                value={bulk}
-                placeholder="gi1/0/1-48  또는  te1/1, te1/2"
-                onChange={(e) => setBulk(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    addBulk()
+            {/* 여기서는 안 고친다 — 포트 구성은 모델의 스펙이라 정본이
+                한 곳(카탈로그)이어야 한다. 장비마다 고치게 두면 같은
+                모델인데 포트 이름이 갈라진다(유비쿼스/UBIQUOSS 병). */}
+            <div className="if-ro-head">
+              <span className="muted small">
+                인터페이스는 <b>설정 → 장비 카탈로그</b>의 모델 「기본 인터페이스」 에서
+                관리합니다. 스펙이 바뀌었으면 카탈로그를 고친 뒤 아래로 다시 받아 오세요.
+              </span>
+              <button
+                className="btn small"
+                type="button"
+                disabled={!f.model}
+                title="카탈로그의 기본 인터페이스로 이 장비의 목록을 갈아끼웁니다"
+                onClick={() => {
+                  const info = rolesQ.data?.model_info?.[f.model ?? '']
+                  if (!info?.interfaces) {
+                    window.alert('카탈로그의 이 모델에 기본 인터페이스가 없습니다 — 카탈로그에 먼저 적어 주세요')
+                    return
                   }
+                  setIfs(expandRange(info.interfaces).map((n) => ({ name: n, kind: 'general' })))
                 }}
-              />
-              <select value={bulkKind} onChange={(e) => setBulkKind(e.target.value)}>
-                {IF_KINDS.map((k) => (
-                  <option key={k.v} value={k.v}>
-                    {k.label}
-                  </option>
-                ))}
-              </select>
-              <button className="btn" type="button" onClick={addBulk}>
-                추가
+              >
+                카탈로그에서 다시 불러오기
               </button>
             </div>
 
-            {ifs.length > 0 && (
-              <div className="if-list">
+            {ifs.length > 0 ? (
+              <div className="if-ro-list">
                 {ifs.map((it, i) => (
-                  <div className="if-row" key={`${it.name}-${i}`}>
-                    <span className="if-name">{it.name}</span>
-                    <select
-                      value={it.kind || 'general'}
-                      onChange={(e) =>
-                        setIfs(ifs.map((x, j) => (j === i ? { ...x, kind: e.target.value } : x)))
-                      }
-                    >
-                      {IF_KINDS.map((k) => (
-                        <option key={k.v} value={k.v}>
-                          {k.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="if-x"
-                      onClick={() => setIfs(ifs.filter((_, j) => j !== i))}
-                      aria-label={`${it.name} 삭제`}
-                    >
-                      ×
-                    </button>
-                  </div>
+                  <span className="if-chip" key={`${it.name}-${i}`}>
+                    {it.name}
+                  </span>
                 ))}
+              </div>
+            ) : (
+              <div className="muted small">
+                모델을 고르면 카탈로그의 기본 인터페이스가 자동으로 들어옵니다.
               </div>
             )}
           </div>
