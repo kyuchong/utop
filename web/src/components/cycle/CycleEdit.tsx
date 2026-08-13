@@ -187,20 +187,24 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
       .filter((v) => v && v !== '계측기' && !groupNames.has(v))
       .sort(srt)
   }, [models, modelQuery.data, vendor])
-  const mgroupOpts = useMemo(
-    () =>
-      [...new Set(
-        models
-          .filter(
-            (m) =>
-              (!vendor || String(m.vendor ?? '').trim() === vendor) &&
-              (!family || (m.family ?? '').trim() === family),
-          )
-          .map((m) => (m.model_group ?? '').trim())
-          .filter(Boolean),
-      )].sort(srt),
-    [models, vendor, family],
-  )
+  const mgroupOpts = useMemo(() => {
+    // 카탈로그의 「모델그룹」 항목이 정본이다 — 모델이 아직 참조 안 한
+    // 그룹(E43xx 등)도 골라져야 한다. 제품군을 골랐으면 그 제품군의
+    // 그룹 + 연결 안 된 그룹을 보여준다(연결 안 된 것을 숨기면
+    // 「못 가져온다」가 된다).
+    const rows = (modelQuery.data?.items ?? []).filter((x) => x.kind === 'group')
+    const fromRows = rows
+      .filter((g) => !family || !(g.family ?? '').trim() || (g.family ?? '').trim() === family)
+      .map((g) => g.name.trim())
+    const fromModels = models
+      .filter(
+        (m) =>
+          (!vendor || String(m.vendor ?? '').trim() === vendor) &&
+          (!family || (m.family ?? '').trim() === family),
+      )
+      .map((m) => (m.model_group ?? '').trim())
+    return [...new Set([...fromRows, ...fromModels])].filter(Boolean).sort(srt)
+  }, [models, modelQuery.data, vendor, family])
   const modelOpts = useMemo(
     () =>
       models.filter(
