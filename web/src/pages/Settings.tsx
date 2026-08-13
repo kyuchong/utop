@@ -1,4 +1,4 @@
-import { useState, type ComponentType } from 'react'
+import { useEffect, useState, type ComponentType } from 'react'
 import LlmSettings from '@/components/settings/LlmSettings'
 import PromptSettings from '@/components/settings/PromptSettings'
 import DeviceCatalog from '@/components/settings/DeviceCatalog'
@@ -89,7 +89,15 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
 const SECTIONS: SecItem[] = GROUPS.flatMap((g) => g.items)
 
 export default function Settings() {
-  const [sec, setSec] = useState<Section>('llm')
+  // 보던 항목을 기억한다 — 새로고침할 때마다 LLM 으로 돌아가면
+  // 카탈로그를 고치던 사람이 매번 다시 찾아 들어가야 한다(겪었다)
+  const [sec, setSec] = useState<Section>(() => {
+    const saved = localStorage.getItem('utop.set.sec')
+    return SECTIONS.some((x) => x.key === saved) ? (saved as Section) : 'llm'
+  })
+  useEffect(() => {
+    localStorage.setItem('utop.set.sec', sec)
+  }, [sec])
   const cur = SECTIONS.find((s) => s.key === sec)!
 
   return (
