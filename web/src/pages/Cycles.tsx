@@ -233,6 +233,8 @@ function kindOf(steps: CycleStep[]): 'manual' | 'auto' | 'mixed' | '' {
 interface CatModel {
   name: string
   model_group?: string | null
+  /** 제품군 — L2 · L3 · OLT … 트리의 최상위 층 */
+  family?: string | null
 }
 
 interface Node {
@@ -247,7 +249,7 @@ interface Node {
   /** 사이클이 아직 없는 빈 폴더인가 */
   empty?: boolean
   /** 폴더 종류 — 버전그룹만 사람이 만든 것이라 지울 수 있다 */
-  kind?: 'mgroup' | 'model' | 'vgroup'
+  kind?: 'family' | 'mgroup' | 'model' | 'vgroup'
   /** 버전그룹 폴더가 매달린 모델·그룹 이름 (폴더를 지울 때 KV 에서 뺀다) */
   model?: string
   vgroup?: string
@@ -297,79 +299,104 @@ function build(
   folders: Record<string, string[]>,
 ): Node[] {
   const groupOf = new Map(models.map((m) => [m.name, (m.model_group ?? '').trim()]))
+  const famOf = new Map(models.map((m) => [m.name, (m.family ?? '').trim()]))
 
-  /** 모델그룹 → 모델 → 버전그룹 → 사이클 */
-  const g = new Map<string, Map<string, Map<string, CycleMeta[]>>>()
-  const put = (mg: string, model: string, vg: string, c?: CycleMeta) => {
-    let a = g.get(mg)
-    if (!a) g.set(mg, (a = new Map()))
+  /** 제품군 → 모델그룹 → 모델 → 버전그룹 → 사이클.
+      최상위가 제품군(L2·L3·OLT)이라야 「L2 전체가 어떤가」 를 한 번에 본다. */
+  const g = new Map<string, Map<string, Map<string, Map<string, CycleMeta[]>>>>()
+  const put = (fam: string, mg: string, model: string, vg: string, c?: CycleMeta) => {
+    let f = g.get(fam)
+    if (!f) g.set(fam, (f = new Map()))
+    let a = f.get(mg)
+    if (!a) f.set(mg, (a = new Map()))
     let b = a.get(model)
     if (!b) a.set(model, (b = new Map()))
     let arr = b.get(vg)
     if (!arr) b.set(vg, (arr = []))
     if (c) arr.push(c)
   }
+  const homeOf = (model: string): [string, string] => {
+    const known = groupOf.has(model)
+    if (!known) return [NO_CAT, NO_CAT]
+    return [famOf.get(model) || '(제품군 없음)', groupOf.get(model) || '(모델그룹 없음)']
+  }
 
   for (const c of cycles) {
     const model = String(c.model ?? '').trim() || '(모델 없음)'
-    const known = groupOf.has(model)
-    const mg = known ? groupOf.get(model) || '(모델그룹 없음)' : NO_CAT
-    put(mg, model, String(c.version_group ?? '').trim() || NO_GROUP, c)
+    const [fam, mg] = homeOf(model)
+    put(fam, mg, model, String(c.version_group ?? '').trim() || NO_GROUP, c)
   }
   // 사이클이 아직 없는 버전그룹도 자리를 만든다 — 만들어 놓고 안 보이면
   // 만든 줄 모르고 또 만든다
   for (const [model, arr] of Object.entries(folders)) {
-    const mg = groupOf.has(model) ? groupOf.get(model) || '(모델그룹 없음)' : NO_CAT
-    for (const vg of arr) put(mg, model, vg)
+    const [fam, mg] = homeOf(model)
+    for (const vg of arr) put(fam, mg, model, vg)
   }
 
+  const srt = (a: [string, unknown], b: [string, unknown]) => a[0].localeCompare(b[0], 'ko')
   const nodes: Node[] = []
-  for (const [mg, byModel] of [...g.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'))) {
-    const mNodes: Node[] = []
-    for (const [model, byVg] of [...byModel.entries()].sort((a, b) =>
-      a[0].localeCompare(b[0], 'ko'),
-    )) {
-      const vNodes: Node[] = []
-      for (const [vg, list] of [...byVg.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'))) {
-        vNodes.push({
-          key: `${mg}/${model}/${vg}`,
-          label: vg,
+  for (const [fam, byMg] of [...g.entries()].sort(srt)) {
+    const gNodes: Node[] = []
+    for (const [mg, byModel] of [...byMg.entries()].sort(srt)) {
+      const mNodes: Node[] = []
+      for (const [model, byVg] of [...byModel.entries()].sort(srt)) {
+        const vNodes: Node[] = []
+        for (const [vg, list] of [...byVg.entries()].sort(srt)) {
+          vNodes.push({
+            key: `${fam}/${mg}/${model}/${vg}`,
+            label: vg,
+            depth: 3,
+            kind: 'vgroup',
+            model,
+            vgroup: vg,
+            count: list.length,
+            empty: list.length === 0,
+            children: list
+              .slice()
+              .sort((a, b) => String(b.version ?? '').localeCompare(String(a.version ?? ''), 'ko'))
+              .map((c) => ({
+                key: c.id,
+                label: String(c.version ?? '').trim() || c.name || c.id,
+                depth: 4,
+                count: c._item_count ?? 0,
+                children: [],
+                cycle: c,
+              })),
+          })
+        }
+        mNodes.push({
+          key: `${fam}/${mg}/${model}`,
+          label: model,
           depth: 2,
-          kind: 'vgroup',
+          kind: 'model',
           model,
-          vgroup: vg,
-          count: list.length,
-          empty: list.length === 0,
-          children: list
-            .slice()
-            .sort((a, b) => String(b.version ?? '').localeCompare(String(a.version ?? ''), 'ko'))
-            .map((c) => ({
-              key: c.id,
-              label: String(c.version ?? '').trim() || c.name || c.id,
-              depth: 3,
-              count: c._item_count ?? 0,
-              children: [],
-              cycle: c,
-            })),
+          count: vNodes.reduce((a, n) => a + n.count, 0),
+          children: vNodes,
         })
       }
-      mNodes.push({
-        key: `${mg}/${model}`,
-        label: model,
+      gNodes.push({
+        key: `${fam}/${mg}`,
+        label: mg,
         depth: 1,
-        kind: 'model',
-        model,
-        count: vNodes.reduce((a, n) => a + n.count, 0),
-        children: vNodes,
+        kind: 'mgroup',
+        count: mNodes.reduce((a, n) => a + n.count, 0),
+        children: mNodes,
       })
     }
+    // 카탈로그에 없는 모델 묶음은 모델그룹 층이 무의미하다 — 한 층 줄인다
+    const flat = fam === NO_CAT && gNodes.length === 1 ? gNodes[0]!.children : gNodes
+    if (fam === NO_CAT)
+      for (const n of flat) {
+        n.depth = 1
+        for (const m of n.children) m.depth = Math.min(m.depth, 2)
+      }
     nodes.push({
-      key: mg,
-      label: mg,
+      key: fam,
+      label: fam,
       depth: 0,
-      kind: 'mgroup',
-      count: mNodes.reduce((a, n) => a + n.count, 0),
-      children: mNodes,
+      kind: 'family',
+      count: flat.reduce((a, n) => a + n.count, 0),
+      children: flat,
     })
   }
   return nodes
@@ -609,15 +636,18 @@ export default function Cycles({ me }: PageProps) {
       })
       if (!r.ok) throw new Error(String(r.status))
       await vgQ.refetch()
-      setOpen((x) => new Set(x).add(`${groupOfModel(model)}/${model}`))
+      setOpen((x) => new Set(x).add(pathOfModel(model)))
     } catch (e) {
       window.alert(`버전그룹을 만들지 못했습니다 — ${e instanceof Error ? e.message : e}`)
     }
   }
-  /** 트리 키를 만들 때 쓰는 모델→모델그룹 (build 와 같은 규칙) */
-  const groupOfModel = (model: string) => {
+  /** 트리 키를 만들 때 쓰는 모델의 자리 (build 와 같은 규칙) */
+  const pathOfModel = (model: string) => {
     const m = models.find((x) => x.name === model)
-    return m ? (m.model_group ?? '').trim() || '(모델그룹 없음)' : NO_CAT
+    if (!m) return `${NO_CAT}/${model}`
+    const fam = (m.family ?? '').trim() || '(제품군 없음)'
+    const mg = (m.model_group ?? '').trim() || '(모델그룹 없음)'
+    return `${fam}/${mg}/${model}`
   }
 
   const renderNode = (n: Node): React.ReactNode => {
@@ -631,7 +661,7 @@ export default function Cycles({ me }: PageProps) {
           }${!n.cycle && n.depth === 0 ? ' rt-top' : ''}`}
           role="button"
           tabIndex={0}
-          style={{ paddingLeft: 6 + n.depth * 14 }}
+          style={{ paddingLeft: 6 + (n.depth + 1) * 14 }}
           /* 열지 않고도 상태가 읽히게 — 색 막대가 든 요약 카드를 띄운다.
              브라우저 기본 말풍선은 글자뿐이라 숫자가 안 읽혔다. */
           onMouseEnter={(e) => {
@@ -818,6 +848,46 @@ export default function Cycles({ me }: PageProps) {
           )}
         </div>
         <div className="cy-body">
+          {/* Root — 늘 맨 위에 있다. 누르면 전체 관제판, 올리면 전체 합산.
+              「전체」 로 돌아가는 길이 빵부스러기에만 있으면 트리에서 길을
+              잃는다. */}
+          <div
+            className={`rt-fold cy-node rt-top cy-root${!sel && !scope ? ' on' : ''}`}
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              setTip(null)
+              setScope(null)
+              setSel('')
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setScope(null)
+                setSel('')
+              }
+            }}
+            onMouseEnter={(e) => {
+              const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              setTip({
+                node: { key: '__root', label: 'Root', depth: 0, count: cycles.length, children: tree },
+                x: r.right + 10,
+                y: r.top - 4,
+              })
+            }}
+            onMouseLeave={() => setTip(null)}
+          >
+            <span className="rt-caret">
+              <span className="rt-dot" />
+            </span>
+            <span className="rt-ficon" aria-hidden="true">
+              <IconFolder open />
+            </span>
+            <span className="rt-fname cy-nm">Root</span>
+            <span className="rt-cnt" title="사이클">
+              {cycles.length || ''}
+            </span>
+          </div>
           {listQ.isLoading ? (
             <div className="empty">불러오는 중…</div>
           ) : tree.length ? (
@@ -1475,6 +1545,14 @@ function CycleDetail({
     }
     return m
   }, [reqQ2.data])
+  /** 내부 키(rq-…) → 부여 ID(REQ-2633-0003). 내부 키는 화면에 안 낸다 */
+  const reqIdOf = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of reqQ2.data?.reqs ?? []) {
+      if (r.id && r.reqid) m.set(String(r.id), String(r.reqid))
+    }
+    return m
+  }, [reqQ2.data])
 
   /** 거를 값 목록 — 이 회차에 실제로 있는 것만 띄운다 */
   const opts = useMemo(() => {
@@ -2106,7 +2184,11 @@ function CycleDetail({
                   <IconFolder open />
                 </span>
                 <b>{reqName.get(rid) || rid || '(요구사항 없음)'}</b>
-                {rid && <span className="muted small">{rid}</span>}
+                {/* 부여 ID 만 보여준다 — 내부 키(rq-…)는 사람이 읽을 글이 아니다 */}
+                {(() => {
+                  const label = reqIdOf.get(rid) || (rid.startsWith('rq-') ? '' : rid)
+                  return label ? <span className="muted small">{label}</span> : null
+                })()}
                 <span className="sp" />
                 <span className="muted small">{gRows.length}건</span>
               </div>

@@ -2116,3 +2116,7 @@ table.tb td.k {
 .cy-tip-r > i.fail { background: var(--c-fail); }
 .cy-tip-r > i.none { background: var(--c-border-strong); }
 .cy-tip-r > .muted { margin-left: auto; }
+
+
+/* Root 줄 — 고른 상태(전체 보기)면 표시 */
+.cy-root.on { background: var(--c-primary-bg); box-shadow: inset 3px 0 0 var(--c-primary); }
