@@ -732,21 +732,41 @@ export default function Cycles({ me }: PageProps) {
       window.alert(`만들지 못했습니다 — ${e instanceof Error ? e.message : e}`)
     }
   }
-  /** 빈 모델그룹·모델 폴더를 카탈로그에서 지운다. 사이클이 있으면 거절 */
+  /**
+   * 제품군·모델그룹·모델 폴더 지우기 — 카탈로그에서 뺀다.
+   *
+   * 순서가 있다: **하위부터**. 하위가 남아 있으면 그쪽이 이 폴더를 다시
+   * 만들어 내서(모델이 모델그룹 이름을 들고 있다) 지워도 되살아난다.
+   * 그래서 하위가 있으면 지우지 않고 이유를 말한다.
+   */
   const deleteCatalogNode = async (n: Node) => {
     if (n.count > 0) {
-      window.alert('이 폴더에 사이클이 있어 지울 수 없습니다 — 사이클을 먼저 정리하세요')
+      window.alert('이 폴더에 사이클이 있습니다 — 사이클을 먼저 정리하세요')
+      return
+    }
+    if (n.children.length > 0) {
+      const what =
+        n.kind === 'family' ? '모델그룹' : n.kind === 'mgroup' ? '모델' : '버전그룹'
+      window.alert(
+        `아래 ${what} 폴더가 남아 있습니다 — 하위부터 지워야 합니다.\n` +
+          '하위가 남아 있으면 지워도 폴더가 다시 나타납니다.',
+      )
       return
     }
     const kind = n.kind === 'family' ? 'family' : n.kind === 'mgroup' ? 'group' : 'model'
-    if (!window.confirm(`「${n.label}」 폴더를 카탈로그에서 지웁니다.`)) return
+    if (!window.confirm(`「${n.label}」 폴더를 지웁니다.`)) return
     const r = await apiFetch(
       `/api/device-catalog2/${kind}/${encodeURIComponent(n.label)}`,
       { method: 'DELETE' },
     )
     if (!r.ok) {
       const b = (await r.json().catch(() => ({}))) as { detail?: string }
-      window.alert(`지우지 못했습니다 — ${b.detail || r.status}`)
+      if (r.status === 404)
+        window.alert(
+          '카탈로그에 등록된 폴더가 아니라 지울 것이 없습니다.\n' +
+            '이 폴더는 하위(모델·사이클)가 있어서 보이는 것입니다 — 하위를 지우면 함께 사라집니다.',
+        )
+      else window.alert(`지우지 못했습니다 — ${b.detail || r.status}`)
       return
     }
     await catQ.refetch()
@@ -1166,8 +1186,13 @@ export default function Cycles({ me }: PageProps) {
               })
             else if (n.kind === 'family' || n.kind === 'mgroup' || n.kind === 'model')
               out.push({
-                label: n.count > 0 ? '폴더 지우기 — 사이클이 있어 못 지웁니다' : '폴더 지우기',
-                disabled: n.count > 0,
+                label:
+                  n.count > 0
+                    ? '폴더 지우기 — 사이클이 있어 못 지웁니다'
+                    : n.children.length > 0
+                      ? '폴더 지우기 — 하위 폴더부터 지우세요'
+                      : '폴더 지우기',
+                disabled: n.count > 0 || n.children.length > 0,
                 fn: done(() => void deleteCatalogNode(n)),
               })
             if (n.count > 0)
