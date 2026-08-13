@@ -424,17 +424,36 @@ export default function Requirements() {
    * 감각을 잃었다. 트리는 230px 이라 셋을 펴 둬도 상세가 넉넉하다 —
    * 좁으면 사람이 접기 단추로 접으면 된다.
    */
+  /** 주소에 쓸 이름 — 내부 키(rq-…)가 아니라 부여 ID(REQ-2633-0003) */
+  const urlIdOf = (pk: string) => {
+    const r = allReqs.find((x) => reqPk(x) === pk)
+    return (r?.reqid ?? '').trim() || pk
+  }
+  /** 주소·링크로 온 이름을 내부 키로 — 부여 ID 든 내부 키든 받아 준다 */
+  const pkOf = (id: string) =>
+    reqPk(allReqs.find((x) => reqPk(x) === id || (x.reqid ?? '') === id) ?? ({ id } as never)) || id
+
   // 링크·뒤로가기로 이 화면에 온 채 다른 요구사항을 가리키면 갈아탄다
   useEffect(
     () =>
       onGoto((kind, id) => {
-        if (kind === 'req' && id !== selected) setSelected(id)
+        if (kind !== 'req') return
+        const pk = pkOf(id)
+        if (pk !== selected) setSelected(pk)
       }),
-    [selected],
+    [selected, allReqs], // eslint-disable-line react-hooks/exhaustive-deps
   )
 
+  // 새로 열었을 때 주소에 부여 ID 가 있었으면(딥링크) 내부 키로 푼다
+  useEffect(() => {
+    if (!selected || !allReqs.length) return
+    if (allReqs.some((r) => reqPk(r) === selected)) return
+    const pk = pkOf(selected)
+    if (pk !== selected) setSelected(pk)
+  }, [allReqs, selected]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const goDetail = (pk: string, to: typeof tab = tab) => {
-    reflectUrl('req', pk)
+    reflectUrl('req', urlIdOf(pk))
     setSelected(pk)
     setTab(to)
   }
@@ -709,7 +728,7 @@ export default function Requirements() {
                 // 트리에서 요구사항을 고르면 그 한 건을 보는 것이다 → Detail.
                 // 폴더는 지우지 않는다(가운데 목록이 형제를 보여 줘야 한다).
                 setSelected(pk)
-                reflectUrl('req', pk)
+                reflectUrl('req', urlIdOf(pk))
               }}
               view={{ fullId, foldersOnly }}
               folderQ={folderQ}
