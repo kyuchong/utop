@@ -1352,12 +1352,6 @@ export default function TestCases({ me }: PageProps) {
                       <>
                         <div className="tc-menu-back" onClick={() => setMenuOpen(false)} />
                         <div className="tc-menu" role="menu">
-                          <button type="button" disabled={!openId}>
-                            ✨ AI 로 만들기
-                          </button>
-                          {/* 「⌨ 명령어 캡쳐」 는 실행 줄에 있다. 같은 것을 여기 또 두면
-                              어느 쪽이 무엇인지 생각하게 된다. */}
-                          <hr />
                           {/* 랩마다 UTOP 이 따로 서 있어서 한쪽에서 만든 시험을 다른
                               쪽에서 그대로 돌리고 싶은 일이 잦다. DB 를 통째로 옮기면
                               장비 비밀번호까지 따라가므로, 시험 하나만 파일로 뗀다. */}
@@ -1397,13 +1391,6 @@ export default function TestCases({ me }: PageProps) {
                             }}
                           >
                             파일에서 가져오기
-                          </button>
-                          <hr />
-                          <button type="button" onClick={() => { setMenuOpen(false); setBulkOpen(true) }}>
-                            일괄 생성
-                          </button>
-                          <button type="button" onClick={() => { setMenuOpen(false); setForm(null) }}>
-                            + Test Case
                           </button>
                         </div>
                       </>
