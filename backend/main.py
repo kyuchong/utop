@@ -2999,6 +2999,22 @@ async def device_catalog_save(payload: dict):
     return {"success": True}
 
 
+@app.post("/api/device-catalog2/rename")
+async def device_catalog_rename(payload: dict):
+    kind = str(payload.get("kind") or "").strip()
+    old = str(payload.get("old") or "").strip()
+    new = str(payload.get("new") or "").strip()
+    if kind == "model":
+        raise HTTPException(400, "모델명은 사이클·시험이 물려 있어 여기서 못 바꿉니다")
+    if kind not in db.CATALOG_KINDS or not old or not new:
+        raise HTTPException(400, "kind·old·new 가 필요합니다")
+    try:
+        await db.catalog_rename(kind, old, new)
+    except ValueError as e:
+        raise HTTPException(404, str(e)) from e
+    return {"success": True}
+
+
 @app.delete("/api/device-catalog2/{kind}/{name}")
 async def device_catalog_delete(kind: str, name: str):
     used = await db.catalog_usage(kind, name)

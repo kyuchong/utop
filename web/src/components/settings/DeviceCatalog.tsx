@@ -96,6 +96,24 @@ export default function DeviceCatalog() {
     onError: (e) => setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) }),
   })
 
+  /** 이름 변경 — 그 이름을 쓰는 모델·장비까지 서버가 한 번에 바꾼다.
+      「고치기」 로 이름을 바꾸면 새 항목이 생겨 Spirent/SPIRENT 처럼
+      갈라졌다(겪었다). */
+  const renameM = useMutation({
+    mutationFn: async (v: { kind: string; old: string; next: string }) => {
+      const r = await apiFetch('/api/device-catalog2/rename', {
+        method: 'POST',
+        body: JSON.stringify({ kind: v.kind, old: v.old, new: v.next }),
+      })
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { detail?: string }).detail || String(r.status))
+    },
+    onSuccess: () => {
+      setNote({ kind: 'ok', msg: '이름을 바꿨습니다 — 쓰던 모델·장비도 함께 바뀌었습니다' })
+      void listQ.refetch()
+    },
+    onError: (e) => setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) }),
+  })
+
   const vendors = (listQ.data?.items ?? []).filter((i) => i.kind === 'vendor')
   const operators = (listQ.data?.items ?? []).filter((i) => i.kind === 'operator')
   const groups = (listQ.data?.items ?? []).filter((i) => i.kind === 'group')
@@ -448,12 +466,18 @@ export default function DeviceCatalog() {
                 )}
                 <span className="muted small">{it.used ? `${it.used}대 사용 중` : ''}</span>
                 <span className="dc-actions">
+                  {/* 이름뿐인 항목이라 「고치기」 대신 진짜 이름 변경 —
+                      참조(모델·장비)까지 서버가 함께 바꾼다 */}
                   <button
                     className="btn small"
                     type="button"
-                    onClick={() => setDraft({ ...it, kind })}
+                    onClick={() => {
+                      const next = window.prompt(`'${it.name}' 의 새 이름`, it.name)?.trim()
+                      if (next && next !== it.name)
+                        renameM.mutate({ kind, old: it.name, next })
+                    }}
                   >
-                    고치기
+                    이름 변경
                   </button>
                   <button
                     className="btn small danger"

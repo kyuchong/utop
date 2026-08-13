@@ -1120,6 +1120,31 @@ async def catalog_upsert(item: dict) -> None:
         )
 
 
+async def catalog_rename(kind: str, old: str, new: str) -> None:
+    """항목 이름 변경 — 그 이름을 쓰는 모델·장비까지 한 번에.
+
+    「고치기」 로 이름을 바꾸면 새 항목이 생기고 옛 것과 참조가 남아
+    Spirent/SPIRENT 처럼 갈라졌다. 이름은 열쇠라서, 바꾸려면 참조까지
+    같이 움직여야 한다. 모델명은 사이클·시험까지 물려 있어 여기서 안
+    다룬다."""
+    ref_cat = {"vendor": "vendor", "operator": "operator",
+               "group": "model_group", "family": "family"}.get(kind)
+    ref_dev = {"vendor": "vendor", "family": "role", "lab": "lab"}.get(kind)
+    async with pool().acquire() as c:
+        async with c.transaction():
+            r = await c.execute(
+                "UPDATE device_catalog SET name=$1 WHERE kind=$2 AND name=$3", new, kind, old
+            )
+            if not r.endswith(" 1"):
+                raise ValueError("없는 항목입니다")
+            if ref_cat:
+                await c.execute(
+                    f"UPDATE device_catalog SET {ref_cat}=$1 WHERE {ref_cat}=$2", new, old
+                )
+            if ref_dev:
+                await c.execute(f"UPDATE device SET {ref_dev}=$1 WHERE {ref_dev}=$2", new, old)
+
+
 async def catalog_delete(kind: str, name: str) -> bool:
     async with pool().acquire() as c:
         r = await c.execute(
