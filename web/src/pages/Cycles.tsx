@@ -253,6 +253,25 @@ interface Node {
   vgroup?: string
 }
 
+/** 사이클 하나의 결과 셈 — 트리 말풍선과 요약판이 같이 쓴다 */
+function tallyOf(c: CycleMeta): { t: number; p: number; f: number } {
+  const its = c.items ?? []
+  let p = 0
+  let f = 0
+  for (const it of its) {
+    const v = itemVerdict(it)
+    if (v === 'Pass') p += 1
+    else if (v === 'Fail') f += 1
+  }
+  return { t: its.length, p, f }
+}
+
+/** 이 가지 아래의 사이클 전부 */
+function cyclesUnder(n: Node): CycleMeta[] {
+  if (n.cycle) return [n.cycle]
+  return n.children.flatMap(cyclesUnder)
+}
+
 /** 보던 자리를 기억한다 — 화면 이름은 App 이, 그 안은 여기가 */
 const CY_SEL_KEY = 'utop.cycle.sel'
 const CY_OPEN_KEY = 'utop.cycle.open'
@@ -415,6 +434,8 @@ export default function Cycles({ me }: PageProps) {
   }, [treeOpen])
 
   const [sel, setSel] = useState(() => localStorage.getItem(CY_SEL_KEY) || '')
+  /** 트리에서 폴더를 골랐으면 관제판을 그 묶음으로 좁힌다 */
+  const [scope, setScope] = useState<{ label: string; ids: Set<string> } | null>(null)
   // 고르면 주소창에 남긴다 — 옛 화면의 #cycle=… 과 같은 일
   useEffect(() => {
     if (sel) reflectUrl('cycle', sel)
@@ -579,7 +600,29 @@ export default function Cycles({ me }: PageProps) {
           role="button"
           tabIndex={0}
           style={{ paddingLeft: 6 + n.depth * 14 }}
-          onClick={() => (n.cycle ? setSel(n.cycle.id) : toggle(n.key))}
+          /* 열지 않고도 상태가 읽히게 — 잎은 그 사이클, 가지는 그 아래 전부 */
+          title={(() => {
+            const cs = cyclesUnder(n)
+            const a = cs.reduce(
+              (x, c) => {
+                const t = tallyOf(c)
+                return { t: x.t + t.t, p: x.p + t.p, f: x.f + t.f }
+              },
+              { t: 0, p: 0, f: 0 },
+            )
+            const head = n.cycle ? '' : `사이클 ${cs.length} · `
+            return `${head}Pass ${a.p} · Fail ${a.f} · 나머지 ${a.t - a.p - a.f} (총 ${a.t}건)`
+          })()}
+          onClick={() => {
+            if (n.cycle) {
+              setSel(n.cycle.id)
+              return
+            }
+            toggle(n.key)
+            // 폴더를 고른 것이기도 하다 — 오른쪽에 그 묶음의 버전별 요약판
+            setScope({ label: n.label, ids: new Set(cyclesUnder(n).map((c) => c.id)) })
+            setSel('')
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
@@ -645,7 +688,14 @@ export default function Cycles({ me }: PageProps) {
       <div className="rq-bar">
         <span className="rq-crumb">
           {/* 「사이클」 을 누르면 관제판(고른 것 없음)으로 돌아간다 */}
-          <button type="button" className="rq-crumb-home" onClick={() => setSel('')}>
+          <button
+            type="button"
+            className="rq-crumb-home"
+            onClick={() => {
+              setScope(null)
+              setSel('')
+            }}
+          >
             사이클
           </button>
           {crumbs.map((c) => (
@@ -815,7 +865,11 @@ export default function Cycles({ me }: PageProps) {
             onSaved={() => void listQ.refetch()}
           />
         ) : (
-          <CycleBoard cycles={cycles} onPick={(id) => setSel(id)} />
+          <CycleBoard
+            cycles={scope ? cycles.filter((c) => scope.ids.has(c.id)) : cycles}
+            scopeLabel={scope?.label}
+            onPick={(id) => setSel(id)}
+          />
         )}
       </section>
     </div>
@@ -833,9 +887,12 @@ export default function Cycles({ me }: PageProps) {
  */
 function CycleBoard({
   cycles,
+  scopeLabel,
   onPick,
 }: {
   cycles: CycleMeta[]
+  /** 트리에서 폴더를 골랐으면 그 이름 — 무엇으로 좁혀 보고 있는지 */
+  scopeLabel?: string
   onPick: (id: string) => void
 }) {
   const groups = useMemo(() => {
@@ -852,7 +909,7 @@ function CycleBoard({
   return (
     <div className="cy-board scroll">
       <div className="cy-board-h">
-        <b>어느 버전을 검증할까요</b>
+        <b>{scopeLabel ? `${scopeLabel} — 버전별 상태` : '어느 버전을 검증할까요'}</b>
         <span className="muted small">
           카드를 누르면 실행 화면이 열립니다 · 색 띠는 Pass/Fail, 숫자는 실행 진행률
         </span>

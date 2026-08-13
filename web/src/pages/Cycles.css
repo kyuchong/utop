@@ -2068,3 +2068,11 @@ table.tb td.k {
   border-top: 1px solid var(--c-border-soft);
   background: var(--c-surface-alt);
 }
+
+
+/* ── 3열 다 펼쳤을 때 — 짜부라뜨리지 말고 가로로 민다 ──────────
+   전에는 트리+표+스텝 세부가 남은 폭을 나눠 갖다가 서로 뭉개졌다.
+   칸마다 최소 폭을 지키고, 모자라면 가로 스크롤이 생긴다. */
+.cy-cols { overflow-x: auto; }
+.cy-exec { min-width: 640px; }
+.cy-side { min-width: 340px; }
