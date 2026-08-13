@@ -12640,14 +12640,63 @@ async def tc_generate(tc_id: str, payload: dict):
     잘못된 명령이 장비로 나간다. 화면에서 확인하고 적용하게 한다.
     """
     prompt = str(payload.get("prompt") or "").strip()
+    # 근거 찾기용 짧은 질의. 문서로 만들 때는 프롬프트가 길어서 그대로
+    # 쓰면 "시험 제목:" 같은 껍데기 낱말로 장비를 찾게 된다.
+    gquery = prompt
+
     if not prompt:
-        raise HTTPException(400, "무엇을 시험할지 적어주세요")
+        # 프롬프트가 없으면 **요구사항 구현의도 + 시험 목적**으로 만든다.
+        # 이쪽이 본류다 — 시험은 요구사항을 검증하려고 있는 것이라, 무엇을
+        # 만들지는 그 두 글이 정한다. 한 줄 요청은 빠른 손을 위한 지름길이다.
+        tc = payload.get("tc") if isinstance(payload.get("tc"), dict) else None
+        if tc is None:
+            tc = await db.tc_get(_tc_id_norm(tc_id))
+        if not isinstance(tc, dict):
+            raise HTTPException(404, "TC 를 찾을 수 없습니다")
+        req = None
+        rid = str(tc.get("req_id") or "").strip()
+        if rid:
+            try:
+                # req_id 칸에는 PG 키(rq-…)와 부여 ID(U-REQ-…)가 섞여 있다
+                req = await db.req_get(rid)
+                if req is None:
+                    async with db.pool().acquire() as c:
+                        row = await c.fetchrow(
+                            "SELECT data FROM req WHERE data->>'reqid'=$1 LIMIT 1", rid
+                        )
+                        req = dict(row["data"]) if row else None
+            except Exception as e:
+                print(f"[tc_generate] 요구사항 조회 실패({rid}): {e}", flush=True)
+        intent = str((req or {}).get("desc") or "").strip()
+        obj = str(tc.get("object_md") or "").strip()
+        pre = str(tc.get("precondition_md") or "").strip()
+        name = str(tc.get("name") or "").strip()
+        if not intent and not obj:
+            # 재료가 없으면 모델은 지어낼 수밖에 없다 — 만들지 않는 것이 맞다
+            raise HTTPException(
+                400,
+                "요구사항 구현의도(Intent)와 시험 목적(Object)이 모두 비어 있습니다 — "
+                "둘 중 하나는 있어야 스텝을 설계할 수 있습니다",
+            )
+        parts = [f"시험 제목: {name or tc_id}"]
+        if req:
+            parts.append(f"요구사항: {req.get('title') or req.get('reqid') or rid}")
+        if intent:
+            parts.append(f"=== 요구사항 구현의도 ===\n{intent[:4000]}")
+        if obj:
+            parts.append(f"=== 시험 목적 ===\n{obj[:2000]}")
+        if pre:
+            parts.append(f"=== 사전 준비 조건 ===\n{pre[:1000]}")
+        parts.append("위 구현의도와 시험 목적을 검증하는 시험 스텝을 설계하라.")
+        prompt = "\n\n".join(parts)
+        gquery = " ".join(x for x in [name, str((req or {}).get("title") or ""), obj[:200]] if x)
+
     if claude_client is None:
         raise HTTPException(503, "ANTHROPIC_API_KEY 가 설정되지 않았습니다 (.env)")
 
-    devs = await _grounding_devices(prompt)
-    prev = await _grounding_steps(prompt)
-    docs = await _grounding_docs(prompt)
+    devs = await _grounding_devices(gquery)
+    prev = await _grounding_steps(gquery)
+    docs = await _grounding_docs(gquery)
 
     dev_txt = "\n".join(
         f"- {d.get('ip')} · {d.get('model') or '?'}"

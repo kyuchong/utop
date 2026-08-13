@@ -38,6 +38,7 @@ import TcTopology from '@/components/tc/TcTopology'
 import TcTraffic from '@/components/tc/TcTraffic'
 import TcHistory from '@/components/tc/TcHistory'
 import TcCycles from '@/components/tc/TcCycles'
+import TcSuggest from '@/components/tc/TcSuggest'
 import { deviceLabel, isMeter } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
@@ -2074,6 +2075,14 @@ export default function TestCases({ me }: PageProps) {
                 </div>
               )}
 
+              {/* 요구사항 구현의도·시험 목적 → 스텝 설계.
+                  스텝 목록 위다 — 빈 시험을 열면 이것부터 보여야 한다. */}
+              <TcSuggest
+                tcid={openId}
+                data={d}
+                intent={String(reqByKey.get(String(d.req_id ?? ''))?.desc ?? '')}
+                onChange={patch}
+              />
               {fullQ.isLoading ? (
                 <div className="empty">불러오는 중…</div>
               ) : (
