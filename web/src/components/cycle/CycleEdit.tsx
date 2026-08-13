@@ -6,7 +6,6 @@ import {
   buildCategoryTree,
   reqLabel,
   reqPk,
-  shortReqId,
   type CategoryTreeNode,
   type Requirement,
   type TestCaseMeta,
@@ -53,6 +52,7 @@ interface CatItem {
 export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }: Props) {
   const editing = !!cycleId
 
+  const [vendor, setVendor] = useState('')
   const [family, setFamily] = useState('')
   const [mgroup, setMgroup] = useState('')
   const [model, setModel] = useState('')
@@ -164,35 +164,52 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
     () => (modelQuery.data?.items ?? []).filter((x) => x.kind === 'model' && !meterish(x)),
     [modelQuery.data],
   )
-  /** 제품군 → 모델그룹 → 모델명 — 옛 화면처럼 단계로 좁혀 고른다.
-      제품군 칸에 모델그룹 이름이 잘못 들어간 자료(E61xx)가 있어서,
-      모델그룹으로도 등록된 이름은 제품군 목록에서 거른다. */
+  /**
+   * 벤더 → 제품군 → 모델그룹 → 모델명 — 옛 화면과 같은 단계 선택.
+   *
+   * 목록은 **카탈로그가 주인**이다: 제품군은 카탈로그의 제품군 항목
+   * (kind=family)에서, 벤더·모델그룹은 모델들이 실제로 쓰는 값에서.
+   * 제품군 칸에 모델그룹 이름이 잘못 들어간 자료(E61xx)는 거른다.
+   */
+  const srt = (a: string, b: string) => a.localeCompare(b, 'ko')
+  const vendorOpts = useMemo(
+    () => [...new Set(models.map((m) => String(m.vendor ?? '').trim()).filter(Boolean))].sort(srt),
+    [models],
+  )
   const familyOpts = useMemo(() => {
-    const groupNames = new Set(
-      (modelQuery.data?.items ?? []).filter((x) => x.kind === 'group').map((x) => x.name.trim()),
-    )
-    return [...new Set(models.map((m) => (m.family ?? '').trim()).filter(Boolean))]
-      .filter((v) => v !== '계측기' && !groupNames.has(v))
-      .sort((a, b) => a.localeCompare(b, 'ko'))
-  }, [models, modelQuery.data])
+    const items = modelQuery.data?.items ?? []
+    const groupNames = new Set(items.filter((x) => x.kind === 'group').map((x) => x.name.trim()))
+    const fromCat = items.filter((x) => x.kind === 'family').map((x) => x.name.trim())
+    const fromModels = models
+      .filter((m) => !vendor || String(m.vendor ?? '').trim() === vendor)
+      .map((m) => (m.family ?? '').trim())
+    return [...new Set([...fromCat, ...fromModels])]
+      .filter((v) => v && v !== '계측기' && !groupNames.has(v))
+      .sort(srt)
+  }, [models, modelQuery.data, vendor])
   const mgroupOpts = useMemo(
     () =>
       [...new Set(
         models
-          .filter((m) => !family || (m.family ?? '').trim() === family)
+          .filter(
+            (m) =>
+              (!vendor || String(m.vendor ?? '').trim() === vendor) &&
+              (!family || (m.family ?? '').trim() === family),
+          )
           .map((m) => (m.model_group ?? '').trim())
           .filter(Boolean),
-      )].sort((a, b) => a.localeCompare(b, 'ko')),
-    [models, family],
+      )].sort(srt),
+    [models, vendor, family],
   )
   const modelOpts = useMemo(
     () =>
       models.filter(
         (m) =>
+          (!vendor || String(m.vendor ?? '').trim() === vendor) &&
           (!family || (m.family ?? '').trim() === family) &&
           (!mgroup || (m.model_group ?? '').trim() === mgroup),
       ),
-    [models, family, mgroup],
+    [models, vendor, family, mgroup],
   )
   const groups = folders[model] ?? []
 
@@ -283,7 +300,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
     }
     return [...m.entries()].map(([rid, list]) => {
       const r = reqs.find((x) => reqPk(x) === rid || x.id === rid)
-      return { rid, label: r ? `${shortReqId(reqLabel(r), null)} ${r.title ?? ''}` : '(요구사항 없음)', list }
+      // ID 는 안 적는다 — 읽는 것은 제목이다 (2열과 같은 규칙)
+      return { rid, label: r ? String(r.title ?? '') || reqLabel(r) : '(요구사항 없음)', list }
     })
   }, [picked, reqs])
 
@@ -470,15 +488,48 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
       >
         <div className="modal-head">
           <b>{editing ? '사이클 수정' : '사이클 만들기'}</b>
+          <span className="muted small">
+            요구사항 {grouped.length} · 시험 {picked.length}
+          </span>
+          {err && <span className="muted small err">{err}</span>}
           <span className="sp" />
+          {/* 단추는 위 오른쪽 한 곳에 — 아래에 또 두면 눈이 오르내린다 */}
+          <button className="btn" type="button" disabled={busy} onClick={onClose}>
+            취소
+          </button>
+          <button
+            className="btn primary"
+            type="button"
+            disabled={!ready || busy}
+            onClick={() => void save()}
+          >
+            {busy ? '저장 중…' : '저장'}
+          </button>
           <button className="btn small" type="button" disabled={busy} onClick={onClose}>
             ✕
           </button>
         </div>
 
         <div className="ce-form">
-          {/* 제품군 → 모델그룹 → 모델명 — 단계로 좁혀 고른다.
+          {/* 벤더 → 제품군 → 모델그룹 → 모델명 — 단계로 좁혀 고른다.
               위를 바꾸면 아래 고른 것은 버린다(범위 밖일 수 있다). */}
+          <label>
+            벤더
+            <select
+              value={vendor}
+              onChange={(e) => {
+                setVendor(e.target.value)
+                setFamily('')
+                setMgroup('')
+                setModel('')
+              }}
+            >
+              <option value="">전체</option>
+              {vendorOpts.map((v) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+            </select>
+          </label>
           <label>
             제품군
             <select
@@ -561,18 +612,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           <div className="ce-col">
             <div className="ce-colhead">
               <b>요구사항</b>
-              {(reqSel || catSel) && (
-                <button
-                  className="btn small"
-                  type="button"
-                  onClick={() => {
-                    setReqSel('')
-                    setCatSel('')
-                  }}
-                >
-                  전체
-                </button>
-              )}
+              {/* 「전체」 같은 별도 단추는 없다 — 요구사항·Coverage 의 1열과
+                  같은 문법이다. 고른 폴더를 다시 누르면 풀린다. */}
             </div>
             <input
               className="ce-q"
@@ -746,8 +787,11 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                     </div>
                     {g.list.map((it) => (
                       <div className="ce-item" key={it.tcid}>
-                        <span className="ce-item-id">{it.tcid}</span>
-                        <span className="ce-item-nm">{it.name}</span>
+                        {/* 한 줄: 이름만. ID 는 말풍선 — 두 줄이면 화면에
+                            반도 안 들어간다 */}
+                        <span className="ce-item-nm" title={it.tcid}>
+                          {it.name || it.tcid}
+                        </span>
                         {/* 이미 돌린 것은 표를 낸다 — 빼면 결과가 같이 사라진다 */}
                         {(it.steps?.length ?? 0) > 0 && <b className="ce-ran">결과 있음</b>}
                         <button
@@ -767,19 +811,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           </div>
         </div>
 
-        <div className="modal-foot">
-          <span className="muted small">
-            요구사항 {grouped.length} · 시험 {picked.length}
-          </span>
-          {err && <span className="muted small err">{err}</span>}
-          <span className="sp" />
-          <button className="btn" type="button" disabled={busy} onClick={onClose}>
-            취소
-          </button>
-          <button className="btn primary" type="button" disabled={!ready || busy} onClick={() => void save()}>
-            {busy ? '저장 중…' : '저장'}
-          </button>
-        </div>
+
       </div>
     </div>
   )
