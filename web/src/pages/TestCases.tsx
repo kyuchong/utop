@@ -102,6 +102,20 @@ function blankStep(kind: StepKind): TcStep {
  * 다시 찾아 들어가야 했다. 화면 이름은 이미 App.tsx 가 기억하고 있으니,
  * 여기서는 그 안에서 무엇을 보고 있었는지를 기억한다.
  */
+/** List 표의 선택형 열 — ⚙ 에서 켜고 끈다. 이름 열은 항상 있다. */
+const COL_DEFS = [
+  { k: 'id', label: 'TC ID', w: '116px' },
+  { k: 'type', label: '유형', w: '74px' },
+  { k: 'severity', label: '심각도', w: '80px' },
+  { k: 'kind', label: '실행 타입', w: '84px' },
+  { k: 'map', label: 'REQ Map', w: '78px' },
+  { k: 'created_by', label: '생성자', w: '80px' },
+  { k: 'updated_by', label: '변경자', w: '80px' },
+  { k: 'updated', label: '변경일', w: '96px' },
+  { k: 'status', label: '상태', w: '70px' },
+] as const
+const COL_DEFAULT = ['type', 'map', 'status']
+
 const OPEN_KEY = 'utop.tc.open'
 const TAB_KEY = 'utop.tc.tab'
 const TABS: Tab[] = ['steps', 'info', 'env', 'topo', 'traffic', 'manual', 'history', 'cycle']
@@ -127,6 +141,19 @@ export default function TestCases({ me }: PageProps) {
    * 이름을 눌러 제대로 열면(Detail) 꺼진다.
    */
   const [inlineMode, setInlineMode] = useState(() => localStorage.getItem('utop.tc.inline') === '1')
+  /** 보이는 열 — 옛 화면의 ⚙ 열 설정과 같은 몫 */
+  const [cols, setCols] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('utop.tc.cols') || '')
+      return Array.isArray(v) ? (v as string[]) : COL_DEFAULT
+    } catch {
+      return COL_DEFAULT
+    }
+  })
+  useEffect(() => {
+    localStorage.setItem('utop.tc.cols', JSON.stringify(cols))
+  }, [cols])
+  const [colsOpen, setColsOpen] = useState(false)
   useEffect(() => {
     localStorage.setItem('utop.tc.inline', inlineMode ? '1' : '0')
   }, [inlineMode])
@@ -1420,6 +1447,52 @@ export default function TestCases({ me }: PageProps) {
 
   const error = tcQ.error
 
+  const visCols = COL_DEFS.filter((c) => cols.includes(c.k))
+  const listGrid = `30px minmax(220px, 1fr) ${visCols.map((c) => c.w).join(' ')}`.trim()
+  /** 선택형 열 한 칸 — 열쇠(k)로 그린다 */
+  const colCell = (k: string, t: TestCaseMeta) => {
+    switch (k) {
+      case 'id':
+        return <div className="muted" key={k}>{t.tcid}</div>
+      case 'type':
+        return <div key={k}>{t.type ? <span className="tag">{t.type}</span> : '–'}</div>
+      case 'severity':
+        return <div key={k}>{t.severity || '–'}</div>
+      case 'kind':
+        return <div key={k}>{t.kind || '–'}</div>
+      case 'map':
+        return (
+          <div className="tc-map" key={k}>
+            <button
+              type="button"
+              className="linkish"
+              title="이 시험에 요구사항을 붙입니다"
+              onClick={() => setMapTc(t)}
+            >
+              Map
+            </button>
+            <span className={`tc-mapn${(reqsOfTc.get(t.tcid)?.size ?? 0) ? ' has' : ''}`}>
+              {reqsOfTc.get(t.tcid)?.size ?? 0}
+            </span>
+          </div>
+        )
+      case 'created_by':
+        return <div className="muted" key={k}>{(t.created_by as string) || '–'}</div>
+      case 'updated_by':
+        return <div className="muted" key={k}>{(t.updated_by as string) || '–'}</div>
+      case 'updated':
+        return <div className="muted" key={k}>{String(t._updated_at_pg ?? '').slice(0, 10) || '–'}</div>
+      case 'status':
+        return (
+          <div className={`status ${statusClass(t.status)}`} key={k}>
+            ● {t.status || '미실행'}
+          </div>
+        )
+      default:
+        return null
+    }
+  }
+
   /**
    * 3열 세부 — Info…Automation 탭 판.
    *
@@ -2123,6 +2196,47 @@ export default function TestCases({ me }: PageProps) {
                     ✨ 시험 시작하기
                   </button>
                   <span className="sp" />
+                  {/* 열 보이기/숨기기 — 옛 화면의 ⚙ 그 자리 */}
+                  <div className="tc-more">
+                    <button
+                      className="btn tc-dots"
+                      type="button"
+                      title="열 보이기/숨기기"
+                      aria-haspopup="menu"
+                      aria-expanded={colsOpen}
+                      onClick={() => setColsOpen((v) => !v)}
+                    >
+                      ⚙
+                    </button>
+                    {colsOpen && (
+                      <>
+                        <div className="tc-menu-back" onClick={() => setColsOpen(false)} />
+                        <div className="tc-menu tc-colpop" role="menu">
+                          {COL_DEFS.map((c) => (
+                            <label key={c.k}>
+                              <input
+                                type="checkbox"
+                                checked={cols.includes(c.k)}
+                                onChange={() =>
+                                  setCols((v) =>
+                                    v.includes(c.k) ? v.filter((x) => x !== c.k) : [...v, c.k],
+                                  )
+                                }
+                              />
+                              {c.label}
+                            </label>
+                          ))}
+                          <button
+                            type="button"
+                            className="linkish tc-coldef"
+                            onClick={() => setCols([...COL_DEFAULT])}
+                          >
+                            기본값 복원
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                   {/* 펼친(연) 시험에 쓰는 ⋯ — 안 연 것에는 저장·내보내기가 꺼진다 */}
                   {moreMenu}
                 </div>
@@ -2154,12 +2268,12 @@ export default function TestCases({ me }: PageProps) {
               </div>
 
               <div className="rq-table">
-                <div className="rq-tr tc-tr rq-th">
+                <div className="rq-tr tc-tr rq-th" style={{ gridTemplateColumns: listGrid }}>
                   <div />
                   <div>이름</div>
-                  <div>유형</div>
-                  <div>REQ Map</div>
-                  <div>상태</div>
+                  {visCols.map((c) => (
+                    <div key={c.k}>{c.label}</div>
+                  ))}
                 </div>
                 {listRows.length === 0 ? (
                   <div className="empty">이 자리에 시험이 없습니다.</div>
@@ -2170,6 +2284,7 @@ export default function TestCases({ me }: PageProps) {
                       <div key={t.tcid} className={`tcl-rw${expanded ? ' tc-expwrap' : ''}`}>
                       <div
                         className={`rq-tr tc-tr${listPick.has(t.tcid) ? ' picked' : ''}${expanded ? ' expanded' : ''}`}
+                        style={{ gridTemplateColumns: listGrid }}
                       >
                         <div className="rq-ck">
                           <input
@@ -2229,25 +2344,7 @@ export default function TestCases({ me }: PageProps) {
                             <span className="tt-n">{t._cli_count}</span>
                           )}
                         </div>
-                        <div>{t.type ? <span className="tag">{t.type}</span> : '–'}</div>
-                        <div className="tc-map">
-                          <button
-                            type="button"
-                            className="linkish"
-                            title="이 시험에 요구사항을 붙입니다"
-                            onClick={() => setMapTc(t)}
-                          >
-                            Map
-                          </button>
-                          <span
-                            className={`tc-mapn${(reqsOfTc.get(t.tcid)?.size ?? 0) ? ' has' : ''}`}
-                          >
-                            {reqsOfTc.get(t.tcid)?.size ?? 0}
-                          </span>
-                        </div>
-                        <div className={`status ${statusClass(t.status)}`}>
-                          ● {t.status || '미실행'}
-                        </div>
+                        {visCols.map((c) => colCell(c.k, t))}
                       </div>
                       {/* 인라인 세부 — Detail 과 같은 판이라 실행·저장까지 된다.
                           행과 확실히 갈리게 테 두르고 안으로 들인다 */}

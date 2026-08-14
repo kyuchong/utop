@@ -2877,7 +2877,8 @@ table.tb tr.r-bad td:first-child {
 /* 글자는 올렸을 때만 — 오른쪽 말풍선 */
 .tc-rtl {
   position: absolute;
-  right: calc(100% + 8px);
+  /* 왼쪽에 두면 표 모서리(overflow) 에 잘려 숨는다 — 오른쪽이 안전하다 */
+  left: calc(100% + 8px);
   top: 50%;
   transform: translateY(-50%);
   background: #1b202b;
@@ -2915,3 +2916,16 @@ table.tb tr.r-bad td:first-child {
   box-shadow: none;
   border-radius: 0;
 }
+
+/* 열 설정 팝오버 */
+.tc-colpop { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; min-width: 150px; }
+.tc-colpop label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--fs-sm);
+  padding: 3px 2px;
+  cursor: pointer;
+}
+.tc-colpop label:hover { color: var(--c-primary); }
+.tc-coldef { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--c-border-soft); font-size: var(--fs-xs); text-align: left; }
