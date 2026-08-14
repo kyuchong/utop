@@ -2877,3 +2877,13 @@ table.tb tr.r-bad td:first-child {
 
 /* 인라인 몸통: 레일 + 내용 옆으로 */
 .tc-inline-body { display: flex; }
+
+/* 탭 내용의 바깥 카드 제거 — 안의 기본/추가 항목/기록 카드와 겹으로
+   보였다. 레일 오른쪽은 바로 내용이다. (Automation 의 tc-inner 는
+   .panel 이 아니라 그대로 둔다 — 그 안의 두 칸은 제 테두리가 일이다) */
+.tc-railbody > .panel {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
