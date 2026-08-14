@@ -274,10 +274,25 @@ export default function RackView() {
   const delRack = useMutation({
     mutationFn: (rk: RvRack) =>
       saveFrames((kv) => {
-        kv.racks = ((kv.racks as RvRack[] | undefined) ?? []).filter((r) => r.id !== rk.id)
-        kv.blanks = ((kv.blanks as RvBlank[] | undefined) ?? []).filter(
+        const racks = ((kv.racks as RvRack[] | undefined) ?? []).filter((r) => r.id !== rk.id)
+        const blanks = ((kv.blanks as RvBlank[] | undefined) ?? []).filter(
           (b) => (b.rack_id ? b.rack_id !== rk.id : b.rack_name !== rk.name),
         )
+        // 중간을 지우면 순번을 당긴다 — 자동 이름(Rack-N)만, 같은 구역 안에서.
+        // 직접 지은 이름은 안 건드린다. 장비는 rack_id 로 붙어 있어 이름이
+        // 바뀌어도 안 떨어지지만, 이름으로 붙는 옛 부품은 같이 고쳐 준다.
+        const auto = racks
+          .filter((r) => (r.lab_id ?? '') === (rk.lab_id ?? '') && /^Rack-\d+$/.test(r.name))
+          .sort((a, b) => parseInt(a.name.slice(5), 10) - parseInt(b.name.slice(5), 10))
+        auto.forEach((r, i) => {
+          const want = `Rack-${i + 1}`
+          if (r.name === want) return
+          for (const b of blanks)
+            if (b.rack_id === r.id || (!b.rack_id && b.rack_name === r.name)) b.rack_name = want
+          r.name = want
+        })
+        kv.racks = racks
+        kv.blanks = blanks
       }),
     onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
   })
@@ -420,15 +435,6 @@ export default function RackView() {
     e.dataTransfer.effectAllowed = load.kind === 'part' ? 'copy' : 'move'
   }
 
-  /* 미배치 장비 팔레트 검색 */
-  const unplaced = useMemo(() => {
-    const list = data?.unplaced ?? []
-    if (!nq) return list
-    return list.filter((d) =>
-      [d.name, d.ip, d.model].filter(Boolean).join(' ').toLowerCase().includes(nq),
-    )
-  }, [data, nq])
-
   const powerOf = (rkId: string) =>
     (devByRack.get(rkId) ?? []).reduce((s, d) => s + (d.power_w ?? 0), 0)
   const usedOf = (rkId: string) =>
@@ -552,41 +558,6 @@ export default function RackView() {
       </div>
 
       <div className="rv-main">
-        {/* ── 팔레트 — 여기서 끌어다 랙에 놓는다 ── */}
-        <aside className="rv-pal">
-          <div className="rv-psec">
-            <div className="rv-ph">
-              미배치 장비 <i>{unplaced.length}</i>
-            </div>
-            <div className="rv-plist">
-              {unplaced.length === 0 ? (
-                <div className="muted small rv-pempty">
-                  {nq ? '검색에 걸린 미배치 장비가 없습니다' : '전부 랙에 실려 있습니다'}
-                </div>
-              ) : (
-                unplaced.map((d) => (
-                  <div
-                    key={d.id}
-                    className="rv-pdev"
-                    draggable
-                    onDragStart={(e) =>
-                      startDrag(e, { kind: 'dev', id: d.id, units: d.rack_units || 1 })
-                    }
-                    title="랙의 빈 칸으로 끌어다 놓으세요"
-                  >
-                    <b>{d.name || d.ip}</b>
-                    <span className="muted small">{d.model || d.ip}</span>
-                    <i>{d.rack_units || 1}U</i>
-                  </div>
-                ))
-              )}
-            </div>
-            <div className="rv-phint muted small">
-              끌어다 랙에 놓으세요. 랙의 빈 칸을 우클릭하면 부품(블랭크·패치
-              패널…)도, 판 빈 곳을 우클릭하면 랙을 추가할 수 있습니다.
-            </div>
-          </div>
-        </aside>
 
         {/* ── 판 — 랙 기둥들 ── */}
         <div
