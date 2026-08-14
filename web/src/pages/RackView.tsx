@@ -155,6 +155,8 @@ export default function RackView() {
   const [boardCtx, setBoardCtx] = useState<{ x: number; y: number } | null>(null)
   /** 장비 우클릭 — 열기·빼기 메뉴 */
   const [devCtx, setDevCtx] = useState<{ x: number; y: number; d: RvDevice } | null>(null)
+  /** 랙 머리 우클릭 — 용도·지우기 메뉴 */
+  const [rackCtx, setRackCtx] = useState<{ x: number; y: number; rack: RvRack } | null>(null)
   /** 랙 용도 한 줄 — 이름 아래. 누르면 그 자리에서 적는다 */
   const [descEdit, setDescEdit] = useState<string | null>(null)
   const [descDraft, setDescDraft] = useState('')
@@ -199,8 +201,9 @@ export default function RackView() {
     if (!el) return
     const maxU = racks.reduce((m, r) => Math.max(m, r.units ?? 45), 45)
     const calc = () => {
-      // 판 안쪽 높이 − 판 패딩(20) − 랙 머리+용도 줄(46) − 그리드 패딩(7)
-      const usable = el.clientHeight - 73
+      // 판 안쪽 높이 − 판 패딩(20) − 랙 머리(28)+용도 줄(21) − 그리드 패딩(7)
+      // 용도를 적어도 Full HD 세로에 그대로 들어가야 한다 — 여유 2px 포함
+      const usable = el.clientHeight - 78
       setUH(Math.max(15, Math.min(26, Math.floor(usable / maxU))))
     }
     calc()
@@ -633,7 +636,14 @@ export default function RackView() {
               }
               return (
                 <div className="rv-rack" key={rk.id}>
-                  <div className="rv-rhead">
+                  <div
+                    className="rv-rhead"
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setRackCtx({ x: e.clientX, y: e.clientY, rack: rk })
+                    }}
+                  >
                     <b className="rv-rnm">{rk.name}</b>
                     {watt > 0 && (
                       <span className="rv-watt" title="실린 장비 소모전력 합계">
@@ -672,18 +682,18 @@ export default function RackView() {
                       }}
                       onBlur={() => setDescEdit(null)}
                     />
-                  ) : (
+                  ) : rk.desc ? (
                     <div
-                      className={`rv-rdescln${rk.desc ? '' : ' empty'}`}
-                      title="눌러서 용도를 적습니다"
+                      className="rv-rdescln"
+                      title="눌러서 고칩니다"
                       onClick={() => {
                         setDescEdit(rk.id)
                         setDescDraft(rk.desc ?? '')
                       }}
                     >
-                      {rk.desc || '용도 적기…'}
+                      {rk.desc}
                     </div>
-                  )}
+                  ) : null}
                   <div
                     className="rv-grid"
                     style={{ gridTemplateRows: `repeat(${top}, var(--rv-u))` }}
@@ -898,6 +908,49 @@ export default function RackView() {
               }}
             >
               + 랙 36U 추가
+            </button>
+          </div>
+        </div>
+      )}
+
+      {rackCtx && (
+        <div
+          className="rv-ctxovl"
+          onClick={() => setRackCtx(null)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setRackCtx(null)
+          }}
+        >
+          <div
+            className="rv-ctx"
+            style={{ left: rackCtx.x, top: rackCtx.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rv-ctxh">{rackCtx.rack.name}</div>
+            <button
+              type="button"
+              onClick={() => {
+                setDescEdit(rackCtx.rack.id)
+                setDescDraft(rackCtx.rack.desc ?? '')
+                setRackCtx(null)
+              }}
+            >
+              {rackCtx.rack.desc ? '용도 고치기…' : '용도 적기…'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const devsIn = devByRack.get(rackCtx.rack.id) ?? []
+                setRackCtx(null)
+                if (devsIn.length > 0) {
+                  window.alert(`장비 ${devsIn.length}대가 실려 있어 지울 수 없습니다`)
+                  return
+                }
+                if (window.confirm(`${rackCtx.rack.name} 랙을 지울까요?`)) delRack.mutate(rackCtx.rack)
+              }}
+            >
+              랙 지우기
             </button>
           </div>
         </div>

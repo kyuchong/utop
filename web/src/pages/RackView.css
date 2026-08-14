@@ -203,15 +203,16 @@
 /* 랙 용도 한 줄 — 이름 아래. 비어 있으면 흐린 안내 */
 .rv-rdescln {
   padding: 0 8px 3px;
-  font-size: var(--fs-xs);
-  color: var(--c-text-faint);
+  /* 이름(14px)보다 한 뼘 작게, 굵게 — 부제목이지 잔글씨가 아니다 */
+  font-size: 12px;
+  font-weight: 700;
+  color: #57616e;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: text;
-  min-height: 17px;
+  min-height: 18px;
 }
-.rv-rdescln.empty { color: #c9d0d9; }
 .rv-rdescln:hover { color: var(--c-primary); }
 .rv-rdesced {
   display: block;
@@ -219,7 +220,8 @@
   margin: 0 6px 3px;
   padding: 0 4px;
   font: inherit;
-  font-size: var(--fs-xs);
+  font-size: 12px;
+  font-weight: 700;
   border: 1px solid var(--c-primary);
   border-radius: 4px;
 }
