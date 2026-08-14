@@ -2595,8 +2595,10 @@ table.tb tr.r-bad td:first-child {
   /* 열은 넷+체크: 요구사항 132 · 이름(1fr, 꼬리에 스텝 수) · 유형 74 ·
      REQ Map 78 · 상태 64. TC ID·스텝 열은 없앴다 — ID 는 이름 툴팁과
      빵부스러기가, 스텝 수는 이름 꼬리 숫자가 말한다. */
+  /* 요구사항 열은 없앴다 — 트리에서 이미 고른 것이라 같은 말의 반복이었다.
+     이름이 그 폭까지 다 갖는다. */
   grid-template-columns:
-    30px 200px minmax(160px, 1fr)
+    30px minmax(220px, 1fr)
     74px 78px 64px;
   column-gap: 8px;
 }
@@ -2749,3 +2751,54 @@ table.tb tr.r-bad td:first-child {
   color: var(--c-text-muted);
   cursor: default;
 }
+
+/* ── 표 인라인 세부 — 행 사이에 Detail 판이 통째로 펼쳐진다 ────────
+   행과 인라인이 한 몸처럼 붙되, 경계는 확실해야 한다: 파란 왼줄 +
+   테두리 + 그림자. 절차 줄들이 이 테 안에 있다는 것이 한눈에 갈린다. */
+.tc-expwrap {
+  border-left: 3px solid var(--c-primary);
+  background: var(--c-surface);
+  box-shadow: 0 2px 10px rgb(15 23 42 / 0.08);
+  margin: 2px 0 10px;
+}
+.rq-tr.tc-tr.expanded {
+  background: var(--c-primary-bg);
+  font-weight: 600;
+}
+.tc-inline {
+  border-top: 1px solid var(--c-border);
+  background: var(--c-surface);
+  padding: 6px 8px 10px;
+}
+.tc-inline .tc-dethead {
+  padding: 4px 2px 8px;
+  border-bottom: 1px solid var(--c-border-soft);
+  margin-bottom: 8px;
+}
+.tc-inline-body {
+  display: flex;
+  height: 66vh;
+  min-height: 420px;
+}
+.tc-inline-body > * { flex: 1; min-width: 0; min-height: 0; }
+.tc-inline-body .panel { overflow: auto; }
+
+/* 아이콘 = 펼침 단추 */
+.tc-exp {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 0;
+  background: transparent;
+  padding: 0 2px 0 0;
+  cursor: pointer;
+  color: inherit;
+}
+.tc-exp:hover .tc-expcaret { color: var(--c-primary); }
+.tc-expcaret {
+  display: inline-block;
+  font-size: 10px;
+  color: var(--c-text-faint);
+  transition: transform 0.12s;
+}
+.tc-expcaret.open { transform: rotate(90deg); color: var(--c-primary); }

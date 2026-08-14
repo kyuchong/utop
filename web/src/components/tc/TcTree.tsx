@@ -11,7 +11,7 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
-import { IconChevron, IconFolder, IconReqDoc, IconTcDoc } from '../icons'
+import { IconChevron, IconFolder, IconReqDoc } from '../icons'
 // 요구사항 화면과 **같은 트리로 보여야 한다**. 줄 높이·글자·구분선을 여기서
 // 다시 정하면 두 화면을 오가며 같은 것이 달라 보인다. 그 화면의 규칙을
 // 그대로 가져다 쓰고, TC 줄만 이 화면 CSS 에서 더한다.
@@ -66,10 +66,7 @@ function reqFolder(r: Requirement): string | null {
 export default function TcTree({
   tcs,
   openId,
-  onOpen,
-  picked,
   q = '',
-  onPickClick,
   selectedFolder,
   onSelectFolder,
   selectedReq,
@@ -336,71 +333,9 @@ export default function TcTree({
   /** 검색 중에는 전부 펼친다 — 접힌 가지 안에 있으면 찾은 보람이 없다 */
   const isOpen = (id: string) => (needle ? true : openIds.has(id))
 
-  /**
-   * 지금 화면에 보이는 TC 차례.
-   *
-   * Shift 범위는 **눈에 보이는 순서**로 잡혀야 한다. 접힌 가지 안의 것을
-   * 세면 「여기부터 저기까지」 가 화면과 달라진다.
-   */
-  const shownOrder = (() => {
-    const out: string[] = []
-    const walk = (n: CategoryTreeNode) => {
-      if (!isOpen(n.id)) return
-      for (const r of reqsOf(n.id)) {
-        if (!isOpen(reqPk(r))) continue
-        for (const x of shownTcs(r)) out.push(x.tcid)
-      }
-      n.children.forEach(walk)
-    }
-    tree.forEach(walk)
-    for (const r of reqsOf(null)) {
-      if (!isOpen(reqPk(r))) continue
-      for (const x of shownTcs(r)) out.push(x.tcid)
-    }
-    return out
-  })()
-
-
-
-  /*
-   * TC 줄.
-   *
-   * 네모는 단추 **밖**에 둔다. 단추 안에 넣으면 네모를 누를 때 TC 가 같이
-   * 열려서, 열두 건을 고르는 동안 화면이 열두 번 바뀐다.
-   */
-  const tcRow = (t: TestCaseMeta, depth: number) => (
-    // 요구사항 줄과 왼끝이 거의 같아 무엇이 무엇의 것인지 안 갈렸다.
-    // 요구사항의 접기 화살표 폭만큼 더 들여 「이 요구사항의 시험」 으로 읽히게.
-    <div className="tt-row" key={t.tcid} style={{ paddingLeft: 28 + depth * 14 }}>
-      <button
-        type="button"
-        className={`tt-tc${openId === t.tcid ? ' on' : ''}${picked.has(t.tcid) ? ' picked' : ''}`}
-        // Ctrl·Shift 로 여러 개. 파일 탐색기·iTest 와 같은 규칙이라
-        // 손이 이미 아는 방식이다.
-        onClick={(e) => {
-          onPickClick(t.tcid, e, shownOrder)
-          if (!e.ctrlKey && !e.metaKey && !e.shiftKey) onOpen(t.tcid)
-        }}
-        title={t.tcid}
-      >
-        {/* 요구사항 줄과 갈리게. 둘 다 그냥 글자였다 */}
-        <span className="rt-dicon" aria-hidden="true">
-          <IconTcDoc />
-        </span>
-        {/* 상태 점은 걷어냈다 — 트리에선 거의 다 회색(미실행)이라 정보가
-            없고, 상태는 List 표의 상태 열이 말해 준다. */}
-        <span className="tt-tc-nm">{t.name || '(제목 없음)'}</span>
-        {typeof t._cli_count === 'number' && t._cli_count > 0 && (
-          <span className="tt-n">{t._cli_count}</span>
-        )}
-      </button>
-    </div>
-  )
-
   const reqRow = (r: Requirement, depth: number) => {
     const pk = reqPk(r)
     const mine = shownTcs(r)
-    const open = isOpen(pk)
     const full = reqLabel(r)
     return (
       <div key={pk}>
@@ -420,17 +355,10 @@ export default function TcTree({
             }
           }}
         >
-          <button
-            type="button"
-            className={`rt-caret${open ? ' open' : ''}`}
-            aria-label={open ? '접기' : '펼치기'}
-            disabled={mine.length === 0}
-            onClick={(e) => {
-              e.stopPropagation()
-              toggle(pk)
-            }}
-          >
-            {mine.length > 0 ? <IconChevron /> : <span className="rt-dot" />}
+          {/* 시험 잎은 트리에 안 그린다 — 1열은 요구사항까지만. 시험은
+              오른쪽 표가 말하고, 세부는 표에서 인라인으로 펼친다. */}
+          <button type="button" className="rt-caret" disabled aria-hidden="true">
+            <span className="rt-dot" />
           </button>
           {/* TC 가 없는 요구사항에도 자리를 지킨다. 안 그리면 뒤 칸이
               한 칸씩 밀려서 제목과 숫자가 엉뚱한 데로 간다. */}
@@ -444,7 +372,6 @@ export default function TcTree({
           </span>
           <span className="rt-cnt">{mine.length || ''}</span>
         </div>
-        {open && mine.map((t) => tcRow(t, depth + 1))}
       </div>
     )
   }
@@ -635,14 +562,23 @@ export default function TcTree({
             {/* 요구사항에 안 걸린 TC. 트리에만 두면 이것들이 사라져서
                 '분명히 만들었는데 목록에 없다' 가 된다. */}
             {orphanShown.length > 0 && (
-              <>
-                <div className="rt-fold rt-uncat">
-                  <span className="rt-caret" />
-                  <b className="rt-fname">요구사항 없음</b>
-                  <span className="rt-cnt">{orphanShown.length}</span>
-                </div>
-                {orphanShown.map((t) => tcRow(t, 1))}
-              </>
+              <div
+                className={`rt-fold rt-uncat${selectedReq === '__orphan__' ? ' on' : ''}`}
+                role="button"
+                tabIndex={0}
+                title="요구사항에 안 붙은 시험들 — 눌러서 표로 봅니다"
+                onClick={() => onSelectReq?.('__orphan__')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onSelectReq?.('__orphan__')
+                  }
+                }}
+              >
+                <span className="rt-caret" />
+                <b className="rt-fname">요구사항 없음</b>
+                <span className="rt-cnt">{orphanShown.length}</span>
+              </div>
             )}
 
             {tree.length === 0 && uncat.length === 0 && orphanShown.length === 0 && (

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import ListHead from '@/components/ListHead'
-import { IconPanel, IconParam, IconReqDoc, IconTcDoc } from '@/components/icons'
+import { IconPanel, IconParam, IconTcDoc } from '@/components/icons'
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
@@ -42,7 +42,7 @@ import TcSuggest from '@/components/tc/TcSuggest'
 import { deviceLabel, isMeter } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
-import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
+import { onGoto, reflectUrl } from '@/api/goto'
 import {
   reqLabel,
   reqPk,
@@ -120,7 +120,17 @@ export default function TestCases({ me }: PageProps) {
     return v && TABS.includes(v) ? v : 'steps'
   })
   const [openId, setOpenId] = useState(() => localStorage.getItem(OPEN_KEY) || '')
-  const view: 'list' | 'detail' = openId ? 'detail' : 'list'
+  /**
+   * 인라인으로 보는 중인가 — 표에서 ▸ 로 펼치면 켜진다.
+   *
+   * 켜져 있으면 시험이 열려 있어도(List 안 인라인) 표를 떠나지 않는다.
+   * 이름을 눌러 제대로 열면(Detail) 꺼진다.
+   */
+  const [inlineMode, setInlineMode] = useState(() => localStorage.getItem('utop.tc.inline') === '1')
+  useEffect(() => {
+    localStorage.setItem('utop.tc.inline', inlineMode ? '1' : '0')
+  }, [inlineMode])
+  const view: 'list' | 'detail' = openId && !inlineMode ? 'detail' : 'list'
   const [stepIdx, setStepIdx] = useState(-1)
   const [menuOpen, setMenuOpen] = useState(false)
   /** 1열 「+」 — 최상위 폴더 입력칸을 연다 (요구사항 화면과 같은 문법) */
@@ -315,7 +325,11 @@ export default function TestCases({ me }: PageProps) {
     const n = treeQ.trim().toLowerCase()
     return tcs.filter((t) => {
       const r = reqByKey.get(t.req_id || '')
-      if (selReq && (t.req_id || '') !== selReq && (r ? reqPk(r) : '') !== selReq) return false
+      // 요구사항에 안 붙은 시험들 — 트리의 「요구사항 없음」 줄
+      if (selReq === '__orphan__') {
+        if (r) return false
+      } else if (selReq && (t.req_id || '') !== selReq && (r ? reqPk(r) : '') !== selReq)
+        return false
       if (!selReq && selFolder && !inFolder(r, selFolder)) return false
       if (!n) return true
       return t.tcid.toLowerCase().includes(n) || (t.name ?? '').toLowerCase().includes(n)
@@ -335,6 +349,7 @@ export default function TestCases({ me }: PageProps) {
   const wherePath = useMemo(() => {
     const all = catQ.data?.categories ?? []
     const byId = new Map(all.map((c) => [c.id, c]))
+    if (selReq === '__orphan__') return [{ id: '', name: '요구사항 없음' }]
     if (selReq) {
       const r = reqByKey.get(selReq)
       if (!r) return []
@@ -1084,6 +1099,7 @@ export default function TestCases({ me }: PageProps) {
 
   const pickTc = (id: string) => {
     if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 옮길까요?')) return
+    setInlineMode(false)
     setOpenId(id)
     setMsg({ kind: '', text: '' })
     // 주소창에 남긴다 — 이 주소를 남에게 보내면 같은 시험이 열린다
@@ -1095,6 +1111,7 @@ export default function TestCases({ me }: PageProps) {
     () =>
       onGoto((kind, id) => {
         if (kind === 'tc' && id !== openId) {
+          setInlineMode(false)
           setOpenId(id)
           setGpOpen(false)
         }
@@ -1401,6 +1418,337 @@ export default function TestCases({ me }: PageProps) {
   )
 
   const error = tcQ.error
+
+  /**
+   * 3열 세부 — Info…Automation 탭 판.
+   *
+   * Detail 보기와 표의 인라인 펼침이 **같은 것**을 그린다. 따로 만들면
+   * 인라인에서는 실행이 안 되는 반쪽이 된다 — 실행·저장·프레즌스까지
+   * 같은 상태를 쓰는 한 덩어리다.
+   */
+  const detPanes = !openId ? (
+          <section className="panel">
+            <div className="empty">왼쪽에서 테스트케이스를 고르세요.</div>
+          </section>
+        ) : tab === 'info' ? (
+          <section className="panel tc-tabcol">
+            <TcInfo data={d} onChange={patch} />
+          </section>
+        ) : tab === 'env' ? (
+          <section className="panel tc-tabcol">
+            <TcEnv data={d} onChange={patch} tcid={openId} />
+          </section>
+        ) : tab === 'topo' ? (
+          <section className="panel tc-tabcol">
+            <TcTopology
+              data={d}
+              devices={devices}
+              onChange={patch}
+              onDevicesChanged={() => void devQ.refetch()}
+              onMsg={(kind, text) => setMsg({ kind, text })}
+            />
+          </section>
+        ) : tab === 'traffic' ? (
+          <section className="panel tc-tabcol">
+            <TcTraffic data={d} onChange={patch} />
+          </section>
+        ) : tab === 'manual' ? (
+          <section className="panel tc-tabcol">
+            <TcManual data={d} onChange={patch} />
+          </section>
+        ) : tab === 'history' ? (
+          <section className="panel tc-tabcol">
+            <TcHistory tcid={openId} />
+          </section>
+        ) : tab === 'cycle' ? (
+          <section className="panel tc-tabcol">
+            <TcCycles tcid={openId} />
+          </section>
+        ) : (
+          // Automation 만 안에서 좌우로 나뉜다 — 목록과 세부.
+          // 바깥 칸 수는 그대로라 탭을 옮겨도 화면이 출렁이지 않는다.
+          <div className="tc-inner">
+            {/* 목록 */}
+            <section className="panel tc-seqcol" style={{ flexBasis: seqW }}>
+              <div className="tc-run">
+                <button
+                  className="btn small primary"
+                  type="button"
+                  disabled={running || steps.length === 0}
+                  title="처음부터 끝까지 돌립니다"
+                  onClick={() => void doRun(0, false)}
+                >
+                  ▶ 전체
+                </button>
+                <button
+                  className="btn small"
+                  type="button"
+                  disabled={running || stepIdx < 0}
+                  title="고른 줄부터 끝까지"
+                  onClick={() => void doRun(stepIdx, false)}
+                >
+                  ▶ 여기부터
+                </button>
+                <button
+                  className="btn small danger"
+                  type="button"
+                  disabled={!running}
+                  title="중지"
+                  onClick={() => runAbort.current?.abort()}
+                >
+                  ⏹
+                </button>
+                {/* 어느 파라미터 파일이 붙어 있나. 실행 줄에 둔다 —
+                    정보 탭 깊숙이 두면 지금 무엇이 깔려 있는지 모른 채
+                    스텝을 쓰게 된다. */}
+                <TcParamBar
+                  files={paramFiles}
+                  all={gp.files}
+                  used={gp.used}
+                  onChange={(next) => patch({ param_files: next, param_file: '' })}
+                />
+                <TcSessionBar
+                  sessions={sessionIds}
+                  devices={devices}
+                  onAdd={(id) => setSessions([...sessionIds, id])}
+                  onPick={(i, id) => setSessions(sessionIds.map((v, j) => (j === i ? id : v)))}
+                  onRemove={removeSession}
+                  onMsg={(kind, text) => setMsg({ kind, text })}
+                />
+                <span className="sp" />
+                {runStat.done > 0 && (
+                  <span className="muted small">
+                    {runStat.done}/{steps.length} ·{' '}
+                    <b className="status pass">PASS {runStat.pass}</b> ·{' '}
+                    <b className="status fail">FAIL {runStat.fail}</b>
+                  </span>
+                )}
+              </div>
+
+              {/* 회차 고르기.
+                  반복 시험에서 궁금한 것은 「7회차에 무슨 일이 있었나」 다.
+                  회차를 고르면 **목록 전체가 그 회차로** 바뀐다 — 스텝마다
+                  따로 눌러 다니지 않는다. 100회여도 견딘다. */}
+              {roundMax > 1 && (
+                <div className="tc-rounds">
+                  <span className="muted small">
+                    회차 {roundMax}
+                    {badRounds.length > 0 && (
+                      <>
+                        {' · '}
+                        <b className="status fail">부적합 {badRounds.length}</b>
+                      </>
+                    )}
+                  </span>
+                  <button
+                    type="button"
+                    className={`sc-round${viewRound === 0 ? ' on' : ''}`}
+                    title="회차를 합친 결과 — 한 번이라도 깨졌으면 부적합"
+                    onClick={() => setViewRound(0)}
+                  >
+                    전체
+                  </button>
+                  {/* 이력은 다 남긴다. 다만 1000개를 늘어놓으면 못 쓴다 —
+                      찾는 쪽을 붙인다. 100번 돌려 3번 깨졌으면 궁금한 것은
+                      그 3번이고, 나머지 997개는 자리만 먹는다. */}
+                  {badRounds.length > 0 && (
+                    <label className="tc-round-only">
+                      <input
+                        type="checkbox"
+                        checked={badOnly}
+                        onChange={(e) => setBadOnly(e.target.checked)}
+                      />
+                      깨진 것만
+                    </label>
+                  )}
+                  {roundMax > 30 && (
+                    <input
+                      className="tc-round-q"
+                      type="number"
+                      min={1}
+                      max={roundMax}
+                      placeholder="회차로 가기"
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter') return
+                        const n = Number((e.target as HTMLInputElement).value)
+                        if (n >= 1 && n <= roundMax) setViewRound(n)
+                      }}
+                    />
+                  )}
+                  <span className="tc-round-list">
+                    {(badOnly ? badRounds : Array.from({ length: roundMax }, (_, n) => n + 1)).map(
+                      (n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={`sc-round${badRounds.includes(n) ? ' bad' : ''}${
+                            viewRound === n ? ' on' : ''
+                          }`}
+                          onClick={() => setViewRound(viewRound === n ? 0 : n)}
+                        >
+                          {n}
+                        </button>
+                      ),
+                    )}
+                  </span>
+                  {viewRound > 0 && (
+                    <span className="muted small">{viewRound}회차의 결과를 보고 있습니다</span>
+                  )}
+                </div>
+              )}
+
+              {/* 요구사항 구현의도·시험 목적 → 스텝 설계.
+                  스텝 목록 위다 — 빈 시험을 열면 이것부터 보여야 한다. */}
+              <TcSuggest
+                tcid={openId}
+                data={d}
+                intent={String(reqByKey.get(String(d.req_id ?? ''))?.desc ?? '')}
+                onChange={patch}
+              />
+              {fullQ.isLoading ? (
+                <div className="empty">불러오는 중…</div>
+              ) : (
+                <TcSequence
+                  steps={shownSteps}
+                  selected={stepIdx}
+                  onSelect={setStepIdx}
+                  onAdd={addStep}
+                  sessionName={sessionName}
+                  runningAt={runAt}
+                  picked={picked}
+                  onPick={pickStep}
+                  // 수동 스텝은 여기 안 나온다. 별개 탭이다.
+                  hide={(s) => s.kind === 'manual'}
+                  onRun={running ? undefined : (i) => void doRun(i, true)}
+                />
+              )}
+              {/* 고른 줄이 있을 때만 뜬다. 목록 **아래**에 둔다 — 위에 두면 띠가
+                  나타나는 순간 줄이 통째로 아래로 밀려서, 방금 누른 칸이
+                  손 밑에서 달아난다. */}
+              {picked.size > 0 && (
+                <div className="sq-bulk">
+                  <b>{picked.size}개 골랐습니다</b>
+                  <span className="muted small">shift 를 누른 채 누르면 그 사이가 모두</span>
+                  <button
+                    className="btn small primary"
+                    type="button"
+                    disabled={running}
+                    title="고른 줄만 번호순으로 돌립니다"
+                    onClick={() => void doRun(0, false, [...picked])}
+                  >
+                    ▶ 고른 것만
+                  </button>
+                  <button className="btn small" type="button" onClick={() => skipPicked(true)}>
+                    건너뛰기
+                  </button>
+                  <button className="btn small" type="button" onClick={() => skipPicked(false)}>
+                    되돌리기
+                  </button>
+                  <button
+                    className="btn small danger"
+                    type="button"
+                    onClick={() => removeSteps([...picked])}
+                  >
+                    삭제
+                  </button>
+                  <button className="btn small" type="button" onClick={clearPicked}>
+                    해제
+                  </button>
+                </div>
+              )}
+            </section>
+
+            <Resizer
+              label="스텝 목록 폭 조절"
+              onResize={setSeqW}
+              getOrigin={() => {
+                const el = splitRef.current
+                if (!el) return 0
+                /*
+                 * 1열이 접혀 있으면 왼쪽에는 30px 띠만 있다. 그런데 늘
+                 * listW 를 더해 기준을 잡으니 200px 넘게 어긋나서, 접힌
+                 * 상태에서는 조절바를 끌어도 폭이 안 바뀌는 것처럼 보였다.
+                 */
+                return el.getBoundingClientRect().left + (listOpen ? listW + 6 : 30)
+              }}
+            />
+
+            {/* 세부 — 스텝 하나, 또는 캡쳐하는 동안은 명령어 캡쳐.
+                탭 줄은 이 칸 위(오른쪽 칸 머리)에 한 번만 그린다. 여기에도
+                두었더니 같은 줄이 두 번 나왔다. */}
+            <section className={`panel tc-detcol${termOpen ? ' wide' : ''}`}>
+              {/* 3열도 제 머리를 단다. 1열(`Coverage`)·2열(실행 띠)과 같은
+                  46px 라야 세 칸의 구분선이 한 줄에서 만난다. */}
+              <div className="tc-colh">
+                <b>{termOpen ? '명령어 캡쳐' : '스텝 상세'}</b>
+                <span className="sp" />
+                {/* 캡쳐는 **이 칸을 바꾸는 일**이라 이 칸 머리에 둔다.
+                    2열 실행 줄에 있을 때는 왼쪽을 눌러 오른쪽이 바뀌는
+                    꼴이었고, 그 줄은 「돌리는」 것들만 있어야 읽힌다. */}
+                <div className="tc-more">
+                  <button
+                    className="btn tc-dots"
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={detMenu}
+                    onClick={() => setDetMenu((v) => !v)}
+                  >
+                    ⋯
+                  </button>
+                  {detMenu && (
+                    <>
+                      <div className="tc-menu-back" onClick={() => setDetMenu(false)} />
+                      <div className="tc-menu" role="menu">
+                        <button
+                          type="button"
+                          title="장비에 붙어 명령을 치면 그대로 스텝이 됩니다"
+                          onClick={() => {
+                            setTermOpen((v) => !v)
+                            setDetMenu(false)
+                          }}
+                        >
+                          {termOpen ? '⌨ 명령어 캡쳐 닫기' : '⌨ 명령어 캡쳐'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+              {termOpen ? (
+                <TcTerminal
+                  sessions={sessionIds}
+                  devById={devById}
+                  sessionNames={sessionNames}
+                  onAdd={(s) => {
+                    // 함수형으로 붙인다. 기록 중에는 명령이 잇달아 들어와서
+                    // 닫힌 값을 쓰면 앞 스텝이 뒤 스텝에 덮인다.
+                    setD((c) => ({ ...c, checks: [...((c.checks ?? []) as TcStep[]), s] }))
+                    setDirty(true)
+                  }}
+                  onClose={() => setTermOpen(false)}
+                />
+              ) : (
+              <TcStepDetail
+                step={stepIdx >= 0 ? (shownSteps[stepIdx] ?? null) : null}
+                index={stepIdx}
+                total={steps.length}
+                sessions={sessionNames}
+                params={stepParams}
+                takenVars={takenVars}
+                onChange={(p) => stepIdx >= 0 && patchStep(stepIdx, p)}
+                onMove={(dir) => stepIdx >= 0 && moveStep(stepIdx, dir)}
+                onRemove={() => stepIdx >= 0 && removeStep(stepIdx)}
+                onDuplicate={() => stepIdx >= 0 && duplicateStep(stepIdx)}
+                onRun={running || stepIdx < 0 ? undefined : () => void doRun(stepIdx, true)}
+                meterCfg={d.meterCfg}
+                onGoTraffic={() => setTab('traffic')}
+                block={blockInfo}
+              />
+              )}
+            </section>
+          </div>
+        )
+
 
   return (
     <>
@@ -1804,7 +2152,6 @@ export default function TestCases({ me }: PageProps) {
               <div className="rq-table">
                 <div className="rq-tr tc-tr rq-th">
                   <div />
-                  <div>요구사항</div>
                   <div>이름</div>
                   <div>유형</div>
                   <div>REQ Map</div>
@@ -1814,11 +2161,11 @@ export default function TestCases({ me }: PageProps) {
                   <div className="empty">이 자리에 시험이 없습니다.</div>
                 ) : (
                   listRows.map((t) => {
-                    const r = reqByKey.get(t.req_id || '')
+                    const expanded = inlineMode && openId === t.tcid
                     return (
+                      <div key={t.tcid} className={expanded ? 'tc-expwrap' : undefined}>
                       <div
-                        className={`rq-tr tc-tr${listPick.has(t.tcid) ? ' picked' : ''}`}
-                        key={t.tcid}
+                        className={`rq-tr tc-tr${listPick.has(t.tcid) ? ' picked' : ''}${expanded ? ' expanded' : ''}`}
                       >
                         <div className="rq-ck">
                           <input
@@ -1835,31 +2182,30 @@ export default function TestCases({ me }: PageProps) {
                             }
                           />
                         </div>
-                        <div className="tc-req">
-                          {r ? (
-                            <>
-                              <span className="rq-icon" aria-hidden="true">
-                                <IconReqDoc />
-                              </span>
-                              {/* 누르면 요구사항 화면의 그 요구사항으로 —
-                                  시험↔요구사항↔사이클을 링크로 오간다 */}
-                              <a
-                                className="linkish"
-                                href={gotoHref('req', reqLabel(r) || reqPk(r))}
-                                title={`${reqLabel(r)} — 요구사항으로 이동`}
-                                onClick={(e) => gotoClick(e, 'req', reqLabel(r) || reqPk(r))}
-                              >
-                                {r.title || reqLabel(r)}
-                              </a>
-                            </>
-                          ) : (
-                            <span className="muted">–</span>
-                          )}
-                        </div>
                         <div className="rq-name">
-                          <span className="rq-icon" aria-hidden="true">
+                          {/* 아이콘이 곧 펼침 단추다 — 누르면 세부가 줄 밑에
+                              인라인으로 열리고, 다시 누르면 접힌다 */}
+                          <button
+                            type="button"
+                            className={`tc-exp${expanded ? ' on' : ''}`}
+                            title={expanded ? '세부 접기' : '세부를 이 자리에 펼치기'}
+                            onClick={() => {
+                              if (expanded) {
+                                if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 접을까요?'))
+                                  return
+                                setOpenId('')
+                                return
+                              }
+                              if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 옮길까요?'))
+                                return
+                              setInlineMode(true)
+                              setOpenId(t.tcid)
+                              reflectUrl('tc', t.tcid)
+                            }}
+                          >
+                            <span className={`tc-expcaret${expanded ? ' open' : ''}`} aria-hidden="true">▸</span>
                             <IconTcDoc />
-                          </span>
+                          </button>
                           {/* 누르면 그 시험을 열어 짠다 — Detail 로 넘어간다 */}
                           <button
                             type="button"
@@ -1894,6 +2240,15 @@ export default function TestCases({ me }: PageProps) {
                           ● {t.status || '미실행'}
                         </div>
                       </div>
+                      {/* 인라인 세부 — Detail 과 같은 판이라 실행·저장까지 된다.
+                          행과 확실히 갈리게 테 두르고 안으로 들인다 */}
+                      {expanded && !gpOpen && (
+                        <div className="tc-inline">
+                          {detHead}
+                          <div className="tc-inline-body">{detPanes}</div>
+                        </div>
+                      )}
+                      </div>
                     )
                   })
                 )}
@@ -1904,327 +2259,8 @@ export default function TestCases({ me }: PageProps) {
             </div>
           </section>
 
-        ) : !openId ? (
-          <section className="panel">
-            <div className="empty">왼쪽에서 테스트케이스를 고르세요.</div>
-          </section>
-        ) : tab === 'info' ? (
-          <section className="panel tc-tabcol">
-            <TcInfo data={d} onChange={patch} />
-          </section>
-        ) : tab === 'env' ? (
-          <section className="panel tc-tabcol">
-            <TcEnv data={d} onChange={patch} tcid={openId} />
-          </section>
-        ) : tab === 'topo' ? (
-          <section className="panel tc-tabcol">
-            <TcTopology
-              data={d}
-              devices={devices}
-              onChange={patch}
-              onDevicesChanged={() => void devQ.refetch()}
-              onMsg={(kind, text) => setMsg({ kind, text })}
-            />
-          </section>
-        ) : tab === 'traffic' ? (
-          <section className="panel tc-tabcol">
-            <TcTraffic data={d} onChange={patch} />
-          </section>
-        ) : tab === 'manual' ? (
-          <section className="panel tc-tabcol">
-            <TcManual data={d} onChange={patch} />
-          </section>
-        ) : tab === 'history' ? (
-          <section className="panel tc-tabcol">
-            <TcHistory tcid={openId} />
-          </section>
-        ) : tab === 'cycle' ? (
-          <section className="panel tc-tabcol">
-            <TcCycles tcid={openId} />
-          </section>
         ) : (
-          // Automation 만 안에서 좌우로 나뉜다 — 목록과 세부.
-          // 바깥 칸 수는 그대로라 탭을 옮겨도 화면이 출렁이지 않는다.
-          <div className="tc-inner">
-            {/* 목록 */}
-            <section className="panel tc-seqcol" style={{ flexBasis: seqW }}>
-              <div className="tc-run">
-                <button
-                  className="btn small primary"
-                  type="button"
-                  disabled={running || steps.length === 0}
-                  title="처음부터 끝까지 돌립니다"
-                  onClick={() => void doRun(0, false)}
-                >
-                  ▶ 전체
-                </button>
-                <button
-                  className="btn small"
-                  type="button"
-                  disabled={running || stepIdx < 0}
-                  title="고른 줄부터 끝까지"
-                  onClick={() => void doRun(stepIdx, false)}
-                >
-                  ▶ 여기부터
-                </button>
-                <button
-                  className="btn small danger"
-                  type="button"
-                  disabled={!running}
-                  title="중지"
-                  onClick={() => runAbort.current?.abort()}
-                >
-                  ⏹
-                </button>
-                {/* 어느 파라미터 파일이 붙어 있나. 실행 줄에 둔다 —
-                    정보 탭 깊숙이 두면 지금 무엇이 깔려 있는지 모른 채
-                    스텝을 쓰게 된다. */}
-                <TcParamBar
-                  files={paramFiles}
-                  all={gp.files}
-                  used={gp.used}
-                  onChange={(next) => patch({ param_files: next, param_file: '' })}
-                />
-                <TcSessionBar
-                  sessions={sessionIds}
-                  devices={devices}
-                  onAdd={(id) => setSessions([...sessionIds, id])}
-                  onPick={(i, id) => setSessions(sessionIds.map((v, j) => (j === i ? id : v)))}
-                  onRemove={removeSession}
-                  onMsg={(kind, text) => setMsg({ kind, text })}
-                />
-                <span className="sp" />
-                {runStat.done > 0 && (
-                  <span className="muted small">
-                    {runStat.done}/{steps.length} ·{' '}
-                    <b className="status pass">PASS {runStat.pass}</b> ·{' '}
-                    <b className="status fail">FAIL {runStat.fail}</b>
-                  </span>
-                )}
-              </div>
-
-              {/* 회차 고르기.
-                  반복 시험에서 궁금한 것은 「7회차에 무슨 일이 있었나」 다.
-                  회차를 고르면 **목록 전체가 그 회차로** 바뀐다 — 스텝마다
-                  따로 눌러 다니지 않는다. 100회여도 견딘다. */}
-              {roundMax > 1 && (
-                <div className="tc-rounds">
-                  <span className="muted small">
-                    회차 {roundMax}
-                    {badRounds.length > 0 && (
-                      <>
-                        {' · '}
-                        <b className="status fail">부적합 {badRounds.length}</b>
-                      </>
-                    )}
-                  </span>
-                  <button
-                    type="button"
-                    className={`sc-round${viewRound === 0 ? ' on' : ''}`}
-                    title="회차를 합친 결과 — 한 번이라도 깨졌으면 부적합"
-                    onClick={() => setViewRound(0)}
-                  >
-                    전체
-                  </button>
-                  {/* 이력은 다 남긴다. 다만 1000개를 늘어놓으면 못 쓴다 —
-                      찾는 쪽을 붙인다. 100번 돌려 3번 깨졌으면 궁금한 것은
-                      그 3번이고, 나머지 997개는 자리만 먹는다. */}
-                  {badRounds.length > 0 && (
-                    <label className="tc-round-only">
-                      <input
-                        type="checkbox"
-                        checked={badOnly}
-                        onChange={(e) => setBadOnly(e.target.checked)}
-                      />
-                      깨진 것만
-                    </label>
-                  )}
-                  {roundMax > 30 && (
-                    <input
-                      className="tc-round-q"
-                      type="number"
-                      min={1}
-                      max={roundMax}
-                      placeholder="회차로 가기"
-                      onKeyDown={(e) => {
-                        if (e.key !== 'Enter') return
-                        const n = Number((e.target as HTMLInputElement).value)
-                        if (n >= 1 && n <= roundMax) setViewRound(n)
-                      }}
-                    />
-                  )}
-                  <span className="tc-round-list">
-                    {(badOnly ? badRounds : Array.from({ length: roundMax }, (_, n) => n + 1)).map(
-                      (n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          className={`sc-round${badRounds.includes(n) ? ' bad' : ''}${
-                            viewRound === n ? ' on' : ''
-                          }`}
-                          onClick={() => setViewRound(viewRound === n ? 0 : n)}
-                        >
-                          {n}
-                        </button>
-                      ),
-                    )}
-                  </span>
-                  {viewRound > 0 && (
-                    <span className="muted small">{viewRound}회차의 결과를 보고 있습니다</span>
-                  )}
-                </div>
-              )}
-
-              {/* 요구사항 구현의도·시험 목적 → 스텝 설계.
-                  스텝 목록 위다 — 빈 시험을 열면 이것부터 보여야 한다. */}
-              <TcSuggest
-                tcid={openId}
-                data={d}
-                intent={String(reqByKey.get(String(d.req_id ?? ''))?.desc ?? '')}
-                onChange={patch}
-              />
-              {fullQ.isLoading ? (
-                <div className="empty">불러오는 중…</div>
-              ) : (
-                <TcSequence
-                  steps={shownSteps}
-                  selected={stepIdx}
-                  onSelect={setStepIdx}
-                  onAdd={addStep}
-                  sessionName={sessionName}
-                  runningAt={runAt}
-                  picked={picked}
-                  onPick={pickStep}
-                  // 수동 스텝은 여기 안 나온다. 별개 탭이다.
-                  hide={(s) => s.kind === 'manual'}
-                  onRun={running ? undefined : (i) => void doRun(i, true)}
-                />
-              )}
-              {/* 고른 줄이 있을 때만 뜬다. 목록 **아래**에 둔다 — 위에 두면 띠가
-                  나타나는 순간 줄이 통째로 아래로 밀려서, 방금 누른 칸이
-                  손 밑에서 달아난다. */}
-              {picked.size > 0 && (
-                <div className="sq-bulk">
-                  <b>{picked.size}개 골랐습니다</b>
-                  <span className="muted small">shift 를 누른 채 누르면 그 사이가 모두</span>
-                  <button
-                    className="btn small primary"
-                    type="button"
-                    disabled={running}
-                    title="고른 줄만 번호순으로 돌립니다"
-                    onClick={() => void doRun(0, false, [...picked])}
-                  >
-                    ▶ 고른 것만
-                  </button>
-                  <button className="btn small" type="button" onClick={() => skipPicked(true)}>
-                    건너뛰기
-                  </button>
-                  <button className="btn small" type="button" onClick={() => skipPicked(false)}>
-                    되돌리기
-                  </button>
-                  <button
-                    className="btn small danger"
-                    type="button"
-                    onClick={() => removeSteps([...picked])}
-                  >
-                    삭제
-                  </button>
-                  <button className="btn small" type="button" onClick={clearPicked}>
-                    해제
-                  </button>
-                </div>
-              )}
-            </section>
-
-            <Resizer
-              label="스텝 목록 폭 조절"
-              onResize={setSeqW}
-              getOrigin={() => {
-                const el = splitRef.current
-                if (!el) return 0
-                /*
-                 * 1열이 접혀 있으면 왼쪽에는 30px 띠만 있다. 그런데 늘
-                 * listW 를 더해 기준을 잡으니 200px 넘게 어긋나서, 접힌
-                 * 상태에서는 조절바를 끌어도 폭이 안 바뀌는 것처럼 보였다.
-                 */
-                return el.getBoundingClientRect().left + (listOpen ? listW + 6 : 30)
-              }}
-            />
-
-            {/* 세부 — 스텝 하나, 또는 캡쳐하는 동안은 명령어 캡쳐.
-                탭 줄은 이 칸 위(오른쪽 칸 머리)에 한 번만 그린다. 여기에도
-                두었더니 같은 줄이 두 번 나왔다. */}
-            <section className={`panel tc-detcol${termOpen ? ' wide' : ''}`}>
-              {/* 3열도 제 머리를 단다. 1열(`Coverage`)·2열(실행 띠)과 같은
-                  46px 라야 세 칸의 구분선이 한 줄에서 만난다. */}
-              <div className="tc-colh">
-                <b>{termOpen ? '명령어 캡쳐' : '스텝 상세'}</b>
-                <span className="sp" />
-                {/* 캡쳐는 **이 칸을 바꾸는 일**이라 이 칸 머리에 둔다.
-                    2열 실행 줄에 있을 때는 왼쪽을 눌러 오른쪽이 바뀌는
-                    꼴이었고, 그 줄은 「돌리는」 것들만 있어야 읽힌다. */}
-                <div className="tc-more">
-                  <button
-                    className="btn tc-dots"
-                    type="button"
-                    aria-haspopup="menu"
-                    aria-expanded={detMenu}
-                    onClick={() => setDetMenu((v) => !v)}
-                  >
-                    ⋯
-                  </button>
-                  {detMenu && (
-                    <>
-                      <div className="tc-menu-back" onClick={() => setDetMenu(false)} />
-                      <div className="tc-menu" role="menu">
-                        <button
-                          type="button"
-                          title="장비에 붙어 명령을 치면 그대로 스텝이 됩니다"
-                          onClick={() => {
-                            setTermOpen((v) => !v)
-                            setDetMenu(false)
-                          }}
-                        >
-                          {termOpen ? '⌨ 명령어 캡쳐 닫기' : '⌨ 명령어 캡쳐'}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-              {termOpen ? (
-                <TcTerminal
-                  sessions={sessionIds}
-                  devById={devById}
-                  sessionNames={sessionNames}
-                  onAdd={(s) => {
-                    // 함수형으로 붙인다. 기록 중에는 명령이 잇달아 들어와서
-                    // 닫힌 값을 쓰면 앞 스텝이 뒤 스텝에 덮인다.
-                    setD((c) => ({ ...c, checks: [...((c.checks ?? []) as TcStep[]), s] }))
-                    setDirty(true)
-                  }}
-                  onClose={() => setTermOpen(false)}
-                />
-              ) : (
-              <TcStepDetail
-                step={stepIdx >= 0 ? (shownSteps[stepIdx] ?? null) : null}
-                index={stepIdx}
-                total={steps.length}
-                sessions={sessionNames}
-                params={stepParams}
-                takenVars={takenVars}
-                onChange={(p) => stepIdx >= 0 && patchStep(stepIdx, p)}
-                onMove={(dir) => stepIdx >= 0 && moveStep(stepIdx, dir)}
-                onRemove={() => stepIdx >= 0 && removeStep(stepIdx)}
-                onDuplicate={() => stepIdx >= 0 && duplicateStep(stepIdx)}
-                onRun={running || stepIdx < 0 ? undefined : () => void doRun(stepIdx, true)}
-                meterCfg={d.meterCfg}
-                onGoTraffic={() => setTab('traffic')}
-                block={blockInfo}
-              />
-              )}
-            </section>
-          </div>
+          detPanes
         )}
         </div>
       </div>
