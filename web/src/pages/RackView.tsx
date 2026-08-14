@@ -170,6 +170,8 @@ export default function RackView() {
   const [devCtx, setDevCtx] = useState<{ x: number; y: number; d: RvDevice } | null>(null)
   /** 랙 머리 우클릭 — 용도·지우기 메뉴 */
   const [rackCtx, setRackCtx] = useState<{ x: number; y: number; rack: RvRack } | null>(null)
+  /** 부품 우클릭 — 빼기 메뉴 */
+  const [partCtx, setPartCtx] = useState<{ x: number; y: number; b: RvBlank } | null>(null)
   /** 터미널 — 탭 여러 개, 장비 우클릭 「접속」 으로 늘어난다 */
   const [term, setTerm] = useState<{ tabs: TermTab[]; on: number } | null>(null)
   /** 랙 용도 한 줄 — 이름 아래. 누르면 그 자리에서 적는다 */
@@ -810,6 +812,11 @@ export default function RackView() {
                           onDragStart={(e) =>
                             startDrag(e, { kind: 'partmove', id: b.id, units: bu })
                           }
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setPartCtx({ x: e.clientX, y: e.clientY, b })
+                          }}
                           style={{
                             gridRow: rowOf(rk, bp, bu),
                             ...(b.color
@@ -821,14 +828,6 @@ export default function RackView() {
                             {b.label}
                             {bu > 1 ? ` · ${bu}U` : ''}
                           </span>
-                          <button
-                            className="rv-x"
-                            type="button"
-                            title="부품 빼기"
-                            onClick={() => delPart.mutate(b.id)}
-                          >
-                            ×
-                          </button>
                         </span>
                       )
                     })}
@@ -999,6 +998,35 @@ export default function RackView() {
               }}
             >
               랙 지우기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {partCtx && (
+        <div
+          className="rv-ctxovl"
+          onClick={() => setPartCtx(null)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setPartCtx(null)
+          }}
+        >
+          <div
+            className="rv-ctx"
+            style={{ left: partCtx.x, top: partCtx.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rv-ctxh">{partCtx.b.label}</div>
+            <button
+              type="button"
+              className="danger"
+              onClick={() => {
+                delPart.mutate(partCtx.b.id)
+                setPartCtx(null)
+              }}
+            >
+              부품 빼기
             </button>
           </div>
         </div>

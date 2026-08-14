@@ -297,8 +297,6 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.rv-part .rv-x { opacity: 0; }
-.rv-part:hover .rv-x { opacity: 1; }
 
 /* ── 장비 블록 ── */
 .rv-dev {
