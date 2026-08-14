@@ -264,37 +264,41 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
           </div>
         ))}
         {note && <div className="rt-note">{note}</div>}
-      </div>
-      <div className="rt-in">
-        <i>{prompt || '›'}</i>
-        <input
-          ref={inputRef}
-          value={input}
-          disabled={!prompt || busy}
-          placeholder={prompt ? '명령 입력 후 Enter (↑↓ 히스토리)' : '접속되면 입력할 수 있습니다'}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            e.stopPropagation()
-            if (e.key === 'Enter') void send(input)
-            if (e.key === 'ArrowUp') {
-              const h = hist.current
-              if (!h.length) return
-              histAt.current = histAt.current < 0 ? h.length - 1 : Math.max(0, histAt.current - 1)
-              setInput(h[histAt.current] ?? '')
-              e.preventDefault()
-            }
-            if (e.key === 'ArrowDown') {
-              const h = hist.current
-              if (histAt.current < 0) return
-              histAt.current = histAt.current + 1
-              if (histAt.current >= h.length) {
-                histAt.current = -1
-                setInput('')
-              } else setInput(h[histAt.current] ?? '')
-              e.preventDefault()
-            }
-          }}
-        />
+        {/* 진짜 터미널처럼 — 입력은 출력 흐름의 끝에 붙는다. 아래에 따로
+            달린 입력 칸은 터미널이 아니라 채팅창이다. */}
+        <div className="rt-line">
+          <i>{prompt || '›'}</i>
+          <input
+            ref={inputRef}
+            value={input}
+            disabled={!prompt || busy}
+            placeholder={prompt ? '' : '접속되면 입력할 수 있습니다'}
+            spellCheck={false}
+            autoComplete="off"
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Enter') void send(input)
+              if (e.key === 'ArrowUp') {
+                const h = hist.current
+                if (!h.length) return
+                histAt.current = histAt.current < 0 ? h.length - 1 : Math.max(0, histAt.current - 1)
+                setInput(h[histAt.current] ?? '')
+                e.preventDefault()
+              }
+              if (e.key === 'ArrowDown') {
+                const h = hist.current
+                if (histAt.current < 0) return
+                histAt.current = histAt.current + 1
+                if (histAt.current >= h.length) {
+                  histAt.current = -1
+                  setInput('')
+                } else setInput(h[histAt.current] ?? '')
+                e.preventDefault()
+              }
+            }}
+          />
+        </div>
       </div>
     </div>
   )
