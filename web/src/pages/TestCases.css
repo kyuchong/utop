@@ -2772,7 +2772,10 @@ table.tb tr.r-bad td:first-child {
   padding: 6px 8px 10px;
   margin: 0 0 8px;
 }
-.tc-inline .tc-dethead {
+/* 머리줄은 알림(함께 보는 중·저장 종·충돌)이 있을 때만 자리를 갖는다 —
+   저장·탭이 레일로 간 뒤 평소엔 빈 띠였다. sp(밀개)만 있으면 없는 줄. */
+.tc-inline .tc-dethead { padding: 0; margin: 0; border: 0; }
+.tc-inline .tc-dethead:has(> :not(.sp)) {
   padding: 4px 2px 8px;
   border-bottom: 1px solid var(--c-border-soft);
   margin-bottom: 8px;
