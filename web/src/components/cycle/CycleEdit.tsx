@@ -307,6 +307,16 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
         : allTcs
     const n = tcQ.trim().toLowerCase()
     return base.filter((t) => {
+      /* 적용 모델 — 시험이 모델명을 명시했으면 그 모델일 때만, 모델그룹만
+         명시했으면 그 그룹일 때만 후보다. 미지정 시험은 공용이라 늘 나온다.
+         (모델마다 인터페이스가 달라 CLI·판정기준이 갈리는 현실의 답) */
+      const tm = String((t as { model?: unknown }).model ?? '').trim()
+      const tg = String((t as { model_group?: unknown }).model_group ?? '').trim()
+      if (tm) {
+        if (!model || tm !== model) return false
+      } else if (tg) {
+        if (!mgroup || tg !== mgroup) return false
+      }
       if (fSev && String(t.severity ?? '') !== fSev) return false
       if (fStat && String(t.status ?? '') !== fStat) return false
       if (fKind && String(t.kind ?? '') !== fKind) return false
@@ -314,7 +324,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
       if (!n) return true
       return `${t.name ?? ''} ${t.tcid}`.toLowerCase().includes(n)
     })
-  }, [reqSel, reqsUnderCat, tcQ, tcsByReq, allTcs, fSev, fStat, fKind, fTyp])
+  }, [reqSel, reqsUnderCat, tcQ, tcsByReq, allTcs, fSev, fStat, fKind, fTyp, model, mgroup])
 
   /** 3열 — 요구사항으로 묶는다. 여섯 건만 넘어도 평평하면 안 읽힌다 */
   const grouped = useMemo(() => {

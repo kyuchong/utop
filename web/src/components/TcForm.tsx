@@ -18,6 +18,10 @@ interface Props {
 const FB_STATUS = ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류']
 const FB_SEVERITY = ['치명', '중대', '보통', '경미']
 const FB_TYPE = ['FT', 'Function']
+const FB_RUN_TYPE = ['수동', '자동', '혼합']
+const FB_ORIGIN = ['자체', '고객']
+/** 「공용으로 하겠다」 는 명시적 선택 — 빈 값(안 고름)과 갈라야 필수가 된다 */
+const COMMON = '*'
 
 export default function TcForm({ editing, presetReqId, onClose }: Props) {
   const qc = useQueryClient()
@@ -32,6 +36,14 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
   const TYPES = useCodes('tc_type', FB_TYPE)
   const [status, setStatus] = useState(FB_STATUS[0]!)
   const [severity, setSeverity] = useState(FB_SEVERITY[1]!)
+  const RUN_TYPES = useCodes('tc_run_type', FB_RUN_TYPE)
+  const ORIGINS = useCodes('tc_origin', FB_ORIGIN)
+  const [runType, setRunType] = useState('')
+  const [origin, setOrigin] = useState('')
+  /** 적용 모델 — 모델마다 인터페이스가 달라 CLI·판정기준이 갈린다.
+      새로 만들 때는 필수다(공용도 '공용' 을 골라야 지나간다). */
+  const [mg, setMg] = useState('')
+  const [mdl, setMdl] = useState('')
   const [error, setError] = useState('')
   // 설정 → 커스텀 필드에서 팀이 늘린 칸. 값은 data->'custom' 에 산다.
   const [custom, setCustom] = useState<Record<string, unknown>>({})
@@ -58,6 +70,11 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
     setType(editing?.type ?? '')
     setStatus(editing?.status || FB_STATUS[0]!)
     setSeverity(editing?.severity || FB_SEVERITY[1]!)
+    setRunType(String(editing?.run_type ?? ''))
+    setOrigin(String(editing?.origin ?? ''))
+    // 기존 것: 빈 값 = 공용으로 이미 저장된 상태라 그대로 보여준다
+    setMg(editing ? String(editing.model_group ?? '') || COMMON : '')
+    setMdl(editing ? String(editing.model ?? '') || COMMON : '')
     // 화면에 안 보이는 칸의 값까지 통째로 들고 있다가 그대로 돌려보낸다.
     // 저장이 data 를 통째로 덮어쓰므로(main.py:save_tc) 여기서 빠뜨리면
     // 숨긴 칸의 값이 조용히 사라진다.
@@ -71,6 +88,24 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
     queryFn: ({ signal }) => api.listRequirements(signal),
   })
   const reqs = reqQ.data?.reqs ?? []
+
+  /** 적용 모델 선택지 — 카탈로그가 정본 (손으로 치면 표기가 갈린다) */
+  const rolesQ = useQuery({
+    queryKey: ['device-roles'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/device-roles')
+      return (await r.json()) as {
+        groups?: string[]
+        models?: string[]
+        model_info?: Record<string, { model_group?: string | null }>
+      }
+    },
+    staleTime: 60_000,
+  })
+  const modelOpts = (rolesQ.data?.models ?? []).filter(
+    (m) =>
+      !mg || mg === COMMON || (rolesQ.data?.model_info?.[m]?.model_group ?? '') === mg,
+  )
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
@@ -89,6 +124,11 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
         type: type.trim(),
         status,
         severity,
+        run_type: runType,
+        origin,
+        // '*'(공용) 는 빈 값으로 저장 — 사이클 필터의 「미지정 = 공용」 규칙
+        model_group: mg === COMMON ? '' : mg,
+        model: mdl === COMMON ? '' : mdl,
         custom,
       }),
     onSuccess: () => {
@@ -114,6 +154,14 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
     }
     if (!name.trim()) {
       setError('제목을 입력하세요')
+      return
+    }
+    if (isNew && !mg) {
+      setError('모델그룹을 고르세요 — 공용 시험이면 「공용(전체)」 을 고릅니다')
+      return
+    }
+    if (isNew && mg !== COMMON && !mdl) {
+      setError('모델명을 고르세요 — 그룹 전체에 쓰는 시험이면 「(그룹 공용)」 을 고릅니다')
       return
     }
     // 필수는 보이는 칸만 따진다. 숨긴 칸을 필수로 걸어두면 고칠 방법이
@@ -192,6 +240,48 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
             />
           </label>
 
+          {/* 적용 모델 — 필수. 모델마다 인터페이스가 달라 CLI·판정기준이
+              갈리므로 시험을 모델그룹+모델명 기준으로 만든다. */}
+          <div className="frow">
+            <label className="fld">
+              <span>모델그룹 *</span>
+              <select
+                value={mg}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setMg(v)
+                  setMdl(v === COMMON ? COMMON : '')
+                }}
+              >
+                <option value="">(골라 주세요)</option>
+                <option value={COMMON}>공용 (전체 모델)</option>
+                {(rolesQ.data?.groups ?? []).map((g) => (
+                  <option key={g}>{g}</option>
+                ))}
+                {mg && mg !== COMMON && !(rolesQ.data?.groups ?? []).includes(mg) && (
+                  <option value={mg}>{mg} (목록에 없음)</option>
+                )}
+              </select>
+            </label>
+            <label className="fld">
+              <span>모델명 *</span>
+              <select
+                value={mdl}
+                disabled={mg === COMMON}
+                onChange={(e) => setMdl(e.target.value)}
+              >
+                <option value="">(골라 주세요)</option>
+                <option value={COMMON}>{mg === COMMON ? '공용' : '(그룹 공용)'}</option>
+                {modelOpts.map((m) => (
+                  <option key={m}>{m}</option>
+                ))}
+                {mdl && mdl !== COMMON && !modelOpts.includes(mdl) && (
+                  <option value={mdl}>{mdl} (목록에 없음)</option>
+                )}
+              </select>
+            </label>
+          </div>
+
           <div className="frow">
             <label className="fld">
               <span>연결 요구사항</span>
@@ -211,6 +301,27 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
               <select value={type} onChange={(e) => setType(e.target.value)}>
                 <option value="">(선택)</option>
                 {TYPES.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <div className="frow">
+            <label className="fld">
+              <span>실행 타입</span>
+              <select value={runType} onChange={(e) => setRunType(e.target.value)}>
+                <option value="">(선택)</option>
+                {RUN_TYPES.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+            <label className="fld">
+              <span>발생 구분</span>
+              <select value={origin} onChange={(e) => setOrigin(e.target.value)}>
+                <option value="">(선택)</option>
+                {ORIGINS.map((s) => (
                   <option key={s}>{s}</option>
                 ))}
               </select>

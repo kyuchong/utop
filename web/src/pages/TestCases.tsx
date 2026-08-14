@@ -107,6 +107,8 @@ function blankStep(kind: StepKind): TcStep {
 /** List 표의 선택형 열 — ⚙ 에서 켜고 끈다. 이름 열은 항상 있다. */
 const COL_DEFS = [
   { k: 'id', label: 'TC ID', w: '116px' },
+  { k: 'model_group', label: '모델그룹', w: '96px' },
+  { k: 'model', label: '모델명', w: '110px' },
   { k: 'type', label: '유형', w: '74px' },
   { k: 'severity', label: '심각도', w: '80px' },
   { k: 'kind', label: '실행 타입', w: '84px' },
@@ -123,6 +125,8 @@ const COL_DEFAULT = ['type', 'map', 'status']
 function colVal(k: string, t: TestCaseMeta): string {
   switch (k) {
     case 'id': return t.tcid
+    case 'model_group': return (t.model_group as string) || '공용'
+    case 'model': return (t.model as string) || '–'
     case 'type': return t.type || '–'
     case 'severity': return t.severity || '–'
     // 목록 API 는 data JSONB 를 돌려준다 — Info 탭의 실행 타입은 그 안에
@@ -135,7 +139,7 @@ function colVal(k: string, t: TestCaseMeta): string {
     default: return ''
   }
 }
-const FILTERABLE = ['type', 'severity', 'kind', 'status', 'created_by', 'updated_by', 'updated']
+const FILTERABLE = ['model_group', 'model', 'type', 'severity', 'kind', 'status', 'created_by', 'updated_by', 'updated']
 
 const OPEN_KEY = 'utop.tc.open'
 const TAB_KEY = 'utop.tc.tab'
@@ -1524,6 +1528,9 @@ export default function TestCases({ me }: PageProps) {
     switch (k) {
       case 'id':
         return <div className="muted" key={k}>{t.tcid}</div>
+      case 'model_group':
+      case 'model':
+        return <div className="muted" key={k}>{colVal(k, t)}</div>
       case 'type':
         return <div key={k}>{t.type ? <span className="tag">{t.type}</span> : '–'}</div>
       case 'severity':

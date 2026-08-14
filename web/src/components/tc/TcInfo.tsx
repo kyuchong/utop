@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { apiFetch } from '@/api/client'
 import { api, categoryApi } from '@/api/client'
 import { reqLabel, reqPk } from '@/types'
 import { useCodes } from '@/hooks/useCodes'
@@ -105,6 +106,24 @@ export default function TcInfo({ data, onChange }: Props) {
   const TYPES = useCodes('tc_type', FB_TYPE)
   const ORIGINS = useCodes('tc_origin', FB_ORIGIN)
   const cf = useCustomFields('tc')
+
+  /** 적용 모델 선택지 — 카탈로그가 정본. 손으로 치게 두면 표기가 갈린다 */
+  const rolesQ = useQuery({
+    queryKey: ['device-roles'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/device-roles')
+      return (await r.json()) as {
+        groups?: string[]
+        models?: string[]
+        model_info?: Record<string, { model_group?: string | null }>
+      }
+    },
+    staleTime: 60_000,
+  })
+  const mg = String(data.model_group ?? '')
+  const modelOpts = (rolesQ.data?.models ?? []).filter(
+    (m) => !mg || (rolesQ.data?.model_info?.[m]?.model_group ?? '') === mg,
+  )
 
   const custom = (data.custom as Record<string, unknown>) ?? {}
 
@@ -225,6 +244,55 @@ export default function TcInfo({ data, onChange }: Props) {
         </div>
       </section>
 
+
+      {/* 적용 모델 — 모델마다 인터페이스가 달라 CLI·판정기준이 갈리므로
+          시험을 모델그룹+모델명 기준으로 만든다. 비우면 공용이고,
+          사이클 만들기가 이 기준으로 항목을 거른다. */}
+      <section className="tc-card">
+        <div className="tc-card-head">
+          <b>적용 모델</b>
+          <span className="muted small">
+            비우면 공용 — 사이클 만들기가 이 기준으로 항목을 거릅니다
+          </span>
+        </div>
+        <div className="tc-grid">
+          <label className="fld">
+            <span>모델그룹</span>
+            <select
+              value={mg}
+              onChange={(e) => onChange({ model_group: e.target.value, model: '' })}
+            >
+              <option value="">(공용)</option>
+              {(rolesQ.data?.groups ?? []).map((g) => (
+                <option key={g}>{g}</option>
+              ))}
+              {mg && !(rolesQ.data?.groups ?? []).includes(mg) && (
+                <option value={mg}>{mg} (목록에 없음)</option>
+              )}
+            </select>
+          </label>
+          <label className="fld">
+            <span>모델명</span>
+            <select
+              value={String(data.model ?? '')}
+              onChange={(e) => {
+                const m = e.target.value
+                // 모델을 고르면 그 모델의 그룹을 같이 채운다 — 따로 놀면 사이클이 못 거른다
+                const g = m ? (rolesQ.data?.model_info?.[m]?.model_group ?? mg) : mg
+                onChange({ model: m, model_group: g || mg })
+              }}
+            >
+              <option value="">{mg ? '(그룹 공용)' : '(공용)'}</option>
+              {modelOpts.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+              {!!data.model && !modelOpts.includes(String(data.model)) && (
+                <option value={String(data.model)}>{String(data.model)} (목록에 없음)</option>
+              )}
+            </select>
+          </label>
+        </div>
+      </section>
 
       {/* 설정 → 커스텀 필드에서 늘린 칸. 기본 칸과 한 카드에 섞으면 어디까지가
           원래 있던 것인지 알 수 없어 카드를 나눈다. */}
