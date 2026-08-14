@@ -2172,7 +2172,7 @@ export default function TestCases({ me }: PageProps) {
                   listRows.map((t) => {
                     const expanded = inlineMode && openId === t.tcid
                     return (
-                      <div key={t.tcid} className={expanded ? 'tc-expwrap' : undefined}>
+                      <div key={t.tcid} className={`tcl-rw${expanded ? ' tc-expwrap' : ''}`}>
                       <div
                         className={`rq-tr tc-tr${listPick.has(t.tcid) ? ' picked' : ''}${expanded ? ' expanded' : ''}`}
                       >
