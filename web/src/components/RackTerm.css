@@ -1,5 +1,5 @@
 /* ── 랙뷰 터미널 ─────────────────────────────────────────────── */
-.rt-ovl {
+.tm-ovl {
   position: fixed;
   inset: 0;
   z-index: 60;
@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: center;
 }
-.rt-win {
+.tm-win {
   width: 860px;
   max-width: 94vw;
   height: 76vh;
@@ -20,7 +20,7 @@
   box-shadow: 0 18px 50px rgb(15 23 42 / 0.4);
 }
 /* 탭 줄 — SecureCRT 처럼 장비 여러 대를 오간다 */
-.rt-tabs {
+.tm-tabs {
   flex: none;
   display: flex;
   align-items: center;
@@ -30,7 +30,7 @@
   background: var(--c-surface-alt);
   flex-wrap: wrap;
 }
-.rt-tab {
+.tm-tab {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -42,12 +42,12 @@
   font-weight: 600;
   cursor: pointer;
 }
-.rt-tab.on {
+.tm-tab.on {
   background: #0c0f14;
   color: #eaf2ff;
   border-color: #0c0f14;
 }
-.rt-tp {
+.tm-tp {
   font-style: normal;
   font-size: 10px;
   font-weight: 800;
@@ -56,8 +56,8 @@
   border-radius: 4px;
   padding: 0 4px;
 }
-.rt-tab.on .rt-tp { background: #1d2836; }
-.rt-tx {
+.tm-tab.on .tm-tp { background: #1d2836; }
+.tm-tx {
   border: 0;
   background: transparent;
   color: inherit;
@@ -66,10 +66,10 @@
   padding: 0 2px;
   font-size: 12px;
 }
-.rt-tx:hover { opacity: 1; color: var(--c-fail); }
-.rt-hint { margin-left: 6px; }
-.rt-tabs .sp { flex: 1; }
-.rt-fz {
+.tm-tx:hover { opacity: 1; color: var(--c-fail); }
+.tm-hint { margin-left: 6px; }
+.tm-tabs .sp { flex: 1; }
+.tm-fz {
   border: 1px solid var(--c-border);
   border-radius: 6px;
   background: var(--c-surface);
@@ -79,14 +79,14 @@
   cursor: pointer;
 }
 
-.rt-pane {
+.tm-pane {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
-.rt-head {
+.tm-head {
   flex: none;
   display: flex;
   align-items: center;
@@ -94,7 +94,7 @@
   padding: 8px 12px;
   border-bottom: 1px solid var(--c-border);
 }
-.rt-proto {
+.tm-proto {
   font-size: var(--fs-xs);
   font-weight: 800;
   color: var(--c-primary);
@@ -102,7 +102,7 @@
   border-radius: 999px;
   padding: 1px 8px;
 }
-.rt-prompt {
+.tm-prompt {
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
@@ -111,9 +111,9 @@
   white-space: nowrap;
   max-width: 200px;
 }
-.rt-head .sp { flex: 1; }
+.tm-head .sp { flex: 1; }
 
-.rt-body {
+.tm-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -124,25 +124,25 @@
   line-height: 1.5;
   padding: 10px 12px;
 }
-.rt-blk { margin-bottom: 6px; }
-.rt-cmd { color: #eaf2ff; font-weight: 700; }
-.rt-cmd > i { font-style: normal; color: #7ea0c8; }
-.rt-body pre {
+.tm-blk { margin-bottom: 6px; }
+.tm-cmd { color: #eaf2ff; font-weight: 700; }
+.tm-cmd > i { font-style: normal; color: #7ea0c8; }
+.tm-body pre {
   margin: 2px 0 0;
   white-space: pre-wrap;
   word-break: break-all;
   color: #cfe3d6;
 }
-.rt-body pre.err { color: #ff9f9f; }
-.rt-note { color: #f0c674; padding: 4px 0; }
+.tm-body pre.err { color: #ff9f9f; }
+.tm-note { color: #f0c674; padding: 4px 0; }
 
 /* 인라인 프롬프트 — 출력 흐름의 마지막 줄 */
-.rt-line {
+.tm-line {
   display: flex;
   align-items: center;
   gap: 7px;
 }
-.rt-line > i {
+.tm-line > i {
   font-style: normal;
   color: #7ea0c8;
   max-width: 220px;
@@ -151,7 +151,7 @@
   white-space: nowrap;
   flex: none;
 }
-.rt-line input {
+.tm-line input {
   flex: 1;
   min-width: 0;
   background: transparent;

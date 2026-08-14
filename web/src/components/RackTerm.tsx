@@ -40,16 +40,16 @@ interface HostProps {
 export default function RackTermHost({ tabs, on, onPick, onCloseTab, onClose }: HostProps) {
   const [fontPx, setFontPx] = useState(12)
   return (
-    <div className="rt-ovl" onClick={onClose}>
-      <div className="rt-win" onClick={(e) => e.stopPropagation()}>
-        <div className="rt-tabs">
+    <div className="tm-ovl" onClick={onClose}>
+      <div className="tm-win" onClick={(e) => e.stopPropagation()}>
+        <div className="tm-tabs">
           {tabs.map((t, i) => (
-            <span key={t.key} className={`rt-tab${i === on ? ' on' : ''}`} onClick={() => onPick(i)}>
+            <span key={t.key} className={`tm-tab${i === on ? ' on' : ''}`} onClick={() => onPick(i)}>
               {deviceShort(t.dev)}
-              <i className="rt-tp">{t.protocol === 'telnet' ? 'T' : t.protocol === 'ssh' ? 'S' : 'C'}</i>
+              <i className="tm-tp">{t.protocol === 'telnet' ? 'T' : t.protocol === 'ssh' ? 'S' : 'C'}</i>
               <button
                 type="button"
-                className="rt-tx"
+                className="tm-tx"
                 title="탭 닫기 (세션은 남습니다)"
                 onClick={(e) => {
                   e.stopPropagation()
@@ -60,12 +60,12 @@ export default function RackTermHost({ tabs, on, onPick, onCloseTab, onClose }: 
               </button>
             </span>
           ))}
-          <span className="rt-hint muted small">랙에서 장비 우클릭 → 접속으로 탭이 늘어납니다</span>
+          <span className="tm-hint muted small">랙에서 장비 우클릭 → 접속으로 탭이 늘어납니다</span>
           <span className="sp" />
-          <button className="rt-fz" type="button" title="글자 작게" onClick={() => setFontPx((v) => Math.max(10, v - 1))}>
+          <button className="tm-fz" type="button" title="글자 작게" onClick={() => setFontPx((v) => Math.max(10, v - 1))}>
             A−
           </button>
-          <button className="rt-fz" type="button" title="글자 크게" onClick={() => setFontPx((v) => Math.min(18, v + 1))}>
+          <button className="tm-fz" type="button" title="글자 크게" onClick={() => setFontPx((v) => Math.min(18, v + 1))}>
             A+
           </button>
           <button className="btn small" type="button" onClick={onClose} title="창 닫기 (세션은 남습니다)">
@@ -219,11 +219,11 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
   }
 
   return (
-    <div className="rt-pane" style={{ display: visible ? 'flex' : 'none' }}>
-      <div className="rt-head">
+    <div className="tm-pane" style={{ display: visible ? 'flex' : 'none' }}>
+      <div className="tm-head">
         <b>{deviceLabel(dev)}</b>
-        <span className="rt-proto">{protocol.toUpperCase()}</span>
-        {prompt && <span className="rt-prompt">{prompt}</span>}
+        <span className="tm-proto">{protocol.toUpperCase()}</span>
+        {prompt && <span className="tm-prompt">{prompt}</span>}
         <span className="sp" />
         <button className="btn small" type="button" disabled={blocks.length === 0} onClick={saveLog}>
           로그 저장
@@ -247,7 +247,7 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
         )}
       </div>
       <div
-        className="rt-body"
+        className="tm-body"
         ref={bodyRef}
         style={{ fontSize: fontPx }}
         onClick={() => {
@@ -256,17 +256,17 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
         }}
       >
         {blocks.map((b, i) => (
-          <div className="rt-blk" key={i}>
-            <div className="rt-cmd">
+          <div className="tm-blk" key={i}>
+            <div className="tm-cmd">
               <i>{prompt || '#'}</i> {b.cmd}
             </div>
             {b.out && <pre className={b.error ? 'err' : ''}>{b.out}</pre>}
           </div>
         ))}
-        {note && <div className="rt-note">{note}</div>}
+        {note && <div className="tm-note">{note}</div>}
         {/* 진짜 터미널처럼 — 입력은 출력 흐름의 끝에 붙는다. 아래에 따로
             달린 입력 칸은 터미널이 아니라 채팅창이다. */}
-        <div className="rt-line">
+        <div className="tm-line">
           <i>{prompt || '›'}</i>
           <input
             ref={inputRef}
