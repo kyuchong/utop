@@ -2830,12 +2830,12 @@ table.tb tr.r-bad td:first-child {
 .tc-railbody > * { flex: 1; min-width: 0; min-height: 0; }
 .tc-rail {
   flex: none;
-  width: 56px;
+  width: 46px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 4px;
-  padding: 10px 6px;
+  gap: 9px;
+  padding: 10px 4px;
   border-right: 1px solid var(--c-border-soft);
   background: linear-gradient(180deg, #f7f9fc, #f2f5f9);
   /* 말풍선이 레일 밖(내용 위)으로 나온다 */
@@ -2852,7 +2852,7 @@ table.tb tr.r-bad td:first-child {
   border-radius: 9px;
   background: transparent;
   color: #5b6572;
-  padding: 8px 0 6px;
+  padding: 6px 0 5px;
   cursor: pointer;
 }
 .tc-rt:hover { background: #e8eef7; color: var(--c-primary); }
