@@ -435,8 +435,17 @@
   outline: none;
 }
 
-/* U 크기·소모전력 같은 짧은 숫자 칸 — IP 줄에 끼어도 안 밀리게 */
-.fld.fld-xs { flex: 0 0 96px; }
+/* 장비 창 첫 줄 — LAB·제조사·제품군·모델그룹·모델명 다섯 칸 */
+.frow-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+@media (max-width: 860px) { .frow-5 { grid-template-columns: repeat(2, 1fr); } }
+
+/* U 크기·소모전력 같은 짧은 숫자 칸 — 왼쪽 라벨 그리드(72px)에 눌려
+   입력이 20px 로 짜부라졌다. 라벨을 좁히고 전체 폭을 제대로 준다. */
+.modal .fld.fld-xs {
+  flex: 0 0 158px;
+  grid-template-columns: 74px 1fr;
+}
+.modal .fld.fld-xs input { min-width: 0; }
 
 /* ── 장비 인터페이스(읽기 전용) ───────────────────────────────
    포트 구성의 정본은 장비 카탈로그의 모델이다. 여기서는 보여주고,

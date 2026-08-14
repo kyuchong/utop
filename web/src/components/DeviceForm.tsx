@@ -211,6 +211,9 @@ export default function DeviceForm({ editing, onClose }: Props) {
     password: '',
   })
   const [ifs, setIfs] = useState<DeviceIf[]>([])
+  /** 모델그룹 — 장비에 저장하지 않는다(카탈로그 파생). 모델명을 좁히는
+      길잡이이자, 모델을 고르면 자동으로 맞춰지는 표시다. */
+  const [mgrp, setMgrp] = useState('')
   const [acc, setAcc] = useState<Record<string, DeviceAccess>>({})
   const [error, setError] = useState('')
   const [probe, setProbe] = useState('')
@@ -234,6 +237,7 @@ export default function DeviceForm({ editing, onClose }: Props) {
       power_w: editing?.power_w ?? null,
     })
     setIfs(editing?.interfaces ?? [])
+    setMgrp('')  // rolesQ 가 오면 아래 effect 가 모델의 그룹을 채운다
     const m: Record<string, DeviceAccess> = {}
     for (const a of editing?.access ?? []) m[a.protocol] = { ...a }
     setAcc(m)
@@ -250,10 +254,16 @@ export default function DeviceForm({ editing, onClose }: Props) {
         labs: string[]
         vendors: string[]
         models: string[]
+        groups?: string[]
         usernames: string[]
         model_info: Record<
           string,
-          { vendor?: string | null; family?: string | null; interfaces?: string | null }
+          {
+            vendor?: string | null
+            family?: string | null
+            model_group?: string | null
+            interfaces?: string | null
+          }
         >
       }
     },
@@ -285,6 +295,13 @@ export default function DeviceForm({ editing, onClose }: Props) {
     })
   }
 
+  // 편집으로 연 장비의 모델그룹 — 카탈로그가 로드되면 채운다
+  useEffect(() => {
+    const m = editing?.model
+    if (m && rolesQ.data?.model_info?.[m]) setMgrp(rolesQ.data.model_info[m]?.model_group ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, rolesQ.data])
+
   /**
    * 카탈로그에 등록된 모델을 고르면 제조사·제품군·기본 인터페이스를 채운다.
    * 같은 모델을 30대 등록할 때 이것이 가장 크게 줄여준다.
@@ -294,6 +311,7 @@ export default function DeviceForm({ editing, onClose }: Props) {
    */
   const pickModel = (name: string) => {
     const info = rolesQ.data?.model_info?.[name]
+    setMgrp(info?.model_group ?? '')
     setF((c) => ({
       ...c,
       model: name,
@@ -418,7 +436,7 @@ export default function DeviceForm({ editing, onClose }: Props) {
 
           {/* LAB · 제조사 · 제품군 · 모델명 을 한 줄에. 모두 「고르거나
               직접 입력」 하는 드롭다운(Combo) 이라 생김새가 같다. */}
-          <div className="frow frow-4">
+          <div className="frow frow-5">
             <label className="fld">
               <span>LAB</span>
               <Combo
@@ -447,10 +465,36 @@ export default function DeviceForm({ editing, onClose }: Props) {
               />
             </label>
             <label className="fld">
+              <span>모델그룹</span>
+              {/* 카탈로그 그룹만 — 손으로 치게 두면 표기가 갈린다.
+                  고르면 모델명이 그 그룹으로 좁혀진다 */}
+              <select
+                value={mgrp}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setMgrp(v)
+                  // 지금 모델이 그 그룹 밖이면 비운다 — 어긋난 짝을 막는다
+                  const cur = f.model ?? ''
+                  if (v && cur && (rolesQ.data?.model_info?.[cur]?.model_group ?? '') !== v)
+                    set('model', '')
+                }}
+              >
+                <option value="">(전체)</option>
+                {(rolesQ.data?.groups ?? []).map((g) => (
+                  <option key={g}>{g}</option>
+                ))}
+                {mgrp && !(rolesQ.data?.groups ?? []).includes(mgrp) && (
+                  <option value={mgrp}>{mgrp} (목록에 없음)</option>
+                )}
+              </select>
+            </label>
+            <label className="fld">
               <span>모델명</span>
               <Combo
                 value={f.model ?? ''}
-                items={rolesQ.data?.models}
+                items={(rolesQ.data?.models ?? []).filter(
+                  (m) => !mgrp || (rolesQ.data?.model_info?.[m]?.model_group ?? '') === mgrp,
+                )}
                 placeholder="E6100-48X"
                 onChange={(v) => pickModel(v)}
               />
