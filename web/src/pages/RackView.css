@@ -183,8 +183,9 @@
 .rv-blank {
   grid-column: 2;
   margin: 1px 2px;
-  border: 1px dashed #e8ebf1;
+  border: 0;
   border-radius: 3px;
+  background: #f6f7f9;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -216,7 +217,7 @@
   opacity: 0;
   padding: 0;
 }
-.rv-blank:hover { border-color: var(--c-primary); }
+.rv-blank:hover { background: #eef3fb; box-shadow: inset 0 0 0 1px var(--c-primary); }
 .rv-blank:hover .rv-put { opacity: 1; }
 .rv-put:hover { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
 
@@ -243,9 +244,10 @@
 .rv-dev {
   grid-column: 2;
   margin: 1px 2px;
-  border: 1px solid #8fb8ea;
+  border: 1px solid #86b3e8;
   border-radius: 5px;
-  background: #e3efff;
+  background: #dcebff;
+  box-shadow: 0 1px 2px rgb(30 64 120 / 0.10);
   display: flex;
   align-items: center;
   gap: 5px;
