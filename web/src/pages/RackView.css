@@ -207,6 +207,7 @@
   font-size: 12px;
   font-weight: 700;
   color: #57616e;
+  text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -222,6 +223,7 @@
   font: inherit;
   font-size: 12px;
   font-weight: 700;
+  text-align: center;
   border: 1px solid var(--c-primary);
   border-radius: 4px;
 }
