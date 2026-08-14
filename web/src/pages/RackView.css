@@ -149,9 +149,9 @@
 
 .rv-rack {
   flex: none;
-  /* Full HD 에 최대한 많이 — 점 4개를 2×2 로 접어 또 줄였다.
+  /* 점 4개가 가로 한 줄이 되며 폭을 돌려받았다 — 잘 보이는 것이 먼저다.
      아주 긴 이름은 … 로 접히고 전체는 마우스 올리면 나온다 */
-  width: 148px;
+  width: 168px;
   border: 1px solid var(--c-border);
   border-radius: 10px;
   background: var(--c-surface);
@@ -361,19 +361,19 @@
 /* ── 범례 — 면=프로토콜, 색=상태 ── */
 /* 점 4개 — 2×2 두 줄: 가로를 반으로 줄인다. 순서는 왼위 Telnet ·
    오른위 SSH · 왼아래 Console · 오른아래 SNMP */
-/* 행 하한이 17px 라 6px×2줄(14px)이 블록 안(15px)에 들어온다 —
-   5px 는 눈이 힘들었다 */
+/* 가로 한 줄 4개 — 2×2 는 작아서 안 보였다. 폭은 랙이 조금 넓어지는
+   것으로 갚는다 */
 .rv-4d {
   display: grid;
-  grid-template-columns: repeat(2, 6px);
-  gap: 2px;
+  grid-template-columns: repeat(4, 7px);
+  gap: 2.5px;
   flex: none;
   align-content: center;
 }
 .rv-4d.demo { margin-right: 2px; }
 .rv-d4 {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   display: inline-block;
   box-shadow: 0 0 0 1px rgb(255 255 255 / 0.9);
