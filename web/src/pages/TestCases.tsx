@@ -125,7 +125,9 @@ function colVal(k: string, t: TestCaseMeta): string {
     case 'id': return t.tcid
     case 'type': return t.type || '–'
     case 'severity': return t.severity || '–'
-    case 'kind': return t.kind || '–'
+    // 목록 API 는 data JSONB 를 돌려준다 — Info 탭의 실행 타입은 그 안에
+    // run_type 으로 있다. kind 만 보면 늘 비었다(겪었다).
+    case 'kind': return t.kind || (t.run_type as string) || '–'
     case 'created_by': return (t.created_by as string) || '–'
     case 'updated_by': return (t.updated_by as string) || '–'
     case 'updated': return String(t._updated_at_pg ?? '').slice(0, 10) || '–'
