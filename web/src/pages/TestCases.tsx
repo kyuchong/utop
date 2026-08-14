@@ -116,6 +116,23 @@ const COL_DEFS = [
 ] as const
 const COL_DEFAULT = ['type', 'map', 'status']
 
+/** 열 하나의 표시값 — 필터 드롭다운과 줄 필터가 같은 값을 쓴다.
+    컴포넌트 안에 두면 위쪽 useMemo 가 선언 전에 불러 TDZ 로 터진다. */
+function colVal(k: string, t: TestCaseMeta): string {
+  switch (k) {
+    case 'id': return t.tcid
+    case 'type': return t.type || '–'
+    case 'severity': return t.severity || '–'
+    case 'kind': return t.kind || '–'
+    case 'created_by': return (t.created_by as string) || '–'
+    case 'updated_by': return (t.updated_by as string) || '–'
+    case 'updated': return String(t._updated_at_pg ?? '').slice(0, 10) || '–'
+    case 'status': return t.status || '미실행'
+    default: return ''
+  }
+}
+const FILTERABLE = ['type', 'severity', 'kind', 'status', 'created_by', 'updated_by', 'updated']
+
 const OPEN_KEY = 'utop.tc.open'
 const TAB_KEY = 'utop.tc.tab'
 const TABS: Tab[] = ['steps', 'info', 'env', 'topo', 'traffic', 'manual', 'history', 'cycle']
@@ -1482,21 +1499,6 @@ export default function TestCases({ me }: PageProps) {
   const visCols = colOrder
     .map((k) => COL_DEFS.find((c) => c.k === k))
     .filter((c): c is (typeof COL_DEFS)[number] => !!c && cols.includes(c.k))
-  /** 열 하나의 표시값 — 필터·드롭다운이 같은 값을 쓴다 */
-  const colVal = (k: string, t: TestCaseMeta): string => {
-    switch (k) {
-      case 'id': return t.tcid
-      case 'type': return t.type || '–'
-      case 'severity': return t.severity || '–'
-      case 'kind': return t.kind || '–'
-      case 'created_by': return (t.created_by as string) || '–'
-      case 'updated_by': return (t.updated_by as string) || '–'
-      case 'updated': return String(t._updated_at_pg ?? '').slice(0, 10) || '–'
-      case 'status': return t.status || '미실행'
-      default: return ''
-    }
-  }
-  const FILTERABLE = ['type', 'severity', 'kind', 'status', 'created_by', 'updated_by', 'updated']
   const listGrid = `30px minmax(220px, 1fr) ${visCols.map((c) => c.w).join(' ')}`.trim()
   /** 선택형 열 한 칸 — 열쇠(k)로 그린다 */
   const colCell = (k: string, t: TestCaseMeta) => {
