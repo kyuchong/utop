@@ -1529,7 +1529,8 @@ export default function TestCases({ me }: PageProps) {
       case 'severity':
         return <div key={k}>{t.severity || '–'}</div>
       case 'kind':
-        return <div key={k}>{t.kind || '–'}</div>
+        // 값 셈은 colVal 한 곳만 — 두 군데로 갈라져 한쪽만 고치는 사고를 겪었다
+        return <div key={k}>{colVal('kind', t)}</div>
       case 'map':
         return (
           <div className="tc-map" key={k}>
