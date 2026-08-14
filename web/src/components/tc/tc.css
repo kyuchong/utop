@@ -469,7 +469,8 @@
   font-size: var(--fs-label);
 }
 
-.cy-nm { display: flex; flex-direction: column; min-width: 0; }
+/* 이름·모델을 한 줄에 — 두 줄이면 표가 배로 길어진다 */
+.cy-nm { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
 .cy-nm b,
 .cy-nm span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
