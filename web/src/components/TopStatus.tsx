@@ -51,6 +51,10 @@ export default function TopStatus({ me }: Props) {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['locks'] }),
   })
 
+  // 안 잡고 있으면 아예 안 그린다 — 「쓰는 장비 없음」 은 정보가 0인
+  // 죽은 칩이었다. 잡는 순간 나타나는 쪽이 오히려 눈에 띈다.
+  if (locks.length === 0) return null
+
   return (
     <div className="ts" ref={boxRef}>
       <button
