@@ -452,3 +452,79 @@
   font-size: var(--fs-xs);
   color: var(--c-primary);
 }
+
+/* ── 눌러서 놓기 대화상자 — 드래그의 폼 경로 짝 ── */
+.rv-ovl {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgb(15 20 30 / 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rv-dlg {
+  width: 420px;
+  max-width: 94vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--c-surface);
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 14px 40px rgb(15 23 42 / 0.3);
+}
+.rv-dh { display: flex; align-items: center; }
+.rv-dh > b { flex: 1; }
+.rv-dh .rv-rx { opacity: 1; }
+.rv-dlg > input {
+  padding: 7px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+.rv-dlist {
+  flex: 1;
+  min-height: 120px;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+}
+.rv-dempty { padding: 18px 12px; text-align: center; }
+.rv-drow {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  border: 0;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: transparent;
+  padding: 6px 10px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rv-drow:last-child { border-bottom: 0; }
+.rv-drow:hover { background: var(--c-primary-bg); }
+.rv-drow.on { background: var(--c-primary-bg); box-shadow: inset 2px 0 0 var(--c-primary); }
+.rv-drow > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-df { display: flex; align-items: center; gap: 8px; }
+.rv-df label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-faint);
+}
+.rv-df input {
+  width: 58px;
+  padding: 4px 7px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+.rv-warn { font-size: var(--fs-xs); color: var(--c-fail); font-weight: 700; }
+.rv-df .sp { flex: 1; }

@@ -3225,7 +3225,45 @@ async def devices2_save(payload: dict):
 
 @app.post("/api/devices2/{dev_id}/rack")
 async def devices2_set_rack(dev_id: str, payload: dict):
-    """랙 자리 지정/해제 — 랙뷰에서 빈 칸에 놓거나 뺀다. rack_id 비우면 해제."""
+    """랙 자리 지정/해제 — 랙뷰에서 끌어다 놓거나 뺀다. rack_id 비우면 해제.
+
+    겹침은 서버가 최종 판정한다(409). 화면 검사만 믿으면 두 사람이 같은
+    칸에 동시에 끌어다 놓았을 때 늦게 온 쪽이 조용히 겹쳐 앉는다.
+    """
+    rid = str(payload.get("rack_id") or "").strip()
+    if rid:
+        try:
+            pos = int(payload.get("rack_pos") or 0)
+            units = max(1, int(payload.get("rack_units") or 1))
+        except (TypeError, ValueError):
+            raise HTTPException(400, "자리(U)가 숫자가 아닙니다")
+        if pos < 1:
+            raise HTTPException(400, "자리(U)가 필요합니다")
+        kv = _kv_load_sync("racks", {}) or {}
+        rk = next((r for r in (kv.get("racks") or []) if str(r.get("id")) == rid), None)
+        top = int((rk or {}).get("units") or 45)
+        if pos + units - 1 > top:
+            raise HTTPException(409, f"{top}U 랙 위를 벗어납니다")
+        used: set = set()
+        for d in await db.device_list(with_ifs=False):
+            if str(d.get("rack_id") or "") != rid or not d.get("rack_pos"):
+                continue
+            if d["id"] == dev_id or d.get("ip") == dev_id:
+                continue  # 자기 자신은 빼고 센다 — 제자리 이동·크기 변경 몫
+            used.update(range(d["rack_pos"], d["rack_pos"] + (d.get("rack_units") or 1)))
+        for b in kv.get("blanks") or []:
+            brid = str(b.get("rack_id") or "")
+            same = brid == rid or (not brid and rk and b.get("rack_name") == rk.get("name"))
+            if not same:
+                continue
+            try:
+                bp, bu = int(b.get("pos") or 0), int(b.get("units") or 1)
+            except (TypeError, ValueError):
+                continue
+            used.update(range(bp, bp + bu))
+        bad = sorted(u for u in range(pos, pos + units) if u in used)
+        if bad:
+            raise HTTPException(409, f"{bad[0]}U 가 이미 차 있습니다 — 다른 자리에 놓으세요")
     ok = await db.device_set_rack(
         dev_id, payload.get("rack_id"), payload.get("rack_pos"), payload.get("rack_units")
     )

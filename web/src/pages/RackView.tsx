@@ -132,6 +132,8 @@ export default function RackView() {
   const [renameDraft, setRenameDraft] = useState('')
   /** 지금 어느 칸 위에 끌고 있나 — 붙을 수 있으면 파랗게, 없으면 붉게 */
   const [over, setOver] = useState<{ rack: string; pos: number; ok: boolean } | null>(null)
+  /** 빈 칸을 눌러서 놓기 — 드래그가 안 되는 환경(터치패드 등) 몫 */
+  const [placeAt, setPlaceAt] = useState<{ rack: RvRack; pos: number } | null>(null)
   const [palPart, setPalPart] = useState({ label: '', units: 1, color: '#94a3b8' })
 
   const rvQ = useQuery({
@@ -425,6 +427,9 @@ export default function RackView() {
 
   const powerOf = (rkId: string) =>
     (devByRack.get(rkId) ?? []).reduce((s, d) => s + (d.power_w ?? 0), 0)
+  const usedOf = (rkId: string) =>
+    (devByRack.get(rkId) ?? []).reduce((s, d) => s + (d.rack_units || 1), 0) +
+    (blanksByRack.get(rkId) ?? []).reduce((s, b) => s + (Number(b.units) || 1), 0)
 
   return (
     <section className="panel rv">
@@ -662,7 +667,9 @@ export default function RackView() {
                         {watt}W
                       </span>
                     )}
-                    <span className="rv-uband">{top}U</span>
+                    <span className="rv-uband" title="사용 중 U / 랙 높이">
+                      {usedOf(rk.id)}/{top}U
+                    </span>
                     <button
                       className="rv-rx"
                       type="button"
@@ -719,6 +726,8 @@ export default function RackView() {
                           }}
                           onDragLeave={() => setOver(null)}
                           onDrop={(e) => dropAt(rk, u, e)}
+                          onClick={() => setPlaceAt({ rack: rk, pos: u })}
+                          title="눌러서 장비 놓기 · 끌어다 놓아도 됩니다"
                         >
                           <i>BLANK · 1U</i>
                         </span>
@@ -809,6 +818,26 @@ export default function RackView() {
         </div>
       </div>
 
+      {placeAt && (
+        <PlaceDialog
+          rack={placeAt.rack}
+          pos={placeAt.pos}
+          unplaced={data?.unplaced ?? []}
+          fits={fits}
+          busy={setRack.isPending}
+          onPlace={(devId, units) => {
+            setRack.mutate({
+              devId,
+              rack_id: placeAt.rack.id,
+              rack_pos: placeAt.pos,
+              rack_units: units,
+            })
+            setPlaceAt(null)
+          }}
+          onClose={() => setPlaceAt(null)}
+        />
+      )}
+
       {tip && (
         <div className="rv-tip" style={{ left: tip.x + 14, top: tip.y + 12 }}>
           <b>{tip.d.name || tip.d.ip}</b>
@@ -830,5 +859,105 @@ export default function RackView() {
         </div>
       )}
     </section>
+  )
+}
+
+/** 빈 칸을 눌러 장비 놓기 — 아직 랙에 없는 장비 중에서 고른다.
+    드래그가 기본이지만, 폼 경로를 없애면 안 된다(터치패드·정밀 배치). */
+function PlaceDialog({
+  rack,
+  pos,
+  unplaced,
+  fits,
+  busy,
+  onPlace,
+  onClose,
+}: {
+  rack: RvRack
+  pos: number
+  unplaced: RvUnplaced[]
+  fits: (rk: RvRack, pos: number, units: number) => boolean
+  busy: boolean
+  onPlace: (devId: string, units: number) => void
+  onClose: () => void
+}) {
+  const [q, setQ] = useState('')
+  const [sel, setSel] = useState('')
+  const [units, setUnits] = useState(1)
+  const nq = q.trim().toLowerCase()
+  const list = unplaced.filter(
+    (d) => !nq || [d.name, d.ip, d.model].filter(Boolean).join(' ').toLowerCase().includes(nq),
+  )
+  const pick = (d: RvUnplaced) => {
+    setSel(d.id)
+    setUnits(d.rack_units || 1)
+  }
+  const ok = sel && fits(rack, pos, units)
+  return (
+    <div className="rv-ovl" onClick={onClose}>
+      <div className="rv-dlg" onClick={(e) => e.stopPropagation()}>
+        <div className="rv-dh">
+          <b>
+            {rack.name} · {pos}U 자리에 놓기
+          </b>
+          <button className="rv-rx" type="button" onClick={onClose}>
+            ×
+          </button>
+        </div>
+        <input
+          autoFocus
+          placeholder="장비 검색 (이름·IP·모델)"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <div className="rv-dlist">
+          {list.length === 0 ? (
+            <div className="muted small rv-dempty">
+              랙에 안 실린 장비가 없습니다 — 장비 화면에서 먼저 등록하세요.
+            </div>
+          ) : (
+            list.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                className={`rv-drow${sel === d.id ? ' on' : ''}`}
+                onClick={() => pick(d)}
+              >
+                <b>{d.name || d.ip}</b>
+                <span className="muted small">{d.model || '–'}</span>
+                <span className="muted small">{d.rack_units || 1}U</span>
+              </button>
+            ))
+          )}
+        </div>
+        <div className="rv-df">
+          <label>
+            크기(U)
+            <input
+              type="number"
+              min={1}
+              max={20}
+              value={units}
+              onChange={(e) => setUnits(Math.max(1, parseInt(e.target.value, 10) || 1))}
+            />
+          </label>
+          {sel && !fits(rack, pos, units) && (
+            <span className="rv-warn">그 자리에 {units}U 가 안 들어갑니다</span>
+          )}
+          <span className="sp" />
+          <button className="btn small" type="button" onClick={onClose}>
+            취소
+          </button>
+          <button
+            className="btn small primary"
+            type="button"
+            disabled={!ok || busy}
+            onClick={() => sel && onPlace(sel, units)}
+          >
+            놓기
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
