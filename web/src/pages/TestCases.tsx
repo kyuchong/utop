@@ -1329,16 +1329,6 @@ export default function TestCases({ me }: PageProps) {
                       했다. 알림(함께 보는 중·저장 종)과 ⋯ 는 오른쪽 끝 —
                       ⋯ 는 가끔 쓰는 것들이라 눈에 걸리지 않는 자리가 맞다. */}
             {openId && !gpOpen && (
-              <button
-                className="btn primary"
-                type="button"
-                disabled={saveM.isPending || !dirty}
-                onClick={() => saveM.mutate()}
-              >
-                {saveM.isPending ? '저장 중…' : dirty ? '저장' : '저장됨'}
-              </button>
-            )}
-            {openId && !gpOpen && (
               <div className="seg" role="tablist">
                 {([
                   // 정보 → Manual → Automation 순. 시험을 만드는 순서와 같다 —
@@ -1420,6 +1410,17 @@ export default function TestCases({ me }: PageProps) {
                       보였다. 늘 보이는 자리로 올린다. */}
                   {msg.text && <span className={`tc-msg ${msg.kind}`}>{msg.text}</span>}
                   {view === 'detail' && moreMenu}
+                  {/* 저장은 가장 오른쪽 — 탭을 훑고 나서 마지막에 누르는 것 */}
+                  {openId && !gpOpen && (
+                    <button
+                      className="btn primary"
+                      type="button"
+                      disabled={saveM.isPending || !dirty}
+                      onClick={() => saveM.mutate()}
+                    >
+                      {saveM.isPending ? '저장 중…' : dirty ? '저장' : '저장됨'}
+                    </button>
+                  )}
                 </div>
   )
 
