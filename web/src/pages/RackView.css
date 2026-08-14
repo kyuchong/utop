@@ -3,7 +3,9 @@
    빈 칸은 아주 흐리게, 장비는 진하게 — 대비가 곧 시안성이다. */
 
 .rv {
-  --rv-u: 24px; /* 1U 높이 — 눈으로 읽는 최소 크기. 45U 랙 세로 1080px, 세로 스크롤로 감당한다 */
+  /* 45U 랙이 Full HD 세로에 통째로 들어가야 한다: 바·머리 빼면 830px 쯤 남으니
+     18px×45=810. 글자는 안 줄인다 — 여백을 줄인다. */
+  --rv-u: 18px;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -16,7 +18,7 @@
   display: flex;
   align-items: center;
   gap: var(--sp-3);
-  padding: var(--sp-2) var(--sp-3);
+  padding: 5px var(--sp-3);
   border-bottom: 1px solid var(--c-border-soft);
   flex-wrap: wrap;
 }
@@ -139,7 +141,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: var(--sp-3);
+  padding: 8px var(--sp-3) var(--sp-3);
   display: flex;
   gap: 8px;
   align-items: flex-start;
@@ -160,7 +162,7 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 8px 10px;
+  padding: 4px 8px;
   border-bottom: 1px solid var(--c-border-soft);
 }
 .rv-rnm { font-size: 14px; letter-spacing: -0.01em; }
@@ -210,7 +212,7 @@
 .rv-grid {
   display: grid;
   grid-template-columns: 20px 1fr;
-  padding: 4px 4px 6px 2px;
+  padding: 3px 3px 4px 1px;
 }
 .rv-uno {
   grid-column: 1;

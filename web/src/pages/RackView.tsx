@@ -452,21 +452,7 @@ export default function RackView() {
           }}
         />
       )}
-      <div className="panel-title">
-        <span className="panel-name">
-          랙뷰
-          <span className="muted small">{racks.length ? `${racks.length}랙` : ''}</span>
-        </span>
-        <div className="page-head-actions">
-          <button className="btn small" type="button" disabled={!curLab} onClick={() => addRack.mutate(45)}>
-            + 랙 45U
-          </button>
-          <button className="btn small" type="button" disabled={!curLab} onClick={() => addRack.mutate(36)}>
-            + 랙 36U
-          </button>
-        </div>
-      </div>
-
+      {/* 제목 줄 없음 — 세로 한 뼘이 랙 한 칸이다. 랙 추가는 판 우클릭 */}
       <div className="rv-bar">
         <div className="rv-zones">
           {labs.map((l) => {
