@@ -90,6 +90,8 @@ export default function RackView() {
   const [placeAt, setPlaceAt] = useState<{ rack: RvRack; pos: number } | null>(null)
   const [addingLab, setAddingLab] = useState(false)
   const [labDraft, setLabDraft] = useState('')
+  const [renamingLab, setRenamingLab] = useState<string | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
 
   const rvQ = useQuery({
     queryKey: ['rackview'],
@@ -183,6 +185,26 @@ export default function RackView() {
       setAddingLab(false)
       setLabDraft('')
     },
+    onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
+  })
+
+  const renameLab = useMutation({
+    mutationFn: (p: { id: string; name: string }) =>
+      saveFrames((kv) => {
+        const list = (kv.labs as RvLab[] | undefined) ?? []
+        const it = list.find((l) => l.id === p.id)
+        if (it) it.name = p.name
+        kv.labs = list
+      }),
+    onSuccess: () => setRenamingLab(null),
+    onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
+  })
+
+  const delLab = useMutation({
+    mutationFn: (id: string) =>
+      saveFrames((kv) => {
+        kv.labs = ((kv.labs as RvLab[] | undefined) ?? []).filter((l) => l.id !== id)
+      }),
     onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
   })
 
@@ -305,16 +327,53 @@ export default function RackView() {
           {labs.map((l) => {
             const cnt = (data?.racks ?? []).filter((r) => (r.lab_id ?? '') === l.id).length
             const hit = hits?.perLab.get(l.id) ?? 0
+            if (renamingLab === l.id)
+              return (
+                <input
+                  key={l.id}
+                  className="rv-labadd"
+                  autoFocus
+                  value={renameDraft}
+                  onChange={(e) => setRenameDraft(e.target.value)}
+                  onKeyDown={(e) => {
+                    e.stopPropagation()
+                    if (e.key === 'Enter' && renameDraft.trim())
+                      renameLab.mutate({ id: l.id, name: renameDraft.trim() })
+                    if (e.key === 'Escape') setRenamingLab(null)
+                  }}
+                  onBlur={() => setRenamingLab(null)}
+                />
+              )
             return (
               <button
                 key={l.id}
                 type="button"
                 className={`rv-zone${l.id === curLab ? ' on' : ''}`}
+                title="더블클릭하면 이름을 바꿉니다"
                 onClick={() => pickLab(l.id)}
+                onDoubleClick={() => {
+                  setRenamingLab(l.id)
+                  setRenameDraft(l.name)
+                }}
               >
                 {l.name}
                 <i className="rv-zn">{cnt}랙</i>
                 {hit > 0 && <i className="rv-zhit">{hit}</i>}
+                <i
+                  className="rv-zx"
+                  role="button"
+                  title="구역 지우기"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (cnt > 0) {
+                      window.alert(`랙 ${cnt}개가 있어 지울 수 없습니다 — 랙을 먼저 지우세요`)
+                      return
+                    }
+                    if (window.confirm(`${l.name} 구역을 지울까요?`)) delLab.mutate(l.id)
+                  }}
+                >
+                  ×
+                </i>
               </button>
             )
           })}

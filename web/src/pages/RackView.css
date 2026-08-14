@@ -3,7 +3,7 @@
    빈 칸은 아주 흐리게, 장비는 진하게 — 대비가 곧 시안성이다. */
 
 .rv {
-  --rv-u: 20px; /* 1U 높이 — 45U 랙이 세로 900px, 이름이 잘리지 않는 최소값 */
+  --rv-u: 24px; /* 1U 높이 — 눈으로 읽는 최소 크기. 45U 랙 세로 1080px, 세로 스크롤로 감당한다 */
   flex: 1;
   min-height: 0;
   display: flex;
@@ -63,6 +63,17 @@
   line-height: 14px;
 }
 .rv-zadd { border-style: dashed; color: var(--c-text-faint); font-weight: 500; }
+.rv-zx {
+  font-style: normal;
+  font-size: 11px;
+  line-height: 1;
+  padding: 1px 3px;
+  border-radius: 50%;
+  opacity: 0;
+  cursor: pointer;
+}
+.rv-zone:hover .rv-zx { opacity: 0.8; }
+.rv-zx:hover { background: #fdeaea; color: var(--c-fail); opacity: 1; }
 .rv-labadd {
   width: 110px;
   padding: 5px 9px;
@@ -103,7 +114,7 @@
 
 .rv-rack {
   flex: none;
-  width: 218px;
+  width: 248px;
   border: 1px solid var(--c-border);
   border-radius: 10px;
   background: var(--c-surface);
@@ -118,7 +129,7 @@
   padding: 8px 10px;
   border-bottom: 1px solid var(--c-border-soft);
 }
-.rv-rnm { font-size: var(--fs-md); }
+.rv-rnm { font-size: 14px; letter-spacing: -0.01em; }
 .rv-rdesc {
   flex: 1;
   min-width: 0;
@@ -162,10 +173,12 @@
   grid-column: 1;
   align-self: center;
   text-align: right;
-  padding-right: 5px;
-  font-size: 9px;
-  color: #c0c7d2;
+  padding-right: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #97a1af;
   user-select: none;
+  font-variant-numeric: tabular-nums;
 }
 .rv-blank {
   grid-column: 2;
@@ -180,9 +193,9 @@
 }
 .rv-blank > i {
   font-style: normal;
-  font-size: 8.5px;
-  letter-spacing: 0.04em;
-  color: #d3d9e2;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: #c6cdd8;
   user-select: none;
 }
 /* 빈 칸에 마우스를 올리면 놓기 단추가 나온다 */
@@ -217,9 +230,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
-  font-weight: 600;
-  color: #5b6572;
+  font-size: 11px;
+  font-weight: 700;
+  color: #57616e;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
@@ -230,9 +243,9 @@
 .rv-dev {
   grid-column: 2;
   margin: 1px 2px;
-  border: 1px solid #b9d4f5;
-  border-radius: 4px;
-  background: var(--c-primary-bg);
+  border: 1px solid #8fb8ea;
+  border-radius: 5px;
+  background: #e3efff;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -263,9 +276,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11.5px;
+  font-size: 12.5px;
   font-weight: 700;
-  color: #1d3a63;
+  color: #163257;
 }
 .rv-du {
   flex: none;
@@ -296,8 +309,8 @@
 /* ── LED ── */
 .rv-led {
   flex: none;
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   display: inline-block;
 }
