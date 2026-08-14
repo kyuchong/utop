@@ -221,7 +221,9 @@ export default function RackView() {
           2
       }
       const usable = el.clientHeight - padY - chrome
-      setUH(Math.max(15, Math.min(26, Math.floor(usable / maxU))))
+      // 정수로 내리면 45U 에서 최대 44px 자투리가 아래에 남는다 — 소수점
+      // 그대로 준다. 브라우저가 소수 픽셀을 알아서 나눠 그린다.
+      setUH(Math.max(15, Math.min(26, Math.round((usable / maxU) * 100) / 100)))
     }
     calc()
     const ro = new ResizeObserver(calc)

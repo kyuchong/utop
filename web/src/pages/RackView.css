@@ -363,17 +363,19 @@
 /* ── 범례 — 면=프로토콜, 색=상태 ── */
 /* 점 4개 — 2×2 두 줄: 가로를 반으로 줄인다. 순서는 왼위 Telnet ·
    오른위 SSH · 왼아래 Console · 오른아래 SNMP */
+/* 6px×2줄(14px)은 얇은 행(15px) 속을 넘어 행 경계선을 밟았다 —
+   5px 로 줄여 1U 블록 안에 온전히 들어온다 */
 .rv-4d {
   display: grid;
-  grid-template-columns: repeat(2, 6px);
-  gap: 2px;
+  grid-template-columns: repeat(2, 5px);
+  gap: 1.5px;
   flex: none;
   align-content: center;
 }
 .rv-4d.demo { margin-right: 2px; }
 .rv-d4 {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   display: inline-block;
   box-shadow: 0 0 0 1px rgb(255 255 255 / 0.9);
