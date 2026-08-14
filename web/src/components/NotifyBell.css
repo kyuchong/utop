@@ -74,3 +74,8 @@
   padding-top: 1px;
 }
 .nb-tx { min-width: 0; word-break: break-all; }
+
+.nb-row.go { cursor: pointer; }
+.nb-row.go:hover { background: var(--c-primary-bg); }
+.nb-row.go .nb-tx { color: var(--c-primary); }
+.nb-row.new .nb-tx { font-weight: 700; }

@@ -213,7 +213,33 @@ def _run_async(coro):
         with _cf.ThreadPoolExecutor(max_workers=1) as _ex:
             return _ex.submit(asyncio.run, coro).result(timeout=15)
 
+# 소식 → 수정 이력. 한 곳(broadcast)에서 받아 적으면 저장 지점 여덟
+# 군데를 따로 고칠 일이 없고, 새 소식이 생겨도 여기 한 줄이다.
+_AUDIT_MAP = {
+    "tc_updated": ("tc", "tcid", "updated"),
+    "tc_deleted": ("tc", "tcid", "deleted"),
+    "req_updated": ("req", "req_id", "updated"),
+    "req_deleted": ("req", "req_id", "deleted"),
+    "cycle_updated": ("cycle", "cycle_id", "updated"),
+    "defect_updated": ("defect", "id", "updated"),
+    "tc_run_history_new": ("tc", "tcid", "run"),
+}
+
+
 async def broadcast(message: dict):
+    # 수정 이력 — 접속자가 없어도 남긴다 (알림 종·감사가 나중에 읽는다)
+    try:
+        m = _AUDIT_MAP.get(str(message.get("type") or ""))
+        if m:
+            kind, key, action = m
+            extra = ""
+            if message.get("type") == "tc_run_history_new":
+                extra = f" PASS {message.get('pass', 0)} FAIL {message.get('fail', 0)}"
+            await db.audit_add(kind, str(message.get(key) or ""), action + extra,
+                               str(message.get("user") or ""))
+    except Exception:
+        pass  # 이력이 소식을 막으면 안 된다
+
     # 모든 접속자에게 병렬 전송 — 순차 await 로 하면 접속자 수만큼 지연 누적 (10명이면 delete API 응답이 왕복 10회만큼 늦어짐)
     if not active_connections:
         return
@@ -6626,6 +6652,12 @@ _TRANSFER_PARTS = ("req", "tc", "cycle", "defect", "device", "catalog", "setting
 def _strip_derived(d: dict) -> dict:
     """내보낼 때 붙인 파생 키(_created_at 등)를 걷는다 — 원본에 없던 것이다."""
     return {k: v for k, v in d.items() if not str(k).startswith("_")}
+
+
+@app.get("/api/audit")
+async def audit_list_api(limit: int = 300):
+    """수정 이력 — 알림 종이 읽는다. 최신이 앞."""
+    return {"items": await db.audit_list(max(1, min(1000, limit)))}
 
 
 @app.get("/api/transfer/export")

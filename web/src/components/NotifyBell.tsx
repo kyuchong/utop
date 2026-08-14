@@ -1,93 +1,90 @@
 import { useEffect, useRef, useState } from 'react'
-import { onWs, type WsMsg } from '@/api/wsBus'
+import { apiFetch } from '@/api/client'
+import { goto } from '@/api/goto'
+import { onWs } from '@/api/wsBus'
 import './NotifyBell.css'
 
 /**
- * 알림 종 — 좌측 메뉴 아래. 서버가 쏘는 소식(저장·삭제·실행·결함·사이클)을
- * 시간순으로 쌓아 두고, 안 본 개수를 배지로 단다.
+ * 알림 종 — 좌측 메뉴 아래. 서버의 수정 이력(audit_log)을 읽는다.
  *
- * 접속자 수 세기(presence)·실행 중 터미널 줄(cli-live) 같은 초 단위 소음은
- * 담지 않는다 — 종은 「자리 비운 사이 무슨 일이 있었나」 를 답하는 곳이다.
+ * 브라우저에 쌓는 방식이었는데, 그러면 꺼 둔 사이의 일과 남의 브라우저
+ * 일이 안 남는다. 이력은 서버가 정본이고(전부 남는다), 웹소켓 소식은
+ * 「새 이력이 생겼다」 는 초인종으로만 쓴다. 줄을 누르면 그 시험·
+ * 요구사항·사이클로 간다.
  */
 
-interface Item {
-  at: number
-  text: string
+interface AuditItem {
+  id: number
+  at: string | null
+  kind: string
+  ref_id: string
+  action: string
+  username: string
 }
 
-const STORE = 'utop.notify'
-const SEEN = 'utop.notify.seen'
-const CAP = 100
+const SEEN = 'utop.notify.seenid'
+const TRACKED = new Set([
+  'tc_updated', 'tc_deleted', 'req_updated', 'req_deleted',
+  'cycle_updated', 'defect_updated', 'tc_run_history_new',
+])
 
-/** 서버 소식 → 사람 말. null 이면 종에 안 담는다 */
-function textOf(m: WsMsg): string | null {
-  const s = (k: string) => String(m[k] ?? '')
-  switch (m.type) {
-    case 'tc_updated':
-      return `시험 저장 — ${s('tcid')}${s('user') ? ` · ${s('user')}` : ''}`
-    case 'tc_deleted':
-      return `시험 삭제 — ${s('tcid')}`
-    case 'req_updated':
-      return `요구사항 갱신 — ${s('req_id')}`
-    case 'req_deleted':
-      return `요구사항 삭제 — ${s('req_id')}`
-    case 'cycle_updated':
-      return `사이클 갱신${s('user') ? ` — ${s('user')}` : ''}`
-    case 'defect_updated':
-      return `결함 갱신 — ${s('id')}`
-    case 'tc_run_history_new':
-      return `실행 끝 — ${s('tcid')} · PASS ${s('pass')} · FAIL ${s('fail')}${
-        s('user') ? ` · ${s('user')}` : ''
-      }`
-    case 'force_reload':
-      return `서버가 새로고침을 예약했습니다${s('message') ? ` — ${s('message')}` : ''}`
-    case 'stc_start':
-      return 'STC 트래픽 시작'
-    default:
-      return null
+/** 이력 한 줄 → 사람 말 + 눌렀을 때 갈 곳 */
+function lineOf(it: AuditItem): { text: string; go?: { kind: string; id: string } } {
+  const who = it.username ? ` · ${it.username}` : ''
+  const act = it.action || ''
+  if (it.kind === 'tc') {
+    if (act.startsWith('run'))
+      return { text: `실행 — ${it.ref_id}${act.slice(3)}${who}`, go: { kind: 'tc', id: it.ref_id } }
+    if (act === 'deleted') return { text: `시험 삭제 — ${it.ref_id}${who}` }
+    return { text: `시험 저장 — ${it.ref_id}${who}`, go: { kind: 'tc', id: it.ref_id } }
   }
-}
-
-function load(): Item[] {
-  try {
-    const v = JSON.parse(localStorage.getItem(STORE) || '[]')
-    return Array.isArray(v) ? (v as Item[]) : []
-  } catch {
-    return []
+  if (it.kind === 'req') {
+    if (act === 'deleted') return { text: `요구사항 삭제 — ${it.ref_id}${who}` }
+    return { text: `요구사항 저장 — ${it.ref_id}${who}`, go: { kind: 'req', id: it.ref_id } }
   }
+  if (it.kind === 'cycle')
+    return { text: `사이클 저장 — ${it.ref_id}${who}`, go: { kind: 'cycle', id: it.ref_id } }
+  if (it.kind === 'defect') return { text: `결함 — ${it.ref_id}${who}` }
+  return { text: `${it.kind} ${act} — ${it.ref_id}${who}` }
 }
 
 export default function NotifyBell({ collapsed }: { collapsed?: boolean }) {
-  const [items, setItems] = useState<Item[]>(load)
+  const [items, setItems] = useState<AuditItem[]>([])
   const [open, setOpen] = useState(false)
-  const [seenAt, setSeenAt] = useState<number>(() => Number(localStorage.getItem(SEEN) || 0))
+  const [seenId, setSeenId] = useState<number>(() => Number(localStorage.getItem(SEEN) || 0))
   const boxRef = useRef<HTMLDivElement | null>(null)
+  const timer = useRef<number | undefined>(undefined)
+
+  const load = async () => {
+    try {
+      const r = await apiFetch('/api/audit?limit=200')
+      if (!r.ok) return
+      const b = (await r.json()) as { items?: AuditItem[] }
+      setItems(b.items ?? [])
+    } catch {
+      /* 종은 장식이 아니라도, 못 읽었다고 화면이 죽으면 안 된다 */
+    }
+  }
 
   useEffect(() => {
+    void load()
+    // 소식이 오면 이력을 다시 읽는다 — 몰아치면 한 번만
     return onWs((m) => {
-      const text = textOf(m)
-      if (!text) return
-      setItems((v) => {
-        // 같은 소식이 연달아 오면(일괄 저장 등) 마지막 것만 남긴다
-        const last = v[v.length - 1]
-        const next =
-          last && last.text === text && Date.now() - last.at < 3000
-            ? v.slice(0, -1)
-            : v
-        const out = [...next, { at: Date.now(), text }].slice(-CAP)
-        localStorage.setItem(STORE, JSON.stringify(out))
-        return out
-      })
+      if (!TRACKED.has(String(m.type ?? ''))) return
+      if (timer.current) window.clearTimeout(timer.current)
+      timer.current = window.setTimeout(() => void load(), 400)
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 판을 열면 그 시점까지 본 것으로 친다
   useEffect(() => {
-    if (!open) return
-    const now = Date.now()
-    setSeenAt(now)
-    localStorage.setItem(SEEN, String(now))
-  }, [open, items.length])
+    if (!open || !items.length) return
+    const top = items[0]?.id ?? 0
+    if (top > seenId) {
+      setSeenId(top)
+      localStorage.setItem(SEEN, String(top))
+    }
+  }, [open, items, seenId])
 
   useEffect(() => {
     if (!open) return
@@ -98,9 +95,10 @@ export default function NotifyBell({ collapsed }: { collapsed?: boolean }) {
     return () => document.removeEventListener('mousedown', off)
   }, [open])
 
-  const unseen = items.filter((i) => i.at > seenAt).length
-  const fmt = (at: number) => {
-    const d = new Date(at)
+  const unseen = items.filter((i) => i.id > seenId).length
+  const fmt = (iso: string | null) => {
+    if (!iso) return ''
+    const d = new Date(iso)
     const p = (n: number) => String(n).padStart(2, '0')
     const today = new Date().toDateString() === d.toDateString()
     return today
@@ -113,7 +111,7 @@ export default function NotifyBell({ collapsed }: { collapsed?: boolean }) {
       <button
         type="button"
         className={`nb-btn${unseen > 0 ? ' has' : ''}`}
-        title="알림"
+        title="알림 — 수정 이력"
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
@@ -127,37 +125,46 @@ export default function NotifyBell({ collapsed }: { collapsed?: boolean }) {
       </button>
 
       {open && (
-        <div className="nb-pop" role="dialog" aria-label="알림 내역">
+        <div className="nb-pop" role="dialog" aria-label="수정 이력">
           <div className="nb-head">
-            <b>알림</b>
-            <span className="muted small">{items.length ? `${items.length}건` : ''}</span>
+            <b>수정 이력</b>
+            <span className="muted small">{items.length ? `최근 ${items.length}건` : ''}</span>
             <span className="sp" />
-            <button
-              type="button"
-              className="linkish small"
-              disabled={!items.length}
-              onClick={() => {
-                setItems([])
-                localStorage.setItem(STORE, '[]')
-              }}
-            >
-              비우기
-            </button>
           </div>
           <div className="nb-list">
             {items.length === 0 ? (
               <div className="nb-empty muted small">
-                아직 알림이 없습니다.
+                아직 이력이 없습니다.
                 <br />
-                저장·실행·결함 같은 일이 생기면 여기 쌓입니다.
+                저장·삭제·실행이 생기면 서버에 남고 여기 보입니다.
               </div>
             ) : (
-              [...items].reverse().map((i, k) => (
-                <div className="nb-row" key={`${i.at}-${k}`}>
-                  <span className="nb-at">{fmt(i.at)}</span>
-                  <span className="nb-tx">{i.text}</span>
-                </div>
-              ))
+              items.map((it) => {
+                const L = lineOf(it)
+                return (
+                  <div
+                    className={`nb-row${L.go ? ' go' : ''}${it.id > seenId ? ' new' : ''}`}
+                    key={it.id}
+                    role={L.go ? 'button' : undefined}
+                    tabIndex={L.go ? 0 : undefined}
+                    title={L.go ? '눌러서 이동' : undefined}
+                    onClick={() => {
+                      if (!L.go) return
+                      setOpen(false)
+                      goto(L.go.kind, L.go.id)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && L.go) {
+                        setOpen(false)
+                        goto(L.go.kind, L.go.id)
+                      }
+                    }}
+                  >
+                    <span className="nb-at">{fmt(it.at)}</span>
+                    <span className="nb-tx">{L.text}</span>
+                  </div>
+                )
+              })
             )}
           </div>
         </div>

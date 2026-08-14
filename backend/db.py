@@ -549,7 +549,9 @@ async def req_upsert(rid: str, data: dict) -> None:
               status=EXCLUDED.status, priority=EXCLUDED.priority,
               -- 생성자는 처음 것을 지킨다. EXCLUDED 로 덮으면 저장할 때마다
               -- (대개 빈 값으로) 지워져 기록이 늘 비었다.
-              created_by=COALESCE(NULLIF(tc.created_by, ''), EXCLUDED.created_by),
+              -- (표는 req 다 — tc.created_by 는 tc_upsert 복붙 흔적. 이
+              --  탓에 req 저장이 실행마다 missing FROM-clause 로 터졌다)
+              created_by=COALESCE(NULLIF(req.created_by, ''), EXCLUDED.created_by),
               updated_by=EXCLUDED.updated_by,
               cat1=EXCLUDED.cat1, cat2=EXCLUDED.cat2, cat3=EXCLUDED.cat3, cat4=EXCLUDED.cat4,
               data=EXCLUDED.data, updated_at=now()
@@ -1712,6 +1714,31 @@ def _defect_row(r) -> dict:
         if d.get(k) is not None:
             d[k] = d[k].isoformat()
     return d
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 수정 이력 — 누가 무엇을 언제. 알림 종과 감사(audit)가 같이 읽는다.
+# ══════════════════════════════════════════════════════════════════════
+
+async def audit_add(kind: str, ref_id: str, action: str, username: str = "") -> None:
+    async with pool().acquire() as c:
+        await c.execute(
+            "INSERT INTO audit_log (kind, ref_id, action, username) VALUES ($1,$2,$3,$4)",
+            kind[:40], str(ref_id or "")[:200], action[:40], (username or "")[:80],
+        )
+
+
+async def audit_list(limit: int = 300) -> list[dict]:
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT id, at, kind, ref_id, action, username FROM audit_log "
+            "ORDER BY id DESC LIMIT $1", limit)
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["at"] = d["at"].isoformat() if d.get("at") else None
+            out.append(d)
+        return out
 
 
 async def defect_next_id(project_key: str) -> str:

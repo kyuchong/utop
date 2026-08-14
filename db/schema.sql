@@ -592,3 +592,14 @@ CREATE INDEX IF NOT EXISTS idx_defect_status  ON defect(status);
 CREATE INDEX IF NOT EXISTS idx_defect_cycle   ON defect(cycle_id);
 CREATE INDEX IF NOT EXISTS idx_defect_tcid    ON defect(tcid);
 CREATE INDEX IF NOT EXISTS idx_defect_created ON defect(created_at DESC);
+
+-- 수정 이력 — 누가 무엇을 언제 고쳤나. 알림 종·감사가 읽는다.
+CREATE TABLE IF NOT EXISTS audit_log (
+  id        BIGSERIAL PRIMARY KEY,
+  at        TIMESTAMPTZ DEFAULT now(),
+  kind      TEXT NOT NULL,        -- tc | req | cycle | defect | run …
+  ref_id    TEXT,                 -- TC-…, REQ-…, cycle-…, DEF-…
+  action    TEXT NOT NULL,        -- updated | deleted | run …
+  username  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(id DESC);
