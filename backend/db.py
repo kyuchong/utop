@@ -1682,6 +1682,45 @@ def _defect_row(r) -> dict:
     return d
 
 
+async def defect_next_id(project_key: str) -> str:
+    """DEF-<프로젝트키>-<순번3> — 그 프로젝트 안에서 1부터 붙는다.
+
+    프로젝트 키를 아직 안 골랐으면 UTOP 으로 붙는다. ID 는 한 번 박히면
+    영원하다 — 나중에 키를 바꿔 달아도 ID 는 안 바뀐다(부여 ID 원칙).
+    """
+    key = (project_key or "").strip() or "UTOP"
+    prefix = f"DEF-{key}-"
+    async with pool().acquire() as c:
+        rows = await c.fetch("SELECT id FROM defect WHERE id LIKE $1", prefix + "%")
+    mx = 0
+    for r in rows:
+        tail = r["id"][len(prefix):]
+        if tail.isdigit():
+            mx = max(mx, int(tail))
+    return f"{prefix}{mx + 1:03d}"
+
+
+async def defect_renumber_legacy() -> int:
+    """옛 무작위 ID(DEF-a1b2c3d4e5)를 DEF-<프로젝트키>-<순번> 으로 갈아 끼운다.
+
+    새 형식(끝이 숫자 3자리 이상)은 건드리지 않으므로 기동 때마다 불러도
+    안전하다. 결함 ID 는 다른 표가 참조하지 않는다 — 사이클 항목은
+    cycle_id+tcid 로 결함을 찾는다.
+    """
+    pat = re.compile(r"^DEF-.+-\d{3,}$")
+    async with pool().acquire() as c:
+        rows = await c.fetch("SELECT id, jira_project FROM defect ORDER BY created_at")
+    n = 0
+    for r in rows:
+        if pat.match(r["id"]):
+            continue
+        new_id = await defect_next_id(r["jira_project"])
+        async with pool().acquire() as c:
+            await c.execute("UPDATE defect SET id=$1 WHERE id=$2", new_id, r["id"])
+        n += 1
+    return n
+
+
 async def defect_create(d: dict) -> dict:
     async with pool().acquire() as c:
         r = await c.fetchrow(

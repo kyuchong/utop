@@ -8782,6 +8782,13 @@ async def _db_init():
     try: await _init_users_async()
     except Exception as e: print(f"[startup] init_users_file failed: {e}", flush=True)
 
+    # 결함 ID — 옛 무작위 꼬리(DEF-a1b2c3…)를 DEF-<프로젝트키>-<순번> 으로 이전 (멱등)
+    try:
+        _dn = await db.defect_renumber_legacy()
+        if _dn: print(f"[startup] 결함 ID {_dn}건을 새 체계로 이전", flush=True)
+    except Exception as e:
+        print(f"[startup] defect renumber failed: {e}", flush=True)
+
     # 파일 → DB(app_kv) 이전 (파일이 정본이면 DB 덮어씀). ai_usage/ai_feedback 는 _load_items_store 매핑도 등록.
     _KV_MIGRATIONS = [
         ("chat_sessions", CHAT_SESS_FILE),
@@ -13301,29 +13308,41 @@ async def defect_create_api(payload: dict, request: Request):
         who = _user_of(_token_from(request)) or ""
     except Exception:
         pass
-    did = "DEF-" + _uuid4().hex[:10]
-    d = await db.defect_create({
-        "id": did,
-        "title": str(payload.get("title") or payload.get("tc_name") or tcid),
-        "severity": payload.get("severity"),
-        "cycle_id": cid,
-        "cycle_name": payload.get("cycle_name"),
-        "tcid": tcid,
-        "tc_name": payload.get("tc_name"),
-        "model": payload.get("model"),
-        "version": payload.get("version"),
-        "steps": payload.get("steps") or [],
-        "note": payload.get("note"),
-        # 이슈 등록 칸 — 프로젝트 키·프로젝트명·이슈유형·우선순위·수정버전·구성요소·보고자
-        "jira_project": payload.get("jira_project"),
-        "project_name": payload.get("project_name"),
-        "issue_type": payload.get("issue_type"),
-        "priority": payload.get("priority"),
-        "fix_version": payload.get("fix_version"),
-        "component": payload.get("component"),
-        "reporter": payload.get("reporter"),
-        "created_by": who,
-    })
+    # ID 는 DEF-<프로젝트키>-<순번3>. 동시에 두 건이 같은 번호를 집으면
+    # PK 가 겹치므로 그때만 번호를 다시 받아 온다.
+    d = None
+    did = ""
+    for _ in range(3):
+        did = await db.defect_next_id(str(payload.get("jira_project") or ""))
+        try:
+            d = await db.defect_create({
+                "id": did,
+                "title": str(payload.get("title") or payload.get("tc_name") or tcid),
+                "severity": payload.get("severity"),
+                "cycle_id": cid,
+                "cycle_name": payload.get("cycle_name"),
+                "tcid": tcid,
+                "tc_name": payload.get("tc_name"),
+                "model": payload.get("model"),
+                "version": payload.get("version"),
+                "steps": payload.get("steps") or [],
+                "note": payload.get("note"),
+                # 이슈 등록 칸 — 프로젝트 키·프로젝트명·이슈유형·우선순위·수정버전·구성요소·보고자
+                "jira_project": payload.get("jira_project"),
+                "project_name": payload.get("project_name"),
+                "issue_type": payload.get("issue_type"),
+                "priority": payload.get("priority"),
+                "fix_version": payload.get("fix_version"),
+                "component": payload.get("component"),
+                "reporter": payload.get("reporter"),
+                "created_by": who,
+            })
+            break
+        except Exception as e:
+            if "duplicate key" not in str(e):
+                raise
+    if d is None:
+        raise HTTPException(500, "결함 번호 발급이 계속 겹칩니다 — 다시 시도하세요")
     try: asyncio.create_task(broadcast({"type": "defect_updated", "id": did}))
     except Exception: pass
     return {"defect": d, "existed": False}

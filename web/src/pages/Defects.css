@@ -51,9 +51,14 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  padding: var(--sp-2) var(--sp-3) var(--sp-3);
 }
 
+/* 장비·카탈로그 표와 같은 옷 — 바깥 테두리·둥근 모서리·줄무늬·34px */
 .dfl-tablewrap {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
   overflow-x: auto;
 }
 /* 남는 자리를 칸 사이로 흩뿌리지 않는다 — 글자끼리 멀어져 읽기 나쁘다.
@@ -77,21 +82,26 @@
   z-index: 1;
   text-align: left;
   font-weight: 600;
+  font-size: var(--fs-xs);
   color: var(--c-text-faint);
-  background: var(--c-surface);
-  padding: 8px 12px;
+  background: var(--c-surface-alt);
+  height: 30px;
+  padding: 0 10px;
   border-bottom: 1px solid var(--c-border);
 }
 .dfl-table td {
   text-align: left;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--c-border);
+  height: 34px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--c-border-soft);
 }
+.dfl-table tbody tr:last-child td { border-bottom: 0; }
+.dfl-table tbody tr:nth-child(even) { background: var(--c-surface-alt); }
 .dfl-row {
   cursor: pointer;
 }
 .dfl-row:hover {
-  background: var(--c-surface-alt);
+  background: var(--c-primary-bg);
 }
 .dfl-table td.mono {
   font-family: var(--font-mono, ui-monospace, monospace);
