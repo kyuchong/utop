@@ -36,7 +36,9 @@ interface RvDevice {
   model?: string | null
   lab?: string | null
   role?: string | null
+  vendor?: string | null
   power_w?: number | null
+  ifs?: string[]
   rack_id: string
   rack_pos: number
   rack_units: number
@@ -118,6 +120,16 @@ function protoState(d: RvDevice, p: string): 'ok' | 'ng' | 'un' | 'off' {
   if (a.status === 'fail') return 'ng'
   return 'un'
 }
+/** 카드 머리의 한 마디 — 정상(초록)/실패(빨강)/미확인(회색) */
+function stHead(d: RvDevice): { cls: string; word: string; via: string } {
+  if (d.source === 'legacy') return { cls: 'old', word: '옛 자료', via: '' }
+  const acc = (d.access ?? []).filter((a) => a.enabled !== false)
+  const ok = acc.find((a) => a.status === 'ok')
+  if (ok) return { cls: 'ok', word: '정상', via: ok.protocol.toUpperCase() }
+  if (acc.some((a) => a.status === 'fail')) return { cls: 'ng', word: '미연결', via: '' }
+  return { cls: 'un', word: '미확인', via: '' }
+}
+
 function stLine(d: RvDevice): string {
   if (d.source === 'legacy') return '옛 자료 (새 DB 미등록)'
   const word = (p: string) => {
@@ -223,7 +235,8 @@ export default function RackView() {
       const usable = el.clientHeight - padY - chrome
       // 정수로 내리면 45U 에서 최대 44px 자투리가 아래에 남는다 — 소수점
       // 그대로 준다. 브라우저가 소수 픽셀을 알아서 나눠 그린다.
-      setUH(Math.max(15, Math.min(26, Math.round((usable / maxU) * 100) / 100)))
+      // 하한 17 — Full HD 에서 참고 화면과 같은 밀도. 더 작은 창은 스크롤
+      setUH(Math.max(17, Math.min(30, Math.round((usable / maxU) * 100) / 100)))
     }
     calc()
     const ro = new ResizeObserver(calc)
@@ -1108,26 +1121,49 @@ export default function RackView() {
         />
       )}
 
-      {tip && (
-        <div className="rv-tip" style={{ left: tip.x + 14, top: tip.y + 12 }}>
-          <b>{tip.d.name || tip.d.ip}</b>
-          <div className="rv-tr"><i>IP</i><span>{tip.d.ip || '–'}</span></div>
-          <div className="rv-tr"><i>모델</i><span>{tip.d.model || '–'}</span></div>
-          <div className="rv-tr">
-            <i>자리</i>
-            <span>
-              {tip.d.rack_pos}U{tip.d.rack_units > 1 ? ` · ${tip.d.rack_units}U 크기` : ''}
-              {tip.d.power_w ? ` · ${tip.d.power_w}W` : ''}
-            </span>
+      {tip && (() => {
+        const d = tip.d
+        const h = stHead(d)
+        const rk = (data?.racks ?? []).find((r) => r.id === d.rack_id)
+        const labNm = labs.find((l) => l.id === (rk?.lab_id ?? ''))?.name ?? ''
+        const ports = (d.ifs ?? [])
+          .map((n) => {
+            const m = /(\d+)\s*$/.exec(n)
+            return { n, no: m ? m[1] : n.slice(-2) }
+          })
+          .slice(0, 64)
+        const x = Math.min(tip.x + 14, window.innerWidth - 300)
+        const y = Math.min(tip.y + 12, window.innerHeight - (ports.length ? 300 : 210))
+        return (
+          <div className="rv-tip" style={{ left: x, top: y }}>
+            <div className="rv-th2">
+              <b>{d.name || d.ip}</b>
+              <span className={`rv-tst ${h.cls}`}>● {h.word}</span>
+            </div>
+            <div className="rv-tr"><i>IP</i><span>{d.ip || '–'}{h.via ? <em className="rv-tvia"> {h.via}</em> : null}</span></div>
+            <div className="rv-tr"><i>위치</i><span>{rk?.name ?? '–'} · {d.rack_pos}U{d.rack_units > 1 ? ` (${d.rack_units}U)` : ''}</span></div>
+            {labNm && <div className="rv-tr"><i>구역</i><span>{labNm}</span></div>}
+            <div className="rv-tr"><i>장비</i><span>{[d.vendor, d.role].filter(Boolean).join(' · ') || '–'}</span></div>
+            <div className="rv-tr"><i>모델</i><span>{d.model || '–'}{d.power_w ? ` · ${d.power_w}W` : ''}</span></div>
+            {d.source === 'pg' && <div className="rv-tr"><i>접속</i><span>{stLine(d)}</span></div>}
+            {ports.length > 0 && (
+              <div className="rv-tports-wrap">
+                <div className="rv-tports-h">포트 형상 · 전체 {(d.ifs ?? []).length}포트</div>
+                <div className="rv-tports" style={{ gridTemplateRows: ports.length > 1 ? 'repeat(2, 15px)' : '15px' }}>
+                  {ports.map((p, i) => (
+                    <i key={i} title={p.n}>{p.no}</i>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="rv-hint">
+              {d.source === 'pg'
+                ? '우클릭 → 접속(Telnet/SSH)·열기·빼기 · 끌어서 옮기기'
+                : '옛 자료 — 우클릭해서 새 장비로 등록'}
+            </div>
           </div>
-          <div className="rv-tr"><i>상태</i><span>{stLine(tip.d)}</span></div>
-          <div className="rv-hint">
-            {tip.d.source === 'pg'
-              ? '우클릭 → 열기·빼기 · 끌어서 옮기기'
-              : '옛 자료 — 우클릭해서 새 장비로 등록'}
-          </div>
-        </div>
-      )}
+        )
+      })()}
     </section>
   )
 }

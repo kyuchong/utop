@@ -404,37 +404,73 @@
 .rv-dot.ng { background: #dc2626; }
 .rv-dot.un { background: #c9d0d9; }
 
-/* ── 호버 요약 카드 ── */
+/* ── 호버 요약 카드 — 옛 화면처럼 어두운 카드에 포트 형상까지 ── */
 .rv-tip {
   position: fixed;
   z-index: 60;
-  min-width: 200px;
-  max-width: 280px;
-  background: var(--c-surface);
-  border: 1px solid var(--c-border);
-  border-radius: 8px;
-  box-shadow: 0 6px 20px rgb(15 23 42 / 0.18);
-  padding: 9px 11px;
+  min-width: 250px;
+  max-width: 300px;
+  background: #1b202b;
+  color: #e6ecf5;
+  border: 1px solid #303848;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgb(5 10 20 / 0.5);
+  padding: 11px 13px;
   pointer-events: none;
   font-size: var(--fs-sm);
 }
-.rv-tip > b { display: block; margin-bottom: 5px; }
-.rv-tr { display: flex; gap: 8px; line-height: 1.5; }
+.rv-th2 { display: flex; align-items: baseline; gap: 8px; margin-bottom: 7px; }
+.rv-th2 > b { font-size: 14px; letter-spacing: -0.01em; }
+.rv-tst { font-size: var(--fs-xs); font-weight: 800; }
+.rv-tst.ok { color: #34d399; }
+.rv-tst.ng { color: #f87171; }
+.rv-tst.un { color: #9aa3af; }
+.rv-tst.old { color: #8a93a1; }
+.rv-tr { display: flex; gap: 10px; line-height: 1.6; }
 .rv-tr > i {
   flex: none;
-  width: 34px;
+  width: 36px;
   font-style: normal;
-  color: var(--c-text-faint);
+  color: #8b94a5;
   font-size: var(--fs-xs);
-  padding-top: 1px;
+  padding-top: 2px;
 }
-.rv-tr > span { min-width: 0; word-break: break-all; }
+.rv-tr > span { min-width: 0; word-break: break-all; font-weight: 600; }
+.rv-tvia { font-style: normal; font-size: var(--fs-xs); color: #8b94a5; font-weight: 700; }
+.rv-tports-wrap { margin-top: 8px; padding-top: 7px; border-top: 1px solid #303848; }
+.rv-tports-h { font-size: var(--fs-xs); color: #8b94a5; margin-bottom: 5px; }
+/* 실물 스위치처럼 홀수 위·짝수 아래 두 줄로 흐른다 */
+.rv-tports {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 2px;
+  justify-content: start;
+  background: #12161e;
+  border-radius: 6px;
+  padding: 5px;
+  overflow: hidden;
+}
+.rv-tports > i {
+  font-style: normal;
+  width: 17px;
+  height: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #aeb9cc;
+  background: #262d3b;
+  border: 1px solid #39425a;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
 .rv-hint {
-  margin-top: 6px;
-  padding-top: 5px;
-  border-top: 1px dashed var(--c-border-soft);
+  margin-top: 7px;
+  padding-top: 6px;
+  border-top: 1px dashed #303848;
   font-size: var(--fs-xs);
-  color: var(--c-primary);
+  color: #7ea0ff;
 }
 
 /* ── 눌러서 놓기 대화상자 — 드래그의 폼 경로 짝 ── */

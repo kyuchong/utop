@@ -6622,7 +6622,8 @@ async def rackview():
     """
     kv = _kv_load_sync("racks", {}) or {}
     racks = kv.get("racks") or []
-    devs = await db.device_list(with_ifs=False)
+    # 인터페이스 이름까지 싣는다 — 호버 카드의 포트 형상 몫
+    devs = await db.device_list(with_ifs=True)
     placed, unplaced, pg_ips = [], [], set()
     for d in devs:
         ip = str(d.get("ip") or "").strip()
@@ -6630,8 +6631,9 @@ async def rackview():
             pg_ips.add(ip)
         slim = {
             "id": d["id"], "ip": ip, "name": d.get("name"), "model": d.get("model"),
-            "lab": d.get("lab"), "role": d.get("role"),
+            "lab": d.get("lab"), "role": d.get("role"), "vendor": d.get("vendor"),
             "rack_units": d.get("rack_units"), "power_w": d.get("power_w"),
+            "ifs": [str(i.get("name") or "") for i in (d.get("interfaces") or [])],
         }
         if d.get("rack_id") and d.get("rack_pos"):
             placed.append({
