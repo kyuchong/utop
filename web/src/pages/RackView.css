@@ -101,7 +101,103 @@
 }
 .rv-legend span { display: inline-flex; align-items: center; gap: 4px; }
 
-/* ── 판 — 랙 기둥들이 가로로 늘어선다 ── */
+/* ── 본판: 왼쪽 팔레트 + 랙 판 ── */
+.rv-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+/* 팔레트 — 미배치 장비·부품을 끌어 오는 곳 */
+.rv-pal {
+  flex: none;
+  width: 216px;
+  min-height: 0;
+  overflow-y: auto;
+  border-right: 1px solid var(--c-border-soft);
+  padding: var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+.rv-psec {
+  border: 1px solid var(--c-border-soft);
+  border-radius: 8px;
+  background: var(--c-surface);
+  padding: 8px;
+}
+.rv-ph {
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--c-text-faint);
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.rv-ph > i {
+  font-style: normal;
+  background: var(--c-surface-alt);
+  border-radius: 999px;
+  padding: 0 7px;
+}
+.rv-plist { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto; }
+.rv-pempty { padding: 8px 4px; }
+.rv-pdev {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 6px;
+  align-items: center;
+  border: 1px solid #b6cdec;
+  border-radius: 6px;
+  background: #eaf2fd;
+  padding: 4px 8px;
+  cursor: grab;
+}
+.rv-pdev:active { cursor: grabbing; }
+.rv-pdev > b {
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rv-pdev > span { grid-column: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-pdev > i {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-faint);
+}
+.rv-ppart {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #cbd2dc;
+  border-radius: 6px;
+  background: #f3f5f8;
+  padding: 5px 9px;
+  cursor: grab;
+}
+.rv-ppart:active { cursor: grabbing; }
+.rv-ppart > b { flex: 1; font-size: var(--fs-sm); font-weight: 700; }
+.rv-ppart > i { font-style: normal; font-size: var(--fs-xs); font-weight: 700; color: var(--c-text-faint); }
+.rv-padd { display: flex; gap: 4px; margin-top: 2px; }
+.rv-padd input:first-child { flex: 1; min-width: 0; }
+.rv-padd input {
+  border: 1px solid var(--c-border);
+  border-radius: 5px;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+.rv-padd input[type='number'] { width: 44px; }
+.rv-padd input[type='color'] { width: 30px; padding: 1px; }
+.rv-phint { margin-top: 6px; }
+
+/* 랙 판 — 랙 기둥들이 가로로 늘어선다 */
 .rv-board {
   flex: 1;
   min-height: 0;
@@ -138,6 +234,15 @@
   white-space: nowrap;
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
+}
+.rv-watt {
+  flex: none;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: #b45309;
+  background: #fef3c7;
+  border-radius: 999px;
+  padding: 1px 8px;
 }
 .rv-uband {
   margin-left: auto;
@@ -199,27 +304,9 @@
   color: #c6cdd8;
   user-select: none;
 }
-/* 빈 칸에 마우스를 올리면 놓기 단추가 나온다 */
-.rv-put {
-  position: absolute;
-  right: 3px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 15px;
-  height: 15px;
-  line-height: 1;
-  border: 1px solid var(--c-border);
-  border-radius: 4px;
-  background: var(--c-surface);
-  color: var(--c-text-faint);
-  font-size: 10px;
-  cursor: pointer;
-  opacity: 0;
-  padding: 0;
-}
-.rv-blank:hover { background: #eef3fb; box-shadow: inset 0 0 0 1px var(--c-primary); }
-.rv-blank:hover .rv-put { opacity: 1; }
-.rv-put:hover { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+/* 끌어 오는 중 — 붙을 수 있으면 파랗게, 겹치면 붉게 */
+.rv-blank.can { background: #e2edfc; box-shadow: inset 0 0 0 1.5px var(--c-primary); }
+.rv-blank.cant { background: #fdecec; box-shadow: inset 0 0 0 1.5px var(--c-fail); }
 
 /* 블랭크 패널(패치 패널·ODF 등) — 옛 화면에서 그려 둔 부품 */
 .rv-part {
@@ -230,15 +317,26 @@
   background: #f2f4f8;
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 4px;
+  padding: 0 6px;
   font-size: 11px;
   font-weight: 700;
   color: #57616e;
+  min-width: 0;
+  z-index: 1;
+  cursor: grab;
+}
+.rv-part:active { cursor: grabbing; }
+.rv-ptxt {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  z-index: 1;
 }
+.rv-part .rv-x { opacity: 0; }
+.rv-part:hover .rv-x { opacity: 1; }
 
 /* ── 장비 블록 ── */
 .rv-dev {
@@ -354,79 +452,3 @@
   font-size: var(--fs-xs);
   color: var(--c-primary);
 }
-
-/* ── 놓기 대화상자 ── */
-.rv-ovl {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: rgb(15 20 30 / 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.rv-dlg {
-  width: 420px;
-  max-width: 94vw;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--c-surface);
-  border-radius: 10px;
-  padding: 14px;
-  box-shadow: 0 14px 40px rgb(15 23 42 / 0.3);
-}
-.rv-dh { display: flex; align-items: center; }
-.rv-dh > b { flex: 1; }
-.rv-dh .rv-rx { opacity: 1; }
-.rv-dlg > input {
-  padding: 7px 10px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  font: inherit;
-}
-.rv-dlist {
-  flex: 1;
-  min-height: 120px;
-  max-height: 300px;
-  overflow-y: auto;
-  border: 1px solid var(--c-border-soft);
-  border-radius: var(--radius-sm);
-}
-.rv-dempty { padding: 18px 12px; text-align: center; }
-.rv-drow {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 8px;
-  align-items: center;
-  border: 0;
-  border-bottom: 1px solid var(--c-border-soft);
-  background: transparent;
-  padding: 6px 10px;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.rv-drow:last-child { border-bottom: 0; }
-.rv-drow:hover { background: var(--c-primary-bg); }
-.rv-drow.on { background: var(--c-primary-bg); box-shadow: inset 2px 0 0 var(--c-primary); }
-.rv-drow > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rv-df { display: flex; align-items: center; gap: 8px; }
-.rv-df label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: var(--fs-sm);
-  color: var(--c-text-faint);
-}
-.rv-df input {
-  width: 58px;
-  padding: 4px 7px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  font: inherit;
-}
-.rv-warn { font-size: var(--fs-xs); color: var(--c-fail); font-weight: 700; }
-.rv-df .sp { flex: 1; }

@@ -230,6 +230,8 @@ export default function DeviceForm({ editing, onClose }: Props) {
       username: editing?.username ?? '',
       password: editing?.password ?? '',
       enable_password: editing?.enable_password ?? '',
+      rack_units: editing?.rack_units ?? null,
+      power_w: editing?.power_w ?? null,
     })
     setIfs(editing?.interfaces ?? [])
     const m: Record<string, DeviceAccess> = {}
@@ -462,6 +464,31 @@ export default function DeviceForm({ editing, onClose }: Props) {
                 value={f.ip}
                 placeholder="10.1.1.21"
                 onChange={(e) => set('ip', e.target.value)}
+              />
+            </label>
+            <label className="fld fld-xs">
+              <span>U 크기</span>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={f.rack_units ?? ''}
+                placeholder="1"
+                onChange={(e) =>
+                  set('rack_units', e.target.value ? parseInt(e.target.value, 10) : null)
+                }
+              />
+            </label>
+            <label className="fld fld-xs">
+              <span>소모전력(W)</span>
+              <input
+                type="number"
+                min={0}
+                value={f.power_w ?? ''}
+                placeholder="0"
+                onChange={(e) =>
+                  set('power_w', e.target.value ? parseInt(e.target.value, 10) : null)
+                }
               />
             </label>
             {/* 계정·비밀번호·enable 은 **공용**이다. Telnet·SSH 가 대개 같은

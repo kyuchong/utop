@@ -179,6 +179,8 @@ CREATE INDEX IF NOT EXISTS idx_device_lab ON device(lab);
 ALTER TABLE device ADD COLUMN IF NOT EXISTS rack_id    TEXT;
 ALTER TABLE device ADD COLUMN IF NOT EXISTS rack_pos   INT;
 ALTER TABLE device ADD COLUMN IF NOT EXISTS rack_units INT;
+-- 소모전력(W) — 랙 단위 전력 합계를 랙뷰 머리에 보여 주기 위한 것
+ALTER TABLE device ADD COLUMN IF NOT EXISTS power_w    INT;
 CREATE INDEX IF NOT EXISTS idx_device_rack ON device(rack_id);
 DROP TRIGGER IF EXISTS trg_device_updated ON device;
 CREATE TRIGGER trg_device_updated BEFORE UPDATE ON device

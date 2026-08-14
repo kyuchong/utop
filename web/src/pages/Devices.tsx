@@ -49,6 +49,10 @@ export interface Device {
   enable_password?: string | null
   description?: string | null
   status?: string | null
+  /** 랙뷰 몫 — 이 장비가 몇 U 짜리인지·소모전력(W). 자리(rack_id·rack_pos)는
+      장비 편집이 안 만진다: 랙뷰에서 끌어다 놓는 것으로만 바뀐다 */
+  rack_units?: number | null
+  power_w?: number | null
   interfaces?: DeviceIf[]
   access?: DeviceAccess[]
 }

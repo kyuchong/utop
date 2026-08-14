@@ -6593,6 +6593,7 @@ async def rackview():
         slim = {
             "id": d["id"], "ip": ip, "name": d.get("name"), "model": d.get("model"),
             "lab": d.get("lab"), "role": d.get("role"),
+            "rack_units": d.get("rack_units"), "power_w": d.get("power_w"),
         }
         if d.get("rack_id") and d.get("rack_pos"):
             placed.append({

@@ -910,7 +910,7 @@ async def device_upsert(payload: dict) -> str:
         raise ValueError("IP 가 필요합니다")
     extra = {
         k: v for k, v in payload.items()
-        if k not in _DEV_COLS and k not in ("interfaces", "rack_id", "rack_pos", "rack_units")
+        if k not in _DEV_COLS and k not in ("interfaces", "rack_id", "rack_pos", "rack_units", "power_w")
     }
     async with pool().acquire() as c:
         await c.execute(
@@ -933,16 +933,21 @@ async def device_upsert(payload: dict) -> str:
             m["lab"], m["role"], m["protocol"], m["port"], m["username"], m["password"],
             m["enable_password"], m["description"], m["status"], json.dumps(extra, ensure_ascii=False, default=str),
         )
-        # 랙 자리는 보낸 요청에 키가 있을 때만 만진다 — 장비 편집 창은 랙을
-        # 모르므로, 없다고 지워 버리면 편집 저장이 랙뷰 배치를 부순다.
-        if any(k in payload for k in ("rack_id", "rack_pos", "rack_units")):
-            await c.execute(
-                "UPDATE device SET rack_id=$1, rack_pos=$2, rack_units=$3 WHERE id=$4",
-                (str(payload.get("rack_id") or "").strip() or None),
-                int(payload["rack_pos"]) if payload.get("rack_pos") else None,
-                int(payload["rack_units"]) if payload.get("rack_units") else None,
-                m["id"],
-            )
+        # 랙 자리·U 크기·전력은 보낸 요청에 그 키가 있을 때만, 그 칸만 만진다.
+        # 장비 편집 창은 U 크기만 보내는데, 그때 rack_id 까지 갈아 치우면
+        # 편집 저장이 랙뷰 배치를 부순다.
+        for col in ("rack_id", "rack_pos", "rack_units", "power_w"):
+            if col not in payload:
+                continue
+            v = payload.get(col)
+            if col == "rack_id":
+                v = (str(v).strip() if v else "") or None
+            else:
+                try:
+                    v = int(v) if v not in (None, "") else None
+                except (TypeError, ValueError):
+                    v = None
+            await c.execute(f"UPDATE device SET {col}=$1 WHERE id=$2", v, m["id"])
         if "interfaces" in payload:
             await _device_set_ifs(c, m["id"], payload.get("interfaces") or [])
         if "access" in payload:
