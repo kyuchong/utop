@@ -1,0 +1,76 @@
+/* ── 알림 종 — 좌측 메뉴 아래 ────────────────────────────────── */
+.nb { position: relative; }
+.nb-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  min-width: 0;
+}
+.nb-btn:hover { background: rgb(255 255 255 / 0.08); }
+.nb-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nb-n {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+  background: #ef4444;
+  color: #fff;
+  border-radius: 999px;
+  padding: 3px 6px;
+  margin-left: auto;
+}
+
+/* 판 — 메뉴 옆으로 떠오른다 (아래는 화면 밖이라 위·오른쪽으로) */
+.nb-pop {
+  position: absolute;
+  left: calc(100% + 10px);
+  bottom: 0;
+  width: 320px;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+  color: var(--c-text);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 36px rgb(15 23 42 / 0.35);
+  z-index: 80;
+}
+.nb-head {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.nb-head .sp { flex: 1; }
+.nb-list { flex: 1; min-height: 0; overflow-y: auto; }
+.nb-empty { padding: 22px 14px; text-align: center; line-height: 1.7; }
+.nb-row {
+  display: flex;
+  gap: 9px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--c-border-soft);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+.nb-row:last-child { border-bottom: 0; }
+.nb-at {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-faint);
+  font-size: var(--fs-xs);
+  padding-top: 1px;
+}
+.nb-tx { min-width: 0; word-break: break-all; }

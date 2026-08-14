@@ -15,6 +15,7 @@ import {
   IconSettings,
   IconTestCase,
 } from './icons'
+import NotifyBell from '@/components/NotifyBell'
 import TopStatus from './TopStatus'
 import { apiFetch } from '@/api/client'
 import './Layout.css'
@@ -238,6 +239,8 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
           {/* 아래쪽 — 내 장비 현황과 사용자. 오른쪽 위 구석은 눈이 잘 가지
               않아 상단바에서 여기로 내렸다. 메뉴를 접어도 아이콘으로 남는다. */}
           <div className="nav-foot">
+            {/* 알림 종 — 자리 비운 사이의 저장·실행·결함 소식이 쌓인다 */}
+            <NotifyBell collapsed={collapsed} />
             <div className="nav-status">
               <TopStatus me={user} />
             </div>
