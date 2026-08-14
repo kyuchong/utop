@@ -614,3 +614,8 @@ CREATE TABLE IF NOT EXISTS tc_history (
   data      JSONB NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_tch_tcid ON tc_history(tcid, id DESC);
+
+-- 실행 타입 백필 — Info 탭은 run_type 으로 저장하는데 meta 추출이 kind 만
+-- 봐서 이미 저장된 행들의 kind 가 비어 있다. 기동마다 돌아도 멱등.
+UPDATE tc SET kind = data->>'run_type'
+ WHERE (kind IS NULL OR kind = '') AND COALESCE(data->>'run_type', '') <> '';

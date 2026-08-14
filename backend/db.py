@@ -176,7 +176,9 @@ def _tc_meta(data: dict) -> dict:
         "req_id": data.get("req_id") or "",
         "type": data.get("type") or "",
         "severity": data.get("severity") or "",
-        "kind": data.get("kind") or "",
+        # 실행 타입 — Info 탭은 run_type 으로 저장한다. kind 만 보면
+        # 목록의 실행 타입 열이 늘 비었다(겪었다).
+        "kind": data.get("kind") or data.get("run_type") or "",
         "created_by": data.get("created_by") or "",
         "updated_by": data.get("updated_by") or "",
         "step_count": cli_cnt,
