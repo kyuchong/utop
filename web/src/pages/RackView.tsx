@@ -134,7 +134,11 @@ export default function RackView() {
   const [over, setOver] = useState<{ rack: string; pos: number; ok: boolean } | null>(null)
   /** 빈 칸을 눌러서 놓기 — 드래그가 안 되는 환경(터치패드 등) 몫 */
   const [placeAt, setPlaceAt] = useState<{ rack: RvRack; pos: number } | null>(null)
-  const [palPart, setPalPart] = useState({ label: '', units: 1, color: '#94a3b8' })
+  /** 빈 칸 우클릭 — 장비를 놓을지 부품을 놓을지 고르는 메뉴 */
+  const [ctx, setCtx] = useState<{ x: number; y: number; rack: RvRack; pos: number } | null>(null)
+  const [partAt, setPartAt] = useState<{ rack: RvRack; pos: number } | null>(null)
+  /** 판 빈 곳 우클릭 — 랙 추가 메뉴 */
+  const [boardCtx, setBoardCtx] = useState<{ x: number; y: number } | null>(null)
 
   const rvQ = useQuery({
     queryKey: ['rackview'],
@@ -577,71 +581,21 @@ export default function RackView() {
                 ))
               )}
             </div>
-          </div>
-
-          <div className="rv-psec">
-            <div className="rv-ph">부품</div>
-            <div className="rv-plist">
-              {PART_PRESETS.map((p, i) => (
-                <div
-                  key={i}
-                  className="rv-ppart"
-                  draggable
-                  onDragStart={(e) => startDrag(e, { kind: 'part', ...p })}
-                  style={p.color ? { borderColor: `${p.color}88`, background: `${p.color}1a` } : {}}
-                >
-                  <b>{p.label}</b>
-                  <i>{p.units}U</i>
-                </div>
-              ))}
-              <div className="rv-padd">
-                <input
-                  placeholder="직접 추가 (이름)"
-                  value={palPart.label}
-                  onChange={(e) => setPalPart({ ...palPart, label: e.target.value })}
-                />
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  value={palPart.units}
-                  onChange={(e) =>
-                    setPalPart({ ...palPart, units: Math.max(1, parseInt(e.target.value, 10) || 1) })
-                  }
-                />
-                <input
-                  type="color"
-                  value={palPart.color}
-                  onChange={(e) => setPalPart({ ...palPart, color: e.target.value })}
-                />
-              </div>
-              {palPart.label.trim() && (
-                <div
-                  className="rv-ppart"
-                  draggable
-                  onDragStart={(e) =>
-                    startDrag(e, {
-                      kind: 'part',
-                      label: palPart.label.trim(),
-                      units: palPart.units,
-                      color: palPart.color,
-                    })
-                  }
-                  style={{ borderColor: `${palPart.color}88`, background: `${palPart.color}1a` }}
-                >
-                  <b>{palPart.label.trim()}</b>
-                  <i>{palPart.units}U</i>
-                </div>
-              )}
-            </div>
             <div className="rv-phint muted small">
-              끌어다 랙에 놓으세요. 랙 안에서도 끌어 옮길 수 있습니다.
+              끌어다 랙에 놓으세요. 랙의 빈 칸을 우클릭하면 부품(블랭크·패치
+              패널…)도, 판 빈 곳을 우클릭하면 랙을 추가할 수 있습니다.
             </div>
           </div>
         </aside>
 
         {/* ── 판 — 랙 기둥들 ── */}
-        <div className="rv-board">
+        <div
+          className="rv-board"
+          onContextMenu={(e) => {
+            e.preventDefault()
+            if (curLab) setBoardCtx({ x: e.clientX, y: e.clientY })
+          }}
+        >
           {rvQ.isLoading ? (
             <div className="empty">불러오는 중…</div>
           ) : labs.length === 0 ? (
@@ -727,7 +681,12 @@ export default function RackView() {
                           onDragLeave={() => setOver(null)}
                           onDrop={(e) => dropAt(rk, u, e)}
                           onClick={() => setPlaceAt({ rack: rk, pos: u })}
-                          title="눌러서 장비 놓기 · 끌어다 놓아도 됩니다"
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setCtx({ x: e.clientX, y: e.clientY, rack: rk, pos: u })
+                          }}
+                          title="누르면 장비 놓기 · 우클릭하면 장비/부품 · 끌어다 놓아도 됩니다"
                         >
                           <i>BLANK · 1U</i>
                         </span>
@@ -817,6 +776,92 @@ export default function RackView() {
           )}
         </div>
       </div>
+
+      {ctx && (
+        <div
+          className="rv-ctxovl"
+          onClick={() => setCtx(null)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setCtx(null)
+          }}
+        >
+          <div className="rv-ctx" style={{ left: ctx.x, top: ctx.y }} onClick={(e) => e.stopPropagation()}>
+            <div className="rv-ctxh">
+              {ctx.rack.name} · {ctx.pos}U
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setPlaceAt({ rack: ctx.rack, pos: ctx.pos })
+                setCtx(null)
+              }}
+            >
+              장비 놓기…
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPartAt({ rack: ctx.rack, pos: ctx.pos })
+                setCtx(null)
+              }}
+            >
+              부품 놓기… <i className="muted small">블랭크·패치 패널·ODF</i>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {boardCtx && (
+        <div
+          className="rv-ctxovl"
+          onClick={() => setBoardCtx(null)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setBoardCtx(null)
+          }}
+        >
+          <div
+            className="rv-ctx"
+            style={{ left: boardCtx.x, top: boardCtx.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rv-ctxh">{labs.find((l) => l.id === curLab)?.name ?? ''}</div>
+            <button
+              type="button"
+              onClick={() => {
+                addRack.mutate(45)
+                setBoardCtx(null)
+              }}
+            >
+              + 랙 45U 추가
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                addRack.mutate(36)
+                setBoardCtx(null)
+              }}
+            >
+              + 랙 36U 추가
+            </button>
+          </div>
+        </div>
+      )}
+
+      {partAt && (
+        <PartDialog
+          rack={partAt.rack}
+          pos={partAt.pos}
+          fits={fits}
+          busy={putPart.isPending}
+          onPlace={(label, units, color) => {
+            putPart.mutate({ rack: partAt.rack, pos: partAt.pos, label, units, color })
+            setPartAt(null)
+          }}
+          onClose={() => setPartAt(null)}
+        />
+      )}
 
       {placeAt && (
         <PlaceDialog
@@ -953,6 +998,101 @@ function PlaceDialog({
             type="button"
             disabled={!ok || busy}
             onClick={() => sel && onPlace(sel, units)}
+          >
+            놓기
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** 빈 칸 우클릭 → 부품 놓기 — 자주 쓰는 것 + 직접 입력 */
+function PartDialog({
+  rack,
+  pos,
+  fits,
+  busy,
+  onPlace,
+  onClose,
+}: {
+  rack: RvRack
+  pos: number
+  fits: (rk: RvRack, pos: number, units: number) => boolean
+  busy: boolean
+  onPlace: (label: string, units: number, color?: string) => void
+  onClose: () => void
+}) {
+  const [sel, setSel] = useState<number>(-1)
+  const [label, setLabel] = useState('')
+  const [units, setUnits] = useState(1)
+  const [color, setColor] = useState('#94a3b8')
+  const custom = sel === -1 && label.trim() !== ''
+  const cur = custom
+    ? { label: label.trim(), units, color }
+    : sel >= 0
+      ? PART_PRESETS[sel]
+      : null
+  const ok = cur && fits(rack, pos, cur.units)
+  return (
+    <div className="rv-ovl" onClick={onClose}>
+      <div className="rv-dlg" onClick={(e) => e.stopPropagation()}>
+        <div className="rv-dh">
+          <b>
+            {rack.name} · {pos}U 에 부품 놓기
+          </b>
+          <button className="rv-rx" type="button" onClick={onClose}>
+            ×
+          </button>
+        </div>
+        <div className="rv-plist">
+          {PART_PRESETS.map((p, i) => (
+            <button
+              key={i}
+              type="button"
+              className={`rv-ppart${sel === i ? ' on' : ''}`}
+              style={p.color ? { borderColor: `${p.color}88`, background: `${p.color}1a` } : {}}
+              onClick={() => {
+                setSel(i)
+                setLabel('')
+              }}
+            >
+              <b>{p.label}</b>
+              <i>{p.units}U</i>
+            </button>
+          ))}
+        </div>
+        <div className="rv-padd">
+          <input
+            placeholder="직접 입력 (이름)"
+            value={label}
+            onChange={(e) => {
+              setLabel(e.target.value)
+              if (e.target.value.trim()) setSel(-1)
+            }}
+          />
+          <input
+            type="number"
+            min={1}
+            max={10}
+            value={units}
+            onChange={(e) => setUnits(Math.max(1, parseInt(e.target.value, 10) || 1))}
+          />
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
+        </div>
+        <div className="rv-df">
+          {cur && !fits(rack, pos, cur.units) && (
+            <span className="rv-warn">그 자리에 {cur.units}U 가 안 들어갑니다</span>
+          )}
+          <span className="sp" />
+          <button className="btn small" type="button" onClick={onClose}>
+            취소
+          </button>
+          <button
+            className="btn small primary"
+            type="button"
+            disabled={!ok || busy}
+            onClick={() => cur && onPlace(cur.label, cur.units, cur.color)}
           >
             놓기
           </button>

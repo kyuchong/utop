@@ -204,13 +204,14 @@
   overflow: auto;
   padding: var(--sp-3);
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: flex-start;
 }
 
 .rv-rack {
   flex: none;
-  width: 248px;
+  /* Full HD 에 최대한 많이 — 긴 모델명(Spirent TestCenter)이 겨우 들어가는 폭 */
+  width: 176px;
   border: 1px solid var(--c-border);
   border-radius: 10px;
   background: var(--c-surface);
@@ -271,8 +272,8 @@
 /* ── U 눈금 그리드 ── */
 .rv-grid {
   display: grid;
-  grid-template-columns: 24px 1fr;
-  padding: 6px 6px 8px 2px;
+  grid-template-columns: 20px 1fr;
+  padding: 4px 4px 6px 2px;
 }
 .rv-uno {
   grid-column: 1;
@@ -348,8 +349,8 @@
   box-shadow: 0 1px 2px rgb(30 64 120 / 0.10);
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 0 7px;
+  gap: 4px;
+  padding: 0 5px;
   min-width: 0;
   cursor: pointer;
   position: relative;
@@ -376,7 +377,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   color: #163257;
 }
@@ -528,3 +529,77 @@
 }
 .rv-warn { font-size: var(--fs-xs); color: var(--c-fail); font-weight: 700; }
 .rv-df .sp { flex: 1; }
+
+/* ── 빈 칸 우클릭 메뉴 ── */
+.rv-ctxovl { position: fixed; inset: 0; z-index: 55; }
+.rv-ctx {
+  position: fixed;
+  min-width: 190px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.2);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.rv-ctxh {
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--c-text-faint);
+  padding: 5px 10px 4px;
+}
+.rv-ctx > button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.rv-ctx > button:hover { background: var(--c-primary-bg); }
+.rv-ctx > button > i { font-style: normal; }
+
+/* 부품 고르기 — 대화상자 안에서 눌러 고른다 */
+.rv-ppart.on { box-shadow: inset 2px 0 0 var(--c-primary), 0 0 0 1.5px var(--c-primary); }
+
+/* ── 우클릭 메뉴 (빈 칸 = 장비/부품 · 판 = 랙 추가) ── */
+.rv-ctxovl { position: fixed; inset: 0; z-index: 55; }
+.rv-ctx {
+  position: fixed;
+  min-width: 190px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.2);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+.rv-ctxh {
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--c-text-faint);
+  padding: 5px 10px 4px;
+}
+.rv-ctx > button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.rv-ctx > button:hover { background: var(--c-primary-bg); }
+.rv-ctx > button > i { font-style: normal; }
+
+/* 부품 고르기 — 대화상자 안에서 눌러 고른다 */
+.rv-ppart.on { box-shadow: inset 2px 0 0 var(--c-primary), 0 0 0 1.5px var(--c-primary); }
