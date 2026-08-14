@@ -299,6 +299,40 @@ export const IconInstrument = (p: P) => (
   </Svg>
 )
 
+/* ── 시험 세부 레일 탭 아이콘 — 글자 대신. 좁은 레일에서 한눈에 갈리게
+   모양이 서로 확실히 달라야 한다. */
+export const IconInfoC = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5M12 8h.01" />
+  </Svg>
+)
+export const IconTarget = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="8" />
+    <circle cx="12" cy="12" r="3.5" />
+  </Svg>
+)
+export const IconTopo = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="5.5" r="2.5" />
+    <circle cx="5.5" cy="18" r="2.5" />
+    <circle cx="18.5" cy="18" r="2.5" />
+    <path d="M10.8 7.6 7 15.7M13.2 7.6l3.8 8.1M8 18h8" />
+  </Svg>
+)
+export const IconWave = (p: P) => (
+  <Svg {...p}>
+    <path d="M2 12h3l2.5-6 4 12 3-8 1.5 2H22" />
+  </Svg>
+)
+export const IconPlaySq = (p: P) => (
+  <Svg {...p}>
+    <rect x="3" y="3" width="18" height="18" rx="4" />
+    <path d="M10 8.5v7l6-3.5z" />
+  </Svg>
+)
+
 /** 랙뷰 (랙 실장도) */
 export const IconRack = (p: P) => (
   <Svg {...p}>

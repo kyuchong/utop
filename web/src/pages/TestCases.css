@@ -2774,7 +2774,7 @@ table.tb tr.r-bad td:first-child {
 }
 /* 머리줄은 알림(함께 보는 중·저장 종·충돌)이 있을 때만 자리를 갖는다 —
    저장·탭이 레일로 간 뒤 평소엔 빈 띠였다. sp(밀개)만 있으면 없는 줄. */
-.tc-inline .tc-dethead { padding: 0; margin: 0; border: 0; }
+.tc-inline .tc-dethead { padding: 0; margin: 0; border: 0; min-height: 0; }
 .tc-inline .tc-dethead:has(> :not(.sp)) {
   padding: 4px 2px 8px;
   border-bottom: 1px solid var(--c-border-soft);
@@ -2830,50 +2830,71 @@ table.tb tr.r-bad td:first-child {
 .tc-railbody > * { flex: 1; min-width: 0; min-height: 0; }
 .tc-rail {
   flex: none;
-  width: 116px;
+  width: 56px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 10px 8px;
+  align-items: stretch;
+  gap: 4px;
+  padding: 10px 6px;
   border-right: 1px solid var(--c-border-soft);
   background: linear-gradient(180deg, #f7f9fc, #f2f5f9);
+  /* 말풍선이 레일 밖(내용 위)으로 나온다 */
+  overflow: visible;
+  z-index: 3;
 }
-.tc-rail .seg-btn {
-  justify-content: flex-start;
-  text-align: left;
-  width: 100%;
-  border: 0;
-  border-radius: 8px;
-  padding: 7px 11px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #4b5563;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+.tc-rt {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #5b6572;
+  padding: 8px 0 6px;
+  cursor: pointer;
 }
-.tc-rail .seg-btn:hover { background: #e8eef7; color: var(--c-primary); }
-.tc-rail .seg-btn.on {
+.tc-rt:hover { background: #e8eef7; color: var(--c-primary); }
+.tc-rt.on {
   background: var(--c-primary);
   color: #fff;
-  font-weight: 700;
   box-shadow: 0 2px 6px rgb(37 99 235 / 0.35);
 }
-.tc-rail .seg-btn .cnt {
-  margin-left: auto;
+.tc-rt svg { width: 17px; height: 17px; }
+/* 개수 — 아이콘 아래 숫자 */
+.tc-rtn {
+  font-style: normal;
   font-size: 10px;
-  font-weight: 700;
-  background: #dfe6ef;
+  font-weight: 800;
+  line-height: 1;
   color: #5b6572;
+  background: #dfe6ef;
   border-radius: 999px;
-  padding: 0 6px;
-  line-height: 15px;
+  padding: 2px 6px;
 }
-.tc-rail .seg-btn.on .cnt { background: rgb(255 255 255 / 0.25); color: #fff; }
+.tc-rt.on .tc-rtn { background: rgb(255 255 255 / 0.28); color: #fff; }
+/* 글자는 올렸을 때만 — 오른쪽 말풍선 */
+.tc-rtl {
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1b202b;
+  color: #eaf2f5;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 3px 9px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+  z-index: 5;
+}
+.tc-rt:hover .tc-rtl { opacity: 1; }
 .tc-rail .sp { flex: 1; }
-.tc-rail-save { width: 100%; }
+.tc-rail-save { width: 100%; padding: 6px 2px; font-size: 12px; }
 
 /* 인라인 몸통: 레일 + 내용 옆으로 */
 .tc-inline-body { display: flex; }

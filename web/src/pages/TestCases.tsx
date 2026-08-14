@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import ListHead from '@/components/ListHead'
-import { IconChevron, IconPanel, IconParam, IconTcDoc } from '@/components/icons'
+import { IconChevron, IconClock, IconCycle, IconInfoC, IconPanel, IconParam, IconPlaySq, IconReqDoc, IconTarget, IconTcDoc, IconTopo, IconWave } from '@/components/icons'
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
@@ -1328,43 +1328,30 @@ export default function TestCases({ me }: PageProps) {
   const tabRail = openId && !gpOpen ? (
     <nav className="tc-rail" role="tablist">
       {([
-                  // 정보 → Manual → Automation 순. 시험을 만드는 순서와 같다 —
-                  // 무엇을 시험할지 적고, 사람이 할 일을 적고, 그중 자동으로
-                  // 돌릴 것을 만든다.
-                  //
-                  // 'Automation' 은 '스텝' 이 아니다 — 장비에 명령을 보내 자동으로
-                  // 도는 절차고, 사람이 하는 것은 Manual Step 에 있다.
-                  ['info', 'Info'],
-                  // 시험 목적·사전 준비 조건. 「돌리기 전에 갖춰져야 하는 것」
-                  // 이라 토폴로지 바로 앞이 자리다.
-                  ['env', 'Object'],
-                  // 배선은 랩의 사실이라 시험 내용보다 앞이다 — 여기가 정해져야
-                  // 스텝이 장비 포트 이름으로 말할 수 있다.
-                  ['topo', 'Topology'],
-                  // 계측기 트래픽 — 배선(Topology) 다음이다. 어느 포트에
-                  // 꽂혔는지가 정해져야 무엇을 보낼지 적을 수 있다.
-                  ['traffic', 'Traffic'],
-                  ['manual', 'Manual'],
-                  // 「Manual」 과 짝이 되게 「Automation」 — 둘 다 절차를 적는
-                  // 자리고, 사람이 하느냐 자동으로 도느냐만 다르다.
-                  ['steps', 'Automation'],
-                  ['history', 'Execution'],
-                  ['cycle', 'Cycle'],
-                ] as const).map(([k, label]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    role="tab"
-                    aria-selected={tab === k}
-                    className={`seg-btn${tab === k ? ' on' : ''}`}
-                    onClick={() => setTab(k)}
-                  >
-                    {label}
-                    {k === 'steps' && autoCount > 0 && <span className="cnt">{autoCount}</span>}
-                    {k === 'manual' && manualCount > 0 && <span className="cnt">{manualCount}</span>}
-                    {k === 'topo' && wireCount > 0 && <span className="cnt">{wireCount}</span>}
-                  </button>
-                ))}
+        { k: 'info', label: 'Info', ic: <IconInfoC />, n: 0 },
+        { k: 'env', label: 'Object', ic: <IconTarget />, n: 0 },
+        { k: 'topo', label: 'Topology', ic: <IconTopo />, n: wireCount },
+        { k: 'traffic', label: 'Traffic', ic: <IconWave />, n: 0 },
+        { k: 'manual', label: 'Manual', ic: <IconReqDoc />, n: manualCount },
+        { k: 'steps', label: 'Automation', ic: <IconPlaySq />, n: autoCount },
+        { k: 'history', label: 'Execution', ic: <IconClock />, n: 0 },
+        { k: 'cycle', label: 'Cycle', ic: <IconCycle />, n: 0 },
+      ] as const).map((x) => (
+        <button
+          key={x.k}
+          type="button"
+          role="tab"
+          aria-selected={tab === x.k}
+          aria-label={x.label}
+          className={`tc-rt${tab === x.k ? ' on' : ''}`}
+          onClick={() => setTab(x.k)}
+        >
+          {x.ic}
+          {x.n > 0 && <i className="tc-rtn">{x.n}</i>}
+          {/* 글자는 올렸을 때만 — 말풍선으로 오른쪽에 */}
+          <span className="tc-rtl">{x.label}</span>
+        </button>
+      ))}
       <span className="sp" />
       {/* 저장은 레일 맨 아래 고정 — 내용을 아무리 내려도 늘 그 자리다 */}
       <button
@@ -1373,7 +1360,7 @@ export default function TestCases({ me }: PageProps) {
         disabled={saveM.isPending || !dirty}
         onClick={() => saveM.mutate()}
       >
-        {saveM.isPending ? '저장 중…' : dirty ? '저장' : '저장됨'}
+        {saveM.isPending ? '…' : dirty ? '저장' : '저장됨'}
       </button>
     </nav>
   ) : null
