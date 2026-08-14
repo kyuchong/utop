@@ -299,6 +299,14 @@ export const IconInstrument = (p: P) => (
   </Svg>
 )
 
+/** 랙뷰 (랙 실장도) */
+export const IconRack = (p: P) => (
+  <Svg {...p}>
+    <rect x="5" y="2" width="14" height="20" rx="2" />
+    <path d="M5 8h14M5 14h14M8 5h.01M8 11h.01M8 18h.01" />
+  </Svg>
+)
+
 /* ── 스텝 종류 (Action) ────────────────────────────────────────
    14px 로 줄마다 들어간다. 색 네모만으로는 훑을 때 안 읽혀서,
    모양으로 구분되게 한다. 선 굵기는 메뉴 아이콘보다 살짝 얇다 —

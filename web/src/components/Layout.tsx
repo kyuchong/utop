@@ -11,6 +11,7 @@ import {
   IconRequirements,
   IconDevice,
   IconInstrument,
+  IconRack,
   IconSettings,
   IconTestCase,
 } from './icons'
@@ -55,6 +56,7 @@ export const NAV: NavGroup[] = [
     items: [
       { key: 'devices', label: '장비', Icon: IconDevice },
       { key: 'instruments', label: '계측기', Icon: IconInstrument },
+      { key: 'rackview', label: '랙뷰', Icon: IconRack },
     ],
   },
   {

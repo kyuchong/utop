@@ -3223,6 +3223,17 @@ async def devices2_save(payload: dict):
     return {"success": True, "id": dev_id}
 
 
+@app.post("/api/devices2/{dev_id}/rack")
+async def devices2_set_rack(dev_id: str, payload: dict):
+    """랙 자리 지정/해제 — 랙뷰에서 빈 칸에 놓거나 뺀다. rack_id 비우면 해제."""
+    ok = await db.device_set_rack(
+        dev_id, payload.get("rack_id"), payload.get("rack_pos"), payload.get("rack_units")
+    )
+    if not ok:
+        raise HTTPException(404, "장비를 찾을 수 없습니다")
+    return {"ok": True}
+
+
 @app.post("/api/devices2/{dev_id}/default-protocol")
 async def devices2_set_default_protocol(dev_id: str, payload: dict):
     """
@@ -3256,23 +3267,33 @@ async def devices2_import(request: Request):
     if not src.exists():
         raise HTTPException(404, f"{src.name} 이 없습니다")
     data = load_json(src) or {}
+    # 랙 이름만 적힌 옛 장비 몫 — 이름을 KV 랙 id 로 풀어 준다
+    _rk = _kv_load_sync("racks", {}) or {}
+    rack_by_name = {str(r.get("name") or ""): str(r.get("id") or "") for r in (_rk.get("racks") or [])}
     n = 0
     for d in data.get("devices", []) or []:
         if not str(d.get("ip") or "").strip():
             continue
-        await db.device_upsert({
+        payload = {
             "id": d.get("id") or d.get("ip"),
             "ip": d.get("ip"),
             "name": d.get("id") or d.get("ip"),
             "model": d.get("model"),
             "device_group": d.get("group"),
+            "lab": d.get("lab"),
             "protocol": d.get("protocol"),
             "port": d.get("port"),
             "username": d.get("username"),
             "password": d.get("password"),
             "description": d.get("description"),
             "status": d.get("status"),
-        })
+        }
+        rid = d.get("rack_id") or rack_by_name.get(str(d.get("rack_name") or ""))
+        if rid and d.get("rack_pos"):
+            payload["rack_id"] = rid
+            payload["rack_pos"] = d.get("rack_pos")
+            payload["rack_units"] = d.get("rack_units") or 1
+        await db.device_upsert(payload)
         n += 1
     return {"success": True, "imported": n}
 
@@ -6551,6 +6572,66 @@ async def save_racks(data: dict):
         return {"success": False, "error": "빈 데이터로 기존 랙 배치를 덮어쓸 수 없습니다"}
     _kv_save_sync("racks", data)
     return {"success": True}
+
+
+@app.get("/api/rackview")
+async def rackview():
+    """랙뷰 한 판 — 랙 틀(KV 'racks') + PG 장비 배치 + 아직 안 옮긴 옛 배치.
+
+    옛 devices.json 의 배치는 IP 로 겹침을 가른다: 같은 IP 가 PG 에 있으면
+    PG 가 정본이고, 없으면 회색 유령으로 보여 준다 — 랙에 꽂혀 있는 것은
+    사실이니 숨기지 않는다(숨김 금지 원칙).
+    """
+    kv = _kv_load_sync("racks", {}) or {}
+    racks = kv.get("racks") or []
+    devs = await db.device_list(with_ifs=False)
+    placed, unplaced, pg_ips = [], [], set()
+    for d in devs:
+        ip = str(d.get("ip") or "").strip()
+        if ip:
+            pg_ips.add(ip)
+        slim = {
+            "id": d["id"], "ip": ip, "name": d.get("name"), "model": d.get("model"),
+            "lab": d.get("lab"), "role": d.get("role"),
+        }
+        if d.get("rack_id") and d.get("rack_pos"):
+            placed.append({
+                **slim, "source": "pg",
+                "rack_id": d["rack_id"], "rack_pos": d["rack_pos"],
+                "rack_units": d.get("rack_units") or 1,
+                "access": [
+                    {"protocol": a.get("protocol"), "status": a.get("last_status"),
+                     "enabled": a.get("enabled")}
+                    for a in (d.get("access") or [])
+                ],
+            })
+        else:
+            unplaced.append(slim)
+    legacy = []
+    try:
+        old = load_json(DEVICES_FILE) or {}
+        by_name = {str(r.get("name") or ""): str(r.get("id") or "") for r in racks}
+        for d in old.get("devices", []) or []:
+            ip = str(d.get("ip") or "").strip()
+            rid = d.get("rack_id") or by_name.get(str(d.get("rack_name") or ""))
+            pos = d.get("rack_pos")
+            if not rid or not pos or (ip and ip in pg_ips):
+                continue
+            legacy.append({
+                "ip": ip, "name": d.get("id") or d.get("name") or ip,
+                "model": d.get("model"), "lab": d.get("lab"), "source": "legacy",
+                "rack_id": rid, "rack_pos": int(pos),
+                "rack_units": int(d.get("rack_units") or 1),
+            })
+    except Exception:
+        pass
+    return {
+        "labs": kv.get("labs") or [],
+        "racks": racks,
+        "blanks": kv.get("blanks") or [],
+        "devices": placed + legacy,
+        "unplaced": unplaced,
+    }
 
 # ───────────────────────────────────────────
 # 라우터 - STC (Spirent) 트래픽 실행 (py2.7 스크립트 subprocess)

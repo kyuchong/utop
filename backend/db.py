@@ -908,7 +908,10 @@ async def device_upsert(payload: dict) -> str:
     m = _dev_in(payload)
     if not m["ip"]:
         raise ValueError("IP 가 필요합니다")
-    extra = {k: v for k, v in payload.items() if k not in _DEV_COLS and k != "interfaces"}
+    extra = {
+        k: v for k, v in payload.items()
+        if k not in _DEV_COLS and k not in ("interfaces", "rack_id", "rack_pos", "rack_units")
+    }
     async with pool().acquire() as c:
         await c.execute(
             """
@@ -930,11 +933,35 @@ async def device_upsert(payload: dict) -> str:
             m["lab"], m["role"], m["protocol"], m["port"], m["username"], m["password"],
             m["enable_password"], m["description"], m["status"], json.dumps(extra, ensure_ascii=False, default=str),
         )
+        # 랙 자리는 보낸 요청에 키가 있을 때만 만진다 — 장비 편집 창은 랙을
+        # 모르므로, 없다고 지워 버리면 편집 저장이 랙뷰 배치를 부순다.
+        if any(k in payload for k in ("rack_id", "rack_pos", "rack_units")):
+            await c.execute(
+                "UPDATE device SET rack_id=$1, rack_pos=$2, rack_units=$3 WHERE id=$4",
+                (str(payload.get("rack_id") or "").strip() or None),
+                int(payload["rack_pos"]) if payload.get("rack_pos") else None,
+                int(payload["rack_units"]) if payload.get("rack_units") else None,
+                m["id"],
+            )
         if "interfaces" in payload:
             await _device_set_ifs(c, m["id"], payload.get("interfaces") or [])
         if "access" in payload:
             await _device_set_access(c, m["id"], payload.get("access") or [])
     return m["id"]
+
+
+async def device_set_rack(dev_id: str, rack_id, rack_pos, rack_units) -> bool:
+    """랙 자리 지정/해제 — rack_id 가 비면 자리를 지운다."""
+    rid = (str(rack_id).strip() if rack_id else "") or None
+    pos = int(rack_pos) if rid and rack_pos else None
+    un = int(rack_units) if rid and rack_units else None
+    async with pool().acquire() as c:
+        r = await c.execute(
+            "UPDATE device SET rack_id=$1, rack_pos=$2, rack_units=$3, updated_at=now() "
+            "WHERE id=$4 OR ip=$4",
+            rid, pos, un, dev_id,
+        )
+        return not r.endswith(" 0")
 
 
 async def _device_set_access(c, dev_id: str, rows: list) -> None:

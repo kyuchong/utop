@@ -174,6 +174,12 @@ ALTER TABLE device ADD COLUMN IF NOT EXISTS enable_password TEXT;
 CREATE INDEX IF NOT EXISTS idx_device_model ON device(model);
 CREATE INDEX IF NOT EXISTS idx_device_group ON device(device_group);
 CREATE INDEX IF NOT EXISTS idx_device_lab ON device(lab);
+-- 랙 자리 — 랙뷰가 이 장비를 어느 랙 몇 U 에 그릴지. 랙 틀 자체(구역·랙
+-- 이름·높이)는 app_kv 'racks' 에 있다. pos 는 아래에서 센 U 번호.
+ALTER TABLE device ADD COLUMN IF NOT EXISTS rack_id    TEXT;
+ALTER TABLE device ADD COLUMN IF NOT EXISTS rack_pos   INT;
+ALTER TABLE device ADD COLUMN IF NOT EXISTS rack_units INT;
+CREATE INDEX IF NOT EXISTS idx_device_rack ON device(rack_id);
 DROP TRIGGER IF EXISTS trg_device_updated ON device;
 CREATE TRIGGER trg_device_updated BEFORE UPDATE ON device
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();

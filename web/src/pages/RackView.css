@@ -1,0 +1,417 @@
+/* ── 랙뷰 ─────────────────────────────────────────────────────
+   실물 랙을 닮아야 눈이 바로 찾는다: U 눈금·블랭크·장비 블록·LED.
+   빈 칸은 아주 흐리게, 장비는 진하게 — 대비가 곧 시안성이다. */
+
+.rv {
+  --rv-u: 20px; /* 1U 높이 — 45U 랙이 세로 900px, 이름이 잘리지 않는 최소값 */
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 상단: 구역 탭 · 검색 · 범례 ── */
+.rv-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--c-border-soft);
+  flex-wrap: wrap;
+}
+
+.rv-zones {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.rv-zone {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: var(--c-surface);
+  padding: 5px 12px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rv-zone:hover { border-color: var(--c-primary); }
+.rv-zone.on {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: #fff;
+}
+.rv-zn {
+  font-style: normal;
+  font-size: var(--fs-xs);
+  opacity: 0.75;
+}
+/* 검색이 다른 구역에서 걸렸을 때 — 주황 배지로 알린다 */
+.rv-zhit {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+  background: #f59e0b;
+  color: #fff;
+  border-radius: 999px;
+  padding: 0 5px;
+  line-height: 14px;
+}
+.rv-zadd { border-style: dashed; color: var(--c-text-faint); font-weight: 500; }
+.rv-labadd {
+  width: 110px;
+  padding: 5px 9px;
+  border: 1px solid var(--c-primary);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.rv-search {
+  width: 240px;
+  padding: 6px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+
+.rv-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  white-space: nowrap;
+}
+.rv-legend span { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ── 판 — 랙 기둥들이 가로로 늘어선다 ── */
+.rv-board {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--sp-3);
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.rv-rack {
+  flex: none;
+  width: 218px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.06);
+}
+
+.rv-rhead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.rv-rnm { font-size: var(--fs-md); }
+.rv-rdesc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+.rv-uband {
+  margin-left: auto;
+  flex: none;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-faint);
+  background: var(--c-surface-alt);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.rv-rx {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--c-text-faint);
+  cursor: pointer;
+  opacity: 0;
+}
+.rv-rhead:hover .rv-rx { opacity: 1; }
+.rv-rx:hover { background: #fdeaea; color: var(--c-fail); }
+
+/* ── U 눈금 그리드 ── */
+.rv-grid {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  padding: 6px 6px 8px 2px;
+}
+.rv-uno {
+  grid-column: 1;
+  align-self: center;
+  text-align: right;
+  padding-right: 5px;
+  font-size: 9px;
+  color: #c0c7d2;
+  user-select: none;
+}
+.rv-blank {
+  grid-column: 2;
+  margin: 1px 2px;
+  border: 1px dashed #e8ebf1;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  min-width: 0;
+}
+.rv-blank > i {
+  font-style: normal;
+  font-size: 8.5px;
+  letter-spacing: 0.04em;
+  color: #d3d9e2;
+  user-select: none;
+}
+/* 빈 칸에 마우스를 올리면 놓기 단추가 나온다 */
+.rv-put {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 15px;
+  height: 15px;
+  line-height: 1;
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  background: var(--c-surface);
+  color: var(--c-text-faint);
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0;
+  padding: 0;
+}
+.rv-blank:hover { border-color: var(--c-primary); }
+.rv-blank:hover .rv-put { opacity: 1; }
+.rv-put:hover { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+
+/* 블랭크 패널(패치 패널·ODF 등) — 옛 화면에서 그려 둔 부품 */
+.rv-part {
+  grid-column: 2;
+  margin: 1px 2px;
+  border: 1px solid #d7dce4;
+  border-radius: 4px;
+  background: #f2f4f8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #5b6572;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  z-index: 1;
+}
+
+/* ── 장비 블록 ── */
+.rv-dev {
+  grid-column: 2;
+  margin: 1px 2px;
+  border: 1px solid #b9d4f5;
+  border-radius: 4px;
+  background: var(--c-primary-bg);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  min-width: 0;
+  cursor: pointer;
+  position: relative;
+  z-index: 2;
+}
+.rv-dev:hover {
+  border-color: var(--c-primary);
+  box-shadow: 0 1px 4px rgb(37 99 235 / 0.25);
+}
+.rv-dev:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 1px; }
+.rv-dev.legacy {
+  background: #f5f6f8;
+  border-style: dashed;
+  border-color: #cfd5dd;
+}
+.rv-dev.legacy .rv-dnm { color: #8a93a1; font-weight: 600; }
+/* 검색 — 걸린 것은 주황 테로 밝히고, 나머지는 가라앉힌다 */
+.rv-dev.dim { opacity: 0.3; }
+.rv-dev.hit { border-color: #f59e0b; box-shadow: 0 0 0 2px rgb(245 158 11 / 0.35); }
+
+.rv-dnm {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1d3a63;
+}
+.rv-du {
+  flex: none;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--c-text-faint);
+  background: rgb(255 255 255 / 0.7);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+.rv-x {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  line-height: 1;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--c-text-faint);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+}
+.rv-dev:hover .rv-x { opacity: 1; }
+.rv-x:hover { background: #fdeaea; color: var(--c-fail); }
+
+/* ── LED ── */
+.rv-led {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.rv-led.tn { background: #16a34a; box-shadow: 0 0 5px rgb(22 163 74 / 0.55); }
+.rv-led.sh { background: #2563eb; box-shadow: 0 0 5px rgb(37 99 235 / 0.55); }
+.rv-led.ng { background: #dc2626; box-shadow: 0 0 5px rgb(220 38 38 / 0.5); }
+.rv-led.un { background: #9aa3af; }
+.rv-led.old { background: #d3d9e2; }
+
+/* ── 호버 요약 카드 ── */
+.rv-tip {
+  position: fixed;
+  z-index: 60;
+  min-width: 200px;
+  max-width: 280px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgb(15 23 42 / 0.18);
+  padding: 9px 11px;
+  pointer-events: none;
+  font-size: var(--fs-sm);
+}
+.rv-tip > b { display: block; margin-bottom: 5px; }
+.rv-tr { display: flex; gap: 8px; line-height: 1.5; }
+.rv-tr > i {
+  flex: none;
+  width: 34px;
+  font-style: normal;
+  color: var(--c-text-faint);
+  font-size: var(--fs-xs);
+  padding-top: 1px;
+}
+.rv-tr > span { min-width: 0; word-break: break-all; }
+.rv-hint {
+  margin-top: 6px;
+  padding-top: 5px;
+  border-top: 1px dashed var(--c-border-soft);
+  font-size: var(--fs-xs);
+  color: var(--c-primary);
+}
+
+/* ── 놓기 대화상자 ── */
+.rv-ovl {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgb(15 20 30 / 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rv-dlg {
+  width: 420px;
+  max-width: 94vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--c-surface);
+  border-radius: 10px;
+  padding: 14px;
+  box-shadow: 0 14px 40px rgb(15 23 42 / 0.3);
+}
+.rv-dh { display: flex; align-items: center; }
+.rv-dh > b { flex: 1; }
+.rv-dh .rv-rx { opacity: 1; }
+.rv-dlg > input {
+  padding: 7px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+.rv-dlist {
+  flex: 1;
+  min-height: 120px;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+}
+.rv-dempty { padding: 18px 12px; text-align: center; }
+.rv-drow {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  border: 0;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: transparent;
+  padding: 6px 10px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rv-drow:last-child { border-bottom: 0; }
+.rv-drow:hover { background: var(--c-primary-bg); }
+.rv-drow.on { background: var(--c-primary-bg); box-shadow: inset 2px 0 0 var(--c-primary); }
+.rv-drow > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-df { display: flex; align-items: center; gap: 8px; }
+.rv-df label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-faint);
+}
+.rv-df input {
+  width: 58px;
+  padding: 4px 7px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+.rv-warn { font-size: var(--fs-xs); color: var(--c-fail); font-weight: 700; }
+.rv-df .sp { flex: 1; }

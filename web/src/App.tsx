@@ -14,6 +14,7 @@ import Reports from '@/pages/Reports'
 import Defects from '@/pages/Defects'
 import Devices from '@/pages/Devices'
 import Instruments from '@/pages/Instruments'
+import RackView from '@/pages/RackView'
 
 /**
  * 화면 하나를 옮길 때마다 여기 분기를 한 줄 늘린다.
@@ -180,6 +181,8 @@ export default function App() {
         <Devices me={user} />
       ) : page === 'instruments' ? (
         <Instruments me={user} />
+      ) : page === 'rackview' ? (
+        <RackView />
       ) : page === 'settings' ? (
         <Settings />
       ) : (
