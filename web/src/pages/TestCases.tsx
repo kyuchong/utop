@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import ListHead from '@/components/ListHead'
-import { IconChevron, IconClock, IconCycle, IconInfoC, IconPanel, IconParam, IconPlaySq, IconReqDoc, IconTarget, IconTcDoc, IconTopo, IconWave } from '@/components/icons'
+import { IconChevron, IconClock, IconCycle, IconInfoC, IconPanel, IconParam, IconPlaySq, IconReqDoc, IconSave, IconTarget, IconTcDoc, IconTopo, IconWave } from '@/components/icons'
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
@@ -1353,14 +1353,18 @@ export default function TestCases({ me }: PageProps) {
         </button>
       ))}
       <span className="sp" />
-      {/* 저장은 레일 맨 아래 고정 — 내용을 아무리 내려도 늘 그 자리다 */}
+      {/* 저장은 레일 맨 아래 고정 — 탭과 같은 아이콘 문법. 고친 게 있으면
+          파랗게 차오르고, 다 저장돼 있으면 흐리게 쉰다 */}
       <button
-        className="btn primary tc-rail-save"
+        className={`tc-rt tc-rail-save${dirty ? ' dirty' : ''}`}
         type="button"
         disabled={saveM.isPending || !dirty}
         onClick={() => saveM.mutate()}
       >
-        {saveM.isPending ? '…' : dirty ? '저장' : '저장됨'}
+        <IconSave />
+        <span className="tc-rtl">
+          {saveM.isPending ? '저장 중…' : dirty ? '저장' : '저장됨'}
+        </span>
       </button>
     </nav>
   ) : null

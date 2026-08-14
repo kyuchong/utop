@@ -326,6 +326,12 @@ export const IconWave = (p: P) => (
     <path d="M2 12h3l2.5-6 4 12 3-8 1.5 2H22" />
   </Svg>
 )
+export const IconSave = (p: P) => (
+  <Svg {...p}>
+    <path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+    <path d="M7 3v5h8V3M7 21v-7h10v7" />
+  </Svg>
+)
 export const IconPlaySq = (p: P) => (
   <Svg {...p}>
     <rect x="3" y="3" width="18" height="18" rx="4" />

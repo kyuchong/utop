@@ -2877,7 +2877,7 @@ table.tb tr.r-bad td:first-child {
 /* 글자는 올렸을 때만 — 오른쪽 말풍선 */
 .tc-rtl {
   position: absolute;
-  left: calc(100% + 8px);
+  right: calc(100% + 8px);
   top: 50%;
   transform: translateY(-50%);
   background: #1b202b;
@@ -2894,7 +2894,14 @@ table.tb tr.r-bad td:first-child {
 }
 .tc-rt:hover .tc-rtl { opacity: 1; }
 .tc-rail .sp { flex: 1; }
-.tc-rail-save { width: 100%; padding: 6px 2px; font-size: 12px; }
+.tc-rail-save { width: 100%; }
+.tc-rail-save:disabled { color: #a7b0bd; cursor: default; }
+.tc-rail-save.dirty {
+  background: var(--c-primary);
+  color: #fff;
+  box-shadow: 0 2px 6px rgb(37 99 235 / 0.35);
+}
+.tc-rail-save.dirty:hover { background: var(--c-primary); color: #fff; }
 
 /* 인라인 몸통: 레일 + 내용 옆으로 */
 .tc-inline-body { display: flex; }
