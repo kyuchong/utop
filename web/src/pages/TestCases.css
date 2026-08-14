@@ -2948,7 +2948,7 @@ table.tb tr.r-bad td:first-child {
   justify-content: center;
   padding: 4px 8px;
 }
-.tc-gear svg { width: 19px; height: 19px; }
+.tc-gear svg { width: 16px; height: 16px; }
 /* 열 팝오버 — 끌 손잡이 */
 .tc-colgrip { color: var(--c-text-faint); cursor: grab; font-size: 11px; }
 .tc-colpop label[draggable] { user-select: none; }
