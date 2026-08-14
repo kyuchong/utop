@@ -134,13 +134,22 @@ export default function Transfer({ mode }: { mode: 'export' | 'import' }) {
       const b = (await r.json().catch(() => ({}))) as {
         ok?: boolean
         done?: Record<string, number>
+        errors?: string[]
+        error_count?: number
         detail?: string
       }
       if (!r.ok || !b.ok) throw new Error(b.detail || `가져오지 못했습니다 (${r.status})`)
       const summary = Object.entries(b.done ?? {})
         .map(([k, n]) => `${PARTS.find((p) => p.k === k)?.label ?? k} ${n}건`)
         .join(' · ')
-      setMsg({ kind: 'ok', text: `가져왔습니다 — ${summary}` })
+      if (b.error_count) {
+        setMsg({
+          kind: 'err',
+          text: `일부만 가져왔습니다 — ${summary} · 실패 ${b.error_count}건: ${(b.errors ?? []).slice(0, 3).join(' / ')}`,
+        })
+      } else {
+        setMsg({ kind: 'ok', text: `가져왔습니다 — ${summary}` })
+      }
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
     } finally {

@@ -6754,8 +6754,11 @@ async def transfer_import(payload: dict):
             rid = str(r.get("id") or "").strip()
             if not rid:
                 continue
-            await db.req_upsert(rid, _strip_derived(r))
-            n += 1
+            try:
+                await db.req_upsert(rid, _strip_derived(r))
+                n += 1
+            except Exception as e:
+                done.setdefault("_errors", []).append(f"요구사항 {rid}: {e}")
         done["req"] = n
 
     if "tc" in parts:
@@ -6764,8 +6767,11 @@ async def transfer_import(payload: dict):
             tid = str(t.get("tcid") or t.get("id") or "").strip()
             if not tid:
                 continue
-            await db.tc_upsert(tid, _strip_derived(t))
-            n += 1
+            try:
+                await db.tc_upsert(tid, _strip_derived(t))
+                n += 1
+            except Exception as e:
+                done.setdefault("_errors", []).append(f"시험 {tid}: {e}")
         done["tc"] = n
 
     if "cycle" in parts:
@@ -6774,8 +6780,11 @@ async def transfer_import(payload: dict):
             cid = str(cyc.get("id") or "").strip()
             if not cid:
                 continue
-            await db.cycle_upsert(cid, _strip_derived(cyc))
-            n += 1
+            try:
+                await db.cycle_upsert(cid, _strip_derived(cyc))
+                n += 1
+            except Exception as e:
+                done.setdefault("_errors", []).append(f"사이클 {cid}: {e}")
         done["cycle"] = n
 
     if "defect" in parts:
@@ -6784,35 +6793,49 @@ async def transfer_import(payload: dict):
             did = str(d.get("id") or "").strip()
             if not did:
                 continue
-            if await db.defect_get(did):
-                await db.defect_update(did, d)
-            else:
-                await db.defect_create(d)
-            n += 1
+            try:
+                if await db.defect_get(did):
+                    await db.defect_update(did, d)
+                else:
+                    await db.defect_create(d)
+                n += 1
+            except Exception as e:
+                done.setdefault("_errors", []).append(f"결함 {did}: {e}")
         done["defect"] = n
 
     if "device" in parts:
         n = 0
+        errs: list = []
         for d in parts["device"].get("devices") or []:
             ip = str(d.get("ip") or "").strip()
             if not ip:
                 continue
-            # 비밀번호 없이 온 파일이면 이미 있는 장비의 비밀번호를 지킨다 —
-            # upsert 가 전 칸을 쓰므로 그냥 넣으면 빈 값으로 덮인다
-            cur = await db.device_get(d.get("id") or ip)
-            if cur:
-                for k in ("password", "enable_password"):
-                    if not d.get(k):
-                        d[k] = cur.get(k)
-                accs = {a.get("protocol"): a for a in (cur.get("access") or [])}
-                for a in d.get("access") or []:
-                    old = accs.get(a.get("protocol")) or {}
+            try:
+                # 장비의 실질 키는 IP 다. 서버마다 id 를 다르게 만들어 둬서,
+                # 239의 id 로 넣으면 id 충돌은 안 나고 ip UNIQUE 에 걸려
+                # 통째로 500 이 났다 — IP 로 찾은 기존 장비의 id 를 입힌다.
+                cur = await db.device_get(ip)
+                if cur:
+                    d["id"] = cur["id"]
+                    # 비밀번호 없이 온 파일이면 기존 비밀번호를 지킨다 —
+                    # upsert 가 전 칸을 쓰므로 그냥 넣으면 빈 값으로 덮인다
                     for k in ("password", "enable_password"):
-                        if not a.get(k):
-                            a[k] = old.get(k)
-            await db.device_upsert(_strip_derived(d))
-            n += 1
+                        if not d.get(k):
+                            d[k] = cur.get(k)
+                    accs = {a.get("protocol"): a for a in (cur.get("access") or [])}
+                    for a in d.get("access") or []:
+                        old = accs.get(a.get("protocol")) or {}
+                        for k in ("password", "enable_password"):
+                            if not a.get(k):
+                                a[k] = old.get(k)
+                await db.device_upsert(_strip_derived(d))
+                n += 1
+            except Exception as e:
+                if len(errs) < 10:
+                    errs.append(f"장비 {ip}: {e}")
         done["device"] = n
+        if errs:
+            done.setdefault("_errors", []).extend(errs)
 
     if "catalog" in parts:
         n = 0
@@ -6842,7 +6865,9 @@ async def transfer_import(payload: dict):
         if isinstance(br, dict) and br:
             save_json(BRANDING_FILE, br)
         done["settings"] = n
-    return {"ok": True, "done": done}
+    errs = done.pop("_errors", [])
+    return {"ok": True, "done": done, "errors": errs[:10],
+            "error_count": len(errs)}
 
 
 @app.get("/api/rackview")
