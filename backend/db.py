@@ -184,6 +184,18 @@ def _tc_meta(data: dict) -> dict:
 
 
 async def tc_upsert(tcid: str, data: dict) -> None:
+    # 덮이기 직전의 판을 이력으로 보관 — 같은 내용이면 안 남긴다.
+    # 저장·데이터 이사·되돌리기 모두 이 문을 지나므로 이력이 새지 않는다.
+    try:
+        async with pool().acquire() as _c:
+            _old = await _c.fetchrow("SELECT data, updated_by FROM tc WHERE tcid=$1", tcid)
+            if _old is not None and _old["data"] != data:
+                await _c.execute(
+                    "INSERT INTO tc_history (tcid, username, data) VALUES ($1,$2,$3::jsonb)",
+                    tcid, _old["updated_by"] or "", _old["data"],
+                )
+    except Exception:
+        pass  # 이력이 저장을 막으면 안 된다
     m = _tc_meta(data)
     async with pool().acquire() as c:
         await c.execute(
@@ -239,6 +251,30 @@ async def tc_delete(tcid: str) -> bool:
     async with pool().acquire() as c:
         r = await c.execute("DELETE FROM tc WHERE tcid=$1", tcid)
         return r.endswith(" 1")
+
+
+async def tc_revisions(tcid: str, limit: int = 100) -> list[dict]:
+    """판 목록 — 무거운 data 는 안 싣고 요약(이름·스텝 수)만 뽑는다."""
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            """SELECT id, at, username,
+                      data->>'name' AS name,
+                      COALESCE(jsonb_array_length(data->'checks'), 0) AS steps
+                 FROM tc_history WHERE tcid=$1 ORDER BY id DESC LIMIT $2""",
+            tcid, limit)
+        out = []
+        for r in rows:
+            d = dict(r)
+            d["at"] = d["at"].isoformat() if d.get("at") else None
+            out.append(d)
+        return out
+
+
+async def tc_revision_get(tcid: str, rev_id: int) -> Optional[dict]:
+    async with pool().acquire() as c:
+        r = await c.fetchrow(
+            "SELECT data FROM tc_history WHERE tcid=$1 AND id=$2", tcid, rev_id)
+        return r["data"] if r else None
 
 
 async def tc_list_full() -> list[dict]:

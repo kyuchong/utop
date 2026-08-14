@@ -603,3 +603,14 @@ CREATE TABLE IF NOT EXISTS audit_log (
   username  TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_audit_at ON audit_log(id DESC);
+
+-- 시험항목 판(버전) 이력 — 저장으로 덮이기 직전의 판을 통째로 보관한다.
+-- 저장·가져오기·되돌리기 어느 경로든 tc_upsert 한 곳에서 찍힌다.
+CREATE TABLE IF NOT EXISTS tc_history (
+  id        BIGSERIAL PRIMARY KEY,
+  tcid      TEXT NOT NULL,
+  at        TIMESTAMPTZ DEFAULT now(),
+  username  TEXT,                 -- 그 판을 만들었던 사람 (덮이기 전 updated_by)
+  data      JSONB NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tch_tcid ON tc_history(tcid, id DESC);

@@ -7,6 +7,7 @@ import { IconChevron, IconClock, IconCycle, IconInfoC, IconPanel, IconParam, Ico
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
+import { usePageCrowd } from '@/components/usePageCrowd'
 import TcBulkForm from '@/components/TcBulkForm'
 import TcBulkEdit from '@/components/tc/TcBulkEdit'
 import TcMapReqDialog from '@/components/tc/TcMapReqDialog'
@@ -19,6 +20,7 @@ import TcSessionBar from '@/components/tc/TcSessionBar'
 import TcParamBar from '@/components/tc/TcParamBar'
 import TcTerminal from '@/components/tc/TcTerminal'
 import TcSaveAs from '@/components/tc/TcSaveAs'
+import TcRevisions from '@/components/tc/TcRevisions'
 import { useGlobalParams } from '@/components/tc/useGlobalParams'
 import GlobalParams from '@/components/settings/GlobalParams'
 import {
@@ -171,6 +173,8 @@ export default function TestCases({ me }: PageProps) {
     localStorage.setItem('utop.tc.cols', JSON.stringify(cols))
   }, [cols])
   const [colsOpen, setColsOpen] = useState(false)
+  /** 판(버전) 이력 창 */
+  const [revOpen, setRevOpen] = useState(false)
   /** 열 차례 — ⚙ 에서 끌어 바꾼다 */
   const [colOrder, setColOrder] = useState<string[]>(() => {
     try {
@@ -557,6 +561,8 @@ export default function TestCases({ me }: PageProps) {
    *  · 고친 게 있으면 — 덮지 않고 **띠로 알리기만** 한다. 남의 저장이
    *    내 손의 것을 지우면 안 된다. 불러올지는 내가 고른다
    */
+  /** 이 화면(시험항목 묶음)에 들어와 있는 사람들 — 상단 오른쪽 표시 몫 */
+  const crowd = usePageCrowd('tc')
   const presence = usePresence(openId ? `tc:${openId}` : 'tc', meName, (m) => {
     if (m.type !== 'tc_updated' || !openId || m.tcid !== openId) return
     // 소식은 서버가 보내는 것이라 무슨 값이 올지 화면이 정할 수 없다
@@ -1393,6 +1399,17 @@ export default function TestCases({ me }: PageProps) {
                           >
                             파일에서 가져오기
                           </button>
+                          <button
+                            type="button"
+                            disabled={!openId}
+                            title="저장할 때마다 남는 지난 판들 — 골라서 되돌립니다"
+                            onClick={() => {
+                              setMenuOpen(false)
+                              setRevOpen(true)
+                            }}
+                          >
+                            변경 이력…
+                          </button>
                         </div>
                       </>
                     )}
@@ -1902,6 +1919,17 @@ export default function TestCases({ me }: PageProps) {
         />
       )}
       {mapTc && <TcMapReqDialog tc={mapTc} onClose={() => setMapTc(null)} />}
+      {revOpen && openId && (
+        <TcRevisions
+          tcid={openId}
+          onClose={() => setRevOpen(false)}
+          onRestored={() => {
+            void qc.invalidateQueries({ queryKey: ['tc', openId] })
+            void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
+            setDirty(false)
+          }}
+        />
+      )}
       {bulkOpen && <TcBulkForm onClose={() => setBulkOpen(false)} />}
       {startOpen && (
         <TcStart
@@ -2034,10 +2062,12 @@ export default function TestCases({ me }: PageProps) {
             </>
           )}
           <span className="muted small">
-            {view === 'list' ? `${listRows.length}건` : openId || '고른 것 없음'}
+            {view === 'list' ? `${shownListRows.length}건` : openId || '고른 것 없음'}
           </span>
         </span>
         <span className="sp" />
+        {/* 시험항목 화면에 들어와 있는 사람 전부 — 상단 오른쪽 */}
+        <PresenceBar users={crowd} me={meName} />
       </div>
 
       <div className="split tc-split" ref={splitRef}>

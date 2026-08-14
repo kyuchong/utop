@@ -6654,6 +6654,44 @@ def _strip_derived(d: dict) -> dict:
     return {k: v for k, v in d.items() if not str(k).startswith("_")}
 
 
+@app.get("/api/tc/{tc_id}/revisions")
+async def tc_revisions_api(tc_id: str):
+    """이 시험의 지난 판들 — 최신이 앞."""
+    return {"items": await db.tc_revisions(tc_id)}
+
+
+@app.post("/api/tc/{tc_id}/revisions/{rev_id}/restore")
+async def tc_revision_restore(tc_id: str, rev_id: int, request: Request):
+    """그 판으로 되돌린다. 지금 판은 되돌리기 직전에 자동으로 이력에 남는다."""
+    data = await db.tc_revision_get(tc_id, rev_id)
+    if data is None:
+        raise HTTPException(404, "그 판이 없습니다")
+    _by = ""
+    try:
+        _by = _user_of(_token_from(request)) or ""
+    except Exception:
+        pass
+    if isinstance(data, dict):
+        data = dict(data)
+        data["updated_by"] = _by
+    await db.tc_upsert(tc_id, data)
+    try: asyncio.create_task(broadcast({"type": "tc_updated", "tcid": tc_id, "user": _by}))
+    except Exception: pass
+    return {"ok": True}
+
+
+@app.get("/api/presence")
+async def presence_roster(prefix: str = ""):
+    """지금 접속해 있는 사람들 — prefix 로 화면을 좁힌다 (cycle → cycle:*)."""
+    seen = []
+    for st in ws_state.values():
+        u = st.get("user")
+        pg = str(st.get("page") or "")
+        if u and (not prefix or pg == prefix or pg.startswith(prefix + ":")) and u not in seen:
+            seen.append(u)
+    return {"users": seen}
+
+
 @app.get("/api/audit")
 async def audit_list_api(limit: int = 300):
     """수정 이력 — 알림 종이 읽는다. 최신이 앞."""

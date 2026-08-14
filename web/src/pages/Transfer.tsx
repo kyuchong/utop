@@ -49,7 +49,7 @@ function countOf(k: string, p: Record<string, unknown> | undefined): string {
   }
 }
 
-export default function Transfer() {
+export default function Transfer({ mode }: { mode: 'export' | 'import' }) {
   const [exp, setExp] = useState<Set<string>>(() => new Set(PARTS.map((p) => p.k)))
   const [secrets, setSecrets] = useState(false)
   const [busy, setBusy] = useState('')
@@ -149,16 +149,11 @@ export default function Transfer() {
   }
 
   return (
-    <section className="panel tr-page">
-      <div className="panel-title">
-        <span className="panel-name">데이터 이사</span>
-        <span className="muted small">묶음을 골라 JSON 으로 내보내고, 다른 UTOP 에서 합치기로 가져옵니다 (관리자)</span>
-      </div>
-
+    <div className="tr-page">
       {msg.text && <div className={`tr-msg ${msg.kind}`}>{msg.text}</div>}
 
       <div className="tr-cols">
-        {/* ── 내보내기 ── */}
+        {mode === 'export' && (
         <div className="tr-card">
           <h3>내보내기</h3>
           <p className="muted small">체크한 묶음만 한 파일로 내려받습니다.</p>
@@ -195,8 +190,9 @@ export default function Transfer() {
             </button>
           </div>
         </div>
+        )}
 
-        {/* ── 가져오기 ── */}
+        {mode === 'import' && (
         <div className="tr-card">
           <h3>가져오기</h3>
           <p className="muted small">
@@ -251,7 +247,8 @@ export default function Transfer() {
             </>
           )}
         </div>
+        )}
       </div>
-    </section>
+    </div>
   )
 }

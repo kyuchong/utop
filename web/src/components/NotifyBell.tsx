@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
-import { goto } from '@/api/goto'
+import { goto, type GotoKind } from '@/api/goto'
 import { onWs } from '@/api/wsBus'
 import './NotifyBell.css'
 
@@ -29,7 +29,7 @@ const TRACKED = new Set([
 ])
 
 /** 이력 한 줄 → 사람 말 + 눌렀을 때 갈 곳 */
-function lineOf(it: AuditItem): { text: string; go?: { kind: string; id: string } } {
+function lineOf(it: AuditItem): { text: string; go?: { kind: GotoKind; id: string } } {
   const who = it.username ? ` · ${it.username}` : ''
   const act = it.action || ''
   if (it.kind === 'tc') {

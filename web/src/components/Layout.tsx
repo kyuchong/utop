@@ -14,7 +14,6 @@ import {
   IconRack,
   IconSettings,
   IconTestCase,
-  IconTransfer,
 } from './icons'
 import NotifyBell from '@/components/NotifyBell'
 import TopStatus from './TopStatus'
@@ -88,10 +87,7 @@ export const NAV: NavGroup[] = [
   },
   {
     title: 'SYSTEM',
-    items: [
-      { key: 'settings', label: '설정', Icon: IconSettings },
-      { key: 'transfer', label: '데이터', Icon: IconTransfer },
-    ],
+    items: [{ key: 'settings', label: '설정', Icon: IconSettings }],
   },
 ]
 

@@ -539,3 +539,48 @@
   background: #fff;
   cursor: default;
 }
+
+/* ── 판(버전) 이력 창 ── */
+.tcrv-ovl {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgb(15 20 30 / 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tcrv {
+  width: 640px;
+  max-width: 94vw;
+  max-height: 74vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 14px 40px rgb(15 23 42 / 0.3);
+}
+.tcrv-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.tcrv-h .sp { flex: 1; }
+.tcrv-list {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+}
+.tcrv-row {
+  display: grid;
+  grid-template-columns: 40px 118px 76px minmax(0, 1fr) 64px auto;
+  gap: 9px;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.tcrv-row:last-child { border-bottom: 0; }
+.tcrv-row:hover { background: var(--c-surface-alt); }
+.tcrv-no { font-weight: 800; color: var(--c-text-faint); font-size: var(--fs-xs); }
+.tcrv-at { font-variant-numeric: tabular-nums; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.tcrv-who { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tcrv-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }

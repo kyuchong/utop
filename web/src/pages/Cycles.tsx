@@ -13,6 +13,7 @@ import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import PresenceBar from '@/components/PresenceBar'
+import { usePageCrowd } from '@/components/usePageCrowd'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
 import { sendWs } from '@/api/wsBus'
@@ -453,6 +454,8 @@ export default function Cycles({ me }: PageProps) {
     localStorage.setItem(CY_SEL_KEY, sel)
   }, [sel])
   const [q, setQ] = useState('')
+  /** 이 화면(사이클 묶음)에 들어와 있는 사람들 — 상단 오른쪽 표시 몫 */
+  const crowd = usePageCrowd('cycle')
 
   /**
    * 지금 도는 실행 — 사이클을 안 열어 봐도 알아야 한다.
@@ -869,7 +872,8 @@ export default function Cycles({ me }: PageProps) {
           </span>
         </span>
         <span className="sp" />
-
+        {/* 사이클 화면에 들어와 있는 사람 전부 — 상단 오른쪽 */}
+        <PresenceBar users={crowd} me={me?.name || me?.username || ''} />
       </div>
 
     <div className="split cy" ref={splitRef}>
