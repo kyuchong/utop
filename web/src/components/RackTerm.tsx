@@ -1,0 +1,301 @@
+import { useEffect, useRef, useState } from 'react'
+import { apiFetch } from '@/api/client'
+import { connParams, deviceLabel, deviceShort } from '@/components/tc/device'
+import type { Device } from '@/pages/Devices'
+import './RackTerm.css'
+
+/**
+ * 랙뷰 터미널 — 장비 우클릭 「접속」 에서 열린다. SecureCRT 처럼 쓰도록:
+ *
+ *  · 탭 — 장비 여러 대를 한 창에서 오간다. 탭을 닫아도 서버 세션은
+ *    남아(enable/config 모드 유지) 다시 열면 이어진다.
+ *  · 로그 저장 — 지금 탭의 친 명령·응답 전부를 .txt 로 내려받는다.
+ *  · 화면 지우기 · 글꼴 크기 · 명령 히스토리(↑↓) · 연결 끊기/재접속.
+ *
+ * 명령 단위 터미널이다(줄 치면 응답이 쌓임). TcTerminal 과 같은 서버
+ * 길(/api/session-open · /api/run-cli-stream)이라 파괴 명령 차단도
+ * 서버가 그대로 지킨다.
+ */
+
+export interface TermTab {
+  key: string
+  dev: Device
+  protocol: 'telnet' | 'ssh' | 'console'
+}
+
+interface Block {
+  cmd: string
+  out: string
+  error?: boolean
+}
+
+interface HostProps {
+  tabs: TermTab[]
+  on: number
+  onPick: (i: number) => void
+  onCloseTab: (i: number) => void
+  onClose: () => void
+}
+
+export default function RackTermHost({ tabs, on, onPick, onCloseTab, onClose }: HostProps) {
+  const [fontPx, setFontPx] = useState(12)
+  return (
+    <div className="rt-ovl" onClick={onClose}>
+      <div className="rt-win" onClick={(e) => e.stopPropagation()}>
+        <div className="rt-tabs">
+          {tabs.map((t, i) => (
+            <span key={t.key} className={`rt-tab${i === on ? ' on' : ''}`} onClick={() => onPick(i)}>
+              {deviceShort(t.dev)}
+              <i className="rt-tp">{t.protocol === 'telnet' ? 'T' : t.protocol === 'ssh' ? 'S' : 'C'}</i>
+              <button
+                type="button"
+                className="rt-tx"
+                title="탭 닫기 (세션은 남습니다)"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onCloseTab(i)
+                }}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <span className="rt-hint muted small">랙에서 장비 우클릭 → 접속으로 탭이 늘어납니다</span>
+          <span className="sp" />
+          <button className="rt-fz" type="button" title="글자 작게" onClick={() => setFontPx((v) => Math.max(10, v - 1))}>
+            A−
+          </button>
+          <button className="rt-fz" type="button" title="글자 크게" onClick={() => setFontPx((v) => Math.min(18, v + 1))}>
+            A+
+          </button>
+          <button className="btn small" type="button" onClick={onClose} title="창 닫기 (세션은 남습니다)">
+            닫기
+          </button>
+        </div>
+        {tabs.map((t, i) => (
+          <TermPane key={t.key} tab={t} visible={i === on} fontPx={fontPx} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** 탭 하나 = 세션 하나. 숨겨도 언마운트하지 않는다 — 스크롤백이 남아야 한다 */
+function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fontPx: number }) {
+  const { dev, protocol } = tab
+  const [blocks, setBlocks] = useState<Block[]>([])
+  const [input, setInput] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [prompt, setPrompt] = useState('')
+  const [note, setNote] = useState('접속 중…')
+  const bodyRef = useRef<HTMLDivElement | null>(null)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const hist = useRef<string[]>([])
+  const histAt = useRef(-1)
+
+  const params = () => connParams(dev, protocol)
+
+  const open = async () => {
+    setNote('접속 중…')
+    try {
+      const r = await apiFetch('/api/session-open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...params(), fast: true }),
+      })
+      const b = (await r.json()) as { ok?: boolean; prompt?: string; error?: string }
+      if (b.ok) {
+        setPrompt(String(b.prompt ?? '').trim() || '#')
+        setNote('')
+        inputRef.current?.focus()
+      } else {
+        setNote(`접속 실패 — ${b.error ?? '이유 불명'}`)
+      }
+    } catch (e) {
+      setNote(`접속 실패 — ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  useEffect(() => {
+    void open()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dev.id, protocol])
+
+  useEffect(() => {
+    if (visible) inputRef.current?.focus()
+  }, [visible])
+
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight })
+  }, [blocks, note])
+
+  const disconnect = async () => {
+    setBusy(true)
+    try {
+      await apiFetch('/api/session-close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params()),
+      })
+      setPrompt('')
+      setNote('연결을 끊었습니다 — 「재접속」 으로 다시 붙습니다')
+    } catch (e) {
+      setNote(`끊지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** 로그 저장 — SecureCRT 의 Log Session 몫. 지금 탭 전부를 .txt 로 */
+  const saveLog = () => {
+    const L: string[] = [
+      `# ${deviceLabel(dev)} · ${protocol.toUpperCase()} · ${new Date().toLocaleString()}`,
+      '',
+    ]
+    for (const b of blocks) {
+      L.push(`${prompt || '#'} ${b.cmd}`)
+      if (b.out) L.push(b.out.replace(/\s+$/, ''))
+    }
+    const blob = new Blob([L.join('\n')], { type: 'text/plain;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${deviceShort(dev)}-${protocol}-${Date.now()}.txt`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
+  /** SSE 로 받는다 — 긴 응답도 화면이 멈춘 것처럼 보이지 않게 */
+  const send = async (cmd: string) => {
+    if (!cmd.trim() || busy) return
+    hist.current = [...hist.current.filter((h) => h !== cmd), cmd]
+    histAt.current = -1
+    setInput('')
+    setBusy(true)
+    const at = blocks.length
+    setBlocks((v) => [...v, { cmd, out: '' }])
+    try {
+      const r = await apiFetch('/api/run-cli-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...params(), commands: [cmd], require_session: true }),
+      })
+      if (!r.ok || !r.body) throw new Error(`스트리밍 실패 (${r.status})`)
+      const reader = r.body.getReader()
+      const dec = new TextDecoder()
+      let buf = ''
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buf += dec.decode(value, { stream: true })
+        let cut: number
+        while ((cut = buf.indexOf('\n\n')) >= 0) {
+          const evt = buf.slice(0, cut)
+          buf = buf.slice(cut + 2)
+          if (!evt.startsWith('data: ')) continue
+          let o: { o?: string; err?: string }
+          try {
+            o = JSON.parse(evt.slice(6)) as { o?: string; err?: string }
+          } catch {
+            continue
+          }
+          if (o.o != null) {
+            const chunk = o.o
+            setBlocks((v) => v.map((b, i) => (i === at ? { ...b, out: b.out + chunk } : b)))
+          } else if (o.err) {
+            const err = o.err
+            setBlocks((v) =>
+              v.map((b, i) => (i === at ? { ...b, out: `${b.out}[오류] ${err}`, error: true } : b)),
+            )
+          }
+        }
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      setBlocks((v) => v.map((b, i) => (i === at ? { ...b, out: `[오류] ${msg}`, error: true } : b)))
+    } finally {
+      setBusy(false)
+      inputRef.current?.focus()
+    }
+  }
+
+  return (
+    <div className="rt-pane" style={{ display: visible ? 'flex' : 'none' }}>
+      <div className="rt-head">
+        <b>{deviceLabel(dev)}</b>
+        <span className="rt-proto">{protocol.toUpperCase()}</span>
+        {prompt && <span className="rt-prompt">{prompt}</span>}
+        <span className="sp" />
+        <button className="btn small" type="button" disabled={blocks.length === 0} onClick={saveLog}>
+          로그 저장
+        </button>
+        <button
+          className="btn small"
+          type="button"
+          disabled={blocks.length === 0}
+          onClick={() => setBlocks([])}
+        >
+          지우기
+        </button>
+        {prompt ? (
+          <button className="btn small" type="button" disabled={busy} onClick={() => void disconnect()}>
+            연결 끊기
+          </button>
+        ) : (
+          <button className="btn small" type="button" disabled={busy} onClick={() => void open()}>
+            재접속
+          </button>
+        )}
+      </div>
+      <div
+        className="rt-body"
+        ref={bodyRef}
+        style={{ fontSize: fontPx }}
+        onClick={() => {
+          // 드래그로 긁는 중이면 포커스를 뺏지 않는다 — 복사가 우선이다
+          if (!window.getSelection()?.toString()) inputRef.current?.focus()
+        }}
+      >
+        {blocks.map((b, i) => (
+          <div className="rt-blk" key={i}>
+            <div className="rt-cmd">
+              <i>{prompt || '#'}</i> {b.cmd}
+            </div>
+            {b.out && <pre className={b.error ? 'err' : ''}>{b.out}</pre>}
+          </div>
+        ))}
+        {note && <div className="rt-note">{note}</div>}
+      </div>
+      <div className="rt-in">
+        <i>{prompt || '›'}</i>
+        <input
+          ref={inputRef}
+          value={input}
+          disabled={!prompt || busy}
+          placeholder={prompt ? '명령 입력 후 Enter (↑↓ 히스토리)' : '접속되면 입력할 수 있습니다'}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            e.stopPropagation()
+            if (e.key === 'Enter') void send(input)
+            if (e.key === 'ArrowUp') {
+              const h = hist.current
+              if (!h.length) return
+              histAt.current = histAt.current < 0 ? h.length - 1 : Math.max(0, histAt.current - 1)
+              setInput(h[histAt.current] ?? '')
+              e.preventDefault()
+            }
+            if (e.key === 'ArrowDown') {
+              const h = hist.current
+              if (histAt.current < 0) return
+              histAt.current = histAt.current + 1
+              if (histAt.current >= h.length) {
+                histAt.current = -1
+                setInput('')
+              } else setInput(h[histAt.current] ?? '')
+              e.preventDefault()
+            }
+          }}
+        />
+      </div>
+    </div>
+  )
+}

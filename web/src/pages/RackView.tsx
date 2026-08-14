@@ -3,6 +3,7 @@ import type { DragEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import DeviceForm from '@/components/DeviceForm'
+import RackTermHost, { type TermTab } from '@/components/RackTerm'
 import type { Device } from '@/pages/Devices'
 import './RackView.css'
 
@@ -157,6 +158,8 @@ export default function RackView() {
   const [devCtx, setDevCtx] = useState<{ x: number; y: number; d: RvDevice } | null>(null)
   /** 랙 머리 우클릭 — 용도·지우기 메뉴 */
   const [rackCtx, setRackCtx] = useState<{ x: number; y: number; rack: RvRack } | null>(null)
+  /** 터미널 — 탭 여러 개, 장비 우클릭 「접속」 으로 늘어난다 */
+  const [term, setTerm] = useState<{ tabs: TermTab[]; on: number } | null>(null)
   /** 랙 용도 한 줄 — 이름 아래. 누르면 그 자리에서 적는다 */
   const [descEdit, setDescEdit] = useState<string | null>(null)
   const [descDraft, setDescDraft] = useState('')
@@ -201,9 +204,23 @@ export default function RackView() {
     if (!el) return
     const maxU = racks.reduce((m, r) => Math.max(m, r.units ?? 45), 45)
     const calc = () => {
-      // 판 안쪽 높이 − 판 패딩(20) − 랙 머리(28)+용도 줄(21) − 그리드 패딩(7)
-      // 용도를 적어도 Full HD 세로에 그대로 들어가야 한다 — 여유 2px 포함
-      const usable = el.clientHeight - 78
+      // 어림 상수는 화면마다 아래가 남았다(실측 60px). 실제 그려진 머리·
+      // 용도 줄·패딩을 재서 뺀다 — 제일 큰 랙이 판에 꽉 차게.
+      const cs = getComputedStyle(el)
+      const padY = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom)
+      let chrome = 37 // 랙이 아직 없을 때의 근사값(머리 28+그리드 7+테두리 2)
+      const head = el.querySelector<HTMLElement>('.rv-rhead')
+      if (head) {
+        const desc = el.querySelector<HTMLElement>('.rv-rdescln, .rv-rdesced')
+        const grid = el.querySelector<HTMLElement>('.rv-grid')
+        const g = grid ? getComputedStyle(grid) : null
+        chrome =
+          head.offsetHeight +
+          (desc ? desc.offsetHeight : 0) +
+          (g ? parseFloat(g.paddingTop) + parseFloat(g.paddingBottom) : 7) +
+          2
+      }
+      const usable = el.clientHeight - padY - chrome
       setUH(Math.max(15, Math.min(26, Math.floor(usable / maxU))))
     }
     calc()
@@ -407,6 +424,24 @@ export default function RackView() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['rackview'] }),
     onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
   })
+
+  /** 접속 탭 열기 — 같은 장비·방식 탭이 있으면 그 탭으로 간다 */
+  const openTerm = async (d: RvDevice, proto: 'telnet' | 'ssh' | 'console') => {
+    if (!d.id) return
+    const r = await apiFetch(`/api/devices2/${encodeURIComponent(d.id)}`)
+    if (!r.ok) {
+      window.alert('장비를 불러오지 못했습니다')
+      return
+    }
+    const dev = (await r.json()) as Device
+    const key = `${dev.id}:${proto}`
+    setTerm((cur) => {
+      const tabs = cur?.tabs ?? []
+      const at = tabs.findIndex((t) => t.key === key)
+      if (at >= 0) return { tabs, on: at }
+      return { tabs: [...tabs, { key, dev, protocol: proto }], on: tabs.length }
+    })
+  }
 
   /* 장비를 누르면 — PG 장비는 편집 창, 옛 자료는 새 장비 등록으로 문을 연다 */
   const openDev = async (d: RvDevice) => {
@@ -971,6 +1006,31 @@ export default function RackView() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="rv-ctxh">{devCtx.d.name || devCtx.d.ip}</div>
+            {devCtx.d.source === 'pg' && (
+              <>
+                <div className="rv-ctxs">접속</div>
+                {(['telnet', 'ssh', 'console'] as const).map((p) => {
+                  const has = (devCtx.d.access ?? []).some(
+                    (a) => a.protocol === p && a.enabled !== false,
+                  )
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      disabled={!has}
+                      title={has ? '' : '이 장비에 등록되지 않은 방식입니다'}
+                      onClick={() => {
+                        void openTerm(devCtx.d, p)
+                        setDevCtx(null)
+                      }}
+                    >
+                      {p === 'telnet' ? 'Telnet' : p === 'ssh' ? 'SSH' : 'Console'}
+                    </button>
+                  )
+                })}
+                <hr className="rv-ctxhr" />
+              </>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -1026,6 +1086,23 @@ export default function RackView() {
             setPlaceAt(null)
           }}
           onClose={() => setPlaceAt(null)}
+        />
+      )}
+
+      {term && term.tabs.length > 0 && (
+        <RackTermHost
+          tabs={term.tabs}
+          on={term.on}
+          onPick={(i) => setTerm((c) => (c ? { ...c, on: i } : c))}
+          onCloseTab={(i) =>
+            setTerm((c) => {
+              if (!c) return c
+              const tabs = c.tabs.filter((_, j) => j !== i)
+              if (tabs.length === 0) return null
+              return { tabs, on: Math.min(c.on > i ? c.on - 1 : c.on, tabs.length - 1) }
+            })
+          }
+          onClose={() => setTerm(null)}
         />
       )}
 

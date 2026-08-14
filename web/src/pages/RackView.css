@@ -149,9 +149,9 @@
 
 .rv-rack {
   flex: none;
-  /* Full HD 에 최대한 많이 — U 배지·×를 우클릭 메뉴로 보내고 더 줄였다.
+  /* Full HD 에 최대한 많이 — 점 4개를 2×2 로 접어 또 줄였다.
      아주 긴 이름은 … 로 접히고 전체는 마우스 올리면 나온다 */
-  width: 160px;
+  width: 148px;
   border: 1px solid var(--c-border);
   border-radius: 10px;
   background: var(--c-surface);
@@ -361,8 +361,15 @@
 .rv-x:hover { background: #fdeaea; color: var(--c-fail); }
 
 /* ── 범례 — 면=프로토콜, 색=상태 ── */
-/* 점 4개 — 작아도 선명하게: 채도 높은 색 + 흰 테 한 겹 */
-.rv-4d { display: inline-flex; align-items: center; gap: 2.5px; flex: none; }
+/* 점 4개 — 2×2 두 줄: 가로를 반으로 줄인다. 순서는 왼위 Telnet ·
+   오른위 SSH · 왼아래 Console · 오른아래 SNMP */
+.rv-4d {
+  display: grid;
+  grid-template-columns: repeat(2, 6px);
+  gap: 2px;
+  flex: none;
+  align-content: center;
+}
 .rv-4d.demo { margin-right: 2px; }
 .rv-d4 {
   width: 6px;
@@ -536,7 +543,21 @@
   gap: 6px;
 }
 .rv-ctx > button:hover { background: var(--c-primary-bg); }
+.rv-ctx > button:disabled { opacity: 0.4; cursor: default; }
+.rv-ctx > button:disabled:hover { background: transparent; }
 .rv-ctx > button > i { font-style: normal; }
+.rv-ctxs {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--c-text-faint);
+  padding: 4px 10px 1px;
+}
+.rv-ctxhr { border: 0; border-top: 1px solid var(--c-border-soft); margin: 3px 4px; }
+
+/* 글자 — 참고 화면의 반듯한 톤: 시스템 산세리프 + 좁은 자간 */
+.rv, .rv-ctx { font-family: 'Segoe UI', Pretendard, 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif; }
+.rv-rnm { color: #23324a; }
 
 /* 부품 고르기 — 대화상자 안에서 눌러 고른다 */
 .rv-ppart.on { box-shadow: inset 2px 0 0 var(--c-primary), 0 0 0 1.5px var(--c-primary); }
@@ -573,7 +594,21 @@
   gap: 6px;
 }
 .rv-ctx > button:hover { background: var(--c-primary-bg); }
+.rv-ctx > button:disabled { opacity: 0.4; cursor: default; }
+.rv-ctx > button:disabled:hover { background: transparent; }
 .rv-ctx > button > i { font-style: normal; }
+.rv-ctxs {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--c-text-faint);
+  padding: 4px 10px 1px;
+}
+.rv-ctxhr { border: 0; border-top: 1px solid var(--c-border-soft); margin: 3px 4px; }
+
+/* 글자 — 참고 화면의 반듯한 톤: 시스템 산세리프 + 좁은 자간 */
+.rv, .rv-ctx { font-family: 'Segoe UI', Pretendard, 'Noto Sans KR', 'Malgun Gothic', system-ui, sans-serif; }
+.rv-rnm { color: #23324a; }
 
 /* 부품 고르기 — 대화상자 안에서 눌러 고른다 */
 .rv-ppart.on { box-shadow: inset 2px 0 0 var(--c-primary), 0 0 0 1.5px var(--c-primary); }
