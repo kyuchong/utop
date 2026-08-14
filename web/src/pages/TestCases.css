@@ -2929,3 +2929,39 @@ table.tb tr.r-bad td:first-child {
 }
 .tc-colpop label:hover { color: var(--c-primary); }
 .tc-coldef { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--c-border-soft); font-size: var(--fs-xs); text-align: left; }
+
+/* 표 검색 — Select All 줄 가운데를 다 쓴다 */
+.tc-listq {
+  flex: 1;
+  min-width: 160px;
+  margin-left: 10px;
+  padding: 5px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+/* ⚙ — 표 바로 위 오른끝, 눈에 들어오는 크기 */
+.tc-gear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+}
+.tc-gear svg { width: 19px; height: 19px; }
+/* 열 팝오버 — 끌 손잡이 */
+.tc-colgrip { color: var(--c-text-faint); cursor: grab; font-size: 11px; }
+.tc-colpop label[draggable] { user-select: none; }
+/* 머리의 값 필터 — 고르기 전엔 머리글처럼, 고르면 파랗게 */
+.tc-colf {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  cursor: pointer;
+  padding: 0;
+}
+.tc-colf.on { color: var(--c-primary); font-weight: 800; }

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import ListHead from '@/components/ListHead'
-import { IconChevron, IconClock, IconCycle, IconInfoC, IconPanel, IconParam, IconPlaySq, IconReqDoc, IconSave, IconTarget, IconTcDoc, IconTopo, IconWave } from '@/components/icons'
+import { IconChevron, IconClock, IconCycle, IconInfoC, IconPanel, IconParam, IconPlaySq, IconReqDoc, IconSave, IconSettings, IconTarget, IconTcDoc, IconTopo, IconWave } from '@/components/icons'
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
@@ -154,6 +154,26 @@ export default function TestCases({ me }: PageProps) {
     localStorage.setItem('utop.tc.cols', JSON.stringify(cols))
   }, [cols])
   const [colsOpen, setColsOpen] = useState(false)
+  /** 열 차례 — ⚙ 에서 끌어 바꾼다 */
+  const [colOrder, setColOrder] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('utop.tc.colorder') || '')
+      const base = COL_DEFS.map((c) => c.k as string)
+      if (!Array.isArray(v)) return base
+      // 새 열이 생겨도 빠지지 않게 — 저장된 차례 + 나머지
+      return [...v.filter((k: string) => base.includes(k)), ...base.filter((k) => !v.includes(k))]
+    } catch {
+      return COL_DEFS.map((c) => c.k as string)
+    }
+  })
+  useEffect(() => {
+    localStorage.setItem('utop.tc.colorder', JSON.stringify(colOrder))
+  }, [colOrder])
+  const dragCol = useRef<string | null>(null)
+  /** 표 검색 — 트리 검색과 별개로, 지금 자리 안에서 좁힌다 */
+  const [listQ, setListQ] = useState('')
+  /** 열 값 필터 — 머리의 드롭다운 */
+  const [colF, setColF] = useState<Record<string, string>>({})
   useEffect(() => {
     localStorage.setItem('utop.tc.inline', inlineMode ? '1' : '0')
   }, [inlineMode])
@@ -358,10 +378,22 @@ export default function TestCases({ me }: PageProps) {
       } else if (selReq && (t.req_id || '') !== selReq && (r ? reqPk(r) : '') !== selReq)
         return false
       if (!selReq && selFolder && !inFolder(r, selFolder)) return false
-      if (!n) return true
-      return t.tcid.toLowerCase().includes(n) || (t.name ?? '').toLowerCase().includes(n)
+      if (n && !(t.tcid.toLowerCase().includes(n) || (t.name ?? '').toLowerCase().includes(n)))
+        return false
+      const q2 = listQ.trim().toLowerCase()
+      if (q2 && !(t.tcid.toLowerCase().includes(q2) || (t.name ?? '').toLowerCase().includes(q2)))
+        return false
+      return true
     })
-  }, [tcs, reqByKey, selReq, selFolder, folderSet, treeQ])
+  }, [tcs, reqByKey, selReq, selFolder, folderSet, treeQ, listQ])
+
+  /** 열 필터까지 먹인 줄들 — 드롭다운 선택지는 필터 전(base)에서 뽑는다 */
+  const shownListRows = useMemo(() => {
+    const keys = Object.keys(colF).filter((k) => colF[k])
+    if (!keys.length) return listRows
+    return listRows.filter((t) => keys.every((k) => colVal(k, t) === colF[k]))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listRows, colF])
 
   /**
    * 지금 보고 있는 자리까지의 길 — 조상부터 차례로.
@@ -1447,7 +1479,24 @@ export default function TestCases({ me }: PageProps) {
 
   const error = tcQ.error
 
-  const visCols = COL_DEFS.filter((c) => cols.includes(c.k))
+  const visCols = colOrder
+    .map((k) => COL_DEFS.find((c) => c.k === k))
+    .filter((c): c is (typeof COL_DEFS)[number] => !!c && cols.includes(c.k))
+  /** 열 하나의 표시값 — 필터·드롭다운이 같은 값을 쓴다 */
+  const colVal = (k: string, t: TestCaseMeta): string => {
+    switch (k) {
+      case 'id': return t.tcid
+      case 'type': return t.type || '–'
+      case 'severity': return t.severity || '–'
+      case 'kind': return t.kind || '–'
+      case 'created_by': return (t.created_by as string) || '–'
+      case 'updated_by': return (t.updated_by as string) || '–'
+      case 'updated': return String(t._updated_at_pg ?? '').slice(0, 10) || '–'
+      case 'status': return t.status || '미실행'
+      default: return ''
+    }
+  }
+  const FILTERABLE = ['type', 'severity', 'kind', 'status', 'created_by', 'updated_by', 'updated']
   const listGrid = `30px minmax(220px, 1fr) ${visCols.map((c) => c.w).join(' ')}`.trim()
   /** 선택형 열 한 칸 — 열쇠(k)로 그린다 */
   const colCell = (k: string, t: TestCaseMeta) => {
@@ -2192,7 +2241,9 @@ export default function TestCases({ me }: PageProps) {
                     title={listPick.size ? '고른 것만 내보냅니다' : '이 자리 전체를 내보냅니다'}
                     onClick={() =>
                       exportCsv(
-                        listPick.size ? listRows.filter((t) => listPick.has(t.tcid)) : listRows,
+                        listPick.size
+                          ? shownListRows.filter((t) => listPick.has(t.tcid))
+                          : shownListRows,
                       )
                     }
                   >
@@ -2208,24 +2259,80 @@ export default function TestCases({ me }: PageProps) {
                     ✨ 시험 시작하기
                   </button>
                   <span className="sp" />
-                  {/* 열 보이기/숨기기 — 옛 화면의 ⚙ 그 자리 */}
-                  <div className="tc-more">
-                    <button
-                      className="btn tc-dots"
-                      type="button"
-                      title="열 보이기/숨기기"
-                      aria-haspopup="menu"
-                      aria-expanded={colsOpen}
-                      onClick={() => setColsOpen((v) => !v)}
-                    >
-                      ⚙
-                    </button>
-                    {colsOpen && (
-                      <>
-                        <div className="tc-menu-back" onClick={() => setColsOpen(false)} />
-                        <div className="tc-menu tc-colpop" role="menu">
-                          {COL_DEFS.map((c) => (
-                            <label key={c.k}>
+                  {/* 펼친(연) 시험에 쓰는 ⋯ — 안 연 것에는 저장·내보내기가 꺼진다 */}
+                  {moreMenu}
+                </div>
+              </div>
+
+              <div className="rq-selbar">
+                <label className="rq-selall">
+                  <input
+                    type="checkbox"
+                    checked={shownListRows.length > 0 && listPick.size === shownListRows.length}
+                    ref={(el) => {
+                      if (el)
+                        el.indeterminate =
+                          listPick.size > 0 && listPick.size < shownListRows.length
+                    }}
+                    disabled={!shownListRows.length}
+                    onChange={() =>
+                      setListPick(
+                        listPick.size === shownListRows.length
+                          ? new Set()
+                          : new Set(shownListRows.map((t) => t.tcid)),
+                      )
+                    }
+                  />
+                  Select All
+                </label>
+                <span className="rq-seldiv" aria-hidden="true" />
+                <span className="muted small">Selected : {listPick.size}</span>
+                {/* 표 안 검색 — 트리 검색과 별개로 지금 자리에서 좁힌다 */}
+                <input
+                  className="tc-listq"
+                  placeholder="검색 (이름 · TC ID)"
+                  value={listQ}
+                  onChange={(e) => setListQ(e.target.value)}
+                />
+                {/* 열 설정 ⚙ — 표 바로 위 오른끝. 보이기/숨기기 + 끌어서 차례 바꾸기 */}
+                <div className="tc-more">
+                  <button
+                    className="btn tc-gear"
+                    type="button"
+                    title="열 보이기/숨기기 · 차례 바꾸기"
+                    aria-haspopup="menu"
+                    aria-expanded={colsOpen}
+                    onClick={() => setColsOpen((v) => !v)}
+                  >
+                    <IconSettings />
+                  </button>
+                  {colsOpen && (
+                    <>
+                      <div className="tc-menu-back" onClick={() => setColsOpen(false)} />
+                      <div className="tc-menu tc-colpop" role="menu">
+                        {colOrder
+                          .map((k) => COL_DEFS.find((c) => c.k === k))
+                          .filter((c): c is (typeof COL_DEFS)[number] => !!c)
+                          .map((c) => (
+                            <label
+                              key={c.k}
+                              draggable
+                              onDragStart={() => {
+                                dragCol.current = c.k
+                              }}
+                              onDragOver={(e) => {
+                                e.preventDefault()
+                                const from = dragCol.current
+                                if (!from || from === c.k) return
+                                setColOrder((v) => {
+                                  const n = v.filter((x) => x !== from)
+                                  n.splice(n.indexOf(c.k), 0, from)
+                                  return n
+                                })
+                              }}
+                              onDrop={(e) => e.preventDefault()}
+                            >
+                              <span className="tc-colgrip" aria-hidden="true">⠿</span>
                               <input
                                 type="checkbox"
                                 checked={cols.includes(c.k)}
@@ -2238,59 +2345,55 @@ export default function TestCases({ me }: PageProps) {
                               {c.label}
                             </label>
                           ))}
-                          <button
-                            type="button"
-                            className="linkish tc-coldef"
-                            onClick={() => setCols([...COL_DEFAULT])}
-                          >
-                            기본값 복원
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                  {/* 펼친(연) 시험에 쓰는 ⋯ — 안 연 것에는 저장·내보내기가 꺼진다 */}
-                  {moreMenu}
+                        <button
+                          type="button"
+                          className="linkish tc-coldef"
+                          onClick={() => {
+                            setCols([...COL_DEFAULT])
+                            setColOrder(COL_DEFS.map((c) => c.k as string))
+                            setColF({})
+                          }}
+                        >
+                          기본값 복원
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
-
-              <div className="rq-selbar">
-                <label className="rq-selall">
-                  <input
-                    type="checkbox"
-                    checked={listRows.length > 0 && listPick.size === listRows.length}
-                    ref={(el) => {
-                      if (el)
-                        el.indeterminate =
-                          listPick.size > 0 && listPick.size < listRows.length
-                    }}
-                    disabled={!listRows.length}
-                    onChange={() =>
-                      setListPick(
-                        listPick.size === listRows.length
-                          ? new Set()
-                          : new Set(listRows.map((t) => t.tcid)),
-                      )
-                    }
-                  />
-                  Select All
-                </label>
-                <span className="rq-seldiv" aria-hidden="true" />
-                <span className="muted small">Selected : {listPick.size}</span>
               </div>
 
               <div className="rq-table">
                 <div className="rq-tr tc-tr rq-th" style={{ gridTemplateColumns: listGrid }}>
                   <div />
                   <div>이름</div>
-                  {visCols.map((c) => (
-                    <div key={c.k}>{c.label}</div>
-                  ))}
+                  {visCols.map((c) =>
+                    FILTERABLE.includes(c.k) ? (
+                      <div key={c.k}>
+                        {/* 머리 자체가 필터다 — 값을 고르면 그 값만 남는다 */}
+                        <select
+                          className={`tc-colf${colF[c.k] ? ' on' : ''}`}
+                          value={colF[c.k] ?? ''}
+                          onChange={(e) =>
+                            setColF((v) => ({ ...v, [c.k]: e.target.value }))
+                          }
+                        >
+                          <option value="">{c.label}</option>
+                          {[...new Set(listRows.map((t) => colVal(c.k, t)))].sort().map((v) => (
+                            <option key={v} value={v}>
+                              {v}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div key={c.k}>{c.label}</div>
+                    ),
+                  )}
                 </div>
-                {listRows.length === 0 ? (
+                {shownListRows.length === 0 ? (
                   <div className="empty">이 자리에 시험이 없습니다.</div>
                 ) : (
-                  listRows.map((t) => {
+                  shownListRows.map((t) => {
                     const expanded = inlineMode && openId === t.tcid
                     return (
                       <div key={t.tcid} className={`tcl-rw${expanded ? ' tc-expwrap' : ''}`}>
@@ -2375,7 +2478,10 @@ export default function TestCases({ me }: PageProps) {
                 )}
               </div>
               <div className="bottom">
-                <span>시험 {listRows.length}건</span>
+                <span>
+                  시험 {shownListRows.length}건
+                  {shownListRows.length !== listRows.length && ` (전체 ${listRows.length}건)`}
+                </span>
               </div>
             </div>
           </section>
