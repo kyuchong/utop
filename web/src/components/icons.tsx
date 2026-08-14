@@ -339,6 +339,14 @@ export const IconPlaySq = (p: P) => (
   </Svg>
 )
 
+/** 데이터 이사 (내보내기/가져오기 화살표) */
+export const IconTransfer = (p: P) => (
+  <Svg {...p}>
+    <path d="M7 3v12M7 3 4 6M7 3l3 3" />
+    <path d="M17 21V9m0 12 3-3m-3 3-3-3" />
+  </Svg>
+)
+
 /** 랙뷰 (랙 실장도) */
 export const IconRack = (p: P) => (
   <Svg {...p}>

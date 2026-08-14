@@ -6612,6 +6612,169 @@ async def save_racks(data: dict):
     return {"success": True}
 
 
+# ══════════════════════════════════════════════════════════════════════
+# 데이터 이사 — 묶음 단위 내보내기/가져오기 (설정 → 데이터)
+#
+# 랩마다 UTOP 이 따로 서 있어 자료를 통째로 옮기는 일이 잦다. DB 를 그대로
+# 복사하면 장비 비밀번호·LLM 키까지 따라가므로, 묶음을 골라 JSON 하나로
+# 뜨고, 받는 쪽은 ID 기준 합치기(upsert)로 넣는다.
+# ══════════════════════════════════════════════════════════════════════
+
+_TRANSFER_PARTS = ("req", "tc", "cycle", "defect", "device", "catalog", "settings")
+
+
+def _strip_derived(d: dict) -> dict:
+    """내보낼 때 붙인 파생 키(_created_at 등)를 걷는다 — 원본에 없던 것이다."""
+    return {k: v for k, v in d.items() if not str(k).startswith("_")}
+
+
+@app.get("/api/transfer/export")
+async def transfer_export(parts: str = "", secrets: int = 0):
+    _require_admin("")  # 미들웨어 세션이 컨텍스트에 있다
+    want = {x.strip() for x in parts.split(",") if x.strip()} or set(_TRANSFER_PARTS)
+    out = {"app": "utop", "version": 1,
+           "exported_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "parts": {}}
+    P = out["parts"]
+    if "req" in want:
+        P["req"] = {"categories": await db.cat_list(), "reqs": await db.req_list_full()}
+    if "tc" in want:
+        P["tc"] = {"tcs": await db.tc_list_full()}
+    if "cycle" in want:
+        P["cycle"] = {"cycles": await db.cycle_list_full()}
+    if "defect" in want:
+        P["defect"] = {"defects": await db.defect_list(limit=100000)}
+    if "device" in want:
+        devs = await db.device_list()
+        if not secrets:
+            # 비밀번호는 기본 제외 — 파일이 어디로 돌지 모른다
+            for d in devs:
+                d.pop("password", None)
+                d.pop("enable_password", None)
+                for a in d.get("access") or []:
+                    a.pop("password", None)
+                    a.pop("enable_password", None)
+        P["device"] = {"devices": devs, "secrets": bool(secrets)}
+    if "catalog" in want:
+        P["catalog"] = {"items": await db.catalog_list(),
+                        "racks": _kv_load_sync("racks", {}) or {}}
+    if "settings" in want:
+        cfs = await db.cf_list("")
+        P["settings"] = {
+            "custom_fields": cfs,
+            "global_params": _load_global_params(),
+            "branding": _load_branding(),
+        }
+    return out
+
+
+@app.post("/api/transfer/import")
+async def transfer_import(payload: dict):
+    """합치기(upsert) — 같은 ID 는 덮고 없는 것은 만든다. 지우지는 않는다."""
+    _require_admin("")
+    parts = payload.get("parts") or {}
+    done: dict = {}
+
+    if "req" in parts:
+        n = 0
+        for c in parts["req"].get("categories") or []:
+            if c.get("id") and c.get("name"):
+                await db.cat_upsert(str(c["id"]), str(c["name"]), c.get("parent_id"),
+                                    int(c.get("sort_order") or 0))
+        for r in parts["req"].get("reqs") or []:
+            rid = str(r.get("id") or "").strip()
+            if not rid:
+                continue
+            await db.req_upsert(rid, _strip_derived(r))
+            n += 1
+        done["req"] = n
+
+    if "tc" in parts:
+        n = 0
+        for t in parts["tc"].get("tcs") or []:
+            tid = str(t.get("tcid") or t.get("id") or "").strip()
+            if not tid:
+                continue
+            await db.tc_upsert(tid, _strip_derived(t))
+            n += 1
+        done["tc"] = n
+
+    if "cycle" in parts:
+        n = 0
+        for cyc in parts["cycle"].get("cycles") or []:
+            cid = str(cyc.get("id") or "").strip()
+            if not cid:
+                continue
+            await db.cycle_upsert(cid, _strip_derived(cyc))
+            n += 1
+        done["cycle"] = n
+
+    if "defect" in parts:
+        n = 0
+        for d in parts["defect"].get("defects") or []:
+            did = str(d.get("id") or "").strip()
+            if not did:
+                continue
+            if await db.defect_get(did):
+                await db.defect_update(did, d)
+            else:
+                await db.defect_create(d)
+            n += 1
+        done["defect"] = n
+
+    if "device" in parts:
+        n = 0
+        for d in parts["device"].get("devices") or []:
+            ip = str(d.get("ip") or "").strip()
+            if not ip:
+                continue
+            # 비밀번호 없이 온 파일이면 이미 있는 장비의 비밀번호를 지킨다 —
+            # upsert 가 전 칸을 쓰므로 그냥 넣으면 빈 값으로 덮인다
+            cur = await db.device_get(d.get("id") or ip)
+            if cur:
+                for k in ("password", "enable_password"):
+                    if not d.get(k):
+                        d[k] = cur.get(k)
+                accs = {a.get("protocol"): a for a in (cur.get("access") or [])}
+                for a in d.get("access") or []:
+                    old = accs.get(a.get("protocol")) or {}
+                    for k in ("password", "enable_password"):
+                        if not a.get(k):
+                            a[k] = old.get(k)
+            await db.device_upsert(_strip_derived(d))
+            n += 1
+        done["device"] = n
+
+    if "catalog" in parts:
+        n = 0
+        for it in parts["catalog"].get("items") or []:
+            if it.get("kind") and it.get("name"):
+                await db.catalog_upsert(_strip_derived(it))
+                n += 1
+        racks = parts["catalog"].get("racks")
+        if isinstance(racks, dict) and (racks.get("racks") or racks.get("labs")):
+            _kv_save_sync("racks", racks)
+        done["catalog"] = n
+
+    if "settings" in parts:
+        st = parts["settings"]
+        n = 0
+        for cf in st.get("custom_fields") or []:
+            try:
+                await db.cf_upsert({k: v for k, v in cf.items() if k not in ("used",)})
+                n += 1
+            except Exception:
+                pass
+        gp = st.get("global_params")
+        if isinstance(gp, dict) and gp:
+            GLOBAL_PARAMS_FILE.write_text(
+                json.dumps(gp, ensure_ascii=False, indent=2), encoding="utf-8")
+        br = st.get("branding")
+        if isinstance(br, dict) and br:
+            save_json(BRANDING_FILE, br)
+        done["settings"] = n
+    return {"ok": True, "done": done}
+
+
 @app.get("/api/rackview")
 async def rackview():
     """랙뷰 한 판 — 랙 틀(KV 'racks') + PG 장비 배치 + 아직 안 옮긴 옛 배치.

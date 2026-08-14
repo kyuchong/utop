@@ -15,6 +15,7 @@ import Defects from '@/pages/Defects'
 import Devices from '@/pages/Devices'
 import Instruments from '@/pages/Instruments'
 import RackView from '@/pages/RackView'
+import Transfer from '@/pages/Transfer'
 
 /**
  * 화면 하나를 옮길 때마다 여기 분기를 한 줄 늘린다.
@@ -185,6 +186,8 @@ export default function App() {
         <RackView />
       ) : page === 'settings' ? (
         <Settings />
+      ) : page === 'transfer' ? (
+        <Transfer />
       ) : (
         <div className="empty">
           이 화면은 아직 새 UI로 옮기지 않았습니다.
