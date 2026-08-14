@@ -3,9 +3,9 @@
    빈 칸은 아주 흐리게, 장비는 진하게 — 대비가 곧 시안성이다. */
 
 .rv {
-  /* 45U 랙이 Full HD 세로에 통째로 들어가야 한다: 바·머리 빼면 830px 쯤 남으니
-     18px×45=810. 글자는 안 줄인다 — 여백을 줄인다. */
-  --rv-u: 18px;
+  /* 1U 높이 기본값 — 실제로는 판 높이에 맞춰 스크립트가 다시 계산해 넣는다
+     (제일 큰 랙이 화면에 꽉 차게). 여기 값은 첫 렌더 한 프레임 몫이다. */
+  --rv-u: 19px;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -149,8 +149,9 @@
 
 .rv-rack {
   flex: none;
-  /* Full HD 에 최대한 많이 — 긴 모델명(Spirent TestCenter)이 겨우 들어가는 폭 */
-  width: 176px;
+  /* Full HD 에 최대한 많이 — U 배지·×를 우클릭 메뉴로 보내고 더 줄였다.
+     아주 긴 이름은 … 로 접히고 전체는 마우스 올리면 나온다 */
+  width: 160px;
   border: 1px solid var(--c-border);
   border-radius: 10px;
   background: var(--c-surface);
@@ -166,15 +167,6 @@
   border-bottom: 1px solid var(--c-border-soft);
 }
 .rv-rnm { font-size: 14px; letter-spacing: -0.01em; }
-.rv-rdesc {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--fs-xs);
-  color: var(--c-text-faint);
-}
 .rv-watt {
   flex: none;
   font-size: var(--fs-xs);
@@ -207,6 +199,30 @@
 }
 .rv-rhead:hover .rv-rx { opacity: 1; }
 .rv-rx:hover { background: #fdeaea; color: var(--c-fail); }
+
+/* 랙 용도 한 줄 — 이름 아래. 비어 있으면 흐린 안내 */
+.rv-rdescln {
+  padding: 0 8px 3px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+  min-height: 17px;
+}
+.rv-rdescln.empty { color: #c9d0d9; }
+.rv-rdescln:hover { color: var(--c-primary); }
+.rv-rdesced {
+  display: block;
+  width: calc(100% - 12px);
+  margin: 0 6px 3px;
+  padding: 0 4px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  border: 1px solid var(--c-primary);
+  border-radius: 4px;
+}
 
 /* ── U 눈금 그리드 ── */
 .rv-grid {
@@ -284,7 +300,7 @@
 .rv-dev {
   grid-column: 2;
   margin: 1px 2px;
-  border: 1px solid #86b3e8;
+  border: 1.5px solid #86b3e8;
   border-radius: 5px;
   background: #dcebff;
   box-shadow: 0 1px 2px rgb(30 64 120 / 0.10);
@@ -298,8 +314,8 @@
   z-index: 2;
 }
 .rv-dev:hover {
-  border-color: var(--c-primary);
-  box-shadow: 0 1px 4px rgb(37 99 235 / 0.25);
+  box-shadow: 0 1px 4px rgb(37 99 235 / 0.3);
+  filter: brightness(1.03);
 }
 .rv-dev:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 1px; }
 .rv-dev.legacy {
@@ -318,18 +334,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: center;
   font-size: 12px;
   font-weight: 700;
   color: #163257;
-}
-.rv-du {
-  flex: none;
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--c-text-faint);
-  background: rgb(255 255 255 / 0.7);
-  border-radius: 3px;
-  padding: 0 4px;
 }
 .rv-x {
   flex: none;
@@ -348,19 +356,40 @@
 .rv-dev:hover .rv-x { opacity: 1; }
 .rv-x:hover { background: #fdeaea; color: var(--c-fail); }
 
-/* ── LED ── */
-.rv-led {
+/* ── 범례 — 면=프로토콜, 색=상태 ── */
+/* 점 4개 — 작아도 선명하게: 채도 높은 색 + 흰 테 한 겹 */
+.rv-4d { display: inline-flex; align-items: center; gap: 2.5px; flex: none; }
+.rv-4d.demo { margin-right: 2px; }
+.rv-d4 {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.9);
+}
+.rv-d4.ok { background: #12b76a; }
+.rv-d4.ng { background: #ef4444; }
+.rv-d4.un { background: #c9d0d9; }
+.rv-d4.off { background: transparent; box-shadow: inset 0 0 0 1px #c9d0d9; }
+.rv-lsw {
   flex: none;
-  width: 9px;
-  height: 9px;
+  width: 12px;
+  height: 10px;
+  border-radius: 3px;
+  display: inline-block;
+  background: #f5f6f8;
+  border: 1.5px dashed #cfd5dd;
+}
+.rv-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   display: inline-block;
 }
-.rv-led.tn { background: #16a34a; box-shadow: 0 0 5px rgb(22 163 74 / 0.55); }
-.rv-led.sh { background: #2563eb; box-shadow: 0 0 5px rgb(37 99 235 / 0.55); }
-.rv-led.ng { background: #dc2626; box-shadow: 0 0 5px rgb(220 38 38 / 0.5); }
-.rv-led.un { background: #9aa3af; }
-.rv-led.old { background: #d3d9e2; }
+.rv-dot.ok { background: #16a34a; }
+.rv-dot.ng { background: #dc2626; }
+.rv-dot.un { background: #c9d0d9; }
 
 /* ── 호버 요약 카드 ── */
 .rv-tip {

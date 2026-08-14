@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
@@ -101,15 +101,29 @@ const PART_PRESETS: Array<{ label: string; units: number; color?: string }> = [
 const byName = (a: { name: string }, b: { name: string }) =>
   a.name.localeCompare(b.name, undefined, { numeric: true })
 
-/** LED — 옛 랙뷰와 같은 문법: 초록 Telnet · 파랑 SSH · 빨강 미연결 · 회색 미확인 */
-function ledOf(d: RvDevice): { cls: string; label: string } {
-  if (d.source === 'legacy') return { cls: 'old', label: '옛 자료 (새 DB 미등록)' }
-  const acc = (d.access ?? []).filter((a) => a.enabled !== false)
-  const ok = (p: string) => acc.some((a) => a.protocol === p && a.status === 'ok')
-  if (ok('telnet')) return { cls: 'tn', label: '연결됨 · Telnet' }
-  if (ok('ssh') || ok('n2x') || ok('stc')) return { cls: 'sh', label: '연결됨 · SSH' }
-  if (acc.some((a) => a.status === 'fail')) return { cls: 'ng', label: '미연결' }
-  return { cls: 'un', label: '미확인' }
+/** 접속 상태 — 블록 오른쪽 끝의 점 4개. 자리 순서가 곧 프로토콜이다:
+    Telnet · SSH · Console · SNMP. 색은 상태:
+    초록 연결됨 · 빨강 실패 · 회색 미확인 · 빈 테두리 미등록. */
+const PROTO_DOTS = [
+  { p: 'telnet', label: 'Telnet' },
+  { p: 'ssh', label: 'SSH' },
+  { p: 'console', label: 'Console' },
+  { p: 'snmp', label: 'SNMP' },
+] as const
+function protoState(d: RvDevice, p: string): 'ok' | 'ng' | 'un' | 'off' {
+  const a = (d.access ?? []).find((x) => x.protocol === p && x.enabled !== false)
+  if (!a) return 'off'
+  if (a.status === 'ok') return 'ok'
+  if (a.status === 'fail') return 'ng'
+  return 'un'
+}
+function stLine(d: RvDevice): string {
+  if (d.source === 'legacy') return '옛 자료 (새 DB 미등록)'
+  const word = (p: string) => {
+    const st = protoState(d, p)
+    return st === 'off' ? '없음' : st === 'ok' ? '연결됨' : st === 'ng' ? '실패' : '미확인'
+  }
+  return `Telnet ${word('telnet')} · SSH ${word('ssh')} · Console ${word('console')} · SNMP ${word('snmp')}`
 }
 
 const readLoad = (e: DragEvent): DragLoad | null => {
@@ -139,6 +153,15 @@ export default function RackView() {
   const [partAt, setPartAt] = useState<{ rack: RvRack; pos: number } | null>(null)
   /** 판 빈 곳 우클릭 — 랙 추가 메뉴 */
   const [boardCtx, setBoardCtx] = useState<{ x: number; y: number } | null>(null)
+  /** 장비 우클릭 — 열기·빼기 메뉴 */
+  const [devCtx, setDevCtx] = useState<{ x: number; y: number; d: RvDevice } | null>(null)
+  /** 랙 용도 한 줄 — 이름 아래. 누르면 그 자리에서 적는다 */
+  const [descEdit, setDescEdit] = useState<string | null>(null)
+  const [descDraft, setDescDraft] = useState('')
+  const boardRef = useRef<HTMLDivElement | null>(null)
+  /** 1U 높이 — 제일 큰 랙이 판 높이에 꽉 차게 자동 계산. 고정값은 화면마다
+      아래가 남거나(너무 촘촘) 잘리거나(너무 성김) 한다. */
+  const [uH, setUH] = useState(19)
 
   const rvQ = useQuery({
     queryKey: ['rackview'],
@@ -171,6 +194,21 @@ export default function RackView() {
     () => (data?.racks ?? []).filter((r) => (r.lab_id ?? '') === curLab).sort(byName),
     [data, curLab],
   )
+  useEffect(() => {
+    const el = boardRef.current
+    if (!el) return
+    const maxU = racks.reduce((m, r) => Math.max(m, r.units ?? 45), 45)
+    const calc = () => {
+      // 판 안쪽 높이 − 판 패딩(20) − 랙 머리+용도 줄(46) − 그리드 패딩(7)
+      const usable = el.clientHeight - 73
+      setUH(Math.max(15, Math.min(26, Math.floor(usable / maxU))))
+    }
+    calc()
+    const ro = new ResizeObserver(calc)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [racks])
+
   const devByRack = useMemo(() => {
     const m = new Map<string, RvDevice[]>()
     for (const d of data?.devices ?? []) {
@@ -244,6 +282,16 @@ export default function RackView() {
         kv.labs = list
       }),
     onSuccess: () => setRenamingLab(null),
+    onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
+  })
+
+  const setDesc = useMutation({
+    mutationFn: (p: { id: string; desc: string }) =>
+      saveFrames((kv) => {
+        const it = ((kv.racks as RvRack[] | undefined) ?? []).find((r) => r.id === p.id)
+        if (it) it.desc = p.desc
+      }),
+    onSuccess: () => setDescEdit(null),
     onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
   })
 
@@ -442,7 +490,7 @@ export default function RackView() {
     (blanksByRack.get(rkId) ?? []).reduce((s, b) => s + (Number(b.units) || 1), 0)
 
   return (
-    <section className="panel rv">
+    <section className="panel rv" style={{ ['--rv-u' as string]: `${uH}px` }}>
       {form !== undefined && (
         <DeviceForm
           editing={form}
@@ -535,11 +583,16 @@ export default function RackView() {
           onChange={(e) => setQ(e.target.value)}
         />
         <div className="rv-legend">
-          <span><i className="rv-led tn" /> 연결됨·Telnet</span>
-          <span><i className="rv-led sh" /> 연결됨·SSH</span>
-          <span><i className="rv-led ng" /> 미연결</span>
-          <span><i className="rv-led un" /> 미확인</span>
-          <span><i className="rv-led old" /> 옛 자료</span>
+          <span>
+            <span className="rv-4d demo">
+              <i className="rv-d4 ok" /><i className="rv-d4 ok" /><i className="rv-d4 un" /><i className="rv-d4 un" />
+            </span>
+            점 4개 = Telnet · SSH · Console · SNMP 순
+          </span>
+          <span><i className="rv-dot ok" /> 연결됨</span>
+          <span><i className="rv-dot ng" /> 실패</span>
+          <span><i className="rv-dot un" /> 미확인</span>
+          <span><i className="rv-lsw old" /> 옛 자료</span>
         </div>
       </div>
 
@@ -548,6 +601,7 @@ export default function RackView() {
         {/* ── 판 — 랙 기둥들 ── */}
         <div
           className="rv-board"
+          ref={boardRef}
           onContextMenu={(e) => {
             e.preventDefault()
             if (curLab) setBoardCtx({ x: e.clientX, y: e.clientY })
@@ -581,7 +635,6 @@ export default function RackView() {
                 <div className="rv-rack" key={rk.id}>
                   <div className="rv-rhead">
                     <b className="rv-rnm">{rk.name}</b>
-                    {rk.desc && <span className="rv-rdesc">{rk.desc}</span>}
                     {watt > 0 && (
                       <span className="rv-watt" title="실린 장비 소모전력 합계">
                         {watt}W
@@ -605,6 +658,32 @@ export default function RackView() {
                       ×
                     </button>
                   </div>
+                  {descEdit === rk.id ? (
+                    <input
+                      className="rv-rdesced"
+                      autoFocus
+                      value={descDraft}
+                      placeholder="용도 (예: 공공 L2 스위치)"
+                      onChange={(e) => setDescDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        e.stopPropagation()
+                        if (e.key === 'Enter') setDesc.mutate({ id: rk.id, desc: descDraft.trim() })
+                        if (e.key === 'Escape') setDescEdit(null)
+                      }}
+                      onBlur={() => setDescEdit(null)}
+                    />
+                  ) : (
+                    <div
+                      className={`rv-rdescln${rk.desc ? '' : ' empty'}`}
+                      title="눌러서 용도를 적습니다"
+                      onClick={() => {
+                        setDescEdit(rk.id)
+                        setDescDraft(rk.desc ?? '')
+                      }}
+                    >
+                      {rk.desc || '용도 적기…'}
+                    </div>
+                  )}
                   <div
                     className="rv-grid"
                     style={{ gridTemplateRows: `repeat(${top}, var(--rv-u))` }}
@@ -696,7 +775,6 @@ export default function RackView() {
                       )
                     })}
                     {devs.map((d) => {
-                      const led = ledOf(d)
                       const dim = hits && !hits.set.has(d)
                       const hit = hits?.set.has(d)
                       return (
@@ -712,7 +790,12 @@ export default function RackView() {
                               startDrag(e, { kind: 'dev', id: d.id, units: d.rack_units })
                             setTip(null)
                           }}
-                          onClick={() => void openDev(d)}
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setTip(null)
+                            setDevCtx({ x: e.clientX, y: e.clientY, d })
+                          }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') void openDev(d)
                           }}
@@ -721,20 +804,21 @@ export default function RackView() {
                           onMouseLeave={() => setTip(null)}
                         >
                           <span className="rv-dnm">{d.name || d.model || d.ip}</span>
-                          {d.rack_units > 1 && <span className="rv-du">{d.rack_units}U</span>}
-                          <i className={`rv-led ${led.cls}`} />
-                          {d.source === 'pg' && d.id && (
-                            <button
-                              className="rv-x"
-                              type="button"
-                              title="랙에서 빼기 (장비는 남습니다)"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setRack.mutate({ devId: d.id!, rack_id: null })
-                              }}
-                            >
-                              ×
-                            </button>
+                          {d.source === 'pg' && (
+                            <span className="rv-4d">
+                              {PROTO_DOTS.map((x) => {
+                                const st = protoState(d, x.p)
+                                return (
+                                  <i
+                                    key={x.p}
+                                    className={`rv-d4 ${st}`}
+                                    title={`${x.label} ${
+                                      st === 'off' ? '없음' : st === 'ok' ? '연결됨' : st === 'ng' ? '실패' : '미확인'
+                                    }`}
+                                  />
+                                )
+                              })}
+                            </span>
                           )}
                         </div>
                       )
@@ -819,6 +903,45 @@ export default function RackView() {
         </div>
       )}
 
+      {devCtx && (
+        <div
+          className="rv-ctxovl"
+          onClick={() => setDevCtx(null)}
+          onContextMenu={(e) => {
+            e.preventDefault()
+            setDevCtx(null)
+          }}
+        >
+          <div
+            className="rv-ctx"
+            style={{ left: devCtx.x, top: devCtx.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rv-ctxh">{devCtx.d.name || devCtx.d.ip}</div>
+            <button
+              type="button"
+              onClick={() => {
+                void openDev(devCtx.d)
+                setDevCtx(null)
+              }}
+            >
+              {devCtx.d.source === 'pg' ? '장비 열기…' : '새 장비로 등록…'}
+            </button>
+            {devCtx.d.source === 'pg' && devCtx.d.id && (
+              <button
+                type="button"
+                onClick={() => {
+                  setRack.mutate({ devId: devCtx.d.id!, rack_id: null })
+                  setDevCtx(null)
+                }}
+              >
+                랙에서 빼기 <i className="muted small">장비는 남습니다</i>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {partAt && (
         <PartDialog
           rack={partAt.rack}
@@ -865,11 +988,11 @@ export default function RackView() {
               {tip.d.power_w ? ` · ${tip.d.power_w}W` : ''}
             </span>
           </div>
-          <div className="rv-tr"><i>상태</i><span>{ledOf(tip.d).label}</span></div>
+          <div className="rv-tr"><i>상태</i><span>{stLine(tip.d)}</span></div>
           <div className="rv-hint">
             {tip.d.source === 'pg'
-              ? '눌러서 열기 · 끌어서 옮기기'
-              : '옛 자료 — 누르면 새 장비로 등록'}
+              ? '우클릭 → 열기·빼기 · 끌어서 옮기기'
+              : '옛 자료 — 우클릭해서 새 장비로 등록'}
           </div>
         </div>
       )}
