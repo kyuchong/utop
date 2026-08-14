@@ -582,6 +582,15 @@ export default function RackView() {
               const devs = devByRack.get(rk.id) ?? []
               const parts = blanksByRack.get(rk.id) ?? []
               const watt = powerOf(rk.id)
+              // 무엇이 앉은 칸 — BLANK 바탕·글자를 아예 그리지 않는다.
+              // 반투명 부품 밑으로 BLANK 글자가 비쳐 보이던 문제의 답.
+              const taken = new Set<number>()
+              for (const d of devs)
+                for (let u = d.rack_pos; u < d.rack_pos + d.rack_units; u++) taken.add(u)
+              for (const b of parts) {
+                const bp = Number(b.pos) || 0
+                for (let u = bp; u < bp + (Number(b.units) || 1); u++) taken.add(u)
+              }
               return (
                 <div className="rv-rack" key={rk.id}>
                   <div className="rv-rhead">
@@ -624,6 +633,10 @@ export default function RackView() {
                     })}
                     {Array.from({ length: top }, (_, i) => {
                       const u = top - i
+                      if (taken.has(u))
+                        return (
+                          <span key={`b${u}`} className="rv-blank off" style={{ gridRow: i + 1 }} />
+                        )
                       const ov = over && over.rack === rk.id && over.pos === u
                       return (
                         <span

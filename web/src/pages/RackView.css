@@ -245,6 +245,8 @@
 /* 끌어 오는 중 — 붙을 수 있으면 파랗게, 겹치면 붉게 */
 .rv-blank.can { background: #e2edfc; box-shadow: inset 0 0 0 1.5px var(--c-primary); }
 .rv-blank.cant { background: #fdecec; box-shadow: inset 0 0 0 1.5px var(--c-fail); }
+/* 무엇이 앉은 칸 — 바탕도 글자도 없다. 블록이 그 위를 덮는다 */
+.rv-blank.off { background: transparent; cursor: default; }
 
 /* 블랭크 패널(패치 패널·ODF 등) — 옛 화면에서 그려 둔 부품 */
 .rv-part {
