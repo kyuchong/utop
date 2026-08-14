@@ -1260,6 +1260,69 @@ export default function TestCases({ me }: PageProps) {
    * **탭이 통째로 사라졌다.** 어느 탭에 있든 같은 자리에 있어야 다음 탭으로
    * 옮겨 갈 수 있다.
    */
+  /** ⋯ — 다른 이름으로 저장·파일 내보내기/가져오기.
+      Detail 에서는 머리 오른끝, List 에서는 도구줄 오른끝(3번 자리)에 선다. */
+  const moreMenu = (
+    <div className="tc-more">
+                    <button
+                      className="btn tc-dots"
+                      type="button"
+                      aria-haspopup="menu"
+                      aria-expanded={menuOpen}
+                      onClick={() => setMenuOpen((v) => !v)}
+                    >
+                      ⋯
+                    </button>
+                    {menuOpen && (
+                      <>
+                        <div className="tc-menu-back" onClick={() => setMenuOpen(false)} />
+                        <div className="tc-menu" role="menu">
+                          {/* 랩마다 UTOP 이 따로 서 있어서 한쪽에서 만든 시험을 다른
+                              쪽에서 그대로 돌리고 싶은 일이 잦다. DB 를 통째로 옮기면
+                              장비 비밀번호까지 따라가므로, 시험 하나만 파일로 뗀다. */}
+                          <button
+                            type="button"
+                            disabled={!openId}
+                            onClick={() => {
+                              setMenuOpen(false)
+                              setSaveAs({
+                                title: '다른 이름으로 저장',
+                                // 같은 요구사항 묶음의 다음 번호. TC ID 앞부분이 곧
+                                // 그 요구사항이라(U-REQ-SYS-HW-TC-004) 앞은 지키고
+                                // 번호만 올린다.
+                                id: nextTcId(openId, takenIds),
+                                name: `${d.name ?? ''} 복사`.trim(),
+                                data: d,
+                              })
+                            }}
+                          >
+                            다른 이름으로 저장
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!openId}
+                            onClick={() => {
+                              setMenuOpen(false)
+                              exportTc()
+                            }}
+                          >
+                            파일로 내보내기
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMenuOpen(false)
+                              fileRef.current?.click()
+                            }}
+                          >
+                            파일에서 가져오기
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+  )
+
   const detHead = (
                 <div className="tc-dethead">
                   {/* 저장 · 탭은 **왼쪽**에 — 화면 오른쪽 끝까지 손이 가야
@@ -1356,64 +1419,7 @@ export default function TestCases({ me }: PageProps) {
                       안에만 있어서, 저장했다는 말도 오류도 스텝을 골라야만
                       보였다. 늘 보이는 자리로 올린다. */}
                   {msg.text && <span className={`tc-msg ${msg.kind}`}>{msg.text}</span>}
-                  <div className="tc-more">
-                    <button
-                      className="btn tc-dots"
-                      type="button"
-                      aria-haspopup="menu"
-                      aria-expanded={menuOpen}
-                      onClick={() => setMenuOpen((v) => !v)}
-                    >
-                      ⋯
-                    </button>
-                    {menuOpen && (
-                      <>
-                        <div className="tc-menu-back" onClick={() => setMenuOpen(false)} />
-                        <div className="tc-menu" role="menu">
-                          {/* 랩마다 UTOP 이 따로 서 있어서 한쪽에서 만든 시험을 다른
-                              쪽에서 그대로 돌리고 싶은 일이 잦다. DB 를 통째로 옮기면
-                              장비 비밀번호까지 따라가므로, 시험 하나만 파일로 뗀다. */}
-                          <button
-                            type="button"
-                            disabled={!openId}
-                            onClick={() => {
-                              setMenuOpen(false)
-                              setSaveAs({
-                                title: '다른 이름으로 저장',
-                                // 같은 요구사항 묶음의 다음 번호. TC ID 앞부분이 곧
-                                // 그 요구사항이라(U-REQ-SYS-HW-TC-004) 앞은 지키고
-                                // 번호만 올린다.
-                                id: nextTcId(openId, takenIds),
-                                name: `${d.name ?? ''} 복사`.trim(),
-                                data: d,
-                              })
-                            }}
-                          >
-                            다른 이름으로 저장
-                          </button>
-                          <button
-                            type="button"
-                            disabled={!openId}
-                            onClick={() => {
-                              setMenuOpen(false)
-                              exportTc()
-                            }}
-                          >
-                            파일로 내보내기
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMenuOpen(false)
-                              fileRef.current?.click()
-                            }}
-                          >
-                            파일에서 가져오기
-                          </button>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                  {view === 'detail' && moreMenu}
                 </div>
   )
 
@@ -2121,6 +2127,9 @@ export default function TestCases({ me }: PageProps) {
                   >
                     ✨ 시험 시작하기
                   </button>
+                  <span className="sp" />
+                  {/* 펼친(연) 시험에 쓰는 ⋯ — 안 연 것에는 저장·내보내기가 꺼진다 */}
+                  {moreMenu}
                 </div>
               </div>
 
@@ -2204,8 +2213,10 @@ export default function TestCases({ me }: PageProps) {
                             }}
                           >
                             <span className={`tc-expcaret${expanded ? ' open' : ''}`} aria-hidden="true">▸</span>
-                            <IconTcDoc />
                           </button>
+                          <span className="rq-icon" aria-hidden="true">
+                            <IconTcDoc />
+                          </span>
                           {/* 누르면 그 시험을 열어 짠다 — Detail 로 넘어간다 */}
                           <button
                             type="button"

@@ -2811,3 +2811,7 @@ table.tb tr.r-bad td:first-child {
   transition: transform 0.12s;
 }
 .tc-expcaret.open { transform: rotate(90deg); color: var(--c-primary); }
+
+/* List 도구줄의 ⋯ 이 오른끝(3번 자리)으로 가게 */
+.tc-listhead .rq-actions { width: 100%; }
+.tc-listhead .rq-actions .sp { flex: 1; }
