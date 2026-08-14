@@ -2783,21 +2783,30 @@ table.tb tr.r-bad td:first-child {
 .tc-inline-body > * { flex: 1; min-width: 0; min-height: 0; }
 .tc-inline-body .panel { overflow: auto; }
 
-/* 아이콘 = 펼침 단추 */
+/* 아이콘 = 펼침 단추 — 누르는 것이니 누르게 생겨야 한다: 큼직한 캐럿과
+   넉넉한 판, 올리면 파랗게 */
 .tc-exp {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  border: 0;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: 6px;
   background: transparent;
-  padding: 0 2px 0 0;
+  padding: 3px 6px 3px 4px;
   cursor: pointer;
   color: inherit;
 }
+.tc-exp:hover {
+  background: var(--c-primary-bg);
+  border-color: #b9d4f5;
+}
 .tc-exp:hover .tc-expcaret { color: var(--c-primary); }
+.tc-exp.on { background: var(--c-primary-bg); }
 .tc-expcaret {
   display: inline-block;
-  font-size: 10px;
+  width: 14px;
+  font-size: 14px;
+  line-height: 1;
   color: var(--c-text-faint);
   transition: transform 0.12s;
 }
