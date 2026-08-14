@@ -440,6 +440,18 @@ export default function RackView() {
     onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
   })
 
+  const delDevice = useMutation({
+    mutationFn: async (devId: string) => {
+      const r = await apiFetch(`/api/devices2/${encodeURIComponent(devId)}`, { method: 'DELETE' })
+      if (!r.ok) {
+        const b = (await r.json().catch(() => ({}))) as { detail?: string }
+        throw new Error(b.detail || String(r.status))
+      }
+    },
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['rackview'] }),
+    onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
+  })
+
   /** 접속 탭 열기 — 같은 장비·방식 탭이 있으면 그 탭으로 간다 */
   const openTerm = async (d: RvDevice, proto: 'telnet' | 'ssh' | 'console') => {
     if (!d.id) return
@@ -703,20 +715,6 @@ export default function RackView() {
                     <span className="rv-uband" title="사용 중 U / 랙 높이">
                       {usedOf(rk.id)}/{top}U
                     </span>
-                    <button
-                      className="rv-rx"
-                      type="button"
-                      title="랙 지우기"
-                      onClick={() => {
-                        if (devs.length > 0) {
-                          window.alert(`장비 ${devs.length}대가 실려 있어 지울 수 없습니다`)
-                          return
-                        }
-                        if (window.confirm(`${rk.name} 랙을 지울까요?`)) delRack.mutate(rk)
-                      }}
-                    >
-                      ×
-                    </button>
                   </div>
                   {descEdit === rk.id ? (
                     <input
@@ -1056,15 +1054,34 @@ export default function RackView() {
               {devCtx.d.source === 'pg' ? '장비 열기…' : '새 장비로 등록…'}
             </button>
             {devCtx.d.source === 'pg' && devCtx.d.id && (
-              <button
-                type="button"
-                onClick={() => {
-                  setRack.mutate({ devId: devCtx.d.id!, rack_id: null })
-                  setDevCtx(null)
-                }}
-              >
-                랙에서 빼기 <i className="muted small">장비는 남습니다</i>
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRack.mutate({ devId: devCtx.d.id!, rack_id: null })
+                    setDevCtx(null)
+                  }}
+                >
+                  랙에서 빼기 <i className="muted small">장비는 남습니다</i>
+                </button>
+                <hr className="rv-ctxhr" />
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={() => {
+                    const nm = devCtx.d.name || devCtx.d.ip
+                    setDevCtx(null)
+                    if (
+                      window.confirm(
+                        `${nm} 를 완전히 삭제할까요?\n랙 자리만 비우는 게 아니라 장비 등록 자체가 지워집니다.`,
+                      )
+                    )
+                      delDevice.mutate(devCtx.d.id!)
+                  }}
+                >
+                  장비 삭제…
+                </button>
+              </>
             )}
           </div>
         </div>

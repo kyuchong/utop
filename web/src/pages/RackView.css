@@ -581,6 +581,8 @@
   gap: 6px;
 }
 .rv-ctx > button:hover { background: var(--c-primary-bg); }
+.rv-ctx > button.danger { color: var(--c-fail); }
+.rv-ctx > button.danger:hover { background: #fdeaea; }
 .rv-ctx > button:disabled { opacity: 0.4; cursor: default; }
 .rv-ctx > button:disabled:hover { background: transparent; }
 .rv-ctx > button > i { font-style: normal; }
@@ -632,6 +634,8 @@
   gap: 6px;
 }
 .rv-ctx > button:hover { background: var(--c-primary-bg); }
+.rv-ctx > button.danger { color: var(--c-fail); }
+.rv-ctx > button.danger:hover { background: #fdeaea; }
 .rv-ctx > button:disabled { opacity: 0.4; cursor: default; }
 .rv-ctx > button:disabled:hover { background: transparent; }
 .rv-ctx > button > i { font-style: normal; }
