@@ -2800,17 +2800,11 @@ table.tb tr.r-bad td:first-child {
   background: var(--c-primary-bg);
   border-color: #b9d4f5;
 }
-.tc-exp:hover .tc-expcaret { color: var(--c-primary); }
 .tc-exp.on { background: var(--c-primary-bg); }
-.tc-expcaret {
-  display: inline-block;
-  width: 14px;
-  font-size: 14px;
-  line-height: 1;
-  color: var(--c-text-faint);
-  transition: transform 0.12s;
-}
-.tc-expcaret.open { transform: rotate(90deg); color: var(--c-primary); }
+/* 캐럿 자체는 트리의 .rt-caret 를 그대로 입는다(ReqTree.css). 여기서는
+   열림 색만 얹는다 — 회전은 .rt-caret.open svg 규칙이 이미 한다. */
+.tc-expcaret.open { color: var(--c-primary); }
+.tc-exp:hover .rt-caret { color: var(--c-primary); }
 
 /* List 도구줄의 ⋯ 이 오른끝(3번 자리)으로 가게 */
 .tc-listhead .rq-actions { width: 100%; }

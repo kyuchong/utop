@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import ListHead from '@/components/ListHead'
-import { IconPanel, IconParam, IconTcDoc } from '@/components/icons'
+import { IconChevron, IconPanel, IconParam, IconTcDoc } from '@/components/icons'
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
@@ -2212,7 +2212,10 @@ export default function TestCases({ me }: PageProps) {
                               reflectUrl('tc', t.tcid)
                             }}
                           >
-                            <span className={`tc-expcaret${expanded ? ' open' : ''}`} aria-hidden="true">▸</span>
+                            {/* 1열 폴더 캐럿과 같은 모양 — 같은 아이콘·같은 회전 */}
+                            <span className={`rt-caret tc-expcaret${expanded ? ' open' : ''}`} aria-hidden="true">
+                              <IconChevron />
+                            </span>
                           </button>
                           <span className="rq-icon" aria-hidden="true">
                             <IconTcDoc />
