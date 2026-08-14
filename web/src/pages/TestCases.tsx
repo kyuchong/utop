@@ -465,16 +465,16 @@ export default function TestCases({ me }: PageProps) {
    * 트리를 눈으로 되짚거나 Info 탭의 날 PK(req-1781…)를 봐야 했다.
    */
   const detailPath = useMemo(() => {
-    if (!openId) return { folders: [] as Array<{ id: string; name: string }>, req: '' }
+    if (!openId) return { folders: [] as Array<{ id: string; name: string }>, req: '', reqPk: '' }
     const t = tcs.find((x) => x.tcid === openId)
     const r = t ? reqByKey.get(t.req_id || '') : undefined
-    if (!r) return { folders: [], req: '' }
+    if (!r) return { folders: [] as Array<{ id: string; name: string }>, req: '', reqPk: '' }
     const byId = new Map((catQ.data?.categories ?? []).map((c) => [c.id, c]))
     const folders = [r.cat1, r.cat2, r.cat3, r.cat4]
       .filter(Boolean)
       .map((id) => ({ id: id as string, name: byId.get(id as string)?.name ?? '' }))
       .filter((f) => f.name)
-    return { folders, req: r.title || reqLabel(r) }
+    return { folders, req: r.title || reqLabel(r), reqPk: reqPk(r) }
   }, [openId, tcs, reqByKey, catQ.data])
 
   /**
@@ -1961,9 +1961,21 @@ export default function TestCases({ me }: PageProps) {
               {detailPath.req && (
                 <>
                   <span className="rq-crumb-sep">›</span>
-                  <span className="tc-crumb-req" title="이 시험이 붙은 요구사항">
+                  {/* 누르면 그 요구사항의 시험 표로 — 폴더 조각과 같은 문법 */}
+                  <button
+                    type="button"
+                    className="rq-crumb-up tc-crumb-req"
+                    title={`${detailPath.req} — 이 요구사항의 시험 표로`}
+                    onClick={() => {
+                      if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 옮길까요?'))
+                        return
+                      if (detailPath.reqPk) setSelReq(detailPath.reqPk)
+                      setListPick(new Set())
+                      setOpenId('')
+                    }}
+                  >
                     {detailPath.req}
-                  </span>
+                  </button>
                 </>
               )}
               <span className="rq-crumb-sep">›</span>
