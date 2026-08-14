@@ -12,6 +12,8 @@ interface Props {
   editing: TestCaseMeta | null
   /** 새로 만들 때 미리 연결해 둘 요구사항 (요구사항 화면의 「+ TC 생성」) */
   presetReqId?: string
+  /** 새로 만들고 나면 그 시험을 연다 — 만들기는 곧 세부 작성의 시작이다 */
+  onCreated?: (tcid: string) => void
   onClose: () => void
 }
 
@@ -23,7 +25,7 @@ const FB_ORIGIN = ['자체', '고객']
 /** 「공용으로 하겠다」 는 명시적 선택 — 빈 값(안 고름)과 갈라야 필수가 된다 */
 const COMMON = '*'
 
-export default function TcForm({ editing, presetReqId, onClose }: Props) {
+export default function TcForm({ editing, presetReqId, onCreated, onClose }: Props) {
   const qc = useQueryClient()
   const isNew = editing === null
 
@@ -45,6 +47,9 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
   const [mg, setMg] = useState('')
   const [mdl, setMdl] = useState('')
   const [error, setError] = useState('')
+  /** 요구사항 검색 콤보 — 수백 건을 셀렉트로 늘어놓으면 못 고른다 */
+  const [reqOpen, setReqOpen] = useState(false)
+  const [reqText, setReqText] = useState('')
   // 설정 → 커스텀 필드에서 팀이 늘린 칸. 값은 data->'custom' 에 산다.
   const [custom, setCustom] = useState<Record<string, unknown>>({})
   const cf = useCustomFields('tc')
@@ -133,6 +138,8 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
       }),
     onSuccess: () => {
       invalidate()
+      // 새로 만든 것은 바로 열어 세부(스텝·토폴로지)를 이어 적게 한다
+      if (isNew && onCreated) onCreated(tcid.trim())
       onClose()
     },
     onError: fail,
@@ -184,7 +191,7 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
   return (
     <div className="modal-back" onMouseDown={onClose}>
       <div
-        className="modal"
+        className="modal tcf"
         role="dialog"
         aria-modal="true"
         aria-label={isNew ? '테스트케이스 추가' : '테스트케이스 편집'}
@@ -200,49 +207,93 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
         <div className="modal-body">
           {error && <div className="form-error">{error}</div>}
 
-          <div className="frow">
+          {/* Info 탭의 「기본」 카드와 같은 차례 — 만들 때 본 화면과 만들고
+              나서 보는 화면이 같아야 눈이 헤매지 않는다. */}
+          <div className="frow tcf-2">
             <label className="fld">
-              <span>TC ID {isNew ? '· 자동 부여' : '· 고정'}</span>
-              {/* ID 는 사람이 못 바꾼다. 새로 만들면 서버가 주차별로 매기고
-                  (TC-2632-0001), 이미 있는 것은 그대로 잠근다. */}
+              <span>요구사항 ID</span>
+              <input
+                value={(() => {
+                  const r = reqs.find((x) => reqPk(x) === reqId)
+                  return r ? reqLabel(r) : '–'
+                })()}
+                readOnly
+                className="ro"
+                tabIndex={-1}
+              />
+            </label>
+            <div className="fld tcf-reqc">
+              <span>요구사항 제목 (검색 · 선택)</span>
+              <input
+                value={
+                  reqOpen
+                    ? reqText
+                    : (() => {
+                        const r = reqs.find((x) => reqPk(x) === reqId)
+                        return r ? r.title || reqLabel(r) : '(연결 안 함)'
+                      })()
+                }
+                placeholder="이름·ID 로 찾기"
+                onFocus={() => {
+                  setReqOpen(true)
+                  setReqText('')
+                }}
+                onChange={(e) => setReqText(e.target.value)}
+                onBlur={() => window.setTimeout(() => setReqOpen(false), 150)}
+              />
+              {reqOpen && (
+                <div className="tcf-reqlist">
+                  <button type="button" onMouseDown={() => setReqId('')}>
+                    (연결 안 함)
+                  </button>
+                  {reqs
+                    .filter((r) => {
+                      const n = reqText.trim().toLowerCase()
+                      if (!n) return true
+                      return `${reqLabel(r)} ${r.title ?? ''}`.toLowerCase().includes(n)
+                    })
+                    .slice(0, 50)
+                    .map((r) => (
+                      <button
+                        key={reqPk(r)}
+                        type="button"
+                        className={reqPk(r) === reqId ? 'on' : ''}
+                        onMouseDown={() => setReqId(reqPk(r))}
+                      >
+                        <b>{r.title || '(제목 없음)'}</b>
+                        <i>{reqLabel(r)}</i>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="frow tcf-2">
+            <label className="fld">
+              <span>시험항목 ID {isNew ? '· 자동 부여' : '· 고정'}</span>
               <input
                 value={tcid || (isNew ? '자동 부여 중…' : '')}
                 readOnly
                 className="ro"
                 title="시험 ID 는 자동으로 매겨지며 수정할 수 없습니다"
+                tabIndex={-1}
               />
             </label>
             <label className="fld">
-              <span>상태</span>
-              <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                {STATUSES.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-            </label>
-            <label className="fld">
-              <span>중요도</span>
-              <select value={severity} onChange={(e) => setSeverity(e.target.value)}>
-                {SEVERITIES.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
+              <span>시험항목 제목</span>
+              <input
+                autoFocus
+                value={name}
+                placeholder="E6100 10G Rate Limit 검증 (1518B)"
+                onChange={(e) => setName(e.target.value)}
+              />
             </label>
           </div>
 
-          <label className="fld">
-            <span>제목</span>
-            <input
-              autoFocus
-              value={name}
-              placeholder="E6100 10G Rate Limit 검증 (1518B)"
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-
-          {/* 적용 모델 — 필수. 모델마다 인터페이스가 달라 CLI·판정기준이
-              갈리므로 시험을 모델그룹+모델명 기준으로 만든다. */}
-          <div className="frow">
+          {/* 값 일곱을 한 줄에 — 모델그룹·모델명은 필수다. 모델마다
+              인터페이스가 달라 CLI·판정기준이 갈리는 현실의 답. */}
+          <div className="tcf-7">
             <label className="fld">
               <span>모델그룹 *</span>
               <select
@@ -254,7 +305,7 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
                 }}
               >
                 <option value="">(골라 주세요)</option>
-                <option value={COMMON}>공용 (전체 모델)</option>
+                <option value={COMMON}>공용 (전체)</option>
                 {(rolesQ.data?.groups ?? []).map((g) => (
                   <option key={g}>{g}</option>
                 ))}
@@ -280,39 +331,20 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
                 )}
               </select>
             </label>
-          </div>
-
-          <div className="frow">
-            <label className="fld">
-              <span>연결 요구사항</span>
-              <select value={reqId} onChange={(e) => setReqId(e.target.value)}>
-                <option value="">(연결 안 함)</option>
-                {reqs.map((r) => (
-                  <option key={reqPk(r)} value={reqPk(r)}>
-                    {reqLabel(r)} · {r.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="fld">
-              <span>유형</span>
-              {/* 자유 입력이면 'FT' 와 'ft' 가 갈려 같은 유형이 둘로 보인다.
-                  목록은 설정 → TC INFO 필드에서 늘린다. */}
-              <select value={type} onChange={(e) => setType(e.target.value)}>
-                <option value="">(선택)</option>
-                {TYPES.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          <div className="frow">
             <label className="fld">
               <span>실행 타입</span>
               <select value={runType} onChange={(e) => setRunType(e.target.value)}>
                 <option value="">(선택)</option>
                 {RUN_TYPES.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+            <label className="fld">
+              <span>유형</span>
+              <select value={type} onChange={(e) => setType(e.target.value)}>
+                <option value="">(선택)</option>
+                {TYPES.map((s) => (
                   <option key={s}>{s}</option>
                 ))}
               </select>
@@ -326,6 +358,22 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
                 ))}
               </select>
             </label>
+            <label className="fld">
+              <span>상태</span>
+              <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                {STATUSES.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+            <label className="fld">
+              <span>심각도</span>
+              <select value={severity} onChange={(e) => setSeverity(e.target.value)}>
+                {SEVERITIES.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </label>
           </div>
 
           <CustomFieldInputs
@@ -334,11 +382,14 @@ export default function TcForm({ editing, presetReqId, onClose }: Props) {
             onChange={(k, v) => setCustom((c) => ({ ...c, [k]: v }))}
           />
 
-          {!isNew && (
+          {isNew ? (
             <div className="hint">
-              시험 절차 {editing._cli_count ?? 0}스텝은 이 창에서 고치지 않습니다.
-              스텝 편집 화면은 다음 작업으로 붙입니다 — 지금 저장해도 기존
-              스텝은 그대로 보존됩니다.
+              저장하면 이 시험이 바로 열립니다 — 스텝·토폴로지 같은 세부는 거기서 적습니다.
+            </div>
+          ) : (
+            <div className="hint">
+              시험 절차 {editing._cli_count ?? 0}스텝은 이 창에서 고치지 않습니다. 지금
+              저장해도 기존 스텝은 그대로 보존됩니다.
             </div>
           )}
         </div>

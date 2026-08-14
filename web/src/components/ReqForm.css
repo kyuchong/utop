@@ -845,3 +845,69 @@
   color: var(--c-text-muted);
   cursor: default;
 }
+
+/* ── 테스트케이스 추가/편집 창 — Info 「기본」 카드와 같은 차례 ────── */
+.modal.tcf {
+  width: min(1060px, 96vw);
+  max-width: none;
+  max-height: 88vh;
+}
+/* 이 창은 라벨을 위에 — 왼쪽 라벨(72px 그리드)로는 일곱 칸 줄이 찌그러진다 */
+.modal.tcf .fld {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+.modal.tcf .fld > span { text-align: left; }
+.modal.tcf .modal-body { min-height: 380px; }
+.tcf-2 { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 12px; }
+.tcf-7 {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+}
+/* 요구사항 검색 콤보 — 수백 건 셀렉트 대신 */
+.tcf-reqc { position: relative; }
+.tcf-reqlist {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  max-height: 280px;
+  overflow-y: auto;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgb(15 23 42 / 0.2);
+}
+.tcf-reqlist > button {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: transparent;
+  padding: 7px 11px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.tcf-reqlist > button:last-child { border-bottom: 0; }
+.tcf-reqlist > button:hover { background: var(--c-primary-bg); }
+.tcf-reqlist > button.on { background: var(--c-primary-bg); box-shadow: inset 2px 0 0 var(--c-primary); }
+.tcf-reqlist > button > b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tcf-reqlist > button > i {
+  font-style: normal;
+  flex: none;
+  margin-left: auto;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}

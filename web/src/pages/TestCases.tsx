@@ -1925,6 +1925,7 @@ export default function TestCases({ me }: PageProps) {
                   : tcs.find((x) => x.tcid === openId)?.req_id) || undefined
               : undefined
           }
+          onCreated={(id) => pickTc(id)}
           onClose={() => setForm(undefined)}
         />
       )}
