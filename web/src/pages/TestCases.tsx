@@ -1323,14 +1323,11 @@ export default function TestCases({ me }: PageProps) {
                   </div>
   )
 
-  const detHead = (
-                <div className="tc-dethead">
-                  {/* 저장 · 탭은 **왼쪽**에 — 화면 오른쪽 끝까지 손이 가야
-                      했다. 알림(함께 보는 중·저장 종)과 ⋯ 는 오른쪽 끝 —
-                      ⋯ 는 가끔 쓰는 것들이라 눈에 걸리지 않는 자리가 맞다. */}
-            {openId && !gpOpen && (
-              <div className="seg" role="tablist">
-                {([
+  /** 탭 레일 — 세부의 왼쪽 세로 탭. 가로 한 줄을 세로 레일로 보내면
+      인라인(높이 제한)에서 내용이 그만큼 더 높아진다. */
+  const tabRail = openId && !gpOpen ? (
+    <nav className="tc-rail" role="tablist">
+      {([
                   // 정보 → Manual → Automation 순. 시험을 만드는 순서와 같다 —
                   // 무엇을 시험할지 적고, 사람이 할 일을 적고, 그중 자동으로
                   // 돌릴 것을 만든다.
@@ -1368,8 +1365,25 @@ export default function TestCases({ me }: PageProps) {
                     {k === 'topo' && wireCount > 0 && <span className="cnt">{wireCount}</span>}
                   </button>
                 ))}
-              </div>
-            )}
+      <span className="sp" />
+      {/* 저장은 레일 맨 아래 고정 — 내용을 아무리 내려도 늘 그 자리다 */}
+      <button
+        className="btn primary tc-rail-save"
+        type="button"
+        disabled={saveM.isPending || !dirty}
+        onClick={() => saveM.mutate()}
+      >
+        {saveM.isPending ? '저장 중…' : dirty ? '저장' : '저장됨'}
+      </button>
+    </nav>
+  ) : null
+
+  const detHead = (
+                <div className="tc-dethead">
+                  {/* 저장 · 탭은 **왼쪽**에 — 화면 오른쪽 끝까지 손이 가야
+                      했다. 알림(함께 보는 중·저장 종)과 ⋯ 는 오른쪽 끝 —
+                      ⋯ 는 가끔 쓰는 것들이라 눈에 걸리지 않는 자리가 맞다. */}
+
                   <span className="sp" />
 
                   {/* 이름·ID 는 위 빵부스러기에 이미 있다. 여기에도 적었더니
@@ -1410,17 +1424,6 @@ export default function TestCases({ me }: PageProps) {
                       보였다. 늘 보이는 자리로 올린다. */}
                   {msg.text && <span className={`tc-msg ${msg.kind}`}>{msg.text}</span>}
                   {view === 'detail' && moreMenu}
-                  {/* 저장은 가장 오른쪽 — 탭을 훑고 나서 마지막에 누르는 것 */}
-                  {openId && !gpOpen && (
-                    <button
-                      className="btn primary"
-                      type="button"
-                      disabled={saveM.isPending || !dirty}
-                      onClick={() => saveM.mutate()}
-                    >
-                      {saveM.isPending ? '저장 중…' : dirty ? '저장' : '저장됨'}
-                    </button>
-                  )}
                 </div>
   )
 
@@ -2260,7 +2263,10 @@ export default function TestCases({ me }: PageProps) {
                       {expanded && !gpOpen && (
                         <div className="tc-inline">
                           {detHead}
-                          <div className="tc-inline-body">{detPanes}</div>
+                          <div className="tc-inline-body">
+                            {tabRail}
+                            <div className="tc-railbody">{detPanes}</div>
+                          </div>
                         </div>
                       )}
                       </div>
@@ -2275,7 +2281,10 @@ export default function TestCases({ me }: PageProps) {
           </section>
 
         ) : (
-          detPanes
+          <div className="tc-withrail">
+            {tabRail}
+            <div className="tc-railbody">{detPanes}</div>
+          </div>
         )}
         </div>
       </div>
