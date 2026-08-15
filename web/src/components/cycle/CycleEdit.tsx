@@ -72,6 +72,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   const [hideAdded, setHideAdded] = useState(false)
   /** 배정하면서 바로 넣을 담당자 — 비우면 Details 의 담당(Owner)을 쓴다 */
   const [asgWho, setAsgWho] = useState('')
+  /** Zephyr 의 Add others — 체크하면 담은 뒤에도 창이 남아 계속 담는다 */
+  const [addOthers, setAddOthers] = useState(false)
   const [assignee, setAssignee] = useState('')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
@@ -356,7 +358,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   }, [reqSel, reqsUnderCat, tcQ, tcsByReq, allTcs, fMg, fMd, fSev, fStat, fKind, fTyp, model, mgroup])
 
   /** 3열 — 요구사항으로 묶는다. 여섯 건만 넘어도 평평하면 안 읽힌다 */
-  const assign = (ids: string[]) => {
+  const assign = (ids: string[]): PickedItem[] => {
     const add = ids
       .filter((id) => !pickedIds.has(id))
       .map((id) => {
@@ -369,8 +371,10 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           steps: [],
         }
       })
-    if (add.length) setPicked((p) => [...p, ...add])
+    const next = add.length ? [...picked, ...add] : picked
+    if (add.length) setPicked(next)
     setTcSel(new Set())
+    return next
   }
 
   /** 골라 둔 것 중 이미 배정된 것을 뺀다 — 결과가 있으면 묻는다 */
@@ -405,7 +409,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   const vg = (newVgroup.trim() || vgroup).trim()
   const ready = !!model && !!version.trim() && picked.length > 0
 
-  const save = async () => {
+  const save = async (itemsNow?: PickedItem[]) => {
     setBusy(true)
     setErr('')
     try {
@@ -434,7 +438,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           start_date: start || null,
           end_date: end || null,
           created_at: base.created_at ?? new Date().toISOString().slice(0, 10),
-          items: picked,
+          items: itemsNow ?? picked,
         }),
       })
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || String(r.status))
@@ -560,21 +564,6 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           {/* 건수는 안 적는다 — 3열 머리(배정된 항목 N)가 이미 말한다 */}
           {err && <span className="muted small err">{err}</span>}
           <span className="sp" />
-          {/* 단추는 위 오른쪽 한 곳에 — 아래에 또 두면 눈이 오르내린다 */}
-          <button className="btn" type="button" disabled={busy} onClick={onClose}>
-            취소
-          </button>
-          <button
-            className="btn primary"
-            type="button"
-            disabled={!ready || busy}
-            onClick={() => void save()}
-          >
-            {busy ? '저장 중…' : '저장'}
-          </button>
-          <button className="btn small" type="button" disabled={busy} onClick={onClose}>
-            ✕
-          </button>
         </div>
 
         {/* Details / Test Cases — 기본 정보와 항목 고르기를 가른다 (Zephyr) */}
@@ -747,6 +736,22 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
             </span>
           </label>
           </fieldset>
+
+          {/* 저장은 아래에서 — Test Cases 탭의 Add 와 같은 자리 문법 */}
+          <div className="ce-addbar ce-wide">
+            <span className="sp" />
+            <button className="btn" type="button" disabled={busy} onClick={onClose}>
+              취소
+            </button>
+            <button
+              className="btn primary"
+              type="button"
+              disabled={!ready || busy}
+              onClick={() => void save()}
+            >
+              {busy ? '저장 중…' : '저장'}
+            </button>
+          </div>
         </div>
 
         <div className="ce-cols" style={{ display: tab === 'tcs' ? undefined : 'none' }}>
@@ -940,26 +945,37 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               <span className="muted small">
                 {tcSel.size ? `${tcSel.size}건 고름` : '체크한 항목을 담습니다'}
               </span>
+              <label className="ce-hide" title="체크해 두면 담은 뒤에도 창이 남아 계속 담습니다">
+                <input
+                  type="checkbox"
+                  checked={addOthers}
+                  onChange={(e) => setAddOthers(e.target.checked)}
+                />
+                Add others
+              </label>
               <span className="sp" />
-              <button
-                className="btn"
-                type="button"
-                disabled={![...tcSel].some((id) => !pickedIds.has(id))}
-                title="담고 나서 계속 고릅니다 — 고른 것·검색을 비웁니다"
-                onClick={() => {
-                  assign([...tcSel])
-                  setTcSel(new Set())
-                  setTcQ('')
-                }}
-              >
-                Add another
+              <button className="btn" type="button" disabled={busy} onClick={onClose}>
+                취소
               </button>
               <button
                 className="btn primary"
                 type="button"
-                disabled={![...tcSel].some((id) => !pickedIds.has(id))}
-                title="체크한 항목을 사이클에 담습니다"
-                onClick={() => assign([...tcSel])}
+                disabled={busy || ![...tcSel].some((id) => !pickedIds.has(id))}
+                title={
+                  addOthers
+                    ? '담고 나서 계속 고릅니다'
+                    : '담고 저장한 뒤 창을 닫습니다'
+                }
+                onClick={() => {
+                  const next = assign([...tcSel])
+                  if (addOthers) {
+                    setTcQ('')
+                    return
+                  }
+                  // 미체크 = 담고 끝 — 저장까지 하고 닫는다
+                  if (model && version.trim() && next.length > 0) void save(next)
+                  else setTab('details')
+                }}
               >
                 Add
               </button>
