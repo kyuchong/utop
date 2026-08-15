@@ -2131,14 +2131,18 @@ table.tb tr.r-bad td:first-child {
   flex: 1;
 }
 .bk-list {
-  flex: 1;
+  /* 편집 칸은 58% 까지만 — 넓은 창에서 끝까지 늘어나면 오른쪽에 죽은
+     띠가 생기고 대상 목록이 구석으로 밀렸다 */
+  flex: 0 1 58%;
   min-width: 0;
   padding: 4px 0;
   overflow: auto;
 }
-/* 「12건」 이라는 숫자만 보고 덮어쓰기를 누르게 하면 안 된다 */
+/* 「12건」 이라는 숫자만 보고 덮어쓰기를 누르게 하면 안 된다.
+   남는 폭을 다 갖는다 — 긴 시험 이름이 그대로 읽힌다 */
 .bk-targets {
-  flex: 0 0 240px;
+  flex: 1;
+  min-width: 240px;
   border-left: 1px solid var(--c-border);
   display: flex;
   flex-direction: column;

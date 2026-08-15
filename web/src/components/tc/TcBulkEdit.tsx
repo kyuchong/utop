@@ -498,17 +498,20 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
             {ready ? `${ids.length}건에 적용합니다` : '넣을 내용을 적으세요'}
           </span>
           <span className="sp" />
-          <button className="btn" type="button" disabled={busy} onClick={onClose}>
-            취소
-          </button>
-          <button
-            className="btn primary"
-            type="button"
-            disabled={!ready || busy}
-            onClick={() => void apply()}
-          >
-            {busy ? '넣는 중…' : '넣기'}
-          </button>
+          {/* 취소·넣기는 오른끝에 붙여 한 묶음 — 떨어져 있으면 눈이 오간다 */}
+          <span className="page-head-actions">
+            <button className="btn" type="button" disabled={busy} onClick={onClose}>
+              취소
+            </button>
+            <button
+              className="btn primary"
+              type="button"
+              disabled={!ready || busy}
+              onClick={() => void apply()}
+            >
+              {busy ? '넣는 중…' : '넣기'}
+            </button>
+          </span>
         </div>
       </div>
     </div>
