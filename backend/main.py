@@ -3163,7 +3163,7 @@ def _snmp_probe_sync(host: str, port: int, community: str) -> tuple[bool, str]:
         s.sendto(msg, (host, int(port or 161)))
         data, _ = s.recvfrom(65535)
     except socket.timeout:
-        return False, "응답 없음 — 주소·포트(161)·community 를 확인하세요"
+        return False, "응답 없음 — 주소·포트(161)·community 확인 (SNMP 줄의 계정 칸이 community, 비우면 public)"
     except OSError as e:
         return False, str(e)
     finally:
@@ -3244,8 +3244,11 @@ async def devices2_check(dev_id: str, protocol: str = ""):
             ok = bool(isinstance(r, dict) and r.get("ok"))
             err = "" if ok else str((r or {}).get("error") or "STC 응답 없음")
         elif proto == "snmp":
-            # community 는 SNMP 줄의 계정 칸 — 비우면 공용 계정, 그래도 없으면 public
-            comm = (a.get("username") or d.get("username") or "public").strip() or "public"
+            # community 는 SNMP 줄의 계정 칸 — 비우면 public.
+            # 공용 계정(root 따위)으로 폴백하면 안 된다 — 그건 CLI 로그인
+            # 계정이지 community 가 아니라서, 장비가 침묵해 「응답 없음」 이
+            # 됐다(겪었다).
+            comm = (a.get("username") or "").strip() or "public"
             ok, err = await loop.run_in_executor(
                 None, _snmp_probe_sync, host, a.get("port") or 161, comm
             )
