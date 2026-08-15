@@ -886,16 +886,35 @@ export default function Cycles({ me }: PageProps) {
     )
   }
 
-  /** 빵부스러기에 적을 길 — 사이클이 열려 있으면 그 길, 아니면 고른 폴더 길 */
+  /** 빵부스러기 — 트리 경로 그대로. 조각을 누르면 그 폴더 보드로 간다 */
   const crumbs = useMemo(() => {
-    if (cur) {
-      const g = new Map(models.map((m) => [m.name, (m.model_group ?? '').trim()]))
-      const model = String(cur.model ?? '').trim()
-      return [g.get(model) || '', model, String(cur.version_group ?? '').trim()].filter(Boolean)
+    const path = cur ? pathOfCycle(cur, famOf) : scope ? scope.key : ''
+    const parts = path.split('/').filter(Boolean)
+    return parts.map((label, i) => ({ label, key: parts.slice(0, i + 1).join('/') }))
+  }, [cur, scope, famOf])
+
+  /** 빵부스러기·복원이 함께 쓰는 폴더 이동 — 상세를 닫고 그 묶음을 보인다 */
+  const scopeToKey = (key: string) => {
+    const findNode = (ns: Node[]): Node | null => {
+      for (const n of ns) {
+        if (n.key === key) return n
+        const hit = findNode(n.children)
+        if (hit) return hit
+      }
+      return null
     }
-    if (scope) return scope.key.split('/').filter(Boolean)
-    return []
-  }, [cur, models, scope])
+    const node = findNode(tree)
+    if (!node) return
+    localStorage.setItem('utop.cycle.scope', node.key)
+    setOpen((x) => {
+      const n2 = new Set(x)
+      const parts = key.split('/')
+      for (let i = 1; i <= parts.length; i++) n2.add(parts.slice(0, i).join('/'))
+      return n2
+    })
+    setScope({ key: node.key, label: node.label, ids: new Set(cyclesUnder(node).map((c) => c.id)) })
+    setSel('')
+  }
 
   return (
     // 요구사항·TC 화면과 **같은 뼈대**를 쓴다. 세 화면을 오가는 사람이
@@ -918,9 +937,16 @@ export default function Cycles({ me }: PageProps) {
             사이클
           </button>
           {crumbs.map((c) => (
-            <span key={c}>
+            <span key={c.key}>
               <span className="rq-crumb-sep">›</span>
-              <span className="muted">{c}</span>
+              <button
+                type="button"
+                className="cy-crumb-go"
+                title="이 폴더의 사이클 목록으로 갑니다"
+                onClick={() => scopeToKey(c.key)}
+              >
+                {c.label}
+              </button>
             </span>
           ))}
           {cur && (

@@ -3078,3 +3078,14 @@ table.tb td.k {
 }
 .cy-scopebar .cy-bar { height: 8px; }
 .cy-scopebar-t { font-size: var(--fs-xs); color: var(--c-text-muted); white-space: nowrap; }
+
+/* 빵부스러기 조각 — 누르면 그 폴더 보드로 */
+.cy-crumb-go {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.cy-crumb-go:hover { color: var(--c-primary); text-decoration: underline; }
