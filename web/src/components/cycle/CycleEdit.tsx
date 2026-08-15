@@ -682,6 +682,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
 
         <div className="ce-form" style={{ display: tab === 'details' ? undefined : 'none' }}>
           {/* Name · Description — 위에 넓게 (Zephyr Create Test Cycle) */}
+          <div className="ce-left">
           <label className="fld ce-wide">
             <span>제목 (Name) *</span>
             <input
@@ -701,6 +702,9 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               />
             </div>
           </div>
+          </div>
+
+          <div className="ce-right">
           {/* 벤더 → 제품군 → 모델그룹 → 모델명 — 단계로 좁혀 고른다.
               위를 바꾸면 아래 고른 것은 버린다(범위 밖일 수 있다). */}
           <fieldset className="ce-sec">
@@ -832,6 +836,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
             </span>
           </label>
           </fieldset>
+          </div>
 
         </div>
 
@@ -990,6 +995,31 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           <div className="ce-pophead">
             <b>항목 추가 — Add Existing Test Cases</b>
             <span className="sp" />
+            <label className="ce-hide" title="이미 배정된 항목을 목록에서 숨깁니다">
+              <input
+                type="checkbox"
+                checked={hideAdded}
+                onChange={(e) => setHideAdded(e.target.checked)}
+              />
+              담은 항목 숨기기
+            </label>
+            <button
+              className="btn small"
+              type="button"
+              title="보이는 것 전부 고르기"
+              onClick={() => setTcSel(new Set(visTcs.map((t) => t.tcid)))}
+            >
+              전체
+            </button>
+            <button
+              className="btn small danger"
+              type="button"
+              title="고른 것 중 이미 배정된 것을 뺍니다"
+              disabled={![...tcSel].some((id) => pickedIds.has(id))}
+              onClick={() => unassign([...tcSel])}
+            >
+              ← 해제
+            </button>
             <button className="btn small" type="button" onClick={() => setAddPop(false)}>
               ✕
             </button>
@@ -1022,31 +1052,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               <b>시험항목</b>
               <span className="muted small">{visTcs.length}건</span>
               <span className="sp" />
-              <label className="ce-hide" title="이미 배정된 항목을 목록에서 숨깁니다">
-                <input
-                  type="checkbox"
-                  checked={hideAdded}
-                  onChange={(e) => setHideAdded(e.target.checked)}
-                />
-                담은 항목 숨기기
-              </label>
-              <button
-                className="btn small"
-                type="button"
-                title="보이는 것 전부 고르기"
-                onClick={() => setTcSel(new Set(visTcs.map((t) => t.tcid)))}
-              >
-                전체
-              </button>
-              <button
-                className="btn small danger"
-                type="button"
-                title="고른 것 중 이미 배정된 것을 뺍니다"
-                disabled={![...tcSel].some((id) => pickedIds.has(id))}
-                onClick={() => unassign([...tcSel])}
-              >
-                ← 해제
-              </button>
+
             </div>
             {/* 거르개 줄 — 옛 화면의 필터. 자료에 있는 값만 띄운다 */}
             <div className="ce-filters">
@@ -1088,32 +1094,6 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                   <option key={v} value={v}>{v}</option>
                 ))}
               </select>
-              <span className="sp" />
-              <button
-                className="btn small"
-                type="button"
-                disabled={!picked.length}
-                title="배정된 전 항목의 담당자를 한 번에 정합니다"
-                onClick={() => {
-                  const who = window.prompt('배정된 항목의 담당자', assignee)?.trim()
-                  if (who === undefined || who === null) return
-                  setPicked((p) => p.map((x) => ({ ...x, assignee: who })))
-                  if (!assignee.trim()) setAssignee(who)
-                }}
-              >
-                담당자 할당
-              </button>
-              <button
-                className="btn small"
-                type="button"
-                disabled={!picked.length}
-                title="배정된 항목을 전부 뺍니다"
-                onClick={() => {
-                  if (window.confirm('배정된 항목을 전부 뺍니다.')) setPicked([])
-                }}
-              >
-                비우기
-              </button>
               {(fSev || fStat || fKind || fTyp) && (
                 <button
                   className="btn small"

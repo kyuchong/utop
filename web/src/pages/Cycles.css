@@ -754,14 +754,21 @@ select.cy-v.na { color: #999; }
 .modal.ce .modal-head { justify-content: flex-start; gap: 10px; }
 .modal.ce .modal-head .sp { flex: 1; }
 .ce-form {
-  /* 제목·설명은 넓게, 그 아래 [분류][버전][관리] 세 박스가 열로 나란히 */
+  /* 왼쪽 = 제목·설명(편집기), 오른쪽 = 분류·버전·관리 박스 스택 */
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1.15fr 1fr;
   gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--c-border);
-  align-items: stretch;
+  align-items: start;
 }
+.ce-left, .ce-right {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.ce-left .ce-md { flex: 1; }
 .ce-sec {
   border: 1px solid var(--c-border);
   border-radius: var(--radius);
@@ -3218,3 +3225,9 @@ table.tb td.k {
   padding: 5px 12px;
   font-size: var(--fs-sm);
 }
+
+/* 항목 추가 팝업 줄 — 오른쪽 칩들이 서로 침범하지 않게 고정폭 열로 */
+.ce-tc { gap: 8px; }
+.ce-tc .ce-tc-nm { min-width: 0; }
+.ce-tcst { width: 56px; text-align: center; flex: none; }
+.ce-tc > .muted.small { width: 44px; flex: none; text-align: right; }
