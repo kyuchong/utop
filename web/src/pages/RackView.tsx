@@ -364,6 +364,15 @@ export default function RackView() {
     onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
   })
 
+  const setUnits = useMutation({
+    mutationFn: (p: { id: string; units: number }) =>
+      saveFrames((kv) => {
+        const it = ((kv.racks as RvRack[] | undefined) ?? []).find((r) => r.id === p.id)
+        if (it) it.units = p.units
+      }),
+    onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
+  })
+
   const delLab = useMutation({
     mutationFn: (id: string) =>
       saveFrames((kv) => {
@@ -1026,6 +1035,33 @@ export default function RackView() {
               }}
             >
               {rackCtx.rack.desc ? '용도 고치기…' : '용도 적기…'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const rk2 = rackCtx.rack
+                setRackCtx(null)
+                const v = window.prompt('랙 높이 (U) — 42U 랙이면 42', String(rk2.units ?? 45))
+                if (!v) return
+                const u = parseInt(v, 10)
+                if (!Number.isFinite(u) || u < 1 || u > 60) {
+                  window.alert('1~60 사이 숫자로 적어 주세요')
+                  return
+                }
+                // 실려 있는 것보다 낮게는 못 줄인다 — 장비가 허공에 뜬다
+                let top = 0
+                for (const d of devByRack.get(rk2.id) ?? [])
+                  top = Math.max(top, d.rack_pos + d.rack_units - 1)
+                for (const b of blanksByRack.get(rk2.id) ?? [])
+                  top = Math.max(top, (Number(b.pos) || 0) + (Number(b.units) || 1) - 1)
+                if (u < top) {
+                  window.alert(`${top}U 에 장비·부품이 있어 ${u}U 로 줄일 수 없습니다`)
+                  return
+                }
+                setUnits.mutate({ id: rk2.id, units: u })
+              }}
+            >
+              높이 바꾸기… <i className="muted small">지금 {rackCtx.rack.units ?? 45}U</i>
             </button>
             <button
               type="button"

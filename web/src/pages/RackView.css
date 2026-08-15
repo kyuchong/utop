@@ -144,7 +144,8 @@
   padding: 8px var(--sp-3) var(--sp-3);
   display: flex;
   gap: 8px;
-  align-items: flex-start;
+  /* 실물처럼 바닥을 맞춘다 — 42U 는 45U 옆에서 위가 빈다 */
+  align-items: flex-end;
 }
 
 .rv-rack {
