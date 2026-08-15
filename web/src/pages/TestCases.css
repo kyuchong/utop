@@ -2970,7 +2970,8 @@ table.tb tr.r-bad td:first-child {
 .modal.bk {
   height: 92vh;
   max-height: 92vh;
-  width: min(980px, 96vw);
+  /* 가로도 화면을 거의 다 쓴다 — 편집기 두 개와 대상 목록이 넉넉해야 한다 */
+  width: 96vw;
   max-width: none;
 }
 .modal.bk .bk-cols { flex: 1; min-height: 0; }
