@@ -360,21 +360,29 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   }, [reqSel, reqsUnderCat, tcQ, tcsByReq, allTcs, fMg, fMd, fSev, fStat, fKind, fTyp, model, mgroup])
 
   /** 3열 — 요구사항으로 묶는다. 여섯 건만 넘어도 평평하면 안 읽힌다 */
-  /** 담긴 항목을 요구사항별로 묶는다 — 완료 화면(Test Cases 탭)이 그린다 */
-  const grouped = useMemo(() => {
-    const by = new Map<string, PickedItem[]>()
-    for (const it of picked) {
-      const k = String(it.req_id ?? '')
-      const arr = by.get(k)
-      if (arr) arr.push(it)
-      else by.set(k, [it])
+  /** 완료 화면에서 체크한 항목들 (tcid) — 삭제·담당자 할당이 본다 */
+  const [doneSel, setDoneSel] = useState<Set<string>>(new Set())
+  /** 최근 결과 — 손 판정이 있으면 그것, 아니면 스텝에서 가볍게 센다 */
+  const lastResult = (it: PickedItem): string => {
+    const r = String((it as { result?: unknown }).result ?? '').trim()
+    if (r) return r
+    const steps = (it.steps ?? []) as Array<{ result?: string; status?: string; repeatResult?: string }>
+    let pass = false
+    for (const st of steps) {
+      const v =
+        String(st.result ?? '').trim() ||
+        String(st.status ?? '').trim() ||
+        String(st.repeatResult ?? '').trim()
+      if (/^(fail|불합격)$/i.test(v)) return 'Fail'
+      if (/^(pass|합격)$/i.test(v)) pass = true
     }
-    const labelOf = (rid: string) => {
-      const r = reqs.find((r2) => reqPk(r2) === rid || String(r2.reqid ?? '') === rid)
-      return r ? reqLabel(r) : rid || '요구사항 없음'
-    }
-    return [...by.entries()].map(([rid, list]) => ({ rid, label: labelOf(rid), list }))
-  }, [picked, reqs])
+    return pass ? 'Pass' : '미실행'
+  }
+  const reqTitleOf = (rid: string) => {
+    const r = reqs.find((r2) => reqPk(r2) === rid || String(r2.reqid ?? '') === rid)
+    return r ? reqLabel(r) : rid || '–'
+  }
+
 
   const assign = (ids: string[]): PickedItem[] => {
     const add = ids
@@ -776,52 +784,114 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
         {tab === 'tcs' && (
           <div className="ce-done">
             <div className="ce-donehead">
-              <button className="btn primary" type="button" onClick={() => setAddPop(true)}>
+              <button className="btn small" type="button" onClick={() => setAddPop(true)}>
                 ＋ 항목 추가
               </button>
               <span className="ce-n">{picked.length}</span>
-              <span className="sp" />
+              <button
+                className="btn small danger"
+                type="button"
+                disabled={!doneSel.size}
+                title="체크한 항목을 사이클에서 뺍니다"
+                onClick={() => {
+                  const withRuns = picked.filter(
+                    (x) => doneSel.has(x.tcid) && (x.steps?.length ?? 0) > 0,
+                  )
+                  if (
+                    withRuns.length &&
+                    !window.confirm(
+                      `${withRuns.length}건은 실행 결과가 있습니다. 빼면 결과도 사라집니다. 뺄까요?`,
+                    )
+                  )
+                    return
+                  setPicked((p) => p.filter((x) => !doneSel.has(x.tcid)))
+                  setDoneSel(new Set())
+                }}
+              >
+                삭제{doneSel.size ? ` (${doneSel.size})` : ''}
+              </button>
               <button
                 className="btn small"
                 type="button"
                 disabled={!picked.length}
-                title="담긴 전 항목의 담당자를 한 번에 정합니다"
+                title="체크한 항목(없으면 전부)의 담당자를 한 번에 정합니다"
                 onClick={() => {
-                  const who = window.prompt('담긴 항목의 담당자', assignee)?.trim()
+                  const who = window.prompt(
+                    doneSel.size ? `체크한 ${doneSel.size}건의 담당자` : '담긴 전 항목의 담당자',
+                    assignee,
+                  )?.trim()
                   if (who === undefined || who === null) return
-                  setPicked((p) => p.map((x) => ({ ...x, assignee: who })))
+                  setPicked((p) =>
+                    p.map((x) =>
+                      !doneSel.size || doneSel.has(x.tcid) ? { ...x, assignee: who } : x,
+                    ),
+                  )
                   if (!assignee.trim()) setAssignee(who)
                 }}
               >
-                담당자 일괄
+                담당자 할당
               </button>
-              <button
-                className="btn small"
-                type="button"
-                disabled={!picked.length}
-                onClick={() => {
-                  if (window.confirm('담긴 항목을 전부 뺍니다.')) setPicked([])
-                }}
-              >
-                비우기
-              </button>
+              <span className="sp" />
             </div>
             <div className="ce-body ce-donelist">
               {picked.length === 0 ? (
                 <div className="empty">아직 담긴 시험이 없습니다 — 위 「＋ 항목 추가」 로 담으세요.</div>
               ) : (
-                grouped.map((g) => (
-                  <div key={g.rid}>
-                    <div className="ce-gh">
-                      {g.label} <i>({g.list.length})</i>
-                    </div>
-                    {g.list.map((it) => (
-                      <div className="ce-item" key={it.tcid}>
-                        <span className="ce-item-nm" title={it.tcid}>
+                <>
+                  <div className="ce-dt ce-dthd">
+                    <span className="ce-dtck">
+                      <input
+                        type="checkbox"
+                        checked={picked.length > 0 && doneSel.size === picked.length}
+                        ref={(el) => {
+                          if (el)
+                            el.indeterminate = doneSel.size > 0 && doneSel.size < picked.length
+                        }}
+                        onChange={() =>
+                          setDoneSel(
+                            doneSel.size === picked.length
+                              ? new Set()
+                              : new Set(picked.map((x) => x.tcid)),
+                          )
+                        }
+                      />
+                    </span>
+                    <span>요구사항 제목</span>
+                    <span>시험항목 제목</span>
+                    <span>최근 결과</span>
+                    <span>담당자</span>
+                  </div>
+                  {picked.map((it) => {
+                    const v = lastResult(it)
+                    return (
+                      <div className="ce-dt" key={it.tcid}>
+                        <span className="ce-dtck">
+                          <input
+                            type="checkbox"
+                            checked={doneSel.has(it.tcid)}
+                            onChange={() =>
+                              setDoneSel((cur) => {
+                                const n = new Set(cur)
+                                if (n.has(it.tcid)) n.delete(it.tcid)
+                                else n.add(it.tcid)
+                                return n
+                              })
+                            }
+                          />
+                        </span>
+                        <span className="ce-dtreq cyt-ell" title={String(it.req_id ?? '')}>
+                          {reqTitleOf(String(it.req_id ?? ''))}
+                        </span>
+                        <span className="cyt-ell" title={it.tcid}>
                           {it.name || it.tcid}
                         </span>
-                        {(it.steps?.length ?? 0) > 0 && <b className="ce-ran">결과 있음</b>}
-                        {/* 항목별 담당자 — 완료 화면에서 바로 적는다 */}
+                        <span>
+                          <em
+                            className={`ce-dtv ${v === 'Pass' ? 'pass' : v === 'Fail' ? 'fail' : ''}`}
+                          >
+                            {v}
+                          </em>
+                        </span>
                         <input
                           className="ce-iwho"
                           value={String(it.assignee ?? '')}
@@ -834,18 +904,10 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                             )
                           }
                         />
-                        <button
-                          type="button"
-                          className="ce-x"
-                          aria-label="빼기"
-                          onClick={() => setPicked((p) => p.filter((x) => x.tcid !== it.tcid))}
-                        >
-                          ✕
-                        </button>
                       </div>
-                    ))}
-                  </div>
-                ))
+                    )
+                  })}
+                </>
               )}
             </div>
             <div className="ce-addbar">

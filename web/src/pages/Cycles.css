@@ -3119,8 +3119,8 @@ table.tb td.k {
   justify-content: center;
 }
 .ce-pop {
-  width: min(1150px, 94vw);
-  height: min(760px, 88vh);
+  width: min(1450px, 96vw);
+  height: min(780px, 88vh);
   display: flex;
   flex-direction: column;
   background: var(--c-surface);
@@ -3158,3 +3158,29 @@ table.tb td.k {
   font-size: var(--fs-xs);
   flex: none;
 }
+
+/* 완료 화면 표 — ☐ · 요구사항 제목 · 시험항목 제목 · 최근 결과 · 담당자 */
+.ce-dt {
+  display: grid;
+  grid-template-columns: 26px minmax(150px, 0.8fr) minmax(200px, 1.2fr) 64px 120px;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--c-border-weak, #eef1f5);
+  font-size: var(--fs-sm);
+  min-height: 30px;
+}
+.ce-dthd {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-faint);
+  border-bottom: 1px solid var(--c-border);
+  position: sticky;
+  top: 0;
+  background: var(--c-surface);
+}
+.ce-dtck { display: flex; align-items: center; }
+.ce-dtreq { color: var(--c-text-muted); }
+.ce-dtv { font-style: normal; font-size: var(--fs-xs); font-weight: 700; color: var(--c-text-faint); }
+.ce-dtv.pass { color: var(--c-pass); }
+.ce-dtv.fail { color: var(--c-fail); }
