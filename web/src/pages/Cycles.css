@@ -763,13 +763,13 @@ select.cy-v.na { color: #999; }
 }
 .ce-sec {
   border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px 12px;
+  border-radius: var(--radius);
+  padding: 8px 14px 14px;
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 10px;
-  background: var(--c-surface-alt);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  background: var(--c-surface);
 }
 .ce-sec > legend {
   font-size: var(--fs-xs);
@@ -777,7 +777,7 @@ select.cy-v.na { color: #999; }
   color: var(--c-text-muted);
   padding: 0 6px;
 }
-.ce-form label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-xs); color: var(--c-text-muted); }
+/* 폼 옷은 장비 등록과 같은 .fld(ReqForm.css)를 쓴다 */
 /* Details / Test Cases 탭 — Zephyr Create Test Cycle */
 .ce-tabs {
   display: flex;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi } from '@/api/client'
+import '@/components/ReqForm.css'
 import { IconChevron, IconFolder } from '@/components/icons'
 import {
   buildCategoryTree,
@@ -598,16 +599,16 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
 
         <div className="ce-form" style={{ display: tab === 'details' ? undefined : 'none' }}>
           {/* Name · Description — 위에 넓게 (Zephyr Create Test Cycle) */}
-          <label className="ce-wide">
-            제목 (Name) *
+          <label className="fld ce-wide">
+            <span>제목 (Name) *</span>
             <input
               value={cname}
               placeholder="예: E6100 R300 정기 검증"
               onChange={(e) => setCname(e.target.value)}
             />
           </label>
-          <label className="ce-wide">
-            설명 (Description)
+          <label className="fld ce-wide">
+            <span>설명 (Description)</span>
             <textarea
               className="ce-desc"
               value={cdesc}
@@ -620,8 +621,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               위를 바꾸면 아래 고른 것은 버린다(범위 밖일 수 있다). */}
           <fieldset className="ce-sec">
             <legend>분류 (Folder)</legend>
-          <label>
-            벤더
+          <label className="fld">
+            <span>벤더</span>
             <select
               value={vendor}
               onChange={(e) => {
@@ -637,8 +638,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               ))}
             </select>
           </label>
-          <label>
-            제품군
+          <label className="fld">
+            <span>제품군</span>
             <select
               value={family}
               onChange={(e) => {
@@ -653,8 +654,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               ))}
             </select>
           </label>
-          <label>
-            모델그룹
+          <label className="fld">
+            <span>모델그룹</span>
             <select
               value={mgroup}
               onChange={(e) => {
@@ -675,8 +676,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               )}
             </select>
           </label>
-          <label>
-            모델명
+          <label className="fld">
+            <span>모델명</span>
             <select value={model} onChange={(e) => setModel(e.target.value)}>
               <option value="">고르세요</option>
               {modelOpts.map((m) => (
@@ -688,8 +689,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
 
           <fieldset className="ce-sec">
             <legend>버전 (Version)</legend>
-          <label>
-            버전그룹
+          <label className="fld">
+            <span>버전그룹</span>
             <select value={vgroup} disabled={!!newVgroup.trim()} onChange={(e) => setVgroup(e.target.value)}>
               <option value="">(없음)</option>
               {groups.map((g) => (
@@ -699,12 +700,12 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               ))}
             </select>
           </label>
-          <label>
-            새 버전그룹
+          <label className="fld">
+            <span>새 버전그룹</span>
             <input value={newVgroup} placeholder="R300" onChange={(e) => setNewVgroup(e.target.value)} />
           </label>
-          <label>
-            버전명
+          <label className="fld">
+            <span>버전명</span>
             <input
               className="mono"
               value={version}
@@ -717,8 +718,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
 
           <fieldset className="ce-sec">
             <legend>관리 (Status · Owner)</legend>
-          <label>
-            상태 (Status)
+          <label className="fld">
+            <span>상태 (Status)</span>
             <select value={cstat} onChange={(e) => setCstat(e.target.value)}>
               <option value="">(없음)</option>
               {codeVals('cycle_status').map((v) => (
@@ -726,8 +727,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               ))}
             </select>
           </label>
-          <label>
-            고객
+          <label className="fld">
+            <span>고객</span>
             <select value={ccust} onChange={(e) => setCcust(e.target.value)}>
               <option value="">(없음)</option>
               {codeVals('cycle_customer').map((v) => (
@@ -735,12 +736,12 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               ))}
             </select>
           </label>
-          <label>
-            담당 (Owner)
+          <label className="fld">
+            <span>담당 (Owner)</span>
             <input value={assignee} onChange={(e) => setAssignee(e.target.value)} />
           </label>
-          <label>
-            기간
+          <label className="fld">
+            <span>기간</span>
             <span className="ce-dates">
               <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
               <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
