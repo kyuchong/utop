@@ -2460,6 +2460,11 @@ table.tb td.k {
   border-bottom: 1px solid var(--c-border);
   flex-wrap: nowrap;
 }
+/* 도구줄 단추 — 기본보다 반 발짝만 작게 (너무 줄이면 안 눌린다) */
+.cyt-card > .cy-tools .btn {
+  padding: 5px 12px;
+  font-size: var(--fs-sm);
+}
 .cyt { background: var(--c-surface); overflow: auto; }
 .cyt-row {
   display: grid;

@@ -1430,11 +1430,11 @@ function CycleBoard({
       <section className="panel cyt-card">
       {/* 도구줄 — 추가·복제·삭제는 왼쪽, 찾기는 오른쪽 */}
       <div className="cy-tools">
-        <button className="btn small" type="button" onClick={onNew}>
+        <button className="btn" type="button" onClick={onNew}>
           + New
         </button>
         <button
-          className="btn small danger"
+          className="btn danger"
           type="button"
           disabled={!picked.size}
           onClick={() => {
@@ -1445,7 +1445,7 @@ function CycleBoard({
           Delete{picked.size ? ` (${picked.size})` : ''}
         </button>
         <button
-          className="btn small"
+          className="btn"
           type="button"
           disabled={picked.size !== 1}
           title={picked.size === 1 ? '고른 사이클을 편집합니다' : '하나만 고르세요'}
@@ -1454,7 +1454,7 @@ function CycleBoard({
           Edit
         </button>
         <button
-          className="btn small"
+          className="btn"
           type="button"
           disabled={picked.size !== 1}
           title={picked.size === 1 ? '고른 사이클을 복제합니다' : '하나만 고르세요'}
@@ -1463,7 +1463,7 @@ function CycleBoard({
           Clone
         </button>
         <button
-          className="btn small primary"
+          className="btn primary"
           type="button"
           disabled={picked.size !== 1}
           title={picked.size === 1 ? '고른 사이클을 열고 전체 실행을 겁니다' : '하나만 고르세요'}
