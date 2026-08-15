@@ -72,8 +72,10 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   const [hideAdded, setHideAdded] = useState(false)
   /** 배정하면서 바로 넣을 담당자 — 비우면 Details 의 담당(Owner)을 쓴다 */
   const [asgWho, setAsgWho] = useState('')
-  /** Zephyr 의 Add others — 체크하면 담은 뒤에도 창이 남아 계속 담는다 */
+  /** Zephyr 의 Add others — 체크하면 담은 뒤에도 팝업이 남아 계속 담는다 */
   const [addOthers, setAddOthers] = useState(false)
+  /** 항목 추가 팝업 — Test Cases 탭은 담은 결과 화면이고, 추가는 여기서 */
+  const [addPop, setAddPop] = useState(false)
   const [assignee, setAssignee] = useState('')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
@@ -358,6 +360,22 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   }, [reqSel, reqsUnderCat, tcQ, tcsByReq, allTcs, fMg, fMd, fSev, fStat, fKind, fTyp, model, mgroup])
 
   /** 3열 — 요구사항으로 묶는다. 여섯 건만 넘어도 평평하면 안 읽힌다 */
+  /** 담긴 항목을 요구사항별로 묶는다 — 완료 화면(Test Cases 탭)이 그린다 */
+  const grouped = useMemo(() => {
+    const by = new Map<string, PickedItem[]>()
+    for (const it of picked) {
+      const k = String(it.req_id ?? '')
+      const arr = by.get(k)
+      if (arr) arr.push(it)
+      else by.set(k, [it])
+    }
+    const labelOf = (rid: string) => {
+      const r = reqs.find((r2) => reqPk(r2) === rid || String(r2.reqid ?? '') === rid)
+      return r ? reqLabel(r) : rid || '요구사항 없음'
+    }
+    return [...by.entries()].map(([rid, list]) => ({ rid, label: labelOf(rid), list }))
+  }, [picked, reqs])
+
   const assign = (ids: string[]): PickedItem[] => {
     const add = ids
       .filter((id) => !pickedIds.has(id))
@@ -754,7 +772,110 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           </div>
         </div>
 
-        <div className="ce-cols" style={{ display: tab === 'tcs' ? undefined : 'none' }}>
+        {/* Test Cases 탭 — 담은 항목 완료 화면. 여기서 항목별 담당자를 정한다 */}
+        {tab === 'tcs' && (
+          <div className="ce-done">
+            <div className="ce-donehead">
+              <button className="btn primary" type="button" onClick={() => setAddPop(true)}>
+                ＋ 항목 추가
+              </button>
+              <span className="ce-n">{picked.length}</span>
+              <span className="sp" />
+              <button
+                className="btn small"
+                type="button"
+                disabled={!picked.length}
+                title="담긴 전 항목의 담당자를 한 번에 정합니다"
+                onClick={() => {
+                  const who = window.prompt('담긴 항목의 담당자', assignee)?.trim()
+                  if (who === undefined || who === null) return
+                  setPicked((p) => p.map((x) => ({ ...x, assignee: who })))
+                  if (!assignee.trim()) setAssignee(who)
+                }}
+              >
+                담당자 일괄
+              </button>
+              <button
+                className="btn small"
+                type="button"
+                disabled={!picked.length}
+                onClick={() => {
+                  if (window.confirm('담긴 항목을 전부 뺍니다.')) setPicked([])
+                }}
+              >
+                비우기
+              </button>
+            </div>
+            <div className="ce-body ce-donelist">
+              {picked.length === 0 ? (
+                <div className="empty">아직 담긴 시험이 없습니다 — 위 「＋ 항목 추가」 로 담으세요.</div>
+              ) : (
+                grouped.map((g) => (
+                  <div key={g.rid}>
+                    <div className="ce-gh">
+                      {g.label} <i>({g.list.length})</i>
+                    </div>
+                    {g.list.map((it) => (
+                      <div className="ce-item" key={it.tcid}>
+                        <span className="ce-item-nm" title={it.tcid}>
+                          {it.name || it.tcid}
+                        </span>
+                        {(it.steps?.length ?? 0) > 0 && <b className="ce-ran">결과 있음</b>}
+                        {/* 항목별 담당자 — 완료 화면에서 바로 적는다 */}
+                        <input
+                          className="ce-iwho"
+                          value={String(it.assignee ?? '')}
+                          placeholder="담당자"
+                          onChange={(e) =>
+                            setPicked((p) =>
+                              p.map((x) =>
+                                x.tcid === it.tcid ? { ...x, assignee: e.target.value } : x,
+                              ),
+                            )
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="ce-x"
+                          aria-label="빼기"
+                          onClick={() => setPicked((p) => p.filter((x) => x.tcid !== it.tcid))}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="ce-addbar">
+              <span className="sp" />
+              <button
+                className="btn primary"
+                type="button"
+                disabled={!ready || busy}
+                onClick={() => void save()}
+              >
+                {busy ? '저장 중…' : '저장'}
+              </button>
+              <button className="btn" type="button" disabled={busy} onClick={onClose}>
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+
+        {addPop && (
+        <div className="ce-popback" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="ce-pop">
+          <div className="ce-pophead">
+            <b>항목 추가 — Add Existing Test Cases</b>
+            <span className="sp" />
+            <button className="btn small" type="button" onClick={() => setAddPop(false)}>
+              ✕
+            </button>
+          </div>
+        <div className="ce-cols">
           {/* 1열 — 요구사항으로 좁힌다 */}
           <div className="ce-col">
             <div className="ce-colhead">
@@ -964,25 +1085,27 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                     : '담고 저장한 뒤 창을 닫습니다'
                 }
                 onClick={() => {
-                  const next = assign([...tcSel])
+                  assign([...tcSel])
                   if (addOthers) {
                     setTcQ('')
                     return
                   }
-                  // 미체크 = 담고 끝 — 저장까지 하고 닫는다
-                  if (model && version.trim() && next.length > 0) void save(next)
-                  else setTab('details')
+                  // 미체크 = 담고 끝 — 팝업이 닫히고 완료 화면으로 돌아간다
+                  setAddPop(false)
                 }}
               >
                 Add
               </button>
-              <button className="btn" type="button" disabled={busy} onClick={onClose}>
+              <button className="btn" type="button" disabled={busy} onClick={() => setAddPop(false)}>
                 Close
               </button>
             </div>
           </div>
 
         </div>
+        </div>
+        </div>
+        )}
 
 
       </div>
