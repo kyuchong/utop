@@ -2176,6 +2176,55 @@ table.tb td.k {
   border-radius: 999px;
   padding: 0 7px;
 }
+/* 찾기 + 내 것만 (Zephyr 왼쪽 도구) */
+.tp-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--c-border);
+}
+.tp-q {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 9px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+  background: var(--c-surface);
+}
+.tp-mine {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+/* 결과 칩 — 누르면 그 결과만 */
+.tp-chips {
+  display: flex;
+  gap: 4px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border);
+  flex-wrap: wrap;
+}
+.tp-chips button {
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.tp-chips button.on { border-color: var(--c-primary); color: var(--c-primary); background: var(--c-primary-bg); }
+.tp-chips button.cp.on { border-color: var(--c-pass); color: var(--c-pass); background: transparent; }
+.tp-chips button.cf.on { border-color: var(--c-fail); color: var(--c-fail); background: transparent; }
+.tp-chips button.cr.on { border-color: var(--c-fail); color: var(--c-fail); background: var(--c-fail-soft, transparent); }
 .tp-rows { flex: 1; min-height: 0; overflow-y: auto; }
 .tp-grow {
   padding: 5px 10px;
@@ -2323,13 +2372,59 @@ table.tb td.k {
 }
 .cyt-row {
   display: grid;
-  /* 이름 · 버전그룹 · Tests · Progress · Status · Fail · 담당 · 갱신 */
-  grid-template-columns: minmax(180px, 1fr) 110px 52px 150px 72px 44px 84px 88px;
-  gap: 10px;
+  /* ☐ · Key · 고객 · 모델 · Iteration · Issues · Tests · Progress · Status ·
+     담당 · Version · Name · 계획시작 · 계획끝 · 갱신 (Zephyr 그대로) */
+  grid-template-columns:
+    26px minmax(110px, 150px) 52px 78px minmax(90px, 110px) 48px 44px 140px 62px 46px
+    minmax(120px, 170px) minmax(150px, 1fr) 80px 80px 80px;
+  gap: 8px;
   align-items: center;
-  padding: 7px 12px;
-  min-width: 780px;
+  padding: 6px 10px;
+  min-width: 1330px;
 }
+.cyt-ck { display: flex; align-items: center; }
+.cyt-key {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--c-primary);
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cyt-key:hover { text-decoration: underline; }
+.cyt-name {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.cyt-name:hover { text-decoration: underline; }
+.cyt-av {
+  font-style: normal;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  font-size: 11px;
+  font-weight: 800;
+}
+.cyt-gc { display: inline-flex; color: var(--c-text-faint); }
+.cyt-gc svg { transition: transform 0.15s; }
+.cyt-gc.open svg { transform: rotate(90deg); }
 .cyt-hd {
   font-size: var(--fs-xs);
   font-weight: 700;
@@ -2341,14 +2436,19 @@ table.tb td.k {
 .cyt-grow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
+  width: 100%;
+  text-align: left;
+  border: 0;
   padding: 6px 12px;
-  background: var(--c-primary-bg);
+  background: var(--c-surface-alt);
   border-top: 1px solid var(--c-border);
+  font: inherit;
   font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
 }
 .cyt-g:first-of-type .cyt-grow { border-top: 0; }
-.cyt-grow .sp { flex: 1; }
 .cyt-c {
   cursor: pointer;
   border-top: 1px solid var(--c-border);

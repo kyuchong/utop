@@ -1175,9 +1175,9 @@ export default function Cycles({ me }: PageProps) {
         ) : (
           <CycleBoard
             cycles={scope ? cycles.filter((c) => scope.ids.has(c.id)) : cycles}
-            scopeLabel={scope?.label}
             modelOp={modelOp}
             onPick={(id) => setSel(id)}
+            onNew={() => setMaking(true)}
           />
         )}
       </section>
@@ -1196,40 +1196,50 @@ export default function Cycles({ me }: PageProps) {
  */
 function CycleBoard({
   cycles,
-  scopeLabel,
   modelOp,
   onPick,
+  onNew,
 }: {
   cycles: CycleMeta[]
-  /** 트리에서 폴더를 골랐으면 그 이름 — 무엇으로 좁혀 보고 있는지 */
-  scopeLabel?: string
-  /** 모델 → 사업자 (카드 배지) */
+  /** 모델 → 사업자 (고객 칸) */
   modelOp?: Map<string, string>
   onPick: (id: string) => void
+  /** + New — 새 사이클 만들기 */
+  onNew: () => void
 }) {
   const [q, setQ] = useState('')
   const [failOnly, setFailOnly] = useState(false)
   const [sortBy, setSortBy] = useState<'recent' | 'progress' | 'fail'>('recent')
+  /** 접어 둔 버전그룹들 */
+  const [closed, setClosed] = useState<Set<string>>(new Set())
+  /** 줄 체크 — 보이는 대로 고른다 (Zephyr 문법) */
+  const [picked, setPicked] = useState<Set<string>>(new Set())
 
-  // 사이클별 집계는 한 번만 — 요약 띠·거름·정렬이 다 같이 쓴다
+  // 사이클별 집계는 한 번만 — 표·거름·정렬이 다 같이 쓴다
   const stats = useMemo(() => {
-    const m = new Map<string, { total: number; done: number; pass: number; fail: number; pct: number }>()
+    const m = new Map<
+      string,
+      { total: number; done: number; pass: number; fail: number; pct: number; iss: number }
+    >()
     for (const c of cycles) {
       const its = c.items ?? []
       let done = 0
       let pass = 0
       let fail = 0
+      let iss = 0
       for (const it of its) {
         const v = itemVerdict(it)
         if (v) done += 1
         if (v === 'Pass') pass += 1
         else if (v === 'Fail') fail += 1
+        iss += it.issues?.length ?? 0
       }
       m.set(c.id, {
         total: its.length,
         done,
         pass,
         fail,
+        iss,
         pct: its.length ? Math.round((done / its.length) * 100) : 0,
       })
     }
@@ -1241,7 +1251,7 @@ function CycleBoard({
     let arr = cycles
     if (nq)
       arr = arr.filter((c) =>
-        [c.version, c.name, c.version_group, c.model]
+        [c.version, c.name, c.version_group, c.model, c.customer, c.assignee]
           .filter(Boolean)
           .join(' ')
           .toLowerCase()
@@ -1251,24 +1261,11 @@ function CycleBoard({
     return arr
   }, [cycles, q, failOnly, stats])
 
-  const sum = useMemo(() => {
-    const s = { n: 0, total: 0, done: 0, pass: 0, fail: 0 }
-    for (const c of shown) {
-      const t = stats.get(c.id)
-      if (!t) continue
-      s.n += 1
-      s.total += t.total
-      s.done += t.done
-      s.pass += t.pass
-      s.fail += t.fail
-    }
-    return s
-  }, [shown, stats])
-
+  // Zephyr 처럼 버전그룹(Iteration)이 묶음이다 — 모델은 왼쪽 트리가 이미 가른다
   const groups = useMemo(() => {
     const m = new Map<string, CycleMeta[]>()
     for (const c of shown) {
-      const k = String(c.model ?? '').trim() || '(모델 없음)'
+      const k = String(c.version_group ?? '').trim() || '버전그룹 없음'
       const arr = m.get(k)
       if (arr) arr.push(c)
       else m.set(k, [c])
@@ -1276,29 +1273,19 @@ function CycleBoard({
     return m
   }, [shown])
 
+  const fmtD = (v?: string | null) => (v ? String(v).slice(0, 10) : '–')
+
   return (
     <div className="cy-board scroll">
-      <div className="cy-board-h">
-        <b>{scopeLabel ? `${scopeLabel} — 버전별 상태` : '어느 버전을 검증할까요'}</b>
-        <span className="muted small">
-          여기서는 무엇이 있고 어디까지 왔는지만 봅니다 — 줄을 누르면 실행 화면이 열립니다
-        </span>
-      </div>
-      {/* 요약 띠 + 도구 — 지금 보이는 범위의 합계, 그리고 찾기·거르기·정렬 */}
+      {/* 위 도구줄 — 왼쪽 + New, 오른쪽 찾기·거르기 (Zephyr 그대로) */}
       <div className="cy-tools">
-        <span className="cy-sum">
-          사이클 <b>{sum.n}</b> · 항목 <b>{sum.total}</b> · 실행 <b>{sum.done}</b>
-          {sum.total > 0 && (
-            <i className="muted">({Math.round((sum.done / sum.total) * 100)}%)</i>
-          )}
-          {' · '}
-          <b className="cp">Pass {sum.pass}</b> · <b className="cf">Fail {sum.fail}</b> · 미실행{' '}
-          <b>{sum.total - sum.done}</b>
-        </span>
+        <button className="btn primary" type="button" onClick={onNew}>
+          + New
+        </button>
         <span className="sp" />
         <input
           className="cy-q"
-          placeholder="버전·이름 찾기"
+          placeholder="Search…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -1313,7 +1300,7 @@ function CycleBoard({
         <select
           className="cy-sort"
           value={sortBy}
-          title="카드 차례"
+          title="줄 차례"
           onChange={(e) => setSortBy(e.target.value as 'recent' | 'progress' | 'fail')}
         >
           <option value="recent">최근 순</option>
@@ -1321,105 +1308,154 @@ function CycleBoard({
           <option value="fail">Fail 많은 순</option>
         </select>
       </div>
-      {/* Zephyr TEST CYCLES 처럼 표로 — 모델이 묶음 머리, 사이클이 줄.
-          여기서는 실행하지 않는다. 줄을 누르면 실행 화면으로 간다. */}
+
       <div className="cyt">
         <div className="cyt-row cyt-hd">
-          <span>이름</span>
-          <span>버전그룹</span>
+          <span className="cyt-ck">
+            <input
+              type="checkbox"
+              checked={shown.length > 0 && picked.size === shown.length}
+              ref={(el) => {
+                if (el) el.indeterminate = picked.size > 0 && picked.size < shown.length
+              }}
+              onChange={() =>
+                setPicked(picked.size === shown.length ? new Set() : new Set(shown.map((c) => c.id)))
+              }
+            />
+          </span>
+          <span>Key</span>
+          <span>고객</span>
+          <span>모델</span>
+          <span>Iteration</span>
+          <span className="tr">Issues</span>
           <span className="tr">Tests</span>
           <span>Progress</span>
           <span>Status</span>
-          <span className="tr">Fail</span>
-          <span>담당</span>
+          <span>Assigned to</span>
+          <span>Version</span>
+          <span>Name</span>
+          <span>계획 시작</span>
+          <span>계획 끝</span>
           <span>갱신</span>
         </div>
-        {[...groups.entries()].map(([model, list]) => (
-          <div key={model} className="cyt-g">
-            <div className="cyt-grow">
-              <b>{model}</b>
-              {modelOp?.get(model) && <i className="cy-bop">{modelOp.get(model)}</i>}
-              <span className="muted small">{list.length}개</span>
-              <span className="sp" />
-              {/* 사이클별 Pass/Fail 추이 — 왼쪽이 과거. 막대를 누르면 그 사이클 */}
-              {list.length > 1 && (
-                <span className="cy-btrend" aria-label="사이클별 결과 추이">
-                  {[...list].reverse().slice(-16).map((c) => {
-                    const t = stats.get(c.id) ?? { total: 0, pass: 0, fail: 0 }
-                    const rest = t.total - t.pass - t.fail
-                    return (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className="cy-btr"
-                        title={`${c.version || c.name || c.id} — Pass ${t.pass} · Fail ${t.fail} · 나머지 ${rest}`}
-                        onClick={() => onPick(c.id)}
-                      >
-                        <i className="n" style={{ flexGrow: rest }} />
-                        <i className="f" style={{ flexGrow: t.fail }} />
-                        <i className="p" style={{ flexGrow: t.pass }} />
-                      </button>
-                    )
-                  })}
-                </span>
-              )}
-            </div>
-            {(sortBy === 'recent'
-              ? list
-              : [...list].sort((a, b) =>
-                  sortBy === 'progress'
-                    ? (stats.get(a.id)?.pct ?? 0) - (stats.get(b.id)?.pct ?? 0)
-                    : (stats.get(b.id)?.fail ?? 0) - (stats.get(a.id)?.fail ?? 0),
-                )
-            ).map((c) => {
-              const t = stats.get(c.id) ?? { total: 0, done: 0, pass: 0, fail: 0, pct: 0 }
-              const status =
-                t.total > 0 && t.done === t.total ? 'done' : t.done > 0 ? 'run' : 'idle'
-              return (
-                <div
-                  key={c.id}
-                  className="cyt-row cyt-c"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onPick(c.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') onPick(c.id)
-                  }}
-                >
-                  <span className="cyt-nm" title={c.name || c.version || c.id}>
-                    {c.version || c.name || c.id}
-                  </span>
-                  <span className="muted small">{c.version_group || '–'}</span>
-                  <span className="tr">{t.total}</span>
-                  {/* Progress — Pass 초록 · Fail 빨강 · 남음 회색, 오른쪽에 실행률 */}
-                  <span className="cy-prg" title={`실행 ${t.done}/${t.total} · Pass ${t.pass} · Fail ${t.fail}`}>
-                    <span className="cy-prg-bar" aria-hidden="true">
-                      <i className="p" style={{ flexGrow: t.pass }} />
-                      <i className="f" style={{ flexGrow: t.fail }} />
-                      <i className="n" style={{ flexGrow: Math.max(t.total - t.pass - t.fail, 0) }} />
+        {[...groups.entries()].map(([vg, list]) => (
+          <div key={vg} className="cyt-g">
+            <button
+              type="button"
+              className="cyt-grow"
+              onClick={() =>
+                setClosed((cur) => {
+                  const n = new Set(cur)
+                  if (n.has(vg)) n.delete(vg)
+                  else n.add(vg)
+                  return n
+                })
+              }
+            >
+              <i className={`cyt-gc${closed.has(vg) ? '' : ' open'}`} aria-hidden="true">
+                <IconChevron />
+              </i>
+              <b>{vg}</b>
+              <span className="muted small">{list.length}</span>
+            </button>
+            {!closed.has(vg) &&
+              (sortBy === 'recent'
+                ? list
+                : [...list].sort((a, b) =>
+                    sortBy === 'progress'
+                      ? (stats.get(a.id)?.pct ?? 0) - (stats.get(b.id)?.pct ?? 0)
+                      : (stats.get(b.id)?.fail ?? 0) - (stats.get(a.id)?.fail ?? 0),
+                  )
+              ).map((c) => {
+                const t = stats.get(c.id) ?? {
+                  total: 0,
+                  done: 0,
+                  pass: 0,
+                  fail: 0,
+                  pct: 0,
+                  iss: 0,
+                }
+                const status =
+                  t.total > 0 && t.done === t.total ? 'done' : t.done > 0 ? 'run' : 'idle'
+                const model = String(c.model ?? '').trim()
+                const who = String(c.assignee ?? '').trim()
+                return (
+                  <div key={c.id} className="cyt-row cyt-c">
+                    <span className="cyt-ck">
+                      <input
+                        type="checkbox"
+                        checked={picked.has(c.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() =>
+                          setPicked((cur) => {
+                            const n = new Set(cur)
+                            if (n.has(c.id)) n.delete(c.id)
+                            else n.add(c.id)
+                            return n
+                          })
+                        }
+                      />
                     </span>
-                    <b>{t.pct}%</b>
-                  </span>
-                  <span>
-                    <i className={`cyt-st ${status}`}>
-                      {status === 'done' ? 'DONE' : status === 'run' ? '진행중' : '대기'}
-                    </i>
-                  </span>
-                  <span className={`tr${t.fail > 0 ? ' cyt-fail' : ''}`}>{t.fail || '–'}</span>
-                  <span className="muted small cyt-ell" title={c.assignee ?? ''}>
-                    {c.assignee || '–'}
-                  </span>
-                  <span className="muted small">
-                    {c._updated_at_pg ? String(c._updated_at_pg).slice(0, 10) : '–'}
-                  </span>
-                </div>
-              )
-            })}
+                    <button
+                      type="button"
+                      className="cyt-key"
+                      title="실행 화면을 엽니다"
+                      onClick={() => onPick(c.id)}
+                    >
+                      {c.version || c.name || c.id}
+                    </button>
+                    <span className="muted small">{c.customer || modelOp?.get(model) || '–'}</span>
+                    <span className="muted small cyt-ell">{model || '–'}</span>
+                    <span className="muted small cyt-ell">{c.version_group || '–'}</span>
+                    <span className={`tr${t.iss ? ' cyt-fail' : ''}`}>{t.iss || '–'}</span>
+                    <span className="tr">{t.total}</span>
+                    <span
+                      className="cy-prg"
+                      title={`실행 ${t.done}/${t.total} · Pass ${t.pass} · Fail ${t.fail}`}
+                    >
+                      <span className="cy-prg-bar" aria-hidden="true">
+                        <i className="p" style={{ flexGrow: t.pass }} />
+                        <i className="f" style={{ flexGrow: t.fail }} />
+                        <i className="n" style={{ flexGrow: Math.max(t.total - t.pass - t.fail, 0) }} />
+                      </span>
+                      <b>{t.pct}%</b>
+                    </span>
+                    <span>
+                      <i className={`cyt-st ${status}`}>
+                        {status === 'done' ? 'DONE' : status === 'run' ? '진행중' : '대기'}
+                      </i>
+                    </span>
+                    <span>
+                      {who ? (
+                        <i className="cyt-av" title={who}>
+                          {(who[0] || '?').toUpperCase()}
+                        </i>
+                      ) : (
+                        '–'
+                      )}
+                    </span>
+                    <span className="muted small cyt-ell" title={c.version ?? ''}>
+                      {c.version || '–'}
+                    </span>
+                    <button
+                      type="button"
+                      className="cyt-name cyt-ell"
+                      title={c.name ?? ''}
+                      onClick={() => onPick(c.id)}
+                    >
+                      {c.name || [model, c.version].filter(Boolean).join(' - ') || '–'}
+                    </button>
+                    <span className="muted small">{fmtD(c.start_date)}</span>
+                    <span className="muted small">{fmtD(c.end_date)}</span>
+                    <span className="muted small">{fmtD(c._updated_at_pg)}</span>
+                  </div>
+                )
+              })}
           </div>
         ))}
       </div>
       {cycles.length === 0 && (
-        <div className="empty">아직 사이클이 없습니다 — 왼쪽 위 ＋ 로 만드세요.</div>
+        <div className="empty">아직 사이클이 없습니다 — 위 + New 로 만드세요.</div>
       )}
     </div>
   )
@@ -1691,13 +1727,7 @@ function CycleDetail({
    *
    * 수동 시험 스무 건을 돌리고 나서 하나씩 드롭다운을 여는 것은 일이 아니다.
    */
-  const setResultMany = (result: string) => {
-    const ids = new Set([...pick].map((i) => items[i]?.tcid).filter(Boolean))
-    if (!ids.size) return
-    return saveItems((cur) =>
-      cur.map((x) => (ids.has(x.tcid) ? { ...x, result } : x)),
-    )
-  }
+
 
   /**
    * 스텝 하나의 결과를 손으로 정한다.
@@ -1767,7 +1797,6 @@ function CycleDetail({
   const counts: Record<string, number> = {}
   for (const r of RESULTS) counts[r.v] = 0
   for (const it of items) counts[itemVerdict(it)] = (counts[itemVerdict(it)] ?? 0) + 1
-  const total = items.length || 1
 
   /**
    * ③ 좁혀 보기 — 결과(통계 카드)에 더해 심각도·타입·발생구분·글자로 거른다.
@@ -1775,28 +1804,10 @@ function CycleDetail({
    * 64건이 넘어가면 결과만으로는 못 좁힌다. 「고객이 낸 것 중 Blocker 만」
    * 같은 물음이 실제로 자주 나온다.
    */
-  const [fSev, setFSev] = useState('')
-  const [fType, setFType] = useState('')
-  const [fKind, setFKind] = useState('')
-  /** 담당자 — 팀으로 나눠 돌릴 때 「내 것만」 을 본다. '\0' 은 미지정 */
+  /** 내 담당만 — Zephyr 의 Show only assigned to me */
   const [fAss, setFAss] = useState('')
   const [fq, setFq] = useState('')
 
-  /** 시험 메타(심각도·타입·발생구분)는 TC 에 있다 — 항목에는 없다 */
-  const tcMetaQ = useQuery({
-    queryKey: ['tc', 'list', 'meta'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/tc?meta=1')
-      if (!r.ok) throw new Error('시험 목록을 불러오지 못했습니다')
-      return (await r.json()) as { tcs: TestCaseMeta[] }
-    },
-    staleTime: 60_000,
-  })
-  const tcMeta = useMemo(() => {
-    const m = new Map<string, TestCaseMeta>()
-    for (const t of tcMetaQ.data?.tcs ?? []) m.set(t.tcid, t)
-    return m
-  }, [tcMetaQ.data])
 
   /** 요구사항 이름 — 묶음 머리에 적는다. 번호만으로는 무엇인지 모른다 */
   const reqQ2 = useQuery({
@@ -1826,31 +1837,6 @@ function CycleDetail({
     return m
   }, [reqQ2.data])
 
-  /** 거를 값 목록 — 이 회차에 실제로 있는 것만 띄운다 */
-  const opts = useMemo(() => {
-    const sev = new Set<string>()
-    const typ = new Set<string>()
-    const kin = new Set<string>()
-    for (const it of items) {
-      const t = tcMeta.get(it.tcid)
-      if (t?.severity) sev.add(String(t.severity))
-      if (t?.type) typ.add(String(t.type))
-      if (t?.kind) kin.add(String(t.kind))
-    }
-    const srt = (a: string, b: string) => a.localeCompare(b, 'ko')
-    // 담당자는 건수를 함께 — 「누가 몇 건 맡았나」 가 고르는 기준이다
-    const ass = new Map<string, number>()
-    for (const it of items) {
-      const k = String(it.assignee ?? '').trim()
-      ass.set(k, (ass.get(k) ?? 0) + 1)
-    }
-    return {
-      sev: [...sev].sort(srt),
-      typ: [...typ].sort(srt),
-      kin: [...kin].sort(srt),
-      ass: [...ass.entries()].sort((a, b) => srt(a[0], b[0])),
-    }
-  }, [items, tcMeta])
 
   /*
    * 회귀 — **지난 사이클에선 Pass 였는데 이번에 Fail** 인 것.
@@ -1894,11 +1880,7 @@ function CycleDetail({
     const out = items.filter((it) => {
       if (onlyRegress && !isRegress(it)) return false
       if (only !== null && itemVerdict(it) !== only) return false
-      const t = tcMeta.get(it.tcid)
-      if (fSev && String(t?.severity ?? '') !== fSev) return false
-      if (fType && String(t?.type ?? '') !== fType) return false
-      if (fKind && String(t?.kind ?? '') !== fKind) return false
-      if (fAss && String(it.assignee ?? '').trim() !== (fAss === '\0' ? '' : fAss)) return false
+      if (fAss && String(it.assignee ?? '').trim() !== fAss) return false
       if (!n) return true
       return (
         it.tcid.toLowerCase().includes(n) || (it.name ?? '').toLowerCase().includes(n)
@@ -1920,7 +1902,7 @@ function CycleDetail({
       )
       .map((v) => v.x)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, only, onlyRegress, prevVerdict, tcMeta, fSev, fType, fKind, fAss, fq])
+  }, [items, only, onlyRegress, prevVerdict, fAss, fq])
 
   /*
    * 실행 중에는 **도는 항목**을 따라간다.
@@ -2020,8 +2002,35 @@ function CycleDetail({
           />
         </span>
         <span className="sp" />
-        {/* 어쩌다 한 번 쓰는 것들은 「⋯」 안에 둔다 — 늘 펴 두면 자주 쓰는
-            실행 단추가 그만큼 밀린다. */}
+        {/* 실행 — Zephyr 의 Start a new test execution 자리 */}
+        {st.on ? (
+          <button className="btn danger small" type="button" onClick={() => void stop()}>
+            ⏹ 멈추기
+          </button>
+        ) : (
+          <>
+            {pick.size > 0 && (
+              <button
+                className="btn primary small"
+                type="button"
+                disabled={saving}
+                title={`고른 ${pick.size}건을 돌립니다`}
+                onClick={() => startRun([...pick].sort((a, b) => a - b))}
+              >
+                ▶ 실행 ({pick.size})
+              </button>
+            )}
+            <button
+              className="btn small"
+              type="button"
+              disabled={!items.length || saving}
+              onClick={() => startRun(items.map((_, i) => i))}
+            >
+              ▶ 전체 실행 ({items.length})
+            </button>
+          </>
+        )}
+        {/* 어쩌다 한 번 쓰는 것들은 「⋯」 안에 둔다 */}
         <div className="cy-hmenu">
           <button
             className="btn small"
@@ -2095,73 +2104,6 @@ function CycleDetail({
         </div>
       </div>
 
-      {/* 둘째 줄 — 보고·실행. 첫 줄(항목에 하는 일)과 성격이 달라 선으로 가른다 */}
-      <div className="cy-head2">
-        <div className="rq-actions">
-          {/* 실행이 먼저다 — 이 화면에서 가장 자주 누른다 */}
-          {st.on ? (
-            <button className="btn danger" type="button" onClick={() => void stop()}>
-              <i className="cy-play">⏹</i> 멈추기
-            </button>
-          ) : (
-            <>
-              <button
-                className="btn primary"
-                type="button"
-                disabled={!pick.size || saving}
-                title={pick.size ? `고른 ${pick.size}건을 돌립니다` : '먼저 항목을 고르세요'}
-                onClick={() => startRun([...pick].sort((a, b) => a - b))}
-              >
-                <i className="cy-play">▶</i> 실행{pick.size ? ` (${pick.size})` : ''}
-              </button>
-              <button
-                className="btn"
-                type="button"
-                disabled={!items.length || saving}
-                onClick={() => startRun(items.map((_, i) => i))}
-              >
-                <i className="cy-play">▶</i> 전체 실행 ({items.length})
-              </button>
-            </>
-          )}
-          <span className="rq-adiv" aria-hidden="true" />
-          <button
-            className="btn danger"
-            type="button"
-            disabled={!pick.size || saving || st.on}
-            onClick={() => {
-              if (!window.confirm(`고른 ${pick.size}건을 이 사이클에서 뺍니다.`)) return
-              // 자리 번호가 아니라 tcid 로 뺀다 — 걸러 보고 있으면 번호가
-              // 어긋나서 엉뚱한 것이 빠진다
-              const ids = new Set([...pick].map((i) => items[i]?.tcid).filter(Boolean))
-              void saveItems((cur) => cur.filter((x) => !ids.has(x.tcid))).then(sel.clear)
-            }}
-          >
-            Delete{pick.size ? ` (${pick.size})` : ''}
-          </button>
-          {/* 결과만 빠르게 바꿀 때 — 담당자·메모까지 함께면 Bulk Edit 로 */}
-          <select
-            className="cy-bulk"
-            value=""
-            disabled={!pick.size || saving}
-            title={pick.size ? `고른 ${pick.size}건의 결과를 한꺼번에 바꿉니다` : '먼저 항목을 고르세요'}
-            onChange={(e) => {
-              const v = e.target.value
-              if (!v) return
-              void setResultMany(v === '미실행' ? '미실행' : v)
-              e.target.value = ''
-            }}
-          >
-            <option value="">일괄 변경…</option>
-            {RESULTS.map((r) => (
-              <option key={r.v} value={r.v === '' ? '미실행' : r.v}>
-                {r.label}
-              </option>
-            ))}
-          </select>
-
-        </div>
-      </div>
 
 
       {rowMenu && (
@@ -2178,6 +2120,15 @@ function CycleDetail({
             const t = items[rowMenu.at]?.tcid
             setRowMenu(null)
             if (t) goto('tc', t)
+          }}
+          onRemove={() => {
+            const n = pick.size || 1
+            const ids = new Set(
+              (pick.size ? [...pick] : [rowMenu.at]).map((i2) => items[i2]?.tcid).filter(Boolean),
+            )
+            setRowMenu(null)
+            if (!window.confirm(`고른 ${n}건을 이 사이클에서 뺍니다.`)) return
+            void saveItems((cur2) => cur2.filter((x) => !ids.has(x.tcid))).then(sel.clear)
           }}
         />
       )}
@@ -2276,151 +2227,7 @@ function CycleDetail({
         </div>
       )}
 
-      {/* 한 줄로 지금 어디까지 왔나. 숫자만 늘어놓으면 눈으로 못 센다 */}
-      {/* 한눈에 — 카드로 세기 전에 띠로 먼저 보인다 */}
-      <div className="cy-bar" aria-hidden="true">
-        {RESULTS.map((r) => (
-          <span key={r.v} className={r.cls} style={{ flexGrow: counts[r.v] ?? 0 }} />
-        ))}
-      </div>
 
-      {/* ② 통계 — 작은 글자 카운터는 눈에 안 들어온다. 큰 칸으로 세워
-          「지금 어디까지 왔나」 를 먼저 읽게. 누르면 그 결과만 걸러 본다. */}
-      <div className="cy-stats">
-        <button
-          type="button"
-          className={`cy-stat total${only === null ? ' on' : ''}`}
-          title="전부 보기"
-          onClick={() => setOnly(null)}
-        >
-          <b>{items.length}</b>
-          <span className="cy-stat-lb">
-            총항목 <i>{Math.round(((total - (counts[''] ?? 0)) / total) * 100)}%</i>
-          </span>
-        </button>
-        {RESULTS.map((r) => {
-          const n = counts[r.v] ?? 0
-          return (
-            <button
-              key={r.v}
-              type="button"
-              className={`cy-stat ${r.cls}${only === r.v ? ' on' : ''}`}
-              title={only === r.v ? '전부 보기' : `${r.label} 만 보기`}
-              onClick={() => setOnly(only === r.v ? null : r.v)}
-            >
-              <b>{n}</b>
-              <span className="cy-stat-lb">
-                {r.label} <i>{items.length ? Math.round((n / items.length) * 100) : 0}%</i>
-              </span>
-            </button>
-          )
-        })}
-        {/* 회귀 — 대 볼 사이클이 하나라도 있으면 늘 띄운다. 0 이어도
-            띄운다: 「회귀 0」 은 되던 것을 안 무너뜨렸다는 **결과**다.
-            상대는 기본이 같은 모델 최신이고, 아래에서 갈아탈 수 있다. */}
-        {others.length > 0 && (
-          <div className={`cy-stat regress${regressN ? ' hot' : ''}${onlyRegress ? ' on' : ''}`}>
-            <button
-              type="button"
-              className="cy-reg-n"
-              title={
-                !prev
-                  ? '아래에서 비교할 사이클을 고르세요'
-                  : prevVerdict.size === 0
-                    ? `${prev.version || prev.name || '상대'} 에는 실행 결과가 없습니다`
-                    : onlyRegress
-                      ? '전부 보기'
-                      : `${prev.version || prev.name || '지난 사이클'} 에선 Pass 였는데 이번에 Fail 인 것만`
-              }
-              onClick={() => setOnlyRegress((v) => !v)}
-            >
-              <b>{prev && prevVerdict.size ? regressN : '–'}</b>
-              <span className="cy-stat-lb">회귀</span>
-            </button>
-            <select
-              className="cy-regpick"
-              value={prev?.id ?? ''}
-              title="어느 사이클과 대 볼까요"
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => {
-                setPrevId(e.target.value)
-                setOnlyRegress(false)
-              }}
-            >
-              {!prev && <option value="">vs (고르세요)</option>}
-              {others.map((c) => (
-                <option key={c.id} value={c.id}>
-                  vs {[c.model, c.version || c.name].filter(Boolean).join(' · ') || c.id}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-
-      {/* ③ 좁혀 보기 — 이 회차에 실제로 있는 값만 띄운다 */}
-      <div className="cy-filters">
-        <select value={fSev} onChange={(e) => setFSev(e.target.value)} title="심각도">
-          <option value="">심각도: 전체</option>
-          {opts.sev.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
-        <select value={fType} onChange={(e) => setFType(e.target.value)} title="타입">
-          <option value="">타입: 전체</option>
-          {opts.typ.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
-        <select value={fKind} onChange={(e) => setFKind(e.target.value)} title="발생구분">
-          <option value="">발생구분: 전체</option>
-          {opts.kin.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </select>
-        <select value={fAss} onChange={(e) => setFAss(e.target.value)} title="담당자 — 내 것만 보기">
-          <option value="">담당자: 전체</option>
-          {opts.ass.map(([v, n]) => (
-            <option key={v || '\0'} value={v || '\0'}>
-              {v || '(미지정)'} · {n}건
-            </option>
-          ))}
-        </select>
-        <input
-          className="cy-fq"
-          value={fq}
-          placeholder="TC ID · 제목 검색"
-          onChange={(e) => setFq(e.target.value)}
-        />
-        {(only !== null || onlyRegress || fSev || fType || fKind || fAss || fq) && (
-          <button
-            className="btn small"
-            type="button"
-            title="걸러 놓은 것을 모두 풉니다"
-            onClick={() => {
-              setOnly(null)
-              setOnlyRegress(false)
-              setFSev('')
-              setFType('')
-              setFKind('')
-              setFAss('')
-              setFq('')
-            }}
-          >
-            ✕ 조건 지우기
-          </button>
-        )}
-        <span className="sp" />
-        <span className="muted small">
-          {rows.length === items.length ? `${items.length}건` : `${rows.length} / ${items.length}건`}
-        </span>
-      </div>
 
       </section>
 
@@ -2448,6 +2255,80 @@ function CycleDetail({
             <i className="tp-n">{rows.length}</i>
             <span className="sp" />
             {pick.size > 0 && <span className="muted small">{pick.size} 고름</span>}
+          </div>
+          {/* 찾기 + 내 것만 — Zephyr 왼쪽 목록의 도구 그대로 */}
+          <div className="tp-tools">
+            <input
+              className="tp-q"
+              placeholder="TC ID · 제목 검색"
+              value={fq}
+              onChange={(e) => setFq(e.target.value)}
+            />
+            <label className="tp-mine" title="내가 담당인 항목만 봅니다">
+              <input
+                type="checkbox"
+                checked={fAss !== ''}
+                onChange={(e) => setFAss(e.target.checked ? meName : '')}
+              />
+              내 것만
+            </label>
+          </div>
+          {/* 결과로 좁히기 — 누르면 그 결과만, 다시 누르면 전부 */}
+          <div className="tp-chips">
+            <button
+              type="button"
+              className={only === null && !onlyRegress ? 'on' : ''}
+              onClick={() => {
+                setOnly(null)
+                setOnlyRegress(false)
+              }}
+            >
+              전체 {items.length}
+            </button>
+            <button
+              type="button"
+              className={`cp${only === 'Pass' ? ' on' : ''}`}
+              onClick={() => {
+                setOnlyRegress(false)
+                setOnly(only === 'Pass' ? null : 'Pass')
+              }}
+            >
+              Pass {counts['Pass'] ?? 0}
+            </button>
+            <button
+              type="button"
+              className={`cf${only === 'Fail' ? ' on' : ''}`}
+              onClick={() => {
+                setOnlyRegress(false)
+                setOnly(only === 'Fail' ? null : 'Fail')
+              }}
+            >
+              Fail {counts['Fail'] ?? 0}
+            </button>
+            <button
+              type="button"
+              className={only === '' ? 'on' : ''}
+              onClick={() => {
+                setOnlyRegress(false)
+                setOnly(only === '' ? null : '')
+              }}
+            >
+              미실행 {counts[''] ?? 0}
+            </button>
+            {others.length > 0 && (
+              <button
+                type="button"
+                className={`cr${onlyRegress ? ' on' : ''}`}
+                title={
+                  prev
+                    ? `${prev.version || prev.name || '지난 사이클'} 에선 Pass 였는데 이번에 Fail 인 것`
+                    : '비교할 지난 사이클이 없습니다'
+                }
+                onClick={() => setOnlyRegress((v) => !v)}
+              >
+                회귀 {prev && prevVerdict.size ? regressN : '–'}
+              </button>
+            )}
           </div>
           <div className="tp-rows scroll">
             {rows.map((it, i) => {
@@ -2973,6 +2854,7 @@ function CycleRowMenu({
   onClose,
   onEdit,
   onGoTc,
+  onRemove,
 }: {
   at: { x: number; y: number }
   count: number
@@ -2980,6 +2862,8 @@ function CycleRowMenu({
   onEdit: () => void
   /** TC ID 열을 뺐다 — 시험으로 가는 길은 여기다 */
   onGoTc?: () => void
+  /** 사이클에서 빼기 — 위 단추 줄을 걷어냈으니 여기가 길이다 */
+  onRemove?: () => void
 }) {
   useEffect(() => {
     const away = () => onClose()
@@ -3010,6 +2894,11 @@ function CycleRowMenu({
       {onGoTc && (
         <button type="button" onClick={onGoTc}>
           시험 열기 (TC)
+        </button>
+      )}
+      {onRemove && (
+        <button type="button" className="danger" onClick={onRemove}>
+          사이클에서 빼기{count > 1 ? ` (${count})` : ''}
         </button>
       )}
     </div>
