@@ -3094,8 +3094,12 @@ table.tb td.k {
 
 /* 설명 — 마크다운 편집기 높이. 두 줄짜리 메모부터 서식 문서까지 */
 .ce-md { min-height: 120px; }
-/* 편집기 글자 — 기본 --fs-md(14px)가 커서 한 단계 내린다 */
-.ce-md .md-body, .ce-md textarea, .ce-md [contenteditable] { font-size: var(--fs-sm) !important; }
+/* 편집기 본문 글자 — 밀크다운 ProseMirror 가 진짜 본문이다. 12px 로 */
+.ce-md .milkdown .ProseMirror,
+.ce-md .milkdown .ProseMirror p {
+  font-size: var(--fs-sm) !important;
+  line-height: 1.5;
+}
 .ce-md .md-editor, .ce-md .w-md-editor { min-height: 120px; }
 
 /* 아래 Add 바 — 항목은 여기서 담는다 */
