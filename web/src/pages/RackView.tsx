@@ -1215,7 +1215,7 @@ export default function RackView() {
         const labNm = labs.find((l) => l.id === (rk?.lab_id ?? ''))?.name ?? ''
         const word = (p: string) => {
           const st = protoState(d, p)
-          return st === 'off' ? '없음' : st === 'ok' ? '연결됨' : st === 'ng' ? '실패' : '미확인'
+          return st === 'off' ? '미연결' : st === 'ok' ? '연결됨' : st === 'ng' ? '실패' : '미확인'
         }
         // 포트 — SNMP 실측이 있으면 그것이 정본, 없으면 등록 목록(중립)
         const live = tipPorts && tipPorts.id === d.id ? tipPorts : null
@@ -1230,9 +1230,6 @@ export default function RackView() {
                 return { no: m ? m[1]! : n.slice(-2), name: n }
               })
         ).slice(0, 96)
-        // 8포트 단위 묶음 — 실물 스위치의 블록과 같은 문법
-        const groups: (typeof rawPorts)[] = []
-        for (let g = 0; g < rawPorts.length; g += 8) groups.push(rawPorts.slice(g, g + 8))
         const upCnt = live?.ok ? live.ports.filter((x) => x.up).length : 0
         const x = Math.min(tip.x + 14, window.innerWidth - 320)
         const y = Math.min(tip.y + 12, window.innerHeight - (rawPorts.length ? 420 : 300))
@@ -1269,19 +1266,16 @@ export default function RackView() {
                     ? `포트 형상 · SNMP 실측 — up ${upCnt} / 전체 ${live.ports.length}`
                     : `포트 형상 · 등록 목록 ${rawPorts.length}포트${live?.reason ? ` (${live.reason})` : ''}`}
                 </div>
-                <div className="rv-tp8s">
-                  {groups.map((g, gi) => (
-                    <div className="rv-tports" key={gi}>
-                      {g.map((pp, k) => (
-                        <i
-                          key={k}
-                          className={pp.up === undefined ? '' : pp.up ? 'up' : 'down'}
-                          title={`${pp.name}${pp.up === undefined ? '' : pp.up ? ' — up' : ' — down'}`}
-                        >
-                          {pp.no}
-                        </i>
-                      ))}
-                    </div>
+                {/* 1 2 3 … 12 / 13 14 … 24 — 순서대로 한 줄 12개 */}
+                <div className="rv-tports">
+                  {rawPorts.map((pp, k) => (
+                    <i
+                      key={k}
+                      className={pp.up === undefined ? '' : pp.up ? 'up' : 'down'}
+                      title={`${pp.name}${pp.up === undefined ? '' : pp.up ? ' — up' : ' — down'}`}
+                    >
+                      {pp.no}
+                    </i>
                   ))}
                 </div>
               </div>
