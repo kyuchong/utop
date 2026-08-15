@@ -3226,8 +3226,15 @@ table.tb td.k {
   font-size: var(--fs-sm);
 }
 
-/* 항목 추가 팝업 줄 — 오른쪽 칩들이 서로 침범하지 않게 고정폭 열로 */
+/* 항목 추가 팝업 줄 — 상태·배정됨이 늘 같은 세로줄에 선다 */
 .ce-tc { gap: 8px; }
 .ce-tc .ce-tc-nm { min-width: 0; }
 .ce-tcst { width: 56px; text-align: center; flex: none; }
-.ce-tc > .muted.small { width: 44px; flex: none; text-align: right; }
+.ce-tcst:empty { border-color: transparent; background: transparent; }
+.ce-tcadd {
+  width: 44px;
+  flex: none;
+  text-align: right;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}

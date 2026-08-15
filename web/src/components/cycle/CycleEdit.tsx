@@ -1146,8 +1146,9 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                       <span className="ce-tc-nm" title={t.tcid}>
                         {t.name || '(제목 없음)'}
                       </span>
-                      {t.status ? <i className="ce-tcst">{String(t.status)}</i> : null}
-                      {already && <span className="muted small">배정됨</span>}
+                      {/* 상태·배정됨은 늘 같은 자리 — 없으면 빈 칸이 자리를 지킨다 */}
+                      <i className="ce-tcst">{t.status ? String(t.status) : ''}</i>
+                      <span className="ce-tcadd">{already ? '배정됨' : ''}</span>
                     </label>
                   )
                 })
