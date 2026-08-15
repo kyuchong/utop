@@ -179,6 +179,11 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
     if (visible) inputRef.current?.focus()
   }, [visible])
 
+  // 명령이 끝나면 포커스를 입력줄로 되돌린다 — 클릭 없이 바로 다음 명령
+  useEffect(() => {
+    if (visible && !busy) inputRef.current?.focus()
+  }, [visible, busy])
+
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight })
   }, [blocks, note])
@@ -325,7 +330,7 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
           <input
             ref={inputRef}
             value={input}
-            disabled={!prompt || busy}
+            disabled={!prompt}
             placeholder={prompt ? '' : '접속되면 입력할 수 있습니다'}
             spellCheck={false}
             autoComplete="off"
