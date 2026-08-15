@@ -2965,3 +2965,23 @@ table.tb tr.r-bad td:first-child {
   padding: 0;
 }
 .tc-colf.on { color: var(--c-primary); font-weight: 800; }
+
+/* Bulk Edit — 값 항목이 늘어 세로를 크게 쓴다 */
+.modal.bk {
+  height: 92vh;
+  max-height: 92vh;
+  width: min(980px, 96vw);
+  max-width: none;
+}
+.modal.bk .bk-cols { flex: 1; min-height: 0; }
+.modal.bk .bk-list { overflow-y: auto; min-height: 0; }
+.modal.bk .bk-targets { min-height: 0; }
+.modal.bk .bk-targets ul { max-height: none; }
+.bk-vals { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.bk-vals select {
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  padding: 6px 9px;
+  font: inherit;
+  min-width: 180px;
+}

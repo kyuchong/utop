@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { apiFetch, tcApi } from '@/api/client'
+import { useCodes } from '@/hooks/useCodes'
 import type { TcData } from './types'
 
 interface Props {
@@ -15,7 +17,17 @@ interface Fill {
   object_md: boolean
   precondition_md: boolean
   image: boolean
+  model: boolean
+  copy: boolean
+  run_type: boolean
+  type: boolean
+  origin: boolean
+  status: boolean
+  severity: boolean
 }
+
+/** 「공용으로 하겠다」 는 명시적 선택 */
+const COMMON = '*'
 
 /**
  * 여러 TC 를 한 번에 고치기.
@@ -35,7 +47,59 @@ interface Fill {
  */
 export default function TcBulkEdit({ items, onClose, onDone }: Props) {
   const ids = items.map((x) => x.tcid)
-  const [fill, setFill] = useState<Fill>({ object_md: true, precondition_md: false, image: false })
+  const [fill, setFill] = useState<Fill>({
+    object_md: false,
+    precondition_md: false,
+    image: false,
+    model: false,
+    copy: false,
+    run_type: false,
+    type: false,
+    origin: false,
+    status: false,
+    severity: false,
+  })
+  /* 값 한꺼번에 — 모델·분류값을 여러 건에 단다 (모델그룹+모델명 체계) */
+  const [bMg, setBMg] = useState('')
+  const [bMdl, setBMdl] = useState('')
+  const [bRun, setBRun] = useState('')
+  const [bType, setBType] = useState('')
+  const [bOrigin, setBOrigin] = useState('')
+  const [bStatus, setBStatus] = useState('')
+  const [bSev, setBSev] = useState('')
+  const RUN_TYPES = useCodes('tc_run_type', ['수동', '자동', '혼합'])
+  const TYPES = useCodes('tc_type', ['FT', 'Function'])
+  const ORIGINS = useCodes('tc_origin', ['자체', '고객'])
+  const STATUSES = useCodes('tc_status', ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류'])
+  const SEVERITIES = useCodes('tc_severity', ['치명', '중대', '보통', '경미'])
+  /* 본보기에서 복사 — 토폴로지(세션·배선·배치)·계측기 트래픽은 손으로
+     다시 못 적는다. 한 건을 본보기로 골라 통째로 심는다. */
+  const [srcId, setSrcId] = useState('')
+  const [cpTopo, setCpTopo] = useState(true)
+  const [cpMeter, setCpMeter] = useState(false)
+  const tcListQ = useQuery({
+    queryKey: ['tc', 'list', 'meta'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/tc?meta=1')
+      return (await r.json()) as { tcs?: Array<{ tcid: string; name?: string | null }> }
+    },
+    staleTime: 30_000,
+  })
+  const rolesQ = useQuery({
+    queryKey: ['device-roles'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/device-roles')
+      return (await r.json()) as {
+        groups?: string[]
+        models?: string[]
+        model_info?: Record<string, { model_group?: string | null }>
+      }
+    },
+    staleTime: 60_000,
+  })
+  const modelOpts = (rolesQ.data?.models ?? []).filter(
+    (m) => !bMg || bMg === COMMON || (rolesQ.data?.model_info?.[m]?.model_group ?? '') === bMg,
+  )
   const [obj, setObj] = useState('')
   const [pre, setPre] = useState('')
   const [img, setImg] = useState('')
@@ -82,6 +146,13 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
     (fill.object_md && obj.trim()) ||
     (fill.precondition_md && pre.trim()) ||
     (fill.image && img) ||
+    (fill.model && !!bMg) ||
+    (fill.copy && !!srcId && (cpTopo || cpMeter)) ||
+    (fill.run_type && !!bRun) ||
+    (fill.type && !!bType) ||
+    (fill.origin && !!bOrigin) ||
+    (fill.status && !!bStatus) ||
+    (fill.severity && !!bSev) ||
     false
 
   const apply = async () => {
@@ -89,6 +160,16 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
     let done = 0
     let skip = 0
     const fails: string[] = []
+    // 본보기는 한 번만 읽는다
+    let src: TcData | null = null
+    if (fill.copy && srcId && (cpTopo || cpMeter)) {
+      try {
+        const r = await apiFetch(`/api/tc/${encodeURIComponent(srcId)}`)
+        if (r.ok) src = (await r.json()) as TcData
+      } catch {
+        /* 본보기를 못 읽으면 복사만 빠진다 */
+      }
+    }
     for (const id of ids) {
       try {
         const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`)
@@ -104,6 +185,44 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
         if (fill.object_md && obj.trim()) put('object_md', obj)
         if (fill.precondition_md && pre.trim()) put('precondition_md', pre)
         if (fill.image && img) put('topo_img', img)
+        /* 값들 — 「비어 있는 것만」 규칙을 똑같이 지킨다 */
+        const putVal = (key: string, v: string) => {
+          const had = String((cur as Record<string, unknown>)[key] ?? '').trim()
+          if (had && !over) return
+          patch[key] = v
+        }
+        if (fill.model && bMg) {
+          const had =
+            String((cur as Record<string, unknown>).model_group ?? '').trim() ||
+            String((cur as Record<string, unknown>).model ?? '').trim()
+          if (!had || over) {
+            patch.model_group = bMg === COMMON ? '' : bMg
+            patch.model = bMdl === COMMON ? '' : bMdl
+          }
+        }
+        if (src && id !== srcId) {
+          const c = cur as Record<string, unknown>
+          const sv = src as unknown as Record<string, unknown>
+          if (cpTopo) {
+            const had =
+              (Array.isArray(c.wiring) && (c.wiring as unknown[]).length > 0) ||
+              (Array.isArray(c.sessions) && (c.sessions as unknown[]).length > 0)
+            if (!had || over) {
+              patch.sessions = sv.sessions ?? []
+              patch.wiring = sv.wiring ?? []
+              if (sv.topoNodes !== undefined) patch.topoNodes = sv.topoNodes
+            }
+          }
+          if (cpMeter) {
+            const hadM = !!c.meterCfg && Object.keys(c.meterCfg as object).length > 0
+            if (!hadM || over) patch.meterCfg = sv.meterCfg ?? {}
+          }
+        }
+        if (fill.run_type && bRun) putVal('run_type', bRun)
+        if (fill.type && bType) putVal('type', bType)
+        if (fill.origin && bOrigin) putVal('origin', bOrigin)
+        if (fill.status && bStatus) putVal('status', bStatus)
+        if (fill.severity && bSev) putVal('severity', bSev)
         if (!Object.keys(patch).length) {
           skip++
           continue
@@ -159,6 +278,122 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
 
         <div className="bk-cols">
         <div className="bk-list">
+          {/* 값 한꺼번에 — 모델그룹+모델명 체계로 여러 건을 한 번에 단다 */}
+          {row(
+            'model',
+            '적용 모델',
+            <div className="bk-vals">
+              <select
+                value={bMg}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setBMg(v)
+                  setBMdl(v === COMMON ? COMMON : '')
+                }}
+              >
+                <option value="">(모델그룹 골라 주세요)</option>
+                <option value={COMMON}>공용 (전체)</option>
+                {(rolesQ.data?.groups ?? []).map((g) => (
+                  <option key={g}>{g}</option>
+                ))}
+              </select>
+              <select value={bMdl} disabled={bMg === COMMON} onChange={(e) => setBMdl(e.target.value)}>
+                <option value="">{bMg === COMMON ? '공용' : '(모델명 — 그룹 공용이면 비움)'}</option>
+                <option value={COMMON}>{bMg === COMMON ? '공용' : '(그룹 공용)'}</option>
+                {modelOpts.map((m) => (
+                  <option key={m}>{m}</option>
+                ))}
+              </select>
+            </div>,
+          )}
+          {row(
+            'copy',
+            '본보기에서 복사 (토폴로지 · 계측기)',
+            <div className="bk-vals bk-copy">
+              <select value={srcId} onChange={(e) => setSrcId(e.target.value)}>
+                <option value="">(본보기 시험 골라 주세요)</option>
+                {(tcListQ.data?.tcs ?? []).map((t) => (
+                  <option key={t.tcid} value={t.tcid}>
+                    {t.name || t.tcid}
+                  </option>
+                ))}
+              </select>
+              <label className="chk">
+                <input type="checkbox" checked={cpTopo} onChange={(e) => setCpTopo(e.target.checked)} />
+                토폴로지 (세션·배선·배치)
+              </label>
+              <label className="chk">
+                <input
+                  type="checkbox"
+                  checked={cpMeter}
+                  onChange={(e) => setCpMeter(e.target.checked)}
+                />
+                계측기 트래픽
+              </label>
+              <span className="muted small">본보기 자신은 건너뜁니다</span>
+            </div>,
+          )}
+          {row(
+            'run_type',
+            '실행 타입',
+            <div className="bk-vals">
+              <select value={bRun} onChange={(e) => setBRun(e.target.value)}>
+                <option value="">(선택)</option>
+                {RUN_TYPES.map((v) => (
+                  <option key={v}>{v}</option>
+                ))}
+              </select>
+            </div>,
+          )}
+          {row(
+            'type',
+            '유형',
+            <div className="bk-vals">
+              <select value={bType} onChange={(e) => setBType(e.target.value)}>
+                <option value="">(선택)</option>
+                {TYPES.map((v) => (
+                  <option key={v}>{v}</option>
+                ))}
+              </select>
+            </div>,
+          )}
+          {row(
+            'origin',
+            '발생 구분',
+            <div className="bk-vals">
+              <select value={bOrigin} onChange={(e) => setBOrigin(e.target.value)}>
+                <option value="">(선택)</option>
+                {ORIGINS.map((v) => (
+                  <option key={v}>{v}</option>
+                ))}
+              </select>
+            </div>,
+          )}
+          {row(
+            'status',
+            '상태',
+            <div className="bk-vals">
+              <select value={bStatus} onChange={(e) => setBStatus(e.target.value)}>
+                <option value="">(선택)</option>
+                {STATUSES.map((v) => (
+                  <option key={v}>{v}</option>
+                ))}
+              </select>
+              <span className="muted small">상태는 대개 값이 있어 「덮어쓰기」 일 때만 바뀝니다</span>
+            </div>,
+          )}
+          {row(
+            'severity',
+            '심각도',
+            <div className="bk-vals">
+              <select value={bSev} onChange={(e) => setBSev(e.target.value)}>
+                <option value="">(선택)</option>
+                {SEVERITIES.map((v) => (
+                  <option key={v}>{v}</option>
+                ))}
+              </select>
+            </div>,
+          )}
           {row(
             'object_md',
             '시험 목적',
