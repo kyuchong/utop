@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, reqApi } from '@/api/client'
+import MarkdownEditor from '@/components/MarkdownEditorLazy'
 import { reqLabel, reqPk, type Requirement } from '@/types'
 
 interface Props {
@@ -15,6 +16,7 @@ interface Fill {
   status: boolean
   priority: boolean
   folder: boolean
+  desc: boolean
 }
 
 interface CodeItem {
@@ -42,10 +44,18 @@ interface Cat {
  *  · 끝나면 몇 건이 바뀌었는지 말한다
  */
 export default function ReqBulkEdit({ ids, onClose, onDone }: Props) {
-  const [fill, setFill] = useState<Fill>({ status: true, priority: false, folder: false })
+  const [fill, setFill] = useState<Fill>({
+    status: true,
+    priority: false,
+    folder: false,
+    desc: false,
+  })
   const [status, setStatus] = useState('')
   const [priority, setPriority] = useState('')
   const [folder, setFolder] = useState('')
+  /** 구현 내용 — TC Bulk 와 같은 서식 편집기, 같은 「비어 있는 것만」 규칙 */
+  const [desc, setDesc] = useState('')
+  const [over, setOver] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
@@ -82,7 +92,10 @@ export default function ReqBulkEdit({ ids, onClose, onDone }: Props) {
   const cats = catQ.data?.categories ?? []
 
   const ready =
-    (fill.status && status) || (fill.priority && priority) || (fill.folder && folder !== '')
+    (fill.status && status) ||
+    (fill.priority && priority) ||
+    (fill.folder && folder !== '') ||
+    (fill.desc && desc.trim() !== '')
 
   const apply = async () => {
     setBusy(true)
@@ -95,6 +108,10 @@ export default function ReqBulkEdit({ ids, onClose, onDone }: Props) {
         const body: Record<string, unknown> = { ...r }
         if (fill.status && status) body.status = status
         if (fill.priority && priority) body.priority = priority
+        if (fill.desc && desc.trim()) {
+          const had = String((r as Record<string, unknown>).desc ?? '').trim()
+          if (!had || over) body.desc = desc
+        }
         if (fill.folder) {
           // 분류는 네 칸(cat1~4)에 나뉘어 있다. 옮길 때는 맨 아래 칸에 넣고
           // 나머지를 비워야 트리가 두 군데에 걸치지 않는다.
@@ -183,6 +200,18 @@ export default function ReqBulkEdit({ ids, onClose, onDone }: Props) {
                 ))}
               </select>,
             )}
+            {/* 구현 내용 — 편집 창과 같은 서식 편집기 */}
+            {row(
+              'desc',
+              '구현 내용',
+              <div className="bk-md">
+                <MarkdownEditor
+                  value={desc}
+                  onChange={setDesc}
+                  placeholder="무엇을, 어떻게 구현하는지"
+                />
+              </div>,
+            )}
           </div>
 
           <div className="bk-targets">
@@ -197,20 +226,37 @@ export default function ReqBulkEdit({ ids, onClose, onDone }: Props) {
           </div>
         </div>
 
+        <div className="bk-mode">
+          {/* 구현 내용에만 적용 — 상태·우선순위·폴더는 고른 값으로 바꾸는 것이 목적이다 */}
+          <label>
+            <input type="radio" checked={!over} onChange={() => setOver(false)} />
+            비어 있는 것만 채우기 (구현 내용)
+          </label>
+          <label className="bk-danger">
+            <input type="radio" checked={over} onChange={() => setOver(true)} />
+            덮어쓰기
+          </label>
+          {over && (
+            <span className="bk-warn">이미 적혀 있는 구현 내용이 지워집니다. 되돌릴 수 없습니다.</span>
+          )}
+        </div>
+
         <div className="modal-foot">
           {err && <span className="muted small err">{err}</span>}
           <span className="sp" />
-          <button className="btn" type="button" disabled={busy} onClick={onClose}>
-            취소
-          </button>
-          <button
-            className="btn primary"
-            type="button"
-            disabled={!ready || busy}
-            onClick={() => void apply()}
-          >
-            {busy ? '고치는 중…' : '고치기'}
-          </button>
+          <span className="page-head-actions">
+            <button className="btn" type="button" disabled={busy} onClick={onClose}>
+              취소
+            </button>
+            <button
+              className="btn primary"
+              type="button"
+              disabled={!ready || busy}
+              onClick={() => void apply()}
+            >
+              {busy ? '고치는 중…' : '고치기'}
+            </button>
+          </span>
         </div>
       </div>
     </div>
