@@ -23,6 +23,8 @@
 /* 줄 자체는 요구사항 트리(ReqTree.css)의 .rt-fold/.rt-req 를 쓴다.
    여기서는 사이클에만 있는 것만 더한다. */
 .cy-node { cursor: pointer; }
+/* 행 높이를 표(27px)와 맞춘다 — 두 칸의 구분선이 나란히 내려간다 */
+.cy-tree .rt-fold { min-height: 27px; }
 /* 사이클이 아직 없는 버전그룹. 만들어 놓고 안 보이면 또 만든다 */
 /* 빈 폴더 이름 — 옅게. ('.empty' 안내문 스타일과 절대 겹치지 말 것) */
 .cy-nm-empty { color: var(--c-text-faint); }
@@ -1808,6 +1810,7 @@ table.tb td.k {
   display: flex;
   align-items: center;
   gap: 4px;
+  height: 40px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--c-border-soft);
 }
@@ -2451,8 +2454,11 @@ table.tb td.k {
 }
 .cyt-card > .cy-tools {
   margin: 0;
-  padding: 10px 12px;
+  /* 1열 트리 머리(.lh 46px)와 같은 높이 — 구분선이 나란히 간다 */
+  height: 46px;
+  padding: 6px 12px;
   border-bottom: 1px solid var(--c-border);
+  flex-wrap: nowrap;
 }
 .cyt { background: var(--c-surface); overflow: auto; }
 .cyt-row {
@@ -2613,6 +2619,8 @@ table.tb td.k {
   font-weight: 700;
   color: var(--c-text-faint);
   border-bottom: 1px solid var(--c-border);
+  /* 트리의 찾기 줄(.cy-find)과 같은 높이 — 첫 데이터 줄이 같은 y 에서 시작 */
+  height: 40px;
 }
 /* 머리글 = 정렬 단추. 화살표가 지금 차례를 말한다 */
 .cyt-th {
