@@ -1281,7 +1281,7 @@ function CycleBoard({
       <div className="cy-board-h">
         <b>{scopeLabel ? `${scopeLabel} — 버전별 상태` : '어느 버전을 검증할까요'}</b>
         <span className="muted small">
-          카드를 누르면 실행 화면이 열립니다 · 색 띠는 Pass/Fail, 숫자는 실행 진행률
+          여기서는 무엇이 있고 어디까지 왔는지만 봅니다 — 줄을 누르면 실행 화면이 열립니다
         </span>
       </div>
       {/* 요약 띠 + 도구 — 지금 보이는 범위의 합계, 그리고 찾기·거르기·정렬 */}
@@ -1321,43 +1321,49 @@ function CycleBoard({
           <option value="fail">Fail 많은 순</option>
         </select>
       </div>
-      {[...groups.entries()].map(([model, list]) => (
-        <div key={model} className="cy-bgroup">
-          <div className="cy-bgt">
-            {model}
-            {/* 사이클별 Pass/Fail 추이 — 왼쪽이 과거. 이 모델이 좋아지고
-                있는지 나빠지고 있는지가 열기 전에 보인다. 목록이 최신순이라
-                뒤집어 그린다. 막대를 누르면 그 사이클이 열린다. */}
-            {list.length > 1 && (
-              <span className="cy-btrend" aria-label="사이클별 결과 추이">
-                {[...list].reverse().slice(-16).map((c) => {
-                  const its = c.items ?? []
-                  let pass = 0
-                  let fail = 0
-                  for (const it of its) {
-                    const v = itemVerdict(it)
-                    if (v === 'Pass') pass += 1
-                    else if (v === 'Fail') fail += 1
-                  }
-                  const rest = its.length - pass - fail
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className="cy-btr"
-                      title={`${c.version || c.name || c.id} — Pass ${pass} · Fail ${fail} · 나머지 ${rest}`}
-                      onClick={() => onPick(c.id)}
-                    >
-                      <i className="n" style={{ flexGrow: rest }} />
-                      <i className="f" style={{ flexGrow: fail }} />
-                      <i className="p" style={{ flexGrow: pass }} />
-                    </button>
-                  )
-                })}
-              </span>
-            )}
-          </div>
-          <div className="cy-cards">
+      {/* Zephyr TEST CYCLES 처럼 표로 — 모델이 묶음 머리, 사이클이 줄.
+          여기서는 실행하지 않는다. 줄을 누르면 실행 화면으로 간다. */}
+      <div className="cyt">
+        <div className="cyt-row cyt-hd">
+          <span>이름</span>
+          <span>버전그룹</span>
+          <span className="tr">Tests</span>
+          <span>Progress</span>
+          <span>Status</span>
+          <span className="tr">Fail</span>
+          <span>담당</span>
+          <span>갱신</span>
+        </div>
+        {[...groups.entries()].map(([model, list]) => (
+          <div key={model} className="cyt-g">
+            <div className="cyt-grow">
+              <b>{model}</b>
+              {modelOp?.get(model) && <i className="cy-bop">{modelOp.get(model)}</i>}
+              <span className="muted small">{list.length}개</span>
+              <span className="sp" />
+              {/* 사이클별 Pass/Fail 추이 — 왼쪽이 과거. 막대를 누르면 그 사이클 */}
+              {list.length > 1 && (
+                <span className="cy-btrend" aria-label="사이클별 결과 추이">
+                  {[...list].reverse().slice(-16).map((c) => {
+                    const t = stats.get(c.id) ?? { total: 0, pass: 0, fail: 0 }
+                    const rest = t.total - t.pass - t.fail
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className="cy-btr"
+                        title={`${c.version || c.name || c.id} — Pass ${t.pass} · Fail ${t.fail} · 나머지 ${rest}`}
+                        onClick={() => onPick(c.id)}
+                      >
+                        <i className="n" style={{ flexGrow: rest }} />
+                        <i className="f" style={{ flexGrow: t.fail }} />
+                        <i className="p" style={{ flexGrow: t.pass }} />
+                      </button>
+                    )
+                  })}
+                </span>
+              )}
+            </div>
             {(sortBy === 'recent'
               ? list
               : [...list].sort((a, b) =>
@@ -1366,52 +1372,52 @@ function CycleBoard({
                     : (stats.get(b.id)?.fail ?? 0) - (stats.get(a.id)?.fail ?? 0),
                 )
             ).map((c) => {
-              const items = c.items ?? []
-              const counts: Record<string, number> = {}
-              for (const it of items) {
-                const v = itemVerdict(it)
-                counts[v] = (counts[v] ?? 0) + 1
-              }
-              const total = items.length
-              const done = total - (counts[''] ?? 0)
-              const pct = total ? Math.round((done / total) * 100) : 0
-              const fail = counts['Fail'] ?? 0
+              const t = stats.get(c.id) ?? { total: 0, done: 0, pass: 0, fail: 0, pct: 0 }
+              const status =
+                t.total > 0 && t.done === t.total ? 'done' : t.done > 0 ? 'run' : 'idle'
               return (
-                <button key={c.id} type="button" className="cy-bcard" onClick={() => onPick(c.id)}>
-                  <span className="cy-bcard-t">
-                    <b>{c.version || c.name || c.id}</b>
-                    {c.version_group ? <i>{c.version_group}</i> : null}
+                <div
+                  key={c.id}
+                  className="cyt-row cyt-c"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onPick(c.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') onPick(c.id)
+                  }}
+                >
+                  <span className="cyt-nm" title={c.name || c.version || c.id}>
+                    {c.version || c.name || c.id}
                   </span>
-                  {/* 결과 분포 띠 — 실행 화면 위의 것과 같은 문법 */}
-                  <span className="cy-bar" aria-hidden="true">
-                    {RESULTS.map((r) => (
-                      <span key={r.v} className={r.cls} style={{ flexGrow: counts[r.v] ?? 0 }} />
-                    ))}
-                    {total === 0 && <span className="none" style={{ flexGrow: 1 }} />}
-                  </span>
-                  <span className="cy-bcard-m">
-                    <b className={pct === 100 ? 'done' : ''}>{pct}%</b>
-                    <span className="muted small">
-                      {done}/{total}건 실행
+                  <span className="muted small">{c.version_group || '–'}</span>
+                  <span className="tr">{t.total}</span>
+                  {/* Progress — Pass 초록 · Fail 빨강 · 남음 회색, 오른쪽에 실행률 */}
+                  <span className="cy-prg" title={`실행 ${t.done}/${t.total} · Pass ${t.pass} · Fail ${t.fail}`}>
+                    <span className="cy-prg-bar" aria-hidden="true">
+                      <i className="p" style={{ flexGrow: t.pass }} />
+                      <i className="f" style={{ flexGrow: t.fail }} />
+                      <i className="n" style={{ flexGrow: Math.max(t.total - t.pass - t.fail, 0) }} />
                     </span>
-                    {fail > 0 && <b className="bad">Fail {fail}</b>}
-                    <span className="sp" />
-                    {/* 사업자 — LGU+ 향인지 공공 향인지 열기 전에 보인다 */}
-                    {modelOp?.get(String(c.model ?? '').trim()) && (
-                      <i className="cy-bop">{modelOp.get(String(c.model ?? '').trim())}</i>
-                    )}
-                    {c.assignee && <span className="muted small">{c.assignee}</span>}
-                    {/* 마지막 움직임 — 죽은 사이클과 도는 사이클이 갈린다 */}
-                    {c._updated_at_pg && (
-                      <span className="muted small">{String(c._updated_at_pg).slice(0, 10)}</span>
-                    )}
+                    <b>{t.pct}%</b>
                   </span>
-                </button>
+                  <span>
+                    <i className={`cyt-st ${status}`}>
+                      {status === 'done' ? 'DONE' : status === 'run' ? '진행중' : '대기'}
+                    </i>
+                  </span>
+                  <span className={`tr${t.fail > 0 ? ' cyt-fail' : ''}`}>{t.fail || '–'}</span>
+                  <span className="muted small cyt-ell" title={c.assignee ?? ''}>
+                    {c.assignee || '–'}
+                  </span>
+                  <span className="muted small">
+                    {c._updated_at_pg ? String(c._updated_at_pg).slice(0, 10) : '–'}
+                  </span>
+                </div>
               )
             })}
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
       {cycles.length === 0 && (
         <div className="empty">아직 사이클이 없습니다 — 왼쪽 위 ＋ 로 만드세요.</div>
       )}
@@ -1573,25 +1579,17 @@ function CycleDetail({
   useEffect(() => {
     if (!st.on) setRunView(false)
   }, [st.on])
-  /** 캐럿으로 펼쳐 둔 항목들 — 실행과 무관하게 스텝을 줄 밑에서 본다 */
-  const [inlineOpen, setInlineOpen] = useState<Set<number>>(new Set())
-  const toggleInline = (at: number) =>
-    setInlineOpen((cur) => {
-      const n = new Set(cur)
-      if (n.has(at)) n.delete(at)
-      else n.add(at)
-      return n
-    })
-  /** 도는 항목의 인라인 판 — 따라가기 중이면 화면에 붙잡아 둔다 */
+  /** 도는 항목 줄 — 따라가기 중이면 왼쪽 목록에서 화면에 붙잡아 둔다 */
   const runlineRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     if (st.on && follow)
       runlineRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [st.on, st.itemAt, follow])
 
-  /** 3열(스텝 세부) 폭 — 끌어서 바꾼다 */
   const colsRef = useRef<HTMLDivElement>(null)
-  const [sideW, setSideW] = useResizableWidth('utop.cycle.sideW2', 760, 320, 1400)
+
+  /** 고른 항목의 시험 문서(Objective·Precondition) — TC 가 정본이라 그때 읽는다 */
+  const [tcDoc, setTcDoc] = useState<{ object_md?: string; precondition_md?: string } | null>(null)
 
   /**
    * 지금 열어 둔 항목에 걸린 결함. 「결함 등록」 을 「결함 봄」 으로 가른다.
@@ -1944,7 +1942,6 @@ function CycleDetail({
    * 「무엇을 보고 있나」 가 화면을 정하지, 사람이 보기 방식을 따로
    * 고르게 하지 않는다. 실행 따라가기 중에는 도는 항목이 곧 고른 것이다.
    */
-  const view: 'list' | 'detail' = followAt >= 0 ? 'detail' : 'list'
   /** 지금 도는 항목이면 저장된 스텝 대신 받는 중인 것을 보여 준다 */
   const liveNow = st.on && followAt === st.itemAt && st.liveSteps.length > 0
 
@@ -1953,6 +1950,30 @@ function CycleDetail({
     void loadItemDefect(cur?.tcid ?? '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cur?.tcid, cycle.id])
+
+  // Objective·Precondition — 항목이 바뀔 때 그 시험(TC)에서 읽는다
+  useEffect(() => {
+    setTcDoc(null)
+    const id = cur?.tcid
+    if (!id) return
+    let dead = false
+    apiFetch(`/api/tc/${encodeURIComponent(id)}`)
+      .then(async (r) => {
+        if (!r.ok || dead) return
+        const j = (await r.json()) as {
+          data?: { object_md?: string; precondition_md?: string }
+          object_md?: string
+          precondition_md?: string
+        }
+        if (!dead) setTcDoc(j.data ?? j)
+      })
+      .catch(() => {
+        /* 문서를 못 읽어도 실행은 계속된다 */
+      })
+    return () => {
+      dead = true
+    }
+  }, [cur?.tcid])
 
   return (
     <div className="cy-detail">
@@ -2401,384 +2422,222 @@ function CycleDetail({
         </span>
       </div>
 
-      {/* 「몇 개 골랐나」 는 표 바로 위에 */}
-      <div className="cy-listwrap">
-        <div className="cy-selbar">
-          <label className="rq-selall">
-            <input
-              type="checkbox"
-              checked={rows.length > 0 && pick.size === rows.length}
-              ref={(el) => {
-                if (el) el.indeterminate = pick.size > 0 && pick.size < rows.length
-              }}
-              disabled={!rows.length}
-              onChange={() =>
-                pick.size === rows.length
-                  ? sel.clear()
-                  : sel.set(rows.map((x) => items.indexOf(x)))
-              }
-            />
-            Select All
-          </label>
-          <span className="rq-seldiv" aria-hidden="true" />
-          <span className="muted small">Selected : {pick.size}</span>
-        </div>
-        <div className="cy-list">
-        <div className="cy-row cy-hd">
-          <span />
-          <span />
-          <span>TC summary</span>
-          <span>진행</span>
-          <span>결함</span>
-          <span>결과</span>
-          <span>타입</span>
-          <span>담당자</span>
-          <span>실행자</span>
-          <span>실행</span>
-        </div>
-        {rows.map((it, i) => {
-          const at = items.indexOf(it)
-          // ④ 요구사항별 묶음. 앞 줄과 요구사항이 다르면 머리줄을 하나 끼운다 —
-          // 같은 요구사항의 시험이 흩어져 있으면 「이 요구사항은 다 됐나」 를
-          // 눈으로 세어야 한다.
-          const rid = String(it.req_id ?? '')
-          const newGroup = i === 0 || String(rows[i - 1]?.req_id ?? '') !== rid
-          const gRows = newGroup ? rows.filter((x) => String(x.req_id ?? '') === rid) : []
-          // 지금 도는 항목이면 스텝 결과가 차오르는 그대로(st.liveSteps)로
-          // 판정을 계산한다. 안 그러면 스텝 세부창에선 Pass 가 뜨는데 목록의
-          // 결과 칸은 실행 전 값 그대로라 「스텝은 Pass 인데 항목은 미실행」
-          // 으로 어긋난다. 다 끝나면 저장→새로고침으로 같은 값이 굳는다.
-          const liveHere = st.on && st.itemAt === at && st.liveSteps.length > 0
-          // 도는 항목은 방금 받은 스텝이 판정한다. result(손으로 정한 값)를
-          // 비워서 옛 Fail 이 새 Pass 를 가리지 않게 — 실행기도 저장할 때
-          // 같은 이유로 result 를 지운다.
-          const shown = liveHere ? ({ ...it, steps: st.liveSteps as CycleStep[], result: '' }) : it
-          const v = itemVerdict(shown)
-          const steps = shown.steps ?? []
-          const bad = steps.filter((s) => isFail(stepVerdict(s as TcStep))).length
-          return (
-            <React.Fragment key={`${it.tcid}-${i}`}>
-            {newGroup && (
-              <div className="cy-grow" title={rid || '요구사항 없음'}>
-                <span className="cy-gicon" aria-hidden="true">
-                  <IconFolder open />
-                </span>
-                <b>{reqName.get(rid) || rid || '(요구사항 없음)'}</b>
-                {/* 부여 ID 만 보여준다 — 내부 키(rq-…)는 사람이 읽을 글이 아니다 */}
-                {(() => {
-                  const label = reqIdOf.get(rid) || (rid.startsWith('rq-') ? '' : rid)
-                  return label ? <span className="muted small">{label}</span> : null
-                })()}
-                <span className="sp" />
-                <span className="muted small">{gRows.length}건</span>
-              </div>
-            )}
-            <div
-              /* 남이 같이 보고 있으면 줄에 테두리를 두른다 — 눈 표시는
-                 체크박스 자리에 작아서 그냥 지나쳤다 */
-              /* 줄·제목 클릭은 아무 일도 안 한다 — 펼침은 캐럿, 고르기는
-                 체크박스, 나머지는 우클릭. 클릭마다 화면이 반응하면
-                 훑어보다 계속 뭔가 열린다. */
-              className={`cy-row v-${v}${openItem === at ? ' on' : ''}${
-                pick.has(at) ? ' picked' : ''
-              }${st.itemAt === at ? ' running' : ''}${
-                (focus[String(at)] ?? []).some((u) => u !== meName) ? ' watched' : ''
-              }`}
-              onContextMenu={(e) => {
-                e.preventDefault()
-                // 안 고른 줄에서 눌렀으면 그 줄만 고른 것으로 본다 —
-                // 엉뚱한 것이 고쳐지지 않게
-                if (!pick.has(at)) sel.set([at])
-                setRowMenu({ at, x: e.clientX, y: e.clientY })
-              }}
-            >
-              {/* TC ID 를 따로 세운다.
-                  전에는 이름만 보였다. 이름은 「sysDescr Get 동작 확인」
-                  처럼 겹치는 것이 많아서, 어느 시험인지 대려면 결국 열어
-                  봐야 했다. 누르면 그 시험으로 간다 — 판정 기준을 고치러
-                  가는 일이 잦다. */}
-              {/* 체크박스 — Ctrl·Shift 로 고르는 것은 그대로 두고, 눈에
-                  보이는 방법도 함께 준다(Zephyr 와 같은 자리) */}
-              {/* 이 항목을 나 말고 누가 보고 있나.
-                  **칸을 새로 만들지 않는다** — 격자에 자식을 하나 더 넣으면
-                  그 줄만 칸이 밀려 머리글과 어긋난다. 체크박스 칸 위에
-                  얹는다. */}
-              {/* 펼침 캐럿 — 트리 폴더와 같은 문법. 누르면 스텝이 줄 밑에 */}
-              <button
-                type="button"
-                className={`cy-expcaret${inlineOpen.has(at) ? ' open' : ''}`}
-                title="스텝을 줄 밑에 펼쳐 봅니다"
-                aria-expanded={inlineOpen.has(at)}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggleInline(at)
+      </section>
+
+      {/* Test Player — 왼쪽에서 항목을 고르고, 오른쪽에서 시험한다.
+          Zephyr 실행 화면 문법: 목록은 좁게, 절차·판정·기록은 넓게. */}
+      <div className="tp">
+        <aside className="tp-side">
+          <div className="tp-sh">
+            <label className="rq-selall" title="보이는 것 전부 고르기">
+              <input
+                type="checkbox"
+                checked={rows.length > 0 && pick.size === rows.length}
+                ref={(el) => {
+                  if (el) el.indeterminate = pick.size > 0 && pick.size < rows.length
                 }}
-              >
-                <IconChevron />
-              </button>
-              <span className="cy-ck" onClick={(e) => e.stopPropagation()}>
-                {(() => {
-                  const who = (focus[String(at)] ?? []).filter((u) => u !== meName)
-                  if (!who.length) return null
-                  return (
-                    <span className="cy-eyes" title={`${who.join(', ')} 님이 보는 중`}>
-                      {who.slice(0, 2).map((u) => (
-                        <i key={u}>{(u.trim()[0] || '?').toUpperCase()}</i>
-                      ))}
-                    </span>
-                  )
-                })()}
-                <input
-                  type="checkbox"
-                  checked={pick.has(at)}
-                  aria-label={`${it.name || it.tcid} 고르기`}
-                  onChange={() => {
-                    const n = new Set(pick)
-                    if (n.has(at)) n.delete(at)
-                    else n.add(at)
-                    sel.set([...n])
-                  }}
-                />
-              </span>
-              <span className="cy-tc" title={it.tcid}>
-                {/* 실행 중 표시는 격자 칸이 아니라 이름 칸 **안**에 —
-                    칸으로 끼우면 그 줄만 한 칸씩 밀린다(겪었다) */}
-                {st.itemAt === at && (
-                  <b className="cy-live-chip" title="지금 이 항목을 돌리는 중입니다">
-                    <i />
-                    실행 중
-                  </b>
-                )}
-                {it.name || it.tcid}
-                {/* 되던 것이 무너졌다 — Fail 중에서도 이것부터 봐야 한다 */}
-                {isRegress(it) && (
-                  <b
-                    className="cy-regchip"
-                    title={`${prev?.version || prev?.name || '지난 사이클'} 에선 Pass 였습니다`}
-                  >
-                    회귀
-                  </b>
-                )}
-                {/* 부적합 근거는 오른쪽 스텝 카드에 있다 — 목록엔 단계 수만 */}
-                {steps.length > 0 && (
-                  <i className="cy-steps">
-                    {bad ? `${steps.length}단계 중 ${bad} 부적합` : `${steps.length}단계`}
-                  </i>
-                )}
-              </span>
-              {/* 진행 바 — 스텝 판정 분포. Zephyr 의 Progress 컬럼 몫이다.
-                  글(8단계 중 6 부적합)은 읽어야 하지만 색 띠는 스치면 보인다 */}
-              {(() => {
-                let p = 0
-                let f = 0
-                for (const s of steps) {
-                  const sv2 = stepVerdict(s as TcStep)
-                  if (isPass(sv2)) p += 1
-                  else if (isFail(sv2)) f += 1
+                disabled={!rows.length}
+                onChange={() =>
+                  pick.size === rows.length
+                    ? sel.clear()
+                    : sel.set(rows.map((x) => items.indexOf(x)))
                 }
-                const t = steps.length
-                return (
-                  <span
-                    className="cy-bar cy-ibar"
-                    title={
-                      t
-                        ? `스텝 ${t} · Pass ${p} · Fail ${f} · 안 돈 것 ${t - p - f}`
-                        : '스텝 없음'
-                    }
-                  >
-                    <span className="pass" style={{ flexGrow: p }} />
-                    <span className="fail" style={{ flexGrow: f }} />
-                    <span className="none" style={{ flexGrow: t === 0 ? 1 : t - p - f }} />
-                  </span>
-                )
-              })()}
-              {/* 진행 — Zephyr 의 Progress 처럼 스텝이 어디까지 갔나.
-                  도는 항목은 liveSteps 라 실행을 따라 차오른다 */}
-              {(() => {
-                const tot = steps.length
-                let sp = 0
-                let sf = 0
-                let sd = 0
-                for (const s2 of steps) {
-                  const v2 = stepVerdict(s2 as TcStep)
-                  if (v2) sd += 1
-                  if (isPass(v2)) sp += 1
-                  else if (isFail(v2)) sf += 1
-                }
-                if (!tot) return <span className="muted small">–</span>
-                return (
-                  <span className="cy-prg" title={`스텝 ${sd}/${tot} 실행 · Pass ${sp} · Fail ${sf}`}>
-                    <span className="cy-prg-bar" aria-hidden="true">
-                      <i className="p" style={{ flexGrow: sp }} />
-                      <i className="f" style={{ flexGrow: sf }} />
-                      <i className="n" style={{ flexGrow: Math.max(tot - sp - sf, 0) }} />
-                    </span>
-                    <b>{Math.round((sd / tot) * 100)}%</b>
-                  </span>
-                )
-              })()}
-              {/* 결함 수 — 결과와 나란히 있어야 「깨졌고 결함도 걸었나」 가
-                  한눈에 이어진다 */}
-              <span className="muted">{(it.issues?.length ?? 0) || '–'}</span>
-              {/* 결과를 손으로 정할 수 있어야 한다. 수동 시험도 있고,
-                  자동으로 돌았는데 사람이 달리 판단하는 경우도 있다 */}
-              <select
-                className={`cy-v ${verdictClass(v)}`}
-                value={v}
-                title="결과를 손으로 정합니다"
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) =>
-                  // 미실행('')을 고르면 「강제 미실행」 표식으로 저장한다.
-                  // 빈 값으로 두면 스텝에서 다시 계산돼 안 바뀐 것처럼 보인다.
-                  void setResult(it.tcid, e.target.value === '' ? '미실행' : e.target.value)
-                }
-              >
-                {RESULTS.map((r) => (
-                  <option key={r.v} value={r.v}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-              {/* 사람이 할 일인가 장비가 할 일인가.
-                  Manual 만 있는 시험을 자동으로 돌린 줄 알고 「왜 안 돌았지」
-                  하는 일이 있었다. 목록에서 갈려야 한다. */}
-              <span className={`cy-kind ${kindOf(steps)}`}>
-                {kindOf(steps) === 'manual'
-                  ? 'Manual'
-                  : kindOf(steps) === 'mixed'
-                    ? '섞임'
-                    : kindOf(steps) === 'auto'
-                      ? 'Auto'
-                      : '–'}
-              </span>
-              {/* 맡은 사람과 실제로 돌린 사람은 다르다 — 둘을 갈라 적는다 */}
-              <span className="muted cy-who" title={it.assignee ?? ''}>
-                {it.assignee || '–'}
-              </span>
-              <span className="muted cy-who" title={it.executed_by ?? ''}>
-                {it.executed_by || '–'}
-              </span>
-              <span className="muted small">
-                {/* 도는 동안은 시각 대신 진행을 보여 준다. 「언제 돌았나」 는
-                    끝난 뒤에 궁금한 것이고, 도는 동안 궁금한 것은
-                    「어디까지 갔나」 다. */}
-                {st.itemAt === at && st.on ? (
-                  <b className="cy-now" title="실행 중 — 지나간 스텝/전체">
-                    {st.stepAt >= 0 ? `${st.stepAt + 1}/${st.stepCount}` : '…'}
-                  </b>
-                ) : (
-                  <>
-                    {it.executed_at ? it.executed_at.slice(0, 16) : '–'}
-                    {it.executed_auto && <b title="자동으로 돌았습니다"> ⚡</b>}
-                  </>
-                )}
-              </span>
-            </div>
-            {/* 도는 항목은 줄 밑이 펼쳐진다 — 스텝이 차례로 차오르고,
-                끝나면(다음 항목으로 넘어가면) 저절로 접힌다 */}
-            {st.on && st.itemAt === at && (
-              <div className="cy-runline" ref={runlineRef}>
-                <div className="cy-rl-h">
-                  <i className="cy-rl-dot" aria-hidden="true" />
-                  <b>
-                    {st.waiting
-                      ? '실행 대기 — 실행 서버가 집기를 기다립니다'
-                      : `스텝 ${Math.min(Math.max(st.stepAt + 1, 1), st.stepCount || steps.length)} / ${st.stepCount || steps.length}`}
-                  </b>
-                  <span className="muted small">
-                    항목 {Math.min(st.done + 1, st.total)}/{st.total}
-                  </span>
-                  {st.who && <span className="muted small">{st.who} 님이 걸었습니다</span>}
-                  <span className="sp" />
-                  <button
-                    className="btn small"
-                    type="button"
-                    title="실행 모드로 크게 봅니다 (로그 포함)"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setRunView(true)
+              />
+            </label>
+            <b>Test Cases</b>
+            <i className="tp-n">{rows.length}</i>
+            <span className="sp" />
+            {pick.size > 0 && <span className="muted small">{pick.size} 고름</span>}
+          </div>
+          <div className="tp-rows scroll">
+            {rows.map((it, i) => {
+              const at = items.indexOf(it)
+              const rid = String(it.req_id ?? '')
+              const newGroup = i === 0 || String(rows[i - 1]?.req_id ?? '') !== rid
+              const liveHere = st.on && st.itemAt === at && st.liveSteps.length > 0
+              const shown = liveHere
+                ? ({ ...it, steps: st.liveSteps as CycleStep[], result: '' })
+                : it
+              const v = itemVerdict(shown)
+              const on = followAt === at
+              return (
+                <React.Fragment key={`${it.tcid}-${i}`}>
+                  {newGroup && (
+                    <div className="tp-grow" title={rid || '요구사항 없음'}>
+                      <b>{reqName.get(rid) || rid || '(요구사항 없음)'}</b>
+                      {(() => {
+                        const label = reqIdOf.get(rid) || (rid.startsWith('rq-') ? '' : rid)
+                        return label ? <span className="muted small"> {label}</span> : null
+                      })()}
+                    </div>
+                  )}
+                  <div
+                    className={`tp-row v-${verdictClass(v)}${on ? ' on' : ''}${
+                      pick.has(at) ? ' picked' : ''
+                    }${st.itemAt === at && st.on ? ' running' : ''}`}
+                    ref={st.on && st.itemAt === at ? runlineRef : undefined}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setOpenItem(at)
+                      setFollow(false)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setOpenItem(at)
+                        setFollow(false)
+                      }
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      if (!pick.has(at)) sel.set([at])
+                      setRowMenu({ at, x: e.clientX, y: e.clientY })
                     }}
                   >
-                    크게 보기
-                  </button>
+                    <input
+                      type="checkbox"
+                      checked={pick.has(at)}
+                      aria-label={`${it.name || it.tcid} 고르기`}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={() => {
+                        const n = new Set(pick)
+                        if (n.has(at)) n.delete(at)
+                        else n.add(at)
+                        sel.set([...n])
+                      }}
+                    />
+                    <span className="tp-rmain">
+                      <span className="tp-r1">
+                        <b className="tp-tcid">{it.tcid || '–'}</b>
+                        {/* 사람 일인가 장비 일인가 — 목록에서 갈려야 한다 */}
+                        {(() => {
+                          const kd = kindOf(shown.steps ?? [])
+                          return kd ? (
+                            <i className={`tp-k ${kd}`}>
+                              {kd === 'manual' ? 'M' : kd === 'auto' ? 'A' : 'M+A'}
+                            </i>
+                          ) : null
+                        })()}
+                        {/* 나 말고 누가 이 항목을 보는 중인가 */}
+                        {(() => {
+                          const who = (focus[String(at)] ?? []).filter((u) => u !== meName)
+                          if (!who.length) return null
+                          return (
+                            <span className="cy-eyes" title={`${who.join(', ')} 님이 보는 중`}>
+                              {who.slice(0, 2).map((u) => (
+                                <i key={u}>{(u.trim()[0] || '?').toUpperCase()}</i>
+                              ))}
+                            </span>
+                          )
+                        })()}
+                      </span>
+                      <span className="tp-nm" title={it.name || it.tcid}>
+                        {it.name || it.tcid}
+                      </span>
+                    </span>
+                    {st.itemAt === at && st.on && <i className="tp-live" title="실행 중" />}
+                    {isRegress(it) && (
+                      <b className="cy-regchip" title="지난 사이클에선 Pass 였습니다">
+                        회귀
+                      </b>
+                    )}
+                    <i className={`tp-v ${verdictClass(v)}`} title={verdictLabel(v)} />
+                  </div>
+                </React.Fragment>
+              )
+            })}
+            {rows.length === 0 && <div className="empty">해당하는 항목이 없습니다.</div>}
+          </div>
+        </aside>
+
+        <section className="tp-main scroll">
+          {cur ? (
+            <>
+              <div className="tp-h">
+                <b className="tp-hid">{cur.tcid}</b>
+                <h3 className="tp-hnm">{cur.name || cur.tcid}</h3>
+                <span className="sp" />
+                <select
+                  className={`cy-v tp-big ${verdictClass(itemVerdict(liveNow ? { ...cur, steps: st.liveSteps, result: '' } : cur))}`}
+                  value={itemVerdict(cur)}
+                  title="결과를 손으로 정합니다"
+                  onChange={(e) =>
+                    void setResult(cur.tcid, e.target.value === '' ? '미실행' : e.target.value)
+                  }
+                >
+                  {RESULTS.map((r) => (
+                    <option key={r.v} value={r.v}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+                {!st.on && (
                   <button
-                    className="btn small"
+                    className="btn primary small"
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      void stop()
-                    }}
+                    title="이 항목만 돌립니다"
+                    disabled={saving}
+                    onClick={() => followAt >= 0 && startRun([followAt])}
                   >
-                    중지
+                    ▶ 실행
                   </button>
+                )}
+              </div>
+
+              {/* Execution 정보 — Zephyr 의 Execution 칸과 같은 자리 */}
+              <div className="tp-exec">
+                <div>
+                  <i>Environment</i>
+                  <b>{cycle.model || '–'}</b>
                 </div>
-                <StepLines steps={steps} curAt={st.waiting ? -1 : st.stepAt} />
+                <div>
+                  <i>Version</i>
+                  <b>{cycle.version || '–'}</b>
+                </div>
+                <div>
+                  <i>Iteration</i>
+                  <b>{cycle.version_group || '–'}</b>
+                </div>
+                <div>
+                  <i>Assigned To</i>
+                  <b>{cur.assignee || '–'}</b>
+                </div>
+                <div>
+                  <i>Executed by</i>
+                  <b>{cur.executed_by || '–'}</b>
+                </div>
+                <div>
+                  <i>실행 시각</i>
+                  <b>{cur.executed_at ? String(cur.executed_at).slice(0, 16) : '–'}</b>
+                </div>
               </div>
-            )}
-            {/* 캐럿으로 펼친 스텝 — 실행 인라인이 그 줄에 떠 있으면 그쪽이 이긴다 */}
-            {inlineOpen.has(at) && !(st.on && st.itemAt === at) && (
-              <div className="cy-runline cy-static">
-                <StepLines
-                  steps={steps}
-                  onJudge={(si, v2) => void setStepResult(it.tcid ?? '', si, v2)}
-                />
-              </div>
-            )}
-            </React.Fragment>
-          )
-        })}
-        {rows.length === 0 && <div className="empty">해당하는 항목이 없습니다.</div>}
+
+              {/* Objective · Precondition — 시험(TC)이 정본으로 들고 있다 */}
+              <TpSec title="Objective" body={tcDoc?.object_md} />
+              <TpSec title="Precondition" body={tcDoc?.precondition_md} />
+
+              {/* Details — 절차와 판정. 기존 스텝 카드 그대로 */}
+              <div className="tp-dt">Details</div>
+              <StepDetail
+                key={cur.tcid ?? ''}
+                item={liveNow ? { ...cur, steps: st.liveSteps } : cur}
+                runningAt={liveNow ? st.stepAt : -1}
+                onSetStep={(at2, v2) => void setStepResult(cur.tcid ?? '', at2, v2)}
+                onSetImg={(at2, file) => void setStepImg(cur.tcid ?? '', at2, file)}
+                onSetImgUrl={(at2, url) => void setStepField(cur.tcid ?? '', at2, { actual_img: url })}
+                onSetTxt={(at2, txt) => void setStepField(cur.tcid ?? '', at2, { actual_txt: txt })}
+                onIssue={
+                  itemVerdict(cur) === 'Fail' || itemDefect ? () => setDefectFor(cur) : undefined
+                }
+                defect={itemDefect}
+                onClose={() => setOpenItem(-1)}
+              />
+            </>
+          ) : (
+            <div className="empty">왼쪽에서 항목을 고르면 여기서 시험합니다.</div>
+          )}
+        </section>
       </div>
-      </div>
-
-      </section>
-
-      {/* 오른쪽 칸 — 고른 항목의 스텝, 그리고 실행 중이면 오간 것.
-          목록 안에서 펼치면 줄이 아래로 밀려서 방금 보던 자리를 놓친다.
-          TC 화면과 같은 모양이라 오갈 때 눈이 안 헤맨다. */}
-      {/* 2열 ↔ 3열. 스텝 세부를 넓게 볼 때가 있고, 64건 목록을 넓게 볼
-          때가 있다 — 어느 쪽이 넓어야 하는지는 그때그때 다르다.
-          손잡이는 **오른쪽 칸**의 폭을 정한다. 그래서 원점을 오른쪽 끝에
-          두고 거꾸로 잰다. */}
-      {/* List 에서는 스텝 칸을 접어 표를 넓게 쓴다 */}
-      {view === 'detail' && (
-        <Resizer
-          label="스텝 세부 폭 조절"
-          onResize={(w) => setSideW(Math.max(280, (colsRef.current?.clientWidth ?? 900) - w))}
-          getOrigin={() => colsRef.current?.getBoundingClientRect().left ?? 0}
-        />
-      )}
-
-      {view === 'detail' && (
-      <section className="panel cy-side" style={{ flexBasis: sideW }}>
-        <div className="cy-cardh">
-          <b>Test Procedure Details</b>
-          <span className="muted small">{cur ? cur.name || cur.tcid : '항목을 고르세요'}</span>
-        </div>
-        {cur ? (
-          <StepDetail
-            // 항목이 바뀌면 새로 만든다. 안 그러면 처음 계산한 「펼칠 스텝」
-            // 을 그대로 들고 있어서, 부적합이 없는 항목으로 옮기면 아무
-            // 줄도 안 펼쳐진다 — 스텝은 보이는데 내용이 안 보인다
-            key={cur.tcid ?? ''}
-            item={liveNow ? { ...cur, steps: st.liveSteps } : cur}
-            runningAt={liveNow ? st.stepAt : -1}
-            onSetStep={(at, v) => void setStepResult(cur.tcid ?? '', at, v)}
-            onSetImg={(at, file) => void setStepImg(cur.tcid ?? '', at, file)}
-            onSetImgUrl={(at, url) => void setStepField(cur.tcid ?? '', at, { actual_img: url })}
-            onSetTxt={(at, txt) => void setStepField(cur.tcid ?? '', at, { actual_txt: txt })}
-            // 부적합일 때만 결함 등록 단추를 준다 — 통과한 항목엔 걸 일이 없다
-            onIssue={
-              itemVerdict(cur) === 'Fail' || itemDefect ? () => setDefectFor(cur) : undefined
-            }
-            defect={itemDefect}
-            onClose={() => setOpenItem(-1)}
-          />
-        ) : (
-          <div className="empty">항목을 누르면 스텝이 보입니다.</div>
-        )}
-      </section>
-      )}
       </div>
       )}
 
@@ -2905,102 +2764,25 @@ function CycleMenu({
  *  · 오른쪽: 지금 도는 스텝의 실행 로그가 터미널로 흐른다
  *  · 끝나면: 아래에 Pass·Fail·회귀 요약과 「표로 돌아가기」
  */
-/** 스텝을 절차 그대로 — 실행 인라인(차오르는 중)과 캐럿 펼침(저장본)이 같이
-    쓴다. 자동 스텝은 CLI 명령·판정 기준, 수동 스텝은 절차·Test Data·기대
-    결과까지 그린다 — 판정만 보이면 「무엇을 했길래」 를 알 수 없다.
-    curAt 이 있으면 실행 중: 그 스텝은 「실행 중…」, 안 온 것은 「대기」. */
-function StepLines({
-  steps,
-  curAt,
-  onJudge,
-}: {
-  steps: CycleStep[]
-  curAt?: number
-  /** 수동 스텝의 Pass/Fail 판정 — 캐럿 펼침에서만 온다. 같은 값을 다시
-      누르면 지운다(미실행) */
-  onJudge?: (si: number, v: string) => void
-}) {
+/** 접이식 섹션 — Zephyr 실행 화면의 Objective·Precondition 자리 */
+function TpSec({ title, body }: { title: string; body?: string | null }) {
+  const [open, setOpen] = useState(true)
   return (
-    <div className="cy-rl-steps">
-      {steps.map((s, si) => {
-        const sv = stepVerdict(s as TcStep)
-        const cur = curAt != null && si === curAt
-        const cls = cur ? 'cur' : isFail(sv) ? 'ng' : isPass(sv) ? 'ok' : ''
-        const manual = s.manual || s.action === '수동' || s.kind === 'manual'
-        return (
-          <div key={si} className={`cy-rl-step ${cls}`}>
-            <i>{si + 1}</i>
-            {manual ? (
-              /* 수동 시험은 시험서 그대로 — 절차·데이터·기대를 가로로 놓고,
-                 판정은 그 자리의 Pass/Fail 로 끝낸다 */
-              <div className="cy-rl-man">
-                <div className="cy-rl-mc">
-                  <i>Tests</i>
-                  <span>{s.step || s.desc || '–'}</span>
-                </div>
-                <div className="cy-rl-mc">
-                  <i>Test Data</i>
-                  <span>{s.data || '–'}</span>
-                </div>
-                <div className="cy-rl-mc">
-                  <i>Expected Result</i>
-                  <span>{s.expected || '–'}</span>
-                </div>
-                {onJudge ? (
-                  <div className="cy-rl-judge">
-                    <button
-                      type="button"
-                      className={`p${isPass(sv) ? ' on' : ''}`}
-                      onClick={() => onJudge(si, isPass(sv) ? '' : 'Pass')}
-                    >
-                      Pass
-                    </button>
-                    <button
-                      type="button"
-                      className={`f${isFail(sv) ? ' on' : ''}`}
-                      onClick={() => onJudge(si, isFail(sv) ? '' : 'Fail')}
-                    >
-                      Fail
-                    </button>
-                  </div>
-                ) : (
-                  <b className={`cy-rl-v ${cls}`}>{sv || '미실행'}</b>
-                )}
-              </div>
-            ) : (
-              <div className="cy-rl-b">
-                <div className="cy-rl-l1">
-                  {s.action && <em className="cy-rl-act">{s.action}</em>}
-                  <span className="cy-rl-nm">{s.desc || s.step || `스텝 ${si + 1}`}</span>
-                  {cur && !isFail(sv) && !isPass(sv) ? (
-                    <b className="cy-rl-v run">실행 중…</b>
-                  ) : (
-                    <b className={`cy-rl-v ${cls}`}>{sv || (curAt != null ? '대기' : '미실행')}</b>
-                  )}
-                </div>
-                {s.cli && <pre className="cy-rl-cli">{s.cli}</pre>}
-                {s.criteria && <div className="cy-rl-crit">기준 · {s.criteria}</div>}
-                {isFail(sv) && s.reason && (
-                  <div className="cy-rl-why" title={s.reason ?? ''}>
-                    {String(s.reason).split('\n')[0]}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )
-      })}
-      {steps.length === 0 && (
-        <div className="muted small">
-          {curAt != null
-            ? '스텝을 받는 중…'
-            : '이 항목에는 절차(스텝)가 없습니다 — 시험에 스텝을 채우면 여기 보입니다.'}
+    <div className="tp-sec">
+      <button type="button" className="tp-sec-h" onClick={() => setOpen((v) => !v)}>
+        <span className={`tp-sec-c${open ? ' open' : ''}`} aria-hidden="true">
+          <IconChevron />
+        </span>
+        {title}
+      </button>
+      {open && (
+        <div className="tp-sec-b">
+          {body?.trim() ? body : <span className="muted">None</span>}
         </div>
       )}
     </div>
   )
 }
-
 function RunPane({
   cycle,
   items,
