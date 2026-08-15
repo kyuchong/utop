@@ -380,7 +380,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   }
   const reqTitleOf = (rid: string) => {
     const r = reqs.find((r2) => reqPk(r2) === rid || String(r2.reqid ?? '') === rid)
-    return r ? reqLabel(r) : rid || '–'
+    // ID 가 아니라 제목 — ID 는 말풍선(title 속성)에
+    return String(r?.title ?? '').trim() || '–'
   }
 
 

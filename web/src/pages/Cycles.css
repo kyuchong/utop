@@ -3162,14 +3162,17 @@ table.tb td.k {
 /* 완료 화면 표 — ☐ · 요구사항 제목 · 시험항목 제목 · 최근 결과 · 담당자 */
 .ce-dt {
   display: grid;
-  grid-template-columns: 26px minmax(150px, 0.8fr) minmax(200px, 1.2fr) 64px 120px;
-  gap: 8px;
+  /* 왼쪽에 붙여 촘촘히 — 요구사항·시험항목은 왼쪽, 최근 결과·담당자는 오른끝 */
+  grid-template-columns: 24px minmax(90px, 280px) minmax(160px, 1fr) 64px 120px;
+  gap: 6px;
   align-items: center;
-  padding: 4px 6px;
+  padding: 3px 6px;
   border-bottom: 1px solid var(--c-border-weak, #eef1f5);
   font-size: var(--fs-sm);
-  min-height: 30px;
+  min-height: 28px;
 }
+.ce-dt > span { text-align: left; }
+.ce-dt .ce-dtv { display: inline-block; }
 .ce-dthd {
   font-size: var(--fs-xs);
   font-weight: 700;
