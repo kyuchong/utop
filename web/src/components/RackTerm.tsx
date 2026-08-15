@@ -179,10 +179,11 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
     if (visible) inputRef.current?.focus()
   }, [visible])
 
-  // 명령이 끝나면 포커스를 입력줄로 되돌린다 — 클릭 없이 바로 다음 명령
+  // 접속되거나 명령이 끝나면 포커스를 입력줄로 — 클릭 없이 바로 다음 명령.
+  // disabled 가 풀린 다음 렌더에서 걸어야 실제로 잡힌다.
   useEffect(() => {
-    if (visible && !busy) inputRef.current?.focus()
-  }, [visible, busy])
+    if (visible && !busy && prompt) inputRef.current?.focus()
+  }, [visible, busy, prompt])
 
   useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight })
