@@ -1327,6 +1327,21 @@ function CycleBoard({
 }) {
   const [q, setQ] = useState('')
   const [failOnly, setFailOnly] = useState(false)
+  /** ⚙ 필터 — 사이클 INFO 필드(상태·고객)로 거른다 */
+  const [fStat2, setFStat2] = useState('')
+  const [fCust, setFCust] = useState('')
+  const [gearAt2, setGearAt2] = useState<{ x: number; y: number } | null>(null)
+  const codesQ = useQuery({
+    queryKey: ['codes'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes')
+      if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
+      return (await r.json()) as { items: Array<{ kind: string; value: string }> }
+    },
+    staleTime: 60_000,
+  })
+  const codeVals = (kind: string) =>
+    (codesQ.data?.items ?? []).filter((i) => i.kind === kind).map((i) => i.value)
   /** 머리글 클릭 정렬 — 열 이름 옆 화살표가 방향을 보여 준다 */
   const [sortCol, setSortCol] = useState('')
   const [sortDir, setSortDir] = useState<1 | -1>(1)
@@ -1429,8 +1444,10 @@ function CycleBoard({
           .includes(nq),
       )
     if (failOnly) arr = arr.filter((c) => (stats.get(c.id)?.fail ?? 0) > 0)
+    if (fStat2) arr = arr.filter((c) => String((c as unknown as Record<string, unknown>).status ?? '') === fStat2)
+    if (fCust) arr = arr.filter((c) => String(c.customer ?? '') === fCust)
     return arr
-  }, [cycles, q, failOnly, stats])
+  }, [cycles, q, failOnly, fStat2, fCust, stats])
 
 
   const fmtD = (v?: string | null) => (v ? String(v).slice(0, 10) : '–')
@@ -1506,12 +1523,69 @@ function CycleBoard({
         />
         <button
           type="button"
-          className={`cy-failonly${failOnly ? ' on' : ''}`}
-          title="Fail 이 있는 사이클만 봅니다"
-          onClick={() => setFailOnly((v) => !v)}
+          className={`cyt-gear cyt-gear-tb${failOnly || fStat2 || fCust ? ' on' : ''}`}
+          title="거르기 — 상태·고객(사이클 INFO 필드)·Fail"
+          onClick={(e) => {
+            const r2 = e.currentTarget.getBoundingClientRect()
+            setGearAt2((cur) => (cur ? null : { x: r2.right, y: r2.bottom + 4 }))
+          }}
         >
-          Fail 만
+          ⚙
         </button>
+        {gearAt2 && (
+          <>
+            <span className="cyt-gearovl" onClick={() => setGearAt2(null)} />
+            <span
+              className="cyt-gearpop cyt-fpop"
+              style={{
+                position: 'fixed',
+                left: Math.max(8, gearAt2.x - 220),
+                top: gearAt2.y,
+                right: 'auto',
+              }}
+            >
+              <label className="cyt-frow">
+                <i>상태</i>
+                <select value={fStat2} onChange={(e) => setFStat2(e.target.value)}>
+                  <option value="">전체</option>
+                  {codeVals('cycle_status').map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="cyt-frow">
+                <i>고객</i>
+                <select value={fCust} onChange={(e) => setFCust(e.target.value)}>
+                  <option value="">전체</option>
+                  {codeVals('cycle_customer').map((v) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={failOnly}
+                  onChange={(e) => setFailOnly(e.target.checked)}
+                />
+                Fail 있는 것만
+              </label>
+              {(failOnly || fStat2 || fCust) && (
+                <button
+                  className="btn small"
+                  type="button"
+                  onClick={() => {
+                    setFailOnly(false)
+                    setFStat2('')
+                    setFCust('')
+                  }}
+                >
+                  ✕ 조건 지우기
+                </button>
+              )}
+            </span>
+          </>
+        )}
       </div>
 
       <div className="cyt">
@@ -2757,6 +2831,18 @@ function CycleDetail({
                         {it.name || it.tcid}
                       </span>
                     </span>
+                    {/* 직전 결과 — 비교 사이클(vs)에서 같은 시험의 결과 */}
+                    {prevVerdict.size > 0 && (
+                      <i
+                        className={`cxp-pv ${verdictClass(prevVerdict.get(it.tcid) ?? '')}`}
+                        title={`직전(${prev?.version || prev?.name || '이전'}): ${verdictLabel(prevVerdict.get(it.tcid) ?? '')}`}
+                      >
+                        {(() => {
+                          const pv = prevVerdict.get(it.tcid) ?? ''
+                          return pv === 'Pass' ? 'P' : pv === 'Fail' ? 'F' : '–'
+                        })()}
+                      </i>
+                    )}
                     {st.itemAt === at && st.on && <i className="cxp-live" title="실행 중" />}
                     {isRegress(it) && (
                       <b className="cy-regchip" title="지난 사이클에선 Pass 였습니다">
