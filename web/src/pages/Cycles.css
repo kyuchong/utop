@@ -1934,8 +1934,9 @@ table.tb td.k {
   justify-content: center;
   color: var(--c-text-faint);
 }
-.cy-expcaret svg { transition: transform 0.15s; transform: rotate(-90deg); }
-.cy-expcaret.open svg { transform: rotate(0); }
+/* IconChevron 기본이 ▸(오른쪽) — 닫힘 그대로, 열림 90° = ▾. 트리와 같다 */
+.cy-expcaret svg { transition: transform 0.15s; }
+.cy-expcaret.open svg { transform: rotate(90deg); }
 .cy-expcaret:hover { color: var(--c-text); }
 
 /* ── 인라인 실행 판 — 도는 항목 줄 밑에 펼쳐진다 ── */
@@ -1971,10 +1972,10 @@ table.tb td.k {
 }
 .cy-rl-step {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 8px;
   font-size: var(--fs-sm);
-  padding: 2px 6px;
+  padding: 3px 6px;
   border-radius: var(--radius-sm);
   color: var(--c-text-muted);
 }
@@ -1985,29 +1986,71 @@ table.tb td.k {
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
   flex: none;
+  line-height: 1.7;
+}
+.cy-rl-b { flex: 1; min-width: 0; }
+.cy-rl-l1 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+/* 스텝 종류 — CLI · 대기 · Traffic … 무엇을 하는 스텝인지 한눈에 */
+.cy-rl-act {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--c-text-faint);
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  padding: 0 5px;
+  flex: none;
+  background: var(--c-surface);
 }
 .cy-rl-nm {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 46%;
+  min-width: 0;
 }
-.cy-rl-step > em {
-  font-style: normal;
+.cy-rl-v {
   font-size: var(--fs-xs);
   font-weight: 700;
   flex: none;
+  margin-left: auto;
 }
-.cy-rl-step.ok { color: var(--c-text); }
-.cy-rl-step.ok > em { color: var(--c-pass); }
-.cy-rl-step.ng { color: var(--c-text); }
-.cy-rl-step.ng > em { color: var(--c-fail); }
+.cy-rl-v.ok { color: var(--c-pass); }
+.cy-rl-v.ng { color: var(--c-fail); }
+.cy-rl-v.run { color: var(--c-primary); }
+.cy-rl-step.ok, .cy-rl-step.ng { color: var(--c-text); }
 .cy-rl-step.cur {
   background: var(--c-surface);
   color: var(--c-text);
   font-weight: 600;
 }
-.cy-rl-step.cur > em.run { color: var(--c-primary); }
+/* 자동 스텝의 명령 — 절차가 곧 이 명령들이다 */
+.cy-rl-cli {
+  margin: 2px 0 0;
+  padding: 3px 8px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--c-text-muted);
+  background: rgb(15 23 42 / 0.05);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 96px;
+  overflow-y: auto;
+}
+.cy-rl-crit {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  margin-top: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .cy-rl-why {
   font-size: var(--fs-xs);
   color: var(--c-fail);
@@ -2015,6 +2058,7 @@ table.tb td.k {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  margin-top: 1px;
 }
 /* 캐럿으로 펼친 저장본 — 파란 실행 판과 헷갈리지 않게 잿빛 */
 .cy-runline.cy-static {

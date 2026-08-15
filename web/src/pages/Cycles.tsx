@@ -2870,9 +2870,10 @@ function CycleMenu({
  *  · 오른쪽: 지금 도는 스텝의 실행 로그가 터미널로 흐른다
  *  · 끝나면: 아래에 Pass·Fail·회귀 요약과 「표로 돌아가기」
  */
-/** 스텝을 한 줄씩 — 실행 인라인(차오르는 중)과 캐럿 펼침(저장본)이 같이 쓴다.
-    curAt 이 있으면 실행 중: 그 스텝은 「실행 중…」, 안 온 것은 「대기」.
-    없으면 저장본: 빈 판정은 「미실행」. */
+/** 스텝을 절차 그대로 — 실행 인라인(차오르는 중)과 캐럿 펼침(저장본)이 같이
+    쓴다. 자동 스텝은 CLI 명령·판정 기준, 수동 스텝은 절차·Test Data·기대
+    결과까지 그린다 — 판정만 보이면 「무엇을 했길래」 를 알 수 없다.
+    curAt 이 있으면 실행 중: 그 스텝은 「실행 중…」, 안 온 것은 「대기」. */
 function StepLines({ steps, curAt }: { steps: CycleStep[]; curAt?: number }) {
   return (
     <div className="cy-rl-steps">
@@ -2880,25 +2881,40 @@ function StepLines({ steps, curAt }: { steps: CycleStep[]; curAt?: number }) {
         const sv = stepVerdict(s as TcStep)
         const cur = curAt != null && si === curAt
         const cls = cur ? 'cur' : isFail(sv) ? 'ng' : isPass(sv) ? 'ok' : ''
+        const manual = s.manual || s.action === '수동'
         return (
           <div key={si} className={`cy-rl-step ${cls}`}>
             <i>{si + 1}</i>
-            <span className="cy-rl-nm">{s.desc || s.step || s.cli || `스텝 ${si + 1}`}</span>
-            {cur && !isFail(sv) && !isPass(sv) ? (
-              <em className="run">실행 중…</em>
-            ) : (
-              <em>{sv || (curAt != null ? '대기' : '미실행')}</em>
-            )}
-            {isFail(sv) && s.reason && (
-              <span className="cy-rl-why" title={s.reason}>
-                {String(s.reason).split('\n')[0]}
-              </span>
-            )}
+            <div className="cy-rl-b">
+              <div className="cy-rl-l1">
+                {s.action && <em className="cy-rl-act">{s.action}</em>}
+                <span className="cy-rl-nm">{s.desc || s.step || `스텝 ${si + 1}`}</span>
+                {cur && !isFail(sv) && !isPass(sv) ? (
+                  <b className="cy-rl-v run">실행 중…</b>
+                ) : (
+                  <b className={`cy-rl-v ${cls}`}>{sv || (curAt != null ? '대기' : '미실행')}</b>
+                )}
+              </div>
+              {!manual && s.cli && <pre className="cy-rl-cli">{s.cli}</pre>}
+              {s.criteria && <div className="cy-rl-crit">기준 · {s.criteria}</div>}
+              {manual && s.step && s.desc && <div className="cy-rl-crit">절차 · {s.step}</div>}
+              {manual && s.data && <div className="cy-rl-crit">Test Data · {s.data}</div>}
+              {manual && s.expected && <div className="cy-rl-crit">기대 · {s.expected}</div>}
+              {isFail(sv) && s.reason && (
+                <div className="cy-rl-why" title={s.reason ?? ''}>
+                  {String(s.reason).split('\n')[0]}
+                </div>
+              )}
+            </div>
           </div>
         )
       })}
       {steps.length === 0 && (
-        <div className="muted small">{curAt != null ? '스텝을 받는 중…' : '스텝이 없습니다.'}</div>
+        <div className="muted small">
+          {curAt != null
+            ? '스텝을 받는 중…'
+            : '이 항목에는 절차(스텝)가 없습니다 — 시험에 스텝을 채우면 여기 보입니다.'}
+        </div>
       )}
     </div>
   )
