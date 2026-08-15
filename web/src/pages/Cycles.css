@@ -2322,6 +2322,7 @@ table.tb td.k {
 .cxp-row.v-fail { border-left-color: var(--c-fail); }
 .cxp-row.v-wip { border-left-color: var(--c-draft); }
 .cxp-row.v-blocked { border-left-color: #e8820c; }
+.cxp-row.v-na { border-left-color: #999; }
 .cxp-row.running { background: var(--c-primary-bg); }
 /* 한 줄 = ID + 제목 (사진처럼 낮게). 제목이 길면 …, 전체는 툴팁 */
 .cxp-rmain { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
@@ -2364,6 +2365,7 @@ table.tb td.k {
 .cxp-v.fail { background: var(--c-fail); }
 .cxp-v.wip { background: var(--c-draft); }
 .cxp-v.blocked { background: #e8820c; }
+.cxp-v.na { background: #999; }
 
 .cxp-main {
   flex: 1;
@@ -2562,6 +2564,7 @@ table.tb td.k {
 .cyt-itv.fail { color: var(--c-fail); }
 .cyt-itv.wip { color: var(--c-draft); }
 .cyt-itv.blocked { color: #e8820c; }
+.cyt-itv.na { color: #888; }
 .cyt-itempty { padding: 8px 12px; }
 /* ⚙ 필드 고르기 — 머리줄 오른끝 */
 .cyt-gearc { position: relative; display: flex; justify-content: flex-end; }
