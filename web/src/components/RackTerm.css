@@ -29,6 +29,8 @@
   border-bottom: 1px solid var(--c-border);
   background: var(--c-surface-alt);
   flex-wrap: wrap;
+  cursor: grab; /* 빈 곳을 잡고 끌면 창이 움직인다 */
+  user-select: none;
 }
 .tm-tab {
   display: inline-flex;

@@ -7,8 +7,8 @@ import './RackTerm.css'
 /**
  * 랙뷰 터미널 — 장비 우클릭 「접속」 에서 열린다. SecureCRT 처럼 쓰도록:
  *
- *  · 탭 — 장비 여러 대를 한 창에서 오간다. 탭을 닫아도 서버 세션은
- *    남아(enable/config 모드 유지) 다시 열면 이어진다.
+ *  · 탭 — 장비 여러 대를 한 창에서 오간다. 탭이든 창이든 닫으면 서버
+ *    세션도 그 자리에서 끊는다 — 안 보이는 접속이 남아 있으면 안 된다.
  *  · 로그 저장 — 지금 탭의 친 명령·응답 전부를 .txt 로 내려받는다.
  *  · 화면 지우기 · 글꼴 크기 · 명령 히스토리(↑↓) · 연결 끊기/재접속.
  *
@@ -39,10 +39,73 @@ interface HostProps {
 
 export default function RackTermHost({ tabs, on, onPick, onCloseTab, onClose }: HostProps) {
   const [fontPx, setFontPx] = useState(12)
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  const winRef = useRef<HTMLDivElement | null>(null)
+  const moved = useRef(false)
+
+  /** 서버 세션 끊기 — 창·탭을 닫을 때 무조건. 결과는 기다리지 않는다 */
+  const killSession = (t: TermTab) => {
+    void apiFetch('/api/session-close', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(connParams(t.dev, t.protocol)),
+    }).catch(() => {})
+  }
+
+  const closeTab = (i: number) => {
+    const t = tabs[i]
+    if (t) killSession(t)
+    onCloseTab(i)
+  }
+
+  const closeAll = () => {
+    for (const t of tabs) killSession(t)
+    onClose()
+  }
+
+  /** 탭줄 빈 곳을 잡고 끌면 창이 따라온다 — SecureCRT 창처럼 */
+  const dragWin = (e: React.MouseEvent) => {
+    const t = e.target as HTMLElement
+    if (t.closest('button') || t.closest('.tm-tab')) return
+    const r = winRef.current?.getBoundingClientRect()
+    if (!r) return
+    const dx = e.clientX - r.left
+    const dy = e.clientY - r.top
+    const move = (ev: MouseEvent) => {
+      moved.current = true
+      setPos({
+        x: Math.min(Math.max(ev.clientX - dx, 160 - r.width), window.innerWidth - 160),
+        y: Math.min(Math.max(ev.clientY - dy, 0), window.innerHeight - 60),
+      })
+    }
+    const up = () => {
+      window.removeEventListener('mousemove', move)
+      window.removeEventListener('mouseup', up)
+    }
+    window.addEventListener('mousemove', move)
+    window.addEventListener('mouseup', up)
+    e.preventDefault()
+  }
+
   return (
-    <div className="tm-ovl" onClick={onClose}>
-      <div className="tm-win" onClick={(e) => e.stopPropagation()}>
-        <div className="tm-tabs">
+    <div
+      className="tm-ovl"
+      onClick={() => {
+        // 끌다가 바깥에서 손을 떼면 click 이 오버레이로 잡힌다 — 닫지 않는다
+        if (moved.current) {
+          moved.current = false
+          return
+        }
+        closeAll()
+      }}
+    >
+      <div
+        className="tm-win"
+        ref={winRef}
+        style={pos ? { position: 'fixed', left: pos.x, top: pos.y } : undefined}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="tm-tabs" onMouseDown={dragWin}>
           {tabs.map((t, i) => (
             <span key={t.key} className={`tm-tab${i === on ? ' on' : ''}`} onClick={() => onPick(i)}>
               {deviceShort(t.dev)}
@@ -50,10 +113,10 @@ export default function RackTermHost({ tabs, on, onPick, onCloseTab, onClose }: 
               <button
                 type="button"
                 className="tm-tx"
-                title="탭 닫기 (세션은 남습니다)"
+                title="탭 닫기 (세션도 끊습니다)"
                 onClick={(e) => {
                   e.stopPropagation()
-                  onCloseTab(i)
+                  closeTab(i)
                 }}
               >
                 ×
@@ -68,7 +131,7 @@ export default function RackTermHost({ tabs, on, onPick, onCloseTab, onClose }: 
           <button className="tm-fz" type="button" title="글자 크게" onClick={() => setFontPx((v) => Math.min(18, v + 1))}>
             A+
           </button>
-          <button className="btn small" type="button" onClick={onClose} title="창 닫기 (세션은 남습니다)">
+          <button className="btn small" type="button" onClick={closeAll} title="창 닫기 (모든 세션 종료)">
             닫기
           </button>
         </div>
@@ -278,7 +341,12 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               e.stopPropagation()
-              if (e.key === 'Enter') void send(input)
+              if (e.nativeEvent.isComposing) return
+              if (e.key === 'Enter') {
+                if (input.trim()) void send(input)
+                // 빈 엔터도 진짜 터미널처럼 — 프롬프트 줄이 한 줄 넘어간다
+                else if (prompt && !busy) setBlocks((v) => [...v, { cmd: '', out: '' }])
+              }
               if (e.key === 'ArrowUp') {
                 const h = hist.current
                 if (!h.length) return
