@@ -1051,10 +1051,13 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
             <div className="ce-colhead">
               <b>시험항목</b>
               <span className="muted small">{visTcs.length}건</span>
+              <input
+                className="ce-q"
+                value={tcQ}
+                placeholder="시험 찾기"
+                onChange={(e) => setTcQ(e.target.value)}
+              />
               <span className="sp" />
-
-            </div>
-            {/* 거르개 줄 — 옛 화면의 필터. 자료에 있는 값만 띄운다 */}
             <div className="ce-filters">
               <select value={fMg} onChange={(e) => setFMg(e.target.value)} title="모델그룹">
                 <option value="">모델그룹: 전체</option>
@@ -1109,12 +1112,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                 </button>
               )}
             </div>
-            <input
-              className="ce-q"
-              value={tcQ}
-              placeholder="시험 찾기"
-              onChange={(e) => setTcQ(e.target.value)}
-            />
+            </div>
             <div className="ce-body">
               {tcQuery.isLoading ? (
                 <div className="empty">불러오는 중…</div>
