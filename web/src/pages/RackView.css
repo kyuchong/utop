@@ -110,7 +110,8 @@
   display: flex;
 }
 
-.rv-plist { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto; }
+/* 견본 전부가 스크롤 없이 보이도록 — 작은 화면에서만 말린다 */
+.rv-plist { display: flex; flex-direction: column; gap: 4px; max-height: min(58vh, 480px); overflow-y: auto; }
 .rv-ppart {
   display: flex;
   align-items: center;

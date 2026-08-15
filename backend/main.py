@@ -6880,9 +6880,27 @@ async def save_cycle_folders(data: dict):
 
 RACKS_FILE = DATA_DIR / "state" / "racks.json"
 
+def _ensure_blank_ids(d):
+    """옛 자료로 들어온 부품에 id 가 없으면 채워서 저장해 둔다.
+    부품 바꾸기·빼기·옮기기가 id 로 찾기 때문에, 없으면 저장이 헛돌거나
+    (자기 자신 제외가 안 걸려) 겹침 검사에 걸려 저장 버튼이 죽는다."""
+    try:
+        if not isinstance(d, dict):
+            return d
+        dirty = False
+        for i, b in enumerate(d.get("blanks") or []):
+            if isinstance(b, dict) and not b.get("id"):
+                b["id"] = f"blk-fix-{i}-{b.get('pos', 0)}"
+                dirty = True
+        if dirty:
+            _kv_save_sync("racks", d)
+    except Exception:
+        pass
+    return d
+
 @app.get("/api/racks")
 async def get_racks():
-    d = _kv_load_sync("racks", {"racks": []})
+    d = _ensure_blank_ids(_kv_load_sync("racks", {"racks": []}))
     return d if isinstance(d, dict) else {"racks": []}
 
 @app.post("/api/racks")
@@ -7135,7 +7153,7 @@ async def rackview():
     PG 가 정본이고, 없으면 회색 유령으로 보여 준다 — 랙에 꽂혀 있는 것은
     사실이니 숨기지 않는다(숨김 금지 원칙).
     """
-    kv = _kv_load_sync("racks", {}) or {}
+    kv = _ensure_blank_ids(_kv_load_sync("racks", {}) or {})
     racks = kv.get("racks") or []
     # 인터페이스 이름까지 싣는다 — 호버 카드의 포트 형상 몫
     devs = await db.device_list(with_ifs=True)

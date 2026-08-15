@@ -1597,6 +1597,9 @@ function PartDialog({
   const [color, setColor] = useState(init?.color ?? '#94a3b8')
   const okFit = fits(rack, pos, units, ignoreId ? { blankId: ignoreId } : undefined)
   const ok = label.trim() !== '' && okFit
+  const submit = () => {
+    if (ok && !busy) onPlace(label.trim(), units, color)
+  }
   return (
     <div className="rv-ovl" onClick={onClose}>
       <div className="rv-dlg" onClick={(e) => e.stopPropagation()}>
@@ -1627,7 +1630,8 @@ function PartDialog({
             </button>
           ))}
         </div>
-        <div className="rv-padd">
+        {/* 엔터를 쳐도 저장된다 — 글자만 고치고 닫아버리는 손을 위해 */}
+        <div className="rv-padd" onKeyDown={(e) => e.key === 'Enter' && submit()}>
           <input
             placeholder="부품 이름"
             value={label}
@@ -1652,9 +1656,9 @@ function PartDialog({
             className="btn small primary"
             type="button"
             disabled={!ok || busy}
-            onClick={() => onPlace(label.trim(), units, color)}
+            onClick={submit}
           >
-            {init ? '바꾸기' : '놓기'}
+            {init ? '저장' : '놓기'}
           </button>
         </div>
       </div>
