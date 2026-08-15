@@ -1563,17 +1563,22 @@ function CycleDetail({
   }
 
   /**
-   * 실행 모드 — 도는 동안 화면이 통째로 바뀐다.
-   *
-   * 표·필터·통계는 훑어보는 도구라 실행 중엔 소음이다. 그때 필요한 것은
-   * 「어디까지 왔고, 지금 뭐가 돌고, 방금 뭐가 깨졌나」 셋뿐이다. 팝업이
-   * 아니라 같은 화면의 전환이다 — 닫으면 실행이 어디 갔는지 모르게 되고,
-   * 끝난 뒤 결과와 이어지지 않는다.
+   * 실행은 표 안에서 보인다 — 도는 항목 줄 밑이 펼쳐져 스텝이 차례로
+   * 차오르고, 끝나면 접힌다. 화면이 통째로 바뀌면 보던 목록·필터를
+   * 잃는다. 크게 봐야 할 때(긴 로그)만 인라인의 「크게 보기」 로
+   * 실행 모드(RunPane)를 연다.
    */
   const [runView, setRunView] = useState(false)
+  // 실행이 끝나면 실행 모드도 같이 닫는다 — 남아 있으면 빈 판을 본다
   useEffect(() => {
-    if (st.on) setRunView(true)
+    if (!st.on) setRunView(false)
   }, [st.on])
+  /** 도는 항목의 인라인 판 — 따라가기 중이면 화면에 붙잡아 둔다 */
+  const runlineRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (st.on && follow)
+      runlineRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [st.on, st.itemAt, follow])
 
   /** 3열(스텝 세부) 폭 — 끌어서 바꾼다 */
   const colsRef = useRef<HTMLDivElement>(null)
@@ -2614,6 +2619,74 @@ function CycleDetail({
               </span>
               <span className="muted">{(it.issues?.length ?? 0) || '–'}</span>
             </div>
+            {/* 도는 항목은 줄 밑이 펼쳐진다 — 스텝이 차례로 차오르고,
+                끝나면(다음 항목으로 넘어가면) 저절로 접힌다 */}
+            {st.on && st.itemAt === at && (
+              <div className="cy-runline" ref={runlineRef}>
+                <div className="cy-rl-h">
+                  <i className="cy-rl-dot" aria-hidden="true" />
+                  <b>
+                    {st.waiting
+                      ? '실행 대기 — 실행 서버가 집기를 기다립니다'
+                      : `스텝 ${Math.min(Math.max(st.stepAt + 1, 1), st.stepCount || steps.length)} / ${st.stepCount || steps.length}`}
+                  </b>
+                  <span className="muted small">
+                    항목 {Math.min(st.done + 1, st.total)}/{st.total}
+                  </span>
+                  {st.who && <span className="muted small">{st.who} 님이 걸었습니다</span>}
+                  <span className="sp" />
+                  <button
+                    className="btn small"
+                    type="button"
+                    title="실행 모드로 크게 봅니다 (로그 포함)"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setRunView(true)
+                    }}
+                  >
+                    크게 보기
+                  </button>
+                  <button
+                    className="btn small"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      void stop()
+                    }}
+                  >
+                    중지
+                  </button>
+                </div>
+                <div className="cy-rl-steps">
+                  {steps.map((s, si) => {
+                    const sv = stepVerdict(s as TcStep)
+                    const curStep = !st.waiting && si === st.stepAt
+                    const cls = curStep ? 'cur' : isFail(sv) ? 'ng' : isPass(sv) ? 'ok' : ''
+                    return (
+                      <div key={si} className={`cy-rl-step ${cls}`}>
+                        <i>{si + 1}</i>
+                        <span className="cy-rl-nm">
+                          {s.desc || s.step || s.cli || `스텝 ${si + 1}`}
+                        </span>
+                        {curStep && isFail(sv) === false && isPass(sv) === false ? (
+                          <em className="run">실행 중…</em>
+                        ) : (
+                          <em>{sv || '대기'}</em>
+                        )}
+                        {isFail(sv) && s.reason && (
+                          <span className="cy-rl-why" title={s.reason}>
+                            {String(s.reason).split('\n')[0]}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {steps.length === 0 && (
+                    <div className="muted small">스텝을 받는 중…</div>
+                  )}
+                </div>
+              </div>
+            )}
             </React.Fragment>
           )
         })}
