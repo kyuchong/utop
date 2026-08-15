@@ -362,6 +362,12 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   /** 3열 — 요구사항으로 묶는다. 여섯 건만 넘어도 평평하면 안 읽힌다 */
   /** 완료 화면에서 체크한 항목들 (tcid) — 삭제·담당자 할당이 본다 */
   const [doneSel, setDoneSel] = useState<Set<string>>(new Set())
+  /** 출력 개수 단위 — 0 은 전체. 골라 두면 기억한다 */
+  const [pageSize, setPageSize] = useState<number>(() => {
+    const v = Number(localStorage.getItem('utop.cycle.donepage') ?? 50)
+    return Number.isFinite(v) ? v : 50
+  })
+  const [page, setPage] = useState(0)
   /** 최근 결과 — 손 판정이 있으면 그것, 아니면 스텝에서 가볍게 센다 */
   const lastResult = (it: PickedItem): string => {
     const r = String((it as { result?: unknown }).result ?? '').trim()
@@ -840,6 +846,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               ) : (
                 <>
                   <div className="ce-dt ce-dthd">
+                    <span className="ce-dtno">No</span>
                     <span className="ce-dtck">
                       <input
                         type="checkbox"
@@ -862,10 +869,21 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                     <span>최근 결과</span>
                     <span>담당자</span>
                   </div>
-                  {picked.map((it) => {
+                  {(pageSize > 0
+                    ? picked.slice(
+                        Math.min(page, Math.max(0, Math.ceil(picked.length / pageSize) - 1)) *
+                          pageSize,
+                        Math.min(page, Math.max(0, Math.ceil(picked.length / pageSize) - 1)) *
+                          pageSize +
+                          pageSize,
+                      )
+                    : picked
+                  ).map((it) => {
                     const v = lastResult(it)
+                    const no = picked.indexOf(it) + 1
                     return (
                       <div className="ce-dt" key={it.tcid}>
+                        <span className="ce-dtno">{no}</span>
                         <span className="ce-dtck">
                           <input
                             type="checkbox"
@@ -911,6 +929,60 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                 </>
               )}
             </div>
+            {picked.length > 0 && (
+              <div className="ce-pager">
+                {(() => {
+                  const total = picked.length
+                  const size = pageSize > 0 ? pageSize : total
+                  const maxPage = Math.max(0, Math.ceil(total / size) - 1)
+                  const cur = Math.min(page, maxPage)
+                  const from = cur * size + 1
+                  const to = Math.min(total, (cur + 1) * size)
+                  return (
+                    <>
+                      <span className="muted small">
+                        총 {total}건 · {from}–{to} 표시
+                      </span>
+                      <span className="sp" />
+                      <select
+                        value={pageSize}
+                        title="출력 개수 단위"
+                        onChange={(e) => {
+                          const v = Number(e.target.value)
+                          setPageSize(v)
+                          setPage(0)
+                          localStorage.setItem('utop.cycle.donepage', String(v))
+                        }}
+                      >
+                        <option value={20}>20개씩</option>
+                        <option value={50}>50개씩</option>
+                        <option value={100}>100개씩</option>
+                        <option value={0}>전체</option>
+                      </select>
+                      <button
+                        className="btn small"
+                        type="button"
+                        disabled={cur === 0}
+                        onClick={() => setPage(Math.max(0, cur - 1))}
+                      >
+                        ‹ 이전
+                      </button>
+                      <span className="muted small">
+                        {cur + 1} / {maxPage + 1}
+                      </span>
+                      <button
+                        className="btn small"
+                        type="button"
+                        disabled={cur >= maxPage}
+                        onClick={() => setPage(Math.min(maxPage, cur + 1))}
+                      >
+                        다음 ›
+                      </button>
+                    </>
+                  )
+                })()}
+              </div>
+            )}
             <div className="ce-addbar">
               <span className="sp" />
               <button

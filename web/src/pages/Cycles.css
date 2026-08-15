@@ -3163,7 +3163,7 @@ table.tb td.k {
 .ce-dt {
   display: grid;
   /* 왼쪽에 붙여 촘촘히 — 요구사항·시험항목은 왼쪽, 최근 결과·담당자는 오른끝 */
-  grid-template-columns: 24px minmax(90px, 280px) minmax(160px, 1fr) 64px 120px;
+  grid-template-columns: 34px 24px minmax(90px, 280px) minmax(160px, 1fr) 64px 120px;
   gap: 6px;
   align-items: center;
   padding: 3px 6px;
@@ -3187,3 +3187,21 @@ table.tb td.k {
 .ce-dtv { font-style: normal; font-size: var(--fs-xs); font-weight: 700; color: var(--c-text-faint); }
 .ce-dtv.pass { color: var(--c-pass); }
 .ce-dtv.fail { color: var(--c-fail); }
+
+.ce-dtno { font-size: var(--fs-xs); color: var(--c-text-faint); text-align: right; }
+/* 아래 페이저 — 총 건수와 출력 개수 단위 */
+.ce-pager {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-top: 1px solid var(--c-border);
+}
+.ce-pager .sp { flex: 1; }
+.ce-pager select {
+  padding: 3px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
