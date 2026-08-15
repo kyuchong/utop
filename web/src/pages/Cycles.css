@@ -3205,3 +3205,6 @@ table.tb td.k {
   font: inherit;
   font-size: var(--fs-sm);
 }
+
+/* 머리 안 구분선 — 항목 도구와 저장·Close 사이 */
+.ce-hdiv { width: 1px; height: 18px; background: var(--c-border); margin: 0 4px; }

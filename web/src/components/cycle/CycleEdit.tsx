@@ -597,6 +597,58 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           {/* 건수는 안 적는다 — 3열 머리(배정된 항목 N)가 이미 말한다 */}
           {err && <span className="muted small err">{err}</span>}
           <span className="sp" />
+          {tab === 'tcs' && (
+            <>
+              <button className="btn small" type="button" onClick={() => setAddPop(true)}>
+                ＋ 항목 추가
+              </button>
+              <span className="ce-n">{picked.length}</span>
+              <button
+                className="btn small danger"
+                type="button"
+                disabled={!doneSel.size}
+                title="체크한 항목을 사이클에서 뺍니다"
+                onClick={() => {
+                  const withRuns = picked.filter(
+                    (x) => doneSel.has(x.tcid) && (x.steps?.length ?? 0) > 0,
+                  )
+                  if (
+                    withRuns.length &&
+                    !window.confirm(
+                      `${withRuns.length}건은 실행 결과가 있습니다. 빼면 결과도 사라집니다. 뺄까요?`,
+                    )
+                  )
+                    return
+                  setPicked((p) => p.filter((x) => !doneSel.has(x.tcid)))
+                  setDoneSel(new Set())
+                }}
+              >
+                삭제{doneSel.size ? ` (${doneSel.size})` : ''}
+              </button>
+              <button
+                className="btn small"
+                type="button"
+                disabled={!picked.length}
+                title="체크한 항목(없으면 전부)의 담당자를 한 번에 정합니다"
+                onClick={() => {
+                  const who = window.prompt(
+                    doneSel.size ? `체크한 ${doneSel.size}건의 담당자` : '담긴 전 항목의 담당자',
+                    assignee,
+                  )?.trim()
+                  if (who === undefined || who === null) return
+                  setPicked((p) =>
+                    p.map((x) =>
+                      !doneSel.size || doneSel.has(x.tcid) ? { ...x, assignee: who } : x,
+                    ),
+                  )
+                  if (!assignee.trim()) setAssignee(who)
+                }}
+              >
+                담당자 할당
+              </button>
+              <span className="ce-hdiv" aria-hidden="true" />
+            </>
+          )}
           <button
             className="btn primary"
             type="button"
@@ -786,56 +838,6 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
         {/* Test Cases 탭 — 담은 항목 완료 화면. 여기서 항목별 담당자를 정한다 */}
         {tab === 'tcs' && (
           <div className="ce-done">
-            <div className="ce-donehead">
-              <button className="btn small" type="button" onClick={() => setAddPop(true)}>
-                ＋ 항목 추가
-              </button>
-              <span className="ce-n">{picked.length}</span>
-              <button
-                className="btn small danger"
-                type="button"
-                disabled={!doneSel.size}
-                title="체크한 항목을 사이클에서 뺍니다"
-                onClick={() => {
-                  const withRuns = picked.filter(
-                    (x) => doneSel.has(x.tcid) && (x.steps?.length ?? 0) > 0,
-                  )
-                  if (
-                    withRuns.length &&
-                    !window.confirm(
-                      `${withRuns.length}건은 실행 결과가 있습니다. 빼면 결과도 사라집니다. 뺄까요?`,
-                    )
-                  )
-                    return
-                  setPicked((p) => p.filter((x) => !doneSel.has(x.tcid)))
-                  setDoneSel(new Set())
-                }}
-              >
-                삭제{doneSel.size ? ` (${doneSel.size})` : ''}
-              </button>
-              <button
-                className="btn small"
-                type="button"
-                disabled={!picked.length}
-                title="체크한 항목(없으면 전부)의 담당자를 한 번에 정합니다"
-                onClick={() => {
-                  const who = window.prompt(
-                    doneSel.size ? `체크한 ${doneSel.size}건의 담당자` : '담긴 전 항목의 담당자',
-                    assignee,
-                  )?.trim()
-                  if (who === undefined || who === null) return
-                  setPicked((p) =>
-                    p.map((x) =>
-                      !doneSel.size || doneSel.has(x.tcid) ? { ...x, assignee: who } : x,
-                    ),
-                  )
-                  if (!assignee.trim()) setAssignee(who)
-                }}
-              >
-                담당자 할당
-              </button>
-              <span className="sp" />
-            </div>
             <div className="ce-body ce-donelist">
               {picked.length === 0 ? (
                 <div className="empty">아직 담긴 시험이 없습니다 — 위 「＋ 항목 추가」 로 담으세요.</div>
