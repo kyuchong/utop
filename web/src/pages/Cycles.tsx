@@ -1255,6 +1255,22 @@ function CycleBoard({
   /** 인라인으로 펼친 사이클들 — 시험 항목이 줄 밑에 보인다 */
   const [exp, setExp] = useState<Set<string>>(new Set())
 
+  /** 항목 카드의 모델그룹·유형·실행 타입 — TC 메타가 정본이다 */
+  const tcMetaQ = useQuery({
+    queryKey: ['tc', 'list', 'meta'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/tc?meta=1')
+      if (!r.ok) throw new Error('시험 목록을 불러오지 못했습니다')
+      return (await r.json()) as { tcs: TestCaseMeta[] }
+    },
+    staleTime: 60_000,
+  })
+  const tcMeta = useMemo(() => {
+    const m = new Map<string, TestCaseMeta>()
+    for (const t of tcMetaQ.data?.tcs ?? []) m.set(t.tcid, t)
+    return m
+  }, [tcMetaQ.data])
+
   // 사이클별 집계는 한 번만 — 표·거름·정렬이 다 같이 쓴다
   const stats = useMemo(() => {
     const m = new Map<
@@ -1510,26 +1526,52 @@ function CycleBoard({
                     {/* 사이클 = 시험항목의 모음 — 펼치면 그 목록이 보인다.
                         여기서는 보기만, 항목을 누르면 실행 화면으로 */}
                     {open && (
-                      <div className="cyt-items">
+                      <div className="cyt-itcard">
+                        <div className="cyt-itrow cyt-ithd">
+                          <span>TC ID</span>
+                          <span>이름</span>
+                          <span>모델그룹</span>
+                          <span>모델명</span>
+                          <span>유형</span>
+                          <span>실행 타입</span>
+                          <span>결과</span>
+                        </div>
                         {(c.items ?? []).map((it, i2) => {
                           const v = itemVerdict(it)
+                          const t2 = tcMeta.get(it.tcid)
+                          const runType = String(t2?.kind ?? t2?.run_type ?? '') || '–'
                           return (
-                            <button
+                            <div
                               key={`${it.tcid}-${i2}`}
-                              type="button"
-                              className="cyt-it"
+                              className="cyt-itrow cyt-it"
+                              role="button"
+                              tabIndex={0}
                               title="실행 화면에서 엽니다"
                               onClick={() => onPick(c.id)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') onPick(c.id)
+                              }}
                             >
-                              <i className={`cxp-v ${verdictClass(v)}`} aria-hidden="true" />
-                              <b>{it.tcid}</b>
-                              <span className="cyt-ell">{it.name || ''}</span>
-                              <em className={`cy-v ${verdictClass(v)}`}>{verdictLabel(v)}</em>
-                            </button>
+                              <b className="cyt-ittc">{it.tcid}</b>
+                              <span className="cyt-ell">{it.name || String(t2?.name ?? '')}</span>
+                              <span className="muted small cyt-ell">
+                                {String(t2?.model_group ?? '') || '공용'}
+                              </span>
+                              <span className="muted small cyt-ell">
+                                {String(t2?.model ?? '') || '–'}
+                              </span>
+                              <span>
+                                {t2?.type ? <i className="cyt-tag">{String(t2.type)}</i> : '–'}
+                              </span>
+                              <span className="muted small">{runType}</span>
+                              <span>
+                                <em className={`cyt-itv ${verdictClass(v)}`}>{verdictLabel(v)}</em>
+                              </span>
+                            </div>
                           )
                         })}
                         {(c.items ?? []).length === 0 && (
-                          <div className="muted small">아직 시험 항목이 없습니다.</div>
+                          <div className="muted small cyt-itempty">아직 시험 항목이 없습니다.</div>
                         )}
                       </div>
                     )}

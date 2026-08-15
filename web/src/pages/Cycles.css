@@ -2395,8 +2395,8 @@ table.tb td.k {
     minmax(100px, 150px) 80px 80px 68px 68px;
   gap: 8px;
   align-items: center;
-  padding: 4px 10px;
-  min-height: 32px;
+  padding: 2px 10px;
+  min-height: 27px;
   min-width: 1120px;
   font-size: var(--fs-sm);
 }
@@ -2446,33 +2446,56 @@ table.tb td.k {
 .cyt-av.c3 { background: #10b981; }
 .cyt-av.c4 { background: #8b5cf6; }
 .cyt-av.c5 { background: #ec4899; }
-/* 펼친 시험 항목 — 사이클은 시험항목의 모음이다 */
-.cyt-items {
-  border-bottom: 1px solid var(--c-border);
+/* 펼친 시험 항목 — Coverage 목록과 같은 필드의 작은 카드 */
+.cyt-itcard {
+  margin: 4px 14px 10px 54px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  overflow: hidden;
+}
+.cyt-itrow {
+  display: grid;
+  /* TC ID · 이름 · 모델그룹 · 모델명 · 유형 · 실행 타입 · 결과 */
+  grid-template-columns: 108px minmax(200px, 1fr) 90px 90px 88px 72px 64px;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 12px;
+  min-width: 760px;
+}
+.cyt-ithd {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-faint);
   background: var(--c-surface-alt);
-  padding: 4px 10px 6px 56px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
+  border-bottom: 1px solid var(--c-border);
 }
 .cyt-it {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 0;
-  background: transparent;
-  padding: 3px 6px;
-  font: inherit;
-  font-size: var(--fs-sm);
-  text-align: left;
   cursor: pointer;
-  border-radius: var(--radius-sm);
-  min-width: 0;
+  border-bottom: 1px solid var(--c-border-weak, #eef1f5);
+  font-size: var(--fs-sm);
 }
-.cyt-it:hover { background: var(--c-surface); }
-.cyt-it > b { color: var(--c-primary); font-size: var(--fs-xs); flex: none; }
-.cyt-it > span { flex: 1; min-width: 0; }
-.cyt-it > em { font-style: normal; font-size: var(--fs-xs); font-weight: 700; flex: none; }
+.cyt-it:last-child { border-bottom: 0; }
+.cyt-it:hover { background: var(--c-surface-alt); }
+.cyt-ittc { color: var(--c-primary); font-size: var(--fs-xs); font-weight: 700; }
+/* 유형 — Coverage 의 Function 태그와 같은 옷 */
+.cyt-tag {
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  padding: 1px 8px;
+  color: var(--c-text-muted);
+  background: var(--c-surface-alt);
+  white-space: nowrap;
+}
+.cyt-itv { font-style: normal; font-size: var(--fs-xs); font-weight: 700; color: var(--c-text-faint); }
+.cyt-itv.pass { color: var(--c-pass); }
+.cyt-itv.fail { color: var(--c-fail); }
+.cyt-itv.wip { color: var(--c-draft); }
+.cyt-itv.blocked { color: #e8820c; }
+.cyt-itempty { padding: 8px 12px; }
 
 .cyt-gc { display: inline-flex; color: var(--c-text-faint); }
 .cyt-gc svg { transition: transform 0.15s; }
