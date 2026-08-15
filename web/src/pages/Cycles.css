@@ -2497,6 +2497,44 @@ table.tb td.k {
 .cyt-itv.wip { color: var(--c-draft); }
 .cyt-itv.blocked { color: #e8820c; }
 .cyt-itempty { padding: 8px 12px; }
+/* ⚙ 필드 고르기 — 머리줄 오른끝 */
+.cyt-gearc { position: relative; display: flex; justify-content: flex-end; }
+.cyt-gear {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--c-text-faint);
+  padding: 0 2px;
+  line-height: 1;
+}
+.cyt-gear:hover { color: var(--c-text); }
+.cyt-gearovl { position: fixed; inset: 0; z-index: 40; }
+.cyt-gearpop {
+  position: absolute;
+  top: 20px;
+  right: 0;
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 130px;
+  padding: 8px 10px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.18);
+}
+.cyt-gearpop label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  color: var(--c-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
 
 .cyt-gc { display: inline-flex; color: var(--c-text-faint); }
 .cyt-gc svg { transition: transform 0.15s; }

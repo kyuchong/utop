@@ -1222,6 +1222,16 @@ export default function Cycles({ me }: PageProps) {
  * 모델별로 사이클을 깔고, 카드마다 진행률과 Pass/Fail 을 바로 보여 준다 —
  * 어디가 급한지 열기 전에 보인다.
  */
+/** 인라인 항목 카드의 고를 수 있는 필드 — 시험항목(Coverage) 목록과 같다 */
+const IT_COLS: Array<{ k: string; label: string; w: string }> = [
+  { k: 'model_group', label: '모델그룹', w: '90px' },
+  { k: 'model', label: '모델명', w: '90px' },
+  { k: 'type', label: '유형', w: '88px' },
+  { k: 'run_type', label: '실행 타입', w: '72px' },
+  { k: 'severity', label: '심각도', w: '70px' },
+  { k: 'status', label: '상태', w: '70px' },
+]
+
 function CycleBoard({
   cycles,
   onPick,
@@ -1254,6 +1264,33 @@ function CycleBoard({
   const [picked, setPicked] = useState<Set<string>>(new Set())
   /** 인라인으로 펼친 사이클들 — 시험 항목이 줄 밑에 보인다 */
   const [exp, setExp] = useState<Set<string>>(new Set())
+
+  /** 인라인 카드에 보일 필드 — 시험항목 화면과 같은 목록에서 ⚙ 로 고른다 */
+  const [itCols, setItCols] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('utop.cycle.itcols')
+      if (raw) return new Set(JSON.parse(raw) as string[])
+    } catch {
+      /* 깨진 저장값이면 기본으로 */
+    }
+    return new Set(['model_group', 'model', 'type', 'run_type'])
+  })
+  const toggleItCol = (k: string) =>
+    setItCols((cur) => {
+      const n = new Set(cur)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      localStorage.setItem('utop.cycle.itcols', JSON.stringify([...n]))
+      return n
+    })
+  const [gearOpen, setGearOpen] = useState(false)
+  // 켠 필드에 따라 칸 폭이 달라진다 — 머리줄·데이터줄이 같은 자를 쓴다
+  const itGrid = useMemo(() => {
+    const parts = ['108px', 'minmax(200px, 1fr)']
+    for (const c of IT_COLS) if (itCols.has(c.k)) parts.push(c.w)
+    parts.push('64px', '26px')
+    return parts.join(' ')
+  }, [itCols])
 
   /** 항목 카드의 모델그룹·유형·실행 타입 — TC 메타가 정본이다 */
   const tcMetaQ = useQuery({
@@ -1527,14 +1564,43 @@ function CycleBoard({
                         여기서는 보기만, 항목을 누르면 실행 화면으로 */}
                     {open && (
                       <div className="cyt-itcard">
-                        <div className="cyt-itrow cyt-ithd">
+                        <div className="cyt-itrow cyt-ithd" style={{ gridTemplateColumns: itGrid }}>
                           <span>TC ID</span>
                           <span>이름</span>
-                          <span>모델그룹</span>
-                          <span>모델명</span>
-                          <span>유형</span>
-                          <span>실행 타입</span>
+                          {IT_COLS.filter((cc) => itCols.has(cc.k)).map((cc) => (
+                            <span key={cc.k}>{cc.label}</span>
+                          ))}
                           <span>결과</span>
+                          <span className="cyt-gearc">
+                            <button
+                              type="button"
+                              className="cyt-gear"
+                              title="보일 필드 고르기 — 시험항목 화면과 같은 필드"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setGearOpen((v) => !v)
+                              }}
+                            >
+                              ⚙
+                            </button>
+                            {gearOpen && (
+                              <>
+                                <span className="cyt-gearovl" onClick={() => setGearOpen(false)} />
+                                <span className="cyt-gearpop">
+                                  {IT_COLS.map((cc) => (
+                                    <label key={cc.k}>
+                                      <input
+                                        type="checkbox"
+                                        checked={itCols.has(cc.k)}
+                                        onChange={() => toggleItCol(cc.k)}
+                                      />
+                                      {cc.label}
+                                    </label>
+                                  ))}
+                                </span>
+                              </>
+                            )}
+                          </span>
                         </div>
                         {(c.items ?? []).map((it, i2) => {
                           const v = itemVerdict(it)
@@ -1544,6 +1610,7 @@ function CycleBoard({
                             <div
                               key={`${it.tcid}-${i2}`}
                               className="cyt-itrow cyt-it"
+                              style={{ gridTemplateColumns: itGrid }}
                               role="button"
                               tabIndex={0}
                               title="실행 화면에서 엽니다"
@@ -1554,19 +1621,30 @@ function CycleBoard({
                             >
                               <b className="cyt-ittc">{it.tcid}</b>
                               <span className="cyt-ell">{it.name || String(t2?.name ?? '')}</span>
-                              <span className="muted small cyt-ell">
-                                {String(t2?.model_group ?? '') || '공용'}
-                              </span>
-                              <span className="muted small cyt-ell">
-                                {String(t2?.model ?? '') || '–'}
-                              </span>
-                              <span>
-                                {t2?.type ? <i className="cyt-tag">{String(t2.type)}</i> : '–'}
-                              </span>
-                              <span className="muted small">{runType}</span>
+                              {IT_COLS.filter((cc) => itCols.has(cc.k)).map((cc) => {
+                                if (cc.k === 'type')
+                                  return (
+                                    <span key={cc.k}>
+                                      {t2?.type ? <i className="cyt-tag">{String(t2.type)}</i> : '–'}
+                                    </span>
+                                  )
+                                if (cc.k === 'run_type')
+                                  return (
+                                    <span key={cc.k} className="muted small">
+                                      {runType}
+                                    </span>
+                                  )
+                                const raw = String((t2 as Record<string, unknown> | undefined)?.[cc.k] ?? '')
+                                return (
+                                  <span key={cc.k} className="muted small cyt-ell">
+                                    {raw || (cc.k === 'model_group' ? '공용' : '–')}
+                                  </span>
+                                )
+                              })}
                               <span>
                                 <em className={`cyt-itv ${verdictClass(v)}`}>{verdictLabel(v)}</em>
                               </span>
+                              <span />
                             </div>
                           )
                         })}
