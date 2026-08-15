@@ -125,6 +125,9 @@
 .rv-ppart:active { cursor: grabbing; }
 .rv-ppart > b { flex: 1; font-size: var(--fs-sm); font-weight: 700; }
 .rv-ppart > i { font-style: normal; font-size: var(--fs-xs); font-weight: 700; color: var(--c-text-faint); }
+/* 견본 지우기 × — 평소엔 흐리게, 얹으면 또렷하게 */
+.rv-ppx { margin-left: 2px; padding: 0 3px; opacity: 0.35; font-weight: 700; }
+.rv-ppx:hover { opacity: 1; color: var(--c-fail); }
 .rv-padd { display: flex; gap: 4px; margin-top: 2px; }
 .rv-padd input:first-child { flex: 1; min-width: 0; }
 .rv-padd input {

@@ -74,12 +74,18 @@ interface RvUnplaced {
   rack_units?: number | null
   power_w?: number | null
 }
+interface PartPreset {
+  label: string
+  units: number
+  color?: string
+}
 interface RvData {
   labs: RvLab[]
   racks: RvRack[]
   blanks: RvBlank[]
   devices: RvDevice[]
   unplaced: RvUnplaced[]
+  part_presets?: PartPreset[]
 }
 
 /** 끌 때 실어 보내는 것 */
@@ -90,9 +96,9 @@ type DragLoad =
 
 const LAB_KEY = 'utop.rack.lab'
 
-/** 부품 팔레트 — 랙에 실제로 꽂는 것들. 누르면 아래 칸에 채워지고,
-    이름·U·색을 고쳐서 놓는다. 직접 입력으로 없는 부품도 만든다 */
-const PART_PRESETS: Array<{ label: string; units: number; color?: string }> = [
+/** 기본 부품 팔레트 — 서버에 저장한 견본(part_presets)이 있으면 그걸 쓴다.
+    팝업에서 「+ 견본」 으로 늘리고 × 로 지운다 */
+const PART_PRESETS: PartPreset[] = [
   { label: '블랭크', units: 1 },
   { label: '블랭크', units: 2 },
   { label: '패치 패널 24P', units: 1, color: '#38bdf8' },
@@ -471,6 +477,18 @@ export default function RackView() {
       }),
     onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
   })
+
+  /** 부품 견본 목록 저장 — 팝업의 「+ 견본」·× 가 쓴다. 서버에 남아
+      브라우저가 달라도 같은 팔레트를 본다 */
+  const savePresets = useMutation({
+    mutationFn: (list: PartPreset[]) =>
+      saveFrames((kv) => {
+        kv.part_presets = list
+      }),
+    onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
+  })
+  const presets =
+    data?.part_presets && data.part_presets.length > 0 ? data.part_presets : PART_PRESETS
 
   /** 놓인 부품의 이름·U·색 바꾸기 — 자리는 그대로 */
   const editPart = useMutation({
@@ -1231,6 +1249,8 @@ export default function RackView() {
           rack={partAt.rack}
           pos={partAt.pos}
           fits={fits}
+          presets={presets}
+          onSavePresets={(l) => savePresets.mutate(l)}
           busy={putPart.isPending}
           onPlace={(label, units, color) => {
             putPart.mutate({ rack: partAt.rack, pos: partAt.pos, label, units, color })
@@ -1245,6 +1265,8 @@ export default function RackView() {
           rack={partEdit.rack}
           pos={Number(partEdit.b.pos) || 1}
           fits={fits}
+          presets={presets}
+          onSavePresets={(l) => savePresets.mutate(l)}
           ignoreId={partEdit.b.id}
           init={{
             label: partEdit.b.label,
@@ -1576,6 +1598,8 @@ function PartDialog({
   rack,
   pos,
   fits,
+  presets,
+  onSavePresets,
   busy,
   onPlace,
   onClose,
@@ -1585,6 +1609,8 @@ function PartDialog({
   rack: RvRack
   pos: number
   fits: (rk: RvRack, pos: number, units: number, ignore?: { blankId?: string }) => boolean
+  presets: PartPreset[]
+  onSavePresets: (list: PartPreset[]) => void
   busy: boolean
   onPlace: (label: string, units: number, color?: string) => void
   onClose: () => void
@@ -1613,7 +1639,7 @@ function PartDialog({
         </div>
         {/* 누르면 아래 칸에 채워진다 — U·색을 고친 다음 놓아도 된다 */}
         <div className="rv-plist">
-          {PART_PRESETS.map((p, i) => (
+          {presets.map((p, i) => (
             <button
               key={i}
               type="button"
@@ -1627,6 +1653,16 @@ function PartDialog({
             >
               <b>{p.label}</b>
               <i>{p.units}U</i>
+              <span
+                className="rv-ppx"
+                title="이 견본 지우기"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onSavePresets(presets.filter((_, j) => j !== i))
+                }}
+              >
+                ×
+              </span>
             </button>
           ))}
         </div>
@@ -1645,6 +1681,18 @@ function PartDialog({
             onChange={(e) => setUnits(Math.max(1, parseInt(e.target.value, 10) || 1))}
           />
           <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
+          <button
+            type="button"
+            className="btn small"
+            title="지금 적은 이름·U·색을 견본 목록에 추가"
+            disabled={
+              !label.trim() ||
+              presets.some((p) => p.label === label.trim() && p.units === units)
+            }
+            onClick={() => onSavePresets([...presets, { label: label.trim(), units, color }])}
+          >
+            + 견본
+          </button>
         </div>
         <div className="rv-df">
           {!okFit && <span className="rv-warn">그 자리에 {units}U 가 안 들어갑니다</span>}

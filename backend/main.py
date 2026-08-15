@@ -7205,6 +7205,8 @@ async def rackview():
         "blanks": kv.get("blanks") or [],
         "devices": placed + legacy,
         "unplaced": unplaced,
+        # 부품 견본 — 비어 있으면 화면이 기본 팔레트를 쓴다
+        "part_presets": kv.get("part_presets") or [],
     }
 
 # ───────────────────────────────────────────
