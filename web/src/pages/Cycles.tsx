@@ -2428,6 +2428,7 @@ function CycleDetail({
           <span />
           <span />
           <span>TC summary</span>
+          <span>진행</span>
           <span>결함</span>
           <span>결과</span>
           <span>타입</span>
@@ -2565,6 +2566,57 @@ function CycleDetail({
                   </i>
                 )}
               </span>
+              {/* 진행 바 — 스텝 판정 분포. Zephyr 의 Progress 컬럼 몫이다.
+                  글(8단계 중 6 부적합)은 읽어야 하지만 색 띠는 스치면 보인다 */}
+              {(() => {
+                let p = 0
+                let f = 0
+                for (const s of steps) {
+                  const sv2 = stepVerdict(s as TcStep)
+                  if (isPass(sv2)) p += 1
+                  else if (isFail(sv2)) f += 1
+                }
+                const t = steps.length
+                return (
+                  <span
+                    className="cy-bar cy-ibar"
+                    title={
+                      t
+                        ? `스텝 ${t} · Pass ${p} · Fail ${f} · 안 돈 것 ${t - p - f}`
+                        : '스텝 없음'
+                    }
+                  >
+                    <span className="pass" style={{ flexGrow: p }} />
+                    <span className="fail" style={{ flexGrow: f }} />
+                    <span className="none" style={{ flexGrow: t === 0 ? 1 : t - p - f }} />
+                  </span>
+                )
+              })()}
+              {/* 진행 — Zephyr 의 Progress 처럼 스텝이 어디까지 갔나.
+                  도는 항목은 liveSteps 라 실행을 따라 차오른다 */}
+              {(() => {
+                const tot = steps.length
+                let sp = 0
+                let sf = 0
+                let sd = 0
+                for (const s2 of steps) {
+                  const v2 = stepVerdict(s2 as TcStep)
+                  if (v2) sd += 1
+                  if (isPass(v2)) sp += 1
+                  else if (isFail(v2)) sf += 1
+                }
+                if (!tot) return <span className="muted small">–</span>
+                return (
+                  <span className="cy-prg" title={`스텝 ${sd}/${tot} 실행 · Pass ${sp} · Fail ${sf}`}>
+                    <span className="cy-prg-bar" aria-hidden="true">
+                      <i className="p" style={{ flexGrow: sp }} />
+                      <i className="f" style={{ flexGrow: sf }} />
+                      <i className="n" style={{ flexGrow: Math.max(tot - sp - sf, 0) }} />
+                    </span>
+                    <b>{Math.round((sd / tot) * 100)}%</b>
+                  </span>
+                )
+              })()}
               {/* 결함 수 — 결과와 나란히 있어야 「깨졌고 결함도 걸었나」 가
                   한눈에 이어진다 */}
               <span className="muted">{(it.issues?.length ?? 0) || '–'}</span>

@@ -114,8 +114,8 @@
   display: grid;
   /* 칸마다 최소 폭을 준다. 안 주면 좁을 때 TC ID 가 0px 로 눌리고
      머리글이 두 줄로 접힌다. 그보다는 가로로 미는 편이 낫다. */
-  /* 캐럿 · 체크 · 제목 · 결함 · 결과 · 타입 · 담당 · 실행자 · 실행 (TC ID 열 제거) */
-  grid-template-columns: 20px 28px minmax(120px, 1fr) 38px 58px 56px 68px 68px 108px;
+  /* 캐럿 · 체크 · 제목 · 진행 · 결함 · 결과 · 타입 · 담당 · 실행자 · 실행 (TC ID 열 제거) */
+  grid-template-columns: 20px 28px minmax(120px, 1fr) 90px 38px 58px 56px 68px 68px 108px;
   gap: 6px;
   min-width: 600px;
   align-items: center;
@@ -1924,6 +1924,31 @@ table.tb td.k {
   font-size: var(--fs-sm);
   cursor: pointer;
 }
+/* 항목 줄의 진행 바 — 카드 색 띠(cy-bar)를 얇게 */
+.cy-ibar { height: 7px; align-self: center; min-width: 0; }
+
+/* 진행 — Zephyr Progress 처럼 색 띠 + %. 초록 Pass · 빨강 Fail · 회색 남음 */
+.cy-prg { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.cy-prg-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  background: var(--c-border);
+}
+.cy-prg-bar i.p { background: var(--c-pass); }
+.cy-prg-bar i.f { background: var(--c-fail); }
+.cy-prg-bar i.n { background: transparent; }
+.cy-prg > b {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-muted);
+  width: 32px;
+  text-align: right;
+  flex: none;
+}
+
 /* 펼침 캐럿 — 트리 폴더와 같은 회전 문법 (닫힘 -90°, 열림 0°) */
 .cy-expcaret {
   border: 0;
