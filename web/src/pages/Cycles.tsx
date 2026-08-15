@@ -2153,6 +2153,11 @@ function CycleDetail({
             setRowMenu(null)
             setEditing(rows)
           }}
+          onGoTc={() => {
+            const t = items[rowMenu.at]?.tcid
+            setRowMenu(null)
+            if (t) goto('tc', t)
+          }}
         />
       )}
 
@@ -2422,14 +2427,13 @@ function CycleDetail({
         <div className="cy-row cy-hd">
           <span />
           <span />
-          <span>TC ID</span>
           <span>TC summary</span>
-          <span>타입</span>
+          <span>결함</span>
           <span>결과</span>
+          <span>타입</span>
           <span>담당자</span>
           <span>실행자</span>
           <span>실행</span>
-          <span>결함</span>
         </div>
         {rows.map((it, i) => {
           const at = items.indexOf(it)
@@ -2471,29 +2475,14 @@ function CycleDetail({
             <div
               /* 남이 같이 보고 있으면 줄에 테두리를 두른다 — 눈 표시는
                  체크박스 자리에 작아서 그냥 지나쳤다 */
+              /* 줄·제목 클릭은 아무 일도 안 한다 — 펼침은 캐럿, 고르기는
+                 체크박스, 나머지는 우클릭. 클릭마다 화면이 반응하면
+                 훑어보다 계속 뭔가 열린다. */
               className={`cy-row v-${v}${openItem === at ? ' on' : ''}${
                 pick.has(at) ? ' picked' : ''
               }${st.itemAt === at ? ' running' : ''}${
                 (focus[String(at)] ?? []).some((u) => u !== meName) ? ' watched' : ''
               }`}
-              role="button"
-              tabIndex={0}
-              title="누르면 스텝과 실행 내역 · Ctrl·Shift 로 여러 개"
-              onClick={(e) => {
-                sel.onClick(at, e, rows.map((x) => items.indexOf(x)))
-                // 그냥 누른 것이면 그 항목을 연다
-                if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
-                  setOpenItem(openItem === at ? -1 : at)
-                  // 보려고 누른 것을 빼앗지 않는다 — 여기서부터 따라가기를 끈다
-                  setFollow(false)
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  setOpenItem(openItem === at ? -1 : at)
-                }
-              }}
               onContextMenu={(e) => {
                 e.preventDefault()
                 // 안 고른 줄에서 눌렀으면 그 줄만 고른 것으로 본다 —
@@ -2550,17 +2539,6 @@ function CycleDetail({
                   }}
                 />
               </span>
-              <button
-                type="button"
-                className="cy-tcid"
-                title={`${it.tcid} — 누르면 이 시험으로 갑니다`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (it.tcid) goto('tc', it.tcid)
-                }}
-              >
-                {it.tcid || '–'}
-              </button>
               <span className="cy-tc" title={it.tcid}>
                 {/* 실행 중 표시는 격자 칸이 아니라 이름 칸 **안**에 —
                     칸으로 끼우면 그 줄만 한 칸씩 밀린다(겪었다) */}
@@ -2587,18 +2565,9 @@ function CycleDetail({
                   </i>
                 )}
               </span>
-              {/* 사람이 할 일인가 장비가 할 일인가.
-                  Manual 만 있는 시험을 자동으로 돌린 줄 알고 「왜 안 돌았지」
-                  하는 일이 있었다. 목록에서 갈려야 한다. */}
-              <span className={`cy-kind ${kindOf(steps)}`}>
-                {kindOf(steps) === 'manual'
-                  ? 'Manual'
-                  : kindOf(steps) === 'mixed'
-                    ? '섞임'
-                    : kindOf(steps) === 'auto'
-                      ? 'Auto'
-                      : '–'}
-              </span>
+              {/* 결함 수 — 결과와 나란히 있어야 「깨졌고 결함도 걸었나」 가
+                  한눈에 이어진다 */}
+              <span className="muted">{(it.issues?.length ?? 0) || '–'}</span>
               {/* 결과를 손으로 정할 수 있어야 한다. 수동 시험도 있고,
                   자동으로 돌았는데 사람이 달리 판단하는 경우도 있다 */}
               <select
@@ -2618,6 +2587,18 @@ function CycleDetail({
                   </option>
                 ))}
               </select>
+              {/* 사람이 할 일인가 장비가 할 일인가.
+                  Manual 만 있는 시험을 자동으로 돌린 줄 알고 「왜 안 돌았지」
+                  하는 일이 있었다. 목록에서 갈려야 한다. */}
+              <span className={`cy-kind ${kindOf(steps)}`}>
+                {kindOf(steps) === 'manual'
+                  ? 'Manual'
+                  : kindOf(steps) === 'mixed'
+                    ? '섞임'
+                    : kindOf(steps) === 'auto'
+                      ? 'Auto'
+                      : '–'}
+              </span>
               {/* 맡은 사람과 실제로 돌린 사람은 다르다 — 둘을 갈라 적는다 */}
               <span className="muted cy-who" title={it.assignee ?? ''}>
                 {it.assignee || '–'}
@@ -2640,7 +2621,6 @@ function CycleDetail({
                   </>
                 )}
               </span>
-              <span className="muted">{(it.issues?.length ?? 0) || '–'}</span>
             </div>
             {/* 도는 항목은 줄 밑이 펼쳐진다 — 스텝이 차례로 차오르고,
                 끝나면(다음 항목으로 넘어가면) 저절로 접힌다 */}
@@ -3109,11 +3089,14 @@ function CycleRowMenu({
   count,
   onClose,
   onEdit,
+  onGoTc,
 }: {
   at: { x: number; y: number }
   count: number
   onClose: () => void
   onEdit: () => void
+  /** TC ID 열을 뺐다 — 시험으로 가는 길은 여기다 */
+  onGoTc?: () => void
 }) {
   useEffect(() => {
     const away = () => onClose()
@@ -3141,6 +3124,11 @@ function CycleRowMenu({
       <button type="button" onClick={onEdit}>
         {count > 1 ? `${count}건 한꺼번에 고치기` : '고치기 (결과·담당자·메모)'}
       </button>
+      {onGoTc && (
+        <button type="button" onClick={onGoTc}>
+          시험 열기 (TC)
+        </button>
+      )}
     </div>
   )
 }
