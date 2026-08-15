@@ -3280,8 +3280,16 @@ table.tb td.k {
 .cy-clone-f .sp { flex: 1; }
 
 /* 보드 ⚙ 필터 — 사이클 INFO 필드 */
-.cyt-gear-tb { font-size: 16px; padding: 4px 8px; }
-.cyt-gear-tb.on { color: var(--c-primary); }
+.cyt-gear-tb {
+  font-size: 21px;
+  line-height: 1;
+  padding: 3px 10px 5px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+}
+.cyt-gear-tb:hover { color: var(--c-text); background: var(--c-surface-alt); }
+.cyt-gear-tb.on { color: var(--c-primary); border-color: var(--c-primary); }
 .cyt-fpop { min-width: 200px; }
 .cyt-frow { display: flex; align-items: center; gap: 6px; }
 .cyt-frow > i { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); width: 30px; flex: none; }
