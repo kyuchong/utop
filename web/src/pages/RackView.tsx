@@ -90,14 +90,21 @@ type DragLoad =
 
 const LAB_KEY = 'utop.rack.lab'
 
-/** 부품 팔레트 — 자주 꽂는 것들. 직접 추가로 늘릴 수 있다 */
+/** 부품 팔레트 — 랙에 실제로 꽂는 것들. 누르면 아래 칸에 채워지고,
+    이름·U·색을 고쳐서 놓는다. 직접 입력으로 없는 부품도 만든다 */
 const PART_PRESETS: Array<{ label: string; units: number; color?: string }> = [
   { label: '블랭크', units: 1 },
   { label: '블랭크', units: 2 },
-  { label: '패치 패널', units: 1, color: '#38bdf8' },
+  { label: '패치 패널 24P', units: 1, color: '#38bdf8' },
+  { label: '패치 패널 48P', units: 2, color: '#38bdf8' },
+  { label: '광 분배함(ODF)', units: 1, color: '#2dd4bf' },
   { label: '광 분배함(ODF)', units: 4, color: '#2dd4bf' },
   { label: '케이블 정리', units: 1, color: '#94a3b8' },
+  { label: '케이블 정리', units: 2, color: '#94a3b8' },
+  { label: 'PDU', units: 1, color: '#f87171' },
+  { label: '선반', units: 2, color: '#fbbf24' },
   { label: '콘솔 서버', units: 1, color: '#a78bfa' },
+  { label: 'KVM 서랍', units: 1, color: '#f472b6' },
 ]
 
 /** Rack-2 < Rack-10 이 되도록 숫자를 알아듣는 정렬 */
@@ -163,7 +170,8 @@ export default function RackView() {
   /** 랙 머리 우클릭 — 용도·지우기 메뉴 */
   const [rackCtx, setRackCtx] = useState<{ x: number; y: number; rack: RvRack } | null>(null)
   /** 부품 우클릭 — 빼기 메뉴 */
-  const [partCtx, setPartCtx] = useState<{ x: number; y: number; b: RvBlank } | null>(null)
+  const [partCtx, setPartCtx] = useState<{ x: number; y: number; b: RvBlank; rack: RvRack } | null>(null)
+  const [partEdit, setPartEdit] = useState<{ b: RvBlank; rack: RvRack } | null>(null)
   /** 터미널 — 탭 여러 개, 장비 우클릭 「접속」 으로 늘어난다 */
   const [term, setTerm] = useState<{ tabs: TermTab[]; on: number } | null>(null)
   /** 랙 용도 한 줄 — 이름 아래. 누르면 그 자리에서 적는다 */
@@ -460,6 +468,20 @@ export default function RackView() {
     mutationFn: (id: string) =>
       saveFrames((kv) => {
         kv.blanks = ((kv.blanks as RvBlank[] | undefined) ?? []).filter((b) => b.id !== id)
+      }),
+    onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
+  })
+
+  /** 놓인 부품의 이름·U·색 바꾸기 — 자리는 그대로 */
+  const editPart = useMutation({
+    mutationFn: (p: { id: string; label: string; units: number; color?: string }) =>
+      saveFrames((kv) => {
+        const it = ((kv.blanks as RvBlank[] | undefined) ?? []).find((b) => b.id === p.id)
+        if (!it) throw new Error('부품을 찾을 수 없습니다')
+        it.label = p.label
+        it.units = p.units
+        if (p.color) it.color = p.color
+        else delete it.color
       }),
     onError: (e) => window.alert(e instanceof Error ? e.message : String(e)),
   })
@@ -868,7 +890,7 @@ export default function RackView() {
                           onContextMenu={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
-                            setPartCtx({ x: e.clientX, y: e.clientY, b })
+                            setPartCtx({ x: e.clientX, y: e.clientY, b, rack: rk })
                           }}
                           style={{
                             gridRow: rowOf(rk, bp, bu),
@@ -1100,6 +1122,15 @@ export default function RackView() {
             <div className="rv-ctxh">{partCtx.b.label}</div>
             <button
               type="button"
+              onClick={() => {
+                setPartEdit({ b: partCtx.b, rack: partCtx.rack })
+                setPartCtx(null)
+              }}
+            >
+              부품 바꾸기… <i className="muted small">이름·U·색</i>
+            </button>
+            <button
+              type="button"
               className="danger"
               onClick={() => {
                 delPart.mutate(partCtx.b.id)
@@ -1206,6 +1237,26 @@ export default function RackView() {
             setPartAt(null)
           }}
           onClose={() => setPartAt(null)}
+        />
+      )}
+
+      {partEdit && (
+        <PartDialog
+          rack={partEdit.rack}
+          pos={Number(partEdit.b.pos) || 1}
+          fits={fits}
+          ignoreId={partEdit.b.id}
+          init={{
+            label: partEdit.b.label,
+            units: Number(partEdit.b.units) || 1,
+            color: partEdit.b.color,
+          }}
+          busy={editPart.isPending}
+          onPlace={(label, units, color) => {
+            editPart.mutate({ id: partEdit.b.id, label, units, color })
+            setPartEdit(null)
+          }}
+          onClose={() => setPartEdit(null)}
         />
       )}
 
@@ -1528,46 +1579,47 @@ function PartDialog({
   busy,
   onPlace,
   onClose,
+  init,
+  ignoreId,
 }: {
   rack: RvRack
   pos: number
-  fits: (rk: RvRack, pos: number, units: number) => boolean
+  fits: (rk: RvRack, pos: number, units: number, ignore?: { blankId?: string }) => boolean
   busy: boolean
   onPlace: (label: string, units: number, color?: string) => void
   onClose: () => void
+  /** 있으면 「바꾸기」 — 놓인 부품의 값이 채워진 채 열린다 */
+  init?: { label: string; units: number; color?: string }
+  ignoreId?: string
 }) {
-  const [sel, setSel] = useState<number>(-1)
-  const [label, setLabel] = useState('')
-  const [units, setUnits] = useState(1)
-  const [color, setColor] = useState('#94a3b8')
-  const custom = sel === -1 && label.trim() !== ''
-  const cur = custom
-    ? { label: label.trim(), units, color }
-    : sel >= 0
-      ? PART_PRESETS[sel]
-      : null
-  const ok = cur && fits(rack, pos, cur.units)
+  const [label, setLabel] = useState(init?.label ?? '')
+  const [units, setUnits] = useState(init?.units ?? 1)
+  const [color, setColor] = useState(init?.color ?? '#94a3b8')
+  const okFit = fits(rack, pos, units, ignoreId ? { blankId: ignoreId } : undefined)
+  const ok = label.trim() !== '' && okFit
   return (
     <div className="rv-ovl" onClick={onClose}>
       <div className="rv-dlg" onClick={(e) => e.stopPropagation()}>
         <div className="rv-dh">
           <b>
-            {rack.name} · {pos}U 에 부품 놓기
+            {rack.name} · {pos}U {init ? '부품 바꾸기' : '에 부품 놓기'}
           </b>
           <button className="rv-rx" type="button" onClick={onClose}>
             ×
           </button>
         </div>
+        {/* 누르면 아래 칸에 채워진다 — U·색을 고친 다음 놓아도 된다 */}
         <div className="rv-plist">
           {PART_PRESETS.map((p, i) => (
             <button
               key={i}
               type="button"
-              className={`rv-ppart${sel === i ? ' on' : ''}`}
+              className={`rv-ppart${label === p.label && units === p.units ? ' on' : ''}`}
               style={p.color ? { borderColor: `${p.color}88`, background: `${p.color}1a` } : {}}
               onClick={() => {
-                setSel(i)
-                setLabel('')
+                setLabel(p.label)
+                setUnits(p.units)
+                setColor(p.color ?? '#94a3b8')
               }}
             >
               <b>{p.label}</b>
@@ -1577,26 +1629,21 @@ function PartDialog({
         </div>
         <div className="rv-padd">
           <input
-            placeholder="직접 입력 (이름)"
+            placeholder="부품 이름"
             value={label}
-            onChange={(e) => {
-              setLabel(e.target.value)
-              if (e.target.value.trim()) setSel(-1)
-            }}
+            onChange={(e) => setLabel(e.target.value)}
           />
           <input
             type="number"
             min={1}
-            max={10}
+            max={20}
             value={units}
             onChange={(e) => setUnits(Math.max(1, parseInt(e.target.value, 10) || 1))}
           />
           <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
         </div>
         <div className="rv-df">
-          {cur && !fits(rack, pos, cur.units) && (
-            <span className="rv-warn">그 자리에 {cur.units}U 가 안 들어갑니다</span>
-          )}
+          {!okFit && <span className="rv-warn">그 자리에 {units}U 가 안 들어갑니다</span>}
           <span className="sp" />
           <button className="btn small" type="button" onClick={onClose}>
             취소
@@ -1605,9 +1652,9 @@ function PartDialog({
             className="btn small primary"
             type="button"
             disabled={!ok || busy}
-            onClick={() => cur && onPlace(cur.label, cur.units, cur.color)}
+            onClick={() => onPlace(label.trim(), units, color)}
           >
-            놓기
+            {init ? '바꾸기' : '놓기'}
           </button>
         </div>
       </div>
