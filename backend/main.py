@@ -3339,11 +3339,20 @@ async def devices2_snmp_ports(dev_id: str):
     names = res.get((1, 3, 6, 1, 2, 1, 2, 2, 1, 2), {})
     stats = res.get((1, 3, 6, 1, 2, 1, 2, 2, 1, 8), {})
     ports = []
-    for idx in sorted(names.keys(), key=lambda x: (x if isinstance(x, int) else 0)):
+    for idx in names.keys():
         nm = names[idx]
         nm = nm.decode("utf-8", "replace") if isinstance(nm, (bytes, bytearray)) else str(nm)
         st = stats.get(idx)
         ports.append({"name": nm, "up": st == 1})
+    # ifIndex 차례는 포트 번호 차례가 아니다 — 이름을 자연 정렬한다
+    # (Giga0/2 < Giga0/10 이 되게 숫자 덩어리는 숫자로 비교)
+    import re as _re
+
+    def _natkey(nm: str):
+        return [(0, int(t)) if t.isdigit() else (1, t.lower())
+                for t in _re.split(r"(\d+)", nm) if t]
+
+    ports.sort(key=lambda x: _natkey(x["name"]))
     out = {"ok": len(ports) > 0, "ports": ports,
            "reason": "" if ports else "SNMP 응답 없음"}
     _SNMP_PORTS_CACHE[d["id"]] = (_time.time(), out)
