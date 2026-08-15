@@ -3338,12 +3338,21 @@ async def devices2_snmp_ports(dev_id: str):
     )
     names = res.get((1, 3, 6, 1, 2, 1, 2, 2, 1, 2), {})
     stats = res.get((1, 3, 6, 1, 2, 1, 2, 2, 1, 8), {})
-    ports = []
+    # 물리 포트와 VLAN 을 가른다 — ifDescr 에는 VLAN·CPU·Null 이 섞여 온다
+    ports, vlans = [], []
+    _SKIP = ("null", "loopback", "cpu", "tunnel", "oob", "stack")
     for idx in names.keys():
         nm = names[idx]
         nm = nm.decode("utf-8", "replace") if isinstance(nm, (bytes, bytearray)) else str(nm)
+        low = nm.lower()
         st = stats.get(idx)
-        ports.append({"name": nm, "up": st == 1})
+        row = {"name": nm, "up": st == 1}
+        if "vlan" in low or low.startswith("br"):
+            vlans.append(row)
+        elif any(k in low for k in _SKIP):
+            continue
+        else:
+            ports.append(row)
     # ifIndex 차례는 포트 번호 차례가 아니다 — 이름을 자연 정렬한다
     # (Giga0/2 < Giga0/10 이 되게 숫자 덩어리는 숫자로 비교)
     import re as _re
@@ -3353,8 +3362,9 @@ async def devices2_snmp_ports(dev_id: str):
                 for t in _re.split(r"(\d+)", nm) if t]
 
     ports.sort(key=lambda x: _natkey(x["name"]))
-    out = {"ok": len(ports) > 0, "ports": ports,
-           "reason": "" if ports else "SNMP 응답 없음"}
+    vlans.sort(key=lambda x: _natkey(x["name"]))
+    out = {"ok": len(ports) + len(vlans) > 0, "ports": ports, "vlans": vlans,
+           "reason": "" if ports or vlans else "SNMP 응답 없음"}
     _SNMP_PORTS_CACHE[d["id"]] = (_time.time(), out)
     return out
 

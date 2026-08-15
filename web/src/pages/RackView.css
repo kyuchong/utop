@@ -664,3 +664,7 @@
 
 .rv-tports > i.up { background: #0f7a4d; border-color: #16a34a; color: #d6ffe9; }
 .rv-tports > i.down { background: #6b1f1f; border-color: #b91c1c; color: #ffd9d9; }
+
+/* VLAN 단 — 번호가 네 자리라 칸이 넓다 */
+.rv-tvlan-h { margin-top: 7px; }
+.rv-tports.rv-tvlans { grid-template-columns: repeat(7, 32px); }

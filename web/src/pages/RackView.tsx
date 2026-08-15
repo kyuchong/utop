@@ -175,6 +175,7 @@ export default function RackView() {
     id: string
     ok: boolean
     ports: Array<{ name: string; up: boolean }>
+    vlans?: Array<{ name: string; up: boolean }>
     reason?: string
   } | null>(null)
   const portsTimer = useRef<number | undefined>(undefined)
@@ -234,9 +235,10 @@ export default function RackView() {
           const b = (await r.json()) as {
             ok?: boolean
             ports?: Array<{ name: string; up: boolean }>
+            vlans?: Array<{ name: string; up: boolean }>
             reason?: string
           }
-          setTipPorts({ id: d.id!, ok: !!b.ok, ports: b.ports ?? [], reason: b.reason })
+          setTipPorts({ id: d.id!, ok: !!b.ok, ports: b.ports ?? [], vlans: b.vlans ?? [], reason: b.reason })
         } catch {
           setTipPorts({ id: d.id!, ok: false, ports: [], reason: '조회 실패' })
         }
@@ -1314,6 +1316,27 @@ export default function RackView() {
                     </i>
                   ))}
                 </div>
+                {live?.ok && (live.vlans?.length ?? 0) > 0 && (
+                  <>
+                    <div className="rv-tports-h rv-tvlan-h">
+                      VLAN · up {live.vlans!.filter((v) => v.up).length} / 전체 {live.vlans!.length}
+                    </div>
+                    <div className="rv-tports rv-tvlans">
+                      {live.vlans!.slice(0, 48).map((v, k) => {
+                        const m = /(\d+)\s*$/.exec(v.name)
+                        return (
+                          <i
+                            key={k}
+                            className={v.up ? 'up' : 'down'}
+                            title={`${v.name} — ${v.up ? 'up' : 'down'}`}
+                          >
+                            {m ? m[1] : v.name}
+                          </i>
+                        )
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
             )}
             <div className="rv-hint">
