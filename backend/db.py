@@ -510,7 +510,7 @@ async def cycle_list_meta() -> list[dict]:
         rows = await c.fetch(
             """
             SELECT id, name, model, version, version_group, folder_id, item_count,
-                   updated_at, data_summary
+                   created_at, updated_at, data_summary
             FROM cycle
             ORDER BY updated_at DESC
             """
@@ -539,6 +539,7 @@ async def cycle_list_meta() -> list[dict]:
             d.setdefault("folder_id", r["folder_id"])
             d["_item_count"] = r["item_count"]
             d["_updated_at_pg"] = r["updated_at"].isoformat() if r["updated_at"] else None
+            d["_created_at_pg"] = r["created_at"].isoformat() if r["created_at"] else None
             out.append(d)
         return out
 

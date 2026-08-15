@@ -50,6 +50,7 @@ export interface CycleMeta {
   end_date?: string | null
   _item_count?: number
   _updated_at_pg?: string | null
+  _created_at_pg?: string | null
   /** 자유 폴더 경로 (예: L3/E6100/R100). 비면 모델·버전그룹에서 파생 */
   folder?: string | null
   items?: CycleItemLite[]
@@ -246,8 +247,10 @@ interface Node {
   label: string
   depth: number
   children: Node[]
-  /** 잎이면 사이클 하나 */
+  /** 잎이면 사이클 하나 (트리가 버전그룹까지만이라 이제 안 만든다) */
   cycle?: CycleMeta
+  /** 이 폴더(버전그룹)에 바로 담긴 사이클들 — 오른쪽 표가 그린다 */
+  cycles?: CycleMeta[]
   /** 가지가 품은 사이클 수 */
   count: number
   /** 사이클이 아직 없는 빈 폴더인가 */
@@ -275,7 +278,7 @@ function tallyOf(c: CycleMeta): { t: number; p: number; f: number } {
 /** 이 가지 아래의 사이클 전부 */
 function cyclesUnder(n: Node): CycleMeta[] {
   if (n.cycle) return [n.cycle]
-  return n.children.flatMap(cyclesUnder)
+  return [...(n.cycles ?? []), ...n.children.flatMap(cyclesUnder)]
 }
 
 /** 보던 자리를 기억한다 — 화면 이름은 App 이, 그 안은 여기가 */
@@ -343,16 +346,11 @@ function build(
   }
 
   for (const path of freeFolders) if (path.trim()) ensure(path.trim())
+  // 트리는 버전그룹(폴더)까지만 — 사이클은 잎이 아니라 폴더에 담긴다.
+  // 오른쪽 표가 그 버전들을 그린다.
   for (const c of cycles) {
     const t = ensure(pathOfCycle(c, famOf))
-    t.node.children.push({
-      key: c.id,
-      label: String(c.version ?? '').trim() || c.name || c.id,
-      depth: t.node.depth + 1,
-      count: c._item_count ?? 0,
-      children: [],
-      cycle: c,
-    })
+    t.node.cycles = [...(t.node.cycles ?? []), c]
   }
 
   const srt = (a: string, b: string) => a.localeCompare(b, 'ko')
@@ -360,15 +358,9 @@ function build(
     const folders = [...t.kids.values()]
       .sort((a, b) => srt(a.node.label, b.node.label))
       .map(finish)
-    t.node.children = [
-      ...folders,
-      ...t.node.children
-        .filter((n) => n.cycle)
-        .sort((a, b) => srt(String(b.label), String(a.label))),
-    ]
+    t.node.children = folders
     t.node.count =
-      folders.reduce((a, n) => a + n.count, 0) +
-      t.node.children.filter((n) => n.cycle).length
+      folders.reduce((a, n) => a + n.count, 0) + (t.node.cycles?.length ?? 0)
     t.node.empty = t.node.count === 0
     return t.node
   }
@@ -456,6 +448,46 @@ export default function Cycles({ me }: PageProps) {
   const [q, setQ] = useState('')
   /** 이 화면(사이클 묶음)에 들어와 있는 사람들 — 상단 오른쪽 표시 몫 */
   const crowd = usePageCrowd('cycle')
+
+  /** 사이클 복제 — 항목 구성 그대로 한 벌 더 (표 도구줄의 「복제」) */
+  const dupCycle = async (id: string) => {
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`)
+      if (!r.ok) throw new Error(String(r.status))
+      const full = (await r.json()) as Record<string, unknown>
+      const nid = `cycle-${Date.now()}`
+      const w = await apiFetch(`/api/cycle/${encodeURIComponent(nid)}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          ...full,
+          id: nid,
+          version: `${String(full.version ?? '')}_copy`,
+          name: full.name ? `${String(full.name)} (복제)` : full.name,
+        }),
+      })
+      if (!w.ok) throw new Error(String(w.status))
+      await listQ.refetch()
+    } catch (e) {
+      window.alert(`복제하지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  /** 고른 사이클 삭제 — 실행 결과도 같이 사라지니 묻고 지운다 */
+  const delCycles = async (ids: string[]) => {
+    if (!ids.length) return
+    if (
+      !window.confirm(`사이클 ${ids.length}건을 지웁니다.\n각 회차의 실행 결과도 함께 사라집니다.`)
+    )
+      return
+    for (const id of ids) {
+      try {
+        await apiFetch(`/api/cycle/${encodeURIComponent(id)}`, { method: 'DELETE' })
+      } catch {
+        /* 건별 — 하나 실패해도 나머지는 지운다 */
+      }
+    }
+    await listQ.refetch()
+  }
 
   /**
    * 지금 도는 실행 — 사이클을 안 열어 봐도 알아야 한다.
@@ -552,14 +584,6 @@ export default function Cycles({ me }: PageProps) {
     () => (catQ.data?.items ?? []).filter((x) => x.kind === 'model' && !meterish(x)),
     [catQ.data],
   )
-  /** 모델 → 사업자 — 관제판 카드에 배지로 붙인다 */
-  const modelOp = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const x of catQ.data?.items ?? [])
-      if (x.kind === 'model' && (x as CatModel & { operator?: string | null }).operator)
-        m.set(x.name, String((x as CatModel & { operator?: string | null }).operator).trim())
-    return m
-  }, [catQ.data])
   const famOf = useMemo(
     () => new Map(models.map((m) => [m.name, (m.family ?? '').trim()])),
     [models],
@@ -1175,9 +1199,10 @@ export default function Cycles({ me }: PageProps) {
         ) : (
           <CycleBoard
             cycles={scope ? cycles.filter((c) => scope.ids.has(c.id)) : cycles}
-            modelOp={modelOp}
             onPick={(id) => setSel(id)}
             onNew={() => setMaking(true)}
+            onDup={(id) => void dupCycle(id)}
+            onDel={(ids) => void delCycles(ids)}
           />
         )}
       </section>
@@ -1196,24 +1221,38 @@ export default function Cycles({ me }: PageProps) {
  */
 function CycleBoard({
   cycles,
-  modelOp,
   onPick,
   onNew,
+  onDup,
+  onDel,
 }: {
   cycles: CycleMeta[]
-  /** 모델 → 사업자 (고객 칸) */
-  modelOp?: Map<string, string>
   onPick: (id: string) => void
-  /** + New — 새 사이클 만들기 */
+  /** 추가 — 새 사이클 만들기 */
   onNew: () => void
+  /** 복제 — 한 개 골랐을 때 */
+  onDup: (id: string) => void
+  /** 삭제 — 고른 것들 */
+  onDel: (ids: string[]) => void
 }) {
   const [q, setQ] = useState('')
   const [failOnly, setFailOnly] = useState(false)
-  const [sortBy, setSortBy] = useState<'recent' | 'progress' | 'fail'>('recent')
+  /** 머리글 클릭 정렬 — 열 이름 옆 화살표가 방향을 보여 준다 */
+  const [sortCol, setSortCol] = useState('')
+  const [sortDir, setSortDir] = useState<1 | -1>(1)
+  const clickSort = (c: string) => {
+    if (sortCol === c) setSortDir((d) => (d === 1 ? -1 : 1))
+    else {
+      setSortCol(c)
+      setSortDir(1)
+    }
+  }
   /** 접어 둔 버전그룹들 */
   const [closed, setClosed] = useState<Set<string>>(new Set())
-  /** 줄 체크 — 보이는 대로 고른다 (Zephyr 문법) */
+  /** 줄 체크 — 삭제·복제가 이걸 본다 */
   const [picked, setPicked] = useState<Set<string>>(new Set())
+  /** 인라인으로 펼친 사이클들 — 시험 항목이 줄 밑에 보인다 */
+  const [exp, setExp] = useState<Set<string>>(new Set())
 
   // 사이클별 집계는 한 번만 — 표·거름·정렬이 다 같이 쓴다
   const stats = useMemo(() => {
@@ -1251,7 +1290,7 @@ function CycleBoard({
     let arr = cycles
     if (nq)
       arr = arr.filter((c) =>
-        [c.version, c.name, c.version_group, c.model, c.customer, c.assignee]
+        [c.id, c.version, c.name, c.version_group, c.model]
           .filter(Boolean)
           .join(' ')
           .toLowerCase()
@@ -1261,7 +1300,7 @@ function CycleBoard({
     return arr
   }, [cycles, q, failOnly, stats])
 
-  // Zephyr 처럼 버전그룹(Iteration)이 묶음이다 — 모델은 왼쪽 트리가 이미 가른다
+  // 왼쪽 폴더가 버전그룹까지라, 오른쪽은 버전그룹이 묶음 머리다
   const groups = useMemo(() => {
     const m = new Map<string, CycleMeta[]>()
     for (const c of shown) {
@@ -1274,13 +1313,43 @@ function CycleBoard({
   }, [shown])
 
   const fmtD = (v?: string | null) => (v ? String(v).slice(0, 10) : '–')
+  const TH = (col: string, label: string, right?: boolean) => (
+    <button
+      type="button"
+      className={`cyt-th${right ? ' tr' : ''}${sortCol === col ? ' on' : ''}`}
+      onClick={() => clickSort(col)}
+    >
+      {label}
+      <i>{sortCol === col ? (sortDir === 1 ? '↑' : '↓') : '⇅'}</i>
+    </button>
+  )
 
   return (
     <div className="cy-board scroll">
-      {/* 위 도구줄 — 왼쪽 + New, 오른쪽 찾기·거르기 (Zephyr 그대로) */}
+      {/* 도구줄 — 추가·복제·삭제는 왼쪽, 찾기는 오른쪽 */}
       <div className="cy-tools">
-        <button className="btn primary" type="button" onClick={onNew}>
+        <button className="btn" type="button" onClick={onNew}>
           + New
+        </button>
+        <button
+          className="btn"
+          type="button"
+          disabled={picked.size !== 1}
+          title={picked.size === 1 ? '고른 사이클을 복제합니다' : '하나만 고르세요'}
+          onClick={() => onDup([...picked][0]!)}
+        >
+          복제
+        </button>
+        <button
+          className="btn danger"
+          type="button"
+          disabled={!picked.size}
+          onClick={() => {
+            onDel([...picked])
+            setPicked(new Set())
+          }}
+        >
+          삭제{picked.size ? ` (${picked.size})` : ''}
         </button>
         <span className="sp" />
         <input
@@ -1297,16 +1366,6 @@ function CycleBoard({
         >
           Fail 만
         </button>
-        <select
-          className="cy-sort"
-          value={sortBy}
-          title="줄 차례"
-          onChange={(e) => setSortBy(e.target.value as 'recent' | 'progress' | 'fail')}
-        >
-          <option value="recent">최근 순</option>
-          <option value="progress">덜 끝난 순</option>
-          <option value="fail">Fail 많은 순</option>
-        </select>
       </div>
 
       <div className="cyt">
@@ -1323,20 +1382,16 @@ function CycleBoard({
               }
             />
           </span>
-          <span>Key</span>
-          <span>고객</span>
-          <span>모델</span>
-          <span>Iteration</span>
-          <span className="tr">Issues</span>
-          <span className="tr">Tests</span>
-          <span>Progress</span>
-          <span>Status</span>
-          <span>Assigned to</span>
-          <span>Version</span>
-          <span>Name</span>
-          <span>계획 시작</span>
-          <span>계획 끝</span>
-          <span>갱신</span>
+          <span />
+          {TH('id', '사이클 ID')}
+          {TH('tests', '항목', true)}
+          {TH('iss', '이슈', true)}
+          {TH('pct', '진행결과')}
+          {TH('status', '완료')}
+          {TH('name', '제목')}
+          {TH('version', '버전')}
+          {TH('created', '생성일자')}
+          {TH('plan', '계획일자')}
         </div>
         {[...groups.entries()].map(([vg, list]) => (
           <div key={vg} className="cyt-g">
@@ -1359,13 +1414,28 @@ function CycleBoard({
               <span className="muted small">{list.length}</span>
             </button>
             {!closed.has(vg) &&
-              (sortBy === 'recent'
+              (sortCol === ''
                 ? list
-                : [...list].sort((a, b) =>
-                    sortBy === 'progress'
-                      ? (stats.get(a.id)?.pct ?? 0) - (stats.get(b.id)?.pct ?? 0)
-                      : (stats.get(b.id)?.fail ?? 0) - (stats.get(a.id)?.fail ?? 0),
-                  )
+                : [...list].sort((a, b) => {
+                    const keyOf = (c2: CycleMeta): string | number => {
+                      const t2 = stats.get(c2.id)
+                      switch (sortCol) {
+                        case 'id': return (c2.version || c2.name || c2.id).toLowerCase()
+                        case 'iss': return t2?.iss ?? 0
+                        case 'tests': return t2?.total ?? 0
+                        case 'pct': return t2?.pct ?? 0
+                        case 'status': return t2 && t2.total > 0 && t2.done === t2.total ? 2 : t2 && t2.done > 0 ? 1 : 0
+                        case 'name': return (c2.name ?? '').toLowerCase()
+                        case 'version': return (c2.version ?? '').toLowerCase()
+                        case 'created': return c2._created_at_pg ?? ''
+                        case 'plan': return c2.start_date ?? ''
+                        default: return c2._updated_at_pg ?? ''
+                      }
+                    }
+                    const av = keyOf(a)
+                    const bv = keyOf(b)
+                    return (av < bv ? -1 : av > bv ? 1 : 0) * sortDir
+                  })
               ).map((c) => {
                 const t = stats.get(c.id) ?? {
                   total: 0,
@@ -1377,78 +1447,116 @@ function CycleBoard({
                 }
                 const status =
                   t.total > 0 && t.done === t.total ? 'done' : t.done > 0 ? 'run' : 'idle'
-                const model = String(c.model ?? '').trim()
-                const who = String(c.assignee ?? '').trim()
+                const open = exp.has(c.id)
                 return (
-                  <div key={c.id} className="cyt-row cyt-c">
-                    <span className="cyt-ck">
-                      <input
-                        type="checkbox"
-                        checked={picked.has(c.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={() =>
-                          setPicked((cur) => {
+                  <React.Fragment key={c.id}>
+                    <div className="cyt-row cyt-c">
+                      <span className="cyt-ck">
+                        <input
+                          type="checkbox"
+                          checked={picked.has(c.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={() =>
+                            setPicked((cur) => {
+                              const n = new Set(cur)
+                              if (n.has(c.id)) n.delete(c.id)
+                              else n.add(c.id)
+                              return n
+                            })
+                          }
+                        />
+                      </span>
+                      {/* 인라인 펼침 — 이 사이클에 어떤 항목이 있나 */}
+                      <button
+                        type="button"
+                        className={`cy-expcaret${open ? ' open' : ''}`}
+                        title="시험 항목을 줄 밑에 펼쳐 봅니다"
+                        aria-expanded={open}
+                        onClick={() =>
+                          setExp((cur) => {
                             const n = new Set(cur)
                             if (n.has(c.id)) n.delete(c.id)
                             else n.add(c.id)
                             return n
                           })
                         }
-                      />
-                    </span>
-                    <button
-                      type="button"
-                      className="cyt-key"
-                      title="실행 화면을 엽니다"
-                      onClick={() => onPick(c.id)}
-                    >
-                      {c.version || c.name || c.id}
-                    </button>
-                    <span className="muted small">{c.customer || modelOp?.get(model) || '–'}</span>
-                    <span className="muted small cyt-ell">{model || '–'}</span>
-                    <span className="muted small cyt-ell">{c.version_group || '–'}</span>
-                    <span className={`tr${t.iss ? ' cyt-fail' : ''}`}>{t.iss || '–'}</span>
-                    <span className="tr">{t.total}</span>
-                    <span
-                      className="cy-prg"
-                      title={`실행 ${t.done}/${t.total} · Pass ${t.pass} · Fail ${t.fail}`}
-                    >
-                      <span className="cy-prg-bar" aria-hidden="true">
-                        <i className="p" style={{ flexGrow: t.pass }} />
-                        <i className="f" style={{ flexGrow: t.fail }} />
-                        <i className="n" style={{ flexGrow: Math.max(t.total - t.pass - t.fail, 0) }} />
+                      >
+                        <IconChevron />
+                      </button>
+                      <button
+                        type="button"
+                        className="cyt-key"
+                        title={`${c.id} — 실행 화면을 엽니다`}
+                        onClick={() => onPick(c.id)}
+                      >
+                        {c.version || c.name || c.id}
+                      </button>
+                      <span className="tr">{t.total}</span>
+                      <span className={`tr${t.iss ? ' cyt-fail' : ''}`}>{t.iss || '–'}</span>
+                      <span
+                        className="cy-prg"
+                        title={`실행 ${t.done}/${t.total} · Pass ${t.pass} · Fail ${t.fail}`}
+                      >
+                        <span className="cy-prg-bar" aria-hidden="true">
+                          <i className="p" style={{ flexGrow: t.pass }} />
+                          <i className="f" style={{ flexGrow: t.fail }} />
+                          <i
+                            className="n"
+                            style={{ flexGrow: Math.max(t.total - t.pass - t.fail, 0) }}
+                          />
+                        </span>
+                        <b>{t.pct}%</b>
                       </span>
-                      <b>{t.pct}%</b>
-                    </span>
-                    <span>
-                      <i className={`cyt-st ${status}`}>
-                        {status === 'done' ? 'DONE' : status === 'run' ? '진행중' : '대기'}
-                      </i>
-                    </span>
-                    <span>
-                      {who ? (
-                        <i className="cyt-av" title={who}>
-                          {(who[0] || '?').toUpperCase()}
+                      <span>
+                        <i className={`cyt-st ${status}`}>
+                          {status === 'done' ? 'DONE' : status === 'run' ? '진행중' : '대기'}
                         </i>
-                      ) : (
-                        '–'
-                      )}
-                    </span>
-                    <span className="muted small cyt-ell" title={c.version ?? ''}>
-                      {c.version || '–'}
-                    </span>
-                    <button
-                      type="button"
-                      className="cyt-name cyt-ell"
-                      title={c.name ?? ''}
-                      onClick={() => onPick(c.id)}
-                    >
-                      {c.name || [model, c.version].filter(Boolean).join(' - ') || '–'}
-                    </button>
-                    <span className="muted small">{fmtD(c.start_date)}</span>
-                    <span className="muted small">{fmtD(c.end_date)}</span>
-                    <span className="muted small">{fmtD(c._updated_at_pg)}</span>
-                  </div>
+                      </span>
+                      <button
+                        type="button"
+                        className="cyt-name cyt-ell"
+                        title={c.name ?? ''}
+                        onClick={() => onPick(c.id)}
+                      >
+                        {c.name || [c.model, c.version].filter(Boolean).join(' - ') || '–'}
+                      </button>
+                      <span className="muted small cyt-ell" title={c.version ?? ''}>
+                        {c.version || '–'}
+                      </span>
+                      <span className="muted small">{fmtD(c._created_at_pg)}</span>
+                      <span className="muted small">
+                        {c.start_date || c.end_date
+                          ? `${fmtD(c.start_date)} ~ ${fmtD(c.end_date)}`
+                          : '–'}
+                      </span>
+                    </div>
+                    {/* 사이클 = 시험항목의 모음 — 펼치면 그 목록이 보인다.
+                        여기서는 보기만, 항목을 누르면 실행 화면으로 */}
+                    {open && (
+                      <div className="cyt-items">
+                        {(c.items ?? []).map((it, i2) => {
+                          const v = itemVerdict(it)
+                          return (
+                            <button
+                              key={`${it.tcid}-${i2}`}
+                              type="button"
+                              className="cyt-it"
+                              title="실행 화면에서 엽니다"
+                              onClick={() => onPick(c.id)}
+                            >
+                              <i className={`cxp-v ${verdictClass(v)}`} aria-hidden="true" />
+                              <b>{it.tcid}</b>
+                              <span className="cyt-ell">{it.name || ''}</span>
+                              <em className={`cy-v ${verdictClass(v)}`}>{verdictLabel(v)}</em>
+                            </button>
+                          )
+                        })}
+                        {(c.items ?? []).length === 0 && (
+                          <div className="muted small">아직 시험 항목이 없습니다.</div>
+                        )}
+                      </div>
+                    )}
+                  </React.Fragment>
                 )
               })}
           </div>

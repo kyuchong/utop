@@ -1934,8 +1934,8 @@ table.tb td.k {
 .cy-prg { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .cy-prg-bar {
   flex: 1;
-  height: 8px;
-  border-radius: 4px;
+  height: 6px;
+  border-radius: 3px;
   overflow: hidden;
   display: flex;
   background: var(--c-border);
@@ -2371,23 +2371,21 @@ table.tb td.k {
 .cxp-dt { border-top: 1px solid var(--c-border); padding: 9px 2px 6px; font-weight: 700; font-size: var(--fs-sm); }
 
 /* ── 사이클 표 — Zephyr TEST CYCLES 문법. 보기 전용, 줄 클릭 = 실행 화면 ── */
-.cyt {
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius);
-  background: var(--c-surface);
-  overflow: hidden;
-}
+/* 평평한 표 — 사진처럼 카드 없이, 얇은 줄과 낮은 행 */
+.cyt { background: var(--c-surface); }
 .cyt-row {
   display: grid;
-  /* ☐ · Key · 고객 · 모델 · Iteration · Issues · Tests · Progress · Status ·
-     담당 · Version · Name · 계획시작 · 계획끝 · 갱신 (Zephyr 그대로) */
+  /* ☐ · ▸ · 사이클 ID · 항목 · 이슈 · 진행결과 · 완료 · 제목 · 버전 ·
+     생성일자 · 계획일자 */
   grid-template-columns:
-    26px minmax(110px, 150px) 52px 78px minmax(90px, 110px) 48px 44px 140px 62px 46px
-    minmax(120px, 170px) minmax(150px, 1fr) 80px 80px 80px;
+    26px 20px minmax(130px, 180px) 44px 44px 150px 60px minmax(170px, 1fr)
+    minmax(110px, 160px) 82px 150px;
   gap: 8px;
   align-items: center;
-  padding: 6px 10px;
-  min-width: 1330px;
+  padding: 4px 10px;
+  min-height: 32px;
+  min-width: 1080px;
+  font-size: var(--fs-sm);
 }
 .cyt-ck { display: flex; align-items: center; }
 .cyt-key {
@@ -2424,11 +2422,45 @@ table.tb td.k {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: var(--c-primary-bg);
-  color: var(--c-primary);
+  color: #fff;
   font-size: 11px;
   font-weight: 800;
 }
+/* 사람마다 색이 달라야 줄을 훑을 때 갈린다 — 이름 글자로 고른다 */
+.cyt-av.c0 { background: #f59e0b; }
+.cyt-av.c1 { background: #ef4444; }
+.cyt-av.c2 { background: #3b82f6; }
+.cyt-av.c3 { background: #10b981; }
+.cyt-av.c4 { background: #8b5cf6; }
+.cyt-av.c5 { background: #ec4899; }
+/* 펼친 시험 항목 — 사이클은 시험항목의 모음이다 */
+.cyt-items {
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface-alt);
+  padding: 4px 10px 6px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.cyt-it {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 3px 6px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+.cyt-it:hover { background: var(--c-surface); }
+.cyt-it > b { color: var(--c-primary); font-size: var(--fs-xs); flex: none; }
+.cyt-it > span { flex: 1; min-width: 0; }
+.cyt-it > em { font-style: normal; font-size: var(--fs-xs); font-weight: 700; flex: none; }
+
 .cyt-gc { display: inline-flex; color: var(--c-text-faint); }
 .cyt-gc svg { transition: transform 0.15s; }
 .cyt-gc.open svg { transform: rotate(90deg); }
@@ -2437,8 +2469,29 @@ table.tb td.k {
   font-weight: 700;
   color: var(--c-text-faint);
   border-bottom: 1px solid var(--c-border);
-  background: var(--c-surface-alt);
 }
+/* 머리글 = 정렬 단추. 화살표가 지금 차례를 말한다 */
+.cyt-th {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-faint);
+  text-align: left;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.cyt-th.tr { justify-content: flex-end; }
+.cyt-th > i { font-style: normal; opacity: 0.45; font-size: 10px; }
+.cyt-th.on { color: var(--c-text); }
+.cyt-th.on > i { opacity: 1; color: var(--c-primary); }
 .cyt .tr { text-align: right; }
 .cyt-grow {
   display: flex;
@@ -2447,19 +2500,16 @@ table.tb td.k {
   width: 100%;
   text-align: left;
   border: 0;
-  padding: 6px 12px;
-  background: var(--c-surface-alt);
-  border-top: 1px solid var(--c-border);
+  padding: 5px 12px 5px 14px;
+  background: transparent;
+  border-bottom: 1px solid var(--c-border);
   font: inherit;
   font-size: var(--fs-sm);
   font-weight: 700;
   cursor: pointer;
 }
-.cyt-g:first-of-type .cyt-grow { border-top: 0; }
-.cyt-c {
-  cursor: pointer;
-  border-top: 1px solid var(--c-border);
-}
+.cyt-grow:hover { background: var(--c-surface-alt); }
+.cyt-c { border-bottom: 1px solid var(--c-border-weak, #eef1f5); }
 .cyt-c:hover { background: var(--c-surface-alt); }
 .cyt-nm {
   font-weight: 600;
