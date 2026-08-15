@@ -2985,3 +2985,13 @@ table.tb tr.r-bad td:first-child {
   font: inherit;
   min-width: 180px;
 }
+
+/* Bulk Edit 의 서식 편집기 — 칸 안에서 제 높이를 갖고 안에서 스크롤 */
+.bk-md .md-editor {
+  height: 260px;
+  min-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+}

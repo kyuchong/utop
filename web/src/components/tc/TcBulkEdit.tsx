@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch, tcApi } from '@/api/client'
+import MarkdownEditor from '@/components/MarkdownEditorLazy'
 import { useCodes } from '@/hooks/useCodes'
 import type { TcData } from './types'
 
@@ -394,25 +395,29 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
               </select>
             </div>,
           )}
+          {/* Object 탭과 같은 서식 편집기 — 여기서 쓴 것이 그 탭에 그대로
+              보이니 쓰는 도구도 같아야 한다 */}
           {row(
             'object_md',
             '시험 목적',
-            <textarea
-              rows={7}
-              value={obj}
-              placeholder="이 시험으로 무엇을 확인하는가"
-              onChange={(e) => setObj(e.target.value)}
-            />,
+            <div className="bk-md">
+              <MarkdownEditor
+                value={obj}
+                onChange={setObj}
+                placeholder="이 시험으로 무엇을 확인하는가"
+              />
+            </div>,
           )}
           {row(
             'precondition_md',
             '사전 준비 조건',
-            <textarea
-              rows={7}
-              value={pre}
-              placeholder="시험 전에 갖춰져 있어야 하는 것"
-              onChange={(e) => setPre(e.target.value)}
-            />,
+            <div className="bk-md">
+              <MarkdownEditor
+                value={pre}
+                onChange={setPre}
+                placeholder="시험 전에 갖춰져 있어야 하는 것"
+              />
+            </div>,
           )}
           {row(
             'image',
