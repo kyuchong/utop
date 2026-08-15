@@ -2233,9 +2233,9 @@ function CycleDetail({
 
       {/* Test Player — 왼쪽에서 항목을 고르고, 오른쪽에서 시험한다.
           Zephyr 실행 화면 문법: 목록은 좁게, 절차·판정·기록은 넓게. */}
-      <div className="tp">
-        <aside className="tp-side">
-          <div className="tp-sh">
+      <div className="cxp">
+        <aside className="cxp-side">
+          <div className="cxp-sh">
             <label className="rq-selall" title="보이는 것 전부 고르기">
               <input
                 type="checkbox"
@@ -2252,19 +2252,19 @@ function CycleDetail({
               />
             </label>
             <b>Test Cases</b>
-            <i className="tp-n">{rows.length}</i>
+            <i className="cxp-n">{rows.length}</i>
             <span className="sp" />
             {pick.size > 0 && <span className="muted small">{pick.size} 고름</span>}
           </div>
           {/* 찾기 + 내 것만 — Zephyr 왼쪽 목록의 도구 그대로 */}
-          <div className="tp-tools">
+          <div className="cxp-tools">
             <input
-              className="tp-q"
+              className="cxp-q"
               placeholder="TC ID · 제목 검색"
               value={fq}
               onChange={(e) => setFq(e.target.value)}
             />
-            <label className="tp-mine" title="내가 담당인 항목만 봅니다">
+            <label className="cxp-mine" title="내가 담당인 항목만 봅니다">
               <input
                 type="checkbox"
                 checked={fAss !== ''}
@@ -2274,7 +2274,7 @@ function CycleDetail({
             </label>
           </div>
           {/* 결과로 좁히기 — 누르면 그 결과만, 다시 누르면 전부 */}
-          <div className="tp-chips">
+          <div className="cxp-chips">
             <button
               type="button"
               className={only === null && !onlyRegress ? 'on' : ''}
@@ -2330,7 +2330,7 @@ function CycleDetail({
               </button>
             )}
           </div>
-          <div className="tp-rows scroll">
+          <div className="cxp-rows scroll">
             {rows.map((it, i) => {
               const at = items.indexOf(it)
               const rid = String(it.req_id ?? '')
@@ -2344,7 +2344,7 @@ function CycleDetail({
               return (
                 <React.Fragment key={`${it.tcid}-${i}`}>
                   {newGroup && (
-                    <div className="tp-grow" title={rid || '요구사항 없음'}>
+                    <div className="cxp-grow" title={rid || '요구사항 없음'}>
                       <b>{reqName.get(rid) || rid || '(요구사항 없음)'}</b>
                       {(() => {
                         const label = reqIdOf.get(rid) || (rid.startsWith('rq-') ? '' : rid)
@@ -2353,7 +2353,7 @@ function CycleDetail({
                     </div>
                   )}
                   <div
-                    className={`tp-row v-${verdictClass(v)}${on ? ' on' : ''}${
+                    className={`cxp-row v-${verdictClass(v)}${on ? ' on' : ''}${
                       pick.has(at) ? ' picked' : ''
                     }${st.itemAt === at && st.on ? ' running' : ''}`}
                     ref={st.on && st.itemAt === at ? runlineRef : undefined}
@@ -2387,14 +2387,14 @@ function CycleDetail({
                         sel.set([...n])
                       }}
                     />
-                    <span className="tp-rmain">
-                      <span className="tp-r1">
-                        <b className="tp-tcid">{it.tcid || '–'}</b>
+                    <span className="cxp-rmain">
+                      <span className="cxp-r1">
+                        <b className="cxp-tcid">{it.tcid || '–'}</b>
                         {/* 사람 일인가 장비 일인가 — 목록에서 갈려야 한다 */}
                         {(() => {
                           const kd = kindOf(shown.steps ?? [])
                           return kd ? (
-                            <i className={`tp-k ${kd}`}>
+                            <i className={`cxp-k ${kd}`}>
                               {kd === 'manual' ? 'M' : kd === 'auto' ? 'A' : 'M+A'}
                             </i>
                           ) : null
@@ -2412,17 +2412,17 @@ function CycleDetail({
                           )
                         })()}
                       </span>
-                      <span className="tp-nm" title={it.name || it.tcid}>
+                      <span className="cxp-nm" title={it.name || it.tcid}>
                         {it.name || it.tcid}
                       </span>
                     </span>
-                    {st.itemAt === at && st.on && <i className="tp-live" title="실행 중" />}
+                    {st.itemAt === at && st.on && <i className="cxp-live" title="실행 중" />}
                     {isRegress(it) && (
                       <b className="cy-regchip" title="지난 사이클에선 Pass 였습니다">
                         회귀
                       </b>
                     )}
-                    <i className={`tp-v ${verdictClass(v)}`} title={verdictLabel(v)} />
+                    <i className={`cxp-v ${verdictClass(v)}`} title={verdictLabel(v)} />
                   </div>
                 </React.Fragment>
               )
@@ -2431,15 +2431,15 @@ function CycleDetail({
           </div>
         </aside>
 
-        <section className="tp-main scroll">
+        <section className="cxp-main scroll">
           {cur ? (
             <>
-              <div className="tp-h">
-                <b className="tp-hid">{cur.tcid}</b>
-                <h3 className="tp-hnm">{cur.name || cur.tcid}</h3>
+              <div className="cxp-h">
+                <b className="cxp-hid">{cur.tcid}</b>
+                <h3 className="cxp-hnm">{cur.name || cur.tcid}</h3>
                 <span className="sp" />
                 <select
-                  className={`cy-v tp-big ${verdictClass(itemVerdict(liveNow ? { ...cur, steps: st.liveSteps, result: '' } : cur))}`}
+                  className={`cy-v cxp-big ${verdictClass(itemVerdict(liveNow ? { ...cur, steps: st.liveSteps, result: '' } : cur))}`}
                   value={itemVerdict(cur)}
                   title="결과를 손으로 정합니다"
                   onChange={(e) =>
@@ -2466,7 +2466,7 @@ function CycleDetail({
               </div>
 
               {/* Execution 정보 — Zephyr 의 Execution 칸과 같은 자리 */}
-              <div className="tp-exec">
+              <div className="cxp-exec">
                 <div>
                   <i>Environment</i>
                   <b>{cycle.model || '–'}</b>
@@ -2498,7 +2498,7 @@ function CycleDetail({
               <TpSec title="Precondition" body={tcDoc?.precondition_md} />
 
               {/* Details — 절차와 판정. 기존 스텝 카드 그대로 */}
-              <div className="tp-dt">Details</div>
+              <div className="cxp-dt">Details</div>
               <StepDetail
                 key={cur.tcid ?? ''}
                 item={liveNow ? { ...cur, steps: st.liveSteps } : cur}
@@ -2649,15 +2649,15 @@ function CycleMenu({
 function TpSec({ title, body }: { title: string; body?: string | null }) {
   const [open, setOpen] = useState(true)
   return (
-    <div className="tp-sec">
-      <button type="button" className="tp-sec-h" onClick={() => setOpen((v) => !v)}>
-        <span className={`tp-sec-c${open ? ' open' : ''}`} aria-hidden="true">
+    <div className="cxp-sec">
+      <button type="button" className="cxp-sec-h" onClick={() => setOpen((v) => !v)}>
+        <span className={`cxp-sec-c${open ? ' open' : ''}`} aria-hidden="true">
           <IconChevron />
         </span>
         {title}
       </button>
       {open && (
-        <div className="tp-sec-b">
+        <div className="cxp-sec-b">
           {body?.trim() ? body : <span className="muted">None</span>}
         </div>
       )}
