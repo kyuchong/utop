@@ -8667,6 +8667,13 @@ async def pptx_render(payload: dict):
 
 @app.post("/api/cycle/{cycle_id}")
 async def save_cycle(cycle_id: str, data: dict):
+    # 부여 ID(C-<연2><주차2>-<순번3>) — 없을 때만 새로 매긴다. 한 번 박히면 영원하다
+    if not str((data or {}).get("cid") or "").strip():
+        from datetime import datetime as _dt
+        try:
+            data["cid"] = await db.cycle_next_cid(db._cid_prefix_of(_dt.now()))
+        except Exception:
+            pass
     await db.cycle_upsert(cycle_id, data)
     # 누가 고쳤는지 함께 싣는다. 받는 쪽이 「내가 방금 저장한 것」 을 걸러야
     # 하고, 남이 한 것이면 이름을 말해 줘야 한다 — 사이클은 여럿이 나눠
@@ -9445,6 +9452,13 @@ async def _db_init():
         if _dn: print(f"[startup] 결함 ID {_dn}건을 새 체계로 이전", flush=True)
     except Exception as e:
         print(f"[startup] defect renumber failed: {e}", flush=True)
+
+    # 사이클 부여 ID — cid 없는 회차에 C-<연2><주차2>-<순번3> 을 채운다 (멱등)
+    try:
+        _cn = await db.cycle_backfill_cids()
+        if _cn: print(f"[startup] 사이클 ID {_cn}건 부여 (C-연주차-순번)", flush=True)
+    except Exception as e:
+        print(f"[startup] cycle cid backfill failed: {e}", flush=True)
 
     # 파일 → DB(app_kv) 이전 (파일이 정본이면 DB 덮어씀). ai_usage/ai_feedback 는 _load_items_store 매핑도 등록.
     _KV_MIGRATIONS = [

@@ -51,6 +51,9 @@ export interface CycleMeta {
   _item_count?: number
   _updated_at_pg?: string | null
   _created_at_pg?: string | null
+  /** 부여 ID — C-<연2><주차2>-<순번3>. 서버가 매긴다 */
+  cid?: string | null
+  created_by?: string | null
   /** 자유 폴더 경로 (예: L3/E6100/R100). 비면 모델·버전그룹에서 파생 */
   folder?: string | null
   items?: CycleItemLite[]
@@ -1247,8 +1250,6 @@ function CycleBoard({
       setSortDir(1)
     }
   }
-  /** 접어 둔 버전그룹들 */
-  const [closed, setClosed] = useState<Set<string>>(new Set())
   /** 줄 체크 — 삭제·복제가 이걸 본다 */
   const [picked, setPicked] = useState<Set<string>>(new Set())
   /** 인라인으로 펼친 사이클들 — 시험 항목이 줄 밑에 보인다 */
@@ -1290,7 +1291,7 @@ function CycleBoard({
     let arr = cycles
     if (nq)
       arr = arr.filter((c) =>
-        [c.id, c.version, c.name, c.version_group, c.model]
+        [c.cid, c.id, c.version, c.name, c.version_group, c.model]
           .filter(Boolean)
           .join(' ')
           .toLowerCase()
@@ -1300,17 +1301,6 @@ function CycleBoard({
     return arr
   }, [cycles, q, failOnly, stats])
 
-  // 왼쪽 폴더가 버전그룹까지라, 오른쪽은 버전그룹이 묶음 머리다
-  const groups = useMemo(() => {
-    const m = new Map<string, CycleMeta[]>()
-    for (const c of shown) {
-      const k = String(c.version_group ?? '').trim() || '버전그룹 없음'
-      const arr = m.get(k)
-      if (arr) arr.push(c)
-      else m.set(k, [c])
-    }
-    return m
-  }, [shown])
 
   const fmtD = (v?: string | null) => (v ? String(v).slice(0, 10) : '–')
   const TH = (col: string, label: string, right?: boolean) => (
@@ -1326,6 +1316,8 @@ function CycleBoard({
 
   return (
     <div className="cy-board scroll">
+      {/* 시험항목 2열과 같은 카드 안에 도구줄·표가 든다 */}
+      <section className="panel cyt-card">
       {/* 도구줄 — 추가·복제·삭제는 왼쪽, 찾기는 오른쪽 */}
       <div className="cy-tools">
         <button className="btn" type="button" onClick={onNew}>
@@ -1384,43 +1376,24 @@ function CycleBoard({
           </span>
           <span />
           {TH('id', '사이클 ID')}
-          {TH('tests', '항목', true)}
-          {TH('iss', '이슈', true)}
-          {TH('pct', '진행결과')}
-          {TH('status', '완료')}
           {TH('name', '제목')}
+          {TH('iss', '결함', true)}
+          {TH('tests', '항목', true)}
+          {TH('pct', '진행결과')}
+          {TH('status', '상태')}
           {TH('version', '버전')}
           {TH('created', '생성일자')}
-          {TH('plan', '계획일자')}
+          {TH('updated', '변경일자')}
+          {TH('creator', '생성자')}
+          {TH('ass', '담당자')}
         </div>
-        {[...groups.entries()].map(([vg, list]) => (
-          <div key={vg} className="cyt-g">
-            <button
-              type="button"
-              className="cyt-grow"
-              onClick={() =>
-                setClosed((cur) => {
-                  const n = new Set(cur)
-                  if (n.has(vg)) n.delete(vg)
-                  else n.add(vg)
-                  return n
-                })
-              }
-            >
-              <i className={`cyt-gc${closed.has(vg) ? '' : ' open'}`} aria-hidden="true">
-                <IconChevron />
-              </i>
-              <b>{vg}</b>
-              <span className="muted small">{list.length}</span>
-            </button>
-            {!closed.has(vg) &&
-              (sortCol === ''
-                ? list
-                : [...list].sort((a, b) => {
+        {(sortCol === ''
+          ? shown
+          : [...shown].sort((a, b) => {
                     const keyOf = (c2: CycleMeta): string | number => {
                       const t2 = stats.get(c2.id)
                       switch (sortCol) {
-                        case 'id': return (c2.version || c2.name || c2.id).toLowerCase()
+                        case 'id': return (c2.cid || c2.version || c2.name || c2.id).toLowerCase()
                         case 'iss': return t2?.iss ?? 0
                         case 'tests': return t2?.total ?? 0
                         case 'pct': return t2?.pct ?? 0
@@ -1428,7 +1401,9 @@ function CycleBoard({
                         case 'name': return (c2.name ?? '').toLowerCase()
                         case 'version': return (c2.version ?? '').toLowerCase()
                         case 'created': return c2._created_at_pg ?? ''
-                        case 'plan': return c2.start_date ?? ''
+                        case 'updated': return c2._updated_at_pg ?? ''
+                        case 'creator': return (c2.created_by ?? '').toLowerCase()
+                        case 'ass': return (c2.assignee ?? '').toLowerCase()
                         default: return c2._updated_at_pg ?? ''
                       }
                     }
@@ -1489,10 +1464,18 @@ function CycleBoard({
                         title={`${c.id} — 실행 화면을 엽니다`}
                         onClick={() => onPick(c.id)}
                       >
-                        {c.version || c.name || c.id}
+                        {c.cid || c.version || c.name || c.id}
                       </button>
-                      <span className="tr">{t.total}</span>
+                      <button
+                        type="button"
+                        className="cyt-name cyt-ell"
+                        title={c.name ?? ''}
+                        onClick={() => onPick(c.id)}
+                      >
+                        {c.name || [c.model, c.version].filter(Boolean).join(' - ') || '–'}
+                      </button>
                       <span className={`tr${t.iss ? ' cyt-fail' : ''}`}>{t.iss || '–'}</span>
+                      <span className="tr">{t.total}</span>
                       <span
                         className="cy-prg"
                         title={`실행 ${t.done}/${t.total} · Pass ${t.pass} · Fail ${t.fail}`}
@@ -1512,22 +1495,16 @@ function CycleBoard({
                           {status === 'done' ? 'DONE' : status === 'run' ? '진행중' : '대기'}
                         </i>
                       </span>
-                      <button
-                        type="button"
-                        className="cyt-name cyt-ell"
-                        title={c.name ?? ''}
-                        onClick={() => onPick(c.id)}
-                      >
-                        {c.name || [c.model, c.version].filter(Boolean).join(' - ') || '–'}
-                      </button>
                       <span className="muted small cyt-ell" title={c.version ?? ''}>
                         {c.version || '–'}
                       </span>
                       <span className="muted small">{fmtD(c._created_at_pg)}</span>
-                      <span className="muted small">
-                        {c.start_date || c.end_date
-                          ? `${fmtD(c.start_date)} ~ ${fmtD(c.end_date)}`
-                          : '–'}
+                      <span className="muted small">{fmtD(c._updated_at_pg)}</span>
+                      <span className="muted small cyt-ell" title={c.created_by ?? ''}>
+                        {c.created_by || '–'}
+                      </span>
+                      <span className="muted small cyt-ell" title={c.assignee ?? ''}>
+                        {c.assignee || '–'}
                       </span>
                     </div>
                     {/* 사이클 = 시험항목의 모음 — 펼치면 그 목록이 보인다.
@@ -1559,12 +1536,11 @@ function CycleBoard({
                   </React.Fragment>
                 )
               })}
-          </div>
-        ))}
       </div>
       {cycles.length === 0 && (
         <div className="empty">아직 사이클이 없습니다 — 위 + New 로 만드세요.</div>
       )}
+      </section>
     </div>
   )
 }

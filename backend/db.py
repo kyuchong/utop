@@ -1293,6 +1293,9 @@ CODE_KINDS = {
     "tc_origin": "구분",
     "req_status": "상태",
     "req_priority": "우선순위",
+    # 사이클 INFO 필드 — 사이클 만들기·편집 드롭다운이 읽는다
+    "cycle_status": "상태",
+    "cycle_customer": "고객",
 }
 
 
@@ -1778,6 +1781,60 @@ async def audit_list(limit: int = 300) -> list[dict]:
             d["at"] = d["at"].isoformat() if d.get("at") else None
             out.append(d)
         return out
+
+
+def _cid_prefix_of(dt) -> str:
+    """사이클 부여 ID 프리픽스 — TC·REQ 와 같은 <연2><주차2> 규칙 (C-2623-)."""
+    iso = dt.isocalendar()
+    return "C-%02d%02d-" % (iso[0] % 100, iso[1])
+
+
+async def cycle_next_cid(prefix: str) -> str:
+    """C-<연2><주차2>-<순번3> — 그 주차 안에서 1부터. 한 번 박히면 안 바뀐다."""
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT data->>'cid' AS cid FROM cycle WHERE data->>'cid' LIKE $1", prefix + "%"
+        )
+    mx = 0
+    for r in rows:
+        tail = (r["cid"] or "")[len(prefix):]
+        if tail.isdigit():
+            mx = max(mx, int(tail))
+    return f"{prefix}{mx + 1:03d}"
+
+
+async def cycle_backfill_cids() -> int:
+    """cid 없는 사이클에 만든 주 기준으로 부여 ID 를 채운다. 멱등 — 있으면 안 건드린다."""
+    from datetime import datetime, timezone
+
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT id, created_at FROM cycle WHERE data->>'cid' IS NULL ORDER BY created_at"
+        )
+        if not rows:
+            return 0
+        have = await c.fetch("SELECT data->>'cid' AS cid FROM cycle WHERE data->>'cid' IS NOT NULL")
+        mx: dict[str, int] = {}
+        for r in have:
+            m = re.match(r"^(C-\d{4}-)(\d+)$", r["cid"] or "")
+            if m:
+                mx[m.group(1)] = max(mx.get(m.group(1), 0), int(m.group(2)))
+        n = 0
+        for r in rows:
+            dt = r["created_at"] or datetime.now(timezone.utc)
+            pf = _cid_prefix_of(dt)
+            seq = mx.get(pf, 0) + 1
+            mx[pf] = seq
+            new_cid = f"{pf}{seq:03d}"
+            await c.execute(
+                "UPDATE cycle SET data = jsonb_set(data, '{cid}', to_jsonb($2::text)), "
+                "data_summary = CASE WHEN data_summary IS NULL THEN NULL "
+                "ELSE jsonb_set(data_summary, '{cid}', to_jsonb($2::text)) END "
+                "WHERE id=$1",
+                r["id"], new_cid,
+            )
+            n += 1
+        return n
 
 
 async def defect_next_id(project_key: str) -> str:

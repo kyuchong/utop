@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 
-export type CfTarget = 'tc' | 'req'
+export type CfTarget = 'tc' | 'req' | 'cycle'
 export type CfType = 'text' | 'textarea' | 'number' | 'select' | 'date' | 'checkbox'
 
 export interface CustomField {

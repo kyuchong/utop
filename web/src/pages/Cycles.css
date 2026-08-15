@@ -2371,20 +2371,32 @@ table.tb td.k {
 .cxp-dt { border-top: 1px solid var(--c-border); padding: 9px 2px 6px; font-weight: 700; font-size: var(--fs-sm); }
 
 /* ── 사이클 표 — Zephyr TEST CYCLES 문법. 보기 전용, 줄 클릭 = 실행 화면 ── */
-/* 평평한 표 — 사진처럼 카드 없이, 얇은 줄과 낮은 행 */
-.cyt { background: var(--c-surface); }
+/* 시험항목 2열과 같은 카드 — 도구줄과 표가 한 장 안에 든다 */
+.cyt-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.cyt-card > .cy-tools {
+  margin: 0;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--c-border);
+}
+.cyt { background: var(--c-surface); overflow: auto; }
 .cyt-row {
   display: grid;
-  /* ☐ · ▸ · 사이클 ID · 항목 · 이슈 · 진행결과 · 완료 · 제목 · 버전 ·
-     생성일자 · 계획일자 */
+  /* ☐ · ▸ · 사이클 ID · 제목 · 결함 · 항목 · 진행결과 · 상태 · 버전 ·
+     생성일자 · 변경일자 · 생성자 · 담당자 */
   grid-template-columns:
-    26px 20px minmax(130px, 180px) 44px 44px 150px 60px minmax(170px, 1fr)
-    minmax(110px, 160px) 82px 150px;
+    26px 20px minmax(105px, 130px) minmax(170px, 1fr) 40px 40px 104px 56px
+    minmax(100px, 150px) 80px 80px 68px 68px;
   gap: 8px;
   align-items: center;
   padding: 4px 10px;
   min-height: 32px;
-  min-width: 1080px;
+  min-width: 1120px;
   font-size: var(--fs-sm);
 }
 .cyt-ck { display: flex; align-items: center; }

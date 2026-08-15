@@ -12,8 +12,8 @@ interface Item {
 }
 
 interface Props {
-  /** 'tc' | 'req' — 서버의 kind 접두사와 같다 */
-  target: 'tc' | 'req'
+  /** 'tc' | 'req' | 'cycle' — 서버의 kind 접두사와 같다 */
+  target: 'tc' | 'req' | 'cycle'
 }
 
 const TITLE: Record<string, { h: string; p: string }> = {
@@ -24,6 +24,10 @@ const TITLE: Record<string, { h: string; p: string }> = {
   req: {
     h: '요구사항 INFO 필드',
     p: '요구사항 편집 창에서 고를 값을 여기서 정합니다. 전에는 코드에 박혀 있어 배포해야 늘릴 수 있었습니다.',
+  },
+  cycle: {
+    h: '사이클 INFO 필드',
+    p: '사이클 만들기·편집에서 고를 값(상태·고객 등)을 여기서 정합니다.',
   },
 }
 
@@ -55,7 +59,9 @@ interface Tab {
  */
 export default function CodeSettings({ target }: Props) {
   const qc = useQueryClient()
-  const [kind, setKind] = useState(target === 'req' ? 'req_status' : 'tc_type')
+  const [kind, setKind] = useState(
+    target === 'req' ? 'req_status' : target === 'cycle' ? 'cycle_status' : 'tc_type',
+  )
   const [draft, setDraft] = useState('')
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
   // 새 탭(= 「고르기」 커스텀 필드) 만들기
@@ -305,7 +311,8 @@ export default function CodeSettings({ target }: Props) {
           <div className="set-card-head">
             <b>탭 추가</b>
             <span className="muted small">
-              {target === 'tc' ? 'TC' : '요구사항'} 편집 화면에 드롭다운 칸이 하나 생깁니다
+              {target === 'tc' ? 'TC' : target === 'cycle' ? '사이클' : '요구사항'} 편집 화면에
+              드롭다운 칸이 하나 생깁니다
             </span>
           </div>
           <div className="dc-add">
