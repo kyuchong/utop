@@ -429,8 +429,9 @@ export default function Cycles({ me }: PageProps) {
   }, [treeOpen])
 
   const [sel, setSel] = useState(() => localStorage.getItem(CY_SEL_KEY) || '')
-  /** 트리에서 폴더를 골랐으면 관제판을 그 묶음으로 좁힌다 */
-  const [scope, setScope] = useState<{ label: string; ids: Set<string> } | null>(null)
+  /** 트리에서 폴더를 골랐으면 관제판을 그 묶음으로 좁힌다.
+      key 를 저장해 새로고침해도 같은 폴더로 돌아온다 */
+  const [scope, setScope] = useState<{ key: string; label: string; ids: Set<string> } | null>(null)
   /** 트리 줄 위에 뜨는 상태 요약 카드 */
   const [tip, setTip] = useState<{ node: Node; x: number; y: number } | null>(null)
   // 고르면 주소창에 남긴다 — 옛 화면의 #cycle=… 과 같은 일
@@ -597,6 +598,34 @@ export default function Cycles({ me }: PageProps) {
   )
   const cur = cycles.find((c) => c.id === sel)
 
+  // 새로고침 복원 — 저장해 둔 폴더(scope)로 돌아온다. 한 번만 시도한다
+  const scopeRestored = useRef(false)
+  useEffect(() => {
+    if (scopeRestored.current || scope || !tree.length) return
+    const want = localStorage.getItem('utop.cycle.scope') || ''
+    scopeRestored.current = true
+    if (!want) return
+    const findNode = (ns: Node[]): Node | null => {
+      for (const n of ns) {
+        if (n.key === want) return n
+        const hit = findNode(n.children)
+        if (hit) return hit
+      }
+      return null
+    }
+    const node = findNode(tree)
+    if (!node) return
+    // 조상 폴더도 펼쳐 둔다 — 어디를 보고 있는지 트리에서도 보이게
+    setOpen((x) => {
+      const n2 = new Set(x)
+      const parts = want.split('/')
+      for (let i = 1; i <= parts.length; i++) n2.add(parts.slice(0, i).join('/'))
+      return n2
+    })
+    setScope({ key: node.key, label: node.label, ids: new Set(cyclesUnder(node).map((c) => c.id)) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tree, scope])
+
   const toggle = (k: string) =>
     setOpen((s) => {
       const n = new Set(s)
@@ -729,7 +758,8 @@ export default function Cycles({ me }: PageProps) {
             // 접고 펴는 것은 화살표 단추 몫이라 여기서는 펼치기만 한다.
             // 클릭할 때마다 접혔다 펴졌다 하면 고르러 간 손이 트리를 흔든다.
             setOpen((x) => new Set(x).add(n.key))
-            setScope({ label: n.label, ids: new Set(cyclesUnder(n).map((c) => c.id)) })
+            localStorage.setItem('utop.cycle.scope', n.key)
+            setScope({ key: n.key, label: n.label, ids: new Set(cyclesUnder(n).map((c) => c.id)) })
             setSel('')
           }}
           onKeyDown={(e) => {
@@ -739,7 +769,8 @@ export default function Cycles({ me }: PageProps) {
                 setSel(n.cycle.id)
               } else {
                 setOpen((x) => new Set(x).add(n.key))
-                setScope({ label: n.label, ids: new Set(cyclesUnder(n).map((c) => c.id)) })
+                localStorage.setItem('utop.cycle.scope', n.key)
+            setScope({ key: n.key, label: n.label, ids: new Set(cyclesUnder(n).map((c) => c.id)) })
                 setSel('')
               }
             }
@@ -855,13 +886,16 @@ export default function Cycles({ me }: PageProps) {
     )
   }
 
-  /** 빵부스러기에 적을 길 — 모델그룹 › 모델 › 버전그룹 › 버전 */
+  /** 빵부스러기에 적을 길 — 사이클이 열려 있으면 그 길, 아니면 고른 폴더 길 */
   const crumbs = useMemo(() => {
-    if (!cur) return []
-    const g = new Map(models.map((m) => [m.name, (m.model_group ?? '').trim()]))
-    const model = String(cur.model ?? '').trim()
-    return [g.get(model) || '', model, String(cur.version_group ?? '').trim()].filter(Boolean)
-  }, [cur, models])
+    if (cur) {
+      const g = new Map(models.map((m) => [m.name, (m.model_group ?? '').trim()]))
+      const model = String(cur.model ?? '').trim()
+      return [g.get(model) || '', model, String(cur.version_group ?? '').trim()].filter(Boolean)
+    }
+    if (scope) return scope.key.split('/').filter(Boolean)
+    return []
+  }, [cur, models, scope])
 
   return (
     // 요구사항·TC 화면과 **같은 뼈대**를 쓴다. 세 화면을 오가는 사람이
@@ -876,6 +910,7 @@ export default function Cycles({ me }: PageProps) {
             type="button"
             className="rq-crumb-home"
             onClick={() => {
+              localStorage.removeItem('utop.cycle.scope')
               setScope(null)
               setSel('')
             }}
@@ -895,7 +930,11 @@ export default function Cycles({ me }: PageProps) {
             </>
           )}
           <span className="muted small">
-            {cur ? `${cur._item_count ?? 0}건` : '왼쪽에서 사이클을 고르세요'}
+            {cur
+              ? `${cur._item_count ?? 0}건`
+              : scope
+                ? `사이클 ${scope.ids.size}건`
+                : '왼쪽에서 사이클을 고르세요'}
           </span>
         </span>
         <span className="sp" />
@@ -976,13 +1015,15 @@ export default function Cycles({ me }: PageProps) {
             tabIndex={0}
             onClick={() => {
               setTip(null)
+              localStorage.removeItem('utop.cycle.scope')
               setScope(null)
               setSel('')
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
-                setScope(null)
+                localStorage.removeItem('utop.cycle.scope')
+              setScope(null)
                 setSel('')
               }
             }}
@@ -1206,6 +1247,11 @@ export default function Cycles({ me }: PageProps) {
             onNew={() => setMaking(true)}
             onDup={(id) => void dupCycle(id)}
             onDel={(ids) => void delCycles(ids)}
+            onEdit={(id) => setEditId(id)}
+            onRun={(id) => {
+              setSel(id)
+              setAct((a) => ({ what: 'run', n: (a?.n ?? 0) + 1 }))
+            }}
           />
         )}
       </section>
@@ -1242,6 +1288,8 @@ function CycleBoard({
   onNew,
   onDup,
   onDel,
+  onEdit,
+  onRun,
 }: {
   cycles: CycleMeta[]
   onPick: (id: string) => void
@@ -1251,6 +1299,10 @@ function CycleBoard({
   onDup: (id: string) => void
   /** 삭제 — 고른 것들 */
   onDel: (ids: string[]) => void
+  /** 수정 — 한 개 골랐을 때 (사이클 편집 창) */
+  onEdit: (id: string) => void
+  /** 실행 — 한 개 골라 열면서 전체 실행을 건다 */
+  onRun: (id: string) => void
 }) {
   const [q, setQ] = useState('')
   const [failOnly, setFailOnly] = useState(false)
@@ -1378,20 +1430,11 @@ function CycleBoard({
       <section className="panel cyt-card">
       {/* 도구줄 — 추가·복제·삭제는 왼쪽, 찾기는 오른쪽 */}
       <div className="cy-tools">
-        <button className="btn" type="button" onClick={onNew}>
+        <button className="btn small" type="button" onClick={onNew}>
           + New
         </button>
         <button
-          className="btn"
-          type="button"
-          disabled={picked.size !== 1}
-          title={picked.size === 1 ? '고른 사이클을 복제합니다' : '하나만 고르세요'}
-          onClick={() => onDup([...picked][0]!)}
-        >
-          복제
-        </button>
-        <button
-          className="btn danger"
+          className="btn small danger"
           type="button"
           disabled={!picked.size}
           onClick={() => {
@@ -1399,7 +1442,34 @@ function CycleBoard({
             setPicked(new Set())
           }}
         >
-          삭제{picked.size ? ` (${picked.size})` : ''}
+          Delete{picked.size ? ` (${picked.size})` : ''}
+        </button>
+        <button
+          className="btn small"
+          type="button"
+          disabled={picked.size !== 1}
+          title={picked.size === 1 ? '고른 사이클을 편집합니다' : '하나만 고르세요'}
+          onClick={() => onEdit([...picked][0]!)}
+        >
+          Edit
+        </button>
+        <button
+          className="btn small"
+          type="button"
+          disabled={picked.size !== 1}
+          title={picked.size === 1 ? '고른 사이클을 복제합니다' : '하나만 고르세요'}
+          onClick={() => onDup([...picked][0]!)}
+        >
+          Clone
+        </button>
+        <button
+          className="btn small primary"
+          type="button"
+          disabled={picked.size !== 1}
+          title={picked.size === 1 ? '고른 사이클을 열고 전체 실행을 겁니다' : '하나만 고르세요'}
+          onClick={() => onRun([...picked][0]!)}
+        >
+          ▶ Run
         </button>
         <span className="sp" />
         <input
