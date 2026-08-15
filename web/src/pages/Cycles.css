@@ -3255,3 +3255,26 @@ table.tb td.k {
   gap: 4px;
   flex-wrap: nowrap;
 }
+
+/* ── 사이클 복제 대화상자 — Zephyr·TestRail 표준 조합 ── */
+.modal.cy-clone { width: min(460px, 94vw); }
+.cy-clone-b { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 14px; }
+.cy-clone-sec {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.cy-clone-st { display: flex; align-items: center; justify-content: space-between; font-size: var(--fs-sm); }
+.cy-clone-ck {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.cy-clone-ck > i { font-style: normal; color: var(--c-text-faint); font-size: var(--fs-xs); }
+.cy-clone-f { display: flex; align-items: center; gap: 8px; }
+.cy-clone-f .sp { flex: 1; }

@@ -453,48 +453,8 @@ export default function Cycles({ me }: PageProps) {
   /** 이 화면(사이클 묶음)에 들어와 있는 사람들 — 상단 오른쪽 표시 몫 */
   const crowd = usePageCrowd('cycle')
 
-  /** 사이클 복제 — 전체 항목 또는 Pass·Fail 항목만 골라 한 벌 더 */
-  const dupCycle = async (id: string) => {
-    try {
-      const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`)
-      if (!r.ok) throw new Error(String(r.status))
-      const full = (await r.json()) as Record<string, unknown>
-      const items = Array.isArray(full.items) ? (full.items as CycleItemLite[]) : []
-      let keep = items
-      if (items.length) {
-        const all = window.confirm(
-          '복제할 항목을 고르세요.\n\n[확인] 전체 항목 복제\n[취소] Pass·Fail 결과가 있는 항목만 복제',
-        )
-        if (!all) {
-          keep = items.filter((it) => {
-            const v = itemVerdict(it)
-            return v === 'Pass' || v === 'Fail'
-          })
-          if (!keep.length) {
-            window.alert('Pass·Fail 결과가 있는 항목이 없어 복제를 취소합니다.')
-            return
-          }
-        }
-      }
-      const nid = `cycle-${Date.now()}`
-      const w = await apiFetch(`/api/cycle/${encodeURIComponent(nid)}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          ...full,
-          id: nid,
-          // 부여 ID 는 물려받지 않는다 — 비워야 서버가 새 번호를 매긴다
-          cid: '',
-          version: `${String(full.version ?? '')}_copy`,
-          name: full.name ? `${String(full.name)} (복제)` : full.name,
-          items: keep,
-        }),
-      })
-      if (!w.ok) throw new Error(String(w.status))
-      await listQ.refetch()
-    } catch (e) {
-      window.alert(`복제하지 못했습니다 — ${e instanceof Error ? e.message : String(e)}`)
-    }
-  }
+  /** 복제 대화상자가 열린 사이클 id — 비면 닫힘 */
+  const [cloneId, setCloneId] = useState('')
 
   /** 고른 사이클 삭제 — 실행 결과도 같이 사라지니 묻고 지운다 */
   const delCycles = async (ids: string[]) => {
@@ -1263,6 +1223,17 @@ export default function Cycles({ me }: PageProps) {
 
       {/* 만들기와 고치기가 같은 창이다. 다르게 만들면 「만들 때는 되는데
           고칠 때는 안 되는 것」 이 반드시 생긴다. */}
+      {cloneId && (
+        <CloneDialog
+          cycleId={cloneId}
+          onClose={() => setCloneId('')}
+          onDone={() => {
+            setCloneId('')
+            void listQ.refetch()
+          }}
+        />
+      )}
+
       {(making || editId) && (
         <CycleEdit
           cycleId={editId || undefined}
@@ -1300,7 +1271,7 @@ export default function Cycles({ me }: PageProps) {
           <CycleBoard
             cycles={scopedCycles}
             onNew={() => setMaking(true)}
-            onDup={(id) => void dupCycle(id)}
+            onDup={(id) => setCloneId(id)}
             onDel={(ids) => void delCycles(ids)}
             onEdit={(id) => setEditId(id)}
             onRun={(id) => setSel(id)}
@@ -3015,6 +2986,198 @@ function CycleMenu({
  *  · 오른쪽: 지금 도는 스텝의 실행 로그가 터미널로 흐른다
  *  · 끝나면: 아래에 Pass·Fail·회귀 요약과 「표로 돌아가기」
  */
+/**
+ * 사이클 복제 — 다른 툴들의 표준을 따른다.
+ *
+ * Zephyr Scale: 결과 상태로 걸러 복제, 결과·코멘트·결함은 전부 초기화.
+ * TestRail(Rerun): 이전 상태별 체크박스 + Copy Assigned To 옵션.
+ * 그래서 여기도: 직전 결과 상태 체크로 항목을 고르고, 결과는 복사하지
+ * 않으며(전부 미실행 시작), 담당자만 옵션으로 유지한다.
+ */
+function CloneDialog({
+  cycleId,
+  onClose,
+  onDone,
+}: {
+  cycleId: string
+  onClose: () => void
+  onDone: () => void
+}) {
+  const fullQ = useQuery({
+    queryKey: ['cycle-full', cycleId],
+    queryFn: async () => {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycleId)}`)
+      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      return (await r.json()) as Record<string, unknown>
+    },
+  })
+  const full = fullQ.data
+  const items = useMemo(
+    () => (Array.isArray(full?.items) ? (full!.items as CycleItemLite[]) : []),
+    [full],
+  )
+  const counts = useMemo(() => {
+    const m: Record<string, number> = {}
+    for (const r of RESULTS) m[r.v] = 0
+    for (const it of items) m[itemVerdict(it)] = (m[itemVerdict(it)] ?? 0) + 1
+    return m
+  }, [items])
+
+  const [version, setVersion] = useState('')
+  const [name, setName] = useState('')
+  const [keepWho, setKeepWho] = useState(true)
+  /** 포함할 직전 결과 상태들 — 기본 전부 */
+  const [stats, setStats] = useState<Set<string>>(() => new Set(RESULTS.map((r) => r.v)))
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  // 원본이 오면 이름·버전 기본값을 채운다 (한 번만)
+  const seeded = useRef(false)
+  useEffect(() => {
+    if (!full || seeded.current) return
+    seeded.current = true
+    setVersion(`${String(full.version ?? '')}_copy`)
+    setName(full.name ? `${String(full.name)} (복제)` : '')
+  }, [full])
+
+  const keepItems = items.filter((it) => stats.has(itemVerdict(it)))
+
+  const doClone = async () => {
+    if (!full) return
+    setBusy(true)
+    setErr('')
+    try {
+      // 결과·메모·결함은 복사하지 않는다 — 모든 툴의 표준이다.
+      // 스텝은 절차만 남기고 판정 흔적을 지운다.
+      const cleaned = keepItems.map((it) => ({
+        tcid: it.tcid,
+        name: it.name ?? '',
+        req_id: it.req_id ?? '',
+        assignee: keepWho ? (it.assignee ?? '') : '',
+        steps: (it.steps ?? []).map((st) => {
+          const c = { ...(st as Record<string, unknown>) }
+          for (const k of [
+            'result', 'output', 'status', 'repeatResult', 'reason',
+            'executed_at', 'took_ms', 'rounds', 'actual_img', 'actual_txt',
+          ])
+            delete c[k]
+          return c
+        }),
+      }))
+      const nid = `cycle-${Date.now()}`
+      const w = await apiFetch(`/api/cycle/${encodeURIComponent(nid)}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          ...full,
+          id: nid,
+          cid: '',
+          version: version.trim() || `${String(full.version ?? '')}_copy`,
+          name: name.trim(),
+          items: cleaned,
+        }),
+      })
+      if (!w.ok) throw new Error(String(w.status))
+      onDone()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="modal-back" onMouseDown={() => !busy && onClose()}>
+      <div className="modal cy-clone" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <b>사이클 복제</b>
+          {err && <span className="muted small err">{err}</span>}
+          <span className="sp" />
+        </div>
+        {fullQ.isLoading ? (
+          <div className="empty">불러오는 중…</div>
+        ) : (
+          <div className="cy-clone-b">
+            <label className="fld">
+              <span>새 버전명</span>
+              <input value={version} onChange={(e) => setVersion(e.target.value)} />
+            </label>
+            <label className="fld">
+              <span>새 제목</span>
+              <input
+                value={name}
+                placeholder="(비우면 제목 없음)"
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            <div className="cy-clone-sec">
+              <div className="cy-clone-st">
+                <b>포함할 항목 — 직전 결과 기준</b>
+                <button
+                  type="button"
+                  className="linkish"
+                  onClick={() =>
+                    setStats(
+                      stats.size === RESULTS.length
+                        ? new Set()
+                        : new Set(RESULTS.map((r) => r.v)),
+                    )
+                  }
+                >
+                  {stats.size === RESULTS.length ? '전부 해제' : '전부 선택'}
+                </button>
+              </div>
+              {RESULTS.map((r) => (
+                <label key={r.v} className="cy-clone-ck">
+                  <input
+                    type="checkbox"
+                    checked={stats.has(r.v)}
+                    onChange={() =>
+                      setStats((cur) => {
+                        const n = new Set(cur)
+                        if (n.has(r.v)) n.delete(r.v)
+                        else n.add(r.v)
+                        return n
+                      })
+                    }
+                  />
+                  {r.label}
+                  <i>{counts[r.v] ?? 0}건</i>
+                </label>
+              ))}
+            </div>
+            <label className="cy-clone-ck">
+              <input
+                type="checkbox"
+                checked={keepWho}
+                onChange={(e) => setKeepWho(e.target.checked)}
+              />
+              담당자 유지 (Copy Assigned To)
+            </label>
+            <p className="muted small">
+              실행 결과·메모·결함 연결은 복사되지 않습니다 — 모든 항목이 미실행으로
+              시작합니다.
+            </p>
+            <div className="cy-clone-f">
+              <span className="sp" />
+              <button
+                className="btn primary"
+                type="button"
+                disabled={busy || keepItems.length === 0}
+                onClick={() => void doClone()}
+              >
+                {busy ? '복제 중…' : `복제 (${keepItems.length})`}
+              </button>
+              <button className="btn" type="button" disabled={busy} onClick={onClose}>
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 /** 접이식 섹션 — Zephyr 실행 화면의 Objective·Precondition 자리 */
 function TpSec({ title, body }: { title: string; body?: string | null }) {
   const [open, setOpen] = useState(true)
