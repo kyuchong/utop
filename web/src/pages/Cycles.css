@@ -3092,3 +3092,7 @@ table.tb td.k {
   cursor: pointer;
 }
 .cy-crumb-go:hover { color: var(--c-primary); text-decoration: underline; }
+
+/* 설명 — 마크다운 편집기 높이. 두 줄짜리 메모부터 서식 문서까지 */
+.ce-md { min-height: 120px; }
+.ce-md .md-editor, .ce-md .w-md-editor { min-height: 120px; }

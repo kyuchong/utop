@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi } from '@/api/client'
 import '@/components/ReqForm.css'
+import MarkdownEditor from '@/components/MarkdownEditorLazy'
 import { IconChevron, IconFolder } from '@/components/icons'
 import {
   buildCategoryTree,
@@ -607,16 +608,17 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               onChange={(e) => setCname(e.target.value)}
             />
           </label>
-          <label className="fld ce-wide">
+          <div className="fld ce-wide">
             <span>설명 (Description)</span>
-            <textarea
-              className="ce-desc"
-              value={cdesc}
-              rows={2}
-              placeholder="이 회차의 목적 · 범위"
-              onChange={(e) => setCdesc(e.target.value)}
-            />
-          </label>
+            {/* 서식이 되는 편집기 — 시험 목적·사전준비와 같은 부품 */}
+            <div className="ce-md">
+              <MarkdownEditor
+                value={cdesc}
+                onChange={setCdesc}
+                placeholder="이 회차의 목적 · 범위"
+              />
+            </div>
+          </div>
           {/* 벤더 → 제품군 → 모델그룹 → 모델명 — 단계로 좁혀 고른다.
               위를 바꾸면 아래 고른 것은 버린다(범위 밖일 수 있다). */}
           <fieldset className="ce-sec">
