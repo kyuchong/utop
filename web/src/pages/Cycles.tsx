@@ -2363,6 +2363,14 @@ function CycleDetail({
             <i className="cxp-n">{rows.length}</i>
             <span className="sp" />
             {pick.size > 0 && <span className="muted small">{pick.size} 고름</span>}
+            <button
+              className="btn small"
+              type="button"
+              title="이 사이클에 시험 항목을 넣습니다"
+              onClick={() => setAdding(true)}
+            >
+              ＋
+            </button>
           </div>
           {/* 찾기 + 내 것만 — Zephyr 왼쪽 목록의 도구 그대로 */}
           <div className="cxp-tools">
