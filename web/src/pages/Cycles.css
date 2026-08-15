@@ -2550,12 +2550,11 @@ table.tb td.k {
   border-bottom: 1px solid var(--c-border);
 }
 .cyt-it {
-  cursor: pointer;
   border-bottom: 1px solid var(--c-border-weak, #eef1f5);
   font-size: var(--fs-sm);
 }
 .cyt-it:last-child { border-bottom: 0; }
-.cyt-it:hover { background: var(--c-surface-alt); }
+
 .cyt-ittc { color: var(--c-primary); font-size: var(--fs-xs); font-weight: 700; }
 /* 유형 — Coverage 의 Function 태그와 같은 옷 */
 .cyt-tag {

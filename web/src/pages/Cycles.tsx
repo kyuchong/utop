@@ -1243,15 +1243,11 @@ export default function Cycles({ me }: PageProps) {
         ) : (
           <CycleBoard
             cycles={scope ? cycles.filter((c) => scope.ids.has(c.id)) : cycles}
-            onPick={(id) => setSel(id)}
             onNew={() => setMaking(true)}
             onDup={(id) => void dupCycle(id)}
             onDel={(ids) => void delCycles(ids)}
             onEdit={(id) => setEditId(id)}
-            onRun={(id) => {
-              setSel(id)
-              setAct((a) => ({ what: 'run', n: (a?.n ?? 0) + 1 }))
-            }}
+            onRun={(id) => setSel(id)}
           />
         )}
       </section>
@@ -1284,7 +1280,6 @@ const IT_COLS: Array<{ k: string; label: string; w: string }> = [
 
 function CycleBoard({
   cycles,
-  onPick,
   onNew,
   onDup,
   onDel,
@@ -1292,7 +1287,6 @@ function CycleBoard({
   onRun,
 }: {
   cycles: CycleMeta[]
-  onPick: (id: string) => void
   /** 추가 — 새 사이클 만들기 */
   onNew: () => void
   /** 복제 — 한 개 골랐을 때 */
@@ -1469,7 +1463,7 @@ function CycleBoard({
               className="btn primary"
               type="button"
               disabled={picked.size !== 1}
-              title={picked.size === 1 ? '고른 사이클을 열고 전체 실행을 겁니다' : '하나만 고르세요'}
+              title={picked.size === 1 ? '고른 사이클의 실행 화면을 엽니다' : '하나만 고르세요'}
               onClick={() => onRun([...picked][0]!)}
             >
               ▶ Run
@@ -1594,8 +1588,15 @@ function CycleBoard({
                       <button
                         type="button"
                         className="cyt-key"
-                        title={`${c.id} — 실행 화면을 엽니다`}
-                        onClick={() => onPick(c.id)}
+                        title={`${c.id} — 누르면 시험 항목이 펼쳐집니다`}
+                        onClick={() =>
+                          setExp((cur) => {
+                            const n = new Set(cur)
+                            if (n.has(c.id)) n.delete(c.id)
+                            else n.add(c.id)
+                            return n
+                          })
+                        }
                       >
                         {c.cid || c.version || c.name || c.id}
                       </button>
@@ -1603,7 +1604,14 @@ function CycleBoard({
                         type="button"
                         className="cyt-name cyt-ell"
                         title={c.name ?? ''}
-                        onClick={() => onPick(c.id)}
+                        onClick={() =>
+                          setExp((cur) => {
+                            const n = new Set(cur)
+                            if (n.has(c.id)) n.delete(c.id)
+                            else n.add(c.id)
+                            return n
+                          })
+                        }
                       >
                         {c.name || '–'}
                       </button>
@@ -1700,13 +1708,6 @@ function CycleBoard({
                               key={`${it.tcid}-${i2}`}
                               className="cyt-itrow cyt-it"
                               style={{ gridTemplateColumns: itGrid }}
-                              role="button"
-                              tabIndex={0}
-                              title="실행 화면에서 엽니다"
-                              onClick={() => onPick(c.id)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') onPick(c.id)
-                              }}
                             >
                               <b className="cyt-ittc">{it.tcid}</b>
                               <span className="cyt-ell">{it.name || String(t2?.name ?? '')}</span>
