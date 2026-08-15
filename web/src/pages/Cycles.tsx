@@ -453,20 +453,40 @@ export default function Cycles({ me }: PageProps) {
   /** 이 화면(사이클 묶음)에 들어와 있는 사람들 — 상단 오른쪽 표시 몫 */
   const crowd = usePageCrowd('cycle')
 
-  /** 사이클 복제 — 항목 구성 그대로 한 벌 더 (표 도구줄의 「복제」) */
+  /** 사이클 복제 — 전체 항목 또는 Pass·Fail 항목만 골라 한 벌 더 */
   const dupCycle = async (id: string) => {
     try {
       const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`)
       if (!r.ok) throw new Error(String(r.status))
       const full = (await r.json()) as Record<string, unknown>
+      const items = Array.isArray(full.items) ? (full.items as CycleItemLite[]) : []
+      let keep = items
+      if (items.length) {
+        const all = window.confirm(
+          '복제할 항목을 고르세요.\n\n[확인] 전체 항목 복제\n[취소] Pass·Fail 결과가 있는 항목만 복제',
+        )
+        if (!all) {
+          keep = items.filter((it) => {
+            const v = itemVerdict(it)
+            return v === 'Pass' || v === 'Fail'
+          })
+          if (!keep.length) {
+            window.alert('Pass·Fail 결과가 있는 항목이 없어 복제를 취소합니다.')
+            return
+          }
+        }
+      }
       const nid = `cycle-${Date.now()}`
       const w = await apiFetch(`/api/cycle/${encodeURIComponent(nid)}`, {
         method: 'POST',
         body: JSON.stringify({
           ...full,
           id: nid,
+          // 부여 ID 는 물려받지 않는다 — 비워야 서버가 새 번호를 매긴다
+          cid: '',
           version: `${String(full.version ?? '')}_copy`,
           name: full.name ? `${String(full.name)} (복제)` : full.name,
+          items: keep,
         }),
       })
       if (!w.ok) throw new Error(String(w.status))
@@ -597,6 +617,16 @@ export default function Cycles({ me }: PageProps) {
     [shown, freeFolders, famOf],
   )
   const cur = cycles.find((c) => c.id === sel)
+
+  /** 고른 폴더 아래 사이클 — id 스냅샷이 아니라 경로로 거른다.
+      스냅샷이면 복제·새로 만든 것이 그 폴더 화면에 안 보인다(겪었다) */
+  const scopedCycles = useMemo(() => {
+    if (!scope) return cycles
+    return cycles.filter((c) => {
+      const p2 = pathOfCycle(c, famOf)
+      return p2 === scope.key || p2.startsWith(scope.key + '/')
+    })
+  }, [cycles, scope, famOf])
 
   // 새로고침 복원 — 저장해 둔 폴더(scope)로 돌아온다. 한 번만 시도한다
   const scopeRestored = useRef(false)
@@ -959,7 +989,7 @@ export default function Cycles({ me }: PageProps) {
             {cur
               ? `${cur._item_count ?? 0}건`
               : scope
-                ? `사이클 ${scope.ids.size}건`
+                ? `사이클 ${scopedCycles.length}건`
                 : '왼쪽에서 사이클을 고르세요'}
           </span>
         </span>
@@ -1268,7 +1298,7 @@ export default function Cycles({ me }: PageProps) {
           />
         ) : (
           <CycleBoard
-            cycles={scope ? cycles.filter((c) => scope.ids.has(c.id)) : cycles}
+            cycles={scopedCycles}
             onNew={() => setMaking(true)}
             onDup={(id) => void dupCycle(id)}
             onDel={(ids) => void delCycles(ids)}
