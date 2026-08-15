@@ -1530,8 +1530,19 @@ function PlaceDialog({
     setUnits(d.rack_units || 1)
   }
   const ok = sel && fits(rack, pos, units)
+  // 입력칸에서 글자를 긁다 팝업 밖에서 손을 떼면 click 이 오버레이로
+  // 잡힌다 — 누른 지점이 오버레이일 때만 바깥 클릭 닫기로 친다
+  const downOnOvl = useRef(false)
   return (
-    <div className="rv-ovl" onClick={onClose}>
+    <div
+      className="rv-ovl"
+      onMouseDown={(e) => {
+        downOnOvl.current = e.target === e.currentTarget
+      }}
+      onClick={(e) => {
+        if (downOnOvl.current && e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="rv-dlg" onClick={(e) => e.stopPropagation()}>
         <div className="rv-dh">
           <b>
@@ -1634,8 +1645,19 @@ function PartDialog({
   const submit = () => {
     if (ok && !busy) onPlace(label.trim(), units, color)
   }
+  // 이름 칸에서 글자를 긁다 팝업 밖에서 손을 떼면 click 이 오버레이로
+  // 잡힌다 — 누른 지점이 오버레이일 때만 바깥 클릭 닫기로 친다
+  const downOnOvl = useRef(false)
   return (
-    <div className="rv-ovl" onClick={onClose}>
+    <div
+      className="rv-ovl"
+      onMouseDown={(e) => {
+        downOnOvl.current = e.target === e.currentTarget
+      }}
+      onClick={(e) => {
+        if (downOnOvl.current && e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="rv-dlg" onClick={(e) => e.stopPropagation()}>
         <div className="rv-dh">
           <b>
