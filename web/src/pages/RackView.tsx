@@ -96,6 +96,12 @@ type DragLoad =
 
 const LAB_KEY = 'utop.rack.lab'
 
+/** 부품 색 — 눌러서 고르는 견본색. 색상판 창은 「직접 고르기」 로만 */
+const PART_COLORS = [
+  '#94a3b8', '#38bdf8', '#60a5fa', '#2dd4bf', '#4ade80',
+  '#fbbf24', '#fb923c', '#f87171', '#f472b6', '#a78bfa',
+]
+
 /** 기본 부품 팔레트 — 서버에 저장한 견본(part_presets)이 있으면 그걸 쓴다.
     팝업에서 「+ 견본」 으로 늘리고 × 로 지운다 */
 const PART_PRESETS: PartPreset[] = [
@@ -1621,6 +1627,8 @@ function PartDialog({
   const [label, setLabel] = useState(init?.label ?? '')
   const [units, setUnits] = useState(init?.units ?? 1)
   const [color, setColor] = useState(init?.color ?? '#94a3b8')
+  // 누른 견본의 번호 — 「견본 수정」 이 이 자리를 덮어쓴다
+  const [selIdx, setSelIdx] = useState<number | null>(null)
   const okFit = fits(rack, pos, units, ignoreId ? { blankId: ignoreId } : undefined)
   const ok = label.trim() !== '' && okFit
   const submit = () => {
@@ -1643,9 +1651,10 @@ function PartDialog({
             <button
               key={i}
               type="button"
-              className={`rv-ppart${label === p.label && units === p.units ? ' on' : ''}`}
+              className={`rv-ppart${selIdx === i ? ' on' : ''}`}
               style={p.color ? { borderColor: `${p.color}88`, background: `${p.color}1a` } : {}}
               onClick={() => {
+                setSelIdx(i)
                 setLabel(p.label)
                 setUnits(p.units)
                 setColor(p.color ?? '#94a3b8')
@@ -1659,6 +1668,7 @@ function PartDialog({
                 onClick={(e) => {
                   e.stopPropagation()
                   onSavePresets(presets.filter((_, j) => j !== i))
+                  setSelIdx(null)
                 }}
               >
                 ×
@@ -1680,7 +1690,22 @@ function PartDialog({
             value={units}
             onChange={(e) => setUnits(Math.max(1, parseInt(e.target.value, 10) || 1))}
           />
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} />
+          <button
+            type="button"
+            className="btn small"
+            title="누른 견본을 지금 값(이름·U·색)으로 고칩니다"
+            disabled={selIdx === null || !label.trim()}
+            onClick={() => {
+              if (selIdx === null) return
+              onSavePresets(
+                presets.map((p, j) =>
+                  j === selIdx ? { label: label.trim(), units, color } : p,
+                ),
+              )
+            }}
+          >
+            견본 수정
+          </button>
           <button
             type="button"
             className="btn small"
@@ -1689,10 +1714,33 @@ function PartDialog({
               !label.trim() ||
               presets.some((p) => p.label === label.trim() && p.units === units)
             }
-            onClick={() => onSavePresets([...presets, { label: label.trim(), units, color }])}
+            onClick={() => {
+              onSavePresets([...presets, { label: label.trim(), units, color }])
+              setSelIdx(presets.length)
+            }}
           >
             + 견본
           </button>
+        </div>
+        {/* 색은 눌러서 고른다 — 색상판 창은 마지막 칸(직접 고르기)에만 */}
+        <div className="rv-cols">
+          <i>색</i>
+          {PART_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={`rv-csw${color.toLowerCase() === c ? ' on' : ''}`}
+              style={{ background: c }}
+              title={c}
+              onClick={() => setColor(c)}
+            />
+          ))}
+          <input
+            type="color"
+            value={color}
+            title="직접 고르기"
+            onChange={(e) => setColor(e.target.value)}
+          />
         </div>
         <div className="rv-df">
           {!okFit && <span className="rv-warn">그 자리에 {units}U 가 안 들어갑니다</span>}

@@ -139,6 +139,19 @@
 }
 .rv-padd input[type='number'] { width: 44px; }
 .rv-padd input[type='color'] { width: 30px; padding: 1px; }
+/* 색 견본 줄 — 눌러서 고른다. 고른 색엔 테 */
+.rv-cols { display: flex; align-items: center; gap: 5px; }
+.rv-cols > i { font-style: normal; font-size: var(--fs-xs); font-weight: 700; color: var(--c-text-faint); margin-right: 2px; }
+.rv-csw {
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgb(15 23 42 / 0.15);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+}
+.rv-csw.on { box-shadow: 0 0 0 2px var(--c-surface), 0 0 0 3.5px var(--c-primary); }
+.rv-cols input[type='color'] { width: 30px; height: 24px; padding: 1px; border: 1px solid var(--c-border); border-radius: 6px; cursor: pointer; }
 
 /* 랙 판 — 랙 기둥들이 가로로 늘어선다 */
 .rv-board {
