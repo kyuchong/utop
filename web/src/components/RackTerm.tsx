@@ -7,8 +7,10 @@ import './RackTerm.css'
 /**
  * 랙뷰 터미널 — 장비 우클릭 「접속」 에서 열린다. SecureCRT 처럼 쓰도록:
  *
- *  · 탭 — 장비 여러 대를 한 창에서 오간다. 탭이든 창이든 닫으면 서버
- *    세션도 그 자리에서 끊는다 — 안 보이는 접속이 남아 있으면 안 된다.
+ *  · 탭 — 장비 여러 대를 한 창에서 오간다. 창이 랙뷰를 가리지 않는
+ *    떠 있는 창이라, 열어 둔 채 다른 장비를 우클릭 → 접속하면 탭이
+ *    늘어난다. 탭이든 창이든 닫으면 서버 세션도 그 자리에서 끊는다 —
+ *    안 보이는 접속이 남아 있으면 안 된다.
  *  · 로그 저장 — 지금 탭의 친 명령·응답 전부를 .txt 로 내려받는다.
  *  · 화면 지우기 · 글꼴 크기 · 명령 히스토리(↑↓) · 연결 끊기/재접속.
  *
@@ -41,7 +43,6 @@ export default function RackTermHost({ tabs, on, onPick, onCloseTab, onClose }: 
   const [fontPx, setFontPx] = useState(12)
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
   const winRef = useRef<HTMLDivElement | null>(null)
-  const moved = useRef(false)
 
   /** 서버 세션 끊기 — 창·탭을 닫을 때 무조건. 결과는 기다리지 않는다 */
   const killSession = (t: TermTab) => {
@@ -72,7 +73,6 @@ export default function RackTermHost({ tabs, on, onPick, onCloseTab, onClose }: 
     const dx = e.clientX - r.left
     const dy = e.clientY - r.top
     const move = (ev: MouseEvent) => {
-      moved.current = true
       setPos({
         x: Math.min(Math.max(ev.clientX - dx, 160 - r.width), window.innerWidth - 160),
         y: Math.min(Math.max(ev.clientY - dy, 0), window.innerHeight - 60),
@@ -88,22 +88,13 @@ export default function RackTermHost({ tabs, on, onPick, onCloseTab, onClose }: 
   }
 
   return (
-    <div
-      className="tm-ovl"
-      onClick={() => {
-        // 끌다가 바깥에서 손을 떼면 click 이 오버레이로 잡힌다 — 닫지 않는다
-        if (moved.current) {
-          moved.current = false
-          return
-        }
-        closeAll()
-      }}
-    >
+    // 떠 있는 창 — 오버레이는 자리만 잡고 클릭은 통과시킨다. 뒤 랙뷰가
+    // 살아 있어야 열어 둔 채 다른 장비를 우클릭해 탭을 늘릴 수 있다.
+    <div className="tm-ovl">
       <div
         className="tm-win"
         ref={winRef}
         style={pos ? { position: 'fixed', left: pos.x, top: pos.y } : undefined}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="tm-tabs" onMouseDown={dragWin}>
           {tabs.map((t, i) => (

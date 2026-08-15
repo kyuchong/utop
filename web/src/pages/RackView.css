@@ -549,7 +549,7 @@
 .rv-df .sp { flex: 1; }
 
 /* ── 빈 칸 우클릭 메뉴 ── */
-.rv-ctxovl { position: fixed; inset: 0; z-index: 55; }
+.rv-ctxovl { position: fixed; inset: 0; z-index: 70; } /* 터미널(60) 위 */
 .rv-ctx {
   position: fixed;
   min-width: 190px;
@@ -602,7 +602,7 @@
 .rv-ppart.on { box-shadow: inset 2px 0 0 var(--c-primary), 0 0 0 1.5px var(--c-primary); }
 
 /* ── 우클릭 메뉴 (빈 칸 = 장비/부품 · 판 = 랙 추가) ── */
-.rv-ctxovl { position: fixed; inset: 0; z-index: 55; }
+.rv-ctxovl { position: fixed; inset: 0; z-index: 70; } /* 터미널(60) 위 */
 .rv-ctx {
   position: fixed;
   min-width: 190px;
