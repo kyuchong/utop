@@ -3118,9 +3118,6 @@ def _probe_sync(proto: str, host: str, port: int) -> tuple[bool, str]:
     시도하면 장비가 계정을 잠근다. 목록의 '연결상태' 는 '길이 열려 있나' 로 충분하다.
     """
     import socket
-    if proto == "snmp":
-        # UDP 라 포트 열림을 알 수 없다. 확인은 나중에 실제 조회로 붙인다.
-        return False, "SNMP 는 아직 확인을 지원하지 않습니다"
     if not host or not port:
         return False, "주소 또는 포트가 비어 있습니다"
     try:
@@ -3128,6 +3125,81 @@ def _probe_sync(proto: str, host: str, port: int) -> tuple[bool, str]:
             return True, ""
     except OSError as e:
         return False, str(e)
+
+
+def _snmp_probe_sync(host: str, port: int, community: str) -> tuple[bool, str]:
+    """SNMPv2c 로 sysDescr.0 을 실제로 읽어 본다 — 의존성 없이 최소 BER.
+
+    UDP 라 TCP 처럼 포트 열림을 볼 수 없고, community 가 틀리면 장비가
+    아예 응답하지 않는 것이 보통이다. 그래서 「응답 없음」 은 주소·포트·
+    community 셋 중 하나가 틀렸다는 뜻이다.
+    """
+    import os
+    import socket
+
+    if not host:
+        return False, "주소가 비어 있습니다"
+
+    def tlv(t: int, v: bytes) -> bytes:
+        n = len(v)
+        if n < 0x80:
+            return bytes([t, n]) + v
+        eb = n.to_bytes((n.bit_length() + 7) // 8, "big")
+        return bytes([t, 0x80 | len(eb)]) + eb + v
+
+    def ber_int(n: int) -> bytes:
+        b = n.to_bytes((max(n.bit_length(), 1) + 8) // 8, "big", signed=True)
+        return tlv(0x02, b)
+
+    oid = bytes([0x2B, 6, 1, 2, 1, 1, 1, 0])  # 1.3.6.1.2.1.1.1.0 = sysDescr.0
+    rid = int.from_bytes(os.urandom(2), "big") & 0x7FFF
+    vb = tlv(0x30, tlv(0x06, oid) + b"\x05\x00")
+    pdu = tlv(0xA0, ber_int(rid) + ber_int(0) + ber_int(0) + tlv(0x30, vb))
+    msg = tlv(0x30, ber_int(1) + tlv(0x04, (community or "public").encode()) + pdu)
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(_PROBE_TIMEOUT)
+    try:
+        s.sendto(msg, (host, int(port or 161)))
+        data, _ = s.recvfrom(65535)
+    except socket.timeout:
+        return False, "응답 없음 — 주소·포트(161)·community 를 확인하세요"
+    except OSError as e:
+        return False, str(e)
+    finally:
+        s.close()
+
+    # 관대하게 판다 — error-status 만 읽고, 나머지가 이상해도 응답이 온
+    # 것 자체가 SNMP 가 살아 있다는 뜻이다.
+    def read_tlv(b: bytes, i: int):
+        t = b[i]
+        ln = b[i + 1]
+        i += 2
+        if ln & 0x80:
+            k = ln & 0x7F
+            ln = int.from_bytes(b[i : i + k], "big")
+            i += k
+        return t, b[i : i + ln], i + ln
+
+    try:
+        _, body, _ = read_tlv(data, 0)          # SEQUENCE
+        _, _, i = read_tlv(body, 0)             # version
+        _, _, i = read_tlv(body, i)             # community
+        t, pdu_b, _ = read_tlv(body, i)         # GetResponse(0xA2)
+        _, _, j = read_tlv(pdu_b, 0)            # request-id
+        _, est, j = read_tlv(pdu_b, j)          # error-status
+        if int.from_bytes(est or b"\x00", "big"):
+            return False, f"SNMP 오류 (error-status {int.from_bytes(est, 'big')}) — community 권한을 확인하세요"
+        _, _, j = read_tlv(pdu_b, j)            # error-index
+        _, vbl, _ = read_tlv(pdu_b, j)          # varbind list
+        _, vb1, _ = read_tlv(vbl, 0)
+        _, _, k = read_tlv(vb1, 0)              # oid
+        vt, _, _ = read_tlv(vb1, k)             # value
+        if vt in (0x80, 0x81, 0x82):            # noSuchObject 류
+            return False, "장비가 sysDescr 를 주지 않습니다"
+        return True, ""
+    except Exception:
+        return True, ""
 
 
 @app.post("/api/devices2/{dev_id}/check")
@@ -3171,6 +3243,12 @@ async def devices2_check(dev_id: str, protocol: str = ""):
             })
             ok = bool(isinstance(r, dict) and r.get("ok"))
             err = "" if ok else str((r or {}).get("error") or "STC 응답 없음")
+        elif proto == "snmp":
+            # community 는 SNMP 줄의 계정 칸 — 비우면 공용 계정, 그래도 없으면 public
+            comm = (a.get("username") or d.get("username") or "public").strip() or "public"
+            ok, err = await loop.run_in_executor(
+                None, _snmp_probe_sync, host, a.get("port") or 161, comm
+            )
         else:
             ok, err = await loop.run_in_executor(
                 None, _probe_sync, proto, host, a.get("port") or 0
