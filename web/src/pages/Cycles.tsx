@@ -1270,16 +1270,16 @@ export default function Cycles({ me }: PageProps) {
  */
 /** 인라인 항목 카드의 고를 수 있는 필드 — 시험항목(Coverage) ⚙ 과 같은 목록 */
 const IT_COLS: Array<{ k: string; label: string; w: string }> = [
-  { k: 'model_group', label: '모델그룹', w: '90px' },
-  { k: 'model', label: '모델명', w: '90px' },
-  { k: 'type', label: '유형', w: '88px' },
-  { k: 'severity', label: '심각도', w: '70px' },
-  { k: 'run_type', label: '실행 타입', w: '72px' },
-  { k: 'map', label: 'REQ Map', w: '70px' },
-  { k: 'created_by', label: '생성자', w: '76px' },
-  { k: 'updated_by', label: '변경자', w: '76px' },
-  { k: 'updated', label: '변경일', w: '84px' },
-  { k: 'status', label: '상태', w: '70px' },
+  { k: 'model_group', label: '모델그룹', w: '58px' },
+  { k: 'model', label: '모델명', w: '64px' },
+  { k: 'type', label: '유형', w: '70px' },
+  { k: 'severity', label: '심각도', w: '52px' },
+  { k: 'run_type', label: '실행 타입', w: '56px' },
+  { k: 'map', label: 'REQ Map', w: '58px' },
+  { k: 'created_by', label: '생성자', w: '56px' },
+  { k: 'updated_by', label: '변경자', w: '56px' },
+  { k: 'updated', label: '변경일', w: '74px' },
+  { k: 'status', label: '상태', w: '52px' },
 ]
 
 function CycleBoard({
@@ -1343,9 +1343,9 @@ function CycleBoard({
   const [gearAt, setGearAt] = useState<{ x: number; y: number } | null>(null)
   // 켠 필드에 따라 칸 폭이 달라진다 — 머리줄·데이터줄이 같은 자를 쓴다
   const itGrid = useMemo(() => {
-    const parts = ['108px', 'minmax(200px, 1fr)']
+    const parts = ['96px', 'minmax(220px, 1fr)']
     for (const c of IT_COLS) if (itCols.has(c.k)) parts.push(c.w)
-    parts.push('64px', '26px')
+    parts.push('52px', '22px')
     return parts.join(' ')
   }, [itCols])
 
@@ -1433,44 +1433,49 @@ function CycleBoard({
         <button className="btn" type="button" onClick={onNew}>
           + New
         </button>
-        <button
-          className="btn danger"
-          type="button"
-          disabled={!picked.size}
-          onClick={() => {
-            onDel([...picked])
-            setPicked(new Set())
-          }}
-        >
-          Delete{picked.size ? ` (${picked.size})` : ''}
-        </button>
-        <button
-          className="btn"
-          type="button"
-          disabled={picked.size !== 1}
-          title={picked.size === 1 ? '고른 사이클을 편집합니다' : '하나만 고르세요'}
-          onClick={() => onEdit([...picked][0]!)}
-        >
-          Edit
-        </button>
-        <button
-          className="btn"
-          type="button"
-          disabled={picked.size !== 1}
-          title={picked.size === 1 ? '고른 사이클을 복제합니다' : '하나만 고르세요'}
-          onClick={() => onDup([...picked][0]!)}
-        >
-          Clone
-        </button>
-        <button
-          className="btn primary"
-          type="button"
-          disabled={picked.size !== 1}
-          title={picked.size === 1 ? '고른 사이클을 열고 전체 실행을 겁니다' : '하나만 고르세요'}
-          onClick={() => onRun([...picked][0]!)}
-        >
-          ▶ Run
-        </button>
+        {picked.size > 0 && (
+          <button
+            className="btn danger"
+            type="button"
+            onClick={() => {
+              onDel([...picked])
+              setPicked(new Set())
+            }}
+          >
+            Delete ({picked.size})
+          </button>
+        )}
+        {picked.size > 0 && (
+          <>
+            <button
+              className="btn"
+              type="button"
+              disabled={picked.size !== 1}
+              title={picked.size === 1 ? '고른 사이클을 편집합니다' : '하나만 고르세요'}
+              onClick={() => onEdit([...picked][0]!)}
+            >
+              Edit
+            </button>
+            <button
+              className="btn"
+              type="button"
+              disabled={picked.size !== 1}
+              title={picked.size === 1 ? '고른 사이클을 복제합니다' : '하나만 고르세요'}
+              onClick={() => onDup([...picked][0]!)}
+            >
+              Clone
+            </button>
+            <button
+              className="btn primary"
+              type="button"
+              disabled={picked.size !== 1}
+              title={picked.size === 1 ? '고른 사이클을 열고 전체 실행을 겁니다' : '하나만 고르세요'}
+              onClick={() => onRun([...picked][0]!)}
+            >
+              ▶ Run
+            </button>
+          </>
+        )}
         <span className="sp" />
         <input
           className="cy-q"

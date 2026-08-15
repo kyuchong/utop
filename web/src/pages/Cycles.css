@@ -2536,12 +2536,11 @@ table.tb td.k {
 }
 .cyt-itrow {
   display: grid;
-  /* TC ID · 이름 · 모델그룹 · 모델명 · 유형 · 실행 타입 · 결과 */
-  grid-template-columns: 108px minmax(200px, 1fr) 90px 90px 88px 72px 64px;
-  gap: 8px;
+  /* 열 자(grid)는 인라인 style 로 온다 — 켠 필드에 따라 변한다 */
+  gap: 4px;
   align-items: center;
   padding: 5px 12px;
-  min-width: 760px;
+  min-width: 720px;
 }
 .cyt-ithd {
   font-size: var(--fs-xs);
@@ -2561,11 +2560,11 @@ table.tb td.k {
 /* 유형 — Coverage 의 Function 태그와 같은 옷 */
 .cyt-tag {
   font-style: normal;
-  font-size: var(--fs-xs);
+  font-size: 10px;
   font-weight: 700;
   border: 1px solid var(--c-border);
   border-radius: 999px;
-  padding: 1px 8px;
+  padding: 0 6px;
   color: var(--c-text-muted);
   background: var(--c-surface-alt);
   white-space: nowrap;
