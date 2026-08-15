@@ -838,10 +838,9 @@ select.cy-v.na { color: #999; }
 .ce-dates { display: flex; gap: 4px; }
 .ce-dates input { min-width: 0; flex: 1; }
 .ce-cols { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 10px 14px; }
-/* 열 폭 — 요구사항(좁게) < 시험항목 < 배정된 항목(넓게). 옛 화면 배분 */
-.ce-col:nth-child(1) { flex: 0 0 300px; }
-.ce-col:nth-child(2) { flex: 1.1; }
-.ce-col:nth-child(3) { flex: 1.4; }
+/* 두 열 — 요구사항(좁게) · 시험항목(넓게) */
+.ce-col:nth-child(1) { flex: 0 0 320px; }
+.ce-col:nth-child(2) { flex: 1; }
 .ce-col {
   flex: 1;
   min-width: 0;
@@ -3095,4 +3094,16 @@ table.tb td.k {
 
 /* 설명 — 마크다운 편집기 높이. 두 줄짜리 메모부터 서식 문서까지 */
 .ce-md { min-height: 120px; }
+/* 편집기 글자 — 기본 --fs-md(14px)가 커서 한 단계 내린다 */
+.ce-md .md-body, .ce-md textarea, .ce-md [contenteditable] { font-size: var(--fs-sm) !important; }
 .ce-md .md-editor, .ce-md .w-md-editor { min-height: 120px; }
+
+/* 아래 Add 바 — 항목은 여기서 담는다 */
+.ce-addbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--c-border);
+}
+.ce-addbar .sp { flex: 1; }
