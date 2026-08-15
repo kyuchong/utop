@@ -652,3 +652,20 @@
 
 /* 부품 고르기 — 대화상자 안에서 눌러 고른다 */
 .rv-ppart.on { box-shadow: inset 2px 0 0 var(--c-primary), 0 0 0 1.5px var(--c-primary); }
+
+/* 접속 4줄 — 프로토콜마다 한 줄, 상태색 글자 */
+.rv-tacc > span { display: flex; flex-direction: column; gap: 1px; }
+.rv-tal { font-style: normal; font-weight: 700; }
+.rv-tal.ok { color: #34d399; }
+.rv-tal.ng { color: #f87171; }
+.rv-tal.un, .rv-tal.off { color: #8b94a5; }
+.rv-tr > span > .rv-tal { margin-right: 10px; }
+
+/* 포트 8개 묶음 — 실물 블록처럼 사이를 띄운다 */
+.rv-tp8s { display: flex; flex-wrap: wrap; gap: 7px; }
+.rv-tp8s .rv-tports {
+  grid-template-rows: repeat(2, 15px);
+  padding: 4px;
+}
+.rv-tports > i.up { background: #0f7a4d; border-color: #16a34a; color: #d6ffe9; }
+.rv-tports > i.down { background: #6b1f1f; border-color: #b91c1c; color: #ffd9d9; }

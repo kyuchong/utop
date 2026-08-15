@@ -130,14 +130,6 @@ function stHead(d: RvDevice): { cls: string; word: string; via: string } {
   return { cls: 'un', word: '미확인', via: '' }
 }
 
-function stLine(d: RvDevice): string {
-  if (d.source === 'legacy') return '옛 자료 (새 DB 미등록)'
-  const word = (p: string) => {
-    const st = protoState(d, p)
-    return st === 'off' ? '없음' : st === 'ok' ? '연결됨' : st === 'ng' ? '실패' : '미확인'
-  }
-  return `Telnet ${word('telnet')} · SSH ${word('ssh')} · Console ${word('console')} · SNMP ${word('snmp')}`
-}
 
 const readLoad = (e: DragEvent): DragLoad | null => {
   try {
@@ -178,6 +170,18 @@ export default function RackView() {
   const [descEdit, setDescEdit] = useState<string | null>(null)
   const [descDraft, setDescDraft] = useState('')
   const boardRef = useRef<HTMLDivElement | null>(null)
+  /** 카드의 포트 형상 — SNMP 실측 결과 (장비 id → 결과) */
+  const [tipPorts, setTipPorts] = useState<{
+    id: string
+    ok: boolean
+    ports: Array<{ name: string; up: boolean }>
+    reason?: string
+  } | null>(null)
+  const portsTimer = useRef<number | undefined>(undefined)
+  /** 구역 탭 hover 요약 */
+  const [zoneTip, setZoneTip] = useState<{ x: number; y: number; labId: string } | null>(null)
+  /** 랙 머리 hover 요약 */
+  const [rackTip, setRackTip] = useState<{ x: number; y: number; rack: RvRack } | null>(null)
   /** 1U 높이 — 제일 큰 랙이 판 높이에 꽉 차게 자동 계산. 고정값은 화면마다
       아래가 남거나(너무 촘촘) 잘리거나(너무 성김) 한다. */
   const [uH, setUH] = useState(19)
@@ -213,6 +217,34 @@ export default function RackView() {
     () => (data?.racks ?? []).filter((r) => (r.lab_id ?? '') === curLab).sort(byName),
     [data, curLab],
   )
+  useEffect(() => {
+    const d = tip?.d
+    if (portsTimer.current) window.clearTimeout(portsTimer.current)
+    if (!d || d.source !== 'pg' || !d.id) return
+    const hasSnmp = (d.access ?? []).some((a) => a.protocol === 'snmp' && a.enabled !== false)
+    if (!hasSnmp) {
+      setTipPorts({ id: d.id, ok: false, ports: [], reason: 'SNMP 미등록' })
+      return
+    }
+    if (tipPorts?.id === d.id) return
+    portsTimer.current = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const r = await apiFetch(`/api/devices2/${encodeURIComponent(d.id!)}/snmp-ports`)
+          const b = (await r.json()) as {
+            ok?: boolean
+            ports?: Array<{ name: string; up: boolean }>
+            reason?: string
+          }
+          setTipPorts({ id: d.id!, ok: !!b.ok, ports: b.ports ?? [], reason: b.reason })
+        } catch {
+          setTipPorts({ id: d.id!, ok: false, ports: [], reason: '조회 실패' })
+        }
+      })()
+    }, 250)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tip?.d])
+
   useEffect(() => {
     const el = boardRef.current
     if (!el) return
@@ -596,6 +628,11 @@ export default function RackView() {
                 type="button"
                 className={`rv-zone${l.id === curLab ? ' on' : ''}`}
                 title="더블클릭하면 이름을 바꿉니다"
+                onMouseEnter={(e) => {
+                  const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                  setZoneTip({ x: r.left, y: r.bottom, labId: l.id })
+                }}
+                onMouseLeave={() => setZoneTip(null)}
                 onClick={() => pickLab(l.id)}
                 onDoubleClick={() => {
                   setRenamingLab(l.id)
@@ -702,6 +739,11 @@ export default function RackView() {
                 <div className="rv-rack" key={rk.id}>
                   <div
                     className="rv-rhead"
+                    onMouseEnter={(e) => {
+                      const r2 = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setRackTip({ x: Math.min(r2.left, window.innerWidth - 280), y: r2.bottom, rack: rk })
+                    }}
+                    onMouseLeave={() => setRackTip(null)}
                     onContextMenu={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
@@ -1171,32 +1213,75 @@ export default function RackView() {
         const h = stHead(d)
         const rk = (data?.racks ?? []).find((r) => r.id === d.rack_id)
         const labNm = labs.find((l) => l.id === (rk?.lab_id ?? ''))?.name ?? ''
-        const ports = (d.ifs ?? [])
-          .map((n) => {
-            const m = /(\d+)\s*$/.exec(n)
-            return { n, no: m ? m[1] : n.slice(-2) }
-          })
-          .slice(0, 64)
-        const x = Math.min(tip.x + 14, window.innerWidth - 300)
-        const y = Math.min(tip.y + 12, window.innerHeight - (ports.length ? 300 : 210))
+        const word = (p: string) => {
+          const st = protoState(d, p)
+          return st === 'off' ? '없음' : st === 'ok' ? '연결됨' : st === 'ng' ? '실패' : '미확인'
+        }
+        // 포트 — SNMP 실측이 있으면 그것이 정본, 없으면 등록 목록(중립)
+        const live = tipPorts && tipPorts.id === d.id ? tipPorts : null
+        const rawPorts: Array<{ no: string; name: string; up?: boolean }> = (
+          live?.ok
+            ? live.ports.map((x) => {
+                const m = /(\d+)\s*$/.exec(x.name)
+                return { no: m ? m[1]! : x.name.slice(-2), name: x.name, up: x.up }
+              })
+            : (d.ifs ?? []).map((n) => {
+                const m = /(\d+)\s*$/.exec(n)
+                return { no: m ? m[1]! : n.slice(-2), name: n }
+              })
+        ).slice(0, 96)
+        // 8포트 단위 묶음 — 실물 스위치의 블록과 같은 문법
+        const groups: (typeof rawPorts)[] = []
+        for (let g = 0; g < rawPorts.length; g += 8) groups.push(rawPorts.slice(g, g + 8))
+        const upCnt = live?.ok ? live.ports.filter((x) => x.up).length : 0
+        const x = Math.min(tip.x + 14, window.innerWidth - 320)
+        const y = Math.min(tip.y + 12, window.innerHeight - (rawPorts.length ? 420 : 300))
         return (
           <div className="rv-tip" style={{ left: x, top: y }}>
             <div className="rv-th2">
               <b>{d.name || d.ip}</b>
               <span className={`rv-tst ${h.cls}`}>● {h.word}</span>
             </div>
-            <div className="rv-tr"><i>IP</i><span>{d.ip || '–'}{h.via ? <em className="rv-tvia"> {h.via}</em> : null}</span></div>
-            <div className="rv-tr"><i>위치</i><span>{rk?.name ?? '–'} · {d.rack_pos}U{d.rack_units > 1 ? ` (${d.rack_units}U)` : ''}</span></div>
-            {labNm && <div className="rv-tr"><i>구역</i><span>{labNm}</span></div>}
-            <div className="rv-tr"><i>장비</i><span>{[d.vendor, d.role].filter(Boolean).join(' · ') || '–'}</span></div>
-            <div className="rv-tr"><i>모델</i><span>{d.model || '–'}{d.power_w ? ` · ${d.power_w}W` : ''}</span></div>
-            {d.source === 'pg' && <div className="rv-tr"><i>접속</i><span>{stLine(d)}</span></div>}
-            {ports.length > 0 && (
+            <div className="rv-tr"><i>구역</i><span>{labNm || '–'}</span></div>
+            <div className="rv-tr"><i>위치</i><span>{rk?.name ?? '–'} · {d.rack_pos}U</span></div>
+            <div className="rv-tr"><i>장비 높이</i><span>{d.rack_units}U</span></div>
+            <div className="rv-tr"><i>제조사</i><span>{d.vendor || '–'}</span></div>
+            <div className="rv-tr"><i>제품군</i><span>{d.role || '–'}</span></div>
+            <div className="rv-tr"><i>모델명</i><span>{d.model || '–'}</span></div>
+            {d.source === 'pg' && (
+              <div className="rv-tr rv-tacc">
+                <i>접속</i>
+                <span>
+                  {(['telnet', 'ssh', 'console', 'snmp'] as const).map((pr) => (
+                    <em key={pr} className={`rv-tal ${protoState(d, pr)}`}>
+                      {pr === 'telnet' ? 'Telnet' : pr === 'ssh' ? 'SSH' : pr === 'console' ? 'Console' : 'SNMP'}{' '}
+                      {word(pr)}
+                    </em>
+                  ))}
+                </span>
+              </div>
+            )}
+            <div className="rv-tr"><i>소모전력</i><span>{d.power_w ? `${d.power_w}W` : '–'}</span></div>
+            {rawPorts.length > 0 && (
               <div className="rv-tports-wrap">
-                <div className="rv-tports-h">포트 형상 · 전체 {(d.ifs ?? []).length}포트</div>
-                <div className="rv-tports" style={{ gridTemplateRows: ports.length > 1 ? 'repeat(2, 15px)' : '15px' }}>
-                  {ports.map((p, i) => (
-                    <i key={i} title={p.n}>{p.no}</i>
+                <div className="rv-tports-h">
+                  {live?.ok
+                    ? `포트 형상 · SNMP 실측 — up ${upCnt} / 전체 ${live.ports.length}`
+                    : `포트 형상 · 등록 목록 ${rawPorts.length}포트${live?.reason ? ` (${live.reason})` : ''}`}
+                </div>
+                <div className="rv-tp8s">
+                  {groups.map((g, gi) => (
+                    <div className="rv-tports" key={gi}>
+                      {g.map((pp, k) => (
+                        <i
+                          key={k}
+                          className={pp.up === undefined ? '' : pp.up ? 'up' : 'down'}
+                          title={`${pp.name}${pp.up === undefined ? '' : pp.up ? ' — up' : ' — down'}`}
+                        >
+                          {pp.no}
+                        </i>
+                      ))}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -1205,6 +1290,75 @@ export default function RackView() {
               {d.source === 'pg'
                 ? '우클릭 → 접속(Telnet/SSH)·열기·빼기 · 끌어서 옮기기'
                 : '옛 자료 — 우클릭해서 새 장비로 등록'}
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* 구역 탭 hover — 그 Lab 전체 현황 */}
+      {zoneTip && (() => {
+        const lid = zoneTip.labId
+        const rks = (data?.racks ?? []).filter((r) => (r.lab_id ?? '') === lid)
+        const rkIds = new Set(rks.map((r) => r.id))
+        const devs = (data?.devices ?? []).filter((d) => rkIds.has(d.rack_id))
+        const totU = rks.reduce((s2, r) => s2 + (r.units ?? 45), 0)
+        const usedU = rks.reduce((s2, r) => s2 + usedOf(r.id), 0)
+        const watt = devs.reduce((s2, d) => s2 + (d.power_w ?? 0), 0)
+        const st = { ok: 0, ng: 0, un: 0 }
+        for (const d of devs) {
+          const c = stHead(d).cls
+          if (c === 'ok') st.ok++
+          else if (c === 'ng') st.ng++
+          else st.un++
+        }
+        const nm = labs.find((l) => l.id === lid)?.name ?? ''
+        return (
+          <div className="rv-tip" style={{ left: zoneTip.x, top: zoneTip.y + 12 }}>
+            <div className="rv-th2"><b>{nm}</b><span className="muted small">구역 현황</span></div>
+            <div className="rv-tr"><i>랙</i><span>{rks.length}개</span></div>
+            <div className="rv-tr"><i>장비</i><span>{devs.length}대</span></div>
+            <div className="rv-tr"><i>사용 U</i><span>{usedU} / {totU}U</span></div>
+            <div className="rv-tr"><i>소모전력</i><span>{watt ? `${watt}W` : '–'}</span></div>
+            <div className="rv-tr">
+              <i>접속</i>
+              <span>
+                <em className="rv-tal ok">연결 {st.ok}</em>
+                <em className="rv-tal ng">실패 {st.ng}</em>
+                <em className="rv-tal un">미확인 {st.un}</em>
+              </span>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* 랙 머리 hover — 그 랙 현황 */}
+      {rackTip && (() => {
+        const rk = rackTip.rack
+        const devs = devByRack.get(rk.id) ?? []
+        const parts = blanksByRack.get(rk.id) ?? []
+        const watt = devs.reduce((s2, d) => s2 + (d.power_w ?? 0), 0)
+        const st = { ok: 0, ng: 0, un: 0 }
+        for (const d of devs) {
+          const c = stHead(d).cls
+          if (c === 'ok') st.ok++
+          else if (c === 'ng') st.ng++
+          else st.un++
+        }
+        return (
+          <div className="rv-tip" style={{ left: rackTip.x, top: rackTip.y + 12 }}>
+            <div className="rv-th2"><b>{rk.name}</b><span className="muted small">랙 현황</span></div>
+            {rk.desc && <div className="rv-tr"><i>용도</i><span>{rk.desc}</span></div>}
+            <div className="rv-tr"><i>장비</i><span>{devs.length}대</span></div>
+            <div className="rv-tr"><i>부품</i><span>{parts.length}개</span></div>
+            <div className="rv-tr"><i>사용 U</i><span>{usedOf(rk.id)} / {rk.units ?? 45}U</span></div>
+            <div className="rv-tr"><i>소모전력</i><span>{watt ? `${watt}W` : '–'}</span></div>
+            <div className="rv-tr">
+              <i>접속</i>
+              <span>
+                <em className="rv-tal ok">연결 {st.ok}</em>
+                <em className="rv-tal ng">실패 {st.ng}</em>
+                <em className="rv-tal un">미확인 {st.un}</em>
+              </span>
             </div>
           </div>
         )

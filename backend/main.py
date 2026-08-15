@@ -3202,6 +3202,154 @@ def _snmp_probe_sync(host: str, port: int, community: str) -> tuple[bool, str]:
         return True, ""
 
 
+def _snmp_bulk_sync(host: str, port: int, community: str,
+                    roots: list, max_rep: int = 60) -> dict:
+    """SNMPv2c GetBulk 로 서브트리를 읽는다 — 포트 상태(ifOperStatus) 몫.
+
+    의존성 없이 최소 BER. roots 의 각 서브트리에 대해 {끝자리 index: 값} 을
+    돌려준다. 값은 INTEGER 면 int, 아니면 bytes 그대로.
+    """
+    import os
+    import socket
+
+    def tlv(t: int, v: bytes) -> bytes:
+        n = len(v)
+        if n < 0x80:
+            return bytes([t, n]) + v
+        eb = n.to_bytes((n.bit_length() + 7) // 8, "big")
+        return bytes([t, 0x80 | len(eb)]) + eb + v
+
+    def ber_int(n: int) -> bytes:
+        b = n.to_bytes((max(n.bit_length(), 1) + 8) // 8, "big", signed=True)
+        return tlv(0x02, b)
+
+    def oid_enc(parts: tuple) -> bytes:
+        out = [40 * parts[0] + parts[1]]
+        for x in parts[2:]:
+            if x < 0x80:
+                out.append(x)
+            else:
+                stack = [x & 0x7F]
+                x >>= 7
+                while x:
+                    stack.append((x & 0x7F) | 0x80)
+                    x >>= 7
+                out.extend(reversed(stack))
+        return tlv(0x06, bytes(out))
+
+    def oid_dec(b: bytes) -> tuple:
+        if not b:
+            return ()
+        out = [b[0] // 40, b[0] % 40]
+        val = 0
+        for c in b[1:]:
+            val = (val << 7) | (c & 0x7F)
+            if not c & 0x80:
+                out.append(val)
+                val = 0
+        return tuple(out)
+
+    def read_tlv(b: bytes, i: int):
+        t = b[i]
+        ln = b[i + 1]
+        i += 2
+        if ln & 0x80:
+            k = ln & 0x7F
+            ln = int.from_bytes(b[i : i + k], "big")
+            i += k
+        return t, b[i : i + ln], i + ln
+
+    result: dict = {tuple(r): {} for r in roots}
+    cursors = [tuple(r) for r in roots]
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(_PROBE_TIMEOUT)
+    try:
+        for _round in range(20):  # 48포트 × 2열이면 한두 번에 끝난다 — 폭주 방지 상한
+            rid = int.from_bytes(os.urandom(2), "big") & 0x7FFF
+            vbs = b"".join(tlv(0x30, oid_enc(c) + b"\x05\x00") for c in cursors)
+            pdu = tlv(0xA5, ber_int(rid) + ber_int(0) + ber_int(max_rep) + tlv(0x30, vbs))
+            msg = tlv(0x30, ber_int(1) + tlv(0x04, community.encode()) + pdu)
+            sock.sendto(msg, (host, int(port or 161)))
+            data, _ = sock.recvfrom(65535)
+            _, body, _ = read_tlv(data, 0)
+            _, _, i = read_tlv(body, 0)
+            _, _, i = read_tlv(body, i)
+            _, pdu_b, _ = read_tlv(body, i)
+            _, _, j = read_tlv(pdu_b, 0)
+            _, est, j = read_tlv(pdu_b, j)
+            if int.from_bytes(est or b"\x00", "big"):
+                break
+            _, _, j = read_tlv(pdu_b, j)
+            _, vbl, _ = read_tlv(pdu_b, j)
+            k = 0
+            n_roots = len(cursors)
+            col = 0
+            done = [False] * n_roots
+            last = list(cursors)
+            while k < len(vbl):
+                _, vb1, k = read_tlv(vbl, k)
+                to, ob, m = read_tlv(vb1, 0)
+                vt, vv, _ = read_tlv(vb1, m)
+                oid = oid_dec(ob)
+                root = tuple(roots[col % n_roots])
+                if oid[: len(root)] == root and vt not in (0x82,):  # endOfMibView 제외
+                    idx = oid[len(root) :]
+                    val = int.from_bytes(vv, "big", signed=True) if vt == 0x02 else vv
+                    result[root][idx[-1] if len(idx) == 1 else idx] = val
+                    last[col % n_roots] = oid
+                else:
+                    done[col % n_roots] = True
+                col += 1
+            cursors = last
+            if all(done) or col == 0:
+                break
+    except OSError:
+        pass
+    finally:
+        sock.close()
+    return result
+
+
+# 장비마다 20초 캐시 — 랙뷰 카드가 뜰 때마다 장비를 두드리지 않게
+_SNMP_PORTS_CACHE: dict = {}
+
+
+@app.get("/api/devices2/{dev_id}/snmp-ports")
+async def devices2_snmp_ports(dev_id: str):
+    """포트 형상 실측 — SNMP(ifDescr·ifOperStatus)로 링크 up/down 을 읽는다."""
+    d = await db.device_get(dev_id)
+    if d is None:
+        raise HTTPException(404, "장비를 찾을 수 없습니다")
+    a = next((x for x in (d.get("access") or [])
+              if x.get("protocol") == "snmp" and x.get("enabled", True)), None)
+    if a is None:
+        return {"ok": False, "reason": "SNMP 미등록"}
+    import time as _time
+    ent = _SNMP_PORTS_CACHE.get(d["id"])
+    if ent and _time.time() - ent[0] < 20:
+        return ent[1]
+    host = (a.get("host") or d.get("ip") or "").strip()
+    comm = (a.get("username") or "").strip() or "public"
+    import asyncio as _aio
+    loop = _aio.get_running_loop()
+    res = await loop.run_in_executor(
+        None, _snmp_bulk_sync, host, a.get("port") or 161, comm,
+        [(1, 3, 6, 1, 2, 1, 2, 2, 1, 2), (1, 3, 6, 1, 2, 1, 2, 2, 1, 8)],
+    )
+    names = res.get((1, 3, 6, 1, 2, 1, 2, 2, 1, 2), {})
+    stats = res.get((1, 3, 6, 1, 2, 1, 2, 2, 1, 8), {})
+    ports = []
+    for idx in sorted(names.keys(), key=lambda x: (x if isinstance(x, int) else 0)):
+        nm = names[idx]
+        nm = nm.decode("utf-8", "replace") if isinstance(nm, (bytes, bytearray)) else str(nm)
+        st = stats.get(idx)
+        ports.append({"name": nm, "up": st == 1})
+    out = {"ok": len(ports) > 0, "ports": ports,
+           "reason": "" if ports else "SNMP 응답 없음"}
+    _SNMP_PORTS_CACHE[d["id"]] = (_time.time(), out)
+    return out
+
+
 @app.post("/api/devices2/{dev_id}/check")
 async def devices2_check(dev_id: str, protocol: str = ""):
     """접속해 보고 결과를 남긴다.
