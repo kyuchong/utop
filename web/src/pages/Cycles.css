@@ -1872,8 +1872,9 @@ table.tb td.k {
 
 
 /* ── 관제판 — 사이클을 고르기 전 첫 화면 ─────────────────────── */
-/* 1열(트리)과 2열 카드가 바짝 붙게 — 왼쪽은 손잡이(8px)만큼만 띄운다 */
-.cy-board { padding: var(--sp-3) var(--sp-4) var(--sp-3) 6px; }
+/* 1열(트리)과 2열 카드가 바짝 붙게 — 왼쪽은 손잡이만큼, 위는 트리와
+   같은 높이에서 시작하도록 0 */
+.cy-board { padding: 0 var(--sp-4) var(--sp-3) 6px; }
 .cy-board-h {
   display: flex;
   align-items: baseline;
