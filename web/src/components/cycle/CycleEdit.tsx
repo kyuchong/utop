@@ -740,9 +740,6 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           {/* 저장은 아래에서 — Test Cases 탭의 Add 와 같은 자리 문법 */}
           <div className="ce-addbar ce-wide">
             <span className="sp" />
-            <button className="btn" type="button" disabled={busy} onClick={onClose}>
-              취소
-            </button>
             <button
               className="btn primary"
               type="button"
@@ -750,6 +747,9 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               onClick={() => void save()}
             >
               {busy ? '저장 중…' : '저장'}
+            </button>
+            <button className="btn" type="button" disabled={busy} onClick={onClose}>
+              Close
             </button>
           </div>
         </div>
@@ -954,9 +954,6 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                 Add others
               </label>
               <span className="sp" />
-              <button className="btn" type="button" disabled={busy} onClick={onClose}>
-                취소
-              </button>
               <button
                 className="btn primary"
                 type="button"
@@ -978,6 +975,9 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                 }}
               >
                 Add
+              </button>
+              <button className="btn" type="button" disabled={busy} onClick={onClose}>
+                Close
               </button>
             </div>
           </div>
