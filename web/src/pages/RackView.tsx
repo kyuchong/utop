@@ -1278,6 +1278,7 @@ export default function RackView() {
             <div className="rv-tr"><i>구역</i><span>{labNm || '–'}</span></div>
             <div className="rv-tr"><i>위치</i><span>{rk?.name ?? '–'} · {d.rack_pos}U</span></div>
             <div className="rv-tr"><i>장비 높이</i><span>{d.rack_units}U</span></div>
+            <div className="rv-tr"><i>소모전력</i><span>{d.power_w ? `${d.power_w}W` : '–'}</span></div>
             <div className="rv-tr"><i>제조사</i><span>{d.vendor || '–'}</span></div>
             <div className="rv-tr"><i>제품군</i><span>{d.role || '–'}</span></div>
             <div className="rv-tr"><i>모델명</i><span>{d.model || '–'}</span></div>
@@ -1294,7 +1295,6 @@ export default function RackView() {
                 </span>
               </div>
             )}
-            <div className="rv-tr"><i>소모전력</i><span>{d.power_w ? `${d.power_w}W` : '–'}</span></div>
             {rawPorts.length > 0 && (
               <div className="rv-tports-wrap">
                 <div className="rv-tports-h">
