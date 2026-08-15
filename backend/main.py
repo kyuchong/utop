@@ -3338,9 +3338,10 @@ async def devices2_snmp_ports(dev_id: str):
     )
     names = res.get((1, 3, 6, 1, 2, 1, 2, 2, 1, 2), {})
     stats = res.get((1, 3, 6, 1, 2, 1, 2, 2, 1, 8), {})
-    # 물리 포트와 VLAN 을 가른다 — ifDescr 에는 VLAN·CPU·Null 이 섞여 온다
-    ports, vlans = [], []
-    _SKIP = ("null", "loopback", "cpu", "tunnel", "oob", "stack")
+    # 물리 포트와 VLAN 을 가른다 — ifDescr 에는 mgmt·port-channel·CPU 도
+    # 섞여 온다. 실물 포트는 예외 없이 슬롯/포트(Giga0/1) 꼴이라 '/' 가
+    # 곧 물리의 표식이다. vlan 은 VLAN 정보로, 나머지 논리들은 뺀다.
+    ports, vlans, others = [], [], 0
     for idx in names.keys():
         nm = names[idx]
         nm = nm.decode("utf-8", "replace") if isinstance(nm, (bytes, bytearray)) else str(nm)
@@ -3349,10 +3350,18 @@ async def devices2_snmp_ports(dev_id: str):
         row = {"name": nm, "up": st == 1}
         if "vlan" in low or low.startswith("br"):
             vlans.append(row)
-        elif any(k in low for k in _SKIP):
-            continue
-        else:
+        elif "/" in nm:
             ports.append(row)
+        else:
+            others += 1
+    # '/' 없는 장비(드물다)면 물리 표식이 안 통한 것 — 다 보여주는 쪽이 낫다
+    if not ports and others:
+        for idx in names.keys():
+            nm = names[idx]
+            nm = nm.decode("utf-8", "replace") if isinstance(nm, (bytes, bytearray)) else str(nm)
+            if "vlan" in nm.lower() or nm.lower().startswith("br"):
+                continue
+            ports.append({"name": nm, "up": stats.get(idx) == 1})
     # ifIndex 차례는 포트 번호 차례가 아니다 — 이름을 자연 정렬한다
     # (Giga0/2 < Giga0/10 이 되게 숫자 덩어리는 숫자로 비교)
     import re as _re

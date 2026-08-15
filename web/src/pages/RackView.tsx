@@ -1319,7 +1319,7 @@ export default function RackView() {
                 {live?.ok && (live.vlans?.length ?? 0) > 0 && (
                   <>
                     <div className="rv-tports-h rv-tvlan-h">
-                      VLAN · up {live.vlans!.filter((v) => v.up).length} / 전체 {live.vlans!.length}
+                      VLAN 정보 · up {live.vlans!.filter((v) => v.up).length} / 전체 {live.vlans!.length}
                     </div>
                     <div className="rv-tports rv-tvlans">
                       {live.vlans!.slice(0, 48).map((v, k) => {
