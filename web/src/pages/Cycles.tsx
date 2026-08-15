@@ -1207,16 +1207,74 @@ function CycleBoard({
   modelOp?: Map<string, string>
   onPick: (id: string) => void
 }) {
+  const [q, setQ] = useState('')
+  const [failOnly, setFailOnly] = useState(false)
+  const [sortBy, setSortBy] = useState<'recent' | 'progress' | 'fail'>('recent')
+
+  // 사이클별 집계는 한 번만 — 요약 띠·거름·정렬이 다 같이 쓴다
+  const stats = useMemo(() => {
+    const m = new Map<string, { total: number; done: number; pass: number; fail: number; pct: number }>()
+    for (const c of cycles) {
+      const its = c.items ?? []
+      let done = 0
+      let pass = 0
+      let fail = 0
+      for (const it of its) {
+        const v = itemVerdict(it)
+        if (v) done += 1
+        if (v === 'Pass') pass += 1
+        else if (v === 'Fail') fail += 1
+      }
+      m.set(c.id, {
+        total: its.length,
+        done,
+        pass,
+        fail,
+        pct: its.length ? Math.round((done / its.length) * 100) : 0,
+      })
+    }
+    return m
+  }, [cycles])
+
+  const shown = useMemo(() => {
+    const nq = q.trim().toLowerCase()
+    let arr = cycles
+    if (nq)
+      arr = arr.filter((c) =>
+        [c.version, c.name, c.version_group, c.model]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+          .includes(nq),
+      )
+    if (failOnly) arr = arr.filter((c) => (stats.get(c.id)?.fail ?? 0) > 0)
+    return arr
+  }, [cycles, q, failOnly, stats])
+
+  const sum = useMemo(() => {
+    const s = { n: 0, total: 0, done: 0, pass: 0, fail: 0 }
+    for (const c of shown) {
+      const t = stats.get(c.id)
+      if (!t) continue
+      s.n += 1
+      s.total += t.total
+      s.done += t.done
+      s.pass += t.pass
+      s.fail += t.fail
+    }
+    return s
+  }, [shown, stats])
+
   const groups = useMemo(() => {
     const m = new Map<string, CycleMeta[]>()
-    for (const c of cycles) {
+    for (const c of shown) {
       const k = String(c.model ?? '').trim() || '(모델 없음)'
       const arr = m.get(k)
       if (arr) arr.push(c)
       else m.set(k, [c])
     }
     return m
-  }, [cycles])
+  }, [shown])
 
   return (
     <div className="cy-board scroll">
@@ -1225,6 +1283,43 @@ function CycleBoard({
         <span className="muted small">
           카드를 누르면 실행 화면이 열립니다 · 색 띠는 Pass/Fail, 숫자는 실행 진행률
         </span>
+      </div>
+      {/* 요약 띠 + 도구 — 지금 보이는 범위의 합계, 그리고 찾기·거르기·정렬 */}
+      <div className="cy-tools">
+        <span className="cy-sum">
+          사이클 <b>{sum.n}</b> · 항목 <b>{sum.total}</b> · 실행 <b>{sum.done}</b>
+          {sum.total > 0 && (
+            <i className="muted">({Math.round((sum.done / sum.total) * 100)}%)</i>
+          )}
+          {' · '}
+          <b className="cp">Pass {sum.pass}</b> · <b className="cf">Fail {sum.fail}</b> · 미실행{' '}
+          <b>{sum.total - sum.done}</b>
+        </span>
+        <span className="sp" />
+        <input
+          className="cy-q"
+          placeholder="버전·이름 찾기"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <button
+          type="button"
+          className={`cy-failonly${failOnly ? ' on' : ''}`}
+          title="Fail 이 있는 사이클만 봅니다"
+          onClick={() => setFailOnly((v) => !v)}
+        >
+          Fail 만
+        </button>
+        <select
+          className="cy-sort"
+          value={sortBy}
+          title="카드 차례"
+          onChange={(e) => setSortBy(e.target.value as 'recent' | 'progress' | 'fail')}
+        >
+          <option value="recent">최근 순</option>
+          <option value="progress">덜 끝난 순</option>
+          <option value="fail">Fail 많은 순</option>
+        </select>
       </div>
       {[...groups.entries()].map(([model, list]) => (
         <div key={model} className="cy-bgroup">
@@ -1263,7 +1358,14 @@ function CycleBoard({
             )}
           </div>
           <div className="cy-cards">
-            {list.map((c) => {
+            {(sortBy === 'recent'
+              ? list
+              : [...list].sort((a, b) =>
+                  sortBy === 'progress'
+                    ? (stats.get(a.id)?.pct ?? 0) - (stats.get(b.id)?.pct ?? 0)
+                    : (stats.get(b.id)?.fail ?? 0) - (stats.get(a.id)?.fail ?? 0),
+                )
+            ).map((c) => {
               const items = c.items ?? []
               const counts: Record<string, number> = {}
               for (const it of items) {

@@ -1876,6 +1876,53 @@ table.tb td.k {
   margin-bottom: var(--sp-3);
 }
 .cy-board-h > b { font-size: 17px; }
+/* 요약 띠 + 찾기·거르기·정렬 — 보드 머리 바로 아래 한 줄 */
+.cy-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--sp-3);
+  flex-wrap: wrap;
+}
+.cy-tools .sp { flex: 1; }
+.cy-sum { font-size: var(--fs-sm); color: var(--c-text-muted); }
+.cy-sum > b { color: var(--c-text); font-weight: 700; }
+.cy-sum > b.cp { color: var(--c-pass); }
+.cy-sum > b.cf { color: var(--c-fail); }
+.cy-sum > i.muted { font-style: normal; }
+.cy-q {
+  width: 170px;
+  padding: 5px 9px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+  background: var(--c-surface);
+}
+.cy-failonly {
+  padding: 5px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--c-text-muted);
+}
+.cy-failonly.on {
+  color: #fff;
+  background: var(--c-fail);
+  border-color: var(--c-fail);
+}
+.cy-sort {
+  padding: 5px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
 .cy-bgroup { margin-bottom: var(--sp-4); }
 .cy-bgt {
   display: flex;
