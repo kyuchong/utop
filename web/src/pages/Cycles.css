@@ -754,11 +754,28 @@ select.cy-v.na { color: #999; }
 .modal.ce .modal-head { justify-content: flex-start; gap: 10px; }
 .modal.ce .modal-head .sp { flex: 1; }
 .ce-form {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  /* 박스(섹션) 단위로 아래로 내려간다 — 분류 · 버전 · 관리 */
+  display: flex;
+  flex-direction: column;
   gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--c-border);
+}
+.ce-sec {
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px 12px;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  background: var(--c-surface-alt);
+}
+.ce-sec > legend {
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--c-text-muted);
+  padding: 0 6px;
 }
 .ce-form label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-xs); color: var(--c-text-muted); }
 /* Details / Test Cases 탭 — Zephyr Create Test Cycle */

@@ -618,6 +618,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           </label>
           {/* 벤더 → 제품군 → 모델그룹 → 모델명 — 단계로 좁혀 고른다.
               위를 바꾸면 아래 고른 것은 버린다(범위 밖일 수 있다). */}
+          <fieldset className="ce-sec">
+            <legend>분류 (Folder)</legend>
           <label>
             벤더
             <select
@@ -682,6 +684,10 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               ))}
             </select>
           </label>
+          </fieldset>
+
+          <fieldset className="ce-sec">
+            <legend>버전 (Version)</legend>
           <label>
             버전그룹
             <select value={vgroup} disabled={!!newVgroup.trim()} onChange={(e) => setVgroup(e.target.value)}>
@@ -707,6 +713,10 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
             />
           </label>
 
+          </fieldset>
+
+          <fieldset className="ce-sec">
+            <legend>관리 (Status · Owner)</legend>
           <label>
             상태 (Status)
             <select value={cstat} onChange={(e) => setCstat(e.target.value)}>
@@ -736,6 +746,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
             </span>
           </label>
+          </fieldset>
         </div>
 
         <div className="ce-cols" style={{ display: tab === 'tcs' ? undefined : 'none' }}>
