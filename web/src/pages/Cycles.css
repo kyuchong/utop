@@ -114,7 +114,7 @@
   display: grid;
   /* 칸마다 최소 폭을 준다. 안 주면 좁을 때 TC ID 가 0px 로 눌리고
      머리글이 두 줄로 접힌다. 그보다는 가로로 미는 편이 낫다. */
-  grid-template-columns: 28px minmax(104px, 140px) minmax(120px, 1fr) 56px 58px 68px 68px 108px 38px;
+  grid-template-columns: 20px 28px minmax(104px, 140px) minmax(120px, 1fr) 56px 58px 68px 68px 108px 38px;
   gap: 6px;
   min-width: 600px;
   align-items: center;
@@ -1923,6 +1923,21 @@ table.tb td.k {
   font-size: var(--fs-sm);
   cursor: pointer;
 }
+/* 펼침 캐럿 — 트리 폴더와 같은 회전 문법 (닫힘 -90°, 열림 0°) */
+.cy-expcaret {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-text-faint);
+}
+.cy-expcaret svg { transition: transform 0.15s; transform: rotate(-90deg); }
+.cy-expcaret.open svg { transform: rotate(0); }
+.cy-expcaret:hover { color: var(--c-text); }
+
 /* ── 인라인 실행 판 — 도는 항목 줄 밑에 펼쳐진다 ── */
 .cy-runline {
   border-left: 3px solid var(--c-primary);
@@ -2000,6 +2015,11 @@ table.tb td.k {
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+}
+/* 캐럿으로 펼친 저장본 — 파란 실행 판과 헷갈리지 않게 잿빛 */
+.cy-runline.cy-static {
+  border-left-color: var(--c-border-strong);
+  background: var(--c-surface-alt);
 }
 
 .cy-bgroup { margin-bottom: var(--sp-4); }

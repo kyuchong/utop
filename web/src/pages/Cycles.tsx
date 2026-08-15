@@ -1573,6 +1573,15 @@ function CycleDetail({
   useEffect(() => {
     if (!st.on) setRunView(false)
   }, [st.on])
+  /** 캐럿으로 펼쳐 둔 항목들 — 실행과 무관하게 스텝을 줄 밑에서 본다 */
+  const [inlineOpen, setInlineOpen] = useState<Set<number>>(new Set())
+  const toggleInline = (at: number) =>
+    setInlineOpen((cur) => {
+      const n = new Set(cur)
+      if (n.has(at)) n.delete(at)
+      else n.add(at)
+      return n
+    })
   /** 도는 항목의 인라인 판 — 따라가기 중이면 화면에 붙잡아 둔다 */
   const runlineRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
@@ -2412,6 +2421,7 @@ function CycleDetail({
         <div className="cy-list">
         <div className="cy-row cy-hd">
           <span />
+          <span />
           <span>TC ID</span>
           <span>TC summary</span>
           <span>타입</span>
@@ -2503,6 +2513,19 @@ function CycleDetail({
                   **칸을 새로 만들지 않는다** — 격자에 자식을 하나 더 넣으면
                   그 줄만 칸이 밀려 머리글과 어긋난다. 체크박스 칸 위에
                   얹는다. */}
+              {/* 펼침 캐럿 — 트리 폴더와 같은 문법. 누르면 스텝이 줄 밑에 */}
+              <button
+                type="button"
+                className={`cy-expcaret${inlineOpen.has(at) ? ' open' : ''}`}
+                title="스텝을 줄 밑에 펼쳐 봅니다"
+                aria-expanded={inlineOpen.has(at)}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggleInline(at)
+                }}
+              >
+                <IconChevron />
+              </button>
               <span className="cy-ck" onClick={(e) => e.stopPropagation()}>
                 {(() => {
                   const who = (focus[String(at)] ?? []).filter((u) => u !== meName)
@@ -2657,34 +2680,13 @@ function CycleDetail({
                     중지
                   </button>
                 </div>
-                <div className="cy-rl-steps">
-                  {steps.map((s, si) => {
-                    const sv = stepVerdict(s as TcStep)
-                    const curStep = !st.waiting && si === st.stepAt
-                    const cls = curStep ? 'cur' : isFail(sv) ? 'ng' : isPass(sv) ? 'ok' : ''
-                    return (
-                      <div key={si} className={`cy-rl-step ${cls}`}>
-                        <i>{si + 1}</i>
-                        <span className="cy-rl-nm">
-                          {s.desc || s.step || s.cli || `스텝 ${si + 1}`}
-                        </span>
-                        {curStep && isFail(sv) === false && isPass(sv) === false ? (
-                          <em className="run">실행 중…</em>
-                        ) : (
-                          <em>{sv || '대기'}</em>
-                        )}
-                        {isFail(sv) && s.reason && (
-                          <span className="cy-rl-why" title={s.reason}>
-                            {String(s.reason).split('\n')[0]}
-                          </span>
-                        )}
-                      </div>
-                    )
-                  })}
-                  {steps.length === 0 && (
-                    <div className="muted small">스텝을 받는 중…</div>
-                  )}
-                </div>
+                <StepLines steps={steps} curAt={st.waiting ? -1 : st.stepAt} />
+              </div>
+            )}
+            {/* 캐럿으로 펼친 스텝 — 실행 인라인이 그 줄에 떠 있으면 그쪽이 이긴다 */}
+            {inlineOpen.has(at) && !(st.on && st.itemAt === at) && (
+              <div className="cy-runline cy-static">
+                <StepLines steps={steps} />
               </div>
             )}
             </React.Fragment>
@@ -2868,6 +2870,40 @@ function CycleMenu({
  *  · 오른쪽: 지금 도는 스텝의 실행 로그가 터미널로 흐른다
  *  · 끝나면: 아래에 Pass·Fail·회귀 요약과 「표로 돌아가기」
  */
+/** 스텝을 한 줄씩 — 실행 인라인(차오르는 중)과 캐럿 펼침(저장본)이 같이 쓴다.
+    curAt 이 있으면 실행 중: 그 스텝은 「실행 중…」, 안 온 것은 「대기」.
+    없으면 저장본: 빈 판정은 「미실행」. */
+function StepLines({ steps, curAt }: { steps: CycleStep[]; curAt?: number }) {
+  return (
+    <div className="cy-rl-steps">
+      {steps.map((s, si) => {
+        const sv = stepVerdict(s as TcStep)
+        const cur = curAt != null && si === curAt
+        const cls = cur ? 'cur' : isFail(sv) ? 'ng' : isPass(sv) ? 'ok' : ''
+        return (
+          <div key={si} className={`cy-rl-step ${cls}`}>
+            <i>{si + 1}</i>
+            <span className="cy-rl-nm">{s.desc || s.step || s.cli || `스텝 ${si + 1}`}</span>
+            {cur && !isFail(sv) && !isPass(sv) ? (
+              <em className="run">실행 중…</em>
+            ) : (
+              <em>{sv || (curAt != null ? '대기' : '미실행')}</em>
+            )}
+            {isFail(sv) && s.reason && (
+              <span className="cy-rl-why" title={s.reason}>
+                {String(s.reason).split('\n')[0]}
+              </span>
+            )}
+          </div>
+        )
+      })}
+      {steps.length === 0 && (
+        <div className="muted small">{curAt != null ? '스텝을 받는 중…' : '스텝이 없습니다.'}</div>
+      )}
+    </div>
+  )
+}
+
 function RunPane({
   cycle,
   items,
