@@ -1287,7 +1287,8 @@ function CycleBoard({
       localStorage.setItem('utop.cycle.itcols', JSON.stringify([...n]))
       return n
     })
-  const [gearOpen, setGearOpen] = useState(false)
+  /** ⚙ 팝업 자리 — 카드가 overflow 로 잘라먹지 않게 fixed 좌표로 띄운다 */
+  const [gearAt, setGearAt] = useState<{ x: number; y: number } | null>(null)
   // 켠 필드에 따라 칸 폭이 달라진다 — 머리줄·데이터줄이 같은 자를 쓴다
   const itGrid = useMemo(() => {
     const parts = ['108px', 'minmax(200px, 1fr)']
@@ -1582,15 +1583,24 @@ function CycleBoard({
                               title="보일 필드 고르기 — 시험항목 화면과 같은 필드"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                setGearOpen((v) => !v)
+                                const r = e.currentTarget.getBoundingClientRect()
+                                setGearAt((cur) => (cur ? null : { x: r.right, y: r.bottom + 4 }))
                               }}
                             >
                               ⚙
                             </button>
-                            {gearOpen && (
+                            {gearAt && (
                               <>
-                                <span className="cyt-gearovl" onClick={() => setGearOpen(false)} />
-                                <span className="cyt-gearpop">
+                                <span className="cyt-gearovl" onClick={() => setGearAt(null)} />
+                                <span
+                                  className="cyt-gearpop"
+                                  style={{
+                                    position: 'fixed',
+                                    left: Math.max(8, gearAt.x - 150),
+                                    top: Math.min(gearAt.y, window.innerHeight - 300),
+                                    right: 'auto',
+                                  }}
+                                >
                                   {IT_COLS.map((cc) => (
                                     <label key={cc.k}>
                                       <input
