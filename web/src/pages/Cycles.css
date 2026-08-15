@@ -3208,3 +3208,9 @@ table.tb td.k {
 
 /* 머리 안 구분선 — 항목 도구와 저장·Close 사이 */
 .ce-hdiv { width: 1px; height: 18px; background: var(--c-border); margin: 0 4px; }
+
+/* 머리의 항목 도구(추가·삭제·담당자 할당) — small 보다 반 발짝 크게 */
+.modal.ce .modal-head .btn.small {
+  padding: 5px 12px;
+  font-size: var(--fs-sm);
+}
