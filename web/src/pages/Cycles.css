@@ -759,6 +759,60 @@ select.cy-v.na { color: #999; }
   border-bottom: 1px solid var(--c-border);
 }
 .ce-form label { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-xs); color: var(--c-text-muted); }
+/* Details / Test Cases 탭 — Zephyr Create Test Cycle */
+.ce-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--c-border);
+}
+.ce-tabs button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--c-text-muted);
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ce-tabs button.on { color: var(--c-primary); border-bottom-color: var(--c-primary); }
+.ce-wide { grid-column: 1 / -1; }
+.ce-desc {
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 6px 9px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+}
+.ce-hide {
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 4px !important;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ce-tcid { color: var(--c-primary); font-size: var(--fs-xs); font-weight: 700; flex: none; }
+.ce-tcst {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+  border: 1px solid var(--c-draft, #f5b731);
+  color: var(--c-draft, #b07d00);
+  border-radius: 3px;
+  padding: 0 4px;
+  flex: none;
+  text-transform: uppercase;
+}
 .ce-dates { display: flex; gap: 4px; }
 .ce-dates input { min-width: 0; flex: 1; }
 .ce-cols { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 10px 14px; }
@@ -817,7 +871,19 @@ select.cy-v.na { color: #999; }
 .ce-req-nm, .ce-tc-nm, .ce-item-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ce-n { color: var(--c-text-faint); font-variant-numeric: tabular-nums; }
 .ce-tc { cursor: pointer; }
-.ce-tc.off { opacity: 0.45; cursor: default; }
+/* 안 담긴 항목은 선명하게(파란 제목), 이미 담긴 항목은 회색 글자 */
+.ce-tc .ce-tc-nm { color: var(--c-primary); font-weight: 600; }
+.ce-tc.off { cursor: default; }
+.ce-tc.off .ce-tc-nm { color: var(--c-text-faint); font-weight: 400; }
+.ce-tc.off .ce-tcid { color: var(--c-text-faint); }
+.ce-who {
+  width: 84px;
+  padding: 3px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--fs-xs);
+}
 /* 3열 — 요구사항으로 묶는다. 여섯 건만 넘어도 평평하면 안 읽힌다 */
 .ce-gh {
   padding: 5px 8px;

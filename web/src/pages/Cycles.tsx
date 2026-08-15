@@ -1222,13 +1222,17 @@ export default function Cycles({ me }: PageProps) {
  * 모델별로 사이클을 깔고, 카드마다 진행률과 Pass/Fail 을 바로 보여 준다 —
  * 어디가 급한지 열기 전에 보인다.
  */
-/** 인라인 항목 카드의 고를 수 있는 필드 — 시험항목(Coverage) 목록과 같다 */
+/** 인라인 항목 카드의 고를 수 있는 필드 — 시험항목(Coverage) ⚙ 과 같은 목록 */
 const IT_COLS: Array<{ k: string; label: string; w: string }> = [
   { k: 'model_group', label: '모델그룹', w: '90px' },
   { k: 'model', label: '모델명', w: '90px' },
   { k: 'type', label: '유형', w: '88px' },
-  { k: 'run_type', label: '실행 타입', w: '72px' },
   { k: 'severity', label: '심각도', w: '70px' },
+  { k: 'run_type', label: '실행 타입', w: '72px' },
+  { k: 'map', label: 'REQ Map', w: '70px' },
+  { k: 'created_by', label: '생성자', w: '76px' },
+  { k: 'updated_by', label: '변경자', w: '76px' },
+  { k: 'updated', label: '변경일', w: '84px' },
   { k: 'status', label: '상태', w: '70px' },
 ]
 
@@ -1525,7 +1529,7 @@ function CycleBoard({
                         title={c.name ?? ''}
                         onClick={() => onPick(c.id)}
                       >
-                        {c.name || [c.model, c.version].filter(Boolean).join(' - ') || '–'}
+                        {c.name || '–'}
                       </button>
                       <span className={`tr${t.iss ? ' cyt-fail' : ''}`}>{t.iss || '–'}</span>
                       <span className="tr">{t.total}</span>
@@ -1634,10 +1638,22 @@ function CycleBoard({
                                       {runType}
                                     </span>
                                   )
+                                if (cc.k === 'map')
+                                  return (
+                                    <span key={cc.k} className="muted small">
+                                      {t2?.req_id ? 'Map 1' : '–'}
+                                    </span>
+                                  )
+                                if (cc.k === 'updated')
+                                  return (
+                                    <span key={cc.k} className="muted small">
+                                      {String(t2?._updated_at_pg ?? '').slice(0, 10) || '–'}
+                                    </span>
+                                  )
                                 const raw = String((t2 as Record<string, unknown> | undefined)?.[cc.k] ?? '')
                                 return (
                                   <span key={cc.k} className="muted small cyt-ell">
-                                    {raw || (cc.k === 'model_group' ? '공용' : '–')}
+                                    {raw || (cc.k === 'model_group' ? '공용' : cc.k === 'status' ? '미실행' : '–')}
                                   </span>
                                 )
                               })}

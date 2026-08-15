@@ -59,6 +59,17 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   const [vgroup, setVgroup] = useState('')
   const [newVgroup, setNewVgroup] = useState('')
   const [version, setVersion] = useState('')
+  /** 제목 — 사람이 손으로 적는 사이클 이름. 버전과 다른 칸이다 */
+  const [cname, setCname] = useState('')
+  const [cdesc, setCdesc] = useState('')
+  const [cstat, setCstat] = useState('')
+  const [ccust, setCcust] = useState('')
+  /** Zephyr Create Test Cycle 문법 — Details 는 기본 정보, Test Cases 는 항목 */
+  const [tab, setTab] = useState<'details' | 'tcs'>('details')
+  /** 이미 배정된 항목 숨기기 — 기본은 끔: 담긴 것은 회색으로 같이 보인다 */
+  const [hideAdded, setHideAdded] = useState(false)
+  /** 배정하면서 바로 넣을 담당자 — 비우면 Details 의 담당(Owner)을 쓴다 */
+  const [asgWho, setAsgWho] = useState('')
   const [assignee, setAssignee] = useState('')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
@@ -146,6 +157,10 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
     }
     setVgroup(String(d.version_group ?? ''))
     setVersion(String(d.version ?? ''))
+    setCname(String(d.name ?? ''))
+    setCdesc(String((d as Record<string, unknown>).description ?? ''))
+    setCstat(String(d.status ?? ''))
+    setCcust(String((d as Record<string, unknown>).customer ?? ''))
     setAssignee(String(d.assignee ?? ''))
     setStart(String(d.start_date ?? ''))
     setEnd(String(d.end_date ?? ''))
@@ -351,7 +366,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           tcid: id,
           name: t?.name ?? '',
           req_id: t?.req_id ?? '',
-          assignee: assignee.trim(),
+          assignee: (asgWho.trim() || assignee).trim(),
           steps: [],
         }
       })
@@ -372,6 +387,21 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
     setPicked((p) => p.filter((x) => !away.has(x.tcid)))
     setTcSel(new Set())
   }
+
+  // 상태·고객 드롭다운 값 — 설정 → 사이클 INFO 필드가 정본
+  const codesQ = useQuery({
+    queryKey: ['codes'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes')
+      if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
+      return (await r.json()) as { items: Array<{ kind: string; value: string }> }
+    },
+    staleTime: 60_000,
+  })
+  const codeVals = (kind: string) =>
+    (codesQ.data?.items ?? []).filter((i) => i.kind === kind).map((i) => i.value)
+
+  const visTcs = hideAdded ? shownTcs.filter((t) => !pickedIds.has(t.tcid)) : shownTcs
 
   const vg = (newVgroup.trim() || vgroup).trim()
   const ready = !!model && !!version.trim() && picked.length > 0
@@ -397,6 +427,10 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           model,
           version_group: vg,
           version: version.trim(),
+          name: cname.trim(),
+          description: cdesc.trim(),
+          status: cstat,
+          customer: ccust,
           assignee: assignee.trim(),
           start_date: start || null,
           end_date: end || null,
@@ -544,7 +578,44 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           </button>
         </div>
 
-        <div className="ce-form">
+        {/* Details / Test Cases — 기본 정보와 항목 고르기를 가른다 (Zephyr) */}
+        <div className="ce-tabs">
+          <button
+            type="button"
+            className={tab === 'details' ? 'on' : ''}
+            onClick={() => setTab('details')}
+          >
+            Details
+          </button>
+          <button
+            type="button"
+            className={tab === 'tcs' ? 'on' : ''}
+            onClick={() => setTab('tcs')}
+          >
+            Test Cases <i className="ce-n">{picked.length}</i>
+          </button>
+        </div>
+
+        <div className="ce-form" style={{ display: tab === 'details' ? undefined : 'none' }}>
+          {/* Name · Description — 위에 넓게 (Zephyr Create Test Cycle) */}
+          <label className="ce-wide">
+            제목 (Name) *
+            <input
+              value={cname}
+              placeholder="예: E6100 R300 정기 검증"
+              onChange={(e) => setCname(e.target.value)}
+            />
+          </label>
+          <label className="ce-wide">
+            설명 (Description)
+            <textarea
+              className="ce-desc"
+              value={cdesc}
+              rows={2}
+              placeholder="이 회차의 목적 · 범위"
+              onChange={(e) => setCdesc(e.target.value)}
+            />
+          </label>
           {/* 벤더 → 제품군 → 모델그룹 → 모델명 — 단계로 좁혀 고른다.
               위를 바꾸면 아래 고른 것은 버린다(범위 밖일 수 있다). */}
           <label>
@@ -635,8 +706,27 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               onChange={(e) => setVersion(e.target.value)}
             />
           </label>
+
           <label>
-            담당
+            상태 (Status)
+            <select value={cstat} onChange={(e) => setCstat(e.target.value)}>
+              <option value="">(없음)</option>
+              {codeVals('cycle_status').map((v) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            고객
+            <select value={ccust} onChange={(e) => setCcust(e.target.value)}>
+              <option value="">(없음)</option>
+              {codeVals('cycle_customer').map((v) => (
+                <option key={v} value={v}>{v}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            담당 (Owner)
             <input value={assignee} onChange={(e) => setAssignee(e.target.value)} />
           </label>
           <label>
@@ -648,7 +738,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           </label>
         </div>
 
-        <div className="ce-cols">
+        <div className="ce-cols" style={{ display: tab === 'tcs' ? undefined : 'none' }}>
           {/* 1열 — 요구사항으로 좁힌다 */}
           <div className="ce-col">
             <div className="ce-colhead">
@@ -674,16 +764,31 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           <div className="ce-col">
             <div className="ce-colhead">
               <b>시험항목</b>
-              <span className="muted small">{shownTcs.length}건</span>
+              <span className="muted small">{visTcs.length}건</span>
               <span className="sp" />
+              <label className="ce-hide" title="이미 배정된 항목을 목록에서 숨깁니다">
+                <input
+                  type="checkbox"
+                  checked={hideAdded}
+                  onChange={(e) => setHideAdded(e.target.checked)}
+                />
+                담은 항목 숨기기
+              </label>
               <button
                 className="btn small"
                 type="button"
                 title="보이는 것 전부 고르기"
-                onClick={() => setTcSel(new Set(shownTcs.map((t) => t.tcid)))}
+                onClick={() => setTcSel(new Set(visTcs.map((t) => t.tcid)))}
               >
                 전체
               </button>
+              <input
+                className="ce-who"
+                value={asgWho}
+                placeholder="담당자"
+                title="배정하면서 이 담당자를 넣습니다 (비우면 Details 의 담당)"
+                onChange={(e) => setAsgWho(e.target.value)}
+              />
               <button
                 className="btn primary small"
                 type="button"
@@ -752,12 +857,14 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
             <div className="ce-body">
               {tcQuery.isLoading ? (
                 <div className="empty">불러오는 중…</div>
-              ) : shownTcs.length === 0 ? (
+              ) : visTcs.length === 0 ? (
                 <div className="empty">
-                  왼쪽에서 요구사항을 고르거나 위에서 찾으세요.
+                  {shownTcs.length > 0 && hideAdded
+                    ? '보이는 항목이 전부 배정돼 숨었습니다 — 「담은 항목 숨기기」 를 끄면 보입니다.'
+                    : '왼쪽에서 요구사항을 고르거나 위에서 찾으세요.'}
                 </div>
               ) : (
-                shownTcs.map((t) => {
+                visTcs.map((t) => {
                   const already = pickedIds.has(t.tcid)
                   return (
                     <label className={`ce-tc${already ? ' off' : ''}`} key={t.tcid}>
@@ -773,11 +880,12 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                           })
                         }
                       />
-                      {/* TC ID 는 안 적는다 — 읽는 것은 이름이고, ID 는
-                          말풍선에 있다. 칸이 줄면 이름이 덜 잘린다. */}
+                      {/* Zephyr 처럼 — 키(TC ID)·제목·상태가 한 줄에 */}
+                      <b className="ce-tcid">{t.tcid}</b>
                       <span className="ce-tc-nm" title={t.tcid}>
                         {t.name || '(제목 없음)'}
                       </span>
+                      {t.status ? <i className="ce-tcst">{String(t.status)}</i> : null}
                       {already && <span className="muted small">배정됨</span>}
                     </label>
                   )
