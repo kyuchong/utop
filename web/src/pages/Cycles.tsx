@@ -2666,7 +2666,10 @@ function CycleDetail({
             {/* 캐럿으로 펼친 스텝 — 실행 인라인이 그 줄에 떠 있으면 그쪽이 이긴다 */}
             {inlineOpen.has(at) && !(st.on && st.itemAt === at) && (
               <div className="cy-runline cy-static">
-                <StepLines steps={steps} />
+                <StepLines
+                  steps={steps}
+                  onJudge={(si, v2) => void setStepResult(it.tcid ?? '', si, v2)}
+                />
               </div>
             )}
             </React.Fragment>
@@ -2854,38 +2857,84 @@ function CycleMenu({
     쓴다. 자동 스텝은 CLI 명령·판정 기준, 수동 스텝은 절차·Test Data·기대
     결과까지 그린다 — 판정만 보이면 「무엇을 했길래」 를 알 수 없다.
     curAt 이 있으면 실행 중: 그 스텝은 「실행 중…」, 안 온 것은 「대기」. */
-function StepLines({ steps, curAt }: { steps: CycleStep[]; curAt?: number }) {
+function StepLines({
+  steps,
+  curAt,
+  onJudge,
+}: {
+  steps: CycleStep[]
+  curAt?: number
+  /** 수동 스텝의 Pass/Fail 판정 — 캐럿 펼침에서만 온다. 같은 값을 다시
+      누르면 지운다(미실행) */
+  onJudge?: (si: number, v: string) => void
+}) {
   return (
     <div className="cy-rl-steps">
       {steps.map((s, si) => {
         const sv = stepVerdict(s as TcStep)
         const cur = curAt != null && si === curAt
         const cls = cur ? 'cur' : isFail(sv) ? 'ng' : isPass(sv) ? 'ok' : ''
-        const manual = s.manual || s.action === '수동'
+        const manual = s.manual || s.action === '수동' || s.kind === 'manual'
         return (
           <div key={si} className={`cy-rl-step ${cls}`}>
             <i>{si + 1}</i>
-            <div className="cy-rl-b">
-              <div className="cy-rl-l1">
-                {s.action && <em className="cy-rl-act">{s.action}</em>}
-                <span className="cy-rl-nm">{s.desc || s.step || `스텝 ${si + 1}`}</span>
-                {cur && !isFail(sv) && !isPass(sv) ? (
-                  <b className="cy-rl-v run">실행 중…</b>
+            {manual ? (
+              /* 수동 시험은 시험서 그대로 — 절차·데이터·기대를 가로로 놓고,
+                 판정은 그 자리의 Pass/Fail 로 끝낸다 */
+              <div className="cy-rl-man">
+                <div className="cy-rl-mc">
+                  <i>Tests</i>
+                  <span>{s.step || s.desc || '–'}</span>
+                </div>
+                <div className="cy-rl-mc">
+                  <i>Test Data</i>
+                  <span>{s.data || '–'}</span>
+                </div>
+                <div className="cy-rl-mc">
+                  <i>Expected Result</i>
+                  <span>{s.expected || '–'}</span>
+                </div>
+                {onJudge ? (
+                  <div className="cy-rl-judge">
+                    <button
+                      type="button"
+                      className={`p${isPass(sv) ? ' on' : ''}`}
+                      onClick={() => onJudge(si, isPass(sv) ? '' : 'Pass')}
+                    >
+                      Pass
+                    </button>
+                    <button
+                      type="button"
+                      className={`f${isFail(sv) ? ' on' : ''}`}
+                      onClick={() => onJudge(si, isFail(sv) ? '' : 'Fail')}
+                    >
+                      Fail
+                    </button>
+                  </div>
                 ) : (
-                  <b className={`cy-rl-v ${cls}`}>{sv || (curAt != null ? '대기' : '미실행')}</b>
+                  <b className={`cy-rl-v ${cls}`}>{sv || '미실행'}</b>
                 )}
               </div>
-              {!manual && s.cli && <pre className="cy-rl-cli">{s.cli}</pre>}
-              {s.criteria && <div className="cy-rl-crit">기준 · {s.criteria}</div>}
-              {manual && s.step && s.desc && <div className="cy-rl-crit">절차 · {s.step}</div>}
-              {manual && s.data && <div className="cy-rl-crit">Test Data · {s.data}</div>}
-              {manual && s.expected && <div className="cy-rl-crit">기대 · {s.expected}</div>}
-              {isFail(sv) && s.reason && (
-                <div className="cy-rl-why" title={s.reason ?? ''}>
-                  {String(s.reason).split('\n')[0]}
+            ) : (
+              <div className="cy-rl-b">
+                <div className="cy-rl-l1">
+                  {s.action && <em className="cy-rl-act">{s.action}</em>}
+                  <span className="cy-rl-nm">{s.desc || s.step || `스텝 ${si + 1}`}</span>
+                  {cur && !isFail(sv) && !isPass(sv) ? (
+                    <b className="cy-rl-v run">실행 중…</b>
+                  ) : (
+                    <b className={`cy-rl-v ${cls}`}>{sv || (curAt != null ? '대기' : '미실행')}</b>
+                  )}
                 </div>
-              )}
-            </div>
+                {s.cli && <pre className="cy-rl-cli">{s.cli}</pre>}
+                {s.criteria && <div className="cy-rl-crit">기준 · {s.criteria}</div>}
+                {isFail(sv) && s.reason && (
+                  <div className="cy-rl-why" title={s.reason ?? ''}>
+                    {String(s.reason).split('\n')[0]}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )
       })}

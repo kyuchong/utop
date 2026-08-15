@@ -2061,6 +2061,50 @@ table.tb td.k {
   min-width: 0;
   margin-top: 1px;
 }
+/* 수동 스텝 — 시험서처럼 절차·데이터·기대를 가로로, 판정은 오른끝 */
+.cy-rl-man {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr auto;
+  gap: 12px;
+  align-items: start;
+}
+.cy-rl-mc { min-width: 0; }
+.cy-rl-mc > i {
+  display: block;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--c-text-faint);
+  margin-bottom: 1px;
+}
+.cy-rl-mc > span {
+  font-size: var(--fs-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.cy-rl-judge { display: flex; gap: 4px; align-self: center; }
+.cy-rl-judge button {
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  cursor: pointer;
+  color: var(--c-text-muted);
+}
+.cy-rl-judge button.p.on {
+  background: var(--c-pass);
+  border-color: var(--c-pass);
+  color: #fff;
+}
+.cy-rl-judge button.f.on {
+  background: var(--c-fail);
+  border-color: var(--c-fail);
+  color: #fff;
+}
 /* 캐럿으로 펼친 저장본 — 파란 실행 판과 헷갈리지 않게 잿빛 */
 .cy-runline.cy-static {
   border-left-color: var(--c-border-strong);
