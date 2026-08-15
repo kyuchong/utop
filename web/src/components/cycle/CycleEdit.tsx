@@ -597,6 +597,17 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           {/* 건수는 안 적는다 — 3열 머리(배정된 항목 N)가 이미 말한다 */}
           {err && <span className="muted small err">{err}</span>}
           <span className="sp" />
+          <button
+            className="btn primary"
+            type="button"
+            disabled={!ready || busy}
+            onClick={() => void save()}
+          >
+            {busy ? '저장 중…' : '저장'}
+          </button>
+          <button className="btn" type="button" disabled={busy} onClick={onClose}>
+            Close
+          </button>
         </div>
 
         {/* Details / Test Cases — 기본 정보와 항목 고르기를 가른다 (Zephyr) */}
@@ -770,21 +781,6 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           </label>
           </fieldset>
 
-          {/* 저장은 아래에서 — Test Cases 탭의 Add 와 같은 자리 문법 */}
-          <div className="ce-addbar ce-wide">
-            <span className="sp" />
-            <button
-              className="btn primary"
-              type="button"
-              disabled={!ready || busy}
-              onClick={() => void save()}
-            >
-              {busy ? '저장 중…' : '저장'}
-            </button>
-            <button className="btn" type="button" disabled={busy} onClick={onClose}>
-              Close
-            </button>
-          </div>
         </div>
 
         {/* Test Cases 탭 — 담은 항목 완료 화면. 여기서 항목별 담당자를 정한다 */}
@@ -983,20 +979,6 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
                 })()}
               </div>
             )}
-            <div className="ce-addbar">
-              <span className="sp" />
-              <button
-                className="btn primary"
-                type="button"
-                disabled={!ready || busy}
-                onClick={() => void save()}
-              >
-                {busy ? '저장 중…' : '저장'}
-              </button>
-              <button className="btn" type="button" disabled={busy} onClick={onClose}>
-                Close
-              </button>
-            </div>
           </div>
         )}
 
