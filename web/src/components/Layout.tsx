@@ -87,7 +87,7 @@ export const NAV: NavGroup[] = [
   },
   {
     title: 'SYSTEM',
-    items: [{ key: 'settings', label: 'Setup', Icon: IconSettings }],
+    items: [{ key: 'settings', label: 'SETUP', Icon: IconSettings }],
   },
 ]
 
