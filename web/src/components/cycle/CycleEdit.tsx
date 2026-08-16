@@ -73,7 +73,6 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
   /** 이미 배정된 항목 숨기기 — 기본은 끔: 담긴 것은 회색으로 같이 보인다 */
   const [hideAdded, setHideAdded] = useState(false)
   /** 배정하면서 바로 넣을 담당자 — 비우면 Details 의 담당(Owner)을 쓴다 */
-  const [asgWho, setAsgWho] = useState('')
   /** Zephyr 의 Add others — 체크하면 담은 뒤에도 팝업이 남아 계속 담는다 */
   const [addOthers, setAddOthers] = useState(false)
   /** 항목 추가 팝업 — Test Cases 탭은 담은 결과 화면이고, 추가는 여기서 */
@@ -404,7 +403,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
           tcid: id,
           name: t?.name ?? '',
           req_id: t?.req_id ?? '',
-          assignee: (asgWho.trim() || assignee).trim(),
+          assignee: assignee.trim(),
           steps: [],
         }
       })
@@ -776,15 +775,9 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
             </div>
             {/* 항목 추가는 아래에서 — Zephyr 의 Add / Add others 자리 */}
             <div className="ce-addbar">
-              <input
-                className="ce-who"
-                value={asgWho}
-                placeholder="담당자 (선택)"
-                title="담으면서 이 담당자를 넣습니다 (비우면 Details 의 담당)"
-                onChange={(e) => setAsgWho(e.target.value)}
-              />
+              <span className="sp" />
               <span className="muted small">
-                {tcSel.size ? `${tcSel.size}건 고름` : '체크한 항목을 담습니다'}
+                {tcSel.size ? `${tcSel.size}건 선택` : '체크한 항목을 담습니다'}
               </span>
               <label className="ce-hide" title="체크해 두면 담은 뒤에도 창이 남아 계속 담습니다">
                 <input
@@ -794,7 +787,6 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
                 />
                 Add others
               </label>
-              <span className="sp" />
               <button
                 className="btn primary"
                 type="button"
