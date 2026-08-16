@@ -14161,6 +14161,8 @@ async def report_summary():
         model = c.get("model") or ""
         version = c.get("version") or ""
         vg = c.get("version_group") or ""
+        customer = str(c.get("customer") or "")
+        cstatus = str(c.get("status") or "")
         for it in (c.get("items") or []):
             if not isinstance(it, dict):
                 continue
@@ -14176,6 +14178,8 @@ async def report_summary():
                 "model": model,
                 "version": version,
                 "version_group": vg,
+                "customer": customer,
+                "cycle_status": cstatus,
                 "tcid": it.get("tcid") or "",
                 "name": it.get("name") or "",
                 "req_id": it.get("req_id") or "",

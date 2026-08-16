@@ -125,3 +125,15 @@
 .rp-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rp-bad { margin-left: 6px; font-style: normal; color: var(--c-fail); }
 .rp-more { padding: 6px 10px; }
+
+/* 축 셀렉트 — 차트 제목 안에 앉는다 */
+.rp-axis {
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  padding: 2px 6px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: var(--c-surface);
+  margin-right: 4px;
+}

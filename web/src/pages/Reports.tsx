@@ -11,6 +11,8 @@ interface Row {
   model: string
   version: string
   version_group: string
+  customer: string
+  cycle_status: string
   tcid: string
   name: string
   req_id: string
@@ -60,6 +62,11 @@ export default function Reports() {
   const [kind, setKind] = useState('')
   const [cyc, setCyc] = useState('')
   const [q, setQ] = useState('')
+  /** 기간 — 실행일 기준. 0 = 전체 */
+  const [days, setDays] = useState(0)
+  /** 축 분석 — 사이클 INFO 필드가 곧 축이다 (조사 결론: 축 교체가 리포트 엔진) */
+  const [axis, setAxis] = useState<'cycle' | 'version_group' | 'model' | 'customer' | 'severity' | 'assignee' | 'cycle_status'>('cycle')
+  const [axf, setAxf] = useState<{ axis: string; val: string } | null>(null)
 
   const sumQ = useQuery({
     queryKey: ['report', 'summary'],
@@ -76,33 +83,38 @@ export default function Reports() {
   /** 거르개를 지난 것 — 숫자·그림·목록이 모두 이것을 본다 */
   const rows = useMemo(() => {
     const n = q.trim().toLowerCase()
+    const cut = days ? new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10) : ''
     return all.filter(
       (r) =>
         (only === null || r.verdict === only) &&
         (!sev || r.severity === sev) &&
         (!kind || r.kind === kind) &&
         (!cyc || r.cycle_id === cyc) &&
+        (!cut || (r.executed_at || '').slice(0, 10) >= cut) &&
+        (!axf || String((r as unknown as Record<string, unknown>)[axf.axis] ?? '') === axf.val) &&
         (!n ||
           r.tcid.toLowerCase().includes(n) ||
           r.name.toLowerCase().includes(n) ||
           r.req_id.toLowerCase().includes(n)),
     )
-  }, [all, only, sev, kind, cyc, q])
+  }, [all, only, sev, kind, cyc, q, days, axf])
 
   /** 도넛·카드는 **결과 거르개만 빼고** 센다 — 안 그러면 고른 조각만 남아 원이 없어진다 */
   const base = useMemo(() => {
     const n = q.trim().toLowerCase()
+    const cut = days ? new Date(Date.now() - days * 86400_000).toISOString().slice(0, 10) : ''
     return all.filter(
       (r) =>
         (!sev || r.severity === sev) &&
         (!kind || r.kind === kind) &&
         (!cyc || r.cycle_id === cyc) &&
+        (!cut || (r.executed_at || '').slice(0, 10) >= cut) &&
         (!n ||
           r.tcid.toLowerCase().includes(n) ||
           r.name.toLowerCase().includes(n) ||
           r.req_id.toLowerCase().includes(n)),
     )
-  }, [all, sev, kind, cyc, q])
+  }, [all, sev, kind, cyc, q, days])
 
   const cnt = useMemo(() => {
     const m: Record<string, number> = {}
@@ -114,19 +126,58 @@ export default function Reports() {
   const done = (cnt['Pass'] ?? 0) + (cnt['Fail'] ?? 0)
   const pct = Math.round((done / total) * 100)
 
-  /** 버전(사이클)별 합격·불합격 — 어느 버전이 무너졌는지 */
+  /** 축별 합격·불합격 — 축(INFO 필드)을 갈아 끼우면 리포트가 바뀐다 */
+  const AXES: Array<{ k: typeof axis; label: string }> = [
+    { k: 'cycle', label: '사이클(버전)' },
+    { k: 'version_group', label: '버전그룹' },
+    { k: 'model', label: '모델' },
+    { k: 'customer', label: '고객' },
+    { k: 'severity', label: '심각도' },
+    { k: 'assignee', label: '담당자' },
+    { k: 'cycle_status', label: '사이클 상태' },
+  ]
   const byCycle = useMemo(() => {
     const m = new Map<string, { name: string; id: string; pass: number; fail: number; rest: number }>()
     for (const r of base) {
-      const cur = m.get(r.cycle_id) ?? { name: r.cycle, id: r.cycle_id, pass: 0, fail: 0, rest: 0 }
+      const key =
+        axis === 'cycle'
+          ? r.cycle_id
+          : String((r as unknown as Record<string, unknown>)[axis] ?? '') || '(없음)'
+      const label = axis === 'cycle' ? r.cycle : key
+      const cur = m.get(key) ?? { name: label, id: key, pass: 0, fail: 0, rest: 0 }
       if (r.verdict === 'Pass') cur.pass++
       else if (r.verdict === 'Fail') cur.fail++
       else cur.rest++
-      m.set(r.cycle_id, cur)
+      m.set(key, cur)
     }
     return [...m.values()].sort((a, b) => b.fail - a.fail || b.pass - a.pass).slice(0, 14)
-  }, [base])
+  }, [base, axis])
   const maxBar = Math.max(1, ...byCycle.map((x) => x.pass + x.fail + x.rest))
+
+  /** 거른 것을 CSV 로 — 원자료 내보내기(조사: 표 리포트는 Excel 이 실무 표준) */
+  const exportCsv = () => {
+    if (!rows.length) return
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const csv = [
+      ['결과', 'TC ID', '시험항목', '심각도', '요구사항', '사이클', '버전', '버전그룹', '고객', '담당자', '실행일']
+        .map(esc)
+        .join(','),
+      ...rows.map((r) =>
+        [
+          r.verdict || '미실행', r.tcid, r.name, r.severity, r.req_id, r.cycle,
+          r.version, r.version_group, r.customer, r.assignee, r.executed_at,
+        ]
+          .map(esc)
+          .join(','),
+      ),
+    ].join('\r\n')
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `리포트_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
 
   const sevs = useMemo(
     () => [...new Set(all.map((r) => r.severity).filter(Boolean))].sort(),
@@ -202,7 +253,22 @@ export default function Reports() {
               placeholder="TC ID · 이름 · 요구사항으로 찾기"
               onChange={(e) => setQ(e.target.value)}
             />
+            <select value={days} onChange={(e) => setDays(Number(e.target.value))} title="기간(실행일 기준)">
+              <option value={0}>기간 전체</option>
+              <option value={7}>최근 7일</option>
+              <option value={30}>최근 30일</option>
+              <option value={90}>최근 90일</option>
+            </select>
             <span className="sp" />
+            <button
+              className="btn small"
+              type="button"
+              disabled={!rows.length}
+              title="거른 결과를 원자료 그대로 CSV(Excel) 로 내려받습니다"
+              onClick={exportCsv}
+            >
+              Excel
+            </button>
             <button
               className="btn small"
               type="button"
@@ -212,6 +278,8 @@ export default function Reports() {
                 setKind('')
                 setCyc('')
                 setQ('')
+                setDays(0)
+                setAxf(null)
               }}
             >
               거르개 초기화
@@ -289,16 +357,35 @@ export default function Reports() {
 
             <div className="panel rp-chart">
               <b className="rp-ct">
-                버전별 합격 · 불합격 <span className="muted small">({byCycle.length}개)</span>
+                <select
+                  className="rp-axis"
+                  value={axis}
+                  title="축 — 사이클 INFO 필드를 갈아 끼우면 리포트가 바뀝니다"
+                  onChange={(e) => {
+                    setAxis(e.target.value as typeof axis)
+                    setAxf(null)
+                    setCyc('')
+                  }}
+                >
+                  {AXES.map((a) => (
+                    <option key={a.k} value={a.k}>
+                      {a.label}
+                    </option>
+                  ))}
+                </select>
+                별 합격 · 불합격 <span className="muted small">({byCycle.length}개)</span>
               </b>
               <div className="rp-bars">
                 {byCycle.map((c) => (
                   <button
                     key={c.id}
                     type="button"
-                    className={`rp-bar${cyc === c.id ? ' on' : ''}`}
-                    title={`${c.name} — 합격 ${c.pass} · 불합격 ${c.fail} · 예정 ${c.rest}`}
-                    onClick={() => setCyc(cyc === c.id ? '' : c.id)}
+                    className={`rp-bar${(axis === 'cycle' ? cyc === c.id : axf?.val === c.id) ? ' on' : ''}`}
+                    title={`${c.name} — 합격 ${c.pass} · 불합격 ${c.fail} · 예정 ${c.rest} — 누르면 아래 목록을 이것만으로`}
+                    onClick={() => {
+                      if (axis === 'cycle') setCyc(cyc === c.id ? '' : c.id)
+                      else setAxf(axf?.val === c.id ? null : { axis, val: c.id === '(없음)' ? '' : c.id })
+                    }}
                   >
                     <span className="rp-bnm">{c.name}</span>
                     <span className="rp-btrack">
