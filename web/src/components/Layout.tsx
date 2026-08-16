@@ -1,6 +1,5 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import {
-  IconAi,
   IconCycle,
   IconDashboard,
   IconDefect,
@@ -14,6 +13,7 @@ import {
   IconRack,
   IconSettings,
   IconTestCase,
+  IconSparkle,
 } from './icons'
 import NotifyBell from '@/components/NotifyBell'
 import TopStatus from './TopStatus'
@@ -39,7 +39,7 @@ export interface NavGroup {
  * 화면을 새로 옮길 때마다 이 목록에 한 줄씩 추가하는 방식으로 늘린다.
  */
 export const NAV: NavGroup[] = [
-  { items: [{ key: 'dashboard', label: '대시보드', Icon: IconDashboard }] },
+  { items: [{ key: 'dashboard', label: 'Dashboard', Icon: IconDashboard }] },
   {
     title: 'QUALITY',
     items: [
@@ -55,9 +55,9 @@ export const NAV: NavGroup[] = [
   {
     title: 'RESOURCES',
     items: [
-      { key: 'devices', label: '장비', Icon: IconDevice },
-      { key: 'instruments', label: '계측기', Icon: IconInstrument },
-      { key: 'rackview', label: '랙뷰', Icon: IconRack },
+      { key: 'devices', label: 'Devices', Icon: IconDevice },
+      { key: 'instruments', label: 'Traffic Gen', Icon: IconInstrument },
+      { key: 'rackview', label: 'Rack View', Icon: IconRack },
     ],
   },
   {
@@ -81,13 +81,13 @@ export const NAV: NavGroup[] = [
   {
     title: 'AI',
     items: [
-      { key: 'ai-tc', label: 'TC 생성', Icon: IconAi },
+      { key: 'ai-tc', label: 'AI', Icon: IconSparkle },
       { key: 'knowledge', label: 'Knowledge', Icon: IconKnowledge },
     ],
   },
   {
     title: 'SYSTEM',
-    items: [{ key: 'settings', label: '설정', Icon: IconSettings }],
+    items: [{ key: 'settings', label: 'Setup', Icon: IconSettings }],
   },
 ]
 

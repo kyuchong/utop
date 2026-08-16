@@ -90,6 +90,14 @@ export const IconAi = (p: P) => (
   </Svg>
 )
 
+/** AI 메뉴 — 반짝이. 칩 모양(IconAi)은 「생성」 느낌이 안 났다 */
+export const IconSparkle = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 4l1.8 4.7L18.5 10l-4.7 1.8L12 16.5l-1.8-4.7L5.5 10l4.7-1.3L12 4z" />
+    <path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9.9-2.1z" />
+  </Svg>
+)
+
 export const IconKnowledge = (p: P) => (
   <Svg {...p}>
     <path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" />
