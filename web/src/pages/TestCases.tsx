@@ -15,6 +15,7 @@ import { useMultiSelect } from '@/components/useMultiSelect'
 import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTree from '@/components/tc/TcTree'
+import FolderSortBtn from '@/components/FolderSortBtn'
 import TcStart from '@/components/tc/TcStart'
 import TcSessionBar from '@/components/tc/TcSessionBar'
 import TcParamBar from '@/components/tc/TcParamBar'
@@ -2158,19 +2159,7 @@ export default function TestCases({ me }: PageProps) {
               /* 찾기 단추와 **같은 모양**으로 나란히 둔다. 글자로 두었더니
                  「Coverage Tree 89」 옆에서 폭을 크게 먹어 이름이 밀렸다. */
               <>
-                <select
-                  className="rq-fsort"
-                  title="폴더 정렬 — 요구사항 1열과 같은 규칙, 보기만 바꿉니다"
-                  value={folderSort}
-                  onChange={(e) =>
-                    setFolderSort(e.target.value as 'manual' | 'num' | 'abc' | 'kor')
-                  }
-                >
-                  <option value="num">정렬: 숫자</option>
-                  <option value="abc">정렬: 알파벳</option>
-                  <option value="kor">정렬: 한글</option>
-                  <option value="manual">정렬: 끌기 순</option>
-                </select>
+                <FolderSortBtn value={folderSort} onChange={setFolderSort} />
                 <button
                   className={`lh-findbtn lh-gp${gpOpen ? ' on' : ''}`}
                   type="button"

@@ -184,6 +184,14 @@ export const IconFolder = ({ open, ...rest }: P & { open?: boolean }) => (
   </svg>
 )
 
+/** 정렬 — 줄어드는 막대 셋 + 내림 화살표. 폴더 정렬 버튼용 */
+export const IconSort = (p: P) => (
+  <Svg width="15" height="15" strokeWidth="2" {...p}>
+    <path d="M4 6h9M4 12h6M4 18h4" />
+    <path d="M17 8v8m0 0-3-3m3 3 3-3" />
+  </Svg>
+)
+
 /**
  * 프로젝트 — 요구사항 트리 최상위 전용. 폴더(노랑)와 갈리게 파란 서류가방.
  * 최상위 폴더 = 프로젝트명이라(2026-08 기획), 아이콘이 층을 말해 준다.

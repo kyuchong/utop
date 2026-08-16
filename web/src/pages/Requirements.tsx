@@ -11,6 +11,7 @@ import ReqBulkForm from '@/components/ReqBulkForm'
 import ReqBulkEdit from '@/components/ReqBulkEdit'
 import ReqMapDialog from '@/components/ReqMapDialog'
 import NewProjectDialog from '@/components/NewProjectDialog'
+import FolderSortBtn from '@/components/FolderSortBtn'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import ReqDetail from '@/components/ReqDetail'
 import {
@@ -800,26 +801,11 @@ export default function Requirements() {
               전부 2열 표(Add·Clone·Delete·Export)가 맡는다. 두 군데에
               같은 일이 있으면 어디를 눌러야 할지 매번 생각하게 된다. */}
           <ListHead
-            name="Requirement Tree"
+            name="Folder Tree"
             count={folderCount}
             onCollapse={() => setTreeOpen(false)}
-            // 폴더 정렬 — ⋯ 왼쪽 전용 단추. 이름 첫 글자 갈래(숫자·
-            // 알파벳·한글)를 앞세우는 방식이고 기본은 숫자다.
-            extra={
-              <select
-                className="rq-fsort"
-                title="폴더 정렬 — 보기만 바꿉니다"
-                value={folderSort}
-                onChange={(e) =>
-                  setFolderSort(e.target.value as 'manual' | 'num' | 'abc' | 'kor')
-                }
-              >
-                <option value="num">정렬: 숫자</option>
-                <option value="abc">정렬: 알파벳</option>
-                <option value="kor">정렬: 한글</option>
-                <option value="manual">정렬: 끌기 순</option>
-              </select>
-            }
+            // 폴더 정렬 — ⋯ 왼쪽 아이콘 단추. 기본은 숫자(자릿수 코드).
+            extra={<FolderSortBtn value={folderSort} onChange={setFolderSort} />}
             add={{ title: '새 프로젝트', onClick: () => setAddFolder((n) => n + 1) }}
             menu={
               <>
@@ -889,6 +875,13 @@ export default function Requirements() {
               onAddRoot={() => setNewProj(true)}
             />
           )}
+          {/* 카드 바닥 상태 바 — 세 칸이 같은 자리에서 같은 말을 한다(피드백) */}
+          <div className="bottom colbot">
+            <span>
+              폴더 {folderCount}개 · 요구사항 {allReqs.length}건
+            </span>
+            {picked.size > 0 && <span>{picked.size}건 선택됨</span>}
+          </div>
         </section>
         )}
 
@@ -1104,8 +1097,9 @@ export default function Requirements() {
                 })
               )}
             </div>
-            <div className="bottom">
+            <div className="bottom colbot">
               <span>요구사항 {midReqs.length}건</span>
+              {pickedInList.length > 0 && <span>{pickedInList.length}건 선택됨</span>}
             </div>
           </div>
         </section>
@@ -1294,7 +1288,7 @@ export default function Requirements() {
                 )}
               </div>
 
-              <div className="bottom">
+              <div className="bottom colbot">
                 <span>
                   {tcByFolder
                     ? `요구사항 ${folderReqs.length}건 · TC ${linked.length}건`
@@ -1302,6 +1296,12 @@ export default function Requirements() {
                   {shown.length !== linked.length && ` · ${shown.length}개 표시`}
                 </span>
               </div>
+            </div>
+          )}
+          {/* Info·Intent·이력 탭에도 바닥 상태 바 — 세 칸이 같은 문법 */}
+          {selectedReq && tab !== 'tc' && (
+            <div className="bottom colbot">
+              <span>연결 TC {linked.length}건</span>
             </div>
           )}
         </section>
