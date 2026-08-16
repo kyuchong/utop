@@ -3045,8 +3045,13 @@ function CycleDetail({
     const want = ceid
       ? `?ce=${encodeURIComponent(ce)}&it=${encodeURIComponent(ceid)}`
       : `?ce=${encodeURIComponent(ce)}`
-    if (window.location.search !== want)
-      window.history.replaceState({ utop: true }, '', window.location.pathname + want)
+    if (window.location.search !== want) {
+      // 실행 「진입」 은 한 칸 쌓는다 — 그래야 뒤로가기가 사이클 목록으로 온다.
+      // 항목 사이 이동(&it=)은 덮어쓴다 — 항목마다 쌓이면 뒤로가기가 한참이다
+      const already = new URLSearchParams(window.location.search).get('ce') === ce
+      if (already) window.history.replaceState({ utop: true }, '', window.location.pathname + want)
+      else window.history.pushState({ utop: true }, '', window.location.pathname + want)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openItem, cycle.ce, items])
 
