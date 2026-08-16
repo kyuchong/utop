@@ -780,8 +780,8 @@ export default function Requirements() {
             count={folderCount}
             onCollapse={() => setTreeOpen(false)}
             // 폴더 정렬 — ⋯ 왼쪽 아이콘 단추. 기본은 숫자(자릿수 코드).
+            // 파란 + 는 뺐다(피드백) — 새 프로젝트는 ⋯ 메뉴에 있다.
             extra={<FolderSortBtn value={folderSort} onChange={setFolderSort} />}
-            add={{ title: '새 프로젝트', onClick: () => setAddFolder((n) => n + 1) }}
             menu={
               <>
                 <button type="button" onClick={() => setAddFolder((n) => n + 1)}>
