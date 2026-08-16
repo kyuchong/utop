@@ -582,26 +582,6 @@
   white-space: nowrap;
 }
 
-/* 프로젝트 정보 칩 — 최상위 프로젝트 줄에만. 고객사·모델이 폴더와
-   프로젝트를 갈라 준다. 수 배지(rt-cnts)보다 조용해야 한다 — 이름 곁에
-   붙는 신원표지, 그 줄의 주인은 여전히 프로젝트명이다. */
-.rt-prj {
-  font-style: normal;
-  font-size: 10px;
-  line-height: 1.6;
-  padding: 0 5px;
-  margin-left: 4px;
-  border-radius: 4px;
-  background: #e8f1fb;
-  border: 1px solid #c3d9f0;
-  color: #2f6fb5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 0 1 auto;
-  min-width: 0;
-}
-
 /* 폴더 층을 아이콘 색으로 가른다.
    들여쓰기만으로는 1차·2차·3차가 한눈에 안 갈린다 — 폭을 줄여 두면
    들여쓴 폭이 몇 픽셀이라 층이 뭉개진다. 짙을수록 위층. */

@@ -642,7 +642,16 @@ export default function ReqTree({
           ) : (
             <b
               className="rt-fname"
-              title={prj?.description ? `${n.name} — ${prj.description}` : n.name}
+              // 프로젝트면 고객사·모델·설명을 툴팁으로 — 칩으로 달았더니
+              // 지저분하다는 피드백. 아이콘이 프로젝트임을 말하고,
+              // 정보는 올려야 보인다.
+              title={
+                prj
+                  ? [n.name, [prj.customer, prj.model].filter(Boolean).join(' · '), prj.description]
+                      .filter(Boolean)
+                      .join(' — ')
+                  : n.name
+              }
               // 두 번 누르면 이름 변경 — 탐색기와 같다
               onDoubleClick={(e) => {
                 e.stopPropagation()
@@ -651,13 +660,6 @@ export default function ReqTree({
             >
               {n.name}
             </b>
-          )}
-
-          {/* 프로젝트 정보 칩 — 고객사·모델이 폴더와 갈라 준다 */}
-          {prj && (prj.customer || prj.model) && (
-            <i className="rt-prj" title={[prj.customer, prj.model].filter(Boolean).join(' · ')}>
-              {[prj.customer, prj.model].filter(Boolean).join(' · ')}
-            </i>
           )}
 
           {/* 요구사항 수 · 시험 수.
