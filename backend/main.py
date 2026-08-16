@@ -9566,6 +9566,14 @@ async def _db_init():
     except Exception as e:
         print(f"[startup] cycle cid backfill failed: {e}", flush=True)
 
+    # 실행 타입 「혼합」 은 뺐다(합의) — 기동 때 지워 두면 253 도
+    # update.sh 만으로 같아진다. 없으면 그냥 지나간다(멱등).
+    try:
+        if await db.code_delete("tc_run_type", "혼합"):
+            print("[startup] 실행 타입 「혼합」 제거", flush=True)
+    except Exception as e:
+        print(f"[startup] 혼합 제거 실패: {e}", flush=True)
+
     # 파일 → DB(app_kv) 이전 (파일이 정본이면 DB 덮어씀). ai_usage/ai_feedback 는 _load_items_store 매핑도 등록.
     _KV_MIGRATIONS = [
         ("chat_sessions", CHAT_SESS_FILE),
