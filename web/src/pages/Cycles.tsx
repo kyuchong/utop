@@ -3633,7 +3633,10 @@ function CycleDetail({
                                 {verdictLabel(last.v)}
                                 {h.length > 1 ? ` +${h.length - 1}` : ''}
                               </i>
-                            ) : null}
+                            ) : (
+                              /* 공란은 못 읽는다 — 이전 회차 이력이 없으면 「미진행」 */
+                              <i className="hv-none ro full">미진행</i>
+                            )}
                           </span>
                         )
                       })()}

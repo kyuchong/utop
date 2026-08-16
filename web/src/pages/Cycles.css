@@ -637,7 +637,7 @@ select.cy-v.na { color: #999; }
 @media (prefers-reduced-motion: reduce) {
   .sc-card.running { animation: none; }
 }
-.sc-head { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); }
+.sc-head { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); }
 .sc-head .sp { margin-left: auto; }
 
 /* 언제 · 얼마나 걸렸나. 옅게 둔다 — 늘 읽는 것은 아니지만
@@ -692,7 +692,7 @@ select.cy-v.na { color: #999; }
   color: var(--c-text-faint);
   margin-bottom: 2px;
 }
-.sc-sec > div { font-size: var(--fs-xs); }
+.sc-sec > div { font-size: var(--fs-md); }
 .sc-exp { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
 .sc-type {
   background: var(--c-accent-soft);
@@ -2367,7 +2367,7 @@ table.tb td.k {
 .cxp-row {
   /* 그리드 세 칸: ☐ | 이름 | 오른쪽 묶음 — 칸이 정해져 있어 침범이 불가능하다 */
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
   padding: 6px 10px 6px 7px;
@@ -2393,18 +2393,24 @@ table.tb td.k {
   align-items: center;
   gap: 5px;
 }
+.cxp-row > input[type='checkbox'] { width: 16px; height: 16px; margin: 0; }
 .cxp-rgt .cxp-hist { justify-self: start; }
 .cxp-hist > i.ro { cursor: default; }
 .cxp-hist > i.ro:hover { filter: none; }
 /* 최근 결과를 말로 — P/F 한 글자는 못 읽겠다는 피드백 */
 .cxp-hist > i.full {
-  width: auto;
+  width: 100%;
   height: 20px;
-  padding: 0 7px;
+  padding: 0 4px;
   font-size: var(--fs-md);
   border-radius: 5px;
   white-space: nowrap;
+  justify-content: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+.cxp-hist { width: 100%; }
+.cxp-hist > i.hv-none { background: var(--c-surface-alt); color: var(--c-text-faint); border-color: var(--c-border); }
 
 /* 담당자 할당 아이콘 — 누르면 사람 목록. 미할당은 회색 사람 */
 .cxp-who {
