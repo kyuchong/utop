@@ -3115,10 +3115,10 @@ table.tb td.k {
   line-height: 1.5;
 }
 .ce-md .milkdown .ProseMirror { padding-top: 40px !important; }
-/* 제목 크기 — 브라우저 기본 배율(2em…)이 그대로면 본문과 격차가 너무 크다 */
-.ce-md .milkdown .ProseMirror h1 { font-size: 17px !important; margin: 6px 0 4px; }
-.ce-md .milkdown .ProseMirror h2 { font-size: 15px !important; margin: 6px 0 4px; }
-.ce-md .milkdown .ProseMirror h3 { font-size: 13.5px !important; margin: 4px 0 3px; }
+/* 제목 크기 — 본문(12px)과 단계가 읽히게: H1 20 · H2 17 · H3 14.5 */
+.ce-md .milkdown .ProseMirror h1 { font-size: 20px !important; margin: 8px 0 5px; }
+.ce-md .milkdown .ProseMirror h2 { font-size: 17px !important; margin: 7px 0 4px; }
+.ce-md .milkdown .ProseMirror h3 { font-size: 14.5px !important; font-weight: 700; margin: 5px 0 3px; }
 .ce-md .md-editor, .ce-md .w-md-editor { min-height: 120px; }
 
 /* 아래 Add 바 — 항목은 여기서 담는다 */
