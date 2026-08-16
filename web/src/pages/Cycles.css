@@ -3329,14 +3329,11 @@ table.tb td.k {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 설명은 마크다운(.md)으로 그린다 — 높이 캡 없이 전부 보여 준다.
+   보드 자체가 스크롤 주체라 카드 안에 또 스크롤을 만들지 않는다 */
 .cyt-ddesc {
-  white-space: pre-wrap;
-  font-size: var(--fs-sm);
-  color: var(--c-text-faint);
   border-top: 1px dashed var(--c-border);
   padding-top: 8px;
-  max-height: 180px;
-  overflow-y: auto;
 }
 
 /* Bulk Edit — 바꿀 사이클 목록 */

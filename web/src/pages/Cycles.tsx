@@ -29,6 +29,7 @@ import {
   IconTag,
   IconTrash,
 } from '@/components/icons'
+import Markdown from '@/components/Markdown'
 import type { TestCaseMeta } from '@/types'
 import { stepVerdict, type StepRound, type TcStep } from '@/components/tc/types'
 // 요구사항 화면의 트리 규칙을 그대로 쓴다 — 줄 높이·색·여백이 한 곳에서만
@@ -1952,7 +1953,11 @@ function CycleBoard({
                             <span className="cyt-dkv"><b>원본</b><i>{c.cloned_from}</i></span>
                           ) : null}
                         </div>
-                        {c.description ? <div className="cyt-ddesc">{c.description}</div> : null}
+                        {c.description ? (
+                          <div className="cyt-ddesc">
+                            <Markdown text={c.description} />
+                          </div>
+                        ) : null}
                       </div>
                     )}
                     {/* 사이클 = 시험항목의 모음 — 펼치면 그 목록이 보인다.
