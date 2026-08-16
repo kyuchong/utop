@@ -133,3 +133,60 @@
 }
 .dash-run-bar > b { display: block; height: 100%; background: var(--c-primary); transition: width 0.4s; }
 .dash-run > em { font-style: normal; font-size: var(--fs-sm); color: var(--c-text-faint); flex: none; }
+
+/* 자산 현황 — 숫자 셋이 나란히 */
+.dash-tri { display: flex; gap: 18px; }
+.dash-tri > span { display: flex; flex-direction: column; }
+.dash-tri b { font-size: 22px; font-weight: 700; line-height: 1.1; }
+.dash-tri i { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
+
+/* 자동화율 미니 막대 */
+.dash-auto-bar {
+  display: flex;
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--c-surface-alt);
+  margin: 2px 0;
+}
+.dash-auto-bar > b { display: block; background: #378add; }
+.dash-auto-bar > i { display: block; background: var(--c-border); }
+.dash-ver > em.bad { color: var(--c-fail); }
+
+/* 최근 결함 목록 */
+.dash-defs { display: flex; flex-direction: column; gap: 4px; }
+.dash-def {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  background: transparent;
+  padding: 4px 2px;
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.dash-def:hover { background: var(--c-surface-alt); }
+.dash-def > s {
+  text-decoration: none;
+  flex: none;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: var(--c-surface-alt);
+  color: var(--c-text-faint);
+}
+.dash-def > s.sv-치명, .dash-def > s.sv-blocker { background: #fde4e4; color: #c22; }
+.dash-def > s.sv-중대, .dash-def > s.sv-major { background: #faeeda; color: #854f0b; }
+.dash-def-t {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-md);
+}
+.dash-def > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); flex: none; }

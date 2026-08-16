@@ -10621,6 +10621,35 @@ async def dashboard_data():
     st2 = _cb_run_state
     if st2 and _t.time() - st2.get("_at", 0) <= 1800:
         run = {k: st2.get(k) for k in ("key", "name", "done", "total", "user")}
+    # 자산 현황 + 자동화율 — TC 메타에서
+    try:
+        tcs = await db.tc_list_meta()
+    except Exception:
+        tcs = []
+    try:
+        reqs_n = len(await db.req_list_full())
+    except Exception:
+        reqs_n = 0
+    auto_n = sum(1 for t2 in tcs if str(t2.get("kind") or t2.get("run_type") or "").strip() == "자동")
+    # 자주 깨지는 TC — 모든 회차의 Fail 을 tcid 로 센다
+    fail_by = {}
+    for c in metas:
+        for it in (c.get("items") or []):
+            if not isinstance(it, dict):
+                continue
+            v = _item_verdict(it)
+            tid = str(it.get("tcid") or "")
+            if not tid or not v:
+                continue
+            rec = fail_by.setdefault(tid, {"tcid": tid, "name": str(it.get("name") or ""), "fails": 0, "runs": 0})
+            rec["runs"] += 1
+            if v == "FAIL":
+                rec["fails"] += 1
+    top_fail = sorted((x for x in fail_by.values() if x["fails"] > 0), key=lambda x: -x["fails"])[:5]
+    recent_defects = [
+        {k: str(x.get(k) or "") for k in ("id", "title", "severity", "status", "created_at", "cycle_id", "tcid")}
+        for x in opened[:5]
+    ]
     return {
         "devices": {"total": len(devices) - len(meters), "groups": dev_groups},
         "meters": {"total": len(meters)},
@@ -10629,6 +10658,10 @@ async def dashboard_data():
         "daily": [{"date": d2, **daily[d2]} for d2 in days],
         "versions": versions[:8],
         "running": run,
+        "assets": {"reqs": reqs_n, "tcs": len(tcs), "cycles": len(metas)},
+        "automation": {"auto": auto_n, "manual": max(len(tcs) - auto_n, 0)},
+        "top_fail": top_fail,
+        "recent_defects": recent_defects,
     }
 
 @app.get("/api/cycle-run-progress")

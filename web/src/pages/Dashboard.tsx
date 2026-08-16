@@ -28,6 +28,18 @@ interface DashData {
     done: number
   }>
   running: { key?: string; name?: string; done?: number; total?: number; user?: string } | null
+  assets: { reqs: number; tcs: number; cycles: number }
+  automation: { auto: number; manual: number }
+  top_fail: Array<{ tcid: string; name: string; fails: number; runs: number }>
+  recent_defects: Array<{
+    id: string
+    title: string
+    severity: string
+    status: string
+    created_at: string
+    cycle_id: string
+    tcid: string
+  }>
 }
 
 /** 위젯 목록 — ⚙ 로 보이기/숨기기 (표 열 설정과 같은 문법) */
@@ -36,7 +48,11 @@ const WIDGETS: Array<{ k: string; label: string }> = [
   { k: 'meters', label: 'Traffic Gen' },
   { k: 'today', label: '오늘 실행' },
   { k: 'defects', label: '열린 결함' },
+  { k: 'assets', label: '자산 현황 (REQ·TC·사이클)' },
+  { k: 'automation', label: '자동화율' },
   { k: 'daily', label: '데일리 실행 추이' },
+  { k: 'topfail', label: '자주 깨지는 TC' },
+  { k: 'rdefects', label: '최근 결함' },
   { k: 'versions', label: '버전별 합격률' },
   { k: 'running', label: '진행 중 사이클' },
 ]
@@ -151,6 +167,40 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
             <em>{d && d.defects.week_new ? `이번 주 +${d.defects.week_new}` : '이번 주 새것 없음'}</em>
           </button>
         )}
+        {ws.has('assets') && (
+          <button type="button" className="dash-card dash-card3" onClick={() => onNav('requirements')}>
+            <i>시험 자산</i>
+            <span className="dash-tri">
+              <span>
+                <b>{d ? d.assets.reqs : '–'}</b>
+                <i>요구사항</i>
+              </span>
+              <span>
+                <b>{d ? d.assets.tcs : '–'}</b>
+                <i>시험항목</i>
+              </span>
+              <span>
+                <b>{d ? d.assets.cycles : '–'}</b>
+                <i>사이클</i>
+              </span>
+            </span>
+          </button>
+        )}
+        {ws.has('automation') && (
+          <button type="button" className="dash-card" onClick={() => onNav('testcases')}>
+            <i>자동화율</i>
+            <b>
+              {d && d.automation.auto + d.automation.manual > 0
+                ? `${Math.round((d.automation.auto / (d.automation.auto + d.automation.manual)) * 100)}%`
+                : '–'}
+            </b>
+            <span className="dash-auto-bar">
+              <b style={{ flexGrow: d?.automation.auto ?? 0 }} />
+              <i style={{ flexGrow: d?.automation.manual ?? 1 }} />
+            </span>
+            <em>{d ? `자동 ${d.automation.auto} · 수동 ${d.automation.manual}` : ''}</em>
+          </button>
+        )}
       </div>
 
       {/* 진행 중 — 실행 화면의 진행 줄과 같은 문법 */}
@@ -228,6 +278,54 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
               ))}
               {d && d.versions.length === 0 && (
                 <div className="empty">아직 사이클이 없습니다.</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="dash-two">
+        {ws.has('topfail') && (
+          <div className="dash-wide">
+            <div className="dash-wt">자주 깨지는 TC (전체 회차 Fail 수 — 누르면 그 시험으로)</div>
+            <div className="dash-vers">
+              {(d?.top_fail ?? []).map((t2) => (
+                <button
+                  key={t2.tcid}
+                  type="button"
+                  className="dash-ver"
+                  title={`${t2.tcid} — ${t2.runs}회 중 ${t2.fails}회 Fail`}
+                  onClick={() => goto('tc', t2.tcid)}
+                >
+                  <i>{t2.name || t2.tcid}</i>
+                  <span className="dash-ver-bar">
+                    <b style={{ flexGrow: t2.fails, background: '#E24B4A' }} />
+                    <b style={{ flexGrow: Math.max(t2.runs - t2.fails, 0), background: '#d5dae2' }} />
+                  </span>
+                  <em className="bad">{t2.fails}회</em>
+                </button>
+              ))}
+              {d && d.top_fail.length === 0 && (
+                <div className="empty">깨진 시험이 없습니다 — 좋은 신호입니다.</div>
+              )}
+            </div>
+          </div>
+        )}
+        {ws.has('rdefects') && (
+          <div className="dash-wide">
+            <div className="dash-wt">최근 결함 (열린 것 — 누르면 Defects)</div>
+            <div className="dash-defs">
+              {(d?.recent_defects ?? []).map((x) => (
+                <button key={x.id} type="button" className="dash-def" onClick={() => onNav('defects')}>
+                  <s className={`sv-${(x.severity || '').toLowerCase()}`}>{x.severity || '—'}</s>
+                  <span className="dash-def-t" title={x.title}>
+                    {x.title || x.id}
+                  </span>
+                  <em>{x.created_at.slice(5, 10)}</em>
+                </button>
+              ))}
+              {d && d.recent_defects.length === 0 && (
+                <div className="empty">열린 결함이 없습니다.</div>
               )}
             </div>
           </div>
