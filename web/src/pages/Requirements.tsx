@@ -322,6 +322,73 @@ export default function Requirements() {
     return arr
   }, [folderReqs])
 
+  /**
+   * 2열 줄을 끌어 1열 폴더에 놓기.
+   *
+   * 트리 안 끌기(ReqTree)와 같은 포인터 방식이다 — HTML5 드래그는 줄에
+   * 버튼·체크박스가 있으면 시작조차 안 된다. 놓을 곳은 트리가 줄마다
+   * 달아 둔 data-folder 로 찾는다.
+   */
+  const [rowGhost, setRowGhost] = useState<{ x: number; y: number; label: string } | null>(null)
+  const moveRowM = useMutation({
+    mutationFn: async ({ r, folderId }: { r: Requirement; folderId: string | null }) => {
+      const byId = new Map((catQ.data?.categories ?? []).map((c) => [c.id, c]))
+      const chain: string[] = []
+      let cur = folderId ? byId.get(folderId) : undefined
+      while (cur) {
+        chain.unshift(cur.id)
+        cur = cur.parent_id ? byId.get(cur.parent_id) : undefined
+      }
+      return reqApi.save(reqPk(r), {
+        ...r,
+        cat1: chain[0] ?? null,
+        cat2: chain[1] ?? null,
+        cat3: chain[2] ?? null,
+        cat4: chain[3] ?? null,
+      })
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['req', 'list'] })
+      void qc.invalidateQueries({ queryKey: ['req-categories'] })
+    },
+  })
+  const beginRowDrag = (e: React.PointerEvent, r: Requirement) => {
+    if (e.button !== 0) return
+    const x0 = e.clientX
+    const y0 = e.clientY
+    let started = false
+    const move = (ev: PointerEvent) => {
+      if (!started) {
+        if (Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 5) return
+        started = true
+        document.body.style.userSelect = 'none'
+        document.body.style.cursor = 'grabbing'
+      }
+      setRowGhost({ x: ev.clientX, y: ev.clientY, label: r.title || reqLabel(r) })
+    }
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      document.body.style.userSelect = ''
+      document.body.style.cursor = ''
+      setRowGhost(null)
+      if (!started) return
+      const el = document.elementFromPoint(ev.clientX, ev.clientY)
+      const row = el?.closest('[data-folder]') as HTMLElement | null
+      const target = row
+        ? row.dataset.folder || null
+        : el?.closest('[data-root]')
+          ? null
+          : undefined
+      if (target === undefined) return
+      const at = (r.cat4 || r.cat3 || r.cat2 || r.cat1 || null) as string | null
+      if (at === target) return
+      moveRowM.mutate({ r, folderId: target })
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
   /** TC 표가 폴더 묶음을 보여 주는 중인가 — 그때만 「요구사항」 열이 뜬다 */
   const tcByFolder = !selectedReq && folderMode
 
@@ -601,6 +668,12 @@ export default function Requirements() {
             setSelected(null)
           }}
         />
+      )}
+      {rowGhost && (
+        <div className="rt-ghost" style={{ left: rowGhost.x + 14, top: rowGhost.y + 12 }}>
+          <IconReqDoc />
+          {rowGhost.label}
+        </div>
       )}
       {bulkEditOpen && (
         <ReqBulkEdit
@@ -920,6 +993,8 @@ export default function Requirements() {
                     <div
                       className={`rq-tr${listPick.has(pk) ? ' picked' : ''}${pk === selected ? ' on' : ''}`}
                       key={pk}
+                      // 끌어서 1열 폴더로 — 5px 은 눌러 고르기와 안 겹친다
+                      onPointerDown={(e) => beginRowDrag(e, r)}
                     >
                       <div className="rq-ck">
                         <input
