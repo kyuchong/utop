@@ -767,8 +767,14 @@ select.cy-v.na { color: #999; }
   overflow: hidden;
 }
 .modal.ce .ce-left { min-height: 0; }
-.modal.ce .ce-left .ce-md {
+/* 설명 칸(fld 그리드)이 남는 세로를 다 먹는다 — 여기가 안 늘면 편집기도 안 는다 */
+.modal.ce .ce-left > .ce-desc-fld {
   flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+.modal.ce .ce-left .ce-md {
+  height: 100%;
   min-height: 160px;
   display: flex;
   flex-direction: column;
