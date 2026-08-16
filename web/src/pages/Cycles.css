@@ -3525,6 +3525,13 @@ table.tb td.k {
 .cy-sum-ai-h > b { font-size: var(--fs-sm); }
 .cy-sum-ai-h > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
 .cy-sum-ai-err { color: var(--c-fail); font-size: var(--fs-sm); }
+.cy-sum-ai-note {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--c-border);
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
 /* 요약 본문 — 읽는 글이라 작게 하지 않는다 */
 .cy-sum-ai-body {
   background: var(--c-surface-alt);

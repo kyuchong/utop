@@ -3367,6 +3367,9 @@ function CycleDetail({
                 ) : (
                   <div className="cy-sum-ai-body">
                     <Markdown text={aiTxt} />
+                    <div className="cy-sum-ai-note">
+                      AI 는 실수할 수 있습니다. 정보를 다시 한번 확인해 주세요.
+                    </div>
                   </div>
                 )}
               </div>
