@@ -136,8 +136,10 @@ export const IconChevron = (p: P) => (
  */
 export const IconFolder = ({ open, ...rest }: P & { open?: boolean }) => (
   <svg
-    width="17"
-    height="17"
+    // 15px — 26px 줄에서 17px 는 아이콘이 글자보다 먼저 읽혔다
+    // (Zephyr 는 줄의 절반가량). 글자가 주인공이어야 한다.
+    width="15"
+    height="15"
     viewBox="0 0 16 16"
     aria-hidden="true"
     focusable="false"
@@ -187,7 +189,7 @@ export const IconFolder = ({ open, ...rest }: P & { open?: boolean }) => (
  * 최상위 폴더 = 프로젝트명이라(2026-08 기획), 아이콘이 층을 말해 준다.
  */
 export const IconProject = (p: P) => (
-  <svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true" focusable="false" {...p}>
+  <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" focusable="false" {...p}>
     <path
       d="M6 4.4v-1a.8.8 0 0 1 .8-.8h2.4a.8.8 0 0 1 .8.8v1"
       fill="none"
@@ -225,7 +227,7 @@ export const IconProject = (p: P) => (
  * 안 갈렸다.** 둘 다 그냥 글자였다. ID 앞에 작은 표를 둔다.
  */
 export const IconReqDoc = (p: P) => (
-  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false" {...p}>
+  <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false" {...p}>
     {/* 세로로 길쭉하면 옆 글자와 안 맞는다. 폭을 넓혀 정사각에 가깝게 */}
     <path
       d="M2.6 2.6h6.2l3.6 3.4v7.4a.6.6 0 0 1-.6.6H2.6a.6.6 0 0 1-.6-.6V3.2a.6.6 0 0 1 .6-.6Z"
@@ -246,7 +248,7 @@ export const IconReqDoc = (p: P) => (
 
 /** 시험 한 건 — 확인 표가 붙은 종이 */
 export const IconTcDoc = (p: P) => (
-  <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false" {...p}>
+  <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" focusable="false" {...p}>
     <path
       d="M2.6 2.6h6.2l3.6 3.4v7.4a.6.6 0 0 1-.6.6H2.6a.6.6 0 0 1-.6-.6V3.2a.6.6 0 0 1 .6-.6Z"
       fill="#dcfce7"
