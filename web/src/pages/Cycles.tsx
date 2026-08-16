@@ -3658,7 +3658,26 @@ function CycleDetail({
                     </span>
                     {/* 오른쪽 무리 — 한 묶음(간격 균일): M/A · 이력 · 결과 셀렉트 · ▶ · 회귀 · 점 */}
                     <span className="cxp-rgt" onClick={(e) => e.stopPropagation()}>
+                      {/* 담당자 — 읽기 전용 아이콘. 할당은 사이클 수정 창에서 */}
                       {(() => {
+                        const who = String(it.assignee ?? '')
+                          .split(/[,·/;]+/)
+                          .map((x) => x.trim())
+                          .filter(Boolean)
+                        return (
+                          <span
+                            className={`cxp-who${who.length ? '' : ' none'}`}
+                            title={who.length ? `담당: ${who.join(', ')}` : '담당자 없음'}
+                          >
+                            {who.length ? (
+                              <>
+                                <i>{(who[0]![0] || '?').toUpperCase()}</i>
+                                {who.length > 1 && <em>+</em>}
+                              </>
+                            ) : (
+                              <i className="g">👤</i>
+                            )}
+                            {(() => {
                         const kd = typeOf(it)
                         return (
                           <i className={`cxp-k ${kd}`} title={kd === 'manual' ? '수동' : '자동'}>
@@ -3692,26 +3711,7 @@ function CycleDetail({
                           </span>
                         )
                       })()}
-                      {/* 담당자 — 읽기 전용 아이콘. 할당은 사이클 수정 창에서 */}
-                      {(() => {
-                        const who = String(it.assignee ?? '')
-                          .split(/[,·/;]+/)
-                          .map((x) => x.trim())
-                          .filter(Boolean)
-                        return (
-                          <span
-                            className={`cxp-who${who.length ? '' : ' none'}`}
-                            title={who.length ? `담당: ${who.join(', ')}` : '담당자 없음'}
-                          >
-                            {who.length ? (
-                              <>
-                                <i>{(who[0]![0] || '?').toUpperCase()}</i>
-                                {who.length > 1 && <em>+</em>}
-                              </>
-                            ) : (
-                              <i className="g">👤</i>
-                            )}
-                          </span>
+                    </span>
                         )
                       })()}
                     </span>
