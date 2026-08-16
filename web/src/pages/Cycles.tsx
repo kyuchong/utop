@@ -54,6 +54,11 @@ export interface CycleMeta {
   /** 부여 ID — C-<연2><주차2>-<순번3>. 서버가 매긴다 */
   cid?: string | null
   created_by?: string | null
+  /** 사이클 상태 — 설정 → 사이클 INFO 필드 값 */
+  status?: string | null
+  description?: string | null
+  /** 복제 원본 사이클 id */
+  cloned_from?: string | null
   /** 자유 폴더 경로 (예: L3/E6100/R100). 비면 모델·버전그룹에서 파생 */
   folder?: string | null
   items?: CycleItemLite[]
@@ -1321,6 +1326,7 @@ export default function Cycles({ me }: PageProps) {
             onDel={(ids) => void delCycles(ids)}
             onEdit={(id) => setEditId(id)}
             onRun={(id) => setSel(id)}
+            onRefresh={() => void listQ.refetch()}
           />
         )}
       </section>
@@ -1372,6 +1378,7 @@ function CycleBoard({
   onDel,
   onEdit,
   onRun,
+  onRefresh,
 }: {
   cycles: CycleMeta[]
   /** 추가 — 새 사이클 만들기 */
@@ -1382,6 +1389,7 @@ function CycleBoard({
   onDel: (ids: string[]) => void
   /** 수정 — 한 개 골랐을 때 (사이클 편집 창) */
   onEdit: (id: string) => void
+  onRefresh: () => void
   /** 실행 — 한 개 골라 열면서 전체 실행을 건다 */
   onRun: (id: string) => void
 }) {
@@ -1448,6 +1456,10 @@ function CycleBoard({
   const [picked, setPicked] = useState<Set<string>>(new Set())
   /** 인라인으로 펼친 사이클들 — 시험 항목이 줄 밑에 보인다 */
   const [exp, setExp] = useState<Set<string>>(new Set())
+  /** 사이클 ID 를 누르면 펼쳐지는 세부내역 — 보기만 한다 */
+  const [dexp, setDexp] = useState<Set<string>>(new Set())
+  /** 여러 개 고르고 Edit — 상태·고객·담당자를 한꺼번에 바꾼다 */
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   /** 인라인 카드에 보일 필드 — 시험항목 화면과 같은 목록에서 ⚙ 로 고른다 */
   const [itCols, setItCols] = useState<Set<string>>(() => {
@@ -1606,11 +1618,17 @@ function CycleBoard({
             <button
               className="btn"
               type="button"
-              disabled={picked.size !== 1}
-              title={picked.size === 1 ? '고른 사이클을 편집합니다' : '하나만 고르세요'}
-              onClick={() => onEdit([...picked][0]!)}
+              title={
+                picked.size === 1
+                  ? '고른 사이클을 편집합니다'
+                  : '고른 사이클들의 상태·고객·담당자를 한꺼번에 바꿉니다'
+              }
+              onClick={() => {
+                if (picked.size === 1) onEdit([...picked][0]!)
+                else setBulkOpen(true)
+              }}
             >
-              Edit
+              {picked.size > 1 ? `Bulk Edit (${picked.size})` : 'Edit'}
             </button>
             <button
               className="btn"
@@ -1813,9 +1831,9 @@ function CycleBoard({
                       <button
                         type="button"
                         className="cyt-key"
-                        title={`${c.id} — 누르면 시험 항목이 펼쳐집니다`}
+                        title={`${c.id} — 누르면 세부내역이 펼쳐집니다`}
                         onClick={() =>
-                          setExp((cur) => {
+                          setDexp((cur) => {
                             const n = new Set(cur)
                             if (n.has(c.id)) n.delete(c.id)
                             else n.add(c.id)
@@ -1828,15 +1846,8 @@ function CycleBoard({
                       <button
                         type="button"
                         className="cyt-name cyt-ell"
-                        title={c.name ?? ''}
-                        onClick={() =>
-                          setExp((cur) => {
-                            const n = new Set(cur)
-                            if (n.has(c.id)) n.delete(c.id)
-                            else n.add(c.id)
-                            return n
-                          })
-                        }
+                        title={`${c.name ?? ''} — 누르면 실행 화면으로 갑니다`}
+                        onClick={() => onRun(c.id)}
                       >
                         {c.name || '–'}
                       </button>
@@ -1919,6 +1930,31 @@ function CycleBoard({
                         }
                       })}
                     </div>
+                    {/* 사이클 ID 를 눌러 펼친 세부내역 — 보기만 한다. 고치는 것은 Edit */}
+                    {dexp.has(c.id) && (
+                      <div className="cyt-dcard">
+                        <div className="cyt-dgrid">
+                          <span className="cyt-dkv"><b>사이클 ID</b><i>{c.cid || '–'}</i></span>
+                          <span className="cyt-dkv"><b>제목</b><i title={c.name ?? ''}>{c.name || '–'}</i></span>
+                          <span className="cyt-dkv"><b>상태</b><i>{c.status || '–'}</i></span>
+                          <span className="cyt-dkv"><b>고객</b><i>{c.customer || '–'}</i></span>
+                          <span className="cyt-dkv"><b>버전그룹</b><i>{c.version_group || '–'}</i></span>
+                          <span className="cyt-dkv"><b>버전</b><i>{c.version || '–'}</i></span>
+                          <span className="cyt-dkv"><b>담당자</b><i>{c.assignee || '–'}</i></span>
+                          <span className="cyt-dkv"><b>생성자</b><i>{c.created_by || '–'}</i></span>
+                          <span className="cyt-dkv"><b>생성일</b><i>{fmtD(c._created_at_pg)}</i></span>
+                          <span className="cyt-dkv"><b>변경일</b><i>{fmtD(c._updated_at_pg)}</i></span>
+                          <span className="cyt-dkv">
+                            <b>진행</b>
+                            <i>{`${t.total}건 · 실행 ${t.done} · Pass ${t.pass} · Fail ${t.fail} · 결함 ${t.iss}`}</i>
+                          </span>
+                          {c.cloned_from ? (
+                            <span className="cyt-dkv"><b>원본</b><i>{c.cloned_from}</i></span>
+                          ) : null}
+                        </div>
+                        {c.description ? <div className="cyt-ddesc">{c.description}</div> : null}
+                      </div>
+                    )}
                     {/* 사이클 = 시험항목의 모음 — 펼치면 그 목록이 보인다.
                         여기서는 보기만, 항목을 누르면 실행 화면으로 */}
                     {open && (
@@ -2034,6 +2070,146 @@ function CycleBoard({
         <div className="empty">아직 사이클이 없습니다 — 위 + New 로 만드세요.</div>
       )}
       </section>
+      {bulkOpen && (
+        <BulkEditDialog
+          ids={[...picked]}
+          cycles={cycles}
+          onClose={() => setBulkOpen(false)}
+          onDone={() => {
+            setBulkOpen(false)
+            setPicked(new Set())
+            onRefresh()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/**
+ * Bulk Edit — 고른 사이클 여러 개의 상태·고객·담당자를 한꺼번에 바꾼다.
+ * 비워 두면(— 그대로 —) 그 칸은 손대지 않는다.
+ */
+function BulkEditDialog({
+  ids,
+  cycles,
+  onClose,
+  onDone,
+}: {
+  ids: string[]
+  cycles: CycleMeta[]
+  onClose: () => void
+  onDone: () => void
+}) {
+  const codesQ = useQuery({
+    queryKey: ['codes'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes')
+      if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
+      return (await r.json()) as { items: Array<{ kind: string; value: string }> }
+    },
+    staleTime: 60_000,
+  })
+  const codeVals = (kind: string) =>
+    (codesQ.data?.items ?? []).filter((i) => i.kind === kind).map((i) => i.value)
+
+  const [status, setStatus] = useState('')
+  const [customer, setCustomer] = useState('')
+  const [assignee, setAssignee] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const nothing = !status && !customer && !assignee.trim()
+
+  const apply = async () => {
+    setBusy(true)
+    setErr('')
+    let bad = 0
+    for (const id of ids) {
+      try {
+        const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`)
+        if (!r.ok) throw new Error()
+        const data = (await r.json()) as Record<string, unknown>
+        if (status) data.status = status
+        if (customer) data.customer = customer
+        if (assignee.trim()) data.assignee = assignee.trim()
+        const w = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+        if (!w.ok) throw new Error()
+      } catch {
+        bad += 1
+      }
+    }
+    setBusy(false)
+    if (bad) setErr(`${bad}건은 저장하지 못했습니다`)
+    else onDone()
+  }
+
+  const nameOf = (id: string) => {
+    const c = cycles.find((x) => x.id === id)
+    return c ? `${c.cid || c.version || id} — ${c.name || ''}` : id
+  }
+
+  return (
+    <div className="modal-back" onMouseDown={() => !busy && onClose()}>
+      <div className="modal cy-clone" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <b>Bulk Edit — {ids.length}개 사이클</b>
+          <span className="sp" />
+        </div>
+        <div className="cy-clone-b">
+          <div className="cy-bulk-list">
+            {ids.map((id) => (
+              <div key={id} className="muted small cyt-ell">{nameOf(id)}</div>
+            ))}
+          </div>
+          <div className="cy-clone-f">
+            <label>
+              상태
+              <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="">— 그대로 —</option>
+                {codeVals('cycle_status').map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              고객
+              <select value={customer} onChange={(e) => setCustomer(e.target.value)}>
+                <option value="">— 그대로 —</option>
+                {codeVals('cycle_customer').map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              담당자
+              <input
+                value={assignee}
+                onChange={(e) => setAssignee(e.target.value)}
+                placeholder="비워 두면 그대로"
+              />
+            </label>
+          </div>
+          {err && <div className="cy-clone-err">{err}</div>}
+        </div>
+        <div className="modal-foot">
+          <button type="button" className="btn" onClick={onClose} disabled={busy}>
+            취소
+          </button>
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => void apply()}
+            disabled={busy || nothing}
+            title={nothing ? '바꿀 값을 하나 이상 고르세요' : ''}
+          >
+            {busy ? '저장 중…' : `적용 (${ids.length}건)`}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

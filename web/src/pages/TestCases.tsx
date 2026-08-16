@@ -2292,15 +2292,6 @@ export default function TestCases({ me }: PageProps) {
                   >
                     Export
                   </button>
-                  {/* 시험 시작하기는 줄의 끝 — Export 오른쪽 고정석 */}
-                  <button
-                    className="btn primary"
-                    type="button"
-                    title="하려는 것을 한 줄 적으면 닮은 시험을 찾아 베껴 줍니다"
-                    onClick={() => setStartOpen(true)}
-                  >
-                    ✨ 시험 시작하기
-                  </button>
                   <span className="sp" />
                   {/* 펼친(연) 시험에 쓰는 ⋯ — 안 연 것에는 저장·내보내기가 꺼진다 */}
                   {moreMenu}
