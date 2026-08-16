@@ -3574,17 +3574,6 @@ function CycleDetail({
                           </option>
                         ))}
                       </select>
-                      {!st.on && (
-                        <button
-                          type="button"
-                          className="cxp-runbtn"
-                          title="이 항목만 돌립니다"
-                          disabled={saving}
-                          onClick={() => startRun([at])}
-                        >
-                          ▶
-                        </button>
-                      )}
                       {st.itemAt === at && st.on && <i className="cxp-live" title="실행 중" />}
                       {isRegress(it) && (
                         <b className="cy-regchip" title="지난 사이클에선 Pass 였습니다">
