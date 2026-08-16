@@ -94,6 +94,13 @@ export default function Requirements() {
   const [addFolder, setAddFolder] = useState(0)
   /** 새 프로젝트 창 — 최상위 폴더는 이 창으로만 만든다(폴더=프로젝트명) */
   const [newProj, setNewProj] = useState(false)
+  /** 1열 폴더 차례 — 끌어 놓은 순서(수동)가 기본, 켜면 이름순 */
+  const [folderSort, setFolderSort] = useState<'manual' | 'name'>(() =>
+    localStorage.getItem('utop.req.foldersort') === 'name' ? 'name' : 'manual',
+  )
+  useEffect(() => {
+    localStorage.setItem('utop.req.foldersort', folderSort)
+  }, [folderSort])
   // undefined = 폼 닫힘 / null = 새로 만들기 / Requirement = 편집
   const [form, setForm] = useState<Requirement | null | undefined>(undefined)
   /** 붙여넣기로 여러 건 들여오기(Import) */
@@ -808,6 +815,13 @@ export default function Requirements() {
                 <button type="button" onClick={() => setFoldersOnly((v) => !v)}>
                   {foldersOnly ? '✓ ' : ''}폴더만 보기
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setFolderSort((v) => (v === 'name' ? 'manual' : 'name'))}
+                >
+                  {folderSort === 'name' ? '✓ ' : ''}폴더 이름순 정렬
+                </button>
+                <p className="lh-hint">끄면 끌어 놓은 순서 그대로입니다.</p>
                 <hr />
                 <button
                   type="button"
@@ -859,6 +873,7 @@ export default function Requirements() {
               picked={picked}
               onRowClick={treeSel.onClick}
               sort={sort}
+              folderSort={folderSort}
               addFolderSignal={addFolder}
               onAddRoot={() => setNewProj(true)}
             />

@@ -56,6 +56,8 @@ interface Props {
   ) => void
   /** 폴더 안의 차례 — ⋯ 메뉴에서 고른다 */
   sort?: 'id' | 'title'
+  /** 폴더 차례 — 수동(sort_order, 끌기 순)이 기본, 'name' 이면 이름순 */
+  folderSort?: 'manual' | 'name'
   /** 「+ 폴더」를 바깥 버튼 줄에서 누를 수 있게 */
   addFolderSignal: number
   /**
@@ -104,6 +106,7 @@ export default function ReqTree({
   picked,
   onRowClick,
   sort = 'id',
+  folderSort = 'manual',
   addFolderSignal,
   onAddRoot,
 }: Props) {
@@ -191,7 +194,19 @@ export default function ReqTree({
     [prjQ.data],
   )
   const cats = catQ.data?.categories ?? []
-  const tree = useMemo(() => buildCategoryTree(cats), [cats])
+  const tree = useMemo(() => {
+    const t = buildCategoryTree(cats)
+    // 이름순은 보기만 바꾼다 — sort_order(끌기 순)는 건드리지 않아서
+    // 끄면 원래 순서가 그대로 돌아온다.
+    if (folderSort === 'name') {
+      const deep = (ns: CategoryTreeNode[]) => {
+        ns.sort((a, b) => naturalCompare(a.name, b.name))
+        ns.forEach((k) => deep(k.children))
+      }
+      deep(t)
+    }
+    return t
+  }, [cats, folderSort])
   const catById = useMemo(() => new Map(cats.map((c) => [c.id, c])), [cats])
 
   const invalidate = () => {
