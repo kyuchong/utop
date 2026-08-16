@@ -214,3 +214,22 @@
   flex: 1;
   min-height: 0;
 }
+
+/* ── 편집기 본문 활자 — 공용 ────────────────────────────────
+   사이클 수정 창에서 다듬은 자(본문 12px · H1 20 · H2 17 · H3 14.5)를
+   여기로 승격했다(피드백: 「마크다운 한번에 개선」). 요구사항 구현내용·
+   폼·Bulk Edit 등 이 편집기를 쓰는 모든 곳이 같이 좋아진다.
+   위 여백 40px 는 첫 줄 블록 선택 때 뜨는 서식 말풍선 자리 — 없으면
+   말풍선이 위 툴바를 덮어 메뉴를 못 누른다. */
+.md-editor .milkdown .ProseMirror,
+.md-editor .milkdown .ProseMirror p {
+  font-size: var(--fs-sm) !important;
+  line-height: 1.5;
+}
+.md-editor .milkdown .ProseMirror {
+  padding-top: 40px !important;
+  word-break: break-word;
+}
+.md-editor .milkdown .ProseMirror h1 { font-size: 20px !important; margin: 8px 0 5px; }
+.md-editor .milkdown .ProseMirror h2 { font-size: 17px !important; margin: 7px 0 4px; }
+.md-editor .milkdown .ProseMirror h3 { font-size: 14.5px !important; font-weight: 700; margin: 5px 0 3px; }
