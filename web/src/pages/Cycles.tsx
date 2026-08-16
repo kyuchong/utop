@@ -315,19 +315,6 @@ interface Node {
   vgroup?: string
 }
 
-/** 사이클 하나의 결과 셈 — 트리 말풍선과 요약판이 같이 쓴다 */
-function tallyOf(c: CycleMeta): { t: number; p: number; f: number } {
-  const its = c.items ?? []
-  let p = 0
-  let f = 0
-  for (const it of its) {
-    const v = itemVerdict(it)
-    if (v === 'Pass') p += 1
-    else if (v === 'Fail') f += 1
-  }
-  return { t: its.length, p, f }
-}
-
 /** 이 가지 아래의 사이클 전부 */
 function cyclesUnder(n: Node): CycleMeta[] {
   if (n.cycle) return [n.cycle]
@@ -486,8 +473,6 @@ export default function Cycles({ me }: PageProps) {
   /** 트리에서 폴더를 골랐으면 관제판을 그 묶음으로 좁힌다.
       key 를 저장해 새로고침해도 같은 폴더로 돌아온다 */
   const [scope, setScope] = useState<{ key: string; label: string; ids: Set<string> } | null>(null)
-  /** 트리 줄 위에 뜨는 상태 요약 카드 */
-  const [tip, setTip] = useState<{ node: Node; x: number; y: number } | null>(null)
   // 고르면 주소창에 남긴다 — 옛 화면의 #cycle=… 과 같은 일
   useEffect(() => {
     if (sel) reflectUrl('cycle', sel)
@@ -789,15 +774,7 @@ export default function Cycles({ me }: PageProps) {
           role="button"
           tabIndex={0}
           style={{ paddingLeft: 6 + (n.depth + 1) * 14 }}
-          /* 열지 않고도 상태가 읽히게 — 색 막대가 든 요약 카드를 띄운다.
-             브라우저 기본 말풍선은 글자뿐이라 숫자가 안 읽혔다. */
-          onMouseEnter={(e) => {
-            const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-            setTip({ node: n, x: r.right + 10, y: r.top - 4 })
-          }}
-          onMouseLeave={() => setTip(null)}
           onClick={() => {
-            setTip(null)
             if (n.cycle) {
               setSel(n.cycle.id)
               return
@@ -1088,7 +1065,6 @@ export default function Cycles({ me }: PageProps) {
             role="button"
             tabIndex={0}
             onClick={() => {
-              setTip(null)
               localStorage.removeItem('utop.cycle.scope')
               setScope(null)
               setSel('')
@@ -1101,18 +1077,8 @@ export default function Cycles({ me }: PageProps) {
                 setSel('')
               }
             }}
-            onMouseEnter={(e) => {
-              const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-              setTip({
-                node: { key: '__root', label: 'Root', depth: 0, count: cycles.length, children: tree },
-                x: r.right + 10,
-                y: r.top - 4,
-              })
-            }}
-            onMouseLeave={() => setTip(null)}
             onContextMenu={(e) => {
               e.preventDefault()
-              setTip(null)
               setFolderMenu({
                 node: { key: '__root', label: 'Root', depth: 0, count: cycles.length, children: [] },
                 x: e.clientX,
@@ -1193,37 +1159,6 @@ export default function Cycles({ me }: PageProps) {
           }}
         />
       )}
-
-      {tip && (() => {
-        const cs = cyclesUnder(tip.node)
-        const a = cs.reduce(
-          (x, c) => {
-            const t = tallyOf(c)
-            return { t: x.t + t.t, p: x.p + t.p, f: x.f + t.f }
-          },
-          { t: 0, p: 0, f: 0 },
-        )
-        const rest = a.t - a.p - a.f
-        return (
-          <div className="cy-tip" style={{ left: tip.x, top: Math.max(8, tip.y) }}>
-            <div className="cy-tip-h">
-              <b>{tip.node.label}</b>
-              {!tip.node.cycle && <span className="muted small">사이클 {cs.length}개</span>}
-            </div>
-            <div className="cy-bar" aria-hidden="true">
-              <span className="pass" style={{ flexGrow: a.p }} />
-              <span className="fail" style={{ flexGrow: a.f }} />
-              <span className="none" style={{ flexGrow: rest || (a.t ? 0 : 1) }} />
-            </div>
-            <div className="cy-tip-r">
-              <i className="pass" /> Pass <b>{a.p}</b>
-              <i className="fail" /> Fail <b>{a.f}</b>
-              <i className="none" /> 나머지 <b>{rest}</b>
-              <span className="muted small">총 {a.t}건</span>
-            </div>
-          </div>
-        )
-      })()}
 
       {folderMenu && (
         <FolderMenu
@@ -1471,6 +1406,8 @@ function CycleBoard({
   const [bulkOpen, setBulkOpen] = useState(false)
   /** 방금 한 일의 결과 한 줄 — 시험항목 도구줄의 tc-msg 와 같은 자리 */
   const [msg, setMsg] = useState('')
+  /** 진행결과 막대 호버 카드 — 랙뷰 장비 카드(rv-tip)와 같은 문법 */
+  const [prgTip, setPrgTip] = useState<{ x: number; y: number; c: CycleMeta } | null>(null)
 
   /** 인라인 카드에 보일 필드 — 시험항목 화면과 같은 목록에서 ⚙ 로 고른다 */
   const [itCols, setItCols] = useState<Set<string>>(() => {
@@ -1882,7 +1819,8 @@ function CycleBoard({
                               <span
                                 key={c2.k}
                                 className="cy-prg"
-                                title={`실행 ${t.done}/${t.total} · Pass ${t.pass} · Fail ${t.fail}`}
+                                onMouseEnter={(e) => setPrgTip({ x: e.clientX, y: e.clientY, c })}
+                                onMouseLeave={() => setPrgTip(null)}
                               >
                                 <span className="cy-prg-bar" aria-hidden="true">
                                   <i className="p" style={{ flexGrow: t.pass }} />
@@ -2086,6 +2024,61 @@ function CycleBoard({
         <div className="empty">아직 사이클이 없습니다 — 위 + New 로 만드세요.</div>
       )}
       </section>
+      {prgTip && (() => {
+        const t2 = stats.get(prgTip.c.id) ?? { total: 0, done: 0, pass: 0, fail: 0, pct: 0, iss: 0 }
+        // 결과값별 개수 — 사용자 정의 결과 상태(색 포함)를 그대로 쓴다
+        const counts = new Map<string, number>()
+        for (const it of prgTip.c.items ?? []) {
+          const v = itemVerdict(it)
+          counts.set(v, (counts.get(v) ?? 0) + 1)
+        }
+        const dotOf = (r: ResDef) =>
+          r.color || (r.group === 'pass' ? '#34d399' : r.group === 'fail' ? '#f87171' : '#9aa3af')
+        const stName = t2.total > 0 && t2.done === t2.total ? 'DONE' : t2.done > 0 ? '진행중' : '대기'
+        const x = Math.min(prgTip.x + 14, window.innerWidth - 290)
+        const y = Math.min(prgTip.y + 12, window.innerHeight - 280)
+        const idle = t2.total - t2.done
+        return (
+          <div className="rv-tip cy-ptip" style={{ left: x, top: y }}>
+            <div className="rv-th2">
+              <b>{prgTip.c.cid || prgTip.c.version || prgTip.c.id}</b>
+              <span className={`rv-tst ${stName === 'DONE' ? 'ok' : stName === '진행중' ? 'un' : 'old'}`}>
+                {t2.pct}% · {stName}
+              </span>
+            </div>
+            <div className="cy-ptbar" aria-hidden="true">
+              <i style={{ flexGrow: t2.pass, background: '#34d399' }} />
+              <i style={{ flexGrow: t2.fail, background: '#f87171' }} />
+              <i style={{ flexGrow: Math.max(t2.done - t2.pass - t2.fail, 0), background: '#fbbf24' }} />
+              <i style={{ flexGrow: Math.max(idle, 0), background: '#303848' }} />
+            </div>
+            <div className="rv-tr">
+              <i>항목</i>
+              <span>{t2.total}건 · 실행 {t2.done} · 미실행 {idle}</span>
+            </div>
+            {resDefs
+              .filter((r) => r.v && (counts.get(r.v) ?? 0) > 0)
+              .map((r) => (
+                <div key={r.v} className="cy-ptrow">
+                  <s style={{ background: dotOf(r) }} />
+                  <b>{r.label}</b>
+                  <em>{counts.get(r.v)}건</em>
+                </div>
+              ))}
+            {(counts.get('') ?? 0) > 0 && (
+              <div className="cy-ptrow">
+                <s style={{ background: '#4b5563' }} />
+                <b>미실행</b>
+                <em>{counts.get('')}건</em>
+              </div>
+            )}
+            <div className="rv-tr" style={{ marginTop: 6 }}>
+              <i>결함</i>
+              <span>{t2.iss || 0}건</span>
+            </div>
+          </div>
+        )
+      })()}
       {bulkOpen && (
         <BulkEditDialog
           ids={[...picked]}

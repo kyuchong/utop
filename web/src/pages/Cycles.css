@@ -3304,6 +3304,28 @@ table.tb td.k {
   flex-wrap: nowrap;
 }
 
+/* ── 진행결과 호버 카드 — 랙뷰 rv-tip 을 그대로 입고 내용만 사이클 ── */
+.cy-ptip { min-width: 232px; max-width: 280px; }
+.cy-ptbar {
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #303848;
+  margin: 2px 0 9px;
+}
+.cy-ptbar > i { display: block; }
+.cy-ptrow { display: flex; align-items: center; gap: 7px; line-height: 1.7; }
+.cy-ptrow > s {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+  text-decoration: none;
+}
+.cy-ptrow > b { font-weight: 600; }
+.cy-ptrow > em { margin-left: auto; font-style: normal; font-weight: 700; }
+
 /* ── 세부내역 인라인 — 사이클 ID 를 누르면 줄 밑에 펼쳐진다. 보기만 한다 ── */
 .cyt-dcard {
   margin: 2px 8px 8px 46px;
