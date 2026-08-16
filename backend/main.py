@@ -2949,7 +2949,32 @@ async def codes_list(kind: str = ""):
     items = await db.code_list(kind)
     for it in items:
         it["used"] = await db.code_usage(it["kind"], it["value"])
-    return {"items": items, "kinds": db.CODE_KINDS}
+    # 탭 이름 덮어쓰기 — 기본 이름(상태 등)을 사람이 바꿀 수 있다
+    kinds = dict(db.CODE_KINDS)
+    try:
+        ov = _kv_load_sync("code_kind_labels", {}) or {}
+        for k, v in ov.items():
+            if k in kinds and str(v).strip():
+                kinds[k] = str(v).strip()
+    except Exception:
+        pass
+    return {"items": items, "kinds": kinds}
+
+
+@app.post("/api/codes/kind-label")
+async def codes_kind_label(payload: dict):
+    """기본 칸(탭)의 표시 이름 바꾸기 — 빈 이름이면 원래대로."""
+    kind = str(payload.get("kind") or "").strip()
+    label = str(payload.get("label") or "").strip()
+    if kind not in db.CODE_KINDS:
+        raise HTTPException(400, f"알 수 없는 종류입니다: {kind}")
+    ov = _kv_load_sync("code_kind_labels", {}) or {}
+    if label:
+        ov[kind] = label
+    else:
+        ov.pop(kind, None)
+    _kv_save_sync("code_kind_labels", ov)
+    return {"success": True}
 
 
 @app.post("/api/codes")

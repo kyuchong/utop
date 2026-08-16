@@ -299,6 +299,16 @@ export default function CodeSettings({ target }: Props) {
               setNewTab(null)
               setNote({ kind: '', msg: '' })
             }}
+            onDoubleClick={() => {
+              if (t.cf) return // 만든 탭 이름은 커스텀 필드 화면에서
+              const nm = window.prompt('탭 이름 (비우면 원래 이름으로)', t.label)
+              if (nm === null) return
+              void apiFetch('/api/codes/kind-label', {
+                method: 'POST',
+                body: JSON.stringify({ kind: t.key, label: nm.trim() }),
+              }).then(invalidate)
+            }}
+            title={t.cf ? '' : '더블클릭하면 탭 이름을 바꿉니다'}
           >
             {t.label}
             {/* 우리가 만든 탭은 표시해 둔다 — 기본 칸과 달리 지울 수 있어서,
