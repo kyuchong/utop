@@ -2882,19 +2882,6 @@ function CycleDetail({
     return kd === 'auto' || kd === 'mixed' ? 'auto' : 'manual'
   }
 
-  /** 담당자 후보 — 계정 목록(멘션용 공개 API) */
-  const usersQ = useQuery({
-    queryKey: ['users', 'mentionable'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/users/mentionable')
-      if (!r.ok) return { users: [] as Array<{ username?: string; name?: string }> }
-      return (await r.json()) as { users: Array<{ username?: string; name?: string }> }
-    },
-    staleTime: 60_000,
-  })
-  /** 담당자 할당 팝업 — 어느 항목(at) 위에 떠 있나 */
-  const [asgAt, setAsgAt] = useState<{ at: number; x: number; y: number } | null>(null)
-
   /**
    * 기존 시험이력 — **같은 TC ID 가 든 다른 사이클 전부**에서 모은다.
    * 복제 관계가 아니어도 잡힌다. 미실행은 이력이 아니라 뺀다.
@@ -3650,40 +3637,16 @@ function CycleDetail({
                           </span>
                         )
                       })()}
-                      {/* 판정 결과 — 2열과 같은 일을 줄에서 바로. 셋만 둔다(합의):
-                          M · 기존 시험 결과 · 판정. 색 점·회귀 칩은 뺐다 */}
-                      <select
-                        className={`cy-v cxp-vsel ${verdictClass(v)}`}
-                        value={v}
-                        title="결과를 손으로 정합니다"
-                        onChange={(e) =>
-                          void setResult(it.tcid, e.target.value === '' ? '미실행' : e.target.value)
-                        }
-                      >
-                        {resDefs.map((r) => (
-                          <option key={r.v} value={r.v}>
-                            {r.label}
-                          </option>
-                        ))}
-                      </select>
-                      {/* 담당자 할당 — 아이콘을 누르면 사람 목록(Zephyr 문법).
-                          미할당은 회색 사람, 할당은 첫 글자, 둘 이상이면 + */}
+                      {/* 담당자 — 읽기 전용 아이콘. 할당은 사이클 수정 창에서 */}
                       {(() => {
                         const who = String(it.assignee ?? '')
                           .split(/[,·/;]+/)
                           .map((x) => x.trim())
                           .filter(Boolean)
                         return (
-                          <button
-                            type="button"
+                          <span
                             className={`cxp-who${who.length ? '' : ' none'}`}
-                            title={who.length ? `담당: ${who.join(', ')} — 눌러서 바꿉니다` : '담당자 할당'}
-                            onClick={(e) => {
-                              const r2 = e.currentTarget.getBoundingClientRect()
-                              setAsgAt((v2) =>
-                                v2?.at === at ? null : { at, x: r2.right, y: r2.bottom + 4 },
-                              )
-                            }}
+                            title={who.length ? `담당: ${who.join(', ')}` : '담당자 없음'}
                           >
                             {who.length ? (
                               <>
@@ -3693,7 +3656,7 @@ function CycleDetail({
                             ) : (
                               <i className="g">👤</i>
                             )}
-                          </button>
+                          </span>
                         )
                       })()}
                     </span>
@@ -3703,57 +3666,6 @@ function CycleDetail({
             })}
             {rows.length === 0 && <div className="empty">해당하는 항목이 없습니다.</div>}
           </div>
-          {asgAt && (
-            <>
-              <span className="cyt-gearovl" onClick={() => setAsgAt(null)} />
-              <div
-                className="cxp-asg"
-                style={{
-                  position: 'fixed',
-                  left: Math.max(8, Math.min(asgAt.x - 180, window.innerWidth - 200)),
-                  top: Math.min(asgAt.y, window.innerHeight - 300),
-                  zIndex: 60,
-                }}
-              >
-                <div className="cxp-asg-h">담당자 할당</div>
-                {(usersQ.data?.users ?? []).map((u) => {
-                  const nm = String(u.name || u.username || '').trim()
-                  if (!nm) return null
-                  return (
-                    <button
-                      key={String(u.username ?? nm)}
-                      type="button"
-                      onClick={() => {
-                        const t2 = items[asgAt.at]
-                        setAsgAt(null)
-                        if (t2)
-                          void saveItems((cur2) =>
-                            cur2.map((x) => (x.tcid === t2.tcid ? { ...x, assignee: nm } : x)),
-                          )
-                      }}
-                    >
-                      <i>{(nm[0] || '?').toUpperCase()}</i>
-                      {nm}
-                    </button>
-                  )
-                })}
-                <button
-                  type="button"
-                  className="cxp-asg-x"
-                  onClick={() => {
-                    const t2 = items[asgAt.at]
-                    setAsgAt(null)
-                    if (t2)
-                      void saveItems((cur2) =>
-                        cur2.map((x) => (x.tcid === t2.tcid ? { ...x, assignee: '' } : x)),
-                      )
-                  }}
-                >
-                  할당 해제
-                </button>
-              </div>
-            </>
-          )}
         </aside>
         <Resizer
           onResize={setSideW}
@@ -3822,10 +3734,6 @@ function CycleDetail({
                   <b>{cycle.version || '–'}</b>
                 </div>
                 <div>
-                  <i>사이클 제목</i>
-                  <b>{cycle.name || '–'}</b>
-                </div>
-                <div>
                   <i>담당자</i>
                   <b>{cur.assignee || '–'}</b>
                 </div>
@@ -3835,6 +3743,11 @@ function CycleDetail({
                     {cur.executed_by || '–'}
                     {cur.executed_at ? ` · ${String(cur.executed_at).slice(0, 16)}` : ''}
                   </b>
+                </div>
+                {/* 제목은 길다 — 맨 아래 한 줄을 통째로 쓴다 */}
+                <div className="wide">
+                  <i>사이클 제목</i>
+                  <b>{cycle.name || '–'}</b>
                 </div>
               </div>
 

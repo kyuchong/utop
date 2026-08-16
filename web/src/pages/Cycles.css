@@ -2389,7 +2389,7 @@ table.tb td.k {
 /* 칸 폭이 고정된 그리드 — 이력 칩이 없어도 자리가 비어 있어 모든 줄이 맞다 */
 .cxp-rgt {
   display: grid;
-  grid-template-columns: 15px 88px 80px 24px;
+  grid-template-columns: 22px 108px 24px;
   align-items: center;
   gap: 5px;
 }
@@ -2399,8 +2399,9 @@ table.tb td.k {
 /* 최근 결과를 말로 — P/F 한 글자는 못 읽겠다는 피드백 */
 .cxp-hist > i.full {
   width: auto;
-  padding: 0 6px;
-  font-size: 10px;
+  height: 20px;
+  padding: 0 7px;
+  font-size: var(--fs-md);
   border-radius: 5px;
   white-space: nowrap;
 }
@@ -2526,7 +2527,7 @@ table.tb td.k {
 /* Manual/Auto 표 — M 은 사람이 하는 시험 */
 .cxp-k {
   font-style: normal;
-  font-size: 9px;
+  font-size: var(--fs-sm);
   font-weight: 800;
   border-radius: 3px;
   padding: 0 4px;
@@ -2580,7 +2581,7 @@ table.tb td.k {
 .cy-v.cxp-big { font-size: var(--fs-sm); font-weight: 800; padding: 4px 8px; }
 .cxp-exec {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px 18px;
   margin: 12px 0;
   padding: 10px 12px;
@@ -2589,6 +2590,7 @@ table.tb td.k {
   background: var(--c-surface-alt);
 }
 .cxp-exec > div { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+.cxp-exec > div.wide { grid-column: 1 / -1; }
 .cxp-exec i {
   font-style: normal;
   font-size: var(--fs-xs);
