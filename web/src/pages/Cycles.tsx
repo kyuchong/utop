@@ -2780,6 +2780,12 @@ function CycleDetail({
   useEffect(() => {
     setSumEl(document.getElementById('cy-sumslot'))
   }, [])
+  // 자동 실행이 걸리면 요약 바가 저절로 열린다 — 진행 줄이 여기 있다.
+  // 닫는 것은 사람 몫(✕) — 실행이 끝났다고 도로 접지 않는다
+  useEffect(() => {
+    if (st.on) setSumOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [st.on])
 
   /**
    * 트리 우클릭 메뉴가 시킨 일을 여기서 한다.
@@ -3253,6 +3259,14 @@ function CycleDetail({
                 onClick={() => setInsight('ai')}
               >
                 ✨ AI 요약
+              </button>
+              <button
+                className="btn small"
+                type="button"
+                title="요약 바를 닫습니다"
+                onClick={() => setSumOpen(false)}
+              >
+                ✕
               </button>
             </div>
             <div className="cy-sum-grid">
