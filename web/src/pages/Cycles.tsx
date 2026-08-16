@@ -2586,7 +2586,8 @@ function CycleDetail({
   mgroup?: string
 }) {
   /** 걸러 보기. null 이면 전부 — '' 는 「미실행」 이라는 뜻이라 못 쓴다 */
-  const [only, setOnly] = useState<Verdict | null>(null)
+  /** 결과 필터 — 멀티 선택. 비어 있으면 전부 */
+  const [fSet, setFSet] = useState<Set<string>>(new Set())
   const [report, setReport] = useState(false)
   /** 고른 항목 — 누르면 스텝과 실행 내역이 아래에 열린다 */
   const [openItem, setOpenItem] = useState(-1)
@@ -3050,7 +3051,7 @@ function CycleDetail({
     const n = fq.trim().toLowerCase()
     const out = items.filter((it) => {
       if (onlyRegress && !isRegress(it)) return false
-      if (only !== null && itemVerdict(it) !== only) return false
+      if (fSet.size && !fSet.has(itemVerdict(it))) return false
       if (fAss && String(it.assignee ?? '').trim() !== fAss) return false
       if (!n) return true
       return (
@@ -3073,7 +3074,7 @@ function CycleDetail({
       )
       .map((v) => v.x)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, only, onlyRegress, prevVerdict, fAss, fq])
+  }, [items, fSet, onlyRegress, prevVerdict, fAss, fq])
 
   /*
    * 실행 중에는 **도는 항목**을 따라간다.
@@ -3415,7 +3416,7 @@ function CycleDetail({
               </select>
             )}
             {(() => {
-              const fCnt = (only !== null ? 1 : 0) + (onlyRegress ? 1 : 0)
+              const fCnt = fSet.size + (onlyRegress ? 1 : 0)
               return (
                 <button
                   className={`btn small cxp-funnel${fCnt ? ' cxp-fon' : ''}`}
@@ -3514,9 +3515,9 @@ function CycleDetail({
             <div className="cxp-flist">
               <button
                 type="button"
-                className={only === null && !onlyRegress ? 'on' : ''}
+                className={fSet.size === 0 && !onlyRegress ? 'on' : ''}
                 onClick={() => {
-                  setOnly(null)
+                  setFSet(new Set())
                   setOnlyRegress(false)
                 }}
               >
@@ -3528,12 +3529,17 @@ function CycleDetail({
                 <button
                   key={r.v || '_none'}
                   type="button"
-                  className={only === r.v && !onlyRegress ? 'on' : ''}
-                  onClick={() => {
-                    setOnlyRegress(false)
-                    setOnly(only === (r.v as Verdict) ? null : (r.v as Verdict))
-                  }}
+                  className={fSet.has(r.v) ? 'on' : ''}
+                  onClick={() =>
+                    setFSet((cur2) => {
+                      const n = new Set(cur2)
+                      if (n.has(r.v)) n.delete(r.v)
+                      else n.add(r.v)
+                      return n
+                    })
+                  }
                 >
+                  <input type="checkbox" checked={fSet.has(r.v)} readOnly tabIndex={-1} />
                   <s
                     className="d"
                     style={{
@@ -3563,6 +3569,7 @@ function CycleDetail({
                   }
                   onClick={() => setOnlyRegress((v2) => !v2)}
                 >
+                  <input type="checkbox" checked={onlyRegress} readOnly tabIndex={-1} />
                   <s className="d reg" />
                   회귀
                   <em>{prev && prevVerdict.size ? regressN : '–'}</em>

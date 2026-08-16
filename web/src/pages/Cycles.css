@@ -3681,6 +3681,7 @@ table.tb td.k {
 }
 .cxp-flist > button:hover { background: var(--c-surface-alt); }
 .cxp-flist > button.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
+.cxp-flist input[type='checkbox'] { pointer-events: none; margin: 0; }
 .cxp-flist s {
   width: 10px;
   height: 10px;
