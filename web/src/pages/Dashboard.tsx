@@ -316,7 +316,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
               {d && d.attention.length > 0 && <s className="dash-attn-n">{d.attention.length}건</s>}
             </div>
             <div className="dash-defs">
-              {(d?.attention ?? []).map((x, i) => (
+              {(d?.attention ?? []).slice(0, 5).map((x, i) => (
                 <button
                   key={`${x.cycle_id}-${x.tcid}-${i}`}
                   type="button"
@@ -461,7 +461,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
           <div className="dash-wide">
             <div className="dash-wt">버전별 합격률 (최근 회차 — 누르면 실행 화면)</div>
             <div className="dash-vers">
-              {(d?.versions ?? []).slice(0, 6).map((v) => (
+              {(d?.versions ?? []).slice(0, 5).map((v) => (
                 <button
                   key={v.id}
                   type="button"
@@ -564,7 +564,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
           <div className="dash-wide">
             <div className="dash-wt">최근 결함 (열린 것 — 누르면 Defects)</div>
             <div className="dash-defs">
-              {(d?.recent_defects ?? []).map((x) => (
+              {(d?.recent_defects ?? []).slice(0, 5).map((x) => (
                 <button
                   key={x.id}
                   type="button"

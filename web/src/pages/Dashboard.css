@@ -2,8 +2,8 @@
 .dash {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 10px 14px;
   overflow-y: auto;
   min-height: 0;
   flex: 1;
@@ -20,30 +20,30 @@
 .dash-card {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   align-items: flex-start;
   border: 1px solid var(--c-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--c-surface);
-  padding: 12px 14px;
+  padding: 8px 12px;
   cursor: pointer;
   font: inherit;
   text-align: left;
 }
 .dash-card:hover { border-color: var(--c-primary); }
 .dash-card > i { font-style: normal; font-size: var(--fs-sm); color: var(--c-text-faint); font-weight: 700; }
-.dash-card > b { font-size: 24px; font-weight: 700; line-height: 1.1; }
+.dash-card > b { font-size: 20px; font-weight: 700; line-height: 1.1; }
 .dash-card > b.bad { color: var(--c-fail); }
 .dash-card > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
 
 .dash-wide {
   border: 1px solid var(--c-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--c-surface);
-  padding: 12px 14px;
+  padding: 8px 12px;
   min-width: 0;
 }
-.dash-wt { font-size: var(--fs-sm); color: var(--c-text-faint); font-weight: 700; margin-bottom: 8px; }
+.dash-wt { font-size: var(--fs-sm); color: var(--c-text-faint); font-weight: 700; margin-bottom: 5px; }
 .dash-two {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
@@ -88,7 +88,7 @@
   align-items: center;
   border: 0;
   background: transparent;
-  padding: 3px 2px;
+  padding: 2px 2px;
   border-radius: 7px;
   cursor: pointer;
   font: inherit;
@@ -137,7 +137,7 @@
 /* 자산 현황 — 숫자 셋이 나란히 */
 .dash-tri { display: flex; gap: 18px; }
 .dash-tri > span { display: flex; flex-direction: column; }
-.dash-tri b { font-size: 22px; font-weight: 700; line-height: 1.1; }
+.dash-tri b { font-size: 20px; font-weight: 700; line-height: 1.1; }
 .dash-tri i { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
 
 /* 자동화율 미니 막대 */
@@ -162,7 +162,7 @@
   gap: 9px;
   border: 0;
   background: transparent;
-  padding: 4px 2px;
+  padding: 2px 2px;
   border-radius: 7px;
   cursor: pointer;
   font: inherit;
@@ -192,7 +192,7 @@
 .dash-def > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); flex: none; }
 
 /* 실행 추이 — 영역 라인 차트 (막대 대신) */
-.dash-trend svg { display: block; width: 100%; height: 96px; }
+.dash-trend svg { display: block; width: 100%; height: 64px; }
 .dash-trend-x { display: flex; justify-content: space-between; margin-top: 3px; }
 .dash-trend-x > i { font-style: normal; font-size: 10px; color: var(--c-text-faint); }
 
@@ -250,10 +250,10 @@
 
 .dash-donuts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 @media (max-width: 1100px) { .dash-donuts { grid-template-columns: 1fr; } }
-.dash-dn { display: flex; align-items: center; gap: 14px; cursor: pointer; font: inherit; text-align: left; }
+.dash-dn { display: flex; align-items: center; gap: 10px; cursor: pointer; font: inherit; text-align: left; }
 .dash-dn:hover { border-color: var(--c-primary); }
-.dash-donut { width: 84px; height: 84px; flex: none; }
-.dash-donut-t { font-size: 17px; font-weight: 800; fill: var(--c-text); }
+.dash-donut { width: 62px; height: 62px; flex: none; }
+.dash-donut-t { font-size: 19px; font-weight: 800; fill: var(--c-text); }
 .dash-dn-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .dash-dn-t > i { font-style: normal; font-size: var(--fs-sm); font-weight: 700; color: var(--c-text-faint); }
-.dash-dn-t > em { font-style: normal; font-size: var(--fs-sm); }
+.dash-dn-t > em { font-style: normal; font-size: var(--fs-xs); }
