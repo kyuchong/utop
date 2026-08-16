@@ -220,24 +220,18 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
               </span>
               <span className="ms-v">
                 {onSetResult ? (
-                  <span className="ms-pf">
-                    <button
-                      type="button"
-                      className={`p${r === 'Pass' ? ' on' : ''}`}
-                      title="Pass"
-                      onClick={() => onSetResult(i, r === 'Pass' ? '' : 'Pass')}
-                    >
-                      P
-                    </button>
-                    <button
-                      type="button"
-                      className={`f${r === 'Fail' ? ' on' : ''}`}
-                      title="Fail"
-                      onClick={() => onSetResult(i, r === 'Fail' ? '' : 'Fail')}
-                    >
-                      F
-                    </button>
-                  </span>
+                  <select
+                    className={`sc-v ${verdictClass((r || '') as Verdict)}`}
+                    value={r}
+                    title="이 스텝의 결과"
+                    onChange={(e) => onSetResult(i, e.target.value)}
+                  >
+                    {RESULTS.map((x) => (
+                      <option key={x.v} value={x.v}>
+                        {x.label}
+                      </option>
+                    ))}
+                  </select>
                 ) : (
                   <span>{r || '–'}</span>
                 )}

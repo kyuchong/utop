@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import ListHead from '@/components/ListHead'
@@ -1075,6 +1076,7 @@ export default function Cycles({ me }: PageProps) {
           )}
         </span>
         <span className="sp" />
+        {cur && <span className="cy-execslot" id="cy-execbar" />}
         {cur && (
           <button
             className="btn small primary"
@@ -2621,6 +2623,11 @@ function CycleDetail({
   /** 제목 줄의 「⋯」 — 요약·보고서·내보내기. 카드 overflow 에 잘리지 않게
       fixed 좌표로 띄운다 (⚙ 팝업들과 같은 수법) */
   const [headMenu, setHeadMenu] = useState<{ x: number; y: number } | null>(null)
+  /** 맨 위 빵부스러기 줄의 실행 단추 자리 — 부모가 비워 둔 슬롯(포털) */
+  const [barEl, setBarEl] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setBarEl(document.getElementById('cy-execbar'))
+  }, [])
 
   /**
    * 트리 우클릭 메뉴가 시킨 일을 여기서 한다.
@@ -3063,138 +3070,134 @@ function CycleDetail({
       {/* ② 공통 액션 바 — 요구사항·시험항목과 **같은 차례**.
           Edit·Bulk Edit | Add·Delete·Export. 세 화면을 오가는 사람이 매번
           어디에 무엇이 있는지 다시 찾지 않게. */}
-      <div className="cy-head">
-        {/* 제목 줄은 뺐다 — 위 빵부스러기가 같은 내용을 이미 말한다.
-            실행 단추는 왼쪽(피드백 ④), 접속자 표시는 오른쪽 끝. */}
-        {st.on ? (
-          <button className="btn danger small" type="button" onClick={() => void stop()}>
-            ⏹ 멈추기
-          </button>
-        ) : (
+      {/* 실행 단추·⋯·저장종은 맨 위 빵부스러기 줄(완료 왼쪽)로 — 가로 카드 한 줄을 없앴다(피드백 ②) */}
+      {barEl &&
+        createPortal(
           <>
-            {pick.size > 0 && (
-              <button
-                className="btn primary small"
-                type="button"
-                disabled={saving}
-                title={`고른 ${pick.size}건을 돌립니다`}
-                onClick={() => startRun([...pick].sort((a, b) => a - b))}
-              >
-                ▶ 실행 ({pick.size})
+            {st.on ? (
+              <button className="btn danger small" type="button" onClick={() => void stop()}>
+                ⏹ 멈추기
               </button>
+            ) : (
+              <>
+                {pick.size > 0 && (
+                  <button
+                    className="btn primary small"
+                    type="button"
+                    disabled={saving}
+                    title={`고른 ${pick.size}건을 돌립니다`}
+                    onClick={() => startRun([...pick].sort((a2, b2) => a2 - b2))}
+                  >
+                    ▶ 실행 ({pick.size})
+                  </button>
+                )}
+                <button
+                  className="btn small"
+                  type="button"
+                  disabled={!items.length || saving}
+                  onClick={() => startRun(items.map((_, i) => i))}
+                >
+                  ▶ 전체 실행 ({items.length})
+                </button>
+              </>
             )}
-            <button
-              className="btn small"
-              type="button"
-              disabled={!items.length || saving}
-              onClick={() => startRun(items.map((_, i) => i))}
-            >
-              ▶ 전체 실행 ({items.length})
-            </button>
-          </>
-        )}
-        {/* 어쩌다 한 번 쓰는 것들은 「⋯」 안에 둔다 */}
-        <div className="cy-hmenu">
-          <button
-            className="btn small"
-            type="button"
-            title="요약 · 보고서 · 내보내기"
-            aria-haspopup="menu"
-            aria-expanded={!!headMenu}
-            onClick={(e) => {
-              const r2 = e.currentTarget.getBoundingClientRect()
-              setHeadMenu((v) => (v ? null : { x: r2.left, y: r2.bottom + 4 }))
-            }}
-          >
-            ⋯
-          </button>
-          {headMenu && (
-            <>
-              <div className="cy-hmenu-back" onClick={() => setHeadMenu(null)} />
-              <div
-                className="cy-hmenu-pop"
-                role="menu"
-                style={{
-                  position: 'fixed',
-                  left: Math.max(8, Math.min(headMenu.x, window.innerWidth - 190)),
-                  top: headMenu.y,
-                  right: 'auto',
-                  zIndex: 60,
+            <div className="cy-hmenu">
+              <button
+                className="btn small"
+                type="button"
+                title="요약 · 보고서 · 내보내기"
+                aria-haspopup="menu"
+                aria-expanded={!!headMenu}
+                onClick={(e) => {
+                  const r2 = e.currentTarget.getBoundingClientRect()
+                  setHeadMenu((v) => (v ? null : { x: r2.left, y: r2.bottom + 4 }))
                 }}
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setHeadMenu(null)
-                    setInsight('ai')
-                  }}
-                >
-                  AI 요약
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setHeadMenu(null)
-                    goto('report', cycle.id)
-                  }}
-                >
-                  보고서
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setHeadMenu(null)
-                    setInsight('metrics')
-                  }}
-                >
-                  메트릭스
-                </button>
-                <hr />
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setHeadMenu(null)
-                    setReport(true)
-                  }}
-                >
-                  PPTX (고객사 결과서)
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={!items.length}
-                  onClick={() => {
-                    setHeadMenu(null)
-                    exportItems()
-                  }}
-                >
-                  Export (CSV)
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-        <span className="sp" />
-        {/* 누가 같이 보고 있나. 혼자면 안 뜬다 — 늘 있으면 장식이 된다 */}
-        <PresenceBar users={presence.users} me={meName} />
-        {joined && (
-          <span className={`cy-join ${joined.how}`}>
-            {joined.who} 님이 {joined.how === 'in' ? '들어왔습니다' : '나갔습니다'}
-          </span>
+                ⋯
+              </button>
+              {headMenu && (
+                <>
+                  <div className="cy-hmenu-back" onClick={() => setHeadMenu(null)} />
+                  <div
+                    className="cy-hmenu-pop"
+                    role="menu"
+                    style={{
+                      position: 'fixed',
+                      left: Math.max(8, Math.min(headMenu.x, window.innerWidth - 190)),
+                      top: headMenu.y,
+                      right: 'auto',
+                      zIndex: 60,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setHeadMenu(null)
+                        setInsight('ai')
+                      }}
+                    >
+                      AI 요약
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setHeadMenu(null)
+                        goto('report', cycle.id)
+                      }}
+                    >
+                      보고서
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setHeadMenu(null)
+                        setInsight('metrics')
+                      }}
+                    >
+                      메트릭스
+                    </button>
+                    <hr />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setHeadMenu(null)
+                        setReport(true)
+                      }}
+                    >
+                      PPTX (고객사 결과서)
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={!items.length}
+                      onClick={() => {
+                        setHeadMenu(null)
+                        exportItems()
+                      }}
+                    >
+                      Export (CSV)
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+            {joined && (
+              <span className={`cy-join ${joined.how}`}>
+                {joined.who} 님이 {joined.how === 'in' ? '들어왔습니다' : '나갔습니다'}
+              </span>
+            )}
+            <SaveBell
+              items={saves}
+              unseen={Math.max(0, saves.length - seen)}
+              onSeen={() => setSeen(saves.length)}
+            />
+          </>,
+          barEl,
         )}
-        {/* 남이 고친 이력. 띠로 띄우면 연달아 저장할 때 앞의 것이 밀린다 */}
-        <SaveBell
-          items={saves}
-          unseen={Math.max(0, saves.length - seen)}
-          onSeen={() => setSeen(saves.length)}
-        />
-      </div>
-
-
 
       {rowMenu && (
         <CycleRowMenu
@@ -3509,7 +3512,7 @@ function CycleDetail({
                     />
                     <span className="cxp-rmain">
                       <span className="cxp-r1">
-                        <b className="cxp-tcid">{it.tcid || '–'}</b>
+                        {/* TC ID 는 뺐다(피드백) — 2열 머리에서 보인다 */}
                         {/* 나 말고 누가 이 항목을 보는 중인가 */}
                         {(() => {
                           const who = (focus[String(at)] ?? []).filter((u) => u !== meName)
@@ -3527,66 +3530,76 @@ function CycleDetail({
                         {it.name || it.tcid}
                       </span>
                     </span>
-                    {/* 오른쪽 무리: 타입 · 이력 · ✓ · 회귀 · 결과 — 칸이 서로 안 침범 */}
-                    {(() => {
-                      const kd = typeOf(it)
-                      return (
-                        <i className={`cxp-k ${kd}`} title={kd === 'manual' ? '수동' : '자동'}>
-                          {kd === 'manual' ? 'M' : 'A'}
-                        </i>
-                      )
-                    })()}
-                    {/* 기존 시험이력 — 같은 TC 가 돈 다른 사이클들. 누르면 그리로 */}
-                    {(() => {
-                      const h = (histAll.get(it.tcid) ?? []).slice(0, 5)
-                      if (!h.length) return null
-                      return (
-                        <span className="cxp-hist" title="기존 시험이력 — 누르면 그 사이클로 갑니다">
-                          {h.map((x, n) => (
-                            <i
-                              key={`${x.id}-${n}`}
-                              className={`hv-${verdictClass(x.v)}`}
-                              title={`${x.label}: ${verdictLabel(x.v)}`}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                onGoCycle(x.id)
-                              }}
-                            >
-                              {x.v === 'Pass' ? 'P' : x.v === 'Fail' ? 'F' : '–'}
-                            </i>
-                          ))}
-                        </span>
-                      )
-                    })()}
-                    {/* 수동 항목 한 개 Pass — 줄에서 바로 */}
-                    {!st.on && typeOf(it) === 'manual' && v !== 'Pass' && (
-                      <button
-                        type="button"
-                        className="cxp-passbtn"
-                        title="이 항목을 Pass 로 — 스텝도 함께 Pass"
-                        disabled={saving}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          void passItems([it.tcid])
-                        }}
-                      >
-                        ✓
-                      </button>
-                    )}
-                    {st.itemAt === at && st.on && <i className="cxp-live" title="실행 중" />}
-                    {isRegress(it) && (
-                      <b className="cy-regchip" title="지난 사이클에선 Pass 였습니다">
-                        회귀
-                      </b>
-                    )}
-                    <i
-                      className={`cxp-v ${verdictClass(v)}`}
-                      style={(() => {
-                        const rc = resDefs.find((r) => r.v === v)?.color
-                        return rc ? { background: rc } : undefined
+                    {/* 오른쪽 무리 — 한 묶음(간격 균일): M/A · 이력 · 결과 셀렉트 · ▶ · 회귀 · 점 */}
+                    <span className="cxp-rgt" onClick={(e) => e.stopPropagation()}>
+                      {(() => {
+                        const kd = typeOf(it)
+                        return (
+                          <i className={`cxp-k ${kd}`} title={kd === 'manual' ? '수동' : '자동'}>
+                            {kd === 'manual' ? 'M' : 'A'}
+                          </i>
+                        )
                       })()}
-                      title={verdictLabel(v)}
-                    />
+                      {(() => {
+                        const h = (histAll.get(it.tcid) ?? []).slice(0, 5)
+                        if (!h.length) return null
+                        return (
+                          <span className="cxp-hist" title="기존 시험이력 — 누르면 그 사이클로 갑니다">
+                            {h.map((x, n) => (
+                              <i
+                                key={`${x.id}-${n}`}
+                                className={`hv-${verdictClass(x.v)}`}
+                                title={`${x.label}: ${verdictLabel(x.v)}`}
+                                onClick={() => onGoCycle(x.id)}
+                              >
+                                {x.v === 'Pass' ? 'P' : x.v === 'Fail' ? 'F' : '–'}
+                              </i>
+                            ))}
+                          </span>
+                        )
+                      })()}
+                      {/* 판정 결과 — 2열과 같은 일을 줄에서 바로 (피드백 ④) */}
+                      <select
+                        className={`cy-v cxp-vsel ${verdictClass(v)}`}
+                        value={v}
+                        disabled={saving}
+                        title="결과를 손으로 정합니다"
+                        onChange={(e) =>
+                          void setResult(it.tcid, e.target.value === '' ? '미실행' : e.target.value)
+                        }
+                      >
+                        {resDefs.map((r) => (
+                          <option key={r.v} value={r.v}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
+                      {!st.on && (
+                        <button
+                          type="button"
+                          className="cxp-runbtn"
+                          title="이 항목만 돌립니다"
+                          disabled={saving}
+                          onClick={() => startRun([at])}
+                        >
+                          ▶
+                        </button>
+                      )}
+                      {st.itemAt === at && st.on && <i className="cxp-live" title="실행 중" />}
+                      {isRegress(it) && (
+                        <b className="cy-regchip" title="지난 사이클에선 Pass 였습니다">
+                          회귀
+                        </b>
+                      )}
+                      <i
+                        className={`cxp-v ${verdictClass(v)}`}
+                        style={(() => {
+                          const rc = resDefs.find((r) => r.v === v)?.color
+                          return rc ? { background: rc } : undefined
+                        })()}
+                        title={verdictLabel(v)}
+                      />
+                    </span>
                   </div>
                 </React.Fragment>
               )
