@@ -51,7 +51,7 @@ const WIDGETS: Array<{ k: string; label: string }> = [
   { k: 'assets', label: '자산 현황 (REQ·TC·사이클)' },
   { k: 'automation', label: '자동화율' },
   { k: 'daily', label: '데일리 실행 추이' },
-  { k: 'topfail', label: '자주 깨지는 TC' },
+  { k: 'topfail', label: '자주 발생하는 결함' },
   { k: 'rdefects', label: '최근 결함' },
   { k: 'versions', label: '버전별 합격률' },
   { k: 'running', label: '진행 중 사이클' },
@@ -230,21 +230,47 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
         {/* 데일리 추이 — 막대 전체가 실행량, 안의 초록이 Pass */}
         {ws.has('daily') && (
           <div className="dash-wide">
-            <div className="dash-wt">데일리 실행 추이 (14일 — 막대: 실행, 초록: Pass)</div>
-            <div className="dash-daily">
-              {(d?.daily ?? []).map((x) => (
-                <span
-                  key={x.date}
-                  className="dash-day"
-                  title={`${x.date} — 실행 ${x.runs}건 · Pass ${x.ok}건`}
-                >
-                  <span className="dash-day-bar" style={{ height: `${(x.runs / maxRuns) * 100}%` }}>
-                    <b style={{ height: `${x.runs ? (x.ok / x.runs) * 100 : 0}%` }} />
-                  </span>
-                  <i>{x.date.slice(8)}</i>
-                </span>
-              ))}
-            </div>
+            <div className="dash-wt">데일리 실행 추이 (14일 — 파랑: 실행, 초록: Pass)</div>
+            {(() => {
+              const days2 = d?.daily ?? []
+              if (!days2.length) return <div className="empty">자료가 없습니다.</div>
+              const W = 560
+              const H = 96
+              const n = days2.length
+              const px = (i: number) => (n > 1 ? (i / (n - 1)) * W : 0)
+              const py = (v: number) => H - 6 - (v / maxRuns) * (H - 14)
+              const line = (pick: (x2: { runs: number; ok: number }) => number) =>
+                days2.map((x2, i) => `${i ? 'L' : 'M'}${px(i).toFixed(1)},${py(pick(x2)).toFixed(1)}`).join(' ')
+              const runsLine = line((x2) => x2.runs)
+              const okLine = line((x2) => x2.ok)
+              const area = `${runsLine} L${W},${H} L0,${H} Z`
+              return (
+                <div className="dash-trend">
+                  <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+                    <path d={area} fill="#E6F1FB" stroke="none" />
+                    <path d={runsLine} fill="none" stroke="#378ADD" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                    <path d={okLine} fill="none" stroke="#1D9E75" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                    {days2.map((x2, i) => (
+                      <rect
+                        key={x2.date}
+                        x={px(i) - W / n / 2}
+                        y={0}
+                        width={W / n}
+                        height={H}
+                        fill="transparent"
+                      >
+                        <title>{`${x2.date} — 실행 ${x2.runs}건 · Pass ${x2.ok}건`}</title>
+                      </rect>
+                    ))}
+                  </svg>
+                  <div className="dash-trend-x">
+                    {days2.map((x2) => (
+                      <i key={x2.date}>{x2.date.slice(8)}</i>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         )}
 
@@ -287,7 +313,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
       <div className="dash-two">
         {ws.has('topfail') && (
           <div className="dash-wide">
-            <div className="dash-wt">자주 깨지는 TC (전체 회차 Fail 수 — 누르면 그 시험으로)</div>
+            <div className="dash-wt">자주 발생하는 결함 (전체 회차 Fail 수 — 누르면 그 시험으로)</div>
             <div className="dash-vers">
               {(d?.top_fail ?? []).map((t2) => (
                 <button
@@ -306,7 +332,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
                 </button>
               ))}
               {d && d.top_fail.length === 0 && (
-                <div className="empty">깨진 시험이 없습니다 — 좋은 신호입니다.</div>
+                <div className="empty">발생한 결함이 없습니다 — 좋은 신호입니다.</div>
               )}
             </div>
           </div>

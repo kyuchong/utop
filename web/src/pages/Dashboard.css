@@ -190,3 +190,8 @@
   font-size: var(--fs-md);
 }
 .dash-def > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); flex: none; }
+
+/* 실행 추이 — 영역 라인 차트 (막대 대신) */
+.dash-trend svg { display: block; width: 100%; height: 96px; }
+.dash-trend-x { display: flex; justify-content: space-between; margin-top: 3px; }
+.dash-trend-x > i { font-style: normal; font-size: 10px; color: var(--c-text-faint); }
