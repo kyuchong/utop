@@ -31,6 +31,8 @@ interface Props {
   preset?: { model?: string; tcs: Array<{ tcid: string; name?: string | null; req_id?: string | null }> }
   onClose: () => void
   onDone: (cycleId: string) => void
+  /** 항목 추가 팝업만 띄운다 — 실행 화면의 ＋ 가 쓴다. Add 가 곧 저장이다 */
+  popupOnly?: boolean
 }
 
 interface CatItem {
@@ -51,7 +53,7 @@ interface CatItem {
  * 만들기와 고치기가 같은 창이다. 다르게 만들면 「만들 때는 되는데 고칠
  * 때는 안 되는 것」 이 반드시 생긴다.
  */
-export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }: Props) {
+export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, popupOnly }: Props) {
   const editing = !!cycleId
 
   const [vendor, setVendor] = useState('')
@@ -75,7 +77,9 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   /** Zephyr 의 Add others — 체크하면 담은 뒤에도 팝업이 남아 계속 담는다 */
   const [addOthers, setAddOthers] = useState(false)
   /** 항목 추가 팝업 — Test Cases 탭은 담은 결과 화면이고, 추가는 여기서 */
-  const [addPop, setAddPop] = useState(false)
+  const [addPop, setAddPop] = useState(!!popupOnly)
+  /** 팝업 닫기 — 팝업만 모드면 통째로 닫는다 */
+  const closePop = () => (popupOnly ? onClose() : setAddPop(false))
   const [assignee, setAssignee] = useState('')
   const [start, setStart] = useState('')
   const [end, setEnd] = useState('')
@@ -607,6 +611,227 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
     )
   }
 
+  const popupJsx = addPop ? (
+        <div className="ce-popback" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="ce-pop">
+          <div className="ce-pophead">
+            <b>항목 추가 — Add Existing Test Cases</b>
+            <span className="sp" />
+            <label className="ce-hide" title="이미 배정된 항목을 목록에서 숨깁니다">
+              <input
+                type="checkbox"
+                checked={hideAdded}
+                onChange={(e) => setHideAdded(e.target.checked)}
+              />
+              담은 항목 숨기기
+            </label>
+            <button
+              className="btn small"
+              type="button"
+              title="보이는 것 전부 고르기"
+              onClick={() => setTcSel(new Set(visTcs.map((t) => t.tcid)))}
+            >
+              전체
+            </button>
+            <button
+              className="btn small danger"
+              type="button"
+              title="고른 것 중 이미 배정된 것을 뺍니다"
+              disabled={![...tcSel].some((id) => pickedIds.has(id))}
+              onClick={() => unassign([...tcSel])}
+            >
+              ← 해제
+            </button>
+            <button className="btn small" type="button" onClick={closePop}>
+              ✕
+            </button>
+          </div>
+        <div className="ce-cols">
+          {/* 1열 — 요구사항으로 좁힌다 */}
+          <div className="ce-col">
+            <div className="ce-colhead">
+              <b>요구사항</b>
+              {/* 「전체」 같은 별도 단추는 없다 — 요구사항·Coverage 의 1열과
+                  같은 문법이다. 고른 폴더를 다시 누르면 풀린다. */}
+            </div>
+            <input
+              className="ce-q"
+              value={reqQ}
+              placeholder="요구사항 찾기"
+              onChange={(e) => setReqQ(e.target.value)}
+            />
+            <div className="ce-body">
+              {cats.map(renderCat)}
+              {reqs
+                .filter((r) => !(r.cat4 || r.cat3 || r.cat2 || r.cat1))
+                .map((r) => reqRow(r, 0))}
+            </div>
+          </div>
+
+          {/* 2열 — 시험 고르기 */}
+          <div className="ce-col">
+            <div className="ce-colhead">
+              <b>시험항목</b>
+              <span className="muted small">{visTcs.length}건</span>
+              <input
+                className="ce-q"
+                value={tcQ}
+                placeholder="시험 찾기"
+                onChange={(e) => setTcQ(e.target.value)}
+              />
+              <span className="sp" />
+            <div className="ce-filters">
+              <select value={fMg} onChange={(e) => setFMg(e.target.value)} title="모델그룹">
+                <option value="">모델그룹: 전체</option>
+                <option value="\0">(공용)</option>
+                {tcOpts.mg.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              <select value={fMd} onChange={(e) => setFMd(e.target.value)} title="모델명">
+                <option value="">모델명: 전체</option>
+                <option value="\0">(미지정)</option>
+                {tcOpts.md.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              <select value={fSev} onChange={(e) => setFSev(e.target.value)} title="심각도">
+                <option value="">심각도: 전체</option>
+                {tcOpts.sev.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              <select value={fStat} onChange={(e) => setFStat(e.target.value)} title="상태">
+                <option value="">상태: 전체</option>
+                {tcOpts.stat.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              <select value={fKind} onChange={(e) => setFKind(e.target.value)} title="발생구분">
+                <option value="">발생구분: 전체</option>
+                {tcOpts.kin.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              <select value={fTyp} onChange={(e) => setFTyp(e.target.value)} title="타입">
+                <option value="">타입: 전체</option>
+                {tcOpts.typ.map((v) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+              {(fSev || fStat || fKind || fTyp) && (
+                <button
+                  className="btn small"
+                  type="button"
+                  onClick={() => {
+                    setFSev('')
+                    setFStat('')
+                    setFKind('')
+                    setFTyp('')
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            </div>
+            <div className="ce-body">
+              {tcQuery.isLoading ? (
+                <div className="empty">불러오는 중…</div>
+              ) : visTcs.length === 0 ? (
+                <div className="empty">
+                  {shownTcs.length > 0 && hideAdded
+                    ? '보이는 항목이 전부 배정돼 숨었습니다 — 「담은 항목 숨기기」 를 끄면 보입니다.'
+                    : '왼쪽에서 요구사항을 고르거나 위에서 찾으세요.'}
+                </div>
+              ) : (
+                visTcs.map((t) => {
+                  const already = pickedIds.has(t.tcid)
+                  return (
+                    <label className={`ce-tc${already ? ' off' : ''}`} key={t.tcid}>
+                      <input
+                        type="checkbox"
+                        checked={tcSel.has(t.tcid)}
+                        onChange={(e) =>
+                          setTcSel((s) => {
+                            const n = new Set(s)
+                            if (e.target.checked) n.add(t.tcid)
+                            else n.delete(t.tcid)
+                            return n
+                          })
+                        }
+                      />
+                      {/* Zephyr 처럼 — 키(TC ID)·제목·상태가 한 줄에 */}
+                      <b className="ce-tcid">{t.tcid}</b>
+                      <span className="ce-tc-nm" title={t.tcid}>
+                        {t.name || '(제목 없음)'}
+                      </span>
+                      {/* 상태·배정됨은 늘 같은 자리 — 없으면 빈 칸이 자리를 지킨다 */}
+                      <i className="ce-tcst">{t.status ? String(t.status) : ''}</i>
+                      <span className="ce-tcadd">{already ? '배정됨' : ''}</span>
+                    </label>
+                  )
+                })
+              )}
+            </div>
+            {/* 항목 추가는 아래에서 — Zephyr 의 Add / Add others 자리 */}
+            <div className="ce-addbar">
+              <input
+                className="ce-who"
+                value={asgWho}
+                placeholder="담당자 (선택)"
+                title="담으면서 이 담당자를 넣습니다 (비우면 Details 의 담당)"
+                onChange={(e) => setAsgWho(e.target.value)}
+              />
+              <span className="muted small">
+                {tcSel.size ? `${tcSel.size}건 고름` : '체크한 항목을 담습니다'}
+              </span>
+              <label className="ce-hide" title="체크해 두면 담은 뒤에도 창이 남아 계속 담습니다">
+                <input
+                  type="checkbox"
+                  checked={addOthers}
+                  onChange={(e) => setAddOthers(e.target.checked)}
+                />
+                Add others
+              </label>
+              <span className="sp" />
+              <button
+                className="btn primary"
+                type="button"
+                disabled={busy || ![...tcSel].some((id) => !pickedIds.has(id))}
+                title={
+                  addOthers
+                    ? '담고 나서 계속 고릅니다'
+                    : '담고 저장한 뒤 창을 닫습니다'
+                }
+                onClick={() => {
+                  const next = assign([...tcSel])
+                  // 팝업만 모드에서는 Add 가 곧 저장 — 뒤에 저장 단추가 없다
+                  if (popupOnly) void save(next)
+                  if (addOthers) {
+                    setTcQ('')
+                    return
+                  }
+                  // 미체크 = 담고 끝 — 팝업이 닫히고 완료 화면으로 돌아간다
+                  closePop()
+                }}
+              >
+                Add
+              </button>
+              <button className="btn" type="button" disabled={busy} onClick={closePop}>
+                Close
+              </button>
+            </div>
+          </div>
+
+        </div>
+        </div>
+        </div>
+  ) : null
+
+  // 실행 화면의 ＋ — 수정 창 없이 항목 추가 팝업만
+  if (popupOnly) return <>{popupJsx}</>
+
   return (
     <div className="modal-back" onMouseDown={() => !busy && onClose()}>
       <div
@@ -1038,221 +1263,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
           </div>
         )}
 
-        {addPop && (
-        <div className="ce-popback" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="ce-pop">
-          <div className="ce-pophead">
-            <b>항목 추가 — Add Existing Test Cases</b>
-            <span className="sp" />
-            <label className="ce-hide" title="이미 배정된 항목을 목록에서 숨깁니다">
-              <input
-                type="checkbox"
-                checked={hideAdded}
-                onChange={(e) => setHideAdded(e.target.checked)}
-              />
-              담은 항목 숨기기
-            </label>
-            <button
-              className="btn small"
-              type="button"
-              title="보이는 것 전부 고르기"
-              onClick={() => setTcSel(new Set(visTcs.map((t) => t.tcid)))}
-            >
-              전체
-            </button>
-            <button
-              className="btn small danger"
-              type="button"
-              title="고른 것 중 이미 배정된 것을 뺍니다"
-              disabled={![...tcSel].some((id) => pickedIds.has(id))}
-              onClick={() => unassign([...tcSel])}
-            >
-              ← 해제
-            </button>
-            <button className="btn small" type="button" onClick={() => setAddPop(false)}>
-              ✕
-            </button>
-          </div>
-        <div className="ce-cols">
-          {/* 1열 — 요구사항으로 좁힌다 */}
-          <div className="ce-col">
-            <div className="ce-colhead">
-              <b>요구사항</b>
-              {/* 「전체」 같은 별도 단추는 없다 — 요구사항·Coverage 의 1열과
-                  같은 문법이다. 고른 폴더를 다시 누르면 풀린다. */}
-            </div>
-            <input
-              className="ce-q"
-              value={reqQ}
-              placeholder="요구사항 찾기"
-              onChange={(e) => setReqQ(e.target.value)}
-            />
-            <div className="ce-body">
-              {cats.map(renderCat)}
-              {reqs
-                .filter((r) => !(r.cat4 || r.cat3 || r.cat2 || r.cat1))
-                .map((r) => reqRow(r, 0))}
-            </div>
-          </div>
-
-          {/* 2열 — 시험 고르기 */}
-          <div className="ce-col">
-            <div className="ce-colhead">
-              <b>시험항목</b>
-              <span className="muted small">{visTcs.length}건</span>
-              <input
-                className="ce-q"
-                value={tcQ}
-                placeholder="시험 찾기"
-                onChange={(e) => setTcQ(e.target.value)}
-              />
-              <span className="sp" />
-            <div className="ce-filters">
-              <select value={fMg} onChange={(e) => setFMg(e.target.value)} title="모델그룹">
-                <option value="">모델그룹: 전체</option>
-                <option value="\0">(공용)</option>
-                {tcOpts.mg.map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
-              <select value={fMd} onChange={(e) => setFMd(e.target.value)} title="모델명">
-                <option value="">모델명: 전체</option>
-                <option value="\0">(미지정)</option>
-                {tcOpts.md.map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
-              <select value={fSev} onChange={(e) => setFSev(e.target.value)} title="심각도">
-                <option value="">심각도: 전체</option>
-                {tcOpts.sev.map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
-              <select value={fStat} onChange={(e) => setFStat(e.target.value)} title="상태">
-                <option value="">상태: 전체</option>
-                {tcOpts.stat.map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
-              <select value={fKind} onChange={(e) => setFKind(e.target.value)} title="발생구분">
-                <option value="">발생구분: 전체</option>
-                {tcOpts.kin.map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
-              <select value={fTyp} onChange={(e) => setFTyp(e.target.value)} title="타입">
-                <option value="">타입: 전체</option>
-                {tcOpts.typ.map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
-              {(fSev || fStat || fKind || fTyp) && (
-                <button
-                  className="btn small"
-                  type="button"
-                  onClick={() => {
-                    setFSev('')
-                    setFStat('')
-                    setFKind('')
-                    setFTyp('')
-                  }}
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-            </div>
-            <div className="ce-body">
-              {tcQuery.isLoading ? (
-                <div className="empty">불러오는 중…</div>
-              ) : visTcs.length === 0 ? (
-                <div className="empty">
-                  {shownTcs.length > 0 && hideAdded
-                    ? '보이는 항목이 전부 배정돼 숨었습니다 — 「담은 항목 숨기기」 를 끄면 보입니다.'
-                    : '왼쪽에서 요구사항을 고르거나 위에서 찾으세요.'}
-                </div>
-              ) : (
-                visTcs.map((t) => {
-                  const already = pickedIds.has(t.tcid)
-                  return (
-                    <label className={`ce-tc${already ? ' off' : ''}`} key={t.tcid}>
-                      <input
-                        type="checkbox"
-                        checked={tcSel.has(t.tcid)}
-                        onChange={(e) =>
-                          setTcSel((s) => {
-                            const n = new Set(s)
-                            if (e.target.checked) n.add(t.tcid)
-                            else n.delete(t.tcid)
-                            return n
-                          })
-                        }
-                      />
-                      {/* Zephyr 처럼 — 키(TC ID)·제목·상태가 한 줄에 */}
-                      <b className="ce-tcid">{t.tcid}</b>
-                      <span className="ce-tc-nm" title={t.tcid}>
-                        {t.name || '(제목 없음)'}
-                      </span>
-                      {/* 상태·배정됨은 늘 같은 자리 — 없으면 빈 칸이 자리를 지킨다 */}
-                      <i className="ce-tcst">{t.status ? String(t.status) : ''}</i>
-                      <span className="ce-tcadd">{already ? '배정됨' : ''}</span>
-                    </label>
-                  )
-                })
-              )}
-            </div>
-            {/* 항목 추가는 아래에서 — Zephyr 의 Add / Add others 자리 */}
-            <div className="ce-addbar">
-              <input
-                className="ce-who"
-                value={asgWho}
-                placeholder="담당자 (선택)"
-                title="담으면서 이 담당자를 넣습니다 (비우면 Details 의 담당)"
-                onChange={(e) => setAsgWho(e.target.value)}
-              />
-              <span className="muted small">
-                {tcSel.size ? `${tcSel.size}건 고름` : '체크한 항목을 담습니다'}
-              </span>
-              <label className="ce-hide" title="체크해 두면 담은 뒤에도 창이 남아 계속 담습니다">
-                <input
-                  type="checkbox"
-                  checked={addOthers}
-                  onChange={(e) => setAddOthers(e.target.checked)}
-                />
-                Add others
-              </label>
-              <span className="sp" />
-              <button
-                className="btn primary"
-                type="button"
-                disabled={busy || ![...tcSel].some((id) => !pickedIds.has(id))}
-                title={
-                  addOthers
-                    ? '담고 나서 계속 고릅니다'
-                    : '담고 저장한 뒤 창을 닫습니다'
-                }
-                onClick={() => {
-                  assign([...tcSel])
-                  if (addOthers) {
-                    setTcQ('')
-                    return
-                  }
-                  // 미체크 = 담고 끝 — 팝업이 닫히고 완료 화면으로 돌아간다
-                  setAddPop(false)
-                }}
-              >
-                Add
-              </button>
-              <button className="btn" type="button" disabled={busy} onClick={() => setAddPop(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-
-        </div>
-        </div>
-        </div>
-        )}
+        {popupJsx}
 
 
       </div>
