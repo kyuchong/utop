@@ -2376,7 +2376,7 @@ table.tb td.k {
 .cxp-k.manual { color: #fff; background: var(--c-draft); }
 .cxp-k.auto { color: var(--c-primary); background: var(--c-primary-bg); }
 .cxp-nm {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-md);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2504,7 +2504,7 @@ table.tb td.k {
   padding: 2px 10px;
   min-height: 27px;
   min-width: 1120px;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-md);
 }
 .cyt-ck { display: flex; align-items: center; }
 .cyt-key {
@@ -2577,7 +2577,7 @@ table.tb td.k {
 }
 .cyt-it {
   border-bottom: 1px solid var(--c-border-weak, #eef1f5);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-md);
 }
 .cyt-it:last-child { border-bottom: 0; }
 
@@ -3194,7 +3194,7 @@ table.tb td.k {
   align-items: center;
   padding: 3px 6px;
   border-bottom: 1px solid var(--c-border-weak, #eef1f5);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-md);
   min-height: 28px;
 }
 .ce-dt > span { text-align: left; }

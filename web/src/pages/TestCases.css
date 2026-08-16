@@ -2583,7 +2583,8 @@ table.tb tr.r-bad td:first-child {
  */
 .rq-tr.tc-tr .rq-th > div,
 .rq-tr.tc-tr > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rq-tr.tc-tr {
+/* 목록 본문 12→13 — 작아 보인다는 피드백 (머리·배지는 그대로) */
+.rq-tr.tc-tr { font-size: var(--fs-md);
   /*
    * 열은 **고정폭**이어야 한다.
    *
