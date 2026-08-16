@@ -754,14 +754,36 @@ select.cy-v.na { color: #999; }
 .modal.ce .modal-head { justify-content: flex-start; gap: 10px; }
 .modal.ce .modal-head .sp { flex: 1; }
 .ce-form {
-  /* 왼쪽 = 제목·설명(편집기), 오른쪽 = 분류·버전·관리 박스 스택 */
+  /* 왼쪽 = 제목·설명(편집기), 오른쪽 = 분류·버전·관리 박스 스택.
+     창의 남는 세로를 다 쓴다 — 설명 편집기가 아래까지 자란다 */
   display: grid;
   grid-template-columns: 1.15fr 1fr;
   gap: 10px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--c-border);
-  align-items: start;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
+.modal.ce .ce-left { min-height: 0; }
+.modal.ce .ce-left .ce-md {
+  flex: 1;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+}
+.modal.ce .ce-left .ce-md .md-editor,
+.modal.ce .ce-left .ce-md .md-host {
+  flex: 1;
+  min-height: 0;
+}
+.modal.ce .ce-left .ce-md .milkdown .ProseMirror {
+  max-height: none !important;
+  flex: 1;
+}
+/* 오른쪽 박스들은 위에 붙고 아래는 비워 둔다 */
+.modal.ce .ce-right { align-content: start; }
 .ce-left, .ce-right {
   display: flex;
   flex-direction: column;
