@@ -111,6 +111,11 @@
   font-variant-numeric: tabular-nums;
 }
 .lh-more { position: relative; display: inline-flex; }
+/* ⋯ 글자가 흐려서 단추로 안 읽혔다(피드백) — 굵고 진하게 */
+.lh-more > .btn.small {
+  font-weight: 900;
+  color: var(--c-text);
+}
 .lh-menu {
   position: absolute;
   right: 0;
