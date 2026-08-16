@@ -32,7 +32,8 @@
   font-weight: 700;
 }
 .md h3 {
-  font-size: 14.5px;
+  /* 본문이 13px 라 14.5 로는 1.5px 차 — 티가 안 난다. 20/17/15/13 계단 */
+  font-size: 15px;
   font-weight: 700;
 }
 .md h4 {
