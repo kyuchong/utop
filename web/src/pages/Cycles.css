@@ -2607,9 +2607,11 @@ table.tb td.k {
   border-bottom: 1px solid var(--c-border-weak, #eef1f5);
   font-size: var(--fs-md);
 }
+/* .small(11px) 이 메타 칸을 끌어내려 카드 전체가 작아 보였다 — 여기서만 12px */
+.cyt-it .muted.small { font-size: var(--fs-sm); }
 .cyt-it:last-child { border-bottom: 0; }
 
-.cyt-ittc { color: var(--c-primary); font-size: var(--fs-xs); font-weight: 700; }
+.cyt-ittc { color: var(--c-primary); font-size: var(--fs-md); font-weight: 700; }
 /* 유형 — Coverage 의 Function 태그와 같은 옷 */
 .cyt-tag {
   font-style: normal;
@@ -2622,7 +2624,7 @@ table.tb td.k {
   background: var(--c-surface-alt);
   white-space: nowrap;
 }
-.cyt-itv { font-style: normal; font-size: var(--fs-xs); font-weight: 700; color: var(--c-text-faint); }
+.cyt-itv { font-style: normal; font-size: var(--fs-sm); font-weight: 700; color: var(--c-text-faint); }
 .cyt-itv.pass { color: var(--c-pass); }
 .cyt-itv.fail { color: var(--c-fail); }
 .cyt-itv.wip { color: var(--c-draft); }
