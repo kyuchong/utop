@@ -3709,42 +3709,44 @@ function CycleDetail({
 
               {/* Execution 정보 — Zephyr 의 Execution 칸과 같은 자리 */}
               <div className="cxp-exec">
-                <div>
-                  <i>제조사</i>
-                  <b>{maker || '–'}</b>
-                </div>
-                <div>
-                  <i>제품군</i>
-                  <b>{family || '–'}</b>
-                </div>
-                <div>
-                  <i>모델그룹</i>
-                  <b>{mgroup || '–'}</b>
-                </div>
-                <div>
-                  <i>제품명</i>
-                  <b>{cycle.model || '–'}</b>
-                </div>
-                <div>
-                  <i>버전그룹</i>
-                  <b>{cycle.version_group || '–'}</b>
-                </div>
-                <div>
-                  <i>버전명</i>
-                  <b>{cycle.version || '–'}</b>
-                </div>
-                <div>
-                  <i>담당자</i>
-                  <b>{cur.assignee || '–'}</b>
-                </div>
-                <div>
-                  <i>실행자 · 실행 시각</i>
-                  <b>
-                    {cur.executed_by || '–'}
-                    {cur.executed_at ? ` · ${String(cur.executed_at).slice(0, 16)}` : ''}
-                  </b>
-                </div>
-                {/* 제목은 길다 — 맨 아래 한 줄을 통째로 쓴다 */}
+                {(() => {
+                  const rows: Array<[string, string]> = [
+                    ['제조사', maker || '–'],
+                    ['제품군', family || '–'],
+                    ['모델그룹', mgroup || '–'],
+                    ['제품명', cycle.model || '–'],
+                    ['버전그룹', cycle.version_group || '–'],
+                    ['버전명', cycle.version || '–'],
+                    ['담당자', cur.assignee || '–'],
+                    [
+                      '실행자 · 실행 시각',
+                      `${cur.executed_by || '–'}${cur.executed_at ? ` · ${String(cur.executed_at).slice(0, 16)}` : ''}`,
+                    ],
+                  ]
+                  /* 사이클에 실린 나머지 값 — 상태·고객에 더해, 앞으로
+                     늘어날 커스텀 필드(고객사·사이클 유형 …)가 코드 수정
+                     없이 자동으로 나온다. 수정 창에 칸이 생기면 화면이 따라온다 */
+                  const KNOWN: Record<string, string> = { status: '상태', customer: '고객' }
+                  const SKIP = new Set([
+                    'id', 'cid', 'ce', 'name', 'model', 'model_group', 'version',
+                    'version_group', 'assignee', 'folder', 'folder_id', 'description',
+                    'cloned_from', 'created_at', 'created_by', 'updated_by',
+                    'start_date', 'end_date', 'items',
+                  ])
+                  for (const [k, v2] of Object.entries(cycle as unknown as Record<string, unknown>)) {
+                    if (SKIP.has(k) || k.startsWith('_')) continue
+                    if (typeof v2 !== 'string' && typeof v2 !== 'number') continue
+                    if (String(v2).trim() === '') continue
+                    rows.push([KNOWN[k] ?? k, String(v2)])
+                  }
+                  return rows.map(([k, v2]) => (
+                    <div key={k}>
+                      <i>{k}</i>
+                      <b>{v2}</b>
+                    </div>
+                  ))
+                })()}
+                {/* 제목은 길다 — 몇 열이 되든 맨 아래 한 줄을 통째로(예외) */}
                 <div className="wide">
                   <i>사이클 제목</i>
                   <b>{cycle.name || '–'}</b>

@@ -2581,10 +2581,11 @@ table.tb td.k {
 .cy-v.cxp-big { font-size: var(--fs-sm); font-weight: 800; padding: 4px 8px; }
 .cxp-exec {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px 18px;
-  margin: 12px 0;
-  padding: 10px 12px;
+  /* 여백을 줄이고 폭에 맞춰 4~5열까지 스스로 늘어난다 — 제목만 예외(전체 폭) */
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
+  gap: 4px 14px;
+  margin: 10px 0;
+  padding: 8px 12px;
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm);
   background: var(--c-surface-alt);
@@ -2595,7 +2596,8 @@ table.tb td.k {
   font-style: normal;
   font-size: var(--fs-xs);
   color: var(--c-text-faint);
-  width: 84px;
+  width: auto;
+  flex: none;
   flex: none;
 }
 .cxp-exec b {
