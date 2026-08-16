@@ -3331,11 +3331,21 @@ function CycleDetail({
                   {aiAt && <em>{String(aiAt).slice(0, 16)}</em>}
                 </div>
                 {aiBusy ? (
-                  <div className="muted small">LLM 이 요약을 만드는 중…</div>
+                  <div className="cy-sum-ai-load">
+                    <span className="cy-spin" aria-hidden="true" />
+                    <div className="cy-sum-ai-sk">
+                      <b>LLM 이 이 회차 결과를 읽고 있습니다…</b>
+                      <i style={{ width: '92%' }} />
+                      <i style={{ width: '78%' }} />
+                      <i style={{ width: '85%' }} />
+                    </div>
+                  </div>
                 ) : aiErr ? (
                   <div className="cy-sum-ai-err">{aiErr}</div>
                 ) : (
-                  <Markdown text={aiTxt} />
+                  <div className="cy-sum-ai-body">
+                    <Markdown text={aiTxt} />
+                  </div>
                 )}
               </div>
             )}

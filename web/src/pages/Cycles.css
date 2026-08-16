@@ -3525,6 +3525,45 @@ table.tb td.k {
 .cy-sum-ai-h > b { font-size: var(--fs-sm); }
 .cy-sum-ai-h > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
 .cy-sum-ai-err { color: var(--c-fail); font-size: var(--fs-sm); }
+/* 요약 본문 — 읽는 글이라 작게 하지 않는다 */
+.cy-sum-ai-body {
+  background: var(--c-surface-alt);
+  border: 1px solid var(--c-border-weak, #eef1f5);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+.cy-sum-ai-body .md { font-size: 14px; line-height: 1.75; }
+/* 만드는 중 — 도는 링 + 뼈대 줄이 반짝인다 */
+.cy-sum-ai-load {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--c-surface-alt);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.cy-spin {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 2px solid var(--c-primary-bg);
+  border-top-color: var(--c-primary);
+  animation: cy-rot 0.8s linear infinite;
+}
+@keyframes cy-rot { to { transform: rotate(360deg); } }
+.cy-sum-ai-sk { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.cy-sum-ai-sk > b { font-size: var(--fs-md); color: var(--c-text-muted); font-weight: 600; }
+.cy-sum-ai-sk > i {
+  display: block;
+  height: 9px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, var(--c-border-weak, #eef1f5) 25%, var(--c-surface) 50%, var(--c-border-weak, #eef1f5) 75%);
+  background-size: 200% 100%;
+  animation: cy-shim 1.3s ease-in-out infinite;
+}
+@keyframes cy-shim { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 /* ── 실행 페이지 (독립 전체 화면) ── */
 /* 실행 중에는 트리가 없다 — 본판이 전체 폭을 쓴다 */
