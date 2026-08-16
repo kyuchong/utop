@@ -460,6 +460,12 @@ export default function ReqTree({
       }
       const cat = catById.get(id)
       if (!cat) return
+      // 프로젝트는 트리 맨 위가 자리다 — 폴더 밑으로 들어가면 프로젝트
+      // 층 자체가 무너진다. 서버도 같은 이유로 거절한다.
+      if (target && prjByCat.has(id)) {
+        setError('프로젝트는 트리 맨 위에만 둘 수 있습니다')
+        return
+      }
       if (target && isSelfOrDesc(id, target)) {
         setError('자기 자신이나 하위 폴더 밑으로는 옮길 수 없습니다')
         return

@@ -2701,6 +2701,13 @@ async def save_folders(data: dict):
 # 3단으로 묶어두니 E43·E57·LG 처럼 이미 3단을 쓴 가지가 어디로도 못 갔다.
 MAX_CAT_DEPTH = 4
 CAT_DEPTH_MSG = "분류는 4단까지만 만들 수 있습니다"
+PRJ_ROOT_MSG = "프로젝트는 트리 맨 위에만 둘 수 있습니다"
+
+
+async def _is_project_cat(cid: str) -> bool:
+    """이 분류가 프로젝트(최상위 전용)인가 — 이동 검증이 쓴다."""
+    async with db.pool().acquire() as c:
+        return await c.fetchval("SELECT 1 FROM project WHERE cat_id=$1", cid) is not None
 
 
 class ReqCategoryIn(BaseModel):
@@ -2797,6 +2804,8 @@ async def reorder_req_categories(body: ReqCategoryOrderIn):
     for cid in body.ids:
         if parent and (cid == parent or await _is_descendant(parent, cid)):
             raise HTTPException(400, "자기 하위 분류 밑으로는 옮길 수 없습니다")
+        if parent and await _is_project_cat(cid):
+            raise HTTPException(400, PRJ_ROOT_MSG)
         if base + await _subtree_height(cid) > MAX_CAT_DEPTH:
             raise HTTPException(400, CAT_DEPTH_MSG)
 
@@ -2824,6 +2833,10 @@ async def update_req_category(cat_id: str, body: ReqCategoryIn):
     if parent_id == cat_id:
         raise HTTPException(400, "자기 자신을 상위로 지정할 수 없습니다")
     if parent_id:
+        # 프로젝트는 트리 맨 위가 자리다 — 폴더 밑으로 들어가면
+        # 최상위=프로젝트 층 자체가 무너진다.
+        if await _is_project_cat(cat_id):
+            raise HTTPException(400, PRJ_ROOT_MSG)
         parent = await db.cat_get(parent_id)
         if parent is None:
             raise HTTPException(404, "상위 분류를 찾을 수 없습니다")
