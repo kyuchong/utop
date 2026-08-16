@@ -20,13 +20,21 @@
   margin: var(--sp-4) 0 var(--sp-2);
   line-height: 1.35;
 }
+/* 편집기(H1 20/H2 17/H3 14.5)와 같은 자 — 15/15/13 으로는 H1·H2·H3·본문이
+   구분되지 않는다는 피드백. 쓰는 곳(요구사항 구현내용·사이클 세부내역)이
+   같은 자를 쓰게 여기 한 곳만 정한다 */
 .md h1 {
-  font-size: var(--fs-lg);
+  font-size: 20px;
+  font-weight: 700;
 }
 .md h2 {
-  font-size: var(--fs-lg);
+  font-size: 17px;
+  font-weight: 700;
 }
-.md h3,
+.md h3 {
+  font-size: 14.5px;
+  font-weight: 700;
+}
 .md h4 {
   font-size: var(--fs-md);
 }
