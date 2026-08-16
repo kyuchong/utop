@@ -3340,3 +3340,8 @@ table.tb td.k {
 /* 머리글 드래그 — 잡는 손 모양과 그립 */
 .cyt-th[draggable='true'] { cursor: grab; }
 .cyt-th .tc-colgrip { opacity: 0.4; margin-right: 2px; }
+
+/* 설명 칸 — 라벨은 위에 고정(내용이 길어져도 안 내려온다), 틀 넣기 버튼 */
+.modal.ce .ce-desc-fld { align-items: start; }
+.modal.ce .ce-desc-fld > span { padding-top: 6px; }
+.ce-tpl { display: block; margin-top: 4px; font-size: var(--fs-xs); }

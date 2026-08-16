@@ -13,6 +13,16 @@ import {
   type TestCaseMeta,
 } from '@/types'
 
+/** 설명(요약) 고정 틀 — 새 사이클에 미리 채워지고, 「틀 넣기」 로 다시 넣는다 */
+const DESC_TEMPLATE = `## 시험 요약
+- 대상 모델 / 버전: 
+- 시험 범위: 
+- 시험 환경 (장비 · 계측기): 
+
+## 특이사항
+- 
+`
+
 /** 배정된 항목 한 줄 */
 export interface PickedItem {
   tcid: string
@@ -63,7 +73,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
   const [version, setVersion] = useState('')
   /** 제목 — 사람이 손으로 적는 사이클 이름. 버전과 다른 칸이다 */
   const [cname, setCname] = useState('')
-  const [cdesc, setCdesc] = useState('')
+  const [cdesc, setCdesc] = useState(() => (cycleId ? '' : DESC_TEMPLATE))
   const [cstat, setCstat] = useState('')
   const [ccust, setCcust] = useState('')
   /** Zephyr Create Test Cycle 문법 — Details 는 기본 정보, Test Cases 는 항목 */
@@ -691,8 +701,26 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               onChange={(e) => setCname(e.target.value)}
             />
           </label>
-          <div className="fld ce-wide">
-            <span>설명 (Description)</span>
+          <div className="fld ce-wide ce-desc-fld">
+            <span>
+              설명 (Description)
+              <button
+                type="button"
+                className="linkish ce-tpl"
+                title="시험 내역 요약 틀을 넣습니다"
+                onClick={() => {
+                  if (
+                    cdesc.trim() &&
+                    cdesc !== DESC_TEMPLATE &&
+                    !window.confirm('지금 적힌 설명을 요약 틀로 바꿉니다. 계속할까요?')
+                  )
+                    return
+                  setCdesc(DESC_TEMPLATE)
+                }}
+              >
+                틀 넣기
+              </button>
+            </span>
             {/* 서식이 되는 편집기 — 시험 목적·사전준비와 같은 부품 */}
             <div className="ce-md">
               <MarkdownEditor
