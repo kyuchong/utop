@@ -1097,10 +1097,12 @@ export default function Requirements() {
                 })
               )}
             </div>
-            <div className="bottom colbot">
-              <span>요구사항 {midReqs.length}건</span>
-              {pickedInList.length > 0 && <span>{pickedInList.length}건 선택됨</span>}
-            </div>
+          </div>
+          {/* 카드 직속으로 둬야 1열 상태 바와 구분선 높이가 맞는다(피드백) —
+              rq-list 안에 두면 그 여백만큼 떠 보인다 */}
+          <div className="bottom colbot">
+            <span>요구사항 {midReqs.length}건</span>
+            {pickedInList.length > 0 && <span>{pickedInList.length}건 선택됨</span>}
           </div>
         </section>
         <Resizer
