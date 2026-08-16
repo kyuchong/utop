@@ -3301,13 +3301,8 @@ table.tb td.k {
 /* 설명 — 마크다운 편집기 높이. 내용이 길면 본문만 안쪽 스크롤
    (툴바는 위에 남는다). 창이 무한정 길어지면 저장 단추가 사라진다 */
 .ce-md { min-height: 120px; }
-/* 스크롤은 본문(ProseMirror) 하나만 — md-host 에도 걸면 이중 스크롤이 된다 */
-.ce-md .milkdown .ProseMirror {
-  max-height: 340px;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  word-break: break-word;
-}
+/* Toast UI 는 뿌리 높이를 고정하면 본문만 안쪽 스크롤한다(툴바는 위에 남는다) */
+.ce-md .md-editor { height: 340px; }
 /* 편집기 활자(본문 12px · H1 20 · H2 17 · H3 14.5)는 공용으로 승격 —
    Markdown.css 의 .md-editor 규칙이 맡는다. 여기는 창 크기만. */
 .ce-md .md-editor, .ce-md .w-md-editor { min-height: 120px; }

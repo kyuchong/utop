@@ -217,30 +217,28 @@
   min-height: 0;
 }
 
-/* ── 편집기 본문 활자 — 공용 ────────────────────────────────
-   사이클 수정 창에서 다듬은 자(본문 12px · H1 20 · H2 17 · H3 14.5)를
-   여기로 승격했다(피드백: 「마크다운 한번에 개선」). 요구사항 구현내용·
-   폼·Bulk Edit 등 이 편집기를 쓰는 모든 곳이 같이 좋아진다.
-   위 여백 40px 는 첫 줄 블록 선택 때 뜨는 서식 말풍선 자리 — 없으면
-   말풍선이 위 툴바를 덮어 메뉴를 못 누른다. */
-.md-editor .milkdown .ProseMirror,
-.md-editor .milkdown .ProseMirror p {
-  font-size: var(--fs-sm) !important;
-  line-height: 1.5;
+/* ── Toast UI 편집기 — 공용 ────────────────────────────────
+   (Milkdown 에서 교체, 2026-08. 색·체크박스가 필요했다.)
+   활자는 읽기 화면(.md)과 같은 자 — 본문 12px · H1 20 · H2 17 · H3 14.5.
+   표 선도 읽기와 같은 진한 색(#9aa4b0). */
+.md-host .toastui-editor-defaultUI {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
-.md-editor .milkdown .ProseMirror {
-  padding-top: 40px !important;
+.md-editor .toastui-editor-contents {
+  font-size: var(--fs-sm);
+  line-height: 1.6;
   word-break: break-word;
 }
-.md-editor .milkdown .ProseMirror h1 { font-size: 20px !important; margin: 8px 0 5px; }
-.md-editor .milkdown .ProseMirror h2 { font-size: 17px !important; margin: 7px 0 4px; }
-.md-editor .milkdown .ProseMirror h3 { font-size: 14.5px !important; font-weight: 700; margin: 5px 0 3px; }
-/* 표 선 — 밀크다운 기본 선이 흐려 칸이 안 읽혔다(피드백).
-   읽기 화면(.md td)과 같은 진한 선으로 맞춘다. */
-.md-editor .milkdown .ProseMirror table { border-collapse: collapse; }
-.md-editor .milkdown .ProseMirror th,
-.md-editor .milkdown .ProseMirror td {
-  border: 1px solid #9aa4b0 !important;
+.md-editor .toastui-editor-contents p { font-size: var(--fs-sm); }
+.md-editor .toastui-editor-contents h1 { font-size: 20px; }
+.md-editor .toastui-editor-contents h2 { font-size: 17px; }
+.md-editor .toastui-editor-contents h3 { font-size: 14.5px; }
+.md-editor .toastui-editor-contents table { border-collapse: collapse; }
+.md-editor .toastui-editor-contents table th,
+.md-editor .toastui-editor-contents table td {
+  border: 1px solid #9aa4b0;
   padding: 4px 8px;
 }
-.md-editor .milkdown .ProseMirror th { background: var(--c-surface-alt); }
+.md-editor .toastui-editor-contents table th { background: var(--c-surface-alt); }
