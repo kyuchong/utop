@@ -638,6 +638,17 @@ export default function Cycles({ me }: PageProps) {
     }
   }, [pendingCe, cycles])
 
+  // 뒤로가기 — 주소에서 실행 파라미터가 사라졌으면 목록으로 돌아온다.
+  // (App 의 popstate 는 파라미터가 「있을 때」 만 화면을 정한다)
+  useEffect(() => {
+    const h = () => {
+      const p2 = new URLSearchParams(window.location.search)
+      if (!p2.get('ce') && !p2.get('cycle')) setSel('')
+    }
+    window.addEventListener('popstate', h)
+    return () => window.removeEventListener('popstate', h)
+  }, [])
+
   // 실행 화면에 들어오면 CE·CETC 를 부여받는다 — 멱등이라 몇 번이어도 같다
   const minted = useRef('')
   useEffect(() => {
@@ -1033,21 +1044,38 @@ export default function Cycles({ me }: PageProps) {
               setSel('')
             }}
           >
-            사이클
+            {cur ? 'Cycle Executions' : '사이클'}
           </button>
           {cur ? (
             /* 실행 중 — Cycle Execution › 모델그룹 › 모델명 › 버전그룹 › 버전 ›
                사이클 ID › 제목. 제품군은 카탈로그에 생기면 앞에 붙인다 */
             <>
-              {[cur.model_group, cur.model, cur.version_group, cur.version, cur.cid, cur.name]
-                .map((t) => String(t ?? '').trim())
-                .filter(Boolean)
-                .map((t, i) => (
-                  <span key={`${t}-${i}`}>
-                    <span className="rq-crumb-sep">›</span>
-                    <span className="cy-crumb-x">{t}</span>
-                  </span>
-                ))}
+              {(() => {
+                const segs = pathOfCycle(cur, famOf).split('/').filter(Boolean)
+                return [cur.model_group, cur.model, cur.version_group, cur.version, cur.cid, cur.name]
+                  .map((t) => String(t ?? '').trim())
+                  .filter(Boolean)
+                  .map((t, i) => {
+                    const at2 = segs.indexOf(t)
+                    return (
+                      <span key={`${t}-${i}`}>
+                        <span className="rq-crumb-sep">›</span>
+                        {at2 >= 0 ? (
+                          <button
+                            type="button"
+                            className="cy-crumb-go"
+                            title="이 폴더의 사이클 목록으로 갑니다"
+                            onClick={() => scopeToKey(segs.slice(0, at2 + 1).join('/'))}
+                          >
+                            {t}
+                          </button>
+                        ) : (
+                          <span className="cy-crumb-x">{t}</span>
+                        )}
+                      </span>
+                    )
+                  })
+              })()}
               {cur.ce && (
                 <i className="cy-cechip" title="사이클 실행 ID — 주소를 복사해 보내면 이 화면이 열립니다">
                   {cur.ce}
@@ -1364,7 +1392,6 @@ export default function Cycles({ me }: PageProps) {
             act={act}
             meName={me?.name || me?.username || ''}
             onSaved={() => void listQ.refetch()}
-            onGoCycle={(id) => setSel(id)}
             initItemCeid={pendingIt}
           />
         ) : (
@@ -2429,7 +2456,6 @@ function CycleDetail({
   act,
   meName,
   onSaved,
-  onGoCycle,
   initItemCeid,
 }: {
   cycle: CycleMeta
@@ -2440,8 +2466,6 @@ function CycleDetail({
   /** 트리 우클릭 메뉴가 시킨 일 */
   act?: { what: 'details' | 'ai' | 'pptx' | 'run'; n: number } | null
   onSaved: () => void
-  /** 이력 칩을 누르면 그 사이클 실행 화면으로 */
-  onGoCycle: (id: string) => void
   /** ?it=CETC-… 로 들어왔다 — 항목이 오면 한 번만 편다 */
   initItemCeid?: string
 }) {
@@ -2757,7 +2781,14 @@ function CycleDetail({
 
   /** 저장 줄 — 읽고→쓰기라, 나란히 두 번 찍으면 뒤가 앞을 덮는다. 하나씩 */
   const saveChain = useRef<Promise<void>>(Promise.resolve())
+  const qc2 = useQueryClient()
   const saveItems = (edit: (cur: CycleItemLite[]) => CycleItemLite[]) => {
+    // 화면 먼저 바꾼다(낙관) — 셀렉트를 찍고 저장을 기다리면 느리게 느껴진다.
+    // 서버 저장은 뒤에서 줄 서서 따라오고, 끝나면 refetch 가 맞춰 준다
+    qc2.setQueryData(['cycle-full', cycle.id], (old: unknown) => {
+      const o = old as { items?: CycleItemLite[] } | undefined
+      return o ? { ...o, items: edit(o.items ?? []) } : o
+    })
     const run2 = saveChain.current.then(() => saveItemsNow(edit))
     saveChain.current = run2.catch(() => {})
     return run2
@@ -3551,13 +3582,12 @@ function CycleDetail({
                         const h = (histAll.get(it.tcid) ?? []).slice(0, 5)
                         if (!h.length) return null
                         return (
-                          <span className="cxp-hist" title="기존 시험이력 — 누르면 그 사이클로 갑니다">
+                          <span className="cxp-hist" title="기존 시험이력 (읽기 전용)">
                             {h.map((x, n) => (
                               <i
                                 key={`${x.id}-${n}`}
-                                className={`hv-${verdictClass(x.v)}`}
+                                className={`hv-${verdictClass(x.v)} ro`}
                                 title={`${x.label}: ${verdictLabel(x.v)}`}
-                                onClick={() => onGoCycle(x.id)}
                               >
                                 {x.v === 'Pass' ? 'P' : x.v === 'Fail' ? 'F' : '–'}
                               </i>
@@ -3570,7 +3600,6 @@ function CycleDetail({
                       <select
                         className={`cy-v cxp-vsel ${verdictClass(v)}`}
                         value={v}
-                        disabled={saving}
                         title="결과를 손으로 정합니다"
                         onChange={(e) =>
                           void setResult(it.tcid, e.target.value === '' ? '미실행' : e.target.value)
@@ -3633,7 +3662,7 @@ function CycleDetail({
               {/* Execution 정보 — Zephyr 의 Execution 칸과 같은 자리 */}
               <div className="cxp-exec">
                 <div>
-                  <i>Environment</i>
+                  <i>모델명</i>
                   <b>{cycle.model || '–'}</b>
                 </div>
                 <div>
@@ -3641,7 +3670,7 @@ function CycleDetail({
                   <b>{cycle.version || '–'}</b>
                 </div>
                 <div>
-                  <i>Iteration</i>
+                  <i>버전그룹</i>
                   <b>{cycle.version_group || '–'}</b>
                 </div>
                 <div>
