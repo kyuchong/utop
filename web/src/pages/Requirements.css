@@ -661,6 +661,16 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   white-space: nowrap;
 }
 .rq-name .linkish { font-size: var(--fs-md); }
+/* 폴더 정렬 셀렉트 — 트리 머리줄 ⋯ 왼쪽. 머리줄 단추들과 키를 맞춘다. */
+.rq-fsort {
+  height: 22px;
+  font-size: var(--fs-xs);
+  padding: 0 4px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box);
+  background: var(--c-surface);
+  color: var(--c-text-soft);
+}
 /* 줄이 놓인 폴더 — 고른 폴더 기준 상대 경로. 칩이 아니라 회색 잔글씨다,
    줄마다 붙는 것이라 테두리까지 두르면 지저분해진다(피드백). */
 .rq-loc {

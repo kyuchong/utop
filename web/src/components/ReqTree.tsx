@@ -56,8 +56,9 @@ interface Props {
   ) => void
   /** 폴더 안의 차례 — ⋯ 메뉴에서 고른다 */
   sort?: 'id' | 'title'
-  /** 폴더 차례 — 수동(sort_order, 끌기 순)이 기본, 'name' 이면 이름순 */
-  folderSort?: 'manual' | 'name'
+  /** 폴더 차례 — 이름 첫 글자 갈래를 앞세운다. num=숫자(기본)·
+      abc=알파벳·kor=한글, manual=끌기 순(sort_order) */
+  folderSort?: 'manual' | 'num' | 'abc' | 'kor'
   /** 「+ 폴더」를 바깥 버튼 줄에서 누를 수 있게 */
   addFolderSignal: number
   /**
@@ -106,7 +107,7 @@ export default function ReqTree({
   picked,
   onRowClick,
   sort = 'id',
-  folderSort = 'manual',
+  folderSort = 'num',
   addFolderSignal,
   onAddRoot,
 }: Props) {
@@ -196,11 +197,19 @@ export default function ReqTree({
   const cats = catQ.data?.categories ?? []
   const tree = useMemo(() => {
     const t = buildCategoryTree(cats)
-    // 이름순은 보기만 바꾼다 — sort_order(끌기 순)는 건드리지 않아서
-    // 끄면 원래 순서가 그대로 돌아온다.
-    if (folderSort === 'name') {
+    // 정렬은 보기만 바꾼다 — sort_order(끌기 순)는 건드리지 않아서
+    // 「끌기 순」 으로 돌리면 원래 순서가 그대로 돌아온다.
+    // 첫 글자의 갈래(숫자·알파벳·한글)를 앞세우고, 같은 갈래끼리는
+    // 자연 순서 — 숫자 모드면 11 < 21 < 99 < 111 로 읽힌다.
+    if (folderSort !== 'manual') {
+      const rank = (nm: string): number => {
+        const ch = nm.trimStart().charAt(0)
+        if (folderSort === 'num') return /[0-9]/.test(ch) ? 0 : 1
+        if (folderSort === 'abc') return /[a-zA-Z]/.test(ch) ? 0 : 1
+        return /[가-힣]/.test(ch) ? 0 : 1
+      }
       const deep = (ns: CategoryTreeNode[]) => {
-        ns.sort((a, b) => naturalCompare(a.name, b.name))
+        ns.sort((a, b) => rank(a.name) - rank(b.name) || naturalCompare(a.name, b.name))
         ns.forEach((k) => deep(k.children))
       }
       deep(t)

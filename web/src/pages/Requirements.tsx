@@ -94,10 +94,11 @@ export default function Requirements() {
   const [addFolder, setAddFolder] = useState(0)
   /** 새 프로젝트 창 — 최상위 폴더는 이 창으로만 만든다(폴더=프로젝트명) */
   const [newProj, setNewProj] = useState(false)
-  /** 1열 폴더 차례 — 끌어 놓은 순서(수동)가 기본, 켜면 이름순 */
-  const [folderSort, setFolderSort] = useState<'manual' | 'name'>(() =>
-    localStorage.getItem('utop.req.foldersort') === 'name' ? 'name' : 'manual',
-  )
+  /** 1열 폴더 차례 — 숫자(기본)·알파벳·한글 이름 우선, 끌기 순도 남긴다 */
+  const [folderSort, setFolderSort] = useState<'manual' | 'num' | 'abc' | 'kor'>(() => {
+    const v = localStorage.getItem('utop.req.foldersort')
+    return v === 'manual' || v === 'num' || v === 'abc' || v === 'kor' ? v : 'num'
+  })
   useEffect(() => {
     localStorage.setItem('utop.req.foldersort', folderSort)
   }, [folderSort])
@@ -802,6 +803,23 @@ export default function Requirements() {
             name="Requirement Tree"
             count={folderCount}
             onCollapse={() => setTreeOpen(false)}
+            // 폴더 정렬 — ⋯ 왼쪽 전용 단추. 이름 첫 글자 갈래(숫자·
+            // 알파벳·한글)를 앞세우는 방식이고 기본은 숫자다.
+            extra={
+              <select
+                className="rq-fsort"
+                title="폴더 정렬 — 보기만 바꿉니다"
+                value={folderSort}
+                onChange={(e) =>
+                  setFolderSort(e.target.value as 'manual' | 'num' | 'abc' | 'kor')
+                }
+              >
+                <option value="num">정렬: 숫자</option>
+                <option value="abc">정렬: 알파벳</option>
+                <option value="kor">정렬: 한글</option>
+                <option value="manual">정렬: 끌기 순</option>
+              </select>
+            }
             add={{ title: '새 프로젝트', onClick: () => setAddFolder((n) => n + 1) }}
             menu={
               <>
@@ -815,13 +833,6 @@ export default function Requirements() {
                 <button type="button" onClick={() => setFoldersOnly((v) => !v)}>
                   {foldersOnly ? '✓ ' : ''}폴더만 보기
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setFolderSort((v) => (v === 'name' ? 'manual' : 'name'))}
-                >
-                  {folderSort === 'name' ? '✓ ' : ''}폴더 이름순 정렬
-                </button>
-                <p className="lh-hint">끄면 끌어 놓은 순서 그대로입니다.</p>
                 <hr />
                 <button
                   type="button"
