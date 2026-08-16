@@ -3733,16 +3733,16 @@ function CycleDetail({
                   if (!can) return null
                   return (
                     <button
-                      className={`btn small${itemDefect ? '' : ' danger'}`}
+                      className="btn small danger"
                       type="button"
                       title={
                         itemDefect
-                          ? `결함 ${itemDefect.id}${itemDefect.jira_key ? ` · ${itemDefect.jira_key}` : ''}`
+                          ? `이미 등록된 결함 ${itemDefect.id}${itemDefect.jira_key ? ` · ${itemDefect.jira_key}` : ''} 이 열립니다`
                           : '이 항목으로 결함을 등록합니다'
                       }
                       onClick={() => setDefectFor(cur)}
                     >
-                      {itemDefect ? `● ${itemDefect.jira_key || '결함 봄'}` : '＋ 결함 등록'}
+                      ＋ 결함 등록
                     </button>
                   )
                 })()}
