@@ -3478,6 +3478,7 @@ table.tb td.k {
 .cy-sum-t > em { font-style: normal; font-weight: 400; margin-left: 8px; font-size: var(--fs-xs); }
 .cy-sum-main { display: flex; align-items: center; gap: 10px; }
 .cy-sum-main > b { font-size: 24px; font-weight: 700; line-height: 1; flex: none; }
+.cy-sum-lbl { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); flex: none; margin-right: 2px; }
 .cy-sum-bar {
   flex: 1;
   display: flex;
@@ -3538,6 +3539,8 @@ table.tb td.k {
   border: 1px solid var(--c-border-weak, #eef1f5);
   border-radius: 10px;
   padding: 12px 16px;
+  max-height: 42vh;
+  overflow-y: auto;
 }
 .cy-sum-ai-body .md { font-size: 14px; line-height: 1.75; }
 /* 만드는 중 — 도는 링 + 뼈대 줄이 반짝인다 */

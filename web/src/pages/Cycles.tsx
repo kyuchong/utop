@@ -3246,7 +3246,10 @@ function CycleDetail({
             cnt.set(v2, (cnt.get(v2) ?? 0) + 1)
           }
           const d2 = its.filter((x) => itemVerdict(x) !== '').length
-          const pct2 = its.length ? Math.round((d2 / its.length) * 100) : 0
+          // 큰 숫자는 합격률 — Pass 계열(커스텀 포함) / 전체
+          const passVs = new Set(resDefs.filter((r) => r.group === 'pass').map((r) => r.v))
+          const passN = its.filter((x) => passVs.has(itemVerdict(x))).length
+          const pct2 = its.length ? Math.round((passN / its.length) * 100) : 0
           const rows2 = resDefs.filter((r) => (cnt.get(r.v) ?? 0) > 0)
           return (
             <div className="cy-sum-sec" key={label}>
@@ -3256,6 +3259,7 @@ function CycleDetail({
               </div>
               <div className="cy-sum-main">
                 <b>{pct2}%</b>
+                <i className="cy-sum-lbl">합격률</i>
                 <span className="cy-sum-bar">
                   {its.length === 0 ? (
                     <b style={{ flexGrow: 1, background: 'var(--c-surface-alt)' }} />
