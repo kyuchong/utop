@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, apiFetch, categoryApi, projectApi, reqApi, tcApi } from '@/api/client'
+import { api, apiFetch, categoryApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
 import ReqTree from '@/components/ReqTree'
 import { useMultiSelect } from '@/components/useMultiSelect'
@@ -303,17 +303,25 @@ export default function Requirements() {
     })
   }, [allReqs, selectedFolder, catQ.data])
 
-  /** 소속 프로젝트 칩 — 요구사항이 많으면 어느 프로젝트 것인지 안 보인다.
-      사슬 맨 위(cat1)가 프로젝트 폴더면 그 이름을 단다(서버가 사슬을
-      트리 기준으로 맞춰 주므로 cat1 = 최상위가 보장된다). */
-  const prjQ = useQuery({
-    queryKey: ['projects'],
-    queryFn: ({ signal }) => projectApi.list(signal),
-  })
-  const prjByCat = useMemo(
-    () => new Map((prjQ.data?.projects ?? []).map((p) => [p.cat_id, p])),
-    [prjQ.data],
-  )
+  /** 줄이 놓인 폴더 — 고른 폴더 기준 상대 경로(「SW › ENV」).
+      하위 폴더 포함으로 볼 때 어느 폴더 것인지 안 보여서 단다.
+      바로 밑에 있으면 빈 문자열 — 붙일수록 지저분해질 뿐이다. */
+  const relFolderPath = useMemo(() => {
+    const cats = catQ.data?.categories ?? []
+    const byId = new Map(cats.map((c) => [c.id, c]))
+    return (r: Requirement): string => {
+      if (!folderMode || !selectedFolder) return ''
+      const deep = (r.cat4 || r.cat3 || r.cat2 || r.cat1 || null) as string | null
+      if (!deep || deep === selectedFolder) return ''
+      const names: string[] = []
+      let cur = byId.get(deep)
+      while (cur && cur.id !== selectedFolder) {
+        names.unshift(cur.name)
+        cur = cur.parent_id ? byId.get(cur.parent_id) : undefined
+      }
+      return names.join(' › ')
+    }
+  }, [catQ.data, folderMode, selectedFolder])
 
   /** 이 요구사항을 덮는 TC 수 — tc.req_id 와 req.tc[] 참조의 합집합 */
   const covCount = useMemo(
@@ -1032,10 +1040,10 @@ export default function Requirements() {
                           {r.title || '(제목 없음)'}
                         </button>
                         {(() => {
-                          const p = r.cat1 ? prjByCat.get(r.cat1 as string) : undefined
-                          return p ? (
-                            <i className="rq-prj" title={p.name}>
-                              {p.name}
+                          const loc = relFolderPath(r)
+                          return loc ? (
+                            <i className="rq-loc" title={loc}>
+                              {loc}
                             </i>
                           ) : null
                         })()}

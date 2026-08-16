@@ -661,22 +661,17 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   white-space: nowrap;
 }
 .rq-name .linkish { font-size: var(--fs-md); }
-/* 소속 프로젝트 칩 — 트리의 rt-prj 와 같은 문법. 요구사항이 많을 때
-   어느 프로젝트 것인지 제목 옆에서 바로 읽힌다. */
-.rq-prj {
+/* 줄이 놓인 폴더 — 고른 폴더 기준 상대 경로. 칩이 아니라 회색 잔글씨다,
+   줄마다 붙는 것이라 테두리까지 두르면 지저분해진다(피드백). */
+.rq-loc {
   font-style: normal;
   font-size: 10px;
-  line-height: 1.6;
-  padding: 0 5px;
+  color: var(--c-text-faint);
   margin-left: 6px;
-  border-radius: 4px;
-  background: #e8f1fb;
-  border: 1px solid #c3d9f0;
-  color: #2f6fb5;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 130px;
+  max-width: 45%;
   display: inline-block;
   vertical-align: middle;
 }
