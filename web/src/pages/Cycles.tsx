@@ -3401,7 +3401,7 @@ function CycleDetail({
             <b>Test Cases</b>
             <i className="cxp-n">{rows.length}</i>
             <span className="sp" />
-            {pick.size > 0 && <span className="muted small">{pick.size} 고름</span>}
+            {pick.size > 0 && <span className="muted small">{pick.size}개 선택</span>}
             {pick.size > 0 && !st.on && (
               /* 고른 항목 전부에 같은 판정 — Pass 만이 아니라 아무 값이나 */
               <select
