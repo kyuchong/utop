@@ -2538,6 +2538,17 @@ export default function TestCases({ me }: PageProps) {
                           {typeof t._cli_count === 'number' && t._cli_count > 0 && (
                             <span className="tt-n">{t._cli_count}</span>
                           )}
+                          {/* 세션 없는 자동 시험 — 돌릴 수 없다. 미리 보인다 */}
+                          {(t._cli_count ?? 0) > 0 &&
+                            ((t as Record<string, unknown>)._sess_n ?? 0) === 0 &&
+                            String((t as Record<string, unknown>).run_type ?? '') !== '수동' && (
+                              <span
+                                className="tc-nosess"
+                                title="세션(장비)이 없습니다 — 자동 스텝을 돌릴 수 없습니다. 열어서 + 세션으로 장비를 앉히거나 Bulk Edit 세션을 쓰세요"
+                              >
+                                ⚠
+                              </span>
+                            )}
                         </div>
                         {visCols.map((c) => colCell(c.k, t))}
                       </div>

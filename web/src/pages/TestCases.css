@@ -3006,3 +3006,6 @@ table.tb tr.r-bad td:first-child {
 .tc-thdrag { display: flex; align-items: center; gap: 3px; min-width: 0; cursor: grab; }
 .tc-thdrag .tc-colgrip { opacity: 0.4; flex: none; }
 .tc-thdrag > select { min-width: 0; flex: 1; }
+
+/* 세션 없는 자동 시험 경고 — 돌릴 수 없는 항목이 목록에서 보인다 */
+.tc-nosess { color: #d97706; font-size: var(--fs-sm); margin-left: 4px; cursor: help; }

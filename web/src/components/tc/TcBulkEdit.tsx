@@ -19,6 +19,7 @@ interface Fill {
   precondition_md: boolean
   image: boolean
   model: boolean
+  sessions: boolean
   copy: boolean
   run_type: boolean
   type: boolean
@@ -53,6 +54,7 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
     precondition_md: false,
     image: false,
     model: false,
+    sessions: false,
     copy: false,
     run_type: false,
     type: false,
@@ -73,6 +75,22 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
   const ORIGINS = useCodes('tc_origin', ['자체', '고객'])
   const STATUSES = useCodes('tc_status', ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류'])
   const SEVERITIES = useCodes('tc_severity', ['치명', '중대', '보통', '경미'])
+  /* 세션 일괄 — S1 은 필수, S2 를 고르면 여러 장비 시험이 된다.
+     세션이 빠져 자동 스텝이 못 도는 항목들을 한 번에 살린다 */
+  const [sDev1, setSDev1] = useState('')
+  const [sDev2, setSDev2] = useState('')
+  const devQ = useQuery({
+    queryKey: ['devices2'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/devices2')
+      return (await r.json()) as { devices?: Array<{ id?: string; name?: string; ip?: string; model?: string; role?: string }> }
+    },
+    staleTime: 60_000,
+  })
+  const sessDevs = (devQ.data?.devices ?? []).filter((d2) => (d2.role ?? '') !== '계측기' && d2.id)
+  const devLabel = (d2: { name?: string; ip?: string; model?: string }) =>
+    [d2.name || d2.model || '', d2.ip ? `(${d2.ip})` : ''].filter(Boolean).join(' ') || '(이름 없음)'
+
   /* 본보기에서 복사 — 토폴로지(세션·배선·배치)·계측기 트래픽은 손으로
      다시 못 적는다. 한 건을 본보기로 골라 통째로 심는다. */
   const [srcId, setSrcId] = useState('')
@@ -148,6 +166,7 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
     (fill.precondition_md && pre.trim()) ||
     (fill.image && img) ||
     (fill.model && !!bMg) ||
+    (fill.sessions && !!sDev1) ||
     (fill.copy && !!srcId && (cpTopo || cpMeter)) ||
     (fill.run_type && !!bRun) ||
     (fill.type && !!bType) ||
@@ -200,6 +219,11 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
             patch.model_group = bMg === COMMON ? '' : bMg
             patch.model = bMdl === COMMON ? '' : bMdl
           }
+        }
+        if (fill.sessions && sDev1) {
+          const had = Array.isArray((cur as Record<string, unknown>).sessions) &&
+            ((cur as Record<string, unknown>).sessions as unknown[]).length > 0
+          if (!had || over) patch.sessions = [sDev1, ...(sDev2 ? [sDev2] : [])]
         }
         if (src && id !== srcId) {
           const c = cur as Record<string, unknown>
@@ -305,6 +329,25 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
                   <option key={m}>{m}</option>
                 ))}
               </select>
+            </div>,
+          )}
+          {row(
+            'sessions',
+            '세션 (실행 장비)',
+            <div className="bk-vals">
+              <select value={sDev1} onChange={(e) => setSDev1(e.target.value)} title="S1 — 명령이 나가는 장비">
+                <option value="">(S1 장비 골라 주세요)</option>
+                {sessDevs.map((d2) => (
+                  <option key={d2.id} value={d2.id}>{devLabel(d2)}</option>
+                ))}
+              </select>
+              <select value={sDev2} onChange={(e) => setSDev2(e.target.value)} title="S2 — 여러 장비 시험이면">
+                <option value="">S2 없음 (단독 장비)</option>
+                {sessDevs.filter((d2) => d2.id !== sDev1).map((d2) => (
+                  <option key={d2.id} value={d2.id}>{devLabel(d2)}</option>
+                ))}
+              </select>
+              <span className="muted small">세션이 없는 자동 시험은 돌릴 수 없습니다</span>
             </div>,
           )}
           {row(
