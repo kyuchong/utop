@@ -2710,6 +2710,61 @@ async def _is_project_cat(cid: str) -> bool:
         return await c.fetchval("SELECT 1 FROM project WHERE cat_id=$1", cid) is not None
 
 
+async def _req_chain_resync() -> int:
+    """요구사항의 분류 사슬(cat1~4)을 트리 기준으로 다시 쓴다.
+
+    사슬은 트리의 사본이라 폴더가 이동하면 낡는다. 낡은 사본은 옛 폴더에
+    요구사항을 계속 매달아 두어 「폴더를 옮겼는데 요구사항이 안 따라왔다」
+    로 보인다(실사고: 폴더를 프로젝트 밑으로 옮겼을 때). 놓인 칸(살아
+    있는 가장 깊은 칸)이 사실이고, 그 조상 사슬로 위 칸들을 다시 채운다.
+    폴더 이동 때마다·기동 때 1회 부른다 — 한 바퀴 훑기라 수천 건도 싸다.
+    """
+    async with db.pool().acquire() as c:
+        cats = {
+            r["id"]: r["parent_id"]
+            for r in await c.fetch("SELECT id, parent_id FROM req_category")
+        }
+        # 화면(req_list_full)은 data(JSONB) 를 서빙하므로 사실도 data 에서
+        # 읽고, 고칠 때도 컬럼과 data 를 함께 쓴다 — 컬럼만 고치면 목록이
+        # 옛값을 계속 보인다 (TC 메타에서 겪은 함정).
+        rows = await c.fetch(
+            """
+            SELECT id, data->>'cat1' AS cat1, data->>'cat2' AS cat2,
+                   data->>'cat3' AS cat3, data->>'cat4' AS cat4
+            FROM req
+            """
+        )
+        n = 0
+        for r in rows:
+            deep = next(
+                (r[k] for k in ("cat4", "cat3", "cat2", "cat1") if r[k] and r[k] in cats),
+                None,
+            )
+            if not deep:
+                continue
+            chain: list = []
+            cur = deep
+            while cur and cur in cats and cur not in chain:
+                chain.insert(0, cur)
+                cur = cats[cur]
+            chain = (chain + ["", "", "", ""])[:4]
+            if [r["cat1"] or "", r["cat2"] or "", r["cat3"] or "", r["cat4"] or ""] != chain:
+                await c.execute(
+                    """
+                    UPDATE req SET
+                      cat1=NULLIF($1,''), cat2=NULLIF($2,''),
+                      cat3=NULLIF($3,''), cat4=NULLIF($4,''),
+                      data = data || jsonb_build_object(
+                        'cat1', $1::text, 'cat2', $2::text,
+                        'cat3', $3::text, 'cat4', $4::text)
+                    WHERE id=$5
+                    """,
+                    *chain, r["id"],
+                )
+                n += 1
+        return n
+
+
 class ReqCategoryIn(BaseModel):
     name: str
     parent_id: Optional[str] = None
@@ -2816,6 +2871,11 @@ async def reorder_req_categories(body: ReqCategoryOrderIn):
                     "UPDATE req_category SET parent_id=$1, sort_order=$2, updated_at=now() WHERE id=$3",
                     parent, i * 10, cid,
                 )
+    # 사이에 끼우기로도 상위가 바뀐다 — 여기서도 사슬을 맞춘다.
+    try:
+        await _req_chain_resync()
+    except Exception as e:
+        print(f"[reorder] 사슬 재작성 실패: {e}", flush=True)
     return {"success": True, "count": len(body.ids)}
 
 
@@ -2854,6 +2914,13 @@ async def update_req_category(cat_id: str, body: ReqCategoryIn):
         if "uq_req_category" in str(e):
             raise HTTPException(409, f"'{name}' 은 이미 있습니다") from e
         raise
+    # 상위가 바뀌었으면(이동) 요구사항 사슬을 트리에 맞춘다 — 안 하면
+    # 옛 폴더가 그 요구사항들을 계속 잡고 있다.
+    if (cur.get("parent_id") or None) != parent_id:
+        try:
+            await _req_chain_resync()
+        except Exception as e:
+            print(f"[cat] 사슬 재작성 실패: {e}", flush=True)
     return {"success": True}
 
 
@@ -9639,6 +9706,16 @@ async def _db_init():
             print("[startup] 실행 타입 「혼합」 제거", flush=True)
     except Exception as e:
         print(f"[startup] 혼합 제거 실패: {e}", flush=True)
+
+    # 폴더 이동으로 낡은 요구사항 분류 사슬(cat1~4)을 트리 기준으로
+    # 재작성한다 — 이동 API 가 그때그때 맞추지만, 그 전에 낡은 자료가
+    # 이미 있고 253 도 update.sh 만으로 같아져야 한다 (멱등).
+    try:
+        _rn = await _req_chain_resync()
+        if _rn:
+            print(f"[startup] 요구사항 분류 사슬 {_rn}건 재작성", flush=True)
+    except Exception as e:
+        print(f"[startup] 사슬 재작성 실패: {e}", flush=True)
 
     # 파일 → DB(app_kv) 이전 (파일이 정본이면 DB 덮어씀). ai_usage/ai_feedback 는 _load_items_store 매핑도 등록.
     _KV_MIGRATIONS = [

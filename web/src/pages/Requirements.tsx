@@ -289,11 +289,16 @@ export default function Requirements() {
       for (const k of kids.get(id) ?? []) walk(k)
     }
     walk(selectedFolder)
+    const catIds = new Set(cats.map((c) => c.id))
     const at = (r: Requirement) => (r.cat4 || r.cat3 || r.cat2 || r.cat1 || null) as string | null
     return allReqs.filter((r) => {
       const f = at(r)
       if (f && ids.has(f)) return true
-      // 사슬이 남아 있으면 그것도 본다 — 폴더가 지워진 옛 자료를 위해
+      // 놓인 칸이 트리에 살아 있으면 그 칸만 믿는다 — 위 칸들은 폴더
+      // 이동으로 낡은 사본일 수 있어, 옛 폴더가 계속 잡아 두면 안 된다
+      // (실사고: 폴더를 프로젝트 밑으로 옮겼는데 옛 자리에 그대로 보임).
+      if (f && catIds.has(f)) return false
+      // 사슬만 남았으면 그것도 본다 — 폴더가 지워진 옛 자료를 위해
       return [r.cat1, r.cat2, r.cat3, r.cat4].some((c) => c && ids.has(c as string))
     })
   }, [allReqs, selectedFolder, catQ.data])

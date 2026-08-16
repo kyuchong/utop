@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { categoryApi, reqApi, apiFetch } from '@/api/client'
+import { categoryApi, projectApi, reqApi, apiFetch } from '@/api/client'
 import {
   categoryPath,
   reqLabel,
@@ -37,9 +37,28 @@ export default function ReqDetail({ req, tcs, tab }: Props) {
 
   // 가장 깊은 분류의 경로를 보여준다 (소분류가 있으면 대>중>소 전체가 나온다)
   const catText = useMemo(() => {
-    const deepest = req.cat3 || req.cat2 || req.cat1
+    const deepest = req.cat4 || req.cat3 || req.cat2 || req.cat1
     return categoryPath(cats, deepest) || '미분류'
   }, [cats, req])
+
+  /** 소속 프로젝트 — 분류 사슬의 맨 위 폴더가 프로젝트면 그것이다.
+      따로 설정하는 값이 아니라 트리 위치에서 자동으로 나온다. */
+  const prjQ = useQuery({
+    queryKey: ['projects'],
+    queryFn: ({ signal }) => projectApi.list(signal),
+  })
+  const prj = useMemo(() => {
+    const deepest = req.cat4 || req.cat3 || req.cat2 || req.cat1
+    if (!deepest) return undefined
+    const byId = new Map(cats.map((c) => [c.id, c]))
+    let cur = byId.get(String(deepest))
+    while (cur && cur.parent_id) {
+      const up = byId.get(cur.parent_id)
+      if (!up || up.id === cur.id) break
+      cur = up
+    }
+    return cur ? (prjQ.data?.projects ?? []).find((p) => p.cat_id === cur!.id) : undefined
+  }, [cats, prjQ.data, req])
 
   const desc = typeof req.desc === 'string' ? req.desc : ''
 
@@ -62,6 +81,14 @@ export default function ReqDetail({ req, tcs, tab }: Props) {
           <dd>{reqLabel(req) || '—'}</dd>
           <dt>제목</dt>
           <dd>{req.title || '—'}</dd>
+          <dt>프로젝트</dt>
+          <dd>
+            {prj
+              ? [prj.name, [prj.customer, prj.model].filter(Boolean).join(' · ')]
+                  .filter(Boolean)
+                  .join(' — ')
+              : '미지정'}
+          </dd>
           <dt>분류</dt>
           <dd>{catText}</dd>
           <dt>상태</dt>
