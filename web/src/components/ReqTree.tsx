@@ -487,6 +487,7 @@ export default function ReqTree({
   const reqRow = (r: Requirement, depth: number) => {
     const pk = reqPk(r)
     const full = reqLabel(r)
+    const tcn = tcsFor(r).length
 
     return (
       <div
@@ -519,9 +520,14 @@ export default function ReqTree({
           <IconReqDoc />
         </span>
         {/* ID·커버리지 점은 접었다(피드백 — 트리는 제목으로 읽는다).
-            ID 는 툴팁에, 커버리지는 2열 표가 맡는다. */}
+            ID 는 툴팁에. 연결 TC 수만 폴더 배지와 같은 문법으로 오른쪽에. */}
         <span className="rt-title" title={full ? `${full} — ${r.title ?? ''}` : (r.title ?? '')}>
           {r.title || full || '(제목 없음)'}
+        </span>
+        <span className="rt-cnts">
+          <i className="rt-ct" title={`연결 TC ${tcn}건`}>
+            TC {tcn}
+          </i>
         </span>
       </div>
     )

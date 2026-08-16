@@ -264,7 +264,7 @@ export default function Requirements() {
   }, [selectedFolder, catQ.data])
 
   /** 길의 끝 — 지금 보고 있는 그 폴더 */
-  const folderName = folderPath.length ? (folderPath[folderPath.length - 1]?.name ?? '') : ''
+  // folderName 은 Export CSV 파일명에만 쓰였다 — Export 와 함께 뺐다.
 
   /**
    * 이 폴더에 속한 요구사항 — 하위 폴더까지.
@@ -645,33 +645,8 @@ export default function Requirements() {
     }
   }
 
-  /** 보고 있는 표를 CSV 로 — 고른 것이 있으면 그것만 */
-  const exportList = () => {
-    const rows = pickedInList.length ? pickedInList : sortedFolderReqs
-    if (!rows.length) return
-    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const csv = [
-      ['Requirement ID', 'Name', 'Coverage', 'Priority', 'Status'].map(esc).join(','),
-      ...rows.map((r) =>
-        [
-          reqLabel(r),
-          r.title ?? '',
-          covCount(r) > 0 ? `${covCount(r)} Testcase(s) Covered` : 'Not Covered',
-          r.priority ?? '',
-          r.status ?? '',
-        ]
-          .map(esc)
-          .join(','),
-      ),
-    ].join('\r\n')
-    // 엑셀이 한글을 깨뜨리지 않게 BOM 을 붙인다
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `요구사항_${folderName || '전체'}.csv`
-    a.click()
-    URL.revokeObjectURL(a.href)
-  }
+  // Export(CSV) 는 도구줄에서 뺐다(피드백) — 필요해지면 exportList 를
+  // git 이력(d7adf19 이전)에서 되살린다.
 
   return (
     <>
@@ -913,36 +888,13 @@ export default function Requirements() {
             {/* 「Requirements N」 이름표는 뺐다(피드백) — 위 빵부스러기와
                 아래 「요구사항 N건」 이 이미 말한다. 버튼이 왼쪽부터 선다. */}
               <div className="rq-actions">
-                {/* 한 건이면 Edit, 둘 이상이면 Bulk Edit 만 켜진다 */}
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={pickedInList.length !== 1}
-                  title={
-                    pickedInList.length === 1
-                      ? '고른 요구사항을 고칩니다'
-                      : '한 건만 골랐을 때 켜집니다'
-                  }
-                  onClick={() => pickedInList[0] && setForm(pickedInList[0])}
-                >
-                  Edit
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={pickedInList.length < 2}
-                  title={
-                    pickedInList.length >= 2
-                      ? `고른 ${pickedInList.length}건을 한꺼번에 고칩니다`
-                      : '둘 이상 골랐을 때 켜집니다'
-                  }
-                  onClick={() => setBulkEditOpen(true)}
-                >
-                  Bulk Edit
-                </button>
-                <span className="rq-adiv" aria-hidden="true" />
+                {/* 만들기는 상시, 나머지는 고른 뒤에만(피드백 규칙):
+                    없음   → +New · +Bulk New
+                    1건    → … | Edit  Clone | Delete
+                    2건 이상 → … | Bulk Edit  Clone | Delete
+                    Export 는 뺐다. Delete 는 사이클처럼 구분선 너머 끝자리. */}
                 <button className="btn" type="button" onClick={() => setForm(null)}>
-                  Add
+                  + New
                 </button>
                 <button
                   className="btn"
@@ -950,33 +902,49 @@ export default function Requirements() {
                   title="엑셀·문서에서 붙여넣어 여러 건을 한 번에 만듭니다"
                   onClick={() => setImportOpen(true)}
                 >
-                  Bulk Add
+                  + Bulk New
                 </button>
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={!pickedInList.length || !!listBusy}
-                  onClick={() => void clonePicked()}
-                >
-                  {listBusy === 'clone' ? '복제 중…' : 'Clone'}
-                </button>
-                <button
-                  className="btn danger"
-                  type="button"
-                  disabled={!pickedInList.length || !!listBusy}
-                  onClick={() => void deletePicked()}
-                >
-                  {listBusy === 'del' ? '삭제 중…' : 'Delete'}
-                </button>
-                <button
-                  className="btn"
-                  type="button"
-                  disabled={!sortedFolderReqs.length}
-                  onClick={exportList}
-                  title={pickedInList.length ? '고른 것만 내보냅니다' : '이 폴더 전체를 내보냅니다'}
-                >
-                  Export
-                </button>
+                {pickedInList.length > 0 && (
+                  <>
+                    <span className="cy-vsep" aria-hidden="true" />
+                    {pickedInList.length === 1 ? (
+                      <button
+                        className="btn"
+                        type="button"
+                        title="고른 요구사항을 고칩니다"
+                        onClick={() => pickedInList[0] && setForm(pickedInList[0])}
+                      >
+                        Edit
+                      </button>
+                    ) : (
+                      <button
+                        className="btn"
+                        type="button"
+                        title={`고른 ${pickedInList.length}건을 한꺼번에 고칩니다`}
+                        onClick={() => setBulkEditOpen(true)}
+                      >
+                        Bulk Edit
+                      </button>
+                    )}
+                    <button
+                      className="btn"
+                      type="button"
+                      disabled={!!listBusy}
+                      onClick={() => void clonePicked()}
+                    >
+                      {listBusy === 'clone' ? '복제 중…' : 'Clone'}
+                    </button>
+                    <span className="cy-vsep" aria-hidden="true" />
+                    <button
+                      className="btn danger"
+                      type="button"
+                      disabled={!!listBusy}
+                      onClick={() => void deletePicked()}
+                    >
+                      {listBusy === 'del' ? '삭제 중…' : 'Delete'}
+                    </button>
+                  </>
+                )}
               </div>
           </div>
           <div className="rq-ffind rq-midfind">
