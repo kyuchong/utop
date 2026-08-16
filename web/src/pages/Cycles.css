@@ -2365,7 +2365,9 @@ table.tb td.k {
 }
 /* 줄 왼끝 색 = 결과 (Zephyr 문법), 고른 줄 = 바탕색 */
 .cxp-row {
-  display: flex;
+  /* 그리드 세 칸: ☐ | 이름 | 오른쪽 묶음 — 칸이 정해져 있어 침범이 불가능하다 */
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
   padding: 6px 10px 6px 7px;
@@ -2384,7 +2386,8 @@ table.tb td.k {
 /* 한 줄 = ID + 제목 (사진처럼 낮게). 제목이 길면 …, 전체는 툴팁 */
 .cxp-rmain { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
 /* 오른쪽 무리는 한 span(.cxp-rgt) — 간격이 균일하고 이름만 … 로 줄어든다 */
-.cxp-rgt { display: inline-flex; align-items: center; gap: 4px; flex: none; margin-left: auto; }
+.cxp-rgt { display: inline-flex; align-items: center; gap: 5px; }
+.cxp-rgt .cxp-hist { flex: none; }
 .cxp-vsel {
   height: 21px;
   padding: 0 3px;

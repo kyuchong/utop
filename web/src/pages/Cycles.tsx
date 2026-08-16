@@ -2755,7 +2755,14 @@ function CycleDetail({
     }
   }
 
-  const saveItems = async (edit: (cur: CycleItemLite[]) => CycleItemLite[]) => {
+  /** 저장 줄 — 읽고→쓰기라, 나란히 두 번 찍으면 뒤가 앞을 덮는다. 하나씩 */
+  const saveChain = useRef<Promise<void>>(Promise.resolve())
+  const saveItems = (edit: (cur: CycleItemLite[]) => CycleItemLite[]) => {
+    const run2 = saveChain.current.then(() => saveItemsNow(edit))
+    saveChain.current = run2.catch(() => {})
+    return run2
+  }
+  const saveItemsNow = async (edit: (cur: CycleItemLite[]) => CycleItemLite[]) => {
     setSaving(true)
     try {
       // 저장 직전에 온전한 것을 다시 읽는다. 화면에 들고 있던 것으로
@@ -3558,7 +3565,8 @@ function CycleDetail({
                           </span>
                         )
                       })()}
-                      {/* 판정 결과 — 2열과 같은 일을 줄에서 바로 (피드백 ④) */}
+                      {/* 판정 결과 — 2열과 같은 일을 줄에서 바로. 셋만 둔다(합의):
+                          M · 기존 시험 결과 · 판정. 색 점·회귀 칩은 뺐다 */}
                       <select
                         className={`cy-v cxp-vsel ${verdictClass(v)}`}
                         value={v}
@@ -3574,20 +3582,6 @@ function CycleDetail({
                           </option>
                         ))}
                       </select>
-                      {st.itemAt === at && st.on && <i className="cxp-live" title="실행 중" />}
-                      {isRegress(it) && (
-                        <b className="cy-regchip" title="지난 사이클에선 Pass 였습니다">
-                          회귀
-                        </b>
-                      )}
-                      <i
-                        className={`cxp-v ${verdictClass(v)}`}
-                        style={(() => {
-                          const rc = resDefs.find((r) => r.v === v)?.color
-                          return rc ? { background: rc } : undefined
-                        })()}
-                        title={verdictLabel(v)}
-                      />
                     </span>
                   </div>
                 </React.Fragment>
