@@ -477,7 +477,9 @@ def item_verdict(it: dict, steps: list) -> str:
 
 def _cycle_item_meta_lite(it: dict) -> dict:
     """UI 목록·판정 집계용 최소 필드 (기존 서버 _cycle_item_meta_lite 재현)."""
-    m = {k: it.get(k) for k in ("tcid","name","req_id","severity","priority","assignee",
+    # "result"(사람이 손으로 찍은 항목 결과)가 빠져 있었다 — 화면 itemVerdict 는
+    # 이것을 최우선으로 읽는데 요약에 없으니 표가 전부 미실행·0% 로 보였다
+    m = {k: it.get(k) for k in ("tcid","name","req_id","result","severity","priority","assignee",
                                  "devId","devName","executed_by","executed_at","executed_auto","issues")}
     _stp = it.get("steps") or []
     _p = _f = _o = 0
