@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { apiFetch } from '@/api/client'
 
 interface Props {
   /** 창 제목 — 「다른 이름으로 저장」 인지 「가져오기」 인지 */
@@ -10,7 +12,9 @@ interface Props {
   /** 가져오기일 때, 어느 서버에서 왔는지 등 한 줄 안내 */
   note?: string
   busy?: boolean
-  onSubmit: (tcid: string, name: string) => void
+  /** 복제는 모델을 고정해야 저장된다(합의) — 켜면 모델그룹·모델명 필수 */
+  askModel?: boolean
+  onSubmit: (tcid: string, name: string, mg?: string, md?: string) => void
   onClose: () => void
 }
 
@@ -30,15 +34,39 @@ export default function TcSaveAs({
   taken,
   note,
   busy,
+  askModel,
   onSubmit,
   onClose,
 }: Props) {
   const [id, setId] = useState(defaultId)
   const [name, setName] = useState(defaultName)
+  const [mg, setMg] = useState('')
+  const [md, setMd] = useState('')
+  const rolesQ = useQuery({
+    queryKey: ['device-roles'],
+    enabled: !!askModel,
+    queryFn: async () => {
+      const r = await apiFetch('/api/device-roles')
+      return (await r.json()) as {
+        groups?: string[]
+        models?: string[]
+        model_info?: Record<string, { model_group?: string | null }>
+      }
+    },
+    staleTime: 60_000,
+  })
+  const modelOpts = (rolesQ.data?.models ?? []).filter(
+    (m) => !mg || (rolesQ.data?.model_info?.[m]?.model_group ?? '') === mg,
+  )
+  /** 모델을 고르면 이름 꼬리에 태그를 붙여 준다 — 판이 갈리는 것이 이름에서 보이게 */
+  const pickMd = (v: string) => {
+    setMd(v)
+    if (v) setName((n) => `${n.replace(/ \([^)]*\)$/, '')} (${v})`)
+  }
 
   const trimmed = id.trim()
   const dup = taken.has(trimmed)
-  const bad = !trimmed || dup
+  const bad = !trimmed || dup || (!!askModel && (!mg || !md))
 
   return (
     <div className="modal-back" onMouseDown={onClose}>
@@ -48,7 +76,7 @@ export default function TcSaveAs({
         onSubmit={(e) => {
           e.preventDefault()
           if (bad || busy) return
-          onSubmit(trimmed, name.trim())
+          onSubmit(trimmed, name.trim(), askModel ? mg : undefined, askModel ? md : undefined)
         }}
       >
         <div className="modal-head">
@@ -77,6 +105,30 @@ export default function TcSaveAs({
             <span>제목</span>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="시험 제목" />
           </label>
+
+          {askModel && (
+            <>
+              <label className="fld">
+                <span>모델그룹</span>
+                <select value={mg} onChange={(e) => { setMg(e.target.value); setMd('') }}>
+                  <option value="">(골라 주세요 — 필수)</option>
+                  {(rolesQ.data?.groups ?? []).map((g) => (
+                    <option key={g}>{g}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="fld">
+                <span>모델명</span>
+                <select value={md} onChange={(e) => pickMd(e.target.value)}>
+                  <option value="">(골라 주세요 — 필수)</option>
+                  {modelOpts.map((m) => (
+                    <option key={m}>{m}</option>
+                  ))}
+                </select>
+              </label>
+              <div className="sa-note">복제는 모델을 고정해야 저장됩니다 — 항목별 모델 고정 정책</div>
+            </>
+          )}
         </div>
 
         <div className="modal-foot">

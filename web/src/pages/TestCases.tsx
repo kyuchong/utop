@@ -1082,6 +1082,8 @@ export default function TestCases({ me }: PageProps) {
   const takenIds = useMemo(() => new Set(tcs.map((t) => t.tcid)), [tcs])
 
   const [cloning, setCloning] = useState(false)
+  /** Clone 은 모델을 골라야 저장된다(합의) — 고른 모델을 복제본 전체에 적용 */
+  const [cloneAsk, setCloneAsk] = useState(false)
   /**
    * 고른 시험을 그대로 하나 더 만든다.
    *
@@ -1092,7 +1094,7 @@ export default function TestCases({ me }: PageProps) {
    * 새 번호는 같은 묶음의 다음 번호다. TC ID 앞부분이 곧 그 요구사항이라
    * (U-REQ-SYS-HW-TC-004) 앞은 지키고 번호만 올린다.
    */
-  const clonePicked = async () => {
+  const clonePicked = async (mg?: string, md?: string) => {
     const ids = [...listPick]
     if (!ids.length || cloning) return
     setCloning(true)
@@ -1109,7 +1111,9 @@ export default function TestCases({ me }: PageProps) {
         await tcApi.save(nid, {
           ...src,
           tcid: nid,
-          name: `${src.name ?? id} 복사`.trim(),
+          name: `${String(src.name ?? id).replace(/ \([^)]*\)$/, '')}${md ? ` (${md})` : ' 복사'}`.trim(),
+          ...(mg ? { model_group: mg } : {}),
+          ...(md ? { model: md } : {}),
           checks: src.checks ?? [],
           updated_by: meName,
         })
@@ -1126,9 +1130,17 @@ export default function TestCases({ me }: PageProps) {
   }
 
   const saveAsM = useMutation({
-    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+    mutationFn: async ({ id, name, mg, md }: { id: string; name: string; mg?: string; md?: string }) => {
       const src = saveAs?.data ?? {}
-      await tcApi.save(id, { ...src, tcid: id, name, checks: src.checks ?? [] })
+      await tcApi.save(id, {
+        ...src,
+        tcid: id,
+        name,
+        // 복제는 모델을 고정한다(합의) — 고른 모델로 갈아 끼운다
+        ...(mg ? { model_group: mg } : {}),
+        ...(md ? { model: md } : {}),
+        checks: src.checks ?? [],
+      })
       return id
     },
     onSuccess: (id) => {
@@ -1971,6 +1983,17 @@ export default function TestCases({ me }: PageProps) {
           }}
         />
       )}
+      {cloneAsk && (
+        <CloneModelAsk
+          count={listPick.size}
+          busy={cloning}
+          onClose={() => setCloneAsk(false)}
+          onGo={(mg, md) => {
+            setCloneAsk(false)
+            void clonePicked(mg, md)
+          }}
+        />
+      )}
       {saveAs && (
         <TcSaveAs
           title={saveAs.title}
@@ -1979,7 +2002,8 @@ export default function TestCases({ me }: PageProps) {
           note={saveAs.note}
           taken={takenIds}
           busy={saveAsM.isPending}
-          onSubmit={(id, name) => saveAsM.mutate({ id, name })}
+          askModel={saveAs.title === '다른 이름으로 저장'}
+          onSubmit={(id, name, mg, md) => saveAsM.mutate({ id, name, mg, md })}
           onClose={() => setSaveAs(null)}
         />
       )}
@@ -2251,7 +2275,7 @@ export default function TestCases({ me }: PageProps) {
                         ? `고른 ${listPick.size}건을 복사합니다 (스텝까지)`
                         : '복사할 시험을 고르세요'
                     }
-                    onClick={() => void clonePicked()}
+                    onClick={() => setCloneAsk(true)}
                   >
                     {cloning ? '복사 중…' : 'Clone'}
                   </button>
@@ -2551,5 +2575,97 @@ export default function TestCases({ me }: PageProps) {
         </div>
       </div>
     </>
+  )
+}
+
+/**
+ * Clone 의 모델 고르기 — 복제는 모델을 고정해야 저장된다(합의 2026-08-16).
+ * 고른 모델그룹·모델명이 이번에 복제되는 전부에 들어가고, 이름 꼬리에
+ * 모델 태그가 붙는다.
+ */
+function CloneModelAsk({
+  count,
+  busy,
+  onGo,
+  onClose,
+}: {
+  count: number
+  busy?: boolean
+  onGo: (mg: string, md: string) => void
+  onClose: () => void
+}) {
+  const [mg, setMg] = useState('')
+  const [md, setMd] = useState('')
+  const rolesQ = useQuery({
+    queryKey: ['device-roles'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/device-roles')
+      return (await r.json()) as {
+        groups?: string[]
+        models?: string[]
+        model_info?: Record<string, { model_group?: string | null }>
+      }
+    },
+    staleTime: 60_000,
+  })
+  const modelOpts = (rolesQ.data?.models ?? []).filter(
+    (m) => !mg || (rolesQ.data?.model_info?.[m]?.model_group ?? '') === mg,
+  )
+  return (
+    <div className="modal-back" onMouseDown={() => !busy && onClose()}>
+      <form
+        className="modal sa"
+        onMouseDown={(e) => e.stopPropagation()}
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (!mg || !md || busy) return
+          onGo(mg, md)
+        }}
+      >
+        <div className="modal-head">
+          <b>Clone — 모델 고르기 ({count}건)</b>
+          <button className="modal-x" type="button" onClick={onClose} aria-label="닫기">
+            ×
+          </button>
+        </div>
+        <div className="modal-body">
+          <div className="sa-note">
+            복제는 모델을 고정해야 저장됩니다 — 고른 모델이 복제본 전부에 들어갑니다.
+          </div>
+          <label className="fld">
+            <span>모델그룹</span>
+            <select
+              value={mg}
+              onChange={(e) => {
+                setMg(e.target.value)
+                setMd('')
+              }}
+            >
+              <option value="">(골라 주세요 — 필수)</option>
+              {(rolesQ.data?.groups ?? []).map((g) => (
+                <option key={g}>{g}</option>
+              ))}
+            </select>
+          </label>
+          <label className="fld">
+            <span>모델명</span>
+            <select value={md} onChange={(e) => setMd(e.target.value)}>
+              <option value="">(골라 주세요 — 필수)</option>
+              {modelOpts.map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="modal-foot">
+          <button className="btn" type="button" onClick={onClose} disabled={busy}>
+            취소
+          </button>
+          <button className="btn primary" type="submit" disabled={!mg || !md || busy}>
+            {busy ? '복제 중…' : `복제 (${count}건)`}
+          </button>
+        </div>
+      </form>
+    </div>
   )
 }

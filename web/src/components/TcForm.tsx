@@ -163,12 +163,14 @@ export default function TcForm({ editing, presetReqId, onCreated, onClose }: Pro
       setError('제목을 입력하세요')
       return
     }
-    if (isNew && !mg) {
-      setError('모델그룹을 고르세요 — 공용 시험이면 「공용(전체)」 을 고릅니다')
+    // 새 항목은 모델을 고정한다(합의 2026-08-16) — 실행 판정 기준이 모델마다
+    // 달라 공용은 판정이 흔들린다. 기존 항목 편집은 막지 않는다
+    if (isNew && (!mg || mg === COMMON)) {
+      setError('모델그룹을 고르세요 — 새 항목은 모델을 고정합니다 (공용 불가)')
       return
     }
-    if (isNew && mg !== COMMON && !mdl) {
-      setError('모델명을 고르세요 — 그룹 전체에 쓰는 시험이면 「(그룹 공용)」 을 고릅니다')
+    if (isNew && (!mdl || mdl === COMMON)) {
+      setError('모델명을 고르세요 — 새 항목은 모델을 고정합니다')
       return
     }
     // 필수는 보이는 칸만 따진다. 숨긴 칸을 필수로 걸어두면 고칠 방법이
