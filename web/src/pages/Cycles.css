@@ -2268,7 +2268,7 @@ table.tb td.k {
 .cxp {
   display: flex;
   flex-direction: row; /* .tp(다른 화면)와 충돌해 세로로 무너졌던 자리 */
-  gap: 10px;
+  gap: 3px;
   flex: 1;
   min-height: 0;
   align-items: stretch;
@@ -2389,10 +2389,11 @@ table.tb td.k {
 /* 칸 폭이 고정된 그리드 — 이력 칩이 없어도 자리가 비어 있어 모든 줄이 맞다 */
 .cxp-rgt {
   display: grid;
-  grid-template-columns: 22px 108px 24px;
+  grid-template-columns: 24px 104px 20px;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
 }
+.cxp-rgt > .cxp-k { justify-self: center; }
 .cxp-row > input[type='checkbox'] { width: 16px; height: 16px; margin: 0; }
 .cxp-rgt .cxp-hist { justify-self: start; }
 .cxp-hist > i.ro { cursor: default; }
