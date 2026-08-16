@@ -3658,7 +3658,7 @@ function CycleDetail({
                     </span>
                     {/* 오른쪽 무리 — 한 묶음(간격 균일): M/A · 이력 · 결과 셀렉트 · ▶ · 회귀 · 점 */}
                     <span className="cxp-rgt" onClick={(e) => e.stopPropagation()}>
-                      {/* 담당자 — 읽기 전용 아이콘. 할당은 사이클 수정 창에서 */}
+                      {/* 담당자 — 읽기 전용. 할당은 사이클 수정 창에서 */}
                       {(() => {
                         const who = String(it.assignee ?? '')
                           .split(/[,·/;]+/)
@@ -3677,7 +3677,11 @@ function CycleDetail({
                             ) : (
                               <i className="g">👤</i>
                             )}
-                            {(() => {
+                          </span>
+                        )
+                      })()}
+                      {/* 시험 타입 — TC 가 정본 */}
+                      {(() => {
                         const kd = typeOf(it)
                         return (
                           <i className={`cxp-k ${kd}`} title={kd === 'manual' ? '수동' : '자동'}>
@@ -3685,9 +3689,8 @@ function CycleDetail({
                           </i>
                         )
                       })()}
+                      {/* 기존 시험 결과 — 자리 상시 유지, 없으면 미진행 */}
                       {(() => {
-                        // 자리 자체는 늘 그린다 — 이력이 없어도 칸이 비어 있어야
-                        // 옆 필드가 밀려들지 않는다(피드백 ⑤)
                         const h = (histAll.get(it.tcid) ?? []).slice(0, 5)
                         const last = h[0]
                         return (
@@ -3705,13 +3708,9 @@ function CycleDetail({
                                 {h.length > 1 ? ` +${h.length - 1}` : ''}
                               </i>
                             ) : (
-                              /* 공란은 못 읽는다 — 이전 회차 이력이 없으면 「미진행」 */
                               <i className="hv-none ro full">미진행</i>
                             )}
                           </span>
-                        )
-                      })()}
-                    </span>
                         )
                       })()}
                     </span>
