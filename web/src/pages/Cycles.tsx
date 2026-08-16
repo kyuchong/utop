@@ -1292,7 +1292,9 @@ export default function Cycles({ me }: PageProps) {
             setMaking(false)
             setEditId('')
             setAsk(null)
-            setSel(id)
+            // 저장했다고 실행 화면으로 끌고 가지 않는다 — 목록이 제자리다.
+            // 실행 화면은 ▶ Run 으로만 들어간다 (이미 열려 있던 경우만 유지)
+            void id
             void listQ.refetch()
             void vgQ.refetch()
             void qc.invalidateQueries({ queryKey: ['cycle-full', id] })
