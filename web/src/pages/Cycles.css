@@ -3554,7 +3554,8 @@ table.tb td.k {
 }
 @keyframes cy-rot { to { transform: rotate(360deg); } }
 .cy-sum-ai-sk { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.cy-sum-ai-sk > b { font-size: var(--fs-md); color: var(--c-text-muted); font-weight: 600; }
+.cy-sum-ai-sk > b { font-size: 14px; color: var(--c-text); font-weight: 700; }
+.cy-sum-ai-stage { font-size: var(--fs-sm); color: var(--c-primary); font-weight: 600; }
 .cy-sum-ai-sk > i {
   display: block;
   height: 9px;

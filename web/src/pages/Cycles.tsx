@@ -2803,6 +2803,24 @@ function CycleDetail({
       setAiAt('')
     }
   }, [fullQ.data])
+  /** 분석 연출 — 단계 문구가 도는 동안 사람이 기다림을 읽는다 */
+  const AI_STAGES = [
+    '항목별 결과와 스텝 출력을 읽는 중…',
+    '전체·수동·자동 현황을 집계하는 중…',
+    'Fail 원인과 근거를 살피는 중…',
+    '분석 보고서를 작성하는 중…',
+  ]
+  const [aiStage, setAiStage] = useState(0)
+  useEffect(() => {
+    if (!aiBusy) {
+      setAiStage(0)
+      return
+    }
+    const t2 = window.setInterval(() => setAiStage((v2) => Math.min(v2 + 1, AI_STAGES.length - 1)), 2800)
+    return () => window.clearInterval(t2)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aiBusy])
+
   const makeAi = async () => {
     setAiBusy(true)
     setAiErr('')
@@ -3334,7 +3352,11 @@ function CycleDetail({
                   <div className="cy-sum-ai-load">
                     <span className="cy-spin" aria-hidden="true" />
                     <div className="cy-sum-ai-sk">
-                      <b>LLM 이 이 회차 결과를 읽고 있습니다…</b>
+                      <b>
+                        『{cycle.name || cycle.cid || cycle.version || ''}』 사이클 실행 결과를 AI 가
+                        분석하고 있습니다
+                      </b>
+                      <span className="cy-sum-ai-stage">{AI_STAGES[aiStage]}</span>
                       <i style={{ width: '92%' }} />
                       <i style={{ width: '78%' }} />
                       <i style={{ width: '85%' }} />

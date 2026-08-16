@@ -10485,8 +10485,27 @@ async def _cycle_ai_summary(cycle_id):
     if cycle is None:
         return None, "Cycle을 찾을 수 없습니다"
     ctx = _cycle_result_ctx(cycle)
-    sys_p = ("너는 네트워크 장비 시험(QA) 결과 분석 전문가다. 아래 Test Cycle 실행 결과를 근거로 한국어 Markdown 보고서를 작성한다. "
-             "구성: ## 총평(2~3문장) / ## 통계 / ## Fail 분석(항목별 원인 추정과 근거 — 출력·판정기준 인용) / ## 권고사항(재시험·설정확인 등). "
+    # 전체·수동·자동 집계를 앞에 실어 준다 — 화면 요약 바와 같은 축으로 분석하게
+    def _grp_of(it):
+        st2 = [x for x in (it.get("steps") or []) if isinstance(x, dict)]
+        auto2 = [x for x in st2 if not (x.get("manual") or x.get("action") == "수동")]
+        return "자동" if auto2 else "수동"
+    _tly = {"전체": {}, "수동": {}, "자동": {}}
+    for _it in (cycle.get("items") or []):
+        if not isinstance(_it, dict):
+            continue
+        _v = _item_verdict(_it) or "미실행"
+        for _k in ("전체", _grp_of(_it)):
+            _tly[_k][_v] = _tly[_k].get(_v, 0) + 1
+    def _tline(k):
+        d2 = _tly[k]
+        n2 = sum(d2.values())
+        body = " · ".join(f"{a} {b}건" for a, b in sorted(d2.items(), key=lambda x: -x[1]))
+        return f"{k} {n2}건 — {body or '없음'}"
+    ctx = "[전체·수동·자동 집계]\n" + "\n".join(_tline(k) for k in ("전체", "수동", "자동")) + "\n\n" + ctx
+    sys_p = ("너는 네트워크 장비 시험(QA) 결과 분석 전문가다. 아래 Test Cycle 실행 결과를 근거로 한국어 Markdown 분석 보고서를 작성한다. "
+             "구성: ## 총평(2~3문장 — 이 회차의 품질 판단) / ## 전체·수동·자동 현황(집계를 표로 정리하고 눈에 띄는 점 1~2문장) / "
+             "## Fail 분석(항목별 원인 추정과 근거 — 출력·판정기준 인용) / ## 권고사항(재시험·설정확인 등 구체적으로). "
              "결과에 없는 내용은 추측하지 말고, Fail이 없으면 Fail 분석은 '해당 없음'으로 쓴다.")
     ans, err = await _ai_chat([{"role": "system", "content": sys_p}, {"role": "user", "content": ctx}], max_tokens=1600)
     if err:
