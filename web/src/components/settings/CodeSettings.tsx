@@ -113,6 +113,20 @@ export default function CodeSettings({ target }: Props) {
     void qc.invalidateQueries({ queryKey: ['req', 'list'] })
   }
 
+  /** 실행 결과(cycle_result) 값의 색·계열 — note 에 JSON 으로 담는다 */
+  const saveMeta = (value: string, color?: string, group?: string) => {
+    const it = items.find((x) => x.value === value)
+    void apiFetch('/api/codes', {
+      method: 'POST',
+      body: JSON.stringify({
+        kind,
+        value,
+        sort_order: it?.sort_order ?? 0,
+        note: JSON.stringify({ color: color || undefined, group: group || 'neutral' }),
+      }),
+    }).then(invalidate)
+  }
+
   const fail = (e: unknown) =>
     setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) })
 
@@ -383,6 +397,34 @@ export default function CodeSettings({ target }: Props) {
                   return (
                     <div className="dc-row" key={v}>
                       <b className="dc-name">{v}</b>
+                      {/* 실행 결과 값은 색과 계열(집계 규칙)을 함께 정한다 */}
+                      {kind === 'cycle_result' && !cur.cf && (() => {
+                        let meta: { color?: string; group?: string } = {}
+                        try {
+                          meta = JSON.parse(items[i]?.note || '{}') as typeof meta
+                        } catch {
+                          /* 옛 자료 */
+                        }
+                        return (
+                          <span className="dc-resmeta">
+                            <input
+                              type="color"
+                              value={meta.color || '#94a3b8'}
+                              title="이 상태의 색"
+                              onChange={(e) => saveMeta(v, e.target.value, meta.group)}
+                            />
+                            <select
+                              value={meta.group || 'neutral'}
+                              title="집계 계열 — Pass 계열은 통과로, Fail 계열은 실패로 센다"
+                              onChange={(e) => saveMeta(v, meta.color, e.target.value)}
+                            >
+                              <option value="pass">Pass 계열</option>
+                              <option value="fail">Fail 계열</option>
+                              <option value="neutral">중립</option>
+                            </select>
+                          </span>
+                        )
+                      })()}
                       <span className="muted small dc-meta">
                         {used ? `${used}건이 쓰는 중` : ''}
                       </span>

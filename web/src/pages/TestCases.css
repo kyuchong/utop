@@ -3000,3 +3000,8 @@ table.tb tr.r-bad td:first-child {
   border-radius: var(--radius-sm);
   background: var(--c-surface);
 }
+
+/* 머리글 드래그 — 열 자리 바꾸기 (⚙ 의 ⠿ 와 같은 문법) */
+.tc-thdrag { display: flex; align-items: center; gap: 3px; min-width: 0; cursor: grab; }
+.tc-thdrag .tc-colgrip { opacity: 0.4; flex: none; }
+.tc-thdrag > select { min-width: 0; flex: 1; }

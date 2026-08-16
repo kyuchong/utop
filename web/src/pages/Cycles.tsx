@@ -154,6 +154,50 @@ export const RESULTS: Array<{ v: Verdict; label: string; cls: string }> = [
   { v: '', label: '미실행', cls: 'none' },
 ]
 
+/** 결과 상태 한 벌 — 시스템(Pass·Fail·미실행 등) + 설정에서 늘린 것 */
+export interface ResDef {
+  v: string
+  label: string
+  cls: string
+  color?: string
+  /** 집계 계열 — pass 는 통과로, fail 은 실패로 센다 */
+  group: 'pass' | 'fail' | 'neutral' | 'none'
+}
+
+function useResults(): ResDef[] {
+  const codesQ = useQuery({
+    queryKey: ['codes'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes')
+      if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
+      return (await r.json()) as {
+        items: Array<{ kind: string; value: string; note?: string | null }>
+      }
+    },
+    staleTime: 60_000,
+  })
+  return useMemo(() => {
+    const base: ResDef[] = RESULTS.map((r) => ({
+      ...r,
+      group: r.v === 'Pass' ? 'pass' : r.v === 'Fail' ? 'fail' : r.v === '' ? 'none' : 'neutral',
+    }))
+    for (const i of codesQ.data?.items ?? []) {
+      if (i.kind !== 'cycle_result') continue
+      const val = i.value.trim()
+      if (!val || base.some((b) => b.v === val)) continue
+      let meta: { color?: string; group?: string } = {}
+      try {
+        meta = JSON.parse(i.note || '{}') as typeof meta
+      } catch {
+        /* 옛 자료 */
+      }
+      const g = meta.group === 'pass' || meta.group === 'fail' ? meta.group : 'neutral'
+      base.push({ v: val, label: val, cls: 'custom', color: meta.color, group: g })
+    }
+    return base
+  }, [codesQ.data])
+}
+
 const CLS: Record<string, string> = {
   Pass: 'pass',
   Fail: 'fail',
@@ -1359,11 +1403,35 @@ function CycleBoard({
       localStorage.setItem('utop.cycle.cols', JSON.stringify([...n]))
       return n
     })
+  /** 열 차례 — ⚙ 의 ▲▼ 로 바꾼다. 저장된다 */
+  const [cytOrder, setCytOrder] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('utop.cycle.colorder')
+      if (raw) {
+        const arr = JSON.parse(raw) as string[]
+        const known = CYT_COLS.map((c) => c.k)
+        return [...arr.filter((k) => known.includes(k)), ...known.filter((k) => !arr.includes(k))]
+      }
+    } catch {
+      /* 깨진 저장값이면 기본으로 */
+    }
+    return CYT_COLS.map((c) => c.k)
+  })
+  /** ⠿ 드래그로 차례를 바꾼다 — 시험항목 화면과 같은 문법 */
+  const dragCol = useRef<string | null>(null)
+  /** 차례 반영된 열 정의 */
+  const orderedCols = useMemo(
+    () =>
+      cytOrder
+        .map((k) => CYT_COLS.find((c) => c.k === k))
+        .filter((c): c is (typeof CYT_COLS)[number] => !!c),
+    [cytOrder],
+  )
   const cytGrid = useMemo(() => {
     const parts = ['26px', '20px', 'minmax(105px, 130px)', 'minmax(170px, 1fr)']
-    for (const c of CYT_COLS) if (cytCols.has(c.k)) parts.push(c.w)
+    for (const c of orderedCols) if (cytCols.has(c.k)) parts.push(c.w)
     return parts.join(' ')
-  }, [cytCols])
+  }, [cytCols, orderedCols])
   /** 머리글 클릭 정렬 — 열 이름 옆 화살표가 방향을 보여 준다 */
   const [sortCol, setSortCol] = useState('')
   const [sortDir, setSortDir] = useState<1 | -1>(1)
@@ -1423,6 +1491,12 @@ function CycleBoard({
     return m
   }, [tcMetaQ.data])
 
+  const resDefs = useResults()
+  const groupOf = useMemo(() => {
+    const m = new Map(resDefs.map((r) => [r.v, r.group]))
+    return (v: string) => m.get(v) ?? (v ? 'neutral' : 'none')
+  }, [resDefs])
+
   // 사이클별 집계는 한 번만 — 표·거름·정렬이 다 같이 쓴다
   const stats = useMemo(() => {
     const m = new Map<
@@ -1438,8 +1512,9 @@ function CycleBoard({
       for (const it of its) {
         const v = itemVerdict(it)
         if (v) done += 1
-        if (v === 'Pass') pass += 1
-        else if (v === 'Fail') fail += 1
+        const g = groupOf(v)
+        if (g === 'pass') pass += 1
+        else if (g === 'fail') fail += 1
         iss += it.issues?.length ?? 0
       }
       m.set(c.id, {
@@ -1452,7 +1527,7 @@ function CycleBoard({
       })
     }
     return m
-  }, [cycles])
+  }, [cycles, groupOf])
 
   const shown = useMemo(() => {
     const nq = q.trim().toLowerCase()
@@ -1470,16 +1545,38 @@ function CycleBoard({
 
 
   const fmtD = (v?: string | null) => (v ? String(v).slice(0, 10) : '–')
-  const TH = (col: string, label: string, right?: boolean) => (
-    <button
-      type="button"
-      className={`cyt-th${right ? ' tr' : ''}${sortCol === col ? ' on' : ''}`}
-      onClick={() => clickSort(col)}
-    >
-      {label}
-      <i>{sortCol === col ? (sortDir === 1 ? '↑' : '↓') : '⇅'}</i>
-    </button>
-  )
+  const TH = (col: string, label: string, right?: boolean) => {
+    // 정렬 키 ↔ 열 키가 다른 것 하나(pct→prg)만 맞춘다
+    const dragKey = col === 'pct' ? 'prg' : col
+    const canDrag = CYT_COLS.some((c3) => c3.k === dragKey)
+    return (
+      <button
+        type="button"
+        className={`cyt-th${right ? ' tr' : ''}${sortCol === col ? ' on' : ''}`}
+        draggable={canDrag}
+        onDragStart={canDrag ? () => {
+          dragCol.current = dragKey
+        } : undefined}
+        onDragOver={canDrag ? (e) => {
+          e.preventDefault()
+          const from = dragCol.current
+          if (!from || from === dragKey) return
+          setCytOrder((v) => {
+            const n = v.filter((x) => x !== from)
+            n.splice(n.indexOf(dragKey), 0, from)
+            localStorage.setItem('utop.cycle.colorder', JSON.stringify(n))
+            return n
+          })
+        } : undefined}
+        onDrop={canDrag ? (e) => e.preventDefault() : undefined}
+        onClick={() => clickSort(col)}
+      >
+        {canDrag && <span className="tc-colgrip" aria-hidden="true">⠿</span>}
+        {label}
+        <i>{sortCol === col ? (sortDir === 1 ? '↑' : '↓') : '⇅'}</i>
+      </button>
+    )
+  }
 
   return (
     <div className="cy-board scroll">
@@ -1554,17 +1651,37 @@ function CycleBoard({
         {gearAt2 && (
           <>
             <span className="cyt-gearovl" onClick={() => setGearAt2(null)} />
-            <span
-              className="cyt-gearpop"
+            <div
+              className="tc-menu tc-colpop"
+              role="menu"
               style={{
                 position: 'fixed',
-                left: Math.max(8, gearAt2.x - 160),
+                left: Math.max(8, gearAt2.x - 170),
                 top: gearAt2.y,
                 right: 'auto',
               }}
             >
-              {CYT_COLS.map((c2) => (
-                <label key={c2.k}>
+              {orderedCols.map((c2) => (
+                <label
+                  key={c2.k}
+                  draggable
+                  onDragStart={() => {
+                    dragCol.current = c2.k
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    const from = dragCol.current
+                    if (!from || from === c2.k) return
+                    setCytOrder((v) => {
+                      const n = v.filter((x) => x !== from)
+                      n.splice(n.indexOf(c2.k), 0, from)
+                      localStorage.setItem('utop.cycle.colorder', JSON.stringify(n))
+                      return n
+                    })
+                  }}
+                  onDrop={(e) => e.preventDefault()}
+                >
+                  <span className="tc-colgrip" aria-hidden="true">⠿</span>
                   <input
                     type="checkbox"
                     checked={cytCols.has(c2.k)}
@@ -1573,7 +1690,21 @@ function CycleBoard({
                   {c2.label}
                 </label>
               ))}
-            </span>
+              <button
+                type="button"
+                className="linkish tc-coldef"
+                onClick={() => {
+                  const defCols = CYT_COLS.map((c3) => c3.k).filter((k) => k !== 'customer')
+                  const defOrder = CYT_COLS.map((c3) => c3.k)
+                  setCytCols(new Set(defCols))
+                  setCytOrder(defOrder)
+                  localStorage.setItem('utop.cycle.cols', JSON.stringify(defCols))
+                  localStorage.setItem('utop.cycle.colorder', JSON.stringify(defOrder))
+                }}
+              >
+                기본값 복원
+              </button>
+            </div>
           </>
         )}
       </div>
@@ -1595,7 +1726,7 @@ function CycleBoard({
           <span />
           {TH('id', '사이클 ID')}
           {TH('name', '제목')}
-          {CYT_COLS.filter((c2) => cytCols.has(c2.k)).map((c2) =>
+          {orderedCols.filter((c2) => cytCols.has(c2.k)).map((c2) =>
             c2.k === 'iss'
               ? TH('iss', '결함', true)
               : c2.k === 'tests'
@@ -1707,7 +1838,7 @@ function CycleBoard({
                       >
                         {c.name || '–'}
                       </button>
-                      {CYT_COLS.filter((c2) => cytCols.has(c2.k)).map((c2) => {
+                      {orderedCols.filter((c2) => cytCols.has(c2.k)).map((c2) => {
                         switch (c2.k) {
                           case 'iss':
                             return (
@@ -2238,8 +2369,9 @@ function CycleDetail({
   }
 
   const items = fullQ.data?.items ?? cycle.items ?? []
+  const resDefs = useResults()
   const counts: Record<string, number> = {}
-  for (const r of RESULTS) counts[r.v] = 0
+  for (const r of resDefs) counts[r.v] = 0
   for (const it of items) counts[itemVerdict(it)] = (counts[itemVerdict(it)] ?? 0) + 1
 
   /**
@@ -2592,7 +2724,7 @@ function CycleDetail({
       {editing && (
         <CycleItemEdit
           items={editing}
-          results={RESULTS}
+          results={resDefs}
           onClose={() => setEditing(null)}
           onApply={async (patch) => {
             const ids = new Set(editing.map((x) => x.tcid))
@@ -2888,7 +3020,14 @@ function CycleDetail({
                         회귀
                       </b>
                     )}
-                    <i className={`cxp-v ${verdictClass(v)}`} title={verdictLabel(v)} />
+                    <i
+                      className={`cxp-v ${verdictClass(v)}`}
+                      style={(() => {
+                        const rc = resDefs.find((r) => r.v === v)?.color
+                        return rc ? { background: rc } : undefined
+                      })()}
+                      title={verdictLabel(v)}
+                    />
                   </div>
                 </React.Fragment>
               )
@@ -2912,8 +3051,8 @@ function CycleDetail({
                     void setResult(cur.tcid, e.target.value === '' ? '미실행' : e.target.value)
                   }
                 >
-                  {RESULTS.map((r) => (
-                    <option key={r.v} value={r.v}>
+                  {resDefs.map((r) => (
+                    <option key={r.v} value={r.v} style={r.color ? { color: r.color } : undefined}>
                       {r.label}
                     </option>
                   ))}
@@ -3141,18 +3280,26 @@ function CloneDialog({
     () => (Array.isArray(full?.items) ? (full!.items as CycleItemLite[]) : []),
     [full],
   )
+  const resDefs = useResults()
   const counts = useMemo(() => {
     const m: Record<string, number> = {}
-    for (const r of RESULTS) m[r.v] = 0
+    for (const r of resDefs) m[r.v] = 0
     for (const it of items) m[itemVerdict(it)] = (m[itemVerdict(it)] ?? 0) + 1
     return m
-  }, [items])
+  }, [items, resDefs])
 
   const [version, setVersion] = useState('')
   const [name, setName] = useState('')
   const [keepWho, setKeepWho] = useState(true)
   /** 포함할 직전 결과 상태들 — 기본 전부 */
   const [stats, setStats] = useState<Set<string>>(() => new Set(RESULTS.map((r) => r.v)))
+  // 설정에서 늘린 상태가 뒤늦게 오면 기본 선택에 합류시킨다
+  const seededStats = useRef(false)
+  useEffect(() => {
+    if (seededStats.current || resDefs.length <= RESULTS.length) return
+    seededStats.current = true
+    setStats(new Set(resDefs.map((r) => r.v)))
+  }, [resDefs])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
@@ -3244,16 +3391,16 @@ function CloneDialog({
                   className="linkish"
                   onClick={() =>
                     setStats(
-                      stats.size === RESULTS.length
+                      stats.size === resDefs.length
                         ? new Set()
-                        : new Set(RESULTS.map((r) => r.v)),
+                        : new Set(resDefs.map((r) => r.v)),
                     )
                   }
                 >
-                  {stats.size === RESULTS.length ? '전부 해제' : '전부 선택'}
+                  {stats.size === resDefs.length ? '전부 해제' : '전부 선택'}
                 </button>
               </div>
-              {RESULTS.map((r) => (
+              {resDefs.map((r) => (
                 <label key={r.v} className="cy-clone-ck">
                   <input
                     type="checkbox"

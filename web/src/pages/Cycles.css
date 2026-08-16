@@ -3318,3 +3318,25 @@ table.tb td.k {
 }
 .cxp-pv.pass { color: #fff; background: var(--c-pass); }
 .cxp-pv.fail { color: #fff; background: var(--c-fail); }
+
+/* ⚙ 열 팝업 — 체크 + 차례(▲▼) */
+.cyt-colrow { display: flex; align-items: center; gap: 4px; }
+.cyt-colrow .sp { flex: 1; }
+.cyt-mv {
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 4px;
+  font-size: 9px;
+  padding: 1px 4px;
+  cursor: pointer;
+  color: var(--c-text-muted);
+}
+.cyt-mv:disabled { opacity: 0.35; cursor: default; }
+/* 설정 — 실행 결과 값의 색·계열 */
+.dc-resmeta { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
+.dc-resmeta input[type='color'] { width: 26px; height: 22px; padding: 1px; border: 1px solid var(--c-border); border-radius: 4px; cursor: pointer; }
+.dc-resmeta select { padding: 2px 6px; border: 1px solid var(--c-border); border-radius: 4px; font: inherit; font-size: var(--fs-xs); }
+
+/* 머리글 드래그 — 잡는 손 모양과 그립 */
+.cyt-th[draggable='true'] { cursor: grab; }
+.cyt-th .tc-colgrip { opacity: 0.4; margin-right: 2px; }

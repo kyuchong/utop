@@ -2409,9 +2409,28 @@ export default function TestCases({ me }: PageProps) {
                 <div className="rq-tr tc-tr rq-th" style={{ gridTemplateColumns: listGrid }}>
                   <div />
                   <div>이름</div>
-                  {visCols.map((c) =>
-                    FILTERABLE.includes(c.k) ? (
-                      <div key={c.k}>
+                  {visCols.map((c) => {
+                    /* 머리글을 끌어 열 자리를 바꾼다 — ⚙ 안 ⠿ 와 같은 문법 */
+                    const dragProps = {
+                      draggable: true,
+                      onDragStart: () => {
+                        dragCol.current = c.k
+                      },
+                      onDragOver: (e: React.DragEvent) => {
+                        e.preventDefault()
+                        const from = dragCol.current
+                        if (!from || from === c.k) return
+                        setColOrder((v) => {
+                          const n = v.filter((x) => x !== from)
+                          n.splice(n.indexOf(c.k), 0, from)
+                          return n
+                        })
+                      },
+                      onDrop: (e: React.DragEvent) => e.preventDefault(),
+                    }
+                    return FILTERABLE.includes(c.k) ? (
+                      <div key={c.k} className="tc-thdrag" {...dragProps}>
+                        <span className="tc-colgrip" aria-hidden="true">⠿</span>
                         {/* 머리 자체가 필터다 — 값을 고르면 그 값만 남는다 */}
                         <select
                           className={`tc-colf${colF[c.k] ? ' on' : ''}`}
@@ -2429,9 +2448,12 @@ export default function TestCases({ me }: PageProps) {
                         </select>
                       </div>
                     ) : (
-                      <div key={c.k}>{c.label}</div>
-                    ),
-                  )}
+                      <div key={c.k} className="tc-thdrag" {...dragProps}>
+                        <span className="tc-colgrip" aria-hidden="true">⠿</span>
+                        {c.label}
+                      </div>
+                    )
+                  })}
                 </div>
                 {shownListRows.length === 0 ? (
                   <div className="empty">이 자리에 시험이 없습니다.</div>
