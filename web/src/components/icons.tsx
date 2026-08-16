@@ -184,11 +184,14 @@ export const IconFolder = ({ open, ...rest }: P & { open?: boolean }) => (
   </svg>
 )
 
-/** 정렬 — 줄어드는 막대 셋 + 내림 화살표. 폴더 정렬 버튼용 */
+/** 정렬 — 오름·내림 화살표 쌍(D안, 피드백으로 선정). 폴더 정렬 버튼용.
+    15px 막대 모양은 작아서 구별이 안 됐다 — 17px 로 키우고 굵게. */
 export const IconSort = (p: P) => (
-  <Svg width="15" height="15" strokeWidth="2" {...p}>
-    <path d="M4 6h9M4 12h6M4 18h4" />
-    <path d="M17 8v8m0 0-3-3m3 3 3-3" />
+  <Svg width="17" height="17" strokeWidth="2.4" {...p}>
+    <path d="M11 8 7 4 3 8" />
+    <path d="M7 4v16" />
+    <path d="m13 16 4 4 4-4" />
+    <path d="M17 20V4" />
   </Svg>
 )
 
