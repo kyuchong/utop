@@ -10502,9 +10502,33 @@ async def _cycle_ai_summary(cycle_id):
         n2 = sum(d2.values())
         body = " · ".join(f"{a} {b}건" for a, b in sorted(d2.items(), key=lambda x: -x[1]))
         return f"{k} {n2}건 — {body or '없음'}"
-    ctx = "[전체·수동·자동 집계]\n" + "\n".join(_tline(k) for k in ("전체", "수동", "자동")) + "\n\n" + ctx
+    # 제품 정보 — 실행 화면 정보 상자와 같은 축 (카탈로그의 제조사·제품군 보강)
+    _pi_vendor = _pi_family = ""
+    _pi_mg = str(cycle.get("model_group") or "").strip()
+    try:
+        for _c in await db.catalog_list("model"):
+            if _c.get("name") == cycle.get("model"):
+                _pi_vendor = str(_c.get("vendor") or "").strip()
+                _pi_family = str(_c.get("family") or "").strip()
+                if not _pi_mg:
+                    _pi_mg = str(_c.get("model_group") or "").strip()
+                break
+    except Exception:
+        pass
+    _pinfo = " / ".join(
+        f"{k} {v}" for k, v in [
+            ("제조사", _pi_vendor), ("제품군", _pi_family), ("모델그룹", _pi_mg),
+            ("제품명", str(cycle.get("model") or "").strip()),
+            ("버전그룹", str(cycle.get("version_group") or "").strip()),
+            ("버전명", str(cycle.get("version") or "").strip()),
+            ("사이클", (str(cycle.get("cid") or "") + " " + str(cycle.get("name") or "")).strip()),
+        ] if v
+    )
+    ctx = ("[제품 정보] " + _pinfo + "\n"
+           + "[전체·수동·자동 집계]\n" + "\n".join(_tline(k) for k in ("전체", "수동", "자동")) + "\n\n" + ctx)
     sys_p = ("너는 네트워크 장비 시험(QA) 결과 분석 전문가다. 아래 Test Cycle 실행 결과를 근거로 한국어 Markdown 분석 보고서를 작성한다. "
-             "구성: ## 총평(2~3문장 — 이 회차의 품질 판단) / ## 전체·수동·자동 현황(집계를 표로 정리하고 눈에 띄는 점 1~2문장) / "
+             "보고서 첫 줄에 제품 정보(제조사·제품군·제품명·버전)를 한 줄로 쓰고, "
+             "구성: ## 총평(2~3문장 — 이 제품·버전 회차의 품질 판단) / ## 전체·수동·자동 현황(집계를 표로 정리하고 눈에 띄는 점 1~2문장) / "
              "## Fail 분석(항목별 원인 추정과 근거 — 출력·판정기준 인용) / ## 권고사항(재시험·설정확인 등 구체적으로). "
              "결과에 없는 내용은 추측하지 말고, Fail이 없으면 Fail 분석은 '해당 없음'으로 쓴다.")
     ans, err = await _ai_chat([{"role": "system", "content": sys_p}, {"role": "user", "content": ctx}], max_tokens=1600)
