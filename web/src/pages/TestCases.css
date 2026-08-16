@@ -2819,6 +2819,12 @@ table.tb tr.r-bad td:first-child {
 /* List 도구줄의 ⋯ 이 오른끝(3번 자리)으로 가게 */
 .tc-listhead .rq-actions { width: 100%; }
 .tc-listhead .rq-actions .sp { flex: 1; }
+/* 도구줄 단추 — 사이클·요구사항과 같은 반 발짝 작게(26px).
+   여기만 기본 크기(31px)라 세 화면 버튼이 달라 보였다(피드백). */
+.tc-listhead .rq-actions .btn {
+  padding: 5px 12px;
+  font-size: var(--fs-sm);
+}
 
 /* ── 탭 레일 — 세부 왼쪽의 세로 탭 ──────────────────────────── */
 .tc-withrail {

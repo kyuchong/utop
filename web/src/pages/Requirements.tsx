@@ -917,9 +917,8 @@ export default function Requirements() {
         <section className="panel rq-listcol" ref={midRef} style={{ flexBasis: midW }}>
           {/* 액션은 머리줄에 — 따로 한 줄을 먹고 있어서 표가 그만큼 짧았다 */}
           <div className="rq-mid-h rq-mid-acts">
-            <b>Requirements</b>
-            <span className="rq-mid-hn">{midReqs.length}</span>
-            <span className="sp" />
+            {/* 「Requirements N」 이름표는 뺐다(피드백) — 위 빵부스러기와
+                아래 「요구사항 N건」 이 이미 말한다. 버튼이 왼쪽부터 선다. */}
               <div className="rq-actions">
                 {/* 한 건이면 Edit, 둘 이상이면 Bulk Edit 만 켜진다 */}
                 <button
