@@ -194,6 +194,36 @@ export function naturalCompare(a: string, b: string): number {
   return collator.compare(a ?? '', b ?? '')
 }
 
+/** 자릿수 그대로 비교 — numeric 을 끈 컬레이터. 111 < 21 < 99.
+    폴더 번호가 크기가 아니라 1-1-1 식 코드라서 적힌 대로 서야 한다. */
+const plainCollator = new Intl.Collator('ko', { sensitivity: 'base' })
+export function plainCompare(a: string, b: string): number {
+  return plainCollator.compare(a ?? '', b ?? '')
+}
+
+/** 폴더 트리 보기 정렬 — 요구사항·Coverage 1열이 같은 규칙을 쓴다.
+
+    첫 글자의 갈래(숫자·알파벳·한글)를 앞세운다. 숫자 모드(기본)는 번호를
+    자릿수 코드로 읽고(111 < 21 < 99), manual 은 sort_order(끌기 순) 그대로.
+    제자리 정렬이라 보기만 바뀐다 — 끌기 순 데이터는 안 건드린다. */
+export type FolderSortMode = 'manual' | 'num' | 'abc' | 'kor'
+export function sortCategoryTree(t: CategoryTreeNode[], mode: FolderSortMode): CategoryTreeNode[] {
+  if (mode === 'manual') return t
+  const rank = (nm: string): number => {
+    const ch = nm.trimStart().charAt(0)
+    if (mode === 'num') return /[0-9]/.test(ch) ? 0 : 1
+    if (mode === 'abc') return /[a-zA-Z]/.test(ch) ? 0 : 1
+    return /[가-힣]/.test(ch) ? 0 : 1
+  }
+  const cmp = mode === 'num' ? plainCompare : naturalCompare
+  const deep = (ns: CategoryTreeNode[]) => {
+    ns.sort((a, b) => rank(a.name) - rank(b.name) || cmp(a.name, b.name))
+    ns.forEach((k) => deep(k.children))
+  }
+  deep(t)
+  return t
+}
+
 /** 이름 앞머리의 숫자. '1-2. 제목' → [1,2] / 숫자로 시작하지 않으면 null */
 function leadingNumbers(s: string): number[] | null {
   const m = /^\s*(\d+(?:[.\-]\d+)*)/.exec(s ?? '')

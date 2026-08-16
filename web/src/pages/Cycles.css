@@ -2005,6 +2005,15 @@ table.tb td.k {
   margin-bottom: var(--sp-3);
 }
 .cy-board-h > b { font-size: 17px; }
+/* 도구줄 세로 구분선 — Run(작업)과 Delete(파괴)를 갈라 세운다 */
+.cy-vsep {
+  width: 1px;
+  height: 18px;
+  background: var(--c-border);
+  margin: 0 4px;
+  flex: none;
+}
+
 /* 요약 띠 + 찾기·거르기·정렬 — 보드 머리 바로 아래 한 줄 */
 .cy-tools {
   display: flex;

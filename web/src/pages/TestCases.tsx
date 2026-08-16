@@ -223,6 +223,14 @@ export default function TestCases({ me }: PageProps) {
    * 하나씩 골라 들어갈 일이 없다.
    */
   const [gpOpen, setGpOpen] = useState(false)
+  /** 1열 폴더 차례 — 요구사항 화면과 같은 저장 키를 쓴다(두 트리가 같은 순서) */
+  const [folderSort, setFolderSort] = useState<'manual' | 'num' | 'abc' | 'kor'>(() => {
+    const v = localStorage.getItem('utop.req.foldersort')
+    return v === 'manual' || v === 'num' || v === 'abc' || v === 'kor' ? v : 'num'
+  })
+  useEffect(() => {
+    localStorage.setItem('utop.req.foldersort', folderSort)
+  }, [folderSort])
   const [form, setForm] = useState<TestCaseMeta | null | undefined>(undefined)
   const [bulkOpen, setBulkOpen] = useState(false)
   /** 「시험 시작하기」 — 닮은 시험을 찾아 베낀다 */
@@ -2149,15 +2157,30 @@ export default function TestCases({ me }: PageProps) {
             extra={
               /* 찾기 단추와 **같은 모양**으로 나란히 둔다. 글자로 두었더니
                  「Coverage Tree 89」 옆에서 폭을 크게 먹어 이름이 밀렸다. */
-              <button
-                className={`lh-findbtn lh-gp${gpOpen ? ' on' : ''}`}
-                type="button"
-                title="전역 파라미터 — 스텝에서 ${이름} 으로 쓰는 값"
-                aria-pressed={gpOpen}
-                onClick={() => setGpOpen((v) => !v)}
-              >
-                <IconParam />
-              </button>
+              <>
+                <select
+                  className="rq-fsort"
+                  title="폴더 정렬 — 요구사항 1열과 같은 규칙, 보기만 바꿉니다"
+                  value={folderSort}
+                  onChange={(e) =>
+                    setFolderSort(e.target.value as 'manual' | 'num' | 'abc' | 'kor')
+                  }
+                >
+                  <option value="num">정렬: 숫자</option>
+                  <option value="abc">정렬: 알파벳</option>
+                  <option value="kor">정렬: 한글</option>
+                  <option value="manual">정렬: 끌기 순</option>
+                </select>
+                <button
+                  className={`lh-findbtn lh-gp${gpOpen ? ' on' : ''}`}
+                  type="button"
+                  title="전역 파라미터 — 스텝에서 ${이름} 으로 쓰는 값"
+                  aria-pressed={gpOpen}
+                  onClick={() => setGpOpen((v) => !v)}
+                >
+                  <IconParam />
+                </button>
+              </>
             }
             /* 만들기·일괄·삭제·내보내기는 List 의 일 줄에 있다. 여기 또 두면
                같은 일이 두 자리에 있어 어느 쪽이 무엇인지 생각하게 된다.
@@ -2168,6 +2191,7 @@ export default function TestCases({ me }: PageProps) {
           ) : (
             <TcTree
               tcs={tcs}
+              folderSort={folderSort}
               openId={gpOpen ? '' : openId}
               onOpen={(id) => {
                 setGpOpen(false)

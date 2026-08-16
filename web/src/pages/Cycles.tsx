@@ -1731,18 +1731,6 @@ function CycleBoard({
           + New
         </button>
         {picked.size > 0 && (
-          <button
-            className="btn danger"
-            type="button"
-            onClick={() => {
-              onDel([...picked])
-              setPicked(new Set())
-            }}
-          >
-            Delete ({picked.size})
-          </button>
-        )}
-        {picked.size > 0 && (
           <>
             <button
               className="btn"
@@ -1776,6 +1764,19 @@ function CycleBoard({
               onClick={() => onRun([...picked][0]!)}
             >
               ▶ Run
+            </button>
+            {/* Delete 는 맨 오른쪽, 구분선 너머 — New·Edit 옆에 두면
+                작업하다 자꾸 스친다(피드백: 지울 뻔한 사고 방지) */}
+            <span className="cy-vsep" aria-hidden="true" />
+            <button
+              className="btn danger"
+              type="button"
+              onClick={() => {
+                onDel([...picked])
+                setPicked(new Set())
+              }}
+            >
+              Delete ({picked.size})
             </button>
           </>
         )}

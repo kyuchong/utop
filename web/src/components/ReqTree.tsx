@@ -3,12 +3,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { categoryApi, projectApi, reqApi } from '@/api/client'
 import {
   buildCategoryTree,
+  sortCategoryTree,
   MAX_CAT_DEPTH,
   naturalCompare,
   reqLabel,
   reqPk,
-  shortReqId,
-  statusClass,
   type CategoryTreeNode,
   type ReqCategory,
   type Requirement,
@@ -75,9 +74,6 @@ function reqFolder(r: Requirement): string | null {
   return (r.cat4 || r.cat3 || r.cat2 || r.cat1 || null) as string | null
 }
 
-/** 자릿수 그대로 비교 — 숫자 정렬용. numeric 을 끄면 111 < 21 < 99 다.
-    폴더 번호가 크기가 아니라 1-1-1 식 코드라서 적힌 대로 서야 한다. */
-const plainCompare = new Intl.Collator('ko', { sensitivity: 'base' }).compare
 
 /** 우클릭 메뉴 위치와 대상 */
 interface Ctx {
@@ -152,7 +148,6 @@ export default function ReqTree({
   const [over, setOver] = useState<string | null | undefined>(undefined)
   // 「폴더만 · 전체 ID」 는 ⋯ 메뉴로 옮겼다. 상태는 화면이 들고 있고
   // 여기서는 받아 쓴다 — 단추가 트리 위 줄을 먹고 있었다.
-  const fullId = view?.fullId ?? false
   const foldersOnly = view?.foldersOnly ?? false
   /** 폴더 구조만 보기 — 정리할 때 요구사항이 사이에 끼면 트리가 길다 */
 
@@ -199,30 +194,10 @@ export default function ReqTree({
     [prjQ.data],
   )
   const cats = catQ.data?.categories ?? []
-  const tree = useMemo(() => {
-    const t = buildCategoryTree(cats)
-    // 정렬은 보기만 바꾼다 — sort_order(끌기 순)는 건드리지 않아서
-    // 「끌기 순」 으로 돌리면 원래 순서가 그대로 돌아온다.
-    // 첫 글자의 갈래(숫자·알파벳·한글)를 앞세운다. 숫자 모드는 번호를
-    // 자릿수 코드(1-1-1식)로 읽는다 — 111 < 21 < 99. 크기로 읽으면
-    // (21<99<111) 코드 체계가 흩어진다는 피드백.
-    if (folderSort !== 'manual') {
-      const rank = (nm: string): number => {
-        const ch = nm.trimStart().charAt(0)
-        if (folderSort === 'num') return /[0-9]/.test(ch) ? 0 : 1
-        if (folderSort === 'abc') return /[a-zA-Z]/.test(ch) ? 0 : 1
-        return /[가-힣]/.test(ch) ? 0 : 1
-      }
-      const cmp = (a: string, b: string): number =>
-        folderSort === 'num' ? plainCompare(a, b) : naturalCompare(a, b)
-      const deep = (ns: CategoryTreeNode[]) => {
-        ns.sort((a, b) => rank(a.name) - rank(b.name) || cmp(a.name, b.name))
-        ns.forEach((k) => deep(k.children))
-      }
-      deep(t)
-    }
-    return t
-  }, [cats, folderSort])
+  const tree = useMemo(
+    () => sortCategoryTree(buildCategoryTree(cats), folderSort),
+    [cats, folderSort],
+  )
   const catById = useMemo(() => new Map(cats.map((c) => [c.id, c])), [cats])
 
   const invalidate = () => {
@@ -509,28 +484,9 @@ export default function ReqTree({
     window.addEventListener('pointerup', up)
   }
 
-  const reqRow = (r: Requirement, depth: number, folderName?: string | null) => {
+  const reqRow = (r: Requirement, depth: number) => {
     const pk = reqPk(r)
-    const tcs = tcsFor(r)
-    let pass = 0
-    let f = 0
-    for (const t of tcs) {
-      const c = statusClass(t.status)
-      if (c === 'pass') pass++
-      else if (c === 'fail') f++
-    }
-    const idle = tcs.length - pass - f
-    const cover =
-      tcs.length === 0
-        ? { cls: 'none', label: 'TC 없음 — 미커버' }
-        : f > 0
-          ? { cls: 'fail', label: `FAIL ${f}건` }
-          : idle > 0
-            ? { cls: 'idle', label: `미실행 ${idle}건` }
-            : { cls: 'pass', label: `${pass}건 모두 통과` }
-
     const full = reqLabel(r)
-    const shown = fullId ? full : shortReqId(full, folderName)
 
     return (
       <div
@@ -542,7 +498,9 @@ export default function ReqTree({
           // 고르기는 되는데 칠해지지가 않았다.
           picked.has(`req:${pk}`) ? ' picked' : ''
         }${drag?.kind === 'req' && drag.id === pk ? ' dragging' : ''}`}
-        style={{ paddingLeft: 8 + depth * 14 }}
+        // 폴더보다 한 단 더 — 아이콘이 폴더 아이콘과 같은 열에 서면
+        // 어느 폴더에 담겼는지 안 읽힌다(피드백)
+        style={{ paddingLeft: 8 + (depth + 1) * 14 }}
         // Ctrl·Shift 로 여러 개. 그냥 누르면 하나만 골라 연다.
         onClick={(e) => {
           if (justDragged.current) return
@@ -560,15 +518,10 @@ export default function ReqTree({
         <span className="rt-dicon" aria-hidden="true">
           <IconReqDoc />
         </span>
-        <span className="rt-id" title={full}>
-          {shown || '(ID 없음)'}
-        </span>
-        <span className="rt-title" title={r.title ?? ''}>
-          {r.title || '(제목 없음)'}
-        </span>
-        <span className="rt-tc" title={cover.label}>
-          <span className={`rt-cdot ${cover.cls}`} />
-          {tcs.length}
+        {/* ID·커버리지 점은 접었다(피드백 — 트리는 제목으로 읽는다).
+            ID 는 툴팁에, 커버리지는 2열 표가 맡는다. */}
+        <span className="rt-title" title={full ? `${full} — ${r.title ?? ''}` : (r.title ?? '')}>
+          {r.title || full || '(제목 없음)'}
         </span>
       </div>
     )
@@ -738,7 +691,7 @@ export default function ReqTree({
         {open && (
           <>
             {n.children.map(renderFolder)}
-            {mine.map((r) => reqRow(r, n.depth, n.name))}
+            {mine.map((r) => reqRow(r, n.depth))}
           </>
         )}
       </div>
@@ -820,7 +773,7 @@ export default function ReqTree({
           <b className="rt-fname">미분류</b>
           <span className="rt-cnt">{uncat.length || ''}</span>
         </div>
-        {uncat.map((r) => reqRow(r, 1, null))}
+        {uncat.map((r) => reqRow(r, 1))}
 
         {ghost && (
           <div className="rt-ghost" style={{ left: ghost.x + 14, top: ghost.y + 12 }}>

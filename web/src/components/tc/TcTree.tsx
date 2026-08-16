@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, categoryApi } from '@/api/client'
+import { api, categoryApi, projectApi } from '@/api/client'
 import {
   MAX_CAT_DEPTH,
   buildCategoryTree,
+  sortCategoryTree,
   naturalCompare,
   reqLabel,
   reqPk,
@@ -11,7 +12,7 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
-import { IconChevron, IconFolder, IconReqDoc } from '../icons'
+import { IconChevron, IconFolder, IconProject, IconReqDoc } from '../icons'
 // 요구사항 화면과 **같은 트리로 보여야 한다**. 줄 높이·글자·구분선을 여기서
 // 다시 정하면 두 화면을 오가며 같은 것이 달라 보인다. 그 화면의 규칙을
 // 그대로 가져다 쓰고, TC 줄만 이 화면 CSS 에서 더한다.
@@ -45,6 +46,8 @@ interface Props {
   onSelectReq?: (pk: string) => void
   /** 「+ 폴더」 를 바깥 머리줄에서 누를 수 있게 — 숫자가 바뀌면 입력칸을 연다 */
   addFolderSignal?: number
+  /** 폴더 차례 — 요구사항 1열과 같은 규칙(숫자 코드가 기본) */
+  folderSort?: 'manual' | 'num' | 'abc' | 'kor'
 }
 
 /** 이 요구사항이 놓인 가장 깊은 분류 id. 없으면 null(미분류) */
@@ -72,6 +75,7 @@ export default function TcTree({
   selectedReq,
   onSelectReq,
   addFolderSignal = 0,
+  folderSort = 'num',
 }: Props) {
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
     try {
@@ -95,7 +99,19 @@ export default function TcTree({
   })
 
   const reqs = reqQ.data?.reqs ?? []
-  const tree = useMemo(() => buildCategoryTree(catQ.data?.categories ?? []), [catQ.data])
+  const tree = useMemo(
+    () => sortCategoryTree(buildCategoryTree(catQ.data?.categories ?? []), folderSort),
+    [catQ.data, folderSort],
+  )
+  /** 최상위 폴더 = 프로젝트 — 요구사항 트리와 같은 파란 서류가방 */
+  const prjQ = useQuery({
+    queryKey: ['projects'],
+    queryFn: ({ signal }) => projectApi.list(signal),
+  })
+  const prjByCat = useMemo(
+    () => new Map((prjQ.data?.projects ?? []).map((p) => [p.cat_id, p])),
+    [prjQ.data],
+  )
 
   /* ── 폴더 다루기 — 요구사항 트리와 같은 문법 ──────────────────
      같은 분류(req_category)를 쓰므로 여기서 만들고 고친 것이 요구사항
@@ -425,9 +441,9 @@ export default function TcTree({
           >
             <IconChevron />
           </button>
-          {/* 요구사항 화면과 같은 폴더 표시 */}
+          {/* 요구사항 화면과 같은 폴더 표시 — 프로젝트면 같은 파란 가방 */}
           <span className="rt-ficon" aria-hidden="true">
-            <IconFolder open={open} />
+            {n.depth === 1 && prjByCat.has(n.id) ? <IconProject /> : <IconFolder open={open} />}
           </span>
           {renaming === n.id ? (
             // 창을 띄우지 않고 그 자리에서 고친다 (F2 · 두 번 누르기)
