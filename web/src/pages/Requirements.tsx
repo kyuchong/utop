@@ -10,6 +10,7 @@ import ReqForm from '@/components/ReqForm'
 import ReqBulkForm from '@/components/ReqBulkForm'
 import ReqBulkEdit from '@/components/ReqBulkEdit'
 import ReqMapDialog from '@/components/ReqMapDialog'
+import NewProjectDialog from '@/components/NewProjectDialog'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import ReqDetail from '@/components/ReqDetail'
 import {
@@ -91,6 +92,8 @@ export default function Requirements() {
   /** 고른 폴더. 요구사항과 함께 지울 수 있어야 정리가 한 번에 끝난다. */
   /** 버튼 줄에서 트리에게 보내는 신호 (숫자가 늘면 트리가 반응한다) */
   const [addFolder, setAddFolder] = useState(0)
+  /** 새 프로젝트 창 — 최상위 폴더는 이 창으로만 만든다(폴더=프로젝트명) */
+  const [newProj, setNewProj] = useState(false)
   // undefined = 폼 닫힘 / null = 새로 만들기 / Requirement = 편집
   const [form, setForm] = useState<Requirement | null | undefined>(undefined)
   /** 붙여넣기로 여러 건 들여오기(Import) */
@@ -583,6 +586,17 @@ export default function Requirements() {
         <ReqBulkForm presetFolder={selectedFolder ?? null} onClose={() => setImportOpen(false)} />
       )}
       {mapFor && <ReqMapDialog req={mapFor} onClose={() => setMapFor(null)} />}
+      {newProj && (
+        <NewProjectDialog
+          onClose={() => setNewProj(false)}
+          onCreated={(catId) => {
+            setNewProj(false)
+            // 갓 만든 프로젝트를 바로 보여 준다 — 다음 일이 하위 폴더 만들기다
+            setSelectedFolder(catId)
+            setSelected(null)
+          }}
+        />
+      )}
       {bulkEditOpen && (
         <ReqBulkEdit
           ids={pickedInList.map(reqPk)}
@@ -683,11 +697,11 @@ export default function Requirements() {
             name="Requirement Tree"
             count={folderCount}
             onCollapse={() => setTreeOpen(false)}
-            add={{ title: '최상위 폴더 추가', onClick: () => setAddFolder((n) => n + 1) }}
+            add={{ title: '새 프로젝트', onClick: () => setAddFolder((n) => n + 1) }}
             menu={
               <>
                 <button type="button" onClick={() => setAddFolder((n) => n + 1)}>
-                  최상위 폴더 추가
+                  새 프로젝트
                 </button>
                 <p className="lh-hint">
                   하위 폴더 추가 · 이름 바꾸기 · 삭제는 폴더를 우클릭하세요.
@@ -748,6 +762,7 @@ export default function Requirements() {
               onRowClick={treeSel.onClick}
               sort={sort}
               addFolderSignal={addFolder}
+              onAddRoot={() => setNewProj(true)}
             />
           )}
         </section>

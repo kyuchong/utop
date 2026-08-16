@@ -1,4 +1,5 @@
 import type {
+  Project,
   ReqCategory,
   ReqListResponse,
   Requirement,
@@ -157,6 +158,18 @@ export const categoryApi = {
     }),
   remove: (id: string) =>
     send<{ success: boolean }>('DELETE', `/api/req-categories/${encodeURIComponent(id)}`),
+}
+
+/** 프로젝트 — 최상위 폴더의 메타. 이름 변경·삭제는 폴더(categoryApi)가 맡는다. */
+export const projectApi = {
+  list: (signal?: AbortSignal) => get<{ projects: Project[] }>('/api/projects', signal),
+  create: (p: {
+    name: string
+    customer: string
+    model_group: string
+    model: string
+    description: string
+  }) => send<{ success: boolean; id: string; cat_id: string }>('POST', '/api/projects', p),
 }
 
 // ── 요구사항 쓰기 ────────────────────────────────────────────

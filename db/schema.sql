@@ -97,6 +97,21 @@ DROP TRIGGER IF EXISTS trg_req_category_updated ON req_category;
 CREATE TRIGGER trg_req_category_updated BEFORE UPDATE ON req_category
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- ── 프로젝트 ─────────────────────────────────────────────────
+-- 요구사항 트리의 최상위 폴더가 곧 프로젝트다(itest 방식).
+-- 이름의 정본은 그 폴더(req_category.name) — 여기는 고객사·모델 같은
+-- 메타만 담는다. 폴더 이름을 바꾸면 프로젝트명도 따라가고, 폴더를
+-- 지우면 프로젝트도 함께 사라진다(CASCADE).
+CREATE TABLE IF NOT EXISTS project (
+  id          TEXT PRIMARY KEY,
+  cat_id      TEXT NOT NULL UNIQUE REFERENCES req_category(id) ON DELETE CASCADE,
+  customer    TEXT NOT NULL DEFAULT '',
+  model_group TEXT NOT NULL DEFAULT '',
+  model       TEXT NOT NULL DEFAULT '',
+  description TEXT NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ DEFAULT now()
+);
+
 -- ── REQ (요구사항) ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS req (
   id            TEXT PRIMARY KEY,

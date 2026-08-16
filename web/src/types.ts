@@ -143,6 +143,18 @@ export interface ReqCategory {
   req_count: number
 }
 
+/** 프로젝트 — 요구사항 트리 최상위 폴더의 메타. 이름의 정본은 폴더다 */
+export interface Project {
+  id: string
+  cat_id: string
+  name: string
+  customer: string
+  model_group: string
+  model: string
+  description: string
+  created_at?: string
+}
+
 export interface CategoryTreeNode extends ReqCategory {
   children: CategoryTreeNode[]
   /** 1=대분류, 2=중분류, 3=소분류 */

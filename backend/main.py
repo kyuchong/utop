@@ -2853,6 +2853,59 @@ async def delete_req_category(cat_id: str):
 
 
 # ───────────────────────────────────────────
+# 프로젝트 — 요구사항 트리의 최상위 폴더가 곧 프로젝트다(itest 방식).
+# 이름의 정본은 폴더(req_category.name)라서 폴더 이름 변경이 곧 프로젝트명
+# 변경이고, 폴더 삭제가 곧 프로젝트 삭제다(FK CASCADE). 여기는 고객사·
+# 모델 같은 메타만 맡는다.
+# ───────────────────────────────────────────
+class ProjectIn(BaseModel):
+    name: str
+    customer: str = ""
+    model_group: str = ""
+    model: str = ""
+    description: str = ""
+
+
+@app.get("/api/projects")
+async def list_projects():
+    async with db.pool().acquire() as c:
+        rows = await c.fetch(
+            """
+            SELECT p.id, p.cat_id, c.name, p.customer, p.model_group, p.model,
+                   p.description, p.created_at
+            FROM project p JOIN req_category c ON c.id = p.cat_id
+            ORDER BY c.name
+            """
+        )
+    return {"projects": [dict(r) for r in rows]}
+
+
+@app.post("/api/projects")
+async def create_project(body: ProjectIn):
+    name = (body.name or "").strip()
+    if not name:
+        raise HTTPException(400, "프로젝트 이름을 입력하세요")
+    now_ms = int(datetime.now().timestamp() * 1000)
+    cid, pid = f"cat-{now_ms}", f"prj-{now_ms}"
+    try:
+        await db.cat_upsert(cid, name, None, 0)
+    except Exception as e:
+        if "uq_req_category" in str(e):
+            raise HTTPException(409, f"'{name}' 은 이미 있습니다") from e
+        raise
+    async with db.pool().acquire() as c:
+        await c.execute(
+            """
+            INSERT INTO project (id, cat_id, customer, model_group, model, description)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            """,
+            pid, cid, (body.customer or "").strip(), (body.model_group or "").strip(),
+            (body.model or "").strip(), (body.description or "").strip(),
+        )
+    return {"success": True, "id": pid, "cat_id": cid}
+
+
+# ───────────────────────────────────────────
 # 문서 → 마크다운 변환
 #
 # 워드(.docx)·PDF 는 브라우저가 제대로 읽지 못한다. 서버에서 바꿔서 돌려준다.

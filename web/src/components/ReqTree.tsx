@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { categoryApi, reqApi } from '@/api/client'
+import { categoryApi, projectApi, reqApi } from '@/api/client'
 import {
   buildCategoryTree,
   MAX_CAT_DEPTH,
@@ -14,7 +14,7 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
-import { IconChevron, IconFolder, IconReqDoc } from './icons'
+import { IconChevron, IconFolder, IconProject, IconReqDoc } from './icons'
 import './ReqTree.css'
 
 interface Props {
@@ -58,6 +58,13 @@ interface Props {
   sort?: 'id' | 'title'
   /** 「+ 폴더」를 바깥 버튼 줄에서 누를 수 있게 */
   addFolderSignal: number
+  /**
+   * 최상위 추가 = 새 프로젝트 창(페이지가 띄운다).
+   *
+   * 최상위 폴더가 곧 프로젝트명이라(2026-08 기획) 이름만 받는 제자리
+   * 입력으로는 부족하다 — 고객사·모델을 함께 받아야 한다.
+   */
+  onAddRoot: () => void
 }
 
 /** 이 요구사항이 놓인 가장 깊은 분류 id. 없으면 null(미분류) */
@@ -98,6 +105,7 @@ export default function ReqTree({
   onRowClick,
   sort = 'id',
   addFolderSignal,
+  onAddRoot,
 }: Props) {
   const qc = useQueryClient()
 
@@ -152,10 +160,8 @@ export default function ReqTree({
   const justDragged = useRef(false)
 
   useEffect(() => {
-    if (addFolderSignal > 0) {
-      setAddingTo(null)
-      setDraftName('')
-    }
+    if (addFolderSignal > 0) onAddRoot()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addFolderSignal])
 
   // 메뉴는 아무 데나 누르거나 Esc 로 닫힌다
@@ -175,6 +181,15 @@ export default function ReqTree({
     queryKey: ['req-categories'],
     queryFn: ({ signal }) => categoryApi.list(signal),
   })
+  /** 최상위 폴더 = 프로젝트. cat_id 로 찾아 아이콘·고객사 칩을 단다 */
+  const prjQ = useQuery({
+    queryKey: ['projects'],
+    queryFn: ({ signal }) => projectApi.list(signal),
+  })
+  const prjByCat = useMemo(
+    () => new Map((prjQ.data?.projects ?? []).map((p) => [p.cat_id, p])),
+    [prjQ.data],
+  )
   const cats = catQ.data?.categories ?? []
   const tree = useMemo(() => buildCategoryTree(cats), [cats])
   const catById = useMemo(() => new Map(cats.map((c) => [c.id, c])), [cats])
@@ -531,6 +546,7 @@ export default function ReqTree({
     const cnt = countDeep2(n)
     if (needle && total === 0 && !foldersOnly) return null
     const hasKids = n.children.length > 0 || mine.length > 0
+    const prj = n.depth === 1 ? prjByCat.get(n.id) : undefined
 
     return (
       <div key={n.id}>
@@ -595,7 +611,7 @@ export default function ReqTree({
               iTest 도 폴더에 아이콘을 두고, 펼친 것과 닫힌 것의 모양을
               달리해 상태까지 한 번에 읽히게 한다. */}
           <span className="rt-ficon" aria-hidden="true">
-            <IconFolder open={open} />
+            {prj ? <IconProject /> : <IconFolder open={open} />}
           </span>
 
           {renaming === n.id ? (
@@ -620,7 +636,7 @@ export default function ReqTree({
           ) : (
             <b
               className="rt-fname"
-              title={n.name}
+              title={prj?.description ? `${n.name} — ${prj.description}` : n.name}
               // 두 번 누르면 이름 변경 — 탐색기와 같다
               onDoubleClick={(e) => {
                 e.stopPropagation()
@@ -629,6 +645,13 @@ export default function ReqTree({
             >
               {n.name}
             </b>
+          )}
+
+          {/* 프로젝트 정보 칩 — 고객사·모델이 폴더와 갈라 준다 */}
+          {prj && (prj.customer || prj.model) && (
+            <i className="rt-prj" title={[prj.customer, prj.model].filter(Boolean).join(' · ')}>
+              {[prj.customer, prj.model].filter(Boolean).join(' · ')}
+            </i>
           )}
 
           {/* 요구사항 수 · 시험 수.
@@ -839,11 +862,10 @@ export default function ReqTree({
                 type="button"
                 onClick={() => {
                   setCtx(null)
-                  setAddingTo(null)
-                  setDraftName('')
+                  onAddRoot()
                 }}
               >
-                최상위 폴더 추가
+                새 프로젝트
               </button>
               <button
                 type="button"

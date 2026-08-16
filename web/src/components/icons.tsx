@@ -183,6 +183,42 @@ export const IconFolder = ({ open, ...rest }: P & { open?: boolean }) => (
 )
 
 /**
+ * 프로젝트 — 요구사항 트리 최상위 전용. 폴더(노랑)와 갈리게 파란 서류가방.
+ * 최상위 폴더 = 프로젝트명이라(2026-08 기획), 아이콘이 층을 말해 준다.
+ */
+export const IconProject = (p: P) => (
+  <svg width="17" height="17" viewBox="0 0 16 16" aria-hidden="true" focusable="false" {...p}>
+    <path
+      d="M6 4.4v-1a.8.8 0 0 1 .8-.8h2.4a.8.8 0 0 1 .8.8v1"
+      fill="none"
+      stroke="#2f6fb5"
+      strokeWidth="1.1"
+    />
+    <rect
+      x="1.7"
+      y="4.4"
+      width="12.6"
+      height="8.8"
+      rx="1"
+      fill="#7fb0e3"
+      stroke="#2f6fb5"
+      strokeWidth="0.7"
+    />
+    <path d="M1.7 8.2h12.6" stroke="#2f6fb5" strokeWidth="0.7" />
+    <rect
+      x="6.7"
+      y="7.3"
+      width="2.6"
+      height="1.8"
+      rx="0.4"
+      fill="#e8f1fb"
+      stroke="#2f6fb5"
+      strokeWidth="0.5"
+    />
+  </svg>
+)
+
+/**
  * 요구사항 한 건 — 글이 적힌 종이.
  *
  * 트리에서 폴더는 노란 폴더로 갈리는데, **요구사항 줄과 시험 줄은 서로
