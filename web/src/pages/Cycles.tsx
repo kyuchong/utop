@@ -2784,7 +2784,8 @@ function CycleDetail({
     if (act.what === 'ai') setInsight('ai')
     else if (act.what === 'pptx') setReport(true)
     else if (act.what === 'run') {
-      if (items.length) startRun(items.map((_, i) => i))
+      const autoIdx = items.map((x, i) => (typeOf(x) === 'auto' ? i : -1)).filter((i) => i >= 0)
+      if (autoIdx.length) startRun(autoIdx)
     }
     // 'details' 는 페이지가 보기만 바꾸면 끝이라 여기서 할 일이 없다
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3190,27 +3191,48 @@ function CycleDetail({
                 ⏹ 멈추기
               </button>
             ) : (
-              <>
-                {pick.size > 0 && (
-                  <button
-                    className="btn primary small"
-                    type="button"
-                    disabled={saving}
-                    title={`고른 ${pick.size}건을 돌립니다`}
-                    onClick={() => startRun([...pick].sort((a2, b2) => a2 - b2))}
-                  >
-                    ▶ 실행 ({pick.size})
-                  </button>
-                )}
-                <button
-                  className="btn small"
-                  type="button"
-                  disabled={!items.length || saving}
-                  onClick={() => startRun(items.map((_, i) => i))}
-                >
-                  ▶ 전체 실행 ({items.length})
-                </button>
-              </>
+              (() => {
+                /* 실행은 자동 항목만 돈다(합의) — 수동은 사람이 찍는다.
+                   수동뿐이면 단추가 꺼진다 */
+                const autoAll = items
+                  .map((x, i) => (typeOf(x) === 'auto' ? i : -1))
+                  .filter((i) => i >= 0)
+                const autoPicked = [...pick]
+                  .filter((i) => items[i] && typeOf(items[i]!) === 'auto')
+                  .sort((a2, b2) => a2 - b2)
+                return (
+                  <>
+                    {pick.size > 0 && (
+                      <button
+                        className="btn primary small"
+                        type="button"
+                        disabled={saving || !autoPicked.length}
+                        title={
+                          autoPicked.length
+                            ? `고른 것 중 자동 ${autoPicked.length}건을 돌립니다 (수동은 빠집니다)`
+                            : '고른 것이 전부 수동이라 자동 실행이 없습니다'
+                        }
+                        onClick={() => startRun(autoPicked)}
+                      >
+                        ▶ 실행 ({autoPicked.length})
+                      </button>
+                    )}
+                    <button
+                      className="btn small"
+                      type="button"
+                      disabled={!autoAll.length || saving}
+                      title={
+                        autoAll.length
+                          ? `자동 ${autoAll.length}건을 돌립니다 (수동 ${items.length - autoAll.length}건은 빠집니다)`
+                          : '전부 수동 항목이라 자동 실행이 없습니다'
+                      }
+                      onClick={() => startRun(autoAll)}
+                    >
+                      ▶ 전체 실행 ({autoAll.length})
+                    </button>
+                  </>
+                )
+              })()
             )}
             {joined && (
               <span className={`cy-join ${joined.how}`}>
@@ -3768,7 +3790,7 @@ function CycleDetail({
                     </option>
                   ))}
                 </select>
-                {!st.on && (
+                {!st.on && typeOf(cur) === 'auto' && (
                   <button
                     className="btn primary small"
                     type="button"
