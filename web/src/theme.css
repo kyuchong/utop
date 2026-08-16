@@ -145,7 +145,9 @@ button {
 /* ── 공용 요소 ─────────────────────────────────────────────── */
 
 .btn {
-  background: var(--c-surface);
+  /* 바탕 회색 — Zephyr 문법(피드백). 흰 바탕은 카드와 안 갈렸다.
+     공용 클래스라 세 화면(요구사항·시험항목·사이클)이 함께 바뀐다. */
+  background: var(--c-surface-alt, #f4f5f7);
   border: 1px solid #b6bec8;
   border-radius: var(--r-box);
   padding: 7px 11px;
@@ -153,7 +155,7 @@ button {
   white-space: nowrap;
 }
 .btn:hover:not(:disabled) {
-  background: var(--c-surface-alt);
+  background: #e8ecf1;
 }
 .btn:disabled {
   opacity: 0.5;
