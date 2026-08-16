@@ -2906,6 +2906,11 @@ function CycleDetail({
     return m
   }, [others])
 
+  // 결과별 개수 — 칩(전체/Pass/Fail/미실행)이 읽는다
+  const counts: Record<string, number> = {}
+  for (const r of resDefs) counts[r.v] = 0
+  for (const it of items) counts[itemVerdict(it)] = (counts[itemVerdict(it)] ?? 0) + 1
+
   /**
    * ③ 좁혀 보기 — 결과(통계 카드)에 더해 심각도·타입·발생구분·글자로 거른다.
    *
