@@ -1360,8 +1360,8 @@ const CYT_COLS: Array<{ k: string; label: string; w: string }> = [
 
 /** 인라인 항목 카드의 고를 수 있는 필드 — 시험항목(Coverage) ⚙ 과 같은 목록 */
 const IT_COLS: Array<{ k: string; label: string; w: string }> = [
-  { k: 'model_group', label: '모델그룹', w: '58px' },
-  { k: 'model', label: '모델명', w: '64px' },
+  { k: 'model_group', label: '모델그룹', w: 'minmax(96px, 120px)' },
+  { k: 'model', label: '모델명', w: 'minmax(80px, 104px)' },
   { k: 'type', label: '유형', w: '70px' },
   { k: 'severity', label: '심각도', w: '52px' },
   { k: 'run_type', label: '실행 타입', w: '56px' },
@@ -2050,7 +2050,7 @@ function CycleBoard({
                                   )
                                 const raw = String((t2 as Record<string, unknown> | undefined)?.[cc.k] ?? '')
                                 return (
-                                  <span key={cc.k} className="muted small cyt-ell">
+                                  <span key={cc.k} className="muted small cyt-ell" title={raw}>
                                     {raw || (cc.k === 'model_group' ? '공용' : cc.k === 'status' ? '미실행' : '–')}
                                   </span>
                                 )
