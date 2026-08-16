@@ -2389,13 +2389,60 @@ table.tb td.k {
 /* 칸 폭이 고정된 그리드 — 이력 칩이 없어도 자리가 비어 있어 모든 줄이 맞다 */
 .cxp-rgt {
   display: grid;
-  grid-template-columns: 15px 88px 80px;
+  grid-template-columns: 15px 88px 80px 24px;
   align-items: center;
   gap: 5px;
 }
 .cxp-rgt .cxp-hist { justify-self: start; }
 .cxp-hist > i.ro { cursor: default; }
 .cxp-hist > i.ro:hover { filter: none; }
+/* 최근 결과를 말로 — P/F 한 글자는 못 읽겠다는 피드백 */
+.cxp-hist > i.full {
+  width: auto;
+  padding: 0 6px;
+  font-size: 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* 담당자 아이콘 — 하나만 보이고, 올리면 전부 */
+.cxp-who { position: relative; display: inline-flex; align-items: center; height: 20px; }
+.cxp-who > i,
+.cxp-who-all i {
+  font-style: normal;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--c-border);
+}
+.cxp-who > em {
+  font-style: normal;
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--c-text-faint);
+  margin-left: 1px;
+}
+.cxp-who-all {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 22px;
+  z-index: 30;
+  gap: 3px;
+  padding: 5px 7px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.12);
+}
+.cxp-who:hover .cxp-who-all { display: flex; }
 .cxp-vsel { width: 80px; }
 .cxp-vsel {
   height: 21px;
@@ -2846,6 +2893,8 @@ table.tb td.k {
   background: transparent;
   padding: 0;
   font: inherit;
+  font-size: var(--fs-md);
+  font-weight: 700;
   color: var(--c-text-muted);
   cursor: pointer;
 }

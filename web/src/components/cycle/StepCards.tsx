@@ -85,6 +85,8 @@ interface Props {
   onSetImg?: (at: number, file: File) => void
   onSetImgUrl?: (at: number, url: string) => void
   onSetTxt?: (at: number, txt: string) => void
+  /** 수동 「판정 기준 및 RCA」 — 왜 그렇게 판정했나 */
+  onSetRca?: (at: number, txt: string) => void
 }
 
 /**
@@ -94,7 +96,7 @@ interface Props {
  * **무엇을 하려 했나 · 무엇을 보냈나 · 무엇이 나와야 하나 · 무엇이
  * 나왔나.** 이 넷이 나란히 있어야 왜 그렇게 판정됐는지가 읽힌다.
  */
-export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg, onSetImgUrl, onSetTxt }: Props) {
+export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg, onSetImgUrl, onSetTxt, onSetRca }: Props) {
   const all = (item.steps ?? []) as CycleStep[]
   const [only, setOnly] = useState(false)
   /**
@@ -159,66 +161,21 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
 
   if (!all.length) return <div className="empty">스텝 내용 없음</div>
 
-  /* 수동 항목 — Zephyr 식 가로 표. Test Step | Test Data | Expected Result 가
-     나란히 있고, ACTUAL DATA 는 **선택 입력**(수동 시험이라 모두 적기는
-     힘들다 — 합의), 스텝별 P/F. 하나라도 Pass 가 아니면 항목이 Fail 이 된다 */
+  /* 수동 항목 — 세로 카드(피드백 ⑨: 가로는 무리). 스텝마다
+     Test Step · Test Data · Expected Result · Actual Result · 판정 기준 및 RCA.
+     ACTUAL 은 선택 입력이다(수동 시험이라 모두 적기는 힘들다 — 합의) */
   if (mode === 'manual')
     return (
-      <div className="ms">
-        <div className="ms-row ms-hd">
-          <span>#</span>
-          <span>Test Step</span>
-          <span>Test Data</span>
-          <span>Expected Result</span>
-          <span>
-            ACTUAL DATA <i className="ms-opt">(선택)</i>
-          </span>
-          <span>결과</span>
-        </div>
+      <div className="sc">
         {all.map((st2, i) => {
           const r = stepVerdict(st2 as TcStep)
+          const bad2 = r === 'Fail' || r === '불합격'
           return (
-            <div key={i} className={`ms-row${r === 'Fail' ? ' bad' : ''}`}>
-              <span className="ms-n">{i + 1}</span>
-              <span className="ms-c">
-                {st2.step || st2.desc || '–'}
-              </span>
-              <span className="ms-c">
-                {st2.data || st2.cli || '–'}
-                {st2.data_img && <img className="ms-img" src={st2.data_img} alt="" />}
-              </span>
-              <span className="ms-c">
-                {st2.expected || st2.criteria || '–'}
-                {st2.expected_img && <img className="ms-img" src={st2.expected_img} alt="" />}
-              </span>
-              <span className="ms-c ms-act">
-                {onSetTxt ? (
-                  <textarea
-                    rows={2}
-                    value={st2.actual_txt ?? ''}
-                    placeholder="선택 — 본 것을 적거나 Ctrl+V 로 사진"
-                    onChange={(e) => onSetTxt(i, e.target.value)}
-                    onPaste={(e) => {
-                      const f = [...(e.clipboardData?.items ?? [])]
-                        .find((x) => x.type.startsWith('image/'))
-                        ?.getAsFile()
-                      if (f && onSetImg) {
-                        e.preventDefault()
-                        void onSetImg(i, f)
-                      }
-                    }}
-                  />
-                ) : (
-                  <span>{st2.actual_txt || '–'}</span>
-                )}
-                {st2.actual_img && <img className="ms-img" src={st2.actual_img} alt="" />}
-                {st2.actual_img && onSetImgUrl && (
-                  <button type="button" className="sc-img-x" onClick={() => onSetImgUrl(i, '')}>
-                    사진 지우기
-                  </button>
-                )}
-              </span>
-              <span className="ms-v">
+            <div key={i} className={`sc-card${bad2 ? ' bad' : ''}`}>
+              <div className="sc-head">
+                <b>Step#{i + 1}</b>
+                <span className="sc-kind k-manual">Manual</span>
+                <span className="sp" />
                 {onSetResult ? (
                   <select
                     className={`sc-v ${verdictClass((r || '') as Verdict)}`}
@@ -233,9 +190,70 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
                     ))}
                   </select>
                 ) : (
-                  <span>{r || '–'}</span>
+                  <span className={`sc-v ${verdictClass((r || '') as Verdict)}`}>{r || '미실행'}</span>
                 )}
-              </span>
+              </div>
+              <div className="sc-sec">
+                <i>Test Step</i>
+                <div className="sc-txt">{st2.step || st2.desc || '–'}</div>
+              </div>
+              <div className="sc-sec">
+                <i>Test Data</i>
+                <div className="sc-txt">{st2.data || st2.cli || '–'}</div>
+                {st2.data_img && <img className="sc-img" src={st2.data_img} alt="" />}
+              </div>
+              <div className="sc-sec">
+                <i>Expected Result</i>
+                <div className="sc-txt">{st2.expected || st2.criteria || '–'}</div>
+                {st2.expected_img && <img className="sc-img" src={st2.expected_img} alt="" />}
+              </div>
+              <div className="sc-sec">
+                <i>
+                  Actual Result <span className="ms-opt">(선택)</span>
+                </i>
+                {onSetTxt ? (
+                  <div className="sc-actual">
+                    <textarea
+                      className="sc-actual-txt"
+                      rows={2}
+                      value={st2.actual_txt ?? ''}
+                      placeholder="본 것을 적거나, 화면을 Ctrl+V 로 붙여넣기"
+                      onChange={(e) => onSetTxt(i, e.target.value)}
+                      onPaste={(e) => {
+                        const f = [...(e.clipboardData?.items ?? [])]
+                          .find((x) => x.type.startsWith('image/'))
+                          ?.getAsFile()
+                        if (f && onSetImg) {
+                          e.preventDefault()
+                          void onSetImg(i, f)
+                        }
+                      }}
+                    />
+                    {st2.actual_img && <img className="sc-img" src={st2.actual_img} alt="" />}
+                    {st2.actual_img && onSetImgUrl && (
+                      <button type="button" className="sc-img-x" onClick={() => onSetImgUrl(i, '')}>
+                        사진 지우기
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="sc-txt">{st2.actual_txt || '–'}</div>
+                )}
+              </div>
+              <div className="sc-sec">
+                <i>판정 기준 및 RCA</i>
+                {onSetRca ? (
+                  <textarea
+                    className="sc-actual-txt"
+                    rows={2}
+                    value={st2.rca ?? ''}
+                    placeholder="무엇을 근거로 판정했나 · Fail 이면 원인(RCA)"
+                    onChange={(e) => onSetRca(i, e.target.value)}
+                  />
+                ) : (
+                  <div className="sc-txt">{st2.rca || '–'}</div>
+                )}
+              </div>
             </div>
           )
         })}

@@ -127,6 +127,8 @@ export interface CycleStep {
   /** 수동 시험 ACTUAL DATA — 시험자가 붙이는 결과 화면·글 */
   actual_img?: string | null
   actual_txt?: string | null
+  /** 수동 시험 「판정 기준 및 RCA」 — 왜 그렇게 판정했나, 원인은 무엇인가 */
+  rca?: string | null
   manual?: boolean
   /**
    * 계측기 스텝.
@@ -622,6 +624,11 @@ export default function Cycles({ me }: PageProps) {
     () => new Map(models.map((m) => [m.name, (m.family ?? '').trim()])),
     [models],
   )
+  /** 제조사 — 카탈로그 모델의 vendor */
+  const vendorOf = useMemo(
+    () => new Map(models.map((m) => [m.name, (m.vendor ?? '').trim()])),
+    [models],
+  )
   const tree = useMemo(
     () => build(shown, freeFolders, famOf),
     [shown, freeFolders, famOf],
@@ -1052,7 +1059,16 @@ export default function Cycles({ me }: PageProps) {
             <>
               {(() => {
                 const segs = pathOfCycle(cur, famOf).split('/').filter(Boolean)
-                return [cur.model_group, cur.model, cur.version_group, cur.version, cur.cid, cur.name]
+                return [
+                  vendorOf.get(cur.model ?? '') ?? '',
+                  famOf.get(cur.model ?? '') ?? '',
+                  cur.model_group,
+                  cur.model,
+                  cur.version_group,
+                  cur.version,
+                  cur.cid,
+                  cur.name,
+                ]
                   .map((t) => String(t ?? '').trim())
                   .filter(Boolean)
                   .map((t, i) => {
@@ -1393,6 +1409,8 @@ export default function Cycles({ me }: PageProps) {
             meName={me?.name || me?.username || ''}
             onSaved={() => void listQ.refetch()}
             initItemCeid={pendingIt}
+            maker={vendorOf.get(cur.model ?? '') ?? ''}
+            family={famOf.get(cur.model ?? '') ?? ''}
           />
         ) : (
           <CycleBoard
@@ -2457,6 +2475,8 @@ function CycleDetail({
   meName,
   onSaved,
   initItemCeid,
+  maker,
+  family,
 }: {
   cycle: CycleMeta
   /** 회귀를 대 볼 후보들 — 이 사이클을 뺀 전부. 기본은 같은 모델 최신 */
@@ -2468,6 +2488,9 @@ function CycleDetail({
   onSaved: () => void
   /** ?it=CETC-… 로 들어왔다 — 항목이 오면 한 번만 편다 */
   initItemCeid?: string
+  /** 제조사·제품군 — 장비 카탈로그가 정본 */
+  maker?: string
+  family?: string
 }) {
   /** 걸러 보기. null 이면 전부 — '' 는 「미실행」 이라는 뜻이라 못 쓴다 */
   const [only, setOnly] = useState<Verdict | null>(null)
@@ -3584,19 +3607,25 @@ function CycleDetail({
                         )
                       })()}
                       {(() => {
+                        // 자리 자체는 늘 그린다 — 이력이 없어도 칸이 비어 있어야
+                        // 옆 필드가 밀려들지 않는다(피드백 ⑤)
                         const h = (histAll.get(it.tcid) ?? []).slice(0, 5)
-                        if (!h.length) return null
+                        const last = h[0]
                         return (
-                          <span className="cxp-hist" title="기존 시험이력 (읽기 전용)">
-                            {h.map((x, n) => (
-                              <i
-                                key={`${x.id}-${n}`}
-                                className={`hv-${verdictClass(x.v)} ro`}
-                                title={`${x.label}: ${verdictLabel(x.v)}`}
-                              >
-                                {x.v === 'Pass' ? 'P' : x.v === 'Fail' ? 'F' : '–'}
+                          <span
+                            className="cxp-hist"
+                            title={
+                              h.length
+                                ? `기존 시험이력 (읽기 전용)\n${h.map((x) => `${x.label}: ${verdictLabel(x.v)}`).join('\n')}`
+                                : '기존 시험이력 없음'
+                            }
+                          >
+                            {last ? (
+                              <i className={`hv-${verdictClass(last.v)} ro full`}>
+                                {verdictLabel(last.v)}
+                                {h.length > 1 ? ` +${h.length - 1}` : ''}
                               </i>
-                            ))}
+                            ) : null}
                           </span>
                         )
                       })()}
@@ -3616,6 +3645,30 @@ function CycleDetail({
                           </option>
                         ))}
                       </select>
+                      {/* 담당자 — 아이콘 하나, 둘 이상이면 +. 마우스 온에 전부 */}
+                      {(() => {
+                        const who = String(it.assignee ?? '')
+                          .split(/[,·/;]+/)
+                          .map((x) => x.trim())
+                          .filter(Boolean)
+                        return (
+                          <span className="cxp-who" title={who.join(', ') || '담당자 없음'}>
+                            {who.length > 0 && (
+                              <>
+                                <i>{(who[0]![0] || '?').toUpperCase()}</i>
+                                {who.length > 1 && <em>+</em>}
+                                <span className="cxp-who-all">
+                                  {who.map((w) => (
+                                    <i key={w} title={w}>
+                                      {(w[0] || '?').toUpperCase()}
+                                    </i>
+                                  ))}
+                                </span>
+                              </>
+                            )}
+                          </span>
+                        )
+                      })()}
                     </span>
                   </div>
                 </React.Fragment>
@@ -3667,28 +3720,39 @@ function CycleDetail({
               {/* Execution 정보 — Zephyr 의 Execution 칸과 같은 자리 */}
               <div className="cxp-exec">
                 <div>
-                  <i>모델명</i>
-                  <b>{cycle.model || '–'}</b>
+                  <i>제조사</i>
+                  <b>{maker || '–'}</b>
                 </div>
                 <div>
-                  <i>Version</i>
-                  <b>{cycle.version || '–'}</b>
+                  <i>제품군</i>
+                  <b>{family || '–'}</b>
+                </div>
+                <div>
+                  <i>제품명</i>
+                  <b>{cycle.model || '–'}</b>
                 </div>
                 <div>
                   <i>버전그룹</i>
                   <b>{cycle.version_group || '–'}</b>
                 </div>
                 <div>
-                  <i>Assigned To</i>
+                  <i>버전명</i>
+                  <b>{cycle.version || '–'}</b>
+                </div>
+                <div>
+                  <i>사이클 제목</i>
+                  <b>{cycle.name || '–'}</b>
+                </div>
+                <div>
+                  <i>담당자</i>
                   <b>{cur.assignee || '–'}</b>
                 </div>
                 <div>
-                  <i>Executed by</i>
-                  <b>{cur.executed_by || '–'}</b>
-                </div>
-                <div>
-                  <i>실행 시각</i>
-                  <b>{cur.executed_at ? String(cur.executed_at).slice(0, 16) : '–'}</b>
+                  <i>실행자 · 실행 시각</i>
+                  <b>
+                    {cur.executed_by || '–'}
+                    {cur.executed_at ? ` · ${String(cur.executed_at).slice(0, 16)}` : ''}
+                  </b>
                 </div>
               </div>
 
@@ -3707,6 +3771,7 @@ function CycleDetail({
                 onSetImg={(at2, file) => void setStepImg(cur.tcid ?? '', at2, file)}
                 onSetImgUrl={(at2, url) => void setStepField(cur.tcid ?? '', at2, { actual_img: url })}
                 onSetTxt={(at2, txt) => void setStepField(cur.tcid ?? '', at2, { actual_txt: txt })}
+                onSetRca={(at2, txt) => void setStepField(cur.tcid ?? '', at2, { rca: txt })}
                 onIssue={
                   itemVerdict(cur) === 'Fail' || itemDefect ? () => setDefectFor(cur) : undefined
                 }
@@ -4600,6 +4665,7 @@ function StepDetail({
   onSetImg,
   onSetImgUrl,
   onSetTxt,
+  onSetRca,
   onIssue,
   defect,
   onClose,
@@ -4614,6 +4680,7 @@ function StepDetail({
   onSetImg?: (at: number, file: File) => void
   onSetImgUrl?: (at: number, url: string) => void
   onSetTxt?: (at: number, txt: string) => void
+  onSetRca?: (at: number, txt: string) => void
   onIssue?: () => void
   defect?: DefectRec | null
   onClose: () => void
@@ -4660,6 +4727,7 @@ function StepDetail({
         onSetImg={onSetImg}
         onSetImgUrl={onSetImgUrl}
         onSetTxt={onSetTxt}
+        onSetRca={onSetRca}
       />
     </div>
   )
