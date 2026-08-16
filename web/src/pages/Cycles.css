@@ -3520,6 +3520,12 @@ table.tb td.k {
 .cy-sum-livebar > b { display: block; height: 100%; background: var(--c-primary); transition: width 0.4s; }
 .cy-sum-live > em { font-style: normal; color: var(--c-text-faint); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+.cy-sum-ai { border-top: 1px dashed var(--c-border); margin-top: 10px; padding-top: 9px; }
+.cy-sum-ai-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.cy-sum-ai-h > b { font-size: var(--fs-sm); }
+.cy-sum-ai-h > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.cy-sum-ai-err { color: var(--c-fail); font-size: var(--fs-sm); }
+
 /* ── 실행 페이지 (독립 전체 화면) ── */
 /* 실행 중에는 트리가 없다 — 본판이 전체 폭을 쓴다 */
 .split.cy.cy-execfull .cy-main { flex: 1 1 100%; }

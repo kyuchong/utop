@@ -2786,6 +2786,41 @@ function CycleDetail({
     if (st.on) setSumOpen(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [st.on])
+  /** AI 요약 — 팝업이 아니라 요약 바 안에 붙는다. 서버가 사이클에 저장해
+      두므로(ai_summary) 다시 열어도 마지막 요약이 그대로 보인다 */
+  const [aiTxt, setAiTxt] = useState('')
+  const [aiAt, setAiAt] = useState('')
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiErr, setAiErr] = useState('')
+  useEffect(() => {
+    const saved = (fullQ.data as { ai_summary?: { text?: string; at?: string } } | undefined)
+      ?.ai_summary
+    if (saved?.text) {
+      setAiTxt(saved.text)
+      setAiAt(saved.at ?? '')
+    } else {
+      setAiTxt('')
+      setAiAt('')
+    }
+  }, [fullQ.data])
+  const makeAi = async () => {
+    setAiBusy(true)
+    setAiErr('')
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycle.id)}/summarize`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
+      const j = (await r.json()) as { ok?: boolean; error?: string; summary?: { text?: string; at?: string } }
+      if (!j.ok) throw new Error(j.error || '요약을 만들지 못했습니다')
+      setAiTxt(j.summary?.text ?? '')
+      setAiAt(j.summary?.at ?? '')
+    } catch (e) {
+      setAiErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setAiBusy(false)
+    }
+  }
 
   /**
    * 트리 우클릭 메뉴가 시킨 일을 여기서 한다.
@@ -3255,10 +3290,11 @@ function CycleDetail({
               <button
                 className="btn small"
                 type="button"
-                title="이 회차 결과를 LLM 이 요약합니다"
-                onClick={() => setInsight('ai')}
+                disabled={aiBusy}
+                title="이 회차 결과를 LLM 이 요약해 이 아래에 붙입니다 (저장됨)"
+                onClick={() => void makeAi()}
               >
-                ✨ AI 요약
+                {aiBusy ? '요약 중…' : aiTxt ? '✨ AI 요약 다시' : '✨ AI 요약'}
               </button>
               <button
                 className="btn small"
@@ -3286,6 +3322,21 @@ function CycleDetail({
                   {st.itemName || '…'}
                   {st.stepAt >= 0 ? ` · 스텝 ${st.stepAt + 1}/${st.stepCount}` : ''}
                 </em>
+              </div>
+            )}
+            {(aiBusy || aiErr || aiTxt) && (
+              <div className="cy-sum-ai">
+                <div className="cy-sum-ai-h">
+                  <b>✨ AI 요약</b>
+                  {aiAt && <em>{String(aiAt).slice(0, 16)}</em>}
+                </div>
+                {aiBusy ? (
+                  <div className="muted small">LLM 이 요약을 만드는 중…</div>
+                ) : aiErr ? (
+                  <div className="cy-sum-ai-err">{aiErr}</div>
+                ) : (
+                  <Markdown text={aiTxt} />
+                )}
               </div>
             )}
           </div>
