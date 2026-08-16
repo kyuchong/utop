@@ -2373,7 +2373,7 @@ table.tb td.k {
   padding: 6px 10px 6px 7px;
   border-bottom: 1px solid var(--c-border);
   /* 최근 결과 색 띠 — 오른쪽(합의: 제목·담당자·타입·기존결과·최근결과 차례) */
-  border-right: 3px solid var(--c-border);
+  border-right: 6px solid var(--c-border);
   cursor: pointer;
 }
 .cxp-row:hover { background: var(--c-surface-alt); }
