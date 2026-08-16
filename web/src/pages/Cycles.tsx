@@ -3175,7 +3175,8 @@ function CycleDetail({
       {/* 2열·3열을 **각자 카드**로 가른다. 한 카드에 두면 3열이 2열의
           일부처럼 보인다 — 두 칸이 하는 일이 다르다. */}
       {sumOpen && (() => {
-        /* 시험결과 요약 — 전체·수동·자동 세 판, 판마다 큰 % (합의) */
+        /* 시험결과 요약 — 전체·수동·자동 세 판. 판마다 큰 % + 색 막대,
+           바로 아래 결과·건수·비율 표(확정안). AI 요약은 머리 오른쪽 */
         const segColor = (r: ResDef) =>
           r.color ||
           (r.group === 'pass' ? '#1D9E75' : r.group === 'fail' ? '#E24B4A' : r.v === '' ? '#d5dae2' : '#EF9F27')
@@ -3187,38 +3188,54 @@ function CycleDetail({
           }
           const d2 = its.filter((x) => itemVerdict(x) !== '').length
           const pct2 = its.length ? Math.round((d2 / its.length) * 100) : 0
+          const rows2 = resDefs.filter((r) => (cnt.get(r.v) ?? 0) > 0)
           return (
             <div className="cy-sum-sec" key={label}>
-              <div className="cy-sum-head">
-                <i>{label}</i>
-                <b>{pct2}%</b>
-                <em>
-                  실행 {d2}/{its.length}
-                </em>
+              <div className="cy-sum-t">
+                {label} · {its.length}건
+                <em>실행 {d2}</em>
               </div>
-              <span className="cy-sum-bar">
-                {its.length === 0 ? (
-                  <b style={{ flexGrow: 1, background: 'var(--c-surface-alt)' }} />
-                ) : (
-                  resDefs
-                    .filter((r) => (cnt.get(r.v) ?? 0) > 0)
-                    .map((r) => (
+              <div className="cy-sum-main">
+                <b>{pct2}%</b>
+                <span className="cy-sum-bar">
+                  {its.length === 0 ? (
+                    <b style={{ flexGrow: 1, background: 'var(--c-surface-alt)' }} />
+                  ) : (
+                    rows2.map((r) => (
                       <b
                         key={r.v || '_none'}
                         style={{ flexGrow: cnt.get(r.v), background: segColor(r) }}
                         title={`${r.label} ${cnt.get(r.v)}건`}
                       />
                     ))
-                )}
-              </span>
-              <div className="cy-sum-cnt">
-                {its.length === 0
-                  ? '항목 없음'
-                  : resDefs
-                      .filter((r) => (cnt.get(r.v) ?? 0) > 0)
-                      .map((r) => `${r.label} ${cnt.get(r.v)}`)
-                      .join(' · ')}
+                  )}
+                </span>
               </div>
+              <table className="cy-sum-tbl">
+                <tbody>
+                  <tr className="hd">
+                    <td>결과</td>
+                    <td>건수</td>
+                    <td>비율</td>
+                  </tr>
+                  {rows2.length === 0 ? (
+                    <tr>
+                      <td colSpan={3} className="muted">항목 없음</td>
+                    </tr>
+                  ) : (
+                    rows2.map((r) => (
+                      <tr key={r.v || '_none'}>
+                        <td>
+                          <s style={{ background: segColor(r) }} />
+                          {r.label}
+                        </td>
+                        <td>{cnt.get(r.v)}</td>
+                        <td>{Math.round(((cnt.get(r.v) ?? 0) / its.length) * 100)}%</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           )
         }
@@ -3226,9 +3243,23 @@ function CycleDetail({
         const autos = items.filter((x) => typeOf(x) === 'auto')
         return (
           <div className="cy-sum3">
-            {sect('전체', items)}
-            {sect('수동', manuals)}
-            {sect('자동', autos)}
+            <div className="cy-sum-hd">
+              <b>시험결과 요약</b>
+              <span className="sp" />
+              <button
+                className="btn small"
+                type="button"
+                title="이 회차 결과를 LLM 이 요약합니다"
+                onClick={() => setInsight('ai')}
+              >
+                ✨ AI 요약
+              </button>
+            </div>
+            <div className="cy-sum-grid">
+              {sect('전체', items)}
+              {sect('수동', manuals)}
+              {sect('자동', autos)}
+            </div>
             {st.on && (
               <div className="cy-sum-live">
                 <b>

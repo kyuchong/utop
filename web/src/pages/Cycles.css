@@ -3461,33 +3461,52 @@ table.tb td.k {
   flex-wrap: nowrap;
 }
 
-/* ── 시험결과 요약 바 — 전체·수동·자동 세 판, 판마다 큰 % ── */
+/* ── 시험결과 요약 바 — 세 판(전체·수동·자동): 큰 % + 막대 + 결과·건수·비율 표 ── */
 .cy-sum3 {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px 16px;
   border: 1px solid var(--c-border);
-  border-radius: var(--radius);
+  border-radius: 12px;
   background: var(--c-surface);
-  padding: 10px 14px;
+  padding: 12px 16px;
   margin-bottom: 10px;
 }
-.cy-sum-sec { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
-.cy-sum-sec + .cy-sum-sec { border-left: 1px solid var(--c-border-weak, #eef1f5); padding-left: 16px; }
-.cy-sum-head { display: flex; align-items: baseline; gap: 8px; }
-.cy-sum-head > i { font-style: normal; font-size: var(--fs-sm); color: var(--c-text-faint); font-weight: 700; }
-.cy-sum-head > b { font-size: 22px; font-weight: 700; }
-.cy-sum-head > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
-.cy-sum-bar { display: flex; height: 9px; border-radius: 5px; overflow: hidden; background: var(--c-surface-alt); }
+.cy-sum-hd { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.cy-sum-hd > b { font-size: var(--fs-sm); color: var(--c-text-muted); font-weight: 700; }
+.cy-sum-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0 18px; }
+.cy-sum-sec { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.cy-sum-sec + .cy-sum-sec { border-left: 1px solid var(--c-border-weak, #eef1f5); padding-left: 18px; }
+.cy-sum-t { font-size: var(--fs-sm); color: var(--c-text-faint); font-weight: 700; }
+.cy-sum-t > em { font-style: normal; font-weight: 400; margin-left: 8px; font-size: var(--fs-xs); }
+.cy-sum-main { display: flex; align-items: center; gap: 10px; }
+.cy-sum-main > b { font-size: 24px; font-weight: 700; line-height: 1; flex: none; }
+.cy-sum-bar {
+  flex: 1;
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--c-surface-alt);
+}
 .cy-sum-bar > b { display: block; }
-.cy-sum-cnt { font-size: var(--fs-xs); color: var(--c-text-faint); }
+.cy-sum-tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.cy-sum-tbl td { padding: 2px 0; }
+.cy-sum-tbl td:nth-child(2),
+.cy-sum-tbl td:nth-child(3) { text-align: right; }
+.cy-sum-tbl tr.hd td { color: var(--c-text-faint); font-size: var(--fs-xs); }
+.cy-sum-tbl s {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  text-decoration: none;
+}
 .cy-sum-live {
-  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: 10px;
   border-top: 1px dashed var(--c-border);
-  padding-top: 8px;
+  margin-top: 10px;
+  padding-top: 9px;
   font-size: var(--fs-sm);
 }
 .cy-sum-live > b { color: var(--c-primary); font-weight: 700; flex: none; }
