@@ -3664,6 +3664,35 @@ table.tb td.k {
   cursor: pointer;
 }
 .cxp-sidepop .cxp-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px; border: 0; }
+/* 깔때기 팝업 — 세로 목록, 색 점 + 이름 + 개수 */
+.cxp-flist { display: flex; flex-direction: column; padding: 2px; }
+.cxp-flist > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 6px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+.cxp-flist > button:hover { background: var(--c-surface-alt); }
+.cxp-flist > button.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
+.cxp-flist s {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+  text-decoration: none;
+}
+.cxp-flist s.all { background: var(--c-primary); }
+.cxp-flist s.reg { background: #e8820c; }
+.cxp-flist em { margin-left: auto; font-style: normal; font-weight: 700; color: var(--c-text-faint); }
+.cxp-flist > button.on em { color: var(--c-primary); }
+
 /* 깔때기 — 결과 필터. 걸린 개수가 오른쪽 위 배지로 */
 .cxp-funnel { position: relative; display: inline-flex; align-items: center; }
 .cxp-fbadge {

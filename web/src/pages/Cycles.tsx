@@ -3510,8 +3510,8 @@ function CycleDetail({
                   zIndex: 60,
                 }}
               >
-            {/* 결과로 좁히기 — 누르면 그 결과만, 다시 누르면 전부 */}
-            <div className="cxp-chips">
+            {/* 결과로 좁히기 — 세로 목록, 결과 상태 전부(커스텀 포함) */}
+            <div className="cxp-flist">
               <button
                 type="button"
                 className={only === null && !onlyRegress ? 'on' : ''}
@@ -3520,50 +3520,52 @@ function CycleDetail({
                   setOnlyRegress(false)
                 }}
               >
-                전체 {items.length}
+                <s className="d all" />
+                전체
+                <em>{items.length}</em>
               </button>
-              <button
-                type="button"
-                className={`cp${only === 'Pass' ? ' on' : ''}`}
-                onClick={() => {
-                  setOnlyRegress(false)
-                  setOnly(only === 'Pass' ? null : 'Pass')
-                }}
-              >
-                Pass {counts['Pass'] ?? 0}
-              </button>
-              <button
-                type="button"
-                className={`cf${only === 'Fail' ? ' on' : ''}`}
-                onClick={() => {
-                  setOnlyRegress(false)
-                  setOnly(only === 'Fail' ? null : 'Fail')
-                }}
-              >
-                Fail {counts['Fail'] ?? 0}
-              </button>
-              <button
-                type="button"
-                className={only === '' ? 'on' : ''}
-                onClick={() => {
-                  setOnlyRegress(false)
-                  setOnly(only === '' ? null : '')
-                }}
-              >
-                미실행 {counts[''] ?? 0}
-              </button>
+              {resDefs.map((r) => (
+                <button
+                  key={r.v || '_none'}
+                  type="button"
+                  className={only === r.v && !onlyRegress ? 'on' : ''}
+                  onClick={() => {
+                    setOnlyRegress(false)
+                    setOnly(only === (r.v as Verdict) ? null : (r.v as Verdict))
+                  }}
+                >
+                  <s
+                    className="d"
+                    style={{
+                      background:
+                        r.color ||
+                        (r.group === 'pass'
+                          ? '#34d399'
+                          : r.group === 'fail'
+                            ? '#f87171'
+                            : r.v === ''
+                              ? '#c3cad4'
+                              : '#f0b429'),
+                    }}
+                  />
+                  {r.label}
+                  <em>{counts[r.v] ?? 0}</em>
+                </button>
+              ))}
               {others.length > 0 && (
                 <button
                   type="button"
-                  className={`cr${onlyRegress ? ' on' : ''}`}
+                  className={onlyRegress ? 'on' : ''}
                   title={
                     prev
-                        ? `${prev.version || prev.name || '지난 사이클'} 에선 Pass 였는데 이번에 Fail 인 것`
-                        : '비교할 지난 사이클이 없습니다'
+                      ? `${prev.version || prev.name || '지난 사이클'} 에선 Pass 였는데 이번에 Fail 인 것`
+                      : '비교할 지난 사이클이 없습니다'
                   }
-                  onClick={() => setOnlyRegress((v) => !v)}
+                  onClick={() => setOnlyRegress((v2) => !v2)}
                 >
-                  회귀 {prev && prevVerdict.size ? regressN : '–'}
+                  <s className="d reg" />
+                  회귀
+                  <em>{prev && prevVerdict.size ? regressN : '–'}</em>
                 </button>
               )}
             </div>
