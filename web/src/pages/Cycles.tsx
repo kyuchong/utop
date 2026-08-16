@@ -1291,6 +1291,20 @@ export default function Cycles({ me }: PageProps) {
  * 모델별로 사이클을 깔고, 카드마다 진행률과 Pass/Fail 을 바로 보여 준다 —
  * 어디가 급한지 열기 전에 보인다.
  */
+/** 사이클 표의 고를 수 있는 열 — ⚙ 로 보이기/숨기기. 사이클 INFO 필드(상태·고객) 포함 */
+const CYT_COLS: Array<{ k: string; label: string; w: string }> = [
+  { k: 'iss', label: '결함', w: '44px' },
+  { k: 'tests', label: '항목', w: '44px' },
+  { k: 'prg', label: '진행결과', w: '104px' },
+  { k: 'status', label: '상태', w: '56px' },
+  { k: 'customer', label: '고객', w: '64px' },
+  { k: 'version', label: '버전', w: 'minmax(100px, 150px)' },
+  { k: 'created', label: '생성일자', w: '80px' },
+  { k: 'updated', label: '변경일자', w: '80px' },
+  { k: 'creator', label: '생성자', w: '68px' },
+  { k: 'ass', label: '담당자', w: '68px' },
+]
+
 /** 인라인 항목 카드의 고를 수 있는 필드 — 시험항목(Coverage) ⚙ 과 같은 목록 */
 const IT_COLS: Array<{ k: string; label: string; w: string }> = [
   { k: 'model_group', label: '모델그룹', w: '58px' },
@@ -1326,22 +1340,30 @@ function CycleBoard({
   onRun: (id: string) => void
 }) {
   const [q, setQ] = useState('')
-  const [failOnly, setFailOnly] = useState(false)
-  /** ⚙ 필터 — 사이클 INFO 필드(상태·고객)로 거른다 */
-  const [fStat2, setFStat2] = useState('')
-  const [fCust, setFCust] = useState('')
+  /** ⚙ — 열 보이기/숨기기. 고른 것은 저장한다 */
   const [gearAt2, setGearAt2] = useState<{ x: number; y: number } | null>(null)
-  const codesQ = useQuery({
-    queryKey: ['codes'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/codes')
-      if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
-      return (await r.json()) as { items: Array<{ kind: string; value: string }> }
-    },
-    staleTime: 60_000,
+  const [cytCols, setCytCols] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('utop.cycle.cols')
+      if (raw) return new Set(JSON.parse(raw) as string[])
+    } catch {
+      /* 깨진 저장값이면 기본으로 */
+    }
+    return new Set(CYT_COLS.map((c) => c.k).filter((k) => k !== 'customer'))
   })
-  const codeVals = (kind: string) =>
-    (codesQ.data?.items ?? []).filter((i) => i.kind === kind).map((i) => i.value)
+  const toggleCytCol = (k: string) =>
+    setCytCols((cur) => {
+      const n = new Set(cur)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      localStorage.setItem('utop.cycle.cols', JSON.stringify([...n]))
+      return n
+    })
+  const cytGrid = useMemo(() => {
+    const parts = ['26px', '20px', 'minmax(105px, 130px)', 'minmax(170px, 1fr)']
+    for (const c of CYT_COLS) if (cytCols.has(c.k)) parts.push(c.w)
+    return parts.join(' ')
+  }, [cytCols])
   /** 머리글 클릭 정렬 — 열 이름 옆 화살표가 방향을 보여 준다 */
   const [sortCol, setSortCol] = useState('')
   const [sortDir, setSortDir] = useState<1 | -1>(1)
@@ -1443,11 +1465,8 @@ function CycleBoard({
           .toLowerCase()
           .includes(nq),
       )
-    if (failOnly) arr = arr.filter((c) => (stats.get(c.id)?.fail ?? 0) > 0)
-    if (fStat2) arr = arr.filter((c) => String((c as unknown as Record<string, unknown>).status ?? '') === fStat2)
-    if (fCust) arr = arr.filter((c) => String(c.customer ?? '') === fCust)
     return arr
-  }, [cycles, q, failOnly, fStat2, fCust, stats])
+  }, [cycles, q, stats])
 
 
   const fmtD = (v?: string | null) => (v ? String(v).slice(0, 10) : '–')
@@ -1523,8 +1542,8 @@ function CycleBoard({
         />
         <button
           type="button"
-          className={`cyt-gear cyt-gear-tb${failOnly || fStat2 || fCust ? ' on' : ''}`}
-          title="거르기 — 상태·고객(사이클 INFO 필드)·Fail"
+          className="cyt-gear cyt-gear-tb"
+          title="열 보이기/숨기기 — 사이클 INFO 필드 포함"
           onClick={(e) => {
             const r2 = e.currentTarget.getBoundingClientRect()
             setGearAt2((cur) => (cur ? null : { x: r2.right, y: r2.bottom + 4 }))
@@ -1536,60 +1555,31 @@ function CycleBoard({
           <>
             <span className="cyt-gearovl" onClick={() => setGearAt2(null)} />
             <span
-              className="cyt-gearpop cyt-fpop"
+              className="cyt-gearpop"
               style={{
                 position: 'fixed',
-                left: Math.max(8, gearAt2.x - 220),
+                left: Math.max(8, gearAt2.x - 160),
                 top: gearAt2.y,
                 right: 'auto',
               }}
             >
-              <label className="cyt-frow">
-                <i>상태</i>
-                <select value={fStat2} onChange={(e) => setFStat2(e.target.value)}>
-                  <option value="">전체</option>
-                  {codeVals('cycle_status').map((v) => (
-                    <option key={v} value={v}>{v}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="cyt-frow">
-                <i>고객</i>
-                <select value={fCust} onChange={(e) => setFCust(e.target.value)}>
-                  <option value="">전체</option>
-                  {codeVals('cycle_customer').map((v) => (
-                    <option key={v} value={v}>{v}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={failOnly}
-                  onChange={(e) => setFailOnly(e.target.checked)}
-                />
-                Fail 있는 것만
-              </label>
-              {(failOnly || fStat2 || fCust) && (
-                <button
-                  className="btn small"
-                  type="button"
-                  onClick={() => {
-                    setFailOnly(false)
-                    setFStat2('')
-                    setFCust('')
-                  }}
-                >
-                  ✕ 조건 지우기
-                </button>
-              )}
+              {CYT_COLS.map((c2) => (
+                <label key={c2.k}>
+                  <input
+                    type="checkbox"
+                    checked={cytCols.has(c2.k)}
+                    onChange={() => toggleCytCol(c2.k)}
+                  />
+                  {c2.label}
+                </label>
+              ))}
             </span>
           </>
         )}
       </div>
 
       <div className="cyt">
-        <div className="cyt-row cyt-hd">
+        <div className="cyt-row cyt-hd" style={{ gridTemplateColumns: cytGrid }}>
           <span className="cyt-ck">
             <input
               type="checkbox"
@@ -1605,15 +1595,15 @@ function CycleBoard({
           <span />
           {TH('id', '사이클 ID')}
           {TH('name', '제목')}
-          {TH('iss', '결함', true)}
-          {TH('tests', '항목', true)}
-          {TH('pct', '진행결과')}
-          {TH('status', '상태')}
-          {TH('version', '버전')}
-          {TH('created', '생성일자')}
-          {TH('updated', '변경일자')}
-          {TH('creator', '생성자')}
-          {TH('ass', '담당자')}
+          {CYT_COLS.filter((c2) => cytCols.has(c2.k)).map((c2) =>
+            c2.k === 'iss'
+              ? TH('iss', '결함', true)
+              : c2.k === 'tests'
+                ? TH('tests', '항목', true)
+                : c2.k === 'prg'
+                  ? TH('pct', '진행결과')
+                  : TH(c2.k, c2.label),
+          )}
         </div>
         {(sortCol === ''
           ? shown
@@ -1627,6 +1617,7 @@ function CycleBoard({
                         case 'pct': return t2?.pct ?? 0
                         case 'status': return t2 && t2.total > 0 && t2.done === t2.total ? 2 : t2 && t2.done > 0 ? 1 : 0
                         case 'name': return (c2.name ?? '').toLowerCase()
+                        case 'customer': return (c2.customer ?? '').toLowerCase()
                         case 'version': return (c2.version ?? '').toLowerCase()
                         case 'created': return c2._created_at_pg ?? ''
                         case 'updated': return c2._updated_at_pg ?? ''
@@ -1653,7 +1644,7 @@ function CycleBoard({
                 const open = exp.has(c.id)
                 return (
                   <React.Fragment key={c.id}>
-                    <div className="cyt-row cyt-c">
+                    <div className="cyt-row cyt-c" style={{ gridTemplateColumns: cytGrid }}>
                       <span className="cyt-ck">
                         <input
                           type="checkbox"
@@ -1716,38 +1707,84 @@ function CycleBoard({
                       >
                         {c.name || '–'}
                       </button>
-                      <span className={`tr${t.iss ? ' cyt-fail' : ''}`}>{t.iss || '–'}</span>
-                      <span className="tr">{t.total}</span>
-                      <span
-                        className="cy-prg"
-                        title={`실행 ${t.done}/${t.total} · Pass ${t.pass} · Fail ${t.fail}`}
-                      >
-                        <span className="cy-prg-bar" aria-hidden="true">
-                          <i className="p" style={{ flexGrow: t.pass }} />
-                          <i className="f" style={{ flexGrow: t.fail }} />
-                          <i
-                            className="n"
-                            style={{ flexGrow: Math.max(t.total - t.pass - t.fail, 0) }}
-                          />
-                        </span>
-                        <b>{t.pct}%</b>
-                      </span>
-                      <span>
-                        <i className={`cyt-st ${status}`}>
-                          {status === 'done' ? 'DONE' : status === 'run' ? '진행중' : '대기'}
-                        </i>
-                      </span>
-                      <span className="muted small cyt-ell" title={c.version ?? ''}>
-                        {c.version || '–'}
-                      </span>
-                      <span className="muted small">{fmtD(c._created_at_pg)}</span>
-                      <span className="muted small">{fmtD(c._updated_at_pg)}</span>
-                      <span className="muted small cyt-ell" title={c.created_by ?? ''}>
-                        {c.created_by || '–'}
-                      </span>
-                      <span className="muted small cyt-ell" title={c.assignee ?? ''}>
-                        {c.assignee || '–'}
-                      </span>
+                      {CYT_COLS.filter((c2) => cytCols.has(c2.k)).map((c2) => {
+                        switch (c2.k) {
+                          case 'iss':
+                            return (
+                              <span key={c2.k} className={`tr${t.iss ? ' cyt-fail' : ''}`}>
+                                {t.iss || '–'}
+                              </span>
+                            )
+                          case 'tests':
+                            return (
+                              <span key={c2.k} className="tr">
+                                {t.total}
+                              </span>
+                            )
+                          case 'prg':
+                            return (
+                              <span
+                                key={c2.k}
+                                className="cy-prg"
+                                title={`실행 ${t.done}/${t.total} · Pass ${t.pass} · Fail ${t.fail}`}
+                              >
+                                <span className="cy-prg-bar" aria-hidden="true">
+                                  <i className="p" style={{ flexGrow: t.pass }} />
+                                  <i className="f" style={{ flexGrow: t.fail }} />
+                                  <i
+                                    className="n"
+                                    style={{ flexGrow: Math.max(t.total - t.pass - t.fail, 0) }}
+                                  />
+                                </span>
+                                <b>{t.pct}%</b>
+                              </span>
+                            )
+                          case 'status':
+                            return (
+                              <span key={c2.k}>
+                                <i className={`cyt-st ${status}`}>
+                                  {status === 'done' ? 'DONE' : status === 'run' ? '진행중' : '대기'}
+                                </i>
+                              </span>
+                            )
+                          case 'customer':
+                            return (
+                              <span key={c2.k} className="muted small cyt-ell" title={c.customer ?? ''}>
+                                {c.customer || '–'}
+                              </span>
+                            )
+                          case 'version':
+                            return (
+                              <span key={c2.k} className="muted small cyt-ell" title={c.version ?? ''}>
+                                {c.version || '–'}
+                              </span>
+                            )
+                          case 'created':
+                            return (
+                              <span key={c2.k} className="muted small">
+                                {fmtD(c._created_at_pg)}
+                              </span>
+                            )
+                          case 'updated':
+                            return (
+                              <span key={c2.k} className="muted small">
+                                {fmtD(c._updated_at_pg)}
+                              </span>
+                            )
+                          case 'creator':
+                            return (
+                              <span key={c2.k} className="muted small cyt-ell" title={c.created_by ?? ''}>
+                                {c.created_by || '–'}
+                              </span>
+                            )
+                          default:
+                            return (
+                              <span key={c2.k} className="muted small cyt-ell" title={c.assignee ?? ''}>
+                                {c.assignee || '–'}
+                              </span>
+                            )
+                        }
+                      })}
                     </div>
                     {/* 사이클 = 시험항목의 모음 — 펼치면 그 목록이 보인다.
                         여기서는 보기만, 항목을 누르면 실행 화면으로 */}
