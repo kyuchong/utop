@@ -3461,6 +3461,46 @@ table.tb td.k {
   flex-wrap: nowrap;
 }
 
+/* ── 시험결과 요약 바 — 전체·수동·자동 세 판, 판마다 큰 % ── */
+.cy-sum3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 16px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+.cy-sum-sec { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.cy-sum-sec + .cy-sum-sec { border-left: 1px solid var(--c-border-weak, #eef1f5); padding-left: 16px; }
+.cy-sum-head { display: flex; align-items: baseline; gap: 8px; }
+.cy-sum-head > i { font-style: normal; font-size: var(--fs-sm); color: var(--c-text-faint); font-weight: 700; }
+.cy-sum-head > b { font-size: 22px; font-weight: 700; }
+.cy-sum-head > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.cy-sum-bar { display: flex; height: 9px; border-radius: 5px; overflow: hidden; background: var(--c-surface-alt); }
+.cy-sum-bar > b { display: block; }
+.cy-sum-cnt { font-size: var(--fs-xs); color: var(--c-text-faint); }
+.cy-sum-live {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px dashed var(--c-border);
+  padding-top: 8px;
+  font-size: var(--fs-sm);
+}
+.cy-sum-live > b { color: var(--c-primary); font-weight: 700; flex: none; }
+.cy-sum-livebar {
+  flex: 1;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--c-primary-bg);
+  overflow: hidden;
+}
+.cy-sum-livebar > b { display: block; height: 100%; background: var(--c-primary); transition: width 0.4s; }
+.cy-sum-live > em { font-style: normal; color: var(--c-text-faint); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ── 실행 페이지 (독립 전체 화면) ── */
 /* 실행 중에는 트리가 없다 — 본판이 전체 폭을 쓴다 */
 .split.cy.cy-execfull .cy-main { flex: 1 1 100%; }

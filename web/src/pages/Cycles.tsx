@@ -1141,6 +1141,7 @@ export default function Cycles({ me }: PageProps) {
             {finishing ? '완료 중…' : '✔ 시험 완료'}
           </button>
         )}
+        {cur && <span className="cy-execslot" id="cy-sumslot" />}
         {/* 사이클 화면에 들어와 있는 사람 전부 — 상단 오른쪽 */}
         <PresenceBar users={crowd} me={me?.name || me?.username || ''} />
       </div>
@@ -2770,6 +2771,15 @@ function CycleDetail({
   useEffect(() => {
     setBarEl(document.getElementById('cy-execbar'))
   }, [])
+  /** 시험결과 요약 바 — 완료 오른쪽 단추로 여닫는다. 상태 기억 */
+  const [sumOpen, setSumOpen] = useState(() => localStorage.getItem('utop.cycle.sumopen') === '1')
+  useEffect(() => {
+    localStorage.setItem('utop.cycle.sumopen', sumOpen ? '1' : '0')
+  }, [sumOpen])
+  const [sumEl, setSumEl] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setSumEl(document.getElementById('cy-sumslot'))
+  }, [])
 
   /**
    * 트리 우클릭 메뉴가 시킨 일을 여기서 한다.
@@ -3164,6 +3174,78 @@ function CycleDetail({
     <div className="cy-detail">
       {/* 2열·3열을 **각자 카드**로 가른다. 한 카드에 두면 3열이 2열의
           일부처럼 보인다 — 두 칸이 하는 일이 다르다. */}
+      {sumOpen && (() => {
+        /* 시험결과 요약 — 전체·수동·자동 세 판, 판마다 큰 % (합의) */
+        const segColor = (r: ResDef) =>
+          r.color ||
+          (r.group === 'pass' ? '#1D9E75' : r.group === 'fail' ? '#E24B4A' : r.v === '' ? '#d5dae2' : '#EF9F27')
+        const sect = (label: string, its: CycleItemLite[]) => {
+          const cnt = new Map<string, number>()
+          for (const x of its) {
+            const v2 = itemVerdict(x)
+            cnt.set(v2, (cnt.get(v2) ?? 0) + 1)
+          }
+          const d2 = its.filter((x) => itemVerdict(x) !== '').length
+          const pct2 = its.length ? Math.round((d2 / its.length) * 100) : 0
+          return (
+            <div className="cy-sum-sec" key={label}>
+              <div className="cy-sum-head">
+                <i>{label}</i>
+                <b>{pct2}%</b>
+                <em>
+                  실행 {d2}/{its.length}
+                </em>
+              </div>
+              <span className="cy-sum-bar">
+                {its.length === 0 ? (
+                  <b style={{ flexGrow: 1, background: 'var(--c-surface-alt)' }} />
+                ) : (
+                  resDefs
+                    .filter((r) => (cnt.get(r.v) ?? 0) > 0)
+                    .map((r) => (
+                      <b
+                        key={r.v || '_none'}
+                        style={{ flexGrow: cnt.get(r.v), background: segColor(r) }}
+                        title={`${r.label} ${cnt.get(r.v)}건`}
+                      />
+                    ))
+                )}
+              </span>
+              <div className="cy-sum-cnt">
+                {its.length === 0
+                  ? '항목 없음'
+                  : resDefs
+                      .filter((r) => (cnt.get(r.v) ?? 0) > 0)
+                      .map((r) => `${r.label} ${cnt.get(r.v)}`)
+                      .join(' · ')}
+              </div>
+            </div>
+          )
+        }
+        const manuals = items.filter((x) => typeOf(x) === 'manual')
+        const autos = items.filter((x) => typeOf(x) === 'auto')
+        return (
+          <div className="cy-sum3">
+            {sect('전체', items)}
+            {sect('수동', manuals)}
+            {sect('자동', autos)}
+            {st.on && (
+              <div className="cy-sum-live">
+                <b>
+                  자동 실행 중 {Math.min(st.done + 1, st.total)}/{st.total}
+                </b>
+                <span className="cy-sum-livebar">
+                  <b style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
+                </span>
+                <em>
+                  {st.itemName || '…'}
+                  {st.stepAt >= 0 ? ` · 스텝 ${st.stepAt + 1}/${st.stepCount}` : ''}
+                </em>
+              </div>
+            )}
+          </div>
+        )
+      })()}
       {runView ? (
         <RunPane
           cycle={cycle}
@@ -3183,6 +3265,18 @@ function CycleDetail({
           Edit·Bulk Edit | Add·Delete·Export. 세 화면을 오가는 사람이 매번
           어디에 무엇이 있는지 다시 찾지 않게. */}
       {/* 실행 단추·⋯·저장종은 맨 위 빵부스러기 줄(완료 왼쪽)로 — 가로 카드 한 줄을 없앴다(피드백 ②) */}
+      {sumEl &&
+        createPortal(
+          <button
+            className={`btn small${sumOpen ? ' cxp-fon' : ''}`}
+            type="button"
+            title="이 회차의 결과 요약을 펼치고 접습니다"
+            onClick={() => setSumOpen((v2) => !v2)}
+          >
+            시험결과 요약
+          </button>,
+          sumEl,
+        )}
       {barEl &&
         createPortal(
           <>
