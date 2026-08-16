@@ -137,3 +137,68 @@
   background: var(--c-surface);
   margin-right: 4px;
 }
+
+/* 참고안 반영 — 카드 %·범례 %·축 표·페이지네이션 */
+.rp-cpct { font-style: normal; font-size: var(--fs-sm); font-weight: 700; margin-left: 6px; opacity: 0.75; }
+.rp-lpct { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); margin-left: 3px; }
+.rp-vtbl { display: flex; flex-direction: column; gap: 2px; }
+.rp-vrow {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) 1fr 52px 56px;
+  gap: 10px;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  padding: 5px 4px;
+  border-radius: 7px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  font-size: var(--fs-md);
+}
+.rp-vrow:hover { background: var(--c-surface-alt); }
+.rp-vrow.on { background: var(--c-primary-bg); }
+.rp-vrow.head {
+  cursor: default;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-faint);
+  border-bottom: 1px solid var(--c-border);
+  border-radius: 0;
+}
+.rp-vrow.head:hover { background: transparent; }
+.rp-vrow .tr { text-align: right; }
+.rp-btrack2 { display: flex; height: 20px; border-radius: 5px; overflow: hidden; background: var(--c-surface-alt); }
+.rp-seg2 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  overflow: hidden;
+  white-space: nowrap;
+  min-width: 0;
+}
+.rp-seg2[style*='#d4d4d8'] { color: #444; }
+.rp-rate { font-weight: 800; }
+.rp-rate.good { color: #16a34a; }
+.rp-rate.warn { color: #d97706; }
+.rp-tbar { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-bottom: 1px solid var(--c-border); }
+.rp-tbar > b { font-size: var(--fs-sm); }
+.rp-tbar select { font: inherit; font-size: var(--fs-sm); padding: 2px 6px; border: 1px solid var(--c-border); border-radius: 6px; background: var(--c-surface); }
+.rp-pager { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 10px; }
+.rp-pgwrap { display: inline-flex; align-items: center; gap: 4px; }
+.rp-pgwrap > em { font-style: normal; color: var(--c-text-faint); }
+.rp-pager button {
+  min-width: 26px;
+  height: 26px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: var(--c-surface);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.rp-pager button.on { background: var(--c-primary); color: #fff; border-color: var(--c-primary); }
+.rp-pager button:disabled { opacity: 0.4; cursor: default; }

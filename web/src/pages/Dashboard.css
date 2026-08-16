@@ -195,3 +195,65 @@
 .dash-trend svg { display: block; width: 100%; height: 96px; }
 .dash-trend-x { display: flex; justify-content: space-between; margin-top: 3px; }
 .dash-trend-x > i { font-style: normal; font-size: 10px; color: var(--c-text-faint); }
+
+/* ── v2: KPI 줄·Attention·실행 중 큰 카드·도넛 ── */
+.dash-delta { font-style: normal; font-size: var(--fs-xs); font-weight: 700; margin-left: 7px; }
+.dash-delta.up { color: #0f6e56; }
+.dash-delta.dn { color: #c22; }
+.dash-card > b.ok { color: #0f6e56; }
+.dash-card > b.wn { color: #b45309; }
+.dash-card > b.run { color: var(--c-primary); }
+.dash-pct { font-style: normal; font-size: var(--fs-sm); font-weight: 700; margin-left: 7px; color: var(--c-text-faint); }
+.dash-mini {
+  display: flex;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--c-surface-alt);
+  overflow: hidden;
+  margin-top: 3px;
+}
+.dash-mini > b { display: block; height: 100%; }
+
+.dash-attn-n {
+  text-decoration: none;
+  margin-left: 8px;
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: #c22;
+  background: #fde4e4;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.dash-def > s.lb-fail { background: #fde4e4; color: #c22; }
+.dash-def > s.lb-blk { background: #faeeda; color: #854f0b; }
+.dash-def > s.lb-na { background: var(--c-surface-alt); color: var(--c-text-faint); }
+.dash-def-sub { font-style: normal; margin-left: 8px; font-size: var(--fs-xs); color: var(--c-text-faint); }
+
+.dash-runbig { display: flex; flex-direction: column; gap: 8px; }
+.dash-runbig-h { display: flex; align-items: center; gap: 10px; }
+.dash-runbig-h > b { font-size: 15px; }
+.dash-runbig-h > s {
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--c-primary);
+  border: 1px solid var(--c-primary);
+  border-radius: 999px;
+  padding: 1px 8px;
+  animation: dash-blink 1.6s ease-in-out infinite;
+}
+@keyframes dash-blink { 50% { opacity: 0.45; } }
+.dash-runbig-h > em { font-style: normal; font-weight: 700; }
+.dash-runbig-f { display: flex; align-items: center; gap: 8px; }
+.dash-runbig-f > em { font-style: normal; font-size: var(--fs-sm); color: var(--c-text-faint); }
+
+.dash-donuts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 1100px) { .dash-donuts { grid-template-columns: 1fr; } }
+.dash-dn { display: flex; align-items: center; gap: 14px; cursor: pointer; font: inherit; text-align: left; }
+.dash-dn:hover { border-color: var(--c-primary); }
+.dash-donut { width: 84px; height: 84px; flex: none; }
+.dash-donut-t { font-size: 17px; font-weight: 800; fill: var(--c-text); }
+.dash-dn-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dash-dn-t > i { font-style: normal; font-size: var(--fs-sm); font-weight: 700; color: var(--c-text-faint); }
+.dash-dn-t > em { font-style: normal; font-size: var(--fs-sm); }

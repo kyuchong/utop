@@ -10591,25 +10591,54 @@ async def dashboard_data():
     week_new = sum(1 for x in opened if str(x.get("created_at") or "")[:10] >= wk)
     metas = await db.cycle_list_meta()
     today = _dt.now().strftime("%Y-%m-%d")
+    yday = (_dt.now() - _td(days=1)).strftime("%Y-%m-%d")
     days = [(_dt.now() - _td(days=i)).strftime("%Y-%m-%d") for i in range(13, -1, -1)]
-    daily = {d2: {"runs": 0, "ok": 0} for d2 in days}
+    daily = {d2: {"runs": 0, "ok": 0, "bad": 0} for d2 in days}
     versions = []
+
+    def _vd(it):
+        """항목 결과를 화면 말로 — Blocked·WIP·커스텀도 살린다 (_item_verdict 는 PASS/FAIL 만)"""
+        raw = str(it.get("result") or "").strip()
+        if raw and raw != "미실행":
+            return raw
+        v0 = _item_verdict(it)
+        return {"PASS": "Pass", "FAIL": "Fail", "N/A": "진행불가"}.get(v0, "")
+
+    overall = {}
+    attention = []
+    latest_by_tc = {}
     for c in metas:
         items = [x for x in (c.get("items") or []) if isinstance(x, dict)]
         ok2 = bad = done = 0
         for it in items:
             v = _item_verdict(it)
+            lb = _vd(it)
+            overall[lb or "미실행"] = overall.get(lb or "미실행", 0) + 1
+            at2 = str(it.get("executed_at") or "")
+            tid = str(it.get("tcid") or "")
+            if tid and lb:
+                cur0 = latest_by_tc.get(tid)
+                if not cur0 or at2 >= cur0[0]:
+                    latest_by_tc[tid] = (at2, lb)
+            if lb in ("Fail", "Blocked", "진행불가"):
+                attention.append({
+                    "tcid": tid, "name": str(it.get("name") or ""), "label": lb,
+                    "cycle_id": str(c.get("id") or ""), "version": str(c.get("version") or c.get("cid") or ""),
+                    "at": at2,
+                })
             if v == "PASS":
                 ok2 += 1
             elif v == "FAIL":
                 bad += 1
             if v:
                 done += 1
-            d3 = str(it.get("executed_at") or "")[:10]
+            d3 = at2[:10]
             if d3 in daily:
                 daily[d3]["runs"] += 1
                 if v == "PASS":
                     daily[d3]["ok"] += 1
+                elif v == "FAIL":
+                    daily[d3]["bad"] += 1
         versions.append({
             "id": c.get("id"), "cid": str(c.get("cid") or ""),
             "version": str(c.get("version") or ""), "name": str(c.get("name") or ""),
@@ -10646,6 +10675,26 @@ async def dashboard_data():
             if v == "FAIL":
                 rec["fails"] += 1
     top_fail = sorted((x for x in fail_by.values() if x["fails"] > 0), key=lambda x: -x["fails"])[:5]
+    attention.sort(key=lambda x: x.get("at") or "", reverse=True)
+    # 요구사항 커버리지 — TC 가 가리키는 요구사항 / 전체
+    try:
+        reqs_all = await db.req_list_full()
+        req_ids = set()
+        for r2 in reqs_all:
+            for k2 in ("id", "reqid"):
+                v2 = str(r2.get(k2) or "").strip()
+                if v2:
+                    req_ids.add(v2)
+        covered = {str(t2.get("req_id") or "").strip() for t2 in tcs} & req_ids
+        coverage = {"total": len(reqs_all), "covered": len({str(r2.get("id") or r2.get("reqid") or "") for r2 in reqs_all if (str(r2.get("id") or "").strip() in covered) or (str(r2.get("reqid") or "").strip() in covered)})}
+    except Exception:
+        coverage = {"total": 0, "covered": 0}
+    # TC 실행 현황 — 최근 결과 기준(항목당 마지막 회차)
+    tc_ids_all = {str(t2.get("tcid") or "") for t2 in tcs if t2.get("tcid")}
+    exec_pass = sum(1 for tid, (_, lb) in latest_by_tc.items() if tid in tc_ids_all and lb == "Pass")
+    exec_fail = sum(1 for tid, (_, lb) in latest_by_tc.items() if tid in tc_ids_all and lb == "Fail")
+    exec_n = sum(1 for tid in latest_by_tc if tid in tc_ids_all)
+    tcexec = {"total": len(tc_ids_all), "executed": exec_n, "passed": exec_pass, "failed": exec_fail}
     recent_defects = [
         {k: str(x.get(k) or "") for k in ("id", "title", "severity", "status", "created_at", "cycle_id", "tcid")}
         for x in opened[:5]
@@ -10659,6 +10708,11 @@ async def dashboard_data():
         "versions": versions[:8],
         "running": run,
         "assets": {"reqs": reqs_n, "tcs": len(tcs), "cycles": len(metas)},
+        "overall": overall,
+        "yday_runs": daily.get(yday, {}).get("runs", 0) if yday in daily else 0,
+        "attention": attention[:6],
+        "coverage": coverage,
+        "tcexec": tcexec,
         "automation": {"auto": auto_n, "manual": max(len(tcs) - auto_n, 0)},
         "top_fail": top_fail,
         "recent_defects": recent_defects,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { goto } from '@/api/goto'
@@ -67,6 +67,9 @@ export default function Reports() {
   /** 축 분석 — 사이클 INFO 필드가 곧 축이다 (조사 결론: 축 교체가 리포트 엔진) */
   const [axis, setAxis] = useState<'cycle' | 'version_group' | 'model' | 'customer' | 'severity' | 'assignee' | 'cycle_status'>('cycle')
   const [axf, setAxf] = useState<{ axis: string; val: string } | null>(null)
+  /** 결과 상세 페이지 — 500건 자르기 대신 (참고안) */
+  const [psz, setPsz] = useState(20)
+  const [pg, setPg] = useState(1)
 
   const sumQ = useQuery({
     queryKey: ['report', 'summary'],
@@ -152,7 +155,10 @@ export default function Reports() {
     }
     return [...m.values()].sort((a, b) => b.fail - a.fail || b.pass - a.pass).slice(0, 14)
   }, [base, axis])
-  const maxBar = Math.max(1, ...byCycle.map((x) => x.pass + x.fail + x.rest))
+
+  useEffect(() => {
+    setPg(1)
+  }, [only, sev, kind, cyc, q, days, axf, psz])
 
   /** 거른 것을 CSV 로 — 원자료 내보내기(조사: 표 리포트는 Excel 이 실무 표준) */
   const exportCsv = () => {
@@ -303,7 +309,10 @@ export default function Reports() {
                 onClick={() => setOnly(only === v.k ? null : v.k)}
               >
                 <i>{v.label}</i>
-                <b>{cnt[v.k] ?? 0}</b>
+                <b>
+                  {cnt[v.k] ?? 0}
+                  <em className="rp-cpct">{Math.round(((cnt[v.k] ?? 0) / total) * 100)}%</em>
+                </b>
               </button>
             ))}
             <div className="rp-card">
@@ -349,6 +358,7 @@ export default function Reports() {
                     >
                       <span className="rp-dot" style={{ background: v.color }} />
                       {v.label} <b>{cnt[v.k] ?? 0}</b>
+                      <em className="rp-lpct">({Math.round(((cnt[v.k] ?? 0) / total) * 100)}%)</em>
                     </button>
                   ))}
                 </div>
@@ -375,42 +385,65 @@ export default function Reports() {
                 </select>
                 별 합격 · 불합격 <span className="muted small">({byCycle.length}개)</span>
               </b>
-              <div className="rp-bars">
-                {byCycle.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    className={`rp-bar${(axis === 'cycle' ? cyc === c.id : axf?.val === c.id) ? ' on' : ''}`}
-                    title={`${c.name} — 합격 ${c.pass} · 불합격 ${c.fail} · 예정 ${c.rest} — 누르면 아래 목록을 이것만으로`}
-                    onClick={() => {
-                      if (axis === 'cycle') setCyc(cyc === c.id ? '' : c.id)
-                      else setAxf(axf?.val === c.id ? null : { axis, val: c.id === '(없음)' ? '' : c.id })
-                    }}
-                  >
-                    <span className="rp-bnm">{c.name}</span>
-                    <span className="rp-btrack">
+              <div className="rp-vtbl">
+                <div className="rp-vrow head">
+                  <span>이름</span>
+                  <span>합격 · 불합격 · 예정</span>
+                  <span className="tr">총 TC</span>
+                  <span className="tr">합격률</span>
+                </div>
+                {byCycle.map((c) => {
+                  const tot = c.pass + c.fail + c.rest
+                  const pr = Math.round((c.pass / Math.max(1, tot)) * 100)
+                  const on = axis === 'cycle' ? cyc === c.id : axf?.val === c.id
+                  const seg = (n2: number, color: string, label: string) =>
+                    n2 > 0 && (
                       <span
-                        className="rp-bseg"
-                        style={{ width: `${(c.pass / maxBar) * 100}%`, background: '#16a34a' }}
-                      />
-                      <span
-                        className="rp-bseg"
-                        style={{ width: `${(c.fail / maxBar) * 100}%`, background: '#dc2626' }}
-                      />
-                      <span
-                        className="rp-bseg"
-                        style={{ width: `${(c.rest / maxBar) * 100}%`, background: '#d4d4d8' }}
-                      />
-                    </span>
-                    <span className="rp-bn">{c.pass + c.fail + c.rest}</span>
-                  </button>
-                ))}
+                        className="rp-seg2"
+                        style={{ flexGrow: n2, background: color }}
+                        title={`${label} ${n2}건 (${Math.round((n2 / Math.max(1, tot)) * 100)}%)`}
+                      >
+                        {n2} ({Math.round((n2 / Math.max(1, tot)) * 100)}%)
+                      </span>
+                    )
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`rp-vrow${on ? ' on' : ''}`}
+                      title={`${c.name} — 누르면 아래 목록을 이것만으로`}
+                      onClick={() => {
+                        if (axis === 'cycle') setCyc(cyc === c.id ? '' : c.id)
+                        else setAxf(axf?.val === c.id ? null : { axis, val: c.id === '(없음)' ? '' : c.id })
+                      }}
+                    >
+                      <span className="rp-bnm">{c.name}</span>
+                      <span className="rp-btrack2">
+                        {seg(c.pass, '#16a34a', '합격')}
+                        {seg(c.fail, '#dc2626', '불합격')}
+                        {seg(c.rest, '#d4d4d8', '예정')}
+                      </span>
+                      <span className="tr">{tot}</span>
+                      <span className={`tr rp-rate${pr >= 60 ? ' good' : ' warn'}`}>{pr}%</span>
+                    </button>
+                  )
+                })}
                 {byCycle.length === 0 && <div className="empty">해당하는 것이 없습니다.</div>}
               </div>
             </div>
           </div>
 
           <div className="panel rp-table">
+            <div className="rp-tbar">
+              <b>결과 상세</b>
+              <span className="sp" />
+              <span className="muted small">총 {rows.length}건</span>
+              <select value={psz} onChange={(e) => setPsz(Number(e.target.value))}>
+                <option value={20}>20개</option>
+                <option value={50}>50개</option>
+                <option value={100}>100개</option>
+              </select>
+            </div>
             <div className="rp-row head">
               <span>결과</span>
               <span>TC ID</span>
@@ -425,7 +458,7 @@ export default function Reports() {
             ) : rows.length === 0 ? (
               <div className="empty">해당하는 것이 없습니다.</div>
             ) : (
-              rows.slice(0, 500).map((r, i) => {
+              rows.slice((Math.min(pg, Math.max(1, Math.ceil(rows.length / psz))) - 1) * psz, Math.min(pg, Math.max(1, Math.ceil(rows.length / psz))) * psz).map((r, i) => {
                 const v = V.find((x) => x.k === r.verdict) ?? V[2]
                 return (
                   <div className="rp-row" key={`${r.cycle_id}-${r.tcid}-${i}`}>
@@ -466,11 +499,35 @@ export default function Reports() {
                 )
               })
             )}
-            {rows.length > 500 && (
-              <div className="muted small rp-more">
-                500건까지만 그립니다 — 거르개로 좁히세요 (해당 {rows.length}건)
-              </div>
-            )}
+            {rows.length > psz && (() => {
+              const pages = Math.max(1, Math.ceil(rows.length / psz))
+              const cur = Math.min(pg, pages)
+              const around = Array.from({ length: pages }, (_, i) => i + 1).filter(
+                (n2) => n2 === 1 || n2 === pages || Math.abs(n2 - cur) <= 2,
+              )
+              return (
+                <div className="rp-pager">
+                  <button type="button" disabled={cur <= 1} onClick={() => setPg(cur - 1)}>
+                    ‹
+                  </button>
+                  {around.map((n2, i2) => (
+                    <span key={n2} className="rp-pgwrap">
+                      {i2 > 0 && around[i2 - 1]! < n2 - 1 && <em>…</em>}
+                      <button
+                        type="button"
+                        className={n2 === cur ? 'on' : ''}
+                        onClick={() => setPg(n2)}
+                      >
+                        {n2}
+                      </button>
+                    </span>
+                  ))}
+                  <button type="button" disabled={cur >= pages} onClick={() => setPg(cur + 1)}>
+                    ›
+                  </button>
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}
