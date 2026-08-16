@@ -94,7 +94,9 @@
 
 .md th,
 .md td {
-  border: 1px solid var(--c-border);
+  /* 흐린 회색(--c-border)은 칸이 안 읽혔다(피드백) — 한 단계 진하게.
+     편집기(.md-editor)도 같은 색을 쓴다. */
+  border: 1px solid #9aa4b0;
   padding: 5px 9px;
   text-align: left;
 }
@@ -233,3 +235,12 @@
 .md-editor .milkdown .ProseMirror h1 { font-size: 20px !important; margin: 8px 0 5px; }
 .md-editor .milkdown .ProseMirror h2 { font-size: 17px !important; margin: 7px 0 4px; }
 .md-editor .milkdown .ProseMirror h3 { font-size: 14.5px !important; font-weight: 700; margin: 5px 0 3px; }
+/* 표 선 — 밀크다운 기본 선이 흐려 칸이 안 읽혔다(피드백).
+   읽기 화면(.md td)과 같은 진한 선으로 맞춘다. */
+.md-editor .milkdown .ProseMirror table { border-collapse: collapse; }
+.md-editor .milkdown .ProseMirror th,
+.md-editor .milkdown .ProseMirror td {
+  border: 1px solid #9aa4b0 !important;
+  padding: 4px 8px;
+}
+.md-editor .milkdown .ProseMirror th { background: var(--c-surface-alt); }
