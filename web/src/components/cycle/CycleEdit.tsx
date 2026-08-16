@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi } from '@/api/client'
 import '@/components/ReqForm.css'
@@ -424,18 +424,42 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
     setTcSel(new Set())
   }
 
+  /** 설명 틀 — 설정에서 사람이 정의한 것. 새 사이클에 미리 채운다 */
+  const tplQ = useQuery({
+    queryKey: ['cycle-desc-template'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/cycle-desc-template')
+      if (!r.ok) throw new Error('틀을 불러오지 못했습니다')
+      return (await r.json()) as { text: string }
+    },
+    staleTime: 60_000,
+  })
+  const tplSeeded = useRef(false)
+  useEffect(() => {
+    if (tplSeeded.current || editing) return
+    const t = (tplQ.data?.text ?? '').trim()
+    if (!t) return
+    tplSeeded.current = true
+    setCdesc((cur) => (cur.trim() ? cur : tplQ.data!.text))
+  }, [tplQ.data, editing])
+
   // 상태·고객 드롭다운 값 — 설정 → 사이클 INFO 필드가 정본
   const codesQ = useQuery({
     queryKey: ['codes'],
     queryFn: async () => {
       const r = await apiFetch('/api/codes')
       if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
-      return (await r.json()) as { items: Array<{ kind: string; value: string }> }
+      return (await r.json()) as {
+        items: Array<{ kind: string; value: string }>
+        kinds?: Record<string, string>
+      }
     },
     staleTime: 60_000,
   })
   const codeVals = (kind: string) =>
     (codesQ.data?.items ?? []).filter((i) => i.kind === kind).map((i) => i.value)
+  /** 숨긴 기본 칸이면 입력칸도 안 그린다 */
+  const kindOn = (kind: string) => !codesQ.data?.kinds || kind in codesQ.data.kinds
 
   const visTcs = hideAdded ? shownTcs.filter((t) => !pickedIds.has(t.tcid)) : shownTcs
 
@@ -692,7 +716,28 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
             />
           </label>
           <div className="fld ce-wide ce-desc-fld">
-            <span>설명 (Description)</span>
+            <span>
+              설명 (Description)
+              {(tplQ.data?.text ?? '').trim() !== '' && (
+                <button
+                  type="button"
+                  className="linkish ce-tpl"
+                  title="설정에서 정의한 설명 틀을 넣습니다"
+                  onClick={() => {
+                    const t = tplQ.data?.text ?? ''
+                    if (
+                      cdesc.trim() &&
+                      cdesc !== t &&
+                      !window.confirm('지금 적힌 설명을 틀로 바꿉니다. 계속할까요?')
+                    )
+                      return
+                    setCdesc(t)
+                  }}
+                >
+                  틀 넣기
+                </button>
+              )}
+            </span>
             {/* 서식이 되는 편집기 — 시험 목적·사전준비와 같은 부품 */}
             <div className="ce-md">
               <MarkdownEditor
@@ -806,6 +851,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
 
           <fieldset className="ce-sec">
             <legend>관리 (Status · Owner)</legend>
+          {kindOn('cycle_status') && (
           <label className="fld">
             <span>상태 (Status)</span>
             <select value={cstat} onChange={(e) => setCstat(e.target.value)}>
@@ -815,6 +861,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               ))}
             </select>
           </label>
+          )}
+          {kindOn('cycle_customer') && (
           <label className="fld">
             <span>고객</span>
             <select value={ccust} onChange={(e) => setCcust(e.target.value)}>
@@ -824,6 +872,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone }:
               ))}
             </select>
           </label>
+          )}
           <label className="fld">
             <span>담당 (Owner)</span>
             <input value={assignee} onChange={(e) => setAssignee(e.target.value)} />

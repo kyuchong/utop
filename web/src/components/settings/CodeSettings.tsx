@@ -63,6 +63,17 @@ export default function CodeSettings({ target }: Props) {
     target === 'req' ? 'req_status' : target === 'cycle' ? 'cycle_status' : 'tc_type',
   )
   const [draft, setDraft] = useState('')
+  /** 사이클 설명 틀 — 보고서 패턴을 맞추는 사람이 정의한 본문 */
+  const [descTpl, setDescTpl] = useState<string | null>(null)
+  const tplQ = useQuery({
+    queryKey: ['cycle-desc-template'],
+    enabled: target === 'cycle',
+    queryFn: async () => {
+      const r = await apiFetch('/api/cycle-desc-template')
+      if (!r.ok) throw new Error('불러오지 못했습니다')
+      return (await r.json()) as { text: string }
+    },
+  })
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
   // 새 탭(= 「고르기」 커스텀 필드) 만들기
   const [newTab, setNewTab] = useState<string | null>(null)
@@ -315,6 +326,27 @@ export default function CodeSettings({ target }: Props) {
                 구분이 안 되면 지워도 되는지 매번 판단해야 한다. */}
             {t.cf && <span className="seg-made">추가</span>}
             <span className="cnt">{t.values.length}</span>
+            {!t.cf && kind === t.key && (
+              <span
+                className="seg-x"
+                role="button"
+                title="이 탭을 숨깁니다 — 값 자료는 남고, 편집 창의 칸도 함께 사라집니다"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (!window.confirm(`「${t.label}」 탭을 숨길까요?\n값 자료는 지워지지 않습니다.`))
+                    return
+                  void apiFetch('/api/codes/kind-hidden', {
+                    method: 'POST',
+                    body: JSON.stringify({ kind: t.key, hidden: true }),
+                  }).then(() => {
+                    invalidate()
+                    setKind('')
+                  })
+                }}
+              >
+                ✕
+              </span>
+            )}
           </button>
         ))}
         <button
@@ -474,6 +506,43 @@ export default function CodeSettings({ target }: Props) {
             )}
           </section>
         </>
+      )}
+      {target === 'cycle' && (
+        <section className="set-card">
+          <div className="set-card-head">
+            <b>설명 (Description) 틀</b>
+            <span className="muted small">
+              새 사이클을 만들 때 설명 칸에 이 틀이 미리 채워집니다 — 보고서 패턴을
+              맞추는 용도
+            </span>
+          </div>
+          <textarea
+            className="dc-tpl"
+            rows={8}
+            placeholder={'예)\n## 시험 요약\n- 대상 모델 / 버전:\n- 시험 범위:\n\n## 특이사항\n-'}
+            value={descTpl ?? tplQ.data?.text ?? ''}
+            onChange={(e) => setDescTpl(e.target.value)}
+          />
+          <div className="dc-add">
+            <button
+              className="btn primary"
+              type="button"
+              disabled={descTpl === null}
+              onClick={() => {
+                void apiFetch('/api/cycle-desc-template', {
+                  method: 'POST',
+                  body: JSON.stringify({ text: descTpl ?? '' }),
+                }).then(() => {
+                  setNote({ kind: 'ok', msg: '틀을 저장했습니다' })
+                  setDescTpl(null)
+                  void qc.invalidateQueries({ queryKey: ['cycle-desc-template'] })
+                })
+              }}
+            >
+              틀 저장
+            </button>
+          </div>
+        </section>
       )}
     </div>
   )

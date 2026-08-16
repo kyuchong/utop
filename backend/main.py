@@ -2956,9 +2956,42 @@ async def codes_list(kind: str = ""):
         for k, v in ov.items():
             if k in kinds and str(v).strip():
                 kinds[k] = str(v).strip()
+        # 숨긴 기본 칸 — 탭·입력칸에서 빠진다 (값 자료는 남는다)
+        hid = _kv_load_sync("code_kind_hidden", []) or []
+        for k in hid:
+            kinds.pop(k, None)
     except Exception:
         pass
     return {"items": items, "kinds": kinds}
+
+
+@app.get("/api/cycle-desc-template")
+async def cycle_desc_template_get():
+    """사이클 설명 틀 — 보고서 패턴을 맞추려고 사람이 정의해 둔다."""
+    d = _kv_load_sync("cycle_desc_template", {}) or {}
+    return {"text": str(d.get("text") or "")}
+
+
+@app.post("/api/cycle-desc-template")
+async def cycle_desc_template_set(payload: dict):
+    _kv_save_sync("cycle_desc_template", {"text": str(payload.get("text") or "")})
+    return {"success": True}
+
+
+@app.post("/api/codes/kind-hidden")
+async def codes_kind_hidden(payload: dict):
+    """기본 칸(탭) 숨기기/되살리기 — 값 자료는 지우지 않는다."""
+    kind = str(payload.get("kind") or "").strip()
+    hidden = bool(payload.get("hidden"))
+    if kind not in db.CODE_KINDS:
+        raise HTTPException(400, f"알 수 없는 종류입니다: {kind}")
+    hid = set(_kv_load_sync("code_kind_hidden", []) or [])
+    if hidden:
+        hid.add(kind)
+    else:
+        hid.discard(kind)
+    _kv_save_sync("code_kind_hidden", sorted(hid))
+    return {"success": True}
 
 
 @app.post("/api/codes/kind-label")

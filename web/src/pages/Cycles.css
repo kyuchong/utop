@@ -3101,12 +3101,19 @@ table.tb td.k {
 
 /* 설명 — 마크다운 편집기 높이. 두 줄짜리 메모부터 서식 문서까지 */
 .ce-md { min-height: 120px; }
-/* 편집기 본문 글자 — 밀크다운 ProseMirror 가 진짜 본문이다. 12px 로 */
+/* 편집기 본문 글자 — 밀크다운 ProseMirror 가 진짜 본문이다. 12px 로.
+   위 여백은 첫 줄을 블록 선택할 때 뜨는 서식 말풍선 자리 — 없으면
+   말풍선이 위 툴바를 덮어 메뉴를 못 누른다. */
 .ce-md .milkdown .ProseMirror,
 .ce-md .milkdown .ProseMirror p {
   font-size: var(--fs-sm) !important;
   line-height: 1.5;
 }
+.ce-md .milkdown .ProseMirror { padding-top: 40px !important; }
+/* 제목 크기 — 브라우저 기본 배율(2em…)이 그대로면 본문과 격차가 너무 크다 */
+.ce-md .milkdown .ProseMirror h1 { font-size: 17px !important; margin: 6px 0 4px; }
+.ce-md .milkdown .ProseMirror h2 { font-size: 15px !important; margin: 6px 0 4px; }
+.ce-md .milkdown .ProseMirror h3 { font-size: 13.5px !important; margin: 4px 0 3px; }
 .ce-md .md-editor, .ce-md .w-md-editor { min-height: 120px; }
 
 /* 아래 Add 바 — 항목은 여기서 담는다 */
@@ -3345,3 +3352,19 @@ table.tb td.k {
 .modal.ce .ce-desc-fld { align-items: start; }
 .modal.ce .ce-desc-fld > span { padding-top: 6px; }
 .ce-tpl { display: block; margin-top: 4px; font-size: var(--fs-xs); }
+
+/* 설정 — 설명 틀 편집 */
+.dc-tpl {
+  width: 100%;
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 8px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+  margin-bottom: 8px;
+}
+
+/* 설정 탭 숨김 ✕ */
+.seg-x { margin-left: 4px; opacity: 0.5; cursor: pointer; font-weight: 700; }
+.seg-x:hover { opacity: 1; color: var(--c-fail); }
