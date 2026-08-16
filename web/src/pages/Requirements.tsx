@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, apiFetch, categoryApi, reqApi, tcApi } from '@/api/client'
+import { api, apiFetch, categoryApi, projectApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
 import ReqTree from '@/components/ReqTree'
 import { useMultiSelect } from '@/components/useMultiSelect'
@@ -302,6 +302,18 @@ export default function Requirements() {
       return [r.cat1, r.cat2, r.cat3, r.cat4].some((c) => c && ids.has(c as string))
     })
   }, [allReqs, selectedFolder, catQ.data])
+
+  /** 소속 프로젝트 칩 — 요구사항이 많으면 어느 프로젝트 것인지 안 보인다.
+      사슬 맨 위(cat1)가 프로젝트 폴더면 그 이름을 단다(서버가 사슬을
+      트리 기준으로 맞춰 주므로 cat1 = 최상위가 보장된다). */
+  const prjQ = useQuery({
+    queryKey: ['projects'],
+    queryFn: ({ signal }) => projectApi.list(signal),
+  })
+  const prjByCat = useMemo(
+    () => new Map((prjQ.data?.projects ?? []).map((p) => [p.cat_id, p])),
+    [prjQ.data],
+  )
 
   /** 이 요구사항을 덮는 TC 수 — tc.req_id 와 req.tc[] 참조의 합집합 */
   const covCount = useMemo(
@@ -1019,6 +1031,14 @@ export default function Requirements() {
                         >
                           {r.title || '(제목 없음)'}
                         </button>
+                        {(() => {
+                          const p = r.cat1 ? prjByCat.get(r.cat1 as string) : undefined
+                          return p ? (
+                            <i className="rq-prj" title={p.name}>
+                              {p.name}
+                            </i>
+                          ) : null
+                        })()}
                       </div>
                       <div>
                         <button
