@@ -2295,7 +2295,9 @@ function CycleDetail({
   useEffect(() => setPrevId(''), [cycle.id])
   const prev = prevId
     ? others.find((c) => c.id === prevId)
-    : others.find((c) => (c.model ?? '') === (cycle.model ?? ''))
+    : others.find(
+        (c) => c.id === String((cycle as unknown as Record<string, unknown>).cloned_from ?? ''),
+      ) ?? others.find((c) => (c.model ?? '') === (cycle.model ?? ''))
   const prevQ = useQuery({
     queryKey: ['cycle-full', prev?.id ?? ''],
     enabled: Boolean(prev),
@@ -3149,8 +3151,6 @@ function CloneDialog({
   const [version, setVersion] = useState('')
   const [name, setName] = useState('')
   const [keepWho, setKeepWho] = useState(true)
-  /** 직전 시험 결과까지 가져오기 — 기본은 표준대로 초기화 */
-  const [keepResults, setKeepResults] = useState(false)
   /** 포함할 직전 결과 상태들 — 기본 전부 */
   const [stats, setStats] = useState<Set<string>>(() => new Set(RESULTS.map((r) => r.v)))
   const [busy, setBusy] = useState(false)
@@ -3172,31 +3172,23 @@ function CloneDialog({
     setBusy(true)
     setErr('')
     try {
-      // 기본은 표준대로 결과를 비운다. 「직전 결과 가져오기」 를 켜면
-      // 스텝 판정·실행자·시각·메모까지 그대로 — 결함 연결만 원 사이클
-      // 것이라 안 넘긴다.
-      const cleaned = keepItems.map((it) => {
-        if (keepResults) {
-          const c = { ...it, assignee: keepWho ? (it.assignee ?? '') : '' }
-          delete (c as Record<string, unknown>).issues
-          return c
-        }
-        return {
-          tcid: it.tcid,
-          name: it.name ?? '',
-          req_id: it.req_id ?? '',
-          assignee: keepWho ? (it.assignee ?? '') : '',
-          steps: (it.steps ?? []).map((st) => {
-            const c2 = { ...(st as Record<string, unknown>) }
-            for (const k of [
-              'result', 'output', 'status', 'repeatResult', 'reason',
-              'executed_at', 'took_ms', 'rounds', 'actual_img', 'actual_txt',
-            ])
-              delete c2[k]
-            return c2
-          }),
-        }
-      })
+      // 새 회차는 무조건 미실행으로 시작한다 — 직전 결과는 실행 화면이
+      // 원본(cloned_from)을 참고로 보여 준다.
+      const cleaned = keepItems.map((it) => ({
+        tcid: it.tcid,
+        name: it.name ?? '',
+        req_id: it.req_id ?? '',
+        assignee: keepWho ? (it.assignee ?? '') : '',
+        steps: (it.steps ?? []).map((st) => {
+          const c2 = { ...(st as Record<string, unknown>) }
+          for (const k of [
+            'result', 'output', 'status', 'repeatResult', 'reason',
+            'executed_at', 'took_ms', 'rounds', 'actual_img', 'actual_txt',
+          ])
+            delete c2[k]
+          return c2
+        }),
+      }))
       const nid = `cycle-${Date.now()}`
       const w = await apiFetch(`/api/cycle/${encodeURIComponent(nid)}`, {
         method: 'POST',
@@ -3204,6 +3196,8 @@ function CloneDialog({
           ...full,
           id: nid,
           cid: '',
+          // 원본을 기억한다 — 실행 화면의 「직전 결과」 가 이걸 가리킨다
+          cloned_from: cycleId,
           version: version.trim() || `${String(full.version ?? '')}_copy`,
           name: name.trim(),
           items: cleaned,
@@ -3286,18 +3280,9 @@ function CloneDialog({
               />
               담당자 유지 (Copy Assigned To)
             </label>
-            <label className="cy-clone-ck">
-              <input
-                type="checkbox"
-                checked={keepResults}
-                onChange={(e) => setKeepResults(e.target.checked)}
-              />
-              직전 시험 결과 가져오기
-            </label>
             <p className="muted small">
-              {keepResults
-                ? '스텝 판정·실행자·시각·메모까지 그대로 가져옵니다. 결함 연결만 원 사이클에 남습니다.'
-                : '실행 결과·메모·결함 연결은 복사되지 않습니다 — 모든 항목이 미실행으로 시작합니다.'}
+              모든 항목은 미실행으로 시작합니다. 직전 시험 결과는 실행 화면의
+              항목별 「직전 결과」 칩으로 참고 표시됩니다(원본 사이클 기준).
             </p>
             <div className="cy-clone-f">
               <span className="sp" />
