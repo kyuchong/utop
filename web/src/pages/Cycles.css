@@ -3373,3 +3373,6 @@ table.tb td.k {
 /* 설정 탭 숨김 ✕ */
 .seg-x { margin-left: 4px; opacity: 0.5; cursor: pointer; font-weight: 700; }
 .seg-x:hover { opacity: 1; color: var(--c-fail); }
+
+/* 설정 — 설명 틀 마크다운 편집기 */
+.dc-tplmd { margin-bottom: 8px; border: 1px solid var(--c-border); border-radius: var(--radius-sm); }

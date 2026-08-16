@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { cfOptions, type CfMeta, type CustomField } from '@/hooks/useCustomFields'
+import MarkdownEditor from '@/components/MarkdownEditorLazy'
 
 interface Item {
   kind: string
@@ -516,13 +517,14 @@ export default function CodeSettings({ target }: Props) {
               맞추는 용도
             </span>
           </div>
-          <textarea
-            className="dc-tpl"
-            rows={8}
-            placeholder={'예)\n## 시험 요약\n- 대상 모델 / 버전:\n- 시험 범위:\n\n## 특이사항\n-'}
-            value={descTpl ?? tplQ.data?.text ?? ''}
-            onChange={(e) => setDescTpl(e.target.value)}
-          />
+          {/* 사이클 창의 설명 칸과 같은 마크다운 편집기 — 같은 서식으로 틀을 짠다 */}
+          <div className="ce-md dc-tplmd">
+            <MarkdownEditor
+              value={descTpl ?? tplQ.data?.text ?? ''}
+              onChange={setDescTpl}
+              placeholder={'예)\n## 시험 요약\n- 대상 모델 / 버전:\n- 시험 범위:\n\n## 특이사항\n-'}
+            />
+          </div>
           <div className="dc-add">
             <button
               className="btn primary"
