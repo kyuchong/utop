@@ -202,3 +202,15 @@
 }
 .rp-pager button.on { background: var(--c-primary); color: #fff; border-color: var(--c-primary); }
 .rp-pager button:disabled { opacity: 0.4; cursor: default; }
+
+/* 깔때기 팝업 — 실행 화면과 같은 문법. 구역 제목 + 세로 목록 */
+.rp-fpop { min-width: 240px; max-height: 70vh; overflow-y: auto; }
+.rp-fsec {
+  font-size: var(--fs-xs);
+  font-weight: 800;
+  color: var(--c-text-faint);
+  padding: 7px 10px 2px;
+  border-top: 1px solid var(--c-border-weak, #eef1f5);
+}
+.rp-fsec:first-child { border-top: 0; }
+.rp-fcyc { max-height: 180px; overflow-y: auto; }

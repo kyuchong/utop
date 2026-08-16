@@ -70,6 +70,8 @@ export default function Reports() {
   /** 결과 상세 페이지 — 500건 자르기 대신 (참고안) */
   const [psz, setPsz] = useState(20)
   const [pg, setPg] = useState(1)
+  /** 깔때기 필터 — 드롭다운 줄 대신 (실행 화면과 같은 문법) */
+  const [filtAt, setFiltAt] = useState<{ x: number; y: number } | null>(null)
 
   const sumQ = useQuery({
     queryKey: ['report', 'summary'],
@@ -231,40 +233,108 @@ export default function Reports() {
       ) : (
         <div className="rp-body">
           <div className="rp-filters">
-            <select value={sev} onChange={(e) => setSev(e.target.value)}>
-              <option value="">심각도 전체</option>
-              {sevs.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-            <select value={kind} onChange={(e) => setKind(e.target.value)}>
-              <option value="">타입 전체</option>
-              <option value="auto">Auto</option>
-              <option value="manual">Manual</option>
-              <option value="mixed">섞임</option>
-            </select>
-            <select value={cyc} onChange={(e) => setCyc(e.target.value)}>
-              <option value="">사이클 전체</option>
-              {cycles.map(([id, nm]) => (
-                <option key={id} value={id}>
-                  {nm}
-                </option>
-              ))}
-            </select>
             <input
               className="rp-q"
               value={q}
               placeholder="TC ID · 이름 · 요구사항으로 찾기"
               onChange={(e) => setQ(e.target.value)}
             />
-            <select value={days} onChange={(e) => setDays(Number(e.target.value))} title="기간(실행일 기준)">
-              <option value={0}>기간 전체</option>
-              <option value={7}>최근 7일</option>
-              <option value={30}>최근 30일</option>
-              <option value={90}>최근 90일</option>
-            </select>
+            {(() => {
+              const fCnt = (sev ? 1 : 0) + (kind ? 1 : 0) + (cyc ? 1 : 0) + (days ? 1 : 0) + (axf ? 1 : 0)
+              return (
+                <button
+                  className={`btn small cxp-funnel${fCnt ? ' cxp-fon' : ''}`}
+                  type="button"
+                  title="필터 — 기간 · 심각도 · 타입 · 사이클"
+                  onClick={(e) => {
+                    const r2 = e.currentTarget.getBoundingClientRect()
+                    setFiltAt((v2) => (v2 ? null : { x: r2.left, y: r2.bottom + 4 }))
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
+                      fill={fCnt ? 'currentColor' : 'none'}
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  {fCnt > 0 && <em className="cxp-fbadge">{fCnt}</em>}
+                </button>
+              )
+            })()}
+            {filtAt && (
+              <>
+                <span className="cyt-gearovl" onClick={() => setFiltAt(null)} />
+                <div
+                  className="cy-hmenu-pop cxp-sidepop rp-fpop"
+                  role="menu"
+                  style={{
+                    position: 'fixed',
+                    left: Math.max(8, Math.min(filtAt.x, window.innerWidth - 280)),
+                    top: filtAt.y,
+                    right: 'auto',
+                    zIndex: 60,
+                  }}
+                >
+                  <div className="rp-fsec">기간 (실행일)</div>
+                  <div className="cxp-flist">
+                    {[
+                      { v: 0, l: '전체' },
+                      { v: 7, l: '최근 7일' },
+                      { v: 30, l: '최근 30일' },
+                      { v: 90, l: '최근 90일' },
+                    ].map((o) => (
+                      <button key={o.v} type="button" className={days === o.v ? 'on' : ''} onClick={() => setDays(o.v)}>
+                        <s className="d all" />
+                        {o.l}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="rp-fsec">심각도</div>
+                  <div className="cxp-flist">
+                    <button type="button" className={sev === '' ? 'on' : ''} onClick={() => setSev('')}>
+                      <s className="d all" />
+                      전체
+                    </button>
+                    {sevs.map((s2) => (
+                      <button key={s2} type="button" className={sev === s2 ? 'on' : ''} onClick={() => setSev(sev === s2 ? '' : s2)}>
+                        <s className="d" style={{ background: '#EF9F27' }} />
+                        {s2}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="rp-fsec">타입</div>
+                  <div className="cxp-flist">
+                    {[
+                      { v: '', l: '전체' },
+                      { v: 'auto', l: 'Auto' },
+                      { v: 'manual', l: 'Manual' },
+                      { v: 'mixed', l: '섞임' },
+                    ].map((o) => (
+                      <button key={o.v} type="button" className={kind === o.v ? 'on' : ''} onClick={() => setKind(o.v)}>
+                        <s className="d" style={{ background: o.v ? '#378ADD' : undefined }} />
+                        {o.l}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="rp-fsec">사이클</div>
+                  <div className="cxp-flist rp-fcyc">
+                    <button type="button" className={cyc === '' ? 'on' : ''} onClick={() => setCyc('')}>
+                      <s className="d all" />
+                      전체
+                    </button>
+                    {cycles.map(([id, nm]) => (
+                      <button key={id} type="button" className={cyc === id ? 'on' : ''} onClick={() => setCyc(cyc === id ? '' : id)}>
+                        <s className="d" style={{ background: '#7F77DD' }} />
+                        {nm}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
             <span className="sp" />
             <button
               className="btn small"
@@ -288,7 +358,7 @@ export default function Reports() {
                 setAxf(null)
               }}
             >
-              거르개 초기화
+              초기화
             </button>
             <span className="muted small">대상 {rows.length}건</span>
           </div>
