@@ -1564,6 +1564,30 @@ function CycleBoard({
   const [msg, setMsg] = useState('')
   /** 진행결과 막대 호버 카드 — 랙뷰 장비 카드(rv-tip)와 같은 문법 */
   const [prgTip, setPrgTip] = useState<{ x: number; y: number; c: CycleMeta } | null>(null)
+  /** ⋯ — 체크한 사이클 1개의 요약·보고서·내보내기 (실행 화면에서 옮겨 왔다) */
+  const [moreAt, setMoreAt] = useState<{ x: number; y: number } | null>(null)
+  const [bInsight, setBInsight] = useState<'ai' | 'metrics' | null>(null)
+  const [bReport, setBReport] = useState(false)
+  const oneCycle = picked.size === 1 ? cycles.find((c) => c.id === [...picked][0]) : undefined
+  const exportCycleCsv = (c: CycleMeta) => {
+    const rows = c.items ?? []
+    if (!rows.length) return
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const csv = [
+      ['TC ID', '시험', '결과', '담당', '실행'].map(esc).join(','),
+      ...rows.map((it) =>
+        [it.tcid, it.name ?? '', verdictLabel(itemVerdict(it)), it.assignee || it.executed_by || '', it.executed_at ?? '']
+          .map(esc)
+          .join(','),
+      ),
+    ].join('\r\n')
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
+    const a2 = document.createElement('a')
+    a2.href = URL.createObjectURL(blob)
+    a2.download = `사이클_${[c.model, c.version].filter(Boolean).join('_') || c.id}.csv`
+    a2.click()
+    URL.revokeObjectURL(a2.href)
+  }
 
   /** 인라인 카드에 보일 필드 — 시험항목 화면과 같은 목록에서 ⚙ 로 고른다 */
   const [itCols, setItCols] = useState<Set<string>>(() => {
@@ -1762,6 +1786,18 @@ function CycleBoard({
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
+        <button
+          type="button"
+          className="btn cyt-more"
+          title={picked.size === 1 ? '요약 · 보고서 · 내보내기' : '사이클 하나를 체크하면 열립니다'}
+          disabled={picked.size !== 1}
+          onClick={(e) => {
+            const r2 = e.currentTarget.getBoundingClientRect()
+            setMoreAt((v) => (v ? null : { x: r2.left, y: r2.bottom + 4 }))
+          }}
+        >
+          ⋯
+        </button>
         <button
           type="button"
           className="cyt-gear cyt-gear-tb"
@@ -2180,6 +2216,55 @@ function CycleBoard({
         <div className="empty">아직 사이클이 없습니다 — 위 + New 로 만드세요.</div>
       )}
       </section>
+      {moreAt && oneCycle && (
+        <>
+          <span className="cyt-gearovl" onClick={() => setMoreAt(null)} />
+          <div
+            className="cy-hmenu-pop"
+            role="menu"
+            style={{ position: 'fixed', left: Math.max(8, moreAt.x - 120), top: moreAt.y, right: 'auto', zIndex: 60 }}
+          >
+            <button type="button" role="menuitem" onClick={() => { setMoreAt(null); setBInsight('ai') }}>
+              AI 요약
+            </button>
+            <button type="button" role="menuitem" onClick={() => { setMoreAt(null); goto('report', oneCycle.id) }}>
+              보고서
+            </button>
+            <button type="button" role="menuitem" onClick={() => { setMoreAt(null); setBInsight('metrics') }}>
+              메트릭스
+            </button>
+            <hr />
+            <button type="button" role="menuitem" onClick={() => { setMoreAt(null); setBReport(true) }}>
+              PPTX (고객사 결과서)
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={!(oneCycle.items ?? []).length}
+              onClick={() => { setMoreAt(null); exportCycleCsv(oneCycle) }}
+            >
+              Export (CSV)
+            </button>
+          </div>
+        </>
+      )}
+      {bInsight && oneCycle && (
+        <CycleInsight
+          mode={bInsight}
+          cycleId={oneCycle.id}
+          title={[oneCycle.model, oneCycle.version].filter(Boolean).join(' · ') || oneCycle.id}
+          items={oneCycle.items ?? []}
+          onClose={() => setBInsight(null)}
+        />
+      )}
+      {bReport && oneCycle && (
+        <CycleReport
+          cycleId={oneCycle.id}
+          model={oneCycle.model}
+          version={oneCycle.version}
+          onClose={() => setBReport(false)}
+        />
+      )}
       {prgTip && (() => {
         const t2 = stats.get(prgTip.c.id) ?? { total: 0, done: 0, pass: 0, fail: 0, pct: 0, iss: 0 }
         // 결과값별 개수 — 사용자 정의 결과 상태(색 포함)를 그대로 쓴다
@@ -2671,13 +2756,14 @@ function CycleDetail({
   }
   /** 항목 추가 창 */
   const [adding, setAdding] = useState(false)
+  /** 1열 머리의 ⋯ — 항목 추가·내 것만 */
+  const [sideMenu, setSideMenu] = useState<{ x: number; y: number } | null>(null)
+  /** 깔때기 — 결과 필터(전체·Pass·Fail·미실행·회귀). 걸린 개수가 배지로 */
+  const [filtAt, setFiltAt] = useState<{ x: number; y: number } | null>(null)
   /** 고치는 항목들 — 한 건이면 Edit, 여럿이면 Bulk Edit (같은 창) */
   const [editing, setEditing] = useState<CycleItemLite[] | null>(null)
   /** 회차를 놓고 보는 창 — AI 요약 · 메트릭스 */
   const [insight, setInsight] = useState<'ai' | 'metrics' | null>(null)
-  /** 제목 줄의 「⋯」 — 요약·보고서·내보내기. 카드 overflow 에 잘리지 않게
-      fixed 좌표로 띄운다 (⚙ 팝업들과 같은 수법) */
-  const [headMenu, setHeadMenu] = useState<{ x: number; y: number } | null>(null)
   /** 맨 위 빵부스러기 줄의 실행 단추 자리 — 부모가 비워 둔 슬롯(포털) */
   const [barEl, setBarEl] = useState<HTMLElement | null>(null)
   useEffect(() => {
@@ -2721,36 +2807,6 @@ function CycleDetail({
   const setResult = (tcid: string, result: string) =>
     saveItems((cur) => cur.map((x) => (x.tcid === tcid ? { ...x, result } : x)))
 
-  /**
-   * 고른 항목(없으면 전체)을 CSV 로 — 요구사항·시험항목의 Export 와 같다.
-   * 결과서(고객사용 슬라이드)와는 쓰임이 다르다. 이쪽은 자료다.
-   */
-  const exportItems = () => {
-    const rows = pick.size ? [...pick].map((i) => items[i]!).filter(Boolean) : items
-    if (!rows.length) return
-    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const csv = [
-      ['TC ID', '시험', '결과', '담당', '메모', '실행'].map(esc).join(','),
-      ...rows.map((it) =>
-        [
-          it.tcid,
-          it.name ?? '',
-          verdictLabel(itemVerdict(it)),
-          it.assignee || it.executed_by || '',
-          it.note ?? '',
-          it.executed_at ?? '',
-        ]
-          .map(esc)
-          .join(','),
-      ),
-    ].join('\r\n')
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `사이클_${[cycle.model, cycle.version].filter(Boolean).join('_') || cycle.id}.csv`
-    a.click()
-    URL.revokeObjectURL(a.href)
-  }
 
 
   /**
@@ -3155,90 +3211,6 @@ function CycleDetail({
                 </button>
               </>
             )}
-            <div className="cy-hmenu">
-              <button
-                className="btn small"
-                type="button"
-                title="요약 · 보고서 · 내보내기"
-                aria-haspopup="menu"
-                aria-expanded={!!headMenu}
-                onClick={(e) => {
-                  const r2 = e.currentTarget.getBoundingClientRect()
-                  setHeadMenu((v) => (v ? null : { x: r2.left, y: r2.bottom + 4 }))
-                }}
-              >
-                ⋯
-              </button>
-              {headMenu && (
-                <>
-                  <div className="cy-hmenu-back" onClick={() => setHeadMenu(null)} />
-                  <div
-                    className="cy-hmenu-pop"
-                    role="menu"
-                    style={{
-                      position: 'fixed',
-                      left: Math.max(8, Math.min(headMenu.x, window.innerWidth - 190)),
-                      top: headMenu.y,
-                      right: 'auto',
-                      zIndex: 60,
-                    }}
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setHeadMenu(null)
-                        setInsight('ai')
-                      }}
-                    >
-                      AI 요약
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setHeadMenu(null)
-                        goto('report', cycle.id)
-                      }}
-                    >
-                      보고서
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setHeadMenu(null)
-                        setInsight('metrics')
-                      }}
-                    >
-                      메트릭스
-                    </button>
-                    <hr />
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setHeadMenu(null)
-                        setReport(true)
-                      }}
-                    >
-                      PPTX (고객사 결과서)
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={!items.length}
-                      onClick={() => {
-                        setHeadMenu(null)
-                        exportItems()
-                      }}
-                    >
-                      Export (CSV)
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
             {joined && (
               <span className={`cy-join ${joined.how}`}>
                 {joined.who} 님이 {joined.how === 'in' ? '들어왔습니다' : '나갔습니다'}
@@ -3442,13 +3414,41 @@ function CycleDetail({
                 ))}
               </select>
             )}
+            {(() => {
+              const fCnt = (only !== null ? 1 : 0) + (onlyRegress ? 1 : 0)
+              return (
+                <button
+                  className={`btn small cxp-funnel${fCnt ? ' cxp-fon' : ''}`}
+                  type="button"
+                  title="결과 필터 — 전체 · Pass · Fail · 미실행 · 회귀"
+                  onClick={(e) => {
+                    const r2 = e.currentTarget.getBoundingClientRect()
+                    setFiltAt((v2) => (v2 ? null : { x: r2.right, y: r2.bottom + 4 }))
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
+                    <path
+                      d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
+                      fill={fCnt ? 'currentColor' : 'none'}
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  {fCnt > 0 && <em className="cxp-fbadge">{fCnt}</em>}
+                </button>
+              )
+            })()}
             <button
-              className="btn small"
+              className={`btn small${fAss ? ' cxp-fon' : ''}`}
               type="button"
-              title="이 사이클에 시험 항목을 넣습니다"
-              onClick={() => setAdding(true)}
+              title="항목 추가 · 내 것만"
+              onClick={(e) => {
+                const r2 = e.currentTarget.getBoundingClientRect()
+                setSideMenu((v2) => (v2 ? null : { x: r2.right, y: r2.bottom + 4 }))
+              }}
             >
-              ＋
+              ⋯
             </button>
           </div>
           {/* 찾기 + 내 것만 — Zephyr 왼쪽 목록의 도구 그대로 */}
@@ -3459,72 +3459,117 @@ function CycleDetail({
               value={fq}
               onChange={(e) => setFq(e.target.value)}
             />
-            <label className="cxp-mine" title="내가 담당인 항목만 봅니다">
-              <input
-                type="checkbox"
-                checked={fAss !== ''}
-                onChange={(e) => setFAss(e.target.checked ? meName : '')}
-              />
-              내 것만
-            </label>
           </div>
-          {/* 결과로 좁히기 — 누르면 그 결과만, 다시 누르면 전부 */}
-          <div className="cxp-chips">
-            <button
-              type="button"
-              className={only === null && !onlyRegress ? 'on' : ''}
-              onClick={() => {
-                setOnly(null)
-                setOnlyRegress(false)
-              }}
-            >
-              전체 {items.length}
-            </button>
-            <button
-              type="button"
-              className={`cp${only === 'Pass' ? ' on' : ''}`}
-              onClick={() => {
-                setOnlyRegress(false)
-                setOnly(only === 'Pass' ? null : 'Pass')
-              }}
-            >
-              Pass {counts['Pass'] ?? 0}
-            </button>
-            <button
-              type="button"
-              className={`cf${only === 'Fail' ? ' on' : ''}`}
-              onClick={() => {
-                setOnlyRegress(false)
-                setOnly(only === 'Fail' ? null : 'Fail')
-              }}
-            >
-              Fail {counts['Fail'] ?? 0}
-            </button>
-            <button
-              type="button"
-              className={only === '' ? 'on' : ''}
-              onClick={() => {
-                setOnlyRegress(false)
-                setOnly(only === '' ? null : '')
-              }}
-            >
-              미실행 {counts[''] ?? 0}
-            </button>
-            {others.length > 0 && (
+          {sideMenu && (
+            <>
+              <span className="cyt-gearovl" onClick={() => setSideMenu(null)} />
+              <div
+                className="cy-hmenu-pop cxp-sidepop"
+                role="menu"
+                style={{
+                  position: 'fixed',
+                  left: Math.max(8, Math.min(sideMenu.x - 200, window.innerWidth - 240)),
+                  top: sideMenu.y,
+                  right: 'auto',
+                  zIndex: 60,
+                }}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setSideMenu(null)
+                    setAdding(true)
+                  }}
+                >
+                  ＋ 항목 추가
+                </button>
+                <hr />
+                <label className="cxp-pop-mine" title="내가 담당인 항목만 봅니다">
+                  <input
+                    type="checkbox"
+                    checked={fAss !== ''}
+                    onChange={(e) => setFAss(e.target.checked ? meName : '')}
+                  />
+                  내 것만
+                </label>
+              </div>
+            </>
+          )}
+          {filtAt && (
+            <>
+              <span className="cyt-gearovl" onClick={() => setFiltAt(null)} />
+              <div
+                className="cy-hmenu-pop cxp-sidepop"
+                role="menu"
+                style={{
+                  position: 'fixed',
+                  left: Math.max(8, Math.min(filtAt.x - 220, window.innerWidth - 260)),
+                  top: filtAt.y,
+                  right: 'auto',
+                  zIndex: 60,
+                }}
+              >
+            {/* 결과로 좁히기 — 누르면 그 결과만, 다시 누르면 전부 */}
+            <div className="cxp-chips">
               <button
                 type="button"
-                className={`cr${onlyRegress ? ' on' : ''}`}
-                title={
-                  prev
-                    ? `${prev.version || prev.name || '지난 사이클'} 에선 Pass 였는데 이번에 Fail 인 것`
-                    : '비교할 지난 사이클이 없습니다'
-                }
-                onClick={() => setOnlyRegress((v) => !v)}
+                className={only === null && !onlyRegress ? 'on' : ''}
+                onClick={() => {
+                  setOnly(null)
+                  setOnlyRegress(false)
+                }}
               >
-                회귀 {prev && prevVerdict.size ? regressN : '–'}
+                전체 {items.length}
               </button>
-            )}
-          </div>
+              <button
+                type="button"
+                className={`cp${only === 'Pass' ? ' on' : ''}`}
+                onClick={() => {
+                  setOnlyRegress(false)
+                  setOnly(only === 'Pass' ? null : 'Pass')
+                }}
+              >
+                Pass {counts['Pass'] ?? 0}
+              </button>
+              <button
+                type="button"
+                className={`cf${only === 'Fail' ? ' on' : ''}`}
+                onClick={() => {
+                  setOnlyRegress(false)
+                  setOnly(only === 'Fail' ? null : 'Fail')
+                }}
+              >
+                Fail {counts['Fail'] ?? 0}
+              </button>
+              <button
+                type="button"
+                className={only === '' ? 'on' : ''}
+                onClick={() => {
+                  setOnlyRegress(false)
+                  setOnly(only === '' ? null : '')
+                }}
+              >
+                미실행 {counts[''] ?? 0}
+              </button>
+              {others.length > 0 && (
+                <button
+                  type="button"
+                  className={`cr${onlyRegress ? ' on' : ''}`}
+                  title={
+                    prev
+                        ? `${prev.version || prev.name || '지난 사이클'} 에선 Pass 였는데 이번에 Fail 인 것`
+                        : '비교할 지난 사이클이 없습니다'
+                  }
+                  onClick={() => setOnlyRegress((v) => !v)}
+                >
+                  회귀 {prev && prevVerdict.size ? regressN : '–'}
+                </button>
+              )}
+            </div>
+              </div>
+            </>
+          )}
           <div className="cxp-rows scroll">
             {rows.map((it, i) => {
               const at = items.indexOf(it)

@@ -3650,6 +3650,43 @@ table.tb td.k {
 .cy-clone-f { display: flex; align-items: center; gap: 8px; }
 .cy-clone-f .sp { flex: 1; }
 
+.cyt-more { font-weight: 800; padding: 3px 10px; }
+
+/* 1열 ⋯ 팝업 — 항목 추가 · 내 것만 · 결과 필터 */
+.cxp-sidepop { min-width: 216px; }
+.cxp-sidepop hr { border: 0; border-top: 1px solid var(--c-border-weak, #eef1f5); margin: 4px 0; }
+.cxp-pop-mine {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.cxp-sidepop .cxp-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px; border: 0; }
+/* 깔때기 — 결과 필터. 걸린 개수가 오른쪽 위 배지로 */
+.cxp-funnel { position: relative; display: inline-flex; align-items: center; }
+.cxp-fbadge {
+  font-style: normal;
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+/* 필터가 걸려 있으면 ⋯ 에 표시 */
+.cxp-fon { color: var(--c-primary); border-color: var(--c-primary); }
+
+
 /* 보드 ⚙ 필터 — 사이클 INFO 필드 */
 .cyt-gear-tb {
   font-size: 21px;
