@@ -478,7 +478,11 @@ export default function Cycles({ me }: PageProps) {
     localStorage.setItem('utop.cycle.treeOpen', treeOpen ? '1' : '0')
   }, [treeOpen])
 
-  const [sel, setSel] = useState(() => localStorage.getItem(CY_SEL_KEY) || '')
+  /** 실행 화면은 Run·제목·딥링크로만 들어간다 — localStorage 복원은
+      목록에서 새로고침해도 실행 화면으로 끌려가는 사고를 냈다 */
+  const [sel, setSel] = useState(
+    () => new URLSearchParams(window.location.search).get('cycle') || '',
+  )
   /** 트리에서 폴더를 골랐으면 관제판을 그 묶음으로 좁힌다.
       key 를 저장해 새로고침해도 같은 폴더로 돌아온다 */
   const [scope, setScope] = useState<{ key: string; label: string; ids: Set<string> } | null>(null)
@@ -487,6 +491,10 @@ export default function Cycles({ me }: PageProps) {
   // 고르면 주소창에 남긴다 — 옛 화면의 #cycle=… 과 같은 일
   useEffect(() => {
     if (sel) reflectUrl('cycle', sel)
+    // 목록으로 돌아오면 ?cycle=… 을 걷어낸다 — 남겨 두면 App 이 켜질 때
+    // 그 링크가 이겨서 새로고침마다 실행 화면으로 끌려간다
+    else if (new URLSearchParams(window.location.search).has('cycle'))
+      window.history.replaceState({}, '', window.location.pathname)
   }, [sel])
   // 링크·뒤로가기로 온 채 다른 사이클을 가리키면 갈아탄다
   useEffect(
