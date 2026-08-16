@@ -75,6 +75,10 @@ function reqFolder(r: Requirement): string | null {
   return (r.cat4 || r.cat3 || r.cat2 || r.cat1 || null) as string | null
 }
 
+/** 자릿수 그대로 비교 — 숫자 정렬용. numeric 을 끄면 111 < 21 < 99 다.
+    폴더 번호가 크기가 아니라 1-1-1 식 코드라서 적힌 대로 서야 한다. */
+const plainCompare = new Intl.Collator('ko', { sensitivity: 'base' }).compare
+
 /** 우클릭 메뉴 위치와 대상 */
 interface Ctx {
   x: number
@@ -199,8 +203,9 @@ export default function ReqTree({
     const t = buildCategoryTree(cats)
     // 정렬은 보기만 바꾼다 — sort_order(끌기 순)는 건드리지 않아서
     // 「끌기 순」 으로 돌리면 원래 순서가 그대로 돌아온다.
-    // 첫 글자의 갈래(숫자·알파벳·한글)를 앞세우고, 같은 갈래끼리는
-    // 자연 순서 — 숫자 모드면 11 < 21 < 99 < 111 로 읽힌다.
+    // 첫 글자의 갈래(숫자·알파벳·한글)를 앞세운다. 숫자 모드는 번호를
+    // 자릿수 코드(1-1-1식)로 읽는다 — 111 < 21 < 99. 크기로 읽으면
+    // (21<99<111) 코드 체계가 흩어진다는 피드백.
     if (folderSort !== 'manual') {
       const rank = (nm: string): number => {
         const ch = nm.trimStart().charAt(0)
@@ -208,8 +213,10 @@ export default function ReqTree({
         if (folderSort === 'abc') return /[a-zA-Z]/.test(ch) ? 0 : 1
         return /[가-힣]/.test(ch) ? 0 : 1
       }
+      const cmp = (a: string, b: string): number =>
+        folderSort === 'num' ? plainCompare(a, b) : naturalCompare(a, b)
       const deep = (ns: CategoryTreeNode[]) => {
-        ns.sort((a, b) => rank(a.name) - rank(b.name) || naturalCompare(a.name, b.name))
+        ns.sort((a, b) => rank(a.name) - rank(b.name) || cmp(a.name, b.name))
         ns.forEach((k) => deep(k.children))
       }
       deep(t)
