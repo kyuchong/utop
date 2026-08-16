@@ -1461,6 +1461,8 @@ function CycleBoard({
   const [dexp, setDexp] = useState<Set<string>>(new Set())
   /** 여러 개 고르고 Edit — 상태·고객·담당자를 한꺼번에 바꾼다 */
   const [bulkOpen, setBulkOpen] = useState(false)
+  /** 방금 한 일의 결과 한 줄 — 시험항목 도구줄의 tc-msg 와 같은 자리 */
+  const [msg, setMsg] = useState('')
 
   /** 인라인 카드에 보일 필드 — 시험항목 화면과 같은 목록에서 ⚙ 로 고른다 */
   const [itCols, setItCols] = useState<Set<string>>(() => {
@@ -1651,6 +1653,7 @@ function CycleBoard({
             </button>
           </>
         )}
+        {msg && <span className="tc-msg ok">{msg}</span>}
         <span className="sp" />
         <input
           className="cy-q"
@@ -2080,9 +2083,11 @@ function CycleBoard({
           ids={[...picked]}
           cycles={cycles}
           onClose={() => setBulkOpen(false)}
-          onDone={() => {
+          onDone={(m) => {
             setBulkOpen(false)
             setPicked(new Set())
+            setMsg(m)
+            window.setTimeout(() => setMsg(''), 8000)
             onRefresh()
           }}
         />
@@ -2092,8 +2097,12 @@ function CycleBoard({
 }
 
 /**
- * Bulk Edit — 고른 사이클 여러 개의 상태·고객·담당자를 한꺼번에 바꾼다.
- * 비워 두면(— 그대로 —) 그 칸은 손대지 않는다.
+ * Bulk Edit — 고른 사이클 여러 개를 한꺼번에 고친다.
+ *
+ * 시험항목의 TcBulkEdit 과 같은 문법을 지킨다:
+ *  1. 넣을 항목을 체크로 고른다 — 안 고른 칸은 손대지 않는다
+ *  2. 「비어 있는 것만 채우기」 가 기본 — 덮어쓰기는 명시적 선택
+ *  3. 끝나면 몇 건에 넣었고 몇 건을 건너뛰었는지 말해 준다
  */
 function BulkEditDialog({
   ids,
@@ -2104,7 +2113,7 @@ function BulkEditDialog({
   ids: string[]
   cycles: CycleMeta[]
   onClose: () => void
-  onDone: () => void
+  onDone: (msg: string) => void
 }) {
   const codesQ = useQuery({
     queryKey: ['codes'],
@@ -2118,39 +2127,79 @@ function BulkEditDialog({
   const codeVals = (kind: string) =>
     (codesQ.data?.items ?? []).filter((i) => i.kind === kind).map((i) => i.value)
 
-  const [status, setStatus] = useState('')
-  const [customer, setCustomer] = useState('')
-  const [assignee, setAssignee] = useState('')
+  const [fill, setFill] = useState({ status: false, customer: false, assignee: false })
+  const [bStatus, setBStatus] = useState('')
+  const [bCust, setBCust] = useState('')
+  const [bWho, setBWho] = useState('')
+  /** 이미 값이 있는 사이클을 덮을 것인가 */
+  const [over, setOver] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  const nothing = !status && !customer && !assignee.trim()
+
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && !busy && onClose()
+    window.addEventListener('keydown', esc)
+    return () => window.removeEventListener('keydown', esc)
+  }, [onClose, busy])
+
+  const ready =
+    (fill.status && !!bStatus) || (fill.customer && !!bCust) || (fill.assignee && !!bWho.trim())
 
   const apply = async () => {
     setBusy(true)
-    setErr('')
-    let bad = 0
+    let done = 0
+    let skip = 0
+    const fails: string[] = []
     for (const id of ids) {
       try {
         const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`)
-        if (!r.ok) throw new Error()
-        const data = (await r.json()) as Record<string, unknown>
-        if (status) data.status = status
-        if (customer) data.customer = customer
-        if (assignee.trim()) data.assignee = assignee.trim()
+        if (!r.ok) throw new Error(String(r.status))
+        const cur = (await r.json()) as Record<string, unknown>
+        const patch: Record<string, unknown> = {}
+        // 비어 있는 것만 채울 때는 이미 값이 있으면 손대지 않는다
+        const putVal = (key: string, v: string) => {
+          const had = String(cur[key] ?? '').trim()
+          if (had && !over) return
+          patch[key] = v
+        }
+        if (fill.status && bStatus) putVal('status', bStatus)
+        if (fill.customer && bCust) putVal('customer', bCust)
+        if (fill.assignee && bWho.trim()) putVal('assignee', bWho.trim())
+        if (!Object.keys(patch).length) {
+          skip++
+          continue
+        }
         const w = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
+          body: JSON.stringify({ ...cur, ...patch }),
         })
-        if (!w.ok) throw new Error()
+        if (!w.ok) throw new Error(String(w.status))
+        done++
       } catch {
-        bad += 1
+        fails.push(id)
       }
     }
     setBusy(false)
-    if (bad) setErr(`${bad}건은 저장하지 못했습니다`)
-    else onDone()
+    onDone(
+      `${done}건에 넣었습니다` +
+        (skip ? ` · ${skip}건은 이미 있어 건너뜀` : '') +
+        (fails.length ? ` · ${fails.length}건 실패` : ''),
+    )
   }
+
+  const row = (key: 'status' | 'customer' | 'assignee', label: string, body: React.ReactNode) => (
+    <div className={`bk-row${fill[key] ? ' on' : ''}`}>
+      <label className="bk-name">
+        <input
+          type="checkbox"
+          checked={fill[key]}
+          onChange={(e) => setFill((f) => ({ ...f, [key]: e.target.checked }))}
+        />
+        <b>{label}</b>
+      </label>
+      {fill[key] && <div className="bk-body">{body}</div>}
+    </div>
+  )
 
   const nameOf = (id: string) => {
     const c = cycles.find((x) => x.id === id)
@@ -2159,60 +2208,108 @@ function BulkEditDialog({
 
   return (
     <div className="modal-back" onMouseDown={() => !busy && onClose()}>
-      <div className="modal cy-clone" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        className="modal bk"
+        role="dialog"
+        aria-modal="true"
+        aria-label="고른 사이클 한꺼번에 고치기"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="modal-head">
-          <b>Bulk Edit — {ids.length}개 사이클</b>
+          <b>고른 사이클 {ids.length}건 고치기</b>
           <span className="sp" />
+          <button className="btn small" type="button" disabled={busy} onClick={onClose}>
+            ✕
+          </button>
         </div>
-        <div className="cy-clone-b">
-          <div className="cy-bulk-list">
-            {ids.map((id) => (
-              <div key={id} className="muted small cyt-ell">{nameOf(id)}</div>
-            ))}
+
+        <div className="bk-cols">
+          <div className="bk-list">
+            {row(
+              'status',
+              '상태',
+              <div className="bk-vals">
+                <select value={bStatus} onChange={(e) => setBStatus(e.target.value)}>
+                  <option value="">(선택)</option>
+                  {codeVals('cycle_status').map((v) => (
+                    <option key={v}>{v}</option>
+                  ))}
+                </select>
+                <span className="muted small">상태는 대개 값이 있어 「덮어쓰기」 일 때만 바뀝니다</span>
+              </div>,
+            )}
+            {row(
+              'customer',
+              '고객',
+              <div className="bk-vals">
+                <select value={bCust} onChange={(e) => setBCust(e.target.value)}>
+                  <option value="">(선택)</option>
+                  {codeVals('cycle_customer').map((v) => (
+                    <option key={v}>{v}</option>
+                  ))}
+                </select>
+              </div>,
+            )}
+            {row(
+              'assignee',
+              '담당자',
+              <div className="bk-vals">
+                <input
+                  value={bWho}
+                  onChange={(e) => setBWho(e.target.value)}
+                  placeholder="이름"
+                />
+              </div>,
+            )}
           </div>
-          <div className="cy-clone-f">
-            <label>
-              상태
-              <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                <option value="">— 그대로 —</option>
-                {codeVals('cycle_status').map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              고객
-              <select value={customer} onChange={(e) => setCustomer(e.target.value)}>
-                <option value="">— 그대로 —</option>
-                {codeVals('cycle_customer').map((v) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              담당자
-              <input
-                value={assignee}
-                onChange={(e) => setAssignee(e.target.value)}
-                placeholder="비워 두면 그대로"
-              />
-            </label>
+
+          {/* 무엇에 들어가는지 보여 준다 — 「n건」 숫자만 보고 덮어쓰기를
+              누르게 하면 안 된다 */}
+          <div className="bk-targets">
+            <div className="bk-thead">들어갈 사이클 {ids.length}건</div>
+            <ul>
+              {ids.map((id) => (
+                <li key={id} title={id}>
+                  {nameOf(id)}
+                </li>
+              ))}
+            </ul>
           </div>
-          {err && <div className="cy-clone-err">{err}</div>}
         </div>
+
+        <div className="bk-mode">
+          {/* 되돌릴 수 없는 쪽을 기본으로 두지 않는다 */}
+          <label>
+            <input type="radio" checked={!over} onChange={() => setOver(false)} />
+            비어 있는 것만 채우기
+          </label>
+          <label className="bk-danger">
+            <input type="radio" checked={over} onChange={() => setOver(true)} />
+            덮어쓰기
+          </label>
+          {over && (
+            <span className="bk-warn">이미 적혀 있는 값이 바뀝니다. 되돌릴 수 없습니다.</span>
+          )}
+        </div>
+
         <div className="modal-foot">
-          <button type="button" className="btn" onClick={onClose} disabled={busy}>
-            취소
-          </button>
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() => void apply()}
-            disabled={busy || nothing}
-            title={nothing ? '바꿀 값을 하나 이상 고르세요' : ''}
-          >
-            {busy ? '저장 중…' : `적용 (${ids.length}건)`}
-          </button>
+          <span className="muted small">
+            {ready ? `${ids.length}건에 적용합니다` : '넣을 내용을 고르세요'}
+          </span>
+          <span className="sp" />
+          <span className="page-head-actions">
+            <button className="btn" type="button" disabled={busy} onClick={onClose}>
+              취소
+            </button>
+            <button
+              className="btn primary"
+              type="button"
+              disabled={!ready || busy}
+              onClick={() => void apply()}
+            >
+              {busy ? '넣는 중…' : '넣기'}
+            </button>
+          </span>
         </div>
       </div>
     </div>
