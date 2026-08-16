@@ -10568,6 +10568,69 @@ async def cycle_run_progress(payload: dict):
         pass
     return {"ok": True}
 
+@app.get("/api/dashboard")
+async def dashboard_data():
+    """대시보드 집계 — 위젯 전부를 한 번에. 사이클은 요약본(data_summary)만 읽어 가볍다."""
+    from datetime import datetime as _dt, timedelta as _td
+    devices = await db.device_list()
+    meters = [d for d in devices if str(d.get("role") or "") == "계측기"]
+    dev_groups = {}
+    for d in devices:
+        role = str(d.get("role") or "")
+        if role == "계측기":
+            continue
+        g = role or "기타"
+        dev_groups[g] = dev_groups.get(g, 0) + 1
+    try:
+        defects = await db.defect_list()
+    except Exception:
+        defects = []
+    _closed = ("closed", "resolved", "done", "완료", "해결", "닫힘")
+    opened = [x for x in defects if str(x.get("status") or "").strip().lower() not in _closed]
+    wk = (_dt.now() - _td(days=7)).strftime("%Y-%m-%d")
+    week_new = sum(1 for x in opened if str(x.get("created_at") or "")[:10] >= wk)
+    metas = await db.cycle_list_meta()
+    today = _dt.now().strftime("%Y-%m-%d")
+    days = [(_dt.now() - _td(days=i)).strftime("%Y-%m-%d") for i in range(13, -1, -1)]
+    daily = {d2: {"runs": 0, "ok": 0} for d2 in days}
+    versions = []
+    for c in metas:
+        items = [x for x in (c.get("items") or []) if isinstance(x, dict)]
+        ok2 = bad = done = 0
+        for it in items:
+            v = _item_verdict(it)
+            if v == "PASS":
+                ok2 += 1
+            elif v == "FAIL":
+                bad += 1
+            if v:
+                done += 1
+            d3 = str(it.get("executed_at") or "")[:10]
+            if d3 in daily:
+                daily[d3]["runs"] += 1
+                if v == "PASS":
+                    daily[d3]["ok"] += 1
+        versions.append({
+            "id": c.get("id"), "cid": str(c.get("cid") or ""),
+            "version": str(c.get("version") or ""), "name": str(c.get("name") or ""),
+            "updated": str(c.get("_updated_at_pg") or ""),
+            "total": len(items), "ok": ok2, "bad": bad, "done": done,
+        })
+    versions.sort(key=lambda x: x.get("updated") or "", reverse=True)
+    run = None
+    st2 = _cb_run_state
+    if st2 and _t.time() - st2.get("_at", 0) <= 1800:
+        run = {k: st2.get(k) for k in ("key", "name", "done", "total", "user")}
+    return {
+        "devices": {"total": len(devices) - len(meters), "groups": dev_groups},
+        "meters": {"total": len(meters)},
+        "defects": {"open": len(opened), "week_new": week_new},
+        "today": daily.get(today, {"runs": 0, "ok": 0}),
+        "daily": [{"date": d2, **daily[d2]} for d2 in days],
+        "versions": versions[:8],
+        "running": run,
+    }
+
 @app.get("/api/cycle-run-progress")
 async def cycle_run_progress_get():
     """진행 중인 실행 상태 조회 — 새로고침한 접속자가 배너·오버레이를 복원할 때 사용."""

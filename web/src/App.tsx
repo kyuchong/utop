@@ -5,6 +5,7 @@ import { authApi, getToken, setToken, type MeUser } from '@/api/client'
 import { useLiveRefresh } from '@/components/useLiveRefresh'
 import { useFreshBuild } from '@/components/useFreshBuild'
 import { goto, onGoto as onGotoEvent, reflectUrl } from '@/api/goto'
+import Dashboard from '@/pages/Dashboard'
 import Requirements from '@/pages/Requirements'
 import TestCases from '@/pages/TestCases'
 import Settings from '@/pages/Settings'
@@ -167,7 +168,9 @@ export default function App() {
         setPage(k)
       }}
     >
-      {page === 'requirements' ? (
+      {page === 'dashboard' ? (
+        <Dashboard onNav={(k) => setPage(k)} />
+      ) : page === 'requirements' ? (
         <Requirements />
       ) : page === 'testcases' ? (
         <TestCases me={user} />
