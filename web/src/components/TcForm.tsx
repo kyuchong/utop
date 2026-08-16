@@ -20,7 +20,7 @@ interface Props {
 const FB_STATUS = ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류']
 const FB_SEVERITY = ['치명', '중대', '보통', '경미']
 const FB_TYPE = ['FT', 'Function']
-const FB_RUN_TYPE = ['수동', '자동', '혼합']
+const FB_RUN_TYPE = ['수동', '자동']
 const FB_ORIGIN = ['자체', '고객']
 /** 「공용으로 하겠다」 는 명시적 선택 — 빈 값(안 고름)과 갈라야 필수가 된다 */
 const COMMON = '*'

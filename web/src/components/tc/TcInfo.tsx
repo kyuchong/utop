@@ -13,7 +13,7 @@ import './tc.css'
 // 진짜 목록은 설정 → TC INFO 필드에 있다.
 const FB_STATUS = ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류']
 const FB_SEVERITY = ['치명', '중대', '보통', '경미']
-const FB_RUN_TYPE = ['수동', '자동', '혼합']
+const FB_RUN_TYPE = ['수동', '자동']
 const FB_TYPE = ['FT', 'Function']
 const FB_ORIGIN = ['자체', '고객']
 

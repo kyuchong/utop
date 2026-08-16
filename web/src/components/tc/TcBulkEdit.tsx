@@ -68,7 +68,7 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
   const [bOrigin, setBOrigin] = useState('')
   const [bStatus, setBStatus] = useState('')
   const [bSev, setBSev] = useState('')
-  const RUN_TYPES = useCodes('tc_run_type', ['수동', '자동', '혼합'])
+  const RUN_TYPES = useCodes('tc_run_type', ['수동', '자동'])
   const TYPES = useCodes('tc_type', ['FT', 'Function'])
   const ORIGINS = useCodes('tc_origin', ['자체', '고객'])
   const STATUSES = useCodes('tc_status', ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류'])

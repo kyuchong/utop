@@ -57,6 +57,8 @@ export interface CycleMeta {
   created_by?: string | null
   /** 사이클 상태 — 설정 → 사이클 INFO 필드 값 */
   status?: string | null
+  /** 실행 ID — 사이클 ID 에서 파생 (C-2633-002 → CE-2633-002). 첫 Run 때 박힌다 */
+  ce?: string | null
   description?: string | null
   /** 복제 원본 사이클 id */
   cloned_from?: string | null
@@ -69,6 +71,8 @@ export interface CycleMeta {
 export interface CycleItemLite {
   tcid: string
   req_id?: string | null
+  /** 항목 실행 ID — CETC-<사이클 파생>-NN */
+  ceid?: string | null
   /** 사람이 손으로 정한 결과. 있으면 스텝 집계보다 이것이 이긴다 */
   result?: string | null
   name?: string | null
@@ -470,22 +474,24 @@ export default function Cycles({ me }: PageProps) {
   const [sel, setSel] = useState(
     () => new URLSearchParams(window.location.search).get('cycle') || '',
   )
+  /** ?ce=CE-… 로 들어왔다 — 목록이 오면 그 사이클을 찾아 연다 */
+  const [pendingCe, setPendingCe] = useState(
+    () => new URLSearchParams(window.location.search).get('ce') || '',
+  )
+  /** ?it=CETC-… — 실행 화면이 열리면 그 항목을 바로 편다 (한 번만) */
+  const [pendingIt] = useState(
+    () => new URLSearchParams(window.location.search).get('it') || '',
+  )
   /** 트리에서 폴더를 골랐으면 관제판을 그 묶음으로 좁힌다.
       key 를 저장해 새로고침해도 같은 폴더로 돌아온다 */
   const [scope, setScope] = useState<{ key: string; label: string; ids: Set<string> } | null>(null)
   // 고르면 주소창에 남긴다 — 옛 화면의 #cycle=… 과 같은 일
-  useEffect(() => {
-    if (sel) reflectUrl('cycle', sel)
-    // 목록으로 돌아오면 ?cycle=… 을 걷어낸다 — 남겨 두면 App 이 켜질 때
-    // 그 링크가 이겨서 새로고침마다 실행 화면으로 끌려간다
-    else if (new URLSearchParams(window.location.search).has('cycle'))
-      window.history.replaceState({}, '', window.location.pathname)
-  }, [sel])
   // 링크·뒤로가기로 온 채 다른 사이클을 가리키면 갈아탄다
   useEffect(
     () =>
       onGoto((kind, id) => {
         if (kind === 'cycle' && id !== sel) setSel(id)
+        else if (kind === 'ce') setPendingCe(id)
       }),
     [sel],
   )
@@ -620,6 +626,73 @@ export default function Cycles({ me }: PageProps) {
     [shown, freeFolders, famOf],
   )
   const cur = cycles.find((c) => c.id === sel)
+
+  // ?ce=CE-… 링크 — 목록이 오면 그 사이클로
+  useEffect(() => {
+    if (!pendingCe || !cycles.length) return
+    const hit = cycles.find((c) => String(c.ce ?? '') === pendingCe)
+    if (hit) {
+      setSel(hit.id)
+      setPendingCe('')
+    }
+  }, [pendingCe, cycles])
+
+  // 실행 화면에 들어오면 CE·CETC 를 부여받는다 — 멱등이라 몇 번이어도 같다
+  const minted = useRef('')
+  useEffect(() => {
+    if (!sel || minted.current === sel) return
+    minted.current = sel
+    void apiFetch(`/api/cycle/${encodeURIComponent(sel)}/exec-ids`, { method: 'POST' })
+      .then(async (r) => {
+        if (!r.ok) return
+        const j = (await r.json()) as { changed?: boolean }
+        if (j.changed) await listQ.refetch()
+      })
+      .catch(() => {
+        /* 부여 실패해도 실행은 계속된다 */
+      })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel])
+
+  // 주소창 — 실행 중이면 ?ce=(항목은 CycleDetail 이 &it= 까지), 목록이면 깨끗이
+  useEffect(() => {
+    if (sel) {
+      if (cur?.ce) return // CycleDetail 이 ?ce=…&it=… 을 쓴다
+      reflectUrl('cycle', sel)
+    } else if (/[?&](cycle|ce|it)=/.test(window.location.search)) {
+      // 남겨 두면 App 이 켜질 때 그 링크가 이겨서 새로고침마다 끌려간다
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [sel, cur])
+
+  /** 시험 완료 — 전 항목에 결과가 차야 켜진다. 종료일을 적고 목록으로 */
+  const allJudged =
+    (cur?.items?.length ?? 0) > 0 && (cur?.items ?? []).every((it) => itemVerdict(it) !== '')
+  const [finishing, setFinishing] = useState(false)
+  const finishExec = async () => {
+    if (!cur) return
+    setFinishing(true)
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cur.id)}`)
+      if (!r.ok) throw new Error(String(r.status))
+      const full = (await r.json()) as Record<string, unknown>
+      const w = await apiFetch(`/api/cycle/${encodeURIComponent(cur.id)}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          ...full,
+          end_date: new Date().toISOString().slice(0, 10),
+          updated_by: me?.name || me?.username || '',
+        }),
+      })
+      if (!w.ok) throw new Error(String(w.status))
+      setSel('')
+      await listQ.refetch()
+    } catch (e) {
+      window.alert(e instanceof Error ? `완료 처리를 못 했습니다 — ${e.message}` : '완료 처리를 못 했습니다')
+    } finally {
+      setFinishing(false)
+    }
+  }
 
   /** 고른 폴더 아래 사이클 — id 스냅샷이 아니라 경로로 거른다.
       스냅샷이면 복제·새로 만든 것이 그 폴더 화면에 안 보인다(겪었다) */
@@ -961,42 +1034,72 @@ export default function Cycles({ me }: PageProps) {
           >
             사이클
           </button>
-          {crumbs.map((c) => (
-            <span key={c.key}>
-              <span className="rq-crumb-sep">›</span>
-              <button
-                type="button"
-                className="cy-crumb-go"
-                title="이 폴더의 사이클 목록으로 갑니다"
-                onClick={() => scopeToKey(c.key)}
-              >
-                {c.label}
-              </button>
-            </span>
-          ))}
-          {cur && (
+          {cur ? (
+            /* 실행 중 — Cycle Execution › 모델그룹 › 모델명 › 버전그룹 › 버전 ›
+               사이클 ID › 제목. 제품군은 카탈로그에 생기면 앞에 붙인다 */
             <>
               <span className="rq-crumb-sep">›</span>
-              <b>{String(cur.version ?? '').trim() || cur.name || cur.id}</b>
+              <b>Cycle Execution</b>
+              {[cur.model_group, cur.model, cur.version_group, cur.version, cur.cid, cur.name]
+                .map((t) => String(t ?? '').trim())
+                .filter(Boolean)
+                .map((t, i) => (
+                  <span key={`${t}-${i}`}>
+                    <span className="rq-crumb-sep">›</span>
+                    <span className="cy-crumb-x">{t}</span>
+                  </span>
+                ))}
+              {cur.ce && (
+                <i className="cy-cechip" title="사이클 실행 ID — 주소를 복사해 보내면 이 화면이 열립니다">
+                  {cur.ce}
+                </i>
+              )}
+            </>
+          ) : (
+            <>
+              {crumbs.map((c) => (
+                <span key={c.key}>
+                  <span className="rq-crumb-sep">›</span>
+                  <button
+                    type="button"
+                    className="cy-crumb-go"
+                    title="이 폴더의 사이클 목록으로 갑니다"
+                    onClick={() => scopeToKey(c.key)}
+                  >
+                    {c.label}
+                  </button>
+                </span>
+              ))}
+              <span className="muted small">
+                {scope ? `사이클 ${scopedCycles.length}건` : '왼쪽에서 사이클을 고르세요'}
+              </span>
             </>
           )}
-          <span className="muted small">
-            {cur
-              ? `${cur._item_count ?? 0}건`
-              : scope
-                ? `사이클 ${scopedCycles.length}건`
-                : '왼쪽에서 사이클을 고르세요'}
-          </span>
         </span>
         <span className="sp" />
+        {cur && (
+          <button
+            className="btn small primary"
+            type="button"
+            disabled={!allJudged || finishing}
+            title={
+              allJudged
+                ? '종료일을 적고 사이클 목록으로 돌아갑니다'
+                : '모든 항목에 결과가 차면 완료할 수 있습니다'
+            }
+            onClick={() => void finishExec()}
+          >
+            {finishing ? '완료 중…' : '✔ 시험 완료'}
+          </button>
+        )}
         {/* 사이클 화면에 들어와 있는 사람 전부 — 상단 오른쪽 */}
         <PresenceBar users={crowd} me={me?.name || me?.username || ''} />
       </div>
 
-    <div className="split cy" ref={splitRef}>
+    <div className={`split cy${cur ? ' cy-execfull' : ''}`} ref={splitRef}>
       {/* 접었을 때 — 세로 띠 하나만 남는다. TC 화면과 같은 모양이다.
           아주 없애면 다시 펼 길이 없어지고 어디에 있었는지도 잊는다. */}
-      {!treeOpen && (
+      {!cur && !treeOpen && (
         <button
           type="button"
           className="tc-fold"
@@ -1007,7 +1110,7 @@ export default function Cycles({ me }: PageProps) {
           <span className="tc-fold-t">Cycle Tree {cycles.length}</span>
         </button>
       )}
-      {treeOpen && (
+      {!cur && treeOpen && (
       <section className="panel cy-tree" style={{ flexBasis: treeW }}>
         <ListHead
           name="Cycle Tree"
@@ -1261,6 +1364,8 @@ export default function Cycles({ me }: PageProps) {
             act={act}
             meName={me?.name || me?.username || ''}
             onSaved={() => void listQ.refetch()}
+            onGoCycle={(id) => setSel(id)}
+            initItemCeid={pendingIt}
           />
         ) : (
           <CycleBoard
@@ -2324,6 +2429,8 @@ function CycleDetail({
   act,
   meName,
   onSaved,
+  onGoCycle,
+  initItemCeid,
 }: {
   cycle: CycleMeta
   /** 회귀를 대 볼 후보들 — 이 사이클을 뺀 전부. 기본은 같은 모델 최신 */
@@ -2333,6 +2440,10 @@ function CycleDetail({
   /** 트리 우클릭 메뉴가 시킨 일 */
   act?: { what: 'details' | 'ai' | 'pptx' | 'run'; n: number } | null
   onSaved: () => void
+  /** 이력 칩을 누르면 그 사이클 실행 화면으로 */
+  onGoCycle: (id: string) => void
+  /** ?it=CETC-… 로 들어왔다 — 항목이 오면 한 번만 편다 */
+  initItemCeid?: string
 }) {
   /** 걸러 보기. null 이면 전부 — '' 는 「미실행」 이라는 뜻이라 못 쓴다 */
   const [only, setOnly] = useState<Verdict | null>(null)
@@ -2596,7 +2707,20 @@ function CycleDetail({
    * 자동 판정보다 먼저 본다 — 사람이 적은 것이 이긴다.
    */
   const setStepResult = (tcid: string, at: number, result: string) =>
-    setStepField(tcid, at, { result })
+    saveItems((cur2) =>
+      cur2.map((x) => {
+        if (x.tcid !== tcid) return x
+        const steps = (x.steps ?? []).map((sx, j) => (j === at ? { ...sx, result } : sx))
+        let r = x.result
+        // 수동 항목 규칙(합의): 하나라도 Pass 가 아니면 Fail, 전부 Pass 면 Pass,
+        // 아직 다 안 찍었으면 미실행(빈 값)
+        if (typeOf(x) === 'manual' && steps.length) {
+          const vs = steps.map((s2) => stepVerdict(s2 as TcStep))
+          r = vs.some((v2) => isFail(v2)) ? 'Fail' : vs.every((v2) => isPass(v2)) ? 'Pass' : ''
+        }
+        return { ...x, steps, result: r }
+      }),
+    )
 
   /** 스텝 하나의 아무 칸이나 저장한다 (결과·수동 ACTUAL 등) */
   const setStepField = (tcid: string, at: number, patch: Partial<CycleStep>) =>
@@ -2651,6 +2775,80 @@ function CycleDetail({
 
   const items = fullQ.data?.items ?? cycle.items ?? []
   const resDefs = useResults()
+
+  /**
+   * 항목이 수동인가 자동인가 — **TC 의 실행 타입이 정본**이다. 스텝이
+   * 들었는지와 무관하게 이것이 2열 표시와 1열 배지를 정한다.
+   * 「혼합」 은 타입에서 뺐다 — 남아 있는 옛 값은 수동으로 읽는다.
+   */
+  const tcMetaQ3 = useQuery({
+    queryKey: ['tc', 'list', 'meta'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/tc?meta=1')
+      if (!r.ok) throw new Error('시험 목록을 불러오지 못했습니다')
+      return (await r.json()) as { tcs: TestCaseMeta[] }
+    },
+    staleTime: 60_000,
+  })
+  const tcRun = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const t of tcMetaQ3.data?.tcs ?? [])
+      m.set(t.tcid, String((t as Record<string, unknown>).run_type ?? (t as Record<string, unknown>).kind ?? ''))
+    return m
+  }, [tcMetaQ3.data])
+  const typeOf = (it: CycleItemLite): 'manual' | 'auto' => {
+    const rt = String(tcRun.get(it.tcid) ?? '').trim()
+    if (rt === '자동') return 'auto'
+    if (rt === '수동' || rt === '혼합') return 'manual'
+    const kd = kindOf(it.steps ?? [])
+    return kd === 'auto' || kd === 'mixed' ? 'auto' : 'manual'
+  }
+
+  /**
+   * 기존 시험이력 — **같은 TC ID 가 든 다른 사이클 전부**에서 모은다.
+   * 복제 관계가 아니어도 잡힌다. 미실행은 이력이 아니라 뺀다.
+   */
+  const histAll = useMemo(() => {
+    const m = new Map<string, Array<{ id: string; v: Verdict; when: string; label: string }>>()
+    for (const c of others) {
+      for (const it of c.items ?? []) {
+        const v = itemVerdict(it)
+        if (v === '') continue
+        const arr = m.get(it.tcid) ?? []
+        arr.push({
+          id: c.id,
+          v,
+          when: String(it.executed_at ?? c._updated_at_pg ?? ''),
+          label: c.cid || c.version || c.id,
+        })
+        m.set(it.tcid, arr)
+      }
+    }
+    for (const arr of m.values()) arr.sort((a, b) => (a.when < b.when ? 1 : -1))
+    return m
+  }, [others])
+
+  /**
+   * 항목을 Pass 로 — 모든 스텝도 Pass 로 찍는 것과 같다(합의한 규칙).
+   * 한 개(줄의 ✓)와 선택 전체(위의 ✓ 전체 Pass)가 같은 길을 쓴다.
+   */
+  const passItems = (tcids: string[]) => {
+    const set = new Set(tcids)
+    const now = new Date().toISOString()
+    return saveItems((cur2) =>
+      cur2.map((x) =>
+        set.has(x.tcid)
+          ? {
+              ...x,
+              result: 'Pass',
+              executed_by: x.executed_by || meName,
+              executed_at: x.executed_at || now,
+              steps: (x.steps ?? []).map((s2) => ({ ...s2, result: 'Pass' })),
+            }
+          : x,
+      ),
+    )
+  }
   const counts: Record<string, number> = {}
   for (const r of resDefs) counts[r.v] = 0
   for (const it of items) counts[itemVerdict(it)] = (counts[itemVerdict(it)] ?? 0) + 1
@@ -2791,6 +2989,31 @@ function CycleDetail({
     void loadItemDefect(cur?.tcid ?? '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cur?.tcid, cycle.id])
+
+  // 주소창 — ?ce=CE-…(&it=CETC-…). 복사해 보내면 이 화면·이 항목이 열린다
+  useEffect(() => {
+    const ce = String(cycle.ce ?? '')
+    if (!ce) return
+    const ceid = openItem >= 0 ? String(items[openItem]?.ceid ?? '') : ''
+    const want = ceid
+      ? `?ce=${encodeURIComponent(ce)}&it=${encodeURIComponent(ceid)}`
+      : `?ce=${encodeURIComponent(ce)}`
+    if (window.location.search !== want)
+      window.history.replaceState({ utop: true }, '', window.location.pathname + want)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openItem, cycle.ce, items])
+
+  // ?it=CETC-… 로 들어온 항목 — 항목이 오면 한 번만 편다
+  const initedIt = useRef(false)
+  useEffect(() => {
+    if (initedIt.current || !initItemCeid || !items.length) return
+    const idx = items.findIndex((x) => String(x.ceid ?? '') === initItemCeid)
+    if (idx >= 0) {
+      initedIt.current = true
+      setOpenItem(idx)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, initItemCeid])
 
   // Objective·Precondition — 항목이 바뀔 때 그 시험(TC)에서 읽는다
   useEffect(() => {
@@ -3114,6 +3337,28 @@ function CycleDetail({
             <i className="cxp-n">{rows.length}</i>
             <span className="sp" />
             {pick.size > 0 && <span className="muted small">{pick.size} 고름</span>}
+            {pick.size > 0 && !st.on && (
+              <button
+                className="btn small primary"
+                type="button"
+                disabled={saving}
+                title="고른 수동 항목을 전부 Pass 로 — 스텝도 함께 Pass"
+                onClick={() => {
+                  const ids = [...pick]
+                    .map((i2) => items[i2])
+                    .filter((x): x is CycleItemLite => Boolean(x))
+                    .filter((x) => typeOf(x) === 'manual')
+                    .map((x) => x.tcid)
+                  if (!ids.length) {
+                    window.alert('고른 것 중 수동 항목이 없습니다')
+                    return
+                  }
+                  void passItems(ids).then(() => sel.clear())
+                }}
+              >
+                ✓ 전체 Pass
+              </button>
+            )}
             <button
               className="btn small"
               type="button"
@@ -3257,14 +3502,14 @@ function CycleDetail({
                     <span className="cxp-rmain">
                       <span className="cxp-r1">
                         <b className="cxp-tcid">{it.tcid || '–'}</b>
-                        {/* 사람 일인가 장비 일인가 — 목록에서 갈려야 한다 */}
+                        {/* 사람 일인가 장비 일인가 — TC 의 실행 타입이 정본 */}
                         {(() => {
-                          const kd = kindOf(shown.steps ?? [])
-                          return kd ? (
-                            <i className={`cxp-k ${kd}`}>
-                              {kd === 'manual' ? 'M' : kd === 'auto' ? 'A' : 'M+A'}
+                          const kd = typeOf(it)
+                          return (
+                            <i className={`cxp-k ${kd}`} title={kd === 'manual' ? '수동' : '자동'}>
+                              {kd === 'manual' ? 'M' : 'A'}
                             </i>
-                          ) : null
+                          )
                         })()}
                         {/* 나 말고 누가 이 항목을 보는 중인가 */}
                         {(() => {
@@ -3283,17 +3528,42 @@ function CycleDetail({
                         {it.name || it.tcid}
                       </span>
                     </span>
-                    {/* 직전 결과 — 비교 사이클(vs)에서 같은 시험의 결과 */}
-                    {prevVerdict.size > 0 && (
-                      <i
-                        className={`cxp-pv ${verdictClass(prevVerdict.get(it.tcid) ?? '')}`}
-                        title={`직전(${prev?.version || prev?.name || '이전'}): ${verdictLabel(prevVerdict.get(it.tcid) ?? '')}`}
+                    {/* 기존 시험이력 — 같은 TC 가 돈 다른 사이클들. 누르면 그리로 */}
+                    {(() => {
+                      const h = (histAll.get(it.tcid) ?? []).slice(0, 5)
+                      if (!h.length) return null
+                      return (
+                        <span className="cxp-hist" title="기존 시험이력 — 누르면 그 사이클로 갑니다">
+                          {h.map((x, n) => (
+                            <i
+                              key={`${x.id}-${n}`}
+                              className={`hv-${verdictClass(x.v)}`}
+                              title={`${x.label}: ${verdictLabel(x.v)}`}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onGoCycle(x.id)
+                              }}
+                            >
+                              {x.v === 'Pass' ? 'P' : x.v === 'Fail' ? 'F' : '–'}
+                            </i>
+                          ))}
+                        </span>
+                      )
+                    })()}
+                    {/* 수동 항목 한 개 Pass — 줄에서 바로 */}
+                    {!st.on && typeOf(it) === 'manual' && v !== 'Pass' && (
+                      <button
+                        type="button"
+                        className="cxp-passbtn"
+                        title="이 항목을 Pass 로 — 스텝도 함께 Pass"
+                        disabled={saving}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          void passItems([it.tcid])
+                        }}
                       >
-                        {(() => {
-                          const pv = prevVerdict.get(it.tcid) ?? ''
-                          return pv === 'Pass' ? 'P' : pv === 'Fail' ? 'F' : '–'
-                        })()}
-                      </i>
+                        ✓
+                      </button>
                     )}
                     {st.itemAt === at && st.on && <i className="cxp-live" title="실행 중" />}
                     {isRegress(it) && (
@@ -3388,6 +3658,7 @@ function CycleDetail({
               <StepDetail
                 key={cur.tcid ?? ''}
                 item={liveNow ? { ...cur, steps: st.liveSteps } : cur}
+                mode={typeOf(cur)}
                 runningAt={liveNow ? st.stepAt : -1}
                 onSetStep={(at2, v2) => void setStepResult(cur.tcid ?? '', at2, v2)}
                 onSetImg={(at2, file) => void setStepImg(cur.tcid ?? '', at2, file)}
@@ -3624,6 +3895,9 @@ function CloneDialog({
           ...full,
           id: nid,
           cid: '',
+          // 실행 ID 도 새로 — CE 는 사이클과 1:1 이다. 물려받으면 두 사이클이
+          // 같은 CE 를 갖게 된다 (첫 Run 때 새 cid 에서 파생된다)
+          ce: '',
           // 원본을 기억한다 — 실행 화면의 「직전 결과」 가 이걸 가리킨다
           cloned_from: cycleId,
           version: version.trim() || `${String(full.version ?? '')}_copy`,
@@ -4277,6 +4551,7 @@ function CyclePickTc({
  */
 function StepDetail({
   item,
+  mode,
   runningAt,
   onSetStep,
   onSetImg,
@@ -4287,6 +4562,8 @@ function StepDetail({
   onClose,
 }: {
   item: CycleItemLite
+  /** 수동인가 자동인가 — TC 실행 타입이 정한다. 표시 방식이 갈린다 */
+  mode?: 'manual' | 'auto'
   /** 지금 도는 스텝 번호. 안 돌면 -1 */
   runningAt: number
   /** 스텝 하나의 결과를 손으로 정한다 */
@@ -4334,6 +4611,7 @@ function StepDetail({
           결과서가 사실이 된다 */}
       <StepCards
         item={item}
+        mode={mode}
         runningAt={runningAt}
         onSetResult={onSetStep}
         onSetImg={onSetImg}

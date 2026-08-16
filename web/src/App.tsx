@@ -68,6 +68,8 @@ export default function App() {
     const kinds = [
       ['tc', 'utop.tc.open', 'testcases'],
       ['req', 'utop.req.sel', 'requirements'],
+      // ?ce=CE-2633-002 — 실행 링크. cycle 보다 앞이라 둘 다 있으면 ce 가 이긴다
+      ['ce', 'utop.cycle.ce', 'cycles'],
       ['cycle', 'utop.cycle.sel', 'cycles'],
       ['report', 'utop.report.cycle', 'executions'],
     ] as const

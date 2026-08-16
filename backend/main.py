@@ -8743,6 +8743,54 @@ async def save_cycle(cycle_id: str, data: dict):
         pass
     return {"success": True}
 
+@app.post("/api/cycle/{cycle_id}/exec-ids")
+async def cycle_exec_ids(cycle_id: str):
+    """실행 ID 부여 — 사이클에 포함되는 값이다.
+
+    CE 는 사이클 ID 에서 파생한다 (C-2633-002 → CE-2633-002). 사이클:실행이
+    1:1 이라는 결정 그대로 — 재시험은 Clone 이 새 사이클을 만드니 새 CE 다.
+    항목은 CETC-<파생>-NN. 멱등이라 실행 화면에 들어올 때마다 불러도 되고,
+    나중에 항목을 더 넣으면 빈 번호만 채운다."""
+    data = await db.cycle_get(cycle_id)
+    if not data:
+        raise HTTPException(404, "사이클이 없습니다")
+    cid = str(data.get("cid") or "").strip()
+    if not cid:
+        from datetime import datetime as _dt
+        try:
+            cid = await db.cycle_next_cid(db._cid_prefix_of(_dt.now()))
+            data["cid"] = cid
+        except Exception:
+            cid = ""
+    base = cid[2:] if cid.startswith("C-") else cid
+    changed = False
+    if base:
+        if not str(data.get("ce") or "").strip():
+            data["ce"] = f"CE-{base}"
+            changed = True
+        items = data.get("items") or []
+        used = set()
+        for it in items:
+            if isinstance(it, dict):
+                m = str(it.get("ceid") or "")
+                if m.startswith(f"CETC-{base}-"):
+                    try:
+                        used.add(int(m.rsplit("-", 1)[1]))
+                    except ValueError:
+                        pass
+        nxt = 1
+        for it in items:
+            if not isinstance(it, dict) or str(it.get("ceid") or "").strip():
+                continue
+            while nxt in used:
+                nxt += 1
+            it["ceid"] = f"CETC-{base}-{nxt:02d}"
+            used.add(nxt)
+            changed = True
+    if changed:
+        await db.cycle_upsert(cycle_id, data)
+    return {"ce": str(data.get("ce") or ""), "changed": changed}
+
 @app.delete("/api/cycle/{cycle_id}")
 async def delete_cycle(cycle_id: str):
     await db.cycle_delete(cycle_id)

@@ -75,6 +75,8 @@ function mark(out: string, toks: string[], ok: boolean): string {
 
 interface Props {
   item: CycleItemLite
+  /** 수동/자동 — TC 실행 타입이 정본. 수동이면 가로 표, 자동이면 세로 카드 */
+  mode?: 'manual' | 'auto'
   /** 지금 도는 스텝. 안 돌면 -1 */
   runningAt: number
   /** 스텝 하나의 결과를 손으로 정한다 (스텝 번호, 값) */
@@ -92,7 +94,7 @@ interface Props {
  * **무엇을 하려 했나 · 무엇을 보냈나 · 무엇이 나와야 하나 · 무엇이
  * 나왔나.** 이 넷이 나란히 있어야 왜 그렇게 판정됐는지가 읽힌다.
  */
-export default function StepCards({ item, runningAt, onSetResult, onSetImg, onSetImgUrl, onSetTxt }: Props) {
+export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg, onSetImgUrl, onSetTxt }: Props) {
   const all = (item.steps ?? []) as CycleStep[]
   const [only, setOnly] = useState(false)
   /**
@@ -155,7 +157,96 @@ export default function StepCards({ item, runningAt, onSetResult, onSetImg, onSe
     ? steps.filter((s) => stepVerdict(s as TcStep).toLowerCase() === 'fail')
     : steps
 
-  if (!all.length) return <div className="empty">아직 실행하지 않았습니다.</div>
+  if (!all.length) return <div className="empty">스텝 내용 없음</div>
+
+  /* 수동 항목 — Zephyr 식 가로 표. Test Step | Test Data | Expected Result 가
+     나란히 있고, ACTUAL DATA 는 **선택 입력**(수동 시험이라 모두 적기는
+     힘들다 — 합의), 스텝별 P/F. 하나라도 Pass 가 아니면 항목이 Fail 이 된다 */
+  if (mode === 'manual')
+    return (
+      <div className="ms">
+        <div className="ms-row ms-hd">
+          <span>#</span>
+          <span>Test Step</span>
+          <span>Test Data</span>
+          <span>Expected Result</span>
+          <span>
+            ACTUAL DATA <i className="ms-opt">(선택)</i>
+          </span>
+          <span>결과</span>
+        </div>
+        {all.map((st2, i) => {
+          const r = stepVerdict(st2 as TcStep)
+          return (
+            <div key={i} className={`ms-row${r === 'Fail' ? ' bad' : ''}`}>
+              <span className="ms-n">{i + 1}</span>
+              <span className="ms-c">
+                {st2.step || st2.desc || '–'}
+              </span>
+              <span className="ms-c">
+                {st2.data || st2.cli || '–'}
+                {st2.data_img && <img className="ms-img" src={st2.data_img} alt="" />}
+              </span>
+              <span className="ms-c">
+                {st2.expected || st2.criteria || '–'}
+                {st2.expected_img && <img className="ms-img" src={st2.expected_img} alt="" />}
+              </span>
+              <span className="ms-c ms-act">
+                {onSetTxt ? (
+                  <textarea
+                    rows={2}
+                    value={st2.actual_txt ?? ''}
+                    placeholder="선택 — 본 것을 적거나 Ctrl+V 로 사진"
+                    onChange={(e) => onSetTxt(i, e.target.value)}
+                    onPaste={(e) => {
+                      const f = [...(e.clipboardData?.items ?? [])]
+                        .find((x) => x.type.startsWith('image/'))
+                        ?.getAsFile()
+                      if (f && onSetImg) {
+                        e.preventDefault()
+                        void onSetImg(i, f)
+                      }
+                    }}
+                  />
+                ) : (
+                  <span>{st2.actual_txt || '–'}</span>
+                )}
+                {st2.actual_img && <img className="ms-img" src={st2.actual_img} alt="" />}
+                {st2.actual_img && onSetImgUrl && (
+                  <button type="button" className="sc-img-x" onClick={() => onSetImgUrl(i, '')}>
+                    사진 지우기
+                  </button>
+                )}
+              </span>
+              <span className="ms-v">
+                {onSetResult ? (
+                  <span className="ms-pf">
+                    <button
+                      type="button"
+                      className={`p${r === 'Pass' ? ' on' : ''}`}
+                      title="Pass"
+                      onClick={() => onSetResult(i, r === 'Pass' ? '' : 'Pass')}
+                    >
+                      P
+                    </button>
+                    <button
+                      type="button"
+                      className={`f${r === 'Fail' ? ' on' : ''}`}
+                      title="Fail"
+                      onClick={() => onSetResult(i, r === 'Fail' ? '' : 'Fail')}
+                    >
+                      F
+                    </button>
+                  </span>
+                ) : (
+                  <span>{r || '–'}</span>
+                )}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    )
 
   return (
     <div
@@ -303,7 +394,7 @@ export default function StepCards({ item, runningAt, onSetResult, onSetImg, onSe
               <div className="sc-sec">
                 {/* Manual 은 「무엇을 하나」 가 곧 절차다. 다른 라벨이 다
                     영문이라 통일한다. */}
-                <i>{s.kind === 'manual' ? 'Test Step' : '시험 목적'}</i>
+                <i>Test Step</i>
                 <div className="sc-txt">{s.desc || s.step}</div>
               </div>
             )}
@@ -375,16 +466,6 @@ export default function StepCards({ item, runningAt, onSetResult, onSetImg, onSe
             {s.criteria && (
               <div className="sc-sec">
                 <i>EXPECTED RESULT</i>
-                {/* 판정 기준을 조각으로 펴 놓는다.
-                    전에는 「문구 검증  E5010-24C」 한 줄이라, 조건이 여럿일
-                    때 무엇 무엇을 보는지 · 그중 무엇이 걸리고 무엇이
-                    안 걸렸는지가 안 보였다. */}
-                <div className="sc-exp">
-                  <span className="sc-type">
-                    {TYPE_LABEL[String(s.type ?? 'contains')] ?? s.type}
-                  </span>
-                  <span className="sc-rule">{RULE_HINT[String(s.type ?? 'contains')] ?? ''}</span>
-                </div>
                 {toks.length > 0 ? (
                   <div className="sc-toks">
                     {toks.map((t, n) => {
@@ -399,6 +480,18 @@ export default function StepCards({ item, runningAt, onSetResult, onSetImg, onSe
                 ) : (
                   <pre className="sc-crit">{s.criteria}</pre>
                 )}
+              </div>
+            )}
+            {/* 판정기준 — 무엇을 어떻게 보고 판정하는가 (스펙 합의로 칸을 분리) */}
+            {s.criteria && (
+              <div className="sc-sec">
+                <i>판정기준</i>
+                <div className="sc-exp">
+                  <span className="sc-type">
+                    {TYPE_LABEL[String(s.type ?? 'contains')] ?? s.type}
+                  </span>
+                  <span className="sc-rule">{RULE_HINT[String(s.type ?? 'contains')] ?? ''}</span>
+                </div>
               </div>
             )}
 

@@ -8,7 +8,7 @@
  *
  * 창 하나에 화면 하나뿐이니 알림 하나로 족하다.
  */
-export type GotoKind = 'tc' | 'req' | 'cycle' | 'report'
+export type GotoKind = 'tc' | 'req' | 'cycle' | 'ce' | 'report'
 
 export function goto(kind: GotoKind, id: string): void {
   window.dispatchEvent(new CustomEvent('utop:goto', { detail: { kind, id } }))
