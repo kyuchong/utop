@@ -3726,6 +3726,26 @@ function CycleDetail({
                 <b className="cxp-hid">{cur.tcid}</b>
                 <h3 className="cxp-hnm">{cur.name || cur.tcid}</h3>
                 <span className="sp" />
+                {(() => {
+                  /* 결함 등록 — Fail 만이 아니라 Blocked·진행불가도 결함을 단다 */
+                  const v0 = itemVerdict(cur)
+                  const can = v0 === 'Fail' || v0 === 'Blocked' || v0 === '진행불가' || itemDefect
+                  if (!can) return null
+                  return (
+                    <button
+                      className={`btn small${itemDefect ? '' : ' danger'}`}
+                      type="button"
+                      title={
+                        itemDefect
+                          ? `결함 ${itemDefect.id}${itemDefect.jira_key ? ` · ${itemDefect.jira_key}` : ''}`
+                          : '이 항목으로 결함을 등록합니다'
+                      }
+                      onClick={() => setDefectFor(cur)}
+                    >
+                      {itemDefect ? `● ${itemDefect.jira_key || '결함 봄'}` : '＋ 결함 등록'}
+                    </button>
+                  )
+                })()}
                 <select
                   className={`cy-v cxp-big ${verdictClass(itemVerdict(liveNow ? { ...cur, steps: st.liveSteps, result: '' } : cur))}`}
                   value={itemVerdict(cur)}
@@ -3813,10 +3833,6 @@ function CycleDetail({
                 onSetImgUrl={(at2, url) => void setStepField(cur.tcid ?? '', at2, { actual_img: url })}
                 onSetTxt={(at2, txt) => void setStepField(cur.tcid ?? '', at2, { actual_txt: txt })}
                 onSetRca={(at2, txt) => void setStepField(cur.tcid ?? '', at2, { rca: txt })}
-                onIssue={
-                  itemVerdict(cur) === 'Fail' || itemDefect ? () => setDefectFor(cur) : undefined
-                }
-                defect={itemDefect}
                 onClose={() => setOpenItem(-1)}
               />
             </>
