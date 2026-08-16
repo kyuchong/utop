@@ -361,7 +361,7 @@ function optionsOf(devices: Device[], get: (d: Device) => string): string[] {
  * 창을 닫지 않고 여러 번 추가할 수 있다 — 시험은 보통 DUT 한 대로 끝나지
  * 않고 대향·가입자단말까지 두세 자리를 한 번에 잡는다.
  */
-function DevicePicker({ devices, sessions, onAdd, onClose }: PickProps) {
+export function DevicePicker({ devices, sessions, onAdd, onClose }: PickProps) {
   const [lab, setLab] = useState('')
   const [vendor, setVendor] = useState('')
   const [role, setRole] = useState('')

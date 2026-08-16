@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch, tcApi } from '@/api/client'
 import MarkdownEditor from '@/components/MarkdownEditorLazy'
 import { useCodes } from '@/hooks/useCodes'
+import { DevicePicker } from '@/components/tc/TcSessionBar'
+import type { Device } from '@/pages/Devices'
 import type { TcData } from './types'
 
 interface Props {
@@ -75,21 +77,25 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
   const ORIGINS = useCodes('tc_origin', ['자체', '고객'])
   const STATUSES = useCodes('tc_status', ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류'])
   const SEVERITIES = useCodes('tc_severity', ['치명', '중대', '보통', '경미'])
-  /* 세션 일괄 — S1 은 필수, S2 를 고르면 여러 장비 시험이 된다.
-     세션이 빠져 자동 스텝이 못 도는 항목들을 한 번에 살린다 */
-  const [sDev1, setSDev1] = useState('')
-  const [sDev2, setSDev2] = useState('')
+  /* 세션 일괄 — 「세션 장비 고르기」 창(TcSessionBar 와 같은 것)으로 고른다.
+     자리 순서가 곧 S1·S2… — 세션이 빠져 자동 스텝이 못 도는 항목들을 한 번에 살린다 */
+  const [sSel, setSSel] = useState<string[]>([])
+  const [sPick, setSPick] = useState(false)
   const devQ = useQuery({
     queryKey: ['devices2'],
     queryFn: async () => {
       const r = await apiFetch('/api/devices2')
-      return (await r.json()) as { devices?: Array<{ id?: string; name?: string; ip?: string; model?: string; role?: string }> }
+      return (await r.json()) as { devices?: Device[] }
     },
     staleTime: 60_000,
   })
-  const sessDevs = (devQ.data?.devices ?? []).filter((d2) => (d2.role ?? '') !== '계측기' && d2.id)
-  const devLabel = (d2: { name?: string; ip?: string; model?: string }) =>
-    [d2.name || d2.model || '', d2.ip ? `(${d2.ip})` : ''].filter(Boolean).join(' ') || '(이름 없음)'
+  const allDevs = devQ.data?.devices ?? []
+  const sLabel = (id: string) => {
+    const d2 = allDevs.find((x) => x.id === id)
+    if (!d2) return id
+    const nm = String(d2.name || d2.model || '')
+    return d2.ip && nm ? `${nm} (${d2.ip})` : nm || String(d2.ip ?? id)
+  }
 
   /* 본보기에서 복사 — 토폴로지(세션·배선·배치)·계측기 트래픽은 손으로
      다시 못 적는다. 한 건을 본보기로 골라 통째로 심는다. */
@@ -166,7 +172,7 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
     (fill.precondition_md && pre.trim()) ||
     (fill.image && img) ||
     (fill.model && !!bMg) ||
-    (fill.sessions && !!sDev1) ||
+    (fill.sessions && sSel.length > 0) ||
     (fill.copy && !!srcId && (cpTopo || cpMeter)) ||
     (fill.run_type && !!bRun) ||
     (fill.type && !!bType) ||
@@ -220,10 +226,10 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
             patch.model = bMdl === COMMON ? '' : bMdl
           }
         }
-        if (fill.sessions && sDev1) {
+        if (fill.sessions && sSel.length) {
           const had = Array.isArray((cur as Record<string, unknown>).sessions) &&
             ((cur as Record<string, unknown>).sessions as unknown[]).length > 0
-          if (!had || over) patch.sessions = [sDev1, ...(sDev2 ? [sDev2] : [])]
+          if (!had || over) patch.sessions = [...sSel]
         }
         if (src && id !== srcId) {
           const c = cur as Record<string, unknown>
@@ -334,20 +340,34 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
           {row(
             'sessions',
             '세션 (실행 장비)',
-            <div className="bk-vals">
-              <select value={sDev1} onChange={(e) => setSDev1(e.target.value)} title="S1 — 명령이 나가는 장비">
-                <option value="">(S1 장비 골라 주세요)</option>
-                {sessDevs.map((d2) => (
-                  <option key={d2.id} value={d2.id}>{devLabel(d2)}</option>
-                ))}
-              </select>
-              <select value={sDev2} onChange={(e) => setSDev2(e.target.value)} title="S2 — 여러 장비 시험이면">
-                <option value="">S2 없음 (단독 장비)</option>
-                {sessDevs.filter((d2) => d2.id !== sDev1).map((d2) => (
-                  <option key={d2.id} value={d2.id}>{devLabel(d2)}</option>
-                ))}
-              </select>
-              <span className="muted small">세션이 없는 자동 시험은 돌릴 수 없습니다</span>
+            <div className="bk-vals bk-sess">
+              {sSel.map((id, i) => (
+                <span key={`${id}-${i}`} className="bk-sess-chip" title={sLabel(id)}>
+                  <b data-s={i % 4}>S{i + 1}</b>
+                  {sLabel(id)}
+                  <button
+                    type="button"
+                    aria-label="빼기"
+                    onClick={() => setSSel((cur2) => cur2.filter((_, j) => j !== i))}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+              <button className="btn small" type="button" onClick={() => setSPick(true)}>
+                + 장비 고르기
+              </button>
+              {sSel.length === 0 && (
+                <span className="muted small">세션이 없는 자동 시험은 돌릴 수 없습니다</span>
+              )}
+              {sPick && (
+                <DevicePicker
+                  devices={allDevs}
+                  sessions={sSel}
+                  onAdd={(id) => setSSel((cur2) => [...cur2, id])}
+                  onClose={() => setSPick(false)}
+                />
+              )}
             </div>,
           )}
           {row(
