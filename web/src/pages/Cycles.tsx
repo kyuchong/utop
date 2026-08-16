@@ -3423,26 +3423,45 @@ function CycleDetail({
             <span className="sp" />
             {pick.size > 0 && <span className="muted small">{pick.size} 고름</span>}
             {pick.size > 0 && !st.on && (
-              <button
-                className="btn small primary"
-                type="button"
+              /* 고른 항목 전부에 같은 판정 — Pass 만이 아니라 아무 값이나 */
+              <select
+                className="cy-v cxp-bulkv"
+                value=""
                 disabled={saving}
-                title="고른 수동 항목을 전부 Pass 로 — 스텝도 함께 Pass"
-                onClick={() => {
-                  const ids = [...pick]
+                title={`고른 ${pick.size}건에 같은 판정을 한 번에 적용합니다`}
+                onChange={(e) => {
+                  const val = e.target.value
+                  if (!val) return
+                  const rows2 = [...pick]
                     .map((i2) => items[i2])
                     .filter((x): x is CycleItemLite => Boolean(x))
-                    .filter((x) => typeOf(x) === 'manual')
-                    .map((x) => x.tcid)
-                  if (!ids.length) {
-                    window.alert('고른 것 중 수동 항목이 없습니다')
-                    return
-                  }
-                  void passItems(ids).then(() => sel.clear())
+                  const ids = new Set(rows2.map((x) => x.tcid))
+                  const now2 = new Date().toISOString()
+                  void saveItems((cur2) =>
+                    cur2.map((x) => {
+                      if (!ids.has(x.tcid)) return x
+                      const passAll = val === 'Pass' && typeOf(x) === 'manual'
+                      return {
+                        ...x,
+                        result: val === '미실행' ? '미실행' : val,
+                        executed_by: val === '미실행' ? x.executed_by : x.executed_by || meName,
+                        executed_at: val === '미실행' ? x.executed_at : x.executed_at || now2,
+                        // Pass 는 수동 스텝까지 Pass — 「항목 Pass = 모든 스텝 Pass」 합의
+                        steps: passAll
+                          ? (x.steps ?? []).map((s2) => ({ ...s2, result: 'Pass' }))
+                          : x.steps,
+                      }
+                    }),
+                  ).then(() => sel.clear())
                 }}
               >
-                ✓ 전체 Pass
-              </button>
+                <option value="">판정 일괄 적용…</option>
+                {resDefs.map((r) => (
+                  <option key={r.v} value={r.v === '' ? '미실행' : r.v}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
             )}
             <button
               className="btn small"
@@ -3721,10 +3740,8 @@ function CycleDetail({
                     ['버전그룹', cycle.version_group || '–'],
                     ['버전명', cycle.version || '–'],
                     ['담당자', cur.assignee || '–'],
-                    [
-                      '실행자 · 실행 시각',
-                      `${cur.executed_by || '–'}${cur.executed_at ? ` · ${String(cur.executed_at).slice(0, 16)}` : ''}`,
-                    ],
+                    ['실행자', cur.executed_by || '–'],
+                    ['실행 시각', cur.executed_at ? String(cur.executed_at).slice(0, 16) : '–'],
                   ]
                   /* 사이클에 실린 나머지 값 — 상태·고객에 더해, 앞으로
                      늘어날 커스텀 필드(고객사·사이클 유형 …)가 코드 수정
