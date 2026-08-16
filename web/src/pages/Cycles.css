@@ -3099,8 +3099,13 @@ table.tb td.k {
 }
 .cy-crumb-go:hover { color: var(--c-primary); text-decoration: underline; }
 
-/* 설명 — 마크다운 편집기 높이. 두 줄짜리 메모부터 서식 문서까지 */
+/* 설명 — 마크다운 편집기 높이. 내용이 길면 본문만 안쪽 스크롤
+   (툴바는 위에 남는다). 창이 무한정 길어지면 저장 단추가 사라진다 */
 .ce-md { min-height: 120px; }
+.ce-md .md-host {
+  max-height: 340px;
+  overflow-y: auto;
+}
 /* 편집기 본문 글자 — 밀크다운 ProseMirror 가 진짜 본문이다. 12px 로.
    위 여백은 첫 줄을 블록 선택할 때 뜨는 서식 말풍선 자리 — 없으면
    말풍선이 위 툴바를 덮어 메뉴를 못 누른다. */
