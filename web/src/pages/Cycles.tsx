@@ -2907,31 +2907,6 @@ function CycleDetail({
   }, [others])
 
   /**
-   * 항목을 Pass 로 — 모든 스텝도 Pass 로 찍는 것과 같다(합의한 규칙).
-   * 한 개(줄의 ✓)와 선택 전체(위의 ✓ 전체 Pass)가 같은 길을 쓴다.
-   */
-  const passItems = (tcids: string[]) => {
-    const set = new Set(tcids)
-    const now = new Date().toISOString()
-    return saveItems((cur2) =>
-      cur2.map((x) =>
-        set.has(x.tcid)
-          ? {
-              ...x,
-              result: 'Pass',
-              executed_by: x.executed_by || meName,
-              executed_at: x.executed_at || now,
-              steps: (x.steps ?? []).map((s2) => ({ ...s2, result: 'Pass' })),
-            }
-          : x,
-      ),
-    )
-  }
-  const counts: Record<string, number> = {}
-  for (const r of resDefs) counts[r.v] = 0
-  for (const it of items) counts[itemVerdict(it)] = (counts[itemVerdict(it)] ?? 0) + 1
-
-  /**
    * ③ 좁혀 보기 — 결과(통계 카드)에 더해 심각도·타입·발생구분·글자로 거른다.
    *
    * 64건이 넘어가면 결과만으로는 못 좁힌다. 「고객이 낸 것 중 Blocker 만」
