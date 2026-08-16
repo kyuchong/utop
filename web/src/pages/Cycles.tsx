@@ -1038,8 +1038,6 @@ export default function Cycles({ me }: PageProps) {
             /* 실행 중 — Cycle Execution › 모델그룹 › 모델명 › 버전그룹 › 버전 ›
                사이클 ID › 제목. 제품군은 카탈로그에 생기면 앞에 붙인다 */
             <>
-              <span className="rq-crumb-sep">›</span>
-              <b>Cycle Execution</b>
               {[cur.model_group, cur.model, cur.version_group, cur.version, cur.cid, cur.name]
                 .map((t) => String(t ?? '').trim())
                 .filter(Boolean)
@@ -2590,6 +2588,9 @@ function CycleDetail({
   }, [st.on, st.itemAt, follow])
 
   const colsRef = useRef<HTMLDivElement>(null)
+  /** 1열(항목 목록) 폭 — 끌어서 바꾼다. 다른 화면들과 같은 부품 */
+  const [sideW, setSideW] = useResizableWidth('utop.cycle.execSideW', 340, 220, 640)
+  const sideRef = useRef<HTMLElement | null>(null)
 
   /** 고른 항목의 시험 문서(Objective·Precondition) — TC 가 정본이라 그때 읽는다 */
   const [tcDoc, setTcDoc] = useState<{ object_md?: string; precondition_md?: string } | null>(null)
@@ -2617,8 +2618,9 @@ function CycleDetail({
   const [editing, setEditing] = useState<CycleItemLite[] | null>(null)
   /** 회차를 놓고 보는 창 — AI 요약 · 메트릭스 */
   const [insight, setInsight] = useState<'ai' | 'metrics' | null>(null)
-  /** 제목 줄의 「⋯」 — 요약·보고서·내보내기 */
-  const [headMenu, setHeadMenu] = useState(false)
+  /** 제목 줄의 「⋯」 — 요약·보고서·내보내기. 카드 overflow 에 잘리지 않게
+      fixed 좌표로 띄운다 (⚙ 팝업들과 같은 수법) */
+  const [headMenu, setHeadMenu] = useState<{ x: number; y: number } | null>(null)
 
   /**
    * 트리 우클릭 메뉴가 시킨 일을 여기서 한다.
@@ -3062,29 +3064,8 @@ function CycleDetail({
           Edit·Bulk Edit | Add·Delete·Export. 세 화면을 오가는 사람이 매번
           어디에 무엇이 있는지 다시 찾지 않게. */}
       <div className="cy-head">
-        {/* ① 제목을 단추와 한 줄에 둔다 — 세 칸의 머리가 모두 한 줄이라야
-            구분선이 같은 높이에서 만난다. */}
-        <span className="cy-cardt">
-          <b>Cycle Execution</b>
-          <span className="muted small">
-            {[cycle.model, cycle.version].filter(Boolean).join(' · ')}
-          </span>
-          {/* 누가 같이 보고 있나. 혼자면 안 뜬다 — 늘 있으면 장식이 된다 */}
-          <PresenceBar users={presence.users} me={meName} />
-          {joined && (
-            <span className={`cy-join ${joined.how}`}>
-              {joined.who} 님이 {joined.how === 'in' ? '들어왔습니다' : '나갔습니다'}
-            </span>
-          )}
-          {/* 남이 고친 이력. 띠로 띄우면 연달아 저장할 때 앞의 것이 밀린다 */}
-          <SaveBell
-            items={saves}
-            unseen={Math.max(0, saves.length - seen)}
-            onSeen={() => setSeen(saves.length)}
-          />
-        </span>
-        <span className="sp" />
-        {/* 실행 — Zephyr 의 Start a new test execution 자리 */}
+        {/* 제목 줄은 뺐다 — 위 빵부스러기가 같은 내용을 이미 말한다.
+            실행 단추는 왼쪽(피드백 ④), 접속자 표시는 오른쪽 끝. */}
         {st.on ? (
           <button className="btn danger small" type="button" onClick={() => void stop()}>
             ⏹ 멈추기
@@ -3119,20 +3100,33 @@ function CycleDetail({
             type="button"
             title="요약 · 보고서 · 내보내기"
             aria-haspopup="menu"
-            aria-expanded={headMenu}
-            onClick={() => setHeadMenu((v) => !v)}
+            aria-expanded={!!headMenu}
+            onClick={(e) => {
+              const r2 = e.currentTarget.getBoundingClientRect()
+              setHeadMenu((v) => (v ? null : { x: r2.left, y: r2.bottom + 4 }))
+            }}
           >
             ⋯
           </button>
           {headMenu && (
             <>
-              <div className="cy-hmenu-back" onClick={() => setHeadMenu(false)} />
-              <div className="cy-hmenu-pop" role="menu">
+              <div className="cy-hmenu-back" onClick={() => setHeadMenu(null)} />
+              <div
+                className="cy-hmenu-pop"
+                role="menu"
+                style={{
+                  position: 'fixed',
+                  left: Math.max(8, Math.min(headMenu.x, window.innerWidth - 190)),
+                  top: headMenu.y,
+                  right: 'auto',
+                  zIndex: 60,
+                }}
+              >
                 <button
                   type="button"
                   role="menuitem"
                   onClick={() => {
-                    setHeadMenu(false)
+                    setHeadMenu(null)
                     setInsight('ai')
                   }}
                 >
@@ -3142,7 +3136,7 @@ function CycleDetail({
                   type="button"
                   role="menuitem"
                   onClick={() => {
-                    setHeadMenu(false)
+                    setHeadMenu(null)
                     goto('report', cycle.id)
                   }}
                 >
@@ -3152,7 +3146,7 @@ function CycleDetail({
                   type="button"
                   role="menuitem"
                   onClick={() => {
-                    setHeadMenu(false)
+                    setHeadMenu(null)
                     setInsight('metrics')
                   }}
                 >
@@ -3163,7 +3157,7 @@ function CycleDetail({
                   type="button"
                   role="menuitem"
                   onClick={() => {
-                    setHeadMenu(false)
+                    setHeadMenu(null)
                     setReport(true)
                   }}
                 >
@@ -3174,7 +3168,7 @@ function CycleDetail({
                   role="menuitem"
                   disabled={!items.length}
                   onClick={() => {
-                    setHeadMenu(false)
+                    setHeadMenu(null)
                     exportItems()
                   }}
                 >
@@ -3184,6 +3178,20 @@ function CycleDetail({
             </>
           )}
         </div>
+        <span className="sp" />
+        {/* 누가 같이 보고 있나. 혼자면 안 뜬다 — 늘 있으면 장식이 된다 */}
+        <PresenceBar users={presence.users} me={meName} />
+        {joined && (
+          <span className={`cy-join ${joined.how}`}>
+            {joined.who} 님이 {joined.how === 'in' ? '들어왔습니다' : '나갔습니다'}
+          </span>
+        )}
+        {/* 남이 고친 이력. 띠로 띄우면 연달아 저장할 때 앞의 것이 밀린다 */}
+        <SaveBell
+          items={saves}
+          unseen={Math.max(0, saves.length - seen)}
+          onSeen={() => setSeen(saves.length)}
+        />
       </div>
 
 
@@ -3316,7 +3324,7 @@ function CycleDetail({
       {/* Test Player — 왼쪽에서 항목을 고르고, 오른쪽에서 시험한다.
           Zephyr 실행 화면 문법: 목록은 좁게, 절차·판정·기록은 넓게. */}
       <div className="cxp">
-        <aside className="cxp-side">
+        <aside className="cxp-side" ref={sideRef} style={{ width: sideW }}>
           <div className="cxp-sh">
             <label className="rq-selall" title="보이는 것 전부 고르기">
               <input
@@ -3502,15 +3510,6 @@ function CycleDetail({
                     <span className="cxp-rmain">
                       <span className="cxp-r1">
                         <b className="cxp-tcid">{it.tcid || '–'}</b>
-                        {/* 사람 일인가 장비 일인가 — TC 의 실행 타입이 정본 */}
-                        {(() => {
-                          const kd = typeOf(it)
-                          return (
-                            <i className={`cxp-k ${kd}`} title={kd === 'manual' ? '수동' : '자동'}>
-                              {kd === 'manual' ? 'M' : 'A'}
-                            </i>
-                          )
-                        })()}
                         {/* 나 말고 누가 이 항목을 보는 중인가 */}
                         {(() => {
                           const who = (focus[String(at)] ?? []).filter((u) => u !== meName)
@@ -3528,6 +3527,15 @@ function CycleDetail({
                         {it.name || it.tcid}
                       </span>
                     </span>
+                    {/* 오른쪽 무리: 타입 · 이력 · ✓ · 회귀 · 결과 — 칸이 서로 안 침범 */}
+                    {(() => {
+                      const kd = typeOf(it)
+                      return (
+                        <i className={`cxp-k ${kd}`} title={kd === 'manual' ? '수동' : '자동'}>
+                          {kd === 'manual' ? 'M' : 'A'}
+                        </i>
+                      )
+                    })()}
                     {/* 기존 시험이력 — 같은 TC 가 돈 다른 사이클들. 누르면 그리로 */}
                     {(() => {
                       const h = (histAll.get(it.tcid) ?? []).slice(0, 5)
@@ -3586,6 +3594,11 @@ function CycleDetail({
             {rows.length === 0 && <div className="empty">해당하는 항목이 없습니다.</div>}
           </div>
         </aside>
+        <Resizer
+          onResize={setSideW}
+          getOrigin={() => sideRef.current?.getBoundingClientRect().left ?? 0}
+          label="항목 목록 폭"
+        />
 
         <section className="cxp-main scroll">
           {cur ? (

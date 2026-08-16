@@ -2383,6 +2383,12 @@ table.tb td.k {
 .cxp-row.running { background: var(--c-primary-bg); }
 /* 한 줄 = ID + 제목 (사진처럼 낮게). 제목이 길면 …, 전체는 툴팁 */
 .cxp-rmain { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+/* 오른쪽 무리(타입·이력·✓·회귀·결과 점)는 폭을 지킨다 — 이름만 … 로 줄어든다 */
+.cxp-row > .cxp-k,
+.cxp-row > .cxp-hist,
+.cxp-row > .cxp-passbtn,
+.cxp-row > .cy-regchip,
+.cxp-row > .cxp-v { flex: none; }
 .cxp-r1 { display: flex; align-items: center; gap: 6px; min-width: 0; flex: none; }
 .cxp-tcid {
   font-size: var(--fs-xs);
@@ -3354,9 +3360,7 @@ table.tb td.k {
   font-size: 11px;
   line-height: 1;
   cursor: pointer;
-  opacity: 0;
 }
-.cxp-row:hover .cxp-passbtn { opacity: 1; }
 .cxp-passbtn:hover { background: #d9f4e6; }
 
 /* ── 수동 시험 가로 표 — Test Step | Test Data | Expected | ACTUAL | 결과 ── */
