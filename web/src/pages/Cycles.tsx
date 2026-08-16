@@ -629,6 +629,11 @@ export default function Cycles({ me }: PageProps) {
     () => new Map(models.map((m) => [m.name, (m.vendor ?? '').trim()])),
     [models],
   )
+  /** 모델그룹 — 사이클에 비어 있으면 카탈로그에서 보강한다 */
+  const mgroupOf = useMemo(
+    () => new Map(models.map((m) => [m.name, (m.model_group ?? '').trim()])),
+    [models],
+  )
   const tree = useMemo(
     () => build(shown, freeFolders, famOf),
     [shown, freeFolders, famOf],
@@ -1062,7 +1067,7 @@ export default function Cycles({ me }: PageProps) {
                 return [
                   vendorOf.get(cur.model ?? '') ?? '',
                   famOf.get(cur.model ?? '') ?? '',
-                  cur.model_group,
+                  (cur.model_group ?? '').trim() || (mgroupOf.get(cur.model ?? '') ?? ''),
                   cur.model,
                   cur.version_group,
                   cur.version,
@@ -1411,6 +1416,7 @@ export default function Cycles({ me }: PageProps) {
             initItemCeid={pendingIt}
             maker={vendorOf.get(cur.model ?? '') ?? ''}
             family={famOf.get(cur.model ?? '') ?? ''}
+            mgroup={(cur.model_group ?? '').trim() || (mgroupOf.get(cur.model ?? '') ?? '')}
           />
         ) : (
           <CycleBoard
@@ -2477,6 +2483,7 @@ function CycleDetail({
   initItemCeid,
   maker,
   family,
+  mgroup,
 }: {
   cycle: CycleMeta
   /** 회귀를 대 볼 후보들 — 이 사이클을 뺀 전부. 기본은 같은 모델 최신 */
@@ -2488,9 +2495,10 @@ function CycleDetail({
   onSaved: () => void
   /** ?it=CETC-… 로 들어왔다 — 항목이 오면 한 번만 편다 */
   initItemCeid?: string
-  /** 제조사·제품군 — 장비 카탈로그가 정본 */
+  /** 제조사·제품군·모델그룹 — 장비 카탈로그가 정본 */
   maker?: string
   family?: string
+  mgroup?: string
 }) {
   /** 걸러 보기. null 이면 전부 — '' 는 「미실행」 이라는 뜻이라 못 쓴다 */
   const [only, setOnly] = useState<Verdict | null>(null)
@@ -2873,6 +2881,19 @@ function CycleDetail({
     const kd = kindOf(it.steps ?? [])
     return kd === 'auto' || kd === 'mixed' ? 'auto' : 'manual'
   }
+
+  /** 담당자 후보 — 계정 목록(멘션용 공개 API) */
+  const usersQ = useQuery({
+    queryKey: ['users', 'mentionable'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/users/mentionable')
+      if (!r.ok) return { users: [] as Array<{ username?: string; name?: string }> }
+      return (await r.json()) as { users: Array<{ username?: string; name?: string }> }
+    },
+    staleTime: 60_000,
+  })
+  /** 담당자 할당 팝업 — 어느 항목(at) 위에 떠 있나 */
+  const [asgAt, setAsgAt] = useState<{ at: number; x: number; y: number } | null>(null)
 
   /**
    * 기존 시험이력 — **같은 TC ID 가 든 다른 사이클 전부**에서 모은다.
@@ -3645,28 +3666,34 @@ function CycleDetail({
                           </option>
                         ))}
                       </select>
-                      {/* 담당자 — 아이콘 하나, 둘 이상이면 +. 마우스 온에 전부 */}
+                      {/* 담당자 할당 — 아이콘을 누르면 사람 목록(Zephyr 문법).
+                          미할당은 회색 사람, 할당은 첫 글자, 둘 이상이면 + */}
                       {(() => {
                         const who = String(it.assignee ?? '')
                           .split(/[,·/;]+/)
                           .map((x) => x.trim())
                           .filter(Boolean)
                         return (
-                          <span className="cxp-who" title={who.join(', ') || '담당자 없음'}>
-                            {who.length > 0 && (
+                          <button
+                            type="button"
+                            className={`cxp-who${who.length ? '' : ' none'}`}
+                            title={who.length ? `담당: ${who.join(', ')} — 눌러서 바꿉니다` : '담당자 할당'}
+                            onClick={(e) => {
+                              const r2 = e.currentTarget.getBoundingClientRect()
+                              setAsgAt((v2) =>
+                                v2?.at === at ? null : { at, x: r2.right, y: r2.bottom + 4 },
+                              )
+                            }}
+                          >
+                            {who.length ? (
                               <>
                                 <i>{(who[0]![0] || '?').toUpperCase()}</i>
                                 {who.length > 1 && <em>+</em>}
-                                <span className="cxp-who-all">
-                                  {who.map((w) => (
-                                    <i key={w} title={w}>
-                                      {(w[0] || '?').toUpperCase()}
-                                    </i>
-                                  ))}
-                                </span>
                               </>
+                            ) : (
+                              <i className="g">👤</i>
                             )}
-                          </span>
+                          </button>
                         )
                       })()}
                     </span>
@@ -3676,6 +3703,57 @@ function CycleDetail({
             })}
             {rows.length === 0 && <div className="empty">해당하는 항목이 없습니다.</div>}
           </div>
+          {asgAt && (
+            <>
+              <span className="cyt-gearovl" onClick={() => setAsgAt(null)} />
+              <div
+                className="cxp-asg"
+                style={{
+                  position: 'fixed',
+                  left: Math.max(8, Math.min(asgAt.x - 180, window.innerWidth - 200)),
+                  top: Math.min(asgAt.y, window.innerHeight - 300),
+                  zIndex: 60,
+                }}
+              >
+                <div className="cxp-asg-h">담당자 할당</div>
+                {(usersQ.data?.users ?? []).map((u) => {
+                  const nm = String(u.name || u.username || '').trim()
+                  if (!nm) return null
+                  return (
+                    <button
+                      key={String(u.username ?? nm)}
+                      type="button"
+                      onClick={() => {
+                        const t2 = items[asgAt.at]
+                        setAsgAt(null)
+                        if (t2)
+                          void saveItems((cur2) =>
+                            cur2.map((x) => (x.tcid === t2.tcid ? { ...x, assignee: nm } : x)),
+                          )
+                      }}
+                    >
+                      <i>{(nm[0] || '?').toUpperCase()}</i>
+                      {nm}
+                    </button>
+                  )
+                })}
+                <button
+                  type="button"
+                  className="cxp-asg-x"
+                  onClick={() => {
+                    const t2 = items[asgAt.at]
+                    setAsgAt(null)
+                    if (t2)
+                      void saveItems((cur2) =>
+                        cur2.map((x) => (x.tcid === t2.tcid ? { ...x, assignee: '' } : x)),
+                      )
+                  }}
+                >
+                  할당 해제
+                </button>
+              </div>
+            </>
+          )}
         </aside>
         <Resizer
           onResize={setSideW}
@@ -3726,6 +3804,10 @@ function CycleDetail({
                 <div>
                   <i>제품군</i>
                   <b>{family || '–'}</b>
+                </div>
+                <div>
+                  <i>모델그룹</i>
+                  <b>{mgroup || '–'}</b>
                 </div>
                 <div>
                   <i>제품명</i>
