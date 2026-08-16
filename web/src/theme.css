@@ -278,5 +278,6 @@ button {
 .seg-btn.on {
   background: var(--c-primary);
   color: #fff;
-  font-weight: 700;
+  /* 굵기는 안 바꾼다 — 파란 바탕이 이미 선택을 말한다. 굵게 하면
+     고른 탭만 글자가 달라 보이고 폭도 들썩인다(피드백). */
 }

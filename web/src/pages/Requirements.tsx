@@ -1290,20 +1290,16 @@ export default function Requirements() {
                 )}
               </div>
 
-              <div className="bottom colbot">
-                <span>
-                  {tcByFolder
-                    ? `요구사항 ${folderReqs.length}건 · TC ${linked.length}건`
-                    : `${linked.length}개 TC 연결`}
-                  {shown.length !== linked.length && ` · ${shown.length}개 표시`}
-                </span>
-              </div>
             </div>
           )}
-          {/* Info·Intent·이력 탭에도 바닥 상태 바 — 세 칸이 같은 문법 */}
-          {selectedReq && tab !== 'tc' && (
+          {/* 바닥 상태 바 — 어느 탭이든 카드 맨 아래 같은 자리(피드백:
+              Coverages 만 목록 밑에 붙어 혼자 떠 보였다) */}
+          {selectedReq && (
             <div className="bottom colbot">
-              <span>연결 TC {linked.length}건</span>
+              <span>
+                연결 TC {linked.length}건
+                {tab === 'tc' && shown.length !== linked.length && ` · ${shown.length}개 표시`}
+              </span>
             </div>
           )}
         </section>
