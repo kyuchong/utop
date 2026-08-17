@@ -114,6 +114,8 @@ export interface CycleStep {
   step?: string | null
   data?: string | null
   expected?: string | null
+  /** 주석(comment)·메시지(message) 스텝의 본문 */
+  text?: string | null
   data_img?: string | null
   expected_img?: string | null
   expected_img_w?: number | null
@@ -2886,7 +2888,18 @@ function CycleDetail({
     saveItems((cur2) =>
       cur2.map((x) => {
         if (x.tcid !== tcid) return x
-        const steps = (x.steps ?? []).map((sx, j) => (j === at ? { ...sx, result } : sx))
+        // 언제 찍었는지도 남긴다 — 레일이 시각을 보여준다. 지우면 시각도 지운다
+        const steps = (x.steps ?? []).map((sx, j) =>
+          j === at
+            ? {
+                ...sx,
+                result,
+                executed_at: result
+                  ? new Date().toISOString().slice(0, 19).replace('T', ' ')
+                  : '',
+              }
+            : sx,
+        )
         let r = x.result
         // 수동 항목 규칙(합의): 하나라도 Pass 가 아니면 Fail, 전부 Pass 면 Pass,
         // 아직 다 안 찍었으면 미실행(빈 값)

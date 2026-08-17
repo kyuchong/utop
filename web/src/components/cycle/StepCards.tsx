@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import type { CycleItemLite, CycleStep, Verdict } from '@/pages/Cycles'
 import { RESULTS, verdictClass } from '@/pages/Cycles'
 import { METER_ACT_LABEL, stepKindInfo, stepVerdict, type TcStep } from '@/components/tc/types'
+import { subVars } from '@/components/tc/judge'
+import { useGlobalParams } from '@/components/tc/useGlobalParams'
 import MeterStats, { parseMeterOutput } from '@/components/tc/MeterStats'
 
 /** 판정 종류를 사람 말로 */
@@ -99,6 +101,12 @@ interface Props {
 export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg, onSetImgUrl, onSetTxt, onSetRca }: Props) {
   const all = (item.steps ?? []) as CycleStep[]
   const [only, setOnly] = useState(false)
+  // 판정기준의 ${이름} 을 값으로 풀어서 보여준다 — 원문 그대로 두면
+  // 「${Model_Name}」 에 빨간 ✕ 가 붙는다(실행은 합격인데, 지적).
+  // 실행 중 생긴 변수(앞 스텝 캡처)까지는 모른다 — 그건 글자로 남는다.
+  const gp = useGlobalParams()
+  /** 진행 띠에서 눌러 내려갈 카드들 */
+  const cardRefs = useRef<Array<HTMLDivElement | null>>([])
   /**
    * 어느 회차를 보고 있나. 0 이면 「전체」 — 합쳐진 결과.
    *
@@ -161,37 +169,55 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
 
   if (!all.length) return <div className="empty">스텝 내용 없음</div>
 
+  /* 스텝 진행 띠 — 카드 스무 장을 굴리기 전에 전체 판이 한눈에 보여야
+     한다(지적: 세부가 부실). 누르면 그 스텝 카드로 내려간다. */
+  const strip =
+    all.length > 1 ? (
+      <div className="sc-strip">
+        {all.map((st2, n) => {
+          const v = stepVerdict(st2 as TcStep)
+          const cls = v === 'Pass' ? 'pass' : v === 'Fail' ? 'fail' : v ? 'part' : ''
+          const isNote = st2.kind === 'comment' || st2.kind === 'message'
+          return (
+            <button
+              key={n}
+              type="button"
+              className={`sc-seg ${cls}${isNote ? ' note' : ''}`}
+              title={`Step ${n + 1}${v ? ` · ${v}` : ' · 미실행'}`}
+              onClick={() =>
+                cardRefs.current[n]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }
+            >
+              {n + 1}
+            </button>
+          )
+        })}
+      </div>
+    ) : null
+
   /* 수동 항목 — 세로 카드(피드백 ⑨: 가로는 무리). 스텝마다
      Test Step · Test Data · Expected Result · Actual Result · 판정 기준 및 RCA.
      ACTUAL 은 선택 입력이다(수동 시험이라 모두 적기는 힘들다 — 합의) */
   if (mode === 'manual')
     return (
       <div className="sc">
+        {strip}
         {all.map((st2, i) => {
           const r = stepVerdict(st2 as TcStep)
           const bad2 = r === 'Fail' || r === '불합격'
           return (
-            <div key={i} className={`sc-card${bad2 ? ' bad' : ''}`}>
+            <div
+              key={i}
+              ref={(el) => {
+                cardRefs.current[i] = el
+              }}
+              className={`sc-card${bad2 ? ' bad' : ''}${r === 'Pass' ? ' ok' : ''} has-rail`}
+            >
+              <div className="sc-main">
               <div className="sc-head">
                 <b>Step#{i + 1}</b>
                 <span className="sc-kind k-manual">Manual</span>
                 <span className="sp" />
-                {onSetResult ? (
-                  <select
-                    className={`sc-v ${verdictClass((r || '') as Verdict)}`}
-                    value={r}
-                    title="이 스텝의 결과"
-                    onChange={(e) => onSetResult(i, e.target.value)}
-                  >
-                    {RESULTS.map((x) => (
-                      <option key={x.v} value={x.v}>
-                        {x.label}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <span className={`sc-v ${verdictClass((r || '') as Verdict)}`}>{r || '미실행'}</span>
-                )}
               </div>
               <div className="sc-sec">
                 <i>Test Step</i>
@@ -254,6 +280,29 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
                   <div className="sc-txt">{st2.rca || '–'}</div>
                 )}
               </div>
+              </div>
+              {/* 판정 레일 — 드롭다운(두 번 클릭)을 한 번 클릭으로(제안 수용).
+                  결과 여섯을 다 버튼으로 두고, 켜진 것을 다시 누르면 미실행. */}
+              <div className="sc-rail">
+                {st2.executed_at ? (
+                  <span className="sc-rail-when">
+                    {String(st2.executed_at).slice(0, 16).replace('T', ' ')}
+                  </span>
+                ) : null}
+                <span className={`sc-v ${verdictClass((r || '') as Verdict)}`}>{r || '미실행'}</span>
+                {onSetResult &&
+                  RESULTS.filter((x) => x.v !== '').map((x) => (
+                    <button
+                      key={x.v}
+                      type="button"
+                      className={`sc-qk ${x.cls}${r === x.v ? ' on' : ''}`}
+                      title={r === x.v ? `${x.label} 해제 (미실행으로)` : x.label}
+                      onClick={() => onSetResult(i, r === x.v ? '' : x.v)}
+                    >
+                      {x.v === 'Pass' ? '✓' : x.v === 'Fail' ? '✕' : x.v === 'WIP' ? '◐' : x.v === 'Blocked' ? '⊘' : 'N/A'}
+                    </button>
+                  ))}
+              </div>
             </div>
           )
         })}
@@ -279,6 +328,8 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
           깨진 것만
         </label>
       </div>
+
+      {strip}
 
       {/* 회차 고르기 — 이력은 다 남기고, 찾는 것은 여기서.
           1000개를 늘어놓으면 못 쓴다. 깨진 회차만 걸러 보고, 번호로 바로 간다. */}
@@ -351,12 +402,33 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
         const out = String(s.output ?? '')
         /** 계측기 응답이면 표로 읽는다. 아니면 null 이고 원문 그대로 나간다 */
         const meterOut = s.kind === 'instrument' ? parseMeterOutput(out) : null
-        const toks = tokens(s)
+        const critVal = subVars(String(s.criteria ?? ''), gp.values)
+        const toks = tokens({ ...s, criteria: critVal })
+        // 주석·메시지는 절차의 제목·설명이다 — 명령 카드 모양(ACTUAL DATA ·
+        // 결과 셀렉트)으로 두면 「받은 출력이 없습니다」 같은 헛말이 붙는다.
+        if (s.kind === 'comment' || s.kind === 'message')
+          return (
+            <div
+              key={i}
+              ref={(el) => {
+                cardRefs.current[i] = el
+              }}
+              className={`sc-memo ${s.kind}`}
+            >
+              <span className={`sc-kind k-${s.kind}`}>{stepKindInfo(s.kind).label}</span>
+              <span className="sc-memo-txt">
+                {String(s.text ?? s.desc ?? s.step ?? '').trim() || '–'}
+              </span>
+            </div>
+          )
         return (
           <div
-            className={`sc-card${bad ? ' bad' : ''}${running ? ' running' : ''}`}
+            className={`sc-card${bad ? ' bad' : ''}${r === 'Pass' || r === '합격' ? ' ok' : ''}${running ? ' running' : ''}`}
             key={i}
-            ref={running ? liveRef : undefined}
+            ref={(el) => {
+              cardRefs.current[i] = el
+              if (running) (liveRef as { current: HTMLDivElement | null }).current = el
+            }}
           >
             <div className="sc-head">
               <b>Step#{i + 1}</b>
@@ -490,11 +562,13 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
                     })}
                   </div>
                 ) : (
-                  <pre className="sc-crit">{s.criteria}</pre>
+                  <pre className="sc-crit">{critVal}</pre>
                 )}
               </div>
             )}
-            {/* 판정기준 — 무엇을 어떻게 보고 판정하는가 (스펙 합의로 칸을 분리) */}
+            {/* 판정기준 — 무엇을 어떻게 보고 판정하는가 (스펙 합의로 칸을 분리).
+                규칙 이름만 있으면 부실하다(지적) — 실제로 무엇을 찾아서 왜
+                그렇게 판정났는지(reason)를 색으로 함께 적는다. */}
             {s.criteria && (
               <div className="sc-sec">
                 <i>판정기준</i>
