@@ -12,6 +12,7 @@ import ReqBulkEdit from '@/components/ReqBulkEdit'
 import ReqMapDialog from '@/components/ReqMapDialog'
 import NewProjectDialog from '@/components/NewProjectDialog'
 import FolderSortBtn from '@/components/FolderSortBtn'
+import { useInfoCols } from '@/components/useInfoCols'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import ReqDetail from '@/components/ReqDetail'
 import {
@@ -330,55 +331,30 @@ export default function Requirements() {
     }
   }, [catQ.data, folderMode, selectedFolder])
 
-  /** 2열 표의 선택형 열 — ⚙ 로 켜고 끈다(피드백: 세 화면 공통 요구).
-      기본 열 + SETUP 의 요구사항 INFO 필드(커스텀)가 함께 목록에 선다. */
-  const REQ_COLS: Array<{ k: string; label: string; w: string }> = [
-    { k: 'mg', label: '모델그룹', w: '96px' },
-    { k: 'md', label: '모델명', w: '110px' },
-    { k: 'map', label: 'Map', w: '40px' },
-    { k: 'tc', label: 'TC', w: '56px' },
-    { k: 'prio', label: 'Priority', w: '64px' },
-  ]
-  const cfColsQ = useQuery({
-    queryKey: ['custom-fields', 'req'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/custom-fields?target=req')
-      return (await r.json()) as { items?: Array<{ key: string; label: string }> }
-    },
-    staleTime: 30_000,
-  })
-  const reqAllCols = useMemo(
-    () => [
-      ...REQ_COLS,
-      ...(cfColsQ.data?.items ?? []).map((f) => ({
-        k: `cf_${f.key}`,
-        label: f.label,
-        w: 'minmax(72px, 110px)',
-      })),
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [cfColsQ.data],
-  )
+  /** ⚙ = 요구사항 INFO 필드만(SETUP 과 1:1, 합의 규칙).
+      모델그룹·모델명(프로젝트 상속)·Map·TC 는 고정 열이라 ⚙ 에 없다. */
+  const infoCols = useInfoCols('req')
   const [reqCols, setReqCols] = useState<Set<string>>(() => {
     try {
-      const raw = localStorage.getItem('utop.req.cols')
+      const raw = localStorage.getItem('utop.req.infocols')
       if (raw) return new Set(JSON.parse(raw) as string[])
     } catch {
       /* 깨진 저장값이면 기본으로 */
     }
-    return new Set(REQ_COLS.map((c) => c.k))
+    return new Set(['f_priority'])
   })
   const toggleReqCol = (k: string) =>
     setReqCols((cur) => {
       const n = new Set(cur)
       if (n.has(k)) n.delete(k)
       else n.add(k)
-      localStorage.setItem('utop.req.cols', JSON.stringify([...n]))
+      localStorage.setItem('utop.req.infocols', JSON.stringify([...n]))
       return n
     })
   const [reqColsOpen, setReqColsOpen] = useState(false)
-  const reqVisCols = reqAllCols.filter((c) => reqCols.has(c.k))
-  const reqGrid = `28px minmax(0, 1fr) ${reqVisCols.map((c) => c.w).join(' ')}`.trim()
+  const reqVisCols = infoCols.filter((c) => reqCols.has(c.k))
+  const reqGrid =
+    `28px minmax(0, 1fr) 96px 110px 40px 56px ${reqVisCols.map((c) => c.w).join(' ')}`.trim()
 
   /** 소속 프로젝트의 모델그룹·모델명 — 요구사항에는 모델 필드가 없다.
       프로젝트가 모델을 고정하므로(정책) 사슬 맨 위(cat1)에서 상속해 보인다. */
@@ -1156,7 +1132,7 @@ export default function Requirements() {
                 <button
                   type="button"
                   className="lh-findbtn"
-                  title="열 보이기/숨기기 — INFO 필드 포함"
+                  title="INFO 필드 보이기/숨기기 — SETUP 구성과 같은 목록"
                   aria-expanded={reqColsOpen}
                   onClick={() => setReqColsOpen((v) => !v)}
                 >
@@ -1166,7 +1142,10 @@ export default function Requirements() {
                   <>
                     <div className="tc-menu-back" onClick={() => setReqColsOpen(false)} />
                     <div className="tc-menu tc-colpop" role="menu">
-                      {reqAllCols.map((c2) => (
+                      {infoCols.length === 0 && (
+                        <span className="muted small">INFO 필드가 없습니다 — SETUP 에서 만듭니다</span>
+                      )}
+                      {infoCols.map((c2) => (
                         <label key={c2.k}>
                           <input
                             type="checkbox"
@@ -1215,8 +1194,12 @@ export default function Requirements() {
               <div className="rq-tr rq-th" style={{ gridTemplateColumns: reqGrid }}>
                 <div />
                 {/* ID 열은 뺐다 — 고르면 위 빵부스러기에 그대로 나온다.
-                    이 폭을 Name 이 갖는 편이 낫다. 나머지 열은 ⚙ 가 정한다. */}
+                    고정: Name·모델(상속)·Map·TC. INFO 필드는 ⚙ 가 정한다. */}
                 <div>Name</div>
+                <div>모델그룹</div>
+                <div>모델명</div>
+                <div>Map</div>
+                <div>TC</div>
                 {reqVisCols.map((c) => (
                   <div key={c.k}>{c.label}</div>
                 ))}
@@ -1269,42 +1252,40 @@ export default function Requirements() {
                           ) : null
                         })()}
                       </div>
+                      {(() => {
+                        const p = r.cat1 ? prjByCat.get(r.cat1 as string) : undefined
+                        return (
+                          <>
+                            <div className="muted small">{p?.model_group || '–'}</div>
+                            <div className="muted small">{p?.model || '–'}</div>
+                          </>
+                        )
+                      })()}
+                      <div>
+                        <button
+                          type="button"
+                          className="linkish"
+                          title="이 요구사항에 시험을 붙입니다"
+                          onClick={() => setMapFor(r)}
+                        >
+                          Map
+                        </button>
+                      </div>
+                      <div
+                        className={`rq-cov ${n > 0 ? 'covered' : 'none'}`}
+                        title={n > 0 ? `${n}개 시험이 덮고 있습니다` : '덮는 시험이 없습니다'}
+                      >
+                        {n > 0 ? `TC ${n}` : '미커버'}
+                      </div>
                       {reqVisCols.map((c2) => {
                         switch (c2.k) {
-                          case 'mg':
-                          case 'md': {
-                            const p = r.cat1 ? prjByCat.get(r.cat1 as string) : undefined
-                            const v = c2.k === 'mg' ? p?.model_group : p?.model
+                          case 'f_status':
                             return (
                               <div className="muted small" key={c2.k}>
-                                {v || '–'}
+                                {r.status || '–'}
                               </div>
                             )
-                          }
-                          case 'map':
-                            return (
-                              <div key={c2.k}>
-                                <button
-                                  type="button"
-                                  className="linkish"
-                                  title="이 요구사항에 시험을 붙입니다"
-                                  onClick={() => setMapFor(r)}
-                                >
-                                  Map
-                                </button>
-                              </div>
-                            )
-                          case 'tc':
-                            return (
-                              <div
-                                key={c2.k}
-                                className={`rq-cov ${n > 0 ? 'covered' : 'none'}`}
-                                title={n > 0 ? `${n}개 시험이 덮고 있습니다` : '덮는 시험이 없습니다'}
-                              >
-                                {n > 0 ? `TC ${n}` : '미커버'}
-                              </div>
-                            )
-                          case 'prio':
+                          case 'f_priority':
                             return (
                               <div key={c2.k}>
                                 {r.priority ? (

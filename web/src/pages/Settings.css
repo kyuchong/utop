@@ -861,3 +861,18 @@
 .dc2-ifmodal { width: 720px; max-width: 94vw; display: flex; flex-direction: column; gap: 8px; padding-bottom: 12px; }
 .dc2-ifmodal textarea { width: 100%; font-family: var(--font-mono); font-size: var(--fs-sm); }
 .dc2-ifmodal p { margin: 0 var(--sp-4); }
+
+/* 활성/비활성 칩 — 만든 칸이 화면 ⚙ 목록에 설지(합의 규칙 ④) */
+.seg-vis {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: #e6e9ee;
+  color: #6b7480;
+  cursor: pointer;
+}
+.seg-vis.on { background: #dcf3e4; color: #1f7a45; }
+.seg-btn.on .seg-vis { background: rgb(255 255 255 / 0.25); color: #fff; }

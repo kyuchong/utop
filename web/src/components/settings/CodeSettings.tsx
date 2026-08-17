@@ -351,6 +351,25 @@ export default function CodeSettings({ target }: Props) {
             {/* 우리가 만든 탭은 표시해 둔다 — 기본 칸과 달리 지울 수 있어서,
                 구분이 안 되면 지워도 되는지 매번 판단해야 한다. */}
             {t.cf && <span className="seg-made">추가</span>}
+            {/* 활성/비활성(합의 규칙 ④) — 켜져 있어야 화면 ⚙ 목록에 선다 */}
+            {t.cf && (
+              <i
+                className={`seg-vis${(t.cf as { show_list?: boolean }).show_list !== false ? ' on' : ''}`}
+                role="button"
+                title="화면 표시(각 화면 ⚙ 목록) 켜기/끄기"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const on = (t.cf as { show_list?: boolean }).show_list !== false
+                  void apiFetch('/api/custom-fields', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...t.cf, show_list: !on }),
+                  }).then(invalidate)
+                }}
+              >
+                {(t.cf as { show_list?: boolean }).show_list !== false ? '표시' : '숨김'}
+              </i>
+            )}
             <span className="cnt">{t.values.length}</span>
             {t.cf && kind === t.key && (
               <span

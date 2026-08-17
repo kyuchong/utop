@@ -30,6 +30,7 @@ import {
   IconTag,
   IconTrash,
 } from '@/components/icons'
+import { useInfoCols } from '@/components/useInfoCols'
 import Markdown from '@/components/Markdown'
 import type { TestCaseMeta } from '@/types'
 import { stepVerdict, type StepRound, type TcStep } from '@/components/tc/types'
@@ -1444,13 +1445,14 @@ export default function Cycles({ me }: PageProps) {
  * 모델별로 사이클을 깔고, 카드마다 진행률과 Pass/Fail 을 바로 보여 준다 —
  * 어디가 급한지 열기 전에 보인다.
  */
-/** 사이클 표의 고를 수 있는 열 — ⚙ 로 보이기/숨기기. 사이클 INFO 필드(상태·고객) 포함 */
-const CYT_COLS: Array<{ k: string; label: string; w: string }> = [
+/** 고정 열(관리 정보) — ⚙ 대상이 아니다. ⚙ 는 INFO 필드만(합의 규칙).
+    「진행」 은 완료/진행중/대기 파생 배지 — INFO 상태(cycle_status 값)와
+    다른 것이라 이름을 갈랐다. */
+const CYT_FIXED: Array<{ k: string; label: string; w: string }> = [
   { k: 'iss', label: '결함', w: '44px' },
   { k: 'tests', label: '항목', w: '44px' },
   { k: 'prg', label: '진행결과', w: '104px' },
-  { k: 'status', label: '상태', w: '56px' },
-  { k: 'customer', label: '고객', w: '64px' },
+  { k: 'run', label: '진행', w: '56px' },
   { k: 'version', label: '버전', w: 'minmax(100px, 150px)' },
   { k: 'created', label: '생성일자', w: '80px' },
   { k: 'updated', label: '변경일자', w: '80px' },
@@ -1495,82 +1497,46 @@ function CycleBoard({
   onRun: (id: string) => void
 }) {
   const [q, setQ] = useState('')
-  /** SETUP 의 사이클 INFO 필드를 따라간다(피드백: 탭을 「유형」 으로
-      개명해도 ⚙ 는 「상태」 로 남고, 숨긴 탭도 계속 보였다).
-      실행 결과 탭은 열이 아니라 진행결과 바가 쓰는 값 체계다. */
-  const kindsQ = useQuery({
-    queryKey: ['codes'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/codes')
-      return (await r.json()) as { kinds?: Record<string, string> }
-    },
-    staleTime: 30_000,
-  })
-  const allCols = useMemo(() => {
-    const kinds = kindsQ.data?.kinds
-    return CYT_COLS.filter((c) => {
-      if (!kinds) return true
-      if (c.k === 'status') return 'cycle_status' in kinds
-      if (c.k === 'customer') return 'cycle_customer' in kinds
-      return true
-    }).map((c) => {
-      if (!kinds) return c
-      if (c.k === 'status' && kinds.cycle_status) return { ...c, label: kinds.cycle_status }
-      if (c.k === 'customer' && kinds.cycle_customer) return { ...c, label: kinds.cycle_customer }
-      return c
-    })
-  }, [kindsQ.data])
-  /** ⚙ — 열 보이기/숨기기. 고른 것은 저장한다 */
+  /** ⚙ = 사이클 INFO 필드만(SETUP 과 1:1, 합의 규칙). 라벨 개명·숨김을
+      그대로 따른다. 실행 결과 탭은 열이 아니라 진행결과 바의 값 체계.
+      모델그룹·모델명은 고정 열(합의)이고 관리 열들도 고정이다. */
+  const infoCols = useInfoCols('cycle')
+  /** ⚙ — INFO 필드 보이기/숨기기. 고른 것은 저장한다 */
   const [gearAt2, setGearAt2] = useState<{ x: number; y: number } | null>(null)
   const [cytCols, setCytCols] = useState<Set<string>>(() => {
     try {
-      const raw = localStorage.getItem('utop.cycle.cols')
+      const raw = localStorage.getItem('utop.cycle.infocols')
       if (raw) return new Set(JSON.parse(raw) as string[])
     } catch {
       /* 깨진 저장값이면 기본으로 */
     }
-    return new Set(CYT_COLS.map((c) => c.k).filter((k) => k !== 'customer'))
+    return new Set(['f_status', 'f_customer'])
   })
   const toggleCytCol = (k: string) =>
     setCytCols((cur) => {
       const n = new Set(cur)
       if (n.has(k)) n.delete(k)
       else n.add(k)
-      localStorage.setItem('utop.cycle.cols', JSON.stringify([...n]))
+      localStorage.setItem('utop.cycle.infocols', JSON.stringify([...n]))
       return n
     })
-  /** 열 차례 — ⚙ 의 ▲▼ 로 바꾼다. 저장된다 */
-  const [cytOrder, setCytOrder] = useState<string[]>(() => {
-    try {
-      const raw = localStorage.getItem('utop.cycle.colorder')
-      if (raw) {
-        const arr = JSON.parse(raw) as string[]
-        const known = CYT_COLS.map((c) => c.k)
-        return [...arr.filter((k) => known.includes(k)), ...known.filter((k) => !arr.includes(k))]
-      }
-    } catch {
-      /* 깨진 저장값이면 기본으로 */
-    }
-    return CYT_COLS.map((c) => c.k)
-  })
-  /** ⠿ 드래그로 차례를 바꾼다 — 시험항목 화면과 같은 문법 */
-  const dragCol = useRef<string | null>(null)
-  /** 차례 반영된 열 정의 — allCols(SETUP 반영)에 없는 키는 걸러진다 */
-  const orderedCols = useMemo(() => {
-    const ks = allCols.map((c) => c.k)
-    const order = [
-      ...cytOrder.filter((k) => ks.includes(k)),
-      ...ks.filter((k) => !cytOrder.includes(k)),
-    ]
-    return order
-      .map((k) => allCols.find((c) => c.k === k))
-      .filter((c): c is (typeof CYT_COLS)[number] => !!c)
-  }, [cytOrder, allCols])
-  const cytGrid = useMemo(() => {
-    const parts = ['26px', '20px', 'minmax(105px, 130px)', 'minmax(170px, 1fr)']
-    for (const c of orderedCols) if (cytCols.has(c.k)) parts.push(c.w)
-    return parts.join(' ')
-  }, [cytCols, orderedCols])
+  /** 표에 서는 열들 — 고정(모델) + INFO(⚙) + 고정(관리) */
+  const renderCols = useMemo(
+    () => [
+      { k: 'mg', label: '모델그룹', w: '96px' },
+      { k: 'md', label: '모델명', w: '110px' },
+      ...infoCols.filter((c) => cytCols.has(c.k)),
+      ...CYT_FIXED,
+    ],
+    [infoCols, cytCols],
+  )
+  const cytGrid = useMemo(
+    () =>
+      ['26px', '20px', 'minmax(105px, 130px)', 'minmax(170px, 1fr)', ...renderCols.map((c) => c.w)].join(
+        ' ',
+      ),
+    [renderCols],
+  )
   /** 머리글 클릭 정렬 — 열 이름 옆 화살표가 방향을 보여 준다 */
   const [sortCol, setSortCol] = useState('')
   const [sortDir, setSortDir] = useState<1 | -1>(1)
@@ -1717,32 +1683,13 @@ function CycleBoard({
 
   const fmtD = (v?: string | null) => (v ? String(v).slice(0, 10) : '–')
   const TH = (col: string, label: string, right?: boolean) => {
-    // 정렬 키 ↔ 열 키가 다른 것 하나(pct→prg)만 맞춘다
-    const dragKey = col === 'pct' ? 'prg' : col
-    const canDrag = allCols.some((c3) => c3.k === dragKey)
+    // 열 차례 끌기는 뺐다 — 차례는 고정(모델·INFO·관리 순, 합의 규칙)
     return (
       <button
         type="button"
         className={`cyt-th${right ? ' tr' : ''}${sortCol === col ? ' on' : ''}`}
-        draggable={canDrag}
-        onDragStart={canDrag ? () => {
-          dragCol.current = dragKey
-        } : undefined}
-        onDragOver={canDrag ? (e) => {
-          e.preventDefault()
-          const from = dragCol.current
-          if (!from || from === dragKey) return
-          setCytOrder((v) => {
-            const n = v.filter((x) => x !== from)
-            n.splice(n.indexOf(dragKey), 0, from)
-            localStorage.setItem('utop.cycle.colorder', JSON.stringify(n))
-            return n
-          })
-        } : undefined}
-        onDrop={canDrag ? (e) => e.preventDefault() : undefined}
         onClick={() => clickSort(col)}
       >
-        {canDrag && <span className="tc-colgrip" aria-hidden="true">⠿</span>}
         {label}
         <i>{sortCol === col ? (sortDir === 1 ? '↑' : '↓') : '⇅'}</i>
       </button>
@@ -1852,27 +1799,12 @@ function CycleBoard({
                 right: 'auto',
               }}
             >
-              {orderedCols.map((c2) => (
-                <label
-                  key={c2.k}
-                  draggable
-                  onDragStart={() => {
-                    dragCol.current = c2.k
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault()
-                    const from = dragCol.current
-                    if (!from || from === c2.k) return
-                    setCytOrder((v) => {
-                      const n = v.filter((x) => x !== from)
-                      n.splice(n.indexOf(c2.k), 0, from)
-                      localStorage.setItem('utop.cycle.colorder', JSON.stringify(n))
-                      return n
-                    })
-                  }}
-                  onDrop={(e) => e.preventDefault()}
-                >
-                  <span className="tc-colgrip" aria-hidden="true">⠿</span>
+              {/* SETUP 사이클 INFO 필드와 1:1(합의 규칙) */}
+              {infoCols.length === 0 && (
+                <span className="muted small">INFO 필드가 없습니다 — SETUP 에서 만듭니다</span>
+              )}
+              {infoCols.map((c2) => (
+                <label key={c2.k}>
                   <input
                     type="checkbox"
                     checked={cytCols.has(c2.k)}
@@ -1885,12 +1817,9 @@ function CycleBoard({
                 type="button"
                 className="linkish tc-coldef"
                 onClick={() => {
-                  const defCols = allCols.map((c3) => c3.k).filter((k) => k !== 'customer')
-                  const defOrder = allCols.map((c3) => c3.k)
-                  setCytCols(new Set(defCols))
-                  setCytOrder(defOrder)
-                  localStorage.setItem('utop.cycle.cols', JSON.stringify(defCols))
-                  localStorage.setItem('utop.cycle.colorder', JSON.stringify(defOrder))
+                  const def = ['f_status', 'f_customer']
+                  setCytCols(new Set(def))
+                  localStorage.setItem('utop.cycle.infocols', JSON.stringify(def))
                 }}
               >
                 기본값 복원
@@ -1917,7 +1846,7 @@ function CycleBoard({
           <span />
           {TH('id', '사이클 ID')}
           {TH('name', '제목')}
-          {orderedCols.filter((c2) => cytCols.has(c2.k)).map((c2) =>
+          {renderCols.map((c2) =>
             c2.k === 'iss'
               ? TH('iss', '결함', true)
               : c2.k === 'tests'
@@ -1937,8 +1866,12 @@ function CycleBoard({
                         case 'iss': return t2?.iss ?? 0
                         case 'tests': return t2?.total ?? 0
                         case 'pct': return t2?.pct ?? 0
-                        case 'status': return t2 && t2.total > 0 && t2.done === t2.total ? 2 : t2 && t2.done > 0 ? 1 : 0
+                        case 'run': return t2 && t2.total > 0 && t2.done === t2.total ? 2 : t2 && t2.done > 0 ? 1 : 0
                         case 'name': return (c2.name ?? '').toLowerCase()
+                        case 'mg': return (c2.model_group ?? '').toLowerCase()
+                        case 'md': return (c2.model ?? '').toLowerCase()
+                        case 'f_status': return (c2.status ?? '').toLowerCase()
+                        case 'f_customer': return (c2.customer ?? '').toLowerCase()
                         case 'customer': return (c2.customer ?? '').toLowerCase()
                         case 'version': return (c2.version ?? '').toLowerCase()
                         case 'created': return c2._created_at_pg ?? ''
@@ -2022,8 +1955,32 @@ function CycleBoard({
                       >
                         {c.name || '–'}
                       </button>
-                      {orderedCols.filter((c2) => cytCols.has(c2.k)).map((c2) => {
+                      {renderCols.map((c2) => {
                         switch (c2.k) {
+                          case 'mg':
+                            return (
+                              <span key={c2.k} className="muted small cyt-ell" title={c.model_group ?? ''}>
+                                {c.model_group || '–'}
+                              </span>
+                            )
+                          case 'md':
+                            return (
+                              <span key={c2.k} className="muted small cyt-ell" title={c.model ?? ''}>
+                                {c.model || '–'}
+                              </span>
+                            )
+                          case 'f_status':
+                            return (
+                              <span key={c2.k} className="muted small cyt-ell" title={c.status ?? ''}>
+                                {c.status || '–'}
+                              </span>
+                            )
+                          case 'f_customer':
+                            return (
+                              <span key={c2.k} className="muted small cyt-ell" title={c.customer ?? ''}>
+                                {c.customer || '–'}
+                              </span>
+                            )
                           case 'iss':
                             return (
                               <span key={c2.k} className={`tr${t.iss ? ' cyt-fail' : ''}`}>
@@ -2055,18 +2012,12 @@ function CycleBoard({
                                 <b>{t.pct}%</b>
                               </span>
                             )
-                          case 'status':
+                          case 'run':
                             return (
                               <span key={c2.k}>
                                 <i className={`cyt-st ${status}`}>
                                   {status === 'done' ? 'DONE' : status === 'run' ? '진행중' : '대기'}
                                 </i>
-                              </span>
-                            )
-                          case 'customer':
-                            return (
-                              <span key={c2.k} className="muted small cyt-ell" title={c.customer ?? ''}>
-                                {c.customer || '–'}
                               </span>
                             )
                           case 'version':

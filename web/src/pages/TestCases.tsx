@@ -16,6 +16,7 @@ import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTree from '@/components/tc/TcTree'
 import FolderSortBtn from '@/components/FolderSortBtn'
+import { useInfoCols } from '@/components/useInfoCols'
 import TcStart from '@/components/tc/TcStart'
 import TcSessionBar from '@/components/tc/TcSessionBar'
 import TcParamBar from '@/components/tc/TcParamBar'
@@ -106,27 +107,16 @@ function blankStep(kind: StepKind): TcStep {
  * 여기서는 그 안에서 무엇을 보고 있었는지를 기억한다.
  */
 /** List 표의 선택형 열 — ⚙ 에서 켜고 끈다. 이름 열은 항상 있다. */
-const COL_DEFS = [
-  { k: 'id', label: 'TC ID', w: '116px' },
-  { k: 'model_group', label: '모델그룹', w: '96px' },
-  { k: 'model', label: '모델명', w: '110px' },
-  { k: 'type', label: '유형', w: '74px' },
-  { k: 'severity', label: '심각도', w: '80px' },
-  { k: 'kind', label: '실행 타입', w: '84px' },
-  { k: 'map', label: 'REQ Map', w: '78px' },
-  { k: 'created_by', label: '생성자', w: '80px' },
-  { k: 'updated_by', label: '변경자', w: '80px' },
-  { k: 'updated', label: '변경일', w: '96px' },
-  { k: 'status', label: '상태', w: '70px' },
-] as const
-// 모델그룹·모델명을 기본에 넣었다(피드백) — 항목별 모델 고정 정책이라
-// 어느 판인지가 늘 보여야 한다. 키를 cols2 로 올려 저장된 옛 구성도
-// 한 번은 새 기본으로 온다.
-const COL_DEFAULT = ['model_group', 'model', 'type', 'map', 'status']
+// ⚙ = SETUP 시험항목 INFO 필드와 1:1(합의 규칙) — 열 정의는
+// useInfoCols('tc') 가 만든다. 고정 열(모델그룹·모델명·REQ Map)은
+// ⚙ 에 없다. TC ID·생성자·변경일 열은 뺐다 — Info 탭이 보여 준다.
+const COL_DEFAULT = ['f_type', 'f_status']
 
 /** 열 하나의 표시값 — 필터 드롭다운과 줄 필터가 같은 값을 쓴다.
     컴포넌트 안에 두면 위쪽 useMemo 가 선언 전에 불러 TDZ 로 터진다. */
 function colVal(k: string, t: TestCaseMeta): string {
+  // INFO 열쇠(f_<필드>)는 기존 열쇠로 푼다 — 값 셈은 여기 한 곳뿐
+  if (k.startsWith('f_')) k = k.slice(2)
   switch (k) {
     case 'id': return t.tcid
     case 'model_group': return (t.model_group as string) || '공용'
@@ -140,6 +130,7 @@ function colVal(k: string, t: TestCaseMeta): string {
     case 'updated_by': return (t.updated_by as string) || '–'
     case 'updated': return String(t._updated_at_pg ?? '').slice(0, 10) || '–'
     case 'status': return t.status || '미실행'
+    case 'origin': return String((t as Record<string, unknown>).origin ?? '') || '–'
     default:
       // 커스텀 INFO 필드(cf_<key>) — 값은 data->custom 에 산다
       if (k.startsWith('cf_')) {
@@ -149,7 +140,6 @@ function colVal(k: string, t: TestCaseMeta): string {
       return ''
   }
 }
-const FILTERABLE = ['model_group', 'model', 'type', 'severity', 'kind', 'status', 'created_by', 'updated_by', 'updated']
 
 const OPEN_KEY = 'utop.tc.open'
 const TAB_KEY = 'utop.tc.tab'
@@ -177,37 +167,24 @@ export default function TestCases({ me }: PageProps) {
    */
   // 인라인 모드는 걷어냈다(피드백 — 요구사항 화면과 같은 결론):
   // 줄 클릭 = 전체 상세(레일), ← 목록으로 복귀. 인라인은 제약만 많았다.
-  /** 보이는 열 — 옛 화면의 ⚙ 열 설정과 같은 몫 */
+  /** 보이는 INFO 필드 열 — ⚙ 는 SETUP 의 시험항목 INFO 필드와 1:1(합의).
+      모델그룹·모델명·REQ Map 은 고정 열이라 ⚙ 에 없다. */
   const [cols, setCols] = useState<string[]>(() => {
     try {
-      const v = JSON.parse(localStorage.getItem('utop.tc.cols2') || '')
+      const v = JSON.parse(localStorage.getItem('utop.tc.infocols') || '')
       return Array.isArray(v) ? (v as string[]) : COL_DEFAULT
     } catch {
       return COL_DEFAULT
     }
   })
   useEffect(() => {
-    localStorage.setItem('utop.tc.cols2', JSON.stringify(cols))
+    localStorage.setItem('utop.tc.infocols', JSON.stringify(cols))
   }, [cols])
   const [colsOpen, setColsOpen] = useState(false)
   /** 판(버전) 이력 창 */
   const [revOpen, setRevOpen] = useState(false)
-  /** 열 차례 — ⚙ 에서 끌어 바꾼다 */
-  const [colOrder, setColOrder] = useState<string[]>(() => {
-    try {
-      const v = JSON.parse(localStorage.getItem('utop.tc.colorder') || '')
-      const base = COL_DEFS.map((c) => c.k as string)
-      if (!Array.isArray(v)) return base
-      // 새 열이 생겨도 빠지지 않게 — 저장된 차례 + 나머지
-      return [...v.filter((k: string) => base.includes(k)), ...base.filter((k) => !v.includes(k))]
-    } catch {
-      return COL_DEFS.map((c) => c.k as string)
-    }
-  })
-  useEffect(() => {
-    localStorage.setItem('utop.tc.colorder', JSON.stringify(colOrder))
-  }, [colOrder])
-  const dragCol = useRef<string | null>(null)
+  // 열 차례 끌기는 뺐다 — ⚙ 는 SETUP INFO 필드 목록 그대로(합의 규칙),
+  // 차례도 그 목록의 차례다.
   /** 표 검색 — 트리 검색과 별개로, 지금 자리 안에서 좁힌다 */
   const [listQ, setListQ] = useState('')
   /** 열 값 필터 — 머리의 드롭다운 */
@@ -1524,38 +1501,18 @@ export default function TestCases({ me }: PageProps) {
   const error = tcQ.error
 
   /** SETUP 에서 만든 INFO 필드(커스텀)도 열로 — ⚙ 에서 켜고 끈다(피드백) */
-  const cfColsQ = useQuery({
-    queryKey: ['custom-fields', 'tc'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/custom-fields?target=tc')
-      return (await r.json()) as { items?: Array<{ key: string; label: string }> }
-    },
-    staleTime: 30_000,
-  })
-  const allColDefs = useMemo(
-    () => [
-      ...COL_DEFS,
-      ...(cfColsQ.data?.items ?? []).map((f) => ({
-        k: `cf_${f.key}`,
-        label: f.label,
-        w: 'minmax(72px, 110px)',
-      })),
-    ],
-    [cfColsQ.data],
+  /** ⚙ 후보 = SETUP 시험항목 INFO 필드 그대로(라벨·숨김·활성 반영) */
+  const infoColDefs = useInfoCols('tc')
+  const visCols = useMemo(
+    () => infoColDefs.filter((c) => cols.includes(c.k)),
+    [infoColDefs, cols],
   )
-  const visCols = useMemo(() => {
-    const ks = allColDefs.map((c) => c.k as string)
-    const order = [
-      ...colOrder.filter((k) => ks.includes(k)),
-      ...ks.filter((k) => !colOrder.includes(k)),
-    ]
-    return order
-      .map((k) => allColDefs.find((c) => c.k === k))
-      .filter((c): c is (typeof allColDefs)[number] => !!c && cols.includes(c.k))
-  }, [allColDefs, colOrder, cols])
-  const listGrid = `30px minmax(220px, 1fr) ${visCols.map((c) => c.w).join(' ')}`.trim()
+  /** 고정: ☐·Name·모델그룹·모델명 | INFO 열들 | REQ Map */
+  const listGrid =
+    `30px minmax(220px, 1fr) 96px 110px ${visCols.map((c) => c.w).join(' ')} 78px`.trim()
   /** 선택형 열 한 칸 — 열쇠(k)로 그린다 */
   const colCell = (k: string, t: TestCaseMeta) => {
+    if (k.startsWith('f_')) k = k.slice(2)
     switch (k) {
       case 'id':
         return <div className="muted" key={k}>{t.tcid}</div>
@@ -1597,6 +1554,8 @@ export default function TestCases({ me }: PageProps) {
             ● {t.status || '미실행'}
           </div>
         )
+      case 'origin':
+        return <div className="muted" key={k}>{colVal('origin', t)}</div>
       default: {
         // 커스텀 INFO 필드 열 — 값은 data->custom 에 산다
         if (k.startsWith('cf_')) {
@@ -2384,50 +2343,31 @@ export default function TestCases({ me }: PageProps) {
                     <>
                       <div className="tc-menu-back" onClick={() => setColsOpen(false)} />
                       <div className="tc-menu tc-colpop" role="menu">
-                        {[
-                          ...colOrder.filter((k) => allColDefs.some((c) => c.k === k)),
-                          ...allColDefs.map((c) => c.k as string).filter((k) => !colOrder.includes(k)),
-                        ]
-                          .map((k) => allColDefs.find((c) => c.k === k))
-                          .filter((c): c is (typeof allColDefs)[number] => !!c)
-                          .map((c) => (
-                            <label
-                              key={c.k}
-                              draggable
-                              onDragStart={() => {
-                                dragCol.current = c.k
-                              }}
-                              onDragOver={(e) => {
-                                e.preventDefault()
-                                const from = dragCol.current
-                                if (!from || from === c.k) return
-                                setColOrder((v) => {
-                                  const n = v.filter((x) => x !== from)
-                                  n.splice(n.indexOf(c.k), 0, from)
-                                  return n
-                                })
-                              }}
-                              onDrop={(e) => e.preventDefault()}
-                            >
-                              <span className="tc-colgrip" aria-hidden="true">⠿</span>
-                              <input
-                                type="checkbox"
-                                checked={cols.includes(c.k)}
-                                onChange={() =>
-                                  setCols((v) =>
-                                    v.includes(c.k) ? v.filter((x) => x !== c.k) : [...v, c.k],
-                                  )
-                                }
-                              />
-                              {c.label}
-                            </label>
-                          ))}
+                        {/* SETUP 시험항목 INFO 필드와 1:1(합의 규칙) */}
+                        {infoColDefs.length === 0 && (
+                          <span className="muted small">
+                            INFO 필드가 없습니다 — SETUP 에서 만듭니다
+                          </span>
+                        )}
+                        {infoColDefs.map((c) => (
+                          <label key={c.k}>
+                            <input
+                              type="checkbox"
+                              checked={cols.includes(c.k)}
+                              onChange={() =>
+                                setCols((v) =>
+                                  v.includes(c.k) ? v.filter((x) => x !== c.k) : [...v, c.k],
+                                )
+                              }
+                            />
+                            {c.label}
+                          </label>
+                        ))}
                         <button
                           type="button"
                           className="linkish tc-coldef"
                           onClick={() => {
                             setCols([...COL_DEFAULT])
-                            setColOrder(allColDefs.map((c) => c.k as string))
                             setColF({})
                           }}
                         >
@@ -2443,51 +2383,30 @@ export default function TestCases({ me }: PageProps) {
                 <div className="rq-tr tc-tr rq-th" style={{ gridTemplateColumns: listGrid }}>
                   <div />
                   <div>이름</div>
-                  {visCols.map((c) => {
-                    /* 머리글을 끌어 열 자리를 바꾼다 — ⚙ 안 ⠿ 와 같은 문법 */
-                    const dragProps = {
-                      draggable: true,
-                      onDragStart: () => {
-                        dragCol.current = c.k
-                      },
-                      onDragOver: (e: React.DragEvent) => {
-                        e.preventDefault()
-                        const from = dragCol.current
-                        if (!from || from === c.k) return
-                        setColOrder((v) => {
-                          const n = v.filter((x) => x !== from)
-                          n.splice(n.indexOf(c.k), 0, from)
-                          return n
-                        })
-                      },
-                      onDrop: (e: React.DragEvent) => e.preventDefault(),
-                    }
-                    return FILTERABLE.includes(c.k) || c.k.startsWith('cf_') ? (
-                      <div key={c.k} className="tc-thdrag" {...dragProps}>
-                        <span className="tc-colgrip" aria-hidden="true">⠿</span>
-                        {/* 머리 자체가 필터다 — 값을 고르면 그 값만 남는다 */}
-                        <select
-                          className={`tc-colf${colF[c.k] ? ' on' : ''}`}
-                          value={colF[c.k] ?? ''}
-                          onChange={(e) =>
-                            setColF((v) => ({ ...v, [c.k]: e.target.value }))
-                          }
-                        >
-                          <option value="">{c.label}</option>
-                          {[...new Set(listRows.map((t) => colVal(c.k, t)))].sort().map((v) => (
-                            <option key={v} value={v}>
-                              {v}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : (
-                      <div key={c.k} className="tc-thdrag" {...dragProps}>
-                        <span className="tc-colgrip" aria-hidden="true">⠿</span>
-                        {c.label}
-                      </div>
-                    )
-                  })}
+                  {/* 고정 열 + INFO 열 + REQ Map. 머리 자체가 필터다 */}
+                  {(
+                    [
+                      { k: 'model_group', label: '모델그룹' },
+                      { k: 'model', label: '모델명' },
+                      ...visCols,
+                    ] as Array<{ k: string; label: string }>
+                  ).map((c) => (
+                    <div key={c.k} className="tc-thdrag">
+                      <select
+                        className={`tc-colf${colF[c.k] ? ' on' : ''}`}
+                        value={colF[c.k] ?? ''}
+                        onChange={(e) => setColF((v) => ({ ...v, [c.k]: e.target.value }))}
+                      >
+                        <option value="">{c.label}</option>
+                        {[...new Set(listRows.map((t) => colVal(c.k, t)))].sort().map((v) => (
+                          <option key={v} value={v}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                  <div>REQ Map</div>
                 </div>
                 {shownListRows.length === 0 ? (
                   <div className="empty">이 자리에 시험이 없습니다.</div>
@@ -2545,7 +2464,10 @@ export default function TestCases({ me }: PageProps) {
                               </span>
                             )}
                         </div>
+                        {colCell('model_group', t)}
+                        {colCell('model', t)}
                         {visCols.map((c) => colCell(c.k, t))}
+                        {colCell('map', t)}
                       </div>
                       </div>
                     )
