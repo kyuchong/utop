@@ -1823,7 +1823,10 @@ table.tb td:hover {
 table.tb .k {
   font-weight: 600;
 }
+/* 체크 칸은 칸 전체가 손잡이 — 박스는 표시만 (지적: 클릭 먹다 말다) */
+table.tb tbody .tb-pick input { pointer-events: none; }
 table.tb .tb-pick {
+  cursor: pointer;
   width: 26px;
   cursor: default;
 }

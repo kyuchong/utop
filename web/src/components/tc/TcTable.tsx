@@ -39,7 +39,22 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
   )
   const [keyAt, setKeyAt] = useState(() => {
     const i = prev ? cols.findIndex((c) => c.toLowerCase() === prev.keyCol.toLowerCase()) : -1
-    return i >= 0 ? i : firstNamed
+    if (i >= 0) return i
+    /* 기본 기준 열 = 값이 가장 고유한 열(Port 같은 것). 첫 열을 쓰면
+       show arp 의 Protocol 처럼 전 행이 같은 값이라, 한 행을 찍는 순간
+       모든 행이 같이 토글된다(지적: 선택이 이상함). */
+    const rows0 = tbl?.rows ?? []
+    let best = firstNamed
+    let bestN = -1
+    cols.forEach((c, ci) => {
+      if (!c.trim()) return
+      const n = new Set(rows0.map((r) => r[ci] ?? '').filter(Boolean)).size
+      if (n > bestN) {
+        bestN = n
+        best = ci
+      }
+    })
+    return best
   })
   const [keys, setKeys] = useState<string[]>(prev?.keys ?? [])
   const [checks, setChecks] = useState<Check[]>(prev?.checks ?? [])
@@ -211,18 +226,10 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
                     v === true ? 'r-ok' : v === false ? 'r-bad' : ''
                   }`}
                 >
-                  <td className="tb-pick">
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        pickRow(r, kv, e.shiftKey)
-                      }}
-                      onChange={() => {
-                        /* onClick 에서 처리 — Shift 를 알아야 해서 */
-                      }}
-                    />
+                  {/* 칸 전체가 손잡이 — 체크박스에 preventDefault 를 걸면
+                      클릭이 먹다 말다 한다(지적). 박스는 표시만 한다 */}
+                  <td className="tb-pick" onClick={(e) => pickRow(r, kv, e.shiftKey)}>
+                    <input type="checkbox" checked={on} readOnly tabIndex={-1} />
                   </td>
                   <td className="tb-v" title={v === false ? '조건과 다릅니다' : ''}>
                     {v === true ? '✓' : v === false ? '✗' : ''}
