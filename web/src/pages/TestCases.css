@@ -979,8 +979,9 @@ button.sq-caret svg { width: 11px; height: 11px; }
   font-size: var(--fs-xs);
   line-height: 1.7;
   margin: 0;
-  overflow: auto;
-  max-height: 260px;
+  /* 안쪽 스크롤을 없앤다(지적: 중간 스크롤) — 출력은 통으로 펼치고
+     스크롤은 3열 패널 하나로 통일한다. 좌우만 넘치면 가로로 민다. */
+  overflow-x: auto;
   /* 글자를 끌어 판정·변수로 만드는 자리다. 선택이 편해야 한다. */
   user-select: text;
   cursor: text;
@@ -989,15 +990,14 @@ button.sq-caret svg { width: 11px; height: 11px; }
 .sd-res::selection,
 .sd-res *::selection { background: #cfe3ff; }
 
-/* 응답 블럭화 — 판정기와 같은 파서(tableLayout)가 그린다(일관성 합의) */
+/* 응답 블럭화 — 판정기와 같은 파서(tableLayout)가 그린다(일관성 합의).
+   테두리는 폭 0(box-shadow) — 글자 자리를 안 먹어 표 열이 안 밀린다(지적). */
 .bv-b {
-  border: 1px solid #b6c2cf;
+  box-shadow: 0 0 0 1px #b6c2cf;
   border-radius: 3px;
-  padding: 0 3px;
-  margin: 0 1px;
-  background: #fbfcfe;
+  background: #f6f9fc;
 }
-.bv-b:hover { background: #e8f2fe; border-color: #5b9bd5; }
+.bv-b:hover { background: #dcecfd; box-shadow: 0 0 0 1px #5b9bd5; }
 .bv-hd { color: #5b6470; font-weight: 700; }
 
 .sd-res.empty-res {

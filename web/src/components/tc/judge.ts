@@ -244,35 +244,8 @@ export interface TblLayout {
 
 const isPromptLine = (s: string) => /^[\w.-]+[#>]\s*$/.test(s.trim())
 
-export function tableLayout(text: string): TblLayout | null {
-  const lines = String(text ?? '').split(/\r?\n/)
-
-  const sepIdx = lines.findIndex((l) => /-{3,}/.test(l) && /^[\s-]+$/.test(l))
-  if (sepIdx >= 1) {
-    const sep = lines[sepIdx] ?? ''
-    const ranges: Array<[number, number]> = []
-    const re = /-+/g
-    let m: RegExpExecArray | null
-    while ((m = re.exec(sep))) ranges.push([m.index, m.index + m[0].length])
-    if (!ranges.length) return null
-    const bodyIdx: number[] = []
-    for (let i = sepIdx + 1; i < lines.length; i++) {
-      const ln = lines[i] ?? ''
-      if (!ln.trim()) continue
-      // 프롬프트 줄(`SWITCH#`)은 자료가 아니다
-      if (isPromptLine(ln)) continue
-      bodyIdx.push(i)
-    }
-    if (!bodyIdx.length) return null
-    // 마지막 열은 구분선보다 길어질 수 있다 (Type 처럼) — 끝을 -1 로 연다
-    const cols: Array<[number, number]> = ranges.map((r, i) => [
-      r[0],
-      i === ranges.length - 1 ? -1 : r[1],
-    ])
-    return { headIdx: sepIdx - 1, sepIdx, cols, bodyIdx }
-  }
-
-  // 구분선이 없는 표 — 머리줄의 글자 자리로 (tableByHeader 의 규칙 그대로)
+/** 구분선이 없는 표 — 머리줄의 글자 자리로 (tableByHeader 의 규칙 그대로) */
+function tableLayoutByHead(lines: string[]): TblLayout | null {
   const cut = (ln: string): Array<{ at: number; w: string }> => {
     const out: Array<{ at: number; w: string }> = []
     const re2 = /\S(?:.*?\S)??(?=\s{2,}|$)/g
@@ -308,6 +281,42 @@ export function tableLayout(text: string): TblLayout | null {
     }
   }
   return null
+}
+
+export function tableLayout(text: string): TblLayout | null {
+  const lines = String(text ?? '').split(/\r?\n/)
+
+  const sepIdx = lines.findIndex((l) => /-{3,}/.test(l) && /^[\s-]+$/.test(l))
+  if (sepIdx >= 1) {
+    const sep = lines[sepIdx] ?? ''
+    const ranges: Array<[number, number]> = []
+    const re = /-+/g
+    let m: RegExpExecArray | null
+    while ((m = re.exec(sep))) ranges.push([m.index, m.index + m[0].length])
+    /*
+     * 대시 덩어리가 하나뿐이면 표가 아니라 **장식선**이다 — `show cpu us` 가
+     * 전폭 대시로 단락을 가르는데, 그것을 1열 표로 읽어 줄 전체가 한 셀이
+     * 됐다(사진 지적). 열이 둘은 있어야 표다. 아니면 머리줄 방식으로 넘긴다.
+     */
+    if (ranges.length < 2) return tableLayoutByHead(lines)
+    const bodyIdx: number[] = []
+    for (let i = sepIdx + 1; i < lines.length; i++) {
+      const ln = lines[i] ?? ''
+      if (!ln.trim()) continue
+      // 프롬프트 줄(`SWITCH#`)은 자료가 아니다
+      if (isPromptLine(ln)) continue
+      bodyIdx.push(i)
+    }
+    if (!bodyIdx.length) return null
+    // 마지막 열은 구분선보다 길어질 수 있다 (Type 처럼) — 끝을 -1 로 연다
+    const cols: Array<[number, number]> = ranges.map((r, i) => [
+      r[0],
+      i === ranges.length - 1 ? -1 : r[1],
+    ])
+    return { headIdx: sepIdx - 1, sepIdx, cols, bodyIdx }
+  }
+
+  return tableLayoutByHead(lines)
 }
 
 export function parseTable(text: string): Tbl | null {
