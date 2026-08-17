@@ -719,63 +719,8 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   flex: none;
 }
 
-/* 인라인 카드 — 줄 아래로 펼쳐진다. 왼쪽 파란 선이 「레일」:
-   어느 줄에 속한 카드인지 이어 준다(사이클 인라인과 같은 문법). */
-.rq-inline {
-  margin: 2px 8px 10px 30px;
-  border: 1px solid var(--c-border, #dbe1e8);
-  border-left: 3px solid var(--c-primary, #1f6fd6);
-  border-radius: var(--r-box);
-  background: var(--c-surface);
-  padding: 8px 12px;
-}
-/* 세로 구성(피드백) — 왼쪽 세로 탭 레일 + 오른쪽 내용 */
-.rq-inline { display: flex; gap: 12px; align-items: stretch; }
-.rq-inline-side {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: none;
-  width: 138px;
-  border-right: 1px solid var(--c-border, #e3e7ec);
-  padding-right: 10px;
-}
-.rq-inline-side .sp { flex: 1; }
-.rq-inline-body { flex: 1; min-width: 0; }
-.rq-vtab {
-  text-align: left;
-  font-size: var(--fs-sm);
-  padding: 5px 9px;
-  border: 0;
-  background: none;
-  border-radius: 6px;
-  color: var(--c-text-muted);
-  white-space: nowrap;
-}
-.rq-vtab:hover:not(.on) { background: #e9edf2; }
-.rq-vtab.on { background: var(--c-primary); color: #fff; }
-/* 긴 구현내용은 카드 안에서만 스크롤 — 표 전체가 밀리면 훑기가 안 된다 */
-.rq-inline .detail-body {
-  max-height: 62vh;
-  overflow-y: auto;
-}
-/* 줄 캐럿 — 트리 캐럿(rt-caret)을 빌려 쓰되 줄 높이에 맞춘다 */
-.rq-exp { flex: none; }
-
-/* 인라인 Coverages — 읽기 전용 훑기 목록 */
-.rq-inline-tclist {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: var(--fs-sm);
-  padding: 2px 0 4px;
-}
-.rq-itc { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.rq-itc .linkish {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+/* 인라인 카드는 걷어냈다(피드백) — 레일 왕복(줄 클릭 ↔ ← 목록)이
+   충분히 빨라 겹말이었다. */
 /* 줄이 놓인 폴더 — 고른 폴더 기준 상대 경로. 칩이 아니라 회색 잔글씨다,
    줄마다 붙는 것이라 테두리까지 두르면 지저분해진다(피드백). */
 .rq-loc {

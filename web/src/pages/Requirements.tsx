@@ -1,11 +1,11 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
 import ReqTree from '@/components/ReqTree'
 import { useMultiSelect } from '@/components/useMultiSelect'
-import { IconChevron, IconPanel, IconReqDoc, IconTcDoc } from '@/components/icons'
+import { IconPanel, IconReqDoc, IconTcDoc } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import ReqBulkForm from '@/components/ReqBulkForm'
 import ReqBulkEdit from '@/components/ReqBulkEdit'
@@ -143,9 +143,6 @@ export default function Requirements() {
 
   /** List 표에서 체크한 요구사항(PK) — 액션 바의 대상 */
   const [listPick, setListPick] = useState<Set<string>>(new Set())
-  /** 인라인으로 펼친 줄(PK) — 한 번에 하나(아코디언). 훑을 때 쓴다.
-      파고들 때는 레일 보기(selected)가 2열 전체를 갖는다(합의 스펙). */
-  const [inlineReq, setInlineReq] = useState<string | null>(null)
   const [listBusy, setListBusy] = useState('')
 
   /** 보기 — list(표로 여럿) · detail(한 건 넓게) */
@@ -497,24 +494,7 @@ export default function Requirements() {
     return { linked: out, ownerOf: owner }
   }, [folderMode, folderReqs, selectedReq, tcsFor, tcById])
 
-  /** 인라인 카드용 — 이 한 건에 걸린 TC 합집합(위 linked 와 같은 규칙) */
-  const linkedOf = (r: Requirement): TestCaseMeta[] => {
-    const out: TestCaseMeta[] = []
-    const seen = new Set<string>()
-    const push = (t: TestCaseMeta) => {
-      if (seen.has(t.tcid)) return
-      seen.add(t.tcid)
-      out.push(t)
-    }
-    for (const t of tcsFor(r)) push(t)
-    for (const ref of r.tc ?? []) {
-      if (!ref?.tcid) continue
-      push(tcById.get(ref.tcid) ?? { tcid: ref.tcid, name: ref.name, status: ref.status })
-    }
-    return out
-  }
-
-  /** 상세 탭 — 인라인 카드와 레일 보기가 같은 탭을 쓴다 */
+  /** 상세 탭 — 레일 보기가 쓴다 (인라인 카드는 피드백으로 제거) */
   const TABS = [
     ['info', 'Info'],
     ['detail', 'Intent'],
@@ -1158,11 +1138,10 @@ export default function Requirements() {
                 midReqs.map((r) => {
                   const n = covCount(r)
                   const pk = reqPk(r)
-                  const open = inlineReq === pk
                   return (
-                    <Fragment key={pk}>
                     <div
-                      className={`rq-tr${listPick.has(pk) ? ' picked' : ''}${open ? ' on' : ''}`}
+                      className={`rq-tr${listPick.has(pk) ? ' picked' : ''}`}
+                      key={pk}
                       // 끌어서 1열 폴더로 — 5px 은 눌러 고르기와 안 겹친다
                       onPointerDown={(e) => beginRowDrag(e, r)}
                     >
@@ -1175,26 +1154,17 @@ export default function Requirements() {
                         />
                       </div>
                       <div className="rq-name">
-                        {/* 펼침 캐럿 — 사이클 표와 같은 문법. 한 번에 하나 */}
-                        <button
-                          type="button"
-                          className={`rt-caret rq-exp${open ? ' open' : ''}`}
-                          aria-label={open ? '접기' : '펼치기'}
-                          onClick={() => setInlineReq(open ? null : pk)}
-                        >
-                          <IconChevron />
-                        </button>
                         <span className="rq-icon" aria-hidden="true">
                           <IconReqDoc />
                         </span>
                         <button
                           type="button"
                           className="linkish"
-                          title={`${reqLabel(r)} — 누르면 이 줄 아래로 펼쳐집니다`}
-                          /* 탭은 안 건드린다 — Coverages 를 보며 여러
-                             요구사항을 훑을 때 매번 REQ Info 로 튕기면
-                             같은 탭을 계속 다시 눌러야 한다 */
-                          onClick={() => setInlineReq(open ? null : pk)}
+                          title={`${reqLabel(r)} — 누르면 상세(레일)로 갑니다`}
+                          /* 인라인 카드는 걷어냈다(피드백) — 레일 왕복이
+                             「← 목록」 으로 충분히 빨라 겹말이었다.
+                             탭은 안 건드린다 — 훑을 때 탭 유지. */
+                          onClick={() => goDetail(pk)}
                         >
                           {r.title || '(제목 없음)'}
                         </button>
@@ -1234,78 +1204,6 @@ export default function Requirements() {
                         )}
                       </div>
                     </div>
-                    {open && (
-                      /* 인라인 카드 — 훑기용. 왼쪽 레일 선이 어느 줄의
-                         카드인지 이어 준다. 파고들 때는 「레일로 크게」. */
-                      <div className="rq-inline">
-                        {/* 세로 레일(피드백) — 탭이 왼쪽에 서고 내용이
-                            오른쪽을 넓게 쓴다 */}
-                        <div className="rq-inline-side" role="tablist">
-                          {TABS.map(([k, label]) => (
-                            <button
-                              key={k}
-                              role="tab"
-                              aria-selected={tab === k}
-                              className={`rq-vtab${tab === k ? ' on' : ''}`}
-                              type="button"
-                              onClick={() => setTab(k)}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                          <span className="sp" />
-                          <button
-                            className="btn"
-                            type="button"
-                            title="이 요구사항을 2열 전체로 크게 봅니다"
-                            onClick={() => goDetail(pk)}
-                          >
-                            레일로 크게
-                          </button>
-                          <button
-                            className="btn"
-                            type="button"
-                            title="접기"
-                            onClick={() => setInlineReq(null)}
-                          >
-                            ✕ 접기
-                          </button>
-                        </div>
-                        <div className="rq-inline-body">
-                        {tab === 'tc' ? (
-                          /* 인라인은 훑기 — 읽기 전용 목록. 해제·필터는 레일에서 */
-                          <div className="rq-inline-tclist">
-                            {(() => {
-                              const lt = linkedOf(r)
-                              return lt.length === 0 ? (
-                                <div className="muted small">
-                                  연결 TC 가 없습니다 — 「Map」 으로 붙이세요.
-                                </div>
-                              ) : (
-                                lt.map((t) => (
-                                  <div key={t.tcid} className="rq-itc">
-                                    <span className={`status ${statusClass(t.status)}`}>●</span>
-                                    <a
-                                      className="linkish"
-                                      href={gotoHref('tc', t.tcid)}
-                                      title={`${t.tcid} — 누르면 이 시험으로 갑니다`}
-                                      onClick={(e) => gotoClick(e, 'tc', t.tcid)}
-                                    >
-                                      {t.name || t.tcid}
-                                    </a>
-                                    <span className="muted small">{t.status || '미실행'}</span>
-                                  </div>
-                                ))
-                              )
-                            })()}
-                          </div>
-                        ) : (
-                          <ReqDetail req={r} tcs={linkedOf(r)} tab={tab} />
-                        )}
-                        </div>
-                      </div>
-                    )}
-                    </Fragment>
                   )
                 })
               )}
