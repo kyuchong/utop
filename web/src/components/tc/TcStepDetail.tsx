@@ -1180,85 +1180,9 @@ export default function TcStepDetail({
           </div>
         ) : null}
 
-        {/* 자주 안 건드리는 칸. 늘 펼쳐 두면 어느 칸을 채워야 하는지 매번
-            판단하게 된다.
-
-            주석·메시지·모델에는 아예 안 띄운다. 장비로 아무것도 안 나가는
-            줄이라 Test Data 도 RCA 도 채울 값이 없다 — 빈 칸을 세 개 띄워
-            두면 '뭘 채워야 하나' 를 매번 생각하게 된다. */}
-        {!isNoteKind(kind) && kind !== 'model' && !isDiff && kind !== 'wait' && (
-        <details className="sd-more">
-          <summary>세부</summary>
-
-          {isRun && !isMeterStep && (
-            <>
-
-              <label className="sd-f">
-                <span>판정 영역 — 응답에서 이 부분만 본다</span>
-                <input
-                  className="mono"
-                  value={String(step.query ?? '')}
-                  placeholder="비우면 응답 전체"
-                  onChange={(e) => onChange({ query: e.target.value })}
-                />
-                <span className="sd-hint">
-                  아래 <b>Result 에서 볼 부분을 마우스로 끌고</b> 「이 부분만 판정」 을
-                  누르면 여기 채워집니다. 손으로 적을 때는 <b>시작..끝</b>(두 줄 사이) ·
-                  <b>/식/</b>(정규식) · 그냥 문구(그 문구가 든 줄만).
-                </span>
-              </label>
-              {kind === 'cli' && (
-                <label className="sd-f">
-                  <span>응답 더 기다리기 (초)</span>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={step.tailWait ?? ''}
-                    placeholder="0.3"
-                    onChange={(e) =>
-                      onChange({
-                        tailWait: e.target.value === '' ? undefined : Number(e.target.value),
-                      })
-                    }
-                  />
-                  <span className="sd-hint">
-                    <b>reload</b> 처럼 프롬프트가 온 뒤에도 한참 더 뱉는 명령에만 올리세요.
-                    나머지는 손댈 일이 없습니다.
-                  </span>
-                </label>
-              )}
-
-              <label className="sd-f">
-                <span>판정에서 뺄 줄</span>
-                <textarea
-                  className="mono"
-                  rows={2}
-                  value={step.excludeLines ?? ''}
-                  placeholder={'uptime\nlast change'}
-                  onChange={(e) => onChange({ excludeLines: e.target.value })}
-                />
-                <span className="sd-hint">
-                  한 줄에 하나. 그 문구가 든 줄은 판정에서 통째로 뺀다 — 돌릴 때마다
-                  달라지는 시각·카운터가 여기 온다.
-                </span>
-              </label>
-            </>
-          )}
-
-
-          {/* 메모 하나면 된다. 「실패했을 때 볼 곳」 을 따로 뒀었는데
-              656스텝 중 0건이 쓰고 있었고, 무슨 칸인지도 안 읽혔다. */}
-          <label className="sd-f">
-            <span>메모</span>
-            <textarea
-              rows={2}
-              value={step.note ?? ''}
-              placeholder="예) 링크가 안 올라오면 SFP 광 세기부터 본다"
-              onChange={(e) => onChange({ note: e.target.value })}
-            />
-          </label>
-        </details>
-        )}
+        {/* 「세부」 접기는 없앴다(지적: 왜 있나 ×2). 판정 영역·제외 줄·
+            tailWait·메모는 자료에 남아 있으면 그대로 동작하지만, 화면은
+            칩·블럭 흐름 하나로 간다 — 간단하게(합의). */}
 
         {hasResult && (
           <>
@@ -1485,96 +1409,42 @@ export default function TcStepDetail({
                   {picked ? (
                     <>
                       <span className="sd-var">{picked.length > 28 ? `${picked.slice(0, 28)}…` : picked}</span>
+                      {/* 끌어 고른 글자도 블럭과 같은 세 가지뿐(합의: 간단하게).
+                          변수 이름은 자동(varN) — prompt 창은 파이어폭스가 막는다 */}
                       <button
                         className="btn small"
                         type="button"
-                        onClick={() => onChange({ criteria: picked })}
-                      >
-                        Expected 로
-                      </button>
-                      {/* 끌어서 판정 영역·제외 줄을 만든다. `시작..끝` 문법을
-                          손으로 짜게 두면 아무도 안 쓴다. */}
-                      <button
-                        className="btn small"
-                        type="button"
-                        title="고른 부분만 판정 대상으로 삼습니다"
                         onClick={() => {
-                          const ls = picked.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
-                          const a = ls[0]
-                          const b = ls[ls.length - 1]
-                          if (!a) return
-                          // 한 줄만 골랐으면 그 문구가 든 줄만, 여러 줄이면
-                          // 첫 줄과 끝 줄 사이
-                          onChange({ query: ls.length > 1 && b && b !== a ? `${a} .. ${b}` : a })
+                          addVarFromBlock(picked)
                           setPicked('')
-                        }}
-                      >
-                        이 부분만 판정
-                      </button>
-                      <button
-                        className="btn small"
-                        type="button"
-                        title="고른 줄을 판정에서 뺍니다"
-                        onClick={() => {
-                          const ls = picked.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
-                          const cur = String(step.excludeLines ?? '')
-                            .split(/\r?\n/)
-                            .map((x) => x.trim())
-                            .filter(Boolean)
-                          // 같은 줄을 두 번 넣지 않는다
-                          const next = [...cur]
-                          for (const l of ls) if (!next.includes(l)) next.push(l)
-                          onChange({ excludeLines: next.join('\n') })
-                          setPicked('')
-                        }}
-                      >
-                        이 줄 빼기
-                      </button>
-                      <button
-                        className="btn small"
-                        type="button"
-                        onClick={() => {
-                          /**
-                           * 겹치지 않는 이름을 먼저 내놓는다.
-                           *
-                           * 같은 이름을 두 스텝이 뽑으면 뒤엣것이 앞엣것을
-                           * 덮는다 — 그러면 앞 스텝을 참조하던 곳이 조용히
-                           * 다른 값을 보게 된다. 늘 'var1' 을 내놓고 있었다.
-                           */
-                          const used = new Set([...takenVars, ...mine])
-                          let seed = 'var1'
-                          for (let n = 1; n < 999; n++) {
-                            if (!used.has(`var${n}`)) {
-                              seed = `var${n}`
-                              break
-                            }
-                          }
-                          const name = window.prompt('변수 이름', seed)
-                          if (!name) return
-                          if (used.has(name.trim())) {
-                            window.alert(
-                              `「${name.trim()}」 은 이 시험에서 이미 쓰고 있습니다.\n` +
-                                '같은 이름을 두 번 뽑으면 뒤엣것이 앞엣것을 덮습니다.',
-                            )
-                            return
-                          }
-                          // 고른 글자를 그대로 찾는 정규식으로 만든다. 사람이
-                          // 정규식을 짜지 않아도 되게 하는 것이 요점이다.
-                          const esc = picked.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-                          onChange({
-                            queries: [
-                              ...(step.queries ?? []),
-                              { q: `(${esc})`, var: name.trim() },
-                            ],
-                          })
                         }}
                       >
                         변수로
                       </button>
+                      <button
+                        className="btn small"
+                        type="button"
+                        onClick={() => {
+                          addChipFrom('has', picked)
+                          setPicked('')
+                        }}
+                      >
+                        있으면 합격
+                      </button>
+                      <button
+                        className="btn small"
+                        type="button"
+                        onClick={() => {
+                          addChipFrom('not', picked)
+                          setPicked('')
+                        }}
+                      >
+                        있으면 불합격
+                      </button>
                     </>
                   ) : (
                     <span className="muted small">
-                      응답에서 글자를 끌면 Expected 나 변수로 만들 수 있습니다
+                      네모 친 값을 누르거나, 글자를 끌어 기준·변수로 만듭니다
                     </span>
                   )}
                 </div>
