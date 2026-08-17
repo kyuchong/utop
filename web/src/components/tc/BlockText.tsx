@@ -60,10 +60,13 @@ const SKIP_LINE = /^\s*(?:(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s+\w{3}\s+\d|[\w.-]+[#
 export default function BlockText({
   text,
   onBlock,
+  dim,
 }: {
   text: string
   /** 블럭을 눌렀을 때 — 값과 화면 좌표. 안 넘기면 보기만 한다 */
   onBlock?: (v: string, x: number, y: number) => void
+  /** 줄제외 칩에 걸린 줄 — 흐림+취소선으로 「빠진 줄」 임을 보인다 */
+  dim?: (line: string) => boolean
 }) {
   /** 한 덩어리 블럭 — 누르면 기준·변수 메뉴의 입구가 된다 */
   const B = ({ children }: { children: string }) => (
@@ -107,6 +110,16 @@ export default function BlockText({
   const out: ReactNode[] = []
   lines.forEach((ln, i) => {
     if (i) out.push('\n')
+
+    // 제외된 줄 — 판정·캡처에서 빠진 줄임을 화면에서도 보인다(지적)
+    if (dim?.(ln)) {
+      out.push(
+        <span key={i} className="bv-dim" title="줄제외 칩에 걸려 판정·변수에서 빠지는 줄입니다">
+          {ln}
+        </span>,
+      )
+      return
+    }
 
     if (lay && i === lay.headIdx) {
       out.push(

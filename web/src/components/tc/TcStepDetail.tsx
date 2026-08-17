@@ -5,6 +5,7 @@ import { IconIndent, IconOutdent } from '../icons'
 import {
   applyMapRules,
   applySkips,
+  isTimeLine,
   looksLikeTime,
   SKIP_TIME,
   evalCondWhy,
@@ -1309,6 +1310,11 @@ export default function TcStepDetail({
                   <BlockText
                     text={result}
                     onBlock={(v, x, y) => setBlockAt({ v, x, y })}
+                    dim={(ln) => {
+                      const subs = chips.filter((c) => c.t === 'skip' && c.v !== SKIP_TIME)
+                      if (subs.some((c) => ln.includes(c.v))) return true
+                      return chips.some((c) => c.t === 'skip' && c.v === SKIP_TIME) && isTimeLine(ln)
+                    }}
                   />
                 </pre>
                 )}

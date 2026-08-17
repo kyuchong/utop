@@ -361,6 +361,16 @@ export function judgeMeterStats(
   if (!rows.length) {
     return { ok: false, reason: '통계가 비어 있습니다 — 트래픽을 시작하지 않았거나 스트림이 만들어지지 않았습니다' }
   }
+  /* 보낸 게 0 이면 손실도 0 이라 「손실 0 ≤ 허용 0 = 합격」 이 된다 —
+     트래픽이 아예 안 흘렀는데 합격(지적: 왜 합격이 나오나). 막는다. */
+  {
+    const totalTx = rows.reduce((a, x) => a + statNum(x.tx), 0)
+    if (totalTx <= 0)
+      return {
+        ok: false,
+        reason: '보낸 패킷이 0 — 트래픽이 흐르지 않았습니다 (시작 스텝·포트 예약을 확인하세요)',
+      }
+  }
   const cap = step.meterMaxLoss ?? 0
   const bad: string[] = []
   const said: string[] = []

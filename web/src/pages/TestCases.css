@@ -3145,3 +3145,6 @@ table.tb tr.r-bad td:first-child {
 
 /* 줄제외 칩 — 그 문구가 든 줄은 판정에서 뺀다 */
 .sd-chip.skip { background: #f3f5f7; border-color: #9aa4b0; color: #55606c; }
+
+/* 줄제외에 걸린 줄 — 판정·캡처에서 빠졌음을 화면에서도 보인다 */
+.bv-dim { opacity: 0.4; text-decoration: line-through; text-decoration-color: #c0392b; }

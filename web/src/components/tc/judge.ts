@@ -502,6 +502,7 @@ export interface JudgeRule {
  */
 export const SKIP_TIME = '⏱시각줄'
 const TIME_LINE = /^\s*(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s+\w{3}\s+\d/
+export const isTimeLine = (l: string): boolean => TIME_LINE.test(String(l ?? ''))
 
 /** 시각·날짜처럼 생긴 값인가 — 줄제외를 만들 때 ⏱시각줄 칩으로 바꾼다 */
 export function looksLikeTime(v: string): boolean {
