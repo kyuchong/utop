@@ -696,6 +696,59 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   padding: 6px 10px;
   border-top: 1px solid var(--c-border, #e3e7ec);
 }
+
+/* ── 레일 개편(합의 스펙): 3열 제거, 2열이 남은 폭을 다 갖는다 ── */
+.rq-listcol { flex: 1 1 0; min-width: 0; }
+
+/* 레일 보기 머리줄 — ← 목록 + 탭 */
+.rq-rail-h {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border, #e3e7ec);
+  flex: none;
+}
+
+/* 인라인 카드 — 줄 아래로 펼쳐진다. 왼쪽 파란 선이 「레일」:
+   어느 줄에 속한 카드인지 이어 준다(사이클 인라인과 같은 문법). */
+.rq-inline {
+  margin: 2px 8px 10px 30px;
+  border: 1px solid var(--c-border, #dbe1e8);
+  border-left: 3px solid var(--c-primary, #1f6fd6);
+  border-radius: var(--r-box);
+  background: var(--c-surface);
+  padding: 8px 12px;
+}
+.rq-inline-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.rq-inline-h .sp { flex: 1; }
+/* 긴 구현내용은 카드 안에서만 스크롤 — 표 전체가 밀리면 훑기가 안 된다 */
+.rq-inline .detail-body {
+  max-height: 62vh;
+  overflow-y: auto;
+}
+/* 줄 캐럿 — 트리 캐럿(rt-caret)을 빌려 쓰되 줄 높이에 맞춘다 */
+.rq-exp { flex: none; }
+
+/* 인라인 Coverages — 읽기 전용 훑기 목록 */
+.rq-inline-tclist {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-sm);
+  padding: 2px 0 4px;
+}
+.rq-itc { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rq-itc .linkish {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 /* 줄이 놓인 폴더 — 고른 폴더 기준 상대 경로. 칩이 아니라 회색 잔글씨다,
    줄마다 붙는 것이라 테두리까지 두르면 지저분해진다(피드백). */
 .rq-loc {

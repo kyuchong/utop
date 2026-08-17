@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
 import ReqTree from '@/components/ReqTree'
 import { useMultiSelect } from '@/components/useMultiSelect'
-import { IconPanel, IconReqDoc, IconTcDoc } from '@/components/icons'
+import { IconChevron, IconPanel, IconReqDoc, IconTcDoc } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import ReqBulkForm from '@/components/ReqBulkForm'
 import ReqBulkEdit from '@/components/ReqBulkEdit'
@@ -126,9 +126,7 @@ export default function Requirements() {
   // 패널 폭은 사람마다 선호가 다르다. 드래그로 맞추고 브라우저에 기억시킨다.
   const splitRef = useRef<HTMLDivElement>(null)
   const [catW, setCatW] = useResizableWidth('utop.req.catW5', 210, 150, 900)
-  /** Detail 가운데(형제 요구사항) 폭 — 제목이 길어 좁으면 다 못 읽는다 */
-  const midRef = useRef<HTMLElement>(null)
-  const [midW, setMidW] = useResizableWidth('utop.req.listW1', 620, 340, 980)
+  // 2열 폭 조절은 3열과 함께 은퇴했다 — 2열이 남은 폭을 다 갖는다(레일 개편)
 
   /**
    * 폴더 트리를 폈나. 사이클·TC 화면과 같은 접기다.
@@ -145,6 +143,9 @@ export default function Requirements() {
 
   /** List 표에서 체크한 요구사항(PK) — 액션 바의 대상 */
   const [listPick, setListPick] = useState<Set<string>>(new Set())
+  /** 인라인으로 펼친 줄(PK) — 한 번에 하나(아코디언). 훑을 때 쓴다.
+      파고들 때는 레일 보기(selected)가 2열 전체를 갖는다(합의 스펙). */
+  const [inlineReq, setInlineReq] = useState<string | null>(null)
   const [listBusy, setListBusy] = useState('')
 
   /** 보기 — list(표로 여럿) · detail(한 건 넓게) */
@@ -418,9 +419,6 @@ export default function Requirements() {
     window.addEventListener('pointerup', up)
   }
 
-  /** TC 표가 폴더 묶음을 보여 주는 중인가 — 그때만 「요구사항」 열이 뜬다 */
-  const tcByFolder = !selectedReq && folderMode
-
   /** Detail 가운데 목록 — 보고 있는 폴더의 형제 요구사항들 */
   const midReqs = useMemo(() => {
     const base = folderMode ? sortedFolderReqs : selectedReq ? [selectedReq] : []
@@ -498,6 +496,32 @@ export default function Requirements() {
     }
     return { linked: out, ownerOf: owner }
   }, [folderMode, folderReqs, selectedReq, tcsFor, tcById])
+
+  /** 인라인 카드용 — 이 한 건에 걸린 TC 합집합(위 linked 와 같은 규칙) */
+  const linkedOf = (r: Requirement): TestCaseMeta[] => {
+    const out: TestCaseMeta[] = []
+    const seen = new Set<string>()
+    const push = (t: TestCaseMeta) => {
+      if (seen.has(t.tcid)) return
+      seen.add(t.tcid)
+      out.push(t)
+    }
+    for (const t of tcsFor(r)) push(t)
+    for (const ref of r.tc ?? []) {
+      if (!ref?.tcid) continue
+      push(tcById.get(ref.tcid) ?? { tcid: ref.tcid, name: ref.name, status: ref.status })
+    }
+    return out
+  }
+
+  /** 상세 탭 — 인라인 카드와 레일 보기가 같은 탭을 쓴다 */
+  const TABS = [
+    ['info', 'Info'],
+    ['detail', 'Intent'],
+    ['tc', 'Coverages'],
+    ['runs', 'Execution History'],
+    ['history', 'Change History'],
+  ] as const
 
   /** 커버리지 집계. Xray 처럼 '덮였는가' 를 먼저 답하려고 쓴다. */
   const cov = useMemo(() => {
@@ -882,7 +906,146 @@ export default function Requirements() {
         {/* ── 2열: 이 폴더의 요구사항 표 — 옛 List 화면 그대로 ──
             토글을 없앴다. 폴더를 고르면 여기가 그 폴더의 표고, 표에서
             한 건을 고르면 3열이 상세다 — 고른 것이 화면을 정한다. */}
-        <section className="panel rq-listcol" ref={midRef} style={{ flexBasis: midW }}>
+        <section className="panel rq-listcol">
+          {selectedReq ? (
+            /* ── 레일 보기 — 3열이 하던 상세를 2열 전체로(합의 스펙).
+                 트리에서 요구사항을 직접 누르거나, 인라인 카드에서
+                 「레일로 크게」 를 누르면 여기로 온다. ── */
+            <>
+              <div className="rq-rail-h">
+                <button
+                  className="btn"
+                  type="button"
+                  title="요구사항 목록으로 돌아갑니다"
+                  onClick={() => {
+                    setSelected(null)
+                    window.history.pushState({ utop: true }, '', window.location.pathname)
+                  }}
+                >
+                  ← 목록
+                </button>
+                <div className="seg" role="tablist">
+                  {TABS.map(([k, label]) => (
+                    <button
+                      key={k}
+                      role="tab"
+                      aria-selected={tab === k}
+                      className={`seg-btn${tab === k ? ' on' : ''}`}
+                      type="button"
+                      onClick={() => setTab(k)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <span className="sp" />
+              </div>
+              {tab !== 'tc' ? (
+                <ReqDetail req={selectedReq} tcs={linked} tab={tab} />
+              ) : (
+                <div className="tc-body scroll">
+                  <div className={`cov-bar ${linked.length === 0 ? 'none' : cov.fail > 0 ? 'bad' : cov.idle > 0 ? 'warn' : 'good'}`}>
+                    {linked.length === 0 ? (
+                      <>
+                        <b>미커버</b>
+                        <span className="muted small">
+                          이 요구사항을 검증하는 TC 가 없습니다. 표의 「Map」 으로 붙이세요.
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <b>{cov.fail > 0 ? '실패 있음' : cov.idle > 0 ? '미실행 있음' : '커버됨'}</b>
+                        <span className="muted small">
+                          TC {linked.length}건 · PASS {cov.pass} · FAIL {cov.fail} · 미실행 {cov.idle}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="filter">
+                    <input
+                      placeholder="TC ID / 제목 검색"
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                    />
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                      <option value="">전체 상태</option>
+                      <option value="pass">PASS</option>
+                      <option value="fail">FAIL</option>
+                      <option value="idle">미실행</option>
+                      <option value="draft">작성중</option>
+                    </select>
+                  </div>
+
+                  <div className="table">
+                    <div className="tr th">
+                      <div>Test Case</div>
+                      <div>유형</div>
+                      <div>Step</div>
+                      <div>상태</div>
+                      <div />
+                    </div>
+                    {shown.length === 0 ? (
+                      <div className="empty">
+                        {linked.length === 0
+                          ? '연결된 TC가 없습니다.'
+                          : '조건에 맞는 TC가 없습니다.'}
+                      </div>
+                    ) : (
+                      shown.map((t) => (
+                        <div className="tr" key={t.tcid}>
+                          <div className="tc-cell">
+                            <span className="rt-dicon" aria-hidden="true">
+                              <IconTcDoc />
+                            </span>
+                            <a
+                              className="tc-name linkish"
+                              href={gotoHref('tc', t.tcid)}
+                              title={`${t.tcid} — 누르면 이 시험으로 갑니다 (Ctrl+클릭·오른쪽 단추로 새 탭)`}
+                              onClick={(e) => gotoClick(e, 'tc', t.tcid)}
+                            >
+                              {t.name || '(제목 없음)'}
+                            </a>
+                          </div>
+                          <div>
+                            {t.type ? <span className="tag">{t.type}</span> : null}
+                          </div>
+                          <div className="muted small">{t._cli_count ?? '-'}</div>
+                          <div className={`status ${statusClass(t.status)}`}>
+                            ● {t.status || '미실행'}
+                          </div>
+                          <div>
+                            <button
+                              className="btn small danger"
+                              type="button"
+                              disabled={unlinkM.isPending}
+                              title="이 요구사항에서 뗍니다. TC 자체는 지워지지 않습니다"
+                              onClick={() => {
+                                if (window.confirm(`'${t.name || t.tcid}' 을 이 요구사항에서 뗍니다.`))
+                                  unlinkM.mutate(t)
+                              }}
+                            >
+                              해제
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+              <div className="bottom colbot">
+                <span>
+                  연결 TC {linked.length}건
+                  {tab === 'tc' && shown.length !== linked.length && ` · ${shown.length}개 표시`}
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
           {/* 액션은 머리줄에 — 따로 한 줄을 먹고 있어서 표가 그만큼 짧았다 */}
           <div className="rq-mid-h rq-mid-acts">
             {/* 「Requirements N」 이름표는 뺐다(피드백) — 위 빵부스러기와
@@ -995,10 +1158,11 @@ export default function Requirements() {
                 midReqs.map((r) => {
                   const n = covCount(r)
                   const pk = reqPk(r)
+                  const open = inlineReq === pk
                   return (
+                    <Fragment key={pk}>
                     <div
-                      className={`rq-tr${listPick.has(pk) ? ' picked' : ''}${pk === selected ? ' on' : ''}`}
-                      key={pk}
+                      className={`rq-tr${listPick.has(pk) ? ' picked' : ''}${open ? ' on' : ''}`}
                       // 끌어서 1열 폴더로 — 5px 은 눌러 고르기와 안 겹친다
                       onPointerDown={(e) => beginRowDrag(e, r)}
                     >
@@ -1011,17 +1175,26 @@ export default function Requirements() {
                         />
                       </div>
                       <div className="rq-name">
+                        {/* 펼침 캐럿 — 사이클 표와 같은 문법. 한 번에 하나 */}
+                        <button
+                          type="button"
+                          className={`rt-caret rq-exp${open ? ' open' : ''}`}
+                          aria-label={open ? '접기' : '펼치기'}
+                          onClick={() => setInlineReq(open ? null : pk)}
+                        >
+                          <IconChevron />
+                        </button>
                         <span className="rq-icon" aria-hidden="true">
                           <IconReqDoc />
                         </span>
                         <button
                           type="button"
                           className="linkish"
-                          title={`${reqLabel(r)} — 상세는 3열에 뜹니다`}
+                          title={`${reqLabel(r)} — 누르면 이 줄 아래로 펼쳐집니다`}
                           /* 탭은 안 건드린다 — Coverages 를 보며 여러
                              요구사항을 훑을 때 매번 REQ Info 로 튕기면
                              같은 탭을 계속 다시 눌러야 한다 */
-                          onClick={() => goDetail(pk)}
+                          onClick={() => setInlineReq(open ? null : pk)}
                         >
                           {r.title || '(제목 없음)'}
                         </button>
@@ -1061,6 +1234,76 @@ export default function Requirements() {
                         )}
                       </div>
                     </div>
+                    {open && (
+                      /* 인라인 카드 — 훑기용. 왼쪽 레일 선이 어느 줄의
+                         카드인지 이어 준다. 파고들 때는 「레일로 크게」. */
+                      <div className="rq-inline">
+                        <div className="rq-inline-h">
+                          <div className="seg" role="tablist">
+                            {TABS.map(([k, label]) => (
+                              <button
+                                key={k}
+                                role="tab"
+                                aria-selected={tab === k}
+                                className={`seg-btn${tab === k ? ' on' : ''}`}
+                                type="button"
+                                onClick={() => setTab(k)}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                          <span className="sp" />
+                          <button
+                            className="btn"
+                            type="button"
+                            title="이 요구사항을 2열 전체로 크게 봅니다"
+                            onClick={() => goDetail(pk)}
+                          >
+                            레일로 크게
+                          </button>
+                          <button
+                            className="btn"
+                            type="button"
+                            title="접기"
+                            onClick={() => setInlineReq(null)}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        {tab === 'tc' ? (
+                          /* 인라인은 훑기 — 읽기 전용 목록. 해제·필터는 레일에서 */
+                          <div className="rq-inline-tclist">
+                            {(() => {
+                              const lt = linkedOf(r)
+                              return lt.length === 0 ? (
+                                <div className="muted small">
+                                  연결 TC 가 없습니다 — 「Map」 으로 붙이세요.
+                                </div>
+                              ) : (
+                                lt.map((t) => (
+                                  <div key={t.tcid} className="rq-itc">
+                                    <span className={`status ${statusClass(t.status)}`}>●</span>
+                                    <a
+                                      className="linkish"
+                                      href={gotoHref('tc', t.tcid)}
+                                      title={`${t.tcid} — 누르면 이 시험으로 갑니다`}
+                                      onClick={(e) => gotoClick(e, 'tc', t.tcid)}
+                                    >
+                                      {t.name || t.tcid}
+                                    </a>
+                                    <span className="muted small">{t.status || '미실행'}</span>
+                                  </div>
+                                ))
+                              )
+                            })()}
+                          </div>
+                        ) : (
+                          <ReqDetail req={r} tcs={linkedOf(r)} tab={tab} />
+                        )}
+                      </div>
+                    )}
+                    </Fragment>
                   )
                 })
               )}
@@ -1072,205 +1315,11 @@ export default function Requirements() {
             <span>요구사항 {midReqs.length}건</span>
             {pickedInList.length > 0 && <span>{pickedInList.length}건 선택됨</span>}
           </div>
-        </section>
-        <Resizer
-          label="요구사항 표 폭 조절"
-          onResize={setMidW}
-          getOrigin={() => midRef.current?.getBoundingClientRect().left ?? 0}
-        />
-
-        {/* ── 오른쪽: 탭에 따라 내용이 바뀐다 ─────────────── */}
-        <section className="panel tc-panel">
-          <div className="panel-title">
-            {/* 폴더를 보고 있을 때는 탭을 띄우지 않는다. REQ Info·Details·
-                이력은 요구사항 한 건에만 있는 것이라, 폴더에 걸어두면 늘
-                비어 있는 탭이 넷 생긴다. 폴더에서는 TC 목록 하나면 된다. */}
-            {selectedReq ? (
-            <div className="seg" role="tablist">
-              {([
-                ['info', 'Info'],
-                ['detail', 'Intent'],
-                ['tc', 'Coverages'],
-                ['runs', 'Execution History'],
-                ['history', 'Change History'],
-              ] as const).map(([k, label]) => (
-                <button
-                  key={k}
-                  role="tab"
-                  aria-selected={tab === k}
-                  className={`seg-btn${tab === k ? ' on' : ''}`}
-                  type="button"
-                  onClick={() => setTab(k)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            ) : (
-              /* 아직 아무것도 안 골랐다 — 이 칸이 무엇을 보여줄 자리인지만 적는다 */
-              <div className="rq-mid-h rq-tc-h">
-                <b>REQ Details</b>
-                <span className="muted small">가운데 표에서 요구사항을 고르세요</span>
-              </div>
-            )}
-            {/* TC 붙이기·만들기는 전부 2열 표의 Map 과 Coverage 화면 몫이다 —
-                여기 있던 TC 연결·일괄 생성·+ TC 생성은 소스째 걷어냈다. */}
-          </div>
-
-          {!selectedReq ? (
-            <div className="empty">가운데 표에서 요구사항을 고르세요.</div>
-          ) : tab !== 'tc' ? (
-            <ReqDetail req={selectedReq} tcs={linked} tab={tab} />
-          ) : (
-            /* 폴더를 볼 때는 「요구사항」 열이 하나 더 붙는다. 이 표시가
-               없으면 표는 다섯 칸인데 줄에는 여섯 칸이 들어가, 마지막
-               「해제」 단추가 다음 줄로 접혀 한 줄이 두 줄로 보였다. */
-            <div className={`tc-body scroll${tcByFolder ? ' by-folder' : ''}`}>
-              {/* 커버리지 상태. 목록만 있으면 '이 요구사항이 덮였나' 를
-                  눈으로 세어야 한다. 한 줄로 먼저 답한다. */}
-              <div className={`cov-bar ${linked.length === 0 ? 'none' : cov.fail > 0 ? 'bad' : cov.idle > 0 ? 'warn' : 'good'}`}>
-                {linked.length === 0 ? (
-                  <>
-                    <b>미커버</b>
-                    <span className="muted small">
-                      {tcByFolder
-                        ? folderReqs.length === 0
-                          ? '이 폴더에 요구사항이 없습니다.'
-                          : `요구사항 ${folderReqs.length}건 중 TC 가 붙은 것이 없습니다.`
-                        : '이 요구사항을 검증하는 TC 가 없습니다. 2열 표의 「Map」 으로 붙이세요.'}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <b>{cov.fail > 0 ? '실패 있음' : cov.idle > 0 ? '미실행 있음' : '커버됨'}</b>
-                    <span className="muted small">
-                      TC {linked.length}건 · PASS {cov.pass} · FAIL {cov.fail} · 미실행 {cov.idle}
-                    </span>
-                  </>
-                )}
-              </div>
-
-              <div className="filter">
-                <input
-                  placeholder="TC ID / 제목 검색"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option value="">전체 상태</option>
-                  <option value="pass">PASS</option>
-                  <option value="fail">FAIL</option>
-                  <option value="idle">미실행</option>
-                  <option value="draft">작성중</option>
-                </select>
-              </div>
-
-              <div className="table">
-                <div className="tr th">
-                  <div>Test Case</div>
-                  {/* 폴더는 요구사항 여럿을 모아 보이므로 어느 것의 TC 인지
-                      적어야 한다. 한 건만 볼 때는 자명해서 열을 안 만든다. */}
-                  {tcByFolder && <div>요구사항</div>}
-                  <div>유형</div>
-                  <div>Step</div>
-                  <div>상태</div>
-                  <div />
-                </div>
-                {shown.length === 0 ? (
-                  <div className="empty">
-                    {linked.length === 0
-                      ? '연결된 TC가 없습니다.'
-                      : '조건에 맞는 TC가 없습니다.'}
-                  </div>
-                ) : (
-                  shown.map((t) => {
-                    const owner = ownerOf.get(t.tcid)
-                    return (
-                    <div className="tr" key={t.tcid}>
-                      <div className="tc-cell">
-                        {/* 읽는 것은 제목이다. ID 는 참조 번호라 뒤에 작게 */}
-                        <span className="rt-dicon" aria-hidden="true">
-                          <IconTcDoc />
-                        </span>
-                        {/* ID 는 안 적는다. 이 표는 「이 요구사항이 무엇으로
-                            덮여 있나」 를 보는 자리고, 그때 필요한 것은
-                            이름이다. ID 는 눌러 들어가면 나온다. */}
-                        {/* 눌러 들어간다. 이 표에서 시험 하나를 찾아 놓고도
-                            무엇이 들었는지 보려면 TC 화면으로 가 이름을
-                            다시 찾아야 했다. 사이클·실행 이력이 이미 같은
-                            식으로 여는데 여기만 빠져 있었다. */}
-                        <a
-                          className="tc-name linkish"
-                          href={gotoHref('tc', t.tcid)}
-                          title={`${t.tcid} — 누르면 이 시험으로 갑니다 (Ctrl+클릭·오른쪽 단추로 새 탭)`}
-                          onClick={(e) => gotoClick(e, 'tc', t.tcid)}
-                        >
-                          {t.name || '(제목 없음)'}
-                        </a>
-                      </div>
-                      {tcByFolder && (
-                        <div className="fold-req">
-                          <button
-                            type="button"
-                            className="linkish"
-                            disabled={!owner}
-                            title="이 요구사항으로 이동"
-                            onClick={() => {
-                              if (!owner) return
-                              setSelected(reqPk(owner))
-                              setSelectedFolder(undefined)
-                            }}
-                          >
-                            {owner ? reqLabel(owner) || owner.title || '(ID 없음)' : '–'}
-                          </button>
-                        </div>
-                      )}
-                      <div>
-                        {t.type ? <span className="tag">{t.type}</span> : null}
-                      </div>
-                      <div className="muted small">{t._cli_count ?? '-'}</div>
-                      <div className={`status ${statusClass(t.status)}`}>
-                        ● {t.status || '미실행'}
-                      </div>
-                      {/* 떼는 것은 붙이는 창이 아니라 이 목록에서 한다.
-                          한 창에서 붙이기·떼기를 같이 하면 무엇이 무엇인지
-                          계속 생각해야 한다(Zephyr 도 같은 구조다). */}
-                      <div>
-                        <button
-                          className="btn small danger"
-                          type="button"
-                          disabled={unlinkM.isPending}
-                          title="이 요구사항에서 뗍니다. TC 자체는 지워지지 않습니다"
-                          onClick={() => {
-                            if (window.confirm(`'${t.name || t.tcid}' 을 이 요구사항에서 뗍니다.`))
-                              unlinkM.mutate(t)
-                          }}
-                        >
-                          해제
-                        </button>
-                      </div>
-                    </div>
-                    )
-                  })
-                )}
-              </div>
-
-            </div>
-          )}
-          {/* 바닥 상태 바 — 어느 탭이든 카드 맨 아래 같은 자리(피드백:
-              Coverages 만 목록 밑에 붙어 혼자 떠 보였다) */}
-          {selectedReq && (
-            <div className="bottom colbot">
-              <span>
-                연결 TC {linked.length}건
-                {tab === 'tc' && shown.length !== linked.length && ` · ${shown.length}개 표시`}
-              </span>
-            </div>
+            </>
           )}
         </section>
+        {/* 3열은 들어냈다(합의 스펙) — 상세는 위 레일 보기와 인라인 카드가
+            맡는다. 폴더 단위 TC 모음이 필요하면 Coverage 화면이 그 자리다. */}
       </div>
     </>
   )
