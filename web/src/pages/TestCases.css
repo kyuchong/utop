@@ -461,8 +461,10 @@
 .sq-row {
   display: grid;
   /* 상태 기호 열(18px)은 뺐다 — 줄 끝 PASS·FAIL 과 겹말이었다.
-     번호 열은 내용만큼만 — 52px 고정이면 „14" 뒤가 통째로 빈다. */
-  grid-template-columns: 15px minmax(24px, max-content) minmax(90px, auto) 24px 1fr 54px 24px;
+     번호 열은 내용만큼만 — 52px 고정이면 „14" 뒤가 통째로 빈다.
+     세션은 둘째 열 고정(지시: 체크박스-세션-스텝-명령어-내역-결과-실행) —
+     Action 뒤에 두면 들여쓰기에 밀려 줄마다 자리가 달랐다. */
+  grid-template-columns: 15px minmax(28px, max-content) minmax(24px, max-content) minmax(90px, auto) 1fr 54px 24px;
   position: relative;
   align-items: center;
   gap: var(--sp-2);
@@ -1164,8 +1166,8 @@ button.sq-caret svg { width: 11px; height: 11px; }
 .sq-s b[data-s='1'] { background: #eaf5ec; color: #1f7a45; }
 .sq-s b[data-s='2'] { background: #fdf1e3; color: #97620d; }
 .sq-s b[data-s='3'] { background: #f2ecfb; color: #5c3d9e; }
-/* 장비로 나가는 줄인데 세션이 없다 — 이대로 돌리면 실패할 줄 */
-.sq-s b.unset { background: #f3f5f7; color: #8a939c; border: 1px dashed #c3ccd4; }
+/* 세션 없는 줄 — 빈칸 대신 – 로 칸을 고르게 채운다(지시) */
+.sq-s-none { color: #c3ccd4; font-size: 10px; }
 
 /* 터미널은 바탕이 어두워서 같은 색을 쓰면 안 읽힌다 */
 .tm-s { flex: none; }

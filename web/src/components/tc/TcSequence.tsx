@@ -221,6 +221,23 @@ export default function TcSequence({
                 />
                 {/* 상태 기호(✔·✖·○)는 뺐다 — 줄 끝의 PASS·FAIL 글자와 같은
                     말을 두 번 하는 열이었다. 도는 줄은 줄 자체가 빛난다. */}
+                {/* 세션은 맨 앞 고정 열 — Action 뒤에 두면 들여쓰기에 밀려
+                    줄마다 자리가 달랐다(지적). 값이 없으면 – 로 칸을 고르게
+                    채운다. 자릿수가 늘어도 안 밀리게 S01 두 자리로 적는다. */}
+                {(() => {
+                  const k = sessionIndex(s.session)
+                  return (
+                    <span className="sq-s">
+                      {k >= 0 ? (
+                        <b data-s={k % 4} title={sessionName(k)}>
+                          S{String(k + 1).padStart(2, '0')}
+                        </b>
+                      ) : (
+                        <span className="sq-s-none">–</span>
+                      )}
+                    </span>
+                  )
+                })()}
                 <span className="sq-n">{numbers[i]}</span>
                 <span className="sq-act" style={{ marginLeft: depth * 16 }}>
                   {/* 블록만 접힌다. 아닌 줄에도 같은 폭을 비워 두어야
@@ -247,39 +264,6 @@ export default function TcSequence({
                 {/* 어느 세션으로 나가는가. 같은 장비를 두 자리에 앉히는 일이
                     흔해서 장비 이름만으로는 안 갈린다 — iTest 도 Session 을
                     별도 열로 둔다. */}
-                {(() => {
-                  // 장비로 나가는 줄만 세션을 적는다 — 계측기는 섀시로 곧장
-                  // 가고, Diff·If·치환 따위는 아예 안 나간다. 그 줄들은 비워
-                  // 두는 것이 맞다. 세션 값이 남아 있어도 안 적는다(옛 자료).
-                  //
-                  // 나가는 줄인데 세션이 없으면 S? — 그 줄은 돌리면 「세션이
-                  // 지정되지 않았습니다」 로 떨어진다. 돌려보고 나서야 알
-                  // 것을 목록에서 미리 보이게 한다.
-                  const kd = s.kind || 'cli'
-                  const hostSet = !!String(s.host ?? '').trim()
-                  const viaSession =
-                    kd === 'cli' || kd === 'connect' || kd === 'disconnect' || kd === 'auto'
-                      ? true
-                      : kd === 'ping' || kd === 'snmp_get' || kd === 'snmp_set'
-                        ? !hostSet
-                        : kd === 'snmp_trap'
-                          ? !hostSet && sessionIndex(s.session) >= 0
-                          : false
-                  const k = viaSession ? sessionIndex(s.session) : -2
-                  return (
-                    <span className="sq-s">
-                      {k >= 0 ? (
-                        <b data-s={k % 4} title={sessionName(k)}>
-                          S{k + 1}
-                        </b>
-                      ) : k === -1 ? (
-                        <b className="unset" title="세션이 없습니다 — 이대로 돌리면 이 줄은 실패합니다">
-                          S?
-                        </b>
-                      ) : null}
-                    </span>
-                  )
-                })()}
                 {/* 명령·값만 고정폭. 'U9532H 접속' 같은 한글까지 고정폭으로
                     두면 다른 화면과 글자가 달라 보인다. */}
                 {/* 명령이 먼저다 — 사람이 훑을 때 찾는 것은 명령이다.
