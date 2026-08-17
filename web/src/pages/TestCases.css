@@ -738,6 +738,11 @@ button.sq-caret svg { width: 11px; height: 11px; }
 .sd-head b { font-size: var(--fs-sm); font-weight: 600; }
 .sd-head .sp { margin-left: auto; }
 
+/* 머리 단추(▲▼·들여쓰기·복제·삭제)는 자주 누르는 손잡이인데 너무 작았다 */
+.sd-head .btn.small { font-size: 13px; padding: 5px 10px; line-height: 1.2; }
+.sd-head .sd-ind { padding: 5px 8px; }
+.sd-head .sd-ind svg { width: 16px; height: 16px; }
+
 .sd-body { flex: 1; min-height: 0; overflow: auto; padding: 2px var(--sp-3) var(--sp-3); }
 
 /*
