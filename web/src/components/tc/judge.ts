@@ -584,7 +584,7 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
         if (hasTok(v)) fails.push(`있으면 안 되는 "${v}" 있음 → ${lineOf2(v)}`)
         else oks.push(`"${v}" 없음(정상)`)
       } else {
-        const tr = judgeTable(String(output ?? ''), v)
+        const tr = judgeTable(raw2, v)
         if (tr.verdict === 'Fail') fails.push(tr.reason)
         else oks.push(tr.reason)
       }
@@ -635,10 +635,11 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
 
   // 표는 판정 영역/제외 줄을 적용하지 않는다 — 머리글과 구분선이 잘리면
   // 열 자리를 못 잡는다. 행을 고르는 것은 표 판정 자신의 필터가 한다.
-  if (type === 'table') return judgeTable(String(output ?? ''), criteria)
+  if (type === 'table') return judgeTable(applySkips(String(output ?? ''), step), criteria)
 
-  const scoped = applyExclude(applyQuery(output, step.query as string | undefined), step.excludeLines)
-  const raw = applyExclude(String(output ?? ''), step.excludeLines)
+  // 순서 합의는 옛 방식 판정에도 그대로: 시각 제거 → 제외 → 판정
+  const scoped = applySkips(applyQuery(output, step.query as string | undefined), step)
+  const raw = applySkips(String(output ?? ''), step)
   // Query 로 잘라낸 쪽에 없으면 원본에서도 본다. 사람이 화면에서 본 그대로
   // 찾히는 것이 직관적이다 (옛 화면과 같은 폴백).
   const has = (tok: string) => {
