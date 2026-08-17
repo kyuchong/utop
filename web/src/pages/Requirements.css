@@ -656,9 +656,18 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 }
 .rq-tr:not(.rq-th):hover { background: var(--c-surface-2); }
 .rq-name {
+  /* 캐럿 단추가 블록이라 줄을 꺾었다(펼침 도입 때 사고) — 한 줄 flex 로.
+     말줄임은 제목(linkish)이 제 칸 안에서 맡는다. */
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.rq-name .linkish {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 .rq-name .linkish { font-size: var(--fs-md); }
 /* 폴더 정렬 아이콘 단추 + 팝업 — 찾기 단추와 같은 모양(lh-findbtn) */
@@ -720,13 +729,31 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   background: var(--c-surface);
   padding: 8px 12px;
 }
-.rq-inline-h {
+/* 세로 구성(피드백) — 왼쪽 세로 탭 레일 + 오른쪽 내용 */
+.rq-inline { display: flex; gap: 12px; align-items: stretch; }
+.rq-inline-side {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  flex-direction: column;
+  gap: 4px;
+  flex: none;
+  width: 138px;
+  border-right: 1px solid var(--c-border, #e3e7ec);
+  padding-right: 10px;
 }
-.rq-inline-h .sp { flex: 1; }
+.rq-inline-side .sp { flex: 1; }
+.rq-inline-body { flex: 1; min-width: 0; }
+.rq-vtab {
+  text-align: left;
+  font-size: var(--fs-sm);
+  padding: 5px 9px;
+  border: 0;
+  background: none;
+  border-radius: 6px;
+  color: var(--c-text-muted);
+  white-space: nowrap;
+}
+.rq-vtab:hover:not(.on) { background: #e9edf2; }
+.rq-vtab.on { background: var(--c-primary); color: #fff; }
 /* 긴 구현내용은 카드 안에서만 스크롤 — 표 전체가 밀리면 훑기가 안 된다 */
 .rq-inline .detail-body {
   max-height: 62vh;

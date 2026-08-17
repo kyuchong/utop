@@ -1238,21 +1238,21 @@ export default function Requirements() {
                       /* 인라인 카드 — 훑기용. 왼쪽 레일 선이 어느 줄의
                          카드인지 이어 준다. 파고들 때는 「레일로 크게」. */
                       <div className="rq-inline">
-                        <div className="rq-inline-h">
-                          <div className="seg" role="tablist">
-                            {TABS.map(([k, label]) => (
-                              <button
-                                key={k}
-                                role="tab"
-                                aria-selected={tab === k}
-                                className={`seg-btn${tab === k ? ' on' : ''}`}
-                                type="button"
-                                onClick={() => setTab(k)}
-                              >
-                                {label}
-                              </button>
-                            ))}
-                          </div>
+                        {/* 세로 레일(피드백) — 탭이 왼쪽에 서고 내용이
+                            오른쪽을 넓게 쓴다 */}
+                        <div className="rq-inline-side" role="tablist">
+                          {TABS.map(([k, label]) => (
+                            <button
+                              key={k}
+                              role="tab"
+                              aria-selected={tab === k}
+                              className={`rq-vtab${tab === k ? ' on' : ''}`}
+                              type="button"
+                              onClick={() => setTab(k)}
+                            >
+                              {label}
+                            </button>
+                          ))}
                           <span className="sp" />
                           <button
                             className="btn"
@@ -1268,9 +1268,10 @@ export default function Requirements() {
                             title="접기"
                             onClick={() => setInlineReq(null)}
                           >
-                            ✕
+                            ✕ 접기
                           </button>
                         </div>
+                        <div className="rq-inline-body">
                         {tab === 'tc' ? (
                           /* 인라인은 훑기 — 읽기 전용 목록. 해제·필터는 레일에서 */
                           <div className="rq-inline-tclist">
@@ -1301,6 +1302,7 @@ export default function Requirements() {
                         ) : (
                           <ReqDetail req={r} tcs={linkedOf(r)} tab={tab} />
                         )}
+                        </div>
                       </div>
                     )}
                     </Fragment>
