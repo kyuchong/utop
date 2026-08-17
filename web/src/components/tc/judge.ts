@@ -892,13 +892,12 @@ export function diffLines(
   b: string,
   exclude?: string,
 ): { same: boolean; onlyA: string[]; onlyB: string[] } {
+  /* Diff 는 아무것도 몰래 무시하지 않는다(합의: 시스템이 멋대로 정하지
+     않는다). 시각 처리는 캡처 단계의 ⏱ 칩이 끝낸다 — 한쪽 캡처에만
+     시각이 남았으면 여기서 정직하게 「다르다」 로 보인다. */
   const prep = (s: string) =>
     applyExclude(String(s ?? ''), exclude)
       .split(/\r?\n/)
-      /* 시각 줄은 항상 뺀다 — 시각은 값이 아니라 찍은 때다. 캡처마다
-         ⏱ 칩을 챙겨야만 빠지는 구조는 사람이 매번 밟는 함정이었다
-         (지적: 두 캡처가 1초 차이 시각 줄로 늘 부적합). */
-      .filter((l) => !isTimeLine(l))
       .map((l) => l.trim())
       .filter(Boolean)
 

@@ -4504,11 +4504,19 @@ async def save_tc(tc_id: str, data: dict):
     #    lazy load 미로드 상태의 tc 를 그대로 저장 시도한 것 → checks 보존해서 스텝 유실 방지.
     #    (프론트 lazy loading 제거했지만 캐시된 옛 코드/외부 API 호출 등에 대한 서버측 마지막 방어선)
     try:
-        if not isinstance(data.get("checks"), list):
+        _need_checks = not isinstance(data.get("checks"), list)
+        # ★ 세션도 같은 방어선(지적: 장비 세션 증발 재발) — 필드가 아예 없으면
+        #   지운 게 아니라 안 보낸 것이다. [] 는 의도적 삭제로 인정.
+        _need_sess = not isinstance(data.get("sessions"), list)
+        if _need_checks or _need_sess:
             _prev_full = await db.tc_get(tc_id)
-            if isinstance(_prev_full, dict) and isinstance(_prev_full.get("checks"), list) and _prev_full["checks"]:
-                data["checks"] = _prev_full["checks"]
-                print(f"[save_tc] checks 누락 감지 → 기존 값 {len(_prev_full['checks'])}건 보존 (tcid={tc_id})", flush=True)
+            if isinstance(_prev_full, dict):
+                if _need_checks and isinstance(_prev_full.get("checks"), list) and _prev_full["checks"]:
+                    data["checks"] = _prev_full["checks"]
+                    print(f"[save_tc] checks 누락 감지 → 기존 값 {len(_prev_full['checks'])}건 보존 (tcid={tc_id})", flush=True)
+                if _need_sess and isinstance(_prev_full.get("sessions"), list) and _prev_full["sessions"]:
+                    data["sessions"] = _prev_full["sessions"]
+                    print(f"[save_tc] sessions 누락 감지 → 기존 값 {len(_prev_full['sessions'])}건 보존 (tcid={tc_id})", flush=True)
     except Exception:
         pass
     # 저장 직전 이전 값 스냅샷 — 스텝(checks) 이 있고 새 값과 스텝 수가 다르면 백업.

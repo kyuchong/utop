@@ -3148,3 +3148,8 @@ table.tb tr.r-bad td:first-child {
 
 /* 줄제외에 걸린 줄 — 판정·캡처에서 빠졌음을 화면에서도 보인다 */
 .bv-dim { opacity: 0.4; text-decoration: line-through; text-decoration-color: #c0392b; }
+
+/* 지정된 블럭 — 기준·변수로 이미 쓰이는 값을 색으로 보인다(지시) */
+.bv-b.m-has { box-shadow: 0 0 0 2px #1d9e75; background: #e6f6ee; }
+.bv-b.m-not { box-shadow: 0 0 0 2px #e24b4a; background: #fdecec; }
+.bv-b.m-var { box-shadow: 0 0 0 2px #ef9f27; background: #fdf4e5; }

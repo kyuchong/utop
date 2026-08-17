@@ -61,17 +61,20 @@ export default function BlockText({
   text,
   onBlock,
   dim,
+  markOf,
 }: {
   text: string
   /** 블럭을 눌렀을 때 — 값과 화면 좌표. 안 넘기면 보기만 한다 */
   onBlock?: (v: string, x: number, y: number) => void
   /** 줄제외 칩에 걸린 줄 — 흐림+취소선으로 「빠진 줄」 임을 보인다 */
   dim?: (line: string) => boolean
+  /** 이 값이 이미 기준·변수로 지정돼 있나 — 지정된 블럭은 색으로 표시(지적) */
+  markOf?: (v: string) => 'has' | 'not' | 'var' | null
 }) {
   /** 한 덩어리 블럭 — 누르면 기준·변수 메뉴의 입구가 된다 */
   const B = ({ children }: { children: string }) => (
     <span
-      className="bv-b"
+      className={`bv-b${markOf?.(children) ? ` m-${markOf(children)}` : ''}`}
       onClick={
         onBlock
           ? (e) => {

@@ -1310,6 +1310,18 @@ export default function TcStepDetail({
                   <BlockText
                     text={result}
                     onBlock={(v, x, y) => setBlockAt({ v, x, y })}
+                    markOf={(v) => {
+                      // 지정된 블럭 표시 — 기준 칩(초록/빨강)·변수(노랑)
+                      if (chips.some((c) => c.t === 'has' && c.v === v)) return 'has'
+                      if (chips.some((c) => c.t === 'not' && c.v === v)) return 'not'
+                      const esc3 = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                      const qs = [
+                        ...(step.queries ?? []).map((x) => x.q),
+                        ...(step.extracts ?? []).map((x) => x.rule),
+                      ]
+                      if (qs.some((q) => q === `(${esc3})`)) return 'var'
+                      return null
+                    }}
                     dim={(ln) => {
                       const timeChip = (v: string) => v === SKIP_TIME || looksLikeTime(v)
                       const subs = chips.filter((c) => c.t === 'skip' && !timeChip(c.v))
