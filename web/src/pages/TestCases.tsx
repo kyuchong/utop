@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import ListHead from '@/components/ListHead'
-import { IconChevron, IconClock, IconCycle, IconInfoC, IconPanel, IconParam, IconPlaySq, IconReqDoc, IconSave, IconSettings, IconTarget, IconTcDoc, IconTopo, IconWave } from '@/components/icons'
+import { IconPanel, IconParam, IconSettings, IconTcDoc } from '@/components/icons'
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
@@ -166,7 +166,8 @@ export default function TestCases({ me }: PageProps) {
    * 켜져 있으면 시험이 열려 있어도(List 안 인라인) 표를 떠나지 않는다.
    * 이름을 눌러 제대로 열면(Detail) 꺼진다.
    */
-  const [inlineMode, setInlineMode] = useState(() => localStorage.getItem('utop.tc.inline') === '1')
+  // 인라인 모드는 걷어냈다(피드백 — 요구사항 화면과 같은 결론):
+  // 줄 클릭 = 전체 상세(레일), ← 목록으로 복귀. 인라인은 제약만 많았다.
   /** 보이는 열 — 옛 화면의 ⚙ 열 설정과 같은 몫 */
   const [cols, setCols] = useState<string[]>(() => {
     try {
@@ -202,10 +203,7 @@ export default function TestCases({ me }: PageProps) {
   const [listQ, setListQ] = useState('')
   /** 열 값 필터 — 머리의 드롭다운 */
   const [colF, setColF] = useState<Record<string, string>>({})
-  useEffect(() => {
-    localStorage.setItem('utop.tc.inline', inlineMode ? '1' : '0')
-  }, [inlineMode])
-  const view: 'list' | 'detail' = openId && !inlineMode ? 'detail' : 'list'
+  const view: 'list' | 'detail' = openId ? 'detail' : 'list'
   const [stepIdx, setStepIdx] = useState(-1)
   const [menuOpen, setMenuOpen] = useState(false)
   /** 1열 「+」 — 최상위 폴더 입력칸을 연다 (요구사항 화면과 같은 문법) */
@@ -1184,7 +1182,6 @@ export default function TestCases({ me }: PageProps) {
 
   const pickTc = (id: string) => {
     if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 옮길까요?')) return
-    setInlineMode(false)
     setOpenId(id)
     setMsg({ kind: '', text: '' })
     // 주소창에 남긴다 — 이 주소를 남에게 보내면 같은 시험이 열린다
@@ -1196,7 +1193,6 @@ export default function TestCases({ me }: PageProps) {
     () =>
       onGoto((kind, id) => {
         if (kind === 'tc' && id !== openId) {
-          setInlineMode(false)
           setOpenId(id)
           setGpOpen(false)
         }
@@ -1419,57 +1415,59 @@ export default function TestCases({ me }: PageProps) {
                   </div>
   )
 
-  /** 탭 레일 — 세부의 왼쪽 세로 탭. 가로 한 줄을 세로 레일로 보내면
-      인라인(높이 제한)에서 내용이 그만큼 더 높아진다. */
-  const tabRail = openId && !gpOpen ? (
-    <nav className="tc-rail" role="tablist">
-      {([
-        { k: 'info', label: 'Info', ic: <IconInfoC />, n: 0 },
-        { k: 'env', label: 'Object', ic: <IconTarget />, n: 0 },
-        { k: 'topo', label: 'Topology', ic: <IconTopo />, n: wireCount },
-        { k: 'traffic', label: 'Traffic', ic: <IconWave />, n: 0 },
-        { k: 'manual', label: 'Manual', ic: <IconReqDoc />, n: manualCount },
-        { k: 'steps', label: 'Automation', ic: <IconPlaySq />, n: autoCount },
-        { k: 'history', label: 'Execution', ic: <IconClock />, n: 0 },
-        { k: 'cycle', label: 'Cycle', ic: <IconCycle />, n: 0 },
-      ] as const).map((x) => (
-        <button
-          key={x.k}
-          type="button"
-          role="tab"
-          aria-selected={tab === x.k}
-          aria-label={x.label}
-          className={`tc-rt${tab === x.k ? ' on' : ''}`}
-          onClick={() => setTab(x.k)}
-        >
-          {x.ic}
-          {x.n > 0 && <i className="tc-rtn">{x.n}</i>}
-          {/* 글자는 올렸을 때만 — 말풍선으로 오른쪽에 */}
-          <span className="tc-rtl">{x.label}</span>
-        </button>
-      ))}
-      <span className="sp" />
-      {/* 저장은 레일 맨 아래 고정 — 탭과 같은 아이콘 문법. 고친 게 있으면
-          파랗게 차오르고, 다 저장돼 있으면 흐리게 쉰다 */}
-      <button
-        className={`tc-rt tc-rail-save${dirty ? ' dirty' : ''}`}
-        type="button"
-        disabled={saveM.isPending || !dirty}
-        onClick={() => saveM.mutate()}
-      >
-        <IconSave />
-        <span className="tc-rtl">
-          {saveM.isPending ? '저장 중…' : dirty ? '저장' : '저장됨'}
-        </span>
-      </button>
-    </nav>
-  ) : null
+  // 세로 아이콘 레일은 걷어냈다(피드백) — 인라인 시절의 산물이었다.
+  // 탭은 요구사항 레일과 같은 문법으로 detHead(상단 가로)에 선다.
 
   const detHead = (
                 <div className="tc-dethead">
-                  {/* 저장 · 탭은 **왼쪽**에 — 화면 오른쪽 끝까지 손이 가야
-                      했다. 알림(함께 보는 중·저장 종)과 ⋯ 는 오른쪽 끝 —
-                      ⋯ 는 가끔 쓰는 것들이라 눈에 걸리지 않는 자리가 맞다. */}
+                  {/* ← 목록 + 가로 글자 탭 + 저장 — 요구사항 레일과 같은
+                      문법. 알림(함께 보는 중·저장 종)과 ⋯ 는 오른쪽 끝. */}
+                  <button
+                    className="btn"
+                    type="button"
+                    title="시험항목 목록으로 돌아갑니다"
+                    onClick={() => {
+                      if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 목록으로 갈까요?'))
+                        return
+                      setOpenId('')
+                      window.history.pushState({ utop: true }, '', window.location.pathname)
+                    }}
+                  >
+                    ← 목록
+                  </button>
+                  <div className="seg" role="tablist">
+                    {([
+                      { k: 'info', label: 'Info', n: 0 },
+                      { k: 'env', label: 'Object', n: 0 },
+                      { k: 'topo', label: 'Topology', n: wireCount },
+                      { k: 'traffic', label: 'Traffic', n: 0 },
+                      { k: 'manual', label: 'Manual', n: manualCount },
+                      { k: 'steps', label: 'Automation', n: autoCount },
+                      { k: 'history', label: 'Execution', n: 0 },
+                      { k: 'cycle', label: 'Cycle', n: 0 },
+                    ] as const).map((x) => (
+                      <button
+                        key={x.k}
+                        type="button"
+                        role="tab"
+                        aria-selected={tab === x.k}
+                        className={`seg-btn${tab === x.k ? ' on' : ''}`}
+                        onClick={() => setTab(x.k)}
+                      >
+                        {x.label}
+                        {x.n > 0 && <i className="tc-htn">{x.n}</i>}
+                      </button>
+                    ))}
+                  </div>
+                  {/* 저장 — 고친 게 있으면 파랗게, 다 저장돼 있으면 쉰다 */}
+                  <button
+                    className={`btn${dirty ? ' primary' : ''}`}
+                    type="button"
+                    disabled={saveM.isPending || !dirty}
+                    onClick={() => saveM.mutate()}
+                  >
+                    {saveM.isPending ? '저장 중…' : dirty ? '저장' : '저장됨'}
+                  </button>
 
                   <span className="sp" />
 
@@ -2443,11 +2441,10 @@ export default function TestCases({ me }: PageProps) {
                   <div className="empty">이 자리에 시험이 없습니다.</div>
                 ) : (
                   shownListRows.map((t) => {
-                    const expanded = inlineMode && openId === t.tcid
                     return (
-                      <div key={t.tcid} className={`tcl-rw${expanded ? ' tc-expwrap' : ''}`}>
+                      <div key={t.tcid} className="tcl-rw">
                       <div
-                        className={`rq-tr tc-tr${listPick.has(t.tcid) ? ' picked' : ''}${expanded ? ' expanded' : ''}`}
+                        className={`rq-tr tc-tr${listPick.has(t.tcid) ? ' picked' : ''}`}
                         style={{ gridTemplateColumns: listGrid }}
                       >
                         <div className="rq-ck">
@@ -2466,31 +2463,8 @@ export default function TestCases({ me }: PageProps) {
                           />
                         </div>
                         <div className="rq-name">
-                          {/* 아이콘이 곧 펼침 단추다 — 누르면 세부가 줄 밑에
-                              인라인으로 열리고, 다시 누르면 접힌다 */}
-                          <button
-                            type="button"
-                            className={`tc-exp${expanded ? ' on' : ''}`}
-                            title={expanded ? '세부 접기' : '세부를 이 자리에 펼치기'}
-                            onClick={() => {
-                              if (expanded) {
-                                if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 접을까요?'))
-                                  return
-                                setOpenId('')
-                                return
-                              }
-                              if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 옮길까요?'))
-                                return
-                              setInlineMode(true)
-                              setOpenId(t.tcid)
-                              reflectUrl('tc', t.tcid)
-                            }}
-                          >
-                            {/* 1열 폴더 캐럿과 같은 모양 — 같은 아이콘·같은 회전 */}
-                            <span className={`rt-caret tc-expcaret${expanded ? ' open' : ''}`} aria-hidden="true">
-                              <IconChevron />
-                            </span>
-                          </button>
+                          {/* 인라인 펼침은 걷어냈다(피드백) — 이름을 누르면
+                              전체 상세(레일)로 간다. ← 목록으로 복귀. */}
                           <span className="rq-icon" aria-hidden="true">
                             <IconTcDoc />
                           </span>
@@ -2521,17 +2495,6 @@ export default function TestCases({ me }: PageProps) {
                         </div>
                         {visCols.map((c) => colCell(c.k, t))}
                       </div>
-                      {/* 인라인 세부 — Detail 과 같은 판이라 실행·저장까지 된다.
-                          행과 확실히 갈리게 테 두르고 안으로 들인다 */}
-                      {expanded && !gpOpen && (
-                        <div className="tc-inline">
-                          {detHead}
-                          <div className="tc-inline-body">
-                            {tabRail}
-                            <div className="tc-railbody">{detPanes}</div>
-                          </div>
-                        </div>
-                      )}
                       </div>
                     )
                   })
@@ -2548,7 +2511,6 @@ export default function TestCases({ me }: PageProps) {
 
         ) : (
           <div className="tc-withrail">
-            {tabRail}
             <div className="tc-railbody">{detPanes}</div>
           </div>
         )}

@@ -2817,6 +2817,21 @@ table.tb tr.r-bad td:first-child {
 .tc-exp:hover .rt-caret { color: var(--c-primary); }
 
 /* List 도구줄의 ⋯ 이 오른끝(3번 자리)으로 가게 */
+/* 상단 가로 탭의 수 배지 — 세로 레일(tc-rtn)의 후임 */
+.tc-htn {
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 4px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.25);
+}
+.seg-btn:not(.on) .tc-htn {
+  background: var(--c-surface-alt);
+  color: var(--c-text-faint);
+}
+
 .tc-listhead .rq-actions { width: 100%; }
 .tc-listhead .rq-actions .sp { flex: 1; }
 /* 도구줄 단추 — 사이클·요구사항과 같은 반 발짝 작게(26px).
