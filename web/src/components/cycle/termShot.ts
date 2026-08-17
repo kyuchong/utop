@@ -59,7 +59,13 @@ export function termShot(
   const cv = document.createElement('canvas')
   // 2배로 그려 축소한다. 그대로 그리면 인쇄했을 때 글자가 뭉갠다.
   const S = 2
-  const w = PAD * 2 + COLS * (FS * 0.6)
+  /* 폭은 내용만큼만 — 108칸 고정으로 그리니 짧은 출력도 빈 판을 통째로
+     차지했다(지적: 너무 많이 표시). 접는 한계(COLS)까지만 늘어난다. */
+  const maxLen = Math.min(
+    COLS,
+    Math.max(24, ...rows.map((r) => r.text.length), Math.ceil(title.length * 1.4)),
+  )
+  const w = PAD * 2 + maxLen * (FS * 0.6)
   const h = BAR + PAD * 2 + rows.length * LH
   cv.width = Math.ceil(w * S)
   cv.height = Math.ceil(h * S)
@@ -67,20 +73,17 @@ export function termShot(
   if (!g) return null
   g.scale(S, S)
 
-  // 바탕
-  g.fillStyle = '#1e2227'
+  /*
+   * 흰 바탕 + 테두리 — 검은 터미널 화면 그대로 넣었더니 「출력하면 토너
+   * 낭비」(지적). 증거 느낌은 창틀·고정폭·프롬프트가 지킨다.
+   */
+  g.fillStyle = '#ffffff'
   g.fillRect(0, 0, w, h)
 
-  /*
-   * 창틀.
-   *
-   * 글자만 검은 바탕에 얹으면 「글을 검게 칠한 것」 으로 보인다. 제목줄과
-   * 창 단추가 있어야 사람이 찍은 화면으로 읽힌다 — 고객사 결과서에서 이
-   * 그림은 「진짜로 장비에서 본 것」 이라는 증거 노릇을 한다.
-   */
-  g.fillStyle = '#2b3138'
+  /* 창틀 — 제목줄과 창 단추가 있어야 사람이 찍은 화면으로 읽힌다 */
+  g.fillStyle = '#f1f3f6'
   g.fillRect(0, 0, w, BAR)
-  g.fillStyle = '#3a424b'
+  g.fillStyle = '#d5dae1'
   g.fillRect(0, BAR - 1, w, 1)
   const dots = ['#ff5f56', '#ffbd2e', '#27c93f']
   dots.forEach((c, i) => {
@@ -91,7 +94,7 @@ export function termShot(
   })
   if (title) {
     g.font = `12px "Malgun Gothic", sans-serif`
-    g.fillStyle = '#9aa4ae'
+    g.fillStyle = '#5b6470'
     g.textAlign = 'center'
     g.textBaseline = 'middle'
     g.fillText(title, w / 2, BAR / 2)
@@ -103,19 +106,19 @@ export function termShot(
   rows.forEach((ln, i) => {
     g.fillStyle =
       ln.kind === 'cmd'
-        ? '#7fd1ff'
+        ? '#1f5fa8'
         : ln.kind === 'pass'
-          ? '#79d18a'
+          ? '#1d9e75'
           : ln.kind === 'fail'
-            ? '#ff8a80'
+            ? '#d12d49'
             : ln.kind === 'head'
-              ? '#ffd479'
-              : '#d7dee6'
+              ? '#8a5a00'
+              : '#222222'
     g.fillText(ln.text, PAD, BAR + PAD + i * LH)
   })
 
   // 창 테두리 — 흰 장표 위에서 화면의 가장자리가 보이게
-  g.strokeStyle = '#151a1f'
+  g.strokeStyle = '#8a939c'
   g.lineWidth = 1
   g.strokeRect(0.5, 0.5, w - 1, h - 1)
 

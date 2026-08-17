@@ -79,6 +79,23 @@ export interface LguStep {
   output?: string | null
   waitSec?: number | null
   kind?: string | null
+  /** 종류별 실제 내용 칸 — 절차 글이 이것을 읽는다 */
+  text?: string | null
+  step?: string | null
+  oid?: string | null
+  snmpValue?: string | null
+  host?: string | null
+  pingCount?: number | null
+  cmpLeft?: string | null
+  cmpOp?: string | null
+  cmpRight?: string | null
+  mapSrc?: string | null
+  mapVar?: string | null
+  meterAct?: string | null
+  meterDur?: number | null
+  meterMaxLoss?: number | null
+  /** 판정이 그렇게 난 이유 — RCA 자동 줄이 읽는다 */
+  reason?: string | null
 }
 
 export interface LguTc {
@@ -112,31 +129,65 @@ const nl = (s: unknown) => esc(s).replace(/\r?\n/g, '<br>')
  * 시험 방법은 「무엇을 보내서 무엇을 확인하나」 가 읽혀야 하므로,
  * 종류·명령·판정 기준까지 적는다.
  */
-export function stepTitle(s: LguStep, i: number): string {
+/**
+ * 실행 스텝 하나의 「무엇을 하나」 — 절차 글의 재료.
+ *
+ * 전에는 kind 를 옛 이름('snmpget')과만 비교해서 실제 저장 값('snmp_get')
+ * 과 절대 안 맞았다 — SNMP 스텝이 라벨 없이 OID 숫자만 찍히거나 「-」 로
+ * 나온 원인. 옛 이름과 새 이름을 둘 다 받고, 값도 제 칸(oid 등)에서 읽는다.
+ */
+function stepDoing(s: LguStep): string {
   const cli = String(s.cli ?? '').trim()
   const data = String(s.data ?? '').trim()
+  const oid = String(s.oid ?? '').trim()
   const kind = String(s.kind ?? '').toLowerCase()
-  const wait = (s.waitSec ?? 0) > 0 && !cli
+  if ((s.waitSec ?? 0) > 0 && !cli) return `대기 ${s.waitSec}초`
+  if (kind === 'snmp_get' || kind === 'snmpget') return `SNMP Get ${oid || data}`.trim()
+  if (kind === 'snmp_set' || kind === 'snmpset') {
+    const v = String(s.snmpValue ?? '').trim()
+    return `SNMP Set ${oid || data}${v ? ` = ${v}` : ''}`.trim()
+  }
+  if (kind === 'snmp_trap' || kind === 'trap')
+    return `SNMP Trap 대기${oid ? ` (${oid})` : ''}`
+  if (kind === 'ping') {
+    const to = String(s.host ?? '').trim() || data || '세션 장비'
+    return `Ping ${to}${s.pingCount ? ` · ${s.pingCount}회` : ''}`
+  }
+  if (kind === 'diff') {
+    const l = String(s.cmpLeft ?? '').trim()
+    const r = String(s.cmpRight ?? '').trim()
+    return l || r ? `값 비교: ${l} ${String(s.cmpOp ?? '==').trim()} ${r}`.trim() : '이전 결과와 비교(Diff)'
+  }
+  if (kind === 'map') {
+    const src = String(s.mapSrc ?? '').trim()
+    const dst = String(s.mapVar ?? '').trim()
+    return `치환${src ? ` ${src}` : ''}${dst ? ` → \${${dst}}` : ''}`
+  }
+  if (kind === 'meter' || kind === 'instrument') {
+    const act = String(s.meterAct ?? '').trim()
+    const lbl =
+      act === 'traffic_start'
+        ? `트래픽 시작${s.meterDur ? ` · ${s.meterDur}초` : ''}`
+        : act === 'traffic_stat'
+          ? `계측기 통계 확인 · 허용 손실 ${s.meterMaxLoss ?? 0}`
+          : act === 'traffic_stop'
+            ? '트래픽 정지'
+            : act === 'traffic_clear'
+              ? '스트림 비우기'
+              : act === 'ports'
+                ? '계측기 포트 확인'
+                : '계측기 트래픽 실행·통계 확인'
+    return lbl
+  }
+  return cli.split('\n')[0] || data || String(s.action ?? '').trim()
+}
 
-  // 종류별로 「무엇을 하는 스텝인가」
-  const doing = wait
-    ? `대기 ${s.waitSec}초`
-    : kind === 'snmpget'
-      ? `SNMP Get ${data}`.trim()
-      : kind === 'snmpset'
-        ? `SNMP Set ${data}`.trim()
-        : kind === 'ping'
-          ? `Ping ${data}`.trim()
-          : kind === 'trap'
-            ? 'SNMP Trap 대기'
-            : kind === 'diff'
-              ? '이전 결과와 비교(Diff)'
-              : kind === 'meter' || kind === 'instrument'
-                ? '계측기 트래픽 실행·통계 확인'
-                : cli.split('\n')[0] || data || String(s.action ?? '').trim()
-
+/** 제목 없는 옛 TC 의 절차 한 줄 (폴백) */
+function stepTitleLine(s: LguStep, n: number): string {
+  const cli = String(s.cli ?? '').trim()
+  const doing = stepDoing(s)
   const head = String(s.desc ?? '').trim() || doing || '-'
-  const out = [`${i + 1}. ${head}`]
+  const out = [`${n}. ${head}`]
   // 설명이 따로 있으면 실제로 보내는 것도 적는다 — 방법은 재현 절차다
   if (String(s.desc ?? '').trim() && doing && doing !== head) out.push(`   - ${doing}`)
   else if (cli && cli.includes('\n'))
@@ -144,6 +195,11 @@ export function stepTitle(s: LguStep, i: number): string {
   const crit = String(s.criteria ?? s.expected ?? '').trim()
   if (crit) out.push(`   - 판정: ${crit.split('\n')[0]}`)
   return out.join('\n')
+}
+
+/** 옛 이름 호환 — 밖에서 부르던 모양 그대로 둔다 */
+export function stepTitle(s: LguStep, i: number): string {
+  return stepTitleLine(s, i + 1)
 }
 
 /** 한 덩이가 몇 줄쯤 되나 — 슬라이드를 나누는 데만 쓴다 */
@@ -188,15 +244,86 @@ const CPL = 118
 const RESULT_MAX = 24
 const METHOD_MAX = 11
 
+/**
+ * 시험 방법(절차) 만들기 — 두 가지 모양.
+ *
+ * ① 제목 스텝(Message·Comment)이 있는 TC(합의된 새 방식):
+ *    제목이 절차 한 줄이 되고, 그 밑에 딸린 실행 스텝의 내용이 붙는다.
+ *      1. 시스템 조회 명령어 수행 - show system
+ *      2. SNMP 시스템 조회 명령어 - SNMP Get 1.3.6.1.2.1.1.2.0
+ *    제목 밖의 값 처리 스텝(치환 등)은 절차에 안 나온다 — 무엇을 실을지는
+ *    TC 작성자가 제목 블록으로 고른다.
+ *
+ * ② 제목이 하나도 없는 옛 TC: 판정(PASS/FAIL)이 나오는 스텝만 순서대로
+ *    (스텝 수 규칙과 같은 자). 아무것도 안 걸리면 전 스텝을 나열한다 —
+ *    비는 것이 가장 나쁘다.
+ *
+ * 실패한 스텝이 있으면 맨 끝에 RCA 한 줄을 자동으로 단다(합의).
+ */
 export function methodBlocks(tc: LguTc): Block[] {
   if (!tc.steps.length) return [{ text: '(시험 절차 없음)', lines: 1 }]
-  return tc.steps.map((s, i) => {
-    const t = stepTitle(s, i)
-    const lines = t
-      .split('\n')
-      .reduce((a, ln) => a + Math.max(1, Math.ceil((ln.length || 1) / 70)), 0)
-    return { text: t, lines }
+  const isTitle = (s: LguStep) => {
+    const k = String(s.kind ?? '').toLowerCase()
+    return k === 'message' || k === 'comment'
+  }
+  const JUDGE = new Set([
+    'cli', 'ping', 'snmp_get', 'snmpget', 'snmp_set', 'snmpset', 'snmp_trap', 'trap',
+    'diff', 'instrument', 'meter', 'connect', 'disconnect', 'manual', 'auto', '',
+  ])
+  const isJudge = (s: LguStep) => JUDGE.has(String(s.kind ?? '').toLowerCase())
+
+  const blocks: Block[] = []
+  const push = (text: string) =>
+    blocks.push({
+      text,
+      lines: text
+        .split('\n')
+        .reduce((a, ln) => a + Math.max(1, Math.ceil((ln.length || 1) / 70)), 0),
+    })
+
+  if (tc.steps.some(isTitle)) {
+    let n = 0
+    for (let i = 0; i < tc.steps.length; i++) {
+      const s = tc.steps[i]!
+      if (!isTitle(s)) continue
+      n++
+      const title = String(s.text ?? s.desc ?? s.step ?? '').trim() || '-'
+      const kids: string[] = []
+      for (let j = i + 1; j < tc.steps.length && !isTitle(tc.steps[j]!); j++) {
+        const d = stepDoing(tc.steps[j]!)
+        if (d) kids.push(d)
+      }
+      const [first, ...rest] = kids
+      push(
+        `${n}. ${title}${first ? ` - ${first}` : ''}${rest.map((k) => `\n   - ${k}`).join('')}`,
+      )
+    }
+  } else {
+    let n = 0
+    for (const s of tc.steps) {
+      if (!isJudge(s)) continue
+      n++
+      push(stepTitleLine(s, n))
+    }
+    // 판정 스텝이 하나도 없으면(주석뿐인 옛 자료) 전 스텝 나열 — 옛 동작
+    if (n === 0) tc.steps.forEach((s, i) => push(stepTitleLine(s, i + 1)))
+  }
+
+  // RCA — 실패가 있으면 원인 한 줄. 실행기가 적은 판정 사유에서 뽑는다
+  const fails = tc.steps.filter((s) => {
+    const v = stepVerdict(s as TcStep)
+    return v === 'Fail' || v === '불합격'
   })
+  if (fails.length) {
+    const f = fails[0]!
+    const why =
+      String(f.reason ?? '').trim() ||
+      String(f.output ?? '').trim().split('\n')[0] ||
+      '실패 원인 확인 필요'
+    push(`RCA : ${why}${fails.length > 1 ? ` (외 실패 ${fails.length - 1}건)` : ''}`)
+  }
+
+  return blocks.length ? blocks : [{ text: '(시험 절차 없음)', lines: 1 }]
 }
 
 export function resultBlocks(tc: LguTc): Block[] {
@@ -341,14 +468,18 @@ export function page2(tc: LguTc, range: [number, number]): string {
               ? ` <span style="color:${rc};font-weight:800;">[${esc(stepVerdict(s as TcStep))}]</span>`
               : '') +
             '</div>' +
-            /* 파일의 터미널 캡쳐와 같은 모양 — 검은 바탕에 명령은 하늘색.
-               미리보기는 밝은 상자, 파일은 검은 화면이라 「포맷이 다르다」
-               는 말이 나왔다. 같은 자료는 같은 옷을 입어야 한다. */
-            (s.cli
-              ? `<div style="font-family:Consolas,monospace;font-size:10px;color:#7fd1ff;background:#1e2227;margin-top:3px;padding:5px 9px 0;border-radius:4px 4px 0 0;">${esc(tc.prompt || '$')} ${esc(s.cli)}</div>`
-              : '') +
-            (out
-              ? `<pre style="display:block;max-width:100%;margin:0;white-space:pre;overflow-x:auto;font-family:Consolas,monospace;font-size:9px;line-height:1.45;color:#d7dee6;background:#1e2227;border-radius:${s.cli ? '0 0 4px 4px' : '4px'};padding:${s.cli ? '3px' : '7px'} 9px 7px;box-sizing:border-box;">${esc(out)}</pre>`
+            /* 흰 바탕 + 테두리 — 검은 터미널을 그대로 실었더니 「출력하면
+               토너 낭비」(지적). 상자도 내용 폭만큼만 — 짧은 출력이 판을
+               통째로 먹지 않는다. 파일의 termShot 그림도 같은 옷이다. */
+            (s.cli || out
+              ? `<div style="display:inline-block;max-width:100%;border:1px solid #8a939c;border-radius:4px;background:#fff;margin-top:3px;padding:5px 9px;box-sizing:border-box;">` +
+                (s.cli
+                  ? `<div style="font-family:Consolas,monospace;font-size:10px;color:#1f5fa8;white-space:pre-wrap;">${esc(tc.prompt || '$')} ${esc(s.cli)}</div>`
+                  : '') +
+                (out
+                  ? `<pre style="display:block;max-width:100%;margin:${s.cli ? '3px' : '0'} 0 0;white-space:pre;overflow-x:auto;font-family:Consolas,monospace;font-size:9px;line-height:1.45;color:#222;background:transparent;">${esc(out)}</pre>`
+                  : '') +
+                `</div>`
               : '') +
             '</div>'
           )
