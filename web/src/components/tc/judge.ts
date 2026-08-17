@@ -522,14 +522,16 @@ export function applySkips(text: string, step: TcStep): string {
   ]
     .filter(Boolean)
     .join('\n')
-  const out = applyExclude(String(text ?? ''), subs)
-  /* 시각 줄은 **칩이 있든 없든 항상** 뺀다 — 순서 합의:
-     ①시각 자동 제거 → ②줄제외 칩 → ③변수 캡처 → ④판정.
-     「저장 먼저, 제외 나중」 이 되면 변수에 시각이 박힌다(지적). */
+  let out = applyExclude(String(text ?? ''), subs)
+  /* 시각 제거는 **⏱시각줄 칩이 있는 스텝만** — 뺄지 말지는 시스템이 아니라
+     사용자가 정한다(합의: 무조건 제거는 과했음). 순서는 그대로:
+     제외(칩) → 캡처 → 판정. Diff 견주기의 시각 자동 무시만 예외로 남는다. */
+  if (rules.some((r) => r.v === SKIP_TIME))
+    out = out
+      .split(/\r?\n/)
+      .filter((l) => !TIME_LINE.test(l))
+      .join('\n')
   return out
-    .split(/\r?\n/)
-    .filter((l) => !TIME_LINE.test(l))
-    .join('\n')
 }
 
 export function stepRules(step: TcStep): JudgeRule[] {
