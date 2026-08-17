@@ -410,14 +410,24 @@ export default function TcTerminal({
               ref={inputRef}
               className="tm-in"
               value={input}
-              disabled={busy}
+              /* disabled 로 잠그면 안 된다 — 잠기는 순간 포커스가 튕겨서,
+                 실행 중 치던 엔터·Tab 이 엉뚱한 단추(닫기)에 떨어져
+                 터미널이 갑자기 닫혔다(지적). readOnly 는 포커스를 안
+                 뺏고, 덤으로 실행 중에 다음 명령을 미리 쳐 둘 수도 있다. */
+              readOnly={busy}
               autoFocus
               spellCheck={false}
               autoComplete="off"
               placeholder={busy ? '…' : '명령을 치세요'}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
+                e.stopPropagation()
                 if (e.nativeEvent.isComposing) return
+                if (busy && (e.key === 'Enter' || e.key === 'Tab' || e.key === '?')) {
+                  // 도는 중의 실행 키는 삼킨다 — 미리 쳐 둔 글자는 살아 있다
+                  e.preventDefault()
+                  return
+                }
                 // 장비 CLI 의 손맛 — 탭 완성과 ? 도움말(공용 심장부)
                 if (e.key === 'Tab') {
                   e.preventDefault()
