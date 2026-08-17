@@ -133,9 +133,9 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
   const maxRuns = Math.max(1, ...(d?.daily ?? []).map((x) => x.runs))
   const ovAll = Object.values(d?.overall ?? {}).reduce((a, b) => a + b, 0)
   const ov = (k: string) => d?.overall?.[k] ?? 0
-  const autoTotal = (d?.automation.auto ?? 0) + (d?.automation.manual ?? 0)
+  const autoTotal = (d?.automation?.auto ?? 0) + (d?.automation?.manual ?? 0)
   const todayDelta =
-    d && d.yday_runs > 0 ? Math.round(((d.today.runs - d.yday_runs) / d.yday_runs) * 100) : null
+    d && d.yday_runs > 0 ? Math.round(((d.today?.runs - d.yday_runs) / d.yday_runs) * 100) : null
 
   return (
     <div className="dash scroll">
@@ -184,7 +184,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
           <button type="button" className="dash-card" onClick={() => onNav('cycles')}>
             <i>오늘 실행</i>
             <b>
-              {d ? d.today.runs : '–'}건
+              {d ? d.today?.runs : '–'}건
               {todayDelta !== null && (
                 <em className={`dash-delta${todayDelta >= 0 ? ' up' : ' dn'}`}>
                   {todayDelta >= 0 ? '▲' : '▼'} {Math.abs(todayDelta)}%
@@ -196,15 +196,15 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
           <button
             type="button"
             className="dash-card"
-            onClick={() => d?.running?.key && goto('cycle', String(d.running.key))}
+            onClick={() => d?.running?.key && goto('cycle', String(d.running?.key))}
           >
             <i>실행 중</i>
             {d?.running ? (
               <>
                 <b className="run">
-                  {d.running.done ?? 0}/{d.running.total ?? 0}
+                  {d.running?.done ?? 0}/{d.running?.total ?? 0}
                 </b>
-                <em>{d.running.name || ''}</em>
+                <em>{d.running?.name || ''}</em>
               </>
             ) : (
               <>
@@ -245,8 +245,8 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
           </button>
           <button type="button" className="dash-card" onClick={() => onNav('testcases')}>
             <i>자동화율</i>
-            <b>{autoTotal ? `${pctOf(d?.automation.auto ?? 0, autoTotal)}%` : '–'}</b>
-            <em>{d ? `자동 ${d.automation.auto} / 전체 ${autoTotal}` : ''}</em>
+            <b>{autoTotal ? `${pctOf(d?.automation?.auto ?? 0, autoTotal)}%` : '–'}</b>
+            <em>{d ? `자동 ${d.automation?.auto} / 전체 ${autoTotal}` : ''}</em>
           </button>
         </div>
       )}
@@ -256,10 +256,10 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
         {ws.has('devices') && (
           <button type="button" className="dash-card" onClick={() => onNav('devices')}>
             <i>등록 장비</i>
-            <b>{d ? d.devices.total : '–'}대</b>
+            <b>{d ? d.devices?.total : '–'}대</b>
             <em>
               {d
-                ? Object.entries(d.devices.groups)
+                ? Object.entries(d.devices?.groups ?? {})
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 3)
                     .map(([g, n]) => `${g} ${n}`)
@@ -271,7 +271,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
         {ws.has('meters') && (
           <button type="button" className="dash-card" onClick={() => onNav('instruments')}>
             <i>Traffic Gen</i>
-            <b>{d ? d.meters.total : '–'}대</b>
+            <b>{d ? d.meters?.total : '–'}대</b>
             <em>계측기 역할 장비</em>
           </button>
         )}
@@ -284,15 +284,15 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
             <i>시험 자산</i>
             <span className="dash-tri">
               <span>
-                <b>{d ? d.assets.reqs : '–'}</b>
+                <b>{d ? d.assets?.reqs : '–'}</b>
                 <i>요구사항</i>
               </span>
               <span>
-                <b>{d ? d.assets.tcs : '–'}</b>
+                <b>{d ? d.assets?.tcs : '–'}</b>
                 <i>시험항목</i>
               </span>
               <span>
-                <b>{d ? d.assets.cycles : '–'}</b>
+                <b>{d ? d.assets?.cycles : '–'}</b>
                 <i>사이클</i>
               </span>
             </span>
@@ -301,8 +301,8 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
         {ws.has('defects') && (
           <button type="button" className="dash-card" onClick={() => onNav('defects')}>
             <i>열린 결함</i>
-            <b className={d && d.defects.open ? 'bad' : ''}>{d ? d.defects.open : '–'}건</b>
-            <em>{d && d.defects.week_new ? `이번 주 +${d.defects.week_new}` : '이번 주 새것 없음'}</em>
+            <b className={d && d.defects?.open ? 'bad' : ''}>{d ? d.defects?.open : '–'}건</b>
+            <em>{d && d.defects?.week_new ? `이번 주 +${d.defects?.week_new}` : '이번 주 새것 없음'}</em>
           </button>
         )}
       </div>
@@ -313,7 +313,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
           <div className="dash-wide">
             <div className="dash-wt">
               ⚠ Attention Required
-              {d && d.attention.length > 0 && <s className="dash-attn-n">{d.attention.length}건</s>}
+              {d && d.attention?.length > 0 && <s className="dash-attn-n">{d.attention?.length}건</s>}
             </div>
             <div className="dash-defs">
               {(d?.attention ?? []).slice(0, 5).map((x, i) => (
@@ -336,7 +336,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
                   <em>{x.at ? x.at.slice(5, 16) : ''}</em>
                 </button>
               ))}
-              {d && d.attention.length === 0 && (
+              {d && d.attention?.length === 0 && (
                 <div className="empty">손 갈 것이 없습니다 — 좋은 신호입니다.</div>
               )}
             </div>
@@ -350,28 +350,28 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
             {d?.running ? (
               <div className="dash-runbig">
                 <div className="dash-runbig-h">
-                  <b>{d.running.name || '…'}</b>
+                  <b>{d.running?.name || '…'}</b>
                   <s>RUNNING</s>
                   <span className="sp" />
                   <em>
-                    {d.running.done ?? 0}/{d.running.total ?? 0} ·{' '}
-                    {pctOf(d.running.done ?? 0, d.running.total ?? 0)}%
+                    {d.running?.done ?? 0}/{d.running?.total ?? 0} ·{' '}
+                    {pctOf(d.running?.done ?? 0, d.running?.total ?? 0)}%
                   </em>
                 </div>
                 <span className="dash-run-bar">
                   <b
                     style={{
-                      width: `${d.running.total ? ((d.running.done ?? 0) / d.running.total) * 100 : 0}%`,
+                      width: `${d.running?.total ? ((d.running?.done ?? 0) / d.running?.total) * 100 : 0}%`,
                     }}
                   />
                 </span>
                 <div className="dash-runbig-f">
-                  <em>{d.running.user ? `실행: ${d.running.user}` : ''}</em>
+                  <em>{d.running?.user ? `실행: ${d.running?.user}` : ''}</em>
                   <span className="sp" />
                   <button
                     type="button"
                     className="btn small primary"
-                    onClick={() => d.running?.key && goto('cycle', String(d.running.key))}
+                    onClick={() => d.running?.key && goto('cycle', String(d.running?.key))}
                   >
                     실행 화면 열기
                   </button>
@@ -484,7 +484,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
                   <em>{pctOf(v.ok, v.total)}%</em>
                 </button>
               ))}
-              {d && d.versions.length === 0 && <div className="empty">아직 사이클이 없습니다.</div>}
+              {d && d.versions?.length === 0 && <div className="empty">아직 사이클이 없습니다.</div>}
             </div>
           </div>
         )}
@@ -494,37 +494,37 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
       {ws.has('donuts') && (
         <div className="dash-donuts">
           <button type="button" className="dash-wide dash-dn" onClick={() => onNav('requirements')}>
-            <Donut pct={d ? pctOf(d.coverage.covered, d.coverage.total) : 0} color="#378ADD" />
+            <Donut pct={d ? pctOf(d.coverage?.covered, d.coverage?.total) : 0} color="#378ADD" />
             <span className="dash-dn-t">
               <i>요구사항 커버리지</i>
-              <em>전체 {d?.coverage.total ?? '–'}</em>
-              <em>TC 연결됨 {d?.coverage.covered ?? '–'}</em>
-              <em>미연결 {d ? d.coverage.total - d.coverage.covered : '–'}</em>
+              <em>전체 {d?.coverage?.total ?? '–'}</em>
+              <em>TC 연결됨 {d?.coverage?.covered ?? '–'}</em>
+              <em>미연결 {d ? d.coverage?.total - d.coverage?.covered : '–'}</em>
             </span>
           </button>
           <button type="button" className="dash-wide dash-dn" onClick={() => onNav('testcases')}>
-            <Donut pct={d ? pctOf(d.tcexec.executed, d.tcexec.total) : 0} color="#7F77DD" />
+            <Donut pct={d ? pctOf(d.tcexec?.executed, d.tcexec?.total) : 0} color="#7F77DD" />
             <span className="dash-dn-t">
               <i>TC 실행 현황 (최근 결과)</i>
-              <em>전체 TC {d?.tcexec.total ?? '–'}</em>
+              <em>전체 TC {d?.tcexec?.total ?? '–'}</em>
               <em>
-                실행됨 {d?.tcexec.executed ?? '–'} · Pass {d?.tcexec.passed ?? '–'}
+                실행됨 {d?.tcexec?.executed ?? '–'} · Pass {d?.tcexec?.passed ?? '–'}
               </em>
               <em>
-                Fail {d?.tcexec.failed ?? '–'} · 미실행{' '}
-                {d ? d.tcexec.total - d.tcexec.executed : '–'}
+                Fail {d?.tcexec?.failed ?? '–'} · 미실행{' '}
+                {d ? d.tcexec?.total - d.tcexec?.executed : '–'}
               </em>
             </span>
           </button>
           <button type="button" className="dash-wide dash-dn" onClick={() => onNav('testcases')}>
             <Donut
-              pct={autoTotal ? pctOf(d?.automation.auto ?? 0, autoTotal) : 0}
+              pct={autoTotal ? pctOf(d?.automation?.auto ?? 0, autoTotal) : 0}
               color="#1D9E75"
             />
             <span className="dash-dn-t">
               <i>자동화 현황</i>
-              <em>자동 {d?.automation.auto ?? '–'}</em>
-              <em>수동 {d?.automation.manual ?? '–'}</em>
+              <em>자동 {d?.automation?.auto ?? '–'}</em>
+              <em>수동 {d?.automation?.manual ?? '–'}</em>
               <em>전체 {autoTotal || '–'}</em>
             </span>
           </button>
@@ -554,7 +554,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
                   <em className="bad">{t2.fails}회</em>
                 </button>
               ))}
-              {d && d.top_fail.length === 0 && (
+              {d && d.top_fail?.length === 0 && (
                 <div className="empty">발생한 결함이 없습니다 — 좋은 신호입니다.</div>
               )}
             </div>
@@ -578,7 +578,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
                   <em>{x.created_at.slice(5, 10)}</em>
                 </button>
               ))}
-              {d && d.recent_defects.length === 0 && (
+              {d && d.recent_defects?.length === 0 && (
                 <div className="empty">열린 결함이 없습니다.</div>
               )}
             </div>

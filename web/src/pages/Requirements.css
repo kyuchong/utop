@@ -699,6 +699,14 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 .fsort-pop button:hover { background: var(--c-surface-alt); }
 .fsort-pop button.on { font-weight: 700; }
 
+/* 도구줄 안 검색 — 별줄이던 것을 오른쪽에 끼웠다(피드백). */
+.rq-actfind {
+  width: 280px;
+  flex: none;
+  margin: 0;
+  padding: 0;
+}
+
 /* 카드 바닥 상태 바 — 세 칸 공통. 내용이 짧아도 카드 맨 아래 붙는다. */
 .colbot {
   margin-top: auto;

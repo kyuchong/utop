@@ -341,7 +341,8 @@ export default function Requirements() {
     } catch {
       /* 깨진 저장값이면 기본으로 */
     }
-    return new Set(['f_priority'])
+    // 기본 = INFO 필드 2개(상태·우선순위) 선택(피드백)
+    return new Set(['f_status', 'f_priority'])
   })
   const toggleReqCol = (k: string) =>
     setReqCols((cur) => {
@@ -351,7 +352,9 @@ export default function Requirements() {
       localStorage.setItem('utop.req.infocols', JSON.stringify([...n]))
       return n
     })
-  const [reqColsOpen, setReqColsOpen] = useState(false)
+  /** ⚙ 팝업 — 사이클 보드처럼 고정 좌표로 띄운다(겹침·잘림에 안전).
+      absolute 방식은 환경에 따라 안 보이는 곳에 열렸다(피드백: 반응 없음). */
+  const [reqGearAt, setReqGearAt] = useState<{ x: number; y: number } | null>(null)
   const reqVisCols = infoCols.filter((c) => reqCols.has(c.k))
   const reqGrid =
     `28px minmax(0, 1fr) 96px 110px 40px 56px ${reqVisCols.map((c) => c.w).join(' ')}`.trim()
@@ -1127,51 +1130,67 @@ export default function Requirements() {
                 )}
               </div>
               <span className="sp" />
-              {/* ⚙ — 열(INFO 필드) 보이기/숨기기. 세 화면 공통 문법(피드백) */}
-              <div style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  className="lh-findbtn"
-                  title="INFO 필드 보이기/숨기기 — SETUP 구성과 같은 목록"
-                  aria-expanded={reqColsOpen}
-                  onClick={() => setReqColsOpen((v) => !v)}
-                >
-                  <IconSettings />
-                </button>
-                {reqColsOpen && (
-                  <>
-                    <div className="tc-menu-back" onClick={() => setReqColsOpen(false)} />
-                    <div className="tc-menu tc-colpop" role="menu">
-                      {infoCols.length === 0 && (
-                        <span className="muted small">INFO 필드가 없습니다 — SETUP 에서 만듭니다</span>
-                      )}
-                      {infoCols.map((c2) => (
-                        <label key={c2.k}>
-                          <input
-                            type="checkbox"
-                            checked={reqCols.has(c2.k)}
-                            onChange={() => toggleReqCol(c2.k)}
-                          />
-                          {c2.label}
-                        </label>
-                      ))}
-                    </div>
-                  </>
+              {/* 검색 — 별줄 대신 도구줄 오른쪽(피드백: 2번 자리) */}
+              <div className="rq-ffind rq-actfind">
+                <input
+                  value={listQ}
+                  placeholder="요구사항 찾기"
+                  onChange={(e) => setListQ(e.target.value)}
+                />
+                {listQ && (
+                  <button type="button" title="지우기" onClick={() => setListQ('')}>
+                    ✕
+                  </button>
                 )}
               </div>
-          </div>
-          <div className="rq-ffind rq-midfind">
-            <input
-              value={listQ}
-              placeholder="요구사항 찾기"
-              onChange={(e) => setListQ(e.target.value)}
-            />
-            {listQ && (
-              <button type="button" title="지우기" onClick={() => setListQ('')}>
-                ✕
+              {/* ⚙ — INFO 필드 보이기/숨기기. 사이클 보드처럼 고정 좌표 팝업 */}
+              <button
+                type="button"
+                className="lh-findbtn"
+                title="INFO 필드 보이기/숨기기 — SETUP 구성과 같은 목록"
+                aria-expanded={!!reqGearAt}
+                onClick={(e) =>
+                  setReqGearAt(reqGearAt ? null : { x: e.clientX, y: e.clientY })
+                }
+              >
+                <IconSettings />
               </button>
-            )}
+              {reqGearAt && (
+                <>
+                  <div
+                    className="tc-menu-back"
+                    style={{ zIndex: 60 }}
+                    onClick={() => setReqGearAt(null)}
+                  />
+                  <div
+                    className="tc-menu tc-colpop"
+                    role="menu"
+                    style={{
+                      position: 'fixed',
+                      left: Math.max(8, reqGearAt.x - 170),
+                      top: reqGearAt.y + 10,
+                      right: 'auto',
+                      zIndex: 61,
+                    }}
+                  >
+                    {infoCols.length === 0 && (
+                      <span className="muted small">INFO 필드가 없습니다 — SETUP 에서 만듭니다</span>
+                    )}
+                    {infoCols.map((c2) => (
+                      <label key={c2.k}>
+                        <input
+                          type="checkbox"
+                          checked={reqCols.has(c2.k)}
+                          onChange={() => toggleReqCol(c2.k)}
+                        />
+                        {c2.label}
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
           </div>
+          {/* 검색 줄은 도구줄 오른쪽으로 옮겼다(피드백) */}
           <div className="rq-list scroll">
             <div className="rq-selbar">
               <label className="rq-selall">
