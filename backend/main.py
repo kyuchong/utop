@@ -9727,6 +9727,13 @@ async def _db_init():
         ("manpower", RSC_MANPOWER_FILE),
         ("device_catalog", DEVICE_CATALOG_FILE),
         ("racks", RACKS_FILE),
+        # ★ 여기 빠지면 저장(DB)은 되는데 재시작 후 안 읽힌다 —
+        #   _kv_load_sync 는 등록된 키만 기동 때 DB 에서 캐시로 채운다.
+        #   실사고: 253 에서 update.sh(재시작) 뒤 탭 이름이 초기값으로 복귀.
+        #   파일은 원래 없던 키라 경로는 자리표시용이다(파일 없음 → DB 만).
+        ("code_kind_labels", DATA_DIR / "code_kind_labels.json"),
+        ("code_kind_hidden", DATA_DIR / "code_kind_hidden.json"),
+        ("cycle_desc_template", DATA_DIR / "cycle_desc_template.json"),
     ]
     for _key, _fp in _KV_MIGRATIONS:
         _kv_register_fallback(_key, _fp)
