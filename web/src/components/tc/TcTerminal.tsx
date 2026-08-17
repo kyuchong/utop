@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
 import { connParams, deviceLabel, deviceShort } from './device'
-import { cmdHistory, saveTermLog, streamCli } from '@/components/term/core'
+import { cmdHistory, parseKeyEcho, saveTermLog, sendKeys, streamCli } from '@/components/term/core'
 import type { TcStep } from './types'
 
 interface Props {
@@ -31,6 +31,8 @@ interface Block {
   /** 이 덩어리가 이미 스텝이 되었는가 */
   taken: boolean
   error?: boolean
+  /** `?` 도움말 덩어리 — 스텝 담기 대상이 아니다 */
+  help?: boolean
 }
 
 /**
@@ -194,6 +196,35 @@ export default function TcTerminal({
   }
 
   /**
+   * 탭 완성·`?` 도움말 — 장비의 진짜 CLI 손맛(지적: 캡쳐 터미널에서 안 됨).
+   * 글자만 세션에 흘려 완성 조각·도움말을 받아 온다. 명령은 실행 안 된다.
+   */
+  const keyHelp = async (k: '\t' | '?') => {
+    if (!dev || busy || !prompt) return
+    setBusy(true)
+    try {
+      const r = await sendKeys(
+        connParams(dev) as unknown as Record<string, unknown>,
+        input + k,
+      )
+      if (!r.ok) {
+        setNote(r.error || '완성/도움말을 받지 못했습니다')
+        return
+      }
+      const { help, line } = parseKeyEcho(r.out ?? '', prompt)
+      if (help)
+        setBlocks((v) => [
+          ...v,
+          { cmd: `${input}${k === '?' ? '?' : ''}`, out: help, taken: true, help: true, sess: idx },
+        ])
+      if (line !== null) setInput(line)
+    } finally {
+      setBusy(false)
+      inputRef.current?.focus()
+    }
+  }
+
+  /**
    * 스텝으로 담기.
    *
    * 응답을 함께 넣는다 — 판정 기준을 끌어 만들려면 응답이 있어야 하고,
@@ -341,8 +372,8 @@ export default function TcTerminal({
               <span className="tm-p">{prompts[b.sess] || '$'}</span>
               {b.cmd}
               {/* 기록이 꺼져 있을 때만 손으로 담는다. 켜져 있으면 이미 담겼다.
-                  빈 엔터 줄에는 아무 단추도 안 단다. */}
-              {b.cmd ? (
+                  빈 엔터·도움말 줄에는 아무 단추도 안 단다. */}
+              {b.cmd && !b.help ? (
                 b.taken ? (
                   <span className="tm-took">스텝으로 담음</span>
                 ) : (
@@ -387,6 +418,17 @@ export default function TcTerminal({
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
                 if (e.nativeEvent.isComposing) return
+                // 장비 CLI 의 손맛 — 탭 완성과 ? 도움말(공용 심장부)
+                if (e.key === 'Tab') {
+                  e.preventDefault()
+                  void keyHelp('\t')
+                  return
+                }
+                if (e.key === '?') {
+                  e.preventDefault()
+                  void keyHelp('?')
+                  return
+                }
                 if (e.key === 'Enter') {
                   e.preventDefault()
                   if (input.trim()) void send(input)

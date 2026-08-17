@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { connParams, deviceLabel, deviceShort } from '@/components/tc/device'
-import { cmdHistory, saveTermLog, streamCli } from '@/components/term/core'
+import { cmdHistory, parseKeyEcho, saveTermLog, sendKeys, streamCli } from '@/components/term/core'
 import type { Device } from '@/pages/Devices'
 import './RackTerm.css'
 
@@ -207,6 +207,25 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
     }
   }
 
+  /** 탭 완성·`?` 도움말 — 캡쳐 터미널과 같은 공용 심장부(term/core) */
+  const keyHelp = async (k: '\t' | '?') => {
+    if (busy || !prompt) return
+    setBusy(true)
+    try {
+      const r = await sendKeys(params() as unknown as Record<string, unknown>, input + k)
+      if (!r.ok) {
+        setNote(r.error || '완성/도움말을 받지 못했습니다')
+        return
+      }
+      const { help, line } = parseKeyEcho(r.out ?? '', prompt)
+      if (help) setBlocks((v) => [...v, { cmd: `${input}${k === '?' ? '?' : ''}`, out: help }])
+      if (line !== null) setInput(line)
+    } finally {
+      setBusy(false)
+      inputRef.current?.focus()
+    }
+  }
+
   /** 로그 저장 — SecureCRT 의 Log Session 몫. 지금 탭 전부를 .txt 로 */
   const saveLog = () =>
     saveTermLog(
@@ -304,6 +323,17 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
             onKeyDown={(e) => {
               e.stopPropagation()
               if (e.nativeEvent.isComposing) return
+              // 장비 CLI 의 손맛 — 탭 완성과 ? 도움말(공용 심장부)
+              if (e.key === 'Tab') {
+                e.preventDefault()
+                void keyHelp('\t')
+                return
+              }
+              if (e.key === '?') {
+                e.preventDefault()
+                void keyHelp('?')
+                return
+              }
               if (e.key === 'Enter') {
                 if (input.trim()) void send(input)
                 // 빈 엔터도 진짜 터미널처럼 — 프롬프트 줄이 한 줄 넘어간다

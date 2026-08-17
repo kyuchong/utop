@@ -5910,6 +5910,57 @@ def session_close(payload: dict):
         ent["ts"] = 0.0
         return {"ok": True}
 
+
+@app.post("/api/session-key")
+def session_key(payload: dict):
+    """탭 완성·`?` 도움말 — 터미널의 진짜 CLI 손맛(지적: 캡쳐 터미널에서 안 됨).
+
+    지금 세션 채널에 **엔터 없이 글자만** 흘리고, 장비가 돌려주는 것
+    (완성된 낱말·도움말 목록)을 읽어 온다. 명령은 실행되지 않는다.
+
+    읽고 나면 Ctrl-U 로 장비 쪽 입력줄을 비운다 — 안 비우면 장비 버퍼에
+    친 글자가 남아, 다음에 보내는 진짜 명령 앞에 붙어 엉뚱한 명령이 된다.
+    (netmiko 의 send_command 는 보내기 전에 수신 버퍼를 비우므로, 남는
+    재출력 프롬프트는 다음 명령에 안 섞인다.)
+    """
+    params = _netmiko_params(payload)
+    text = str(payload.get("text") or "")
+    # 개행은 금지 — 이 길은 완성/도움말용이지 실행이 아니다
+    text = text.replace("\r", "").replace("\n", "")
+    if not text:
+        return {"ok": False, "error": "보낼 글자가 없습니다"}
+    ent = _get_conn_entry(params)
+    with ent["lock"]:
+        conn = ent.get("conn")
+        if not conn:
+            return {"ok": False, "error": "세션이 없습니다 — 먼저 접속하세요"}
+        try:
+            conn.write_channel(text)
+            out = ""
+            quiet = 0.0
+            t0 = _t.time()
+            # 장비가 조용해질 때까지 모은다 — 도움말이 길면 여러 조각으로 온다
+            while _t.time() - t0 < 2.5:
+                _t.sleep(0.12)
+                chunk = conn.read_channel()
+                if chunk:
+                    out += chunk
+                    quiet = 0.0
+                else:
+                    quiet += 0.12
+                    if out and quiet >= 0.4:
+                        break
+            # 장비 입력줄 비우기 (Ctrl-U) — 대부분의 네트워크 OS 가 받는다
+            try:
+                conn.write_channel("\x15")
+                _t.sleep(0.2)
+                conn.read_channel()
+            except Exception:
+                pass
+            return {"ok": True, "out": out}
+        except Exception as exc:
+            return {"ok": False, "error": str(exc)}
+
 @app.post("/api/ping-stream")
 async def ping_stream(payload: dict):
     """ping 을 줄 단위로 흘려보낸다 (SSE).

@@ -73,6 +73,55 @@ export function cmdHistory() {
   }
 }
 
+/**
+ * 탭 완성·`?` 도움말 — 엔터 없이 글자만 세션 채널에 흘린다.
+ * 서버(/api/session-key)가 읽어 온 것을 돌려주고 장비 입력줄은 비워 둔다.
+ */
+export async function sendKeys(
+  params: Record<string, unknown>,
+  text: string,
+): Promise<{ ok: boolean; out?: string; error?: string }> {
+  try {
+    const r = await apiFetch('/api/session-key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...params, text }),
+    })
+    return (await r.json()) as { ok: boolean; out?: string; error?: string }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+/**
+ * 장비가 돌려준 에코를 「도움말」 과 「완성된 입력줄」 로 가른다.
+ *
+ *  · 탭: 한 줄 에코(친 글자+완성 조각)만 온다 → line
+ *  · ? : 도움말 여러 줄 + 마지막에 프롬프트와 친 줄을 다시 찍는다
+ *        → 가운데는 help, 마지막 줄에서 프롬프트를 떼면 line
+ */
+export function parseKeyEcho(
+  raw: string,
+  prompt: string,
+): { help: string; line: string | null } {
+  const printable = (t: string) => t.replace(/[^\x20-\x7e가-힣\t]/g, '')
+  const s = String(raw ?? '').replace(/\x07/g, '').replace(/\x08/g, '')
+  if (!/\r?\n/.test(s)) {
+    const line = printable(s)
+    return { help: '', line: line || null }
+  }
+  const lines = s.split(/\r?\n/).map(printable)
+  let last = lines[lines.length - 1] ?? ''
+  if (prompt && last.startsWith(prompt)) last = last.slice(prompt.length).replace(/^\s/, '')
+  else last = ''
+  const help = lines
+    .slice(0, -1)
+    .join('\n')
+    .replace(/^\s*\n+/, '')
+    .trimEnd()
+  return { help, line: last || null }
+}
+
 /** 로그 저장 — 친 명령·응답 전부를 .txt 로 (SecureCRT 의 Log Session 몫) */
 export function saveTermLog(
   fileName: string,
