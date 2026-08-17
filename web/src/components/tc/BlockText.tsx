@@ -19,23 +19,36 @@ import { tableLayout } from './judge'
 const KV = /^(\s*)([A-Za-z0-9][\w .#/()%+-]{0,31}?)(\s*:\s+)(\S.*?)(\s*)$/
 
 /**
- * 값 모양 토큰 — 자유 줄에서 모양만으로 확실한 것들.
- * 순서 주의: 프리픽스 있는 IP 가 맨 앞이어야 `10.1.1.0/24` 가 통으로 잡힌다.
+ * 값 모양 토큰 — **명령별 하드코딩이 아니라 모양의 원리**로 잡는다(합의):
+ *
+ *  ① 숫자가 든 토큰 — CLI 의 값은 거의 전부 여기 든다: IP·프리픽스,
+ *     MAC(0007.7061.0016 · 00:07:70…), [20/0], TenGi0/1, Vlan1001,
+ *     01w1d09h, 78.37%, 2064668K, 1.5.1 …  처음 보는 명령이어도 잡힌다.
+ *  ② 전부 대문자 낱말 (2자 이상) — OK · FAIL · AC · WARN …
+ *  ③ 상태 낱말 (닫힌 집합 — 말의 목록이지 명령의 목록이 아니다)
+ *
+ * 순서 주의: `not detected` 처럼 긴 것이 앞이어야 통으로 잡힌다.
  */
 const TOKEN = new RegExp(
   [
-    /\d{1,3}(?:\.\d{1,3}){3}(?:\/\d{1,2})?/.source, // IP · 프리픽스
-    /\[\d+\/\d+\]/.source, // [AD/metric]
-    /(?:[A-Z][A-Za-z]{1,12}\d+(?:\/\d+){1,3})/.source, // TenGi0/1 · Gi0/1/2
-    /Port-channel\d+|Vlan\d+|eth\d+/.source, // 인터페이스 이름들
-    /\d+w\d+d\d+h/.source, // 01w1d09h
-    /\d+(?:\.\d+)?%/.source, // 78.37%
-    /\d+(?:\.\d+)?(?:K|M|G)B?(?=[\s,.]|$)/.source, // 2064668K · 10MB
-    /not detected|detected|notconnect(?:ed)?|connected|[\w-]+-fail|FAIL|OK(?=[\s,.]|$)|up(?=[\s,.]|$)|down(?=[\s,.]|$)/
-      .source, // 상태어
+    /not\s+(?:detected|present|connected|reachable)/.source, // 부정형 먼저
+    /[A-Za-z][\w-]*-(?:fail|error|alarm)\w*/.source, // power-output-fail 류
+    /(?:detected|present|connected|notconnect(?:ed)?|reachable|enabled|disabled|active|inactive|failed?|alarm)(?=[\s,.):]|$)/
+      .source, // 상태 낱말
+    /(?:up|down|ok|yes|no|none)(?=[\s,.):]|$)/.source, // 짧은 상태 낱말
+    /\[[^\]\s]{1,24}\]/.source, // [20/0] 같은 꺾쇠 값
+    /[A-Za-z]*\d[\w.:/%-]*/.source, // ① 숫자가 든 토큰 (일반 원리)
+    /\b[A-Z]{2,}\b/.source, // ② 전부 대문자
   ].join('|'),
   'g',
 )
+
+/**
+ * 블럭을 만들지 않는 줄.
+ *  · 날짜 줄 (Mon Aug 17 …) — 값이 아니라 찍은 시각이다
+ *  · 명령 메아리 (E6100# show …) — 친 명령이지 응답 값이 아니다
+ */
+const SKIP_LINE = /^\s*(?:(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s+\w{3}\s+\d|[\w.-]+[#>]\s)/
 
 /** 한 덩어리 블럭 */
 const B = ({ children }: { children: ReactNode }) => <span className="bv-b">{children}</span>
@@ -141,6 +154,12 @@ export default function BlockText({ text }: { text: string }) {
         out.push(<span key={i}>{parts}</span>)
         return
       }
+    }
+
+    // 날짜·명령 메아리 줄은 통과
+    if (SKIP_LINE.test(ln)) {
+      out.push(ln)
+      return
     }
 
     // 자유 줄 — 값 모양 토큰만
