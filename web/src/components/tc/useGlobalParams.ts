@@ -29,6 +29,8 @@ const FOLDER_KEY = '__gp_folders__'
  */
 /** 파일이 끌어다 쓰는 다른 파일들. iTest 의 Include 탭에 해당한다. */
 export const INCLUDE_KEY = '__includes__'
+/** 활성 파일 목록 — 전역 파라미터 화면에서 켠다(합의: TC 가 따로 안 고름) */
+export const ACTIVE_KEY = '__active__'
 
 export function fileIncludes(data: GlobalParamFile | undefined, file: string): string[] {
   const m = (data?.[INCLUDE_KEY] ?? {}) as Record<string, unknown>
@@ -45,7 +47,7 @@ export function fileIncludes(data: GlobalParamFile | undefined, file: string): s
  *
  * 스텝에서는 `${이름}` 으로 쓴다. 실행할 때 실제 값으로 바뀐다.
  */
-export function useGlobalParams(files: string[] = []) {
+export function useGlobalParams(filesArg?: string[]) {
   const q = useQuery({
     queryKey: ['global-params'],
     queryFn: async () => {
@@ -55,6 +57,17 @@ export function useGlobalParams(files: string[] = []) {
     },
     staleTime: 60_000,
   })
+
+  // 파일을 안 넘기면 전역 화면에서 켠 활성 목록을 쓴다(합의 규칙) —
+  // 활성 표가 아직 없으면 공통(__global__)만 깔린 것으로 본다.
+  const activeRaw = q.data?.[ACTIVE_KEY]
+  const files =
+    filesArg ??
+    (Array.isArray(activeRaw)
+      ? (activeRaw as string[])
+      : q.data && '__global__' in q.data
+        ? ['__global__']
+        : [])
 
   const rows = (k: string): GlobalParam[] => {
     const v = q.data?.[k]
@@ -101,11 +114,13 @@ export function useGlobalParams(files: string[] = []) {
     /** 실제로 깔린 파일 — include 까지 편 순서 */
     used: [...seen],
     /** 고를 수 있는 파일 이름 */
-    files: Object.keys(q.data ?? {}).filter((k) => k !== FOLDER_KEY && k !== INCLUDE_KEY),
+    files: Object.keys(q.data ?? {}).filter(
+      (k) => k !== FOLDER_KEY && k !== INCLUDE_KEY && k !== ACTIVE_KEY,
+    ),
     empty: q.isLoading
       ? ''
       : files.length === 0
-        ? '이 TC 에 파라미터 파일이 안 붙어 있습니다 — 위 실행 줄의 「파라미터」 에서 고르세요.'
-        : '고른 파일에 값이 없습니다.',
+        ? '활성 파라미터 파일이 없습니다 — 전역 파라미터 화면에서 활성을 켜세요.'
+        : '활성 파일에 값이 없습니다.',
   }
 }

@@ -389,7 +389,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 4px 9px 4px 0;
+  padding: 1px 9px 1px 0;
   background: var(--c-surface-alt);
   border-bottom: 1px solid var(--c-border-soft);
 }
@@ -431,9 +431,11 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.2fr) 30px;
   gap: var(--sp-2);
   align-items: center;
-  padding: 5px 9px;
+  /* 행간 압축(피드백 — 정보가 많다). 입력칸 안쪽 여백이 이미 있다. */
+  padding: 1px 9px;
   border-bottom: 1px solid var(--c-border-soft);
 }
+.gp-row input { padding: 2px 6px; }
 
 .gp-row:last-child { border-bottom: 0; }
 

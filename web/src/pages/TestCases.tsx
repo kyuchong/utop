@@ -19,7 +19,6 @@ import FolderSortBtn from '@/components/FolderSortBtn'
 import { useInfoCols } from '@/components/useInfoCols'
 import TcStart from '@/components/tc/TcStart'
 import TcSessionBar from '@/components/tc/TcSessionBar'
-import TcParamBar from '@/components/tc/TcParamBar'
 import TcTerminal from '@/components/tc/TcTerminal'
 import TcSaveAs from '@/components/tc/TcSaveAs'
 import TcRevisions from '@/components/tc/TcRevisions'
@@ -795,13 +794,9 @@ export default function TestCases({ me }: PageProps) {
    * 자동으로 붙었는데, iTest 에 없는 규칙인 데다 아무도 못 알아챘다.
    * 옛 값(param_file, 하나만 고르던 때)은 읽어서 이어 준다.
    */
-  const paramFiles = useMemo(() => {
-    const v = d.param_files
-    if (Array.isArray(v)) return v.filter((x) => typeof x === 'string' && x)
-    return d.param_file ? [d.param_file] : []
-  }, [d.param_files, d.param_file])
-
-  const gp = useGlobalParams(paramFiles)
+  // 파라미터 파일은 전역 화면의 「활성」 이 정한다(합의) — TC 별 선택
+  // (param_files)은 뺐다. 옛 값은 데이터에 남지만 안 읽는다.
+  const gp = useGlobalParams()
 
   /** 스텝 변수가 전역 파라미터를 덮는다 — 돌면서 알아낸 값이 최신이다 */
   const stepParams = useMemo(
@@ -1653,15 +1648,9 @@ export default function TestCases({ me }: PageProps) {
                 >
                   ⏹
                 </button>
-                {/* 어느 파라미터 파일이 붙어 있나. 실행 줄에 둔다 —
-                    정보 탭 깊숙이 두면 지금 무엇이 깔려 있는지 모른 채
-                    스텝을 쓰게 된다. */}
-                <TcParamBar
-                  files={paramFiles}
-                  all={gp.files}
-                  used={gp.used}
-                  onChange={(next) => patch({ param_files: next, param_file: '' })}
-                />
+                {/* 파라미터 파일 선택은 뺐다(합의) — TC 가 고르면 「글로벌」
+                    이 아니다. 활성은 전역 파라미터 화면이 정하고 여기는
+                    자동으로 깔린다. */}
                 <TcSessionBar
                   sessions={sessionIds}
                   devices={devices}

@@ -219,39 +219,29 @@ CREATE TABLE IF NOT EXISTS code_item (
 CREATE UNIQUE INDEX IF NOT EXISTS uq_code_item ON code_item(kind, value);
 CREATE INDEX IF NOT EXISTS idx_code_item_kind ON code_item(kind);
 
--- 기본값. 지금까지 코드에 박혀 있던 것을 그대로 옮긴다.
-INSERT INTO code_item (kind, value, sort_order) VALUES
+-- 기본값 — ★ 그 kind 가 **비어 있을 때만**(첫 설치) 심는다.
+-- 전에는 기동마다 무조건 심어서, 지운 값(tc_status 의 PASS·FAIL 등)이
+-- 재시작할 때마다 살아났다(실사고: "몇 번을 지워도 다시 생긴다").
+-- 사람이 지운 것은 지워진 채로 있어야 한다.
+INSERT INTO code_item (kind, value, sort_order)
+SELECT v.kind, v.value, v.sort_order FROM (VALUES
   ('tc_status','작성중',1), ('tc_status','검토중',2), ('tc_status','승인',3),
   ('tc_status','PASS',4),   ('tc_status','FAIL',5),   ('tc_status','보류',6),
   ('tc_severity','치명',1), ('tc_severity','중대',2),
   ('tc_severity','보통',3), ('tc_severity','경미',4),
-  ('tc_run_type','수동',1), ('tc_run_type','자동',2), ('tc_run_type','혼합',3),
+  ('tc_run_type','수동',1), ('tc_run_type','자동',2),
   ('tc_origin','자체',1),   ('tc_origin','고객',2),
-  ('tc_type','FT',1),       ('tc_type','Function',2)
-ON CONFLICT (kind, value) DO NOTHING;
-
--- 요구사항 쪽. 지금까지 ReqForm.tsx 에 배열로 박혀 있어 어디서도 고칠 수
--- 없었다. TC 와 같은 자리에서 관리한다.
-INSERT INTO code_item (kind, value, sort_order) VALUES
+  ('tc_type','FT',1),       ('tc_type','Function',2),
   ('req_status','작성중',1), ('req_status','검토중',2), ('req_status','검토완료',3),
   ('req_status','보류',4),   ('req_status','폐기',5),
   ('req_priority','High',1), ('req_priority','Medium',2), ('req_priority','Low',3)
+) AS v(kind, value, sort_order)
+WHERE NOT EXISTS (SELECT 1 FROM code_item c WHERE c.kind = v.kind)
 ON CONFLICT (kind, value) DO NOTHING;
 
--- 이미 쓰고 있는 값도 목록으로 끌어올린다. 손으로 넣은 유형이 목록에
--- 없으면 그 TC 를 편집할 때 값이 사라진 것처럼 보인다.
-INSERT INTO code_item (kind, value, sort_order)
-SELECT DISTINCT 'tc_type', type, 9 FROM tc WHERE type IS NOT NULL AND type <> ''
-ON CONFLICT (kind, value) DO NOTHING;
-INSERT INTO code_item (kind, value, sort_order)
-SELECT DISTINCT 'tc_status', status, 9 FROM tc WHERE status IS NOT NULL AND status <> ''
-ON CONFLICT (kind, value) DO NOTHING;
-INSERT INTO code_item (kind, value, sort_order)
-SELECT DISTINCT 'req_status', status, 9 FROM req WHERE status IS NOT NULL AND status <> ''
-ON CONFLICT (kind, value) DO NOTHING;
-INSERT INTO code_item (kind, value, sort_order)
-SELECT DISTINCT 'req_priority', priority, 9 FROM req WHERE priority IS NOT NULL AND priority <> ''
-ON CONFLICT (kind, value) DO NOTHING;
+-- (제거) 쓰고 있는 값을 목록으로 끌어올리던 백필 — 지운 값을 실데이터가
+-- 계속 되살리는 통로였다. 목록에 없는 값을 든 기록은 편집 창이 그대로
+-- 보여 주므로 사라지지 않는다.
 
 -- ── 커스텀 필드 ────────────────────────────────────────────────
 -- 팀마다 TC·요구사항에 적어두고 싶은 항목이 다르다(수행자, 시험 환경,

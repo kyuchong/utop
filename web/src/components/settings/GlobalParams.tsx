@@ -22,6 +22,9 @@ const label = (k: string) => (k === GLOBAL ? '공통 (모든 모델)' : k)
 const GLOBAL = '__global__'
 /** 옛 화면의 폴더 목록. 여기서는 안 건드리고 그대로 넘긴다 */
 const FOLDERS = '__gp_folders__'
+/** 활성 파일 목록 — 여기 켠 파일이 모든 TC 실행에 깔린다(합의:
+    글로벌은 전역에서 정하고, TC 가 따로 고르지 않는다) */
+const ACTIVE = '__active__'
 /**
  * 파일이 끌어다 쓰는 다른 파일 — iTest 의 Include 탭.
  *
@@ -129,14 +132,22 @@ export default function GlobalParams({ only }: Props) {
     onError: (e) => setMsg(e instanceof Error ? e.message : String(e)),
   })
 
-  /** 값이 든 파일만. 옛 화면의 폴더 키와 include 표는 목록에 안 낸다. */
+  /** 값이 든 파일만. 옛 화면의 폴더 키와 include·활성 표는 목록에 안 낸다. */
   const models = useMemo(
     () =>
       Object.keys(data)
-        .filter((k) => k !== GLOBAL && k !== FOLDERS && k !== INCLUDES)
+        .filter((k) => k !== GLOBAL && k !== FOLDERS && k !== INCLUDES && k !== ACTIVE)
         .sort(),
     [data],
   )
+
+  /** 활성 파일 — 없으면 공통만 켠 것으로 본다 */
+  const active: string[] = Array.isArray(data[ACTIVE]) ? (data[ACTIVE] as string[]) : [GLOBAL]
+  const toggleActive = (name: string) => {
+    const next = active.includes(name) ? active.filter((x) => x !== name) : [...active, name]
+    setData((d) => ({ ...d, [ACTIVE]: next }))
+    setDirty(true)
+  }
 
   /** 이 파일이 끌어다 쓰는 파일들 */
   const incMap = (data[INCLUDES] ?? {}) as Record<string, unknown>
@@ -407,6 +418,14 @@ export default function GlobalParams({ only }: Props) {
             className={`gp-m${sel === GLOBAL ? ' on' : ''}`}
             onClick={() => setSel(GLOBAL)}
           >
+            {/* 활성 = 모든 TC 실행에 깔린다(합의) — TC 쪽 선택은 없앴다 */}
+            <input
+              type="checkbox"
+              title="활성 — 켜면 모든 TC 실행에 이 파일이 깔립니다"
+              checked={active.includes(GLOBAL)}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() => toggleActive(GLOBAL)}
+            />
             공통 (모든 모델)
             <span className="gp-n">{rows(GLOBAL).filter((r) => r.name).length || ''}</span>
           </button>
@@ -418,10 +437,21 @@ export default function GlobalParams({ only }: Props) {
               className={`gp-m${sel === m ? ' on' : ''}`}
               onClick={() => setSel(m)}
             >
+              <input
+                type="checkbox"
+                title="활성 — 켜면 모든 TC 실행에 이 파일이 깔립니다 (아래가 위를 덮음)"
+                checked={active.includes(m)}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => toggleActive(m)}
+              />
               {m}
               <span className="gp-n">{rows(m).filter((r) => r.name).length || ''}</span>
             </button>
           ))}
+          <p className="muted small" style={{ padding: '4px 8px', margin: 0 }}>
+            체크 = 활성. 활성 파일이 모든 TC 실행에 깔립니다 — 공통 먼저, 아래
+            파일이 덮습니다. 저장해야 반영됩니다.
+          </p>
 
           {/* 등록된 장비의 모델 중 아직 파라미터가 없는 것. 이름을 손으로
               치게 두면 오타 난 모델이 생기고, 그 값은 영영 안 쓰인다. */}
