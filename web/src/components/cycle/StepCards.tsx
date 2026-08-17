@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CycleItemLite, CycleStep, Verdict } from '@/pages/Cycles'
 import { RESULTS, verdictClass } from '@/pages/Cycles'
-import { METER_ACT_LABEL, stepKindInfo, stepVerdict, type TcStep } from '@/components/tc/types'
+import { isJudgeStep, METER_ACT_LABEL, stepKindInfo, stepVerdict, type TcStep } from '@/components/tc/types'
 import { subVars } from '@/components/tc/judge'
 import { useGlobalParams } from '@/components/tc/useGlobalParams'
 import MeterStats, { parseMeterOutput } from '@/components/tc/MeterStats'
@@ -171,28 +171,36 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
 
   if (!all.length) return <div className="empty">스텝 내용 없음</div>
 
+  /* 스텝 번호 — 판정(PASS/FAIL)이 나오는 것만 스텝으로 센다(합의).
+     주석·메시지·대기·치환·흐름 줄은 번호가 없다. 배지·띠·Step# 가
+     전부 이 번호 하나를 쓴다. */
+  const noOf: number[] = (() => {
+    let n = 0
+    return all.map((s2) => (isJudgeStep(s2 as TcStep) ? ++n : -1))
+  })()
+
   /* 스텝 진행 띠 — 카드 스무 장을 굴리기 전에 전체 판이 한눈에 보여야
      한다(지적: 세부가 부실). 누르면 그 스텝 카드로 내려간다. */
+  const judged = all.map((s2, at) => ({ s: s2, at })).filter((x) => noOf[x.at]! > 0)
   const strip =
-    all.length > 1 ? (
+    judged.length > 1 ? (
       <div className="sc-strip">
         {/* 회차 띠와 똑같이 생겨 「루프 돌린 적 없는데」 가 나왔다 — 라벨로 가른다 */}
         <span className="sc-strip-lab">스텝</span>
-        {all.map((st2, n) => {
+        {judged.map(({ s: st2, at }) => {
           const v = stepVerdict(st2 as TcStep)
           const cls = v === 'Pass' ? 'pass' : v === 'Fail' ? 'fail' : v ? 'part' : ''
-          const isNote = st2.kind === 'comment' || st2.kind === 'message'
           return (
             <button
-              key={n}
+              key={at}
               type="button"
-              className={`sc-seg ${cls}${isNote ? ' note' : ''}`}
-              title={`Step ${n + 1}${v ? ` · ${v}` : ' · 미실행'}`}
+              className={`sc-seg ${cls}`}
+              title={`Step ${noOf[at]}${v ? ` · ${v}` : ' · 미실행'}`}
               onClick={() =>
-                cardRefs.current[n]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                cardRefs.current[at]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
               }
             >
-              {n + 1}
+              {noOf[at]}
             </button>
           )
         })}
@@ -291,7 +299,7 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
             >
               <div className="sc-main">
               <div className="sc-head">
-                <b>Step#{i + 1}</b>
+                {noOf[i]! > 0 && <b>Step#{noOf[i]}</b>}
                 <span className="sc-kind k-manual">Manual</span>
                 <span className="sp" />
               </div>
@@ -470,9 +478,8 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
               }}
               className={`sc-memo ${s.kind}`}
             >
-              {/* 이 줄도 스텝이다(합의: Comment·Message 도 스텝으로 인식) —
-                  번호가 없으면 「미포함인가」 로 읽힌다 */}
-              <b className="sc-memo-no">Step#{i + 1}</b>
+              {/* 번호 없음 — 판정이 나오는 것만 스텝으로 센다(합의 확정).
+                  이 줄은 절차의 제목·설명이다 */}
               <span className={`sc-kind k-${s.kind}`}>{stepKindInfo(s.kind).label}</span>
               <span className="sc-memo-txt">
                 {String(s.text ?? s.desc ?? s.step ?? '').trim() || '–'}
@@ -490,7 +497,7 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
           >
             <div className="sc-main">
             <div className="sc-head">
-              <b>Step#{i + 1}</b>
+              {noOf[i]! > 0 && <b>Step#{noOf[i]}</b>}
               {/* 종류는 `kind` 가 정한다.
                   전에는 `action` 만 보고 비어 있으면 무조건 CLI 라고 적었다.
                   그래서 Manual 스텝만 있는 시험이 사이클에서는 automation

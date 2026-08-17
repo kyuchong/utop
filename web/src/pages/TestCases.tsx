@@ -57,6 +57,7 @@ import { blockEnd, runPicked, runSteps, type RunCtx } from '@/components/tc/runn
 import { extractOne } from '@/components/tc/judge'
 import type { PickItem } from '@/components/tc/PickList'
 import {
+  isJudgeStep,
   needsDevice,
   sessionIndex,
   stepResult,
@@ -702,7 +703,9 @@ export default function TestCases({ me }: PageProps) {
   /** 탭에 숫자를 달아 두면 있는지 없는지 눌러보지 않아도 안다 */
   const manualCount = steps.filter((s) => s.kind === 'manual').length
   const wireCount = (d.wiring ?? []).length
-  const autoCount = steps.length - manualCount
+  // 판정(PASS/FAIL)이 나오는 스텝만 센다(합의) — 주석·메시지·대기·치환·
+  // 흐름 줄까지 세면 목록 배지와 이 숫자가 늘 어긋난다
+  const autoCount = steps.filter((s) => s.kind !== 'manual' && isJudgeStep(s)).length
   /**
    * 이 TC 가 쓰는 세션. 자료에는 `sessions: ["dev-…"]` 처럼 장비 id 배열이
    * 들어 있고, 스텝의 session 은 그 배열의 자리 번호다.
@@ -2427,9 +2430,14 @@ export default function TestCases({ me }: PageProps) {
                             {t.name || '(제목 없음)'}
                           </button>
                           {/* 스텝 수는 열로 두지 않고 이름 꼬리에 — 트리와 같은 문법 */}
-                          {typeof t._cli_count === 'number' && t._cli_count > 0 && (
-                            <span className="tt-n">{t._cli_count}</span>
-                          )}
+                          {/* 판정 스텝 수(합의) — Automation 탭 배지와 같은 자 */}
+                          {(() => {
+                            const n =
+                              typeof (t as Record<string, unknown>)._step_count === 'number'
+                                ? ((t as Record<string, unknown>)._step_count as number)
+                                : (t._cli_count ?? 0)
+                            return n > 0 ? <span className="tt-n">{n}</span> : null
+                          })()}
                           {/* 세션 없는 자동 시험 — 돌릴 수 없다. 미리 보인다 */}
                           {(t._cli_count ?? 0) > 0 &&
                             ((t as Record<string, unknown>)._sess_n ?? 0) === 0 &&

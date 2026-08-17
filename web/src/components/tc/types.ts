@@ -627,6 +627,30 @@ export function isNoteKind(k?: string): boolean {
   return k === 'comment' || k === 'message'
 }
 
+/**
+ * 「스텝」 으로 세는 종류 — **PASS/FAIL 판정이 나올 수 있는 것**만(합의).
+ *
+ * 주석·메시지는 절차의 제목이고, 대기·치환·If·Loop·Switch 는 판정을 안
+ * 낸다 — 이것들까지 세면 목록의 「1」 과 탭의 「6」 처럼 곳곳의 수가
+ * 서로 어긋난다. 배지·Step 번호·N단계가 전부 이 하나를 쓴다.
+ */
+export function isJudgeStep(s: TcStep): boolean {
+  const k = (s.kind || 'cli') as StepKind
+  return (
+    k === 'cli' ||
+    k === 'ping' ||
+    k === 'snmp_get' ||
+    k === 'snmp_set' ||
+    k === 'snmp_trap' ||
+    k === 'diff' ||
+    k === 'instrument' ||
+    k === 'connect' ||
+    k === 'disconnect' ||
+    k === 'manual' ||
+    k === 'auto'
+  )
+}
+
 /** 2열에 한 줄로 보일 요약. 종류마다 읽어야 할 값이 다르다. */
 export function stepSummary(s: TcStep): string {
   const k = s.kind || 'cli'

@@ -4414,8 +4414,15 @@ def _cached_load(cache: dict, path: Path, meta_keys: tuple = None, meta_extra_fn
 def _tc_meta_extra(meta: dict, d: dict):
     _checks = d.get("checks") or []
     meta["_checks_count"] = len(_checks)
-    # CLI 스텝(실제 시험 절차) 개수 — 목록 화면에 표시됨
+    # CLI 스텝(실제 시험 절차) 개수 — ⚠(세션 없음) 게이트가 쓴다
     meta["_cli_count"] = sum(1 for c in _checks if (c.get("kind") or "cli") == "cli")
+    # 판정(PASS/FAIL)이 나오는 스텝 수(합의) — 목록 배지·Automation 탭이 같이 쓴다.
+    # 주석·메시지·대기·치환·If/Loop/Switch 는 판정 단위가 아니라 안 센다.
+    _judge = {"cli", "ping", "snmp_get", "snmp_set", "snmp_trap", "diff",
+              "instrument", "connect", "disconnect", "auto"}
+    meta["_step_count"] = sum(
+        1 for c in _checks if (c.get("kind") or "cli") in _judge
+    )
 
 @app.get("/api/tc")
 async def get_all_tc(meta: int = 0):

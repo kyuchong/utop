@@ -33,7 +33,7 @@ import {
 import { useInfoCols } from '@/components/useInfoCols'
 import Markdown from '@/components/Markdown'
 import type { TestCaseMeta } from '@/types'
-import { stepVerdict, type StepRound, type TcStep } from '@/components/tc/types'
+import { isJudgeStep, stepVerdict, type StepRound, type TcStep } from '@/components/tc/types'
 // 요구사항 화면의 트리 규칙을 그대로 쓴다 — 줄 높이·색·여백이 한 곳에서만
 // 정해져야 세 화면이 같아 보인다.
 import '@/components/ReqTree.css'
@@ -4809,7 +4809,10 @@ function StepDetail({
     <div className="cy-steps-pane">
       <div className="cy-sp-head">
         <b>{item.name || item.tcid}</b>
-        <span className="muted small">{steps.length}단계</span>
+        {/* 판정이 나오는 스텝만 센다(합의) — 주석·메시지는 절차 제목이다 */}
+        <span className="muted small">
+          {steps.filter((s) => isJudgeStep(s as TcStep)).length}단계
+        </span>
         {item.executed_at && (
           <span className="muted small">
             {item.executed_at.slice(0, 16)} · {item.executed_by || '–'}
