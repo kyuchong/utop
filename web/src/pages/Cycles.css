@@ -733,7 +733,9 @@ select.cy-v.na { color: #999; }
 .sc-memo-txt { min-width: 0; }
 
 /* 스텝 진행 띠 — 전체 판이 한눈에. 누르면 그 스텝으로 */
-.sc-strip { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px; }
+.sc-strip { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px; align-items: center; }
+.sc-strip-lab { font-size: var(--fs-xs); color: var(--c-muted); font-weight: 700; margin-right: 3px; }
+.sc-memo-no { font-size: var(--fs-sm); flex: none; }
 .sc-seg {
   min-width: 22px;
   height: 20px;

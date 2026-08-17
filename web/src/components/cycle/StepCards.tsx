@@ -176,6 +176,8 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
   const strip =
     all.length > 1 ? (
       <div className="sc-strip">
+        {/* 회차 띠와 똑같이 생겨 「루프 돌린 적 없는데」 가 나왔다 — 라벨로 가른다 */}
+        <span className="sc-strip-lab">스텝</span>
         {all.map((st2, n) => {
           const v = stepVerdict(st2 as TcStep)
           const cls = v === 'Pass' ? 'pass' : v === 'Fail' ? 'fail' : v ? 'part' : ''
@@ -468,6 +470,9 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
               }}
               className={`sc-memo ${s.kind}`}
             >
+              {/* 이 줄도 스텝이다(합의: Comment·Message 도 스텝으로 인식) —
+                  번호가 없으면 「미포함인가」 로 읽힌다 */}
+              <b className="sc-memo-no">Step#{i + 1}</b>
               <span className={`sc-kind k-${s.kind}`}>{stepKindInfo(s.kind).label}</span>
               <span className="sc-memo-txt">
                 {String(s.text ?? s.desc ?? s.step ?? '').trim() || '–'}
