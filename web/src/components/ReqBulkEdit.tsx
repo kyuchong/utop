@@ -191,14 +191,22 @@ export default function ReqBulkEdit({ ids, onClose, onDone }: Props) {
             {row(
               'folder',
               '폴더 옮기기',
-              <select value={folder} onChange={(e) => setFolder(e.target.value)}>
-                <option value="">미분류로</option>
-                {cats.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>,
+              <div>
+                <select value={folder} onChange={(e) => setFolder(e.target.value)}>
+                  <option value="">미분류로</option>
+                  {cats.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                {/* 요구사항의 모델은 개별 필드가 아니라 프로젝트 상속이다 —
+                    여기가 곧 모델을 바꾸는 길임을 적어 둔다(피드백) */}
+                <div className="muted small" style={{ marginTop: 4 }}>
+                  모델그룹·모델명은 프로젝트(최상위 폴더)를 따라갑니다 — 프로젝트 밑으로
+                  옮기면 함께 바뀝니다.
+                </div>
+              </div>,
             )}
             {/* 구현 내용 — 편집 창과 같은 서식 편집기 */}
             {row(
