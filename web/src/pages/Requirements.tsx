@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, apiFetch, categoryApi, reqApi, tcApi } from '@/api/client'
+import { api, apiFetch, categoryApi, projectApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
 import ReqTree from '@/components/ReqTree'
 import { useMultiSelect } from '@/components/useMultiSelect'
@@ -329,6 +329,17 @@ export default function Requirements() {
       return names.join(' › ')
     }
   }, [catQ.data, folderMode, selectedFolder])
+
+  /** 소속 프로젝트의 모델그룹·모델명 — 요구사항에는 모델 필드가 없다.
+      프로젝트가 모델을 고정하므로(정책) 사슬 맨 위(cat1)에서 상속해 보인다. */
+  const prjQ = useQuery({
+    queryKey: ['projects'],
+    queryFn: ({ signal }) => projectApi.list(signal),
+  })
+  const prjByCat = useMemo(
+    () => new Map((prjQ.data?.projects ?? []).map((p) => [p.cat_id, p])),
+    [prjQ.data],
+  )
 
   /** 이 요구사항을 덮는 TC 수 — tc.req_id 와 req.tc[] 참조의 합집합 */
   const covCount = useMemo(
@@ -1126,6 +1137,9 @@ export default function Requirements() {
                 {/* ID 열은 뺐다 — 고르면 위 빵부스러기에 그대로 나온다.
                     이 폭을 Name 이 갖는 편이 낫다. */}
                 <div>Name</div>
+                {/* 프로젝트에서 상속한 모델 — 요구사항 자체 필드가 아니다 */}
+                <div>모델그룹</div>
+                <div>모델명</div>
                 <div>Map</div>
                 <div>TC</div>
                 <div>Priority</div>
@@ -1177,6 +1191,15 @@ export default function Requirements() {
                           ) : null
                         })()}
                       </div>
+                      {(() => {
+                        const p = r.cat1 ? prjByCat.get(r.cat1 as string) : undefined
+                        return (
+                          <>
+                            <div className="muted small">{p?.model_group || '–'}</div>
+                            <div className="muted small">{p?.model || '–'}</div>
+                          </>
+                        )
+                      })()}
                       <div>
                         <button
                           type="button"

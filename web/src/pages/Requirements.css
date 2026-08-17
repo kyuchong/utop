@@ -628,8 +628,9 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   display: grid;
   /* 열은 고정폭 — fit-content 는 줄마다 grid 가 따로라 폭이 줄마다
      달라져 머리와 자료가 어긋났다. Name 이 남는 폭을 다 갖는다. */
-  /* ID 열은 뺐다 — 빵부스러기가 보여준다. Name 이 그 폭을 갖는다 */
-  grid-template-columns: 28px minmax(0, 1fr) 40px 56px 64px;
+  /* ID 열은 뺐다 — 빵부스러기가 보여준다. Name 이 그 폭을 갖는다.
+     모델그룹·모델명은 프로젝트에서 상속해 보인다(피드백, 기본 표시) */
+  grid-template-columns: 28px minmax(0, 1fr) 96px 110px 40px 56px 64px;
   column-gap: 10px;
   align-items: center;
   min-height: var(--row-h);

@@ -119,7 +119,10 @@ const COL_DEFS = [
   { k: 'updated', label: '변경일', w: '96px' },
   { k: 'status', label: '상태', w: '70px' },
 ] as const
-const COL_DEFAULT = ['type', 'map', 'status']
+// 모델그룹·모델명을 기본에 넣었다(피드백) — 항목별 모델 고정 정책이라
+// 어느 판인지가 늘 보여야 한다. 키를 cols2 로 올려 저장된 옛 구성도
+// 한 번은 새 기본으로 온다.
+const COL_DEFAULT = ['model_group', 'model', 'type', 'map', 'status']
 
 /** 열 하나의 표시값 — 필터 드롭다운과 줄 필터가 같은 값을 쓴다.
     컴포넌트 안에 두면 위쪽 useMemo 가 선언 전에 불러 TDZ 로 터진다. */
@@ -171,14 +174,14 @@ export default function TestCases({ me }: PageProps) {
   /** 보이는 열 — 옛 화면의 ⚙ 열 설정과 같은 몫 */
   const [cols, setCols] = useState<string[]>(() => {
     try {
-      const v = JSON.parse(localStorage.getItem('utop.tc.cols') || '')
+      const v = JSON.parse(localStorage.getItem('utop.tc.cols2') || '')
       return Array.isArray(v) ? (v as string[]) : COL_DEFAULT
     } catch {
       return COL_DEFAULT
     }
   })
   useEffect(() => {
-    localStorage.setItem('utop.tc.cols', JSON.stringify(cols))
+    localStorage.setItem('utop.tc.cols2', JSON.stringify(cols))
   }, [cols])
   const [colsOpen, setColsOpen] = useState(false)
   /** 판(버전) 이력 창 */
