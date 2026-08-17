@@ -968,8 +968,11 @@ button.sq-caret svg { width: 11px; height: 11px; }
 }
 
 .sd-res {
-  background: #151c24;
-  color: #dae4ef;
+  /* 흰 바탕 + 테두리 — 검은 화면은 인쇄·블럭 표시 둘 다에 나빴다(지시).
+     블럭화(iTest Response Map 방식)의 바탕이기도 하다. */
+  background: #fff;
+  color: #24292f;
+  border: 1px solid #c3ccd4;
   border-radius: var(--tc-r);
   padding: 10px 12px;
   font-family: var(--font-mono);
@@ -984,7 +987,18 @@ button.sq-caret svg { width: 11px; height: 11px; }
 }
 
 .sd-res::selection,
-.sd-res *::selection { background: #3a5a2c; }
+.sd-res *::selection { background: #cfe3ff; }
+
+/* 응답 블럭화 — 판정기와 같은 파서(tableLayout)가 그린다(일관성 합의) */
+.bv-b {
+  border: 1px solid #b6c2cf;
+  border-radius: 3px;
+  padding: 0 3px;
+  margin: 0 1px;
+  background: #fbfcfe;
+}
+.bv-b:hover { background: #e8f2fe; border-color: #5b9bd5; }
+.bv-hd { color: #5b6470; font-weight: 700; }
 
 .sd-res.empty-res {
   background: var(--tc-hover);

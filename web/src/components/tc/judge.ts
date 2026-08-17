@@ -224,18 +224,65 @@ export interface Tbl {
  * 머리줄 후보는 **두 칸 이상 띄어 나뉜 낱말이 셋 이상**인 줄이다. 둘까지
  * 받아 주면 보통 문장도 표로 읽혀 엉뚱한 것이 잡힌다.
  */
-function tableByHeader(lines: string[]): Tbl | null {
+/**
+ * 표의 **자리 정보** — 어느 줄이 머리·자료이고 열이 어디서 갈리는지.
+ *
+ * 판정(parseTable)과 화면의 블럭 표시가 **이 한 곳**을 같이 쓴다.
+ * 표시용 파서를 따로 두면 언젠가 서로 다른 표를 보게 된다 —
+ * 블럭화는 왔다 갔다 하면 안 된다(합의: 일관성).
+ */
+export interface TblLayout {
+  /** 머리줄 줄 번호 */
+  headIdx: number
+  /** 구분선(---) 줄 번호. 머리줄 방식이면 -1 */
+  sepIdx: number
+  /** 각 열의 [시작, 끝). 마지막 열의 끝은 -1 — 줄 끝까지 */
+  cols: Array<[number, number]>
+  /** 자료 줄 번호들 */
+  bodyIdx: number[]
+}
+
+const isPromptLine = (s: string) => /^[\w.-]+[#>]\s*$/.test(s.trim())
+
+export function tableLayout(text: string): TblLayout | null {
+  const lines = String(text ?? '').split(/\r?\n/)
+
+  const sepIdx = lines.findIndex((l) => /-{3,}/.test(l) && /^[\s-]+$/.test(l))
+  if (sepIdx >= 1) {
+    const sep = lines[sepIdx] ?? ''
+    const ranges: Array<[number, number]> = []
+    const re = /-+/g
+    let m: RegExpExecArray | null
+    while ((m = re.exec(sep))) ranges.push([m.index, m.index + m[0].length])
+    if (!ranges.length) return null
+    const bodyIdx: number[] = []
+    for (let i = sepIdx + 1; i < lines.length; i++) {
+      const ln = lines[i] ?? ''
+      if (!ln.trim()) continue
+      // 프롬프트 줄(`SWITCH#`)은 자료가 아니다
+      if (isPromptLine(ln)) continue
+      bodyIdx.push(i)
+    }
+    if (!bodyIdx.length) return null
+    // 마지막 열은 구분선보다 길어질 수 있다 (Type 처럼) — 끝을 -1 로 연다
+    const cols: Array<[number, number]> = ranges.map((r, i) => [
+      r[0],
+      i === ranges.length - 1 ? -1 : r[1],
+    ])
+    return { headIdx: sepIdx - 1, sepIdx, cols, bodyIdx }
+  }
+
+  // 구분선이 없는 표 — 머리줄의 글자 자리로 (tableByHeader 의 규칙 그대로)
   const cut = (ln: string): Array<{ at: number; w: string }> => {
     const out: Array<{ at: number; w: string }> = []
-    const re = /\S(?:.*?\S)??(?=\s{2,}|$)/g
-    let m: RegExpExecArray | null
-    while ((m = re.exec(ln))) {
-      if (m[0]) out.push({ at: m.index, w: m[0] })
-      if (re.lastIndex === m.index) re.lastIndex++
+    const re2 = /\S(?:.*?\S)??(?=\s{2,}|$)/g
+    let m2: RegExpExecArray | null
+    while ((m2 = re2.exec(ln))) {
+      if (m2[0]) out.push({ at: m2.index, w: m2[0] })
+      if (re2.lastIndex === m2.index) re2.lastIndex++
     }
     return out
   }
-
   // 머리줄은 앞쪽에 있다. 스무 줄까지만 본다 — 그 아래에 있으면 표가 아니다.
   for (let h = 0; h < Math.min(lines.length, 20); h++) {
     const head = lines[h] ?? ''
@@ -243,56 +290,39 @@ function tableByHeader(lines: string[]): Tbl | null {
     const cells = cut(head)
     if (cells.length < 3) continue
     const starts = cells.map((c) => c.at)
-    const cols = cells.map((c) => c.w.trim())
-
-    const rows: string[][] = []
+    const bodyIdx: number[] = []
     for (let i = h + 1; i < lines.length; i++) {
       const ln = lines[i] ?? ''
       if (!ln.trim()) continue
-      if (/^[\w.-]+[#>]\s*$/.test(ln.trim())) continue
+      if (isPromptLine(ln)) continue
       // 머리줄과 자리가 안 맞는 줄은 자료가 아니다 — 명령 메아리·날짜 따위
       if (cut(ln).length < 2) continue
-      rows.push(
-        starts.map((st, c) => {
-          const end = c === starts.length - 1 ? Math.max(ln.length, st) : (starts[c + 1] ?? ln.length)
-          return ln.slice(st, end).trim()
-        }),
-      )
+      bodyIdx.push(i)
     }
-    if (rows.length) return { cols, rows }
+    if (bodyIdx.length) {
+      const cols: Array<[number, number]> = starts.map((st, c) => [
+        st,
+        c === starts.length - 1 ? -1 : (starts[c + 1] ?? -1),
+      ])
+      return { headIdx: h, sepIdx: -1, cols, bodyIdx }
+    }
   }
   return null
 }
 
 export function parseTable(text: string): Tbl | null {
+  const lay = tableLayout(text)
+  if (!lay) return null
   const lines = String(text ?? '').split(/\r?\n/)
-  const sepIdx = lines.findIndex((l) => /-{3,}/.test(l) && /^[\s-]+$/.test(l))
-  if (sepIdx < 1) return tableByHeader(lines)
-  const sep = lines[sepIdx] ?? ''
-  const ranges: Array<[number, number]> = []
-  const re = /-+/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(sep))) ranges.push([m.index, m.index + m[0].length])
-  if (!ranges.length) return null
-
-  const cell = (line: string, i: number) => {
-    const r = ranges[i]
-    if (!r) return ''
-    // 마지막 열은 구분선보다 길어질 수 있다 (Type 처럼)
-    const end = i === ranges.length - 1 ? Math.max(line.length, r[1]) : r[1]
-    return String(line ?? '').slice(r[0], end).trim()
+  const cellOf = (ln: string, c: number): string => {
+    const col = lay.cols[c]
+    if (!col) return ''
+    const end = col[1] < 0 ? Math.max(ln.length, col[0]) : col[1]
+    return ln.slice(col[0], end).trim()
   }
-
-  const cols = ranges.map((_, i) => cell(lines[sepIdx - 1] ?? '', i))
-  const rows: string[][] = []
-  for (let i = sepIdx + 1; i < lines.length; i++) {
-    const ln = lines[i] ?? ''
-    if (!ln.trim()) continue
-    // 프롬프트 줄(`SWITCH#`)은 자료가 아니다
-    if (/^[\w.-]+[#>]\s*$/.test(ln.trim())) continue
-    rows.push(ranges.map((_, c) => cell(ln, c)))
-  }
-  return rows.length ? { cols, rows } : null
+  const cols = lay.cols.map((_, c) => cellOf(lines[lay.headIdx] ?? '', c))
+  const rows = lay.bodyIdx.map((i) => lay.cols.map((_, c) => cellOf(lines[i] ?? '', c)))
+  return { cols, rows }
 }
 
 interface Tok {

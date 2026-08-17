@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { IconIndent, IconOutdent } from '../icons'
 import { applyMapRules, evalCondWhy, extractOne, JUDGE_TYPES, parseTable, subVars } from './judge'
+import BlockText from './BlockText'
 import TcTable from './TcTable'
 import ParamPicker from './ParamPicker'
 import PickList, { type PickItem } from './PickList'
@@ -1342,7 +1343,7 @@ export default function TcStepDetail({
                 ) : (
                 /* onMouseUp 으로 잡는 이유: onSelect 는 pre 에서 안 뜬다 */
                 <pre className="sd-res" onMouseUp={grab}>
-                  {result}
+                  <BlockText text={result} />
                 </pre>
                 )}
                 <div className="sd-pick">
