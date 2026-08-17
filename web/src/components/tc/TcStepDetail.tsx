@@ -3,8 +3,10 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { IconIndent, IconOutdent } from '../icons'
 import {
-  applyExclude,
   applyMapRules,
+  applySkips,
+  looksLikeTime,
+  SKIP_TIME,
   evalCondWhy,
   extractOne,
   parseTable,
@@ -282,15 +284,16 @@ export default function TcStepDetail({
   // 칩을 처음 고치는 순간 옛 밭(criteria·excludeLines)을 비운다 — 안 비우면
   // 지운 칩이 옛 값에서 판정에 계속 살아남고, 다 지우면 되살아난다(지적)
   /** 캡처·미리보기용 출력 — 줄제외 칩이 적용된 것(판정·캡처와 같은 눈) */
-  const capSrc = applyExclude(
-    result,
-    chips.filter((c) => c.t === 'skip').map((c) => c.v).join('\n'),
-  )
+  const capSrc = applySkips(result, { ...step, rules: chips } as TcStep)
   const writeChips = (next: JudgeRule[]) =>
     onChange({ rules: next, criteria: '', excludeLines: '' })
   const addChipFrom = (t: 'has' | 'not' | 'skip', v: string) => {
-    const val = v.trim()
+    let val = v.trim()
     if (!val) return
+    // 시각처럼 매번 변하는 값의 줄제외는 ⏱시각줄 칩으로 — 글자로는
+    // 다음 실행과 안 맞아 영원히 못 뺀다(지적)
+    if (t === 'skip' && looksLikeTime(val)) val = SKIP_TIME
+    if (chips.some((c) => c.t === t && c.v === val)) return
     writeChips([...chips, { t, v: val }])
   }
   /** 블럭 → 변수. 이름은 자동(varN) — 창(prompt)은 파이어폭스에서 막힌다 */
@@ -1450,7 +1453,10 @@ export default function TcStepDetail({
                         onClick={() => {
                           const ls = picked.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
                           const have = new Set(chips.filter((x) => x.t === 'skip').map((x) => x.v))
-                          const add = ls.filter((l) => !have.has(l)).map((v) => ({ t: 'skip' as const, v }))
+                          const add = ls
+                            .map((v) => (looksLikeTime(v) ? SKIP_TIME : v))
+                            .filter((v, i2, arr) => !have.has(v) && arr.indexOf(v) === i2)
+                            .map((v) => ({ t: 'skip' as const, v }))
                           if (add.length) writeChips([...chips, ...add])
                           setPicked('')
                         }}

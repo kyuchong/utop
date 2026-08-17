@@ -493,6 +493,43 @@ export interface JudgeRule {
   v: string
 }
 
+/**
+ * 시각 줄 제외 칩의 값 — 글자가 아니라 **모양**으로 뺀다.
+ *
+ * 「Mon Aug 17 2026 21:12:50 KST」 를 글자로 제외하면 다음 실행의 새
+ * 시각과는 안 맞아 영원히 못 뺀다(지적). 이 칩은 요일로 시작하는
+ * 시각 줄이면 값이 무엇이든 뺀다.
+ */
+export const SKIP_TIME = '⏱시각줄'
+const TIME_LINE = /^\s*(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s+\w{3}\s+\d/
+
+/** 시각·날짜처럼 생긴 값인가 — 줄제외를 만들 때 ⏱시각줄 칩으로 바꾼다 */
+export function looksLikeTime(v: string): boolean {
+  const t = String(v ?? '').trim()
+  return TIME_LINE.test(t) || /\d{1,2}:\d{2}:\d{2}/.test(t)
+}
+
+/**
+ * 줄제외 한 벌 적용 — 판정·변수 캡처·미리보기가 전부 이것 하나를 쓴다.
+ * 글자 칩은 그 문구가 든 줄을, ⏱시각줄 칩은 시각 줄을 뺀다.
+ */
+export function applySkips(text: string, step: TcStep): string {
+  const rules = stepRules(step).filter((r) => r.t === 'skip')
+  const subs = [
+    String(step.excludeLines ?? ''),
+    ...rules.filter((r) => r.v !== SKIP_TIME).map((r) => String(r.v ?? '')),
+  ]
+    .filter(Boolean)
+    .join('\n')
+  let out = applyExclude(String(text ?? ''), subs)
+  if (rules.some((r) => r.v === SKIP_TIME))
+    out = out
+      .split(/\r?\n/)
+      .filter((l) => !TIME_LINE.test(l))
+      .join('\n')
+  return out
+}
+
 export function stepRules(step: TcStep): JudgeRule[] {
   const r = (step as { rules?: unknown }).rules
   if (!Array.isArray(r)) return []
@@ -518,15 +555,9 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
   const hasRuleField = Array.isArray((step as { rules?: unknown }).rules)
   const rules = stepRules(step)
   if (hasRuleField || rules.length) {
-    // 줄제외 칩 — 그 문구가 든 줄은 판정에서 통째로 뺀다(옛 excludeLines 와 합침)
-    const exc = [
-      String(step.excludeLines ?? ''),
-      ...rules.filter((r) => r.t === 'skip').map((r) => subVars(String(r.v ?? ''), vars)),
-    ]
-      .filter(Boolean)
-      .join('\n')
-    const scoped2 = applyExclude(applyQuery(output, step.query as string | undefined), exc)
-    const raw2 = applyExclude(String(output ?? ''), exc)
+    // 줄제외 칩 — 판정·캡처가 같은 눈(applySkips)
+    const scoped2 = applySkips(applyQuery(output, step.query as string | undefined), step)
+    const raw2 = applySkips(String(output ?? ''), step)
     const hasTok = (tok: string) => {
       const t = tok.toLowerCase()
       return scoped2.toLowerCase().includes(t) || raw2.toLowerCase().includes(t)
@@ -732,13 +763,7 @@ export function extractVars(step: TcStep, output: string): Record<string, string
   /* 줄제외 칩(+옛 뺄 줄)은 캡처에서도 그 줄을 뺀다 — 「전체를 변수로」 가
      날짜 줄까지 담으면 뒤 Diff 가 늘 다르다고 한다(지적). 판정과 캡처가
      같은 눈을 쓴다: 제외 = 이 스텝에서 그 줄은 없는 셈. */
-  const exc = [
-    String(step.excludeLines ?? ''),
-    ...stepRules(step).filter((r) => r.t === 'skip').map((r) => String(r.v ?? '')),
-  ]
-    .filter(Boolean)
-    .join('\n')
-  output = applyExclude(String(output ?? ''), exc)
+  output = applySkips(output, step)
   const rules: Array<{ name?: string; rule?: string }> = [
     ...(step.queries ?? []).map((x) => ({ name: x.var, rule: x.q })),
     ...(step.extracts ?? []).map((x) => ({ name: x.var, rule: x.rule })),
