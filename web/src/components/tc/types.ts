@@ -289,7 +289,7 @@ export interface TcStep {
    * 모든 칩을 만족하면 합격 · 하나라도 어긋나면 불합격 · 없으면 판정 안 함.
    * 칩이 있으면 옛 type·criteria 보다 우선한다.
    */
-  rules?: Array<{ t: 'has' | 'not' | 'table'; v: string }>
+  rules?: Array<{ t: 'has' | 'not' | 'table' | 'skip'; v: string }>
 
   /** kind=if · switch */
   condition?: string

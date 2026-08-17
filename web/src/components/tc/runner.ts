@@ -608,7 +608,7 @@ async function runOne(
       flush(acc || `[오류] ${perr}`, true)
 
       Object.assign(vars, extractVars(step, acc))
-      const hasCrit = stepRules(step).length > 0 || !!String(step.criteria ?? step.expected ?? '').trim()
+      const hasCrit = stepRules(step).some((r) => r.t !== 'skip') || !!String(step.criteria ?? step.expected ?? '').trim()
       const j = hasCrit
         ? judge(step, acc, vars)
         : {
@@ -650,7 +650,7 @@ async function runOne(
     // 판정기준을 안 적었으면 '됐나 안 됐나' 로 본다 — ping 은 그것만으로
     // 충분한 경우가 대부분이다.
     const hasCriteria =
-      stepRules(step).length > 0 || !!String(step.criteria ?? step.expected ?? '').trim()
+      stepRules(step).some((r) => r.t !== 'skip') || !!String(step.criteria ?? step.expected ?? '').trim()
     const okByItself = kind === 'snmp_trap' ? !!r.trap : !!r.ok
     const j = hasCriteria
       ? judge(step, output, vars)
@@ -1075,7 +1075,7 @@ async function runOne(
      * 기준이 조용히 무시되면 '봤다고 생각한 것' 을 안 보게 된다.
      * 접속 자체가 실패하면 기준을 볼 것도 없이 불합격이다.
      */
-    const hasCrit = stepRules(step).length > 0 || !!String(step.criteria ?? step.expected ?? '').trim()
+    const hasCrit = stepRules(step).some((r) => r.t !== 'skip') || !!String(step.criteria ?? step.expected ?? '').trim()
     const j =
       ok && hasCrit
         ? judge(step, out || text, vars)

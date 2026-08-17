@@ -489,7 +489,7 @@ export function judgeTable(
  * 칩이 없으면 판정 안 함.** 칩이 있으면 옛 type·criteria 보다 우선한다.
  */
 export interface JudgeRule {
-  t: 'has' | 'not' | 'table'
+  t: 'has' | 'not' | 'table' | 'skip'
   v: string
 }
 
@@ -499,7 +499,7 @@ export function stepRules(step: TcStep): JudgeRule[] {
   return r.filter(
     (x): x is JudgeRule =>
       !!x && typeof x === 'object' && typeof (x as JudgeRule).v === 'string' &&
-      ['has', 'not', 'table'].includes(String((x as JudgeRule).t)),
+      ['has', 'not', 'table', 'skip'].includes(String((x as JudgeRule).t)),
   )
 }
 
@@ -515,8 +515,15 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
   /* 칩 기준 — 있으면 이것이 정본이다 */
   const rules = stepRules(step)
   if (rules.length) {
-    const scoped2 = applyExclude(applyQuery(output, step.query as string | undefined), step.excludeLines)
-    const raw2 = applyExclude(String(output ?? ''), step.excludeLines)
+    // 줄제외 칩 — 그 문구가 든 줄은 판정에서 통째로 뺀다(옛 excludeLines 와 합침)
+    const exc = [
+      String(step.excludeLines ?? ''),
+      ...rules.filter((r) => r.t === 'skip').map((r) => subVars(String(r.v ?? ''), vars)),
+    ]
+      .filter(Boolean)
+      .join('\n')
+    const scoped2 = applyExclude(applyQuery(output, step.query as string | undefined), exc)
+    const raw2 = applyExclude(String(output ?? ''), exc)
     const hasTok = (tok: string) => {
       const t = tok.toLowerCase()
       return scoped2.toLowerCase().includes(t) || raw2.toLowerCase().includes(t)
@@ -531,6 +538,7 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
     const fails: string[] = []
     const oks: string[] = []
     for (const r of rules) {
+      if (r.t === 'skip') continue
       const v = subVars(String(r.v ?? ''), vars).trim()
       if (!v) continue
       if (r.t === 'has') {

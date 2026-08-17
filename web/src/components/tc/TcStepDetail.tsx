@@ -257,20 +257,28 @@ export default function TcStepDetail({
    * 옛 contains 의 콤마는 OR 였지만 칩은 「모두 만족」 이다 — 새 철학(합의).
    */
   const legacyChips = (): JudgeRule[] => {
+    const outRules: JudgeRule[] = []
     const c = String(step.criteria ?? step.expected ?? '').trim()
-    if (!c) return []
     const t = String(step.type ?? 'contains')
-    if (t === 'none' || t === 'expr') return []
-    if (t === 'table') return [{ t: 'table', v: c }]
-    const split = (s: string, re: RegExp) => s.split(re).map((x) => x.trim()).filter(Boolean)
-    if (t === 'notcontains') return split(c, /,/).map((v) => ({ t: 'not' as const, v }))
-    if (t === 'contains_all') return split(c, /\r?\n|,/).map((v) => ({ t: 'has' as const, v }))
-    if (t === 'line') return [{ t: 'has', v: c }]
-    return split(c, /,/).map((v) => ({ t: 'has' as const, v }))
+    const split = (s2: string, re: RegExp) => s2.split(re).map((x) => x.trim()).filter(Boolean)
+    if (c && t !== 'none' && t !== 'expr') {
+      if (t === 'table') outRules.push({ t: 'table', v: c })
+      else if (t === 'notcontains')
+        outRules.push(...split(c, /,/).map((v) => ({ t: 'not' as const, v })))
+      else if (t === 'contains_all')
+        outRules.push(...split(c, /\r?\n|,/).map((v) => ({ t: 'has' as const, v })))
+      else if (t === 'line') outRules.push({ t: 'has', v: c })
+      else outRules.push(...split(c, /,/).map((v) => ({ t: 'has' as const, v })))
+    }
+    // 옛 「판정에서 뺄 줄」 도 줄제외 칩으로 보인다
+    outRules.push(
+      ...split(String(step.excludeLines ?? ''), /\r?\n/).map((v) => ({ t: 'skip' as const, v })),
+    )
+    return outRules
   }
   const chips: JudgeRule[] = stepRules(step).length ? stepRules(step) : legacyChips()
   const writeChips = (next: JudgeRule[]) => onChange({ rules: next })
-  const addChipFrom = (t: 'has' | 'not', v: string) => {
+  const addChipFrom = (t: 'has' | 'not' | 'skip', v: string) => {
     const val = v.trim()
     if (!val) return
     writeChips([...chips, { t, v: val }])
@@ -1062,7 +1070,9 @@ export default function TcStepDetail({
             <div className="sd-chips">
               {chips.map((c, n) => (
                 <span key={n} className={`sd-chip ${c.t}`}>
-                  <i>{c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : '표'}</i>
+                  <i>
+                    {c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : c.t === 'skip' ? '줄제외' : '표'}
+                  </i>
                   {c.v}
                   <button
                     type="button"
@@ -1092,6 +1102,17 @@ export default function TcStepDetail({
                   }
                 }}
               />
+              <button
+                className="btn small"
+                type="button"
+                title="이 문구가 응답에 있어야 합격 (Enter 와 같음)"
+                onClick={() => {
+                  addChipFrom('has', critIn)
+                  setCritIn('')
+                }}
+              >
+                있어야 +
+              </button>
               <button
                 className="btn small"
                 type="button"
@@ -1358,6 +1379,16 @@ export default function TcStepDetail({
                       >
                         있으면 불합격
                       </button>
+                      <button
+                        type="button"
+                        title="이 값이 든 줄을 판정에서 뺍니다 — 매번 변하는 시각·카운터"
+                        onClick={() => {
+                          addChipFrom('skip', blockAt.v)
+                          setBlockAt(null)
+                        }}
+                      >
+                        이 값 든 줄 제외
+                      </button>
                     </div>
                   </>
                 )}
@@ -1440,6 +1471,20 @@ export default function TcStepDetail({
                         }}
                       >
                         있으면 불합격
+                      </button>
+                      <button
+                        className="btn small"
+                        type="button"
+                        title="고른 줄들을 판정에서 뺍니다"
+                        onClick={() => {
+                          const ls = picked.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
+                          const have = new Set(chips.filter((x) => x.t === 'skip').map((x) => x.v))
+                          const add = ls.filter((l) => !have.has(l)).map((v) => ({ t: 'skip' as const, v }))
+                          if (add.length) writeChips([...chips, ...add])
+                          setPicked('')
+                        }}
+                      >
+                        이 줄 제외
                       </button>
                     </>
                   ) : (

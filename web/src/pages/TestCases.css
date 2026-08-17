@@ -3139,3 +3139,6 @@ table.tb tr.r-bad td:first-child {
   padding: 0 2px;
 }
 .bk-sess-chip > button:hover { color: var(--c-fail); }
+
+/* 줄제외 칩 — 그 문구가 든 줄은 판정에서 뺀다 */
+.sd-chip.skip { background: #f3f5f7; border-color: #9aa4b0; color: #55606c; }
