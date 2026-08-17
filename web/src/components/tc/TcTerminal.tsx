@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
-import { connParams, deviceLabel } from './device'
+import { connParams, deviceLabel, deviceShort } from './device'
+import { cmdHistory, saveTermLog, streamCli } from '@/components/term/core'
 import type { TcStep } from './types'
 
 interface Props {
@@ -64,9 +65,10 @@ export default function TcTerminal({
   const [note, setNote] = useState('')
   /** 켜 두면 친 명령이 곧바로 스텝이 된다 */
   const [rec, setRec] = useState(true)
-  /** 위/아래 키로 꺼내 쓰는 명령 기록 */
-  const hist = useRef<string[]>([])
-  const histAt = useRef(-1)
+  /** 글꼴 크기 — 랙뷰 터미널과 같은 손잡이(공용화 합의) */
+  const [fontPx, setFontPx] = useState(12)
+  /** 위/아래 키로 꺼내 쓰는 명령 기록 — 공용 심장부(term/core) 것 */
+  const hist = useRef(cmdHistory())
   /** 기록으로 이미 담은 마지막 덩어리. 같은 것을 두 번 담지 않기 위한 것 */
   const lastDone = useRef(-1)
   const bodyRef = useRef<HTMLDivElement>(null)
@@ -93,6 +95,11 @@ export default function TcTerminal({
   useEffect(() => {
     setNote('')
   }, [idx])
+
+  // 명령이 끝나면 포커스를 입력줄로 — 클릭 없이 바로 다음 명령(랙뷰와 동일)
+  useEffect(() => {
+    if (!busy && prompt) inputRef.current?.focus()
+  }, [busy, prompt])
 
   const open = async () => {
     if (!dev) return
@@ -159,8 +166,7 @@ export default function TcTerminal({
    */
   const send = async (cmd: string) => {
     if (!dev || !cmd.trim() || busy) return
-    hist.current = [...hist.current.filter((h) => h !== cmd), cmd]
-    histAt.current = -1
+    hist.current.push(cmd)
     setInput('')
     setBusy(true)
     const at = blocks.length
@@ -168,44 +174,16 @@ export default function TcTerminal({
     setBlocks((v) => [...v, { cmd, out: '', taken: false, sess }])
 
     try {
-      const r = await apiFetch('/api/run-cli-stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...connParams(dev), commands: [cmd], require_session: true }),
-      })
-      if (!r.ok || !r.body) throw new Error(`스트리밍 실패 (${r.status})`)
-
-      const reader = r.body.getReader()
-      const dec = new TextDecoder()
-      let buf = ''
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buf += dec.decode(value, { stream: true })
-        let cut: number
-        while ((cut = buf.indexOf('\n\n')) >= 0) {
-          const evt = buf.slice(0, cut)
-          buf = buf.slice(cut + 2)
-          if (!evt.startsWith('data: ')) continue
-          let o: { o?: string; err?: string; done?: boolean }
-          try {
-            o = JSON.parse(evt.slice(6))
-          } catch {
-            continue
-          }
-          if (o.o != null) {
-            const chunk = o.o
-            setBlocks((v) =>
-              v.map((b, i) => (i === at ? { ...b, out: b.out + chunk } : b)),
-            )
-          } else if (o.err) {
-            const err = o.err
-            setBlocks((v) =>
-              v.map((b, i) => (i === at ? { ...b, out: `${b.out}[오류] ${err}`, error: true } : b)),
-            )
-          }
-        }
-      }
+      await streamCli(
+        connParams(dev) as unknown as Record<string, unknown>,
+        cmd,
+        (chunk) =>
+          setBlocks((v) => v.map((b, i) => (i === at ? { ...b, out: b.out + chunk } : b))),
+        (err) =>
+          setBlocks((v) =>
+            v.map((b, i) => (i === at ? { ...b, out: `${b.out}[오류] ${err}`, error: true } : b)),
+          ),
+      )
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setBlocks((v) => v.map((b, i) => (i === at ? { ...b, out: `[오류] ${msg}`, error: true } : b)))
@@ -304,12 +282,54 @@ export default function TcTerminal({
           </button>
         )}
         <span className="sp" />
+        {/* 랙뷰 터미널의 손잡이를 그대로(공용화 합의) — 로그·지우기·글꼴 */}
+        <button
+          className="btn small"
+          type="button"
+          disabled={blocks.length === 0}
+          title="친 명령·응답 전부를 .txt 로 내려받습니다"
+          onClick={() =>
+            saveTermLog(
+              `${dev ? deviceShort(dev) : 'capture'}-${Date.now()}.txt`,
+              `# ${dev ? deviceLabel(dev) : ''} · 명령어 캡쳐 · ${new Date().toLocaleString()}`,
+              blocks.map((b) => ({ cmd: b.cmd, out: b.out, prompt: prompts[b.sess] || '#' })),
+            )
+          }
+        >
+          로그 저장
+        </button>
+        <button
+          className="btn small"
+          type="button"
+          disabled={blocks.length === 0}
+          title="화면만 지웁니다 — 이미 담은 스텝은 그대로"
+          onClick={() => {
+            setBlocks([])
+            lastDone.current = -1
+          }}
+        >
+          지우기
+        </button>
+        <button className="tm-fz btn small" type="button" title="글자 작게" onClick={() => setFontPx((v) => Math.max(10, v - 1))}>
+          A−
+        </button>
+        <button className="tm-fz btn small" type="button" title="글자 크게" onClick={() => setFontPx((v) => Math.min(18, v + 1))}>
+          A+
+        </button>
         <button className="btn small" type="button" onClick={onClose}>
           닫기
         </button>
       </div>
 
-      <div className="tm-body" ref={bodyRef} onClick={() => inputRef.current?.focus()}>
+      <div
+        className="tm-body"
+        ref={bodyRef}
+        style={{ fontSize: fontPx }}
+        onClick={() => {
+          // 드래그로 긁는 중이면 포커스를 뺏지 않는다 — 복사가 우선이다
+          if (!window.getSelection()?.toString()) inputRef.current?.focus()
+        }}
+      >
         {blocks.map((b, i) => (
           <div className="tm-blk" key={i}>
             <div className="tm-cmd">
@@ -320,14 +340,17 @@ export default function TcTerminal({
               </span>
               <span className="tm-p">{prompts[b.sess] || '$'}</span>
               {b.cmd}
-              {/* 기록이 꺼져 있을 때만 손으로 담는다. 켜져 있으면 이미 담겼다. */}
-              {b.taken ? (
-                <span className="tm-took">스텝으로 담음</span>
-              ) : (
-                <button className="tm-take" type="button" onClick={() => take(i)}>
-                  ⊕ 스텝으로
-                </button>
-              )}
+              {/* 기록이 꺼져 있을 때만 손으로 담는다. 켜져 있으면 이미 담겼다.
+                  빈 엔터 줄에는 아무 단추도 안 단다. */}
+              {b.cmd ? (
+                b.taken ? (
+                  <span className="tm-took">스텝으로 담음</span>
+                ) : (
+                  <button className="tm-take" type="button" onClick={() => take(i)}>
+                    ⊕ 스텝으로
+                  </button>
+                )
+              ) : null}
             </div>
             {b.out && <pre className={`tm-out${b.error ? ' err' : ''}`}>{b.out}</pre>}
           </div>
@@ -363,28 +386,26 @@ export default function TcTerminal({
               placeholder={busy ? '…' : '명령을 치세요'}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing) return
                 if (e.key === 'Enter') {
                   e.preventDefault()
-                  void send(input)
+                  if (input.trim()) void send(input)
+                  // 빈 엔터도 진짜 터미널처럼 — 프롬프트 줄이 한 줄 넘어간다.
+                  // taken 으로 표시해 기록(자동 담기)에는 안 걸리게 한다.
+                  else if (!busy)
+                    setBlocks((v) => [...v, { cmd: '', out: '', taken: true, sess: idx }])
                   return
                 }
-                // 위/아래로 친 명령 꺼내 쓰기 — 터미널이면 되는 게 당연하다
+                // 위/아래로 친 명령 꺼내 쓰기 — 공용 심장부(term/core)
                 if (e.key === 'ArrowUp') {
                   e.preventDefault()
-                  const h = hist.current
-                  if (h.length === 0) return
-                  histAt.current = histAt.current < 0 ? h.length - 1 : Math.max(0, histAt.current - 1)
-                  setInput(h[histAt.current] ?? '')
+                  const h = hist.current.up()
+                  if (h !== null) setInput(h)
                 }
                 if (e.key === 'ArrowDown') {
                   e.preventDefault()
-                  const h = hist.current
-                  if (histAt.current < 0) return
-                  histAt.current = histAt.current + 1
-                  if (histAt.current >= h.length) {
-                    histAt.current = -1
-                    setInput('')
-                  } else setInput(h[histAt.current] ?? '')
+                  const h = hist.current.down()
+                  if (h !== null) setInput(h)
                 }
               }}
             />

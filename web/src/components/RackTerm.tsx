@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { connParams, deviceLabel, deviceShort } from '@/components/tc/device'
+import { cmdHistory, saveTermLog, streamCli } from '@/components/term/core'
 import type { Device } from '@/pages/Devices'
 import './RackTerm.css'
 
@@ -144,8 +145,8 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
   const [note, setNote] = useState('접속 중…')
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
-  const hist = useRef<string[]>([])
-  const histAt = useRef(-1)
+  /** 명령 히스토리 — 공용 심장부(term/core). 캡쳐 터미널과 같은 동작 */
+  const hist = useRef(cmdHistory())
 
   const params = () => connParams(dev, protocol)
 
@@ -207,68 +208,32 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
   }
 
   /** 로그 저장 — SecureCRT 의 Log Session 몫. 지금 탭 전부를 .txt 로 */
-  const saveLog = () => {
-    const L: string[] = [
+  const saveLog = () =>
+    saveTermLog(
+      `${deviceShort(dev)}-${protocol}-${Date.now()}.txt`,
       `# ${deviceLabel(dev)} · ${protocol.toUpperCase()} · ${new Date().toLocaleString()}`,
-      '',
-    ]
-    for (const b of blocks) {
-      L.push(`${prompt || '#'} ${b.cmd}`)
-      if (b.out) L.push(b.out.replace(/\s+$/, ''))
-    }
-    const blob = new Blob([L.join('\n')], { type: 'text/plain;charset=utf-8' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${deviceShort(dev)}-${protocol}-${Date.now()}.txt`
-    a.click()
-    URL.revokeObjectURL(a.href)
-  }
+      blocks.map((b) => ({ cmd: b.cmd, out: b.out, prompt: prompt || '#' })),
+    )
 
-  /** SSE 로 받는다 — 긴 응답도 화면이 멈춘 것처럼 보이지 않게 */
+  /** SSE 로 받는다 — 긴 응답도 화면이 멈춘 것처럼 보이지 않게 (공용 심장부) */
   const send = async (cmd: string) => {
     if (!cmd.trim() || busy) return
-    hist.current = [...hist.current.filter((h) => h !== cmd), cmd]
-    histAt.current = -1
+    hist.current.push(cmd)
     setInput('')
     setBusy(true)
     const at = blocks.length
     setBlocks((v) => [...v, { cmd, out: '' }])
     try {
-      const r = await apiFetch('/api/run-cli-stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...params(), commands: [cmd], require_session: true }),
-      })
-      if (!r.ok || !r.body) throw new Error(`스트리밍 실패 (${r.status})`)
-      const reader = r.body.getReader()
-      const dec = new TextDecoder()
-      let buf = ''
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buf += dec.decode(value, { stream: true })
-        let cut: number
-        while ((cut = buf.indexOf('\n\n')) >= 0) {
-          const evt = buf.slice(0, cut)
-          buf = buf.slice(cut + 2)
-          if (!evt.startsWith('data: ')) continue
-          let o: { o?: string; err?: string }
-          try {
-            o = JSON.parse(evt.slice(6)) as { o?: string; err?: string }
-          } catch {
-            continue
-          }
-          if (o.o != null) {
-            const chunk = o.o
-            setBlocks((v) => v.map((b, i) => (i === at ? { ...b, out: b.out + chunk } : b)))
-          } else if (o.err) {
-            const err = o.err
-            setBlocks((v) =>
-              v.map((b, i) => (i === at ? { ...b, out: `${b.out}[오류] ${err}`, error: true } : b)),
-            )
-          }
-        }
-      }
+      await streamCli(
+        params() as unknown as Record<string, unknown>,
+        cmd,
+        (chunk) =>
+          setBlocks((v) => v.map((b, i) => (i === at ? { ...b, out: b.out + chunk } : b))),
+        (err) =>
+          setBlocks((v) =>
+            v.map((b, i) => (i === at ? { ...b, out: `${b.out}[오류] ${err}`, error: true } : b)),
+          ),
+      )
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
       setBlocks((v) => v.map((b, i) => (i === at ? { ...b, out: `[오류] ${msg}`, error: true } : b)))
@@ -345,21 +310,14 @@ function TermPane({ tab, visible, fontPx }: { tab: TermTab; visible: boolean; fo
                 else if (prompt && !busy) setBlocks((v) => [...v, { cmd: '', out: '' }])
               }
               if (e.key === 'ArrowUp') {
-                const h = hist.current
-                if (!h.length) return
-                histAt.current = histAt.current < 0 ? h.length - 1 : Math.max(0, histAt.current - 1)
-                setInput(h[histAt.current] ?? '')
                 e.preventDefault()
+                const h = hist.current.up()
+                if (h !== null) setInput(h)
               }
               if (e.key === 'ArrowDown') {
-                const h = hist.current
-                if (histAt.current < 0) return
-                histAt.current = histAt.current + 1
-                if (histAt.current >= h.length) {
-                  histAt.current = -1
-                  setInput('')
-                } else setInput(h[histAt.current] ?? '')
                 e.preventDefault()
+                const h = hist.current.down()
+                if (h !== null) setInput(h)
               }
             }}
           />
