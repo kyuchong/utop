@@ -107,6 +107,8 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
   const gp = useGlobalParams()
   /** 진행 띠에서 눌러 내려갈 카드들 */
   const cardRefs = useRef<Array<HTMLDivElement | null>>([])
+  /** ⋯ 로 펼친 스텝 — 나머지 상태(진행중·진행불가·미실행)가 여기 든다 */
+  const [moreAt, setMoreAt] = useState(-1)
   /**
    * 어느 회차를 보고 있나. 0 이면 「전체」 — 합쳐진 결과.
    *
@@ -195,6 +197,78 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
       </div>
     ) : null
 
+  /* 판정 레일 한 벌 — 수동·자동 카드가 같은 것을 쓴다(통일 지시).
+     위에 시각·결과 칩, 아래로 ✓ ✕ ⊘ ⋯(나머지 상태). 다시 누르면 미실행 */
+  const railFor = (i2: number, s2: CycleStep, r2: string, running2 = false, ran2 = false) => (
+    <div className="sc-rail">
+      <div className="sc-rail-top">
+        {(s2.executed_at || typeof s2.took_ms === 'number') && (
+          <span className="sc-rail-when">
+            {s2.executed_at && String(s2.executed_at).slice(0, 16).replace('T', ' ')}
+            {typeof s2.took_ms === 'number' && s2.took_ms >= 0 && ` · ${took(s2.took_ms)}`}
+          </span>
+        )}
+        {running2 ? (
+          <span className="sc-running">도는 중</span>
+        ) : (
+          <span className={`sc-v ${verdictClass((r2 || '') as Verdict)}`}>
+            {/* 판정 없는 스텝(대기·접속)도 돌기는 돈다 — 미실행과 갈라 적는다 */}
+            {r2 || (ran2 ? '실행함' : '미실행')}
+          </span>
+        )}
+      </div>
+      {onSetResult && !running2 && (
+        <>
+          {[
+            ['Pass', '✓', 'pass'],
+            ['Fail', '✕', 'fail'],
+            ['Blocked', '⊘', 'blocked'],
+          ].map(([v, mk, cls]) => (
+            <button
+              key={v}
+              type="button"
+              className={`sc-qk ${cls}${r2 === v ? ' on' : ''}`}
+              title={r2 === v ? `${v} 해제 (미실행으로)` : (v as string)}
+              onClick={() => onSetResult(i2, r2 === v ? '' : (v as string))}
+            >
+              {mk}
+            </button>
+          ))}
+          <div className="sc-more">
+            <button
+              type="button"
+              className="sc-qk"
+              title="다른 상태 (진행중 · 진행불가 · 미실행)"
+              onClick={() => setMoreAt(moreAt === i2 ? -1 : i2)}
+            >
+              ⋯
+            </button>
+            {moreAt === i2 && (
+              <>
+                <div className="sc-more-back" onClick={() => setMoreAt(-1)} />
+                <div className="sc-more-pop" role="menu">
+                  {RESULTS.filter((x) => !['Pass', 'Fail', 'Blocked'].includes(x.v)).map((x) => (
+                    <button
+                      key={x.v || 'none'}
+                      type="button"
+                      className={r2 === x.v ? 'on' : ''}
+                      onClick={() => {
+                        onSetResult(i2, x.v)
+                        setMoreAt(-1)
+                      }}
+                    >
+                      {x.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+
   /* 수동 항목 — 세로 카드(피드백 ⑨: 가로는 무리). 스텝마다
      Test Step · Test Data · Expected Result · Actual Result · 판정 기준 및 RCA.
      ACTUAL 은 선택 입력이다(수동 시험이라 모두 적기는 힘들다 — 합의) */
@@ -281,28 +355,7 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
                 )}
               </div>
               </div>
-              {/* 판정 레일 — 드롭다운(두 번 클릭)을 한 번 클릭으로(제안 수용).
-                  결과 여섯을 다 버튼으로 두고, 켜진 것을 다시 누르면 미실행. */}
-              <div className="sc-rail">
-                {st2.executed_at ? (
-                  <span className="sc-rail-when">
-                    {String(st2.executed_at).slice(0, 16).replace('T', ' ')}
-                  </span>
-                ) : null}
-                <span className={`sc-v ${verdictClass((r || '') as Verdict)}`}>{r || '미실행'}</span>
-                {onSetResult &&
-                  RESULTS.filter((x) => x.v !== '').map((x) => (
-                    <button
-                      key={x.v}
-                      type="button"
-                      className={`sc-qk ${x.cls}${r === x.v ? ' on' : ''}`}
-                      title={r === x.v ? `${x.label} 해제 (미실행으로)` : x.label}
-                      onClick={() => onSetResult(i, r === x.v ? '' : x.v)}
-                    >
-                      {x.v === 'Pass' ? '✓' : x.v === 'Fail' ? '✕' : x.v === 'WIP' ? '◐' : x.v === 'Blocked' ? '⊘' : 'N/A'}
-                    </button>
-                  ))}
-              </div>
+              {railFor(i, st2 as CycleStep, r)}
             </div>
           )
         })}
@@ -423,13 +476,14 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
           )
         return (
           <div
-            className={`sc-card${bad ? ' bad' : ''}${r === 'Pass' || r === '합격' ? ' ok' : ''}${running ? ' running' : ''}`}
+            className={`sc-card${bad ? ' bad' : ''}${r === 'Pass' || r === '합격' ? ' ok' : ''}${running ? ' running' : ''} has-rail`}
             key={i}
             ref={(el) => {
               cardRefs.current[i] = el
               if (running) (liveRef as { current: HTMLDivElement | null }).current = el
             }}
           >
+            <div className="sc-main">
             <div className="sc-head">
               <b>Step#{i + 1}</b>
               {/* 종류는 `kind` 가 정한다.
@@ -439,39 +493,8 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
               <span className={`sc-kind k-${s.kind || 'cli'}`}>
                 {stepKindInfo(s.kind ?? undefined).label}
               </span>
-              {/* 언제 · 얼마나. 결과가 Pass 여도 40초 걸리던 것이 3분이
-                  되면 무언가 무너진 것이다 — 그것은 판정으로 안 잡힌다. */}
-              {(s.executed_at || typeof s.took_ms === 'number') && (
-                <span className="sc-when">
-                  {s.executed_at && String(s.executed_at).slice(11, 19)}
-                  {typeof s.took_ms === 'number' &&
-                    s.took_ms >= 0 &&
-                    `${s.executed_at ? ' · ' : ''}${took(s.took_ms)}`}
-                </span>
-              )}
+              {/* 시각·판정은 오른쪽 레일이 맡는다(수동 카드와 통일) */}
               <span className="sp" />
-              {running ? (
-                <span className="sc-running">도는 중</span>
-              ) : onSetResult ? (
-                <select
-                  className={`sc-v ${verdictClass((r || '') as Verdict)}`}
-                  value={r}
-                  onChange={(e) => onSetResult(i, e.target.value)}
-                  title="결과를 손으로 정합니다"
-                >
-                  {RESULTS.map((x) => (
-                    <option key={x.v} value={x.v}>
-                      {x.label}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className={`sc-v ${verdictClass((r || '') as Verdict)}`}>
-                  {/* 판정을 안 내는 스텝(대기·메시지·접속)도 돌기는 돈다.
-                      그것을 「미실행」 이라 쓰면 안 돌아간 것으로 읽힌다. */}
-                  {r || (ran ? '실행함' : '미실행')}
-                </span>
-              )}
             </div>
 
             {(s.desc || s.step) && (
@@ -703,6 +726,8 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
                 <span>{s.reason}</span>
               </div>
             )}
+            </div>
+            {railFor(i, s, r, running, ran)}
           </div>
         )
       })}

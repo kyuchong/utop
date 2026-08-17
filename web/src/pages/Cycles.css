@@ -648,38 +648,73 @@ select.cy-v.na { color: #999; }
   font-variant-numeric: tabular-nums;
 }
 
-/* 수동 스텝 판정 레일 — 드롭다운(두 번 클릭) 대신 한 번 클릭(제안 수용) */
+/* 수동 스텝 판정 레일 — 보여주신 그림 그대로: 위에 시각·결과 칩 가로줄,
+   아래로 ✓ ✕ ⊘ ⋯ 세로 아이콘(테두리 없는 고스트). 한 번 클릭 판정 */
 .sc-card.has-rail { display: flex; gap: 10px; }
 .sc-card.has-rail .sc-main { flex: 1; min-width: 0; }
 .sc-rail {
   flex: none;
-  width: 92px;
+  width: 132px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 5px;
+  align-items: flex-end;
+  gap: 2px;
   border-left: 1px solid var(--c-border);
   padding-left: 10px;
 }
+.sc-rail-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+}
 .sc-rail-when { font-size: 10px; color: var(--c-muted); white-space: nowrap; }
 .sc-qk {
-  width: 40px;
-  height: 26px;
-  border: 1px solid var(--c-border);
+  width: 26px;
+  height: 24px;
+  border: 0;
   border-radius: 6px;
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1;
-  color: var(--c-muted);
+  color: #9aa4b0;
   padding: 0;
 }
-.sc-qk:hover { color: var(--c-text); border-color: var(--c-text-faint, #9aa); }
-.sc-qk.on.pass { background: #e6f6ee; color: #1d9e75; border-color: #1d9e75; }
-.sc-qk.on.fail { background: #fdecec; color: #e24b4a; border-color: #e24b4a; }
-.sc-qk.on.wip { background: #fdf4e5; color: #ef9f27; border-color: #ef9f27; }
-.sc-qk.on.blocked { background: #ececec; color: #555; border-color: #888; }
-.sc-qk.on.na { background: #eceef8; color: #4a5680; border-color: #8a94c0; }
+.sc-qk:hover { background: var(--tc-hover, #f0f2f5); color: var(--c-text); }
+.sc-qk.on.pass, .sc-qk.pass:hover { color: #1d9e75; }
+.sc-qk.on.fail, .sc-qk.fail:hover { color: #e24b4a; }
+.sc-qk.on.blocked, .sc-qk.blocked:hover { color: #555; }
+.sc-qk.on { background: #eef2f6; }
+
+/* ⋯ 의 나머지 상태 메뉴 */
+.sc-more { position: relative; }
+.sc-more-back { position: fixed; inset: 0; z-index: 60; }
+.sc-more-pop {
+  position: absolute;
+  right: 0;
+  top: 26px;
+  z-index: 61;
+  background: var(--c-bg, #fff);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  min-width: 92px;
+  overflow: hidden;
+}
+.sc-more-pop button {
+  border: 0;
+  background: transparent;
+  padding: 7px 12px;
+  text-align: left;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.sc-more-pop button:hover { background: #f0f2f5; }
+.sc-more-pop button.on { font-weight: 700; color: var(--c-primary, #2563eb); }
 
 /* 주석·메시지 스텝 — 절차의 제목·설명 줄. 명령 카드처럼 안 꾸민다.
    (.sc-note 는 「실행 당시 그대로」 안내 배너가 이미 쓰고 있어 sc-memo) */
