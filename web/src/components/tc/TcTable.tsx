@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { buildTableCriteria, judgeTable, parseTable, readTableCriteria } from './judge'
 
 interface Props {
@@ -69,6 +69,22 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
   const toggleKey = (v: string) =>
     setKeys((k) => (k.includes(v) ? k.filter((x) => x !== v) : [...k, v]))
 
+  /** 마지막으로 누른 행 — Shift 범위 선택의 기준점 */
+  const lastRow = useRef(-1)
+  const allKvs = [...new Set((tbl?.rows ?? []).map((r) => r[keyAt] ?? ''))].filter(Boolean)
+  const allOn = allKvs.length > 0 && allKvs.every((v) => keys.includes(v))
+  /** 행 하나 고르기 — Shift 면 지난 번 누른 행부터 범위로 */
+  const pickRow = (r: number, kv: string, shift: boolean) => {
+    if (shift && lastRow.current >= 0 && tbl) {
+      const [a, b] = [Math.min(lastRow.current, r), Math.max(lastRow.current, r)]
+      const range = tbl.rows.slice(a, b + 1).map((row) => row[keyAt] ?? '').filter(Boolean)
+      setKeys((k) => [...new Set([...k, ...range])])
+    } else {
+      toggleKey(kv)
+    }
+    lastRow.current = r
+  }
+
   const toggleCheck = (col: string, val: string) => {
     if (!col) return
     setChecks((cs) => {
@@ -111,8 +127,8 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
       <div className="tb-top">
         <b>표에서 고르기</b>
         <span className="muted small">
-          왼쪽에서 <b>볼 행</b>을 고르고, 그 행이 어때야 하는지는 <b>그 값이 있는 칸</b>을
-          누르세요.
+          왼쪽에서 <b>볼 행</b>을 고르고(맨 위 네모 = 전체 · Shift = 범위), 그 행이
+          어때야 하는지는 <b>그 값이 있는 칸</b>을 누르세요. 어긋난 행은 붉게 표시됩니다.
         </span>
         <button className="btn small" type="button" onClick={onClose}>
           닫기
@@ -166,7 +182,15 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
         <table className="tb">
           <thead>
             <tr>
-              <th className="tb-pick" />
+              {/* 행 전체 체크박스(지적) — 다 고르기 / 다 풀기. Shift 클릭은 범위 */}
+              <th className="tb-pick">
+                <input
+                  type="checkbox"
+                  title={allOn ? '모든 행 풀기' : '모든 행 고르기'}
+                  checked={allOn}
+                  onChange={() => setKeys(allOn ? [] : allKvs)}
+                />
+              </th>
               <th className="tb-v" title="이 행이 조건에 맞나">판정</th>
               {cols.map((c, i) => (
                 <th key={i} className={i === keyAt ? 'k' : ''}>
@@ -188,7 +212,17 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
                   }`}
                 >
                   <td className="tb-pick">
-                    <input type="checkbox" checked={on} onChange={() => toggleKey(kv)} />
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onClick={(e) => {
+                        e.preventDefault()
+                        pickRow(r, kv, e.shiftKey)
+                      }}
+                      onChange={() => {
+                        /* onClick 에서 처리 — Shift 를 알아야 해서 */
+                      }}
+                    />
                   </td>
                   <td className="tb-v" title={v === false ? '조건과 다릅니다' : ''}>
                     {v === true ? '✓' : v === false ? '✗' : ''}
@@ -201,7 +235,9 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
                       className={`${c === keyAt ? 'k' : ''} ${
                         co === null ? '' : !inScope(row) ? 'on' : co ? 'ok' : 'bad'
                       }`}
-                      onClick={() => (c === keyAt ? toggleKey(kv) : toggleCheck(cols[c] ?? '', cell))}
+                      onClick={(e) =>
+                        c === keyAt ? pickRow(r, kv, e.shiftKey) : toggleCheck(cols[c] ?? '', cell)
+                      }
                       title={
                         c === keyAt
                           ? '이 행을 보기'

@@ -1239,10 +1239,11 @@ export default function TcStepDetail({
             {result && tblOpen ? (
               <TcTable
                 text={result}
-                criteria={String(step.criteria ?? step.expected ?? '')}
+                criteria={chips.find((x) => x.t === 'table')?.v ?? ''}
                 onClose={() => setTblOpen(false)}
                 onApply={(c) => {
-                  onChange({ type: 'table', criteria: c })
+                  // 표 기준도 칩이다 — 표 칩은 하나만 두고 갈아 끼운다
+                  writeChips([...chips.filter((x) => x.t !== 'table'), { t: 'table', v: c }])
                   setTblOpen(false)
                 }}
               />
