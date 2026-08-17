@@ -365,7 +365,9 @@ export default function GlobalParams({ only }: Props) {
                   type="button"
                   className="gp-op"
                   title="이 그룹 아래에 그룹"
-                  onClick={() => setEmptyGroups((s) => [...s, freshGroup(full)])}
+                  // 빈 줄을 실제 자료로 넣는다 — 화면 상태로만 두면 저장이
+                  // 안 켜지고 새로고침에 사라졌다(실사고: 「저장이 안 된다」)
+                  onClick={() => add(freshGroup(full))}
                 >
                   ＋ 하위
                 </button>
@@ -483,7 +485,7 @@ export default function GlobalParams({ only }: Props) {
             <button
               className="btn small"
               type="button"
-              onClick={() => setEmptyGroups((s) => [...s, freshGroup('')])}
+              onClick={() => add(freshGroup(''))}
             >
               ＋ 그룹
             </button>
