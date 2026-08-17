@@ -214,12 +214,8 @@ export default function TcSequence({
                     /* onClick 에서 처리한다 — shift 를 알아야 해서 */
                   }}
                 />
-                <span
-                  className={`sq-st ${i === runningAt ? 'now' : st.cls}`}
-                  title={i === runningAt ? '실행 중' : st.label}
-                >
-                  {i === runningAt ? '▸' : st.mark}
-                </span>
+                {/* 상태 기호(✔·✖·○)는 뺐다 — 줄 끝의 PASS·FAIL 글자와 같은
+                    말을 두 번 하는 열이었다. 도는 줄은 줄 자체가 빛난다. */}
                 <span className="sq-n">{numbers[i]}</span>
                 <span className="sq-act" style={{ marginLeft: depth * 16 }}>
                   {/* 블록만 접힌다. 아닌 줄에도 같은 폭을 비워 두어야
@@ -247,16 +243,35 @@ export default function TcSequence({
                     흔해서 장비 이름만으로는 안 갈린다 — iTest 도 Session 을
                     별도 열로 둔다. */}
                 {(() => {
-                  // 계측기는 세션으로 안 나간다 — 섀시 주소로 곧장 간다.
-                  // S1 이 붙어 있으면 그 장비로 나가는 줄로 읽힌다.
-                  const k = s.kind === 'instrument' ? -1 : sessionIndex(s.session)
+                  // 장비로 나가는 줄만 세션을 적는다 — 계측기는 섀시로 곧장
+                  // 가고, Diff·If·치환 따위는 아예 안 나간다. 그 줄들은 비워
+                  // 두는 것이 맞다. 세션 값이 남아 있어도 안 적는다(옛 자료).
+                  //
+                  // 나가는 줄인데 세션이 없으면 S? — 그 줄은 돌리면 「세션이
+                  // 지정되지 않았습니다」 로 떨어진다. 돌려보고 나서야 알
+                  // 것을 목록에서 미리 보이게 한다.
+                  const kd = s.kind || 'cli'
+                  const hostSet = !!String(s.host ?? '').trim()
+                  const viaSession =
+                    kd === 'cli' || kd === 'connect' || kd === 'disconnect' || kd === 'auto'
+                      ? true
+                      : kd === 'ping' || kd === 'snmp_get' || kd === 'snmp_set'
+                        ? !hostSet
+                        : kd === 'snmp_trap'
+                          ? !hostSet && sessionIndex(s.session) >= 0
+                          : false
+                  const k = viaSession ? sessionIndex(s.session) : -2
                   return (
                     <span className="sq-s">
-                      {k >= 0 && (
+                      {k >= 0 ? (
                         <b data-s={k % 4} title={sessionName(k)}>
                           S{k + 1}
                         </b>
-                      )}
+                      ) : k === -1 ? (
+                        <b className="unset" title="세션이 없습니다 — 이대로 돌리면 이 줄은 실패합니다">
+                          S?
+                        </b>
+                      ) : null}
                     </span>
                   )
                 })()}

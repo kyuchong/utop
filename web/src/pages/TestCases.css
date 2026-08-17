@@ -64,6 +64,10 @@
 
 .tc-dots:hover { color: var(--c-text); }
 
+/* 3열 머리의 명령어 캡쳐(터미널) 버튼 — ⋯ 메뉴 대신 직행 */
+.tc-termbtn svg { width: 15px; height: 15px; display: block; }
+.tc-termbtn.on { color: var(--c-primary); }
+
 /* 바깥을 눌러 닫는 판. 메뉴보다 아래에 깔린다. */
 .tc-menu-back { position: fixed; inset: 0; z-index: 20; }
 
@@ -456,7 +460,9 @@
    선이 먼저 보인다. 간격과 hover 로 가른다. */
 .sq-row {
   display: grid;
-  grid-template-columns: 15px 18px 52px minmax(90px, auto) 24px 1fr 54px 24px;
+  /* 상태 기호 열(18px)은 뺐다 — 줄 끝 PASS·FAIL 과 겹말이었다.
+     번호 열은 내용만큼만 — 52px 고정이면 „14" 뒤가 통째로 빈다. */
+  grid-template-columns: 15px minmax(24px, max-content) minmax(90px, auto) 24px 1fr 54px 24px;
   position: relative;
   align-items: center;
   gap: var(--sp-2);
@@ -481,12 +487,6 @@
 
 /* 건너뛰는 스텝은 흐리게. 지우지 않고 잠시 빼두는 일이 잦다. */
 .sq-row.skip { opacity: 0.42; }
-
-.sq-st { font-size: 11px; text-align: center; }
-.sq-st.pass { color: var(--c-pass); }
-.sq-st.fail { color: var(--c-fail); }
-.sq-st.idle { color: #cfd6dd; }
-.sq-st.now { color: var(--c-primary); }
 
 /* 지금 돌고 있는 줄.
    30줄짜리 시험은 화면 밖까지 간다. 멎어 있는 표시로는 「지금」 인지
@@ -533,13 +533,6 @@
   }
 }
 
-/* 돌고 있는 표시(▸). 줄을 안 보고 있어도 여기가 뛴다 */
-.sq-st.now { animation: sq-pulse 0.85s ease-in-out infinite; }
-@keyframes sq-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.35; transform: scale(1.45); }
-}
-
 /* 움직임을 줄이라고 해 둔 사람에게는 훑지 않는다. 그래도 어디가 도는지는
    알아야 하므로 색과 굵기, 왼쪽 띠는 그대로 둔다. */
 @media (prefers-reduced-motion: reduce) {
@@ -548,7 +541,6 @@
     animation: none;
     box-shadow: inset 4px 0 0 var(--c-primary), inset -4px 0 0 var(--c-primary);
   }
-  .sq-st.now { animation: none; }
 }
 
 /* 1.1.2 까지 들어간다.
@@ -1167,6 +1159,8 @@ button.sq-caret svg { width: 11px; height: 11px; }
 .sq-s b[data-s='1'] { background: #eaf5ec; color: #1f7a45; }
 .sq-s b[data-s='2'] { background: #fdf1e3; color: #97620d; }
 .sq-s b[data-s='3'] { background: #f2ecfb; color: #5c3d9e; }
+/* 장비로 나가는 줄인데 세션이 없다 — 이대로 돌리면 실패할 줄 */
+.sq-s b.unset { background: #f3f5f7; color: #8a939c; border: 1px dashed #c3ccd4; }
 
 /* 터미널은 바탕이 어두워서 같은 색을 쓰면 안 읽힌다 */
 .tm-s { flex: none; }

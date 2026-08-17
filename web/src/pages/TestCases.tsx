@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import ListHead from '@/components/ListHead'
-import { IconPanel, IconParam, IconSettings, IconTcDoc } from '@/components/icons'
+import { IconCli, IconPanel, IconParam, IconSettings, IconTcDoc } from '@/components/icons'
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
@@ -193,7 +193,6 @@ export default function TestCases({ me }: PageProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   // 1열 「+」(최상위 폴더 추가)는 뺐다(피드백) — 최상위=프로젝트.
   /** 3열 머리의 ⋯ — 이 칸을 무엇으로 쓸지 고르는 자리 */
-  const [detMenu, setDetMenu] = useState(false)
   /** 명령어 캡쳐를 열면 3열이 그것으로 바뀐다 — 캡쳐하는 동안 스텝 세부는 볼 일이 없다 */
   const [termOpen, setTermOpen] = useState(false)
   /**
@@ -1827,35 +1826,21 @@ export default function TestCases({ me }: PageProps) {
                 <span className="sp" />
                 {/* 캡쳐는 **이 칸을 바꾸는 일**이라 이 칸 머리에 둔다.
                     2열 실행 줄에 있을 때는 왼쪽을 눌러 오른쪽이 바뀌는
-                    꼴이었고, 그 줄은 「돌리는」 것들만 있어야 읽힌다. */}
-                <div className="tc-more">
-                  <button
-                    className="btn tc-dots"
-                    type="button"
-                    aria-haspopup="menu"
-                    aria-expanded={detMenu}
-                    onClick={() => setDetMenu((v) => !v)}
-                  >
-                    ⋯
-                  </button>
-                  {detMenu && (
-                    <>
-                      <div className="tc-menu-back" onClick={() => setDetMenu(false)} />
-                      <div className="tc-menu" role="menu">
-                        <button
-                          type="button"
-                          title="장비에 붙어 명령을 치면 그대로 스텝이 됩니다"
-                          onClick={() => {
-                            setTermOpen((v) => !v)
-                            setDetMenu(false)
-                          }}
-                        >
-                          {termOpen ? '⌨ 명령어 캡쳐 닫기' : '⌨ 명령어 캡쳐'}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
+                    꼴이었고, 그 줄은 「돌리는」 것들만 있어야 읽힌다.
+                    ⋯ 메뉴였는데 항목이 이것 하나라 아이콘 직행으로 바꿨다. */}
+                <button
+                  className={`btn tc-dots tc-termbtn${termOpen ? ' on' : ''}`}
+                  type="button"
+                  aria-pressed={termOpen}
+                  title={
+                    termOpen
+                      ? '명령어 캡쳐 닫기'
+                      : '명령어 캡쳐 — 장비에 붙어 명령을 치면 그대로 스텝이 됩니다'
+                  }
+                  onClick={() => setTermOpen((v) => !v)}
+                >
+                  <IconCli />
+                </button>
               </div>
               {termOpen ? (
                 <TcTerminal
