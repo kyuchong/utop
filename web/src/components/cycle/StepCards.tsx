@@ -203,13 +203,13 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
      위에 시각·결과 칩, 아래로 ✓ ✕ ⊘ ⋯(나머지 상태). 다시 누르면 미실행 */
   const railFor = (i2: number, s2: CycleStep, r2: string, running2 = false, ran2 = false) => (
     <div className="sc-rail">
+      {/* 시각은 칩 위에 따로 한 줄 — ms 는 뺐다(지시) */}
       <div className="sc-rail-top">
-        {(s2.executed_at || typeof s2.took_ms === 'number') && (
+        {s2.executed_at ? (
           <span className="sc-rail-when">
-            {s2.executed_at && String(s2.executed_at).slice(0, 16).replace('T', ' ')}
-            {typeof s2.took_ms === 'number' && s2.took_ms >= 0 && ` · ${took(s2.took_ms)}`}
+            {String(s2.executed_at).slice(0, 16).replace('T', ' ')}
           </span>
-        )}
+        ) : null}
         {running2 ? (
           <span className="sc-running">도는 중</span>
         ) : (
