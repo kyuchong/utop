@@ -123,10 +123,61 @@ async function loadDevices(): Promise<Map<string, Device>> {
   return new Map((j.devices ?? []).map((d) => [d.id, d]))
 }
 
+/**
+ * 전역 파라미터의 활성 값 — 화면(useGlobalParams)과 같은 규칙.
+ *
+ * 이것이 빠져서 같은 TC 가 화면에서는 합격, 사이클 실행에서는 부적합이었다
+ * — 판정기준의 `${Model_Name}` 이 값으로 안 바뀌고 글자 그대로 견줘졌다.
+ * 규칙: 활성 목록(__active__)의 파일이 순서대로 쌓이고 뒤가 앞을 덮는다.
+ * 파일이 include(__includes__)한 파일이 먼저 깔린다. 활성 표가 없으면
+ * 공통(__global__)만.
+ */
+async function loadGlobalParams(): Promise<Record<string, string>> {
+  const values: Record<string, string> = {}
+  try {
+    const r = await apiFetch('/api/global-params')
+    if (!r.ok) return values
+    const data = (await r.json()) as Record<string, unknown>
+    const activeRaw = data['__active__']
+    const files = Array.isArray(activeRaw)
+      ? (activeRaw as string[])
+      : '__global__' in data
+        ? ['__global__']
+        : []
+    const incOf = (f: string): string[] => {
+      const m = (data['__includes__'] ?? {}) as Record<string, unknown>
+      const v = m[f]
+      return Array.isArray(v) ? (v as string[]) : []
+    }
+    const take = (k: string) => {
+      const v = data[k]
+      if (!Array.isArray(v)) return
+      for (const p of v as Array<{ name?: string; value?: string }>) {
+        const name = (p.name || '').trim()
+        if (name) values[name] = p.value ?? ''
+      }
+    }
+    const walk = (k: string, seen: Set<string>) => {
+      if (seen.has(k)) return
+      seen.add(k)
+      for (const inc of incOf(k)) walk(inc, seen)
+      take(k)
+    }
+    const seen = new Set<string>()
+    for (const f of files) walk(f, seen)
+  } catch (e) {
+    // 파라미터를 못 읽어도 실행은 계속한다 — 값 없는 ${이름} 은 글자로 남는다
+    log('전역 파라미터 읽기 실패', String(e))
+  }
+  return values
+}
+
 async function doRun(run: Run): Promise<void> {
   log(`집음 ${run.id} — ${run.cycle_name || run.cycle_id} ${run.picked.length}건`)
   const push = new Pusher(run.id)
   const devById = await loadDevices()
+  // 스텝의 ${이름} 이 여기서 값을 얻는다 — TC 화면의 ctx.params 와 같은 자리
+  const gparams = await loadGlobalParams()
 
   // 사이클을 한 번 읽어 두고, 항목마다 결과를 채운 뒤 통째로 저장한다.
   // 항목마다 저장하면 64건이면 64번 쓰는데, 그 사이 남이 고친 것을
@@ -199,6 +250,7 @@ async function doRun(run: Run): Promise<void> {
         sessions,
         devById,
         meterCfg,
+        params: gparams,
         onStep: (i, patch) => {
           const cur = steps[i]
           if (!cur) return
