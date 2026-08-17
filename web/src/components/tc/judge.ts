@@ -48,6 +48,36 @@ export function subVars(text: string, vars: Record<string, string>): string {
   return s
 }
 
+/**
+ * 치환 스텝의 대응표 적용 (iTest 방식).
+ *
+ * CLI 는 E6100 이라 하고 SNMP 는 enterprises.7800.1.103 이라 한다 — 같은
+ * 것을 다르게 말하는 두 결과는 그대로는 못 견준다. 대응표로 표기를
+ * 한쪽으로 바꿔 변수에 담고, 견주는 것은 다음 Diff 스텝이 한다.
+ *
+ * 규칙은 한 줄에 하나 — `왼쪽 = 오른쪽` (또는 `왼쪽 => 오른쪽`).
+ * 값 안에 왼쪽 글자가 있으면 전부 오른쪽으로 바뀐다. 위에서부터 차례로.
+ */
+export function applyMapRules(src: string, rules: string): { out: string; hits: string[] } {
+  let out = String(src ?? '')
+  const hits: string[] = []
+  for (const ln of String(rules ?? '').split(/\r?\n/)) {
+    const s = ln.trim()
+    if (!s || s.startsWith('#')) continue
+    const arrow = s.indexOf('=>')
+    const at = arrow >= 0 ? arrow : s.indexOf('=')
+    if (at <= 0) continue
+    const pat = s.slice(0, at).trim()
+    const val = s.slice(at + (arrow >= 0 ? 2 : 1)).trim()
+    if (!pat) continue
+    if (out.includes(pat)) {
+      out = out.split(pat).join(val)
+      hits.push(`${pat} → ${val}`)
+    }
+  }
+  return { out, hits }
+}
+
 /** `/식/플래그` 형태면 알맹이를 꺼낸다. 옛 자료의 queries 가 이 모양이다. */
 function toRegExp(rule: string, extraFlags = ''): RegExp | null {
   const s = String(rule ?? '').trim()

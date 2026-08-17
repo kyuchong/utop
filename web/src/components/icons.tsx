@@ -538,6 +538,16 @@ export const IconDiff = (p: P) => (
   </SmallSvg>
 )
 
+/** 치환 — 서로 맞바꾸는 두 화살표 */
+export const IconSwap = (p: P) => (
+  <SmallSvg {...p}>
+    <path d="M4 8h14" />
+    <path d="m14 4 4 4-4 4" />
+    <path d="M20 16H6" />
+    <path d="m10 12-4 4 4 4" />
+  </SmallSvg>
+)
+
 /** Ping — 되돌아오는 신호 */
 export const IconPing = (p: P) => (
   <SmallSvg {...p}>

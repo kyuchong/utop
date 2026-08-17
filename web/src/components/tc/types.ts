@@ -89,6 +89,14 @@ export type StepKind =
    * 장비로는 아무것도 안 나간다.
    */
   | 'diff'
+  /**
+   * 값을 대응표로 바꿔 다른 변수에 담는다 (iTest 의 치환).
+   *
+   * CLI 는 E6100 이라 하고 SNMP 는 enterprises.7800.1.103 이라 한다 —
+   * 표기가 다른 두 결과는 그대로는 못 견준다. 여기서 표기를 한쪽으로
+   * 바꿔 두면 다음 Diff 가 진짜 비교를 한다. 장비로는 아무것도 안 나간다.
+   */
+  | 'map'
   // 흐름
   | 'if'
   | 'loop'
@@ -305,6 +313,12 @@ export interface TcStep {
   cmpLeft?: string
   cmpOp?: string
   cmpRight?: string
+  /** kind=map — 바꿀 값 (보통 `${변수}`) */
+  mapSrc?: string
+  /** kind=map — 대응표. 한 줄에 하나, `왼쪽 = 오른쪽` */
+  mapRules?: string
+  /** kind=map — 바뀐 값을 담을 변수 이름 */
+  mapVar?: string
 
   /** kind=wait */
   waitSec?: number
@@ -438,6 +452,7 @@ export type StepIcon =
   | 'ping'
   | 'snmp'
   | 'diff'
+  | 'swap'
 
 export const STEP_KINDS: Array<{
   k: StepKind
@@ -459,6 +474,7 @@ export const STEP_KINDS: Array<{
   { k: 'snmp_set', label: 'SNMP Set', group: 'run', icon: 'snmp' },
   { k: 'snmp_trap', label: 'Trap 대기', group: 'run', icon: 'snmp' },
   { k: 'diff', label: 'Diff', group: 'run', icon: 'diff' },
+  { k: 'map', label: '치환', group: 'run', icon: 'swap' },
   { k: 'instrument', label: '계측기', group: 'run', icon: 'meter' },
   { k: 'if', label: 'If', group: 'flow', icon: 'branch' },
   { k: 'loop', label: 'Loop', group: 'flow', icon: 'loop' },
@@ -547,6 +563,7 @@ export function stepKindInfo(k?: string) {
  * | if         | 조건                    | condition                       | 아니오       |
  * | loop       | 범위 또는 횟수            | forFrom·forTo·forStep / loopCount | 아니오     |
  * | switch     | 기준 값                  | switchExpr                      | 아니오       |
+ * | map        | 바꿀 값 · 대응표          | mapSrc · mapRules · mapVar      | 아니오       |
  * | wait       | 기다릴 초                | waitSec                         | 아니오       |
  * | comment    | 주석                    | text                            | **아니오**   |
  * | message    | 출력할 글                | text                            | **아니오**   |
@@ -578,6 +595,7 @@ export const METER_ACT_LABEL: Record<string, string> = {
 export const STEP_CONTENT: Record<string, { label: string; hint?: string }> = {
   cli: { label: '보낼 명령', hint: '여러 줄이면 위에서부터 차례로 보냅니다' },
   diff: { label: '견줄 두 값', hint: '같으면 합격 · 다르면 불합격. 여러 줄이면 어느 줄이 다른지 보여줍니다' },
+  map: { label: '치환', hint: '값을 대응표로 바꿔 다른 변수에 담습니다. 판정은 다음 Diff 스텝이 합니다' },
   instrument: { label: '계측기 동작' },
   ping: { label: '대상 IP' },
   snmp_get: { label: 'OID' },
@@ -622,6 +640,8 @@ export function stepSummary(s: TcStep): string {
     return `${(s.oid || '아무 Trap').trim()} · ${s.trapSec ?? 15}초 대기`
   if (k === 'diff')
     return `${(s.cmpLeft || '').trim()} ${s.cmpOp || '=='} ${(s.cmpRight || '').trim()}`.trim()
+  if (k === 'map')
+    return `${(s.mapSrc || '').trim()}${s.mapVar ? ` → \${${s.mapVar}}` : ''}`.trim()
   if (k === 'wait') {
     const base = s.waitSec ? `${s.waitSec}초` : (s.data || '').trim()
     // 도는 중이면 세어 준다. 60초짜리 앞에서 멍하니 있지 않게.

@@ -11,6 +11,7 @@ import {
   IconPing,
   IconPlug,
   IconSnmp,
+  IconSwap,
   IconSwitch,
   IconUnplug,
 } from '@/components/icons'
@@ -31,6 +32,7 @@ const MAP = {
   ping: IconPing,
   snmp: IconSnmp,
   diff: IconDiff,
+  swap: IconSwap,
 } as const
 
 /**

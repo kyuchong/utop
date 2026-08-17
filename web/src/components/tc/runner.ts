@@ -2,6 +2,7 @@ import { apiFetch } from '@/api/client'
 import type { Device } from '@/pages/Devices'
 import { connParams, deviceShort, CLI_PROTOCOLS, deviceLabel, isMeter, meterKind, protocolOf } from './device'
 import {
+  applyMapRules,
   diffLines,
   diffText,
   evalCondWhy,
@@ -504,6 +505,35 @@ async function runOne(
     })
     ctx.onLog({ i, text: why, kind: ok ? 'pass' : 'fail' })
     return ok ? 'Pass' : 'Fail'
+  }
+
+  /**
+   * 치환 — 값을 대응표로 바꿔 다른 변수에 담는다 (iTest 방식).
+   *
+   * CLI 의 E6100 과 SNMP 의 enterprises.7800.1.103 처럼 표기가 다른 두
+   * 결과를 견주려면 먼저 표기를 한쪽으로 바꿔야 한다. 장비로는 아무것도
+   * 안 나가고, 판정도 안 낸다 — 견주는 것은 다음 Diff 스텝 몫이다.
+   */
+  if (kind === 'map') {
+    const src = subVars(String(step.mapSrc ?? ''), vars)
+    const { out, hits } = applyMapRules(src, String(step.mapRules ?? ''))
+    const name = String(step.mapVar ?? '').trim()
+    if (name) vars[name] = out
+    const head = name ? `\${${name}} = ${out}` : out
+    // 어느 규칙이 맞았는지 남긴다 — 안 남기면 값이 왜 이렇게 됐는지
+    // 대응표를 눈으로 다시 맞춰 봐야 한다.
+    const why = hits.length
+      ? `${head} — ${hits.join(' · ')}`
+      : `${head} — 맞는 규칙이 없어 원본 그대로`
+    ctx.onStep(i, {
+      output: why,
+      reason: why,
+      executed_at: at,
+      status: '',
+      repeatResult: '',
+    })
+    ctx.onLog({ i, text: why, kind: 'info' })
+    return ''
   }
 
   /**
@@ -1190,6 +1220,18 @@ function seedVars(ctx: RunCtx, upto: number, vars: Record<string, string>) {
   for (let i = 0; i < upto && i < ctx.steps.length; i++) {
     const s = ctx.steps[i]
     if (!s) continue
+    // 치환 스텝의 변수는 출력이 아니라 규칙에서 나온다 — 다시 계산해
+    // 깔아 둔다. 안 그러면 「이 스텝만」 으로 뒤의 Diff 를 돌릴 때
+    // 치환 결과가 비어 글자 그대로 견주게 된다.
+    if ((s.kind || 'cli') === 'map') {
+      const name = String(s.mapVar ?? '').trim()
+      if (name)
+        vars[name] = applyMapRules(
+          subVars(String(s.mapSrc ?? ''), vars),
+          String(s.mapRules ?? ''),
+        ).out
+      continue
+    }
     const out = stepResult(s)
     if (!out) continue
     Object.assign(vars, extractVars(s, out))

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { IconIndent, IconOutdent } from '../icons'
-import { evalCondWhy, extractOne, JUDGE_TYPES, parseTable, subVars } from './judge'
+import { applyMapRules, evalCondWhy, extractOne, JUDGE_TYPES, parseTable, subVars } from './judge'
 import TcTable from './TcTable'
 import ParamPicker from './ParamPicker'
 import PickList, { type PickItem } from './PickList'
@@ -652,6 +652,63 @@ export default function TcStepDetail({
                   </span>
                 )
               })()}
+          </>
+        )}
+        {kind === 'map' && (
+          <>
+            <div className="sd-f">
+              <span className="sd-lab">
+                바꿀 값
+                {paramPick('mapSrc', 'p-msrc').btn}
+              </span>
+              {paramPick('mapSrc', 'p-msrc').list}
+              <input
+                className="mono"
+                value={step.mapSrc ?? ''}
+                placeholder="${var2}"
+                onChange={(e) => onChange({ mapSrc: e.target.value })}
+              />
+            </div>
+            <label className="sd-f">
+              <span>대응표 — 한 줄에 하나, 왼쪽 = 오른쪽</span>
+              <textarea
+                className="mono"
+                rows={3}
+                value={step.mapRules ?? ''}
+                placeholder={'enterprises.7800.1.103 = E6100\nenterprises.7800.1.104 = E6100S'}
+                onChange={(e) => onChange({ mapRules: e.target.value })}
+              />
+            </label>
+            <label className="sd-f">
+              <span>바뀐 값을 담을 변수</span>
+              <input
+                className="mono"
+                value={step.mapVar ?? ''}
+                placeholder="var3"
+                onChange={(e) => onChange({ mapVar: e.target.value })}
+              />
+              <span className="sd-hint">
+                값 안에 왼쪽 글자가 있으면 전부 오른쪽으로 바뀝니다. 장비로는 아무것도
+                안 나가고 판정도 없습니다 — 다음 <b>Diff</b> 스텝에서{' '}
+                <b>{'${var1} == ${var3}'}</b> 처럼 견주세요.
+              </span>
+            </label>
+            {/* 돌려보기 전에 지금 값으로 어떻게 되는지 — 이름을 잘못 적으면
+                실행할 때 가서야 아는 것을 여기서 미리 보인다 */}
+            {(step.mapSrc || '').trim() && (step.mapRules || '').trim()
+              ? (() => {
+                  const r = applyMapRules(
+                    subVars(String(step.mapSrc ?? ''), gp.values),
+                    String(step.mapRules ?? ''),
+                  )
+                  return (
+                    <span className="sd-prev">
+                      지금 값 <code>{r.out.length > 120 ? `${r.out.slice(0, 120)}…` : r.out}</code>
+                      {r.hits.length === 0 && ' — 맞는 규칙이 없어 원본 그대로'}
+                    </span>
+                  )
+                })()
+              : null}
           </>
         )}
         {kind === 'if' && (
