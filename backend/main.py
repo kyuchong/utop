@@ -3154,9 +3154,9 @@ async def codes_save(payload: dict):
 
 @app.delete("/api/codes/{kind}/{value}")
 async def codes_delete(kind: str, value: str):
-    used = await db.code_usage(kind, value)
-    if used:
-        raise HTTPException(400, f"{used}건이 쓰고 있어 지울 수 없습니다")
+    # 쓰는 건수가 있어도 막지 않는다(피드백) — 지우는 것은 고르기 목록의
+    # 항목뿐이고, 기록(data)에 저장된 값 문자열은 그대로 남는다.
+    # 몇 건이 쓰는지는 화면이 확인창에서 미리 알린다.
     if not await db.code_delete(kind, value):
         raise HTTPException(404, "없는 항목입니다")
     return {"success": True}

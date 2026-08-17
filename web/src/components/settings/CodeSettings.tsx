@@ -275,7 +275,19 @@ export default function CodeSettings({ target }: Props) {
   const removeValue = (i: number) => {
     if (!cur) return
     const v = cur.values[i]!
-    if (!window.confirm(`'${v}' 을 지울까요?`)) return
+    // 쓰는 건수가 있어도 지울 수 있다(피드백) — 기록의 값은 남고
+    // 고르기 목록에서만 빠진다. 대신 몇 건이 쓰는지 미리 알린다.
+    const used = cur.cf ? 0 : (items[i]?.used ?? 0)
+    if (
+      !window.confirm(
+        `'${v}' 을 지울까요?${
+          used
+            ? `\n${used}건이 이 값을 쓰고 있습니다 — 지워도 그 기록의 값은 남고, 고르기 목록에서만 빠집니다.`
+            : ''
+        }`,
+      )
+    )
+      return
     if (cur.cf) {
       cfSaveM.mutate({ f: cur.cf, values: cur.values.filter((_, x) => x !== i) })
       return
@@ -535,8 +547,12 @@ export default function CodeSettings({ target }: Props) {
                         <button
                           className="btn small danger"
                           type="button"
-                          disabled={!!used || busy}
-                          title={used ? '쓰는 것이 있어 지울 수 없습니다' : ''}
+                          disabled={busy}
+                          title={
+                            used
+                              ? `${used}건이 쓰는 값 — 지워도 기록은 남고 고르기 목록에서만 빠집니다`
+                              : ''
+                          }
                           onClick={() => removeValue(i)}
                         >
                           삭제
