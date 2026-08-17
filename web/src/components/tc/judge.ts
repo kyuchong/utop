@@ -33,9 +33,19 @@ export const JUDGE_TYPES: Array<[string, string]> = [
 
 /** 변수 넣기. `${name}` 과 `$name` 을 둘 다 받는다 — 자료에 둘 다 있다. */
 export function subVars(text: string, vars: Record<string, string>): string {
-  return String(text ?? '')
-    .replace(/\$\{(\w+)\}/g, (m, k: string) => vars[k] ?? m)
-    .replace(/\$(\w+)/g, (m, k: string) => vars[k] ?? m)
+  // 중첩 치환 — ${${var1}_OID} 처럼 변수로 변수 이름을 만들 수 있다.
+  // 안쪽이 먼저 풀리고(${var1}→E6100), 다음 바퀴에 ${E6100_OID} 가 풀린다.
+  // 파라미터를 대응표(E6100_OID=7800.1.103)로 쓰는 교차 검증용(합의).
+  // 바뀌지 않으면 멈춘다 — 최대 5바퀴(순환 보호).
+  let s = String(text ?? '')
+  for (let i = 0; i < 5; i++) {
+    const next = s
+      .replace(/\$\{(\w+)\}/g, (m, k: string) => vars[k] ?? m)
+      .replace(/\$(\w+)/g, (m, k: string) => vars[k] ?? m)
+    if (next === s) break
+    s = next
+  }
+  return s
 }
 
 /** `/식/플래그` 형태면 알맹이를 꺼낸다. 옛 자료의 queries 가 이 모양이다. */
