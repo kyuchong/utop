@@ -19,6 +19,13 @@ import { tableLayout } from './judge'
 const KV = /^(\s*)([A-Za-z0-9][\w .#/()%+-]{0,31}?)(\s*:\s+)(\S.*?)(\s*)$/
 
 /**
+ * 「이름 = 값」 꼴 — SNMP 응답이 이렇게 온다(지적):
+ *   SNMPv2-MIB::sysObjectID.0 = OID: SNMPv2-SMI::enterprises.7800.1.103
+ * 콜론 규칙과 같은 대접: = 를 중심으로 양쪽 다 블럭.
+ */
+const KV_EQ = /^(\s*)(\S[^=]{0,47}?)(\s+=\s+)(\S.*?)(\s*)$/
+
+/**
  * 값 모양 토큰 — **명령별 하드코딩이 아니라 모양의 원리**로 잡는다(합의):
  *
  *  ① 숫자가 든 토큰 — CLI 의 값은 거의 전부 여기 든다: IP·프리픽스,
@@ -110,6 +117,22 @@ export default function BlockText({ text }: { text: string }) {
       })
       if (cur < ln.length) parts.push(ln.slice(cur))
       out.push(<span key={i}>{parts}</span>)
+      return
+    }
+
+    // 「이름 = 값」 — SNMP 응답 꼴. 콜론 규칙보다 먼저 본다 — SNMP 줄에는
+    // 값 안에 「OID: 」 같은 콜론이 있어 콜론 규칙이 엉뚱하게 가른다
+    const eq = KV_EQ.exec(ln)
+    if (eq) {
+      out.push(
+        <span key={i}>
+          {eq[1]}
+          <B>{eq[2]}</B>
+          {eq[3]}
+          <B>{eq[4]}</B>
+          {eq[5]}
+        </span>,
+      )
       return
     }
 
