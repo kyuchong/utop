@@ -887,6 +887,10 @@ export function diffLines(
   const prep = (s: string) =>
     applyExclude(String(s ?? ''), exclude)
       .split(/\r?\n/)
+      /* 시각 줄은 항상 뺀다 — 시각은 값이 아니라 찍은 때다. 캡처마다
+         ⏱ 칩을 챙겨야만 빠지는 구조는 사람이 매번 밟는 함정이었다
+         (지적: 두 캡처가 1초 차이 시각 줄로 늘 부적합). */
+      .filter((l) => !isTimeLine(l))
       .map((l) => l.trim())
       .filter(Boolean)
 
