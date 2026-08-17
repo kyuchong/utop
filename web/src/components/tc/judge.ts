@@ -516,9 +516,13 @@ export function looksLikeTime(v: string): boolean {
  */
 export function applySkips(text: string, step: TcStep): string {
   const rules = stepRules(step).filter((r) => r.t === 'skip')
+  /* 시각처럼 생긴 칩은 **적용할 때 모양 매칭**으로 해석한다 — 옛 문자
+     시각 칩(그때의 시각 글자)도 다시 만들 필요 없이 그대로 동작(지적 A).
+     글자 그대로 매칭하면 다음 실행의 새 시각과 절대 안 맞는다. */
+  const isTimeChip = (v: string) => v === SKIP_TIME || looksLikeTime(v)
   const subs = [
     String(step.excludeLines ?? ''),
-    ...rules.filter((r) => r.v !== SKIP_TIME).map((r) => String(r.v ?? '')),
+    ...rules.filter((r) => !isTimeChip(String(r.v ?? ''))).map((r) => String(r.v ?? '')),
   ]
     .filter(Boolean)
     .join('\n')
@@ -526,7 +530,7 @@ export function applySkips(text: string, step: TcStep): string {
   /* 시각 제거는 **⏱시각줄 칩이 있는 스텝만** — 뺄지 말지는 시스템이 아니라
      사용자가 정한다(합의: 무조건 제거는 과했음). 순서는 그대로:
      제외(칩) → 캡처 → 판정. Diff 견주기의 시각 자동 무시만 예외로 남는다. */
-  if (rules.some((r) => r.v === SKIP_TIME))
+  if (rules.some((r) => isTimeChip(String(r.v ?? ''))))
     out = out
       .split(/\r?\n/)
       .filter((l) => !TIME_LINE.test(l))

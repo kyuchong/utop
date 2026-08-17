@@ -1311,9 +1311,12 @@ export default function TcStepDetail({
                     text={result}
                     onBlock={(v, x, y) => setBlockAt({ v, x, y })}
                     dim={(ln) => {
-                      const subs = chips.filter((c) => c.t === 'skip' && c.v !== SKIP_TIME)
+                      const timeChip = (v: string) => v === SKIP_TIME || looksLikeTime(v)
+                      const subs = chips.filter((c) => c.t === 'skip' && !timeChip(c.v))
                       if (subs.some((c) => ln.includes(c.v))) return true
-                      return chips.some((c) => c.t === 'skip' && c.v === SKIP_TIME) && isTimeLine(ln)
+                      return (
+                        chips.some((c) => c.t === 'skip' && timeChip(c.v)) && isTimeLine(ln)
+                      )
                     }}
                   />
                 </pre>
