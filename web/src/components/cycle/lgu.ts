@@ -16,6 +16,27 @@
  */
 import { stepVerdict, type TcStep } from '@/components/tc/types'
 import { parseMeterOutput } from '@/components/tc/MeterStats'
+import type { TermLine } from './termShot'
+
+/** 절차의 제목 줄 — Message·Comment (합의: 절차 번호는 제목이 만든다) */
+const isTitleKind = (s: LguStep): boolean => {
+  const k = String(s.kind ?? '').toLowerCase()
+  return k === 'message' || k === 'comment'
+}
+
+/** 판정(PASS/FAIL)이 나오는 종류 — 「스텝 수」 규칙과 같은 자(옛 이름 포함) */
+const JUDGE_KINDS = new Set([
+  'cli', 'ping', 'snmp_get', 'snmpget', 'snmp_set', 'snmpset', 'snmp_trap', 'trap',
+  'diff', 'instrument', 'meter', 'connect', 'disconnect', 'manual', 'auto', '',
+])
+const isJudgeKind = (s: LguStep): boolean =>
+  !isTitleKind(s) && JUDGE_KINDS.has(String(s.kind ?? '').toLowerCase())
+
+/** 스텝 번호 — 판정 스텝만 센다. 제목·치환·대기 줄은 -1 */
+export function stepNos(steps: LguStep[]): number[] {
+  let n = 0
+  return steps.map((s) => (isJudgeKind(s) ? ++n : -1))
+}
 
 /**
  * 계측기 응답(JSON)을 **글 표**로.
@@ -262,15 +283,8 @@ const METHOD_MAX = 11
  */
 export function methodBlocks(tc: LguTc): Block[] {
   if (!tc.steps.length) return [{ text: '(시험 절차 없음)', lines: 1 }]
-  const isTitle = (s: LguStep) => {
-    const k = String(s.kind ?? '').toLowerCase()
-    return k === 'message' || k === 'comment'
-  }
-  const JUDGE = new Set([
-    'cli', 'ping', 'snmp_get', 'snmpget', 'snmp_set', 'snmpset', 'snmp_trap', 'trap',
-    'diff', 'instrument', 'meter', 'connect', 'disconnect', 'manual', 'auto', '',
-  ])
-  const isJudge = (s: LguStep) => JUDGE.has(String(s.kind ?? '').toLowerCase())
+  const isTitle = isTitleKind
+  const isJudge = isJudgeKind
 
   const blocks: Block[] = []
   const push = (text: string) =>
@@ -326,21 +340,93 @@ export function methodBlocks(tc: LguTc): Block[] {
   return blocks.length ? blocks : [{ text: '(시험 절차 없음)', lines: 1 }]
 }
 
+/**
+ * 결과 칸 — 절차와 같은 규칙(합의).
+ *
+ * 「Step 1.」 만 있고 내용이 빈 줄이 나왔다(지적) — 옛 코드가 모든 줄에
+ * 번호를 달고 desc·cli 만 읽어서, 제목 스텝(Comment·Message, 내용은 text
+ * 칸)이 빈 머리로 남았다. 제목 줄은 ■ 제목으로, 번호는 판정 스텝만,
+ * 치환·대기 같은 줄은 번호 없이 내용·결과만 싣는다.
+ */
 export function resultBlocks(tc: LguTc): Block[] {
   if (!tc.steps.length)
     return [{ text: '시험 결과 데이터 없음 — 시험 실행 후 출력됩니다.', lines: 1 }]
+  const nos = stepNos(tc.steps)
   return tc.steps.map((s, i) => {
-    let r = `Step ${i + 1}. ${String(s.desc ?? '').trim() || String(s.cli ?? '').trim()}`
-    const sv = stepVerdict(s as TcStep)
-    if (sv) r += `  [${sv}]`
-    if (s.cli) r += `\n${tc.prompt || '$'} ${s.cli}`
+    let r: string
+    if (isTitleKind(s)) {
+      r = `■ ${String(s.text ?? s.desc ?? s.step ?? '').trim() || '-'}`
+    } else if (nos[i]! > 0) {
+      r = `Step ${nos[i]}. ${String(s.desc ?? '').trim() || stepDoing(s)}`
+      const sv = stepVerdict(s as TcStep)
+      if (sv) r += `  [${sv}]`
+      if (s.cli) r += `\n${tc.prompt || '$'} ${s.cli}`
+    } else {
+      const d = stepDoing(s)
+      r = d ? `- ${d}` : ''
+    }
     const o = promptize(String(s.output ?? '').trim(), tc.prompt)
-    if (o) r += `\n${o}`
-    const lines = r
+    if (o && !isTitleKind(s)) r += `${r ? '\n' : ''}${o}`
+    const lines = (r || ' ')
       .split('\n')
       .reduce((a, ln) => a + Math.max(1, Math.ceil((ln.length || 1) / CPL)), 0)
     return { text: r, lines: lines + 1 }
   })
+}
+
+/**
+ * 결과 칸의 터미널 그림 줄들 — PPTX 두 경로(양식 채우기·기본)가 같이 쓴다.
+ * 번호·제목 규칙은 resultBlocks 와 동일하다.
+ */
+export function resultTermLines(
+  steps: LguStep[],
+  from: number,
+  to: number,
+  prompt = '$',
+): TermLine[] {
+  const nos = stepNos(steps)
+  const lines: TermLine[] = []
+  const pushOut = (s: LguStep) => {
+    const o = String(s.output ?? '').trim()
+    if (!o) return
+    for (const l of o.split(/\r?\n/))
+      lines.push({
+        text: prompt !== '$' && l.startsWith('$ ') ? prompt + l.slice(1) : l,
+        kind: l.startsWith('$ ') ? 'cmd' : 'out',
+      })
+  }
+  steps.slice(from, to).forEach((s, k) => {
+    const i = from + k
+    if (isTitleKind(s)) {
+      if (lines.length) lines.push({ text: '' })
+      lines.push({
+        text: `■ ${String(s.text ?? s.desc ?? s.step ?? '').trim() || '-'}`,
+        kind: 'head',
+      })
+      return
+    }
+    if (nos[i]! > 0) {
+      if (lines.length) lines.push({ text: '' })
+      const v = String(stepVerdict(s as TcStep) || '')
+      const label = String(s.desc ?? '').trim() || stepDoing(s)
+      lines.push({
+        text: `Step ${nos[i]}. ${label}${v ? `  [${v}]` : ''}`,
+        kind: v === 'Fail' || v === '불합격' ? 'fail' : v ? 'pass' : 'head',
+      })
+      const cli = String(s.cli ?? '').trim()
+      if (cli) for (const c of cli.split(/\r?\n/)) lines.push({ text: `${prompt} ${c}`, kind: 'cmd' })
+      pushOut(s)
+      return
+    }
+    // 판정 없는 실행 줄(치환·대기) — 번호 없이 내용과 결과만
+    const d = stepDoing(s)
+    const hasOut = !!String(s.output ?? '').trim()
+    if (!d && !hasOut) return
+    if (lines.length) lines.push({ text: '' })
+    if (d) lines.push({ text: `- ${d}`, kind: 'out' })
+    pushOut(s)
+  })
+  return lines
 }
 
 /** 이 TC 가 몇 장이 되나 — 1장(방법) 몇 + 2장(결과) 몇 */
@@ -450,20 +536,39 @@ export function page1(tc: LguTc, range: [number, number]): string {
 
 /** 2장 — 시험 결과 */
 export function page2(tc: LguTc, range: [number, number]): string {
+  const nos = stepNos(tc.steps)
   const mine = tc.steps.map((s, i) => ({ s, i })).slice(range[0], range[1])
   const body = mine.length
     ? mine
         .map(({ s, i }) => {
+          /* 제목 스텝(Message·Comment) — 번호 없이 절차 제목으로(합의).
+             옛 코드는 모든 줄에 Step N. 을 달고 desc·cli 만 읽어서
+             「Step 1.」 만 있고 내용이 빈 줄이 나왔다(지적). */
+          if (isTitleKind(s))
+            return `<div style="margin:8px 0 6px;font-size:12px;font-weight:800;color:#111;">■ ${esc(String(s.text ?? s.desc ?? s.step ?? '').trim() || '-')}</div>`
+          const out = promptize(String(s.output ?? '').trim(), tc.prompt)
+          // 판정 없는 실행 줄(치환·대기) — 번호 없이 내용·결과만
+          if (!(nos[i]! > 0)) {
+            const d = stepDoing(s)
+            if (!d && !out) return ''
+            return (
+              '<div style="margin-bottom:7px;">' +
+              (d ? `<div style="font-size:10.5px;color:#555;">- ${esc(d)}</div>` : '') +
+              (out
+                ? `<div style="display:inline-block;max-width:100%;border:1px solid #b6bdc6;border-radius:4px;background:#fff;margin-top:2px;padding:4px 9px;box-sizing:border-box;"><pre style="display:block;max-width:100%;margin:0;white-space:pre;overflow-x:auto;font-family:Consolas,monospace;font-size:9px;line-height:1.45;color:#222;background:transparent;">${esc(out)}</pre></div>`
+                : '') +
+              '</div>'
+            )
+          }
           const rc =
             stepVerdict(s as TcStep) === 'Pass' || stepVerdict(s as TcStep) === '합격'
               ? '#00875a'
               : stepVerdict(s as TcStep) === 'Fail' || stepVerdict(s as TcStep) === '불합격'
                 ? '#d12d49'
                 : '#888'
-          const out = promptize(String(s.output ?? '').trim(), tc.prompt)
           return (
             '<div style="margin-bottom:9px;border-bottom:1px dashed #ccc;padding-bottom:7px;">' +
-            `<div style="font-size:11.5px;font-weight:700;color:#111;">Step ${i + 1}. ${esc(s.desc || s.cli || s.action || '')}` +
+            `<div style="font-size:11.5px;font-weight:700;color:#111;">Step ${nos[i]}. ${esc(String(s.desc ?? '').trim() || stepDoing(s))}` +
             (stepVerdict(s as TcStep)
               ? ` <span style="color:${rc};font-weight:800;">[${esc(stepVerdict(s as TcStep))}]</span>`
               : '') +

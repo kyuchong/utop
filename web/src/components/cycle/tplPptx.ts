@@ -1,7 +1,6 @@
 import { apiFetch } from '@/api/client'
-import { methodBlocks, resultBlocks, slideRanges, type LguTc } from './lgu'
-import { stepLines, termShot, type TermLine } from './termShot'
-import { stepVerdict, type TcStep } from '@/components/tc/types'
+import { methodBlocks, resultBlocks, resultTermLines, slideRanges, type LguTc } from './lgu'
+import { termShot, type TermLine } from './termShot'
 
 /**
  * **고객사가 준 pptx 를 그대로 채워** 결과서를 만든다.
@@ -109,11 +108,8 @@ export function buildTplSlides(tcs: LguTc[]): TplSlide[] {
        * 그림을 못 구우면 글자로 떨어뜨린다 — 결과서가 아예 안 나오는
        * 것보다 낫다.
        */
-      const lines: TermLine[] = []
-      tc.steps.slice(from, to).forEach((st, k) => {
-        if (k) lines.push({ text: '' })
-        lines.push(...stepLines(st, from + k + 1, String(stepVerdict(st as TcStep) || ''), tc.prompt || '$'))
-      })
+      // 번호·제목 규칙은 미리보기(page2)와 같은 한 벌 — resultTermLines
+      const lines: TermLine[] = resultTermLines(tc.steps, from, to, tc.prompt || '$')
       let shot: { data: string } | null = null
       try {
         shot = lines.length

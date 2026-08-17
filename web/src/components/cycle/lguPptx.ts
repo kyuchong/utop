@@ -1,7 +1,6 @@
 import PptxGenJS from 'pptxgenjs'
-import { methodBlocks, resultBlocks, slideRanges, type LguTc } from './lgu'
-import { stepLines, termShot, type TermLine } from './termShot'
-import { stepVerdict, type TcStep } from '@/components/tc/types'
+import { methodBlocks, resultBlocks, resultTermLines, slideRanges, type LguTc } from './lgu'
+import { termShot, type TermLine } from './termShot'
 
 /**
  * LG U+ 양식 PPTX 파일 만들기.
@@ -189,11 +188,8 @@ export async function saveLguPptx(
        * 표에는 빈 칸을 두고 그림을 그 위에 얹는다 — 표 칸에는 그림을
        * 못 넣는다.
        */
-      const lines: TermLine[] = []
-      tc.steps.slice(from, to).forEach((st, k) => {
-        if (k) lines.push({ text: '' })
-        lines.push(...stepLines(st, from + k + 1, String(stepVerdict(st as TcStep) || ''), tc.prompt || '$'))
-      })
+      // 번호·제목 규칙은 미리보기(page2)와 같은 한 벌 — resultTermLines
+      const lines: TermLine[] = resultTermLines(tc.steps, from, to, tc.prompt || '$')
       const shot = lines.length
         ? termShot(lines, [tc.tcid, tc.name].filter(Boolean).join(' · '))
         : null
