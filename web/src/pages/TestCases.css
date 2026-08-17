@@ -998,7 +998,71 @@ button.sq-caret svg { width: 11px; height: 11px; }
   background: #f6f9fc;
 }
 .bv-b:hover { background: #dcecfd; box-shadow: 0 0 0 1px #5b9bd5; }
+.bv-b { cursor: pointer; }
 .bv-hd { color: #5b6470; font-weight: 700; }
+
+/* 판정 기준 칩 — 종류 드롭다운을 대신한다(합의) */
+.sd-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
+.sd-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  padding: 1px 4px 1px 7px;
+  border-radius: 10px;
+  border: 1px solid;
+  max-width: 100%;
+}
+.sd-chip.has { background: #e6f6ee; border-color: #1d9e75; color: #116245; }
+.sd-chip.not { background: #fdecec; border-color: #e24b4a; color: #8f1f1f; }
+.sd-chip.table { background: #e9f1fb; border-color: #5b9bd5; color: #1f5fa8; }
+.sd-chip i { font-style: normal; font-weight: 700; font-size: 10px; opacity: 0.75; flex: none; }
+.sd-chip button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+/* 블럭 메뉴 — 변수로 · 있으면 합격 · 있으면 불합격 (고정 좌표) */
+.sd-bmenu-back { position: fixed; inset: 0; z-index: 60; }
+.sd-bmenu {
+  position: fixed;
+  z-index: 61;
+  background: #fff;
+  border: 1px solid #c3ccd4;
+  border-radius: 8px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.14);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+}
+.sd-bmenu b {
+  font-size: 10.5px;
+  font-family: var(--font-mono);
+  color: #5b6470;
+  padding: 2px 6px 6px;
+  border-bottom: 1px solid #eef1f4;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sd-bmenu button {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: var(--fs-xs);
+}
+.sd-bmenu button:hover { background: #f0f4f8; }
 
 .sd-res.empty-res {
   background: var(--tc-hover);

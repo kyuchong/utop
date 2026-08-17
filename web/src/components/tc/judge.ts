@@ -478,15 +478,79 @@ export function judgeTable(
   }
 }
 
+/**
+ * 판정 기준 칩 — 종류 드롭다운을 없앤 새 모양(합의).
+ *
+ *  · has   응답에 있어야 합격
+ *  · not   응답에 없어야 합격
+ *  · table 표 조건 (`Port=Gi0/1 => Status=connected` 문법 그대로)
+ *
+ * 규칙은 하나뿐이다: **모든 칩을 만족하면 합격, 하나라도 어긋나면 불합격,
+ * 칩이 없으면 판정 안 함.** 칩이 있으면 옛 type·criteria 보다 우선한다.
+ */
+export interface JudgeRule {
+  t: 'has' | 'not' | 'table'
+  v: string
+}
+
+export function stepRules(step: TcStep): JudgeRule[] {
+  const r = (step as { rules?: unknown }).rules
+  if (!Array.isArray(r)) return []
+  return r.filter(
+    (x): x is JudgeRule =>
+      !!x && typeof x === 'object' && typeof (x as JudgeRule).v === 'string' &&
+      ['has', 'not', 'table'].includes(String((x as JudgeRule).t)),
+  )
+}
+
 export function judge(step: TcStep, output: string, vars: Record<string, string> = {}): {
   verdict: Verdict
   reason: string
 } {
   const type = String(step.type ?? 'contains')
-  if (type === 'none') return { verdict: '', reason: '판정 안 함' }
 
   const err = looksLikeError(output)
   if (err) return { verdict: 'Fail', reason: `장비 오류 응답 — "${err}"` }
+
+  /* 칩 기준 — 있으면 이것이 정본이다 */
+  const rules = stepRules(step)
+  if (rules.length) {
+    const scoped2 = applyExclude(applyQuery(output, step.query as string | undefined), step.excludeLines)
+    const raw2 = applyExclude(String(output ?? ''), step.excludeLines)
+    const hasTok = (tok: string) => {
+      const t = tok.toLowerCase()
+      return scoped2.toLowerCase().includes(t) || raw2.toLowerCase().includes(t)
+    }
+    const lineOf2 = (tok: string): string => {
+      const t = tok.toLowerCase()
+      const hit =
+        scoped2.split(/\r?\n/).find((l) => l.toLowerCase().includes(t)) ??
+        raw2.split(/\r?\n/).find((l) => l.toLowerCase().includes(t))
+      return (hit ?? '').trim().slice(0, 100)
+    }
+    const fails: string[] = []
+    const oks: string[] = []
+    for (const r of rules) {
+      const v = subVars(String(r.v ?? ''), vars).trim()
+      if (!v) continue
+      if (r.t === 'has') {
+        if (hasTok(v)) oks.push(`"${v}" 있음 → ${lineOf2(v)}`)
+        else fails.push(`"${v}" 없음`)
+      } else if (r.t === 'not') {
+        if (hasTok(v)) fails.push(`있으면 안 되는 "${v}" 있음 → ${lineOf2(v)}`)
+        else oks.push(`"${v}" 없음(정상)`)
+      } else {
+        const tr = judgeTable(String(output ?? ''), v)
+        if (tr.verdict === 'Fail') fails.push(tr.reason)
+        else oks.push(tr.reason)
+      }
+    }
+    if (!fails.length && !oks.length) return { verdict: '', reason: '판정기준 없음' }
+    if (fails.length) return { verdict: 'Fail', reason: fails.join(' · ') }
+    return { verdict: 'Pass', reason: oks.join(' · ') }
+  }
+
+  if (type === 'none') return { verdict: '', reason: '판정 안 함' }
 
   /*
    * 오류만 없으면 합격.

@@ -2,7 +2,15 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { IconIndent, IconOutdent } from '../icons'
-import { applyMapRules, evalCondWhy, extractOne, JUDGE_TYPES, parseTable, subVars } from './judge'
+import {
+  applyMapRules,
+  evalCondWhy,
+  extractOne,
+  parseTable,
+  stepRules,
+  subVars,
+  type JudgeRule,
+} from './judge'
 import BlockText from './BlockText'
 import TcTable from './TcTable'
 import ParamPicker from './ParamPicker'
@@ -80,6 +88,10 @@ export default function TcStepDetail({
   block,
 }: Props) {
   const [picked, setPicked] = useState('')
+  /** 판정 칩 입력칸 */
+  const [critIn, setCritIn] = useState('')
+  /** 눌린 블럭 — [변수로 · 있으면 합격 · 있으면 불합격] 메뉴가 뜬 자리 */
+  const [blockAt, setBlockAt] = useState<{ v: string; x: number; y: number } | null>(null)
   const [tblOpen, setTblOpen] = useState(false)
   /** 펼쳐 본 회차. 0 이면 안 폈다 */
   const [round, setRound] = useState(0)
@@ -238,6 +250,44 @@ export default function TcStepDetail({
   ].filter((x): x is string => !!x)
   /** 반복 방식 — 자료에 '몇 회' 와 '범위' 두 형태가 섞여 있다 */
   const loopByRange = step.forFrom !== undefined && step.forTo !== undefined
+
+  /**
+   * 판정 칩 — rules 가 정본. 없으면 옛 type·criteria 를 칩으로 읽어 보여주고,
+   * 칩을 처음 고치는 순간 rules 로 굳는다(옛 스텝은 안 고치면 그대로 돈다).
+   * 옛 contains 의 콤마는 OR 였지만 칩은 「모두 만족」 이다 — 새 철학(합의).
+   */
+  const legacyChips = (): JudgeRule[] => {
+    const c = String(step.criteria ?? step.expected ?? '').trim()
+    if (!c) return []
+    const t = String(step.type ?? 'contains')
+    if (t === 'none' || t === 'expr') return []
+    if (t === 'table') return [{ t: 'table', v: c }]
+    const split = (s: string, re: RegExp) => s.split(re).map((x) => x.trim()).filter(Boolean)
+    if (t === 'notcontains') return split(c, /,/).map((v) => ({ t: 'not' as const, v }))
+    if (t === 'contains_all') return split(c, /\r?\n|,/).map((v) => ({ t: 'has' as const, v }))
+    if (t === 'line') return [{ t: 'has', v: c }]
+    return split(c, /,/).map((v) => ({ t: 'has' as const, v }))
+  }
+  const chips: JudgeRule[] = stepRules(step).length ? stepRules(step) : legacyChips()
+  const writeChips = (next: JudgeRule[]) => onChange({ rules: next })
+  const addChipFrom = (t: 'has' | 'not', v: string) => {
+    const val = v.trim()
+    if (!val) return
+    writeChips([...chips, { t, v: val }])
+  }
+  /** 블럭 → 변수. 이름은 자동(varN) — 창(prompt)은 파이어폭스에서 막힌다 */
+  const addVarFromBlock = (text: string) => {
+    const used = new Set([...takenVars, ...mine])
+    let name = 'var1'
+    for (let n = 1; n < 999; n++) {
+      if (!used.has(`var${n}`)) {
+        name = `var${n}`
+        break
+      }
+    }
+    const esc2 = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    onChange({ queries: [...(step.queries ?? []), { q: `(${esc2})`, var: name }] })
+  }
 
   /** 응답에서 글자를 고르면 판정·변수로 만들 수 있게 잡아둔다 */
   const grab = () => {
@@ -1004,80 +1054,74 @@ export default function TcStepDetail({
         {/* 판정은 실행하는 스텝에만 둔다.
             고르는 값은 `type` 이다 — critMode 는 '라인 선택' 같은 표시용
             이름이라 거기에 contains 를 써 넣으면 옛 화면 배지가 깨진다. */}
+        {/* 판정 기준 — 종류 드롭다운 없음(합의). 칩을 쌓으면 판정이 정해진다:
+            모든 칩 만족 = 합격 · 하나라도 어긋남 = 불합격 · 칩 없음 = 조회만 */}
         {isRun && !isMeterStep && (
           <div className="sd-f">
-            <span className="sd-lab">
-              Expected
-              {paramPick('criteria', 'p-crit').btn}
-            </span>
-            {paramPick('criteria', 'p-crit').list}
+            <span className="sd-lab">Expected — 판정 기준</span>
+            <div className="sd-chips">
+              {chips.map((c, n) => (
+                <span key={n} className={`sd-chip ${c.t}`}>
+                  <i>{c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : '표'}</i>
+                  {c.v}
+                  <button
+                    type="button"
+                    title="이 기준 빼기"
+                    onClick={() => writeChips(chips.filter((_, j) => j !== n))}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              {!chips.length && (
+                <span className="muted small">기준이 없으면 판정하지 않습니다 (조회만)</span>
+              )}
+            </div>
             <div className="sd-row">
-              <select
-                className="sd-crit"
-                value={String(step.type ?? 'contains')}
-                onChange={(e) => onChange({ type: e.target.value })}
-              >
-                {JUDGE_TYPES.map(([v, l]) => (
-                  <option key={v} value={v}>
-                    {l}
-                  </option>
-                ))}
-                {/* 옛 자료에 있는 종류(diff·table·expr…)를 고른 채로 두면
-                    목록에 없어서 조용히 contains 로 바뀐다. 자리를 만든다. */}
-                {step.type && !JUDGE_TYPES.some(([v]) => v === step.type) && (
-                  <option value={String(step.type)}>{String(step.type)} (옛 방식)</option>
-                )}
-              </select>
               <input
                 className="mono"
-                value={step.criteria ?? step.expected ?? ''}
-                placeholder={String(step.type) === 'expr' ? '${var1} == ${var2}' : 'Model Name'}
-                onChange={(e) => onChange({ criteria: e.target.value })}
+                value={critIn}
+                placeholder={'문구 적고 Enter — 응답에 있어야 합격. ${변수} 도 됩니다'}
+                onChange={(e) => setCritIn(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing) return
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    addChipFrom('has', critIn)
+                    setCritIn('')
+                  }
+                }}
               />
+              <button
+                className="btn small"
+                type="button"
+                title="이 문구가 응답에 있으면 불합격"
+                onClick={() => {
+                  addChipFrom('not', critIn)
+                  setCritIn('')
+                }}
+              >
+                없어야 +
+              </button>
             </div>
-            {String(step.type) === 'table' && (
+            {isTbl && (
               <span className="sd-hint">
-                {isTbl ? (
-                  <>
-                    <button
-                      className="btn small"
-                      type="button"
-                      onClick={() => setTblOpen(true)}
-                    >
-                      표에서 고르기
-                    </button>{' '}
-                    아래 Result 를 표로 펼쳐 놓고, <b>볼 행</b>과 <b>그 행이 어때야 하는지</b>를
-                    눌러서 만듭니다.
-                  </>
-                ) : (
-                  <>
-                    먼저 이 스텝을 <b>실행</b>해서 표 응답을 받아야 고를 수 있습니다.
-                  </>
-                )}
+                <button className="btn small" type="button" onClick={() => setTblOpen(true)}>
+                  표에서 고르기
+                </button>{' '}
+                표 응답이면 <b>볼 행</b>과 <b>그 행이 어때야 하는지</b>를 눌러 표 기준을 만듭니다.
               </span>
             )}
-            {preview(step.criteria ?? step.expected)}
-            {String(step.type) === 'expr' && String(step.criteria ?? '').trim() && (
-              (() => {
-                const r = evalCondWhy(String(step.criteria), gp.values)
-                return (
-                  <span className={`sd-cond${r.ok ? ' yes' : ' no'}`}>
-                    지금은 <b>{r.ok ? '합격' : '불합격'}</b> — {r.why}
-                  </span>
-                )
-              })()
+            {String(step.type) === 'expr' && String(step.criteria ?? '').trim() && !stepRules(step).length && (
+              <span className="sd-hint">
+                옛 값비교 기준 <code>{String(step.criteria)}</code> 로 판정 중 — 값끼리 견주는
+                것은 이제 <b>Diff 스텝</b>을 쓰세요.
+              </span>
             )}
-            {String(step.type) === 'expr' ? (
-              <span className="sd-hint">
-                옛 방식입니다 — 값끼리 견주는 것은 이제 <b>Diff 스텝</b>에서 합니다.
-                쓸 수 있는 것: <b>== != &gt; &lt; &gt;= &lt;= 포함</b>
-              </span>
-            ) : step.type !== 'none' ? (
-              <span className="sd-hint">
-                대소문자는 안 가립니다. 한 줄에 콤마로 여러 개를 적으면 그 중 하나만
-                맞아도 합격입니다.
-              </span>
-            ) : null}
+            <span className="sd-hint">
+              응답의 <b>블럭(네모 친 값)을 눌러도</b> 기준·변수가 됩니다. 칩이 여러 개면{' '}
+              <b>모두</b> 맞아야 합격 · 대소문자는 안 가립니다.
+            </span>
           </div>
         )}
 
@@ -1343,8 +1387,55 @@ export default function TcStepDetail({
                 ) : (
                 /* onMouseUp 으로 잡는 이유: onSelect 는 pre 에서 안 뜬다 */
                 <pre className="sd-res" onMouseUp={grab}>
-                  <BlockText text={result} />
+                  <BlockText
+                    text={result}
+                    onBlock={(v, x, y) => setBlockAt({ v, x, y })}
+                  />
                 </pre>
+                )}
+                {/* 블럭 메뉴 — 블럭을 누르면 이 셋이 전부다(합의: 간단하게).
+                    고정 좌표 팝업 — absolute 는 환경 따라 잘린다 */}
+                {blockAt && (
+                  <>
+                    <div className="sd-bmenu-back" onClick={() => setBlockAt(null)} />
+                    <div
+                      className="sd-bmenu"
+                      role="menu"
+                      style={{
+                        left: Math.min(blockAt.x, window.innerWidth - 190),
+                        top: Math.min(blockAt.y + 8, window.innerHeight - 150),
+                      }}
+                    >
+                      <b>{blockAt.v.length > 34 ? `${blockAt.v.slice(0, 34)}…` : blockAt.v}</b>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          addVarFromBlock(blockAt.v)
+                          setBlockAt(null)
+                        }}
+                      >
+                        변수로 담기
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          addChipFrom('has', blockAt.v)
+                          setBlockAt(null)
+                        }}
+                      >
+                        있으면 합격
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          addChipFrom('not', blockAt.v)
+                          setBlockAt(null)
+                        }}
+                      >
+                        있으면 불합격
+                      </button>
+                    </div>
+                  </>
                 )}
                 <div className="sd-pick">
                   {/* 표 응답은 끌어서 고를 것이 아니다. `show int status` 를

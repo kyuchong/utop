@@ -57,28 +57,48 @@ const TOKEN = new RegExp(
  */
 const SKIP_LINE = /^\s*(?:(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s+\w{3}\s+\d|[\w.-]+[#>]\s)/
 
-/** 한 덩어리 블럭 */
-const B = ({ children }: { children: ReactNode }) => <span className="bv-b">{children}</span>
+export default function BlockText({
+  text,
+  onBlock,
+}: {
+  text: string
+  /** 블럭을 눌렀을 때 — 값과 화면 좌표. 안 넘기면 보기만 한다 */
+  onBlock?: (v: string, x: number, y: number) => void
+}) {
+  /** 한 덩어리 블럭 — 누르면 기준·변수 메뉴의 입구가 된다 */
+  const B = ({ children }: { children: string }) => (
+    <span
+      className="bv-b"
+      onClick={
+        onBlock
+          ? (e) => {
+              e.stopPropagation()
+              onBlock(children, e.clientX, e.clientY)
+            }
+          : undefined
+      }
+    >
+      {children}
+    </span>
+  )
 
-/** 자유 글에서 토큰만 블럭으로 */
-function tokenize(s: string, key: number): ReactNode {
-  const parts: ReactNode[] = []
-  let cur = 0
-  let m: RegExpExecArray | null
-  TOKEN.lastIndex = 0
-  let n = 0
-  while ((m = TOKEN.exec(s))) {
-    if (m.index > cur) parts.push(s.slice(cur, m.index))
-    parts.push(<B key={n++}>{m[0]}</B>)
-    cur = m.index + m[0].length
-    if (m.index === TOKEN.lastIndex) TOKEN.lastIndex++
+  /** 자유 글에서 토큰만 블럭으로 */
+  const tokenize = (s: string, key: number): ReactNode => {
+    const parts: ReactNode[] = []
+    let cur = 0
+    let m: RegExpExecArray | null
+    TOKEN.lastIndex = 0
+    let n = 0
+    while ((m = TOKEN.exec(s))) {
+      if (m.index > cur) parts.push(s.slice(cur, m.index))
+      parts.push(<B key={n++}>{m[0]}</B>)
+      cur = m.index + m[0].length
+      if (m.index === TOKEN.lastIndex) TOKEN.lastIndex++
+    }
+    if (!parts.length) return s
+    if (cur < s.length) parts.push(s.slice(cur))
+    return <span key={key}>{parts}</span>
   }
-  if (!parts.length) return s
-  if (cur < s.length) parts.push(s.slice(cur))
-  return <span key={key}>{parts}</span>
-}
-
-export default function BlockText({ text }: { text: string }) {
   const src = String(text ?? '')
   const lines = src.split(/\r?\n/)
   const lay = tableLayout(src)
@@ -127,9 +147,9 @@ export default function BlockText({ text }: { text: string }) {
       out.push(
         <span key={i}>
           {eq[1]}
-          <B>{eq[2]}</B>
+          <B>{eq[2] ?? ''}</B>
           {eq[3]}
-          <B>{eq[4]}</B>
+          <B>{eq[4] ?? ''}</B>
           {eq[5]}
         </span>,
       )
@@ -142,9 +162,9 @@ export default function BlockText({ text }: { text: string }) {
       out.push(
         <span key={i}>
           {m[1]}
-          <B>{m[2]}</B>
+          <B>{m[2] ?? ''}</B>
           {m[3]}
-          <B>{m[4]}</B>
+          <B>{m[4] ?? ''}</B>
           {m[5]}
         </span>,
       )
