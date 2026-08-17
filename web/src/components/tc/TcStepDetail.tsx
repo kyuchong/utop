@@ -639,19 +639,9 @@ export default function TcStepDetail({
               </span>
             </label>
 
-            {/* 돌려보기 전에 지금 값으로 어떻게 되는지 */}
-            {(step.cmpLeft || step.cmpRight) &&
-              (() => {
-                const r = evalCondWhy(
-                  `${step.cmpLeft ?? ''} ${step.cmpOp || '=='} ${step.cmpRight ?? ''}`,
-                  gp.values,
-                )
-                return (
-                  <span className={`sd-cond${r.ok ? ' yes' : ' no'}`}>
-                    지금은 <b>{r.ok ? '합격' : '불합격'}</b> — {r.why}
-                  </span>
-                )
-              })()}
+            {/* 「지금은 합격/불합격」 미리보기는 뺐다 — 실행 중에 생기는
+                변수(치환·앞 스텝 캡처)를 몰라 돌리기도 전에 빨간 「불합격」을
+                띄웠고, 실행 결과로 오해됐다(사용자 지적). 판정은 ▶ 실행이 한다. */}
           </>
         )}
         {kind === 'map' && (
