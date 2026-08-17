@@ -140,7 +140,13 @@ function colVal(k: string, t: TestCaseMeta): string {
     case 'updated_by': return (t.updated_by as string) || '–'
     case 'updated': return String(t._updated_at_pg ?? '').slice(0, 10) || '–'
     case 'status': return t.status || '미실행'
-    default: return ''
+    default:
+      // 커스텀 INFO 필드(cf_<key>) — 값은 data->custom 에 산다
+      if (k.startsWith('cf_')) {
+        const v = (t as unknown as { custom?: Record<string, unknown> }).custom?.[k.slice(3)]
+        return String(v ?? '') || '–'
+      }
+      return ''
   }
 }
 const FILTERABLE = ['model_group', 'model', 'type', 'severity', 'kind', 'status', 'created_by', 'updated_by', 'updated']
@@ -1517,9 +1523,36 @@ export default function TestCases({ me }: PageProps) {
 
   const error = tcQ.error
 
-  const visCols = colOrder
-    .map((k) => COL_DEFS.find((c) => c.k === k))
-    .filter((c): c is (typeof COL_DEFS)[number] => !!c && cols.includes(c.k))
+  /** SETUP 에서 만든 INFO 필드(커스텀)도 열로 — ⚙ 에서 켜고 끈다(피드백) */
+  const cfColsQ = useQuery({
+    queryKey: ['custom-fields', 'tc'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/custom-fields?target=tc')
+      return (await r.json()) as { items?: Array<{ key: string; label: string }> }
+    },
+    staleTime: 30_000,
+  })
+  const allColDefs = useMemo(
+    () => [
+      ...COL_DEFS,
+      ...(cfColsQ.data?.items ?? []).map((f) => ({
+        k: `cf_${f.key}`,
+        label: f.label,
+        w: 'minmax(72px, 110px)',
+      })),
+    ],
+    [cfColsQ.data],
+  )
+  const visCols = useMemo(() => {
+    const ks = allColDefs.map((c) => c.k as string)
+    const order = [
+      ...colOrder.filter((k) => ks.includes(k)),
+      ...ks.filter((k) => !colOrder.includes(k)),
+    ]
+    return order
+      .map((k) => allColDefs.find((c) => c.k === k))
+      .filter((c): c is (typeof allColDefs)[number] => !!c && cols.includes(c.k))
+  }, [allColDefs, colOrder, cols])
   const listGrid = `30px minmax(220px, 1fr) ${visCols.map((c) => c.w).join(' ')}`.trim()
   /** 선택형 열 한 칸 — 열쇠(k)로 그린다 */
   const colCell = (k: string, t: TestCaseMeta) => {
@@ -1564,8 +1597,21 @@ export default function TestCases({ me }: PageProps) {
             ● {t.status || '미실행'}
           </div>
         )
-      default:
+      default: {
+        // 커스텀 INFO 필드 열 — 값은 data->custom 에 산다
+        if (k.startsWith('cf_')) {
+          const v = String(
+            ((t as unknown as { custom?: Record<string, unknown> }).custom?.[k.slice(3)] ?? '') ||
+              '',
+          )
+          return (
+            <div className="muted" key={k} title={v}>
+              {v || '–'}
+            </div>
+          )
+        }
         return null
+      }
     }
   }
 
@@ -2338,9 +2384,12 @@ export default function TestCases({ me }: PageProps) {
                     <>
                       <div className="tc-menu-back" onClick={() => setColsOpen(false)} />
                       <div className="tc-menu tc-colpop" role="menu">
-                        {colOrder
-                          .map((k) => COL_DEFS.find((c) => c.k === k))
-                          .filter((c): c is (typeof COL_DEFS)[number] => !!c)
+                        {[
+                          ...colOrder.filter((k) => allColDefs.some((c) => c.k === k)),
+                          ...allColDefs.map((c) => c.k as string).filter((k) => !colOrder.includes(k)),
+                        ]
+                          .map((k) => allColDefs.find((c) => c.k === k))
+                          .filter((c): c is (typeof allColDefs)[number] => !!c)
                           .map((c) => (
                             <label
                               key={c.k}
@@ -2378,7 +2427,7 @@ export default function TestCases({ me }: PageProps) {
                           className="linkish tc-coldef"
                           onClick={() => {
                             setCols([...COL_DEFAULT])
-                            setColOrder(COL_DEFS.map((c) => c.k as string))
+                            setColOrder(allColDefs.map((c) => c.k as string))
                             setColF({})
                           }}
                         >
@@ -2413,7 +2462,7 @@ export default function TestCases({ me }: PageProps) {
                       },
                       onDrop: (e: React.DragEvent) => e.preventDefault(),
                     }
-                    return FILTERABLE.includes(c.k) ? (
+                    return FILTERABLE.includes(c.k) || c.k.startsWith('cf_') ? (
                       <div key={c.k} className="tc-thdrag" {...dragProps}>
                         <span className="tc-colgrip" aria-hidden="true">⠿</span>
                         {/* 머리 자체가 필터다 — 값을 고르면 그 값만 남는다 */}

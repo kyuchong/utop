@@ -1495,6 +1495,31 @@ function CycleBoard({
   onRun: (id: string) => void
 }) {
   const [q, setQ] = useState('')
+  /** SETUP 의 사이클 INFO 필드를 따라간다(피드백: 탭을 「유형」 으로
+      개명해도 ⚙ 는 「상태」 로 남고, 숨긴 탭도 계속 보였다).
+      실행 결과 탭은 열이 아니라 진행결과 바가 쓰는 값 체계다. */
+  const kindsQ = useQuery({
+    queryKey: ['codes'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes')
+      return (await r.json()) as { kinds?: Record<string, string> }
+    },
+    staleTime: 30_000,
+  })
+  const allCols = useMemo(() => {
+    const kinds = kindsQ.data?.kinds
+    return CYT_COLS.filter((c) => {
+      if (!kinds) return true
+      if (c.k === 'status') return 'cycle_status' in kinds
+      if (c.k === 'customer') return 'cycle_customer' in kinds
+      return true
+    }).map((c) => {
+      if (!kinds) return c
+      if (c.k === 'status' && kinds.cycle_status) return { ...c, label: kinds.cycle_status }
+      if (c.k === 'customer' && kinds.cycle_customer) return { ...c, label: kinds.cycle_customer }
+      return c
+    })
+  }, [kindsQ.data])
   /** ⚙ — 열 보이기/숨기기. 고른 것은 저장한다 */
   const [gearAt2, setGearAt2] = useState<{ x: number; y: number } | null>(null)
   const [cytCols, setCytCols] = useState<Set<string>>(() => {
@@ -1530,14 +1555,17 @@ function CycleBoard({
   })
   /** ⠿ 드래그로 차례를 바꾼다 — 시험항목 화면과 같은 문법 */
   const dragCol = useRef<string | null>(null)
-  /** 차례 반영된 열 정의 */
-  const orderedCols = useMemo(
-    () =>
-      cytOrder
-        .map((k) => CYT_COLS.find((c) => c.k === k))
-        .filter((c): c is (typeof CYT_COLS)[number] => !!c),
-    [cytOrder],
-  )
+  /** 차례 반영된 열 정의 — allCols(SETUP 반영)에 없는 키는 걸러진다 */
+  const orderedCols = useMemo(() => {
+    const ks = allCols.map((c) => c.k)
+    const order = [
+      ...cytOrder.filter((k) => ks.includes(k)),
+      ...ks.filter((k) => !cytOrder.includes(k)),
+    ]
+    return order
+      .map((k) => allCols.find((c) => c.k === k))
+      .filter((c): c is (typeof CYT_COLS)[number] => !!c)
+  }, [cytOrder, allCols])
   const cytGrid = useMemo(() => {
     const parts = ['26px', '20px', 'minmax(105px, 130px)', 'minmax(170px, 1fr)']
     for (const c of orderedCols) if (cytCols.has(c.k)) parts.push(c.w)
@@ -1691,7 +1719,7 @@ function CycleBoard({
   const TH = (col: string, label: string, right?: boolean) => {
     // 정렬 키 ↔ 열 키가 다른 것 하나(pct→prg)만 맞춘다
     const dragKey = col === 'pct' ? 'prg' : col
-    const canDrag = CYT_COLS.some((c3) => c3.k === dragKey)
+    const canDrag = allCols.some((c3) => c3.k === dragKey)
     return (
       <button
         type="button"
@@ -1857,8 +1885,8 @@ function CycleBoard({
                 type="button"
                 className="linkish tc-coldef"
                 onClick={() => {
-                  const defCols = CYT_COLS.map((c3) => c3.k).filter((k) => k !== 'customer')
-                  const defOrder = CYT_COLS.map((c3) => c3.k)
+                  const defCols = allCols.map((c3) => c3.k).filter((k) => k !== 'customer')
+                  const defOrder = allCols.map((c3) => c3.k)
                   setCytCols(new Set(defCols))
                   setCytOrder(defOrder)
                   localStorage.setItem('utop.cycle.cols', JSON.stringify(defCols))
