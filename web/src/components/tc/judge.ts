@@ -512,9 +512,12 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
   const err = looksLikeError(output)
   if (err) return { verdict: 'Fail', reason: `장비 오류 응답 — "${err}"` }
 
-  /* 칩 기준 — 있으면 이것이 정본이다 */
+  /* 칩 기준 — rules 밭이 있으면 그것이 정본이다. **빈 배열도 정본**이다 —
+     칩을 다 지운 것을 「규칙 없음」 으로 보면 옛 criteria 가 되살아난다
+     (지적: 삭제하면 계속 추가됨). */
+  const hasRuleField = Array.isArray((step as { rules?: unknown }).rules)
   const rules = stepRules(step)
-  if (rules.length) {
+  if (hasRuleField || rules.length) {
     // 줄제외 칩 — 그 문구가 든 줄은 판정에서 통째로 뺀다(옛 excludeLines 와 합침)
     const exc = [
       String(step.excludeLines ?? ''),

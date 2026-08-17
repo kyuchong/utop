@@ -88,8 +88,6 @@ export default function TcStepDetail({
   block,
 }: Props) {
   const [picked, setPicked] = useState('')
-  /** 판정 칩 입력칸 */
-  const [critIn, setCritIn] = useState('')
   /** 눌린 블럭 — [변수로 · 있으면 합격 · 있으면 불합격] 메뉴가 뜬 자리 */
   const [blockAt, setBlockAt] = useState<{ v: string; x: number; y: number } | null>(null)
   const [tblOpen, setTblOpen] = useState(false)
@@ -276,8 +274,14 @@ export default function TcStepDetail({
     )
     return outRules
   }
-  const chips: JudgeRule[] = stepRules(step).length ? stepRules(step) : legacyChips()
-  const writeChips = (next: JudgeRule[]) => onChange({ rules: next })
+  // rules 밭이 있으면(빈 배열 포함) 그것만 본다 — 지운 칩이 옛 기준에서
+  // 되살아나지 않게(지적)
+  const chips: JudgeRule[] =
+    Array.isArray((step as { rules?: unknown }).rules) ? stepRules(step) : legacyChips()
+  // 칩을 처음 고치는 순간 옛 밭(criteria·excludeLines)을 비운다 — 안 비우면
+  // 지운 칩이 옛 값에서 판정에 계속 살아남고, 다 지우면 되살아난다(지적)
+  const writeChips = (next: JudgeRule[]) =>
+    onChange({ rules: next, criteria: '', excludeLines: '' })
   const addChipFrom = (t: 'has' | 'not' | 'skip', v: string) => {
     const val = v.trim()
     if (!val) return
@@ -1087,44 +1091,8 @@ export default function TcStepDetail({
                 <span className="muted small">기준이 없으면 판정하지 않습니다 (조회만)</span>
               )}
             </div>
-            <div className="sd-row">
-              <input
-                className="mono"
-                value={critIn}
-                placeholder={'문구 적고 Enter — 응답에 있어야 합격. ${변수} 도 됩니다'}
-                onChange={(e) => setCritIn(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.nativeEvent.isComposing) return
-                  if (e.key === 'Enter') {
-                    e.preventDefault()
-                    addChipFrom('has', critIn)
-                    setCritIn('')
-                  }
-                }}
-              />
-              <button
-                className="btn small"
-                type="button"
-                title="이 문구가 응답에 있어야 합격 (Enter 와 같음)"
-                onClick={() => {
-                  addChipFrom('has', critIn)
-                  setCritIn('')
-                }}
-              >
-                있어야 +
-              </button>
-              <button
-                className="btn small"
-                type="button"
-                title="이 문구가 응답에 있으면 불합격"
-                onClick={() => {
-                  addChipFrom('not', critIn)
-                  setCritIn('')
-                }}
-              >
-                없어야 +
-              </button>
-            </div>
+            {/* 직접 입력칸은 뺐다(지적 ×2) — 기준은 블럭 클릭·글자 끌기로만.
+                응답에 없는 문구가 필요한 드문 경우는 아직 없다는 판단(합의) */}
             {isTbl && (
               <span className="sd-hint">
                 <button className="btn small" type="button" onClick={() => setTblOpen(true)}>
@@ -1139,10 +1107,6 @@ export default function TcStepDetail({
                 것은 이제 <b>Diff 스텝</b>을 쓰세요.
               </span>
             )}
-            <span className="sd-hint">
-              응답의 <b>블럭(네모 친 값)을 눌러도</b> 기준·변수가 됩니다. 칩이 여러 개면{' '}
-              <b>모두</b> 맞아야 합격 · 대소문자는 안 가립니다.
-            </span>
           </div>
         )}
 
@@ -1489,7 +1453,8 @@ export default function TcStepDetail({
                     </>
                   ) : (
                     <span className="muted small">
-                      네모 친 값을 누르거나, 글자를 끌어 기준·변수로 만듭니다
+                      네모 친 값을 누르거나 글자를 끌어 기준·변수를 만듭니다 — 칩이 모두
+                      맞아야 합격, 대소문자는 안 가립니다
                     </span>
                   )}
                 </div>
