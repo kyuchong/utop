@@ -191,8 +191,7 @@ export default function TestCases({ me }: PageProps) {
   const view: 'list' | 'detail' = openId ? 'detail' : 'list'
   const [stepIdx, setStepIdx] = useState(-1)
   const [menuOpen, setMenuOpen] = useState(false)
-  /** 1열 「+」 — 최상위 폴더 입력칸을 연다 (요구사항 화면과 같은 문법) */
-  const [addFolderN, setAddFolderN] = useState(0)
+  // 1열 「+」(최상위 폴더 추가)는 뺐다(피드백) — 최상위=프로젝트.
   /** 3열 머리의 ⋯ — 이 칸을 무엇으로 쓸지 고르는 자리 */
   const [detMenu, setDetMenu] = useState(false)
   /** 명령어 캡쳐를 열면 3열이 그것으로 바뀐다 — 캡쳐하는 동안 스텝 세부는 볼 일이 없다 */
@@ -2110,7 +2109,7 @@ export default function TestCases({ me }: PageProps) {
             name="Coverage Tree"
             count={tcs.length}
             onCollapse={() => setListOpen(false)}
-            add={{ title: '최상위 폴더 추가', onClick: () => setAddFolderN((n) => n + 1) }}
+            // 파란 + 는 뺐다(피드백) — 최상위=프로젝트라 폴더 관리는 요구사항 화면 몫
             picked={
               pickedTc.size > 1 ? (
                 // 세 화면이 같은 말을 쓴다 — 「N건 선택됨」 · ✕ 로 해제.
@@ -2171,7 +2170,6 @@ export default function TestCases({ me }: PageProps) {
                 setListPick(new Set())
                 setOpenId('')
               }}
-              addFolderSignal={addFolderN}
               selectedReq={selReq}
               onSelectReq={(pk) => {
                 if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 옮길까요?')) return
@@ -2281,47 +2279,20 @@ export default function TestCases({ me }: PageProps) {
                     </>
                   )}
                   <span className="sp" />
+                  {/* 검색 — 요구사항 화면과 같은 자리(피드백: 2번 자리) */}
+                  <input
+                    className="tc-listq"
+                    placeholder="검색 (이름 · TC ID)"
+                    value={listQ}
+                    onChange={(e) => setListQ(e.target.value)}
+                  />
                   {/* 펼친(연) 시험에 쓰는 ⋯ — 안 연 것에는 저장·내보내기가 꺼진다 */}
                   {moreMenu}
-                </div>
-              </div>
-
-              <div className="rq-selbar">
-                <label className="rq-selall">
-                  <input
-                    type="checkbox"
-                    checked={shownListRows.length > 0 && listPick.size === shownListRows.length}
-                    ref={(el) => {
-                      if (el)
-                        el.indeterminate =
-                          listPick.size > 0 && listPick.size < shownListRows.length
-                    }}
-                    disabled={!shownListRows.length}
-                    onChange={() =>
-                      setListPick(
-                        listPick.size === shownListRows.length
-                          ? new Set()
-                          : new Set(shownListRows.map((t) => t.tcid)),
-                      )
-                    }
-                  />
-                  Select All
-                </label>
-                <span className="rq-seldiv" aria-hidden="true" />
-                <span className="muted small">Selected : {listPick.size}</span>
-                {/* 표 안 검색 — 트리 검색과 별개로 지금 자리에서 좁힌다 */}
-                <input
-                  className="tc-listq"
-                  placeholder="검색 (이름 · TC ID)"
-                  value={listQ}
-                  onChange={(e) => setListQ(e.target.value)}
-                />
-                {/* 열 설정 ⚙ — 표 바로 위 오른끝. 보이기/숨기기 + 끌어서 차례 바꾸기 */}
-                <div className="tc-more">
+                  {/* ⚙ — ⋯ 오른쪽(피드백). 고정 좌표 팝업이라 어디서든 뜬다 */}
                   <button
                     className="btn tc-gear"
                     type="button"
-                    title="열 보이기/숨기기 · 차례 바꾸기"
+                    title="열(INFO 필드) 보이기/숨기기"
                     aria-haspopup="menu"
                     aria-expanded={colsOpen}
                     onClick={() => setColsOpen((v) => !v)}
@@ -2330,8 +2301,16 @@ export default function TestCases({ me }: PageProps) {
                   </button>
                   {colsOpen && (
                     <>
-                      <div className="tc-menu-back" onClick={() => setColsOpen(false)} />
-                      <div className="tc-menu tc-colpop" role="menu">
+                      <div
+                        className="tc-menu-back"
+                        style={{ zIndex: 60 }}
+                        onClick={() => setColsOpen(false)}
+                      />
+                      <div
+                        className="tc-menu tc-colpop"
+                        role="menu"
+                        style={{ position: 'fixed', right: 16, top: 108, zIndex: 61 }}
+                      >
                         {/* SETUP 시험항목 INFO 필드와 1:1(합의 규칙) */}
                         {infoColDefs.length === 0 && (
                           <span className="muted small">
@@ -2366,6 +2345,31 @@ export default function TestCases({ me }: PageProps) {
                     </>
                   )}
                 </div>
+              </div>
+
+              <div className="rq-selbar">
+                <label className="rq-selall">
+                  <input
+                    type="checkbox"
+                    checked={shownListRows.length > 0 && listPick.size === shownListRows.length}
+                    ref={(el) => {
+                      if (el)
+                        el.indeterminate =
+                          listPick.size > 0 && listPick.size < shownListRows.length
+                    }}
+                    disabled={!shownListRows.length}
+                    onChange={() =>
+                      setListPick(
+                        listPick.size === shownListRows.length
+                          ? new Set()
+                          : new Set(shownListRows.map((t) => t.tcid)),
+                      )
+                    }
+                  />
+                  Select All
+                </label>
+                <span className="rq-seldiv" aria-hidden="true" />
+                <span className="muted small">Selected : {listPick.size}</span>
               </div>
 
               <div className="rq-table">
