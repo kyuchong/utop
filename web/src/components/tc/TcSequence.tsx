@@ -151,7 +151,12 @@ export default function TcSequence({
             </span>
           </div>
         ) : (
-          steps.map((s, i) => {
+          (() => {
+            /* 접을 줄이 하나라도 있을 때만 캐럿 자리를 비워 둔다.
+               평평한 목록에서는 그 자리가 통째로 빈 열로 보였다(지적: 3번 공백).
+               섞인 목록에서는 전 줄이 같은 자리를 비워야 아이콘이 안 들쭉거린다. */
+            const anyFold = steps.some((_, at) => blockEnd(steps, at) - at - 1 > 0)
+            return steps.map((s, i) => {
             if (hide?.(s)) return null
             if (folded.has(i)) return null
             const info = stepKindInfo(s.kind)
@@ -233,9 +238,9 @@ export default function TcSequence({
                     >
                       <IconChevron />
                     </button>
-                  ) : (
+                  ) : anyFold ? (
                     <span className="sq-caret" />
-                  )}
+                  ) : null}
                   <StepIcon name={info.icon} className={`sq-ic g-${info.group}`} />
                   {info.label}
                 </span>
@@ -333,7 +338,8 @@ export default function TcSequence({
                 </span>
               </div>
             )
-          })
+            })
+          })()
         )}
 
       {/* 스텝 추가. 마지막 줄 바로 아래에 둔다 — 바닥에 고정하면 스텝이
