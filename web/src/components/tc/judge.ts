@@ -522,13 +522,14 @@ export function applySkips(text: string, step: TcStep): string {
   ]
     .filter(Boolean)
     .join('\n')
-  let out = applyExclude(String(text ?? ''), subs)
-  if (rules.some((r) => r.v === SKIP_TIME))
-    out = out
-      .split(/\r?\n/)
-      .filter((l) => !TIME_LINE.test(l))
-      .join('\n')
+  const out = applyExclude(String(text ?? ''), subs)
+  /* 시각 줄은 **칩이 있든 없든 항상** 뺀다 — 순서 합의:
+     ①시각 자동 제거 → ②줄제외 칩 → ③변수 캡처 → ④판정.
+     「저장 먼저, 제외 나중」 이 되면 변수에 시각이 박힌다(지적). */
   return out
+    .split(/\r?\n/)
+    .filter((l) => !TIME_LINE.test(l))
+    .join('\n')
 }
 
 export function stepRules(step: TcStep): JudgeRule[] {
