@@ -490,8 +490,7 @@ export default function TestCases({ me }: PageProps) {
     setOpenId('')
   }
 
-  /** 길의 끝 — 내려받는 파일 이름 같은 데 쓴다 */
-  const whereName = wherePath.length ? (wherePath[wherePath.length - 1]?.name ?? '') : ''
+  // whereName(내려받기 파일 이름)은 Export 와 함께 뺐다.
 
   /**
    * 목록을 CSV 로.
@@ -500,31 +499,8 @@ export default function TestCases({ me }: PageProps) {
    * 내보내려면 List 로 건너가야 했다 — 요구사항 화면은 `⋯` 에 있는데
    * 여기만 그랬다. 둘이 같은 것을 쓰도록 밖으로 뽑는다.
    */
-  const exportCsv = (rows: TestCaseMeta[]) => {
-    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-    const csv = [
-      ['요구사항', 'TC ID', '이름', '유형', '스텝', '상태'].map(esc).join(','),
-      ...rows.map((t) => {
-        const r = reqByKey.get(t.req_id || '')
-        return [
-          r ? r.title || reqLabel(r) : '',
-          t.tcid,
-          t.name ?? '',
-          t.type ?? '',
-          t._cli_count ?? 0,
-          t.status ?? '',
-        ]
-          .map(esc)
-          .join(',')
-      }),
-    ].join('\r\n')
-    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `시험항목_${whereName || '전체'}.csv`
-    a.click()
-    URL.revokeObjectURL(a.href)
-  }
+  // Export(CSV) 는 도구줄에서 뺐다(피드백 — 요구사항 화면과 같은 규칙).
+  // 필요해지면 exportCsv 를 git 이력(68596e4 이전)에서 되살린다.
 
   /**
    * 열어 둔 시험이 **어느 폴더의 어느 요구사항** 것인가.
@@ -2242,93 +2218,73 @@ export default function TestCases({ me }: PageProps) {
             <div className="rq-list">
               <div className="tc-listhead">
                 <div className="rq-actions">
-                  {/* 한 건이면 Edit, 둘 이상이면 Bulk Edit 만 켜진다 —
-                      무엇이 눌리는지가 고른 수로 정해져 헷갈릴 일이 없다. */}
-                  <button
-                    className="btn"
-                    type="button"
-                    disabled={listPick.size !== 1}
-                    title={
-                      listPick.size === 1 ? '고른 시험을 고칩니다' : '한 건만 골랐을 때 켜집니다'
-                    }
-                    onClick={() => {
-                      const id = [...listPick][0]
-                      const meta = tcs.find((x) => x.tcid === id)
-                      if (meta) setForm(meta)
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="btn"
-                    type="button"
-                    disabled={listPick.size < 2}
-                    title={
-                      listPick.size >= 2
-                        ? `고른 ${listPick.size}건을 한꺼번에 고칩니다`
-                        : '둘 이상 골랐을 때 켜집니다'
-                    }
-                    onClick={() => setBulkEdit(true)}
-                  >
-                    Bulk Edit
-                  </button>
-                  <span className="rq-adiv" aria-hidden="true" />
+                  {/* 요구사항 2열과 같은 규칙(피드백):
+                      없음   → + New · + Bulk New
+                      1건    → … | Edit  Clone | Delete
+                      2건 이상 → … | Bulk Edit  Clone | Delete
+                      Export 는 뺐다. Delete 는 구분선 너머 끝자리. */}
                   <button className="btn" type="button" onClick={() => setForm(null)}>
-                    Add
+                    + New
                   </button>
-                  {/* 고른 것을 그대로 하나 더 만든다.
-                      스텝까지 통째로 베낀다 — 이름만 같은 빈 껍데기를 만들면
-                      결국 손으로 다시 짜야 하고, 그럴 바엔 Add 를 쓴다. */}
-                  <button
-                    className="btn"
-                    type="button"
-                    disabled={listPick.size === 0 || cloning}
-                    title={
-                      listPick.size
-                        ? `고른 ${listPick.size}건을 복사합니다 (스텝까지)`
-                        : '복사할 시험을 고르세요'
-                    }
-                    onClick={() => setCloneAsk(true)}
-                  >
-                    {cloning ? '복사 중…' : 'Clone'}
-                  </button>
-                  {/* 여러 건을 한 번에 만드는 창 — 요구사항 화면과 같은 이름.
-                      「Import」 라고 하니 파일 가져오기로 읽혔다. */}
+                  {/* 여러 건을 한 번에 만드는 창 — 요구사항 화면과 같은 이름 */}
                   <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
-                    Bulk Add
+                    + Bulk New
                   </button>
-                  <button
-                    className="btn danger"
-                    type="button"
-                    disabled={!listPick.size}
-                    onClick={() => {
-                      const ids = [...listPick]
-                      if (!window.confirm(`고른 시험 ${ids.length}건을 삭제합니다.\n되돌릴 수 없습니다.`))
-                        return
-                      void (async () => {
-                        for (const id of ids) await tcApi.remove(id)
-                        setListPick(new Set())
-                        void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
-                      })()
-                    }}
-                  >
-                    Delete
-                  </button>
-                  <button
-                    className="btn"
-                    type="button"
-                    disabled={!listRows.length}
-                    title={listPick.size ? '고른 것만 내보냅니다' : '이 자리 전체를 내보냅니다'}
-                    onClick={() =>
-                      exportCsv(
-                        listPick.size
-                          ? shownListRows.filter((t) => listPick.has(t.tcid))
-                          : shownListRows,
-                      )
-                    }
-                  >
-                    Export
-                  </button>
+                  {listPick.size > 0 && (
+                    <>
+                      <span className="cy-vsep" aria-hidden="true" />
+                      {listPick.size === 1 ? (
+                        <button
+                          className="btn"
+                          type="button"
+                          title="고른 시험을 고칩니다"
+                          onClick={() => {
+                            const id = [...listPick][0]
+                            const meta = tcs.find((x) => x.tcid === id)
+                            if (meta) setForm(meta)
+                          }}
+                        >
+                          Edit
+                        </button>
+                      ) : (
+                        <button
+                          className="btn"
+                          type="button"
+                          title={`고른 ${listPick.size}건을 한꺼번에 고칩니다`}
+                          onClick={() => setBulkEdit(true)}
+                        >
+                          Bulk Edit
+                        </button>
+                      )}
+                      {/* 고른 것을 그대로 하나 더 — 스텝까지 통째로 베낀다 */}
+                      <button
+                        className="btn"
+                        type="button"
+                        disabled={cloning}
+                        title={`고른 ${listPick.size}건을 복사합니다 (스텝까지)`}
+                        onClick={() => setCloneAsk(true)}
+                      >
+                        {cloning ? '복사 중…' : 'Clone'}
+                      </button>
+                      <span className="cy-vsep" aria-hidden="true" />
+                      <button
+                        className="btn danger"
+                        type="button"
+                        onClick={() => {
+                          const ids = [...listPick]
+                          if (!window.confirm(`고른 시험 ${ids.length}건을 삭제합니다.\n되돌릴 수 없습니다.`))
+                            return
+                          void (async () => {
+                            for (const id of ids) await tcApi.remove(id)
+                            setListPick(new Set())
+                            void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
+                          })()
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </>
+                  )}
                   <span className="sp" />
                   {/* 펼친(연) 시험에 쓰는 ⋯ — 안 연 것에는 저장·내보내기가 꺼진다 */}
                   {moreMenu}
