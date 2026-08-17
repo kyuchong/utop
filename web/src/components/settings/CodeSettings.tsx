@@ -312,21 +312,63 @@ export default function CodeSettings({ target }: Props) {
               setNote({ kind: '', msg: '' })
             }}
             onDoubleClick={() => {
-              if (t.cf) return // 만든 탭 이름은 커스텀 필드 화면에서
-              const nm = window.prompt('탭 이름 (비우면 원래 이름으로)', t.label)
+              // 만든 탭도 그 자리에서 바꾼다(피드백) — 「커스텀 필드
+              // 화면에서만」 은 어디서 되는지 못 찾게 만들 뿐이었다.
+              const nm = window.prompt(
+                t.cf ? '탭 이름' : '탭 이름 (비우면 원래 이름으로)',
+                t.label,
+              )
               if (nm === null) return
+              if (t.cf) {
+                if (!nm.trim()) return
+                void apiFetch('/api/custom-fields', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ ...t.cf, label: nm.trim() }),
+                }).then(invalidate)
+                return
+              }
               void apiFetch('/api/codes/kind-label', {
                 method: 'POST',
                 body: JSON.stringify({ kind: t.key, label: nm.trim() }),
               }).then(invalidate)
             }}
-            title={t.cf ? '' : '더블클릭하면 탭 이름을 바꿉니다'}
+            title="더블클릭하면 탭 이름을 바꿉니다"
           >
             {t.label}
             {/* 우리가 만든 탭은 표시해 둔다 — 기본 칸과 달리 지울 수 있어서,
                 구분이 안 되면 지워도 되는지 매번 판단해야 한다. */}
             {t.cf && <span className="seg-made">추가</span>}
             <span className="cnt">{t.values.length}</span>
+            {t.cf && kind === t.key && (
+              <span
+                className="seg-x"
+                role="button"
+                title="이 탭(만든 칸)을 지웁니다 — 저장된 값 자료는 남습니다"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const used = (t.cf as { used?: number }).used ?? 0
+                  if (
+                    !window.confirm(
+                      `「${t.label}」 탭을 지울까요?${
+                        used
+                          ? `\n${used}건이 이 칸에 값을 갖고 있습니다 — 정의만 지워지고 값 자료는 남습니다.`
+                          : '\n값 자료는 지워지지 않습니다.'
+                      }`,
+                    )
+                  )
+                    return
+                  void apiFetch(`/api/custom-fields/${(t.cf as { id: number }).id}`, {
+                    method: 'DELETE',
+                  }).then(() => {
+                    invalidate()
+                    setKind('')
+                  })
+                }}
+              >
+                ✕
+              </span>
+            )}
             {!t.cf && kind === t.key && (
               <span
                 className="seg-x"
