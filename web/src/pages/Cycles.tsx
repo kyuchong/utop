@@ -2717,7 +2717,12 @@ function CycleDetail({
   const sideRef = useRef<HTMLElement | null>(null)
 
   /** 고른 항목의 시험 문서(Objective·Precondition) — TC 가 정본이라 그때 읽는다 */
-  const [tcDoc, setTcDoc] = useState<{ object_md?: string; precondition_md?: string } | null>(null)
+  const [tcDoc, setTcDoc] = useState<{
+    object_md?: string
+    precondition_md?: string
+    /** TC 의 스텝 — 항목에 스냅샷이 없을 때 여기서 뜬다 */
+    checks?: TcStep[]
+  } | null>(null)
 
   /**
    * 지금 열어 둔 항목에 걸린 결함. 「결함 등록」 을 「결함 봄」 으로 가른다.
@@ -2982,9 +2987,12 @@ function CycleDetail({
     return m
   }, [tcMetaQ3.data])
   const typeOf = (it: CycleItemLite): 'manual' | 'auto' => {
-    const rt = String(tcRun.get(it.tcid) ?? '').trim()
-    if (rt === '자동') return 'auto'
-    if (rt === '수동' || rt === '혼합') return 'manual'
+    // 실행 타입의 값 체계는 SETUP 에서 바꿀 수 있다 — 'A'/'M' 을 쓰는
+    // 곳이 실제로 있다. '자동' 글자만 알아듣던 탓에 A 로 적은 자동 TC 가
+    // 사이클에서 전부 M(수동)으로 보였고 자동 실행 단추도 안 떴다.
+    const rt = String(tcRun.get(it.tcid) ?? '').trim().toUpperCase()
+    if (rt === '자동' || rt === 'A' || rt === 'AUTO') return 'auto'
+    if (rt === '수동' || rt === '혼합' || rt === 'M' || rt === 'MANUAL') return 'manual'
     const kd = kindOf(it.steps ?? [])
     return kd === 'auto' || kd === 'mixed' ? 'auto' : 'manual'
   }
@@ -3195,9 +3203,10 @@ function CycleDetail({
       .then(async (r) => {
         if (!r.ok || dead) return
         const j = (await r.json()) as {
-          data?: { object_md?: string; precondition_md?: string }
+          data?: { object_md?: string; precondition_md?: string; checks?: TcStep[] }
           object_md?: string
           precondition_md?: string
+          checks?: TcStep[]
         }
         if (!dead) setTcDoc(j.data ?? j)
       })
@@ -3208,6 +3217,33 @@ function CycleDetail({
       dead = true
     }
   }, [cur?.tcid])
+
+  /**
+   * 항목에 스텝 스냅샷이 없으면 TC 에서 뜬다.
+   *
+   * 항목은 추가될 때 steps:[] 로 만들어진다(CycleEdit). 그래서 TC 에
+   * 수동 절차가 버젓이 있는데 2열 Details 가 「스텝 내용 없음」 이었다
+   * (지적: Store·Operating temperature). 열 때 TC 실행 타입에 맞는
+   * 스텝만 떠서 채우면, 그대로 이 회차의 스냅샷이 된다 — 결과 기록
+   * (setStepResult)도 이 줄들에 쌓인다.
+   */
+  useEffect(() => {
+    const tcid = cur?.tcid
+    const checks = tcDoc?.checks
+    if (!tcid || !checks?.length) return
+    if ((cur?.steps?.length ?? 0) > 0) return
+    const md = typeOf(cur!)
+    const seed = checks.filter((s) => (md === 'manual' ? s.kind === 'manual' : s.kind !== 'manual'))
+    if (!seed.length) return
+    void saveItems((xs) =>
+      xs.map((x) =>
+        x.tcid === tcid && !x.steps?.length
+          ? { ...x, steps: seed as unknown as CycleStep[] }
+          : x,
+      ),
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tcDoc, cur?.tcid])
 
   return (
     <div className="cy-detail">
