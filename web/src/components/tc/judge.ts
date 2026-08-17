@@ -729,6 +729,16 @@ export function extractOne(rule: string, text: string): string | null {
 
 export function extractVars(step: TcStep, output: string): Record<string, string> {
   const out: Record<string, string> = {}
+  /* 줄제외 칩(+옛 뺄 줄)은 캡처에서도 그 줄을 뺀다 — 「전체를 변수로」 가
+     날짜 줄까지 담으면 뒤 Diff 가 늘 다르다고 한다(지적). 판정과 캡처가
+     같은 눈을 쓴다: 제외 = 이 스텝에서 그 줄은 없는 셈. */
+  const exc = [
+    String(step.excludeLines ?? ''),
+    ...stepRules(step).filter((r) => r.t === 'skip').map((r) => String(r.v ?? '')),
+  ]
+    .filter(Boolean)
+    .join('\n')
+  output = applyExclude(String(output ?? ''), exc)
   const rules: Array<{ name?: string; rule?: string }> = [
     ...(step.queries ?? []).map((x) => ({ name: x.var, rule: x.q })),
     ...(step.extracts ?? []).map((x) => ({ name: x.var, rule: x.rule })),

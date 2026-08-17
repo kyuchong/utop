@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { IconIndent, IconOutdent } from '../icons'
 import {
+  applyExclude,
   applyMapRules,
   evalCondWhy,
   extractOne,
@@ -280,6 +281,11 @@ export default function TcStepDetail({
     Array.isArray((step as { rules?: unknown }).rules) ? stepRules(step) : legacyChips()
   // 칩을 처음 고치는 순간 옛 밭(criteria·excludeLines)을 비운다 — 안 비우면
   // 지운 칩이 옛 값에서 판정에 계속 살아남고, 다 지우면 되살아난다(지적)
+  /** 캡처·미리보기용 출력 — 줄제외 칩이 적용된 것(판정·캡처와 같은 눈) */
+  const capSrc = applyExclude(
+    result,
+    chips.filter((c) => c.t === 'skip').map((c) => c.v).join('\n'),
+  )
   const writeChips = (next: JudgeRule[]) =>
     onChange({ rules: next, criteria: '', excludeLines: '' })
   const addChipFrom = (t: 'has' | 'not' | 'skip', v: string) => {
@@ -1135,7 +1141,7 @@ export default function TcStepDetail({
                     onChange({ extracts: (step.extracts ?? []).filter((_, j) => j !== i) }),
                 })),
               ].map((v) => {
-                const got = v.rule ? extractOne(v.rule, result) : null
+                const got = v.rule ? extractOne(v.rule, capSrc) : null
                 return (
                   <div className="sd-vrow" key={v.key}>
                     <span className="sd-var">${v.name || '?'}</span>
