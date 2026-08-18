@@ -229,10 +229,28 @@ export default function AskBar({ devices }: Props) {
    * 나오고, 고른 장비에 맞춰 옮겨 준다.
    */
   const [tcAll, setTcAll] = useState<
-    Array<{ tcid: string; name: string; model: string; steps: number; path: string[] }>
+    Array<{
+      tcid: string
+      name: string
+      model: string
+      mgroup: string
+      status: string
+      type: string
+      steps: number
+      /** 트리에서 이 항목이 걸린 마디들 — 뿌리부터 요구사항까지 */
+      chain: string[]
+      /** 보여 줄 자리 이름 */
+      path: string[]
+    }>
   >([])
-  /** 창에서 고른 트리 자리 (예: `SW · MAINT · SNMPv2`). 빈 글자면 전부 */
+  /** Coverage 와 같은 트리 — 마디 하나 */
+  const [tcTree, setTcTree] = useState<
+    Array<{ id: string; name: string; kind: 'cat' | 'req'; depth: number; parent: string }>
+  >([])
+  /** 창에서 고른 트리 마디 id. 빈 글자면 전부 */
   const [tcFold, setTcFold] = useState('')
+  /** 펼쳐 둔 마디 */
+  const [tcOpen, setTcOpen] = useState<Set<string>>(new Set())
   /** 고른 장비 모델 것만 보이기 — 기본 켬(지시) */
   const [tcOnlyModel, setTcOnlyModel] = useState(true)
   /** 접어 둔 단계 — 다 끝난 단계는 접어 치울 수 있다 */
@@ -316,32 +334,68 @@ export default function AskBar({ devices }: Props) {
         const bt = (await rt.json()) as { tcs?: Array<Record<string, unknown>> }
         const bq = (await rq.json()) as { reqs?: Array<Record<string, unknown>> }
         const bc = (await rc.json()) as { categories?: Array<{ id: string; name: string }> }
-        const catName = new Map((bc.categories ?? []).map((c) => [String(c.id), String(c.name)]))
-        const pathOf = new Map<string, string[]>()
+        /*
+         * Coverage 트리를 **그 모양 그대로** 세운다(지시).
+         *   분류(cat) 나무 → 그 아래 요구사항(req) 마디 → 그 아래 시험 항목
+         * 항목마다 뿌리부터 요구사항까지의 마디 사슬을 들려 보낸다 — 어느
+         * 마디를 골라도 그 아래 것이 다 걸리게.
+         */
+        const cats = (bc.categories ?? []).map((c) => ({
+          id: String(c.id),
+          name: String(c.name),
+          parent: String((c as { parent_id?: string | null }).parent_id ?? ''),
+          sort: Number((c as { sort_order?: number }).sort_order ?? 0),
+        }))
+        const catById = new Map(cats.map((c) => [c.id, c]))
+        const chainOf = new Map<string, string[]>()   // req 키 → 마디 사슬
+        const nameOf = new Map<string, string[]>()    // req 키 → 자리 이름
+        const nodes: Array<{ id: string; name: string; kind: 'cat' | 'req'; depth: number; parent: string; sort: number }> = []
+        const seen = new Set<string>()
+        const putCat = (id: string): number => {
+          const c = catById.get(id)
+          if (!c) return -1
+          const d = c.parent ? putCat(c.parent) + 1 : 0
+          if (!seen.has(id)) {
+            seen.add(id)
+            nodes.push({ id, name: c.name, kind: 'cat', depth: d, parent: c.parent, sort: c.sort })
+          }
+          return d
+        }
         for (const r3 of bq.reqs ?? []) {
-          const names = [r3.cat1, r3.cat2, r3.cat3, r3.cat4]
-            .map((c) => catName.get(String(c ?? '')) ?? '')
-            .filter(Boolean)
-          /* 트리의 **마지막 마디는 요구사항** 이다 — Coverage 화면의
-             「MAINT ▸ 📄 SNMPv2」 에서 SNMPv2 가 그것이다. 이 마디를 안 넣으면
-             「SNMP 시험해줘」 가 짚을 자리가 없다(지시한 바로 그 예). */
+          const ids = [r3.cat1, r3.cat2, r3.cat3, r3.cat4].map((c) => String(c ?? '')).filter((c) => catById.has(c))
+          let d = -1
+          for (const id of ids) d = putCat(id)
           const leaf = String(r3.title ?? '').trim() || String(r3.reqid ?? '').trim()
+          const rid = `req:${String(r3.id ?? r3.reqid ?? '')}`
+          if (leaf && !seen.has(rid)) {
+            seen.add(rid)
+            nodes.push({ id: rid, name: leaf, kind: 'req', depth: d + 1, parent: ids[ids.length - 1] ?? '', sort: 0 })
+          }
+          const names = ids.map((c) => catById.get(c)?.name ?? '').filter(Boolean)
           if (leaf) names.push(leaf)
           // ★ 시험 항목의 req_id 는 요구사항의 **속 id**(rq-…) 다. 겉으로 보이는
           //   번호(REQ-…)로만 걸면 하나도 안 맞아 트리가 통째로 빈다(실측).
           for (const key of [r3.id, r3.reqid]) {
             const k2 = String(key ?? '')
-            if (k2) pathOf.set(k2, names)
+            if (!k2) continue
+            chainOf.set(k2, [...ids, ...(leaf ? [rid] : [])])
+            nameOf.set(k2, names)
           }
         }
+        nodes.sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name))
+        setTcTree(nodes.map(({ sort: _s, ...n }) => n))
         setTcAll(
           (bt.tcs ?? [])
             .map((t) => ({
               tcid: String(t.tcid ?? ''),
               name: String(t.name ?? t.tcid ?? ''),
               model: String(t.model ?? ''),
+              mgroup: String((t as { model_group?: string }).model_group ?? ''),
+              status: String(t.status ?? ''),
+              type: String(t.type ?? ''),
               steps: Number(t._cli_count ?? 0),
-              path: pathOf.get(String(t.req_id ?? '')) ?? [],
+              chain: chainOf.get(String(t.req_id ?? '')) ?? [],
+              path: nameOf.get(String(t.req_id ?? '')) ?? [],
             }))
             // 스텝이 없는 항목은 가져와도 빈 절차다 — 고를 수 없게 둔다
             .filter((t) => t.tcid && t.steps > 0),
@@ -772,29 +826,32 @@ export default function AskBar({ devices }: Props) {
     const t = flat(q)
     if (!t) return ''
     let best = '',
-      bestDeep = -1,
-      bestN = 0
-    const n = new Map<string, number>()
-    for (const x of tcAll) {
-      const k = x.path.join(' · ')
-      if (k) n.set(k, (n.get(k) ?? 0) + 1)
-    }
-    for (const [k, cnt] of n) {
-      const segs = k.split(' · ')
-      for (let i = 0; i < segs.length; i++) {
-        const f = flat(segs[i] ?? '')
-        if (f.length < 2) continue
-        const hit = t.includes(f) || (f.length >= 4 && t.includes(f.slice(0, 4)))
-        if (!hit) continue
-        // 더 깊은 자리가 이긴다 — 같은 깊이면 항목이 많은 쪽
-        if (i > bestDeep || (i === bestDeep && cnt > bestN)) {
-          best = k
-          bestDeep = i
-          bestN = cnt
-        }
+      bestDeep = -1
+    for (const nd of tcTree) {
+      const f = flat(nd.name)
+      if (f.length < 2) continue
+      const hit = t.includes(f) || (f.length >= 4 && t.includes(f.slice(0, 4)))
+      if (!hit) continue
+      // 더 깊은 마디가 이긴다 — 「E6100 SNMP」 면 뿌리(E6100)보다 SNMPv2
+      if (nd.depth > bestDeep) {
+        best = nd.id
+        bestDeep = nd.depth
       }
     }
     return best
+  }
+
+  /** 그 마디의 조상들 — 트리를 그만큼 펴 준다 */
+  const openTo = (id: string): Set<string> => {
+    const up = new Map(tcTree.map((n) => [n.id, n.parent]))
+    const out = new Set<string>()
+    let cur = up.get(id) ?? ''
+    while (cur) {
+      out.add(cur)
+      cur = up.get(cur) ?? ''
+    }
+    if (id) out.add(id)
+    return out
   }
 
   /** 적은 말에서 모델 이름을 찾아 그 모델 장비들을 모은다 */
@@ -890,7 +947,12 @@ export default function AskBar({ devices }: Props) {
     setTcFind('')
     const fold = foldOf(said)
     setTcFold(fold)
-    if (fold) setFlowLog((v) => [...v, { s: 1, t: `Coverage 트리의 「${fold}」 를 폄` }])
+    setTcOpen(openTo(fold))
+    if (fold)
+      setFlowLog((v) => [
+        ...v,
+        { s: 1, t: `Coverage 트리의 「${tcTree.find((n) => n.id === fold)?.name ?? ''}」 를 폄` },
+      ])
     setLikeAsk(true)
   }
 
@@ -1885,10 +1947,14 @@ export default function AskBar({ devices }: Props) {
                                   setTcFind('')
                                   const fd = foldOf(asked)
                                   setTcFold(fd)
+                                  setTcOpen(openTo(fd))
                                   if (fd)
                                     setFlowLog((v) => [
                                       ...v,
-                                      { s: 1, t: `Coverage 트리의 「${fd}」 를 폄` },
+                                      {
+                                        s: 1,
+                                        t: `Coverage 트리의 「${tcTree.find((n) => n.id === fd)?.name ?? ''}」 를 폄`,
+                                      },
                                     ])
                                   setLikeAsk(true)
                                 })
@@ -1947,8 +2013,15 @@ export default function AskBar({ devices }: Props) {
                       setTcFind('')
                       const fd = foldOf(asked)
                       setTcFold(fd)
+                      setTcOpen(openTo(fd))
                       if (fd)
-                        setFlowLog((v) => [...v, { s: 1, t: `Coverage 트리의 「${fd}」 를 폄` }])
+                        setFlowLog((v) => [
+                          ...v,
+                          {
+                            s: 1,
+                            t: `Coverage 트리의 「${tcTree.find((n) => n.id === fd)?.name ?? ''}」 를 폄`,
+                          },
+                        ])
                       setLikeAsk(true)
                     })
                   }}
@@ -2003,15 +2076,7 @@ export default function AskBar({ devices }: Props) {
               </label>
             </div>
             {(() => {
-              /*
-               * **모델명이 같은 것만** 본다(지시, 두 번 짚어 주심).
-               *
-               * 처음엔 「공용」·빈 값도 남겼다 — 어느 모델에나 쓰는 항목이라
-               * 여겼다. 그러나 고른 것은 E6100 인데 E5724RL·U9532H 항목이
-               * 함께 뜬다. 모델명이 안 맞으면 뺀다. 이 랩은 공용 항목이 많아
-               * 이러면 남는 것이 없을 수 있는데, 그때는 아래 안내대로
-               * 「E6100 것만」 을 끄면 된다.
-               */
+              /* **모델명이 같은 것만** 본다(지시). 공용·빈 값도 뺀다 */
               const myModel = (curDev?.model ?? '').trim().toLowerCase()
               const forMe = (t: { model?: string }) => {
                 if (!tcOnlyModel || !myModel) return true
@@ -2023,78 +2088,119 @@ export default function AskBar({ devices }: Props) {
                 x.name.toLowerCase().includes(q) ||
                 x.tcid.toLowerCase().includes(q) ||
                 x.model.toLowerCase().includes(q)
-              /* 트리 자리별로 묶는다 — 왼쪽에서 자리를 고르면 그 안만 본다 */
-              const folds = new Map<string, number>()
-              for (const t of tcAll) {
-                if (!forMe(t)) continue
-                const k = t.path.join(' · ')
-                if (!k) continue
-                folds.set(k, (folds.get(k) ?? 0) + 1)
+              const mine = tcAll.filter((x) => forMe(x) && hit(x))
+              /* 마디마다 그 **아래 전부**를 센다 — 폴더를 골라도 걸리게 */
+              const cnt = new Map<string, number>()
+              for (const t of mine) for (const nd of t.chain) cnt.set(nd, (cnt.get(nd) ?? 0) + 1)
+              const kids = (pid: string) =>
+                tcTree.filter((n) => n.parent === pid && (cnt.get(n.id) ?? 0) > 0)
+              const near = new Map(like.map((x, i) => [x.tcid, i]))
+              const rows = mine
+                .filter((x) => !tcFold || x.chain.includes(tcFold))
+                // 말과 비슷하다고 서버가 짚어 준 것을 맨 위로
+                .sort((a, b) => (near.get(a.tcid) ?? 99) - (near.get(b.tcid) ?? 99))
+              const foldName = tcTree.find((n) => n.id === tcFold)?.name ?? ''
+
+              /** 트리 한 줄 — 폴더는 접었다 폈다, 요구사항은 문서 */
+              const line = (nd: { id: string; name: string; kind: 'cat' | 'req'; depth: number }) => {
+                const kk = kids(nd.id)
+                const open = tcOpen.has(nd.id)
+                return (
+                  <div key={nd.id}>
+                    <div
+                      className={`ask-tnode${tcFold === nd.id ? ' on' : ''}`}
+                      style={{ paddingLeft: 6 + nd.depth * 13 }}
+                    >
+                      <button
+                        type="button"
+                        className="ask-tcar"
+                        disabled={kk.length === 0}
+                        onClick={() =>
+                          setTcOpen((v) => {
+                            const n2 = new Set(v)
+                            if (n2.has(nd.id)) n2.delete(nd.id)
+                            else n2.add(nd.id)
+                            return n2
+                          })
+                        }
+                      >
+                        {kk.length === 0 ? '' : open ? '▾' : '▸'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ask-tname"
+                        title={nd.name}
+                        onClick={() => {
+                          setTcFold(tcFold === nd.id ? '' : nd.id)
+                          setTcOpen((v) => new Set([...v, nd.id]))
+                        }}
+                      >
+                        <i>{nd.kind === 'cat' ? '📁' : '📄'}</i>
+                        <span>{nd.name}</span>
+                        <em>{cnt.get(nd.id) ?? 0}</em>
+                      </button>
+                    </div>
+                    {open && kk.map((k2) => line(k2))}
+                  </div>
+                )
               }
-              const foldList = [...folds.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-              const inFold = (t: { path: string[] }) => !tcFold || t.path.join(' · ') === tcFold
-              const likeIds = new Set(like.map((x) => x.tcid))
-              const near = (q || tcFold ? [] : like).filter((x) => forMe(x))
-              const rest = tcAll.filter(
-                (x) => inFold(x) && forMe(x) && hit(x) && (q || tcFold || !likeIds.has(x.tcid)),
-              )
-              const row = (x: { tcid: string; name?: string; model?: string; steps?: number; path?: string[] }) => (
-                <button
-                  key={x.tcid}
-                  type="button"
-                  className="ask-likerow"
-                  disabled={!!adopting}
-                  onClick={() => {
-                    setLikeAsk(false)
-                    void adopt(x.tcid)
-                  }}
-                >
-                  <b>{x.name || x.tcid}</b>
-                  <span className="muted small">
-                    {x.path && x.path.length > 0 ? `${x.path.join(' · ')} · ` : ''}
-                    {x.tcid}
-                    {x.model ? ` · ${x.model}` : ''}
-                    {x.steps ? ` · ${x.steps}스텝` : ''}
-                  </span>
-                </button>
-              )
+
               return (
                 <div className="ask-tcbody">
-                  <aside className="ask-pickside">
-                    <div className="ask-pickgrp">Coverage Tree</div>
+                  <aside className="ask-tctree">
                     <button
-                      className={`ask-pickf${tcFold === '' ? ' on' : ''}`}
                       type="button"
+                      className={`ask-tnode all${tcFold === '' ? ' on' : ''}`}
                       onClick={() => setTcFold('')}
                     >
-                      전체<i>{tcAll.filter((x) => forMe(x)).length}</i>
+                      전체<em>{mine.length}</em>
                     </button>
-                    {foldList.map(([k, n]) => (
-                      <button
-                        key={k}
-                        className={`ask-pickf${tcFold === k ? ' on' : ''}`}
-                        type="button"
-                        title={k}
-                        onClick={() => setTcFold(k)}
-                      >
-                        {k.split(' · ').slice(-2).join(' · ')}
-                        <i>{n}</i>
-                      </button>
-                    ))}
+                    {kids('').map((n) => line(n))}
                   </aside>
-                  <div className="ask-likelist">
-                    {near.length > 0 && <div className="ask-likegrp">말과 비슷한 항목</div>}
-                    {near.map((x) => row(x))}
-                    {near.length > 0 && rest.length > 0 && (
-                      <div className="ask-likegrp">그 밖의 항목 {rest.length}건</div>
-                    )}
-                    {tcFold && <div className="ask-likegrp">{tcFold} — {rest.length}건</div>}
-                    {rest.slice(0, 300).map((x) => row(x))}
-                    {near.length === 0 && rest.length === 0 && (
+                  <div className="ask-tclist">
+                    <div className="ask-likegrp">
+                      {tcFold ? `${foldName} — ${rows.length}건` : `시험 항목 ${rows.length}건`}
+                      {like.length > 0 && !tcFold && !q ? ' · 말과 비슷한 것 위로' : ''}
+                    </div>
+                    {/* Coverage 목록과 **같은 칸**을 세운다(지시 사진의 붉은 칸) */}
+                    <table className="ask-tctable">
+                      <thead>
+                        <tr>
+                          <th>이름</th>
+                          <th>모델그룹</th>
+                          <th>모델명</th>
+                          <th>유형</th>
+                          <th>상태</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.slice(0, 400).map((x) => (
+                          <tr
+                            key={x.tcid}
+                            className={adopting ? 'busy' : ''}
+                            onClick={() => {
+                              if (adopting) return
+                              setLikeAsk(false)
+                              void adopt(x.tcid)
+                            }}
+                          >
+                            <td>
+                              <b>{x.name}</b>
+                              <i>{x.steps}</i>
+                            </td>
+                            <td>{x.mgroup || '공용'}</td>
+                            <td>{x.model || '–'}</td>
+                            <td>{x.type ? <u>{x.type}</u> : ''}</td>
+                            <td>{x.status || '–'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {rows.length === 0 && (
                       <div className="ask-likenone muted small">
                         {tcAll.length === 0
                           ? '시험 항목을 읽지 못했습니다 — Coverage 에서 항목을 먼저 만들어 주세요'
-                          : tcOnlyModel && myModel && tcAll.some((x) => inFold(x) && hit(x))
+                          : tcOnlyModel && myModel
                             ? `모델명이 ${curDev?.model} 인 항목이 없습니다 — 위 「${curDev?.model} 것만」 을 끄면 다른 모델 항목도 보입니다`
                             : '찾는 항목이 없습니다 — 왼쪽 자리를 바꾸거나 다른 말로 찾아보세요'}
                       </div>

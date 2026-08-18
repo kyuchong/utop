@@ -4431,6 +4431,81 @@ table.tb td.k {
 .ask-tconly input { margin: 0; }
 .ask-tcbody { display: flex; gap: 12px; min-height: 0; flex: 1; padding: 10px 14px 0; }
 .ask-tcbody .ask-pickside { flex: none; width: 240px; overflow: auto; }
+/* Coverage 와 같은 트리 — 폴더는 접었다 펴고, 요구사항은 문서 */
+.ask-tctree { flex: none; width: 300px; overflow: auto; border-right: 1px solid var(--c-border); padding-right: 8px; }
+.ask-tnode { display: flex; align-items: center; gap: 2px; border-radius: var(--r-box, 6px); }
+.ask-tnode.all {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-size: var(--fs-xs);
+  padding: 5px 8px;
+  cursor: pointer;
+  justify-content: flex-start;
+  gap: 6px;
+}
+.ask-tnode.on { background: var(--c-accent-soft, #eef4ff); }
+.ask-tnode.on .ask-tname span { color: var(--c-primary, #2563eb); font-weight: 600; }
+.ask-tcar {
+  flex: none;
+  width: 14px;
+  border: 0;
+  background: transparent;
+  color: var(--c-muted);
+  font-size: 9px;
+  cursor: pointer;
+  padding: 0;
+}
+.ask-tcar:disabled { cursor: default; opacity: 0; }
+.ask-tname {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-size: var(--fs-xs);
+  padding: 4px 6px 4px 0;
+  cursor: pointer;
+}
+.ask-tname i { font-style: normal; font-size: 10px; flex: none; }
+.ask-tname span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-tname em, .ask-tnode.all em { font-style: normal; font-size: 10px; color: var(--c-muted); flex: none; }
+.ask-tname:hover span { text-decoration: underline; }
+
+/* 오른쪽 — Coverage 목록과 같은 칸 */
+.ask-tclist { flex: 1; min-width: 0; overflow: auto; padding: 0 4px 12px 12px; }
+.ask-tctable { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+.ask-tctable th {
+  position: sticky;
+  top: 0;
+  background: var(--c-bg, #fff);
+  text-align: left;
+  font-weight: 600;
+  color: var(--c-muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--c-border);
+  white-space: nowrap;
+}
+.ask-tctable td { padding: 7px 8px; border-bottom: 1px solid var(--c-border); vertical-align: middle; }
+.ask-tctable tbody tr { cursor: pointer; }
+.ask-tctable tbody tr:hover { background: var(--c-accent-soft, #eef4ff); }
+.ask-tctable tbody tr.busy { opacity: 0.5; cursor: default; }
+.ask-tctable td:first-child { width: 100%; }
+.ask-tctable td b { font-weight: 500; }
+.ask-tctable td i {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--c-muted);
+  background: #eef2f6;
+  border-radius: 8px;
+  padding: 1px 6px;
+  margin-left: 6px;
+}
+.ask-tctable td u { text-decoration: none; font-size: 10.5px; background: #eef2f6; border-radius: 4px; padding: 1px 6px; }
+.ask-tctable td:not(:first-child) { white-space: nowrap; color: var(--c-muted); }
 .ask-tcbody .ask-likelist { flex: 1; min-width: 0; }
 .ask-likegrp {
   font-size: 11px;
