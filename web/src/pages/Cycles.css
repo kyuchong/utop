@@ -4476,7 +4476,9 @@ table.tb td.k {
 .ask-tname:hover span { text-decoration: underline; }
 
 /* 오른쪽 — Coverage 목록과 같은 칸 */
-.ask-tclist { flex: 1; min-width: 0; overflow: auto; padding: 0 4px 12px 12px; }
+.ask-tclist { flex: 1; min-width: 0; overflow: auto; padding: 0 4px 12px 0; }
+.ask-tcall { border: 0; background: transparent; color: var(--c-primary, #2563eb); font-size: 10.5px; cursor: pointer; margin-left: 8px; }
+.ask-tcall:hover { text-decoration: underline; }
 .ask-tctable { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
 .ask-tctable th {
   position: sticky;

@@ -251,8 +251,15 @@ export default function AskBar({ devices }: Props) {
   const [tcFold, setTcFold] = useState('')
   /** 펼쳐 둔 마디 */
   const [tcOpen, setTcOpen] = useState<Set<string>>(new Set())
-  /** 고른 장비 모델 것만 보이기 — 기본 켬(지시) */
-  const [tcOnlyModel, setTcOnlyModel] = useState(true)
+  /**
+   * 고른 장비 모델 것만 보이기 — **기본 끔**(지시).
+   *
+   * 한때 켜 두었는데, 트리 뿌리가 이미 「111. LGUPLUS E6100」 처럼 그 장비
+   * 자리를 가리키고 있다. 거기에 모델명까지 걸면 공용으로 적어 둔 항목이
+   * 죄다 빠져 고를 것이 없어진다 — 폴더 아래 것은 모델그룹·모델명과 상관
+   * 없이 다 보인다. 좁혀 보고 싶을 때만 켠다.
+   */
+  const [tcOnlyModel, setTcOnlyModel] = useState(false)
   /** 접어 둔 단계 — 다 끝난 단계는 접어 치울 수 있다 */
   const [fold, setFold] = useState<Set<number>>(new Set())
   /** 랙 자리(구역·랙) — 어느 장비인지 고를 때 자리로 가른다 */
@@ -2147,20 +2154,15 @@ export default function AskBar({ devices }: Props) {
 
               return (
                 <div className="ask-tcbody">
-                  <aside className="ask-tctree">
-                    <button
-                      type="button"
-                      className={`ask-tnode all${tcFold === '' ? ' on' : ''}`}
-                      onClick={() => setTcFold('')}
-                    >
-                      전체<em>{mine.length}</em>
-                    </button>
-                    {kids('').map((n) => line(n))}
-                  </aside>
                   <div className="ask-tclist">
                     <div className="ask-likegrp">
                       {tcFold ? `${foldName} — ${rows.length}건` : `시험 항목 ${rows.length}건`}
                       {like.length > 0 && !tcFold && !q ? ' · 말과 비슷한 것 위로' : ''}
+                      {tcFold && (
+                        <button type="button" className="ask-tcall" onClick={() => setTcFold('')}>
+                          전체 보기
+                        </button>
+                      )}
                     </div>
                     {/* Coverage 목록과 **같은 칸**을 세운다(지시 사진의 붉은 칸) */}
                     <table className="ask-tctable">
@@ -2169,8 +2171,6 @@ export default function AskBar({ devices }: Props) {
                           <th>이름</th>
                           <th>모델그룹</th>
                           <th>모델명</th>
-                          <th>유형</th>
-                          <th>상태</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2190,8 +2190,6 @@ export default function AskBar({ devices }: Props) {
                             </td>
                             <td>{x.mgroup || '공용'}</td>
                             <td>{x.model || '–'}</td>
-                            <td>{x.type ? <u>{x.type}</u> : ''}</td>
-                            <td>{x.status || '–'}</td>
                           </tr>
                         ))}
                       </tbody>
