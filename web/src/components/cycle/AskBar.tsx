@@ -334,7 +334,9 @@ export default function AskBar({ devices }: Props) {
         method: 'POST',
         body: JSON.stringify({
           probe: true,
-          device: connParams(dev),
+          /* 서버는 ip 로 읽는다 — connParams 는 host 로 준다. 그대로 보내면
+             「장비 정보가 없습니다」 로 조용히 되돌아온다(실제로 그랬다). */
+          device: { ...connParams(dev), ip: connParams(dev).host },
           steps: d.steps.map((x, i) => ({ i, cli: x.cli, desc: x.desc })),
         }),
       })
