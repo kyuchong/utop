@@ -883,7 +883,11 @@ export default function AskBar({ devices }: Props) {
     const blank = plan5.steps.filter((x) => !(x.criteria ?? '').trim() && x.type !== 'ok').length
     if (blank > 0) notes5.push(`값을 비운 합격 기준 ${blank}개 — 돌린 뒤 응답에서 고르세요`)
   }
-  const revTotal = plan5 ? notes5.length + plan5.steps.length : 0
+  /* 절차가 **다 만들어졌나** — 기준까지 채워 캔버스에 열린 것만 완성이다.
+     만드는 중에는 굳은 사실 줄까지만 펴고, 「만든 스텝」 은 다 되고 나서
+     내놓는다. 먼저 내놓으면 아직 만들고 있는데 다 된 것처럼 보인다(지적). */
+  const done5 = !!draft
+  const revTotal = plan5 ? notes5.length + (done5 ? plan5.steps.length : 0) : 0
 
   /** 만드는 중인가 — 짓기(busy)든 가져오기(adopting)든 */
   const making = busy || !!adopting
@@ -1122,7 +1126,7 @@ export default function AskBar({ devices }: Props) {
                                   ))}
                                 </ul>
                               )}
-                              {rev > notes5.length && (
+                              {done5 && rev > notes5.length && (
                                 <>
                                   <div className="ask-stagesay">
                                     만든 스텝 {Math.min(rev - notes5.length, plan5.steps.length)}
