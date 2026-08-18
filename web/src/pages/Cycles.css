@@ -4148,7 +4148,19 @@ table.tb td.k {
 
 /* 만드는 중 — 첫 화면과 **같은 자리·같은 폭**이라 글이 튀지 않는다 */
 .ask-making { max-width: 620px; margin: 8vh auto 0; }
-.ask-making h1 { font-size: 22px; font-weight: 700; margin: 0 0 6px; }
+.ask-making h1 { font-size: 22px; font-weight: 700; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
+/* 도는 표 — 「AI 가 지금 무언가 하고 있다」 를 눈으로 보이게 */
+.ask-spin {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--c-border);
+  border-top-color: var(--c-primary, #2563eb);
+  animation: ask-turn 0.8s linear infinite;
+}
+@keyframes ask-turn { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ask-spin { animation: none; } }
 .ask-making > p { margin: 0 0 14px; line-height: 1.65; }
 .ask-mksay { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); margin-bottom: 14px; }
 .ask-mksay i {

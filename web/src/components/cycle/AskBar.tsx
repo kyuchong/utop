@@ -763,6 +763,7 @@ export default function AskBar({ devices }: Props) {
 
   /** 그 TC 를 고른 장비로 옮겨 초안에 앉힌다 */
   const adopt = async (tcid: string, dev?: Device) => {
+    const t0 = performance.now()
     setAdopting(tcid)
     setErr('')
     setFlowAt(5)
@@ -796,6 +797,7 @@ export default function AskBar({ devices }: Props) {
       setBuilt(d2)   // 레일은 지금 바로 편다 (한 줄씩 찬다)
       setDevId(picked?.id ?? '')
       const done2 = picked ? await fillCriteria(d2, picked) : d2
+      await holdMaking(t0)
       setDraft(done2)
       void keepChat(done2.name, done2, picked?.ip ?? '')
       setLike([])
@@ -834,6 +836,7 @@ export default function AskBar({ devices }: Props) {
   const adoptMany = async (ids: string[], dev?: Device) => {
     if (ids.length === 0) return
     if (ids.length === 1 && ids[0]) return adopt(ids[0], dev)
+    const t0 = performance.now()
     setAdopting(ids[0] ?? '')
     setErr('')
     setFlowAt(5)
@@ -873,6 +876,7 @@ export default function AskBar({ devices }: Props) {
       setBuilt(d2)
       setDevId(picked?.id ?? '')
       const done2 = picked ? await fillCriteria(d2, picked) : d2
+      await holdMaking(t0)
       setDraft(done2)
       void keepChat(done2.name, done2, picked?.ip ?? '')
       setLike([])
@@ -1230,6 +1234,20 @@ export default function AskBar({ devices }: Props) {
    */
   const instantRef = useRef(false)
 
+  /**
+   * 만드는 자리를 **적어도 이만큼은** 보인다.
+   *
+   * 판정 기준까지 다 채우면 몇 초가 걸리지만, 기준이 이미 차 있으면 눈
+   * 깜짝할 새 끝나 화면이 툭 바뀐다 — 무슨 일이 있었는지 안 보인다(지적).
+   * 일이 먼저 끝나면 남은 만큼만 기다렸다 내놓는다. 일부러 늦추는 것이
+   * 아니라 **덜 깜빡이게** 하는 것이다.
+   */
+  const MIN_MAKE_MS = 900
+  const holdMaking = async (t0: number) => {
+    const rest = MIN_MAKE_MS - (performance.now() - t0)
+    if (rest > 0) await new Promise((r) => setTimeout(r, rest))
+  }
+
   /** 만들기 시작하고 몇 초 — 오래 걸리는 것과 멎은 것은 다르다 */
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
@@ -1490,8 +1508,13 @@ export default function AskBar({ devices }: Props) {
           않았다). 지금 무엇을 하고 있는지만 보인다. */}
       {!draft && making && (
         <div className="ask-making">
-          <h1>절차를 만들고 있습니다</h1>
-          {text.trim() && <p className="muted">“{text.trim()}”</p>}
+          <h1>
+            <span className="ask-spin" aria-hidden="true" />
+            AI 생성 중…
+          </h1>
+          <p className="muted">
+            {asked.trim() ? `“${asked.trim()}”` : '고른 시험 항목으로 절차를 짓는 중입니다'}
+          </p>
           <div className="ask-mksay">
             <i />
             <span>{genSay || '만드는 중…'}</span>
