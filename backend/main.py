@@ -9936,6 +9936,11 @@ async def _db_init():
         # 자연어 시험 첫 화면의 질문 보기 — 등록 안 하면 재시작 때 빈 값이
         # 캐시에 박히고 다음 저장이 DB 를 덮어쓴다(원본 앱에서 겪은 덫).
         ("ai_examples", DATA_DIR / "ai_examples.json"),
+        # 자연어 시험 기록. 등록 안 하면 재시작 때 _kv_load_sync 가 빈 값을
+        # 캐시에 박고(등록된 키만 DB 에서 채운다), 다음 저장이 그 빈 값으로
+        # DB 를 덮어써 **기록이 통째로 날아간다**. 실사고: 재시작 뒤 시험
+        # 기록이 사라졌다.
+        ("nl_chats", DATA_DIR / "nl_chats.json"),
     ]
     for _key, _fp in _KV_MIGRATIONS:
         _kv_register_fallback(_key, _fp)
