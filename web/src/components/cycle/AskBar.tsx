@@ -464,9 +464,17 @@ export default function AskBar({ devices }: Props) {
    * 만들기만으로 장비가 바뀌면 안 된다).
    */
   const fillCriteria = async (d: Draft, dev: Device): Promise<Draft> => {
-    const need = d.steps.some(
-      (x) => String(x.cli ?? '').trim() && !String(x.criteria ?? '').trim() && x.type !== 'ok',
-    )
+    /*
+     * **명령이 있는 스텝이 하나라도 있으면 부른다.**
+     *
+     * 여태는 「기준이 빈 스텝이 있을 때만」 불렀다. 그런데 가져온 항목은
+     * 원본 TC 의 기준 문구를 이미 이고 오는 일이 많아, 빈 스텝이 없으면
+     * LLM 도 장비 조회도 **아예 안 돌았다** — 그래서 눈 깜짝할 새 끝났다
+     * (지적: 이 속도면 LLM 이 안 도는 것 아니냐. 로그로 확인했다).
+     * 원본 기준은 **다른 모델에서 쓰던 말**이다. 이 장비가 실제로 무엇을
+     * 내놓는지 보고 LLM 이 판단해야 맞다(지시).
+     */
+    const need = d.steps.some((x) => String(x.cli ?? '').trim() && x.type !== 'ok')
     if (!need) {
       setFlowAt(0)
       return d
@@ -520,14 +528,20 @@ export default function AskBar({ devices }: Props) {
       let n = 0
       const steps = d.steps.map((x, i) => {
         const hit = b.items!.find((y) => y.i === i)
-        if (!hit || !String(hit.criteria ?? '').trim()) return x
-        if (String(x.criteria ?? '').trim()) return x
-        n++
+        if (!hit || !String(hit.criteria ?? '').trim()) return x   // LLM 이 말이 없으면 원본 그대로
+        // ★ 이미 기준이 있어도 **LLM 이 낸 것으로 바꾼다.** 원본 것은 다른
+        //   모델에서 쓰던 말이고, 이건 이 장비가 방금 내놓은 응답에서 고른
+        //   것이다. 같은 말이면 셈에 안 넣는다.
+        const same = String(x.criteria ?? '').trim() === String(hit.criteria).trim()
+        if (!same) n++
         return { ...x, type: hit.type || 'contains', criteria: String(hit.criteria) }
       })
       setFlowLog((v) => [
         ...v.filter((x) => !x.t.endsWith('잡는 중…')),
-        { s: 5, t: n > 0 ? `판정 기준 ${n}개를 채움` : '기준으로 삼을 또렷한 값이 없었습니다' },
+        {
+          s: 5,
+          t: n > 0 ? `이 장비 응답으로 판정 기준 ${n}개를 정함` : '기준으로 삼을 또렷한 값이 없었습니다',
+        },
       ])
       setFlowAt(0)
       setFilling(false)
