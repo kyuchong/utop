@@ -971,6 +971,10 @@ export default function AskBar({ devices }: Props) {
 
   /* 5단계가 펼 것. 캔버스보다 앞서 지어진 절차(built)를 레일은 먼저 편다 */
   const plan5 = draft ?? built
+  /* 절차가 **다 만들어졌나** — 기준까지 채워 캔버스에 열린 것만 완성이다.
+     만드는 중에는 굳은 사실 줄까지만 펴고, 「만든 스텝」 은 다 되고 나서
+     내놓는다. 먼저 내놓으면 아직 만들고 있는데 다 된 것처럼 보인다(지적). */
+  const done5 = !!draft
   /* 굳은 사실 몇 줄 — 아래 셈틀이 이 차례대로 한 줄씩 내놓는다 */
   const notes5: string[] = []
   if (plan5) {
@@ -978,13 +982,14 @@ export default function AskBar({ devices }: Props) {
        옛 셈이다. 채운 뒤에도 그대로 남아 아래 지금 셈과 두 줄이 되어 서로
        다른 수를 말한다(지적 사진) — 지금 셈만 둔다. */
     notes5.push(...fitNotes.filter((n) => !n.startsWith('값을 비운 합격 기준')))
-    const blank = plan5.steps.filter((x) => !(x.criteria ?? '').trim() && x.type !== 'ok').length
-    if (blank > 0) notes5.push(`값을 비운 합격 기준 ${blank}개 — 돌린 뒤 응답에서 고르세요`)
+    /* ★ 이 줄은 **결론**이라 다 채운 뒤에만 센다. 채우는 중에 세면 「값을
+       비운 기준 2개」 라고 ✔ 로 못 박아 놓고, 다 되면 2개가 다 차서 그 줄이
+       사라진다 — 하지도 않은 말을 한 셈이 된다(지적 사진 두 장). */
+    if (done5) {
+      const blank = plan5.steps.filter((x) => !(x.criteria ?? '').trim() && x.type !== 'ok').length
+      if (blank > 0) notes5.push(`값을 비운 합격 기준 ${blank}개 — 돌린 뒤 응답에서 고르세요`)
+    }
   }
-  /* 절차가 **다 만들어졌나** — 기준까지 채워 캔버스에 열린 것만 완성이다.
-     만드는 중에는 굳은 사실 줄까지만 펴고, 「만든 스텝」 은 다 되고 나서
-     내놓는다. 먼저 내놓으면 아직 만들고 있는데 다 된 것처럼 보인다(지적). */
-  const done5 = !!draft
   const revTotal = plan5 ? notes5.length + (done5 ? plan5.steps.length : 0) : 0
 
   /** 만드는 중인가 — 짓기(busy)든 가져오기(adopting)든 */
@@ -1178,16 +1183,17 @@ export default function AskBar({ devices }: Props) {
                           {(mine.length > 0 || (last && rev > 0 && notes5.length > 0)) && (
                             <>
                               <div className="ask-stagesay">한 일</div>
+                              {/* 끝난 줄 → 굳은 사실 → **도는 줄은 맨 아래.**
+                                  가운데 끼면 다음 일이 벌써 끝난 것처럼 읽힌다 */}
                               <ul className="ask-did">
-                                {mine.map((l, k) => {
-                                  const now = running && k === runAt
-                                  return (
-                                    <li key={k} className={now ? 'now' : ''}>
-                                      <i>{now ? '' : '✔'}</i>
-                                      <span>{now && genSay ? genSay : l.t}</span>
+                                {mine.map((l, k) =>
+                                  running && k === runAt ? null : (
+                                    <li key={k}>
+                                      <i>✔</i>
+                                      <span>{l.t}</span>
                                     </li>
-                                  )
-                                })}
+                                  ),
+                                )}
                                 {last &&
                                   notes5.slice(0, rev).map((n, k) => (
                                     <li key={`n${k}`}>
@@ -1195,6 +1201,12 @@ export default function AskBar({ devices }: Props) {
                                       <span>{n}</span>
                                     </li>
                                   ))}
+                                {running && (
+                                  <li className="now">
+                                    <i />
+                                    <span>{genSay || mine[runAt]?.t}</span>
+                                  </li>
+                                )}
                               </ul>
                             </>
                           )}
