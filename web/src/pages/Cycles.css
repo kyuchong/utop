@@ -4144,6 +4144,47 @@ table.tb td.k {
 
 /* 첫 화면 */
 .ask-hero { max-width: 620px; margin: 8vh auto 0; }
+
+/* 만드는 중 — 첫 화면과 **같은 자리·같은 폭**이라 글이 튀지 않는다 */
+.ask-making { max-width: 620px; margin: 8vh auto 0; }
+.ask-making h1 { font-size: 22px; font-weight: 700; margin: 0 0 6px; }
+.ask-making > p { margin: 0 0 14px; line-height: 1.65; }
+.ask-mksay { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); margin-bottom: 14px; }
+.ask-mksay i {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-primary, #2563eb);
+  animation: ask-pulse 1.1s ease-in-out infinite;
+}
+.ask-skel { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.ask-skelrow {
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card, 8px);
+  background: var(--c-bg, #fff);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.ask-skelrow b, .ask-skelrow em {
+  display: block;
+  height: 9px;
+  border-radius: 4px;
+  background: #eef2f6;
+  animation: ask-shim 1.4s ease-in-out infinite;
+}
+.ask-skelrow b { width: 52%; }
+.ask-skelrow em { width: 32%; }
+.ask-skelrow:nth-child(2) b { width: 64%; animation-delay: 0.15s; }
+.ask-skelrow:nth-child(3) b { width: 44%; animation-delay: 0.3s; }
+@keyframes ask-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@keyframes ask-shim { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+/* 움직임을 끈 사람에게는 안 움직인다 */
+@media (prefers-reduced-motion: reduce) {
+  .ask-mksay i, .ask-skelrow b, .ask-skelrow em { animation: none; }
+}
 .ask-hero h1 { font-size: 22px; font-weight: 700; margin: 0 0 6px; }
 .ask-hero > p { margin: 0 0 16px; line-height: 1.65; }
 .ask-exrow {

@@ -149,6 +149,8 @@ export default function AskBar({ devices }: Props) {
   /** 절차를 짓는 동안 「지금 무엇을 하는 중인가」 — 「생성 중」 만 띄우면
       멈춘 것인지 도는 것인지 알 수 없다(지적) */
   const [genSay, setGenSay] = useState('')
+  /** 기준을 채우는 중인가 — 이때는 문구를 fillCriteria 가 쥔다 */
+  const [filling, setFilling] = useState(false)
   /** 가져온 절차를 이 장비에 맞추며 바꾼 것들 — 「생성 완료」 칸에 적는다 */
   const [fitNotes, setFitNotes] = useState<string[]>([])
   const [pickDev, setPickDev] = useState<{ model: string; cands: Device[] } | null>(null)
@@ -334,6 +336,7 @@ export default function AskBar({ devices }: Props) {
     // 절차만 나오고 기준이 비어 있으면 「만들다 만 것」 이다. 기준까지
     // 채워야 생성이 끝난 것이므로, 그때까지 5단계는 계속 돈다.
     setFlowAt(5)
+    setFilling(true)
     setGenSay('조회를 미리 돌려 판정 기준을 잡는 중…')
     setFlowLog((v) => [...v, '조회를 미리 돌려 판정 기준을 잡는 중…'])
     try {
@@ -361,6 +364,7 @@ export default function AskBar({ devices }: Props) {
             : `판정 기준을 못 잡았습니다 — ${b.error ?? '까닭 모름'}`,
         ])
         setFlowAt(0)
+        setFilling(false)
         setGenSay('')
         return d
       }
@@ -377,6 +381,7 @@ export default function AskBar({ devices }: Props) {
         n > 0 ? `응답을 보고 판정 기준 ${n}개를 채움` : '기준으로 삼을 또렷한 값이 없었습니다',
       ])
       setFlowAt(0)
+      setFilling(false)
       setGenSay('')
       return { ...d, steps }
     } catch (e) {
@@ -385,6 +390,7 @@ export default function AskBar({ devices }: Props) {
         `판정 기준을 못 잡았습니다 — ${e instanceof Error ? e.message : String(e)}`,
       ])
       setFlowAt(0)
+      setFilling(false)
       setGenSay('')
     }
     return d
@@ -719,7 +725,11 @@ export default function AskBar({ devices }: Props) {
      장비 인터페이스를 맞추고, 이 랩에서 통한 명령을 찾고, 절차를 짓고,
      판정 기준을 잡는다(nl_test.py 의 차례 그대로). */
   useEffect(() => {
-    if (!busy && !adopting) return   // 채우는 동안의 문구는 fillCriteria 가 쥔다
+    // 채우는 동안의 문구는 fillCriteria 가 쥔다. 이 걸개가 없으면 돌던
+    // 타이머가 「판정 기준을 잡는 중」 을 덮어써 문구가 **거꾸로 간다**
+    // (읽는 중 → 기준 잡는 중 → 다시 명령 찾는 중).
+    if (filling) return
+    if (!busy && !adopting) return
     const says = adopting
       ? ['가져올 시험을 읽는 중…', '이 장비의 포트 이름에 맞추는 중…', '값을 비우고 옮기는 중…']
       : [
@@ -736,7 +746,10 @@ export default function AskBar({ devices }: Props) {
       setGenSay(says[i] ?? '')
     }, 1800)
     return () => clearInterval(t)
-  }, [busy, adopting])
+  }, [busy, adopting, filling])
+
+  /** 만드는 중인가 — 짓기(busy)든 가져오기(adopting)든 */
+  const making = busy || !!adopting
 
   const curDev = usable.find((d) => d.id === devId)
   const devName = curDev?.name || curDev?.model || '장비'
@@ -918,8 +931,35 @@ export default function AskBar({ devices }: Props) {
           <div className="ask-canvaswrap">
           <main className="ask-canvas">
 
+      {/* 만드는 중 — 첫 화면을 **치운다**.
+          초안은 기준까지 다 채운 뒤에 나오므로 그때까지 이 자리가 빈다.
+          질문 보기를 그대로 두면 다 만든 줄 모르고 다른 예시를 눌러 같은
+          일이 두 번 시작된다(가져오기 중에는 busy 가 꺼져 있어 막히지도
+          않았다). 지금 무엇을 하고 있는지만 보인다. */}
+      {!draft && making && (
+        <div className="ask-making">
+          <h1>절차를 만들고 있습니다</h1>
+          {text.trim() && <p className="muted">“{text.trim()}”</p>}
+          <div className="ask-mksay">
+            <i />
+            <span>{genSay || '만드는 중…'}</span>
+          </div>
+          <div className="ask-skel" aria-hidden="true">
+            {[0, 1, 2].map((i) => (
+              <div className="ask-skelrow" key={i}>
+                <b />
+                <em />
+              </div>
+            ))}
+          </div>
+          <p className="ask-note muted small">
+            판정 기준을 잡으려고 <b>조회 명령만</b> 미리 보냅니다. 다 채운 뒤에 절차가 한 번에 나옵니다.
+          </p>
+        </div>
+      )}
+
       {/* 첫 화면 — 무엇을 시킬 수 있나. 예시가 없으면 사람은 아무것도 못 친다 */}
-      {!draft && (
+      {!draft && !making && (
         <div className="ask-hero">
           {/* 관리자만 — ⚙ 로 질문 보기를 고친다. 랩마다 자주 하는 시험이 다르다 */}
           {amAdmin && (
