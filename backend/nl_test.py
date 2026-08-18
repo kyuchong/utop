@@ -1295,6 +1295,24 @@ async def nl_chat_save(payload: dict, token: str = ""):
     return {"ok": True, "id": cid}
 
 
+@app.delete("/api/ai/nl-chats/{cid}")
+async def nl_chat_del(cid: str, token: str = ""):
+    """기록 하나 지우기 — **내 것만**. 남의 대화는 못 지운다."""
+    me = _nl_chat_me(token)
+    if not me:
+        return {"ok": False, "error": "로그인이 필요합니다"}
+    want = str(cid or "").strip()
+    store = _nl_chats_all()
+    kept = [
+        c for c in store["items"]
+        if not (isinstance(c, dict) and c.get("id") == want and (c.get("by") or "") == me)
+    ]
+    if len(kept) == len(store["items"]):
+        return {"ok": False, "error": "그 기록이 없습니다"}
+    _kv_save_sync("nl_chats", {"items": kept})
+    return {"ok": True, "id": want}
+
+
 @app.post("/api/ai/nl-criteria")
 async def ai_nl_criteria(payload: dict):
     """빈 판정 기준을 **실제 응답**을 근거로 채운다.

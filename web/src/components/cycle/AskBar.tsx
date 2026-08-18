@@ -145,6 +145,9 @@ export default function AskBar({ devices }: Props) {
   const [flowAt, setFlowAt] = useState(0)
   /** 이 대화의 id — 최근 목록에 남길 때 쓴다 */
   const [chatId, setChatId] = useState('')
+  /** 절차를 짓는 동안 「지금 무엇을 하는 중인가」 — 「생성 중」 만 띄우면
+      멈춘 것인지 도는 것인지 알 수 없다(지적) */
+  const [genSay, setGenSay] = useState('')
   const [pickDev, setPickDev] = useState<{ model: string; cands: Device[] } | null>(null)
   const [pickSel, setPickSel] = useState('')
   const [pickLab, setPickLab] = useState('')
@@ -305,6 +308,17 @@ export default function AskBar({ devices }: Props) {
       })
     } catch {
       /* 기록을 못 남겨도 절차는 쓸 수 있다 */
+    }
+  }
+
+  /** 기록 하나 지우기 — 내 것만 지워진다(서버가 막는다) */
+  const dropChat = async (cid: string) => {
+    setRecent((v) => v.filter((x) => x.cid !== cid))
+    if (cid === chatId) setChatId('')
+    try {
+      await apiFetch(`/api/ai/nl-chats/${encodeURIComponent(cid)}`, { method: 'DELETE' })
+    } catch {
+      /* 못 지워도 목록에서는 빠진다 — 다음에 다시 읽으면 돌아온다 */
     }
   }
 
@@ -571,6 +585,33 @@ export default function AskBar({ devices }: Props) {
       d ? { ...d, steps: d.steps.map((s, j) => (j === i ? { ...s, ...patch } : s)) } : d,
     )
 
+  /* 절차 짓기는 한 번의 부름이라 서버가 중간을 알려 주지 않는다. 대신
+     **실제로 하는 일의 차례**를 그대로 적어 준다 — 학습된 절차를 읽고,
+     장비 인터페이스를 맞추고, 이 랩에서 통한 명령을 찾고, 절차를 짓고,
+     판정 기준을 잡는다(nl_test.py 의 차례 그대로). */
+  useEffect(() => {
+    if (!busy && !adopting) {
+      setGenSay('')
+      return
+    }
+    const says = adopting
+      ? ['가져올 시험을 읽는 중…', '이 장비의 포트 이름에 맞추는 중…', '값을 비우고 옮기는 중…']
+      : [
+          '학습된 절차를 읽는 중…',
+          '이 장비의 인터페이스 구성을 맞추는 중…',
+          '이 랩에서 통한 명령을 찾는 중…',
+          '절차를 짓는 중…',
+          '판정 기준을 잡는 중…',
+        ]
+    let i = 0
+    setGenSay(says[0] ?? '')
+    const t = setInterval(() => {
+      i = Math.min(i + 1, says.length - 1)
+      setGenSay(says[i] ?? '')
+    }, 1800)
+    return () => clearInterval(t)
+  }, [busy, adopting])
+
   const curDev = usable.find((d) => d.id === devId)
   const devName = curDev?.name || curDev?.model || '장비'
   const devIp = curDev?.ip ?? ''
@@ -604,15 +645,20 @@ export default function AskBar({ devices }: Props) {
             <span className="muted small">아직 만든 시험이 없습니다.</span>
           ) : (
             recent.map((x) => (
-              <button
-                key={x.cid}
-                type="button"
-                className="ask-sitem"
-                title={x.at ? String(x.at).slice(0, 16).replace('T', ' ') : ''}
-                onClick={() => setText(x.title)}
-              >
-                {x.title}
-              </button>
+              <div className={`ask-sitem${chatId === x.cid ? ' on' : ''}`} key={x.cid}>
+                <button type="button" className="ask-sbtn" onClick={() => void submit(x.title)}>
+                  <b>{x.title}</b>
+                  {x.at && <em>{String(x.at).slice(5, 16).replace('T', ' ')}</em>}
+                </button>
+                <button
+                  type="button"
+                  className="ask-sdel"
+                  title="이 기록 지우기"
+                  onClick={() => void dropChat(x.cid)}
+                >
+                  ✕
+                </button>
+              </div>
             ))
           )}
         </div>
@@ -682,7 +728,7 @@ export default function AskBar({ devices }: Props) {
                           <div className="ask-stagesay">한 일</div>
                           <ul className="ask-did">
                             {flowLog.map((l, k) => (
-                              <li key={k}>{l}</li>
+                              <li key={k}>{l.endsWith('중…') && genSay ? genSay : l}</li>
                             ))}
                           </ul>
                           {flowVals.length > 0 && (
@@ -696,6 +742,10 @@ export default function AskBar({ devices }: Props) {
                               ))}
                             </>
                           )}
+                        </div>
+                      ) : last && state === 'run' ? (
+                        <div className="ask-stagebody">
+                          <div className="ask-stagesay ask-gen">{genSay || '절차를 짓는 중…'}</div>
                         </div>
                       ) : last && draft ? (
                         <div className="ask-stagebody">
