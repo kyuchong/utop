@@ -327,7 +327,14 @@ export default function AskBar({ devices }: Props) {
     const need = d.steps.some(
       (x) => String(x.cli ?? '').trim() && !String(x.criteria ?? '').trim() && x.type !== 'ok',
     )
-    if (!need) return
+    if (!need) {
+      setFlowAt(0)
+      return
+    }
+    // 절차만 나오고 기준이 비어 있으면 「만들다 만 것」 이다. 기준까지
+    // 채워야 생성이 끝난 것이므로, 그때까지 5단계는 계속 돈다.
+    setFlowAt(5)
+    setGenSay('조회를 미리 돌려 판정 기준을 잡는 중…')
     setFlowLog((v) => [...v, '조회를 미리 돌려 판정 기준을 잡는 중…'])
     try {
       const r = await apiFetch('/api/ai/nl-criteria', {
@@ -353,6 +360,8 @@ export default function AskBar({ devices }: Props) {
             ? '설정 명령이 있어 미리 읽지 않았습니다 — 돌린 뒤 응답에서 고르세요'
             : `판정 기준을 못 잡았습니다 — ${b.error ?? '까닭 모름'}`,
         ])
+        setFlowAt(0)
+        setGenSay('')
         return
       }
       let n = 0
@@ -371,11 +380,15 @@ export default function AskBar({ devices }: Props) {
         ...v.filter((x) => !x.endsWith('잡는 중…')),
         n > 0 ? `응답을 보고 판정 기준 ${n}개를 채움` : '기준으로 삼을 또렷한 값이 없었습니다',
       ])
+      setFlowAt(0)
+      setGenSay('')
     } catch (e) {
       setFlowLog((v) => [
         ...v.filter((x) => !x.endsWith('잡는 중…')),
         `판정 기준을 못 잡았습니다 — ${e instanceof Error ? e.message : String(e)}`,
       ])
+      setFlowAt(0)
+      setGenSay('')
     }
   }
 
@@ -418,7 +431,6 @@ export default function AskBar({ devices }: Props) {
       ])
       // 무엇을 이 장비에 맞춰 바꿨는지 — 서버가 적어 준 것을 그대로 보인다
       setFitNotes(Array.isArray(b.tc?.notes) ? b.tc!.notes! : [])
-      setFlowAt(0)
       setFlowVals((v) => [...v.filter((x) => x.k !== '가져온 TC'), { k: '가져온 TC', v: tcid }])
       setStepAt(0)
       const d2: Draft = { name: b.title || tcid, object: b.purpose, steps: b.steps ?? [] }
@@ -526,7 +538,6 @@ export default function AskBar({ devices }: Props) {
       }
       setStepAt(0)
       setFlowLog((v) => [...v.filter((x) => x !== '절차를 짓는 중…'), `절차 ${d.steps.length}개 스텝으로 지음`])
-      setFlowAt(0)
       setDraft(d)
       void keepChat(d.name, d, picked?.ip ?? '')
       if (picked) void fillCriteria(d, picked)
@@ -666,10 +677,7 @@ export default function AskBar({ devices }: Props) {
      장비 인터페이스를 맞추고, 이 랩에서 통한 명령을 찾고, 절차를 짓고,
      판정 기준을 잡는다(nl_test.py 의 차례 그대로). */
   useEffect(() => {
-    if (!busy && !adopting) {
-      setGenSay('')
-      return
-    }
+    if (!busy && !adopting) return   // 채우는 동안의 문구는 fillCriteria 가 쥔다
     const says = adopting
       ? ['가져올 시험을 읽는 중…', '이 장비의 포트 이름에 맞추는 중…', '값을 비우고 옮기는 중…']
       : [
