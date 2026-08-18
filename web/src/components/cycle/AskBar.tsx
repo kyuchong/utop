@@ -110,6 +110,15 @@ export default function AskBar({ devices }: Props) {
   const [busy, setBusy] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
   /**
+   * 막 지어진 절차 — **캔버스가 아니라 레일용**.
+   *
+   * 캔버스의 스텝은 판정 기준까지 다 채운 뒤에 내놓는다(지시). 하지만 절차
+   * 자체는 그보다 몇 초 앞서 나온다. 그동안 레일이 아무것도 안 보여 주면
+   * 다 끝난 뒤에 한꺼번에 튀어나온다(지적) — 지어진 즉시 여기에 담아
+   * 레일이 먼저 편다.
+   */
+  const [built, setBuilt] = useState<Draft | null>(null)
+  /**
    * 설정 명령을 쓰는 시험을 만들까.
    *
    * 기본은 꺼짐이다. 켜면 configure terminal · interface · shutdown ·
@@ -457,6 +466,7 @@ export default function AskBar({ devices }: Props) {
         { s: 1, t: dv ? `그때 쓰던 장비 ${dv.ip} 로 되살림` : '담아 둔 절차를 그대로 폄' },
         { s: 5, t: `기록을 열었습니다 — ${b.chat?.at ? String(b.chat.at).slice(0, 16) : ''}` },
       ])
+      setBuilt(plan)
       setDraft(plan)
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
@@ -505,6 +515,7 @@ export default function AskBar({ devices }: Props) {
       setFlowVals((v) => [...v.filter((x) => x.k !== '가져온 TC'), { k: '가져온 TC', v: tcid }])
       setStepAt(0)
       const d2: Draft = { name: b.title || tcid, object: b.purpose, steps: b.steps ?? [] }
+      setBuilt(d2)   // 레일은 지금 바로 편다
       setDevId(picked?.id ?? '')
       const done2 = picked ? await fillCriteria(d2, picked) : d2
       setDraft(done2)
@@ -608,6 +619,7 @@ export default function AskBar({ devices }: Props) {
         steps: Array.isArray(raw.steps) ? raw.steps : [],
       }
       setStepAt(0)
+      setBuilt(d)   // 레일은 지금 바로 편다
       setFlowLog((v) => [
         ...v.filter((x) => x.t !== '절차를 짓는 중…'),
         { s: 5, t: `절차 ${d.steps.length}개 스텝으로 지음` },
@@ -776,8 +788,37 @@ export default function AskBar({ devices }: Props) {
     return () => clearInterval(t)
   }, [busy, adopting, filling])
 
+
+  /* 5단계가 펼 것. 캔버스보다 앞서 지어진 절차(built)를 레일은 먼저 편다 */
+  const plan5 = draft ?? built
+  /* 굳은 사실 몇 줄 — 아래 셈틀이 이 차례대로 한 줄씩 내놓는다 */
+  const notes5: string[] = []
+  if (plan5) {
+    notes5.push(...fitNotes)
+    const blank = plan5.steps.filter((x) => !(x.criteria ?? '').trim() && x.type !== 'ok').length
+    if (blank > 0) notes5.push(`값을 비운 합격 기준 ${blank}개 — 돌린 뒤 응답에서 고르세요`)
+  }
+  const revTotal = plan5 ? notes5.length + plan5.steps.length : 0
+
   /** 만드는 중인가 — 짓기(busy)든 가져오기(adopting)든 */
   const making = busy || !!adopting
+
+  /**
+   * 한 줄씩 차오르기.
+   *
+   * 서버는 절차를 한 덩어리로 준다. 그대로 그리면 다 만든 뒤에 **한꺼번에**
+   * 튀어나와, 무엇이 어떤 차례로 정해졌는지 알 수 없다(지적). 굳은 사실
+   * 한 줄 · 스텝 한 줄씩 차례로 내놓아 눈이 따라갈 수 있게 한다.
+   */
+  const [rev, setRev] = useState(0)
+  useEffect(() => {
+    setRev(0)   // 새로 지어질 때만 처음부터
+  }, [built])
+  useEffect(() => {
+    if (rev >= revTotal) return
+    const t = setTimeout(() => setRev((r) => r + 1), 90)
+    return () => clearTimeout(t)
+  }, [rev, revTotal])
 
   const curDev = usable.find((d) => d.id === devId)
   const devName = curDev?.name || curDev?.model || '장비'
@@ -802,6 +843,7 @@ export default function AskBar({ devices }: Props) {
             setFlowVals([])
             setFlowAt(0)
             setFitNotes([])
+            setBuilt(null)
             setFold(new Set())   // 접어 둔 단계도 처음으로
             setChatId('')
           }}
@@ -888,7 +930,7 @@ export default function AskBar({ devices }: Props) {
                      그 줄만 살아 움직이고, 나머지는 ✔ 로 굳는다. */
                   const runAt = mine.length - 1
                   const running = state === 'run' && (mine[runAt]?.t ?? '').endsWith('중…')
-                  const body = last && draft ? true : mine.length > 0
+                  const body = last && plan5 ? true : mine.length > 0
                   const folded = fold.has(st.n)
                   return (
                     <div
@@ -952,22 +994,23 @@ export default function AskBar({ devices }: Props) {
                           )}
                           {/* 5단계는 만들어진 것을 그대로 편다 — 무엇이 몇 개
                               나왔고 어떤 명령이 들었는지 여기서 다 보인다 */}
-                          {last && draft && (
+                          {last && plan5 && (
                             <>
                               <div className="ask-stagesay">정한 값</div>
                               <div className="ask-fact">
-                                절차 <b>{draft.steps.length}스텝</b> · 판정 기준{' '}
-                                <b>{draft.steps.filter((x) => (x.criteria ?? '').trim()).length}개</b>
+                                절차 <b>{plan5.steps.length}스텝</b> · 판정 기준{' '}
+                                <b>{plan5.steps.filter((x) => (x.criteria ?? '').trim()).length}개</b>
                               </div>
                               <div className="ask-fact">
                                 단계 <b>{flow.filter((f2) => !f2.skip).length}개 사용</b> ·{' '}
                                 {flow.filter((f2) => !!f2.skip).length}개 건너뜀
                               </div>
-                              {/* 가져온 절차를 이 장비에 맞추며 바꾼 것 — 무엇이
-                                  바뀌었는지 모르면 그대로 믿고 돌리게 된다 */}
-                              {fitNotes.length > 0 && (
+                              {/* 이 장비에 맞추며 바꾼 것 · 비워 둔 기준 —
+                                  무엇이 바뀌었는지 모르면 그대로 믿고 돌리게 된다.
+                                  차례대로 한 줄씩 찬다. */}
+                              {rev > 0 && notes5.length > 0 && (
                                 <ul className="ask-did ask-fit">
-                                  {fitNotes.map((n, k) => (
+                                  {notes5.slice(0, rev).map((n, k) => (
                                     <li key={k}>
                                       <i>✔</i>
                                       <span>{n}</span>
@@ -975,26 +1018,21 @@ export default function AskBar({ devices }: Props) {
                                   ))}
                                 </ul>
                               )}
-                              <div className="ask-stagesay">만든 스텝 {draft.steps.length}개</div>
-                              <ol className="ask-mini">
-                                {draft.steps.map((x, k) => (
-                                  <li key={k}>
-                                    <i>{k + 1}</i>
-                                    <code>{x.cli || x.desc || '—'}</code>
-                                  </li>
-                                ))}
-                              </ol>
-                              {draft.steps.filter((x) => !(x.criteria ?? '').trim() && x.type !== 'ok')
-                                .length > 0 && (
-                                <div className="ask-stagesay">
-                                  값을 비운 합격 기준{' '}
-                                  {
-                                    draft.steps.filter(
-                                      (x) => !(x.criteria ?? '').trim() && x.type !== 'ok',
-                                    ).length
-                                  }
-                                  개 — 돌린 뒤 응답에서 고르세요
-                                </div>
+                              {rev > notes5.length && (
+                                <>
+                                  <div className="ask-stagesay">
+                                    만든 스텝 {Math.min(rev - notes5.length, plan5.steps.length)}
+                                    {rev < revTotal ? ` / ${plan5.steps.length}` : '개'}
+                                  </div>
+                                  <ol className="ask-mini">
+                                    {plan5.steps.slice(0, rev - notes5.length).map((x, k) => (
+                                      <li key={k}>
+                                        <i>{k + 1}</i>
+                                        <code>{x.cli || x.desc || '—'}</code>
+                                      </li>
+                                    ))}
+                                  </ol>
+                                </>
                               )}
                             </>
                           )}
