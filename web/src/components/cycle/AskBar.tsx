@@ -1309,7 +1309,7 @@ export default function AskBar({ devices }: Props) {
                                     {plan5.steps.slice(0, rev - notes5.length).map((x, k) => (
                                       <li key={k}>
                                         <i>{k + 1}</i>
-                                        <code>{x.cli || x.desc || '—'}</code>
+                                        <code>{x.cli || x.oid || x.desc || '—'}</code>
                                       </li>
                                     ))}
                                   </ol>
@@ -1549,10 +1549,24 @@ export default function AskBar({ devices }: Props) {
                   >
                     <i>{i + 1}</i>
                     <span>
-                      <b>{s.desc || s.cli || '—'}</b>
+                      <b>{s.desc || s.cli || s.oid || '—'}</b>
                       <em>
-                        <u>{s.kind === 'inst' ? '계측기' : s.kind === 'wait' ? '대기' : '조회'}</u>
-                        {devIp ? ` ${devIp}` : ''} · 생성 완료
+                        <u>
+                          {s.kind === 'inst'
+                            ? '계측기'
+                            : s.kind === 'wait'
+                              ? '대기'
+                              : s.kind === 'snmp_get'
+                                ? 'SNMP Get'
+                                : s.kind === 'snmp_set'
+                                  ? 'SNMP Set'
+                                  : s.kind === 'snmp_trap'
+                                    ? 'SNMP Trap'
+                                    : s.kind === 'ping'
+                                      ? 'Ping'
+                                      : '조회'}
+                        </u>
+                        {s.oid ? ` ${s.oid}` : devIp ? ` ${devIp}` : ''} · 생성 완료
                       </em>
                     </span>
                     <var className={`ask-stepst ${cls}`}>{state}</var>
@@ -1574,21 +1588,61 @@ export default function AskBar({ devices }: Props) {
               return (
                 <div className="ask-stepdet">
                   <div className="ask-detlab muted small">
-                    스텝 {i + 1} · {s.kind === 'inst' ? '계측기' : s.kind === 'wait' ? '대기' : '조회'}
+                    스텝 {i + 1} ·{' '}
+                    {s.kind === 'inst'
+                      ? '계측기'
+                      : s.kind === 'wait'
+                        ? '대기'
+                        : s.kind === 'snmp_get'
+                          ? 'SNMP Get'
+                          : s.kind === 'snmp_set'
+                            ? 'SNMP Set'
+                            : s.kind === 'snmp_trap'
+                              ? 'SNMP Trap'
+                              : s.kind === 'ping'
+                                ? 'Ping'
+                                : '조회'}
                   </div>
                   <h3>{s.desc || '—'}</h3>
 
-                  <div className="ask-detf">
-                    <span className="ask-detk">
-                      {devName} 에 보낼 명령
-                      <em className="muted small">고치면 그대로 나갑니다</em>
-                    </span>
-                    <input
-                      className="mono"
-                      value={s.cli}
-                      onChange={(e) => setStep(i, { cli: e.target.value })}
-                    />
-                  </div>
+                  {/* SNMP 는 명령이 아니라 **OID** 로 나간다. 여기서 s.cli 를 그대로
+                      물리면 값이 undefined 라 입력칸이 통제에서 풀리고, 앞 스텝의
+                      글자를 그대로 이고 있는다(지적 사진: SNMP 스텝에 앞 스텝의
+                      show running-config 가 떠 있었다). 칸을 갈라 준다. */}
+                  {s.kind === 'snmp_get' || s.kind === 'snmp_set' || s.kind === 'snmp_trap' ? (
+                    <div className="ask-detf">
+                      <span className="ask-detk">
+                        OID
+                        <em className="muted small">이 값을 물어봅니다</em>
+                      </span>
+                      <input
+                        className="mono"
+                        value={s.oid ?? ''}
+                        onChange={(e) => setStep(i, { oid: e.target.value })}
+                      />
+                    </div>
+                  ) : s.kind === 'ping' ? (
+                    <div className="ask-detf">
+                      <span className="ask-detk">보낼 곳</span>
+                      <input
+                        className="mono"
+                        value={s.host ?? devIp}
+                        onChange={(e) => setStep(i, { host: e.target.value })}
+                      />
+                    </div>
+                  ) : (
+                    <div className="ask-detf">
+                      <span className="ask-detk">
+                        {devName} 에 보낼 명령
+                        <em className="muted small">고치면 그대로 나갑니다</em>
+                      </span>
+                      <input
+                        className="mono"
+                        value={s.cli ?? ''}
+                        onChange={(e) => setStep(i, { cli: e.target.value })}
+                      />
+                    </div>
+                  )}
 
                   <div className="ask-detf">
                     <span className="ask-detk">합격 기준</span>
