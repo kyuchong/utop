@@ -4414,12 +4414,21 @@ table.tb td.k {
 .ask-pickcard i.ip { font-family: var(--font-mono); background: transparent; padding-left: 0; }
 
 /* ── 비슷한 시험 창 ── */
-.modal.ask-likemodal { width: 560px; max-width: 94vw; }
+/* 항목이 수십 건이라 좁으면 훑기가 어렵다 — 창을 키우고, 목록이 창 높이를
+   따라 늘도록 세로로 짠다(지시) */
+.modal.ask-likemodal {
+  width: 1080px;
+  max-width: 94vw;
+  height: 78vh;
+  max-height: 78vh;
+  display: flex;
+  flex-direction: column;
+}
 /* 시험 항목 고르기 — 왼쪽 Coverage 트리 자리 · 오른쪽 항목 */
 .ask-tcfind { padding: 10px 14px 0; }
 .ask-tcfind input { width: 100%; }
 .ask-tcbody { display: flex; gap: 12px; min-height: 0; flex: 1; padding: 10px 14px 0; }
-.ask-tcbody .ask-pickside { flex: none; width: 190px; overflow: auto; }
+.ask-tcbody .ask-pickside { flex: none; width: 240px; overflow: auto; }
 .ask-tcbody .ask-likelist { flex: 1; min-width: 0; }
 .ask-likegrp {
   font-size: 11px;
@@ -4432,6 +4441,7 @@ table.tb td.k {
 .ask-likenone { padding: 18px 4px; }
 
 .ask-likelist { padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow: auto; }
+.ask-likemodal .ask-likelist { max-height: none; }   /* 창 높이를 따라간다 */
 .ask-likerow {
   display: flex;
   flex-direction: column;
