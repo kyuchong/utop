@@ -624,11 +624,11 @@ export default function AskBar({ devices }: Props) {
       setDevId(picked?.id ?? '')
       const done2 = picked ? await fillCriteria(d2, picked) : d2
       setDraft(done2)
-      setText('')   // 다 만들었으니 입력칸을 비운다(지적)
       void keepChat(done2.name, done2, picked?.ip ?? '')
       setLike([])
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
+      setText(asked)
       setFlowAt(0)
     } finally {
       setAdopting('')
@@ -642,6 +642,7 @@ export default function AskBar({ devices }: Props) {
    * 그대로 남았다(지적). 적은 말은 그대로 둔다 — 고쳐서 다시 보내면 된다.
    */
   const cancelAsk = () => {
+    setText(asked)      // 비워 둔 말을 돌려준다 — 고쳐서 다시 보내는 자리다
     setPickDev(null)
     setLikeAsk(false)
     setLike([])
@@ -676,7 +677,9 @@ export default function AskBar({ devices }: Props) {
   const submit = async (q?: string) => {
     const said = (q ?? text).trim()
     if (!said || busy) return
-    if (q) setText(q)
+    // 보낸 말은 그 자리에서 비운다 — 만드는 동안 입력칸에 남아 있으면 아직
+    // 안 보낸 것처럼 보인다(지적). 그만두거나 어긋나면 되돌려 놓는다.
+    setText('')
     setAsked(said)
     setFlowLog([{ s: 1, t: `요청의 말을 읽었습니다 — "${said.slice(0, 40)}"` }])
     setFlowVals([])
@@ -796,7 +799,6 @@ export default function AskBar({ devices }: Props) {
       // 로 보이고, 채워지는 동안 눈앞에서 값이 바뀐다(지적)
       const done = picked ? await fillCriteria(d, picked) : d
       setDraft(done)
-      setText('')   // 다 만들었으니 입력칸을 비운다 — 다음 질문 자리다(지적)
       void keepChat(done.name, done, picked?.ip ?? '')
       /*
        * 사람이 고른 장비를 **지킨다.**
@@ -811,6 +813,7 @@ export default function AskBar({ devices }: Props) {
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
+      setText(asked)    // 다시 보낼 수 있게 말을 돌려준다
       setFlowAt(0)
     } finally {
       setBusy(false)
@@ -1727,8 +1730,8 @@ export default function AskBar({ devices }: Props) {
                               onDoubleClick={() => {
                                 setDevId(d.id)
                                 setPickDev(null)
-                                void findLike(text, d).then((n) =>
-                                  n > 0 ? setLikeAsk(true) : ask(undefined, d),
+                                void findLike(asked, d).then((n) =>
+                                  n > 0 ? setLikeAsk(true) : ask(asked, d),
                                 )
                               }}
                             >
@@ -1781,8 +1784,8 @@ export default function AskBar({ devices }: Props) {
                       ].filter((x) => x.v),
                     )
                     setPickDev(null)
-                    void findLike(text, d2).then((n) =>
-                      n > 0 ? setLikeAsk(true) : ask(undefined, d2),
+                    void findLike(asked, d2).then((n) =>
+                      n > 0 ? setLikeAsk(true) : ask(asked, d2),
                     )
                   }}
                 >
@@ -1842,7 +1845,7 @@ export default function AskBar({ devices }: Props) {
                 <button className="btn small" type="button" onClick={cancelAsk}>
                   그만두기
                 </button>
-                <button className="btn primary small" type="button" onClick={() => void ask()}>
+                <button className="btn primary small" type="button" onClick={() => void ask(asked)}>
                   새로 만들기
                 </button>
               </span>
