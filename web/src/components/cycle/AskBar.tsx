@@ -1114,7 +1114,10 @@ export default function AskBar({ devices }: Props) {
                         <div className="ask-stagesay">{st.skip}</div>
                       ) : folded || !body ? null : (
                         <div className="ask-stagebody">
-                          {mine.length > 0 && (
+                          {/* ✔ 줄은 한 자리에 모은다. 가져오며 바꾼 것도 「한 일」
+                              이다 — 정한 값을 사이에 끼우면 ✔ 가 두 토막이 난다
+                              (지적). */}
+                          {(mine.length > 0 || (last && rev > 0 && notes5.length > 0)) && (
                             <>
                               <div className="ask-stagesay">한 일</div>
                               <ul className="ask-did">
@@ -1127,6 +1130,13 @@ export default function AskBar({ devices }: Props) {
                                     </li>
                                   )
                                 })}
+                                {last &&
+                                  notes5.slice(0, rev).map((n, k) => (
+                                    <li key={`n${k}`}>
+                                      <i>✔</i>
+                                      <span>{n}</span>
+                                    </li>
+                                  ))}
                               </ul>
                             </>
                           )}
@@ -1154,19 +1164,6 @@ export default function AskBar({ devices }: Props) {
                                 단계 <b>{flow.filter((f2) => !f2.skip).length}개 사용</b> ·{' '}
                                 {flow.filter((f2) => !!f2.skip).length}개 건너뜀
                               </div>
-                              {/* 이 장비에 맞추며 바꾼 것 · 비워 둔 기준 —
-                                  무엇이 바뀌었는지 모르면 그대로 믿고 돌리게 된다.
-                                  차례대로 한 줄씩 찬다. */}
-                              {rev > 0 && notes5.length > 0 && (
-                                <ul className="ask-did ask-fit">
-                                  {notes5.slice(0, rev).map((n, k) => (
-                                    <li key={k}>
-                                      <i>✔</i>
-                                      <span>{n}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
                               {done5 && rev > notes5.length && (
                                 <>
                                   <div className="ask-stagesay">
