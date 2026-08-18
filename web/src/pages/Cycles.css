@@ -4203,3 +4203,62 @@ table.tb td.k {
 /* AI 페이지 — 화면 높이를 그대로 채운다(채팅 꼴) */
 .aitc { height: 100%; min-height: 0; display: flex; }
 .aitc > .ask { flex: 1; min-width: 0; }
+
+/* 질문 보기 고치기 — 관리자만 (⚙) */
+.ask-hero { position: relative; }
+.ask-extools {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ask-exgear {
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: var(--c-bg, #fff);
+  color: var(--c-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.ask-exgear:hover { color: var(--c-text); }
+.ask-exgear.on { border-color: var(--c-primary, #2563eb); color: var(--c-primary, #2563eb); }
+.ask-exgear svg { width: 15px; height: 15px; }
+.ask-exedit { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.ask-execol { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ask-execol input {
+  width: 100%;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card, 8px);
+  padding: 9px 12px;
+  font-size: var(--fs-sm);
+}
+.ask-execol input.desc { font-size: var(--fs-xs); color: var(--c-muted); margin-left: 14px; width: calc(100% - 14px); }
+.ask-execol input:focus { outline: 0; border-color: var(--c-primary, #2563eb); }
+.ask-exdel {
+  flex: none;
+  width: 32px;
+  height: 36px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card, 8px);
+  background: var(--c-bg, #fff);
+  color: var(--c-muted);
+  cursor: pointer;
+}
+.ask-exdel:hover { color: var(--c-fail, #e24b4a); border-color: var(--c-fail, #e24b4a); }
+.ask-exadd {
+  width: 100%;
+  border: 1px dashed var(--c-border);
+  border-radius: var(--r-card, 8px);
+  background: transparent;
+  padding: 9px;
+  color: var(--c-muted);
+  cursor: pointer;
+  font-size: var(--fs-xs);
+}
+.ask-exadd:hover { border-color: var(--c-primary, #2563eb); color: var(--c-primary, #2563eb); }

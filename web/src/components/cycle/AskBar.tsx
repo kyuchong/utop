@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
+import { IconSettings } from '@/components/icons'
 import { runSteps } from '@/components/tc/runner'
 import type { TcStep } from '@/components/tc/types'
 import type { Device } from '@/pages/Devices'
@@ -114,7 +115,6 @@ export default function AskBar({ devices }: Props) {
    * no shutdown 까지 지을 수 있다 — 링크를 내렸다 올리는 시험이 그것이다.
    * reload·write·copy·erase 는 켜도 못 지나간다.
    */
-  const [allowConfig, setAllowConfig] = useState(false)
   const [devId, setDevId] = useState('')
   const [err, setErr] = useState('')
   /** 돌린 결과 — 스텝마다 판정과 출력 */
@@ -131,6 +131,10 @@ export default function AskBar({ devices }: Props) {
   const [adopting, setAdopting] = useState('')
   /** 최근 만든 시험 — 왼쪽 칸 */
   const [recent, setRecent] = useState<Array<{ cid: string; title: string; at?: string }>>([])
+  /** 질문 보기 고치기 — 관리자만. ⚙ 로 켠다 */
+  const [exEdit, setExEdit] = useState(false)
+  const [exSay, setExSay] = useState('')
+  const [amAdmin, setAmAdmin] = useState(false)
 
   const usable = devices.filter((d) => d.role !== '계측기')
 
@@ -163,6 +167,14 @@ export default function AskBar({ devices }: Props) {
         if (b.ok && Array.isArray(b.items)) setExamples(b.items)
       } catch {
         /* 예시가 없어도 화면은 돈다 */
+      }
+      try {
+        const rm = await apiFetch('/api/me')
+        const bm = (await rm.json()) as { user?: { role?: string } }
+        const role = bm.user?.role ?? ''
+        setAmAdmin(role === '관리자' || role === 'admin')
+      } catch {
+        /* 못 읽으면 그냥 못 고치는 사람으로 본다 */
       }
       try {
         const r2 = await apiFetch('/api/ai/nl-chats')
@@ -201,6 +213,35 @@ export default function AskBar({ devices }: Props) {
       setLike([])
     }
   }
+
+  /**
+   * 질문 보기 담기 — **관리자만**.
+   *
+   * 첫 화면의 질문은 「무엇을 시킬 수 있나」 를 알려 주는 안내판이다. 랩마다
+   * 자주 하는 시험이 다르므로 담당자가 고칠 수 있어야 한다. 담기면 서버가
+   * 켜져 있는 모든 화면에 곧바로 뿌린다(WebSocket) — 남이 새로고침할 때까지
+   * 기다리지 않는다.
+   */
+  const exSave = async () => {
+    setExSay('담는 중…')
+    try {
+      const r = await apiFetch('/api/ai/examples', {
+        method: 'POST',
+        body: JSON.stringify({ items: examples.filter((x) => x.q.trim()) }),
+      })
+      const b = (await r.json()) as { ok?: boolean; items?: Array<{ q: string; d?: string }>; detail?: string }
+      if (!b.ok) throw new Error(b.detail || '담지 못했습니다')
+      setExamples(b.items ?? [])
+      setExSay('담았습니다')
+      setTimeout(() => setExSay(''), 2000)
+    } catch (e) {
+      setExSay(e instanceof Error ? e.message : String(e))
+    }
+  }
+  const exSet = (i: number, patch: { q?: string; d?: string }) =>
+    setExamples((v) => v.map((x, j) => (j === i ? { ...x, ...patch } : x)))
+  const exDel = (i: number) => setExamples((v) => v.filter((_, j) => j !== i))
+  const exAdd = () => setExamples((v) => [...v, { q: '', d: '' }])
 
   /** 그 TC 를 고른 장비로 옮겨 초안에 앉힌다 */
   const adopt = async (tcid: string) => {
@@ -250,7 +291,6 @@ export default function AskBar({ devices }: Props) {
           text: text.trim(),
           model: picked?.model ?? '',
           dev_id: picked?.id ?? '',
-          allow_config: allowConfig,
         }),
       })
       const b = await r.json().catch(() => ({}))
@@ -467,17 +507,58 @@ export default function AskBar({ devices }: Props) {
       {/* 첫 화면 — 무엇을 시킬 수 있나. 예시가 없으면 사람은 아무것도 못 친다 */}
       {!draft && (
         <div className="ask-hero">
+          {/* 관리자만 — ⚙ 로 질문 보기를 고친다. 랩마다 자주 하는 시험이 다르다 */}
+          {amAdmin && (
+            <div className="ask-extools">
+              {exSay && <span className="muted small">{exSay}</span>}
+              {exEdit && (
+                <button className="btn small" type="button" onClick={() => void exSave()}>
+                  저장
+                </button>
+              )}
+              <button
+                className={`ask-exgear${exEdit ? ' on' : ''}`}
+                type="button"
+                title={exEdit ? '고치기 끝내기' : '질문 보기 고치기 (관리자)'}
+                onClick={() => {
+                  if (exEdit) void exSave()
+                  setExEdit((v) => !v)
+                }}
+              >
+                <IconSettings />
+              </button>
+            </div>
+          )}
           <h1>무엇을 시험할까요?</h1>
           <p className="muted">
             한국어로 말하면 5단계 흐름을 따라 절차를 만듭니다.
             <br />
             기능이 실제로 동작하는지 보려면 트래픽 단계가 함께 붙습니다.
           </p>
-          {examples.map((x) => {
-            const tr = wantsTraffic(x.q)
-            return (
+          {examples.map((x, i) =>
+            exEdit ? (
+              /* 고치는 중에는 줄 자체가 적는 칸이다 — 눌러 들어가지 않아도 된다 */
+              <div className="ask-exedit" key={i}>
+                <div className="ask-execol">
+                  <input
+                    value={x.q}
+                    placeholder="예) E6100 rate limit 시험해줘"
+                    onChange={(e) => exSet(i, { q: e.target.value })}
+                  />
+                  <input
+                    className="desc"
+                    value={x.d ?? ''}
+                    placeholder="설명 (없어도 됩니다) — 무엇을 보는 시험인지 한 줄로"
+                    onChange={(e) => exSet(i, { d: e.target.value })}
+                  />
+                </div>
+                <button type="button" className="ask-exdel" title="지우기" onClick={() => exDel(i)}>
+                  ✕
+                </button>
+              </div>
+            ) : (
               <button
-                key={x.q}
+                key={x.q || i}
                 type="button"
                 className="ask-exrow"
                 onClick={() => {
@@ -490,10 +571,15 @@ export default function AskBar({ devices }: Props) {
                   {x.q}
                   {x.d ? <i>{x.d}</i> : null}
                 </span>
-                <em>{tr ? '5단계 · 동작 시험' : '2단계 · 설정 확인'}</em>
+                <em>{wantsTraffic(x.q) ? '5단계 · 동작 시험' : '2단계 · 설정 확인'}</em>
               </button>
-            )
-          })}
+            ),
+          )}
+          {exEdit && (
+            <button type="button" className="ask-exadd" onClick={exAdd}>
+              ＋ 질문 추가
+            </button>
+          )}
           <p className="ask-note muted small">
             절차를 만들 때는 판정 기준을 잡으려고 <b>조회 명령만</b> 미리 보냅니다. 명령은{' '}
             <b>[실행]</b> 을 눌렀을 때만 나갑니다.
@@ -520,23 +606,9 @@ export default function AskBar({ devices }: Props) {
         </div>
       )}
 
-      {/* 설정 시험은 사람이 켤 때만. 켜 두면 말 한 줄에 장비 설정이 바뀌는
-          시험이 만들어진다 — 그것을 모르고 돌리는 일이 없어야 한다. */}
-      <label className={`ask-cfg${allowConfig ? ' on' : ''}`}>
-        <input
-          type="checkbox"
-          checked={allowConfig}
-          onChange={(e) => setAllowConfig(e.target.checked)}
-        />
-        <span>
-          <b>설정 시험 허용</b>
-          <i>
-            {allowConfig
-              ? 'configure terminal · interface · shutdown · no shutdown 까지 만듭니다. reload·write·copy·erase 는 켜도 막습니다.'
-              : '지금은 조회 명령만 만듭니다. 링크를 내렸다 올리는 시험을 만들려면 켜세요.'}
-          </i>
-        </span>
-      </label>
+      {/* 「설정 시험 허용」 스위치는 없앴다(지시: 그냥 생성되도록).
+          만들기만으로는 장비에 아무것도 안 나간다 — 명령은 [실행] 을 눌렀을
+          때만 나가므로, 사람이 절차를 보고 고른 뒤에 나간다. */}
 
       {err && <div className="ask-err">{err}</div>}
 
