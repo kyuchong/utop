@@ -5,7 +5,15 @@ import { api, apiFetch, categoryApi, projectApi, reqApi, tcApi } from '@/api/cli
 import ListHead from '@/components/ListHead'
 import ReqTree from '@/components/ReqTree'
 import { useMultiSelect } from '@/components/useMultiSelect'
-import { IconPanel, IconReqDoc, IconSettings, IconTcDoc } from '@/components/icons'
+import {
+  IconCycle,
+  IconExecution,
+  IconPanel,
+  IconReqDoc,
+  IconSettings,
+  IconSparkle,
+  IconTcDoc,
+} from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import ReqBulkForm from '@/components/ReqBulkForm'
 import ReqBulkEdit from '@/components/ReqBulkEdit'
@@ -536,11 +544,11 @@ export default function Requirements() {
 
   /** 상세 탭 — 레일 보기가 쓴다 (인라인 카드는 피드백으로 제거) */
   const TABS = [
-    ['info', 'Info'],
-    ['detail', 'Intent'],
-    ['tc', 'Coverages'],
-    ['runs', 'Execution History'],
-    ['history', 'Change History'],
+    ['info', 'Info', '요구사항 자체 — ID · 제목 · 자리 · 상태'],
+    ['detail', 'Intent', '무엇을 왜 만드나 — 구현 의도'],
+    ['tc', 'Coverages', '이 요구사항을 덮는 시험'],
+    ['runs', 'Execution History', '언제 돌려 어떻게 나왔나'],
+    ['history', 'Change History', '누가 무엇을 고쳤나'],
   ] as const
 
   /** 커버리지 집계. Xray 처럼 '덮였는가' 를 먼저 답하려고 쓴다. */
@@ -944,22 +952,43 @@ export default function Requirements() {
                 >
                   ← 목록
                 </button>
-                <div className="seg" role="tablist">
-                  {TABS.map(([k, label]) => (
+                <b className="rq-rail-t">{selectedReq.title || selectedReq.reqid || ''}</b>
+                <span className="sp" />
+              </div>
+              {/* 탭을 **세로 레일**로 옮겼다(지시). 가로줄에 두면 그 아래가
+                  또 한 칸으로 갈려 내용 칸이 좁아졌다 — 왼쪽에 세우고 오른쪽
+                  전부를 내용에 준다. */}
+              <div className="rq-rail-b">
+                <nav className="rq-vtabs" role="tablist" aria-label="요구사항 보기">
+                  {TABS.map(([k, label, hint]) => (
                     <button
                       key={k}
                       role="tab"
                       aria-selected={tab === k}
-                      className={`seg-btn${tab === k ? ' on' : ''}`}
+                      className={`rq-vtab${tab === k ? ' on' : ''}`}
                       type="button"
+                      title={hint}
                       onClick={() => setTab(k)}
                     >
-                      {label}
+                      <i aria-hidden="true">
+                        {k === 'info' ? (
+                          <IconReqDoc />
+                        ) : k === 'detail' ? (
+                          <IconSparkle />
+                        ) : k === 'tc' ? (
+                          <IconTcDoc />
+                        ) : k === 'runs' ? (
+                          <IconExecution />
+                        ) : (
+                          <IconCycle />
+                        )}
+                      </i>
+                      <span>{label}</span>
+                      {k === 'tc' && linked.length > 0 && <em>{linked.length}</em>}
                     </button>
                   ))}
-                </div>
-                <span className="sp" />
-              </div>
+                </nav>
+                <div className="rq-rail-c">
               {tab !== 'tc' ? (
                 <ReqDetail req={selectedReq} tcs={linked} tab={tab} />
               ) : (
@@ -1057,6 +1086,8 @@ export default function Requirements() {
                   </div>
                 </div>
               )}
+                </div>
+              </div>
               <div className="bottom colbot">
                 <span>
                   연결 TC {linked.length}건

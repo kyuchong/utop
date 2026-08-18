@@ -728,6 +728,88 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   flex: none;
 }
 
+/* 레일 보기 본문 — 왼쪽 세로 탭 · 오른쪽 내용 */
+.rq-rail-b { flex: 1; min-height: 0; display: flex; }
+.rq-vtabs {
+  flex: none;
+  width: 186px;
+  border-right: 1px solid var(--c-border, #e3e7ec);
+  background: var(--c-surface-alt, #f7f9fb);
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  overflow: auto;
+}
+.rq-vtab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.rq-vtab > i {
+  flex: none;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  opacity: 0.75;
+}
+.rq-vtab > i svg { width: 16px; height: 16px; }
+.rq-vtab > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rq-vtab > em {
+  flex: none;
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--c-text-muted);
+  background: var(--c-bg, #fff);
+  border: 1px solid var(--c-border, #e3e7ec);
+  border-radius: 9px;
+  padding: 0 6px;
+}
+.rq-vtab:hover { background: var(--c-bg, #fff); border-color: var(--c-border, #e3e7ec); color: var(--c-text); }
+.rq-vtab.on {
+  background: var(--c-bg, #fff);
+  border-color: var(--c-border, #e3e7ec);
+  color: var(--c-primary, #2563eb);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.06);
+}
+.rq-vtab.on > i { opacity: 1; }
+.rq-vtab.on::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--c-primary, #2563eb);
+}
+.rq-vtab.on > em { border-color: var(--c-primary, #2563eb); color: var(--c-primary, #2563eb); }
+.rq-rail-c { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+.rq-rail-t {
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+@media (max-width: 1100px) {
+  .rq-rail-b { flex-direction: column; }
+  .rq-vtabs { width: auto; flex-direction: row; border-right: 0; border-bottom: 1px solid var(--c-border, #e3e7ec); }
+  .rq-vtab.on::before { display: none; }
+  .rq-vtab.on { box-shadow: inset 0 -2px 0 var(--c-primary, #2563eb); }
+}
+
 /* 인라인 카드는 걷어냈다(피드백) — 레일 왕복(줄 클릭 ↔ ← 목록)이
    충분히 빨라 겹말이었다. */
 /* 줄이 놓인 폴더 — 고른 폴더 기준 상대 경로. 칩이 아니라 회색 잔글씨다,
