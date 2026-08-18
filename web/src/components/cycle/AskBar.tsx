@@ -1024,7 +1024,8 @@ export default function AskBar({ devices }: Props) {
               </div>
               <div className="modal-foot">
                 <span className="muted small">장비를 누르고 「이 장비로 시험 만들기」 를 누르세요.</span>
-                <span className="sp" />
+                {/* 단추는 한 묶음 — 안 묶으면 space-between 이 둘 사이를 벌린다 */}
+                <span className="ask-footbtns">
                 <button className="btn small" type="button" onClick={() => setPickDev(null)}>
                   그만두기
                 </button>
@@ -1040,6 +1041,7 @@ export default function AskBar({ devices }: Props) {
                 >
                   이 장비로 시험 만들기
                 </button>
+                </span>
               </div>
             </div>
           </div>
@@ -1088,13 +1090,15 @@ export default function AskBar({ devices }: Props) {
               ))}
             </div>
             <div className="modal-foot">
-              <span className="sp" />
-              <button className="btn small" type="button" onClick={() => setLikeAsk(false)}>
-                그만두기
-              </button>
-              <button className="btn primary small" type="button" onClick={() => void ask()}>
-                새로 만들기
-              </button>
+              <span className="muted small">줄을 누르면 그 시험을 가져옵니다.</span>
+              <span className="ask-footbtns">
+                <button className="btn small" type="button" onClick={() => setLikeAsk(false)}>
+                  그만두기
+                </button>
+                <button className="btn primary small" type="button" onClick={() => void ask()}>
+                  새로 만들기
+                </button>
+              </span>
             </div>
           </div>
         </div>

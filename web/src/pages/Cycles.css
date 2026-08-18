@@ -4347,3 +4347,6 @@ table.tb td.k {
   font-size: 11px;
   color: var(--c-muted);
 }
+
+/* 창 아래 단추 묶음 — space-between 이 단추 사이까지 벌리지 않게 */
+.ask-footbtns { display: flex; align-items: center; gap: 8px; }
