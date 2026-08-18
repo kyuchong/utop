@@ -115,7 +115,8 @@ export default function AskBar({ devices }: Props) {
    * 물어본 말은 여기 남겨 그걸로 가른다.
    */
   const [asked, setAsked] = useState('')
-  const [busy, setBusy] = useState(false)
+  /** 만드는 중인가 — 지금은 「가져오기」 한 길뿐이라 adopting 이 이 몫을 한다 */
+  const busy = false
   const [draft, setDraft] = useState<Draft | null>(null)
   /**
    * 막 지어진 절차 — **캔버스가 아니라 레일용**.
@@ -145,7 +146,7 @@ export default function AskBar({ devices }: Props) {
   /** 첫 화면 질문 보기 — 무엇을 시킬 수 있는지 눌러서 안다 */
   const [examples, setExamples] = useState<Array<{ q: string; d?: string }>>([])
   /** 비슷한 기존 시험 — 새로 짓기 전에 있는 것부터 본다 */
-  const [like, setLike] = useState<Array<{ tcid: string; name: string; model?: string }>>([])
+  const [like, setLike] = useState<Array<{ tcid: string; name: string; model?: string; steps?: number }>>([])
   const [adopting, setAdopting] = useState('')
   /** 최근 만든 시험 — 왼쪽 칸 */
   const [recent, setRecent] = useState<Array<{ cid: string; title: string; at?: string }>>([])
@@ -207,8 +208,21 @@ export default function AskBar({ devices }: Props) {
   const [pickSel, setPickSel] = useState('')
   const [pickLab, setPickLab] = useState('')
   const [pickRack, setPickRack] = useState('')
-  /** 비슷한 시험이 있을 때 — 가져올지 새로 지을지 묻는 창 */
+  /** 시험 항목 고르는 창 — Coverage 의 항목 중에서 고른다 */
   const [likeAsk, setLikeAsk] = useState(false)
+  /** 그 창의 찾기 글자 */
+  const [tcFind, setTcFind] = useState('')
+  /**
+   * Coverage 의 시험 항목 전부(스텝이 있는 것만).
+   *
+   * 없는 항목을 지어내지 않는다(지시). 절차는 **여기 있는 항목**에서만
+   * 나오고, 고른 장비에 맞춰 옮겨 준다.
+   */
+  const [tcAll, setTcAll] = useState<
+    Array<{ tcid: string; name: string; model: string; steps: number; path: string[] }>
+  >([])
+  /** 창에서 고른 트리 자리 (예: `SW · MAINT · SNMPv2`). 빈 글자면 전부 */
+  const [tcFold, setTcFold] = useState('')
   /** 접어 둔 단계 — 다 끝난 단계는 접어 치울 수 있다 */
   const [fold, setFold] = useState<Set<number>>(new Set())
   /** 랙 자리(구역·랙) — 어느 장비인지 고를 때 자리로 가른다 */
@@ -277,6 +291,53 @@ export default function AskBar({ devices }: Props) {
         /* 랙 자리를 몰라도 장비는 고를 수 있다 */
       }
       try {
+        /*
+         * Coverage 트리 그대로 고르게 하려고 셋을 함께 읽는다.
+         *   시험 항목(tc) → 어느 요구사항(req) → 그 요구사항의 분류(cat1..4)
+         * 트리의 자리는 분류 이름을 이어 붙인 것이다(예: SW · MAINT · SNMPv2).
+         */
+        const [rt, rq, rc] = await Promise.all([
+          apiFetch('/api/tc?meta=1'),
+          apiFetch('/api/req'),
+          apiFetch('/api/req-categories'),
+        ])
+        const bt = (await rt.json()) as { tcs?: Array<Record<string, unknown>> }
+        const bq = (await rq.json()) as { reqs?: Array<Record<string, unknown>> }
+        const bc = (await rc.json()) as { categories?: Array<{ id: string; name: string }> }
+        const catName = new Map((bc.categories ?? []).map((c) => [String(c.id), String(c.name)]))
+        const pathOf = new Map<string, string[]>()
+        for (const r3 of bq.reqs ?? []) {
+          const names = [r3.cat1, r3.cat2, r3.cat3, r3.cat4]
+            .map((c) => catName.get(String(c ?? '')) ?? '')
+            .filter(Boolean)
+          /* 트리의 **마지막 마디는 요구사항** 이다 — Coverage 화면의
+             「MAINT ▸ 📄 SNMPv2」 에서 SNMPv2 가 그것이다. 이 마디를 안 넣으면
+             「SNMP 시험해줘」 가 짚을 자리가 없다(지시한 바로 그 예). */
+          const leaf = String(r3.title ?? '').trim() || String(r3.reqid ?? '').trim()
+          if (leaf) names.push(leaf)
+          // ★ 시험 항목의 req_id 는 요구사항의 **속 id**(rq-…) 다. 겉으로 보이는
+          //   번호(REQ-…)로만 걸면 하나도 안 맞아 트리가 통째로 빈다(실측).
+          for (const key of [r3.id, r3.reqid]) {
+            const k2 = String(key ?? '')
+            if (k2) pathOf.set(k2, names)
+          }
+        }
+        setTcAll(
+          (bt.tcs ?? [])
+            .map((t) => ({
+              tcid: String(t.tcid ?? ''),
+              name: String(t.name ?? t.tcid ?? ''),
+              model: String(t.model ?? ''),
+              steps: Number(t._cli_count ?? 0),
+              path: pathOf.get(String(t.req_id ?? '')) ?? [],
+            }))
+            // 스텝이 없는 항목은 가져와도 빈 절차다 — 고를 수 없게 둔다
+            .filter((t) => t.tcid && t.steps > 0),
+        )
+      } catch {
+        /* 목록을 못 읽으면 아래 「비슷한 항목」 만으로 고른다 */
+      }
+      try {
         const r2 = await apiFetch('/api/ai/nl-chats')
         /* 서버 목록은 **id** 로 준다. 여기서 cid 로만 읽어 새로고침 뒤에는
            번호가 통째로 비었고, 기록을 누르면 없는 번호를 물어보다 「절차가
@@ -316,7 +377,10 @@ export default function AskBar({ devices }: Props) {
       const r = await apiFetch(
         `/api/ai/nl-tc-like?text=${encodeURIComponent(q.trim())}&model=${encodeURIComponent(picked?.model ?? '')}`,
       )
-      const b = (await r.json()) as { ok?: boolean; items?: Array<{ tcid: string; name: string; model?: string }> }
+      const b = (await r.json()) as {
+        ok?: boolean
+        items?: Array<{ tcid: string; name: string; model?: string; steps?: number }>
+      }
       const items = b.ok && Array.isArray(b.items) ? b.items.slice(0, 3) : []
       setLike(items)
       return items.length
@@ -652,6 +716,43 @@ export default function AskBar({ devices }: Props) {
     setGenSay('')
   }
 
+  /**
+   * 적은 말에서 **Coverage 트리 자리**를 찾는다.
+   *
+   * 「E6100 SNMP 시험해줘」 라고만 하면 어느 SNMP 시험인지 알 수 없다(지적).
+   * 트리에 그 이름의 자리가 있으면 그 자리를 펴 놓고 고르게 한다.
+   * `SNMP` 가 `SNMPv2` 를 짚는 것처럼 앞부분만 걸려도 인정한다.
+   */
+  const foldOf = (q: string): string => {
+    const flat = (v: string) => v.toLowerCase().replace(/[^0-9a-z가-힣]+/g, '')
+    const t = flat(q)
+    if (!t) return ''
+    let best = '',
+      bestDeep = -1,
+      bestN = 0
+    const n = new Map<string, number>()
+    for (const x of tcAll) {
+      const k = x.path.join(' · ')
+      if (k) n.set(k, (n.get(k) ?? 0) + 1)
+    }
+    for (const [k, cnt] of n) {
+      const segs = k.split(' · ')
+      for (let i = 0; i < segs.length; i++) {
+        const f = flat(segs[i] ?? '')
+        if (f.length < 2) continue
+        const hit = t.includes(f) || (f.length >= 4 && t.includes(f.slice(0, 4)))
+        if (!hit) continue
+        // 더 깊은 자리가 이긴다 — 같은 깊이면 항목이 많은 쪽
+        if (i > bestDeep || (i === bestDeep && cnt > bestN)) {
+          best = k
+          bestDeep = i
+          bestN = cnt
+        }
+      }
+    }
+    return best
+  }
+
   /** 적은 말에서 모델 이름을 찾아 그 모델 장비들을 모은다 */
   const candsOf = (q: string): { model: string; cands: Device[] } | null => {
     const t = q.toLowerCase()
@@ -739,86 +840,16 @@ export default function AskBar({ devices }: Props) {
         return
       }
     }
-    const n = await findLike(said, dev)
-    if (n > 0) setLikeAsk(true)
-    else await ask(said, dev)
+    // 말과 비슷한 항목을 위에 올려 주려고 미리 찾아 둔다. 없어도 창은 뜬다 —
+    // 없는 항목을 지어내지 않고 **Coverage 항목에서만** 고른다(지시).
+    await findLike(said, dev)
+    setTcFind('')
+    const fold = foldOf(said)
+    setTcFold(fold)
+    if (fold) setFlowLog((v) => [...v, { s: 1, t: `Coverage 트리의 「${fold}」 를 폄` }])
+    setLikeAsk(true)
   }
 
-  /**
-   * 절차를 짓는다. `dev` 는 **방금 고른 장비**.
-   *
-   * 상태(devId)만 보면 안 된다 — 창에서 고르고 그 자리에서 부르면 devId 는
-   * 아직 예전 값이다(React 상태는 다음 그림부터 바뀐다). 그래서 고른 대가
-   * 아니라 엉뚱한 대에서 기준을 읽거나, 아예 못 채웠다.
-   */
-  const ask = async (q?: string, dev?: Device) => {
-    const said = (q ?? text).trim()
-    if (!said) return
-    setLikeAsk(false)
-    setBusy(true)
-    setFlowAt(5)
-    setFlowLog((v) => [...v, { s: 5, t: '절차를 짓는 중…' }])
-    setErr('')
-    setDraft(null)
-    try {
-      /*
-       * 옮겨 온 자연어 시험 서버(nl-plan)를 쓴다.
-       *
-       * 옛 `/api/nl/tc` 는 LLM 일반 지식으로만 지었다. 이쪽은 **학습된 절차 ·
-       * 장비 카탈로그 · 이 랩에서 통한 명령** 을 근거로 삼아, 포트 표기와
-       * 판정기준까지 이 랩에 맞춰 내놓는다. 고른 장비의 모델을 함께 보낸다 —
-       * 모델을 알아야 인터페이스 이름(TenGi0/1 · Gi0/1)을 맞춘다.
-       */
-      const picked = dev ?? usable.find((x) => x.id === devId)
-      const r = await apiFetch('/api/ai/nl-plan', {
-        method: 'POST',
-        body: JSON.stringify({
-          text: said,
-          model: picked?.model ?? '',
-          dev_id: picked?.id ?? '',
-        }),
-      })
-      const b = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(b.detail || `만들지 못했습니다 (${r.status})`)
-      const raw = b as Draft & { title?: string; purpose?: string; ok?: boolean; error?: string }
-      if (raw.ok === false) throw new Error(raw.error || '만들지 못했습니다')
-      const d: Draft = {
-        ...raw,
-        name: raw.name || raw.title || said.slice(0, 40),
-        object: raw.object || raw.purpose,
-        steps: Array.isArray(raw.steps) ? raw.steps : [],
-      }
-      setStepAt(0)
-      instantRef.current = false
-      setBuilt(d)   // 레일은 지금 바로 편다 (한 줄씩 찬다)
-      setFlowLog((v) => [
-        ...v.filter((x) => x.t !== '절차를 짓는 중…'),
-        { s: 5, t: `절차 ${d.steps.length}개 스텝으로 지음` },
-      ])
-      // 기준까지 채운 뒤에 내놓는다 — 스텝만 먼저 뜨면 「기준 없이 만들어졌다」
-      // 로 보이고, 채워지는 동안 눈앞에서 값이 바뀐다(지적)
-      const done = picked ? await fillCriteria(d, picked) : d
-      setDraft(done)
-      void keepChat(done.name, done, picked?.ip ?? '')
-      /*
-       * 사람이 고른 장비를 **지킨다.**
-       *
-       * 여태는 다 만든 뒤 AI 가 짚은 IP 로 덮어썼다. 3대 중 둘째를 고르고
-       * 만들었는데 끝나고 보면 셋째로 바뀌어 있었다 — 기준은 고른 대에서
-       * 읽고 명령은 다른 대로 나간다. 안 골랐을 때만 AI 가 짚은 것을 쓴다.
-       */
-      if (!picked) {
-        const hit = usable.find((x) => x.ip === d.device_ip)
-        setDevId(hit?.id ?? usable[0]?.id ?? '')
-      }
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e))
-      setText(asked)    // 다시 보낼 수 있게 말을 돌려준다
-      setFlowAt(0)
-    } finally {
-      setBusy(false)
-    }
-  }
 
   /**
    * 만든 시험을 그 자리에서 돌린다.
@@ -950,15 +981,7 @@ export default function AskBar({ devices }: Props) {
     // (읽는 중 → 기준 잡는 중 → 다시 명령 찾는 중).
     if (filling) return
     if (!busy && !adopting) return
-    const says = adopting
-      ? ['가져올 시험을 읽는 중…', '이 장비의 포트 이름에 맞추는 중…', '값을 비우고 옮기는 중…']
-      : [
-          '학습된 절차를 읽는 중…',
-          '이 장비의 인터페이스 구성을 맞추는 중…',
-          '이 랩에서 통한 명령을 찾는 중…',
-          '절차를 짓는 중…',
-          '판정 기준을 잡는 중…',
-        ]
+    const says = ['고른 항목을 읽는 중…', '이 장비의 포트 이름에 맞추는 중…', '값을 비우고 옮기는 중…']
     let i = 0
     setGenSay(says[0] ?? '')
     const t = setInterval(() => {
@@ -1353,9 +1376,9 @@ export default function AskBar({ devices }: Props) {
           )}
           <h1>무엇을 시험할까요?</h1>
           <p className="muted">
-            한국어로 말하면 5단계 흐름을 따라 절차를 만듭니다.
+            한국어로 적으면 <b>Coverage 의 시험 항목</b> 중에서 찾아 줍니다.
             <br />
-            기능이 실제로 동작하는지 보려면 트래픽 단계가 함께 붙습니다.
+            고른 항목의 절차를 그 장비에 맞춰 옮기고, 판정 기준까지 채워 놓습니다.
           </p>
           {examples.map((x, i) =>
             exEdit ? (
@@ -1742,9 +1765,17 @@ export default function AskBar({ devices }: Props) {
                               onDoubleClick={() => {
                                 setDevId(d.id)
                                 setPickDev(null)
-                                void findLike(asked, d).then((n) =>
-                                  n > 0 ? setLikeAsk(true) : ask(asked, d),
-                                )
+                                void findLike(asked, d).then(() => {
+                                  setTcFind('')
+                                  const fd = foldOf(asked)
+                                  setTcFold(fd)
+                                  if (fd)
+                                    setFlowLog((v) => [
+                                      ...v,
+                                      { s: 1, t: `Coverage 트리의 「${fd}」 를 폄` },
+                                    ])
+                                  setLikeAsk(true)
+                                })
                               }}
                             >
                               {/* 장비명이 주인공 — 이름이 없으면 모델을 세운다.
@@ -1796,9 +1827,14 @@ export default function AskBar({ devices }: Props) {
                       ].filter((x) => x.v),
                     )
                     setPickDev(null)
-                    void findLike(asked, d2).then((n) =>
-                      n > 0 ? setLikeAsk(true) : ask(asked, d2),
-                    )
+                    void findLike(asked, d2).then(() => {
+                      setTcFind('')
+                      const fd = foldOf(asked)
+                      setTcFold(fd)
+                      if (fd)
+                        setFlowLog((v) => [...v, { s: 1, t: `Coverage 트리의 「${fd}」 를 폄` }])
+                      setLikeAsk(true)
+                    })
                   }}
                 >
                   이 장비로 시험 만들기
@@ -1810,8 +1846,10 @@ export default function AskBar({ devices }: Props) {
         )
       })()}
 
-      {/* ② 비슷한 시험이 이미 있다 — 가져올지 새로 지을지 */}
-      {likeAsk && like.length > 0 && (
+      {/* ② 시험 항목 고르기 — **Coverage 에 있는 항목에서만** 고른다.
+             없는 항목을 지어내지 않는다(지시). 말과 비슷한 것을 위에 올려
+             주고, 그 아래로 전체를 찾아볼 수 있게 둔다. */}
+      {likeAsk && (
         <div className="modal-back" onMouseDown={cancelAsk}>
           <div
             className="modal ask-likemodal"
@@ -1821,9 +1859,9 @@ export default function AskBar({ devices }: Props) {
           >
             <div className="modal-head">
               <div>
-                <b>비슷한 시험이 이미 있어요</b>
+                <b>어느 시험 항목으로 할까요?</b>
                 <div className="muted small">
-                  가져오면 그 절차를 고른 장비에 맞춰 바꿔 줍니다 — 새로 짓지 않습니다.
+                  고르면 그 항목의 절차를 <b>{curDev?.model || '고른 장비'}</b> 에 맞춰 옮겨 줍니다.
                 </div>
               </div>
               <span className="sp" />
@@ -1831,8 +1869,33 @@ export default function AskBar({ devices }: Props) {
                 ✕
               </button>
             </div>
-            <div className="ask-likelist">
-              {like.map((x) => (
+            <div className="ask-tcfind">
+              <input
+                value={tcFind}
+                placeholder="항목 이름 · TC 번호 · 모델로 찾기"
+                onChange={(e) => setTcFind(e.target.value)}
+              />
+            </div>
+            {(() => {
+              const q = tcFind.trim().toLowerCase()
+              const hit = (x: { tcid: string; name: string; model: string }) =>
+                !q ||
+                x.name.toLowerCase().includes(q) ||
+                x.tcid.toLowerCase().includes(q) ||
+                x.model.toLowerCase().includes(q)
+              /* 트리 자리별로 묶는다 — 왼쪽에서 자리를 고르면 그 안만 본다 */
+              const folds = new Map<string, number>()
+              for (const t of tcAll) {
+                const k = t.path.join(' · ')
+                if (!k) continue
+                folds.set(k, (folds.get(k) ?? 0) + 1)
+              }
+              const foldList = [...folds.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+              const inFold = (t: { path: string[] }) => !tcFold || t.path.join(' · ') === tcFold
+              const likeIds = new Set(like.map((x) => x.tcid))
+              const near = q || tcFold ? [] : like
+              const rest = tcAll.filter((x) => inFold(x) && hit(x) && (q || tcFold || !likeIds.has(x.tcid)))
+              const row = (x: { tcid: string; name?: string; model?: string; steps?: number; path?: string[] }) => (
                 <button
                   key={x.tcid}
                   type="button"
@@ -1843,22 +1906,65 @@ export default function AskBar({ devices }: Props) {
                     void adopt(x.tcid)
                   }}
                 >
-                  <b>{x.name}</b>
+                  <b>{x.name || x.tcid}</b>
                   <span className="muted small">
+                    {x.path && x.path.length > 0 ? `${x.path.join(' · ')} · ` : ''}
                     {x.tcid}
                     {x.model ? ` · ${x.model}` : ''}
+                    {x.steps ? ` · ${x.steps}스텝` : ''}
                   </span>
                 </button>
-              ))}
-            </div>
+              )
+              return (
+                <div className="ask-tcbody">
+                  <aside className="ask-pickside">
+                    <div className="ask-pickgrp">Coverage Tree</div>
+                    <button
+                      className={`ask-pickf${tcFold === '' ? ' on' : ''}`}
+                      type="button"
+                      onClick={() => setTcFold('')}
+                    >
+                      전체<i>{tcAll.length}</i>
+                    </button>
+                    {foldList.map(([k, n]) => (
+                      <button
+                        key={k}
+                        className={`ask-pickf${tcFold === k ? ' on' : ''}`}
+                        type="button"
+                        title={k}
+                        onClick={() => setTcFold(k)}
+                      >
+                        {k.split(' · ').slice(-2).join(' · ')}
+                        <i>{n}</i>
+                      </button>
+                    ))}
+                  </aside>
+                  <div className="ask-likelist">
+                    {near.length > 0 && <div className="ask-likegrp">말과 비슷한 항목</div>}
+                    {near.map((x) => row(x))}
+                    {near.length > 0 && rest.length > 0 && (
+                      <div className="ask-likegrp">그 밖의 항목 {rest.length}건</div>
+                    )}
+                    {tcFold && <div className="ask-likegrp">{tcFold} — {rest.length}건</div>}
+                    {rest.slice(0, 300).map((x) => row(x))}
+                    {near.length === 0 && rest.length === 0 && (
+                      <div className="ask-likenone muted small">
+                        {tcAll.length === 0
+                          ? '시험 항목을 읽지 못했습니다 — Coverage 에서 항목을 먼저 만들어 주세요'
+                          : '찾는 항목이 없습니다 — 왼쪽 자리를 바꾸거나 다른 말로 찾아보세요'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })()}
             <div className="modal-foot">
-              <span className="muted small">줄을 누르면 그 시험을 가져옵니다.</span>
+              <span className="muted small">
+                줄을 누르면 그 항목으로 시험을 만듭니다. 없는 항목은 만들지 않습니다.
+              </span>
               <span className="ask-footbtns">
                 <button className="btn small" type="button" onClick={cancelAsk}>
                   그만두기
-                </button>
-                <button className="btn primary small" type="button" onClick={() => void ask(asked)}>
-                  새로 만들기
                 </button>
               </span>
             </div>

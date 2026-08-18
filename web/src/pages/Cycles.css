@@ -4415,6 +4415,22 @@ table.tb td.k {
 
 /* ── 비슷한 시험 창 ── */
 .modal.ask-likemodal { width: 560px; max-width: 94vw; }
+/* 시험 항목 고르기 — 왼쪽 Coverage 트리 자리 · 오른쪽 항목 */
+.ask-tcfind { padding: 10px 14px 0; }
+.ask-tcfind input { width: 100%; }
+.ask-tcbody { display: flex; gap: 12px; min-height: 0; flex: 1; padding: 10px 14px 0; }
+.ask-tcbody .ask-pickside { flex: none; width: 190px; overflow: auto; }
+.ask-tcbody .ask-likelist { flex: 1; min-width: 0; }
+.ask-likegrp {
+  font-size: 11px;
+  color: var(--c-muted);
+  padding: 8px 2px 4px;
+  position: sticky;
+  top: 0;
+  background: var(--c-bg, #fff);
+}
+.ask-likenone { padding: 18px 4px; }
+
 .ask-likelist { padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow: auto; }
 .ask-likerow {
   display: flex;
