@@ -4101,7 +4101,8 @@ table.tb td.k {
 /* 가운데 — 작업 흐름 */
 .ask-rail {
   flex: none;
-  width: 300px;
+  /* 한 일 줄이 두 줄씩 접히던 폭이다 — 조금 넓혀 한 줄에 담기게(지시) */
+  width: 360px;
   border-right: 1px solid var(--c-border);
   padding: 12px;
   overflow: auto;
