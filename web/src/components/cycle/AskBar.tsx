@@ -222,7 +222,7 @@ export default function AskBar({ devices }: Props) {
    * 켜져 있는 모든 화면에 곧바로 뿌린다(WebSocket) — 남이 새로고침할 때까지
    * 기다리지 않는다.
    */
-  const exSave = async () => {
+  const exSave = async (): Promise<boolean> => {
     setExSay('담는 중…')
     try {
       const r = await apiFetch('/api/ai/examples', {
@@ -231,11 +231,15 @@ export default function AskBar({ devices }: Props) {
       })
       const b = (await r.json()) as { ok?: boolean; items?: Array<{ q: string; d?: string }>; detail?: string }
       if (!b.ok) throw new Error(b.detail || '담지 못했습니다')
-      setExamples(b.items ?? [])
+      // 서버가 담은 것을 돌려주면 그것으로 맞춘다. **안 돌려주면 지금 것을
+      // 그대로 둔다** — 빈 배열로 덮으면 질문이 통째로 사라진다.
+      if (Array.isArray(b.items)) setExamples(b.items)
       setExSay('담았습니다')
       setTimeout(() => setExSay(''), 2000)
+      return true
     } catch (e) {
       setExSay(e instanceof Error ? e.message : String(e))
+      return false
     }
   }
   const exSet = (i: number, patch: { q?: string; d?: string }) =>
@@ -512,7 +516,15 @@ export default function AskBar({ devices }: Props) {
             <div className="ask-extools">
               {exSay && <span className="muted small">{exSay}</span>}
               {exEdit && (
-                <button className="btn small" type="button" onClick={() => void exSave()}>
+                <button
+                  className="btn small"
+                  type="button"
+                  onClick={() => {
+                    void exSave().then((ok) => {
+                      if (ok) setExEdit(false)
+                    })
+                  }}
+                >
                   저장
                 </button>
               )}
