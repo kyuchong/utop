@@ -9933,6 +9933,9 @@ async def _db_init():
         ("code_kind_labels", DATA_DIR / "code_kind_labels.json"),
         ("code_kind_hidden", DATA_DIR / "code_kind_hidden.json"),
         ("cycle_desc_template", DATA_DIR / "cycle_desc_template.json"),
+        # 자연어 시험 첫 화면의 질문 보기 — 등록 안 하면 재시작 때 빈 값이
+        # 캐시에 박히고 다음 저장이 DB 를 덮어쓴다(원본 앱에서 겪은 덫).
+        ("ai_examples", DATA_DIR / "ai_examples.json"),
     ]
     for _key, _fp in _KV_MIGRATIONS:
         _kv_register_fallback(_key, _fp)
@@ -14777,3 +14780,20 @@ async def defect_delete_api(did: str):
     try: asyncio.create_task(broadcast({"type": "defect_updated", "id": did}))
     except Exception: pass
     return {"ok": ok}
+
+
+# ══════════════════════════════════════════════════════════════════════
+# 자연어 시험 (AI Assistant) — 길 9개
+#
+# 다른 UTOP 서버에서 돌던 것을 옮겨 왔다. **여기가 맨 끝인 이유**: 그 모듈이
+# 이 파일의 이름들(app · db · _ai_chat · run_cli …)을 받아 오므로, 위가 전부
+# 자리를 잡은 뒤여야 한다.
+#
+# 못 붙어도 서버는 그대로 뜬다 — 자연어 시험만 죽고 나머지 화면은 산다.
+# 시연을 앞두고 화면 한 칸 때문에 전체가 안 뜨는 일은 없어야 한다.
+# ══════════════════════════════════════════════════════════════════════
+try:
+    import nl_test  # noqa: E402,F401
+    print("[startup] 자연어 시험(nl_test) 붙음 — /api/ai/nl-* · /api/ai/examples", flush=True)
+except Exception as _nl_e:  # pragma: no cover - 기동 로그로만 알린다
+    print(f"[startup] 자연어 시험(nl_test) 못 붙임: {_nl_e}", flush=True)
