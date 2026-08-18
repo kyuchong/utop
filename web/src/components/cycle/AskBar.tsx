@@ -362,8 +362,14 @@ export default function AskBar({ devices }: Props) {
     setFilling(true)
     setGenSay('조회를 미리 돌려 판정 기준을 잡는 중…')
     setFlowLog((v) => [...v, { s: 5, t: '조회를 미리 돌려 판정 기준을 잡는 중…' }])
+    /* 장비로 두 번 나갔다가 LLM 까지 거치는 길이다. 어딘가 멎으면 **영영**
+       안 돌아와 화면이 「만드는 중」 에 머문다 — 어디에도 마감 시간이 없었다.
+       2분이면 끊고, 기준은 비운 채로 절차를 연다(돌린 뒤 고르면 된다). */
+    const ac = new AbortController()
+    const bell = setTimeout(() => ac.abort(), 120_000)
     try {
       const r = await apiFetch('/api/ai/nl-criteria', {
+        signal: ac.signal,
         method: 'POST',
         body: JSON.stringify({
           probe: true,
@@ -412,13 +418,21 @@ export default function AskBar({ devices }: Props) {
       setGenSay('')
       return { ...d, steps }
     } catch (e) {
+      const cut = e instanceof Error && e.name === 'AbortError'
       setFlowLog((v) => [
         ...v.filter((x) => !x.t.endsWith('잡는 중…')),
-        { s: 5, t: `판정 기준을 못 잡았습니다 — ${e instanceof Error ? e.message : String(e)}` },
+        {
+          s: 5,
+          t: cut
+            ? '2분이 지나 기준 잡기를 멈췄습니다 — 비운 채로 엽니다, 돌린 뒤 응답에서 고르세요'
+            : `판정 기준을 못 잡았습니다 — ${e instanceof Error ? e.message : String(e)}`,
+        },
       ])
       setFlowAt(0)
       setFilling(false)
       setGenSay('')
+    } finally {
+      clearTimeout(bell)
     }
     return d
   }
@@ -794,7 +808,10 @@ export default function AskBar({ devices }: Props) {
   /* 굳은 사실 몇 줄 — 아래 셈틀이 이 차례대로 한 줄씩 내놓는다 */
   const notes5: string[] = []
   if (plan5) {
-    notes5.push(...fitNotes)
+    /* 서버도 「값을 비운 합격 기준 N개」 를 적어 주는데, 그건 가져올 때의
+       옛 셈이다. 채운 뒤에도 그대로 남아 아래 지금 셈과 두 줄이 되어 서로
+       다른 수를 말한다(지적 사진) — 지금 셈만 둔다. */
+    notes5.push(...fitNotes.filter((n) => !n.startsWith('값을 비운 합격 기준')))
     const blank = plan5.steps.filter((x) => !(x.criteria ?? '').trim() && x.type !== 'ok').length
     if (blank > 0) notes5.push(`값을 비운 합격 기준 ${blank}개 — 돌린 뒤 응답에서 고르세요`)
   }
@@ -810,6 +827,15 @@ export default function AskBar({ devices }: Props) {
    * 튀어나와, 무엇이 어떤 차례로 정해졌는지 알 수 없다(지적). 굳은 사실
    * 한 줄 · 스텝 한 줄씩 차례로 내놓아 눈이 따라갈 수 있게 한다.
    */
+  /** 만들기 시작하고 몇 초 — 오래 걸리는 것과 멎은 것은 다르다 */
+  const [elapsed, setElapsed] = useState(0)
+  useEffect(() => {
+    if (!making) return
+    setElapsed(0)
+    const t = setInterval(() => setElapsed((v) => v + 1), 1000)
+    return () => clearInterval(t)
+  }, [making])
+
   const [rev, setRev] = useState(0)
   useEffect(() => {
     setRev(0)   // 새로 지어질 때만 처음부터
@@ -1060,17 +1086,45 @@ export default function AskBar({ devices }: Props) {
           <div className="ask-mksay">
             <i />
             <span>{genSay || '만드는 중…'}</span>
+            {elapsed > 4 && <em className="muted">{elapsed}초째</em>}
           </div>
-          <div className="ask-skel" aria-hidden="true">
-            {[0, 1, 2].map((i) => (
-              <div className="ask-skelrow" key={i}>
-                <b />
-                <em />
-              </div>
-            ))}
-          </div>
+          {/* 절차가 지어졌으면 **그것을 보여 준다.** 레일에는 스텝이 다 찼는데
+              여기만 회색 뼈대면 「스텝이 안 만들어졌다」 로 보인다(지적) — 실은
+              기준을 잡느라 몇 초에서 몇십 초가 걸리는 참이다. */}
+          {built && built.steps.length > 0 ? (
+            <ol className="ask-mkstep">
+              {built.steps.map((x, i) => (
+                <li key={i}>
+                  <i>{i + 1}</i>
+                  <span>
+                    <b>{x.desc || x.cli}</b>
+                    {x.cli && x.desc ? <code>{x.cli}</code> : null}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <div className="ask-skel" aria-hidden="true">
+              {[0, 1, 2].map((i) => (
+                <div className="ask-skelrow" key={i}>
+                  <b />
+                  <em />
+                </div>
+              ))}
+            </div>
+          )}
           <p className="ask-note muted small">
-            판정 기준을 잡으려고 <b>조회 명령만</b> 미리 보냅니다. 다 채운 뒤에 절차가 한 번에 나옵니다.
+            {built && built.steps.length > 0 ? (
+              <>
+                절차 <b>{built.steps.length}스텝</b> 은 다 나왔습니다. 지금은 <b>조회 명령만</b> 미리
+                보내 판정 기준을 잡는 중입니다 — 다 채우면 이 절차가 고칠 수 있는 꼴로 열립니다.
+              </>
+            ) : (
+              <>
+                판정 기준을 잡으려고 <b>조회 명령만</b> 미리 보냅니다. 다 채운 뒤에 절차가 한 번에
+                나옵니다.
+              </>
+            )}
           </p>
         </div>
       )}

@@ -4158,6 +4158,24 @@ table.tb td.k {
   background: var(--c-primary, #2563eb);
   animation: ask-pulse 1.1s ease-in-out infinite;
 }
+/* 만드는 중에 보여 주는 절차 — 아직 못 고치는 꼴이라 흐리게 둔다 */
+.ask-mkstep { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ask-mkstep li {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card, 8px);
+  background: var(--c-bg, #fff);
+  padding: 9px 11px;
+  opacity: 0.72;
+}
+.ask-mkstep li > i { flex: none; font-style: normal; font-size: 11px; color: var(--c-muted); min-width: 12px; }
+.ask-mkstep li > span { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ask-mkstep li b { font-size: var(--fs-sm); font-weight: 600; }
+.ask-mkstep li code { font-size: 10.5px; color: var(--c-muted); }
+.ask-mksay em { font-style: normal; margin-left: auto; font-size: 11px; }
+
 .ask-skel { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .ask-skelrow {
   border: 1px solid var(--c-border);
