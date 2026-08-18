@@ -2650,6 +2650,7 @@ table.tb td.k {
   cursor: pointer;
 }
 .cxp-runbtn:hover { background: var(--c-primary-bg); }
+.cy-pbslot { display: inline-flex; align-items: center; }
 .cy-execslot { display: inline-flex; align-items: center; gap: 6px; }
 .cxp-r1 { display: flex; align-items: center; gap: 6px; min-width: 0; flex: none; }
 .cxp-tcid {

@@ -823,6 +823,10 @@ export default function Requirements({ me }: Props) {
           </span>
         </span>
         <span className="sp" />
+        {/* 시험 항목 화면과 **같은 자리** — 맨 위 줄 오른쪽 끝(지시).
+            한 건을 펴 놓았으면 그 요구사항을 보는 사람, 목록이면 이 화면에
+            들어와 있는 사람 전부. */}
+        <PresenceBar users={selectedReq ? presence.users : crowd} me={meName} />
       </div>
 
       <div className="split" ref={splitRef}>
@@ -976,8 +980,6 @@ export default function Requirements({ me }: Props) {
                 </button>
                 <b className="rq-rail-t">{selectedReq.title || selectedReq.reqid || ''}</b>
                 <span className="sp" />
-                {/* 이 요구사항을 같이 보는 사람 — 둘부터 뜬다 */}
-                <PresenceBar users={presence.users} me={meName} />
               </div>
               {/* 탭을 **세로 레일**로 옮겼다(지시). 가로줄에 두면 그 아래가
                   또 한 칸으로 갈려 내용 칸이 좁아졌다 — 왼쪽에 세우고 오른쪽
@@ -1123,8 +1125,6 @@ export default function Requirements({ me }: Props) {
             <>
           {/* 액션은 머리줄에 — 따로 한 줄을 먹고 있어서 표가 그만큼 짧았다 */}
           <div className="rq-mid-h rq-mid-acts">
-            {/* 요구사항 화면에 들어와 있는 사람 전부 */}
-            <PresenceBar users={crowd} me={meName} />
             {/* 「Requirements N」 이름표는 뺐다(피드백) — 위 빵부스러기와
                 아래 「요구사항 N건」 이 이미 말한다. 버튼이 왼쪽부터 선다. */}
               <div className="rq-actions">

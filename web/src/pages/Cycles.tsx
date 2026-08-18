@@ -1145,10 +1145,14 @@ export default function Cycles({ me }: PageProps) {
           </button>
         )}
         {cur && <span className="cy-execslot" id="cy-sumslot" />}
-        {/* 사이클 화면에 들어와 있는 사람 전부 — 상단 오른쪽 */}
-        <PresenceBar users={crowd} me={me?.name || me?.username || ''} />
-        {/* 이 사이클 **한 건**을 같이 보는 사람은 상세 머리줄에 따로 붙는다
-            (아래 CycleDetail) — 화면 전체 인원과 뜻이 다르다 */}
+        {/* 「함께 보는 중」 은 **오른쪽 끝 한 자리**만 쓴다(지적: 두 군데나
+            떴다). 사이클을 열었으면 그 사이클을 보는 사람(아래 CycleDetail 이
+            이 자리에 끼운다), 목록이면 이 화면에 있는 사람 전부. */}
+        {cur ? (
+          <span className="cy-pbslot" id="cy-pbslot" />
+        ) : (
+          <PresenceBar users={crowd} me={me?.name || me?.username || ''} />
+        )}
       </div>
 
     <div className={`split cy${cur ? ' cy-execfull' : ''}`} ref={splitRef}>
@@ -2814,6 +2818,10 @@ function CycleDetail({
   useEffect(() => {
     localStorage.setItem('utop.cycle.sumopen', sumOpen ? '1' : '0')
   }, [sumOpen])
+  const [pbEl, setPbEl] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setPbEl(document.getElementById('cy-pbslot'))
+  }, [])
   const [sumEl, setSumEl] = useState<HTMLElement | null>(null)
   useEffect(() => {
     setSumEl(document.getElementById('cy-sumslot'))
@@ -3568,12 +3576,11 @@ function CycleDetail({
               unseen={Math.max(0, saves.length - seen)}
               onSeen={() => setSeen(saves.length)}
             />
-            {/* **이 사이클** 을 같이 보는 사람. 여태 들고남 알림에만 쓰고
-                화면에는 안 보였다(지적) — 화면 전체 인원과 뜻이 다르다. */}
-            <PresenceBar users={presence.users} me={meName} />
           </>,
           barEl,
         )}
+      {/* **이 사이클** 을 같이 보는 사람 — 오른쪽 끝 한 자리에 끼운다 */}
+      {pbEl && createPortal(<PresenceBar users={presence.users} me={meName} />, pbEl)}
 
       {rowMenu && (
         <CycleRowMenu
