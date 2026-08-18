@@ -4339,3 +4339,11 @@ table.tb td.k {
 }
 .ask-likerow:hover { border-color: var(--c-primary, #2563eb); background: #f6f9fe; }
 .ask-likerow b { font-size: var(--fs-sm); }
+
+/* 장비 카드 — IP 는 아래 한 줄(장비명이 주인공) */
+.ask-pickip {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--c-muted);
+}

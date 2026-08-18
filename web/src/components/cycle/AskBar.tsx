@@ -330,9 +330,11 @@ export default function AskBar({ devices }: Props) {
    *   ② 비슷한 시험이 이미 있으면 **가져올지 새로 지을지** (있는 것을 가져오는
    *      편이 정확하다 — 이 랩에서 이미 통한 절차니까)
    */
-  const submit = async () => {
-    if (!text.trim() || busy) return
-    const hit = candsOf(text)
+  const submit = async (q?: string) => {
+    const said = (q ?? text).trim()
+    if (!said || busy) return
+    if (q) setText(q)
+    const hit = candsOf(said)
     if (hit && hit.cands.length > 1 && !hit.cands.some((d) => d.id === devId)) {
       setPickSel(hit.cands[0]?.id ?? '')
       setPickLab('')
@@ -341,13 +343,14 @@ export default function AskBar({ devices }: Props) {
       return
     }
     if (hit && hit.cands.length === 1 && hit.cands[0]) setDevId(hit.cands[0].id)
-    const n = await findLike(text)
+    const n = await findLike(said)
     if (n > 0) setLikeAsk(true)
-    else await ask()
+    else await ask(said)
   }
 
-  const ask = async () => {
-    if (!text.trim()) return
+  const ask = async (q?: string) => {
+    const said = (q ?? text).trim()
+    if (!said) return
     setLikeAsk(false)
     setBusy(true)
     setErr('')
@@ -365,7 +368,7 @@ export default function AskBar({ devices }: Props) {
       const r = await apiFetch('/api/ai/nl-plan', {
         method: 'POST',
         body: JSON.stringify({
-          text: text.trim(),
+          text: said,
           model: picked?.model ?? '',
           dev_id: picked?.id ?? '',
         }),
@@ -376,7 +379,7 @@ export default function AskBar({ devices }: Props) {
       if (raw.ok === false) throw new Error(raw.error || '만들지 못했습니다')
       const d: Draft = {
         ...raw,
-        name: raw.name || raw.title || text.trim().slice(0, 40),
+        name: raw.name || raw.title || said.slice(0, 40),
         object: raw.object || raw.purpose,
         steps: Array.isArray(raw.steps) ? raw.steps : [],
       }
@@ -646,10 +649,7 @@ export default function AskBar({ devices }: Props) {
                 key={x.q || i}
                 type="button"
                 className="ask-exrow"
-                onClick={() => {
-                  setText(x.q)
-                  void findLike(x.q)
-                }}
+                onClick={() => void submit(x.q)}
               >
                 <b>▸</b>
                 <span>
@@ -1000,12 +1000,19 @@ export default function AskBar({ devices }: Props) {
                                 void findLike(text).then((n) => (n > 0 ? setLikeAsk(true) : ask()))
                               }}
                             >
-                              <b>{d.name || d.ip}</b>
+                              {/* 장비명이 주인공 — 이름이 없으면 모델을 세운다.
+                                  IP 는 아래 한 번만(전에는 제목과 두 번 나왔다) */}
+                              <b>{d.name || d.model || d.ip}</b>
                               <span>
                                 {d.role ? <i className="r">{d.role}</i> : null}
-                                {at ? <i className="p">{at.lab} · {at.rack}{at.pos ? ` · ${at.pos}U` : ''}</i> : null}
-                                <i className="ip">{d.ip}</i>
+                                {at ? (
+                                  <i className="p">
+                                    {at.lab} · {at.rack}
+                                    {at.pos ? ` · ${at.pos}U` : ''}
+                                  </i>
+                                ) : null}
                               </span>
+                              <em className="ask-pickip">{d.ip}</em>
                             </button>
                           )
                         })}
