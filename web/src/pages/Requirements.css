@@ -1065,6 +1065,10 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   font-size: var(--fs-xs);
 }
 .rq-ffind input:focus { outline: none; border-color: var(--c-primary); }
+/* 머리줄 안으로 들어간 폴더 찾기 — 이름표 자리를 그대로 쓴다(지시) */
+.lh .lh-ffind { flex: 1; min-width: 0; padding: 0; display: flex; align-items: center; }
+.lh .lh-ffind input { font-size: var(--fs-xs); padding: 4px 24px 4px 9px; }
+.lh .lh-ffind button { right: 6px; }
 .rq-ffind button {
   position: absolute;
   right: 14px;

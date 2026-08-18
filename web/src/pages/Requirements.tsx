@@ -853,10 +853,26 @@ export default function Requirements({ me }: Props) {
           {/* 1열은 폴더만 다룬다 — 요구사항을 만들고 고치고 지우는 일은
               전부 2열 표(Add·Clone·Delete·Export)가 맡는다. 두 군데에
               같은 일이 있으면 어디를 눌러야 할지 매번 생각하게 된다. */}
+          {/* 이름표(「Folder Tree 24」)를 빼고 그 자리에 **폴더 찾기**를 둔다
+              (지시). 이름은 위 빵부스러기가 이미 말하고, 건수는 이 칸 맨
+              아래 「폴더 N개 · 요구사항 N건」 이 말한다 — 줄 하나를 아꼈다. */}
           <ListHead
-            name="Folder Tree"
-            count={folderCount}
+            name=""
             onCollapse={() => setTreeOpen(false)}
+            picked={
+              <span className="rq-ffind lh-ffind">
+                <input
+                  value={folderQ}
+                  placeholder="폴더 찾기"
+                  onChange={(e) => setFolderQ(e.target.value)}
+                />
+                {folderQ && (
+                  <button type="button" title="지우기" onClick={() => setFolderQ('')}>
+                    ✕
+                  </button>
+                )}
+              </span>
+            }
             // 폴더 정렬 — ⋯ 왼쪽 아이콘 단추. 기본은 숫자(자릿수 코드).
             // 파란 + 는 뺐다(피드백) — 새 프로젝트는 ⋯ 메뉴에 있다.
             extra={<FolderSortBtn value={folderSort} onChange={setFolderSort} />}
@@ -885,19 +901,6 @@ export default function Requirements({ me }: Props) {
               </>
             }
           />
-          {/* 폴더만 찾는다. 위 줄의 찾기는 요구사항용이라 서로 안 섞인다. */}
-          <div className="rq-ffind">
-            <input
-              value={folderQ}
-              placeholder="폴더 찾기"
-              onChange={(e) => setFolderQ(e.target.value)}
-            />
-            {folderQ && (
-              <button type="button" title="지우기" onClick={() => setFolderQ('')}>
-                ✕
-              </button>
-            )}
-          </div>
           {loading ? (
             <div className="empty">불러오는 중…</div>
           ) : (
