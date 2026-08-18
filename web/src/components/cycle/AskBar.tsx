@@ -641,12 +641,15 @@ export default function AskBar({ devices }: Props) {
     setFitNotes([])
     setFlowAt(1)
     const hit = candsOf(said)
-    if (hit && hit.cands.length > 1 && !hit.cands.some((d) => d.id === devId)) {
-      setFlowLog((v) => [...v, { s: 1, t: `요청의 ${hit.model} 이(가) ${hit.cands.length}대` }])
-      setPickSel(hit.cands[0]?.id ?? '')
+    const askPick = (model: string, cands: Device[], why: string) => {
+      setFlowLog((v) => [...v, { s: 1, t: why }])
+      setPickSel(cands[0]?.id ?? '')
       setPickLab('')
       setPickRack('')
-      setPickDev(hit)
+      setPickDev({ model, cands })
+    }
+    if (hit && hit.cands.length > 1 && !hit.cands.some((d) => d.id === devId)) {
+      askPick(hit.model, hit.cands, `요청의 ${hit.model} 이(가) ${hit.cands.length}대`)
       return
     }
     if (hit && hit.cands.length === 1 && hit.cands[0]) {
@@ -656,6 +659,28 @@ export default function AskBar({ devices }: Props) {
         { k: '모델', v: hit.model },
         { k: '대상', v: hit.cands[0]!.ip },
       ])
+    }
+    /*
+     * 말에 모델 이름이 없을 때 — **그래도 물어본다.**
+     *
+     * 여태 이때는 창을 안 띄우고 장비 없이 만들었다. 그러면 어디로 보낼지
+     * 모르는 절차가 나오고, 조회를 미리 못 보내니 판정 기준도 통째로
+     * 비었다(지적). 어느 장비인지는 사람만 안다 — 전체에서 고르게 한다.
+     */
+    if (!hit && !usable.some((d) => d.id === devId)) {
+      if (usable.length === 0) {
+        setErr('쓸 수 있는 장비가 없습니다 — Devices 에서 먼저 등록해 주세요')
+        setFlowAt(0)
+        return
+      }
+      if (usable.length === 1 && usable[0]) {
+        setDevId(usable[0].id)
+        setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${usable[0]!.ip} 확정 (한 대뿐)` }])
+        setFlowVals([{ k: '대상', v: usable[0]!.ip }])
+      } else {
+        askPick('', usable, '어느 장비로 할지 말에 없어 물어봅니다')
+        return
+      }
     }
     const n = await findLike(said)
     if (n > 0) setLikeAsk(true)
@@ -1578,8 +1603,16 @@ export default function AskBar({ devices }: Props) {
             >
               <div className="modal-head">
                 <div>
-                  <b>{pickDev.model} 이(가) {pickDev.cands.length}대 있어요</b>
-                  <div className="muted small">어느 장비로 보낼지 골라 주세요.</div>
+                  <b>
+                    {pickDev.model
+                      ? `${pickDev.model} 이(가) ${pickDev.cands.length}대 있어요`
+                      : '어느 장비로 시험할까요?'}
+                  </b>
+                  <div className="muted small">
+                    {pickDev.model
+                      ? '어느 장비로 보낼지 골라 주세요.'
+                      : '말에 모델 이름이 없어서 여쭙습니다 — 고른 장비로 명령이 나갑니다.'}
+                  </div>
                 </div>
                 <span className="sp" />
                 <button className="modal-x" type="button" onClick={() => setPickDev(null)}>
@@ -1671,10 +1704,13 @@ export default function AskBar({ devices }: Props) {
                       { s: 1, t: '그중에서 고름' },
                       { s: 1, t: `보낼 장비 ${d2?.ip ?? ''} 확정` },
                     ])
-                    setFlowVals([
-                      { k: '모델', v: pickDev.model },
-                      { k: '대상', v: d2?.ip ?? '' },
-                    ])
+                    setFlowVals(
+                      [
+                        // 말에 모델이 없어 물어본 때는 고른 장비의 모델을 적는다
+                        { k: '모델', v: pickDev.model || String(d2?.model ?? '') },
+                        { k: '대상', v: d2?.ip ?? '' },
+                      ].filter((x) => x.v),
+                    )
                     setPickDev(null)
                     void findLike(text).then((n) => (n > 0 ? setLikeAsk(true) : ask()))
                   }}
