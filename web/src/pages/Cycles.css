@@ -4026,30 +4026,172 @@ table.tb td.k {
   max-height: 58vh;
 }
 
-/* 말로 시험 만들기 — 질문 보기·비슷한 시험 (자연어 시험 이관) */
-.ask-ex { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
-.ask-exb {
-  border: 1px solid var(--c-border);
-  background: #f6f9fc;
-  border-radius: 14px;
-  padding: 4px 11px;
-  font-size: var(--fs-xs);
-  cursor: pointer;
-  color: var(--c-text);
+/* ══ 말로 시험 만들기 (자연어 시험 이관) ══════════════════════════
+   옮겨 온 화면의 **짜임**만 가져오고 꼴은 우리 것으로 다시 그렸다 —
+   판·테두리·글자 크기·둥근 모서리를 다른 화면과 같은 토큰으로 쓴다. */
+.ask { display: flex; height: 100%; min-height: 0; gap: 0; }
+
+/* 왼쪽 — 새로 만들기 · 최근 */
+.ask-sess {
+  flex: none;
+  width: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-right: 1px solid var(--c-border);
+  overflow: auto;
 }
-.ask-exb:hover { background: #e8f2fe; border-color: #5b9bd5; }
-.ask-like { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; }
+.ask-new { width: 100%; }
+.ask-eyebrow {
+  font-size: var(--fs-xs);
+  color: var(--c-muted);
+  font-weight: 700;
+  margin-top: 4px;
+}
+.ask-slist { display: flex; flex-direction: column; gap: 2px; }
+.ask-sitem {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 5px 7px;
+  border-radius: var(--r-chip, 6px);
+  font-size: var(--fs-xs);
+  color: var(--c-text);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ask-sitem:hover { background: var(--tc-hover, #f0f4f8); }
+
+.ask-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ask-cols { flex: 1; min-height: 0; display: flex; }
+
+/* 가운데 — 작업 흐름 */
+.ask-rail {
+  flex: none;
+  width: 300px;
+  border-right: 1px solid var(--c-border);
+  padding: 12px;
+  overflow: auto;
+}
+.ask-rail-head { display: flex; align-items: baseline; gap: 8px; }
+.ask-rail-head .sp { margin-left: auto; }
+.ask-rail-head em { font-style: normal; margin-left: auto; }
+.ask-rail-say { margin: 8px 0 12px; line-height: 1.6; }
+.ask-stages { display: flex; flex-direction: column; gap: 4px; }
+.ask-stage {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 7px 9px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card, 8px);
+  font-size: var(--fs-xs);
+}
+.ask-stage i {
+  flex: none;
+  font-style: normal;
+  font-weight: 700;
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 50%;
+  background: #eef2f6;
+  color: var(--c-muted);
+  font-size: 10px;
+}
+.ask-stage span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ask-stage em { font-style: normal; font-size: 10.5px; color: var(--c-muted); }
+.ask-stage.skip { opacity: 0.55; }
+.ask-stage.done i { background: #e6f6ee; color: #1d9e75; }
+
+/* 오른쪽 — 캔버스 */
+.ask-canvas { flex: 1; min-width: 0; overflow: auto; padding: 16px; }
+
+/* 첫 화면 */
+.ask-hero { max-width: 620px; margin: 8vh auto 0; }
+.ask-hero h1 { font-size: 22px; font-weight: 700; margin: 0 0 6px; }
+.ask-hero > p { margin: 0 0 16px; line-height: 1.65; }
+.ask-exrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card, 8px);
+  background: var(--c-bg, #fff);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+.ask-exrow:hover { border-color: var(--c-primary, #2563eb); background: #f6f9fe; }
+.ask-exrow b { color: var(--c-primary, #2563eb); font-size: 11px; }
+.ask-exrow > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ask-exrow > span i { font-style: normal; font-size: var(--fs-xs); color: var(--c-muted); }
+.ask-exrow em {
+  flex: none;
+  font-style: normal;
+  font-size: 11px;
+  color: var(--c-muted);
+  white-space: nowrap;
+}
+.ask-note { margin-top: 14px; line-height: 1.6; }
+
+/* 아래 입력줄 — 작업 흐름부터 오른쪽 끝까지 */
+.ask-askbar { flex: none; border-top: 1px solid var(--c-border); padding: 10px 16px; }
+.ask-askbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  padding: 4px 4px 4px 16px;
+  background: var(--c-bg, #fff);
+}
+.ask-askbox:focus-within { border-color: var(--c-primary, #2563eb); }
+.ask-askbox .ask-in { flex: 1; border: 0; outline: 0; background: transparent; padding: 8px 0; }
+.ask-send {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--c-primary, #2563eb);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+.ask-send:disabled { background: #c3ccd4; cursor: default; }
+
+/* 비슷한 시험 — 새로 짓기 전에 있는 것부터 */
+.ask-like { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0; }
 .ask-likeb {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid #8a6fc0;
-  background: #f4f0fb;
-  color: #4d3d80;
+  border: 1px solid var(--c-border);
+  background: var(--c-bg, #fff);
   border-radius: 14px;
   padding: 4px 11px;
   font-size: var(--fs-xs);
   cursor: pointer;
 }
-.ask-likeb:hover { background: #e9e0fa; }
-.ask-likeb i { font-style: normal; font-size: 10px; opacity: 0.7; }
+.ask-likeb:hover { border-color: var(--c-primary, #2563eb); background: #f6f9fe; }
+.ask-likeb i { font-style: normal; font-size: 10px; color: var(--c-muted); }
+
+/* 좁아지면 곁칸부터 접는다 — 왼쪽 메뉴(180px)가 이미 자리를 먹으므로
+   옮겨 온 값(1200·1000)보다 낮춰 잡는다. 노트북(1366)에서도 세 칸이 선다. */
+@media (max-width: 1100px) {
+  .ask-sess { display: none; }
+}
+@media (max-width: 860px) {
+  .ask-rail { display: none; }
+}
+
+/* AI 페이지 — 화면 높이를 그대로 채운다(채팅 꼴) */
+.aitc { height: 100%; min-height: 0; display: flex; }
+.aitc > .ask { flex: 1; min-width: 0; }

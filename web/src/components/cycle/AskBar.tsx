@@ -129,8 +129,30 @@ export default function AskBar({ devices }: Props) {
   /** 비슷한 기존 시험 — 새로 짓기 전에 있는 것부터 본다 */
   const [like, setLike] = useState<Array<{ tcid: string; name: string; model?: string }>>([])
   const [adopting, setAdopting] = useState('')
+  /** 최근 만든 시험 — 왼쪽 칸 */
+  const [recent, setRecent] = useState<Array<{ cid: string; title: string; at?: string }>>([])
 
   const usable = devices.filter((d) => d.role !== '계측기')
+
+  /**
+   * 작업 흐름 — 이 시험이 어느 단계를 거치나.
+   *
+   * 옮겨 온 화면이 늘 다섯 단계로 말한다(장비 선택 · 포트 연결 · 트래픽 설정 ·
+   * 트래픽 확인 · 생성 완료). 트래픽이 없는 시험은 가운데 셋을 건너뛰므로,
+   * **건너뛴 까닭까지** 함께 적는다 — 왜 안 하는지 모르면 빠진 것처럼 보인다.
+   */
+  const wantsTraffic = (q: string) =>
+    /트래픽|계측기|손실|대역|rate|bps|throughput|스트림|부하/i.test(q)
+  const stages = (q: string, made: boolean) => {
+    const tr = wantsTraffic(q)
+    return [
+      { n: 1, name: '장비 선택', skip: '' },
+      { n: 2, name: '포트 연결', skip: tr ? '' : '한 대만 보는 시험이라 건너뜁니다' },
+      { n: 3, name: '트래픽 설정', skip: tr ? '' : '트래픽이 없어 건너뜁니다' },
+      { n: 4, name: '트래픽 확인', skip: tr ? '' : '트래픽이 없어 건너뜁니다' },
+      { n: 5, name: '생성 완료', skip: '', done: made },
+    ]
+  }
 
   // 무엇을 시킬 수 있는지 — 빈 화면에 예시가 없으면 사람은 아무것도 못 친다
   useEffect(() => {
@@ -141,6 +163,17 @@ export default function AskBar({ devices }: Props) {
         if (b.ok && Array.isArray(b.items)) setExamples(b.items)
       } catch {
         /* 예시가 없어도 화면은 돈다 */
+      }
+      try {
+        const r2 = await apiFetch('/api/ai/nl-chats')
+        const b2 = (await r2.json()) as {
+          ok?: boolean
+          items?: Array<{ cid: string; title?: string; at?: string }>
+        }
+        if (b2.ok && Array.isArray(b2.items))
+          setRecent(b2.items.slice(0, 12).map((x) => ({ cid: x.cid, title: x.title || x.cid, at: x.at })))
+      } catch {
+        /* 기록이 없어도 화면은 돈다 */
       }
     })()
   }, [])
@@ -361,46 +394,109 @@ export default function AskBar({ devices }: Props) {
       d ? { ...d, steps: d.steps.map((s, j) => (j === i ? { ...s, ...patch } : s)) } : d,
     )
 
-  return (
-    <div className="ask">
-      <div className="ask-row">
-        <input
-          className="ask-in"
-          value={text}
-          placeholder="말로 시키기 — 예) E5724RL 시스템 정보 시험해줘"
-          onChange={(e) => setText(e.target.value)}
-          onBlur={() => void findLike(text)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') void ask()
-          }}
-        />
-        <button
-          className="btn small"
-          type="button"
-          disabled={busy || !text.trim()}
-          onClick={() => void ask()}
-        >
-          {busy ? '만드는 중…' : '만들기'}
-        </button>
-      </div>
+  const flow = stages(text || draft?.name || '', !!draft)
 
-      {/* 무엇을 시킬 수 있나 — 누르면 그대로 들어간다 */}
-      {!draft && examples.length > 0 && (
-        <div className="ask-ex">
-          {examples.map((x) => (
-            <button
-              key={x.q}
-              type="button"
-              className="ask-exb"
-              title={x.d || ''}
-              onClick={() => {
-                setText(x.q)
-                void findLike(x.q)
-              }}
-            >
-              {x.q}
-            </button>
-          ))}
+  return (
+    /* 세 칸 + 아래 입력줄 — 옮겨 온 화면의 짜임을 우리 꼴(panel·btn·토큰)로 다시 그렸다.
+       왼쪽 기록 · 가운데 작업 흐름 · 오른쪽 캔버스, 입력은 흐름부터 오른쪽 끝까지. */
+    <div className="ask">
+      <aside className="ask-sess">
+        <button
+          className="btn small ask-new"
+          type="button"
+          onClick={() => {
+            setDraft(null)
+            setRan(null)
+            setText('')
+            setLike([])
+            setErr('')
+          }}
+        >
+          새 시험 만들기
+        </button>
+        <div className="ask-eyebrow">최근</div>
+        <div className="ask-slist">
+          {recent.length === 0 ? (
+            <span className="muted small">아직 만든 시험이 없습니다.</span>
+          ) : (
+            recent.map((x) => (
+              <button
+                key={x.cid}
+                type="button"
+                className="ask-sitem"
+                title={x.at ? String(x.at).slice(0, 16).replace('T', ' ') : ''}
+                onClick={() => setText(x.title)}
+              >
+                {x.title}
+              </button>
+            ))
+          )}
+        </div>
+      </aside>
+
+      <div className="ask-main">
+        <div className="ask-cols">
+          {/* 작업 흐름 — 무엇을 거치는지, 건너뛰면 왜 건너뛰는지 */}
+          <section className="ask-rail">
+            <div className="ask-rail-head">
+              <b>작업 흐름</b>
+              <em className="muted small">{draft ? '절차 준비됨' : busy ? '만드는 중…' : '대기 중'}</em>
+            </div>
+            <p className="ask-rail-say muted small">
+              흐름은 항상 5단계입니다 — 장비 선택 · 포트 연결 · 트래픽 설정 · 트래픽 확인 ·
+              생성 완료.
+              <br />
+              시험에 필요 없는 단계는 이유와 함께 건너뜁니다.
+            </p>
+            <div className="ask-stages">
+              {flow.map((st) => (
+                <div key={st.n} className={`ask-stage${st.skip ? ' skip' : ''}${st.done ? ' done' : ''}`}>
+                  <i>{st.n}</i>
+                  <span>
+                    {st.name}
+                    {st.skip ? <em>{st.skip}</em> : null}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <main className="ask-canvas">
+
+      {/* 첫 화면 — 무엇을 시킬 수 있나. 예시가 없으면 사람은 아무것도 못 친다 */}
+      {!draft && (
+        <div className="ask-hero">
+          <h1>무엇을 시험할까요?</h1>
+          <p className="muted">
+            한국어로 말하면 5단계 흐름을 따라 절차를 만듭니다.
+            <br />
+            기능이 실제로 동작하는지 보려면 트래픽 단계가 함께 붙습니다.
+          </p>
+          {examples.map((x) => {
+            const tr = wantsTraffic(x.q)
+            return (
+              <button
+                key={x.q}
+                type="button"
+                className="ask-exrow"
+                onClick={() => {
+                  setText(x.q)
+                  void findLike(x.q)
+                }}
+              >
+                <b>▸</b>
+                <span>
+                  {x.q}
+                  {x.d ? <i>{x.d}</i> : null}
+                </span>
+                <em>{tr ? '5단계 · 동작 시험' : '2단계 · 설정 확인'}</em>
+              </button>
+            )
+          })}
+          <p className="ask-note muted small">
+            절차를 만들 때는 판정 기준을 잡으려고 <b>조회 명령만</b> 미리 보냅니다. 명령은{' '}
+            <b>[실행]</b> 을 눌렀을 때만 나갑니다.
+          </p>
         </div>
       )}
 
@@ -654,6 +750,35 @@ export default function AskBar({ devices }: Props) {
           </div>
         </div>
       )}
+          </main>
+        </div>
+
+        {/* 입력은 작업 흐름부터 오른쪽 끝까지 — 왼쪽 기록 칸은 제 자리를 지킨다 */}
+        <div className="ask-askbar">
+          <div className="ask-askbox">
+            <input
+              className="ask-in"
+              value={text}
+              placeholder="무엇을 시험할지 한국어로 적으세요"
+              onChange={(e) => setText(e.target.value)}
+              onBlur={() => void findLike(text)}
+              onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing) return
+                if (e.key === 'Enter') void ask()
+              }}
+            />
+            <button
+              className="ask-send"
+              type="button"
+              title="보내기 (Enter)"
+              disabled={busy || !text.trim()}
+              onClick={() => void ask()}
+            >
+              {busy ? '…' : '➤'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

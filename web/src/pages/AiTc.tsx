@@ -25,20 +25,11 @@ export default function AiTc() {
     staleTime: 60_000,
   })
 
+  /* 화면 전체가 이 한 벌이다 — 세 칸(기록·작업 흐름·캔버스)과 아래 입력줄은
+     AskBar 가 그린다. 여기서 판(panel)으로 또 감싸면 칸이 두 겹이 된다. */
   return (
     <div className="aitc">
-      <section className="panel aitc-main">
-        <div className="aitc-head">
-          <b>말로 시험 만들기</b>
-          <span className="muted small">
-            이 랩에서 통한 명령으로 짜고, 돌려 보고, 쓸 만하면 시험으로 남깁니다.
-            지금은 <b>조회 시험</b>만 만듭니다.
-          </span>
-        </div>
-        <div className="aitc-body">
-          <AskBar devices={devQ.data?.devices ?? []} />
-        </div>
-      </section>
+      <AskBar devices={devQ.data?.devices ?? []} />
     </div>
   )
 }
