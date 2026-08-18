@@ -1890,16 +1890,18 @@ export default function AskBar({ devices }: Props) {
             </div>
             {(() => {
               /*
-               * 고른 장비 모델 것만 본다(지시).
+               * **모델명이 같은 것만** 본다(지시, 두 번 짚어 주심).
                *
-               * 「공용」·빈 값은 **어느 모델에나 쓰는 항목**이라 함께 남긴다 —
-               * 이 랩의 SNMP 항목이 죄다 공용이라, 빼면 고를 것이 없어진다.
+               * 처음엔 「공용」·빈 값도 남겼다 — 어느 모델에나 쓰는 항목이라
+               * 여겼다. 그러나 고른 것은 E6100 인데 E5724RL·U9532H 항목이
+               * 함께 뜬다. 모델명이 안 맞으면 뺀다. 이 랩은 공용 항목이 많아
+               * 이러면 남는 것이 없을 수 있는데, 그때는 아래 안내대로
+               * 「E6100 것만」 을 끄면 된다.
                */
               const myModel = (curDev?.model ?? '').trim().toLowerCase()
               const forMe = (t: { model?: string }) => {
                 if (!tcOnlyModel || !myModel) return true
-                const m = String(t.model ?? '').trim().toLowerCase()
-                return !m || m === '공용' || m === myModel
+                return String(t.model ?? '').trim().toLowerCase() === myModel
               }
               const q = tcFind.trim().toLowerCase()
               const hit = (x: { tcid: string; name: string; model: string }) =>
@@ -1978,7 +1980,9 @@ export default function AskBar({ devices }: Props) {
                       <div className="ask-likenone muted small">
                         {tcAll.length === 0
                           ? '시험 항목을 읽지 못했습니다 — Coverage 에서 항목을 먼저 만들어 주세요'
-                          : '찾는 항목이 없습니다 — 왼쪽 자리를 바꾸거나 다른 말로 찾아보세요'}
+                          : tcOnlyModel && myModel && tcAll.some((x) => inFold(x) && hit(x))
+                            ? `모델명이 ${curDev?.model} 인 항목이 없습니다 — 위 「${curDev?.model} 것만」 을 끄면 다른 모델 항목도 보입니다`
+                            : '찾는 항목이 없습니다 — 왼쪽 자리를 바꾸거나 다른 말로 찾아보세요'}
                       </div>
                     )}
                   </div>
