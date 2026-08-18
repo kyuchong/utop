@@ -4403,7 +4403,10 @@ table.tb td.k {
 .ask-planttl { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ask-planhd .sp { margin-left: auto; }
 .ask-devsel { max-width: 230px; }
-.ask-two { flex: 1; min-height: 0; display: flex; gap: 12px; }
+/* 폭은 늘 캔버스 폭이다 — 옛 `.ask-plan` 규칙의 align-items:flex-start 가
+   아직 이 화면에도 걸려서, 두 칸이 「든 것만큼」 만 넓어졌다. 그래서 돌리기
+   전에는 좁다가 응답이 찍히는 순간 확 벌어졌다(지적). 스스로 늘여 둔다. */
+.ask-two { flex: 1; min-height: 0; display: flex; gap: 12px; align-self: stretch; }
 .ask-steplist { flex: 1; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
 .ask-stepcard {
   display: flex;
