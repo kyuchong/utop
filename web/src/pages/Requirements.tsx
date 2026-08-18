@@ -3,6 +3,9 @@ import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, projectApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
+import PresenceBar from '@/components/PresenceBar'
+import { usePageCrowd } from '@/components/usePageCrowd'
+import { usePresence } from '@/components/usePresence'
 import ReqTree from '@/components/ReqTree'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import {
@@ -45,7 +48,23 @@ import './Requirements.css'
 const SEL_KEY = 'utop.req.sel'
 const FOLDER_KEY = 'utop.req.folder'
 
-export default function Requirements() {
+interface Props {
+  /** 지금 로그인한 사람 — 「함께 보는 중」 에 쓴다 */
+  me?: { username?: string; name?: string } | null
+}
+
+export default function Requirements({ me }: Props) {
+  const meName = me?.name || me?.username || ''
+  /**
+   * 같은 것을 누가 같이 보고 있나.
+   *
+   * 시험 항목 화면에만 있었다(지적). 요구사항도 둘이 같은 건을 열어 놓고
+   * 각자 고치면 나중에 저장한 사람이 앞사람 것을 조용히 덮는다 — 막지는
+   * 않고, 누가 있는지 보여 준다.
+   *   crowd    이 화면(요구사항)에 들어와 있는 사람 전부
+   *   presence **이 요구사항 한 건**을 보고 있는 사람
+   */
+  const crowd = usePageCrowd('req')
   const [selected, setSelected] = useState<string | null>(
     () => localStorage.getItem(SEL_KEY) || null,
   )
@@ -542,6 +561,9 @@ export default function Requirements() {
     return { linked: out, ownerOf: owner }
   }, [folderMode, folderReqs, selectedReq, tcsFor, tcById])
 
+  /** 이 요구사항 한 건을 같이 보는 사람 */
+  const presence = usePresence(selected ? `req:${selected}` : 'req', meName)
+
   /** 상세 탭 — 레일 보기가 쓴다 (인라인 카드는 피드백으로 제거) */
   const TABS = [
     ['info', 'Info', '요구사항 자체 — ID · 제목 · 자리 · 상태'],
@@ -954,6 +976,8 @@ export default function Requirements() {
                 </button>
                 <b className="rq-rail-t">{selectedReq.title || selectedReq.reqid || ''}</b>
                 <span className="sp" />
+                {/* 이 요구사항을 같이 보는 사람 — 둘부터 뜬다 */}
+                <PresenceBar users={presence.users} me={meName} />
               </div>
               {/* 탭을 **세로 레일**로 옮겼다(지시). 가로줄에 두면 그 아래가
                   또 한 칸으로 갈려 내용 칸이 좁아졌다 — 왼쪽에 세우고 오른쪽
@@ -1099,6 +1123,8 @@ export default function Requirements() {
             <>
           {/* 액션은 머리줄에 — 따로 한 줄을 먹고 있어서 표가 그만큼 짧았다 */}
           <div className="rq-mid-h rq-mid-acts">
+            {/* 요구사항 화면에 들어와 있는 사람 전부 */}
+            <PresenceBar users={crowd} me={meName} />
             {/* 「Requirements N」 이름표는 뺐다(피드백) — 위 빵부스러기와
                 아래 「요구사항 N건」 이 이미 말한다. 버튼이 왼쪽부터 선다. */}
               <div className="rq-actions">

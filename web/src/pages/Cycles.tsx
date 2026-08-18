@@ -1147,6 +1147,8 @@ export default function Cycles({ me }: PageProps) {
         {cur && <span className="cy-execslot" id="cy-sumslot" />}
         {/* 사이클 화면에 들어와 있는 사람 전부 — 상단 오른쪽 */}
         <PresenceBar users={crowd} me={me?.name || me?.username || ''} />
+        {/* 이 사이클 **한 건**을 같이 보는 사람은 상세 머리줄에 따로 붙는다
+            (아래 CycleDetail) — 화면 전체 인원과 뜻이 다르다 */}
       </div>
 
     <div className={`split cy${cur ? ' cy-execfull' : ''}`} ref={splitRef}>
@@ -3566,6 +3568,9 @@ function CycleDetail({
               unseen={Math.max(0, saves.length - seen)}
               onSeen={() => setSeen(saves.length)}
             />
+            {/* **이 사이클** 을 같이 보는 사람. 여태 들고남 알림에만 쓰고
+                화면에는 안 보였다(지적) — 화면 전체 인원과 뜻이 다르다. */}
+            <PresenceBar users={presence.users} me={meName} />
           </>,
           barEl,
         )}

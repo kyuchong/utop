@@ -171,7 +171,7 @@ export default function App() {
       {page === 'dashboard' ? (
         <Dashboard onNav={(k) => setPage(k)} />
       ) : page === 'requirements' ? (
-        <Requirements />
+        <Requirements me={user} />
       ) : page === 'testcases' ? (
         <TestCases me={user} />
       ) : page === 'ai-tc' ? (
