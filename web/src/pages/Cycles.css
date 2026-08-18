@@ -4495,7 +4495,9 @@ table.tb td.k {
 .ask-tctable tbody tr { cursor: pointer; }
 .ask-tctable tbody tr:hover { background: var(--c-accent-soft, #eef4ff); }
 .ask-tctable tbody tr.busy { opacity: 0.5; cursor: default; }
-.ask-tctable td:first-child { width: 100%; }
+.ask-tctable th.ck, .ask-tctable td.ck { width: 26px; padding-right: 0; }
+.ask-tctable th.ck input, .ask-tctable td.ck input { margin: 0; cursor: pointer; }
+.ask-tctable td:nth-child(2) { width: 100%; }
 .ask-tctable td b { font-weight: 500; }
 .ask-tctable td i {
   font-style: normal;
@@ -4623,7 +4625,42 @@ table.tb td.k {
    아직 이 화면에도 걸려서, 두 칸이 「든 것만큼」 만 넓어졌다. 그래서 돌리기
    전에는 좁다가 응답이 찍히는 순간 확 벌어졌다(지적). 스스로 늘여 둔다. */
 .ask-two { flex: 1; min-height: 0; display: flex; gap: 12px; align-self: stretch; }
-.ask-steplist { flex: 1; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+.ask-steplist { flex: 1; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: 0; }
+/* TC 화면의 스텝 목록과 같은 줄 — 세션 · 번호 · 종류 · 내용 · 결과 */
+.ask-srow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.ask-srow:hover { background: var(--c-accent-soft, #eef4ff); }
+.ask-srow.on { background: var(--c-accent-soft, #eef4ff); box-shadow: inset 2px 0 0 var(--c-primary, #2563eb); }
+.ask-srow.note { background: #f2f9f4; }
+.ask-srow.note .ask-skind { color: #1d9e75; }
+.ask-srow.note .ask-sbody { color: #1d9e75; }
+.ask-ssess {
+  flex: none;
+  width: 30px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--c-primary, #2563eb);
+  background: #eef4ff;
+  border-radius: 4px;
+  padding: 1px 0;
+}
+.ask-srow.note .ask-ssess { color: var(--c-text-faint, #9aa5b1); background: transparent; font-weight: 400; }
+.ask-sno { flex: none; min-width: 34px; color: var(--c-muted); font-size: 10.5px; }
+.ask-skind { flex: none; width: 74px; color: var(--c-text); }
+.ask-sbody { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-sbody.mono { font-family: var(--font-mono); font-size: 11px; }
+.ask-sres { flex: none; width: 46px; text-align: right; font-size: 10.5px; color: var(--c-muted); }
+.ask-sres.pass { color: #1d9e75; font-weight: 600; }
+.ask-sres.fail { color: #e24b4a; font-weight: 600; }
+.ask-sres.run { color: var(--c-primary, #2563eb); }
 .ask-stepcard {
   display: flex;
   align-items: center;

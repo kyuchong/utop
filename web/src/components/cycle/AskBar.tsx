@@ -13,6 +13,8 @@ interface DraftStep {
   criteria?: string
   /** cli(기본) · wait · loop/for · if · inst(계측기) · snmp_get/set/trap · ping */
   kind?: string
+  /** 주석 줄의 글 */
+  text?: string
   /** SNMP·Ping 스텝이 들고 오는 것 */
   oid?: string
   community?: string
@@ -251,6 +253,8 @@ export default function AskBar({ devices }: Props) {
   const [tcFold, setTcFold] = useState('')
   /** 펼쳐 둔 마디 */
   const [tcOpen, setTcOpen] = useState<Set<string>>(new Set())
+  /** 체크한 시험 항목들 — 여러 건을 한 절차로 묶어 돌린다 */
+  const [tcPick, setTcPick] = useState<Set<string>>(new Set())
   /**
    * 고른 장비 모델 것만 보이기 — **기본 끔**(지시).
    *
@@ -822,6 +826,66 @@ export default function AskBar({ devices }: Props) {
   }
 
   /**
+   * 고른 항목 **여러 건**을 한 절차로 묶어 온다.
+   *
+   * 한 건씩 가져와 이어 붙이고, 사이에 그 항목 이름을 주석으로 넣는다 —
+   * 안 넣으면 스텝이 뒤섞여 어디부터 어느 시험인지 알 수 없다.
+   */
+  const adoptMany = async (ids: string[], dev?: Device) => {
+    if (ids.length === 0) return
+    if (ids.length === 1 && ids[0]) return adopt(ids[0], dev)
+    setAdopting(ids[0] ?? '')
+    setErr('')
+    setFlowAt(5)
+    setFlowLog((v) => [...v, { s: 5, t: `고른 ${ids.length}건을 가져오는 중…` }])
+    try {
+      const picked = dev ?? usable.find((x) => x.id === devId) ?? usable[0]
+      const steps: DraftStep[] = []
+      const notes: string[] = []
+      let got = 0
+      for (const tcid of ids) {
+        const r = await apiFetch('/api/ai/nl-tc-adopt', {
+          method: 'POST',
+          body: JSON.stringify({ tcid, device_id: picked?.id ?? '', model: picked?.model ?? '' }),
+        })
+        const b = (await r.json()) as {
+          ok?: boolean
+          title?: string
+          steps?: DraftStep[]
+          tc?: { notes?: string[] }
+        }
+        if (!b.ok || !Array.isArray(b.steps) || b.steps.length === 0) continue
+        got++
+        steps.push({ kind: 'comment', indent: 0, desc: b.title || tcid, text: b.title || tcid, cli: '' })
+        steps.push(...b.steps)
+        for (const n of b.tc?.notes ?? []) if (!notes.includes(n)) notes.push(n)
+      }
+      if (got === 0) throw new Error('고른 항목에서 옮길 스텝이 없습니다')
+      setFlowLog((v) => [
+        ...v.filter((x) => !x.t.endsWith('가져오는 중…')),
+        { s: 5, t: `${got}건을 가져와 이 장비(${picked?.model ?? ''})로 옮김 — 스텝 ${steps.length}개` },
+      ])
+      setFitNotes(notes)
+      setFlowVals((v) => [...v.filter((x) => x.k !== '가져온 TC'), { k: '가져온 TC', v: `${got}건` }])
+      setStepAt(0)
+      const d2: Draft = { name: `고른 시험 ${got}건`, object: '', steps }
+      instantRef.current = false
+      setBuilt(d2)
+      setDevId(picked?.id ?? '')
+      const done2 = picked ? await fillCriteria(d2, picked) : d2
+      setDraft(done2)
+      void keepChat(done2.name, done2, picked?.ip ?? '')
+      setLike([])
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+      setText(asked)
+      setFlowAt(0)
+    } finally {
+      setAdopting('')
+    }
+  }
+
+  /**
    * 적은 말에서 **Coverage 트리 자리**를 찾는다.
    *
    * 「E6100 SNMP 시험해줘」 라고만 하면 어느 SNMP 시험인지 알 수 없다(지적).
@@ -952,6 +1016,7 @@ export default function AskBar({ devices }: Props) {
     // 없는 항목을 지어내지 않고 **Coverage 항목에서만** 고른다(지시).
     await findLike(said, dev)
     setTcFind('')
+    setTcPick(new Set())
     const fold = foldOf(said)
     setTcFold(fold)
     setTcOpen(openTo(fold))
@@ -1623,45 +1688,60 @@ export default function AskBar({ devices }: Props) {
           {/* 왼쪽 스텝 목록 · 오른쪽 그 스텝의 속(명령·기준·응답).
               위아래로 두면 응답을 보려고 내리는 순간 고치던 칸이 사라진다. */}
           <div className="ask-two">
+            {/* Coverage(TC 화면)의 스텝 목록과 **같은 모양**으로 읽힌다(지시
+                사진) — 세션 딱지 · 번호(1 · 1.1) · 종류 · 내용 · 결과.
+                주석은 실행되지 않는 제목 줄이라 따로 칠한다. */}
             <div className="ask-steplist">
-              {draft.steps.map((s, i) => {
-                const rs = ran?.[i]
-                const v = String(rs?.repeatResult ?? rs?.status ?? '').trim()
-                const state = at === i ? '도는 중' : v || (rs?.output ? '판정 안 함' : '대기')
-                const cls = at === i ? 'run' : v.toLowerCase() === 'fail' ? 'fail' : v ? 'pass' : ''
-                return (
-                  <button
-                    key={i}
-                    type="button"
-                    className={`ask-stepcard${stepAt === i ? ' on' : ''} ${cls}`}
-                    onClick={() => setStepAt(i)}
-                  >
-                    <i>{i + 1}</i>
-                    <span>
-                      <b>{s.desc || s.cli || s.oid || '—'}</b>
-                      <em>
-                        <u>
-                          {s.kind === 'inst'
-                            ? '계측기'
-                            : s.kind === 'wait'
-                              ? '대기'
-                              : s.kind === 'snmp_get'
-                                ? 'SNMP Get'
-                                : s.kind === 'snmp_set'
-                                  ? 'SNMP Set'
-                                  : s.kind === 'snmp_trap'
-                                    ? 'SNMP Trap'
-                                    : s.kind === 'ping'
-                                      ? 'Ping'
-                                      : '조회'}
-                        </u>
-                        {s.oid ? ` ${s.oid}` : devIp ? ` ${devIp}` : ''} · 생성 완료
-                      </em>
-                    </span>
-                    <var className={`ask-stepst ${cls}`}>{state}</var>
-                  </button>
-                )
-              })}
+              {(() => {
+                // 들여쓴 만큼 번호를 나눈다 — 1, 1.1, 1.2, 2 …
+                const cnt: number[] = []
+                return draft.steps.map((s, i) => {
+                  const d = Math.max(0, Number(s.indent) || 0)
+                  cnt.length = d + 1
+                  cnt[d] = (cnt[d] ?? 0) + 1
+                  const no = cnt.slice(0, d + 1).map((n) => n || 1).join('.')
+                  const rs = ran?.[i]
+                  const v = String(rs?.repeatResult ?? rs?.status ?? '').trim()
+                  const cls = at === i ? 'run' : v.toLowerCase() === 'fail' ? 'fail' : v ? 'pass' : ''
+                  const k = String(s.kind || 'cli')
+                  const isNote = k === 'comment' || k === 'message'
+                  const label =
+                    isNote ? 'Comment'
+                    : k === 'inst' || k === 'instrument' ? '계측기'
+                    : k === 'wait' ? 'Wait'
+                    : k === 'loop' || k === 'for' ? 'Loop'
+                    : k === 'if' ? 'If'
+                    : k === 'snmp_get' ? 'SNMP Get'
+                    : k === 'snmp_set' ? 'SNMP Set'
+                    : k === 'snmp_trap' ? 'SNMP Trap'
+                    : k === 'ping' ? 'Ping'
+                    : 'CLI'
+                  const body = isNote
+                    ? s.desc || s.text || ''
+                    : k === 'snmp_get' || k === 'snmp_set' || k === 'snmp_trap'
+                      ? s.oid || ''
+                      : k === 'wait'
+                        ? `${s.waitSec ?? s.sec ?? 1}초`
+                        : s.cli || s.desc || ''
+                  return (
+                    <div
+                      key={i}
+                      className={`ask-srow${stepAt === i ? ' on' : ''}${isNote ? ' note' : ''} ${cls}`}
+                      onClick={() => setStepAt(i)}
+                    >
+                      <span className="ask-ssess">{isNote ? '–' : `S0${(Number(s.session) || 0) + 1}`}</span>
+                      <span className="ask-sno" style={{ paddingLeft: d * 12 }}>
+                        {no}
+                      </span>
+                      <span className="ask-skind">{label}</span>
+                      <span className={`ask-sbody${isNote ? '' : ' mono'}`}>{body}</span>
+                      <span className={`ask-sres ${cls}`}>
+                        {at === i ? '도는 중' : v ? v.toUpperCase() : ''}
+                      </span>
+                    </div>
+                  )
+                })
+              })()}
               {draft.steps.length === 0 && (
                 <div className="muted small">쓸 만한 스텝을 못 만들었습니다. 다르게 말해 보세요.</div>
               )}
@@ -2168,6 +2248,23 @@ export default function AskBar({ devices }: Props) {
                     <table className="ask-tctable">
                       <thead>
                         <tr>
+                          <th className="ck">
+                            <input
+                              type="checkbox"
+                              title="이 목록 전부 고르기"
+                              checked={rows.length > 0 && rows.every((x) => tcPick.has(x.tcid))}
+                              onChange={(e) =>
+                                setTcPick((v) => {
+                                  const n2 = new Set(v)
+                                  for (const x of rows) {
+                                    if (e.target.checked) n2.add(x.tcid)
+                                    else n2.delete(x.tcid)
+                                  }
+                                  return n2
+                                })
+                              }
+                            />
+                          </th>
                           <th>이름</th>
                           <th>모델그룹</th>
                           <th>모델명</th>
@@ -2184,6 +2281,20 @@ export default function AskBar({ devices }: Props) {
                               void adopt(x.tcid)
                             }}
                           >
+                            <td className="ck" onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                checked={tcPick.has(x.tcid)}
+                                onChange={() =>
+                                  setTcPick((v) => {
+                                    const n2 = new Set(v)
+                                    if (n2.has(x.tcid)) n2.delete(x.tcid)
+                                    else n2.add(x.tcid)
+                                    return n2
+                                  })
+                                }
+                              />
+                            </td>
                             <td>
                               <b>{x.name}</b>
                               <i>{x.steps}</i>
@@ -2209,11 +2320,25 @@ export default function AskBar({ devices }: Props) {
             })()}
             <div className="modal-foot">
               <span className="muted small">
-                줄을 누르면 그 항목으로 시험을 만듭니다. 없는 항목은 만들지 않습니다.
+                줄을 누르면 그 항목으로 만듭니다. 여러 건은 <b>체크</b> 해서 한 번에 — 고른 차례대로
+                이어 붙입니다.
               </span>
               <span className="ask-footbtns">
                 <button className="btn small" type="button" onClick={cancelAsk}>
                   그만두기
+                </button>
+                <button
+                  className="btn primary small"
+                  type="button"
+                  disabled={tcPick.size === 0 || !!adopting}
+                  onClick={() => {
+                    const ids = [...tcPick]
+                    setLikeAsk(false)
+                    setTcPick(new Set())
+                    void adoptMany(ids)
+                  }}
+                >
+                  고른 {tcPick.size}건으로 만들기
                 </button>
               </span>
             </div>

@@ -133,7 +133,7 @@ _TC_VAL_TOK = re.compile(
     r")$")
 
 _TC_KIND_SKIP = {"group": "단계 묶음", "call": "다른 TC 부르기", "manual": "손으로 하는 절차",
-                 "connect": "세션 열기", "disconnect": "세션 닫기", "comment": "주석",
+                 "connect": "세션 열기", "disconnect": "세션 닫기",
                  "if": "갈림길(합격·불합격을 가르는 것)", "else": "갈림길", "elif": "갈림길",
                  "switch": "갈림길", "variable": "변수", "model": "모델 가름"}
 
@@ -1216,6 +1216,15 @@ def _tc_to_steps(checks, groups, src_models=None, dst_model=""):
             steps.append({"kind": "cli", "indent": depth,
                           "desc": desc2,
                           "cli": cli2, "type": t, "criteria": crit})
+        elif kind in ("comment", "message"):
+            # 주석은 **실행되지 않지만** 절차를 읽는 사람에게는 제목이다.
+            # Coverage 의 스텝 목록이 「Comment Main Memory 확인 → CLI show
+            # system」 으로 읽히는 까닭이다. 빼면 무엇을 보는 스텝인지 모른다.
+            txt = str(c.get("text") or c.get("desc") or "").strip()
+            if not txt:
+                continue
+            txt, _sx = _tc_swap_model(txt, src_models, dst_model)
+            steps.append({"kind": "comment", "indent": depth, "desc": txt, "text": txt})
         elif kind in ("snmp_get", "snmp_set", "snmp_trap", "ping"):
             # ★ 실행기는 이것들을 **이미 돈다**(/api/snmp-get · snmp-set ·
             #   snmp-trap/wait · ping). 옮기는 이 자리에서만 버려서 SNMP 항목은
