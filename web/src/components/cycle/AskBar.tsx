@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { runSteps } from '@/components/tc/runner'
 import type { TcStep } from '@/components/tc/types'
@@ -9,12 +9,27 @@ interface DraftStep {
   cli: string
   type?: string
   criteria?: string
-  /** cli(기본) · wait(기다리기) · loop(되풀이) */
+  /** cli(기본) · wait · loop/for · if · inst(계측기) */
   kind?: string
   /** 장비가 둘 이상일 때 몇 번째 것으로 보낼까 (0부터) */
   session?: number
   loopCount?: number
   waitSec?: number
+  /** 블록 안이면 1 크게 — 되풀이·조건의 몸통 */
+  indent?: number
+  /** if — 조건과 갈래 */
+  condition?: string
+  then?: string
+  otherwise?: string
+  /** for — 반복 변수와 범위 */
+  var?: string
+  from?: number
+  to?: number
+  sec?: number
+  /** inst — 계측기 동작(reserve·config·start·stat·stop·release) */
+  action?: string
+  rate?: string
+  frame?: number
 }
 
 interface Draft {
@@ -109,8 +124,77 @@ export default function AskBar({ devices }: Props) {
   const abortRef = useRef<AbortController | null>(null)
   /** 출력에서 끌어 놓은 글자 — 판정기준으로 삼는다 */
   const [grab, setGrab] = useState<{ i: number; text: string } | null>(null)
+  /** 첫 화면 질문 보기 — 무엇을 시킬 수 있는지 눌러서 안다 */
+  const [examples, setExamples] = useState<Array<{ q: string; d?: string }>>([])
+  /** 비슷한 기존 시험 — 새로 짓기 전에 있는 것부터 본다 */
+  const [like, setLike] = useState<Array<{ tcid: string; name: string; model?: string }>>([])
+  const [adopting, setAdopting] = useState('')
 
   const usable = devices.filter((d) => d.role !== '계측기')
+
+  // 무엇을 시킬 수 있는지 — 빈 화면에 예시가 없으면 사람은 아무것도 못 친다
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await apiFetch('/api/ai/examples')
+        const b = (await r.json()) as { ok?: boolean; items?: Array<{ q: string; d?: string }> }
+        if (b.ok && Array.isArray(b.items)) setExamples(b.items)
+      } catch {
+        /* 예시가 없어도 화면은 돈다 */
+      }
+    })()
+  }, [])
+
+  /**
+   * 비슷한 시험 찾기.
+   *
+   * 새로 짓는 것보다 **이미 통한 것을 가져오는 편이 정확하다.** 말을 적으면
+   * 이 랩의 기존 TC 중 가까운 것을 찾아 두었다가, 누르면 고른 장비 모델에
+   * 맞춰 포트 표기까지 바꿔 초안으로 앉힌다.
+   */
+  const findLike = async (q: string) => {
+    if (!q.trim()) {
+      setLike([])
+      return
+    }
+    try {
+      const picked = usable.find((x) => x.id === devId)
+      const r = await apiFetch(
+        `/api/ai/nl-tc-like?text=${encodeURIComponent(q.trim())}&model=${encodeURIComponent(picked?.model ?? '')}`,
+      )
+      const b = (await r.json()) as { ok?: boolean; items?: Array<{ tcid: string; name: string; model?: string }> }
+      setLike(b.ok && Array.isArray(b.items) ? b.items.slice(0, 3) : [])
+    } catch {
+      setLike([])
+    }
+  }
+
+  /** 그 TC 를 고른 장비로 옮겨 초안에 앉힌다 */
+  const adopt = async (tcid: string) => {
+    setAdopting(tcid)
+    setErr('')
+    try {
+      const picked = usable.find((x) => x.id === devId) ?? usable[0]
+      const r = await apiFetch('/api/ai/nl-tc-adopt', {
+        method: 'POST',
+        body: JSON.stringify({ tcid, device_id: picked?.id ?? '', model: picked?.model ?? '' }),
+      })
+      const b = (await r.json()) as {
+        ok?: boolean
+        error?: string
+        title?: string
+        steps?: DraftStep[]
+      }
+      if (!b.ok) throw new Error(b.error || '가져오지 못했습니다')
+      setDraft({ name: b.title || tcid, steps: b.steps ?? [] })
+      setDevId(picked?.id ?? '')
+      setLike([])
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setAdopting('')
+    }
+  }
 
   const ask = async () => {
     if (!text.trim()) return
@@ -118,13 +202,34 @@ export default function AskBar({ devices }: Props) {
     setErr('')
     setDraft(null)
     try {
-      const r = await apiFetch('/api/nl/tc', {
+      /*
+       * 옮겨 온 자연어 시험 서버(nl-plan)를 쓴다.
+       *
+       * 옛 `/api/nl/tc` 는 LLM 일반 지식으로만 지었다. 이쪽은 **학습된 절차 ·
+       * 장비 카탈로그 · 이 랩에서 통한 명령** 을 근거로 삼아, 포트 표기와
+       * 판정기준까지 이 랩에 맞춰 내놓는다. 고른 장비의 모델을 함께 보낸다 —
+       * 모델을 알아야 인터페이스 이름(TenGi0/1 · Gi0/1)을 맞춘다.
+       */
+      const picked = usable.find((x) => x.id === devId)
+      const r = await apiFetch('/api/ai/nl-plan', {
         method: 'POST',
-        body: JSON.stringify({ text: text.trim(), allow_config: allowConfig }),
+        body: JSON.stringify({
+          text: text.trim(),
+          model: picked?.model ?? '',
+          dev_id: picked?.id ?? '',
+          allow_config: allowConfig,
+        }),
       })
       const b = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(b.detail || `만들지 못했습니다 (${r.status})`)
-      const d = b as Draft
+      const raw = b as Draft & { title?: string; purpose?: string; ok?: boolean; error?: string }
+      if (raw.ok === false) throw new Error(raw.error || '만들지 못했습니다')
+      const d: Draft = {
+        ...raw,
+        name: raw.name || raw.title || text.trim().slice(0, 40),
+        object: raw.object || raw.purpose,
+        steps: Array.isArray(raw.steps) ? raw.steps : [],
+      }
       setDraft(d)
       // AI 가 짚은 장비를 먼저 고르되, 없으면 첫 장비
       const hit = usable.find((x) => x.ip === d.device_ip)
@@ -149,21 +254,55 @@ export default function AskBar({ devices }: Props) {
     if (!draft || !devId) return
     const ac = new AbortController()
     abortRef.current = ac
-    // 초안의 종류를 그대로 살린다 — loop·wait 를 cli 로 뭉개면 되풀이가 사라진다
+    // 초안의 갈래를 그대로 살린다 — 뭉개면 되풀이·조건·계측기가 사라진다.
+    // 판정기준은 **칩**으로 넣는다(우리 판정 체계) — 옛 type/criteria 도 함께
+    // 남겨 두어 옛 화면에서 열어도 읽힌다.
     const steps: TcStep[] = draft.steps.map((s) => {
-      const k = (s.kind || 'cli') as TcStep['kind']
-      if (k === 'loop')
-        return { kind: 'loop', indent: 0, desc: s.desc, loopCount: s.loopCount ?? 1 } as TcStep
+      const k = String(s.kind || 'cli')
+      const indent = Math.max(0, Number(s.indent) || 0)
+      const crit = String(s.criteria || '').trim()
+      const chips = crit
+        ? { rules: crit.split(/\r?\n/).map((v) => v.trim()).filter(Boolean).map((v) => ({ t: 'has' as const, v })) }
+        : {}
+      if (k === 'loop' || k === 'for') {
+        const from = Number(s.from)
+        const to = Number(s.to)
+        const byRange = Number.isFinite(from) && Number.isFinite(to)
+        return {
+          kind: 'loop', indent, step: s.desc,
+          ...(byRange
+            ? { forFrom: from, forTo: to, forStep: 1, loopVar: s.var || 'i' }
+            : { loopCount: s.loopCount ?? 1 }),
+        } as TcStep
+      }
       if (k === 'wait')
-        return { kind: 'wait', indent: 0, desc: s.desc, waitSec: s.waitSec ?? 1 } as TcStep
+        return { kind: 'wait', indent, step: s.desc, waitSec: s.waitSec ?? s.sec ?? 1 } as TcStep
+      if (k === 'if')
+        return { kind: 'if', indent, step: s.desc, condition: s.condition || '' } as TcStep
+      if (k === 'inst' || k === 'instrument') {
+        const act = String(s.action || 'start')
+        const meterAct =
+          act === 'stat' ? 'traffic_stat'
+          : act === 'stop' ? 'traffic_stop'
+          : act === 'release' || act === 'clear' ? 'traffic_clear'
+          : act === 'reserve' || act === 'ports' ? 'ports'
+          : 'traffic_start'
+        return {
+          kind: 'instrument', indent, step: s.desc,
+          meterAct, ...(s.sec ? { meterDur: Number(s.sec) } : {}),
+          ...(s.frame ? { meterSize: Number(s.frame) } : {}),
+        } as TcStep
+      }
       return {
         kind: 'cli',
-        indent: 0,
+        indent,
         session: s.session ?? 0,
+        step: s.desc,
         desc: s.desc,
         cli: s.cli,
         type: s.type || 'contains',
-        criteria: s.criteria || '',
+        criteria: crit,
+        ...chips,
       } as TcStep
     })
     setRan(steps.slice())
@@ -230,6 +369,7 @@ export default function AskBar({ devices }: Props) {
           value={text}
           placeholder="말로 시키기 — 예) E5724RL 시스템 정보 시험해줘"
           onChange={(e) => setText(e.target.value)}
+          onBlur={() => void findLike(text)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') void ask()
           }}
@@ -243,6 +383,45 @@ export default function AskBar({ devices }: Props) {
           {busy ? '만드는 중…' : '만들기'}
         </button>
       </div>
+
+      {/* 무엇을 시킬 수 있나 — 누르면 그대로 들어간다 */}
+      {!draft && examples.length > 0 && (
+        <div className="ask-ex">
+          {examples.map((x) => (
+            <button
+              key={x.q}
+              type="button"
+              className="ask-exb"
+              title={x.d || ''}
+              onClick={() => {
+                setText(x.q)
+                void findLike(x.q)
+              }}
+            >
+              {x.q}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 이미 있는 시험부터 — 새로 짓는 것보다 통한 것을 가져오는 편이 낫다 */}
+      {!draft && like.length > 0 && (
+        <div className="ask-like">
+          <span className="muted small">비슷한 시험이 있습니다 — 가져와 고쳐 쓰면 빠릅니다</span>
+          {like.map((x) => (
+            <button
+              key={x.tcid}
+              type="button"
+              className="ask-likeb"
+              disabled={!!adopting}
+              onClick={() => void adopt(x.tcid)}
+            >
+              {adopting === x.tcid ? '가져오는 중…' : `${x.tcid} · ${x.name}`}
+              {x.model ? <i>{x.model}</i> : null}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 설정 시험은 사람이 켤 때만. 켜 두면 말 한 줄에 장비 설정이 바뀌는
           시험이 만들어진다 — 그것을 모르고 돌리는 일이 없어야 한다. */}

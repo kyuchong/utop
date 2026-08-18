@@ -4025,3 +4025,31 @@ table.tb td.k {
   min-height: 340px;
   max-height: 58vh;
 }
+
+/* 말로 시험 만들기 — 질문 보기·비슷한 시험 (자연어 시험 이관) */
+.ask-ex { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+.ask-exb {
+  border: 1px solid var(--c-border);
+  background: #f6f9fc;
+  border-radius: 14px;
+  padding: 4px 11px;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  color: var(--c-text);
+}
+.ask-exb:hover { background: #e8f2fe; border-color: #5b9bd5; }
+.ask-like { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; }
+.ask-likeb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #8a6fc0;
+  background: #f4f0fb;
+  color: #4d3d80;
+  border-radius: 14px;
+  padding: 4px 11px;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.ask-likeb:hover { background: #e9e0fa; }
+.ask-likeb i { font-style: normal; font-size: 10px; opacity: 0.7; }
