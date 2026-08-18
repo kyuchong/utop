@@ -15,6 +15,8 @@ interface DraftStep {
   kind?: string
   /** 주석 줄의 글 */
   text?: string
+  /** 이 줄이 **묶음 머리**인가 — 여러 항목을 이어 붙일 때 그 경계 */
+  head?: boolean
   /** SNMP·Ping 스텝이 들고 오는 것 */
   oid?: string
   community?: string
@@ -859,7 +861,14 @@ export default function AskBar({ devices }: Props) {
         }
         if (!b.ok || !Array.isArray(b.steps) || b.steps.length === 0) continue
         got++
-        steps.push({ kind: 'comment', indent: 0, desc: b.title || tcid, text: b.title || tcid, cli: '' })
+        steps.push({
+          kind: 'comment',
+          indent: 0,
+          desc: b.title || tcid,
+          text: b.title || tcid,
+          cli: '',
+          head: true,   // 여기서부터 다른 시험이다 — 목록에서 띠로 세운다
+        })
         steps.push(...b.steps)
         for (const n of b.tc?.notes ?? []) if (!notes.includes(n)) notes.push(n)
       }
@@ -1718,7 +1727,39 @@ export default function AskBar({ devices }: Props) {
               {(() => {
                 // 들여쓴 만큼 번호를 나눈다 — 1, 1.1, 1.2, 2 …
                 const cnt: number[] = []
+                /* 묶음 경계 — 머리 줄마다 그 아래가 한 시험이다.
+                   여러 건을 이어 붙이면 스텝이 한 줄로 뭉쳐 어디부터 어느
+                   시험인지 알 수 없다(지적). 머리는 띠로 세우고, 지금 도는
+                   묶음은 통째로 짚는다. */
+                const heads = draft.steps
+                  .map((x, k) => (x.head ? k : -1))
+                  .filter((k) => k >= 0)
+                const groupOf = (k: number) => {
+                  let g = -1
+                  for (const h of heads) if (h <= k) g = h
+                  return g
+                }
+                const runGrp = at >= 0 ? groupOf(at) : -1
+                const grpSize = (h: number) => {
+                  const nx = heads.find((x) => x > h)
+                  return (nx ?? draft.steps.length) - h - 1
+                }
                 return draft.steps.map((s, i) => {
+                  if (s.head) {
+                    // 묶음 머리 — 번호를 먹지 않는다. 아래 스텝이 1 부터다
+                    cnt.length = 0
+                    return (
+                      <div
+                        key={i}
+                        className={`ask-sgrp${runGrp === i ? ' on' : ''}${stepAt === i ? ' sel' : ''}`}
+                        onClick={() => setStepAt(i)}
+                      >
+                        <b>{s.desc || s.text}</b>
+                        <em>{grpSize(i)}스텝</em>
+                        {runGrp === i && <var>● 도는 중</var>}
+                      </div>
+                    )
+                  }
                   const d = Math.max(0, Number(s.indent) || 0)
                   cnt.length = d + 1
                   cnt[d] = (cnt[d] ?? 0) + 1
@@ -1749,7 +1790,9 @@ export default function AskBar({ devices }: Props) {
                   return (
                     <div
                       key={i}
-                      className={`ask-srow${stepAt === i ? ' on' : ''}${isNote ? ' note' : ''} ${cls}`}
+                      className={`ask-srow${stepAt === i ? ' on' : ''}${isNote ? ' note' : ''}${
+                        runGrp >= 0 && groupOf(i) === runGrp ? ' ing' : ''
+                      } ${cls}`}
                       onClick={() => setStepAt(i)}
                     >
                       <span className="ask-ssess">{isNote ? '–' : `S0${(Number(s.session) || 0) + 1}`}</span>

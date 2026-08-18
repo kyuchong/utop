@@ -4651,6 +4651,33 @@ table.tb td.k {
 .ask-srow:hover { background: var(--c-accent-soft, #eef4ff); }
 .ask-srow.on { background: var(--c-accent-soft, #eef4ff); box-shadow: inset 2px 0 0 var(--c-primary, #2563eb); }
 .ask-srow.note { background: #f2f9f4; }
+/* 묶음 머리 — 여기서부터 다른 시험이다 */
+.ask-sgrp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px 7px;
+  margin-top: 10px;
+  border-top: 2px solid var(--c-border);
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface, #f7f9fb);
+  cursor: pointer;
+}
+.ask-sgrp:first-child { margin-top: 0; border-top: 0; }
+.ask-sgrp b { flex: 1; min-width: 0; font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-sgrp em { flex: none; font-style: normal; font-size: 10.5px; color: var(--c-muted); }
+.ask-sgrp var {
+  flex: none;
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--c-primary, #2563eb);
+  font-weight: 600;
+}
+.ask-sgrp.on { background: #eef4ff; box-shadow: inset 3px 0 0 var(--c-primary, #2563eb); }
+.ask-sgrp.sel b { color: var(--c-primary, #2563eb); }
+/* 도는 묶음 안의 줄 — 옅게 짚어 준다 */
+.ask-srow.ing { background: #f7faff; }
+.ask-srow.ing.note { background: #eef7f1; }
 .ask-srow.note .ask-skind { color: #1d9e75; }
 .ask-srow.note .ask-sbody { color: #1d9e75; }
 .ask-ssess {
