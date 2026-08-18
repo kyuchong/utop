@@ -461,6 +461,7 @@ export default function AskBar({ devices }: Props) {
             </div>
           </section>
 
+          <div className="ask-canvaswrap">
           <main className="ask-canvas">
 
       {/* 첫 화면 — 무엇을 시킬 수 있나. 예시가 없으면 사람은 아무것도 못 친다 */}
@@ -751,10 +752,10 @@ export default function AskBar({ devices }: Props) {
         </div>
       )}
           </main>
-        </div>
 
-        {/* 입력은 작업 흐름부터 오른쪽 끝까지 — 왼쪽 기록 칸은 제 자리를 지킨다 */}
-        <div className="ask-askbar">
+          {/* 입력줄은 **캔버스 칸 안에** 떠 있다(지시) — 작업 흐름까지 걸치고
+              위에 실선을 그으면 칸이 각져 보인다. 여백과 그림자로 띄운다. */}
+          <div className="ask-askbar">
           <div className="ask-askbox">
             <input
               className="ask-in"
@@ -776,6 +777,8 @@ export default function AskBar({ devices }: Props) {
             >
               {busy ? '…' : '➤'}
             </button>
+          </div>
+          </div>
           </div>
         </div>
       </div>
