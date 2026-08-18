@@ -135,6 +135,17 @@ export default function AskBar({ devices }: Props) {
   const [exEdit, setExEdit] = useState(false)
   const [exSay, setExSay] = useState('')
   const [amAdmin, setAmAdmin] = useState(false)
+  /** 같은 모델이 여러 대일 때 — 어느 장비로 보낼지 고르는 창 */
+  const [pickDev, setPickDev] = useState<{ model: string; cands: Device[] } | null>(null)
+  const [pickSel, setPickSel] = useState('')
+  const [pickLab, setPickLab] = useState('')
+  const [pickRack, setPickRack] = useState('')
+  /** 비슷한 시험이 있을 때 — 가져올지 새로 지을지 묻는 창 */
+  const [likeAsk, setLikeAsk] = useState(false)
+  /** 랙 자리(구역·랙) — 어느 장비인지 고를 때 자리로 가른다 */
+  const [rackMap, setRackMap] = useState<Map<string, { lab: string; rack: string; pos?: number }>>(
+    new Map(),
+  )
 
   const usable = devices.filter((d) => d.role !== '계측기')
 
@@ -177,6 +188,26 @@ export default function AskBar({ devices }: Props) {
         /* 못 읽으면 그냥 못 고치는 사람으로 본다 */
       }
       try {
+        const rr = await apiFetch('/api/rackview')
+        const rv = (await rr.json()) as {
+          labs?: Array<{ id: string; name: string }>
+          racks?: Array<{ id: string; name: string; lab_id?: string }>
+          devices?: Array<{ id: string; rack_id: string; rack_pos?: number }>
+        }
+        const labOf = new Map((rv.labs ?? []).map((l) => [l.id, l.name]))
+        const rackOf = new Map(
+          (rv.racks ?? []).map((r3) => [r3.id, { name: r3.name, lab: labOf.get(r3.lab_id ?? '') ?? '' }]),
+        )
+        const m = new Map<string, { lab: string; rack: string; pos?: number }>()
+        for (const d of rv.devices ?? []) {
+          const rk = rackOf.get(d.rack_id)
+          if (rk) m.set(d.id, { lab: rk.lab, rack: rk.name, pos: d.rack_pos })
+        }
+        setRackMap(m)
+      } catch {
+        /* 랙 자리를 몰라도 장비는 고를 수 있다 */
+      }
+      try {
         const r2 = await apiFetch('/api/ai/nl-chats')
         const b2 = (await r2.json()) as {
           ok?: boolean
@@ -197,10 +228,10 @@ export default function AskBar({ devices }: Props) {
    * 이 랩의 기존 TC 중 가까운 것을 찾아 두었다가, 누르면 고른 장비 모델에
    * 맞춰 포트 표기까지 바꿔 초안으로 앉힌다.
    */
-  const findLike = async (q: string) => {
+  const findLike = async (q: string): Promise<number> => {
     if (!q.trim()) {
       setLike([])
-      return
+      return 0
     }
     try {
       const picked = usable.find((x) => x.id === devId)
@@ -208,9 +239,12 @@ export default function AskBar({ devices }: Props) {
         `/api/ai/nl-tc-like?text=${encodeURIComponent(q.trim())}&model=${encodeURIComponent(picked?.model ?? '')}`,
       )
       const b = (await r.json()) as { ok?: boolean; items?: Array<{ tcid: string; name: string; model?: string }> }
-      setLike(b.ok && Array.isArray(b.items) ? b.items.slice(0, 3) : [])
+      const items = b.ok && Array.isArray(b.items) ? b.items.slice(0, 3) : []
+      setLike(items)
+      return items.length
     } catch {
       setLike([])
+      return 0
     }
   }
 
@@ -274,8 +308,47 @@ export default function AskBar({ devices }: Props) {
     }
   }
 
+  /** 적은 말에서 모델 이름을 찾아 그 모델 장비들을 모은다 */
+  const candsOf = (q: string): { model: string; cands: Device[] } | null => {
+    const t = q.toLowerCase()
+    const byModel = new Map<string, Device[]>()
+    for (const d of usable) {
+      const m = String(d.model ?? '').trim()
+      if (!m) continue
+      if (!t.includes(m.toLowerCase())) continue
+      byModel.set(m, [...(byModel.get(m) ?? []), d])
+    }
+    // 가장 길게 걸린 모델 하나만 본다 — E59 와 E5924RL 이 함께 걸리는 것을 막는다
+    const best = [...byModel.entries()].sort((a, b) => b[0].length - a[0].length)[0]
+    return best ? { model: best[0], cands: best[1] } : null
+  }
+
+  /**
+   * 보내기 — 짓기 전에 두 가지를 먼저 묻는다.
+   *
+   *   ① 같은 모델이 여러 대면 **어느 장비인지** (안 물으면 엉뚱한 장비로 나간다)
+   *   ② 비슷한 시험이 이미 있으면 **가져올지 새로 지을지** (있는 것을 가져오는
+   *      편이 정확하다 — 이 랩에서 이미 통한 절차니까)
+   */
+  const submit = async () => {
+    if (!text.trim() || busy) return
+    const hit = candsOf(text)
+    if (hit && hit.cands.length > 1 && !hit.cands.some((d) => d.id === devId)) {
+      setPickSel(hit.cands[0]?.id ?? '')
+      setPickLab('')
+      setPickRack('')
+      setPickDev(hit)
+      return
+    }
+    if (hit && hit.cands.length === 1 && hit.cands[0]) setDevId(hit.cands[0].id)
+    const n = await findLike(text)
+    if (n > 0) setLikeAsk(true)
+    else await ask()
+  }
+
   const ask = async () => {
     if (!text.trim()) return
+    setLikeAsk(false)
     setBusy(true)
     setErr('')
     setDraft(null)
@@ -599,25 +672,6 @@ export default function AskBar({ devices }: Props) {
         </div>
       )}
 
-      {/* 이미 있는 시험부터 — 새로 짓는 것보다 통한 것을 가져오는 편이 낫다 */}
-      {!draft && like.length > 0 && (
-        <div className="ask-like">
-          <span className="muted small">비슷한 시험이 있습니다 — 가져와 고쳐 쓰면 빠릅니다</span>
-          {like.map((x) => (
-            <button
-              key={x.tcid}
-              type="button"
-              className="ask-likeb"
-              disabled={!!adopting}
-              onClick={() => void adopt(x.tcid)}
-            >
-              {adopting === x.tcid ? '가져오는 중…' : `${x.tcid} · ${x.name}`}
-              {x.model ? <i>{x.model}</i> : null}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* 「설정 시험 허용」 스위치는 없앴다(지시: 그냥 생성되도록).
           만들기만으로는 장비에 아무것도 안 나간다 — 명령은 [실행] 을 눌렀을
           때만 나가므로, 사람이 절차를 보고 고른 뒤에 나간다. */}
@@ -849,7 +903,7 @@ export default function AskBar({ devices }: Props) {
               onBlur={() => void findLike(text)}
               onKeyDown={(e) => {
                 if (e.nativeEvent.isComposing) return
-                if (e.key === 'Enter') void ask()
+                if (e.key === 'Enter') void submit()
               }}
             />
             <button
@@ -857,7 +911,7 @@ export default function AskBar({ devices }: Props) {
               type="button"
               title="보내기 (Enter)"
               disabled={busy || !text.trim()}
-              onClick={() => void ask()}
+              onClick={() => void submit()}
             >
               {busy ? '…' : '➤'}
             </button>
@@ -866,6 +920,178 @@ export default function AskBar({ devices }: Props) {
           </div>
         </div>
       </div>
+
+      {/* ① 같은 모델이 여러 대 — 어느 장비로 보낼지 고른다 */}
+      {pickDev && (() => {
+        const rows = pickDev.cands.filter((d) => {
+          const at = rackMap.get(d.id)
+          if (pickLab && (at?.lab ?? '') !== pickLab) return false
+          if (pickRack && (at?.rack ?? '') !== pickRack) return false
+          return true
+        })
+        const labs = [...new Set(pickDev.cands.map((d) => rackMap.get(d.id)?.lab ?? '').filter(Boolean))]
+        const racks = [...new Set(pickDev.cands.map((d) => rackMap.get(d.id)?.rack ?? '').filter(Boolean))]
+        // 「구역 · 랙」 으로 묶어 보여준다 — 같은 모델은 이름만으로 안 갈린다
+        const groups = new Map<string, Device[]>()
+        for (const d of rows) {
+          const at = rackMap.get(d.id)
+          const key = at ? `${at.lab} · ${at.rack}` : '자리 미지정'
+          groups.set(key, [...(groups.get(key) ?? []), d])
+        }
+        return (
+          <div className="modal-back" onMouseDown={() => setPickDev(null)}>
+            <div
+              className="modal ask-pick"
+              role="dialog"
+              aria-modal="true"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="modal-head">
+                <div>
+                  <b>{pickDev.model} 이(가) {pickDev.cands.length}대 있어요</b>
+                  <div className="muted small">어느 장비로 보낼지 골라 주세요.</div>
+                </div>
+                <span className="sp" />
+                <button className="modal-x" type="button" onClick={() => setPickDev(null)}>
+                  ✕
+                </button>
+              </div>
+              <div className="ask-pickbody">
+                <aside className="ask-pickside">
+                  <div className="ask-pickgrp">구역</div>
+                  <button className={`ask-pickf${pickLab === '' ? ' on' : ''}`} type="button" onClick={() => setPickLab('')}>
+                    전체 구역<i>{pickDev.cands.length}</i>
+                  </button>
+                  {labs.map((l) => (
+                    <button key={l} className={`ask-pickf${pickLab === l ? ' on' : ''}`} type="button" onClick={() => setPickLab(l)}>
+                      {l}
+                      <i>{pickDev.cands.filter((d) => rackMap.get(d.id)?.lab === l).length}</i>
+                    </button>
+                  ))}
+                  <div className="ask-pickgrp">랙</div>
+                  <button className={`ask-pickf${pickRack === '' ? ' on' : ''}`} type="button" onClick={() => setPickRack('')}>
+                    전체 랙<i>{pickDev.cands.length}</i>
+                  </button>
+                  {racks.map((r3) => (
+                    <button key={r3} className={`ask-pickf${pickRack === r3 ? ' on' : ''}`} type="button" onClick={() => setPickRack(r3)}>
+                      {r3}
+                      <i>{pickDev.cands.filter((d) => rackMap.get(d.id)?.rack === r3).length}</i>
+                    </button>
+                  ))}
+                </aside>
+                <div className="ask-picklist">
+                  {[...groups.entries()].map(([g, ds]) => (
+                    <div key={g}>
+                      <div className="ask-pickgh">
+                        {g} <i>{ds.length}대</i>
+                      </div>
+                      <div className="ask-pickcards">
+                        {ds.map((d) => {
+                          const at = rackMap.get(d.id)
+                          return (
+                            <button
+                              key={d.id}
+                              type="button"
+                              className={`ask-pickcard${pickSel === d.id ? ' on' : ''}`}
+                              onClick={() => setPickSel(d.id)}
+                              onDoubleClick={() => {
+                                setDevId(d.id)
+                                setPickDev(null)
+                                void findLike(text).then((n) => (n > 0 ? setLikeAsk(true) : ask()))
+                              }}
+                            >
+                              <b>{d.name || d.ip}</b>
+                              <span>
+                                {d.role ? <i className="r">{d.role}</i> : null}
+                                {at ? <i className="p">{at.lab} · {at.rack}{at.pos ? ` · ${at.pos}U` : ''}</i> : null}
+                                <i className="ip">{d.ip}</i>
+                              </span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  {rows.length === 0 && <div className="empty">고른 조건에 맞는 장비가 없습니다.</div>}
+                </div>
+              </div>
+              <div className="modal-foot">
+                <span className="muted small">장비를 누르고 「이 장비로 시험 만들기」 를 누르세요.</span>
+                <span className="sp" />
+                <button className="btn small" type="button" onClick={() => setPickDev(null)}>
+                  그만두기
+                </button>
+                <button
+                  className="btn primary small"
+                  type="button"
+                  disabled={!pickSel}
+                  onClick={() => {
+                    setDevId(pickSel)
+                    setPickDev(null)
+                    void findLike(text).then((n) => (n > 0 ? setLikeAsk(true) : ask()))
+                  }}
+                >
+                  이 장비로 시험 만들기
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* ② 비슷한 시험이 이미 있다 — 가져올지 새로 지을지 */}
+      {likeAsk && like.length > 0 && (
+        <div className="modal-back" onMouseDown={() => setLikeAsk(false)}>
+          <div
+            className="modal ask-likemodal"
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="modal-head">
+              <div>
+                <b>비슷한 시험이 이미 있어요</b>
+                <div className="muted small">
+                  가져오면 그 절차를 고른 장비에 맞춰 바꿔 줍니다 — 새로 짓지 않습니다.
+                </div>
+              </div>
+              <span className="sp" />
+              <button className="modal-x" type="button" onClick={() => setLikeAsk(false)}>
+                ✕
+              </button>
+            </div>
+            <div className="ask-likelist">
+              {like.map((x) => (
+                <button
+                  key={x.tcid}
+                  type="button"
+                  className="ask-likerow"
+                  disabled={!!adopting}
+                  onClick={() => {
+                    setLikeAsk(false)
+                    void adopt(x.tcid)
+                  }}
+                >
+                  <b>{x.name}</b>
+                  <span className="muted small">
+                    {x.tcid}
+                    {x.model ? ` · ${x.model}` : ''}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="modal-foot">
+              <span className="sp" />
+              <button className="btn small" type="button" onClick={() => setLikeAsk(false)}>
+                그만두기
+              </button>
+              <button className="btn primary small" type="button" onClick={() => void ask()}>
+                새로 만들기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

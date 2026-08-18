@@ -4262,3 +4262,80 @@ table.tb td.k {
   font-size: var(--fs-xs);
 }
 .ask-exadd:hover { border-color: var(--c-primary, #2563eb); color: var(--c-primary, #2563eb); }
+
+/* ── 장비 고르기 창 — 같은 모델이 여러 대일 때 (자리로 가른다) ── */
+.modal.ask-pick { width: 900px; max-width: 94vw; height: 640px; max-height: 88vh; display: flex; flex-direction: column; }
+.ask-pickbody { flex: 1; min-height: 0; display: flex; }
+.ask-pickside {
+  flex: none;
+  width: 168px;
+  border-right: 1px solid var(--c-border);
+  padding: 10px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ask-pickgrp { font-size: var(--fs-xs); color: var(--c-muted); font-weight: 700; margin: 8px 0 2px; }
+.ask-pickf {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  text-align: left;
+  color: var(--c-text);
+}
+.ask-pickf i { margin-left: auto; font-style: normal; color: var(--c-muted); font-size: 10.5px; }
+.ask-pickf:hover { background: var(--tc-hover, #f0f4f8); }
+.ask-pickf.on { background: #e8f2fe; color: #1f5fa8; font-weight: 600; }
+.ask-picklist { flex: 1; min-width: 0; overflow: auto; padding: 12px 14px; }
+.ask-pickgh { font-size: var(--fs-xs); color: var(--c-muted); margin: 6px 0 8px; }
+.ask-pickgh i { font-style: normal; opacity: 0.7; }
+.ask-pickcards { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.ask-pickcard {
+  width: 232px;
+  text-align: left;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card, 8px);
+  background: var(--c-bg, #fff);
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ask-pickcard:hover { border-color: var(--c-primary, #2563eb); }
+.ask-pickcard.on { border-color: var(--c-primary, #2563eb); box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15); }
+.ask-pickcard b { font-size: var(--fs-sm); }
+.ask-pickcard span { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.ask-pickcard i {
+  font-style: normal;
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f1f4f8;
+  color: var(--c-muted);
+}
+.ask-pickcard i.ip { font-family: var(--font-mono); background: transparent; padding-left: 0; }
+
+/* ── 비슷한 시험 창 ── */
+.modal.ask-likemodal { width: 560px; max-width: 94vw; }
+.ask-likelist { padding: 6px 14px 12px; display: flex; flex-direction: column; gap: 6px; max-height: 46vh; overflow: auto; }
+.ask-likerow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card, 8px);
+  background: var(--c-bg, #fff);
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.ask-likerow:hover { border-color: var(--c-primary, #2563eb); background: #f6f9fe; }
+.ask-likerow b { font-size: var(--fs-sm); }
