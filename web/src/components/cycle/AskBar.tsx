@@ -401,8 +401,9 @@ export default function AskBar({ devices }: Props) {
     // 채워야 생성이 끝난 것이므로, 그때까지 5단계는 계속 돈다.
     setFlowAt(5)
     setFilling(true)
-    setGenSay('조회를 미리 돌려 판정 기준을 잡는 중…')
-    setFlowLog((v) => [...v, { s: 5, t: '조회를 미리 돌려 판정 기준을 잡는 중…' }])
+    // 무엇을 어떻게 얻어 오는지는 화면에 안 적는다(지시) — 하는 일만 말한다
+    setGenSay('판정 기준을 잡는 중…')
+    setFlowLog((v) => [...v, { s: 5, t: '판정 기준을 잡는 중…' }])
     /* 장비로 두 번 나갔다가 LLM 까지 거치는 길이다. 어딘가 멎으면 **영영**
        안 돌아와 화면이 「만드는 중」 에 머문다 — 어디에도 마감 시간이 없었다.
        2분이면 끊고, 기준은 비운 채로 절차를 연다(돌린 뒤 고르면 된다). */
@@ -433,7 +434,7 @@ export default function AskBar({ devices }: Props) {
             s: 5,
             t:
               b.skipped === 'config'
-                ? '설정 명령이 있어 미리 읽지 않았습니다 — 돌린 뒤 응답에서 고르세요'
+                ? '설정을 바꾸는 시험이라 기준은 비워 둡니다 — 돌린 뒤 응답에서 고르세요'
                 : `판정 기준을 못 잡았습니다 — ${b.error ?? '까닭 모름'}`,
           },
         ])
@@ -452,7 +453,7 @@ export default function AskBar({ devices }: Props) {
       })
       setFlowLog((v) => [
         ...v.filter((x) => !x.t.endsWith('잡는 중…')),
-        { s: 5, t: n > 0 ? `응답을 보고 판정 기준 ${n}개를 채움` : '기준으로 삼을 또렷한 값이 없었습니다' },
+        { s: 5, t: n > 0 ? `판정 기준 ${n}개를 채움` : '기준으로 삼을 또렷한 값이 없었습니다' },
       ])
       setFlowAt(0)
       setFilling(false)
@@ -1250,13 +1251,12 @@ export default function AskBar({ devices }: Props) {
           <p className="ask-note muted small">
             {built && built.steps.length > 0 ? (
               <>
-                절차 <b>{built.steps.length}스텝</b> 은 다 나왔습니다. 지금은 <b>조회 명령만</b> 미리
-                보내 판정 기준을 잡는 중입니다 — 다 채우면 이 절차가 고칠 수 있는 꼴로 열립니다.
+                절차 <b>{built.steps.length}스텝</b> 은 다 나왔습니다. 지금은 <b>판정 기준</b> 을 잡는
+                중입니다 — 다 채우면 이 절차가 고칠 수 있는 꼴로 열립니다.
               </>
             ) : (
               <>
-                판정 기준을 잡으려고 <b>조회 명령만</b> 미리 보냅니다. 다 채운 뒤에 절차가 한 번에
-                나옵니다.
+                <b>판정 기준</b> 까지 채운 뒤에 절차가 한 번에 나옵니다.
               </>
             )}
           </p>
@@ -1345,8 +1345,8 @@ export default function AskBar({ devices }: Props) {
             </button>
           )}
           <p className="ask-note muted small">
-            절차를 만들 때는 판정 기준을 잡으려고 <b>조회 명령만</b> 미리 보냅니다. 명령은{' '}
-            <b>[실행]</b> 을 눌렀을 때만 나갑니다.
+            <b>설정을 바꾸는 명령</b> 은 <b>[실행]</b> 을 눌렀을 때만 나갑니다 — 만들기만으로는 장비가
+            바뀌지 않습니다.
           </p>
         </div>
       )}
