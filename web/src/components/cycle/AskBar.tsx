@@ -323,13 +323,13 @@ export default function AskBar({ devices }: Props) {
    * 두 번 다 같은 값만 근거로 삼아 기준을 짓는다(설정 명령은 안 보낸다 —
    * 만들기만으로 장비가 바뀌면 안 된다).
    */
-  const fillCriteria = async (d: Draft, dev: Device) => {
+  const fillCriteria = async (d: Draft, dev: Device): Promise<Draft> => {
     const need = d.steps.some(
       (x) => String(x.cli ?? '').trim() && !String(x.criteria ?? '').trim() && x.type !== 'ok',
     )
     if (!need) {
       setFlowAt(0)
-      return
+      return d
     }
     // 절차만 나오고 기준이 비어 있으면 「만들다 만 것」 이다. 기준까지
     // 채워야 생성이 끝난 것이므로, 그때까지 5단계는 계속 돈다.
@@ -362,19 +362,15 @@ export default function AskBar({ devices }: Props) {
         ])
         setFlowAt(0)
         setGenSay('')
-        return
+        return d
       }
       let n = 0
-      setDraft((cur) => {
-        if (!cur) return cur
-        const steps = cur.steps.map((x, i) => {
-          const hit = b.items!.find((y) => y.i === i)
-          if (!hit || !String(hit.criteria ?? '').trim()) return x
-          if (String(x.criteria ?? '').trim()) return x
-          n++
-          return { ...x, type: hit.type || 'contains', criteria: String(hit.criteria) }
-        })
-        return { ...cur, steps }
+      const steps = d.steps.map((x, i) => {
+        const hit = b.items!.find((y) => y.i === i)
+        if (!hit || !String(hit.criteria ?? '').trim()) return x
+        if (String(x.criteria ?? '').trim()) return x
+        n++
+        return { ...x, type: hit.type || 'contains', criteria: String(hit.criteria) }
       })
       setFlowLog((v) => [
         ...v.filter((x) => !x.endsWith('잡는 중…')),
@@ -382,6 +378,7 @@ export default function AskBar({ devices }: Props) {
       ])
       setFlowAt(0)
       setGenSay('')
+      return { ...d, steps }
     } catch (e) {
       setFlowLog((v) => [
         ...v.filter((x) => !x.endsWith('잡는 중…')),
@@ -389,6 +386,49 @@ export default function AskBar({ devices }: Props) {
       ])
       setFlowAt(0)
       setGenSay('')
+    }
+    return d
+  }
+
+  /**
+   * 기록 하나 열기 — **다시 만들지 않는다**(지적: 눌렀더니 만들기 창이 떴다).
+   * 담아 둔 절차를 그대로 펴고, 그때 쓰던 장비도 되살린다.
+   */
+  const openChat = async (cid: string, title: string) => {
+    setErr('')
+    try {
+      const r = await apiFetch(`/api/ai/nl-chats/${encodeURIComponent(cid)}`)
+      const b = (await r.json()) as {
+        ok?: boolean
+        error?: string
+        chat?: { title?: string; plan?: Draft; dev?: string; at?: string }
+      }
+      const plan = b.chat?.plan
+      if (!b.ok || !plan || !Array.isArray(plan.steps)) {
+        // 절차가 안 담긴 옛 기록이면 그 말을 입력칸에 올려 준다 — 마음대로
+        // 다시 만들지는 않는다
+        setText(title)
+        setErr('이 기록에는 절차가 담겨 있지 않습니다 — 아래에서 다시 물어보세요')
+        return
+      }
+      const dv = usable.find((d) => d.ip === String(b.chat?.dev ?? ''))
+      if (dv) setDevId(dv.id)
+      setChatId(cid)
+      setText('')
+      setLike([])
+      setLikeAsk(false)
+      setRan(null)
+      setStepAt(0)
+      setFitNotes([])
+      setFlowAt(0)
+      setFlowVals(dv ? [{ k: '대상', v: dv.ip }] : [])
+      setFlowLog([
+        `기록을 열었습니다 — ${b.chat?.at ? String(b.chat.at).slice(0, 16) : ''}`,
+        `스텝 ${plan.steps.length}개`,
+      ])
+      setDraft(plan)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
     }
   }
 
@@ -434,10 +474,10 @@ export default function AskBar({ devices }: Props) {
       setFlowVals((v) => [...v.filter((x) => x.k !== '가져온 TC'), { k: '가져온 TC', v: tcid }])
       setStepAt(0)
       const d2: Draft = { name: b.title || tcid, object: b.purpose, steps: b.steps ?? [] }
-      setDraft(d2)
       setDevId(picked?.id ?? '')
-      void keepChat(d2.name, d2, picked?.ip ?? '')
-      if (picked) void fillCriteria(d2, picked)
+      const done2 = picked ? await fillCriteria(d2, picked) : d2
+      setDraft(done2)
+      void keepChat(done2.name, done2, picked?.ip ?? '')
       setLike([])
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
@@ -538,9 +578,11 @@ export default function AskBar({ devices }: Props) {
       }
       setStepAt(0)
       setFlowLog((v) => [...v.filter((x) => x !== '절차를 짓는 중…'), `절차 ${d.steps.length}개 스텝으로 지음`])
-      setDraft(d)
-      void keepChat(d.name, d, picked?.ip ?? '')
-      if (picked) void fillCriteria(d, picked)
+      // 기준까지 채운 뒤에 내놓는다 — 스텝만 먼저 뜨면 「기준 없이 만들어졌다」
+      // 로 보이고, 채워지는 동안 눈앞에서 값이 바뀐다(지적)
+      const done = picked ? await fillCriteria(d, picked) : d
+      setDraft(done)
+      void keepChat(done.name, done, picked?.ip ?? '')
       // AI 가 짚은 장비를 먼저 고르되, 없으면 첫 장비
       const hit = usable.find((x) => x.ip === d.device_ip)
       setDevId(hit?.id ?? usable[0]?.id ?? '')
@@ -731,7 +773,12 @@ export default function AskBar({ devices }: Props) {
           ) : (
             recent.map((x) => (
               <div className={`ask-sitem${chatId === x.cid ? ' on' : ''}`} key={x.cid}>
-                <button type="button" className="ask-sbtn" onClick={() => void submit(x.title)}>
+                <button
+                  type="button"
+                  className="ask-sbtn"
+                  title="이 기록을 엽니다"
+                  onClick={() => void openChat(x.cid, x.title)}
+                >
                   <b>{x.title}</b>
                   {x.at && <em>{String(x.at).slice(5, 16).replace('T', ' ')}</em>}
                 </button>

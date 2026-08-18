@@ -7,6 +7,12 @@
       "port": 9000
     },
     {
+      "name": "mock",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["/tmp/claude-1000/mock_server.py"],
+      "port": 8901
+    },
+    {
       "name": "utop-server",
       "runtimeExecutable": "py",
       "runtimeArgs": [
