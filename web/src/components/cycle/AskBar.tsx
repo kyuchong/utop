@@ -231,12 +231,21 @@ export default function AskBar({ devices }: Props) {
       }
       try {
         const r2 = await apiFetch('/api/ai/nl-chats')
+        /* 서버 목록은 **id** 로 준다. 여기서 cid 로만 읽어 새로고침 뒤에는
+           번호가 통째로 비었고, 기록을 누르면 없는 번호를 물어보다 「절차가
+           담겨 있지 않습니다」 로 떨어졌다(지적). 둘 다 받는다. */
         const b2 = (await r2.json()) as {
           ok?: boolean
-          items?: Array<{ cid: string; title?: string; at?: string }>
+          items?: Array<{ id?: string; cid?: string; title?: string; at?: string }>
         }
         if (b2.ok && Array.isArray(b2.items))
-          setRecent(b2.items.slice(0, 12).map((x) => ({ cid: x.cid, title: x.title || x.cid, at: x.at })))
+          setRecent(
+            b2.items
+              .map((x) => ({ cid: String(x.id ?? x.cid ?? ''), title: x.title ?? '', at: x.at }))
+              .filter((x) => x.cid)
+              .slice(0, 12)
+              .map((x) => ({ ...x, title: x.title || x.cid })),
+          )
       } catch {
         /* 기록이 없어도 화면은 돈다 */
       }
@@ -419,7 +428,14 @@ export default function AskBar({ devices }: Props) {
         chat?: { title?: string; plan?: Draft; dev?: string; at?: string }
       }
       const plan = b.chat?.plan
-      if (!b.ok || !plan || !Array.isArray(plan.steps)) {
+      if (!b.ok) {
+        // 못 찾은 것과 절차가 없는 것은 다른 일이다 — 뭉뚱그리면 고칠 데를
+        // 못 찾는다
+        setText(title)
+        setErr(b.error || '기록을 읽지 못했습니다')
+        return
+      }
+      if (!plan || !Array.isArray(plan.steps) || plan.steps.length === 0) {
         // 절차가 안 담긴 옛 기록이면 그 말을 입력칸에 올려 준다 — 마음대로
         // 다시 만들지는 않는다
         setText(title)
