@@ -642,6 +642,16 @@ export default function Cycles({ me }: PageProps) {
     [shown, freeFolders, famOf],
   )
   const cur = cycles.find((c) => c.id === sel)
+  /*
+   * **이 화면에 있다고 알린다.**
+   *
+   * 여태 사이클 목록에서는 아무도 알리지 않았다 — 알리는 곳이 사이클을 연
+   * 뒤(CycleDetail)뿐이라, 목록만 보고 있으면 서버 명단에 안 올라 오른쪽
+   * 위가 늘 비었다(지적). 목록에서는 `cycle`, 한 건을 열면 그 사이클 이름
+   * 으로 알린다(연 뒤에는 CycleDetail 도 같은 이름을 알린다 — 같은 값이라
+   * 부딪히지 않는다).
+   */
+  usePresence(cur ? `cycle:${cur.id}` : 'cycle', me?.name || me?.username || '')
 
   // ?ce=CE-… 링크 — 목록이 오면 그 사이클로
   useEffect(() => {

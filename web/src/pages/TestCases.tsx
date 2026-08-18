@@ -1455,10 +1455,10 @@ export default function TestCases({ me }: PageProps) {
 
                   {/* 이름·ID 는 위 빵부스러기에 이미 있다. 여기에도 적었더니
                       같은 글이 두 줄로 보였다 — 이 줄은 알림·탭 몫이다. */}
-                  {/* 지금 이 시험을 누가 같이 보고 있나 — 제목 바로 옆.
-                      혼자면 아무것도 안 뜬다. 둘부터 뜬다. */}
-                  <PresenceBar users={presence.users} me={meName} />
-                  {/* 누가 저장했나 — 쌓아 두고 숫자만. 「함께 보는 중」 옆이다 */}
+                  {/* 「함께 보는 중」 은 **맨 위 줄 오른쪽 끝 한 자리**만 쓴다
+                      (지시: 시험항목만 두 군데였다). 시험을 열면 그 자리가
+                      이 시험을 보는 사람으로 바뀐다. */}
+                  {/* 누가 저장했나 — 쌓아 두고 숫자만 */}
                   <SaveBell
                     items={saves}
                     unseen={Math.max(0, saves.length - seen)}
@@ -2068,8 +2068,9 @@ export default function TestCases({ me }: PageProps) {
           </span>
         </span>
         <span className="sp" />
-        {/* 시험항목 화면에 들어와 있는 사람 전부 — 상단 오른쪽 */}
-        <PresenceBar users={crowd} me={meName} />
+        {/* 한 자리만 — 시험을 열었으면 그 시험을 보는 사람, 목록이면 이
+            화면에 들어와 있는 사람 전부 */}
+        <PresenceBar users={openId ? presence.users : crowd} me={meName} />
       </div>
 
       <div className="split tc-split" ref={splitRef}>
