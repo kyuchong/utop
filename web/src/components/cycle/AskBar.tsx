@@ -510,7 +510,7 @@ export default function AskBar({ devices }: Props) {
           /* 서버는 ip 로 읽는다 — connParams 는 host 로 준다. 그대로 보내면
              「장비 정보가 없습니다」 로 조용히 되돌아온다(실제로 그랬다). */
           device: { ...connParams(dev), ip: connParams(dev).host },
-          steps: d.steps.map((x, i) => ({ i, cli: x.cli, desc: x.desc })),
+          steps: d.steps.map((x, i) => ({ i, cli: x.cli, desc: x.desc, criteria: x.criteria })),
         }),
       })
       const b = (await r.json()) as {
@@ -518,6 +518,8 @@ export default function AskBar({ devices }: Props) {
         error?: string
         skipped?: string
         items?: Array<{ i?: number; type?: string; criteria?: string }>
+        /** 이 장비 응답에 없는 옛 기준 — 그대로 두면 반드시 불합격이다 */
+        stale?: number[]
       }
       if (!b.ok || !Array.isArray(b.items)) {
         setFlowLog((v) => [
@@ -536,9 +538,20 @@ export default function AskBar({ devices }: Props) {
         return d
       }
       let n = 0
+      let cleared = 0
+      const stale = new Set(Array.isArray(b.stale) ? b.stale : [])
       const steps = d.steps.map((x, i) => {
         const hit = b.items!.find((y) => y.i === i)
-        if (!hit || !String(hit.criteria ?? '').trim()) return x   // LLM 이 말이 없으면 원본 그대로
+        if (!hit || !String(hit.criteria ?? '').trim()) {
+          /* 이 장비 응답에 없는 옛 기준은 **비운다.** 원본 TC 가 이고 온 그 랩의
+             값(hostname QA_MAIN_L3 같은)을 그대로 두면 반드시 불합격이다(지적).
+             돌린 뒤 응답 블럭에서 고르면 된다. */
+          if (stale.has(i)) {
+            cleared++
+            return { ...x, type: '', criteria: '' }
+          }
+          return x   // LLM 이 말이 없고 옛 기준도 쓸 만하면 그대로
+        }
         // ★ 이미 기준이 있어도 **LLM 이 낸 것으로 바꾼다.** 원본 것은 다른
         //   모델에서 쓰던 말이고, 이건 이 장비가 방금 내놓은 응답에서 고른
         //   것이다. 같은 말이면 셈에 안 넣는다.
@@ -550,7 +563,12 @@ export default function AskBar({ devices }: Props) {
         ...v.filter((x) => !x.t.endsWith('잡는 중…')),
         {
           s: 5,
-          t: n > 0 ? `이 장비 응답으로 판정 기준 ${n}개를 정함` : '기준으로 삼을 또렷한 값이 없었습니다',
+          t:
+            n > 0
+              ? `이 장비 응답으로 판정 기준 ${n}개를 정함${cleared > 0 ? ` · 안 맞는 옛 기준 ${cleared}개는 비움` : ''}`
+              : cleared > 0
+                ? `이 장비에 안 맞는 옛 기준 ${cleared}개를 비웠습니다 — 돌린 뒤 응답에서 고르세요`
+                : '기준으로 삼을 또렷한 값이 없었습니다',
         },
       ])
       setFlowAt(0)
@@ -918,7 +936,9 @@ export default function AskBar({ devices }: Props) {
       if (k === 'snmp_get' || k === 'snmp_set' || k === 'snmp_trap' || k === 'ping') {
         // 실행기가 이 종류를 그대로 돈다 — 값만 옮겨 실어 준다
         return {
-          kind: k, indent, step: s.desc, ...chips,
+          // ★ 세션 자리를 안 실으면 실행기가 「대상 IP 가 없습니다」 로 멎는다
+          //   (지적). 이 화면은 장비 한 대짜리라 늘 첫 자리다.
+          kind: k, indent, step: s.desc, session: s.session ?? 0, ...chips,
           ...(s.oid ? { oid: s.oid } : {}),
           ...(s.community ? { community: s.community } : {}),
           ...(s.snmpVersion ? { snmpVersion: s.snmpVersion } : {}),

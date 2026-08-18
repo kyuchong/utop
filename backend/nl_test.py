@@ -1531,7 +1531,22 @@ async def ai_nl_criteria(payload: dict):
         k3 = str(s.get("i"))
         if k3 not in got and fixed.get(k3):
             items.append({"i": s.get("i"), "type": "contains", "criteria": fixed[k3]})
-    return {"ok": True, "items": items, "probed": bool(probe)}
+    # ★ 이 장비 응답에 **없는 옛 기준**을 짚어 준다.
+    #   가져온 항목은 원본 TC 의 기준을 이고 온다 — 그 랩의 호스트명 같은 것이라
+    #   이 장비에서는 반드시 불합격이다(실사고: hostname R3 인데 기준은
+    #   QA_MAIN_L3). 화면이 이걸 보고 비운다.
+    stale = []
+    for s in steps:
+        k4 = str(s.get("i"))
+        if k4 in got:
+            continue                                   # 새로 정해졌으니 볼 것 없다
+        old_c = str(s.get("criteria") or "").strip()
+        o4 = str(outs.get(k4, "") or "")
+        if not old_c or not o4:
+            continue                                   # 기준이 없거나 못 읽은 스텝
+        if not _nl_snap_lines([x.strip() for x in old_c.split(_LF) if x.strip()], o4):
+            stale.append(s.get("i"))
+    return {"ok": True, "items": items, "stale": stale, "probed": bool(probe)}
 
 
 @app.get("/api/ai/nl-tc-like")
