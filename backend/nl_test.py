@@ -135,7 +135,7 @@ _TC_VAL_TOK = re.compile(
 _TC_KIND_SKIP = {"group": "단계 묶음", "call": "다른 TC 부르기", "manual": "손으로 하는 절차",
                  "connect": "세션 열기", "disconnect": "세션 닫기", "comment": "주석",
                  "if": "갈림길(합격·불합격을 가르는 것)", "else": "갈림길", "elif": "갈림길",
-                 "switch": "갈림길", "variable": "변수", "snmp": "SNMP 조회"}
+                 "switch": "갈림길", "variable": "변수", "model": "모델 가름"}
 
 _AI_EX_KEY = "ai_examples"
 
@@ -1216,6 +1216,29 @@ def _tc_to_steps(checks, groups, src_models=None, dst_model=""):
             steps.append({"kind": "cli", "indent": depth,
                           "desc": desc2,
                           "cli": cli2, "type": t, "criteria": crit})
+        elif kind in ("snmp_get", "snmp_set", "snmp_trap", "ping"):
+            # ★ 실행기는 이것들을 **이미 돈다**(/api/snmp-get · snmp-set ·
+            #   snmp-trap/wait · ping). 옮기는 이 자리에서만 버려서 SNMP 항목은
+            #   스텝이 통째로 안 나왔다(지적) — 그대로 옮긴다.
+            crit, ch = _tc_crit_plain(c.get("criteria"))
+            blanked += ch
+            crit, _sm = _tc_swap_model(crit, src_models, dst_model)
+            desc2, _sd = _tc_swap_model(str(c.get("desc") or "").strip(), src_models, dst_model)
+            if _sm or _sd:
+                swapped += 1
+            t = str(c.get("type") or "")
+            if t not in ("contains", "contains_all", "notcontains") or not crit:
+                if t and not crit:
+                    empty_crit += 1
+                t, crit = "", ""
+            st = {"kind": kind, "indent": depth, "desc": desc2,
+                  "oid": str(c.get("oid") or c.get("cli") or "").strip(),
+                  "type": t, "criteria": crit}
+            for k2 in ("community", "snmpVersion", "snmpPort", "snmpValue", "snmpType", "trapSec",
+                       "host", "count", "sizeB", "timeoutSec"):
+                if c.get(k2) not in (None, ""):
+                    st[k2] = c.get(k2)
+            steps.append(st)
         elif kind == "wait":
             try:
                 sec = int(c.get("waitSec") or 5)

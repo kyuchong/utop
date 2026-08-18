@@ -11,8 +11,18 @@ interface DraftStep {
   cli: string
   type?: string
   criteria?: string
-  /** cli(기본) · wait · loop/for · if · inst(계측기) */
+  /** cli(기본) · wait · loop/for · if · inst(계측기) · snmp_get/set/trap · ping */
   kind?: string
+  /** SNMP·Ping 스텝이 들고 오는 것 */
+  oid?: string
+  community?: string
+  snmpVersion?: string
+  snmpPort?: number
+  snmpValue?: string
+  snmpType?: string
+  trapSec?: number
+  host?: string
+  count?: number
   /** 장비가 둘 이상일 때 몇 번째 것으로 보낼까 (0부터) */
   session?: number
   loopCount?: number
@@ -905,6 +915,22 @@ export default function AskBar({ devices }: Props) {
         return { kind: 'wait', indent, step: s.desc, waitSec: s.waitSec ?? s.sec ?? 1 } as TcStep
       if (k === 'if')
         return { kind: 'if', indent, step: s.desc, condition: s.condition || '' } as TcStep
+      if (k === 'snmp_get' || k === 'snmp_set' || k === 'snmp_trap' || k === 'ping') {
+        // 실행기가 이 종류를 그대로 돈다 — 값만 옮겨 실어 준다
+        return {
+          kind: k, indent, step: s.desc, ...chips,
+          ...(s.oid ? { oid: s.oid } : {}),
+          ...(s.community ? { community: s.community } : {}),
+          ...(s.snmpVersion ? { snmpVersion: s.snmpVersion } : {}),
+          ...(s.snmpPort ? { snmpPort: Number(s.snmpPort) } : {}),
+          ...(s.snmpValue ? { snmpValue: s.snmpValue } : {}),
+          ...(s.snmpType ? { snmpType: s.snmpType } : {}),
+          ...(s.trapSec ? { trapSec: Number(s.trapSec) } : {}),
+          ...(s.host ? { host: s.host } : {}),
+          ...(s.count ? { count: Number(s.count) } : {}),
+          ...(crit ? { type: (s.type as string) || 'contains', criteria: crit } : {}),
+        } as TcStep
+      }
       if (k === 'inst' || k === 'instrument') {
         const act = String(s.action || 'start')
         const meterAct =
