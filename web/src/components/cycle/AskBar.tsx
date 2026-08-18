@@ -545,6 +545,7 @@ export default function AskBar({ devices }: Props) {
               { s: 5, t: `기록을 열었습니다 — ${b.chat?.at ? String(b.chat.at).slice(0, 16) : ''}` },
             ],
       )
+      instantRef.current = true
       setBuilt(plan)
       setDraft(plan)
     } catch (e) {
@@ -594,7 +595,8 @@ export default function AskBar({ devices }: Props) {
       setFlowVals((v) => [...v.filter((x) => x.k !== '가져온 TC'), { k: '가져온 TC', v: tcid }])
       setStepAt(0)
       const d2: Draft = { name: b.title || tcid, object: b.purpose, steps: b.steps ?? [] }
-      setBuilt(d2)   // 레일은 지금 바로 편다
+      instantRef.current = false
+      setBuilt(d2)   // 레일은 지금 바로 편다 (한 줄씩 찬다)
       setDevId(picked?.id ?? '')
       const done2 = picked ? await fillCriteria(d2, picked) : d2
       setDraft(done2)
@@ -698,7 +700,8 @@ export default function AskBar({ devices }: Props) {
         steps: Array.isArray(raw.steps) ? raw.steps : [],
       }
       setStepAt(0)
-      setBuilt(d)   // 레일은 지금 바로 편다
+      instantRef.current = false
+      setBuilt(d)   // 레일은 지금 바로 편다 (한 줄씩 찬다)
       setFlowLog((v) => [
         ...v.filter((x) => x.t !== '절차를 짓는 중…'),
         { s: 5, t: `절차 ${d.steps.length}개 스텝으로 지음` },
@@ -892,6 +895,15 @@ export default function AskBar({ devices }: Props) {
    * 튀어나와, 무엇이 어떤 차례로 정해졌는지 알 수 없다(지적). 굳은 사실
    * 한 줄 · 스텝 한 줄씩 차례로 내놓아 눈이 따라갈 수 있게 한다.
    */
+  /**
+   * 이번 절차를 **한 번에 펼 것인가**.
+   *
+   * 차오르는 것은 「지금 만들어지고 있다」 를 보이려는 것이다. 이미 끝난
+   * 기록을 열 때까지 그러면 다 나온 것을 다시 그리는 헛일이다(지적).
+   * 담아 둔 것을 열 때만 켠다.
+   */
+  const instantRef = useRef(false)
+
   /** 만들기 시작하고 몇 초 — 오래 걸리는 것과 멎은 것은 다르다 */
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
@@ -903,7 +915,8 @@ export default function AskBar({ devices }: Props) {
 
   const [rev, setRev] = useState(0)
   useEffect(() => {
-    setRev(0)   // 새로 지어질 때만 처음부터
+    // 새로 지을 때만 처음부터 — 기록을 연 것이면 통째로 편다
+    setRev(instantRef.current ? Number.MAX_SAFE_INTEGER : 0)
   }, [built])
   useEffect(() => {
     if (rev >= revTotal) return
