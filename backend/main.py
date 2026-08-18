@@ -1002,17 +1002,150 @@ class LoginReq(BaseModel):
     username: str
     password: str
 
-@app.post("/api/login")
-async def api_login(req: LoginReq):
-    u = _find_user(req.username.strip())
-    if not u or not u.get("active", True) or _hash_pw(req.password, u.get("salt", "")) != u.get("password"):
-        raise HTTPException(401, "아이디 또는 비밀번호가 올바르지 않거나 비활성 계정입니다")
-    # 동시 로그인 허용: 새 로그인 시 동일 username의 기존 세션을 제거하지 않음
-    # → 여러 브라우저/PC에서 동시에 로그인 상태 유지 (기존 연결이 끊기지 않음)
+
+# ══════════════ Jira 계정으로 로그인 ══════════════
+#
+# 사원이 모두 Jira 계정을 갖고 있어 **Jira 를 정본**으로 삼는다(합의).
+# 우리는 비밀번호를 저장하지 않는다 — Jira 에서 바꾸면 그대로 따라간다.
+# 로컬 계정은 안전망이다: Jira 가 죽었거나 admin 같은 비상 계정용.
+#
+# Jira 에는 아무것도 안 쓴다 — 로그인 한 번에 읽기 호출(myself) 하나뿐이다.
+
+#: 연속 실패 잠그기 — 우리가 먼저 막아 Jira 까지 실패가 안 쌓이게 한다.
+#: (Jira Server 는 실패가 쌓이면 CAPTCHA 를 걸어 그 사람이 웹에서 풀어야 한다)
+_LOGIN_FAILS: dict = {}
+_LOGIN_FAIL_MAX = 3
+_LOGIN_LOCK_SEC = 60
+
+
+def _jira_login_on() -> bool:
+    cfg = _jira_cfg()
+    return bool(cfg.get("login_enabled")) and bool(str(cfg.get("url") or "").strip())
+
+
+async def _jira_verify_login(username: str, password: str) -> tuple:
+    """그 사람의 ID/PW 로 Jira 에 물어본다.
+
+    돌려주는 것: (Jira 가 아는 사람 정보 | None, 안 된 까닭).
+    까닭이 'captcha' 면 Jira 가 사람 확인을 걸어 둔 것이라 우리가 풀 수 없다 —
+    그 사람이 Jira 웹에 한 번 들어가 풀어야 한다.
+    """
+    import base64 as _b64
+    import httpx
+    cfg = _jira_cfg()
+    base = str(cfg.get("url") or "").rstrip("/")
+    if not base:
+        return None, "no-url"
+    basic = _b64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
+    try:
+        async with httpx.AsyncClient(timeout=12, verify=cfg.get("verify", True)) as c:
+            r = await c.get(
+                base + "/rest/api/2/myself",
+                headers={"Accept": "application/json", "Authorization": "Basic " + basic},
+            )
+    except Exception as exc:
+        # Jira 가 안 뜨거나 망이 막혔다 — 로컬 계정으로 넘어간다
+        print(f"[jira-login] 붙지 못했습니다: {str(exc)[:200]}", flush=True)
+        return None, "unreachable"
+    if r.status_code == 200:
+        try:
+            return r.json(), ""
+        except Exception:
+            return None, "bad-response"
+    reason = str(r.headers.get("X-Seraph-LoginReason") or "")
+    if "CAPTCHA" in reason.upper():
+        return None, "captcha"
+    return None, "denied"
+
+
+def _upsert_jira_user(username: str, ju: dict) -> dict:
+    """Jira 로 들어온 사람을 UTOP 사용자로. **비밀번호는 담지 않는다.**
+
+    이미 있으면 이름·메일만 Jira 쪽으로 맞춘다. 관리자가 꺼 둔 계정(active
+    False)을 여기서 되살리지는 않는다 — 끄는 것은 UTOP 의 결정이다.
+    """
+    data = _users_load_sync()
+    name = str(ju.get("displayName") or "").strip()
+    mail = str(ju.get("emailAddress") or "").strip()
+    for x in data["users"]:
+        if x.get("username") == username:
+            if name:
+                x["name"] = name
+            if mail:
+                x["email"] = mail
+            x["source"] = "jira"
+            _users_save_sync(data)
+            return x
+    nu = {
+        "id": username, "username": username, "name": name or username,
+        "role": "팀원", "email": mail, "active": True, "source": "jira",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    data["users"].append(nu)
+    _users_save_sync(data)
+    print(f"[jira-login] 새 사용자 등록: {username} ({name})", flush=True)
+    return nu
+
+
+def _issue_session(u: dict) -> dict:
+    """세션 하나 발급. 동시 로그인은 그대로 허용한다 —
+    새로 들어왔다고 남의(내 다른 자리의) 세션을 끊지 않는다."""
     token = _secrets.token_hex(16)
-    SESSIONS[token] = {"username": u["username"], "role": u.get("role"), "name": u.get("name"), "ts": datetime.now().timestamp()}
+    SESSIONS[token] = {
+        "username": u["username"], "role": u.get("role"),
+        "name": u.get("name"), "ts": datetime.now().timestamp(),
+    }
     _save_one_session(token)   # 새 세션 하나만 저장 (전체 save 는 부하 큼)
     return {"token": token, "user": _public_user(u)}
+
+
+@app.post("/api/login")
+async def api_login(req: LoginReq):
+    uname = req.username.strip()
+
+    # ① 연속 실패로 잠긴 동안은 Jira 까지 가지 않는다
+    lock = _LOGIN_FAILS.get(uname)
+    if lock and lock.get("until", 0) > _t.time():
+        left = int(lock["until"] - _t.time()) + 1
+        raise HTTPException(429, f"로그인 시도가 많습니다 — {left}초 뒤에 다시 하세요")
+
+    def _fail(msg: str):
+        n = (lock.get("n", 0) if lock else 0) + 1
+        _LOGIN_FAILS[uname] = {
+            "n": n,
+            "until": _t.time() + _LOGIN_LOCK_SEC if n >= _LOGIN_FAIL_MAX else 0,
+        }
+        raise HTTPException(401, msg)
+
+    u = _find_user(uname)
+
+    # ② Jira 가 정본 — 통과하면 그것으로 끝
+    if _jira_login_on():
+        ju, why = await _jira_verify_login(uname, req.password)
+        if ju:
+            if u and not u.get("active", True):
+                raise HTTPException(401, "관리자가 꺼 둔 계정입니다 — 시스템 담당자에게 문의하세요")
+            u = _upsert_jira_user(uname, ju)
+            _LOGIN_FAILS.pop(uname, None)
+            return _issue_session(u)
+        if why == "captcha":
+            raise HTTPException(
+                401,
+                "Jira 가 사람 확인(CAPTCHA)을 걸었습니다 — Jira 웹에 한 번 로그인해 풀고 다시 시도하세요",
+            )
+        # denied·unreachable 이면 아래 로컬 계정으로 넘어간다 (Jira 장애 때의 안전망)
+
+    # ③ 로컬 계정 — 비상 계정(admin) 과 Jira 장애 때
+    if (
+        u
+        and u.get("active", True)
+        and u.get("password")
+        and _hash_pw(req.password, u.get("salt", "")) == u.get("password")
+    ):
+        _LOGIN_FAILS.pop(uname, None)
+        return _issue_session(u)
+
+    _fail("아이디 또는 비밀번호가 올바르지 않거나 비활성 계정입니다")
 
 @app.post("/api/logout")
 async def api_logout(payload: dict):
@@ -12451,7 +12584,7 @@ async def jira_get_config():
 @app.post("/api/jira/config")
 async def jira_save_config(data: dict):
     cur = _jira_cfg()
-    for k in ["url", "user", "token", "auth", "default_project", "default_issuetype", "verify", "fav_projects", "ai", "panel_templates"]:
+    for k in ["url", "user", "token", "auth", "default_project", "default_issuetype", "verify", "fav_projects", "ai", "panel_templates", "login_enabled"]:
         if k in data:
             cur[k] = data[k]
     save_json(JIRA_FILE, cur)

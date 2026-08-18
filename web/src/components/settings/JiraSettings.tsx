@@ -11,6 +11,8 @@ interface Cfg {
   default_project?: string
   default_issuetype?: string
   fav_projects?: string[]
+  /** UTOP 로그인을 Jira 계정으로 — 켜면 Jira 가 정본, 로컬 계정은 안전망 */
+  login_enabled?: boolean
 }
 
 interface Proj {
@@ -169,6 +171,23 @@ export default function JiraSettings() {
             />
             TLS 인증서 검증 (사내 자체서명 인증서로 실패하면 해제)
           </label>
+          {/* 사원이 모두 Jira 계정을 갖고 있어 Jira 를 정본으로 삼는다(합의).
+              문제가 생기면 이 스위치만 끄면 옛 방식으로 즉시 되돌아간다. */}
+          <label className="jira-ck">
+            <input
+              type="checkbox"
+              checked={!!cfg.login_enabled}
+              onChange={(e) => set({ login_enabled: e.target.checked })}
+            />
+            <b>Jira 계정으로 로그인</b> — UTOP 로그인에 Jira ID/비밀번호를 씁니다
+          </label>
+          {cfg.login_enabled && (
+            <p className="muted small jira-note">
+              Jira 로 확인되면 그 사람의 UTOP 계정이 자동으로 만들어집니다(권한은 <b>팀원</b>,
+              필요하면 사용자 관리에서 올리세요). <b>비밀번호는 UTOP 에 저장하지 않습니다.</b>{' '}
+              Jira 가 안 되면 기존 로컬 계정으로 들어올 수 있습니다 — admin 계정을 꼭 남겨 두세요.
+            </p>
+          )}
           <div className="jira-act">
             <button
               className="btn primary small"
