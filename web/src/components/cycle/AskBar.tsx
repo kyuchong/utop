@@ -223,6 +223,8 @@ export default function AskBar({ devices }: Props) {
   >([])
   /** 창에서 고른 트리 자리 (예: `SW · MAINT · SNMPv2`). 빈 글자면 전부 */
   const [tcFold, setTcFold] = useState('')
+  /** 고른 장비 모델 것만 보이기 — 기본 켬(지시) */
+  const [tcOnlyModel, setTcOnlyModel] = useState(true)
   /** 접어 둔 단계 — 다 끝난 단계는 접어 치울 수 있다 */
   const [fold, setFold] = useState<Set<number>>(new Set())
   /** 랙 자리(구역·랙) — 어느 장비인지 고를 때 자리로 가른다 */
@@ -1875,8 +1877,30 @@ export default function AskBar({ devices }: Props) {
                 placeholder="항목 이름 · TC 번호 · 모델로 찾기"
                 onChange={(e) => setTcFind(e.target.value)}
               />
+              {/* 고른 장비 것만 보기 — 켜 두는 것이 기본이다(지시). 다른 모델
+                  항목을 굳이 봐야 할 때만 끈다. */}
+              <label className="ask-tconly">
+                <input
+                  type="checkbox"
+                  checked={tcOnlyModel}
+                  onChange={(e) => setTcOnlyModel(e.target.checked)}
+                />
+                <span>{curDev?.model || '고른 장비'} 것만</span>
+              </label>
             </div>
             {(() => {
+              /*
+               * 고른 장비 모델 것만 본다(지시).
+               *
+               * 「공용」·빈 값은 **어느 모델에나 쓰는 항목**이라 함께 남긴다 —
+               * 이 랩의 SNMP 항목이 죄다 공용이라, 빼면 고를 것이 없어진다.
+               */
+              const myModel = (curDev?.model ?? '').trim().toLowerCase()
+              const forMe = (t: { model?: string }) => {
+                if (!tcOnlyModel || !myModel) return true
+                const m = String(t.model ?? '').trim().toLowerCase()
+                return !m || m === '공용' || m === myModel
+              }
               const q = tcFind.trim().toLowerCase()
               const hit = (x: { tcid: string; name: string; model: string }) =>
                 !q ||
@@ -1886,6 +1910,7 @@ export default function AskBar({ devices }: Props) {
               /* 트리 자리별로 묶는다 — 왼쪽에서 자리를 고르면 그 안만 본다 */
               const folds = new Map<string, number>()
               for (const t of tcAll) {
+                if (!forMe(t)) continue
                 const k = t.path.join(' · ')
                 if (!k) continue
                 folds.set(k, (folds.get(k) ?? 0) + 1)
@@ -1893,8 +1918,10 @@ export default function AskBar({ devices }: Props) {
               const foldList = [...folds.entries()].sort((a, b) => a[0].localeCompare(b[0]))
               const inFold = (t: { path: string[] }) => !tcFold || t.path.join(' · ') === tcFold
               const likeIds = new Set(like.map((x) => x.tcid))
-              const near = q || tcFold ? [] : like
-              const rest = tcAll.filter((x) => inFold(x) && hit(x) && (q || tcFold || !likeIds.has(x.tcid)))
+              const near = (q || tcFold ? [] : like).filter((x) => forMe(x))
+              const rest = tcAll.filter(
+                (x) => inFold(x) && forMe(x) && hit(x) && (q || tcFold || !likeIds.has(x.tcid)),
+              )
               const row = (x: { tcid: string; name?: string; model?: string; steps?: number; path?: string[] }) => (
                 <button
                   key={x.tcid}
@@ -1924,7 +1951,7 @@ export default function AskBar({ devices }: Props) {
                       type="button"
                       onClick={() => setTcFold('')}
                     >
-                      전체<i>{tcAll.length}</i>
+                      전체<i>{tcAll.filter((x) => forMe(x)).length}</i>
                     </button>
                     {foldList.map(([k, n]) => (
                       <button

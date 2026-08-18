@@ -4425,8 +4425,10 @@ table.tb td.k {
   flex-direction: column;
 }
 /* 시험 항목 고르기 — 왼쪽 Coverage 트리 자리 · 오른쪽 항목 */
-.ask-tcfind { padding: 10px 14px 0; }
-.ask-tcfind input { width: 100%; }
+.ask-tcfind { padding: 10px 14px 0; display: flex; align-items: center; gap: 10px; }
+.ask-tcfind > input { flex: 1; min-width: 0; }
+.ask-tconly { display: flex; align-items: center; gap: 5px; font-size: var(--fs-xs); white-space: nowrap; cursor: pointer; }
+.ask-tconly input { margin: 0; }
 .ask-tcbody { display: flex; gap: 12px; min-height: 0; flex: 1; padding: 10px 14px 0; }
 .ask-tcbody .ask-pickside { flex: none; width: 240px; overflow: auto; }
 .ask-tcbody .ask-likelist { flex: 1; min-width: 0; }

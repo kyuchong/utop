@@ -1419,8 +1419,9 @@ async def ai_nl_criteria(payload: dict):
             first = next((x.strip() for x in str(s.get("cli") or "").split(_LF) if x.strip()), "")
             outs[str(s.get("i"))] = got.get(first, "")
 
-    # ★ desc 로 곧장 짚히는 스텝은 **우리가 정한다.** LLM 에게 같은 응답을
-    #   여럿 주면 서로 바꿔 다는 일이 난다(Main 자리에 Flash — 실사고).
+    # ★ desc 로 곧장 짚히는 줄을 미리 구해 둔다. **판단은 LLM 이 한다**(지시) —
+    #   이건 LLM 을 건너뛰려는 것이 아니라, LLM 이 **남의 스텝 줄**을 집어 왔을
+    #   때(Main 자리에 Flash — 실사고) 그것만 바로잡는 자다.
     fixed = {}
     for s in steps:
         o = str(outs.get(str(s.get("i")), "") or "")
@@ -1430,19 +1431,12 @@ async def ai_nl_criteria(payload: dict):
 
     rows = []
     for s in steps:
-        if str(s.get("i")) in fixed:
-            continue                                  # 이미 정했다
         o = str(outs.get(str(s.get("i")), "") or "").strip()
         if not o:
             continue
         rows.append({"i": s.get("i"), "desc": str(s.get("desc") or ""),
                      "cli": str(s.get("cli") or ""), "응답": o[:1200]})
-    picked = [{"i": s.get("i"), "type": "contains", "criteria": fixed[str(s.get("i"))]}
-              for s in steps if str(s.get("i")) in fixed]
     if not rows:
-        # 다 짚었으면 LLM 을 부를 까닭이 없다 — 기다림도 그만큼 준다
-        if picked:
-            return {"ok": True, "items": picked, "probed": bool(probe)}
         return {"ok": False, "error": "근거로 쓸 응답이 없습니다"}
 
     schema = {"type": "object", "properties": {"items": {"type": "array", "items": {
@@ -1479,10 +1473,9 @@ async def ai_nl_criteria(payload: dict):
         obj = {"items": obj}
     if not isinstance(obj, dict):
         obj = {}
-    items = list(picked)
+    # 다른 스텝이 쓸 줄들 — LLM 이 이 중 하나를 집어 오면 뒤바뀐 것이다
+    items, got = [], set()
     for it in (obj.get("items") or []):
-        if isinstance(it, dict) and str(it.get("i")) in fixed:
-            continue                                  # 우리가 정한 자리는 안 건드린다
         if not isinstance(it, dict):
             continue
         c = str(it.get("criteria") or "").strip()
@@ -1498,9 +1491,23 @@ async def ai_nl_criteria(payload: dict):
         toks = _nl_snap_lines([x.strip() for x in c.split(_LF) if x.strip()], o)
         if not toks:
             continue
+        key = str(it.get("i"))
+        crit = _LF.join(toks)
+        mine = fixed.get(key, "")
+        others = {v for k2, v in fixed.items() if k2 != key}
+        # ★ 뒤바뀜만 바로잡는다. LLM 이 고른 줄이 **다른 스텝의 줄**이고 이 스텝이
+        #   짚을 줄이 따로 있으면, 이 스텝 것으로 돌린다. 그 밖에는 LLM 판단 그대로.
+        if mine and crit != mine and crit in others:
+            crit, t = mine, "contains"
         items.append({"i": it.get("i"),
-                      "type": "contains_all" if len(toks) > 1 else t,
-                      "criteria": _LF.join(toks)})
+                      "type": "contains_all" if len(crit.split(_LF)) > 1 else t,
+                      "criteria": crit})
+        got.add(key)
+    # LLM 이 아무 말도 안 한 스텝에만 짚어 둔 줄을 넣는다 — 빈 기준보다 낫다
+    for s in steps:
+        k3 = str(s.get("i"))
+        if k3 not in got and fixed.get(k3):
+            items.append({"i": s.get("i"), "type": "contains", "criteria": fixed[k3]})
     return {"ok": True, "items": items, "probed": bool(probe)}
 
 
