@@ -840,12 +840,68 @@ def _nl_squash(s):
     return " ".join(str(s or "").split())
 
 
+#: 「이름 : 값」 한 줄 — 장비 조회 응답의 거의 전부가 이 꼴이다
+_NL_KV_RE = re.compile(r"^\s*([A-Za-z][A-Za-z0-9 /._-]{1,40}?)\s*:\s*(\S.*)$")
+
+
+def _nl_en_words(s):
+    """견줄 낱말만 남긴다 (영문·숫자, 소문자)."""
+    return [w for w in re.split(r"[^0-9A-Za-z]+", str(s or "").lower()) if w]
+
+
+def _nl_pick_line(desc, out):
+    """그 스텝이 보려는 줄을 응답에서 **곧장** 고른다. 못 고르면 빈 글자.
+
+    같은 명령을 여러 스텝이 함께 쓰면(show system 을 일곱 번) LLM 에게는
+    똑같은 응답 일곱 개가 간다. 그러면 Main Memory 스텝에 Flash Memory 를
+    다는 뒤바뀜이 난다 — 실사고다. 게다가 「있는지」 만 보는 검사(부분
+    일치)라 `ain Memory Size` 처럼 첫 글자가 떨어진 조각도 통과했다.
+
+    스텝이 무엇을 보려는지는 desc 에 적혀 있다. 줄의 **이름** 과 맞대 우리가
+    먼저 정한다 — 사람이 눈으로 하는 것과 같다. 어중간하거나 두 줄이 다투면
+    안 고른다(틀린 기준보다 빈 기준이 낫다).
+    """
+    dw = set(_nl_en_words(desc))
+    if not dw:
+        return ""
+    best, second, pick = 0.0, 0.0, ""
+    for ln in str(out or "").replace(chr(13), "").split(_LF):
+        m = _NL_KV_RE.match(ln.rstrip())
+        if not m:
+            continue
+        kw = _nl_en_words(m.group(1))
+        if not kw:
+            continue
+        sc = len([w for w in kw if w in dw]) / float(len(kw))
+        if sc > best:
+            best, second, pick = sc, best, ln.strip()
+        elif sc > second:
+            second = sc
+    return pick if (best >= 0.5 and best > second) else ""
+
+
+def _nl_whole_word(t, out):
+    """out 안의 t 가 **낱말 가운데서** 시작·끝나지 않는가.
+
+    `ain Memory Size` 는 `Main Memory Size` 안에 들어 있어 「있는지」 검사를
+    그냥 통과했다 — 첫 글자가 떨어진 조각이 기준으로 앉았다(실사고).
+    한 군데라도 낱말 경계에 맞게 들어 있으면 참으로 본다.
+    """
+    for m in re.finditer(re.escape(t), out):
+        a, b = m.start(), m.end()
+        if (a == 0 or not out[a - 1].isalnum()) and (b >= len(out) or not out[b].isalnum()):
+            return True
+    return False
+
+
 def _nl_snap_lines(toks, out):
     """LLM 이 낸 문구를 **응답에 있는 줄 그대로**로 되돌린다. 없으면 버린다."""
     lines = [x.rstrip() for x in str(out or "").replace(chr(13), "").split(_LF)]
     keep = []
     for t in toks:
-        if t and t in out:                       # 글자 그대로 있으면 그대로
+        # 글자 그대로, 그리고 **낱말째로** 있으면 그대로. 조각이면 아래로
+        # 흘려 그 조각이 든 **온 줄**로 되돌린다.
+        if t and t in out and _nl_whole_word(t, out):
             keep.append(t)
             continue
         q = _nl_squash(t)
@@ -1363,14 +1419,30 @@ async def ai_nl_criteria(payload: dict):
             first = next((x.strip() for x in str(s.get("cli") or "").split(_LF) if x.strip()), "")
             outs[str(s.get("i"))] = got.get(first, "")
 
+    # ★ desc 로 곧장 짚히는 스텝은 **우리가 정한다.** LLM 에게 같은 응답을
+    #   여럿 주면 서로 바꿔 다는 일이 난다(Main 자리에 Flash — 실사고).
+    fixed = {}
+    for s in steps:
+        o = str(outs.get(str(s.get("i")), "") or "")
+        ln = _nl_pick_line(s.get("desc"), o)
+        if ln:
+            fixed[str(s.get("i"))] = ln
+
     rows = []
     for s in steps:
+        if str(s.get("i")) in fixed:
+            continue                                  # 이미 정했다
         o = str(outs.get(str(s.get("i")), "") or "").strip()
         if not o:
             continue
         rows.append({"i": s.get("i"), "desc": str(s.get("desc") or ""),
                      "cli": str(s.get("cli") or ""), "응답": o[:1200]})
+    picked = [{"i": s.get("i"), "type": "contains", "criteria": fixed[str(s.get("i"))]}
+              for s in steps if str(s.get("i")) in fixed]
     if not rows:
+        # 다 짚었으면 LLM 을 부를 까닭이 없다 — 기다림도 그만큼 준다
+        if picked:
+            return {"ok": True, "items": picked, "probed": bool(probe)}
         return {"ok": False, "error": "근거로 쓸 응답이 없습니다"}
 
     schema = {"type": "object", "properties": {"items": {"type": "array", "items": {
@@ -1407,8 +1479,10 @@ async def ai_nl_criteria(payload: dict):
         obj = {"items": obj}
     if not isinstance(obj, dict):
         obj = {}
-    items = []
+    items = list(picked)
     for it in (obj.get("items") or []):
+        if isinstance(it, dict) and str(it.get("i")) in fixed:
+            continue                                  # 우리가 정한 자리는 안 건드린다
         if not isinstance(it, dict):
             continue
         c = str(it.get("criteria") or "").strip()
