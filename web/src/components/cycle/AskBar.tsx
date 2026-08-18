@@ -149,11 +149,33 @@ export default function AskBar({ devices }: Props) {
   /** 오른쪽에 펼쳐 볼 스텝 */
   const [stepAt, setStepAt] = useState(0)
   /** 작업 흐름에 남기는 기록 — 질문한 뒤부터 쌓이고, 만들어지면 그대로 남는다 */
+  /** 담을 때 쓰는 지금 값 — 상태는 한 박자 늦어 마지막 줄이 빠진다 */
+  const flowRef = useRef<Array<{ s: number; t: string }>>([])
   /** 한 일 한 줄 — `s` 는 **어느 단계의 일인가**.
    *  이걸 안 달면 모든 줄이 1단계(장비 선택) 밑에 쌓여 지금 어디를 하는지
    *  알 수 없다(지적). */
-  const [flowLog, setFlowLog] = useState<Array<{ s: number; t: string }>>([])
-  const [flowVals, setFlowVals] = useState<Array<{ k: string; v: string }>>([])
+  const [flowLogRaw, setFlowLogRaw] = useState<Array<{ s: number; t: string }>>([])
+  const flowLog = flowLogRaw
+  /** 흐름을 적는 곳은 여기 하나 — 적는 즉시 flowRef 도 따라간다 */
+  const setFlowLog = (
+    up: Array<{ s: number; t: string }> | ((v: Array<{ s: number; t: string }>) => Array<{ s: number; t: string }>),
+  ) =>
+    setFlowLogRaw((v) => {
+      const n = typeof up === 'function' ? up(v) : up
+      flowRef.current = n
+      return n
+    })
+  const valsRef = useRef<Array<{ k: string; v: string }>>([])
+  const [flowValsRaw, setFlowValsRaw] = useState<Array<{ k: string; v: string }>>([])
+  const flowVals = flowValsRaw
+  const setFlowVals = (
+    up: Array<{ k: string; v: string }> | ((v: Array<{ k: string; v: string }>) => Array<{ k: string; v: string }>),
+  ) =>
+    setFlowValsRaw((v) => {
+      const n = typeof up === 'function' ? up(v) : up
+      valsRef.current = n
+      return n
+    })
   /** 지금 도는 단계 (0 = 안 돎) — 흐름 칸이 이걸로 「진행 중」 을 보인다 */
   const [flowAt, setFlowAt] = useState(0)
   /** 이 대화의 id — 최근 목록에 남길 때 쓴다 */
@@ -164,7 +186,15 @@ export default function AskBar({ devices }: Props) {
   /** 기준을 채우는 중인가 — 이때는 문구를 fillCriteria 가 쥔다 */
   const [filling, setFilling] = useState(false)
   /** 가져온 절차를 이 장비에 맞추며 바꾼 것들 — 「생성 완료」 칸에 적는다 */
-  const [fitNotes, setFitNotes] = useState<string[]>([])
+  const notesRef = useRef<string[]>([])
+  const [fitNotesRaw, setFitNotesRaw] = useState<string[]>([])
+  const fitNotes = fitNotesRaw
+  const setFitNotes = (up: string[] | ((v: string[]) => string[])) =>
+    setFitNotesRaw((v) => {
+      const n = typeof up === 'function' ? up(v) : up
+      notesRef.current = n
+      return n
+    })
   const [pickDev, setPickDev] = useState<{ model: string; cands: Device[] } | null>(null)
   const [pickSel, setPickSel] = useState('')
   const [pickLab, setPickLab] = useState('')
@@ -332,7 +362,18 @@ export default function AskBar({ devices }: Props) {
     try {
       await apiFetch('/api/ai/nl-chats', {
         method: 'POST',
-        body: JSON.stringify({ id, title, plan, dev, msgs: [{ role: 'user', text: title }] }),
+        body: JSON.stringify({
+          id,
+          title,
+          plan,
+          dev,
+          msgs: [{ role: 'user', text: title }],
+          /* 작업 흐름도 함께 — 이게 없으면 다시 열었을 때 무엇을 왜 그렇게
+             정했는지가 통째로 사라진다(지적) */
+          flow: flowRef.current,
+          vals: valsRef.current,
+          notes: notesRef.current,
+        }),
       })
     } catch {
       /* 기록을 못 남겨도 절차는 쓸 수 있다 */
@@ -448,7 +489,15 @@ export default function AskBar({ devices }: Props) {
       const b = (await r.json()) as {
         ok?: boolean
         error?: string
-        chat?: { title?: string; plan?: Draft; dev?: string; at?: string }
+        chat?: {
+          title?: string
+          plan?: Draft
+          dev?: string
+          at?: string
+          flow?: Array<{ s?: number; t?: string }>
+          vals?: Array<{ k?: string; v?: string }>
+          notes?: string[]
+        }
       }
       const plan = b.chat?.plan
       if (!b.ok) {
@@ -473,13 +522,29 @@ export default function AskBar({ devices }: Props) {
       setLikeAsk(false)
       setRan(null)
       setStepAt(0)
-      setFitNotes([])
       setFlowAt(0)
-      setFlowVals(dv ? [{ k: '대상', v: dv.ip }] : [])
-      setFlowLog([
-        { s: 1, t: dv ? `그때 쓰던 장비 ${dv.ip} 로 되살림` : '담아 둔 절차를 그대로 폄' },
-        { s: 5, t: `기록을 열었습니다 — ${b.chat?.at ? String(b.chat.at).slice(0, 16) : ''}` },
-      ])
+      /* 담아 둔 흐름을 그대로 되살린다 — 이걸 안 하면 무엇을 왜 그렇게
+         정했는지가 두 줄 요약으로 뭉개진다(지적). 흐름이 안 담긴 옛 기록만
+         그 두 줄로 대신한다. */
+      const keptFlow = (b.chat?.flow ?? [])
+        .filter((x) => String(x?.t ?? '').trim())
+        .map((x) => ({ s: Number(x.s) || 1, t: String(x.t) }))
+      const keptVals = (b.chat?.vals ?? [])
+        .filter((x) => String(x?.k ?? '').trim())
+        .map((x) => ({ k: String(x.k), v: String(x.v ?? '') }))
+      setFitNotes(Array.isArray(b.chat?.notes) ? b.chat!.notes! : [])
+      setFlowVals(keptVals.length > 0 ? keptVals : dv ? [{ k: '대상', v: dv.ip }] : [])
+      setFlowLog(
+        keptFlow.length > 0
+          ? [
+              ...keptFlow,
+              { s: 5, t: `기록을 열었습니다 — ${b.chat?.at ? String(b.chat.at).slice(0, 16) : ''}` },
+            ]
+          : [
+              { s: 1, t: dv ? `그때 쓰던 장비 ${dv.ip} 로 되살림` : '담아 둔 절차를 그대로 폄' },
+              { s: 5, t: `기록을 열었습니다 — ${b.chat?.at ? String(b.chat.at).slice(0, 16) : ''}` },
+            ],
+      )
       setBuilt(plan)
       setDraft(plan)
     } catch (e) {

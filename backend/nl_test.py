@@ -1280,6 +1280,11 @@ async def nl_chat_save(payload: dict, token: str = ""):
         "msgs": payload.get("msgs") if isinstance(payload.get("msgs"), list) else [],
         "plan": payload.get("plan") if isinstance(payload.get("plan"), dict) else None,
         "run": payload.get("run") if isinstance(payload.get("run"), list) else None,
+        # 작업 흐름도 함께 담는다 — 이걸 안 담아서 기록을 열면 흐름이 두 줄로
+        # 요약돼 있었다(지적). 무엇을 왜 그렇게 정했는지가 거기에만 있다.
+        "flow": payload.get("flow") if isinstance(payload.get("flow"), list) else None,
+        "vals": payload.get("vals") if isinstance(payload.get("vals"), list) else None,
+        "notes": payload.get("notes") if isinstance(payload.get("notes"), list) else None,
         "dev": str(payload.get("dev") or ""),
         "allow_config": bool(payload.get("allow_config")),
     })
