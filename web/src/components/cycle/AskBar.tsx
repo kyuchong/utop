@@ -140,7 +140,10 @@ export default function AskBar({ devices }: Props) {
   /** 오른쪽에 펼쳐 볼 스텝 */
   const [stepAt, setStepAt] = useState(0)
   /** 작업 흐름에 남기는 기록 — 질문한 뒤부터 쌓이고, 만들어지면 그대로 남는다 */
-  const [flowLog, setFlowLog] = useState<string[]>([])
+  /** 한 일 한 줄 — `s` 는 **어느 단계의 일인가**.
+   *  이걸 안 달면 모든 줄이 1단계(장비 선택) 밑에 쌓여 지금 어디를 하는지
+   *  알 수 없다(지적). */
+  const [flowLog, setFlowLog] = useState<Array<{ s: number; t: string }>>([])
   const [flowVals, setFlowVals] = useState<Array<{ k: string; v: string }>>([])
   /** 지금 도는 단계 (0 = 안 돎) — 흐름 칸이 이걸로 「진행 중」 을 보인다 */
   const [flowAt, setFlowAt] = useState(0)
@@ -159,6 +162,8 @@ export default function AskBar({ devices }: Props) {
   const [pickRack, setPickRack] = useState('')
   /** 비슷한 시험이 있을 때 — 가져올지 새로 지을지 묻는 창 */
   const [likeAsk, setLikeAsk] = useState(false)
+  /** 접어 둔 단계 — 다 끝난 단계는 접어 치울 수 있다 */
+  const [fold, setFold] = useState<Set<number>>(new Set())
   /** 랙 자리(구역·랙) — 어느 장비인지 고를 때 자리로 가른다 */
   const [rackMap, setRackMap] = useState<Map<string, { lab: string; rack: string; pos?: number }>>(
     new Map(),
@@ -338,7 +343,7 @@ export default function AskBar({ devices }: Props) {
     setFlowAt(5)
     setFilling(true)
     setGenSay('조회를 미리 돌려 판정 기준을 잡는 중…')
-    setFlowLog((v) => [...v, '조회를 미리 돌려 판정 기준을 잡는 중…'])
+    setFlowLog((v) => [...v, { s: 5, t: '조회를 미리 돌려 판정 기준을 잡는 중…' }])
     try {
       const r = await apiFetch('/api/ai/nl-criteria', {
         method: 'POST',
@@ -358,10 +363,14 @@ export default function AskBar({ devices }: Props) {
       }
       if (!b.ok || !Array.isArray(b.items)) {
         setFlowLog((v) => [
-          ...v.filter((x) => !x.endsWith('잡는 중…')),
-          b.skipped === 'config'
-            ? '설정 명령이 있어 미리 읽지 않았습니다 — 돌린 뒤 응답에서 고르세요'
-            : `판정 기준을 못 잡았습니다 — ${b.error ?? '까닭 모름'}`,
+          ...v.filter((x) => !x.t.endsWith('잡는 중…')),
+          {
+            s: 5,
+            t:
+              b.skipped === 'config'
+                ? '설정 명령이 있어 미리 읽지 않았습니다 — 돌린 뒤 응답에서 고르세요'
+                : `판정 기준을 못 잡았습니다 — ${b.error ?? '까닭 모름'}`,
+          },
         ])
         setFlowAt(0)
         setFilling(false)
@@ -377,8 +386,8 @@ export default function AskBar({ devices }: Props) {
         return { ...x, type: hit.type || 'contains', criteria: String(hit.criteria) }
       })
       setFlowLog((v) => [
-        ...v.filter((x) => !x.endsWith('잡는 중…')),
-        n > 0 ? `응답을 보고 판정 기준 ${n}개를 채움` : '기준으로 삼을 또렷한 값이 없었습니다',
+        ...v.filter((x) => !x.t.endsWith('잡는 중…')),
+        { s: 5, t: n > 0 ? `응답을 보고 판정 기준 ${n}개를 채움` : '기준으로 삼을 또렷한 값이 없었습니다' },
       ])
       setFlowAt(0)
       setFilling(false)
@@ -386,8 +395,8 @@ export default function AskBar({ devices }: Props) {
       return { ...d, steps }
     } catch (e) {
       setFlowLog((v) => [
-        ...v.filter((x) => !x.endsWith('잡는 중…')),
-        `판정 기준을 못 잡았습니다 — ${e instanceof Error ? e.message : String(e)}`,
+        ...v.filter((x) => !x.t.endsWith('잡는 중…')),
+        { s: 5, t: `판정 기준을 못 잡았습니다 — ${e instanceof Error ? e.message : String(e)}` },
       ])
       setFlowAt(0)
       setFilling(false)
@@ -429,8 +438,8 @@ export default function AskBar({ devices }: Props) {
       setFlowAt(0)
       setFlowVals(dv ? [{ k: '대상', v: dv.ip }] : [])
       setFlowLog([
-        `기록을 열었습니다 — ${b.chat?.at ? String(b.chat.at).slice(0, 16) : ''}`,
-        `스텝 ${plan.steps.length}개`,
+        { s: 1, t: dv ? `그때 쓰던 장비 ${dv.ip} 로 되살림` : '담아 둔 절차를 그대로 폄' },
+        { s: 5, t: `기록을 열었습니다 — ${b.chat?.at ? String(b.chat.at).slice(0, 16) : ''}` },
       ])
       setDraft(plan)
     } catch (e) {
@@ -454,7 +463,7 @@ export default function AskBar({ devices }: Props) {
     setAdopting(tcid)
     setErr('')
     setFlowAt(5)
-    setFlowLog((v) => [...v, `${tcid} 를 가져오는 중…`])
+    setFlowLog((v) => [...v, { s: 5, t: `${tcid} 를 가져오는 중…` }])
     try {
       const picked = usable.find((x) => x.id === devId) ?? usable[0]
       const r = await apiFetch('/api/ai/nl-tc-adopt', {
@@ -472,8 +481,8 @@ export default function AskBar({ devices }: Props) {
       }
       if (!b.ok) throw new Error(b.error || '가져오지 못했습니다')
       setFlowLog((v) => [
-        ...v.filter((x) => !x.endsWith('를 가져오는 중…')),
-        `${tcid} 를 가져와 이 장비(${picked?.model ?? ''})로 옮김`,
+        ...v.filter((x) => !x.t.endsWith('를 가져오는 중…')),
+        { s: 5, t: `${tcid} 를 가져와 이 장비(${picked?.model ?? ''})로 옮김` },
       ])
       // 무엇을 이 장비에 맞춰 바꿨는지 — 서버가 적어 준 것을 그대로 보인다
       setFitNotes(Array.isArray(b.tc?.notes) ? b.tc!.notes! : [])
@@ -519,13 +528,13 @@ export default function AskBar({ devices }: Props) {
     const said = (q ?? text).trim()
     if (!said || busy) return
     if (q) setText(q)
-    setFlowLog([`요청의 말을 읽었습니다 — "${said.slice(0, 40)}"`])
+    setFlowLog([{ s: 1, t: `요청의 말을 읽었습니다 — "${said.slice(0, 40)}"` }])
     setFlowVals([])
     setFitNotes([])
     setFlowAt(1)
     const hit = candsOf(said)
     if (hit && hit.cands.length > 1 && !hit.cands.some((d) => d.id === devId)) {
-      setFlowLog((v) => [...v, `요청의 ${hit.model} 이(가) ${hit.cands.length}대`])
+      setFlowLog((v) => [...v, { s: 1, t: `요청의 ${hit.model} 이(가) ${hit.cands.length}대` }])
       setPickSel(hit.cands[0]?.id ?? '')
       setPickLab('')
       setPickRack('')
@@ -534,7 +543,7 @@ export default function AskBar({ devices }: Props) {
     }
     if (hit && hit.cands.length === 1 && hit.cands[0]) {
       setDevId(hit.cands[0].id)
-      setFlowLog((v) => [...v, `보낼 장비 ${hit.cands[0]!.ip} 확정 (한 대뿐)`])
+      setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${hit.cands[0]!.ip} 확정 (한 대뿐)` }])
       setFlowVals([
         { k: '모델', v: hit.model },
         { k: '대상', v: hit.cands[0]!.ip },
@@ -551,7 +560,7 @@ export default function AskBar({ devices }: Props) {
     setLikeAsk(false)
     setBusy(true)
     setFlowAt(5)
-    setFlowLog((v) => [...v, '절차를 짓는 중…'])
+    setFlowLog((v) => [...v, { s: 5, t: '절차를 짓는 중…' }])
     setErr('')
     setDraft(null)
     try {
@@ -583,7 +592,10 @@ export default function AskBar({ devices }: Props) {
         steps: Array.isArray(raw.steps) ? raw.steps : [],
       }
       setStepAt(0)
-      setFlowLog((v) => [...v.filter((x) => x !== '절차를 짓는 중…'), `절차 ${d.steps.length}개 스텝으로 지음`])
+      setFlowLog((v) => [
+        ...v.filter((x) => x.t !== '절차를 짓는 중…'),
+        { s: 5, t: `절차 ${d.steps.length}개 스텝으로 지음` },
+      ])
       // 기준까지 채운 뒤에 내놓는다 — 스텝만 먼저 뜨면 「기준 없이 만들어졌다」
       // 로 보이고, 채워지는 동안 눈앞에서 값이 바뀐다(지적)
       const done = picked ? await fillCriteria(d, picked) : d
@@ -774,6 +786,7 @@ export default function AskBar({ devices }: Props) {
             setFlowVals([])
             setFlowAt(0)
             setFitNotes([])
+            setFold(new Set())   // 접어 둔 단계도 처음으로
             setChatId('')
           }}
         >
@@ -853,6 +866,14 @@ export default function AskBar({ devices }: Props) {
                             : 'run'
                           : 'wait'
                   const on = state === 'done' || state === 'run'
+                  /* 이 단계의 일만 골라 온다 — 줄마다 단계를 달아 두었다 */
+                  const mine = flowLog.filter((l) => l.s === st.n)
+                  /* 마지막 줄이 「…중…」 이면 그게 지금 도는 일이다.
+                     그 줄만 살아 움직이고, 나머지는 ✔ 로 굳는다. */
+                  const runAt = mine.length - 1
+                  const running = state === 'run' && (mine[runAt]?.t ?? '').endsWith('중…')
+                  const body = last && draft ? true : mine.length > 0
+                  const folded = fold.has(st.n)
                   return (
                     <div
                       key={st.n}
@@ -864,19 +885,45 @@ export default function AskBar({ devices }: Props) {
                         <span className="sp" />
                         {state === 'skip' && <em className="ask-stageskip">건너뜀</em>}
                         {state === 'run' && <em className="ask-stagerun">● 진행 중</em>}
-                        {state === 'done' && <em className="ask-stagedone">완료</em>}
+                        {state === 'done' && !body && <em className="ask-stagedone">완료</em>}
+                        {state === 'done' && body && (
+                          <button
+                            type="button"
+                            className="ask-stagefold"
+                            onClick={() =>
+                              setFold((v) => {
+                                const n2 = new Set(v)
+                                if (n2.has(st.n)) n2.delete(st.n)
+                                else n2.add(st.n)
+                                return n2
+                              })
+                            }
+                          >
+                            {folded ? '펴기' : '접기'}
+                          </button>
+                        )}
                       </div>
                       {st.skip ? (
                         <div className="ask-stagesay">{st.skip}</div>
-                      ) : first && flowLog.length > 0 ? (
+                      ) : folded || !body ? null : (
                         <div className="ask-stagebody">
-                          <div className="ask-stagesay">한 일</div>
-                          <ul className="ask-did">
-                            {flowLog.map((l, k) => (
-                              <li key={k}>{l.endsWith('중…') && genSay ? genSay : l}</li>
-                            ))}
-                          </ul>
-                          {flowVals.length > 0 && (
+                          {mine.length > 0 && (
+                            <>
+                              <div className="ask-stagesay">한 일</div>
+                              <ul className="ask-did">
+                                {mine.map((l, k) => {
+                                  const now = running && k === runAt
+                                  return (
+                                    <li key={k} className={now ? 'now' : ''}>
+                                      <i>{now ? '' : '✔'}</i>
+                                      <span>{now && genSay ? genSay : l.t}</span>
+                                    </li>
+                                  )
+                                })}
+                              </ul>
+                            </>
+                          )}
+                          {first && flowVals.length > 0 && (
                             <>
                               <div className="ask-stagesay">정한 값</div>
                               {flowVals.map((v) => (
@@ -887,40 +934,56 @@ export default function AskBar({ devices }: Props) {
                               ))}
                             </>
                           )}
-                        </div>
-                      ) : last && state === 'run' ? (
-                        <div className="ask-stagebody">
-                          <div className="ask-stagesay ask-gen">{genSay || '절차를 짓는 중…'}</div>
-                        </div>
-                      ) : last && draft ? (
-                        <div className="ask-stagebody">
-                          <div className="ask-stagesay">
-                            스텝 {draft.steps.length}개 · 판정 기준{' '}
-                            {draft.steps.filter((x) => (x.criteria ?? '').trim()).length}개
-                          </div>
-                          {/* 가져온 절차를 이 장비에 맞추며 바꾼 것 — 무엇이
-                              바뀌었는지 모르면 그대로 믿고 돌리게 된다 */}
-                          {fitNotes.length > 0 && (
-                            <ul className="ask-did ask-fit">
-                              {fitNotes.map((n, k) => (
-                                <li key={k}>{n}</li>
-                              ))}
-                            </ul>
+                          {/* 5단계는 만들어진 것을 그대로 편다 — 무엇이 몇 개
+                              나왔고 어떤 명령이 들었는지 여기서 다 보인다 */}
+                          {last && draft && (
+                            <>
+                              <div className="ask-stagesay">정한 값</div>
+                              <div className="ask-fact">
+                                절차 <b>{draft.steps.length}스텝</b> · 판정 기준{' '}
+                                <b>{draft.steps.filter((x) => (x.criteria ?? '').trim()).length}개</b>
+                              </div>
+                              <div className="ask-fact">
+                                단계 <b>{flow.filter((f2) => !f2.skip).length}개 사용</b> ·{' '}
+                                {flow.filter((f2) => !!f2.skip).length}개 건너뜀
+                              </div>
+                              {/* 가져온 절차를 이 장비에 맞추며 바꾼 것 — 무엇이
+                                  바뀌었는지 모르면 그대로 믿고 돌리게 된다 */}
+                              {fitNotes.length > 0 && (
+                                <ul className="ask-did ask-fit">
+                                  {fitNotes.map((n, k) => (
+                                    <li key={k}>
+                                      <i>✔</i>
+                                      <span>{n}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                              <div className="ask-stagesay">만든 스텝 {draft.steps.length}개</div>
+                              <ol className="ask-mini">
+                                {draft.steps.map((x, k) => (
+                                  <li key={k}>
+                                    <i>{k + 1}</i>
+                                    <code>{x.cli || x.desc || '—'}</code>
+                                  </li>
+                                ))}
+                              </ol>
+                              {draft.steps.filter((x) => !(x.criteria ?? '').trim() && x.type !== 'ok')
+                                .length > 0 && (
+                                <div className="ask-stagesay">
+                                  값을 비운 합격 기준{' '}
+                                  {
+                                    draft.steps.filter(
+                                      (x) => !(x.criteria ?? '').trim() && x.type !== 'ok',
+                                    ).length
+                                  }
+                                  개 — 돌린 뒤 응답에서 고르세요
+                                </div>
+                              )}
+                            </>
                           )}
-                          {draft.steps.filter((x) => !(x.criteria ?? '').trim() && x.type !== 'ok')
-                            .length > 0 && (
-                            <div className="ask-stagesay">
-                              값을 비운 합격 기준{' '}
-                              {
-                                draft.steps.filter(
-                                  (x) => !(x.criteria ?? '').trim() && x.type !== 'ok',
-                                ).length
-                              }
-                              개 — 돌린 뒤 응답에서 고르세요
-                            </div>
-                          )}
                         </div>
-                      ) : null}
+                      )}
                     </div>
                   )
                 })}
@@ -1413,7 +1476,11 @@ export default function AskBar({ devices }: Props) {
                   onClick={() => {
                     setDevId(pickSel)
                     const d2 = pickDev.cands.find((x) => x.id === pickSel)
-                    setFlowLog((v) => [...v, '그중에서 고름', `보낼 장비 ${d2?.ip ?? ''} 확정`])
+                    setFlowLog((v) => [
+                      ...v,
+                      { s: 1, t: '그중에서 고름' },
+                      { s: 1, t: `보낼 장비 ${d2?.ip ?? ''} 확정` },
+                    ])
                     setFlowVals([
                       { k: '모델', v: pickDev.model },
                       { k: '대상', v: d2?.ip ?? '' },

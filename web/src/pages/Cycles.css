@@ -4433,7 +4433,58 @@ table.tb td.k {
 .ask-stagedone { color: #1d9e75; }
 .ask-stagebody { background: #f6f9fc; border-radius: 6px; padding: 8px 10px; }
 .ask-stagesay { font-size: 10.5px; color: var(--c-muted); margin-bottom: 4px; }
-.ask-did { margin: 0 0 6px; padding-left: 14px; font-size: 11px; line-height: 1.7; }
+/* 한 일 — 끝난 줄은 ✔ 로 굳고, 지금 도는 줄만 살아 움직인다 */
+.ask-did { margin: 0 0 8px; padding: 0; list-style: none; font-size: 11px; line-height: 1.55; }
+.ask-did li { display: flex; gap: 6px; align-items: flex-start; padding: 2px 0; }
+.ask-did li > i { flex: none; font-style: normal; width: 11px; color: #1d9e75; font-size: 10px; line-height: 1.55; }
+.ask-did li > span { min-width: 0; }
+.ask-did li.now > i {
+  width: 11px;
+  height: 11px;
+  margin-top: 3px;
+  border-radius: 50%;
+  background: var(--c-primary, #2563eb);
+  transform: scale(0.62);
+  animation: ask-pulse 1.1s ease-in-out infinite;
+}
+.ask-did li.now > span { color: var(--c-primary, #2563eb); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .ask-did li.now > i { animation: none; } }
+
+/* 정한 값 한 칸 — 「절차 6스텝」 처럼 굳은 사실만 */
+.ask-fact {
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box, 6px);
+  background: var(--c-bg, #fff);
+  padding: 5px 8px;
+  margin-bottom: 5px;
+  font-size: 11px;
+}
+.ask-fact b { font-weight: 600; }
+
+/* 만든 스텝 — 번호와 명령만, 캔버스에서 볼 것을 미리 짚어 준다 */
+.ask-mini { margin: 0 0 6px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.ask-mini li {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box, 6px);
+  background: var(--c-bg, #fff);
+  padding: 5px 8px;
+}
+.ask-mini li > i { flex: none; font-style: normal; font-size: 10px; color: var(--c-muted); min-width: 9px; }
+.ask-mini li > code { font-size: 10.5px; word-break: break-all; }
+
+/* 접기 — 끝난 단계는 치울 수 있다 */
+.ask-stagefold {
+  border: 0;
+  background: transparent;
+  color: var(--c-muted);
+  font-size: 10.5px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.ask-stagefold:hover { color: var(--c-primary, #2563eb); text-decoration: underline; }
 .ask-val { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
 .ask-val i { font-style: normal; font-size: 10.5px; color: var(--c-muted); min-width: 46px; }
 .ask-val code { font-size: 11px; }
