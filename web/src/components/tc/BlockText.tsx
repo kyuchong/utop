@@ -65,7 +65,7 @@ export default function BlockText({
 }: {
   text: string
   /** 블럭을 눌렀을 때 — 값과 화면 좌표. 안 넘기면 보기만 한다 */
-  onBlock?: (v: string, x: number, y: number) => void
+  onBlock?: (v: string, x: number, y: number, kind?: 'col') => void
   /** 줄제외 칩에 걸린 줄 — 흐림+취소선으로 「빠진 줄」 임을 보인다 */
   dim?: (line: string) => boolean
   /** 이 값이 이미 기준·변수로 지정돼 있나 — 지정된 블럭은 색으로 표시(지적) */
@@ -125,11 +125,38 @@ export default function BlockText({
     }
 
     if (lay && i === lay.headIdx) {
-      out.push(
-        <span key={i} className="bv-hd">
-          {ln}
-        </span>,
-      )
+      // 머리줄도 열 단위 블럭 — 눌러서 「이 열 제외」(지시: Uptime 빼고 캡처)
+      const parts: ReactNode[] = []
+      let cur = 0
+      lay.cols.forEach(([s2, e2], c) => {
+        const from = Math.min(s2, ln.length)
+        if (from > cur) parts.push(ln.slice(cur, from))
+        const to = e2 < 0 ? ln.length : Math.min(e2, ln.length)
+        const seg = ln.slice(from, to)
+        const name = seg.trim()
+        if (name)
+          parts.push(
+            <span
+              key={c}
+              className="bv-hd bv-hc"
+              title="열 이름 — 누르면 이 열을 캡처·판정에서 뺄 수 있습니다"
+              onClick={
+                onBlock
+                  ? (e) => {
+                      e.stopPropagation()
+                      onBlock(name, e.clientX, e.clientY, 'col')
+                    }
+                  : undefined
+              }
+            >
+              {seg}
+            </span>,
+          )
+        else if (seg) parts.push(seg)
+        cur = to
+      })
+      if (cur < ln.length) parts.push(ln.slice(cur))
+      out.push(<span key={i}>{parts}</span>)
       return
     }
 

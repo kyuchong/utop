@@ -3153,3 +3153,9 @@ table.tb tr.r-bad td:first-child {
 .bv-b.m-has { box-shadow: 0 0 0 2px #1d9e75; background: #e6f6ee; }
 .bv-b.m-not { box-shadow: 0 0 0 2px #e24b4a; background: #fdecec; }
 .bv-b.m-var { box-shadow: 0 0 0 2px #ef9f27; background: #fdf4e5; }
+
+/* 열 머리 블럭 — 누르면 이 열 제외 */
+.bv-hc { cursor: pointer; border-radius: 3px; }
+.bv-hc:hover { background: #e8f2fe; box-shadow: 0 0 0 1px #5b9bd5; }
+/* 열제외 칩 */
+.sd-chip.skipcol { background: #f0ecf8; border-color: #8a6fc0; color: #4d3d80; }

@@ -93,7 +93,7 @@ export default function TcStepDetail({
 }: Props) {
   const [picked, setPicked] = useState('')
   /** 눌린 블럭 — [변수로 · 있으면 합격 · 있으면 불합격] 메뉴가 뜬 자리 */
-  const [blockAt, setBlockAt] = useState<{ v: string; x: number; y: number } | null>(null)
+  const [blockAt, setBlockAt] = useState<{ v: string; x: number; y: number; kind?: 'col' } | null>(null)
   const [tblOpen, setTblOpen] = useState(false)
   /** 펼쳐 본 회차. 0 이면 안 폈다 */
   const [round, setRound] = useState(0)
@@ -288,7 +288,7 @@ export default function TcStepDetail({
   const capSrc = applySkips(result, { ...step, rules: chips } as TcStep)
   const writeChips = (next: JudgeRule[]) =>
     onChange({ rules: next, criteria: '', excludeLines: '' })
-  const addChipFrom = (t: 'has' | 'not' | 'skip', v: string) => {
+  const addChipFrom = (t: 'has' | 'not' | 'skip' | 'skipcol', v: string) => {
     let val = v.trim()
     if (!val) return
     // 시각처럼 매번 변하는 값의 줄제외는 ⏱시각줄 칩으로 — 글자로는
@@ -1080,12 +1080,41 @@ export default function TcStepDetail({
             모든 칩 만족 = 합격 · 하나라도 어긋남 = 불합격 · 칩 없음 = 조회만 */}
         {isRun && !isMeterStep && (
           <div className="sd-f">
-            <span className="sd-lab">Expected — 판정 기준</span>
+            <span className="sd-lab">
+              Expected — 판정 기준
+              {/* 전역 파라미터와 비교(지적) — 골라서 「있어야 \${이름}」 칩으로.
+                  실행할 때 실제 값으로 바뀌어 응답과 비교된다 */}
+              <button
+                type="button"
+                className="sd-pickbtn"
+                title="전역 파라미터를 판정 기준으로 — 있어야 ${이름} 칩이 됩니다"
+                onClick={() => setPick(pick === 'p-crit' ? '' : 'p-crit')}
+              >
+                {'${ } 기준 넣기'}
+              </button>
+            </span>
+            {pick === 'p-crit' ? (
+              <ParamPicker
+                items={gp.items}
+                values={gp.values}
+                loading={gp.loading}
+                empty={gp.empty}
+                onClose={() => setPick('')}
+                onPick={(x) => {
+                  addChipFrom('has', x.value)
+                  setPick('')
+                }}
+              />
+            ) : null}
             <div className="sd-chips">
               {chips.map((c, n) => (
-                <span key={n} className={`sd-chip ${c.t}`}>
+                <span
+                  key={n}
+                  className={`sd-chip ${c.t}`}
+                  title={c.v.includes('$') ? `지금 값: ${subVars(c.v, gp.values)}` : undefined}
+                >
                   <i>
-                    {c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : c.t === 'skip' ? '줄제외' : '표'}
+                    {c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : '표'}
                   </i>
                   {c.v}
                   <button
@@ -1309,7 +1338,7 @@ export default function TcStepDetail({
                 <pre className="sd-res" onMouseUp={grab}>
                   <BlockText
                     text={result}
-                    onBlock={(v, x, y) => setBlockAt({ v, x, y })}
+                    onBlock={(v, x, y, kind) => setBlockAt({ v, x, y, kind })}
                     markOf={(v) => {
                       // 지정된 블럭 표시 — 기준 칩(초록/빨강)·변수(노랑)
                       if (chips.some((c) => c.t === 'has' && c.v === v)) return 'has'
@@ -1347,6 +1376,19 @@ export default function TcStepDetail({
                       }}
                     >
                       <b>{blockAt.v.length > 34 ? `${blockAt.v.slice(0, 34)}…` : blockAt.v}</b>
+                      {blockAt.kind === 'col' ? (
+                        <button
+                          type="button"
+                          title="이 열(세로 영역)을 캡처·판정에서 뺍니다 — 매번 변하는 Uptime 열 같은 것"
+                          onClick={() => {
+                            addChipFrom('skipcol', blockAt.v)
+                            setBlockAt(null)
+                          }}
+                        >
+                          이 열 제외 (캡처·판정)
+                        </button>
+                      ) : (
+                      <>
                       <button
                         type="button"
                         onClick={() => {
@@ -1384,6 +1426,8 @@ export default function TcStepDetail({
                       >
                         이 값 든 줄 제외
                       </button>
+                      </>
+                      )}
                     </div>
                   </>
                 )}

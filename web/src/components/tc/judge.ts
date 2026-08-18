@@ -489,7 +489,7 @@ export function judgeTable(
  * 칩이 없으면 판정 안 함.** 칩이 있으면 옛 type·criteria 보다 우선한다.
  */
 export interface JudgeRule {
-  t: 'has' | 'not' | 'table' | 'skip'
+  t: 'has' | 'not' | 'table' | 'skip' | 'skipcol'
   v: string
 }
 
@@ -535,6 +535,40 @@ export function applySkips(text: string, step: TcStep): string {
       .split(/\r?\n/)
       .filter((l) => !TIME_LINE.test(l))
       .join('\n')
+
+  /* 열제외 칩 — 표의 세로 영역을 통째로 뺀다(지시: Uptime 열 빼고 전체
+     변수). 열 인식은 판정기와 같은 파서(tableLayout) 하나만 쓰고, 그 열의
+     글자 자리를 공백으로 갈아 정렬은 그대로 둔다. */
+  const colChips = stepRules(step).filter((r) => r.t === 'skipcol')
+  if (colChips.length) {
+    const lay = tableLayout(out)
+    if (lay) {
+      const lines = out.split(/\r?\n/)
+      const head = lines[lay.headIdx] ?? ''
+      const wanted = new Set(colChips.map((r) => String(r.v ?? '').trim().toLowerCase()))
+      const hitCols = lay.cols
+        .map((col, ci) => {
+          const end = col[1] < 0 ? Math.max(head.length, col[0]) : col[1]
+          return { ci, s: col[0], e: col[1], name: head.slice(col[0], end).trim().toLowerCase() }
+        })
+        .filter((c) => wanted.has(c.name))
+      if (hitCols.length) {
+        const rows = new Set([lay.headIdx, lay.sepIdx, ...lay.bodyIdx])
+        out = lines
+          .map((ln, i) => {
+            if (!rows.has(i)) return ln
+            let cur = ln
+            for (const c of hitCols) {
+              const end = c.e < 0 ? cur.length : Math.min(c.e, cur.length)
+              if (c.s >= cur.length) continue
+              cur = cur.slice(0, c.s) + ' '.repeat(Math.max(0, end - c.s)) + cur.slice(end)
+            }
+            return cur.replace(/\s+$/, '')
+          })
+          .join('\n')
+      }
+    }
+  }
   return out
 }
 
@@ -544,7 +578,7 @@ export function stepRules(step: TcStep): JudgeRule[] {
   return r.filter(
     (x): x is JudgeRule =>
       !!x && typeof x === 'object' && typeof (x as JudgeRule).v === 'string' &&
-      ['has', 'not', 'table', 'skip'].includes(String((x as JudgeRule).t)),
+      ['has', 'not', 'table', 'skip', 'skipcol'].includes(String((x as JudgeRule).t)),
   )
 }
 
