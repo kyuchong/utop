@@ -1094,6 +1094,8 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
             <span>담당 (Owner)</span>
             <input value={assignee} onChange={(e) => setAssignee(e.target.value)} />
           </label>
+          {/* 기간은 아랫줄로(지시) — 오른쪽 끝에서 잘려 보였다 */}
+          <span style={{ flexBasis: '100%', height: 0 }} aria-hidden />
           <label className="fld">
             <span>기간</span>
             <span className="ce-dates">

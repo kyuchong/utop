@@ -1425,6 +1425,9 @@ export default function Cycles({ me }: PageProps) {
         ) : (
           <CycleBoard
             cycles={scopedCycles}
+            mgroupOf={mgroupOf}
+            vendorOf={vendorOf}
+            famOf={famOf}
             onNew={() => setMaking(true)}
             onDup={(id) => setCloneId(id)}
             onDel={(ids) => void delCycles(ids)}
@@ -1451,15 +1454,15 @@ export default function Cycles({ me }: PageProps) {
     「진행」 은 완료/진행중/대기 파생 배지 — INFO 상태(cycle_status 값)와
     다른 것이라 이름을 갈랐다. */
 const CYT_FIXED: Array<{ k: string; label: string; w: string }> = [
-  { k: 'iss', label: '결함', w: '44px' },
-  { k: 'tests', label: '항목', w: '44px' },
-  { k: 'prg', label: '진행결과', w: '104px' },
-  { k: 'run', label: '진행', w: '56px' },
-  { k: 'version', label: '버전', w: 'minmax(100px, 150px)' },
-  { k: 'created', label: '생성일자', w: '80px' },
-  { k: 'updated', label: '변경일자', w: '80px' },
-  { k: 'creator', label: '생성자', w: '68px' },
-  { k: 'ass', label: '담당자', w: '68px' },
+  { k: 'iss', label: '결함', w: '38px' },
+  { k: 'tests', label: '항목', w: '38px' },
+  { k: 'prg', label: '진행결과', w: '80px' },
+  { k: 'run', label: '진행', w: '48px' },
+  { k: 'version', label: '버전', w: 'minmax(120px, 190px)' },
+  { k: 'created', label: '생성일자', w: '66px' },
+  { k: 'updated', label: '변경일자', w: '66px' },
+  { k: 'creator', label: '생성자', w: '50px' },
+  { k: 'ass', label: '담당자', w: '50px' },
 ]
 
 /** 인라인 항목 카드의 고를 수 있는 필드 — 시험항목(Coverage) ⚙ 과 같은 목록 */
@@ -1478,6 +1481,9 @@ const IT_COLS: Array<{ k: string; label: string; w: string }> = [
 
 function CycleBoard({
   cycles,
+  mgroupOf,
+  vendorOf,
+  famOf,
   onNew,
   onDup,
   onDel,
@@ -1486,6 +1492,10 @@ function CycleBoard({
   onRefresh,
 }: {
   cycles: CycleMeta[]
+  /** 카탈로그 지도 — 사이클에 비어 있으면 모델명으로 보강(수정 창과 같은 값) */
+  mgroupOf: Map<string, string>
+  vendorOf: Map<string, string>
+  famOf: Map<string, string>
   /** 추가 — 새 사이클 만들기 */
   onNew: () => void
   /** 복제 — 한 개 골랐을 때 */
@@ -1522,19 +1532,40 @@ function CycleBoard({
       localStorage.setItem('utop.cycle.infocols', JSON.stringify([...n]))
       return n
     })
-  /** 표에 서는 열들 — 고정(모델) + INFO(⚙) + 고정(관리) */
-  const renderCols = useMemo(
-    () => [
-      { k: 'mg', label: '모델그룹', w: '96px' },
-      { k: 'md', label: '모델명', w: '110px' },
+  /** 열 차례 — 머리글을 끌어 바꾼다(지시). 저장돼 다음에도 유지 */
+  const [colOrder, setColOrder] = useState<string[]>(() => {
+    try {
+      const raw = localStorage.getItem('utop.cycle.colorder')
+      if (raw) return JSON.parse(raw) as string[]
+    } catch {
+      /* 깨진 저장값이면 기본 차례 */
+    }
+    return []
+  })
+  /** 표에 서는 열들 — 고정(모델) + INFO(⚙) + 고정(관리), 끌어 둔 차례 반영 */
+  const renderCols = useMemo(() => {
+    const base = [
+      { k: 'mg', label: '모델그룹', w: '88px' },
+      { k: 'md', label: '모델명', w: '96px' },
       ...infoCols.filter((c) => cytCols.has(c.k)),
       ...CYT_FIXED,
-    ],
-    [infoCols, cytCols],
-  )
+    ]
+    if (!colOrder.length) return base
+    const at = new Map(colOrder.map((k, i) => [k, i]))
+    return [...base].sort((a, b) => (at.get(a.k) ?? 999) - (at.get(b.k) ?? 999))
+  }, [infoCols, cytCols, colOrder])
+  const moveCol = (from: string, to: string) => {
+    const keys = renderCols.map((c) => c.k)
+    const a = keys.indexOf(from)
+    const b = keys.indexOf(to)
+    if (a < 0 || b < 0 || a === b) return
+    keys.splice(b, 0, keys.splice(a, 1)[0]!)
+    localStorage.setItem('utop.cycle.colorder', JSON.stringify(keys))
+    setColOrder(keys)
+  }
   const cytGrid = useMemo(
     () =>
-      ['26px', '20px', 'minmax(105px, 130px)', 'minmax(170px, 1fr)', ...renderCols.map((c) => c.w)].join(
+      ['26px', '20px', 'minmax(96px, 112px)', 'minmax(170px, 1fr)', ...renderCols.map((c) => c.w)].join(
         ' ',
       ),
     [renderCols],
@@ -1684,12 +1715,21 @@ function CycleBoard({
 
 
   const fmtD = (v?: string | null) => (v ? String(v).slice(0, 10) : '–')
-  const TH = (col: string, label: string, right?: boolean) => {
-    // 열 차례 끌기는 뺐다 — 차례는 고정(모델·INFO·관리 순, 합의 규칙)
+  const TH = (col: string, label: string, right?: boolean, dragKey?: string) => {
+    // 머리글을 끌어 열 차례를 바꾼다(지시로 부활). 클릭은 그대로 정렬
+    const dk = dragKey ?? col
     return (
       <button
         type="button"
         className={`cyt-th${right ? ' tr' : ''}${sortCol === col ? ' on' : ''}`}
+        draggable
+        onDragStart={(e) => e.dataTransfer.setData('text/cycol', dk)}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault()
+          const from = e.dataTransfer.getData('text/cycol')
+          if (from && from !== dk) moveCol(from, dk)
+        }}
         onClick={() => clickSort(col)}
       >
         {label}
@@ -1850,12 +1890,12 @@ function CycleBoard({
           {TH('name', '제목')}
           {renderCols.map((c2) =>
             c2.k === 'iss'
-              ? TH('iss', '결함', true)
+              ? TH('iss', '결함', true, 'iss')
               : c2.k === 'tests'
-                ? TH('tests', '항목', true)
+                ? TH('tests', '항목', true, 'tests')
                 : c2.k === 'prg'
-                  ? TH('pct', '진행결과')
-                  : TH(c2.k, c2.label),
+                  ? TH('pct', '진행결과', false, 'prg')
+                  : TH(c2.k, c2.label, false, c2.k),
           )}
         </div>
         {(sortCol === ''
@@ -1870,7 +1910,7 @@ function CycleBoard({
                         case 'pct': return t2?.pct ?? 0
                         case 'run': return t2 && t2.total > 0 && t2.done === t2.total ? 2 : t2 && t2.done > 0 ? 1 : 0
                         case 'name': return (c2.name ?? '').toLowerCase()
-                        case 'mg': return (c2.model_group ?? '').toLowerCase()
+                        case 'mg': return ((c2.model_group ?? '').trim() || mgroupOf.get(c2.model ?? '') || '').toLowerCase()
                         case 'md': return (c2.model ?? '').toLowerCase()
                         case 'f_status': return (c2.status ?? '').toLowerCase()
                         case 'f_customer': return (c2.customer ?? '').toLowerCase()
@@ -1959,12 +1999,17 @@ function CycleBoard({
                       </button>
                       {renderCols.map((c2) => {
                         switch (c2.k) {
-                          case 'mg':
+                          case 'mg': {
+                            // 사이클에 비어 있으면 카탈로그에서 — 수정 창은 채워
+                            // 보이는데 목록만 – 였다(지적)
+                            const mg2 =
+                              (c.model_group ?? '').trim() || mgroupOf.get(c.model ?? '') || ''
                             return (
-                              <span key={c2.k} className="muted small cyt-ell" title={c.model_group ?? ''}>
-                                {c.model_group || '–'}
+                              <span key={c2.k} className="muted small cyt-ell" title={mg2}>
+                                {mg2 || '–'}
                               </span>
                             )
+                          }
                           case 'md':
                             return (
                               <span key={c2.k} className="muted small cyt-ell" title={c.model ?? ''}>
@@ -2061,6 +2106,10 @@ function CycleBoard({
                         <div className="cyt-dgrid">
                           <span className="cyt-dkv"><b>사이클 ID</b><i>{c.cid || '–'}</i></span>
                           <span className="cyt-dkv"><b>제목</b><i title={c.name ?? ''}>{c.name || '–'}</i></span>
+                          <span className="cyt-dkv"><b>벤더</b><i>{vendorOf.get(c.model ?? '') || '–'}</i></span>
+                          <span className="cyt-dkv"><b>제품군</b><i>{famOf.get(c.model ?? '') || '–'}</i></span>
+                          <span className="cyt-dkv"><b>모델그룹</b><i>{(c.model_group ?? '').trim() || mgroupOf.get(c.model ?? '') || '–'}</i></span>
+                          <span className="cyt-dkv"><b>모델명</b><i>{c.model || '–'}</i></span>
                           <span className="cyt-dkv"><b>상태</b><i>{c.status || '–'}</i></span>
                           <span className="cyt-dkv"><b>고객</b><i>{c.customer || '–'}</i></span>
                           <span className="cyt-dkv"><b>버전그룹</b><i>{c.version_group || '–'}</i></span>
