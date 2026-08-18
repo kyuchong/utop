@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { IconSettings } from '@/components/icons'
+import { connParams } from '@/components/tc/device'
 import { runSteps } from '@/components/tc/runner'
 import type { TcStep } from '@/components/tc/types'
 import type { Device } from '@/pages/Devices'
@@ -148,6 +149,8 @@ export default function AskBar({ devices }: Props) {
   /** 절차를 짓는 동안 「지금 무엇을 하는 중인가」 — 「생성 중」 만 띄우면
       멈춘 것인지 도는 것인지 알 수 없다(지적) */
   const [genSay, setGenSay] = useState('')
+  /** 가져온 절차를 이 장비에 맞추며 바꾼 것들 — 「생성 완료」 칸에 적는다 */
+  const [fitNotes, setFitNotes] = useState<string[]>([])
   const [pickDev, setPickDev] = useState<{ model: string; cands: Device[] } | null>(null)
   const [pickSel, setPickSel] = useState('')
   const [pickLab, setPickLab] = useState('')
@@ -311,6 +314,69 @@ export default function AskBar({ devices }: Props) {
     }
   }
 
+  /**
+   * 빈 판정 기준을 **실제 응답으로** 채운다.
+   *
+   * 절차만 지으면 「무엇이 나와야 합격인가」 가 비어 있다. 사람이 그것을
+   * 손으로 적으려면 장비 출력을 미리 알아야 하는데, 그걸 아는 사람이면
+   * 애초에 말로 시킬 일이 없다. 그래서 **조회 명령만 미리 두 번 보내**
+   * 두 번 다 같은 값만 근거로 삼아 기준을 짓는다(설정 명령은 안 보낸다 —
+   * 만들기만으로 장비가 바뀌면 안 된다).
+   */
+  const fillCriteria = async (d: Draft, dev: Device) => {
+    const need = d.steps.some(
+      (x) => String(x.cli ?? '').trim() && !String(x.criteria ?? '').trim() && x.type !== 'ok',
+    )
+    if (!need) return
+    setFlowLog((v) => [...v, '조회를 미리 돌려 판정 기준을 잡는 중…'])
+    try {
+      const r = await apiFetch('/api/ai/nl-criteria', {
+        method: 'POST',
+        body: JSON.stringify({
+          probe: true,
+          device: connParams(dev),
+          steps: d.steps.map((x, i) => ({ i, cli: x.cli, desc: x.desc })),
+        }),
+      })
+      const b = (await r.json()) as {
+        ok?: boolean
+        error?: string
+        skipped?: string
+        items?: Array<{ i?: number; type?: string; criteria?: string }>
+      }
+      if (!b.ok || !Array.isArray(b.items)) {
+        setFlowLog((v) => [
+          ...v.filter((x) => !x.endsWith('잡는 중…')),
+          b.skipped === 'config'
+            ? '설정 명령이 있어 미리 읽지 않았습니다 — 돌린 뒤 응답에서 고르세요'
+            : `판정 기준을 못 잡았습니다 — ${b.error ?? '까닭 모름'}`,
+        ])
+        return
+      }
+      let n = 0
+      setDraft((cur) => {
+        if (!cur) return cur
+        const steps = cur.steps.map((x, i) => {
+          const hit = b.items!.find((y) => y.i === i)
+          if (!hit || !String(hit.criteria ?? '').trim()) return x
+          if (String(x.criteria ?? '').trim()) return x
+          n++
+          return { ...x, type: hit.type || 'contains', criteria: String(hit.criteria) }
+        })
+        return { ...cur, steps }
+      })
+      setFlowLog((v) => [
+        ...v.filter((x) => !x.endsWith('잡는 중…')),
+        n > 0 ? `응답을 보고 판정 기준 ${n}개를 채움` : '기준으로 삼을 또렷한 값이 없었습니다',
+      ])
+    } catch (e) {
+      setFlowLog((v) => [
+        ...v.filter((x) => !x.endsWith('잡는 중…')),
+        `판정 기준을 못 잡았습니다 — ${e instanceof Error ? e.message : String(e)}`,
+      ])
+    }
+  }
+
   /** 기록 하나 지우기 — 내 것만 지워진다(서버가 막는다) */
   const dropChat = async (cid: string) => {
     setRecent((v) => v.filter((x) => x.cid !== cid))
@@ -338,20 +404,26 @@ export default function AskBar({ devices }: Props) {
         ok?: boolean
         error?: string
         title?: string
+        purpose?: string
         steps?: DraftStep[]
+        /** 이 장비에 맞추며 무엇을 바꿨나 — 서버가 적어 준다 */
+        tc?: { tcid?: string; name?: string; notes?: string[] }
       }
       if (!b.ok) throw new Error(b.error || '가져오지 못했습니다')
       setFlowLog((v) => [
         ...v.filter((x) => !x.endsWith('를 가져오는 중…')),
-        `${tcid} 를 가져와 이 장비로 옮김`,
+        `${tcid} 를 가져와 이 장비(${picked?.model ?? ''})로 옮김`,
       ])
+      // 무엇을 이 장비에 맞춰 바꿨는지 — 서버가 적어 준 것을 그대로 보인다
+      setFitNotes(Array.isArray(b.tc?.notes) ? b.tc!.notes! : [])
       setFlowAt(0)
       setFlowVals((v) => [...v.filter((x) => x.k !== '가져온 TC'), { k: '가져온 TC', v: tcid }])
       setStepAt(0)
-      const d2: Draft = { name: b.title || tcid, steps: b.steps ?? [] }
+      const d2: Draft = { name: b.title || tcid, object: b.purpose, steps: b.steps ?? [] }
       setDraft(d2)
       setDevId(picked?.id ?? '')
       void keepChat(d2.name, d2, picked?.ip ?? '')
+      if (picked) void fillCriteria(d2, picked)
       setLike([])
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
@@ -389,6 +461,7 @@ export default function AskBar({ devices }: Props) {
     if (q) setText(q)
     setFlowLog([`요청의 말을 읽었습니다 — "${said.slice(0, 40)}"`])
     setFlowVals([])
+    setFitNotes([])
     setFlowAt(1)
     const hit = candsOf(said)
     if (hit && hit.cands.length > 1 && !hit.cands.some((d) => d.id === devId)) {
@@ -454,6 +527,7 @@ export default function AskBar({ devices }: Props) {
       setFlowAt(0)
       setDraft(d)
       void keepChat(d.name, d, picked?.ip ?? '')
+      if (picked) void fillCriteria(d, picked)
       // AI 가 짚은 장비를 먼저 고르되, 없으면 첫 장비
       const hit = usable.find((x) => x.ip === d.device_ip)
       setDevId(hit?.id ?? usable[0]?.id ?? '')
@@ -634,6 +708,7 @@ export default function AskBar({ devices }: Props) {
             setFlowLog([])
             setFlowVals([])
             setFlowAt(0)
+            setFitNotes([])
             setChatId('')
           }}
         >
@@ -753,6 +828,15 @@ export default function AskBar({ devices }: Props) {
                             스텝 {draft.steps.length}개 · 판정 기준{' '}
                             {draft.steps.filter((x) => (x.criteria ?? '').trim()).length}개
                           </div>
+                          {/* 가져온 절차를 이 장비에 맞추며 바꾼 것 — 무엇이
+                              바뀌었는지 모르면 그대로 믿고 돌리게 된다 */}
+                          {fitNotes.length > 0 && (
+                            <ul className="ask-did ask-fit">
+                              {fitNotes.map((n, k) => (
+                                <li key={k}>{n}</li>
+                              ))}
+                            </ul>
+                          )}
                           {draft.steps.filter((x) => !(x.criteria ?? '').trim() && x.type !== 'ok')
                             .length > 0 && (
                             <div className="ask-stagesay">

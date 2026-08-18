@@ -4474,3 +4474,6 @@ table.tb td.k {
 
 /* 절차를 짓는 동안 지금 하는 일 */
 .ask-gen { color: var(--c-primary, #2563eb); font-weight: 600; }
+
+/* 가져오며 이 장비에 맞춘 것들 */
+.ask-fit { color: var(--c-text); margin-bottom: 6px; }
