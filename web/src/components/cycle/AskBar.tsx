@@ -141,6 +141,10 @@ export default function AskBar({ devices }: Props) {
   /** 작업 흐름에 남기는 기록 — 질문한 뒤부터 쌓이고, 만들어지면 그대로 남는다 */
   const [flowLog, setFlowLog] = useState<string[]>([])
   const [flowVals, setFlowVals] = useState<Array<{ k: string; v: string }>>([])
+  /** 지금 도는 단계 (0 = 안 돎) — 흐름 칸이 이걸로 「진행 중」 을 보인다 */
+  const [flowAt, setFlowAt] = useState(0)
+  /** 이 대화의 id — 최근 목록에 남길 때 쓴다 */
+  const [chatId, setChatId] = useState('')
   const [pickDev, setPickDev] = useState<{ model: string; cands: Device[] } | null>(null)
   const [pickSel, setPickSel] = useState('')
   const [pickLab, setPickLab] = useState('')
@@ -286,10 +290,30 @@ export default function AskBar({ devices }: Props) {
   const exDel = (i: number) => setExamples((v) => v.filter((_, j) => j !== i))
   const exAdd = () => setExamples((v) => [...v, { q: '', d: '' }])
 
+  /**
+   * 만든 절차를 기록으로 남긴다 — 왼쪽 「최근」 이 이걸로 채워진다.
+   * 저장(시험으로 남기기)과는 다르다: 이건 「무엇을 물었나」 의 기록이다.
+   */
+  const keepChat = async (title: string, plan: Draft, dev: string) => {
+    const id = chatId || `nl-${Date.now().toString(36)}`
+    if (!chatId) setChatId(id)
+    setRecent((v) => [{ cid: id, title }, ...v.filter((x) => x.cid !== id)].slice(0, 12))
+    try {
+      await apiFetch('/api/ai/nl-chats', {
+        method: 'POST',
+        body: JSON.stringify({ id, title, plan, dev, msgs: [{ role: 'user', text: title }] }),
+      })
+    } catch {
+      /* 기록을 못 남겨도 절차는 쓸 수 있다 */
+    }
+  }
+
   /** 그 TC 를 고른 장비로 옮겨 초안에 앉힌다 */
   const adopt = async (tcid: string) => {
     setAdopting(tcid)
     setErr('')
+    setFlowAt(5)
+    setFlowLog((v) => [...v, `${tcid} 를 가져오는 중…`])
     try {
       const picked = usable.find((x) => x.id === devId) ?? usable[0]
       const r = await apiFetch('/api/ai/nl-tc-adopt', {
@@ -303,14 +327,21 @@ export default function AskBar({ devices }: Props) {
         steps?: DraftStep[]
       }
       if (!b.ok) throw new Error(b.error || '가져오지 못했습니다')
-      setFlowLog((v) => [...v, `${tcid} 를 가져와 이 장비로 옮김`])
+      setFlowLog((v) => [
+        ...v.filter((x) => !x.endsWith('를 가져오는 중…')),
+        `${tcid} 를 가져와 이 장비로 옮김`,
+      ])
+      setFlowAt(0)
       setFlowVals((v) => [...v.filter((x) => x.k !== '가져온 TC'), { k: '가져온 TC', v: tcid }])
       setStepAt(0)
-      setDraft({ name: b.title || tcid, steps: b.steps ?? [] })
+      const d2: Draft = { name: b.title || tcid, steps: b.steps ?? [] }
+      setDraft(d2)
       setDevId(picked?.id ?? '')
+      void keepChat(d2.name, d2, picked?.ip ?? '')
       setLike([])
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
+      setFlowAt(0)
     } finally {
       setAdopting('')
     }
@@ -344,6 +375,7 @@ export default function AskBar({ devices }: Props) {
     if (q) setText(q)
     setFlowLog([`요청의 말을 읽었습니다 — "${said.slice(0, 40)}"`])
     setFlowVals([])
+    setFlowAt(1)
     const hit = candsOf(said)
     if (hit && hit.cands.length > 1 && !hit.cands.some((d) => d.id === devId)) {
       setFlowLog((v) => [...v, `요청의 ${hit.model} 이(가) ${hit.cands.length}대`])
@@ -353,7 +385,14 @@ export default function AskBar({ devices }: Props) {
       setPickDev(hit)
       return
     }
-    if (hit && hit.cands.length === 1 && hit.cands[0]) setDevId(hit.cands[0].id)
+    if (hit && hit.cands.length === 1 && hit.cands[0]) {
+      setDevId(hit.cands[0].id)
+      setFlowLog((v) => [...v, `보낼 장비 ${hit.cands[0]!.ip} 확정 (한 대뿐)`])
+      setFlowVals([
+        { k: '모델', v: hit.model },
+        { k: '대상', v: hit.cands[0]!.ip },
+      ])
+    }
     const n = await findLike(said)
     if (n > 0) setLikeAsk(true)
     else await ask(said)
@@ -364,6 +403,8 @@ export default function AskBar({ devices }: Props) {
     if (!said) return
     setLikeAsk(false)
     setBusy(true)
+    setFlowAt(5)
+    setFlowLog((v) => [...v, '절차를 짓는 중…'])
     setErr('')
     setDraft(null)
     try {
@@ -395,13 +436,16 @@ export default function AskBar({ devices }: Props) {
         steps: Array.isArray(raw.steps) ? raw.steps : [],
       }
       setStepAt(0)
-      setFlowLog((v) => [...v, `절차 ${d.steps.length}개 스텝으로 지음`])
+      setFlowLog((v) => [...v.filter((x) => x !== '절차를 짓는 중…'), `절차 ${d.steps.length}개 스텝으로 지음`])
+      setFlowAt(0)
       setDraft(d)
+      void keepChat(d.name, d, picked?.ip ?? '')
       // AI 가 짚은 장비를 먼저 고르되, 없으면 첫 장비
       const hit = usable.find((x) => x.ip === d.device_ip)
       setDevId(hit?.id ?? usable[0]?.id ?? '')
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
+      setFlowAt(0)
     } finally {
       setBusy(false)
     }
@@ -546,6 +590,10 @@ export default function AskBar({ devices }: Props) {
             setText('')
             setLike([])
             setErr('')
+            setFlowLog([])
+            setFlowVals([])
+            setFlowAt(0)
+            setChatId('')
           }}
         >
           새 시험 만들기
@@ -576,7 +624,13 @@ export default function AskBar({ devices }: Props) {
           <section className="ask-rail">
             <div className="ask-rail-head">
               <b>작업 흐름</b>
-              <em className="muted small">{draft ? '절차 준비됨' : busy ? '만드는 중…' : '대기 중'}</em>
+              <em className="muted small">
+                {flowAt > 0
+                  ? `${flowAt}단계 진행 중`
+                  : draft
+                    ? '절차 준비됨'
+                    : '대기 중'}
+              </em>
             </div>
             {/* 질문하기 전에는 안내만. 물어보면 그때부터 **한 일**이 쌓이고,
                 만들어지면 그 기록이 그대로 남는다(지적). */}
@@ -592,24 +646,38 @@ export default function AskBar({ devices }: Props) {
                 {flow.map((st) => {
                   const first = st.n === 1
                   const last = st.n === 5
-                  const on = first || (last && !!draft)
+                  /* 이 단계가 지금 어떤가 — 도는 중·끝남·건너뜀·아직.
+                     한꺼번에 다 켜 두면 어디까지 왔는지 알 수 없다(지적). */
+                  const state = st.skip
+                    ? 'skip'
+                    : flowAt === st.n
+                      ? 'run'
+                      : last
+                        ? draft
+                          ? 'done'
+                          : 'wait'
+                        : first
+                          ? flowAt > 1 || draft || flowVals.length > 0
+                            ? 'done'
+                            : 'run'
+                          : 'wait'
+                  const on = state === 'done' || state === 'run'
                   return (
                     <div
                       key={st.n}
-                      className={`ask-stage${st.skip ? ' skip' : ''}${on ? ' on' : ''}${
-                        last && draft ? ' done' : ''
-                      }`}
+                      className={`ask-stage ${state}${on ? ' on' : ''}`}
                     >
                       <div className="ask-stagehd">
-                        <i>{on ? '✔' : st.n}</i>
+                        <i>{state === 'done' ? '✔' : st.n}</i>
                         <b>{st.name}</b>
                         <span className="sp" />
-                        {st.skip ? <em className="ask-stageskip">건너뜀</em> : null}
-                        {last && draft ? <em className="ask-stagedone">완료</em> : null}
+                        {state === 'skip' && <em className="ask-stageskip">건너뜀</em>}
+                        {state === 'run' && <em className="ask-stagerun">● 진행 중</em>}
+                        {state === 'done' && <em className="ask-stagedone">완료</em>}
                       </div>
                       {st.skip ? (
                         <div className="ask-stagesay">{st.skip}</div>
-                      ) : first ? (
+                      ) : first && flowLog.length > 0 ? (
                         <div className="ask-stagebody">
                           <div className="ask-stagesay">한 일</div>
                           <ul className="ask-did">

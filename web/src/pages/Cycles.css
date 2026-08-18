@@ -4432,3 +4432,12 @@ table.tb td.k {
   white-space: pre-wrap;
 }
 .ask-runone { align-self: stretch; }
+
+/* 단계 상태 — 도는 중은 눈에 띄게, 아직인 것은 흐리게 */
+.ask-stage.wait { opacity: 0.6; }
+.ask-stage.run { border-color: var(--c-primary, #2563eb); background: #f6f9fe; }
+.ask-stage.run .ask-stagehd i { background: var(--c-primary, #2563eb); color: #fff; }
+.ask-stagerun { font-style: normal; font-size: 10.5px; color: var(--c-primary, #2563eb); font-weight: 700; }
+@keyframes ask-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.ask-stagerun { animation: ask-blink 1.1s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .ask-stagerun { animation: none; } }
