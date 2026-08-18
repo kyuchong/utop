@@ -3644,6 +3644,27 @@ table.tb td.k {
   max-height: 42vh;
   overflow-y: auto;
 }
+/* 접었을 때 — 몇 줄만 보이고 아래가 흐려진다. 목록에 자리를 내준다(지적) */
+.cy-sum-ai-body.fold { max-height: 92px; overflow: hidden; position: relative; }
+.cy-sum-ai-body.fold::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 34px;
+  background: linear-gradient(to bottom, transparent, var(--c-surface-alt));
+}
+.cy-sum-ai-body.fold .cy-sum-ai-note { display: none; }
+.cy-sum-ai-fold {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--c-primary, #2563eb);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.cy-sum-ai-fold:hover { text-decoration: underline; }
 .cy-sum-ai-body .md { font-size: 14px; line-height: 1.75; }
 /* 만드는 중 — 도는 링 + 뼈대 줄이 반짝인다 */
 .cy-sum-ai-load {

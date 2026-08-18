@@ -2825,6 +2825,16 @@ function CycleDetail({
   /** AI 요약 — 팝업이 아니라 요약 바 안에 붙는다. 서버가 사이클에 저장해
       두므로(ai_summary) 다시 열어도 마지막 요약이 그대로 보인다 */
   const [aiTxt, setAiTxt] = useState('')
+  /**
+   * AI 요약을 **펴 둘 것인가**.
+   *
+   * 42vh 를 먹어 정작 시험 항목 목록이 아래 한 뼘으로 밀렸다(지적). 기본은
+   * 접어 두고 — 몇 줄만 보인다 — 볼 사람만 편다. 고른 것은 기억한다.
+   */
+  const [aiOpen, setAiOpen] = useState(() => localStorage.getItem('utop.cycle.aiopen') === '1')
+  useEffect(() => {
+    localStorage.setItem('utop.cycle.aiopen', aiOpen ? '1' : '0')
+  }, [aiOpen])
   const [aiAt, setAiAt] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
   const [aiErr, setAiErr] = useState('')
@@ -3429,6 +3439,11 @@ function CycleDetail({
                 <div className="cy-sum-ai-h">
                   <b>✨ AI 요약</b>
                   {aiAt && <em>{String(aiAt).slice(0, 16)}</em>}
+                  {!aiBusy && !aiErr && aiTxt && (
+                    <button type="button" className="cy-sum-ai-fold" onClick={() => setAiOpen((v) => !v)}>
+                      {aiOpen ? '접기' : '펼치기'}
+                    </button>
+                  )}
                 </div>
                 {aiBusy ? (
                   <div className="cy-sum-ai-load">
@@ -3447,7 +3462,7 @@ function CycleDetail({
                 ) : aiErr ? (
                   <div className="cy-sum-ai-err">{aiErr}</div>
                 ) : (
-                  <div className="cy-sum-ai-body">
+                  <div className={`cy-sum-ai-body${aiOpen ? '' : ' fold'}`}>
                     <Markdown text={aiTxt} />
                     <div className="cy-sum-ai-note">
                       AI 는 실수할 수 있습니다. 정보를 다시 한번 확인해 주세요.
