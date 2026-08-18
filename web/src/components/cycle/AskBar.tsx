@@ -107,6 +107,14 @@ interface Props {
  */
 export default function AskBar({ devices }: Props) {
   const [text, setText] = useState('')
+  /**
+   * 이번에 **물어본 말**. 입력칸(text)과 따로 둔다.
+   *
+   * 다 만들면 입력칸을 비우는데, 흐름의 단계 가름(트래픽이 있나)이 입력칸
+   * 글자를 보고 있었다. 비우는 순간 트래픽 시험이 「건너뜀」 으로 바뀐다 —
+   * 물어본 말은 여기 남겨 그걸로 가른다.
+   */
+  const [asked, setAsked] = useState('')
   const [busy, setBusy] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
   /**
@@ -519,6 +527,7 @@ export default function AskBar({ devices }: Props) {
       if (dv) setDevId(dv.id)
       setChatId(cid)
       setText('')
+      setAsked(String(plan.name ?? ''))
       setLike([])
       setLikeAsk(false)
       setRan(null)
@@ -615,6 +624,7 @@ export default function AskBar({ devices }: Props) {
       setDevId(picked?.id ?? '')
       const done2 = picked ? await fillCriteria(d2, picked) : d2
       setDraft(done2)
+      setText('')   // 다 만들었으니 입력칸을 비운다(지적)
       void keepChat(done2.name, done2, picked?.ip ?? '')
       setLike([])
     } catch (e) {
@@ -667,6 +677,7 @@ export default function AskBar({ devices }: Props) {
     const said = (q ?? text).trim()
     if (!said || busy) return
     if (q) setText(q)
+    setAsked(said)
     setFlowLog([{ s: 1, t: `요청의 말을 읽었습니다 — "${said.slice(0, 40)}"` }])
     setFlowVals([])
     setFitNotes([])
@@ -766,6 +777,7 @@ export default function AskBar({ devices }: Props) {
       // 로 보이고, 채워지는 동안 눈앞에서 값이 바뀐다(지적)
       const done = picked ? await fillCriteria(d, picked) : d
       setDraft(done)
+      setText('')   // 다 만들었으니 입력칸을 비운다 — 다음 질문 자리다(지적)
       void keepChat(done.name, done, picked?.ip ?? '')
       // AI 가 짚은 장비를 먼저 고르되, 없으면 첫 장비
       const hit = usable.find((x) => x.ip === d.device_ip)
@@ -987,7 +999,7 @@ export default function AskBar({ devices }: Props) {
   const curDev = usable.find((d) => d.id === devId)
   const devName = curDev?.name || curDev?.model || '장비'
   const devIp = curDev?.ip ?? ''
-  const flow = stages(text || draft?.name || '', !!draft)
+  const flow = stages(asked || text || draft?.name || '', !!draft)
 
   return (
     /* 세 칸 + 아래 입력줄 — 옮겨 온 화면의 짜임을 우리 꼴(panel·btn·토큰)로 다시 그렸다.
@@ -1001,6 +1013,7 @@ export default function AskBar({ devices }: Props) {
             setDraft(null)
             setRan(null)
             setText('')
+            setAsked('')
             setLike([])
             setErr('')
             setFlowLog([])
