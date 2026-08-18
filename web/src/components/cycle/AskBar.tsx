@@ -610,6 +610,22 @@ export default function AskBar({ devices }: Props) {
     }
   }
 
+  /**
+   * 물어보다 **그만둠** — 창을 닫고 흐름도 처음으로 되돌린다.
+   *
+   * 여태 창만 닫아서, 아무것도 안 만들었는데 「1단계 진행 중」 과 한 일 몇 줄이
+   * 그대로 남았다(지적). 적은 말은 그대로 둔다 — 고쳐서 다시 보내면 된다.
+   */
+  const cancelAsk = () => {
+    setPickDev(null)
+    setLikeAsk(false)
+    setLike([])
+    setFlowAt(0)
+    setFlowLog([])
+    setFlowVals([])
+    setGenSay('')
+  }
+
   /** 적은 말에서 모델 이름을 찾아 그 모델 장비들을 모은다 */
   const candsOf = (q: string): { model: string; cands: Device[] } | null => {
     const t = q.toLowerCase()
@@ -1594,7 +1610,7 @@ export default function AskBar({ devices }: Props) {
           groups.set(key, [...(groups.get(key) ?? []), d])
         }
         return (
-          <div className="modal-back" onMouseDown={() => setPickDev(null)}>
+          <div className="modal-back" onMouseDown={cancelAsk}>
             <div
               className="modal ask-pick"
               role="dialog"
@@ -1615,7 +1631,7 @@ export default function AskBar({ devices }: Props) {
                   </div>
                 </div>
                 <span className="sp" />
-                <button className="modal-x" type="button" onClick={() => setPickDev(null)}>
+                <button className="modal-x" type="button" onClick={cancelAsk}>
                   ✕
                 </button>
               </div>
@@ -1689,7 +1705,7 @@ export default function AskBar({ devices }: Props) {
                 <span className="muted small">장비를 누르고 「이 장비로 시험 만들기」 를 누르세요.</span>
                 {/* 단추는 한 묶음 — 안 묶으면 space-between 이 둘 사이를 벌린다 */}
                 <span className="ask-footbtns">
-                <button className="btn small" type="button" onClick={() => setPickDev(null)}>
+                <button className="btn small" type="button" onClick={cancelAsk}>
                   그만두기
                 </button>
                 <button
@@ -1726,7 +1742,7 @@ export default function AskBar({ devices }: Props) {
 
       {/* ② 비슷한 시험이 이미 있다 — 가져올지 새로 지을지 */}
       {likeAsk && like.length > 0 && (
-        <div className="modal-back" onMouseDown={() => setLikeAsk(false)}>
+        <div className="modal-back" onMouseDown={cancelAsk}>
           <div
             className="modal ask-likemodal"
             role="dialog"
@@ -1741,7 +1757,7 @@ export default function AskBar({ devices }: Props) {
                 </div>
               </div>
               <span className="sp" />
-              <button className="modal-x" type="button" onClick={() => setLikeAsk(false)}>
+              <button className="modal-x" type="button" onClick={cancelAsk}>
                 ✕
               </button>
             </div>
@@ -1768,7 +1784,7 @@ export default function AskBar({ devices }: Props) {
             <div className="modal-foot">
               <span className="muted small">줄을 누르면 그 시험을 가져옵니다.</span>
               <span className="ask-footbtns">
-                <button className="btn small" type="button" onClick={() => setLikeAsk(false)}>
+                <button className="btn small" type="button" onClick={cancelAsk}>
                   그만두기
                 </button>
                 <button className="btn primary small" type="button" onClick={() => void ask()}>
