@@ -556,7 +556,21 @@ export default function AskBar({ devices }: Props) {
   /** 기록 하나 지우기 — 내 것만 지워진다(서버가 막는다) */
   const dropChat = async (cid: string) => {
     setRecent((v) => v.filter((x) => x.cid !== cid))
-    if (cid === chatId) setChatId('')
+    // 보고 있던 그 기록을 지웠으면 화면도 치운다. 목록에서만 빼면 지운
+    // 시험의 절차·스텝·작업 흐름이 그대로 남아 있다(지적).
+    if (cid === chatId) {
+      setChatId('')
+      setDraft(null)
+      setBuilt(null)
+      setRan(null)
+      setStepAt(0)
+      setFitNotes([])
+      setFlowLog([])
+      setFlowVals([])
+      setFlowAt(0)
+      setFold(new Set())
+      setErr('')
+    }
     try {
       await apiFetch(`/api/ai/nl-chats/${encodeURIComponent(cid)}`, { method: 'DELETE' })
     } catch {
