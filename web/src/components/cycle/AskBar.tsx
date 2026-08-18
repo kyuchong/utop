@@ -136,6 +136,11 @@ export default function AskBar({ devices }: Props) {
   const [exSay, setExSay] = useState('')
   const [amAdmin, setAmAdmin] = useState(false)
   /** 같은 모델이 여러 대일 때 — 어느 장비로 보낼지 고르는 창 */
+  /** 오른쪽에 펼쳐 볼 스텝 */
+  const [stepAt, setStepAt] = useState(0)
+  /** 작업 흐름에 남기는 기록 — 질문한 뒤부터 쌓이고, 만들어지면 그대로 남는다 */
+  const [flowLog, setFlowLog] = useState<string[]>([])
+  const [flowVals, setFlowVals] = useState<Array<{ k: string; v: string }>>([])
   const [pickDev, setPickDev] = useState<{ model: string; cands: Device[] } | null>(null)
   const [pickSel, setPickSel] = useState('')
   const [pickLab, setPickLab] = useState('')
@@ -298,6 +303,9 @@ export default function AskBar({ devices }: Props) {
         steps?: DraftStep[]
       }
       if (!b.ok) throw new Error(b.error || '가져오지 못했습니다')
+      setFlowLog((v) => [...v, `${tcid} 를 가져와 이 장비로 옮김`])
+      setFlowVals((v) => [...v.filter((x) => x.k !== '가져온 TC'), { k: '가져온 TC', v: tcid }])
+      setStepAt(0)
       setDraft({ name: b.title || tcid, steps: b.steps ?? [] })
       setDevId(picked?.id ?? '')
       setLike([])
@@ -334,8 +342,11 @@ export default function AskBar({ devices }: Props) {
     const said = (q ?? text).trim()
     if (!said || busy) return
     if (q) setText(q)
+    setFlowLog([`요청의 말을 읽었습니다 — "${said.slice(0, 40)}"`])
+    setFlowVals([])
     const hit = candsOf(said)
     if (hit && hit.cands.length > 1 && !hit.cands.some((d) => d.id === devId)) {
+      setFlowLog((v) => [...v, `요청의 ${hit.model} 이(가) ${hit.cands.length}대`])
       setPickSel(hit.cands[0]?.id ?? '')
       setPickLab('')
       setPickRack('')
@@ -383,6 +394,8 @@ export default function AskBar({ devices }: Props) {
         object: raw.object || raw.purpose,
         steps: Array.isArray(raw.steps) ? raw.steps : [],
       }
+      setStepAt(0)
+      setFlowLog((v) => [...v, `절차 ${d.steps.length}개 스텝으로 지음`])
       setDraft(d)
       // AI 가 짚은 장비를 먼저 고르되, 없으면 첫 장비
       const hit = usable.find((x) => x.ip === d.device_ip)
@@ -403,7 +416,7 @@ export default function AskBar({ devices }: Props) {
    * 저장하지 않고 돌린다 — 말로 시켜 본 것이 다 시험으로 남으면 목록이
    * 금세 쓰레기가 된다. 쓸 만하면 그때 저장한다.
    */
-  const run = async () => {
+  const run = async (only?: number) => {
     if (!draft || !devId) return
     const ac = new AbortController()
     abortRef.current = ac
@@ -477,8 +490,8 @@ export default function AskBar({ devices }: Props) {
           onLog: () => {},
           signal: ac.signal,
         },
-        0,
-        false,
+        typeof only === 'number' ? only : 0,
+        typeof only === 'number',
       )
     } finally {
       setRunning(false)
@@ -514,6 +527,9 @@ export default function AskBar({ devices }: Props) {
       d ? { ...d, steps: d.steps.map((s, j) => (j === i ? { ...s, ...patch } : s)) } : d,
     )
 
+  const curDev = usable.find((d) => d.id === devId)
+  const devName = curDev?.name || curDev?.model || '장비'
+  const devIp = curDev?.ip ?? ''
   const flow = stages(text || draft?.name || '', !!draft)
 
   return (
@@ -562,23 +578,82 @@ export default function AskBar({ devices }: Props) {
               <b>작업 흐름</b>
               <em className="muted small">{draft ? '절차 준비됨' : busy ? '만드는 중…' : '대기 중'}</em>
             </div>
-            <p className="ask-rail-say muted small">
-              흐름은 항상 5단계입니다 — 장비 선택 · 포트 연결 · 트래픽 설정 · 트래픽 확인 ·
-              생성 완료.
-              <br />
-              시험에 필요 없는 단계는 이유와 함께 건너뜁니다.
-            </p>
-            <div className="ask-stages">
-              {flow.map((st) => (
-                <div key={st.n} className={`ask-stage${st.skip ? ' skip' : ''}${st.done ? ' done' : ''}`}>
-                  <i>{st.n}</i>
-                  <span>
-                    {st.name}
-                    {st.skip ? <em>{st.skip}</em> : null}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {/* 질문하기 전에는 안내만. 물어보면 그때부터 **한 일**이 쌓이고,
+                만들어지면 그 기록이 그대로 남는다(지적). */}
+            {flowLog.length === 0 ? (
+              <p className="ask-rail-say muted small">
+                흐름은 항상 5단계입니다 — 장비 선택 · 포트 연결 · 트래픽 설정 · 트래픽 확인 ·
+                생성 완료.
+                <br />
+                무엇을 시험할지 적으면 여기에 진행 상황이 쌓입니다.
+              </p>
+            ) : (
+              <div className="ask-stages">
+                {flow.map((st) => {
+                  const first = st.n === 1
+                  const last = st.n === 5
+                  const on = first || (last && !!draft)
+                  return (
+                    <div
+                      key={st.n}
+                      className={`ask-stage${st.skip ? ' skip' : ''}${on ? ' on' : ''}${
+                        last && draft ? ' done' : ''
+                      }`}
+                    >
+                      <div className="ask-stagehd">
+                        <i>{on ? '✔' : st.n}</i>
+                        <b>{st.name}</b>
+                        <span className="sp" />
+                        {st.skip ? <em className="ask-stageskip">건너뜀</em> : null}
+                        {last && draft ? <em className="ask-stagedone">완료</em> : null}
+                      </div>
+                      {st.skip ? (
+                        <div className="ask-stagesay">{st.skip}</div>
+                      ) : first ? (
+                        <div className="ask-stagebody">
+                          <div className="ask-stagesay">한 일</div>
+                          <ul className="ask-did">
+                            {flowLog.map((l, k) => (
+                              <li key={k}>{l}</li>
+                            ))}
+                          </ul>
+                          {flowVals.length > 0 && (
+                            <>
+                              <div className="ask-stagesay">정한 값</div>
+                              {flowVals.map((v) => (
+                                <div className="ask-val" key={v.k}>
+                                  <i>{v.k}</i>
+                                  <code>{v.v}</code>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      ) : last && draft ? (
+                        <div className="ask-stagebody">
+                          <div className="ask-stagesay">
+                            스텝 {draft.steps.length}개 · 판정 기준{' '}
+                            {draft.steps.filter((x) => (x.criteria ?? '').trim()).length}개
+                          </div>
+                          {draft.steps.filter((x) => !(x.criteria ?? '').trim() && x.type !== 'ok')
+                            .length > 0 && (
+                            <div className="ask-stagesay">
+                              값을 비운 합격 기준{' '}
+                              {
+                                draft.steps.filter(
+                                  (x) => !(x.criteria ?? '').trim() && x.type !== 'ok',
+                                ).length
+                              }
+                              개 — 돌린 뒤 응답에서 고르세요
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </section>
 
           <div className="ask-canvaswrap">
@@ -680,87 +755,21 @@ export default function AskBar({ devices }: Props) {
 
       {draft && (
         <div className="ask-plan">
-          {/* 왼쪽에서 고치고 오른쪽에서 결과를 본다. 위아래로 두면 출력을
-              보려고 내리는 순간 고치던 칸이 화면에서 사라진다. */}
-          <div className="ask-left">
-          <div className="ask-why">
-            <b>{draft.name}</b>
-            {draft.object && <div className="muted small">{draft.object}</div>}
-          </div>
-
-          {/* 어느 장비에 보낼지는 사람이 정한다. AI 가 짚은 것을 미리
-              골라 두되, 그대로 나가게 두지 않는다. */}
-          <label className="ask-dev">
-            보낼 장비
-            <select value={devId} onChange={(e) => setDevId(e.target.value)}>
+          <div className="ask-planhd">
+            <div className="ask-planttl">
+              <b>{draft.name}</b>
+              {draft.object && <span className="muted small">{draft.object}</span>}
+            </div>
+            <span className="sp" />
+            {/* 어느 장비에 보낼지는 사람이 정한다 — AI 가 짚은 것을 미리 골라
+                두되 그대로 나가게 두지 않는다 */}
+            <select className="ask-devsel" value={devId} onChange={(e) => setDevId(e.target.value)}>
               {usable.map((d) => (
                 <option key={d.id} value={d.id}>
-                  {d.name || d.ip} · {d.model || d.role || ''}
+                  {d.name || d.model || d.ip} · {d.ip}
                 </option>
               ))}
             </select>
-          </label>
-
-          {draft.steps.length === 0 ? (
-            <div className="muted small">쓸 만한 스텝을 못 만들었습니다. 다르게 말해 보세요.</div>
-          ) : (
-            <div className="ask-steps">
-              {/* 고칠 수 있게 둔다. 대개 명령은 맞는데 판정기준이 아쉽다 */}
-              {draft.steps.some((s) => s.type === 'none') && (
-                <div className="ask-need">
-                  「판정 안 함」 인 스텝이 있습니다 — 돌기만 하고 아무것도 확인하지 못합니다.
-                  <b> 오류만 없으면 합격</b> 으로 바꾸거나, 돌린 뒤 출력에서 끌어 채우세요.
-                </div>
-              )}
-              {draft.steps.map((s, i) => (
-                <div className="ask-step" key={i}>
-                  <div className="ask-step-h">
-                    <b>{i + 1}</b>
-                    <span>{s.desc || '—'}</span>
-                  </div>
-                  <input
-                    className="mono"
-                    value={s.cli}
-                    onChange={(e) => setStep(i, { cli: e.target.value })}
-                  />
-                  <div className="ask-step-c">
-                    <select
-                      value={s.type ?? 'contains'}
-                      onChange={(e) => setStep(i, { type: e.target.value })}
-                    >
-                      <option value="ok">오류만 없으면 합격</option>
-                      <option value="contains">문구 포함</option>
-                      <option value="contains_all">모두 포함</option>
-                      <option value="notcontains">있으면 불합격</option>
-                      <option value="none">판정 안 함</option>
-                    </select>
-                    {/* 「오류만 없으면」 은 적을 것이 없다. 빈 칸을 내놓으면
-                        무엇을 적어야 하나 또 헤매게 된다. */}
-                    {s.type === 'ok' || s.type === 'none' ? (
-                      <span className="ask-nocrit">
-                        {s.type === 'ok' ? '명령이 오류 없이 응답하면 합격' : '아무것도 확인하지 않음'}
-                      </span>
-                    ) : (
-                      <input
-                        className={!s.criteria ? 'need' : undefined}
-                        value={s.criteria ?? ''}
-                        placeholder="판정기준 — 이 문구가 나오면 합격"
-                        onChange={(e) => setStep(i, { criteria: e.target.value })}
-                      />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {(draft.cut?.length ?? 0) > 0 && (
-            <div className="ask-drop">
-              조회가 아닌 명령 {draft.cut?.length}개는 뺐습니다 — {draft.cut?.join(' · ')}
-            </div>
-          )}
-
-          <div className="ask-act">
             {running ? (
               <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
                 ⏹ 멈추기
@@ -792,100 +801,167 @@ export default function AskBar({ devices }: Props) {
             </button>
           </div>
 
-          </div>
-
-          {/* 결과 — 스텝마다 판정과 받은 출력 */}
-          <div className="ask-right">
-          {!ran ? (
-            <div className="empty">돌리면 여기에 결과가 나옵니다.</div>
-          ) : (
-            <div className="ask-res">
-              {ran.map((s, i) => {
-                const r = String(s.repeatResult ?? s.status ?? '').trim()
-                const bad = r.toLowerCase() === 'fail'
-                const on = at === i
-                return (
-                  <div className={`ask-r${bad ? ' bad' : ''}${on ? ' on' : ''}`} key={i}>
-                    <div className="ask-r-h">
-                      <b>{i + 1}</b>
-                      <code>{String(s.cli ?? '').split('\n')[0]}</code>
-                      <span className="sp" />
-                      {/* 돌았는데 「대기」 로 보이면 안 된다. 판정을 안 한
-                          것과 아직 안 돈 것은 다르다. */}
-                      <span className={`ask-r-v ${bad ? 'fail' : r ? 'pass' : ''}`}>
-                        {on
-                          ? '도는 중'
-                          : r
-                            ? r
-                            : s.output
-                              ? '판정 안 함'
-                              : '대기'}
-                      </span>
-                    </div>
-                    {s.reason && <div className="ask-r-why">{s.reason}</div>}
-                    {s.output && (
-                      <>
-                        {/* 판정기준은 출력을 보고 정하는 것이 제일 정확하다.
-                            AI 가 비워 둔 스텝도 여기서 끌어 채우면 된다. */}
-                        <pre
-                          className="ask-r-out"
-                          onMouseUp={() => {
-                            const sel = window.getSelection()?.toString().trim() ?? ''
-                            if (sel) setGrab({ i, text: sel })
-                          }}
-                        >
-                          {s.output}
-                        </pre>
-                        {/* 눌러서 정한다. 무엇을 적어야 하는지 몰라도 된다 */}
-                        {suggest(String(s.output ?? '')).length > 0 && (
-                          <div className="ask-sug">
-                            <span className="ask-sug-t">이걸로 판정할까요?</span>
-                            {suggest(String(s.output ?? '')).map((g, k) => (
-                              <button
-                                key={k}
-                                type="button"
-                                className={
-                                  draft.steps[i]?.criteria === g.criteria ? 'on' : undefined
-                                }
-                                onClick={() => setStep(i, { type: g.type, criteria: g.criteria })}
-                              >
-                                {g.label}
-                              </button>
-                            ))}
-                            <button
-                              type="button"
-                              className={draft.steps[i]?.type === 'ok' ? 'on' : undefined}
-                              onClick={() => setStep(i, { type: 'ok', criteria: '' })}
-                            >
-                              오류만 없으면
-                            </button>
-                          </div>
-                        )}
-                        {grab?.i === i && (
-                          <div className="ask-r-grab">
-                            <code>{grab.text.slice(0, 60)}</code>
-                            <button
-                              className="btn small primary"
-                              type="button"
-                              onClick={() => {
-                                setStep(i, { type: 'contains', criteria: grab.text })
-                                setGrab(null)
-                              }}
-                            >
-                              판정기준으로
-                            </button>
-                            <button className="btn small" type="button" onClick={() => setGrab(null)}>
-                              취소
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )
-              })}
+          {(draft.cut?.length ?? 0) > 0 && (
+            <div className="ask-drop">
+              조회가 아닌 명령 {draft.cut?.length}개는 뺐습니다 — {draft.cut?.join(' · ')}
             </div>
           )}
+
+          {/* 왼쪽 스텝 목록 · 오른쪽 그 스텝의 속(명령·기준·응답).
+              위아래로 두면 응답을 보려고 내리는 순간 고치던 칸이 사라진다. */}
+          <div className="ask-two">
+            <div className="ask-steplist">
+              {draft.steps.map((s, i) => {
+                const rs = ran?.[i]
+                const v = String(rs?.repeatResult ?? rs?.status ?? '').trim()
+                const state = at === i ? '도는 중' : v || (rs?.output ? '판정 안 함' : '대기')
+                const cls = at === i ? 'run' : v.toLowerCase() === 'fail' ? 'fail' : v ? 'pass' : ''
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    className={`ask-stepcard${stepAt === i ? ' on' : ''} ${cls}`}
+                    onClick={() => setStepAt(i)}
+                  >
+                    <i>{i + 1}</i>
+                    <span>
+                      <b>{s.desc || s.cli || '—'}</b>
+                      <em>
+                        <u>{s.kind === 'inst' ? '계측기' : s.kind === 'wait' ? '대기' : '조회'}</u>
+                        {devIp ? ` ${devIp}` : ''} · 생성 완료
+                      </em>
+                    </span>
+                    <var className={`ask-stepst ${cls}`}>{state}</var>
+                  </button>
+                )
+              })}
+              {draft.steps.length === 0 && (
+                <div className="muted small">쓸 만한 스텝을 못 만들었습니다. 다르게 말해 보세요.</div>
+              )}
+            </div>
+
+            {/* 고른 스텝 하나 — 무엇을 보내고, 무엇이면 합격이고, 무엇이 왔나 */}
+            {(() => {
+              const i = Math.min(stepAt, draft.steps.length - 1)
+              const s = draft.steps[i]
+              if (!s) return <div className="ask-stepdet empty">왼쪽에서 스텝을 고르세요.</div>
+              const rs = ran?.[i]
+              const out = String(rs?.output ?? '')
+              return (
+                <div className="ask-stepdet">
+                  <div className="ask-detlab muted small">
+                    스텝 {i + 1} · {s.kind === 'inst' ? '계측기' : s.kind === 'wait' ? '대기' : '조회'}
+                  </div>
+                  <h3>{s.desc || '—'}</h3>
+
+                  <div className="ask-detf">
+                    <span className="ask-detk">
+                      {devName} 에 보낼 명령
+                      <em className="muted small">고치면 그대로 나갑니다</em>
+                    </span>
+                    <input
+                      className="mono"
+                      value={s.cli}
+                      onChange={(e) => setStep(i, { cli: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="ask-detf">
+                    <span className="ask-detk">합격 기준</span>
+                    <div className="ask-detcrit">
+                      <select
+                        value={s.type ?? 'contains'}
+                        onChange={(e) => setStep(i, { type: e.target.value })}
+                      >
+                        <option value="ok">오류만 없으면 합격</option>
+                        <option value="contains">문구 포함</option>
+                        <option value="contains_all">모두 있으면 합격</option>
+                        <option value="notcontains">있으면 불합격</option>
+                        <option value="none">판정 안 함</option>
+                      </select>
+                      {s.type === 'ok' || s.type === 'none' ? (
+                        <span className="ask-nocrit">
+                          {s.type === 'ok' ? '명령이 오류 없이 응답하면 합격' : '아무것도 확인하지 않음'}
+                        </span>
+                      ) : (
+                        <input
+                          className={!s.criteria ? 'need' : undefined}
+                          value={s.criteria ?? ''}
+                          placeholder="이 문구가 나오면 합격"
+                          onChange={(e) => setStep(i, { criteria: e.target.value })}
+                        />
+                      )}
+                    </div>
+                    <div className="ask-detsay muted small">
+                      {s.type === 'none'
+                        ? '돌기만 하고 아무것도 확인하지 않습니다.'
+                        : s.type === 'ok'
+                          ? '응답이 오면 합격입니다.'
+                          : s.criteria
+                            ? `응답에 "${s.criteria}" ${s.type === 'notcontains' ? '가 있으면 불합격' : '가 있으면 합격'}`
+                            : '무엇이 나와야 합격인지 적어 주세요 — 돌린 뒤 응답에서 골라도 됩니다.'}
+                    </div>
+                  </div>
+
+                  <div className="ask-detf">
+                    <span className="ask-detk">응답</span>
+                    <pre
+                      className="ask-detout"
+                      onMouseUp={() => {
+                        const sel = window.getSelection()?.toString().trim() ?? ''
+                        if (sel) setGrab({ i, text: sel })
+                      }}
+                    >
+                      {out || '아직 실행하지 않았습니다.'}
+                    </pre>
+                    {rs?.reason && <div className="ask-detwhy muted small">{rs.reason}</div>}
+                    {/* 판정기준은 응답을 보고 정하는 것이 제일 정확하다 */}
+                    {suggest(out).length > 0 && (
+                      <div className="ask-sug">
+                        <span className="ask-sug-t">이걸로 판정할까요?</span>
+                        {suggest(out).map((g, k) => (
+                          <button
+                            key={k}
+                            type="button"
+                            className={s.criteria === g.criteria ? 'on' : undefined}
+                            onClick={() => setStep(i, { type: g.type, criteria: g.criteria })}
+                          >
+                            {g.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {grab?.i === i && (
+                      <div className="ask-r-grab">
+                        <code>{grab.text.slice(0, 60)}</code>
+                        <button
+                          className="btn small primary"
+                          type="button"
+                          onClick={() => {
+                            setStep(i, { type: 'contains', criteria: grab.text })
+                            setGrab(null)
+                          }}
+                        >
+                          판정기준으로
+                        </button>
+                        <button className="btn small" type="button" onClick={() => setGrab(null)}>
+                          취소
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    className="btn small ask-runone"
+                    type="button"
+                    disabled={running || !devId}
+                    onClick={() => void run(i)}
+                  >
+                    이 스텝만 실행
+                  </button>
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}
@@ -898,7 +974,9 @@ export default function AskBar({ devices }: Props) {
             <input
               className="ask-in"
               value={text}
-              placeholder="무엇을 시험할지 한국어로 적으세요"
+              placeholder={
+                draft ? '고칠 것을 말하세요 — 예) 부하를 50%로 올려줘' : '무엇을 시험할지 한국어로 적으세요'
+              }
               onChange={(e) => setText(e.target.value)}
               onBlur={() => void findLike(text)}
               onKeyDown={(e) => {
@@ -1035,6 +1113,12 @@ export default function AskBar({ devices }: Props) {
                   disabled={!pickSel}
                   onClick={() => {
                     setDevId(pickSel)
+                    const d2 = pickDev.cands.find((x) => x.id === pickSel)
+                    setFlowLog((v) => [...v, '그중에서 고름', `보낼 장비 ${d2?.ip ?? ''} 확정`])
+                    setFlowVals([
+                      { k: '모델', v: pickDev.model },
+                      { k: '대상', v: d2?.ip ?? '' },
+                    ])
                     setPickDev(null)
                     void findLike(text).then((n) => (n > 0 ? setLikeAsk(true) : ask()))
                   }}

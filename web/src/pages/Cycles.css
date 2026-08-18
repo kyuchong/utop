@@ -4350,3 +4350,85 @@ table.tb td.k {
 
 /* 창 아래 단추 묶음 — space-between 이 단추 사이까지 벌리지 않게 */
 .ask-footbtns { display: flex; align-items: center; gap: 8px; }
+
+/* 작업 흐름 — 질문한 뒤의 상태(한 일·정한 값·건너뜀 까닭) */
+.ask-stage { flex-direction: column; align-items: stretch; gap: 6px; }
+.ask-stagehd { display: flex; align-items: center; gap: 8px; }
+.ask-stagehd b { font-size: var(--fs-xs); }
+.ask-stagehd .sp { margin-left: auto; }
+.ask-stage.on { border-color: var(--c-primary, #2563eb); }
+.ask-stage.on .ask-stagehd i { background: var(--c-primary, #2563eb); color: #fff; }
+.ask-stageskip, .ask-stagedone { font-style: normal; font-size: 10.5px; color: var(--c-muted); }
+.ask-stagedone { color: #1d9e75; }
+.ask-stagebody { background: #f6f9fc; border-radius: 6px; padding: 8px 10px; }
+.ask-stagesay { font-size: 10.5px; color: var(--c-muted); margin-bottom: 4px; }
+.ask-did { margin: 0 0 6px; padding-left: 14px; font-size: 11px; line-height: 1.7; }
+.ask-val { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.ask-val i { font-style: normal; font-size: 10.5px; color: var(--c-muted); min-width: 46px; }
+.ask-val code { font-size: 11px; }
+
+/* 초안 — 스텝 목록 + 그 옆에 속 */
+.ask-plan { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+.ask-planhd { display: flex; align-items: center; gap: 8px; }
+.ask-planttl { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ask-planhd .sp { margin-left: auto; }
+.ask-devsel { max-width: 230px; }
+.ask-two { flex: 1; min-height: 0; display: flex; gap: 12px; }
+.ask-steplist { flex: 1; min-width: 0; overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+.ask-stepcard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card, 8px);
+  background: var(--c-bg, #fff);
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.ask-stepcard:hover { border-color: #9db8de; }
+.ask-stepcard.on { border-color: var(--c-primary, #2563eb); box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.14); }
+.ask-stepcard.pass { border-left: 3px solid #1d9e75; }
+.ask-stepcard.fail { border-left: 3px solid #e24b4a; }
+.ask-stepcard > i { font-style: normal; color: var(--c-muted); font-size: 11px; min-width: 12px; }
+.ask-stepcard > span { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ask-stepcard b { font-size: var(--fs-sm); }
+.ask-stepcard em { font-style: normal; font-size: 10.5px; color: var(--c-muted); font-family: var(--font-mono); }
+.ask-stepcard em u { text-decoration: none; background: #eef2f6; border-radius: 3px; padding: 1px 5px; margin-right: 5px; font-family: inherit; }
+.ask-stepst { font-style: normal; font-size: 11px; color: var(--c-muted); }
+.ask-stepst.pass { color: #1d9e75; }
+.ask-stepst.fail { color: #e24b4a; }
+.ask-stepst.run { color: var(--c-primary, #2563eb); }
+.ask-stepdet {
+  flex: 1.1;
+  min-width: 0;
+  overflow: auto;
+  border-left: 1px solid var(--c-border);
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ask-stepdet h3 { margin: 0; font-size: var(--fs-md, 15px); }
+.ask-detlab { margin-bottom: -6px; }
+.ask-detf { display: flex; flex-direction: column; gap: 5px; }
+.ask-detk { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-xs); color: var(--c-muted); }
+.ask-detk em { margin-left: auto; font-style: normal; }
+.ask-detf input, .ask-detf select { width: 100%; }
+.ask-detcrit { display: flex; gap: 6px; }
+.ask-detcrit select { max-width: 190px; }
+.ask-detcrit input { flex: 1; }
+.ask-detout {
+  margin: 0;
+  background: #10151c;
+  color: #dbe6f2;
+  border-radius: var(--r-card, 8px);
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+.ask-runone { align-self: stretch; }
