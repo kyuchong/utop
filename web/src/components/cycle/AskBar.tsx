@@ -306,13 +306,13 @@ export default function AskBar({ devices }: Props) {
    * 이 랩의 기존 TC 중 가까운 것을 찾아 두었다가, 누르면 고른 장비 모델에
    * 맞춰 포트 표기까지 바꿔 초안으로 앉힌다.
    */
-  const findLike = async (q: string): Promise<number> => {
+  const findLike = async (q: string, dev?: Device): Promise<number> => {
     if (!q.trim()) {
       setLike([])
       return 0
     }
     try {
-      const picked = usable.find((x) => x.id === devId)
+      const picked = dev ?? usable.find((x) => x.id === devId)
       const r = await apiFetch(
         `/api/ai/nl-tc-like?text=${encodeURIComponent(q.trim())}&model=${encodeURIComponent(picked?.model ?? '')}`,
       )
@@ -589,13 +589,13 @@ export default function AskBar({ devices }: Props) {
   }
 
   /** 그 TC 를 고른 장비로 옮겨 초안에 앉힌다 */
-  const adopt = async (tcid: string) => {
+  const adopt = async (tcid: string, dev?: Device) => {
     setAdopting(tcid)
     setErr('')
     setFlowAt(5)
     setFlowLog((v) => [...v, { s: 5, t: `${tcid} 를 가져오는 중…` }])
     try {
-      const picked = usable.find((x) => x.id === devId) ?? usable[0]
+      const picked = dev ?? usable.find((x) => x.id === devId) ?? usable[0]
       const r = await apiFetch('/api/ai/nl-tc-adopt', {
         method: 'POST',
         body: JSON.stringify({ tcid, device_id: picked?.id ?? '', model: picked?.model ?? '' }),
@@ -685,16 +685,27 @@ export default function AskBar({ devices }: Props) {
     const hit = candsOf(said)
     const askPick = (model: string, cands: Device[], why: string) => {
       setFlowLog((v) => [...v, { s: 1, t: why }])
-      setPickSel(cands[0]?.id ?? '')
+      // 쓰던 장비를 미리 짚어 둔다 — 그대로 갈 사람은 한 번만 누르면 된다
+      setPickSel(cands.find((d) => d.id === devId)?.id ?? cands[0]?.id ?? '')
       setPickLab('')
       setPickRack('')
       setPickDev({ model, cands })
     }
-    if (hit && hit.cands.length > 1 && !hit.cands.some((d) => d.id === devId)) {
+    /*
+     * 새 질문이면 **늘 묻는다.**
+     *
+     * 여태는 「이미 그 모델 장비를 고른 상태」 면 창을 건너뛰었다. 그래서 한 번
+     * 고르고 나면 그 뒤 질문에서는 장비를 바꿀 길이 없었다 — 그만두고 다시
+     * 물어도 창이 안 떴다(지적). 같은 모델이 3대인데 어느 대인지는 시험마다
+     * 다르다. 쓰던 장비를 미리 짚어 두었으니 그대로 갈 때도 한 번만 누르면 된다.
+     */
+    if (hit && hit.cands.length > 1) {
       askPick(hit.model, hit.cands, `요청의 ${hit.model} 이(가) ${hit.cands.length}대`)
       return
     }
+    let dev: Device | undefined
     if (hit && hit.cands.length === 1 && hit.cands[0]) {
+      dev = hit.cands[0]
       setDevId(hit.cands[0].id)
       setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${hit.cands[0]!.ip} 확정 (한 대뿐)` }])
       setFlowVals([
@@ -709,13 +720,14 @@ export default function AskBar({ devices }: Props) {
      * 모르는 절차가 나오고, 조회를 미리 못 보내니 판정 기준도 통째로
      * 비었다(지적). 어느 장비인지는 사람만 안다 — 전체에서 고르게 한다.
      */
-    if (!hit && !usable.some((d) => d.id === devId)) {
+    if (!hit) {
       if (usable.length === 0) {
         setErr('쓸 수 있는 장비가 없습니다 — Devices 에서 먼저 등록해 주세요')
         setFlowAt(0)
         return
       }
       if (usable.length === 1 && usable[0]) {
+        dev = usable[0]
         setDevId(usable[0].id)
         setFlowLog((v) => [...v, { s: 1, t: `보낼 장비 ${usable[0]!.ip} 확정 (한 대뿐)` }])
         setFlowVals([{ k: '대상', v: usable[0]!.ip }])
@@ -724,12 +736,19 @@ export default function AskBar({ devices }: Props) {
         return
       }
     }
-    const n = await findLike(said)
+    const n = await findLike(said, dev)
     if (n > 0) setLikeAsk(true)
-    else await ask(said)
+    else await ask(said, dev)
   }
 
-  const ask = async (q?: string) => {
+  /**
+   * 절차를 짓는다. `dev` 는 **방금 고른 장비**.
+   *
+   * 상태(devId)만 보면 안 된다 — 창에서 고르고 그 자리에서 부르면 devId 는
+   * 아직 예전 값이다(React 상태는 다음 그림부터 바뀐다). 그래서 고른 대가
+   * 아니라 엉뚱한 대에서 기준을 읽거나, 아예 못 채웠다.
+   */
+  const ask = async (q?: string, dev?: Device) => {
     const said = (q ?? text).trim()
     if (!said) return
     setLikeAsk(false)
@@ -747,7 +766,7 @@ export default function AskBar({ devices }: Props) {
        * 판정기준까지 이 랩에 맞춰 내놓는다. 고른 장비의 모델을 함께 보낸다 —
        * 모델을 알아야 인터페이스 이름(TenGi0/1 · Gi0/1)을 맞춘다.
        */
-      const picked = usable.find((x) => x.id === devId)
+      const picked = dev ?? usable.find((x) => x.id === devId)
       const r = await apiFetch('/api/ai/nl-plan', {
         method: 'POST',
         body: JSON.stringify({
@@ -779,9 +798,17 @@ export default function AskBar({ devices }: Props) {
       setDraft(done)
       setText('')   // 다 만들었으니 입력칸을 비운다 — 다음 질문 자리다(지적)
       void keepChat(done.name, done, picked?.ip ?? '')
-      // AI 가 짚은 장비를 먼저 고르되, 없으면 첫 장비
-      const hit = usable.find((x) => x.ip === d.device_ip)
-      setDevId(hit?.id ?? usable[0]?.id ?? '')
+      /*
+       * 사람이 고른 장비를 **지킨다.**
+       *
+       * 여태는 다 만든 뒤 AI 가 짚은 IP 로 덮어썼다. 3대 중 둘째를 고르고
+       * 만들었는데 끝나고 보면 셋째로 바뀌어 있었다 — 기준은 고른 대에서
+       * 읽고 명령은 다른 대로 나간다. 안 골랐을 때만 AI 가 짚은 것을 쓴다.
+       */
+      if (!picked) {
+        const hit = usable.find((x) => x.ip === d.device_ip)
+        setDevId(hit?.id ?? usable[0]?.id ?? '')
+      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
       setFlowAt(0)
@@ -1700,7 +1727,9 @@ export default function AskBar({ devices }: Props) {
                               onDoubleClick={() => {
                                 setDevId(d.id)
                                 setPickDev(null)
-                                void findLike(text).then((n) => (n > 0 ? setLikeAsk(true) : ask()))
+                                void findLike(text, d).then((n) =>
+                                  n > 0 ? setLikeAsk(true) : ask(undefined, d),
+                                )
                               }}
                             >
                               {/* 장비명이 주인공 — 이름이 없으면 모델을 세운다.
@@ -1752,7 +1781,9 @@ export default function AskBar({ devices }: Props) {
                       ].filter((x) => x.v),
                     )
                     setPickDev(null)
-                    void findLike(text).then((n) => (n > 0 ? setLikeAsk(true) : ask()))
+                    void findLike(text, d2).then((n) =>
+                      n > 0 ? setLikeAsk(true) : ask(undefined, d2),
+                    )
                   }}
                 >
                   이 장비로 시험 만들기
