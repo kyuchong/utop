@@ -5841,3 +5841,26 @@ table.tb td.k {
 }
 .cyt-dhead p { margin: 4px 0 0; font-size: var(--fs-md); }
 .cyt-dhead-m { color: var(--c-text-muted); font-size: var(--fs-sm) !important; }
+
+/* 시험결과 요약 — 전체·수동·자동 세 판을 나란히(지시) */
+.cyt-d3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 900px) {
+  .cyt-d3 { grid-template-columns: 1fr; }
+}
+.cyt-dcell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding-right: 12px;
+  border-right: 1px solid var(--c-border-soft);
+}
+.cyt-d3 > .cyt-dcell:last-child { border-right: 0; padding-right: 0; }
+.cyt-dcell-h { display: flex; align-items: baseline; gap: 8px; }
+.cyt-dcell-h b { font-size: var(--fs-md); }
+.cyt-dpt .btn { margin-left: auto; }
+.cyt-dpt em + .btn { margin-left: 8px; }

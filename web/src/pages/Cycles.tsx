@@ -21,21 +21,16 @@ import FolderSortBtn from '@/components/FolderSortBtn'
 import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
 import type { FolderSortMode } from '@/types'
 import { sendWs } from '@/api/wsBus'
-import VRail, { RailSec } from '@/components/VRail'
-import { useRailSpy } from '@/components/useRailSpy'
 import {
   IconChevron,
   IconEdit,
   IconExecution,
   IconFolder,
-  IconMeter,
   IconPanel,
   IconPlay,
   IconReqDoc,
   IconSettings,
   IconSlide,
-  IconSparkle,
-  IconTcDoc,
   IconTag,
   IconTrash,
 } from '@/components/icons'
@@ -1888,18 +1883,34 @@ function CycleBoard({
   }, [resDefs])
 
   // 사이클별 집계는 한 번만 — 표·거름·정렬이 다 같이 쓴다
+  /** 목록에서 AI 요약 만들기 — 상세 화면과 같은 길이다 */
+  const [aiBusy, setAiBusy] = useState('')
+  const makeAi = async (cid: string) => {
+    setAiBusy(cid)
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cid)}/summarize`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
+      const j = (await r.json()) as { ok?: boolean; error?: string }
+      if (!j.ok) throw new Error(j.error || '요약을 만들지 못했습니다')
+      /* 만든 요약은 회차에 저장된다 — 목록을 다시 받아 그 자리에 편다 */
+      onRefresh()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setAiBusy('')
+    }
+  }
+
   const stats = useMemo(() => {
-    const m = new Map<
-      string,
-      { total: number; done: number; pass: number; fail: number; pct: number; iss: number }
-    >()
-    for (const c of cycles) {
-      const its = c.items ?? []
+    /** 한 묶음의 셈 — 전체·수동·자동이 같은 것을 쓴다 */
+    const tally = (arr: CycleItemLite[]) => {
       let done = 0
       let pass = 0
       let fail = 0
       let iss = 0
-      for (const it of its) {
+      for (const it of arr) {
         const v = itemVerdict(it)
         if (v) done += 1
         const g = groupOf(v)
@@ -1907,14 +1918,40 @@ function CycleBoard({
         else if (g === 'fail') fail += 1
         iss += it.issues?.length ?? 0
       }
-      m.set(c.id, {
-        total: its.length,
+      return {
+        total: arr.length,
         done,
         pass,
         fail,
         iss,
-        pct: its.length ? Math.round((done / its.length) * 100) : 0,
-      })
+        pct: arr.length ? Math.round((done / arr.length) * 100) : 0,
+      }
+    }
+    const m = new Map<
+      string,
+      {
+        total: number
+        done: number
+        pass: number
+        fail: number
+        pct: number
+        iss: number
+        /** 수동·자동으로 갈라 본 것 — 목록에서도 세 판을 보이려고(지시) */
+        manual: ReturnType<typeof tally>
+        auto: ReturnType<typeof tally>
+      }
+    >()
+    for (const c of cycles) {
+      const its = c.items ?? []
+      /* 수동·자동 가름 — 상세 화면과 같은 잣대(스텝의 kind·manual).
+         목록 응답의 lite 항목도 그 둘을 그대로 들고 온다. */
+      const isManual = (it: CycleItemLite) => {
+        const kd = kindOf(it.steps ?? [])
+        return !(kd === 'auto' || kd === 'mixed')
+      }
+      const man = its.filter(isManual)
+      const aut = its.filter((x) => !isManual(x))
+      m.set(c.id, { ...tally(its), manual: tally(man), auto: tally(aut) })
     }
     return m
   }, [cycles, groupOf])
@@ -2166,14 +2203,8 @@ function CycleBoard({
                     return (av < bv ? -1 : av > bv ? 1 : 0) * sortDir
                   })
               ).map((c) => {
-                const t = stats.get(c.id) ?? {
-                  total: 0,
-                  done: 0,
-                  pass: 0,
-                  fail: 0,
-                  pct: 0,
-                  iss: 0,
-                }
+                const zero = { total: 0, done: 0, pass: 0, fail: 0, pct: 0, iss: 0 }
+                const t = stats.get(c.id) ?? { ...zero, manual: zero, auto: zero }
                 const status =
                   t.total > 0 && t.done === t.total ? 'done' : t.done > 0 ? 'run' : 'idle'
                 const open = exp.has(c.id)
@@ -2400,31 +2431,51 @@ function CycleBoard({
                             </p>
                           </div>
                           <section className="cyt-dpanel cyt-dwide">
-                            <b className="cyt-dpt">전체 현황</b>
+                            <b className="cyt-dpt">시험결과 요약</b>
                             {t.total === 0 ? (
                               <span className="muted small">항목이 없습니다.</span>
                             ) : (
-                              <div className="cyt-dwrow">
-                                <div className="cyt-dsum">
-                                  <b>{Math.round((t.pass / t.total) * 100)}%</b>
-                                  <em>합격률</em>
-                                </div>
-                                <span className="cs-bar" aria-hidden="true">
-                                  <i className="cs-b pass" style={{ width: `${(t.pass / t.total) * 100}%` }} />
-                                  <i className="cs-b fail" style={{ width: `${(t.fail / t.total) * 100}%` }} />
-                                  <i
-                                    className="cs-b etc"
-                                    style={{ width: `${(Math.max(0, t.done - t.pass - t.fail) / t.total) * 100}%` }}
-                                  />
-                                  <i className="cs-b left" style={{ width: `${((t.total - t.done) / t.total) * 100}%` }} />
-                                </span>
-                                <div className="cyt-dlegend">
-                                  <span>항목 {t.total}</span>
-                                  <span><i className="cs-d pass" />합격 {t.pass}</span>
-                                  <span><i className="cs-d fail" />실패 {t.fail}</span>
-                                  <span><i className="cs-d left" />미실행 {Math.max(0, t.total - t.done)}</span>
-                                  {t.iss > 0 && <span>결함 {t.iss}</span>}
-                                </div>
+                              <div className="cyt-d3">
+                                {([
+                                  ['전체', t],
+                                  ['수동', t.manual],
+                                  ['자동', t.auto],
+                                ] as const).map(([lb, z]) => (
+                                  <div className="cyt-dcell" key={lb}>
+                                    <div className="cyt-dcell-h">
+                                      <b>{lb}</b>
+                                      <span className="muted small">
+                                        {z.total}건 · 실행 {z.done}
+                                      </span>
+                                    </div>
+                                    {z.total === 0 ? (
+                                      <span className="muted small">항목 없음</span>
+                                    ) : (
+                                      <>
+                                        <div className="cyt-dwrow">
+                                          <div className="cyt-dsum">
+                                            <b>{Math.round((z.pass / z.total) * 100)}%</b>
+                                            <em>합격률</em>
+                                          </div>
+                                          <span className="cs-bar" aria-hidden="true">
+                                            <i className="cs-b pass" style={{ width: `${(z.pass / z.total) * 100}%` }} />
+                                            <i className="cs-b fail" style={{ width: `${(z.fail / z.total) * 100}%` }} />
+                                            <i
+                                              className="cs-b etc"
+                                              style={{ width: `${(Math.max(0, z.done - z.pass - z.fail) / z.total) * 100}%` }}
+                                            />
+                                            <i className="cs-b left" style={{ width: `${((z.total - z.done) / z.total) * 100}%` }} />
+                                          </span>
+                                        </div>
+                                        <div className="cyt-dlegend">
+                                          <span><i className="cs-d pass" />합격 {z.pass}</span>
+                                          <span><i className="cs-d fail" />실패 {z.fail}</span>
+                                          <span><i className="cs-d left" />미실행 {Math.max(0, z.total - z.done)}</span>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </section>
@@ -2446,6 +2497,15 @@ function CycleBoard({
                               {c.ai_summary?.at ? (
                                 <em className="muted small">{String(c.ai_summary.at).slice(0, 16)}</em>
                               ) : null}
+                              <button
+                                className="btn small"
+                                type="button"
+                                disabled={aiBusy === c.id}
+                                title="이 회차의 결과를 LLM 이 읽고 한 장으로 간추립니다 (저장됩니다)"
+                                onClick={() => void makeAi(c.id)}
+                              >
+                                {aiBusy === c.id ? '만드는 중…' : c.ai_summary?.text ? '다시 만들기' : '✨ AI 요약'}
+                              </button>
                             </b>
                             {c.ai_summary?.text ? (
                               <div className="cyt-dai">
@@ -3076,16 +3136,9 @@ function CycleDetail({
     /* 이번 실행에 걸린 항목 — 목록에서 「대기」 를 그리는 데 쓴다.
        도는 것만 보이고 **다음에 무엇이 도는지** 안 보였다(지적). */
     setRunQ(new Set(idxs))
-    /* 전용 화면으로 튀지 않는다(되돌림). 실행은 **보던 자리에서 인라인**으로
-       본다 — 도는 줄이 펼쳐져 스텝이 차오르는 꼴이 이 앱이 원래 하려던 것이고,
-       사람이 보던 목록·거르개를 안 잃는다.
-       대신 도는 동안에는 **항목 칸만 편다** — 요약·AI 칸이 자리를 먹으면
-       레일을 오르내려야 해서 보기 힘들었다(지적). */
-    setSumOpen(false)
-    setAiOpen2(false)
-    setItemsOpen(true)
-    setSec('items')
-    requestAnimationFrame(() => goSec('items'))
+    /* 전용 화면으로 튀지 않는다. 실행은 **보던 자리에서 인라인**으로 본다 —
+       도는 줄이 펼쳐져 스텝이 차오르는 꼴이 이 앱이 원래 하려던 것이고,
+       사람이 보던 목록·거르개를 안 잃는다. */
     void run(idxs).then((err) => {
       if (err) window.alert(err)
     })
@@ -3167,16 +3220,6 @@ function CycleDetail({
   }, [])
   /** 시험결과 요약 바 — 완료 오른쪽 단추로 여닫는다. 상태 기억 */
   const [sumOpen, setSumOpen] = useState(() => localStorage.getItem('utop.cycle.sumopen') === '1')
-  /* 사이클 화면(실행 화면 아님)의 세로 레일 — 요구사항·시험항목과 같은 부품.
-     칸은 「시험결과 요약」·「항목」 둘. 누르면 그 칸으로 가고, 굴리면
-     레일 색이 따라온다. */
-  const railRef = useRef<HTMLDivElement>(null)
-  /* 요약을 펴 두는 사람은 요약부터 본다 — 열자마자 항목으로 건너뛰지 않게 */
-  const [sec, setSec] = useState(sumOpen ? 'sum' : 'items')
-  const [itemsOpen, setItemsOpen] = useState(true)
-  /** AI 요약 칸 접기 */
-  const [aiOpen2, setAiOpen2] = useState(true)
-  const goSec = useRailSpy(railRef, sec, setSec, true)
   useEffect(() => {
     localStorage.setItem('utop.cycle.sumopen', sumOpen ? '1' : '0')
   }, [sumOpen])
@@ -3196,65 +3239,8 @@ function CycleDetail({
   }, [st.on])
   /** AI 요약 — 팝업이 아니라 요약 바 안에 붙는다. 서버가 사이클에 저장해
       두므로(ai_summary) 다시 열어도 마지막 요약이 그대로 보인다 */
-  const [aiTxt, setAiTxt] = useState('')
-  /**
-   * AI 요약을 **펴 둘 것인가**.
-   *
-   * 42vh 를 먹어 정작 시험 항목 목록이 아래 한 뼘으로 밀렸다(지적). 기본은
-   * 접어 두고 — 몇 줄만 보인다 — 볼 사람만 편다. 고른 것은 기억한다.
-   */
-  /* 본문 접기(aiOpen)는 없앴다 — 칸(RailSec) 이 접기를 맡으면서 같은 일을
-     하는 것이 둘이 됐다(지적: 머리줄이 두 줄). */
-  const [aiAt, setAiAt] = useState('')
-  const [aiBusy, setAiBusy] = useState(false)
-  const [aiErr, setAiErr] = useState('')
-  useEffect(() => {
-    const saved = (fullQ.data as { ai_summary?: { text?: string; at?: string } } | undefined)
-      ?.ai_summary
-    if (saved?.text) {
-      setAiTxt(saved.text)
-      setAiAt(saved.at ?? '')
-    } else {
-      setAiTxt('')
-      setAiAt('')
-    }
-  }, [fullQ.data])
-  /** 분석 연출 — 단계 문구가 도는 동안 사람이 기다림을 읽는다 */
-  const AI_STAGES = [
-    '항목별 결과와 스텝 출력을 읽는 중…',
-    '전체·수동·자동 현황을 집계하는 중…',
-    'Fail 원인과 근거를 살피는 중…',
-    '분석 보고서를 작성하는 중…',
-  ]
-  const [aiStage, setAiStage] = useState(0)
-  useEffect(() => {
-    if (!aiBusy) {
-      setAiStage(0)
-      return
-    }
-    const t2 = window.setInterval(() => setAiStage((v2) => Math.min(v2 + 1, AI_STAGES.length - 1)), 2800)
-    return () => window.clearInterval(t2)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aiBusy])
-
-  const makeAi = async () => {
-    setAiBusy(true)
-    setAiErr('')
-    try {
-      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycle.id)}/summarize`, {
-        method: 'POST',
-        body: JSON.stringify({}),
-      })
-      const j = (await r.json()) as { ok?: boolean; error?: string; summary?: { text?: string; at?: string } }
-      if (!j.ok) throw new Error(j.error || '요약을 만들지 못했습니다')
-      setAiTxt(j.summary?.text ?? '')
-      setAiAt(j.summary?.at ?? '')
-    } catch (e) {
-      setAiErr(e instanceof Error ? e.message : String(e))
-    } finally {
-      setAiBusy(false)
-    }
-  }
+  /* AI 요약은 **목록에서** 만든다(지시) — 줄을 펴면 「AI 분석 결과」 칸에
+     만들기 단추가 있다. 실행 페이지에서는 걷어냈다. */
 
   /**
    * 트리 우클릭 메뉴가 시킨 일을 여기서 한다.
@@ -3798,180 +3784,8 @@ function CycleDetail({
       // 사이클 화면 — 왼쪽 세로 레일 + 한 줄기 스크롤(요구사항·시험항목과 같은
       // 부품). **실행 화면(RunPane)은 별개다** — 거기엔 레일을 얹지 않는다(지시).
       // 요약도 실행 중에 겹치지 않게 이 안으로 들어왔다.
-      <div className="cy-railb">
-        <VRail
-          ariaLabel="사이클 보기"
-          value={sec}
-          onPick={(k) => {
-            // 접힌 칸을 누르면 펴 준다 — 눌렀는데 이름표만 나오면 고장으로 읽힌다
-            if (k === 'sum') setSumOpen(true)
-            else if (k === 'ai') setAiOpen2(true)
-            else setItemsOpen(true)
-            setSec(k)
-            // 접힌 칸을 편 다음이라 자리가 바뀐다 — 그린 뒤에 옮긴다
-            requestAnimationFrame(() => goSec(k))
-          }}
-          items={[
-            { k: 'sum', label: '시험결과 요약', icon: <IconMeter />, n: 0 },
-            { k: 'ai', label: 'AI 요약', icon: <IconSparkle />, n: 0 },
-            { k: 'items', label: '시험 항목', icon: <IconTcDoc />, n: items.length },
-          ]}
-        />
-        <div className="railbox" ref={railRef}>
-          <RailSec
-            k="sum"
-            title="시험결과 요약"
-            open={sumOpen}
-            onToggle={() => setSumOpen((v) => !v)}
-          >
-        {sumOpen && (() => {
-          /* 시험결과 요약 — 전체·수동·자동 세 판. 판마다 큰 % + 색 막대,
-             바로 아래 결과·건수·비율 표(확정안). AI 요약은 머리 오른쪽 */
-          const segColor = (r: ResDef) =>
-            r.color ||
-            (r.group === 'pass' ? '#1D9E75' : r.group === 'fail' ? '#E24B4A' : r.v === '' ? '#d5dae2' : '#EF9F27')
-          const sect = (label: string, its: CycleItemLite[]) => {
-            const cnt = new Map<string, number>()
-            for (const x of its) {
-              const v2 = itemVerdict(x)
-              cnt.set(v2, (cnt.get(v2) ?? 0) + 1)
-            }
-            const d2 = its.filter((x) => itemVerdict(x) !== '').length
-            // 큰 숫자는 합격률 — Pass 계열(커스텀 포함) / 전체
-            const passVs = new Set(resDefs.filter((r) => r.group === 'pass').map((r) => r.v))
-            const passN = its.filter((x) => passVs.has(itemVerdict(x))).length
-            const pct2 = its.length ? Math.round((passN / its.length) * 100) : 0
-            const rows2 = resDefs.filter((r) => (cnt.get(r.v) ?? 0) > 0)
-            return (
-              <div className="cy-sum-sec" key={label}>
-                <div className="cy-sum-t">
-                  {label} · {its.length}건
-                  <em>실행 {d2}</em>
-                </div>
-                <div className="cy-sum-main">
-                  <b>{pct2}%</b>
-                  <i className="cy-sum-lbl">합격률</i>
-                  <span className="cy-sum-bar">
-                    {its.length === 0 ? (
-                      <b style={{ flexGrow: 1, background: 'var(--c-surface-alt)' }} />
-                    ) : (
-                      rows2.map((r) => (
-                        <b
-                          key={r.v || '_none'}
-                          style={{ flexGrow: cnt.get(r.v), background: segColor(r) }}
-                          title={`${r.label} ${cnt.get(r.v)}건`}
-                        />
-                      ))
-                    )}
-                  </span>
-                </div>
-                <table className="cy-sum-tbl">
-                  <tbody>
-                    <tr className="hd">
-                      <td>결과</td>
-                      <td>건수</td>
-                      <td>비율</td>
-                    </tr>
-                    {rows2.length === 0 ? (
-                      <tr>
-                        <td colSpan={3} className="muted">항목 없음</td>
-                      </tr>
-                    ) : (
-                      rows2.map((r) => (
-                        <tr key={r.v || '_none'}>
-                          <td>
-                            <s style={{ background: segColor(r) }} />
-                            {r.label}
-                          </td>
-                          <td>{cnt.get(r.v)}</td>
-                          <td>{Math.round(((cnt.get(r.v) ?? 0) / its.length) * 100)}%</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )
-          }
-          const manuals = items.filter((x) => typeOf(x) === 'manual')
-          const autos = items.filter((x) => typeOf(x) === 'auto')
-          return (
-            <div className="cy-sum3">
-              {/* 이름표(「시험결과 요약」)와 접기는 레일 칸(RailSec)이 맡는다 —
-                  여기에 또 두면 같은 말이 두 줄이 된다. AI 는 제 칸이 있다. */}
-              <div className="cy-sum-grid">
-                {sect('전체', items)}
-                {sect('수동', manuals)}
-                {sect('자동', autos)}
-              </div>
-              {/* 「자동 실행 중 N/M」 줄은 걷어냈다(지적: 진행 현황이 이곳저곳).
-                  도는 동안의 현황은 항목 칸 위 **진행판 한 곳**(cy-prog)이
-                  맡는다 — 거기에는 멈추는 단추도 있다. */}
-            </div>
-          )
-        })()}
-          </RailSec>
-          <RailSec
-            k="ai"
-            title="AI 요약"
-            right={aiAt ? String(aiAt).slice(0, 16) : undefined}
-            open={aiOpen2}
-            onToggle={() => setAiOpen2((v) => !v)}
-          >
-            {aiBusy || aiErr || aiTxt ? (
-                    <div className="cy-sum-ai">
-                      {/* 속의 머리줄(✨ AI 요약 · 시각)은 칸 이름표로 올라갔다 —
-                      같은 말이 두 줄이었다(지적). 접기도 칸이 맡는다. */}
-                  {aiBusy ? (
-                        <div className="cy-sum-ai-load">
-                          <span className="cy-spin" aria-hidden="true" />
-                          <div className="cy-sum-ai-sk">
-                            <b>
-                              『{cycle.name || cycle.cid || cycle.version || ''}』 사이클 실행 결과를 AI 가
-                              분석하고 있습니다
-                            </b>
-                            <span className="cy-sum-ai-stage">{AI_STAGES[aiStage]}</span>
-                            <i style={{ width: '92%' }} />
-                            <i style={{ width: '78%' }} />
-                            <i style={{ width: '85%' }} />
-                          </div>
-                        </div>
-                      ) : aiErr ? (
-                        <div className="cy-sum-ai-err">{aiErr}</div>
-                      ) : (
-                        <div className="cy-sum-ai-body">
-                          <Markdown text={aiTxt} />
-                          <div className="cy-sum-ai-note">
-                            AI 는 실수할 수 있습니다. 정보를 다시 한번 확인해 주세요.
-                          </div>
-                        </div>
-                      )}
-                    </div>
-            ) : (
-              /* 아직 안 만들었다 — 칸이 비어 있으면 여기서 뭘 하는지 모른다 */
-              <div className="cy-ai-empty">
-                <p className="muted small">
-                  이 회차의 실행 결과를 LLM 이 읽고 한 장으로 간추립니다. 만든 요약은
-                  회차에 저장돼, 다시 열어도 그대로 있습니다.
-                </p>
-                <button
-                  className="btn small primary"
-                  type="button"
-                  disabled={aiBusy}
-                  onClick={() => void makeAi()}
-                >
-                  ✨ AI 요약 만들기
-                </button>
-              </div>
-            )}
-          </RailSec>
-          <RailSec
-            k="items"
-            title="항목"
-            right={`${items.length}건`}
-            open={itemsOpen}
-            onToggle={() => setItemsOpen((v) => !v)}
-          >
+      // 실행 페이지 — 요약·AI 요약 칸은 걷어냈다(지시). 그 둘은 목록에서
+      // 줄을 펴면 보인다. 여기는 돌리고 결과를 보는 자리다.
         <div className="cy-cols" ref={colsRef}>
         {/* 2열 — 이 회차를 돌리고 결과를 보는 칸. 머리(제목·단추·통계·거르기)와
             표가 한 카드에 든다. */}
@@ -4808,9 +4622,6 @@ function CycleDetail({
           </section>
         </div>
         </div>
-          </RailSec>
-        </div>
-      </div>
       )}
 
       {defectFor && (
