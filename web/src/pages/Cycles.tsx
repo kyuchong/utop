@@ -3183,7 +3183,7 @@ function CycleDetail({
 
   const colsRef = useRef<HTMLDivElement>(null)
   /** 1열(항목 목록) 폭 — 끌어서 바꾼다. 다른 화면들과 같은 부품 */
-  const [sideW, setSideW] = useResizableWidth('utop.cycle.execSideW', 340, 220, 640)
+  const [sideW] = useResizableWidth('utop.cycle.execSideW', 340, 220, 640)
   const sideRef = useRef<HTMLElement | null>(null)
 
   /** 고른 항목의 시험 문서(Objective·Precondition) — TC 가 정본이라 그때 읽는다 */
@@ -3458,7 +3458,7 @@ function CycleDetail({
   }, [others])
 
   /** 오른쪽 위 한 줄이 읽는 셈 — 실행/합격/실패/그 밖 */
-  const { doneAll, donePass, doneFail, doneEtc } = useMemo(() => {
+  const { doneAll, donePass, doneFail } = useMemo(() => {
     let all = 0
     let pass = 0
     let fail = 0
@@ -3518,6 +3518,8 @@ function CycleDetail({
     }
     return m
   }, [reqQ2.data])
+  /** 수동만·자동만 보기(지시) — 목록 머리의 단추가 이 값을 바꾼다 */
+  const [fKind, setFKind] = useState<'' | 'manual' | 'auto'>('')
   /** 항목 목록을 무엇으로 묶나(지시) — 기본은 요구사항, 여태 하던 것 */
   const [grp, setGrp] = useState<string>(
     () => localStorage.getItem('utop.cycle.grp') || 'req',
@@ -3638,6 +3640,7 @@ function CycleDetail({
   const rows = useMemo(() => {
     const n = fq.trim().toLowerCase()
     const out = items.filter((it) => {
+      if (fKind && typeOf(it) !== fKind) return false
       if (onlyRegress && !isRegress(it)) return false
       if (fSet.size && !fSet.has(itemVerdict(it))) return false
       if (fAss && String(it.assignee ?? '').trim() !== fAss) return false
@@ -3661,7 +3664,7 @@ function CycleDetail({
       )
       .map((v) => v.x)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, fSet, onlyRegress, prevVerdict, fAss, fq, groupOfItem])
+  }, [items, fSet, onlyRegress, prevVerdict, fAss, fq, groupOfItem, fKind])
 
   /*
    * 실행 중에는 **도는 항목**을 따라간다.
@@ -4033,7 +4036,30 @@ function CycleDetail({
                 <option value="prio">우선순위</option>
                 <option value="folder">폴더</option>
               </select>
+              {/* 수동·자동만 보기(지시 ③④) — 누르면 아래 목록이 그 종류로 바뀐다 */}
+              <div className="cxp-kindsw" role="group" aria-label="시험 종류">
+                {([
+                  ['', '전체'],
+                  ['manual', '수동'],
+                  ['auto', '자동'],
+                ] as const).map(([k, lb]) => (
+                  <button
+                    key={k || 'all'}
+                    type="button"
+                    className={`cxp-kbtn${fKind === k ? ' on' : ''}`}
+                    onClick={() => setFKind(k)}
+                  >
+                    {lb}
+                  </button>
+                ))}
+              </div>
               <span className="sp" />
+              {/* 실시간 진행 — 한 줄로 짧게(지시 ⑤). 자세한 것은 도는 줄이 말한다 */}
+              <span className={`cxp-live${st.on ? ' on' : ''}`}>
+                {st.on
+                  ? `${Math.min(st.done + 1, st.total)}/${st.total} 도는 중`
+                  : `${doneAll}/${items.length} 실행 · 합격 ${donePass} · 실패 ${doneFail}`}
+              </span>
               {pick.size > 0 && <span className="muted small">{pick.size}개 선택</span>}
               {pick.size > 0 && !st.on && (
                 /* 고른 항목 전부에 같은 판정 — Pass 만이 아니라 아무 값이나 */
@@ -4390,34 +4416,12 @@ function CycleDetail({
               {rows.length === 0 && <div className="empty">해당하는 항목이 없습니다.</div>}
             </div>
           </aside>
-          <Resizer
-            onResize={setSideW}
-            getOrigin={() => sideRef.current?.getBoundingClientRect().left ?? 0}
-            label="항목 목록 폭"
-          />
+          {/* 폭 조절 손잡이는 걷었다(지시 ①) — 쓰는 일이 드물었고 왼쪽 끝에
+              가는 띠 하나가 늘 서 있어 화면이 어수선했다. */}
   
           <section className="cxp-main scroll">
-            {/* 오른쪽 맨 위 — **이 회차가 어디까지 왔나**를 한 줄로(지시).
-                아래는 고른 항목의 스텝별 결과다. 항목을 안 골랐어도 이 줄은
-                남는다 — 회차 상태를 보려고 항목을 고를 이유는 없다. */}
-            <div className="cxp-now">
-              <b className="cxp-now-t">
-                {[cycle.model, cycle.version || cycle.version_group].filter(Boolean).join(' · ') ||
-                  cycle.name ||
-                  cycle.id}
-              </b>
-              <span className="cxp-now-bar" aria-hidden="true">
-                <i className="pass" style={{ width: `${items.length ? (donePass / items.length) * 100 : 0}%` }} />
-                <i className="fail" style={{ width: `${items.length ? (doneFail / items.length) * 100 : 0}%` }} />
-                <i className="etc" style={{ width: `${items.length ? (doneEtc / items.length) * 100 : 0}%` }} />
-              </span>
-              <span className="cxp-now-n muted small">
-                {doneAll}/{items.length} 실행 · 합격 {donePass} · 실패 {doneFail}
-                {doneEtc ? ` · 그 밖 ${doneEtc}` : ''}
-              </span>
-              {/* 도는 중 표시는 진행판(cy-prog) 하나로 모았다 — 같은 화면에
-                  같은 말이 여러 군데면 어디를 봐야 할지 모른다(지적). */}
-            </div>
+            {/* 오른쪽 칸의 현황 줄·현황판은 걷었다(지시 ②) — 진행은 목록 머리
+                한 줄이 맡는다. 이 자리는 **고른 항목을 시험하는 자리**다. */}
             {cur ? (
               <>
                 <div className="cxp-h">
@@ -4535,97 +4539,7 @@ function CycleDetail({
                 />
               </>
             ) : (
-              /* 항목을 고르기 전 — 이 자리를 비워 두지 않는다(지시).
-                 회차가 지금 어디까지 왔는지가 여기서 답해진다. */
-              (() => {
-                const manual = items.filter((x) => typeOf(x) === 'manual')
-                const auto = items.filter((x) => typeOf(x) !== 'manual')
-                const doneOf = (arr: CycleItemLite[]) =>
-                  arr.filter((x) => itemVerdict(x) !== '').length
-                const cnt = new Map<string, number>()
-                for (const it of items) {
-                  const v = itemVerdict(it)
-                  cnt.set(v, (cnt.get(v) ?? 0) + 1)
-                }
-                const last = items
-                  .map((x) => String(x.executed_at ?? ''))
-                  .filter(Boolean)
-                  .sort()
-                  .pop()
-                const who = [
-                  ...new Set(
-                    items.map((x) => String(x.executed_by ?? '').trim()).filter(Boolean),
-                  ),
-                ]
-                const w = (n: number) => (items.length ? `${(n / items.length) * 100}%` : '0%')
-                return (
-                  <div className="cy-nowpane">
-                    <div className="cy-nowpane-top">
-                      <div className="cy-nowpane-big">
-                        <b>{items.length ? Math.round((donePass / items.length) * 100) : 0}%</b>
-                        <em>합격률</em>
-                      </div>
-                      <div className="cy-nowpane-bar">
-                        <span className="cs-bar" aria-hidden="true">
-                          <i className="cs-b pass" style={{ width: w(donePass) }} />
-                          <i className="cs-b fail" style={{ width: w(doneFail) }} />
-                          <i className="cs-b etc" style={{ width: w(doneEtc) }} />
-                          <i className="cs-b left" style={{ width: w(items.length - doneAll) }} />
-                        </span>
-                        <div className="cy-nowpane-leg">
-                          <span><i className="cs-d pass" />합격 {donePass}</span>
-                          <span><i className="cs-d fail" />실패 {doneFail}</span>
-                          <span><i className="cs-d etc" />그 밖 {doneEtc}</span>
-                          <span><i className="cs-d left" />미실행 {Math.max(0, items.length - doneAll)}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="cy-nowpane-grid">
-                      <div className="cy-nowpane-card">
-                        <b>수동</b>
-                        <span>
-                          {doneOf(manual)}/{manual.length} 실행
-                        </span>
-                      </div>
-                      <div className="cy-nowpane-card">
-                        <b>자동</b>
-                        <span>
-                          {doneOf(auto)}/{auto.length} 실행
-                        </span>
-                      </div>
-                      <div className="cy-nowpane-card">
-                        <b>남은 것</b>
-                        <span>{Math.max(0, items.length - doneAll)}건</span>
-                      </div>
-                    </div>
-
-                    {/* 판정별로 몇 건인가 — 설정에 등록된 결과값 차례 그대로 */}
-                    <div className="cy-nowpane-res">
-                      {resDefs
-                        .filter((r) => (cnt.get(r.v) ?? 0) > 0)
-                        .map((r) => (
-                          <span key={r.v} className={`cy-nowpane-chip g-${r.group || 'etc'}`}>
-                            {verdictLabel(r.v as Verdict)} <em>{cnt.get(r.v) ?? 0}</em>
-                          </span>
-                        ))}
-                      {(cnt.get('') ?? 0) > 0 && (
-                        <span className="cy-nowpane-chip g-none">
-                          미실행 <em>{cnt.get('') ?? 0}</em>
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="cy-nowpane-meta muted small">
-                      {last ? `마지막 실행 ${String(last).replace('T', ' ').slice(0, 16)}` : '아직 실행 기록이 없습니다'}
-                      {who.length ? ` · ${who.slice(0, 3).join(', ')}${who.length > 3 ? ` 외 ${who.length - 3}명` : ''}` : ''}
-                    </div>
-                    <div className="cy-nowpane-say muted small">
-                      왼쪽에서 항목을 고르면 여기서 그 항목을 시험합니다.
-                    </div>
-                  </div>
-                )
-              })()
+              <div className="empty">왼쪽에서 항목을 고르면 여기서 그 항목을 시험합니다.</div>
             )}
           </section>
         </div>

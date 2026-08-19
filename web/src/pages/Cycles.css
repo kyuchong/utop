@@ -5876,3 +5876,29 @@ table.tb td.k {
 }
 .cy-aimark svg { width: 14px; height: 14px; }
 .cyt-dpt .btn { display: inline-flex; align-items: center; }
+
+/* 목록 머리의 수동·자동 거르개(지시 ③④)와 실시간 진행 한 줄(지시 ⑤) */
+.cxp-kindsw {
+  display: inline-flex;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  overflow: hidden;
+  flex: none;
+}
+.cxp-kbtn {
+  border: 0;
+  background: transparent;
+  padding: 2px 10px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.cxp-kbtn + .cxp-kbtn { border-left: 1px solid var(--c-border-soft); }
+.cxp-kbtn.on { background: var(--c-primary); color: #fff; font-weight: 600; }
+.cxp-live {
+  flex: none;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  white-space: nowrap;
+}
+.cxp-live.on { color: var(--c-primary); font-weight: 700; }
