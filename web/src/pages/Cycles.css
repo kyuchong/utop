@@ -6266,3 +6266,20 @@ table.tb td.k {
 .cxp-row, .cxp-row.cxp-hd { min-height: 30px; padding-top: 4px; padding-bottom: 4px; }
 .cxp-main .fold-h, .cxp-main .cxp-h { min-height: 44px; }
 .cxp-side, .cxp-main { border-color: var(--c-border); }
+
+/* ── 진범: 2열 카드가 안쪽 여백 12/16 을 지고 있어 머리줄이 12px 아래에서
+   시작했고, 구분선도 카드 끝까지 닿지 않았다. 여백을 안쪽 것들에게
+   넘기고 머리줄만 1열과 같은 자리(44px·카드 끝까지)에 붙인다(지시). */
+.cxp-main { padding: 0; }
+.cxp-main > * { margin: 0 16px; }
+.cxp-main > .cxp-h {
+  margin: 0;
+  padding: 0 12px;
+  height: 44px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface);
+}
+.cxp-main > .cxp-h + * { margin-top: 12px; }
+.cxp-main > :last-child { margin-bottom: 12px; }
+.cxp-sh { height: 44px; min-height: 44px; padding: 0 10px; }
