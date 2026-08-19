@@ -1241,7 +1241,8 @@ export default function Cycles({ me }: PageProps) {
             떴다). 사이클을 열었으면 그 사이클을 보는 사람(아래 CycleDetail 이
             이 자리에 끼운다), 목록이면 이 화면에 있는 사람 전부. */}
         {cur ? (
-          <span className="cy-pbslot" id="cy-pbslot" />
+          // 회차를 열면 이 자리는 비운다 — 오른쪽 칸 카드가 그 몫을 한다(지시)
+          <span />
         ) : (
           <PresenceBar users={crowd} me={me?.name || me?.username || ''} />
         )}
@@ -4061,19 +4062,6 @@ function CycleDetail({
             <div className="cxp-sh">
               {/* 제안하신 그림 그대로 — 1행 이름표·건수·그룹·필터, 2행 찾기,
                   3행 걸린 필터 칩. 「방식(자동·수동)」 은 필터 쪽으로 갔다. */}
-              <label className="rq-selall" title="보이는 것 전부 고르기">
-                <input
-                  type="checkbox"
-                  checked={rows.length > 0 && pick.size === rows.length}
-                  ref={(el) => {
-                    if (el) el.indeterminate = pick.size > 0 && pick.size < rows.length
-                  }}
-                  disabled={!rows.length}
-                  onChange={() =>
-                    pick.size === rows.length ? sel.clear() : sel.set(rows.map((x) => items.indexOf(x)))
-                  }
-                />
-              </label>
               {/* 묶기 · 시험 유형 — 둘 다 드롭다운으로(지시). 단추 무리는
                   자리를 먹어 머리줄이 밀렸다. */}
               <select
@@ -4307,6 +4295,19 @@ function CycleDetail({
             )}
             {/* 2행 — 「시험 항목 n/N」 이 찾기칸 왼쪽에 선다(지시) */}
             <div className="cxp-tools">
+              <label className="rq-selall" title="보이는 것 전부 고르기">
+                <input
+                  type="checkbox"
+                  checked={rows.length > 0 && pick.size === rows.length}
+                  ref={(el) => {
+                    if (el) el.indeterminate = pick.size > 0 && pick.size < rows.length
+                  }}
+                  disabled={!rows.length}
+                  onChange={() =>
+                    pick.size === rows.length ? sel.clear() : sel.set(rows.map((x) => items.indexOf(x)))
+                  }
+                />
+              </label>
               <b className="cxp-cntlb">
                 시험 항목 <span className="cxp-cnt">{rows.length}/{items.length}</span>
               </b>

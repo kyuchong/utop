@@ -6100,3 +6100,14 @@ table.tb td.k {
   white-space: nowrap;
 }
 .cxp-cntlb .cxp-cnt { color: var(--c-text); font-weight: 700; }
+
+/* 그룹핑과 필터 무리를 가르는 선(지시 ④) */
+.cxp-div {
+  width: 1px;
+  height: 18px;
+  background: var(--c-border);
+  flex: none;
+  margin: 0 2px;
+}
+/* 고르기 체크박스는 2행(시험 항목 줄) 왼쪽으로 갔다(지시 ③→⑤) */
+.cxp-tools .rq-selall { flex: none; margin: 0; }
