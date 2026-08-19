@@ -5649,3 +5649,25 @@ table.tb td.k {
   font-weight: 700;
   color: var(--c-text-muted);
 }
+
+/* 명령 칸 — 설정 시험은 여러 줄이다. 한 줄 칸에 담으면 줄바꿈이 사라진다 */
+.ask-stepdet textarea.ask-detcli {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.6;
+  background: var(--c-surface);
+  color: var(--c-text);
+  resize: vertical;
+}
+.ask-stepdet textarea.ask-detcli:focus {
+  outline: none;
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px var(--c-primary-bg);
+}
+/* 목록 줄의 명령도 줄바꿈을 살린다 — 한 줄로 붙으면 무엇이 나가는지 못 읽는다 */
+.ask-sbody.mono { white-space: pre-line; }

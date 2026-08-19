@@ -1961,11 +1961,21 @@ export default function AskBar({ devices }: Props) {
                     ? s.desc || s.text || ''
                     : k === 'snmp_get' || k === 'snmp_set' || k === 'snmp_trap'
                       ? s.oid || ''
-                      : k === 'wait'
-                        ? `${s.waitSec ?? s.sec ?? 1}초`
-                        : k === 'diff'
-                          ? `${s.cmpLeft ?? ''} ${s.cmpOp || '=='} ${s.cmpRight ?? ''}`.trim()
-                          : s.cli || s.desc || ''
+                      : k === 'loop' || k === 'for'
+                        ? (() => {
+                            /* 「Loop」 만 있으면 몇 번 도는지 알 수 없다(지적) */
+                            const f = Number(s.from)
+                            const t = Number(s.to)
+                            if (Number.isFinite(f) && Number.isFinite(t))
+                              return `${t - f + 1}회 · ${s.var || 'i'} ${f}~${t}`
+                            const n = Number(s.loopCount)
+                            return Number.isFinite(n) && n > 0 ? `${n}회` : '몇 번 돌지 안 정함'
+                          })()
+                        : k === 'wait'
+                          ? `${s.waitSec ?? s.sec ?? 1}초`
+                          : k === 'diff'
+                            ? `${s.cmpLeft ?? ''} ${s.cmpOp || '=='} ${s.cmpRight ?? ''}`.trim()
+                            : s.cli || s.desc || ''
                   return (
                     <div
                       key={i}
@@ -2091,8 +2101,13 @@ export default function AskBar({ devices }: Props) {
                         {devName} 에 보낼 명령
                         <em className="muted small">고치면 그대로 나갑니다</em>
                       </span>
-                      <input
-                        className="mono"
+                      {/* 설정 명령은 `configure terminal` 부터 여러 줄이다.
+                          한 줄 칸(input)에 담으면 줄바꿈이 통째로 사라져,
+                          고치지 않아도 다음 저장 때 한 줄로 붙어 나간다
+                          (지적 사진: `configure terminalinterface …`). */}
+                      <textarea
+                        className="mono ask-detcli"
+                        rows={Math.min(8, Math.max(1, String(s.cli ?? '').split('\n').length))}
                         value={s.cli ?? ''}
                         onChange={(e) => setStep(i, { cli: e.target.value })}
                       />
