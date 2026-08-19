@@ -2229,7 +2229,13 @@ export default function TestCases({ me }: PageProps) {
               }}
             />
           )}
-
+          {/* 카드 바닥 상태 바 — 세 화면이 같은 자리에서 같은 말을 한다(지시) */}
+          <div className="bottom colbot">
+            <span>
+              폴더 {(catQ.data?.categories ?? []).length}개 · 시험 {tcs.length}건
+            </span>
+            {pickedTc.size > 0 && <span>{pickedTc.size}건 선택됨</span>}
+          </div>
         </section>
         )}
 

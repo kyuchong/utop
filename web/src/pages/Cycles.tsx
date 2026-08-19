@@ -1311,6 +1311,13 @@ export default function Cycles({ me }: PageProps) {
             <div className="empty">사이클이 없습니다.</div>
           )}
         </div>
+        {/* 카드 바닥 상태 바 — 세 화면이 같은 자리에서 같은 말을 한다(지시) */}
+        <div className="bottom colbot">
+          <span>
+            폴더 {freeFolders.length}개 · 사이클 {cycles.length}건
+          </span>
+          {scope && <span>{scopedCycles.length}건 · 이 폴더</span>}
+        </div>
       </section>
       )}
 
