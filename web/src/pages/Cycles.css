@@ -5913,3 +5913,6 @@ table.tb td.k {
   white-space: nowrap;
 }
 .cxp-live.on { color: var(--c-primary); font-weight: 700; }
+
+/* 되풀이 스텝 — 횟수와 변수 이름만 정한다(보낼 명령이 없다) */
+.ask-detloop { display: grid; grid-template-columns: 90px auto 1fr; gap: 8px; align-items: center; }

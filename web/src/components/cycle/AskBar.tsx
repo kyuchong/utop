@@ -2064,6 +2064,35 @@ export default function AskBar({ devices }: Props) {
                         onChange={(e) => setStep(i, { oid: e.target.value })}
                       />
                     </div>
+                  ) : s.kind === 'loop' || s.kind === 'for' ? (
+                    /* 되풀이 — 보낼 명령이 없다. 몇 번 도는지가 이 스텝의 전부인데
+                       CLI 칸이 떠서 횟수를 못 정했다(지적). */
+                    <div className="ask-detf">
+                      <span className="ask-detk">
+                        반복 횟수
+                        <em className="muted small">이 아래 들여쓴 스텝들을 되풀이합니다</em>
+                      </span>
+                      <div className="ask-detloop">
+                        <input
+                          type="number"
+                          min={1}
+                          value={Number.isFinite(Number(s.to)) && Number.isFinite(Number(s.from))
+                            ? Math.max(1, Number(s.to) - Number(s.from) + 1)
+                            : (s.loopCount ?? 1)}
+                          onChange={(e) => {
+                            const n = Math.max(1, Number(e.target.value) || 1)
+                            setStep(i, { from: 1, to: n, loopCount: n, var: s.var || 'i' })
+                          }}
+                        />
+                        <span className="muted small">회</span>
+                        <input
+                          className="mono"
+                          value={s.var ?? 'i'}
+                          title="반복 변수 — 명령 안에서 ${이름} 으로 씁니다"
+                          onChange={(e) => setStep(i, { var: e.target.value })}
+                        />
+                      </div>
+                    </div>
                   ) : s.kind === 'diff' ? (
                     /* 값 견주기 — 장비로 나가는 명령이 없다. 무엇과 무엇을
                        견주는지가 이 스텝의 전부다(Coverage 와 같은 값). */
