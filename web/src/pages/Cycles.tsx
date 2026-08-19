@@ -345,6 +345,17 @@ const CY_OPEN_KEY = 'utop.cycle.open'
 
 const NO_CAT = '(카탈로그에 없는 모델)'
 const NO_GROUP = '(버전그룹 없음)'
+/** 트리 맨 위 한 자리. 아래로 사업자 → 제품군 → 모델그룹 → 모델명 →
+    버전그룹 여섯 층이 선다(지시). 층이 정해져 있어야 두 사람이 같은 회차를
+    같은 자리에서 찾는다. */
+const ROOT = 'Root'
+const NO_CUST = '(사업자 없음)'
+const NO_MGROUP = '(모델그룹 없음)'
+/** 트리 열쇠에서 맨 위 한 자리를 뗀다 — 저장(KV)에는 Root 를 안 넣는다 */
+export function bareKey(key: string): string {
+  if (key === ROOT) return ''
+  return key.startsWith(ROOT + '/') ? key.slice(ROOT.length + 1) : key
+}
 
 /**
  * 트리를 세운다 — 모델그룹 · 모델은 **장비 카탈로그**가 주인.
@@ -359,13 +370,20 @@ const NO_GROUP = '(버전그룹 없음)'
  * 폴더 목록을 따로 받는다.
  */
 /** 사이클의 폴더 경로 — 제 것이 있으면 그것, 없으면 모델·버전그룹에서 */
-function pathOfCycle(c: CycleMeta, famOf: Map<string, string>): string {
+function pathOfCycle(
+  c: CycleMeta,
+  famOf: Map<string, string>,
+  mgroupOf: Map<string, string>,
+): string {
   const own = String(c.folder ?? '').trim().replace(/^\/+|\/+$/g, '')
-  if (own) return own
+  // 손으로 폴더를 정해 둔 회차는 그 자리를 지킨다 — Root 아래로만 들어온다
+  if (own) return `${ROOT}/${own}`
   const model = String(c.model ?? '').trim() || '(모델 없음)'
+  const cust = String(c.customer ?? '').trim() || NO_CUST
   const fam = famOf.has(model) ? famOf.get(model) || '(제품군 없음)' : NO_CAT
+  const mg = String(c.model_group ?? '').trim() || mgroupOf.get(model) || NO_MGROUP
   const vg = String(c.version_group ?? '').trim() || NO_GROUP
-  return `${fam}/${model}/${vg}`
+  return `${ROOT}/${cust}/${fam}/${mg}/${model}/${vg}`
 }
 
 /**
@@ -388,6 +406,7 @@ function build(
   cycles: CycleMeta[],
   freeFolders: string[],
   famOf: Map<string, string>,
+  mgroupOf: Map<string, string>,
   sortMode: FolderSortMode = 'kor',
 ): Node[] {
   interface T { node: Node; kids: Map<string, T> }
@@ -413,11 +432,14 @@ function build(
     return cur
   }
 
-  for (const path of freeFolders) if (path.trim()) ensure(path.trim())
+  // 맨 위 한 자리는 사이클이 없어도 늘 있다 — 트리가 통째로 비면 어디를
+  // 눌러야 할지 알 수 없다.
+  ensure(ROOT)
+  for (const path of freeFolders) if (path.trim()) ensure(`${ROOT}/${path.trim()}`)
   // 트리는 버전그룹(폴더)까지만 — 사이클은 잎이 아니라 폴더에 담긴다.
   // 오른쪽 표가 그 버전들을 그린다.
   for (const c of cycles) {
-    const t = ensure(pathOfCycle(c, famOf))
+    const t = ensure(pathOfCycle(c, famOf, mgroupOf))
     t.node.cycles = [...(t.node.cycles ?? []), c]
   }
 
@@ -665,8 +687,8 @@ export default function Cycles({ me }: PageProps) {
     [models],
   )
   const tree = useMemo(
-    () => build(shown, freeFolders, famOf, folderSort),
-    [shown, freeFolders, famOf, folderSort],
+    () => build(shown, freeFolders, famOf, mgroupOf, folderSort),
+    [shown, freeFolders, famOf, mgroupOf, folderSort],
   )
   const cur = cycles.find((c) => c.id === sel)
   /*
@@ -763,10 +785,24 @@ export default function Cycles({ me }: PageProps) {
   const scopedCycles = useMemo(() => {
     if (!scope) return cycles
     return cycles.filter((c) => {
-      const p2 = pathOfCycle(c, famOf)
+      const p2 = pathOfCycle(c, famOf, mgroupOf)
       return p2 === scope.key || p2.startsWith(scope.key + '/')
     })
-  }, [cycles, scope, famOf])
+  }, [cycles, scope, famOf, mgroupOf])
+
+  /** 고른 폴더가 회차를 **직접** 담고 있나 — 담고 있으면 버전그룹이다.
+      2열이 「버전 목록」이냐 「버전별 요약」이냐를 이걸로 가른다(지시). */
+  const scopeHasCycles = useMemo(() => {
+    if (!scope) return false
+    const walk = (ns: Node[]): boolean => {
+      for (const n of ns) {
+        if (n.key === scope.key) return (n.cycles?.length ?? 0) > 0
+        if (scope.key.startsWith(n.key + '/') && walk(n.children)) return true
+      }
+      return false
+    }
+    return walk(tree)
+  }, [scope, tree])
 
   // 새로고침 복원 — 저장해 둔 폴더(scope)로 돌아온다. 한 번만 시도한다
   const scopeRestored = useRef(false)
@@ -842,14 +878,16 @@ export default function Cycles({ me }: PageProps) {
       window.alert('폴더 이름에는 / 를 쓸 수 없습니다')
       return
     }
-    const path = parent ? `${parent}/${name}` : name
-    if (path.split('/').length > 6) {
-      window.alert('폴더는 6층까지만 됩니다')
+    // 열쇠는 Root 아래로, 저장(KV)은 Root 를 뗀 경로로
+    const path = parent ? `${parent}/${name}` : `${ROOT}/${name}`
+    const stored = bareKey(path)
+    if (stored.split('/').length > 6) {
+      window.alert('폴더는 (Root 아래로) 6층까지만 됩니다')
       return
     }
     setAddingTo(undefined)
     setDraftName('')
-    await saveFolders([...freeFolders, path])
+    await saveFolders([...freeFolders, stored])
     if (parent) setOpen((x) => new Set(x).add(parent))
   }
 
@@ -860,8 +898,10 @@ export default function Cycles({ me }: PageProps) {
     if (!name || name === n.label || name.includes('/')) return
     const parts = n.key.split('/')
     const next = [...parts.slice(0, -1), name].join('/')
+    const from = bareKey(n.key)
+    const to = bareKey(next)
     const moved = freeFolders.map((p) =>
-      p === n.key || p.startsWith(n.key + '/') ? next + p.slice(n.key.length) : p,
+      p === from || p.startsWith(from + '/') ? to + p.slice(from.length) : p,
     )
     // 이 폴더 밑 사이클들도 새 경로를 갖는다 — 통째로 읽어 통째로 저장
     // (요약본 되저장은 실행 결과를 지운다)
@@ -869,10 +909,14 @@ export default function Cycles({ me }: PageProps) {
       const r = await apiFetch(`/api/cycle/${encodeURIComponent(c.id)}`)
       if (!r.ok) continue
       const full = (await r.json()) as Record<string, unknown>
-      const eff = pathOfCycle(c, famOf)
+      const eff = pathOfCycle(c, famOf, mgroupOf)
       await apiFetch(`/api/cycle/${encodeURIComponent(c.id)}`, {
         method: 'POST',
-        body: JSON.stringify({ ...full, id: c.id, folder: next + eff.slice(n.key.length) }),
+        body: JSON.stringify({
+          ...full,
+          id: c.id,
+          folder: bareKey(next + eff.slice(n.key.length)),
+        }),
       })
     }
     await Promise.all([saveFolders(moved), listQ.refetch()])
@@ -885,7 +929,8 @@ export default function Cycles({ me }: PageProps) {
       return
     }
     if (!window.confirm(`「${n.label}」 폴더를 지웁니다.` + (n.children.length ? '\n하위 폴더도 함께 사라집니다.' : ''))) return
-    await saveFolders(freeFolders.filter((p) => p !== n.key && !p.startsWith(n.key + '/')))
+    const gone = bareKey(n.key)
+    await saveFolders(freeFolders.filter((p) => p !== gone && !p.startsWith(gone + '/')))
   }
 
   const deleteFolderCycles = async (n: Node) => {
@@ -1050,7 +1095,7 @@ export default function Cycles({ me }: PageProps) {
 
   /** 빵부스러기 — 트리 경로 그대로. 조각을 누르면 그 폴더 보드로 간다 */
   const crumbs = useMemo(() => {
-    const path = cur ? pathOfCycle(cur, famOf) : scope ? scope.key : ''
+    const path = cur ? pathOfCycle(cur, famOf, mgroupOf) : scope ? scope.key : ''
     const parts = path.split('/').filter(Boolean)
     return parts.map((label, i) => ({ label, key: parts.slice(0, i + 1).join('/') }))
   }, [cur, scope, famOf])
@@ -1103,7 +1148,7 @@ export default function Cycles({ me }: PageProps) {
                사이클 ID › 제목. 제품군은 카탈로그에 생기면 앞에 붙인다 */
             <>
               {(() => {
-                const segs = pathOfCycle(cur, famOf).split('/').filter(Boolean)
+                const segs = pathOfCycle(cur, famOf, mgroupOf).split('/').filter(Boolean)
                 return [
                   vendorOf.get(cur.model ?? '') ?? '',
                   famOf.get(cur.model ?? '') ?? '',
@@ -1462,6 +1507,15 @@ export default function Cycles({ me }: PageProps) {
             family={famOf.get(cur.model ?? '') ?? ''}
             mgroup={(cur.model_group ?? '').trim() || (mgroupOf.get(cur.model ?? '') ?? '')}
           />
+        ) : scope && !scopeHasCycles ? (
+          /* 폴더(Root·사업자·제품군·모델그룹·모델명)를 골랐다 — 2열은
+             **버전별 결과 요약**이다(지시). 회차를 직접 담은 폴더
+             (버전그룹)만 아래 목록으로 간다. */
+          <CycleFolderSummary
+            title={scope.label}
+            cycles={scopedCycles}
+            onOpen={(id) => setSel(id)}
+          />
         ) : (
           <CycleBoard
             cycles={scopedCycles}
@@ -1518,6 +1572,158 @@ const IT_COLS: Array<{ k: string; label: string; w: string }> = [
   { k: 'updated', label: '변경일', w: '74px' },
   { k: 'status', label: '상태', w: '52px' },
 ]
+
+/**
+ * 폴더 요약 — **버전별 시험 결과 현황**(지시).
+ *
+ * 1열에서 폴더(Root·사업자·제품군·모델그룹·모델명)를 누르면 2열이 이걸로
+ * 바뀐다. 회차 목록을 그대로 보여 주던 자리다 — 폴더에서는 「어느 버전이
+ * 어디까지 됐나」 가 먼저고, 회차 한 줄 한 줄은 버전그룹에서 본다.
+ *
+ * Reports 화면이 하던 일을 여기로 들인다. 결과를 보러 다른 화면으로
+ * 건너갔다가 다시 돌아오는 왕복이 없어진다.
+ */
+function CycleFolderSummary({
+  title,
+  cycles,
+  onOpen,
+}: {
+  title: string
+  cycles: CycleMeta[]
+  onOpen: (id: string) => void
+}) {
+  const resDefs = useResults()
+  const groupOf = useMemo(() => {
+    const m = new Map(resDefs.map((r) => [r.v, r.group]))
+    return (v: string) => m.get(v) ?? ''
+  }, [resDefs])
+
+  /** 회차 한 건의 셈 — 표 줄과 위 집계가 같은 값을 쓴다 */
+  const rows = useMemo(() => {
+    return cycles
+      .map((c) => {
+        const its = c.items ?? []
+        let pass = 0
+        let fail = 0
+        let done = 0
+        for (const it of its) {
+          const v = itemVerdict(it)
+          if (v) done += 1
+          const g = groupOf(v)
+          if (g === 'pass') pass += 1
+          else if (g === 'fail') fail += 1
+        }
+        const total = its.length
+        return {
+          c,
+          total,
+          done,
+          pass,
+          fail,
+          etc: Math.max(0, done - pass - fail),
+          left: Math.max(0, total - done),
+          pct: total ? Math.round((pass / total) * 100) : 0,
+        }
+      })
+      .sort((a, b) =>
+        String(b.c._updated_at_pg ?? '').localeCompare(String(a.c._updated_at_pg ?? '')),
+      )
+  }, [cycles, groupOf])
+
+  const all = useMemo(() => {
+    const z = { total: 0, done: 0, pass: 0, fail: 0, etc: 0, left: 0 }
+    for (const r of rows) {
+      z.total += r.total
+      z.done += r.done
+      z.pass += r.pass
+      z.fail += r.fail
+      z.etc += r.etc
+      z.left += r.left
+    }
+    return { ...z, pct: z.total ? Math.round((z.pass / z.total) * 100) : 0 }
+  }, [rows])
+
+  /** 색 막대 한 줄 — 합격·실패·그 밖·미실행 */
+  const bar = (r: { total: number; pass: number; fail: number; etc: number; left: number }) => {
+    const w = (n: number) => (r.total ? `${(n / r.total) * 100}%` : '0%')
+    return (
+      <span className="cs-bar" aria-hidden="true">
+        <i className="cs-b pass" style={{ width: w(r.pass) }} />
+        <i className="cs-b fail" style={{ width: w(r.fail) }} />
+        <i className="cs-b etc" style={{ width: w(r.etc) }} />
+        <i className="cs-b left" style={{ width: w(r.left) }} />
+      </span>
+    )
+  }
+
+  return (
+    <div className="cs scroll">
+      <div className="cs-hd">
+        <b className="cs-t">{title}</b>
+        <span className="muted small">회차 {rows.length}건 · 항목 {all.total}건</span>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="empty">이 폴더에는 아직 회차가 없습니다.</div>
+      ) : (
+        <>
+          {/* 이 폴더 전체 — 큰 숫자 하나와 막대 하나. 먼저 답할 것은
+              「여기까지 얼마나 됐나」 다. */}
+          <section className="cs-top">
+            <div className="cs-big">
+              <b>{all.pct}%</b>
+              <em>합격률</em>
+            </div>
+            <div className="cs-topbar">
+              {bar(all)}
+              <div className="cs-legend">
+                <span><i className="cs-d pass" />합격 {all.pass}</span>
+                <span><i className="cs-d fail" />실패 {all.fail}</span>
+                <span><i className="cs-d etc" />그 밖 {all.etc}</span>
+                <span><i className="cs-d left" />미실행 {all.left}</span>
+              </div>
+            </div>
+          </section>
+
+          {/* 버전별 — 한 줄이 회차 하나다. 누르면 그 회차로 들어간다 */}
+          <div className="cs-tbl">
+            <div className="cs-row cs-th">
+              <div>버전</div>
+              <div>모델 · 버전그룹</div>
+              <div>항목</div>
+              <div>진행</div>
+              <div>합격률</div>
+              <div>상태</div>
+              <div>담당</div>
+            </div>
+            {rows.map((r) => (
+              <button
+                type="button"
+                key={r.c.id}
+                className="cs-row cs-c"
+                title="이 회차를 엽니다"
+                onClick={() => onOpen(r.c.id)}
+              >
+                <div className="cs-nm">{r.c.version || r.c.name || r.c.cid || r.c.id}</div>
+                <div className="muted">
+                  {[r.c.model, r.c.version_group].filter(Boolean).join(' · ') || '–'}
+                </div>
+                <div className="muted">{r.total}</div>
+                <div className="cs-prog">
+                  {bar(r)}
+                  <em>{r.total ? Math.round((r.done / r.total) * 100) : 0}%</em>
+                </div>
+                <div className="cs-pct">{r.pct}%</div>
+                <div className="muted">{r.c.status || '–'}</div>
+                <div className="muted">{r.c.assignee || '–'}</div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 function CycleBoard({
   cycles,
@@ -1959,8 +2165,8 @@ function CycleBoard({
                 })
               if (listSort === 'recent')
                 return String(b._updated_at_pg ?? '').localeCompare(String(a._updated_at_pg ?? ''))
-              const pa = pathOfCycle(a, famOf)
-              const pb = pathOfCycle(b, famOf)
+              const pa = pathOfCycle(a, famOf, mgroupOf)
+              const pb = pathOfCycle(b, famOf, mgroupOf)
               return (
                 pa.localeCompare(pb, 'ko', { numeric: true }) ||
                 (a.version ?? '').localeCompare(b.version ?? '', 'ko', { numeric: true })

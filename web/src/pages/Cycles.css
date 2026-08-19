@@ -4816,3 +4816,98 @@ table.tb td.k {
   overflow: hidden;
   padding: 8px;
 }
+
+/* ── 폴더 요약 — 버전별 시험 결과 현황 ─────────────────────────
+   1열에서 폴더를 누르면 2열이 이걸로 바뀐다. Reports 화면이 하던 일을
+   여기로 들였다 — 결과를 보러 다른 화면으로 건너갔다 오지 않게. */
+.cs {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 14px;
+}
+.cs-hd {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 10px;
+}
+.cs-t { font-size: var(--fs-lg); }
+
+/* 이 폴더 전체 */
+.cs-top {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 8px;
+  background: var(--c-surface);
+  margin-bottom: 12px;
+}
+.cs-big { text-align: center; flex: none; }
+.cs-big b { display: block; font-size: 30px; line-height: 1.1; color: var(--c-text); }
+.cs-big em { font-style: normal; font-size: var(--fs-sm); color: var(--c-text-faint); }
+.cs-topbar { flex: 1; min-width: 0; }
+.cs-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+.cs-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.cs-d { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+
+/* 색 막대 — 합격·실패·그 밖·미실행. 판정색은 통일 규칙 그대로 쓴다 */
+.cs-bar {
+  display: flex;
+  height: 8px;
+  width: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--c-surface-alt);
+}
+.cs-b { display: block; height: 100%; }
+.cs-b.pass, .cs-d.pass { background: var(--c-pass); }
+.cs-b.fail, .cs-d.fail { background: var(--c-fail); }
+.cs-b.etc, .cs-d.etc { background: var(--c-draft); }
+.cs-b.left, .cs-d.left { background: var(--c-border); }
+
+/* 버전별 표 — 목록 글자 한 벌을 따른다(theme.css 맨 아래) */
+.cs-tbl {
+  border: 1px solid var(--c-border-soft);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--c-surface);
+}
+.cs-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.2fr) minmax(120px, 1.4fr) 56px minmax(120px, 1fr) 64px 80px 80px;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  padding: 4px 12px;
+  min-height: 32px;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: transparent;
+  font: inherit;
+  color: var(--c-text);
+}
+.cs-row:last-child { border-bottom: 0; }
+.cs-th {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--c-text-muted);
+  background: var(--c-surface-alt);
+}
+.cs-c { cursor: pointer; }
+.cs-c:hover { background: var(--c-primary-bg-soft); }
+.cs-nm { color: var(--c-primary); font-size: 13px; }
+.cs-row .muted { font-size: 12px; color: var(--c-text-faint); }
+.cs-prog { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cs-prog em { font-style: normal; font-size: 12px; color: var(--c-text-faint); flex: none; }
+.cs-pct { font-size: 13px; }
