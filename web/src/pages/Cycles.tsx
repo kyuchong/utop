@@ -4076,6 +4076,53 @@ function CycleDetail({
                 <option value="prio">우선순위</option>
                 <option value="folder">폴더</option>
               </select>
+              <select
+                className="cy-v cxp-grpsel"
+                value={fKind}
+                title="Type — 자동·수동"
+                onChange={(e) => setFKind(e.target.value as '' | 'manual' | 'auto')}
+              >
+                <option value="">Type 전체</option>
+                <option value="auto">자동</option>
+                <option value="manual">수동</option>
+              </select>
+              <span className="cxp-div" aria-hidden="true" />
+              {(() => {
+                const fCnt = fSet.size + (onlyRegress ? 1 : 0)
+                return (
+                  <button
+                    className={`btn small cxp-funnel${fCnt ? ' cxp-fon' : ''}`}
+                    type="button"
+                    title="결과 필터 — 전체 · Pass · Fail · 미실행 · 회귀"
+                    onClick={(e) => {
+                      const r2 = e.currentTarget.getBoundingClientRect()
+                      setFiltAt((v2) => (v2 ? null : { x: r2.right, y: r2.bottom + 4 }))
+                    }}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
+                        fill={fCnt ? 'currentColor' : 'none'}
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    {fCnt > 0 && <em className="cxp-fbadge">{fCnt}</em>}
+                  </button>
+                )
+              })()}
+              <button
+                className={`btn small${fAss ? ' cxp-fon' : ''}`}
+                type="button"
+                title="항목 추가 · 내 것만"
+                onClick={(e) => {
+                  const r2 = e.currentTarget.getBoundingClientRect()
+                  setSideMenu((v2) => (v2 ? null : { x: r2.right, y: r2.bottom + 4 }))
+                }}
+              >
+                ⋯
+              </button>
               {/* 내 것만 — 아이콘 하나로 켜고 끈다(지시) */}
               <button
                 type="button"
@@ -4136,42 +4183,6 @@ function CycleDetail({
                   ))}
                 </select>
               )}
-              {(() => {
-                const fCnt = fSet.size + (onlyRegress ? 1 : 0)
-                return (
-                  <button
-                    className={`btn small cxp-funnel${fCnt ? ' cxp-fon' : ''}`}
-                    type="button"
-                    title="결과 필터 — 전체 · Pass · Fail · 미실행 · 회귀"
-                    onClick={(e) => {
-                      const r2 = e.currentTarget.getBoundingClientRect()
-                      setFiltAt((v2) => (v2 ? null : { x: r2.right, y: r2.bottom + 4 }))
-                    }}
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
-                        fill={fCnt ? 'currentColor' : 'none'}
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    {fCnt > 0 && <em className="cxp-fbadge">{fCnt}</em>}
-                  </button>
-                )
-              })()}
-              <button
-                className={`btn small${fAss ? ' cxp-fon' : ''}`}
-                type="button"
-                title="항목 추가 · 내 것만"
-                onClick={(e) => {
-                  const r2 = e.currentTarget.getBoundingClientRect()
-                  setSideMenu((v2) => (v2 ? null : { x: r2.right, y: r2.bottom + 4 }))
-                }}
-              >
-                ⋯
-              </button>
             </div>
             {/* 찾기 + 내 것만 — Zephyr 왼쪽 목록의 도구 그대로 */}
             {sideMenu && (
