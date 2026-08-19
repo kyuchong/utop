@@ -2386,11 +2386,6 @@ table.tb tr.r-bad td:first-child {
   overflow: visible;
   white-space: nowrap;
 }
-.tc-dethead > .seg {
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-}
 .tc-seqhead .sp,
 .tc-dethead .sp { margin-left: auto; }
 
@@ -2422,7 +2417,6 @@ table.tb tr.r-bad td:first-child {
   white-space: nowrap;
 }
 .tc-seqhead b { font-size: var(--fs-md); }
-.tc-dethead .seg { flex: 0 1 auto; min-width: 0; }
 .tc-dethead .btn { flex: none; }
 
 /* ── 오른쪽은 늘 한 칸 ──
@@ -2900,21 +2894,6 @@ table.tb tr.r-bad td:first-child {
 .tc-exp:hover .rt-caret { color: var(--c-primary); }
 
 /* List 도구줄의 ⋯ 이 오른끝(3번 자리)으로 가게 */
-/* 상단 가로 탭의 수 배지 — 세로 레일(tc-rtn)의 후임 */
-.tc-htn {
-  font-style: normal;
-  font-size: 10px;
-  font-weight: 700;
-  margin-left: 4px;
-  padding: 0 4px;
-  border-radius: 999px;
-  background: rgb(255 255 255 / 0.25);
-}
-.seg-btn:not(.on) .tc-htn {
-  background: var(--c-surface-alt);
-  color: var(--c-text-faint);
-}
-
 .tc-listhead .rq-actions { width: 100%; }
 .tc-listhead .rq-actions .sp { flex: 1; }
 /* 도구줄 단추 — 사이클·요구사항과 같은 반 발짝 작게(26px).
@@ -2937,84 +2916,7 @@ table.tb tr.r-bad td:first-child {
   display: flex;
 }
 .tc-railbody > * { flex: 1; min-width: 0; min-height: 0; }
-.tc-rail {
-  flex: none;
-  width: 46px;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 9px;
-  padding: 10px 4px;
-  border-right: 1px solid var(--c-border-soft);
-  background: linear-gradient(180deg, #f7f9fc, #f2f5f9);
-  /* 말풍선이 레일 밖(내용 위)으로 나온다 */
-  overflow: visible;
-  z-index: 3;
-}
-.tc-rt {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  border: 0;
-  border-radius: 9px;
-  background: transparent;
-  color: #5b6572;
-  padding: 6px 0 5px;
-  cursor: pointer;
-}
-.tc-rt:hover { background: #e8eef7; color: var(--c-primary); }
-.tc-rt.on {
-  background: var(--c-primary);
-  color: #fff;
-  box-shadow: 0 2px 6px rgb(37 99 235 / 0.35);
-}
-.tc-rt svg { width: 17px; height: 17px; }
-/* 개수 — 아이콘 아래 숫자 */
-.tc-rtn {
-  font-style: normal;
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
-  color: #5b6572;
-  background: #dfe6ef;
-  border-radius: 999px;
-  padding: 2px 6px;
-}
-.tc-rt.on .tc-rtn { background: rgb(255 255 255 / 0.28); color: #fff; }
-/* 글자는 올렸을 때만 — 오른쪽 말풍선 */
-.tc-rtl {
-  position: absolute;
-  /* 왼쪽에 두면 표 모서리(overflow) 에 잘려 숨는다 — 오른쪽이 안전하다 */
-  left: calc(100% + 8px);
-  top: 50%;
-  transform: translateY(-50%);
-  background: #1b202b;
-  color: #eaf2f5;
-  font-size: 11.5px;
-  font-weight: 700;
-  border-radius: 6px;
-  padding: 3px 9px;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.1s;
-  z-index: 5;
-}
-.tc-rt:hover .tc-rtl { opacity: 1; }
-.tc-rail .sp { flex: 1; }
-.tc-rail-save { width: 100%; }
-.tc-rail-save:disabled { color: #a7b0bd; cursor: default; }
-.tc-rail-save.dirty {
-  background: var(--c-primary);
-  color: #fff;
-  box-shadow: 0 2px 6px rgb(37 99 235 / 0.35);
-}
-.tc-rail-save.dirty:hover { background: var(--c-primary); color: #fff; }
-
-/* 인라인 몸통: 레일 + 내용 옆으로 */
-.tc-inline-body { display: flex; }
+/* 레일 자체의 생김새는 공용 부품(VRail.css) 한 곳에 있다. */
 
 /* 탭 내용의 바깥 카드 제거 — 안의 기본/추가 항목/기록 카드와 겹으로
    보였다. 레일 오른쪽은 바로 내용이다. (Automation 의 tc-inner 는

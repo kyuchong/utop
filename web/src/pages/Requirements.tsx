@@ -26,6 +26,8 @@ import NewProjectDialog from '@/components/NewProjectDialog'
 import FolderSortBtn from '@/components/FolderSortBtn'
 import { useInfoCols } from '@/components/useInfoCols'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
+import VRail, { RailSec } from '@/components/VRail'
+import { useRailSpy } from '@/components/useRailSpy'
 import ReqDetail from '@/components/ReqDetail'
 import {
   reqLabel,
@@ -162,6 +164,19 @@ export default function Requirements({ me }: Props) {
 
   // 패널 폭은 사람마다 선호가 다르다. 드래그로 맞추고 브라우저에 기억시킨다.
   const splitRef = useRef<HTMLDivElement>(null)
+  /* 세부는 탭이 아니라 한 줄기 스크롤이다 — 레일과 서로를 따라간다 */
+  const railRef = useRef<HTMLDivElement>(null)
+  /* 접어 둔 칸. 기본은 다 펴 둔다 — 접어도 이름표 줄은 남아 레일이 짚는다 */
+  const [shut, setShut] = useState<Set<string>>(new Set())
+  const toggleSec = (k: string) =>
+    setShut((v) => {
+      const n = new Set(v)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      return n
+    })
+  /* 레일 ↔ 한 줄기 스크롤 묶기. 누르면 가고, 굴리면 레일이 따라온다 */
+  useRailSpy(railRef, tab, (k) => setTab(k as typeof tab), true)
   const [catW, setCatW] = useResizableWidth('utop.req.catW5', 210, 150, 900)
   // 2열 폭 조절은 3열과 함께 은퇴했다 — 2열이 남은 폭을 다 갖는다(레일 개편)
 
@@ -1028,39 +1043,58 @@ export default function Requirements({ me }: Props) {
                   또 한 칸으로 갈려 내용 칸이 좁아졌다 — 왼쪽에 세우고 오른쪽
                   전부를 내용에 준다. */}
               <div className="rq-rail-b">
-                <nav className="rq-vtabs" role="tablist" aria-label="요구사항 보기">
-                  {TABS.map(([k, label, hint]) => (
-                    <button
-                      key={k}
-                      role="tab"
-                      aria-selected={tab === k}
-                      className={`rq-vtab${tab === k ? ' on' : ''}`}
-                      type="button"
-                      title={hint}
-                      onClick={() => setTab(k)}
-                    >
-                      <i aria-hidden="true">
-                        {k === 'info' ? (
-                          <IconReqDoc />
-                        ) : k === 'detail' ? (
-                          <IconSparkle />
-                        ) : k === 'tc' ? (
-                          <IconTcDoc />
-                        ) : k === 'runs' ? (
-                          <IconExecution />
-                        ) : (
-                          <IconCycle />
-                        )}
-                      </i>
-                      <span>{label}</span>
-                      {k === 'tc' && linked.length > 0 && <em>{linked.length}</em>}
-                    </button>
-                  ))}
-                </nav>
-                <div className="rq-rail-c">
-              {tab !== 'tc' ? (
-                <ReqDetail req={selectedReq} tcs={linked} tab={tab} />
-              ) : (
+                {/* 사진(SquashTM) 꼴 — 아이콘만 남는 48px 레일.
+                    부품(VRail)은 세 화면이 같이 쓴다. 이름은 올렸을 때
+                    말풍선으로, 개수는 아이콘 아래 숫자로 나온다. */}
+                <VRail
+                  ariaLabel="요구사항 보기"
+                  value={tab}
+                  onPick={(k) => {
+                    /* 접혀 있으면 펴 준다 — 눌렀는데 이름표만 나오면 고장으로 읽힌다 */
+                    setShut((v) => {
+                      if (!v.has(k)) return v
+                      const n = new Set(v)
+                      n.delete(k)
+                      return n
+                    })
+                    setTab(k as typeof tab)
+                  }}
+                  items={TABS.map(([k, label, hint]) => ({
+                    k,
+                    label,
+                    hint,
+                    n: k === 'tc' ? linked.length : 0,
+                    icon:
+                      k === 'info' ? (
+                        <IconReqDoc />
+                      ) : k === 'detail' ? (
+                        <IconSparkle />
+                      ) : k === 'tc' ? (
+                        <IconTcDoc />
+                      ) : k === 'runs' ? (
+                        <IconExecution />
+                      ) : (
+                        <IconCycle />
+                      ),
+                  }))}
+                />
+                <div className="rq-rail-c railbox" ref={railRef}>
+                  {/* 탭을 갈아 끼우지 않고 **한 줄기로 잇는다**(지시·사진).
+                      레일을 누르면 그 칸으로 가고, 손으로 굴리면 레일 색이
+                      따라온다. 칸은 접었다 펼 수 있고, 접어도 이름표는 남는다. */}
+                  <RailSec k="info" title="Info" open={!shut.has('info')} onToggle={() => toggleSec('info')}>
+                    <ReqDetail req={selectedReq} tcs={linked} tab="info" />
+                  </RailSec>
+                  <RailSec k="detail" title="Intent" open={!shut.has('detail')} onToggle={() => toggleSec('detail')}>
+                    <ReqDetail req={selectedReq} tcs={linked} tab="detail" />
+                  </RailSec>
+                  <RailSec
+                    k="tc"
+                    title="Coverages"
+                    right={`TC ${linked.length}건`}
+                    open={!shut.has('tc')}
+                    onToggle={() => toggleSec('tc')}
+                  >
                 <div className="tc-body scroll">
                   <div className={`cov-bar ${linked.length === 0 ? 'none' : cov.fail > 0 ? 'bad' : cov.idle > 0 ? 'warn' : 'good'}`}>
                     {linked.length === 0 ? (
@@ -1154,7 +1188,13 @@ export default function Requirements({ me }: Props) {
                     )}
                   </div>
                 </div>
-              )}
+                  </RailSec>
+                  <RailSec k="runs" title="Execution History" open={!shut.has('runs')} onToggle={() => toggleSec('runs')}>
+                    <ReqDetail req={selectedReq} tcs={linked} tab="runs" />
+                  </RailSec>
+                  <RailSec k="history" title="Change History" open={!shut.has('history')} onToggle={() => toggleSec('history')}>
+                    <ReqDetail req={selectedReq} tcs={linked} tab="history" />
+                  </RailSec>
                 </div>
               </div>
               <div className="bottom colbot">
