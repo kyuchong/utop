@@ -2309,6 +2309,14 @@ function CycleBoard({
       {cycles.length === 0 && (
         <div className="empty">아직 사이클이 없습니다 — 위 + New 로 만드세요.</div>
       )}
+      {/* 카드 바닥 상태 줄 — 세 화면이 같은 자리에서 같은 말을 한다(지시) */}
+      <div className="bottom colbot">
+        <span>
+          사이클 {shown.length}건
+          {shown.length !== cycles.length && ` (전체 ${cycles.length}건)`}
+        </span>
+        {picked.size > 0 && <span>{picked.size}건 선택됨</span>}
+      </div>
       </section>
       {moreAt && oneCycle && (
         <>

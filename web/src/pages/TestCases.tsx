@@ -2530,11 +2530,13 @@ export default function TestCases({ me }: PageProps) {
                   })
                 )}
               </div>
-              <div className="bottom">
+              {/* 세 화면이 같은 자리에서 같은 말을 한다 — 요구사항과 같은 꼴 */}
+              <div className="bottom colbot">
                 <span>
                   시험 {shownListRows.length}건
                   {shownListRows.length !== listRows.length && ` (전체 ${listRows.length}건)`}
                 </span>
+                {listPick.size > 0 && <span>{listPick.size}건 선택됨</span>}
               </div>
             </div>
           </section>

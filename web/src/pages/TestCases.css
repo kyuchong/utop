@@ -2787,8 +2787,9 @@ table.tb tr.r-bad td:first-child {
   box-sizing: border-box;
   padding: 0 var(--row-px);
 }
-.tc-listview .bottom { padding: 0 var(--row-px); }
-.tc-listview .bottom { flex: none; margin-top: 0; }
+/* 바닥 상태 줄은 **세 화면이 같은 높이**여야 한다 — 여기만 0 이라 18px 로
+   눌려 있었다(요구사항·사이클은 30px). colbot 값을 그대로 쓴다. */
+.tc-listview .bottom { flex: none; margin-top: 0; padding: 6px 10px; }
 
 
 /* ── 요구사항 검색 콤보 (Info 탭) ── */
