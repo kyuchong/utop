@@ -2987,10 +2987,16 @@ function CycleDetail({
     /* 이번 실행에 걸린 항목 — 목록에서 「대기」 를 그리는 데 쓴다.
        도는 것만 보이고 **다음에 무엇이 도는지** 안 보였다(지적). */
     setRunQ(new Set(idxs))
-    /* 도는 동안은 **전용 실행 화면**으로 간다(지적: 레일 안에서 보기 힘들다).
-       사이클 화면과 실행 화면은 다른 화면이다 — 돌 때는 큐·도는 항목·스텝·
-       로그만 보면 된다. 끝나면 저절로 표로 돌아온다. */
-    setRunView(true)
+    /* 전용 화면으로 튀지 않는다(되돌림). 실행은 **보던 자리에서 인라인**으로
+       본다 — 도는 줄이 펼쳐져 스텝이 차오르는 꼴이 이 앱이 원래 하려던 것이고,
+       사람이 보던 목록·거르개를 안 잃는다.
+       대신 도는 동안에는 **항목 칸만 편다** — 요약·AI 칸이 자리를 먹으면
+       레일을 오르내려야 해서 보기 힘들었다(지적). */
+    setSumOpen(false)
+    setAiOpen2(false)
+    setItemsOpen(true)
+    setSec('items')
+    requestAnimationFrame(() => goSec('items'))
     void run(idxs).then((err) => {
       if (err) window.alert(err)
     })
