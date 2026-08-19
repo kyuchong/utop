@@ -716,6 +716,10 @@ export default function AskBar({ devices }: Props) {
       setDevId(picked?.id ?? '')
       await holdMaking(t0)
       setDraft(d2)
+      /* 다 실었다 — 5단계를 끈다. 안 끄면 스텝이 다 나왔는데도 작업 흐름은
+         「● 진행 중」 으로 남는다(지적). 기준을 채우는 길이 없는 갈래라
+         여기가 끝이다. */
+      setFlowAt(0)
       void keepChat(d2.name, d2, picked?.ip ?? '')
       setLike([])
     } catch (e) {
@@ -1576,7 +1580,15 @@ export default function AskBar({ devices }: Props) {
                                     {plan5.steps.slice(0, rev - notes5.length).map((x, k) => (
                                       <li key={k}>
                                         <i>{k + 1}</i>
-                                        <code>{x.cli || x.oid || x.desc || '—'}</code>
+                                        <code>
+                                          {x.cli ||
+                                            x.oid ||
+                                            (x.kind === 'diff'
+                                              ? `${x.cmpLeft ?? ''} ${x.cmpOp || '=='} ${x.cmpRight ?? ''}`.trim()
+                                              : '') ||
+                                            x.desc ||
+                                            '—'}
+                                        </code>
                                       </li>
                                     ))}
                                   </ol>
