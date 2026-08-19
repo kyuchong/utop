@@ -284,31 +284,45 @@ button {
 
 /* ══════════════════════════════════════════════════════════════════
    목록 화면 글자 한 벌 — 요구사항·시험항목·사이클이 같은 값을 쓴다.
-   값은 사용자가 정해 주었다(2026-08-19). 여기 한 곳에서만 바꾼다.
 
-     ① 트리 폴더·항목 이름   12.5px / 700
-     ② 개수(REQ·TC)          10px   / 600
-     ③ 선택 줄               12px   / 600
-     ④ 표 머리               12.5px / 700
-     ⑤ 표 줄(이름·경로·칩)   12.5px / 700
-     바닥 줄                 12.5px / 700
+   ★ 굵기로 세우지 않는다(사진 기준, 2026-08-19). 본문은 400 이고, 층은
+     **색**(링크 파랑 · 회색 잔글씨)과 **여백**(줄 높이 32px)이 만든다.
+     머리줄을 검정 700 으로 두면 머리가 자료보다 세져 목록이 무거워진다.
+
+     ① 트리 폴더·항목 이름   13px   / 400 (고른 줄만 600)
+     ② 개수(REQ·TC)          11px   / 400 · 회색
+     ③ 선택 줄               12px   / 400
+     ④ 표 머리               12px   / 500 · 회색
+     ⑤ 표 줄 이름            13px   / 400 (링크색)
+     ⑤ 폴더 경로·모델        12px   / 400 · 회색
+     ⑤ 상태 칩               10.5px / 600 · 대문자
+     바닥 줄                 12px   / 400 · 회색
+     줄 높이                 32px
    ══════════════════════════════════════════════════════════════════ */
 
 /* ① 트리 */
 .rt-fname,
 .rt-title,
 .cy-node .rt-fname {
-  font-size: 12.5px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 400;
+}
+.rt-fold.on .rt-fname,
+.rt-req.on .rt-title,
+.cy-node.on .rt-fname {
+  font-weight: 600;
 }
 
-/* ② 개수 */
-.rt-cq,
-.rt-ct,
+/* ② 개수 — 페이지 CSS 가 뒤에 실려 이기므로 한 칸 더 세게 잡는다 */
+.rt .rt-cq,
+.rt .rt-ct,
+.rt-cnts .rt-cq,
+.rt-cnts .rt-ct,
 .cy-node .rt-cq,
 .cy-node .rt-ct {
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--c-text-faint, #98a2b3);
 }
 
 /* ③ 선택 줄 */
@@ -317,34 +331,52 @@ button {
 .rq-selbar .muted,
 .rq-selbar .muted.small {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 400;
 }
 
-/* ④ 표 머리 */
+/* ④ 표 머리 — 회색 500. 검정 굵은 글씨는 자료보다 세다 */
 .rq-tr.rq-th,
+.rq-tr.rq-th > div,
 .cyt-th,
 .cyt-row.cyt-hd,
 .cyt-row.cyt-hd > * {
-  font-size: 12.5px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--c-text-muted, #667085);
 }
 
-/* ⑤ 표 줄 — 이름·폴더 경로·상태 칩까지 같은 값 */
+/* ⑤ 표 줄 — 이름은 링크색이 세우고, 곁글자는 회색으로 물러난다 */
 .rq-tr:not(.rq-th),
 .rq-tr:not(.rq-th) .rq-name,
-.rq-loc,
-.rq-prio,
-.rq-cov,
 .cyt-row.cyt-c,
-.cyt-name,
-.cyt-row.cyt-c > * {
-  font-size: 12.5px;
-  font-weight: 700;
+.cyt-name {
+  font-size: 13px;
+  font-weight: 400;
+}
+.rq-loc,
+.rq-cov,
+.cyt-row.cyt-c > .muted,
+.cyt-row.cyt-c .muted {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--c-text-faint, #98a2b3);
+}
+.rq-prio {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* 줄 높이 — 글자를 안 키워도 시원해 보이는 자리 */
+.rq-tr,
+.cyt-row {
+  min-height: 32px;
 }
 
 /* 바닥 줄 */
 .colbot,
 .colbot > span {
-  font-size: 12.5px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--c-text-muted, #667085);
 }
