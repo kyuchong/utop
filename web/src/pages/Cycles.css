@@ -6440,3 +6440,7 @@ table.tb td.k {
 .cxp-side.fmanual .cxp-rgt {
   grid-template-columns: 24px 24px 18px 58px 100px 38px 60px;
 }
+
+/* 펼침 화살표를 걷었다(지시) — 줄을 누르면 펴진다. 머리 이름 칸의
+   화살표 자리도 함께 없앤다. */
+.cxp-row.cxp-hd .cxp-rmain { padding-left: 0; }

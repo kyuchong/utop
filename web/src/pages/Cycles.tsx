@@ -22,7 +22,6 @@ import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
 import type { FolderSortMode } from '@/types'
 import { sendWs } from '@/api/wsBus'
 import {
-  IconAi,
   IconChevron,
   IconEdit,
   IconExecution,
@@ -4578,21 +4577,6 @@ function CycleDetail({
                         }}
                       />
                       <span className="cxp-rmain">
-                        {(
-                          <button
-                            type="button"
-                            className={`cxp-open${openItem === at ? ' on' : ''}`}
-                            title="스텝을 줄 밑에 펼칩니다"
-                            aria-expanded={openItem === at}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setOpenItem(openItem === at ? -1 : at)
-                              setFollow(false)
-                            }}
-                          >
-                            <IconChevron />
-                          </button>
-                        )}
                         <span className="cxp-r1">
                           {/* TC ID 는 뺐다(피드백) — 2열 머리에서 보인다 */}
                           {/* 나 말고 누가 이 항목을 보는 중인가 */}
@@ -4647,7 +4631,7 @@ function CycleDetail({
                                 className="cxp-who ai"
                                 title={by ? `자동 실행 · 걸어 둔 이: ${by}` : '자동 실행'}
                               >
-                                <IconAi />
+                                <IconSparkle />
                               </span>
                             )
                           }
