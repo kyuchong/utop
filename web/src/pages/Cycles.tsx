@@ -2371,6 +2371,34 @@ function CycleBoard({
                             오른쪽 AI 분석 결과(지시). 줄을 펴는 까닭은
                             「이 회차가 어땠나」 이므로 그 답이 맨 위에 온다. */}
                         <div className="cyt-dbody">
+                          {/* 머리글 — 이 칸은 그대로 **메일로 나갈 수 있다**(지시).
+                              그래서 제목 한 줄만 읽어도 「무엇을·어디까지·언제」 가
+                              서게 적는다. 아이콘·색에 기대지 않는다 — 메일에서는
+                              글자만 남는다. */}
+                          <div className="cyt-dhead cyt-dwide">
+                            <h4>
+                              {[c.model, c.version || c.version_group].filter(Boolean).join(' · ')}
+                              {c.name ? ` ${c.name}` : ''} 시험 결과
+                            </h4>
+                            <p>
+                              {t.total > 0
+                                ? `전체 ${t.total}건 중 ${t.done}건 실행 · 합격 ${t.pass} · 실패 ${t.fail}` +
+                                  `${t.total - t.done > 0 ? ` · 미실행 ${t.total - t.done}` : ''}` +
+                                  ` — 합격률 ${Math.round((t.pass / t.total) * 100)}%`
+                                : '아직 항목이 없습니다'}
+                            </p>
+                            <p className="cyt-dhead-m">
+                              {[
+                                c.customer ? `고객 ${c.customer}` : '',
+                                `기간 ${fmtD(c._created_at_pg)} ~ ${fmtD(c._updated_at_pg)}`,
+                                c.assignee ? `담당 ${c.assignee}` : '',
+                                c.status ? `상태 ${c.status}` : '',
+                                c.cid ? `회차 ${c.cid}` : '',
+                              ]
+                                .filter(Boolean)
+                                .join('  ·  ')}
+                            </p>
+                          </div>
                           <section className="cyt-dpanel cyt-dwide">
                             <b className="cyt-dpt">전체 현황</b>
                             {t.total === 0 ? (

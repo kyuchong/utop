@@ -5829,3 +5829,15 @@ table.tb td.k {
 }
 .cyt-dai h1, .cyt-dai h2, .cyt-dai h3 { font-size: var(--fs-md); margin: 6px 0 4px; }
 .cyt-dai table { font-size: var(--fs-xs); }
+
+/* 펴진 줄의 머리글 — 이 칸은 그대로 메일로 나갈 수 있다(지시).
+   제목 한 줄만 읽어도 무엇을·어디까지·언제 가 서야 한다. */
+.cyt-dhead { padding: 2px 2px 0; }
+.cyt-dhead h4 {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  line-height: 1.4;
+}
+.cyt-dhead p { margin: 4px 0 0; font-size: var(--fs-md); }
+.cyt-dhead-m { color: var(--c-text-muted); font-size: var(--fs-sm) !important; }
