@@ -859,20 +859,9 @@ export default function Requirements({ me }: Props) {
           <ListHead
             name=""
             onCollapse={() => setTreeOpen(false)}
-            picked={
-              <span className="rq-ffind lh-ffind">
-                <input
-                  value={folderQ}
-                  placeholder="폴더 찾기"
-                  onChange={(e) => setFolderQ(e.target.value)}
-                />
-                {folderQ && (
-                  <button type="button" title="지우기" onClick={() => setFolderQ('')}>
-                    ✕
-                  </button>
-                )}
-              </span>
-            }
+            // 찾기는 **세 화면이 같은 부품**을 쓴다(지시) — 평소엔 돋보기,
+            // 누르면 왼쪽으로 자란다. 여기만 늘 펴진 칸이라 달라 보였다.
+            search={{ value: folderQ, placeholder: '폴더 찾기', onChange: setFolderQ }}
             // 폴더 정렬 — ⋯ 왼쪽 아이콘 단추. 기본은 숫자(자릿수 코드).
             // 파란 + 는 뺐다(피드백) — 새 프로젝트는 ⋯ 메뉴에 있다.
             extra={<FolderSortBtn value={folderSort} onChange={setFolderSort} />}
