@@ -5983,3 +5983,24 @@ table.tb td.k {
 }
 .cxp.onecol .cxp-rgt { grid-template-columns: 20px 18px 46px 56px 74px; }
 .cxp-took, .cxp-when { white-space: nowrap; text-align: right; }
+
+/* 1열 머리 — 찾기칸이 맨 앞, 고르개들은 오른쪽(지시) */
+.cxp-sh > .cxp-q { flex: 1; min-width: 100px; height: 26px; }
+.cxp-sh { padding: 7px 10px; }
+
+/* 1열 바닥 — 이 목록이 담고 있는 것(지시 ⑤) */
+.cxp-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 6px 10px;
+  border-top: 1px solid var(--c-border);
+  background: var(--c-surface-alt);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+.cxp-foot-run { color: var(--c-primary); font-weight: 700; }
+.cxp-foot-p { color: var(--c-pass); }
+.cxp-foot-f { color: var(--c-fail); }

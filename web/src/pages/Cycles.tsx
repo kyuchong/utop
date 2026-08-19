@@ -4021,24 +4021,14 @@ function CycleDetail({
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
           <aside className="cxp-side" ref={sideRef} style={{ width: sideW }}>
             <div className="cxp-sh">
-              <label className="rq-selall" title="보이는 것 전부 고르기">
-                <input
-                  type="checkbox"
-                  checked={rows.length > 0 && pick.size === rows.length}
-                  ref={(el) => {
-                    if (el) el.indeterminate = pick.size > 0 && pick.size < rows.length
-                  }}
-                  disabled={!rows.length}
-                  onChange={() =>
-                    pick.size === rows.length
-                      ? sel.clear()
-                      : sel.set(rows.map((x) => items.indexOf(x)))
-                  }
-                />
-              </label>
-              <b>Test Cases</b>
-              <i className="cxp-n">{rows.length}</i>
-              <span className="sp" />
+              {/* 찾기칸이 맨 앞이다(지시 ③④) — 「Test Cases N」 이름표는 걷었다.
+                  건수·상태는 아래 바닥 줄이 말한다(지시 ⑤). */}
+              <input
+                className="cxp-q"
+                placeholder="TC ID · 제목 검색"
+                value={fq}
+                onChange={(e) => setFq(e.target.value)}
+              />
               {/* 묶기 · 시험 유형 — 둘 다 드롭다운으로(지시). 단추 무리는
                   자리를 먹어 머리줄이 밀렸다. */}
               <select
@@ -4063,12 +4053,6 @@ function CycleDetail({
                 <option value="manual">수동</option>
                 <option value="auto">자동</option>
               </select>
-              {/* 실시간 진행 — 한 줄로 짧게(지시 ⑤). 자세한 것은 도는 줄이 말한다 */}
-              <span className={`cxp-live${st.on ? ' on' : ''}`}>
-                {st.on
-                  ? `● ${Math.min(st.done + 1, st.total)}/${st.total}`
-                  : `${doneAll}/${items.length} · 합격 ${donePass} · 실패 ${doneFail}`}
-              </span>
               {pick.size > 0 && <span className="muted small">{pick.size}개 선택</span>}
               {pick.size > 0 && !st.on && (
                 /* 고른 항목 전부에 같은 판정 — Pass 만이 아니라 아무 값이나 */
@@ -4149,14 +4133,6 @@ function CycleDetail({
               </button>
             </div>
             {/* 찾기 + 내 것만 — Zephyr 왼쪽 목록의 도구 그대로 */}
-            <div className="cxp-tools">
-              <input
-                className="cxp-q"
-                placeholder="TC ID · 제목 검색"
-                value={fq}
-                onChange={(e) => setFq(e.target.value)}
-              />
-            </div>
             {sideMenu && (
               <>
                 <span className="cyt-gearovl" onClick={() => setSideMenu(null)} />
@@ -4478,6 +4454,22 @@ function CycleDetail({
                 )
               })}
               {rows.length === 0 && <div className="empty">해당하는 항목이 없습니다.</div>}
+            </div>
+            {/* 바닥 줄 — 이 목록이 지금 무엇을 담고 있나(지시 ⑤).
+                도는 중에는 몇 번째인지가 맨 앞에 온다. */}
+            <div className="cxp-foot">
+              {st.on && (
+                <b className="cxp-foot-run">
+                  ● {Math.min(st.done + 1, st.total)}/{st.total} 도는 중
+                </b>
+              )}
+              <span>
+                {rows.length}건{rows.length !== items.length ? ` (전체 ${items.length})` : ''}
+              </span>
+              <span className="cxp-foot-p">합격 {donePass}</span>
+              <span className="cxp-foot-f">실패 {doneFail}</span>
+              <span>미실행 {Math.max(0, items.length - doneAll)}</span>
+              {pick.size > 0 && <span>{pick.size}건 선택</span>}
             </div>
           </aside>
           {/* 폭 조절 손잡이는 걷었다(지시 ①) — 쓰는 일이 드물었고 왼쪽 끝에
