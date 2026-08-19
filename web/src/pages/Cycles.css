@@ -6354,3 +6354,16 @@ table.tb td.k {
 /* 고른 수는 앞에·강조, 보이는 수는 뒤에·조용히(지적) */
 .cxp-cntlb .cxp-cnt.sel { color: var(--c-primary); font-weight: 800; }
 .cxp-cntlb .cxp-cntsub { color: var(--c-text-faint); font-weight: 500; }
+
+/* ── 머리 이름표: 자리가 넉넉하면 글자, 좁으면 그림표(지시 검토) ──── */
+.cxp-row.cxp-hd .hd-lb {
+  display: none;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.cxp-row.cxp-hd .hd-ic { display: inline-flex; }
+@container (min-width: 900px) {
+  .cxp-row.cxp-hd .hd-lb { display: inline; }
+  .cxp-row.cxp-hd .hd-ic { display: none; }
+}

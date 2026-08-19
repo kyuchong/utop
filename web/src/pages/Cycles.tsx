@@ -4415,27 +4415,48 @@ function CycleDetail({
                 <span className="cxp-rmain">시험 항목</span>
                 <span className="cxp-rgt">
                   <span title="담당자">
-                    <IconAccounts />
+                    <i className="hd-ic">
+                      <IconAccounts />
+                    </i>
+                    <em className="hd-lb">담당자</em>
                   </span>
                   <span title="실행자">
-                    <IconHand />
+                    <i className="hd-ic">
+                      <IconHand />
+                    </i>
+                    <em className="hd-lb">실행자</em>
                   </span>
                   <span title="타입 — 자동(A) · 수동(M)">
-                    <IconTag />
+                    <i className="hd-ic">
+                      <IconTag />
+                    </i>
+                    <em className="hd-lb">타입</em>
                   </span>
                   <span title="기존 결과 — 지난 회차의 판정">
-                    <IconNote />
+                    <i className="hd-ic">
+                      <IconNote />
+                    </i>
+                    <em className="hd-lb">기존 결과</em>
                   </span>
                   {fKind === 'auto' && (
                     <>
                       <span title="시험 시각">
-                        <IconClock />
+                        <i className="hd-ic">
+                          <IconClock />
+                        </i>
+                        <em className="hd-lb">시험 시각</em>
                       </span>
                       <span title="소요 시간">
-                        <IconWave />
+                        <i className="hd-ic">
+                          <IconWave />
+                        </i>
+                        <em className="hd-lb">소요</em>
                       </span>
                       <span title="진행 상태">
-                        <IconPing />
+                        <i className="hd-ic">
+                          <IconPing />
+                        </i>
+                        <em className="hd-lb">진행 상태</em>
                       </span>
                     </>
                   )}
