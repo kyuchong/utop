@@ -1390,7 +1390,7 @@ export default function AskBar({ devices }: Props) {
           <div className="ask-top">
             <b className="ask-top-t">AI 자연어 시험</b>
             <span className={`ask-top-b${mode === 'adv' ? ' adv' : ''}`}>
-              {mode === 'adv' ? 'Advanced · 시험 만들기' : 'General · 시험 실행'}
+              {mode === 'adv' ? 'Advanced AI Assistant' : 'General AI Assistant'}
             </span>
             {asked && <span className="ask-top-q" title={asked}>{asked}</span>}
             <span className="sp" />
@@ -1775,7 +1775,7 @@ export default function AskBar({ devices }: Props) {
               onClick={() => setMode('basic')}
             >
               <span className="ask-moder" aria-hidden="true" />
-              <b>General — 시험 실행</b>
+              <b>General AI Assistant</b>
               <p>이미 만들어진 시험 항목을 찾아 그대로 실행합니다.</p>
               <em>명령을 몰라도 됩니다. 누구나.</em>
             </button>
@@ -1785,7 +1785,7 @@ export default function AskBar({ devices }: Props) {
               onClick={() => setMode('adv')}
             >
               <span className="ask-moder" aria-hidden="true" />
-              <b>Advanced — 시험 만들기</b>
+              <b>Advanced AI Assistant</b>
               <p>없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다.</p>
               <em>장비를 아는 사람이.</em>
             </button>

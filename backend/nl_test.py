@@ -1972,7 +1972,22 @@ async def ai_nl_plan(payload: dict):
         _yn_after = [x for x in lines if x.strip().lower() in ("y", "n", "yes", "no")]
         if s["type"] not in ("contains", "notcontains"):
             s["type"], s["criteria"] = "", ""      # 판정 문자열 없이 type 만 오면 거짓 기준이 된다
-        steps.append(s)
+        # ★ 한 스텝에 여러 줄을 담지 않는다(지시) — **CLI 한 줄이 스텝 하나**다.
+        #   줄바꿈으로 뭉쳐 두면 무엇이 몇 번째로 나가는지 목록에서 안 읽히고,
+        #   한 줄짜리 입력칸에서 고치다 줄바꿈이 통째로 사라지는 사고도 있었다.
+        #   설명은 첫 줄이, 판정은 마지막 줄이 갖는다 — 설정 시험은 마지막에
+        #   확인 명령이 오기 때문이다.
+        if len(lines) > 1:
+            for _i, _ln in enumerate(lines):
+                _s2 = dict(s)
+                _s2["cli"] = _ln
+                if _i:
+                    _s2["desc"] = ""
+                if _i != len(lines) - 1:
+                    _s2["type"], _s2["criteria"] = "", ""
+                steps.append(_s2)
+        else:
+            steps.append(s)
         # reload 뒤에 응답이 없으면 **분기 스텝**을 덧붙인다.
         #   ① 설정을 바꿨으면 "Save?" 를 먼저 묻는다 → 물으면 n, 안 물으면 건너뛴다
         #   ② "continue to reboot ?" 에는 y
