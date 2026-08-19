@@ -4652,10 +4652,10 @@ function CycleDetail({
                         )}
                       </span>
                     </div>
-                    {/* 자동화 시험은 **1열 인라인**이다(설계) — 사람은 지켜보기만
-                        하므로 오른쪽 칸이 필요 없다. 도는(또는 펴 놓은) 항목만
-                        줄 밑에서 펼쳐져 스텝이 차오르고, 끝나면 접힌다. */}
-                    {oneCol && (openItem === at || (st.on && st.itemAt === at)) && (
+                    {/* 돌 때는 **저절로 펴지 않는다**(지시) — 진행은 「진행 상태」
+                        칸과 머리줄이 말한다. 펴 보고 싶으면 사람이 화살표를
+                        누른다. 그때는 도는 스텝이 그대로 차오른다. */}
+                    {oneCol && openItem === at && (
                       <div className="cxp-inline">
                         <StepDetail
                           key={`inl-${it.tcid ?? at}`}
