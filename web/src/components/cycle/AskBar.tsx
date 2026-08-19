@@ -143,8 +143,8 @@ export default function AskBar({ devices }: Props) {
    * 물어본 말은 여기 남겨 그걸로 가른다.
    */
   const [asked, setAsked] = useState('')
-  /** 만드는 중인가 — 지금은 「가져오기」 한 길뿐이라 adopting 이 이 몫을 한다 */
-  const busy = false
+  /** 새로 짓는 중인가 — Advanced 갈래가 켠다(가져오기는 adopting 이 맡는다) */
+  const [busy, setBusy] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
   /**
    * 막 지어진 절차 — **캔버스가 아니라 레일용**.
@@ -731,6 +731,61 @@ export default function AskBar({ devices }: Props) {
     }
   }
 
+  /**
+   * 「Advanced」 갈래 — **새로 짓는다**(지시).
+   *
+   * 있는 시험을 고르는 것이 아니라 말에서 절차를 짓는 길이다. 그러니 물어볼
+   * 것은 **어느 장비냐** 하나뿐이고, 시험 고르기 창은 뜨지 않는다.
+   * 지은 뒤에는 가져오기와 같은 길로 판정 기준을 채운다.
+   */
+  const makePlan = async (say: string, dev?: Device) => {
+    const t0 = performance.now()
+    setBusy(true)
+    setErr('')
+    setFlowAt(5)
+    setFlowLog((v) => [...v, { s: 5, t: '절차를 짓는 중…' }])
+    try {
+      const picked = dev ?? usable.find((x) => x.id === devId) ?? usable[0]
+      const r = await apiFetch('/api/ai/nl-plan', {
+        method: 'POST',
+        body: JSON.stringify({ text: say, model: picked?.model ?? '' }),
+      })
+      const b = (await r.json()) as {
+        ok?: boolean
+        error?: string
+        title?: string
+        purpose?: string
+        steps?: DraftStep[]
+        blocked?: string[]
+      }
+      if (!b.ok) throw new Error(b.error || '절차를 짓지 못했습니다')
+      const steps = b.steps ?? []
+      setFlowLog((v) => [
+        ...v.filter((x) => x.t !== '절차를 짓는 중…'),
+        { s: 5, t: `절차를 지었습니다 — ${steps.length}스텝` },
+        ...(b.blocked?.length ? [{ s: 5, t: `뺀 명령 ${b.blocked.length}개 — ${b.blocked.join(' · ')}` }] : []),
+      ])
+      setFitNotes([])
+      setStepAt(0)
+      const d2: Draft = { name: b.title || say.slice(0, 40), object: b.purpose, steps }
+      instantRef.current = false
+      setBuilt(d2)
+      setDevId(picked?.id ?? '')
+      const done2 = picked ? await fillCriteria(d2, picked) : d2
+      await holdMaking(t0)
+      setDraft(done2)
+      setFlowAt(0)
+      void keepChat(done2.name, done2, picked?.ip ?? '')
+      setLike([])
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+      setText(say)
+      setFlowAt(0)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const adopt = async (tcid: string, dev?: Device) => {
     const t0 = performance.now()
     setAdopting(tcid)
@@ -1019,6 +1074,11 @@ export default function AskBar({ devices }: Props) {
     }
     // 말과 비슷한 항목을 위에 올려 주려고 미리 찾아 둔다. 없어도 창은 뜬다 —
     // 없는 항목을 지어내지 않고 **Coverage 항목에서만** 고른다(지시).
+    /* Advanced — 고르는 갈래가 아니다. 장비만 정해지면 바로 짓는다(지시) */
+    if (mode === 'adv') {
+      void makePlan(said, dev)
+      return
+    }
     await findLike(said, dev)
     setTcFind(keyOf(said, hit?.model))
     setTcPick(new Set())
@@ -2259,6 +2319,12 @@ export default function AskBar({ devices }: Props) {
                               onDoubleClick={() => {
                                 setDevId(d.id)
                                 setPickDev(null)
+                                /* Advanced 는 고르는 갈래가 아니다 — 장비가
+                                   정해졌으니 바로 짓는다(지시) */
+                                if (mode === 'adv') {
+                                  void makePlan(asked, d)
+                                  return
+                                }
                                 void findLike(asked, d).then(() => {
                                   setTcFind('')
                                   const fd = foldOf(asked)
@@ -2325,6 +2391,10 @@ export default function AskBar({ devices }: Props) {
                       ].filter((x) => x.v),
                     )
                     setPickDev(null)
+                    if (mode === 'adv') {
+                      void makePlan(asked, d2)
+                      return
+                    }
                     void findLike(asked, d2).then(() => {
                       setTcFind('')
                       const fd = foldOf(asked)
