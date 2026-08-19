@@ -6464,3 +6464,7 @@ table.tb td.k {
 
 /* 자동 실행 표는 보라(지시) — UTOP 계정이 돌린 줄이다 */
 .cxp-who.ai { color: #7c4dff; }
+
+/* 필드 사이 간격 6 → 3px(지시) */
+.cxp-row, .cxp-row.cxp-hd { gap: 3px; }
+.cxp-rgt, .cxp.onecol .cxp-rgt { gap: 3px; }

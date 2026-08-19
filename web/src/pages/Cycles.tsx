@@ -3555,7 +3555,9 @@ function CycleDetail({
   /** 수동만·자동만 보기(지시) — 목록 머리의 단추가 이 값을 바꾼다 */
   const [fKind, setFKind] = useState<'' | 'manual' | 'auto'>('')
   /** 자동만 볼 때는 한 칸으로 — 자동은 지켜보는 일이라 판정 칸이 필요 없다 */
-  const oneCol = fKind === 'auto'
+  /* 화면은 **무조건 2열**이다(정의). Type(수동·자동)은 목록에 무엇을
+     올릴지 고르는 거르개일 뿐, 칸 수나 필드를 바꾸지 않는다. */
+  const oneCol = false
   /** 항목 목록을 무엇으로 묶나(지시) — 기본은 요구사항, 여태 하던 것 */
   const [grp, setGrp] = useState<string>(
     () => localStorage.getItem('utop.cycle.grp') || 'req',
@@ -4629,7 +4631,7 @@ function CycleDetail({
                             return (
                               <span
                                 className="cxp-who ai"
-                                title={`자동 실행 — UTOP 계정이 돌렸습니다${by ? ` (건 이: ${by})` : ''}`}
+                                title={`자동 실행 — UTOP 계정이 실행했습니다${by ? ` (건 이: ${by})` : ''}`}
                               >
                                 <IconSparkle />
                               </span>
@@ -4638,7 +4640,7 @@ function CycleDetail({
                           return (
                             <span
                               className={`cxp-who${by ? '' : ' none'}`}
-                              title={by ? `실행자: ${by}` : '아직 아무도 안 돌렸습니다'}
+                              title={by ? `실행자: ${by}` : '아직 아무도 안 실행했습니다'}
                             >
                               {by ? <i>{(by[0] || '?').toUpperCase()}</i> : <i className="g">–</i>}
                             </span>
