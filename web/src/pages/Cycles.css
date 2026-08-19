@@ -6468,3 +6468,15 @@ table.tb td.k {
 /* 필드 사이 간격 6 → 3px(지시) */
 .cxp-row, .cxp-row.cxp-hd { gap: 3px; }
 .cxp-rgt, .cxp.onecol .cxp-rgt { gap: 3px; }
+
+/* 기존 결과가 왼쪽으로 붙어 있던 까닭(지적): 담는 span 이 width:100% 라
+   칸을 다 차지하고, 그 안에서 배지는 flex 시작점에 섰다. */
+.cxp-rgt .cxp-hist { width: auto; justify-content: center; justify-self: center; }
+
+/* ── 정렬 규칙 한 벌(지시): 데이터는 모두 가운데, 시험 항목만 왼쪽 ── */
+.cxp-row > .cxp-no { text-align: center; }
+.cxp-row > input[type='checkbox'] { justify-self: center; }
+.cxp-rgt > * { justify-self: center; text-align: center; }
+.cxp-rgt > .cxp-k { justify-self: center; }
+.cxp-row > .cxp-rmain,
+.cxp-row.cxp-hd > .cxp-rmain { justify-self: start; text-align: left; }
