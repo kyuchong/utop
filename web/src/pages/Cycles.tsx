@@ -3520,6 +3520,8 @@ function CycleDetail({
   }, [reqQ2.data])
   /** 수동만·자동만 보기(지시) — 목록 머리의 단추가 이 값을 바꾼다 */
   const [fKind, setFKind] = useState<'' | 'manual' | 'auto'>('')
+  /** 자동만 볼 때는 한 칸으로 — 자동은 지켜보는 일이라 판정 칸이 필요 없다 */
+  const oneCol = fKind === 'auto'
   /** 항목 목록을 무엇으로 묶나(지시) — 기본은 요구사항, 여태 하던 것 */
   const [grp, setGrp] = useState<string>(
     () => localStorage.getItem('utop.cycle.grp') || 'req',
@@ -4002,7 +4004,10 @@ function CycleDetail({
   
         {/* Test Player — 왼쪽에서 항목을 고르고, 오른쪽에서 시험한다.
             Zephyr 실행 화면 문법: 목록은 좁게, 절차·판정·기록은 넓게. */}
-        <div className="cxp">
+        {/* 배치는 **하는 일**이 정한다(설계):
+             · 자동화 = 지켜보는 일 → 1열, 도는 항목이 줄 밑에서 펼쳐진다
+             · 수동·전체 = 하는 일(판정을 누른다) → 2열, 오른쪽에서 시험한다 */}
+        <div className={`cxp${oneCol ? ' onecol' : ''}`}>
           <aside className="cxp-side" ref={sideRef} style={{ width: sideW }}>
             <div className="cxp-sh">
               <label className="rq-selall" title="보이는 것 전부 고르기">
@@ -4410,6 +4415,25 @@ function CycleDetail({
                         })()}
                       </span>
                     </div>
+                    {/* 자동화 시험은 **1열 인라인**이다(설계) — 사람은 지켜보기만
+                        하므로 오른쪽 칸이 필요 없다. 도는(또는 펴 놓은) 항목만
+                        줄 밑에서 펼쳐져 스텝이 차오르고, 끝나면 접힌다. */}
+                    {oneCol && (openItem === at || (st.on && st.itemAt === at)) && (
+                      <div className="cxp-inline">
+                        <StepDetail
+                          key={`inl-${it.tcid ?? at}`}
+                          item={st.on && st.itemAt === at ? { ...it, steps: st.liveSteps } : it}
+                          mode={typeOf(it)}
+                          runningAt={st.on && st.itemAt === at ? st.stepAt : -1}
+                          onSetStep={(at2, v2) => void setStepResult(it.tcid ?? '', at2, v2)}
+                          onSetImg={(at2, file) => void setStepImg(it.tcid ?? '', at2, file)}
+                          onSetImgUrl={(at2, url) => void setStepField(it.tcid ?? '', at2, { actual_img: url })}
+                          onSetTxt={(at2, txt) => void setStepField(it.tcid ?? '', at2, { actual_txt: txt })}
+                          onSetRca={(at2, txt) => void setStepField(it.tcid ?? '', at2, { rca: txt })}
+                          onClose={() => setOpenItem(-1)}
+                        />
+                      </div>
+                    )}
                   </React.Fragment>
                 )
               })}

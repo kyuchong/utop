@@ -5916,3 +5916,16 @@ table.tb td.k {
 
 /* 되풀이 스텝 — 횟수와 변수 이름만 정한다(보낼 명령이 없다) */
 .ask-detloop { display: grid; grid-template-columns: 90px auto 1fr; gap: 8px; align-items: center; }
+
+/* ── 자동화 시험 = 1열 인라인(설계) ────────────────────────────
+   사람이 지켜보기만 하는 일이라 오른쪽 판정 칸이 필요 없다. 도는 항목이
+   줄 밑에서 펼쳐져 스텝이 차오르고, 끝나면 접힌다. */
+.cxp.onecol > .cxp-main { display: none; }
+.cxp.onecol > .cxp-side { width: auto !important; flex: 1; }
+.cxp-inline {
+  border-bottom: 1px solid var(--c-border-soft);
+  background: var(--c-surface);
+  padding: 8px 12px 12px;
+  max-height: 62vh;
+  overflow: auto;
+}
