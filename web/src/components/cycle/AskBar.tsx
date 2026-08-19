@@ -1206,6 +1206,32 @@ export default function AskBar({ devices }: Props) {
           한가운데에 서야 해서, 옆에 칸이 있으면 그만큼 밀린다. */}
 
       <div className="ask-main">
+        {/* 맨 위 줄 — 지금 무엇을 하고 있나(목업). 일이 시작된 뒤에만 뜬다.
+            물어본 말을 늘 곁에 두어야 「내가 뭘 시켰더라」 를 안 잊는다. */}
+        {(draft || making) && (
+          <div className="ask-top">
+            <b className="ask-top-t">AI 자연어 시험</b>
+            <span className={`ask-top-b${mode === 'adv' ? ' adv' : ''}`}>
+              {mode === 'adv' ? 'Advanced · 시험 만들기' : 'General · 시험 실행'}
+            </span>
+            {asked && <span className="ask-top-q" title={asked}>{asked}</span>}
+            <span className="sp" />
+            <button
+              className="btn small"
+              type="button"
+              title="첫 화면으로 돌아갑니다 — 만든 절차는 버려집니다"
+              onClick={() => {
+                setDraft(null)
+                setBuilt(null)
+                setRan(null)
+                setAsked('')
+                setErr('')
+              }}
+            >
+              처음으로
+            </button>
+          </div>
+        )}
         <div className="ask-cols">
           {/* 작업 흐름 — 무엇을 거치는지, 건너뛰면 왜 건너뛰는지 */}
           {/* 작업 흐름 — 아직 아무 일도 없으면 빈 판이라 첫 화면을 좁힐 뿐이다 */}
@@ -1577,11 +1603,31 @@ export default function AskBar({ devices }: Props) {
       {draft && (
         <div className="ask-plan">
           <div className="ask-planhd">
-            <div className="ask-planttl">
-              <b>{draft.name}</b>
-              {draft.object && <span className="muted small">{draft.object}</span>}
-            </div>
-            <span className="sp" />
+            {/* 대상 장비 — 목업의 첫 슬롯. select 한 줄이 아니라 카드다.
+                무엇으로 도는지가 실행 단추 옆에 늘 있어야 한다. */}
+            <button
+              type="button"
+              className="ask-slot"
+              title="다른 장비로 바꿉니다"
+              onClick={() => {
+                setPickSel(devId || usable[0]?.id || '')
+                setPickLab('')
+                setPickRack('')
+                setPickDev({ model: '', cands: usable })
+              }}
+            >
+              <span className="ask-slot-ic" aria-hidden="true">
+                ▭
+              </span>
+              <span className="ask-slot-tx">
+                <small>대상 장비</small>
+                <b>{curDev ? `${curDev.name || curDev.model || ''} · ${curDev.ip}` : '장비를 고르세요'}</b>
+              </span>
+              <span className="ask-slot-ch">바꾸기</span>
+            </button>
+            <span className="ask-slot-arw" aria-hidden="true">
+              ›
+            </span>
             {/* 일반 갈래 — 지금 실린 시험이 무엇인지 늘 보이고, 눌러 바꾼다
                 (목업의 슬롯 줄). 고급 갈래에는 없는 자리다 — 거기선 방금 지은
                 것이 곧 이 초안이다. */}
@@ -1602,27 +1648,18 @@ export default function AskBar({ devices }: Props) {
                 <span className="ask-slot-ch">바꾸기</span>
               </button>
             )}
-            {/* 어느 장비에 보낼지는 사람이 정한다 — AI 가 짚은 것을 미리 골라
-                두되 그대로 나가게 두지 않는다 */}
-            <select className="ask-devsel" value={devId} onChange={(e) => setDevId(e.target.value)}>
-              {usable.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name || d.model || d.ip} · {d.ip}
-                </option>
-              ))}
-            </select>
             {running ? (
               <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
                 ⏹ 멈추기
               </button>
             ) : (
               <button
-                className="btn primary small"
+                className="btn primary ask-runbig"
                 type="button"
                 disabled={!draft.steps.length || !devId}
                 onClick={() => void run()}
               >
-                ▶ 이대로 돌리기
+                ▷ 시험 시작
               </button>
             )}
             {ran && !running && (

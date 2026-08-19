@@ -5285,3 +5285,48 @@ table.tb td.k {
 }
 .ask-exline .ask-chips { margin-top: 0; }
 .ask-exline .ask-extools { margin: 0; }
+
+/* ── AI 작업 화면 맨 위 줄 — 지금 무엇을 하고 있나(목업 v9) ────── */
+.ask-top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 20px;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.ask-top-t { font-size: 16px; font-weight: 700; }
+.ask-top-b {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+}
+.ask-top-b.adv { background: #f4efff; color: #7c3aed; }
+/* 물어본 말 — 길면 줄인다. 전체는 올리면 나온다 */
+.ask-top-q {
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+  background: var(--c-app-bg);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 20px;
+  padding: 4px 12px;
+  max-width: 330px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ask-top .sp { margin-left: auto; }
+
+/* 슬롯 줄 — 대상 장비 › 시험 항목 … 오른쪽 끝에 실행 */
+.ask-planhd { align-items: center; gap: 9px; }
+.ask-slot-arw { color: var(--c-text-faint); font-size: 12px; flex: none; }
+.ask-runbig {
+  padding: 8px 17px;
+  font-size: 13.5px;
+  font-weight: 500;
+  flex: none;
+}
