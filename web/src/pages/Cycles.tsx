@@ -352,6 +352,14 @@ const ROOT = 'Root'
 const NO_CUST = '(사업자 없음)'
 const NO_MGROUP = '(모델그룹 없음)'
 /** 트리 열쇠에서 맨 위 한 자리를 뗀다 — 저장(KV)에는 Root 를 안 넣는다 */
+const GRP_LB: Record<string, string> = {
+  req: '요구사항',
+  status: 'Status',
+  tester: 'Tester',
+  prio: '우선순위',
+  folder: '폴더',
+}
+
 export function bareKey(key: string): string {
   if (key === ROOT) return ''
   return key.startsWith(ROOT + '/') ? key.slice(ROOT.length + 1) : key
@@ -3883,6 +3891,13 @@ function CycleDetail({
                   )
                 })()
               )}
+            </>,
+            barEl,
+          )}
+        {/* **이 사이클** 을 같이 보는 사람 — 오른쪽 끝 한 자리에 끼운다 */}
+        {pbEl &&
+          createPortal(
+            <>
               {joined && (
                 <span className={`cy-join ${joined.how}`}>
                   {joined.who} 님이 {joined.how === 'in' ? '들어왔습니다' : '나갔습니다'}
@@ -3893,11 +3908,10 @@ function CycleDetail({
                 unseen={Math.max(0, saves.length - seen)}
                 onSeen={() => setSeen(saves.length)}
               />
+              <PresenceBar users={presence.users} me={meName} />
             </>,
-            barEl,
+            pbEl,
           )}
-        {/* **이 사이클** 을 같이 보는 사람 — 오른쪽 끝 한 자리에 끼운다 */}
-        {pbEl && createPortal(<PresenceBar users={presence.users} me={meName} />, pbEl)}
   
         {rowMenu && (
           <CycleRowMenu
@@ -4049,7 +4063,7 @@ function CycleDetail({
               </button>
             )}
             <span className="sp" />
-            <span className="cy-execslot" id="cy-sumslot" />
+            <span className="cy-execslot" id="cy-pbslot" />
           </div>
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
           <aside className="cxp-side" ref={sideRef} style={{ width: sideW }}>
@@ -4058,48 +4072,84 @@ function CycleDetail({
                   3행 걸린 필터 칩. 「방식(자동·수동)」 은 필터 쪽으로 갔다. */}
               {/* 묶기 · 시험 유형 — 둘 다 드롭다운으로(지시). 단추 무리는
                   자리를 먹어 머리줄이 밀렸다. */}
-              <select
-                className="cy-v cxp-grpsel"
-                value={grp}
-                title="항목을 무엇으로 묶을지 고릅니다"
-                onChange={(e) => setGrp(e.target.value)}
-              >
-                <option value="req">요구사항</option>
-                <option value="status">Status</option>
-                <option value="tester">Tester</option>
-                <option value="prio">우선순위</option>
-                <option value="folder">폴더</option>
-              </select>
-              <select
-                className="cy-v cxp-grpsel"
-                value={fKind}
-                title="Type — 자동·수동"
-                onChange={(e) => setFKind(e.target.value as '' | 'manual' | 'auto')}
-              >
-                <option value="">Type 전체</option>
-                <option value="auto">자동</option>
-                <option value="manual">수동</option>
-              </select>
+              <span className="cxp-fsel" title="항목을 무엇으로 묶을지 고릅니다">
+                <span className="cxp-fsel-lb">
+                  그룹핑
+                  {grp !== 'req' && (
+                    <b>
+                      {' · '}
+                      {GRP_LB[grp] ?? grp}
+                    </b>
+                  )}
+                  <i>▾</i>
+                </span>
+                <select
+                  className="cxp-fsel-sel"
+                  value={grp}
+                  onChange={(e) => setGrp(e.target.value)}
+                >
+                  <option value="req">요구사항</option>
+                  <option value="status">Status</option>
+                  <option value="tester">Tester</option>
+                  <option value="prio">우선순위</option>
+                  <option value="folder">폴더</option>
+                </select>
+              </span>
+              <span className="cxp-fsel" title="Type — 자동·수동">
+                <span className={`cxp-fsel-lb${fKind ? ' on' : ''}`}>
+                  Type
+                  {fKind && <b>{fKind === 'auto' ? ' · 자동' : ' · 수동'}</b>}
+                  <i>▾</i>
+                </span>
+                <select
+                  className="cxp-fsel-sel"
+                  value={fKind}
+                  onChange={(e) => setFKind(e.target.value as '' | 'manual' | 'auto')}
+                >
+                  <option value="">전체</option>
+                  <option value="auto">자동</option>
+                  <option value="manual">수동</option>
+                </select>
+              </span>
               <span className="cxp-div" aria-hidden="true" />
-              <select
-                className="cy-v cxp-grpsel"
-                value={onlyRegress ? '_reg' : ([...fSet][0] ?? '')}
-                title="Result — 판정으로 좁혀 봅니다"
-                onChange={(e) => {
-                  const v = e.target.value
-                  setOnlyRegress(v === '_reg')
-                  setFSet(v && v !== '_reg' ? new Set([v === '_none' ? '' : v]) : new Set())
-                }}
-              >
-                <option value="">Result 전체</option>
-                {resDefs.map((r) => (
-                  <option key={r.v} value={r.v}>
-                    {verdictLabel(r.v as Verdict)}
-                  </option>
-                ))}
-                <option value="_none">미실행</option>
-                <option value="_reg">회귀</option>
-              </select>
+              {(() => {
+                const rv = onlyRegress ? '_reg' : ([...fSet][0] ?? '')
+                const rlb =
+                  rv === '_reg'
+                    ? '회귀'
+                    : rv === '_none'
+                      ? '미실행'
+                      : rv
+                        ? verdictLabel(rv as Verdict)
+                        : ''
+                return (
+                  <span className="cxp-fsel" title="Result — 판정으로 좁혀 봅니다">
+                    <span className={`cxp-fsel-lb${rv ? ' on' : ''}`}>
+                      Result
+                      {rlb && <b>{` · ${rlb}`}</b>}
+                      <i>▾</i>
+                    </span>
+                    <select
+                      className="cxp-fsel-sel"
+                      value={rv}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        setOnlyRegress(v === '_reg')
+                        setFSet(v && v !== '_reg' ? new Set([v === '_none' ? '' : v]) : new Set())
+                      }}
+                    >
+                      <option value="">전체</option>
+                      {resDefs.map((r) => (
+                        <option key={r.v} value={r.v}>
+                          {verdictLabel(r.v as Verdict)}
+                        </option>
+                      ))}
+                      <option value="_none">미실행</option>
+                      <option value="_reg">회귀</option>
+                    </select>
+                  </span>
+                )
+              })()}
               {/* ⋯ 는 걷었다(지시) — 쓰는 일이 드물었다 */}
               {/* 내 것만 — 아이콘 하나로 켜고 끈다(지시) */}
               <button

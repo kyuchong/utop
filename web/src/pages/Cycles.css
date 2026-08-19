@@ -6148,3 +6148,32 @@ table.tb td.k {
   color: #fff;
 }
 .cxp-actcard .btn.primary:disabled { background: var(--c-surface-alt); color: var(--c-text-faint); }
+
+/* ── 거르개 드롭다운 — 닫히면 «이름», 펼치면 값(지시) ───────────
+   토박이 select 는 고른 값을 그대로 보여 준다. 그래서 이름표를 위에
+   얹고 select 는 투명하게 덮어 둔다 — 펼침·자판은 그대로 산다. */
+.cxp-fsel { position: relative; display: inline-flex; flex: none; }
+.cxp-fsel-sel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.cxp-fsel-lb {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-alt);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  white-space: nowrap;
+}
+.cxp-fsel-lb.on { color: var(--c-text); }
+.cxp-fsel-lb b { font-weight: 600; color: var(--c-primary); }
+.cxp-fsel-lb i { font-style: normal; opacity: 0.5; font-size: 10px; }
+.cxp-fsel:hover .cxp-fsel-lb { background: var(--c-border-soft); }
