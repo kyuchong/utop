@@ -584,3 +584,17 @@
 .tcrv-at { font-variant-numeric: tabular-nums; font-size: var(--fs-xs); color: var(--c-text-faint); }
 .tcrv-who { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tcrv-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+
+/* 세션 장비가 이 시험의 적용 모델과 다를 때 — 고르는 자리에서 말한다.
+   실행해 보고서야 아는 것은 늦다(지적: 적용 모델 E6100 인데 세션은 E6124). */
+.tc-sess-warn {
+  flex: none;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: #a15c00;
+  background: #fff5e5;
+  border: 1px solid #f0d6a8;
+  border-radius: 999px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}

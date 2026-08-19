@@ -174,8 +174,6 @@ export default function AskBar({ devices }: Props) {
   /** 비슷한 기존 시험 — 새로 짓기 전에 있는 것부터 본다 */
   const [like, setLike] = useState<Array<{ tcid: string; name: string; model?: string; steps?: number }>>([])
   const [adopting, setAdopting] = useState('')
-  /** 최근 만든 시험 — 왼쪽 칸 */
-  const [recent, setRecent] = useState<Array<{ cid: string; title: string; at?: string }>>([])
   /** 질문 보기 고치기 — 관리자만. ⚙ 로 켠다 */
   const [exEdit, setExEdit] = useState(false)
   const [exSay, setExSay] = useState('')
@@ -428,26 +426,6 @@ export default function AskBar({ devices }: Props) {
       } catch {
         /* 목록을 못 읽으면 아래 「비슷한 항목」 만으로 고른다 */
       }
-      try {
-        const r2 = await apiFetch('/api/ai/nl-chats')
-        /* 서버 목록은 **id** 로 준다. 여기서 cid 로만 읽어 새로고침 뒤에는
-           번호가 통째로 비었고, 기록을 누르면 없는 번호를 물어보다 「절차가
-           담겨 있지 않습니다」 로 떨어졌다(지적). 둘 다 받는다. */
-        const b2 = (await r2.json()) as {
-          ok?: boolean
-          items?: Array<{ id?: string; cid?: string; title?: string; at?: string }>
-        }
-        if (b2.ok && Array.isArray(b2.items))
-          setRecent(
-            b2.items
-              .map((x) => ({ cid: String(x.id ?? x.cid ?? ''), title: x.title ?? '', at: x.at }))
-              .filter((x) => x.cid)
-              .slice(0, 12)
-              .map((x) => ({ ...x, title: x.title || x.cid })),
-          )
-      } catch {
-        /* 기록이 없어도 화면은 돈다 */
-      }
     })()
   }, [])
 
@@ -521,7 +499,6 @@ export default function AskBar({ devices }: Props) {
   const keepChat = async (title: string, plan: Draft, dev: string) => {
     const id = chatId || `nl-${Date.now().toString(36)}`
     if (!chatId) setChatId(id)
-    setRecent((v) => [{ cid: id, title }, ...v.filter((x) => x.cid !== id)].slice(0, 12))
     try {
       await apiFetch('/api/ai/nl-chats', {
         method: 'POST',
@@ -674,106 +651,8 @@ export default function AskBar({ devices }: Props) {
     return d
   }
 
-  /**
-   * 기록 하나 열기 — **다시 만들지 않는다**(지적: 눌렀더니 만들기 창이 떴다).
-   * 담아 둔 절차를 그대로 펴고, 그때 쓰던 장비도 되살린다.
-   */
-  const openChat = async (cid: string, title: string) => {
-    setErr('')
-    try {
-      const r = await apiFetch(`/api/ai/nl-chats/${encodeURIComponent(cid)}`)
-      const b = (await r.json()) as {
-        ok?: boolean
-        error?: string
-        chat?: {
-          title?: string
-          plan?: Draft
-          dev?: string
-          at?: string
-          flow?: Array<{ s?: number; t?: string }>
-          vals?: Array<{ k?: string; v?: string }>
-          notes?: string[]
-        }
-      }
-      const plan = b.chat?.plan
-      if (!b.ok) {
-        // 못 찾은 것과 절차가 없는 것은 다른 일이다 — 뭉뚱그리면 고칠 데를
-        // 못 찾는다
-        setText(title)
-        setErr(b.error || '기록을 읽지 못했습니다')
-        return
-      }
-      if (!plan || !Array.isArray(plan.steps) || plan.steps.length === 0) {
-        // 절차가 안 담긴 옛 기록이면 그 말을 입력칸에 올려 준다 — 마음대로
-        // 다시 만들지는 않는다
-        setText(title)
-        setErr('이 기록에는 절차가 담겨 있지 않습니다 — 아래에서 다시 물어보세요')
-        return
-      }
-      const dv = usable.find((d) => d.ip === String(b.chat?.dev ?? ''))
-      if (dv) setDevId(dv.id)
-      setChatId(cid)
-      setText('')
-      setAsked(String(plan.name ?? ''))
-      setLike([])
-      setLikeAsk(false)
-      setRan(null)
-      setStepAt(0)
-      setFlowAt(0)
-      /* 담아 둔 흐름을 그대로 되살린다 — 이걸 안 하면 무엇을 왜 그렇게
-         정했는지가 두 줄 요약으로 뭉개진다(지적). 흐름이 안 담긴 옛 기록만
-         그 두 줄로 대신한다. */
-      const keptFlow = (b.chat?.flow ?? [])
-        .filter((x) => String(x?.t ?? '').trim())
-        .map((x) => ({ s: Number(x.s) || 1, t: String(x.t) }))
-      const keptVals = (b.chat?.vals ?? [])
-        .filter((x) => String(x?.k ?? '').trim())
-        .map((x) => ({ k: String(x.k), v: String(x.v ?? '') }))
-      setFitNotes(Array.isArray(b.chat?.notes) ? b.chat!.notes! : [])
-      setFlowVals(keptVals.length > 0 ? keptVals : dv ? [{ k: '대상', v: dv.ip }] : [])
-      setFlowLog(
-        keptFlow.length > 0
-          ? [
-              ...keptFlow,
-              { s: 5, t: `기록을 열었습니다 — ${b.chat?.at ? String(b.chat.at).slice(0, 16) : ''}` },
-            ]
-          : [
-              { s: 1, t: dv ? `그때 쓰던 장비 ${dv.ip} 로 되살림` : '담아 둔 절차를 그대로 폄' },
-              { s: 5, t: `기록을 열었습니다 — ${b.chat?.at ? String(b.chat.at).slice(0, 16) : ''}` },
-            ],
-      )
-      instantRef.current = true
-      setBuilt(plan)
-      setDraft(plan)
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e))
-    }
-  }
-
-  /** 기록 하나 지우기 — 내 것만 지워진다(서버가 막는다) */
-  const dropChat = async (cid: string) => {
-    setRecent((v) => v.filter((x) => x.cid !== cid))
-    // 보고 있던 그 기록을 지웠으면 화면도 치운다. 목록에서만 빼면 지운
-    // 시험의 절차·스텝·작업 흐름이 그대로 남아 있다(지적).
-    if (cid === chatId) {
-      setChatId('')
-      setDraft(null)
-      setBuilt(null)
-      setRan(null)
-      setStepAt(0)
-      setFitNotes([])
-      setFlowLog([])
-      setFlowVals([])
-      setFlowAt(0)
-      setFold(new Set())
-      setErr('')
-    }
-    try {
-      await apiFetch(`/api/ai/nl-chats/${encodeURIComponent(cid)}`, { method: 'DELETE' })
-    } catch {
-      /* 못 지워도 목록에서는 빠진다 — 다음에 다시 읽으면 돌아온다 */
-    }
-  }
+  /* 기록 열기·지우기(openChat·dropChat)는 왼쪽 「최근」 칸과 함께 걷어냈다.
+     서버는 여전히 대화를 남긴다 — 목록 UI 를 다시 세울 때 git 에서 꺼낸다. */
 
   /** 그 TC 를 고른 장비로 옮겨 초안에 앉힌다 */
   const adopt = async (tcid: string, dev?: Device) => {
@@ -1323,57 +1202,8 @@ export default function AskBar({ devices }: Props) {
     /* 세 칸 + 아래 입력줄 — 옮겨 온 화면의 짜임을 우리 꼴(panel·btn·토큰)로 다시 그렸다.
        왼쪽 기록 · 가운데 작업 흐름 · 오른쪽 캔버스, 입력은 흐름부터 오른쪽 끝까지. */
     <div className="ask">
-      <aside className="ask-sess">
-        <button
-          className="btn small ask-new"
-          type="button"
-          onClick={() => {
-            setDraft(null)
-            setRan(null)
-            setText('')
-            setAsked('')
-            setLike([])
-            setErr('')
-            setFlowLog([])
-            setFlowVals([])
-            setFlowAt(0)
-            setFitNotes([])
-            setBuilt(null)
-            setFold(new Set())   // 접어 둔 단계도 처음으로
-            setChatId('')
-          }}
-        >
-          새 시험 만들기
-        </button>
-        <div className="ask-eyebrow">최근</div>
-        <div className="ask-slist">
-          {recent.length === 0 ? (
-            <span className="muted small">아직 만든 시험이 없습니다.</span>
-          ) : (
-            recent.map((x) => (
-              <div className={`ask-sitem${chatId === x.cid ? ' on' : ''}`} key={x.cid}>
-                <button
-                  type="button"
-                  className="ask-sbtn"
-                  title="이 기록을 엽니다"
-                  onClick={() => void openChat(x.cid, x.title)}
-                >
-                  <b>{x.title}</b>
-                  {x.at && <em>{String(x.at).slice(5, 16).replace('T', ' ')}</em>}
-                </button>
-                <button
-                  type="button"
-                  className="ask-sdel"
-                  title="이 기록 지우기"
-                  onClick={() => void dropChat(x.cid)}
-                >
-                  ✕
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      </aside>
+      {/* 왼쪽 「새 시험 만들기 · 최근」 칸은 걷어냈다(지시) — 첫 화면이
+          한가운데에 서야 해서, 옆에 칸이 있으면 그만큼 밀린다. */}
 
       <div className="ask-main">
         <div className="ask-cols">

@@ -8,6 +8,8 @@ interface Props {
   /** 이 TC 가 쓰는 세션 — `data.sessions`, 장비 id 배열 */
   sessions: string[]
   devices: Device[]
+  /** 이 시험의 **적용 모델**(모델명). 세션 장비가 이것과 다르면 짚어 준다 */
+  tcModel?: string
   onAdd: (deviceId: string) => void
   onPick: (index: number, deviceId: string) => void
   onRemove: (index: number) => void
@@ -27,6 +29,7 @@ interface Props {
 export default function TcSessionBar({
   sessions,
   devices,
+  tcModel,
   onAdd,
   onPick,
   onRemove,
@@ -137,6 +140,21 @@ export default function TcSessionBar({
             <b className="tc-sess-n" data-s={i % 4}>
               S{i + 1}
             </b>
+            {/* 적용 모델과 다른 장비를 앉혀 두면 스텝이 엉뚱한 장비로 나간다.
+                조용히 두면 실행해 보고서야 안다 — 고르는 자리에서 말한다. */}
+            {(() => {
+              const want = String(tcModel ?? '').trim()
+              const has = String(dev?.model ?? '').trim()
+              if (!want || !has || want === has) return null
+              return (
+                <span
+                  className="tc-sess-warn"
+                  title={`이 시험의 적용 모델은 ${want} 인데 앉힌 장비는 ${has} 입니다`}
+                >
+                  ⚠ 적용 모델({want}) 아님
+                </span>
+              )
+            })()}
             <select
               className="tc-sess-dev"
               value={id}
@@ -265,6 +283,7 @@ export default function TcSessionBar({
         {pick && (
           <DevicePicker
             devices={devices}
+            tcModel={tcModel}
             sessions={sessions}
             onAdd={onAdd}
             onClose={() => setPick(false)}
@@ -343,6 +362,8 @@ interface PickProps {
   sessions: string[]
   onAdd: (deviceId: string) => void
   onClose: () => void
+  /** 이 시험의 적용 모델 — 창을 열 때 이것으로 먼저 좁힌다 */
+  tcModel?: string
 }
 
 /** 셀렉트에 넣을 값 목록 — 실제로 등록된 값만 */
@@ -361,12 +382,14 @@ function optionsOf(devices: Device[], get: (d: Device) => string): string[] {
  * 창을 닫지 않고 여러 번 추가할 수 있다 — 시험은 보통 DUT 한 대로 끝나지
  * 않고 대향·가입자단말까지 두세 자리를 한 번에 잡는다.
  */
-export function DevicePicker({ devices, sessions, onAdd, onClose }: PickProps) {
+export function DevicePicker({ devices, sessions, tcModel, onAdd, onClose }: PickProps) {
   const [lab, setLab] = useState('')
   const [vendor, setVendor] = useState('')
   const [role, setRole] = useState('')
   const [group, setGroup] = useState('')
-  const [q, setQ] = useState('')
+  /* 이 시험의 적용 모델로 먼저 좁혀 놓는다 — 열자마자 맞는 장비만 보인다.
+     다른 모델을 일부러 앉힐 일도 있어 지울 수 있게 둔다(막지 않는다). */
+  const [q, setQ] = useState(() => String(tcModel ?? '').trim())
   /** 이 창에서 방금 더한 개수. 몇 개를 넣었는지 보이지 않으면 겹쳐 넣게 된다 */
   const [added, setAdded] = useState(0)
 

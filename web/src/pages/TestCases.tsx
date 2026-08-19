@@ -817,7 +817,12 @@ export default function TestCases({ me }: PageProps) {
     const base = dev.ip && nm !== dev.ip ? `${nm} (${dev.ip})` : nm
     // 계측기는 표를 낸다. 이름을 안 적어 둔 장비가 많아 IP 만 뜨는데,
     // 그러면 스텝의 세션 칸에서 계측기를 스위치인 줄 알고 고른다.
-    return isMeter(dev) ? `${base} · 계측기` : base
+    const base2 = isMeter(dev) ? `${base} · 계측기` : base
+    /* 적용 모델과 다른 장비면 이름 뒤에 표를 단다 — 스텝 상세의 Session
+       고르개가 이 이름을 그대로 쓴다(지적: 적용 모델과 세션이 달랐다). */
+    const want = String((d as Record<string, unknown>).model ?? '').trim()
+    const has = String(dev.model ?? '').trim()
+    return want && has && want !== has ? `${base2} ⚠ 적용 모델 아님` : base2
   })
   const sessionName = (i: number) => (i >= 0 ? (sessionNames[i] ?? `세션 ${i + 1}`) : '')
 
@@ -1727,6 +1732,7 @@ export default function TestCases({ me }: PageProps) {
                         자동으로 깔린다. */}
                     <TcSessionBar
                       sessions={sessionIds}
+                      tcModel={String((d as Record<string, unknown>).model ?? '')}
                       devices={devices}
                       onAdd={(id) => setSessions([...sessionIds, id])}
                       onPick={(i, id) => setSessions(sessionIds.map((v, j) => (j === i ? id : v)))}
