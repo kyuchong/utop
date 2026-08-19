@@ -6432,3 +6432,11 @@ table.tb td.k {
 /* 실행자 — 자동으로 돈 줄은 AI 표(지시) */
 .cxp-who.ai { display: inline-flex; align-items: center; justify-content: center; color: var(--c-primary); }
 .cxp-who.ai svg { width: 15px; height: 15px; }
+
+/* 시험 시각에 연도가 붙었다(지시) — 「2026-08-19 14:21」 16글자.
+   72px 로는 잘려서 100px 로 넓힌다. 다른 칸은 그대로. */
+.cxp-rgt,
+.cxp.onecol .cxp-rgt,
+.cxp-side.fmanual .cxp-rgt {
+  grid-template-columns: 24px 24px 18px 58px 100px 38px 60px;
+}

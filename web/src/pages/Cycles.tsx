@@ -4696,7 +4696,7 @@ function CycleDetail({
                         {(
                           <>
                             <span className="cxp-when muted small">
-                              {it.executed_at ? String(it.executed_at).replace('T', ' ').slice(5, 16) : '–'}
+                              {it.executed_at ? String(it.executed_at).replace('T', ' ').slice(0, 16) : '–'}
                             </span>
                             <span className="cxp-took muted small">
                               {(() => {
