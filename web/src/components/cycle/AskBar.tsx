@@ -1680,7 +1680,7 @@ export default function AskBar({ devices }: Props) {
               <em>장비를 아는 사람이.</em>
             </button>
           </div>
-          {/* 관리자만 — ⚙ 로 질문 보기를 고친다. 랩마다 자주 하는 시험이 다르다 */}
+          {/* 예시 — 무엇을 시킬 수 있는지 눌러서 안다. 관리자는 ⚙ 로 고친다 */}
           {!exEdit && (
             <div className="ask-chips">
               {examples.map((x, i) => (
@@ -1696,16 +1696,9 @@ export default function AskBar({ devices }: Props) {
               ))}
             </div>
           )}
-          {/* 말로 찾기 말고 목록에서 바로 고르는 길 — 목업엔 없지만
-              「말이 안 떠오르는」 사람이 반드시 있다. 조용한 한 줄로 둔다. */}
-          {mode === 'basic' && !exEdit && (
-            <button type="button" className="ask-picklink" onClick={() => setLikeAsk(true)}>
-              찾는 말이 떠오르지 않나요 — 등록된 시험 목록에서 고르기
-            </button>
-          )}
+          {/* 고치는 중에는 칩이 아니라 적는 칸이다 — 칸이 넓어야 고칠 수 있다 */}
           {examples.map((x, i) =>
             exEdit ? (
-              /* 고치는 중에는 줄 자체가 적는 칸이다 — 눌러 들어가지 않아도 된다 */
               <div className="ask-exedit" key={i}>
                 <div className="ask-execol">
                   <input
@@ -1731,10 +1724,6 @@ export default function AskBar({ devices }: Props) {
               ＋ 질문 추가
             </button>
           )}
-          <p className="ask-note muted small">
-            <b>설정을 바꾸는 명령</b> 은 <b>[실행]</b> 을 눌렀을 때만 나갑니다 — 만들기만으로는 장비가
-            바뀌지 않습니다.
-          </p>
         </div>
       )}
 

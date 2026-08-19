@@ -5062,9 +5062,15 @@ table.tb td.k {
 /* 첫 화면 — 목업 그대로. 회색 바탕 위에 카드 없이 가운데로 선다.
    입력·모드 두 장·예시 칩만 흰 것이고 나머지는 바탕이다. */
 .ask-hero {
+  /* 목업의 첫 화면은 **칸 한가운데**에 뜬다 — 위쪽에 붙여 두면 아래가
+     통째로 비어 「덜 그려진 화면」 으로 보인다(지적). */
   max-width: 660px;
+  min-height: 100%;
   margin: 0 auto;
-  padding: 7vh 24px 28px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   text-align: center;
 }
 .ask-hero h1 {
