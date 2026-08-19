@@ -4334,22 +4334,10 @@ function CycleDetail({
               {/* 「62/64」 를 고른 수로 읽는 일이 있었다(지적) — 고른 게 있으면
                   그 수를 앞세우고, 보이는 수는 뒤에 조용히 붙인다. */}
               <b className="cxp-cntlb">
-                {pick.size > 0 ? (
-                  <>
-                    <span className="cxp-cnt sel">{pick.size}개 선택</span>
-                    <span className="cxp-cntsub">
-                      {' '}
-                      · 보임 {rows.length}/{items.length}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    시험 항목{' '}
-                    <span className="cxp-cnt">
-                      {rows.length}/{items.length}
-                    </span>
-                  </>
-                )}
+                시험 항목{' '}
+                <span className={`cxp-cnt${pick.size ? ' sel' : ''}`}>
+                  {pick.size}/{items.length}
+                </span>
               </b>
               <input
                 className="cxp-q"
@@ -4703,7 +4691,7 @@ function CycleDetail({
                             스텝인지까지, 아직이면 「대기」. 끝난 줄은 판정이 말한다. */}
                         {st.on && st.itemAt === at ? (
                           <i className="cxp-run">
-                            ● 도는 중
+                            ● 실행 중
                             {st.stepAt >= 0 ? ` · ${st.stepAt + 1}/${st.stepCount}` : ''}
                           </i>
                         ) : st.on && runQ.has(at) && !v ? (
