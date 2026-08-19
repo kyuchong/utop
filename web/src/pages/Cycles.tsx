@@ -3529,6 +3529,8 @@ function CycleDetail({
     }
     return m
   }, [reqQ2.data])
+  /** 접어 둔 묶음 — 묶음 머리를 누르면 그 아래 줄이 숨는다(지시) */
+  const [grpFold, setGrpFold] = useState<Set<string>>(new Set())
   /** 수동만·자동만 보기(지시) — 목록 머리의 단추가 이 값을 바꾼다 */
   const [fKind, setFKind] = useState<'' | 'manual' | 'auto'>('')
   /** 자동만 볼 때는 한 칸으로 — 자동은 지켜보는 일이라 판정 칸이 필요 없다 */
@@ -4018,17 +4020,38 @@ function CycleDetail({
         {/* 배치는 **하는 일**이 정한다(설계):
              · 자동화 = 지켜보는 일 → 1열, 도는 항목이 줄 밑에서 펼쳐진다
              · 수동·전체 = 하는 일(판정을 누른다) → 2열, 오른쪽에서 시험한다 */}
+          {/* 1행 카드 — 회차를 다루는 단추 자리(지시). 맨 위 빵부스러기에
+              있던 「전체 실행 · 시험 완료 · 시험결과 요약」 이 여기로 온다. */}
+          <div className="cxp-actcard">
+            <span className="cy-execslot" id="cy-execbar" />
+            <span className="sp" />
+            <span className="cy-execslot" id="cy-finslot" />
+            <span className="cy-execslot" id="cy-sumslot" />
+          </div>
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
           <aside className="cxp-side" ref={sideRef} style={{ width: sideW }}>
             <div className="cxp-sh">
-              {/* 찾기칸이 맨 앞이다(지시 ③④) — 「Test Cases N」 이름표는 걷었다.
-                  건수·상태는 아래 바닥 줄이 말한다(지시 ⑤). */}
-              <input
-                className="cxp-q"
-                placeholder="TC ID · 제목 검색"
-                value={fq}
-                onChange={(e) => setFq(e.target.value)}
-              />
+              {/* 제안하신 그림 그대로 — 1행 이름표·건수·그룹·필터, 2행 찾기,
+                  3행 걸린 필터 칩. 「방식(자동·수동)」 은 필터 쪽으로 갔다. */}
+              <label className="rq-selall" title="보이는 것 전부 고르기">
+                <input
+                  type="checkbox"
+                  checked={rows.length > 0 && pick.size === rows.length}
+                  ref={(el) => {
+                    if (el) el.indeterminate = pick.size > 0 && pick.size < rows.length
+                  }}
+                  disabled={!rows.length}
+                  onChange={() =>
+                    pick.size === rows.length ? sel.clear() : sel.set(rows.map((x) => items.indexOf(x)))
+                  }
+                />
+              </label>
+              <b>시험 항목</b>
+              <i className="cxp-n">
+                {rows.length}/{items.length}
+              </i>
+              <span className="sp" />
+              <span className="muted small">그룹</span>
               {/* 묶기 · 시험 유형 — 둘 다 드롭다운으로(지시). 단추 무리는
                   자리를 먹어 머리줄이 밀렸다. */}
               <select
@@ -4042,16 +4065,6 @@ function CycleDetail({
                 <option value="tester">Tester</option>
                 <option value="prio">우선순위</option>
                 <option value="folder">폴더</option>
-              </select>
-              <select
-                className="cy-v cxp-grpsel"
-                value={fKind}
-                title="시험 유형으로 좁혀 봅니다"
-                onChange={(e) => setFKind(e.target.value as '' | 'manual' | 'auto')}
-              >
-                <option value="">전체</option>
-                <option value="manual">수동</option>
-                <option value="auto">자동</option>
               </select>
               {pick.size > 0 && <span className="muted small">{pick.size}개 선택</span>}
               {pick.size > 0 && !st.on && (
@@ -4183,6 +4196,25 @@ function CycleDetail({
                     zIndex: 60,
                   }}
                 >
+              {/* 방식 — 자동·수동(제안 그림). 목록 배치도 이 값이 정한다 */}
+              <div className="cxp-fsec">방식</div>
+              <div className="cxp-flist">
+                {([
+                  ['', '전체'],
+                  ['auto', '자동'],
+                  ['manual', '수동'],
+                ] as const).map(([k, lb]) => (
+                  <button
+                    key={k || 'all'}
+                    type="button"
+                    className={fKind === k ? 'on' : ''}
+                    onClick={() => setFKind(k)}
+                  >
+                    {lb}
+                  </button>
+                ))}
+              </div>
+              <div className="cxp-fsec">판정</div>
               {/* 결과로 좁히기 — 세로 목록, 결과 상태 전부(커스텀 포함) */}
               <div className="cxp-flist">
                 <button
@@ -4251,6 +4283,63 @@ function CycleDetail({
                 </div>
               </>
             )}
+            {/* 2행 — 찾기 */}
+            <div className="cxp-tools">
+              <input
+                className="cxp-q"
+                placeholder="TC ID · 제목 검색"
+                value={fq}
+                onChange={(e) => setFq(e.target.value)}
+              />
+            </div>
+            {/* 3행 — 지금 걸려 있는 것만 칩으로. 없으면 줄 자체가 없다 */}
+            {(fSet.size > 0 || fKind || fAss || onlyRegress) && (
+              <div className="cxp-chips">
+                {[...fSet].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    className="cxp-chip"
+                    onClick={() =>
+                      setFSet((cur) => {
+                        const n = new Set(cur)
+                        n.delete(v)
+                        return n
+                      })
+                    }
+                  >
+                    판정: {v || '미실행'} ✕
+                  </button>
+                ))}
+                {fKind && (
+                  <button type="button" className="cxp-chip" onClick={() => setFKind('')}>
+                    방식: {fKind === 'auto' ? '자동' : '수동'} ✕
+                  </button>
+                )}
+                {fAss && (
+                  <button type="button" className="cxp-chip" onClick={() => setFAss('')}>
+                    담당: {fAss} ✕
+                  </button>
+                )}
+                {onlyRegress && (
+                  <button type="button" className="cxp-chip" onClick={() => setOnlyRegress(false)}>
+                    회귀만 ✕
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="cxp-chipclr"
+                  onClick={() => {
+                    setFSet(new Set())
+                    setFKind('')
+                    setFAss('')
+                    setOnlyRegress(false)
+                  }}
+                >
+                  모두 지우기
+                </button>
+              </div>
+            )}
             <div className="cxp-rows scroll">
               {rows.map((it, i) => {
                 const at = items.indexOf(it)
@@ -4266,11 +4355,30 @@ function CycleDetail({
                 return (
                   <React.Fragment key={`${it.tcid}-${i}`}>
                     {newGroup && (
-                      <div className="cxp-grow" title={g.label}>
+                      /* 묶음 머리 — 누르면 그 묶음이 접힌다(지시). 묶음이 많으면
+                         목록을 통째로 굴리지 않고 필요한 것만 편다. */
+                      <button
+                        type="button"
+                        className={`cxp-grow${grpFold.has(g.k) ? ' fold' : ''}`}
+                        title={grpFold.has(g.k) ? '펼치기' : '접기'}
+                        onClick={() =>
+                          setGrpFold((cur) => {
+                            const n = new Set(cur)
+                            if (n.has(g.k)) n.delete(g.k)
+                            else n.add(g.k)
+                            return n
+                          })
+                        }
+                      >
+                        <i className="cxp-growc" aria-hidden="true">
+                          <IconChevron />
+                        </i>
                         <b>{g.label}</b>
                         {g.sub ? <span className="muted small"> {g.sub}</span> : null}
-                      </div>
+                      </button>
                     )}
+                    {grpFold.has(g.k) ? null : (
+                      <>
                     <div
                       className={`cxp-row v-${verdictClass(v)}${on ? ' on' : ''}${
                         pick.has(at) ? ' picked' : ''
@@ -4450,6 +4558,8 @@ function CycleDetail({
                         />
                       </div>
                     )}
+                      </>
+                    )}
                   </React.Fragment>
                 )
               })}
@@ -4478,14 +4588,6 @@ function CycleDetail({
           <section className="cxp-main scroll">
             {/* 오른쪽 칸의 현황 줄·현황판은 걷었다(지시 ②) — 진행은 목록 머리
                 한 줄이 맡는다. 이 자리는 **고른 항목을 시험하는 자리**다. */}
-            {/* 1행 카드 — 회차를 다루는 단추 자리(지시). 맨 위 빵부스러기에
-                있던 「전체 실행 · 시험 완료 · 시험결과 요약」 이 여기로 온다. */}
-            <div className="cxp-actcard">
-              <span className="cy-execslot" id="cy-execbar" />
-              <span className="sp" />
-              <span className="cy-execslot" id="cy-finslot" />
-              <span className="cy-execslot" id="cy-sumslot" />
-            </div>
             {cur ? (
               <>
                 <div className="cxp-h">

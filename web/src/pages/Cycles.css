@@ -6004,3 +6004,55 @@ table.tb td.k {
 .cxp-foot-run { color: var(--c-primary); font-weight: 700; }
 .cxp-foot-p { color: var(--c-pass); }
 .cxp-foot-f { color: var(--c-fail); }
+
+/* 걸린 필터 칩 줄(제안 그림 3행) */
+.cxp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px 8px;
+}
+.cxp-chip {
+  border: 0;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: var(--fs-sm);
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  cursor: pointer;
+}
+.cxp-chip:hover { background: var(--c-primary); color: #fff; }
+.cxp-chipclr {
+  border: 0;
+  background: transparent;
+  font-size: var(--fs-sm);
+  color: var(--c-text-faint);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+/* 필터 패널의 칸 이름 */
+.cxp-fsec {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--c-text-faint);
+  padding: 6px 10px 2px;
+}
+/* 실행 단추 카드는 두 배치 모두에서 보인다 — 오른쪽 칸 밖에 있다 */
+.cxp-actcard { margin: 0 0 10px; }
+
+/* 묶음 머리 — 누르면 접힌다(지시) */
+.cxp-grow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  background: var(--c-surface-alt);
+  text-align: left;
+  cursor: pointer;
+}
+.cxp-growc { display: inline-flex; color: var(--c-text-faint); }
+.cxp-growc svg { width: 13px; height: 13px; transform: rotate(90deg); transition: transform 0.12s; }
+.cxp-grow.fold .cxp-growc svg { transform: none; }
