@@ -5371,6 +5371,60 @@ def _force_enable(conn, params, ent=None):
             pass
 
 
+
+# ── 설정 모드 문맥 유지 ────────────────────────────────────────────
+#   「한 스텝 = CLI 하나」 로 나누면 `configure terminal` 과 그다음 명령이
+#   다른 호출로 갈린다. 그 사이에 장비가 설정 모드에서 빠져나오면(유휴로
+#   빠지는 장비가 있다) 다음 명령이 privileged 프롬프트로 나가 `% Invalid
+#   input` 이 난다 — 사용자가 실제로 겪었다(2026-08-19).
+#
+#   그래서 **세션이 설정 문맥을 기억**한다. 보낸 명령을 보고 문맥을 쌓거나
+#   비우고, 보내기 직전에 지금 프롬프트가 설정 모드가 아니면 쌓아 둔 문맥을
+#   조용히 다시 밟아 준다. 사람이 적은 절차는 그대로 두고, 잃어버린 상태만
+#   되돌리는 방식이다.
+_CFG_ENTER = re.compile(r"^\s*(do\s+)?(conf(ig(ure)?)?(\s+t(erminal)?)?|vlan\s+database)\s*$", re.I)
+_CFG_LEAVE = re.compile(r"^\s*(end|exit|quit)\s*$", re.I)
+
+
+def _cfg_ctx_keep(conn, ent, cmd):
+    """이 명령을 보내기 전에 — 설정 문맥이 풀렸으면 다시 밟는다."""
+    ctx = (ent or {}).get("cfg_ctx") or []
+    if not ctx:
+        return
+    try:
+        pr = conn.find_prompt() or ""
+    except Exception:
+        return
+    if "(" in pr:        # 이미 (config)# · (config-if)# 안이다
+        return
+    for c in ctx:        # 잃어버렸다 — 조용히 되밟는다
+        try:
+            conn.write_channel(c + "\n")
+            conn.read_until_pattern(pattern=r"[>#]\s*$", read_timeout=8, re_flags=re.M)
+        except Exception:
+            return
+
+
+def _cfg_ctx_note(ent, cmd):
+    """보낸 뒤 — 문맥을 쌓거나 비운다."""
+    if ent is None:
+        return
+    c = str(cmd or "").strip()
+    if not c:
+        return
+    ctx = list(ent.get("cfg_ctx") or [])
+    if _CFG_LEAVE.match(c):
+        ctx = [] if c.lower().startswith("end") else ctx[:-1]
+    elif _CFG_ENTER.match(c):
+        ctx = [c]
+    elif ctx:
+        # 설정 모드 안에서 문맥을 더 파고드는 명령(interface·vlan …)만 쌓는다.
+        # 값을 바꾸는 명령(shutdown·ip address …)은 쌓지 않는다 — 되밟으면 두 번 걸린다.
+        if re.match(r"^(interface|vlan|line|router|policy-map|class-map)\b", c, re.I):
+            ctx = ctx + [c]
+    ent["cfg_ctx"] = ctx
+
+
 def _ensure_conn(ent, params):
     from netmiko import ConnectHandler
     now = _t.time()
@@ -5391,6 +5445,7 @@ def _ensure_conn(ent, params):
         ent["paging_off"] = False   # 재접속 → 새 세션은 paging 다시 꺼야 함
     conn = ConnectHandler(**params)
     ent["paging_off"] = False   # 새 커넥션도 초기화
+    ent["cfg_ctx"] = []         # 새 세션은 설정 문맥도 없다
     _force_enable(conn, params, ent)
     ent["conn"] = conn
     ent["ts"] = now
@@ -5514,6 +5569,9 @@ def run_cli(payload: dict):
             outputs = []
             _skip_next = False   # 확인 프롬프트에 자동응답한 다음 명령(yes/no 그 자체)은 건너뜀 — 중복 전송 방지
             for _ci, cmd in enumerate(commands):
+                # 스텝을 나눠 보내면 그 사이 설정 모드가 풀릴 수 있다 — 되밟는다(지시)
+                _cfg_ctx_keep(conn, ent, cmd)
+                _cfg_ctx_note(ent, cmd)
                 if _skip_next:
                     _skip_next = False
                     continue
@@ -5778,9 +5836,13 @@ async def run_cli_stream(payload: dict):
                 for cmd in commands:
                     yield _sse({"cmd": cmd})       # 명령 입력 표시(라이브 터미널에 '$ cmd')
                     await asyncio.sleep(0)
+                    # 스텝을 나눠 보내면 그 사이 설정 모드가 풀릴 수 있다 —
+                    # 풀렸으면 쌓아 둔 문맥을 조용히 되밟는다(지시: 프롬프트 유지)
+                    _cfg_ctx_keep(conn, ent, cmd)
                     try: conn.read_channel()
                     except Exception: pass
                     conn.write_channel(cmd + "\n")
+                    _cfg_ctx_note(ent, cmd)
                     echo_done = False; pending = ""; idle = 0; dl = _tstr.time() + 30
                     while _tstr.time() < dl:
                         ch = ""
