@@ -4064,7 +4064,7 @@ function CycleDetail({
             <span className="sp" />
           </div>
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
-          <aside className={`cxp-side${fKind === 'auto' ? '' : ' fmanual'}`} ref={sideRef} style={{ width: sideW }}>
+          <aside className={`cxp-side${''}`} ref={sideRef} style={{ width: sideW }}>
             <div className="cxp-sh">
               {/* 제안하신 그림 그대로 — 1행 이름표·건수·그룹·필터, 2행 찾기,
                   3행 걸린 필터 칩. 「방식(자동·수동)」 은 필터 쪽으로 갔다. */}
@@ -4438,7 +4438,7 @@ function CycleDetail({
                     </i>
                     <em className="hd-lb">기존 결과</em>
                   </span>
-                  {fKind === 'auto' && (
+                  {(
                     <>
                       <span title="시험 시각">
                         <i className="hd-ic">
@@ -4678,7 +4678,7 @@ function CycleDetail({
                             </span>
                           )
                         })()}
-                        {fKind === 'auto' && (
+                        {(
                           <>
                             <span className="cxp-when muted small">
                               {it.executed_at ? String(it.executed_at).replace('T', ' ').slice(5, 16) : '–'}
@@ -4705,7 +4705,7 @@ function CycleDetail({
                         ) : st.on && runQ.has(at) && !v ? (
                           <i className="cxp-wait">대기</i>
                         ) : null}
-                        {fKind === 'auto' && !(st.on && (st.itemAt === at || runQ.has(at))) && (
+                        {!(st.on && (st.itemAt === at || runQ.has(at))) && (
                           <i className="cxp-stt">{v ? '완료' : '대기 전'}</i>
                         )}
                       </span>

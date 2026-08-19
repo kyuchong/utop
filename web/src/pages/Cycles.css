@@ -6367,3 +6367,24 @@ table.tb td.k {
   .cxp-row.cxp-hd .hd-lb { display: inline; }
   .cxp-row.cxp-hd .hd-ic { display: none; }
 }
+
+/* ── 필드는 어느 Type 에서나 열 벌 다 세운다(지시). 머리를 그림표로
+   바꿔 자리가 남았으니, 이제 폭만 되면 수동·전체도 전부 보인다.
+   좁아지면 덜 급한 것부터 접는다 — 이름 칸이 먼저다. */
+.cxp-rgt,
+.cxp.onecol .cxp-rgt,
+.cxp-side.fmanual .cxp-rgt {
+  grid-template-columns: 24px 46px 18px 62px 76px 38px 60px;
+}
+@container (max-width: 640px) {
+  .cxp-when, .cxp-took,
+  .cxp-row.cxp-hd .cxp-rgt > span:nth-child(5),
+  .cxp-row.cxp-hd .cxp-rgt > span:nth-child(6) { display: none; }
+  .cxp-rgt, .cxp-side.fmanual .cxp-rgt { grid-template-columns: 24px 46px 18px 62px 60px; }
+}
+@container (max-width: 500px) {
+  .cxp-by, .cxp-stt, .cxp-run, .cxp-wait,
+  .cxp-row.cxp-hd .cxp-rgt > span:nth-child(2),
+  .cxp-row.cxp-hd .cxp-rgt > span:nth-child(7) { display: none; }
+  .cxp-rgt, .cxp-side.fmanual .cxp-rgt { grid-template-columns: 24px 18px 62px; }
+}
