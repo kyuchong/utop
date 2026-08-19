@@ -1209,7 +1209,7 @@ export default function Cycles({ me }: PageProps) {
           )}
         </span>
         <span className="sp" />
-        {cur && <span className="cy-execslot" id="cy-execbar" />}
+        {/* 실행 단추 자리는 오른쪽 칸 1행 카드로 옮겼다(지시) */}
         {cur && (
           <button
             className="btn small primary"
@@ -1225,7 +1225,7 @@ export default function Cycles({ me }: PageProps) {
             {finishing ? '완료 중…' : '✔ 시험 완료'}
           </button>
         )}
-        {cur && <span className="cy-execslot" id="cy-sumslot" />}
+
         {/* 「함께 보는 중」 은 **오른쪽 끝 한 자리**만 쓴다(지적: 두 군데나
             떴다). 사이클을 열었으면 그 사이클을 보는 사람(아래 CycleDetail 이
             이 자리에 끼운다), 목록이면 이 화면에 있는 사람 전부. */}
@@ -4027,23 +4027,30 @@ function CycleDetail({
               </label>
               <b>Test Cases</b>
               <i className="cxp-n">{rows.length}</i>
-              {/* 수동·자동만 보기(지시 ③④) — 누르면 아래 목록이 그 종류로 바뀐다 */}
-              <div className="cxp-kindsw" role="group" aria-label="시험 종류">
-                {([
-                  ['', '전체'],
-                  ['manual', '수동'],
-                  ['auto', '자동'],
-                ] as const).map(([k, lb]) => (
-                  <button
-                    key={k || 'all'}
-                    type="button"
-                    className={`cxp-kbtn${fKind === k ? ' on' : ''}`}
-                    onClick={() => setFKind(k)}
-                  >
-                    {lb}
-                  </button>
-                ))}
-              </div>
+              {/* 묶기 · 시험 유형 — 둘 다 드롭다운으로(지시). 단추 무리는
+                  자리를 먹어 머리줄이 밀렸다. */}
+              <select
+                className="cy-v cxp-grpsel"
+                value={grp}
+                title="항목을 무엇으로 묶을지 고릅니다"
+                onChange={(e) => setGrp(e.target.value)}
+              >
+                <option value="req">요구사항</option>
+                <option value="status">Status</option>
+                <option value="tester">Tester</option>
+                <option value="prio">우선순위</option>
+                <option value="folder">폴더</option>
+              </select>
+              <select
+                className="cy-v cxp-grpsel"
+                value={fKind}
+                title="시험 유형으로 좁혀 봅니다"
+                onChange={(e) => setFKind(e.target.value as '' | 'manual' | 'auto')}
+              >
+                <option value="">전체</option>
+                <option value="manual">수동</option>
+                <option value="auto">자동</option>
+              </select>
               <span className="sp" />
               {/* 실시간 진행 — 한 줄로 짧게(지시 ⑤). 자세한 것은 도는 줄이 말한다 */}
               <span className={`cxp-live${st.on ? ' on' : ''}`}>
@@ -4132,20 +4139,6 @@ function CycleDetail({
             </div>
             {/* 찾기 + 내 것만 — Zephyr 왼쪽 목록의 도구 그대로 */}
             <div className="cxp-tools">
-              {/* 무엇으로 묶어 볼까 — 사람마다 찾는 길이 다르다(지시).
-                  고른 값은 브라우저에 기억된다. */}
-              <select
-                className="cy-v cxp-grpsel"
-                value={grp}
-                title="항목을 무엇으로 묶을지 고릅니다"
-                onChange={(e) => setGrp(e.target.value)}
-              >
-                <option value="req">요구사항</option>
-                <option value="status">Status</option>
-                <option value="tester">Tester</option>
-                <option value="prio">우선순위</option>
-                <option value="folder">폴더</option>
-              </select>
               <input
                 className="cxp-q"
                 placeholder="TC ID · 제목 검색"
@@ -4314,6 +4307,8 @@ function CycleDetail({
                         setRowMenu({ at, x: e.clientX, y: e.clientY })
                       }}
                     >
+                      {/* 줄 번호 — 「몇 번째 항목」 으로 말이 오간다(지시) */}
+                      <span className="cxp-no">{i + 1}</span>
                       <input
                         type="checkbox"
                         checked={pick.has(at)}
@@ -4446,6 +4441,13 @@ function CycleDetail({
           <section className="cxp-main scroll">
             {/* 오른쪽 칸의 현황 줄·현황판은 걷었다(지시 ②) — 진행은 목록 머리
                 한 줄이 맡는다. 이 자리는 **고른 항목을 시험하는 자리**다. */}
+            {/* 1행 카드 — 회차를 다루는 단추 자리(지시). 맨 위 빵부스러기에
+                있던 「전체 실행 · 시험 완료 · 시험결과 요약」 이 여기로 온다. */}
+            <div className="cxp-actcard">
+              <span className="cy-execslot" id="cy-execbar" />
+              <span className="sp" />
+              <span className="cy-execslot" id="cy-sumslot" />
+            </div>
             {cur ? (
               <>
                 <div className="cxp-h">
@@ -4543,12 +4545,8 @@ function CycleDetail({
                   </div>
                 </div>
   
-                {/* Objective · Precondition — 시험(TC)이 정본으로 들고 있다 */}
-                <TpSec title="Objective" body={tcDoc?.object_md} />
-                <TpSec title="Precondition" body={tcDoc?.precondition_md} />
-  
-                {/* Details — 절차와 판정. 기존 스텝 카드 그대로 */}
-                <div className="cxp-dt">Details</div>
+                {/* Objective·Precondition·Details 머리는 걷었다(지시) — 이 칸은
+                    **순수 스텝**만 낸다. 시험 문서는 Coverage 가 정본이다. */}
                 <StepDetail
                   key={cur.tcid ?? ''}
                   item={liveNow ? { ...cur, steps: st.liveSteps } : cur}
@@ -4898,25 +4896,6 @@ function CloneDialog({
   )
 }
 
-/** 접이식 섹션 — Zephyr 실행 화면의 Objective·Precondition 자리 */
-function TpSec({ title, body }: { title: string; body?: string | null }) {
-  const [open, setOpen] = useState(true)
-  return (
-    <div className="cxp-sec">
-      <button type="button" className="cxp-sec-h" onClick={() => setOpen((v) => !v)}>
-        <span className={`cxp-sec-c${open ? ' open' : ''}`} aria-hidden="true">
-          <IconChevron />
-        </span>
-        {title}
-      </button>
-      {open && (
-        <div className="cxp-sec-b">
-          {body?.trim() ? body : <span className="muted">None</span>}
-        </div>
-      )}
-    </div>
-  )
-}
 function RunPane({
   cycle,
   items,

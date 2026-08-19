@@ -5929,3 +5929,30 @@ table.tb td.k {
   max-height: 62vh;
   overflow: auto;
 }
+
+/* ── 1열 목록 — 줄 번호와 **좁은 줄 간격**(지시) ────────────────
+   한 화면에 더 많이 보이는 것이 이 칸의 일이다. */
+.cxp-no {
+  flex: none;
+  width: 22px;
+  text-align: right;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.cxp-row { padding-top: 2px; padding-bottom: 2px; min-height: 26px; gap: 6px; }
+.cxp-rows .cxp-grow { padding: 6px 10px 2px; }
+
+/* 2열 — 1행 도구 카드 · 2행 스텝 카드(지시) */
+.cxp-actcard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  margin: 0 0 10px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 10px;
+  background: var(--c-surface);
+}
+.cxp-actcard .sp { flex: 1; }
+.cxp-actcard:empty { display: none; }
