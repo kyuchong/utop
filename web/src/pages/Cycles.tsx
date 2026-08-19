@@ -4629,7 +4629,7 @@ function CycleDetail({
                             return (
                               <span
                                 className="cxp-who ai"
-                                title={by ? `자동 실행 · 걸어 둔 이: ${by}` : '자동 실행'}
+                                title={`자동 실행 — UTOP 계정이 돌렸습니다${by ? ` (건 이: ${by})` : ''}`}
                               >
                                 <IconSparkle />
                               </span>

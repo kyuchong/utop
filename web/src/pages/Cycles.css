@@ -6458,3 +6458,9 @@ table.tb td.k {
 .cxp-side.fmanual .cxp-rgt {
   grid-template-columns: 24px 24px 18px 36px 100px 38px 60px;
 }
+
+/* 필드 사이 간격은 6px 한 값으로(지시) — 줄 안쪽도, 오른쪽 묶음 안도 */
+.cxp-row, .cxp-row.cxp-hd { gap: 6px; }
+
+/* 자동 실행 표는 보라(지시) — UTOP 계정이 돌린 줄이다 */
+.cxp-who.ai { color: #7c4dff; }
