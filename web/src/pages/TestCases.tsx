@@ -270,7 +270,7 @@ export default function TestCases({ me }: PageProps) {
       return n
     })
   /* 레일 ↔ 한 줄기 스크롤 묶기. 누르면 가고, 굴리면 레일이 따라온다 */
-  useRailSpy(railRef, tab, (k) => setTab(k as Tab), true)
+  const goSec = useRailSpy(railRef, tab, (k) => setTab(k as Tab), true)
   const [listW, setListW] = useResizableWidth('utop.tc.listW', 250, 170, 900)
   /**
    * 1열을 접어 뒀나.
@@ -2598,6 +2598,7 @@ export default function TestCases({ me }: PageProps) {
                   return n
                 })
                 setTab(k as Tab)
+                requestAnimationFrame(() => goSec(k))
               }}
               items={RAIL_TABS}
             />

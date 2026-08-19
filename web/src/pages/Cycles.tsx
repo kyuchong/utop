@@ -1292,46 +1292,9 @@ export default function Cycles({ me }: PageProps) {
             무효라 줄 사이 선이 통째로 사라진다(겪었다). 요구사항 트리와
             같은 시각 규칙은 이 클래스 하나로 온다. */}
         <div className="cy-body rt">
-          {/* Root — 늘 맨 위에 있다. 누르면 전체 관제판, 올리면 전체 합산.
-              「전체」 로 돌아가는 길이 빵부스러기에만 있으면 트리에서 길을
-              잃는다. */}
-          <div
-            className={`rt-fold cy-node rt-top cy-root${!sel && !scope ? ' on' : ''}`}
-            role="button"
-            tabIndex={0}
-            onClick={() => {
-              localStorage.removeItem('utop.cycle.scope')
-              setScope(null)
-              setSel('')
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                localStorage.removeItem('utop.cycle.scope')
-              setScope(null)
-                setSel('')
-              }
-            }}
-            onContextMenu={(e) => {
-              e.preventDefault()
-              setFolderMenu({
-                node: { key: '__root', label: 'Root', depth: 0, count: cycles.length, children: [] },
-                x: e.clientX,
-                y: e.clientY,
-              })
-            }}
-          >
-            <span className="rt-caret">
-              <span className="rt-dot" />
-            </span>
-            <span className="rt-ficon" aria-hidden="true">
-              <IconFolder open />
-            </span>
-            <span className="rt-fname cy-nm">Root</span>
-            <span className="rt-cnt" title="사이클">
-              {cycles.length || ''}
-            </span>
-          </div>
+          {/* 여기 있던 「가짜 Root 줄」 은 걷어냈다 — 트리에 **진짜 Root**
+              노드가 서면서 같은 이름이 두 줄이 됐다(지적 사진). 누르면
+              전체 요약으로 가는 일은 그 진짜 Root 가 한다. */}
           {addingTo === '' && (
             <div className="rt-add" style={{ paddingLeft: 8 }}>
               <input
@@ -3097,9 +3060,9 @@ function CycleDetail({
   /* 요약을 펴 두는 사람은 요약부터 본다 — 열자마자 항목으로 건너뛰지 않게 */
   const [sec, setSec] = useState(sumOpen ? 'sum' : 'items')
   const [itemsOpen, setItemsOpen] = useState(true)
-  /** AI 요약 칸 접기 — 본문 접기(aiOpen)와는 다른 것이다 */
+  /** AI 요약 칸 접기 */
   const [aiOpen2, setAiOpen2] = useState(true)
-  useRailSpy(railRef, sec, setSec, true)
+  const goSec = useRailSpy(railRef, sec, setSec, true)
   useEffect(() => {
     localStorage.setItem('utop.cycle.sumopen', sumOpen ? '1' : '0')
   }, [sumOpen])
@@ -3126,10 +3089,8 @@ function CycleDetail({
    * 42vh 를 먹어 정작 시험 항목 목록이 아래 한 뼘으로 밀렸다(지적). 기본은
    * 접어 두고 — 몇 줄만 보인다 — 볼 사람만 편다. 고른 것은 기억한다.
    */
-  const [aiOpen, setAiOpen] = useState(() => localStorage.getItem('utop.cycle.aiopen') === '1')
-  useEffect(() => {
-    localStorage.setItem('utop.cycle.aiopen', aiOpen ? '1' : '0')
-  }, [aiOpen])
+  /* 본문 접기(aiOpen)는 없앴다 — 칸(RailSec) 이 접기를 맡으면서 같은 일을
+     하는 것이 둘이 됐다(지적: 머리줄이 두 줄). */
   const [aiAt, setAiAt] = useState('')
   const [aiBusy, setAiBusy] = useState(false)
   const [aiErr, setAiErr] = useState('')
@@ -3733,6 +3694,8 @@ function CycleDetail({
             else if (k === 'ai') setAiOpen2(true)
             else setItemsOpen(true)
             setSec(k)
+            // 접힌 칸을 편 다음이라 자리가 바뀐다 — 그린 뒤에 옮긴다
+            requestAnimationFrame(() => goSec(k))
           }}
           items={[
             { k: 'sum', label: '시험결과 요약', icon: <IconMeter />, n: 0 },
@@ -3848,21 +3811,15 @@ function CycleDetail({
           <RailSec
             k="ai"
             title="AI 요약"
+            right={aiAt ? String(aiAt).slice(0, 16) : undefined}
             open={aiOpen2}
             onToggle={() => setAiOpen2((v) => !v)}
           >
             {aiBusy || aiErr || aiTxt ? (
                     <div className="cy-sum-ai">
-                      <div className="cy-sum-ai-h">
-                        <b>✨ AI 요약</b>
-                        {aiAt && <em>{String(aiAt).slice(0, 16)}</em>}
-                        {!aiBusy && !aiErr && aiTxt && (
-                          <button type="button" className="cy-sum-ai-fold" onClick={() => setAiOpen((v) => !v)}>
-                            {aiOpen ? '접기' : '펼치기'}
-                          </button>
-                        )}
-                      </div>
-                      {aiBusy ? (
+                      {/* 속의 머리줄(✨ AI 요약 · 시각)은 칸 이름표로 올라갔다 —
+                      같은 말이 두 줄이었다(지적). 접기도 칸이 맡는다. */}
+                  {aiBusy ? (
                         <div className="cy-sum-ai-load">
                           <span className="cy-spin" aria-hidden="true" />
                           <div className="cy-sum-ai-sk">
@@ -3879,7 +3836,7 @@ function CycleDetail({
                       ) : aiErr ? (
                         <div className="cy-sum-ai-err">{aiErr}</div>
                       ) : (
-                        <div className={`cy-sum-ai-body${aiOpen ? '' : ' fold'}`}>
+                        <div className="cy-sum-ai-body">
                           <Markdown text={aiTxt} />
                           <div className="cy-sum-ai-note">
                             AI 는 실수할 수 있습니다. 정보를 다시 한번 확인해 주세요.

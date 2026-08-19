@@ -15,7 +15,7 @@ export function useRailSpy(
   active: string,
   setActive: (k: string) => void,
   enabled: boolean,
-) {
+): (k: string) => void {
   const fromSpy = useRef(false)
   const activeRef = useRef(active)
   activeRef.current = active
@@ -57,6 +57,22 @@ export function useRailSpy(
     }
   }, [boxRef, enabled])
 
+  /**
+   * 그 칸으로 **바로** 간다.
+   *
+   * 상태가 바뀔 때만 움직이면, 손으로 굴려 이미 그 칸에 와 있는 동안(레일 색이
+   * 그 칸을 가리키는 동안) 그 칸을 눌러도 아무 일도 안 일어난다 —
+   * 「눌렀는데 안 간다」(지적). 누름은 상태와 상관없이 늘 움직인다.
+   */
+  const goTo = (k: string) => {
+    const box = boxRef.current
+    if (!box) return
+    const el = box.querySelector<HTMLElement>(`[data-sec="${k}"]`)
+    if (!el) return
+    fromSpy.current = false
+    box.scrollTo({ top: Math.max(0, el.offsetTop - 4), behavior: 'smooth' })
+  }
+
   /* 레일(또는 다른 코드) → 스크롤 */
   useEffect(() => {
     if (fromSpy.current) {
@@ -70,6 +86,8 @@ export function useRailSpy(
     if (!el) return
     box.scrollTo({ top: Math.max(0, el.offsetTop - 4), behavior: 'smooth' })
   }, [boxRef, active, enabled])
+
+  return goTo
 }
 
 export default useRailSpy

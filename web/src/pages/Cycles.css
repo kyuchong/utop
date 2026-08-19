@@ -3625,7 +3625,8 @@ table.tb td.k {
 .cy-sum-livebar > b { display: block; height: 100%; background: var(--c-primary); transition: width 0.4s; }
 .cy-sum-live > em { font-style: normal; color: var(--c-text-faint); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.cy-sum-ai { border-top: 1px dashed var(--c-border); margin-top: 10px; padding-top: 9px; }
+/* 칸(RailSec) 안에서는 위 가로선이 필요 없다 — 칸이 이미 갈라 놓았다(지적) */
+.cy-sum-ai { margin-top: 0; padding-top: 0; }
 .cy-sum-ai-h { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
 .cy-sum-ai-h > b { font-size: var(--fs-sm); }
 .cy-sum-ai-h > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }

@@ -176,7 +176,7 @@ export default function Requirements({ me }: Props) {
       return n
     })
   /* 레일 ↔ 한 줄기 스크롤 묶기. 누르면 가고, 굴리면 레일이 따라온다 */
-  useRailSpy(railRef, tab, (k) => setTab(k as typeof tab), true)
+  const goSec = useRailSpy(railRef, tab, (k) => setTab(k as typeof tab), true)
   const [catW, setCatW] = useResizableWidth('utop.req.catW5', 210, 150, 900)
   // 2열 폭 조절은 3열과 함께 은퇴했다 — 2열이 남은 폭을 다 갖는다(레일 개편)
 
@@ -1058,6 +1058,7 @@ export default function Requirements({ me }: Props) {
                       return n
                     })
                     setTab(k as typeof tab)
+                    requestAnimationFrame(() => goSec(k))
                   }}
                   items={TABS.map(([k, label, hint]) => ({
                     k,
