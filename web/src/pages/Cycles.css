@@ -6111,3 +6111,20 @@ table.tb td.k {
 }
 /* 고르기 체크박스는 2행(시험 항목 줄) 왼쪽으로 갔다(지시 ③→⑤) */
 .cxp-tools .rq-selall { flex: none; margin: 0; }
+
+/* 내 것만 — 아이콘 토글(지시) */
+.cxp-mine {
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--c-text-muted);
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+}
+.cxp-mine svg { width: 14px; height: 14px; }
+.cxp-mine.on { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }

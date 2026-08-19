@@ -4076,6 +4076,24 @@ function CycleDetail({
                 <option value="prio">우선순위</option>
                 <option value="folder">폴더</option>
               </select>
+              {/* 내 것만 — 아이콘 하나로 켜고 끈다(지시) */}
+              <button
+                type="button"
+                className={`cxp-mine${fAss ? ' on' : ''}`}
+                title={fAss ? '내 것만 보는 중 — 누르면 전체' : '내 담당만 봅니다'}
+                onClick={() => setFAss(fAss ? '' : meName)}
+              >
+                <IconPanel />
+              </button>
+              {/* + TC — 이 회차에 시험 항목을 더한다 */}
+              <button
+                type="button"
+                className="btn small"
+                title="이 회차에 시험 항목을 더합니다"
+                onClick={() => setAdding(true)}
+              >
+                + TC
+              </button>
               {pick.size > 0 && <span className="muted small">{pick.size}개 선택</span>}
               {pick.size > 0 && !st.on && (
                 /* 고른 항목 전부에 같은 판정 — Pass 만이 아니라 아무 값이나 */
