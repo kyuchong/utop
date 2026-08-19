@@ -6128,3 +6128,23 @@ table.tb td.k {
 }
 .cxp-mine svg { width: 14px; height: 14px; }
 .cxp-mine.on { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+
+/* 실행 화면 머리줄 단추 한 벌 — 테두리 없이 회색 바탕(지시) */
+.cxp-sh .btn,
+.cxp-sh select,
+.cxp-mine,
+.cxp-actcard .btn {
+  border: 0;
+  background: var(--c-surface-alt);
+  color: var(--c-text-muted);
+  border-radius: 8px;
+}
+.cxp-sh .btn:hover,
+.cxp-mine:hover,
+.cxp-actcard .btn:hover { background: var(--c-border-soft); color: var(--c-text); }
+.cxp-actcard .btn.primary,
+.cxp-mine.on {
+  background: var(--c-primary);
+  color: #fff;
+}
+.cxp-actcard .btn.primary:disabled { background: var(--c-surface-alt); color: var(--c-text-faint); }

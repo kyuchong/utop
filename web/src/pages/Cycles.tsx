@@ -27,6 +27,7 @@ import {
   IconExecution,
   IconFolder,
   IconPanel,
+  IconAccounts,
   IconPlay,
   IconReqDoc,
   IconSettings,
@@ -690,12 +691,6 @@ export default function Cycles({ me }: PageProps) {
     [shown, freeFolders, famOf, mgroupOf, folderSort],
   )
   const cur = cycles.find((c) => c.id === sel)
-  /** 「시험 완료」 가 들어갈 자리 — 오른쪽 칸 1행 카드(지시).
-      상세가 그려진 뒤에 잡아야 해서 고른 회차가 바뀔 때마다 다시 찾는다. */
-  const [finEl, setFinEl] = useState<HTMLElement | null>(null)
-  useEffect(() => {
-    setFinEl(sel ? document.getElementById('cy-finslot') : null)
-  }, [sel])
   /*
    * **이 화면에 있다고 알린다.**
    *
@@ -1216,26 +1211,7 @@ export default function Cycles({ me }: PageProps) {
         </span>
         <span className="sp" />
         {/* 실행 단추 자리는 오른쪽 칸 1행 카드로 옮겼다(지시) */}
-        {/* 「시험 완료」 도 오른쪽 칸 1행 카드로 보낸다(지시) — 회차를 다루는
-            단추는 한 카드에 모인다. */}
-        {cur &&
-          finEl &&
-          createPortal(
-            <button
-              className="btn small primary"
-              type="button"
-              disabled={!allJudged || finishing}
-              title={
-                allJudged
-                  ? '종료일을 적고 사이클 목록으로 돌아갑니다'
-                  : '모든 항목에 결과가 차면 완료할 수 있습니다'
-              }
-              onClick={() => void finishExec()}
-            >
-              {finishing ? '완료 중…' : '✔ 시험 완료'}
-            </button>,
-            finEl,
-          )}
+        {/* 「시험 완료」 는 오른쪽 칸 1행 카드가 직접 그린다(아래 CycleDetail) */}
 
         {/* 「함께 보는 중」 은 **오른쪽 끝 한 자리**만 쓴다(지적: 두 군데나
             떴다). 사이클을 열었으면 그 사이클을 보는 사람(아래 CycleDetail 이
@@ -1480,6 +1456,7 @@ export default function Cycles({ me }: PageProps) {
             maker={vendorOf.get(cur.model ?? '') ?? ''}
             family={famOf.get(cur.model ?? '') ?? ''}
             mgroup={(cur.model_group ?? '').trim() || (mgroupOf.get(cur.model ?? '') ?? '')}
+            finish={{ can: allJudged, busy: finishing, onDo: () => void finishExec() }}
           />
         ) : scope && !scopeHasCycles ? (
           /* 폴더(Root·사업자·제품군·모델그룹·모델명)를 골랐다 — 2열은
@@ -3035,6 +3012,7 @@ function CycleDetail({
   maker,
   family,
   mgroup,
+  finish,
 }: {
   cycle: CycleMeta
   /** 회귀를 대 볼 후보들 — 이 사이클을 뺀 전부. 기본은 같은 모델 최신 */
@@ -3050,6 +3028,8 @@ function CycleDetail({
   maker?: string
   family?: string
   mgroup?: string
+  /** 「시험 완료」 — 부모가 가진 일이라 넘겨받아 1행 카드에 그린다 */
+  finish?: { can: boolean; busy: boolean; onDo: () => void }
 }) {
   /** 걸러 보기. null 이면 전부 — '' 는 「미실행」 이라는 뜻이라 못 쓴다 */
   /** 결과 필터 — 멀티 선택. 비어 있으면 전부 */
@@ -3221,7 +3201,7 @@ function CycleDetail({
 
   const colsRef = useRef<HTMLDivElement>(null)
   /** 1열(항목 목록) 폭 — 끌어서 바꾼다. 다른 화면들과 같은 부품 */
-  const [sideW, setSideW] = useResizableWidth('utop.cycle.execSideW', 340, 220, 640)
+  const [sideW, setSideW] = useResizableWidth('utop.cycle.execSideW', 340, 220, 1100)
   const sideRef = useRef<HTMLElement | null>(null)
 
   /** 고른 항목의 시험 문서(Objective·Precondition) — TC 가 정본이라 그때 읽는다 */
@@ -4054,7 +4034,21 @@ function CycleDetail({
           <div className="cxp-actcard">
             <span className="cy-execslot" id="cy-execbar" />
             <span className="sp" />
-            <span className="cy-execslot" id="cy-finslot" />
+            {finish && (
+              <button
+                className="btn small primary"
+                type="button"
+                disabled={!finish.can || finish.busy}
+                title={
+                  finish.can
+                    ? '종료일을 적고 사이클 목록으로 돌아갑니다'
+                    : '모든 항목에 결과가 차면 완료할 수 있습니다'
+                }
+                onClick={finish.onDo}
+              >
+                {finish.busy ? '완료 중…' : '✔ 시험 완료'}
+              </button>
+            )}
             <span className="cy-execslot" id="cy-sumslot" />
           </div>
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
@@ -4112,17 +4106,7 @@ function CycleDetail({
                   </button>
                 )
               })()}
-              <button
-                className={`btn small${fAss ? ' cxp-fon' : ''}`}
-                type="button"
-                title="항목 추가 · 내 것만"
-                onClick={(e) => {
-                  const r2 = e.currentTarget.getBoundingClientRect()
-                  setSideMenu((v2) => (v2 ? null : { x: r2.right, y: r2.bottom + 4 }))
-                }}
-              >
-                ⋯
-              </button>
+              {/* ⋯ 는 걷었다(지시) — 쓰는 일이 드물었다 */}
               {/* 내 것만 — 아이콘 하나로 켜고 끈다(지시) */}
               <button
                 type="button"
@@ -4130,7 +4114,7 @@ function CycleDetail({
                 title={fAss ? '내 것만 보는 중 — 누르면 전체' : '내 담당만 봅니다'}
                 onClick={() => setFAss(fAss ? '' : meName)}
               >
-                <IconPanel />
+                <IconAccounts />
               </button>
               {/* + TC — 이 회차에 시험 항목을 더한다 */}
               <button
@@ -4235,24 +4219,6 @@ function CycleDetail({
                     zIndex: 60,
                   }}
                 >
-              {/* 방식 — 자동·수동(제안 그림). 목록 배치도 이 값이 정한다 */}
-              <div className="cxp-fsec">방식</div>
-              <div className="cxp-flist">
-                {([
-                  ['', '전체'],
-                  ['auto', '자동'],
-                  ['manual', '수동'],
-                ] as const).map(([k, lb]) => (
-                  <button
-                    key={k || 'all'}
-                    type="button"
-                    className={fKind === k ? 'on' : ''}
-                    onClick={() => setFKind(k)}
-                  >
-                    {lb}
-                  </button>
-                ))}
-              </div>
               <div className="cxp-fsec">판정</div>
               {/* 결과로 좁히기 — 세로 목록, 결과 상태 전부(커스텀 포함) */}
               <div className="cxp-flist">
@@ -4705,67 +4671,56 @@ function CycleDetail({
                 </div>
   
                 {/* Execution 정보 — Zephyr 의 Execution 칸과 같은 자리 */}
-                <div className="cxp-exec">
-                  {(() => {
-                    const rows: Array<[string, string]> = [
-                      ['제조사', maker || '–'],
-                      ['제품군', family || '–'],
-                      ['모델그룹', mgroup || '–'],
-                      ['제품명', cycle.model || '–'],
-                      ['버전그룹', cycle.version_group || '–'],
-                      ['버전명', cycle.version || '–'],
-                      ['담당자', cur.assignee || '–'],
-                      ['실행자', cur.executed_by || '–'],
-                      ['실행 시각', cur.executed_at ? String(cur.executed_at).slice(0, 16) : '–'],
-                    ]
-                    /* 사이클에 실린 나머지 값 — 상태·고객에 더해, 앞으로
-                       늘어날 커스텀 필드(고객사·사이클 유형 …)가 코드 수정
-                       없이 자동으로 나온다. 수정 창에 칸이 생기면 화면이 따라온다 */
-                    const KNOWN: Record<string, string> = { status: '상태', customer: '고객' }
-                    const SKIP = new Set([
-                      'id', 'cid', 'ce', 'name', 'model', 'model_group', 'version',
-                      'version_group', 'assignee', 'folder', 'folder_id', 'description',
-                      'cloned_from', 'created_at', 'created_by', 'updated_by',
-                      'start_date', 'end_date', 'items',
-                    ])
-                    for (const [k, v2] of Object.entries(cycle as unknown as Record<string, unknown>)) {
-                      if (SKIP.has(k) || k.startsWith('_')) continue
-                      if (typeof v2 !== 'string' && typeof v2 !== 'number') continue
-                      if (String(v2).trim() === '') continue
-                      rows.push([KNOWN[k] ?? k, String(v2)])
-                    }
-                    return rows.map(([k, v2]) => (
-                      <div key={k}>
-                        <i>{k}</i>
-                        <b>{v2}</b>
-                      </div>
-                    ))
-                  })()}
-                  {/* 제목은 길다 — 몇 열이 되든 맨 아래 한 줄을 통째로(예외) */}
-                  <div className="wide">
-                    <i>사이클 제목</i>
-                    <b>{cycle.name || '–'}</b>
+                <FoldCard title="INFO">
+                  <div className="cxp-exec">
+                    {(() => {
+                      const rows: Array<[string, string]> = [
+                        ['제조사', maker || '–'],
+                        ['제품군', family || '–'],
+                        ['모델그룹', mgroup || '–'],
+                        ['제품명', cycle.model || '–'],
+                        ['버전그룹', cycle.version_group || '–'],
+                        ['버전명', cycle.version || '–'],
+                        ['담당자', cur.assignee || '–'],
+                        ['실행자', cur.executed_by || '–'],
+                        ['실행 시각', cur.executed_at ? String(cur.executed_at).slice(0, 16) : '–'],
+                      ]
+                      /* 사이클에 실린 나머지 값 — 상태·고객에 더해, 앞으로
+                         늘어날 커스텀 필드(고객사·사이클 유형 …)가 코드 수정
+                         없이 자동으로 나온다. 수정 창에 칸이 생기면 화면이 따라온다 */
+                      const KNOWN: Record<string, string> = { status: '상태', customer: '고객' }
+                      const SKIP = new Set([
+                        'id', 'cid', 'ce', 'name', 'model', 'model_group', 'version',
+                        'version_group', 'assignee', 'folder', 'folder_id', 'description',
+                        'cloned_from', 'created_at', 'created_by', 'updated_by',
+                        'start_date', 'end_date', 'items',
+                      ])
+                      for (const [k, v2] of Object.entries(cycle as unknown as Record<string, unknown>)) {
+                        if (SKIP.has(k) || k.startsWith('_')) continue
+                        if (typeof v2 !== 'string' && typeof v2 !== 'number') continue
+                        if (String(v2).trim() === '') continue
+                        rows.push([KNOWN[k] ?? k, String(v2)])
+                      }
+                      return rows.map(([k, v2]) => (
+                        <div key={k}>
+                          <i>{k}</i>
+                          <b>{v2}</b>
+                        </div>
+                      ))
+                    })()}
+                    {/* 제목은 길다 — 몇 열이 되든 맨 아래 한 줄을 통째로(예외) */}
+                    <div className="wide">
+                      <i>사이클 제목</i>
+                      <b>{cycle.name || '–'}</b>
+                    </div>
                   </div>
-                </div>
+                </FoldCard>
   
                 {/* 위에 접어 둔 카드 셋(지시 ⑤⑥) — 열어 보는 사람만 편다.
                     기본은 접힘이라 스텝이 맨 위에 온다. */}
                 <FoldCard title="시험 목적">{tcDoc?.object_md || '적어 둔 것이 없습니다.'}</FoldCard>
                 <FoldCard title="사전 준비 조건">
                   {tcDoc?.precondition_md || '적어 둔 것이 없습니다.'}
-                </FoldCard>
-                <FoldCard title="라벨">
-                  {[
-                    maker ? `제조사 ${maker}` : '',
-                    family ? `제품군 ${family}` : '',
-                    mgroup ? `모델그룹 ${mgroup}` : '',
-                    cycle.model ? `모델명 ${cycle.model}` : '',
-                    cycle.version ? `버전 ${cycle.version}` : '',
-                    cur.assignee ? `담당 ${cur.assignee}` : '',
-                    cur.executed_by ? `실행자 ${cur.executed_by}` : '',
-                  ]
-                    .filter(Boolean)
-                    .join('  ·  ') || '라벨이 없습니다.'}
                 </FoldCard>
                 <StepDetail
                   key={cur.tcid ?? ''}
