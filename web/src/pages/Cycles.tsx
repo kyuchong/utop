@@ -4504,6 +4504,18 @@ function CycleDetail({
                     >
                       {/* 줄 번호 — 「몇 번째 항목」 으로 말이 오간다(지시) */}
                       <span className="cxp-no">{i + 1}</span>
+                      <input
+                        type="checkbox"
+                        checked={pick.has(at)}
+                        aria-label={`${it.name || it.tcid} 고르기`}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => {
+                          const n = new Set(pick)
+                          if (n.has(at)) n.delete(at)
+                          else n.add(at)
+                          sel.set([...n])
+                        }}
+                      />
                       <span className="cxp-rmain">
                         {oneCol && (
                           <button

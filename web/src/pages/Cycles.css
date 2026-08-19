@@ -6222,3 +6222,16 @@ table.tb td.k {
 
 /* 묶음 머리의 고르개 — 펼침 화살표 바로 오른쪽(지시) */
 .cxp-growck { margin: 0 2px 0 0; cursor: pointer; flex: none; }
+
+/* 거르개 이름 — 너무 굵고 검었다(지적). 한 눈금 낮춘다 */
+.cxp-fsel-lb { font-weight: 600; color: var(--c-text-muted); }
+.cxp-fsel-lb.on { color: var(--c-text); }
+.cxp-fsel-lb b { font-weight: 700; }
+
+/* 1열 머리와 2열 머리의 구분선을 같은 높이에 놓는다(지시 ③) */
+.cxp-sh, .cxp-h {
+  min-height: 44px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--c-border);
+}
+.cxp-h { padding: 7px 10px; }
