@@ -5779,8 +5779,9 @@ table.tb td.k {
    줄을 펴는 까닭은 「이 회차가 어땠나」 이므로 그 답을 옆에 둔다. */
 .cyt-dbody {
   display: grid;
-  /* 1행 — 왼쪽 검증 목적 · 오른쪽 시험 결과 요약, 2행 — AI 요약(통째) (지시) */
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  /* 세 줄로 — 1행 검증 목적 · 2행 시험 결과 요약 · 3행 AI 요약(지시).
+     좌우로 가르면 어느 쪽도 넉넉하지 않았다. */
+  grid-template-columns: 1fr;
   gap: 12px;
   align-items: start;
 }
@@ -5843,20 +5844,12 @@ table.tb td.k {
 .cyt-dhead-m { color: var(--c-text-muted); font-size: var(--fs-sm) !important; }
 
 /* 시험결과 요약 — 전체·수동·자동 세 판을 나란히(지시) */
-/* 전체·수동·자동 — 반 폭 칸 안에서 **위아래 세 줄**로(지시).
-   나란히 세우면 막대가 토막 나 합격률이 안 읽힌다. */
+/* 전체·수동·자동 — 칸이 통째 폭을 쓰니 다시 나란히. 좁아지면 저희끼리 접힌다 */
 .cyt-d3 {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px 14px;
 }
-.cyt-d3 > .cyt-dcell {
-  border-right: 0;
-  padding-right: 0;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--c-border-soft);
-}
-.cyt-d3 > .cyt-dcell:last-child { border-bottom: 0; padding-bottom: 0; }
 .cyt-d3 .cyt-dsum b { font-size: 18px; }
 .cyt-d3 .cyt-dwrow { gap: 10px; }
 .cyt-d3 .cyt-dlegend { gap: 8px; font-size: var(--fs-xs); }
