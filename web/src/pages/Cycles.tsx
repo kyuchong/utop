@@ -3790,20 +3790,9 @@ function CycleDetail({
                 {sect('수동', manuals)}
                 {sect('자동', autos)}
               </div>
-              {st.on && (
-                <div className="cy-sum-live">
-                  <b>
-                    자동 실행 중 {Math.min(st.done + 1, st.total)}/{st.total}
-                  </b>
-                  <span className="cy-sum-livebar">
-                    <b style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
-                  </span>
-                  <em>
-                    {st.itemName || '…'}
-                    {st.stepAt >= 0 ? ` · 스텝 ${st.stepAt + 1}/${st.stepCount}` : ''}
-                  </em>
-                </div>
-              )}
+              {/* 「자동 실행 중 N/M」 줄은 걷어냈다(지적: 진행 현황이 이곳저곳).
+                  도는 동안의 현황은 항목 칸 위 **진행판 한 곳**(cy-prog)이
+                  맡는다 — 거기에는 멈추는 단추도 있다. */}
             </div>
           )
         })()}
@@ -4488,7 +4477,8 @@ function CycleDetail({
                 {doneAll}/{items.length} 실행 · 합격 {donePass} · 실패 {doneFail}
                 {doneEtc ? ` · 그 밖 ${doneEtc}` : ''}
               </span>
-              {st.on && <span className="cxp-now-run">돌는 중</span>}
+              {/* 도는 중 표시는 진행판(cy-prog) 하나로 모았다 — 같은 화면에
+                  같은 말이 여러 군데면 어디를 봐야 할지 모른다(지적). */}
             </div>
             {cur ? (
               <>
