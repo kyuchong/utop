@@ -68,6 +68,8 @@ export interface CycleMeta {
   created_by?: string | null
   /** 사이클 상태 — 설정 → 사이클 INFO 필드 값 */
   status?: string | null
+  /** AI 요약 — 목록 응답(data_summary)에 그대로 실려 온다 */
+  ai_summary?: { text?: string; at?: string } | null
   /** 실행 ID — 사이클 ID 에서 파생 (C-2633-002 → CE-2633-002). 첫 Run 때 박힌다 */
   ce?: string | null
   description?: string | null
@@ -2362,11 +2364,63 @@ function CycleBoard({
                             <span className="cyt-dkv"><b>원본</b><i>{c.cloned_from}</i></span>
                           ) : null}
                         </div>
-                        {c.description ? (
+                        {/* 설명 옆이 통째로 비어 있었다(지시 사진 ①②) —
+                            그 자리에 이 회차의 **결과 요약**과 **AI 요약**을 둔다.
+                            줄을 펴는 까닭이 「이 회차가 어땠나」 를 보려는 것이다. */}
+                        <div className="cyt-dbody">
                           <div className="cyt-ddesc">
-                            <Markdown text={c.description} />
+                            {c.description ? (
+                              <Markdown text={c.description} />
+                            ) : (
+                              <span className="muted small">적어 둔 설명이 없습니다.</span>
+                            )}
                           </div>
-                        ) : null}
+
+                          <section className="cyt-dpanel">
+                            <b className="cyt-dpt">시험결과 요약</b>
+                            {t.total === 0 ? (
+                              <span className="muted small">항목이 없습니다.</span>
+                            ) : (
+                              <>
+                                <div className="cyt-dsum">
+                                  <b>{Math.round((t.pass / t.total) * 100)}%</b>
+                                  <em>합격률</em>
+                                </div>
+                                <span className="cs-bar" aria-hidden="true">
+                                  <i className="cs-b pass" style={{ width: `${(t.pass / t.total) * 100}%` }} />
+                                  <i className="cs-b fail" style={{ width: `${(t.fail / t.total) * 100}%` }} />
+                                  <i
+                                    className="cs-b etc"
+                                    style={{ width: `${(Math.max(0, t.done - t.pass - t.fail) / t.total) * 100}%` }}
+                                  />
+                                  <i className="cs-b left" style={{ width: `${((t.total - t.done) / t.total) * 100}%` }} />
+                                </span>
+                                <div className="cyt-dlegend">
+                                  <span><i className="cs-d pass" />합격 {t.pass}</span>
+                                  <span><i className="cs-d fail" />실패 {t.fail}</span>
+                                  <span><i className="cs-d left" />미실행 {Math.max(0, t.total - t.done)}</span>
+                                  {t.iss > 0 && <span>결함 {t.iss}</span>}
+                                </div>
+                              </>
+                            )}
+                          </section>
+
+                          <section className="cyt-dpanel">
+                            <b className="cyt-dpt">
+                              AI 요약
+                              {c.ai_summary?.at ? (
+                                <em className="muted small">{String(c.ai_summary.at).slice(0, 16)}</em>
+                              ) : null}
+                            </b>
+                            {c.ai_summary?.text ? (
+                              <div className="cyt-dai">
+                                <Markdown text={String(c.ai_summary.text)} />
+                              </div>
+                            ) : (
+                              <span className="muted small">아직 만들지 않았습니다 — 회차를 열고 「AI 요약」 칸에서 만듭니다.</span>
+                            )}
+                          </section>
+                        </div>
                       </div>
                     )}
                     {/* 사이클 = 시험항목의 모음 — 펼치면 그 목록이 보인다.

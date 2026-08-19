@@ -5773,3 +5773,55 @@ table.tb td.k {
 }
 .cxp-run { color: #fff; background: var(--c-primary); }
 .cxp-wait { color: var(--c-text-faint); background: var(--c-surface-alt); border: 1px solid var(--c-border-soft); font-weight: 500; }
+
+/* ── 목록에서 줄을 펴면 — 설명 · 결과 요약 · AI 요약 세 칸 ───────
+   여태 설명만 왼쪽에 있고 오른쪽 절반이 통째로 비어 있었다(지시 사진).
+   줄을 펴는 까닭은 「이 회차가 어땠나」 이므로 그 답을 옆에 둔다. */
+.cyt-dbody {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 12px;
+  align-items: start;
+}
+@media (max-width: 1200px) {
+  .cyt-dbody { grid-template-columns: 1fr; }
+}
+.cyt-dpanel {
+  border: 1px solid var(--c-border-soft);
+  border-radius: 8px;
+  background: var(--c-surface);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.cyt-dpt {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-text-muted);
+}
+.cyt-dpt em { font-style: normal; margin-left: auto; }
+.cyt-dsum { display: flex; align-items: baseline; gap: 6px; }
+.cyt-dsum b { font-size: 22px; line-height: 1; }
+.cyt-dsum em { font-style: normal; font-size: var(--fs-sm); color: var(--c-text-faint); }
+.cyt-dlegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+.cyt-dlegend span { display: inline-flex; align-items: center; gap: 5px; }
+/* AI 요약은 길다 — 줄을 펴 보는 자리에서는 앞머리만. 회차를 열면 전문이 있다 */
+.cyt-dai {
+  max-height: 190px;
+  overflow: auto;
+  font-size: var(--fs-sm);
+  line-height: 1.65;
+}
+.cyt-dai h1, .cyt-dai h2, .cyt-dai h3 { font-size: var(--fs-md); margin: 6px 0 4px; }
+.cyt-dai table { font-size: var(--fs-xs); }
