@@ -4636,15 +4636,19 @@ function CycleDetail({
                             </span>
                           )
                         })()}
-                        {/* 실행자 — 담당(맡은 이)과 다르다. 실제로 돌린 사람이다 */}
-                        {(
-                          <span
-                            className="cxp-by muted small"
-                            title={it.executed_by ? `실행자: ${it.executed_by}` : '아직 아무도 안 돌렸습니다'}
-                          >
-                            {it.executed_by || '–'}
-                          </span>
-                        )}
+                        {/* 실행자 — 담당(맡은 이)과 다르다. 실제로 돌린 사람이다.
+                            칸이 24px 이므로 담당자와 같은 첫 글자 꼴로 둔다 */}
+                        {(() => {
+                          const by = String(it.executed_by ?? '').trim()
+                          return (
+                            <span
+                              className={`cxp-who${by ? '' : ' none'}`}
+                              title={by ? `실행자: ${by}` : '아직 아무도 안 돌렸습니다'}
+                            >
+                              {by ? <i>{(by[0] || '?').toUpperCase()}</i> : <i className="g">–</i>}
+                            </span>
+                          )
+                        })()}
                         {/* 시험 타입 — TC 가 정본 */}
                         {(() => {
                           const kd = typeOf(it)

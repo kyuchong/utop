@@ -6388,3 +6388,27 @@ table.tb td.k {
   .cxp-row.cxp-hd .cxp-rgt > span:nth-child(7) { display: none; }
   .cxp-rgt, .cxp-side.fmanual .cxp-rgt { grid-template-columns: 24px 18px 62px; }
 }
+
+/* ── 필드 폭은 지시한 값 그대로 · 머리는 늘 그림표(지시 원복) ────── */
+.cxp-row.cxp-hd .hd-lb { display: none; }
+.cxp-row.cxp-hd .hd-ic { display: inline-flex; }
+@container (min-width: 900px) {
+  .cxp-row.cxp-hd .hd-lb { display: none; }
+  .cxp-row.cxp-hd .hd-ic { display: inline-flex; }
+}
+.cxp-rgt,
+.cxp.onecol .cxp-rgt,
+.cxp-side.fmanual .cxp-rgt {
+  grid-template-columns: 24px 24px 18px 62px 76px 38px 60px;
+}
+@container (max-width: 640px) {
+  .cxp-when, .cxp-took,
+  .cxp-row.cxp-hd .cxp-rgt > span:nth-child(5),
+  .cxp-row.cxp-hd .cxp-rgt > span:nth-child(6) { display: none; }
+  .cxp-rgt, .cxp-side.fmanual .cxp-rgt { grid-template-columns: 24px 24px 18px 62px 60px; }
+}
+@container (max-width: 500px) {
+  .cxp-stt, .cxp-run, .cxp-wait,
+  .cxp-row.cxp-hd .cxp-rgt > span:nth-child(7) { display: none; }
+  .cxp-rgt, .cxp-side.fmanual .cxp-rgt { grid-template-columns: 24px 24px 18px 62px; }
+}
