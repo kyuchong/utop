@@ -4022,20 +4022,6 @@ function CycleDetail({
               </label>
               <b>Test Cases</b>
               <i className="cxp-n">{rows.length}</i>
-              {/* 무엇으로 묶어 볼까 — 사람마다 찾는 길이 다르다(지시).
-                  고른 값은 브라우저에 기억된다. */}
-              <select
-                className="cy-v cxp-grpsel"
-                value={grp}
-                title="항목을 무엇으로 묶을지 고릅니다"
-                onChange={(e) => setGrp(e.target.value)}
-              >
-                <option value="req">요구사항</option>
-                <option value="status">Status</option>
-                <option value="tester">Tester</option>
-                <option value="prio">우선순위</option>
-                <option value="folder">폴더</option>
-              </select>
               {/* 수동·자동만 보기(지시 ③④) — 누르면 아래 목록이 그 종류로 바뀐다 */}
               <div className="cxp-kindsw" role="group" aria-label="시험 종류">
                 {([
@@ -4141,6 +4127,20 @@ function CycleDetail({
             </div>
             {/* 찾기 + 내 것만 — Zephyr 왼쪽 목록의 도구 그대로 */}
             <div className="cxp-tools">
+              {/* 무엇으로 묶어 볼까 — 사람마다 찾는 길이 다르다(지시).
+                  고른 값은 브라우저에 기억된다. */}
+              <select
+                className="cy-v cxp-grpsel"
+                value={grp}
+                title="항목을 무엇으로 묶을지 고릅니다"
+                onChange={(e) => setGrp(e.target.value)}
+              >
+                <option value="req">요구사항</option>
+                <option value="status">Status</option>
+                <option value="tester">Tester</option>
+                <option value="prio">우선순위</option>
+                <option value="folder">폴더</option>
+              </select>
               <input
                 className="cxp-q"
                 placeholder="TC ID · 제목 검색"

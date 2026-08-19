@@ -4945,12 +4945,17 @@ table.tb td.k {
 }
 
 /* 묶기 고르개 — 목록 머리에 작게 */
+/* 묶기 고르개 — 머리줄에서 **찾기 줄**로 내렸다. 머리줄에 여섯이 서면
+   서로 밀어 글자가 뭉갠다(지적). */
 .cxp-grpsel {
-  height: 22px;
-  padding: 0 4px;
+  height: 26px;
+  padding: 0 6px;
   font-size: var(--fs-sm);
-  max-width: 96px;
+  flex: none;
+  max-width: 110px;
 }
+.cxp-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cxp-tools .cxp-q { flex: 1; min-width: 120px; }
 
 /* ── 오른쪽 맨 위 한 줄 — 이 회차가 어디까지 왔나(지시) ────────
    아래는 고른 항목의 스텝별 결과다. 두 가지가 세로로 겹치지 않게
