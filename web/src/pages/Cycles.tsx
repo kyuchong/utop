@@ -28,7 +28,12 @@ import {
   IconFolder,
   IconPanel,
   IconAccounts,
+  IconClock,
+  IconHand,
+  IconNote,
+  IconPing,
   IconPlay,
+  IconWave,
   IconReqDoc,
   IconSettings,
   IconSparkle,
@@ -4384,28 +4389,43 @@ function CycleDetail({
                 </button>
               </div>
             )}
+            <div className="cxp-rows scroll">
             {(
               /* 표 머리 — 필드 차례는 지시 그대로다 */
-              <div className="cxp-row cxp-hd" aria-hidden="true">
+              <div className="cxp-row cxp-hd">
                 <span className="cxp-no">No</span>
                 <span />
                 <span className="cxp-rmain">시험 항목</span>
                 <span className="cxp-rgt">
-                  <span>담당자</span>
-                  <span>실행자</span>
-                  <span>타입</span>
-                  <span>기존 결과</span>
+                  <span title="담당자">
+                    <IconAccounts />
+                  </span>
+                  <span title="실행자">
+                    <IconHand />
+                  </span>
+                  <span title="타입 — 자동(A) · 수동(M)">
+                    <IconTag />
+                  </span>
+                  <span title="기존 결과 — 지난 회차의 판정">
+                    <IconNote />
+                  </span>
                   {fKind === 'auto' && (
                     <>
-                      <span>시험 시각</span>
-                      <span>소요</span>
-                      <span>진행 상태</span>
+                      <span title="시험 시각">
+                        <IconClock />
+                      </span>
+                      <span title="소요 시간">
+                        <IconWave />
+                      </span>
+                      <span title="진행 상태">
+                        <IconPing />
+                      </span>
                     </>
                   )}
                 </span>
               </div>
             )}
-            <div className="cxp-rows scroll">
+
               {rows.map((it, i) => {
                 const at = items.indexOf(it)
                 const g = groupOfItem(it)

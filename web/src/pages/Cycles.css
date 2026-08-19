@@ -6316,3 +6316,37 @@ table.tb td.k {
 @container (max-width: 780px) {
   .cxp-side.fmanual .cxp-rgt { grid-template-columns: 24px 18px 62px; }
 }
+
+/* ── 머리와 데이터가 어긋나던 진짜 까닭: 머리를 구르는 상자 **밖**에 두어
+   굴림대(스크롤바) 폭만큼 줄이 좁았다. 머리를 안으로 들여 붙박이로
+   세운다 — 굴려도 머리는 남고, 칸은 데이터와 같은 자를 쓴다(지시). */
+.cxp-rows > .cxp-row.cxp-hd {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.cxp-row.cxp-hd .cxp-rgt > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 칸 폭은 이름표가 접히지 않을 만큼 — 진행 상태는 넉넉히(지시) */
+.cxp-rgt,
+.cxp.onecol .cxp-rgt {
+  grid-template-columns: 42px 58px 30px 64px 82px 46px 74px;
+}
+.cxp-side.fmanual .cxp-rgt { grid-template-columns: 42px 58px 30px 64px; }
+@container (max-width: 780px) {
+  .cxp-side.fmanual .cxp-rgt { grid-template-columns: 42px 30px 64px; }
+}
+
+/* 머리는 **그림표**다(지시) — 글자 수 때문에 칸이 밀리지 않는다.
+   올려 두면 이름이 말풍선으로 뜬다. */
+.cxp-row.cxp-hd .cxp-rgt > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--c-text-faint);
+}
+.cxp-row.cxp-hd .cxp-rgt > span > svg { width: 15px; height: 15px; }
+.cxp-row.cxp-hd .cxp-rgt > span:hover { color: var(--c-text); }
