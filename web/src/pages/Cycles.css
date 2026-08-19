@@ -5672,3 +5672,60 @@ table.tb td.k {
 }
 /* 목록 줄의 명령도 줄바꿈을 살린다 — 한 줄로 붙으면 무엇이 나가는지 못 읽는다 */
 .ask-sbody.mono { white-space: pre-line; }
+
+/* ── 항목을 고르기 전 오른쪽 칸 — **이 회차가 어디까지 왔나**(지시) ────
+   빈 자리에 「고르세요」 한 줄만 있던 곳이다. 고르기 전에 가장 알고 싶은 것은
+   「지금 얼마나 됐나」 다. */
+.cy-nowpane {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cy-nowpane-top {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 10px;
+  background: var(--c-surface);
+}
+.cy-nowpane-big { flex: none; text-align: center; }
+.cy-nowpane-big b { display: block; font-size: 30px; line-height: 1.1; }
+.cy-nowpane-big em { font-style: normal; font-size: var(--fs-sm); color: var(--c-text-faint); }
+.cy-nowpane-bar { flex: 1; min-width: 0; }
+.cy-nowpane-leg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+.cy-nowpane-leg span { display: inline-flex; align-items: center; gap: 5px; }
+
+.cy-nowpane-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.cy-nowpane-card {
+  border: 1px solid var(--c-border-soft);
+  border-radius: 10px;
+  background: var(--c-surface);
+  padding: 10px 12px;
+}
+.cy-nowpane-card b { display: block; font-size: var(--fs-sm); color: var(--c-text-muted); font-weight: 600; }
+.cy-nowpane-card span { display: block; margin-top: 3px; font-size: var(--fs-lg); }
+
+.cy-nowpane-res { display: flex; flex-wrap: wrap; gap: 6px; }
+.cy-nowpane-chip {
+  font-size: var(--fs-sm);
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: var(--c-surface-alt);
+  color: var(--c-text-muted);
+  border: 1px solid var(--c-border-soft);
+}
+.cy-nowpane-chip em { font-style: normal; font-weight: 700; margin-left: 4px; }
+.cy-nowpane-chip.g-pass { background: #eaf7ee; color: var(--c-pass); border-color: #cbe9d6; }
+.cy-nowpane-chip.g-fail { background: #fdeeed; color: var(--c-fail); border-color: #f3c9c6; }
+.cy-nowpane-meta { margin-top: 2px; }
+.cy-nowpane-say { color: var(--c-text-faint); }

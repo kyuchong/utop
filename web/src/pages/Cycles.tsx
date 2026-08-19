@@ -4607,7 +4607,97 @@ function CycleDetail({
                 />
               </>
             ) : (
-              <div className="empty">왼쪽에서 항목을 고르면 여기서 시험합니다.</div>
+              /* 항목을 고르기 전 — 이 자리를 비워 두지 않는다(지시).
+                 회차가 지금 어디까지 왔는지가 여기서 답해진다. */
+              (() => {
+                const manual = items.filter((x) => typeOf(x) === 'manual')
+                const auto = items.filter((x) => typeOf(x) !== 'manual')
+                const doneOf = (arr: CycleItemLite[]) =>
+                  arr.filter((x) => itemVerdict(x) !== '').length
+                const cnt = new Map<string, number>()
+                for (const it of items) {
+                  const v = itemVerdict(it)
+                  cnt.set(v, (cnt.get(v) ?? 0) + 1)
+                }
+                const last = items
+                  .map((x) => String(x.executed_at ?? ''))
+                  .filter(Boolean)
+                  .sort()
+                  .pop()
+                const who = [
+                  ...new Set(
+                    items.map((x) => String(x.executed_by ?? '').trim()).filter(Boolean),
+                  ),
+                ]
+                const w = (n: number) => (items.length ? `${(n / items.length) * 100}%` : '0%')
+                return (
+                  <div className="cy-nowpane">
+                    <div className="cy-nowpane-top">
+                      <div className="cy-nowpane-big">
+                        <b>{items.length ? Math.round((donePass / items.length) * 100) : 0}%</b>
+                        <em>합격률</em>
+                      </div>
+                      <div className="cy-nowpane-bar">
+                        <span className="cs-bar" aria-hidden="true">
+                          <i className="cs-b pass" style={{ width: w(donePass) }} />
+                          <i className="cs-b fail" style={{ width: w(doneFail) }} />
+                          <i className="cs-b etc" style={{ width: w(doneEtc) }} />
+                          <i className="cs-b left" style={{ width: w(items.length - doneAll) }} />
+                        </span>
+                        <div className="cy-nowpane-leg">
+                          <span><i className="cs-d pass" />합격 {donePass}</span>
+                          <span><i className="cs-d fail" />실패 {doneFail}</span>
+                          <span><i className="cs-d etc" />그 밖 {doneEtc}</span>
+                          <span><i className="cs-d left" />미실행 {Math.max(0, items.length - doneAll)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="cy-nowpane-grid">
+                      <div className="cy-nowpane-card">
+                        <b>수동</b>
+                        <span>
+                          {doneOf(manual)}/{manual.length} 실행
+                        </span>
+                      </div>
+                      <div className="cy-nowpane-card">
+                        <b>자동</b>
+                        <span>
+                          {doneOf(auto)}/{auto.length} 실행
+                        </span>
+                      </div>
+                      <div className="cy-nowpane-card">
+                        <b>남은 것</b>
+                        <span>{Math.max(0, items.length - doneAll)}건</span>
+                      </div>
+                    </div>
+
+                    {/* 판정별로 몇 건인가 — 설정에 등록된 결과값 차례 그대로 */}
+                    <div className="cy-nowpane-res">
+                      {resDefs
+                        .filter((r) => (cnt.get(r.v) ?? 0) > 0)
+                        .map((r) => (
+                          <span key={r.v} className={`cy-nowpane-chip g-${r.group || 'etc'}`}>
+                            {verdictLabel(r.v as Verdict)} <em>{cnt.get(r.v) ?? 0}</em>
+                          </span>
+                        ))}
+                      {(cnt.get('') ?? 0) > 0 && (
+                        <span className="cy-nowpane-chip g-none">
+                          미실행 <em>{cnt.get('') ?? 0}</em>
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="cy-nowpane-meta muted small">
+                      {last ? `마지막 실행 ${String(last).replace('T', ' ').slice(0, 16)}` : '아직 실행 기록이 없습니다'}
+                      {who.length ? ` · ${who.slice(0, 3).join(', ')}${who.length > 3 ? ` 외 ${who.length - 3}명` : ''}` : ''}
+                    </div>
+                    <div className="cy-nowpane-say muted small">
+                      왼쪽에서 항목을 고르면 여기서 그 항목을 시험합니다.
+                    </div>
+                  </div>
+                )
+              })()
             )}
           </section>
         </div>
