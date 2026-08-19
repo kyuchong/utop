@@ -17,6 +17,8 @@ import PresenceBar from '@/components/PresenceBar'
 import { usePageCrowd } from '@/components/usePageCrowd'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
+import FolderSortBtn from '@/components/FolderSortBtn'
+import type { FolderSortMode } from '@/types'
 import { sendWs } from '@/api/wsBus'
 import {
   IconChevron,
@@ -367,10 +369,20 @@ function pathOfCycle(c: CycleMeta, famOf: Map<string, string>): string {
  * 자기 folder 경로에 붙고, 경로가 없는 옛 사이클은 모델·버전그룹에서
  * 파생한 자리에 붙는다 — 이관 없이 섞여 산다.
  */
+/** 폴더 정렬 열쇠 — 숫자 앞자리는 자릿수를 맞춘다(2 가 11 뒤로 가는 것을 막는다) */
+function sortKey(mode: FolderSortMode, label: string): string {
+  if (mode === 'num') {
+    const m = /^(\d+)/.exec(label.trim())
+    return m ? String(m[1]).padStart(8, '0') + label : '\uffff' + label
+  }
+  return label
+}
+
 function build(
   cycles: CycleMeta[],
   freeFolders: string[],
   famOf: Map<string, string>,
+  sortMode: FolderSortMode = 'kor',
 ): Node[] {
   interface T { node: Node; kids: Map<string, T> }
   const root: T = {
@@ -403,7 +415,8 @@ function build(
     t.node.cycles = [...(t.node.cycles ?? []), c]
   }
 
-  const srt = (a: string, b: string) => a.localeCompare(b, 'ko')
+  const srt = (a: string, b: string) =>
+    sortKey(sortMode, a).localeCompare(sortKey(sortMode, b), sortMode === 'kor' ? 'ko' : 'en')
   const finish = (t: T): Node => {
     const folders = [...t.kids.values()]
       .sort((a, b) => srt(a.node.label, b.node.label))
@@ -507,6 +520,14 @@ export default function Cycles({ me }: PageProps) {
   const [q, setQ] = useState('')
   /** 이 화면(사이클 묶음)에 들어와 있는 사람들 — 상단 오른쪽 표시 몫 */
   const crowd = usePageCrowd('cycle')
+  /** 폴더 정렬 — 요구사항·시험항목과 **같은 아이콘·같은 네 가지**(지시) */
+  const [folderSort, setFolderSort] = useState<FolderSortMode>(() => {
+    const v = localStorage.getItem('utop.cycle.foldersort')
+    return v === 'num' || v === 'abc' || v === 'kor' || v === 'manual' ? v : 'kor'
+  })
+  useEffect(() => {
+    localStorage.setItem('utop.cycle.foldersort', folderSort)
+  }, [folderSort])
 
   /** 복제 대화상자가 열린 사이클 id — 비면 닫힘 */
   const [cloneId, setCloneId] = useState('')
@@ -638,8 +659,8 @@ export default function Cycles({ me }: PageProps) {
     [models],
   )
   const tree = useMemo(
-    () => build(shown, freeFolders, famOf),
-    [shown, freeFolders, famOf],
+    () => build(shown, freeFolders, famOf, folderSort),
+    [shown, freeFolders, famOf, folderSort],
   )
   const cur = cycles.find((c) => c.id === sel)
   /*
@@ -1187,6 +1208,7 @@ export default function Cycles({ me }: PageProps) {
           name=""
           onCollapse={() => setTreeOpen(false)}
           search={{ value: q, placeholder: '모델 · 버전으로 찾기', onChange: setQ }}
+          extra={<FolderSortBtn value={folderSort} onChange={setFolderSort} />}
           add={{ title: '사이클 만들기', onClick: () => setMaking(true) }}
           menu={
             <>
@@ -1212,20 +1234,8 @@ export default function Cycles({ me }: PageProps) {
             </>
           }
         />
-        {/* ③ 찾기를 머리줄 아래 제자리에 늘 띄운다 — 돋보기를 눌러야 나오면
-            거기 있는 줄 모른다. */}
-        <div className="cy-find">
-          <input
-            value={q}
-            placeholder="모델 · 버전으로 찾기"
-            onChange={(e) => setQ(e.target.value)}
-          />
-          {q && (
-            <button type="button" title="지우기" onClick={() => setQ('')}>
-              ✕
-            </button>
-          )}
-        </div>
+        {/* 늘 펴진 찾기 칸은 걷어냈다 — 머리줄 돋보기와 **같은 값**이라
+            두 군데서 같은 것을 걸렀다(세 화면 찾기를 하나로 맞추며). */}
         {/* `rt` 가 구분선·hover·선택색 변수를 들고 있다 — 빠지면 변수가
             무효라 줄 사이 선이 통째로 사라진다(겪었다). 요구사항 트리와
             같은 시각 규칙은 이 클래스 하나로 온다. */}
