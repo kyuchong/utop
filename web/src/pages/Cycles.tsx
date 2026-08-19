@@ -4058,7 +4058,7 @@ function CycleDetail({
             <span className="sp" />
           </div>
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
-          <aside className={`cxp-side${fKind === 'manual' ? ' fmanual' : ''}`} ref={sideRef} style={{ width: sideW }}>
+          <aside className={`cxp-side${fKind === 'auto' ? '' : ' fmanual'}`} ref={sideRef} style={{ width: sideW }}>
             <div className="cxp-sh">
               {/* 제안하신 그림 그대로 — 1행 이름표·건수·그룹·필터, 2행 찾기,
                   3행 걸린 필터 칩. 「방식(자동·수동)」 은 필터 쪽으로 갔다. */}
@@ -4396,7 +4396,7 @@ function CycleDetail({
                   <span>타입</span>
                   <span>기존 결과</span>
                   <span>최신 결과</span>
-                  {fKind !== 'manual' && (
+                  {fKind === 'auto' && (
                     <>
                       <span>시험 시각</span>
                       <span>소요</span>
@@ -4629,7 +4629,7 @@ function CycleDetail({
                             </i>
                           </span>
                         )}
-                        {fKind !== 'manual' && (
+                        {fKind === 'auto' && (
                           <>
                             <span className="cxp-when muted small">
                               {it.executed_at ? String(it.executed_at).replace('T', ' ').slice(5, 16) : '–'}
@@ -4656,7 +4656,7 @@ function CycleDetail({
                         ) : st.on && runQ.has(at) && !v ? (
                           <i className="cxp-wait">대기</i>
                         ) : null}
-                        {fKind !== 'manual' && !(st.on && (st.itemAt === at || runQ.has(at))) && (
+                        {fKind === 'auto' && !(st.on && (st.itemAt === at || runQ.has(at))) && (
                           <i className="cxp-stt">{v ? '완료' : '대기 전'}</i>
                         )}
                       </span>
