@@ -2431,7 +2431,18 @@ function CycleBoard({
                                 .join('  ·  ')}
                             </p>
                           </div>
-                          <section className="cyt-dpanel cyt-dwide">
+                          <section className="cyt-dpanel">
+                            <b className="cyt-dpt">검증 목적</b>
+                            <div className="cyt-ddesc">
+                              {c.description ? (
+                                <Markdown text={c.description} />
+                              ) : (
+                                <span className="muted small">적어 둔 설명이 없습니다.</span>
+                              )}
+                            </div>
+                          </section>
+
+                          <section className="cyt-dpanel">
                             <b className="cyt-dpt">시험결과 요약</b>
                             {t.total === 0 ? (
                               <span className="muted small">항목이 없습니다.</span>
@@ -2481,20 +2492,9 @@ function CycleBoard({
                             )}
                           </section>
 
-                          <section className="cyt-dpanel">
-                            <b className="cyt-dpt">검증 목적</b>
-                            <div className="cyt-ddesc">
-                              {c.description ? (
-                                <Markdown text={c.description} />
-                              ) : (
-                                <span className="muted small">적어 둔 설명이 없습니다.</span>
-                              )}
-                            </div>
-                          </section>
-
-                          <section className="cyt-dpanel">
+                          <section className="cyt-dpanel cyt-dwide">
                             <b className="cyt-dpt">
-                              AI 분석 결과
+                              AI 시험 결과 요약
                               {c.ai_summary?.at ? (
                                 <em className="muted small">{String(c.ai_summary.at).slice(0, 16)}</em>
                               ) : null}
