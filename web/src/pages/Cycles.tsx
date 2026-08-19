@@ -4058,7 +4058,7 @@ function CycleDetail({
             <span className="sp" />
           </div>
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
-          <aside className="cxp-side" ref={sideRef} style={{ width: sideW }}>
+          <aside className={`cxp-side${fKind === 'manual' ? ' fmanual' : ''}`} ref={sideRef} style={{ width: sideW }}>
             <div className="cxp-sh">
               {/* 제안하신 그림 그대로 — 1행 이름표·건수·그룹·필터, 2행 찾기,
                   3행 걸린 필터 칩. 「방식(자동·수동)」 은 필터 쪽으로 갔다. */}
@@ -4396,9 +4396,13 @@ function CycleDetail({
                   <span>타입</span>
                   <span>기존 결과</span>
                   <span>최신 결과</span>
-                  <span>진행 상태</span>
-                  <span>소요</span>
-                  <span>시험 시각</span>
+                  {fKind !== 'manual' && (
+                    <>
+                      <span>시험 시각</span>
+                      <span>소요</span>
+                      <span>진행 상태</span>
+                    </>
+                  )}
                 </span>
               </div>
             )}
@@ -4625,6 +4629,22 @@ function CycleDetail({
                             </i>
                           </span>
                         )}
+                        {fKind !== 'manual' && (
+                          <>
+                            <span className="cxp-when muted small">
+                              {it.executed_at ? String(it.executed_at).replace('T', ' ').slice(5, 16) : '–'}
+                            </span>
+                            <span className="cxp-took muted small">
+                              {(() => {
+                                const ms = (shown.steps ?? []).reduce(
+                                  (a2, x2) => a2 + (Number((x2 as { took_ms?: number }).took_ms) || 0),
+                                  0,
+                                )
+                                return ms ? `${(ms / 1000).toFixed(1)}s` : '–'
+                              })()}
+                            </span>
+                          </>
+                        )}
                         {/* 진행 상태 */}
                         {/* 이번 실행에서 이 줄이 어디쯤인가 — 도는 중이면 몇 번째
                             스텝인지까지, 아직이면 「대기」. 끝난 줄은 판정이 말한다. */}
@@ -4636,24 +4656,8 @@ function CycleDetail({
                         ) : st.on && runQ.has(at) && !v ? (
                           <i className="cxp-wait">대기</i>
                         ) : null}
-                        {!(st.on && (st.itemAt === at || runQ.has(at))) && (
+                        {fKind !== 'manual' && !(st.on && (st.itemAt === at || runQ.has(at))) && (
                           <i className="cxp-stt">{v ? '완료' : '대기 전'}</i>
-                        )}
-                        {(
-                          <>
-                            <span className="cxp-took muted small">
-                              {(() => {
-                                const ms = (shown.steps ?? []).reduce(
-                                  (a2, x2) => a2 + (Number((x2 as { took_ms?: number }).took_ms) || 0),
-                                  0,
-                                )
-                                return ms ? `${(ms / 1000).toFixed(1)}s` : '–'
-                              })()}
-                            </span>
-                            <span className="cxp-when muted small">
-                              {it.executed_at ? String(it.executed_at).replace('T', ' ').slice(5, 16) : '–'}
-                            </span>
-                          </>
                         )}
                       </span>
                     </div>

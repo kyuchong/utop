@@ -6283,3 +6283,26 @@ table.tb td.k {
 .cxp-main > .cxp-h + * { margin-top: 12px; }
 .cxp-main > :last-child { margin-bottom: 12px; }
 .cxp-sh { height: 44px; min-height: 44px; padding: 0 10px; }
+
+/* ── Type 을 고르면 필드도 따라 바뀐다(지시) ─────────────────────
+   수동: No·☐·시험 항목·담당자·실행자·타입·기존·최신
+   자동(과 전체): + 시험 시각·소요·진행 상태 */
+.cxp-rgt,
+.cxp.onecol .cxp-rgt {
+  grid-template-columns: 24px 60px 18px 62px 62px 76px 44px 58px;
+}
+.cxp-side.fmanual .cxp-rgt {
+  grid-template-columns: 24px 60px 18px 62px 62px;
+}
+@container (max-width: 780px) {
+  .cxp-side.fmanual .cxp-rgt { grid-template-columns: 24px 18px 62px 62px; }
+}
+
+/* 표 머리를 데이터 칸과 정확히 맞춘다(지시) — 머리는 가운데, 데이터도
+   가운데. 이름 칸은 줄에 있는 펼침 화살표만큼 안으로 민다. */
+.cxp-row.cxp-hd .cxp-rmain { padding-left: 20px; }
+.cxp-by, .cxp-stt, .cxp-took, .cxp-when { text-align: center; }
+.cxp-rgt > .cxp-who { justify-self: center; }
+.cxp-rgt .cxp-hist { justify-self: stretch; }
+.cxp-hist > i.full { text-align: center; }
+.cxp-run, .cxp-wait { text-align: center; font-style: normal; }
