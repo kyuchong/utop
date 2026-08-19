@@ -22,6 +22,7 @@ import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
 import type { FolderSortMode } from '@/types'
 import { sendWs } from '@/api/wsBus'
 import {
+  IconAi,
   IconChevron,
   IconEdit,
   IconExecution,
@@ -4639,6 +4640,17 @@ function CycleDetail({
                             칸이 24px 이므로 담당자와 같은 첫 글자 꼴로 둔다 */}
                         {(() => {
                           const by = String(it.executed_by ?? '').trim()
+                          /* 자동으로 돈 줄은 사람 대신 AI 표(지시) */
+                          if (it.executed_auto) {
+                            return (
+                              <span
+                                className="cxp-who ai"
+                                title={by ? `자동 실행 · 걸어 둔 이: ${by}` : '자동 실행'}
+                              >
+                                <IconAi />
+                              </span>
+                            )
+                          }
                           return (
                             <span
                               className={`cxp-who${by ? '' : ' none'}`}
