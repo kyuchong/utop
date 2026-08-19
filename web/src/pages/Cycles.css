@@ -2486,9 +2486,9 @@ table.tb td.k {
 }
 /* 줄 왼끝 색 = 결과 (Zephyr 문법), 고른 줄 = 바탕색 */
 .cxp-row {
-  /* 그리드 세 칸: ☐ | 이름 | 오른쪽 묶음 — 칸이 정해져 있어 침범이 불가능하다 */
+  /* 그리드 네 칸: 번호 | ☐ | 이름 | 오른쪽 묶음 — 칸이 정해져 있어 침범이 불가능하다 */
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-columns: 22px 16px minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
   padding: 6px 10px 6px 7px;
@@ -5956,3 +5956,30 @@ table.tb td.k {
 }
 .cxp-actcard .sp { flex: 1; }
 .cxp-actcard:empty { display: none; }
+
+/* ── 자동화 목록은 **표**다(지시) ─────────────────────────────
+   No · 펼침 · TC ID · 시험항목 · 담당자 · 타입 · 기존결과 · 최신결과 ·
+   진행 · 소요 · 시각. 1열이 화면을 다 쓰므로 열을 세울 자리가 있다. */
+.cxp.onecol .cxp-row {
+  grid-template-columns: 30px 16px 22px 150px minmax(0, 1fr) auto;
+}
+.cxp-open {
+  border: 0;
+  background: transparent;
+  color: var(--c-text-faint);
+  display: inline-flex;
+  padding: 0;
+  cursor: pointer;
+}
+.cxp-open svg { width: 14px; height: 14px; transition: transform 0.12s; }
+.cxp-open.on svg { transform: rotate(90deg); }
+.cxp-tcid {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  font-family: ui-monospace, Menlo, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cxp.onecol .cxp-rgt { grid-template-columns: 20px 18px 46px 56px 74px; }
+.cxp-took, .cxp-when { white-space: nowrap; text-align: right; }

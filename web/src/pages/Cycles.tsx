@@ -690,6 +690,12 @@ export default function Cycles({ me }: PageProps) {
     [shown, freeFolders, famOf, mgroupOf, folderSort],
   )
   const cur = cycles.find((c) => c.id === sel)
+  /** 「시험 완료」 가 들어갈 자리 — 오른쪽 칸 1행 카드(지시).
+      상세가 그려진 뒤에 잡아야 해서 고른 회차가 바뀔 때마다 다시 찾는다. */
+  const [finEl, setFinEl] = useState<HTMLElement | null>(null)
+  useEffect(() => {
+    setFinEl(sel ? document.getElementById('cy-finslot') : null)
+  }, [sel])
   /*
    * **이 화면에 있다고 알린다.**
    *
@@ -1210,21 +1216,26 @@ export default function Cycles({ me }: PageProps) {
         </span>
         <span className="sp" />
         {/* 실행 단추 자리는 오른쪽 칸 1행 카드로 옮겼다(지시) */}
-        {cur && (
-          <button
-            className="btn small primary"
-            type="button"
-            disabled={!allJudged || finishing}
-            title={
-              allJudged
-                ? '종료일을 적고 사이클 목록으로 돌아갑니다'
-                : '모든 항목에 결과가 차면 완료할 수 있습니다'
-            }
-            onClick={() => void finishExec()}
-          >
-            {finishing ? '완료 중…' : '✔ 시험 완료'}
-          </button>
-        )}
+        {/* 「시험 완료」 도 오른쪽 칸 1행 카드로 보낸다(지시) — 회차를 다루는
+            단추는 한 카드에 모인다. */}
+        {cur &&
+          finEl &&
+          createPortal(
+            <button
+              className="btn small primary"
+              type="button"
+              disabled={!allJudged || finishing}
+              title={
+                allJudged
+                  ? '종료일을 적고 사이클 목록으로 돌아갑니다'
+                  : '모든 항목에 결과가 차면 완료할 수 있습니다'
+              }
+              onClick={() => void finishExec()}
+            >
+              {finishing ? '완료 중…' : '✔ 시험 완료'}
+            </button>,
+            finEl,
+          )}
 
         {/* 「함께 보는 중」 은 **오른쪽 끝 한 자리**만 쓴다(지적: 두 군데나
             떴다). 사이클을 열었으면 그 사이클을 보는 사람(아래 CycleDetail 이
@@ -4027,6 +4038,7 @@ function CycleDetail({
               </label>
               <b>Test Cases</b>
               <i className="cxp-n">{rows.length}</i>
+              <span className="sp" />
               {/* 묶기 · 시험 유형 — 둘 다 드롭다운으로(지시). 단추 무리는
                   자리를 먹어 머리줄이 밀렸다. */}
               <select
@@ -4051,7 +4063,6 @@ function CycleDetail({
                 <option value="manual">수동</option>
                 <option value="auto">자동</option>
               </select>
-              <span className="sp" />
               {/* 실시간 진행 — 한 줄로 짧게(지시 ⑤). 자세한 것은 도는 줄이 말한다 */}
               <span className={`cxp-live${st.on ? ' on' : ''}`}>
                 {st.on
@@ -4309,6 +4320,24 @@ function CycleDetail({
                     >
                       {/* 줄 번호 — 「몇 번째 항목」 으로 말이 오간다(지시) */}
                       <span className="cxp-no">{i + 1}</span>
+                      {/* 자동 목록은 표다(지시): No · 펼침 · TC ID · 시험항목 ·
+                          담당자 · 타입 · 기존결과 · 최신결과 · 진행 · 소요 · 시각 */}
+                      {oneCol && (
+                        <button
+                          type="button"
+                          className={`cxp-open${openItem === at ? ' on' : ''}`}
+                          title="스텝을 줄 밑에 펼칩니다"
+                          aria-expanded={openItem === at}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setOpenItem(openItem === at ? -1 : at)
+                            setFollow(false)
+                          }}
+                        >
+                          <IconChevron />
+                        </button>
+                      )}
+                      {oneCol && <span className="cxp-tcid">{it.tcid}</span>}
                       <input
                         type="checkbox"
                         checked={pick.has(at)}
@@ -4365,6 +4394,22 @@ function CycleDetail({
                             </span>
                           )
                         })()}
+                        {oneCol && (
+                          <>
+                            <span className="cxp-took muted small">
+                              {(() => {
+                                const ms = (shown.steps ?? []).reduce(
+                                  (a2, x2) => a2 + (Number((x2 as { took_ms?: number }).took_ms) || 0),
+                                  0,
+                                )
+                                return ms ? `${(ms / 1000).toFixed(1)}s` : '–'
+                              })()}
+                            </span>
+                            <span className="cxp-when muted small">
+                              {it.executed_at ? String(it.executed_at).replace('T', ' ').slice(5, 16) : '–'}
+                            </span>
+                          </>
+                        )}
                         {/* 이번 실행에서 이 줄이 어디쯤인가 — 도는 중이면 몇 번째
                             스텝인지까지, 아직이면 「대기」. 끝난 줄은 판정이 말한다. */}
                         {st.on && st.itemAt === at ? (
@@ -4446,6 +4491,7 @@ function CycleDetail({
             <div className="cxp-actcard">
               <span className="cy-execslot" id="cy-execbar" />
               <span className="sp" />
+              <span className="cy-execslot" id="cy-finslot" />
               <span className="cy-execslot" id="cy-sumslot" />
             </div>
             {cur ? (
