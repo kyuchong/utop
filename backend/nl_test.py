@@ -1977,15 +1977,11 @@ async def ai_nl_plan(payload: dict):
         #   한 줄짜리 입력칸에서 고치다 줄바꿈이 통째로 사라지는 사고도 있었다.
         #   설명은 첫 줄이, 판정은 마지막 줄이 갖는다 — 설정 시험은 마지막에
         #   확인 명령이 오기 때문이다.
-        # ★ 다만 **설정 모드로 들어가는 블록은 나누지 않는다.**
-        #   `configure terminal` 다음 줄부터는 그 세션이 설정 모드에 있어야 하는데,
-        #   스텝을 나누면 한 스텝이 한 번의 run-cli 라 프롬프트 상태가 이어진다는
-        #   보장이 없다(사용자 지적: 다음 CLI 가 새 프롬프트에서 나갔다).
-        #   조회 명령만 여럿인 경우에만 줄마다 스텝으로 가른다.
-        _entersCfg = any(
-            re.match(r"^\s*(do\s+)?(conf(ig(ure)?)?\b|vlan\s+database\b)", x, re.I) for x in lines
-        )
-        if len(lines) > 1 and not _entersCfg:
+        # ★ **한 스텝에 CLI 는 하나**다(지시). 설정 블록도 예외가 아니다 —
+        #   프롬프트(설정 모드)는 세션이 들고 있다: 백엔드는 장비마다 접속을
+        #   잡아 두고 재사용하며, 기다림 패턴이 `호스트\S*[#>]` 라
+        #   `E6100(config)#` · `E6100(config-if)#` 도 그대로 맞는다.
+        if len(lines) > 1:
             for _i, _ln in enumerate(lines):
                 _s2 = dict(s)
                 _s2["cli"] = _ln
