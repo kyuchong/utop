@@ -1232,6 +1232,86 @@ export default function AskBar({ devices }: Props) {
             </button>
           </div>
         )}
+        {/* 슬롯 줄 — 목업처럼 **머리 바로 아래**, 판들 바깥이다.
+            판 안에 있으면 세 판의 머리 높이가 어긋난다(지적). */}
+        {draft && (
+        <div className="ask-slots">
+          {/* 대상 장비 — 목업의 첫 슬롯. select 한 줄이 아니라 카드다.
+              무엇으로 도는지가 실행 단추 옆에 늘 있어야 한다. */}
+          <button
+            type="button"
+            className="ask-slot"
+            title="다른 장비로 바꿉니다"
+            onClick={() => {
+              setPickSel(devId || usable[0]?.id || '')
+              setPickLab('')
+              setPickRack('')
+              setPickDev({ model: '', cands: usable })
+            }}
+          >
+            <span className="ask-slot-ic" aria-hidden="true">
+              ▭
+            </span>
+            <span className="ask-slot-tx">
+              <small>대상 장비</small>
+              <b>{curDev ? `${curDev.name || curDev.model || ''} · ${curDev.ip}` : '장비를 고르세요'}</b>
+            </span>
+            <span className="ask-slot-ch">바꾸기</span>
+          </button>
+          <span className="ask-slot-arw" aria-hidden="true">
+            ›
+          </span>
+          {/* 일반 갈래 — 지금 실린 시험이 무엇인지 늘 보이고, 눌러 바꾼다
+              (목업의 슬롯 줄). 고급 갈래에는 없는 자리다 — 거기선 방금 지은
+              것이 곧 이 초안이다. */}
+          {mode === 'basic' && (
+            <button
+              type="button"
+              className="ask-slot"
+              title="다른 시험으로 바꿉니다"
+              onClick={() => setLikeAsk(true)}
+            >
+              <span className="ask-slot-ic" aria-hidden="true">
+                ◈
+              </span>
+              <span className="ask-slot-tx">
+                <small>시험 항목</small>
+                <b>{draft.object || draft.name}</b>
+              </span>
+              <span className="ask-slot-ch">바꾸기</span>
+            </button>
+          )}
+          {running ? (
+            <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
+              ⏹ 멈추기
+            </button>
+          ) : (
+            <button
+              className="btn primary ask-runbig"
+              type="button"
+              disabled={!draft.steps.length || !devId}
+              onClick={() => void run()}
+            >
+              ▷ 시험 시작
+            </button>
+          )}
+          {ran && !running && (
+            <button className="btn small" type="button" onClick={() => void save()}>
+              시험으로 저장
+            </button>
+          )}
+          <button
+            className="btn small"
+            type="button"
+            onClick={() => {
+              setDraft(null)
+              setRan(null)
+            }}
+          >
+            버리기
+          </button>
+        </div>
+        )}
         <div className="ask-cols">
           {/* 작업 흐름 — 무엇을 거치는지, 건너뛰면 왜 건너뛰는지 */}
           {/* 작업 흐름 — 아직 아무 일도 없으면 빈 판이라 첫 화면을 좁힐 뿐이다 */}
@@ -1602,83 +1682,6 @@ export default function AskBar({ devices }: Props) {
 
       {draft && (
         <div className="ask-plan">
-          <div className="ask-planhd">
-            {/* 대상 장비 — 목업의 첫 슬롯. select 한 줄이 아니라 카드다.
-                무엇으로 도는지가 실행 단추 옆에 늘 있어야 한다. */}
-            <button
-              type="button"
-              className="ask-slot"
-              title="다른 장비로 바꿉니다"
-              onClick={() => {
-                setPickSel(devId || usable[0]?.id || '')
-                setPickLab('')
-                setPickRack('')
-                setPickDev({ model: '', cands: usable })
-              }}
-            >
-              <span className="ask-slot-ic" aria-hidden="true">
-                ▭
-              </span>
-              <span className="ask-slot-tx">
-                <small>대상 장비</small>
-                <b>{curDev ? `${curDev.name || curDev.model || ''} · ${curDev.ip}` : '장비를 고르세요'}</b>
-              </span>
-              <span className="ask-slot-ch">바꾸기</span>
-            </button>
-            <span className="ask-slot-arw" aria-hidden="true">
-              ›
-            </span>
-            {/* 일반 갈래 — 지금 실린 시험이 무엇인지 늘 보이고, 눌러 바꾼다
-                (목업의 슬롯 줄). 고급 갈래에는 없는 자리다 — 거기선 방금 지은
-                것이 곧 이 초안이다. */}
-            {mode === 'basic' && (
-              <button
-                type="button"
-                className="ask-slot"
-                title="다른 시험으로 바꿉니다"
-                onClick={() => setLikeAsk(true)}
-              >
-                <span className="ask-slot-ic" aria-hidden="true">
-                  ◈
-                </span>
-                <span className="ask-slot-tx">
-                  <small>시험 항목</small>
-                  <b>{draft.object || draft.name}</b>
-                </span>
-                <span className="ask-slot-ch">바꾸기</span>
-              </button>
-            )}
-            {running ? (
-              <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
-                ⏹ 멈추기
-              </button>
-            ) : (
-              <button
-                className="btn primary ask-runbig"
-                type="button"
-                disabled={!draft.steps.length || !devId}
-                onClick={() => void run()}
-              >
-                ▷ 시험 시작
-              </button>
-            )}
-            {ran && !running && (
-              <button className="btn small" type="button" onClick={() => void save()}>
-                시험으로 저장
-              </button>
-            )}
-            <button
-              className="btn small"
-              type="button"
-              onClick={() => {
-                setDraft(null)
-                setRan(null)
-              }}
-            >
-              버리기
-            </button>
-          </div>
-
           {(draft.cut?.length ?? 0) > 0 && (
             <div className="ask-drop">
               조회가 아닌 명령 {draft.cut?.length}개는 뺐습니다 — {draft.cut?.join(' · ')}
@@ -1688,9 +1691,17 @@ export default function AskBar({ devices }: Props) {
           {/* 왼쪽 스텝 목록 · 오른쪽 그 스텝의 속(명령·기준·응답).
               위아래로 두면 응답을 보려고 내리는 순간 고치던 칸이 사라진다. */}
           <div className="ask-two">
+            {/* 세 판이 같은 높이에서 시작한다 — 머리 줄을 판마다 하나씩 */}
             {/* Coverage(TC 화면)의 스텝 목록과 **같은 모양**으로 읽힌다(지시
                 사진) — 세션 딱지 · 번호(1 · 1.1) · 종류 · 내용 · 결과.
                 주석은 실행되지 않는 제목 줄이라 따로 칠한다. */}
+            <div className="ask-pane">
+              <div className="ask-paneh">
+                <h3>시험 스텝</h3>
+                <span className="ask-pill">{draft.steps.length} 스텝</span>
+                <span className="sp" />
+                <span className="muted small">누르면 오른쪽에서 설정</span>
+              </div>
             <div className="ask-steplist">
               {(() => {
                 // 들여쓴 만큼 번호를 나눈다 — 1, 1.1, 1.2, 2 …
@@ -1780,16 +1791,33 @@ export default function AskBar({ devices }: Props) {
                 <div className="muted small">쓸 만한 스텝을 못 만들었습니다. 다르게 말해 보세요.</div>
               )}
             </div>
+            </div>
 
             {/* 고른 스텝 하나 — 무엇을 보내고, 무엇이면 합격이고, 무엇이 왔나 */}
             {(() => {
               const i = Math.min(stepAt, draft.steps.length - 1)
               const s = draft.steps[i]
-              if (!s) return <div className="ask-stepdet empty">왼쪽에서 스텝을 고르세요.</div>
+              if (!s)
+                return (
+                  <div className="ask-pane">
+                    <div className="ask-paneh">
+                      <h3>스텝 설정</h3>
+                    </div>
+                    <div className="ask-stepdet empty">왼쪽에서 스텝을 고르세요.</div>
+                  </div>
+                )
               const rs = ran?.[i]
               const out = String(rs?.output ?? '')
               return (
-                <div className="ask-stepdet">
+                <div className="ask-pane">
+                  <div className="ask-paneh">
+                    <h3>스텝 설정</h3>
+                    <span className="sp" />
+                    <span className="ask-pill">
+                      스텝 {i + 1} / {draft.steps.length}
+                    </span>
+                  </div>
+                  <div className="ask-stepdet">
                   <div className="ask-detlab muted small">
                     스텝 {i + 1} ·{' '}
                     {s.kind === 'inst'
@@ -1940,6 +1968,7 @@ export default function AskBar({ devices }: Props) {
                   >
                     이 스텝만 실행
                   </button>
+                </div>
                 </div>
               )
             })()}

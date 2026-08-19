@@ -5330,3 +5330,63 @@ table.tb td.k {
   font-weight: 500;
   flex: none;
 }
+
+/* ── AI 작업 화면 — 판 셋이 **같은 높이에서** 시작한다(목업 v9) ────
+   슬롯 줄은 판 안이 아니라 머리 바로 아래 한 줄이다. 판 안에 있으면
+   가운데 판만 아래로 밀려 세 판의 머리가 어긋난다(지적). */
+.ask-slots {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 20px;
+  background: var(--c-surface);
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.ask-slots .sp { margin-left: auto; }
+
+/* 판 — 흰 카드 + 머리줄. 작업 흐름 판과 같은 꼴 */
+.ask-pane {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 11px;
+  background: var(--c-surface);
+}
+.ask-paneh {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.ask-paneh h3 { margin: 0; font-size: 13.5px; font-weight: 600; }
+.ask-paneh .sp { margin-left: auto; }
+.ask-pill {
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 2px 9px;
+  border-radius: 20px;
+  background: var(--c-surface-alt);
+  color: var(--c-text-muted);
+}
+/* 판 안의 몸통은 저희끼리 굴린다 — 테두리는 판이 갖는다 */
+.ask-pane > .ask-steplist,
+.ask-pane > .ask-stepdet {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  width: auto;
+}
+.ask-two > .ask-pane:last-child { flex: none; width: 358px; }
+@media (max-width: 1300px) {
+  .ask-two > .ask-pane:last-child { width: 312px; }
+}
