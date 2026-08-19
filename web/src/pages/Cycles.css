@@ -5239,3 +5239,17 @@ table.tb td.k {
   max-width: 180px;
 }
 .ask-slot-ch { flex: none; font-size: 11px; color: var(--c-primary); }
+
+/* 목록에서 바로 고르기 — 칩 아래 조용한 한 줄(목업엔 없지만 길은 있어야 한다) */
+.ask-picklink {
+  display: block;
+  margin: 10px auto 0;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  color: var(--c-text-faint);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.ask-picklink:hover { color: var(--c-primary); }

@@ -1597,37 +1597,6 @@ export default function AskBar({ devices }: Props) {
       {/* 첫 화면 — 무엇을 시킬 수 있나. 예시가 없으면 사람은 아무것도 못 친다 */}
       {!draft && !making && (
         <div className="ask-hero">
-          {/* 무엇을 하러 왔나 — 두 갈래(목업 v9). 고른 갈래는 기억한다.
-              일반은 **이미 있는 시험**을 골라 그대로 돌리고, 고급은 없는
-              시험을 말로 짓는다. 짓는 쪽이 여태 이 화면이 하던 일이다. */}
-          <div className="ask-modes">
-            <button
-              type="button"
-              className={`ask-mode${mode === 'basic' ? ' on' : ''}`}
-              onClick={() => setMode('basic')}
-            >
-              <span className="ask-moder" aria-hidden="true" />
-              <b>일반 — 시험 실행</b>
-              <p>이미 만들어진 시험 항목을 찾아 그대로 실행합니다.</p>
-              <em>명령을 몰라도 됩니다. 누구나.</em>
-            </button>
-            <button
-              type="button"
-              className={`ask-mode adv${mode === 'adv' ? ' on' : ''}`}
-              onClick={() => setMode('adv')}
-            >
-              <span className="ask-moder" aria-hidden="true" />
-              <b>고급 — 시험 만들기</b>
-              <p>없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다.</p>
-              <em>장비를 아는 사람이.</em>
-            </button>
-          </div>
-          {mode === 'basic' && (
-            <button type="button" className="ask-pickbig" onClick={() => setLikeAsk(true)}>
-              ◈ 시험 항목 고르기 — Coverage 에 등록된 시험에서
-            </button>
-          )}
-          {/* 관리자만 — ⚙ 로 질문 보기를 고친다. 랩마다 자주 하는 시험이 다르다 */}
           {amAdmin && (
             <div className="ask-extools">
               {exSay && <span className="muted small">{exSay}</span>}
@@ -1686,6 +1655,32 @@ export default function AskBar({ devices }: Props) {
               ➤
             </button>
           </div>
+          {/* 무엇을 하러 왔나 — 두 갈래(목업 v9). 고른 갈래는 기억한다.
+              일반은 **이미 있는 시험**을 골라 그대로 돌리고, 고급은 없는
+              시험을 말로 짓는다. 짓는 쪽이 여태 이 화면이 하던 일이다. */}
+          <div className="ask-modes">
+            <button
+              type="button"
+              className={`ask-mode${mode === 'basic' ? ' on' : ''}`}
+              onClick={() => setMode('basic')}
+            >
+              <span className="ask-moder" aria-hidden="true" />
+              <b>일반 — 시험 실행</b>
+              <p>이미 만들어진 시험 항목을 찾아 그대로 실행합니다.</p>
+              <em>명령을 몰라도 됩니다. 누구나.</em>
+            </button>
+            <button
+              type="button"
+              className={`ask-mode adv${mode === 'adv' ? ' on' : ''}`}
+              onClick={() => setMode('adv')}
+            >
+              <span className="ask-moder" aria-hidden="true" />
+              <b>고급 — 시험 만들기</b>
+              <p>없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다.</p>
+              <em>장비를 아는 사람이.</em>
+            </button>
+          </div>
+          {/* 관리자만 — ⚙ 로 질문 보기를 고친다. 랩마다 자주 하는 시험이 다르다 */}
           {!exEdit && (
             <div className="ask-chips">
               {examples.map((x, i) => (
@@ -1700,6 +1695,13 @@ export default function AskBar({ devices }: Props) {
                 </button>
               ))}
             </div>
+          )}
+          {/* 말로 찾기 말고 목록에서 바로 고르는 길 — 목업엔 없지만
+              「말이 안 떠오르는」 사람이 반드시 있다. 조용한 한 줄로 둔다. */}
+          {mode === 'basic' && !exEdit && (
+            <button type="button" className="ask-picklink" onClick={() => setLikeAsk(true)}>
+              찾는 말이 떠오르지 않나요 — 등록된 시험 목록에서 고르기
+            </button>
           )}
           {examples.map((x, i) =>
             exEdit ? (
