@@ -4794,3 +4794,24 @@ table.tb td.k {
 
 /* 가져오며 이 장비에 맞춘 것들 */
 .ask-fit { color: var(--c-text); margin-bottom: 6px; }
+
+/* ── 사이클 화면의 세로 레일 ─────────────────────────────────────
+   요구사항·시험항목과 **같은 부품**(VRail). 왼쪽 아이콘 레일 + 오른쪽
+   한 줄기 스크롤. 칸은 「시험결과 요약」·「항목」 둘이다.
+   **실행 화면(RunPane)은 별개다** — 거기에는 레일을 얹지 않는다(지시). */
+.cy-railb {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  /* .cy-detail 의 안 여백을 물린다 — 레일은 칸 왼쪽 끝에 붙어야 한다 */
+  margin: -12px -14px;
+}
+/* 항목 칸은 안에서 머리 카드 + 표·세부로 나뉘고 표가 제 스크롤을 갖는다.
+   높이를 안 주면 표가 통째로 펴져 한 칸이 화면 몇 장이 된다. */
+.railsec-b > .cy-cols {
+  display: flex;
+  height: 72vh;
+  min-height: 420px;
+  overflow: hidden;
+  padding: 8px;
+}

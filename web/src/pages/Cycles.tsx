@@ -21,16 +21,20 @@ import FolderSortBtn from '@/components/FolderSortBtn'
 import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
 import type { FolderSortMode } from '@/types'
 import { sendWs } from '@/api/wsBus'
+import VRail, { RailSec } from '@/components/VRail'
+import { useRailSpy } from '@/components/useRailSpy'
 import {
   IconChevron,
   IconEdit,
   IconExecution,
   IconFolder,
+  IconMeter,
   IconPanel,
   IconPlay,
   IconReqDoc,
   IconSettings,
   IconSlide,
+  IconTcDoc,
   IconTag,
   IconTrash,
 } from '@/components/icons'
@@ -2879,6 +2883,14 @@ function CycleDetail({
   }, [])
   /** 시험결과 요약 바 — 완료 오른쪽 단추로 여닫는다. 상태 기억 */
   const [sumOpen, setSumOpen] = useState(() => localStorage.getItem('utop.cycle.sumopen') === '1')
+  /* 사이클 화면(실행 화면 아님)의 세로 레일 — 요구사항·시험항목과 같은 부품.
+     칸은 「시험결과 요약」·「항목」 둘. 누르면 그 칸으로 가고, 굴리면
+     레일 색이 따라온다. */
+  const railRef = useRef<HTMLDivElement>(null)
+  /* 요약을 펴 두는 사람은 요약부터 본다 — 열자마자 항목으로 건너뛰지 않게 */
+  const [sec, setSec] = useState(sumOpen ? 'sum' : 'items')
+  const [itemsOpen, setItemsOpen] = useState(true)
+  useRailSpy(railRef, sec, setSec, true)
   useEffect(() => {
     localStorage.setItem('utop.cycle.sumopen', sumOpen ? '1' : '0')
   }, [sumOpen])
@@ -3395,159 +3407,6 @@ function CycleDetail({
     <div className="cy-detail">
       {/* 2열·3열을 **각자 카드**로 가른다. 한 카드에 두면 3열이 2열의
           일부처럼 보인다 — 두 칸이 하는 일이 다르다. */}
-      {sumOpen && (() => {
-        /* 시험결과 요약 — 전체·수동·자동 세 판. 판마다 큰 % + 색 막대,
-           바로 아래 결과·건수·비율 표(확정안). AI 요약은 머리 오른쪽 */
-        const segColor = (r: ResDef) =>
-          r.color ||
-          (r.group === 'pass' ? '#1D9E75' : r.group === 'fail' ? '#E24B4A' : r.v === '' ? '#d5dae2' : '#EF9F27')
-        const sect = (label: string, its: CycleItemLite[]) => {
-          const cnt = new Map<string, number>()
-          for (const x of its) {
-            const v2 = itemVerdict(x)
-            cnt.set(v2, (cnt.get(v2) ?? 0) + 1)
-          }
-          const d2 = its.filter((x) => itemVerdict(x) !== '').length
-          // 큰 숫자는 합격률 — Pass 계열(커스텀 포함) / 전체
-          const passVs = new Set(resDefs.filter((r) => r.group === 'pass').map((r) => r.v))
-          const passN = its.filter((x) => passVs.has(itemVerdict(x))).length
-          const pct2 = its.length ? Math.round((passN / its.length) * 100) : 0
-          const rows2 = resDefs.filter((r) => (cnt.get(r.v) ?? 0) > 0)
-          return (
-            <div className="cy-sum-sec" key={label}>
-              <div className="cy-sum-t">
-                {label} · {its.length}건
-                <em>실행 {d2}</em>
-              </div>
-              <div className="cy-sum-main">
-                <b>{pct2}%</b>
-                <i className="cy-sum-lbl">합격률</i>
-                <span className="cy-sum-bar">
-                  {its.length === 0 ? (
-                    <b style={{ flexGrow: 1, background: 'var(--c-surface-alt)' }} />
-                  ) : (
-                    rows2.map((r) => (
-                      <b
-                        key={r.v || '_none'}
-                        style={{ flexGrow: cnt.get(r.v), background: segColor(r) }}
-                        title={`${r.label} ${cnt.get(r.v)}건`}
-                      />
-                    ))
-                  )}
-                </span>
-              </div>
-              <table className="cy-sum-tbl">
-                <tbody>
-                  <tr className="hd">
-                    <td>결과</td>
-                    <td>건수</td>
-                    <td>비율</td>
-                  </tr>
-                  {rows2.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="muted">항목 없음</td>
-                    </tr>
-                  ) : (
-                    rows2.map((r) => (
-                      <tr key={r.v || '_none'}>
-                        <td>
-                          <s style={{ background: segColor(r) }} />
-                          {r.label}
-                        </td>
-                        <td>{cnt.get(r.v)}</td>
-                        <td>{Math.round(((cnt.get(r.v) ?? 0) / its.length) * 100)}%</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )
-        }
-        const manuals = items.filter((x) => typeOf(x) === 'manual')
-        const autos = items.filter((x) => typeOf(x) === 'auto')
-        return (
-          <div className="cy-sum3">
-            <div className="cy-sum-hd">
-              <b>시험결과 요약</b>
-              <span className="sp" />
-              <button
-                className="btn small"
-                type="button"
-                disabled={aiBusy}
-                title="이 회차 결과를 LLM 이 요약해 이 아래에 붙입니다 (저장됨)"
-                onClick={() => void makeAi()}
-              >
-                {aiBusy ? '요약 중…' : aiTxt ? '✨ AI 요약 다시' : '✨ AI 요약'}
-              </button>
-              <button
-                className="btn small"
-                type="button"
-                title="요약 바를 닫습니다"
-                onClick={() => setSumOpen(false)}
-              >
-                ✕
-              </button>
-            </div>
-            <div className="cy-sum-grid">
-              {sect('전체', items)}
-              {sect('수동', manuals)}
-              {sect('자동', autos)}
-            </div>
-            {st.on && (
-              <div className="cy-sum-live">
-                <b>
-                  자동 실행 중 {Math.min(st.done + 1, st.total)}/{st.total}
-                </b>
-                <span className="cy-sum-livebar">
-                  <b style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
-                </span>
-                <em>
-                  {st.itemName || '…'}
-                  {st.stepAt >= 0 ? ` · 스텝 ${st.stepAt + 1}/${st.stepCount}` : ''}
-                </em>
-              </div>
-            )}
-            {(aiBusy || aiErr || aiTxt) && (
-              <div className="cy-sum-ai">
-                <div className="cy-sum-ai-h">
-                  <b>✨ AI 요약</b>
-                  {aiAt && <em>{String(aiAt).slice(0, 16)}</em>}
-                  {!aiBusy && !aiErr && aiTxt && (
-                    <button type="button" className="cy-sum-ai-fold" onClick={() => setAiOpen((v) => !v)}>
-                      {aiOpen ? '접기' : '펼치기'}
-                    </button>
-                  )}
-                </div>
-                {aiBusy ? (
-                  <div className="cy-sum-ai-load">
-                    <span className="cy-spin" aria-hidden="true" />
-                    <div className="cy-sum-ai-sk">
-                      <b>
-                        『{cycle.name || cycle.cid || cycle.version || ''}』 사이클 실행 결과를 AI 가
-                        분석하고 있습니다
-                      </b>
-                      <span className="cy-sum-ai-stage">{AI_STAGES[aiStage]}</span>
-                      <i style={{ width: '92%' }} />
-                      <i style={{ width: '78%' }} />
-                      <i style={{ width: '85%' }} />
-                    </div>
-                  </div>
-                ) : aiErr ? (
-                  <div className="cy-sum-ai-err">{aiErr}</div>
-                ) : (
-                  <div className={`cy-sum-ai-body${aiOpen ? '' : ' fold'}`}>
-                    <Markdown text={aiTxt} />
-                    <div className="cy-sum-ai-note">
-                      AI 는 실수할 수 있습니다. 정보를 다시 한번 확인해 주세요.
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )
-      })()}
       {runView ? (
         <RunPane
           cycle={cycle}
@@ -3559,716 +3418,904 @@ function CycleDetail({
           prevName={prev?.version || prev?.name || ""}
         />
       ) : (
-      <div className="cy-cols" ref={colsRef}>
-      {/* 2열 — 이 회차를 돌리고 결과를 보는 칸. 머리(제목·단추·통계·거르기)와
-          표가 한 카드에 든다. */}
-      <section className="panel cy-exec">
-      {/* ② 공통 액션 바 — 요구사항·시험항목과 **같은 차례**.
-          Edit·Bulk Edit | Add·Delete·Export. 세 화면을 오가는 사람이 매번
-          어디에 무엇이 있는지 다시 찾지 않게. */}
-      {/* 실행 단추·⋯·저장종은 맨 위 빵부스러기 줄(완료 왼쪽)로 — 가로 카드 한 줄을 없앴다(피드백 ②) */}
-      {sumEl &&
-        createPortal(
-          <button
-            className={`btn small${sumOpen ? ' cxp-fon' : ''}`}
-            type="button"
-            title="이 회차의 결과 요약을 펼치고 접습니다"
-            onClick={() => setSumOpen((v2) => !v2)}
+      // 사이클 화면 — 왼쪽 세로 레일 + 한 줄기 스크롤(요구사항·시험항목과 같은
+      // 부품). **실행 화면(RunPane)은 별개다** — 거기엔 레일을 얹지 않는다(지시).
+      // 요약도 실행 중에 겹치지 않게 이 안으로 들어왔다.
+      <div className="cy-railb">
+        <VRail
+          ariaLabel="사이클 보기"
+          value={sec}
+          onPick={(k) => {
+            if (k === 'sum') setSumOpen(true)
+            else setItemsOpen(true)
+            setSec(k)
+          }}
+          items={[
+            { k: 'sum', label: '시험결과 요약', icon: <IconMeter />, n: 0 },
+            { k: 'items', label: '항목', icon: <IconTcDoc />, n: items.length },
+          ]}
+        />
+        <div className="railbox" ref={railRef}>
+          <RailSec
+            k="sum"
+            title="시험결과 요약"
+            open={sumOpen}
+            onToggle={() => setSumOpen((v) => !v)}
           >
-            시험결과 요약
-          </button>,
-          sumEl,
-        )}
-      {barEl &&
-        createPortal(
-          <>
-            {st.on ? (
-              <button className="btn danger small" type="button" onClick={() => void stop()}>
-                ⏹ 멈추기
-              </button>
-            ) : (
-              (() => {
-                /* 실행은 자동 항목만 돈다(합의) — 수동은 사람이 찍는다.
-                   수동뿐이면 단추가 꺼진다 */
-                const autoAll = items
-                  .map((x, i) => (typeOf(x) === 'auto' ? i : -1))
-                  .filter((i) => i >= 0)
-                const autoPicked = [...pick]
-                  .filter((i) => items[i] && typeOf(items[i]!) === 'auto')
-                  .sort((a2, b2) => a2 - b2)
-                return (
-                  <>
-                    {pick.size > 0 && (
-                      <button
-                        className="btn primary small"
-                        type="button"
-                        disabled={saving || !autoPicked.length}
-                        title={
-                          autoPicked.length
-                            ? `고른 것 중 자동 ${autoPicked.length}건을 돌립니다 (수동은 빠집니다)`
-                            : '고른 것이 전부 수동이라 자동 실행이 없습니다'
-                        }
-                        onClick={() => startRun(autoPicked)}
-                      >
-                        ▶ 실행 ({autoPicked.length})
+        {sumOpen && (() => {
+          /* 시험결과 요약 — 전체·수동·자동 세 판. 판마다 큰 % + 색 막대,
+             바로 아래 결과·건수·비율 표(확정안). AI 요약은 머리 오른쪽 */
+          const segColor = (r: ResDef) =>
+            r.color ||
+            (r.group === 'pass' ? '#1D9E75' : r.group === 'fail' ? '#E24B4A' : r.v === '' ? '#d5dae2' : '#EF9F27')
+          const sect = (label: string, its: CycleItemLite[]) => {
+            const cnt = new Map<string, number>()
+            for (const x of its) {
+              const v2 = itemVerdict(x)
+              cnt.set(v2, (cnt.get(v2) ?? 0) + 1)
+            }
+            const d2 = its.filter((x) => itemVerdict(x) !== '').length
+            // 큰 숫자는 합격률 — Pass 계열(커스텀 포함) / 전체
+            const passVs = new Set(resDefs.filter((r) => r.group === 'pass').map((r) => r.v))
+            const passN = its.filter((x) => passVs.has(itemVerdict(x))).length
+            const pct2 = its.length ? Math.round((passN / its.length) * 100) : 0
+            const rows2 = resDefs.filter((r) => (cnt.get(r.v) ?? 0) > 0)
+            return (
+              <div className="cy-sum-sec" key={label}>
+                <div className="cy-sum-t">
+                  {label} · {its.length}건
+                  <em>실행 {d2}</em>
+                </div>
+                <div className="cy-sum-main">
+                  <b>{pct2}%</b>
+                  <i className="cy-sum-lbl">합격률</i>
+                  <span className="cy-sum-bar">
+                    {its.length === 0 ? (
+                      <b style={{ flexGrow: 1, background: 'var(--c-surface-alt)' }} />
+                    ) : (
+                      rows2.map((r) => (
+                        <b
+                          key={r.v || '_none'}
+                          style={{ flexGrow: cnt.get(r.v), background: segColor(r) }}
+                          title={`${r.label} ${cnt.get(r.v)}건`}
+                        />
+                      ))
+                    )}
+                  </span>
+                </div>
+                <table className="cy-sum-tbl">
+                  <tbody>
+                    <tr className="hd">
+                      <td>결과</td>
+                      <td>건수</td>
+                      <td>비율</td>
+                    </tr>
+                    {rows2.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="muted">항목 없음</td>
+                      </tr>
+                    ) : (
+                      rows2.map((r) => (
+                        <tr key={r.v || '_none'}>
+                          <td>
+                            <s style={{ background: segColor(r) }} />
+                            {r.label}
+                          </td>
+                          <td>{cnt.get(r.v)}</td>
+                          <td>{Math.round(((cnt.get(r.v) ?? 0) / its.length) * 100)}%</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )
+          }
+          const manuals = items.filter((x) => typeOf(x) === 'manual')
+          const autos = items.filter((x) => typeOf(x) === 'auto')
+          return (
+            <div className="cy-sum3">
+              <div className="cy-sum-hd">
+                <b>시험결과 요약</b>
+                <span className="sp" />
+                <button
+                  className="btn small"
+                  type="button"
+                  disabled={aiBusy}
+                  title="이 회차 결과를 LLM 이 요약해 이 아래에 붙입니다 (저장됨)"
+                  onClick={() => void makeAi()}
+                >
+                  {aiBusy ? '요약 중…' : aiTxt ? '✨ AI 요약 다시' : '✨ AI 요약'}
+                </button>
+                <button
+                  className="btn small"
+                  type="button"
+                  title="요약 바를 닫습니다"
+                  onClick={() => setSumOpen(false)}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="cy-sum-grid">
+                {sect('전체', items)}
+                {sect('수동', manuals)}
+                {sect('자동', autos)}
+              </div>
+              {st.on && (
+                <div className="cy-sum-live">
+                  <b>
+                    자동 실행 중 {Math.min(st.done + 1, st.total)}/{st.total}
+                  </b>
+                  <span className="cy-sum-livebar">
+                    <b style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
+                  </span>
+                  <em>
+                    {st.itemName || '…'}
+                    {st.stepAt >= 0 ? ` · 스텝 ${st.stepAt + 1}/${st.stepCount}` : ''}
+                  </em>
+                </div>
+              )}
+              {(aiBusy || aiErr || aiTxt) && (
+                <div className="cy-sum-ai">
+                  <div className="cy-sum-ai-h">
+                    <b>✨ AI 요약</b>
+                    {aiAt && <em>{String(aiAt).slice(0, 16)}</em>}
+                    {!aiBusy && !aiErr && aiTxt && (
+                      <button type="button" className="cy-sum-ai-fold" onClick={() => setAiOpen((v) => !v)}>
+                        {aiOpen ? '접기' : '펼치기'}
                       </button>
                     )}
-                    <button
-                      className="btn small"
-                      type="button"
-                      disabled={!autoAll.length || saving}
-                      title={
-                        autoAll.length
-                          ? `자동 ${autoAll.length}건을 돌립니다 (수동 ${items.length - autoAll.length}건은 빠집니다)`
-                          : '전부 수동 항목이라 자동 실행이 없습니다'
-                      }
-                      onClick={() => startRun(autoAll)}
-                    >
-                      ▶ 전체 실행 ({autoAll.length})
-                    </button>
-                  </>
-                )
-              })()
-            )}
-            {joined && (
-              <span className={`cy-join ${joined.how}`}>
-                {joined.who} 님이 {joined.how === 'in' ? '들어왔습니다' : '나갔습니다'}
-              </span>
-            )}
-            <SaveBell
-              items={saves}
-              unseen={Math.max(0, saves.length - seen)}
-              onSeen={() => setSeen(saves.length)}
-            />
-          </>,
-          barEl,
-        )}
-      {/* **이 사이클** 을 같이 보는 사람 — 오른쪽 끝 한 자리에 끼운다 */}
-      {pbEl && createPortal(<PresenceBar users={presence.users} me={meName} />, pbEl)}
-
-      {rowMenu && (
-        <CycleRowMenu
-          at={rowMenu}
-          count={pick.size}
-          onClose={() => setRowMenu(null)}
-          onEdit={() => {
-            const rows = [...pick].map((i) => items[i]!).filter(Boolean)
-            setRowMenu(null)
-            setEditing(rows)
-          }}
-          onGoTc={() => {
-            const t = items[rowMenu.at]?.tcid
-            setRowMenu(null)
-            if (t) goto('tc', t)
-          }}
-          onRemove={() => {
-            const n = pick.size || 1
-            const ids = new Set(
-              (pick.size ? [...pick] : [rowMenu.at]).map((i2) => items[i2]?.tcid).filter(Boolean),
-            )
-            setRowMenu(null)
-            if (!window.confirm(`고른 ${n}건을 이 사이클에서 뺍니다.`)) return
-            void saveItems((cur2) => cur2.filter((x) => !ids.has(x.tcid))).then(sel.clear)
-          }}
-        />
-      )}
-
-      {insight && (
-        <CycleInsight
-          mode={insight}
-          cycleId={cycle.id}
-          title={[cycle.model, cycle.version].filter(Boolean).join(' · ') || cycle.id}
-          items={items}
-          onClose={() => setInsight(null)}
-        />
-      )}
-
-      {editing && (
-        <CycleItemEdit
-          items={editing}
-          results={resDefs}
-          onClose={() => setEditing(null)}
-          onApply={async (patch) => {
-            const ids = new Set(editing.map((x) => x.tcid))
-            await saveItems((cur) =>
-              cur.map((x) => (ids.has(x.tcid) ? { ...x, ...patch } : x)),
-            )
-            sel.clear()
-          }}
-        />
-      )}
-
-      {adding && (
-        /* 사이클 수정 창의 「항목 추가」 와 같은 팝업 — 다른 창이 뜨던 것 교체 */
-        <CycleEdit
-          cycleId={cycle.id}
-          folders={{}}
-          popupOnly
-          onClose={() => setAdding(false)}
-          onDone={() => {
-            void fullQ.refetch()
-            onSaved()
-          }}
-        />
-      )}
-
-      {report && (
-        <CycleReport
-          cycleId={cycle.id}
-          model={cycle.model}
-          version={cycle.version}
-          onClose={() => setReport(false)}
-        />
-      )}
-
-      {/* 돌고 있을 때의 진행판.
-          옛 화면은 「총 66항목 중 1항목 진행 (2%)」 를 창으로 크게 띄웠다.
-          내가 그것을 오른쪽 아래 한 줄로 줄여 놨더니 아무도 못 봤다.
-          크게, 맨 위에, 도는 동안만. */}
-      {st.on && (
-        <div className="cy-prog">
-          <div className="cy-prog-top">
-            <b className="cy-prog-t">{st.waiting ? '실행 대기' : '시험 절차 실행 중'}</b>
-            {st.who && <span className="cy-prog-who">{st.who} 님</span>}
-            <span className="sp" />
-            <button className="btn small danger" type="button" onClick={() => void stop()}>
-              ⏹ 중지
-            </button>
-          </div>
-          <div className="cy-prog-n">
-            총 {st.total}항목 중 <b>{Math.min(st.done + 1, st.total)}</b>항목 진행 (
-            {Math.round((st.done / (st.total || 1)) * 100)}%)
-          </div>
-          <div className="cy-prog-bar" aria-hidden="true">
-            <span style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
-          </div>
-          <div className="cy-prog-now">
-            {st.waiting ? (
-              '실행 서버가 집기를 기다립니다…'
-            ) : (
-              <>
-                {st.itemName || '…'}
-                {st.stepAt >= 0 && (
-                  <span className="cy-prog-step">
-                    {' '}
-                    · 스텝 {st.stepAt + 1}/{st.stepCount}
-                  </span>
-                )}
-                {st.stepName && <code className="cy-prog-cmd">{st.stepName}</code>}
-              </>
-            )}
-            {!follow && (
-              <button className="btn small" type="button" onClick={() => setFollow(true)}>
-                도는 항목 따라가기
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-
-
-      </section>
-
-      {/* Test Player — 왼쪽에서 항목을 고르고, 오른쪽에서 시험한다.
-          Zephyr 실행 화면 문법: 목록은 좁게, 절차·판정·기록은 넓게. */}
-      <div className="cxp">
-        <aside className="cxp-side" ref={sideRef} style={{ width: sideW }}>
-          <div className="cxp-sh">
-            <label className="rq-selall" title="보이는 것 전부 고르기">
-              <input
-                type="checkbox"
-                checked={rows.length > 0 && pick.size === rows.length}
-                ref={(el) => {
-                  if (el) el.indeterminate = pick.size > 0 && pick.size < rows.length
-                }}
-                disabled={!rows.length}
-                onChange={() =>
-                  pick.size === rows.length
-                    ? sel.clear()
-                    : sel.set(rows.map((x) => items.indexOf(x)))
-                }
-              />
-            </label>
-            <b>Test Cases</b>
-            <i className="cxp-n">{rows.length}</i>
-            <span className="sp" />
-            {pick.size > 0 && <span className="muted small">{pick.size}개 선택</span>}
-            {pick.size > 0 && !st.on && (
-              /* 고른 항목 전부에 같은 판정 — Pass 만이 아니라 아무 값이나 */
-              <select
-                className="cy-v cxp-bulkv"
-                value=""
-                disabled={saving}
-                title={`고른 ${pick.size}건에 같은 판정을 한 번에 적용합니다`}
-                onChange={(e) => {
-                  const val = e.target.value
-                  if (!val) return
-                  const rows2 = [...pick]
-                    .map((i2) => items[i2])
-                    .filter((x): x is CycleItemLite => Boolean(x))
-                  const ids = new Set(rows2.map((x) => x.tcid))
-                  const now2 = new Date().toISOString()
-                  void saveItems((cur2) =>
-                    cur2.map((x) => {
-                      if (!ids.has(x.tcid)) return x
-                      const passAll = val === 'Pass' && typeOf(x) === 'manual'
-                      return {
-                        ...x,
-                        result: val === '미실행' ? '미실행' : val,
-                        executed_by: val === '미실행' ? x.executed_by : x.executed_by || meName,
-                        executed_at: val === '미실행' ? x.executed_at : x.executed_at || now2,
-                        // Pass 는 수동 스텝까지 Pass — 「항목 Pass = 모든 스텝 Pass」 합의
-                        steps: passAll
-                          ? (x.steps ?? []).map((s2) => ({ ...s2, result: 'Pass' }))
-                          : x.steps,
-                      }
-                    }),
-                  ).then(() => sel.clear())
-                }}
-              >
-                <option value="">판정 일괄 적용…</option>
-                {resDefs.map((r) => (
-                  <option key={r.v} value={r.v === '' ? '미실행' : r.v}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            )}
-            {(() => {
-              const fCnt = fSet.size + (onlyRegress ? 1 : 0)
-              return (
-                <button
-                  className={`btn small cxp-funnel${fCnt ? ' cxp-fon' : ''}`}
-                  type="button"
-                  title="결과 필터 — 전체 · Pass · Fail · 미실행 · 회귀"
-                  onClick={(e) => {
-                    const r2 = e.currentTarget.getBoundingClientRect()
-                    setFiltAt((v2) => (v2 ? null : { x: r2.right, y: r2.bottom + 4 }))
-                  }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                      d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
-                      fill={fCnt ? 'currentColor' : 'none'}
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  {fCnt > 0 && <em className="cxp-fbadge">{fCnt}</em>}
-                </button>
-              )
-            })()}
+                  </div>
+                  {aiBusy ? (
+                    <div className="cy-sum-ai-load">
+                      <span className="cy-spin" aria-hidden="true" />
+                      <div className="cy-sum-ai-sk">
+                        <b>
+                          『{cycle.name || cycle.cid || cycle.version || ''}』 사이클 실행 결과를 AI 가
+                          분석하고 있습니다
+                        </b>
+                        <span className="cy-sum-ai-stage">{AI_STAGES[aiStage]}</span>
+                        <i style={{ width: '92%' }} />
+                        <i style={{ width: '78%' }} />
+                        <i style={{ width: '85%' }} />
+                      </div>
+                    </div>
+                  ) : aiErr ? (
+                    <div className="cy-sum-ai-err">{aiErr}</div>
+                  ) : (
+                    <div className={`cy-sum-ai-body${aiOpen ? '' : ' fold'}`}>
+                      <Markdown text={aiTxt} />
+                      <div className="cy-sum-ai-note">
+                        AI 는 실수할 수 있습니다. 정보를 다시 한번 확인해 주세요.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })()}
+          </RailSec>
+          <RailSec
+            k="items"
+            title="항목"
+            right={`${items.length}건`}
+            open={itemsOpen}
+            onToggle={() => setItemsOpen((v) => !v)}
+          >
+        <div className="cy-cols" ref={colsRef}>
+        {/* 2열 — 이 회차를 돌리고 결과를 보는 칸. 머리(제목·단추·통계·거르기)와
+            표가 한 카드에 든다. */}
+        <section className="panel cy-exec">
+        {/* ② 공통 액션 바 — 요구사항·시험항목과 **같은 차례**.
+            Edit·Bulk Edit | Add·Delete·Export. 세 화면을 오가는 사람이 매번
+            어디에 무엇이 있는지 다시 찾지 않게. */}
+        {/* 실행 단추·⋯·저장종은 맨 위 빵부스러기 줄(완료 왼쪽)로 — 가로 카드 한 줄을 없앴다(피드백 ②) */}
+        {sumEl &&
+          createPortal(
             <button
-              className={`btn small${fAss ? ' cxp-fon' : ''}`}
+              className={`btn small${sumOpen ? ' cxp-fon' : ''}`}
               type="button"
-              title="항목 추가 · 내 것만"
-              onClick={(e) => {
-                const r2 = e.currentTarget.getBoundingClientRect()
-                setSideMenu((v2) => (v2 ? null : { x: r2.right, y: r2.bottom + 4 }))
-              }}
+              title="이 회차의 결과 요약을 펼치고 접습니다"
+              onClick={() => setSumOpen((v2) => !v2)}
             >
-              ⋯
-            </button>
-          </div>
-          {/* 찾기 + 내 것만 — Zephyr 왼쪽 목록의 도구 그대로 */}
-          <div className="cxp-tools">
-            <input
-              className="cxp-q"
-              placeholder="TC ID · 제목 검색"
-              value={fq}
-              onChange={(e) => setFq(e.target.value)}
-            />
-          </div>
-          {sideMenu && (
-            <>
-              <span className="cyt-gearovl" onClick={() => setSideMenu(null)} />
-              <div
-                className="cy-hmenu-pop cxp-sidepop"
-                role="menu"
-                style={{
-                  position: 'fixed',
-                  left: Math.max(8, Math.min(sideMenu.x - 200, window.innerWidth - 240)),
-                  top: sideMenu.y,
-                  right: 'auto',
-                  zIndex: 60,
-                }}
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => {
-                    setSideMenu(null)
-                    setAdding(true)
-                  }}
-                >
-                  ＋ 항목 추가
-                </button>
-                <hr />
-                <label className="cxp-pop-mine" title="내가 담당인 항목만 봅니다">
-                  <input
-                    type="checkbox"
-                    checked={fAss !== ''}
-                    onChange={(e) => setFAss(e.target.checked ? meName : '')}
-                  />
-                  내 것만
-                </label>
-              </div>
-            </>
+              시험결과 요약
+            </button>,
+            sumEl,
           )}
-          {filtAt && (
+        {barEl &&
+          createPortal(
             <>
-              <span className="cyt-gearovl" onClick={() => setFiltAt(null)} />
-              <div
-                className="cy-hmenu-pop cxp-sidepop"
-                role="menu"
-                style={{
-                  position: 'fixed',
-                  left: Math.max(8, Math.min(filtAt.x - 220, window.innerWidth - 260)),
-                  top: filtAt.y,
-                  right: 'auto',
-                  zIndex: 60,
-                }}
-              >
-            {/* 결과로 좁히기 — 세로 목록, 결과 상태 전부(커스텀 포함) */}
-            <div className="cxp-flist">
-              <button
-                type="button"
-                className={fSet.size === 0 && !onlyRegress ? 'on' : ''}
-                onClick={() => {
-                  setFSet(new Set())
-                  setOnlyRegress(false)
-                }}
-              >
-                <s className="d all" />
-                전체
-                <em>{items.length}</em>
-              </button>
-              {resDefs.map((r) => (
-                <button
-                  key={r.v || '_none'}
-                  type="button"
-                  className={fSet.has(r.v) ? 'on' : ''}
-                  onClick={() =>
-                    setFSet((cur2) => {
-                      const n = new Set(cur2)
-                      if (n.has(r.v)) n.delete(r.v)
-                      else n.add(r.v)
-                      return n
-                    })
-                  }
-                >
-                  <input type="checkbox" checked={fSet.has(r.v)} readOnly tabIndex={-1} />
-                  <s
-                    className="d"
-                    style={{
-                      background:
-                        r.color ||
-                        (r.group === 'pass'
-                          ? '#34d399'
-                          : r.group === 'fail'
-                            ? '#f87171'
-                            : r.v === ''
-                              ? '#c3cad4'
-                              : '#f0b429'),
-                    }}
-                  />
-                  {r.label}
-                  <em>{counts[r.v] ?? 0}</em>
+              {st.on ? (
+                <button className="btn danger small" type="button" onClick={() => void stop()}>
+                  ⏹ 멈추기
                 </button>
-              ))}
-              {others.length > 0 && (
-                <button
-                  type="button"
-                  className={onlyRegress ? 'on' : ''}
-                  title={
-                    prev
-                      ? `${prev.version || prev.name || '지난 사이클'} 에선 Pass 였는데 이번에 Fail 인 것`
-                      : '비교할 지난 사이클이 없습니다'
-                  }
-                  onClick={() => setOnlyRegress((v2) => !v2)}
-                >
-                  <input type="checkbox" checked={onlyRegress} readOnly tabIndex={-1} />
-                  <s className="d reg" />
-                  회귀
-                  <em>{prev && prevVerdict.size ? regressN : '–'}</em>
+              ) : (
+                (() => {
+                  /* 실행은 자동 항목만 돈다(합의) — 수동은 사람이 찍는다.
+                     수동뿐이면 단추가 꺼진다 */
+                  const autoAll = items
+                    .map((x, i) => (typeOf(x) === 'auto' ? i : -1))
+                    .filter((i) => i >= 0)
+                  const autoPicked = [...pick]
+                    .filter((i) => items[i] && typeOf(items[i]!) === 'auto')
+                    .sort((a2, b2) => a2 - b2)
+                  return (
+                    <>
+                      {pick.size > 0 && (
+                        <button
+                          className="btn primary small"
+                          type="button"
+                          disabled={saving || !autoPicked.length}
+                          title={
+                            autoPicked.length
+                              ? `고른 것 중 자동 ${autoPicked.length}건을 돌립니다 (수동은 빠집니다)`
+                              : '고른 것이 전부 수동이라 자동 실행이 없습니다'
+                          }
+                          onClick={() => startRun(autoPicked)}
+                        >
+                          ▶ 실행 ({autoPicked.length})
+                        </button>
+                      )}
+                      <button
+                        className="btn small"
+                        type="button"
+                        disabled={!autoAll.length || saving}
+                        title={
+                          autoAll.length
+                            ? `자동 ${autoAll.length}건을 돌립니다 (수동 ${items.length - autoAll.length}건은 빠집니다)`
+                            : '전부 수동 항목이라 자동 실행이 없습니다'
+                        }
+                        onClick={() => startRun(autoAll)}
+                      >
+                        ▶ 전체 실행 ({autoAll.length})
+                      </button>
+                    </>
+                  )
+                })()
+              )}
+              {joined && (
+                <span className={`cy-join ${joined.how}`}>
+                  {joined.who} 님이 {joined.how === 'in' ? '들어왔습니다' : '나갔습니다'}
+                </span>
+              )}
+              <SaveBell
+                items={saves}
+                unseen={Math.max(0, saves.length - seen)}
+                onSeen={() => setSeen(saves.length)}
+              />
+            </>,
+            barEl,
+          )}
+        {/* **이 사이클** 을 같이 보는 사람 — 오른쪽 끝 한 자리에 끼운다 */}
+        {pbEl && createPortal(<PresenceBar users={presence.users} me={meName} />, pbEl)}
+  
+        {rowMenu && (
+          <CycleRowMenu
+            at={rowMenu}
+            count={pick.size}
+            onClose={() => setRowMenu(null)}
+            onEdit={() => {
+              const rows = [...pick].map((i) => items[i]!).filter(Boolean)
+              setRowMenu(null)
+              setEditing(rows)
+            }}
+            onGoTc={() => {
+              const t = items[rowMenu.at]?.tcid
+              setRowMenu(null)
+              if (t) goto('tc', t)
+            }}
+            onRemove={() => {
+              const n = pick.size || 1
+              const ids = new Set(
+                (pick.size ? [...pick] : [rowMenu.at]).map((i2) => items[i2]?.tcid).filter(Boolean),
+              )
+              setRowMenu(null)
+              if (!window.confirm(`고른 ${n}건을 이 사이클에서 뺍니다.`)) return
+              void saveItems((cur2) => cur2.filter((x) => !ids.has(x.tcid))).then(sel.clear)
+            }}
+          />
+        )}
+  
+        {insight && (
+          <CycleInsight
+            mode={insight}
+            cycleId={cycle.id}
+            title={[cycle.model, cycle.version].filter(Boolean).join(' · ') || cycle.id}
+            items={items}
+            onClose={() => setInsight(null)}
+          />
+        )}
+  
+        {editing && (
+          <CycleItemEdit
+            items={editing}
+            results={resDefs}
+            onClose={() => setEditing(null)}
+            onApply={async (patch) => {
+              const ids = new Set(editing.map((x) => x.tcid))
+              await saveItems((cur) =>
+                cur.map((x) => (ids.has(x.tcid) ? { ...x, ...patch } : x)),
+              )
+              sel.clear()
+            }}
+          />
+        )}
+  
+        {adding && (
+          /* 사이클 수정 창의 「항목 추가」 와 같은 팝업 — 다른 창이 뜨던 것 교체 */
+          <CycleEdit
+            cycleId={cycle.id}
+            folders={{}}
+            popupOnly
+            onClose={() => setAdding(false)}
+            onDone={() => {
+              void fullQ.refetch()
+              onSaved()
+            }}
+          />
+        )}
+  
+        {report && (
+          <CycleReport
+            cycleId={cycle.id}
+            model={cycle.model}
+            version={cycle.version}
+            onClose={() => setReport(false)}
+          />
+        )}
+  
+        {/* 돌고 있을 때의 진행판.
+            옛 화면은 「총 66항목 중 1항목 진행 (2%)」 를 창으로 크게 띄웠다.
+            내가 그것을 오른쪽 아래 한 줄로 줄여 놨더니 아무도 못 봤다.
+            크게, 맨 위에, 도는 동안만. */}
+        {st.on && (
+          <div className="cy-prog">
+            <div className="cy-prog-top">
+              <b className="cy-prog-t">{st.waiting ? '실행 대기' : '시험 절차 실행 중'}</b>
+              {st.who && <span className="cy-prog-who">{st.who} 님</span>}
+              <span className="sp" />
+              <button className="btn small danger" type="button" onClick={() => void stop()}>
+                ⏹ 중지
+              </button>
+            </div>
+            <div className="cy-prog-n">
+              총 {st.total}항목 중 <b>{Math.min(st.done + 1, st.total)}</b>항목 진행 (
+              {Math.round((st.done / (st.total || 1)) * 100)}%)
+            </div>
+            <div className="cy-prog-bar" aria-hidden="true">
+              <span style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
+            </div>
+            <div className="cy-prog-now">
+              {st.waiting ? (
+                '실행 서버가 집기를 기다립니다…'
+              ) : (
+                <>
+                  {st.itemName || '…'}
+                  {st.stepAt >= 0 && (
+                    <span className="cy-prog-step">
+                      {' '}
+                      · 스텝 {st.stepAt + 1}/{st.stepCount}
+                    </span>
+                  )}
+                  {st.stepName && <code className="cy-prog-cmd">{st.stepName}</code>}
+                </>
+              )}
+              {!follow && (
+                <button className="btn small" type="button" onClick={() => setFollow(true)}>
+                  도는 항목 따라가기
                 </button>
               )}
             </div>
-              </div>
-            </>
-          )}
-          <div className="cxp-rows scroll">
-            {rows.map((it, i) => {
-              const at = items.indexOf(it)
-              const rid = String(it.req_id ?? '')
-              const newGroup = i === 0 || String(rows[i - 1]?.req_id ?? '') !== rid
-              const liveHere = st.on && st.itemAt === at && st.liveSteps.length > 0
-              const shown = liveHere
-                ? ({ ...it, steps: st.liveSteps as CycleStep[], result: '' })
-                : it
-              const v = itemVerdict(shown)
-              const on = followAt === at
-              return (
-                <React.Fragment key={`${it.tcid}-${i}`}>
-                  {newGroup && (
-                    <div className="cxp-grow" title={rid || '요구사항 없음'}>
-                      <b>{reqName.get(rid) || rid || '(요구사항 없음)'}</b>
-                      {(() => {
-                        const label = reqIdOf.get(rid) || (rid.startsWith('rq-') ? '' : rid)
-                        return label ? <span className="muted small"> {label}</span> : null
-                      })()}
-                    </div>
-                  )}
-                  <div
-                    className={`cxp-row v-${verdictClass(v)}${on ? ' on' : ''}${
-                      pick.has(at) ? ' picked' : ''
-                    }${st.itemAt === at && st.on ? ' running' : ''}`}
-                    ref={st.on && st.itemAt === at ? runlineRef : undefined}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => {
-                      setOpenItem(at)
-                      setFollow(false)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        setOpenItem(at)
-                        setFollow(false)
-                      }
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault()
-                      if (!pick.has(at)) sel.set([at])
-                      setRowMenu({ at, x: e.clientX, y: e.clientY })
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={pick.has(at)}
-                      aria-label={`${it.name || it.tcid} 고르기`}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={() => {
-                        const n = new Set(pick)
-                        if (n.has(at)) n.delete(at)
-                        else n.add(at)
-                        sel.set([...n])
-                      }}
-                    />
-                    <span className="cxp-rmain">
-                      <span className="cxp-r1">
-                        {/* TC ID 는 뺐다(피드백) — 2열 머리에서 보인다 */}
-                        {/* 나 말고 누가 이 항목을 보는 중인가 */}
-                        {(() => {
-                          const who = (focus[String(at)] ?? []).filter((u) => u !== meName)
-                          if (!who.length) return null
-                          return (
-                            <span className="cy-eyes" title={`${who.join(', ')} 님이 보는 중`}>
-                              {who.slice(0, 2).map((u) => (
-                                <i key={u}>{(u.trim()[0] || '?').toUpperCase()}</i>
-                              ))}
-                            </span>
-                          )
-                        })()}
-                      </span>
-                      <span className="cxp-nm" title={it.name || it.tcid}>
-                        {it.name || it.tcid}
-                      </span>
-                    </span>
-                    {/* 오른쪽 무리 — 한 묶음(간격 균일): M/A · 이력 · 결과 셀렉트 · ▶ · 회귀 · 점 */}
-                    <span className="cxp-rgt" onClick={(e) => e.stopPropagation()}>
-                      {/* 담당자 — 읽기 전용. 할당은 사이클 수정 창에서 */}
-                      {(() => {
-                        const who = String(it.assignee ?? '')
-                          .split(/[,·/;]+/)
-                          .map((x) => x.trim())
-                          .filter(Boolean)
-                        return (
-                          <span
-                            className={`cxp-who${who.length ? '' : ' none'}`}
-                            title={who.length ? `담당: ${who.join(', ')}` : '담당자 없음'}
-                          >
-                            {who.length ? (
-                              <>
-                                <i>{(who[0]![0] || '?').toUpperCase()}</i>
-                                {who.length > 1 && <em>+</em>}
-                              </>
-                            ) : (
-                              <i className="g">👤</i>
-                            )}
-                          </span>
-                        )
-                      })()}
-                      {/* 시험 타입 — TC 가 정본 */}
-                      {(() => {
-                        const kd = typeOf(it)
-                        return (
-                          <i className={`cxp-k ${kd}`} title={kd === 'manual' ? '수동' : '자동'}>
-                            {kd === 'manual' ? 'M' : 'A'}
-                          </i>
-                        )
-                      })()}
-                      {/* 기존 시험 결과 — 자리 상시 유지, 없으면 미진행 */}
-                      {(() => {
-                        const h = (histAll.get(it.tcid) ?? []).slice(0, 5)
-                        const last = h[0]
-                        return (
-                          <span
-                            className="cxp-hist"
-                            title={
-                              h.length
-                                ? `기존 시험이력 (읽기 전용)\n${h.map((x) => `${x.label}: ${verdictLabel(x.v)}`).join('\n')}`
-                                : '기존 시험이력 없음'
-                            }
-                          >
-                            {last ? (
-                              <i className={`hv-${verdictClass(last.v)} ro full`}>
-                                {verdictLabel(last.v)}
-                                {h.length > 1 ? ` +${h.length - 1}` : ''}
-                              </i>
-                            ) : (
-                              <i className="hv-none ro full">미진행</i>
-                            )}
-                          </span>
-                        )
-                      })()}
-                    </span>
-                  </div>
-                </React.Fragment>
-              )
-            })}
-            {rows.length === 0 && <div className="empty">해당하는 항목이 없습니다.</div>}
           </div>
-        </aside>
-        <Resizer
-          onResize={setSideW}
-          getOrigin={() => sideRef.current?.getBoundingClientRect().left ?? 0}
-          label="항목 목록 폭"
-        />
-
-        <section className="cxp-main scroll">
-          {cur ? (
-            <>
-              <div className="cxp-h">
-                <b className="cxp-hid">{cur.tcid}</b>
-                <h3 className="cxp-hnm">{cur.name || cur.tcid}</h3>
-                <span className="sp" />
-                {(() => {
-                  /* 결함 등록 — Fail 만이 아니라 Blocked·진행불가도 결함을 단다 */
-                  const v0 = itemVerdict(cur)
-                  const can = v0 === 'Fail' || v0 === 'Blocked' || v0 === '진행불가' || itemDefect
-                  if (!can) return null
-                  return (
-                    <button
-                      className="btn small danger"
-                      type="button"
-                      title={
-                        itemDefect
-                          ? `이미 등록된 결함 ${itemDefect.id}${itemDefect.jira_key ? ` · ${itemDefect.jira_key}` : ''} 이 열립니다`
-                          : '이 항목으로 결함을 등록합니다'
-                      }
-                      onClick={() => setDefectFor(cur)}
-                    >
-                      ＋ 결함 등록
-                    </button>
-                  )
-                })()}
-                <select
-                  className={`cy-v cxp-big ${verdictClass(itemVerdict(liveNow ? { ...cur, steps: st.liveSteps, result: '' } : cur))}`}
-                  value={itemVerdict(cur)}
-                  title="결과를 손으로 정합니다"
-                  onChange={(e) =>
-                    void setResult(cur.tcid, e.target.value === '' ? '미실행' : e.target.value)
+        )}
+  
+  
+  
+        </section>
+  
+        {/* Test Player — 왼쪽에서 항목을 고르고, 오른쪽에서 시험한다.
+            Zephyr 실행 화면 문법: 목록은 좁게, 절차·판정·기록은 넓게. */}
+        <div className="cxp">
+          <aside className="cxp-side" ref={sideRef} style={{ width: sideW }}>
+            <div className="cxp-sh">
+              <label className="rq-selall" title="보이는 것 전부 고르기">
+                <input
+                  type="checkbox"
+                  checked={rows.length > 0 && pick.size === rows.length}
+                  ref={(el) => {
+                    if (el) el.indeterminate = pick.size > 0 && pick.size < rows.length
+                  }}
+                  disabled={!rows.length}
+                  onChange={() =>
+                    pick.size === rows.length
+                      ? sel.clear()
+                      : sel.set(rows.map((x) => items.indexOf(x)))
                   }
+                />
+              </label>
+              <b>Test Cases</b>
+              <i className="cxp-n">{rows.length}</i>
+              <span className="sp" />
+              {pick.size > 0 && <span className="muted small">{pick.size}개 선택</span>}
+              {pick.size > 0 && !st.on && (
+                /* 고른 항목 전부에 같은 판정 — Pass 만이 아니라 아무 값이나 */
+                <select
+                  className="cy-v cxp-bulkv"
+                  value=""
+                  disabled={saving}
+                  title={`고른 ${pick.size}건에 같은 판정을 한 번에 적용합니다`}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    if (!val) return
+                    const rows2 = [...pick]
+                      .map((i2) => items[i2])
+                      .filter((x): x is CycleItemLite => Boolean(x))
+                    const ids = new Set(rows2.map((x) => x.tcid))
+                    const now2 = new Date().toISOString()
+                    void saveItems((cur2) =>
+                      cur2.map((x) => {
+                        if (!ids.has(x.tcid)) return x
+                        const passAll = val === 'Pass' && typeOf(x) === 'manual'
+                        return {
+                          ...x,
+                          result: val === '미실행' ? '미실행' : val,
+                          executed_by: val === '미실행' ? x.executed_by : x.executed_by || meName,
+                          executed_at: val === '미실행' ? x.executed_at : x.executed_at || now2,
+                          // Pass 는 수동 스텝까지 Pass — 「항목 Pass = 모든 스텝 Pass」 합의
+                          steps: passAll
+                            ? (x.steps ?? []).map((s2) => ({ ...s2, result: 'Pass' }))
+                            : x.steps,
+                        }
+                      }),
+                    ).then(() => sel.clear())
+                  }}
                 >
+                  <option value="">판정 일괄 적용…</option>
                   {resDefs.map((r) => (
-                    <option key={r.v} value={r.v} style={r.color ? { color: r.color } : undefined}>
+                    <option key={r.v} value={r.v === '' ? '미실행' : r.v}>
                       {r.label}
                     </option>
                   ))}
                 </select>
-                {!st.on && typeOf(cur) === 'auto' && (
+              )}
+              {(() => {
+                const fCnt = fSet.size + (onlyRegress ? 1 : 0)
+                return (
                   <button
-                    className="btn primary small"
+                    className={`btn small cxp-funnel${fCnt ? ' cxp-fon' : ''}`}
                     type="button"
-                    title="이 항목만 돌립니다"
-                    disabled={saving}
-                    onClick={() => followAt >= 0 && startRun([followAt])}
+                    title="결과 필터 — 전체 · Pass · Fail · 미실행 · 회귀"
+                    onClick={(e) => {
+                      const r2 = e.currentTarget.getBoundingClientRect()
+                      setFiltAt((v2) => (v2 ? null : { x: r2.right, y: r2.bottom + 4 }))
+                    }}
                   >
-                    ▶ 실행
+                    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
+                        fill={fCnt ? 'currentColor' : 'none'}
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                    {fCnt > 0 && <em className="cxp-fbadge">{fCnt}</em>}
+                  </button>
+                )
+              })()}
+              <button
+                className={`btn small${fAss ? ' cxp-fon' : ''}`}
+                type="button"
+                title="항목 추가 · 내 것만"
+                onClick={(e) => {
+                  const r2 = e.currentTarget.getBoundingClientRect()
+                  setSideMenu((v2) => (v2 ? null : { x: r2.right, y: r2.bottom + 4 }))
+                }}
+              >
+                ⋯
+              </button>
+            </div>
+            {/* 찾기 + 내 것만 — Zephyr 왼쪽 목록의 도구 그대로 */}
+            <div className="cxp-tools">
+              <input
+                className="cxp-q"
+                placeholder="TC ID · 제목 검색"
+                value={fq}
+                onChange={(e) => setFq(e.target.value)}
+              />
+            </div>
+            {sideMenu && (
+              <>
+                <span className="cyt-gearovl" onClick={() => setSideMenu(null)} />
+                <div
+                  className="cy-hmenu-pop cxp-sidepop"
+                  role="menu"
+                  style={{
+                    position: 'fixed',
+                    left: Math.max(8, Math.min(sideMenu.x - 200, window.innerWidth - 240)),
+                    top: sideMenu.y,
+                    right: 'auto',
+                    zIndex: 60,
+                  }}
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setSideMenu(null)
+                      setAdding(true)
+                    }}
+                  >
+                    ＋ 항목 추가
+                  </button>
+                  <hr />
+                  <label className="cxp-pop-mine" title="내가 담당인 항목만 봅니다">
+                    <input
+                      type="checkbox"
+                      checked={fAss !== ''}
+                      onChange={(e) => setFAss(e.target.checked ? meName : '')}
+                    />
+                    내 것만
+                  </label>
+                </div>
+              </>
+            )}
+            {filtAt && (
+              <>
+                <span className="cyt-gearovl" onClick={() => setFiltAt(null)} />
+                <div
+                  className="cy-hmenu-pop cxp-sidepop"
+                  role="menu"
+                  style={{
+                    position: 'fixed',
+                    left: Math.max(8, Math.min(filtAt.x - 220, window.innerWidth - 260)),
+                    top: filtAt.y,
+                    right: 'auto',
+                    zIndex: 60,
+                  }}
+                >
+              {/* 결과로 좁히기 — 세로 목록, 결과 상태 전부(커스텀 포함) */}
+              <div className="cxp-flist">
+                <button
+                  type="button"
+                  className={fSet.size === 0 && !onlyRegress ? 'on' : ''}
+                  onClick={() => {
+                    setFSet(new Set())
+                    setOnlyRegress(false)
+                  }}
+                >
+                  <s className="d all" />
+                  전체
+                  <em>{items.length}</em>
+                </button>
+                {resDefs.map((r) => (
+                  <button
+                    key={r.v || '_none'}
+                    type="button"
+                    className={fSet.has(r.v) ? 'on' : ''}
+                    onClick={() =>
+                      setFSet((cur2) => {
+                        const n = new Set(cur2)
+                        if (n.has(r.v)) n.delete(r.v)
+                        else n.add(r.v)
+                        return n
+                      })
+                    }
+                  >
+                    <input type="checkbox" checked={fSet.has(r.v)} readOnly tabIndex={-1} />
+                    <s
+                      className="d"
+                      style={{
+                        background:
+                          r.color ||
+                          (r.group === 'pass'
+                            ? '#34d399'
+                            : r.group === 'fail'
+                              ? '#f87171'
+                              : r.v === ''
+                                ? '#c3cad4'
+                                : '#f0b429'),
+                      }}
+                    />
+                    {r.label}
+                    <em>{counts[r.v] ?? 0}</em>
+                  </button>
+                ))}
+                {others.length > 0 && (
+                  <button
+                    type="button"
+                    className={onlyRegress ? 'on' : ''}
+                    title={
+                      prev
+                        ? `${prev.version || prev.name || '지난 사이클'} 에선 Pass 였는데 이번에 Fail 인 것`
+                        : '비교할 지난 사이클이 없습니다'
+                    }
+                    onClick={() => setOnlyRegress((v2) => !v2)}
+                  >
+                    <input type="checkbox" checked={onlyRegress} readOnly tabIndex={-1} />
+                    <s className="d reg" />
+                    회귀
+                    <em>{prev && prevVerdict.size ? regressN : '–'}</em>
                   </button>
                 )}
               </div>
-
-              {/* Execution 정보 — Zephyr 의 Execution 칸과 같은 자리 */}
-              <div className="cxp-exec">
-                {(() => {
-                  const rows: Array<[string, string]> = [
-                    ['제조사', maker || '–'],
-                    ['제품군', family || '–'],
-                    ['모델그룹', mgroup || '–'],
-                    ['제품명', cycle.model || '–'],
-                    ['버전그룹', cycle.version_group || '–'],
-                    ['버전명', cycle.version || '–'],
-                    ['담당자', cur.assignee || '–'],
-                    ['실행자', cur.executed_by || '–'],
-                    ['실행 시각', cur.executed_at ? String(cur.executed_at).slice(0, 16) : '–'],
-                  ]
-                  /* 사이클에 실린 나머지 값 — 상태·고객에 더해, 앞으로
-                     늘어날 커스텀 필드(고객사·사이클 유형 …)가 코드 수정
-                     없이 자동으로 나온다. 수정 창에 칸이 생기면 화면이 따라온다 */
-                  const KNOWN: Record<string, string> = { status: '상태', customer: '고객' }
-                  const SKIP = new Set([
-                    'id', 'cid', 'ce', 'name', 'model', 'model_group', 'version',
-                    'version_group', 'assignee', 'folder', 'folder_id', 'description',
-                    'cloned_from', 'created_at', 'created_by', 'updated_by',
-                    'start_date', 'end_date', 'items',
-                  ])
-                  for (const [k, v2] of Object.entries(cycle as unknown as Record<string, unknown>)) {
-                    if (SKIP.has(k) || k.startsWith('_')) continue
-                    if (typeof v2 !== 'string' && typeof v2 !== 'number') continue
-                    if (String(v2).trim() === '') continue
-                    rows.push([KNOWN[k] ?? k, String(v2)])
-                  }
-                  return rows.map(([k, v2]) => (
-                    <div key={k}>
-                      <i>{k}</i>
-                      <b>{v2}</b>
-                    </div>
-                  ))
-                })()}
-                {/* 제목은 길다 — 몇 열이 되든 맨 아래 한 줄을 통째로(예외) */}
-                <div className="wide">
-                  <i>사이클 제목</i>
-                  <b>{cycle.name || '–'}</b>
                 </div>
-              </div>
-
-              {/* Objective · Precondition — 시험(TC)이 정본으로 들고 있다 */}
-              <TpSec title="Objective" body={tcDoc?.object_md} />
-              <TpSec title="Precondition" body={tcDoc?.precondition_md} />
-
-              {/* Details — 절차와 판정. 기존 스텝 카드 그대로 */}
-              <div className="cxp-dt">Details</div>
-              <StepDetail
-                key={cur.tcid ?? ''}
-                item={liveNow ? { ...cur, steps: st.liveSteps } : cur}
-                mode={typeOf(cur)}
-                runningAt={liveNow ? st.stepAt : -1}
-                onSetStep={(at2, v2) => void setStepResult(cur.tcid ?? '', at2, v2)}
-                onSetImg={(at2, file) => void setStepImg(cur.tcid ?? '', at2, file)}
-                onSetImgUrl={(at2, url) => void setStepField(cur.tcid ?? '', at2, { actual_img: url })}
-                onSetTxt={(at2, txt) => void setStepField(cur.tcid ?? '', at2, { actual_txt: txt })}
-                onSetRca={(at2, txt) => void setStepField(cur.tcid ?? '', at2, { rca: txt })}
-                onClose={() => setOpenItem(-1)}
-              />
-            </>
-          ) : (
-            <div className="empty">왼쪽에서 항목을 고르면 여기서 시험합니다.</div>
-          )}
-        </section>
-      </div>
+              </>
+            )}
+            <div className="cxp-rows scroll">
+              {rows.map((it, i) => {
+                const at = items.indexOf(it)
+                const rid = String(it.req_id ?? '')
+                const newGroup = i === 0 || String(rows[i - 1]?.req_id ?? '') !== rid
+                const liveHere = st.on && st.itemAt === at && st.liveSteps.length > 0
+                const shown = liveHere
+                  ? ({ ...it, steps: st.liveSteps as CycleStep[], result: '' })
+                  : it
+                const v = itemVerdict(shown)
+                const on = followAt === at
+                return (
+                  <React.Fragment key={`${it.tcid}-${i}`}>
+                    {newGroup && (
+                      <div className="cxp-grow" title={rid || '요구사항 없음'}>
+                        <b>{reqName.get(rid) || rid || '(요구사항 없음)'}</b>
+                        {(() => {
+                          const label = reqIdOf.get(rid) || (rid.startsWith('rq-') ? '' : rid)
+                          return label ? <span className="muted small"> {label}</span> : null
+                        })()}
+                      </div>
+                    )}
+                    <div
+                      className={`cxp-row v-${verdictClass(v)}${on ? ' on' : ''}${
+                        pick.has(at) ? ' picked' : ''
+                      }${st.itemAt === at && st.on ? ' running' : ''}`}
+                      ref={st.on && st.itemAt === at ? runlineRef : undefined}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        setOpenItem(at)
+                        setFollow(false)
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setOpenItem(at)
+                          setFollow(false)
+                        }
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault()
+                        if (!pick.has(at)) sel.set([at])
+                        setRowMenu({ at, x: e.clientX, y: e.clientY })
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={pick.has(at)}
+                        aria-label={`${it.name || it.tcid} 고르기`}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={() => {
+                          const n = new Set(pick)
+                          if (n.has(at)) n.delete(at)
+                          else n.add(at)
+                          sel.set([...n])
+                        }}
+                      />
+                      <span className="cxp-rmain">
+                        <span className="cxp-r1">
+                          {/* TC ID 는 뺐다(피드백) — 2열 머리에서 보인다 */}
+                          {/* 나 말고 누가 이 항목을 보는 중인가 */}
+                          {(() => {
+                            const who = (focus[String(at)] ?? []).filter((u) => u !== meName)
+                            if (!who.length) return null
+                            return (
+                              <span className="cy-eyes" title={`${who.join(', ')} 님이 보는 중`}>
+                                {who.slice(0, 2).map((u) => (
+                                  <i key={u}>{(u.trim()[0] || '?').toUpperCase()}</i>
+                                ))}
+                              </span>
+                            )
+                          })()}
+                        </span>
+                        <span className="cxp-nm" title={it.name || it.tcid}>
+                          {it.name || it.tcid}
+                        </span>
+                      </span>
+                      {/* 오른쪽 무리 — 한 묶음(간격 균일): M/A · 이력 · 결과 셀렉트 · ▶ · 회귀 · 점 */}
+                      <span className="cxp-rgt" onClick={(e) => e.stopPropagation()}>
+                        {/* 담당자 — 읽기 전용. 할당은 사이클 수정 창에서 */}
+                        {(() => {
+                          const who = String(it.assignee ?? '')
+                            .split(/[,·/;]+/)
+                            .map((x) => x.trim())
+                            .filter(Boolean)
+                          return (
+                            <span
+                              className={`cxp-who${who.length ? '' : ' none'}`}
+                              title={who.length ? `담당: ${who.join(', ')}` : '담당자 없음'}
+                            >
+                              {who.length ? (
+                                <>
+                                  <i>{(who[0]![0] || '?').toUpperCase()}</i>
+                                  {who.length > 1 && <em>+</em>}
+                                </>
+                              ) : (
+                                <i className="g">👤</i>
+                              )}
+                            </span>
+                          )
+                        })()}
+                        {/* 시험 타입 — TC 가 정본 */}
+                        {(() => {
+                          const kd = typeOf(it)
+                          return (
+                            <i className={`cxp-k ${kd}`} title={kd === 'manual' ? '수동' : '자동'}>
+                              {kd === 'manual' ? 'M' : 'A'}
+                            </i>
+                          )
+                        })()}
+                        {/* 기존 시험 결과 — 자리 상시 유지, 없으면 미진행 */}
+                        {(() => {
+                          const h = (histAll.get(it.tcid) ?? []).slice(0, 5)
+                          const last = h[0]
+                          return (
+                            <span
+                              className="cxp-hist"
+                              title={
+                                h.length
+                                  ? `기존 시험이력 (읽기 전용)\n${h.map((x) => `${x.label}: ${verdictLabel(x.v)}`).join('\n')}`
+                                  : '기존 시험이력 없음'
+                              }
+                            >
+                              {last ? (
+                                <i className={`hv-${verdictClass(last.v)} ro full`}>
+                                  {verdictLabel(last.v)}
+                                  {h.length > 1 ? ` +${h.length - 1}` : ''}
+                                </i>
+                              ) : (
+                                <i className="hv-none ro full">미진행</i>
+                              )}
+                            </span>
+                          )
+                        })()}
+                      </span>
+                    </div>
+                  </React.Fragment>
+                )
+              })}
+              {rows.length === 0 && <div className="empty">해당하는 항목이 없습니다.</div>}
+            </div>
+          </aside>
+          <Resizer
+            onResize={setSideW}
+            getOrigin={() => sideRef.current?.getBoundingClientRect().left ?? 0}
+            label="항목 목록 폭"
+          />
+  
+          <section className="cxp-main scroll">
+            {cur ? (
+              <>
+                <div className="cxp-h">
+                  <b className="cxp-hid">{cur.tcid}</b>
+                  <h3 className="cxp-hnm">{cur.name || cur.tcid}</h3>
+                  <span className="sp" />
+                  {(() => {
+                    /* 결함 등록 — Fail 만이 아니라 Blocked·진행불가도 결함을 단다 */
+                    const v0 = itemVerdict(cur)
+                    const can = v0 === 'Fail' || v0 === 'Blocked' || v0 === '진행불가' || itemDefect
+                    if (!can) return null
+                    return (
+                      <button
+                        className="btn small danger"
+                        type="button"
+                        title={
+                          itemDefect
+                            ? `이미 등록된 결함 ${itemDefect.id}${itemDefect.jira_key ? ` · ${itemDefect.jira_key}` : ''} 이 열립니다`
+                            : '이 항목으로 결함을 등록합니다'
+                        }
+                        onClick={() => setDefectFor(cur)}
+                      >
+                        ＋ 결함 등록
+                      </button>
+                    )
+                  })()}
+                  <select
+                    className={`cy-v cxp-big ${verdictClass(itemVerdict(liveNow ? { ...cur, steps: st.liveSteps, result: '' } : cur))}`}
+                    value={itemVerdict(cur)}
+                    title="결과를 손으로 정합니다"
+                    onChange={(e) =>
+                      void setResult(cur.tcid, e.target.value === '' ? '미실행' : e.target.value)
+                    }
+                  >
+                    {resDefs.map((r) => (
+                      <option key={r.v} value={r.v} style={r.color ? { color: r.color } : undefined}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                  {!st.on && typeOf(cur) === 'auto' && (
+                    <button
+                      className="btn primary small"
+                      type="button"
+                      title="이 항목만 돌립니다"
+                      disabled={saving}
+                      onClick={() => followAt >= 0 && startRun([followAt])}
+                    >
+                      ▶ 실행
+                    </button>
+                  )}
+                </div>
+  
+                {/* Execution 정보 — Zephyr 의 Execution 칸과 같은 자리 */}
+                <div className="cxp-exec">
+                  {(() => {
+                    const rows: Array<[string, string]> = [
+                      ['제조사', maker || '–'],
+                      ['제품군', family || '–'],
+                      ['모델그룹', mgroup || '–'],
+                      ['제품명', cycle.model || '–'],
+                      ['버전그룹', cycle.version_group || '–'],
+                      ['버전명', cycle.version || '–'],
+                      ['담당자', cur.assignee || '–'],
+                      ['실행자', cur.executed_by || '–'],
+                      ['실행 시각', cur.executed_at ? String(cur.executed_at).slice(0, 16) : '–'],
+                    ]
+                    /* 사이클에 실린 나머지 값 — 상태·고객에 더해, 앞으로
+                       늘어날 커스텀 필드(고객사·사이클 유형 …)가 코드 수정
+                       없이 자동으로 나온다. 수정 창에 칸이 생기면 화면이 따라온다 */
+                    const KNOWN: Record<string, string> = { status: '상태', customer: '고객' }
+                    const SKIP = new Set([
+                      'id', 'cid', 'ce', 'name', 'model', 'model_group', 'version',
+                      'version_group', 'assignee', 'folder', 'folder_id', 'description',
+                      'cloned_from', 'created_at', 'created_by', 'updated_by',
+                      'start_date', 'end_date', 'items',
+                    ])
+                    for (const [k, v2] of Object.entries(cycle as unknown as Record<string, unknown>)) {
+                      if (SKIP.has(k) || k.startsWith('_')) continue
+                      if (typeof v2 !== 'string' && typeof v2 !== 'number') continue
+                      if (String(v2).trim() === '') continue
+                      rows.push([KNOWN[k] ?? k, String(v2)])
+                    }
+                    return rows.map(([k, v2]) => (
+                      <div key={k}>
+                        <i>{k}</i>
+                        <b>{v2}</b>
+                      </div>
+                    ))
+                  })()}
+                  {/* 제목은 길다 — 몇 열이 되든 맨 아래 한 줄을 통째로(예외) */}
+                  <div className="wide">
+                    <i>사이클 제목</i>
+                    <b>{cycle.name || '–'}</b>
+                  </div>
+                </div>
+  
+                {/* Objective · Precondition — 시험(TC)이 정본으로 들고 있다 */}
+                <TpSec title="Objective" body={tcDoc?.object_md} />
+                <TpSec title="Precondition" body={tcDoc?.precondition_md} />
+  
+                {/* Details — 절차와 판정. 기존 스텝 카드 그대로 */}
+                <div className="cxp-dt">Details</div>
+                <StepDetail
+                  key={cur.tcid ?? ''}
+                  item={liveNow ? { ...cur, steps: st.liveSteps } : cur}
+                  mode={typeOf(cur)}
+                  runningAt={liveNow ? st.stepAt : -1}
+                  onSetStep={(at2, v2) => void setStepResult(cur.tcid ?? '', at2, v2)}
+                  onSetImg={(at2, file) => void setStepImg(cur.tcid ?? '', at2, file)}
+                  onSetImgUrl={(at2, url) => void setStepField(cur.tcid ?? '', at2, { actual_img: url })}
+                  onSetTxt={(at2, txt) => void setStepField(cur.tcid ?? '', at2, { actual_txt: txt })}
+                  onSetRca={(at2, txt) => void setStepField(cur.tcid ?? '', at2, { rca: txt })}
+                  onClose={() => setOpenItem(-1)}
+                />
+              </>
+            ) : (
+              <div className="empty">왼쪽에서 항목을 고르면 여기서 시험합니다.</div>
+            )}
+          </section>
+        </div>
+        </div>
+          </RailSec>
+        </div>
       </div>
       )}
 
