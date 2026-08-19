@@ -55,6 +55,15 @@ interface DraftStep {
 
 interface Draft {
   name: string
+  /**
+   * Coverage 항목의 **원본 스텝** — 「일반」 갈래가 쓴다.
+   *
+   * 여태는 TC → 초안(DraftStep) → 다시 실행용(TcStep)으로 두 번 바꿨고,
+   * 그 중간에서 종류를 모르는 스텝이 버려졌다(지적: diff 가 빠졌다).
+   * 일반은 **있는 시험을 그대로 도는** 갈래라 한 톨도 빠지면 안 된다 —
+   * Coverage·사이클과 **같은 것**을 같은 실행기에 그대로 넘긴다.
+   */
+  raw?: TcStep[]
   object?: string
   device_ip?: string
   /** 장비가 둘 이상인 시험 — 차례가 곧 session 번호다 */
@@ -660,6 +669,64 @@ export default function AskBar({ devices }: Props) {
      서버는 여전히 대화를 남긴다 — 목록 UI 를 다시 세울 때 git 에서 꺼낸다. */
 
   /** 그 TC 를 고른 장비로 옮겨 초안에 앉힌다 */
+  /**
+   * 「일반」 갈래 — Coverage 항목을 **그대로** 싣는다.
+   *
+   * 고치지 않는다. 모델 이름도 안 바꾸고, 종류를 가리지도 않는다.
+   * 화면에 늘어놓는 줄만 원본에서 만들어 낸다(보여 주기용) — 돌 때는
+   * 원본(`raw`)이 그대로 실행기로 간다. Coverage 에서 누르는 것과 같은 일이
+   * 같은 자리에서 일어나야 한다.
+   */
+  const takeTc = async (tcid: string, dev?: Device) => {
+    const t0 = performance.now()
+    setAdopting(tcid)
+    setErr('')
+    setFlowAt(5)
+    setFlowLog((v) => [...v, { s: 5, t: `${tcid} 를 여는 중…` }])
+    try {
+      const picked = dev ?? usable.find((x) => x.id === devId) ?? usable[0]
+      const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}`)
+      if (!r.ok) throw new Error('시험을 불러오지 못했습니다')
+      const b = (await r.json()) as { name?: string; object_md?: string; checks?: TcStep[] }
+      const raw = (b.checks ?? []) as TcStep[]
+      /* 보여 주기용 줄 — 한 줄도 버리지 않는다. 종류를 몰라도 그대로 세운다 */
+      const shown: DraftStep[] = raw.map((x) => ({
+        desc: String(x.step ?? '').trim(),
+        cli: String(x.cli ?? x.data ?? ''),
+        kind: typeof x.kind === 'string' ? x.kind : 'cli',
+        type: x.type ?? undefined,
+        criteria: typeof x.criteria === 'string' ? x.criteria : undefined,
+        indent: typeof x.indent === 'number' ? x.indent : undefined,
+        session: typeof x.session === 'number' ? x.session : 0,
+        oid: typeof x.oid === 'string' ? x.oid : undefined,
+        cmpLeft: typeof x.cmpLeft === 'string' ? x.cmpLeft : undefined,
+        cmpRight: typeof x.cmpRight === 'string' ? x.cmpRight : undefined,
+        cmpOp: typeof x.cmpOp === 'string' ? x.cmpOp : undefined,
+      }))
+      setFlowLog((v) => [
+        ...v.filter((x) => !x.t.endsWith('를 여는 중…')),
+        { s: 5, t: `${tcid} 를 그대로 실었습니다 — ${raw.length}스텝 (고치지 않음)` },
+      ])
+      setFitNotes([])
+      setFlowVals((v) => [...v.filter((x) => x.k !== '가져온 TC'), { k: '실은 TC', v: tcid }])
+      setStepAt(0)
+      const d2: Draft = { name: b.name || tcid, object: tcid, steps: shown, raw }
+      instantRef.current = false
+      setBuilt(d2)
+      setDevId(picked?.id ?? '')
+      await holdMaking(t0)
+      setDraft(d2)
+      void keepChat(d2.name, d2, picked?.ip ?? '')
+      setLike([])
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+      setText(asked)
+      setFlowAt(0)
+    } finally {
+      setAdopting('')
+    }
+  }
+
   const adopt = async (tcid: string, dev?: Device) => {
     const t0 = performance.now()
     setAdopting(tcid)
@@ -979,7 +1046,10 @@ export default function AskBar({ devices }: Props) {
     // 초안의 갈래를 그대로 살린다 — 뭉개면 되풀이·조건·계측기가 사라진다.
     // 판정기준은 **칩**으로 넣는다(우리 판정 체계) — 옛 type/criteria 도 함께
     // 남겨 두어 옛 화면에서 열어도 읽힌다.
-    const steps: TcStep[] = draft.steps.map((s) => {
+    /* 「일반」 갈래는 원본을 그대로 넘긴다 — 옮겨 적는 순간 무언가 빠진다 */
+    const steps: TcStep[] = draft.raw?.length
+      ? draft.raw
+      : draft.steps.map((s) => {
       const k = String(s.kind || 'cli')
       const indent = Math.max(0, Number(s.indent) || 0)
       const crit = String(s.criteria || '').trim()
@@ -2365,7 +2435,8 @@ export default function AskBar({ devices }: Props) {
                             onClick={() => {
                               if (adopting) return
                               setLikeAsk(false)
-                              void adopt(x.tcid)
+                              /* 일반 = 있는 것을 그대로, 고급 = 이 장비에 맞춰 옮겨 짓기 */
+                              void (mode === 'basic' ? takeTc(x.tcid) : adopt(x.tcid))
                             }}
                           >
                             <td className="ck" onClick={(e) => e.stopPropagation()}>
@@ -2422,7 +2493,10 @@ export default function AskBar({ devices }: Props) {
                     const ids = [...tcPick]
                     setLikeAsk(false)
                     setTcPick(new Set())
-                    void adoptMany(ids)
+                    /* 일반 갈래에서 한 건이면 그대로 싣는다 — 고치지 않는다 */
+                    void (mode === 'basic' && ids.length === 1 && ids[0]
+                      ? takeTc(ids[0])
+                      : adoptMany(ids))
                   }}
                 >
                   고른 {tcPick.size}건으로 만들기
