@@ -380,3 +380,26 @@ button {
   font-weight: 400;
   color: var(--c-text-muted, #667085);
 }
+
+/* ⑥ 사이클 2열의 키(ID) 열 — 이름과 **같은 층**이다.
+   12px/700 로 두었더니 사이클만 표가 굵고 작아, 세 화면을 오가면 사이클
+   표만 다른 앱처럼 읽혔다. */
+.cyt-key {
+  font-size: 13px;
+  font-weight: 400;
+}
+
+/* ⑦ 실행 화면(RunPane) — 화면은 별개지만 **목록 글자는 한 벌**이다.
+   1열 항목 큐 줄 · 두 칸의 머리줄. 여기만 11~12px 이라 사이클에서
+   실행으로 들어가면 글자가 한 단 작아졌다. */
+.cy-q-row {
+  font-size: 13px;
+  font-weight: 400;
+}
+.cy-q-row.now { font-weight: 600; }
+.cy-q-h,
+.cy-sp-head {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--c-text-muted);
+}

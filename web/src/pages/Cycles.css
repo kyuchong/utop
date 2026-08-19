@@ -23,8 +23,8 @@
 /* 줄 자체는 요구사항 트리(ReqTree.css)의 .rt-fold/.rt-req 를 쓴다.
    여기서는 사이클에만 있는 것만 더한다. */
 .cy-node { cursor: pointer; }
-/* 행 높이를 표(27px)와 맞춘다 — 두 칸의 구분선이 나란히 내려간다 */
-.cy-tree .rt-fold { min-height: 27px; }
+/* 트리 줄 높이는 아래 `.cy-tree .rt-fold, .cy-tree .rt-req` 한 곳에서
+   --row-h 로 잡는다 (여기 있던 27px 은 그 규칙에 덮여 죽어 있었다). */
 /* 사이클이 아직 없는 버전그룹. 만들어 놓고 안 보이면 또 만든다 */
 /* 빈 폴더 이름 — 옅게. ('.empty' 안내문 스타일과 절대 겹치지 말 것) */
 .cy-nm-empty { color: var(--c-text-faint); }
@@ -2802,7 +2802,8 @@ table.tb td.k {
   gap: 8px;
   align-items: center;
   padding: 2px 10px;
-  min-height: 27px;
+  /* 줄 높이는 통일 블록(theme.css 맨 아래)이 32px 로 정한다 — 여기 있던
+     27px 은 거기에 덮여 죽어 있었다. */
   min-width: 1120px;
   font-size: var(--fs-md);
 }
