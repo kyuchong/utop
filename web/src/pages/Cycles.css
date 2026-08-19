@@ -5390,3 +5390,40 @@ table.tb td.k {
 @media (max-width: 1300px) {
   .ask-two > .ask-pane:last-child { width: 312px; }
 }
+
+/* ── 판 셋의 머리 높이·바닥을 하나로, 바깥 스크롤은 없앤다 ────────
+   작업 흐름 판만 머리가 한 칸 크고 바닥이 남아, 셋이 어긋나 보였다.
+   그리고 판이 칸보다 길어 **바깥에 스크롤바**가 생겼다 — 굴려야 할 것은
+   판 안이지 화면 전체가 아니다. */
+.ask-rail > .ask-rail-head,
+.ask-paneh {
+  min-height: 41px;
+  box-sizing: border-box;
+  padding: 10px 14px;
+  align-items: center;
+}
+/* 초안이 뜬 뒤에는 캔버스가 굴러가지 않는다 — 판마다 제 안에서 구른다 */
+.ask-canvas.plan { overflow: hidden; }
+.ask-canvas.plan > .ask-plan {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.ask-canvas.plan > .ask-plan > .ask-two {
+  flex: 1;
+  min-height: 0;
+}
+/* 세 판이 같은 바닥에서 끝난다 — 아래 여백도 같이 */
+.ask-cols { padding-bottom: 12px; align-items: stretch; }
+.ask-cols > .ask-rail { align-self: stretch; }
+
+/* 입력줄은 이제 **판 셋 아래 전체 폭**이다(목업). 오른쪽 칸 안에 있던 동안은
+   작업 흐름 판만 그만큼 더 내려와 바닥이 어긋났다(지적). */
+.ask-main > .ask-askbar {
+  flex: none;
+  padding: 10px 20px;
+  background: var(--c-surface);
+  border-top: 1px solid var(--c-border-soft);
+}
+.ask-main > .ask-askbar .ask-askbox { margin: 0; }

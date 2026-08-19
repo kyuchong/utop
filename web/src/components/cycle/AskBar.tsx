@@ -1484,7 +1484,7 @@ export default function AskBar({ devices }: Props) {
           )}
 
           <div className="ask-canvaswrap">
-          <main className="ask-canvas">
+          <main className={`ask-canvas${draft ? ' plan' : ''}`}>
 
       {/* 만드는 중 — 첫 화면을 **치운다**.
           초안은 기준까지 다 채운 뒤에 나오므로 그때까지 이 자리가 빈다.
@@ -1977,6 +1977,8 @@ export default function AskBar({ devices }: Props) {
       )}
           </main>
 
+          </div>
+        </div>
           {/* 입력줄은 **캔버스 칸 안에** 떠 있다(지시) — 작업 흐름까지 걸치고
               위에 실선을 그으면 칸이 각져 보인다. 여백과 그림자로 띄운다. */}
           {/* 아래 고정 입력줄 — 일이 시작된 뒤에만. 첫 화면에는 큰 입력이 따로 있다 */}
@@ -2012,8 +2014,6 @@ export default function AskBar({ devices }: Props) {
           </div>
           </div>
           )}
-          </div>
-        </div>
       </div>
 
       {/* ① 같은 모델이 여러 대 — 어느 장비로 보낼지 고른다 */}
