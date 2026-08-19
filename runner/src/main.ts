@@ -256,6 +256,8 @@ async function doRun(run: Run): Promise<void> {
           if (!cur) return
           steps[i] = { ...cur, ...patch }
           push.set({ live_steps: steps })
+          // 스텝이 길면 다음 스텝 경계까지 못 내려왔다 — 결과가 올 때마다 본다
+          if (push.stop) ac.abort()
           void push.flush()
         },
         onAt: (i) => {
@@ -268,6 +270,7 @@ async function doRun(run: Run): Promise<void> {
         },
         onLog: (line) => {
           push.addLog(line)
+          if (push.stop) ac.abort()
           void push.flush()
         },
         signal: ac.signal,

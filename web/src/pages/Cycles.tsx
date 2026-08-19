@@ -3171,6 +3171,11 @@ function CycleDetail({
    * 창을 닫아도 실행 서버가 계속 돌린다.
    */
   const [runQ, setRunQ] = useState<Set<number>>(new Set())
+  /** 멈춰 달라고 말했나 — 실행기는 스텝 사이에서 내려오므로 그 사이를 알린다 */
+  const [stopping, setStopping] = useState(false)
+  useEffect(() => {
+    if (!st.on) setStopping(false)
+  }, [st.on])
   const startRun = (idxs: number[]) => {
     setFollow(true)
     /* 이번 실행에 걸린 항목 — 목록에서 「대기」 를 그리는 데 쓴다.
@@ -3842,8 +3847,16 @@ function CycleDetail({
           createPortal(
             <>
               {st.on ? (
-                <button className="btn danger small" type="button" onClick={() => void stop()}>
-                  ⏹ 멈추기
+                <button
+                  className="btn danger small"
+                  type="button"
+                  disabled={stopping}
+                  onClick={() => {
+                    setStopping(true)
+                    void stop()
+                  }}
+                >
+                  {stopping ? '멈추는 중…' : '⏹ 멈추기'}
                 </button>
               ) : (
                 (() => {
@@ -4007,8 +4020,17 @@ function CycleDetail({
                   도는 항목 따라가기
                 </button>
               )}
-              <button className="btn small danger" type="button" onClick={() => void stop()}>
-                ⏹ 중지
+              <button
+                className="btn small danger"
+                type="button"
+                disabled={stopping}
+                title="실행기가 스텝을 마치는 대로 내려옵니다"
+                onClick={() => {
+                  setStopping(true)
+                  void stop()
+                }}
+              >
+                {stopping ? '멈추는 중…' : '⏹ 중지'}
               </button>
             </div>
             <div className="cy-prog-bar" aria-hidden="true">
