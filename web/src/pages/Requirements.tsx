@@ -3,6 +3,7 @@ import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, projectApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
+import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
 import PresenceBar from '@/components/PresenceBar'
 import { usePageCrowd } from '@/components/usePageCrowd'
 import { usePresence } from '@/components/usePresence'
@@ -65,6 +66,14 @@ export default function Requirements({ me }: Props) {
    *   presence **이 요구사항 한 건**을 보고 있는 사람
    */
   const crowd = usePageCrowd('req')
+  /** 2열 목록 정렬 — 기본은 **트리 순서**(지시) */
+  const [listSort, setListSort] = useState<ListSortMode>(() => {
+    const v = localStorage.getItem('utop.req.listsort')
+    return v === 'name' || v === 'recent' ? v : 'tree'
+  })
+  useEffect(() => {
+    localStorage.setItem('utop.req.listsort', listSort)
+  }, [listSort])
   const [selected, setSelected] = useState<string | null>(
     () => localStorage.getItem(SEL_KEY) || null,
   )
@@ -338,6 +347,38 @@ export default function Requirements({ me }: Props) {
     })
   }, [allReqs, selectedFolder, catQ.data])
 
+  /**
+   * 트리에 선 차례.
+   *
+   * 왼쪽 트리와 **같은 규칙**으로 분류를 깊이 우선으로 훑어 번호를 매긴다.
+   * 2열을 이 번호로 세우면 목록이 트리와 같은 차례로 서서, 폴더를 짚어 놓고
+   * 오른쪽에서 그걸 다시 찾을 일이 없다(지적).
+   */
+  const treeRank = useMemo(() => {
+    const cats = catQ.data?.categories ?? []
+    const kids = new Map<string, typeof cats>()
+    for (const c of cats) {
+      const k = c.parent_id ?? ''
+      kids.set(k, [...(kids.get(k) ?? []), c])
+    }
+    const rank = new Map<string, number>()
+    let n = 0
+    const walk = (pid: string) => {
+      for (const c of [...(kids.get(pid) ?? [])].sort(
+        (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name, 'ko'),
+      )) {
+        if (rank.has(c.id)) continue
+        rank.set(c.id, n++)
+        walk(c.id)
+      }
+    }
+    walk('')
+    return (r: Requirement): number => {
+      const deep = (r.cat4 || r.cat3 || r.cat2 || r.cat1 || '') as string
+      return rank.get(deep) ?? 1e9
+    }
+  }, [catQ.data])
+
   /** 줄이 놓인 폴더 — 고른 폴더 기준 상대 경로(「SW › ENV」).
       하위 폴더 포함으로 볼 때 어느 폴더 것인지 안 보여서 단다.
       바로 밑에 있으면 빈 문자열 — 붙일수록 지저분해질 뿐이다. */
@@ -410,11 +451,21 @@ export default function Requirements({ me }: Props) {
   /** List 모드 표에 뿌릴 — 이 폴더의 요구사항을 정렬해 둔 것 */
   const sortedFolderReqs = useMemo(() => {
     const arr = [...folderReqs]
-    arr.sort((a, b) =>
-      (reqLabel(a) || '').localeCompare(reqLabel(b) || '', 'ko', { numeric: true }),
-    )
+    const at = (r: Requirement) => String(r._updated_at ?? r._created_at ?? '')
+    if (listSort === 'name')
+      arr.sort((a, b) =>
+        (reqLabel(a) || '').localeCompare(reqLabel(b) || '', 'ko', { numeric: true }),
+      )
+    else if (listSort === 'recent') arr.sort((a, b) => at(b).localeCompare(at(a)))
+    // 트리 순서(기본) — 폴더가 트리에 선 차례, 같은 폴더 안은 ID 차례
+    else
+      arr.sort(
+        (a, b) =>
+          treeRank(a) - treeRank(b) ||
+          String(a.reqid ?? '').localeCompare(String(b.reqid ?? ''), 'ko', { numeric: true }),
+      )
     return arr
-  }, [folderReqs])
+  }, [folderReqs, listSort, treeRank])
 
   /**
    * 2열 줄을 끌어 1열 폴더에 놓기.
@@ -1192,6 +1243,8 @@ export default function Requirements({ me }: Props) {
                   </button>
                 )}
               </div>
+              {/* 목록 정렬 — **⚙ 왼쪽**(지시). 기본은 트리 순서 */}
+              <ListSortBtn value={listSort} onChange={setListSort} />
               {/* ⚙ — INFO 필드 보이기/숨기기. 사이클 보드처럼 고정 좌표 팝업 */}
               <button
                 type="button"

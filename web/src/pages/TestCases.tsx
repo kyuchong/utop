@@ -4,6 +4,7 @@ import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
 import TcForm from '@/components/TcForm'
 import ListHead from '@/components/ListHead'
 import { IconCli, IconPanel, IconParam, IconSettings, IconTcDoc } from '@/components/icons'
+import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
@@ -386,6 +387,15 @@ export default function TestCases({ me }: PageProps) {
    * (하위 포함) 아래 요구사항의 것 전부. 아무것도 안 골랐으면 다 보여 준다 —
    * 「고르기 전엔 텅 빈 화면」 이 제일 답답하다.
    */
+  /** 2열 목록 정렬 — 기본은 **트리 순서**(지시) */
+  const [listSort, setListSort] = useState<ListSortMode>(() => {
+    const v = localStorage.getItem('utop.tc.listsort')
+    return v === 'name' || v === 'recent' ? v : 'tree'
+  })
+  useEffect(() => {
+    localStorage.setItem('utop.tc.listsort', listSort)
+  }, [listSort])
+
   const listRows = useMemo(() => {
     const n = treeQ.trim().toLowerCase()
     return tcs.filter((t) => {
@@ -406,12 +416,62 @@ export default function TestCases({ me }: PageProps) {
   }, [tcs, reqByKey, selReq, selFolder, folderSet, treeQ, listQ])
 
   /** 열 필터까지 먹인 줄들 — 드롭다운 선택지는 필터 전(base)에서 뽑는다 */
+  /**
+   * 트리에 선 차례.
+   *
+   * 시험은 **요구사항에 붙어** 트리에 선다. 그래서 시험의 자리는 그 요구사항의
+   * 자리다 — 분류를 깊이 우선으로 훑어 번호를 매기고, 같은 요구사항 안에서는
+   * TC 번호 차례. 이름순으로 세우면 같은 폴더 것이 목록 여기저기 흩어져
+   * 왼쪽에서 짚어 놓고도 오른쪽에서 다시 찾아야 한다(지적).
+   */
+  const treeRank = useMemo(() => {
+    const cats = catQ.data?.categories ?? []
+    const kids = new Map<string, typeof cats>()
+    for (const c of cats) {
+      const k = c.parent_id ?? ''
+      kids.set(k, [...(kids.get(k) ?? []), c])
+    }
+    const rank = new Map<string, number>()
+    let n = 0
+    const walk = (pid: string) => {
+      for (const c of [...(kids.get(pid) ?? [])].sort(
+        (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name, 'ko'),
+      )) {
+        if (rank.has(c.id)) continue
+        rank.set(c.id, n++)
+        walk(c.id)
+      }
+    }
+    walk('')
+    return (t: TestCaseMeta): [number, string] => {
+      const r = reqByKey.get(t.req_id || '')
+      const deep = r ? ((r.cat4 || r.cat3 || r.cat2 || r.cat1 || '') as string) : ''
+      return [rank.get(deep) ?? 1e9, String(r?.reqid ?? '')]
+    }
+  }, [catQ.data, reqByKey])
+
   const shownListRows = useMemo(() => {
     const keys = Object.keys(colF).filter((k) => colF[k])
-    if (!keys.length) return listRows
-    return listRows.filter((t) => keys.every((k) => colVal(k, t) === colF[k]))
+    const rows = keys.length
+      ? listRows.filter((t) => keys.every((k) => colVal(k, t) === colF[k]))
+      : [...listRows]
+    const at = (t: TestCaseMeta) => String(t._updated_at_pg ?? '')
+    if (listSort === 'name')
+      rows.sort((a, b) => (a.name ?? a.tcid).localeCompare(b.name ?? b.tcid, 'ko', { numeric: true }))
+    else if (listSort === 'recent') rows.sort((a, b) => at(b).localeCompare(at(a)))
+    else
+      rows.sort((a, b) => {
+        const [ra, qa] = treeRank(a)
+        const [rb, qb] = treeRank(b)
+        return (
+          ra - rb ||
+          qa.localeCompare(qb, 'ko', { numeric: true }) ||
+          a.tcid.localeCompare(b.tcid, 'ko', { numeric: true })
+        )
+      })
+    return rows
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listRows, colF])
+  }, [listRows, colF, listSort, treeRank])
 
   /**
    * 지금 보고 있는 자리까지의 길 — 조상부터 차례로.
@@ -2278,9 +2338,11 @@ export default function TestCases({ me }: PageProps) {
                   />
                   {/* 펼친(연) 시험에 쓰는 ⋯ — 안 연 것에는 저장·내보내기가 꺼진다 */}
                   {moreMenu}
+                  {/* 목록 정렬 — **⚙ 왼쪽**(지시). 기본은 트리 순서 */}
+                  <ListSortBtn value={listSort} onChange={setListSort} />
                   {/* ⚙ — ⋯ 오른쪽(피드백). 고정 좌표 팝업이라 어디서든 뜬다 */}
                   <button
-                    className="btn tc-gear"
+                    className="lh-findbtn"
                     type="button"
                     title="열(INFO 필드) 보이기/숨기기"
                     aria-haspopup="menu"

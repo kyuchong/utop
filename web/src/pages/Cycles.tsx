@@ -18,6 +18,7 @@ import { usePageCrowd } from '@/components/usePageCrowd'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
 import FolderSortBtn from '@/components/FolderSortBtn'
+import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
 import type { FolderSortMode } from '@/types'
 import { sendWs } from '@/api/wsBus'
 import {
@@ -28,6 +29,7 @@ import {
   IconPanel,
   IconPlay,
   IconReqDoc,
+  IconSettings,
   IconSlide,
   IconTag,
   IconTrash,
@@ -1598,6 +1600,14 @@ function CycleBoard({
     [renderCols],
   )
   /** 머리글 클릭 정렬 — 열 이름 옆 화살표가 방향을 보여 준다 */
+  /** 2열 목록 정렬 — 기본은 **트리 순서**(지시). 머리글을 누르면 그 열이 이긴다 */
+  const [listSort, setListSort] = useState<ListSortMode>(() => {
+    const v = localStorage.getItem('utop.cycle.listsort')
+    return v === 'name' || v === 'recent' ? v : 'tree'
+  })
+  useEffect(() => {
+    localStorage.setItem('utop.cycle.listsort', listSort)
+  }, [listSort])
   const [sortCol, setSortCol] = useState('')
   const [sortDir, setSortDir] = useState<1 | -1>(1)
   const clickSort = (c: string) => {
@@ -1844,16 +1854,19 @@ function CycleBoard({
         >
           ⋯
         </button>
+        {/* 목록 정렬 — **⚙ 왼쪽**(지시). 기본은 트리 순서 */}
+        <ListSortBtn value={listSort} onChange={setListSort} />
+        {/* 톱니는 **세 화면이 같은 아이콘**(지시) — 여기만 ⚙ 글자였다 */}
         <button
           type="button"
-          className="cyt-gear cyt-gear-tb"
+          className="lh-findbtn"
           title="열 보이기/숨기기 — 사이클 INFO 필드 포함"
           onClick={(e) => {
             const r2 = e.currentTarget.getBoundingClientRect()
             setGearAt2((cur) => (cur ? null : { x: r2.right, y: r2.bottom + 4 }))
           }}
         >
-          ⚙
+          <IconSettings />
         </button>
         {gearAt2 && (
           <>
@@ -1926,7 +1939,22 @@ function CycleBoard({
           )}
         </div>
         {(sortCol === ''
-          ? shown
+          ? /* 열 머리글을 안 눌렀으면 목록 정렬대로 — 기본은 **트리 순서**
+               (왼쪽 트리에 선 폴더 차례). 어느 폴더 것인지 눈으로 따라간다 */
+            [...shown].sort((a, b) => {
+              if (listSort === 'name')
+                return (a.name ?? a.version ?? '').localeCompare(b.name ?? b.version ?? '', 'ko', {
+                  numeric: true,
+                })
+              if (listSort === 'recent')
+                return String(b._updated_at_pg ?? '').localeCompare(String(a._updated_at_pg ?? ''))
+              const pa = pathOfCycle(a, famOf)
+              const pb = pathOfCycle(b, famOf)
+              return (
+                pa.localeCompare(pb, 'ko', { numeric: true }) ||
+                (a.version ?? '').localeCompare(b.version ?? '', 'ko', { numeric: true })
+              )
+            })
           : [...shown].sort((a, b) => {
                     const keyOf = (c2: CycleMeta): string | number => {
                       const t2 = stats.get(c2.id)
