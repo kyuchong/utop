@@ -2987,6 +2987,10 @@ function CycleDetail({
     /* 이번 실행에 걸린 항목 — 목록에서 「대기」 를 그리는 데 쓴다.
        도는 것만 보이고 **다음에 무엇이 도는지** 안 보였다(지적). */
     setRunQ(new Set(idxs))
+    /* 도는 동안은 **전용 실행 화면**으로 간다(지적: 레일 안에서 보기 힘들다).
+       사이클 화면과 실행 화면은 다른 화면이다 — 돌 때는 큐·도는 항목·스텝·
+       로그만 보면 된다. 끝나면 저절로 표로 돌아온다. */
+    setRunView(true)
     void run(idxs).then((err) => {
       if (err) window.alert(err)
     })
@@ -2999,9 +3003,16 @@ function CycleDetail({
    * 실행 모드(RunPane)를 연다.
    */
   const [runView, setRunView] = useState(false)
+  /* 막 걸었을 때 — 서버가 「돈다」 고 말하기까지 한두 박자 걸린다. 그 사이에
+     닫아 버리면 열자마자 튕겨 나온다. 한 번이라도 돌기 시작한 뒤에만 닫는다. */
+  const ranOnce = useRef(false)
+  useEffect(() => {
+    if (st.on) ranOnce.current = true
+  }, [st.on])
   // 실행이 끝나면 실행 모드도 같이 닫는다 — 남아 있으면 빈 판을 본다
   useEffect(() => {
-    if (!st.on) {
+    if (!st.on && ranOnce.current) {
+      ranOnce.current = false
       setRunView(false)
       /* 다 돌았으면 「대기」 딱지를 걷는다 — 안 걷으면 다음에 열 때도 남는다 */
       setRunQ((v) => (v.size ? new Set() : v))
