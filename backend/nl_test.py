@@ -630,12 +630,57 @@ def _nl_iface_ctx(dev_id, dev_model):
     return "\n".join(lines)
 
 
-def _nl_known_clis(dev_model, text=""):
-    """학습 데이터에서 **검증된 한 줄 명령**만 모은다 (교정에 쓴다)."""
+async def _nl_tc_corpus(limit=400):
+    """**Coverage 의 시험 항목**을 근거로 빚는다 — 학습 항목과 같은 모양으로.
+
+    학습 창고(learned_procedures)가 비어 있으면 LLM 은 근거 없이 명령을 지어낸다.
+    이 랩이 실제로 그랬다(2026-08-19 확인: 학습 0건). 그런데 Coverage 에는 이미
+    이 장비에서 쓰는 명령과 판정 기준이 다 들어 있다 — 그걸 그대로 근거로 쓴다.
+
+    복사해 두지 않고 **그때그때 읽는다**. 시험을 고치면 근거도 같이 바뀐다.
+    """
     try:
-        items = (_load_learned() or {}).get("items") or []
+        rows = await db.tc_list_full()
     except Exception:
         return []
+    out = []
+    for d in rows[:limit]:
+        if not isinstance(d, dict):
+            continue
+        steps = []
+        for c in (d.get("checks") or []):
+            if not isinstance(c, dict):
+                continue
+            cli = str(c.get("cli") or "").strip()
+            if not cli:
+                continue
+            steps.append({
+                "kind": str(c.get("kind") or "cli"),
+                "cli": cli,
+                "desc": str(c.get("step") or ""),
+                "type": str(c.get("type") or ""),
+                "criteria": c.get("criteria") if isinstance(c.get("criteria"), str) else "",
+            })
+        if not steps:
+            continue
+        models = [x for x in (str(d.get("model") or "").strip(),
+                              str(d.get("model_group") or "").strip()) if x]
+        out.append({"tcid": str(d.get("tcid") or ""),
+                    "title": str(d.get("name") or ""),
+                    "models": models, "role": "", "vendor": "",
+                    "steps": steps, "outputs": []})
+    return out
+
+
+def _nl_known_clis(dev_model, text="", items=None):
+    """검증된 한 줄 명령만 모은다 (교정에 쓴다).
+
+    `items` 를 주면 그것을 근거로 삼는다 — 학습 창고 + Coverage 항목."""
+    if items is None:
+        try:
+            items = (_load_learned() or {}).get("items") or []
+        except Exception:
+            return []
     out, seen = [], set()
     for it in items:
         for s in (it.get("steps") or []):
@@ -648,7 +693,7 @@ def _nl_known_clis(dev_model, text=""):
     return out
 
 
-def _nl_cmd_ctx(dev_model, limit=40):
+def _nl_cmd_ctx(dev_model, limit=40, items=None):
     """이 장비에서 **검증된 조회 명령 이름만** 모아 근거로 준다.
 
     ★★ 절차(_nl_learn_ctx)는 지시문과 가까운 것 몇 건만 뽑아 준다. 그래서 LLM 이
@@ -661,10 +706,11 @@ def _nl_cmd_ctx(dev_model, limit=40):
     ★ 설정 명령은 안 넣는다 — 설정은 들어가는 **순서**가 있어 이름만 알면 오히려
       틀린다. 그건 절차 예시가 알려 준다.
     """
-    try:
-        items = (_load_learned() or {}).get("items") or []
-    except Exception:
-        return ""
+    if items is None:
+        try:
+            items = (_load_learned() or {}).get("items") or []
+        except Exception:
+            return ""
     want = str(dev_model or "").strip().lower()
     mine, other, seen = [], [], set()
     for it in items:
@@ -710,7 +756,7 @@ def _nl_snap_cli(cli, known):
     return cands[0]
 
 
-def _nl_learn_ctx(dev_model, limit=3, text="", only_config=False):
+def _nl_learn_ctx(dev_model, limit=3, text="", only_config=False, items=None):
     """학습된 절차에서 **지금 만들려는 시험과 가까운 것**을 골라 few-shot 으로 준다.
 
     ★ 모델만 보고 고르면 안 된다. "메모리 조회" 라고 했는데 Netbios·VLAN 절차가
@@ -725,10 +771,11 @@ def _nl_learn_ctx(dev_model, limit=3, text="", only_config=False):
     output(장비 원문)은 **넣지 않는다** — criteria 보다 20배 길어서 모델이 그 형식을
     흉내 내고, 판정 기준에 정렬 공백까지 섞인다 (담당자 리포트 3번).
     """
-    try:
-        items = (_load_learned() or {}).get("items") or []
-    except Exception:
-        return ""
+    if items is None:
+        try:
+            items = (_load_learned() or {}).get("items") or []
+        except Exception:
+            return ""
     want = str(dev_model or "").strip().lower()
 
     # 지시문에서 뜻 있는 낱말만 남긴다 (2자 이상, 흔한 말 제외)
@@ -1817,12 +1864,19 @@ async def ai_nl_plan(payload: dict):
     #   하지만 `configure terminal → vlan database → vlan 3` 같은 **진입 순서는 예시로만**
     #   배울 수 있다. 규칙으로 못 적고 장비마다 다르다. 실제로 그 학습이 있는데도 근거에서
     #   빠져 `vlan database` 없이 절차가 나왔다.
-    _lc = _nl_learn_ctx(dev_model, text=text, only_config=allow_cfg)
+    # 근거 — 학습된 절차가 앞, 그다음이 Coverage 의 시험 항목(지시).
+    # 학습이 비어 있어도 이 랩에서 실제로 쓰는 명령·기준으로 짓게 된다.
+    try:
+        _learned = (_load_learned() or {}).get("items") or []
+    except Exception:
+        _learned = []
+    _corpus = _learned + await _nl_tc_corpus()
+    _lc = _nl_learn_ctx(dev_model, text=text, only_config=allow_cfg, items=_corpus)
     if _lc:
         ctx.append(_lc)
     # ★★ 절차에 안 뽑힌 스텝은 명령을 지어낸다 — 검증된 명령 이름을 따로 준다
     #    (사용자 신고 2026-08-13: `show interface … counters` ← `show port counter`)
-    _cc = _nl_cmd_ctx(dev_model)
+    _cc = _nl_cmd_ctx(dev_model, items=_corpus)
     if _cc:
         ctx.append(_cc)
     user_p = "대상 모델: %s\n" % (dev_model or "공통")
@@ -1870,7 +1924,7 @@ async def ai_nl_plan(payload: dict):
     if obj is None:
         return {"ok": False, "error": "LLM 응답을 읽지 못했습니다 — 다시 시도해 주세요"}
 
-    _known = _nl_known_clis(dev_model, text)
+    _known = _nl_known_clis(dev_model, text, items=_corpus)
     _cfg_touched = False       # 앞 스텝에서 설정을 바꿨나 (reload 의 저장 질문 판단)
     steps, blocked = [], []
     for s in _nl_steps_from(obj):
