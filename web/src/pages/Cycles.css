@@ -5961,7 +5961,7 @@ table.tb td.k {
    No · 펼침 · TC ID · 시험항목 · 담당자 · 타입 · 기존결과 · 최신결과 ·
    진행 · 소요 · 시각. 1열이 화면을 다 쓰므로 열을 세울 자리가 있다. */
 .cxp.onecol .cxp-row {
-  grid-template-columns: 30px 16px 22px 150px minmax(0, 1fr) auto;
+  grid-template-columns: 30px 18px minmax(0, 1fr) auto;
 }
 .cxp-open {
   border: 0;
@@ -5981,7 +5981,34 @@ table.tb td.k {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.cxp.onecol .cxp-rgt { grid-template-columns: 20px 18px 46px 56px 74px; }
+.cxp.onecol .cxp-rgt {
+  grid-template-columns: 24px 62px 18px 62px 62px 60px 44px 76px;
+  align-items: center;
+  gap: 6px;
+}
+.cxp.onecol .cxp-rgt > * { min-width: 0; }
+.cxp-by, .cxp-stt {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  font-style: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cxp-cur i { display: inline-block; width: 100%; text-align: center; }
+.cxp.onecol .cxp-rmain .cxp-open { margin-right: 2px; }
+
+/* 표 머리 — 줄과 같은 칸을 쓴다 */
+.cxp-row.cxp-hd {
+  cursor: default;
+  background: var(--c-surface-alt);
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  font-weight: 600;
+}
+.cxp-row.cxp-hd .cxp-rgt > span { text-align: center; }
+.cxp-row.cxp-hd:hover { background: var(--c-surface-alt); }
 .cxp-took, .cxp-when { white-space: nowrap; text-align: right; }
 
 /* 1열 머리 — 찾기칸이 맨 앞, 고르개들은 오른쪽(지시) */
@@ -6188,3 +6215,10 @@ table.tb td.k {
   font-size: var(--fs-sm);
 }
 .cxp-fsel:hover .cxp-fsel-lb { background: var(--c-border-soft); }
+
+/* 거르개 이름은 굵게(지시) */
+.cxp-fsel-lb { font-weight: 700; color: var(--c-text); }
+.cxp-fsel-lb b { font-weight: 800; }
+
+/* 묶음 머리의 고르개 — 펼침 화살표 바로 오른쪽(지시) */
+.cxp-growck { margin: 0 2px 0 0; cursor: pointer; flex: none; }

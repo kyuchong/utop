@@ -4067,7 +4067,7 @@ function CycleDetail({
               <span className="cxp-fsel" title="항목을 무엇으로 묶을지 고릅니다">
                 <span className="cxp-fsel-lb">
                   그룹핑
-                  {grp !== 'req' && <b>(1)</b>}
+                  <b>(1)</b>
                   <i>▾</i>
                 </span>
                 <select
@@ -4085,7 +4085,7 @@ function CycleDetail({
               <span className="cxp-fsel" title="Type — 자동·수동">
                 <span className={`cxp-fsel-lb${fKind ? ' on' : ''}`}>
                   Type
-                  {fKind && <b>(1)</b>}
+                  <b>(1)</b>
                   <i>▾</i>
                 </span>
                 <select
@@ -4101,19 +4101,11 @@ function CycleDetail({
               <span className="cxp-div" aria-hidden="true" />
               {(() => {
                 const rv = onlyRegress ? '_reg' : ([...fSet][0] ?? '')
-                const rlb =
-                  rv === '_reg'
-                    ? '회귀'
-                    : rv === '_none'
-                      ? '미실행'
-                      : rv
-                        ? verdictLabel(rv as Verdict)
-                        : ''
                 return (
                   <span className="cxp-fsel" title="Result — 판정으로 좁혀 봅니다">
                     <span className={`cxp-fsel-lb${rv ? ' on' : ''}`}>
                       Result
-                      {rlb && <b>(1)</b>}
+                      <b>(1)</b>
                       <i>▾</i>
                     </span>
                     <select
@@ -4392,6 +4384,24 @@ function CycleDetail({
                 </button>
               </div>
             )}
+            {oneCol && (
+              /* 표 머리 — 필드 차례는 지시 그대로다 */
+              <div className="cxp-row cxp-hd" aria-hidden="true">
+                <span className="cxp-no">No</span>
+                <span />
+                <span className="cxp-rmain">시험 항목</span>
+                <span className="cxp-rgt">
+                  <span>담당자</span>
+                  <span>실행자</span>
+                  <span>타입</span>
+                  <span>기존 결과</span>
+                  <span>최신 결과</span>
+                  <span>진행 상태</span>
+                  <span>소요</span>
+                  <span>시험 시각</span>
+                </span>
+              </div>
+            )}
             <div className="cxp-rows scroll">
               {rows.map((it, i) => {
                 const at = items.indexOf(it)
@@ -4409,10 +4419,20 @@ function CycleDetail({
                     {newGroup && (
                       /* 묶음 머리 — 누르면 그 묶음이 접힌다(지시). 묶음이 많으면
                          목록을 통째로 굴리지 않고 필요한 것만 편다. */
-                      <button
-                        type="button"
+                      <div
                         className={`cxp-grow${grpFold.has(g.k) ? ' fold' : ''}`}
+                        role="button"
+                        tabIndex={0}
                         title={grpFold.has(g.k) ? '펼치기' : '접기'}
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Enter' && e.key !== ' ') return
+                          setGrpFold((cur) => {
+                            const n = new Set(cur)
+                            if (n.has(g.k)) n.delete(g.k)
+                            else n.add(g.k)
+                            return n
+                          })
+                        }}
                         onClick={() =>
                           setGrpFold((cur) => {
                             const n = new Set(cur)
@@ -4425,9 +4445,37 @@ function CycleDetail({
                         <i className="cxp-growc" aria-hidden="true">
                           <IconChevron />
                         </i>
+                        {/* 묶음 통째로 고르기(지시) — 이 묶음의 모든 항목이 따라온다 */}
+                        {(() => {
+                          const mine = rows
+                            .filter((r) => groupOfItem(r).k === g.k)
+                            .map((r) => items.indexOf(r))
+                            .filter((x) => x >= 0)
+                          const all = mine.length > 0 && mine.every((x) => pick.has(x))
+                          const some = !all && mine.some((x) => pick.has(x))
+                          return (
+                            <input
+                              type="checkbox"
+                              className="cxp-growck"
+                              checked={all}
+                              ref={(el) => {
+                                if (el) el.indeterminate = some
+                              }}
+                              aria-label={`${g.label} 묶음 통째로 고르기`}
+                              title="이 묶음의 시험 항목을 모두 고릅니다"
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={() => {
+                                const n = new Set(pick)
+                                if (all) mine.forEach((x) => n.delete(x))
+                                else mine.forEach((x) => n.add(x))
+                                sel.set([...n])
+                              }}
+                            />
+                          )
+                        })()}
                         <b>{g.label}</b>
                         {g.sub ? <span className="muted small"> {g.sub}</span> : null}
-                      </button>
+                      </div>
                     )}
                     {grpFold.has(g.k) ? null : (
                       <>
@@ -4456,37 +4504,22 @@ function CycleDetail({
                     >
                       {/* 줄 번호 — 「몇 번째 항목」 으로 말이 오간다(지시) */}
                       <span className="cxp-no">{i + 1}</span>
-                      {/* 자동 목록은 표다(지시): No · 펼침 · TC ID · 시험항목 ·
-                          담당자 · 타입 · 기존결과 · 최신결과 · 진행 · 소요 · 시각 */}
-                      {oneCol && (
-                        <button
-                          type="button"
-                          className={`cxp-open${openItem === at ? ' on' : ''}`}
-                          title="스텝을 줄 밑에 펼칩니다"
-                          aria-expanded={openItem === at}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setOpenItem(openItem === at ? -1 : at)
-                            setFollow(false)
-                          }}
-                        >
-                          <IconChevron />
-                        </button>
-                      )}
-                      {oneCol && <span className="cxp-tcid">{it.tcid}</span>}
-                      <input
-                        type="checkbox"
-                        checked={pick.has(at)}
-                        aria-label={`${it.name || it.tcid} 고르기`}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={() => {
-                          const n = new Set(pick)
-                          if (n.has(at)) n.delete(at)
-                          else n.add(at)
-                          sel.set([...n])
-                        }}
-                      />
                       <span className="cxp-rmain">
+                        {oneCol && (
+                          <button
+                            type="button"
+                            className={`cxp-open${openItem === at ? ' on' : ''}`}
+                            title="스텝을 줄 밑에 펼칩니다"
+                            aria-expanded={openItem === at}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setOpenItem(openItem === at ? -1 : at)
+                              setFollow(false)
+                            }}
+                          >
+                            <IconChevron />
+                          </button>
+                        )}
                         <span className="cxp-r1">
                           {/* TC ID 는 뺐다(피드백) — 2열 머리에서 보인다 */}
                           {/* 나 말고 누가 이 항목을 보는 중인가 */}
@@ -4530,32 +4563,15 @@ function CycleDetail({
                             </span>
                           )
                         })()}
+                        {/* 실행자 — 담당(맡은 이)과 다르다. 실제로 돌린 사람이다 */}
                         {oneCol && (
-                          <>
-                            <span className="cxp-took muted small">
-                              {(() => {
-                                const ms = (shown.steps ?? []).reduce(
-                                  (a2, x2) => a2 + (Number((x2 as { took_ms?: number }).took_ms) || 0),
-                                  0,
-                                )
-                                return ms ? `${(ms / 1000).toFixed(1)}s` : '–'
-                              })()}
-                            </span>
-                            <span className="cxp-when muted small">
-                              {it.executed_at ? String(it.executed_at).replace('T', ' ').slice(5, 16) : '–'}
-                            </span>
-                          </>
+                          <span
+                            className="cxp-by muted small"
+                            title={it.executed_by ? `실행자: ${it.executed_by}` : '아직 아무도 안 돌렸습니다'}
+                          >
+                            {it.executed_by || '–'}
+                          </span>
                         )}
-                        {/* 이번 실행에서 이 줄이 어디쯤인가 — 도는 중이면 몇 번째
-                            스텝인지까지, 아직이면 「대기」. 끝난 줄은 판정이 말한다. */}
-                        {st.on && st.itemAt === at ? (
-                          <i className="cxp-run">
-                            ● 도는 중
-                            {st.stepAt >= 0 ? ` · ${st.stepAt + 1}/${st.stepCount}` : ''}
-                          </i>
-                        ) : st.on && runQ.has(at) && !v ? (
-                          <i className="cxp-wait">대기</i>
-                        ) : null}
                         {/* 시험 타입 — TC 가 정본 */}
                         {(() => {
                           const kd = typeOf(it)
@@ -4589,6 +4605,44 @@ function CycleDetail({
                             </span>
                           )
                         })()}
+                        {/* 최신 결과 — 이 회차의 판정 */}
+                        {oneCol && (
+                          <span className="cxp-cur">
+                            <i className={`hv-${verdictClass(v)} full`}>
+                              {v ? verdictLabel(v) : '미실행'}
+                            </i>
+                          </span>
+                        )}
+                        {/* 진행 상태 */}
+                        {/* 이번 실행에서 이 줄이 어디쯤인가 — 도는 중이면 몇 번째
+                            스텝인지까지, 아직이면 「대기」. 끝난 줄은 판정이 말한다. */}
+                        {st.on && st.itemAt === at ? (
+                          <i className="cxp-run">
+                            ● 도는 중
+                            {st.stepAt >= 0 ? ` · ${st.stepAt + 1}/${st.stepCount}` : ''}
+                          </i>
+                        ) : st.on && runQ.has(at) && !v ? (
+                          <i className="cxp-wait">대기</i>
+                        ) : null}
+                        {oneCol && !(st.on && (st.itemAt === at || runQ.has(at))) && (
+                          <i className="cxp-stt">{v ? '완료' : '대기 전'}</i>
+                        )}
+                        {oneCol && (
+                          <>
+                            <span className="cxp-took muted small">
+                              {(() => {
+                                const ms = (shown.steps ?? []).reduce(
+                                  (a2, x2) => a2 + (Number((x2 as { took_ms?: number }).took_ms) || 0),
+                                  0,
+                                )
+                                return ms ? `${(ms / 1000).toFixed(1)}s` : '–'
+                              })()}
+                            </span>
+                            <span className="cxp-when muted small">
+                              {it.executed_at ? String(it.executed_at).replace('T', ' ').slice(5, 16) : '–'}
+                            </span>
+                          </>
+                        )}
                       </span>
                     </div>
                     {/* 자동화 시험은 **1열 인라인**이다(설계) — 사람은 지켜보기만
