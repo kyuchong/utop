@@ -357,6 +357,17 @@ const ROOT = 'Root'
 const NO_CUST = '(사업자 없음)'
 const NO_MGROUP = '(모델그룹 없음)'
 /** 트리 열쇠에서 맨 위 한 자리를 뗀다 — 저장(KV)에는 Root 를 안 넣는다 */
+/** 기존 결과 배지 — 칸이 좁아 한 글자로(지시). 뜻은 말풍선이 받친다 */
+function shortVerdict(v: string): string {
+  const t = String(v ?? '').trim()
+  if (t === 'Pass') return 'P'
+  if (t === 'Fail') return 'F'
+  if (t === 'WIP') return 'W'
+  if (t === 'Blocked') return 'B'
+  if (t === '진행불가') return 'X'
+  return t.slice(0, 1) || '–'
+}
+
 export function bareKey(key: string): string {
   if (key === ROOT) return ''
   return key.startsWith(ROOT + '/') ? key.slice(ROOT.length + 1) : key
@@ -4660,12 +4671,12 @@ function CycleDetail({
                               }
                             >
                               {last ? (
-                                <i className={`hv-${verdictClass(last.v)} ro full`}>
-                                  {verdictLabel(last.v)}
+                                <i className={`hv-${verdictClass(last.v)} ro full short`}>
+                                  {shortVerdict(last.v)}
                                   {h.length > 1 ? ` +${h.length - 1}` : ''}
                                 </i>
                               ) : (
-                                <i className="hv-none ro full">미진행</i>
+                                <i className="hv-none ro full short">–</i>
                               )}
                             </span>
                           )

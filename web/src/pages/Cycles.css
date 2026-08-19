@@ -6425,3 +6425,6 @@ table.tb td.k {
 @container (max-width: 500px) {
   .cxp-rgt, .cxp-side.fmanual .cxp-rgt { grid-template-columns: 24px 24px 18px 58px; }
 }
+
+/* 기존 결과 배지 — 한 글자로 줄이고 굵기를 뺀다(지시) */
+.cxp-hist > i.full.short { font-weight: 400; letter-spacing: 0; }
