@@ -4154,7 +4154,6 @@ function CycleDetail({
               >
                 + TC
               </button>
-              {pick.size > 0 && <span className="muted small">{pick.size}개 선택</span>}
               {pick.size > 0 && !st.on && (
                 /* 고른 항목 전부에 같은 판정 — Pass 만이 아니라 아무 값이나 */
                 <select
@@ -4332,8 +4331,25 @@ function CycleDetail({
                   }
                 />
               </label>
+              {/* 「62/64」 를 고른 수로 읽는 일이 있었다(지적) — 고른 게 있으면
+                  그 수를 앞세우고, 보이는 수는 뒤에 조용히 붙인다. */}
               <b className="cxp-cntlb">
-                시험 항목 <span className="cxp-cnt">{rows.length}/{items.length}</span>
+                {pick.size > 0 ? (
+                  <>
+                    <span className="cxp-cnt sel">{pick.size}개 선택</span>
+                    <span className="cxp-cntsub">
+                      {' '}
+                      · 보임 {rows.length}/{items.length}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    시험 항목{' '}
+                    <span className="cxp-cnt">
+                      {rows.length}/{items.length}
+                    </span>
+                  </>
+                )}
               </b>
               <input
                 className="cxp-q"

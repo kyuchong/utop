@@ -6350,3 +6350,7 @@ table.tb td.k {
 }
 .cxp-row.cxp-hd .cxp-rgt > span > svg { width: 15px; height: 15px; }
 .cxp-row.cxp-hd .cxp-rgt > span:hover { color: var(--c-text); }
+
+/* 고른 수는 앞에·강조, 보이는 수는 뒤에·조용히(지적) */
+.cxp-cntlb .cxp-cnt.sel { color: var(--c-primary); font-weight: 800; }
+.cxp-cntlb .cxp-cntsub { color: var(--c-text-faint); font-weight: 500; }
