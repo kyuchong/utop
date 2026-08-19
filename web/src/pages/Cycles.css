@@ -5059,8 +5059,21 @@ table.tb td.k {
   padding: 9px 14px;
 }
 
-/* 첫 화면 — 목업처럼 가운데 한 덩이. 바탕이 회색이라 카드로 띄운다 */
-.ask-hero,
+/* 첫 화면 — 목업 그대로. 회색 바탕 위에 카드 없이 가운데로 선다.
+   입력·모드 두 장·예시 칩만 흰 것이고 나머지는 바탕이다. */
+.ask-hero {
+  max-width: 660px;
+  margin: 0 auto;
+  padding: 7vh 24px 28px;
+  text-align: center;
+}
+.ask-hero h1 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.ask-lead { margin: 7px 0 0; font-size: 14px; color: var(--c-text-faint); }
 .ask-making {
   background: var(--c-surface);
   border: 1px solid var(--c-border-soft);
@@ -5069,10 +5082,63 @@ table.tb td.k {
   margin-top: 5vh;
 }
 
+/* 큰 입력 한 줄 + 보내기 — 목업 값(54px) */
+.ask-bigin { display: flex; gap: 9px; margin-top: 24px; }
+.ask-bigin-in {
+  flex: 1;
+  min-width: 0;
+  height: 54px;
+  border: 1.5px solid var(--c-border);
+  border-radius: 12px;
+  padding: 0 18px;
+  font-size: 15px;
+  background: var(--c-surface);
+  color: var(--c-text);
+}
+.ask-bigin-in:focus {
+  outline: none;
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 4px var(--c-primary-bg);
+}
+.ask-bigsend {
+  width: 54px;
+  height: 54px;
+  flex: none;
+  border: 0;
+  border-radius: 12px;
+  background: var(--c-primary);
+  color: #fff;
+  font-size: 17px;
+  cursor: pointer;
+}
+.ask-bigsend.adv { background: #7c3aed; }
+.ask-bigsend:disabled { background: #c3cad6; cursor: default; }
+
+/* 예시 — 알약 칩 한 줄. 무엇을 시킬 수 있는지 눌러서 안다 */
+.ask-chips {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 15px;
+}
+.ask-chip {
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 20px;
+  padding: 5px 13px;
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ask-chip:hover { border-color: var(--c-primary); color: var(--c-primary); }
+
 /* ── AI 첫 화면 — 두 갈래(목업 v9의 모드 두 장) ─────────────────
    일반은 이미 있는 시험을 골라 돌리고, 고급은 없는 시험을 짓는다.
    고른 쪽만 테두리·바탕으로 서고, 나머지는 조용히 있는다. */
 .ask-modes {
+  text-align: left;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 11px;

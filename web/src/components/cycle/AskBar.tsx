@@ -1363,6 +1363,8 @@ export default function AskBar({ devices }: Props) {
       <div className="ask-main">
         <div className="ask-cols">
           {/* 작업 흐름 — 무엇을 거치는지, 건너뛰면 왜 건너뛰는지 */}
+          {/* 작업 흐름 — 아직 아무 일도 없으면 빈 판이라 첫 화면을 좁힐 뿐이다 */}
+          {(draft || making) && (
           <section className="ask-rail">
             <div className="ask-rail-head">
               <b>작업 흐름</b>
@@ -1528,6 +1530,7 @@ export default function AskBar({ devices }: Props) {
               </div>
             )}
           </section>
+          )}
 
           <div className="ask-canvaswrap">
           <main className="ask-canvas">
@@ -1655,11 +1658,49 @@ export default function AskBar({ devices }: Props) {
             </div>
           )}
           <h1>무엇을 시험할까요?</h1>
-          <p className="muted">
-            한국어로 적으면 <b>Coverage 의 시험 항목</b> 중에서 찾아 줍니다.
-            <br />
-            고른 항목의 절차를 그 장비에 맞춰 옮기고, 판정 기준까지 채워 놓습니다.
-          </p>
+          <p className="ask-lead">장비 이름과 확인하고 싶은 것을 평소 말하듯 적어주세요.</p>
+          {/* 첫 화면의 입력은 **여기 크게** 있다(목업) — 아래 고정 줄은
+              일이 시작된 뒤에 나온다. 두 군데 다 두면 어디에 적는지 헷갈린다. */}
+          <div className="ask-bigin">
+            <input
+              className="ask-bigin-in"
+              value={text}
+              placeholder={
+                mode === 'basic'
+                  ? '예: E6100 시스템 정보 조회 시험해줘'
+                  : '예: E6100 1번 포트에 1G 부하 걸어서 손실 없는지 보는 시험 만들어줘'
+              }
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.nativeEvent.isComposing) return
+                if (e.key === 'Enter') void submit()
+              }}
+            />
+            <button
+              className={`ask-bigsend${mode === 'adv' ? ' adv' : ''}`}
+              type="button"
+              title="보내기 (Enter)"
+              disabled={!text.trim()}
+              onClick={() => void submit()}
+            >
+              ➤
+            </button>
+          </div>
+          {!exEdit && (
+            <div className="ask-chips">
+              {examples.map((x, i) => (
+                <button
+                  key={x.q || i}
+                  type="button"
+                  className="ask-chip"
+                  title={x.d || x.q}
+                  onClick={() => void submit(x.q)}
+                >
+                  {x.q}
+                </button>
+              ))}
+            </div>
+          )}
           {examples.map((x, i) =>
             exEdit ? (
               /* 고치는 중에는 줄 자체가 적는 칸이다 — 눌러 들어가지 않아도 된다 */
@@ -1681,21 +1722,7 @@ export default function AskBar({ devices }: Props) {
                   ✕
                 </button>
               </div>
-            ) : (
-              <button
-                key={x.q || i}
-                type="button"
-                className="ask-exrow"
-                onClick={() => void submit(x.q)}
-              >
-                <b>▸</b>
-                <span>
-                  {x.q}
-                  {x.d ? <i>{x.d}</i> : null}
-                </span>
-                <em>{wantsTraffic(x.q) ? '5단계 · 동작 시험' : '2단계 · 설정 확인'}</em>
-              </button>
-            ),
+            ) : null,
           )}
           {exEdit && (
             <button type="button" className="ask-exadd" onClick={exAdd}>
@@ -2054,6 +2081,8 @@ export default function AskBar({ devices }: Props) {
 
           {/* 입력줄은 **캔버스 칸 안에** 떠 있다(지시) — 작업 흐름까지 걸치고
               위에 실선을 그으면 칸이 각져 보인다. 여백과 그림자로 띄운다. */}
+          {/* 아래 고정 입력줄 — 일이 시작된 뒤에만. 첫 화면에는 큰 입력이 따로 있다 */}
+          {(draft || making) && (
           <div className="ask-askbar">
           <div className="ask-askbox">
             <input
@@ -2084,6 +2113,7 @@ export default function AskBar({ devices }: Props) {
             </button>
           </div>
           </div>
+          )}
           </div>
         </div>
       </div>
