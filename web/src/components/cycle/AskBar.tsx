@@ -1390,6 +1390,8 @@ export default function AskBar({ devices }: Props) {
               <span className="ask-slot-ch">바꾸기</span>
             </button>
           )}
+          {/* 실행 무리는 오른쪽 끝(지시) — 슬롯은 왼쪽, 하는 일은 오른쪽 */}
+          <span className="sp" />
           {running ? (
             <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
               ⏹ 멈추기
