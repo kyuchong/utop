@@ -4384,7 +4384,7 @@ function CycleDetail({
                 </button>
               </div>
             )}
-            {oneCol && (
+            {(
               /* 표 머리 — 필드 차례는 지시 그대로다 */
               <div className="cxp-row cxp-hd" aria-hidden="true">
                 <span className="cxp-no">No</span>
@@ -4517,7 +4517,7 @@ function CycleDetail({
                         }}
                       />
                       <span className="cxp-rmain">
-                        {oneCol && (
+                        {(
                           <button
                             type="button"
                             className={`cxp-open${openItem === at ? ' on' : ''}`}
@@ -4576,7 +4576,7 @@ function CycleDetail({
                           )
                         })()}
                         {/* 실행자 — 담당(맡은 이)과 다르다. 실제로 돌린 사람이다 */}
-                        {oneCol && (
+                        {(
                           <span
                             className="cxp-by muted small"
                             title={it.executed_by ? `실행자: ${it.executed_by}` : '아직 아무도 안 돌렸습니다'}
@@ -4618,7 +4618,7 @@ function CycleDetail({
                           )
                         })()}
                         {/* 최신 결과 — 이 회차의 판정 */}
-                        {oneCol && (
+                        {(
                           <span className="cxp-cur">
                             <i className={`hv-${verdictClass(v)} full`}>
                               {v ? verdictLabel(v) : '미실행'}
@@ -4636,10 +4636,10 @@ function CycleDetail({
                         ) : st.on && runQ.has(at) && !v ? (
                           <i className="cxp-wait">대기</i>
                         ) : null}
-                        {oneCol && !(st.on && (st.itemAt === at || runQ.has(at))) && (
+                        {!(st.on && (st.itemAt === at || runQ.has(at))) && (
                           <i className="cxp-stt">{v ? '완료' : '대기 전'}</i>
                         )}
-                        {oneCol && (
+                        {(
                           <>
                             <span className="cxp-took muted small">
                               {(() => {

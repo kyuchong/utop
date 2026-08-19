@@ -6238,3 +6238,31 @@ table.tb td.k {
 
 /* (1) 은 이름과 같은 색으로(지시) — 파랑은 걷는다 */
 .cxp-fsel-lb b { color: inherit; font-weight: 600; }
+
+/* ── 목록은 어느 꼴에서나 같은 표다(지시) ────────────────────────
+   No · 고르개 · 시험 항목 · 담당자 · 실행자 · 타입 · 기존 결과 ·
+   최신 결과 · 진행 상태 · 소요 · 시험 시각. */
+.cxp-side { container-type: inline-size; }
+.cxp-row { grid-template-columns: 30px 18px minmax(0, 1fr) auto; }
+.cxp-rgt,
+.cxp.onecol .cxp-rgt {
+  grid-template-columns: 24px 60px 18px 62px 62px 58px 44px 76px;
+  gap: 6px;
+}
+/* 좁으면 덜 급한 칸부터 접는다 — 이름이 먼저다 */
+@container (max-width: 780px) {
+  .cxp-by, .cxp-took, .cxp-when,
+  .cxp-row.cxp-hd .cxp-rgt > span:nth-child(2),
+  .cxp-row.cxp-hd .cxp-rgt > span:nth-child(7),
+  .cxp-row.cxp-hd .cxp-rgt > span:nth-child(8) { display: none; }
+  .cxp-rgt, .cxp.onecol .cxp-rgt { grid-template-columns: 24px 18px 62px 62px 58px; }
+}
+@container (max-width: 520px) {
+  .cxp-stt, .cxp-row.cxp-hd .cxp-rgt > span:nth-child(6) { display: none; }
+  .cxp-rgt, .cxp.onecol .cxp-rgt { grid-template-columns: 24px 18px 62px 62px; }
+}
+
+/* 1열·2열 카드의 **행 구분선을 한 벌로**(지시) — 같은 높이·같은 선 */
+.cxp-row, .cxp-row.cxp-hd { min-height: 30px; padding-top: 4px; padding-bottom: 4px; }
+.cxp-main .fold-h, .cxp-main .cxp-h { min-height: 44px; }
+.cxp-side, .cxp-main { border-color: var(--c-border); }
