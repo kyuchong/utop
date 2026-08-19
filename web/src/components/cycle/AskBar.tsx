@@ -148,6 +148,18 @@ export default function AskBar({ devices }: Props) {
    * no shutdown 까지 지을 수 있다 — 링크를 내렸다 올리는 시험이 그것이다.
    * reload·write·copy·erase 는 켜도 못 지나간다.
    */
+  /**
+   * 목업(v9)의 **두 갈래**.
+   *  · 일반 = 이미 있는 시험(Coverage)을 골라 그대로 돌린다. 명령을 몰라도 된다.
+   *  · 고급 = 없는 시험을 말로 새로 짓는다 — 여태 이 화면이 하던 일이다.
+   * 고른 갈래는 기억한다.
+   */
+  const [mode, setMode] = useState<'basic' | 'adv'>(() =>
+    localStorage.getItem('utop.ai.mode') === 'basic' ? 'basic' : 'adv',
+  )
+  useEffect(() => {
+    localStorage.setItem('utop.ai.mode', mode)
+  }, [mode])
   const [devId, setDevId] = useState('')
   const [err, setErr] = useState('')
   /** 돌린 결과 — 스텝마다 판정과 출력 */
@@ -963,6 +975,16 @@ export default function AskBar({ devices }: Props) {
   const submit = async (q?: string) => {
     const said = (q ?? text).trim()
     if (!said || busy) return
+    /* 일반 갈래 — 새로 짓지 않는다. 말한 문장을 검색어로 삼아
+       Coverage 에 있는 시험을 고르게 한다(목업의 「시험 항목 선택」). */
+    if (mode === 'basic') {
+      setText('')
+      setAsked(said)
+      // 말한 문장과 비슷한 시험을 위로 올려 창을 연다 — 새로 짓지 않는다
+      void findLike(said)
+      setLikeAsk(true)
+      return
+    }
     // 보낸 말은 그 자리에서 비운다 — 만드는 동안 입력칸에 남아 있으면 아직
     // 안 보낸 것처럼 보인다(지적). 그만두거나 어긋나면 되돌려 놓는다.
     setText('')
@@ -1572,6 +1594,36 @@ export default function AskBar({ devices }: Props) {
       {/* 첫 화면 — 무엇을 시킬 수 있나. 예시가 없으면 사람은 아무것도 못 친다 */}
       {!draft && !making && (
         <div className="ask-hero">
+          {/* 무엇을 하러 왔나 — 두 갈래(목업 v9). 고른 갈래는 기억한다.
+              일반은 **이미 있는 시험**을 골라 그대로 돌리고, 고급은 없는
+              시험을 말로 짓는다. 짓는 쪽이 여태 이 화면이 하던 일이다. */}
+          <div className="ask-modes">
+            <button
+              type="button"
+              className={`ask-mode${mode === 'basic' ? ' on' : ''}`}
+              onClick={() => setMode('basic')}
+            >
+              <span className="ask-moder" aria-hidden="true" />
+              <b>일반 — 시험 실행</b>
+              <p>이미 만들어진 시험 항목을 찾아 그대로 실행합니다.</p>
+              <em>명령을 몰라도 됩니다. 누구나.</em>
+            </button>
+            <button
+              type="button"
+              className={`ask-mode adv${mode === 'adv' ? ' on' : ''}`}
+              onClick={() => setMode('adv')}
+            >
+              <span className="ask-moder" aria-hidden="true" />
+              <b>고급 — 시험 만들기</b>
+              <p>없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다.</p>
+              <em>장비를 아는 사람이.</em>
+            </button>
+          </div>
+          {mode === 'basic' && (
+            <button type="button" className="ask-pickbig" onClick={() => setLikeAsk(true)}>
+              ◈ 시험 항목 고르기 — Coverage 에 등록된 시험에서
+            </button>
+          )}
           {/* 관리자만 — ⚙ 로 질문 보기를 고친다. 랩마다 자주 하는 시험이 다르다 */}
           {amAdmin && (
             <div className="ask-extools">
@@ -1671,6 +1723,26 @@ export default function AskBar({ devices }: Props) {
               {draft.object && <span className="muted small">{draft.object}</span>}
             </div>
             <span className="sp" />
+            {/* 일반 갈래 — 지금 실린 시험이 무엇인지 늘 보이고, 눌러 바꾼다
+                (목업의 슬롯 줄). 고급 갈래에는 없는 자리다 — 거기선 방금 지은
+                것이 곧 이 초안이다. */}
+            {mode === 'basic' && (
+              <button
+                type="button"
+                className="ask-slot"
+                title="다른 시험으로 바꿉니다"
+                onClick={() => setLikeAsk(true)}
+              >
+                <span className="ask-slot-ic" aria-hidden="true">
+                  ◈
+                </span>
+                <span className="ask-slot-tx">
+                  <small>시험 항목</small>
+                  <b>{draft.object || draft.name}</b>
+                </span>
+                <span className="ask-slot-ch">바꾸기</span>
+              </button>
+            )}
             {/* 어느 장비에 보낼지는 사람이 정한다 — AI 가 짚은 것을 미리 골라
                 두되 그대로 나가게 두지 않는다 */}
             <select className="ask-devsel" value={devId} onChange={(e) => setDevId(e.target.value)}>
@@ -1988,7 +2060,11 @@ export default function AskBar({ devices }: Props) {
               className="ask-in"
               value={text}
               placeholder={
-                draft ? '고칠 것을 말하세요 — 예) 부하를 50%로 올려줘' : '무엇을 시험할지 한국어로 적으세요'
+                draft
+                  ? '고칠 것을 말하세요 — 예) 부하를 50%로 올려줘'
+                  : mode === 'basic'
+                    ? '무엇을 시험할지 적으면 등록된 시험에서 찾아 드립니다'
+                    : '무엇을 시험할지 한국어로 적으세요 — 없는 시험을 새로 짓습니다'
               }
               onChange={(e) => setText(e.target.value)}
               onBlur={() => void findLike(text)}

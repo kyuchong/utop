@@ -5068,3 +5068,108 @@ table.tb td.k {
   padding: 22px 24px 20px;
   margin-top: 5vh;
 }
+
+/* ── AI 첫 화면 — 두 갈래(목업 v9의 모드 두 장) ─────────────────
+   일반은 이미 있는 시험을 골라 돌리고, 고급은 없는 시험을 짓는다.
+   고른 쪽만 테두리·바탕으로 서고, 나머지는 조용히 있는다. */
+.ask-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 11px;
+  margin: 4px 0 14px;
+}
+.ask-mode {
+  position: relative;
+  border: 1.5px solid var(--c-border-soft);
+  background: var(--c-surface);
+  border-radius: 12px;
+  padding: 13px 15px 12px 38px;
+  text-align: left;
+  cursor: pointer;
+}
+.ask-mode b { display: block; font-size: 14.5px; font-weight: 600; }
+.ask-mode p { margin: 5px 0 0; font-size: 12.5px; color: var(--c-text-muted); line-height: 1.55; }
+.ask-mode em { display: block; font-style: normal; font-size: 11.5px; color: var(--c-text-faint); margin-top: 7px; }
+/* 고른 표시 — 동그라미 하나. 글보다 앞서 눈에 든다 */
+.ask-moder {
+  position: absolute;
+  left: 14px;
+  top: 15px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--c-border);
+  display: grid;
+  place-items: center;
+}
+.ask-mode.on { border-color: var(--c-primary); background: var(--c-primary-bg-soft); }
+.ask-mode.on .ask-moder { border-color: var(--c-primary); }
+.ask-mode.on .ask-moder::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--c-primary);
+}
+/* 고급은 다른 색으로 — 짓는 일과 돌리는 일은 다른 일이다 */
+.ask-mode.adv.on { border-color: #7c3aed; background: #f4efff; }
+.ask-mode.adv.on .ask-moder { border-color: #7c3aed; }
+.ask-mode.adv.on .ask-moder::after { background: #7c3aed; }
+
+/* 일반 갈래 — 말로 찾지 않고 바로 고르러 가는 길 */
+.ask-pickbig {
+  width: 100%;
+  border: 1px dashed var(--c-border);
+  background: var(--c-surface);
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 13px;
+  color: var(--c-text-muted);
+  cursor: pointer;
+  margin-bottom: 14px;
+}
+.ask-pickbig:hover { border-color: var(--c-primary); color: var(--c-primary); }
+
+/* 슬롯 — 지금 무엇으로 도는지 늘 보이고, 눌러 바꾼다 */
+.ask-slot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  padding: 5px 11px;
+  background: var(--c-surface);
+  cursor: pointer;
+  min-width: 0;
+  text-align: left;
+}
+.ask-slot:hover { border-color: var(--c-primary); }
+.ask-slot-ic {
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 7px;
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+.ask-slot-tx { min-width: 0; }
+.ask-slot-tx small {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--c-text-faint);
+  font-weight: 600;
+}
+.ask-slot-tx b {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+.ask-slot-ch { flex: none; font-size: 11px; color: var(--c-primary); }
