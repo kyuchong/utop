@@ -1182,8 +1182,9 @@ export default function Cycles({ me }: PageProps) {
       {!cur && treeOpen && (
       <section className="panel cy-tree" style={{ flexBasis: treeW }}>
         <ListHead
-          name="Cycle Tree"
-          count={cycles.length}
+          // 이름표(「Cycle Tree 4」)를 뺐다(지시) — 위 빵부스러기와 칸 맨
+          // 아래가 이미 말한다
+          name=""
           onCollapse={() => setTreeOpen(false)}
           search={{ value: q, placeholder: '모델 · 버전으로 찾기', onChange: setQ }}
           add={{ title: '사이클 만들기', onClick: () => setMaking(true) }}

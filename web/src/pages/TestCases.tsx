@@ -2095,8 +2095,9 @@ export default function TestCases({ me }: PageProps) {
               읽히는 것은 「어느 요구사항이 무엇으로 덮였나」 다 — 그래서
               Coverage 다. */}
           <ListHead
-            name="Coverage Tree"
-            count={tcs.length}
+            // 이름표(「Coverage Tree 71」)를 뺐다(지시) — 이 화면이 무엇인지는
+            // 위 빵부스러기가, 건수는 칸 맨 아래가 말한다. 줄을 아낀다.
+            name=""
             onCollapse={() => setListOpen(false)}
             // 파란 + 는 뺐다(피드백) — 최상위=프로젝트라 폴더 관리는 요구사항 화면 몫
             picked={
