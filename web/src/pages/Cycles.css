@@ -2405,7 +2405,10 @@ table.tb td.k {
 .cxp-sh {
   display: flex;
   align-items: center;
-  gap: 7px;
+  /* 좁은 칸에 여럿이 서므로 넘치면 **줄을 바꾼다** — 겹쳐 찍혀 글자가
+     뭉개져 보였다(지적 사진). */
+  flex-wrap: wrap;
+  gap: 6px 7px;
   padding: 8px 10px;
   border-bottom: 1px solid var(--c-border);
 }
@@ -5896,7 +5899,10 @@ table.tb td.k {
 .cxp-kbtn + .cxp-kbtn { border-left: 1px solid var(--c-border-soft); }
 .cxp-kbtn.on { background: var(--c-primary); color: #fff; font-weight: 600; }
 .cxp-live {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: var(--fs-sm);
   color: var(--c-text-muted);
   white-space: nowrap;

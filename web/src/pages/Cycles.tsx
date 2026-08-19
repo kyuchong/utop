@@ -4057,8 +4057,8 @@ function CycleDetail({
               {/* 실시간 진행 — 한 줄로 짧게(지시 ⑤). 자세한 것은 도는 줄이 말한다 */}
               <span className={`cxp-live${st.on ? ' on' : ''}`}>
                 {st.on
-                  ? `${Math.min(st.done + 1, st.total)}/${st.total} 도는 중`
-                  : `${doneAll}/${items.length} 실행 · 합격 ${donePass} · 실패 ${doneFail}`}
+                  ? `● ${Math.min(st.done + 1, st.total)}/${st.total}`
+                  : `${doneAll}/${items.length} · 합격 ${donePass} · 실패 ${doneFail}`}
               </span>
               {pick.size > 0 && <span className="muted small">{pick.size}개 선택</span>}
               {pick.size > 0 && !st.on && (
