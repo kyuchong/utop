@@ -18,7 +18,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 0 4px 8px;
+  /* 여백은 `.rt` 한 곳에서 온다 — 세 화면 트리가 같은 값을 쓰도록(지시) */
 }
 /* 줄 자체는 요구사항 트리(ReqTree.css)의 .rt-fold/.rt-req 를 쓴다.
    여기서는 사이클에만 있는 것만 더한다. */

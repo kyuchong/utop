@@ -521,7 +521,10 @@ export default function TcTree({
   const loading = reqQ.isLoading || catQ.isLoading
 
   return (
-    <div className="rt tt">
+    /* ★ 여기 `tt` 는 트래픽 패널(TcTraffic.css `.tt`)과 이름이 부딪혀,
+       트리 본문이 남의 여백(12px)과 gap 을 물려받고 있었다 — 세 화면 트리
+       여백이 달랐던 까닭이다(지적). 이 트리 것만 가리키는 이름으로 바꾼다. */
+    <div className="rt tct">
       <div className="rt-body">
         {/* 전역 파라미터는 이 트리에서 뺐다. 여기 있을 때는 폴더인 척
             하면서 폴더가 아니었고(지울 수도 옮길 수도 없다), 시험을 찾는
