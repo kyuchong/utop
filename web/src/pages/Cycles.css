@@ -6480,3 +6480,9 @@ table.tb td.k {
 .cxp-rgt > .cxp-k { justify-self: center; }
 .cxp-row > .cxp-rmain,
 .cxp-row.cxp-hd > .cxp-rmain { justify-self: start; text-align: left; }
+
+/* 머리는 한 줄 — 고르개·건수·찾기가 + TC 오른쪽에 붙는다(지시) */
+.cxp-sh { flex-wrap: nowrap; gap: 8px; }
+.cxp-sh .rq-selall { flex: none; display: inline-flex; align-items: center; }
+.cxp-sh .cxp-cntlb { flex: none; }
+.cxp-sh .cxp-q { flex: 1; min-width: 120px; }

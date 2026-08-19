@@ -4167,7 +4167,36 @@ function CycleDetail({
               >
                 + TC
               </button>
-              {pick.size > 0 && !st.on && (
+              {/* 고르개·건수·찾기 를 + TC 오른쪽으로(지시) — 머리는 한 줄이다 */}
+
+              <label className="rq-selall" title="보이는 것 전부 고르기">
+                <input
+                  type="checkbox"
+                  checked={rows.length > 0 && pick.size === rows.length}
+                  ref={(el) => {
+                    if (el) el.indeterminate = pick.size > 0 && pick.size < rows.length
+                  }}
+                  disabled={!rows.length}
+                  onChange={() =>
+                    pick.size === rows.length ? sel.clear() : sel.set(rows.map((x) => items.indexOf(x)))
+                  }
+                />
+              </label>
+              {/* 「62/64」 를 고른 수로 읽는 일이 있었다(지적) — 고른 게 있으면
+                  그 수를 앞세우고, 보이는 수는 뒤에 조용히 붙인다. */}
+              <b className="cxp-cntlb">
+                시험 항목{' '}
+                <span className={`cxp-cnt${pick.size ? ' sel' : ''}`}>
+                  {pick.size}/{items.length}
+                </span>
+              </b>
+              <input
+                className="cxp-q"
+                placeholder="TC ID · 제목 검색"
+                value={fq}
+                onChange={(e) => setFq(e.target.value)}
+              />
+                          {pick.size > 0 && !st.on && (
                 /* 고른 항목 전부에 같은 판정 — Pass 만이 아니라 아무 값이나 */
                 <select
                   className="cy-v cxp-bulkv"
@@ -4329,36 +4358,6 @@ function CycleDetail({
                 </div>
               </>
             )}
-            {/* 2행 — 「시험 항목 n/N」 이 찾기칸 왼쪽에 선다(지시) */}
-            <div className="cxp-tools">
-              <label className="rq-selall" title="보이는 것 전부 고르기">
-                <input
-                  type="checkbox"
-                  checked={rows.length > 0 && pick.size === rows.length}
-                  ref={(el) => {
-                    if (el) el.indeterminate = pick.size > 0 && pick.size < rows.length
-                  }}
-                  disabled={!rows.length}
-                  onChange={() =>
-                    pick.size === rows.length ? sel.clear() : sel.set(rows.map((x) => items.indexOf(x)))
-                  }
-                />
-              </label>
-              {/* 「62/64」 를 고른 수로 읽는 일이 있었다(지적) — 고른 게 있으면
-                  그 수를 앞세우고, 보이는 수는 뒤에 조용히 붙인다. */}
-              <b className="cxp-cntlb">
-                시험 항목{' '}
-                <span className={`cxp-cnt${pick.size ? ' sel' : ''}`}>
-                  {pick.size}/{items.length}
-                </span>
-              </b>
-              <input
-                className="cxp-q"
-                placeholder="TC ID · 제목 검색"
-                value={fq}
-                onChange={(e) => setFq(e.target.value)}
-              />
-            </div>
             {/* 3행 — 지금 걸려 있는 것만 칩으로. 없으면 줄 자체가 없다 */}
             {(fSet.size > 0 || fKind || fAss || onlyRegress) && (
               <div className="cxp-chips">
