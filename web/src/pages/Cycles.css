@@ -6444,3 +6444,17 @@ table.tb td.k {
 /* 펼침 화살표를 걷었다(지시) — 줄을 누르면 펴진다. 머리 이름 칸의
    화살표 자리도 함께 없앤다. */
 .cxp-row.cxp-hd .cxp-rmain { padding-left: 0; }
+
+/* 기존 결과 — 한 글자인데 배지가 칸을 꽉 채우고 있었다(지적).
+   글자만큼만 두르고 가운데로. 칸도 58 → 36px 로 줄인다. */
+.cxp-rgt .cxp-hist { justify-self: center; }
+.cxp-hist > i.full.short {
+  width: auto;
+  min-width: 18px;
+  padding: 1px 5px;
+}
+.cxp-rgt,
+.cxp.onecol .cxp-rgt,
+.cxp-side.fmanual .cxp-rgt {
+  grid-template-columns: 24px 24px 18px 36px 100px 38px 60px;
+}
