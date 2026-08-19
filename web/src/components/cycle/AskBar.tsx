@@ -1160,7 +1160,8 @@ export default function AskBar({ devices }: Props) {
           ...(s.trapSec ? { trapSec: Number(s.trapSec) } : {}),
           ...(s.host ? { host: s.host } : {}),
           ...(s.count ? { count: Number(s.count) } : {}),
-          ...(crit ? { type: (s.type as string) || 'contains', criteria: crit } : {}),
+          type: (s.type as string) || (crit ? 'contains' : 'ok'),
+          ...(crit ? { criteria: crit } : {}),
         } as TcStep
       }
       if (k === 'inst' || k === 'instrument') {
@@ -1184,7 +1185,11 @@ export default function AskBar({ devices }: Props) {
         step: s.desc,
         desc: s.desc,
         cli: s.cli,
-        type: s.type || 'contains',
+        /* 기준이 비어 있으면 **오류만 없으면 합격**이다. 여태 'contains' 로
+           보내 놓고 찾을 문구가 없어, 돌아도 판정이 안 붙었다(지적: PASS 표기
+           안 됨). 작업 흐름도 「지금은 오류만 없으면 합격입니다」 라고 적어
+           왔으므로, 그 말대로 보낸다. */
+        type: s.type || (crit ? 'contains' : 'ok'),
         criteria: crit,
         ...chips,
       } as TcStep
@@ -2098,7 +2103,7 @@ export default function AskBar({ devices }: Props) {
                     <span className="ask-detk">합격 기준</span>
                     <div className="ask-detcrit">
                       <select
-                        value={s.type ?? 'contains'}
+                        value={s.type || 'ok'}
                         onChange={(e) => setStep(i, { type: e.target.value })}
                       >
                         <option value="ok">오류만 없으면 합격</option>
@@ -2107,9 +2112,9 @@ export default function AskBar({ devices }: Props) {
                         <option value="notcontains">있으면 불합격</option>
                         <option value="none">판정 안 함</option>
                       </select>
-                      {s.type === 'ok' || s.type === 'none' ? (
+                      {!s.type || s.type === 'ok' || s.type === 'none' ? (
                         <span className="ask-nocrit">
-                          {s.type === 'ok' ? '명령이 오류 없이 응답하면 합격' : '아무것도 확인하지 않음'}
+                          {s.type === 'none' ? '아무것도 확인하지 않음' : '명령이 오류 없이 응답하면 합격'}
                         </span>
                       ) : (
                         <input
