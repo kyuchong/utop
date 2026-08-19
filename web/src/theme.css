@@ -281,3 +281,70 @@ button {
   /* 굵기는 안 바꾼다 — 파란 바탕이 이미 선택을 말한다. 굵게 하면
      고른 탭만 글자가 달라 보이고 폭도 들썩인다(피드백). */
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   목록 화면 글자 한 벌 — 요구사항·시험항목·사이클이 같은 값을 쓴다.
+   값은 사용자가 정해 주었다(2026-08-19). 여기 한 곳에서만 바꾼다.
+
+     ① 트리 폴더·항목 이름   12.5px / 700
+     ② 개수(REQ·TC)          10px   / 600
+     ③ 선택 줄               12px   / 600
+     ④ 표 머리               12.5px / 700
+     ⑤ 표 줄(이름·경로·칩)   12.5px / 700
+     바닥 줄                 12.5px / 700
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ① 트리 */
+.rt-fname,
+.rt-title,
+.cy-node .rt-fname {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* ② 개수 */
+.rt-cq,
+.rt-ct,
+.cy-node .rt-cq,
+.cy-node .rt-ct {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* ③ 선택 줄 */
+.rq-selbar,
+.rq-selall,
+.rq-selbar .muted,
+.rq-selbar .muted.small {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ④ 표 머리 */
+.rq-tr.rq-th,
+.cyt-th,
+.cyt-row.cyt-hd,
+.cyt-row.cyt-hd > * {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* ⑤ 표 줄 — 이름·폴더 경로·상태 칩까지 같은 값 */
+.rq-tr:not(.rq-th),
+.rq-tr:not(.rq-th) .rq-name,
+.rq-loc,
+.rq-prio,
+.rq-cov,
+.cyt-row.cyt-c,
+.cyt-name,
+.cyt-row.cyt-c > * {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+/* 바닥 줄 */
+.colbot,
+.colbot > span {
+  font-size: 12.5px;
+  font-weight: 700;
+}
