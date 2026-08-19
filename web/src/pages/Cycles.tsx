@@ -3857,6 +3857,19 @@ function CycleDetail({
                     .sort((a2, b2) => a2 - b2)
                   return (
                     <>
+                      <button
+                        className="btn small"
+                        type="button"
+                        disabled={!autoAll.length || saving}
+                        title={
+                          autoAll.length
+                            ? `자동 ${autoAll.length}건을 돌립니다 (수동 ${items.length - autoAll.length}건은 빠집니다)`
+                            : '전부 수동 항목이라 자동 실행이 없습니다'
+                        }
+                        onClick={() => startRun(autoAll)}
+                      >
+                        ▶ 전체 실행 ({autoAll.length})
+                      </button>
                       {pick.size > 0 && (
                         <button
                           className="btn primary small"
@@ -3872,19 +3885,6 @@ function CycleDetail({
                           ▶ 실행 ({autoPicked.length})
                         </button>
                       )}
-                      <button
-                        className="btn small"
-                        type="button"
-                        disabled={!autoAll.length || saving}
-                        title={
-                          autoAll.length
-                            ? `자동 ${autoAll.length}건을 돌립니다 (수동 ${items.length - autoAll.length}건은 빠집니다)`
-                            : '전부 수동 항목이라 자동 실행이 없습니다'
-                        }
-                        onClick={() => startRun(autoAll)}
-                      >
-                        ▶ 전체 실행 ({autoAll.length})
-                      </button>
                     </>
                   )
                 })()
@@ -4044,7 +4044,6 @@ function CycleDetail({
           {/* 1행 카드 — 회차를 다루는 단추 자리(지시). 맨 위 빵부스러기에
               있던 「전체 실행 · 시험 완료 · 시험결과 요약」 이 여기로 온다. */}
           <div className="cxp-actcard">
-            <span className="cy-execslot" id="cy-execbar" />
             {finish && (
               <button
                 className="btn small primary"
@@ -4060,6 +4059,7 @@ function CycleDetail({
                 {finish.busy ? '완료 중…' : '✔ 시험 완료'}
               </button>
             )}
+            <span className="cy-execslot" id="cy-execbar" />
             <span className="sp" />
           </div>
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
