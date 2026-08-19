@@ -1326,8 +1326,9 @@ export default function Cycles({ me }: PageProps) {
       </section>
       )}
 
-      {/* 1열 ↔ 나머지. TC 화면과 같은 손잡이를 쓴다 */}
-      {treeOpen && (
+      {/* 1열 ↔ 나머지. TC 화면과 같은 손잡이를 쓴다.
+          회차를 열면(실행 화면) 트리가 통째로 접히므로 손잡이도 걷는다(지시) */}
+      {treeOpen && !cur && (
         <Resizer
           label="사이클 목록 폭 조절"
           onResize={setTreeW}
