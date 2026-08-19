@@ -352,14 +352,6 @@ const ROOT = 'Root'
 const NO_CUST = '(사업자 없음)'
 const NO_MGROUP = '(모델그룹 없음)'
 /** 트리 열쇠에서 맨 위 한 자리를 뗀다 — 저장(KV)에는 Root 를 안 넣는다 */
-const GRP_LB: Record<string, string> = {
-  req: '요구사항',
-  status: 'Status',
-  tester: 'Tester',
-  prio: '우선순위',
-  folder: '폴더',
-}
-
 export function bareKey(key: string): string {
   if (key === ROOT) return ''
   return key.startsWith(ROOT + '/') ? key.slice(ROOT.length + 1) : key
@@ -4075,12 +4067,7 @@ function CycleDetail({
               <span className="cxp-fsel" title="항목을 무엇으로 묶을지 고릅니다">
                 <span className="cxp-fsel-lb">
                   그룹핑
-                  {grp !== 'req' && (
-                    <b>
-                      {' · '}
-                      {GRP_LB[grp] ?? grp}
-                    </b>
-                  )}
+                  {grp !== 'req' && <b>(1)</b>}
                   <i>▾</i>
                 </span>
                 <select
@@ -4098,7 +4085,7 @@ function CycleDetail({
               <span className="cxp-fsel" title="Type — 자동·수동">
                 <span className={`cxp-fsel-lb${fKind ? ' on' : ''}`}>
                   Type
-                  {fKind && <b>{fKind === 'auto' ? ' · 자동' : ' · 수동'}</b>}
+                  {fKind && <b>(1)</b>}
                   <i>▾</i>
                 </span>
                 <select
@@ -4126,7 +4113,7 @@ function CycleDetail({
                   <span className="cxp-fsel" title="Result — 판정으로 좁혀 봅니다">
                     <span className={`cxp-fsel-lb${rv ? ' on' : ''}`}>
                       Result
-                      {rlb && <b>{` · ${rlb}`}</b>}
+                      {rlb && <b>(1)</b>}
                       <i>▾</i>
                     </span>
                     <select

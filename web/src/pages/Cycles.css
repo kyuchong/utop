@@ -6175,5 +6175,16 @@ table.tb td.k {
 }
 .cxp-fsel-lb.on { color: var(--c-text); }
 .cxp-fsel-lb b { font-weight: 600; color: var(--c-primary); }
-.cxp-fsel-lb i { font-style: normal; opacity: 0.5; font-size: 10px; }
+.cxp-fsel-lb i {
+  font-style: normal;
+  opacity: 0.6;
+  font-size: 13px;
+  line-height: 1;
+  margin-left: 1px;
+}
+.cxp-fsel-lb b {
+  font-weight: 700;
+  color: var(--c-primary);
+  font-size: var(--fs-sm);
+}
 .cxp-fsel:hover .cxp-fsel-lb { background: var(--c-border-soft); }
