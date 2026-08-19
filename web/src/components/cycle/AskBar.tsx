@@ -42,6 +42,11 @@ interface DraftStep {
   from?: number
   to?: number
   sec?: number
+  /** diff — 값 견주기. 장비로는 아무것도 안 나간다 */
+  cmpLeft?: string
+  cmpRight?: string
+  cmpOp?: string
+  excludeLines?: string
   /** inst — 계측기 동작(reserve·config·start·stat·stop·release) */
   action?: string
   rate?: string
@@ -996,6 +1001,16 @@ export default function AskBar({ devices }: Props) {
         return { kind: 'wait', indent, step: s.desc, waitSec: s.waitSec ?? s.sec ?? 1 } as TcStep
       if (k === 'if')
         return { kind: 'if', indent, step: s.desc, condition: s.condition || '' } as TcStep
+      if (k === 'manual')
+        return { kind: 'manual', indent, step: s.desc || s.text || '' } as TcStep
+      if (k === 'diff')
+        return {
+          kind: 'diff', indent, step: s.desc,
+          cmpLeft: s.cmpLeft ?? '',
+          cmpRight: s.cmpRight ?? '',
+          cmpOp: s.cmpOp || '==',
+          ...(s.excludeLines ? { excludeLines: s.excludeLines } : {}),
+        } as TcStep
       if (k === 'snmp_get' || k === 'snmp_set' || k === 'snmp_trap' || k === 'ping') {
         // 실행기가 이 종류를 그대로 돈다 — 값만 옮겨 실어 준다
         return {
@@ -1832,7 +1847,9 @@ export default function AskBar({ devices }: Props) {
                               ? 'SNMP Trap'
                               : s.kind === 'ping'
                                 ? 'Ping'
-                                : '조회'}
+                                : s.kind === 'diff'
+                                  ? '값 견주기'
+                                  : '조회'}
                   </div>
                   <h3>{s.desc || '—'}</h3>
 
