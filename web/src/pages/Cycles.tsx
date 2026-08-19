@@ -4395,7 +4395,6 @@ function CycleDetail({
                   <span>실행자</span>
                   <span>타입</span>
                   <span>기존 결과</span>
-                  <span>최신 결과</span>
                   {fKind === 'auto' && (
                     <>
                       <span>시험 시각</span>
@@ -4621,14 +4620,6 @@ function CycleDetail({
                             </span>
                           )
                         })()}
-                        {/* 최신 결과 — 이 회차의 판정 */}
-                        {(
-                          <span className="cxp-cur">
-                            <i className={`hv-${verdictClass(v)} full`}>
-                              {v ? verdictLabel(v) : '미실행'}
-                            </i>
-                          </span>
-                        )}
                         {fKind === 'auto' && (
                           <>
                             <span className="cxp-when muted small">

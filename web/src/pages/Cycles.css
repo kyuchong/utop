@@ -6306,3 +6306,13 @@ table.tb td.k {
 .cxp-rgt .cxp-hist { justify-self: stretch; }
 .cxp-hist > i.full { text-align: center; }
 .cxp-run, .cxp-wait { text-align: center; font-style: normal; }
+
+/* 최신 결과는 줄 오른쪽 색 띠가 말한다 — 칸에서 뺀다(지시) */
+.cxp-rgt,
+.cxp.onecol .cxp-rgt {
+  grid-template-columns: 24px 60px 18px 62px 76px 44px 58px;
+}
+.cxp-side.fmanual .cxp-rgt { grid-template-columns: 24px 60px 18px 62px; }
+@container (max-width: 780px) {
+  .cxp-side.fmanual .cxp-rgt { grid-template-columns: 24px 18px 62px; }
+}
