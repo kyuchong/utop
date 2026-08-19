@@ -1597,35 +1597,6 @@ export default function AskBar({ devices }: Props) {
       {/* 첫 화면 — 무엇을 시킬 수 있나. 예시가 없으면 사람은 아무것도 못 친다 */}
       {!draft && !making && (
         <div className="ask-hero">
-          {amAdmin && (
-            <div className="ask-extools">
-              {exSay && <span className="muted small">{exSay}</span>}
-              {exEdit && (
-                <button
-                  className="btn small"
-                  type="button"
-                  onClick={() => {
-                    void exSave().then((ok) => {
-                      if (ok) setExEdit(false)
-                    })
-                  }}
-                >
-                  저장
-                </button>
-              )}
-              <button
-                className={`ask-exgear${exEdit ? ' on' : ''}`}
-                type="button"
-                title={exEdit ? '고치기 끝내기' : '질문 보기 고치기 (관리자)'}
-                onClick={() => {
-                  if (exEdit) void exSave()
-                  setExEdit((v) => !v)
-                }}
-              >
-                <IconSettings />
-              </button>
-            </div>
-          )}
           <h1>무엇을 시험할까요?</h1>
           <p className="ask-lead">장비 이름과 확인하고 싶은 것을 평소 말하듯 적어주세요.</p>
           {/* 첫 화면의 입력은 **여기 크게** 있다(목업) — 아래 고정 줄은
@@ -1665,7 +1636,7 @@ export default function AskBar({ devices }: Props) {
               onClick={() => setMode('basic')}
             >
               <span className="ask-moder" aria-hidden="true" />
-              <b>일반 — 시험 실행</b>
+              <b>General — 시험 실행</b>
               <p>이미 만들어진 시험 항목을 찾아 그대로 실행합니다.</p>
               <em>명령을 몰라도 됩니다. 누구나.</em>
             </button>
@@ -1675,12 +1646,41 @@ export default function AskBar({ devices }: Props) {
               onClick={() => setMode('adv')}
             >
               <span className="ask-moder" aria-hidden="true" />
-              <b>고급 — 시험 만들기</b>
+              <b>Advanced — 시험 만들기</b>
               <p>없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다.</p>
               <em>장비를 아는 사람이.</em>
             </button>
           </div>
           {/* 예시 — 무엇을 시킬 수 있는지 눌러서 안다. 관리자는 ⚙ 로 고친다 */}
+          {amAdmin && (
+            <div className="ask-extools">
+              {exSay && <span className="muted small">{exSay}</span>}
+              {exEdit && (
+                <button
+                  className="btn small"
+                  type="button"
+                  onClick={() => {
+                    void exSave().then((ok) => {
+                      if (ok) setExEdit(false)
+                    })
+                  }}
+                >
+                  저장
+                </button>
+              )}
+              <button
+                className={`ask-exgear${exEdit ? ' on' : ''}`}
+                type="button"
+                title={exEdit ? '고치기 끝내기' : '질문 보기 고치기 (관리자)'}
+                onClick={() => {
+                  if (exEdit) void exSave()
+                  setExEdit((v) => !v)
+                }}
+              >
+                <IconSettings />
+              </button>
+            </div>
+          )}
           {!exEdit && (
             <div className="ask-chips">
               {examples.map((x, i) => (
@@ -1705,12 +1705,6 @@ export default function AskBar({ devices }: Props) {
                     value={x.q}
                     placeholder="예) E6100 rate limit 시험해줘"
                     onChange={(e) => exSet(i, { q: e.target.value })}
-                  />
-                  <input
-                    className="desc"
-                    value={x.d ?? ''}
-                    placeholder="설명 (없어도 됩니다) — 무엇을 보는 시험인지 한 줄로"
-                    onChange={(e) => exSet(i, { d: e.target.value })}
                   />
                 </div>
                 <button type="button" className="ask-exdel" title="지우기" onClick={() => exDel(i)}>

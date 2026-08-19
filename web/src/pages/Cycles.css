@@ -5259,3 +5259,14 @@ table.tb td.k {
   cursor: pointer;
 }
 .ask-picklink:hover { color: var(--c-primary); }
+
+/* 설정(⚙) 은 화면 구석이 아니라 **질문 미리보기 옆**에 있다(지시) —
+   고칠 대상 바로 곁에 있어야 무엇을 고치는 단추인지 안다. */
+.ask-hero .ask-extools {
+  position: static;
+  justify-content: center;
+  margin: 14px 0 0;
+}
+.ask-hero .ask-exgear { width: 26px; height: 26px; }
+/* 고치는 칸은 질문 한 줄뿐이다 — 설명 칸은 없앴다(지시) */
+.ask-hero .ask-exedit { max-width: 560px; margin-left: auto; margin-right: auto; }
