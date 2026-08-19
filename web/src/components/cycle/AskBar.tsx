@@ -1652,50 +1652,52 @@ export default function AskBar({ devices }: Props) {
             </button>
           </div>
           {/* 예시 — 무엇을 시킬 수 있는지 눌러서 안다. 관리자는 ⚙ 로 고친다 */}
-          {amAdmin && (
-            <div className="ask-extools">
-              {exSay && <span className="muted small">{exSay}</span>}
-              {exEdit && (
+          <div className="ask-exline">
+            {!exEdit && (
+              <div className="ask-chips">
+                {examples.map((x, i) => (
+                  <button
+                    key={x.q || i}
+                    type="button"
+                    className="ask-chip"
+                    title={x.d || x.q}
+                    onClick={() => void submit(x.q)}
+                  >
+                    {x.q}
+                  </button>
+                ))}
+              </div>
+            )}
+            {amAdmin && (
+              <div className="ask-extools">
+                {exSay && <span className="muted small">{exSay}</span>}
+                {exEdit && (
+                  <button
+                    className="btn small"
+                    type="button"
+                    onClick={() => {
+                      void exSave().then((ok) => {
+                        if (ok) setExEdit(false)
+                      })
+                    }}
+                  >
+                    저장
+                  </button>
+                )}
                 <button
-                  className="btn small"
+                  className={`ask-exgear${exEdit ? ' on' : ''}`}
                   type="button"
+                  title={exEdit ? '고치기 끝내기' : '질문 보기 고치기 (관리자)'}
                   onClick={() => {
-                    void exSave().then((ok) => {
-                      if (ok) setExEdit(false)
-                    })
+                    if (exEdit) void exSave()
+                    setExEdit((v) => !v)
                   }}
                 >
-                  저장
+                  <IconSettings />
                 </button>
-              )}
-              <button
-                className={`ask-exgear${exEdit ? ' on' : ''}`}
-                type="button"
-                title={exEdit ? '고치기 끝내기' : '질문 보기 고치기 (관리자)'}
-                onClick={() => {
-                  if (exEdit) void exSave()
-                  setExEdit((v) => !v)
-                }}
-              >
-                <IconSettings />
-              </button>
-            </div>
-          )}
-          {!exEdit && (
-            <div className="ask-chips">
-              {examples.map((x, i) => (
-                <button
-                  key={x.q || i}
-                  type="button"
-                  className="ask-chip"
-                  title={x.d || x.q}
-                  onClick={() => void submit(x.q)}
-                >
-                  {x.q}
-                </button>
-              ))}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
           {/* 고치는 중에는 칩이 아니라 적는 칸이다 — 칸이 넓어야 고칠 수 있다 */}
           {examples.map((x, i) =>
             exEdit ? (

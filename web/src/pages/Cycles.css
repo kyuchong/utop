@@ -5270,3 +5270,16 @@ table.tb td.k {
 .ask-hero .ask-exgear { width: 26px; height: 26px; }
 /* 고치는 칸은 질문 한 줄뿐이다 — 설명 칸은 없앴다(지시) */
 .ask-hero .ask-exedit { max-width: 560px; margin-left: auto; margin-right: auto; }
+
+/* 질문 미리보기 한 줄 — 칩들 **오른쪽 끝에 ⚙**(지시 그림).
+   따로 아래 줄에 두었더니 무엇에 딸린 단추인지 안 읽혔다. */
+.ask-exline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 15px;
+}
+.ask-exline .ask-chips { margin-top: 0; }
+.ask-exline .ask-extools { margin: 0; }
