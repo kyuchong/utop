@@ -4991,3 +4991,80 @@ table.tb td.k {
 
 /* 실행 화면에서 나가는 길 — 도는 동안에도 늘 왼쪽 끝에 있다 */
 .cy-run-back { flex: none; margin-right: 2px; }
+
+/* ══════════════════════════════════════════════════════════════════
+   AI 자연어 시험 — 보내 주신 목업(v9) 꼴로.
+
+   뼈대(세션 목록 · 작업 흐름 · 스텝 목록 · 스텝 세부)는 그대로 두고,
+   **판을 카드로 갈랐다**. 목업의 셈:
+     · 바탕은 회색(--c-app-bg), 판은 흰 카드 + 1px 선 + 둥근 11px
+     · 칸 사이 12px, 바깥 여백 12px 20px
+     · 작업 흐름 250px · 스텝 목록 1fr · 스텝 세부 358px
+   ══════════════════════════════════════════════════════════════════ */
+.ask { background: var(--c-app-bg); }
+.ask-cols {
+  gap: 12px;
+  padding: 12px 20px 0;
+  background: var(--c-app-bg);
+}
+/* 작업 흐름 — 판 하나 */
+.ask-cols > .ask-rail {
+  width: 250px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 11px;
+  background: var(--c-surface);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.ask-rail > .ask-rail-head {
+  flex: none;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.ask-rail > .ask-rail-say,
+.ask-rail > .ask-stages {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+.ask-rail > .ask-stages { padding-bottom: 12px; overflow: auto; }
+@media (max-width: 1300px) {
+  .ask-cols > .ask-rail { width: 212px; }
+}
+
+/* 캔버스 — 판 안이 아니라 판들의 바탕이다 */
+.ask-canvaswrap { background: var(--c-app-bg); }
+.ask-canvas { padding: 0; background: var(--c-app-bg); }
+
+/* 스텝 목록 · 스텝 세부 — 각각 흰 카드 */
+.ask-two { gap: 12px; }
+.ask-two > .ask-steplist,
+.ask-two > .ask-stepdet {
+  border: 1px solid var(--c-border-soft);
+  border-radius: 11px;
+  background: var(--c-surface);
+}
+.ask-two > .ask-stepdet { flex: none; width: 358px; }
+@media (max-width: 1300px) {
+  .ask-two > .ask-stepdet { width: 312px; }
+}
+
+/* 초안 판 — 머리줄은 목업의 슬롯 줄 자리다. 흰 띠로 띄운다 */
+.ask-plan { gap: 12px; }
+.ask-planhd {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 11px;
+  padding: 9px 14px;
+}
+
+/* 첫 화면 — 목업처럼 가운데 한 덩이. 바탕이 회색이라 카드로 띄운다 */
+.ask-hero,
+.ask-making {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 14px;
+  padding: 22px 24px 20px;
+  margin-top: 5vh;
+}
