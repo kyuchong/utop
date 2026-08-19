@@ -6056,3 +6056,47 @@ table.tb td.k {
 .cxp-growc { display: inline-flex; color: var(--c-text-faint); }
 .cxp-growc svg { width: 13px; height: 13px; transform: rotate(90deg); transition: transform 0.12s; }
 .cxp-grow.fold .cxp-growc svg { transform: none; }
+
+/* 오른쪽 칸 맨 위의 접힌 카드들(지시 ⑤⑥) */
+.cxp-fold {
+  border: 1px solid var(--c-border-soft);
+  border-radius: 8px;
+  background: var(--c-surface);
+  margin: 0 0 6px;
+  overflow: hidden;
+}
+.cxp-foldh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 7px 12px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  cursor: pointer;
+  text-align: left;
+}
+.cxp-foldh i { display: inline-flex; }
+.cxp-foldh svg { width: 13px; height: 13px; transition: transform 0.12s; }
+.cxp-fold.on .cxp-foldh svg { transform: rotate(90deg); }
+.cxp-foldb {
+  padding: 0 12px 10px 30px;
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+/* 건수 — 칩이 아니라 그냥 글자(지시: 필드처럼 보였다) */
+.cxp-cnt { font-variant-numeric: tabular-nums; }
+/* 고르개는 조용히 — 「그룹」 이름표는 뺐다(지시) */
+.cxp-sh .cxp-grpsel { color: var(--c-text-muted); border-color: var(--c-border-soft); }
+
+/* 「시험 항목 n/N」 — 찾기 줄 왼쪽(지시) */
+.cxp-cntlb {
+  flex: none;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  white-space: nowrap;
+}
+.cxp-cntlb .cxp-cnt { color: var(--c-text); font-weight: 700; }

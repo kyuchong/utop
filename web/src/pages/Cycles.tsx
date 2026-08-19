@@ -3003,6 +3003,27 @@ function BulkEditDialog({
 }
 
 /** 사이클 한 건 — 항목과 진행 */
+
+/**
+ * 접어 둔 카드 — 오른쪽 칸 맨 위(시험 목적 · 사전 준비 조건 · 라벨).
+ * **기본은 접힘**이다(지시). 이 칸의 주인공은 스텝이라, 문서가 위에서 자리를
+ * 먹으면 정작 볼 것이 아래로 밀린다.
+ */
+function FoldCard({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <section className={`cxp-fold${open ? ' on' : ''}`}>
+      <button type="button" className="cxp-foldh" onClick={() => setOpen((v) => !v)}>
+        <i aria-hidden="true">
+          <IconChevron />
+        </i>
+        <b>{title}</b>
+      </button>
+      {open && <div className="cxp-foldb">{children}</div>}
+    </section>
+  )
+}
+
 function CycleDetail({
   cycle,
   others,
@@ -3194,7 +3215,7 @@ function CycleDetail({
 
   const colsRef = useRef<HTMLDivElement>(null)
   /** 1열(항목 목록) 폭 — 끌어서 바꾼다. 다른 화면들과 같은 부품 */
-  const [sideW] = useResizableWidth('utop.cycle.execSideW', 340, 220, 640)
+  const [sideW, setSideW] = useResizableWidth('utop.cycle.execSideW', 340, 220, 640)
   const sideRef = useRef<HTMLElement | null>(null)
 
   /** 고른 항목의 시험 문서(Objective·Precondition) — TC 가 정본이라 그때 읽는다 */
@@ -3245,10 +3266,6 @@ function CycleDetail({
   const [pbEl, setPbEl] = useState<HTMLElement | null>(null)
   useEffect(() => {
     setPbEl(document.getElementById('cy-pbslot'))
-  }, [])
-  const [sumEl, setSumEl] = useState<HTMLElement | null>(null)
-  useEffect(() => {
-    setSumEl(document.getElementById('cy-sumslot'))
   }, [])
   // 자동 실행이 걸리면 요약 바가 저절로 열린다 — 진행 줄이 여기 있다.
   // 닫는 것은 사람 몫(✕) — 실행이 끝났다고 도로 접지 않는다
@@ -3820,18 +3837,7 @@ function CycleDetail({
             Edit·Bulk Edit | Add·Delete·Export. 세 화면을 오가는 사람이 매번
             어디에 무엇이 있는지 다시 찾지 않게. */}
         {/* 실행 단추·⋯·저장종은 맨 위 빵부스러기 줄(완료 왼쪽)로 — 가로 카드 한 줄을 없앴다(피드백 ②) */}
-        {sumEl &&
-          createPortal(
-            <button
-              className={`btn small${sumOpen ? ' cxp-fon' : ''}`}
-              type="button"
-              title="이 회차의 결과 요약을 펼치고 접습니다"
-              onClick={() => setSumOpen((v2) => !v2)}
-            >
-              시험결과 요약
-            </button>,
-            sumEl,
-          )}
+        {/* 「시험결과 요약」 단추는 걷었다(지시) — 요약은 목록에서 본다 */}
         {barEl &&
           createPortal(
             <>
@@ -4046,12 +4052,6 @@ function CycleDetail({
                   }
                 />
               </label>
-              <b>시험 항목</b>
-              <i className="cxp-n">
-                {rows.length}/{items.length}
-              </i>
-              <span className="sp" />
-              <span className="muted small">그룹</span>
               {/* 묶기 · 시험 유형 — 둘 다 드롭다운으로(지시). 단추 무리는
                   자리를 먹어 머리줄이 밀렸다. */}
               <select
@@ -4283,8 +4283,11 @@ function CycleDetail({
                 </div>
               </>
             )}
-            {/* 2행 — 찾기 */}
+            {/* 2행 — 「시험 항목 n/N」 이 찾기칸 왼쪽에 선다(지시) */}
             <div className="cxp-tools">
+              <b className="cxp-cntlb">
+                시험 항목 <span className="cxp-cnt">{rows.length}/{items.length}</span>
+              </b>
               <input
                 className="cxp-q"
                 placeholder="TC ID · 제목 검색"
@@ -4585,6 +4588,14 @@ function CycleDetail({
           {/* 폭 조절 손잡이는 걷었다(지시 ①) — 쓰는 일이 드물었고 왼쪽 끝에
               가는 띠 하나가 늘 서 있어 화면이 어수선했다. */}
   
+          {/* 두 칸 사이의 이동바(지시 ④) — 왼쪽 끝에 있던 것은 걷었다(지시 ③) */}
+          {!oneCol && (
+            <Resizer
+              onResize={setSideW}
+              getOrigin={() => sideRef.current?.getBoundingClientRect().left ?? 0}
+              label="항목 목록 폭"
+            />
+          )}
           <section className="cxp-main scroll">
             {/* 오른쪽 칸의 현황 줄·현황판은 걷었다(지시 ②) — 진행은 목록 머리
                 한 줄이 맡는다. 이 자리는 **고른 항목을 시험하는 자리**다. */}
@@ -4685,8 +4696,25 @@ function CycleDetail({
                   </div>
                 </div>
   
-                {/* Objective·Precondition·Details 머리는 걷었다(지시) — 이 칸은
-                    **순수 스텝**만 낸다. 시험 문서는 Coverage 가 정본이다. */}
+                {/* 위에 접어 둔 카드 셋(지시 ⑤⑥) — 열어 보는 사람만 편다.
+                    기본은 접힘이라 스텝이 맨 위에 온다. */}
+                <FoldCard title="시험 목적">{tcDoc?.object_md || '적어 둔 것이 없습니다.'}</FoldCard>
+                <FoldCard title="사전 준비 조건">
+                  {tcDoc?.precondition_md || '적어 둔 것이 없습니다.'}
+                </FoldCard>
+                <FoldCard title="라벨">
+                  {[
+                    maker ? `제조사 ${maker}` : '',
+                    family ? `제품군 ${family}` : '',
+                    mgroup ? `모델그룹 ${mgroup}` : '',
+                    cycle.model ? `모델명 ${cycle.model}` : '',
+                    cycle.version ? `버전 ${cycle.version}` : '',
+                    cur.assignee ? `담당 ${cur.assignee}` : '',
+                    cur.executed_by ? `실행자 ${cur.executed_by}` : '',
+                  ]
+                    .filter(Boolean)
+                    .join('  ·  ') || '라벨이 없습니다.'}
+                </FoldCard>
                 <StepDetail
                   key={cur.tcid ?? ''}
                   item={liveNow ? { ...cur, steps: st.liveSteps } : cur}
