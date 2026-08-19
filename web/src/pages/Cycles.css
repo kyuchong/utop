@@ -5729,3 +5729,47 @@ table.tb td.k {
 .cy-nowpane-chip.g-fail { background: #fdeeed; color: var(--c-fail); border-color: #f3c9c6; }
 .cy-nowpane-meta { margin-top: 2px; }
 .cy-nowpane-say { color: var(--c-text-faint); }
+
+/* ── 도는 동안 — 한 줄로, 대신 「무엇이 도는가」 를 크게(지적) ──────
+   여러 줄로 흩어 놓으니 정작 도는 항목 이름이 잔글씨였다. */
+.cy-prog-top { flex-wrap: wrap; gap: 8px; }
+.cy-prog-t { flex: none; }
+.cy-prog-item {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--c-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cy-prog-step {
+  flex: none;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+/* 목록에서 **지금 도는 줄**을 한눈에 — 왼쪽 띠와 점 */
+.cxp-row.running {
+  background: var(--c-primary-bg);
+  box-shadow: inset 3px 0 0 var(--c-primary);
+}
+.cxp-row.running .cxp-nm { font-weight: 700; color: var(--c-primary); }
+/* 줄마다의 실행 상태 — 도는 중 · 대기 */
+.cxp-run,
+.cxp-wait {
+  flex: none;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+.cxp-run { color: #fff; background: var(--c-primary); }
+.cxp-wait { color: var(--c-text-faint); background: var(--c-surface-alt); border: 1px solid var(--c-border-soft); font-weight: 500; }

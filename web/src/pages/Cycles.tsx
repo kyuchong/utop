@@ -2981,8 +2981,12 @@ function CycleDetail({
    * 실행을 건다. 여기서 돌리지 않는다 — 줄에 걸어 놓고 손을 뗀다.
    * 창을 닫아도 실행 서버가 계속 돌린다.
    */
+  const [runQ, setRunQ] = useState<Set<number>>(new Set())
   const startRun = (idxs: number[]) => {
     setFollow(true)
+    /* 이번 실행에 걸린 항목 — 목록에서 「대기」 를 그리는 데 쓴다.
+       도는 것만 보이고 **다음에 무엇이 도는지** 안 보였다(지적). */
+    setRunQ(new Set(idxs))
     void run(idxs).then((err) => {
       if (err) window.alert(err)
     })
@@ -2997,7 +3001,11 @@ function CycleDetail({
   const [runView, setRunView] = useState(false)
   // 실행이 끝나면 실행 모드도 같이 닫는다 — 남아 있으면 빈 판을 본다
   useEffect(() => {
-    if (!st.on) setRunView(false)
+    if (!st.on) {
+      setRunView(false)
+      /* 다 돌았으면 「대기」 딱지를 걷는다 — 안 걷으면 다음에 열 때도 남는다 */
+      setRunQ((v) => (v.size ? new Set() : v))
+    }
   }, [st.on])
   /** 도는 항목 줄 — 따라가기 중이면 왼쪽 목록에서 화면에 붙잡아 둔다 */
   const runlineRef = useRef<HTMLDivElement | null>(null)
@@ -4027,40 +4035,32 @@ function CycleDetail({
         {st.on && (
           <div className="cy-prog">
             <div className="cy-prog-top">
-              <b className="cy-prog-t">{st.waiting ? '실행 대기' : '시험 절차 실행 중'}</b>
+              {/* 도는 동안 가장 알고 싶은 것은 **지금 무엇이 도는가** 다.
+                  여러 줄로 흩어 놓았더니 정작 그 이름이 잔글씨였다(지적). */}
+              <b className="cy-prog-t">
+                {st.waiting ? '실행 대기' : `${Math.min(st.done + 1, st.total)}/${st.total} 실행 중`}
+              </b>
+              <span className="cy-prog-item" title={st.itemName || ''}>
+                {st.waiting ? '실행 서버가 집기를 기다립니다…' : st.itemName || '…'}
+              </span>
+              {!st.waiting && st.stepAt >= 0 && (
+                <span className="cy-prog-step">
+                  스텝 {st.stepAt + 1}/{st.stepCount}
+                </span>
+              )}
               {st.who && <span className="cy-prog-who">{st.who} 님</span>}
               <span className="sp" />
-              <button className="btn small danger" type="button" onClick={() => void stop()}>
-                ⏹ 중지
-              </button>
-            </div>
-            <div className="cy-prog-n">
-              총 {st.total}항목 중 <b>{Math.min(st.done + 1, st.total)}</b>항목 진행 (
-              {Math.round((st.done / (st.total || 1)) * 100)}%)
-            </div>
-            <div className="cy-prog-bar" aria-hidden="true">
-              <span style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
-            </div>
-            <div className="cy-prog-now">
-              {st.waiting ? (
-                '실행 서버가 집기를 기다립니다…'
-              ) : (
-                <>
-                  {st.itemName || '…'}
-                  {st.stepAt >= 0 && (
-                    <span className="cy-prog-step">
-                      {' '}
-                      · 스텝 {st.stepAt + 1}/{st.stepCount}
-                    </span>
-                  )}
-                  {st.stepName && <code className="cy-prog-cmd">{st.stepName}</code>}
-                </>
-              )}
               {!follow && (
                 <button className="btn small" type="button" onClick={() => setFollow(true)}>
                   도는 항목 따라가기
                 </button>
               )}
+              <button className="btn small danger" type="button" onClick={() => void stop()}>
+                ⏹ 중지
+              </button>
+            </div>
+            <div className="cy-prog-bar" aria-hidden="true">
+              <span style={{ width: `${st.total ? (st.done / st.total) * 100 : 0}%` }} />
             </div>
           </div>
         )}
@@ -4411,6 +4411,16 @@ function CycleDetail({
                             </span>
                           )
                         })()}
+                        {/* 이번 실행에서 이 줄이 어디쯤인가 — 도는 중이면 몇 번째
+                            스텝인지까지, 아직이면 「대기」. 끝난 줄은 판정이 말한다. */}
+                        {st.on && st.itemAt === at ? (
+                          <i className="cxp-run">
+                            ● 도는 중
+                            {st.stepAt >= 0 ? ` · ${st.stepAt + 1}/${st.stepCount}` : ''}
+                          </i>
+                        ) : st.on && runQ.has(at) && !v ? (
+                          <i className="cxp-wait">대기</i>
+                        ) : null}
                         {/* 시험 타입 — TC 가 정본 */}
                         {(() => {
                           const kd = typeOf(it)
