@@ -5011,7 +5011,7 @@ table.tb td.k {
 }
 /* 작업 흐름 — 판 하나 */
 .ask-cols > .ask-rail {
-  width: 250px;
+  width: 290px;
   border: 1px solid var(--c-border-soft);
   border-radius: 11px;
   background: var(--c-surface);
@@ -5032,7 +5032,7 @@ table.tb td.k {
 }
 .ask-rail > .ask-stages { padding-bottom: 12px; overflow: auto; }
 @media (max-width: 1300px) {
-  .ask-cols > .ask-rail { width: 212px; }
+  .ask-cols > .ask-rail { width: 250px; }
 }
 
 /* 캔버스 — 판 안이 아니라 판들의 바탕이다 */
@@ -5427,3 +5427,28 @@ table.tb td.k {
   border-top: 1px solid var(--c-border-soft);
 }
 .ask-main > .ask-askbar .ask-askbox { margin: 0; }
+
+/* ── 판 셋을 **같은 줄의 형제**로 ──────────────────────────────
+   여태 작업 흐름은 `.ask-cols` 의 자식이고, 나머지 둘은
+   canvaswrap → canvas → plan → two 네 겹 안에 있었다. 겹이 다르니 위·아래가
+   1px 씩 어긋나고, 고칠 때마다 다른 곳이 밀렸다.
+   초안이 뜬 동안 그 네 겹을 레이아웃에서 **지운다**(display:contents) —
+   그러면 세 판이 진짜 형제가 되어 같은 자리에서 시작하고 끝난다. */
+.ask-canvaswrap.plan,
+.ask-canvas.plan,
+.ask-canvas.plan > .ask-plan,
+.ask-canvas.plan > .ask-plan > .ask-two {
+  display: contents;
+}
+/* 형제가 된 판들의 몫 — 목업의 250px · 남는 폭 · 358px */
+.ask-cols > .ask-pane:first-of-type { flex: 1; min-width: 0; }
+.ask-cols > .ask-pane + .ask-pane { flex: none; width: 400px; }
+@media (max-width: 1300px) {
+  .ask-cols > .ask-pane + .ask-pane { width: 340px; }
+}
+/* 「조회가 아닌 명령은 뺐습니다」 띠는 판 위가 아니라 스텝 판 안에 있어야
+   한다 — 형제가 된 뒤에는 제 칸을 차지해 줄이 하나 더 생긴다 */
+.ask-canvas.plan > .ask-plan > .ask-drop {
+  grid-column: 1 / -1;
+  margin: 0 0 8px;
+}

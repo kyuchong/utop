@@ -1483,7 +1483,7 @@ export default function AskBar({ devices }: Props) {
           </section>
           )}
 
-          <div className="ask-canvaswrap">
+          <div className={`ask-canvaswrap${draft ? ' plan' : ''}`}>
           <main className={`ask-canvas${draft ? ' plan' : ''}`}>
 
       {/* 만드는 중 — 첫 화면을 **치운다**.
