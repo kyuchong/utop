@@ -6235,3 +6235,6 @@ table.tb td.k {
   border-bottom: 1px solid var(--c-border);
 }
 .cxp-h { padding: 7px 10px; }
+
+/* (1) 은 이름과 같은 색으로(지시) — 파랑은 걷는다 */
+.cxp-fsel-lb b { color: inherit; font-weight: 600; }

@@ -1217,8 +1217,9 @@ export default function Cycles({ me }: PageProps) {
             떴다). 사이클을 열었으면 그 사이클을 보는 사람(아래 CycleDetail 이
             이 자리에 끼운다), 목록이면 이 화면에 있는 사람 전부. */}
         {cur ? (
-          // 회차를 열면 이 자리는 비운다 — 오른쪽 칸 카드가 그 몫을 한다(지시)
-          <span />
+          /* 회차를 열면 「함께 보는 중」·저장 종은 **맨 윗줄 오른쪽 끝**에
+             끼운다(지시 — 1번을 2번 자리로). 아래 CycleDetail 이 채운다. */
+          <span className="cy-execslot" id="cy-pbslot" />
         ) : (
           <PresenceBar users={crowd} me={me?.name || me?.username || ''} />
         )}
@@ -4055,7 +4056,6 @@ function CycleDetail({
               </button>
             )}
             <span className="sp" />
-            <span className="cy-execslot" id="cy-pbslot" />
           </div>
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
           <aside className="cxp-side" ref={sideRef} style={{ width: sideW }}>
