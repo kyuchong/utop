@@ -5779,11 +5779,15 @@ table.tb td.k {
    줄을 펴는 까닭은 「이 회차가 어땠나」 이므로 그 답을 옆에 둔다. */
 .cyt-dbody {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.4fr);
+  /* 1행 전체 현황(통째) · 2행 왼쪽 검증 목적 · 오른쪽 AI 분석 결과(지시) */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
   gap: 12px;
   align-items: start;
 }
-@media (max-width: 1200px) {
+.cyt-dwide { grid-column: 1 / -1; }
+.cyt-dwrow { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.cyt-dwrow .cs-bar { flex: 1; min-width: 160px; }
+@media (max-width: 1000px) {
   .cyt-dbody { grid-template-columns: 1fr; }
 }
 .cyt-dpanel {

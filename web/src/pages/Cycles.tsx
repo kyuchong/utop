@@ -2367,21 +2367,16 @@ function CycleBoard({
                         {/* 설명 옆이 통째로 비어 있었다(지시 사진 ①②) —
                             그 자리에 이 회차의 **결과 요약**과 **AI 요약**을 둔다.
                             줄을 펴는 까닭이 「이 회차가 어땠나」 를 보려는 것이다. */}
+                        {/* 1행 — 전체 현황(가로로 통째). 2행 — 왼쪽 검증 목적,
+                            오른쪽 AI 분석 결과(지시). 줄을 펴는 까닭은
+                            「이 회차가 어땠나」 이므로 그 답이 맨 위에 온다. */}
                         <div className="cyt-dbody">
-                          <div className="cyt-ddesc">
-                            {c.description ? (
-                              <Markdown text={c.description} />
-                            ) : (
-                              <span className="muted small">적어 둔 설명이 없습니다.</span>
-                            )}
-                          </div>
-
-                          <section className="cyt-dpanel">
-                            <b className="cyt-dpt">시험결과 요약</b>
+                          <section className="cyt-dpanel cyt-dwide">
+                            <b className="cyt-dpt">전체 현황</b>
                             {t.total === 0 ? (
                               <span className="muted small">항목이 없습니다.</span>
                             ) : (
-                              <>
+                              <div className="cyt-dwrow">
                                 <div className="cyt-dsum">
                                   <b>{Math.round((t.pass / t.total) * 100)}%</b>
                                   <em>합격률</em>
@@ -2396,18 +2391,30 @@ function CycleBoard({
                                   <i className="cs-b left" style={{ width: `${((t.total - t.done) / t.total) * 100}%` }} />
                                 </span>
                                 <div className="cyt-dlegend">
+                                  <span>항목 {t.total}</span>
                                   <span><i className="cs-d pass" />합격 {t.pass}</span>
                                   <span><i className="cs-d fail" />실패 {t.fail}</span>
                                   <span><i className="cs-d left" />미실행 {Math.max(0, t.total - t.done)}</span>
                                   {t.iss > 0 && <span>결함 {t.iss}</span>}
                                 </div>
-                              </>
+                              </div>
                             )}
                           </section>
 
                           <section className="cyt-dpanel">
+                            <b className="cyt-dpt">검증 목적</b>
+                            <div className="cyt-ddesc">
+                              {c.description ? (
+                                <Markdown text={c.description} />
+                              ) : (
+                                <span className="muted small">적어 둔 설명이 없습니다.</span>
+                              )}
+                            </div>
+                          </section>
+
+                          <section className="cyt-dpanel">
                             <b className="cyt-dpt">
-                              AI 요약
+                              AI 분석 결과
                               {c.ai_summary?.at ? (
                                 <em className="muted small">{String(c.ai_summary.at).slice(0, 16)}</em>
                               ) : null}
