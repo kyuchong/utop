@@ -4911,3 +4911,83 @@ table.tb td.k {
 .cs-prog { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .cs-prog em { font-style: normal; font-size: 12px; color: var(--c-text-faint); flex: none; }
 .cs-pct { font-size: 13px; }
+
+/* AI 요약 칸이 아직 비었을 때 — 여기서 무엇을 하는지 한 줄로 말해 준다 */
+.cy-ai-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+}
+.cy-ai-empty p { margin: 0; max-width: 60ch; }
+
+/* ── 항목 줄의 오른쪽 무리 — 한 단 줄인다(피드백) ─────────────
+   「M(수동/자동)과 기존 시험 결과가 너무 크다」. 줄의 주인공은 시험 이름이고
+   이 둘은 곁들이다 — 곁들이가 이름만큼 굵고 크면 목록이 시끄럽다. */
+.cxp-rgt {
+  grid-template-columns: 20px 18px 46px;
+  gap: 6px;
+}
+.cxp-k {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 0 3px;
+}
+.cxp-hist > i.full {
+  height: 16px;
+  font-size: 11px;
+  border-radius: 4px;
+}
+
+/* 묶기 고르개 — 목록 머리에 작게 */
+.cxp-grpsel {
+  height: 22px;
+  padding: 0 4px;
+  font-size: var(--fs-sm);
+  max-width: 96px;
+}
+
+/* ── 오른쪽 맨 위 한 줄 — 이 회차가 어디까지 왔나(지시) ────────
+   아래는 고른 항목의 스텝별 결과다. 두 가지가 세로로 겹치지 않게
+   이 줄은 낮고 조용하게 둔다. */
+.cxp-now {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: var(--c-surface-alt);
+  flex: none;
+}
+.cxp-now-t {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 34%;
+}
+.cxp-now-bar {
+  flex: 1;
+  min-width: 60px;
+  display: flex;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--c-border);
+}
+.cxp-now-bar > i { display: block; height: 100%; }
+.cxp-now-bar > i.pass { background: var(--c-pass); }
+.cxp-now-bar > i.fail { background: var(--c-fail); }
+.cxp-now-bar > i.etc { background: var(--c-draft); }
+.cxp-now-n { flex: none; white-space: nowrap; }
+.cxp-now-run {
+  flex: none;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-primary);
+}
+
+/* 실행 화면에서 나가는 길 — 도는 동안에도 늘 왼쪽 끝에 있다 */
+.cy-run-back { flex: none; margin-right: 2px; }

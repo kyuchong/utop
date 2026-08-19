@@ -34,6 +34,7 @@ import {
   IconReqDoc,
   IconSettings,
   IconSlide,
+  IconSparkle,
   IconTcDoc,
   IconTag,
   IconTrash,
@@ -3096,6 +3097,8 @@ function CycleDetail({
   /* 요약을 펴 두는 사람은 요약부터 본다 — 열자마자 항목으로 건너뛰지 않게 */
   const [sec, setSec] = useState(sumOpen ? 'sum' : 'items')
   const [itemsOpen, setItemsOpen] = useState(true)
+  /** AI 요약 칸 접기 — 본문 접기(aiOpen)와는 다른 것이다 */
+  const [aiOpen2, setAiOpen2] = useState(true)
   useRailSpy(railRef, sec, setSec, true)
   useEffect(() => {
     localStorage.setItem('utop.cycle.sumopen', sumOpen ? '1' : '0')
@@ -3385,6 +3388,22 @@ function CycleDetail({
     return m
   }, [others])
 
+  /** 오른쪽 위 한 줄이 읽는 셈 — 실행/합격/실패/그 밖 */
+  const { doneAll, donePass, doneFail, doneEtc } = useMemo(() => {
+    let all = 0
+    let pass = 0
+    let fail = 0
+    for (const it of items) {
+      const v = itemVerdict(it)
+      if (!v) continue
+      all += 1
+      const g = resDefs.find((r) => r.v === v)?.group ?? ''
+      if (g === 'pass') pass += 1
+      else if (g === 'fail') fail += 1
+    }
+    return { doneAll: all, donePass: pass, doneFail: fail, doneEtc: Math.max(0, all - pass - fail) }
+  }, [items, resDefs])
+
   // 결과별 개수 — 칩(전체/Pass/Fail/미실행)이 읽는다
   const counts: Record<string, number> = {}
   for (const r of resDefs) counts[r.v] = 0
@@ -3407,7 +3426,17 @@ function CycleDetail({
     queryFn: async () => {
       const r = await apiFetch('/api/req')
       if (!r.ok) throw new Error('요구사항을 불러오지 못했습니다')
-      return (await r.json()) as { reqs: Array<{ reqid?: string; id?: string; title?: string }> }
+      return (await r.json()) as {
+        reqs: Array<{
+          reqid?: string
+          id?: string
+          title?: string
+          cat1?: string | null
+          cat2?: string | null
+          cat3?: string | null
+          cat4?: string | null
+        }>
+      }
     },
     staleTime: 60_000,
   })
@@ -3420,6 +3449,41 @@ function CycleDetail({
     }
     return m
   }, [reqQ2.data])
+  /** 항목 목록을 무엇으로 묶나(지시) — 기본은 요구사항, 여태 하던 것 */
+  const [grp, setGrp] = useState<string>(
+    () => localStorage.getItem('utop.cycle.grp') || 'req',
+  )
+  useEffect(() => {
+    localStorage.setItem('utop.cycle.grp', grp)
+  }, [grp])
+
+  /** 요구사항이 놓인 폴더 — 가장 깊은 분류 한 조각. 항목 묶기(폴더)가 쓴다 */
+  const reqFolder = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of reqQ2.data?.reqs ?? []) {
+      const deep = String(r.cat4 || r.cat3 || r.cat2 || r.cat1 || '').trim()
+      if (r.reqid) m.set(r.reqid, deep)
+      if (r.id) m.set(r.id, deep)
+    }
+    return m
+  }, [reqQ2.data])
+
+  /** 시험(TC)의 심각도 — 항목 묶기(우선순위)가 쓴다. 목록 meta 만 받는다 */
+  const tcMetaQ = useQuery({
+    queryKey: ['tc', 'meta', 'cycle-group'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/tc?meta=1')
+      if (!r.ok) return { tcs: [] as Array<{ tcid: string; severity?: string | null }> }
+      return (await r.json()) as { tcs: Array<{ tcid: string; severity?: string | null }> }
+    },
+    staleTime: 60_000,
+  })
+  const tcSev = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const t of tcMetaQ.data?.tcs ?? []) m.set(t.tcid, String(t.severity ?? '').trim())
+    return m
+  }, [tcMetaQ.data])
+
   /** 내부 키(rq-…) → 부여 ID(REQ-2633-0003). 내부 키는 화면에 안 낸다 */
   const reqIdOf = useMemo(() => {
     const m = new Map<string, string>()
@@ -3428,6 +3492,39 @@ function CycleDetail({
     }
     return m
   }, [reqQ2.data])
+
+  /** 이 항목이 어느 묶음인가 — 열쇠(같은 묶음 판별)와 이름(머리줄) */
+  const groupOfItem = useMemo(() => {
+    return (it: CycleItemLite): { k: string; label: string; sub?: string } => {
+      switch (grp) {
+        case 'status': {
+          const v = itemVerdict(it)
+          return { k: v || '_none', label: v ? verdictLabel(v) : '미실행' }
+        }
+        case 'tester': {
+          const t = String(it.assignee ?? '').trim() || String(it.executed_by ?? '').trim()
+          return { k: t || '_none', label: t || '(담당 없음)' }
+        }
+        case 'prio': {
+          const sv = tcSev.get(it.tcid) ?? ''
+          return { k: sv || '_none', label: sv || '(우선순위 없음)' }
+        }
+        case 'folder': {
+          const f = reqFolder.get(String(it.req_id ?? '')) ?? ''
+          return { k: f || '_none', label: f || '(폴더 없음)' }
+        }
+        default: {
+          const rid = String(it.req_id ?? '')
+          const label = reqIdOf.get(rid) || (rid.startsWith('rq-') ? '' : rid)
+          return {
+            k: rid || '_none',
+            label: reqName.get(rid) || rid || '(요구사항 없음)',
+            sub: label || undefined,
+          }
+        }
+      }
+    }
+  }, [grp, tcSev, reqFolder, reqName, reqIdOf])
 
 
   /*
@@ -3480,23 +3577,22 @@ function CycleDetail({
         it.tcid.toLowerCase().includes(n) || (it.name ?? '').toLowerCase().includes(n)
       )
     })
-    // 같은 요구사항끼리 붙여 둔다 — 흩어져 있으면 묶음 머리가 여러 번 뜬다.
+    // 같은 묶음끼리 붙여 둔다 — 흩어져 있으면 묶음 머리가 여러 번 뜬다.
     // 그 안의 차례는 원래 자리를 지킨다(사람이 정한 순서다).
     const order = new Map<string, number>()
     out.forEach((x) => {
-      const k = String(x.req_id ?? '')
+      const k = groupOfItem(x).k
       if (!order.has(k)) order.set(k, order.size)
     })
     return out
       .map((x, i) => ({ x, i }))
       .sort(
         (a, b) =>
-          (order.get(String(a.x.req_id ?? '')) ?? 0) -
-            (order.get(String(b.x.req_id ?? '')) ?? 0) || a.i - b.i,
+          (order.get(groupOfItem(a.x).k) ?? 0) - (order.get(groupOfItem(b.x).k) ?? 0) || a.i - b.i,
       )
       .map((v) => v.x)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, fSet, onlyRegress, prevVerdict, fAss, fq])
+  }, [items, fSet, onlyRegress, prevVerdict, fAss, fq, groupOfItem])
 
   /*
    * 실행 중에는 **도는 항목**을 따라간다.
@@ -3632,13 +3728,16 @@ function CycleDetail({
           ariaLabel="사이클 보기"
           value={sec}
           onPick={(k) => {
+            // 접힌 칸을 누르면 펴 준다 — 눌렀는데 이름표만 나오면 고장으로 읽힌다
             if (k === 'sum') setSumOpen(true)
+            else if (k === 'ai') setAiOpen2(true)
             else setItemsOpen(true)
             setSec(k)
           }}
           items={[
             { k: 'sum', label: '시험결과 요약', icon: <IconMeter />, n: 0 },
-            { k: 'items', label: '항목', icon: <IconTcDoc />, n: items.length },
+            { k: 'ai', label: 'AI 요약', icon: <IconSparkle />, n: 0 },
+            { k: 'items', label: '시험 항목', icon: <IconTcDoc />, n: items.length },
           ]}
         />
         <div className="railbox" ref={railRef}>
@@ -3721,27 +3820,8 @@ function CycleDetail({
           const autos = items.filter((x) => typeOf(x) === 'auto')
           return (
             <div className="cy-sum3">
-              <div className="cy-sum-hd">
-                <b>시험결과 요약</b>
-                <span className="sp" />
-                <button
-                  className="btn small"
-                  type="button"
-                  disabled={aiBusy}
-                  title="이 회차 결과를 LLM 이 요약해 이 아래에 붙입니다 (저장됨)"
-                  onClick={() => void makeAi()}
-                >
-                  {aiBusy ? '요약 중…' : aiTxt ? '✨ AI 요약 다시' : '✨ AI 요약'}
-                </button>
-                <button
-                  className="btn small"
-                  type="button"
-                  title="요약 바를 닫습니다"
-                  onClick={() => setSumOpen(false)}
-                >
-                  ✕
-                </button>
-              </div>
+              {/* 이름표(「시험결과 요약」)와 접기는 레일 칸(RailSec)이 맡는다 —
+                  여기에 또 두면 같은 말이 두 줄이 된다. AI 는 제 칸이 있다. */}
               <div className="cy-sum-grid">
                 {sect('전체', items)}
                 {sect('수동', manuals)}
@@ -3761,46 +3841,69 @@ function CycleDetail({
                   </em>
                 </div>
               )}
-              {(aiBusy || aiErr || aiTxt) && (
-                <div className="cy-sum-ai">
-                  <div className="cy-sum-ai-h">
-                    <b>✨ AI 요약</b>
-                    {aiAt && <em>{String(aiAt).slice(0, 16)}</em>}
-                    {!aiBusy && !aiErr && aiTxt && (
-                      <button type="button" className="cy-sum-ai-fold" onClick={() => setAiOpen((v) => !v)}>
-                        {aiOpen ? '접기' : '펼치기'}
-                      </button>
-                    )}
-                  </div>
-                  {aiBusy ? (
-                    <div className="cy-sum-ai-load">
-                      <span className="cy-spin" aria-hidden="true" />
-                      <div className="cy-sum-ai-sk">
-                        <b>
-                          『{cycle.name || cycle.cid || cycle.version || ''}』 사이클 실행 결과를 AI 가
-                          분석하고 있습니다
-                        </b>
-                        <span className="cy-sum-ai-stage">{AI_STAGES[aiStage]}</span>
-                        <i style={{ width: '92%' }} />
-                        <i style={{ width: '78%' }} />
-                        <i style={{ width: '85%' }} />
-                      </div>
-                    </div>
-                  ) : aiErr ? (
-                    <div className="cy-sum-ai-err">{aiErr}</div>
-                  ) : (
-                    <div className={`cy-sum-ai-body${aiOpen ? '' : ' fold'}`}>
-                      <Markdown text={aiTxt} />
-                      <div className="cy-sum-ai-note">
-                        AI 는 실수할 수 있습니다. 정보를 다시 한번 확인해 주세요.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           )
         })()}
+          </RailSec>
+          <RailSec
+            k="ai"
+            title="AI 요약"
+            open={aiOpen2}
+            onToggle={() => setAiOpen2((v) => !v)}
+          >
+            {aiBusy || aiErr || aiTxt ? (
+                    <div className="cy-sum-ai">
+                      <div className="cy-sum-ai-h">
+                        <b>✨ AI 요약</b>
+                        {aiAt && <em>{String(aiAt).slice(0, 16)}</em>}
+                        {!aiBusy && !aiErr && aiTxt && (
+                          <button type="button" className="cy-sum-ai-fold" onClick={() => setAiOpen((v) => !v)}>
+                            {aiOpen ? '접기' : '펼치기'}
+                          </button>
+                        )}
+                      </div>
+                      {aiBusy ? (
+                        <div className="cy-sum-ai-load">
+                          <span className="cy-spin" aria-hidden="true" />
+                          <div className="cy-sum-ai-sk">
+                            <b>
+                              『{cycle.name || cycle.cid || cycle.version || ''}』 사이클 실행 결과를 AI 가
+                              분석하고 있습니다
+                            </b>
+                            <span className="cy-sum-ai-stage">{AI_STAGES[aiStage]}</span>
+                            <i style={{ width: '92%' }} />
+                            <i style={{ width: '78%' }} />
+                            <i style={{ width: '85%' }} />
+                          </div>
+                        </div>
+                      ) : aiErr ? (
+                        <div className="cy-sum-ai-err">{aiErr}</div>
+                      ) : (
+                        <div className={`cy-sum-ai-body${aiOpen ? '' : ' fold'}`}>
+                          <Markdown text={aiTxt} />
+                          <div className="cy-sum-ai-note">
+                            AI 는 실수할 수 있습니다. 정보를 다시 한번 확인해 주세요.
+                          </div>
+                        </div>
+                      )}
+                    </div>
+            ) : (
+              /* 아직 안 만들었다 — 칸이 비어 있으면 여기서 뭘 하는지 모른다 */
+              <div className="cy-ai-empty">
+                <p className="muted small">
+                  이 회차의 실행 결과를 LLM 이 읽고 한 장으로 간추립니다. 만든 요약은
+                  회차에 저장돼, 다시 열어도 그대로 있습니다.
+                </p>
+                <button
+                  className="btn small primary"
+                  type="button"
+                  disabled={aiBusy}
+                  onClick={() => void makeAi()}
+                >
+                  ✨ AI 요약 만들기
+                </button>
+              </div>
+            )}
           </RailSec>
           <RailSec
             k="items"
@@ -4042,6 +4145,20 @@ function CycleDetail({
               </label>
               <b>Test Cases</b>
               <i className="cxp-n">{rows.length}</i>
+              {/* 무엇으로 묶어 볼까 — 사람마다 찾는 길이 다르다(지시).
+                  고른 값은 브라우저에 기억된다. */}
+              <select
+                className="cy-v cxp-grpsel"
+                value={grp}
+                title="항목을 무엇으로 묶을지 고릅니다"
+                onChange={(e) => setGrp(e.target.value)}
+              >
+                <option value="req">요구사항</option>
+                <option value="status">Status</option>
+                <option value="tester">Tester</option>
+                <option value="prio">우선순위</option>
+                <option value="folder">폴더</option>
+              </select>
               <span className="sp" />
               {pick.size > 0 && <span className="muted small">{pick.size}개 선택</span>}
               {pick.size > 0 && !st.on && (
@@ -4252,8 +4369,9 @@ function CycleDetail({
             <div className="cxp-rows scroll">
               {rows.map((it, i) => {
                 const at = items.indexOf(it)
-                const rid = String(it.req_id ?? '')
-                const newGroup = i === 0 || String(rows[i - 1]?.req_id ?? '') !== rid
+                const g = groupOfItem(it)
+                const prevRow = rows[i - 1]
+                const newGroup = i === 0 || !prevRow || groupOfItem(prevRow).k !== g.k
                 const liveHere = st.on && st.itemAt === at && st.liveSteps.length > 0
                 const shown = liveHere
                   ? ({ ...it, steps: st.liveSteps as CycleStep[], result: '' })
@@ -4263,12 +4381,9 @@ function CycleDetail({
                 return (
                   <React.Fragment key={`${it.tcid}-${i}`}>
                     {newGroup && (
-                      <div className="cxp-grow" title={rid || '요구사항 없음'}>
-                        <b>{reqName.get(rid) || rid || '(요구사항 없음)'}</b>
-                        {(() => {
-                          const label = reqIdOf.get(rid) || (rid.startsWith('rq-') ? '' : rid)
-                          return label ? <span className="muted small"> {label}</span> : null
-                        })()}
+                      <div className="cxp-grow" title={g.label}>
+                        <b>{g.label}</b>
+                        {g.sub ? <span className="muted small"> {g.sub}</span> : null}
                       </div>
                     )}
                     <div
@@ -4398,6 +4513,26 @@ function CycleDetail({
           />
   
           <section className="cxp-main scroll">
+            {/* 오른쪽 맨 위 — **이 회차가 어디까지 왔나**를 한 줄로(지시).
+                아래는 고른 항목의 스텝별 결과다. 항목을 안 골랐어도 이 줄은
+                남는다 — 회차 상태를 보려고 항목을 고를 이유는 없다. */}
+            <div className="cxp-now">
+              <b className="cxp-now-t">
+                {[cycle.model, cycle.version || cycle.version_group].filter(Boolean).join(' · ') ||
+                  cycle.name ||
+                  cycle.id}
+              </b>
+              <span className="cxp-now-bar" aria-hidden="true">
+                <i className="pass" style={{ width: `${items.length ? (donePass / items.length) * 100 : 0}%` }} />
+                <i className="fail" style={{ width: `${items.length ? (doneFail / items.length) * 100 : 0}%` }} />
+                <i className="etc" style={{ width: `${items.length ? (doneEtc / items.length) * 100 : 0}%` }} />
+              </span>
+              <span className="cxp-now-n muted small">
+                {doneAll}/{items.length} 실행 · 합격 {donePass} · 실패 {doneFail}
+                {doneEtc ? ` · 그 밖 ${doneEtc}` : ''}
+              </span>
+              {st.on && <span className="cxp-now-run">돌는 중</span>}
+            </div>
             {cur ? (
               <>
                 <div className="cxp-h">
@@ -4934,6 +5069,17 @@ function RunPane({
   return (
     <div className="cy-runmode">
       <div className={`cy-run-band${done ? ' done' : ''}`}>
+        {/* 돌아가는 길은 **늘** 있어야 한다(지시). 여태는 실행이 끝나야만
+            「표로 돌아가기」 가 떠서, 도는 동안에는 빵부스러기의 폴더를
+            눌러 빠져나와야 했다. 나가도 실행은 계속 돈다. */}
+        <button
+          className="btn small cy-run-back"
+          type="button"
+          title="사이클 화면으로 돌아갑니다 — 실행은 그대로 계속됩니다"
+          onClick={onExit}
+        >
+          ← 사이클
+        </button>
         {!done && <span className="cy-run-dot" aria-hidden="true" />}
         <b>
           {cycle.version || cycle.name || cycle.id}{' '}
