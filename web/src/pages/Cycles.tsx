@@ -4033,7 +4033,6 @@ function CycleDetail({
               있던 「전체 실행 · 시험 완료 · 시험결과 요약」 이 여기로 온다. */}
           <div className="cxp-actcard">
             <span className="cy-execslot" id="cy-execbar" />
-            <span className="sp" />
             {finish && (
               <button
                 className="btn small primary"
@@ -4049,6 +4048,7 @@ function CycleDetail({
                 {finish.busy ? '완료 중…' : '✔ 시험 완료'}
               </button>
             )}
+            <span className="sp" />
             <span className="cy-execslot" id="cy-sumslot" />
           </div>
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
@@ -4081,31 +4081,25 @@ function CycleDetail({
                 <option value="manual">수동</option>
               </select>
               <span className="cxp-div" aria-hidden="true" />
-              {(() => {
-                const fCnt = fSet.size + (onlyRegress ? 1 : 0)
-                return (
-                  <button
-                    className={`btn small cxp-funnel${fCnt ? ' cxp-fon' : ''}`}
-                    type="button"
-                    title="결과 필터 — 전체 · Pass · Fail · 미실행 · 회귀"
-                    onClick={(e) => {
-                      const r2 = e.currentTarget.getBoundingClientRect()
-                      setFiltAt((v2) => (v2 ? null : { x: r2.right, y: r2.bottom + 4 }))
-                    }}
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
-                      <path
-                        d="M3 5h18l-7 8v5l-4 2v-7L3 5z"
-                        fill={fCnt ? 'currentColor' : 'none'}
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                    {fCnt > 0 && <em className="cxp-fbadge">{fCnt}</em>}
-                  </button>
-                )
-              })()}
+              <select
+                className="cy-v cxp-grpsel"
+                value={onlyRegress ? '_reg' : ([...fSet][0] ?? '')}
+                title="Result — 판정으로 좁혀 봅니다"
+                onChange={(e) => {
+                  const v = e.target.value
+                  setOnlyRegress(v === '_reg')
+                  setFSet(v && v !== '_reg' ? new Set([v === '_none' ? '' : v]) : new Set())
+                }}
+              >
+                <option value="">Result 전체</option>
+                {resDefs.map((r) => (
+                  <option key={r.v} value={r.v}>
+                    {verdictLabel(r.v as Verdict)}
+                  </option>
+                ))}
+                <option value="_none">미실행</option>
+                <option value="_reg">회귀</option>
+              </select>
               {/* ⋯ 는 걷었다(지시) — 쓰는 일이 드물었다 */}
               {/* 내 것만 — 아이콘 하나로 켜고 끈다(지시) */}
               <button
