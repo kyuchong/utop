@@ -1176,10 +1176,34 @@ export default function AskBar({ devices }: Props) {
     }
   }
 
+  /**
+   * 스텝 한 줄 고치기.
+   *
+   * 「일반」 갈래는 **원본(raw)** 이 그대로 실행기로 간다. 화면 줄만 고치면
+   * 고친 값이 실행에 안 간다 — 원본에도 같이 얹는다. 이름이 다른 칸은
+   * 여기서 맞춘다(desc → step).
+   */
   const setStep = (i: number, patch: Partial<DraftStep>) =>
-    setDraft((d) =>
-      d ? { ...d, steps: d.steps.map((s, j) => (j === i ? { ...s, ...patch } : s)) } : d,
-    )
+    setDraft((d) => {
+      if (!d) return d
+      const steps = d.steps.map((s, j) => (j === i ? { ...s, ...patch } : s))
+      if (!d.raw?.length) return { ...d, steps }
+      const raw = d.raw.map((x, j) => {
+        if (j !== i) return x
+        const y: TcStep = { ...x }
+        if (patch.desc !== undefined) y.step = patch.desc
+        if (patch.cli !== undefined) y.cli = patch.cli
+        if (patch.criteria !== undefined) y.criteria = patch.criteria
+        if (patch.type !== undefined) y.type = patch.type
+        if (patch.oid !== undefined) y.oid = patch.oid
+        if (patch.host !== undefined) y.host = patch.host
+        if (patch.cmpLeft !== undefined) y.cmpLeft = patch.cmpLeft
+        if (patch.cmpRight !== undefined) y.cmpRight = patch.cmpRight
+        if (patch.cmpOp !== undefined) y.cmpOp = patch.cmpOp
+        return y
+      })
+      return { ...d, steps, raw }
+    })
 
   /* 절차 짓기는 한 번의 부름이라 서버가 중간을 알려 주지 않는다. 대신
      **실제로 하는 일의 차례**를 그대로 적어 준다 — 학습된 절차를 읽고,
@@ -1843,6 +1867,16 @@ export default function AskBar({ devices }: Props) {
                     : k === 'snmp_set' ? 'SNMP Set'
                     : k === 'snmp_trap' ? 'SNMP Trap'
                     : k === 'ping' ? 'Ping'
+                    : k === 'diff' ? 'Diff'
+                    : k === 'manual' ? '수동'
+                    : k === 'map' ? 'Map'
+                    : k === 'connect' ? '세션 열기'
+                    : k === 'disconnect' ? '세션 닫기'
+                    : k === 'model' ? '모델'
+                    : k === 'group' ? '묶음'
+                    : k === 'call' ? '다른 시험'
+                    : k === 'variable' ? '변수'
+                    : k === 'switch' || k === 'else' || k === 'elif' ? '갈림길'
                     : 'CLI'
                   const body = isNote
                     ? s.desc || s.text || ''
@@ -1850,7 +1884,9 @@ export default function AskBar({ devices }: Props) {
                       ? s.oid || ''
                       : k === 'wait'
                         ? `${s.waitSec ?? s.sec ?? 1}초`
-                        : s.cli || s.desc || ''
+                        : k === 'diff'
+                          ? `${s.cmpLeft ?? ''} ${s.cmpOp || '=='} ${s.cmpRight ?? ''}`.trim()
+                          : s.cli || s.desc || ''
                   return (
                     <div
                       key={i}
@@ -1938,6 +1974,28 @@ export default function AskBar({ devices }: Props) {
                         value={s.oid ?? ''}
                         onChange={(e) => setStep(i, { oid: e.target.value })}
                       />
+                    </div>
+                  ) : s.kind === 'diff' ? (
+                    /* 값 견주기 — 장비로 나가는 명령이 없다. 무엇과 무엇을
+                       견주는지가 이 스텝의 전부다(Coverage 와 같은 값). */
+                    <div className="ask-detf">
+                      <span className="ask-detk">
+                        견줄 값
+                        <em className="muted small">두 값이 이 관계면 합격입니다</em>
+                      </span>
+                      <div className="ask-detcmp">
+                        <input
+                          className="mono"
+                          value={s.cmpLeft ?? ''}
+                          onChange={(e) => setStep(i, { cmpLeft: e.target.value })}
+                        />
+                        <span className="ask-detop">{s.cmpOp || '=='}</span>
+                        <input
+                          className="mono"
+                          value={s.cmpRight ?? ''}
+                          onChange={(e) => setStep(i, { cmpRight: e.target.value })}
+                        />
+                      </div>
                     </div>
                   ) : s.kind === 'ping' ? (
                     <div className="ask-detf">
