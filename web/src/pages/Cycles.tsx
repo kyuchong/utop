@@ -30,6 +30,7 @@ import {
   IconPlay,
   IconReqDoc,
   IconSettings,
+  IconSparkle,
   IconSlide,
   IconTag,
   IconTrash,
@@ -2504,7 +2505,14 @@ function CycleBoard({
                                 title="이 회차의 결과를 LLM 이 읽고 한 장으로 간추립니다 (저장됩니다)"
                                 onClick={() => void makeAi(c.id)}
                               >
-                                {aiBusy === c.id ? '만드는 중…' : c.ai_summary?.text ? '다시 만들기' : '✨ AI 요약'}
+                                <i className="cy-aimark" aria-hidden="true">
+                                  <IconSparkle />
+                                </i>
+                                {aiBusy === c.id
+                                  ? 'AI 요약 만드는 중…'
+                                  : c.ai_summary?.text
+                                    ? 'AI 요약 재진행'
+                                    : 'AI 요약'}
                               </button>
                             </b>
                             {c.ai_summary?.text ? (

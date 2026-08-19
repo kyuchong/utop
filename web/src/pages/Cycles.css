@@ -5864,3 +5864,13 @@ table.tb td.k {
 .cyt-dcell-h b { font-size: var(--fs-md); }
 .cyt-dpt .btn { margin-left: auto; }
 .cyt-dpt em + .btn { margin-left: 8px; }
+
+/* AI 마크 — 단추 안의 반짝임. 글자와 같은 색으로 따라간다 */
+.cy-aimark {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 4px;
+  color: #7c3aed;
+}
+.cy-aimark svg { width: 14px; height: 14px; }
+.cyt-dpt .btn { display: inline-flex; align-items: center; }
