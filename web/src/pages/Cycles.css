@@ -6845,3 +6845,49 @@ table.tb td.k {
   .ask-two > .ask-stepdet,
   .ask-cols > .ask-pane + .ask-pane { width: 380px; }
 }
+
+/* ── 나누기 기준 · 결과 상세(옛 Reports 가 이리로 왔다) ────────── */
+.cs-panh { display: flex; align-items: center; gap: 7px; }
+.cs-panh select { height: 24px; font-size: var(--fs-xs); }
+.cs-brow { grid-template-columns: 132px 1fr 40px 46px; }
+.cs-bn { color: var(--c-text-faint); }
+
+.cs-det {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 9px;
+  margin-top: 12px;
+  overflow: hidden;
+}
+.cs-deth {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface-alt);
+}
+.cs-deth .sp { flex: 1; }
+.cs-deth > b { font-size: var(--fs-sm); }
+.cs-deth select { height: 26px; font-size: var(--fs-xs); }
+.cs-dq { flex: 1; min-width: 160px; height: 26px; font-size: var(--fs-sm); }
+.cs-dtbl { display: flex; flex-direction: column; }
+.cs-drow {
+  display: grid;
+  grid-template-columns: 62px 108px minmax(0, 1fr) 62px 150px 150px 116px;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 11px;
+  border-bottom: 1px solid var(--c-border-soft);
+  font-size: var(--fs-sm);
+}
+.cs-dth { color: var(--c-text-faint); font-size: var(--fs-xs); font-weight: 600; background: var(--c-surface); }
+.cs-drow > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-dv { font-weight: 700; font-size: var(--fs-xs); }
+.cs-drow.g-pass .cs-dv { color: var(--c-pass); }
+.cs-drow.g-fail .cs-dv { color: var(--c-fail); }
+.cs-drow.g-none .cs-dv { color: var(--c-text-faint); }
+.cs-dtc { color: var(--c-primary); font-size: var(--fs-xs); }
+.cs-dfail { font-style: normal; color: var(--c-fail); font-size: var(--fs-xs); }
+.cs-dpg { display: flex; align-items: center; gap: 10px; justify-content: center; padding: 8px; }

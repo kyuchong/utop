@@ -6842,7 +6842,8 @@ async def _ru_groups() -> dict:
     return g
 
 
-async def _rollup(path: str = _RU_ROOT, date_from: str = "", date_to: str = "") -> dict:
+async def _rollup(path: str = _RU_ROOT, date_from: str = "", date_to: str = "",
+                  axis: str = "") -> dict:
     """
     폴더 한 층의 현황. 프리뷰의 KPI·막대·표·추이가 모두 이 하나를 쓴다.
 
@@ -6870,6 +6871,7 @@ async def _rollup(path: str = _RU_ROOT, date_from: str = "", date_to: str = "") 
 
     total = tally()
     kids: dict[str, dict] = {}
+    axes: dict[str, dict] = {}
     trend: dict[str, dict] = {}
     rows: list[dict] = []
 
@@ -6882,6 +6884,16 @@ async def _rollup(path: str = _RU_ROOT, date_from: str = "", date_to: str = "") 
         kid = kids.setdefault(key, {**tally(), "key": key, "leaf": not rest})
         kid["cycles"] += 1
         total["cycles"] += 1
+
+        # 축 열쇠 — 「무엇으로 나눠 볼까」. 회차에서 오는 것과 항목에서
+        # 오는 것이 있어 둘 다 받는다.
+        cyc_key = {
+            "cycle": str(c.get("cid") or c.get("name") or c.get("id") or "–"),
+            "version_group": str(c.get("version_group") or "(버전그룹 없음)"),
+            "model": str(c.get("model") or "(모델 없음)"),
+            "customer": str(c.get("customer") or "(고객 없음)"),
+            "status": str(c.get("status") or "(상태 없음)"),
+        }.get(axis, "")
 
         cy = tally()
         for it in (c.get("items") or []):
@@ -6905,6 +6917,18 @@ async def _rollup(path: str = _RU_ROOT, date_from: str = "", date_to: str = "") 
                 wk[g] += 1
             if it.get("issues"):
                 cy["open_defects"] += len(it.get("issues") or [])
+
+            if axis:
+                if cyc_key:
+                    ak = cyc_key
+                else:
+                    raw = it.get("severity") if axis == "severity" else it.get("assignee")
+                    ak = str(raw or "").strip() or "(없음)"
+                ax = axes.setdefault(ak, {**tally(), "key": ak})
+                ax["n"] += 1
+                ax[g if g in ("pass", "fail", "none") else "other"] += 1
+                if day and day > ax["last_run"]:
+                    ax["last_run"] = day
 
         for f in ("n", "pass", "fail", "other", "none", "open_defects"):
             kid[f] += cy[f]
@@ -6934,6 +6958,8 @@ async def _rollup(path: str = _RU_ROOT, date_from: str = "", date_to: str = "") 
         "level": level,
         "totals": pct(total),
         "children": sorted((pct(k) for k in kids.values()), key=lambda x: (x["pass_rate"], -x["n"])),
+        "axis": axis,
+        "groups": sorted((pct(a) for a in axes.values()), key=lambda x: (x["pass_rate"], -x["n"])),
         "cycles": rows,
         "trend": [
             {"at": v["k"], "pass": v["pass"], "fail": v["fail"],
@@ -6944,9 +6970,95 @@ async def _rollup(path: str = _RU_ROOT, date_from: str = "", date_to: str = "") 
 
 
 @app.get("/api/cycle/rollup")
-async def cycle_rollup_get(path: str = _RU_ROOT, date_from: str = "", date_to: str = ""):
-    """폴더 한 층의 현황 — 화면(KPI·막대·추이·표)이 이 하나를 쓴다."""
-    return await _rollup(path, date_from, date_to)
+async def cycle_rollup_get(path: str = _RU_ROOT, date_from: str = "", date_to: str = "",
+                           axis: str = ""):
+    """
+    폴더 한 층의 현황 — 화면(KPI·막대·추이·표)이 이 하나를 쓴다.
+
+    `axis` 를 주면 **하위 폴더 대신 그것으로 나눈** 막대를 함께 내려준다:
+    cycle · version_group · model · customer · status · severity · assignee.
+    (옛 Reports 의 「축 갈아끼우기」 가 이 자리로 왔다)
+    """
+    return await _rollup(path, date_from, date_to, axis)
+
+
+@app.get("/api/cycle/rollup/items")
+async def cycle_rollup_items(
+    path: str = _RU_ROOT,
+    date_from: str = "",
+    date_to: str = "",
+    q: str = "",
+    kind: str = "",
+    severity: str = "",
+    cycle: str = "",
+    verdict: str = "",
+    limit: int = 20,
+    offset: int = 0,
+):
+    """
+    결과 상세 — 이 폴더에 걸린 **항목 한 줄씩**. 옛 Reports 의 아래 표다.
+    거르개: 찾기 · 타입(auto·manual) · 심각도 · 사이클 · 판정 · 기간.
+    """
+    metas = await db.cycle_list_meta()
+    cat = await db.catalog_list("model")
+    fam = {str(m.get("name") or ""): str(m.get("family") or "").strip() for m in cat}
+    mgrp = {str(m.get("name") or ""): str(m.get("model_group") or "").strip() for m in cat}
+    grp_of = await _ru_groups()
+    base = str(path or _RU_ROOT).strip().strip("/") or _RU_ROOT
+    ql = q.strip().lower()
+
+    out: list[dict] = []
+    cycles_seen: list[dict] = []
+    for c in metas:
+        p = _ru_path(c, fam, mgrp)
+        if p != base and not p.startswith(base + "/"):
+            continue
+        cid = str(c.get("cid") or c.get("id") or "")
+        cnm = str(c.get("name") or cid)
+        cycles_seen.append({"id": cid, "name": cnm})
+        if cycle and cycle not in (cid, cnm):
+            continue
+        for it in (c.get("items") or []):
+            if not isinstance(it, dict):
+                continue
+            day = _ru_day(it.get("executed_at"))
+            if date_from and day and day < date_from:
+                continue
+            if date_to and day and day > date_to:
+                continue
+            v = str(it.get("_verdict") or it.get("result") or "")
+            g = grp_of.get(v, "neutral" if v else "none")
+            if verdict and verdict != g:
+                continue
+            if severity and str(it.get("severity") or "") != severity:
+                continue
+            if kind:
+                steps = it.get("steps") or []
+                man = sum(1 for x in steps if isinstance(x, dict) and x.get("manual"))
+                aut = len(steps) - man
+                k = "manual" if man and not aut else ("auto" if aut and not man else "mixed")
+                if k != kind:
+                    continue
+            if ql:
+                hay = f"{it.get('tcid') or ''} {it.get('name') or ''} {it.get('req_id') or ''}".lower()
+                if ql not in hay:
+                    continue
+            out.append({
+                "tcid": it.get("tcid"), "name": it.get("name"), "verdict": v, "group": g,
+                "severity": it.get("severity"), "req_id": it.get("req_id"),
+                "cycle": cnm, "cycle_id": cid,
+                "executed_at": it.get("executed_at"),
+                "fails": int(it.get("_steps_fail") or 0),
+            })
+
+    out.sort(key=lambda x: str(x.get("executed_at") or ""), reverse=True)
+    lim = max(1, min(int(limit or 20), 500))
+    off = max(0, int(offset or 0))
+    seen: dict[str, str] = {}
+    for c in cycles_seen:
+        seen[c["id"]] = c["name"]
+    return {"total": len(out), "rows": out[off:off + lim],
+            "cycles": [{"id": k, "name": v} for k, v in seen.items()]}
 
 
 # ───────────────────────────────────────────

@@ -1626,6 +1626,9 @@ interface Roll {
   level: string
   totals: RollTally
   children: RollKid[]
+  /** 「나누기 기준」 을 골랐을 때의 묶음 — 하위 폴더 대신 이것으로 그린다 */
+  axis?: string
+  groups: RollKid[]
   cycles: RollCycle[]
   trend: Array<{ at: string; pass: number; fail: number; pass_rate: number }>
 }
@@ -1660,6 +1663,16 @@ function CycleFolderSummary({
   /** 기간 — 기본은 전체다. 90일로 자르면 지난 회차가 통째로 빠진다 */
   const [days, setDays] = useState(0)
   const [mailOpen, setMailOpen] = useState(false)
+  /** 나누기 기준 — 빈 값이면 하위 폴더로 나눈다(옛 Reports 의 「축」) */
+  const [axis, setAxis] = useState('')
+  /** 결과 상세 거르개 */
+  const [dq, setDq] = useState('')
+  const [dKind, setDKind] = useState('')
+  const [dSev, setDSev] = useState('')
+  const [dCyc, setDCyc] = useState('')
+  const [dVerd, setDVerd] = useState('')
+  const [dSize, setDSize] = useState(20)
+  const [dPage, setDPage] = useState(0)
   const from = useMemo(() => {
     if (!days) return ''
     const d = new Date()
@@ -1668,16 +1681,51 @@ function CycleFolderSummary({
   }, [days])
 
   const q = useQuery({
-    queryKey: ['cycle', 'rollup', path, from],
+    queryKey: ['cycle', 'rollup', path, from, axis],
     queryFn: async () => {
       const u = `/api/cycle/rollup?path=${encodeURIComponent(path)}${
         from ? `&date_from=${from}` : ''
-      }`
+      }${axis ? `&axis=${axis}` : ''}`
       const r = await apiFetch(u)
       if (!r.ok) throw new Error('현황을 불러오지 못했습니다')
       return (await r.json()) as Roll
     },
     staleTime: 30_000,
+  })
+
+  /** 결과 상세 — 항목 한 줄씩. 거르개가 걸린 채로 서버가 골라 준다 */
+  const det = useQuery({
+    queryKey: ['cycle', 'rollup', 'items', path, from, dq, dKind, dSev, dCyc, dVerd, dSize, dPage],
+    queryFn: async () => {
+      const u =
+        `/api/cycle/rollup/items?path=${encodeURIComponent(path)}` +
+        (from ? `&date_from=${from}` : '') +
+        (dq ? `&q=${encodeURIComponent(dq)}` : '') +
+        (dKind ? `&kind=${dKind}` : '') +
+        (dSev ? `&severity=${encodeURIComponent(dSev)}` : '') +
+        (dCyc ? `&cycle=${encodeURIComponent(dCyc)}` : '') +
+        (dVerd ? `&verdict=${dVerd}` : '') +
+        `&limit=${dSize}&offset=${dPage * dSize}`
+      const r = await apiFetch(u)
+      if (!r.ok) throw new Error('결과 상세를 불러오지 못했습니다')
+      return (await r.json()) as {
+        total: number
+        rows: Array<{
+          tcid: string
+          name: string
+          verdict: string
+          group: string
+          severity?: string | null
+          req_id?: string | null
+          cycle: string
+          cycle_id: string
+          executed_at?: string | null
+          fails: number
+        }>
+        cycles: Array<{ id: string; name: string }>
+      }
+    },
+    staleTime: 20_000,
   })
 
   const roll = q.data
@@ -1819,18 +1867,36 @@ function CycleFolderSummary({
           {/* 2행 — 어디가 약한가(막대) · 좋아지고 있나(추이) */}
           <section className="cs-two">
             <div className="cs-pan">
-              <b>{kidLabel}별 판정 — 합격률 낮은 순</b>
-              {roll.children.map((k) => (
+              <b className="cs-panh">
+                <select
+                  className="cy-v"
+                  value={axis}
+                  title="무엇으로 나눠 볼까 — 옛 리포트의 「축」"
+                  onChange={(e) => setAxis(e.target.value)}
+                >
+                  <option value="">하위 폴더 ({kidLabel})</option>
+                  <option value="cycle">사이클(버전)</option>
+                  <option value="version_group">버전그룹</option>
+                  <option value="model">모델</option>
+                  <option value="customer">고객</option>
+                  <option value="status">사이클 상태</option>
+                  <option value="severity">심각도</option>
+                  <option value="assignee">담당자</option>
+                </select>
+                <span>별 판정 — 합격률 낮은 순</span>
+              </b>
+              {(axis ? roll.groups : roll.children).map((k) => (
                 <button
                   type="button"
                   key={k.key}
                   className="cs-brow"
                   title={`${k.key} — 항목 ${k.n} · 합격 ${k.pass} · 실패 ${k.fail} · 미실행 ${k.none}`}
-                  disabled={!onScope || roll.level === 'version_group'}
-                  onClick={() => onScope?.(`${roll.path}/${k.key}`)}
+                  disabled={!!axis || !onScope || roll.level === 'version_group'}
+                  onClick={() => !axis && onScope?.(`${roll.path}/${k.key}`)}
                 >
                   <span className="cs-bnm">{k.key}</span>
                   {bar(k)}
+                  <em className="cs-bn">{k.n}</em>
                   <em>{k.pass_rate}%</em>
                 </button>
               ))}
@@ -1914,6 +1980,156 @@ function CycleFolderSummary({
                 ))}
           </div>
         </>
+      )}
+      {roll && t && t.cycles > 0 && (
+        /* 결과 상세 — 옛 Reports 의 아래 표가 이 자리로 왔다(지시) */
+        <section className="cs-det">
+          <div className="cs-deth">
+            <b>결과 상세</b>
+            <span className="muted small">총 {det.data?.total ?? 0}건</span>
+            <input
+              className="cs-dq"
+              value={dq}
+              placeholder="TC ID · 이름 · 요구사항으로 찾기"
+              onChange={(e) => {
+                setDq(e.target.value)
+                setDPage(0)
+              }}
+            />
+            <select
+              className="cy-v"
+              value={dVerd}
+              onChange={(e) => {
+                setDVerd(e.target.value)
+                setDPage(0)
+              }}
+            >
+              <option value="">결과 전체</option>
+              <option value="pass">합격</option>
+              <option value="fail">불합격</option>
+              <option value="neutral">그 밖</option>
+              <option value="none">미실행</option>
+            </select>
+            <select
+              className="cy-v"
+              value={dKind}
+              onChange={(e) => {
+                setDKind(e.target.value)
+                setDPage(0)
+              }}
+            >
+              <option value="">타입 전체</option>
+              <option value="auto">Auto</option>
+              <option value="manual">Manual</option>
+              <option value="mixed">섞임</option>
+            </select>
+            <select
+              className="cy-v"
+              value={dSev}
+              onChange={(e) => {
+                setDSev(e.target.value)
+                setDPage(0)
+              }}
+            >
+              <option value="">심각도 전체</option>
+              {['치명', '높음', '보통', '낮음'].map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
+              ))}
+            </select>
+            <select
+              className="cy-v"
+              value={dCyc}
+              onChange={(e) => {
+                setDCyc(e.target.value)
+                setDPage(0)
+              }}
+            >
+              <option value="">사이클 전체</option>
+              {(det.data?.cycles ?? []).map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <span className="sp" />
+            <select
+              className="cy-v"
+              value={dSize}
+              title="한 쪽에 몇 줄"
+              onChange={(e) => {
+                setDSize(Number(e.target.value))
+                setDPage(0)
+              }}
+            >
+              {[20, 50, 100, 200].map((n) => (
+                <option key={n} value={n}>
+                  {n}개
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="cs-dtbl">
+            <div className="cs-drow cs-dth">
+              <div>결과</div>
+              <div>TC ID</div>
+              <div>시험항목</div>
+              <div>심각도</div>
+              <div>요구사항</div>
+              <div>사이클</div>
+              <div>실행일</div>
+            </div>
+            {(det.data?.rows ?? []).map((r, i) => (
+              <div className={`cs-drow g-${r.group}`} key={`${r.cycle_id}-${r.tcid}-${i}`}>
+                <div className="cs-dv">
+                  {r.group === 'pass'
+                    ? '합격'
+                    : r.group === 'fail'
+                      ? '불합격'
+                      : r.verdict || '미실행'}
+                </div>
+                <div className="cs-dtc">{r.tcid}</div>
+                <div className="cs-dnm" title={r.name}>
+                  {r.name}
+                  {r.fails > 0 && <em className="cs-dfail"> {r.fails} 부적합</em>}
+                </div>
+                <div className="muted">{r.severity || '–'}</div>
+                <div className="muted">{r.req_id || '–'}</div>
+                <div className="muted">{r.cycle}</div>
+                <div className="muted">
+                  {r.executed_at ? String(r.executed_at).replace('T', ' ').slice(0, 16) : '–'}
+                </div>
+              </div>
+            ))}
+            {det.data && det.data.rows.length === 0 && (
+              <div className="empty">거른 조건에 맞는 항목이 없습니다.</div>
+            )}
+          </div>
+          {det.data && det.data.total > dSize && (
+            <div className="cs-dpg">
+              <button
+                className="btn small"
+                type="button"
+                disabled={dPage === 0}
+                onClick={() => setDPage((v) => Math.max(0, v - 1))}
+              >
+                ‹ 이전
+              </button>
+              <span className="muted small">
+                {dPage + 1} / {Math.ceil(det.data.total / dSize)}
+              </span>
+              <button
+                className="btn small"
+                type="button"
+                disabled={(dPage + 1) * dSize >= det.data.total}
+                onClick={() => setDPage((v) => v + 1)}
+              >
+                다음 ›
+              </button>
+            </div>
+          )}
+        </section>
       )}
       {mailOpen && (
         <CycleMailBox path={path} from={from} onClose={() => setMailOpen(false)} />
