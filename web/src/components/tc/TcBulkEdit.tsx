@@ -211,26 +211,22 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
         if (fill.object_md && obj.trim()) put('object_md', obj)
         if (fill.precondition_md && pre.trim()) put('precondition_md', pre)
         if (fill.image && img) put('topo_img', img)
-        /* 값들 — 「비어 있는 것만」 규칙을 똑같이 지킨다 */
+        /*
+         * 고른 값은 **늘 넣는다**(지적: 상태 바꿔도 안 바뀐다).
+         *
+         * 「비어 있는 것만 채우기」 는 글 칸(시험 목적·사전 준비·구성도)과
+         * 본보기 복사에나 맞는 규칙이다. 상태·유형처럼 목록에서 하나 고르는
+         * 칸은 이미 어떤 값이든 들어 있어서(70건 모두 그랬다) 이 규칙을 씌우면
+         * **한 건도 안 바뀐다** — 골랐다는 것이 곧 바꾸겠다는 뜻이다.
+         */
         const putVal = (key: string, v: string) => {
-          const had = String((cur as Record<string, unknown>)[key] ?? '').trim()
-          if (had && !over) return
           patch[key] = v
         }
         if (fill.model && bMg) {
-          const had =
-            String((cur as Record<string, unknown>).model_group ?? '').trim() ||
-            String((cur as Record<string, unknown>).model ?? '').trim()
-          if (!had || over) {
-            patch.model_group = bMg === COMMON ? '' : bMg
-            patch.model = bMdl === COMMON ? '' : bMdl
-          }
+          patch.model_group = bMg === COMMON ? '' : bMg
+          patch.model = bMdl === COMMON ? '' : bMdl
         }
-        if (fill.sessions && sSel.length) {
-          const had = Array.isArray((cur as Record<string, unknown>).sessions) &&
-            ((cur as Record<string, unknown>).sessions as unknown[]).length > 0
-          if (!had || over) patch.sessions = [...sSel]
-        }
+        if (fill.sessions && sSel.length) patch.sessions = [...sSel]
         if (src && id !== srcId) {
           const c = cur as Record<string, unknown>
           const sv = src as unknown as Record<string, unknown>
@@ -443,7 +439,6 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
                   <option key={v}>{v}</option>
                 ))}
               </select>
-              <span className="muted small">상태는 대개 값이 있어 「덮어쓰기」 일 때만 바뀝니다</span>
             </div>,
           )}
           {row(
@@ -546,11 +541,15 @@ export default function TcBulkEdit({ items, onClose, onDone }: Props) {
           <label>
             <input type="radio" checked={!over} onChange={() => setOver(false)} />
             비어 있는 것만 채우기
+            <em className="muted small">글·구성도·복사 칸에만 해당합니다</em>
           </label>
           <label className="bk-danger">
             <input type="radio" checked={over} onChange={() => setOver(true)} />
             덮어쓰기
           </label>
+          <span className="muted small">
+            고른 값(상태·유형·모델·세션 등)은 이 고르기와 상관없이 늘 바뀝니다
+          </span>
           {over && (
             <span className="bk-warn">이미 적혀 있는 내용이 지워집니다. 되돌릴 수 없습니다.</span>
           )}
