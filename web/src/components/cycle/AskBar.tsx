@@ -321,7 +321,9 @@ export default function AskBar({ devices }: Props) {
    * 죄다 빠져 고를 것이 없어진다 — 폴더 아래 것은 모델그룹·모델명과 상관
    * 없이 다 보인다. 좁혀 보고 싶을 때만 켠다.
    */
-  const [tcOnlyModel, setTcOnlyModel] = useState(false)
+  /* 「고른 장비 것만」 은 **켜 두는 것이 기본**이다(지시). 꺼져 있어서
+     E4020-48T 를 골랐는데 E6100·U9532H 항목이 그대로 떴다. */
+  const [tcOnlyModel, setTcOnlyModel] = useState(true)
   /** 접어 둔 단계 — 다 끝난 단계는 접어 치울 수 있다 */
   const [fold, setFold] = useState<Set<number>>(new Set())
   /** 랙 자리(구역·랙) — 어느 장비인지 고를 때 자리로 가른다 */
@@ -1151,6 +1153,7 @@ export default function AskBar({ devices }: Props) {
       return
     }
     await findLike(said, dev)
+    setTcOnlyModel(true)
     setTcFind(keyOf(said, hit?.model))
     setTcPick(new Set())
     const fold = foldOf(said)
@@ -2754,7 +2757,18 @@ export default function AskBar({ devices }: Props) {
                         {tcAll.length === 0
                           ? '시험 항목을 읽지 못했습니다 — Coverage 에서 항목을 먼저 만들어 주세요'
                           : tcOnlyModel && myModel
-                            ? `모델명이 ${curDev?.model} 인 항목이 없습니다 — 위 「${curDev?.model} 것만」 을 끄면 다른 모델 항목도 보입니다`
+                            ? (
+                                <>
+                                  <b>{curDev?.model}</b> 에 맞는 시험 항목이 없습니다.
+                                  <button
+                                    type="button"
+                                    className="ask-likeall"
+                                    onClick={() => setTcOnlyModel(false)}
+                                  >
+                                    다른 모델 항목도 보기
+                                  </button>
+                                </>
+                              )
                             : '찾는 항목이 없습니다 — 왼쪽 자리를 바꾸거나 다른 말로 찾아보세요'}
                       </div>
                     )}

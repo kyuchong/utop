@@ -7033,3 +7033,17 @@ table.tb td.k {
 .ask-likemodal .ask-tctable b { font-size: var(--fs-md, 15px); }
 .ask-likemodal .ask-tctable td { padding-top: 7px; padding-bottom: 7px; }
 .ask-likemodal .muted.small { font-size: var(--fs-sm); }
+
+/* 「그 모델 것이 없다」 자리의 되살리기 단추 */
+.ask-likeall {
+  margin-left: 8px;
+  border: 0;
+  background: var(--c-surface-alt);
+  border-radius: 7px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-primary);
+  cursor: pointer;
+}
+.ask-likeall:hover { background: var(--c-border-soft); }
