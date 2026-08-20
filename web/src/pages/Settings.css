@@ -1086,3 +1086,40 @@
 @media (max-width: 1400px) {
   .dcc-cols { grid-template-columns: 170px 150px 180px minmax(0, 1fr); }
 }
+
+/* 4열 — 모델 아래에 그 모델의 장비 칸이 붙는다(지시) */
+.dcc-cols { grid-template-columns: 150px 130px 160px minmax(0, 1fr); }
+.dcc-mh,
+.dcc-m2 {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.4fr) 120px 76px 76px 76px 76px 70px 70px 62px 150px;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 8px;
+  font-size: var(--fs-xs);
+}
+.dcc-mh {
+  color: var(--c-text-faint);
+  font-weight: 600;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface-alt);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.dcc-m2.model {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--c-surface-alt);
+  border-top: 1px solid var(--c-border);
+  font-size: var(--fs-sm);
+}
+.dcc-m2.model .sp { flex: 1; }
+.dcc-m2.dev { border-bottom: 1px solid var(--c-border-soft); }
+.dcc-m2.dev:hover { background: var(--c-surface-alt); }
+.dcc-lk { min-width: 0; }
+.dcc-lk .lk { font-size: var(--fs-xs); }
+@media (max-width: 1500px) {
+  .dcc-cols { grid-template-columns: 130px 120px 140px minmax(0, 1fr); }
+}

@@ -87,7 +87,7 @@ const accOf = (d: Device, proto: string): DeviceAccess | undefined =>
  * 등록 안 함 / 등록만 함 / 연결됨 / 실패 를 구분해서 보여준다. 이 넷이
  * 섞이면 "telnet 은 되는데 ssh 가 막힌 장비" 를 목록에서 못 찾는다.
  */
-function ProtoCell({
+export function ProtoCell({
   access,
   onCheck,
   busy,

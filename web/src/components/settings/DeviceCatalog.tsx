@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import LockCell, { useLocks, type Lock } from '@/components/LockCell'
+import { ProtoCell, type Device } from '@/pages/Devices'
 
 interface Item {
   kind: string
@@ -75,14 +77,20 @@ export default function DeviceCatalog() {
   })
   /** 어느 모델이 어느 LAB 에 있나 — LAB 은 장비가 들고 있다(트리 1층) */
   const devQ = useQuery({
-    queryKey: ['devices', 'labmap'],
+    queryKey: ['devices'],
     queryFn: async () => {
       const r = await apiFetch('/api/devices2?ifs=0')
       if (!r.ok) throw new Error('장비를 불러오지 못했습니다')
-      return (await r.json()) as { devices: Array<{ model?: string | null; lab?: string | null }> }
+      return (await r.json()) as { devices: Device[] }
     },
     staleTime: 60_000,
   })
+  const locks = useLocks()
+  const lockBy = useMemo(() => {
+    const m = new Map<string, Lock>()
+    for (const l of locks.data?.locks ?? []) m.set(l.resource_id, l)
+    return m
+  }, [locks.data])
   const labsOfModel = useMemo(() => {
     const m = new Map<string, Set<string>>()
     for (const d of devQ.data?.devices ?? []) {
@@ -286,6 +294,8 @@ export default function DeviceCatalog() {
           고르개 넷을 따로 채우던 일이 사라진다. */}
       {view === 'tree' && (() => {
         const norm = (v?: string | null) => String(v ?? '').trim()
+        /** 「미분류」 — 그 칸 값이 비어 있는 것들 */
+        const NONE = '\u0000none'
         const inLab = (m: Item) =>
           !tlab || (labsOfModel.get(m.name) ?? new Set()).has(tlab)
         const labs = [...new Set([...labsOfModel.values()].flatMap((x) => [...x]))].sort((a2, b2) =>
@@ -294,20 +304,38 @@ export default function DeviceCatalog() {
         const pool = models.filter(inLab)
         const nV = (v: string) => pool.filter((m) => norm(m.vendor) === v).length
         const nF = (f: string) =>
-          pool.filter((m) => norm(m.vendor) === tven && norm(m.family) === f).length
+          pool.filter((m) => (!tven || eq(norm(m.vendor), tven)) && norm(m.family) === f).length
         const nG = (g: string) =>
           pool.filter(
             (m) =>
-              norm(m.vendor) === tven &&
-              (!tfam || norm(m.family) === tfam) &&
+              (!tven || eq(norm(m.vendor), tven)) &&
+              (!tfam || eq(norm(m.family), tfam)) &&
               norm(m.model_group) === g,
           ).length
+        const eq = (v: string, sel: string) => (sel === NONE ? !v : v === sel)
         const shown = pool.filter(
           (m) =>
-            (!tven || norm(m.vendor) === tven) &&
-            (!tfam || norm(m.family) === tfam) &&
-            (!tgrp || norm(m.model_group) === (tgrp === '(미지정)' ? '' : tgrp)),
+            (!tven || eq(norm(m.vendor), tven)) &&
+            (!tfam || eq(norm(m.family), tfam)) &&
+            (!tgrp || eq(norm(m.model_group), tgrp)),
         )
+        const noneCnt = (kind: string) =>
+          pool.filter((m) => {
+            if (kind === 'vendor') return !norm(m.vendor)
+            if (kind === 'family') return !norm(m.family) && (!tven || eq(norm(m.vendor), tven))
+            return (
+              !norm(m.model_group) &&
+              (!tven || eq(norm(m.vendor), tven)) &&
+              (!tfam || eq(norm(m.family), tfam))
+            )
+          }).length
+        /** 이 자리에 걸린 장비 — 4열이 그린다(지시) */
+        const devsOfModel = (nm: string) =>
+          (devQ.data?.devices ?? []).filter(
+            (d) =>
+              String(d.model ?? '').trim() === nm &&
+              (!tlab || String(d.lab ?? '').trim() === tlab),
+          )
         const col = (
           title: string,
           kind: string,
@@ -335,6 +363,23 @@ export default function DeviceCatalog() {
               />
             </div>
             <div className="dcc-b">
+              {/* 전체 · 미분류를 맨 앞에(지시) */}
+              <button
+                type="button"
+                className={`dcc-r${sel === '' ? ' on' : ''}`}
+                onClick={() => pick('')}
+              >
+                <span className="ell">전체</span>
+                <em>{items.reduce((a2, x) => a2 + x.n, 0)}</em>
+              </button>
+              <button
+                type="button"
+                className={`dcc-r${sel === NONE ? ' on' : ''}`}
+                onClick={() => pick(sel === NONE ? '' : NONE)}
+              >
+                <span className="ell">미분류</span>
+                <em>{noneCnt(kind)}</em>
+              </button>
               {items.map((x) => (
                 <button
                   key={x.nm}
@@ -444,36 +489,82 @@ export default function DeviceCatalog() {
                   />
                 </div>
                 <div className="dcc-b">
+                  <div className="dcc-mh">
+                    <span>모델명</span>
+                    <span>IP</span>
+                    <span>Telnet</span>
+                    <span>SSH</span>
+                    <span>Console</span>
+                    <span>SNMP</span>
+                    <span>RO</span>
+                    <span>RW</span>
+                    <span>Interface</span>
+                    <span>사용 현황</span>
+                  </div>
                   {shown.length === 0 ? (
                     <div className="dcc-none">이 자리에 걸린 모델이 없습니다.</div>
                   ) : (
-                    shown.map((it) => (
-                      <div className="dcc-m" key={it.name}>
-                        <b className="ell" title={it.name}>
-                          {it.name}
-                        </b>
-                        <span className="dcc-op">{cellSelect(it, 'operator', 'operator')}</span>
-                        <button
-                          type="button"
-                          className="dcc-if"
-                          title={`${it.interfaces || '(없음)'} — 누르면 크게 편집`}
-                          onClick={() => setIfEdit({ model: it, text: it.interfaces ?? '' })}
-                        >
-                          {it.interfaces || '＋ 인터페이스'}
-                        </button>
-                        <span className="muted small dcc-used">{it.used ? `장비 ${it.used}` : '–'}</span>
-                        <button
-                          className="btn small danger"
-                          type="button"
-                          disabled={delM.isPending}
-                          onClick={() => {
-                            if (window.confirm(`'${it.name}' 을 지울까요?`)) delM.mutate(it)
-                          }}
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    ))
+                    shown.map((it) => {
+                      const ds = devsOfModel(it.name)
+                      return (
+                        <div key={it.name}>
+                          <div className="dcc-m2 model">
+                            <b className="ell" title={it.name}>
+                              {it.name}
+                            </b>
+                            <span className="muted small">{ds.length ? `장비 ${ds.length}대` : '장비 없음'}</span>
+                            <span className="sp" />
+                            <button
+                              type="button"
+                              className="dcc-if"
+                              title={`${it.interfaces || '(없음)'} — 누르면 크게 편집`}
+                              onClick={() => setIfEdit({ model: it, text: it.interfaces ?? '' })}
+                            >
+                              {it.interfaces || '＋ 인터페이스'}
+                            </button>
+                            <button
+                              className="btn small danger"
+                              type="button"
+                              disabled={delM.isPending}
+                              onClick={() => {
+                                if (window.confirm(`'${it.name}' 을 지울까요?`)) delM.mutate(it)
+                              }}
+                            >
+                              삭제
+                            </button>
+                          </div>
+                          {ds.map((d) => {
+                            const acc = (p2: string) => (d.access ?? []).find((a) => a.protocol === p2)
+                            const snmp = acc('snmp')
+                            const prm = (snmp?.params as { community_rw?: string } | null) ?? {}
+                            return (
+                              <div className="dcc-m2 dev" key={d.id}>
+                                <span className="muted small ell">└ {d.name || d.model}</span>
+                                <b>{d.ip}</b>
+                                {['telnet', 'ssh', 'console', 'snmp'].map((p2) => (
+                                  <ProtoCell
+                                    key={p2}
+                                    access={acc(p2)}
+                                    busy={false}
+                                    onCheck={() => undefined}
+                                  />
+                                ))}
+                                <span className="muted small ell">{snmp?.community || '–'}</span>
+                                <span className="muted small ell">{prm.community_rw || '–'}</span>
+                                <span className="muted small">{d.if_count ?? d.interfaces?.length ?? 0}</span>
+                                <span className="dcc-lk">
+                                  <LockCell
+                                    resourceId={d.id}
+                                    kind="device"
+                                    lock={lockBy.get(d.id) ?? lockBy.get(d.ip)}
+                                  />
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    })
                   )}
                 </div>
               </div>
