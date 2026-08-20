@@ -7213,11 +7213,12 @@ table.tb td.k {
   min-width: 0;
   overflow: hidden;
   flex: 1 1 auto;
-  font-size: var(--fs-sm);
+  /* 길은 이 화면의 제목 노릇을 한다 — 보조 글씨보다 크게(지시) */
+  font-size: var(--fs-lg);
   white-space: nowrap;
 }
 .bc-root { font-weight: 700; color: var(--c-text-soft, var(--c-text)); flex: none; }
-.bc-sep { color: var(--c-text-faint); font-size: 11px; flex: none; }
+.bc-sep { color: var(--c-text-faint); font-size: var(--fs-md); flex: none; }
 .bc-a {
   color: var(--c-primary);
   text-decoration: none;
@@ -7241,7 +7242,7 @@ table.tb td.k {
 a.bc-cur:hover { text-decoration: underline; }
 .bc-id {
   color: var(--c-text-faint);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-sm);
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
