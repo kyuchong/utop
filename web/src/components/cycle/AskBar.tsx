@@ -3,6 +3,7 @@ import { apiFetch } from '@/api/client'
 import { IconSettings } from '@/components/icons'
 import { connParams } from '@/components/tc/device'
 import { runSteps } from '@/components/tc/runner'
+import { Fragment } from 'react'
 import type { ReactNode } from 'react'
 import type { TcStep } from '@/components/tc/types'
 import type { Device } from '@/pages/Devices'
@@ -275,6 +276,10 @@ export default function AskBar({ devices }: Props) {
       return n
     })
   const [pickDev, setPickDev] = useState<{ model: string; cands: Device[] } | null>(null)
+  /** 말에서 잡은 모델 — 「E6100 …」 이면 'E6100'. 없으면 빈 값 */
+  const [askModel, setAskModel] = useState('')
+  /** 항목을 먼저 고른 뒤 장비를 묻는 중 — 고르면 이 항목으로 잇는다 */
+  const [afterPick, setAfterPick] = useState<{ tcid: string; model: string } | null>(null)
   const [pickSel, setPickSel] = useState('')
   const [pickLab, setPickLab] = useState('')
   const [pickRack, setPickRack] = useState('')
@@ -711,7 +716,36 @@ export default function AskBar({ devices }: Props) {
    * 원본(`raw`)이 그대로 실행기로 간다. Coverage 에서 누르는 것과 같은 일이
    * 같은 자리에서 일어나야 한다.
    */
-  const takeTc = async (tcid: string, dev?: Device) => {
+  const takeTc = async (tcid: string, dev?: Device, tcModel?: string) => {
+    /* 항목이 **모델을 확정한다**(지시). 그 모델의 장비가 한 대면 그대로 쓰고,
+       여럿이면 그때 묻는다. 말에 모델이 있었으면 그것을 쓴다. */
+    let use = dev
+    if (!use) {
+      const want = String(tcModel ?? askModel ?? '').trim().toLowerCase()
+      const cands = want
+        ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === want)
+        : usable
+      if (cands.length === 1) use = cands[0]
+      else if (cands.length > 1) {
+        setAfterPick({ tcid, model: String(tcModel ?? askModel ?? '') })
+        setPickSel(cands.find((d) => d.id === devId)?.id ?? cands[0]?.id ?? '')
+        setPickLab('')
+        setPickRack('')
+        setPickDev({ model: String(tcModel ?? askModel ?? ''), cands })
+        setLikeAsk(false)
+        return
+      } else if (usable.length === 1) use = usable[0]
+      else {
+        setAfterPick({ tcid, model: String(tcModel ?? askModel ?? '') })
+        setPickSel(usable[0]?.id ?? '')
+        setPickLab('')
+        setPickRack('')
+        setPickDev({ model: '', cands: usable })
+        setLikeAsk(false)
+        return
+      }
+    }
+    dev = use
     const t0 = performance.now()
     setAdopting(tcid)
     setErr('')
@@ -1084,6 +1118,26 @@ export default function AskBar({ devices }: Props) {
     setFlowVals([])
     setFitNotes([])
     setFlowAt(1)
+    /* General 은 **항목부터** 고른다(지시). 장비는 항목이 모델을 정한 뒤에
+       묻는다 — 말에 모델이 있으면 그 모델 것만, 없으면 전체를 보여 준다. */
+    if (mode === 'basic' && !draft) {
+      const m0 = candsOf(said)?.model ?? ''
+      setAskModel(m0)
+      setFlowLog((v) => [
+        ...v,
+        { s: 1, t: m0 ? `말에서 모델 ${m0} 을(를) 읽었습니다` : '말에 모델이 없어 전체에서 고릅니다' },
+      ])
+      await findLike(said, undefined)
+      setTcOnlyModel(!!m0)
+      setTcFind(keyOf(said, m0))
+      setTcPick(new Set())
+      const fold0 = foldOf(said)
+      setTcFold(fold0)
+      setTcOpen(openTo(fold0))
+      setLikeAsk(true)
+      return
+    }
+
     /* 이미 절차가 있으면 **고치는 말**이다(지시) — 장비를 다시 묻거나
        시험을 새로 고르지 않고 지금 절차를 고친다. */
     if (draft) {
@@ -2466,6 +2520,12 @@ export default function AskBar({ devices }: Props) {
                               onDoubleClick={() => {
                                 setDevId(d.id)
                                 setPickDev(null)
+                                if (afterPick) {
+                                  const ap = afterPick
+                                  setAfterPick(null)
+                                  void takeTc(ap.tcid, d, ap.model)
+                                  return
+                                }
                                 /* Advanced 는 고르는 갈래가 아니다 — 장비가
                                    정해졌으니 바로 짓는다(지시) */
                                 if (mode === 'adv') {
@@ -2538,6 +2598,13 @@ export default function AskBar({ devices }: Props) {
                       ].filter((x) => x.v),
                     )
                     setPickDev(null)
+                    /* 항목을 먼저 고른 뒤 장비를 물은 것이면 그 항목으로 잇는다(지시) */
+                    if (afterPick) {
+                      const ap = afterPick
+                      setAfterPick(null)
+                      void takeTc(ap.tcid, d2, ap.model)
+                      return
+                    }
                     if (mode === 'adv') {
                       void makePlan(asked, d2)
                       return
@@ -2605,7 +2672,7 @@ export default function AskBar({ devices }: Props) {
                   checked={tcOnlyModel}
                   onChange={(e) => setTcOnlyModel(e.target.checked)}
                 />
-                <span>{curDev?.model || '고른 장비'} 것만</span>
+                <span>{askModel || curDev?.model || '고른 장비'} 것만</span>
               </label>
             </div>
             {(() => {
@@ -2614,7 +2681,7 @@ export default function AskBar({ devices }: Props) {
                  · 모델명이 비었거나 **공용**이면 어느 장비로도 쓸 수 있으므로
                    그대로 보인다 — 이름 뒤에 (E5724RL) 이 붙어 있어도 그것은
                    사람이 적은 제목일 뿐이다(지적). */
-              const myModel = (curDev?.model ?? '').trim().toLowerCase()
+              const myModel = (askModel || curDev?.model || '').trim().toLowerCase()
               const forMe = (t: { model?: string }) => {
                 if (!tcOnlyModel || !myModel) return true
                 const m = String(t.model ?? '').trim().toLowerCase()
@@ -2723,7 +2790,21 @@ export default function AskBar({ devices }: Props) {
                         </tr>
                       </thead>
                       <tbody>
-                        {rows.slice(0, 400).map((x) => (
+                        {/* 말에 모델이 없으면 **모델별로 묶어** 보여 준다(지시) —
+                            고른 항목이 곧 모델을 정하므로 무엇을 고르는지 보여야 한다 */}
+                        {rows.slice(0, 400).map((x, ri) => (
+                          <Fragment key={`f-${x.tcid}`}>
+                            {!myModel &&
+                              (ri === 0 || (rows[ri - 1]?.model ?? '') !== (x.model ?? '')) && (
+                                <tr className="ask-tcgrp">
+                                  <td colSpan={4}>
+                                    {x.model?.trim() || '공용 — 어느 장비로도 씁니다'}
+                                    <i>
+                                      {rows.filter((y) => (y.model ?? '') === (x.model ?? '')).length}건
+                                    </i>
+                                  </td>
+                                </tr>
+                              )}
                           <tr
                             key={x.tcid}
                             className={adopting ? 'busy' : ''}
@@ -2731,7 +2812,9 @@ export default function AskBar({ devices }: Props) {
                               if (adopting) return
                               setLikeAsk(false)
                               /* 일반 = 있는 것을 그대로, 고급 = 이 장비에 맞춰 옮겨 짓기 */
-                              void (mode === 'basic' ? takeTc(x.tcid) : adopt(x.tcid))
+                              void (mode === 'basic'
+                                ? takeTc(x.tcid, undefined, x.model)
+                                : adopt(x.tcid))
                             }}
                           >
                             <td className="ck" onClick={(e) => e.stopPropagation()}>
@@ -2755,6 +2838,7 @@ export default function AskBar({ devices }: Props) {
                             <td>{x.mgroup || '공용'}</td>
                             <td>{x.model || '–'}</td>
                           </tr>
+                          </Fragment>
                         ))}
                       </tbody>
                     </table>

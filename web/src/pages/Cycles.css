@@ -7047,3 +7047,19 @@ table.tb td.k {
   cursor: pointer;
 }
 .ask-likeall:hover { background: var(--c-border-soft); }
+
+/* 모델별 묶음 머리 — 말에 모델이 없을 때만 선다(지시) */
+.ask-tctable tr.ask-tcgrp > td {
+  background: var(--c-surface-alt);
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  padding: 6px 10px;
+  border-top: 1px solid var(--c-border);
+}
+.ask-tctable tr.ask-tcgrp i {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--c-text-faint);
+  margin-left: 6px;
+}
