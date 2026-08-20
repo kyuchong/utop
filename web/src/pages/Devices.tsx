@@ -670,7 +670,6 @@ export default function Devices({ me }: Props) {
           const nrm = (v?: string | null) => String(v ?? '').trim()
           const grpOf = (d: Device) => modelMeta.get(d.model ?? '')?.group || '(모델그룹 없음)'
           const base = devices.filter((d) => {
-            if (fLab && nrm(d.lab) !== fLab) return false
             if (fConn) {
               const on = PROTO_COLS.some((p) => accOf(d, p)?.last_status === 'ok')
               const ng = PROTO_COLS.some((p) => accOf(d, p)?.last_status === 'fail')
@@ -683,22 +682,35 @@ export default function Devices({ me }: Props) {
               return false
             return true
           })
+          /* 트리는 **LAB 이 맨 위**다(지시): LAB › 벤더 › 제품군 › 모델그룹 */
+          const labOf = (d: Device) => nrm(d.lab) || '(구역 없음)'
           const rows = base.filter(
             (d) =>
+              (!fLab || labOf(d) === fLab) &&
               (!tv || nrm(d.vendor) === tv) &&
               (!tr || nrm(d.role) === tr) &&
               (!tg || grpOf(d) === tg),
           )
-          const vends = [...new Set(base.map((d) => nrm(d.vendor) || '(벤더 없음)'))].sort()
-          const roles2 = (v: string) =>
-            [...new Set(base.filter((d) => nrm(d.vendor) === v).map((d) => nrm(d.role) || '(제품군 없음)'))].sort()
-          const grps = (v: string, r: string) =>
+          const labs = [...new Set(base.map(labOf))].sort((a2, b2) => a2.localeCompare(b2, 'ko'))
+          const inLab = (lb: string) => base.filter((d) => labOf(d) === lb)
+          const vends = (lb: string) =>
+            [...new Set(inLab(lb).map((d) => nrm(d.vendor) || '(벤더 없음)'))].sort()
+          const roles2 = (lb: string, v: string) =>
             [
               ...new Set(
-                base.filter((d) => nrm(d.vendor) === v && nrm(d.role) === r).map(grpOf),
+                inLab(lb)
+                  .filter((d) => nrm(d.vendor) === v)
+                  .map((d) => nrm(d.role) || '(제품군 없음)'),
               ),
             ].sort()
-          const labs = [...new Set(devices.map((d) => nrm(d.lab)).filter(Boolean))].sort()
+          const grps = (lb: string, v: string, r: string) =>
+            [
+              ...new Set(
+                inLab(lb)
+                  .filter((d) => nrm(d.vendor) === v && nrm(d.role) === r)
+                  .map(grpOf),
+              ),
+            ].sort()
           const cur = devices.find((d) => d.id === pick) ?? rows[0]
           const dot = (d: Device) => {
             const on = PROTO_COLS.some((p) => accOf(d, p)?.last_status === 'ok')
@@ -711,8 +723,9 @@ export default function Devices({ me }: Props) {
               <aside className="dvt-tree">
                 <button
                   type="button"
-                  className={`dvt-n lv0${!tv ? ' on' : ''}`}
+                  className={`dvt-n lv0${!fLab ? ' on' : ''}`}
                   onClick={() => {
+                    setFLab('')
                     setTv('')
                     setTr('')
                     setTg('')
@@ -720,53 +733,77 @@ export default function Devices({ me }: Props) {
                 >
                   전체 <em>{base.length}</em>
                 </button>
-                {vends.map((v) => (
-                  <div key={v}>
+                {labs.map((lb) => (
+                  <div key={lb}>
                     <button
                       type="button"
-                      className={`dvt-n lv1${tv === v && !tr ? ' on' : ''}`}
+                      className={`dvt-n lv1${fLab === lb && !tv ? ' on' : ''}`}
                       onClick={() => {
-                        setTv(tv === v ? '' : v)
+                        setFLab(fLab === lb ? '' : lb)
+                        setTv('')
                         setTr('')
                         setTg('')
                       }}
                     >
-                      {v} <em>{base.filter((d) => nrm(d.vendor) === v).length}</em>
+                      {lb} <em>{inLab(lb).length}</em>
                     </button>
-                    {tv === v &&
-                      roles2(v).map((r) => (
-                        <div key={r}>
+                    {fLab === lb &&
+                      vends(lb).map((v) => (
+                        <div key={v}>
                           <button
                             type="button"
-                            className={`dvt-n lv2${tr === r && !tg ? ' on' : ''}`}
+                            className={`dvt-n lv2${tv === v && !tr ? ' on' : ''}`}
                             onClick={() => {
-                              setTr(tr === r ? '' : r)
+                              setTv(tv === v ? '' : v)
+                              setTr('')
                               setTg('')
                             }}
                           >
-                            {r}{' '}
-                            <em>
-                              {base.filter((d) => nrm(d.vendor) === v && nrm(d.role) === r).length}
-                            </em>
+                            {v}{' '}
+                            <em>{inLab(lb).filter((d) => nrm(d.vendor) === v).length}</em>
                           </button>
-                          {tr === r &&
-                            grps(v, r).map((g) => (
-                              <button
-                                key={g}
-                                type="button"
-                                className={`dvt-n lv3${tg === g ? ' on' : ''}`}
-                                onClick={() => setTg(tg === g ? '' : g)}
-                              >
-                                {g}{' '}
-                                <em>
-                                  {
-                                    base.filter(
-                                      (d) =>
-                                        nrm(d.vendor) === v && nrm(d.role) === r && grpOf(d) === g,
-                                    ).length
-                                  }
-                                </em>
-                              </button>
+                          {tv === v &&
+                            roles2(lb, v).map((r) => (
+                              <div key={r}>
+                                <button
+                                  type="button"
+                                  className={`dvt-n lv3${tr === r && !tg ? ' on' : ''}`}
+                                  onClick={() => {
+                                    setTr(tr === r ? '' : r)
+                                    setTg('')
+                                  }}
+                                >
+                                  {r}{' '}
+                                  <em>
+                                    {
+                                      inLab(lb).filter(
+                                        (d) => nrm(d.vendor) === v && nrm(d.role) === r,
+                                      ).length
+                                    }
+                                  </em>
+                                </button>
+                                {tr === r &&
+                                  grps(lb, v, r).map((g) => (
+                                    <button
+                                      key={g}
+                                      type="button"
+                                      className={`dvt-n lv4${tg === g ? ' on' : ''}`}
+                                      onClick={() => setTg(tg === g ? '' : g)}
+                                    >
+                                      {g}{' '}
+                                      <em>
+                                        {
+                                          inLab(lb).filter(
+                                            (d) =>
+                                              nrm(d.vendor) === v &&
+                                              nrm(d.role) === r &&
+                                              grpOf(d) === g,
+                                          ).length
+                                        }
+                                      </em>
+                                    </button>
+                                  ))}
+                              </div>
                             ))}
                         </div>
                       ))}
@@ -789,25 +826,6 @@ export default function Devices({ me }: Props) {
                     <option value="fail">실패</option>
                     <option value="none">미확인</option>
                   </select>
-                </div>
-                <div className="dvt-labs">
-                  <button
-                    type="button"
-                    className={`dvt-lab${fLab ? '' : ' on'}`}
-                    onClick={() => setFLab('')}
-                  >
-                    전체 <em>{devices.length}</em>
-                  </button>
-                  {labs.map((lb) => (
-                    <button
-                      key={lb}
-                      type="button"
-                      className={`dvt-lab${fLab === lb ? ' on' : ''}`}
-                      onClick={() => setFLab(fLab === lb ? '' : lb)}
-                    >
-                      {lb} <em>{devices.filter((d) => nrm(d.lab) === lb).length}</em>
-                    </button>
-                  ))}
                 </div>
                 <div className="dvt-rows">
                   {rows.length === 0 ? (

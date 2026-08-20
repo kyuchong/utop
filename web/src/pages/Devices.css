@@ -477,3 +477,4 @@ select.dv-cell { cursor: pointer; }
 @media (max-width: 1500px) {
   .dvt { grid-template-columns: 210px minmax(0, 1fr) 360px; }
 }
+.dvt-n.lv4 { padding-left: 50px; font-size: var(--fs-xs); }
