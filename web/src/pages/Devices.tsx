@@ -125,10 +125,87 @@ interface Props {
   me?: { username?: string; role?: string } | null
 }
 
+/**
+ * 칸 거르개 — 표 머리를 눌러 그 칸의 값을 **여러 개** 고른다(지시).
+ * 값 목록은 다른 거르개가 걸린 뒤의 목록에서 뽑으므로, 고르면 고를수록
+ * 남은 것만 보인다(엑셀 표 거르개와 같은 셈).
+ */
+function ColFilter({
+  label,
+  opts,
+  picked,
+  onPick,
+}: {
+  label: string
+  opts: Array<[string, number]>
+  picked: string[]
+  onPick: (vals: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [q, setQ] = useState('')
+  const list = q.trim()
+    ? opts.filter(([v]) => v.toLowerCase().includes(q.trim().toLowerCase()))
+    : opts
+  const toggle = (v: string) =>
+    onPick(picked.includes(v) ? picked.filter((x) => x !== v) : [...picked, v])
+
+  return (
+    <span className="dv-cf">
+      <button
+        type="button"
+        className={`dv-cfb${picked.length ? ' on' : ''}`}
+        title={picked.length ? `${label}: ${picked.join(', ')}` : `${label} — 눌러서 고릅니다`}
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen((v) => !v)
+        }}
+      >
+        {label}
+        {picked.length > 0 && <em>({picked.length})</em>}
+        <i aria-hidden="true">▾</i>
+      </button>
+      {open && (
+        <>
+          <span className="dv-cfback" onClick={() => setOpen(false)} />
+          <span className="dv-cfpop" onClick={(e) => e.stopPropagation()}>
+            <input
+              className="dv-cfq"
+              value={q}
+              placeholder="찾기"
+              autoFocus
+              onChange={(e) => setQ(e.target.value)}
+            />
+            <span className="dv-cfrow">
+              <button type="button" onClick={() => onPick(list.map(([v]) => v))}>
+                모두
+              </button>
+              <button type="button" onClick={() => onPick([])}>
+                해제
+              </button>
+            </span>
+            <span className="dv-cflist">
+              {list.map(([v, n]) => (
+                <label key={v} className={picked.includes(v) ? 'on' : ''}>
+                  <input type="checkbox" checked={picked.includes(v)} onChange={() => toggle(v)} />
+                  <span className="ell">{v}</span>
+                  <em>{n}</em>
+                </label>
+              ))}
+              {list.length === 0 && <span className="dv-cfnone">값이 없습니다</span>}
+            </span>
+          </span>
+        </>
+      )}
+    </span>
+  )
+}
+
 export default function Devices({ me }: Props) {
   const qc = useQueryClient()
   const [q, setQ] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
+  /** 칸별 거르개(여러 개 고르기) — 사업자·벤더·제품군·모델그룹·모델명·LAB */
+  const [colF, setColF] = useState<Record<string, string[]>>({})
   const [form, setForm] = useState<Device | null | undefined>(undefined)
   const [bulk, setBulk] = useState(false)
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
@@ -221,15 +298,54 @@ export default function Devices({ me }: Props) {
     [devices],
   )
 
+  /** 한 줄에서 그 칸이 무엇으로 보이나 — 거르개와 표가 **같은 값**을 쓴다 */
+  const colVal = useMemo(() => {
+    return (d: Device, k: string): string => {
+      const m = modelMeta.get(d.model ?? '')
+      if (k === 'op') return m?.op || ''
+      if (k === 'vendor') return d.vendor || ''
+      if (k === 'role') return d.role || ''
+      if (k === 'group') return m?.group || ''
+      if (k === 'model') return d.model || ''
+      if (k === 'lab') return d.lab || ''
+      return ''
+    }
+  }, [modelMeta])
+
   const shown = useMemo(() => {
     const n = q.trim().toLowerCase()
     return devices.filter((d) => {
       if (roleFilter && d.role !== roleFilter) return false
+      for (const [k, vals] of Object.entries(colF)) {
+        if (!vals.length) continue
+        const v = colVal(d, k) || '(없음)'
+        if (!vals.includes(v)) return false
+      }
       if (!n) return true
       return [d.ip, d.model, d.vendor, d.lab, d.name, d.device_group]
         .some((v) => (v ?? '').toLowerCase().includes(n))
     })
-  }, [devices, q, roleFilter])
+  }, [devices, q, roleFilter, colF, colVal])
+
+  /** 그 칸에 실제로 있는 값들 — 다른 거르개가 걸린 뒤의 목록에서 뽑는다 */
+  const colOpts = useMemo(() => {
+    return (k: string) => {
+      const pre = devices.filter((d) => {
+        if (roleFilter && d.role !== roleFilter) return false
+        for (const [k2, vals] of Object.entries(colF)) {
+          if (k2 === k || !vals.length) continue
+          if (!vals.includes(colVal(d, k2) || '(없음)')) return false
+        }
+        return true
+      })
+      const m = new Map<string, number>()
+      for (const d of pre) {
+        const v = colVal(d, k) || '(없음)'
+        m.set(v, (m.get(v) ?? 0) + 1)
+      }
+      return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'))
+    }
+  }, [devices, roleFilter, colF, colVal])
 
   const importM = useMutation({
     mutationFn: async () => {
@@ -360,12 +476,22 @@ export default function Devices({ me }: Props) {
             모델그룹 → 모델명 → LAB. 그 뒤가 장비 고유(IP·접속·사용) */}
         <div className="dev-table">
         <div className="dev-row th">
-          <span>사업자</span>
-          <span>벤더</span>
-          <span>제품군</span>
-          <span>모델그룹</span>
-          <span>모델명</span>
-          <span>LAB</span>
+          {[
+            ['op', '사업자'],
+            ['vendor', '벤더'],
+            ['role', '제품군'],
+            ['group', '모델그룹'],
+            ['model', '모델명'],
+            ['lab', 'LAB'],
+          ].map(([k, lb]) => (
+            <ColFilter
+              key={k}
+              label={lb ?? ''}
+              opts={colOpts(k ?? '')}
+              picked={colF[k ?? ''] ?? []}
+              onPick={(vals) => setColF((cur) => ({ ...cur, [k ?? '']: vals }))}
+            />
+          ))}
           <span>IP</span>
           <span>Telnet</span>
           <span>SSH</span>
