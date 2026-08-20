@@ -10488,6 +10488,11 @@ async def _db_init():
         await db.apply_schema()
     except Exception as e:
         print(f'[startup] 스키마 적용 실패: {e}', flush=True)
+    # 겹싸여 저장된 jsonb(장비 data · 접속 params) 벗기기 — 한 번만 돌면 끝난다
+    try:
+        await db._repair_double_json()
+    except Exception as e:
+        print(f'[startup] jsonb 손질 실패: {e}', flush=True)
     # 워커 스레드(run_cli 등)에서 asyncio.run_coroutine_threadsafe 호출용 메인 루프 참조 저장.
     # 스레드 안에서는 asyncio.get_event_loop() 가 새 루프를 만들거나 실패하므로,
     # 요청 처리 스레드에서 broadcast() 를 예약하려면 반드시 여기서 잡은 루프를 써야 한다.

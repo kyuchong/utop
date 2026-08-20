@@ -861,6 +861,57 @@ _DEV_COLS = (
 )
 
 
+def _as_obj(v, default=None):
+    """jsonb 칸에서 온 값을 **진짜 dict/list** 로 되돌린다.
+
+    풀에 jsonb 코덱이 걸려 있는데(=dict 를 그대로 넘기면 알아서 JSON 이
+    된다) 어떤 자리는 `json.dumps()` 를 한 번 더 하고 있었다. 그러면
+    `{}` 가 `"{}"` 라는 **글자**로 저장되고, 다음 저장 때 또 감싸져
+    `"\"{}\""` 가 된다. 화면에서는 SNMP RW 를 적어도 저장이 되었다는
+    말만 나오고 값은 안 보였다(지적).
+
+    쓸 때는 아래 자리들에서 json.dumps 를 뺐고, 이미 겹싸인 옛 값은 이
+    함수와 기동 때 도는 손질(_repair_double_json)이 벗긴다.
+    """
+    seen = 0
+    while isinstance(v, str) and seen < 5:
+        t = v.strip()
+        if not t:
+            return default if default is not None else {}
+        try:
+            v = json.loads(t)
+        except Exception:
+            return default if default is not None else {}
+        seen += 1
+    if v is None:
+        return default if default is not None else {}
+    return v
+
+
+async def _repair_double_json() -> None:
+    """겹싸여 저장된 jsonb 를 벗겨 준다(기동 때 한 번).
+
+    `jsonb_typeof(x)='string'` 이면 객체가 아니라 **글자**로 들어갔다는
+    뜻이다. 이 두 칸은 늘 객체라야 하므로 그런 줄은 죄다 겹싸인 것이다.
+    SQL 로 캐스팅하면 벗긴 속이 JSON 이 아닐 때 통째로 터지므로, 파이썬에서
+    벗겨(_as_obj) 되돌려 넣는다.
+    """
+    async with pool().acquire() as c:
+        for table, col in (("device", "data"), ("device_access", "params")):
+            rows = await c.fetch(
+                f"SELECT id, {col} AS v FROM {table} WHERE jsonb_typeof({col}) = 'string'"
+            )
+            n = 0
+            for r in rows:
+                fixed = _as_obj(r["v"], {})
+                if not isinstance(fixed, (dict, list)):
+                    fixed = {}
+                await c.execute(f"UPDATE {table} SET {col}=$1 WHERE id=$2", fixed, r["id"])
+                n += 1
+            if n:
+                print(f"[startup] {table}.{col} 겹싸임 {n}줄 폄", flush=True)
+
+
 def _dev_in(d: dict) -> dict:
     """저장 직전 변환. 암호화를 넣게 되면 여기서 password 를 감싼다."""
     out = {k: d.get(k) for k in _DEV_COLS}
@@ -876,7 +927,17 @@ def _dev_in(d: dict) -> dict:
 
 def _dev_out(row) -> dict:
     """조회 직후 변환. 복호화 지점."""
-    return dict(row)
+    d = dict(row)
+    if "data" in d:
+        d["data"] = _as_obj(d.get("data"), {})
+    return d
+
+
+def _acc_out(row) -> dict:
+    """접속 한 줄 — params 는 늘 dict 로 내보낸다(옛 값은 글자였다)"""
+    a = dict(row)
+    a["params"] = _as_obj(a.get("params"), {})
+    return a
 
 
 # 계측기(n2x·stc)도 여기 있어야 한다. 없으면 저장할 때 그 줄만 조용히
@@ -917,7 +978,7 @@ async def device_list(with_ifs: bool = True) -> list[dict]:
         acc = await c.fetch("SELECT * FROM device_access ORDER BY device_id, protocol")
         by_acc: dict = {}
         for a in acc:
-            by_acc.setdefault(a["device_id"], []).append(dict(a))
+            by_acc.setdefault(a["device_id"], []).append(_acc_out(a))
         for d in devs:
             d["access"] = by_acc.get(d["id"], [])
 
@@ -947,7 +1008,7 @@ async def device_get(dev_id: str) -> Optional[dict]:
         acc = await c.fetch(
             "SELECT * FROM device_access WHERE device_id=$1 ORDER BY protocol", d["id"]
         )
-        d["access"] = [dict(a) for a in acc]
+        d["access"] = [_acc_out(a) for a in acc]
         return d
 
 
@@ -978,7 +1039,7 @@ async def device_upsert(payload: dict) -> str:
             """,
             m["id"], m["ip"], m["name"], m["model"], m["vendor"], m["device_group"],
             m["lab"], m["role"], m["protocol"], m["port"], m["username"], m["password"],
-            m["enable_password"], m["description"], m["status"], json.dumps(extra, ensure_ascii=False, default=str),
+            m["enable_password"], m["description"], m["status"], extra,
         )
         # 랙 자리·U 크기·전력은 보낸 요청에 그 키가 있을 때만, 그 칸만 만진다.
         # 장비 편집 창은 U 크기만 보내는데, 그때 rack_id 까지 갈아 치우면
@@ -1056,7 +1117,7 @@ async def _device_set_access(c, dev_id: str, rows: list) -> None:
                 r.get("password") or None,
                 r.get("enable_password") or None,
                 r.get("community") or None,
-                json.dumps(r.get("params") or {}, ensure_ascii=False, default=str),
+                _as_obj(r.get("params"), {}),
                 bool(r.get("enabled", True)),
                 bool(r.get("is_default", False)),
                 prev["last_status"] if prev else None,
