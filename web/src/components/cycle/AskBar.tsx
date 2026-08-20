@@ -1212,12 +1212,14 @@ export default function AskBar({ devices }: Props) {
         { s: 1, t: m0 ? `말에서 모델 ${m0} 을(를) 읽었습니다` : '말에 모델이 없어 전체에서 고릅니다' },
       ])
       await findLike(said, undefined)
-      if (!m0) {
-        /* 모델을 먼저 고른다(지시) — 항목은 그 모델 것만 보여 준다 */
-        setFlowLog((v) => [...v, { s: 1, t: '어느 모델인지 먼저 고릅니다' }])
-        setPickModelOpen(true)
-        return
-      }
+      /* **늘 모델부터** 고른다(지시) — 말에 모델이 있으면 그 카드가 위에
+         서고, 없으면 전부에서 고른다. 항목은 그 뒤에 고른다. */
+      setFlowLog((v) => [
+        ...v,
+        { s: 1, t: m0 ? `말의 모델 ${m0} 을(를) 짚어 두고 고릅니다` : '어느 모델인지 먼저 고릅니다' },
+      ])
+      setPickModelOpen(true)
+      return
       setTcOnlyModel(!!m0)
       /* 찾기 칸은 **비워 둔다**(지시) — 말에서 뽑은 낱말을 미리 넣어 두면
          그것 말고는 안 보여, 목록을 훑을 수가 없었다. 트리 자리(아래
@@ -2475,9 +2477,15 @@ export default function AskBar({ devices }: Props) {
           const m = String(t.model ?? '').trim()
           cnt.set(m, (cnt.get(m) ?? 0) + 1)
         }
+        /* 말에서 읽은 모델이 있으면 **맨 앞**에 세운다(지시) */
         const rows = [...cnt.entries()]
           .filter(([m]) => m)
-          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'))
+          .sort((a, b) => {
+            const am = a[0] === askModel ? 1 : 0
+            const bm = b[0] === askModel ? 1 : 0
+            if (am !== bm) return bm - am
+            return b[1] - a[1] || a[0].localeCompare(b[0], 'ko')
+          })
         const shared = cnt.get('') ?? 0
         const devsOf = (m: string) =>
           usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m.toLowerCase()).length
@@ -2512,7 +2520,12 @@ export default function AskBar({ devices }: Props) {
               </div>
               <div className="ask-modellist">
                 {rows.map(([m, n]) => (
-                  <button key={m} type="button" className="ask-modelcard" onClick={() => go(m)}>
+                  <button
+                    key={m}
+                    type="button"
+                    className={`ask-modelcard${m === askModel ? ' on' : ''}`}
+                    onClick={() => go(m)}
+                  >
                     <b>{m}</b>
                     <span className="muted small">시험 {n}건</span>
                     <em className={devsOf(m) ? 'ok' : 'no'}>

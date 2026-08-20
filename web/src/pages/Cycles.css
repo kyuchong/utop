@@ -7124,3 +7124,4 @@ table.tb td.k {
 .ask-steplist .sq { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .ask-steplist .sq-scroll { flex: 1; min-height: 0; overflow: auto; }
 .ask-steplist { display: flex; flex-direction: column; min-height: 0; }
+.ask-modelcard.on { border-color: var(--c-primary); background: var(--c-primary-bg); }
