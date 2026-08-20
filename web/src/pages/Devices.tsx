@@ -325,7 +325,9 @@ export default function Devices({ me }: Props) {
     return {
       operator: pick('operator'),
       vendor: pick('vendor'),
-      model_group: pick('model_group'),
+      /* 카탈로그는 모델그룹을 **`group`** 이라는 이름으로 담는다 —
+         `model_group` 으로 찾아 늘 비어 「목록에 없음」 이 됐다(지적) */
+      model_group: [...pick('group'), ...pick('model_group')],
       family: pick('family'),
     }
   }, [catQ.data])
