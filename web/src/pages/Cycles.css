@@ -6891,3 +6891,12 @@ table.tb td.k {
 .cs-dtc { color: var(--c-primary); font-size: var(--fs-xs); }
 .cs-dfail { font-style: normal; color: var(--c-fail); font-size: var(--fs-xs); }
 .cs-dpg { display: flex; align-items: center; gap: 10px; justify-content: center; padding: 8px; }
+
+/* 합격 기준이 응답 어디에 있나 — 초록으로 짚는다(지시) */
+.ask-detout .ask-hit {
+  background: #d9f4e6;
+  color: #0a7a45;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 700;
+}

@@ -3,6 +3,7 @@ import { apiFetch } from '@/api/client'
 import { IconSettings } from '@/components/icons'
 import { connParams } from '@/components/tc/device'
 import { runSteps } from '@/components/tc/runner'
+import type { ReactNode } from 'react'
 import type { TcStep } from '@/components/tc/types'
 import type { Device } from '@/pages/Devices'
 
@@ -133,6 +134,37 @@ interface Props {
  * 그리고 **초안을 보여 주고 사람이 누른다.** 말이 잘못 알아들어졌을 때
  * 명령이 그대로 나가면 안 된다.
  */
+/**
+ * 합격 기준을 응답에서 **초록으로 짚어 준다**(지시).
+ *
+ * 「이 글자가 나오면 합격」 인데 응답 어디에 있는지 눈으로 찾아야 했다.
+ * 대소문자는 가리지 않고, 기준이 비었거나 응답에 없으면 그냥 글자로 둔다.
+ */
+function hilite(out: string, criteria?: string | null): ReactNode {
+  const key = String(criteria ?? '').trim()
+  if (!key || key.length < 2) return out
+  const low = out.toLowerCase()
+  const k = key.toLowerCase()
+  const parts: ReactNode[] = []
+  let at = 0
+  let n = 0
+  for (;;) {
+    const hit = low.indexOf(k, at)
+    if (hit < 0 || n > 200) break
+    if (hit > at) parts.push(out.slice(at, hit))
+    parts.push(
+      <mark className="ask-hit" key={`${hit}-${n}`}>
+        {out.slice(hit, hit + key.length)}
+      </mark>,
+    )
+    at = hit + key.length
+    n += 1
+  }
+  if (!parts.length) return out
+  parts.push(out.slice(at))
+  return parts
+}
+
 export default function AskBar({ devices }: Props) {
   const [text, setText] = useState('')
   /**
@@ -746,9 +778,18 @@ export default function AskBar({ devices }: Props) {
     setFlowLog((v) => [...v, { s: 5, t: '절차를 짓는 중…' }])
     try {
       const picked = dev ?? usable.find((x) => x.id === devId) ?? usable[0]
+      /* 이미 지어 둔 절차가 있으면 **함께 보낸다** — 서버는 그때
+         새로 짓지 않고 고쳐서 돌려준다(지시). 여태 안 보내서 물어볼
+         때마다 새 시험이 나왔다. */
       const r = await apiFetch('/api/ai/nl-plan', {
         method: 'POST',
-        body: JSON.stringify({ text: say, model: picked?.model ?? '' }),
+        body: JSON.stringify({
+          text: say,
+          model: picked?.model ?? '',
+          ...(draft
+            ? { steps: draft.steps, title: draft.name, purpose: draft.object }
+            : {}),
+        }),
       })
       const b = (await r.json()) as {
         ok?: boolean
@@ -1018,6 +1059,13 @@ export default function AskBar({ devices }: Props) {
     setFlowVals([])
     setFitNotes([])
     setFlowAt(1)
+    /* 이미 절차가 있으면 **고치는 말**이다(지시) — 장비를 다시 묻거나
+       시험을 새로 고르지 않고 지금 절차를 고친다. */
+    if (draft) {
+      setFlowLog((v) => [...v, { s: 5, t: '지금 절차를 고치는 중…' }])
+      void makePlan(said, usable.find((x) => x.id === devId))
+      return
+    }
     const hit = candsOf(said)
     const askPick = (model: string, cands: Device[], why: string) => {
       setFlowLog((v) => [...v, { s: 1, t: why }])
@@ -2189,7 +2237,7 @@ export default function AskBar({ devices }: Props) {
                         if (sel) setGrab({ i, text: sel })
                       }}
                     >
-                      {out || '아직 실행하지 않았습니다.'}
+                      {out ? hilite(out, s.criteria) : '아직 실행하지 않았습니다.'}
                     </pre>
                     {rs?.reason && <div className="ask-detwhy muted small">{rs.reason}</div>}
                     {/* 판정기준은 응답을 보고 정하는 것이 제일 정확하다 */}
