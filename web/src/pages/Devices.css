@@ -293,3 +293,16 @@
 /* 줄 간격을 줄인다(지시) — 34 → 26px */
 .dev-row { min-height: 26px; }
 .dev-row.th { min-height: 28px; }
+
+/* 「어느 시험에서 쓰는 중인가」 — 사람 이름 옆에 회차를 붙인다(지시) */
+.lk-cyc {
+  margin-left: 5px;
+  color: var(--c-primary);
+  font-weight: 600;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: bottom;
+}

@@ -7,6 +7,9 @@ export interface Lock {
   locked_by: string
   locked_name?: string | null
   cycle_id?: string | null
+  /** 어느 사이클에서 쓰는 중인가 — id 만으로는 사람이 못 읽는다(지시) */
+  cycle_name?: string | null
+  cycle_cid?: string | null
   note?: string | null
   locked_at?: string | null
   stale_sec?: number
@@ -129,7 +132,16 @@ export default function LockCell({
       </span>
       <span className="muted small lk-when">
         {fmtTime(lock.locked_at)}
-        {lock.cycle_id ? ` · ${lock.cycle_id}` : ''}
+        {/* 어느 시험에서 쓰는 중인가(지시) — 회차 이름이 있으면 그것을 */}
+        {lock.cycle_name || lock.cycle_cid || lock.cycle_id ? (
+          <b
+            className="lk-cyc"
+            title={`이 시험에서 쓰는 중입니다 — ${lock.cycle_name || lock.cycle_cid || lock.cycle_id}`}
+          >
+            {lock.cycle_cid ? `${lock.cycle_cid} · ` : ''}
+            {lock.cycle_name || lock.cycle_id}
+          </b>
+        ) : null}
         {stale ? ' · 응답 없음' : ''}
       </span>
       {(mine || isAdmin) && (

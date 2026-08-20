@@ -95,6 +95,9 @@ export interface CycleItemLite {
   executed_at?: string | null
   executed_by?: string | null
   executed_auto?: boolean
+  /** 이 항목이 붙는 장비 — 자동 점유가 이것으로 자리를 잡는다 */
+  devId?: string | null
+  devName?: string | null
   /** 이 회차에만 남기는 한 줄 메모 (Zephyr 의 Notes) */
   note?: string | null
   issues?: unknown[]
@@ -802,6 +805,11 @@ export default function Cycles({ me }: PageProps) {
         }),
       })
       if (!w.ok) throw new Error(String(w.status))
+      /* 이 회차가 자동으로 잡아 둔 장비를 통째로 놓는다(지시) */
+      await apiFetch(`/api/locks/by-cycle/${encodeURIComponent(cur.id)}`, { method: 'DELETE' }).catch(
+        () => undefined,
+      )
+      qc.invalidateQueries({ queryKey: ['locks'] })
       setSel('')
       await listQ.refetch()
     } catch (e) {
@@ -3746,6 +3754,60 @@ function CycleDetail({
     if (!st.on) setStopping(false)
   }, [st.on])
   const startRun = (idxs: number[]) => {
+    /* 사이클 실행은 **자리를 먼저 잡는다**(지시). 남이 잡고 있으면 아예
+       진행하지 않는다 — 누가·어느 사이클에서 쓰는지까지 말해 준다.
+       놓는 것은 회차 「시험 완료」 가 한다. */
+    const devs = [
+      ...new Set(
+        idxs
+          .map((i) => String(items[i]?.devId ?? '').trim())
+          .filter(Boolean),
+      ),
+    ]
+    void (async () => {
+      if (devs.length) {
+        try {
+          const r = await apiFetch('/api/locks/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ resource_ids: devs, kind: 'device', cycle_id: cycle.id }),
+          })
+          const b = (await r.json().catch(() => ({}))) as {
+            success?: boolean
+            blocked?: Array<{
+              resource_id: string
+              locked_name?: string
+              locked_by?: string
+              cycle_name?: string
+              locked_at?: string
+            }>
+          }
+          if (!r.ok || b.success === false) {
+            const lines = (b.blocked ?? []).map(
+              (x) =>
+                `· ${x.resource_id} — ${x.locked_name || x.locked_by || '누군가'} 님` +
+                (x.cycle_name ? ` (${x.cycle_name})` : '') +
+                (x.locked_at ? ` · ${String(x.locked_at).replace('T', ' ').slice(5, 16)}` : ''),
+            )
+            window.alert(
+              '다른 사람이 쓰고 있는 장비가 있어 실행할 수 없습니다.\n\n' +
+                lines.join('\n') +
+                '\n\n그 사람이 반납하거나, 관리자가 장비 화면에서 풀어야 합니다.',
+            )
+            return
+          }
+        } catch (e) {
+          window.alert(
+            e instanceof Error ? `장비 점유에 실패했습니다 — ${e.message}` : '장비 점유에 실패했습니다',
+          )
+          return
+        }
+      }
+      startRunNow(idxs)
+    })()
+  }
+
+  const startRunNow = (idxs: number[]) => {
     setFollow(true)
     /* 이번 실행에 걸린 항목 — 목록에서 「대기」 를 그리는 데 쓴다.
        도는 것만 보이고 **다음에 무엇이 도는지** 안 보였다(지적). */

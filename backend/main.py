@@ -4133,7 +4133,82 @@ async def list_locks():
             FROM resource_lock ORDER BY locked_at
             """
         )
-    return {"locks": [dict(r) for r in rows]}
+        # 「어느 사이클에서 쓰는 중인가」 — id 만으로는 사람이 못 읽는다(지시)
+        ids = [r["cycle_id"] for r in rows if r["cycle_id"]]
+        nm: dict = {}
+        if ids:
+            cn = await c.fetch(
+                "SELECT id, name, data_summary FROM cycle WHERE id = ANY($1::text[])", ids
+            )
+            for r2 in cn:
+                d2 = dict(r2["data_summary"] or {})
+                nm[r2["id"]] = {"name": r2["name"], "cid": d2.get("cid") or ""}
+    out = []
+    for r in rows:
+        d = dict(r)
+        info = nm.get(d.get("cycle_id") or "")
+        d["cycle_name"] = (info or {}).get("name") or ""
+        d["cycle_cid"] = (info or {}).get("cid") or ""
+        out.append(d)
+    return {"locks": out}
+
+
+class LockBulkIn(BaseModel):
+    resource_ids: list[str] = []
+    kind: str = "device"
+    cycle_id: Optional[str] = None
+    note: Optional[str] = None
+
+
+@app.post("/api/locks/bulk")
+async def acquire_locks_bulk(body: LockBulkIn, request: Request):
+    """
+    사이클 실행이 거는 자동 점유(지시). 걸려는 장비 가운데 **남이 잡은 것이
+    하나라도 있으면 아무것도 잡지 않고 물러난다** — 반쯤 잡힌 채로 실패하면
+    남의 자리만 붙들고 있게 된다.
+
+    막힌 자리는 「누가 · 어느 사이클에서」 까지 돌려준다.
+    """
+    me = _me(request)
+    ids = [str(x).strip() for x in (body.resource_ids or []) if str(x).strip()]
+    if not ids:
+        return {"success": True, "locked": [], "blocked": []}
+
+    async with db.pool().acquire() as c:
+        cur = await c.fetch(
+            "SELECT * FROM resource_lock WHERE resource_id = ANY($1::text[])", ids
+        )
+        mine_name = me.get("username")
+        blocked = [dict(r) for r in cur if r["locked_by"] != mine_name]
+        if blocked:
+            cids = [b["cycle_id"] for b in blocked if b["cycle_id"]]
+            nm: dict = {}
+            if cids:
+                cn = await c.fetch("SELECT id, name FROM cycle WHERE id = ANY($1::text[])", cids)
+                nm = {r["id"]: r["name"] for r in cn}
+            for b in blocked:
+                b["cycle_name"] = nm.get(b.get("cycle_id") or "") or ""
+                b["locked_at"] = b["locked_at"].isoformat() if b.get("locked_at") else None
+                b["heartbeat_at"] = b["heartbeat_at"].isoformat() if b.get("heartbeat_at") else None
+            return {"success": False, "locked": [], "blocked": blocked}
+
+        held = {r["resource_id"] for r in cur}
+        for rid in ids:
+            if rid in held:
+                await c.execute(
+                    "UPDATE resource_lock SET heartbeat_at=now(), cycle_id=COALESCE($2, cycle_id) "
+                    "WHERE resource_id=$1",
+                    rid, body.cycle_id,
+                )
+                continue
+            await c.execute(
+                """INSERT INTO resource_lock
+                   (resource_id, kind, locked_by, locked_name, cycle_id, note)
+                   VALUES ($1,$2,$3,$4,$5,$6)""",
+                rid, body.kind, mine_name, me.get("name") or mine_name,
+                body.cycle_id, body.note,
+            )
+    return {"success": True, "locked": ids, "blocked": []}
 
 
 @app.post("/api/locks")
