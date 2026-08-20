@@ -1197,3 +1197,29 @@
 .dcc-fampop label.on { color: var(--c-primary); }
 .dcc-fampop label > span { flex: 1; min-width: 0; }
 .dcc-fampop label > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
+
+/* ── 카탈로그 트리 다듬기(지시) ─────────────────────────────────
+   ① 칸을 화면 끝까지 ② 모델명 칸을 좁혀 오른쪽에 자리를 준다
+   ③ 포트(23·22)는 머리 이름 옆에, 줄에는 상태만. */
+.set-page.dc2 { height: 100%; }
+.dc2-tree { flex: 1; min-height: 0; }
+.dcc-cols { align-items: stretch; }
+.dcc-mh,
+.dcc-m2 {
+  grid-template-columns: 210px 120px 72px 72px 72px 72px 64px 64px 66px minmax(120px, 1fr);
+}
+.dcc-port {
+  font-style: normal;
+  font-weight: 500;
+  color: var(--c-text-faint);
+  margin-left: 3px;
+}
+.dcc-st {
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.dcc-st.ok { color: var(--c-pass); font-weight: 700; }
+.dcc-st.ng { color: var(--c-fail); font-weight: 700; }
+.dcc-st.un { color: var(--c-text-muted); }
+.dcc-st.off { color: var(--c-text-faint); }
+.dcc-m2.dev > span:first-child { padding-left: 2px; }

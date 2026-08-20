@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import LockCell, { useLocks, type Lock } from '@/components/LockCell'
-import { ProtoCell, type Device } from '@/pages/Devices'
+import { type Device } from '@/pages/Devices'
 
 interface Item {
   kind: string
@@ -40,7 +40,12 @@ const EMPTY_MODEL: Item = { kind: 'model', name: '' }
  * 목록에 없는 저장값은 붉게 드러난다. 유비쿼스가 DB 에 숨은 채 화면은
  * 빈 칸이던 일을 다시 만들지 않기 위해서다.
  */
-export default function DeviceCatalog() {
+export default function DeviceCatalog({
+  me,
+}: {
+  /** 점유·반납을 하려면 **누가 보고 있나**를 알아야 한다(지적) */
+  me?: { username?: string; role?: string } | null
+} = {}) {
   const qc = useQueryClient()
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
   /** 두 탭 — 분류 등록 / 모델 목록. 보던 쪽을 기억한다 */
@@ -549,8 +554,12 @@ export default function DeviceCatalog() {
                   <div className="dcc-mh">
                     <span>모델명</span>
                     <span>IP</span>
-                    <span>Telnet</span>
-                    <span>SSH</span>
+                    <span>
+                      Telnet <i className="dcc-port">23</i>
+                    </span>
+                    <span>
+                      SSH <i className="dcc-port">22</i>
+                    </span>
                     <span>Console</span>
                     <span>SNMP</span>
                     <span>RO</span>
@@ -598,14 +607,22 @@ export default function DeviceCatalog() {
                               <div className="dcc-m2 dev" key={d.id}>
                                 <span className="muted small ell">└ {d.name || d.model}</span>
                                 <b>{d.ip}</b>
-                                {['telnet', 'ssh', 'console', 'snmp'].map((p2) => (
-                                  <ProtoCell
-                                    key={p2}
-                                    access={acc(p2)}
-                                    busy={false}
-                                    onCheck={() => undefined}
-                                  />
-                                ))}
+                                {/* 포트는 머리에 적었으니 줄에는 **상태만**(지시) */}
+                                {['telnet', 'ssh', 'console', 'snmp'].map((p2) => {
+                                  const a2 = acc(p2)
+                                  const st = String(a2?.last_status ?? '')
+                                  return (
+                                    <span
+                                      key={p2}
+                                      className={`dcc-st ${
+                                        !a2 ? 'off' : st === 'ok' ? 'ok' : st === 'fail' ? 'ng' : 'un'
+                                      }`}
+                                      title={a2?.last_error || ''}
+                                    >
+                                      {!a2 ? '–' : st === 'ok' ? '연결됨' : st === 'fail' ? '실패' : '미확인'}
+                                    </span>
+                                  )
+                                })}
                                 <span className="muted small ell">{snmp?.community || '–'}</span>
                                 <span className="muted small ell">{prm.community_rw || '–'}</span>
                                 <span className="muted small">{d.if_count ?? d.interfaces?.length ?? 0}</span>
@@ -614,6 +631,9 @@ export default function DeviceCatalog() {
                                     resourceId={d.id}
                                     kind="device"
                                     lock={lockBy.get(d.id) ?? lockBy.get(d.ip)}
+                                    me={me?.username}
+                                    isAdmin={me?.role === '관리자' || me?.role === 'admin'}
+                                    onMessage={(kind, msg) => setNote({ kind, msg })}
                                   />
                                 </span>
                               </div>
