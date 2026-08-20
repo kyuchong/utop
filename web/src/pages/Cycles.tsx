@@ -3566,6 +3566,23 @@ function CycleDetail({
     localStorage.setItem('utop.cycle.grp', grp)
   }, [grp])
 
+  /** 분류(폴더) 이름표 — cat1~4 에는 **ID** 가 들어 있어 그대로 쓰면
+      「cat-lg-rf-178…」 로 보였다(지적). 이름은 여기서 받아 옮긴다. */
+  const catQ = useQuery({
+    queryKey: ['req-categories'],
+    enabled: grp === 'folder',
+    queryFn: async () => {
+      const r = await apiFetch('/api/req-categories')
+      if (!r.ok) throw new Error('분류를 불러오지 못했습니다')
+      return (await r.json()) as { categories: Array<{ id: string; name: string }> }
+    },
+  })
+  const catName = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const c of catQ.data?.categories ?? []) m.set(String(c.id), String(c.name ?? ''))
+    return m
+  }, [catQ.data])
+
   /** 요구사항이 놓인 폴더 — 가장 깊은 분류 한 조각. 항목 묶기(폴더)가 쓴다 */
   const reqFolder = useMemo(() => {
     const m = new Map<string, string>()
@@ -3620,7 +3637,7 @@ function CycleDetail({
         }
         case 'folder': {
           const f = reqFolder.get(String(it.req_id ?? '')) ?? ''
-          return { k: f || '_none', label: f || '(폴더 없음)' }
+          return { k: f || '_none', label: catName.get(f) || f || '(폴더 없음)' }
         }
         default: {
           const rid = String(it.req_id ?? '')
@@ -3633,7 +3650,7 @@ function CycleDetail({
         }
       }
     }
-  }, [grp, tcSev, reqFolder, reqName, reqIdOf])
+  }, [grp, tcSev, reqFolder, reqName, reqIdOf, catName])
 
 
   /*
@@ -4074,6 +4091,7 @@ function CycleDetail({
               </button>
             )}
             <span className="cy-execslot" id="cy-execbar" />
+            <span className="sp" />
             {/* 이 회차가 어디까지 왔나 — **이 줄 하나**로만 말한다(지시).
                 전체·수동·자동 세 막대. 도는 중이면 앞에 진행이 붙는다. */}
             {(() => {
@@ -4113,6 +4131,39 @@ function CycleDetail({
                       </i>
                     </span>
                   ))}
+                  {/* 올리면 뜨는 현황 카드(지시) */}
+                  <span className="cxp-sumpop" role="tooltip">
+                    <b className="ttl">이 회차 현황</b>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th />
+                          <th>전체</th>
+                          <th>합격</th>
+                          <th>실패</th>
+                          <th>미실행</th>
+                          <th>진척</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bars.map(([lb, t]) => (
+                          <tr key={lb}>
+                            <th>{lb}</th>
+                            <td>{t.n}</td>
+                            <td className="p">{t.p}</td>
+                            <td className="f">{t.f}</td>
+                            <td>{t.n - t.p - t.f}</td>
+                            <td>{t.n ? Math.round(((t.p + t.f) / t.n) * 100) : 0}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {st.on && (
+                      <i className="run">
+                        ● 지금 {Math.min(st.done + 1, st.total)}/{st.total} 실행 중
+                      </i>
+                    )}
+                  </span>
                 </span>
               )
             })()}

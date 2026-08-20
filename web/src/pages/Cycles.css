@@ -6525,3 +6525,44 @@ table.tb td.k {
 .cxp-row.cxp-hd .cxp-rgt > span:nth-child(3) {
   border-left: 1px solid var(--c-border-soft);
 }
+
+/* 집계는 줄 가운데 · 올리면 현황 카드가 뜬다(지시) */
+.cxp-sum { position: relative; }
+.cxp-sumpop {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  min-width: 300px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  background: var(--c-surface);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  z-index: 40;
+}
+.cxp-sum:hover .cxp-sumpop {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.cxp-sumpop .ttl { display: block; font-size: var(--fs-sm); margin-bottom: 6px; }
+.cxp-sumpop table { width: 100%; border-collapse: collapse; font-size: var(--fs-xs); }
+.cxp-sumpop th, .cxp-sumpop td { padding: 3px 6px; text-align: right; white-space: nowrap; }
+.cxp-sumpop thead th { color: var(--c-text-faint); font-weight: 600; }
+.cxp-sumpop tbody th { text-align: left; color: var(--c-text-muted); font-weight: 600; }
+.cxp-sumpop td.p { color: var(--c-pass); font-weight: 700; }
+.cxp-sumpop td.f { color: var(--c-fail); font-weight: 700; }
+.cxp-sumpop .run { display: block; margin-top: 6px; color: var(--c-primary); font-style: normal; font-size: var(--fs-xs); }
+
+/* 2열 머리 — 결과·실행 단추 키를 한 벌로(지시) */
+.cxp-h .btn, .cxp-h select, .cxp-h .cy-v {
+  height: 28px;
+  box-sizing: border-box;
+  font-size: var(--fs-sm);
+  padding: 0 10px;
+  line-height: 26px;
+}
