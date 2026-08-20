@@ -33,18 +33,33 @@ const BASE: Array<{ v: string; label: string; color: string; fg: string; group: 
   { v: '', label: '미실행', color: '#c3cad4', fg: '#64748b', group: 'neutral' },
 ]
 
+/** 기본 판정의 뜻 — 사람이 적어 두지 않았을 때 자리에 비쳐 보인다 */
+const BASE_DESC: Record<string, string> = {
+  Pass: '기준대로 동작함',
+  Fail: '기준과 다름 — 결함을 답니다',
+  WIP: '보는 중 · 판정 전',
+  Blocked: '앞단이 막혀 못 함',
+  진행불가: '이 회차에서 뺄 것',
+  '': '아직 안 돌림',
+}
+
 const GRP_LB: Record<Grp, string> = {
   pass: '합격으로 셈',
   fail: '실패로 셈',
   neutral: '그 밖 (합격률 제외)',
 }
 
-function metaOf(it?: Item): { color?: string; fg?: string; group?: Grp } {
+function metaOf(it?: Item): { color?: string; fg?: string; desc?: string; group?: Grp } {
   if (!it) return {}
   try {
-    const m = JSON.parse(it.note || '{}') as { color?: string; fg?: string; group?: string }
+    const m = JSON.parse(it.note || '{}') as {
+      color?: string
+      fg?: string
+      desc?: string
+      group?: string
+    }
     const g = m.group === 'pass' || m.group === 'fail' ? m.group : 'neutral'
-    return { color: m.color, fg: m.fg, group: g }
+    return { color: m.color, fg: m.fg, desc: m.desc, group: g }
   } catch {
     return {}
   }
@@ -159,6 +174,7 @@ export default function VerdictSettings() {
       value: string
       color?: string
       fg?: string
+      desc?: string
       group?: Grp
       sort?: number
     }) => {
@@ -169,7 +185,12 @@ export default function VerdictSettings() {
           kind: 'cycle_result',
           value: p.value,
           sort_order: p.sort ?? byVal.get(p.value)?.sort_order ?? 0,
-          note: JSON.stringify({ color: p.color, fg: p.fg, group: p.group ?? 'neutral' }),
+          note: JSON.stringify({
+          color: p.color,
+          fg: p.fg,
+          desc: p.desc,
+          group: p.group ?? 'neutral',
+        }),
         }),
       })
       const b = (await r.json().catch(() => ({}))) as { detail?: string }
@@ -214,12 +235,12 @@ export default function VerdictSettings() {
         <table className="vd-tbl">
           <thead>
             <tr>
-              <th>바탕색</th>
-              <th>글자색</th>
-              <th>값</th>
-              <th>집계 계열</th>
-              <th className="r">쓰임</th>
-              <th />
+              <th className="w-c">색</th>
+              <th className="w-c">글자색</th>
+              <th className="w-v">적용값</th>
+              <th className="w-g">집계 계열</th>
+              <th>설명</th>
+              <th className="r" />
             </tr>
           </thead>
           <tbody>
@@ -252,9 +273,20 @@ export default function VerdictSettings() {
                     </i>
                   </td>
                   <td className="muted">{GRP_LB[b.group]}</td>
-                  <td className="r muted">{byVal.get(b.v)?.used ?? '–'}</td>
+                  <td>
+                    <input
+                      className="vd-desc"
+                      defaultValue={m.desc ?? ''}
+                      placeholder={BASE_DESC[b.v] ?? '이 판정을 언제 쓰는지 적어 둡니다'}
+                      onBlur={(e) => {
+                        const t = e.target.value.trim()
+                        if (t === (m.desc ?? '')) return
+                        save.mutate({ value: b.v, color, fg, desc: t, group: b.group })
+                      }}
+                    />
+                  </td>
                   <td className="r">
-                    {(m.color || m.fg) && (
+                    {(m.color || m.fg || m.desc) && (
                       <button
                         className="btn small"
                         type="button"
@@ -283,13 +315,13 @@ export default function VerdictSettings() {
           <table className="vd-tbl">
             <thead>
               <tr>
-                <th>바탕색</th>
-                <th>글자색</th>
-                <th>값</th>
-                <th>집계 계열</th>
-                <th className="r">쓰임</th>
+                <th className="w-c">색</th>
+                <th className="w-c">글자색</th>
+                <th className="w-v">적용값</th>
+                <th className="w-g">집계 계열</th>
+                <th>설명</th>
                 <th className="r">차례</th>
-                <th />
+                <th className="r" />
               </tr>
             </thead>
             <tbody>
@@ -326,7 +358,13 @@ export default function VerdictSettings() {
                       <select
                         value={grp}
                         onChange={(e) =>
-                          save.mutate({ value: it.value, color, fg, group: e.target.value as Grp })
+                          save.mutate({
+                            value: it.value,
+                            color,
+                            fg,
+                            desc: m.desc,
+                            group: e.target.value as Grp,
+                          })
                         }
                       >
                         {(['pass', 'fail', 'neutral'] as Grp[]).map((g) => (
@@ -336,7 +374,18 @@ export default function VerdictSettings() {
                         ))}
                       </select>
                     </td>
-                    <td className="r muted">{it.used ?? 0}</td>
+                    <td>
+                      <input
+                        className="vd-desc"
+                        defaultValue={m.desc ?? ''}
+                        placeholder="이 판정을 언제 쓰는지 적어 둡니다"
+                        onBlur={(e) => {
+                          const t = e.target.value.trim()
+                          if (t === (m.desc ?? '')) return
+                          save.mutate({ value: it.value, color, fg, desc: t, group: grp })
+                        }}
+                      />
+                    </td>
                     <td className="r">
                       <button
                         className="btn small"

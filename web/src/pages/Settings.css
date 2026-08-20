@@ -975,3 +975,22 @@
 .vd-pickb.one > em { font-style: normal; font-size: 10px; letter-spacing: .02em; }
 .vd-pickb.one:hover { background: var(--c-surface-alt); }
 .vd-grid .vd-sw2 { height: 26px; border-radius: 7px; border-color: rgba(0,0,0,.12); }
+
+/* 칸 폭을 한 벌로 — 색 단추가 줄마다 어긋나 보였다(지적) */
+.vd-tbl th.w-c, .vd-tbl td:nth-child(1), .vd-tbl td:nth-child(2) { width: 108px; }
+.vd-tbl th.w-v { width: 150px; }
+.vd-tbl th.w-g { width: 170px; }
+.vd-pickb.one { width: 96px; justify-content: flex-start; }
+.vd-pickb.one > em { flex: 1; text-align: right; }
+.vd-desc {
+  width: 100%;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 0 6px;
+}
+.vd-desc:hover { border-color: var(--c-border-soft); }
+.vd-desc:focus { border-color: var(--c-primary); background: var(--c-surface); outline: none; }
