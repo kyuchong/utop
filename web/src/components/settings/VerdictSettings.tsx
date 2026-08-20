@@ -70,61 +70,53 @@ const PALETTE: Array<{ nm: string; color: string; fg: string }> = [
   { nm: '검정', color: '#334155', fg: '#1e293b' },
 ]
 
-/** 색 고르개 — 누르면 팔레트가 뜬다. 세밀히 잡고 싶으면 아래 두 칸으로 */
+/** 한 색 고르개 — 바탕과 글자를 **따로** 고른다(지시). 누르면 색 한 벌이
+    뜨고, 세밀히 잡고 싶으면 아래 칸으로 직접 집는다. */
 function ColorPick({
-  label,
-  color,
-  fg,
+  title,
+  value,
   onPick,
 }: {
-  label: string
-  color: string
-  fg: string
-  onPick: (c: string, f: string) => void
+  title: string
+  value: string
+  onPick: (c: string) => void
 }) {
   const [open, setOpen] = useState(false)
   return (
     <span className="vd-pick">
       <button
         type="button"
-        className="vd-pickb"
-        style={{ background: `${color}22`, color: fg, borderColor: `${color}55` }}
-        title="색을 고릅니다"
+        className="vd-pickb one"
+        title={`${title} — 누르면 색 한 벌이 뜹니다`}
         onClick={() => setOpen((v) => !v)}
       >
-        {label}
-        <i style={{ background: color }} />
+        <i style={{ background: value }} />
+        <em>{value.toUpperCase()}</em>
       </button>
       {open && (
         <>
           <span className="vd-pickback" onClick={() => setOpen(false)} />
           <span className="vd-pickpop">
-            <b>색 고르기</b>
+            <b>{title}</b>
             <span className="vd-grid">
               {PALETTE.map((p) => (
                 <button
                   key={p.nm}
                   type="button"
                   title={p.nm}
-                  className={`vd-sw2${p.color === color ? ' on' : ''}`}
-                  style={{ background: `${p.color}22`, color: p.fg, borderColor: p.color }}
+                  className={`vd-sw2${p.color.toLowerCase() === value.toLowerCase() ? ' on' : ''}`}
+                  style={{ background: p.color }}
                   onClick={() => {
-                    onPick(p.color, p.fg)
+                    onPick(p.color)
                     setOpen(false)
                   }}
-                >
-                  가
-                </button>
+                />
               ))}
             </span>
             <span className="vd-fine">
               <label>
-                바탕
-                <input type="color" value={color} onChange={(e) => onPick(e.target.value, fg)} />
-              </label>
-              <label>
-                글자
-                <input type="color" value={fg} onChange={(e) => onPick(color, e.target.value)} />
+                직접 고르기
+                <input type="color" value={value} onChange={(e) => onPick(e.target.value)} />
               </label>
             </span>
           </span>
@@ -222,7 +214,8 @@ export default function VerdictSettings() {
         <table className="vd-tbl">
           <thead>
             <tr>
-              <th>색</th>
+              <th>바탕색</th>
+              <th>글자색</th>
               <th>값</th>
               <th>집계 계열</th>
               <th className="r">쓰임</th>
@@ -238,10 +231,16 @@ export default function VerdictSettings() {
                 <tr key={b.v || '_none'}>
                   <td>
                     <ColorPick
-                      label={b.label}
-                      color={color}
-                      fg={fg}
-                      onPick={(c, f) => save.mutate({ value: b.v, color: c, fg: f, group: b.group })}
+                      title="바탕색"
+                      value={color}
+                      onPick={(c) => save.mutate({ value: b.v, color: c, fg, group: b.group })}
+                    />
+                  </td>
+                  <td>
+                    <ColorPick
+                      title="글자색"
+                      value={fg}
+                      onPick={(f) => save.mutate({ value: b.v, color, fg: f, group: b.group })}
                     />
                   </td>
                   <td>
@@ -284,7 +283,8 @@ export default function VerdictSettings() {
           <table className="vd-tbl">
             <thead>
               <tr>
-                <th>색</th>
+                <th>바탕색</th>
+                <th>글자색</th>
                 <th>값</th>
                 <th>집계 계열</th>
                 <th className="r">쓰임</th>
@@ -302,12 +302,16 @@ export default function VerdictSettings() {
                   <tr key={it.value}>
                     <td>
                       <ColorPick
-                        label={it.value}
-                        color={color}
-                        fg={fg}
-                        onPick={(c, f) =>
-                          save.mutate({ value: it.value, color: c, fg: f, group: grp })
-                        }
+                        title="바탕색"
+                        value={color}
+                        onPick={(c) => save.mutate({ value: it.value, color: c, fg, group: grp })}
+                      />
+                    </td>
+                    <td>
+                      <ColorPick
+                        title="글자색"
+                        value={fg}
+                        onPick={(f) => save.mutate({ value: it.value, color, fg: f, group: grp })}
                       />
                     </td>
                     <td>
@@ -407,15 +411,16 @@ export default function VerdictSettings() {
             placeholder="값 (화면에 그대로 보입니다 — 예: 조건부 합격)"
             onChange={(e) => setDraft(e.target.value)}
           />
-          <ColorPick
-            label={draft.trim() || '미리 보기'}
-            color={dColor}
-            fg={dFg}
-            onPick={(c, f) => {
-              setDColor(c)
-              setDFg(f)
-            }}
-          />
+          <label className="vd-lb">바탕</label>
+          <ColorPick title="바탕색" value={dColor} onPick={setDColor} />
+          <label className="vd-lb">글자</label>
+          <ColorPick title="글자색" value={dFg} onPick={setDFg} />
+          <i
+            className="vd-chip"
+            style={{ background: `${dColor}22`, color: dFg, borderColor: `${dColor}55` }}
+          >
+            {draft.trim() || '미리 보기'}
+          </i>
           <select value={dGroup} onChange={(e) => setDGroup(e.target.value as Grp)}>
             {(['pass', 'fail', 'neutral'] as Grp[]).map((g) => (
               <option key={g} value={g}>

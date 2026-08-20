@@ -961,3 +961,17 @@
 .vd-fine { display: flex; gap: 12px; margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--c-border-soft); }
 .vd-fine label { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs); color: var(--c-text-muted); }
 .vd-fine input { width: 34px; height: 22px; padding: 0; border: 1px solid var(--c-border); border-radius: 5px; background: none; }
+
+/* 바탕·글자를 따로 고른다(지시) — 단추는 색 네모 + 색값 */
+.vd-pickb.one {
+  background: var(--c-surface);
+  border-color: var(--c-border);
+  color: var(--c-text-muted);
+  padding: 3px 9px;
+  gap: 6px;
+  font-weight: 600;
+}
+.vd-pickb.one > i { width: 15px; height: 15px; border-radius: 4px; border: 1px solid rgba(0,0,0,.12); }
+.vd-pickb.one > em { font-style: normal; font-size: 10px; letter-spacing: .02em; }
+.vd-pickb.one:hover { background: var(--c-surface-alt); }
+.vd-grid .vd-sw2 { height: 26px; border-radius: 7px; border-color: rgba(0,0,0,.12); }
