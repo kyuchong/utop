@@ -50,14 +50,10 @@ export default function DeviceCatalog({
   const qc = useQueryClient()
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
   /** 두 탭 — 분류 등록 / 모델 목록. 보던 쪽을 기억한다 */
-  const [view, setView] = useState<'cls' | 'models' | 'tree'>(() => {
-    const v = localStorage.getItem('utop.dc.view')
-    return v === 'cls' || v === 'models' ? v : 'tree'
-  })
-  const pickView = (v: 'cls' | 'models' | 'tree') => {
-    setView(v)
-    localStorage.setItem('utop.dc.view', v)
-  }
+  /* 늘 **트리**로 연다(지시). 브라우저마다 마지막 탭을 기억하니 크롬은
+     트리, 엣지는 모델 목록이 떠 「같은 페이지인데 다르다」 로 보였다. */
+  const [view, setView] = useState<'cls' | 'models' | 'tree'>('tree')
+  const pickView = (v: 'cls' | 'models' | 'tree') => setView(v)
   /** 트리에서 고른 자리 — LAB(거르개) · 벤더 › 제품군 › 모델그룹 */
   const [tlab, setTlab] = useState('')
   const [tven, setTven] = useState('')
