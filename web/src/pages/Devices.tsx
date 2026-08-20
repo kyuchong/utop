@@ -521,10 +521,16 @@ export default function Devices({ me }: Props) {
     )
       return
     try {
+      /* 카탈로그 저장은 **그 줄을 통째로 덮는다.** 고칠 값만 보내면 나머지
+         (사업자·모델그룹·제품군·인터페이스…)가 지워졌다(지적).
+         지금 줄을 먼저 펼치고 고칠 값만 덧댄다. */
+      const cur = (catQ.data?.items ?? []).find(
+        (x) => x.kind === 'model' && String(x.name) === nm,
+      )
       const r = await apiFetch('/api/device-catalog2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind: 'model', name: nm, ...p }),
+        body: JSON.stringify({ ...(cur ?? {}), kind: 'model', name: nm, ...p }),
       })
       if (!r.ok) throw new Error('저장하지 못했습니다')
       void qc.invalidateQueries({ queryKey: ['device-catalog'] })
