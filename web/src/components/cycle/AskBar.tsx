@@ -1938,6 +1938,17 @@ export default function AskBar({ devices }: Props) {
                 <span className="sp" />
                 <span className="muted small">누르면 오른쪽에서 설정</span>
               </div>
+              {/* 고치는 동안 이 판을 덮는다(지시) — 여태 작업 흐름만 움직여
+                  스텝 판은 멈춰 있는 것처럼 보였고, 다 되면 갑자기 바뀌었다. */}
+              {busy && (
+                <div className="ask-busy" role="status" aria-live="polite">
+                  <span className="ask-busy-box">
+                    <i className="ask-spin" aria-hidden="true" />
+                    <b>AI 수정 중…</b>
+                    <em>지금 절차를 고치고 있습니다</em>
+                  </span>
+                </div>
+              )}
             <div className="ask-steplist">
               {(() => {
                 // 들여쓴 만큼 번호를 나눈다 — 1, 1.1, 1.2, 2 …
