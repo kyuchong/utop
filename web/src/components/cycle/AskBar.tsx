@@ -1037,6 +1037,9 @@ export default function AskBar({ devices }: Props) {
   const cancelAsk = () => {
     setText(asked)      // 비워 둔 말을 돌려준다 — 고쳐서 다시 보내는 자리다
     setPickDev(null)
+    /* 모델 고르는 창도 함께 닫는다(지적: 그만두기·X 를 눌러도 남았다) */
+    setPickModelOpen(false)
+    setAfterPick(null)
     setLikeAsk(false)
     setLike([])
     setFlowAt(0)
