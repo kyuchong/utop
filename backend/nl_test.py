@@ -630,6 +630,49 @@ def _nl_iface_ctx(dev_id, dev_model):
     return "\n".join(lines)
 
 
+async def _nl_iface_db(dev_id, dev_model):
+    """**등록된 장비의 인터페이스**를 근거로 돌려준다(지시).
+
+    앞의 `_nl_iface_ctx` 는 옛 KV(device_catalog)를 본다. 지금 인터페이스의
+    정본은 장비 화면이 쓰는 PG `device_interface` 다 — 거기 값을 못 보면
+    LLM 이 `GigabitEthernet 0/1` 처럼 Cisco 식으로 지어낸다(지적).
+
+    이름을 그대로 주되, 수십 개면 앞뒤만 남기고 줄인다.
+    """
+    try:
+        d = None
+        if dev_id:
+            d = await db.device_get(str(dev_id))
+        if d is None and dev_model:
+            want = str(dev_model).strip().lower()
+            for x in await db.device_list():
+                if want in (
+                    str(x.get("model") or "").strip().lower(),
+                    str(x.get("name") or "").strip().lower(),
+                ):
+                    d = await db.device_get(str(x.get("id")))
+                    break
+        if not d:
+            return ""
+        names = [str(i.get("name") or "").strip() for i in (d.get("interfaces") or [])]
+        names = [n for n in names if n]
+        if not names:
+            return ""
+        head = ", ".join(names[:12])
+        tail = ", ".join(names[-4:]) if len(names) > 16 else ""
+        listed = head + (" … " + tail if tail else "")
+        who = str(d.get("name") or d.get("ip") or dev_model or "").strip()
+        return (
+            "이 장비(%s · %s)에 **등록된 인터페이스 %d개**: %s\n"
+            "- 인터페이스 이름은 **이 목록에서 글자 그대로** 골라 쓴다.\n"
+            "- 「인터페이스 1번」 은 이 목록의 **첫 번째**를 뜻한다(%s).\n"
+            "- 목록에 없는 이름·번호(예: GigabitEthernet 0/1)를 지어내지 마라."
+            % (who, str(d.get("model") or "-"), len(names), listed, names[0])
+        )
+    except Exception:
+        return ""
+
+
 async def _nl_tc_corpus(limit=400):
     """**Coverage 의 시험 항목**을 근거로 빚는다 — 학습 항목과 같은 모양으로.
 
@@ -1850,12 +1893,18 @@ async def ai_nl_plan(payload: dict):
              "근거에 검증된 절차가 있으면, 거기에 나온 **명령을 글자 그대로 복사해서 쓴다.**\n"
              "- 근거에 `show memory usage` 가 있으면 `show memory` 로 줄이지 마라. 한 글자도 바꾸지 마라.\n"
              "- 지시와 맞는 명령이 근거에 있으면 **반드시 그것을 쓴다.** 네가 아는 다른 명령을 쓰지 마라.\n"
-             "- 인터페이스 표기도 근거를 따른다. 예: GigabitEthernet 0/5 (X: ethernet 0/5, X: gi 0/5).\n"
-             "- 근거에 없는 포트 번호는 만들지 마라.\n"
+             "- 인터페이스 이름은 **근거의 「등록된 인터페이스」 목록에서 글자 그대로** 고른다.\n"
+             "  그 목록이 있으면 그것이 정본이다 — 네가 아는 표기(GigabitEthernet 0/1 따위)로 바꾸지 마라.\n"
+             "  「1번·첫 번째 포트」 는 그 목록의 첫 항목을 뜻한다.\n"
+             "- 근거에 없는 포트 번호·이름은 만들지 마라.\n"
              + _rule + "JSON만 출력한다.")
 
     # 근거를 모아 준다 — 없으면 LLM 이 Cisco 식으로 지어낸다.
     ctx = []
+    # 등록된 장비의 인터페이스가 가장 센 근거다(지시) — 옛 KV 요약보다 먼저 온다
+    _ifdb = await _nl_iface_db(payload.get("device_id"), dev_model)
+    if _ifdb:
+        ctx.append(_ifdb)
     _if = _nl_iface_ctx(payload.get("device_id"), dev_model)
     if _if:
         ctx.append(_if)
