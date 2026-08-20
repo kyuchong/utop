@@ -6825,3 +6825,23 @@ table.tb td.k {
   .ask-two > .ask-stepdet,
   .ask-cols > .ask-pane + .ask-pane { width: 480px; }
 }
+
+/* 스텝 설정 판 900 → 600px(지시) */
+.ask-two > .ask-pane:last-child,
+.ask-two > .ask-stepdet,
+.ask-cols > .ask-pane + .ask-pane { width: 600px; }
+@media (max-width: 1700px) {
+  .ask-two > .ask-pane:last-child,
+  .ask-two > .ask-stepdet,
+  .ask-cols > .ask-pane + .ask-pane { width: 520px; }
+}
+@media (max-width: 1500px) {
+  .ask-two > .ask-pane:last-child,
+  .ask-two > .ask-stepdet,
+  .ask-cols > .ask-pane + .ask-pane { width: 450px; }
+}
+@media (max-width: 1300px) {
+  .ask-two > .ask-pane:last-child,
+  .ask-two > .ask-stepdet,
+  .ask-cols > .ask-pane + .ask-pane { width: 380px; }
+}
