@@ -1304,9 +1304,45 @@
 
 /* 숫자가 줄마다 어긋나던 것(지적) — 「전체·미분류」 는 ✕ 가 없어 그만큼
    더 오른쪽에 섰다. 그 자리를 비워 같은 선에 맞춘다. */
-.dcc-b > .dcc-r { padding-right: 26px; }
+.dcc-b > .dcc-r { padding-right: 8px; }
 .dcc-r > em { min-width: 22px; text-align: right; }
 
 /* 4번 — 필드 사이를 5px 로(지시) */
 .dcc-mh,
 .dcc-m2 { gap: 5px; }
+
+/* 오른쪽 단추 메뉴 — 분류 이름 바꾸기·삭제(지시) */
+.dcc-ctxback { position: fixed; inset: 0; z-index: 60; }
+.dcc-ctx {
+  position: fixed;
+  z-index: 61;
+  min-width: 150px;
+  padding: 6px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 9px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+}
+.dcc-ctx > b {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  padding: 2px 6px 6px;
+  border-bottom: 1px solid var(--c-border-soft);
+  margin-bottom: 4px;
+}
+.dcc-ctx > button {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.dcc-ctx > button:hover { background: var(--c-surface-alt); }
+.dcc-ctx > button.danger { color: var(--c-fail); }
+.dcc-ctx > button.danger:hover { background: #fdeaea; }

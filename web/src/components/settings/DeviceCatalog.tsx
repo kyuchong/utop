@@ -76,6 +76,10 @@ export default function DeviceCatalog({
   const [ifEdit, setIfEdit] = useState<{ model: Item; text: string } | null>(null)
   /** 여기서 바로 장비 등록 — 창을 띄운다(지시) */
   const [devNew, setDevNew] = useState<Device | null>(null)
+  /** 오른쪽 단추 메뉴 — 분류 지우기·이름 바꾸기(지시) */
+  const [ctx, setCtx] = useState<{ kind: string; name: string; n: number; x: number; y: number } | null>(
+    null,
+  )
 
   const listQ = useQuery({
     queryKey: ['device-catalog'],
@@ -263,6 +267,42 @@ export default function DeviceCatalog({
 
   return (
     <div className="set-page dc2">
+      {ctx && (
+        <>
+          <div className="dcc-ctxback" onMouseDown={() => setCtx(null)} />
+          <div className="dcc-ctx" style={{ left: ctx.x, top: ctx.y }}>
+            <b className="ell">{ctx.name}</b>
+            <button
+              type="button"
+              onClick={() => {
+                const next = window.prompt(`'${ctx.name}' 의 새 이름`, ctx.name)?.trim()
+                if (next && next !== ctx.name)
+                  renameM.mutate({ kind: ctx.kind, old: ctx.name, next })
+                setCtx(null)
+              }}
+            >
+              이름 바꾸기
+            </button>
+            <button
+              type="button"
+              className="danger"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    ctx.n
+                      ? `'${ctx.name}' 을 지울까요?\n${ctx.n}개가 이 값을 쓰고 있습니다 — 그 칸은 비게 됩니다.`
+                      : `'${ctx.name}' 을 지울까요?`,
+                  )
+                )
+                  delM.mutate({ kind: ctx.kind, name: ctx.name } as Item)
+                setCtx(null)
+              }}
+            >
+              삭제
+            </button>
+          </div>
+        </>
+      )}
       {devNew && (
         <DeviceForm
           editing={devNew}
@@ -430,35 +470,21 @@ export default function DeviceCatalog({
                 <em>{noneCnt(kind)}</em>
               </button>
               {items.map((x) => (
-                <span className={`dcc-rw${sel === x.nm ? ' on' : ''}`} key={x.nm}>
-                  <button
-                    type="button"
-                    className={`dcc-r${sel === x.nm ? ' on' : ''}`}
-                    onClick={() => pick(sel === x.nm ? '' : x.nm)}
-                  >
-                    <span className="ell">{x.nm}</span>
-                    <em>{x.n}</em>
-                  </button>
-                  {/* 지우기 — 쓰는 모델이 있으면 되묻는다(지시) */}
-                  <button
-                    type="button"
-                    className="dcc-del"
-                    title={x.n ? `${x.n}개가 쓰는 중 — 지우면 그 값이 빕니다` : '지우기'}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (
-                        window.confirm(
-                          x.n
-                            ? `'${x.nm}' 을 지울까요?\n${x.n}개가 이 값을 쓰고 있습니다 — 그 칸은 비게 됩니다.`
-                            : `'${x.nm}' 을 지울까요?`,
-                        )
-                      )
-                        delM.mutate({ kind, name: x.nm } as Item)
-                    }}
-                  >
-                    ✕
-                  </button>
-                </span>
+                <button
+                  key={x.nm}
+                  type="button"
+                  className={`dcc-r${sel === x.nm ? ' on' : ''}`}
+                  onClick={() => pick(sel === x.nm ? '' : x.nm)}
+                  /* 지우기는 **오른쪽 단추**로(지시) — ✕ 가 자리를 먹어
+                     숫자가 줄마다 어긋났다 */
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    setCtx({ kind, name: x.nm, n: x.n, x: e.clientX, y: e.clientY })
+                  }}
+                >
+                  <span className="ell">{x.nm}</span>
+                  <em>{x.n}</em>
+                </button>
               ))}
               {items.length === 0 && <div className="dcc-none">없습니다</div>}
             </div>
