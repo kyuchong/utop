@@ -6762,3 +6762,27 @@ table.tb td.k {
   .panel, .cs-pan, .cs-kpi { box-shadow: none !important; }
   .cs-tbl { font-size: 11px; }
 }
+
+/* ── 작업 흐름 글자 한 번 더(지시) ─────────────────────────────
+   단계 이름·곁말·「건너뜀·마침」 표가 10.5px 이라 작았다. */
+.ask-stage { font-size: var(--fs-sm); }
+.ask-stagehd b { font-size: var(--fs-sm); }
+.ask-stage em,
+.ask-stageskip,
+.ask-stagedone,
+.ask-stagesay { font-size: var(--fs-xs); }
+.ask-stagebody { font-size: var(--fs-sm); }
+.ask-stagefold { font-size: var(--fs-xs); }
+.ask-stage i { font-size: var(--fs-xs); }
+
+/* 스텝 설정 판을 한 번 더 넓게(지시) */
+.ask-cols > .ask-pane + .ask-pane { width: 680px; }
+@media (max-width: 1700px) {
+  .ask-cols > .ask-pane + .ask-pane { width: 580px; }
+}
+@media (max-width: 1500px) {
+  .ask-cols > .ask-pane + .ask-pane { width: 500px; }
+}
+@media (max-width: 1300px) {
+  .ask-cols > .ask-pane + .ask-pane { width: 420px; }
+}
