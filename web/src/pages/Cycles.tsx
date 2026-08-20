@@ -4120,7 +4120,7 @@ function CycleDetail({
                     </b>
                   )}
                   {bars.map(([lb, t]) => (
-                    <span className="cxp-sumb" key={lb} title={`${lb} ${t.n}건 · 합격 ${t.p} · 실패 ${t.f} · 미실행 ${t.n - t.p - t.f}`}>
+                    <span className="cxp-sumb" key={lb}>
                       <i className="lb">{lb}</i>
                       <i className="bar">
                         <s className="p" style={{ width: `${t.n ? (t.p / t.n) * 100 : 0}%` }} />
@@ -4129,41 +4129,45 @@ function CycleDetail({
                       <i className="nm">
                         {t.p}/{t.n}
                       </i>
+                      {/* 올리면 뜨는 현황 카드 — 랙 화면 장비 말풍선과 같은 꼴(지시) */}
+                      <span className="cxp-tip" role="tooltip">
+                        <span className="cxp-tiph">
+                          <b>{lb} 현황</b>
+                          <em className={t.n && t.p === t.n ? 'ok' : t.f ? 'ng' : 'un'}>
+                            ● {t.n ? Math.round(((t.p + t.f) / t.n) * 100) : 0}% 진척
+                          </em>
+                        </span>
+                        <span className="cxp-tipr">
+                          <i>항목</i>
+                          <span>{t.n}건</span>
+                        </span>
+                        <span className="cxp-tipr">
+                          <i>합격</i>
+                          <span className="p">{t.p}건</span>
+                        </span>
+                        <span className="cxp-tipr">
+                          <i>실패</i>
+                          <span className="f">{t.f}건</span>
+                        </span>
+                        <span className="cxp-tipr">
+                          <i>미실행</i>
+                          <span>{t.n - t.p - t.f}건</span>
+                        </span>
+                        <span className="cxp-tipr">
+                          <i>합격률</i>
+                          <span>{t.p + t.f ? Math.round((t.p / (t.p + t.f)) * 100) : 0}%</span>
+                        </span>
+                        {st.on && lb === '자동' && (
+                          <span className="cxp-tipr run">
+                            <i>지금</i>
+                            <span>
+                              {Math.min(st.done + 1, st.total)}/{st.total} 실행 중
+                            </span>
+                          </span>
+                        )}
+                      </span>
                     </span>
                   ))}
-                  {/* 올리면 뜨는 현황 카드(지시) */}
-                  <span className="cxp-sumpop" role="tooltip">
-                    <b className="ttl">이 회차 현황</b>
-                    <table>
-                      <thead>
-                        <tr>
-                          <th />
-                          <th>전체</th>
-                          <th>합격</th>
-                          <th>실패</th>
-                          <th>미실행</th>
-                          <th>진척</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {bars.map(([lb, t]) => (
-                          <tr key={lb}>
-                            <th>{lb}</th>
-                            <td>{t.n}</td>
-                            <td className="p">{t.p}</td>
-                            <td className="f">{t.f}</td>
-                            <td>{t.n - t.p - t.f}</td>
-                            <td>{t.n ? Math.round(((t.p + t.f) / t.n) * 100) : 0}%</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {st.on && (
-                      <i className="run">
-                        ● 지금 {Math.min(st.done + 1, st.total)}/{st.total} 실행 중
-                      </i>
-                    )}
-                  </span>
                 </span>
               )
             })()}

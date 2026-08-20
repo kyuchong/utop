@@ -6566,3 +6566,52 @@ table.tb td.k {
   padding: 0 10px;
   line-height: 26px;
 }
+
+/* ── 집계 말풍선 — 랙 화면 장비 카드와 같은 꼴(지시). 전체·수동·자동
+   각각 따로 뜬다. 앞서 쓰던 한 장짜리 표는 걷는다. */
+.cxp-sumpop { display: none !important; }
+.cxp-sumb { position: relative; }
+.cxp-tip {
+  position: absolute;
+  top: calc(100% + 9px);
+  left: 50%;
+  transform: translateX(-50%) translateY(-4px);
+  z-index: 60;
+  min-width: 200px;
+  padding: 11px 13px;
+  background: #1b202b;
+  color: #e6ecf5;
+  border: 1px solid #303848;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgb(5 10 20 / 0.5);
+  font-size: var(--fs-sm);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+}
+.cxp-sumb:hover .cxp-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.cxp-tiph { display: flex; align-items: baseline; gap: 8px; margin-bottom: 7px; }
+.cxp-tiph > b { font-size: 14px; letter-spacing: -0.01em; }
+.cxp-tiph > em { font-style: normal; font-size: var(--fs-xs); font-weight: 800; }
+.cxp-tiph > em.ok { color: #34d399; }
+.cxp-tiph > em.ng { color: #f87171; }
+.cxp-tiph > em.un { color: #9aa3af; }
+.cxp-tipr { display: flex; gap: 10px; line-height: 1.6; }
+.cxp-tipr > i {
+  flex: none;
+  width: 48px;
+  font-style: normal;
+  color: #8b94a5;
+  font-size: var(--fs-xs);
+  padding-top: 2px;
+}
+.cxp-tipr > span { min-width: 0; font-weight: 600; }
+.cxp-tipr > span.p { color: #34d399; }
+.cxp-tipr > span.f { color: #f87171; }
+.cxp-tipr.run { margin-top: 7px; padding-top: 7px; border-top: 1px solid #303848; }
+.cxp-tipr.run > span { color: #7c9dff; }
