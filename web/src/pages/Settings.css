@@ -1346,3 +1346,16 @@
 .dcc-ctx > button:hover { background: var(--c-surface-alt); }
 .dcc-ctx > button.danger { color: var(--c-fail); }
 .dcc-ctx > button.danger:hover { background: #fdeaea; }
+
+/* 상태를 누르면 붙어 본다 — 단추처럼 보이게 */
+button.dcc-st { border: 0; background: transparent; cursor: pointer; padding: 2px 4px; border-radius: 5px; }
+button.dcc-st:hover:not(:disabled) { background: var(--c-surface-alt); }
+button.dcc-st:disabled { cursor: default; }
+.dcc-ipin { font-weight: 700; }
+
+/* 꼬리(인터페이스·＋장비)는 제 칸 — 줄마다 선다(지적 ③④) */
+.dcc-mh,
+.dcc-m2 {
+  grid-template-columns: 168px 116px 68px 68px 68px 68px 60px 60px 62px 130px minmax(150px, auto);
+}
+.dcc-tail { display: inline-flex; align-items: center; gap: 4px; justify-content: flex-end; }

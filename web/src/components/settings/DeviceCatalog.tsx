@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import DeviceForm from '@/components/DeviceForm'
 import LockCell, { useLocks, type Lock } from '@/components/LockCell'
-import { type Device } from '@/pages/Devices'
+import { EditCell, type Device } from '@/pages/Devices'
 
 interface Item {
   kind: string
@@ -80,6 +80,8 @@ export default function DeviceCatalog({
   const [ctx, setCtx] = useState<{ kind: string; name: string; n: number; x: number; y: number } | null>(
     null,
   )
+  /** 장비 오른쪽 단추 메뉴 — 편집·삭제(지시) */
+  const [devCtx, setDevCtx] = useState<{ dev: Device; x: number; y: number } | null>(null)
 
   const listQ = useQuery({
     queryKey: ['device-catalog'],
@@ -99,6 +101,61 @@ export default function DeviceCatalog({
     },
     staleTime: 60_000,
   })
+  /** 접속 확인 — 상태를 누르면 그 자리에서 붙어 본다(지적: 무반응) */
+  const [checking, setChecking] = useState('')
+  const checkM = useMutation({
+    mutationFn: async (v: { id: string; protocol: string }) => {
+      setChecking(v.id + ':' + v.protocol)
+      const r = await apiFetch(
+        `/api/devices2/${encodeURIComponent(v.id)}/check?protocol=${v.protocol}`,
+        { method: 'POST' },
+      )
+      const b = (await r.json().catch(() => ({}))) as { detail?: string }
+      if (!r.ok) throw new Error(b.detail || '확인하지 못했습니다')
+      return b
+    },
+    onSettled: () => {
+      setChecking('')
+      void qc.invalidateQueries({ queryKey: ['devices'] })
+    },
+    onError: (e) => setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) }),
+  })
+
+  /** 줄에서 고친 값을 그대로 저장한다(지시) */
+  const patchDev = async (d: Device, p: Partial<Device>) => {
+    try {
+      const r = await apiFetch('/api/devices2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...d, ...p }),
+      })
+      const b = (await r.json().catch(() => ({}))) as { detail?: string }
+      if (!r.ok) throw new Error(b.detail || '저장하지 못했습니다')
+      void qc.invalidateQueries({ queryKey: ['devices'] })
+      setNote({ kind: 'ok', msg: '고쳤습니다' })
+    } catch (e) {
+      setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) })
+    }
+  }
+  const patchSnmp = async (d: Device, p: { ro?: string; rw?: string }) => {
+    const cur2 = (d.access ?? []).find((a) => a.protocol === 'snmp')
+    const prm = { ...((cur2?.params as Record<string, unknown>) ?? {}) }
+    if (p.rw !== undefined) {
+      prm.community_rw = p.rw
+      prm.rw = !!p.rw
+    }
+    const next = {
+      protocol: 'snmp',
+      port: cur2?.port ?? 161,
+      enabled: true,
+      ...cur2,
+      community: p.ro !== undefined ? p.ro : (cur2?.community ?? ''),
+      params: prm,
+    }
+    const rest = (d.access ?? []).filter((a) => a.protocol !== 'snmp')
+    await patchDev(d, { access: [...rest, next] })
+  }
+
   const locks = useLocks()
   const lockBy = useMemo(() => {
     const m = new Map<string, Lock>()
@@ -299,6 +356,48 @@ export default function DeviceCatalog({
               }}
             >
               삭제
+            </button>
+          </div>
+        </>
+      )}
+      {devCtx && (
+        <>
+          <div className="dcc-ctxback" onMouseDown={() => setDevCtx(null)} />
+          <div className="dcc-ctx" style={{ left: devCtx.x, top: devCtx.y }}>
+            <b className="ell">
+              {devCtx.dev.model || devCtx.dev.name} · {devCtx.dev.ip}
+            </b>
+            <button
+              type="button"
+              onClick={() => {
+                setDevNew(devCtx.dev)
+                setDevCtx(null)
+              }}
+            >
+              편집 창 열기
+            </button>
+            <button
+              type="button"
+              className="danger"
+              onClick={() => {
+                const d = devCtx.dev
+                setDevCtx(null)
+                if (!window.confirm(`'${d.model || d.name} · ${d.ip}' 장비를 지울까요?`)) return
+                void (async () => {
+                  try {
+                    const r = await apiFetch(`/api/devices2/${encodeURIComponent(d.id)}`, {
+                      method: 'DELETE',
+                    })
+                    if (!r.ok) throw new Error('지우지 못했습니다')
+                    void qc.invalidateQueries({ queryKey: ['devices'] })
+                    setNote({ kind: 'ok', msg: '장비를 지웠습니다' })
+                  } catch (e) {
+                    setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) })
+                  }
+                })()
+              }}
+            >
+              장비 삭제
             </button>
           </div>
         </>
@@ -694,6 +793,7 @@ export default function DeviceCatalog({
                     <span>RW</span>
                     <span>Interface</span>
                     <span>사용 현황</span>
+                    <span />
                   </div>
                   {shown.length === 0 ? (
                     <div className="dcc-none">이 자리에 걸린 모델이 없습니다.</div>
@@ -745,36 +845,70 @@ export default function DeviceCatalog({
                             <span className="muted small">–</span>
                             <span className="muted small">–</span>
                             <span className="muted small">–</span>
+                            <span className="dcc-lk muted small">–</span>
                             <span className="dcc-tail">{tail}</span>
                           </div>,
                         ]
-                      return ds.map((d, di) => {
+                      return ds.map((d) => {
                         const acc = (p2: string) => (d.access ?? []).find((a) => a.protocol === p2)
                         const snmp = acc('snmp')
                         const prm = (snmp?.params as { community_rw?: string } | null) ?? {}
                         return (
-                          <div className="dcc-m2 dev" key={d.id}>
+                          <div
+                            className="dcc-m2 dev"
+                            key={d.id}
+                            /* 장비 지우기 — 오른쪽 단추로(지시). 분류와 같은 길 */
+                            onContextMenu={(e) => {
+                              e.preventDefault()
+                              setDevCtx({ dev: d, x: e.clientX, y: e.clientY })
+                            }}
+                          >
                             <b className="ell" title={it.name}>
                               {it.name}
                             </b>
-                            <span className="dcc-ip">{d.ip}</span>
+                            <span className="dcc-ip">
+                              <EditCell
+                                value={d.ip || ''}
+                                cls="dcc-ipin"
+                                onSave={(v) => void patchDev(d, { ip: v.trim() })}
+                              />
+                            </span>
                             {['telnet', 'ssh', 'console', 'snmp'].map((p2) => {
                               const a2 = acc(p2)
                               const st = String(a2?.last_status ?? '')
                               return (
-                                <span
+                                <button
                                   key={p2}
+                                  type="button"
                                   className={`dcc-st ${
                                     !a2 ? 'off' : st === 'ok' ? 'ok' : st === 'fail' ? 'ng' : 'un'
                                   }`}
-                                  title={a2?.last_error || ''}
+                                  title={a2?.last_error || '눌러서 붙어 봅니다'}
+                                  disabled={!a2 || checking === d.id + ':' + p2}
+                                  onClick={() => checkM.mutate({ id: d.id, protocol: p2 })}
                                 >
-                                  {!a2 ? '–' : st === 'ok' ? '연결됨' : st === 'fail' ? '실패' : '미확인'}
-                                </span>
+                                  {checking === d.id + ':' + p2
+                                    ? '확인 중…'
+                                    : !a2
+                                      ? '–'
+                                      : st === 'ok'
+                                        ? '연결됨'
+                                        : st === 'fail'
+                                          ? '실패'
+                                          : '미확인'}
+                                </button>
                               )
                             })}
-                            <span className="muted small ell">{snmp?.community || '–'}</span>
-                            <span className="muted small ell">{prm.community_rw || '–'}</span>
+                            <EditCell
+                              value={String(snmp?.community ?? '')}
+                              title="SNMP RO Community"
+                              onSave={(v) => void patchSnmp(d, { ro: v })}
+                            />
+                            <EditCell
+                              value={String(prm.community_rw ?? '')}
+                              title="SNMP RW Community"
+                              onSave={(v) => void patchSnmp(d, { rw: v })}
+                            />
                             <span className="muted small">{d.if_count ?? d.interfaces?.length ?? 0}</span>
                             <span className="dcc-lk">
                               <LockCell
@@ -785,8 +919,11 @@ export default function DeviceCatalog({
                                 isAdmin={me?.role === '관리자' || me?.role === 'admin'}
                                 onMessage={(kind, msg) => setNote({ kind, msg })}
                               />
-                              {di === 0 && <span className="dcc-tail">{tail}</span>}
                             </span>
+                            {/* 꼬리는 **제 칸**이다(지적) — 사용 현황 칸 안에 넣었더니
+                                자리에 따라 가려져 눌리지 않고, 같은 모델의 둘째 줄부터는
+                                아예 비어 보였다. 이제 줄마다 선다. */}
+                            <span className="dcc-tail">{tail}</span>
                           </div>
                         )
                       })

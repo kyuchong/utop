@@ -215,7 +215,7 @@ function ColFilter({
  * 만든다 — 92줄 × 고르개 6개를 늘 펴 두면 `<option>` 이 1만 6천 개가 되어
  * 첫 화면이 무거웠다(지적). 평소에는 글자 한 줄이다.
  */
-function EditCell({
+export function EditCell({
   value,
   opts,
   cls,
