@@ -1359,3 +1359,9 @@ button.dcc-st:disabled { cursor: default; }
   grid-template-columns: 168px 116px 68px 68px 68px 68px 60px 60px 62px 130px minmax(150px, auto);
 }
 .dcc-tail { display: inline-flex; align-items: center; gap: 4px; justify-content: flex-end; }
+
+/* 벤더·제품군 칸을 조금 더 좁게(지시) */
+.dcc-cols { grid-template-columns: 118px 106px 152px minmax(0, 1fr); }
+@media (max-width: 1500px) {
+  .dcc-cols { grid-template-columns: 108px 98px 138px minmax(0, 1fr); }
+}
