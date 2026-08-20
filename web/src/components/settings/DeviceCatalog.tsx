@@ -56,6 +56,9 @@ export default function DeviceCatalog() {
   const [tlab, setTlab] = useState('')
   const [tven, setTven] = useState('')
   const [tfam, setTfam] = useState('')
+  /** 제품군 여러 개 고르기(지시) — 비면 전부 */
+  const [tfams, setTfams] = useState<string[]>([])
+  const [famOpen, setFamOpen] = useState(false)
   const [tgrp, setTgrp] = useState('')
   /** 새 모델 줄 */
   const [draft, setDraft] = useState<Item>(EMPTY_MODEL)
@@ -313,10 +316,14 @@ export default function DeviceCatalog() {
               norm(m.model_group) === g,
           ).length
         const eq = (v: string, sel: string) => (sel === NONE ? !v : v === sel)
+        /** 여러 제품군을 골랐으면 그것들 안에서만(지시) */
+        const famOk = (v: string) =>
+          tfams.length === 0 ? true : tfams.some((x) => (x === NONE ? !v : v === x))
         const shown = pool.filter(
           (m) =>
             (!tven || eq(norm(m.vendor), tven)) &&
             (!tfam || eq(norm(m.family), tfam)) &&
+            famOk(norm(m.family)) &&
             (!tgrp || eq(norm(m.model_group), tgrp)),
         )
         const noneCnt = (kind: string) =>
@@ -458,24 +465,59 @@ export default function DeviceCatalog() {
                   <b>모델</b>
                   <span className="muted small">{shown.length}</span>
                   <span className="sp" />
-                  {/* 제품군은 여기서도 고른다(지시) — 칸을 오가지 않게 */}
-                  <select
-                    className="dcc-fsel"
-                    value={tfam}
-                    title="제품군으로 좁히기"
-                    onChange={(e) => {
-                      setTfam(e.target.value)
-                      setTgrp('')
-                    }}
-                  >
-                    <option value="">제품군 전체</option>
-                    <option value={NONE}>미분류</option>
-                    {(lists.family ?? []).map((x) => (
-                      <option key={x.name} value={x.name}>
-                        {x.name} ({nF(x.name)})
-                      </option>
-                    ))}
-                  </select>
+                  {/* 제품군 — 고른 것은 알약으로 서고, 드롭다운에서 **여러 개**
+                      고른다(지시) */}
+                  {tfams.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      className="dcc-famchip"
+                      title="빼기"
+                      onClick={() => setTfams((v) => v.filter((x) => x !== f))}
+                    >
+                      {f === NONE ? '미분류' : f} ✕
+                    </button>
+                  ))}
+                  <span className="dcc-fam">
+                    <button
+                      type="button"
+                      className={`dcc-fambtn${tfams.length ? ' on' : ''}`}
+                      onClick={() => setFamOpen((v) => !v)}
+                    >
+                      제품군{tfams.length ? ` (${tfams.length})` : ' 전체'} ▾
+                    </button>
+                    {famOpen && (
+                      <>
+                        <span className="dcc-famback" onClick={() => setFamOpen(false)} />
+                        <span className="dcc-fampop">
+                          <button
+                            type="button"
+                            className="dcc-famall"
+                            onClick={() => setTfams([])}
+                          >
+                            전체 보기
+                          </button>
+                          {[{ nm: NONE, lb: '미분류', n: noneCnt('family') }, ...(lists.family ?? []).map((x) => ({ nm: x.name, lb: x.name, n: nF(x.name) }))].map(
+                            (x) => (
+                              <label key={x.nm} className={tfams.includes(x.nm) ? 'on' : undefined}>
+                                <input
+                                  type="checkbox"
+                                  checked={tfams.includes(x.nm)}
+                                  onChange={() =>
+                                    setTfams((v) =>
+                                      v.includes(x.nm) ? v.filter((y) => y !== x.nm) : [...v, x.nm],
+                                    )
+                                  }
+                                />
+                                <span className="ell">{x.lb}</span>
+                                <em>{x.n}</em>
+                              </label>
+                            ),
+                          )}
+                        </span>
+                      </>
+                    )}
+                  </span>
                 </div>
                 <div className="dcc-add">
                   <input

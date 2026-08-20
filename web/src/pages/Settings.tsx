@@ -10,7 +10,6 @@ import JiraPanels from '@/components/settings/JiraPanels'
 import Branding from '@/components/settings/Branding'
 import {
   IconAccounts,
-  IconCatalog,
   IconCodeList,
   IconCustomField,
   IconReqCodeList,
@@ -69,9 +68,9 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
   },
   {
     title: 'Resources',
-    /* 장비 카탈로그는 **장비 화면**으로 합쳤다(지시) — 여기서는 그 자리를
-       알려 주기만 한다. 오가며 자리를 잃던 일이 없어진다. */
-    items: [{ key: 'catalog', label: '장비 카탈로그', icon: IconCatalog, ready: true }],
+    /* 장비 카탈로그는 왼쪽 메뉴 「Catalog」 로 옮겼다(지시) — 장비 곁이
+       제자리다. 여기서는 뺀다. */
+    items: [],  // 비었다 — 아래에서 걸러 그리지 않는다
   },
   {
     title: 'Integrations',
@@ -117,7 +116,7 @@ export default function Settings() {
   return (
     <div className="set-wrap">
       <nav className="set-nav">
-        {GROUPS.map((g) => (
+        {GROUPS.filter((g) => g.items.length > 0).map((g) => (
           <div key={g.title} className="set-nav-grp">
             <div className="set-nav-grpt">{g.title}</div>
             {g.items.map((s) => (
@@ -144,6 +143,7 @@ export default function Settings() {
         ) : sec === 'prompts' ? (
           <PromptSettings />
         ) : sec === 'catalog' ? (
+          /* 옛 주소로 들어오면 그대로 열어 준다 — 메뉴에서만 뺐다 */
           <DeviceCatalog />
         ) : sec === 'codes' ? (
           <CodeSettings target="tc" />

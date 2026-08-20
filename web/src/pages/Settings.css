@@ -1132,3 +1132,68 @@
 .dcc-models .dcc-b { overflow: auto; }
 .set-page.dc2 { display: flex; flex-direction: column; min-height: 0; height: 100%; }
 .dcc-fsel { height: 24px; font-size: var(--fs-xs); max-width: 190px; }
+
+/* 제품군 여러 개 고르기(지시) */
+.dcc-famchip {
+  border: 1px solid var(--c-primary);
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+.dcc-fam { position: relative; display: inline-block; }
+.dcc-fambtn {
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 7px;
+  padding: 2px 9px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.dcc-fambtn.on { border-color: var(--c-primary); color: var(--c-primary); font-weight: 700; }
+.dcc-famback { position: fixed; inset: 0; z-index: 40; }
+.dcc-fampop {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 41;
+  display: block;
+  width: 220px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 6px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 9px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+}
+.dcc-famall {
+  width: 100%;
+  border: 0;
+  background: var(--c-surface-alt);
+  border-radius: 6px;
+  padding: 4px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+.dcc-fampop label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 5px;
+  border-radius: 6px;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.dcc-fampop label:hover { background: var(--c-surface-alt); }
+.dcc-fampop label.on { color: var(--c-primary); }
+.dcc-fampop label > span { flex: 1; min-width: 0; }
+.dcc-fampop label > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
