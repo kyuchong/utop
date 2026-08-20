@@ -4,6 +4,7 @@ import { apiFetch, getToken } from '@/api/client'
 import DeviceForm, { expandRange } from '@/components/DeviceForm'
 import DeviceBulk from '@/components/DeviceBulk'
 import LockCell, { useLocks, type Lock } from '@/components/LockCell'
+import DeviceCatalog from '@/components/settings/DeviceCatalog'
 import './Devices.css'
 
 export interface DeviceIf {
@@ -311,10 +312,11 @@ export default function Devices({ me }: Props) {
   /** 칸별 거르개(여러 개 고르기) — 사업자·벤더·제품군·모델그룹·모델명·LAB */
   const [colF, setColF] = useState<Record<string, string[]>>({})
   /** 보기 꼴 — 트리(기본) · 표(예전 것) */
-  const [layout, setLayout] = useState<'tree' | 'table'>(() =>
-    localStorage.getItem('utop.dev.layout') === 'table' ? 'table' : 'tree',
-  )
-  const pickLayout = (v: 'tree' | 'table') => {
+  const [layout, setLayout] = useState<'tree' | 'table' | 'catalog'>(() => {
+    const v = localStorage.getItem('utop.dev.layout')
+    return v === 'table' || v === 'catalog' ? v : 'tree'
+  })
+  const pickLayout = (v: 'tree' | 'table' | 'catalog') => {
     setLayout(v)
     localStorage.setItem('utop.dev.layout', v)
   }
@@ -651,6 +653,7 @@ export default function Devices({ me }: Props) {
             [
               ['tree', '트리로 보기'],
               ['table', '표로 보기'],
+              ['catalog', '모델 관리'],
             ] as const
           ).map(([k, lb]) => (
             <button
@@ -665,6 +668,9 @@ export default function Devices({ me }: Props) {
             </button>
           ))}
         </div>
+
+        {/* 모델(카탈로그)도 이 화면에서 — 설정으로 오가지 않게 합쳤다(지시) */}
+        {layout === 'catalog' && <DeviceCatalog />}
 
         {layout === 'tree' && (() => {
           const nrm = (v?: string | null) => String(v ?? '').trim()

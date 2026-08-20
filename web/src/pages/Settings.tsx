@@ -69,6 +69,8 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
   },
   {
     title: 'Resources',
+    /* 장비 카탈로그는 **장비 화면**으로 합쳤다(지시) — 여기서는 그 자리를
+       알려 주기만 한다. 오가며 자리를 잃던 일이 없어진다. */
     items: [{ key: 'catalog', label: '장비 카탈로그', icon: IconCatalog, ready: true }],
   },
   {
