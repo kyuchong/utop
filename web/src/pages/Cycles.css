@@ -6615,3 +6615,7 @@ table.tb td.k {
 .cxp-tipr > span.f { color: #f87171; }
 .cxp-tipr.run { margin-top: 7px; padding-top: 7px; border-top: 1px solid #303848; }
 .cxp-tipr.run > span { color: #7c9dff; }
+
+/* 2열 머리 제목이 컸다(지적) — 한 눈금 낮춘다 */
+.cxp-hnm { font-size: var(--fs-sm); font-weight: 700; }
+.cxp-hid { font-size: var(--fs-xs); }

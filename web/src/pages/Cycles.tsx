@@ -4899,17 +4899,7 @@ function CycleDetail({
                       </option>
                     ))}
                   </select>
-                  {!st.on && typeOf(cur) === 'auto' && (
-                    <button
-                      className="btn primary small"
-                      type="button"
-                      title="이 항목만 돌립니다"
-                      disabled={saving}
-                      onClick={() => followAt >= 0 && startRun([followAt])}
-                    >
-                      ▶ 실행
-                    </button>
-                  )}
+                  {/* 「▶ 실행」 은 걷었다(지시) — 실행은 1행 카드가 맡는다 */}
                 </div>
   
                 {/* Execution 정보 — Zephyr 의 Execution 칸과 같은 자리 */}
