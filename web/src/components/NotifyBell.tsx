@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
-import { apiFetch } from '@/api/client'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { api, apiFetch } from '@/api/client'
 import { goto, type GotoKind } from '@/api/goto'
 import { onWs } from '@/api/wsBus'
 import './NotifyBell.css'
@@ -28,9 +29,18 @@ const TRACKED = new Set([
   'cycle_updated', 'defect_updated', 'tc_run_history_new',
 ])
 
-/** 이력 한 줄 → 사람 말 + 눌렀을 때 갈 곳 */
-function lineOf(it: AuditItem): { text: string; go?: { kind: GotoKind; id: string } } {
+/** 이력 한 줄 → 사람 말 + 눌렀을 때 갈 곳
+ *
+ * 이력에 남는 것은 **속 열쇠**(rq-1786536029452-3202)다 — 사람이 읽을 수
+ * 없다(지적). 화면에서 목록을 보고 **REQ-2633-0016 제목** 으로 바꿔 찍는다.
+ * 누르면 가는 곳은 그대로 속 열쇠를 쓴다.
+ */
+function lineOf(
+  it: AuditItem,
+  label?: (kind: string, id: string) => string,
+): { text: string; go?: { kind: GotoKind; id: string } } {
   const who = it.username ? ` · ${it.username}` : ''
+  const nm = label?.(it.kind, it.ref_id) || it.ref_id
   const act = it.action || ''
   if (it.kind === 'tc') {
     if (act.startsWith('run'))
@@ -39,11 +49,11 @@ function lineOf(it: AuditItem): { text: string; go?: { kind: GotoKind; id: strin
     return { text: `시험 저장 — ${it.ref_id}${who}`, go: { kind: 'tc', id: it.ref_id } }
   }
   if (it.kind === 'req') {
-    if (act === 'deleted') return { text: `요구사항 삭제 — ${it.ref_id}${who}` }
-    return { text: `요구사항 저장 — ${it.ref_id}${who}`, go: { kind: 'req', id: it.ref_id } }
+    if (act === 'deleted') return { text: `요구사항 삭제 — ${nm}${who}` }
+    return { text: `요구사항 저장 — ${nm}${who}`, go: { kind: 'req', id: it.ref_id } }
   }
   if (it.kind === 'cycle')
-    return { text: `사이클 저장 — ${it.ref_id}${who}`, go: { kind: 'cycle', id: it.ref_id } }
+    return { text: `사이클 저장 — ${nm}${who}`, go: { kind: 'cycle', id: it.ref_id } }
   if (it.kind === 'defect') return { text: `결함 — ${it.ref_id}${who}` }
   return { text: `${it.kind} ${act} — ${it.ref_id}${who}` }
 }
@@ -53,6 +63,42 @@ export default function NotifyBell({ collapsed }: { collapsed?: boolean }) {
   const [open, setOpen] = useState(false)
   const [seenId, setSeenId] = useState<number>(() => Number(localStorage.getItem(SEEN) || 0))
   const boxRef = useRef<HTMLDivElement | null>(null)
+
+  /* 속 열쇠 → 사람이 읽는 이름. 목록은 화면 어딘가가 이미 받아 두었으므로
+     같은 열쇠를 써서 두 번 받지 않는다. */
+  const reqQ = useQuery({
+    queryKey: ['req', 'list'],
+    queryFn: ({ signal }) => api.listRequirements(signal),
+    staleTime: 60_000,
+  })
+  const cycQ = useQuery({
+    queryKey: ['cycle', 'meta'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/cycle?meta=1')
+      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      return (await r.json()) as {
+        cycles: Array<{ id: string; cid?: string | null; name?: string | null }>
+      }
+    },
+    staleTime: 60_000,
+  })
+  const labelOf = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of reqQ.data?.reqs ?? []) {
+      const pk = String((r as { id?: string }).id ?? '')
+      const nm = [String(r.reqid ?? '').trim(), String(r.title ?? '').trim()]
+        .filter(Boolean)
+        .join(' ')
+      if (pk && nm) m.set(`req:${pk}`, nm)
+    }
+    for (const c of cycQ.data?.cycles ?? []) {
+      const nm = [String(c.cid ?? '').trim(), String(c.name ?? '').trim()]
+        .filter(Boolean)
+        .join(' · ')
+      if (c.id && nm) m.set(`cycle:${c.id}`, nm)
+    }
+    return (kind: string, id: string) => m.get(`${kind}:${id}`) || ''
+  }, [reqQ.data, cycQ.data])
   const timer = useRef<number | undefined>(undefined)
 
   const load = async () => {
@@ -140,7 +186,7 @@ export default function NotifyBell({ collapsed }: { collapsed?: boolean }) {
               </div>
             ) : (
               items.map((it) => {
-                const L = lineOf(it)
+                const L = lineOf(it, labelOf)
                 return (
                   <div
                     className={`nb-row${L.go ? ' go' : ''}${it.id > seenId ? ' new' : ''}`}

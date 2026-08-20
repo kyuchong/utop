@@ -264,3 +264,7 @@
 .railsec-b .md-editor { min-height: 420px; }
 .railsec-b .md-editor .md-host { min-height: 380px; }
 .railsec-b .doc-editor { min-height: 460px; }
+
+/* 앞·다음 단추를 한 눈금 줄인다(지시) */
+.hrail-nav { width: 28px; height: 28px; border-radius: 8px; }
+.hrail-nav svg { width: 17px; height: 17px; }
