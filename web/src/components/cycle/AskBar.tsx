@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { gotoClick, gotoHref } from '@/api/goto'
-import { IconSettings, IconTrash } from '@/components/icons'
+import {
+  IconChevron,
+  IconFolder,
+  IconProject,
+  IconReqDoc,
+  IconSettings,
+  IconTrash,
+} from '@/components/icons'
 import { connParams } from '@/components/tc/device'
 import { runSteps } from '@/components/tc/runner'
 import { Fragment } from 'react'
@@ -2698,44 +2705,89 @@ export default function AskBar({ devices }: Props) {
                 .sort((a, b) => (near.get(a.tcid) ?? 99) - (near.get(b.tcid) ?? 99))
               const foldName = tcTree.find((n) => n.id === tcFold)?.name ?? ''
 
-              /** 트리 한 줄 — 폴더는 접었다 폈다, 요구사항은 문서 */
+              /**
+               * 트리 한 줄 — Coverage 트리와 **같은 꼴**(지시).
+               *
+               * 이름·아이콘·들여쓰기·숫자 자리를 저쪽(ReqTree.css 의 rt-*)에서
+               * 그대로 가져온다. 흉내 낸 꼴을 따로 두면 한쪽만 고쳐져 갈린다.
+               */
               const line = (nd: { id: string; name: string; kind: 'cat' | 'req'; depth: number }) => {
                 const kk = kids(nd.id)
                 const open = tcOpen.has(nd.id)
+                const pick = () => {
+                  setTcFold(tcFold === nd.id ? '' : nd.id)
+                  setTcOpen((v) => new Set([...v, nd.id]))
+                }
+                const toggle = () =>
+                  setTcOpen((v) => {
+                    const n2 = new Set(v)
+                    if (n2.has(nd.id)) n2.delete(nd.id)
+                    else n2.add(nd.id)
+                    return n2
+                  })
+                if (nd.kind === 'req')
+                  return (
+                    <div key={nd.id}>
+                      <div
+                        className={`rt-req tt-req${tcFold === nd.id ? ' on' : ''}`}
+                        role="button"
+                        tabIndex={0}
+                        style={{ paddingLeft: 4 + nd.depth * 14 }}
+                        onClick={pick}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            pick()
+                          }
+                        }}
+                      >
+                        <button type="button" className="rt-caret" disabled aria-hidden="true">
+                          <span className="rt-dot" />
+                        </button>
+                        <span className="rt-dicon" aria-hidden="true">
+                          <IconReqDoc />
+                        </span>
+                        <span className="rt-title" title={nd.name}>
+                          {nd.name}
+                        </span>
+                        <span className="rt-cnt">{cnt.get(nd.id) ?? 0}</span>
+                      </div>
+                    </div>
+                  )
                 return (
                   <div key={nd.id}>
                     <div
-                      className={`ask-tnode${tcFold === nd.id ? ' on' : ''}`}
-                      style={{ paddingLeft: 6 + nd.depth * 13 }}
+                      className={`rt-fold${tcFold === nd.id ? ' on' : ''}${nd.depth === 0 ? ' rt-top' : ''}`}
+                      role="button"
+                      tabIndex={0}
+                      style={{ paddingLeft: 4 + nd.depth * 14 }}
+                      onClick={pick}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          pick()
+                        }
+                      }}
                     >
                       <button
                         type="button"
-                        className="ask-tcar"
+                        className={`rt-caret${open ? ' open' : ''}`}
                         disabled={kk.length === 0}
-                        onClick={() =>
-                          setTcOpen((v) => {
-                            const n2 = new Set(v)
-                            if (n2.has(nd.id)) n2.delete(nd.id)
-                            else n2.add(nd.id)
-                            return n2
-                          })
-                        }
-                      >
-                        {kk.length === 0 ? '' : open ? '▾' : '▸'}
-                      </button>
-                      <button
-                        type="button"
-                        className="ask-tname"
-                        title={nd.name}
-                        onClick={() => {
-                          setTcFold(tcFold === nd.id ? '' : nd.id)
-                          setTcOpen((v) => new Set([...v, nd.id]))
+                        aria-label={open ? '접기' : '펼치기'}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggle()
                         }}
                       >
-                        <i>{nd.kind === 'cat' ? '📁' : '📄'}</i>
-                        <span>{nd.name}</span>
-                        <em>{cnt.get(nd.id) ?? 0}</em>
+                        <IconChevron />
                       </button>
+                      <span className="rt-ficon" aria-hidden="true">
+                        {nd.depth === 0 ? <IconProject /> : <IconFolder open={open} />}
+                      </span>
+                      <b className="rt-fname" title={nd.name}>
+                        {nd.name}
+                      </b>
+                      <span className="rt-cnt">{cnt.get(nd.id) ?? 0}</span>
                     </div>
                     {open && kk.map((k2) => line(k2))}
                   </div>
@@ -2747,28 +2799,24 @@ export default function AskBar({ devices }: Props) {
                 <div className="ask-tcbody">
                   {/* Coverage 트리 — 고른 장비의 모델에 걸린 것만 남는다(지시).
                       마디를 누르면 오른쪽 목록이 그 아래만 보여 준다. */}
-                  <aside className="ask-tctree">
+                  <aside className="ask-tctree rt">
                     <div className="ask-likegrp">
                       Coverage 트리
                       <span className="muted small">
                         {askModel || curDev?.model ? `${askModel || curDev?.model} 것` : '전체'}
                       </span>
+                      {tcFold && (
+                        <button type="button" className="ask-tcall" onClick={() => setTcFold('')}>
+                          전체 보기
+                        </button>
+                      )}
                     </div>
-                    <div
-                      className={`ask-tnode${tcFold === '' ? ' on' : ''}`}
-                      style={{ paddingLeft: 6 }}
-                    >
-                      <span className="ask-tcar" />
-                      <button type="button" className="ask-tname" onClick={() => setTcFold('')}>
-                        <i>🗂</i>
-                        <span>전체</span>
-                        <em>{mine.length}</em>
-                      </button>
+                    <div className="rt-body">
+                      {roots.map((n2) => line(n2))}
+                      {roots.length === 0 && (
+                        <div className="empty">이 모델에 걸린 시험이 없습니다.</div>
+                      )}
                     </div>
-                    {roots.map((n2) => line(n2))}
-                    {roots.length === 0 && (
-                      <div className="empty small">이 모델에 걸린 시험이 없습니다.</div>
-                    )}
                   </aside>
                   <div className="ask-tclist">
                     <div className="ask-likegrp">

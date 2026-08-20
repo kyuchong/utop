@@ -4456,10 +4456,11 @@ table.tb td.k {
 /* 항목이 수십 건이라 좁으면 훑기가 어렵다 — 창을 키우고, 목록이 창 높이를
    따라 늘도록 세로로 짠다(지시) */
 .modal.ask-likemodal {
-  width: 1080px;
-  max-width: 94vw;
-  height: 78vh;
-  max-height: 78vh;
+  /* 더 크게(지시) — 트리와 목록이 한 화면에 다 들어와야 고르기 쉽다 */
+  width: 1420px;
+  max-width: 96vw;
+  height: 88vh;
+  max-height: 88vh;
   display: flex;
   flex-direction: column;
 }
@@ -7281,3 +7282,28 @@ a.bc-cur:hover { text-decoration: underline; }
   box-shadow: 0 0 0 3px var(--c-primary-bg);
 }
 .ask-pickn { flex: none; margin-left: 6px; }
+
+/* 시험 고르는 창의 Coverage 트리 — 저쪽(ReqTree)과 같은 껍데기를 쓴다.
+   값(--rt-*)이 `.rt` 에 살아서, 이 껍데기가 없으면 색·모서리가 통째로
+   무효가 된다(장비 화면에서 겪은 것과 같은 일). */
+.ask-tctree.rt {
+  flex: none;
+  width: 380px;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--c-border);
+}
+.ask-tctree.rt > .ask-likegrp {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 6px;
+}
+.ask-tctree.rt > .rt-body { flex: 1; min-height: 0; overflow: auto; }
+@media (max-width: 1200px) {
+  .ask-tctree.rt { width: 300px; }
+}
