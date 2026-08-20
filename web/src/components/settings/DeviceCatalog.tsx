@@ -278,7 +278,10 @@ export default function DeviceCatalog({
         </div>
       </div>
 
-      <div className="seg" role="tablist" hidden={only === 'tree'}>
+      {/* 트리만 볼 때는 탭 줄을 **아예 그리지 않는다**(지시) — `hidden` 은
+          `.seg { display:flex }` 에 밀려 그대로 보였다. */}
+      {only !== 'tree' && (
+      <div className="seg" role="tablist">
         {(
           [
             ['tree', '트리'],
@@ -286,9 +289,8 @@ export default function DeviceCatalog({
             ['models', '모델 목록'],
           ] as const
         )
-          .filter(([k]) =>
-            only === 'tree' ? k === 'tree' : only === 'admin' ? k !== 'tree' : true,
-          )
+          /* 이 자리는 트리를 안 그릴 때만 온다 — 갈래는 「분류·모델」 둘뿐 */
+          .filter(([k]) => (only === 'admin' ? k !== 'tree' : true))
           .map(([k, label]) => (
           <button
             key={k}
@@ -303,6 +305,7 @@ export default function DeviceCatalog({
           </button>
           ))}
       </div>
+      )}
 
       {note.msg && <div className={`set-note ${note.kind}`}>{note.msg}</div>}
 
