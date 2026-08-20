@@ -1705,6 +1705,16 @@ export default function AskBar({ devices }: Props) {
             title="버리기 — 만든 절차를 지웁니다"
             aria-label="버리기"
             onClick={() => {
+              /* 한 번 물어본다(지시) — 스텝과 돌린 결과가 함께 사라진다 */
+              const n = draft.steps.length
+              const hasRun = (ran ?? []).some((r) => r && (r.repeatResult || r.status))
+              if (
+                !window.confirm(
+                  `만든 절차 ${n}스텝을 버릴까요?` +
+                    (hasRun ? '\n돌린 결과도 함께 사라집니다.' : ''),
+                )
+              )
+                return
               setDraft(null)
               setRan(null)
             }}
