@@ -2742,8 +2742,34 @@ export default function AskBar({ devices }: Props) {
                 )
               }
 
+              const roots = kids('')
               return (
                 <div className="ask-tcbody">
+                  {/* Coverage 트리 — 고른 장비의 모델에 걸린 것만 남는다(지시).
+                      마디를 누르면 오른쪽 목록이 그 아래만 보여 준다. */}
+                  <aside className="ask-tctree">
+                    <div className="ask-likegrp">
+                      Coverage 트리
+                      <span className="muted small">
+                        {askModel || curDev?.model ? `${askModel || curDev?.model} 것` : '전체'}
+                      </span>
+                    </div>
+                    <div
+                      className={`ask-tnode${tcFold === '' ? ' on' : ''}`}
+                      style={{ paddingLeft: 6 }}
+                    >
+                      <span className="ask-tcar" />
+                      <button type="button" className="ask-tname" onClick={() => setTcFold('')}>
+                        <i>🗂</i>
+                        <span>전체</span>
+                        <em>{mine.length}</em>
+                      </button>
+                    </div>
+                    {roots.map((n2) => line(n2))}
+                    {roots.length === 0 && (
+                      <div className="empty small">이 모델에 걸린 시험이 없습니다.</div>
+                    )}
+                  </aside>
                   <div className="ask-tclist">
                     <div className="ask-likegrp">
                       {tcFold ? `${foldName} — ${rows.length}건` : `시험 항목 ${rows.length}건`}
