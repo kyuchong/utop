@@ -602,96 +602,98 @@ export default function DeviceCatalog({
                   {shown.length === 0 ? (
                     <div className="dcc-none">이 자리에 걸린 모델이 없습니다.</div>
                   ) : (
-                    shown.map((it) => {
+                    /* 묶지 않는다(지시) — 장비 한 대가 한 줄이고, 장비가 없는
+                       모델도 제 줄로 선다. */
+                    shown.flatMap((it) => {
                       const ds = devsOfModel(it.name)
-                      return (
-                        <div key={it.name}>
-                          <div className="dcc-m2 model">
+                      const tail = (
+                        <>
+                          <button
+                            type="button"
+                            className="dcc-if"
+                            title={`${it.interfaces || '(없음)'} — 누르면 크게 편집`}
+                            onClick={() => setIfEdit({ model: it, text: it.interfaces ?? '' })}
+                          >
+                            {it.interfaces || '＋ 인터페이스'}
+                          </button>
+                          <button
+                            className="btn small primary"
+                            type="button"
+                            title="이 모델로 장비를 등록합니다"
+                            onClick={() =>
+                              setDevNew({
+                                id: '',
+                                ip: '',
+                                model: it.name,
+                                vendor: String(it.vendor ?? ''),
+                                role: String(it.family ?? ''),
+                                lab: tlab || '',
+                              } as Device)
+                            }
+                          >
+                            ＋ 장비
+                          </button>
+                        </>
+                      )
+                      if (ds.length === 0)
+                        return [
+                          <div className="dcc-m2 dev none" key={`m-${it.name}`}>
                             <b className="ell" title={it.name}>
                               {it.name}
                             </b>
-                            <span className="muted small">{ds.length ? `장비 ${ds.length}대` : '장비 없음'}</span>
-                            <span className="sp" />
-                            <button
-                              type="button"
-                              className="dcc-if"
-                              title={`${it.interfaces || '(없음)'} — 누르면 크게 편집`}
-                              onClick={() => setIfEdit({ model: it, text: it.interfaces ?? '' })}
-                            >
-                              {it.interfaces || '＋ 인터페이스'}
-                            </button>
-                            {/* 여기서 바로 장비를 등록한다(지시) — 벤더·제품군·
-                                모델·구역이 미리 채워진 채로 창이 열린다 */}
-                            <button
-                              className="btn small primary"
-                              type="button"
-                              title="이 모델로 장비를 등록합니다"
-                              onClick={() =>
-                                setDevNew({
-                                  id: '',
-                                  ip: '',
-                                  model: it.name,
-                                  vendor: String(it.vendor ?? ''),
-                                  role: String(it.family ?? ''),
-                                  lab: tlab || '',
-                                } as Device)
-                              }
-                            >
-                              ＋ 장비
-                            </button>
-                            <button
-                              className="btn small danger"
-                              type="button"
-                              disabled={delM.isPending}
-                              onClick={() => {
-                                if (window.confirm(`'${it.name}' 을 지울까요?`)) delM.mutate(it)
-                              }}
-                            >
-                              삭제
-                            </button>
-                          </div>
-                          {ds.map((d) => {
-                            const acc = (p2: string) => (d.access ?? []).find((a) => a.protocol === p2)
-                            const snmp = acc('snmp')
-                            const prm = (snmp?.params as { community_rw?: string } | null) ?? {}
-                            return (
-                              <div className="dcc-m2 dev" key={d.id}>
-                                <span className="muted small ell">└ {d.name || d.model}</span>
-                                <b>{d.ip}</b>
-                                {/* 포트는 머리에 적었으니 줄에는 **상태만**(지시) */}
-                                {['telnet', 'ssh', 'console', 'snmp'].map((p2) => {
-                                  const a2 = acc(p2)
-                                  const st = String(a2?.last_status ?? '')
-                                  return (
-                                    <span
-                                      key={p2}
-                                      className={`dcc-st ${
-                                        !a2 ? 'off' : st === 'ok' ? 'ok' : st === 'fail' ? 'ng' : 'un'
-                                      }`}
-                                      title={a2?.last_error || ''}
-                                    >
-                                      {!a2 ? '–' : st === 'ok' ? '연결됨' : st === 'fail' ? '실패' : '미확인'}
-                                    </span>
-                                  )
-                                })}
-                                <span className="muted small ell">{snmp?.community || '–'}</span>
-                                <span className="muted small ell">{prm.community_rw || '–'}</span>
-                                <span className="muted small">{d.if_count ?? d.interfaces?.length ?? 0}</span>
-                                <span className="dcc-lk">
-                                  <LockCell
-                                    resourceId={d.id}
-                                    kind="device"
-                                    lock={lockBy.get(d.id) ?? lockBy.get(d.ip)}
-                                    me={me?.username}
-                                    isAdmin={me?.role === '관리자' || me?.role === 'admin'}
-                                    onMessage={(kind, msg) => setNote({ kind, msg })}
-                                  />
+                            <span className="muted small">장비 없음</span>
+                            <span className="dcc-st off">–</span>
+                            <span className="dcc-st off">–</span>
+                            <span className="dcc-st off">–</span>
+                            <span className="dcc-st off">–</span>
+                            <span className="muted small">–</span>
+                            <span className="muted small">–</span>
+                            <span className="muted small">–</span>
+                            <span className="dcc-tail">{tail}</span>
+                          </div>,
+                        ]
+                      return ds.map((d, di) => {
+                        const acc = (p2: string) => (d.access ?? []).find((a) => a.protocol === p2)
+                        const snmp = acc('snmp')
+                        const prm = (snmp?.params as { community_rw?: string } | null) ?? {}
+                        return (
+                          <div className="dcc-m2 dev" key={d.id}>
+                            <b className="ell" title={it.name}>
+                              {it.name}
+                            </b>
+                            <span className="dcc-ip">{d.ip}</span>
+                            {['telnet', 'ssh', 'console', 'snmp'].map((p2) => {
+                              const a2 = acc(p2)
+                              const st = String(a2?.last_status ?? '')
+                              return (
+                                <span
+                                  key={p2}
+                                  className={`dcc-st ${
+                                    !a2 ? 'off' : st === 'ok' ? 'ok' : st === 'fail' ? 'ng' : 'un'
+                                  }`}
+                                  title={a2?.last_error || ''}
+                                >
+                                  {!a2 ? '–' : st === 'ok' ? '연결됨' : st === 'fail' ? '실패' : '미확인'}
                                 </span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )
+                              )
+                            })}
+                            <span className="muted small ell">{snmp?.community || '–'}</span>
+                            <span className="muted small ell">{prm.community_rw || '–'}</span>
+                            <span className="muted small">{d.if_count ?? d.interfaces?.length ?? 0}</span>
+                            <span className="dcc-lk">
+                              <LockCell
+                                resourceId={d.id}
+                                kind="device"
+                                lock={lockBy.get(d.id) ?? lockBy.get(d.ip)}
+                                me={me?.username}
+                                isAdmin={me?.role === '관리자' || me?.role === 'admin'}
+                                onMessage={(kind, msg) => setNote({ kind, msg })}
+                              />
+                              {di === 0 && <span className="dcc-tail">{tail}</span>}
+                            </span>
+                          </div>
+                        )
+                      })
                     })
                   )}
                 </div>
