@@ -11,7 +11,6 @@ import TestCases from '@/pages/TestCases'
 import Settings from '@/pages/Settings'
 import AiTc from '@/pages/AiTc'
 import Cycles from '@/pages/Cycles'
-import Reports from '@/pages/Reports'
 import Defects from '@/pages/Defects'
 import Devices from '@/pages/Devices'
 import Instruments from '@/pages/Instruments'
@@ -179,7 +178,8 @@ export default function App() {
       ) : page === 'cycles' ? (
         <Cycles me={user} />
       ) : page === 'executions' ? (
-        <Reports />
+        /* 옛 Reports 자리 — 북마크로 들어오면 사이클 화면을 보여 준다 */
+        <Cycles me={user} />
       ) : page === 'defects' ? (
         <Defects />
       ) : page === 'devices' ? (

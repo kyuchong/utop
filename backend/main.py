@@ -7144,6 +7144,44 @@ def _rp_html(r: dict, note: str = "") -> str:
 </div>"""
 
 
+@app.get("/api/cycle/rollup/csv")
+async def cycle_rollup_csv(
+    path: str = _RU_ROOT,
+    date_from: str = "",
+    date_to: str = "",
+    q: str = "",
+    kind: str = "",
+    severity: str = "",
+    cycle: str = "",
+    verdict: str = "",
+):
+    """결과 상세를 원자료 그대로 — 지금 걸린 폴더·기간·거르개가 그대로 나간다."""
+    import csv as _csv
+    import io as _io
+    from urllib.parse import quote
+
+    d = await cycle_rollup_items(path, date_from, date_to, q, kind, severity, cycle,
+                                 verdict, limit=100000, offset=0)
+    buf = _io.StringIO()
+    w = _csv.writer(buf)
+    w.writerow(["결과", "TC ID", "시험항목", "부적합", "심각도", "요구사항", "사이클", "실행일"])
+    for r in d["rows"]:
+        w.writerow([
+            {"pass": "합격", "fail": "불합격", "none": "미실행"}.get(r["group"], r["verdict"] or ""),
+            r.get("tcid") or "", r.get("name") or "", r.get("fails") or 0,
+            r.get("severity") or "", r.get("req_id") or "", r.get("cycle") or "",
+            str(r.get("executed_at") or "")[:16].replace("T", " "),
+        ])
+    nm = (path.split("/")[-1] or "Root").replace(" ", "_")
+    # 엑셀이 UTF-8 을 알아보게 BOM 을 붙인다 — 없으면 한글이 깨져 열린다
+    body = ("\ufeff" + buf.getvalue()).encode("utf-8")
+    return Response(
+        content=body,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(nm)}_result.csv"},
+    )
+
+
 @app.get("/api/cycle/rollup/preview")
 async def cycle_rollup_preview(path: str = _RU_ROOT, date_from: str = "", date_to: str = "", note: str = ""):
     """메일로 나갈 그 모습 그대로 — 보내기 전에 눈으로 본다."""

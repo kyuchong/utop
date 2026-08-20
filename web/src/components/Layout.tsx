@@ -3,7 +3,6 @@ import {
   IconCycle,
   IconDashboard,
   IconDefect,
-  IconExecution,
   IconKnowledge,
   IconPanelToggle,
   IconRelease,
@@ -46,10 +45,9 @@ export const NAV: NavGroup[] = [
       { key: 'requirements', label: 'Requirements', Icon: IconRequirements },
       { key: 'testcases', label: 'Coverage', Icon: IconTestCase },
       { key: 'cycles', label: 'Cycles', Icon: IconCycle },
-      /* iTest 의 「Test Reports」 자리다 — 지나간 실행을 시간순으로 훑는
-         곳. 「Executions」 는 「여기서 실행하나」 로 읽혔다. 실행은
-         사이클에서 건다. */
-      { key: 'executions', label: 'Reports', Icon: IconExecution },
+      /* 「Reports」 는 걷었다(지시) — 집계·축·결과 상세·거르개가 모두
+         사이클 폴더 현황으로 옮겨 갔다. 옛 주소(executions)로 들어오면
+         사이클 화면으로 넘긴다(App.tsx). */
     ],
   },
   {

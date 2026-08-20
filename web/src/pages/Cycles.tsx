@@ -2054,6 +2054,24 @@ function CycleFolderSummary({
               ))}
             </select>
             <span className="sp" />
+            <button
+              className="btn small"
+              type="button"
+              title="지금 걸린 폴더·기간·거르개 그대로 원자료를 내려받습니다"
+              onClick={() => {
+                const u =
+                  `/api/cycle/rollup/csv?path=${encodeURIComponent(path)}` +
+                  (from ? `&date_from=${from}` : '') +
+                  (dq ? `&q=${encodeURIComponent(dq)}` : '') +
+                  (dKind ? `&kind=${dKind}` : '') +
+                  (dSev ? `&severity=${encodeURIComponent(dSev)}` : '') +
+                  (dCyc ? `&cycle=${encodeURIComponent(dCyc)}` : '') +
+                  (dVerd ? `&verdict=${dVerd}` : '')
+                window.open(u, '_blank')
+              }}
+            >
+              Excel
+            </button>
             <select
               className="cy-v"
               value={dSize}
