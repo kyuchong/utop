@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 
@@ -42,13 +42,17 @@ export default function DeviceCatalog() {
   const qc = useQueryClient()
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
   /** 두 탭 — 분류 등록 / 모델 목록. 보던 쪽을 기억한다 */
-  const [view, setView] = useState<'cls' | 'models'>(() =>
-    localStorage.getItem('utop.dc.view') === 'cls' ? 'cls' : 'models',
-  )
-  const pickView = (v: 'cls' | 'models') => {
+  const [view, setView] = useState<'cls' | 'models' | 'tree'>(() => {
+    const v = localStorage.getItem('utop.dc.view')
+    return v === 'cls' || v === 'models' ? v : 'tree'
+  })
+  const pickView = (v: 'cls' | 'models' | 'tree') => {
     setView(v)
     localStorage.setItem('utop.dc.view', v)
   }
+  /** 트리에서 고른 자리 — 「LAB/벤더/사업자/제품군/모델그룹」 경로(지시) */
+  const [tsel, setTsel] = useState('')
+  const [tshut, setTshut] = useState<Set<string>>(new Set())
   /** 새 모델 줄 */
   const [draft, setDraft] = useState<Item>(EMPTY_MODEL)
   /** 분류마다 새 이름 입력칸 */
@@ -67,6 +71,28 @@ export default function DeviceCatalog() {
       return (await r.json()) as { items: Item[] }
     },
   })
+  /** 어느 모델이 어느 LAB 에 있나 — LAB 은 장비가 들고 있다(트리 1층) */
+  const devQ = useQuery({
+    queryKey: ['devices', 'labmap'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/devices2?ifs=0')
+      if (!r.ok) throw new Error('장비를 불러오지 못했습니다')
+      return (await r.json()) as { devices: Array<{ model?: string | null; lab?: string | null }> }
+    },
+    staleTime: 60_000,
+  })
+  const labsOfModel = useMemo(() => {
+    const m = new Map<string, Set<string>>()
+    for (const d of devQ.data?.devices ?? []) {
+      const md = String(d.model ?? '').trim()
+      if (!md) continue
+      const lb = String(d.lab ?? '').trim() || '(LAB 없음)'
+      if (!m.has(md)) m.set(md, new Set())
+      m.get(md)!.add(lb)
+    }
+    return m
+  }, [devQ.data])
+
   const all = listQ.data?.items ?? []
   const of = (kind: string) => all.filter((i) => i.kind === kind)
   const models = of('model')
@@ -230,6 +256,7 @@ export default function DeviceCatalog() {
       <div className="seg" role="tablist">
         {(
           [
+            ['tree', '트리'],
             ['cls', '분류 등록'],
             ['models', '모델 목록'],
           ] as const
@@ -249,6 +276,175 @@ export default function DeviceCatalog() {
       </div>
 
       {note.msg && <div className={`set-note ${note.kind}`}>{note.msg}</div>}
+
+      {/* ── 트리 — LAB › 벤더 › 사업자 › 제품군 › 모델그룹 › 모델(지시) ──
+          층을 누르면 **그 아래 모델만** 오른쪽에 선다. 모델 한 줄마다 네
+          고르개를 따로 채우던 것을 걷어낸 자리다. */}
+      {view === 'tree' && (() => {
+        const LV = ['lab', 'vendor', 'operator', 'family', 'group'] as const
+        const LVN: Record<string, string> = {
+          lab: 'LAB',
+          vendor: '벤더',
+          operator: '사업자',
+          family: '제품군',
+          group: '모델그룹',
+        }
+        /** 모델 한 건이 놓이는 자리들 — LAB 이 여럿이면 그 수만큼 선다 */
+        const keyOf = (m: Item, lab: string) => [
+          lab,
+          String(m.vendor ?? '').trim() || '(벤더 없음)',
+          String(m.operator ?? '').trim() || '(사업자 없음)',
+          String(m.family ?? '').trim() || '(제품군 없음)',
+          String(m.model_group ?? '').trim() || '(모델그룹 없음)',
+        ]
+        const rows: Array<{ m: Item; path: string[] }> = []
+        for (const m of models) {
+          const labs = [...(labsOfModel.get(m.name) ?? new Set(['(미배치)']))]
+          for (const lb of labs) rows.push({ m, path: keyOf(m, lb) })
+        }
+        /** 경로 한 줄 밑에 걸린 모델(겹치면 한 번만) */
+        const under = (pre: string[]) => {
+          const seen = new Set<string>()
+          const out: Item[] = []
+          for (const r of rows) {
+            if (pre.some((v, i) => r.path[i] !== v)) continue
+            if (seen.has(r.m.name)) continue
+            seen.add(r.m.name)
+            out.push(r.m)
+          }
+          return out
+        }
+        const kids = (pre: string[]) => {
+          const at = pre.length
+          const m = new Map<string, number>()
+          for (const r of rows) {
+            if (pre.some((v, i) => r.path[i] !== v)) continue
+            const k = r.path[at]
+            if (k === undefined) continue
+            m.set(k, (m.get(k) ?? 0) + 1)
+          }
+          return [...m.keys()].sort((a, b) => a.localeCompare(b, 'ko'))
+        }
+        const sel = tsel ? tsel.split('\u0001') : []
+        const shown = under(sel)
+
+        const Node = ({ pre }: { pre: string[] }) => {
+          const key = pre.join('\u0001')
+          const open = !tshut.has(key)
+          const at = pre.length
+          const ks = open && at < LV.length ? kids(pre) : []
+          const n = under(pre).length
+          return (
+            <div className="dct-n" style={{ paddingLeft: at ? 12 : 0 }}>
+              <div className={`dct-r${tsel === key ? ' on' : ''}`}>
+                {at < LV.length ? (
+                  <button
+                    type="button"
+                    className="dct-x"
+                    title={open ? '접기' : '펼치기'}
+                    onClick={() =>
+                      setTshut((v) => {
+                        const s2 = new Set(v)
+                        if (s2.has(key)) s2.delete(key)
+                        else s2.add(key)
+                        return s2
+                      })
+                    }
+                  >
+                    {open ? '▾' : '▸'}
+                  </button>
+                ) : (
+                  <span className="dct-x" />
+                )}
+                <button type="button" className="dct-b" onClick={() => setTsel(key)}>
+                  {at === 0 ? '전체' : pre[at - 1]}
+                  <em>{n}</em>
+                </button>
+              </div>
+              {open &&
+                ks.map((k) => <Node key={k} pre={[...pre, k]} />)}
+            </div>
+          )
+        }
+
+        return (
+          <div className="dc2-tree">
+            <aside className="dct">
+              <div className="dct-h">
+                {LV.map((k, i) => (
+                  <span key={k}>
+                    {i ? ' › ' : ''}
+                    {LVN[k]}
+                  </span>
+                ))}
+              </div>
+              <Node pre={[]} />
+            </aside>
+            <section className="dct-list">
+              <div className="dct-listh">
+                <b>{sel.length ? sel[sel.length - 1] : '전체'}</b>
+                <span className="muted small">
+                  {sel.length ? `${LVN[LV[sel.length - 1] ?? 'lab']} · ` : ''}모델 {shown.length}개
+                </span>
+                <span className="sp" />
+                {sel.length > 0 && (
+                  <span className="muted small">
+                    {sel.map((v, i) => `${LVN[LV[i] ?? 'lab']} ${v}`).join(' › ')}
+                  </span>
+                )}
+              </div>
+              <div className="dc-tbl dc2-models">
+                <div className="dc-tr dc-th">
+                  <span>사업자</span>
+                  <span>벤더</span>
+                  <span>제품군</span>
+                  <span>모델그룹</span>
+                  <span>모델명</span>
+                  <span>기본 인터페이스</span>
+                  <span>쓰임</span>
+                  <span />
+                </div>
+                {shown.length === 0 ? (
+                  <div className="empty">이 자리에 걸린 모델이 없습니다.</div>
+                ) : (
+                  shown.map((it) => (
+                    <div className="dc-tr" key={it.name}>
+                      {cellSelect(it, 'operator', 'operator')}
+                      {cellSelect(it, 'vendor', 'vendor')}
+                      {cellSelect(it, 'family', 'family')}
+                      {cellSelect(it, 'model_group', 'group')}
+                      <b className="dc-name" title={it.name}>
+                        {it.name}
+                      </b>
+                      <button
+                        type="button"
+                        className="dc2-if dc2-ifbtn"
+                        title={`${it.interfaces || '(없음)'} — 누르면 크게 편집`}
+                        onClick={() => setIfEdit({ model: it, text: it.interfaces ?? '' })}
+                      >
+                        {it.interfaces || '–'}
+                      </button>
+                      <span className="muted small">{it.used ? `${it.used}대` : '–'}</span>
+                      <span className="dc-actions">
+                        <button
+                          className="btn small danger"
+                          type="button"
+                          disabled={delM.isPending}
+                          onClick={() => {
+                            if (window.confirm(`'${it.name}' 을 지울까요?`)) delM.mutate(it)
+                          }}
+                        >
+                          삭제
+                        </button>
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          </div>
+        )
+      })()}
 
       <div className={`dc2-cols dc2-${view}`}>
         {/* ── 분류 다섯 — 알약으로 만들고·바꾸고·지운다 ────── */}
