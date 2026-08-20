@@ -6789,6 +6789,167 @@ async def get_all_cycles(meta: int = 0):
         return {"cycles": await db.cycle_list_meta()}
     return {"cycles": await db.cycle_list_full()}
 
+# ───────────────────────────────────────────
+# 사이클 트리 집계 — 폴더 한 층의 현황을 **서버가** 센다.
+#
+# 여태 화면이 회차·항목을 다 받아 브라우저에서 셌다. 사업자 층은 수천
+# 건이라 트리 위로 갈수록 느려진다. 여기서 한 번에 세어 내려준다.
+#
+# 트리 경로는 화면(pathOfCycle)과 **같은 규칙**이다:
+#   Root/사업자/제품군/모델그룹/모델명/버전그룹
+# 폴더를 손으로 정해 둔 회차는 Root/<그 경로> 에 그대로 붙는다.
+# ───────────────────────────────────────────
+_RU_ROOT = "Root"
+_RU_NO_CUST = "(사업자 없음)"
+_RU_NO_CAT = "(카탈로그에 없는 모델)"
+_RU_NO_MGROUP = "(모델그룹 없음)"
+_RU_NO_GROUP = "(버전그룹 없음)"
+_RU_LEVELS = ["root", "operator", "family", "model_group", "model", "version_group", "cycle"]
+
+
+def _ru_path(c: dict, fam: dict, mgrp: dict) -> str:
+    own = str(c.get("folder") or "").strip().strip("/")
+    if own:
+        return f"{_RU_ROOT}/{own}"
+    model = str(c.get("model") or "").strip() or "(모델 없음)"
+    cust = str(c.get("customer") or "").strip() or _RU_NO_CUST
+    f = (fam.get(model) or "(제품군 없음)") if model in fam else _RU_NO_CAT
+    mg = str(c.get("model_group") or "").strip() or mgrp.get(model) or _RU_NO_MGROUP
+    vg = str(c.get("version_group") or "").strip() or _RU_NO_GROUP
+    return f"{_RU_ROOT}/{cust}/{f}/{mg}/{model}/{vg}"
+
+
+def _ru_day(s) -> str:
+    """항목이 남긴 시각에서 날짜만 — 「2026-08-19T14:21」 → 「2026-08-19」"""
+    t = str(s or "")[:10]
+    return t if len(t) == 10 and t[4] == "-" else ""
+
+
+async def _ru_groups() -> dict:
+    """판정 → 집계 계열. 설정 「실행 판정 기준」 이 정본이다."""
+    g = {"Pass": "pass", "Fail": "fail", "": "none"}
+    try:
+        for it in await db.code_list("cycle_result"):
+            v = str(it.get("value") or "")
+            try:
+                meta = json.loads(it.get("note") or "{}")
+            except Exception:
+                meta = {}
+            grp = meta.get("group")
+            g[v] = grp if grp in ("pass", "fail") else g.get(v, "neutral")
+    except Exception:
+        pass
+    return g
+
+
+@app.get("/api/cycle/rollup")
+async def cycle_rollup(
+    path: str = _RU_ROOT,
+    date_from: str = "",
+    date_to: str = "",
+    request: Request = None,
+):
+    """
+    폴더 한 층의 현황. 프리뷰의 KPI·막대·표·추이가 모두 이 하나를 쓴다.
+
+    · `path`      — 「Root/LGUPLUS/L3」 처럼 트리 경로
+    · `date_from` / `date_to` — 항목이 실행된 날(YYYY-MM-DD) 로 자른다.
+                    비우면 전부. 잘라도 **회차 수·항목 수는 그대로**고,
+                    판정 집계와 추이만 그 기간 것으로 센다.
+
+    합격률은 **합격 ÷ (합격+실패)** 다 — 실행한 것 중 합격 비율.
+    미실행이 얼마나 남았는지는 진척률(실행/전체)이 따로 말한다.
+    """
+    _ = request
+    base = str(path or _RU_ROOT).strip().strip("/") or _RU_ROOT
+    metas = await db.cycle_list_meta()
+    cat = await db.catalog_list("model")
+    fam = {str(m.get("name") or ""): str(m.get("family") or "").strip() for m in cat}
+    mgrp = {str(m.get("name") or ""): str(m.get("model_group") or "").strip() for m in cat}
+    grp_of = await _ru_groups()
+
+    depth = len(base.split("/"))
+    level = _RU_LEVELS[depth] if depth < len(_RU_LEVELS) else "cycle"
+
+    def tally() -> dict:
+        return {"n": 0, "pass": 0, "fail": 0, "other": 0, "none": 0, "cycles": 0,
+                "last_run": "", "open_defects": 0}
+
+    total = tally()
+    kids: dict[str, dict] = {}
+    trend: dict[str, dict] = {}
+    rows: list[dict] = []
+
+    for c in metas:
+        p = _ru_path(c, fam, mgrp)
+        if p != base and not p.startswith(base + "/"):
+            continue
+        rest = p[len(base):].strip("/")
+        key = rest.split("/")[0] if rest else (str(c.get("cid") or c.get("id") or ""))
+        kid = kids.setdefault(key, {**tally(), "key": key, "leaf": not rest})
+        kid["cycles"] += 1
+        total["cycles"] += 1
+
+        cy = tally()
+        for it in (c.get("items") or []):
+            if not isinstance(it, dict):
+                continue
+            day = _ru_day(it.get("executed_at"))
+            if date_from and day and day < date_from:
+                continue
+            if date_to and day and day > date_to:
+                continue
+            v = str(it.get("_verdict") or it.get("result") or "")
+            g = grp_of.get(v, "neutral" if v else "none")
+            cy["n"] += 1
+            cy[g if g in ("pass", "fail", "none") else "other"] += 1
+            if day and day > cy["last_run"]:
+                cy["last_run"] = day
+            if g in ("pass", "fail") and day:
+                wk = trend.setdefault(day[:7] + "-" + str((int(day[8:10]) - 1) // 7 + 1),
+                                      {"k": "", "pass": 0, "fail": 0})
+                wk["k"] = day
+                wk[g] += 1
+            if it.get("issues"):
+                cy["open_defects"] += len(it.get("issues") or [])
+
+        for f in ("n", "pass", "fail", "other", "none", "open_defects"):
+            kid[f] += cy[f]
+            total[f] += cy[f]
+        if cy["last_run"] > kid["last_run"]:
+            kid["last_run"] = cy["last_run"]
+        if cy["last_run"] > total["last_run"]:
+            total["last_run"] = cy["last_run"]
+
+        if not rest:  # 이 층이 곧 회차 목록이다(버전그룹 아래)
+            rows.append({
+                "id": c.get("id"), "cid": c.get("cid"), "name": c.get("name"),
+                "version": c.get("version"), "version_group": c.get("version_group"),
+                "model": c.get("model"), "status": c.get("status"),
+                "assignee": c.get("assignee"), "end_date": c.get("end_date"),
+                **{k: cy[k] for k in ("n", "pass", "fail", "other", "none", "last_run")},
+            })
+
+    def pct(t: dict) -> dict:
+        done = t["pass"] + t["fail"]
+        t["pass_rate"] = round(t["pass"] / done * 100) if done else 0
+        t["progress"] = round((t["n"] - t["none"]) / t["n"] * 100) if t["n"] else 0
+        return t
+
+    return {
+        "path": base,
+        "level": level,
+        "totals": pct(total),
+        "children": sorted((pct(k) for k in kids.values()), key=lambda x: (x["pass_rate"], -x["n"])),
+        "cycles": rows,
+        "trend": [
+            {"at": v["k"], "pass": v["pass"], "fail": v["fail"],
+             "pass_rate": round(v["pass"] / (v["pass"] + v["fail"]) * 100) if (v["pass"] + v["fail"]) else 0}
+            for _k, v in sorted(trend.items())
+        ],
+    }
+
+
 # 버전그룹 폴더 — `{ "<모델명>": ["R200", "R300"] }`
 #
 # 모델그룹·모델명은 장비 카탈로그가 master 다. 자유 입력으로 두었더니

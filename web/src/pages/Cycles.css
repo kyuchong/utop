@@ -6652,3 +6652,26 @@ table.tb td.k {
 .cxp-hist > i.hv-wip { color: var(--vfg-wip, #a16207); }
 .cxp-hist > i.hv-blocked { color: var(--vfg-blocked, #b45309); }
 .cxp-hist > i.hv-na { color: var(--vfg-na, #64748b); }
+
+/* ── 작업 흐름·스텝 설정 판을 크게(지시) ─────────────────────────
+   폭을 한 번 더 늘리고, 작업 흐름 글자는 전반적으로 한 눈금 키운다. */
+.ask-cols > .ask-rail { width: 420px; }
+.ask-cols > .ask-pane + .ask-pane { width: 560px; }
+@media (max-width: 1500px) {
+  .ask-cols > .ask-rail { width: 350px; }
+  .ask-cols > .ask-pane + .ask-pane { width: 470px; }
+}
+@media (max-width: 1300px) {
+  .ask-cols > .ask-rail { width: 290px; }
+  .ask-cols > .ask-pane + .ask-pane { width: 400px; }
+}
+
+/* 작업 흐름 글자 — 이름표·말·단계 모두 키운다 */
+.ask-rail { font-size: var(--fs-sm); }
+.ask-rail > .ask-rail-head b,
+.ask-rail-head b { font-size: 15px; }
+.ask-rail-head em, .ask-rail-head .muted { font-size: var(--fs-sm); }
+.ask-rail-say { font-size: var(--fs-sm); line-height: 1.7; }
+.ask-stages { font-size: var(--fs-sm); }
+.ask-stages li, .ask-stages b, .ask-stages span, .ask-stages em { font-size: var(--fs-sm); }
+.ask-stages i.st-n { font-size: var(--fs-sm); }
