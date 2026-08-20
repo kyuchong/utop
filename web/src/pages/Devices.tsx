@@ -242,6 +242,10 @@ function EditCell({
       <span
         className={`dv-ed ${cls ?? 'muted ell'}`}
         title={title ?? '두 번 누르면 고칩니다'}
+        /* 한 번 눌러도 **줄이 열리지 않게** 막는다(지적) — 두 번 누르기가
+           먼저 한 번 누르기로 새어 나가 편집 창이 떴다 사라졌다. */
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
         onDoubleClick={(e) => {
           e.stopPropagation()
           setOn(true)
@@ -257,6 +261,7 @@ function EditCell({
       value={v}
       autoFocus
       onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
       onChange={(e) => {
         setV(e.target.value)
         setOn(false)
@@ -277,6 +282,7 @@ function EditCell({
       value={v}
       autoFocus
       onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
       onChange={(e) => setV(e.target.value)}
       onBlur={() => done(true)}
       onKeyDown={(e) => {
