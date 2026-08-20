@@ -2472,10 +2472,16 @@ export default function AskBar({ devices }: Props) {
 
       {/* ⓪ 어느 모델의 시험인가 — 항목보다 먼저 고른다(지시) */}
       {pickModelOpen && (() => {
+        /* 모델은 **등록된 장비**에서 온다(지시) — 「공용」 이라는 모델은 없다.
+           시험 건수는 그 모델로 못 박힌 항목만 센다. */
         const cnt = new Map<string, number>()
+        for (const d of usable) {
+          const m = String(d.model ?? '').trim()
+          if (m && !cnt.has(m)) cnt.set(m, 0)
+        }
         for (const t of tcAll) {
           const m = String(t.model ?? '').trim()
-          cnt.set(m, (cnt.get(m) ?? 0) + 1)
+          if (m) cnt.set(m, (cnt.get(m) ?? 0) + 1)
         }
         /* 말에서 읽은 모델이 있으면 **맨 앞**에 세운다(지시) */
         const rows = [...cnt.entries()]
@@ -2486,7 +2492,6 @@ export default function AskBar({ devices }: Props) {
             if (am !== bm) return bm - am
             return b[1] - a[1] || a[0].localeCompare(b[0], 'ko')
           })
-        const shared = cnt.get('') ?? 0
         const devsOf = (m: string) =>
           usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m.toLowerCase()).length
         const go = (m: string) => {
@@ -2533,20 +2538,13 @@ export default function AskBar({ devices }: Props) {
                     </em>
                   </button>
                 ))}
-                {shared > 0 && (
-                  <button type="button" className="ask-modelcard shared" onClick={() => go('')}>
-                    <b>공용</b>
-                    <span className="muted small">시험 {shared}건</span>
-                    <em className="ok">어느 장비로도</em>
-                  </button>
-                )}
-                {rows.length === 0 && shared === 0 && (
+                {rows.length === 0 && (
                   <div className="empty">Coverage 에 시험 항목이 없습니다.</div>
                 )}
               </div>
               <div className="modal-foot">
                 <span className="muted small">
-                  모델은 시험 항목의 「모델명」 칸에서 옵니다 — 비어 있으면 공용입니다.
+                  랩에 등록된 장비의 모델입니다 — 고르면 그 모델의 시험 항목만 보여 드립니다.
                 </span>
                 <span className="sp" />
                 <button className="btn small" type="button" onClick={cancelAsk}>
@@ -2817,9 +2815,8 @@ export default function AskBar({ devices }: Props) {
               const myModel = (askModel || curDev?.model || '').trim().toLowerCase()
               const forMe = (t: { model?: string }) => {
                 if (!tcOnlyModel || !myModel) return true
-                const m = String(t.model ?? '').trim().toLowerCase()
-                if (!m || m === '공용' || m === '-' || m === '–') return true
-                return m === myModel
+                /* **그 모델 것만**(지시) — 공용·빈 값도 안 가져온다 */
+                return String(t.model ?? '').trim().toLowerCase() === myModel
               }
               const q = tcFind.trim().toLowerCase()
               const hit = (x: { tcid: string; name: string; model: string }) =>
