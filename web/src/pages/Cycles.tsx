@@ -4074,6 +4074,48 @@ function CycleDetail({
               </button>
             )}
             <span className="cy-execslot" id="cy-execbar" />
+            {/* 이 회차가 어디까지 왔나 — **이 줄 하나**로만 말한다(지시).
+                전체·수동·자동 세 막대. 도는 중이면 앞에 진행이 붙는다. */}
+            {(() => {
+              const tally = (xs: CycleItemLite[]) => {
+                let p = 0
+                let f = 0
+                for (const x of xs) {
+                  const v2 = itemVerdict(x)
+                  if (v2 === 'Pass') p += 1
+                  else if (v2) f += 1
+                }
+                return { n: xs.length, p, f }
+              }
+              const man = items.filter((x) => typeOf(x) === 'manual')
+              const aut = items.filter((x) => typeOf(x) === 'auto')
+              const bars: Array<[string, ReturnType<typeof tally>]> = [
+                ['전체', tally(items)],
+                ['수동', tally(man)],
+                ['자동', tally(aut)],
+              ]
+              return (
+                <span className="cxp-sum">
+                  {st.on && (
+                    <b className="cxp-sum-run">
+                      ● {Math.min(st.done + 1, st.total)}/{st.total} 실행 중
+                    </b>
+                  )}
+                  {bars.map(([lb, t]) => (
+                    <span className="cxp-sumb" key={lb} title={`${lb} ${t.n}건 · 합격 ${t.p} · 실패 ${t.f} · 미실행 ${t.n - t.p - t.f}`}>
+                      <i className="lb">{lb}</i>
+                      <i className="bar">
+                        <s className="p" style={{ width: `${t.n ? (t.p / t.n) * 100 : 0}%` }} />
+                        <s className="f" style={{ width: `${t.n ? (t.f / t.n) * 100 : 0}%` }} />
+                      </i>
+                      <i className="nm">
+                        {t.p}/{t.n}
+                      </i>
+                    </span>
+                  ))}
+                </span>
+              )
+            })()}
             <span className="sp" />
           </div>
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
@@ -4739,11 +4781,6 @@ function CycleDetail({
             {/* 바닥 줄 — 이 목록이 지금 무엇을 담고 있나(지시 ⑤).
                 도는 중에는 몇 번째인지가 맨 앞에 온다. */}
             <div className="cxp-foot">
-              {st.on && (
-                <b className="cxp-foot-run">
-                  ● {Math.min(st.done + 1, st.total)}/{st.total} 도는 중
-                </b>
-              )}
               <span>
                 {rows.length}건{rows.length !== items.length ? ` (전체 ${items.length})` : ''}
               </span>
@@ -5561,7 +5598,7 @@ function StepDetail({
   return (
     <div className="cy-steps-pane">
       <div className="cy-sp-head">
-        <b>{item.name || item.tcid}</b>
+        {/* 제목은 이 칸 맨 위 머리에 이미 있다 — 겹쳐서 뺐다(지시) */}
         {/* 판정이 나오는 스텝만 센다(합의) — 주석·메시지는 절차 제목이다 */}
         <span className="muted small">
           {steps.filter((s) => isJudgeStep(s as TcStep)).length}단계

@@ -6486,3 +6486,42 @@ table.tb td.k {
 .cxp-sh .rq-selall { flex: none; display: inline-flex; align-items: center; }
 .cxp-sh .cxp-cntlb { flex: none; }
 .cxp-sh .cxp-q { flex: 1; min-width: 120px; }
+
+/* ── 1행 카드의 집계 — 전체·수동·자동 세 막대(지시) ─────────────── */
+.cxp-sum { display: inline-flex; align-items: center; gap: 12px; margin-left: 6px; }
+.cxp-sum-run { color: var(--c-primary); font-size: var(--fs-sm); white-space: nowrap; }
+.cxp-sumb { display: inline-flex; align-items: center; gap: 5px; }
+.cxp-sumb .lb {
+  font-style: normal;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  white-space: nowrap;
+}
+.cxp-sumb .bar {
+  display: inline-flex;
+  width: 84px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--c-border-soft);
+  overflow: hidden;
+}
+.cxp-sumb .bar > s { display: block; height: 100%; }
+.cxp-sumb .bar > s.p { background: var(--c-pass); }
+.cxp-sumb .bar > s.f { background: var(--c-fail); }
+.cxp-sumb .nm { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
+
+/* 1행 카드와 2행 카드 사이를 좁힌다(지시) */
+.cxp-actcard { margin: 0 0 4px; }
+
+/* 사람 칸(담당자·실행자) 좌우에 세로 구분선(지시) — 이름 칸과 판정 칸을
+   눈으로 가른다. 머리줄에도 같이 선다. */
+.cxp-rgt > *:nth-child(1),
+.cxp-rgt > *:nth-child(3) {
+  border-left: 1px solid var(--c-border-soft);
+  padding-left: 3px;
+  box-sizing: border-box;
+}
+.cxp-row.cxp-hd .cxp-rgt > span:nth-child(1),
+.cxp-row.cxp-hd .cxp-rgt > span:nth-child(3) {
+  border-left: 1px solid var(--c-border-soft);
+}
