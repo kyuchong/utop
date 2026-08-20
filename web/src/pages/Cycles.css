@@ -7093,3 +7093,9 @@ table.tb td.k {
 .ask-modelcard > em.ok { color: var(--c-pass); }
 .ask-modelcard > em.no { color: var(--c-text-faint); }
 .ask-modelcard.shared { border-style: dashed; }
+
+/* 스텝 상세 머리 — Coverage 와 같은 벌(Action · Session) */
+.ask-detmeta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 2px 0 10px; }
+.ask-detmeta > span { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; }
+.ask-detmeta i { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.ask-detmeta b { font-size: var(--fs-sm); font-weight: 600; }

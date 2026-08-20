@@ -2190,6 +2190,58 @@ export default function AskBar({ devices }: Props) {
                   </div>
                   <h3>{s.desc || '—'}</h3>
 
+                  {/* Coverage 의 「스텝 상세」 와 같은 벌(지시) —
+                      Action · Session · 설명이 맨 위에 선다. */}
+                  <div className="ask-detmeta">
+                    <span>
+                      <i>Action</i>
+                      <b>
+                        {s.kind === 'comment'
+                          ? 'Comment'
+                          : s.kind === 'message'
+                            ? 'Message'
+                            : s.kind === 'diff'
+                              ? 'Diff'
+                              : s.kind === 'loop' || s.kind === 'for'
+                                ? 'Loop'
+                                : s.kind === 'wait'
+                                  ? 'Wait'
+                                  : s.kind === 'snmp_get'
+                                    ? 'SNMP Get'
+                                    : s.kind === 'snmp_set'
+                                      ? 'SNMP Set'
+                                      : s.kind === 'snmp_trap'
+                                        ? 'SNMP Trap'
+                                        : s.kind === 'ping'
+                                          ? 'Ping'
+                                          : 'CLI'}
+                      </b>
+                    </span>
+                    <span>
+                      <i>Session</i>
+                      <b>
+                        S{Number(s.session ?? 0) + 1} · {devName} ({devIp || '–'})
+                      </b>
+                    </span>
+                  </div>
+
+                  {/* 주석·메시지는 명령이 아니라 **글**이다 — 빈 명령 칸이 뜨던
+                      자리에 그 글을 보여 준다(지적) */}
+                  {(s.kind === 'comment' || s.kind === 'message') && (
+                    <div className="ask-detf">
+                      <span className="ask-detk">
+                        {s.kind === 'comment' ? '주석' : '메시지'}
+                        <em className="muted small">실행되지 않습니다 — 사람이 읽는 글입니다</em>
+                      </span>
+                      <textarea
+                        className="ask-detcli"
+                        rows={Math.min(6, Math.max(1, String(s.text ?? s.desc ?? '').split('\n').length))}
+                        value={String(s.text ?? s.desc ?? '')}
+                        onChange={(e) => setStep(i, { text: e.target.value })}
+                      />
+                    </div>
+                  )}
+
                   {/* SNMP 는 명령이 아니라 **OID** 로 나간다. 여기서 s.cli 를 그대로
                       물리면 값이 undefined 라 입력칸이 통제에서 풀리고, 앞 스텝의
                       글자를 그대로 이고 있는다(지적 사진: SNMP 스텝에 앞 스텝의
@@ -2266,7 +2318,7 @@ export default function AskBar({ devices }: Props) {
                         onChange={(e) => setStep(i, { host: e.target.value })}
                       />
                     </div>
-                  ) : (
+                  ) : s.kind === 'comment' || s.kind === 'message' ? null : (
                     <div className="ask-detf">
                       <span className="ask-detk">
                         {devName} 에 보낼 명령
