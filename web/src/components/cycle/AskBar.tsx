@@ -2209,6 +2209,30 @@ export default function AskBar({ devices }: Props) {
 
                   <div className="ask-detf">
                     <span className="ask-detk">합격 기준</span>
+                    {/* Coverage 의 새 판정은 **칩**(rules)이다 — 옛 type·criteria
+                        만 보고 있어 「비어 있다」 로 보였다(지적). 칩이 있으면
+                        그것이 정본이라 그대로 보여 주고, 칩이 이긴다. */}
+                    {(() => {
+                      const rules = ((s as unknown as { rules?: Array<{ t: string; v: string }> })
+                        .rules ?? []) as Array<{ t: string; v: string }>
+                      const show = rules.filter((r) => r.t === 'has' || r.t === 'not' || r.t === 'table')
+                      if (!show.length) return null
+                      const lb = (t: string) =>
+                        t === 'has' ? '있어야' : t === 'not' ? '없어야' : '표 조건'
+                      return (
+                        <div className="ask-chips">
+                          {show.map((r, k) => (
+                            <span key={`${r.t}-${r.v}-${k}`} className={`ask-chip ${r.t}`}>
+                              <i>{lb(r.t)}</i>
+                              {r.v}
+                            </span>
+                          ))}
+                          <em className="muted small">
+                            시험 항목이 들고 온 판정 기준입니다 — 모두 맞아야 합격
+                          </em>
+                        </div>
+                      )
+                    })()}
                     <div className="ask-detcrit">
                       <select
                         value={s.type || 'ok'}
