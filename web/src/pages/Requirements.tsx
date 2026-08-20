@@ -1091,15 +1091,16 @@ export default function Requirements({ me }: Props) {
                 {/* 제목은 위 빵부스러기에 이미 있다 — 겹쳐서 걷고(지시)
                     그 자리를 **저장 단추**에 준다. */}
                 <span className="sp" />
-                {infoDirty && <span className="muted small">고친 것이 있습니다</span>}
+                {/* 시험항목 화면과 같은 꼴(지시) — 고친 게 있으면 파랗게,
+                    다 저장돼 있으면 쉬면서 「저장됨」 으로 흐려진다. */}
                 <button
-                  className="btn primary"
+                  className={`btn${infoDirty ? ' primary' : ''}`}
                   type="button"
                   disabled={!infoDirty || infoSaving}
                   title={infoDirty ? '고친 값을 저장합니다' : '고친 것이 없습니다'}
                   onClick={() => void saveInfo()}
                 >
-                  {infoSaving ? '저장 중…' : '저장'}
+                  {infoSaving ? '저장 중…' : infoDirty ? '저장' : '저장됨'}
                 </button>
               </div>
               {/* 탭을 **세로 레일**로 옮겼다(지시). 가로줄에 두면 그 아래가
