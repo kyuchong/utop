@@ -6951,3 +6951,22 @@ table.tb td.k {
   pointer-events: none;
   transition: opacity 0.15s ease;
 }
+
+/* 가림막을 **일하는 자리 한가운데**로(지시) — 두 판을 아우른다 */
+.ask-canvas { position: relative; }
+.ask-canvas > .ask-busy {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  backdrop-filter: none;
+  pointer-events: auto;
+  z-index: 20;
+}
+/* 두 판은 함께 흐려진다 — 상자는 하나뿐이다 */
+.ask-canvas.busy .ask-cols > .ask-pane,
+.ask-canvas.busy .ask-two > .ask-pane,
+.ask-canvas.busy .ask-two > .ask-stepdet {
+  opacity: 0.45;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}

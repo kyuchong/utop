@@ -1721,6 +1721,17 @@ export default function AskBar({ devices }: Props) {
 
           <div className={`ask-canvaswrap${draft ? ' plan' : ''}`}>
           <main className={`ask-canvas${draft ? ' plan' : ''}${busy ? ' busy' : ''}`}>
+            {/* 고치는 동안 뜨는 표 — **일하는 자리 한가운데**(지시).
+                판마다 띄우면 둘로 보이고, 한쪽에만 띄우면 왼쪽으로 쏠린다. */}
+            {busy && draft && (
+              <div className="ask-busy" role="status" aria-live="polite">
+                <span className="ask-busy-box">
+                  <i className="ask-spin" aria-hidden="true" />
+                  <b>AI 수정 중…</b>
+                  <em>지금 절차를 고치고 있습니다</em>
+                </span>
+              </div>
+            )}
 
       {/* 만드는 중 — 첫 화면을 **치운다**.
           초안은 기준까지 다 채운 뒤에 나오므로 그때까지 이 자리가 빈다.
@@ -1938,17 +1949,6 @@ export default function AskBar({ devices }: Props) {
                 <span className="sp" />
                 <span className="muted small">누르면 오른쪽에서 설정</span>
               </div>
-              {/* 고치는 동안 이 판을 덮는다(지시) — 여태 작업 흐름만 움직여
-                  스텝 판은 멈춰 있는 것처럼 보였고, 다 되면 갑자기 바뀌었다. */}
-              {busy && (
-                <div className="ask-busy" role="status" aria-live="polite">
-                  <span className="ask-busy-box">
-                    <i className="ask-spin" aria-hidden="true" />
-                    <b>AI 수정 중…</b>
-                    <em>지금 절차를 고치고 있습니다</em>
-                  </span>
-                </div>
-              )}
             <div className="ask-steplist">
               {(() => {
                 // 들여쓴 만큼 번호를 나눈다 — 1, 1.1, 1.2, 2 …
