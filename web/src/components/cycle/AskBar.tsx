@@ -255,6 +255,8 @@ export default function AskBar({ devices }: Props) {
   /** 같은 모델이 여러 대일 때 — 어느 장비로 보낼지 고르는 창 */
   /** 오른쪽에 펼쳐 볼 스텝 */
   const [stepAt, setStepAt] = useState(0)
+  /** 장비 고르는 창의 찾기 — 이름·모델·IP·구역·랙을 한 칸으로 훑는다 */
+  const [pickFind, setPickFind] = useState('')
   /** 지금 실린 시험의 번호 — Coverage 트리 길을 물을 열쇠 */
   const tcOf = (d: Draft | null) => {
     const v = String(d?.object ?? '').trim()
@@ -1479,6 +1481,12 @@ export default function AskBar({ devices }: Props) {
   }, [busy, adopting, filling])
 
 
+  /* 장비 고르는 창을 열 때마다 찾기를 비운다 — 지난 글자가 남으면
+     열자마자 「없습니다」 가 뜬다 */
+  useEffect(() => {
+    if (pickDev) setPickFind('')
+  }, [pickDev])
+
   /* 이 시험이 Coverage 트리의 어디에 있나 — 머리줄이 그 길을 그린다(지시) */
   const pathQ = useQuery({
     queryKey: ['tc-path', tcOf(draft)],
@@ -2381,11 +2389,17 @@ export default function AskBar({ devices }: Props) {
 
       {/* ① 같은 모델이 여러 대 — 어느 장비로 보낼지 고른다 */}
       {pickDev && (() => {
+        const find = pickFind.trim().toLowerCase()
         const rows = pickDev.cands.filter((d) => {
           const at = rackMap.get(d.id)
           if (pickLab && (at?.lab ?? '') !== pickLab) return false
           if (pickRack && (at?.rack ?? '') !== pickRack) return false
-          return true
+          if (!find) return true
+          /* 한 칸으로 다 훑는다 — 장비가 수십 대면 눈으로 찾는 것이 일이다 */
+          const hay = [d.name, d.model, d.ip, d.vendor, d.role, at?.lab, at?.rack]
+            .map((v) => String(v ?? '').toLowerCase())
+            .join(' ')
+          return find.split(/\s+/).every((w) => hay.includes(w))
         })
         const labs = [...new Set(pickDev.cands.map((d) => rackMap.get(d.id)?.lab ?? '').filter(Boolean))]
         const racks = [...new Set(pickDev.cands.map((d) => rackMap.get(d.id)?.rack ?? '').filter(Boolean))]
@@ -2418,6 +2432,22 @@ export default function AskBar({ devices }: Props) {
                   </div>
                 </div>
                 <span className="sp" />
+                <input
+                  className="ask-pickfind"
+                  value={pickFind}
+                  autoFocus
+                  placeholder="찾기 — 이름 · 모델 · IP · 구역 · 랙"
+                  onChange={(e) => setPickFind(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape' && pickFind) {
+                      e.stopPropagation()
+                      setPickFind('')
+                    }
+                  }}
+                />
+                {pickFind && (
+                  <span className="muted small ask-pickn">{rows.length}대</span>
+                )}
                 <button className="modal-x" type="button" onClick={cancelAsk}>
                   ✕
                 </button>
@@ -2513,7 +2543,11 @@ export default function AskBar({ devices }: Props) {
                       </div>
                     </div>
                   ))}
-                  {rows.length === 0 && <div className="empty">고른 조건에 맞는 장비가 없습니다.</div>}
+                  {rows.length === 0 && (
+                    <div className="empty">
+                      {find ? `「${pickFind.trim()}」 에 맞는 장비가 없습니다.` : '고른 조건에 맞는 장비가 없습니다.'}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="modal-foot">

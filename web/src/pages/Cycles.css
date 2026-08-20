@@ -7263,3 +7263,21 @@ a.bc-cur:hover { text-decoration: underline; }
 }
 .ask-trash:hover { color: var(--c-fail); border-color: var(--c-fail); }
 .ask-trash svg { width: 15px; height: 15px; }
+
+/* 장비 고르는 창의 찾기 칸 — 머리줄 오른쪽(지시) */
+.ask-pickfind {
+  flex: 0 1 320px;
+  min-width: 160px;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  background: var(--c-surface);
+  font-size: var(--fs-md);
+}
+.ask-pickfind:focus {
+  outline: none;
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px var(--c-primary-bg);
+}
+.ask-pickn { flex: none; margin-left: 6px; }
