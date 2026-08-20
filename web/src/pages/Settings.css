@@ -1223,3 +1223,15 @@
 .dcc-st.un { color: var(--c-text-muted); }
 .dcc-st.off { color: var(--c-text-faint); }
 .dcc-m2.dev > span:first-child { padding-left: 2px; }
+
+/* ① 칸이 화면 끝까지 — `.main` 이 세로 flex 라 높이를 100% 로 주면
+   안 늘어난다. **flex 로 자라게** 해야 한다(지적: 1번 미적용). */
+.set-page.dc2 { flex: 1; min-height: 0; height: auto; }
+
+/* IP 도 왼쪽으로 바짝(지시) — 모델명 칸을 더 줄이고 사이 여백도 좁힌다 */
+.dcc-mh,
+.dcc-m2 {
+  grid-template-columns: 168px 116px 68px 68px 68px 68px 60px 60px 62px minmax(110px, 1fr);
+  gap: 4px;
+}
+.dcc-m2.dev > b { text-align: left; }
