@@ -7133,6 +7133,15 @@ table.tb td.k {
 /* 겹(.ask-two)이 display:contents 라 **자리**는 .ask-cols 의 몫이지만,
    고르는 길은 DOM 그대로다 — 부모는 여전히 .ask-two 다(지적 방지) */
 .ask-two > .railsec {
+  /* Coverage 의 칸 값들 — TestCases.css 는 이 벌을 `.tc-split` 에만 걸어
+     둔다. 이 화면에는 그 조상이 없어 `1px solid var(--tc-line)` 이 통째로
+     무효가 되었고, 입력칸의 테두리가 사라져 어디가 칸인지 안 보였다(지적). */
+  --tc-r: 6px;
+  --tc-bg: #fbfcfd;
+  --tc-hover: #f2f5f8;
+  --tc-sel: #eaf1fb;
+  --tc-line: #e8ecf0;
+  --tc-div: #f0f3f6;
   flex: 1;
   min-width: 0;
   min-height: 0;
