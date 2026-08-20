@@ -5,7 +5,8 @@ import { connParams } from '@/components/tc/device'
 import { runSteps } from '@/components/tc/runner'
 import { Fragment } from 'react'
 import type { ReactNode } from 'react'
-import type { TcStep } from '@/components/tc/types'
+import TcSequence from '@/components/tc/TcSequence'
+import type { StepKind, TcStep } from '@/components/tc/types'
 import type { Device } from '@/pages/Devices'
 
 interface DraftStep {
@@ -166,6 +167,93 @@ function hilite(out: string, criteria?: string | null): ReactNode {
   return parts
 }
 
+/** 초안 → 실행·목록이 함께 쓰는 스텝 벌. 「일반」 은 원본을 그대로 쓴다 */
+function toTcSteps(draft: Draft): TcStep[] {
+  return draft.raw?.length
+    ? draft.raw
+    : draft.steps.map((s) => {
+      const k = String(s.kind || 'cli')
+      const indent = Math.max(0, Number(s.indent) || 0)
+      const crit = String(s.criteria || '').trim()
+      const chips = crit
+        ? { rules: crit.split(/\r?\n/).map((v) => v.trim()).filter(Boolean).map((v) => ({ t: 'has' as const, v })) }
+        : {}
+      if (k === 'loop' || k === 'for') {
+        const from = Number(s.from)
+        const to = Number(s.to)
+        const byRange = Number.isFinite(from) && Number.isFinite(to)
+        return {
+          kind: 'loop', indent, step: s.desc,
+          ...(byRange
+            ? { forFrom: from, forTo: to, forStep: 1, loopVar: s.var || 'i' }
+            : { loopCount: s.loopCount ?? 1 }),
+        } as TcStep
+      }
+      if (k === 'wait')
+        return { kind: 'wait', indent, step: s.desc, waitSec: s.waitSec ?? s.sec ?? 1 } as TcStep
+      if (k === 'if')
+        return { kind: 'if', indent, step: s.desc, condition: s.condition || '' } as TcStep
+      if (k === 'manual')
+        return { kind: 'manual', indent, step: s.desc || s.text || '' } as TcStep
+      if (k === 'diff')
+        return {
+          kind: 'diff', indent, step: s.desc,
+          cmpLeft: s.cmpLeft ?? '',
+          cmpRight: s.cmpRight ?? '',
+          cmpOp: s.cmpOp || '==',
+          ...(s.excludeLines ? { excludeLines: s.excludeLines } : {}),
+        } as TcStep
+      if (k === 'snmp_get' || k === 'snmp_set' || k === 'snmp_trap' || k === 'ping') {
+        // 실행기가 이 종류를 그대로 돈다 — 값만 옮겨 실어 준다
+        return {
+          // ★ 세션 자리를 안 실으면 실행기가 「대상 IP 가 없습니다」 로 멎는다
+          //   (지적). 이 화면은 장비 한 대짜리라 늘 첫 자리다.
+          kind: k, indent, step: s.desc, session: s.session ?? 0, ...chips,
+          ...(s.oid ? { oid: s.oid } : {}),
+          ...(s.community ? { community: s.community } : {}),
+          ...(s.snmpVersion ? { snmpVersion: s.snmpVersion } : {}),
+          ...(s.snmpPort ? { snmpPort: Number(s.snmpPort) } : {}),
+          ...(s.snmpValue ? { snmpValue: s.snmpValue } : {}),
+          ...(s.snmpType ? { snmpType: s.snmpType } : {}),
+          ...(s.trapSec ? { trapSec: Number(s.trapSec) } : {}),
+          ...(s.host ? { host: s.host } : {}),
+          ...(s.count ? { count: Number(s.count) } : {}),
+          type: (s.type as string) || (crit ? 'contains' : 'ok'),
+          ...(crit ? { criteria: crit } : {}),
+        } as TcStep
+      }
+      if (k === 'inst' || k === 'instrument') {
+        const act = String(s.action || 'start')
+        const meterAct =
+          act === 'stat' ? 'traffic_stat'
+          : act === 'stop' ? 'traffic_stop'
+          : act === 'release' || act === 'clear' ? 'traffic_clear'
+          : act === 'reserve' || act === 'ports' ? 'ports'
+          : 'traffic_start'
+        return {
+          kind: 'instrument', indent, step: s.desc,
+          meterAct, ...(s.sec ? { meterDur: Number(s.sec) } : {}),
+          ...(s.frame ? { meterSize: Number(s.frame) } : {}),
+        } as TcStep
+      }
+      return {
+        kind: 'cli',
+        indent,
+        session: s.session ?? 0,
+        step: s.desc,
+        desc: s.desc,
+        cli: s.cli,
+        /* 기준이 비어 있으면 **오류만 없으면 합격**이다. 여태 'contains' 로
+           보내 놓고 찾을 문구가 없어, 돌아도 판정이 안 붙었다(지적: PASS 표기
+           안 됨). 작업 흐름도 「지금은 오류만 없으면 합격입니다」 라고 적어
+           왔으므로, 그 말대로 보낸다. */
+        type: s.type || (crit ? 'contains' : 'ok'),
+        criteria: crit,
+        ...chips,
+      } as TcStep
+    })
+}
+
 export default function AskBar({ devices }: Props) {
   const [text, setText] = useState('')
   /**
@@ -211,6 +299,8 @@ export default function AskBar({ devices }: Props) {
   const [err, setErr] = useState('')
   /** 돌린 결과 — 스텝마다 판정과 출력 */
   const [ran, setRan] = useState<TcStep[] | null>(null)
+  /** 여러 줄 고르기 — Coverage 목록 부품이 쓴다 */
+  const [picked, setPicked] = useState<Set<number>>(new Set())
   const [at, setAt] = useState(-1)
   const [running, setRunning] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
@@ -1234,6 +1324,26 @@ export default function AskBar({ devices }: Props) {
    * 저장하지 않고 돌린다 — 말로 시켜 본 것이 다 시험으로 남으면 목록이
    * 금세 쓰레기가 된다. 쓸 만하면 그때 저장한다.
    */
+  /** 목록에 그릴 스텝 — 돌린 뒤에는 결과가 담긴 것을 쓴다 */
+  const seqSteps: TcStep[] = ran?.length ? ran : draft ? toTcSteps(draft) : []
+
+  /** ＋ 스텝 — 초안 끝에 한 줄 붙인다 */
+  const addStep = (k: StepKind) => {
+    if (!draft) return
+    const kind = String(k)
+    const one: DraftStep = {
+      desc: '',
+      cli: '',
+      kind,
+      ...(kind === 'comment' || kind === 'message' ? { text: '' } : {}),
+      type: 'ok',
+    }
+    const next = { ...draft, steps: [...draft.steps, one], raw: undefined }
+    setDraft(next)
+    setBuilt(next)
+    setStepAt(next.steps.length - 1)
+  }
+
   /** `only` 는 그 줄 하나만, `from` 은 그 줄부터 끝까지(지시) */
   const run = async (only?: number, from?: number) => {
     if (!draft || !devId) return
@@ -1243,89 +1353,7 @@ export default function AskBar({ devices }: Props) {
     // 판정기준은 **칩**으로 넣는다(우리 판정 체계) — 옛 type/criteria 도 함께
     // 남겨 두어 옛 화면에서 열어도 읽힌다.
     /* 「일반」 갈래는 원본을 그대로 넘긴다 — 옮겨 적는 순간 무언가 빠진다 */
-    const steps: TcStep[] = draft.raw?.length
-      ? draft.raw
-      : draft.steps.map((s) => {
-      const k = String(s.kind || 'cli')
-      const indent = Math.max(0, Number(s.indent) || 0)
-      const crit = String(s.criteria || '').trim()
-      const chips = crit
-        ? { rules: crit.split(/\r?\n/).map((v) => v.trim()).filter(Boolean).map((v) => ({ t: 'has' as const, v })) }
-        : {}
-      if (k === 'loop' || k === 'for') {
-        const from = Number(s.from)
-        const to = Number(s.to)
-        const byRange = Number.isFinite(from) && Number.isFinite(to)
-        return {
-          kind: 'loop', indent, step: s.desc,
-          ...(byRange
-            ? { forFrom: from, forTo: to, forStep: 1, loopVar: s.var || 'i' }
-            : { loopCount: s.loopCount ?? 1 }),
-        } as TcStep
-      }
-      if (k === 'wait')
-        return { kind: 'wait', indent, step: s.desc, waitSec: s.waitSec ?? s.sec ?? 1 } as TcStep
-      if (k === 'if')
-        return { kind: 'if', indent, step: s.desc, condition: s.condition || '' } as TcStep
-      if (k === 'manual')
-        return { kind: 'manual', indent, step: s.desc || s.text || '' } as TcStep
-      if (k === 'diff')
-        return {
-          kind: 'diff', indent, step: s.desc,
-          cmpLeft: s.cmpLeft ?? '',
-          cmpRight: s.cmpRight ?? '',
-          cmpOp: s.cmpOp || '==',
-          ...(s.excludeLines ? { excludeLines: s.excludeLines } : {}),
-        } as TcStep
-      if (k === 'snmp_get' || k === 'snmp_set' || k === 'snmp_trap' || k === 'ping') {
-        // 실행기가 이 종류를 그대로 돈다 — 값만 옮겨 실어 준다
-        return {
-          // ★ 세션 자리를 안 실으면 실행기가 「대상 IP 가 없습니다」 로 멎는다
-          //   (지적). 이 화면은 장비 한 대짜리라 늘 첫 자리다.
-          kind: k, indent, step: s.desc, session: s.session ?? 0, ...chips,
-          ...(s.oid ? { oid: s.oid } : {}),
-          ...(s.community ? { community: s.community } : {}),
-          ...(s.snmpVersion ? { snmpVersion: s.snmpVersion } : {}),
-          ...(s.snmpPort ? { snmpPort: Number(s.snmpPort) } : {}),
-          ...(s.snmpValue ? { snmpValue: s.snmpValue } : {}),
-          ...(s.snmpType ? { snmpType: s.snmpType } : {}),
-          ...(s.trapSec ? { trapSec: Number(s.trapSec) } : {}),
-          ...(s.host ? { host: s.host } : {}),
-          ...(s.count ? { count: Number(s.count) } : {}),
-          type: (s.type as string) || (crit ? 'contains' : 'ok'),
-          ...(crit ? { criteria: crit } : {}),
-        } as TcStep
-      }
-      if (k === 'inst' || k === 'instrument') {
-        const act = String(s.action || 'start')
-        const meterAct =
-          act === 'stat' ? 'traffic_stat'
-          : act === 'stop' ? 'traffic_stop'
-          : act === 'release' || act === 'clear' ? 'traffic_clear'
-          : act === 'reserve' || act === 'ports' ? 'ports'
-          : 'traffic_start'
-        return {
-          kind: 'instrument', indent, step: s.desc,
-          meterAct, ...(s.sec ? { meterDur: Number(s.sec) } : {}),
-          ...(s.frame ? { meterSize: Number(s.frame) } : {}),
-        } as TcStep
-      }
-      return {
-        kind: 'cli',
-        indent,
-        session: s.session ?? 0,
-        step: s.desc,
-        desc: s.desc,
-        cli: s.cli,
-        /* 기준이 비어 있으면 **오류만 없으면 합격**이다. 여태 'contains' 로
-           보내 놓고 찾을 문구가 없어, 돌아도 판정이 안 붙었다(지적: PASS 표기
-           안 됨). 작업 흐름도 「지금은 오류만 없으면 합격입니다」 라고 적어
-           왔으므로, 그 말대로 보낸다. */
-        type: s.type || (crit ? 'contains' : 'ok'),
-        criteria: crit,
-        ...chips,
-      } as TcStep
-    })
+    const steps: TcStep[] = toTcSteps(draft)
     setRan(steps.slice())
     setRunning(true)
     setAt(-1)
@@ -2071,129 +2099,26 @@ export default function AskBar({ devices }: Props) {
                 </span>
               </div>
             <div className="ask-steplist">
-              {(() => {
-                // 들여쓴 만큼 번호를 나눈다 — 1, 1.1, 1.2, 2 …
-                const cnt: number[] = []
-                /* 묶음 경계 — 머리 줄마다 그 아래가 한 시험이다.
-                   여러 건을 이어 붙이면 스텝이 한 줄로 뭉쳐 어디부터 어느
-                   시험인지 알 수 없다(지적). 머리는 띠로 세우고, 지금 도는
-                   묶음은 통째로 짚는다. */
-                const heads = draft.steps
-                  .map((x, k) => (x.head ? k : -1))
-                  .filter((k) => k >= 0)
-                const groupOf = (k: number) => {
-                  let g = -1
-                  for (const h of heads) if (h <= k) g = h
-                  return g
+              {/* Coverage 의 Automation 목록을 **그대로** 쓴다(지시) —
+                  같은 부품이라 줄 꼴·번호·세션·결과·＋스텝이 한 벌이다. */}
+              <TcSequence
+                steps={seqSteps}
+                selected={stepAt}
+                onSelect={setStepAt}
+                onAdd={(k) => addStep(k)}
+                sessionName={() => devName || '장비'}
+                runningAt={at}
+                picked={picked}
+                onPick={(i) =>
+                  setPicked((v) => {
+                    const n = new Set(v)
+                    if (n.has(i)) n.delete(i)
+                    else n.add(i)
+                    return n
+                  })
                 }
-                const runGrp = at >= 0 ? groupOf(at) : -1
-                const grpSize = (h: number) => {
-                  const nx = heads.find((x) => x > h)
-                  return (nx ?? draft.steps.length) - h - 1
-                }
-                return draft.steps.map((s, i) => {
-                  if (s.head) {
-                    // 묶음 머리 — 번호를 먹지 않는다. 아래 스텝이 1 부터다
-                    cnt.length = 0
-                    return (
-                      <div
-                        key={i}
-                        className={`ask-sgrp${runGrp === i ? ' on' : ''}${stepAt === i ? ' sel' : ''}`}
-                        onClick={() => setStepAt(i)}
-                      >
-                        <b>{s.desc || s.text}</b>
-                        <em>{grpSize(i)}스텝</em>
-                        {runGrp === i && <var>● 도는 중</var>}
-                      </div>
-                    )
-                  }
-                  const d = Math.max(0, Number(s.indent) || 0)
-                  cnt.length = d + 1
-                  cnt[d] = (cnt[d] ?? 0) + 1
-                  const no = cnt.slice(0, d + 1).map((n) => n || 1).join('.')
-                  const rs = ran?.[i]
-                  const v = String(rs?.repeatResult ?? rs?.status ?? '').trim()
-                  const cls = at === i ? 'run' : v.toLowerCase() === 'fail' ? 'fail' : v ? 'pass' : ''
-                  const k = String(s.kind || 'cli')
-                  const isNote = k === 'comment' || k === 'message'
-                  const label =
-                    isNote ? 'Comment'
-                    : k === 'inst' || k === 'instrument' ? '계측기'
-                    : k === 'wait' ? 'Wait'
-                    : k === 'loop' || k === 'for' ? 'Loop'
-                    : k === 'if' ? 'If'
-                    : k === 'snmp_get' ? 'SNMP Get'
-                    : k === 'snmp_set' ? 'SNMP Set'
-                    : k === 'snmp_trap' ? 'SNMP Trap'
-                    : k === 'ping' ? 'Ping'
-                    : k === 'diff' ? 'Diff'
-                    : k === 'manual' ? '수동'
-                    : k === 'map' ? 'Map'
-                    : k === 'connect' ? '세션 열기'
-                    : k === 'disconnect' ? '세션 닫기'
-                    : k === 'model' ? '모델'
-                    : k === 'group' ? '묶음'
-                    : k === 'call' ? '다른 시험'
-                    : k === 'variable' ? '변수'
-                    : k === 'switch' || k === 'else' || k === 'elif' ? '갈림길'
-                    : 'CLI'
-                  const body = isNote
-                    ? s.desc || s.text || ''
-                    : k === 'snmp_get' || k === 'snmp_set' || k === 'snmp_trap'
-                      ? s.oid || ''
-                      : k === 'loop' || k === 'for'
-                        ? (() => {
-                            /* 「Loop」 만 있으면 몇 번 도는지 알 수 없다(지적) */
-                            const f = Number(s.from)
-                            const t = Number(s.to)
-                            if (Number.isFinite(f) && Number.isFinite(t))
-                              return `${t - f + 1}회 · ${s.var || 'i'} ${f}~${t}`
-                            const n = Number(s.loopCount)
-                            return Number.isFinite(n) && n > 0 ? `${n}회` : '몇 번 돌지 안 정함'
-                          })()
-                        : k === 'wait'
-                          ? `${s.waitSec ?? s.sec ?? 1}초`
-                          : k === 'diff'
-                            ? `${s.cmpLeft ?? ''} ${s.cmpOp || '=='} ${s.cmpRight ?? ''}`.trim()
-                            : s.cli || s.desc || ''
-                  return (
-                    <div
-                      key={i}
-                      className={`ask-srow${stepAt === i ? ' on' : ''}${isNote ? ' note' : ''}${
-                        runGrp >= 0 && groupOf(i) === runGrp ? ' ing' : ''
-                      } ${cls}`}
-                      onClick={() => setStepAt(i)}
-                    >
-                      <span className="ask-ssess">{isNote ? '–' : `S0${(Number(s.session) || 0) + 1}`}</span>
-                      <span className="ask-sno" style={{ paddingLeft: d * 12 }}>
-                        {no}
-                      </span>
-                      <span className="ask-skind">{label}</span>
-                      <span className={`ask-sbody${isNote ? '' : ' mono'}`}>{body}</span>
-                      <span className={`ask-sres ${cls}`}>
-                        {at === i ? '도는 중' : v ? v.toUpperCase() : ''}
-                      </span>
-                      {/* 한 줄만 돌리기 — Coverage 의 줄 끝 ▶ 와 같은 자리(지시) */}
-                      <button
-                        type="button"
-                        className="ask-srun"
-                        title="이 스텝만 실행"
-                        disabled={running || !devId || isNote}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setStepAt(i)
-                          void run(i)
-                        }}
-                      >
-                        ▶
-                      </button>
-                    </div>
-                  )
-                })
-              })()}
-              {draft.steps.length === 0 && (
-                <div className="muted small">쓸 만한 스텝을 못 만들었습니다. 다르게 말해 보세요.</div>
-              )}
+                onRun={running || !devId ? undefined : (i) => void run(i)}
+              />
             </div>
             </div>
 

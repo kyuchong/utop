@@ -7119,3 +7119,8 @@ table.tb td.k {
 .ask-srow.on .ask-srun { opacity: 1; }
 .ask-srun:hover:not(:disabled) { background: var(--c-primary-bg); color: var(--c-primary); }
 .ask-srun:disabled { opacity: 0 !important; }
+
+/* Coverage 목록 부품을 그대로 쓴다 — AI 판 안에서 제 높이를 갖게 */
+.ask-steplist .sq { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ask-steplist .sq-scroll { flex: 1; min-height: 0; overflow: auto; }
+.ask-steplist { display: flex; flex-direction: column; min-height: 0; }
