@@ -734,8 +734,26 @@ export default function AskBar({ devices }: Props) {
              주석 줄이 통째로 비어 보였다 */
           text: typeof o.text === 'string' ? (o.text as string) : undefined,
           kind: typeof x.kind === 'string' ? x.kind : 'cli',
-          type: x.type ?? undefined,
-          criteria: typeof x.criteria === 'string' ? x.criteria : undefined,
+          /* Coverage 의 새 판정은 **칩**(rules)이다. 화면의 합격 기준 칸은
+             옛 꼴(type·criteria)을 읽으므로 **칸에 값으로 옮겨 적는다**
+             (지시) — 따로 띄우지 않는다. 「있어야」 가 여럿이면 「모두
+             있으면 합격」, 「없어야」 뿐이면 「있으면 불합격」 이다. */
+          ...(() => {
+            const rs = (o.rules ?? []) as Array<{ t?: string; v?: string }>
+            const has = rs.filter((r) => r?.t === 'has' && String(r.v ?? '').trim())
+            const not = rs.filter((r) => r?.t === 'not' && String(r.v ?? '').trim())
+            if (has.length)
+              return {
+                type: has.length > 1 ? 'contains_all' : 'contains',
+                criteria: has.map((r) => String(r.v).trim()).join('\n'),
+              }
+            if (not.length)
+              return { type: 'notcontains', criteria: not.map((r) => String(r.v).trim()).join('\n') }
+            return {
+              type: x.type ?? undefined,
+              criteria: typeof x.criteria === 'string' ? x.criteria : undefined,
+            }
+          })(),
           indent: typeof x.indent === 'number' ? x.indent : undefined,
           session: typeof x.session === 'number' ? x.session : 0,
         } as DraftStep
@@ -2209,30 +2227,6 @@ export default function AskBar({ devices }: Props) {
 
                   <div className="ask-detf">
                     <span className="ask-detk">합격 기준</span>
-                    {/* Coverage 의 새 판정은 **칩**(rules)이다 — 옛 type·criteria
-                        만 보고 있어 「비어 있다」 로 보였다(지적). 칩이 있으면
-                        그것이 정본이라 그대로 보여 주고, 칩이 이긴다. */}
-                    {(() => {
-                      const rules = ((s as unknown as { rules?: Array<{ t: string; v: string }> })
-                        .rules ?? []) as Array<{ t: string; v: string }>
-                      const show = rules.filter((r) => r.t === 'has' || r.t === 'not' || r.t === 'table')
-                      if (!show.length) return null
-                      const lb = (t: string) =>
-                        t === 'has' ? '있어야' : t === 'not' ? '없어야' : '표 조건'
-                      return (
-                        <div className="ask-jchips">
-                          {show.map((r, k) => (
-                            <span key={`${r.t}-${r.v}-${k}`} className={`ask-jchip ${r.t}`}>
-                              <i>{lb(r.t)}</i>
-                              {r.v}
-                            </span>
-                          ))}
-                          <em className="muted small">
-                            시험 항목이 들고 온 판정 기준입니다 — 모두 맞아야 합격
-                          </em>
-                        </div>
-                      )
-                    })()}
                     <div className="ask-detcrit">
                       <select
                         value={s.type || 'ok'}
