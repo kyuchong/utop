@@ -2072,6 +2072,16 @@ export default function AskBar({ devices }: Props) {
                     <div className="ask-paneh">
                       <h3>스텝 설정</h3>
                     </div>
+                    {/* 고치는 동안은 이 판도 덮는다(지시) */}
+                    {busy && (
+                      <div className="ask-busy" role="status" aria-live="polite">
+                        <span className="ask-busy-box">
+                          <i className="ask-spin" aria-hidden="true" />
+                          <b>AI 수정 중…</b>
+                          <em>지금 절차를 고치고 있습니다</em>
+                        </span>
+                      </div>
+                    )}
                     <div className="ask-stepdet empty">왼쪽에서 스텝을 고르세요.</div>
                   </div>
                 )
@@ -2079,6 +2089,16 @@ export default function AskBar({ devices }: Props) {
               const out = String(rs?.output ?? '')
               return (
                 <div className="ask-pane">
+                  {/* 고치는 동안은 이 판도 덮는다(지시) */}
+                  {busy && (
+                    <div className="ask-busy" role="status" aria-live="polite">
+                      <span className="ask-busy-box">
+                        <i className="ask-spin" aria-hidden="true" />
+                        <b>AI 수정 중…</b>
+                        <em>지금 절차를 고치고 있습니다</em>
+                      </span>
+                    </div>
+                  )}
                   <div className="ask-paneh">
                     <h3>스텝 설정</h3>
                     <span className="sp" />
