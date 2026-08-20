@@ -1100,7 +1100,20 @@ export default function AskBar({ devices }: Props) {
     /* General 은 **항목부터** 고른다(지시). 장비는 항목이 모델을 정한 뒤에
        묻는다 — 말에 모델이 있으면 그 모델 것만, 없으면 전체를 보여 준다. */
     if (mode === 'basic' && !draft) {
-      const m0 = candsOf(said)?.model ?? ''
+      /* 말에 적힌 모델 이름 — **장비가 없어도** 읽는다(지적).
+         `candsOf` 는 그 모델 장비가 있을 때만 잡아, 랩에 없는 모델을 적으면
+         「모델 없음」 이 되어 남의 모델 항목이 통째로 떴다. */
+      const known = [
+        ...new Set([
+          ...usable.map((d) => String(d.model ?? '').trim()),
+          ...tcAll.map((t) => String(t.model ?? '').trim()),
+        ]),
+      ].filter(Boolean)
+      const low = said.toLowerCase()
+      const inText = known
+        .filter((m) => low.includes(m.toLowerCase()))
+        .sort((a, b) => b.length - a.length)[0]
+      const m0 = candsOf(said)?.model ?? inText ?? ''
       setAskModel(m0)
       setFlowLog((v) => [
         ...v,
