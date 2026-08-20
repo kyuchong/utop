@@ -1286,3 +1286,18 @@
 /* 스크롤은 **칸 안에서만** — 페이지는 구르지 않는다 */
 .dcc { min-height: 0; overflow: hidden; }
 .dcc > .dcc-b { flex: 1; min-height: 0; overflow: auto; }
+
+/* 제품(모델) 만들기 줄 — 이름 · 벤더 · 제품군 · 모델그룹 · 기본 인터페이스 */
+.dcc-addrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: var(--c-surface-alt);
+  flex-wrap: wrap;
+}
+.dcc-addrow input,
+.dcc-addrow select { height: 26px; font-size: var(--fs-sm); }
+.dcc-addnm { flex: 0 0 190px; }
+.dcc-addif { flex: 1; min-width: 200px; }

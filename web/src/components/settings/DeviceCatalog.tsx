@@ -305,6 +305,29 @@ export default function DeviceCatalog({
           모델을 그 자리에서 더하면 **왼쪽에서 고른 값이 저절로 붙는다** —
           고르개 넷을 따로 채우던 일이 사라진다. */}
       {view === 'tree' && (() => {
+        /** 제품(모델) 만들기 — 왼쪽에서 고른 자리를 물려받되, 이 줄에서 고른
+            값이 있으면 그것이 이긴다(지시) */
+        const addModel = () => {
+          const nm = (adds['t:model'] ?? '').trim()
+          if (!nm) return
+          const ven = (adds['t:ven'] ?? '').trim() || (tven === NONE ? '' : tven)
+          if (!ven) {
+            setNote({ kind: 'err', msg: '벤더를 고르세요' })
+            return
+          }
+          const fam = (adds['t:fam'] ?? '').trim() || (tfam === NONE ? '' : tfam)
+          const grp = (adds['t:grp'] ?? '').trim() || (tgrp === NONE ? '' : tgrp)
+          const ifs = (adds['t:if'] ?? '').trim()
+          saveM.mutate({
+            kind: 'model',
+            name: nm,
+            vendor: ven,
+            family: fam || null,
+            model_group: grp || null,
+            interfaces: ifs || null,
+          })
+          setAdds((v) => ({ ...v, 't:model': '', 't:if': '' }))
+        }
         const norm = (v?: string | null) => String(v ?? '').trim()
         /** 「미분류」 — 그 칸 값이 비어 있는 것들 */
         const NONE = '\u0000none'
@@ -553,31 +576,71 @@ export default function DeviceCatalog({
                     )}
                   </span>
                 </div>
-                <div className="dcc-add">
+                {/* 제품(모델)도 여기서 만든다(지시) — 왼쪽에서 고른 자리가
+                    미리 채워지고, 비어 있으면 이 줄에서 고른다. */}
+                <div className="dcc-addrow">
                   <input
+                    className="dcc-addnm"
                     value={adds['t:model'] ?? ''}
-                    placeholder={
-                      tven
-                        ? `모델 추가 — ${[tven, tfam, tgrp].filter(Boolean).join(' · ')} 에 붙습니다`
-                        : '왼쪽에서 벤더를 먼저 고르세요'
-                    }
-                    disabled={!tven}
+                    placeholder="새 모델명 — 예: E6100-24T"
                     onChange={(e) => setAdds((v) => ({ ...v, 't:model': e.target.value }))}
                     onKeyDown={(e) => {
-                      if (e.key !== 'Enter') return
-                      const nm = (adds['t:model'] ?? '').trim()
-                      if (!nm || !tven) return
-                      /* 고른 자리를 그대로 물려준다(지시) — 넷을 다시 고를 일 없음 */
-                      saveM.mutate({
-                        kind: 'model',
-                        name: nm,
-                        vendor: tven,
-                        family: tfam || null,
-                        model_group: tgrp && tgrp !== '(미지정)' ? tgrp : null,
-                      })
-                      setAdds((v) => ({ ...v, 't:model': '' }))
+                      if (e.key === 'Enter') addModel()
                     }}
                   />
+                  <select
+                    value={adds['t:ven'] ?? tven ?? ''}
+                    title="벤더"
+                    onChange={(e) => setAdds((v) => ({ ...v, 't:ven': e.target.value }))}
+                  >
+                    <option value="">벤더</option>
+                    {(lists.vendor ?? []).map((x) => (
+                      <option key={x.name} value={x.name}>
+                        {x.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={adds['t:fam'] ?? (tfam === NONE ? '' : tfam) ?? ''}
+                    title="제품군"
+                    onChange={(e) => setAdds((v) => ({ ...v, 't:fam': e.target.value }))}
+                  >
+                    <option value="">제품군</option>
+                    {(lists.family ?? []).map((x) => (
+                      <option key={x.name} value={x.name}>
+                        {x.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={adds['t:grp'] ?? (tgrp === NONE ? '' : tgrp) ?? ''}
+                    title="모델그룹"
+                    onChange={(e) => setAdds((v) => ({ ...v, 't:grp': e.target.value }))}
+                  >
+                    <option value="">모델그룹</option>
+                    {(lists.group ?? []).map((x) => (
+                      <option key={x.name} value={x.name}>
+                        {x.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    className="dcc-addif"
+                    value={adds['t:if'] ?? ''}
+                    placeholder="기본 인터페이스 (예: gi1/0/1-48, te1/1-4)"
+                    onChange={(e) => setAdds((v) => ({ ...v, 't:if': e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') addModel()
+                    }}
+                  />
+                  <button
+                    className="btn small primary"
+                    type="button"
+                    disabled={!(adds['t:model'] ?? '').trim() || saveM.isPending}
+                    onClick={addModel}
+                  >
+                    추가
+                  </button>
                 </div>
                 <div className="dcc-b">
                   <div className="dcc-mh">
