@@ -3062,3 +3062,7 @@ table.tb tr.r-bad td:first-child {
 .bv-hc:hover { background: #e8f2fe; box-shadow: 0 0 0 1px #5b9bd5; }
 /* 열제외 칩 */
 .sd-chip.skipcol { background: #f0ecf8; border-color: #8a6fc0; color: #4d3d80; }
+
+/* 가로 레일 — 왼쪽 48px 자리를 본문에 돌려준다(지시) */
+.tc-withrail.h { display: flex; flex-direction: column; min-height: 0; }
+.tc-withrail.h > .tc-railbody { flex: 1; min-height: 0; }

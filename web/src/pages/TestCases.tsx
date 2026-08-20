@@ -253,15 +253,9 @@ export default function TestCases({ me }: PageProps) {
   const splitRef = useRef<HTMLDivElement>(null)
   /* 세부는 탭이 아니라 한 줄기 스크롤이다 — 레일과 서로를 따라간다 */
   const railRef = useRef<HTMLDivElement>(null)
-  /* 접어 둔 칸. 무거운 것(토폴로지·트래픽·Automation·기록)은 접힌 채로
-     시작한다 — 여덟 칸을 한꺼번에 붙이면 시험 하나 여는 데 한참 걸린다.
-     접힌 칸은 알맹이를 아예 안 만든다(RailSec). */
-  const [shut, setShut] = useState<Set<string>>(() => {
-    const v = new Set(['topo', 'traffic', 'manual', 'history', 'cycle'])
-    /* 지난번에 보던 칸은 펴 놓는다 — 열자마자 이름표만 있으면 빈 화면으로 읽힌다 */
-    v.delete(tab)
-    return v
-  })
+  /* 접어 둔 칸 — 가로 레일로 바꾸며 **고른 칸만** 그리므로 접힘은 거의
+     쓰이지 않는다. 칸 머리의 접기는 그대로 두어 손에 익은 길을 남긴다. */
+  const [, setShut] = useState<Set<string>>(() => new Set<string>())
   const toggleSec = (k: string) =>
     setShut((v) => {
       const n = new Set(v)
@@ -270,7 +264,8 @@ export default function TestCases({ me }: PageProps) {
       return n
     })
   /* 레일 ↔ 한 줄기 스크롤 묶기. 누르면 가고, 굴리면 레일이 따라온다 */
-  const goSec = useRailSpy(railRef, tab, (k) => setTab(k as Tab), true)
+  /* 가로 레일은 칸을 갈아 끼우므로 스크롤 스파이를 쓰지 않는다(지시) */
+  useRailSpy(railRef, tab, (k) => setTab(k as Tab), false)
   const [listW, setListW] = useResizableWidth('utop.tc.listW', 250, 170, 900)
   /**
    * 1열을 접어 뒀나.
@@ -1968,13 +1963,15 @@ export default function TestCases({ me }: PageProps) {
     </section>
   ) : (
     <div className="railbox" ref={railRef}>
-      {RAIL_TABS.map((t) => (
+      {/* 가로 레일은 **칸을 갈아 끼운다**(지시) — 굴려 찾던 것이 짧은 칸에서
+          엉성했다. 고른 칸 하나만 그리므로 무거운 칸도 그때만 만들어진다. */}
+      {RAIL_TABS.filter((t) => t.k === tab).map((t) => (
         <RailSec
           key={t.k}
           k={t.k}
           title={t.label}
           right={t.n ? `${t.n}건` : undefined}
-          open={!shut.has(t.k)}
+          open
           onToggle={() => toggleSec(t.k)}
         >
           {PANE[t.k]}
@@ -2585,12 +2582,12 @@ export default function TestCases({ me }: PageProps) {
           </section>
 
         ) : (
-          <div className="tc-withrail">
+          <div className="tc-withrail h">
             <VRail
+              dir="h"
               ariaLabel="시험 세부 보기"
               value={tab}
               onPick={(k) => {
-                /* 접혀 있으면 펴 준다 — 눌렀는데 이름표만 나오면 고장으로 읽힌다 */
                 setShut((v) => {
                   if (!v.has(k)) return v
                   const n = new Set(v)
@@ -2598,7 +2595,6 @@ export default function TestCases({ me }: PageProps) {
                   return n
                 })
                 setTab(k as Tab)
-                requestAnimationFrame(() => goSec(k))
               }}
               items={RAIL_TABS}
             />
