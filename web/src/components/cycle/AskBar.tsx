@@ -278,6 +278,8 @@ export default function AskBar({ devices }: Props) {
   const [pickDev, setPickDev] = useState<{ model: string; cands: Device[] } | null>(null)
   /** 말에서 잡은 모델 — 「E6100 …」 이면 'E6100'. 없으면 빈 값 */
   const [askModel, setAskModel] = useState('')
+  /** 모델 고르는 창 — 말에 모델이 없을 때 **먼저** 묻는다(지시) */
+  const [pickModelOpen, setPickModelOpen] = useState(false)
   /** 항목을 먼저 고른 뒤 장비를 묻는 중 — 고르면 이 항목으로 잇는다 */
   const [afterPick, setAfterPick] = useState<{ tcid: string; model: string } | null>(null)
   const [pickSel, setPickSel] = useState('')
@@ -1120,6 +1122,12 @@ export default function AskBar({ devices }: Props) {
         { s: 1, t: m0 ? `말에서 모델 ${m0} 을(를) 읽었습니다` : '말에 모델이 없어 전체에서 고릅니다' },
       ])
       await findLike(said, undefined)
+      if (!m0) {
+        /* 모델을 먼저 고른다(지시) — 항목은 그 모델 것만 보여 준다 */
+        setFlowLog((v) => [...v, { s: 1, t: '어느 모델인지 먼저 고릅니다' }])
+        setPickModelOpen(true)
+        return
+      }
       setTcOnlyModel(!!m0)
       /* 찾기 칸은 **비워 둔다**(지시) — 말에서 뽑은 낱말을 미리 넣어 두면
          그것 말고는 안 보여, 목록을 훑을 수가 없었다. 트리 자리(아래
@@ -2431,6 +2439,83 @@ export default function AskBar({ devices }: Props) {
           )}
       </div>
 
+      {/* ⓪ 어느 모델의 시험인가 — 항목보다 먼저 고른다(지시) */}
+      {pickModelOpen && (() => {
+        const cnt = new Map<string, number>()
+        for (const t of tcAll) {
+          const m = String(t.model ?? '').trim()
+          cnt.set(m, (cnt.get(m) ?? 0) + 1)
+        }
+        const rows = [...cnt.entries()]
+          .filter(([m]) => m)
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'))
+        const shared = cnt.get('') ?? 0
+        const devsOf = (m: string) =>
+          usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m.toLowerCase()).length
+        const go = (m: string) => {
+          setAskModel(m)
+          setPickModelOpen(false)
+          setTcOnlyModel(!!m)
+          setTcFind('')
+          setTcPick(new Set())
+          setFlowLog((v) => [...v, { s: 1, t: m ? `모델 ${m} 로 고름` : '공용 항목에서 고름' }])
+          setLikeAsk(true)
+        }
+        return (
+          <div className="modal-back" onMouseDown={cancelAsk}>
+            <div
+              className="modal ask-modelmodal"
+              role="dialog"
+              aria-modal="true"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <div className="modal-head">
+                <div>
+                  <b>어느 모델의 시험인가요?</b>
+                  <div className="muted small">
+                    모델을 고르면 그 모델의 시험 항목만 보여 드립니다.
+                  </div>
+                </div>
+                <span className="sp" />
+                <button className="modal-x" type="button" onClick={cancelAsk}>
+                  ✕
+                </button>
+              </div>
+              <div className="ask-modellist">
+                {rows.map(([m, n]) => (
+                  <button key={m} type="button" className="ask-modelcard" onClick={() => go(m)}>
+                    <b>{m}</b>
+                    <span className="muted small">시험 {n}건</span>
+                    <em className={devsOf(m) ? 'ok' : 'no'}>
+                      {devsOf(m) ? `장비 ${devsOf(m)}대` : '장비 없음'}
+                    </em>
+                  </button>
+                ))}
+                {shared > 0 && (
+                  <button type="button" className="ask-modelcard shared" onClick={() => go('')}>
+                    <b>공용</b>
+                    <span className="muted small">시험 {shared}건</span>
+                    <em className="ok">어느 장비로도</em>
+                  </button>
+                )}
+                {rows.length === 0 && shared === 0 && (
+                  <div className="empty">Coverage 에 시험 항목이 없습니다.</div>
+                )}
+              </div>
+              <div className="modal-foot">
+                <span className="muted small">
+                  모델은 시험 항목의 「모델명」 칸에서 옵니다 — 비어 있으면 공용입니다.
+                </span>
+                <span className="sp" />
+                <button className="btn small" type="button" onClick={cancelAsk}>
+                  그만두기
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ① 같은 모델이 여러 대 — 어느 장비로 보낼지 고른다 */}
       {pickDev && (() => {
         const rows = pickDev.cands.filter((d) => {
@@ -2645,7 +2730,18 @@ export default function AskBar({ devices }: Props) {
               <div>
                 <b>어느 시험 항목으로 할까요?</b>
                 <div className="muted small">
-                  고르면 그 항목의 절차를 <b>{curDev?.model || '고른 장비'}</b> 에 맞춰 옮겨 줍니다.
+                  고르면 그 항목의 절차를 <b>{askModel || curDev?.model || '고른 장비'}</b> 에 맞춰
+                  옮겨 줍니다.
+                  <button
+                    type="button"
+                    className="ask-likeall"
+                    onClick={() => {
+                      setLikeAsk(false)
+                      setPickModelOpen(true)
+                    }}
+                  >
+                    모델 바꾸기
+                  </button>
                 </div>
               </div>
               <span className="sp" />

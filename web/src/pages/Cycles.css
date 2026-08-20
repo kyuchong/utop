@@ -7063,3 +7063,33 @@ table.tb td.k {
   color: var(--c-text-faint);
   margin-left: 6px;
 }
+
+/* ── 모델 고르는 창(지시) — 항목보다 먼저 묻는다 ────────────────── */
+.modal.ask-modelmodal { width: min(760px, 94vw); }
+.ask-modellist {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  padding: 14px;
+  max-height: 60vh;
+  overflow: auto;
+}
+.ask-modelcard {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: flex-start;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface);
+  padding: 10px 12px;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.ask-modelcard:hover { border-color: var(--c-primary); background: var(--c-primary-bg); }
+.ask-modelcard > b { font-size: 15px; }
+.ask-modelcard > em { font-style: normal; font-size: var(--fs-xs); }
+.ask-modelcard > em.ok { color: var(--c-pass); }
+.ask-modelcard > em.no { color: var(--c-text-faint); }
+.ask-modelcard.shared { border-style: dashed; }
