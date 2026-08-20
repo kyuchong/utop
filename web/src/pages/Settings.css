@@ -1301,3 +1301,12 @@
 .dcc-addrow select { height: 26px; font-size: var(--fs-sm); }
 .dcc-addnm { flex: 0 0 190px; }
 .dcc-addif { flex: 1; min-width: 200px; }
+
+/* 숫자가 줄마다 어긋나던 것(지적) — 「전체·미분류」 는 ✕ 가 없어 그만큼
+   더 오른쪽에 섰다. 그 자리를 비워 같은 선에 맞춘다. */
+.dcc-b > .dcc-r { padding-right: 26px; }
+.dcc-r > em { min-width: 22px; text-align: right; }
+
+/* 4번 — 필드 사이를 5px 로(지시) */
+.dcc-mh,
+.dcc-m2 { gap: 5px; }
