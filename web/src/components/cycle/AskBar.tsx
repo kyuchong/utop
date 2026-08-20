@@ -721,22 +721,24 @@ export default function AskBar({ devices }: Props) {
        여럿이면 그때 묻는다. 말에 모델이 있었으면 그것을 쓴다. */
     let use = dev
     if (!use) {
-      const want = String(tcModel ?? askModel ?? '').trim().toLowerCase()
+      /* 항목이 공용(모델명 빈 칸)이면 **말에서 읽은 모델**을 쓴다(지적) —
+         `??` 는 빈 글자에서 안 넘어가 전체 장비가 떴다. */
+      const want = String(tcModel || askModel || '').trim().toLowerCase()
       const cands = want
         ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === want)
         : usable
       if (cands.length === 1) use = cands[0]
       else if (cands.length > 1) {
-        setAfterPick({ tcid, model: String(tcModel ?? askModel ?? '') })
+        setAfterPick({ tcid, model: String(tcModel || askModel || '') })
         setPickSel(cands.find((d) => d.id === devId)?.id ?? cands[0]?.id ?? '')
         setPickLab('')
         setPickRack('')
-        setPickDev({ model: String(tcModel ?? askModel ?? ''), cands })
+        setPickDev({ model: String(tcModel || askModel || ''), cands })
         setLikeAsk(false)
         return
       } else if (usable.length === 1) use = usable[0]
       else {
-        setAfterPick({ tcid, model: String(tcModel ?? askModel ?? '') })
+        setAfterPick({ tcid, model: String(tcModel || askModel || '') })
         setPickSel(usable[0]?.id ?? '')
         setPickLab('')
         setPickRack('')
