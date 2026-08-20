@@ -721,20 +721,25 @@ export default function AskBar({ devices }: Props) {
       if (!r.ok) throw new Error('시험을 불러오지 못했습니다')
       const b = (await r.json()) as { name?: string; object_md?: string; checks?: TcStep[] }
       const raw = (b.checks ?? []) as TcStep[]
-      /* 보여 주기용 줄 — 한 줄도 버리지 않는다. 종류를 몰라도 그대로 세운다 */
-      const shown: DraftStep[] = raw.map((x) => ({
-        desc: String(x.step ?? '').trim(),
-        cli: String(x.cli ?? x.data ?? ''),
-        kind: typeof x.kind === 'string' ? x.kind : 'cli',
-        type: x.type ?? undefined,
-        criteria: typeof x.criteria === 'string' ? x.criteria : undefined,
-        indent: typeof x.indent === 'number' ? x.indent : undefined,
-        session: typeof x.session === 'number' ? x.session : 0,
-        oid: typeof x.oid === 'string' ? x.oid : undefined,
-        cmpLeft: typeof x.cmpLeft === 'string' ? x.cmpLeft : undefined,
-        cmpRight: typeof x.cmpRight === 'string' ? x.cmpRight : undefined,
-        cmpOp: typeof x.cmpOp === 'string' ? x.cmpOp : undefined,
-      }))
+      /* 보여 주기용 줄 — **한 톨도 버리지 않는다.**
+         손으로 골라 옮기다가 판정 기준·Comment 글·기대 결과 같은 것이
+         빠졌다(지적). 원본을 통째로 펼치고 화면이 읽는 이름만 덧댄다. */
+      const shown: DraftStep[] = raw.map((x) => {
+        const o = x as unknown as Record<string, unknown>
+        return {
+          ...(o as object),
+          desc: String(x.step ?? '').trim(),
+          cli: String(x.cli ?? x.data ?? ''),
+          /* Comment·Message 는 글이 `text` 에 산다 — 이걸 안 옮겨
+             주석 줄이 통째로 비어 보였다 */
+          text: typeof o.text === 'string' ? (o.text as string) : undefined,
+          kind: typeof x.kind === 'string' ? x.kind : 'cli',
+          type: x.type ?? undefined,
+          criteria: typeof x.criteria === 'string' ? x.criteria : undefined,
+          indent: typeof x.indent === 'number' ? x.indent : undefined,
+          session: typeof x.session === 'number' ? x.session : 0,
+        } as DraftStep
+      })
       setFlowLog((v) => [
         ...v.filter((x) => !x.t.endsWith('를 여는 중…')),
         { s: 5, t: `${tcid} 를 그대로 실었습니다 — ${raw.length}스텝 (고치지 않음)` },
