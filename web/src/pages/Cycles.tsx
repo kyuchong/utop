@@ -4245,6 +4245,7 @@ function CycleDetail({
                   </span>
                 )
               })()}
+              <span className="cxp-div" aria-hidden="true" />
               {/* ⋯ 는 걷었다(지시) — 쓰는 일이 드물었다 */}
               {/* 내 것만 — 아이콘 하나로 켜고 끈다(지시) */}
               <button
@@ -4264,6 +4265,7 @@ function CycleDetail({
               >
                 + TC
               </button>
+              <span className="cxp-div" aria-hidden="true" />
               {/* 고르개·건수·찾기 를 + TC 오른쪽으로(지시) — 머리는 한 줄이다 */}
 
               <label className="rq-selall" title="보이는 것 전부 고르기">
@@ -4287,6 +4289,7 @@ function CycleDetail({
                   {pick.size}/{items.length}
                 </span>
               </b>
+              <span className="cxp-div" aria-hidden="true" />
               <input
                 className="cxp-q"
                 placeholder="TC ID · 제목 검색"

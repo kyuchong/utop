@@ -6619,3 +6619,12 @@ table.tb td.k {
 /* 2열 머리 제목이 컸다(지적) — 한 눈금 낮춘다 */
 .cxp-hnm { font-size: var(--fs-sm); font-weight: 700; }
 .cxp-hid { font-size: var(--fs-xs); }
+
+/* 1번 — 담당자 왼쪽 세로선은 걷는다(지시). 실행자 오른쪽 선만 남긴다 */
+.cxp-rgt > *:nth-child(1),
+.cxp-row.cxp-hd .cxp-rgt > span:nth-child(1) {
+  border-left: 0;
+  padding-left: 0;
+}
+/* 2번 — 머리줄 가르는 선 */
+.cxp-sh .cxp-div { flex: none; width: 1px; height: 18px; background: var(--c-border); }
