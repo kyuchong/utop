@@ -1235,3 +1235,23 @@
   gap: 4px;
 }
 .dcc-m2.dev > b { text-align: left; }
+
+/* 칸 줄 — 올리면 지우기(✕)가 뜬다 */
+.dcc-rw { display: flex; align-items: center; border-radius: 7px; }
+.dcc-rw:hover { background: var(--c-surface-alt); }
+.dcc-rw.on { background: var(--c-primary-bg); }
+.dcc-rw > .dcc-r { flex: 1; min-width: 0; background: transparent; }
+.dcc-del {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  background: transparent;
+  color: var(--c-text-faint);
+  border-radius: 5px;
+  cursor: pointer;
+  opacity: 0;
+  font-size: 11px;
+}
+.dcc-rw:hover .dcc-del { opacity: 1; }
+.dcc-del:hover { background: #fdeaea; color: var(--c-fail); }

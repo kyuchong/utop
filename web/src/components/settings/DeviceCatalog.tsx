@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import DeviceForm from '@/components/DeviceForm'
 import LockCell, { useLocks, type Lock } from '@/components/LockCell'
 import { type Device } from '@/pages/Devices'
 
@@ -74,6 +75,8 @@ export default function DeviceCatalog({
   const [bulk, setBulk] = useState('')
   /** 인터페이스 큰 편집창 — U9500H 처럼 포트가 수십·수백이면 한 줄로 안 된다 */
   const [ifEdit, setIfEdit] = useState<{ model: Item; text: string } | null>(null)
+  /** 여기서 바로 장비 등록 — 창을 띄운다(지시) */
+  const [devNew, setDevNew] = useState<Device | null>(null)
 
   const listQ = useQuery({
     queryKey: ['device-catalog'],
@@ -261,6 +264,15 @@ export default function DeviceCatalog({
 
   return (
     <div className="set-page dc2">
+      {devNew && (
+        <DeviceForm
+          editing={devNew}
+          onClose={() => {
+            setDevNew(null)
+            void qc.invalidateQueries({ queryKey: ['devices'] })
+          }}
+        />
+      )}
       <div className="set-head">
         <div>
           <h3>장비 카탈로그</h3>
@@ -393,15 +405,35 @@ export default function DeviceCatalog({
                 <em>{noneCnt(kind)}</em>
               </button>
               {items.map((x) => (
-                <button
-                  key={x.nm}
-                  type="button"
-                  className={`dcc-r${sel === x.nm ? ' on' : ''}`}
-                  onClick={() => pick(sel === x.nm ? '' : x.nm)}
-                >
-                  <span className="ell">{x.nm}</span>
-                  <em>{x.n}</em>
-                </button>
+                <span className={`dcc-rw${sel === x.nm ? ' on' : ''}`} key={x.nm}>
+                  <button
+                    type="button"
+                    className={`dcc-r${sel === x.nm ? ' on' : ''}`}
+                    onClick={() => pick(sel === x.nm ? '' : x.nm)}
+                  >
+                    <span className="ell">{x.nm}</span>
+                    <em>{x.n}</em>
+                  </button>
+                  {/* 지우기 — 쓰는 모델이 있으면 되묻는다(지시) */}
+                  <button
+                    type="button"
+                    className="dcc-del"
+                    title={x.n ? `${x.n}개가 쓰는 중 — 지우면 그 값이 빕니다` : '지우기'}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (
+                        window.confirm(
+                          x.n
+                            ? `'${x.nm}' 을 지울까요?\n${x.n}개가 이 값을 쓰고 있습니다 — 그 칸은 비게 됩니다.`
+                            : `'${x.nm}' 을 지울까요?`,
+                        )
+                      )
+                        delM.mutate({ kind, name: x.nm } as Item)
+                    }}
+                  >
+                    ✕
+                  </button>
+                </span>
               ))}
               {items.length === 0 && <div className="dcc-none">없습니다</div>}
             </div>
@@ -587,6 +619,25 @@ export default function DeviceCatalog({
                               onClick={() => setIfEdit({ model: it, text: it.interfaces ?? '' })}
                             >
                               {it.interfaces || '＋ 인터페이스'}
+                            </button>
+                            {/* 여기서 바로 장비를 등록한다(지시) — 벤더·제품군·
+                                모델·구역이 미리 채워진 채로 창이 열린다 */}
+                            <button
+                              className="btn small primary"
+                              type="button"
+                              title="이 모델로 장비를 등록합니다"
+                              onClick={() =>
+                                setDevNew({
+                                  id: '',
+                                  ip: '',
+                                  model: it.name,
+                                  vendor: String(it.vendor ?? ''),
+                                  role: String(it.family ?? ''),
+                                  lab: tlab || '',
+                                } as Device)
+                              }
+                            >
+                              ＋ 장비
                             </button>
                             <button
                               className="btn small danger"
