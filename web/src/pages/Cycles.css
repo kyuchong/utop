@@ -6786,3 +6786,19 @@ table.tb td.k {
 @media (max-width: 1300px) {
   .ask-cols > .ask-pane + .ask-pane { width: 420px; }
 }
+
+/* 작업 흐름 머리를 「시험 스텝 · 스텝 설정」 과 같은 크기로(지시) */
+.ask-rail > .ask-rail-head b,
+.ask-rail-head b { font-size: 13.5px; font-weight: 600; }
+
+/* 스텝 설정 판을 300px 더(지시) */
+.ask-cols > .ask-pane + .ask-pane { width: 980px; }
+@media (max-width: 1700px) {
+  .ask-cols > .ask-pane + .ask-pane { width: 820px; }
+}
+@media (max-width: 1500px) {
+  .ask-cols > .ask-pane + .ask-pane { width: 700px; }
+}
+@media (max-width: 1300px) {
+  .ask-cols > .ask-pane + .ask-pane { width: 560px; }
+}
