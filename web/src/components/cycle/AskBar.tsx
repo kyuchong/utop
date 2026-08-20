@@ -982,12 +982,20 @@ export default function AskBar({ devices }: Props) {
    * 그대로 남았다(지적). 적은 말은 그대로 둔다 — 고쳐서 다시 보내면 된다.
    */
   const cancelAsk = () => {
-    setText(asked)      // 비워 둔 말을 돌려준다 — 고쳐서 다시 보내는 자리다
     setPickDev(null)
     /* 모델 고르는 창도 함께 닫는다(지적: 그만두기·X 를 눌러도 남았다) */
     setPickModelOpen(false)
     setAfterPick(null)
     setLikeAsk(false)
+    /*
+     * 이미 절차가 실려 있으면 **창만 닫는다**(지적).
+     *
+     * 이 되돌리기는 「물어보다 만 것」 을 치우는 자리다. 그런데 절차가 다
+     * 실린 뒤에 장비를 바꾸려고 창을 열었다가 그만두면, 여태 쌓인 작업
+     * 흐름(한 일·정한 값)까지 같이 지워져 판이 텅 비었다.
+     */
+    if (draft) return
+    setText(asked)      // 비워 둔 말을 돌려준다 — 고쳐서 다시 보내는 자리다
     setLike([])
     setFlowAt(0)
     setFlowLog([])
