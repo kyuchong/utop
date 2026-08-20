@@ -1264,12 +1264,10 @@ export default function Cycles({ me }: PageProps) {
           onCollapse={() => setTreeOpen(false)}
           search={{ value: q, placeholder: '모델 · 버전으로 찾기', onChange: setQ }}
           extra={<FolderSortBtn value={folderSort} onChange={setFolderSort} />}
-          add={{ title: '사이클 만들기', onClick: () => setMaking(true) }}
+          /* 「+」 단추와 「사이클 만들기」 는 걷었다(지시) — 오른쪽 칸의
+             「+ New」 가 그 몫을 한다. 폴더 만들기·다시 읽기는 ⋯ 에 남는다 */
           menu={
             <>
-              <button type="button" onClick={() => setMaking(true)}>
-                사이클 만들기
-              </button>
               <button
                 type="button"
                 onClick={() => {
