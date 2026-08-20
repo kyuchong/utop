@@ -330,3 +330,22 @@
     64px minmax(200px, 1fr);
   min-width: 1480px;
 }
+
+/* 카탈로그 표와 같은 꼴 — 늘 열린 칸(지시). 평소엔 글자처럼 조용하다 */
+.dv-cell {
+  width: 100%;
+  min-width: 0;
+  height: 22px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+}
+.dv-cell:hover { border-color: var(--c-border-soft); background: var(--c-surface); }
+.dv-cell:focus { border-color: var(--c-primary); background: var(--c-surface); outline: none; color: var(--c-text); }
+.dv-cell.warn { color: var(--c-fail); }
+.dv-cell.dev-name { color: var(--c-text); font-weight: 700; }
+select.dv-cell { cursor: pointer; }

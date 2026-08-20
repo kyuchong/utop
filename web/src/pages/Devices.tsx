@@ -206,10 +206,11 @@ function ColFilter({
 }
 
 /**
- * 줄에서 바로 고치는 칸 — **두 번 누르면** 고르개·입력칸이 된다(지시).
+ * 줄에서 바로 고치는 칸 — **장비 카탈로그와 같은 꼴**(지시).
  *
- * 목록에서 한 값을 고치려고 창을 여는 것이 번거로웠다. Enter·자리를 뜨면
- * 저장하고 Esc 면 되돌린다.
+ * 두 번 누르기는 첫 누름이 줄로 새어 편집 창이 떴다 사라졌다. 카탈로그
+ * 표처럼 **늘 열린 고르개·글자칸**을 두고, 고르면 곧바로 저장한다.
+ * 글자칸은 Enter·자리 뜸에 저장하고 Esc 로 되돌린다.
  */
 function EditCell({
   value,
@@ -225,70 +226,50 @@ function EditCell({
   title?: string
   onSave: (v: string) => void
 }) {
-  const [on, setOn] = useState(false)
   const [v, setV] = useState(value)
-  useEffect(() => {
-    if (!on) setV(value)
-  }, [value, on])
+  useEffect(() => setV(value), [value])
+  const stop = (e: { stopPropagation: () => void }) => e.stopPropagation()
 
-  const done = (ok: boolean) => {
-    setOn(false)
-    if (ok && v !== value) onSave(v)
-    else setV(value)
+  if (opts) {
+    const known = !value || opts.includes(value)
+    return (
+      <select
+        className={`dv-cell${known ? '' : ' warn'} ${cls ?? ''}`}
+        value={value}
+        title={title ?? '고르면 바로 저장됩니다'}
+        onClick={stop}
+        onMouseDown={stop}
+        onChange={(e) => onSave(e.target.value)}
+      >
+        <option value="">–</option>
+        {!known && <option value={value}>{value} (목록에 없음)</option>}
+        {opts.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    )
   }
 
-  if (!on)
-    return (
-      <span
-        className={`dv-ed ${cls ?? 'muted ell'}`}
-        title={title ?? '두 번 누르면 고칩니다'}
-        /* 한 번 눌러도 **줄이 열리지 않게** 막는다(지적) — 두 번 누르기가
-           먼저 한 번 누르기로 새어 나가 편집 창이 떴다 사라졌다. */
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-        onDoubleClick={(e) => {
-          e.stopPropagation()
-          setOn(true)
-        }}
-      >
-        {value || '–'}
-      </span>
-    )
-
-  return opts ? (
-    <select
-      className="dv-edin"
-      value={v}
-      autoFocus
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
-      onChange={(e) => {
-        setV(e.target.value)
-        setOn(false)
-        if (e.target.value !== value) onSave(e.target.value)
-      }}
-      onBlur={() => done(false)}
-    >
-      <option value="">(없음)</option>
-      {opts.map((o) => (
-        <option key={o} value={o}>
-          {o}
-        </option>
-      ))}
-    </select>
-  ) : (
+  return (
     <input
-      className="dv-edin"
+      className={`dv-cell ${cls ?? ''}`}
       value={v}
-      autoFocus
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
+      title={title ?? '고치고 Enter — 자리를 떠도 저장됩니다'}
+      onClick={stop}
+      onMouseDown={stop}
       onChange={(e) => setV(e.target.value)}
-      onBlur={() => done(true)}
+      onBlur={() => {
+        if (v !== value) onSave(v)
+      }}
       onKeyDown={(e) => {
         e.stopPropagation()
-        if (e.key === 'Enter') done(true)
-        if (e.key === 'Escape') done(false)
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+        if (e.key === 'Escape') {
+          setV(value)
+          ;(e.target as HTMLInputElement).blur()
+        }
       }}
     />
   )
