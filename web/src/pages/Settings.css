@@ -994,3 +994,8 @@
 }
 .vd-desc:hover { border-color: var(--c-border-soft); }
 .vd-desc:focus { border-color: var(--c-primary); background: var(--c-surface); outline: none; }
+
+/* 왼쪽 목록 줄 간격을 줄인다(지시) — 9px 여백이 넓어 한 눈에 안 들어왔다 */
+.set-nav-item { padding: 5px 11px; }
+.set-nav-grp + .set-nav-grp { margin-top: 10px; padding-top: 8px; }
+.set-nav-grpt { padding: 0 12px 4px; }
