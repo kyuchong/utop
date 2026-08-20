@@ -1256,8 +1256,10 @@
 .dcc-rw:hover .dcc-del { opacity: 1; }
 .dcc-del:hover { background: #fdeaea; color: var(--c-fail); }
 
-/* 카드가 위·아래를 다 쓰게 — flex 로 안 늘어나던 자리에 바닥을 준다(지적) */
-.set-page.dc2 { flex: 1 1 auto; min-height: calc(100vh - 150px); }
+/* 카드가 위·아래를 다 쓰게. 바닥 높이(100vh-150px)를 줬더니 바깥 칸
+   (`.main` 은 overflow:hidden)보다 커져 **카드가 통째로 밀려 사라졌다**(지적).
+   되돌리고 flex 로만 늘린다. */
+.set-page.dc2 { flex: 1 1 auto; min-height: 0; }
 .dc2-tree { flex: 1 1 auto; min-height: 0; }
 .dcc-cols { flex: 1 1 auto; min-height: 0; }
 

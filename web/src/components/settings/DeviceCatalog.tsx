@@ -276,10 +276,6 @@ export default function DeviceCatalog({
       <div className="set-head">
         <div>
           <h3>장비 카탈로그</h3>
-          <p className="muted">
-            「분류 등록」 에서 LAB·벤더·사업자·제품군·모델그룹을 만들고, 「모델 목록」 표에서는
-            칸을 <b>그 자리에서</b> 바꿉니다 — 콤보를 바꾸면 바로 저장됩니다.
-          </p>
         </div>
       </div>
 
@@ -442,24 +438,29 @@ export default function DeviceCatalog({
 
         return (
           <div className="dc2-tree">
-            <div className="dcc-labs">
-              <span className="muted small">LAB</span>
+            <div className="dcc-labs seg" role="tablist">
               <button
                 type="button"
-                className={`dcc-lab${tlab ? '' : ' on'}`}
+                role="tab"
+                aria-selected={!tlab}
+                className={`seg-btn${tlab ? '' : ' on'}`}
                 onClick={() => setTlab('')}
               >
-                전체 <em>{models.length}</em>
+                전체 <span className="cnt">{models.length}</span>
               </button>
               {labs.map((lb) => (
                 <button
                   key={lb}
                   type="button"
-                  className={`dcc-lab${tlab === lb ? ' on' : ''}`}
+                  role="tab"
+                  aria-selected={tlab === lb}
+                  className={`seg-btn${tlab === lb ? ' on' : ''}`}
                   onClick={() => setTlab(tlab === lb ? '' : lb)}
                 >
-                  {lb}{' '}
-                  <em>{models.filter((m) => (labsOfModel.get(m.name) ?? new Set()).has(lb)).length}</em>
+                  {lb}
+                  <span className="cnt">
+                    {models.filter((m) => (labsOfModel.get(m.name) ?? new Set()).has(lb)).length}
+                  </span>
                 </button>
               ))}
             </div>
