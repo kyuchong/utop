@@ -1234,7 +1234,8 @@ export default function AskBar({ devices }: Props) {
    * 저장하지 않고 돌린다 — 말로 시켜 본 것이 다 시험으로 남으면 목록이
    * 금세 쓰레기가 된다. 쓸 만하면 그때 저장한다.
    */
-  const run = async (only?: number) => {
+  /** `only` 는 그 줄 하나만, `from` 은 그 줄부터 끝까지(지시) */
+  const run = async (only?: number, from?: number) => {
     if (!draft || !devId) return
     const ac = new AbortController()
     abortRef.current = ac
@@ -1344,7 +1345,7 @@ export default function AskBar({ devices }: Props) {
           onLog: () => {},
           signal: ac.signal,
         },
-        typeof only === 'number' ? only : 0,
+        typeof only === 'number' ? only : typeof from === 'number' ? from : 0,
         typeof only === 'number',
       )
     } finally {
@@ -2030,7 +2031,44 @@ export default function AskBar({ devices }: Props) {
                 <h3>시험 스텝</h3>
                 <span className="ask-pill">{draft.steps.length} 스텝</span>
                 <span className="sp" />
-                <span className="muted small">누르면 오른쪽에서 설정</span>
+                {/* Coverage 의 실행 도구줄과 같은 벌(지시) —
+                    전체 · 여기부터 · 멈춤 · 지금까지의 셈 */}
+                <span className="ask-runbar">
+                  <button
+                    className="btn small primary"
+                    type="button"
+                    title="처음부터 끝까지 돌립니다"
+                    disabled={running || !devId}
+                    onClick={() => void run()}
+                  >
+                    ▶ 전체
+                  </button>
+                  <button
+                    className="btn small"
+                    type="button"
+                    title="고른 줄부터 끝까지"
+                    disabled={running || !devId || stepAt < 0}
+                    onClick={() => void run(undefined, stepAt)}
+                  >
+                    ▶ 여기부터
+                  </button>
+                  {(() => {
+                    const done = (ran ?? []).filter((r) => r && (r.repeatResult || r.status)).length
+                    const pass = (ran ?? []).filter(
+                      (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'pass',
+                    ).length
+                    const fail = (ran ?? []).filter(
+                      (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'fail',
+                    ).length
+                    if (!done) return <span className="muted small">누르면 오른쪽에서 설정</span>
+                    return (
+                      <span className="muted small">
+                        {done}/{draft.steps.length} · <b className="status pass">PASS {pass}</b> ·{' '}
+                        <b className="status fail">FAIL {fail}</b>
+                      </span>
+                    )
+                  })()}
+                </span>
               </div>
             <div className="ask-steplist">
               {(() => {
@@ -2135,6 +2173,20 @@ export default function AskBar({ devices }: Props) {
                       <span className={`ask-sres ${cls}`}>
                         {at === i ? '도는 중' : v ? v.toUpperCase() : ''}
                       </span>
+                      {/* 한 줄만 돌리기 — Coverage 의 줄 끝 ▶ 와 같은 자리(지시) */}
+                      <button
+                        type="button"
+                        className="ask-srun"
+                        title="이 스텝만 실행"
+                        disabled={running || !devId || isNote}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setStepAt(i)
+                          void run(i)
+                        }}
+                      >
+                        ▶
+                      </button>
                     </div>
                   )
                 })

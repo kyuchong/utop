@@ -7099,3 +7099,23 @@ table.tb td.k {
 .ask-detmeta > span { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; }
 .ask-detmeta i { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
 .ask-detmeta b { font-size: var(--fs-sm); font-weight: 600; }
+
+/* 시험 스텝 판 — Coverage 의 실행 도구줄과 줄 끝 ▶(지시) */
+.ask-runbar { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ask-srow { position: relative; }
+.ask-srun {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  background: transparent;
+  color: var(--c-text-faint);
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.ask-srow:hover .ask-srun,
+.ask-srow.on .ask-srun { opacity: 1; }
+.ask-srun:hover:not(:disabled) { background: var(--c-primary-bg); color: var(--c-primary); }
+.ask-srun:disabled { opacity: 0 !important; }
