@@ -5932,7 +5932,14 @@ async def run_cli_stream(payload: dict):
                                     await asyncio.sleep(0)
                                     continue
                                 echo_done = True
-                                pending = pending[_nl + 1:]   # 명령 에코(첫 줄) 버림
+                                # 명령 에코(첫 줄)에는 **그때의 진짜 프롬프트**가 들어 있다 —
+                                # `R3(config)#interface …`. 여태 통째로 버려서 화면이
+                                # 늘 `E6100#` 로 굳어 있었다(지적). 프롬프트만 떼어 보낸다.
+                                _echo = pending[:_nl].replace("\r", "").rstrip()
+                                _mpr = _restr.match(r"^(\S.*?[#>])\s*(?:" + _restr.escape(cmd) + r")?\s*$", _echo)
+                                if _mpr:
+                                    yield _sse({"pr": _mpr.group(1)})
+                                pending = pending[_nl + 1:]   # 에코 줄 자체는 버린다
                             else:
                                 pending += ch
                             # chunk 즉시 push (줄 단위 대기 X) — echo 처리된 이후 모든 데이터 실시간

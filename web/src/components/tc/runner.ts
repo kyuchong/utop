@@ -119,7 +119,15 @@ async function readSse(
   path: string,
   body: unknown,
   signal: AbortSignal,
-  on: (e: { cmd?: string; o?: string; err?: string; done?: boolean; alive?: boolean }) => void,
+  on: (e: {
+    cmd?: string
+    /** 그때의 진짜 프롬프트 — `R3(config)#` 처럼 모드가 바뀌면 따라 바뀐다 */
+    pr?: string
+    o?: string
+    err?: string
+    done?: boolean
+    alive?: boolean
+  }) => void,
 ): Promise<void> {
   const res = await apiFetch(path, {
     method: 'POST',
@@ -1145,9 +1153,15 @@ async function runOne(
    * 한 번만 걷어낸다.
    */
   let afterCmd = false
+  /* 장비가 되돌려 준 **그때의 진짜 프롬프트**. configure terminal 로 들어가면
+     `R3(config)#` 처럼 바뀐다 — 여태 장비 이름으로 굳혀 찍어 그 변화가
+     안 보였다(지적). 서버가 에코 첫 줄에서 떼어 보내 준다. */
+  let livePr = ''
+  let lastCmd = ''
   try {
     await readSse('/api/run-cli-stream', body, ctx.signal, (e) => {
       if (e.cmd != null) {
+        lastCmd = String(e.cmd)
         // 명령이 여러 개면 어디까지 갔는지 보여야 한다
         if (commands.length > 1) ctx.onLog({ i, text: `▸ ${e.cmd}`, kind: 'info' })
         if (acc && !acc.endsWith('\n')) acc += '\n'
@@ -1158,9 +1172,20 @@ async function runOne(
          * 실제 장비는 `E5010-24C#` 처럼 제 이름을 찍는다. 증거로 읽히려면
          * 캡처도 그렇게 보여야 한다.
          */
-        acc += `${dev ? deviceShort(dev) + '#' : '$'} ${e.cmd}\n`
+        acc += `${livePr || (dev ? deviceShort(dev) + '#' : '$')} ${e.cmd}\n`
         afterCmd = true
         flush(acc, true)
+      } else if (e.pr != null) {
+        /* 다음 명령부터 이 프롬프트로 찍는다. 방금 찍은 줄도 고쳐 준다 —
+           `configure terminal` 을 친 그 줄은 아직 사용자 모드였다. */
+        const was = livePr
+        livePr = String(e.pr)
+        if (!was && acc.endsWith(`${dev ? deviceShort(dev) + '#' : '$'} ${lastCmd}\n`)) {
+          acc =
+            acc.slice(0, -`${dev ? deviceShort(dev) + '#' : '$'} ${lastCmd}\n`.length) +
+            `${livePr} ${lastCmd}\n`
+          flush(acc, true)
+        }
       } else if (e.o != null) {
         let chunk = e.o
         if (afterCmd) {
