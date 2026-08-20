@@ -7257,5 +7257,5 @@ a.bc-cur:hover { text-decoration: underline; }
   justify-content: center;
   color: var(--c-text-faint);
 }
-.ask-trash:hover { color: var(--c-danger, #d64545); border-color: var(--c-danger, #d64545); }
+.ask-trash:hover { color: var(--c-fail); border-color: var(--c-fail); }
 .ask-trash svg { width: 15px; height: 15px; }
