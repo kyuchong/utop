@@ -6941,3 +6941,13 @@ table.tb td.k {
 @media (prefers-reduced-motion: reduce) {
   .ask-spin { animation: none; }
 }
+
+/* 가림막은 **하나만**(지시) — 스텝 판에만 상자를 띄우고, 스텝 설정 판은
+   같이 흐려져 한 덩어리로 읽힌다. */
+.ask-canvas.busy .ask-two > .ask-pane:last-child,
+.ask-canvas.busy .ask-two > .ask-stepdet,
+.ask-canvas.busy .ask-cols > .ask-pane + .ask-pane {
+  opacity: 0.45;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
