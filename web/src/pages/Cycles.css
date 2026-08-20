@@ -7002,3 +7002,17 @@ table.tb td.k {
 .ask-jchip.not { background: #fde4e4; color: #c22; border-color: #f6c6c6; }
 .ask-jchip.table { background: #e8eefc; color: #2450b5; border-color: #ccd9f7; }
 .ask-jchip > i { font-style: normal; font-weight: 600; opacity: 0.75; }
+
+/* 합격 기준이 여럿이면 한 줄에 하나씩 보인다(지시) */
+.ask-detcrit-in {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  padding: 5px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+}
+.ask-detcrit-in.need { border-color: var(--c-draft); background: #fffdf4; }

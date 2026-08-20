@@ -2243,10 +2243,17 @@ export default function AskBar({ devices }: Props) {
                           {s.type === 'none' ? '아무것도 확인하지 않음' : '명령이 오류 없이 응답하면 합격'}
                         </span>
                       ) : (
-                        <input
-                          className={!s.criteria ? 'need' : undefined}
+                        /* 기준이 여럿이면 **한 줄에 하나씩**(지시) — 한 줄
+                           칸이면 줄바꿈이 안 보여 붙어 있는 것처럼 읽혔다 */
+                        <textarea
+                          className={`ask-detcrit-in${!s.criteria ? ' need' : ''}`}
+                          rows={Math.min(6, Math.max(1, String(s.criteria ?? '').split('\n').length))}
                           value={s.criteria ?? ''}
-                          placeholder="이 문구가 나오면 합격"
+                          placeholder={
+                            s.type === 'contains_all'
+                              ? '한 줄에 하나씩 — 모두 나와야 합격'
+                              : '이 문구가 나오면 합격'
+                          }
                           onChange={(e) => setStep(i, { criteria: e.target.value })}
                         />
                       )}
@@ -2257,7 +2264,13 @@ export default function AskBar({ devices }: Props) {
                         : s.type === 'ok'
                           ? '응답이 오면 합격입니다.'
                           : s.criteria
-                            ? `응답에 "${s.criteria}" ${s.type === 'notcontains' ? '가 있으면 불합격' : '가 있으면 합격'}`
+                            ? (() => {
+                                const ks = String(s.criteria).split('\n').map((x) => x.trim()).filter(Boolean)
+                                const tail = s.type === 'notcontains' ? '가 있으면 불합격' : '가 있으면 합격'
+                                return ks.length > 1
+                                  ? `응답에 ${ks.length}가지가 모두${tail.replace('가 있으면', ' 있으면')} — ${ks.join(' · ')}`
+                                  : `응답에 "${ks[0] ?? ''}" ${tail}`
+                              })()
                             : '무엇이 나와야 합격인지 적어 주세요 — 돌린 뒤 응답에서 골라도 됩니다.'}
                     </div>
                   </div>
