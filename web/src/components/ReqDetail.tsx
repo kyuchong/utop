@@ -14,6 +14,14 @@ import MarkdownEditor from './MarkdownEditorLazy'
 import './ReqDetail.css'
 
 interface Props {
+  /** 상태·우선순위를 **늘 고칠 수 있게**(지시). 없으면 읽기 전용 */
+  edit?: {
+    status: string
+    priority: string
+    statuses: readonly string[]
+    priorities: readonly string[]
+    onChange: (p: { status?: string; priority?: string }) => void
+  }
   req: Requirement
   /** 이 요구사항에 연결된 TC (Requirements 페이지가 이미 계산해 둔 것) */
   tcs: TestCaseMeta[]
@@ -28,7 +36,7 @@ function fmt(iso: string | null | undefined): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-export default function ReqDetail({ req, tcs, tab }: Props) {
+export default function ReqDetail({ req, tcs, tab, edit }: Props) {
   const catQ = useQuery({
     queryKey: ['req-categories'],
     queryFn: ({ signal }) => categoryApi.list(signal),
@@ -92,9 +100,43 @@ export default function ReqDetail({ req, tcs, tab }: Props) {
           <dt>분류</dt>
           <dd>{catText}</dd>
           <dt>상태</dt>
-          <dd>{req.status || '—'}</dd>
+          <dd>
+            {edit ? (
+              <select
+                className="kv-sel"
+                value={edit.status}
+                title="고치면 위 「저장」 으로 저장됩니다"
+                onChange={(e) => edit.onChange({ status: e.target.value })}
+              >
+                {edit.statuses.map((x) => (
+                  <option key={x} value={x}>
+                    {x}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              req.status || '—'
+            )}
+          </dd>
           <dt>우선순위</dt>
-          <dd>{req.priority || '—'}</dd>
+          <dd>
+            {edit ? (
+              <select
+                className="kv-sel"
+                value={edit.priority}
+                title="고치면 위 「저장」 으로 저장됩니다"
+                onChange={(e) => edit.onChange({ priority: e.target.value })}
+              >
+                {edit.priorities.map((x) => (
+                  <option key={x} value={x}>
+                    {x}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              req.priority || '—'
+            )}
+          </dd>
           <dt>연결 TC</dt>
           <dd>{stat.total}건</dd>
         </dl>

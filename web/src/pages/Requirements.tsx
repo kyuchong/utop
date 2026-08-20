@@ -8,6 +8,7 @@ import PresenceBar from '@/components/PresenceBar'
 import { usePageCrowd } from '@/components/usePageCrowd'
 import { usePresence } from '@/components/usePresence'
 import ReqTree from '@/components/ReqTree'
+import { useCodes } from '@/hooks/useCodes'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import {
   IconCycle,
@@ -291,6 +292,39 @@ export default function Requirements({ me }: Props) {
     () => allReqs.find((r) => reqPk(r) === selected),
     [allReqs, selected],
   )
+
+  /* Info 의 상태·우선순위는 **늘 고칠 수 있다**(지시). 고친 값은 위
+     제목 자리의 「저장」 단추가 저장한다. */
+  const REQ_STATUS = useCodes('req_status', ['작성중', '검토중', '검토완료', '보류', '폐기'])
+  const REQ_PRIO = useCodes('req_priority', ['High', 'Medium', 'Low'])
+  const [infoDraft, setInfoDraft] = useState<{ status: string; priority: string } | null>(null)
+  const [infoSaving, setInfoSaving] = useState(false)
+  useEffect(() => {
+    setInfoDraft(null)
+  }, [selected])
+  const curStatus = infoDraft?.status ?? selectedReq?.status ?? ''
+  const curPrio = infoDraft?.priority ?? selectedReq?.priority ?? ''
+  const infoDirty =
+    !!selectedReq &&
+    !!infoDraft &&
+    (curStatus !== (selectedReq.status ?? '') || curPrio !== (selectedReq.priority ?? ''))
+  const saveInfo = async () => {
+    if (!selectedReq || !infoDirty) return
+    setInfoSaving(true)
+    try {
+      await reqApi.save(reqPk(selectedReq), {
+        ...selectedReq,
+        status: curStatus,
+        priority: curPrio,
+      })
+      await qc.invalidateQueries({ queryKey: ['req', 'list'] })
+      setInfoDraft(null)
+    } catch (e) {
+      window.alert(e instanceof Error ? `저장하지 못했습니다 — ${e.message}` : '저장하지 못했습니다')
+    } finally {
+      setInfoSaving(false)
+    }
+  }
 
   const catQ = useQuery({
     queryKey: ['req-categories'],
@@ -1054,8 +1088,19 @@ export default function Requirements({ me }: Props) {
                 >
                   ← 목록
                 </button>
-                <b className="rq-rail-t">{selectedReq.title || selectedReq.reqid || ''}</b>
+                {/* 제목은 위 빵부스러기에 이미 있다 — 겹쳐서 걷고(지시)
+                    그 자리를 **저장 단추**에 준다. */}
                 <span className="sp" />
+                {infoDirty && <span className="muted small">고친 것이 있습니다</span>}
+                <button
+                  className="btn primary"
+                  type="button"
+                  disabled={!infoDirty || infoSaving}
+                  title={infoDirty ? '고친 값을 저장합니다' : '고친 것이 없습니다'}
+                  onClick={() => void saveInfo()}
+                >
+                  {infoSaving ? '저장 중…' : '저장'}
+                </button>
               </div>
               {/* 탭을 **세로 레일**로 옮겼다(지시). 가로줄에 두면 그 아래가
                   또 한 칸으로 갈려 내용 칸이 좁아졌다 — 왼쪽에 세우고 오른쪽
@@ -1103,7 +1148,22 @@ export default function Requirements({ me }: Props) {
                       레일을 누르면 그 칸으로 가고, 손으로 굴리면 레일 색이
                       따라온다. 칸은 접었다 펼 수 있고, 접어도 이름표는 남는다. */}
                   {tab === "info" && <RailSec k="info" title="Info" open={!shut.has('info')} onToggle={() => toggleSec('info')}>
-                    <ReqDetail req={selectedReq} tcs={linked} tab="info" />
+                    <ReqDetail
+                      req={selectedReq}
+                      tcs={linked}
+                      tab="info"
+                      edit={{
+                        status: curStatus,
+                        priority: curPrio,
+                        statuses: REQ_STATUS,
+                        priorities: REQ_PRIO,
+                        onChange: (p) =>
+                          setInfoDraft({
+                            status: p.status ?? curStatus,
+                            priority: p.priority ?? curPrio,
+                          }),
+                      }}
+                    />
                   </RailSec>}
                   {tab === "detail" && <RailSec k="detail" title="Intent" open={!shut.has('detail')} onToggle={() => toggleSec('detail')}>
                     <ReqDetail req={selectedReq} tcs={linked} tab="detail" />

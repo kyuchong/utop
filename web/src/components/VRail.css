@@ -258,3 +258,9 @@
 .hrail-nav:disabled { opacity: 0.35; cursor: default; }
 .hrail-nav svg { width: 22px; height: 22px; }
 .hrail-nav:not(.next) svg { transform: rotate(180deg); }
+
+/* 편집기가 든 칸은 높이를 준다 — 가로 레일로 바꾸며 0 으로 접혀
+   글자를 못 넣었다(지적). */
+.railsec-b .md-editor { min-height: 420px; }
+.railsec-b .md-editor .md-host { min-height: 380px; }
+.railsec-b .doc-editor { min-height: 460px; }

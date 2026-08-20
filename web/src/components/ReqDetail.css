@@ -142,3 +142,17 @@
 
 .doc-bar .ok { color: var(--c-pass); }
 .doc-bar .err { color: var(--c-fail); }
+
+/* Info 의 상태·우선순위 — 늘 고칠 수 있다(지시). 값처럼 보이되 고르개다 */
+.kv-sel {
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  padding: 0 4px;
+  cursor: pointer;
+}
+.kv-sel:hover { border-color: var(--c-border); background: var(--c-surface); }
+.kv-sel:focus { border-color: var(--c-primary); background: var(--c-surface); outline: none; }
