@@ -1515,8 +1515,10 @@ export default function Cycles({ me }: PageProps) {
              (버전그룹)만 아래 목록으로 간다. */
           <CycleFolderSummary
             title={scope.label}
+            path={scope.key}
             cycles={scopedCycles}
             onOpen={(id) => setSel(id)}
+            onScope={scopeToKey}
           />
         ) : (
           <CycleBoard
@@ -1585,76 +1587,151 @@ const IT_COLS: Array<{ k: string; label: string; w: string }> = [
  * Reports 화면이 하던 일을 여기로 들인다. 결과를 보러 다른 화면으로
  * 건너갔다가 다시 돌아오는 왕복이 없어진다.
  */
+/** 서버가 센 한 층의 현황 — `/api/cycle/rollup` 한 번이면 끝난다 */
+interface RollTally {
+  n: number
+  pass: number
+  fail: number
+  other: number
+  none: number
+  cycles: number
+  last_run: string
+  open_defects: number
+  pass_rate: number
+  progress: number
+}
+interface RollKid extends RollTally {
+  key: string
+  leaf: boolean
+}
+interface RollCycle {
+  id: string
+  cid?: string | null
+  name?: string | null
+  version?: string | null
+  version_group?: string | null
+  model?: string | null
+  status?: string | null
+  assignee?: string | null
+  end_date?: string | null
+  n: number
+  pass: number
+  fail: number
+  other: number
+  none: number
+  last_run: string
+}
+interface Roll {
+  path: string
+  level: string
+  totals: RollTally
+  children: RollKid[]
+  cycles: RollCycle[]
+  trend: Array<{ at: string; pass: number; fail: number; pass_rate: number }>
+}
+
+const LV_KID: Record<string, string> = {
+  root: '사업자',
+  operator: '제품군',
+  family: '모델그룹',
+  model_group: '모델명',
+  model: '버전그룹',
+  version_group: '회차',
+}
+
+/**
+ * 폴더 한 층의 현황 — 사업자·제품군·모델그룹·모델명·버전그룹 어디서나
+ * **같은 짜임**이다(합의): KPI 다섯 → 막대와 추이 → 자식 비교표.
+ * 세는 일은 서버(`/api/cycle/rollup`)가 한다. 화면은 그리기만 한다.
+ */
 function CycleFolderSummary({
   title,
+  path,
   cycles,
   onOpen,
+  onScope,
 }: {
   title: string
+  path: string
   cycles: CycleMeta[]
   onOpen: (id: string) => void
+  onScope?: (key: string) => void
 }) {
-  const resDefs = useResults()
-  const groupOf = useMemo(() => {
-    const m = new Map(resDefs.map((r) => [r.v, r.group]))
-    return (v: string) => m.get(v) ?? ''
-  }, [resDefs])
+  /** 기간 — 기본은 전체다. 90일로 자르면 지난 회차가 통째로 빠진다 */
+  const [days, setDays] = useState(0)
+  const from = useMemo(() => {
+    if (!days) return ''
+    const d = new Date()
+    d.setDate(d.getDate() - days)
+    return d.toISOString().slice(0, 10)
+  }, [days])
 
-  /** 회차 한 건의 셈 — 표 줄과 위 집계가 같은 값을 쓴다 */
-  const rows = useMemo(() => {
-    return cycles
-      .map((c) => {
-        const its = c.items ?? []
-        let pass = 0
-        let fail = 0
-        let done = 0
-        for (const it of its) {
-          const v = itemVerdict(it)
-          if (v) done += 1
-          const g = groupOf(v)
-          if (g === 'pass') pass += 1
-          else if (g === 'fail') fail += 1
-        }
-        const total = its.length
-        return {
-          c,
-          total,
-          done,
-          pass,
-          fail,
-          etc: Math.max(0, done - pass - fail),
-          left: Math.max(0, total - done),
-          pct: total ? Math.round((pass / total) * 100) : 0,
-        }
-      })
-      .sort((a, b) =>
-        String(b.c._updated_at_pg ?? '').localeCompare(String(a.c._updated_at_pg ?? '')),
-      )
-  }, [cycles, groupOf])
+  const q = useQuery({
+    queryKey: ['cycle', 'rollup', path, from],
+    queryFn: async () => {
+      const u = `/api/cycle/rollup?path=${encodeURIComponent(path)}${
+        from ? `&date_from=${from}` : ''
+      }`
+      const r = await apiFetch(u)
+      if (!r.ok) throw new Error('현황을 불러오지 못했습니다')
+      return (await r.json()) as Roll
+    },
+    staleTime: 30_000,
+  })
 
-  const all = useMemo(() => {
-    const z = { total: 0, done: 0, pass: 0, fail: 0, etc: 0, left: 0 }
-    for (const r of rows) {
-      z.total += r.total
-      z.done += r.done
-      z.pass += r.pass
-      z.fail += r.fail
-      z.etc += r.etc
-      z.left += r.left
-    }
-    return { ...z, pct: z.total ? Math.round((z.pass / z.total) * 100) : 0 }
-  }, [rows])
+  const roll = q.data
+  const t = roll?.totals
+  const kidLabel = LV_KID[roll?.level ?? 'root'] ?? '하위'
 
   /** 색 막대 한 줄 — 합격·실패·그 밖·미실행 */
-  const bar = (r: { total: number; pass: number; fail: number; etc: number; left: number }) => {
-    const w = (n: number) => (r.total ? `${(n / r.total) * 100}%` : '0%')
+  const bar = (r: { n: number; pass: number; fail: number; other: number; none: number }) => {
+    const w = (x: number) => (r.n ? `${(x / r.n) * 100}%` : '0%')
     return (
       <span className="cs-bar" aria-hidden="true">
         <i className="cs-b pass" style={{ width: w(r.pass) }} />
         <i className="cs-b fail" style={{ width: w(r.fail) }} />
-        <i className="cs-b etc" style={{ width: w(r.etc) }} />
-        <i className="cs-b left" style={{ width: w(r.left) }} />
+        <i className="cs-b etc" style={{ width: w(r.other) }} />
+        <i className="cs-b left" style={{ width: w(r.none) }} />
       </span>
+    )
+  }
+
+  /** 주별 합격률 — 점이 둘 미만이면 그릴 것이 없다 */
+  const trendSvg = () => {
+    const pts = roll?.trend ?? []
+    if (pts.length < 2) return <div className="cs-nodata">추이를 그릴 만큼 회차가 쌓이지 않았습니다.</div>
+    const W = 420
+    const H = 132
+    const pad = 24
+    const x = (i: number) => pad + (i * (W - pad * 2)) / (pts.length - 1)
+    const y = (v: number) => H - pad - (v / 100) * (H - pad * 2)
+    const d = pts
+      .map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.pass_rate).toFixed(1)}`)
+      .join(' ')
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} className="cs-svg" role="img" aria-label="주별 합격률">
+        {[0, 50, 100].map((g) => (
+          <g key={g}>
+            <line x1={pad} x2={W - pad} y1={y(g)} y2={y(g)} stroke="var(--c-border-soft)" />
+            <text x="2" y={y(g) + 3} className="cs-ax">
+              {g}%
+            </text>
+          </g>
+        ))}
+        <path d={d} fill="none" stroke="var(--c-primary)" strokeWidth="2" />
+        {pts.map((p, i) => (
+          <circle key={p.at} cx={x(i)} cy={y(p.pass_rate)} r="3" fill="var(--c-primary)">
+            <title>{`${p.at} · 합격 ${p.pass} · 실패 ${p.fail} · ${p.pass_rate}%`}</title>
+          </circle>
+        ))}
+        {pts.map((p, i) =>
+          i % Math.ceil(pts.length / 6) === 0 ? (
+            <text key={`l${p.at}`} x={x(i)} y={H - 6} className="cs-ax" textAnchor="middle">
+              {p.at.slice(5)}
+            </text>
+          ) : null,
+        )}
+      </svg>
     )
   }
 
@@ -1662,64 +1739,161 @@ function CycleFolderSummary({
     <div className="cs scroll">
       <div className="cs-hd">
         <b className="cs-t">{title}</b>
-        <span className="muted small">회차 {rows.length}건 · 항목 {all.total}건</span>
+        <span className="muted small">
+          회차 {t?.cycles ?? cycles.length}건 · 항목 {t?.n ?? 0}건
+        </span>
+        <span className="sp" />
+        <select
+          className="cy-v"
+          value={days}
+          title="기간 — 항목이 실행된 날 기준. 회차·항목 수는 그대로입니다"
+          onChange={(e) => setDays(Number(e.target.value))}
+        >
+          <option value={0}>기간: 전체</option>
+          <option value={30}>최근 30일</option>
+          <option value={90}>최근 90일</option>
+          <option value={180}>최근 180일</option>
+        </select>
       </div>
 
-      {rows.length === 0 ? (
+      {q.isLoading && <div className="empty">세는 중…</div>}
+      {q.isError && <div className="empty">현황을 불러오지 못했습니다.</div>}
+
+      {roll && t && t.cycles === 0 && (
         <div className="empty">이 폴더에는 아직 회차가 없습니다.</div>
-      ) : (
+      )}
+
+      {roll && t && t.cycles > 0 && (
         <>
-          {/* 이 폴더 전체 — 큰 숫자 하나와 막대 하나. 먼저 답할 것은
-              「여기까지 얼마나 됐나」 다. */}
-          <section className="cs-top">
-            <div className="cs-big">
-              <b>{all.pct}%</b>
-              <em>합격률</em>
+          {/* 1행 — 먼저 답할 다섯 가지 */}
+          <section className="cs-kpis">
+            <div className="cs-kpi">
+              <i>합격률</i>
+              <b className={t.pass_rate >= 80 ? 'ok' : t.pass_rate < 50 ? 'ng' : ''}>
+                {t.pass_rate}%
+              </b>
+              <em>
+                {t.pass}/{t.pass + t.fail}
+              </em>
             </div>
-            <div className="cs-topbar">
-              {bar(all)}
-              <div className="cs-legend">
-                <span><i className="cs-d pass" />합격 {all.pass}</span>
-                <span><i className="cs-d fail" />실패 {all.fail}</span>
-                <span><i className="cs-d etc" />그 밖 {all.etc}</span>
-                <span><i className="cs-d left" />미실행 {all.left}</span>
-              </div>
+            <div className="cs-kpi">
+              <i>진척률</i>
+              <b>{t.progress}%</b>
+              <em>
+                {t.n - t.none}/{t.n}
+              </em>
+            </div>
+            <div className="cs-kpi">
+              <i>시험 항목</i>
+              <b>{t.n}</b>
+              <em>회차 {t.cycles}</em>
+            </div>
+            <div className="cs-kpi">
+              <i>열린 결함</i>
+              <b className={t.open_defects ? 'ng' : ''}>{t.open_defects}</b>
+            </div>
+            <div className="cs-kpi">
+              <i>마지막 실행</i>
+              <b className="sm">{t.last_run || '–'}</b>
             </div>
           </section>
 
-          {/* 버전별 — 한 줄이 회차 하나다. 누르면 그 회차로 들어간다 */}
+          {/* 2행 — 어디가 약한가(막대) · 좋아지고 있나(추이) */}
+          <section className="cs-two">
+            <div className="cs-pan">
+              <b>{kidLabel}별 판정 — 합격률 낮은 순</b>
+              {roll.children.map((k) => (
+                <button
+                  type="button"
+                  key={k.key}
+                  className="cs-brow"
+                  title={`${k.key} — 항목 ${k.n} · 합격 ${k.pass} · 실패 ${k.fail} · 미실행 ${k.none}`}
+                  disabled={!onScope || roll.level === 'version_group'}
+                  onClick={() => onScope?.(`${roll.path}/${k.key}`)}
+                >
+                  <span className="cs-bnm">{k.key}</span>
+                  {bar(k)}
+                  <em>{k.pass_rate}%</em>
+                </button>
+              ))}
+              <div className="cs-legend">
+                <span>
+                  <i className="cs-d pass" />합격 {t.pass}
+                </span>
+                <span>
+                  <i className="cs-d fail" />실패 {t.fail}
+                </span>
+                <span>
+                  <i className="cs-d etc" />그 밖 {t.other}
+                </span>
+                <span>
+                  <i className="cs-d left" />미실행 {t.none}
+                </span>
+              </div>
+            </div>
+            <div className="cs-pan">
+              <b>주별 합격률 추이</b>
+              {trendSvg()}
+            </div>
+          </section>
+
+          {/* 3행 — 자식 비교표. 버전그룹 아래면 회차 목록이 온다 */}
           <div className="cs-tbl">
             <div className="cs-row cs-th">
-              <div>버전</div>
-              <div>모델 · 버전그룹</div>
+              <div>{roll.level === 'version_group' ? '회차' : kidLabel}</div>
+              <div>{roll.level === 'version_group' ? '모델 · 버전그룹' : '회차'}</div>
               <div>항목</div>
               <div>진행</div>
               <div>합격률</div>
-              <div>상태</div>
-              <div>담당</div>
+              <div>{roll.level === 'version_group' ? '상태' : '열린 결함'}</div>
+              <div>{roll.level === 'version_group' ? '담당' : '마지막 실행'}</div>
             </div>
-            {rows.map((r) => (
-              <button
-                type="button"
-                key={r.c.id}
-                className="cs-row cs-c"
-                title="이 회차를 엽니다"
-                onClick={() => onOpen(r.c.id)}
-              >
-                <div className="cs-nm">{r.c.version || r.c.name || r.c.cid || r.c.id}</div>
-                <div className="muted">
-                  {[r.c.model, r.c.version_group].filter(Boolean).join(' · ') || '–'}
-                </div>
-                <div className="muted">{r.total}</div>
-                <div className="cs-prog">
-                  {bar(r)}
-                  <em>{r.total ? Math.round((r.done / r.total) * 100) : 0}%</em>
-                </div>
-                <div className="cs-pct">{r.pct}%</div>
-                <div className="muted">{r.c.status || '–'}</div>
-                <div className="muted">{r.c.assignee || '–'}</div>
-              </button>
-            ))}
+            {roll.level === 'version_group'
+              ? roll.cycles.map((r) => {
+                  const done = r.pass + r.fail
+                  return (
+                    <button
+                      type="button"
+                      key={r.id}
+                      className="cs-row cs-c"
+                      title="이 회차를 엽니다"
+                      onClick={() => onOpen(r.id)}
+                    >
+                      <div className="cs-nm">{r.version || r.name || r.cid || r.id}</div>
+                      <div className="muted">
+                        {[r.model, r.version_group].filter(Boolean).join(' · ') || '–'}
+                      </div>
+                      <div className="muted">{r.n}</div>
+                      <div className="cs-prog">
+                        {bar(r)}
+                        <em>{r.n ? Math.round(((r.n - r.none) / r.n) * 100) : 0}%</em>
+                      </div>
+                      <div className="cs-pct">{done ? Math.round((r.pass / done) * 100) : 0}%</div>
+                      <div className="muted">{r.status || '–'}</div>
+                      <div className="muted">{r.assignee || '–'}</div>
+                    </button>
+                  )
+                })
+              : roll.children.map((k) => (
+                  <button
+                    type="button"
+                    key={k.key}
+                    className="cs-row cs-c"
+                    title="이 폴더로 들어갑니다"
+                    onClick={() => onScope?.(`${roll.path}/${k.key}`)}
+                  >
+                    <div className="cs-nm">{k.key}</div>
+                    <div className="muted">{k.cycles}</div>
+                    <div className="muted">{k.n}</div>
+                    <div className="cs-prog">
+                      {bar(k)}
+                      <em>{k.progress}%</em>
+                    </div>
+                    <div className="cs-pct">{k.pass_rate}%</div>
+                    <div className="muted">{k.open_defects || '–'}</div>
+                    <div className="muted">{k.last_run || '–'}</div>
+                  </button>
+                ))}
           </div>
         </>
       )}
