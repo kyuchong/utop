@@ -2220,9 +2220,9 @@ export default function AskBar({ devices }: Props) {
                       const lb = (t: string) =>
                         t === 'has' ? '있어야' : t === 'not' ? '없어야' : '표 조건'
                       return (
-                        <div className="ask-chips">
+                        <div className="ask-jchips">
                           {show.map((r, k) => (
-                            <span key={`${r.t}-${r.v}-${k}`} className={`ask-chip ${r.t}`}>
+                            <span key={`${r.t}-${r.v}-${k}`} className={`ask-jchip ${r.t}`}>
                               <i>{lb(r.t)}</i>
                               {r.v}
                             </span>

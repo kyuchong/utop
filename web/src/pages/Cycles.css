@@ -6983,9 +6983,11 @@ table.tb td.k {
 .ask-cols > .ask-rail { width: var(--ask-rail-w); }
 .ask-canvas > .ask-busy { left: calc(var(--ask-rail-w) + 12px); }
 
-/* Coverage 가 들고 온 판정 칩 — AI 화면에서도 그대로 보인다(지적) */
-.ask-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
-.ask-chip {
+/* Coverage 가 들고 온 판정 칩 — AI 화면에서도 그대로 보인다(지적).
+   이름을 `ask-jchip` 으로 따로 둔다 — `ask-chip` 은 **첫 화면의 예시
+   말풍선**이 쓰고 있어서, 같이 쓰면 그것까지 초록으로 물든다(지적). */
+.ask-jchips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+.ask-jchip {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -6997,6 +6999,6 @@ table.tb td.k {
   color: #0a7a45;
   border: 1px solid #b2e6cd;
 }
-.ask-chip.not { background: #fde4e4; color: #c22; border-color: #f6c6c6; }
-.ask-chip.table { background: #e8eefc; color: #2450b5; border-color: #ccd9f7; }
-.ask-chip > i { font-style: normal; font-weight: 600; opacity: 0.75; }
+.ask-jchip.not { background: #fde4e4; color: #c22; border-color: #f6c6c6; }
+.ask-jchip.table { background: #e8eefc; color: #2450b5; border-color: #ccd9f7; }
+.ask-jchip > i { font-style: normal; font-weight: 600; opacity: 0.75; }
