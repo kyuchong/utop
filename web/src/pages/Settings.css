@@ -1265,20 +1265,44 @@
    여러 번 덧칠한 규칙(height:100% · flex:1 · min-height)이 서로 이겨 먹어
    탭 줄이 눌리고 카드가 중간에서 끊겼다(지적). 격자 넉 줄로 못 박는다:
    제목 / 탭 / LAB 탭 / 본문 — 마지막 줄만 남는 높이를 다 쓴다. */
+/*
+ * 칸이 아니라 **줄기**로 세운다.
+ *
+ * 여태는 grid 에 줄 넷을 못 박아 두었는데, 트리만 보는 이 화면의 자식은
+ * 셋(알림·머리·트리)이라 트리가 「auto」 줄에 앉았다. 그래서 카드 높이가
+ * 내용을 따라 늘었다 줄었다 했다 — 모델그룹에서 「전체」 를 누르면 아래로
+ * 늘고 「미분류」 를 누르면 위로 줄던 것이 이것이다(지적).
+ * flex 로 두면 마지막 칸이 남는 높이를 다 갖는다.
+ */
 .set-page.dc2 {
-  display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-height: 0;
   gap: 8px;
   padding: var(--sp-3);
   max-width: none;
 }
-/* 위 세 줄은 절대 눌리지 않는다 */
+/* 위 줄들은 절대 눌리지 않는다 */
 .set-page.dc2 > .set-head,
 .set-page.dc2 > .seg,
 .set-page.dc2 > .dcc-labs { flex: none; min-height: 0; }
-.set-page.dc2 > .set-note { grid-row: 1; }
+/* 트리 판이 남는 높이를 다 쓴다 — 내용이 줄어도 카드는 그대로다 */
+.set-page.dc2 > .dc2-tree,
+.set-page.dc2 > .dc2-cols { flex: 1; min-height: 0; }
+
+/* 머리 오른쪽의 작은 알림(지시) — 제 줄을 만들지 않는다 */
+.set-note.mini {
+  flex: none;
+  align-self: center;
+  max-width: 44%;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .dc2-tree { display: flex; flex-direction: column; min-height: 0; gap: 8px; }
 .dc2-tree > .dcc-cols { flex: 1; min-height: 0; }

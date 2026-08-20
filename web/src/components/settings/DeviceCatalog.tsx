@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import DeviceForm from '@/components/DeviceForm'
@@ -52,6 +52,13 @@ export default function DeviceCatalog({
 } = {}) {
   const qc = useQueryClient()
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
+  /* 알림은 잠깐 보이고 사라진다 — 「고쳤습니다」 가 눌러앉아 있을 이유가 없다.
+     잘못된 것은 좀 더 오래 둔다. */
+  useEffect(() => {
+    if (!note.msg) return
+    const t = setTimeout(() => setNote({ kind: '', msg: '' }), note.kind === 'err' ? 8000 : 3000)
+    return () => clearTimeout(t)
+  }, [note])
   /** 두 탭 — 분류 등록 / 모델 목록. 보던 쪽을 기억한다 */
   /* 늘 **트리**로 연다(지시). 브라우저마다 마지막 탭을 기억하니 크롬은
      트리, 엣지는 모델 목록이 떠 「같은 페이지인데 다르다」 로 보였다. */
@@ -491,6 +498,13 @@ export default function DeviceCatalog({
         <div>
           <h3>장비 카탈로그</h3>
         </div>
+        {/* 알림은 제 줄을 만들지 않는다 — 줄이 하나 생기고 사라질 때마다
+            아래 카드가 늘었다 줄었다 했다(지적). 머리 오른쪽 한 자리다. */}
+        {note.msg && (
+          <span className={`set-note mini ${note.kind}`} title={note.msg}>
+            {note.msg}
+          </span>
+        )}
       </div>
 
       {/* 트리만 볼 때는 탭 줄을 **아예 그리지 않는다**(지시) — `hidden` 은
@@ -521,8 +535,6 @@ export default function DeviceCatalog({
           ))}
       </div>
       )}
-
-      {note.msg && <div className={`set-note ${note.kind}`}>{note.msg}</div>}
 
       {/* ── 트리 — **칸을 옮겨 가며 좁힌다**(주신 화면 참고) ─────────
           벤더 › 제품군 › 모델그룹 › 모델. 위에 LAB 알약을 두어 그 랩에 있는
