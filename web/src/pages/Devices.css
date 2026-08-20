@@ -306,3 +306,27 @@
   display: inline-block;
   vertical-align: bottom;
 }
+
+/* 줄에서 바로 고치기 — 두 번 누르면 칸이 열린다(지시) */
+.dv-ed { cursor: text; border-radius: 5px; }
+.dv-ed:hover { background: var(--c-surface-alt); box-shadow: inset 0 0 0 1px var(--c-border-soft); }
+.dv-edin {
+  width: 100%;
+  height: 22px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 0 4px;
+  border: 1px solid var(--c-primary);
+  border-radius: 5px;
+  background: var(--c-surface);
+}
+
+/* RO·RW 두 칸이 늘었다 — 칸 폭을 다시 잡는다 */
+.dev-row {
+  grid-template-columns:
+    90px 110px 64px 110px 150px 84px 140px
+    92px 92px 92px 92px
+    96px 96px
+    64px minmax(200px, 1fr);
+  min-width: 1480px;
+}

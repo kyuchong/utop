@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, getToken } from '@/api/client'
 import DeviceForm, { expandRange } from '@/components/DeviceForm'
@@ -72,6 +72,8 @@ async function getJson<T>(path: string): Promise<T> {
 
 
 const PROTO_COLS = ['telnet', 'ssh', 'console', 'snmp']
+/** 제품군 — 서버의 DEVICE_ROLES 와 같은 벌 */
+const DEV_ROLES = ['L2', 'L3', 'OLT', 'ONT', 'CPE', 'HGW', '계측기', '기타'] as const
 
 const accOf = (d: Device, proto: string): DeviceAccess | undefined =>
   (d.access ?? []).find((a) => a.protocol === proto)
@@ -200,6 +202,89 @@ function ColFilter({
         </>
       )}
     </span>
+  )
+}
+
+/**
+ * 줄에서 바로 고치는 칸 — **두 번 누르면** 고르개·입력칸이 된다(지시).
+ *
+ * 목록에서 한 값을 고치려고 창을 여는 것이 번거로웠다. Enter·자리를 뜨면
+ * 저장하고 Esc 면 되돌린다.
+ */
+function EditCell({
+  value,
+  opts,
+  cls,
+  title,
+  onSave,
+}: {
+  value: string
+  /** 있으면 고르개, 없으면 글자칸 */
+  opts?: readonly string[]
+  cls?: string
+  title?: string
+  onSave: (v: string) => void
+}) {
+  const [on, setOn] = useState(false)
+  const [v, setV] = useState(value)
+  useEffect(() => {
+    if (!on) setV(value)
+  }, [value, on])
+
+  const done = (ok: boolean) => {
+    setOn(false)
+    if (ok && v !== value) onSave(v)
+    else setV(value)
+  }
+
+  if (!on)
+    return (
+      <span
+        className={`dv-ed ${cls ?? 'muted ell'}`}
+        title={title ?? '두 번 누르면 고칩니다'}
+        onDoubleClick={(e) => {
+          e.stopPropagation()
+          setOn(true)
+        }}
+      >
+        {value || '–'}
+      </span>
+    )
+
+  return opts ? (
+    <select
+      className="dv-edin"
+      value={v}
+      autoFocus
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => {
+        setV(e.target.value)
+        setOn(false)
+        if (e.target.value !== value) onSave(e.target.value)
+      }}
+      onBlur={() => done(false)}
+    >
+      <option value="">(없음)</option>
+      {opts.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </select>
+  ) : (
+    <input
+      className="dv-edin"
+      value={v}
+      autoFocus
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => setV(e.target.value)}
+      onBlur={() => done(true)}
+      onKeyDown={(e) => {
+        e.stopPropagation()
+        if (e.key === 'Enter') done(true)
+        if (e.key === 'Escape') done(false)
+      }}
+    />
   )
 }
 
@@ -349,6 +434,72 @@ export default function Devices({ me }: Props) {
       return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'))
     }
   }, [devices, roleFilter, colF, colVal])
+
+  /** 줄에서 고친 값을 그대로 저장한다 — 목록이 들고 있는 장비를 통째로 보낸다 */
+  const patchDev = async (d: Device, p: Partial<Device>) => {
+    try {
+      const r = await apiFetch('/api/devices2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...d, ...p }),
+      })
+      const b = (await r.json().catch(() => ({}))) as { detail?: string }
+      if (!r.ok) throw new Error(b.detail || '저장하지 못했습니다')
+      void qc.invalidateQueries({ queryKey: ['devices'] })
+      setMsg({ kind: 'ok', text: '고쳤습니다' })
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
+    }
+  }
+
+  /** SNMP 의 읽기(RO)·쓰기(RW) community — device_access 에 산다 */
+  const snmpOf = (d: Device) => (d.access ?? []).find((a) => a.protocol === 'snmp')
+  const patchSnmp = async (d: Device, p: { ro?: string; rw?: string }) => {
+    const cur = snmpOf(d)
+    const prm = { ...((cur?.params as Record<string, unknown>) ?? {}) }
+    if (p.rw !== undefined) {
+      prm.community_rw = p.rw
+      prm.rw = !!p.rw
+    }
+    const next: DeviceAccess = {
+      protocol: 'snmp',
+      port: cur?.port ?? 161,
+      enabled: true,
+      ...cur,
+      community: p.ro !== undefined ? p.ro : (cur?.community ?? ''),
+      params: prm,
+    }
+    const rest = (d.access ?? []).filter((a) => a.protocol !== 'snmp')
+    await patchDev(d, { access: [...rest, next] })
+  }
+
+  /** 사업자·모델그룹은 **모델 카탈로그**가 정본이다 — 고치면 같은 모델 전부에 든다 */
+  const patchModel = async (model: string, p: { operator?: string; model_group?: string }) => {
+    const nm = String(model || '').trim()
+    if (!nm) {
+      setMsg({ kind: 'err', text: '모델이 없는 장비입니다 — 모델을 먼저 고르세요' })
+      return
+    }
+    if (
+      !window.confirm(
+        `이 값은 모델 카탈로그(${nm})가 정본입니다.\n같은 모델을 쓰는 장비 전부에 반영됩니다. 고칠까요?`,
+      )
+    )
+      return
+    try {
+      const r = await apiFetch('/api/device-catalog2', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'model', name: nm, ...p }),
+      })
+      if (!r.ok) throw new Error('저장하지 못했습니다')
+      void qc.invalidateQueries({ queryKey: ['device-catalog'] })
+      void qc.invalidateQueries({ queryKey: ['devices'] })
+      setMsg({ kind: 'ok', text: '카탈로그를 고쳤습니다' })
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
+    }
+  }
 
   const importM = useMutation({
     mutationFn: async () => {
@@ -500,6 +651,8 @@ export default function Devices({ me }: Props) {
           <span>SSH</span>
           <span>Console</span>
           <span>SNMP</span>
+          <span>RO</span>
+          <span>RW</span>
           <span>인터페이스</span>
           <span>사용 현황</span>
         </div>
@@ -531,6 +684,8 @@ export default function Devices({ me }: Props) {
             }}
           />
           <span /><span /><span /><span />
+          <span />
+          <span />
           <span className="muted">{qaMeta?.ifs ? expandRange(qaMeta.ifs).length : '–'}</span>
           <span>
             <button
@@ -566,15 +721,37 @@ export default function Devices({ me }: Props) {
                     if (e.key === 'Enter') setForm(d)
                   }}
                 >
-                  <span className="muted ell">{modelMeta.get(d.model ?? '')?.op || '–'}</span>
-                  <span className="muted ell">{d.vendor || '–'}</span>
-                  <span>
-                    {d.role ? <span className="tag">{d.role}</span> : <span className="muted">–</span>}
-                  </span>
-                  <span className="muted ell">{modelMeta.get(d.model ?? '')?.group || '–'}</span>
-                  <span className="muted ell">{d.model || '–'}</span>
-                  <span className="muted ell">{d.lab || '–'}</span>
-                  <b className="dev-name">{d.ip}</b>
+                  <EditCell
+                    value={modelMeta.get(d.model ?? '')?.op || ''}
+                    title="두 번 누르면 고칩니다 — 모델 카탈로그가 정본입니다"
+                    onSave={(v) => void patchModel(d.model ?? '', { operator: v })}
+                  />
+                  <EditCell value={d.vendor || ''} onSave={(v) => void patchDev(d, { vendor: v })} />
+                  <EditCell
+                    value={d.role || ''}
+                    opts={DEV_ROLES}
+                    onSave={(v) => void patchDev(d, { role: v })}
+                  />
+                  <EditCell
+                    value={modelMeta.get(d.model ?? '')?.group || ''}
+                    title="두 번 누르면 고칩니다 — 모델 카탈로그가 정본입니다"
+                    onSave={(v) => void patchModel(d.model ?? '', { model_group: v })}
+                  />
+                  <EditCell
+                    value={d.model || ''}
+                    opts={catModels}
+                    onSave={(v) => void patchDev(d, { model: v })}
+                  />
+                  <EditCell
+                    value={d.lab || ''}
+                    opts={catLabs}
+                    onSave={(v) => void patchDev(d, { lab: v })}
+                  />
+                  <EditCell
+                    value={d.ip || ''}
+                    cls="dev-name"
+                    onSave={(v) => void patchDev(d, { ip: v.trim() })}
+                  />
                   {PROTO_COLS.map((p) => (
                     <ProtoCell
                       key={p}
@@ -583,6 +760,20 @@ export default function Devices({ me }: Props) {
                       onCheck={() => checkM.mutate({ id: d.id, protocol: p })}
                     />
                   ))}
+                  {/* SNMP 읽기·쓰기 community — 여기서 바로 고친다(지시) */}
+                  <EditCell
+                    value={String(snmpOf(d)?.community ?? '')}
+                    title="SNMP RO Community — 두 번 누르면 고칩니다 (비우면 public)"
+                    onSave={(v) => void patchSnmp(d, { ro: v })}
+                  />
+                  <EditCell
+                    value={String(
+                      ((snmpOf(d)?.params as { community_rw?: string } | null) ?? {}).community_rw ??
+                        '',
+                    )}
+                    title="SNMP RW Community — 두 번 누르면 고칩니다 (Set 을 쓸 때만)"
+                    onSave={(v) => void patchSnmp(d, { rw: v })}
+                  />
                   <span className="muted">{d.interfaces?.length ?? 0}</span>
                   <span className="dev-lock">
                     <LockCell
