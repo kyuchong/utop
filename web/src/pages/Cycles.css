@@ -7016,3 +7016,20 @@ table.tb td.k {
   resize: vertical;
 }
 .ask-detcrit-in.need { border-color: var(--c-draft); background: #fffdf4; }
+
+/* ── 시험 항목 고르는 창 — 글자를 키운다(지시) ─────────────────── */
+.modal.ask-likemodal { font-size: var(--fs-md, 15px); }
+.ask-likemodal .modal-head b { font-size: 17px; }
+.ask-likemodal .modal-head .muted.small { font-size: var(--fs-sm); }
+.ask-likemodal .ask-tcfind input,
+.ask-likemodal .ask-tcfind { font-size: var(--fs-md, 15px); }
+.ask-likemodal .ask-tcfind input { height: 34px; }
+.ask-likemodal .ask-tconly { font-size: var(--fs-sm); }
+.ask-likemodal .ask-likegrp { font-size: var(--fs-sm); }
+.ask-likemodal .ask-tctable,
+.ask-likemodal .ask-tclist { font-size: var(--fs-md, 15px); }
+.ask-likemodal .ask-tctable th { font-size: var(--fs-sm); }
+.ask-likemodal .ask-tctable td,
+.ask-likemodal .ask-tctable b { font-size: var(--fs-md, 15px); }
+.ask-likemodal .ask-tctable td { padding-top: 7px; padding-bottom: 7px; }
+.ask-likemodal .muted.small { font-size: var(--fs-sm); }
