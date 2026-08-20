@@ -1049,6 +1049,10 @@ export default function DeviceCatalog({
         )
       })()}
 
+      {/* 트리만 볼 때는 이 칸을 **아예 만들지 않는다**(지적: 카드가 반토막).
+          알맹이는 cls·models 뿐인데, 빈 칸이 그대로 서서 flex 로 높이의
+          절반을 가져갔다 — 카드 아래 그 빈 자리가 그것이다. */}
+      {view !== 'tree' && (
       <div className={`dc2-cols dc2-${view}`}>
         {/* ── 분류 다섯 — 알약으로 만들고·바꾸고·지운다 ────── */}
         {view === 'cls' && (
@@ -1261,6 +1265,7 @@ export default function DeviceCatalog({
         </section>
         )}
       </div>
+      )}
     </div>
   )
 }
