@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import { gotoClick, gotoHref } from '@/api/goto'
 import { IconSettings } from '@/components/icons'
 import { connParams } from '@/components/tc/device'
 import { runSteps } from '@/components/tc/runner'
@@ -253,6 +255,11 @@ export default function AskBar({ devices }: Props) {
   /** 같은 모델이 여러 대일 때 — 어느 장비로 보낼지 고르는 창 */
   /** 오른쪽에 펼쳐 볼 스텝 */
   const [stepAt, setStepAt] = useState(0)
+  /** 지금 실린 시험의 번호 — Coverage 트리 길을 물을 열쇠 */
+  const tcOf = (d: Draft | null) => {
+    const v = String(d?.object ?? '').trim()
+    return /^TC-/i.test(v) ? v : ''
+  }
   /** 스텝 목록 폭 — Coverage 와 같은 조절바(목업) */
   const [seqW, setSeqW] = useResizableWidth('utop.ai.seqw', 560, 340, 1000)
   const seqRef = useRef<HTMLElement | null>(null)
@@ -1464,6 +1471,23 @@ export default function AskBar({ devices }: Props) {
   }, [busy, adopting, filling])
 
 
+  /* 이 시험이 Coverage 트리의 어디에 있나 — 머리줄이 그 길을 그린다(지시) */
+  const pathQ = useQuery({
+    queryKey: ['tc-path', tcOf(draft)],
+    enabled: !!tcOf(draft),
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const r = await apiFetch(`/api/tc/${encodeURIComponent(tcOf(draft))}/path`)
+      if (!r.ok) throw new Error('트리 자리를 불러오지 못했습니다')
+      return (await r.json()) as {
+        tcid: string
+        name?: string
+        cats?: Array<{ id: string; name: string }>
+        req?: { id: string; reqid?: string; title?: string } | null
+      }
+    },
+  })
+
   /* 5단계가 펼 것. 캔버스보다 앞서 지어진 절차(built)를 레일은 먼저 편다 */
   const plan5 = draft ?? built
   /* 절차가 **다 만들어졌나** — 기준까지 채워 캔버스에 열린 것만 완성이다.
@@ -1583,11 +1607,61 @@ export default function AskBar({ devices }: Props) {
             판 안에 있으면 세 판의 머리 높이가 어긋난다(지적). */}
         {draft && (
         <div className="ask-slots">
-          {/* 대상 장비 — 목업의 첫 슬롯. select 한 줄이 아니라 카드다.
-              무엇으로 도는지가 실행 단추 옆에 늘 있어야 한다. */}
+          {/* 이 시험이 Coverage 트리의 **어디에 있는지**를 그대로 보여 준다
+              (지시 사진) — 사업자 › 폴더 › 요구사항 › 시험 번호.
+              누르면 그 자리로 간다. 장비는 오른쪽 끝 알약이 쥔다. */}
+          <nav className="bcrumb" aria-label="경로">
+            <span className="bc-root">Coverage</span>
+            {(pathQ.data?.cats ?? []).map((c) => (
+              <Fragment key={c.id}>
+                <span className="bc-sep" aria-hidden="true">
+                  ›
+                </span>
+                <span className="bc-a bc-plain">{c.name}</span>
+              </Fragment>
+            ))}
+            {pathQ.data?.req && (
+              <>
+                <span className="bc-sep" aria-hidden="true">
+                  ›
+                </span>
+                <a
+                  className="bc-a"
+                  href={gotoHref('req', pathQ.data.req.id)}
+                  title="이 요구사항으로 갑니다"
+                  onClick={(e) => gotoClick(e, 'req', pathQ.data?.req?.id ?? '')}
+                >
+                  {pathQ.data.req.title || pathQ.data.req.reqid}
+                </a>
+              </>
+            )}
+            <span className="bc-sep" aria-hidden="true">
+              ›
+            </span>
+            {tcOf(draft) ? (
+              <a
+                className="bc-cur"
+                href={gotoHref('tc', tcOf(draft))}
+                title="Coverage 에서 이 시험을 엽니다"
+                onClick={(e) => gotoClick(e, 'tc', tcOf(draft))}
+              >
+                {tcOf(draft)}
+              </a>
+            ) : (
+              <span className="bc-cur">{draft.name}</span>
+            )}
+            {tcOf(draft) && draft.name && (
+              <span className="bc-id" title={draft.name}>
+                {draft.name}
+              </span>
+            )}
+          </nav>
+          {/* 실행 무리는 오른쪽 끝(지시) — 슬롯은 왼쪽, 하는 일은 오른쪽 */}
+          <span className="sp" />
+          {/* 어느 장비로 도는지는 늘 보여야 한다 — 누르면 바꾼다 */}
           <button
             type="button"
-            className="ask-slot"
+            className="btn small ask-devchip"
             title="다른 장비로 바꿉니다"
             onClick={() => {
               setPickSel(devId || usable[0]?.id || '')
@@ -1596,40 +1670,18 @@ export default function AskBar({ devices }: Props) {
               setPickDev({ model: '', cands: usable })
             }}
           >
-            <span className="ask-slot-ic" aria-hidden="true">
-              ▭
-            </span>
-            <span className="ask-slot-tx">
-              <small>대상 장비</small>
-              <b>{curDev ? `${curDev.name || curDev.model || ''} · ${curDev.ip}` : '장비를 고르세요'}</b>
-            </span>
-            <span className="ask-slot-ch">바꾸기</span>
+            ▭ {curDev ? `${curDev.model || curDev.name || ''} · ${curDev.ip}` : '장비를 고르세요'}
           </button>
-          <span className="ask-slot-arw" aria-hidden="true">
-            ›
-          </span>
-          {/* 일반 갈래 — 지금 실린 시험이 무엇인지 늘 보이고, 눌러 바꾼다
-              (목업의 슬롯 줄). 고급 갈래에는 없는 자리다 — 거기선 방금 지은
-              것이 곧 이 초안이다. */}
           {mode === 'basic' && (
             <button
               type="button"
-              className="ask-slot"
+              className="btn small"
               title="다른 시험으로 바꿉니다"
               onClick={() => setLikeAsk(true)}
             >
-              <span className="ask-slot-ic" aria-hidden="true">
-                ◈
-              </span>
-              <span className="ask-slot-tx">
-                <small>시험 항목</small>
-                <b>{draft.object || draft.name}</b>
-              </span>
-              <span className="ask-slot-ch">바꾸기</span>
+              시험 바꾸기
             </button>
           )}
-          {/* 실행 무리는 오른쪽 끝(지시) — 슬롯은 왼쪽, 하는 일은 오른쪽 */}
-          <span className="sp" />
           {running ? (
             <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
               ⏹ 멈추기

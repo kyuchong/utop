@@ -4684,6 +4684,43 @@ async def get_tc(tc_id: str):
         d["checks"] = []
     return d
 
+@app.get("/api/tc/{tc_id}/path")
+async def get_tc_path(tc_id: str):
+    """이 시험이 Coverage 트리의 **어디에 있나** — 사업자·폴더·요구사항 차례.
+
+    AI 화면 머리줄이 이 길을 그대로 보여 준다(지시). 트리를 통째로 내려받아
+    거슬러 올라가면 화면이 무거워지므로, 여기서 한 번에 짚어 준다.
+    """
+    tc_id = _tc_id_norm(tc_id)
+    async with db.pool().acquire() as c:
+        row = await c.fetchrow("SELECT tcid, name, req_id FROM tc WHERE tcid=$1", tc_id)
+        if row is None:
+            raise HTTPException(404, "TC를 찾을 수 없습니다")
+        cats: list[dict] = []
+        req = None
+        if row["req_id"]:
+            r = await c.fetchrow(
+                "SELECT id, reqid, title, cat1, cat2, cat3, cat4 FROM req WHERE id=$1",
+                row["req_id"],
+            )
+            if r is not None:
+                req = {"id": r["id"], "reqid": r["reqid"] or "", "title": r["title"] or ""}
+                at = r["cat4"] or r["cat3"] or r["cat2"] or r["cat1"]
+                seen: set[str] = set()
+                chain: list[dict] = []
+                while at and at not in seen:
+                    seen.add(at)
+                    cr = await c.fetchrow(
+                        "SELECT id, name, parent_id FROM req_category WHERE id=$1", at
+                    )
+                    if cr is None:
+                        break
+                    chain.append({"id": cr["id"], "name": cr["name"]})
+                    at = cr["parent_id"]
+                cats = list(reversed(chain))
+    return {"tcid": row["tcid"], "name": row["name"] or "", "cats": cats, "req": req}
+
+
 # TC 저장
 # TC 스텝 스냅샷(자동 백업) — 스텝 수가 급감/이전 값 유실 방지, 최근 20개 유지
 TC_SNAP_DIR = DATA_DIR / "tc_snapshots"

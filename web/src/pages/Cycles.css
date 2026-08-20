@@ -7203,3 +7203,47 @@ table.tb td.k {
 .tc-title .sp { margin-left: auto; }
 .tc-title .btn { flex: none; }
 .tc-title > .muted { flex: none; white-space: nowrap; }
+
+/* ── 머리줄의 트리 길 — 목업의 .bcrumb 그대로 ────────────────────
+   「이 시험이 Coverage 의 어디에 있나」 를 슬롯 카드 대신 길로 보여 준다. */
+.ask-slots > .bcrumb {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+  flex: 1 1 auto;
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.bc-root { font-weight: 700; color: var(--c-text-soft, var(--c-text)); flex: none; }
+.bc-sep { color: var(--c-text-faint); font-size: 11px; flex: none; }
+.bc-a {
+  color: var(--c-primary);
+  text-decoration: none;
+  border-radius: 4px;
+  padding: 1px 3px;
+  flex: none;
+}
+.bc-a:hover { background: var(--c-primary-bg); text-decoration: underline; }
+/* 폴더는 갈 곳이 따로 없다 — 길로만 읽힌다 */
+.bc-a.bc-plain { color: var(--c-primary); cursor: default; }
+.bc-a.bc-plain:hover { background: transparent; text-decoration: none; }
+.bc-cur {
+  font-weight: 700;
+  color: var(--c-text);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: none;
+}
+a.bc-cur:hover { text-decoration: underline; }
+.bc-id {
+  color: var(--c-text-faint);
+  font-size: var(--fs-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.ask-devchip { flex: none; font-family: var(--font-mono); }
