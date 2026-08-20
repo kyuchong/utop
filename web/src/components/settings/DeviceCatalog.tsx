@@ -43,16 +43,19 @@ const EMPTY_MODEL: Item = { kind: 'model', name: '' }
  */
 export default function DeviceCatalog({
   me,
+  only,
 }: {
   /** 점유·반납을 하려면 **누가 보고 있나**를 알아야 한다(지적) */
   me?: { username?: string; role?: string } | null
+  /** 'tree' 면 트리만, 'admin' 이면 분류 등록·모델 목록만(지시) */
+  only?: 'tree' | 'admin'
 } = {}) {
   const qc = useQueryClient()
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
   /** 두 탭 — 분류 등록 / 모델 목록. 보던 쪽을 기억한다 */
   /* 늘 **트리**로 연다(지시). 브라우저마다 마지막 탭을 기억하니 크롬은
      트리, 엣지는 모델 목록이 떠 「같은 페이지인데 다르다」 로 보였다. */
-  const [view, setView] = useState<'cls' | 'models' | 'tree'>('tree')
+  const [view, setView] = useState<'cls' | 'models' | 'tree'>(only === 'admin' ? 'cls' : 'tree')
   const pickView = (v: 'cls' | 'models' | 'tree') => setView(v)
   /** 트리에서 고른 자리 — LAB(거르개) · 벤더 › 제품군 › 모델그룹 */
   const [tlab, setTlab] = useState('')
@@ -275,14 +278,18 @@ export default function DeviceCatalog({
         </div>
       </div>
 
-      <div className="seg" role="tablist">
+      <div className="seg" role="tablist" hidden={only === 'tree'}>
         {(
           [
             ['tree', '트리'],
             ['cls', '분류 등록'],
             ['models', '모델 목록'],
           ] as const
-        ).map(([k, label]) => (
+        )
+          .filter(([k]) =>
+            only === 'tree' ? k === 'tree' : only === 'admin' ? k !== 'tree' : true,
+          )
+          .map(([k, label]) => (
           <button
             key={k}
             type="button"
@@ -294,7 +301,7 @@ export default function DeviceCatalog({
             {label}
             <span className="cnt">{k === 'models' ? models.length : SIDE_KINDS.reduce((a, x) => a + (lists[x.v]?.length ?? 0), 0)}</span>
           </button>
-        ))}
+          ))}
       </div>
 
       {note.msg && <div className={`set-note ${note.kind}`}>{note.msg}</div>}

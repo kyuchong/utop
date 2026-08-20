@@ -185,7 +185,7 @@ export default function App() {
         <Defects />
       ) : page === 'catalog' ? (
         /* 장비 카탈로그 — 설정에서 옮겨 왔다(지시). 트리로 연다 */
-        <DeviceCatalog me={user} />
+        <DeviceCatalog me={user} only="tree" />
       ) : page === 'devices' ? (
         <Devices me={user} />
       ) : page === 'instruments' ? (

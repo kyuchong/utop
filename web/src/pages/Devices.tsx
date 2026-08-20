@@ -653,7 +653,7 @@ export default function Devices({ me }: Props) {
             [
               ['tree', '트리로 보기'],
               ['table', '표로 보기'],
-              ['catalog', '모델 관리'],
+              ['catalog', '분류·모델 관리'],
             ] as const
           ).map(([k, lb]) => (
             <button
@@ -670,7 +670,9 @@ export default function Devices({ me }: Props) {
         </div>
 
         {/* 모델(카탈로그)도 이 화면에서 — 설정으로 오가지 않게 합쳤다(지시) */}
-        {layout === 'catalog' && <DeviceCatalog />}
+        {/* 분류 등록·모델 목록은 이 화면으로 옮겼다(지시) — 트리는 왼쪽
+            메뉴의 Catalog 가 맡는다 */}
+        {layout === 'catalog' && <DeviceCatalog me={me} only="admin" />}
 
         {layout === 'tree' && (() => {
           const nrm = (v?: string | null) => String(v ?? '').trim()
