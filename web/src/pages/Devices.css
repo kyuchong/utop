@@ -349,3 +349,17 @@
 .dv-cell.warn { color: var(--c-fail); }
 .dv-cell.dev-name { color: var(--c-text); font-weight: 700; }
 select.dv-cell { cursor: pointer; }
+
+/* 평소에는 글자 한 줄 — 누르면 그때 고르개가 열린다(성능) */
+.dv-cell.view {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  line-height: 20px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.dv-cell.view > i { font-style: normal; font-size: 9px; opacity: 0.35; margin-left: auto; }
+.dv-cell.view:hover > i { opacity: 0.7; }

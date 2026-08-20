@@ -57,6 +57,8 @@ export interface Device {
   rack_units?: number | null
   power_w?: number | null
   interfaces?: DeviceIf[]
+  /** 목록에서만 오는 값 — 인터페이스 줄 대신 개수만 */
+  if_count?: number
   access?: DeviceAccess[]
 }
 
@@ -206,11 +208,11 @@ function ColFilter({
 }
 
 /**
- * 줄에서 바로 고치는 칸 — **장비 카탈로그와 같은 꼴**(지시).
+ * 줄에서 바로 고치는 칸.
  *
- * 두 번 누르기는 첫 누름이 줄로 새어 편집 창이 떴다 사라졌다. 카탈로그
- * 표처럼 **늘 열린 고르개·글자칸**을 두고, 고르면 곧바로 저장한다.
- * 글자칸은 Enter·자리 뜸에 저장하고 Esc 로 되돌린다.
+ * 카탈로그처럼 「그 자리에서 고치기」 는 그대로다. 다만 **누를 때만** 고르개를
+ * 만든다 — 92줄 × 고르개 6개를 늘 펴 두면 `<option>` 이 1만 6천 개가 되어
+ * 첫 화면이 무거웠다(지적). 평소에는 글자 한 줄이다.
  */
 function EditCell({
   value,
@@ -226,9 +228,30 @@ function EditCell({
   title?: string
   onSave: (v: string) => void
 }) {
+  const [on, setOn] = useState(false)
   const [v, setV] = useState(value)
-  useEffect(() => setV(value), [value])
+  useEffect(() => {
+    if (!on) setV(value)
+  }, [value, on])
   const stop = (e: { stopPropagation: () => void }) => e.stopPropagation()
+
+  if (!on) {
+    const known = !opts || !value || opts.includes(value)
+    return (
+      <span
+        className={`dv-cell view${known ? '' : ' warn'} ${cls ?? ''}`}
+        title={title ?? '누르면 고칩니다'}
+        onClick={(e) => {
+          stop(e)
+          setOn(true)
+        }}
+        onMouseDown={stop}
+      >
+        {value || '–'}
+        {opts && <i aria-hidden="true">▾</i>}
+      </span>
+    )
+  }
 
   if (opts) {
     const known = !value || opts.includes(value)
@@ -236,10 +259,14 @@ function EditCell({
       <select
         className={`dv-cell${known ? '' : ' warn'} ${cls ?? ''}`}
         value={value}
-        title={title ?? '고르면 바로 저장됩니다'}
+        autoFocus
         onClick={stop}
         onMouseDown={stop}
-        onChange={(e) => onSave(e.target.value)}
+        onBlur={() => setOn(false)}
+        onChange={(e) => {
+          setOn(false)
+          if (e.target.value !== value) onSave(e.target.value)
+        }}
       >
         <option value="">–</option>
         {!known && <option value={value}>{value} (목록에 없음)</option>}
@@ -256,11 +283,13 @@ function EditCell({
     <input
       className={`dv-cell ${cls ?? ''}`}
       value={v}
+      autoFocus
       title={title ?? '고치고 Enter — 자리를 떠도 저장됩니다'}
       onClick={stop}
       onMouseDown={stop}
       onChange={(e) => setV(e.target.value)}
       onBlur={() => {
+        setOn(false)
         if (v !== value) onSave(v)
       }}
       onKeyDown={(e) => {
@@ -268,7 +297,7 @@ function EditCell({
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
         if (e.key === 'Escape') {
           setV(value)
-          ;(e.target as HTMLInputElement).blur()
+          setOn(false)
         }
       }}
     />
@@ -287,7 +316,9 @@ export default function Devices({ me }: Props) {
 
   const devQ = useQuery({
     queryKey: ['devices'],
-    queryFn: () => getJson<{ devices: Device[] }>('/api/devices2'),
+    /* 인터페이스는 **개수만** 받는다(성능) — 목록은 「48」 처럼 수로만 쓰는데
+       92대 × 48줄이면 4천 줄이 브라우저로 넘어와 첫 화면이 무거웠다(지적). */
+    queryFn: () => getJson<{ devices: Device[] }>('/api/devices2?ifs=0'),
   })
   /** 사업자·모델그룹은 장비가 아니라 카탈로그의 모델이 들고 있다 */
   const catQ = useQuery({
@@ -784,7 +815,7 @@ export default function Devices({ me }: Props) {
                     title="SNMP RW Community — 두 번 누르면 고칩니다 (Set 을 쓸 때만)"
                     onSave={(v) => void patchSnmp(d, { rw: v })}
                   />
-                  <span className="muted">{d.interfaces?.length ?? 0}</span>
+                  <span className="muted">{d.if_count ?? d.interfaces?.length ?? 0}</span>
                   <span className="dev-lock">
                     <LockCell
                       resourceId={d.id}

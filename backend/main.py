@@ -3763,8 +3763,23 @@ async def devices2_check(dev_id: str, protocol: str = ""):
 
 
 @app.get("/api/devices2")
-async def devices2_list():
-    return {"devices": await db.device_list()}
+async def devices2_list(ifs: int = 1):
+    """
+    `ifs=0` 이면 **인터페이스 줄을 싣지 않고 개수만** 준다(성능).
+
+    목록 화면은 인터페이스를 「48」 처럼 수로만 쓰는데, 장비 92대 × 48줄이면
+    4천 줄이 브라우저로 넘어가 첫 화면이 무겁다(지적).
+    """
+    devs = await db.device_list(with_ifs=bool(ifs))
+    if not ifs:
+        async with db.pool().acquire() as c:
+            rows = await c.fetch(
+                "SELECT device_id, count(*) AS n FROM device_interface GROUP BY device_id"
+            )
+        cnt = {r["device_id"]: int(r["n"]) for r in rows}
+        for d in devs:
+            d["if_count"] = cnt.get(d["id"], 0)
+    return {"devices": devs}
 
 
 # 이 라우트는 /api/devices2/{dev_id} 보다 먼저 선언되어야 한다.
