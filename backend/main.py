@@ -3349,6 +3349,16 @@ async def device_catalog_save(payload: dict):
     return {"success": True}
 
 
+@app.post("/api/device-catalog2/classify")
+async def device_catalog_classify(payload: dict):
+    """모델을 벤더·제품군·모델그룹으로 옮긴다 — 준 칸만 고친다."""
+    try:
+        await db.catalog_classify(str(payload.get("name") or ""), payload)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"success": True}
+
+
 @app.post("/api/device-catalog2/rename")
 async def device_catalog_rename(payload: dict):
     kind = str(payload.get("kind") or "").strip()

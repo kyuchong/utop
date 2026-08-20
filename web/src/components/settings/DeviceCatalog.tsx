@@ -329,6 +329,42 @@ export default function DeviceCatalog({
           <div className="dcc-ctxback" onMouseDown={() => setCtx(null)} />
           <div className="dcc-ctx" style={{ left: ctx.x, top: ctx.y }}>
             <b className="ell">{ctx.name}</b>
+            {/* 모델은 이름을 못 바꾸는 대신 **분류를 옮긴다** — 왼쪽에서 고른
+                벤더·제품군·모델그룹 자리로 보낸다(지적: 분류를 어디서 바꾸나) */}
+            {ctx.kind === 'model' && (
+              <button
+                type="button"
+                disabled={!tven && !tfam && !tgrp}
+                title="왼쪽 열에서 고른 벤더·제품군·모델그룹으로 옮깁니다"
+                onClick={() => {
+                  const name = ctx.name
+                  setCtx(null)
+                  void (async () => {
+                    const one = (v: string) => (v && v !== '\u0000none' ? v : '')
+                    try {
+                      const r = await apiFetch('/api/device-catalog2/classify', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          name,
+                          ...(tven ? { vendor: one(tven) } : {}),
+                          ...(tfam ? { family: one(tfam) } : {}),
+                          ...(tgrp ? { model_group: one(tgrp) } : {}),
+                        }),
+                      })
+                      const b = (await r.json().catch(() => ({}))) as { detail?: string }
+                      if (!r.ok) throw new Error(b.detail || '옮기지 못했습니다')
+                      refetch()
+                      setNote({ kind: 'ok', msg: `${name} 을(를) 옮겼습니다` })
+                    } catch (e) {
+                      setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) })
+                    }
+                  })()
+                }}
+              >
+                고른 분류로 옮기기
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -684,10 +720,7 @@ export default function DeviceCatalog({
               {col(
                 '모델그룹',
                 'group',
-                [
-                  ...(lists.group?.map((x) => ({ nm: x.name, n: nG(x.name) })) ?? []),
-                  { nm: '(미지정)', n: nG('') },
-                ],
+                lists.group?.map((x) => ({ nm: x.name, n: nG(x.name) })) ?? [],
                 tgrp,
                 setTgrp,
               )}

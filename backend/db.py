@@ -1199,6 +1199,40 @@ async def catalog_upsert(item: dict) -> None:
         )
 
 
+async def catalog_classify(name: str, fields: dict) -> None:
+    """모델의 분류(벤더·제품군·모델그룹)만 고친다.
+
+    `catalog_upsert` 는 줄을 통째로 바꿔서, 넘기지 않은 칸(인터페이스·사업자)
+    이 지워진다. 장비 편집 창은 그 칸들을 모르므로 여기서는 준 칸만 건드린다.
+    """
+    name = (name or "").strip()
+    if not name:
+        raise ValueError("모델명이 필요합니다")
+    cols = {
+        k: ((fields.get(k) or "").strip() or None)
+        for k in ("vendor", "family", "model_group", "operator", "interfaces")
+        if k in fields
+    }
+    if not cols:
+        return
+    keys = list(cols)
+    async with pool().acquire() as c:
+        sets = ", ".join(f"{k}=${i + 2}" for i, k in enumerate(keys))
+        r = await c.execute(
+            f"UPDATE device_catalog SET {sets} WHERE kind='model' AND name=$1",
+            name, *[cols[k] for k in keys],
+        )
+        if r.rsplit(" ", 1)[-1] != "0":
+            return
+        # 카탈로그에 아직 없던 모델이면 이 자리에서 만든다
+        await c.execute(
+            "INSERT INTO device_catalog (kind, name, " + ", ".join(keys) + ") "
+            "VALUES ('model', $1, " + ", ".join(f"${i + 2}" for i in range(len(keys))) + ") "
+            "ON CONFLICT (kind, name) DO NOTHING",
+            name, *[cols[k] for k in keys],
+        )
+
+
 async def catalog_rename(kind: str, old: str, new: str) -> None:
     """항목 이름 변경 — 그 이름을 쓰는 모델·장비까지 한 번에.
 

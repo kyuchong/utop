@@ -311,7 +311,9 @@ export default function DeviceForm({ editing, onClose }: Props) {
    */
   const pickModel = (name: string) => {
     const info = rolesQ.data?.model_info?.[name]
-    setMgrp(info?.model_group ?? '')
+    // 카탈로그가 아는 모델이면 그 분류를 따르고, 모르는 모델이면 사람이
+    // 골라 둔 그룹을 그대로 둔다 — 여기서 비우면 분류를 못 준다
+    if (info) setMgrp(info.model_group ?? '')
     setF((c) => ({
       ...c,
       model: name,
@@ -337,6 +339,27 @@ export default function DeviceForm({ editing, onClose }: Props) {
 
   const saveM = useMutation({
     mutationFn: async () => {
+      /* 모델그룹은 장비가 아니라 **모델**의 칸이다. 창에서 바꿨으면
+         카탈로그의 그 모델을 옮긴다(지적: 골라도 저장이 안 된다). */
+      const md = (f.model ?? '').trim()
+      const was = rolesQ.data?.model_info?.[md]?.model_group ?? ''
+      if (md && mgrp !== was) {
+        const r0 = await apiFetch('/api/device-catalog2/classify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: md,
+            model_group: mgrp,
+            ...(rolesQ.data?.model_info?.[md]
+              ? {}
+              : { vendor: f.vendor ?? '', family: f.role ?? '' }),
+          }),
+        })
+        const b0 = await r0.json().catch(() => ({}))
+        if (!r0.ok) throw new Error(b0.detail || '모델 분류를 저장하지 못했습니다')
+        void qc.invalidateQueries({ queryKey: ['device-catalog'] })
+        void qc.invalidateQueries({ queryKey: ['device-roles'] })
+      }
       const r = await apiFetch('/api/devices2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -465,19 +488,14 @@ export default function DeviceForm({ editing, onClose }: Props) {
               />
             </label>
             <label className="fld">
-              <span>모델그룹</span>
+              <span title="이 모델의 분류입니다 — 같은 모델 장비에 함께 적용됩니다">
+                모델그룹
+              </span>
               {/* 카탈로그 그룹만 — 손으로 치게 두면 표기가 갈린다.
                   고르면 모델명이 그 그룹으로 좁혀진다 */}
               <select
                 value={mgrp}
-                onChange={(e) => {
-                  const v = e.target.value
-                  setMgrp(v)
-                  // 지금 모델이 그 그룹 밖이면 비운다 — 어긋난 짝을 막는다
-                  const cur = f.model ?? ''
-                  if (v && cur && (rolesQ.data?.model_info?.[cur]?.model_group ?? '') !== v)
-                    set('model', '')
-                }}
+                onChange={(e) => setMgrp(e.target.value)}
               >
                 <option value="">(전체)</option>
                 {(rolesQ.data?.groups ?? []).map((g) => (
@@ -493,7 +511,10 @@ export default function DeviceForm({ editing, onClose }: Props) {
               <Combo
                 value={f.model ?? ''}
                 items={(rolesQ.data?.models ?? []).filter(
-                  (m) => !mgrp || (rolesQ.data?.model_info?.[m]?.model_group ?? '') === mgrp,
+                  (m) =>
+                    !mgrp ||
+                    m === (f.model ?? '') ||
+                    (rolesQ.data?.model_info?.[m]?.model_group ?? '') === mgrp,
                 )}
                 placeholder="E6100-48X"
                 onChange={(v) => pickModel(v)}
