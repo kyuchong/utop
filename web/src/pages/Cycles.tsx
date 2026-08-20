@@ -188,7 +188,10 @@ export interface ResDef {
   v: string
   label: string
   cls: string
+  /** 바탕색 — 설정 「실행 판정 기준」 */
   color?: string
+  /** 글자색 — 같은 자리에서 따로 고른다 */
+  fg?: string
   /** 집계 계열 — pass 는 통과로, fail 은 실패로 센다 */
   group: 'pass' | 'fail' | 'neutral' | 'none'
 }
@@ -213,7 +216,7 @@ function useResults(): ResDef[] {
     for (const i of codesQ.data?.items ?? []) {
       if (i.kind !== 'cycle_result') continue
       const val = i.value.trim()
-      let meta: { color?: string; group?: string } = {}
+      let meta: { color?: string; fg?: string; group?: string } = {}
       try {
         meta = JSON.parse(i.note || '{}') as typeof meta
       } catch {
@@ -225,11 +228,12 @@ function useResults(): ResDef[] {
       const at = base.findIndex((b) => b.v === val)
       if (at >= 0) {
         const cur = base[at]
-        if (cur && meta.color) base[at] = { ...cur, color: meta.color }
+        if (cur && (meta.color || meta.fg))
+          base[at] = { ...cur, color: meta.color ?? cur.color, fg: meta.fg ?? cur.fg }
         continue
       }
       if (!val) continue
-      base.push({ v: val, label: val, cls: 'custom', color: meta.color, group: g })
+      base.push({ v: val, label: val, cls: 'custom', color: meta.color, fg: meta.fg, group: g })
     }
     return base
   }, [codesQ.data])
@@ -1265,6 +1269,11 @@ export default function Cycles({ me }: PageProps) {
           '--c-blocked': resDefs.find((r) => r.v === 'Blocked')?.color || undefined,
           '--c-na': resDefs.find((r) => r.v === '진행불가')?.color || undefined,
           '--c-none': resDefs.find((r) => r.v === '')?.color || undefined,
+          '--vfg-pass': resDefs.find((r) => r.v === 'Pass')?.fg || undefined,
+          '--vfg-fail': resDefs.find((r) => r.v === 'Fail')?.fg || undefined,
+          '--vfg-wip': resDefs.find((r) => r.v === 'WIP')?.fg || undefined,
+          '--vfg-blocked': resDefs.find((r) => r.v === 'Blocked')?.fg || undefined,
+          '--vfg-na': resDefs.find((r) => r.v === '진행불가')?.fg || undefined,
         } as React.CSSProperties
       }
     >

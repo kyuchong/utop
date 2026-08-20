@@ -912,3 +912,4 @@
 .set-msg { padding: 7px 10px; border-radius: 8px; font-size: var(--fs-sm); margin-bottom: 10px; }
 .set-msg.ok { background: #dcfce7; color: #15803d; }
 .set-msg.err { background: #fee2e2; color: #b91c1c; }
+.vd-lb { font-size: var(--fs-xs); color: var(--c-text-muted); }

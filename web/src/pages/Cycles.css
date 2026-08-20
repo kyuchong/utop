@@ -6645,3 +6645,10 @@ table.tb td.k {
 .cxp-row.v-na { border-right-color: var(--c-na, #999); }
 .cxp-sumb .bar > s.p { background: var(--c-pass); }
 .cxp-sumb .bar > s.f { background: var(--c-fail); }
+
+/* 글자색도 설정에서 온다 — 바탕과 따로 고른다(지시) */
+.cxp-hist > i.hv-pass { color: var(--vfg-pass, color-mix(in srgb, var(--c-pass) 85%, #000)); }
+.cxp-hist > i.hv-fail { color: var(--vfg-fail, var(--c-fail)); }
+.cxp-hist > i.hv-wip { color: var(--vfg-wip, #a16207); }
+.cxp-hist > i.hv-blocked { color: var(--vfg-blocked, #b45309); }
+.cxp-hist > i.hv-na { color: var(--vfg-na, #64748b); }

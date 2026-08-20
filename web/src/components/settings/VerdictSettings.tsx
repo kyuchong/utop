@@ -24,13 +24,13 @@ interface Item {
 type Grp = 'pass' | 'fail' | 'neutral'
 
 /** 기본 여섯 — Cycles 화면의 RESULTS 와 같은 벌이다 */
-const BASE: Array<{ v: string; label: string; color: string; group: Grp }> = [
-  { v: 'Pass', label: 'Pass', color: '#16a34a', group: 'pass' },
-  { v: 'Fail', label: 'Fail', color: '#dc2626', group: 'fail' },
-  { v: 'WIP', label: 'WIP', color: '#f0b429', group: 'neutral' },
-  { v: 'Blocked', label: 'Blocked', color: '#e8820c', group: 'neutral' },
-  { v: '진행불가', label: '진행불가', color: '#8b93a1', group: 'neutral' },
-  { v: '', label: '미실행', color: '#c3cad4', group: 'neutral' },
+const BASE: Array<{ v: string; label: string; color: string; fg: string; group: Grp }> = [
+  { v: 'Pass', label: 'Pass', color: '#16a34a', fg: '#0a7a45', group: 'pass' },
+  { v: 'Fail', label: 'Fail', color: '#dc2626', fg: '#c22222', group: 'fail' },
+  { v: 'WIP', label: 'WIP', color: '#f0b429', fg: '#a16207', group: 'neutral' },
+  { v: 'Blocked', label: 'Blocked', color: '#e8820c', fg: '#b45309', group: 'neutral' },
+  { v: '진행불가', label: '진행불가', color: '#8b93a1', fg: '#64748b', group: 'neutral' },
+  { v: '', label: '미실행', color: '#c3cad4', fg: '#64748b', group: 'neutral' },
 ]
 
 const GRP_LB: Record<Grp, string> = {
@@ -39,12 +39,12 @@ const GRP_LB: Record<Grp, string> = {
   neutral: '그 밖 (합격률 제외)',
 }
 
-function metaOf(it?: Item): { color?: string; group?: Grp } {
+function metaOf(it?: Item): { color?: string; fg?: string; group?: Grp } {
   if (!it) return {}
   try {
-    const m = JSON.parse(it.note || '{}') as { color?: string; group?: string }
+    const m = JSON.parse(it.note || '{}') as { color?: string; fg?: string; group?: string }
     const g = m.group === 'pass' || m.group === 'fail' ? m.group : 'neutral'
-    return { color: m.color, group: g }
+    return { color: m.color, fg: m.fg, group: g }
   } catch {
     return {}
   }
@@ -54,6 +54,7 @@ export default function VerdictSettings() {
   const qc = useQueryClient()
   const [draft, setDraft] = useState('')
   const [dColor, setDColor] = useState('#7c4dff')
+  const [dFg, setDFg] = useState('#5b21b6')
   const [dGroup, setDGroup] = useState<Grp>('neutral')
   const [msg, setMsg] = useState<{ k: string; t: string }>({ k: '', t: '' })
 
@@ -78,7 +79,13 @@ export default function VerdictSettings() {
   }
 
   const save = useMutation({
-    mutationFn: async (p: { value: string; color?: string; group?: Grp; sort?: number }) => {
+    mutationFn: async (p: {
+      value: string
+      color?: string
+      fg?: string
+      group?: Grp
+      sort?: number
+    }) => {
       const r = await apiFetch('/api/codes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -86,7 +93,7 @@ export default function VerdictSettings() {
           kind: 'cycle_result',
           value: p.value,
           sort_order: p.sort ?? byVal.get(p.value)?.sort_order ?? 0,
-          note: JSON.stringify({ color: p.color, group: p.group ?? 'neutral' }),
+          note: JSON.stringify({ color: p.color, fg: p.fg, group: p.group ?? 'neutral' }),
         }),
       })
       const b = (await r.json().catch(() => ({}))) as { detail?: string }
@@ -143,7 +150,8 @@ export default function VerdictSettings() {
         <table className="vd-tbl">
           <thead>
             <tr>
-              <th>색</th>
+              <th>바탕색</th>
+              <th>글자색</th>
               <th>값</th>
               <th>집계 계열</th>
               <th className="r">쓰임</th>
@@ -154,18 +162,31 @@ export default function VerdictSettings() {
             {BASE.map((b) => {
               const m = metaOf(byVal.get(b.v))
               const color = m.color || b.color
+              const fg = m.fg || b.fg
               return (
                 <tr key={b.v || '_none'}>
-                  <td>{swatch(b.v, color, (c) => save.mutate({ value: b.v, color: c, group: b.group }))}</td>
                   <td>
-                    <i className="vd-chip" style={{ background: `${color}22`, color, borderColor: `${color}55` }}>
+                    {swatch(b.v, color, (c) =>
+                      save.mutate({ value: b.v, color: c, fg, group: b.group }),
+                    )}
+                  </td>
+                  <td>
+                    {swatch(`${b.v}-글자`, fg, (c) =>
+                      save.mutate({ value: b.v, color, fg: c, group: b.group }),
+                    )}
+                  </td>
+                  <td>
+                    <i
+                      className="vd-chip"
+                      style={{ background: `${color}22`, color: fg, borderColor: `${color}55` }}
+                    >
                       {b.label}
                     </i>
                   </td>
                   <td className="muted">{GRP_LB[b.group]}</td>
                   <td className="r muted">{byVal.get(b.v)?.used ?? '–'}</td>
                   <td className="r">
-                    {m.color && (
+                    {(m.color || m.fg) && (
                       <button
                         className="btn small"
                         type="button"
@@ -194,7 +215,8 @@ export default function VerdictSettings() {
           <table className="vd-tbl">
             <thead>
               <tr>
-                <th>색</th>
+                <th>바탕색</th>
+                <th>글자색</th>
                 <th>값</th>
                 <th>집계 계열</th>
                 <th className="r">쓰임</th>
@@ -206,12 +228,25 @@ export default function VerdictSettings() {
               {extra.map((it, i) => {
                 const m = metaOf(it)
                 const color = m.color || '#7c4dff'
+                const fg = m.fg || '#5b21b6'
                 const grp = m.group ?? 'neutral'
                 return (
                   <tr key={it.value}>
-                    <td>{swatch(it.value, color, (c) => save.mutate({ value: it.value, color: c, group: grp }))}</td>
                     <td>
-                      <i className="vd-chip" style={{ background: `${color}22`, color, borderColor: `${color}55` }}>
+                      {swatch(it.value, color, (c) =>
+                        save.mutate({ value: it.value, color: c, fg, group: grp }),
+                      )}
+                    </td>
+                    <td>
+                      {swatch(`${it.value}-글자`, fg, (c) =>
+                        save.mutate({ value: it.value, color, fg: c, group: grp }),
+                      )}
+                    </td>
+                    <td>
+                      <i
+                        className="vd-chip"
+                        style={{ background: `${color}22`, color: fg, borderColor: `${color}55` }}
+                      >
                         {it.value}
                       </i>
                     </td>
@@ -219,7 +254,7 @@ export default function VerdictSettings() {
                       <select
                         value={grp}
                         onChange={(e) =>
-                          save.mutate({ value: it.value, color, group: e.target.value as Grp })
+                          save.mutate({ value: it.value, color, fg, group: e.target.value as Grp })
                         }
                       >
                         {(['pass', 'fail', 'neutral'] as Grp[]).map((g) => (
@@ -236,7 +271,15 @@ export default function VerdictSettings() {
                         type="button"
                         disabled={i === 0}
                         title="위로"
-                        onClick={() => save.mutate({ value: it.value, color, group: grp, sort: (it.sort_order ?? 0) - 1 })}
+                        onClick={() =>
+                          save.mutate({
+                            value: it.value,
+                            color,
+                            fg,
+                            group: grp,
+                            sort: (it.sort_order ?? 0) - 1,
+                          })
+                        }
                       >
                         ▲
                       </button>{' '}
@@ -245,7 +288,15 @@ export default function VerdictSettings() {
                         type="button"
                         disabled={i === extra.length - 1}
                         title="아래로"
-                        onClick={() => save.mutate({ value: it.value, color, group: grp, sort: (it.sort_order ?? 0) + 1 })}
+                        onClick={() =>
+                          save.mutate({
+                            value: it.value,
+                            color,
+                            fg,
+                            group: grp,
+                            sort: (it.sort_order ?? 0) + 1,
+                          })
+                        }
                       >
                         ▼
                       </button>
@@ -288,7 +339,13 @@ export default function VerdictSettings() {
             placeholder="값 (화면에 그대로 보입니다 — 예: 조건부 합격)"
             onChange={(e) => setDraft(e.target.value)}
           />
+          <label className="vd-lb">바탕</label>
           {swatch('new', dColor, setDColor)}
+          <label className="vd-lb">글자</label>
+          {swatch('new-fg', dFg, setDFg)}
+          <i className="vd-chip" style={{ background: `${dColor}22`, color: dFg, borderColor: `${dColor}55` }}>
+            {draft.trim() || '미리 보기'}
+          </i>
           <select value={dGroup} onChange={(e) => setDGroup(e.target.value as Grp)}>
             {(['pass', 'fail', 'neutral'] as Grp[]).map((g) => (
               <option key={g} value={g}>
@@ -307,7 +364,7 @@ export default function VerdictSettings() {
                 setMsg({ k: 'err', t: '이미 있는 값입니다' })
                 return
               }
-              save.mutate({ value: v, color: dColor, group: dGroup, sort: extra.length + 1 })
+              save.mutate({ value: v, color: dColor, fg: dFg, group: dGroup, sort: extra.length + 1 })
               setDraft('')
             }}
           >
