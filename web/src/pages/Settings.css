@@ -1000,74 +1000,89 @@
 .set-nav-grp + .set-nav-grp { margin-top: 10px; padding-top: 8px; }
 .set-nav-grpt { padding: 0 12px 4px; }
 
-/* ── 장비 카탈로그 · 트리(지시) — LAB › 벤더 › 사업자 › 제품군 › 모델그룹 ── */
-.dc2-tree { display: flex; gap: 12px; min-height: 0; flex: 1; }
-.dct {
-  flex: 0 0 300px;
-  min-width: 0;
-  overflow: auto;
+/* ── 장비 카탈로그 · 칸 옮겨 좁히기(주신 화면 참고) ───────────────
+   LAB 알약 → 벤더 › 제품군 › 모델그룹 › 모델. 칸마다 그 자리에서 더한다. */
+.dc2-tree { display: flex; flex-direction: column; gap: 10px; min-height: 0; flex: 1; }
+.dcc-labs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.dcc-lab {
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.dcc-lab > em { font-style: normal; color: var(--c-text-faint); margin-left: 4px; }
+.dcc-lab.on { background: var(--c-primary-bg); border-color: var(--c-primary); color: var(--c-primary); font-weight: 700; }
+.dcc-cols { display: grid; grid-template-columns: 200px 180px 210px minmax(0, 1fr); gap: 10px; min-height: 0; flex: 1; }
+.dcc {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: var(--r-box, 10px);
-  padding: 8px;
-}
-.dct-h {
-  font-size: var(--fs-xs);
-  color: var(--c-text-faint);
-  padding: 2px 4px 8px;
-  border-bottom: 1px solid var(--c-border-soft);
-  margin-bottom: 6px;
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
-.dct-n { min-width: 0; }
-.dct-r { display: flex; align-items: center; gap: 2px; border-radius: 6px; }
-.dct-r.on { background: var(--c-primary-bg); }
-.dct-x {
-  flex: none;
-  width: 18px;
-  height: 22px;
-  border: 0;
-  background: transparent;
-  color: var(--c-text-faint);
-  font-size: 10px;
-  cursor: pointer;
-  padding: 0;
+.dcc-h {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface-alt);
 }
-.dct-b {
-  flex: 1;
-  min-width: 0;
+.dcc-h .sp { flex: 1; }
+.dcc-h > b { font-size: var(--fs-sm); }
+.dcc-add { padding: 6px 8px; border-bottom: 1px solid var(--c-border-soft); }
+.dcc-add > input { width: 100%; height: 26px; font-size: var(--fs-sm); }
+.dcc-b { flex: 1; min-height: 0; overflow: auto; padding: 4px; }
+.dcc-r {
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
   border: 0;
   background: transparent;
   font: inherit;
   font-size: var(--fs-sm);
-  color: var(--c-text);
   text-align: left;
-  padding: 3px 6px;
-  border-radius: 6px;
+  padding: 5px 8px;
+  border-radius: 7px;
   cursor: pointer;
-  white-space: nowrap;
+}
+.dcc-r:hover { background: var(--c-surface-alt); }
+.dcc-r.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
+.dcc-r > em { margin-left: auto; font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.dcc-none { padding: 10px; color: var(--c-text-faint); font-size: var(--fs-xs); }
+.dcc-m {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px minmax(120px, 240px) 64px 52px;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--c-border-soft);
+  font-size: var(--fs-sm);
+}
+.dcc-m:hover { background: var(--c-surface-alt); }
+.dcc-op select { width: 100%; height: 24px; font-size: var(--fs-xs); }
+.dcc-if {
+  border: 1px dashed var(--c-border);
+  background: transparent;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  cursor: pointer;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.dct-b:hover { background: var(--c-surface-alt); }
-.dct-r.on .dct-b { color: var(--c-primary); font-weight: 700; }
-.dct-b > em {
-  margin-left: auto;
-  font-style: normal;
-  font-size: var(--fs-xs);
-  color: var(--c-text-faint);
+.dcc-if:hover { border-style: solid; color: var(--c-primary); border-color: var(--c-primary); }
+.dcc-used { text-align: right; }
+@media (max-width: 1400px) {
+  .dcc-cols { grid-template-columns: 170px 150px 180px minmax(0, 1fr); }
 }
-.dct-list { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
-.dct-listh {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 0 2px 8px;
-}
-.dct-listh .sp { flex: 1; }
-.dct-listh > b { font-size: 15px; }

@@ -50,9 +50,11 @@ export default function DeviceCatalog() {
     setView(v)
     localStorage.setItem('utop.dc.view', v)
   }
-  /** 트리에서 고른 자리 — 「LAB/벤더/사업자/제품군/모델그룹」 경로(지시) */
-  const [tsel, setTsel] = useState('')
-  const [tshut, setTshut] = useState<Set<string>>(new Set())
+  /** 트리에서 고른 자리 — LAB(거르개) · 벤더 › 제품군 › 모델그룹 */
+  const [tlab, setTlab] = useState('')
+  const [tven, setTven] = useState('')
+  const [tfam, setTfam] = useState('')
+  const [tgrp, setTgrp] = useState('')
   /** 새 모델 줄 */
   const [draft, setDraft] = useState<Item>(EMPTY_MODEL)
   /** 분류마다 새 이름 입력칸 */
@@ -277,155 +279,189 @@ export default function DeviceCatalog() {
 
       {note.msg && <div className={`set-note ${note.kind}`}>{note.msg}</div>}
 
-      {/* ── 트리 — LAB › 벤더 › 사업자 › 제품군 › 모델그룹 › 모델(지시) ──
-          층을 누르면 **그 아래 모델만** 오른쪽에 선다. 모델 한 줄마다 네
-          고르개를 따로 채우던 것을 걷어낸 자리다. */}
+      {/* ── 트리 — **칸을 옮겨 가며 좁힌다**(주신 화면 참고) ─────────
+          벤더 › 제품군 › 모델그룹 › 모델. 위에 LAB 알약을 두어 그 랩에 있는
+          것만 볼 수 있다(LAB 은 장비가 들고 있는 값이라 읽기만 한다).
+          모델을 그 자리에서 더하면 **왼쪽에서 고른 값이 저절로 붙는다** —
+          고르개 넷을 따로 채우던 일이 사라진다. */}
       {view === 'tree' && (() => {
-        const LV = ['lab', 'vendor', 'operator', 'family', 'group'] as const
-        const LVN: Record<string, string> = {
-          lab: 'LAB',
-          vendor: '벤더',
-          operator: '사업자',
-          family: '제품군',
-          group: '모델그룹',
-        }
-        /** 모델 한 건이 놓이는 자리들 — LAB 이 여럿이면 그 수만큼 선다 */
-        const keyOf = (m: Item, lab: string) => [
-          lab,
-          String(m.vendor ?? '').trim() || '(벤더 없음)',
-          String(m.operator ?? '').trim() || '(사업자 없음)',
-          String(m.family ?? '').trim() || '(제품군 없음)',
-          String(m.model_group ?? '').trim() || '(모델그룹 없음)',
-        ]
-        const rows: Array<{ m: Item; path: string[] }> = []
-        for (const m of models) {
-          const labs = [...(labsOfModel.get(m.name) ?? new Set(['(미배치)']))]
-          for (const lb of labs) rows.push({ m, path: keyOf(m, lb) })
-        }
-        /** 경로 한 줄 밑에 걸린 모델(겹치면 한 번만) */
-        const under = (pre: string[]) => {
-          const seen = new Set<string>()
-          const out: Item[] = []
-          for (const r of rows) {
-            if (pre.some((v, i) => r.path[i] !== v)) continue
-            if (seen.has(r.m.name)) continue
-            seen.add(r.m.name)
-            out.push(r.m)
-          }
-          return out
-        }
-        const kids = (pre: string[]) => {
-          const at = pre.length
-          const m = new Map<string, number>()
-          for (const r of rows) {
-            if (pre.some((v, i) => r.path[i] !== v)) continue
-            const k = r.path[at]
-            if (k === undefined) continue
-            m.set(k, (m.get(k) ?? 0) + 1)
-          }
-          return [...m.keys()].sort((a, b) => a.localeCompare(b, 'ko'))
-        }
-        const sel = tsel ? tsel.split('\u0001') : []
-        const shown = under(sel)
-
-        const Node = ({ pre }: { pre: string[] }) => {
-          const key = pre.join('\u0001')
-          const open = !tshut.has(key)
-          const at = pre.length
-          const ks = open && at < LV.length ? kids(pre) : []
-          const n = under(pre).length
-          return (
-            <div className="dct-n" style={{ paddingLeft: at ? 12 : 0 }}>
-              <div className={`dct-r${tsel === key ? ' on' : ''}`}>
-                {at < LV.length ? (
-                  <button
-                    type="button"
-                    className="dct-x"
-                    title={open ? '접기' : '펼치기'}
-                    onClick={() =>
-                      setTshut((v) => {
-                        const s2 = new Set(v)
-                        if (s2.has(key)) s2.delete(key)
-                        else s2.add(key)
-                        return s2
-                      })
-                    }
-                  >
-                    {open ? '▾' : '▸'}
-                  </button>
-                ) : (
-                  <span className="dct-x" />
-                )}
-                <button type="button" className="dct-b" onClick={() => setTsel(key)}>
-                  {at === 0 ? '전체' : pre[at - 1]}
-                  <em>{n}</em>
-                </button>
-              </div>
-              {open &&
-                ks.map((k) => <Node key={k} pre={[...pre, k]} />)}
+        const norm = (v?: string | null) => String(v ?? '').trim()
+        const inLab = (m: Item) =>
+          !tlab || (labsOfModel.get(m.name) ?? new Set()).has(tlab)
+        const labs = [...new Set([...labsOfModel.values()].flatMap((x) => [...x]))].sort((a2, b2) =>
+          a2.localeCompare(b2, 'ko'),
+        )
+        const pool = models.filter(inLab)
+        const nV = (v: string) => pool.filter((m) => norm(m.vendor) === v).length
+        const nF = (f: string) =>
+          pool.filter((m) => norm(m.vendor) === tven && norm(m.family) === f).length
+        const nG = (g: string) =>
+          pool.filter(
+            (m) =>
+              norm(m.vendor) === tven &&
+              (!tfam || norm(m.family) === tfam) &&
+              norm(m.model_group) === g,
+          ).length
+        const shown = pool.filter(
+          (m) =>
+            (!tven || norm(m.vendor) === tven) &&
+            (!tfam || norm(m.family) === tfam) &&
+            (!tgrp || norm(m.model_group) === (tgrp === '(미지정)' ? '' : tgrp)),
+        )
+        const col = (
+          title: string,
+          kind: string,
+          items: Array<{ nm: string; n: number }>,
+          sel: string,
+          pick: (v: string) => void,
+        ) => (
+          <div className="dcc">
+            <div className="dcc-h">
+              <b>{title}</b>
+              <span className="muted small">{items.length}</span>
             </div>
-          )
-        }
+            <div className="dcc-add">
+              <input
+                value={adds[`t:${kind}`] ?? ''}
+                placeholder={`${title} 추가`}
+                onChange={(e) => setAdds((v) => ({ ...v, [`t:${kind}`]: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return
+                  const nm = (adds[`t:${kind}`] ?? '').trim()
+                  if (!nm) return
+                  saveM.mutate({ kind, name: nm })
+                  setAdds((v) => ({ ...v, [`t:${kind}`]: '' }))
+                }}
+              />
+            </div>
+            <div className="dcc-b">
+              {items.map((x) => (
+                <button
+                  key={x.nm}
+                  type="button"
+                  className={`dcc-r${sel === x.nm ? ' on' : ''}`}
+                  onClick={() => pick(sel === x.nm ? '' : x.nm)}
+                >
+                  <span className="ell">{x.nm}</span>
+                  <em>{x.n}</em>
+                </button>
+              ))}
+              {items.length === 0 && <div className="dcc-none">없습니다</div>}
+            </div>
+          </div>
+        )
 
         return (
           <div className="dc2-tree">
-            <aside className="dct">
-              <div className="dct-h">
-                {LV.map((k, i) => (
-                  <span key={k}>
-                    {i ? ' › ' : ''}
-                    {LVN[k]}
-                  </span>
-                ))}
-              </div>
-              <Node pre={[]} />
-            </aside>
-            <section className="dct-list">
-              <div className="dct-listh">
-                <b>{sel.length ? sel[sel.length - 1] : '전체'}</b>
-                <span className="muted small">
-                  {sel.length ? `${LVN[LV[sel.length - 1] ?? 'lab']} · ` : ''}모델 {shown.length}개
-                </span>
-                <span className="sp" />
-                {sel.length > 0 && (
+            <div className="dcc-labs">
+              <span className="muted small">LAB</span>
+              <button
+                type="button"
+                className={`dcc-lab${tlab ? '' : ' on'}`}
+                onClick={() => setTlab('')}
+              >
+                전체 <em>{models.length}</em>
+              </button>
+              {labs.map((lb) => (
+                <button
+                  key={lb}
+                  type="button"
+                  className={`dcc-lab${tlab === lb ? ' on' : ''}`}
+                  onClick={() => setTlab(tlab === lb ? '' : lb)}
+                >
+                  {lb}{' '}
+                  <em>{models.filter((m) => (labsOfModel.get(m.name) ?? new Set()).has(lb)).length}</em>
+                </button>
+              ))}
+            </div>
+
+            <div className="dcc-cols">
+              {col(
+                '벤더',
+                'vendor',
+                lists.vendor?.map((x) => ({ nm: x.name, n: nV(x.name) })) ?? [],
+                tven,
+                (v) => {
+                  setTven(v)
+                  setTfam('')
+                  setTgrp('')
+                },
+              )}
+              {col(
+                '제품군',
+                'family',
+                lists.family?.map((x) => ({ nm: x.name, n: nF(x.name) })) ?? [],
+                tfam,
+                (v) => {
+                  setTfam(v)
+                  setTgrp('')
+                },
+              )}
+              {col(
+                '모델그룹',
+                'group',
+                [
+                  ...(lists.group?.map((x) => ({ nm: x.name, n: nG(x.name) })) ?? []),
+                  { nm: '(미지정)', n: nG('') },
+                ],
+                tgrp,
+                setTgrp,
+              )}
+
+              <div className="dcc dcc-models">
+                <div className="dcc-h">
+                  <b>모델</b>
+                  <span className="muted small">{shown.length}</span>
+                  <span className="sp" />
                   <span className="muted small">
-                    {sel.map((v, i) => `${LVN[LV[i] ?? 'lab']} ${v}`).join(' › ')}
+                    {[tlab, tven, tfam, tgrp].filter(Boolean).join(' · ') || '전체'}
                   </span>
-                )}
-              </div>
-              <div className="dc-tbl dc2-models">
-                <div className="dc-tr dc-th">
-                  <span>사업자</span>
-                  <span>벤더</span>
-                  <span>제품군</span>
-                  <span>모델그룹</span>
-                  <span>모델명</span>
-                  <span>기본 인터페이스</span>
-                  <span>쓰임</span>
-                  <span />
                 </div>
-                {shown.length === 0 ? (
-                  <div className="empty">이 자리에 걸린 모델이 없습니다.</div>
-                ) : (
-                  shown.map((it) => (
-                    <div className="dc-tr" key={it.name}>
-                      {cellSelect(it, 'operator', 'operator')}
-                      {cellSelect(it, 'vendor', 'vendor')}
-                      {cellSelect(it, 'family', 'family')}
-                      {cellSelect(it, 'model_group', 'group')}
-                      <b className="dc-name" title={it.name}>
-                        {it.name}
-                      </b>
-                      <button
-                        type="button"
-                        className="dc2-if dc2-ifbtn"
-                        title={`${it.interfaces || '(없음)'} — 누르면 크게 편집`}
-                        onClick={() => setIfEdit({ model: it, text: it.interfaces ?? '' })}
-                      >
-                        {it.interfaces || '–'}
-                      </button>
-                      <span className="muted small">{it.used ? `${it.used}대` : '–'}</span>
-                      <span className="dc-actions">
+                <div className="dcc-add">
+                  <input
+                    value={adds['t:model'] ?? ''}
+                    placeholder={
+                      tven
+                        ? `모델 추가 — ${[tven, tfam, tgrp].filter(Boolean).join(' · ')} 에 붙습니다`
+                        : '왼쪽에서 벤더를 먼저 고르세요'
+                    }
+                    disabled={!tven}
+                    onChange={(e) => setAdds((v) => ({ ...v, 't:model': e.target.value }))}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter') return
+                      const nm = (adds['t:model'] ?? '').trim()
+                      if (!nm || !tven) return
+                      /* 고른 자리를 그대로 물려준다(지시) — 넷을 다시 고를 일 없음 */
+                      saveM.mutate({
+                        kind: 'model',
+                        name: nm,
+                        vendor: tven,
+                        family: tfam || null,
+                        model_group: tgrp && tgrp !== '(미지정)' ? tgrp : null,
+                      })
+                      setAdds((v) => ({ ...v, 't:model': '' }))
+                    }}
+                  />
+                </div>
+                <div className="dcc-b">
+                  {shown.length === 0 ? (
+                    <div className="dcc-none">이 자리에 걸린 모델이 없습니다.</div>
+                  ) : (
+                    shown.map((it) => (
+                      <div className="dcc-m" key={it.name}>
+                        <b className="ell" title={it.name}>
+                          {it.name}
+                        </b>
+                        <span className="dcc-op">{cellSelect(it, 'operator', 'operator')}</span>
+                        <button
+                          type="button"
+                          className="dcc-if"
+                          title={`${it.interfaces || '(없음)'} — 누르면 크게 편집`}
+                          onClick={() => setIfEdit({ model: it, text: it.interfaces ?? '' })}
+                        >
+                          {it.interfaces || '＋ 인터페이스'}
+                        </button>
+                        <span className="muted small dcc-used">{it.used ? `장비 ${it.used}` : '–'}</span>
                         <button
                           className="btn small danger"
                           type="button"
@@ -436,12 +472,12 @@ export default function DeviceCatalog() {
                         >
                           삭제
                         </button>
-                      </span>
-                    </div>
-                  ))
-                )}
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
-            </section>
+            </div>
           </div>
         )
       })()}
