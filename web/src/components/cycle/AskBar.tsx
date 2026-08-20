@@ -811,7 +811,7 @@ export default function AskBar({ devices }: Props) {
   const takeTc = async (tcid: string, dev?: Device, tcModel?: string) => {
     /* 항목이 **모델을 확정한다**(지시). 그 모델의 장비가 한 대면 그대로 쓰고,
        여럿이면 그때 묻는다. 말에 모델이 있었으면 그것을 쓴다. */
-    let use = dev
+    let use = dev ?? usable.find((x) => x.id === devId)
     if (!use) {
       /* 항목이 공용(모델명 빈 칸)이면 **말에서 읽은 모델**을 쓴다(지적) —
          `??` 는 빈 글자에서 안 넘어가 전체 장비가 떴다. */
@@ -1195,9 +1195,8 @@ export default function AskBar({ devices }: Props) {
     /* General 은 **항목부터** 고른다(지시). 장비는 항목이 모델을 정한 뒤에
        묻는다 — 말에 모델이 있으면 그 모델 것만, 없으면 전체를 보여 준다. */
     if (mode === 'basic' && !draft) {
-      /* 말에 적힌 모델 이름 — **장비가 없어도** 읽는다(지적).
-         `candsOf` 는 그 모델 장비가 있을 때만 잡아, 랩에 없는 모델을 적으면
-         「모델 없음」 이 되어 남의 모델 항목이 통째로 떴다. */
+      /* 장비를 먼저 고른다(지시 사진) — 고른 장비가 **모델을 정하고**,
+         그 모델의 시험 항목만 이어서 보여 준다. */
       const known = [
         ...new Set([
           ...usable.map((d) => String(d.model ?? '').trim()),
@@ -1207,32 +1206,48 @@ export default function AskBar({ devices }: Props) {
       const low = said.toLowerCase()
       const inText = known
         .filter((m) => low.includes(m.toLowerCase()))
-        .sort((a, b) => b.length - a.length)[0]
-      const m0 = candsOf(said)?.model ?? inText ?? ''
+        .sort((a2, b2) => b2.length - a2.length)[0]
+      const hit0 = candsOf(said)
+      const m0 = hit0?.model ?? inText ?? ''
       setAskModel(m0)
-      setFlowLog((v) => [
-        ...v,
-        { s: 1, t: m0 ? `말에서 모델 ${m0} 을(를) 읽었습니다` : '말에 모델이 없어 전체에서 고릅니다' },
-      ])
+      const cands = m0
+        ? usable.filter((d) => String(d.model ?? '').trim().toLowerCase() === m0.toLowerCase())
+        : usable
+      if (cands.length === 0) {
+        setErr('쓸 수 있는 장비가 없습니다 — Devices 에서 먼저 등록해 주세요')
+        setFlowAt(0)
+        return
+      }
       await findLike(said, undefined)
-      /* **늘 모델부터** 고른다(지시) — 말에 모델이 있으면 그 카드가 위에
-         서고, 없으면 전부에서 고른다. 항목은 그 뒤에 고른다. */
+      if (cands.length === 1 && cands[0]) {
+        const d0 = cands[0]
+        setDevId(d0.id)
+        setAskModel(String(d0.model ?? m0))
+        setFlowLog((v) => [
+          ...v,
+          { s: 1, t: `보낼 장비 ${d0.ip} 확정 (한 대뿐)` },
+        ])
+        setFlowVals([
+          { k: '모델', v: String(d0.model ?? '') },
+          { k: '대상', v: d0.ip },
+        ])
+        setTcOnlyModel(true)
+        setTcFind('')
+        setTcPick(new Set())
+        const f0 = foldOf(said)
+        setTcFold(f0)
+        setTcOpen(openTo(f0))
+        setLikeAsk(true)
+        return
+      }
       setFlowLog((v) => [
         ...v,
-        { s: 1, t: m0 ? `말의 모델 ${m0} 을(를) 짚어 두고 고릅니다` : '어느 모델인지 먼저 고릅니다' },
+        { s: 1, t: m0 ? `${m0} 이(가) ${cands.length}대 — 어느 장비로 할지 고릅니다` : '어느 장비로 할지 고릅니다' },
       ])
-      setPickModelOpen(true)
-      return
-      setTcOnlyModel(!!m0)
-      /* 찾기 칸은 **비워 둔다**(지시) — 말에서 뽑은 낱말을 미리 넣어 두면
-         그것 말고는 안 보여, 목록을 훑을 수가 없었다. 트리 자리(아래
-         「SNMPv2 — n건」)로 좁히는 것으로 충분하다. */
-      setTcFind('')
-      setTcPick(new Set())
-      const fold0 = foldOf(said)
-      setTcFold(fold0)
-      setTcOpen(openTo(fold0))
-      setLikeAsk(true)
+      setPickSel(cands.find((d) => d.id === devId)?.id ?? cands[0]?.id ?? '')
+      setPickLab('')
+      setPickRack('')
+      setPickDev({ model: m0, cands })
       return
     }
 
@@ -2655,6 +2670,8 @@ export default function AskBar({ devices }: Props) {
                                   void makePlan(asked, d)
                                   return
                                 }
+                                setAskModel(String(d.model ?? ''))
+                                setTcOnlyModel(true)
                                 void findLike(asked, d).then(() => {
                                   setTcFind('')
                                   const fd = foldOf(asked)
@@ -2732,6 +2749,8 @@ export default function AskBar({ devices }: Props) {
                       void makePlan(asked, d2)
                       return
                     }
+                    setAskModel(String(d2?.model ?? pickDev.model ?? ''))
+                    setTcOnlyModel(true)
                     void findLike(asked, d2).then(() => {
                       setTcFind('')
                       const fd = foldOf(asked)
