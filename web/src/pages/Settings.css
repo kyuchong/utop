@@ -1381,3 +1381,14 @@ button.dcc-st:disabled { cursor: default; }
 .dcc-m2 > *:nth-child(n + 3):nth-child(-n + 8) { text-align: center; justify-self: center; }
 .dcc-m2 > .dcc-st { width: 100%; }
 .dcc-m2 .dv-cell { text-align: center; }
+
+/* 점유하면 줄이 두 줄로 늘어나던 것(지적) — 칸이 좁아 「시각·응답 없음」
+   이 아래로 접혔다. 이 화면에서는 시각을 감추고 한 줄로 못 박는다. */
+.dcc-mh,
+.dcc-m2 {
+  grid-template-columns: 152px 106px 56px 56px 56px 56px 52px 52px 48px 132px minmax(140px, auto);
+}
+.dcc-lk { flex-wrap: nowrap; white-space: nowrap; overflow: hidden; }
+.dcc-lk .lk { flex-wrap: nowrap; gap: 4px; min-width: 0; }
+.dcc-lk .lk-when { display: none; }
+.dcc-lk .status { overflow: hidden; text-overflow: ellipsis; }
