@@ -315,6 +315,20 @@ export default function Devices({ me }: Props) {
     () => (catQ.data?.items ?? []).filter((x) => x.kind === 'model').map((x) => x.name).sort((a, b) => a.localeCompare(b, 'ko')),
     [catQ.data],
   )
+  /** 분류 목록 — 카탈로그가 만든 사업자·벤더·모델그룹·제품군(지시) */
+  const catOpts = useMemo(() => {
+    const pick = (kind: string) =>
+      (catQ.data?.items ?? [])
+        .filter((x) => x.kind === kind)
+        .map((x) => x.name)
+        .sort((a, b) => a.localeCompare(b, 'ko'))
+    return {
+      operator: pick('operator'),
+      vendor: pick('vendor'),
+      model_group: pick('model_group'),
+      family: pick('family'),
+    }
+  }, [catQ.data])
   const catLabs = useMemo(
     () => (catQ.data?.items ?? []).filter((x) => x.kind === 'lab').map((x) => x.name).sort((a, b) => a.localeCompare(b, 'ko')),
     [catQ.data],
@@ -710,18 +724,25 @@ export default function Devices({ me }: Props) {
                 >
                   <EditCell
                     value={modelMeta.get(d.model ?? '')?.op || ''}
-                    title="두 번 누르면 고칩니다 — 모델 카탈로그가 정본입니다"
+                    opts={catOpts.operator}
+                    title="사업자 — 모델 카탈로그가 정본입니다"
                     onSave={(v) => void patchModel(d.model ?? '', { operator: v })}
                   />
-                  <EditCell value={d.vendor || ''} onSave={(v) => void patchDev(d, { vendor: v })} />
+                  <EditCell
+                    value={d.vendor || ''}
+                    opts={catOpts.vendor}
+                    title="벤더"
+                    onSave={(v) => void patchDev(d, { vendor: v })}
+                  />
                   <EditCell
                     value={d.role || ''}
-                    opts={DEV_ROLES}
+                    opts={catOpts.family.length ? catOpts.family : DEV_ROLES}
                     onSave={(v) => void patchDev(d, { role: v })}
                   />
                   <EditCell
                     value={modelMeta.get(d.model ?? '')?.group || ''}
-                    title="두 번 누르면 고칩니다 — 모델 카탈로그가 정본입니다"
+                    opts={catOpts.model_group}
+                    title="모델그룹 — 모델 카탈로그가 정본입니다"
                     onSave={(v) => void patchModel(d.model ?? '', { model_group: v })}
                   />
                   <EditCell
