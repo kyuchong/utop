@@ -6802,3 +6802,26 @@ table.tb td.k {
 @media (max-width: 1300px) {
   .ask-cols > .ask-pane + .ask-pane { width: 560px; }
 }
+
+/* ── 스텝 설정 판이 안 넓어지던 까닭 ─────────────────────────────
+   `.ask-cols > .ask-pane + .ask-pane` 로 걸었는데, 이 판의 **DOM 부모는
+   `.ask-two`** 다(`display:contents` 는 보이기만 평평하게 할 뿐 트리를
+   바꾸지 않는다). 그래서 옛 358px 규칙이 그대로 이겼다. 제 자리에 건다. */
+.ask-two > .ask-pane:last-child,
+.ask-two > .ask-stepdet,
+.ask-cols > .ask-pane + .ask-pane { flex: none; width: 900px; }
+@media (max-width: 1700px) {
+  .ask-two > .ask-pane:last-child,
+  .ask-two > .ask-stepdet,
+  .ask-cols > .ask-pane + .ask-pane { width: 760px; }
+}
+@media (max-width: 1500px) {
+  .ask-two > .ask-pane:last-child,
+  .ask-two > .ask-stepdet,
+  .ask-cols > .ask-pane + .ask-pane { width: 620px; }
+}
+@media (max-width: 1300px) {
+  .ask-two > .ask-pane:last-child,
+  .ask-two > .ask-stepdet,
+  .ask-cols > .ask-pane + .ask-pane { width: 480px; }
+}
