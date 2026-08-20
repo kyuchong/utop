@@ -458,9 +458,24 @@ export default function DeviceCatalog() {
                   <b>모델</b>
                   <span className="muted small">{shown.length}</span>
                   <span className="sp" />
-                  <span className="muted small">
-                    {[tlab, tven, tfam, tgrp].filter(Boolean).join(' · ') || '전체'}
-                  </span>
+                  {/* 제품군은 여기서도 고른다(지시) — 칸을 오가지 않게 */}
+                  <select
+                    className="dcc-fsel"
+                    value={tfam}
+                    title="제품군으로 좁히기"
+                    onChange={(e) => {
+                      setTfam(e.target.value)
+                      setTgrp('')
+                    }}
+                  >
+                    <option value="">제품군 전체</option>
+                    <option value={NONE}>미분류</option>
+                    {(lists.family ?? []).map((x) => (
+                      <option key={x.name} value={x.name}>
+                        {x.name} ({nF(x.name)})
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="dcc-add">
                   <input

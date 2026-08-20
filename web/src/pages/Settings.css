@@ -1123,3 +1123,12 @@
 @media (max-width: 1500px) {
   .dcc-cols { grid-template-columns: 130px 120px 140px minmax(0, 1fr); }
 }
+
+/* 4열 — 자료가 많으면 이 칸만 구른다(지시) */
+.dc2-tree { height: 100%; min-height: 0; }
+.dcc-cols { min-height: 0; height: 100%; }
+.dcc { min-height: 0; }
+.dcc-b { flex: 1; min-height: 0; overflow: auto; }
+.dcc-models .dcc-b { overflow: auto; }
+.set-page.dc2 { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.dcc-fsel { height: 24px; font-size: var(--fs-xs); max-width: 190px; }
