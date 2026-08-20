@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { gotoClick, gotoHref } from '@/api/goto'
-import { IconSettings } from '@/components/icons'
+import { IconSettings, IconTrash } from '@/components/icons'
 import { connParams } from '@/components/tc/device'
 import { runSteps } from '@/components/tc/runner'
 import { Fragment } from 'react'
@@ -1680,16 +1680,6 @@ export default function AskBar({ devices }: Props) {
           >
             ▭ {curDev ? `${curDev.model || curDev.name || ''} · ${curDev.ip}` : '장비를 고르세요'}
           </button>
-          {mode === 'basic' && (
-            <button
-              type="button"
-              className="btn small"
-              title="다른 시험으로 바꿉니다"
-              onClick={() => setLikeAsk(true)}
-            >
-              시험 바꾸기
-            </button>
-          )}
           {running ? (
             <button className="btn small" type="button" onClick={() => abortRef.current?.abort()}>
               ⏹ 멈추기
@@ -1710,14 +1700,16 @@ export default function AskBar({ devices }: Props) {
             </button>
           )}
           <button
-            className="btn small"
+            className="btn small ask-trash"
             type="button"
+            title="버리기 — 만든 절차를 지웁니다"
+            aria-label="버리기"
             onClick={() => {
               setDraft(null)
               setRan(null)
             }}
           >
-            버리기
+            <IconTrash />
           </button>
         </div>
         )}

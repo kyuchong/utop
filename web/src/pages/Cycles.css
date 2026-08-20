@@ -7248,3 +7248,14 @@ a.bc-cur:hover { text-decoration: underline; }
   min-width: 0;
 }
 .ask-devchip { flex: none; font-family: var(--font-mono); }
+
+/* 버리기 — 글자 대신 쓰레기통(지시). 무른 색이다가 올리면 붉어진다 */
+.ask-trash {
+  flex: none;
+  width: 30px;
+  padding: 0;
+  justify-content: center;
+  color: var(--c-text-faint);
+}
+.ask-trash:hover { color: var(--c-danger, #d64545); border-color: var(--c-danger, #d64545); }
+.ask-trash svg { width: 15px; height: 15px; }
