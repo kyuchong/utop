@@ -310,6 +310,22 @@ export default function Devices({ me }: Props) {
   const [roleFilter, setRoleFilter] = useState('')
   /** 칸별 거르개(여러 개 고르기) — 사업자·벤더·제품군·모델그룹·모델명·LAB */
   const [colF, setColF] = useState<Record<string, string[]>>({})
+  /** 보기 꼴 — 트리(기본) · 표(예전 것) */
+  const [layout, setLayout] = useState<'tree' | 'table'>(() =>
+    localStorage.getItem('utop.dev.layout') === 'table' ? 'table' : 'tree',
+  )
+  const pickLayout = (v: 'tree' | 'table') => {
+    setLayout(v)
+    localStorage.setItem('utop.dev.layout', v)
+  }
+  /** 왼쪽 트리에서 고른 자리 — 벤더 › 제품군 › 모델그룹 */
+  const [tv, setTv] = useState('')
+  const [tr, setTr] = useState('')
+  const [tg, setTg] = useState('')
+  /** 가운데 목록에서 고른 장비 · 구역·연결 거르개 */
+  const [pick, setPick] = useState('')
+  const [fLab, setFLab] = useState('')
+  const [fConn, setFConn] = useState('')
   const [form, setForm] = useState<Device | null | undefined>(undefined)
   const [bulk, setBulk] = useState(false)
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
@@ -629,8 +645,305 @@ export default function Devices({ me }: Props) {
         {msg.text && <div className={`dev-msg ${msg.kind}`}>{msg.text}</div>}
         {err && <div className="load-error">{(err as Error).message}</div>}
 
+        {/* 보기 꼴 고르개 — 트리(주신 화면 꼴) · 표(예전 것) */}
+        <div className="dev-lay seg" role="tablist">
+          {(
+            [
+              ['tree', '트리로 보기'],
+              ['table', '표로 보기'],
+            ] as const
+          ).map(([k, lb]) => (
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={layout === k}
+              className={`seg-btn${layout === k ? ' on' : ''}`}
+              onClick={() => pickLayout(k)}
+            >
+              {lb}
+            </button>
+          ))}
+        </div>
+
+        {layout === 'tree' && (() => {
+          const nrm = (v?: string | null) => String(v ?? '').trim()
+          const grpOf = (d: Device) => modelMeta.get(d.model ?? '')?.group || '(모델그룹 없음)'
+          const base = devices.filter((d) => {
+            if (fLab && nrm(d.lab) !== fLab) return false
+            if (fConn) {
+              const on = PROTO_COLS.some((p) => accOf(d, p)?.last_status === 'ok')
+              const ng = PROTO_COLS.some((p) => accOf(d, p)?.last_status === 'fail')
+              if (fConn === 'ok' && !on) return false
+              if (fConn === 'fail' && !ng) return false
+              if (fConn === 'none' && (on || ng)) return false
+            }
+            const n = q.trim().toLowerCase()
+            if (n && ![d.ip, d.model, d.vendor, d.lab, d.name].some((v) => (v ?? '').toLowerCase().includes(n)))
+              return false
+            return true
+          })
+          const rows = base.filter(
+            (d) =>
+              (!tv || nrm(d.vendor) === tv) &&
+              (!tr || nrm(d.role) === tr) &&
+              (!tg || grpOf(d) === tg),
+          )
+          const vends = [...new Set(base.map((d) => nrm(d.vendor) || '(벤더 없음)'))].sort()
+          const roles2 = (v: string) =>
+            [...new Set(base.filter((d) => nrm(d.vendor) === v).map((d) => nrm(d.role) || '(제품군 없음)'))].sort()
+          const grps = (v: string, r: string) =>
+            [
+              ...new Set(
+                base.filter((d) => nrm(d.vendor) === v && nrm(d.role) === r).map(grpOf),
+              ),
+            ].sort()
+          const labs = [...new Set(devices.map((d) => nrm(d.lab)).filter(Boolean))].sort()
+          const cur = devices.find((d) => d.id === pick) ?? rows[0]
+          const dot = (d: Device) => {
+            const on = PROTO_COLS.some((p) => accOf(d, p)?.last_status === 'ok')
+            const ng = PROTO_COLS.some((p) => accOf(d, p)?.last_status === 'fail')
+            return on ? 'ok' : ng ? 'ng' : 'un'
+          }
+          return (
+            <div className="dvt">
+              {/* ① 왼쪽 — 벤더 › 제품군 › 모델그룹 */}
+              <aside className="dvt-tree">
+                <button
+                  type="button"
+                  className={`dvt-n lv0${!tv ? ' on' : ''}`}
+                  onClick={() => {
+                    setTv('')
+                    setTr('')
+                    setTg('')
+                  }}
+                >
+                  전체 <em>{base.length}</em>
+                </button>
+                {vends.map((v) => (
+                  <div key={v}>
+                    <button
+                      type="button"
+                      className={`dvt-n lv1${tv === v && !tr ? ' on' : ''}`}
+                      onClick={() => {
+                        setTv(tv === v ? '' : v)
+                        setTr('')
+                        setTg('')
+                      }}
+                    >
+                      {v} <em>{base.filter((d) => nrm(d.vendor) === v).length}</em>
+                    </button>
+                    {tv === v &&
+                      roles2(v).map((r) => (
+                        <div key={r}>
+                          <button
+                            type="button"
+                            className={`dvt-n lv2${tr === r && !tg ? ' on' : ''}`}
+                            onClick={() => {
+                              setTr(tr === r ? '' : r)
+                              setTg('')
+                            }}
+                          >
+                            {r}{' '}
+                            <em>
+                              {base.filter((d) => nrm(d.vendor) === v && nrm(d.role) === r).length}
+                            </em>
+                          </button>
+                          {tr === r &&
+                            grps(v, r).map((g) => (
+                              <button
+                                key={g}
+                                type="button"
+                                className={`dvt-n lv3${tg === g ? ' on' : ''}`}
+                                onClick={() => setTg(tg === g ? '' : g)}
+                              >
+                                {g}{' '}
+                                <em>
+                                  {
+                                    base.filter(
+                                      (d) =>
+                                        nrm(d.vendor) === v && nrm(d.role) === r && grpOf(d) === g,
+                                    ).length
+                                  }
+                                </em>
+                              </button>
+                            ))}
+                        </div>
+                      ))}
+                  </div>
+                ))}
+              </aside>
+
+              {/* ② 가운데 — 그 자리의 장비만 */}
+              <section className="dvt-list">
+                <div className="dvt-f">
+                  <input
+                    className="dvt-q"
+                    placeholder="검색 — 모델 · IP · 구역 · 이름"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                  />
+                  <select className="cy-v" value={fConn} onChange={(e) => setFConn(e.target.value)}>
+                    <option value="">연결 상태: 전체</option>
+                    <option value="ok">연결됨</option>
+                    <option value="fail">실패</option>
+                    <option value="none">미확인</option>
+                  </select>
+                </div>
+                <div className="dvt-labs">
+                  <button
+                    type="button"
+                    className={`dvt-lab${fLab ? '' : ' on'}`}
+                    onClick={() => setFLab('')}
+                  >
+                    전체 <em>{devices.length}</em>
+                  </button>
+                  {labs.map((lb) => (
+                    <button
+                      key={lb}
+                      type="button"
+                      className={`dvt-lab${fLab === lb ? ' on' : ''}`}
+                      onClick={() => setFLab(fLab === lb ? '' : lb)}
+                    >
+                      {lb} <em>{devices.filter((d) => nrm(d.lab) === lb).length}</em>
+                    </button>
+                  ))}
+                </div>
+                <div className="dvt-rows">
+                  {rows.length === 0 ? (
+                    <div className="empty">이 자리에 장비가 없습니다.</div>
+                  ) : (
+                    rows.map((d) => (
+                      <button
+                        key={d.id}
+                        type="button"
+                        className={`dvt-r${cur?.id === d.id ? ' on' : ''}`}
+                        onClick={() => setPick(d.id)}
+                      >
+                        <i className={`dvt-dot ${dot(d)}`} aria-hidden="true" />
+                        <span className="muted small dvt-vd">{d.vendor || '–'}</span>
+                        <span className="dvt-rl">{d.role || '–'}</span>
+                        <span className="dvt-gp">{modelMeta.get(d.model ?? '')?.group || '–'}</span>
+                        <b className="dvt-md ell">{d.model || '(모델 없음)'}</b>
+                        <span className="dvt-ip">{d.ip}</span>
+                        <span className="dvt-lb muted small">{d.lab || '–'}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+                <div className="dvt-foot muted small">
+                  {rows.length}대 {rows.length !== devices.length && `· 전체 ${devices.length}`}
+                </div>
+              </section>
+
+              {/* ③ 오른쪽 — 고른 장비 */}
+              <aside className="dvt-det">
+                {!cur ? (
+                  <div className="empty">가운데에서 장비를 고르세요.</div>
+                ) : (
+                  <>
+                    <div className="dvt-deth">
+                      <b>{cur.model || cur.ip}</b>
+                      <span className="muted small">
+                        {[cur.vendor, cur.role, cur.lab].filter(Boolean).join(' · ')}
+                      </span>
+                      <span className="sp" />
+                      <button className="btn small" type="button" onClick={() => setForm(cur)}>
+                        편집 창
+                      </button>
+                    </div>
+                    <div className="dvt-card">
+                      <b>기본 정보</b>
+                      <div className="dvt-kv">
+                        <span>벤더</span>
+                        <EditCell
+                          value={cur.vendor || ''}
+                          opts={catOpts.vendor}
+                          onSave={(v) => void patchDev(cur, { vendor: v })}
+                        />
+                        <span>제품군</span>
+                        <EditCell
+                          value={cur.role || ''}
+                          opts={catOpts.family.length ? catOpts.family : DEV_ROLES}
+                          onSave={(v) => void patchDev(cur, { role: v })}
+                        />
+                        <span>모델명</span>
+                        <EditCell
+                          value={cur.model || ''}
+                          opts={catModels}
+                          onSave={(v) => void patchDev(cur, { model: v })}
+                        />
+                        <span>LAB</span>
+                        <EditCell
+                          value={cur.lab || ''}
+                          opts={catLabs}
+                          onSave={(v) => void patchDev(cur, { lab: v })}
+                        />
+                        <span>IP</span>
+                        <EditCell
+                          value={cur.ip || ''}
+                          cls="dev-name"
+                          onSave={(v) => void patchDev(cur, { ip: v.trim() })}
+                        />
+                      </div>
+                    </div>
+                    <div className="dvt-card">
+                      <b>접속 정보</b>
+                      <div className="dvt-acc">
+                        {PROTO_COLS.map((p) => (
+                          <ProtoCell
+                            key={p}
+                            access={accOf(cur, p)}
+                            busy={checking === cur.id + ':' + p}
+                            onCheck={() => checkM.mutate({ id: cur.id, protocol: p })}
+                          />
+                        ))}
+                      </div>
+                      <div className="dvt-kv">
+                        <span>SNMP RO</span>
+                        <EditCell
+                          value={String(snmpOf(cur)?.community ?? '')}
+                          onSave={(v) => void patchSnmp(cur, { ro: v })}
+                        />
+                        <span>SNMP RW</span>
+                        <EditCell
+                          value={String(
+                            ((snmpOf(cur)?.params as { community_rw?: string } | null) ?? {})
+                              .community_rw ?? '',
+                          )}
+                          onSave={(v) => void patchSnmp(cur, { rw: v })}
+                        />
+                      </div>
+                    </div>
+                    <div className="dvt-card">
+                      <b>인터페이스</b>
+                      <div className="muted small">
+                        {cur.if_count ?? cur.interfaces?.length ?? 0}개 — 자세한 것은 편집 창에서
+                        봅니다
+                      </div>
+                    </div>
+                    <div className="dvt-card">
+                      <b>사용 현황</b>
+                      <LockCell
+                        resourceId={cur.id}
+                        kind="device"
+                        lock={lockBy.get(cur.id) ?? lockBy.get(cur.ip)}
+                        me={me?.username}
+                        isAdmin={me?.role === '관리자'}
+                        onMessage={(kind, text) => setMsg({ kind, text })}
+                      />
+                    </div>
+                  </>
+                )}
+              </aside>
+            </div>
+          )
+        })()}
+
         {/* 제품군 탭. 드롭다운은 열어봐야 무엇이 있는지 알 수 있지만
             탭은 제품군 구성과 대수가 한눈에 보인다. */}
+        {layout === 'table' && (
+        <>
         <div className="dev-tabs">
           <div className="seg" role="tablist">
             <button
@@ -838,6 +1151,8 @@ export default function Devices({ me }: Props) {
           )}
         </div>
         </div>
+        </>
+        )}
       </section>
     </>
   )

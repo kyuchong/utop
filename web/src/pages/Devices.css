@@ -363,3 +363,117 @@ select.dv-cell { cursor: pointer; }
 }
 .dv-cell.view > i { font-style: normal; font-size: 9px; opacity: 0.35; margin-left: auto; }
 .dv-cell.view:hover > i { opacity: 0.7; }
+
+/* ── 장비 등록 · 트리로 보기(주신 화면 참고) ─────────────────────
+   왼쪽 벤더 › 제품군 › 모델그룹 · 가운데 그 자리의 장비 · 오른쪽 상세 */
+.dev-lay { margin: 0 0 8px; }
+.dvt {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr) 420px;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+.dvt-tree,
+.dvt-list,
+.dvt-det {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  min-height: 0;
+  overflow: auto;
+}
+.dvt-tree { padding: 6px; }
+.dvt-n {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--c-text);
+}
+.dvt-n:hover { background: var(--c-surface-alt); }
+.dvt-n.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
+.dvt-n > em { margin-left: auto; font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.dvt-n.lv1 { padding-left: 14px; }
+.dvt-n.lv2 { padding-left: 26px; }
+.dvt-n.lv3 { padding-left: 38px; font-size: var(--fs-xs); }
+
+.dvt-list { display: flex; flex-direction: column; overflow: hidden; }
+.dvt-f { display: flex; gap: 8px; padding: 8px; border-bottom: 1px solid var(--c-border-soft); }
+.dvt-q { flex: 1; height: 28px; }
+.dvt-labs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.dvt-lab {
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.dvt-lab > em { font-style: normal; color: var(--c-text-faint); margin-left: 3px; }
+.dvt-lab.on { background: var(--c-primary-bg); border-color: var(--c-primary); color: var(--c-primary); font-weight: 700; }
+.dvt-rows { flex: 1; min-height: 0; overflow: auto; }
+.dvt-r {
+  display: grid;
+  grid-template-columns: 10px 84px 58px 120px minmax(0, 1fr) 130px 88px;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+.dvt-r:hover { background: var(--c-surface-alt); }
+.dvt-r.on { background: var(--c-primary-bg); }
+.dvt-dot { width: 8px; height: 8px; border-radius: 50%; }
+.dvt-dot.ok { background: var(--c-pass); }
+.dvt-dot.ng { background: var(--c-fail); }
+.dvt-dot.un { background: var(--c-border); }
+.dvt-rl, .dvt-gp {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dvt-ip { font-weight: 700; }
+.dvt-foot { padding: 6px 10px; border-top: 1px solid var(--c-border); background: var(--c-surface-alt); }
+
+.dvt-det { padding: 10px; }
+.dvt-deth { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.dvt-deth > b { font-size: 15px; }
+.dvt-deth .sp { flex: 1; }
+.dvt-card {
+  border: 1px solid var(--c-border);
+  border-radius: 9px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.dvt-card > b { display: block; font-size: var(--fs-sm); margin-bottom: 8px; }
+.dvt-kv { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 6px 8px; align-items: center; }
+.dvt-kv > span { font-size: var(--fs-xs); color: var(--c-text-muted); }
+.dvt-acc { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
+@media (max-width: 1500px) {
+  .dvt { grid-template-columns: 210px minmax(0, 1fr) 360px; }
+}
