@@ -1060,31 +1060,8 @@ export default function AskBar({ devices }: Props) {
     return out
   }
 
-  /** 적은 말에서 모델 이름을 찾아 그 모델 장비들을 모은다 */
-  /**
-   * 말에서 **찾을 낱말**만 뽑는다 — 「E6100 SNMP 시험해줘」 면 `SNMP`.
-   *
-   * 장비 이름은 이미 위에서 장비를 짚는 데 썼고, 「시험해줘」 같은 군말은
-   * 항목 이름에 없다. 그대로 넣으면 한 건도 안 걸린다.
-   * 걸리는 항목이 없으면 빈 칸으로 둔다 — 빈 목록이 전체 목록보다 나쁘다.
-   */
-  const keyOf = (q: string, model?: string): string => {
-    let t = q
-    if (model) t = t.replace(new RegExp(model.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'ig'), ' ')
-    t = t
-      .replace(/시험\s*해\s*줘|시험해줘|시험\s*해\s*줄래|만들어\s*줘|알려\s*줘|보여\s*줘|해\s*줘|해줘|좀|시험|점검/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-    if (!t) return ''
-    const low = t.toLowerCase()
-    const anyHit = tcAll.some(
-      (x) =>
-        x.name.toLowerCase().includes(low) ||
-        x.tcid.toLowerCase().includes(low) ||
-        x.model.toLowerCase().includes(low),
-    )
-    return anyHit ? t : ''
-  }
+  /* 말에서 낱말을 뽑아 찾기 칸에 미리 넣던 `keyOf` 는 걷었다(지시) —
+     미리 걸러 두면 그 낱말 말고는 안 보여 목록을 훑을 수가 없었다. */
 
   const candsOf = (q: string): { model: string; cands: Device[] } | null => {
     const t = q.toLowerCase()
@@ -1129,7 +1106,10 @@ export default function AskBar({ devices }: Props) {
       ])
       await findLike(said, undefined)
       setTcOnlyModel(!!m0)
-      setTcFind(keyOf(said, m0))
+      /* 찾기 칸은 **비워 둔다**(지시) — 말에서 뽑은 낱말을 미리 넣어 두면
+         그것 말고는 안 보여, 목록을 훑을 수가 없었다. 트리 자리(아래
+         「SNMPv2 — n건」)로 좁히는 것으로 충분하다. */
+      setTcFind('')
       setTcPick(new Set())
       const fold0 = foldOf(said)
       setTcFold(fold0)
@@ -1208,7 +1188,7 @@ export default function AskBar({ devices }: Props) {
     }
     await findLike(said, dev)
     setTcOnlyModel(true)
-    setTcFind(keyOf(said, hit?.model))
+    setTcFind('')
     setTcPick(new Set())
     const fold = foldOf(said)
     setTcFold(fold)
