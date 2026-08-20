@@ -1659,6 +1659,7 @@ function CycleFolderSummary({
 }) {
   /** 기간 — 기본은 전체다. 90일로 자르면 지난 회차가 통째로 빠진다 */
   const [days, setDays] = useState(0)
+  const [mailOpen, setMailOpen] = useState(false)
   const from = useMemo(() => {
     if (!days) return ''
     const d = new Date()
@@ -1754,6 +1755,23 @@ function CycleFolderSummary({
           <option value={90}>최근 90일</option>
           <option value={180}>최근 180일</option>
         </select>
+        {/* 보고서는 두 갈래다(합의) — 인쇄(PDF) 와 메일. 자료는 같다 */}
+        <button
+          className="btn small"
+          type="button"
+          title="지금 보는 이 현황을 A4 한 장으로 인쇄합니다 — 인쇄 창에서 「PDF로 저장」"
+          onClick={() => window.print()}
+        >
+          보고서 PDF
+        </button>
+        <button
+          className="btn small"
+          type="button"
+          title="이 현황을 메일로 보냅니다"
+          onClick={() => setMailOpen(true)}
+        >
+          메일 보내기
+        </button>
       </div>
 
       {q.isLoading && <div className="empty">세는 중…</div>}
@@ -1897,6 +1915,117 @@ function CycleFolderSummary({
           </div>
         </>
       )}
+      {mailOpen && (
+        <CycleMailBox path={path} from={from} onClose={() => setMailOpen(false)} />
+      )}
+    </div>
+  )
+}
+
+/**
+ * 보고서 메일 — 보내기 전에 **그 모습 그대로** 보여 준다. 자료는 화면과
+ * 같은 집계(`/api/cycle/rollup`)이고, 지어 주는 일은 서버가 한다.
+ */
+function CycleMailBox({
+  path,
+  from,
+  onClose,
+}: {
+  path: string
+  from: string
+  onClose: () => void
+}) {
+  const [to, setTo] = useState('')
+  const [subject, setSubject] = useState('')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const pv = useQuery({
+    queryKey: ['cycle', 'rollup', 'preview', path, from, note],
+    queryFn: async () => {
+      const r = await apiFetch(
+        `/api/cycle/rollup/preview?path=${encodeURIComponent(path)}${
+          from ? `&date_from=${from}` : ''
+        }${note ? `&note=${encodeURIComponent(note)}` : ''}`,
+      )
+      if (!r.ok) throw new Error('미리 보기를 만들지 못했습니다')
+      return (await r.json()) as { subject: string; headline: string; html: string }
+    },
+  })
+
+  useEffect(() => {
+    if (pv.data?.subject && !subject) setSubject(pv.data.subject)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pv.data?.subject])
+
+  const send = async () => {
+    setBusy(true)
+    setMsg('')
+    try {
+      const r = await apiFetch('/api/cycle/rollup/mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path, date_from: from, to, subject, note }),
+      })
+      const b = (await r.json().catch(() => ({}))) as { detail?: string; to?: string[] }
+      if (!r.ok) throw new Error(b.detail || '보내지 못했습니다')
+      setMsg(`보냈습니다 — ${(b.to ?? []).join(', ')}`)
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="modal-back" onMouseDown={() => !busy && onClose()}>
+      <div className="modal cs-mail" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="modal-h">
+          <b>보고서 메일</b>
+          <span className="sp" />
+          <button className="btn small" type="button" onClick={onClose}>
+            닫기
+          </button>
+        </div>
+        <div className="cs-mail-b">
+          <label className="cs-mf">
+            <span>받는 사람</span>
+            <input
+              value={to}
+              placeholder="여러 명이면 쉼표로 — a@ubiquoss.com, b@ubiquoss.com"
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </label>
+          <label className="cs-mf">
+            <span>제목</span>
+            <input value={subject} onChange={(e) => setSubject(e.target.value)} />
+          </label>
+          <label className="cs-mf">
+            <span>한마디</span>
+            <input
+              value={note}
+              placeholder="맨 위에 노란 상자로 붙습니다 (비워 두면 안 붙습니다)"
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </label>
+          <div className="cs-mpv-h">보내질 모습</div>
+          <div className="cs-mpv" dangerouslySetInnerHTML={{ __html: pv.data?.html ?? '' }} />
+          {msg && <div className="cs-mmsg">{msg}</div>}
+        </div>
+        <div className="modal-f">
+          <span className="muted small">자료는 지금 보는 현황과 같습니다.</span>
+          <span className="sp" />
+          <button
+            className="btn primary"
+            type="button"
+            disabled={!to.trim() || busy}
+            onClick={() => void send()}
+          >
+            {busy ? '보내는 중…' : '보내기'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

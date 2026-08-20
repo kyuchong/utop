@@ -6731,3 +6731,34 @@ table.tb td.k {
   .cs-kpis { grid-template-columns: repeat(3, 1fr); }
   .cs-two { grid-template-columns: 1fr; }
 }
+
+/* ── 보고서 메일 창 ─────────────────────────────────────────── */
+.modal.cs-mail { width: min(860px, 94vw); max-height: 90vh; display: flex; flex-direction: column; }
+.cs-mail-b { padding: 12px 14px; overflow: auto; }
+.cs-mf { display: grid; grid-template-columns: 80px 1fr; gap: 10px; align-items: center; margin-bottom: 8px; }
+.cs-mf > span { font-size: var(--fs-sm); color: var(--c-text-muted); }
+.cs-mf > input { height: 30px; }
+.cs-mpv-h { font-size: var(--fs-xs); color: var(--c-text-faint); margin: 12px 0 6px; }
+.cs-mpv {
+  border: 1px solid var(--c-border);
+  border-radius: 9px;
+  background: #fff;
+  padding: 14px 16px;
+  max-height: 46vh;
+  overflow: auto;
+}
+.cs-mmsg { margin-top: 10px; font-size: var(--fs-sm); color: var(--c-primary); }
+
+/* ── 인쇄(PDF) — 이 현황만 A4 한 장으로(합의) ─────────────────
+   화면 것을 그대로 찍는다. 새 화면을 따로 만들지 않는 까닭이다. */
+@media print {
+  @page { size: A4; margin: 12mm; }
+  body { background: #fff; }
+  .sidebar, .rq-crumbbar, .cy-tree, .cy-fold, .modal-back, .set-nav { display: none !important; }
+  .cs-hd .btn, .cs-hd select { display: none !important; }
+  .cs { overflow: visible !important; height: auto !important; }
+  .cs-kpi, .cs-pan, .cs-row { break-inside: avoid; }
+  .cs-two { grid-template-columns: 1.1fr 1fr !important; }
+  .panel, .cs-pan, .cs-kpi { box-shadow: none !important; }
+  .cs-tbl { font-size: 11px; }
+}

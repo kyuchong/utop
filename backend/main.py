@@ -6842,13 +6842,7 @@ async def _ru_groups() -> dict:
     return g
 
 
-@app.get("/api/cycle/rollup")
-async def cycle_rollup(
-    path: str = _RU_ROOT,
-    date_from: str = "",
-    date_to: str = "",
-    request: Request = None,
-):
+async def _rollup(path: str = _RU_ROOT, date_from: str = "", date_to: str = "") -> dict:
     """
     폴더 한 층의 현황. 프리뷰의 KPI·막대·표·추이가 모두 이 하나를 쓴다.
 
@@ -6860,7 +6854,6 @@ async def cycle_rollup(
     합격률은 **합격 ÷ (합격+실패)** 다 — 실행한 것 중 합격 비율.
     미실행이 얼마나 남았는지는 진척률(실행/전체)이 따로 말한다.
     """
-    _ = request
     base = str(path or _RU_ROOT).strip().strip("/") or _RU_ROOT
     metas = await db.cycle_list_meta()
     cat = await db.catalog_list("model")
@@ -6948,6 +6941,120 @@ async def cycle_rollup(
             for _k, v in sorted(trend.items())
         ],
     }
+
+
+@app.get("/api/cycle/rollup")
+async def cycle_rollup_get(path: str = _RU_ROOT, date_from: str = "", date_to: str = ""):
+    """폴더 한 층의 현황 — 화면(KPI·막대·추이·표)이 이 하나를 쓴다."""
+    return await _rollup(path, date_from, date_to)
+
+
+# ───────────────────────────────────────────
+# 보고서 — 같은 집계를 **한 장**으로. PDF 는 화면이 인쇄로 뽑고(같은 그림),
+# 메일은 여기서 HTML 로 지어 보낸다. 두 갈래 다 같은 자료다.
+# ───────────────────────────────────────────
+def _rp_headline(r: dict) -> str:
+    """메일 첫 문단 — 그대로 읽어도 말이 되게(회차 요약 헤드라인과 같은 결)"""
+    t = r["totals"]
+    nm = r["path"].split("/")[-1] or "Root"
+    left = t["n"] - t["none"]
+    s2 = (f"{nm} 시험 현황입니다. 항목 {t['n']}건 가운데 {left}건을 실행해 "
+          f"진척 {t['progress']}%, 합격률 {t['pass_rate']}% (합격 {t['pass']} · 실패 {t['fail']}) 입니다.")
+    if t["none"]:
+        s2 += f" 아직 {t['none']}건이 남아 있습니다."
+    if t["open_defects"]:
+        s2 += f" 열린 결함은 {t['open_defects']}건입니다."
+    if t["last_run"]:
+        s2 += f" 마지막 실행은 {t['last_run']} 입니다."
+    return s2
+
+
+def _rp_html(r: dict, note: str = "") -> str:
+    t = r["totals"]
+    nm = r["path"].split("/")[-1] or "Root"
+    kid_lb = {"root": "사업자", "operator": "제품군", "family": "모델그룹",
+              "model_group": "모델명", "model": "버전그룹",
+              "version_group": "회차"}.get(r["level"], "하위")
+
+    def bar(x: dict) -> str:
+        n = max(1, x["n"])
+        seg = [("#16a34a", x["pass"]), ("#dc2626", x["fail"]),
+               ("#f0b429", x["other"]), ("#c3cad4", x["none"])]
+        cells = "".join(
+            f'<td width="{round(v / n * 100)}%" bgcolor="{c}" style="height:8px;font-size:0;line-height:0">&nbsp;</td>'
+            for c, v in seg if v
+        )
+        return f'<table width="150" cellpadding="0" cellspacing="0" style="border-radius:4px;overflow:hidden"><tr>{cells}</tr></table>'
+
+    if r["level"] == "version_group":
+        head = ["회차", "버전", "항목", "진행", "합격률"]
+        body = "".join(
+            f"<tr><td>{c.get('cid') or c.get('id')}</td><td>{c.get('version') or c.get('name') or '–'}</td>"
+            f"<td align=right>{c['n']}</td><td>{bar(c)}</td>"
+            f"<td align=right><b>{round(c['pass'] / (c['pass'] + c['fail']) * 100) if (c['pass'] + c['fail']) else 0}%</b></td></tr>"
+            for c in r["cycles"]
+        )
+    else:
+        head = [kid_lb, "회차", "항목", "진행", "합격률"]
+        body = "".join(
+            f"<tr><td>{k['key']}</td><td align=right>{k['cycles']}</td><td align=right>{k['n']}</td>"
+            f"<td>{bar(k)}</td><td align=right><b>{k['pass_rate']}%</b></td></tr>"
+            for k in r["children"]
+        )
+
+    kpi = "".join(
+        f'<td style="padding:8px 12px;border:1px solid #e3e8ef;border-radius:8px">'
+        f'<div style="font-size:11px;color:#9ca3af">{lb}</div>'
+        f'<div style="font-size:19px;font-weight:700;color:{col}">{val}</div></td>'
+        for lb, val, col in [
+            ("합격률", f"{t['pass_rate']}%", "#16a34a" if t["pass_rate"] >= 80 else ("#dc2626" if t["pass_rate"] < 50 else "#1f2937")),
+            ("진척률", f"{t['progress']}%", "#1f2937"),
+            ("시험 항목", t["n"], "#1f2937"),
+            ("열린 결함", t["open_defects"], "#dc2626" if t["open_defects"] else "#1f2937"),
+            ("마지막 실행", t["last_run"] or "–", "#1f2937"),
+        ]
+    )
+    note_html = f'<p style="margin:0 0 14px;padding:10px 12px;background:#fffbea;border:1px solid #fde68a;border-radius:8px">{note}</p>' if note else ""
+    return f"""<div style="font-family:-apple-system,'Segoe UI',Roboto,'Noto Sans KR',sans-serif;color:#1f2937;font-size:13px;line-height:1.6;max-width:760px">
+  <h2 style="margin:0 0 4px;font-size:18px">{nm} 시험 현황</h2>
+  <div style="color:#6b7280;font-size:12px;margin-bottom:14px">{r['path']}</div>
+  {note_html}
+  <p style="margin:0 0 14px">{_rp_headline(r)}</p>
+  <table cellspacing="6" cellpadding="0" style="margin:0 0 16px"><tr>{kpi}</tr></table>
+  <table cellpadding="6" cellspacing="0" width="100%" style="border-collapse:collapse;font-size:12px">
+    <tr style="background:#f5f7fa">{''.join(f'<th align=left style="border-bottom:1px solid #e3e8ef;color:#6b7280;font-size:11px">{h}</th>' for h in head)}</tr>
+    {body}
+  </table>
+  <p style="color:#9ca3af;font-size:11px;margin-top:14px">
+    합격률 = 합격 ÷ (합격+실패) · 진척률 = 실행 ÷ 전체 · 색: 합격 초록 · 실패 빨강 · 그 밖 노랑 · 미실행 회색<br>
+    ubiQuoss-TOP 이 보낸 자동 요약입니다.
+  </p>
+</div>"""
+
+
+@app.get("/api/cycle/rollup/preview")
+async def cycle_rollup_preview(path: str = _RU_ROOT, date_from: str = "", date_to: str = "", note: str = ""):
+    """메일로 나갈 그 모습 그대로 — 보내기 전에 눈으로 본다."""
+    r = await _rollup(path, date_from, date_to)
+    return {"subject": f"[UTOP] {r['path'].split('/')[-1]} 시험 현황",
+            "headline": _rp_headline(r), "html": _rp_html(r, note)}
+
+
+@app.post("/api/cycle/rollup/mail")
+async def cycle_rollup_mail(payload: dict):
+    """이 폴더의 현황을 메일로 보낸다 — 화면에서 보는 것과 같은 자료다."""
+    path = str(payload.get("path") or _RU_ROOT)
+    to = payload.get("to") or ""
+    if not to:
+        raise HTTPException(400, "받는 사람을 적어 주세요")
+    r = await _rollup(path, str(payload.get("date_from") or ""), str(payload.get("date_to") or ""))
+    subject = str(payload.get("subject") or "").strip() or f"[UTOP] {path.split('/')[-1]} 시험 현황"
+    html = _rp_html(r, str(payload.get("note") or "").strip())
+    try:
+        sent = _send_mail(to, subject, html, html=True)
+    except Exception as e:
+        raise HTTPException(400, f"보내지 못했습니다 — {e}")
+    return {"success": True, "to": sent, "subject": subject}
 
 
 # 버전그룹 폴더 — `{ "<모델명>": ["R200", "R300"] }`
