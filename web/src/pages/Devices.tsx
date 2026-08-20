@@ -21,7 +21,10 @@ export interface DeviceAccess {
   username?: string | null
   password?: string | null
   enable_password?: string | null
+  /** SNMP 읽기(RO) community — 비우면 public */
   community?: string | null
+  /** 그 밖의 값. SNMP 쓰기(RW) community 가 여기 산다(`community_rw`) */
+  params?: Record<string, unknown> | null
   enabled?: boolean
   is_default?: boolean
   last_status?: string | null

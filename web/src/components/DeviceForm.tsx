@@ -618,8 +618,12 @@ export default function DeviceForm({ editing, onClose }: Props) {
                               value={a.port ?? p.port} onChange={(e) => setAccField(p.v, 'port', Number(e.target.value))} />
                           )}
                           {p.v === 'snmp' && (
-                            <input className="acc-comm" placeholder="community (public)"
-                              value={a.community ?? ''} onChange={(e) => setAccField(p.v, 'community', e.target.value)} />
+                            /* 읽기(RO) — 비우면 public */
+                            <span className="acc-comm-w">
+                              <i>RO</i>
+                              <input className="acc-comm" placeholder="RO Community (public)"
+                                value={a.community ?? ''} onChange={(e) => setAccField(p.v, 'community', e.target.value)} />
+                            </span>
                           )}
                           {!p.ownHost && p.port === 0 && p.v !== 'snmp' && (
                             <span className="muted small">{p.hint ?? '포트 없음'}</span>
@@ -630,7 +634,26 @@ export default function DeviceForm({ editing, onClose }: Props) {
                       )}
                     </span>
                     <span className="acc-c-def">
-                      {on && p.cli ? (
+                      {on && p.v === 'snmp' ? (
+                        /* 쓰기(RW) 를 쓰는 장비만 켠다 — 켜면 오른쪽 칸이 열린다 */
+                        <label title="SNMP Set 을 쓰려면 켭니다 — 오른쪽에 RW Community 를 적습니다">
+                          <input
+                            type="checkbox"
+                            checked={Boolean((a.params as { rw?: boolean } | null)?.rw)}
+                            onChange={(e) => {
+                              const prev = (a.params as Record<string, unknown>) ?? {}
+                              setAccField(p.v, 'params', {
+                                ...prev,
+                                rw: e.target.checked,
+                                // 켜면 기본값 private 을 넣어 준다(지시)
+                                community_rw: e.target.checked
+                                  ? String(prev.community_rw ?? '') || 'private'
+                                  : prev.community_rw,
+                              })
+                            }}
+                          />
+                        </label>
+                      ) : on && p.cli ? (
                         <label title="스텝이 방식을 안 적었을 때 쓰는 접속">
                           <input type="radio" name="acc-default" checked={!!a.is_default}
                             onChange={() =>
@@ -644,7 +667,24 @@ export default function DeviceForm({ editing, onClose }: Props) {
                       ) : null}
                     </span>
                     <span className="acc-c-acct">
-                      {on && p.cli ? (
+                      {on && p.v === 'snmp' ? (
+                        <span className="acc-comm-w">
+                          <i>RW</i>
+                          <input
+                            className="acc-comm"
+                            placeholder="RW Community (private)"
+                            disabled={!(a.params as { rw?: boolean } | null)?.rw}
+                            value={String((a.params as { community_rw?: string } | null)?.community_rw ?? '')}
+                            onChange={(e) =>
+                              setAccField(p.v, 'params', {
+                                ...((a.params as Record<string, unknown>) ?? {}),
+                                rw: true,
+                                community_rw: e.target.value,
+                              })
+                            }
+                          />
+                        </span>
+                      ) : on && p.cli ? (
                         ownAcct ? (
                           <span className="acc-acct-in">
                             <input placeholder="계정" value={(a.username ?? '').trim()}

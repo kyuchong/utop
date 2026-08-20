@@ -1,0 +1,12 @@
+
+/* SNMP — 읽기(RO)·쓰기(RW) community 를 나란히(지시) */
+.acc-comm-w { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
+.acc-comm-w > i {
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-muted);
+  flex: none;
+}
+.acc-comm-w > .acc-comm { flex: 1; min-width: 0; }
+.acc-comm-w > .acc-comm:disabled { background: var(--c-surface-alt); color: var(--c-text-faint); }
