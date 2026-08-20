@@ -1365,3 +1365,19 @@ button.dcc-st:disabled { cursor: default; }
 @media (max-width: 1500px) {
   .dcc-cols { grid-template-columns: 108px 98px 138px minmax(0, 1fr); }
 }
+.dcc-mname { cursor: context-menu; }
+
+/* 필드가 벌어져 보이던 것 — 간격(5px)이 아니라 **칸 폭**이 컸다(지적).
+   값 길이에 맞춰 줄인다: 모델명 152 · IP 106 · 접속 4칸 56 · RO/RW 52 ·
+   Interface 48 · 사용 현황 116. */
+.dcc-mh,
+.dcc-m2 {
+  grid-template-columns: 152px 106px 56px 56px 56px 56px 52px 52px 48px 116px minmax(140px, auto);
+  gap: 4px;
+}
+
+/* Telnet·SSH·Console·SNMP·RO·RW 는 가운데 정렬(지시) */
+.dcc-mh > span:nth-child(n + 3):nth-child(-n + 8),
+.dcc-m2 > *:nth-child(n + 3):nth-child(-n + 8) { text-align: center; justify-self: center; }
+.dcc-m2 > .dcc-st { width: 100%; }
+.dcc-m2 .dv-cell { text-align: center; }

@@ -360,6 +360,46 @@ export default function DeviceCatalog({
           </div>
         </>
       )}
+      {ifEdit && (
+        <div className="modal-back" onMouseDown={() => setIfEdit(null)}>
+          <div
+            className="modal dc2-ifmodal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="기본 인터페이스 편집"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="modal-head">
+              <b>{ifEdit.model.name} — 기본 인터페이스</b>
+              <span className="sp" />
+              <button className="btn" type="button" onClick={() => setIfEdit(null)}>
+            취소
+              </button>
+              <button
+            className="btn primary"
+            type="button"
+            onClick={() => {
+              const v = ifEdit.text.trim().replace(/\n+/g, ', ')
+              saveM.mutate({ ...ifEdit.model, kind: 'model', interfaces: v || null })
+              setIfEdit(null)
+            }}
+              >
+            저장
+              </button>
+            </div>
+            <p className="muted small">
+              쉼표나 줄바꿈으로 나눠 적으세요 — 범위 표기(gi1/0/1-48, pon1/1-80)가 됩니다.
+              줄바꿈은 저장할 때 쉼표로 합칩니다.
+            </p>
+            <textarea
+              autoFocus
+              rows={12}
+              value={ifEdit.text}
+              onChange={(e) => setIfEdit({ ...ifEdit, text: e.target.value })}
+            />
+          </div>
+        </div>
+      )}
       {devCtx && (
         <>
           <div className="dcc-ctxback" onMouseDown={() => setDevCtx(null)} />
@@ -834,7 +874,21 @@ export default function DeviceCatalog({
                       if (ds.length === 0)
                         return [
                           <div className="dcc-m2 dev none" key={`m-${it.name}`}>
-                            <b className="ell" title={it.name}>
+                            <b
+                              className="ell dcc-mname"
+                              title={`${it.name} — 오른쪽 단추로 이름 바꾸기·삭제`}
+                              onContextMenu={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setCtx({
+                                  kind: 'model',
+                                  name: it.name,
+                                  n: devsOfModel(it.name).length,
+                                  x: e.clientX,
+                                  y: e.clientY,
+                                })
+                              }}
+                            >
                               {it.name}
                             </b>
                             <span className="muted small">장비 없음</span>
@@ -863,7 +917,21 @@ export default function DeviceCatalog({
                               setDevCtx({ dev: d, x: e.clientX, y: e.clientY })
                             }}
                           >
-                            <b className="ell" title={it.name}>
+                            <b
+                              className="ell dcc-mname"
+                              title={`${it.name} — 오른쪽 단추로 이름 바꾸기·삭제`}
+                              onContextMenu={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setCtx({
+                                  kind: 'model',
+                                  name: it.name,
+                                  n: devsOfModel(it.name).length,
+                                  x: e.clientX,
+                                  y: e.clientY,
+                                })
+                              }}
+                            >
                               {it.name}
                             </b>
                             <span className="dcc-ip">
@@ -1140,46 +1208,6 @@ export default function DeviceCatalog({
             )}
           </div>
 
-          {ifEdit && (
-            <div className="modal-back" onMouseDown={() => setIfEdit(null)}>
-              <div
-                className="modal dc2-ifmodal"
-                role="dialog"
-                aria-modal="true"
-                aria-label="기본 인터페이스 편집"
-                onMouseDown={(e) => e.stopPropagation()}
-              >
-                <div className="modal-head">
-                  <b>{ifEdit.model.name} — 기본 인터페이스</b>
-                  <span className="sp" />
-                  <button className="btn" type="button" onClick={() => setIfEdit(null)}>
-                    취소
-                  </button>
-                  <button
-                    className="btn primary"
-                    type="button"
-                    onClick={() => {
-                      const v = ifEdit.text.trim().replace(/\n+/g, ', ')
-                      saveM.mutate({ ...ifEdit.model, kind: 'model', interfaces: v || null })
-                      setIfEdit(null)
-                    }}
-                  >
-                    저장
-                  </button>
-                </div>
-                <p className="muted small">
-                  쉼표나 줄바꿈으로 나눠 적으세요 — 범위 표기(gi1/0/1-48, pon1/1-80)가 됩니다.
-                  줄바꿈은 저장할 때 쉼표로 합칩니다.
-                </p>
-                <textarea
-                  autoFocus
-                  rows={12}
-                  value={ifEdit.text}
-                  onChange={(e) => setIfEdit({ ...ifEdit, text: e.target.value })}
-                />
-              </div>
-            </div>
-          )}
 
           <div className="hint">
             기본 인터페이스를 적어두면 장비 등록에서 이 모델을 고를 때 포트가 그대로 채워집니다.
