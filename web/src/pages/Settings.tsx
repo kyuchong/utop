@@ -3,6 +3,7 @@ import LlmSettings from '@/components/settings/LlmSettings'
 import PromptSettings from '@/components/settings/PromptSettings'
 import DeviceCatalog from '@/components/settings/DeviceCatalog'
 import CodeSettings from '@/components/settings/CodeSettings'
+import VerdictSettings from '@/components/settings/VerdictSettings'
 import CustomFieldSettings from '@/components/settings/CustomFieldSettings'
 import JiraSettings from '@/components/settings/JiraSettings'
 import JiraPanels from '@/components/settings/JiraPanels'
@@ -23,7 +24,7 @@ import './Settings.css'
 
 // 'chat' 은 없앴다 — Chat 모델 설정은 'llm' 안의 탭으로 들어갔다.
 // 서버 연결과 모델 설정을 따로 두면 같은 모델을 두 군데서 고치게 된다.
-type Section = 'llm' | 'prompts' | 'accounts' | 'perms' | 'catalog' | 'codes' | 'reqcodes' | 'cyclecodes' | 'fields' | 'jira' | 'jirapanels' | 'branding' | 'export' | 'import'
+type Section = 'verdicts' | 'llm' | 'prompts' | 'accounts' | 'perms' | 'catalog' | 'codes' | 'reqcodes' | 'cyclecodes' | 'fields' | 'jira' | 'jirapanels' | 'branding' | 'export' | 'import'
 
 /**
  * 설정 화면.
@@ -62,6 +63,7 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
       { key: 'reqcodes', label: '요구사항 INFO 필드', icon: IconReqCodeList, ready: true },
       { key: 'codes', label: 'TC INFO 필드', icon: IconCodeList, ready: true },
       { key: 'cyclecodes', label: '사이클 INFO 필드', icon: IconCodeList, ready: true },
+      { key: 'verdicts', label: '실행 판정 기준', icon: IconCodeList, ready: true },
       { key: 'fields', label: '커스텀 필드', icon: IconCustomField, ready: true },
     ],
   },
@@ -147,6 +149,8 @@ export default function Settings() {
           <CodeSettings target="req" />
         ) : sec === 'cyclecodes' ? (
           <CodeSettings target="cycle" />
+        ) : sec === 'verdicts' ? (
+          <VerdictSettings />
         ) : sec === 'fields' ? (
           <CustomFieldSettings />
         ) : sec === 'jira' ? (

@@ -213,7 +213,6 @@ function useResults(): ResDef[] {
     for (const i of codesQ.data?.items ?? []) {
       if (i.kind !== 'cycle_result') continue
       const val = i.value.trim()
-      if (!val || base.some((b) => b.v === val)) continue
       let meta: { color?: string; group?: string } = {}
       try {
         meta = JSON.parse(i.note || '{}') as typeof meta
@@ -221,6 +220,15 @@ function useResults(): ResDef[] {
         /* 옛 자료 */
       }
       const g = meta.group === 'pass' || meta.group === 'fail' ? meta.group : 'neutral'
+      /* 기본 여섯과 같은 값이면 **덮어쓴다**(설정 → 실행 판정 기준에서
+         색을 바꿀 수 있어야 한다). 값이 비면(미실행) 그것도 기본이다. */
+      const at = base.findIndex((b) => b.v === val)
+      if (at >= 0) {
+        const cur = base[at]
+        if (cur && meta.color) base[at] = { ...cur, color: meta.color }
+        continue
+      }
+      if (!val) continue
       base.push({ v: val, label: val, cls: 'custom', color: meta.color, group: g })
     }
     return base
@@ -510,6 +518,9 @@ export default function Cycles({ me }: PageProps) {
   const [act, setAct] = useState<{ what: 'details' | 'ai' | 'pptx' | 'run'; n: number } | null>(
     null,
   )
+
+  /** 판정 한 벌 — 설정 「실행 판정 기준」 이 정본. 색을 CSS 로 푼다 */
+  const resDefs = useResults()
 
   /** 폴더 우클릭 메뉴 — 폴더째 지우거나, 그 안 사이클을 한꺼번에 지운다 */
   const [folderMenu, setFolderMenu] = useState<{ node: Node; x: number; y: number } | null>(null)
@@ -1241,7 +1252,22 @@ export default function Cycles({ me }: PageProps) {
         )}
       </div>
 
-    <div className={`split cy${cur ? ' cy-execfull' : ''}`} ref={splitRef}>
+    <div
+      className={`split cy${cur ? ' cy-execfull' : ''}`}
+      ref={splitRef}
+      /* 판정 색은 설정(실행 판정 기준)이 정본이다 — 여기서 CSS 값으로
+         풀어 두면 줄 색 띠·배지·집계 막대가 한꺼번에 따라온다. */
+      style={
+        {
+          '--c-pass': resDefs.find((r) => r.v === 'Pass')?.color || undefined,
+          '--c-fail': resDefs.find((r) => r.v === 'Fail')?.color || undefined,
+          '--c-draft': resDefs.find((r) => r.v === 'WIP')?.color || undefined,
+          '--c-blocked': resDefs.find((r) => r.v === 'Blocked')?.color || undefined,
+          '--c-na': resDefs.find((r) => r.v === '진행불가')?.color || undefined,
+          '--c-none': resDefs.find((r) => r.v === '')?.color || undefined,
+        } as React.CSSProperties
+      }
+    >
       {/* 접었을 때 — 세로 띠 하나만 남는다. TC 화면과 같은 모양이다.
           아주 없애면 다시 펼 길이 없어지고 어디에 있었는지도 잊는다. */}
       {!cur && !treeOpen && (

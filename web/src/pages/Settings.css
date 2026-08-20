@@ -878,3 +878,37 @@
 }
 .seg-vis.on { background: #dcf3e4; color: #1f7a45; }
 .seg-btn.on .seg-vis { background: rgb(255 255 255 / 0.25); color: #fff; }
+
+/* ── 실행 판정 기준 ─────────────────────────────────────────────
+   색을 눈으로 고르고, 더한 판정은 지울 수 있다(지시). */
+.vd h2 { margin: 0 0 4px; font-size: 17px; }
+.vd > p.muted { margin: 0 0 14px; font-size: var(--fs-sm); }
+.vd-card { padding: 12px 14px; margin-bottom: 12px; }
+.vd-card h3 { margin: 0 0 9px; font-size: var(--fs-sm); color: var(--c-text-muted); }
+.vd-tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.vd-tbl th, .vd-tbl td { padding: 6px 8px; border-bottom: 1px solid var(--c-border-soft); text-align: left; }
+.vd-tbl th { font-size: var(--fs-xs); color: var(--c-text-faint); font-weight: 600; }
+.vd-tbl .r { text-align: right; white-space: nowrap; }
+.vd-chip {
+  display: inline-block;
+  font-style: normal;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 1px 10px;
+}
+.vd-sw { position: relative; display: inline-flex; cursor: pointer; }
+.vd-sw > span {
+  display: block;
+  width: 26px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1px solid var(--c-border);
+}
+.vd-sw > input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.vd-add { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vd-add > input { flex: 1; min-width: 220px; height: 30px; }
+.set-msg { padding: 7px 10px; border-radius: 8px; font-size: var(--fs-sm); margin-bottom: 10px; }
+.set-msg.ok { background: #dcfce7; color: #15803d; }
+.set-msg.err { background: #fee2e2; color: #b91c1c; }

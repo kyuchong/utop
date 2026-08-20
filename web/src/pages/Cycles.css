@@ -6628,3 +6628,20 @@ table.tb td.k {
 }
 /* 2번 — 머리줄 가르는 선 */
 .cxp-sh .cxp-div { flex: none; width: 1px; height: 18px; background: var(--c-border); }
+
+/* 판정 배지 색을 설정값에서 끌어 쓴다 — 「실행 판정 기준」 에서 색을
+   바꾸면 줄 색 띠·배지·집계 막대가 함께 따라온다. */
+.cxp-hist > i.hv-pass {
+  background: color-mix(in srgb, var(--c-pass) 16%, #fff);
+  color: color-mix(in srgb, var(--c-pass) 85%, #000);
+  border-color: color-mix(in srgb, var(--c-pass) 35%, #fff);
+}
+.cxp-hist > i.hv-fail {
+  background: color-mix(in srgb, var(--c-fail) 14%, #fff);
+  color: var(--c-fail);
+  border-color: color-mix(in srgb, var(--c-fail) 32%, #fff);
+}
+.cxp-row.v-blocked { border-right-color: var(--c-blocked, #e8820c); }
+.cxp-row.v-na { border-right-color: var(--c-na, #999); }
+.cxp-sumb .bar > s.p { background: var(--c-pass); }
+.cxp-sumb .bar > s.f { background: var(--c-fail); }
