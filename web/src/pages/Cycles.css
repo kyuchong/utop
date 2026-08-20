@@ -7125,3 +7125,70 @@ table.tb td.k {
 .ask-steplist .sq-scroll { flex: 1; min-height: 0; overflow: auto; }
 .ask-steplist { display: flex; flex-direction: column; min-height: 0; }
 .ask-modelcard.on { border-color: var(--c-primary); background: var(--c-primary-bg); }
+
+/* ── AI 화면의 스텝 두 판 — 목업(보내 주신 코드) 그대로 ────────────
+   왼쪽 목록 · 조절바 · 오른쪽 세부가 **한 판 안에** 들어간다. 둘 다
+   Coverage(TC 화면)와 같은 부품이라 꼴·손놀림이 한 벌이다.
+   바깥 겹(.ask-two)은 display:contents 라 이 칸이 곧 형제로 선다. */
+.ask-cols > .railsec {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 11px;
+  background: var(--c-surface);
+  overflow: hidden;
+}
+.ask-cols > .railsec > .railsec-b {
+  flex: 1;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  display: flex;
+}
+/* 레일 칸에서는 68vh 로 못 박혀 있다 — 여기서는 남는 높이를 다 쓴다 */
+.ask-cols > .railsec > .railsec-b > .tc-inner {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+/* 목록 머리 — TC 번호 · 이름 · 실행 · 셈(목업의 .tc-title) */
+.tc-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  min-height: 46px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--c-border);
+  min-width: 0;
+}
+.tc-title > b {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-text-soft, var(--c-text));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.tc-tid {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  color: var(--c-primary);
+}
+.tc-title-div { width: 1px; height: 18px; background: var(--c-border); flex: none; }
+.tc-title .sp { margin-left: auto; }
+.tc-title .btn { flex: none; }
+.tc-title > .muted { flex: none; white-space: nowrap; }

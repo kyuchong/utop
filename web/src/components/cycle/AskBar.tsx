@@ -4,8 +4,11 @@ import { IconSettings } from '@/components/icons'
 import { connParams } from '@/components/tc/device'
 import { runSteps } from '@/components/tc/runner'
 import { Fragment } from 'react'
-import type { ReactNode } from 'react'
 import TcSequence from '@/components/tc/TcSequence'
+import TcStepDetail from '@/components/tc/TcStepDetail'
+import TcTerminal from '@/components/tc/TcTerminal'
+import Resizer, { useResizableWidth } from '@/components/Resizer'
+import { IconCli } from '@/components/icons'
 import type { StepKind, TcStep } from '@/components/tc/types'
 import type { Device } from '@/pages/Devices'
 
@@ -18,6 +21,8 @@ interface DraftStep {
   kind?: string
   /** 주석 줄의 글 */
   text?: string
+  /** 이 스텝을 건너뛴다 — Coverage 의 「이 스텝 건너뛰기」 */
+  skip?: boolean
   /** 이 줄이 **묶음 머리**인가 — 여러 항목을 이어 붙일 때 그 경계 */
   head?: boolean
   /** SNMP·Ping 스텝이 들고 오는 것 */
@@ -77,48 +82,6 @@ interface Draft {
 }
 
 
-/** 제안 하나 — 눌러서 그대로 판정기준이 된다 */
-interface Suggest {
-  label: string
-  type: string
-  criteria: string
-}
-
-/**
- * 받은 출력에서 판정기준을 **제안**한다.
- *
- * 누구나 쓰는 도구인데 판정기준은 기술자만 안다 — 이것이 학습 곡선의
- * 본체다. `contains` 가 뭔지, 무슨 문구를 적어야 하는지 알아야 하니까.
- *
- * 그래서 사람에게 묻지 않고 **출력을 보고 만들어 준다.** 장비 출력은
- * 대개 `항목 : 값` 꼴이라 그대로 판정이 된다.
- *
- *     Model Name : E5010-24C   →  「모델명이 E5010-24C 인가」
- *     Main Memory Size : 1 GB  →  「메모리가 1 GB 인가」
- *
- * AI 를 부르지 않는다. 즉시 뜨고, 늘 같은 답을 내고, 틀려도 눈에 보인다.
- */
-function suggest(output: string): Suggest[] {
-  const out: Suggest[] = []
-  const seen = new Set<string>()
-  for (const raw of String(output ?? '').split(/\r?\n/)) {
-    const line = raw.trim()
-    // `항목 : 값` — 콜론 앞뒤에 글자가 있어야 한다
-    const m = /^([A-Za-z][A-Za-z0-9 _./#-]{2,30}?)\s*:\s*(\S.*)$/.exec(line)
-    if (!m) continue
-    const key = (m[1] ?? '').trim()
-    const val = (m[2] ?? '').trim()
-    // 시각·프롬프트처럼 돌 때마다 바뀌는 것은 기준이 될 수 없다
-    if (!val || val.length > 40) continue
-    if (/^\d{1,2}:\d{2}/.test(val) || /\b(19|20)\d\d\b/.test(val)) continue
-    if (seen.has(key)) continue
-    seen.add(key)
-    out.push({ label: `${key} 가 ${val}`, type: 'contains', criteria: val })
-    if (out.length >= 6) break
-  }
-  return out
-}
-
 interface Props {
   devices: Device[]
 }
@@ -135,43 +98,13 @@ interface Props {
  *
  * 그리고 **초안을 보여 주고 사람이 누른다.** 말이 잘못 알아들어졌을 때
  * 명령이 그대로 나가면 안 된다.
- */
-/**
- * 합격 기준을 응답에서 **초록으로 짚어 준다**(지시).
  *
- * 「이 글자가 나오면 합격」 인데 응답 어디에 있는지 눈으로 찾아야 했다.
- * 대소문자는 가리지 않고, 기준이 비었거나 응답에 없으면 그냥 글자로 둔다.
+ * 스텝을 고치는 자리(목록·세부)는 Coverage 와 **같은 부품**이다 — 여기서
+ * 배운 손이 저기서도 그대로 통한다(지시).
  */
-function hilite(out: string, criteria?: string | null): ReactNode {
-  const key = String(criteria ?? '').trim()
-  if (!key || key.length < 2) return out
-  const low = out.toLowerCase()
-  const k = key.toLowerCase()
-  const parts: ReactNode[] = []
-  let at = 0
-  let n = 0
-  for (;;) {
-    const hit = low.indexOf(k, at)
-    if (hit < 0 || n > 200) break
-    if (hit > at) parts.push(out.slice(at, hit))
-    parts.push(
-      <mark className="ask-hit" key={`${hit}-${n}`}>
-        {out.slice(hit, hit + key.length)}
-      </mark>,
-    )
-    at = hit + key.length
-    n += 1
-  }
-  if (!parts.length) return out
-  parts.push(out.slice(at))
-  return parts
-}
-
 /** 초안 → 실행·목록이 함께 쓰는 스텝 벌. 「일반」 은 원본을 그대로 쓴다 */
 function toTcSteps(draft: Draft): TcStep[] {
-  return draft.raw?.length
-    ? draft.raw
-    : draft.steps.map((s) => {
+  const one = (s: DraftStep): TcStep => {
       const k = String(s.kind || 'cli')
       const indent = Math.max(0, Number(s.indent) || 0)
       const crit = String(s.criteria || '').trim()
@@ -251,7 +184,11 @@ function toTcSteps(draft: Draft): TcStep[] {
         criteria: crit,
         ...chips,
       } as TcStep
-    })
+  }
+  /* 건너뛰기는 종류를 안 가린다 — 어느 갈래로 나가든 그대로 얹는다 */
+  return draft.raw?.length
+    ? draft.raw
+    : draft.steps.map((s) => (s.skip ? { ...one(s), skip: true } : one(s)))
 }
 
 export default function AskBar({ devices }: Props) {
@@ -304,8 +241,6 @@ export default function AskBar({ devices }: Props) {
   const [at, setAt] = useState(-1)
   const [running, setRunning] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
-  /** 출력에서 끌어 놓은 글자 — 판정기준으로 삼는다 */
-  const [grab, setGrab] = useState<{ i: number; text: string } | null>(null)
   /** 첫 화면 질문 보기 — 무엇을 시킬 수 있는지 눌러서 안다 */
   const [examples, setExamples] = useState<Array<{ q: string; d?: string }>>([])
   /** 비슷한 기존 시험 — 새로 짓기 전에 있는 것부터 본다 */
@@ -318,6 +253,11 @@ export default function AskBar({ devices }: Props) {
   /** 같은 모델이 여러 대일 때 — 어느 장비로 보낼지 고르는 창 */
   /** 오른쪽에 펼쳐 볼 스텝 */
   const [stepAt, setStepAt] = useState(0)
+  /** 스텝 목록 폭 — Coverage 와 같은 조절바(목업) */
+  const [seqW, setSeqW] = useResizableWidth('utop.ai.seqw', 560, 340, 1000)
+  const seqRef = useRef<HTMLElement | null>(null)
+  /** 명령어 캡쳐 — 세부 칸을 통째로 바꾼다(Coverage 와 같은 자리) */
+  const [termOpen, setTermOpen] = useState(false)
   /** 작업 흐름에 남기는 기록 — 질문한 뒤부터 쌓이고, 만들어지면 그대로 남는다 */
   /** 담을 때 쓰는 지금 값 — 상태는 한 박자 늦어 마지막 줄이 빠진다 */
   const flowRef = useRef<Array<{ s: number; t: string }>>([])
@@ -1426,33 +1366,82 @@ export default function AskBar({ devices }: Props) {
   }
 
   /**
-   * 스텝 한 줄 고치기.
+   * Coverage 의 「스텝 상세」 가 주는 값(TcStep) 을 초안에 되돌린다.
    *
-   * 「일반」 갈래는 **원본(raw)** 이 그대로 실행기로 간다. 화면 줄만 고치면
-   * 고친 값이 실행에 안 간다 — 원본에도 같이 얹는다. 이름이 다른 칸은
-   * 여기서 맞춘다(desc → step).
+   * 이 화면의 초안은 두 벌이다 — 사람이 읽는 DraftStep 과, 실행기로 가는
+   * 원본(raw). 세부 판은 원본 벌로 말하므로 이름이 다른 칸만 여기서 맞춘다.
    */
-  const setStep = (i: number, patch: Partial<DraftStep>) =>
+  const fromTc = (p: Partial<TcStep>): Partial<DraftStep> => {
+    const o: Partial<DraftStep> = {}
+    if (p.step !== undefined) o.desc = p.step
+    if (p.cli !== undefined) o.cli = p.cli
+    if (p.type !== undefined) o.type = p.type
+    if (p.criteria !== undefined) o.criteria = p.criteria
+    /* 요즘 판정은 **칩**이다 — 「있어야」 칩만 옛 글자 칸으로 되돌린다 */
+    if (p.rules !== undefined)
+      o.criteria = (p.rules ?? []).filter((r) => r.t === 'has').map((r) => r.v).join('\n')
+    if (p.oid !== undefined) o.oid = p.oid
+    if (p.host !== undefined) o.host = p.host
+    if (p.cmpLeft !== undefined) o.cmpLeft = p.cmpLeft
+    if (p.cmpRight !== undefined) o.cmpRight = p.cmpRight
+    if (p.cmpOp !== undefined) o.cmpOp = p.cmpOp
+    if (p.skip !== undefined) o.skip = p.skip
+    if (p.indent !== undefined) o.indent = p.indent
+    if (p.session !== undefined) o.session = Number(p.session) || 0
+    return o
+  }
+
+  /** 세부 판에서 고친 한 줄 — 초안·원본·결과 세 벌에 함께 얹는다 */
+  const setTcStep = (i: number, p: Partial<TcStep>) => {
+    setRan((v) => (v?.length ? v.map((x, j) => (j === i ? { ...x, ...p } : x)) : v))
     setDraft((d) => {
       if (!d) return d
-      const steps = d.steps.map((s, j) => (j === i ? { ...s, ...patch } : s))
+      const steps = d.steps.map((x, j) => (j === i ? { ...x, ...fromTc(p) } : x))
       if (!d.raw?.length) return { ...d, steps }
-      const raw = d.raw.map((x, j) => {
-        if (j !== i) return x
-        const y: TcStep = { ...x }
-        if (patch.desc !== undefined) y.step = patch.desc
-        if (patch.cli !== undefined) y.cli = patch.cli
-        if (patch.criteria !== undefined) y.criteria = patch.criteria
-        if (patch.type !== undefined) y.type = patch.type
-        if (patch.oid !== undefined) y.oid = patch.oid
-        if (patch.host !== undefined) y.host = patch.host
-        if (patch.cmpLeft !== undefined) y.cmpLeft = patch.cmpLeft
-        if (patch.cmpRight !== undefined) y.cmpRight = patch.cmpRight
-        if (patch.cmpOp !== undefined) y.cmpOp = patch.cmpOp
-        return y
-      })
-      return { ...d, steps, raw }
+      return { ...d, steps, raw: d.raw.map((x, j) => (j === i ? { ...x, ...p } : x)) }
     })
+  }
+
+  /** 줄 차례 바꾸기 — 지울 때도 늘릴 때도 이 한 곳으로 (세 벌이 어긋나지 않게) */
+  const orderSteps = (idx: number[], sel: number) => {
+    const take = <T,>(arr: T[]) => idx.map((j) => arr[j]).filter((x): x is T => x !== undefined)
+    setRan((v) => (v?.length ? take(v) : v))
+    setDraft((d) => {
+      if (!d) return d
+      const steps = take(d.steps)
+      if (!d.raw?.length) return { ...d, steps }
+      return { ...d, steps, raw: take(d.raw) }
+    })
+    setStepAt(Math.max(0, sel))
+  }
+  const nSteps = () => draft?.steps.length ?? 0
+  const removeTcStep = (i: number) =>
+    orderSteps(
+      [...Array(nSteps()).keys()].filter((j) => j !== i),
+      Math.min(i, nSteps() - 2),
+    )
+  const moveTcStep = (i: number, dir: -1 | 1) => {
+    const j = i + dir
+    if (j < 0 || j >= nSteps()) return
+    const idx = [...Array(nSteps()).keys()]
+    idx[i] = j
+    idx[j] = i
+    orderSteps(idx, j)
+  }
+  const dupTcStep = (i: number) =>
+    orderSteps([...Array(nSteps()).keys()].flatMap((j) => (j === i ? [j, j] : [j])), i + 1)
+
+  /** 명령어 캡쳐가 담아 준 한 줄 — 끝에 붙인다 */
+  const addTcStep = (t: TcStep) => {
+    setRan((v) => (v?.length ? [...v, t] : v))
+    setDraft((d) => {
+      if (!d) return d
+      const steps = [...d.steps, { desc: t.step ?? '', cli: t.cli ?? '', kind: String(t.kind || 'cli'), type: t.type || 'ok', criteria: t.criteria ?? '' } as DraftStep]
+      if (!d.raw?.length) return { ...d, steps }
+      return { ...d, steps, raw: [...d.raw, t] }
+    })
+    setStepAt(nSteps())
+  }
 
   /* 절차 짓기는 한 번의 부름이라 서버가 중간을 알려 주지 않는다. 대신
      **실제로 하는 일의 차례**를 그대로 적어 준다 — 학습된 절차를 읽고,
@@ -2069,381 +2058,135 @@ export default function AskBar({ devices }: Props) {
 
           {/* 왼쪽 스텝 목록 · 오른쪽 그 스텝의 속(명령·기준·응답).
               위아래로 두면 응답을 보려고 내리는 순간 고치던 칸이 사라진다. */}
-          <div className="ask-two">
-            {/* 세 판이 같은 높이에서 시작한다 — 머리 줄을 판마다 하나씩 */}
-            {/* Coverage(TC 화면)의 스텝 목록과 **같은 모양**으로 읽힌다(지시
-                사진) — 세션 딱지 · 번호(1 · 1.1) · 종류 · 내용 · 결과.
-                주석은 실행되지 않는 제목 줄이라 따로 칠한다. */}
-            <div className="ask-pane">
-              <div className="ask-paneh">
-                <h3>시험 스텝</h3>
-                <span className="ask-pill">{draft.steps.length} 스텝</span>
-                <span className="sp" />
-                {/* Coverage 의 실행 도구줄과 같은 벌(지시) —
-                    전체 · 여기부터 · 멈춤 · 지금까지의 셈 */}
-                <span className="ask-runbar">
-                  <button
-                    className="btn small primary"
-                    type="button"
-                    title="처음부터 끝까지 돌립니다"
-                    disabled={running || !devId}
-                    onClick={() => void run()}
-                  >
-                    ▶ 전체
-                  </button>
-                  <button
-                    className="btn small"
-                    type="button"
-                    title="고른 줄부터 끝까지"
-                    disabled={running || !devId || stepAt < 0}
-                    onClick={() => void run(undefined, stepAt)}
-                  >
-                    ▶ 여기부터
-                  </button>
-                  {(() => {
-                    const done = (ran ?? []).filter((r) => r && (r.repeatResult || r.status)).length
-                    const pass = (ran ?? []).filter(
-                      (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'pass',
-                    ).length
-                    const fail = (ran ?? []).filter(
-                      (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'fail',
-                    ).length
-                    if (!done) return <span className="muted small">누르면 오른쪽에서 설정</span>
-                    return (
-                      <span className="muted small">
-                        {done}/{draft.steps.length} · <b className="status pass">PASS {pass}</b> ·{' '}
-                        <b className="status fail">FAIL {fail}</b>
-                      </span>
-                    )
-                  })()}
-                </span>
-              </div>
-            <div className="ask-steplist">
-              {/* Coverage 의 Automation 목록을 **그대로** 쓴다(지시) —
-                  같은 부품이라 줄 꼴·번호·세션·결과·＋스텝이 한 벌이다. */}
-              <TcSequence
-                steps={seqSteps}
-                selected={stepAt}
-                onSelect={setStepAt}
-                onAdd={(k) => addStep(k)}
-                sessionName={() => devName || '장비'}
-                runningAt={at}
-                picked={picked}
-                onPick={(i) =>
-                  setPicked((v) => {
-                    const n = new Set(v)
-                    if (n.has(i)) n.delete(i)
-                    else n.add(i)
-                    return n
-                  })
-                }
-                onRun={running || !devId ? undefined : (i) => void run(i)}
-              />
-            </div>
-            </div>
-
-            {/* 고른 스텝 하나 — 무엇을 보내고, 무엇이면 합격이고, 무엇이 왔나 */}
-            {(() => {
-              const i = Math.min(stepAt, draft.steps.length - 1)
-              const s = draft.steps[i]
-              if (!s)
-                return (
-                  <div className="ask-pane">
-                    <div className="ask-paneh">
-                      <h3>스텝 설정</h3>
-                    </div>
-                    <div className="ask-stepdet empty">왼쪽에서 스텝을 고르세요.</div>
-                  </div>
-                )
-              const rs = ran?.[i]
-              const out = String(rs?.output ?? '')
-              return (
-                <div className="ask-pane">
-                  <div className="ask-paneh">
-                    <h3>스텝 설정</h3>
-                    <span className="sp" />
-                    <span className="ask-pill">
-                      스텝 {i + 1} / {draft.steps.length}
-                    </span>
-                  </div>
-                  <div className="ask-stepdet">
-                  <div className="ask-detlab muted small">
-                    스텝 {i + 1} ·{' '}
-                    {s.kind === 'inst'
-                      ? '계측기'
-                      : s.kind === 'wait'
-                        ? '대기'
-                        : s.kind === 'snmp_get'
-                          ? 'SNMP Get'
-                          : s.kind === 'snmp_set'
-                            ? 'SNMP Set'
-                            : s.kind === 'snmp_trap'
-                              ? 'SNMP Trap'
-                              : s.kind === 'ping'
-                                ? 'Ping'
-                                : s.kind === 'diff'
-                                  ? '값 견주기'
-                                  : '조회'}
-                  </div>
-                  <h3>{s.desc || '—'}</h3>
-
-                  {/* Coverage 의 「스텝 상세」 와 같은 벌(지시) —
-                      Action · Session · 설명이 맨 위에 선다. */}
-                  <div className="ask-detmeta">
-                    <span>
-                      <i>Action</i>
-                      <b>
-                        {s.kind === 'comment'
-                          ? 'Comment'
-                          : s.kind === 'message'
-                            ? 'Message'
-                            : s.kind === 'diff'
-                              ? 'Diff'
-                              : s.kind === 'loop' || s.kind === 'for'
-                                ? 'Loop'
-                                : s.kind === 'wait'
-                                  ? 'Wait'
-                                  : s.kind === 'snmp_get'
-                                    ? 'SNMP Get'
-                                    : s.kind === 'snmp_set'
-                                      ? 'SNMP Set'
-                                      : s.kind === 'snmp_trap'
-                                        ? 'SNMP Trap'
-                                        : s.kind === 'ping'
-                                          ? 'Ping'
-                                          : 'CLI'}
-                      </b>
-                    </span>
-                    <span>
-                      <i>Session</i>
-                      <b>
-                        S{Number(s.session ?? 0) + 1} · {devName} ({devIp || '–'})
-                      </b>
-                    </span>
-                  </div>
-
-                  {/* 주석·메시지는 명령이 아니라 **글**이다 — 빈 명령 칸이 뜨던
-                      자리에 그 글을 보여 준다(지적) */}
-                  {(s.kind === 'comment' || s.kind === 'message') && (
-                    <div className="ask-detf">
-                      <span className="ask-detk">
-                        {s.kind === 'comment' ? '주석' : '메시지'}
-                        <em className="muted small">실행되지 않습니다 — 사람이 읽는 글입니다</em>
-                      </span>
-                      <textarea
-                        className="ask-detcli"
-                        rows={Math.min(6, Math.max(1, String(s.text ?? s.desc ?? '').split('\n').length))}
-                        value={String(s.text ?? s.desc ?? '')}
-                        onChange={(e) => setStep(i, { text: e.target.value })}
-                      />
-                    </div>
-                  )}
-
-                  {/* SNMP 는 명령이 아니라 **OID** 로 나간다. 여기서 s.cli 를 그대로
-                      물리면 값이 undefined 라 입력칸이 통제에서 풀리고, 앞 스텝의
-                      글자를 그대로 이고 있는다(지적 사진: SNMP 스텝에 앞 스텝의
-                      show running-config 가 떠 있었다). 칸을 갈라 준다. */}
-                  {s.kind === 'snmp_get' || s.kind === 'snmp_set' || s.kind === 'snmp_trap' ? (
-                    <div className="ask-detf">
-                      <span className="ask-detk">
-                        OID
-                        <em className="muted small">이 값을 물어봅니다</em>
-                      </span>
-                      <input
-                        className="mono"
-                        value={s.oid ?? ''}
-                        onChange={(e) => setStep(i, { oid: e.target.value })}
-                      />
-                    </div>
-                  ) : s.kind === 'loop' || s.kind === 'for' ? (
-                    /* 되풀이 — 보낼 명령이 없다. 몇 번 도는지가 이 스텝의 전부인데
-                       CLI 칸이 떠서 횟수를 못 정했다(지적). */
-                    <div className="ask-detf">
-                      <span className="ask-detk">
-                        반복 횟수
-                        <em className="muted small">이 아래 들여쓴 스텝들을 되풀이합니다</em>
-                      </span>
-                      <div className="ask-detloop">
-                        <input
-                          type="number"
-                          min={1}
-                          value={Number.isFinite(Number(s.to)) && Number.isFinite(Number(s.from))
-                            ? Math.max(1, Number(s.to) - Number(s.from) + 1)
-                            : (s.loopCount ?? 1)}
-                          onChange={(e) => {
-                            const n = Math.max(1, Number(e.target.value) || 1)
-                            setStep(i, { from: 1, to: n, loopCount: n, var: s.var || 'i' })
-                          }}
-                        />
-                        <span className="muted small">회</span>
-                        <input
-                          className="mono"
-                          value={s.var ?? 'i'}
-                          title="반복 변수 — 명령 안에서 ${이름} 으로 씁니다"
-                          onChange={(e) => setStep(i, { var: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                  ) : s.kind === 'diff' ? (
-                    /* 값 견주기 — 장비로 나가는 명령이 없다. 무엇과 무엇을
-                       견주는지가 이 스텝의 전부다(Coverage 와 같은 값). */
-                    <div className="ask-detf">
-                      <span className="ask-detk">
-                        견줄 값
-                        <em className="muted small">두 값이 이 관계면 합격입니다</em>
-                      </span>
-                      <div className="ask-detcmp">
-                        <input
-                          className="mono"
-                          value={s.cmpLeft ?? ''}
-                          onChange={(e) => setStep(i, { cmpLeft: e.target.value })}
-                        />
-                        <span className="ask-detop">{s.cmpOp || '=='}</span>
-                        <input
-                          className="mono"
-                          value={s.cmpRight ?? ''}
-                          onChange={(e) => setStep(i, { cmpRight: e.target.value })}
-                        />
-                      </div>
-                    </div>
-                  ) : s.kind === 'ping' ? (
-                    <div className="ask-detf">
-                      <span className="ask-detk">보낼 곳</span>
-                      <input
-                        className="mono"
-                        value={s.host ?? devIp}
-                        onChange={(e) => setStep(i, { host: e.target.value })}
-                      />
-                    </div>
-                  ) : s.kind === 'comment' || s.kind === 'message' ? null : (
-                    <div className="ask-detf">
-                      <span className="ask-detk">
-                        {devName} 에 보낼 명령
-                        <em className="muted small">고치면 그대로 나갑니다</em>
-                      </span>
-                      {/* 설정 명령은 `configure terminal` 부터 여러 줄이다.
-                          한 줄 칸(input)에 담으면 줄바꿈이 통째로 사라져,
-                          고치지 않아도 다음 저장 때 한 줄로 붙어 나간다
-                          (지적 사진: `configure terminalinterface …`). */}
-                      <textarea
-                        className="mono ask-detcli"
-                        rows={Math.min(8, Math.max(1, String(s.cli ?? '').split('\n').length))}
-                        value={s.cli ?? ''}
-                        onChange={(e) => setStep(i, { cli: e.target.value })}
-                      />
-                    </div>
-                  )}
-
-                  <div className="ask-detf">
-                    <span className="ask-detk">합격 기준</span>
-                    <div className="ask-detcrit">
-                      <select
-                        value={s.type || 'ok'}
-                        onChange={(e) => setStep(i, { type: e.target.value })}
-                      >
-                        <option value="ok">오류만 없으면 합격</option>
-                        <option value="contains">문구 포함</option>
-                        <option value="contains_all">모두 있으면 합격</option>
-                        <option value="notcontains">있으면 불합격</option>
-                        <option value="none">판정 안 함</option>
-                      </select>
-                      {!s.type || s.type === 'ok' || s.type === 'none' ? (
-                        <span className="ask-nocrit">
-                          {s.type === 'none' ? '아무것도 확인하지 않음' : '명령이 오류 없이 응답하면 합격'}
-                        </span>
-                      ) : (
-                        /* 기준이 여럿이면 **한 줄에 하나씩**(지시) — 한 줄
-                           칸이면 줄바꿈이 안 보여 붙어 있는 것처럼 읽혔다 */
-                        <textarea
-                          className={`ask-detcrit-in${!s.criteria ? ' need' : ''}`}
-                          rows={Math.min(6, Math.max(1, String(s.criteria ?? '').split('\n').length))}
-                          value={s.criteria ?? ''}
-                          placeholder={
-                            s.type === 'contains_all'
-                              ? '한 줄에 하나씩 — 모두 나와야 합격'
-                              : '이 문구가 나오면 합격'
-                          }
-                          onChange={(e) => setStep(i, { criteria: e.target.value })}
-                        />
+          {/* 목업 그대로 — 한 판 안에서 왼쪽 목록 · 조절바 · 오른쪽 세부.
+              둘 다 Coverage(TC 화면)와 **같은 부품**이라 꼴이 한 벌이다. */}
+          <div className="ask-two railbox">
+            <section className="railsec" data-sec="steps">
+              <div className="railsec-b">
+                <div className="tc-inner">
+                  <section className="panel tc-seqcol" style={{ flexBasis: seqW }} ref={seqRef}>
+                    <div className="tc-title">
+                      {draft.object && /^TC-/i.test(draft.object) && (
+                        <>
+                          <span className="tc-tid">{draft.object}</span>
+                          <span className="tc-title-div" aria-hidden="true" />
+                        </>
                       )}
+                      <b title={draft.name}>{draft.name}</b>
+                      <span className="sp" />
+                      <button
+                        className="btn small primary"
+                        type="button"
+                        title="처음부터 끝까지 돌립니다"
+                        disabled={running || !devId}
+                        onClick={() => void run()}
+                      >
+                        ▶ 전체
+                      </button>
+                      <button
+                        className="btn small"
+                        type="button"
+                        title="고른 줄부터 끝까지"
+                        disabled={running || !devId || stepAt < 0}
+                        onClick={() => void run(undefined, stepAt)}
+                      >
+                        ▶ 여기부터
+                      </button>
+                      {(() => {
+                        const done = (ran ?? []).filter((r) => r && (r.repeatResult || r.status)).length
+                        const pass = (ran ?? []).filter(
+                          (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'pass',
+                        ).length
+                        const fail = (ran ?? []).filter(
+                          (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'fail',
+                        ).length
+                        if (!done)
+                          return <span className="muted small">{draft.steps.length} 스텝</span>
+                        return (
+                          <span className="muted small">
+                            {done}/{draft.steps.length} · <b className="status pass">PASS {pass}</b> ·{' '}
+                            <b className="status fail">FAIL {fail}</b>
+                          </span>
+                        )
+                      })()}
                     </div>
-                    <div className="ask-detsay muted small">
-                      {s.type === 'none'
-                        ? '돌기만 하고 아무것도 확인하지 않습니다.'
-                        : s.type === 'ok'
-                          ? '응답이 오면 합격입니다.'
-                          : s.criteria
-                            ? (() => {
-                                const ks = String(s.criteria).split('\n').map((x) => x.trim()).filter(Boolean)
-                                const tail = s.type === 'notcontains' ? '가 있으면 불합격' : '가 있으면 합격'
-                                return ks.length > 1
-                                  ? `응답에 ${ks.length}가지가 모두${tail.replace('가 있으면', ' 있으면')} — ${ks.join(' · ')}`
-                                  : `응답에 "${ks[0] ?? ''}" ${tail}`
-                              })()
-                            : '무엇이 나와야 합격인지 적어 주세요 — 돌린 뒤 응답에서 골라도 됩니다.'}
+                    <TcSequence
+                      steps={seqSteps}
+                      selected={stepAt}
+                      onSelect={setStepAt}
+                      onAdd={(k) => addStep(k)}
+                      sessionName={() => devName || '장비'}
+                      runningAt={at}
+                      picked={picked}
+                      onPick={(i) =>
+                        setPicked((v) => {
+                          const n = new Set(v)
+                          if (n.has(i)) n.delete(i)
+                          else n.add(i)
+                          return n
+                        })
+                      }
+                      onRun={running || !devId ? undefined : (i) => void run(i)}
+                    />
+                  </section>
+
+                  <Resizer
+                    label="스텝 목록 폭 조절"
+                    onResize={setSeqW}
+                    getOrigin={() => seqRef.current?.getBoundingClientRect().left ?? 0}
+                  />
+
+                  <section className={`panel tc-detcol${termOpen ? ' wide' : ''}`}>
+                    <div className="tc-colh">
+                      <b>{termOpen ? '명령어 캡쳐' : '스텝 상세'}</b>
+                      <span className="sp" />
+                      <button
+                        className={`btn tc-dots tc-termbtn${termOpen ? ' on' : ''}`}
+                        type="button"
+                        aria-pressed={termOpen}
+                        disabled={!devId}
+                        title={
+                          termOpen
+                            ? '명령어 캡쳐 닫기'
+                            : '명령어 캡쳐 — 장비에 붙어 명령을 치면 그대로 스텝이 됩니다'
+                        }
+                        onClick={() => setTermOpen((v) => !v)}
+                      >
+                        <IconCli />
+                      </button>
                     </div>
-                  </div>
-
-                  <div className="ask-detf">
-                    <span className="ask-detk">응답</span>
-                    <pre
-                      className="ask-detout"
-                      onMouseUp={() => {
-                        const sel = window.getSelection()?.toString().trim() ?? ''
-                        if (sel) setGrab({ i, text: sel })
-                      }}
-                    >
-                      {out ? hilite(out, s.criteria) : '아직 실행하지 않았습니다.'}
-                    </pre>
-                    {rs?.reason && <div className="ask-detwhy muted small">{rs.reason}</div>}
-                    {/* 판정기준은 응답을 보고 정하는 것이 제일 정확하다 */}
-                    {suggest(out).length > 0 && (
-                      <div className="ask-sug">
-                        <span className="ask-sug-t">이걸로 판정할까요?</span>
-                        {suggest(out).map((g, k) => (
-                          <button
-                            key={k}
-                            type="button"
-                            className={s.criteria === g.criteria ? 'on' : undefined}
-                            onClick={() => setStep(i, { type: g.type, criteria: g.criteria })}
-                          >
-                            {g.label}
-                          </button>
-                        ))}
-                      </div>
+                    {termOpen && devId ? (
+                      <TcTerminal
+                        sessions={[devId]}
+                        devById={new Map(devices.map((d) => [d.id, d]))}
+                        sessionNames={[devName || devIp || '장비']}
+                        onAdd={(t) => addTcStep(t)}
+                        onClose={() => setTermOpen(false)}
+                      />
+                    ) : (
+                      <TcStepDetail
+                        step={seqSteps[stepAt] ?? null}
+                        index={stepAt}
+                        total={seqSteps.length}
+                        sessions={[`${devName || '장비'}${devIp ? ` (${devIp})` : ''}`]}
+                        params={{
+                          values: {},
+                          items: [],
+                          loading: false,
+                          empty: '이 화면에는 전역 파라미터가 없습니다',
+                        }}
+                        takenVars={[]}
+                        onChange={(p) => setTcStep(stepAt, p)}
+                        onMove={(dir) => moveTcStep(stepAt, dir)}
+                        onRemove={() => removeTcStep(stepAt)}
+                        onDuplicate={() => dupTcStep(stepAt)}
+                        onRun={running || !devId ? undefined : () => void run(stepAt)}
+                      />
                     )}
-                    {grab?.i === i && (
-                      <div className="ask-r-grab">
-                        <code>{grab.text.slice(0, 60)}</code>
-                        <button
-                          className="btn small primary"
-                          type="button"
-                          onClick={() => {
-                            setStep(i, { type: 'contains', criteria: grab.text })
-                            setGrab(null)
-                          }}
-                        >
-                          판정기준으로
-                        </button>
-                        <button className="btn small" type="button" onClick={() => setGrab(null)}>
-                          취소
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    className="btn small ask-runone"
-                    type="button"
-                    disabled={running || !devId}
-                    onClick={() => void run(i)}
-                  >
-                    이 스텝만 실행
-                  </button>
+                  </section>
                 </div>
-                </div>
-              )
-            })()}
+              </div>
+            </section>
           </div>
         </div>
       )}
