@@ -2609,11 +2609,17 @@ export default function AskBar({ devices }: Props) {
               </label>
             </div>
             {(() => {
-              /* **모델명이 같은 것만** 본다(지시). 공용·빈 값도 뺀다 */
+              /* 「고른 장비 것만」 의 뜻(지시 고침):
+                 · 모델명이 **다른 모델로 못 박힌** 항목만 뺀다.
+                 · 모델명이 비었거나 **공용**이면 어느 장비로도 쓸 수 있으므로
+                   그대로 보인다 — 이름 뒤에 (E5724RL) 이 붙어 있어도 그것은
+                   사람이 적은 제목일 뿐이다(지적). */
               const myModel = (curDev?.model ?? '').trim().toLowerCase()
               const forMe = (t: { model?: string }) => {
                 if (!tcOnlyModel || !myModel) return true
-                return String(t.model ?? '').trim().toLowerCase() === myModel
+                const m = String(t.model ?? '').trim().toLowerCase()
+                if (!m || m === '공용' || m === '-' || m === '–') return true
+                return m === myModel
               }
               const q = tcFind.trim().toLowerCase()
               const hit = (x: { tcid: string; name: string; model: string }) =>
@@ -2759,7 +2765,7 @@ export default function AskBar({ devices }: Props) {
                           : tcOnlyModel && myModel
                             ? (
                                 <>
-                                  <b>{curDev?.model}</b> 에 맞는 시험 항목이 없습니다.
+                                  <b>{curDev?.model}</b> 것이거나 공용인 항목이 없습니다.
                                   <button
                                     type="button"
                                     className="ask-likeall"
