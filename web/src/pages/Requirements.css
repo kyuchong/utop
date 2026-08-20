@@ -1020,3 +1020,7 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   color: var(--c-text);
 }
 
+
+/* 가로 레일로 바뀌며 — 왼쪽 48px 자리를 본문에 돌려준다(지시) */
+.rq-rail-b { display: block; }
+.rq-rail-b > .rq-rail-c { padding-top: 10px; }

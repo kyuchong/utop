@@ -176,7 +176,25 @@ export default function Requirements({ me }: Props) {
       return n
     })
   /* 레일 ↔ 한 줄기 스크롤 묶기. 누르면 가고, 굴리면 레일이 따라온다 */
-  const goSec = useRailSpy(railRef, tab, (k) => setTab(k as typeof tab), true)
+  /* 가로 레일로 바꾸며 스크롤 스파이는 걷었다(지시) — 칸을 갈아 끼우므로
+     굴림과 레일을 맞출 일이 없다. 세로 레일을 쓰는 화면은 그대로 쓴다. */
+  useRailSpy(railRef, tab, (k) => setTab(k as typeof tab), false)
+
+  /* Alt+←/→ 로도 칸을 옮긴다 */
+  useEffect(() => {
+    const on = (e: KeyboardEvent) => {
+      if (!e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return
+      const ks = TABS.map(([k]) => k)
+      const at = ks.indexOf(tab)
+      const to = ks[Math.min(ks.length - 1, Math.max(0, at + (e.key === 'ArrowLeft' ? -1 : 1)))]
+      if (to && to !== tab) {
+        e.preventDefault()
+        setTab(to as typeof tab)
+      }
+    }
+    window.addEventListener('keydown', on)
+    return () => window.removeEventListener('keydown', on)
+  }, [tab])
   const [catW, setCatW] = useResizableWidth('utop.req.catW5', 210, 150, 900)
   // 2열 폭 조절은 3열과 함께 은퇴했다 — 2열이 남은 폭을 다 갖는다(레일 개편)
 
@@ -1047,10 +1065,12 @@ export default function Requirements({ me }: Props) {
                     부품(VRail)은 세 화면이 같이 쓴다. 이름은 올렸을 때
                     말풍선으로, 개수는 아이콘 아래 숫자로 나온다. */}
                 <VRail
+                  dir="h"
                   ariaLabel="요구사항 보기"
                   value={tab}
                   onPick={(k) => {
-                    /* 접혀 있으면 펴 준다 — 눌렀는데 이름표만 나오면 고장으로 읽힌다 */
+                    /* 가로 레일은 **칸을 갈아 끼운다**(지시) — 굴려서 찾던
+                       것이 짧은 칸에서 엉성했다. 접힘 상태는 안 쓴다. */
                     setShut((v) => {
                       if (!v.has(k)) return v
                       const n = new Set(v)
@@ -1058,7 +1078,6 @@ export default function Requirements({ me }: Props) {
                       return n
                     })
                     setTab(k as typeof tab)
-                    requestAnimationFrame(() => goSec(k))
                   }}
                   items={TABS.map(([k, label, hint]) => ({
                     k,
@@ -1083,13 +1102,13 @@ export default function Requirements({ me }: Props) {
                   {/* 탭을 갈아 끼우지 않고 **한 줄기로 잇는다**(지시·사진).
                       레일을 누르면 그 칸으로 가고, 손으로 굴리면 레일 색이
                       따라온다. 칸은 접었다 펼 수 있고, 접어도 이름표는 남는다. */}
-                  <RailSec k="info" title="Info" open={!shut.has('info')} onToggle={() => toggleSec('info')}>
+                  {tab === "info" && <RailSec k="info" title="Info" open={!shut.has('info')} onToggle={() => toggleSec('info')}>
                     <ReqDetail req={selectedReq} tcs={linked} tab="info" />
-                  </RailSec>
-                  <RailSec k="detail" title="Intent" open={!shut.has('detail')} onToggle={() => toggleSec('detail')}>
+                  </RailSec>}
+                  {tab === "detail" && <RailSec k="detail" title="Intent" open={!shut.has('detail')} onToggle={() => toggleSec('detail')}>
                     <ReqDetail req={selectedReq} tcs={linked} tab="detail" />
-                  </RailSec>
-                  <RailSec
+                  </RailSec>}
+                  {tab === "tc" && <RailSec
                     k="tc"
                     title="Coverages"
                     right={`TC ${linked.length}건`}
@@ -1189,13 +1208,13 @@ export default function Requirements({ me }: Props) {
                     )}
                   </div>
                 </div>
-                  </RailSec>
-                  <RailSec k="runs" title="Execution History" open={!shut.has('runs')} onToggle={() => toggleSec('runs')}>
+                  </RailSec>}
+                  {tab === "runs" && <RailSec k="runs" title="Execution History" open={!shut.has('runs')} onToggle={() => toggleSec('runs')}>
                     <ReqDetail req={selectedReq} tcs={linked} tab="runs" />
-                  </RailSec>
-                  <RailSec k="history" title="Change History" open={!shut.has('history')} onToggle={() => toggleSec('history')}>
+                  </RailSec>}
+                  {tab === "history" && <RailSec k="history" title="Change History" open={!shut.has('history')} onToggle={() => toggleSec('history')}>
                     <ReqDetail req={selectedReq} tcs={linked} tab="history" />
-                  </RailSec>
+                  </RailSec>}
                 </div>
               </div>
               <div className="bottom colbot">

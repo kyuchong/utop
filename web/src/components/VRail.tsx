@@ -25,12 +25,68 @@ export default function VRail({
   value,
   onPick,
   ariaLabel,
+  dir = 'v',
 }: {
   items: readonly VRailItem[]
   value: string
   onPick: (k: string) => void
   ariaLabel: string
+  /** 'h' 면 **가로 레일**(지시) — 칸이 짧은 화면에서 세로 레일이 엉성했다 */
+  dir?: 'v' | 'h'
 }) {
+  if (dir === 'h') {
+    const at = Math.max(
+      0,
+      items.findIndex((x) => x.k === value),
+    )
+    const go = (d: number) => {
+      const n = items[Math.min(items.length - 1, Math.max(0, at + d))]
+      if (n) onPick(n.k)
+    }
+    return (
+      <nav className="hrail" role="tablist" aria-label={ariaLabel}>
+        {/* 앞·다음 — 레일을 누르지 않고도 옮긴다(지시). 화살표보다 큰 표 */}
+        <button
+          type="button"
+          className="hrail-nav"
+          disabled={at <= 0}
+          title="앞 칸 (Alt+←)"
+          aria-label="앞 칸"
+          onClick={() => go(-1)}
+        >
+          <IconChevron />
+        </button>
+        <span className="hrail-tabs">
+          {items.map((it) => (
+            <button
+              key={it.k}
+              type="button"
+              role="tab"
+              aria-selected={value === it.k}
+              className={`hrail-b${value === it.k ? ' on' : ''}`}
+              title={it.hint || it.label}
+              onClick={() => onPick(it.k)}
+            >
+              <i aria-hidden="true">{it.icon}</i>
+              <b>{it.label}</b>
+              {it.n ? <em className="hrail-n">{it.n}</em> : null}
+            </button>
+          ))}
+        </span>
+        <button
+          type="button"
+          className="hrail-nav next"
+          disabled={at >= items.length - 1}
+          title="다음 칸 (Alt+→)"
+          aria-label="다음 칸"
+          onClick={() => go(1)}
+        >
+          <IconChevron />
+        </button>
+      </nav>
+    )
+  }
+
   return (
     <nav className="vrail" role="tablist" aria-label={ariaLabel}>
       {items.map((it) => (
