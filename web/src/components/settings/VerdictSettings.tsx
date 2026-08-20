@@ -50,6 +50,90 @@ function metaOf(it?: Item): { color?: string; fg?: string; group?: Grp } {
   }
 }
 
+/** 고르기 쉬운 한 벌 — 바탕과 글자를 짝으로 묶어 둔다(지적: 색 고르기가
+    어렵다). 색동그라미 하나만 누르면 두 색이 같이 정해진다. */
+const PALETTE: Array<{ nm: string; color: string; fg: string }> = [
+  { nm: '초록', color: '#16a34a', fg: '#0a7a45' },
+  { nm: '연두', color: '#65a30d', fg: '#4d7c0f' },
+  { nm: '청록', color: '#0d9488', fg: '#0f766e' },
+  { nm: '파랑', color: '#2563eb', fg: '#1d4ed8' },
+  { nm: '남색', color: '#4f46e5', fg: '#4338ca' },
+  { nm: '보라', color: '#7c4dff', fg: '#5b21b6' },
+  { nm: '자주', color: '#c026d3', fg: '#a21caf' },
+  { nm: '분홍', color: '#ec4899', fg: '#be185d' },
+  { nm: '빨강', color: '#dc2626', fg: '#c22222' },
+  { nm: '주황', color: '#e8820c', fg: '#b45309' },
+  { nm: '노랑', color: '#f0b429', fg: '#a16207' },
+  { nm: '갈색', color: '#a16207', fg: '#78350f' },
+  { nm: '회색', color: '#8b93a1', fg: '#64748b' },
+  { nm: '연회색', color: '#c3cad4', fg: '#64748b' },
+  { nm: '검정', color: '#334155', fg: '#1e293b' },
+]
+
+/** 색 고르개 — 누르면 팔레트가 뜬다. 세밀히 잡고 싶으면 아래 두 칸으로 */
+function ColorPick({
+  label,
+  color,
+  fg,
+  onPick,
+}: {
+  label: string
+  color: string
+  fg: string
+  onPick: (c: string, f: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <span className="vd-pick">
+      <button
+        type="button"
+        className="vd-pickb"
+        style={{ background: `${color}22`, color: fg, borderColor: `${color}55` }}
+        title="색을 고릅니다"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {label}
+        <i style={{ background: color }} />
+      </button>
+      {open && (
+        <>
+          <span className="vd-pickback" onClick={() => setOpen(false)} />
+          <span className="vd-pickpop">
+            <b>색 고르기</b>
+            <span className="vd-grid">
+              {PALETTE.map((p) => (
+                <button
+                  key={p.nm}
+                  type="button"
+                  title={p.nm}
+                  className={`vd-sw2${p.color === color ? ' on' : ''}`}
+                  style={{ background: `${p.color}22`, color: p.fg, borderColor: p.color }}
+                  onClick={() => {
+                    onPick(p.color, p.fg)
+                    setOpen(false)
+                  }}
+                >
+                  가
+                </button>
+              ))}
+            </span>
+            <span className="vd-fine">
+              <label>
+                바탕
+                <input type="color" value={color} onChange={(e) => onPick(e.target.value, fg)} />
+              </label>
+              <label>
+                글자
+                <input type="color" value={fg} onChange={(e) => onPick(color, e.target.value)} />
+              </label>
+            </span>
+          </span>
+        </>
+      )}
+    </span>
+  )
+}
+
 export default function VerdictSettings() {
   const qc = useQueryClient()
   const [draft, setDraft] = useState('')
@@ -123,18 +207,6 @@ export default function VerdictSettings() {
   /** 사람이 더한 값 — 기본 여섯이 아닌 것 */
   const extra = rows.filter((r) => !BASE.some((b) => b.v === r.value))
 
-  const swatch = (v: string, cur: string, onPick: (c: string) => void) => (
-    <label className="vd-sw" title="색을 고릅니다">
-      <span style={{ background: cur }} />
-      <input
-        type="color"
-        value={cur}
-        aria-label={`${v || '미실행'} 색`}
-        onChange={(e) => onPick(e.target.value)}
-      />
-    </label>
-  )
-
   return (
     <div className="set-page vd">
       <h2>실행 판정 기준</h2>
@@ -150,8 +222,7 @@ export default function VerdictSettings() {
         <table className="vd-tbl">
           <thead>
             <tr>
-              <th>바탕색</th>
-              <th>글자색</th>
+              <th>색</th>
               <th>값</th>
               <th>집계 계열</th>
               <th className="r">쓰임</th>
@@ -166,14 +237,12 @@ export default function VerdictSettings() {
               return (
                 <tr key={b.v || '_none'}>
                   <td>
-                    {swatch(b.v, color, (c) =>
-                      save.mutate({ value: b.v, color: c, fg, group: b.group }),
-                    )}
-                  </td>
-                  <td>
-                    {swatch(`${b.v}-글자`, fg, (c) =>
-                      save.mutate({ value: b.v, color, fg: c, group: b.group }),
-                    )}
+                    <ColorPick
+                      label={b.label}
+                      color={color}
+                      fg={fg}
+                      onPick={(c, f) => save.mutate({ value: b.v, color: c, fg: f, group: b.group })}
+                    />
                   </td>
                   <td>
                     <i
@@ -215,8 +284,7 @@ export default function VerdictSettings() {
           <table className="vd-tbl">
             <thead>
               <tr>
-                <th>바탕색</th>
-                <th>글자색</th>
+                <th>색</th>
                 <th>값</th>
                 <th>집계 계열</th>
                 <th className="r">쓰임</th>
@@ -233,14 +301,14 @@ export default function VerdictSettings() {
                 return (
                   <tr key={it.value}>
                     <td>
-                      {swatch(it.value, color, (c) =>
-                        save.mutate({ value: it.value, color: c, fg, group: grp }),
-                      )}
-                    </td>
-                    <td>
-                      {swatch(`${it.value}-글자`, fg, (c) =>
-                        save.mutate({ value: it.value, color, fg: c, group: grp }),
-                      )}
+                      <ColorPick
+                        label={it.value}
+                        color={color}
+                        fg={fg}
+                        onPick={(c, f) =>
+                          save.mutate({ value: it.value, color: c, fg: f, group: grp })
+                        }
+                      />
                     </td>
                     <td>
                       <i
@@ -339,13 +407,15 @@ export default function VerdictSettings() {
             placeholder="값 (화면에 그대로 보입니다 — 예: 조건부 합격)"
             onChange={(e) => setDraft(e.target.value)}
           />
-          <label className="vd-lb">바탕</label>
-          {swatch('new', dColor, setDColor)}
-          <label className="vd-lb">글자</label>
-          {swatch('new-fg', dFg, setDFg)}
-          <i className="vd-chip" style={{ background: `${dColor}22`, color: dFg, borderColor: `${dColor}55` }}>
-            {draft.trim() || '미리 보기'}
-          </i>
+          <ColorPick
+            label={draft.trim() || '미리 보기'}
+            color={dColor}
+            fg={dFg}
+            onPick={(c, f) => {
+              setDColor(c)
+              setDFg(f)
+            }}
+          />
           <select value={dGroup} onChange={(e) => setDGroup(e.target.value as Grp)}>
             {(['pass', 'fail', 'neutral'] as Grp[]).map((g) => (
               <option key={g} value={g}>

@@ -913,3 +913,51 @@
 .set-msg.ok { background: #dcfce7; color: #15803d; }
 .set-msg.err { background: #fee2e2; color: #b91c1c; }
 .vd-lb { font-size: var(--fs-xs); color: var(--c-text-muted); }
+
+/* 색 고르개 — 색동그라미 한 벌에서 고른다(지적: 고르기 어렵다) */
+.vd-pick { position: relative; display: inline-block; }
+.vd-pickb {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 3px 10px 3px 12px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+  max-width: 190px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.vd-pickb > i { flex: none; width: 12px; height: 12px; border-radius: 50%; }
+.vd-pickback { position: fixed; inset: 0; z-index: 30; }
+.vd-pickpop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 31;
+  display: block;
+  width: 232px;
+  padding: 10px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+}
+.vd-pickpop > b { display: block; font-size: var(--fs-xs); color: var(--c-text-muted); margin-bottom: 7px; }
+.vd-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.vd-sw2 {
+  height: 30px;
+  border: 1px solid;
+  border-radius: 8px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  cursor: pointer;
+}
+.vd-sw2.on { outline: 2px solid var(--c-primary); outline-offset: 1px; }
+.vd-fine { display: flex; gap: 12px; margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--c-border-soft); }
+.vd-fine label { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs); color: var(--c-text-muted); }
+.vd-fine input { width: 34px; height: 22px; padding: 0; border: 1px solid var(--c-border); border-radius: 5px; background: none; }
