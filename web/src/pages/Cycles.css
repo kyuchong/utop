@@ -5334,8 +5334,10 @@ table.tb td.k {
 .ask-planhd { align-items: center; gap: 9px; }
 .ask-slot-arw { color: var(--c-text-faint); font-size: 12px; flex: none; }
 .ask-runbig {
-  padding: 8px 17px;
-  font-size: 13.5px;
+  /* 살짝 줄였다(지시). 높이를 못 박아 옆의 쓰레기통이 이 값에 맞춘다 */
+  height: 32px;
+  padding: 0 14px;
+  font-size: var(--fs-md);
   font-weight: 500;
   flex: none;
 }
@@ -7252,7 +7254,9 @@ a.bc-cur:hover { text-decoration: underline; }
 /* 버리기 — 글자 대신 쓰레기통(지시). 무른 색이다가 올리면 붉어진다 */
 .ask-trash {
   flex: none;
-  width: 30px;
+  /* 「시험 시작」 과 같은 높이 — 나란히 선 두 단추가 층지면 눈에 걸린다 */
+  height: 32px;
+  width: 32px;
   padding: 0;
   justify-content: center;
   color: var(--c-text-faint);
