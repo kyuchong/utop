@@ -691,21 +691,22 @@ async function runOne(
       stepRules(step).some((r) => r.t !== 'skip' && r.t !== 'skipcol') || !!String(step.criteria ?? step.expected ?? '').trim()
     const okByItself = kind === 'snmp_trap' ? !!r.trap : !!r.ok
     /*
-     * 판정기준이 없을 때 **왜 적합인지** 적는다.
+     * **판정기준이 있어야 PASS/FAIL 을 찍는다**(지시).
      *
-     * 「똑같이 판정기준이 없는데 CLI 는 회색이고 SNMP 는 PASS 라니 말이
-     * 되냐」(지적). 규칙은 그대로 두되(SNMP·ping 은 답이 왔는가가 곧
-     * 시험이다) 근거를 밝힌다 — 화면에 까닭이 없으면 규칙이 제멋대로로
-     * 보인다.
+     * 전에는 SNMP·Ping 만 「응답이 오면 합격」 이었다. 같은 화면에서 CLI 는
+     * 회색인데 SNMP 만 PASS 라 규칙이 제멋대로로 보였다(지적). 이제 모든
+     * 종류가 같다 — 기준이 없으면 판정하지 않는다.
+     *
+     * 다만 **못 부른 것은 실패**다. 그것은 판정이 아니라 실행이 안 된 것이라,
+     * 기준이 있든 없든 불합격으로 남긴다(CLI 의 장비 오류 응답과 같은 자리).
      */
     const j = hasCriteria
       ? judge(step, output, vars)
-      : {
-          verdict: (okByItself ? 'Pass' : 'Fail') as Verdict,
-          reason: okByItself
-            ? '판정기준 없음 — 응답이 와서 적합(SNMP·Ping 은 응답 자체를 봅니다)'
-            : String(r.error ?? '응답 없음'),
-        }
+      : okByItself
+        ? { verdict: '' as Verdict, reason: '판정기준 없음 — 판정하지 않습니다(조회만)' }
+        : /* 못 부른 것은 판정이 아니라 **실패**다. CLI 가 장비 오류 응답을
+             불합격으로 보는 것과 같은 자리다. */
+          { verdict: 'Fail' as Verdict, reason: String(r.error ?? '응답 없음') }
 
     ctx.onStep(i, {
       output,

@@ -568,8 +568,9 @@ export default function TcStepDetail({
               onChange={(e) => onChange({ pingCount: Number(e.target.value) })}
             />
             <span className="sd-hint">
-              판정기준을 안 적으면 <b>응답이 오면 합격</b>입니다. 재부팅 뒤 살아나는지
-              볼 때는 그것으로 충분합니다.
+              <b>판정기준이 있어야 합격·불합격이 납니다.</b> 안 적으면 조회만 합니다 —
+              「살아 있으면 합격」 을 보시려면 응답에서 <code>bytes from</code> 같은 글자를
+              끌어 「있으면 합격」 칩을 만드세요. (못 부른 것은 기준과 상관없이 불합격입니다)
             </span>
           </label>
         )}
