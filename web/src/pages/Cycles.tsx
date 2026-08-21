@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import IdPill from '@/components/IdPill'
+import Markdown from '@/components/Markdown'
 import PickCell from '@/components/PickCell'
 import { useCodes } from '@/hooks/useCodes'
 import { createPortal } from 'react-dom'
@@ -3789,24 +3790,44 @@ function CycleDetail({
     setBarEl(document.getElementById('cy-execbar'))
   }, [])
   /** 시험결과 요약 바 — 완료 오른쪽 단추로 여닫는다. 상태 기억 */
-  const [sumOpen, setSumOpen] = useState(() => localStorage.getItem('utop.cycle.sumopen') === '1')
-  useEffect(() => {
-    localStorage.setItem('utop.cycle.sumopen', sumOpen ? '1' : '0')
-  }, [sumOpen])
+  /* 「시험 진행 요약」 — **무조건 접힌 채로** 뜬다(지시). 기억하지 않는다:
+     돌리는 화면에 들어오는 까닭은 절차를 보려는 것이지 요약이 아니다. */
+  const [sumOpen, setSumOpen] = useState(false)
   const [pbEl, setPbEl] = useState<HTMLElement | null>(null)
   useEffect(() => {
     setPbEl(document.getElementById('cy-pbslot'))
   }, [])
-  // 자동 실행이 걸리면 요약 바가 저절로 열린다 — 진행 줄이 여기 있다.
-  // 닫는 것은 사람 몫(✕) — 실행이 끝났다고 도로 접지 않는다
-  useEffect(() => {
-    if (st.on) setSumOpen(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [st.on])
-  /** AI 요약 — 팝업이 아니라 요약 바 안에 붙는다. 서버가 사이클에 저장해
-      두므로(ai_summary) 다시 열어도 마지막 요약이 그대로 보인다 */
-  /* AI 요약은 **목록에서** 만든다(지시) — 줄을 펴면 「AI 분석 결과」 칸에
-     만들기 단추가 있다. 실행 페이지에서는 걷어냈다. */
+  /* 실행이 걸려도 저절로 펴지 않는다(지시: 무조건 접기가 기본) —
+     도는 상황은 1행 막대가 말한다. */
+  /**
+   * AI 요약 — 「시험 진행 요약」 카드의 셋째 칸(지시).
+   *
+   * 서버가 사이클에 저장해 두므로(ai_summary) 다시 열어도 마지막 요약이
+   * 그대로 보인다. 만들기는 여기서 시킨다.
+   */
+  /** 판정 계열(통과·실패·그 밖) — 설정의 실행 판정 기준이 정본이다 */
+  const resDefs2 = useResults()
+  const groupOf = useMemo(() => {
+    const m = new Map(resDefs2.map((r) => [r.v, r.group]))
+    return (v: string) => m.get(v) ?? (v ? 'neutral' : 'none')
+  }, [resDefs2])
+  const [aiBusy, setAiBusy] = useState(false)
+  const makeAi = async () => {
+    setAiBusy(true)
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycle.id)}/summarize`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
+      const j = (await r.json()) as { ok?: boolean; error?: string }
+      if (!j.ok) throw new Error(j.error || '요약을 만들지 못했습니다')
+      onSaved()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setAiBusy(false)
+    }
+  }
 
   /**
    * 트리 우클릭 메뉴가 시킨 일을 여기서 한다.
@@ -4719,21 +4740,107 @@ function CycleDetail({
               </span>
             </button>
             {sumOpen && (
-              <div className="cxp-infogrid">
-                <span className="cyt-dkv"><b>사이클 ID</b><i>{cycle.cid || '–'}</i></span>
-                <span className="cyt-dkv"><b>제목</b><i title={cycle.name ?? ''}>{cycle.name || '–'}</i></span>
-                <span className="cyt-dkv"><b>벤더</b><i>{maker || '–'}</i></span>
-                <span className="cyt-dkv"><b>제품군</b><i>{family || '–'}</i></span>
-                <span className="cyt-dkv"><b>모델그룹</b><i>{(cycle.model_group ?? '').trim() || mgroup || '–'}</i></span>
-                <span className="cyt-dkv"><b>모델명</b><i>{cycle.model || '–'}</i></span>
-                <span className="cyt-dkv"><b>상태</b><i>{cycle.status || '–'}</i></span>
-                <span className="cyt-dkv"><b>고객</b><i>{cycle.customer || '–'}</i></span>
-                <span className="cyt-dkv"><b>버전그룹</b><i>{cycle.version_group || '–'}</i></span>
-                <span className="cyt-dkv"><b>버전</b><i>{cycle.version || '–'}</i></span>
-                <span className="cyt-dkv"><b>담당자</b><i>{cycle.assignee || '–'}</i></span>
-                <span className="cyt-dkv"><b>생성자</b><i>{cycle.created_by || '–'}</i></span>
-                <span className="cyt-dkv"><b>생성일</b><i>{String(cycle._created_at_pg ?? '').slice(0, 10) || '–'}</i></span>
-                <span className="cyt-dkv"><b>변경일</b><i>{String(cycle._updated_at_pg ?? '').slice(0, 10) || '–'}</i></span>
+              <div className="cxp-infobody">
+                {/* ① INFO */}
+                <div className="cxp-infosec">
+                  <b className="cxp-infolb">INFO</b>
+                  <div className="cxp-infogrid">
+                    <span className="cyt-dkv"><b>사이클 ID</b><i>{cycle.cid || '–'}</i></span>
+                    <span className="cyt-dkv"><b>제목</b><i title={cycle.name ?? ''}>{cycle.name || '–'}</i></span>
+                    <span className="cyt-dkv"><b>벤더</b><i>{maker || '–'}</i></span>
+                    <span className="cyt-dkv"><b>제품군</b><i>{family || '–'}</i></span>
+                    <span className="cyt-dkv"><b>모델그룹</b><i>{(cycle.model_group ?? '').trim() || mgroup || '–'}</i></span>
+                    <span className="cyt-dkv"><b>모델명</b><i>{cycle.model || '–'}</i></span>
+                    <span className="cyt-dkv"><b>상태</b><i>{cycle.status || '–'}</i></span>
+                    <span className="cyt-dkv"><b>고객</b><i>{cycle.customer || '–'}</i></span>
+                    <span className="cyt-dkv"><b>버전그룹</b><i>{cycle.version_group || '–'}</i></span>
+                    <span className="cyt-dkv"><b>버전</b><i>{cycle.version || '–'}</i></span>
+                    <span className="cyt-dkv"><b>담당자</b><i>{cycle.assignee || '–'}</i></span>
+                    <span className="cyt-dkv"><b>생성자</b><i>{cycle.created_by || '–'}</i></span>
+                    <span className="cyt-dkv"><b>생성일</b><i>{String(cycle._created_at_pg ?? '').slice(0, 10) || '–'}</i></span>
+                    <span className="cyt-dkv"><b>변경일</b><i>{String(cycle._updated_at_pg ?? '').slice(0, 10) || '–'}</i></span>
+                  </div>
+                </div>
+
+                {/* ② 전체 · 수동 · 자동 현황 */}
+                <div className="cxp-infosec">
+                  <b className="cxp-infolb">현황</b>
+                  {(() => {
+                    const tally = (xs: CycleItemLite[]) => {
+                      let p = 0
+                      let f = 0
+                      let etc = 0
+                      for (const x of xs) {
+                        const v2 = itemVerdict(x)
+                        const g = groupOf(v2)
+                        if (g === 'pass') p += 1
+                        else if (g === 'fail') f += 1
+                        else if (v2) etc += 1
+                      }
+                      return { n: xs.length, p, f, etc, none: xs.length - p - f - etc }
+                    }
+                    const rows: Array<[string, ReturnType<typeof tally>]> = [
+                      ['전체', tally(items)],
+                      ['수동', tally(items.filter((x) => typeOf(x) === 'manual'))],
+                      ['자동', tally(items.filter((x) => typeOf(x) === 'auto'))],
+                    ]
+                    return (
+                      <table className="cxp-statab">
+                        <thead>
+                          <tr>
+                            <th>구분</th>
+                            <th>건수</th>
+                            <th>합격</th>
+                            <th>실패</th>
+                            <th>그 외</th>
+                            <th>미실행</th>
+                            <th>진행률</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map(([lb, t]) => (
+                            <tr key={lb}>
+                              <td>{lb}</td>
+                              <td>{t.n}</td>
+                              <td className="ok">{t.p}</td>
+                              <td className={t.f ? 'ng' : undefined}>{t.f}</td>
+                              <td>{t.etc}</td>
+                              <td>{t.none}</td>
+                              <td>{t.n ? Math.round(((t.n - t.none) / t.n) * 100) : 0}%</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )
+                  })()}
+                </div>
+
+                {/* ③ AI 요약 */}
+                <div className="cxp-infosec">
+                  <b className="cxp-infolb">
+                    AI 요약
+                    <button
+                      className="btn small"
+                      type="button"
+                      disabled={aiBusy}
+                      onClick={() => void makeAi()}
+                    >
+                      {aiBusy ? '만드는 중…' : cycle.ai_summary?.text ? '다시 만들기' : 'AI 요약 만들기'}
+                    </button>
+                    {cycle.ai_summary?.at && (
+                      <em className="muted small">{String(cycle.ai_summary.at).slice(0, 16).replace('T', ' ')}</em>
+                    )}
+                  </b>
+                  {cycle.ai_summary?.text ? (
+                    <div className="cxp-aitext">
+                      <Markdown text={String(cycle.ai_summary.text)} />
+                    </div>
+                  ) : (
+                    <div className="muted small">
+                      아직 요약이 없습니다 — 「AI 요약 만들기」 를 누르면 이 회차의 결과를 읽고 적어 줍니다.
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
