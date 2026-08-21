@@ -277,7 +277,10 @@ export default function TcSequence({
                 >
                   {summary(s) || <span className="muted">—</span>}
                   {isShut && body > 0 && <span className="sq-folded">＋{body}줄</span>}
-                  {s.step && <span className="sq-desc">{s.step}</span>}
+                  {/* 설명은 목록에서 뺐다(지시). 고칠 자리가 없는 글자를
+                      띄워 두면 「이건 어디서 바꾸나」 만 남는다 — 스텝 상세의
+                      설명 칸을 없앤 뒤로 그렇게 됐다. 자료는 그대로 있고
+                      마우스를 올리면 보인다. */}
                   {/* 반복인데 안에 든 줄이 없다.
                       들여쓰기를 안 하면 빈 것을 N번 돌고 아래 줄은 한 번만
                       돈다 — 그런데 화면에는 아무 표시가 없어서 N번 돈 줄
