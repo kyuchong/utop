@@ -328,12 +328,6 @@ export default function Devices({ me }: Props) {
             {lb}
           </button>
         ))}
-        <span className="sp" />
-        <span className="muted small">
-          {layout === 'table'
-            ? 'LAB 을 고르면 그 랩의 장비가 한 표에 섭니다 — 등록·수정·삭제가 여기서 끝납니다'
-            : '벤더 › 제품군 › 모델그룹 › 모델 — 분류를 정리하는 자리입니다'}
-        </span>
       </div>
       {layout === 'table' ? <DeviceGrid me={me} /> : <DeviceCatalog me={me} only="tree" />}
     </section>
