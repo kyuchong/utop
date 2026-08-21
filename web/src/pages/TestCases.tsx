@@ -976,6 +976,13 @@ export default function TestCases({ me }: PageProps) {
    * 줄들이 조용히 밖으로 나온다.
    */
   const addStep = (kind: StepKind) => {
+    /* 동시 실행 그룹은 한 시험에 **하나만**(지시). 여럿이면 무엇과 무엇이
+       같이 도는지 사람이 셈해야 하고, 같은 장비를 두 그룹이 물면 응답이
+       뒤섞인다. */
+    if (kind === 'parallel' && steps.some((x) => x.kind === 'parallel')) {
+      setMsg({ kind: 'err', text: '동시 실행 그룹은 한 시험에 하나만 둘 수 있습니다' })
+      return
+    }
     const cur = stepIdx >= 0 ? steps[stepIdx] : undefined
     // 아래에 들여쓴 줄을 거느리고 있으면 그 뒤로. 종류로 보지 않는다 —
     // 주석 아래에 스텝을 들여쓴 것도 똑같이 몸통이다.

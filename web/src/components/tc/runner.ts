@@ -501,7 +501,13 @@ async function runOne(
    * 그래서 If 줄이 「세션이 지정되지 않았습니다」 로 불합격이 났다(지적).
    * 장비로 나가는 줄이 아니다. 조건만 따져 보여 주고 판정은 내지 않는다.
    */
-  if (kind === 'if' || kind === 'else' || kind === 'loop' || kind === 'switch') {
+  if (
+    kind === 'if' ||
+    kind === 'else' ||
+    kind === 'loop' ||
+    kind === 'parallel' ||
+    kind === 'switch'
+  ) {
     if (kind === 'if') {
       const { ok: yes, why } = evalCondWhy(String(step.condition ?? ''), vars)
       ctx.onStep(i, {
@@ -515,7 +521,8 @@ async function runOne(
       ctx.onLog({ i, text: `조건 ${yes ? '참' : '거짓'} — ${why}`, kind: 'info', label: '조건' })
       return ''
     }
-    const what = kind === 'else' ? '거짓 갈래' : kind === 'loop' ? '반복' : '갈래'
+    const what =
+      kind === 'else' ? '거짓 갈래' : kind === 'loop' ? '반복' : kind === 'parallel' ? '동시 실행' : '갈래'
     ctx.onStep(i, { output: `${what} 줄입니다 — 몸통과 함께 돌리세요`, executed_at: at })
     ctx.onLog({ i, text: `${what} 줄은 한 줄만 돌릴 수 없습니다 — 몸통과 함께 돌리세요`, kind: 'skip' })
     return ''
@@ -1172,7 +1179,15 @@ async function runOne(
     ctx.onLog({ i, text: error ?? '실행할 수 없습니다', kind: 'fail' })
     return 'Fail'
   }
-  const conn = connParams(dev)
+  /*
+   * **세션 자리까지** 넘긴다.
+   *
+   * 서버는 장비+계정으로 접속 하나를 캐시한다. 그러면 같은 장비에 세션을
+   * 열 개 앉혀도 접속은 하나라 차례로 줄을 선다 — 「동일 장비 세션 10개를
+   * 동시에」 가 안 된다(지시). 자리 번호를 함께 보내면 자리마다 제 접속을
+   * 갖는다. 안 보내던 옛 화면은 그대로 하나를 쓴다.
+   */
+  const conn = { ...connParams(dev), sess: sessionIndex(step.session) }
 
   if (kind === 'connect' || kind === 'disconnect') {
     const path = kind === 'connect' ? '/api/session-open' : '/api/session-close'
@@ -1476,6 +1491,8 @@ export async function runSteps(
   let round = 0
   /** If 의 「건너뛰기」 횟수 — 돌고 도는 것을 막는다 */
   let jumps = 0
+  /** 동시 실행 그룹은 한 번만 — 두 번째부터는 차례로 돈다 */
+  let usedParallel = false
   const ctx: RunCtx = {
     ...ctx0,
     onStep: (i, patch) => {
@@ -1777,6 +1794,71 @@ export async function runSteps(
           }
         }
         round = 0
+        i = body
+        continue
+      }
+
+      /*
+       * 동시 실행 — 안에 든 줄들을 **한꺼번에** 돈다(지시).
+       *
+       * 장비 넷에 같은 명령을 넣고 기다리는 시험이 흔하다. 차례로 돌면 넷을
+       * 다 기다린다. 다만 **같은 세션끼리는 차례로** 돈다 — 한 접속에 두
+       * 명령을 겹쳐 보내면 응답이 뒤섞여 무엇이 무엇의 답인지 알 수 없다.
+       *
+       * 변수는 한 벌을 같이 쓴다. 같은 이름을 두 줄이 동시에 담으면 어느
+       * 것이 남을지는 정할 수 없다 — 그때는 이름을 갈라 쓰라고 적어 둔다.
+       */
+      if (kind === 'parallel') {
+        const body = blockEnd(ctx.steps, i)
+        /* 그룹은 하나만 산다(합의). 옛 자료에 둘 이상 있으면 뒤엣것은
+           차례로 돈다 — 조용히 같이 돌리면 같은 장비를 두 그룹이 물어
+           응답이 뒤섞인다. */
+        if (usedParallel) {
+          ctx.onLog({
+            i,
+            kind: 'warn',
+            text: '동시 실행 그룹은 하나만 돕니다 — 이 그룹은 차례로 돌립니다',
+          })
+          await walk(i + 1, body)
+          i = body
+          continue
+        }
+        usedParallel = true
+        const d = Number(s.indent ?? 0)
+        /** 바로 아래 깊이의 줄들 — 각자 제 블록을 거느린 채 한 덩이가 된다 */
+        const heads: number[] = []
+        for (let j = i + 1; j < body; ) {
+          heads.push(j)
+          j = Math.max(j + 1, blockEnd(ctx.steps, j))
+        }
+        if (!heads.length) {
+          ctx.onLog({ i, kind: 'warn', text: '동시에 돌 줄이 없습니다 — 아래 줄을 「→」 로 들여쓰세요' })
+          i = body
+          continue
+        }
+        // 세션별로 묶는다. 같은 세션은 한 줄로 세우고, 묶음끼리 같이 돈다
+        const lanes = new Map<string, number[]>()
+        for (const h of heads) {
+          const key = String(ctx.steps[h]?.session ?? '')
+          const cur = lanes.get(key) ?? []
+          cur.push(h)
+          lanes.set(key, cur)
+        }
+        ctx.onLog({
+          i,
+          kind: 'info',
+          text: `${heads.length}줄을 ${lanes.size}갈래로 동시에 돕니다`,
+          label: '동시 실행',
+        })
+        await Promise.all(
+          [...lanes.values()].map(async (lane) => {
+            for (const h of lane) {
+              if (ctx.signal.aborted) return
+              await walk(h, Math.max(h + 1, blockEnd(ctx.steps, h)))
+            }
+          }),
+        )
+        void d
         i = body
         continue
       }

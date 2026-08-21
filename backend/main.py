@@ -5587,7 +5587,15 @@ _conn_cache_lock = _threading.Lock()
 _CONN_IDLE_SEC = 180  # 이 시간 이상 idle이면 생존 확인 후 필요 시 재접속
 
 def _conn_key(p):
-    return "{}|{}|{}|{}".format(p.get("host"), p.get("port"), p.get("device_type"), p.get("username"))
+    """접속 하나를 가리키는 열쇠.
+
+    ★ `sess`(세션 자리 번호)를 넣는다 — 같은 장비에 세션을 열 개 앉히고
+      **동시에** 명령을 넣는 시험이 있다(지시). 자리까지 넣지 않으면 접속
+      하나를 열이 나눠 쓰느라 차례로 줄을 선다. 안 보내면 예전처럼 하나다.
+    """
+    return "{}|{}|{}|{}|{}".format(
+        p.get("host"), p.get("port"), p.get("device_type"), p.get("username"), p.get("sess"),
+    )
 
 def _get_conn_entry(params):
     key = _conn_key(params)

@@ -108,6 +108,15 @@ export type StepKind =
    */
   | 'else'
   | 'loop'
+  /**
+   * 안에 든 줄들을 **한꺼번에** 돈다.
+   *
+   * 장비 넷에 같은 명령을 넣고 기다리는 시험이 흔한데, 차례로 돌면 넷을
+   * 다 기다린다(지적: 동시 실행은 없나요). 세션이 다르면 같이 보낸다 —
+   * **같은 세션끼리는 차례로** 돈다. 한 접속에 두 명령을 겹쳐 보내면
+   * 응답이 뒤섞인다.
+   */
+  | 'parallel'
   | 'switch'
   | 'wait'
   // 접속
@@ -533,6 +542,7 @@ export const STEP_KINDS: Array<{
   { k: 'if', label: 'If', group: 'flow', icon: 'branch' },
   { k: 'else', label: 'Else', group: 'flow', icon: 'branch' },
   { k: 'loop', label: 'Loop', group: 'flow', icon: 'loop' },
+  { k: 'parallel', label: '동시 실행', group: 'flow', icon: 'branch' },
   { k: 'switch', label: 'Switch', group: 'flow', icon: 'switch' },
   { k: 'wait', label: 'Wait', group: 'flow', icon: 'clock' },
   { k: 'model', label: 'Model', group: 'etc', icon: 'chip', hidden: true },
@@ -660,6 +670,10 @@ export const STEP_CONTENT: Record<string, { label: string; hint?: string }> = {
   if: { label: '조건' },
   else: { label: '거짓일 때', hint: '바로 위 If 가 거짓이면 아래 들여쓴 줄들을 돕니다' },
   loop: { label: '반복' },
+  parallel: {
+    label: '동시 실행',
+    hint: '안에 든 줄들을 한꺼번에 돕니다. 세션이 다르면 같이, 같은 세션끼리는 차례로.',
+  },
   switch: { label: '기준 값' },
   wait: { label: '기다릴 초' },
   comment: { label: '주석', hint: '실행되지 않습니다. 사람이 읽는 설명입니다' },
@@ -676,7 +690,7 @@ export const STEP_CONTENT: Record<string, { label: string; hint?: string }> = {
  * 몸통이 끊긴다. 넣는 자리·접는 자리 모두 이것을 봐야 한다.
  */
 export function isBlockKind(k?: string): boolean {
-  return k === 'loop' || k === 'if' || k === 'else' || k === 'switch'
+  return k === 'loop' || k === 'if' || k === 'else' || k === 'parallel' || k === 'switch'
 }
 
 /** 실행할 때 장비로 아무것도 안 나가는 종류. 줄 색을 달리해 한눈에 가른다. */
@@ -753,6 +767,7 @@ export function stepSummary(s: TcStep): string {
   }
   if (k === 'if') return (s.condition || s.step || '').trim()
   if (k === 'else') return (s.step || '바로 위 If 가 거짓일 때').trim()
+  if (k === 'parallel') return (s.step || '안에 든 줄을 한꺼번에').trim()
   if (k === 'switch') return (s.switchExpr || s.step || '').trim()
   if (k === 'loop') {
     if (s.forFrom !== undefined && s.forTo !== undefined)
