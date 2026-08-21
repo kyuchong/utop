@@ -974,7 +974,11 @@
 .vd-pickb.one > i { width: 15px; height: 15px; border-radius: 4px; border: 1px solid rgba(0,0,0,.12); }
 .vd-pickb.one > em { font-style: normal; font-size: 10px; letter-spacing: .02em; }
 .vd-pickb.one:hover { background: var(--c-surface-alt); }
-.vd-grid .vd-sw2 { height: 26px; border-radius: 7px; border-color: rgba(0,0,0,.12); }
+.vd-grid .vd-sw2 { height: 26px; border-radius: 7px; border-color: rgba(0, 0, 0, 0.12); }
+/* 한 줄이 한 색, 왼쪽이 진하고 오른쪽으로 여려진다(지시) — 넉 줄씩 끊는다 */
+.vd-grid { grid-template-columns: repeat(4, 1fr); max-height: 340px; overflow: auto; }
+/* 흰색·아주 연한 칸도 자리가 보이게 테두리를 조금 진하게 */
+.vd-grid .vd-sw2 { box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06); }
 
 /* 칸 폭을 한 벌로 — 색 단추가 줄마다 어긋나 보였다(지적) */
 .vd-tbl th.w-c, .vd-tbl td:nth-child(1), .vd-tbl td:nth-child(2) { width: 108px; }

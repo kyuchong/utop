@@ -67,22 +67,81 @@ function metaOf(it?: Item): { color?: string; fg?: string; desc?: string; group?
 
 /** 고르기 쉬운 한 벌 — 바탕과 글자를 짝으로 묶어 둔다(지적: 색 고르기가
     어렵다). 색동그라미 하나만 누르면 두 색이 같이 정해진다. */
+/*
+ * 색 한 벌 — **같은 색을 진하기별로**(지시).
+ *
+ * 한 줄이 한 색이고, 왼쪽이 진하고 오른쪽으로 갈수록 여려진다.
+ * 진한 칸은 글자를 흰색으로, 여린 칸은 같은 계열의 짙은 글자로 미리 맞춰
+ * 둔다 — 고르자마자 읽히는 짝이라야 쓸모가 있다.
+ */
 const PALETTE: Array<{ nm: string; color: string; fg: string }> = [
-  { nm: '초록', color: '#16a34a', fg: '#0a7a45' },
-  { nm: '연두', color: '#65a30d', fg: '#4d7c0f' },
-  { nm: '청록', color: '#0d9488', fg: '#0f766e' },
-  { nm: '파랑', color: '#2563eb', fg: '#1d4ed8' },
-  { nm: '남색', color: '#4f46e5', fg: '#4338ca' },
-  { nm: '보라', color: '#7c4dff', fg: '#5b21b6' },
-  { nm: '자주', color: '#c026d3', fg: '#a21caf' },
-  { nm: '분홍', color: '#ec4899', fg: '#be185d' },
-  { nm: '빨강', color: '#dc2626', fg: '#c22222' },
-  { nm: '주황', color: '#e8820c', fg: '#b45309' },
-  { nm: '노랑', color: '#f0b429', fg: '#a16207' },
-  { nm: '갈색', color: '#a16207', fg: '#78350f' },
-  { nm: '회색', color: '#8b93a1', fg: '#64748b' },
-  { nm: '연회색', color: '#c3cad4', fg: '#64748b' },
-  { nm: '검정', color: '#334155', fg: '#1e293b' },
+  { nm: '초록 · 진함', color: '#14532d', fg: '#ffffff' },
+  { nm: '초록', color: '#16a34a', fg: '#ffffff' },
+  { nm: '초록 · 옅음', color: '#86efac', fg: '#14532d' },
+  { nm: '초록 · 여림', color: '#dcfce7', fg: '#166534' },
+
+  { nm: '청록 · 진함', color: '#134e4a', fg: '#ffffff' },
+  { nm: '청록', color: '#0d9488', fg: '#ffffff' },
+  { nm: '청록 · 옅음', color: '#5eead4', fg: '#134e4a' },
+  { nm: '청록 · 여림', color: '#ccfbf1', fg: '#115e59' },
+
+  { nm: '하늘 · 진함', color: '#075985', fg: '#ffffff' },
+  { nm: '하늘', color: '#0ea5e9', fg: '#ffffff' },
+  { nm: '하늘 · 옅음', color: '#7dd3fc', fg: '#075985' },
+  { nm: '하늘 · 여림', color: '#e0f2fe', fg: '#075985' },
+
+  { nm: '파랑 · 진함', color: '#1e3a8a', fg: '#ffffff' },
+  { nm: '파랑', color: '#2563eb', fg: '#ffffff' },
+  { nm: '파랑 · 옅음', color: '#93c5fd', fg: '#1e3a8a' },
+  { nm: '파랑 · 여림', color: '#dbeafe', fg: '#1e40af' },
+
+  { nm: '보라 · 진함', color: '#4c1d95', fg: '#ffffff' },
+  { nm: '보라', color: '#7c4dff', fg: '#ffffff' },
+  { nm: '보라 · 옅음', color: '#c4b5fd', fg: '#4c1d95' },
+  { nm: '보라 · 여림', color: '#ede9fe', fg: '#5b21b6' },
+
+  { nm: '자주 · 진함', color: '#701a75', fg: '#ffffff' },
+  { nm: '자주', color: '#c026d3', fg: '#ffffff' },
+  { nm: '자주 · 옅음', color: '#f0abfc', fg: '#701a75' },
+  { nm: '자주 · 여림', color: '#fae8ff', fg: '#86198f' },
+
+  { nm: '분홍 · 진함', color: '#9d174d', fg: '#ffffff' },
+  { nm: '분홍', color: '#ec4899', fg: '#ffffff' },
+  { nm: '분홍 · 옅음', color: '#f9a8d4', fg: '#9d174d' },
+  { nm: '분홍 · 여림', color: '#fce7f3', fg: '#9d174d' },
+
+  { nm: '빨강 · 진함', color: '#7f1d1d', fg: '#ffffff' },
+  { nm: '빨강', color: '#dc2626', fg: '#ffffff' },
+  { nm: '빨강 · 옅음', color: '#fca5a5', fg: '#7f1d1d' },
+  { nm: '빨강 · 여림', color: '#fee2e2', fg: '#991b1b' },
+
+  { nm: '주황 · 진함', color: '#7c2d12', fg: '#ffffff' },
+  { nm: '주황', color: '#e8820c', fg: '#ffffff' },
+  { nm: '주황 · 옅음', color: '#fdba74', fg: '#7c2d12' },
+  { nm: '주황 · 여림', color: '#ffedd5', fg: '#9a3412' },
+
+  { nm: '노랑 · 진함', color: '#854d0e', fg: '#ffffff' },
+  { nm: '노랑', color: '#f0b429', fg: '#4a3106' },
+  { nm: '노랑 · 옅음', color: '#fde68a', fg: '#854d0e' },
+  { nm: '노랑 · 여림', color: '#fef3c7', fg: '#854d0e' },
+
+  { nm: '연두 · 진함', color: '#3f6212', fg: '#ffffff' },
+  { nm: '연두', color: '#65a30d', fg: '#ffffff' },
+  { nm: '연두 · 옅음', color: '#bef264', fg: '#3f6212' },
+  { nm: '연두 · 여림', color: '#ecfccb', fg: '#4d7c0f' },
+
+  { nm: '갈색 · 진함', color: '#5c3a1e', fg: '#ffffff' },
+  { nm: '갈색', color: '#a16207', fg: '#ffffff' },
+  { nm: '갈색 · 옅음', color: '#d6bd9a', fg: '#5c3a1e' },
+  { nm: '갈색 · 여림', color: '#f5ecdf', fg: '#78350f' },
+
+  /* 무채색 — 흰색이 여기 있다(지시) */
+  { nm: '검정', color: '#1f2937', fg: '#ffffff' },
+  { nm: '진회색', color: '#4b5563', fg: '#ffffff' },
+  { nm: '회색', color: '#8b93a1', fg: '#ffffff' },
+  { nm: '연회색', color: '#c3cad4', fg: '#1f2733' },
+  { nm: '아주 연회색', color: '#f1f5f9', fg: '#334155' },
+  { nm: '흰색', color: '#ffffff', fg: '#1f2733' },
 ]
 
 /** 한 색 고르개 — 바탕과 글자를 **따로** 고른다(지시). 누르면 색 한 벌이
