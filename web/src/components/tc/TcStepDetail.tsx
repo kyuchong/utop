@@ -1115,7 +1115,7 @@ export default function TcStepDetail({
         {isRun && !isMeterStep && (
           <div className="sd-f">
             <span className="sd-lab">
-              Expected — 판정 기준
+              판정 기준
               {/* 전역 파라미터와 비교(지적) — 골라서 「있어야 \${이름}」 칩으로.
                   실행할 때 실제 값으로 바뀌어 응답과 비교된다 */}
               <button
@@ -1161,19 +1161,14 @@ export default function TcStepDetail({
                 </span>
               ))}
               {!chips.length && (
-                <span className="muted small">기준이 없으면 판정하지 않습니다 (조회만)</span>
+                <span className="muted small">없으면 판정하지 않습니다</span>
               )}
             </div>
             {/* 직접 입력칸은 뺐다(지적 ×2) — 기준은 블럭 클릭·글자 끌기로만.
                 응답에 없는 문구가 필요한 드문 경우는 아직 없다는 판단(합의) */}
-            {isTbl && (
-              /* 안내 글자는 뺐다(지시) — 눌러 보면 그 판이 스스로 말한다 */
-              <span className="sd-hint">
-                <button className="btn small" type="button" onClick={() => setTblOpen(true)}>
-                  표에서 고르기
-                </button>
-              </span>
-            )}
+            {/* 여기 있던 「표에서 고르기」 는 뺐다(지시) — 출력 바로 위의
+                「표로 판정 만들기」 와 **같은 판**이다. 같은 것을 두 군데
+                두면 어느 것을 눌렀는지에 따라 다른 줄 알게 된다. */}
             {String(step.type) === 'expr' && String(step.criteria ?? '').trim() && !stepRules(step).length && (
               <span className="sd-hint">
                 옛 값비교 기준 <code>{String(step.criteria)}</code> 로 판정 중 — 값끼리 견주는
