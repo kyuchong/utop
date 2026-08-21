@@ -478,7 +478,9 @@ def _nl_steps_from(obj):
         kind = str(r.get("kind") or "").strip().lower()
         if kind in ("inst", "instrument", "계측기", "traffic"):
             kind = "inst"
-        if kind not in ("if", "for", "wait", "inst"):
+        # SNMP·Ping 도 실행기가 이미 도는 스텝이다. 여기서 cli 로 뭉개는 바람에
+        # 「SNMP 시험해줘」 가 `show snmp` 같은 CLI 로 나왔다(지적).
+        if kind not in ("if", "for", "wait", "inst", "snmp_get", "snmp_set", "snmp_trap", "ping"):
             kind = "cli"
         # ★ 제어 스텝(if·for·wait)과 계측기 스텝은 cli 가 없다. 예전엔 여기서
         #   통째로 버려서 LLM 이 조건문을 만들어도 결과에 안 남았다.
@@ -545,6 +547,32 @@ def _nl_steps_from(obj):
             if c.get("excludeLines"):
                 st["excludeLines"] = c.get("excludeLines")
             steps.append(st)
+        elif kind in ("snmp_get", "snmp_set", "snmp_trap"):
+            # OID 가 없으면 보낼 것이 없다 — 그 스텝은 버린다
+            row["oid"] = str(r.get("oid") or "").strip()
+            if not row["oid"]:
+                continue
+            for k2 in ("community", "snmpVersion", "snmpType", "snmpValue"):
+                v2 = str(r.get(k2) or "").strip()
+                if v2:
+                    row[k2] = v2
+            for k2, lo, hi in (("snmpPort", 1, 65535), ("trapSec", 1, 600)):
+                try:
+                    if r.get(k2) is not None:
+                        row[k2] = max(lo, min(hi, int(r.get(k2))))
+                except (TypeError, ValueError):
+                    pass
+            row["cli"] = ""
+        elif kind == "ping":
+            row["cli"] = ""
+            h = str(r.get("host") or "").strip()
+            if h:
+                row["host"] = h
+            try:
+                if r.get("count") is not None:
+                    row["count"] = max(1, min(100, int(r.get("count"))))
+            except (TypeError, ValueError):
+                pass
         elif kind == "wait":
             try:
                 row["sec"] = max(1, min(600, int(r.get("sec") or 5)))
@@ -1762,7 +1790,8 @@ async def ai_nl_plan(payload: dict):
     schema = {"type": "object", "properties": {
         "title": {"type": "string"}, "purpose": {"type": "string"},
         "steps": {"type": "array", "items": {"type": "object", "properties": {
-            "kind": {"type": "string"},          # cli(기본) · if · for · wait · inst
+            # cli(기본) · snmp_get · snmp_set · snmp_trap · ping · if · for · wait · inst
+            "kind": {"type": "string"},
             "indent": {"type": "integer"},       # 반복 블록 안이면 1 크게 (0=반복 밖)
             "desc": {"type": "string"}, "cli": {"type": "string"},
             "type": {"type": "string"}, "criteria": {"type": "string"},
@@ -1779,7 +1808,17 @@ async def ai_nl_plan(payload: dict):
             "runit": {"type": "string"},         # 부하 단위 — Percent(%) · Mbps · bps · Frames/sec(fps)
             "smacm": {"type": "string"},         # 값이 어떻게 변하나 — Fixed · Increment · Decrement · Random
             "rate": {"type": "string"},          # inst config 일 때 — 예: 1.2G · 10%
-            "frame": {"type": "integer"}}}}},    # inst config 일 때 — 프레임 크기(바이트)
+            "frame": {"type": "integer"},        # inst config 일 때 — 프레임 크기(바이트)
+            # ── SNMP·Ping — 이 칸들이 없으면 모델이 SNMP 를 CLI 로 흉내 낸다(지적)
+            "oid": {"type": "string"},           # snmp_* 일 때 — 예: 1.3.6.1.2.1.1.1.0
+            "community": {"type": "string"},     # 비우면 장비에 등록된 값을 쓴다
+            "snmpVersion": {"type": "string"},   # v1 · v2c(기본) · v3
+            "snmpPort": {"type": "integer"},     # 기본 161
+            "snmpValue": {"type": "string"},     # snmp_set 일 때 — 넣을 값
+            "snmpType": {"type": "string"},      # snmp_set 일 때 — s(문자) · i(정수) · a(주소) …
+            "trapSec": {"type": "integer"},      # snmp_trap 일 때 — 몇 초 기다리나
+            "host": {"type": "string"},          # ping 일 때 — 보낼 곳(비우면 그 장비)
+            "count": {"type": "integer"}}}}},    # ping 일 때 — 몇 번
         "required": ["steps"]}
 
     # 설정 시험은 **모양**을 알려 줘야 한다. 안 알려 주면 설정을 시켰는데도
@@ -1853,6 +1892,20 @@ async def ai_nl_plan(payload: dict):
              "                     {\"kind\":\"cli\",\"indent\":1,\"cli\":\"configure terminal\\ninterface GigabitEthernet 0/${i}\\nshutdown\\nend\"},\n"
              "                     {\"kind\":\"cli\",\"indent\":1,\"cli\":\"show interface GigabitEthernet 0/${i}\",\"type\":\"contains\",\"criteria\":\"administratively down\"},\n"
              "                     {\"kind\":\"cli\",\"indent\":1,\"cli\":\"configure terminal\\ninterface GigabitEthernet 0/${i}\\nno shutdown\\nend\"}]\n"
+             "  kind=\"snmp_get\"  **SNMP 로 값을 읽는다.** cli 는 비우고 oid 에 OID 를 적는다.\n"
+             "                    사용자가 SNMP 시험을 시키면 `show snmp` 같은 CLI 로 흉내 내지 마라 —\n"
+             "                    반드시 이 스텝을 쓴다(지적: SNMP 를 시켰는데 CLI 가 나왔다).\n"
+             "                    community 는 비워 둔다 — 장비에 등록된 값을 화면이 채운다.\n"
+             "                    자주 쓰는 OID: sysDescr 1.3.6.1.2.1.1.1.0 · sysObjectID 1.3.6.1.2.1.1.2.0 ·\n"
+             "                      sysUpTime 1.3.6.1.2.1.1.3.0 · sysContact 1.3.6.1.2.1.1.4.0 ·\n"
+             "                      sysName 1.3.6.1.2.1.1.5.0 · sysLocation 1.3.6.1.2.1.1.6.0 ·\n"
+             "                      ifNumber 1.3.6.1.2.1.2.1.0 · ifDescr 1.3.6.1.2.1.2.2.1.2 ·\n"
+             "                      ifOperStatus 1.3.6.1.2.1.2.2.1.8\n"
+             "                    판정은 type·criteria 로 — 읽은 값이 무엇이어야 하는지 적는다.\n"
+             "  kind=\"snmp_set\"  SNMP 로 값을 쓴다. oid·snmpValue·snmpType 을 적는다.\n"
+             "                    쓴 뒤에는 **반드시 snmp_get 으로 확인**하고, 마지막에 원래 값으로 되돌린다.\n"
+             "  kind=\"snmp_trap\" 트랩이 오는지 기다린다. trapSec 에 몇 초 기다릴지 적는다.\n"
+             "  kind=\"ping\"      살아 있는지 본다. host(비우면 그 장비)·count 를 적는다.\n"
              "  kind=\"wait\" 장비가 준비될 때까지 기다린다. sec 에 초를 적는다 (재부팅 뒤 등).\n"
              "  kind=\"inst\" **계측기**(트래픽 발생기)로 트래픽을 흘린다. cli 는 비우고 action 을 적는다.\n"
              "                action 은 이 여섯 가지뿐이다 — 다른 말을 지어내지 마라:\n"
@@ -1979,8 +2032,10 @@ async def ai_nl_plan(payload: dict):
     for s in _nl_steps_from(obj):
         # 제어 스텝(if·for·wait)은 명령이 아니다. 조건 안의 명령만 안전 검사한다.
         if s["kind"] != "cli":
-            # 계측기 스텝은 장비로 나가는 명령이 아니다 — 검사할 CLI 가 없다
-            if s["kind"] == "inst":
+            # 장비로 **명령이 나가지 않는** 스텝들은 검사할 CLI 가 없다.
+            # 계측기·SNMP·Ping 이 그렇다 — 여기서 안 빼 주면 아래 CLI 검사에
+            # 걸려 통째로 사라진다(지적: SNMP 시험이 CLI 로 나왔다).
+            if s["kind"] in ("inst", "snmp_get", "snmp_set", "snmp_trap", "ping"):
                 steps.append(s)
                 continue
             _inner = [s.get("then", ""), s.get("otherwise", "")]
