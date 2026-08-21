@@ -416,35 +416,13 @@ export default function TcStepDetail({
           한 번 더 막는다. */}
       <div className={`sd-body${readOnly ? ' sd-ro' : ''}`} inert={readOnly || undefined}>
         {/* 지우지 않고 잠시 빼두는 일이 잦다 */}
-        <label className="sd-chk">
-          <input
-            type="checkbox"
-            checked={!!step.skip}
-            onChange={(e) => onChange({ skip: e.target.checked })}
-          />
-          이 스텝 건너뛰기
-        </label>
+        {/*
+          「이 스텝 건너뛰기」 와 「설명」 은 여기서 뺐다(지시).
 
-        {/* 사람이 읽는 한 줄. 세부에 묻어 두었더니 있는 줄도 몰랐다 —
-            목록에서 이 줄이 무엇인지 알려주는 것이라 맨 위가 맞다.
-
-            Wait 는 뺀다. 「3초 기다림」 이 목록에 이미 그대로 나와서, 설명에
-            더 적을 것이 없다 — 빈 칸만 하나 늘어난다.
-
-            주석·메시지도 뺀다. 그 줄의 본문이 곧 사람이 읽는 글이라 설명과
-            하는 일이 겹친다. 둘 다 채우면 목록에 「계측기 포트 확인 계측기
-            포트 확인」 처럼 같은 말이 두 번 나온다 — 실제로 그랬다. */}
-        {kind !== 'wait' && !isNoteKind(kind) && (
-        <label className="sd-f">
-          <span>설명</span>
-          <input
-            value={step.step ?? ''}
-            placeholder="이 스텝을 한마디로 (선택) — 목록에 함께 보입니다"
-            onChange={(e) => onChange({ step: e.target.value })}
-          />
-        </label>
-        )}
-
+          건너뛰기는 목록에서 줄을 골라 「건너뛰기」 를 누르는 길이 이미
+          있다 — 한 줄씩 세부를 열어 켜는 것보다 그쪽이 빠르다.
+          설명은 목록에 나오는 한 줄이라 목록에서 고치는 것이 맞다.
+        */}
         <label className="sd-f">
           <span>Action</span>
           {/* 새로 고를 수 있는 것만 내놓는다. 이미 저장된 옛 종류

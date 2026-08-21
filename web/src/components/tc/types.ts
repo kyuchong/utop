@@ -627,7 +627,8 @@ export const METER_ACT_LABEL: Record<string, string> = {
 }
 
 export const STEP_CONTENT: Record<string, { label: string; hint?: string }> = {
-  cli: { label: '보낼 명령', hint: '여러 줄이면 위에서부터 차례로 보냅니다' },
+  /* 힌트는 뺐다(지시) — 여러 줄을 차례로 보내는 것은 칸을 보면 안다 */
+  cli: { label: '보낼 명령' },
   diff: { label: '견줄 두 값', hint: '같으면 합격 · 다르면 불합격. 여러 줄이면 어느 줄이 다른지 보여줍니다' },
   map: { label: '치환', hint: '값을 대응표로 바꿔 다른 변수에 담습니다. 판정은 다음 Diff 스텝이 합니다' },
   instrument: { label: '계측기 동작' },
