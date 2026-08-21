@@ -111,10 +111,15 @@ export default function VRail({
 }
 
 /**
- * 레일이 가리키는 칸 — 접었다 펴는 카드(사진 꼴).
+ * 레일이 가리키는 칸.
  *
- * 탭처럼 하나만 남기지 않는다. 칸이 죽 이어져 있어야 굴리는 것만으로
- * 다음 이야기가 나오고, 레일이 「지금 여기」 를 짚어 줄 수 있다.
+ * **제목 줄은 없앴다**(지시, 승인 2026-08-22). 탭에 이미 이름과 건수가
+ * 있는데 그 아래에 같은 말이 한 번 더 나왔다 — 「Info」 탭을 골랐는데 안에
+ * 또 「Info」. 접기 단추도 그 줄에 있었으므로 함께 걷었다: 탭을 고르면 그
+ * 칸은 늘 펼쳐져 있다. 그만큼 내용이 위로 올라온다.
+ *
+ * `open`·`onToggle`·`title`·`right` 는 부르는 쪽을 안 건드리려고 남겨 둔다.
+ * 화면에는 안 쓴다.
  */
 export function RailSec({
   k,
@@ -132,22 +137,13 @@ export function RailSec({
   right?: ReactNode
   children: ReactNode
 }) {
+  void title
+  void open
+  void onToggle
+  void right
   return (
     <section className="railsec" data-sec={k}>
-      <button
-        type="button"
-        className="railsec-h"
-        aria-expanded={open}
-        onClick={onToggle}
-        title={open ? '접기' : '펴기'}
-      >
-        <i className={`railsec-caret${open ? ' on' : ''}`} aria-hidden="true">
-          <IconChevron />
-        </i>
-        <span>{title}</span>
-        {right ? <span className="railsec-r">{right}</span> : null}
-      </button>
-      {open ? <div className="railsec-b">{children}</div> : null}
+      <div className="railsec-b">{children}</div>
     </section>
   )
 }
