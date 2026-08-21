@@ -2888,7 +2888,9 @@ table.tb td.k {
 .cyt-it .muted.small { font-size: var(--fs-sm); }
 .cyt-it:last-child { border-bottom: 0; }
 
-.cyt-ittc { color: var(--c-primary); font-size: var(--fs-md); font-weight: 700; }
+/* TC 번호 — 이름과 **같은 크기·같은 굵기**(지시). 파란색으로만 가른다.
+   굵고 큰 글씨는 이름보다 번호를 먼저 읽게 만들었다. */
+.cyt-ittc { color: var(--c-primary); font-size: inherit; font-weight: 400; }
 /* 유형 — Coverage 의 Function 태그와 같은 옷 */
 .cyt-tag {
   font-style: normal;
