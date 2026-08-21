@@ -1274,6 +1274,21 @@ async function runOne(
  * 것과 같은 값이다.
  */
 function seedVars(ctx: RunCtx, upto: number, vars: Record<string, string>) {
+  /*
+   * 반복 밖에서 한 줄만 돌릴 때의 **회차 값**.
+   *
+   * 반복 안의 스텝을 「이 스텝만 실행」 으로 돌리면 반복이 안 도니까
+   * `${i}` 가 글자 그대로 남는다. 그러면 `Port=Te0/${i}` 는 그런 행이
+   * 없다며 불합격이 나고, 사람은 스텝을 잘못 짠 줄 안다(지적: 수행하면
+   * fail). 시작값을 깔아 준다 — 1회차를 돌려 보는 셈이다.
+   */
+  for (let i = 0; i < upto && i < ctx.steps.length; i++) {
+    const s = ctx.steps[i]
+    if (!s || (s.kind || 'cli') !== 'loop') continue
+    const name = String(s.loopVar ?? '').trim()
+    // 이 스텝을 감싸고 있는 반복만 — 이미 끝난 반복은 값을 남기지 않는다
+    if (name && blockEnd(ctx.steps, i) > upto) vars[name] = String(s.forFrom ?? 1)
+  }
   for (let i = 0; i < upto && i < ctx.steps.length; i++) {
     const s = ctx.steps[i]
     if (!s) continue
@@ -1620,6 +1635,13 @@ export async function runSteps(
     if (only) {
       // 한 줄만 돌릴 때는 블록을 펴지 않는다. If 의 몸통까지 따라가면
       // '이 스텝만' 이라는 말과 어긋난다.
+      const lv = loopVarAt(ctx.steps, from)
+      if (lv && vars[lv] !== undefined)
+        ctx.onLog({
+          i: from,
+          kind: 'info',
+          text: `반복 밖에서 한 줄만 돌립니다 — 회차 \${${lv}} 는 ${vars[lv]} 로 봅니다`,
+        })
       ctx.onAt(from)
       count(await runOneTimed(ctx, from, vars))
     } else {
