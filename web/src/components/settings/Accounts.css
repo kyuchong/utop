@@ -260,6 +260,9 @@
 }
 
 /* 왜 안 되는지 — 셋을 한 줄씩 */
+/* 계정 관리의 한 줄 상태 안에서는 줄바꿈 없이 */
+.acc-row .acc-chk { padding-left: 13px; white-space: nowrap; }
+
 .acc-diag {
   display: flex;
   flex-direction: column;
@@ -294,3 +297,7 @@
   color: #b45309;
   font-weight: 700;
 }
+
+/* Jira 연동 안의 진단 — 체크박스 아래로 한 칸 들여쓴다 */
+.jira-ck.sub { margin-left: 22px; font-size: var(--fs-sm); }
+.jira-ck.sub b { font-weight: 600; }

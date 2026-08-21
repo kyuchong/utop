@@ -1162,7 +1162,25 @@ async def api_login(req: LoginReq):
 
     u = _find_user(uname)
 
-    # ② Jira 가 정본 — 통과하면 그것으로 끝
+    # ② **먼저 UTOP 비밀번호**를 본다.
+    #
+    #   Jira 를 먼저 부르면 세 가지가 한꺼번에 무너진다(지적: Jira 연동을 켜면
+    #   기존 계정으로 로그인이 안 된다):
+    #     · Jira 가 죽으면 admin 도 못 들어온다 — 되돌릴 손이 없어진다
+    #     · 같은 아이디가 Jira 에도 있으면 실패가 쌓여 CAPTCHA 가 걸린다
+    #     · 로그인마다 바깥 서버를 기다린다
+    #   로컬 비밀번호는 우리 손 안에 있고 즉시 판가름 난다. 그것부터 본다.
+    if (
+        u
+        and u.get("active", True)
+        and u.get("password")
+        and _hash_pw(req.password, u.get("salt", "")) == u.get("password")
+    ):
+        _LOGIN_FAILS.pop(uname, None)
+        _touch_login(uname)
+        return _issue_session(u)
+
+    # ③ 안 맞으면 그때 Jira 에 물어본다 — 회원가입 없이 들어오는 길
     if _jira_login_on():
         ju, why = await _jira_verify_login(uname, req.password)
         if ju:
@@ -1179,30 +1197,22 @@ async def api_login(req: LoginReq):
                 )
             _LOGIN_FAILS.pop(uname, None)
             return _issue_session(u2)
+        # 여기까지 왔으면 로컬 비밀번호도 Jira 도 아니다. 까닭은 남긴다 —
+        # 「왜 안 들어가지나」 를 로그 없이 고칠 수는 없다. 비밀번호는 안 남긴다.
+        print(f"[jira-login] 거절: {uname} — {why}", flush=True)
+        _JIRA_LAST_FAIL.clear()
+        _JIRA_LAST_FAIL.update(
+            {"user": uname, "why": why, "at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        )
         if why == "captcha":
             raise HTTPException(
                 401,
                 "Jira 가 사람 확인(CAPTCHA)을 걸었습니다 — Jira 웹에 한 번 로그인해 풀고 다시 시도하세요",
             )
-        # denied·unreachable 이면 아래 로컬 계정으로 넘어간다 (Jira 장애 때의 안전망).
-        # 다만 **까닭은 남긴다** — 「Jira 계정으로 안 들어와진다」 를 로그 없이
-        # 고치려면 로그인 화면과 서버 중 어디가 틀렸는지 알 길이 없다.
-        print(f"[jira-login] 거절: {uname} — {why}", flush=True)
-        _JIRA_LAST_FAIL.clear()
-        _JIRA_LAST_FAIL.update({"user": uname, "why": why, "at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
         if why == "unreachable":
-            raise HTTPException(401, "Jira 서버에 닿지 못했습니다 — 관리자에게 문의하세요")
-
-    # ③ 로컬 계정 — 비상 계정(admin) 과 Jira 장애 때
-    if (
-        u
-        and u.get("active", True)
-        and u.get("password")
-        and _hash_pw(req.password, u.get("salt", "")) == u.get("password")
-    ):
-        _LOGIN_FAILS.pop(uname, None)
-        _touch_login(uname)
-        return _issue_session(u)
+            raise HTTPException(
+                401, "Jira 서버에 닿지 못했습니다 — UTOP 비밀번호가 있는 계정으로 들어오세요"
+            )
 
     _fail("아이디 또는 비밀번호가 올바르지 않거나 비활성 계정입니다")
 

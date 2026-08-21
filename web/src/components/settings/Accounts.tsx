@@ -113,18 +113,6 @@ export default function Accounts() {
     onError: (e: Error) => say('err', String(e.message).slice(0, 160)),
   })
 
-  const saveJira = useMutation({
-    mutationFn: async (body: Partial<JiraCfg>) => {
-      const r = await apiFetch('/api/jira/config', { method: 'POST', body: JSON.stringify(body) })
-      if (!r.ok) throw new Error((await r.text()) || '저장하지 못했습니다')
-    },
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['jira-cfg'] })
-      say('ok', '저장했습니다')
-    },
-    onError: (e: Error) => say('err', String(e.message).slice(0, 160)),
-  })
-
   const roles = users.data?.roles ?? ['관리자', '담당', '팀장', '팀원']
   const rows = useMemo(() => {
     const all = users.data?.users ?? []
@@ -161,7 +149,8 @@ export default function Accounts() {
         {msg && <span className={`acc-note ${msg.kind}`}>{msg.text}</span>}
       </div>
 
-      {/* 로그인이 어떻게 되고 있나 — 이 줄을 못 읽으면 명단을 봐도 소용없다 */}
+      {/* 설정은 「Jira 연동」 한 곳에 있다(지시). 여기서는 **지금 어떤
+          상태인지**만 말한다 — 명단을 보는 사람도 그것은 알아야 한다. */}
       <div className="acc-card">
         <div className="acc-row">
           <span className={`acc-dot ${on ? 'ok' : 'off'}`} />
@@ -169,84 +158,29 @@ export default function Accounts() {
           <span className="muted small">
             {on ? (
               <>
-                켜짐 — <code>{cfg.url}</code> 에 물어봅니다. 회원가입 없이 Jira 아이디·비밀번호로
-                들어옵니다.
+                켜짐 — <code>{cfg.url}</code> · 처음 들어온 사람{' '}
+                {auto ? '자동 등록함' : '자동 등록 안 함(명단에 있는 사람만)'} · 기존 계정은 UTOP
+                비밀번호로 그대로 들어옵니다.
               </>
             ) : (
-              <>꺼짐 — 지금은 UTOP 비밀번호로만 들어옵니다. 「Jira 연동」 에서 켜세요.</>
+              <>꺼짐 — 지금은 UTOP 비밀번호로만 들어옵니다.</>
             )}
           </span>
           <span className="sp" />
-          <button
-            className="btn small"
-            type="button"
-            disabled={chk.isFetching}
-            onClick={() => void chk.refetch()}
-            title="지금 Jira 에 닿는지 다시 봅니다"
-          >
-            {chk.isFetching ? '보는 중…' : '다시 보기'}
-          </button>
-          <button
-            className="btn small"
-            type="button"
-            disabled={saveJira.isPending || !String(cfg.url ?? '').trim()}
-            onClick={() => saveJira.mutate({ login_enabled: !on })}
-          >
-            {on ? '끄기' : '켜기'}
-          </button>
+          {chk.data?.last_fail?.user && (
+            <span className="acc-chk warn" title={chk.data.last_fail.at}>
+              마지막 거절: <b>{chk.data.last_fail.user}</b> ·{' '}
+              {chk.data.last_fail.why === 'denied'
+                ? 'Jira 가 받지 않음'
+                : chk.data.last_fail.why === 'captcha'
+                  ? 'CAPTCHA'
+                  : chk.data.last_fail.why === 'unreachable'
+                    ? 'Jira 에 못 닿음'
+                    : chk.data.last_fail.why}
+            </span>
+          )}
+          <span className="muted small">설정은 SETUP → Jira 연동</span>
         </div>
-
-        {/* 「Jira 계정으로 안 들어와진다」 는 셋 중 하나다 — 꺼짐 · 주소 ·
-            거절. 갈라 보여 주지 않으면 어디를 고칠지 알 수 없다(지적) */}
-        {chk.data && (
-          <div className="acc-diag">
-            <span className={`acc-chk ${chk.data.enabled ? 'ok' : 'bad'}`}>
-              {chk.data.enabled ? '① 켜져 있습니다' : '① 꺼져 있습니다 — 「켜기」를 누르세요'}
-            </span>
-            <span className={`acc-chk ${chk.data.url ? 'ok' : 'bad'}`}>
-              {chk.data.url ? `② 주소 ${chk.data.url}` : '② 주소가 없습니다 — 「Jira 연동」에서 넣으세요'}
-            </span>
-            <span className={`acc-chk ${chk.data.reachable ? 'ok' : 'bad'}`}>
-              {chk.data.reachable
-                ? `③ Jira 에 닿습니다${chk.data.status ? ` (${chk.data.status})` : ''}`
-                : `③ ${chk.data.reason || '닿지 못했습니다'}`}
-            </span>
-            {chk.data.cloud && (
-              <span className="acc-chk warn">
-                Jira Cloud 는 <b>계정 비밀번호로 REST 로그인이 안 됩니다</b> — 사원 각자의 API
-                토큰이 필요합니다. Jira Server(사내 설치)라야 이 방식이 됩니다.
-              </span>
-            )}
-            {chk.data.last_fail?.user && (
-              <span className="acc-chk warn">
-                마지막 거절: <b>{chk.data.last_fail.user}</b> ·{' '}
-                {chk.data.last_fail.why === 'denied'
-                  ? 'Jira 가 아이디·비밀번호를 받지 않았습니다'
-                  : chk.data.last_fail.why === 'captcha'
-                    ? 'Jira 가 CAPTCHA 를 걸었습니다 — Jira 웹에 한 번 로그인해 푸세요'
-                    : chk.data.last_fail.why === 'unreachable'
-                      ? 'Jira 에 닿지 못했습니다'
-                      : chk.data.last_fail.why}{' '}
-                <i className="muted">{chk.data.last_fail.at}</i>
-              </span>
-            )}
-          </div>
-        )}
-        <label className="acc-sw">
-          <input
-            type="checkbox"
-            checked={auto}
-            disabled={saveJira.isPending}
-            onChange={(e) => saveJira.mutate({ login_auto_create: e.target.checked })}
-          />
-          <span>
-            <b>처음 들어온 사람을 이 명단에 자동으로 싣는다</b>
-            <i className="muted small">
-              끄면 여기 있는 사람만 들어옵니다 — 없는 사람은 「등록되지 않은 계정입니다」 로
-              막힙니다. 회원가입을 안 두는 것이 목적이면 <b>켜 두세요</b>.
-            </i>
-          </span>
-        </label>
       </div>
 
       <div className="acc-bar">
