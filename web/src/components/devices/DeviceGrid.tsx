@@ -330,6 +330,47 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
     }
   }
 
+  /**
+   * 이 줄의 사업자를 **아래 줄에 채운다**(지시).
+   *
+   * 같은 랩의 장비 수십 대가 대개 같은 사업자다. 한 줄씩 고르게 하면
+   * 90번을 눌러야 한다 — 한 줄만 적고 아래로 흘려 넣는다.
+   * 지금 보이는 줄(거르개·찾기가 걸린 뒤)만, 그 줄부터 아래로.
+   */
+  const [fill, setFill] = useState(0)
+  const fillDown = async (from: Device) => {
+    const op = nrm(from.operator)
+    if (!op) {
+      setNote({ kind: 'err', msg: '이 줄에 사업자가 비어 있습니다 — 먼저 적으세요' })
+      return
+    }
+    const list = rows.map((r) => r.dev).filter((d): d is Device => !!d)
+    const at = list.findIndex((d) => d.id === from.id)
+    const targets = list.slice(at + 1).filter((d) => nrm(d.operator) !== op)
+    if (!targets.length) {
+      setNote({ kind: 'ok', msg: '아래 줄은 이미 같은 사업자입니다' })
+      return
+    }
+    if (!window.confirm(`아래 ${targets.length}대에 사업자 「${op}」 를 넣습니다.`)) return
+    for (let i = 0; i < targets.length; i += 1) {
+      const d = targets[i]
+      if (!d) continue
+      setFill(i + 1)
+      try {
+        await apiFetch('/api/devices2', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...d, operator: op }),
+        })
+      } catch {
+        /* 한 줄이 막혀도 나머지는 계속 채운다 */
+      }
+    }
+    setFill(0)
+    refresh()
+    setNote({ kind: 'ok', msg: `${targets.length}대에 「${op}」 를 넣었습니다` })
+  }
+
   const delDev = async (d: Device) => {
     if (!window.confirm(`'${d.model || d.name} · ${d.ip}' 장비를 지울까요?\n이 줄이 사라지고 대수가 줍니다.`))
       return
@@ -384,12 +425,6 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
     <div className="dg">
       {/* ── 머리줄 ─────────────────────────────────────── */}
       <div className="dg-head">
-        <input
-          className="dg-find"
-          value={q}
-          placeholder="찾기 — 모델 · IP · 사업자 · 계정"
-          onChange={(e) => setQ(e.target.value)}
-        />
         {note.msg && <span className={`dg-note ${note.kind}`}>{note.msg}</span>}
         <span className="sp" />
         <a className="btn small" href="/api/devices2/export.csv" download>
@@ -439,6 +474,14 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
             <em>{devices.filter((d) => nrm(d.lab) === l).length}</em>
           </button>
         ))}
+        {/* 찾기는 탭 줄 오른쪽 끝(지시) — 제 줄을 따로 쓰지 않는다 */}
+        <span className="sp" />
+        <input
+          className="dg-find"
+          value={q}
+          placeholder="찾기 — 모델 · IP · 사업자 · 계정"
+          onChange={(e) => setQ(e.target.value)}
+        />
       </div>
 
       {/* ── 표 ─────────────────────────────────────────── */}
@@ -764,6 +807,7 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
         {/* ── 바닥 ─────────────────────────────────────── */}
         <div className="dg-foot">
           <span className="dg-pill">장비 {shown.length}대</span>
+          {fill > 0 && <span className="muted small">사업자 채우는 중 {fill}…</span>}
           <span className="muted small">
             모델 {new Set(rows.map((r) => r.model)).size} · 사업자{' '}
             {new Set(shown.map((r) => nrm(r.dev?.operator)).filter(Boolean)).size}
@@ -806,6 +850,18 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
               }}
             >
               편집 창 열기
+            </button>
+            <button
+              type="button"
+              disabled={!nrm(ctx.dev.operator)}
+              title="지금 보이는 줄 가운데, 이 줄 아래에 같은 사업자를 넣습니다"
+              onClick={() => {
+                const d = ctx.dev
+                setCtx(null)
+                void fillDown(d)
+              }}
+            >
+              사업자를 아래로 채우기
             </button>
             <button
               type="button"

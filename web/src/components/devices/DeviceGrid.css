@@ -37,7 +37,8 @@
 .dg-note.err { background: #fdf4f4; border: 1px solid #f0c8c8; color: #8a2a2a; }
 
 /* LAB 탭 */
-.dg-labs { display: flex; gap: 4px; flex-wrap: wrap; flex: none; }
+.dg-labs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; flex: none; }
+.dg-labs .sp { margin-left: auto; }
 .dg-lab {
   display: flex;
   align-items: center;
@@ -111,9 +112,14 @@
 .dg-tbl col.c-if { width: auto; min-width: 200px; }
 .dg-tbl col.c-use { width: 132px; }
 
-/* 모델(틀)의 값 — 옅게. 바꾸면 그 모델 장비 전부에 걸린다 */
-.dg-tbl td.mcol .dv-cell.view { color: var(--c-text-muted); border-bottom: 1px dashed #c9d2dc; }
-.dg-tbl td.mcol .dv-cell.view:hover { color: var(--c-primary); border-bottom-color: var(--c-primary); }
+/* 모델(틀)의 값 — 옅은 글자로만 가른다.
+   점선 밑줄을 그었더니 줄마다 선이 깔려 표가 시끄러웠다(지적). 고르개라는
+   표시는 이미 칸 끝의 ▾ 가 하고 있다. */
+.dg-tbl td.mcol .dv-cell.view { color: var(--c-text-muted); }
+.dg-tbl td.mcol .dv-cell.view:hover { color: var(--c-primary); background: var(--c-primary-bg); }
+/* 다른 칸도 마찬가지 — 밑줄 대신 눌렀을 때만 물든다 */
+.dg-tbl .dv-cell.view { border-bottom: 0; border-radius: 4px; padding: 0 3px; }
+.dg-tbl .dv-cell.view:hover { background: var(--c-primary-bg); }
 .dg-ip { font-weight: 700; font-family: var(--font-mono); }
 
 /* 접속 넷 — 글자 대신 점(폭을 아낀다) */
