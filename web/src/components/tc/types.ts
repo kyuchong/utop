@@ -209,6 +209,11 @@ export interface TcStep {
   indent?: number
   /** 이 스텝을 건너뛴다 */
   skip?: boolean
+  /**
+   * 여기서부터 **다른 시험**이다 — 여러 항목을 한 절차로 이어 붙였을 때의
+   * 경계. 목록이 띠로 세워 어느 시험의 스텝인지 갈라 준다.
+   */
+  head?: boolean
 
   /** Test Step — 무엇을 하는가 (사람이 읽는 절차) */
   step?: string

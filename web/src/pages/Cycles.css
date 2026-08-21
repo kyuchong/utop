@@ -7307,3 +7307,15 @@ a.bc-cur:hover { text-decoration: underline; }
 @media (max-width: 1200px) {
   .ask-tctree.rt { width: 300px; }
 }
+
+/* 이어 붙인 절차에서 「지금 스텝이 어느 시험의 것인가」 */
+.ask-inwhich {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-primary);
+}

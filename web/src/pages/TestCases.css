@@ -3066,3 +3066,19 @@ table.tb tr.r-bad td:first-child {
 /* 가로 레일 — 왼쪽 48px 자리를 본문에 돌려준다(지시) */
 .tc-withrail.h { display: flex; flex-direction: column; min-height: 0; }
 .tc-withrail.h > .tc-railbody { flex: 1; min-height: 0; }
+
+/* ── 묶음 머리 — 「여기서부터 다른 시험」 ────────────────────────────
+   여러 항목을 한 절차로 이어 붙이면 스텝이 죽 이어져, 어느 시험의 줄인지
+   알 수가 없다(지적). 그 경계 줄만 띠로 세운다. */
+.sq-row.head {
+  margin-top: 6px;
+  border-top: 2px solid var(--c-primary);
+  background: var(--c-primary-bg);
+  border-radius: 0 0 7px 7px;
+}
+.sq-row.head:first-child { margin-top: 0; }
+.sq-row.head .sq-sum {
+  font-weight: 700;
+  color: var(--c-primary-ink, #12539f);
+}
+.sq-row.head.on { background: #dbe9fb; }

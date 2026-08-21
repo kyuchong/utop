@@ -137,6 +137,16 @@ function toTcSteps(draft: Draft): TcStep[] {
         return { kind: 'if', indent, step: s.desc, condition: s.condition || '' } as TcStep
       if (k === 'manual')
         return { kind: 'manual', indent, step: s.desc || s.text || '' } as TcStep
+      /* 주석·메시지는 **장비로 아무것도 안 나간다**. 여기서 안 갈라 주면
+         아래 기본 갈래로 떨어져 「빈 명령을 보내는 CLI 스텝」 이 되었다 —
+         여러 시험을 이어 붙였을 때 그 경계 줄이 그랬다(지적). */
+      if (k === 'comment' || k === 'message')
+        return {
+          kind: k, indent,
+          step: s.desc || s.text || '',
+          text: s.text ?? s.desc ?? '',
+          ...(s.head ? { head: true } : {}),
+        } as TcStep
       if (k === 'diff')
         return {
           kind: 'diff', indent, step: s.desc,
@@ -1072,13 +1082,16 @@ export default function AskBar({ devices }: Props) {
         }
         if (!b.ok || !Array.isArray(b.steps) || b.steps.length === 0) continue
         got++
+        /* 경계 줄 — **어느 시험의 스텝인지** 여기서 갈린다(지적).
+           제목만 적어 두었더니 그 시험의 제 주석과 구별이 안 됐다.
+           번호를 함께 적고, 목록은 이 줄을 띠로 세운다. */
         steps.push({
           kind: 'comment',
           indent: 0,
-          desc: b.title || tcid,
-          text: b.title || tcid,
+          desc: `${b.title || tcid} · ${tcid}`,
+          text: `${b.title || tcid} · ${tcid}`,
           cli: '',
-          head: true,   // 여기서부터 다른 시험이다 — 목록에서 띠로 세운다
+          head: true,
         })
         steps.push(...b.steps)
         for (const n of b.tc?.notes ?? []) if (!notes.includes(n)) notes.push(n)
@@ -2193,6 +2206,23 @@ export default function AskBar({ devices }: Props) {
                         </>
                       )}
                       <b title={draft.name}>{draft.name}</b>
+                      {/* 여러 시험을 이어 붙였으면 **지금 보고 있는 스텝이
+                          어느 시험의 것인지** 여기서 말해 준다(지적) */}
+                      {(() => {
+                        if (!seqSteps.some((x) => x.head)) return null
+                        let at = ''
+                        for (let i = 0; i <= Math.min(stepAt, seqSteps.length - 1); i += 1)
+                          if (seqSteps[i]?.head) at = String(seqSteps[i]?.step ?? '')
+                        if (!at) return null
+                        return (
+                          <>
+                            <span className="tc-title-div" aria-hidden="true" />
+                            <span className="ask-inwhich ell" title={at}>
+                              {at}
+                            </span>
+                          </>
+                        )
+                      })()}
                       <span className="sp" />
                       <button
                         className="btn small primary"

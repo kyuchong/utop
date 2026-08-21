@@ -193,7 +193,7 @@ export default function TcSequence({
                 // 훑을 때 '이건 설명' 이 한눈에 갈리게 한다.
                 className={`sq-row${i === selected ? ' on' : ''}${s.skip ? ' skip' : ''}${
                   i === runningAt ? ' now' : ''
-                }${isNoteKind(s.kind) ? ` note ${s.kind}` : ''}`}
+                }${isNoteKind(s.kind) ? ` note ${s.kind}` : ''}${s.head ? ' head' : ''}`}
                 data-depth={depth || undefined}
                 data-kid={kid}
                 onClick={() => onSelect(i)}
