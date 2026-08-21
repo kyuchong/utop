@@ -1964,6 +1964,43 @@ export default function TestCases({ me }: PageProps) {
                       <IconCli />
                     </button>
                   </div>
+                  {/* 스텝 띠 — 머리 바로 아래(지시). 색 하나로 어디까지 갔는지
+                      읽힌다: 진행 중 파랑 · 적합 초록 · 부적합 빨강 · 그 밖 노랑 ·
+                      실행함 회색 · 미실행 빈 칸. 누르면 그 스텝을 편다. */}
+                  {!termOpen && shownSteps.length > 0 && (
+                    <div className="sc-strip tc-strip">
+                      <span className="sc-strip-lab">스텝</span>
+                      {shownSteps.map((s2, i) => {
+                        const v = stepStatus(s2)
+                        const ran = !!s2.executed_at || !!s2.output
+                        const cls =
+                          i === runAt
+                            ? 'now'
+                            : v === 'Pass'
+                              ? 'pass'
+                              : v === 'Fail'
+                                ? 'fail'
+                                : v
+                                  ? 'part'
+                                  : ran
+                                    ? 'ran'
+                                    : ''
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            className={`sc-seg ${cls}${i === stepIdx ? ' on' : ''}`}
+                            title={`스텝 ${i + 1} · ${
+                              i === runAt ? '진행 중' : v || (ran ? '실행함(판정 없음)' : '미실행')
+                            }`}
+                            onClick={() => setStepIdx(i)}
+                          >
+                            {i + 1}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
                   {termOpen ? (
                     <TcTerminal
                       sessions={sessionIds}

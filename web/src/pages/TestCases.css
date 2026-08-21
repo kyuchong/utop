@@ -3108,3 +3108,15 @@ table.tb tr.r-bad td:first-child {
 .sq-ro .sq-row[data-depth="2"] { --gx: 108px; }
 .sq-ro .sq-row[data-depth="3"] { --gx: 124px; }
 .sq-ro .sq-row[data-depth="4"] { --gx: 140px; }
+
+/* 스텝 띠 — 「스텝 상세」 머리 바로 아래(지시). 사이클 실행 화면과 같은 벌을
+   쓰고(.sc-strip/.sc-seg), 이 칸의 여백만 맞춘다. */
+.tc-detcol > .tc-strip {
+  flex: none;
+  margin: 0;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: #fbfcfd;
+}
+/* 지금 펴 놓은 스텝 — 도는 칸이 아닐 때만 테두리로 짚어 준다 */
+.sc-seg.on:not(.now) { border-color: var(--c-primary); box-shadow: 0 0 0 2px var(--c-primary-bg); }
