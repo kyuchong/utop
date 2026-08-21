@@ -3341,3 +3341,66 @@ table.tb tr.r-bad td:first-child {
 /* 카드 높이는 화면에서 재서 넣지만(TestCases.tsx), 재기 전에도 부모가
    높이를 갖고 있으면 그대로 채운다 — 첫 그림에서 한 번 출렁이지 않게 */
 .tc-split > .tc-content { align-self: stretch; }
+
+/* ══ Automation — 위아래를 남김없이 쓰는 한 줄 짜임 ══════════════
+ *
+ * 재서 넣던 높이를 걷었다(지적: 손잡이를 움직이면 화면 전체가 커졌다
+ * 작아졌다 한다 · 아래가 논다). 카드부터 두 칸까지 **flex 한 줄**로 이어
+ * 남는 높이를 나눠 갖게 한다. 그러면 손잡이는 목록과 로그의 몫만 바꾸고
+ * 바깥 크기는 꿈쩍도 않는다.
+ *
+ *   .tc-content(카드) → .tc-railbody → .railbox → .railsec[steps]
+ *     → .railsec-b → .tc-inner → 두 칸
+ */
+/* Automation 칸이 든 레일만 — 다른 탭은 예전처럼 위에서 아래로 구른다 */
+.railbox:has(> .railsec[data-sec='steps']) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.railbox > .railsec[data-sec='steps'] {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+.railsec[data-sec='steps'] > .railsec-b {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.railsec[data-sec='steps'] > .railsec-b > .tc-inner {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+/* 두 칸은 **각자 논다** — 목록·로그는 왼쪽에서, 세부는 오른쪽에서
+   제 안에서만 구른다(지시: 별도로 놀아야 한다) */
+.railsec[data-sec='steps'] .tc-seqcol {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.railsec[data-sec='steps'] .tc-seqcol > .sq {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.railsec[data-sec='steps'] .tc-detcol {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.railsec[data-sec='steps'] .tc-detcol > .sd {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}

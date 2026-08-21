@@ -274,44 +274,9 @@ export default function TestCases({ me }: PageProps) {
 
   const [logs, setLogs] = useState<LogLine[]>([])
   const [logOnly, setLogOnly] = useState(false)
-  /*
-   * Automation 판의 높이 — **자리를 재서** 채운다.
-   *
-   * `100vh - 300px` 처럼 빼는 값을 박아 두면 화면마다 남거나 잘린다
-   * (지적: 32인치에서 아래가 논다). 판이 실제로 시작하는 자리를 재고
-   * 창 바닥까지를 준다 — 모니터가 무엇이든 딱 맞는다.
-   */
-  const paneRef = useRef<HTMLDivElement | null>(null)
-  /** 카드(오른쪽 큰 칸) 자체 — 이것이 안 자라면 안을 늘려도 소용없다 */
-  const cardRef = useRef<HTMLDivElement | null>(null)
-  const [paneH, setPaneH] = useState(0)
-  useEffect(() => {
-    const fit = () => {
-      const card = cardRef.current
-      if (card) {
-        /* 카드를 창 바닥까지 늘린다. 바깥 짜임이 어떻든 이 한 줄이 이긴다 —
-           화면마다 아래가 남던 것이 여기였다(지적 ×3). */
-        const t = card.getBoundingClientRect().top
-        card.style.height = `${Math.max(420, Math.round(window.innerHeight - t - 12))}px`
-      }
-      const el = paneRef.current
-      if (!el) return
-      const top = el.getBoundingClientRect().top
-      const next = Math.max(320, Math.round(window.innerHeight - top - 14))
-      setPaneH((cur) => (Math.abs(cur - next) > 2 ? next : cur))
-    }
-    fit()
-    window.addEventListener('resize', fit)
-    /* 위쪽 줄(빵부스러기·탭·알림 띠)이 늘거나 줄면 자리도 바뀐다 */
-    const ro = new ResizeObserver(fit)
-    if (document.body) ro.observe(document.body)
-    const t = window.setTimeout(fit, 120)
-    return () => {
-      window.removeEventListener('resize', fit)
-      ro.disconnect()
-      window.clearTimeout(t)
-    }
-  }, [tab, view, openId])
+  /* 판 높이는 **짜임(flex)** 으로 채운다 — 재서 넣던 것을 걷었다(지적:
+     손잡이를 움직이면 화면 전체가 커졌다 작아졌다 한다). 카드 → 레일 →
+     마디 → 두 칸이 한 줄로 이어져 남는 높이를 나눠 갖는다. */
 
   /* 실행 로그 높이 — 손잡이로 잡는다(지시). 기억해 둔다 */
   const [logH, setLogH] = useState(() => {
@@ -1839,7 +1804,7 @@ export default function TestCases({ me }: PageProps) {
     steps: (
               // Automation 만 안에서 좌우로 나뉜다 — 목록과 세부.
               // 바깥 칸 수는 그대로라 탭을 옮겨도 화면이 출렁이지 않는다.
-              <div className="tc-inner" ref={paneRef} style={paneH ? { height: paneH } : undefined}>
+              <div className="tc-inner">
                 {/* 목록 */}
                 <section className="panel tc-seqcol" style={{ flexBasis: seqW }}>
                   <div className="tc-run">
@@ -2550,7 +2515,7 @@ export default function TestCases({ me }: PageProps) {
         {/* 오른쪽은 늘 한 칸이다. 그 안에서 탭이 무엇을 보여줄지 정하고,
             Automation 일 때만 다시 좌우로 나뉜다. 바깥 칸 수가 탭마다
             달라지면 옮길 때마다 화면이 통째로 흔들린다. */}
-        <div className="tc-content" ref={cardRef}>
+        <div className="tc-content">
           {view === 'detail' && openId && !gpOpen && detHead}
         {gpOpen ? (
           /* 파일 목록까지 통째로 — `only` 를 안 준다. 하나만 주면 옆의
