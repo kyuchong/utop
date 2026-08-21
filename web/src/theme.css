@@ -436,31 +436,46 @@ button {
   background: #eef8f2;
 }
 
-/* ── 표 안에서 그 자리 고르기 — 상태·우선순위 같은 칸 ────────────────
-   평소엔 글자 한 줄, 누르면 그때 고르개가 열린다(＜option＞ 을 미리 만들지
-   않는다 — 줄이 수백이면 그 값이 크다). */
-.pick-cell {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  max-width: 100%;
-  padding: 1px 4px;
-  border-radius: 5px;
-  border: 1px solid transparent;
-  cursor: pointer;
-}
-.pick-cell > i { font-style: normal; font-size: 9px; color: var(--c-text-faint); opacity: 0; }
-.pick-cell:hover { border-color: var(--c-border); background: var(--c-surface); }
-.pick-cell:hover > i { opacity: 1; }
-.pick-sel {
+/* ── 표 안에서 그 자리 고치기 — 세 화면이 같은 벌을 쓴다 ──────────────
+   늘 살아 있는 고르개다(지시) — 올리고·누르고·열리고·고르는 네 걸음이
+   한 걸음이 된다. 평소에는 글자처럼 조용하고, 올리면 칸이 드러난다. */
+.pick-live {
   width: 100%;
+  min-width: 0;
   max-width: 100%;
   height: 22px;
   font: inherit;
   font-size: var(--fs-sm);
-  padding: 0 4px;
-  border: 1px solid var(--c-primary);
+  color: inherit;
+  padding: 0 3px;
+  border: 1px solid transparent;
   border-radius: 5px;
-  background: var(--c-surface);
+  background: transparent;
   cursor: pointer;
+  /* 화살표를 늘 그리면 줄마다 세모가 깔려 시끄럽다 — 올렸을 때만 */
+  appearance: none;
+  -webkit-appearance: none;
+  text-overflow: ellipsis;
 }
+select.pick-live:hover,
+input.pick-live:hover {
+  border-color: var(--c-border);
+  background: var(--c-surface);
+}
+select.pick-live:hover {
+  background:
+    var(--c-surface)
+    linear-gradient(45deg, transparent 50%, var(--c-text-faint) 50%) calc(100% - 9px) 9px / 5px 5px no-repeat;
+  padding-right: 16px;
+}
+.pick-live:focus {
+  outline: none;
+  border-color: var(--c-primary);
+  background-color: var(--c-surface);
+  box-shadow: 0 0 0 2px var(--c-primary-bg);
+}
+.pick-live:disabled { opacity: 0.6; cursor: default; }
+.pick-live.warn { color: var(--c-fail); }
+/* 우선순위 알약·유형 딱지는 제 색을 지킨다 */
+select.pick-live.rq-prio,
+select.pick-live.tag { width: auto; max-width: 100%; }

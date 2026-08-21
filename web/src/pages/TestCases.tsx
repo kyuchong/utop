@@ -1607,13 +1607,13 @@ export default function TestCases({ me }: PageProps) {
       window.alert(e instanceof Error ? `저장하지 못했습니다 — ${e.message}` : '저장하지 못했습니다')
     }
   }
-  const pick = (t: TestCaseMeta, k: string, v: string, opts: readonly string[], node?: (x: string) => React.ReactNode) => (
+  const pick = (t: TestCaseMeta, k: string, v: string, opts: readonly string[], cls?: string) => (
     <PickCell
       value={v}
       opts={opts}
-      title="누르면 고칩니다"
+      title="고르면 바로 저장됩니다"
       onSave={(nv) => setCell(t.tcid, { [k]: nv })}
-      {...(node ? { render: node } : {})}
+      {...(cls ? { cls } : {})}
     />
   )
 
@@ -1629,9 +1629,7 @@ export default function TestCases({ me }: PageProps) {
       case 'type':
         return (
           <div key={k}>
-            {pick(t, 'type', t.type ?? '', C_TYPE, (v) =>
-              v ? <span className="tag">{v}</span> : <span className="muted">–</span>,
-            )}
+            {pick(t, 'type', t.type ?? '', C_TYPE, 'tag')}
           </div>
         )
       case 'severity':
@@ -1668,7 +1666,7 @@ export default function TestCases({ me }: PageProps) {
       case 'status':
         return (
           <div className={`status ${statusClass(t.status)}`} key={k}>
-            {pick(t, 'status', t.status ?? '', C_STATUS, (v) => <>● {v || '미실행'}</>)}
+            {pick(t, 'status', t.status ?? '', C_STATUS)}
           </div>
         )
       case 'origin':

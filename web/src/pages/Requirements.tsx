@@ -1544,7 +1544,7 @@ export default function Requirements({ me }: Props) {
                                 <PickCell
                                   value={r.status ?? ''}
                                   opts={REQ_STATUS}
-                                  title="상태 — 누르면 고칩니다"
+                                  title="상태 — 고르면 바로 저장됩니다"
                                   onSave={(v) => setField(r, { status: v })}
                                 />
                               </div>
@@ -1555,15 +1555,9 @@ export default function Requirements({ me }: Props) {
                                 <PickCell
                                   value={r.priority ?? ''}
                                   opts={REQ_PRIO}
-                                  title="우선순위 — 누르면 고칩니다"
+                                  cls={`rq-prio p-${String(r.priority ?? '').toLowerCase()}`}
+                                  title="우선순위 — 고르면 바로 저장됩니다"
                                   onSave={(v) => setField(r, { priority: v })}
-                                  render={(v) =>
-                                    v ? (
-                                      <span className={`rq-prio p-${v.toLowerCase()}`}>{v}</span>
-                                    ) : (
-                                      <span className="muted">–</span>
-                                    )
-                                  }
                                 />
                               </div>
                             )

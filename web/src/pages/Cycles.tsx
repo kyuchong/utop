@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import IdPill from '@/components/IdPill'
+import PickCell from '@/components/PickCell'
+import { useCodes } from '@/hooks/useCodes'
 import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
@@ -2393,6 +2395,40 @@ function CycleBoard({
     localStorage.setItem('utop.cycle.colorder', JSON.stringify(keys))
     setColOrder(keys)
   }
+  /* 목록 줄에서 바로 고친다(지시) — 값 목록은 설정의 코드표·카탈로그를 쓴다 */
+  const CY_STATUS = useCodes('cycle_status', [])
+  const CY_CUST = useCodes('cycle_customer', [])
+  /** 모델그룹·모델명은 카탈로그가 정본이다 — 지도에서 뽑아 쓴다 */
+  const modelOpts = useMemo(
+    () => [...mgroupOf.keys()].sort((a, b) => a.localeCompare(b, 'ko')),
+    [mgroupOf],
+  )
+  const groupOpts = useMemo(
+    () => [...new Set([...mgroupOf.values()].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko')),
+    [mgroupOf],
+  )
+  /**
+   * 한 칸만 고쳐 저장한다.
+   *
+   * 목록이 든 것은 요약이라(항목·실행 결과가 빠져 있다) 그대로 되저장하면
+   * 그것들이 지워진다 — 원본을 읽어 그 위에 얹는다(폴더 옮기기와 같은 길).
+   */
+  const setCyCell = async (id: string, p: Record<string, string>) => {
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`)
+      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      const full = (await r.json()) as Record<string, unknown>
+      const w = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`, {
+        method: 'POST',
+        body: JSON.stringify({ ...full, id, ...p }),
+      })
+      if (!w.ok) throw new Error('저장하지 못했습니다')
+      onRefresh()
+    } catch (e) {
+      window.alert(e instanceof Error ? `저장하지 못했습니다 — ${e.message}` : '저장하지 못했습니다')
+    }
+  }
+
   const cytGrid = useMemo(
     () =>
       ['26px', '20px', 'minmax(96px, 112px)', 'minmax(170px, 1fr)', ...renderCols.map((c) => c.w)].join(
@@ -2881,14 +2917,15 @@ function CycleBoard({
                       >
                         {c.cid || c.version || c.name || c.id}
                       </button>
-                      <button
-                        type="button"
-                        className="cyt-name cyt-ell"
-                        title={`${c.name ?? ''} — 누르면 실행 화면으로 갑니다`}
-                        onClick={() => onRun(c.id)}
-                      >
-                        {c.name || '–'}
-                      </button>
+                      {/* 제목은 그 자리에서 고친다(지시). 실행 화면으로 가는 길은
+                          왼쪽 사이클 ID 가 맡는다 — 한 칸이 두 일을 하면 고치려다
+                          화면이 넘어간다. */}
+                      <PickCell
+                        value={c.name ?? ''}
+                        cls="cyt-name"
+                        title="제목 — 고치고 Enter"
+                        onSave={(v) => setCyCell(c.id, { name: v })}
+                      />
                       {renderCols.map((c2) => {
                         switch (c2.k) {
                           case 'mg': {
@@ -2897,28 +2934,40 @@ function CycleBoard({
                             const mg2 =
                               (c.model_group ?? '').trim() || mgroupOf.get(c.model ?? '') || ''
                             return (
-                              <span key={c2.k} className="muted small cyt-ell" title={mg2}>
-                                {mg2 || '–'}
-                              </span>
+                              <PickCell
+                                key={c2.k}
+                                value={mg2}
+                                opts={groupOpts}
+                                onSave={(v) => setCyCell(c.id, { model_group: v })}
+                              />
                             )
                           }
                           case 'md':
                             return (
-                              <span key={c2.k} className="muted small cyt-ell" title={c.model ?? ''}>
-                                {c.model || '–'}
-                              </span>
+                              <PickCell
+                                key={c2.k}
+                                value={c.model ?? ''}
+                                opts={modelOpts}
+                                onSave={(v) => setCyCell(c.id, { model: v })}
+                              />
                             )
                           case 'f_status':
                             return (
-                              <span key={c2.k} className="muted small cyt-ell" title={c.status ?? ''}>
-                                {c.status || '–'}
-                              </span>
+                              <PickCell
+                                key={c2.k}
+                                value={c.status ?? ''}
+                                opts={CY_STATUS}
+                                onSave={(v) => setCyCell(c.id, { status: v })}
+                              />
                             )
                           case 'f_customer':
                             return (
-                              <span key={c2.k} className="muted small cyt-ell" title={c.customer ?? ''}>
-                                {c.customer || '–'}
-                              </span>
+                              <PickCell
+                                key={c2.k}
+                                value={c.customer ?? ''}
+                                opts={CY_CUST}
+                                onSave={(v) => setCyCell(c.id, { customer: v })}
+                              />
                             )
                           case 'iss':
                             return (
@@ -2961,9 +3010,12 @@ function CycleBoard({
                             )
                           case 'version':
                             return (
-                              <span key={c2.k} className="muted small cyt-ell" title={c.version ?? ''}>
-                                {c.version || '–'}
-                              </span>
+                              <PickCell
+                                key={c2.k}
+                                value={c.version ?? ''}
+                                title="버전 — 고치고 Enter"
+                                onSave={(v) => setCyCell(c.id, { version: v })}
+                              />
                             )
                           case 'created':
                             return (

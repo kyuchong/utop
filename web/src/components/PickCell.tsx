@@ -1,70 +1,79 @@
 import { useEffect, useState } from 'react'
 
 /**
- * 표 안에서 **그 자리에서 고르는 칸**.
+ * 표 안에서 **그 자리에서 고치는 칸**.
  *
- * 목록의 상태·우선순위를 고치려고 한 건씩 열어 들어갔다 나오는 일이 잦다
- * (지시). 평소에는 글자 한 줄로 조용히 있다가, 누르면 그때 고르개가 열린다 —
- * 줄이 수백이라도 `<option>` 을 미리 만들지 않는다(장비 화면에서 겪은 값).
+ * 처음에는 「눌러야 고르개가 열리는」 꼴이었다. 줄이 수백일 때 `<option>` 을
+ * 미리 만들지 않으려는 값이었는데, 고치려면 올리고·누르고·열리고·고르는
+ * 네 걸음이 든다(지적). 이 세 화면(요구사항·시험항목·사이클)의 칸은 고를 값이
+ * 서너 개뿐이라 그 값이 크지 않다 — **늘 살아 있는 고르개**로 두고 한 번에 고른다.
+ *
+ * 평소에는 글자처럼 조용하다. 올리면 칸이 드러나고, 고르면 바로 저장한다.
  */
 export default function PickCell({
   value,
   opts,
   onSave,
-  render,
   title,
+  cls,
 }: {
   value: string
-  opts: readonly string[]
+  /** 고를 값들. 비우면 **글자 칸**이 된다(제목·버전처럼 정해진 값이 없는 칸) */
+  opts?: readonly string[]
   onSave: (v: string) => void | Promise<void>
-  /** 평소 보이는 꼴 — 안 주면 글자 그대로 */
-  render?: (v: string) => React.ReactNode
   title?: string
+  /** 그 칸의 꼴을 더 얹을 때 */
+  cls?: string
 }) {
-  const [on, setOn] = useState(false)
   const [busy, setBusy] = useState(false)
-  useEffect(() => {
-    if (busy) setOn(false)
-  }, [busy])
+  const [txt, setTxt] = useState(value)
+  useEffect(() => setTxt(value), [value])
 
-  if (!on)
+  const save = (v: string) => {
+    if (v === value) return
+    setBusy(true)
+    void Promise.resolve(onSave(v)).finally(() => setBusy(false))
+  }
+  /* 줄 누르기·끌어 옮기기가 이 칸에서 시작되면 안 된다 */
+  const stop = {
+    onClick: (e: { stopPropagation: () => void }) => e.stopPropagation(),
+    onMouseDown: (e: { stopPropagation: () => void }) => e.stopPropagation(),
+    onPointerDown: (e: { stopPropagation: () => void }) => e.stopPropagation(),
+  }
+
+  if (!opts || opts.length === 0)
     return (
-      <span
-        className="pick-cell"
-        title={title ?? '누르면 고칩니다'}
-        /* 줄을 끌어 폴더로 옮기는 손짓(onPointerDown)이 이 칸에서 시작되면
-           고르개 대신 끌기가 걸린다 — 여기서 끊는다 */
-        onPointerDown={(e) => e.stopPropagation()}
-        onClick={(e) => {
+      <input
+        className={`pick-live${cls ? ' ' + cls : ''}`}
+        value={txt}
+        disabled={busy}
+        title={title ?? '고치고 Enter — 자리를 떠도 저장됩니다'}
+        {...stop}
+        onChange={(e) => setTxt(e.target.value)}
+        onBlur={() => save(txt)}
+        onKeyDown={(e) => {
           e.stopPropagation()
-          setOn(true)
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          if (e.key === 'Escape') {
+            setTxt(value)
+            ;(e.target as HTMLInputElement).blur()
+          }
         }}
-      >
-        {render ? render(value) : value || <span className="muted">–</span>}
-        <i aria-hidden="true">▾</i>
-      </span>
+      />
     )
 
+  const known = !value || opts.includes(value)
   return (
     <select
-      className="pick-sel"
+      className={`pick-live${known ? '' : ' warn'}${cls ? ' ' + cls : ''}`}
       value={value}
-      autoFocus
       disabled={busy}
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
-      onPointerDown={(e) => e.stopPropagation()}
-      onBlur={() => setOn(false)}
-      onChange={(e) => {
-        const v = e.target.value
-        setOn(false)
-        if (v === value) return
-        setBusy(true)
-        void Promise.resolve(onSave(v)).finally(() => setBusy(false))
-      }}
+      title={title ?? '고르면 바로 저장됩니다'}
+      {...stop}
+      onChange={(e) => save(e.target.value)}
     >
       <option value="">–</option>
-      {!opts.includes(value) && value && <option value={value}>{value} (목록에 없음)</option>}
+      {!known && <option value={value}>{value} (목록에 없음)</option>}
       {opts.map((o) => (
         <option key={o} value={o}>
           {o}
