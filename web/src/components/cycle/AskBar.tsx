@@ -1085,15 +1085,25 @@ export default function AskBar({ devices }: Props) {
         /* 경계 줄 — **어느 시험의 스텝인지** 여기서 갈린다(지적).
            제목만 적어 두었더니 그 시험의 제 주석과 구별이 안 됐다.
            번호를 함께 적고, 목록은 이 줄을 띠로 세운다. */
+        /* 굵게 서는 것은 `text`(이름), 옆에 옅게 붙는 것은 `desc`(번호)다 —
+           목록이 그 차례로 그린다. 둘을 같은 글자로 두면 한 줄에 같은 말이
+           두 번 나온다. */
         steps.push({
           kind: 'comment',
           indent: 0,
-          desc: `${b.title || tcid} · ${tcid}`,
-          text: `${b.title || tcid} · ${tcid}`,
+          desc: tcid,
+          text: b.title || tcid,
           cli: '',
           head: true,
         })
-        steps.push(...b.steps)
+        /* 그 시험의 스텝은 **이름 줄 아래로 들여쓴다**(지시).
+           목록이 이미 들여쓰기로 딸린 줄을 그리고 번호도 1.1 · 1.2 로 매기니,
+           어느 시험의 스텝인지가 줄마다 보인다. 안쪽 짜임(되풀이·조건)은
+           다 같이 한 칸씩 밀리므로 그대로 지켜진다 — 실행기는 들여쓰기의
+           **차이**로 몸통을 잡는다(runner.ts blockEnd). */
+        steps.push(
+          ...b.steps.map((x) => ({ ...x, indent: Math.max(0, Number(x.indent) || 0) + 1 })),
+        )
         for (const n of b.tc?.notes ?? []) if (!notes.includes(n)) notes.push(n)
       }
       if (got === 0) throw new Error('고른 항목에서 옮길 스텝이 없습니다')
