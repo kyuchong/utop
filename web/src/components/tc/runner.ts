@@ -474,6 +474,34 @@ async function runOne(
   const kind = step.kind || 'cli'
   const at = new Date().toISOString()
 
+  /*
+   * 블록 줄(If·Else·Loop·Switch)을 **한 줄만** 돌린 경우.
+   *
+   * 이 줄들은 본래 walk 가 몸통까지 함께 본다. 그런데 목록에서 ▶ 를 눌러
+   * 한 줄만 돌리면 여기로 들어와, 아무 갈래에도 안 걸려 CLI 로 흘렀다 —
+   * 그래서 If 줄이 「세션이 지정되지 않았습니다」 로 불합격이 났다(지적).
+   * 장비로 나가는 줄이 아니다. 조건만 따져 보여 주고 판정은 내지 않는다.
+   */
+  if (kind === 'if' || kind === 'else' || kind === 'loop' || kind === 'switch') {
+    if (kind === 'if') {
+      const { ok: yes, why } = evalCondWhy(String(step.condition ?? ''), vars)
+      ctx.onStep(i, {
+        condResult: yes ? 'Y' : 'N',
+        output: why,
+        reason: why,
+        executed_at: at,
+        status: '',
+        repeatResult: '',
+      })
+      ctx.onLog({ i, text: `조건 ${yes ? '참' : '거짓'} — ${why}`, kind: 'info', label: '조건' })
+      return ''
+    }
+    const what = kind === 'else' ? '거짓 갈래' : kind === 'loop' ? '반복' : '갈래'
+    ctx.onStep(i, { output: `${what} 줄입니다 — 몸통과 함께 돌리세요`, executed_at: at })
+    ctx.onLog({ i, text: `${what} 줄은 한 줄만 돌릴 수 없습니다 — 몸통과 함께 돌리세요`, kind: 'skip' })
+    return ''
+  }
+
   /**
    * 주석 · 메시지 · 모델 — 장비로 아무것도 안 나간다.
    *
