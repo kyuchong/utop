@@ -3141,3 +3141,10 @@ table.tb tr.r-bad td:first-child {
 
 /* 회차 미리보기 — 문장 안에 조용히 낀다 */
 .tb-nwrap { font-size: var(--fs-sm); color: var(--c-text-muted); margin-left: 6px; }
+
+/* 값 뽑기 — 머리줄도 손잡이다(그 열의 칸이 다 비어 있을 수 있다) */
+.tb thead th.pick { cursor: pointer; }
+.tb thead th.pick:hover { background: var(--c-primary-bg); color: #12539f; }
+.tb thead th.picked { background: var(--c-primary-bg); color: #12539f; }
+/* 못 누르는 까닭 */
+.tb-need { font-size: var(--fs-xs); color: #8a5a00; }

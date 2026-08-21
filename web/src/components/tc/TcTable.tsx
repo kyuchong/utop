@@ -359,17 +359,37 @@ export default function TcTable({
           <thead>
             <tr>
               {/* 행 전체 체크박스(지적) — 다 고르기 / 다 풀기. Shift 클릭은 범위 */}
-              <th className="tb-pick">
-                <input
-                  type="checkbox"
-                  title={allOn ? '모든 행 풀기' : '모든 행 고르기'}
-                  checked={allOn}
-                  onChange={() => setKeys(allOn ? [] : allKvs)}
-                />
-              </th>
-              <th className="tb-v" title="이 행이 조건에 맞나">판정</th>
+              {!cap && (
+                <>
+                  <th className="tb-pick">
+                    <input
+                      type="checkbox"
+                      title={allOn ? '모든 행 풀기' : '모든 행 고르기'}
+                      checked={allOn}
+                      onChange={() => setKeys(allOn ? [] : allKvs)}
+                    />
+                  </th>
+                  <th className="tb-v" title="이 행이 조건에 맞나">
+                    판정
+                  </th>
+                </>
+              )}
               {cols.map((c, i) => (
-                <th key={i} className={i === keyAt ? 'k' : ''}>
+                <th
+                  key={i}
+                  className={`${i === keyAt ? 'k' : ''}${cap ? ' pick' : ''}${
+                    cap && c === capCol ? ' picked' : ''
+                  }`}
+                  title={cap ? `${c} 열의 값을 변수로` : undefined}
+                  onClick={() => {
+                    if (!cap) return
+                    /* 머리줄로도 고를 수 있어야 한다 — 그 열의 칸이 다 비어
+                       있으면(Name 처럼) 누를 데가 없다(지적: 「이대로 변수로」
+                       가 비활성) */
+                    const row = tbl?.rows.find((r) => (r[keyAt] ?? '') !== '')
+                    if (row) pickCap(i, row)
+                  }}
+                >
                   {c}
                 </th>
               ))}
@@ -389,12 +409,16 @@ export default function TcTable({
                 >
                   {/* 칸 전체가 손잡이 — 체크박스에 preventDefault 를 걸면
                       클릭이 먹다 말다 한다(지적). 박스는 표시만 한다 */}
-                  <td className="tb-pick" onClick={(e) => pickRow(r, kv, e.shiftKey)}>
-                    <input type="checkbox" checked={on} readOnly tabIndex={-1} />
-                  </td>
-                  <td className="tb-v" title={v === false ? '조건과 다릅니다' : ''}>
-                    {v === true ? '✓' : v === false ? '✗' : ''}
-                  </td>
+                  {!cap && (
+                    <>
+                      <td className="tb-pick" onClick={(e) => pickRow(r, kv, e.shiftKey)}>
+                        <input type="checkbox" checked={on} readOnly tabIndex={-1} />
+                      </td>
+                      <td className="tb-v" title={v === false ? '조건과 다릅니다' : ''}>
+                        {v === true ? '✓' : v === false ? '✗' : ''}
+                      </td>
+                    </>
+                  )}
                   {row.map((cell, c) => {
                     const co = cellOk(row, c)
                     return (
@@ -472,10 +496,29 @@ export default function TcTable({
           <code className="tb-code" title="이대로 스텝에 들어갑니다">
             {capVar || '변수'} = {keyCol}={capWhere || '…'} 행의 {capCol || '…'} 칸
           </code>
+          {/* 못 누르는 단추만 있고 까닭이 없으면 사람은 멈춘다(지적) */}
+          {(!capCol || !capVar || !capWhere) && (
+            <span className="tb-need">
+              {!capCol
+                ? '담을 값이 있는 칸(또는 열 이름)을 누르세요'
+                : !capWhere
+                  ? '어느 행인지 적으세요'
+                  : '변수 이름을 적으세요'}
+            </span>
+          )}
           <button
             className="btn primary small"
             type="button"
             disabled={!capCol || !capVar || !capWhere}
+            title={
+              !capCol
+                ? '값이 있는 칸이나 열 이름을 먼저 누르세요'
+                : !capWhere
+                  ? '행 조건이 비었습니다'
+                  : !capVar
+                    ? '변수 이름이 비었습니다'
+                    : '이 값을 변수로 담습니다'
+            }
             onClick={() =>
               onCapture?.({
                 var: capVar,
