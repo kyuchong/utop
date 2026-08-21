@@ -55,7 +55,7 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
   const [busyId, setBusyId] = useState('')
   const [form, setForm] = useState<Device | null | undefined>(undefined)
   const [ifEdit, setIfEdit] = useState<{ dev: Device; text: string } | null>(null)
-  const [ctx, setCtx] = useState<{ dev: Device; x: number; y: number } | null>(null)
+  const [ctx, setCtx] = useState<{ dev: Device; col: string; x: number; y: number } | null>(null)
   /** 새 줄 — 모델을 고르고 IP 를 적으면 그 자리에서 장비가 된다 */
   const [nu, setNu] = useState<{ model: string; ip: string; op: string }>({ model: '', ip: '', op: '' })
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -331,36 +331,103 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
   }
 
   /**
-   * 이 줄의 사업자를 **아래 줄에 채운다**(지시).
+   * 누른 칸의 값을 **아래 줄에 채운다**(지시).
    *
-   * 같은 랩의 장비 수십 대가 대개 같은 사업자다. 한 줄씩 고르게 하면
-   * 90번을 눌러야 한다 — 한 줄만 적고 아래로 흘려 넣는다.
-   * 지금 보이는 줄(거르개·찾기가 걸린 뒤)만, 그 줄부터 아래로.
+   * 사업자만 되던 것을 아무 칸이나 되게 넓혔다. 같은 랩의 장비 수십 대가
+   * 대개 같은 값을 갖는데 한 줄씩 고르면 그만큼 눌러야 한다.
+   * 지금 보이는 줄(거르개·찾기가 걸린 뒤) 가운데 **그 줄 아래**만 채운다.
+   *
+   * 칸에 따라 손대는 곳이 다르다 — LAB·사업자·모델명·RO·RW 는 장비의 값,
+   * 벤더·제품군·모델그룹은 **모델**의 값이라 그 아래 모델들을 옮긴다.
    */
+  const FILLABLE: Record<string, string> = {
+    lab: 'LAB',
+    op: '사업자',
+    ven: '벤더',
+    fam: '제품군',
+    grp: '모델그룹',
+    mdl: '모델명',
+    ro: 'RO',
+    rw: 'RW',
+  }
+  const cellOf = (r: Row, col: string): string => {
+    if (col === 'ro') return String(accOf(r.dev!, 'snmp')?.username ?? accOf(r.dev!, 'snmp')?.community ?? '')
+    if (col === 'rw')
+      return String(((accOf(r.dev!, 'snmp')?.params as { community_rw?: string } | undefined)?.community_rw) ?? '')
+    return valOf(r, col)
+  }
   const [fill, setFill] = useState(0)
-  const fillDown = async (from: Device) => {
-    const op = nrm(from.operator)
-    if (!op) {
-      setNote({ kind: 'err', msg: '이 줄에 사업자가 비어 있습니다 — 먼저 적으세요' })
+  const fillDown = async (from: Device, col: string) => {
+    const label = FILLABLE[col]
+    if (!label) return
+    const list = rows.filter((r) => r.dev)
+    const at = list.findIndex((r) => r.dev?.id === from.id)
+    const me2 = list[at]
+    if (!me2) return
+    const v = cellOf(me2, col)
+    if (!v) {
+      setNote({ kind: 'err', msg: `이 줄의 ${label} 가 비어 있습니다 — 먼저 적으세요` })
       return
     }
-    const list = rows.map((r) => r.dev).filter((d): d is Device => !!d)
-    const at = list.findIndex((d) => d.id === from.id)
-    const targets = list.slice(at + 1).filter((d) => nrm(d.operator) !== op)
-    if (!targets.length) {
-      setNote({ kind: 'ok', msg: '아래 줄은 이미 같은 사업자입니다' })
+    const below = list.slice(at + 1).filter((r) => cellOf(r, col) !== v)
+    if (!below.length) {
+      setNote({ kind: 'ok', msg: `아래 줄은 이미 ${label} 가 같습니다` })
       return
     }
-    if (!window.confirm(`아래 ${targets.length}대에 사업자 「${op}」 를 넣습니다.`)) return
-    for (let i = 0; i < targets.length; i += 1) {
-      const d = targets[i]
-      if (!d) continue
+    const model = col === 'ven' || col === 'fam' || col === 'grp'
+    const mdls = [...new Set(below.map((r) => r.model).filter(Boolean))]
+    const what = model
+      ? `아래 모델 ${mdls.length}개(장비 ${below.length}대)의 ${label} 를 「${v}」 로 바꿉니다.`
+      : `아래 ${below.length}대의 ${label} 를 「${v}」 로 바꿉니다.`
+    if (!window.confirm(what)) return
+    const n = model ? mdls.length : below.length
+    for (let i = 0; i < n; i += 1) {
       setFill(i + 1)
       try {
+        if (model) {
+          const nm = mdls[i]
+          if (!nm) continue
+          await apiFetch('/api/device-catalog2/classify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: nm,
+              ...(col === 'ven' ? { vendor: v } : col === 'fam' ? { family: v } : { model_group: v }),
+            }),
+          })
+          continue
+        }
+        const d = below[i]?.dev
+        if (!d) continue
+        if (col === 'ro' || col === 'rw') {
+          const cur = (d.access ?? []).find((a) => a.protocol === 'snmp')
+          const prm = { ...((cur?.params as Record<string, unknown>) ?? {}) }
+          if (col === 'rw') {
+            prm.community_rw = v
+            prm.rw = true
+          }
+          const next = {
+            port: 161,
+            enabled: true,
+            ...(cur ?? { protocol: 'snmp' }),
+            protocol: 'snmp',
+            ...(col === 'ro' ? { username: v, community: v } : {}),
+            params: prm,
+          } as DeviceAccess
+          const rest = (d.access ?? []).filter((a) => a.protocol !== 'snmp')
+          await apiFetch('/api/devices2', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...d, access: [...rest, next] }),
+          })
+          continue
+        }
+        const patch =
+          col === 'op' ? { operator: v } : col === 'lab' ? { lab: v } : { model: v }
         await apiFetch('/api/devices2', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...d, operator: op }),
+          body: JSON.stringify({ ...d, ...patch }),
         })
       } catch {
         /* 한 줄이 막혀도 나머지는 계속 채운다 */
@@ -368,7 +435,7 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
     }
     setFill(0)
     refresh()
-    setNote({ kind: 'ok', msg: `${targets.length}대에 「${op}」 를 넣었습니다` })
+    setNote({ kind: 'ok', msg: `${below.length}대의 ${label} 를 「${v}」 로 채웠습니다` })
   }
 
   const delDev = async (d: Device) => {
@@ -574,11 +641,18 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
                     onContextMenu={(e) => {
                       if (!d) return
                       e.preventDefault()
-                      setCtx({ dev: d, x: e.clientX, y: e.clientY })
+                      /* 어느 칸에서 눌렀나 — 「이 값을 아래로」 가 그 칸에 걸린다 */
+                      const td = (e.target as HTMLElement).closest('td')
+                      setCtx({
+                        dev: d,
+                        col: String(td?.dataset.col ?? ''),
+                        x: e.clientX,
+                        y: e.clientY,
+                      })
                     }}
                   >
                     {!lab && (
-                      <td className="ell">
+                      <td className="ell" data-col="lab">
                         {d ? (
                           <EditCell
                             value={nrm(d.lab)}
@@ -591,7 +665,7 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
                         )}
                       </td>
                     )}
-                    <td className="ell">
+                    <td className="ell" data-col="op">
                       {d ? (
                         <EditCell
                           value={nrm(d.operator)}
@@ -604,7 +678,7 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
                       )}
                     </td>
                     {/* 여기 셋은 **모델**의 값 — 옅게 그리고, 바꾸면 그 모델 전부 */}
-                    <td className="ell mcol">
+                    <td className="ell mcol" data-col="ven">
                       <EditCell
                         value={r.vendor}
                         opts={listOf('vendor')}
@@ -612,7 +686,7 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
                         onSave={(v) => void classify(r.model, { vendor: v })}
                       />
                     </td>
-                    <td className="ell mcol">
+                    <td className="ell mcol" data-col="fam">
                       <EditCell
                         value={r.family}
                         opts={listOf('family')}
@@ -620,7 +694,7 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
                         onSave={(v) => void classify(r.model, { family: v })}
                       />
                     </td>
-                    <td className="ell mcol">
+                    <td className="ell mcol" data-col="grp">
                       <EditCell
                         value={r.group}
                         opts={listOf('group')}
@@ -628,7 +702,7 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
                         onSave={(v) => void classify(r.model, { model_group: v })}
                       />
                     </td>
-                    <td className="ell">
+                    <td className="ell" data-col="mdl">
                       {d ? (
                         <EditCell
                           value={r.model}
@@ -680,7 +754,7 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
                         </td>
                       )
                     })}
-                    <td className="ell">
+                    <td className="ell" data-col="ro">
                       {d ? (
                         <EditCell
                           value={String(accOf(d, 'snmp')?.username ?? accOf(d, 'snmp')?.community ?? '')}
@@ -692,7 +766,7 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
                         <span className="muted">–</span>
                       )}
                     </td>
-                    <td className="ell">
+                    <td className="ell" data-col="rw">
                       {d ? (
                         <EditCell
                           value={String(
@@ -846,18 +920,19 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
             >
               편집 창 열기
             </button>
-            <button
-              type="button"
-              disabled={!nrm(ctx.dev.operator)}
-              title="지금 보이는 줄 가운데, 이 줄 아래에 같은 사업자를 넣습니다"
-              onClick={() => {
-                const d = ctx.dev
-                setCtx(null)
-                void fillDown(d)
-              }}
-            >
-              사업자를 아래로 채우기
-            </button>
+            {FILLABLE[ctx.col] && (
+              <button
+                type="button"
+                title="지금 보이는 줄 가운데, 이 줄 아래에 같은 값을 넣습니다"
+                onClick={() => {
+                  const { dev: d, col } = ctx
+                  setCtx(null)
+                  void fillDown(d, col)
+                }}
+              >
+                이 {FILLABLE[ctx.col]} 값을 아래로 채우기
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {

@@ -103,9 +103,9 @@
 
 /* 열 폭 — 접속 넷은 점 하나라 26px, 아낀 폭은 인터페이스로 */
 .dg-tbl col.c-lab { width: 96px; }
-.dg-tbl col.c-op { width: 72px; }
+.dg-tbl col.c-op { width: 76px; }
 .dg-tbl col.c-ven { width: 84px; }
-.dg-tbl col.c-fam { width: 64px; }
+.dg-tbl col.c-fam { width: 96px; }
 .dg-tbl col.c-grp { width: 104px; }
 .dg-tbl col.c-mdl { width: 116px; }
 .dg-tbl col.c-ip { width: 112px; }
