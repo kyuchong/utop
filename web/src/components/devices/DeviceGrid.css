@@ -1,0 +1,242 @@
+/* ── 장비 한 화면 — LAB 탭 + 표 하나 ────────────────────────────
+   여백을 최소로 한다(지시). 열이 열넷이라 칸마다 8px 씩 두면 인터페이스
+   구성이 들어갈 자리가 없다. 칸 안 5px · 위아래 2px · 줄 높이 25px. */
+.dg {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+}
+
+.dg-head { display: flex; align-items: center; gap: 8px; flex: none; }
+.dg-head .sp { margin-left: auto; }
+.dg-find {
+  height: 28px;
+  width: 260px;
+  padding: 0 9px;
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  background: var(--c-surface);
+}
+.dg-find:focus { outline: none; border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-bg); }
+/* 알림은 제 줄을 만들지 않는다 — 머리줄 한 자리 */
+.dg-note {
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dg-note.ok { background: #e8f5ed; border: 1px solid #b9dfc8; color: #12643a; }
+.dg-note.err { background: #fdf4f4; border: 1px solid #f0c8c8; color: #8a2a2a; }
+
+/* LAB 탭 */
+.dg-labs { display: flex; gap: 4px; flex-wrap: wrap; flex: none; }
+.dg-lab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 8px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.dg-lab:hover { background: #f6f8fa; }
+.dg-lab > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.dg-lab.on { background: var(--c-primary); border-color: var(--c-primary); color: #fff; }
+.dg-lab.on > em { color: #dbe9ff; }
+
+/* 카드 — 남는 높이를 다 쓴다. 표는 카드 안에서만 구른다 */
+.dg-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.dg-scroll { flex: 1; min-height: 0; overflow: auto; }
+
+.dg-tbl { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--fs-sm); }
+.dg-tbl thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f7f9fb;
+  border-bottom: 1px solid var(--c-border);
+  text-align: left;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--c-text-faint);
+  padding: 4px 5px;
+  white-space: nowrap;
+}
+.dg-tbl tbody td {
+  border-bottom: 1px solid var(--c-border-soft);
+  padding: 2px 5px;
+  height: 25px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.dg-tbl tbody tr:hover { background: #f7f9fb; }
+.dg-tbl tbody tr.nodev td { color: var(--c-text-faint); }
+.dg-tbl .ell { overflow: hidden; text-overflow: ellipsis; }
+.dg-tbl .mono { font-family: var(--font-mono); }
+.dg-tbl .st { width: 26px; padding: 2px 0; text-align: center; }
+
+/* 열 폭 — 접속 넷은 점 하나라 26px, 아낀 폭은 인터페이스로 */
+.dg-tbl col.c-lab { width: 96px; }
+.dg-tbl col.c-op { width: 72px; }
+.dg-tbl col.c-ven { width: 84px; }
+.dg-tbl col.c-fam { width: 64px; }
+.dg-tbl col.c-grp { width: 104px; }
+.dg-tbl col.c-mdl { width: 116px; }
+.dg-tbl col.c-ip { width: 112px; }
+.dg-tbl col.c-st { width: 26px; }
+.dg-tbl col.c-ro { width: 78px; }
+.dg-tbl col.c-rw { width: 78px; }
+.dg-tbl col.c-if { width: auto; min-width: 200px; }
+.dg-tbl col.c-use { width: 132px; }
+
+/* 모델(틀)의 값 — 옅게. 바꾸면 그 모델 장비 전부에 걸린다 */
+.dg-tbl td.mcol .dv-cell.view { color: var(--c-text-muted); border-bottom: 1px dashed #c9d2dc; }
+.dg-tbl td.mcol .dv-cell.view:hover { color: var(--c-primary); border-bottom-color: var(--c-primary); }
+.dg-ip { font-weight: 700; font-family: var(--font-mono); }
+
+/* 접속 넷 — 글자 대신 점(폭을 아낀다) */
+.dg-dot {
+  width: 10px;
+  height: 10px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  vertical-align: -1px;
+}
+.dg-dot.ok { background: var(--c-pass); }
+.dg-dot.ng { background: var(--c-fail); }
+.dg-dot.un { background: #cfd6de; border: 1px solid #b9c2cc; }
+.dg-dot:disabled { opacity: 0.5; cursor: default; }
+
+/* 인터페이스 — 구성 그대로 + 개수 */
+.dg-if {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: inherit;
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  min-width: 0;
+}
+.dg-if:hover { color: var(--c-primary); }
+.dg-if > em { font-style: normal; flex: none; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.dg-newip { color: var(--c-primary); cursor: pointer; font-size: var(--fs-sm); }
+.dg-newip:hover { text-decoration: underline; }
+
+/* 새 줄 */
+.dg-tbl tr.dg-new td { background: #fbfdff; }
+.dg-tbl tr.dg-new input,
+.dg-tbl tr.dg-new select {
+  width: 100%;
+  height: 22px;
+  border: 1px solid var(--c-border);
+  border-radius: 5px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 0 5px;
+  background: #fff;
+}
+
+/* 바닥 */
+.dg-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-top: 1px solid var(--c-border-soft);
+  background: #fbfcfd;
+}
+.dg-foot .sp { margin-left: auto; }
+.dg-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--c-primary-bg);
+  color: #12539f;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.dg-leg { display: inline-flex; align-items: center; gap: 5px; }
+.dg-leg i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-left: 8px;
+}
+.dg-leg i.ok { background: var(--c-pass); }
+.dg-leg i.ng { background: var(--c-fail); }
+.dg-leg i.un { background: #cfd6de; border: 1px solid #b9c2cc; }
+.dg-leg b { margin-left: 8px; font-weight: 600; }
+
+/* 오른쪽 단추 메뉴 */
+.dg-ctxback { position: fixed; inset: 0; z-index: 60; }
+.dg-ctx {
+  position: fixed;
+  z-index: 61;
+  min-width: 190px;
+  padding: 5px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 9px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.dg-ctx > b { padding: 4px 8px; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.dg-ctx > button {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--c-text);
+}
+.dg-ctx > button:hover { background: var(--c-primary-bg); }
+.dg-ctx > button.danger { color: var(--c-fail); }
+.dg-ctx > button.danger:hover { background: #fdeaea; }
+
+/* 인터페이스 편집 창 */
+.modal.dg-ifmodal { width: 560px; max-width: 92vw; }
+.dg-ifmodal textarea {
+  width: 100%;
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  padding: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  resize: vertical;
+}

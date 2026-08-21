@@ -7,7 +7,6 @@ import {
   IconPanelToggle,
   IconRelease,
   IconRequirements,
-  IconCatalog,
   IconDevice,
   IconInstrument,
   IconRack,
@@ -56,7 +55,6 @@ export const NAV: NavGroup[] = [
     items: [
       { key: 'devices', label: 'Devices', Icon: IconDevice },
       /* 장비 카탈로그는 설정이 아니라 **장비 곁**이 제자리다(지시) */
-      { key: 'catalog', label: 'Catalog', Icon: IconCatalog },
       { key: 'instruments', label: 'Traffic Gen', Icon: IconInstrument },
       { key: 'rackview', label: 'Rack View', Icon: IconRack },
     ],

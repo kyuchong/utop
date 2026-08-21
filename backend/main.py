@@ -3784,11 +3784,17 @@ async def devices2_list(ifs: int = 1):
     if not ifs:
         async with db.pool().acquire() as c:
             rows = await c.fetch(
-                "SELECT device_id, count(*) AS n FROM device_interface GROUP BY device_id"
+                "SELECT device_id, name FROM device_interface ORDER BY device_id, sort_order, name"
             )
-        cnt = {r["device_id"]: int(r["n"]) for r in rows}
+        by: dict = {}
+        for r in rows:
+            by.setdefault(r["device_id"], []).append(r["name"])
         for d in devs:
-            d["if_count"] = cnt.get(d["id"], 0)
+            names = by.get(d["id"], [])
+            d["if_count"] = len(names)
+            # 「gi1/0/1-48, te1/1-4」 — 표가 구성을 그대로 보여 준다(지시).
+            # 48줄을 다 실으면 목록이 무거워지므로 여기서 접어 보낸다.
+            d["if_brief"] = _compress_ifs(names) if names else ""
     return {"devices": devs}
 
 
@@ -3812,11 +3818,12 @@ async def devices2_export(with_secrets: int = 0):
         con, snmp = _acc_of(d, "console"), _acc_of(d, "snmp")
         w.writerow([
             d.get("lab") or "",
-            d.get("ip") or "", d.get("vendor") or "",
+            d.get("ip") or "", d.get("operator") or "", d.get("vendor") or "",
             d.get("role") or "", d.get("model") or "",
             tel.get("port") or "", ssh.get("port") or "",
             con.get("host") or "", con.get("port") or "",
-            snmp.get("community") or "",
+            (snmp.get("username") or snmp.get("community") or ""),
+            ((snmp.get("params") or {}).get("community_rw") or ""),
             d.get("username") or "",
             (d.get("password") or "") if with_secrets else "",
             _compress_ifs([i["name"] for i in d.get("interfaces") or []]),
@@ -3972,8 +3979,8 @@ async def devices2_import(request: Request):
 # 장비 30대를 창 하나씩 열어 등록하는 것은 현실적이지 않다. 내보내고,
 # 엑셀에서 고치고, 다시 넣는 왕복 하나로 일괄등록·수정을 함께 해결한다.
 DEV_CSV_COLS = [
-    "LAB", "IP", "제조사", "제품군", "모델명",
-    "telnet포트", "ssh포트", "console주소", "console포트", "snmp",
+    "LAB", "IP", "사업자", "제조사", "제품군", "모델명",
+    "telnet포트", "ssh포트", "console주소", "console포트", "snmp", "snmp_rw",
     "계정", "비밀번호", "인터페이스",
 ]
 
@@ -4104,16 +4111,22 @@ async def devices2_import_csv(payload: dict):
         ch, cp = pick("console주소", con_old.get("host")), num("console포트", con_old.get("port"))
         if ch or cp:
             access.append({"protocol": "console", "host": ch, "port": cp, "enabled": True})
-        comm = pick("snmp", snmp_old.get("community"))
-        if comm:
+        comm = pick("snmp", snmp_old.get("username") or snmp_old.get("community"))
+        rw = pick("snmp_rw", (snmp_old.get("params") or {}).get("community_rw"))
+        if comm or rw:
             access.append({"protocol": "snmp", "port": snmp_old.get("port") or 161,
-                           "community": comm, "enabled": True})
+                           # RO 는 읽는 쪽이 보는 칸(username)에 적는다
+                           "username": comm or None, "community": comm or None,
+                           "params": {**(snmp_old.get("params") or {}),
+                                      **({"community_rw": rw, "rw": True} if rw else {})},
+                           "enabled": True})
 
         if_text = (r.get("인터페이스") or "").strip()
         payload_dev = {
             "id": (cur or {}).get("id") or ip,
             "ip": ip,
             "lab": pick("LAB", (cur or {}).get("lab")),
+            "operator": pick("사업자", (cur or {}).get("operator")),
             "vendor": pick("제조사", (cur or {}).get("vendor")),
             "role": pick("제품군", (cur or {}).get("role")),
             "model": pick("모델명", (cur or {}).get("model")),

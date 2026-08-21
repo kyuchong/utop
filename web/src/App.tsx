@@ -13,7 +13,6 @@ import AiTc from '@/pages/AiTc'
 import Cycles from '@/pages/Cycles'
 import Defects from '@/pages/Defects'
 import Devices from '@/pages/Devices'
-import DeviceCatalog from '@/components/settings/DeviceCatalog'
 import Instruments from '@/pages/Instruments'
 import RackView from '@/pages/RackView'
 
@@ -183,9 +182,6 @@ export default function App() {
         <Cycles me={user} />
       ) : page === 'defects' ? (
         <Defects />
-      ) : page === 'catalog' ? (
-        /* 장비 카탈로그 — 설정에서 옮겨 왔다(지시). 트리로 연다 */
-        <DeviceCatalog me={user} only="tree" />
       ) : page === 'devices' ? (
         <Devices me={user} />
       ) : page === 'instruments' ? (

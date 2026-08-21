@@ -910,6 +910,14 @@ async def _repair_double_json() -> None:
                 n += 1
             if n:
                 print(f"[startup] {table}.{col} 겹싸임 {n}줄 폄", flush=True)
+        # SNMP RO — `community` 에만 적혀 있던 옛 값을 `username` 으로 옮긴다
+        r = await c.execute(
+            "UPDATE device_access SET username=community "
+            "WHERE protocol='snmp' AND coalesce(username,'')='' AND coalesce(community,'')<>''"
+        )
+        moved = r.rsplit(" ", 1)[-1]
+        if moved != "0":
+            print(f"[startup] SNMP RO {moved}줄을 계정 칸으로 옮김", flush=True)
 
 
 def _dev_in(d: dict) -> dict:
@@ -930,6 +938,10 @@ def _dev_out(row) -> dict:
     d = dict(row)
     if "data" in d:
         d["data"] = _as_obj(d.get("data"), {})
+        # 사업자는 **장비**의 값이다(한 모델이 여러 사업자에 걸린다).
+        # 표 칸이 하나 늘 때마다 컬럼을 늘리지 않고 data 에 담되, 화면이
+        # 다루기 쉽게 겉으로 올려 준다.
+        d["operator"] = str(d["data"].get("operator") or "")
     return d
 
 
@@ -1016,10 +1028,13 @@ async def device_upsert(payload: dict) -> str:
     m = _dev_in(payload)
     if not m["ip"]:
         raise ValueError("IP 가 필요합니다")
-    extra = {
-        k: v for k, v in payload.items()
-        if k not in _DEV_COLS and k not in ("interfaces", "rack_id", "rack_pos", "rack_units", "power_w")
-    }
+    # 화면이 그대로 되돌려 보내는 **읽기 전용** 값들은 data 에 담지 않는다.
+    # 담으면 접속 목록·모델그룹이 통째로 한 번 더 저장되어 자료가 불어난다.
+    _NOT_DATA = (
+        "interfaces", "rack_id", "rack_pos", "rack_units", "power_w",
+        "access", "model_group", "if_count", "if_brief", "created_at", "updated_at", "_rev",
+    )
+    extra = {k: v for k, v in payload.items() if k not in _DEV_COLS and k not in _NOT_DATA}
     async with pool().acquire() as c:
         await c.execute(
             """
@@ -1106,6 +1121,12 @@ async def _device_set_access(c, dev_id: str, rows: list) -> None:
             except (TypeError, ValueError):
                 port = _DEFAULT_PORT[proto]
             prev = keep.get(proto)
+            if proto == "snmp":
+                # 읽는 쪽(랙뷰 포트·접속 확인·시험 스텝)은 죄다 `username` 을
+                # community 로 본다. 화면이 `community` 에 적어 온 값이 조용히
+                # 버려지고 있었다(지적) — 둘을 같은 값으로 맞춰 둔다.
+                _ro = (r.get("username") or r.get("community") or "").strip()
+                r = {**r, "username": _ro or None, "community": _ro or None}
             await c.execute(
                 """INSERT INTO device_access
                      (device_id, protocol, host, port, username, password, enable_password,
