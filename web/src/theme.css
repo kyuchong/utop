@@ -510,10 +510,18 @@ select.pick-live.tag { width: auto; max-width: 100%; }
 }
 .rq-tr,
 .rq-tr.tc-tr,
-.cy-list .cy-row {
+.cy-list .cy-row,
+.cy-row {
   min-height: var(--list-h);
   font-size: var(--fs-sm);
   box-shadow: none;
+}
+/* 사이클 줄만 위아래 여백이 달랐다(지적) — 세 화면이 같은 값을 쓴다.
+   글자도 한 단계 작던 것(fs-xs)을 목록 본문 크기로 맞춘다. */
+.cy-row {
+  padding-top: var(--row-py);
+  padding-bottom: var(--row-py);
+  border-bottom: 0;
 }
 .rq-tr > div,
 .rq-tr.tc-tr > div,
