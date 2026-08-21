@@ -31,6 +31,7 @@ export default function RunLog({
   onPick,
   only,
   onOnly,
+  height,
 }: {
   lines: LogLine[]
   onClear: () => void
@@ -39,6 +40,8 @@ export default function RunLog({
   /** 부적합만 보기 */
   only: boolean
   onOnly: (v: boolean) => void
+  /** 손잡이로 잡은 높이(px). 안 주면 제 크기대로 */
+  height?: number
 }) {
   const box = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
@@ -54,7 +57,7 @@ export default function RunLog({
   const nFail = lines.filter((l) => l.kind === 'fail').length
 
   return (
-    <div className="rl">
+    <div className="rl" style={height ? { height, flex: 'none' } : undefined}>
       <div className="rl-head">
         <b>실행 로그</b>
         <span className="muted small">{lines.length}줄</span>

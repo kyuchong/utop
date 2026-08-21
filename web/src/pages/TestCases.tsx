@@ -274,6 +274,14 @@ export default function TestCases({ me }: PageProps) {
 
   const [logs, setLogs] = useState<LogLine[]>([])
   const [logOnly, setLogOnly] = useState(false)
+  /* 실행 로그 높이 — 손잡이로 잡는다(지시). 기억해 둔다 */
+  const [logH, setLogH] = useState(() => {
+    const v = Number(localStorage.getItem('utop.tc.logh'))
+    return Number.isFinite(v) && v >= 90 ? v : 200
+  })
+  useEffect(() => {
+    localStorage.setItem('utop.tc.logh', String(logH))
+  }, [logH])
   const logN = useRef(0)
   /** 스텝 띠 색 — 설정 「실행 판정 기준」 이 정본(지시) */
   const resDefs = useResults()
@@ -1965,13 +1973,38 @@ export default function TestCases({ me }: PageProps) {
                   {/* 실행 로그 — 줄 단위로 색이 있는 판(지시: iTest 처럼).
                       목록 아래에 붙여 두면 도는 것을 곁눈으로 볼 수 있다. */}
                   {logs.length > 0 && (
-                    <RunLog
-                      lines={logs}
-                      only={logOnly}
-                      onOnly={setLogOnly}
-                      onClear={() => setLogs([])}
-                      onPick={(i) => setStepIdx(i)}
-                    />
+                    <>
+                      {/* 위아래로 잡아 끄는 손잡이 — 목록과 로그의 몫을 나눈다 */}
+                      <div
+                        className="tc-vsplit"
+                        title="위아래로 끌어 로그 높이를 바꿉니다"
+                        onPointerDown={(e) => {
+                          e.preventDefault()
+                          const y0 = e.clientY
+                          const h0 = logH
+                          const el = e.currentTarget
+                          el.setPointerCapture(e.pointerId)
+                          const move = (ev: PointerEvent) => {
+                            const next = Math.max(90, Math.min(760, h0 + (y0 - ev.clientY)))
+                            setLogH(next)
+                          }
+                          const up = () => {
+                            el.removeEventListener('pointermove', move)
+                            el.removeEventListener('pointerup', up)
+                          }
+                          el.addEventListener('pointermove', move)
+                          el.addEventListener('pointerup', up)
+                        }}
+                      />
+                      <RunLog
+                        lines={logs}
+                        only={logOnly}
+                        onOnly={setLogOnly}
+                        onClear={() => setLogs([])}
+                        onPick={(i) => setStepIdx(i)}
+                        height={logH}
+                      />
+                    </>
                   )}
                   {/* 고른 줄이 있을 때만 뜬다. 목록 **아래**에 둔다 — 위에 두면 띠가
                       나타나는 순간 줄이 통째로 아래로 밀려서, 방금 누른 칸이

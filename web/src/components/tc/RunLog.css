@@ -39,10 +39,10 @@
   cursor: pointer;
 }
 
+/* 손잡이로 높이를 잡으면 그 안에서 구른다 — 최대 높이를 두지 않는다 */
 .rl-box {
   flex: 1;
-  min-height: 96px;
-  max-height: 240px;
+  min-height: 72px;
   overflow: auto;
   padding: 4px 0;
   font-family: var(--font-mono);

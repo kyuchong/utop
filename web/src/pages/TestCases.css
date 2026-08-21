@@ -3290,3 +3290,24 @@ table.tb tr.r-bad td:first-child {
   flex: 1;
   min-height: 0;
 }
+
+/* 목록과 실행 로그 사이의 손잡이 — 얇게 두고, 잡으면 드러난다 */
+.tc-vsplit {
+  flex: none;
+  height: 7px;
+  cursor: ns-resize;
+  background: transparent;
+  position: relative;
+}
+.tc-vsplit::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 2px;
+  width: 44px;
+  height: 3px;
+  margin-left: -22px;
+  border-radius: 999px;
+  background: var(--c-border);
+}
+.tc-vsplit:hover::before { background: var(--c-primary); }
