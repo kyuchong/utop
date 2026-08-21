@@ -1,0 +1,121 @@
+/* 실행 로그 — 줄 단위 색(지시: iTest 처럼).
+   색은 넷뿐이다. 색이 많으면 색이 안 보인다. */
+.rl {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--c-border);
+  background: var(--c-surface);
+}
+.rl-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--c-border-soft);
+  background: #fbfcfd;
+  flex: none;
+}
+.rl-head .sp {
+  margin-left: auto;
+}
+.rl-head > b {
+  font-size: var(--fs-sm);
+}
+.rl-bad {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #fdeaea;
+  color: #8a2a2a;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.rl-only {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+
+.rl-box {
+  flex: 1;
+  min-height: 96px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 4px 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  background: #fdfdfe;
+}
+.rl-empty {
+  padding: 10px;
+  color: var(--c-text-faint);
+  font-family: var(--font-sans, inherit);
+  font-size: var(--fs-sm);
+}
+
+.rl-line {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 1px 8px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.rl-line:hover {
+  background: #f4f7fa;
+}
+.rl-at {
+  font-style: normal;
+  color: #b6bfca;
+  flex: none;
+}
+/* 회차 — 반복 시험은 「몇 회차의 말인가」 가 곧 읽는 순서다 */
+.rl-rd {
+  flex: none;
+  font-weight: 600;
+  color: #7c3aed;
+  background: #f3edff;
+  border-radius: 4px;
+  padding: 0 5px;
+}
+.rl-no {
+  flex: none;
+  min-width: 16px;
+  text-align: right;
+  color: var(--c-text-faint);
+  font-weight: 600;
+}
+.rl-tx {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 적합 */
+.rl-line.pass {
+  border-left-color: var(--c-pass);
+  color: #12643a;
+  background: #f4fbf7;
+}
+/* 부적합 */
+.rl-line.fail {
+  border-left-color: var(--c-fail);
+  color: #a02323;
+  background: #fdf5f5;
+  font-weight: 600;
+}
+/* 건너뜀 */
+.rl-line.skip {
+  color: var(--c-text-faint);
+}
+/* 경고 */
+.rl-line.warn {
+  border-left-color: #e8820c;
+  color: #8a5a00;
+  background: #fffaf2;
+}

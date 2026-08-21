@@ -30,6 +30,7 @@ import TcBulkEdit from '@/components/tc/TcBulkEdit'
 import TcMapReqDialog from '@/components/tc/TcMapReqDialog'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import TcSequence from '@/components/tc/TcSequence'
+import RunLog, { type LogLine } from '@/components/tc/RunLog'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTree from '@/components/tc/TcTree'
 import FolderSortBtn from '@/components/FolderSortBtn'
@@ -254,6 +255,11 @@ export default function TestCases({ me }: PageProps) {
   const [running, setRunning] = useState(false)
   /** 지금 돌고 있는 줄. -1 이면 안 돌고 있다 */
   const [runAt, setRunAt] = useState(-1)
+  /* 실행 로그 — 여태 버리고 있었다(onLog 가 빈 함수였다). 24회를 도는
+     동안 화면이 조용하면 「지금 뭘 하고 있나」 를 알 수 없다(지적). */
+  const [logs, setLogs] = useState<LogLine[]>([])
+  const [logOnly, setLogOnly] = useState(false)
+  const logN = useRef(0)
   /** 스텝 띠 색 — 설정 「실행 판정 기준」 이 정본(지시) */
   const resDefs = useResults()
 
@@ -1374,7 +1380,22 @@ export default function TestCases({ me }: PageProps) {
           },
           // 실행 판을 없앴다. 무슨 일이 있었나는 스텝 줄과 그 줄의
           // Result 에 남는다 — 로그를 따로 쌓아 둘 자리가 없다.
-          onLog: () => {},
+          onLog: (l) => {
+            const at = new Date()
+            setLogs((prev) => {
+              const line: LogLine = {
+                n: ++logN.current,
+                i: l.i,
+                kind: l.kind,
+                text: l.text,
+                round: l.round,
+                at: `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}:${String(at.getSeconds()).padStart(2, '0')}`,
+              }
+              /* 폭주 막이 — 100회 반복이면 수천 줄이 된다. 오래된 것부터 버린다 */
+              const next = [...prev, line]
+              return next.length > 4000 ? next.slice(next.length - 4000) : next
+            })
+          },
           params: gp.values,
           signal: ac.signal,
       }
@@ -1890,6 +1911,17 @@ export default function TestCases({ me }: PageProps) {
                       // 수동 스텝은 여기 안 나온다. 별개 탭이다.
                       hide={(s) => s.kind === 'manual'}
                       onRun={running ? undefined : (i) => void doRun(i, true)}
+                    />
+                  )}
+                  {/* 실행 로그 — 줄 단위로 색이 있는 판(지시: iTest 처럼).
+                      목록 아래에 붙여 두면 도는 것을 곁눈으로 볼 수 있다. */}
+                  {logs.length > 0 && (
+                    <RunLog
+                      lines={logs}
+                      only={logOnly}
+                      onOnly={setLogOnly}
+                      onClear={() => setLogs([])}
+                      onPick={(i) => setStepIdx(i)}
                     />
                   )}
                   {/* 고른 줄이 있을 때만 뜬다. 목록 **아래**에 둔다 — 위에 두면 띠가

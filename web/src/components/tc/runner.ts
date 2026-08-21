@@ -47,6 +47,13 @@ export interface RunLog {
    * fail 로 적으면 안 깨진 시험이 깨진 것이 된다.
    */
   kind: 'info' | 'pass' | 'fail' | 'skip' | 'warn'
+  /**
+   * 반복 안에서 나온 말이면 **몇 회차**인가.
+   *
+   * 24회를 도는 시험의 로그는 회차를 모르면 못 읽는다 — 같은 줄이 스물네
+   * 번 나오는데 어느 것이 깨진 회차인지 알 길이 없다. 실행기가 채운다.
+   */
+  round?: number
 }
 
 export interface RunCtx {
@@ -1409,12 +1416,16 @@ export async function runSteps(
   const lastPatch = new Map<number, Partial<TcStep>>()
   /** 깊이별로 **마지막 If 의 참·거짓** — 바로 뒤 Else 가 본다 */
   const lastIf = new Map<number, boolean>()
+  /** 지금 몇 회차를 돌고 있나 — 로그에 붙인다(0 이면 반복 밖) */
+  let round = 0
   const ctx: RunCtx = {
     ...ctx0,
     onStep: (i, patch) => {
       lastPatch.set(i, { ...(lastPatch.get(i) ?? {}), ...patch })
       ctx0.onStep(i, patch)
     },
+    // 회차는 여기 한 곳에서 붙인다 — 부르는 자리마다 적게 하면 빠뜨린다
+    onLog: (line) => ctx0.onLog(round ? { ...line, round } : line),
   }
   const vars: Record<string, string> = { ...(ctx.params ?? {}) }
   // 「여기부터」·「이 스텝만」 이면 앞은 이번에 안 돈다 — 지난 값을 깔아 둔다
@@ -1587,6 +1598,7 @@ export async function runSteps(
         const rounds = Math.min(times, 1000)
         for (let n = 0; n < rounds; n++) {
           if (ctx.signal.aborted) break
+          round = n + 1
           if (s.loopVar) vars[s.loopVar] = String(from0 + n * stepBy)
           for (let j = i + 1; j < body; j++) lastPatch.delete(j)
           await walk(i + 1, body)
@@ -1677,6 +1689,7 @@ export async function runSteps(
             })
           }
         }
+        round = 0
         i = body
         continue
       }
