@@ -310,6 +310,14 @@ export default function TcStepDetail({
   // 지운 칩이 옛 값에서 판정에 계속 살아남고, 다 지우면 되살아난다(지적)
   /** 캡처·미리보기용 출력 — 줄제외 칩이 적용된 것(판정·캡처와 같은 눈) */
   const capSrc = applySkips(result, { ...step, rules: chips } as TcStep)
+  /*
+   * 미리보기에 쓸 변수.
+   *
+   * 반복 안의 캡처는 `${i}` 를 쓴다. 그런데 미리보기는 전역 파라미터만
+   * 알고 있어서 「이 응답에서는 안 잡힙니다」 를 띄웠다(사진) — 실제로는
+   * 잘 잡히는데 화면만 틀린 말을 한 것이다. 반복 안이면 **1회차**로 본다.
+   */
+  const pvars: Record<string, string> = { ...gp.values, ...(loopVar ? { [loopVar]: '1' } : {}) }
   const writeChips = (next: JudgeRule[]) =>
     onChange({ rules: next, criteria: '', excludeLines: '' })
   const addChipFrom = (t: 'has' | 'not' | 'skip' | 'skipcol', v: string) => {
@@ -1212,9 +1220,9 @@ export default function TcStepDetail({
                 })),
               ].map((v) => {
                 const got = v.tbl
-                  ? tableCapture(capSrc, v.tbl, gp.values)
+                  ? tableCapture(capSrc, v.tbl, pvars)
                   : v.rule
-                    ? extractOne(v.rule, capSrc)
+                    ? extractOne(subVars(v.rule, pvars), capSrc)
                     : null
                 return (
                   <div className="sd-vrow" key={v.key}>
@@ -1227,7 +1235,9 @@ export default function TcStepDetail({
                     <span className={`sd-vval${got == null ? ' none' : ''}`}>
                       {result
                         ? got == null
-                          ? '이 응답에서는 안 잡힙니다'
+                          ? loopVar
+                            ? `1회차(${'${' + loopVar + '}'}=1) 로는 안 잡힙니다`
+                            : '이 응답에서는 안 잡힙니다'
                           : got || '(빈 값)'
                         : '아직 실행 전'}
                     </span>
