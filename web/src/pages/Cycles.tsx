@@ -4744,21 +4744,30 @@ function CycleDetail({
                 {/* ① INFO */}
                 <div className="cxp-infosec">
                   <b className="cxp-infolb">INFO</b>
-                  <div className="cxp-infogrid">
-                    <span className="cyt-dkv"><b>사이클 ID</b><i>{cycle.cid || '–'}</i></span>
-                    <span className="cyt-dkv"><b>제목</b><i title={cycle.name ?? ''}>{cycle.name || '–'}</i></span>
-                    <span className="cyt-dkv"><b>벤더</b><i>{maker || '–'}</i></span>
-                    <span className="cyt-dkv"><b>제품군</b><i>{family || '–'}</i></span>
-                    <span className="cyt-dkv"><b>모델그룹</b><i>{(cycle.model_group ?? '').trim() || mgroup || '–'}</i></span>
-                    <span className="cyt-dkv"><b>모델명</b><i>{cycle.model || '–'}</i></span>
-                    <span className="cyt-dkv"><b>상태</b><i>{cycle.status || '–'}</i></span>
-                    <span className="cyt-dkv"><b>고객</b><i>{cycle.customer || '–'}</i></span>
-                    <span className="cyt-dkv"><b>버전그룹</b><i>{cycle.version_group || '–'}</i></span>
-                    <span className="cyt-dkv"><b>버전</b><i>{cycle.version || '–'}</i></span>
-                    <span className="cyt-dkv"><b>담당자</b><i>{cycle.assignee || '–'}</i></span>
-                    <span className="cyt-dkv"><b>생성자</b><i>{cycle.created_by || '–'}</i></span>
-                    <span className="cyt-dkv"><b>생성일</b><i>{String(cycle._created_at_pg ?? '').slice(0, 10) || '–'}</i></span>
-                    <span className="cyt-dkv"><b>변경일</b><i>{String(cycle._updated_at_pg ?? '').slice(0, 10) || '–'}</i></span>
+                  <div className="cxp-kv">
+                    {(
+                      [
+                        ['사이클 ID', cycle.cid],
+                        ['제목', cycle.name],
+                        ['고객', cycle.customer],
+                        ['벤더', maker],
+                        ['제품군', family],
+                        ['모델그룹', (cycle.model_group ?? '').trim() || mgroup],
+                        ['모델명', cycle.model],
+                        ['버전그룹', cycle.version_group],
+                        ['버전', cycle.version],
+                        ['상태', cycle.status],
+                        ['담당자', cycle.assignee],
+                        ['생성자', cycle.created_by],
+                        ['생성일', String(cycle._created_at_pg ?? '').slice(0, 10)],
+                        ['변경일', String(cycle._updated_at_pg ?? '').slice(0, 10)],
+                      ] as Array<[string, string | null | undefined]>
+                    ).map(([k, v]) => (
+                      <span className="cxp-kvi" key={k}>
+                        <b>{k}</b>
+                        <i title={String(v ?? '')}>{String(v ?? '').trim() || '–'}</i>
+                      </span>
+                    ))}
                   </div>
                 </div>
 
@@ -4779,38 +4788,39 @@ function CycleDetail({
                       }
                       return { n: xs.length, p, f, etc, none: xs.length - p - f - etc }
                     }
-                    const rows: Array<[string, ReturnType<typeof tally>]> = [
+                    const cards: Array<[string, ReturnType<typeof tally>]> = [
                       ['전체', tally(items)],
                       ['수동', tally(items.filter((x) => typeOf(x) === 'manual'))],
                       ['자동', tally(items.filter((x) => typeOf(x) === 'auto'))],
                     ]
                     return (
-                      <table className="cxp-statab">
-                        <thead>
-                          <tr>
-                            <th>구분</th>
-                            <th>건수</th>
-                            <th>합격</th>
-                            <th>실패</th>
-                            <th>그 외</th>
-                            <th>미실행</th>
-                            <th>진행률</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map(([lb, t]) => (
-                            <tr key={lb}>
-                              <td>{lb}</td>
-                              <td>{t.n}</td>
-                              <td className="ok">{t.p}</td>
-                              <td className={t.f ? 'ng' : undefined}>{t.f}</td>
-                              <td>{t.etc}</td>
-                              <td>{t.none}</td>
-                              <td>{t.n ? Math.round(((t.n - t.none) / t.n) * 100) : 0}%</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <div className="cxp-stats">
+                        {cards.map(([lb, t]) => {
+                          const pct = t.n ? Math.round(((t.n - t.none) / t.n) * 100) : 0
+                          return (
+                            <div className="cxp-stat" key={lb}>
+                              <div className="cxp-stat-h">
+                                <b>{lb}</b>
+                                <span className="cxp-stat-n">{t.n}건</span>
+                                <span className="sp" />
+                                <em className={pct === 100 ? 'done' : undefined}>{pct}%</em>
+                              </div>
+                              <div className="cxp-stat-bar" aria-hidden="true">
+                                <s className="p" style={{ flexGrow: t.p }} />
+                                <s className="f" style={{ flexGrow: t.f }} />
+                                <s className="e" style={{ flexGrow: t.etc }} />
+                                <s className="n" style={{ flexGrow: t.none }} />
+                              </div>
+                              <div className="cxp-stat-lg">
+                                <span className="ok">합격 {t.p}</span>
+                                <span className={t.f ? 'ng' : undefined}>실패 {t.f}</span>
+                                <span>그 외 {t.etc}</span>
+                                <span>미실행 {t.none}</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
                     )
                   })()}
                 </div>
@@ -4818,18 +4828,23 @@ function CycleDetail({
                 {/* ③ AI 요약 */}
                 <div className="cxp-infosec">
                   <b className="cxp-infolb">
+                    <IconSparkle />
                     AI 요약
+                    {cycle.ai_summary?.at && (
+                      <em className="muted small">
+                        {String(cycle.ai_summary.at).slice(0, 16).replace('T', ' ')}
+                      </em>
+                    )}
+                    <span className="sp" />
                     <button
-                      className="btn small"
+                      className={`cxp-aibtn${aiBusy ? ' busy' : ''}`}
                       type="button"
                       disabled={aiBusy}
                       onClick={() => void makeAi()}
                     >
+                      <IconSparkle />
                       {aiBusy ? '만드는 중…' : cycle.ai_summary?.text ? '다시 만들기' : 'AI 요약 만들기'}
                     </button>
-                    {cycle.ai_summary?.at && (
-                      <em className="muted small">{String(cycle.ai_summary.at).slice(0, 16).replace('T', ' ')}</em>
-                    )}
                   </b>
                   {cycle.ai_summary?.text ? (
                     <div className="cxp-aitext">

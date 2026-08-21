@@ -7446,45 +7446,152 @@ a.bc-cur:hover { text-decoration: underline; }
 }
 
 
-/* 시험 진행 요약 — INFO · 현황 · AI 요약 세 칸(지시) */
+/* ── 시험 진행 요약 — INFO · 현황 · AI 요약 ────────────────────────
+   글자만 늘어놓지 않는다(지적): 값은 작은 칸에, 현황은 막대 카드로,
+   AI 요약은 제 카드에 담는다. */
 .cxp-infobody {
   border-top: 1px solid var(--c-border-soft);
-  padding: 8px 12px 10px;
+  padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  background: #fbfcfd;
 }
-.cxp-infosec { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cxp-infosec { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .cxp-infolb {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: var(--fs-xs);
   font-weight: 700;
   color: var(--c-text-faint);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
 }
-.cxp-statab { border-collapse: collapse; font-size: var(--fs-sm); width: auto; min-width: 420px; }
-.cxp-statab th,
-.cxp-statab td {
-  border-bottom: 1px solid var(--c-border-soft);
-  padding: 3px 12px 3px 0;
-  text-align: right;
+.cxp-infolb .sp { margin-left: auto; }
+.cxp-infolb svg { width: 13px; height: 13px; color: var(--c-primary); }
+
+/* INFO — 이름표 위, 값 아래의 작은 칸 */
+.cxp-kv {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(146px, 1fr));
+  gap: 6px;
+}
+.cxp-kvi {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: 5px 9px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 8px;
+  background: var(--c-surface);
+}
+.cxp-kvi > b {
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: var(--c-text-faint);
+}
+.cxp-kvi > i {
+  font-style: normal;
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--c-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.cxp-statab th:first-child,
-.cxp-statab td:first-child { text-align: left; width: 60px; }
-.cxp-statab th { font-size: var(--fs-xs); font-weight: 600; color: var(--c-text-faint); }
-.cxp-statab td.ok { color: var(--c-pass); font-weight: 600; }
-.cxp-statab td.ng { color: var(--c-fail); font-weight: 600; }
-.cxp-aitext { font-size: var(--fs-sm); color: var(--c-text-muted); max-height: 240px; overflow: auto; }
+
+/* 현황 — 카드 셋(전체·수동·자동) */
+.cxp-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; }
+.cxp-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 10px;
+  background: var(--c-surface);
+}
+.cxp-stat-h { display: flex; align-items: baseline; gap: 6px; }
+.cxp-stat-h > b { font-size: var(--fs-md); font-weight: 700; }
+.cxp-stat-h .sp { margin-left: auto; }
+.cxp-stat-n { font-size: var(--fs-xs); color: var(--c-text-faint); }
+.cxp-stat-h > em {
+  font-style: normal;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  color: var(--c-text-muted);
+}
+.cxp-stat-h > em.done { color: var(--c-pass); }
+.cxp-stat-bar {
+  display: flex;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #eef1f5;
+}
+.cxp-stat-bar > s { display: block; text-decoration: none; min-width: 0; }
+.cxp-stat-bar > s.p { background: var(--c-pass); }
+.cxp-stat-bar > s.f { background: var(--c-fail); }
+.cxp-stat-bar > s.e { background: var(--c-draft); }
+.cxp-stat-bar > s.n { background: transparent; }
+.cxp-stat-lg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+.cxp-stat-lg > .ok { color: var(--c-pass); font-weight: 600; }
+.cxp-stat-lg > .ng { color: var(--c-fail); font-weight: 600; }
+
+/* AI 요약 */
+.cxp-aibtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 11px;
+  border: 1px solid #cddff5;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #f6faff, var(--c-primary-bg));
+  color: var(--c-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.cxp-aibtn:hover:not(:disabled) { background: #dbe9fb; border-color: var(--c-primary); }
+.cxp-aibtn:disabled { opacity: 0.6; cursor: default; }
+.cxp-aibtn svg { width: 13px; height: 13px; }
+.cxp-aibtn.busy svg { animation: cxp-spin 1.2s linear infinite; }
+@keyframes cxp-spin { to { transform: rotate(360deg); } }
+.cxp-aitext {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  max-height: 260px;
+  overflow: auto;
+  padding: 9px 12px;
+  border: 1px solid var(--c-border-soft);
+  border-left: 3px solid var(--c-primary);
+  border-radius: 8px;
+  background: var(--c-surface);
+}
 .cxp-aitext p { margin: 2px 0; }
+.cxp-aitext h1,
+.cxp-aitext h2,
+.cxp-aitext h3 { font-size: var(--fs-md); margin: 8px 0 4px; color: var(--c-text); }
+.cxp-aitext table { border-collapse: collapse; font-size: var(--fs-xs); margin: 4px 0; }
+.cxp-aitext th,
+.cxp-aitext td { border: 1px solid var(--c-border-soft); padding: 2px 8px; }
 
 /* ── AI 첫 화면 — 보내 주신 목업 그대로 ────────────────────────────
    제목 · 입력칸(모드 고르개가 그 안) · 오프너 셋. 관리자는 ⚙ 로 고친다. */
 .ask-home {
   position: relative;
   flex: 1;
+  width: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -7493,6 +7600,7 @@ a.bc-cur:hover { text-decoration: underline; }
 .ask-home.editing { background: #eef3fb; }
 .ask-homewrap {
   flex: 1;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -7501,8 +7609,16 @@ a.bc-cur:hover { text-decoration: underline; }
   padding: 64px 24px 80px;
 }
 .ask-home.editing .ask-homewrap { padding-bottom: 110px; }
+/* 가운데 정렬은 **칸마다 못 박는다**(지시) — 부모의 align-items 하나에
+   기대면 바깥 칸이 하나 바뀔 때마다 통째로 왼쪽으로 쏠린다. */
+.ask-hometitle,
+.ask-askbox2,
+.ask-ops {
+  margin-left: auto;
+  margin-right: auto;
+}
 .ask-hometitle {
-  margin: 0;
+  margin: 0 auto;
   font-size: 26px;
   font-weight: 800;
   letter-spacing: -0.6px;
