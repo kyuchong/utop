@@ -287,6 +287,14 @@ export default function AskBar({ devices }: Props) {
   /** 같은 모델이 여러 대일 때 — 어느 장비로 보낼지 고르는 창 */
   /** 오른쪽에 펼쳐 볼 스텝 */
   const [stepAt, setStepAt] = useState(0)
+  /**
+   * 말에서 짚은 자리 — 트리를 **이 가지에 묶어 둔다**(지적).
+   *
+   * 고른 자리(tcFold)는 마디를 누를 때마다 바뀐다. 그것으로 가지를 자르면
+   * 위 마디를 누르는 순간 형제 폴더가 우르르 돌아온다. 질문이 짚은 자리는
+   * 따로 들고 있다가 「전체 보기」 를 눌러야 풀린다.
+   */
+  const [qFold, setQFold] = useState('')
   /** 장비 고르는 창의 찾기 — 이름·모델·IP·구역·랙을 한 칸으로 훑는다 */
   const [pickFind, setPickFind] = useState('')
   /** 지금 실린 시험의 번호 — Coverage 트리 길을 물을 열쇠 */
@@ -1286,6 +1294,7 @@ export default function AskBar({ devices }: Props) {
         setTcPick(new Set())
         const f0 = foldOf(said, m0)
         setTcFold(f0)
+        setQFold(f0)
         setTcOpen(openFor(f0))
         setLikeAsk(true)
         return
@@ -1377,6 +1386,7 @@ export default function AskBar({ devices }: Props) {
     setTcPick(new Set())
     const fold = foldOf(said, askModel || curDev?.model || '')
     setTcFold(fold)
+    setQFold(fold)
     setTcOpen(openFor(fold))
     if (fold)
       setFlowLog((v) => [
@@ -2789,6 +2799,7 @@ export default function AskBar({ devices }: Props) {
                                   setTcFind('')
                                   const fd = foldOf(asked, String(d.model ?? ''))
                                   setTcFold(fd)
+                                  setQFold(fd)
                                   setTcOpen(openFor(fd))
                                   if (fd)
                                     setFlowLog((v) => [
@@ -2872,6 +2883,7 @@ export default function AskBar({ devices }: Props) {
                       setTcFind('')
                       const fd = foldOf(asked, String(d2?.model ?? pickDev.model ?? ''))
                       setTcFold(fd)
+                      setQFold(fd)
                       setTcOpen(openFor(fd))
                       if (fd)
                         setFlowLog((v) => [
@@ -2997,7 +3009,7 @@ export default function AskBar({ devices }: Props) {
               const kids = (pid: string) =>
                 tcTree.filter(
                   (n) =>
-                    n.parent === pid && (cnt.get(n.id) ?? 0) > 0 && inBranch(n.id, tcFold),
+                    n.parent === pid && (cnt.get(n.id) ?? 0) > 0 && inBranch(n.id, qFold),
                 )
               const near = new Map(like.map((x, i) => [x.tcid, i]))
               /* 골라 둔 자리에 볼 것이 없으면 **전체로 되돌린다** — 빈 목록
@@ -3112,7 +3124,14 @@ export default function AskBar({ devices }: Props) {
                         {askModel || curDev?.model ? `${askModel || curDev?.model} 것` : '전체'}
                       </span>
                       {tcFold && (
-                        <button type="button" className="ask-tcall" onClick={() => setTcFold('')}>
+                        <button
+                          type="button"
+                          className="ask-tcall"
+                          onClick={() => {
+                            setTcFold('')
+                            setQFold('')
+                          }}
+                        >
                           전체 보기
                         </button>
                       )}
@@ -3129,7 +3148,14 @@ export default function AskBar({ devices }: Props) {
                       {fold ? `${foldName} — ${rows.length}건` : `시험 항목 ${rows.length}건`}
                       {like.length > 0 && !fold && !q ? ' · 말과 비슷한 것 위로' : ''}
                       {fold && (
-                        <button type="button" className="ask-tcall" onClick={() => setTcFold('')}>
+                        <button
+                          type="button"
+                          className="ask-tcall"
+                          onClick={() => {
+                            setTcFold('')
+                            setQFold('')
+                          }}
+                        >
                           전체 보기
                         </button>
                       )}
