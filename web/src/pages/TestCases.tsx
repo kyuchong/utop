@@ -64,6 +64,8 @@ import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import IdPill from '@/components/IdPill'
+import PickCell from '@/components/PickCell'
+import { useCodes } from '@/hooks/useCodes'
 import {
   reqLabel,
   reqPk,
@@ -1581,6 +1583,40 @@ export default function TestCases({ me }: PageProps) {
   /** 고정: ☐·Name·모델그룹·모델명 | INFO 열들 | REQ Map */
   const listGrid =
     `30px minmax(220px, 1fr) 96px 110px ${visCols.map((c) => c.w).join(' ')} 78px`.trim()
+  /* 목록에서 그 자리 고치기(지시) — 값 목록은 설정의 코드표를 쓴다 */
+  const C_TYPE = useCodes('tc_type', ['FT', 'Function'])
+  const C_STATUS = useCodes('tc_status', ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류'])
+  const C_SEV = useCodes('tc_severity', ['치명', '중대', '보통', '경미'])
+  const C_RUN = useCodes('tc_run_type', ['수동', '자동'])
+  const C_ORIGIN = useCodes('tc_origin', ['자체', '고객'])
+  /**
+   * 한 칸만 고쳐 저장한다.
+   *
+   * 목록이 들고 있는 것은 **요약**이라(스텝·회차 기록이 빠져 있다) 그대로
+   * 되돌려 보내면 그것들이 지워진다. 원본을 읽어 그 위에 얹는다.
+   */
+  const setCell = async (tcid: string, p: Record<string, string>) => {
+    try {
+      const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}`)
+      if (!r.ok) throw new Error('시험을 불러오지 못했습니다')
+      const cur = (await r.json()) as TcData
+      await tcApi.save(tcid, { ...cur, ...p, checks: cur.checks ?? [] })
+      await qc.invalidateQueries({ queryKey: ['tc'] })
+      void tcQ.refetch()
+    } catch (e) {
+      window.alert(e instanceof Error ? `저장하지 못했습니다 — ${e.message}` : '저장하지 못했습니다')
+    }
+  }
+  const pick = (t: TestCaseMeta, k: string, v: string, opts: readonly string[], node?: (x: string) => React.ReactNode) => (
+    <PickCell
+      value={v}
+      opts={opts}
+      title="누르면 고칩니다"
+      onSave={(nv) => setCell(t.tcid, { [k]: nv })}
+      {...(node ? { render: node } : {})}
+    />
+  )
+
   /** 선택형 열 한 칸 — 열쇠(k)로 그린다 */
   const colCell = (k: string, t: TestCaseMeta) => {
     if (k.startsWith('f_')) k = k.slice(2)
@@ -1591,12 +1627,22 @@ export default function TestCases({ me }: PageProps) {
       case 'model':
         return <div className="muted" key={k}>{colVal(k, t)}</div>
       case 'type':
-        return <div key={k}>{t.type ? <span className="tag">{t.type}</span> : '–'}</div>
+        return (
+          <div key={k}>
+            {pick(t, 'type', t.type ?? '', C_TYPE, (v) =>
+              v ? <span className="tag">{v}</span> : <span className="muted">–</span>,
+            )}
+          </div>
+        )
       case 'severity':
-        return <div key={k}>{t.severity || '–'}</div>
+        return <div key={k}>{pick(t, 'severity', t.severity ?? '', C_SEV)}</div>
       case 'kind':
         // 값 셈은 colVal 한 곳만 — 두 군데로 갈라져 한쪽만 고치는 사고를 겪었다
-        return <div key={k}>{colVal('kind', t)}</div>
+        return (
+          <div key={k}>
+            {pick(t, 'run_type', String(t.kind ?? (t.run_type as string) ?? ''), C_RUN)}
+          </div>
+        )
       case 'map':
         return (
           <div className="tc-map" key={k}>
@@ -1622,11 +1668,15 @@ export default function TestCases({ me }: PageProps) {
       case 'status':
         return (
           <div className={`status ${statusClass(t.status)}`} key={k}>
-            ● {t.status || '미실행'}
+            {pick(t, 'status', t.status ?? '', C_STATUS, (v) => <>● {v || '미실행'}</>)}
           </div>
         )
       case 'origin':
-        return <div className="muted" key={k}>{colVal('origin', t)}</div>
+        return (
+          <div className="muted" key={k}>
+            {pick(t, 'origin', String((t as Record<string, unknown>).origin ?? ''), C_ORIGIN)}
+          </div>
+        )
       default: {
         // 커스텀 INFO 필드 열 — 값은 data->custom 에 산다
         if (k.startsWith('cf_')) {

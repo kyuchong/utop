@@ -804,6 +804,58 @@ export default function AskBar({ devices }: Props) {
    * 원본(`raw`)이 그대로 실행기로 간다. Coverage 에서 누르는 것과 같은 일이
    * 같은 자리에서 일어나야 한다.
    */
+  /**
+   * 시험 한 건을 **그대로** 읽어 온다.
+   *
+   * 여러 건을 고를 때도 이 길을 쓴다 — 여태 여러 건은 서버의 옮기기
+   * (nl-tc-adopt)를 거쳐서 diff·수동 같은 스텝이 버려졌다(지적: 한 건은
+   * 다 오는데 여러 건은 덜 온다). 원본을 통째로 싣는 길은 이것 하나다.
+   */
+  const loadTc = async (tcid: string): Promise<{ name: string; raw: TcStep[]; shown: DraftStep[] }> => {
+    const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}`)
+    if (!r.ok) throw new Error('시험을 불러오지 못했습니다')
+    const b = (await r.json()) as { name?: string; object_md?: string; checks?: TcStep[] }
+    const raw = (b.checks ?? []) as TcStep[]
+    /* 보여 주기용 줄 — **한 톨도 버리지 않는다.**
+       손으로 골라 옮기다가 판정 기준·Comment 글·기대 결과 같은 것이
+       빠졌다(지적). 원본을 통째로 펼치고 화면이 읽는 이름만 덧댄다. */
+    const shown: DraftStep[] = raw.map((x) => {
+      const o = x as unknown as Record<string, unknown>
+      return {
+        ...(o as object),
+        desc: String(x.step ?? '').trim(),
+        cli: String(x.cli ?? x.data ?? ''),
+        /* Comment·Message 는 글이 `text` 에 산다 — 이걸 안 옮겨
+           주석 줄이 통째로 비어 보였다 */
+        text: typeof o.text === 'string' ? (o.text as string) : undefined,
+        kind: typeof x.kind === 'string' ? x.kind : 'cli',
+        /* Coverage 의 새 판정은 **칩**(rules)이다. 화면의 합격 기준 칸은
+           옛 꼴(type·criteria)을 읽으므로 **칸에 값으로 옮겨 적는다**
+           (지시) — 따로 띄우지 않는다. 「있어야」 가 여럿이면 「모두
+           있으면 합격」, 「없어야」 뿐이면 「있으면 불합격」 이다. */
+        ...(() => {
+          const rs = (o.rules ?? []) as Array<{ t?: string; v?: string }>
+          const has = rs.filter((r) => r?.t === 'has' && String(r.v ?? '').trim())
+          const not = rs.filter((r) => r?.t === 'not' && String(r.v ?? '').trim())
+          if (has.length)
+            return {
+              type: has.length > 1 ? 'contains_all' : 'contains',
+              criteria: has.map((r) => String(r.v).trim()).join('\n'),
+            }
+          if (not.length)
+            return { type: 'notcontains', criteria: not.map((r) => String(r.v).trim()).join('\n') }
+          return {
+            type: x.type ?? undefined,
+            criteria: typeof x.criteria === 'string' ? x.criteria : undefined,
+          }
+        })(),
+        indent: typeof x.indent === 'number' ? x.indent : undefined,
+        session: typeof x.session === 'number' ? x.session : 0,
+      } as DraftStep
+    })
+    return { name: b.name || tcid, raw, shown }
+  }
+
   const takeTc = async (tcid: string, dev?: Device, tcModel?: string) => {
     /* 항목이 **모델을 확정한다**(지시). 그 모델의 장비가 한 대면 그대로 쓰고,
        여럿이면 그때 묻는다. 말에 모델이 있었으면 그것을 쓴다. */
@@ -843,47 +895,7 @@ export default function AskBar({ devices }: Props) {
     setFlowLog((v) => [...v, { s: 5, t: `${tcid} 를 여는 중…` }])
     try {
       const picked = dev ?? usable.find((x) => x.id === devId) ?? usable[0]
-      const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}`)
-      if (!r.ok) throw new Error('시험을 불러오지 못했습니다')
-      const b = (await r.json()) as { name?: string; object_md?: string; checks?: TcStep[] }
-      const raw = (b.checks ?? []) as TcStep[]
-      /* 보여 주기용 줄 — **한 톨도 버리지 않는다.**
-         손으로 골라 옮기다가 판정 기준·Comment 글·기대 결과 같은 것이
-         빠졌다(지적). 원본을 통째로 펼치고 화면이 읽는 이름만 덧댄다. */
-      const shown: DraftStep[] = raw.map((x) => {
-        const o = x as unknown as Record<string, unknown>
-        return {
-          ...(o as object),
-          desc: String(x.step ?? '').trim(),
-          cli: String(x.cli ?? x.data ?? ''),
-          /* Comment·Message 는 글이 `text` 에 산다 — 이걸 안 옮겨
-             주석 줄이 통째로 비어 보였다 */
-          text: typeof o.text === 'string' ? (o.text as string) : undefined,
-          kind: typeof x.kind === 'string' ? x.kind : 'cli',
-          /* Coverage 의 새 판정은 **칩**(rules)이다. 화면의 합격 기준 칸은
-             옛 꼴(type·criteria)을 읽으므로 **칸에 값으로 옮겨 적는다**
-             (지시) — 따로 띄우지 않는다. 「있어야」 가 여럿이면 「모두
-             있으면 합격」, 「없어야」 뿐이면 「있으면 불합격」 이다. */
-          ...(() => {
-            const rs = (o.rules ?? []) as Array<{ t?: string; v?: string }>
-            const has = rs.filter((r) => r?.t === 'has' && String(r.v ?? '').trim())
-            const not = rs.filter((r) => r?.t === 'not' && String(r.v ?? '').trim())
-            if (has.length)
-              return {
-                type: has.length > 1 ? 'contains_all' : 'contains',
-                criteria: has.map((r) => String(r.v).trim()).join('\n'),
-              }
-            if (not.length)
-              return { type: 'notcontains', criteria: not.map((r) => String(r.v).trim()).join('\n') }
-            return {
-              type: x.type ?? undefined,
-              criteria: typeof x.criteria === 'string' ? x.criteria : undefined,
-            }
-          })(),
-          indent: typeof x.indent === 'number' ? x.indent : undefined,
-          session: typeof x.session === 'number' ? x.session : 0,
-        } as DraftStep
-      })
+      const { name: tcName, raw, shown } = await loadTc(tcid)
       setFlowLog((v) => [
         ...v.filter((x) => !x.t.endsWith('를 여는 중…')),
         { s: 5, t: `${tcid} 를 그대로 실었습니다 — ${raw.length}스텝 (고치지 않음)` },
@@ -891,7 +903,7 @@ export default function AskBar({ devices }: Props) {
       setFitNotes([])
       setFlowVals((v) => [...v.filter((x) => x.k !== '가져온 TC'), { k: '실은 TC', v: tcid }])
       setStepAt(0)
-      const d2: Draft = { name: b.name || tcid, object: tcid, steps: shown, raw }
+      const d2: Draft = { name: tcName, object: tcid, steps: shown, raw }
       instantRef.current = false
       setBuilt(d2)
       setDevId(picked?.id ?? '')
@@ -1010,10 +1022,11 @@ export default function AskBar({ devices }: Props) {
       instantRef.current = false
       setBuilt(d2)   // 레일은 지금 바로 편다 (한 줄씩 찬다)
       setDevId(picked?.id ?? '')
-      const done2 = picked ? await fillCriteria(d2, picked) : d2
+      /* 「일반」 갈래는 있는 시험을 그대로 도는 자리라 기준을 채우지 않는다 —
+         한 건 가져올 때와 같은 길이다. */
       await holdMaking(t0)
-      setDraft(done2)
-      void keepChat(done2.name, done2, picked?.ip ?? '')
+      setDraft(d2)
+      void keepChat(d2.name, d2, picked?.ip ?? '')
       setLike([])
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e))
@@ -1069,49 +1082,42 @@ export default function AskBar({ devices }: Props) {
     try {
       const picked = dev ?? usable.find((x) => x.id === devId) ?? usable[0]
       const steps: DraftStep[] = []
-      const notes: string[] = []
+      const raws: TcStep[] = []
       let got = 0
       for (const tcid of ids) {
-        const r = await apiFetch('/api/ai/nl-tc-adopt', {
-          method: 'POST',
-          body: JSON.stringify({ tcid, device_id: picked?.id ?? '', model: picked?.model ?? '' }),
-        })
-        const b = (await r.json()) as {
-          ok?: boolean
-          title?: string
-          steps?: DraftStep[]
-          tc?: { notes?: string[] }
+        /* 한 건 고를 때와 **같은 길**로 읽는다 — 서버의 옮기기를 거치면
+           diff·수동 같은 스텝이 버려져 「한 건은 다 오는데 여러 건은 덜
+           온다」 가 된다(지적). 원본을 통째로 싣는다. */
+        let one: { name: string; raw: TcStep[]; shown: DraftStep[] }
+        try {
+          one = await loadTc(tcid)
+        } catch {
+          continue
         }
-        if (!b.ok || !Array.isArray(b.steps) || b.steps.length === 0) continue
+        if (!one.raw.length) continue
         got++
-        /* 경계 줄 — **어느 시험의 스텝인지** 여기서 갈린다(지적).
-           제목만 적어 두었더니 그 시험의 제 주석과 구별이 안 됐다.
-           번호를 함께 적고, 목록은 이 줄을 띠로 세운다. */
-        /* 굵게 서는 것은 `text`(이름), 옆에 옅게 붙는 것은 `desc`(번호)다 —
-           목록이 그 차례로 그린다. 둘을 같은 글자로 두면 한 줄에 같은 말이
-           두 번 나온다. */
-        steps.push({
+        /* 경계 줄 — 굵게 서는 것은 이름(text), 옆에 옅게 붙는 것은 번호(desc) */
+        const head: DraftStep = {
           kind: 'comment',
           indent: 0,
           desc: tcid,
-          text: b.title || tcid,
+          text: one.name || tcid,
           cli: '',
           head: true,
-        })
-        /* 스텝은 **원본 그대로** 넣는다. 묶는 일은 카드가 한다(지시 사진) —
-           들여쓰면 그 시험 제 짜임(주석 1 → 명령 1.1)이 한 칸씩 더 밀린다. */
-        steps.push(...b.steps)
-        for (const n of b.tc?.notes ?? []) if (!notes.includes(n)) notes.push(n)
+        }
+        steps.push(head, ...one.shown)
+        raws.push({ kind: 'comment', indent: 0, step: tcid, text: one.name || tcid, head: true } as TcStep)
+        raws.push(...one.raw)
       }
       if (got === 0) throw new Error('고른 항목에서 옮길 스텝이 없습니다')
       setFlowLog((v) => [
         ...v.filter((x) => !x.t.endsWith('가져오는 중…')),
-        { s: 5, t: `${got}건을 가져와 이 장비(${picked?.model ?? ''})로 옮김 — 스텝 ${steps.length}개` },
+        { s: 5, t: `${got}건을 그대로 실었습니다 — 스텝 ${raws.length - got}개 (고치지 않음)` },
       ])
-      setFitNotes(notes)
+      setFitNotes([])
       setFlowVals((v) => [...v.filter((x) => x.k !== '가져온 TC'), { k: '가져온 TC', v: `${got}건` }])
       setStepAt(0)
-      const d2: Draft = { name: `고른 시험 ${got}건`, object: '', steps }
+      const d2: Draft = { name: `고른 시험 ${got}건`, object: '', steps, raw: raws }
       instantRef.current = false
       setBuilt(d2)
       setDevId(picked?.id ?? '')
@@ -2359,6 +2365,7 @@ export default function AskBar({ devices }: Props) {
                     <div className="tc-colh">
                       <b>{termOpen ? '명령어 캡쳐' : '스텝 상세'}</b>
                       <span className="sp" />
+                      {mode !== 'basic' && (
                       <button
                         className={`btn tc-dots tc-termbtn${termOpen ? ' on' : ''}`}
                         type="button"
@@ -2373,8 +2380,9 @@ export default function AskBar({ devices }: Props) {
                       >
                         <IconCli />
                       </button>
+                      )}
                     </div>
-                    {termOpen && devId ? (
+                    {termOpen && devId && mode !== 'basic' ? (
                       <TcTerminal
                         sessions={[devId]}
                         devById={new Map(devices.map((d) => [d.id, d]))}
