@@ -74,7 +74,7 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
-import { blockEnd, runPicked, runSteps, type RunCtx } from '@/components/tc/runner'
+import { blockEnd, loopVarAt, runPicked, runSteps, type RunCtx } from '@/components/tc/runner'
 import { extractOne } from '@/components/tc/judge'
 import type { PickItem } from '@/components/tc/PickList'
 import {
@@ -2033,6 +2033,7 @@ export default function TestCases({ me }: PageProps) {
                     meterCfg={d.meterCfg}
                     onGoTraffic={() => setTab('traffic')}
                     block={blockInfo}
+                    loopVar={loopVarAt(shownSteps, stepIdx)}
                   />
                   )}
                 </section>

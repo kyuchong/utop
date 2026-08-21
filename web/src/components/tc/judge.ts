@@ -356,7 +356,8 @@ interface Tok {
 /** `Status=connected Type="Not Present"` → 토큰들. 값에 공백이 있으면 따옴표. */
 function parseToks(s: string): Tok[] {
   const out: Tok[] = []
-  const re = /([\w .\/-]+?)\s*(!=|=)\s*("[^"]*"|\S*)/g
+  // 한글 열 이름도 받는다 — 표 머리줄이 늘 영문인 것은 아니다
+  const re = /([\w가-힣 .\/-]+?)\s*(!=|=)\s*("[^"]*"|\S*)/g
   let m: RegExpExecArray | null
   while ((m = re.exec(String(s ?? '')))) {
     const val = (m[3] ?? '').replace(/^"|"$/g, '')
@@ -366,6 +367,83 @@ function parseToks(s: string): Tok[] {
 }
 
 /** 값에 공백이 있으면 따옴표를 씌워 돌려준다 (`Not Present` → `"Not Present"`) */
+/**
+ * `이름 = 값` 줄만 있는 출력을 표로 본다 (SNMP walk).
+ *
+ * SNMP 응답에는 구분선이 없어 표 파서가 못 읽는다. 그런데 사람 눈에는
+ * 분명한 표다 — 줄마다 이름·인덱스·값 셋이다. 그것을 그대로 세 열로
+ * 세워 주면 표에서 고르는 화면을 그대로 쓸 수 있다. 그래야 SNMP 시험도
+ * 정규식 없이 만든다.
+ */
+export function kvTable(text: string): Tbl | null {
+  const rows: string[][] = []
+  for (const ln of String(text ?? '').split(/\r?\n/)) {
+    const m = /^\s*(\S+)\s*=\s*(.*)$/.exec(ln)
+    if (!m) continue
+    const name = m[1] ?? ''
+    const idx = /\.(\d+)$/.exec(name)?.[1] ?? ''
+    rows.push([name, idx, (m[2] ?? '').trim()])
+  }
+  if (rows.length < 2) return null
+  /* 열 이름은 ASCII 로 둔다 — 행 조건(`Index=1013`)을 읽는 파서가 한글
+     열 이름을 못 읽는다. SNMP 를 보는 사람에게 OID·Index·Value 가 낯선
+     말도 아니다 */
+  return { cols: ['OID', 'Index', 'Value'], rows }
+}
+
+/** 표로 읽기 — 구분선 표가 먼저, 안 되면 `이름 = 값` 줄 (SNMP) */
+export function anyTable(text: string): Tbl | null {
+  return parseTable(text) ?? kvTable(text)
+}
+
+/**
+ * 표에서 한 칸 꺼내기 (iTest 의 Response Map).
+ *
+ * 「Port 가 Te0/${i} 인 행의 Name 칸」 을 실행할 때마다 다시 읽는다.
+ * 정규식이 아니라 **열 이름과 행 조건**이라 사람이 읽을 수 있고, 장비가
+ * 칸 폭을 바꿔도 안 깨진다 — 자리가 아니라 머리줄로 찾기 때문이다.
+ *
+ * 못 찾으면 null. 「없다」 와 「빈 칸이다」 는 다른 말이라 빈 문자열로
+ * 뭉개지 않는다.
+ */
+export function tableCapture(
+  output: string,
+  q: { col?: string; where?: string; row?: string },
+  vars: Record<string, string> = {},
+): string | null {
+  if (!q.col) return null
+  const tbl = anyTable(output)
+  if (!tbl) return null
+  const at = (n: string) => tbl.cols.findIndex((c) => c.toLowerCase() === String(n).toLowerCase())
+  const ci = at(q.col)
+  if (ci < 0) return null
+
+  const eq = (cv: string, v: string) =>
+    v === '*' ? cv !== '' : cv.toLowerCase() === v.toLowerCase()
+
+  let row: string[] | undefined
+  if (q.where && q.where.trim()) {
+    const toks = parseToks(subVars(q.where, vars))
+    if (!toks.length) return null
+    row = tbl.rows.find((r) =>
+      toks.every((t) => {
+        const c = at(t.col)
+        if (c < 0) return false
+        const ok = eq(r[c] ?? '', t.val)
+        return t.neq ? !ok : ok
+      }),
+    )
+  } else if (q.row && q.row.trim()) {
+    const n = Number(subVars(q.row, vars))
+    if (!Number.isFinite(n) || n < 1) return null
+    row = tbl.rows[n - 1]
+  } else {
+    row = tbl.rows[0]
+  }
+  if (!row) return null
+  return (row[ci] ?? '').trim()
+}
+
 export function quoteVal(v: string): string {
   return /\s/.test(v) ? `"${v}"` : v
 }
@@ -829,8 +907,15 @@ export function extractVars(
      날짜 줄까지 담으면 뒤 Diff 가 늘 다르다고 한다(지적). 판정과 캡처가
      같은 눈을 쓴다: 제외 = 이 스텝에서 그 줄은 없는 셈. */
   output = applySkips(output, step)
+  /* 표에서 뽑기 — 정규식보다 먼저 본다. 둘 다 적혀 있으면 표 쪽이 이긴다
+     (열 이름으로 찾는 것이 칸 폭 바뀜에 안 깨진다) */
+  for (const q of step.queries ?? []) {
+    if (!q.var || !q.col) continue
+    const got = tableCapture(output, q, vars)
+    if (got !== null) out[q.var] = got
+  }
   const rules: Array<{ name?: string; rule?: string }> = [
-    ...(step.queries ?? []).map((x) => ({ name: x.var, rule: x.q })),
+    ...(step.queries ?? []).filter((x) => !x.col).map((x) => ({ name: x.var, rule: x.q })),
     ...(step.extracts ?? []).map((x) => ({ name: x.var, rule: x.rule })),
   ]
   for (const r of rules) {

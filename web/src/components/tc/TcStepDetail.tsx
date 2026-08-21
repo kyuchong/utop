@@ -10,8 +10,10 @@ import {
   SKIP_TIME,
   evalCondWhy,
   extractOne,
+  anyTable,
   parseTable,
   stepRules,
+  tableCapture,
   subVars,
   type JudgeRule,
 } from './judge'
@@ -70,6 +72,13 @@ interface Props {
    * 알맹이를 통째로 잠근다(`inert`).
    */
   readOnly?: boolean
+  /**
+   * 이 스텝을 감싸는 반복의 변수 이름 (있으면).
+   *
+   * 「표에서 값 뽑기」 가 회차 번호를 권할 때 쓴다 — 반복 안인데 `Te0/13`
+   * 을 그대로 두면 24회를 돌려도 같은 줄만 스물네 번 본다.
+   */
+  loopVar?: string
 }
 
 /**
@@ -98,12 +107,15 @@ export default function TcStepDetail({
   meterCfg,
   onGoTraffic,
   block,
+  loopVar,
   readOnly = false,
 }: Props) {
   const [picked, setPicked] = useState('')
   /** 눌린 블럭 — [변수로 · 있으면 합격 · 있으면 불합격] 메뉴가 뜬 자리 */
   const [blockAt, setBlockAt] = useState<{ v: string; x: number; y: number; kind?: 'col' } | null>(null)
   const [tblOpen, setTblOpen] = useState(false)
+  /** 「표에서 값 뽑기」 판 — 판정이 아니라 변수를 만드는 자리(Response Map) */
+  const [capOpen, setCapOpen] = useState(false)
   /** 펼쳐 본 회차. 0 이면 안 폈다 */
   const [round, setRound] = useState(0)
   /** 지금 열려 있는 고르기 목록 — 어느 칸에 넣을지까지 담는다 */
@@ -250,6 +262,9 @@ export default function TcStepDetail({
   // 스텝을 고르지 않은 render 에서는 훅이 하나 줄어든다. 다시 고르는
   // 순간 React 가 훅 수가 늘었다며 통째로 죽는다 — 흰 화면.
   const isTbl = result ? !!parseTable(result) : false
+  /* 값 뽑기는 SNMP 처럼 구분선 없는 `이름 = 값` 출력도 받는다 — 그쪽이야말로
+     정규식을 쓰게 되는 자리다 */
+  const isKv = result ? !!anyTable(result) : false
   /** 계측기 응답이면 표로 읽는다. 아니면 null 이고 원문 그대로 나간다 */
   const meterOut = isMeterStep ? parseMeterOutput(result) : null
   const needsSession = (isCmd || isConn || isNet) && kind !== 'instrument'
@@ -1180,6 +1195,10 @@ export default function TcStepDetail({
                   key: `q${i}`,
                   name: x.var,
                   rule: x.q,
+                  /* 표에서 뽑은 것은 식이 아니라 **말**로 보여 준다 —
+                     「Port=Te0/${i} 행의 Name 칸」. 정규식이 아니니 정규식처럼
+                     보일 이유가 없다 */
+                  tbl: x.col ? { col: x.col, where: x.where ?? '', row: x.row ?? '' } : null,
                   drop: () =>
                     onChange({ queries: (step.queries ?? []).filter((_, j) => j !== i) }),
                 })),
@@ -1187,11 +1206,16 @@ export default function TcStepDetail({
                   key: `x${i}`,
                   name: x.var,
                   rule: x.rule,
+                  tbl: null as { col: string; where: string; row: string } | null,
                   drop: () =>
                     onChange({ extracts: (step.extracts ?? []).filter((_, j) => j !== i) }),
                 })),
               ].map((v) => {
-                const got = v.rule ? extractOne(v.rule, capSrc) : null
+                const got = v.tbl
+                  ? tableCapture(capSrc, v.tbl, gp.values)
+                  : v.rule
+                    ? extractOne(v.rule, capSrc)
+                    : null
                 return (
                   <div className="sd-vrow" key={v.key}>
                     <span className="sd-var">${v.name || '?'}</span>
@@ -1207,8 +1231,17 @@ export default function TcStepDetail({
                           : got || '(빈 값)'
                         : '아직 실행 전'}
                     </span>
-                    <code className="sd-vrule" title={v.rule ?? ''}>
-                      {v.rule}
+                    <code
+                      className="sd-vrule"
+                      title={
+                        v.tbl
+                          ? '표에서 뽑기 — 열 이름으로 찾으므로 칸 폭이 바뀌어도 안 깨집니다'
+                          : (v.rule ?? '')
+                      }
+                    >
+                      {v.tbl
+                        ? `${v.tbl.where || (v.tbl.row ? `${v.tbl.row}번째 줄` : '첫 줄')} 행의 ${v.tbl.col} 칸`
+                        : v.rule}
                     </code>
                     <button type="button" className="if-x" aria-label="지우기" onClick={v.drop}>
                       ×
@@ -1292,7 +1325,23 @@ export default function TcStepDetail({
                 </div>
               )
             })()}
-            {result && tblOpen ? (
+            {result && capOpen ? (
+              <TcTable
+                text={result}
+                mode="capture"
+                takenVars={[...takenVars, ...mine]}
+                loopVar={loopVar}
+                onClose={() => setCapOpen(false)}
+                onApply={() => setCapOpen(false)}
+                onCapture={(q) => {
+                  /* 같은 이름이 이미 있으면 갈아 끼운다 — 두 벌이 되면
+                     뒤엣것이 앞엣것을 조용히 덮어써서 왜 값이 다른지 모른다 */
+                  const keep = (step.queries ?? []).filter((x) => x.var !== q.var)
+                  onChange({ queries: [...keep, { var: q.var, col: q.col, where: q.where }] })
+                  setCapOpen(false)
+                }}
+              />
+            ) : result && tblOpen ? (
               <TcTable
                 text={result}
                 criteria={chips.find((x) => x.t === 'table')?.v ?? ''}
@@ -1459,6 +1508,19 @@ export default function TcStepDetail({
                       onClick={() => setTblOpen(true)}
                     >
                       표로 판정 만들기
+                    </button>
+                  )}
+                  {/* 정규식을 손으로 쓰라고 하면 아무도 안 쓴다(지적).
+                      표에서 칸을 누르면 「어느 열, 어느 행」 으로 적어 둔다 —
+                      iTest 의 Response Map 이 하는 일이 이것이다. */}
+                  {isKv && (
+                    <button
+                      className="btn small"
+                      type="button"
+                      title="표에서 칸을 눌러 그 값을 변수로 담습니다 — 정규식 없이"
+                      onClick={() => setCapOpen(true)}
+                    >
+                      표에서 값 뽑기
                     </button>
                   )}
                   {/* 응답 전체를 담는다. 글자를 끌어야만 되면 긴 출력을

@@ -416,6 +416,26 @@ function deviceOf(ctx: RunCtx, step: TcStep): { dev?: Device; error?: string } {
  * 스텝은 한 배열에 순서대로 들어 있고 중첩은 `indent` 로만 나타난다
  * (652스텝이 이 값을 갖고 있다). 여는 줄보다 깊은 동안이 그 블록의 몸통이다.
  */
+/**
+ * 이 스텝을 감싸는 **반복의 변수 이름** (없으면 빈 값).
+ *
+ * 위로 올라가며 자기보다 얕은 반복 줄을 찾는다. 「표에서 값 뽑기」 가
+ * 회차 번호를 권할 때 쓴다 — 반복 안인데 `Te0/13` 을 그대로 두면 24회를
+ * 돌려도 같은 줄만 스물네 번 본다.
+ */
+export function loopVarAt(steps: TcStep[], at: number): string {
+  if (at < 0) return ''
+  let depth = Number(steps[at]?.indent ?? 0)
+  for (let i = at - 1; i >= 0; i--) {
+    const d = Number(steps[i]?.indent ?? 0)
+    if (d >= depth) continue
+    depth = d
+    if (steps[i]?.kind === 'loop') return String(steps[i]?.loopVar ?? 'i')
+    if (depth === 0) break
+  }
+  return ''
+}
+
 export function blockEnd(steps: TcStep[], at: number): number {
   const base = Number(steps[at]?.indent ?? 0)
   let j = at + 1

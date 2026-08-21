@@ -3120,3 +3120,21 @@ table.tb tr.r-bad td:first-child {
 }
 /* 지금 펴 놓은 스텝 — 도는 칸이 아닐 때만 테두리로 짚어 준다 */
 .sc-seg.on:not(.now) { border-color: var(--c-primary); box-shadow: 0 0 0 2px var(--c-primary-bg); }
+
+/* 표에서 값 뽑기 — 문장 안에 그대로 박히는 입력칸(iTest 의 Response Map).
+   따로 폼을 만들면 「무엇을 고른 것인지」 가 문장에서 떨어져 나간다. */
+.tb-in {
+  border: 0;
+  border-bottom: 1px dashed var(--c-primary);
+  background: var(--c-primary-bg);
+  border-radius: 4px 4px 0 0;
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  padding: 1px 5px;
+  width: 130px;
+  color: var(--c-text);
+}
+.tb-in:focus { outline: none; background: #fff; border-bottom-color: var(--c-text); }
+.tb-in.v { width: 96px; }
+.tb-in.n { width: 44px; text-align: center; }

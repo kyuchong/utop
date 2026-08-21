@@ -11,7 +11,7 @@ import {
   IconTrash,
 } from '@/components/icons'
 import { connParams } from '@/components/tc/device'
-import { runSteps } from '@/components/tc/runner'
+import { loopVarAt, runSteps } from '@/components/tc/runner'
 import { Fragment } from 'react'
 import TcSequence from '@/components/tc/TcSequence'
 import TcStepDetail from '@/components/tc/TcStepDetail'
@@ -2537,6 +2537,7 @@ export default function AskBar({ devices }: Props) {
                         onDuplicate={() => dupTcStep(stepAt)}
                         onRun={running || !devId ? undefined : () => void run(stepAt)}
                         readOnly={mode === 'basic'}
+                        loopVar={loopVarAt(seqSteps, stepAt)}
                       />
                     )}
                   </section>

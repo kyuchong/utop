@@ -1,5 +1,13 @@
 import { useMemo, useRef, useState } from 'react'
-import { buildTableCriteria, judgeTable, parseTable, readTableCriteria } from './judge'
+import {
+  anyTable,
+  buildTableCriteria,
+  judgeTable,
+  parseTable,
+  quoteVal,
+  readTableCriteria,
+  tableCapture,
+} from './judge'
 
 interface Props {
   /** 방금 받은 응답 */
@@ -8,6 +16,19 @@ interface Props {
   criteria?: string
   onApply: (criteria: string) => void
   onClose: () => void
+  /**
+   * 무엇을 만들러 왔나 — 판정기준(judge) · 변수 뽑기(capture).
+   *
+   * 표를 그려 놓고 누르게 하는 부분은 둘이 똑같다. 다른 것은 「고른 칸으로
+   * 무엇을 만드나」 뿐이라 화면을 둘로 나누지 않는다.
+   */
+  mode?: 'judge' | 'capture'
+  /** capture — 이대로 변수로 */
+  onCapture?: (q: { var: string; col: string; where: string }) => void
+  /** capture — 이미 쓰고 있는 변수 이름(겹치면 덮어써 버린다) */
+  takenVars?: string[]
+  /** capture — 이 스텝을 감싸는 반복의 변수 이름. 있으면 `${i}` 를 권한다 */
+  loopVar?: string
 }
 
 interface Check {
@@ -28,8 +49,20 @@ interface Check {
  * 볼 행을 왼쪽에서 고르고, 그 행이 어때야 하는지는 그 값이 있는 칸을
  * 누르면 된다. 만들어진 글자는 아래에 결과로만 보인다.
  */
-export default function TcTable({ text, criteria, onApply, onClose }: Props) {
-  const tbl = useMemo(() => parseTable(text), [text])
+export default function TcTable({
+  text,
+  criteria,
+  onApply,
+  onClose,
+  mode = 'judge',
+  onCapture,
+  takenVars = [],
+  loopVar,
+}: Props) {
+  const cap = mode === 'capture'
+  /* 값 뽑기에서는 SNMP 처럼 구분선 없는 출력도 표로 세운다.
+     판정 쪽은 예전 그대로 — 판정기준 문법이 구분선 표를 전제한다 */
+  const tbl = useMemo(() => (mode === 'capture' ? anyTable(text) : parseTable(text)), [text, mode])
   const prev = useMemo(() => readTableCriteria(criteria ?? ''), [criteria])
 
   const cols = tbl?.cols ?? []
@@ -58,6 +91,14 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
   })
   const [keys, setKeys] = useState<string[]>(prev?.keys ?? [])
   const [checks, setChecks] = useState<Check[]>(prev?.checks ?? [])
+
+  /* ── 값 뽑기(capture) ─────────────────────────────────────────
+     「어느 열의 값을, 어느 행에서」 두 가지만 고르면 된다. 정규식은
+     아무도 안 쓴다(지적) — iTest 의 Response Map 이 하는 일이 이것이다. */
+  const [capCol, setCapCol] = useState('')
+  const [capWhere, setCapWhere] = useState('')
+  const [capVar, setCapVar] = useState('')
+  const [capN, setCapN] = useState('1')
 
   const keyCol = cols[keyAt] ?? ''
   const built = buildTableCriteria(keyCol, keys, checks)
@@ -100,6 +141,26 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
     lastRow.current = r
   }
 
+  /** capture — 누른 칸을 「값 열」 로, 그 행의 기준 값을 「행 조건」 으로 */
+  const pickCap = (c: number, row: string[]) => {
+    const col = cols[c] ?? ''
+    if (!col) return
+    setCapCol(col)
+    const kv = row[keyAt] ?? ''
+    /* 반복 안이면 회차 번호로 바꿔 권한다 — Te0/13 을 그대로 두면 24회를
+       돌려도 13번 줄만 스물네 번 본다(그 함정을 여기서 막는다). */
+    const m = loopVar ? /^(.*?)(\d+)(\D*)$/.exec(kv) : null
+    setCapWhere(m ? `${m[1]}\${${loopVar}}${m[3]}` : kv)
+    if (m?.[2]) setCapN(m[2])
+    if (!capVar) {
+      const base = col.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'val'
+      const used = new Set(takenVars)
+      let name = base
+      for (let n = 2; used.has(name) && n < 99; n++) name = `${base}${n}`
+      setCapVar(name)
+    }
+  }
+
   const toggleCheck = (col: string, val: string) => {
     if (!col) return
     setChecks((cs) => {
@@ -140,16 +201,75 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
   return (
     <div className="tb-wrap">
       <div className="tb-top">
-        <b>표에서 고르기</b>
+        <b>{cap ? '표에서 값 뽑기' : '표에서 고르기'}</b>
         <span className="muted small">
-          왼쪽에서 <b>볼 행</b>을 고르고(맨 위 네모 = 전체 · Shift = 범위), 그 행이
-          어때야 하는지는 <b>그 값이 있는 칸</b>을 누르세요. 어긋난 행은 붉게 표시됩니다.
+          {cap ? (
+            <>
+              변수로 담고 싶은 <b>칸을 누르세요</b>. 그 칸의 <b>열</b>과 그 행을 찾는{' '}
+              <b>조건</b>이 만들어집니다 — 정규식은 안 씁니다.
+            </>
+          ) : (
+            <>
+              왼쪽에서 <b>볼 행</b>을 고르고(맨 위 네모 = 전체 · Shift = 범위), 그 행이
+              어때야 하는지는 <b>그 값이 있는 칸</b>을 누르세요. 어긋난 행은 붉게 표시됩니다.
+            </>
+          )}
         </span>
         <button className="btn small" type="button" onClick={onClose}>
           닫기
         </button>
       </div>
 
+      {cap ? (
+        <div className="tb-say">
+          {/* 고른 것을 사람 말로 되읽어 준다 — 문법을 몰라도 맞게 골랐는지 안다 */}
+          <label className="tb-key">
+            행 찾는 열
+            <select value={keyAt} onChange={(e) => setKeyAt(Number(e.target.value))}>
+              {cols.map((c, i) => (
+                <option key={i} value={i}>
+                  {c || `(${i + 1}번째 열)`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="tb-sent">
+            <b>{keyCol}</b> 가{' '}
+            <input
+              className="tb-in"
+              value={capWhere}
+              placeholder={loopVar ? `Te0/\${${loopVar}}` : '값'}
+              onChange={(e) => setCapWhere(e.target.value)}
+              title="이 행을 찾는 값. 반복 안이면 회차 번호를 넣으세요"
+            />{' '}
+            인 행의 <b>{capCol || '— 칸을 누르세요'}</b> 칸을{' '}
+            <input
+              className="tb-in v"
+              value={capVar}
+              placeholder="변수 이름"
+              onChange={(e) => setCapVar(e.target.value.trim())}
+              title="이 값을 담을 변수 이름"
+            />{' '}
+            에 담습니다.
+            {loopVar && !capWhere.includes('${') && capWhere ? (
+              <button
+                className="btn small"
+                type="button"
+                title={`회차 번호(\${${loopVar}})로 바꿉니다 — 그래야 회차마다 다른 행을 봅니다`}
+                onClick={() => {
+                  const m = /^(.*?)(\d+)(\D*)$/.exec(capWhere)
+                  if (m) {
+                    setCapWhere(`${m[1]}\${${loopVar}}${m[3]}`)
+                    setCapN(m[2] ?? '1')
+                  }
+                }}
+              >
+                회차 번호로
+              </button>
+            ) : null}
+          </span>
+        </div>
+      ) : (
       <div className="tb-say">
         {/* 고른 것을 사람 말로 되읽어 준다. 문법을 몰라도 맞게 골랐는지 안다 */}
         <label className="tb-key">
@@ -192,6 +312,7 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
           합니다.
         </span>
       </div>
+      )}
 
       <div className="tb-scroll">
         <table className="tb">
@@ -243,14 +364,20 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
                         co === null ? '' : !inScope(row) ? 'on' : co ? 'ok' : 'bad'
                       }`}
                       onClick={(e) =>
-                        c === keyAt ? pickRow(r, kv, e.shiftKey) : toggleCheck(cols[c] ?? '', cell)
+                        cap
+                          ? pickCap(c, row)
+                          : c === keyAt
+                            ? pickRow(r, kv, e.shiftKey)
+                            : toggleCheck(cols[c] ?? '', cell)
                       }
                       title={
-                        c === keyAt
-                          ? '이 행을 보기'
-                          : cell
-                            ? `${cols[c]} 가 ${cell} 여야 한다`
-                            : ''
+                        cap
+                          ? `이 칸(${cols[c]})의 값을 변수로`
+                          : c === keyAt
+                            ? '이 행을 보기'
+                            : cell
+                              ? `${cols[c]} 가 ${cell} 여야 한다`
+                              : ''
                       }
                     >
                       {cell}
@@ -264,6 +391,63 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
         </table>
       </div>
 
+      {cap ? (
+        <div className="tb-foot">
+          {/* 지금 이 출력에서 실제로 뭐가 잡히는지 바로 보여 준다.
+              저장하고 돌려 봐야 아는 것이 제일 답답하다. */}
+          {loopVar && capWhere.includes('${') ? (
+            <span className="tb-live">
+              회차{' '}
+              <input
+                className="tb-in n"
+                value={capN}
+                onChange={(e) => setCapN(e.target.value.replace(/\D/g, '') || '1')}
+              />{' '}
+              일 때 →{' '}
+              <b>
+                {(() => {
+                  const g = tableCapture(
+                    text,
+                    { col: capCol, where: `${keyCol}=${quoteVal(capWhere)}` },
+                    { [loopVar]: capN },
+                  )
+                  return g === null ? '(그런 행이 없습니다)' : g || '(빈 칸)'
+                })()}
+              </b>
+            </span>
+          ) : capCol && capWhere ? (
+            <span className="tb-live">
+              지금 잡히는 값 →{' '}
+              <b>
+                {(() => {
+                  const g = tableCapture(text, {
+                    col: capCol,
+                    where: `${keyCol}=${quoteVal(capWhere)}`,
+                  })
+                  return g === null ? '(그런 행이 없습니다)' : g || '(빈 칸)'
+                })()}
+              </b>
+            </span>
+          ) : null}
+          <code className="tb-code" title="이대로 스텝에 들어갑니다">
+            {capVar || '변수'} = {keyCol}={capWhere || '…'} 행의 {capCol || '…'} 칸
+          </code>
+          <button
+            className="btn primary small"
+            type="button"
+            disabled={!capCol || !capVar || !capWhere}
+            onClick={() =>
+              onCapture?.({
+                var: capVar,
+                col: capCol,
+                where: `${keyCol}=${quoteVal(capWhere)}`,
+              })
+            }
+          >
+            이대로 변수로
+          </button>
+        </div>
+      ) : (
       <div className="tb-foot">
         {live && (
           <span className={`tb-live ${live.verdict === 'Pass' ? 'ok' : 'bad'}`}>
@@ -283,6 +467,7 @@ export default function TcTable({ text, criteria, onApply, onClose }: Props) {
           이대로 판정기준
         </button>
       </div>
+      )}
     </div>
   )
 }
