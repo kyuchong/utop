@@ -1040,11 +1040,26 @@ export default function TcStepDetail({
               placeholder={
                 kind === 'comment'
                   ? '예) 여기부터 VLAN 설정을 확인한다'
-                  : '예) ${model} 재부팅 완료 — 링크 확인 시작'
+                  : '예) ${i}회째 진행 결과는 ${_verdict} 입니다'
               }
               onChange={(e) => onChange({ text: e.target.value })}
             />
             <span className="sd-hint">{STEP_CONTENT[kind]?.hint}</span>
+            {/* 회차와 판정을 찍고 싶다는 요구(지시) — 쓸 수 있는 것을 적어 둔다.
+                모르면 「메시지에 무엇을 쓸 수 있나」 를 물어볼 데가 없다. */}
+            {kind === 'message' && (
+              <span className="sd-hint">
+                <b>{'${_verdict}'}</b> 바로 앞 스텝의 판정(합격·불합격) ·{' '}
+                <b>{'${_verdict_en}'}</b> PASS·FAIL
+                {loopVar && (
+                  <>
+                    {' '}
+                    · <b>{'${' + loopVar + '}'}</b> 지금 회차
+                  </>
+                )}{' '}
+                · 뽑아 둔 변수도 그대로 씁니다
+              </span>
+            )}
           </label>
         )}
         {kind === 'manual' && (

@@ -1356,7 +1356,19 @@ export async function runPicked(ctx: RunCtx, pick: number[]): Promise<RunResult>
 async function runOneTimed(ctx: RunCtx, i: number, vars: Record<string, string>): Promise<Verdict> {
   const t0 = Date.now()
   try {
-    return await runOne(ctx, i, vars)
+    const v = await runOne(ctx, i, vars)
+    /*
+     * **바로 앞 판정**을 변수로 남긴다.
+     *
+     * 「#i 회째 진행 결과는 합격입니다」 를 찍고 싶다는 요구(지시). 회차는
+     * 반복 변수로 알 수 있는데 합격·불합격은 알 길이 없었다 — 판정은 스텝
+     * 안에서만 살고 밖으로 안 나왔다. 메시지 스텝에서 `${_verdict}` 로 쓴다.
+     */
+    if (v) {
+      vars._verdict = v === 'Pass' ? '합격' : '불합격'
+      vars._verdict_en = v.toUpperCase()
+    }
+    return v
   } finally {
     ctx.onStep(i, { took_ms: Date.now() - t0 })
   }
