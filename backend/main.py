@@ -13399,6 +13399,150 @@ async def jira_save_config(data: dict):
     save_json(JIRA_FILE, cur)
     return {"ok": True}
 
+def _jira_fetch_users(q: str = "", limit: int = 2000) -> tuple:
+    """Jira 사용자 목록 — 활성·비활성을 함께 가져온다.
+
+    조회 계정(연동 설정의 user/token)으로 부른다. 한 번에 다 안 오므로
+    startAt 을 밀며 여러 번 받는다 — 200명 넘는 곳에서 첫 50명만 들어오면
+    「왜 저 사람만 없나」 를 영원히 못 찾는다.
+    """
+    cfg = _jira_cfg()
+    search = (q or cfg.get("user_search") or ALLOWED_EMAIL_DOMAIN or "ubiquoss.com").strip()
+    out, seen, start = [], set(), 0
+    while start < int(limit):
+        r, err = _jira_call(
+            "GET", "/rest/api/2/user/search",
+            params={"username": search, "startAt": start, "maxResults": 200,
+                    "includeActive": "true", "includeInactive": "true"},
+        )
+        if err:
+            return [], err
+        if not r.is_success:
+            return [], {"ok": False, "error": f"{r.status_code} · {r.text[:200]}"}
+        rows = r.json() or []
+        if not rows:
+            break
+        for u in rows:
+            name = str(u.get("name") or "").strip()
+            if not name or name in seen:
+                continue
+            seen.add(name)
+            out.append({
+                "username": name,
+                "jira_key": str(u.get("key") or u.get("accountId") or "").strip(),
+                "name": str(u.get("displayName") or name).strip(),
+                "email": str(u.get("emailAddress") or "").strip(),
+                "jira_active": bool(u.get("active")),
+            })
+        if len(rows) < 200:
+            break
+        start += 200
+    return out, None
+
+
+@app.get("/api/users/jira-sync")
+async def api_users_jira_sync_status(token: str = ""):
+    """지난번 동기화가 언제·어떻게 됐나 (화면 머리줄)."""
+    _require_admin(token)
+    cfg = _jira_cfg()
+    return {
+        "ok": True,
+        "url": str(cfg.get("url") or ""),
+        "user": str(cfg.get("user") or ""),
+        "login_enabled": bool(cfg.get("login_enabled")),
+        "auto_create": _jira_auto_create(),
+        "last": cfg.get("last_user_sync") or None,
+    }
+
+
+@app.post("/api/users/jira-sync")
+async def api_users_jira_sync(payload: dict = None, token: str = ""):
+    """Jira 사용자를 UTOP 명단으로 **끌어온다.**
+
+    ★ 관리자가 정한 것은 안 덮는다 — 역할(role)과 잠금(active)은 그대로 둔다.
+      Jira 가 정본인 것은 **누가 있는가·이름·메일·Jira 활성**까지다.
+    ★ 비밀번호는 여기서도 없다. Jira 가 갖고 있다.
+    """
+    _require_admin(token)
+    q = str((payload or {}).get("search") or "").strip()
+    rows, err = await asyncio.to_thread(_jira_fetch_users, q)
+    if err:
+        return {"ok": False, **err}
+    data = _users_load_sync()
+    by_name = {str(u.get("username") or "").lower(): u for u in data["users"]}
+    by_key = {str(u.get("jira_key") or ""): u for u in data["users"] if u.get("jira_key")}
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    new_n = chg_n = 0
+    for j in rows:
+        cur = by_key.get(j["jira_key"]) if j["jira_key"] else None
+        if cur is None:
+            cur = by_name.get(j["username"].lower())
+        if cur is None:
+            data["users"].append({
+                "id": j["username"], "username": j["username"], "name": j["name"],
+                "role": "팀원", "email": j["email"], "active": True, "source": "jira",
+                "jira_key": j["jira_key"], "jira_active": j["jira_active"],
+                "created_at": now, "synced_at": now,
+            })
+            new_n += 1
+            continue
+        before = (cur.get("name"), cur.get("email"), cur.get("jira_active"), cur.get("jira_key"))
+        if j["name"]:
+            cur["name"] = j["name"]
+        if j["email"]:
+            cur["email"] = j["email"]
+        if j["jira_key"]:
+            cur["jira_key"] = j["jira_key"]
+        cur["jira_active"] = j["jira_active"]
+        cur["source"] = "jira"
+        cur["synced_at"] = now
+        if before != (cur.get("name"), cur.get("email"), cur.get("jira_active"), cur.get("jira_key")):
+            chg_n += 1
+    _users_save_sync(data)
+    stat = {"at": now, "found": len(rows), "new": new_n, "changed": chg_n,
+            "active": len([x for x in rows if x["jira_active"]]),
+            "inactive": len([x for x in rows if not x["jira_active"]])}
+    cfg = _jira_cfg()
+    cfg["last_user_sync"] = stat
+    save_json(JIRA_FILE, cfg)
+    return {"ok": True, **stat}
+
+
+@app.post("/api/jira/login-test")
+async def api_jira_login_test(payload: dict, token: str = ""):
+    """**Jira 계정으로 로그인이 되는지** 관리자 자리에서 확인한다.
+
+    화면에서 아이디·비밀번호를 넣어 눌러 보는 것 말고는 「왜 저 사람은 안
+    되나」 를 알 길이 없었다. 비밀번호는 확인에만 쓰고 **어디에도 담지 않는다** —
+    저장도, 로그도 안 한다. 여기서 성공해도 세션은 안 만든다.
+    """
+    _require_admin(token)
+    uname = str(payload.get("username") or "").strip()
+    pw = str(payload.get("password") or "")
+    if not uname or not pw:
+        return {"ok": False, "error": "아이디와 비밀번호를 넣으세요"}
+    if not _jira_login_on():
+        return {"ok": False, "error": "Jira 계정 로그인이 꺼져 있습니다 — 위에서 켜세요"}
+    ju, why = await _jira_verify_login(uname, pw)
+    if ju:
+        known = _find_user(uname)
+        return {"ok": True, "jira": {
+            "username": str(ju.get("name") or uname),
+            "key": str(ju.get("key") or ju.get("accountId") or ""),
+            "name": str(ju.get("displayName") or ""),
+            "email": str(ju.get("emailAddress") or ""),
+            "active": ju.get("active"),
+        }, "in_utop": bool(known), "auto_create": _jira_auto_create()}
+    msg = {
+        "denied": "Jira 가 아이디·비밀번호를 받지 않았습니다",
+        "captcha": "Jira 가 CAPTCHA 를 걸었습니다 — 그 계정으로 Jira 웹에 한 번 로그인해 푸세요",
+        "cert": "Jira 인증서 문제(만료 등) — 「TLS 인증서 검증」 을 끄거나 인증서를 갱신하세요",
+        "unreachable": "Jira 에 닿지 못했습니다",
+        "no-url": "Jira 주소가 없습니다",
+    }.get(why, why or "확인하지 못했습니다")
+    return {"ok": False, "why": why, "error": msg}
+
+
 @app.get("/api/jira/login-check")
 async def jira_login_check(token: str = ""):
     """**Jira 로그인이 지금 되는 상태인가** — 계정 관리 화면이 묻는다.

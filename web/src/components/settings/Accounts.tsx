@@ -1,20 +1,22 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import PickCell from '@/components/PickCell'
 import './Accounts.css'
 
 /**
- * 계정 관리 — **누가 들어올 수 있나** 한 화면.
+ * 계정 관리 — **Jira 사용자가 곧 UTOP 사용자**다.
  *
- * 사원이 모두 Jira 계정을 갖고 있다. 그래서 UTOP 은 회원가입을 두지 않는다
- * (지시) — Jira 아이디·비밀번호로 그대로 들어오고, 처음 들어온 사람은 그
- * 자리에서 이 명단에 실린다. 비밀번호는 **어디에도 담지 않는다**. Jira 에서
- * 바꾸면 그날로 바뀐 것이 쓰인다.
+ * 사원이 모두 Jira 계정을 갖고 있다. 그래서 회원가입을 두지 않는다(지시):
+ * Jira 아이디·비밀번호로 그대로 들어오고, 명단은 Jira 에서 **끌어온다**.
+ * 예전 UTOP 의 「사용자 관리」 가 하던 일이 이것이라 그 화면을 옮겨 왔다.
  *
- * 그러니 이 화면이 하는 일은 「계정 만들기」 가 아니라 **역할과 잠금**이다.
- * 로컬 계정(비밀번호로 들어오는 계정)은 Jira 가 죽었을 때를 위한 비상용으로만
- * 남긴다 — admin 이 그것이다.
+ * 무엇이 어디 것인지는 갈라 둔다.
+ *
+ *   Jira 가 정본 : 누가 있는가 · 이름 · 메일 · Jira 활성 · **비밀번호**
+ *   UTOP 이 정본 : 역할(권한) · 잠금 · 소속·직책 같은 우리 쪽 칸
+ *
+ * 그래서 동기화는 역할과 잠금을 **덮지 않는다.** 관리자가 정한 것을 Jira 가
+ * 지우면 안 된다.
  */
 interface User {
   username: string
@@ -24,20 +26,34 @@ interface User {
   active?: boolean
   source?: string
   jira_key?: string
+  jira_active?: boolean
+  company?: string
   dept?: string
   team?: string
   position?: string
+  duty?: string
   created_at?: string
   last_login?: string
+  synced_at?: string
 }
 
-interface JiraCfg {
+interface SyncStat {
+  at?: string
+  found?: number
+  new?: number
+  changed?: number
+  active?: number
+  inactive?: number
+}
+
+interface SyncInfo {
   url?: string
+  user?: string
   login_enabled?: boolean
-  login_auto_create?: boolean
+  auto_create?: boolean
+  last?: SyncStat | null
 }
 
-/** 지금 Jira 로그인이 되는 상태인가 — 안 되는 까닭을 셋으로 가른다 */
 interface LoginCheck {
   enabled: boolean
   url: string
@@ -46,18 +62,39 @@ interface LoginCheck {
   status?: number
   reason?: string
   cloud?: boolean
+  cert?: boolean
   last_fail?: { user?: string; why?: string; at?: string } | null
 }
+
+type StFilter = 'all' | 'active' | 'off' | 'jira' | 'local'
+
+const FIELDS: Array<{ k: keyof User; label: string }> = [
+  { k: 'name', label: '이름' },
+  { k: 'email', label: '이메일' },
+  { k: 'company', label: '회사' },
+  { k: 'dept', label: '소속담당' },
+  { k: 'team', label: '소속팀' },
+  { k: 'position', label: '직책' },
+  { k: 'duty', label: '보직' },
+]
 
 export default function Accounts() {
   const qc = useQueryClient()
   const [q, setQ] = useState('')
-  const [only, setOnly] = useState<'all' | 'jira' | 'local' | 'off'>('all')
+  const [st, setSt] = useState<StFilter>('all')
+  const [role, setRole] = useState('')
+  const [dept, setDept] = useState('')
+  const [at, setAt] = useState('')
+  const [draft, setDraft] = useState<Partial<User>>({})
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const say = (kind: 'ok' | 'err', text: string) => {
     setMsg({ kind, text })
-    window.setTimeout(() => setMsg(null), 2600)
+    window.setTimeout(() => setMsg(null), 3000)
   }
+  /** Jira 로그인 확인 — 비밀번호는 확인에만 쓰고 담지 않는다 */
+  const [tId, setTId] = useState('')
+  const [tPw, setTPw] = useState('')
+  const [tOut, setTOut] = useState<{ ok: boolean; text: string } | null>(null)
 
   const users = useQuery({
     queryKey: ['users'],
@@ -67,15 +104,14 @@ export default function Accounts() {
       return (await r.json()) as { users: User[]; roles: string[] }
     },
   })
-  const jira = useQuery({
-    queryKey: ['jira-cfg'],
+  const info = useQuery({
+    queryKey: ['jira-sync'],
     queryFn: async () => {
-      const r = await apiFetch('/api/jira/config')
+      const r = await apiFetch('/api/users/jira-sync')
       if (!r.ok) throw new Error(await r.text())
-      return (await r.json()) as JiraCfg
+      return (await r.json()) as SyncInfo
     },
   })
-
   const chk = useQuery({
     queryKey: ['jira-login-check'],
     queryFn: async () => {
@@ -84,6 +120,21 @@ export default function Accounts() {
       return (await r.json()) as LoginCheck
     },
     refetchOnWindowFocus: false,
+  })
+
+  const sync = useMutation({
+    mutationFn: async () => {
+      const r = await apiFetch('/api/users/jira-sync', { method: 'POST', body: '{}' })
+      const j = (await r.json()) as SyncStat & { ok: boolean; error?: string }
+      if (!r.ok || !j.ok) throw new Error(j.error || '동기화하지 못했습니다')
+      return j
+    },
+    onSuccess: (j) => {
+      void qc.invalidateQueries({ queryKey: ['users'] })
+      void qc.invalidateQueries({ queryKey: ['jira-sync'] })
+      say('ok', `Jira 사용자 ${j.found}명 — 새로 ${j.new}명 · 고침 ${j.changed}명`)
+    },
+    onError: (e: Error) => say('err', String(e.message).slice(0, 200)),
   })
 
   const patch = useMutation({
@@ -96,9 +147,9 @@ export default function Accounts() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['users'] })
-      say('ok', '고쳤습니다')
+      say('ok', '저장했습니다')
     },
-    onError: (e: Error) => say('err', String(e.message).slice(0, 160)),
+    onError: (e: Error) => say('err', String(e.message).slice(0, 200)),
   })
 
   const drop = useMutation({
@@ -108,221 +159,428 @@ export default function Accounts() {
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['users'] })
+      setAt('')
       say('ok', '지웠습니다')
     },
-    onError: (e: Error) => say('err', String(e.message).slice(0, 160)),
+    onError: (e: Error) => say('err', String(e.message).slice(0, 200)),
   })
 
+  const test = async () => {
+    setTOut(null)
+    const r = await apiFetch('/api/jira/login-test', {
+      method: 'POST',
+      body: JSON.stringify({ username: tId.trim(), password: tPw }),
+    })
+    const j = (await r.json()) as {
+      ok: boolean
+      error?: string
+      in_utop?: boolean
+      auto_create?: boolean
+      jira?: { username: string; name: string; email: string; active?: boolean }
+    }
+    setTPw('') // 확인이 끝나면 그 자리에서 지운다
+    if (!j.ok) {
+      setTOut({ ok: false, text: j.error || '확인하지 못했습니다' })
+      return
+    }
+    const who = `${j.jira?.name || j.jira?.username} (${j.jira?.username})`
+    const tail = j.in_utop
+      ? '명단에 있습니다 — 이대로 로그인됩니다'
+      : j.auto_create
+        ? '명단에는 없지만 처음 로그인할 때 자동으로 실립니다'
+        : '명단에 없습니다 — 자동 등록이 꺼져 있어 지금은 막힙니다'
+    setTOut({ ok: true, text: `Jira 로 확인됐습니다: ${who} · ${tail}` })
+  }
+
   const roles = users.data?.roles ?? ['관리자', '담당', '팀장', '팀원']
+  const all = useMemo(() => users.data?.users ?? [], [users.data])
+  const depts = useMemo(
+    () => [...new Set(all.map((u) => String(u.dept || '').trim()).filter(Boolean))].sort(),
+    [all],
+  )
   const rows = useMemo(() => {
-    const all = users.data?.users ?? []
     const key = q.trim().toLowerCase()
     return all
       .filter((u) => {
-        if (only === 'jira' && u.source !== 'jira') return false
-        if (only === 'local' && u.source === 'jira') return false
-        if (only === 'off' && u.active !== false) return false
+        if (st === 'active' && u.active === false) return false
+        if (st === 'off' && u.active !== false) return false
+        if (st === 'jira' && u.source !== 'jira') return false
+        if (st === 'local' && u.source === 'jira') return false
+        if (role && u.role !== role) return false
+        if (dept && String(u.dept || '') !== dept) return false
         if (!key) return true
         return [u.username, u.name, u.email, u.dept, u.team]
           .map((x) => String(x ?? '').toLowerCase())
           .some((x) => x.includes(key))
       })
-      .sort((a, b) => String(a.username).localeCompare(String(b.username)))
-  }, [users.data, q, only])
+      .sort((a, b) => String(a.name || a.username).localeCompare(String(b.name || b.username)))
+  }, [all, q, st, role, dept])
 
-  const cfg = jira.data ?? {}
-  const on = !!cfg.login_enabled && !!String(cfg.url ?? '').trim()
-  /* 자동 등록은 안 정했으면 켜짐이다 — 서버(_jira_auto_create)와 같은 기본값 */
-  const auto = cfg.login_auto_create !== false
-  const nJira = (users.data?.users ?? []).filter((u) => u.source === 'jira').length
-  const nOff = (users.data?.users ?? []).filter((u) => u.active === false).length
+  const cur = all.find((u) => u.username === at) ?? null
+  const val = (k: keyof User) => String((draft[k] ?? cur?.[k] ?? '') as string)
+  const pick = (u: User) => {
+    setAt(u.username)
+    setDraft({})
+  }
+
+  const nOff = all.filter((u) => u.active === false).length
+  const nJira = all.filter((u) => u.source === 'jira').length
+  const last = info.data?.last ?? null
+  const on = !!info.data?.login_enabled
+  const ok3 = !!chk.data?.reachable
 
   return (
     <div className="acc">
       <div className="acc-head">
         <b>계정 관리</b>
+        <span className="acc-pill">전체 {all.length}명</span>
         <span className="muted small">
-          비밀번호는 UTOP 에 담지 않습니다 — Jira 로 들어오고, 여기서는 <b>역할과 잠금</b>만
-          정합니다.
+          Jira 사용자가 곧 UTOP 사용자입니다 — 비밀번호는 Jira 가 갖고 있고, 여기서는{' '}
+          <b>권한과 잠금</b>을 정합니다.
         </span>
         <span className="sp" />
         {msg && <span className={`acc-note ${msg.kind}`}>{msg.text}</span>}
       </div>
 
-      {/* 설정은 「Jira 연동」 한 곳에 있다(지시). 여기서는 **지금 어떤
-          상태인지**만 말한다 — 명단을 보는 사람도 그것은 알아야 한다. */}
+      {/* Jira 연결 — 이 줄을 못 읽으면 명단을 봐도 소용없다 */}
       <div className="acc-card">
         <div className="acc-row">
-          <span className={`acc-dot ${on ? 'ok' : 'off'}`} />
-          <b>Jira 계정으로 로그인</b>
+          <span className={`acc-dot ${on && ok3 ? 'ok' : 'off'}`} />
+          <b>{on && ok3 ? 'Jira 연결 정상' : on ? 'Jira 연결 확인 필요' : 'Jira 로그인 꺼짐'}</b>
+          {info.data?.url && <code>{info.data.url}</code>}
+          {info.data?.user && <span className="muted small">조회 계정 {info.data.user}</span>}
           <span className="muted small">
-            {on ? (
-              <>
-                켜짐 — <code>{cfg.url}</code> · 처음 들어온 사람{' '}
-                {auto ? '자동 등록함' : '자동 등록 안 함(명단에 있는 사람만)'} · 기존 계정은 UTOP
-                비밀번호로 그대로 들어옵니다.
-              </>
-            ) : (
-              <>꺼짐 — 지금은 UTOP 비밀번호로만 들어옵니다.</>
-            )}
+            처음 들어온 사람 {info.data?.auto_create ? '자동 등록함' : '자동 등록 안 함'}
           </span>
           <span className="sp" />
-          {chk.data?.last_fail?.user && (
-            <span className="acc-chk warn" title={chk.data.last_fail.at}>
-              마지막 거절: <b>{chk.data.last_fail.user}</b> ·{' '}
-              {chk.data.last_fail.why === 'denied'
-                ? 'Jira 가 받지 않음'
-                : chk.data.last_fail.why === 'captcha'
-                  ? 'CAPTCHA'
-                  : chk.data.last_fail.why === 'unreachable'
-                    ? 'Jira 에 못 닿음'
-                    : chk.data.last_fail.why}
+          <span className="muted small">설정은 SETUP → Jira 연동</span>
+          <button
+            className="btn primary small"
+            type="button"
+            disabled={sync.isPending || !info.data?.url}
+            onClick={() => sync.mutate()}
+          >
+            {sync.isPending ? '불러오는 중…' : 'Jira 사용자 동기화'}
+          </button>
+        </div>
+
+        <div className="acc-row sub">
+          {last?.at ? (
+            <>
+              <span className="muted small">마지막 동기화</span>
+              <b>{last.at}</b>
+              <span className="muted small">
+                Jira 사용자 {last.found}명 · 활성 {last.active} · 비활성 {last.inactive} — 지난번
+                새로 {last.new}명 · 고침 {last.changed}명
+              </span>
+            </>
+          ) : (
+            <span className="muted small">
+              아직 한 번도 안 불러왔습니다 — 「Jira 사용자 동기화」 를 누르면 Jira 명단을
+              가져옵니다.
             </span>
           )}
-          <span className="muted small">설정은 SETUP → Jira 연동</span>
+          {chk.data && !ok3 && (
+            <span className="acc-chk bad">{chk.data.reason || 'Jira 에 닿지 못했습니다'}</span>
+          )}
+          {chk.data?.cert && (
+            <span className="acc-chk warn">
+              인증서 문제입니다 — Jira 연동에서 「TLS 인증서 검증」 을 끄거나 갱신하세요
+            </span>
+          )}
         </div>
-      </div>
 
-      <div className="acc-bar">
-        <input
-          className="acc-find"
-          value={q}
-          placeholder="아이디 · 이름 · 메일 찾기"
-          onChange={(e) => setQ(e.target.value)}
-        />
-        {(
-          [
-            ['all', `전체 ${users.data?.users.length ?? 0}`],
-            ['jira', `Jira ${nJira}`],
-            ['local', '로컬'],
-            ['off', `잠김 ${nOff}`],
-          ] as Array<[typeof only, string]>
-        ).map(([k, lb]) => (
+        {/* 「저 사람은 왜 안 되나」 를 여기서 눌러 본다. 비밀번호는 안 담는다 */}
+        <div className="acc-row sub">
+          <span className="muted small">Jira 계정으로 로그인 되는지 확인</span>
+          <input
+            className="acc-in"
+            value={tId}
+            placeholder="Jira 아이디"
+            onChange={(e) => setTId(e.target.value)}
+          />
+          <input
+            className="acc-in"
+            type="password"
+            value={tPw}
+            placeholder="Jira 비밀번호"
+            autoComplete="off"
+            onChange={(e) => setTPw(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && tId && tPw && void test()}
+          />
           <button
-            key={k}
+            className="btn small"
             type="button"
-            className={`acc-tab${only === k ? ' on' : ''}`}
-            onClick={() => setOnly(k)}
+            disabled={!tId.trim() || !tPw}
+            onClick={() => void test()}
           >
-            {lb}
+            확인
           </button>
-        ))}
-        <span className="sp" />
-        <span className="muted small">{rows.length}명</span>
+          {tOut && <span className={`acc-chk ${tOut.ok ? 'ok' : 'bad'}`}>{tOut.text}</span>}
+          <span className="muted small">비밀번호는 확인에만 쓰고 어디에도 담지 않습니다</span>
+        </div>
       </div>
 
-      <div className="acc-card grow">
-        <div className="acc-scroll">
-          <table className="acc-tbl">
-            <colgroup>
-              <col className="c-id" />
-              <col className="c-name" />
-              <col className="c-mail" />
-              <col className="c-org" />
-              <col className="c-role" />
-              <col className="c-src" />
-              <col className="c-when" />
-              <col className="c-act" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th>아이디</th>
-                <th>이름</th>
-                <th>메일</th>
-                <th>소속</th>
-                <th>역할</th>
-                <th>들어오는 길</th>
-                <th>마지막 로그인</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {users.isLoading && (
-                <tr>
-                  <td colSpan={8} className="muted">
-                    읽는 중…
-                  </td>
-                </tr>
-              )}
-              {!users.isLoading && rows.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="muted">
-                    없습니다.
-                  </td>
-                </tr>
-              )}
-              {rows.map((u) => (
-                <tr key={u.username} className={u.active === false ? 'off' : ''}>
-                  <td className="mono">{u.username}</td>
-                  <td className="ell" title={u.name ?? ''}>
-                    {u.name || <span className="muted">–</span>}
-                  </td>
-                  <td className="ell" title={u.email ?? ''}>
-                    {u.email || <span className="muted">–</span>}
-                  </td>
-                  <td className="ell" title={`${u.dept ?? ''} ${u.team ?? ''}`.trim()}>
-                    {[u.dept, u.team].filter(Boolean).join(' · ') || <span className="muted">–</span>}
-                  </td>
-                  <td>
-                    <PickCell
-                      value={u.role ?? '팀원'}
-                      opts={roles}
-                      onSave={(v) => patch.mutate({ username: u.username, body: { role: v } })}
-                    />
-                  </td>
-                  <td>
-                    {u.source === 'jira' ? (
-                      <span className="acc-tag jira" title={u.jira_key ? `Jira key: ${u.jira_key}` : 'Jira 계정'}>
-                        Jira
-                      </span>
-                    ) : (
-                      <span className="acc-tag local" title="UTOP 비밀번호로 들어옵니다 (비상 계정)">
-                        로컬
-                      </span>
-                    )}
-                  </td>
-                  <td className="muted small">
-                    {u.last_login || <span title={u.created_at ?? ''}>–</span>}
-                  </td>
-                  <td className="acc-act">
-                    {/* 잠금이 삭제보다 먼저다 — 지우면 그 사람이 남긴 기록의
-                        이름이 어디를 가리키는지 알 수 없게 된다 */}
-                    <button
-                      type="button"
-                      className={`acc-lock${u.active === false ? ' on' : ''}`}
-                      title={u.active === false ? '잠금 풀기' : '잠그기 — 못 들어옵니다'}
-                      onClick={() =>
-                        patch.mutate({
-                          username: u.username,
-                          body: { active: u.active === false },
-                        })
-                      }
-                    >
-                      {u.active === false ? '잠김' : '허용'}
-                    </button>
-                    {u.username !== 'admin' && (
-                      <button
-                        type="button"
-                        className="acc-x"
-                        title="지우기"
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              `${u.username} 을 지웁니다.\n\nJira 로 다시 들어오면 새로 실립니다(자동 등록이 켜져 있을 때).`,
-                            )
-                          )
-                            drop.mutate(u.username)
-                        }}
-                      >
-                        ×
-                      </button>
-                    )}
-                  </td>
-                </tr>
+      <div className="acc-main">
+        {/* 왼쪽 — 상태·역할·소속으로 좁힌다 */}
+        <nav className="acc-rail">
+          <div className="acc-railt">상태</div>
+          {(
+            [
+              ['all', '전체', all.length],
+              ['active', '활성', all.length - nOff],
+              ['off', '잠김', nOff],
+              ['jira', 'Jira 계정', nJira],
+              ['local', 'UTOP 계정', all.length - nJira],
+            ] as Array<[StFilter, string, number]>
+          ).map(([k, lb, n]) => (
+            <button
+              key={k}
+              type="button"
+              className={`acc-railb${st === k ? ' on' : ''}`}
+              onClick={() => setSt(k)}
+            >
+              <span>{lb}</span>
+              <em>{n}</em>
+            </button>
+          ))}
+
+          <div className="acc-railt">역할</div>
+          <button
+            type="button"
+            className={`acc-railb${role === '' ? ' on' : ''}`}
+            onClick={() => setRole('')}
+          >
+            <span>전체 역할</span>
+            <em>{all.length}</em>
+          </button>
+          {roles.map((r) => (
+            <button
+              key={r}
+              type="button"
+              className={`acc-railb${role === r ? ' on' : ''}`}
+              onClick={() => setRole(r)}
+            >
+              <span>{r}</span>
+              <em>{all.filter((u) => u.role === r).length}</em>
+            </button>
+          ))}
+
+          {depts.length > 0 && (
+            <>
+              <div className="acc-railt">소속담당</div>
+              <button
+                type="button"
+                className={`acc-railb${dept === '' ? ' on' : ''}`}
+                onClick={() => setDept('')}
+              >
+                <span>전체 소속</span>
+                <em>{all.length}</em>
+              </button>
+              {depts.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  className={`acc-railb${dept === d ? ' on' : ''}`}
+                  onClick={() => setDept(d)}
+                >
+                  <span>{d}</span>
+                  <em>{all.filter((u) => u.dept === d).length}</em>
+                </button>
               ))}
-            </tbody>
-          </table>
+            </>
+          )}
+        </nav>
+
+        {/* 가운데 — 명단 */}
+        <div className="acc-card grow">
+          <div className="acc-bar">
+            <span className="muted small">사용자 {rows.length}명</span>
+            <span className="sp" />
+            <input
+              className="acc-find"
+              value={q}
+              placeholder="이름 · 아이디 · 이메일 · 소속으로 찾기"
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          <div className="acc-scroll">
+            <table className="acc-tbl">
+              <colgroup>
+                <col className="c-name" />
+                <col className="c-id" />
+                <col className="c-role" />
+                <col className="c-org" />
+                <col className="c-when" />
+                <col className="c-mail" />
+              </colgroup>
+              <tbody>
+                {users.isLoading && (
+                  <tr>
+                    <td colSpan={6} className="muted">
+                      읽는 중…
+                    </td>
+                  </tr>
+                )}
+                {!users.isLoading && rows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="muted">
+                      없습니다.
+                    </td>
+                  </tr>
+                )}
+                {rows.map((u) => (
+                  <tr
+                    key={u.username}
+                    className={`${u.active === false ? 'off' : ''}${at === u.username ? ' on' : ''}`}
+                    onClick={() => pick(u)}
+                  >
+                    <td className="ell">
+                      <b>{u.name || u.username}</b>
+                      <span className={`acc-tag ${u.active === false ? 'off' : 'ok'}`}>
+                        {u.active === false ? '잠김' : '활성'}
+                      </span>
+                      {u.jira_active === false && (
+                        <span className="acc-tag off" title="Jira 에서 비활성입니다">
+                          Jira 비활성
+                        </span>
+                      )}
+                    </td>
+                    <td className="mono ell">{u.username}</td>
+                    <td className="ell">{u.role || '팀원'}</td>
+                    <td className="ell">
+                      {[u.dept, u.team].filter(Boolean).join(' · ') || (
+                        <span className="muted">소속 없음</span>
+                      )}
+                    </td>
+                    <td className="muted small">{u.synced_at || u.last_login || ''}</td>
+                    <td className="ell mail">{u.email}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        {/* 오른쪽 — 고른 사람 */}
+        {cur && (
+          <aside className="acc-side">
+            <div className="acc-sidet">
+              <b>{cur.name || cur.username}</b>
+              <span className={`acc-tag ${cur.active === false ? 'off' : 'ok'}`}>
+                {cur.active === false ? '잠김' : '활성'}
+              </span>
+              <span className="sp" />
+              <button type="button" className="acc-x" onClick={() => setAt('')}>
+                ×
+              </button>
+            </div>
+            <div className="acc-sidesub">
+              <span className="mono">{cur.username}</span>
+              {cur.created_at && (
+                <span className="muted small">등록 {cur.created_at.slice(0, 10)}</span>
+              )}
+            </div>
+
+            {/* Jira 쪽 값 — 여기서는 못 고친다. 고칠 곳은 Jira 다 */}
+            <div className="acc-jira">
+              <b>Jira 계정</b>
+              <div className="acc-kv">
+                <span>Jira ID</span>
+                <i>{cur.jira_key || (cur.source === 'jira' ? cur.username : '—')}</i>
+              </div>
+              <div className="acc-kv">
+                <span>Jira 상태</span>
+                <i className={cur.jira_active === false ? 'bad' : ''}>
+                  {cur.source !== 'jira' ? '—' : cur.jira_active === false ? '비활성' : '활성'}
+                </i>
+              </div>
+              <div className="acc-kv">
+                <span>UTOP 권한</span>
+                <i>{cur.role || '팀원'}</i>
+              </div>
+              <div className="acc-kv">
+                <span>마지막 동기화</span>
+                <i>{cur.synced_at || '—'}</i>
+              </div>
+              <div className="acc-kv">
+                <span>마지막 로그인</span>
+                <i>{cur.last_login || '—'}</i>
+              </div>
+              <p className="muted small">
+                비밀번호는 Jira 가 갖고 있습니다 — UTOP 은 담지 않습니다.
+              </p>
+            </div>
+
+            <label className="acc-fld">
+              <span>역할</span>
+              <select
+                value={val('role') || '팀원'}
+                onChange={(e) => setDraft((d) => ({ ...d, role: e.target.value }))}
+              >
+                {roles.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {FIELDS.map((f) => (
+              <label className="acc-fld" key={f.k}>
+                <span>{f.label}</span>
+                <input
+                  value={val(f.k)}
+                  onChange={(e) => setDraft((d) => ({ ...d, [f.k]: e.target.value }))}
+                />
+              </label>
+            ))}
+
+            <div className="acc-sideact">
+              <button
+                className="btn primary small"
+                type="button"
+                disabled={patch.isPending || Object.keys(draft).length === 0}
+                onClick={() =>
+                  patch.mutate(
+                    { username: cur.username, body: draft },
+                    { onSuccess: () => setDraft({}) },
+                  )
+                }
+              >
+                저장
+              </button>
+              <button
+                className="btn small"
+                type="button"
+                onClick={() =>
+                  patch.mutate({
+                    username: cur.username,
+                    body: { active: cur.active === false },
+                  })
+                }
+              >
+                {cur.active === false ? '잠금 풀기' : '잠그기'}
+              </button>
+              <span className="sp" />
+              {cur.username !== 'admin' && (
+                <button
+                  className="btn small danger"
+                  type="button"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `${cur.username} 을 명단에서 지웁니다.\n\nJira 로 다시 들어오거나 동기화하면 새로 실립니다.`,
+                      )
+                    )
+                      drop.mutate(cur.username)
+                  }}
+                >
+                  지우기
+                </button>
+              )}
+            </div>
+          </aside>
+        )}
       </div>
     </div>
   )

@@ -301,3 +301,127 @@
 /* Jira 연동 안의 진단 — 체크박스 아래로 한 칸 들여쓴다 */
 .jira-ck.sub { margin-left: 22px; font-size: var(--fs-sm); }
 .jira-ck.sub b { font-weight: 600; }
+
+/* ── 세 칸 짜임 — 왼쪽 좁히기 · 가운데 명단 · 오른쪽 고른 사람 ───── */
+.acc-main {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+.acc-rail {
+  flex: none;
+  width: 168px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.acc-railt {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  font-weight: 600;
+  padding: 8px 6px 3px;
+}
+.acc-railb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  padding: 5px 8px;
+  border-radius: 7px;
+  cursor: pointer;
+  text-align: left;
+}
+.acc-railb > span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acc-railb > em { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.acc-railb:hover { background: #f6f8fa; }
+.acc-railb.on { background: var(--c-primary-bg); color: #12539f; font-weight: 600; }
+.acc-railb.on > em { color: #12539f; }
+
+.acc-pill {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--c-primary-bg);
+  color: #12539f;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+.acc-row.sub {
+  padding-top: 6px;
+  border-top: 1px solid var(--c-border-soft);
+  flex-wrap: wrap;
+}
+.acc-in {
+  height: 26px;
+  width: 170px;
+  padding: 0 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  background: var(--c-surface);
+}
+.acc-in:focus { outline: none; border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-bg); }
+
+.acc-bar { padding: 6px 8px; border-bottom: 1px solid var(--c-border-soft); }
+.acc-tbl tbody tr { cursor: pointer; }
+.acc-tbl tbody tr.on { background: var(--c-primary-bg); }
+.acc-tbl tbody tr.on td { border-bottom-color: var(--c-primary); }
+.acc-tbl td.mail { color: var(--c-text-muted); font-size: var(--fs-xs); text-align: right; }
+.acc-tbl td b { font-weight: 600; margin-right: 6px; }
+.acc-tag.ok { background: #e8f5ed; color: #12643a; }
+.acc-tag.off { background: #f1f3f6; color: var(--c-text-muted); }
+
+/* 오른쪽 — 고른 사람 */
+.acc-side {
+  flex: none;
+  width: 264px;
+  overflow: auto;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.acc-sidet { display: flex; align-items: center; gap: 6px; }
+.acc-sidet .sp { margin-left: auto; }
+.acc-sidesub { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--c-text-muted); }
+.acc-sidesub .mono { font-family: var(--font-mono); }
+.acc-jira {
+  background: #f7f9fb;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.acc-jira > b { font-size: var(--fs-sm); color: #12539f; }
+.acc-kv { display: flex; gap: 8px; font-size: var(--fs-xs); }
+.acc-kv > span { flex: none; width: 84px; color: var(--c-text-faint); }
+.acc-kv > i { font-style: normal; font-family: var(--font-mono); overflow: hidden; text-overflow: ellipsis; }
+.acc-kv > i.bad { color: var(--c-fail); font-weight: 600; }
+.acc-fld { display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.acc-fld input,
+.acc-fld select {
+  height: 28px;
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+  background: var(--c-surface);
+}
+.acc-fld input:focus,
+.acc-fld select:focus { outline: none; border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-bg); }
+.acc-sideact { display: flex; align-items: center; gap: 6px; padding-top: 4px; }
+.acc-sideact .sp { margin-left: auto; }
+.acc-sideact .btn.danger { color: var(--c-fail); }
