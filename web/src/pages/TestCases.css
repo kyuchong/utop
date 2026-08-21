@@ -3138,3 +3138,6 @@ table.tb tr.r-bad td:first-child {
 .tb-in:focus { outline: none; background: #fff; border-bottom-color: var(--c-text); }
 .tb-in.v { width: 96px; }
 .tb-in.n { width: 44px; text-align: center; }
+
+/* 회차 미리보기 — 문장 안에 조용히 낀다 */
+.tb-nwrap { font-size: var(--fs-sm); color: var(--c-text-muted); margin-left: 6px; }

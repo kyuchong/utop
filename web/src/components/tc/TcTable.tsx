@@ -6,6 +6,7 @@ import {
   parseTable,
   quoteVal,
   readTableCriteria,
+  subVars,
   tableCapture,
 } from './judge'
 
@@ -27,7 +28,12 @@ interface Props {
   onCapture?: (q: { var: string; col: string; where: string }) => void
   /** capture — 이미 쓰고 있는 변수 이름(겹치면 덮어써 버린다) */
   takenVars?: string[]
-  /** capture — 이 스텝을 감싸는 반복의 변수 이름. 있으면 `${i}` 를 권한다 */
+  /**
+   * 이 스텝을 감싸는 반복의 변수 이름. 있으면 `${i}` 를 권한다.
+   *
+   * 판정에서도 쓴다 — 반복 안에서 `Port=Te0/13` 으로 굳혀 두면 24회를
+   * 돌려도 13번 줄만 스물네 번 본다(지적: 이 판정 기준을 못 만들겠다).
+   */
   loopVar?: string
 }
 
@@ -99,11 +105,13 @@ export default function TcTable({
   const [capWhere, setCapWhere] = useState('')
   const [capVar, setCapVar] = useState('')
   const [capN, setCapN] = useState('1')
+  /** 회차를 넣어 본 값 — `${i}` 가 든 기준을 지금 표에 대 보려면 필요하다 */
+  const subs = (t: string) => (loopVar ? subVars(t, { [loopVar]: capN }) : t)
 
   const keyCol = cols[keyAt] ?? ''
   const built = buildTableCriteria(keyCol, keys, checks)
   // 만들면서 바로 결과를 본다. 저장하고 실행해 봐야 아는 것이 제일 답답하다.
-  const live = checks.length ? judgeTable(text, built) : null
+  const live = checks.length ? judgeTable(text, subs(built)) : null
 
   if (!tbl) {
     return (
@@ -177,12 +185,14 @@ export default function TcTable({
   const cellOk = (row: string[], c: number): boolean | null => {
     const chk = checks.find((x) => x.col === (cols[c] ?? ''))
     if (!chk) return null
-    const same = (row[c] ?? '').toLowerCase() === chk.val.toLowerCase()
+    const want = subs(chk.val)
+    const same = want === '*' ? (row[c] ?? '') !== '' : (row[c] ?? '').toLowerCase() === want.toLowerCase()
     return chk.neq ? !same : same
   }
 
   /** 이 행을 보고 있나 — 행을 안 고르면 전부 본다 */
-  const inScope = (row: string[]) => !keys.length || keys.includes(row[keyAt] ?? '')
+  const inScope = (row: string[]) =>
+    !keys.length || keys.map(subs).includes(row[keyAt] ?? '')
 
   /**
    * 행 하나의 참/거짓.
@@ -283,7 +293,37 @@ export default function TcTable({
           </select>
         </label>
         <span className="tb-sent">
-          <b>{keys.length ? keys.join(', ') : `${keyCol} 전체`}</b> 행은{' '}
+          <b>{keys.length ? keys.join(', ') : `${keyCol} 전체`}</b>
+          {/* 반복 안이면 회차 번호로 바꿔 준다(지적: 이 판정 기준을 못 만들겠다).
+              Te0/13 으로 굳히면 24회를 돌려도 13번 줄만 스물네 번 본다 */}
+          {loopVar && keys.length === 1 && !String(keys[0] ?? '').includes('${') ? (
+            <button
+              className="btn small"
+              type="button"
+              title={`\${${loopVar}} 로 바꿉니다 — 회차마다 그 회차 줄을 봅니다`}
+              onClick={() => {
+                const m = /^(.*?)(\d+)(\D*)$/.exec(String(keys[0] ?? ''))
+                if (!m) return
+                setKeys([`${m[1]}\${${loopVar}}${m[3]}`])
+                setCapN(m[2] ?? '1')
+              }}
+            >
+              회차 번호로
+            </button>
+          ) : null}
+          {loopVar && keys.some((k) => k.includes('${')) ? (
+            <span className="tb-nwrap">
+              회차{' '}
+              <input
+                className="tb-in n"
+                value={capN}
+                title="이 회차로 놓고 지금 표에 대 봅니다 — 저장되는 값은 ${회차} 그대로입니다"
+                onChange={(e) => setCapN(e.target.value.replace(/\D/g, '') || '1')}
+              />{' '}
+              일 때
+            </span>
+          ) : null}{' '}
+          행은{' '}
           {checks.length ? (
             checks.map((c, i) => (
               <span key={i} className="tb-chip">
@@ -338,7 +378,7 @@ export default function TcTable({
           <tbody>
             {tbl.rows.map((row, r) => {
               const kv = row[keyAt] ?? ''
-              const on = keys.includes(kv)
+              const on = keys.map(subs).includes(kv)
               const v = rowOk(row)
               return (
                 <tr

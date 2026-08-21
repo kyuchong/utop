@@ -1345,6 +1345,7 @@ export default function TcStepDetail({
               <TcTable
                 text={result}
                 criteria={chips.find((x) => x.t === 'table')?.v ?? ''}
+                loopVar={loopVar}
                 onClose={() => setTblOpen(false)}
                 onApply={(c) => {
                   // 표 기준도 칩이다 — 표 칩은 하나만 두고 갈아 끼운다
