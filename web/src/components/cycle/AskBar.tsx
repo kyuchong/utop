@@ -284,6 +284,8 @@ export default function AskBar({ devices }: Props) {
   const seqRef = useRef<HTMLElement | null>(null)
   /** 명령어 캡쳐 — 세부 칸을 통째로 바꾼다(Coverage 와 같은 자리) */
   const [termOpen, setTermOpen] = useState(false)
+  /** 접어 둔 시험 묶음 — 여러 건을 이어 붙였을 때만 쓰인다 */
+  const [foldGrp, setFoldGrp] = useState<Set<number>>(new Set())
   /** 작업 흐름에 남기는 기록 — 질문한 뒤부터 쌓이고, 만들어지면 그대로 남는다 */
   /** 담을 때 쓰는 지금 값 — 상태는 한 박자 늦어 마지막 줄이 빠진다 */
   const flowRef = useRef<Array<{ s: number; t: string }>>([])
@@ -1096,14 +1098,9 @@ export default function AskBar({ devices }: Props) {
           cli: '',
           head: true,
         })
-        /* 그 시험의 스텝은 **이름 줄 아래로 들여쓴다**(지시).
-           목록이 이미 들여쓰기로 딸린 줄을 그리고 번호도 1.1 · 1.2 로 매기니,
-           어느 시험의 스텝인지가 줄마다 보인다. 안쪽 짜임(되풀이·조건)은
-           다 같이 한 칸씩 밀리므로 그대로 지켜진다 — 실행기는 들여쓰기의
-           **차이**로 몸통을 잡는다(runner.ts blockEnd). */
-        steps.push(
-          ...b.steps.map((x) => ({ ...x, indent: Math.max(0, Number(x.indent) || 0) + 1 })),
-        )
+        /* 스텝은 **원본 그대로** 넣는다. 묶는 일은 카드가 한다(지시 사진) —
+           들여쓰면 그 시험 제 짜임(주석 1 → 명령 1.1)이 한 칸씩 더 밀린다. */
+        steps.push(...b.steps)
         for (const n of b.tc?.notes ?? []) if (!notes.includes(n)) notes.push(n)
       }
       if (got === 0) throw new Error('고른 항목에서 옮길 스텝이 없습니다')
@@ -1395,7 +1392,7 @@ export default function AskBar({ devices }: Props) {
   }
 
   /** `only` 는 그 줄 하나만, `from` 은 그 줄부터 끝까지(지시) */
-  const run = async (only?: number, from?: number) => {
+  const run = async (only?: number, from?: number, to?: number) => {
     if (!draft || !devId) return
     const ac = new AbortController()
     abortRef.current = ac
@@ -1425,6 +1422,7 @@ export default function AskBar({ devices }: Props) {
         },
         typeof only === 'number' ? only : typeof from === 'number' ? from : 0,
         typeof only === 'number',
+        to,
       )
     } finally {
       setRunning(false)
@@ -2270,24 +2268,111 @@ export default function AskBar({ devices }: Props) {
                         )
                       })()}
                     </div>
-                    <TcSequence
-                      steps={seqSteps}
-                      selected={stepAt}
-                      onSelect={setStepAt}
-                      onAdd={(k) => addStep(k)}
-                      sessionName={() => devName || '장비'}
-                      runningAt={at}
-                      picked={picked}
-                      onPick={(i) =>
-                        setPicked((v) => {
-                          const n = new Set(v)
-                          if (n.has(i)) n.delete(i)
-                          else n.add(i)
-                          return n
-                        })
-                      }
-                      onRun={running || !devId ? undefined : (i) => void run(i)}
-                    />
+                    {(() => {
+                      /*
+                       * 여러 시험을 이어 붙였으면 **시험마다 카드**로 나눈다
+                       * (지시 사진). 카드 하나가 곧 한 시험이라
+                       *   · 번호가 그 시험 안에서 1 부터 다시 매겨지고,
+                       *   · 머리에 그 시험의 셈과 ▶(그 시험만 돌리기)이 서고,
+                       *   · 접으면 통째로 숨는다.
+                       * 목록 부품은 그대로 쓰고 **자리 번호만 옮겨 준다** —
+                       * 고르기·실행이 전부 원본 자리로 돌아가야 한다.
+                       */
+                      const heads = seqSteps
+                        .map((x, i) => (x.head ? i : -1))
+                        .filter((i) => i >= 0)
+                      const seq = (from: number, to: number, addable: boolean) => (
+                        <TcSequence
+                          steps={seqSteps.slice(from, to)}
+                          selected={stepAt >= from && stepAt < to ? stepAt - from : -1}
+                          onSelect={(i) => setStepAt(from + i)}
+                          onAdd={(k) => addStep(k)}
+                          sessionName={() => devName || '장비'}
+                          runningAt={at >= from && at < to ? at - from : -1}
+                          picked={new Set([...picked].filter((i) => i >= from && i < to).map((i) => i - from))}
+                          onPick={(i) =>
+                            setPicked((v) => {
+                              const n = new Set(v)
+                              const g = from + i
+                              if (n.has(g)) n.delete(g)
+                              else n.add(g)
+                              return n
+                            })
+                          }
+                          onRun={running || !devId ? undefined : (i) => void run(from + i)}
+                          hide={addable ? undefined : (x) => !!x.head}
+                        />
+                      )
+                      if (heads.length < 2) return seq(0, seqSteps.length, true)
+                      return (
+                        <div className="ask-grps">
+                          {heads.map((h, gi) => {
+                            const from = h + 1
+                            const to = heads[gi + 1] ?? seqSteps.length
+                            const mine = (ran ?? []).slice(from, to)
+                            const done = mine.filter((r) => r && (r.repeatResult || r.status)).length
+                            const pass = mine.filter(
+                              (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'pass',
+                            ).length
+                            const fail = mine.filter(
+                              (r) => String(r?.repeatResult ?? r?.status ?? '').toLowerCase() === 'fail',
+                            ).length
+                            const hd = seqSteps[h]
+                            const open = !foldGrp.has(h)
+                            return (
+                              <section className={`ask-grp${open ? '' : ' folded'}`} key={h}>
+                                <div className="ask-grph">
+                                  <button
+                                    type="button"
+                                    className="ask-grpcar"
+                                    aria-label={open ? '접기' : '펼치기'}
+                                    onClick={() =>
+                                      setFoldGrp((v) => {
+                                        const n = new Set(v)
+                                        if (n.has(h)) n.delete(h)
+                                        else n.add(h)
+                                        return n
+                                      })
+                                    }
+                                  >
+                                    {open ? '▾' : '▸'}
+                                  </button>
+                                  <i className="ask-grpn">{gi + 1}</i>
+                                  {hd?.step && <span className="ask-grpid">{hd.step}</span>}
+                                  <b className="ell">{hd?.text || hd?.step || '시험'}</b>
+                                  <span className="sp" />
+                                  <span className="muted small">
+                                    {done}/{to - from}
+                                    {done > 0 && (
+                                      <>
+                                        {' · '}
+                                        <b className="status pass">PASS {pass}</b>
+                                        {fail > 0 && (
+                                          <>
+                                            {' · '}
+                                            <b className="status fail">FAIL {fail}</b>
+                                          </>
+                                        )}
+                                      </>
+                                    )}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="ask-grprun"
+                                    title="이 시험만 돌립니다"
+                                    disabled={running || !devId}
+                                    onClick={() => void run(undefined, from, to)}
+                                  >
+                                    ▶
+                                  </button>
+                                </div>
+                                {open && seq(from, to, gi === heads.length - 1)}
+                              </section>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
                   </section>
 
                   <Resizer

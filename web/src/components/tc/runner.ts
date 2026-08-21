@@ -1327,7 +1327,13 @@ async function runOneTimed(ctx: RunCtx, i: number, vars: Record<string, string>)
   }
 }
 
-export async function runSteps(ctx0: RunCtx, from = 0, only = false): Promise<RunResult> {
+export async function runSteps(
+  ctx0: RunCtx,
+  from = 0,
+  only = false,
+  /** 여기까지만 (안 주면 끝까지) — 이어 붙인 절차에서 **한 시험만** 돌릴 때 */
+  to?: number,
+): Promise<RunResult> {
   /*
    * 스텝에 무엇을 적었는지 우리도 들고 있는다.
    *
@@ -1597,7 +1603,7 @@ export async function runSteps(ctx0: RunCtx, from = 0, only = false): Promise<Ru
       ctx.onAt(from)
       count(await runOneTimed(ctx, from, vars))
     } else {
-      await walk(from, ctx.steps.length)
+      await walk(from, typeof to === 'number' ? Math.min(to, ctx.steps.length) : ctx.steps.length)
     }
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') stopped = true

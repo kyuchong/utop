@@ -7319,3 +7319,83 @@ a.bc-cur:hover { text-decoration: underline; }
   font-weight: 600;
   color: var(--c-primary);
 }
+
+/* ── 이어 붙인 시험 — **시험마다 카드**(지시 사진) ────────────────────
+   카드 하나가 곧 한 시험이라, 번호가 그 안에서 1 부터 다시 매겨지고
+   머리에 그 시험의 셈과 ▶ 이 선다. */
+/* 카드 묶음이 목록 자리를 통째로 쓴다 — 스크롤은 **여기 한 곳**이다.
+   카드마다 제 스크롤을 두면 훑다가 카드 안에 갇힌다. */
+.ask-grps {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px 8px 12px;
+}
+.ask-grp {
+  border: 1px solid var(--c-border-soft);
+  border-left: 3px solid var(--c-primary);
+  border-radius: 10px;
+  background: var(--c-surface);
+  overflow: hidden;
+}
+.ask-grp.folded { background: #fbfcfd; }
+.ask-grph {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  background: var(--c-primary-bg-soft);
+  border-bottom: 1px solid var(--c-border-soft);
+  min-width: 0;
+}
+.ask-grp.folded .ask-grph { border-bottom: 0; }
+.ask-grph > b { font-size: var(--fs-md); font-weight: 700; min-width: 0; }
+.ask-grph .sp { margin-left: auto; }
+.ask-grpcar {
+  border: 0;
+  background: transparent;
+  color: var(--c-text-faint);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+}
+.ask-grpn {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: #fff;
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+.ask-grpid {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--c-primary);
+}
+.ask-grprun {
+  flex: none;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--c-primary);
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+.ask-grprun:hover:not(:disabled) { background: var(--c-primary-bg); border-color: #cddff5; }
+.ask-grprun:disabled { color: var(--c-text-faint); cursor: default; }
+/* 카드 안에서는 목록이 제 스크롤을 갖지 않는다 — 바깥 한 줄기로 구른다 */
+.ask-grp .sq { flex: none; }
+.ask-grp .sq-scroll { overflow: visible; }
+.ask-grp .sq-list { padding: 4px 6px 6px; }
+/* ＋스텝 은 마지막 카드에만 */
+.ask-grp:not(:last-child) .sq-add { display: none; }
