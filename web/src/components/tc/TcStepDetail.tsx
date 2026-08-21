@@ -1258,7 +1258,14 @@ export default function TcStepDetail({
         {hasResult && (
           <>
             <div className="sd-rlab">
-              <span>Result</span>
+              {/* 시각은 「Result」 바로 옆이다(지시) — 오른쪽 끝에 떨어져 있으면
+                  이 출력이 언제 것인지와 「Result」 가 따로 논다 */}
+              <span>
+                Result
+                {step.executed_at
+                  ? ` - ${step.executed_at.slice(0, 16).replace('T', ' ')}`
+                  : ''}
+              </span>
               {verdict && <b className={`status ${verdict.toLowerCase()}`}>{verdict}</b>}
               {/* 「판정기준 없음」 은 Result 가 아니라 **판정 기준** 쪽 말이다(지시).
                   결과 자리에 두면 무언가 결과가 난 것처럼 읽힌다 */}
@@ -1266,9 +1273,6 @@ export default function TcStepDetail({
                 <span className="sd-why">{step.reason}</span>
               )}
               <span className="sp" />
-              {step.executed_at && (
-                <span className="muted small">{step.executed_at.slice(0, 16).replace('T', ' ')}</span>
-              )}
               {/* 「이 스텝 실행」 은 뺐다(지시) — 목록의 줄마다 ▶ 가 이미 있다 */}
             </div>
 
