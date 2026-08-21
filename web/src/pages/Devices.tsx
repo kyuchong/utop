@@ -313,8 +313,8 @@ export default function Devices({ me }: Props) {
       <div className="dev-lay seg" role="tablist">
         {(
           [
-            ['table', '표로 보기'],
-            ['tree', '분류 트리'],
+            ['table', '장비 등록 현황'],
+            ['tree', '장비 카탈로그'],
           ] as const
         ).map(([k, lb]) => (
           <button

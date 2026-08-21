@@ -1440,3 +1440,18 @@ button.dcc-st:disabled { cursor: default; }
 @media (max-width: 1200px) {
   .dcc-cols { grid-template-columns: 84px 84px 92px 76px 104px minmax(0, 1fr); }
 }
+
+/* 카드 폭을 고르게 나눈다(지시) — 왼쪽 다섯은 같은 몫, 모델만 조금 넓게.
+   전에는 104·104·116·92·132 로 제각각이라 「제품군」 같은 짧은 칸에서
+   글자가 두 줄로 접혔다. */
+.dcc-cols {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, 1.4fr);
+}
+@media (max-width: 1500px) {
+  .dcc-cols { grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, 1.3fr); }
+}
+@media (max-width: 1200px) {
+  .dcc-cols { grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, 1.2fr); }
+}
+/* 알림만 있는 머리줄 */
+.set-page.dc2 > .dcc-head { display: flex; align-items: center; min-height: 0; }

@@ -64,9 +64,6 @@ export default function DeviceCatalog({
   /** 트리에서 고른 자리 — LAB(거르개) · 벤더 › 제품군 › 모델그룹 */
   const [tven, setTven] = useState('')
   const [tfam, setTfam] = useState('')
-  /** 제품군 여러 개 고르기(지시) — 비면 전부 */
-  const [tfams, setTfams] = useState<string[]>([])
-  const [famOpen, setFamOpen] = useState(false)
   const [tgrp, setTgrp] = useState('')
   /** 새 모델 줄 */
   const [draft, setDraft] = useState<Item>(EMPTY_MODEL)
@@ -377,18 +374,16 @@ export default function DeviceCatalog({
           </div>
         </div>
       )}
-      <div className="set-head">
-        <div>
-          <h3>장비 카탈로그</h3>
-        </div>
-        {/* 알림은 제 줄을 만들지 않는다 — 줄이 하나 생기고 사라질 때마다
-            아래 카드가 늘었다 줄었다 했다(지적). 머리 오른쪽 한 자리다. */}
-        {note.msg && (
+      {/* 제목 글자는 걷었다(지시) — 어느 화면인지는 위 탭이 말한다.
+          알림만 한 자리 차지하되, 없을 때는 줄도 만들지 않는다. */}
+      {note.msg && (
+        <div className="set-head dcc-head">
+          <span className="sp" />
           <span className={`set-note mini ${note.kind}`} title={note.msg}>
             {note.msg}
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* 트리만 볼 때는 탭 줄을 **아예 그리지 않는다**(지시) — `hidden` 은
           `.seg { display:flex }` 에 밀려 그대로 보였다. */}
@@ -463,14 +458,10 @@ export default function DeviceCatalog({
               norm(m.model_group) === g,
           ).length
         const eq = (v: string, sel: string) => (sel === NONE ? !v : v === sel)
-        /** 여러 제품군을 골랐으면 그것들 안에서만(지시) */
-        const famOk = (v: string) =>
-          tfams.length === 0 ? true : tfams.some((x) => (x === NONE ? !v : v === x))
         const shown = pool.filter(
           (m) =>
             (!tven || eq(norm(m.vendor), tven)) &&
             (!tfam || eq(norm(m.family), tfam)) &&
-            famOk(norm(m.family)) &&
             (!tgrp || eq(norm(m.model_group), tgrp)),
         )
         const noneCnt = (kind: string) =>
@@ -603,59 +594,6 @@ export default function DeviceCatalog({
                   <b>모델</b>
                   <span className="muted small">{shown.length}</span>
                   <span className="sp" />
-                  {/* 제품군 — 고른 것은 알약으로 서고, 드롭다운에서 **여러 개**
-                      고른다(지시) */}
-                  {tfams.map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      className="dcc-famchip"
-                      title="빼기"
-                      onClick={() => setTfams((v) => v.filter((x) => x !== f))}
-                    >
-                      {f === NONE ? '미분류' : f} ✕
-                    </button>
-                  ))}
-                  <span className="dcc-fam">
-                    <button
-                      type="button"
-                      className={`dcc-fambtn${tfams.length ? ' on' : ''}`}
-                      onClick={() => setFamOpen((v) => !v)}
-                    >
-                      제품군{tfams.length ? ` (${tfams.length})` : ' 전체'} ▾
-                    </button>
-                    {famOpen && (
-                      <>
-                        <span className="dcc-famback" onClick={() => setFamOpen(false)} />
-                        <span className="dcc-fampop">
-                          <button
-                            type="button"
-                            className="dcc-famall"
-                            onClick={() => setTfams([])}
-                          >
-                            전체 보기
-                          </button>
-                          {[{ nm: NONE, lb: '미분류', n: noneCnt('family') }, ...(lists.family ?? []).map((x) => ({ nm: x.name, lb: x.name, n: nF(x.name) }))].map(
-                            (x) => (
-                              <label key={x.nm} className={tfams.includes(x.nm) ? 'on' : undefined}>
-                                <input
-                                  type="checkbox"
-                                  checked={tfams.includes(x.nm)}
-                                  onChange={() =>
-                                    setTfams((v) =>
-                                      v.includes(x.nm) ? v.filter((y) => y !== x.nm) : [...v, x.nm],
-                                    )
-                                  }
-                                />
-                                <span className="ell">{x.lb}</span>
-                                <em>{x.n}</em>
-                              </label>
-                            ),
-                          )}
-                        </span>
-                      </>
-                    )}
-                  </span>
                 </div>
                 {/* 왼쪽 칸들과 **같은 한 칸**이다(지시) — 이름만 적는다.
                     벤더·제품군·모델그룹은 왼쪽에서 고른 자리를 물려받는다.
