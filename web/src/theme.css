@@ -345,7 +345,8 @@ button {
   color: var(--c-text-muted, #667085);
 }
 
-/* ⑤ 표 줄 — 이름은 링크색이 세우고, 곁글자는 회색으로 물러난다 */
+/* ⑤ 표 줄 — 곁글자는 회색으로 물러난다. 사이클 제목은 링크가 아니라
+   그냥 글자다(지시) — 색은 .cyt-name 이 정한다 */
 .rq-tr:not(.rq-th),
 .rq-tr:not(.rq-th) .rq-name,
 .cyt-row.cyt-c,

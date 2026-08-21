@@ -2827,17 +2827,19 @@ table.tb td.k {
   white-space: nowrap;
 }
 .cyt-key:hover { text-decoration: underline; }
+/* 제목 — 이제 링크가 아니다(지시). 한 번 눌러도 아무 일 없고 두 번 눌러야
+   고치는 칸이라, 파란 링크 꼴은 「누르면 어디로 간다」 는 거짓말이 된다.
+   버전 칸과 같은 옅은 글자로 둔다. */
 .cyt-name {
   border: 0;
   background: transparent;
   padding: 0;
   font: inherit;
   font-size: var(--fs-sm);
-  color: var(--c-primary);
+  color: var(--c-text-faint);
   text-align: left;
-  cursor: pointer;
+  cursor: default;
 }
-.cyt-name:hover { text-decoration: underline; }
 .cyt-av {
   font-style: normal;
   display: inline-flex;
