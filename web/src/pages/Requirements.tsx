@@ -504,7 +504,7 @@ export default function Requirements({ me }: Props) {
   const [reqGearAt, setReqGearAt] = useState<{ x: number; y: number } | null>(null)
   const reqVisCols = infoCols.filter((c) => reqCols.has(c.k))
   const reqGrid =
-    `28px minmax(0, 1fr) 96px 110px 40px 56px ${reqVisCols.map((c) => c.w).join(' ')}`.trim()
+    `26px minmax(0, 1fr) 84px 76px 38px 50px ${reqVisCols.map((c) => c.w).join(' ')}`.trim()
 
   /** 소속 프로젝트의 모델그룹·모델명 — 요구사항에는 모델 필드가 없다.
       프로젝트가 모델을 고정하므로(정책) 사슬 맨 위(cat1)에서 상속해 보인다. */

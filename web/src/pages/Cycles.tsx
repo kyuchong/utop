@@ -1599,15 +1599,16 @@ export default function Cycles({ me }: PageProps) {
     「진행」 은 완료/진행중/대기 파생 배지 — INFO 상태(cycle_status 값)와
     다른 것이라 이름을 갈랐다. */
 const CYT_FIXED: Array<{ k: string; label: string; w: string }> = [
-  { k: 'iss', label: '결함', w: '38px' },
-  { k: 'tests', label: '항목', w: '38px' },
-  { k: 'prg', label: '진행결과', w: '80px' },
-  { k: 'run', label: '진행', w: '48px' },
-  { k: 'version', label: '버전', w: 'minmax(120px, 190px)' },
-  { k: 'created', label: '생성일자', w: '66px' },
-  { k: 'updated', label: '변경일자', w: '66px' },
-  { k: 'creator', label: '생성자', w: '50px' },
-  { k: 'ass', label: '담당자', w: '50px' },
+  { k: 'iss', label: '결함', w: '34px' },
+  { k: 'tests', label: '항목', w: '34px' },
+  { k: 'prg', label: '진행결과', w: '76px' },
+  { k: 'run', label: '진행', w: '44px' },
+  /* 제목과 함께 넉넉해야 하는 칸(지시) — 남는 폭을 나눠 갖는다 */
+  { k: 'version', label: '버전', w: 'minmax(140px, 0.6fr)' },
+  { k: 'created', label: '생성일자', w: '62px' },
+  { k: 'updated', label: '변경일자', w: '62px' },
+  { k: 'creator', label: '생성자', w: '46px' },
+  { k: 'ass', label: '담당자', w: '46px' },
 ]
 
 /** 인라인 항목 카드의 고를 수 있는 필드 — 시험항목(Coverage) ⚙ 과 같은 목록 */
@@ -2377,8 +2378,8 @@ function CycleBoard({
   /** 표에 서는 열들 — 고정(모델) + INFO(⚙) + 고정(관리), 끌어 둔 차례 반영 */
   const renderCols = useMemo(() => {
     const base = [
-      { k: 'mg', label: '모델그룹', w: '88px' },
-      { k: 'md', label: '모델명', w: '96px' },
+      { k: 'mg', label: '모델그룹', w: '80px' },
+      { k: 'md', label: '모델명', w: '72px' },
       ...infoCols.filter((c) => cytCols.has(c.k)),
       ...CYT_FIXED,
     ]
@@ -2431,7 +2432,7 @@ function CycleBoard({
 
   const cytGrid = useMemo(
     () =>
-      ['26px', '20px', 'minmax(96px, 112px)', 'minmax(170px, 1fr)', ...renderCols.map((c) => c.w)].join(
+      ['24px', '18px', 'minmax(88px, 100px)', 'minmax(200px, 1.4fr)', ...renderCols.map((c) => c.w)].join(
         ' ',
       ),
     [renderCols],

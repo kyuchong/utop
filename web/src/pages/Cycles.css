@@ -2802,9 +2802,10 @@ table.tb td.k {
   grid-template-columns:
     26px 20px minmax(105px, 130px) minmax(170px, 1fr) 40px 40px 104px 56px
     minmax(100px, 150px) 80px 80px 68px 68px;
-  gap: 8px;
+  /* 칸 사이는 최소로 — 제목·버전이 그만큼 넓어진다(지시) */
+  gap: 4px;
   align-items: center;
-  padding: 2px 10px;
+  padding: 2px 8px;
   /* 줄 높이는 통일 블록(theme.css 맨 아래)이 32px 로 정한다 — 여기 있던
      27px 은 거기에 덮여 죽어 있었다. */
   min-width: 1120px;

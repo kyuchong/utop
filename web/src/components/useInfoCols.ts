@@ -18,20 +18,20 @@ export interface InfoCol {
 
 const BASE: Record<'req' | 'tc' | 'cycle', Array<{ kind: string; k: string; label: string; w: string }>> = {
   req: [
-    { kind: 'req_status', k: 'f_status', label: '상태', w: '72px' },
-    { kind: 'req_priority', k: 'f_priority', label: '우선순위', w: '64px' },
+    { kind: 'req_status', k: 'f_status', label: '상태', w: '62px' },
+    { kind: 'req_priority', k: 'f_priority', label: '우선순위', w: '60px' },
   ],
   tc: [
-    { kind: 'tc_type', k: 'f_type', label: '유형', w: '74px' },
-    { kind: 'tc_status', k: 'f_status', label: '상태', w: '70px' },
-    { kind: 'tc_severity', k: 'f_severity', label: '중요도', w: '80px' },
-    { kind: 'tc_run_type', k: 'f_kind', label: '타입', w: '84px' },
-    { kind: 'tc_origin', k: 'f_origin', label: '구분', w: '76px' },
+    { kind: 'tc_type', k: 'f_type', label: '유형', w: '58px' },
+    { kind: 'tc_status', k: 'f_status', label: '상태', w: '62px' },
+    { kind: 'tc_severity', k: 'f_severity', label: '중요도', w: '58px' },
+    { kind: 'tc_run_type', k: 'f_kind', label: '타입', w: '52px' },
+    { kind: 'tc_origin', k: 'f_origin', label: '구분', w: '54px' },
   ],
   // 실행 결과 탭은 열이 아니라 진행결과 바가 쓰는 값 체계라 뺀다
   cycle: [
-    { kind: 'cycle_status', k: 'f_status', label: '상태', w: '64px' },
-    { kind: 'cycle_customer', k: 'f_customer', label: '고객', w: '64px' },
+    { kind: 'cycle_status', k: 'f_status', label: '상태', w: '62px' },
+    { kind: 'cycle_customer', k: 'f_customer', label: '고객', w: '62px' },
   ],
 }
 

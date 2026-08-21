@@ -1582,7 +1582,7 @@ export default function TestCases({ me }: PageProps) {
   )
   /** 고정: ☐·Name·모델그룹·모델명 | INFO 열들 | REQ Map */
   const listGrid =
-    `30px minmax(220px, 1fr) 96px 110px ${visCols.map((c) => c.w).join(' ')} 78px`.trim()
+    `26px minmax(240px, 1fr) 84px 76px ${visCols.map((c) => c.w).join(' ')} 56px`.trim()
   /* 목록에서 그 자리 고치기(지시) — 값 목록은 설정의 코드표를 쓴다 */
   const C_TYPE = useCodes('tc_type', ['FT', 'Function'])
   const C_STATUS = useCodes('tc_status', ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류'])
