@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import DeviceForm from '@/components/DeviceForm'
-import LockCell, { useLocks, type Lock } from '@/components/LockCell'
-import { EditCell, type Device } from '@/pages/Devices'
+import type { Device } from '@/pages/Devices'
 
 interface Item {
   kind: string
@@ -42,10 +40,9 @@ const EMPTY_MODEL: Item = { kind: 'model', name: '' }
  * 빈 칸이던 일을 다시 만들지 않기 위해서다.
  */
 export default function DeviceCatalog({
-  me,
   only,
 }: {
-  /** 점유·반납을 하려면 **누가 보고 있나**를 알아야 한다(지적) */
+  /** 장비는 「표로 보기」 가 맡는다 — 이 화면은 분류·모델만 다룬다(지시) */
   me?: { username?: string; role?: string } | null
   /** 'tree' 면 트리만, 'admin' 이면 분류 등록·모델 목록만(지시) */
   only?: 'tree' | 'admin'
@@ -65,7 +62,6 @@ export default function DeviceCatalog({
   const [view, setView] = useState<'cls' | 'models' | 'tree'>(only === 'admin' ? 'cls' : 'tree')
   const pickView = (v: 'cls' | 'models' | 'tree') => setView(v)
   /** 트리에서 고른 자리 — LAB(거르개) · 벤더 › 제품군 › 모델그룹 */
-  const [tlab, setTlab] = useState('')
   const [tven, setTven] = useState('')
   const [tfam, setTfam] = useState('')
   /** 제품군 여러 개 고르기(지시) — 비면 전부 */
@@ -82,13 +78,11 @@ export default function DeviceCatalog({
   /** 인터페이스 큰 편집창 — U9500H 처럼 포트가 수십·수백이면 한 줄로 안 된다 */
   const [ifEdit, setIfEdit] = useState<{ model: Item; text: string } | null>(null)
   /** 여기서 바로 장비 등록 — 창을 띄운다(지시) */
-  const [devNew, setDevNew] = useState<Device | null>(null)
   /** 오른쪽 단추 메뉴 — 분류 지우기·이름 바꾸기(지시) */
   const [ctx, setCtx] = useState<{ kind: string; name: string; n: number; x: number; y: number } | null>(
     null,
   )
   /** 장비 오른쪽 단추 메뉴 — 편집·삭제(지시) */
-  const [devCtx, setDevCtx] = useState<{ dev: Device; x: number; y: number } | null>(null)
 
   const listQ = useQuery({
     queryKey: ['device-catalog'],
@@ -108,79 +102,6 @@ export default function DeviceCatalog({
     },
     staleTime: 60_000,
   })
-  /** 접속 확인 — 상태를 누르면 그 자리에서 붙어 본다(지적: 무반응) */
-  const [checking, setChecking] = useState('')
-  const checkM = useMutation({
-    mutationFn: async (v: { id: string; protocol: string }) => {
-      setChecking(v.id + ':' + v.protocol)
-      const r = await apiFetch(
-        `/api/devices2/${encodeURIComponent(v.id)}/check?protocol=${v.protocol}`,
-        { method: 'POST' },
-      )
-      const b = (await r.json().catch(() => ({}))) as { detail?: string }
-      if (!r.ok) throw new Error(b.detail || '확인하지 못했습니다')
-      return b
-    },
-    onSettled: () => {
-      setChecking('')
-      void qc.invalidateQueries({ queryKey: ['devices'] })
-    },
-    onError: (e) => setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) }),
-  })
-
-  /** 줄에서 고친 값을 그대로 저장한다(지시) */
-  const patchDev = async (d: Device, p: Partial<Device>) => {
-    try {
-      const r = await apiFetch('/api/devices2', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...d, ...p }),
-      })
-      const b = (await r.json().catch(() => ({}))) as { detail?: string }
-      if (!r.ok) throw new Error(b.detail || '저장하지 못했습니다')
-      void qc.invalidateQueries({ queryKey: ['devices'] })
-      setNote({ kind: 'ok', msg: '고쳤습니다' })
-    } catch (e) {
-      setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) })
-    }
-  }
-  const patchSnmp = async (d: Device, p: { ro?: string; rw?: string }) => {
-    const cur2 = (d.access ?? []).find((a) => a.protocol === 'snmp')
-    const prm = { ...((cur2?.params as Record<string, unknown>) ?? {}) }
-    if (p.rw !== undefined) {
-      prm.community_rw = p.rw
-      prm.rw = !!p.rw
-    }
-    const next = {
-      protocol: 'snmp',
-      port: cur2?.port ?? 161,
-      enabled: true,
-      ...cur2,
-      community: p.ro !== undefined ? p.ro : (cur2?.community ?? ''),
-      params: prm,
-    }
-    const rest = (d.access ?? []).filter((a) => a.protocol !== 'snmp')
-    await patchDev(d, { access: [...rest, next] })
-  }
-
-  const locks = useLocks()
-  const lockBy = useMemo(() => {
-    const m = new Map<string, Lock>()
-    for (const l of locks.data?.locks ?? []) m.set(l.resource_id, l)
-    return m
-  }, [locks.data])
-  const labsOfModel = useMemo(() => {
-    const m = new Map<string, Set<string>>()
-    for (const d of devQ.data?.devices ?? []) {
-      const md = String(d.model ?? '').trim()
-      if (!md) continue
-      const lb = String(d.lab ?? '').trim() || '(LAB 없음)'
-      if (!m.has(md)) m.set(md, new Set())
-      m.get(md)!.add(lb)
-    }
-    return m
-  }, [devQ.data])
-
   const all = listQ.data?.items ?? []
   const of = (kind: string) => all.filter((i) => i.kind === kind)
   const models = of('model')
@@ -443,57 +364,6 @@ export default function DeviceCatalog({
           </div>
         </div>
       )}
-      {devCtx && (
-        <>
-          <div className="dcc-ctxback" onMouseDown={() => setDevCtx(null)} />
-          <div className="dcc-ctx" style={{ left: devCtx.x, top: devCtx.y }}>
-            <b className="ell">
-              {devCtx.dev.model || devCtx.dev.name} · {devCtx.dev.ip}
-            </b>
-            <button
-              type="button"
-              onClick={() => {
-                setDevNew(devCtx.dev)
-                setDevCtx(null)
-              }}
-            >
-              편집 창 열기
-            </button>
-            <button
-              type="button"
-              className="danger"
-              onClick={() => {
-                const d = devCtx.dev
-                setDevCtx(null)
-                if (!window.confirm(`'${d.model || d.name} · ${d.ip}' 장비를 지울까요?`)) return
-                void (async () => {
-                  try {
-                    const r = await apiFetch(`/api/devices2/${encodeURIComponent(d.id)}`, {
-                      method: 'DELETE',
-                    })
-                    if (!r.ok) throw new Error('지우지 못했습니다')
-                    void qc.invalidateQueries({ queryKey: ['devices'] })
-                    setNote({ kind: 'ok', msg: '장비를 지웠습니다' })
-                  } catch (e) {
-                    setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) })
-                  }
-                })()
-              }}
-            >
-              장비 삭제
-            </button>
-          </div>
-        </>
-      )}
-      {devNew && (
-        <DeviceForm
-          editing={devNew}
-          onClose={() => {
-            setDevNew(null)
-            void qc.invalidateQueries({ queryKey: ['devices'] })
-          }}
-        />
-      )}
       <div className="set-head">
         <div>
           <h3>장비 카탈로그</h3>
@@ -568,12 +438,7 @@ export default function DeviceCatalog({
         const norm = (v?: string | null) => String(v ?? '').trim()
         /** 「미분류」 — 그 칸 값이 비어 있는 것들 */
         const NONE = '\u0000none'
-        const inLab = (m: Item) =>
-          !tlab || (labsOfModel.get(m.name) ?? new Set()).has(tlab)
-        const labs = [...new Set([...labsOfModel.values()].flatMap((x) => [...x]))].sort((a2, b2) =>
-          a2.localeCompare(b2, 'ko'),
-        )
-        const pool = models.filter(inLab)
+        const pool = models
         const nV = (v: string) => pool.filter((m) => norm(m.vendor) === v).length
         const nF = (f: string) =>
           pool.filter((m) => (!tven || eq(norm(m.vendor), tven)) && norm(m.family) === f).length
@@ -610,7 +475,7 @@ export default function DeviceCatalog({
           (devQ.data?.devices ?? []).filter(
             (d) =>
               String(d.model ?? '').trim() === nm &&
-              (!tlab || String(d.lab ?? '').trim() === tlab),
+              true,
           )
         const col = (
           title: string,
@@ -680,34 +545,17 @@ export default function DeviceCatalog({
 
         return (
           <div className="dc2-tree">
-            <div className="dcc-labs seg" role="tablist">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={!tlab}
-                className={`seg-btn${tlab ? '' : ' on'}`}
-                onClick={() => setTlab('')}
-              >
-                전체 <span className="cnt">{models.length}</span>
-              </button>
-              {labs.map((lb) => (
-                <button
-                  key={lb}
-                  type="button"
-                  role="tab"
-                  aria-selected={tlab === lb}
-                  className={`seg-btn${tlab === lb ? ' on' : ''}`}
-                  onClick={() => setTlab(tlab === lb ? '' : lb)}
-                >
-                  {lb}
-                  <span className="cnt">
-                    {models.filter((m) => (labsOfModel.get(m.name) ?? new Set()).has(lb)).length}
-                  </span>
-                </button>
-              ))}
-            </div>
-
             <div className="dcc-cols">
+              {/* 분류를 만들고 지우는 자리다(지시) — LAB·사업자도 여기서.
+                  장비는 「표로 보기」 가 맡는다. */}
+              {col('LAB', 'lab', lists.lab?.map((x) => ({ nm: x.name, n: x.used ?? 0 })) ?? [], '', () => {})}
+              {col(
+                '사업자',
+                'operator',
+                lists.operator?.map((x) => ({ nm: x.name, n: x.used ?? 0 })) ?? [],
+                '',
+                () => {},
+              )}
               {col(
                 '벤더',
                 'vendor',
@@ -865,30 +713,34 @@ export default function DeviceCatalog({
                 <div className="dcc-b">
                   <div className="dcc-mh">
                     <span>모델명</span>
-                    <span>IP</span>
-                    <span>
-                      Telnet <i className="dcc-port">23</i>
-                    </span>
-                    <span>
-                      SSH <i className="dcc-port">22</i>
-                    </span>
-                    <span>Console</span>
-                    <span>SNMP</span>
-                    <span>RO</span>
-                    <span>RW</span>
-                    <span>Interface</span>
-                    <span>사용 현황</span>
-                    <span />
+                    <span>벤더</span>
+                    <span>제품군</span>
+                    <span>모델그룹</span>
+                    <span>기본 인터페이스</span>
+                    <span>장비</span>
                   </div>
                   {shown.length === 0 ? (
                     <div className="dcc-none">이 자리에 걸린 모델이 없습니다.</div>
                   ) : (
-                    /* 묶지 않는다(지시) — 장비 한 대가 한 줄이고, 장비가 없는
-                       모델도 제 줄로 선다. */
-                    shown.flatMap((it) => {
-                      const ds = devsOfModel(it.name)
-                      const tail = (
-                        <>
+                    /* 모델 한 줄 — **틀**만 다룬다(지시). IP·접속·사용 현황은
+                       「표로 보기」 의 몫이라 여기서 걷었다. */
+                    shown.map((it) => {
+                      const n = devsOfModel(it.name).length
+                      return (
+                        <div
+                          className="dcc-m2 model"
+                          key={`m-${it.name}`}
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            setCtx({ kind: 'model', name: it.name, n, x: e.clientX, y: e.clientY })
+                          }}
+                        >
+                          <b className="ell dcc-mname" title={`${it.name} — 오른쪽 단추로 옮기기·삭제`}>
+                            {it.name}
+                          </b>
+                          <span className="ell muted small">{it.vendor || '–'}</span>
+                          <span className="ell muted small">{it.family || '–'}</span>
+                          <span className="ell muted small">{it.model_group || '(미분류)'}</span>
                           <button
                             type="button"
                             className="dcc-if"
@@ -897,149 +749,9 @@ export default function DeviceCatalog({
                           >
                             {it.interfaces || '＋ 인터페이스'}
                           </button>
-                          <button
-                            className="btn small primary"
-                            type="button"
-                            title="이 모델로 장비를 등록합니다"
-                            onClick={() =>
-                              setDevNew({
-                                id: '',
-                                ip: '',
-                                model: it.name,
-                                vendor: String(it.vendor ?? ''),
-                                role: String(it.family ?? ''),
-                                lab: tlab || '',
-                              } as Device)
-                            }
-                          >
-                            ＋ 장비
-                          </button>
-                        </>
+                          <span className="muted small">{n ? `${n}대` : '없음'}</span>
+                        </div>
                       )
-                      if (ds.length === 0)
-                        return [
-                          <div className="dcc-m2 dev none" key={`m-${it.name}`}>
-                            <b
-                              className="ell dcc-mname"
-                              title={`${it.name} — 오른쪽 단추로 이름 바꾸기·삭제`}
-                              onContextMenu={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                setCtx({
-                                  kind: 'model',
-                                  name: it.name,
-                                  n: devsOfModel(it.name).length,
-                                  x: e.clientX,
-                                  y: e.clientY,
-                                })
-                              }}
-                            >
-                              {it.name}
-                            </b>
-                            <span className="muted small">장비 없음</span>
-                            <span className="dcc-st off">–</span>
-                            <span className="dcc-st off">–</span>
-                            <span className="dcc-st off">–</span>
-                            <span className="dcc-st off">–</span>
-                            <span className="muted small">–</span>
-                            <span className="muted small">–</span>
-                            <span className="muted small">–</span>
-                            <span className="dcc-lk muted small">–</span>
-                            <span className="dcc-tail">{tail}</span>
-                          </div>,
-                        ]
-                      return ds.map((d) => {
-                        const acc = (p2: string) => (d.access ?? []).find((a) => a.protocol === p2)
-                        const snmp = acc('snmp')
-                        const prm = (snmp?.params as { community_rw?: string } | null) ?? {}
-                        return (
-                          <div
-                            className="dcc-m2 dev"
-                            key={d.id}
-                            /* 장비 지우기 — 오른쪽 단추로(지시). 분류와 같은 길 */
-                            onContextMenu={(e) => {
-                              e.preventDefault()
-                              setDevCtx({ dev: d, x: e.clientX, y: e.clientY })
-                            }}
-                          >
-                            <b
-                              className="ell dcc-mname"
-                              title={`${it.name} — 오른쪽 단추로 이름 바꾸기·삭제`}
-                              onContextMenu={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                setCtx({
-                                  kind: 'model',
-                                  name: it.name,
-                                  n: devsOfModel(it.name).length,
-                                  x: e.clientX,
-                                  y: e.clientY,
-                                })
-                              }}
-                            >
-                              {it.name}
-                            </b>
-                            <span className="dcc-ip">
-                              <EditCell
-                                value={d.ip || ''}
-                                cls="dcc-ipin"
-                                onSave={(v) => void patchDev(d, { ip: v.trim() })}
-                              />
-                            </span>
-                            {['telnet', 'ssh', 'console', 'snmp'].map((p2) => {
-                              const a2 = acc(p2)
-                              const st = String(a2?.last_status ?? '')
-                              return (
-                                <button
-                                  key={p2}
-                                  type="button"
-                                  className={`dcc-st ${
-                                    !a2 ? 'off' : st === 'ok' ? 'ok' : st === 'fail' ? 'ng' : 'un'
-                                  }`}
-                                  title={a2?.last_error || '눌러서 붙어 봅니다'}
-                                  disabled={!a2 || checking === d.id + ':' + p2}
-                                  onClick={() => checkM.mutate({ id: d.id, protocol: p2 })}
-                                >
-                                  {checking === d.id + ':' + p2
-                                    ? '확인 중…'
-                                    : !a2
-                                      ? '–'
-                                      : st === 'ok'
-                                        ? '연결됨'
-                                        : st === 'fail'
-                                          ? '실패'
-                                          : '미확인'}
-                                </button>
-                              )
-                            })}
-                            <EditCell
-                              value={String(snmp?.community ?? '')}
-                              title="SNMP RO Community"
-                              onSave={(v) => void patchSnmp(d, { ro: v })}
-                            />
-                            <EditCell
-                              value={String(prm.community_rw ?? '')}
-                              title="SNMP RW Community"
-                              onSave={(v) => void patchSnmp(d, { rw: v })}
-                            />
-                            <span className="muted small">{d.if_count ?? d.interfaces?.length ?? 0}</span>
-                            <span className="dcc-lk">
-                              <LockCell
-                                resourceId={d.id}
-                                kind="device"
-                                lock={lockBy.get(d.id) ?? lockBy.get(d.ip)}
-                                me={me?.username}
-                                isAdmin={me?.role === '관리자' || me?.role === 'admin'}
-                                onMessage={(kind, msg) => setNote({ kind, msg })}
-                              />
-                            </span>
-                            {/* 꼬리는 **제 칸**이다(지적) — 사용 현황 칸 안에 넣었더니
-                                자리에 따라 가려져 눌리지 않고, 같은 모델의 둘째 줄부터는
-                                아예 비어 보였다. 이제 줄마다 선다. */}
-                            <span className="dcc-tail">{tail}</span>
-                          </div>
-                        )
-                      })
                     })
                   )}
                 </div>

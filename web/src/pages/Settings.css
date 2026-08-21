@@ -1416,3 +1416,27 @@ button.dcc-st:disabled { cursor: default; }
 .dcc-lk .lk { flex-wrap: nowrap; gap: 4px; min-width: 0; }
 .dcc-lk .lk-when { display: none; }
 .dcc-lk .status { overflow: hidden; text-overflow: ellipsis; }
+
+/* ── 분류 트리의 모델 카드 — **틀만** 다룬다(지시) ────────────────
+   IP·접속·사용 현황을 걷어 냈으니 열도 여섯이다. */
+.dcc-mh,
+.dcc-m2.model {
+  display: grid;
+  grid-template-columns: minmax(110px, 1.1fr) 92px 56px 108px minmax(130px, 1.3fr) 46px;
+  gap: 5px;
+  align-items: center;
+}
+.dcc-m2.model { padding: 3px 8px; border-bottom: 1px solid var(--c-border-soft); }
+.dcc-m2.model:hover { background: var(--c-primary-bg-soft); }
+
+/* 분류 열이 여섯이 되었다(LAB·사업자·벤더·제품군·모델그룹·모델) — 격자도
+   여섯으로. 넷짜리 격자에 여섯을 넣어 두 줄로 접히고 모델 카드가 눌렸다. */
+.dcc-cols {
+  grid-template-columns: 104px 104px 116px 92px 132px minmax(0, 1fr);
+}
+@media (max-width: 1500px) {
+  .dcc-cols { grid-template-columns: 92px 92px 104px 84px 116px minmax(0, 1fr); }
+}
+@media (max-width: 1200px) {
+  .dcc-cols { grid-template-columns: 84px 84px 92px 76px 104px minmax(0, 1fr); }
+}

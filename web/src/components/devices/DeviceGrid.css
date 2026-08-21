@@ -39,6 +39,9 @@
 /* LAB 탭 */
 .dg-labs { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; flex: none; }
 .dg-labs .sp { margin-left: auto; }
+/* 찾기·내보내기·가져오기·＋장비 는 이 줄 오른쪽 끝에 붙는다(지시) */
+.dg-labs > .btn { flex: none; }
+.dg-labs > .dg-find { flex: 0 1 240px; }
 .dg-lab {
   display: flex;
   align-items: center;

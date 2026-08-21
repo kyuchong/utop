@@ -423,33 +423,6 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
 
   return (
     <div className="dg">
-      {/* ── 머리줄 ─────────────────────────────────────── */}
-      <div className="dg-head">
-        {note.msg && <span className={`dg-note ${note.kind}`}>{note.msg}</span>}
-        <span className="sp" />
-        <a className="btn small" href="/api/devices2/export.csv" download>
-          내보내기
-        </a>
-        <button className="btn small" type="button" onClick={() => fileRef.current?.click()}>
-          가져오기
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".csv,text/csv"
-          hidden
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            e.target.value = ''
-            if (!f) return
-            void f.text().then((t) => importCsv(t))
-          }}
-        />
-        <button className="btn small primary" type="button" onClick={() => setForm(null)}>
-          ＋ 장비
-        </button>
-      </div>
-
       {/* ── LAB 탭 ─────────────────────────────────────── */}
       <div className="dg-labs" role="tablist">
         <button
@@ -474,14 +447,36 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
             <em>{devices.filter((d) => nrm(d.lab) === l).length}</em>
           </button>
         ))}
-        {/* 찾기는 탭 줄 오른쪽 끝(지시) — 제 줄을 따로 쓰지 않는다 */}
+        {/* 찾기와 단추들은 탭 줄 오른쪽 끝(지시) — 제 줄을 따로 쓰지 않는다 */}
         <span className="sp" />
+        {note.msg && <span className={`dg-note ${note.kind}`}>{note.msg}</span>}
         <input
           className="dg-find"
           value={q}
           placeholder="찾기 — 모델 · IP · 사업자 · 계정"
           onChange={(e) => setQ(e.target.value)}
         />
+        <a className="btn small" href="/api/devices2/export.csv" download>
+          내보내기
+        </a>
+        <button className="btn small" type="button" onClick={() => fileRef.current?.click()}>
+          가져오기
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,text/csv"
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            e.target.value = ''
+            if (!f) return
+            void f.text().then((t) => importCsv(t))
+          }}
+        />
+        <button className="btn small primary" type="button" onClick={() => setForm(null)}>
+          ＋ 장비
+        </button>
       </div>
 
       {/* ── 표 ─────────────────────────────────────────── */}
