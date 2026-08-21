@@ -13407,6 +13407,13 @@ def _jira_fetch_users(q: str = "", limit: int = 2000) -> tuple:
     「왜 저 사람만 없나」 를 영원히 못 찾는다.
     """
     cfg = _jira_cfg()
+    # 조회 계정이 없으면 Jira 는 **로그인 화면(HTML)** 을 401 로 돌려준다.
+    # 그것을 그대로 화면에 뿌리면 「이건 뭐야」 가 된다(지적) — 먼저 막는다.
+    if not str(cfg.get("user") or "").strip() or not str(cfg.get("token") or "").strip():
+        return [], {"ok": False, "error": (
+            "Jira 조회 계정이 없습니다 — SETUP → Jira 연동에서 아이디와 토큰(PAT)을 넣고 "
+            "「연결 테스트」 가 통과한 뒤에 다시 누르세요. (로그인은 각자 비밀번호로 되지만, "
+            "**명단을 통째로 읽는 것**은 조회 계정이 있어야 합니다)")}
     search = (q or cfg.get("user_search") or ALLOWED_EMAIL_DOMAIN or "ubiquoss.com").strip()
     out, seen, start = [], set(), 0
     while start < int(limit):
@@ -13418,7 +13425,18 @@ def _jira_fetch_users(q: str = "", limit: int = 2000) -> tuple:
         if err:
             return [], err
         if not r.is_success:
-            return [], {"ok": False, "error": f"{r.status_code} · {r.text[:200]}"}
+            # Jira 는 실패를 **HTML 한 장**으로 준다. 사람이 읽을 한 줄로 바꾼다.
+            why = {
+                401: "Jira 가 조회 계정을 받지 않았습니다(401) — 아이디·토큰을 확인하세요. "
+                     "Jira Server 라면 비밀번호 대신 PAT(개인 액세스 토큰)를 권합니다",
+                403: "조회 계정에 사용자 조회 권한이 없습니다(403) — Jira 관리자에게 요청하세요",
+                404: "Jira 주소가 잘못됐습니다(404) — REST 경로를 못 찾았습니다",
+            }.get(r.status_code)
+            if not why:
+                body = re.sub(r"<[^>]+>", " ", r.text or "")
+                body = " ".join(body.split())[:160]
+                why = f"Jira 가 {r.status_code} 로 답했습니다 — {body}"
+            return [], {"ok": False, "error": why}
         rows = r.json() or []
         if not rows:
             break
