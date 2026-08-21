@@ -602,10 +602,28 @@
   background: var(--c-border);
 }
 
-/* 접기 단추는 선 위에 있다 — 겹치면 단추가 선의 일부로 읽힌다 */
+/*
+ * 접기 단추는 **트리 선의 매듭**이다(지시: 가이드 라인에 연결해).
+ *
+ * 세로선이 이 단추 자리를 지나므로, 피하려 들면 자꾸 어긋난다. 선을 타고
+ * 앉은 매듭으로 그린다 — 바탕을 덮고 테두리를 둘러 선이 단추에서 끊겼다
+ * 이어지는 것처럼 보이게. 옛 트리 화면들이 쓰던 그 모양이다.
+ */
 button.sq-caret {
   position: relative;
   z-index: 1;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  color: var(--c-text-muted);
+}
+button.sq-caret:hover {
+  border-color: var(--c-primary);
+  color: var(--c-primary);
+}
+.sq-row.on button.sq-caret,
+.sq-row:hover button.sq-caret {
+  background: #fff;
 }
 
 /* 접기 단추 자리. 블록이 아닌 줄에도 같은 폭을 비워 둔다 — 안 그러면
