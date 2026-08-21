@@ -8,7 +8,6 @@ import {
   isTimeLine,
   looksLikeTime,
   SKIP_TIME,
-  evalCondWhy,
   extractOne,
   anyTable,
   parseTable,
@@ -81,16 +80,8 @@ interface Props {
   loopVar?: string
   /** 이 스텝 **바로 뒤에** 여러 줄을 끼운다 (「결과 문구 붙이기」) */
   onInsertAfter?: (steps: TcStep[]) => void
-  /** 이 스텝의 **몸통 뒤에** 끼운다 — If 의 「거짓일 때」 가 그 자리다 */
-  onInsertAfterBlock?: (steps: TcStep[]) => void
-  /** If 의 두 갈래에 지금 들어 있는 줄들 */
-  branches?: {
-    yes: Array<{ i: number; kind: string; text: string }>
-    no: Array<{ i: number; kind: string; text: string }>
-    hasElse: boolean
-  }
-  /** 갈래의 줄을 눌렀을 때 — 그 스텝으로 옮겨 간다 */
-  onGoStep?: (i: number) => void
+  /** 이 시험의 스텝 목록 — If 의 「어느 스텝으로 이동」 이 고른다 */
+  stepList?: Array<{ i: number; label: string }>
 }
 
 /**
@@ -104,6 +95,14 @@ interface Props {
  * `/\d+\s+\[E\d+\]…/m` 같은 정규식이 134스텝에 들어 있는데, 그걸 손으로
  * 짜는 대신 실제 응답에서 집게 하려는 것이다.
  */
+/** 고른 셋으로 조건식을 만든다 — 숫자는 그대로, 글자는 따옴표로 */
+function mkCond(v: string, op: string, val: string): string {
+  if (!v) return ''
+  const raw = String(val ?? '').trim()
+  const lit = raw === '' ? "''" : /^-?\d+(\.\d+)?$/.test(raw) || raw.startsWith('${') ? raw : `'${raw}'`
+  return `\${${v}} ${op} ${lit}`
+}
+
 export default function TcStepDetail({
   step,
   index,
@@ -121,9 +120,7 @@ export default function TcStepDetail({
   block,
   loopVar,
   onInsertAfter,
-  onInsertAfterBlock,
-  branches,
-  onGoStep,
+  stepList,
   readOnly = false,
 }: Props) {
   const [picked, setPicked] = useState('')
@@ -132,9 +129,6 @@ export default function TcStepDetail({
   const [tblOpen, setTblOpen] = useState(false)
   /** 「표에서 값 뽑기」 판 — 판정이 아니라 변수를 만드는 자리(Response Map) */
   const [capOpen, setCapOpen] = useState(false)
-  /* If 의 두 갈래를 그 자리에서 만든다 — 변수 하나 고르고 글자 적으면 끝 */
-  const [yesTx, setYesTx] = useState('')
-  const [noTx, setNoTx] = useState('')
   /** 펼쳐 본 회차. 0 이면 안 폈다 */
   const [round, setRound] = useState(0)
   /** 지금 열려 있는 고르기 목록 — 어느 칸에 넣을지까지 담는다 */
@@ -861,164 +855,118 @@ export default function TcStepDetail({
         )}
         {kind === 'if' && (
           <>
-            <label className="sd-f">
-              <span className="sd-lab">
-                조건 — 참일 때만 아래 블록을 돈다
-                {paramPick('condition', 'p-cond').btn}
-              </span>
-              {paramPick('condition', 'p-cond').list}
-              <input
-                className="mono"
-                value={step.condition ?? ''}
-                placeholder="${model} == 'U9532H'"
-                onChange={(e) => onChange({ condition: e.target.value })}
-              />
-              {preview(step.condition)}
-              {/* 지금 값으로 견주면 어떻게 되는지. 돌려보기 전에 알아야
-                  '늘 참인 조건' 을 안 만든다. */}
-              {String(step.condition ?? '').trim() &&
-                (() => {
-                  const r = evalCondWhy(String(step.condition), gp.values)
-                  return (
-                    <span className={`sd-cond${r.ok ? ' yes' : ' no'}`}>
-                      지금은 <b>{r.ok ? '참' : '거짓'}</b> — {r.why}
-                    </span>
-                  )
-                })()}
-              <span className="sd-hint">
-                쓸 수 있는 것: <b>== != &gt; &lt; &gt;= &lt;= 포함</b>. 앞 스텝에서 뽑은 값은
-                <b> {'${이름}'}</b> 으로 넣는다. 숫자끼리면 숫자로 견준다.
-              </span>
-            </label>
-            {/* If 는 본래 흐름을 가르는 줄이라 합격·불합격을 안 낸다.
-                그런데 조건을 그대로 판정으로 쓰고 싶을 때가 있다 —
-                '모델이 E5924RL 이어야 한다' 처럼. */}
-            <label className="sd-chk">
-              <input
-                type="checkbox"
-                checked={!!step.assertIf}
-                onChange={(e) => onChange({ assertIf: e.target.checked })}
-              />
-              조건이 거짓이면 <b>불합격</b>으로 본다
-            </label>
-
             {/*
-              If 는 「조건 · 참일 때 · 거짓일 때」 셋으로 읽혀야 한다(지시).
-              여태 조건 칸 하나만 있고 갈래는 들여쓰기로만 있었다 — 화면이
-              그 구조를 안 보여 주니 매번 「거짓일 때는 어디에 적나」 가 된다.
-
-              갈래마다 **변수 하나 + 적은 글자**로 한 줄을 만든다. 그것이
-              대부분이고, 더 필요하면 만들어진 줄을 고치면 된다.
+              If 는 넷이면 된다(지시): Action · 조건(변수·비교·값) ·
+              참이면 · 거짓이면. 식을 손으로 쓰거나 갈래를 따로 만들게 하지
+              않는다 — 갈래의 말은 이 줄이 그대로 로그에 남긴다.
             */}
-            {(() => {
-              /*
-               * 두 갈래를 **있는 그대로** 보여 준다.
-               *
-               * 만드는 칸만 있고 든 것을 안 보여 주니, 넣고 나서 어디로 갔는지
-               * 목록에서 다시 찾아야 했다(지적: 획기적으로 개선). 지금 그 갈래에
-               * 무엇이 도는지 줄로 세우고, 누르면 그 스텝으로 간다. 새 문구는
-               * 아래 한 칸에 적으면 그 갈래 안에 들어간다 — 들여쓰기는 우리가 한다.
-               */
-              const vars = [
-                ...(loopVar ? [loopVar] : []),
-                '_verdict',
-                ...new Set([...takenVars, ...mine]),
-              ]
-              const put = (into: 'yes' | 'no', tx: string) => {
-                const t = tx.trim()
-                if (!t) return
-                const d = Number(step.indent ?? 0)
-                if (into === 'yes') onInsertAfter?.([{ kind: 'message', indent: d + 1, text: t }])
-                else if (branches?.hasElse)
-                  onInsertAfterBlock?.([{ kind: 'message', indent: d + 1, text: t }])
-                else
-                  onInsertAfterBlock?.([
-                    { kind: 'else', indent: d },
-                    { kind: 'message', indent: d + 1, text: t },
-                  ])
-              }
-              const side = (
-                cls: 'yes' | 'no',
-                label: string,
-                rows: Array<{ i: number; kind: string; text: string }>,
-                tx: string,
-                setTx: (v: string) => void,
-              ) => (
-                <div className="sd-f">
-                  <span className="sd-lab">{label}</span>
-                  <div className={`sd-br ${cls}`}>
-                    {rows.length === 0 ? (
-                      <i className="sd-brnone">
-                        {cls === 'yes' ? '아직 없습니다 — 참일 때 할 일을 적으세요' : '아직 없습니다 — 거짓일 때 할 일을 적으세요'}
-                      </i>
-                    ) : (
-                      <ul className="sd-brlist">
-                        {rows.map((r) => (
-                          <li key={r.i}>
-                            <button type="button" onClick={() => onGoStep?.(r.i)} title="이 스텝으로">
-                              <b>{r.kind === 'message' ? '문구' : r.kind}</b>
-                              <span>{r.text || '(내용 없음)'}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="sd-bradd">
-                      <input
-                        value={tx}
-                        placeholder={cls === 'yes' ? '예) ${i}번 포트 정상입니다' : '예) ⚠ ${i}번 포트 다릅니다'}
-                        onChange={(e) => setTx(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key !== 'Enter') return
-                          put(cls, tx)
-                          setTx('')
-                        }}
-                      />
-                      {/* 변수는 눌러서 끼운다 — 이름을 외우게 하지 않는다 */}
-                      <select
-                        value=""
-                        title="변수 끼우기"
-                        onChange={(e) => {
-                          if (!e.target.value) return
-                          setTx(`${tx}${tx && !tx.endsWith(' ') ? ' ' : ''}\${${e.target.value}}`)
-                          e.currentTarget.value = ''
-                        }}
-                      >
-                        <option value="">${'{ }'}</option>
-                        {vars.map((x) => (
-                          <option key={x} value={x}>
-                            {x}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        className="btn small"
-                        type="button"
-                        disabled={!tx.trim()}
-                        onClick={() => {
-                          put(cls, tx)
-                          setTx('')
-                        }}
-                      >
-                        ＋ 넣기
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )
-              return (
-                <>
-                  {side('yes', '참일 때', branches?.yes ?? [], yesTx, setYesTx)}
-                  {side('no', '거짓일 때', branches?.no ?? [], noTx, setNoTx)}
-                </>
-              )
-            })()}
-            {!step.assertIf && (
-              <div className="sd-blk">
-                If 는 갈래를 고를 뿐이라 그 자체로는 합격·불합격을 내지 않는다 — 돌리고 나면
-                줄 끝에 <b>참·거짓</b>만 적힌다.
+            <div className="sd-f">
+              <span className="sd-lab">조건</span>
+              <div className="sd-row sd-cond3">
+                <select
+                  value={step.condVar ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    onChange({
+                      condVar: v,
+                      condition: mkCond(v, step.condOp || '==', step.condVal ?? ''),
+                    })
+                  }}
+                >
+                  <option value="">변수를 고르세요</option>
+                  {[...(loopVar ? [loopVar] : []), '_verdict', '_verdict_en', ...new Set([...takenVars, ...mine])].map(
+                    (x) => (
+                      <option key={x} value={x}>
+                        {'${' + x + '}'}
+                      </option>
+                    ),
+                  )}
+                </select>
+                <select
+                  className="sd-narrow2"
+                  value={step.condOp || '=='}
+                  onChange={(e) =>
+                    onChange({
+                      condOp: e.target.value,
+                      condition: mkCond(step.condVar ?? '', e.target.value, step.condVal ?? ''),
+                    })
+                  }
+                >
+                  <option value="==">같다</option>
+                  <option value="!=">다르다</option>
+                  <option value="포함">포함한다</option>
+                  <option value=">">크다</option>
+                  <option value="<">작다</option>
+                  <option value=">=">크거나 같다</option>
+                  <option value="<=">작거나 같다</option>
+                </select>
+                <input
+                  className="mono"
+                  value={step.condVal ?? ''}
+                  placeholder="견줄 값"
+                  onChange={(e) =>
+                    onChange({
+                      condVal: e.target.value,
+                      condition: mkCond(step.condVar ?? '', step.condOp || '==', e.target.value),
+                    })
+                  }
+                />
               </div>
-            )}
+            </div>
+
+            {/* 갈래마다 「남길 말」 과 「어디로 갈지」 둘뿐이다(지시) */}
+            <div className="sd-f">
+              <span className="sd-lab">참이면</span>
+              <div className="sd-row">
+                <input
+                  className="sd-say yes"
+                  value={step.msgYes ?? ''}
+                  placeholder="정상입니다"
+                  onChange={(e) => onChange({ msgYes: e.target.value })}
+                />
+                <select
+                  className="sd-goto"
+                  value={step.gotoYes ?? ''}
+                  title="참이면 이 스텝으로 건너뛰어 계속 돕니다"
+                  onChange={(e) =>
+                    onChange({ gotoYes: e.target.value === '' ? undefined : Number(e.target.value) })
+                  }
+                >
+                  <option value="">다음 줄로</option>
+                  {(stepList ?? []).map((x) => (
+                    <option key={x.i} value={x.i}>
+                      → {x.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="sd-f">
+              <span className="sd-lab">거짓이면</span>
+              <div className="sd-row">
+                <input
+                  className="sd-say no"
+                  value={step.msgNo ?? ''}
+                  placeholder="부적합입니다"
+                  onChange={(e) => onChange({ msgNo: e.target.value })}
+                />
+                <select
+                  className="sd-goto"
+                  value={step.gotoNo ?? ''}
+                  title="거짓이면 이 스텝으로 건너뛰어 계속 돕니다"
+                  onChange={(e) =>
+                    onChange({ gotoNo: e.target.value === '' ? undefined : Number(e.target.value) })
+                  }
+                >
+                  <option value="">다음 줄로</option>
+                  {(stepList ?? []).map((x) => (
+                    <option key={x.i} value={x.i}>
+                      → {x.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </>
         )}
         {kind === 'switch' && (

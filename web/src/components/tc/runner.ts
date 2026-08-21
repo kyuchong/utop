@@ -1453,6 +1453,8 @@ export async function runSteps(
   const lastIf = new Map<number, boolean>()
   /** 지금 몇 회차를 돌고 있나 — 로그에 붙인다(0 이면 반복 밖) */
   let round = 0
+  /** If 의 「건너뛰기」 횟수 — 돌고 도는 것을 막는다 */
+  let jumps = 0
   const ctx: RunCtx = {
     ...ctx0,
     onStep: (i, patch) => {
@@ -1519,6 +1521,18 @@ export async function runSteps(
           text: `조건 ${yes ? '참' : '거짓'} — ${why}`,
           kind: assert ? (yes ? 'pass' : 'fail') : yes ? 'info' : 'skip',
         })
+        /*
+         * 갈래마다 **적어 둔 말**을 로그에 남긴다(지시).
+         *
+         * 「참이면 정상입니다 · 거짓이면 부적합입니다」 를 적으려고 If·Else·
+         * Message 넷을 만들게 하지 않는다. If 한 줄이 그것까지 한다.
+         */
+        {
+          const say = yes
+            ? String(s.msgYes ?? '').trim() || '정상입니다'
+            : String(s.msgNo ?? '').trim() || '부적합입니다'
+          ctx.onLog({ i, text: subVars(say, vars), kind: yes ? 'pass' : 'fail' })
+        }
         if (assert) {
           if (yes) pass++
           else fail++
@@ -1526,6 +1540,23 @@ export async function runSteps(
         }
         // 바로 뒤에 올 수 있는 Else 가 이것을 본다
         lastIf.set(Number(s.indent ?? 0), yes)
+        /*
+         * 갈래마다 **건너뛸 자리**를 정할 수 있다(지시).
+         *
+         * 「참이면 저 스텝으로 가서 계속 돈다」 가 그것이다. 돌고 도는 것을
+         * 막으려 한 실행에서 1000번까지만 받는다 — 그 뒤로는 그냥 다음
+         * 줄로 간다(멈추면 왜 멈췄는지 알 수 없다).
+         */
+        const jump = yes ? s.gotoYes : s.gotoNo
+        if (typeof jump === 'number' && jump >= 0 && jump < ctx.steps.length) {
+          if (jumps < 1000) {
+            jumps++
+            ctx.onLog({ i, kind: 'info', text: `${jump + 1}번 스텝으로 건너뜁니다`, label: '이동' })
+            i = jump
+            continue
+          }
+          ctx.onLog({ i, kind: 'warn', text: '건너뛰기가 1000번을 넘어 그만둡니다 — 조건을 보세요' })
+        }
         if (yes) await walk(i + 1, body)
         i = body
         continue

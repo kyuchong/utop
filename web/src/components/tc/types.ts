@@ -320,6 +320,27 @@ export interface TcStep {
   /** kind=if · switch */
   condition?: string
   /**
+   * kind=if — **조건을 셋으로 나눠 담는다**(지시: 변수 · 비교 · 값).
+   *
+   * 식을 손으로 쓰라고 하면 따옴표 하나에 막힌다. 화면은 고르개 셋으로
+   * 두고, 저장할 때 `condition` 을 만들어 둔다 — 실행기는 그대로 쓴다.
+   */
+  condVar?: string
+  condOp?: string
+  condVal?: string
+  /** kind=if — 참일 때 · 거짓일 때 로그에 남길 말. 비우면 기본 문구 */
+  msgYes?: string
+  msgNo?: string
+  /**
+   * kind=if — 그 갈래에서 **몇 번째 스텝으로 건너뛸까**(0-기준).
+   *
+   * 「조건이 참이면 저기로 가서 계속 돈다」 를 적을 길이 없었다(지시).
+   * 안 정하면 그냥 다음 줄로 간다. 돌고 도는 것을 막으려 뜀은 한 번
+   * 실행에서 1000번까지만 받는다.
+   */
+  gotoYes?: number
+  gotoNo?: number
+  /**
    * kind=if — 조건이 거짓이면 **불합격**으로 본다.
    *
    * If 는 본래 흐름을 가르는 줄이라 자체로 합격·불합격을 내지 않는다

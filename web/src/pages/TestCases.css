@@ -3205,3 +3205,20 @@ table.tb tr.r-bad td:first-child {
 .sd-brlist span { font-family: var(--font-mono); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sd-bradd { display: flex; align-items: center; gap: 5px; }
 .sd-bradd select { height: 26px; border: 1px solid var(--c-border); border-radius: 6px; background: #fff; font-size: var(--fs-xs); }
+
+/* If — 조건 셋과 두 갈래의 말. 색이 곧 갈래다 */
+.sd-cond3 select:first-child { flex: 1; min-width: 120px; }
+.sd-say {
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid;
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+.sd-say.yes { background: #f4fbf7; border-color: #bfe3cd; color: #12643a; }
+.sd-say.no { background: #fdf5f5; border-color: #f0c8c8; color: #a02323; }
+.sd-say.yes::placeholder { color: #4f9d76; }
+.sd-say.no::placeholder { color: #c07a7a; }
+
+.sd-goto { height: 28px; max-width: 190px; border: 1px solid var(--c-border); border-radius: 7px; background: #fff; font-size: var(--fs-xs); }
