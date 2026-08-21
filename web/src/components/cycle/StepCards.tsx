@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import type { CycleItemLite, CycleStep, Verdict } from '@/pages/Cycles'
 import { RESULTS, verdictClass } from '@/pages/Cycles'
 import { isJudgeStep, METER_ACT_LABEL, stepKindInfo, stepVerdict, type TcStep } from '@/components/tc/types'
@@ -134,11 +134,13 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
   const liveRef = useRef<HTMLDivElement | null>(null)
   const wrapRef = useRef<HTMLDivElement | null>(null)
   const touched = useRef(0)
-  useEffect(() => {
-    if (runningAt < 0) return
-    if (Date.now() - touched.current < 3000) return
-    liveRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  }, [runningAt])
+  /*
+   * **따라가기를 걷었다**(지시).
+   *
+   * 도는 스텝이 바뀔 때마다 카드로 굴러가니 화면이 위아래로 왔다 갔다 해서
+   * 읽던 자리를 잃었다. 어디까지 갔나는 위의 **스텝 띠 색**이 말한다 —
+   * 색만 보면 되니 화면은 가만히 있는 편이 낫다.
+   */
 
   const roundMax = all.reduce((a, x) => Math.max(a, x.rounds?.length ?? 0), 0)
   /** 한 스텝이라도 깨진 회차 — 100번 돌려 3번 깨졌으면 궁금한 것은 그 3번이다 */
@@ -183,19 +185,35 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
      한다(지적: 세부가 부실). 누르면 그 스텝 카드로 내려간다. */
   const judged = all.map((s2, at) => ({ s: s2, at })).filter((x) => noOf[x.at]! > 0)
   const strip =
-    judged.length > 1 ? (
+    judged.length >= 1 ? (
       <div className="sc-strip">
         {/* 회차 띠와 똑같이 생겨 「루프 돌린 적 없는데」 가 나왔다 — 라벨로 가른다 */}
         <span className="sc-strip-lab">스텝</span>
         {judged.map(({ s: st2, at }) => {
           const v = stepVerdict(st2 as TcStep)
-          const cls = v === 'Pass' ? 'pass' : v === 'Fail' ? 'fail' : v ? 'part' : ''
+          /* 진행 중 → 적합 → 부적합 → 그 밖의 판정 → 실행함(판정 없음) → 미실행.
+             색 하나로 어디까지 갔는지 읽힌다(지시). */
+          const ran = !!st2.executed_at || !!st2.output
+          const cls =
+            at === runningAt
+              ? 'now'
+              : v === 'Pass'
+                ? 'pass'
+                : v === 'Fail'
+                  ? 'fail'
+                  : v
+                    ? 'part'
+                    : ran
+                      ? 'ran'
+                      : ''
           return (
             <button
               key={at}
               type="button"
               className={`sc-seg ${cls}`}
-              title={`Step ${noOf[at]}${v ? ` · ${v}` : ' · 미실행'}`}
+              title={`Step ${noOf[at]} · ${
+                at === runningAt ? '진행 중' : v || (ran ? '실행함(판정 없음)' : '미실행')
+              }`}
               onClick={() =>
                 cardRefs.current[at]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
               }
