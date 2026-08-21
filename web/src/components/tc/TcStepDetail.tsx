@@ -1373,6 +1373,127 @@ export default function TcStepDetail({
                   원문은 접어서 남긴다. 못 읽었다고 감추면 그때야말로
                   아무것도 모른다.
                 */}
+                {/* 만드는 단추는 **출력 바로 위**에 둔다(지시). 아래에 두면
+                    긴 출력을 다 지나 내려가야 보인다 — 정작 누를 것은 표를
+                    보는 그 자리에서 누른다. */}
+                <div className="sd-pick">
+                  {/* 표 응답은 끌어서 고를 것이 아니다. `show int status` 를
+                      contains 로 보면 28포트 중 아무 줄의 connected 나 걸려서
+                      하나만 죽어도 합격이 나온다. */}
+                  {isTbl && (
+                    <button
+                      className="btn small primary"
+                      type="button"
+                      onClick={() => setTblOpen(true)}
+                    >
+                      표로 판정 만들기
+                    </button>
+                  )}
+                  {/* 정규식을 손으로 쓰라고 하면 아무도 안 쓴다(지적).
+                      표에서 칸을 누르면 「어느 열, 어느 행」 으로 적어 둔다 —
+                      iTest 의 Response Map 이 하는 일이 이것이다. */}
+                  {isKv && (
+                    <button
+                      className="btn small"
+                      type="button"
+                      title="표에서 칸을 눌러 그 값을 변수로 담습니다 — 정규식 없이"
+                      onClick={() => setCapOpen(true)}
+                    >
+                      표에서 값 뽑기
+                    </button>
+                  )}
+                  {/* 응답 전체를 담는다. 글자를 끌어야만 되면 긴 출력을
+                      통째로 쓰고 싶을 때 방법이 없다 — 다음 스텝에서
+                      이번 출력과 견주는 시험이 그것이다. */}
+                  <button
+                    className="btn small"
+                    type="button"
+                    onClick={() => {
+                      const used = new Set([...takenVars, ...mine])
+                      let seed = 'out1'
+                      for (let n = 1; n < 999; n++) {
+                        if (!used.has(`out${n}`)) {
+                          seed = `out${n}`
+                          break
+                        }
+                      }
+                      const name = window.prompt('변수 이름 (응답 전체를 담습니다)', seed)
+                      if (!name) return
+                      if (used.has(name.trim())) {
+                        window.alert(`「${name.trim()}」 은 이 시험에서 이미 쓰고 있습니다.`)
+                        return
+                      }
+                      onChange({
+                        queries: [
+                          ...(step.queries ?? []),
+                          // 무엇이든 통째로 잡는 식
+                          { q: '([\\s\\S]*)', var: name.trim() },
+                        ],
+                      })
+                    }}
+                  >
+                    전체를 변수로
+                  </button>
+                  {picked ? (
+                    <>
+                      <span className="sd-var">{picked.length > 28 ? `${picked.slice(0, 28)}…` : picked}</span>
+                      {/* 끌어 고른 글자도 블럭과 같은 세 가지뿐(합의: 간단하게).
+                          변수 이름은 자동(varN) — prompt 창은 파이어폭스가 막는다 */}
+                      <button
+                        className="btn small"
+                        type="button"
+                        onClick={() => {
+                          addVarFromBlock(picked)
+                          setPicked('')
+                        }}
+                      >
+                        변수로
+                      </button>
+                      <button
+                        className="btn small"
+                        type="button"
+                        onClick={() => {
+                          addChipFrom('has', picked)
+                          setPicked('')
+                        }}
+                      >
+                        있으면 합격
+                      </button>
+                      <button
+                        className="btn small"
+                        type="button"
+                        onClick={() => {
+                          addChipFrom('not', picked)
+                          setPicked('')
+                        }}
+                      >
+                        있으면 불합격
+                      </button>
+                      <button
+                        className="btn small"
+                        type="button"
+                        title="고른 줄들을 판정에서 뺍니다"
+                        onClick={() => {
+                          const ls = picked.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
+                          const have = new Set(chips.filter((x) => x.t === 'skip').map((x) => x.v))
+                          const add = ls
+                            .map((v) => (looksLikeTime(v) ? SKIP_TIME : v))
+                            .filter((v, i2, arr) => !have.has(v) && arr.indexOf(v) === i2)
+                            .map((v) => ({ t: 'skip' as const, v }))
+                          if (add.length) writeChips([...chips, ...add])
+                          setPicked('')
+                        }}
+                      >
+                        이 줄 제외
+                      </button>
+                    </>
+                  ) : (
+                    <span className="muted small">
+                      네모 친 값을 누르거나 글자를 끌어 기준·변수를 만듭니다 — 칩이 모두
+                      맞아야 합격, 대소문자는 안 가립니다
+                    </span>
+                  )}
+                </div>
                 {meterOut ? (
                   <>
                     <MeterStats
@@ -1505,124 +1626,6 @@ export default function TcStepDetail({
                     </div>
                   </>
                 )}
-                <div className="sd-pick">
-                  {/* 표 응답은 끌어서 고를 것이 아니다. `show int status` 를
-                      contains 로 보면 28포트 중 아무 줄의 connected 나 걸려서
-                      하나만 죽어도 합격이 나온다. */}
-                  {isTbl && (
-                    <button
-                      className="btn small primary"
-                      type="button"
-                      onClick={() => setTblOpen(true)}
-                    >
-                      표로 판정 만들기
-                    </button>
-                  )}
-                  {/* 정규식을 손으로 쓰라고 하면 아무도 안 쓴다(지적).
-                      표에서 칸을 누르면 「어느 열, 어느 행」 으로 적어 둔다 —
-                      iTest 의 Response Map 이 하는 일이 이것이다. */}
-                  {isKv && (
-                    <button
-                      className="btn small"
-                      type="button"
-                      title="표에서 칸을 눌러 그 값을 변수로 담습니다 — 정규식 없이"
-                      onClick={() => setCapOpen(true)}
-                    >
-                      표에서 값 뽑기
-                    </button>
-                  )}
-                  {/* 응답 전체를 담는다. 글자를 끌어야만 되면 긴 출력을
-                      통째로 쓰고 싶을 때 방법이 없다 — 다음 스텝에서
-                      이번 출력과 견주는 시험이 그것이다. */}
-                  <button
-                    className="btn small"
-                    type="button"
-                    onClick={() => {
-                      const used = new Set([...takenVars, ...mine])
-                      let seed = 'out1'
-                      for (let n = 1; n < 999; n++) {
-                        if (!used.has(`out${n}`)) {
-                          seed = `out${n}`
-                          break
-                        }
-                      }
-                      const name = window.prompt('변수 이름 (응답 전체를 담습니다)', seed)
-                      if (!name) return
-                      if (used.has(name.trim())) {
-                        window.alert(`「${name.trim()}」 은 이 시험에서 이미 쓰고 있습니다.`)
-                        return
-                      }
-                      onChange({
-                        queries: [
-                          ...(step.queries ?? []),
-                          // 무엇이든 통째로 잡는 식
-                          { q: '([\\s\\S]*)', var: name.trim() },
-                        ],
-                      })
-                    }}
-                  >
-                    전체를 변수로
-                  </button>
-                  {picked ? (
-                    <>
-                      <span className="sd-var">{picked.length > 28 ? `${picked.slice(0, 28)}…` : picked}</span>
-                      {/* 끌어 고른 글자도 블럭과 같은 세 가지뿐(합의: 간단하게).
-                          변수 이름은 자동(varN) — prompt 창은 파이어폭스가 막는다 */}
-                      <button
-                        className="btn small"
-                        type="button"
-                        onClick={() => {
-                          addVarFromBlock(picked)
-                          setPicked('')
-                        }}
-                      >
-                        변수로
-                      </button>
-                      <button
-                        className="btn small"
-                        type="button"
-                        onClick={() => {
-                          addChipFrom('has', picked)
-                          setPicked('')
-                        }}
-                      >
-                        있으면 합격
-                      </button>
-                      <button
-                        className="btn small"
-                        type="button"
-                        onClick={() => {
-                          addChipFrom('not', picked)
-                          setPicked('')
-                        }}
-                      >
-                        있으면 불합격
-                      </button>
-                      <button
-                        className="btn small"
-                        type="button"
-                        title="고른 줄들을 판정에서 뺍니다"
-                        onClick={() => {
-                          const ls = picked.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)
-                          const have = new Set(chips.filter((x) => x.t === 'skip').map((x) => x.v))
-                          const add = ls
-                            .map((v) => (looksLikeTime(v) ? SKIP_TIME : v))
-                            .filter((v, i2, arr) => !have.has(v) && arr.indexOf(v) === i2)
-                            .map((v) => ({ t: 'skip' as const, v }))
-                          if (add.length) writeChips([...chips, ...add])
-                          setPicked('')
-                        }}
-                      >
-                        이 줄 제외
-                      </button>
-                    </>
-                  ) : (
-                    <span className="muted small">
-                      네모 친 값을 누르거나 글자를 끌어 기준·변수를 만듭니다 — 칩이 모두
-                      맞아야 합격, 대소문자는 안 가립니다
-                    </span>
-                  )}
-                </div>
               </>
             ) : (
               <div className="sd-res empty-res">
