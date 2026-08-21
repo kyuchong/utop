@@ -1403,6 +1403,7 @@ export default function TestCases({ me }: PageProps) {
                 n: ++logN.current,
                 i: l.i,
                 kind: l.kind,
+                label: l.label,
                 text: l.text,
                 round: l.round,
                 at: `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}:${String(at.getSeconds()).padStart(2, '0')}`,

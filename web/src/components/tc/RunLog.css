@@ -96,6 +96,13 @@
   min-width: 0;
 }
 
+/* 줄 앞의 말 — 「비교 결과」 · 「데이터 치환 결과」 */
+.rl-lb {
+  flex: none;
+  color: var(--c-text-muted);
+  font-weight: 600;
+}
+
 /* 판정 딱지 — 색은 여기만. 줄 전체를 물들이면 무엇이 결과인지 안 보인다 */
 .rl-v {
   flex: none;

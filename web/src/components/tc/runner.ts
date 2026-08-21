@@ -54,6 +54,13 @@ export interface RunLog {
    * 번 나오는데 어느 것이 깨진 회차인지 알 길이 없다. 실행기가 채운다.
    */
   round?: number
+  /**
+   * 줄 앞에 세우는 **무슨 말인지**. 「비교 결과」 · 「데이터 치환 결과」.
+   *
+   * 로그가 `'Te0/1' == 'Te0/1'` 로만 적히면 무엇을 한 줄인지 다시 짚어야
+   * 한다(지적). 라벨을 앞에 세우고 값은 오른쪽에 둔다.
+   */
+  label?: string
 }
 
 export interface RunCtx {
@@ -534,7 +541,7 @@ async function runOne(
         status: ok ? 'PASS' : 'FAIL',
         repeatResult: ok ? 'Pass' : 'Fail',
       })
-      ctx.onLog({ i, text: head, kind: ok ? 'pass' : 'fail' })
+      ctx.onLog({ i, text: head, kind: ok ? 'pass' : 'fail', label: '비교 결과' })
       return ok ? 'Pass' : 'Fail'
     }
 
@@ -549,7 +556,7 @@ async function runOne(
       status: ok ? 'PASS' : 'FAIL',
       repeatResult: ok ? 'Pass' : 'Fail',
     })
-    ctx.onLog({ i, text: why, kind: ok ? 'pass' : 'fail' })
+    ctx.onLog({ i, text: why, kind: ok ? 'pass' : 'fail', label: '비교 결과' })
     return ok ? 'Pass' : 'Fail'
   }
 
@@ -578,7 +585,7 @@ async function runOne(
       status: '',
       repeatResult: '',
     })
-    ctx.onLog({ i, text: why, kind: 'info' })
+    ctx.onLog({ i, text: why, kind: 'info', label: '데이터 치환 결과' })
     return ''
   }
 

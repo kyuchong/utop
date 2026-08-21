@@ -7,6 +7,8 @@ export interface LogLine {
   /** 몇 번째 스텝에서 나온 말인가 (-1 이면 스텝과 상관없는 말) */
   i: number
   kind?: string
+  /** 줄 앞에 세우는 말 — 「비교 결과」 · 「데이터 치환 결과」 */
+  label?: string
   text: string
   /** 반복 안이면 몇 회차인가 */
   round?: number
@@ -91,6 +93,8 @@ export default function RunLog({
               {l.i >= 0 && <b className="rl-no">{l.i + 1}</b>}
               {/* 색은 **판정 딱지**에만 준다(지시). 줄 전체를 물들이면 무엇이
                   결과이고 무엇이 설명인지 구분이 안 된다 */}
+              {/* 무슨 말인지 먼저, 그다음 판정, 그다음 값(지시) */}
+              {l.label && <b className="rl-lb">{l.label}</b>}
               {l.kind === 'pass' && <b className="rl-v ok">적합</b>}
               {l.kind === 'fail' && <b className="rl-v bad">부적합</b>}
               {l.kind === 'warn' && <b className="rl-v warn">주의</b>}
