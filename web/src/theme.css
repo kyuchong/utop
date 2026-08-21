@@ -403,3 +403,35 @@ button {
   font-weight: 500;
   color: var(--c-text-muted);
 }
+
+/* ── 빵부스러기 — 폴더는 파랑, 이름 옆 번호는 알약(지시) ────────────
+   세 화면(요구사항·시험항목·사이클)이 같은 줄을 쓰므로 여기 한 곳에서 정한다. */
+.rq-crumb-up,
+.cy-crumb-go,
+.rq-crumb-seg > b {
+  color: var(--c-primary);
+}
+.rq-crumb-up:hover,
+.cy-crumb-go:hover { color: var(--c-primary-ink, #0f56b8); }
+
+/* 이름 오른쪽의 번호 알약 — 누르면 이 자리 주소가 복사된다 */
+.id-pill {
+  flex: none;
+  align-self: center;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  padding: 1px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.id-pill:hover { border-color: var(--c-primary); color: var(--c-primary); background: var(--c-primary-bg); }
+.id-pill.done {
+  border-color: var(--c-pass);
+  color: var(--c-pass);
+  background: #eef8f2;
+}

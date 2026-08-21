@@ -62,7 +62,8 @@ import TcSuggest from '@/components/tc/TcSuggest'
 import { deviceLabel, isMeter } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
-import { onGoto, reflectUrl } from '@/api/goto'
+import { gotoHref, onGoto, reflectUrl } from '@/api/goto'
+import IdPill from '@/components/IdPill'
 import {
   reqLabel,
   reqPk,
@@ -2161,10 +2162,12 @@ export default function TestCases({ me }: PageProps) {
               )}
               <span className="rq-crumb-sep">›</span>
               <b>{d.name || openId}</b>
+              {/* 번호는 이름 바로 오른쪽 알약에 — 누르면 이 자리 주소를 복사(지시) */}
+              <IdPill id={openId} href={gotoHref('tc', openId)} />
             </>
           )}
           <span className="muted small">
-            {view === 'list' ? `${shownListRows.length}건` : openId || '고른 것 없음'}
+            {view === 'list' ? `${shownListRows.length}건` : openId ? '' : '고른 것 없음'}
           </span>
         </span>
         <span className="sp" />

@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import IdPill from '@/components/IdPill'
 import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import ListHead from '@/components/ListHead'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
-import { goto, onGoto, reflectUrl } from '@/api/goto'
+import { goto, onGoto, reflectUrl, gotoHref } from '@/api/goto'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
@@ -1221,10 +1222,14 @@ export default function Cycles({ me }: PageProps) {
                     )
                   })
               })()}
+              {/* 사이클 번호도 이름 오른쪽 알약에 — 누르면 주소를 복사(지시) */}
+              <IdPill id={String(cur.cid || cur.id || '')} href={gotoHref('cycle', String(cur.id))} />
               {cur.ce && (
-                <i className="cy-cechip" title="사이클 실행 ID — 주소를 복사해 보내면 이 화면이 열립니다">
-                  {cur.ce}
-                </i>
+                <IdPill
+                  id={String(cur.ce)}
+                  href={gotoHref('ce', String(cur.ce))}
+                  title={`이 회차(${cur.ce}) 의 주소를 복사합니다`}
+                />
               )}
             </>
           ) : (

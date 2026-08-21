@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
+import IdPill from '@/components/IdPill'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, projectApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
@@ -930,11 +931,13 @@ export default function Requirements({ me }: Props) {
             <>
               <span className="rq-crumb-sep">›</span>
               <b>{selectedReq.title || reqLabel(selectedReq) || '(제목 없음)'}</b>
+              {/* 번호는 이름 바로 오른쪽 알약에 — 누르면 이 자리 주소를 복사(지시) */}
+              <IdPill id={reqLabel(selectedReq)} href={gotoHref('req', reqPk(selectedReq))} />
             </>
           )}
           <span className="muted small">
             {selectedReq
-              ? reqLabel(selectedReq)
+              ? ''
               : folderMode
                 ? `${folderReqs.length}건 · 하위 폴더 포함`
                 : '폴더를 고르세요'}
