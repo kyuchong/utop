@@ -7615,6 +7615,9 @@ a.bc-cur:hover { text-decoration: underline; }
   overflow: auto;
 }
 .ask-home.editing { background: #eef3fb; }
+/* 위쪽에 붙어 있던 것을 아래로 내린다(지시).
+   바깥 칸이 늘 화면 높이를 갖지는 않아 justify-content 만으로는 가운데로
+   안 간다 — 위 여백을 화면 높이에 견줘 준다. */
 .ask-homewrap {
   flex: 1;
   width: 100%;
@@ -7623,7 +7626,7 @@ a.bc-cur:hover { text-decoration: underline; }
   align-items: center;
   justify-content: center;
   gap: 18px;
-  padding: 64px 24px 80px;
+  padding: min(22vh, 230px) 24px 80px;
 }
 .ask-home.editing .ask-homewrap { padding-bottom: 110px; }
 /* 가운데 정렬은 **칸마다 못 박는다**(지시) — 부모의 align-items 하나에
