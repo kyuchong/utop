@@ -6,6 +6,7 @@ import CodeSettings from '@/components/settings/CodeSettings'
 import VerdictSettings from '@/components/settings/VerdictSettings'
 import CustomFieldSettings from '@/components/settings/CustomFieldSettings'
 import JiraSettings from '@/components/settings/JiraSettings'
+import Accounts from '@/components/settings/Accounts'
 import JiraPanels from '@/components/settings/JiraPanels'
 import Branding from '@/components/settings/Branding'
 import {
@@ -82,7 +83,7 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
   {
     title: 'Account',
     items: [
-      { key: 'accounts', label: '계정 관리', icon: IconAccounts, ready: false },
+      { key: 'accounts', label: '계정 관리', icon: IconAccounts, ready: true },
       { key: 'perms', label: '페이지별 접근 권한', icon: IconPerms, ready: false },
     ],
   },
@@ -155,6 +156,8 @@ export default function Settings() {
           <VerdictSettings />
         ) : sec === 'fields' ? (
           <CustomFieldSettings />
+        ) : sec === 'accounts' ? (
+          <Accounts />
         ) : sec === 'jira' ? (
           <JiraSettings />
         ) : sec === 'jirapanels' ? (

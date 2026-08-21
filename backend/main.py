@@ -1058,33 +1058,73 @@ async def _jira_verify_login(username: str, password: str) -> tuple:
     return None, "denied"
 
 
+def _jira_auto_create() -> bool:
+    """모르는 사람이 Jira 로 들어오면 그 자리에서 계정을 만들까.
+
+    사원이 모두 Jira 계정을 갖고 있으니 **회원가입을 따로 두지 않는다**(지시).
+    그래서 기본은 **켜짐**이다. 명단에 있는 사람만 받고 싶은 곳(운영 정책)은
+    계정 관리에서 끈다 — 그러면 관리자가 먼저 등록해야 들어온다.
+    """
+    cfg = _jira_cfg()
+    if cfg.get("login_auto_create") is not None:
+        return bool(cfg.get("login_auto_create"))
+    v = str(os.environ.get("JIRA_AUTO_CREATE", "")).strip().lower()
+    if v:
+        return v in ("1", "true", "yes", "on")
+    return True
+
+
 def _upsert_jira_user(username: str, ju: dict) -> dict:
     """Jira 로 들어온 사람을 UTOP 사용자로. **비밀번호는 담지 않는다.**
 
     이미 있으면 이름·메일만 Jira 쪽으로 맞춘다. 관리자가 꺼 둔 계정(active
     False)을 여기서 되살리지는 않는다 — 끄는 것은 UTOP 의 결정이다.
+    명단에 없고 자동 등록이 꺼져 있으면 **None** 이다(로그인도 막힌다).
     """
     data = _users_load_sync()
     name = str(ju.get("displayName") or "").strip()
     mail = str(ju.get("emailAddress") or "").strip()
+    key = str(ju.get("key") or ju.get("accountId") or "").strip()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     for x in data["users"]:
         if x.get("username") == username:
             if name:
                 x["name"] = name
             if mail:
                 x["email"] = mail
+            if key:
+                x["jira_key"] = key
             x["source"] = "jira"
+            x["last_login"] = now
             _users_save_sync(data)
             return x
+    if not _jira_auto_create():
+        # 명단에 없는 사람은 여기서 끝난다 — 관리자가 계정 관리에서 먼저 등록한다
+        print(f"[jira-login] 명단에 없어 막았습니다: {username}", flush=True)
+        return None
     nu = {
         "id": username, "username": username, "name": name or username,
         "role": "팀원", "email": mail, "active": True, "source": "jira",
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "jira_key": key,
+        "created_at": now, "last_login": now,
     }
     data["users"].append(nu)
     _users_save_sync(data)
     print(f"[jira-login] 새 사용자 등록: {username} ({name})", flush=True)
     return nu
+
+
+def _touch_login(username: str) -> None:
+    """마지막으로 들어온 때 — 계정 관리에서 「쓰는 사람·안 쓰는 사람」 을 가른다."""
+    try:
+        data = _users_load_sync()
+        for x in data["users"]:
+            if x.get("username") == username:
+                x["last_login"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                _users_save_sync(data)
+                return
+    except Exception:
+        pass
 
 
 def _issue_session(u: dict) -> dict:
@@ -1125,9 +1165,17 @@ async def api_login(req: LoginReq):
         if ju:
             if u and not u.get("active", True):
                 raise HTTPException(401, "관리자가 꺼 둔 계정입니다 — 시스템 담당자에게 문의하세요")
-            u = _upsert_jira_user(uname, ju)
+            # Jira 에서 잠긴 계정은 UTOP 에도 못 들어온다 — Jira 가 정본이다
+            if ju.get("active") is False:
+                raise HTTPException(401, "Jira 에서 잠긴 계정입니다 — Jira 담당자에게 문의하세요")
+            u2 = _upsert_jira_user(uname, ju)
+            if not u2:
+                raise HTTPException(
+                    401,
+                    "등록되지 않은 계정입니다 — 관리자에게 계정 등록을 요청하세요",
+                )
             _LOGIN_FAILS.pop(uname, None)
-            return _issue_session(u)
+            return _issue_session(u2)
         if why == "captcha":
             raise HTTPException(
                 401,
@@ -1143,6 +1191,7 @@ async def api_login(req: LoginReq):
         and _hash_pw(req.password, u.get("salt", "")) == u.get("password")
     ):
         _LOGIN_FAILS.pop(uname, None)
+        _touch_login(uname)
         return _issue_session(u)
 
     _fail("아이디 또는 비밀번호가 올바르지 않거나 비활성 계정입니다")
@@ -13302,7 +13351,7 @@ async def jira_get_config():
 @app.post("/api/jira/config")
 async def jira_save_config(data: dict):
     cur = _jira_cfg()
-    for k in ["url", "user", "token", "auth", "default_project", "default_issuetype", "verify", "fav_projects", "ai", "panel_templates", "login_enabled"]:
+    for k in ["url", "user", "token", "auth", "default_project", "default_issuetype", "verify", "fav_projects", "ai", "panel_templates", "login_enabled", "login_auto_create"]:
         if k in data:
             cur[k] = data[k]
     save_json(JIRA_FILE, cur)
