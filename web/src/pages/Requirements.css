@@ -633,6 +633,10 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
   grid-template-columns: 28px minmax(0, 1fr) 96px 110px 40px 56px 64px;
   /* 칸 사이는 최소로 — 이름 칸이 그만큼 넓어진다(지시) */
   column-gap: 4px;
+  /* 줄 좌우 여백은 사이클 2열과 같은 8px(지시) — 체크칸이 셋 다 같은
+     자리에서 시작한다. 여태 요구사항·시험항목만 줄 끝에 붙어 있었다. */
+  padding-left: 8px;
+  padding-right: 8px;
   align-items: center;
   min-height: var(--row-h);
   /*

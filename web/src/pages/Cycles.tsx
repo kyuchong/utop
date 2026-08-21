@@ -45,7 +45,6 @@ import {
   IconTrash,
 } from '@/components/icons'
 import { useInfoCols } from '@/components/useInfoCols'
-import Markdown from '@/components/Markdown'
 import type { TestCaseMeta } from '@/types'
 import { isJudgeStep, stepVerdict, type StepRound, type TcStep } from '@/components/tc/types'
 // 요구사항 화면의 트리 규칙을 그대로 쓴다 — 줄 높이·색·여백이 한 곳에서만
@@ -1571,7 +1570,6 @@ export default function Cycles({ me }: PageProps) {
           <CycleBoard
             cycles={scopedCycles}
             mgroupOf={mgroupOf}
-            vendorOf={vendorOf}
             famOf={famOf}
             onNew={() => setMaking(true)}
             onDup={(id) => setCloneId(id)}
@@ -2315,7 +2313,6 @@ function CycleMailBox({
 function CycleBoard({
   cycles,
   mgroupOf,
-  vendorOf,
   famOf,
   onNew,
   onDup,
@@ -2327,7 +2324,6 @@ function CycleBoard({
   cycles: CycleMeta[]
   /** 카탈로그 지도 — 사이클에 비어 있으면 모델명으로 보강(수정 창과 같은 값) */
   mgroupOf: Map<string, string>
-  vendorOf: Map<string, string>
   famOf: Map<string, string>
   /** 추가 — 새 사이클 만들기 */
   onNew: () => void
@@ -2451,7 +2447,6 @@ function CycleBoard({
   /** 인라인으로 펼친 사이클들 — 시험 항목이 줄 밑에 보인다 */
   const [exp, setExp] = useState<Set<string>>(new Set())
   /** 사이클 ID 를 누르면 펼쳐지는 세부내역 — 보기만 한다 */
-  const [dexp, setDexp] = useState<Set<string>>(new Set())
   /** 여러 개 고르고 Edit — 상태·고객·담당자를 한꺼번에 바꾼다 */
   const [bulkOpen, setBulkOpen] = useState(false)
   /** 방금 한 일의 결과 한 줄 — 시험항목 도구줄의 tc-msg 와 같은 자리 */
@@ -2535,25 +2530,8 @@ function CycleBoard({
 
   // 사이클별 집계는 한 번만 — 표·거름·정렬이 다 같이 쓴다
   /** 목록에서 AI 요약 만들기 — 상세 화면과 같은 길이다 */
-  const [aiBusy, setAiBusy] = useState('')
-  const makeAi = async (cid: string) => {
-    setAiBusy(cid)
-    try {
-      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cid)}/summarize`, {
-        method: 'POST',
-        body: JSON.stringify({}),
-      })
-      const j = (await r.json()) as { ok?: boolean; error?: string }
-      if (!j.ok) throw new Error(j.error || '요약을 만들지 못했습니다')
-      /* 만든 요약은 회차에 저장된다 — 목록을 다시 받아 그 자리에 편다 */
-      onRefresh()
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : String(e))
-    } finally {
-      setAiBusy('')
-    }
-  }
-
+  /* 회차 AI 요약을 만들던 자리는 인라인 카드와 함께 실행 화면으로 갔다 —
+     여기서는 목록만 그린다. */
   const stats = useMemo(() => {
     /** 한 묶음의 셈 — 전체·수동·자동이 같은 것을 쓴다 */
     const tally = (arr: CycleItemLite[]) => {
@@ -2897,33 +2875,19 @@ function CycleBoard({
                       <button
                         type="button"
                         className="cyt-key"
-                        title={`${c.id} — 누르면 세부내역이 펼쳐집니다`}
-                        onClick={() =>
-                          setDexp((cur) => {
-                            const n = new Set(cur)
-                            if (n.has(c.id)) n.delete(c.id)
-                            else n.add(c.id)
-                            return n
-                          })
-                        }
+                        title={`${c.cid || c.id} — 누르면 실행 화면으로 갑니다`}
+                        onClick={() => onRun(c.id)}
                       >
                         {c.cid || c.version || c.name || c.id}
                       </button>
-                      {/* 한 번 누르면 실행 화면으로, **두 번** 누르면 고친다(지시) */}
+                      {/* 한 번 눌러도 아무 일 없고, **두 번** 누르면 고친다(지시).
+                          실행 화면으로 가는 길은 왼쪽 사이클 ID 가 맡는다. */}
                       <PickCell
                         dbl
                         value={c.name ?? ''}
-                        title={`${c.name ?? ''} — 누르면 실행 화면, 두 번 누르면 고칩니다`}
+                        cls="cyt-name cyt-ell"
+                        title={`${c.name ?? ''} — 두 번 누르면 고칩니다`}
                         onSave={(v) => setCyCell(c.id, { name: v })}
-                        view={
-                          <button
-                            type="button"
-                            className="cyt-name cyt-ell"
-                            onClick={() => onRun(c.id)}
-                          >
-                            {c.name || '–'}
-                          </button>
-                        }
                       />
                       {renderCols.map((c2) => {
                         switch (c2.k) {
@@ -3041,162 +3005,6 @@ function CycleBoard({
                         }
                       })}
                     </div>
-                    {/* 사이클 ID 를 눌러 펼친 세부내역 — 보기만 한다. 고치는 것은 Edit */}
-                    {dexp.has(c.id) && (
-                      <div className="cyt-dcard">
-                        <div className="cyt-dgrid">
-                          <span className="cyt-dkv"><b>사이클 ID</b><i>{c.cid || '–'}</i></span>
-                          <span className="cyt-dkv"><b>제목</b><i title={c.name ?? ''}>{c.name || '–'}</i></span>
-                          <span className="cyt-dkv"><b>벤더</b><i>{vendorOf.get(c.model ?? '') || '–'}</i></span>
-                          <span className="cyt-dkv"><b>제품군</b><i>{famOf.get(c.model ?? '') || '–'}</i></span>
-                          <span className="cyt-dkv"><b>모델그룹</b><i>{(c.model_group ?? '').trim() || mgroupOf.get(c.model ?? '') || '–'}</i></span>
-                          <span className="cyt-dkv"><b>모델명</b><i>{c.model || '–'}</i></span>
-                          <span className="cyt-dkv"><b>상태</b><i>{c.status || '–'}</i></span>
-                          <span className="cyt-dkv"><b>고객</b><i>{c.customer || '–'}</i></span>
-                          <span className="cyt-dkv"><b>버전그룹</b><i>{c.version_group || '–'}</i></span>
-                          <span className="cyt-dkv"><b>버전</b><i>{c.version || '–'}</i></span>
-                          <span className="cyt-dkv"><b>담당자</b><i>{c.assignee || '–'}</i></span>
-                          <span className="cyt-dkv"><b>생성자</b><i>{c.created_by || '–'}</i></span>
-                          <span className="cyt-dkv"><b>생성일</b><i>{fmtD(c._created_at_pg)}</i></span>
-                          <span className="cyt-dkv"><b>변경일</b><i>{fmtD(c._updated_at_pg)}</i></span>
-                          <span className="cyt-dkv">
-                            <b>진행</b>
-                            <i>{`${t.total}건 · 실행 ${t.done} · Pass ${t.pass} · Fail ${t.fail} · 결함 ${t.iss}`}</i>
-                          </span>
-                          {c.cloned_from ? (
-                            <span className="cyt-dkv"><b>원본</b><i>{c.cloned_from}</i></span>
-                          ) : null}
-                        </div>
-                        {/* 설명 옆이 통째로 비어 있었다(지시 사진 ①②) —
-                            그 자리에 이 회차의 **결과 요약**과 **AI 요약**을 둔다.
-                            줄을 펴는 까닭이 「이 회차가 어땠나」 를 보려는 것이다. */}
-                        {/* 1행 — 전체 현황(가로로 통째). 2행 — 왼쪽 검증 목적,
-                            오른쪽 AI 분석 결과(지시). 줄을 펴는 까닭은
-                            「이 회차가 어땠나」 이므로 그 답이 맨 위에 온다. */}
-                        <div className="cyt-dbody">
-                          {/* 머리글 — 이 칸은 그대로 **메일로 나갈 수 있다**(지시).
-                              그래서 제목 한 줄만 읽어도 「무엇을·어디까지·언제」 가
-                              서게 적는다. 아이콘·색에 기대지 않는다 — 메일에서는
-                              글자만 남는다. */}
-                          <div className="cyt-dhead cyt-dwide">
-                            <h4>
-                              {[c.model, c.version || c.version_group].filter(Boolean).join(' · ')}
-                              {c.name ? ` ${c.name}` : ''} 시험 결과
-                            </h4>
-                            <p>
-                              {t.total > 0
-                                ? `전체 ${t.total}건 중 ${t.done}건 실행 · 합격 ${t.pass} · 실패 ${t.fail}` +
-                                  `${t.total - t.done > 0 ? ` · 미실행 ${t.total - t.done}` : ''}` +
-                                  ` — 합격률 ${Math.round((t.pass / t.total) * 100)}%`
-                                : '아직 항목이 없습니다'}
-                            </p>
-                            <p className="cyt-dhead-m">
-                              {[
-                                c.customer ? `고객 ${c.customer}` : '',
-                                `기간 ${fmtD(c._created_at_pg)} ~ ${fmtD(c._updated_at_pg)}`,
-                                c.assignee ? `담당 ${c.assignee}` : '',
-                                c.status ? `상태 ${c.status}` : '',
-                                c.cid ? `회차 ${c.cid}` : '',
-                              ]
-                                .filter(Boolean)
-                                .join('  ·  ')}
-                            </p>
-                          </div>
-                          <section className="cyt-dpanel">
-                            <b className="cyt-dpt">검증 목적</b>
-                            <div className="cyt-ddesc">
-                              {c.description ? (
-                                <Markdown text={c.description} />
-                              ) : (
-                                <span className="muted small">적어 둔 설명이 없습니다.</span>
-                              )}
-                            </div>
-                          </section>
-
-                          <section className="cyt-dpanel">
-                            <b className="cyt-dpt">시험결과 요약</b>
-                            {t.total === 0 ? (
-                              <span className="muted small">항목이 없습니다.</span>
-                            ) : (
-                              <div className="cyt-d3">
-                                {([
-                                  ['전체', t],
-                                  ['수동', t.manual],
-                                  ['자동', t.auto],
-                                ] as const).map(([lb, z]) => (
-                                  <div className="cyt-dcell" key={lb}>
-                                    <div className="cyt-dcell-h">
-                                      <b>{lb}</b>
-                                      <span className="muted small">
-                                        {z.total}건 · 실행 {z.done}
-                                      </span>
-                                    </div>
-                                    {z.total === 0 ? (
-                                      <span className="muted small">항목 없음</span>
-                                    ) : (
-                                      <>
-                                        <div className="cyt-dwrow">
-                                          <div className="cyt-dsum">
-                                            <b>{Math.round((z.pass / z.total) * 100)}%</b>
-                                            <em>합격률</em>
-                                          </div>
-                                          <span className="cs-bar" aria-hidden="true">
-                                            <i className="cs-b pass" style={{ width: `${(z.pass / z.total) * 100}%` }} />
-                                            <i className="cs-b fail" style={{ width: `${(z.fail / z.total) * 100}%` }} />
-                                            <i
-                                              className="cs-b etc"
-                                              style={{ width: `${(Math.max(0, z.done - z.pass - z.fail) / z.total) * 100}%` }}
-                                            />
-                                            <i className="cs-b left" style={{ width: `${((z.total - z.done) / z.total) * 100}%` }} />
-                                          </span>
-                                        </div>
-                                        <div className="cyt-dlegend">
-                                          <span><i className="cs-d pass" />합격 {z.pass}</span>
-                                          <span><i className="cs-d fail" />실패 {z.fail}</span>
-                                          <span><i className="cs-d left" />미실행 {Math.max(0, z.total - z.done)}</span>
-                                        </div>
-                                      </>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </section>
-
-                          <section className="cyt-dpanel cyt-dwide">
-                            <b className="cyt-dpt">
-                              AI 시험 결과 요약
-                              {c.ai_summary?.at ? (
-                                <em className="muted small">{String(c.ai_summary.at).slice(0, 16)}</em>
-                              ) : null}
-                              <button
-                                className="btn small"
-                                type="button"
-                                disabled={aiBusy === c.id}
-                                title="이 회차의 결과를 LLM 이 읽고 한 장으로 간추립니다 (저장됩니다)"
-                                onClick={() => void makeAi(c.id)}
-                              >
-                                <i className="cy-aimark" aria-hidden="true">
-                                  <IconSparkle />
-                                </i>
-                                {aiBusy === c.id
-                                  ? 'AI 요약 만드는 중…'
-                                  : c.ai_summary?.text
-                                    ? 'AI 요약 재진행'
-                                    : 'AI 요약'}
-                              </button>
-                            </b>
-                            {c.ai_summary?.text ? (
-                              <div className="cyt-dai">
-                                <Markdown text={String(c.ai_summary.text)} />
-                              </div>
-                            ) : (
-                              <span className="muted small">아직 만들지 않았습니다 — 회차를 열고 「AI 요약」 칸에서 만듭니다.</span>
-                            )}
-                          </section>
-                        </div>
-                      </div>
-                    )}
                     {/* 사이클 = 시험항목의 모음 — 펼치면 그 목록이 보인다.
                         여기서는 보기만, 항목을 누르면 실행 화면으로 */}
                     {open && (
@@ -4812,6 +4620,47 @@ function CycleDetail({
             <span className="sp" />
             {/* 이 회차가 어디까지 왔나 — **이 줄 하나**로만 말한다(지시).
                 전체·수동·자동 세 막대. 도는 중이면 앞에 진행이 붙는다. */}
+            <span className="sp" />
+          </div>
+          {/* 2행 — **시험 진행 요약**(지시). 목록에서 사이클 ID 를 눌러
+              펼치던 세부내역이 여기로 왔다. 기본은 접힘 — 돌리는 화면에서
+              늘 펴 두면 절차가 그만큼 밀린다. */}
+          <div className={`cxp-infocard${sumOpen ? ' open' : ''}`}>
+            <button
+              type="button"
+              className="cxp-infoh"
+              aria-expanded={sumOpen}
+              onClick={() => setSumOpen((v) => !v)}
+            >
+              <i aria-hidden="true">{sumOpen ? '▾' : '▸'}</i>
+              <b>시험 진행 요약</b>
+              <span className="muted small">
+                {cycle.cid || cycle.id} · {cycle.model || '–'}
+                {cycle.version ? ` · ${cycle.version}` : ''}
+              </span>
+            </button>
+            {sumOpen && (
+              <div className="cxp-infogrid">
+                <span className="cyt-dkv"><b>사이클 ID</b><i>{cycle.cid || '–'}</i></span>
+                <span className="cyt-dkv"><b>제목</b><i title={cycle.name ?? ''}>{cycle.name || '–'}</i></span>
+                <span className="cyt-dkv"><b>벤더</b><i>{maker || '–'}</i></span>
+                <span className="cyt-dkv"><b>제품군</b><i>{family || '–'}</i></span>
+                <span className="cyt-dkv"><b>모델그룹</b><i>{(cycle.model_group ?? '').trim() || mgroup || '–'}</i></span>
+                <span className="cyt-dkv"><b>모델명</b><i>{cycle.model || '–'}</i></span>
+                <span className="cyt-dkv"><b>상태</b><i>{cycle.status || '–'}</i></span>
+                <span className="cyt-dkv"><b>고객</b><i>{cycle.customer || '–'}</i></span>
+                <span className="cyt-dkv"><b>버전그룹</b><i>{cycle.version_group || '–'}</i></span>
+                <span className="cyt-dkv"><b>버전</b><i>{cycle.version || '–'}</i></span>
+                <span className="cyt-dkv"><b>담당자</b><i>{cycle.assignee || '–'}</i></span>
+                <span className="cyt-dkv"><b>생성자</b><i>{cycle.created_by || '–'}</i></span>
+                <span className="cyt-dkv"><b>생성일</b><i>{String(cycle._created_at_pg ?? '').slice(0, 10) || '–'}</i></span>
+                <span className="cyt-dkv"><b>변경일</b><i>{String(cycle._updated_at_pg ?? '').slice(0, 10) || '–'}</i></span>
+              </div>
+            )}
+          </div>
+
+          {/* 3행 — **사이클 진행**(지시). 전체·수동·자동 막대는 늘 보인다 */}
+          <div className="cxp-progcard">
             {(() => {
               const tally = (xs: CycleItemLite[]) => {
                 let p = 0
@@ -4889,7 +4738,6 @@ function CycleDetail({
                 </span>
               )
             })()}
-            <span className="sp" />
           </div>
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
           <aside className={`cxp-side${''}`} ref={sideRef} style={{ width: sideW }}>

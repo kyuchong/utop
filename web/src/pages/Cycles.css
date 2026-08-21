@@ -7410,3 +7410,46 @@ a.bc-cur:hover { text-decoration: underline; }
 .ask-grp .sq-list { padding: 4px 6px 6px; }
 /* ＋스텝 은 마지막 카드에만 */
 .ask-grp:not(:last-child) .sq-add { display: none; }
+
+/* ── 실행 화면 위 세 줄(지시) ───────────────────────────────────────
+   1행 시험 완료 카드(고정) · 2행 시험 진행 요약(접힘) · 3행 사이클 진행(고정) */
+.cxp-infocard {
+  margin: 0 0 8px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 10px;
+  background: var(--c-surface);
+  overflow: hidden;
+}
+.cxp-infoh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  padding: 7px 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.cxp-infoh > i { font-style: normal; color: var(--c-text-faint); font-size: 11px; }
+.cxp-infoh > b { font-size: var(--fs-md); }
+.cxp-infoh:hover { background: var(--c-primary-bg-soft); }
+.cxp-infogrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 2px 10px;
+  padding: 4px 12px 10px;
+  border-top: 1px solid var(--c-border-soft);
+}
+.cxp-progcard {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin: 0 0 10px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 10px;
+  background: var(--c-surface);
+}
+.cxp-progcard:empty { display: none; }
