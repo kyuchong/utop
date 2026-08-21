@@ -1270,11 +1270,7 @@ export default function TcStepDetail({
               {step.executed_at && (
                 <span className="muted small">{step.executed_at.slice(0, 16).replace('T', ' ')}</span>
               )}
-              {onRun && (
-                <button className="btn small" type="button" onClick={onRun}>
-                  ▶ 이 스텝 실행
-                </button>
-              )}
+              {/* 「이 스텝 실행」 은 뺐다(지시) — 목록의 줄마다 ▶ 가 이미 있다 */}
             </div>
 
             {/* 회차 — 반복 안의 스텝은 회차마다 결과가 다르다.
@@ -1625,7 +1621,7 @@ export default function TcStepDetail({
             ) : (
               <div className="sd-res empty-res">
                 아직 실행하지 않았습니다.
-                {onRun && ' 「▶ 이 스텝 실행」 을 누르면 실제 응답이 여기 나옵니다.'}
+                {onRun && ' 목록에서 이 줄의 ▶ 를 누르면 실제 응답이 여기 나옵니다.'}
               </div>
             )}
           </>
