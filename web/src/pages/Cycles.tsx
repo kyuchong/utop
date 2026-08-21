@@ -867,7 +867,17 @@ export default function Cycles({ me }: PageProps) {
     if (!scope) return false
     const walk = (ns: Node[]): boolean => {
       for (const n of ns) {
-        if (n.key === scope.key) return (n.cycles?.length ?? 0) > 0
+        if (n.key === scope.key) {
+          /*
+           * 회차를 **담을 수 있는 자리**면 목록을 보여 준다.
+           *
+           * 여태 「지금 든 회차가 있는가」 로만 봐서, 빈 버전그룹을 고르면
+           * 「아직 회차가 없습니다」 한 줄만 나오고 만드는 단추조차 없었다
+           * (지적: 표 리스트라도 나와야 사이클을 추가하지). 아래에 폴더가
+           * 없는 잎이면 그 자리가 곧 버전그룹이다.
+           */
+          return (n.cycles?.length ?? 0) > 0 || (n.children?.length ?? 0) === 0
+        }
         if (scope.key.startsWith(n.key + '/') && walk(n.children)) return true
       }
       return false

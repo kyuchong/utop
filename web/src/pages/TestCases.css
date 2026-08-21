@@ -3337,3 +3337,7 @@ table.tb tr.r-bad td:first-child {
 /* 목록은 남는 높이를 먹고 제 안에서 구른다 — 로그는 손잡이가 준 만큼 */
 .railsec[data-sec='steps'] .tc-seqcol { display: flex; flex-direction: column; min-height: 0; }
 .railsec[data-sec='steps'] .tc-seqcol > .sq { flex: 1; min-height: 0; }
+
+/* 카드 높이는 화면에서 재서 넣지만(TestCases.tsx), 재기 전에도 부모가
+   높이를 갖고 있으면 그대로 채운다 — 첫 그림에서 한 번 출렁이지 않게 */
+.tc-split > .tc-content { align-self: stretch; }

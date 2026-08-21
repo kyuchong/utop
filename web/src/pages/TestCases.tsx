@@ -1450,8 +1450,10 @@ export default function TestCases({ me }: PageProps) {
           // 실행 판을 없앴다. 무슨 일이 있었나는 스텝 줄과 그 줄의
           // Result 에 남는다 — 로그를 따로 쌓아 둘 자리가 없다.
           onLog: (l) => {
-            /* 끈 종류는 로그에 안 찍는다(SETUP → TC Step Action) */
-            if (l.i >= 0 && !actOf(steps[l.i]?.kind).log) return
+            /* 끈 종류는 로그에 안 찍는다(SETUP → TC Step Action).
+               설정을 아직 못 읽었으면 **무엇도 버리지 않는다** — 읽는 사이에
+               나온 줄이 사라지면 「로그가 통째로 없어졌다」 로 보인다. */
+            if (stepActs.data && l.i >= 0 && !actOf(steps[l.i]?.kind).log) return
             const at = new Date()
             setLogs((prev) => {
               const line: LogLine = {
