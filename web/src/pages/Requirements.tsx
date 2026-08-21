@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import IdPill from '@/components/IdPill'
+import PickCell from '@/components/PickCell'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, projectApi, reqApi, tcApi } from '@/api/client'
 import ListHead from '@/components/ListHead'
@@ -324,6 +325,16 @@ export default function Requirements({ me }: Props) {
       window.alert(e instanceof Error ? `저장하지 못했습니다 — ${e.message}` : '저장하지 못했습니다')
     } finally {
       setInfoSaving(false)
+    }
+  }
+
+  /** 목록 줄에서 바로 고친다 — 상태·우선순위(지시) */
+  const setField = async (r: Requirement, p: { status?: string; priority?: string }) => {
+    try {
+      await reqApi.save(reqPk(r), { ...r, ...p })
+      await qc.invalidateQueries({ queryKey: ['req', 'list'] })
+    } catch (e) {
+      window.alert(e instanceof Error ? `저장하지 못했습니다 — ${e.message}` : '저장하지 못했습니다')
     }
   }
 
@@ -1530,19 +1541,30 @@ export default function Requirements({ me }: Props) {
                           case 'f_status':
                             return (
                               <div className="muted small" key={c2.k}>
-                                {r.status || '–'}
+                                <PickCell
+                                  value={r.status ?? ''}
+                                  opts={REQ_STATUS}
+                                  title="상태 — 누르면 고칩니다"
+                                  onSave={(v) => setField(r, { status: v })}
+                                />
                               </div>
                             )
                           case 'f_priority':
                             return (
                               <div key={c2.k}>
-                                {r.priority ? (
-                                  <span className={`rq-prio p-${String(r.priority).toLowerCase()}`}>
-                                    {r.priority}
-                                  </span>
-                                ) : (
-                                  <span className="muted">–</span>
-                                )}
+                                <PickCell
+                                  value={r.priority ?? ''}
+                                  opts={REQ_PRIO}
+                                  title="우선순위 — 누르면 고칩니다"
+                                  onSave={(v) => setField(r, { priority: v })}
+                                  render={(v) =>
+                                    v ? (
+                                      <span className={`rq-prio p-${v.toLowerCase()}`}>{v}</span>
+                                    ) : (
+                                      <span className="muted">–</span>
+                                    )
+                                  }
+                                />
                               </div>
                             )
                           default: {
