@@ -68,9 +68,17 @@ export default function JiraSettings() {
   /** 「지금 되는지 보기」 — 저장된 설정으로 실제 상태를 물어본다 */
   const [chk, setChk] = useState<LoginCheck | null>(null)
   const [chking, setChking] = useState(false)
+  /**
+   * 「지금 되는지 보기」 는 **저장된 설정**을 본다.
+   *
+   * 체크만 하고 저장을 안 한 채 눌러서 「① 꺼져 있습니다」 를 보는 일이
+   * 생겼다(화면 사진) — 화면에는 켜져 있는데 꺼졌다고 하니 말이 안 맞는다.
+   * 그래서 누르면 **먼저 저장하고** 본다.
+   */
   const loadChk = async () => {
     setChking(true)
     try {
+      await apiFetch('/api/jira/config', { method: 'POST', body: JSON.stringify(cfg) })
       const r = await apiFetch('/api/jira/login-check')
       setChk(r.ok ? ((await r.json()) as LoginCheck) : null)
     } finally {
@@ -284,7 +292,7 @@ export default function JiraSettings() {
                   disabled={chking}
                   onClick={() => void loadChk()}
                 >
-                  {chking ? '보는 중…' : '지금 되는지 보기'}
+                  {chking ? '보는 중…' : '저장하고 지금 되는지 보기'}
                 </button>
                 {chk && (
                   <>
@@ -293,7 +301,7 @@ export default function JiraSettings() {
                     </span>
                     <span className={`acc-chk ${chk.url ? 'ok' : 'bad'}`}>
                       {chk.url
-                        ? `② 로그인 주소 ${chk.url}${chk.separate ? ' (이슈용과 따로)' : ' (이슈용과 같음)'}`
+                        ? `② 로그인 주소 ${chk.url}${chk.separate ? ' (이슈용과 따로)' : ' (이슈용과 같음 — 사람 확인용 Jira 가 따로면 위에 적으세요)'}`
                         : '② 주소가 없습니다 — 「연결」에 Jira URL 을 넣으세요'}
                     </span>
                     <span className={`acc-chk ${chk.reachable ? 'ok' : 'bad'}`}>
