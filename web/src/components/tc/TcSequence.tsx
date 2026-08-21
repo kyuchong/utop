@@ -140,7 +140,7 @@ export default function TcSequence({
   }
 
   return (
-    <div className="sq">
+    <div className={`sq${readOnly ? ' sq-ro' : ''}`}>
       <div className="sq-scroll">
         <div className="sq-list">
         {steps.length - hidden === 0 ? (

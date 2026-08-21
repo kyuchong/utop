@@ -388,7 +388,10 @@ export default function TcStepDetail({
         )}
       </div>
 
-      <div className="sd-body" {...(readOnly ? { inert: '' as unknown as boolean } : {})}>
+      {/* `inert` 는 참·거짓으로 준다 — 빈 글자로 주면 React 19 가 거짓으로
+          보고 통째로 빼 버려서 **잠기지 않았다**(지적). 손이 안 닿게 css 로도
+          한 번 더 막는다. */}
+      <div className={`sd-body${readOnly ? ' sd-ro' : ''}`} inert={readOnly || undefined}>
         {/* 지우지 않고 잠시 빼두는 일이 잦다 */}
         <label className="sd-chk">
           <input

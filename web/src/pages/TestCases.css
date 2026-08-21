@@ -3083,3 +3083,20 @@ table.tb tr.r-bad td:first-child {
   color: var(--c-primary-ink, #12539f);
 }
 .sq-row.head.on { background: #dbe9fb; }
+
+/* ── 보기만 하는 판 — 가져온 시험을 그대로 도는 자리(AI 「일반」) ────── */
+.sd-body.sd-ro { pointer-events: none; user-select: text; }
+.sd-body.sd-ro input,
+.sd-body.sd-ro select,
+.sd-body.sd-ro textarea {
+  background: #f7f9fb;
+  color: var(--c-text-muted);
+  border-color: var(--c-border-soft);
+}
+/* 응답·판정 칩은 읽어야 하니 글자는 고를 수 있게 둔다 */
+.sd-body.sd-ro .sd-res,
+.sd-body.sd-ro .sd-chips { pointer-events: auto; }
+.sd-body.sd-ro .sd-chip button,
+.sd-body.sd-ro .bv-b { pointer-events: none; }
+/* 여러 줄 고르기 체크칸은 고칠 수 있을 때만(지시) */
+.sq-ro .sq-pick { display: none; }
