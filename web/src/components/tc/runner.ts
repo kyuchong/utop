@@ -1710,8 +1710,19 @@ export async function runSteps(
     if (only) {
       // 한 줄만 돌릴 때는 블록을 펴지 않는다. If 의 몸통까지 따라가면
       // '이 스텝만' 이라는 말과 어긋난다.
+      /*
+       * 회차 값을 깔았다는 말은 **그 줄이 회차를 쓸 때만** 한다.
+       *
+       * 메시지 한 줄을 눌러 봤을 뿐인데 「회차 ${i} 는 1 로 봅니다」 가
+       * 먼저 뜨면, 무슨 일이 난 줄 안다(지적). 쓰지도 않는 값의 안내는
+       * 안내가 아니라 잡음이다.
+       */
       const lv = loopVarAt(ctx.steps, from)
-      if (lv && vars[lv] !== undefined)
+      const st0 = ctx.steps[from]
+      const usesLv =
+        !!lv &&
+        JSON.stringify(st0 ?? {}).includes('${' + lv + '}')
+      if (lv && usesLv && vars[lv] !== undefined)
         ctx.onLog({
           i: from,
           kind: 'info',

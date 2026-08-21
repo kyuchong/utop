@@ -1028,15 +1028,14 @@ export default function TcStepDetail({
                 모르면 「메시지에 무엇을 쓸 수 있나」 를 물어볼 데가 없다. */}
             {kind === 'message' && (
               <span className="sd-hint">
-                <b>{'${_verdict}'}</b> 바로 앞 스텝의 판정(합격·불합격) ·{' '}
-                <b>{'${_verdict_en}'}</b> PASS·FAIL
+                넣을 수 있는 값:{' '}
                 {loopVar && (
                   <>
-                    {' '}
-                    · <b>{'${' + loopVar + '}'}</b> 지금 회차
+                    <b>{'${' + loopVar + '}'}</b> 지금 회차 ·{' '}
                   </>
-                )}{' '}
-                · 뽑아 둔 변수도 그대로 씁니다
+                )}
+                <b>{'${_verdict}'}</b> 바로 앞 스텝이 합격인지 불합격인지 · 뽑아 둔 변수(
+                <b>{'${cli_port}'}</b> 같은 것)
               </span>
             )}
           </label>
