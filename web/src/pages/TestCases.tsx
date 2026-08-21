@@ -82,6 +82,7 @@ import {
   isJudgeStep,
   needsDevice,
   sessionIndex,
+  stepNumbers,
   stepResult,
   stepStatus,
   stepSummary,
@@ -2086,10 +2087,15 @@ export default function TestCases({ me }: PageProps) {
                     loopVar={loopVarAt(shownSteps, stepIdx)}
                     onInsertAfter={(arr) => stepIdx >= 0 && insertAfter(stepIdx, arr)}
                     /* If 가 「몇 번 스텝으로 이동」 을 고를 수 있게 목록을 넘긴다 */
-                    stepList={shownSteps.map((x, k) => ({
-                      i: k,
-                      label: `${k + 1}. ${String(x.kind ?? 'cli')} ${stepSummary(x)}`.slice(0, 60),
-                    }))}
+                    /* 목록에 보이는 번호(2.1 · 2.1.1)를 그대로 쓴다 —
+                       고르개만 1,2,3 이면 어느 줄인지 못 찾는다(지적) */
+                    stepList={(() => {
+                      const nos = stepNumbers(shownSteps, (x) => x.kind === 'manual')
+                      return shownSteps.map((x, k) => ({
+                        i: k,
+                        label: `${nos[k] || k + 1}  ${stepSummary(x) || String(x.kind ?? 'cli')}`.slice(0, 60),
+                      }))
+                    })()}
                   />
                   )}
                 </section>

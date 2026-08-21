@@ -7,6 +7,7 @@ import {
   isNoteKind,
   sessionIndex,
   stepKindInfo,
+  stepNumbers,
   stepStatus,
   stepSummary,
   type StepKind,
@@ -105,23 +106,9 @@ export default function TcSequence({
    * 감춘 줄(수동 스텝)은 번호를 먹지 않는다. 여기 안 나오는 줄이 번호를
    * 가져가면 3,5,6 처럼 끊겨서 잘못된 것처럼 보인다.
    */
-  const numbers: string[] = []
-  {
-    const stack: number[] = []
-    steps.forEach((s, i) => {
-      if (hide?.(s)) {
-        numbers[i] = ''
-        return
-      }
-      // 한 번에 두 칸 이상 깊어질 수는 없다. 자료가 그래도 1.0.1 같은
-      // 번호가 나오지 않게 막는다.
-      const want = Math.min(Math.max(Number(s.indent) || 0, 0), 4)
-      const d = Math.min(want, stack.length)
-      stack.length = d + 1
-      stack[d] = (stack[d] ?? 0) + 1
-      numbers[i] = stack.slice(0, d + 1).join('.')
-    })
-  }
+  /** 목록 번호 — 고르개(If 의 「이동」)도 같은 것을 쓴다 */
+  const numbers = stepNumbers(steps, hide)
+
   /** 한 줄 요약. 접속 계열은 세션 이름이 곧 내용이라 여기서 붙인다. */
   const summary = (s: TcStep) => {
     const k = s.kind || 'cli'

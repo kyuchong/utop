@@ -708,6 +708,29 @@ export function isJudgeStep(s: TcStep): boolean {
   )
 }
 
+/**
+ * 목록에 보이는 **계층 번호**(2.1 · 2.1.1 …).
+ *
+ * 목록과 다른 번호를 쓰면 「If 가 몇 번으로 간다」 를 못 읽는다(지적:
+ * 다음 줄로 고르개에 번호가 연달아 있다). 한 곳에서 만들어 둘 다 쓴다.
+ */
+export function stepNumbers(steps: TcStep[], hide?: (s: TcStep) => boolean): string[] {
+  const out: string[] = []
+  const stack: number[] = []
+  steps.forEach((s, i) => {
+    if (hide?.(s)) {
+      out[i] = ''
+      return
+    }
+    const want = Math.min(Math.max(Number(s.indent) || 0, 0), 4)
+    const d = Math.min(want, stack.length)
+    stack.length = d + 1
+    stack[d] = (stack[d] ?? 0) + 1
+    out[i] = stack.slice(0, d + 1).join('.')
+  })
+  return out
+}
+
 /** 2열에 한 줄로 보일 요약. 종류마다 읽어야 할 값이 다르다. */
 export function stepSummary(s: TcStep): string {
   const k = s.kind || 'cli'
