@@ -92,9 +92,19 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
     return m
   }, [locks.data])
 
-  const devices = devQ.data?.devices ?? []
+  /**
+   * 계측기는 이 화면이 다루지 않는다(지시).
+   *
+   * 왼쪽 메뉴에 계측기 화면(Traffic Gen)이 따로 있고, 거기가 제품군
+   * 「계측기」 인 장비만 본다. 여기는 **시험 대상 장비**만 맡는다 —
+   * 섞이면 랩마다 대수가 안 맞고, 접속 칸(Telnet·SSH)도 계측기에는 뜻이 없다.
+   */
+  const METER = '계측기'
+  const devices = (devQ.data?.devices ?? []).filter((d) => String(d.role ?? '').trim() !== METER)
   const items = catQ.data?.items ?? []
-  const models = items.filter((i) => i.kind === 'model')
+  const models = items.filter(
+    (i) => i.kind === 'model' && String(i.family ?? '').trim() !== METER,
+  )
   const listOf = (kind: string) => items.filter((i) => i.kind === kind).map((i) => i.name)
   const modelBy = useMemo(() => new Map(models.map((m) => [m.name, m])), [models])
 

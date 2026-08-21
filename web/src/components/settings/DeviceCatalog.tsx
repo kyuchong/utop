@@ -61,6 +61,14 @@ export default function DeviceCatalog({
      트리, 엣지는 모델 목록이 떠 「같은 페이지인데 다르다」 로 보였다. */
   const [view, setView] = useState<'cls' | 'models' | 'tree'>(only === 'admin' ? 'cls' : 'tree')
   const pickView = (v: 'cls' | 'models' | 'tree') => setView(v)
+  /**
+   * 계측기를 함께 볼까.
+   *
+   * 장비 화면은 계측기를 뺐다(왼쪽 메뉴에 계측기 화면이 따로 있다).
+   * 그렇다고 카탈로그에서까지 지우면 계측기의 제품군·모델을 **만들 자리가
+   * 없어진다** — 그래서 여기서는 감추기만 하고, 손봐야 할 때 켠다.
+   */
+  const [meter, setMeter] = useState(false)
   /** 트리에서 고른 자리 — LAB(거르개) · 벤더 › 제품군 › 모델그룹 */
   const [tven, setTven] = useState('')
   const [tfam, setTfam] = useState('')
@@ -99,7 +107,15 @@ export default function DeviceCatalog({
     },
     staleTime: 60_000,
   })
-  const all = listQ.data?.items ?? []
+  const METER = '계측기'
+  const all = (listQ.data?.items ?? []).filter(
+    (i) =>
+      meter ||
+      !(
+        (i.kind === 'family' && i.name === METER) ||
+        (i.kind === 'model' && String(i.family ?? '').trim() === METER)
+      ),
+  )
   const of = (kind: string) => all.filter((i) => i.kind === kind)
   const models = of('model')
   const lists: Record<string, Item[]> = {
@@ -594,6 +610,15 @@ export default function DeviceCatalog({
                   <b>모델</b>
                   <span className="muted small">{shown.length}</span>
                   <span className="sp" />
+                  {/* 계측기는 평소 감춘다 — 손볼 때만 켠다(지시) */}
+                  <label className="dcc-meter" title="계측기의 제품군·모델까지 함께 봅니다">
+                    <input
+                      type="checkbox"
+                      checked={meter}
+                      onChange={(e) => setMeter(e.target.checked)}
+                    />
+                    <span>계측기 포함</span>
+                  </label>
                 </div>
                 {/* 왼쪽 칸들과 **같은 한 칸**이다(지시) — 이름만 적는다.
                     벤더·제품군·모델그룹은 왼쪽에서 고른 자리를 물려받는다.

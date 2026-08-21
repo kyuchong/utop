@@ -1455,3 +1455,15 @@ button.dcc-st:disabled { cursor: default; }
 }
 /* 알림만 있는 머리줄 */
 .set-page.dc2 > .dcc-head { display: flex; align-items: center; min-height: 0; }
+
+/* 「계측기 포함」 — 모델 카드 머리 오른쪽의 작은 스위치 */
+.dcc-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.dcc-meter input { margin: 0; }
