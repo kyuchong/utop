@@ -584,11 +584,28 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 
 /* ── List 모드 — 폴더 안 요구사항 표 (Zephyr 방식) ──────────────
    ID · Name · Map Test Case · Coverage · Priority. 한 줄 클릭 → 상세. */
+/*
+ * 시험항목 목록과 **같은 눈금**으로 둔다(지시).
+ *
+ * 이 화면만 목록에 여백(sp-3/sp-4)과 줄 간격을 따로 두어서, 같은 표가
+ * 화면마다 다르게 앉았다. 시험항목처럼 여백 0 · 간격 0 으로 두고,
+ * 자리는 일 줄(46px) → 12px → 줄들이 정한다.
+ */
 .rq-listcol .rq-list {
   overflow-x: auto;
-  /* 찾기 줄과 Select All 사이가 벌었다 — 목록 위 여백과 줄 간격을 줄인다 */
-  padding-top: 4px;
-  gap: 6px;
+  padding: 0;
+  gap: 0;
+}
+/* 표 테두리도 뺀다 — 1px 이 첫 줄을 밀어 1열과 어긋난다(시험항목과 같게) */
+.rq-listcol .rq-table {
+  border: 0;
+  border-radius: 0;
+}
+.rq-listcol .rq-tr.rq-th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  min-height: var(--row-h);
 }
 /* 표 상자가 제 폭에 갇힌 채 안에서 내용을 잘랐다(overflow:hidden) —
    바깥 목록은 넘친 줄을 모르니 스크롤이 안 생겼다. 상자가 내용만큼
@@ -895,12 +912,15 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 .rq-ck input { margin: 0; }
 .rq-tr.picked { background: var(--c-primary-bg); }
 
-/* Select All | Selected : N */
+/* Select All | Selected : N — 시험항목과 같은 자리·같은 높이(지시) */
 .rq-selbar {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 4px 2px;
+  margin-top: 12px;
+  min-height: var(--row-h);
+  box-sizing: border-box;
+  padding: 0 var(--row-px);
 }
 .rq-selall {
   display: inline-flex;
