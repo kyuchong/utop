@@ -1787,6 +1787,29 @@ export default function TestCases({ me }: PageProps) {
                 {/* 목록 */}
                 <section className="panel tc-seqcol" style={{ flexBasis: seqW }}>
                   <div className="tc-run">
+                    {/* 줄 고르기 — 여태 한 줄씩만 눌러야 했다(지적).
+                        모두 고르고 한 번에 건너뛰기·삭제하는 일이 흔하다. */}
+                    <input
+                      type="checkbox"
+                      className="tc-runall"
+                      title={
+                        picked.size === shownSteps.length && shownSteps.length > 0
+                          ? '모두 풀기'
+                          : '모두 고르기'
+                      }
+                      aria-label="모든 줄 고르기"
+                      checked={picked.size > 0 && picked.size === shownSteps.length}
+                      ref={(el) => {
+                        if (el) el.indeterminate = picked.size > 0 && picked.size < shownSteps.length
+                      }}
+                      onChange={() =>
+                        setPicked(
+                          picked.size === shownSteps.length
+                            ? new Set()
+                            : new Set(shownSteps.map((_, k) => k)),
+                        )
+                      }
+                    />
                     <button
                       className="btn small primary"
                       type="button"
