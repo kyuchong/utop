@@ -282,13 +282,22 @@ export default function TestCases({ me }: PageProps) {
    * 창 바닥까지를 준다 — 모니터가 무엇이든 딱 맞는다.
    */
   const paneRef = useRef<HTMLDivElement | null>(null)
+  /** 카드(오른쪽 큰 칸) 자체 — 이것이 안 자라면 안을 늘려도 소용없다 */
+  const cardRef = useRef<HTMLDivElement | null>(null)
   const [paneH, setPaneH] = useState(0)
   useEffect(() => {
     const fit = () => {
+      const card = cardRef.current
+      if (card) {
+        /* 카드를 창 바닥까지 늘린다. 바깥 짜임이 어떻든 이 한 줄이 이긴다 —
+           화면마다 아래가 남던 것이 여기였다(지적 ×3). */
+        const t = card.getBoundingClientRect().top
+        card.style.height = `${Math.max(420, Math.round(window.innerHeight - t - 12))}px`
+      }
       const el = paneRef.current
       if (!el) return
       const top = el.getBoundingClientRect().top
-      const next = Math.max(360, Math.round(window.innerHeight - top - 14))
+      const next = Math.max(320, Math.round(window.innerHeight - top - 14))
       setPaneH((cur) => (Math.abs(cur - next) > 2 ? next : cur))
     }
     fit()
@@ -2002,7 +2011,10 @@ export default function TestCases({ me }: PageProps) {
                   )}
                   {/* 실행 로그 — 줄 단위로 색이 있는 판(지시: iTest 처럼).
                       목록 아래에 붙여 두면 도는 것을 곁눈으로 볼 수 있다. */}
-                  {logs.length > 0 && (
+                  {/* 실행 로그는 **늘 보인다**(지시). 돌리기 전에는 「아직
+                      돌리지 않았습니다」 라고 적힌 채 자리를 지킨다 — 나타났다
+                      사라지면 그때마다 목록 높이가 출렁인다. */}
+                  {true && (
                     <>
                       {/* 위아래로 잡아 끄는 손잡이 — 목록과 로그의 몫을 나눈다 */}
                       <div
@@ -2536,7 +2548,7 @@ export default function TestCases({ me }: PageProps) {
         {/* 오른쪽은 늘 한 칸이다. 그 안에서 탭이 무엇을 보여줄지 정하고,
             Automation 일 때만 다시 좌우로 나뉜다. 바깥 칸 수가 탭마다
             달라지면 옮길 때마다 화면이 통째로 흔들린다. */}
-        <div className="tc-content">
+        <div className="tc-content" ref={cardRef}>
           {view === 'detail' && openId && !gpOpen && detHead}
         {gpOpen ? (
           /* 파일 목록까지 통째로 — `only` 를 안 준다. 하나만 주면 옆의

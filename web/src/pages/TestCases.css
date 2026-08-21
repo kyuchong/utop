@@ -3333,3 +3333,7 @@ table.tb tr.r-bad td:first-child {
   background: var(--c-border);
 }
 .tc-vsplit:hover::before { background: var(--c-primary); }
+
+/* 목록은 남는 높이를 먹고 제 안에서 구른다 — 로그는 손잡이가 준 만큼 */
+.railsec[data-sec='steps'] .tc-seqcol { display: flex; flex-direction: column; min-height: 0; }
+.railsec[data-sec='steps'] .tc-seqcol > .sq { flex: 1; min-height: 0; }
