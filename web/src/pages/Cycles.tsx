@@ -4617,50 +4617,8 @@ function CycleDetail({
               </button>
             )}
             <span className="cy-execslot" id="cy-execbar" />
-            <span className="sp" />
-            {/* 이 회차가 어디까지 왔나 — **이 줄 하나**로만 말한다(지시).
-                전체·수동·자동 세 막대. 도는 중이면 앞에 진행이 붙는다. */}
-            <span className="sp" />
-          </div>
-          {/* 2행 — **시험 진행 요약**(지시). 목록에서 사이클 ID 를 눌러
-              펼치던 세부내역이 여기로 왔다. 기본은 접힘 — 돌리는 화면에서
-              늘 펴 두면 절차가 그만큼 밀린다. */}
-          <div className={`cxp-infocard${sumOpen ? ' open' : ''}`}>
-            <button
-              type="button"
-              className="cxp-infoh"
-              aria-expanded={sumOpen}
-              onClick={() => setSumOpen((v) => !v)}
-            >
-              <i aria-hidden="true">{sumOpen ? '▾' : '▸'}</i>
-              <b>시험 진행 요약</b>
-              <span className="muted small">
-                {cycle.cid || cycle.id} · {cycle.model || '–'}
-                {cycle.version ? ` · ${cycle.version}` : ''}
-              </span>
-            </button>
-            {sumOpen && (
-              <div className="cxp-infogrid">
-                <span className="cyt-dkv"><b>사이클 ID</b><i>{cycle.cid || '–'}</i></span>
-                <span className="cyt-dkv"><b>제목</b><i title={cycle.name ?? ''}>{cycle.name || '–'}</i></span>
-                <span className="cyt-dkv"><b>벤더</b><i>{maker || '–'}</i></span>
-                <span className="cyt-dkv"><b>제품군</b><i>{family || '–'}</i></span>
-                <span className="cyt-dkv"><b>모델그룹</b><i>{(cycle.model_group ?? '').trim() || mgroup || '–'}</i></span>
-                <span className="cyt-dkv"><b>모델명</b><i>{cycle.model || '–'}</i></span>
-                <span className="cyt-dkv"><b>상태</b><i>{cycle.status || '–'}</i></span>
-                <span className="cyt-dkv"><b>고객</b><i>{cycle.customer || '–'}</i></span>
-                <span className="cyt-dkv"><b>버전그룹</b><i>{cycle.version_group || '–'}</i></span>
-                <span className="cyt-dkv"><b>버전</b><i>{cycle.version || '–'}</i></span>
-                <span className="cyt-dkv"><b>담당자</b><i>{cycle.assignee || '–'}</i></span>
-                <span className="cyt-dkv"><b>생성자</b><i>{cycle.created_by || '–'}</i></span>
-                <span className="cyt-dkv"><b>생성일</b><i>{String(cycle._created_at_pg ?? '').slice(0, 10) || '–'}</i></span>
-                <span className="cyt-dkv"><b>변경일</b><i>{String(cycle._updated_at_pg ?? '').slice(0, 10) || '–'}</i></span>
-              </div>
-            )}
-          </div>
-
-          {/* 3행 — **사이클 진행**(지시). 전체·수동·자동 막대는 늘 보인다 */}
-          <div className="cxp-progcard">
+          {/* 전체·수동·자동 막대는 1행 카드 안이다(지시: 원복) —
+              단추 오른쪽 빈자리가 그 자리다. */}
             {(() => {
               const tally = (xs: CycleItemLite[]) => {
                 let p = 0
@@ -4738,7 +4696,48 @@ function CycleDetail({
                 </span>
               )
             })()}
+            <span className="sp" />
+            {/* 이 회차가 어디까지 왔나 — **이 줄 하나**로만 말한다(지시).
+                전체·수동·자동 세 막대. 도는 중이면 앞에 진행이 붙는다. */}
+            <span className="sp" />
           </div>
+          {/* 2행 — **시험 진행 요약**(지시). 목록에서 사이클 ID 를 눌러
+              펼치던 세부내역이 여기로 왔다. 기본은 접힘 — 돌리는 화면에서
+              늘 펴 두면 절차가 그만큼 밀린다. */}
+          <div className={`cxp-infocard${sumOpen ? ' open' : ''}`}>
+            <button
+              type="button"
+              className="cxp-infoh"
+              aria-expanded={sumOpen}
+              onClick={() => setSumOpen((v) => !v)}
+            >
+              <i aria-hidden="true">{sumOpen ? '▾' : '▸'}</i>
+              <b>시험 진행 요약</b>
+              <span className="muted small">
+                {cycle.cid || cycle.id} · {cycle.model || '–'}
+                {cycle.version ? ` · ${cycle.version}` : ''}
+              </span>
+            </button>
+            {sumOpen && (
+              <div className="cxp-infogrid">
+                <span className="cyt-dkv"><b>사이클 ID</b><i>{cycle.cid || '–'}</i></span>
+                <span className="cyt-dkv"><b>제목</b><i title={cycle.name ?? ''}>{cycle.name || '–'}</i></span>
+                <span className="cyt-dkv"><b>벤더</b><i>{maker || '–'}</i></span>
+                <span className="cyt-dkv"><b>제품군</b><i>{family || '–'}</i></span>
+                <span className="cyt-dkv"><b>모델그룹</b><i>{(cycle.model_group ?? '').trim() || mgroup || '–'}</i></span>
+                <span className="cyt-dkv"><b>모델명</b><i>{cycle.model || '–'}</i></span>
+                <span className="cyt-dkv"><b>상태</b><i>{cycle.status || '–'}</i></span>
+                <span className="cyt-dkv"><b>고객</b><i>{cycle.customer || '–'}</i></span>
+                <span className="cyt-dkv"><b>버전그룹</b><i>{cycle.version_group || '–'}</i></span>
+                <span className="cyt-dkv"><b>버전</b><i>{cycle.version || '–'}</i></span>
+                <span className="cyt-dkv"><b>담당자</b><i>{cycle.assignee || '–'}</i></span>
+                <span className="cyt-dkv"><b>생성자</b><i>{cycle.created_by || '–'}</i></span>
+                <span className="cyt-dkv"><b>생성일</b><i>{String(cycle._created_at_pg ?? '').slice(0, 10) || '–'}</i></span>
+                <span className="cyt-dkv"><b>변경일</b><i>{String(cycle._updated_at_pg ?? '').slice(0, 10) || '–'}</i></span>
+              </div>
+            )}
+          </div>
+
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
           <aside className={`cxp-side${''}`} ref={sideRef} style={{ width: sideW }}>
             <div className="cxp-sh">

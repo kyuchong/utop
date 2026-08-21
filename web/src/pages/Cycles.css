@@ -7444,14 +7444,4 @@ a.bc-cur:hover { text-decoration: underline; }
   padding: 4px 12px 10px;
   border-top: 1px solid var(--c-border-soft);
 }
-.cxp-progcard {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  margin: 0 0 10px;
-  border: 1px solid var(--c-border-soft);
-  border-radius: 10px;
-  background: var(--c-surface);
-}
-.cxp-progcard:empty { display: none; }
+
