@@ -7343,9 +7343,7 @@ a.bc-cur:hover { text-decoration: underline; }
   background: var(--c-surface);
   overflow: hidden;
 }
-/* 잇달아 선 카드가 서로 갈리게 색을 돌린다(사진) */
-.ask-grp:nth-child(3n + 2) { --grp: #7c5cd6; --grp-bg: #f3effd; }
-.ask-grp:nth-child(3n) { --grp: #1f8a52; --grp-bg: #eef8f2; }
+/* 색은 파랑 한 벌로 통일한다(지시) — 카드가 갈리는 것은 띠와 여백이 한다 */
 .ask-grp.folded { background: #fbfcfd; }
 .ask-grph {
   display: flex;

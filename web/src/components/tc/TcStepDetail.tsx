@@ -62,6 +62,14 @@ interface Props {
    * 누르게 하지 말고 여기서 한 번에 넣는다.
    */
   block?: { empty: boolean; after: number; wrap: (n: number) => void }
+  /**
+   * 보기만 하는 판.
+   *
+   * AI 화면의 「General AI Assistant」 는 **있는 시험을 골라 그대로 도는**
+   * 자리라 여기서 고치면 안 된다(지시). 옮기기·복제·삭제 줄을 걷고
+   * 알맹이를 통째로 잠근다(`inert`).
+   */
+  readOnly?: boolean
 }
 
 /**
@@ -90,6 +98,7 @@ export default function TcStepDetail({
   meterCfg,
   onGoTraffic,
   block,
+  readOnly = false,
 }: Props) {
   const [picked, setPicked] = useState('')
   /** 눌린 블럭 — [변수로 · 있으면 합격 · 있으면 불합격] 메뉴가 뜬 자리 */
@@ -324,6 +333,9 @@ export default function TcStepDetail({
           스텝 {index + 1} · {info.label}
         </b>
         <span className="sp" />
+        {readOnly && <span className="muted small">가져온 시험 — 보기만 합니다</span>}
+        {!readOnly && (
+        <>
         <button className="btn small" type="button" disabled={index <= 0} onClick={() => onMove(-1)} title="위로">
           ▲
         </button>
@@ -372,9 +384,11 @@ export default function TcStepDetail({
         <button className="btn small danger" type="button" onClick={onRemove}>
           삭제
         </button>
+        </>
+        )}
       </div>
 
-      <div className="sd-body">
+      <div className="sd-body" {...(readOnly ? { inert: '' as unknown as boolean } : {})}>
         {/* 지우지 않고 잠시 빼두는 일이 잦다 */}
         <label className="sd-chk">
           <input

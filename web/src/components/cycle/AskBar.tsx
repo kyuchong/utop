@@ -1279,8 +1279,10 @@ export default function AskBar({ devices }: Props) {
     }
 
     /* 이미 절차가 있으면 **고치는 말**이다(지시) — 장비를 다시 묻거나
-       시험을 새로 고르지 않고 지금 절차를 고친다. */
-    if (draft) {
+       시험을 새로 고르지 않고 지금 절차를 고친다.
+       다만 「일반」 갈래는 있는 시험을 그대로 도는 자리라 고치지 않는다 —
+       거기서 적은 말은 **다시 찾는 말**이다(지시). */
+    if (draft && mode !== 'basic') {
       setFlowLog((v) => [...v, { s: 5, t: '지금 절차를 고치는 중…' }])
       void makePlan(said, usable.find((x) => x.id === devId))
       return
@@ -2248,6 +2250,9 @@ export default function AskBar({ devices }: Props) {
                       const heads = seqSteps
                         .map((x, i) => (x.head ? i : -1))
                         .filter((i) => i >= 0)
+                      /* 「일반」 은 있는 시험을 **그대로 도는** 갈래라 고치지
+                         않는다(지시) — 고칠 것이 있으면 Coverage 에서 고친다 */
+                      const ro = mode === 'basic'
                       const seq = (from: number, to: number, addable: boolean) => (
                         <TcSequence
                           steps={seqSteps.slice(from, to)}
@@ -2268,6 +2273,7 @@ export default function AskBar({ devices }: Props) {
                           }
                           onRun={running || !devId ? undefined : (i) => void run(from + i)}
                           hide={addable ? undefined : (x) => !!x.head}
+                          readOnly={ro}
                         />
                       )
                       if (heads.length < 2) return seq(0, seqSteps.length, true)
@@ -2394,6 +2400,7 @@ export default function AskBar({ devices }: Props) {
                         onRemove={() => removeTcStep(stepAt)}
                         onDuplicate={() => dupTcStep(stepAt)}
                         onRun={running || !devId ? undefined : () => void run(stepAt)}
+                        readOnly={mode === 'basic'}
                       />
                     )}
                   </section>
@@ -2417,7 +2424,9 @@ export default function AskBar({ devices }: Props) {
               className="ask-in"
               value={text}
               placeholder={
-                draft
+                draft && mode === 'basic'
+                  ? '다른 시험을 찾으려면 적으세요 — 예) E6100 SNMP'
+                  : draft
                   ? '고칠 것을 말하세요 — 예) 부하를 50%로 올려줘'
                   : mode === 'basic'
                     ? '무엇을 시험할지 적으면 등록된 시험에서 찾아 드립니다'

@@ -37,6 +37,8 @@ interface Props {
   hide?: (s: TcStep) => boolean
   /** 이 스텝만 실행 */
   onRun?: (i: number) => void
+  /** 보기만 하는 목록 — 「＋ 스텝」 을 감춘다 */
+  readOnly?: boolean
 }
 
 /**
@@ -62,6 +64,7 @@ export default function TcSequence({
   onPick,
   hide,
   onRun,
+  readOnly = false,
 }: Props) {
   const hidden = hide ? steps.filter(hide).length : 0
 
@@ -334,6 +337,7 @@ export default function TcSequence({
         <div className="sq-hidden">수동 스텝 {hidden}개는 「Manual」 탭에 있습니다.</div>
       )}
 
+      {!readOnly && (
       <details className="sq-add">
         <summary>＋ 스텝</summary>
         <div className="sq-add-list">
@@ -355,6 +359,7 @@ export default function TcSequence({
           ))}
         </div>
       </details>
+      )}
         </div>
       </div>
     </div>
