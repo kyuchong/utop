@@ -1032,9 +1032,19 @@ def _jira_verify_flag(cfg: dict) -> bool:
     return True if v is None else bool(v)
 
 
+def _jira_login_base(cfg: dict = None) -> str:
+    """**로그인을 물어볼 Jira 주소.**
+
+    이슈를 등록·조회하는 Jira 와 사람을 확인하는 Jira 가 다를 수 있다(지시:
+    사내에 둘이다). 안 적었으면 이슈 쪽 주소를 그대로 쓴다 — 대개는 같다.
+    """
+    cfg = cfg if cfg is not None else _jira_cfg()
+    return (str(cfg.get("login_url") or "").strip() or str(cfg.get("url") or "").strip()).rstrip("/")
+
+
 def _jira_login_on() -> bool:
     cfg = _jira_cfg()
-    return bool(cfg.get("login_enabled")) and bool(str(cfg.get("url") or "").strip())
+    return bool(cfg.get("login_enabled")) and bool(_jira_login_base(cfg))
 
 
 async def _jira_verify_login(username: str, password: str) -> tuple:
@@ -1047,7 +1057,7 @@ async def _jira_verify_login(username: str, password: str) -> tuple:
     import base64 as _b64
     import httpx
     cfg = _jira_cfg()
-    base = str(cfg.get("url") or "").rstrip("/")
+    base = _jira_login_base(cfg)          # ★ 로그인은 로그인용 주소로
     if not base:
         return None, "no-url"
     basic = _b64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
@@ -13393,7 +13403,7 @@ async def jira_get_config():
 @app.post("/api/jira/config")
 async def jira_save_config(data: dict):
     cur = _jira_cfg()
-    for k in ["url", "user", "token", "auth", "default_project", "default_issuetype", "verify", "fav_projects", "ai", "panel_templates", "login_enabled", "login_auto_create"]:
+    for k in ["url", "user", "token", "auth", "default_project", "default_issuetype", "verify", "fav_projects", "ai", "panel_templates", "login_enabled", "login_auto_create", "login_url"]:
         if k in data:
             cur[k] = data[k]
     save_json(JIRA_FILE, cur)
@@ -13466,6 +13476,7 @@ async def api_users_jira_sync_status(token: str = ""):
     return {
         "ok": True,
         "url": str(cfg.get("url") or ""),
+        "login_url": _jira_login_base(cfg),
         "user": str(cfg.get("user") or ""),
         "login_enabled": bool(cfg.get("login_enabled")),
         "auto_create": _jira_auto_create(),
@@ -13571,10 +13582,12 @@ async def jira_login_check(token: str = ""):
     """
     _require_admin(token)
     cfg = _jira_cfg()
-    url = str(cfg.get("url") or "").strip().rstrip("/")
+    url = _jira_login_base(cfg)
     out = {
         "enabled": bool(cfg.get("login_enabled")),
         "url": url,
+        "issue_url": str(cfg.get("url") or "").strip().rstrip("/"),
+        "separate": bool(str(cfg.get("login_url") or "").strip()),
         "auto_create": _jira_auto_create(),
         "last_fail": dict(_JIRA_LAST_FAIL) or None,
         # Jira Cloud 는 계정 비밀번호로 REST 인증이 안 된다 — 그것을 모르면

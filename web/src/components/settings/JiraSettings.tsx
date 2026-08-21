@@ -16,6 +16,8 @@ interface Cfg {
   login_enabled?: boolean
   /** 처음 들어온 사람을 명단에 자동으로 실을까 (기본 켜짐 = 회원가입 없음) */
   login_auto_create?: boolean
+  /** 로그인을 물어볼 Jira — 이슈용과 다를 때만. 비우면 위 Jira URL */
+  login_url?: string
 }
 
 /** 지금 Jira 로그인이 되는 상태인가 — 안 되는 까닭을 셋으로 가른다 */
@@ -30,6 +32,8 @@ interface LoginCheck {
   /** 인증서 문제(만료 등) — 체크박스 하나면 넘어간다 */
   cert?: boolean
   verify?: boolean
+  issue_url?: string
+  separate?: boolean
   last_fail?: { user?: string; why?: string; at?: string } | null
 }
 
@@ -215,6 +219,19 @@ export default function JiraSettings() {
           </label>
           {cfg.login_enabled && (
             <>
+              {/* 이슈를 등록·조회하는 Jira 와 사람을 확인하는 Jira 가 다를 수
+                  있다(지시: 사내에 둘이다). 비우면 위 주소를 그대로 쓴다 */}
+              <label className="jira-f sub">
+                Jira 로그인 URL
+                <input
+                  value={cfg.login_url ?? ''}
+                  placeholder={`비우면 위 주소 — ${cfg.url || 'https://…'}`}
+                  onChange={(e) => set({ login_url: e.target.value })}
+                />
+                <i className="muted small">
+                  로그인만 다른 Jira 로 물어볼 때 적습니다. 이슈 등록·조회는 위 주소 그대로입니다.
+                </i>
+              </label>
               <label className="jira-ck sub">
                 <input
                   type="checkbox"
@@ -247,7 +264,9 @@ export default function JiraSettings() {
                       {chk.enabled ? '① 켜져 있습니다' : '① 꺼져 있습니다 — 저장하면 켜집니다'}
                     </span>
                     <span className={`acc-chk ${chk.url ? 'ok' : 'bad'}`}>
-                      {chk.url ? `② 주소 ${chk.url}` : '② 주소가 없습니다 — 위에 넣으세요'}
+                      {chk.url
+                        ? `② 로그인 주소 ${chk.url}${chk.separate ? ' (이슈용과 따로)' : ' (이슈용과 같음)'}`
+                        : '② 주소가 없습니다 — 위에 넣으세요'}
                     </span>
                     <span className={`acc-chk ${chk.reachable ? 'ok' : 'bad'}`}>
                       {chk.reachable

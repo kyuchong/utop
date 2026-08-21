@@ -546,7 +546,22 @@
 .jira-f > span { color: var(--c-text-muted); }
 .jira-row { display: flex; gap: 6px; align-items: center; }
 .jira-row select { flex: 1; min-width: 0; }
-.jira-ck { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); }
+/* 체크박스 줄 — 글이 길면 **줄바꿈**이지 칸 나눔이 아니다.
+   flex 로 두면 글자 조각마다 칸이 되어 한 글자씩 세로로 선다(지적: 화면 사진). */
+.jira-ck {
+  display: block;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  padding-left: 20px;
+  position: relative;
+}
+.jira-ck > input[type='checkbox'] {
+  position: absolute;
+  left: 0;
+  top: 2px;
+  margin: 0;
+}
+.jira-ck.sub { margin-left: 18px; }
 .jira-act { display: flex; gap: 6px; margin-top: 4px; }
 .jira-note { margin: 0; }
 .jira-favs {
@@ -1471,3 +1486,7 @@ button.dcc-st:disabled { cursor: default; }
   white-space: nowrap;
 }
 .dcc-meter input { margin: 0; }
+
+/* 로그인 URL 처럼 딸린 칸은 한 칸 들여쓴다 */
+.jira-f.sub { margin-left: 18px; }
+.jira-f.sub i { font-style: normal; }

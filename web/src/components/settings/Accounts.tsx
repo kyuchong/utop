@@ -48,6 +48,8 @@ interface SyncStat {
 
 interface SyncInfo {
   url?: string
+  /** 로그인을 물어보는 Jira — 이슈용과 다를 수 있다 */
+  login_url?: string
   user?: string
   login_enabled?: boolean
   auto_create?: boolean
@@ -247,7 +249,12 @@ export default function Accounts() {
         <div className="acc-row">
           <span className={`acc-dot ${on && ok3 ? 'ok' : 'off'}`} />
           <b>{on && ok3 ? 'Jira 연결 정상' : on ? 'Jira 연결 확인 필요' : 'Jira 로그인 꺼짐'}</b>
-          {info.data?.url && <code>{info.data.url}</code>}
+          {info.data?.login_url && <code title="로그인을 물어보는 Jira">{info.data.login_url}</code>}
+          {info.data?.url && info.data.url.replace(/\/$/, '') !== info.data.login_url && (
+            <span className="muted small" title="이슈 등록·조회에 쓰는 Jira">
+              이슈 {info.data.url}
+            </span>
+          )}
           {info.data?.user && <span className="muted small">조회 계정 {info.data.user}</span>}
           <span className="muted small">
             처음 들어온 사람 {info.data?.auto_create ? '자동 등록함' : '자동 등록 안 함'}

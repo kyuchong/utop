@@ -299,8 +299,6 @@
 }
 
 /* Jira 연동 안의 진단 — 체크박스 아래로 한 칸 들여쓴다 */
-.jira-ck.sub { margin-left: 22px; font-size: var(--fs-sm); }
-.jira-ck.sub b { font-weight: 600; }
 
 /* ── 세 칸 짜임 — 왼쪽 좁히기 · 가운데 명단 · 오른쪽 고른 사람 ───── */
 .acc-main {
