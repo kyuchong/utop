@@ -815,7 +815,9 @@ export default function AskBar({ devices }: Props) {
     const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}`)
     if (!r.ok) throw new Error('시험을 불러오지 못했습니다')
     const b = (await r.json()) as { name?: string; object_md?: string; checks?: TcStep[] }
-    const raw = (b.checks ?? []) as TcStep[]
+    /* 수동 스텝은 가져오지 않는다(지시) — 이 화면은 장비로 보내 도는 자리라
+       사람이 손으로 하는 절차는 할 일이 없다. Coverage 의 Manual 탭이 맡는다. */
+    const raw = ((b.checks ?? []) as TcStep[]).filter((x) => String(x.kind ?? '') !== 'manual')
     /* 보여 주기용 줄 — **한 톨도 버리지 않는다.**
        손으로 골라 옮기다가 판정 기준·Comment 글·기대 결과 같은 것이
        빠졌다(지적). 원본을 통째로 펼치고 화면이 읽는 이름만 덧댄다. */

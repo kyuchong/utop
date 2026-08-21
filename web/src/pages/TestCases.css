@@ -3100,3 +3100,11 @@ table.tb tr.r-bad td:first-child {
 .sd-body.sd-ro .bv-b { pointer-events: none; }
 /* 여러 줄 고르기 체크칸은 고칠 수 있을 때만(지시) */
 .sq-ro .sq-pick { display: none; }
+
+/* 체크칸을 감춘 목록(AI 「일반」)에서는 안내선 자리도 그만큼 당긴다.
+   `--gx` 는 왼쪽부터 잰 **고정 값**이라, 앞 칸이 하나 빠지면 선이 아이콘과
+   어긋난다(지적: 들여쓰기가 이상하다). 체크칸(13px)과 사이 여백(8px)만큼. */
+.sq-ro .sq-row[data-depth="1"] { --gx: 92px; }
+.sq-ro .sq-row[data-depth="2"] { --gx: 108px; }
+.sq-ro .sq-row[data-depth="3"] { --gx: 124px; }
+.sq-ro .sq-row[data-depth="4"] { --gx: 140px; }
