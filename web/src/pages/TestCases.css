@@ -589,15 +589,23 @@
 }
 .sq-row[data-kid='last']::before { bottom: 50%; }
 
-/* 가로 — 그 줄로 들어가는 갈래 */
+/* 가로 — 그 줄로 들어가는 갈래.
+   9px 로 그으면 그 줄이 **블록일 때** 자기 접기 단추의 왼쪽 끝(gx+9)과
+   딱 붙어 선이 단추를 뚫고 지나가는 것처럼 보였다(지적). 두 칸 물린다. */
 .sq-row[data-kid]::after {
   content: '';
   position: absolute;
   left: var(--gx);
   top: 50%;
-  width: 9px;
+  width: 6px;
   height: 1px;
   background: var(--c-border);
+}
+
+/* 접기 단추는 선 위에 있다 — 겹치면 단추가 선의 일부로 읽힌다 */
+button.sq-caret {
+  position: relative;
+  z-index: 1;
 }
 
 /* 접기 단추 자리. 블록이 아닌 줄에도 같은 폭을 비워 둔다 — 안 그러면
