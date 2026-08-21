@@ -362,6 +362,14 @@ export default function AskBar({ devices }: Props) {
   >([])
   /** 창에서 고른 트리 마디 id. 빈 글자면 전부 */
   const [tcFold, setTcFold] = useState('')
+  /**
+   * 골라진 트리 마디의 DOM.
+   *
+   * 「E6100 시스템 정보 조회」 처럼 말에 자리가 있으면 창이 열리자마자
+   * 그 마디로 스크롤한다. 없으면 사람은 트리 맨 위만 보고 「고른 게 없다」
+   * 고 여긴다 — 뿌리 아래 다섯 층까지 들어가는 마디는 안 보이는 자리에 있다.
+   */
+  const tcSelRef = useRef<HTMLDivElement | null>(null)
   /** 펼쳐 둔 마디 */
   const [tcOpen, setTcOpen] = useState<Set<string>>(new Set())
   /** 체크한 시험 항목들 — 여러 건을 한 절차로 묶어 돌린다 */
@@ -405,6 +413,26 @@ export default function AskBar({ devices }: Props) {
       { n: 5, name: '생성 완료', skip: '', done: made },
     ]
   }
+
+  /*
+   * 시험 항목 창이 열리면 골라 둔 마디로 굴린다.
+   *
+   * 상태는 맞게 들어가 있다 — 「111. LGUPLUS E6100 > SYSTEM > 시스템 정보
+   * 조회」 처럼 뿌리에서 세 층 아래여도 tcFold 는 정확히 그 자리를 가리킨다.
+   * 그러나 트리는 맨 위부터 그리므로 사람은 그 마디를 못 본다. `on` 이 붙어
+   * 있어도 화면 밖이면 없는 것과 같다(지적).
+   *
+   * ref 는 지금 골라진 줄에만 붙는다(아래 line()). 창이 뜬 다음 프레임에
+   * 페인트가 끝나면 그 자리로 굴려 준다. 굴리기만 하고 focus() 는 안 잡는다 —
+   * 트리에 커서를 두면 아래 찾기 칸에서 바로 못 친다.
+   */
+  useEffect(() => {
+    if (!likeAsk || !tcFold) return
+    const t = window.setTimeout(() => {
+      tcSelRef.current?.scrollIntoView({ block: 'center' })
+    }, 0)
+    return () => window.clearTimeout(t)
+  }, [likeAsk, tcFold])
 
   // 무엇을 시킬 수 있는지 — 빈 화면에 예시가 없으면 사람은 아무것도 못 친다
   useEffect(() => {
@@ -2658,7 +2686,10 @@ export default function AskBar({ devices }: Props) {
               </button>
             </div>
             <div className="ask-tcfind">
+              {/* 창이 열리면 여기에 커서가 온다. 자리가 안 잡히면 사람이
+                  키보드로 곧바로 찾을 수가 없어 마우스로 다시 눌러야 한다. */}
               <input
+                autoFocus
                 value={tcFind}
                 placeholder="항목 이름 · TC 번호 · 모델로 찾기"
                 onChange={(e) => setTcFind(e.target.value)}
@@ -2729,6 +2760,7 @@ export default function AskBar({ devices }: Props) {
                   return (
                     <div key={nd.id}>
                       <div
+                        ref={tcFold === nd.id ? tcSelRef : undefined}
                         className={`rt-req tt-req${tcFold === nd.id ? ' on' : ''}`}
                         role="button"
                         tabIndex={0}
@@ -2757,6 +2789,7 @@ export default function AskBar({ devices }: Props) {
                 return (
                   <div key={nd.id}>
                     <div
+                      ref={tcFold === nd.id ? tcSelRef : undefined}
                       className={`rt-fold${tcFold === nd.id ? ' on' : ''}${nd.depth === 0 ? ' rt-top' : ''}`}
                       role="button"
                       tabIndex={0}
