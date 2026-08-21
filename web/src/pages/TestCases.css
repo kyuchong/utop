@@ -3266,9 +3266,20 @@ table.tb tr.r-bad td:first-child {
 .sd-goto.no { border-color: #f0c8c8; background: #fefafa; color: #a02323; }
 .sd-say { width: 100%; }
 
-/* Diff 안의 두 문구 — 맞으면 초록, 다르면 붉음 */
-.sd-say2 { display: flex; gap: 8px; flex-wrap: wrap; }
-.sd-say2 > label { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-xs); color: var(--c-text-faint); }
+/* Diff 안의 두 문구 — **한 줄에**(지시). 맞으면 초록, 다르면 붉음.
+   접히면 두 줄이 되어 판정 기준 칸이 밀린다. 이름표는 칸 앞에 붙인다. */
+.sd-say2 { display: flex; gap: 8px; flex-wrap: nowrap; align-items: center; }
+.sd-say2 > label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+}
+.sd-say2 > label > span { flex: none; }
+.sd-say2 .sd-say { min-width: 0; }
 
 /* 실행 줄 맨 앞의 「모두 고르기」 — 목록의 체크박스와 같은 세로선에 선다 */
 .tc-runall { width: 15px; height: 15px; margin: 0 3px 0 1px; }
