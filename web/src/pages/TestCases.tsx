@@ -2083,6 +2083,11 @@ export default function TestCases({ me }: PageProps) {
                     block={blockInfo}
                     loopVar={loopVarAt(shownSteps, stepIdx)}
                     onInsertAfter={(arr) => stepIdx >= 0 && insertAfter(stepIdx, arr)}
+                    /* If 의 「거짓일 때」 는 몸통 **뒤**에 와야 한다 —
+                       바로 뒤에 넣으면 참일 때 도는 줄이 되어 버린다 */
+                    onInsertAfterBlock={(arr) =>
+                      stepIdx >= 0 && insertAfter(blockEnd(steps, stepIdx) - 1, arr)
+                    }
                   />
                   )}
                 </section>

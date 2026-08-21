@@ -81,6 +81,8 @@ interface Props {
   loopVar?: string
   /** 이 스텝 **바로 뒤에** 여러 줄을 끼운다 (「결과 문구 붙이기」) */
   onInsertAfter?: (steps: TcStep[]) => void
+  /** 이 스텝의 **몸통 뒤에** 끼운다 — If 의 「거짓일 때」 가 그 자리다 */
+  onInsertAfterBlock?: (steps: TcStep[]) => void
 }
 
 /**
@@ -111,6 +113,7 @@ export default function TcStepDetail({
   block,
   loopVar,
   onInsertAfter,
+  onInsertAfterBlock,
   readOnly = false,
 }: Props) {
   const [picked, setPicked] = useState('')
@@ -119,6 +122,11 @@ export default function TcStepDetail({
   const [tblOpen, setTblOpen] = useState(false)
   /** 「표에서 값 뽑기」 판 — 판정이 아니라 변수를 만드는 자리(Response Map) */
   const [capOpen, setCapOpen] = useState(false)
+  /* If 의 두 갈래를 그 자리에서 만든다 — 변수 하나 고르고 글자 적으면 끝 */
+  const [yesTx, setYesTx] = useState('')
+  const [yesV, setYesV] = useState('')
+  const [noTx, setNoTx] = useState('')
+  const [noV, setNoV] = useState('')
   /** 펼쳐 본 회차. 0 이면 안 폈다 */
   const [round, setRound] = useState(0)
   /** 지금 열려 있는 고르기 목록 — 어느 칸에 넣을지까지 담는다 */
@@ -886,16 +894,87 @@ export default function TcStepDetail({
               조건이 거짓이면 <b>불합격</b>으로 본다
             </label>
 
-            <div className="sd-blk">
-              이 아래로 <b>한 칸 더 들여쓴 줄</b>이 If 의 몸통이다. 머리의 ⇥ 로 넣는다.
-              {!step.assertIf && (
+            {/*
+              If 는 「조건 · 참일 때 · 거짓일 때」 셋으로 읽혀야 한다(지시).
+              여태 조건 칸 하나만 있고 갈래는 들여쓰기로만 있었다 — 화면이
+              그 구조를 안 보여 주니 매번 「거짓일 때는 어디에 적나」 가 된다.
+
+              갈래마다 **변수 하나 + 적은 글자**로 한 줄을 만든다. 그것이
+              대부분이고, 더 필요하면 만들어진 줄을 고치면 된다.
+            */}
+            {(() => {
+              const vars = [
+                ...(loopVar ? [loopVar] : []),
+                '_verdict',
+                ...new Set([...takenVars, ...mine]),
+              ]
+              const mk = (v: string, tx: string) =>
+                `${v ? '${' + v + '} ' : ''}${tx}`.trim()
+              const box = (
+                cls: 'yes' | 'no',
+                label: string,
+                v: string,
+                setV: (x: string) => void,
+                tx: string,
+                setTx: (x: string) => void,
+                add: () => void,
+              ) => (
+                <div className={`sd-f`}>
+                  <span className="sd-lab">{label}</span>
+                  <div className={`sd-br ${cls}`}>
+                    <select value={v} onChange={(e) => setV(e.target.value)}>
+                      <option value="">(변수 없이)</option>
+                      {vars.map((x) => (
+                        <option key={x} value={x}>
+                          {'${' + x + '}'}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      value={tx}
+                      placeholder={cls === 'yes' ? '정상입니다' : '맞지 않습니다'}
+                      onChange={(e) => setTx(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && add()}
+                    />
+                    <button className="btn small" type="button" onClick={add} disabled={!tx.trim() && !v}>
+                      ＋ 넣기
+                    </button>
+                    <i className="sd-brp">{mk(v, tx) || '남길 말을 적으세요'}</i>
+                  </div>
+                </div>
+              )
+              return (
                 <>
-                  <br />
-                  If 는 갈래를 고를 뿐이라 그 자체로는 합격·불합격을 내지 않는다 —
-                  돌리고 나면 줄 끝에 <b>참·거짓</b>만 적힌다.
+                  {box('yes', '참일 때', yesV, setYesV, yesTx, setYesTx, () => {
+                    onInsertAfter?.([
+                      {
+                        kind: 'message',
+                        indent: Number(step.indent ?? 0) + 1,
+                        text: mk(yesV, yesTx),
+                      },
+                    ])
+                    setYesTx('')
+                  })}
+                  {box('no', '거짓일 때', noV, setNoV, noTx, setNoTx, () => {
+                    onInsertAfterBlock?.([
+                      { kind: 'else', indent: Number(step.indent ?? 0) },
+                      {
+                        kind: 'message',
+                        indent: Number(step.indent ?? 0) + 1,
+                        text: mk(noV, noTx),
+                      },
+                    ])
+                    setNoTx('')
+                  })}
                 </>
-              )}
-            </div>
+              )
+            })()}
+            {!step.assertIf && (
+              <div className="sd-blk">
+                If 는 갈래를 고를 뿐이라 그 자체로는 합격·불합격을 내지 않는다 — 돌리고 나면
+                줄 끝에 <b>참·거짓</b>만 적힌다.
+              </div>
+            )}
           </>
         )}
         {kind === 'switch' && (

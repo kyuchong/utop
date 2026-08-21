@@ -3148,3 +3148,36 @@ table.tb tr.r-bad td:first-child {
 .tb thead th.picked { background: var(--c-primary-bg); color: #12539f; }
 /* 못 누르는 까닭 */
 .tb-need { font-size: var(--fs-xs); color: #8a5a00; }
+
+/* If 의 두 갈래 — 참은 초록, 거짓은 붉음(지시). 색이 곧 갈래다 */
+.sd-br {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid;
+}
+.sd-br.yes { background: #f4fbf7; border-color: #bfe3cd; }
+.sd-br.no { background: #fdf5f5; border-color: #f0c8c8; }
+.sd-br select { height: 26px; font-size: var(--fs-sm); border: 1px solid var(--c-border); border-radius: 6px; background: #fff; }
+.sd-br input {
+  flex: 1;
+  min-width: 120px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  background: #fff;
+}
+.sd-br .sd-brp {
+  flex-basis: 100%;
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+.sd-br.yes .sd-brp { color: #12643a; }
+.sd-br.no .sd-brp { color: #a02323; }
