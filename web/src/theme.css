@@ -498,3 +498,43 @@ select.pick-live.tag { width: auto; max-width: 100%; }
   white-space: nowrap;
 }
 .pick-view > .cyt-name { width: 100%; text-align: left; }
+
+/* ══ 2열 목록 한 벌 — 요구사항·시험항목·사이클 같은 꼴로(승인) ═══════
+ *
+ * 세 화면이 조금씩 달랐다: 행 높이는 사이클만 제 값, 글자는 시험항목만
+ * 한 단계 크고, 줄 사이 선은 사이클만 그었다. 눈금이 다르면 같은 자료가
+ * 화면마다 다르게 읽힌다. 여기 한 곳에 못 박는다 — 행 28px(승인).
+ */
+:root {
+  --list-h: 28px;
+}
+.rq-tr,
+.rq-tr.tc-tr,
+.cy-list .cy-row {
+  min-height: var(--list-h);
+  font-size: var(--fs-sm);
+  box-shadow: none;
+}
+.rq-tr > div,
+.rq-tr.tc-tr > div,
+.cy-list .cy-row > * {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+/* 머리줄 — 셋 다 같은 바탕·글자 */
+.rq-tr.rq-th,
+.rq-tr.tc-tr.rq-th,
+.cy-list .cy-row.cy-hd {
+  background: var(--c-surface-alt);
+  color: #5b6670;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  border-bottom: 0;
+  box-shadow: none;
+}
+/* 줄 사이 선은 없다 — 마우스 올림·고름의 채움이 경계다 */
+.cy-list .cy-row { border-bottom: 0; }
+.rq-tr:not(.rq-th):hover,
+.cy-list .cy-row:not(.cy-hd):hover {
+  background: var(--c-surface-2);
+}

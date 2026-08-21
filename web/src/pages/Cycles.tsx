@@ -2786,7 +2786,7 @@ function CycleBoard({
             />
           </span>
           <span />
-          {TH('id', '사이클 ID')}
+          {TH('id', 'Key')}
           {TH('name', '제목')}
           {renderCols.map((c2) =>
             c2.k === 'iss'

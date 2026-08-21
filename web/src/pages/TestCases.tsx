@@ -2698,7 +2698,7 @@ export default function TestCases({ me }: PageProps) {
               <div className="rq-table">
                 <div className="rq-tr tc-tr rq-th" style={{ gridTemplateColumns: listGrid }}>
                   <div />
-                  <div>이름</div>
+                  <div>제목</div>
                   {/* 고정 열 + INFO 열 + REQ Map. 머리 자체가 필터다 */}
                   {(
                     [

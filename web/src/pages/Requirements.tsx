@@ -1454,7 +1454,7 @@ export default function Requirements({ me }: Props) {
                 <div />
                 {/* ID 열은 뺐다 — 고르면 위 빵부스러기에 그대로 나온다.
                     고정: Name·모델(상속)·Map·TC. INFO 필드는 ⚙ 가 정한다. */}
-                <div>Name</div>
+                <div>제목</div>
                 <div>모델그룹</div>
                 <div>모델명</div>
                 <div>Map</div>
