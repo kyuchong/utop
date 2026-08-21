@@ -569,14 +569,6 @@ export default function Cycles({ me }: PageProps) {
   const [scope, setScope] = useState<{ key: string; label: string; ids: Set<string> } | null>(null)
   // 고르면 주소창에 남긴다 — 옛 화면의 #cycle=… 과 같은 일
   // 링크·뒤로가기로 온 채 다른 사이클을 가리키면 갈아탄다
-  useEffect(
-    () =>
-      onGoto((kind, id) => {
-        if (kind === 'cycle' && id !== sel) setSel(id)
-        else if (kind === 'ce') setPendingCe(id)
-      }),
-    [sel],
-  )
   useEffect(() => {
     localStorage.setItem(CY_SEL_KEY, sel)
   }, [sel])
@@ -685,6 +677,43 @@ export default function Cycles({ me }: PageProps) {
   })
 
   const cycles = useMemo(() => listQ.data?.cycles ?? [], [listQ.data])
+
+  /**
+   * 주소에 실을 번호 ↔ 내부 키.
+   *
+   * 내부 키(cycle-1787138135641)는 사람이 읽을 수도, 받아 적을 수도 없다.
+   * 주소에는 화면에 보이는 번호(C-2633-003)를 싣고, 들어올 때는 **둘 다**
+   * 받아 준다 — 옛 주소로 들어온 사람도 그대로 열려야 한다(지적).
+   */
+  const urlIdOf = (id: string) => {
+    const c = cycles.find((x) => x.id === id)
+    return String(c?.cid ?? '').trim() || id
+  }
+  const idOfUrl = (v: string) =>
+    cycles.find((x) => x.id === v || String(x.cid ?? '').trim() === v)?.id ?? v
+
+  useEffect(
+    () =>
+      onGoto((kind, id) => {
+        /* 주소에는 사람이 읽는 번호(C-2633-003)를 싣는다 — 내부 키든
+           그 번호든 받아 준다(지적: cycle-1787138135641 은 알 수 없는 값) */
+        if (kind === 'cycle') {
+          const real = idOfUrl(id)
+          if (real !== sel) setSel(real)
+        } else if (kind === 'ce') setPendingCe(id)
+      }),
+    [sel, cycles],
+  )
+
+  /* 주소로 들어왔을 때 목록이 아직 없으면 번호를 못 푼다 — 오면 그때 푼다 */
+  useEffect(() => {
+    if (!sel || !cycles.length) return
+    if (cycles.some((c) => c.id === sel)) return
+    const real = idOfUrl(sel)
+    if (real !== sel) setSel(real)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cycles, sel])
+
   const shown = useMemo(() => {
     const n = q.trim().toLowerCase()
     if (!n) return cycles
@@ -779,7 +808,7 @@ export default function Cycles({ me }: PageProps) {
   useEffect(() => {
     if (sel) {
       if (cur?.ce) return // CycleDetail 이 ?ce=…&it=… 을 쓴다
-      reflectUrl('cycle', sel)
+      reflectUrl('cycle', urlIdOf(sel))
     } else if (/[?&](cycle|ce|it)=/.test(window.location.search)) {
       // 남겨 두면 App 이 켜질 때 그 링크가 이겨서 새로고침마다 끌려간다
       window.history.replaceState({}, '', window.location.pathname)
@@ -1223,7 +1252,10 @@ export default function Cycles({ me }: PageProps) {
                   })
               })()}
               {/* 사이클 번호도 이름 오른쪽 알약에 — 누르면 주소를 복사(지시) */}
-              <IdPill id={String(cur.cid || cur.id || '')} href={gotoHref('cycle', String(cur.id))} />
+              <IdPill
+                id={String(cur.cid || cur.id || '')}
+                href={gotoHref('cycle', urlIdOf(String(cur.id)))}
+              />
               {cur.ce && (
                 <IdPill
                   id={String(cur.ce)}
