@@ -293,6 +293,19 @@ export default function DeviceCatalog({
                 고른 분류로 옮기기
               </button>
             )}
+            {ctx.kind === 'model' && (
+              <button
+                type="button"
+                title="이 모델로 장비를 만들 때 물려줄 포트 목록"
+                onClick={() => {
+                  const it = models.find((m) => m.name === ctx.name)
+                  setCtx(null)
+                  if (it) setIfEdit({ model: it, text: it.interfaces ?? '' })
+                }}
+              >
+                기본 인터페이스…
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -644,113 +657,41 @@ export default function DeviceCatalog({
                     )}
                   </span>
                 </div>
-                {/* 제품(모델)도 여기서 만든다(지시) — 왼쪽에서 고른 자리가
-                    미리 채워지고, 비어 있으면 이 줄에서 고른다. */}
-                <div className="dcc-addrow">
+                {/* 왼쪽 칸들과 **같은 한 칸**이다(지시) — 이름만 적는다.
+                    벤더·제품군·모델그룹은 왼쪽에서 고른 자리를 물려받는다.
+                    기본 인터페이스는 오른쪽 단추로 따로 고친다. */}
+                <div className="dcc-add">
                   <input
-                    className="dcc-addnm"
                     value={adds['t:model'] ?? ''}
-                    placeholder="새 모델명 — 예: E6100-24T"
+                    placeholder={
+                      tven && tven !== NONE ? `${tven} 아래에 모델 추가` : '모델 추가 — 왼쪽에서 벤더를 먼저 고르세요'
+                    }
                     onChange={(e) => setAdds((v) => ({ ...v, 't:model': e.target.value }))}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') addModel()
                     }}
                   />
-                  <select
-                    value={adds['t:ven'] ?? tven ?? ''}
-                    title="벤더"
-                    onChange={(e) => setAdds((v) => ({ ...v, 't:ven': e.target.value }))}
-                  >
-                    <option value="">벤더</option>
-                    {(lists.vendor ?? []).map((x) => (
-                      <option key={x.name} value={x.name}>
-                        {x.name}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={adds['t:fam'] ?? (tfam === NONE ? '' : tfam) ?? ''}
-                    title="제품군"
-                    onChange={(e) => setAdds((v) => ({ ...v, 't:fam': e.target.value }))}
-                  >
-                    <option value="">제품군</option>
-                    {(lists.family ?? []).map((x) => (
-                      <option key={x.name} value={x.name}>
-                        {x.name}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={adds['t:grp'] ?? (tgrp === NONE ? '' : tgrp) ?? ''}
-                    title="모델그룹"
-                    onChange={(e) => setAdds((v) => ({ ...v, 't:grp': e.target.value }))}
-                  >
-                    <option value="">모델그룹</option>
-                    {(lists.group ?? []).map((x) => (
-                      <option key={x.name} value={x.name}>
-                        {x.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    className="dcc-addif"
-                    value={adds['t:if'] ?? ''}
-                    placeholder="기본 인터페이스 (예: gi1/0/1-48, te1/1-4)"
-                    onChange={(e) => setAdds((v) => ({ ...v, 't:if': e.target.value }))}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') addModel()
-                    }}
-                  />
-                  <button
-                    className="btn small primary"
-                    type="button"
-                    disabled={!(adds['t:model'] ?? '').trim() || saveM.isPending}
-                    onClick={addModel}
-                  >
-                    추가
-                  </button>
                 </div>
                 <div className="dcc-b">
-                  <div className="dcc-mh">
-                    <span>모델명</span>
-                    <span>벤더</span>
-                    <span>제품군</span>
-                    <span>모델그룹</span>
-                    <span>기본 인터페이스</span>
-                    <span>장비</span>
-                  </div>
                   {shown.length === 0 ? (
                     <div className="dcc-none">이 자리에 걸린 모델이 없습니다.</div>
                   ) : (
-                    /* 모델 한 줄 — **틀**만 다룬다(지시). IP·접속·사용 현황은
-                       「표로 보기」 의 몫이라 여기서 걷었다. */
                     shown.map((it) => {
                       const n = devsOfModel(it.name).length
                       return (
-                        <div
-                          className="dcc-m2 model"
+                        <button
                           key={`m-${it.name}`}
+                          type="button"
+                          className="dcc-r"
+                          title={`${it.name}${it.interfaces ? ` — ${it.interfaces}` : ''}\n오른쪽 단추: 분류 옮기기 · 기본 인터페이스 · 삭제`}
                           onContextMenu={(e) => {
                             e.preventDefault()
                             setCtx({ kind: 'model', name: it.name, n, x: e.clientX, y: e.clientY })
                           }}
                         >
-                          <b className="ell dcc-mname" title={`${it.name} — 오른쪽 단추로 옮기기·삭제`}>
-                            {it.name}
-                          </b>
-                          <span className="ell muted small">{it.vendor || '–'}</span>
-                          <span className="ell muted small">{it.family || '–'}</span>
-                          <span className="ell muted small">{it.model_group || '(미분류)'}</span>
-                          <button
-                            type="button"
-                            className="dcc-if"
-                            title={`${it.interfaces || '(없음)'} — 누르면 크게 편집`}
-                            onClick={() => setIfEdit({ model: it, text: it.interfaces ?? '' })}
-                          >
-                            {it.interfaces || '＋ 인터페이스'}
-                          </button>
-                          <span className="muted small">{n ? `${n}대` : '없음'}</span>
-                        </div>
+                          <span className="ell">{it.name}</span>
+                          <em>{n}</em>
+                        </button>
                       )
                     })
                   )}
