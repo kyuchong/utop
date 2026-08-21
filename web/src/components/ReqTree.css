@@ -79,7 +79,8 @@
   border-radius: var(--rt-r);
   white-space: nowrap;
   position: relative;
-  box-shadow: inset 0 -1px 0 var(--rt-div);
+  /* 줄 사이 선은 걷었다(지시) — 폴더 트리는 줄이 짧고 들여쓰기가 이미
+     경계를 그린다. 선까지 그으면 표처럼 보여 눈이 옆줄로 샌다. */
 }
 
 .rt-fold { cursor: pointer; }
@@ -178,10 +179,7 @@
   cursor: pointer;
   white-space: nowrap;
   color: var(--c-text);
-  /* 줄 사이에 아주 옅은 선. ID·제목·건수가 좌우로 멀리 떨어져 있어서
-     선이 없으면 눈이 옆줄로 샌다. 선 자체가 읽히면 안 되므로
-     테두리가 아니라 배경 그림자로 그어 모서리(6px)를 넘지 않게 한다. */
-  box-shadow: inset 0 -1px 0 var(--rt-div);
+  /* 줄 사이 선은 걷었다(지시). 들여쓰기와 아이콘이 이미 줄을 가른다 */
 }
 
 /* 고르거나 마우스를 올린 줄에서는 선을 지운다 — 채움이 이미 경계다 */
