@@ -532,7 +532,7 @@
    카드가 화면 왼쪽에서 좁게 서서 글이 뭉갠다 — 카드에 제 폭을 준다. */
 .jira-cols {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 420px));
+  grid-template-columns: repeat(auto-fit, minmax(340px, 520px));
   gap: 12px;
   align-items: start;
   justify-content: start;
@@ -1509,3 +1509,18 @@ button.dcc-st:disabled { cursor: default; }
 }
 .jira-tab:hover { background: #f6f8fa; }
 .jira-tab.on { background: var(--c-primary); border-color: var(--c-primary); color: #fff; font-weight: 600; }
+
+/* 카드 머리의 상태 줄 — 「지금 쓰이는 값」 을 카드 안에서 읽는다 */
+.jira-state {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #f7f9fb;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 7px;
+  line-height: 1.5;
+}
+.jira-sdot { width: 8px; height: 8px; border-radius: 50%; flex: none; position: relative; top: -1px; }
+.jira-sdot.ok { background: var(--c-pass); }
+.jira-sdot.off { background: #cfd6de; border: 1px solid #b9c2cc; }

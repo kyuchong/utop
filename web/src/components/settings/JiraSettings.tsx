@@ -72,6 +72,8 @@ export default function JiraSettings() {
     const v = localStorage.getItem('utop.jira.tab')
     return v === 'login' || v === 'etc' ? v : 'conn'
   })
+  /** 계정 쪽 요약 — 로그인 탭 머리줄에 「명단이 몇인지」 를 적는다 */
+  const [acc, setAcc] = useState<{ users?: number; jira?: number; last?: string } | null>(null)
   const [chk, setChk] = useState<LoginCheck | null>(null)
   const [chking, setChking] = useState(false)
   /**
@@ -100,6 +102,26 @@ export default function JiraSettings() {
   }, [])
   useEffect(() => {
     localStorage.setItem('utop.jira.tab', tab)
+  }, [tab])
+  /* 로그인 탭을 열면 지금 상태를 한 번 읽어 온다 — 눌러야 보이면 안 본다 */
+  useEffect(() => {
+    if (tab !== 'login') return
+    void (async () => {
+      const [a, b] = await Promise.all([
+        apiFetch('/api/jira/login-check'),
+        apiFetch('/api/users/jira-sync'),
+      ])
+      if (a.ok) setChk((await a.json()) as LoginCheck)
+      if (b.ok) {
+        const j = (await b.json()) as { last?: { at?: string; found?: number } }
+        setAcc({ last: j.last?.at, jira: j.last?.found })
+      }
+      const u = await apiFetch('/api/users')
+      if (u.ok) {
+        const j = (await u.json()) as { users: Array<{ source?: string }> }
+        setAcc((p) => ({ ...(p ?? {}), users: j.users.length }))
+      }
+    })()
   }, [tab])
 
   const set = (p: Partial<Cfg>) => setCfg((c) => ({ ...c, ...p }))
@@ -229,6 +251,23 @@ export default function JiraSettings() {
         {/* 붙는 것. 이게 안 되면 나머지는 볼 것도 없다 */}
         <div className="panel jira-card">
           <b className="jira-t">연결</b>
+          {/* 지금 어떤 상태인지 카드 안에서 읽힌다 — 저장값만 늘어놓으면
+              「이게 지금 쓰이는 값인가」 를 알 수 없다 */}
+          <div className="jira-state">
+            <span className={`jira-sdot ${cfg.url ? 'ok' : 'off'}`} />
+            <span className="muted small">
+              {cfg.url ? (
+                <>
+                  {cfg.auth === 'bearer' ? 'PAT(Bearer)' : 'ID/비밀번호(Basic)'} · 조회 계정{' '}
+                  <b>{cfg.user || '(없음)'}</b> · 토큰 {cfg.token ? '있음' : '없음'} · TLS 검증{' '}
+                  {cfg.verify === false ? '끔' : '켬'}
+                  {projects.length ? ` · 프로젝트 ${projects.length}개` : ''}
+                </>
+              ) : (
+                '주소가 없습니다 — 아래에 Jira URL 을 넣으세요'
+              )}
+            </span>
+          </div>
           <label className="jira-f">
             <span>Jira URL</span>
             <input
@@ -296,6 +335,16 @@ export default function JiraSettings() {
         <div className="panel jira-card">
           <b className="jira-t">Jira 계정 로그인</b>
           <span className="muted small">회원가입 없이 Jira 아이디·비밀번호로 들어옵니다</span>
+          <div className="jira-state">
+            <span className={`jira-sdot ${cfg.login_enabled ? 'ok' : 'off'}`} />
+            <span className="muted small">
+              {cfg.login_enabled ? '켜짐' : '꺼짐'} · 로그인 주소{' '}
+              <b>{cfg.login_url || cfg.url || '(없음)'}</b> · 자동 등록{' '}
+              {cfg.login_auto_create === false ? '안 함' : '함'}
+              {acc?.users ? ` · 명단 ${acc.users}명` : ''}
+              {acc?.last ? ` · 마지막 동기화 ${acc.last}` : ''}
+            </span>
+          </div>
           {/* 사원이 모두 Jira 계정을 갖고 있어 회원가입을 두지 않는다(지시).
               문제가 생기면 이 스위치만 끄면 옛 방식으로 즉시 되돌아간다.
               ★ 켜도 **기존 계정은 그대로** 들어온다 — 로그인은 UTOP
@@ -419,6 +468,13 @@ export default function JiraSettings() {
         <div className="panel jira-card">
           <b className="jira-t">기본값</b>
           <span className="muted small">이슈를 등록할 때 미리 골라 둡니다</span>
+          <div className="jira-state">
+            <span className={`jira-sdot ${cfg.default_project ? 'ok' : 'off'}`} />
+            <span className="muted small">
+              지금 값 — 프로젝트 <b>{cfg.default_project || '(안 정함)'}</b> · 이슈유형{' '}
+              <b>{cfg.default_issuetype || '(안 정함)'}</b>
+            </span>
+          </div>
           <label className="jira-f">
             <span>기본 프로젝트</span>
             <div className="jira-row">
@@ -479,6 +535,13 @@ export default function JiraSettings() {
         {/* 자주 쓰는 프로젝트 — 수백 개가 드롭다운에 늘어서면 못 고른다 */}
         <div className="panel jira-card">
           <b className="jira-t">자주 쓰는 프로젝트</b>
+          <div className="jira-state">
+            <span className={`jira-sdot ${fav.size ? 'ok' : 'off'}`} />
+            <span className="muted small">
+              {fav.size ? `고른 ${fav.size}개만 나옵니다` : '아무것도 안 골랐습니다 — 전부 나옵니다'}
+              {projects.length ? ` · 불러온 프로젝트 ${projects.length}개` : ''}
+            </span>
+          </div>
           <span className="muted small">
             고른 것만 이슈 등록 드롭다운에 나옵니다. 하나도 안 고르면 전부 나옵니다.
           </span>
