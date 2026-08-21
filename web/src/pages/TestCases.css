@@ -3221,4 +3221,9 @@ table.tb tr.r-bad td:first-child {
 .sd-say.yes::placeholder { color: #4f9d76; }
 .sd-say.no::placeholder { color: #c07a7a; }
 
-.sd-goto { height: 28px; max-width: 190px; border: 1px solid var(--c-border); border-radius: 7px; background: #fff; font-size: var(--fs-xs); }
+.sd-goto { height: 28px; width: 100%; border: 1px solid var(--c-border); border-radius: 7px; background: #fff; font-size: var(--fs-xs); }
+
+/* 갈 자리도 갈래의 색을 따른다 — 네 줄이 두 쌍으로 읽힌다 */
+.sd-goto.yes { border-color: #bfe3cd; background: #f8fdfa; color: #12643a; }
+.sd-goto.no { border-color: #f0c8c8; background: #fefafa; color: #a02323; }
+.sd-say { width: 100%; }

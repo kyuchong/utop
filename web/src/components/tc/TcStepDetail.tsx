@@ -914,58 +914,58 @@ export default function TcStepDetail({
               </div>
             </div>
 
-            {/* 갈래마다 「남길 말」 과 「어디로 갈지」 둘뿐이다(지시) */}
+            {/* 네 줄로 편다(지시) — 남길 말과 갈 자리를 갈래마다 한 줄씩 */}
             <div className="sd-f">
               <span className="sd-lab">참이면</span>
-              <div className="sd-row">
-                <input
-                  className="sd-say yes"
-                  value={step.msgYes ?? ''}
-                  placeholder="정상입니다"
-                  onChange={(e) => onChange({ msgYes: e.target.value })}
-                />
-                <select
-                  className="sd-goto"
-                  value={step.gotoYes ?? ''}
-                  title="참이면 이 스텝으로 건너뛰어 계속 돕니다"
-                  onChange={(e) =>
-                    onChange({ gotoYes: e.target.value === '' ? undefined : Number(e.target.value) })
-                  }
-                >
-                  <option value="">다음 줄로</option>
-                  {(stepList ?? []).map((x) => (
-                    <option key={x.i} value={x.i}>
-                      → {x.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <input
+                className="sd-say yes"
+                value={step.msgYes ?? ''}
+                placeholder="정상입니다"
+                onChange={(e) => onChange({ msgYes: e.target.value })}
+              />
+            </div>
+            <div className="sd-f">
+              <span className="sd-lab">참이면 이동</span>
+              <select
+                className="sd-goto yes"
+                value={step.gotoYes ?? ''}
+                onChange={(e) =>
+                  onChange({ gotoYes: e.target.value === '' ? undefined : Number(e.target.value) })
+                }
+              >
+                <option value="">다음 줄로</option>
+                {(stepList ?? []).map((x) => (
+                  <option key={x.i} value={x.i}>
+                    → {x.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="sd-f">
               <span className="sd-lab">거짓이면</span>
-              <div className="sd-row">
-                <input
-                  className="sd-say no"
-                  value={step.msgNo ?? ''}
-                  placeholder="부적합입니다"
-                  onChange={(e) => onChange({ msgNo: e.target.value })}
-                />
-                <select
-                  className="sd-goto"
-                  value={step.gotoNo ?? ''}
-                  title="거짓이면 이 스텝으로 건너뛰어 계속 돕니다"
-                  onChange={(e) =>
-                    onChange({ gotoNo: e.target.value === '' ? undefined : Number(e.target.value) })
-                  }
-                >
-                  <option value="">다음 줄로</option>
-                  {(stepList ?? []).map((x) => (
-                    <option key={x.i} value={x.i}>
-                      → {x.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <input
+                className="sd-say no"
+                value={step.msgNo ?? ''}
+                placeholder="부적합입니다"
+                onChange={(e) => onChange({ msgNo: e.target.value })}
+              />
+            </div>
+            <div className="sd-f">
+              <span className="sd-lab">거짓이면 이동</span>
+              <select
+                className="sd-goto no"
+                value={step.gotoNo ?? ''}
+                onChange={(e) =>
+                  onChange({ gotoNo: e.target.value === '' ? undefined : Number(e.target.value) })
+                }
+              >
+                <option value="">다음 줄로</option>
+                {(stepList ?? []).map((x) => (
+                  <option key={x.i} value={x.i}>
+                    → {x.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </>
         )}
