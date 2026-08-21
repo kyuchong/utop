@@ -258,3 +258,39 @@
 .acc-x:hover {
   color: var(--c-fail);
 }
+
+/* 왜 안 되는지 — 셋을 한 줄씩 */
+.acc-diag {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 6px;
+  border-top: 1px solid var(--c-border-soft);
+}
+.acc-chk {
+  font-size: var(--fs-xs);
+  padding-left: 14px;
+  position: relative;
+  color: var(--c-text-muted);
+}
+.acc-chk::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: var(--c-pass);
+}
+.acc-chk.bad {
+  color: #8a2a2a;
+}
+.acc-chk.bad::before {
+  content: '✕';
+  color: var(--c-fail);
+}
+.acc-chk.warn {
+  color: #8a5a00;
+}
+.acc-chk.warn::before {
+  content: '!';
+  color: #b45309;
+  font-weight: 700;
+}

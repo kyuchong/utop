@@ -37,6 +37,18 @@ interface JiraCfg {
   login_auto_create?: boolean
 }
 
+/** 지금 Jira 로그인이 되는 상태인가 — 안 되는 까닭을 셋으로 가른다 */
+interface LoginCheck {
+  enabled: boolean
+  url: string
+  auto_create: boolean
+  reachable?: boolean
+  status?: number
+  reason?: string
+  cloud?: boolean
+  last_fail?: { user?: string; why?: string; at?: string } | null
+}
+
 export default function Accounts() {
   const qc = useQueryClient()
   const [q, setQ] = useState('')
@@ -62,6 +74,16 @@ export default function Accounts() {
       if (!r.ok) throw new Error(await r.text())
       return (await r.json()) as JiraCfg
     },
+  })
+
+  const chk = useQuery({
+    queryKey: ['jira-login-check'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/jira/login-check')
+      if (!r.ok) throw new Error(await r.text())
+      return (await r.json()) as LoginCheck
+    },
+    refetchOnWindowFocus: false,
   })
 
   const patch = useMutation({
@@ -158,12 +180,58 @@ export default function Accounts() {
           <button
             className="btn small"
             type="button"
+            disabled={chk.isFetching}
+            onClick={() => void chk.refetch()}
+            title="지금 Jira 에 닿는지 다시 봅니다"
+          >
+            {chk.isFetching ? '보는 중…' : '다시 보기'}
+          </button>
+          <button
+            className="btn small"
+            type="button"
             disabled={saveJira.isPending || !String(cfg.url ?? '').trim()}
             onClick={() => saveJira.mutate({ login_enabled: !on })}
           >
             {on ? '끄기' : '켜기'}
           </button>
         </div>
+
+        {/* 「Jira 계정으로 안 들어와진다」 는 셋 중 하나다 — 꺼짐 · 주소 ·
+            거절. 갈라 보여 주지 않으면 어디를 고칠지 알 수 없다(지적) */}
+        {chk.data && (
+          <div className="acc-diag">
+            <span className={`acc-chk ${chk.data.enabled ? 'ok' : 'bad'}`}>
+              {chk.data.enabled ? '① 켜져 있습니다' : '① 꺼져 있습니다 — 「켜기」를 누르세요'}
+            </span>
+            <span className={`acc-chk ${chk.data.url ? 'ok' : 'bad'}`}>
+              {chk.data.url ? `② 주소 ${chk.data.url}` : '② 주소가 없습니다 — 「Jira 연동」에서 넣으세요'}
+            </span>
+            <span className={`acc-chk ${chk.data.reachable ? 'ok' : 'bad'}`}>
+              {chk.data.reachable
+                ? `③ Jira 에 닿습니다${chk.data.status ? ` (${chk.data.status})` : ''}`
+                : `③ ${chk.data.reason || '닿지 못했습니다'}`}
+            </span>
+            {chk.data.cloud && (
+              <span className="acc-chk warn">
+                Jira Cloud 는 <b>계정 비밀번호로 REST 로그인이 안 됩니다</b> — 사원 각자의 API
+                토큰이 필요합니다. Jira Server(사내 설치)라야 이 방식이 됩니다.
+              </span>
+            )}
+            {chk.data.last_fail?.user && (
+              <span className="acc-chk warn">
+                마지막 거절: <b>{chk.data.last_fail.user}</b> ·{' '}
+                {chk.data.last_fail.why === 'denied'
+                  ? 'Jira 가 아이디·비밀번호를 받지 않았습니다'
+                  : chk.data.last_fail.why === 'captcha'
+                    ? 'Jira 가 CAPTCHA 를 걸었습니다 — Jira 웹에 한 번 로그인해 푸세요'
+                    : chk.data.last_fail.why === 'unreachable'
+                      ? 'Jira 에 닿지 못했습니다'
+                      : chk.data.last_fail.why}{' '}
+                <i className="muted">{chk.data.last_fail.at}</i>
+              </span>
+            )}
+          </div>
+        )}
         <label className="acc-sw">
           <input
             type="checkbox"

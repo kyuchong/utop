@@ -1014,6 +1014,9 @@ class LoginReq(BaseModel):
 #: 연속 실패 잠그기 — 우리가 먼저 막아 Jira 까지 실패가 안 쌓이게 한다.
 #: (Jira Server 는 실패가 쌓이면 CAPTCHA 를 걸어 그 사람이 웹에서 풀어야 한다)
 _LOGIN_FAILS: dict = {}
+#: 마지막으로 Jira 가 거절한 것 — 관리자 화면(계정 관리)에서만 본다.
+#: 비밀번호는 담지 않는다. 아이디와 까닭·시각뿐이다.
+_JIRA_LAST_FAIL: dict = {}
 _LOGIN_FAIL_MAX = 3
 _LOGIN_LOCK_SEC = 60
 
@@ -1181,7 +1184,14 @@ async def api_login(req: LoginReq):
                 401,
                 "Jira 가 사람 확인(CAPTCHA)을 걸었습니다 — Jira 웹에 한 번 로그인해 풀고 다시 시도하세요",
             )
-        # denied·unreachable 이면 아래 로컬 계정으로 넘어간다 (Jira 장애 때의 안전망)
+        # denied·unreachable 이면 아래 로컬 계정으로 넘어간다 (Jira 장애 때의 안전망).
+        # 다만 **까닭은 남긴다** — 「Jira 계정으로 안 들어와진다」 를 로그 없이
+        # 고치려면 로그인 화면과 서버 중 어디가 틀렸는지 알 길이 없다.
+        print(f"[jira-login] 거절: {uname} — {why}", flush=True)
+        _JIRA_LAST_FAIL.clear()
+        _JIRA_LAST_FAIL.update({"user": uname, "why": why, "at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+        if why == "unreachable":
+            raise HTTPException(401, "Jira 서버에 닿지 못했습니다 — 관리자에게 문의하세요")
 
     # ③ 로컬 계정 — 비상 계정(admin) 과 Jira 장애 때
     if (
@@ -13356,6 +13366,43 @@ async def jira_save_config(data: dict):
             cur[k] = data[k]
     save_json(JIRA_FILE, cur)
     return {"ok": True}
+
+@app.get("/api/jira/login-check")
+async def jira_login_check(token: str = ""):
+    """**Jira 로그인이 지금 되는 상태인가** — 계정 관리 화면이 묻는다.
+
+    「Jira 계정으로 로그인이 안 된다」 는 말은 셋 중 하나다: 꺼져 있거나,
+    주소가 없거나, Jira 가 거절하거나. 셋을 갈라 보여 주지 않으면 어디를
+    고쳐야 하는지 알 수 없다. 비밀번호는 여기에 없다.
+    """
+    _require_admin(token)
+    cfg = _jira_cfg()
+    url = str(cfg.get("url") or "").strip().rstrip("/")
+    out = {
+        "enabled": bool(cfg.get("login_enabled")),
+        "url": url,
+        "auto_create": _jira_auto_create(),
+        "last_fail": dict(_JIRA_LAST_FAIL) or None,
+        # Jira Cloud 는 계정 비밀번호로 REST 인증이 안 된다 — 그것을 모르면
+        # 「비밀번호가 맞는데 왜 안 되나」 를 끝없이 헤맨다
+        "cloud": "atlassian.net" in url.lower(),
+    }
+    if not url:
+        out["reachable"] = False
+        out["reason"] = "Jira 주소가 없습니다 — 「Jira 연동」 에서 먼저 넣으세요"
+        return out
+    import httpx as _hx
+    try:
+        async with _hx.AsyncClient(timeout=8, verify=cfg.get("verify", True)) as c:
+            r = await c.get(url + "/rest/api/2/serverInfo")
+        out["reachable"] = r.status_code < 500
+        out["status"] = r.status_code
+        out["reason"] = "" if r.status_code < 500 else f"Jira 가 {r.status_code} 로 답했습니다"
+    except Exception as exc:
+        out["reachable"] = False
+        out["reason"] = f"닿지 못했습니다 — {str(exc)[:120]}"
+    return out
+
 
 @app.post("/api/jira/test")
 async def jira_test(data: dict = None):
