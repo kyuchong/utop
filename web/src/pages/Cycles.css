@@ -754,6 +754,8 @@ select.cy-v.na { color: #999; }
 .sc-seg.note { opacity: 0.5; }
 /* 실행은 했는데 판정이 없는 스텝(대기·접속 따위) — 지나간 것은 지나간 티를 낸다 */
 .sc-seg.ran { background: #dfe4ea; border-color: #cfd6de; color: var(--c-text-muted); }
+/* 설정(실행 판정 기준)이 정한 색을 그대로 입는 칸 — 색은 style 로 온다 */
+.sc-seg.def { font-weight: 700; }
 /* 지금 도는 스텝 — **한눈에 도는 티가 나야 한다**(지시).
    칸을 키우고 번호를 크게, 파란 물결이 밖으로 번진다. */
 .sc-seg.now {

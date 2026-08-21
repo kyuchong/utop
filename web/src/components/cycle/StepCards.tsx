@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useResults } from '@/pages/Cycles'
 import type { CycleItemLite, CycleStep, Verdict } from '@/pages/Cycles'
 import { RESULTS, verdictClass } from '@/pages/Cycles'
 import { isJudgeStep, METER_ACT_LABEL, stepKindInfo, stepVerdict, type TcStep } from '@/components/tc/types'
@@ -99,6 +100,10 @@ interface Props {
  * 나왔나.** 이 넷이 나란히 있어야 왜 그렇게 판정됐는지가 읽힌다.
  */
 export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg, onSetImgUrl, onSetTxt, onSetRca }: Props) {
+  /* 스텝 띠 색은 **설정(실행 판정 기준)** 이 정본이다(지시) — 거기서 고른
+     바탕색·글자색을 그대로 쓴다. 코드가 초록·빨강을 따로 정하면 설정을
+     바꿔도 띠만 옛 색으로 남는다. */
+  const resDefs = useResults()
   const all = (item.steps ?? []) as CycleStep[]
   const [only, setOnly] = useState(false)
   // 판정기준의 ${이름} 을 값으로 풀어서 보여준다 — 원문 그대로 두면
@@ -191,25 +196,21 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
         <span className="sc-strip-lab">스텝</span>
         {judged.map(({ s: st2, at }) => {
           const v = stepVerdict(st2 as TcStep)
-          /* 진행 중 → 적합 → 부적합 → 그 밖의 판정 → 실행함(판정 없음) → 미실행.
-             색 하나로 어디까지 갔는지 읽힌다(지시). */
+          const def = resDefs.find((r) => r.v === v)
           const ran = !!st2.executed_at || !!st2.output
-          const cls =
-            at === runningAt
-              ? 'now'
-              : v === 'Pass'
-                ? 'pass'
-                : v === 'Fail'
-                  ? 'fail'
-                  : v
-                    ? 'part'
-                    : ran
-                      ? 'ran'
-                      : ''
+          const now = at === runningAt
+          /* 진행 중이면 파랑, 아니면 설정이 정한 그 판정의 색.
+             설정에 없는 값이면 「그 밖의 판정」, 판정이 없으면 실행함/미실행 */
+          const cls = now ? 'now' : def ? 'def' : v ? 'part' : ran ? 'ran' : ''
+          const sty =
+            !now && def?.color
+              ? { background: def.color, borderColor: def.color, color: def.fg || '#fff' }
+              : undefined
           return (
             <button
               key={at}
               type="button"
+              style={sty}
               className={`sc-seg ${cls}`}
               title={`Step ${noOf[at]} · ${
                 at === runningAt ? '진행 중' : v || (ran ? '실행함(판정 없음)' : '미실행')

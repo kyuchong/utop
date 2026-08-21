@@ -1845,7 +1845,16 @@ async def ai_nl_plan(payload: dict):
         "조회(show/display/ping 등) 명령만 만든다. 설정 변경 명령은 절대 만들지 마라.\n"
         "다만 **계측기 스텝(kind=\"inst\")은 쓸 수 있다** — 장비 설정을 바꾸지 않고\n"
         "트래픽만 흘리는 것이므로 조회 시험에서도 허용된다.\n")
-    sys_p = ("너는 네트워크 장비 시험 설계 전문가다. 사용자의 지시를 장비에서 돌릴 시험 절차로 만든다.\n"
+    # 이 규칙 앞에 설정(용도별 프롬프트 · Coverage-Automation)의 글을 얹는다.
+    # 그 자리를 비워 두면 아래 규칙만 쓴다 — 화면에서 고친 말이 여기까지 와야
+    # 「고쳤는데 왜 그대로냐」 가 안 난다.
+    try:
+        from main import _prompt_of as _pof     # 늦게 부른다(순환 수입 막기)
+        _slot = (_pof("coverage_automation").get("system") or "").strip()
+    except Exception:
+        _slot = ""
+    sys_p = ((_slot + "\n\n") if _slot else "") + (
+             "너는 네트워크 장비 시험 설계 전문가다. 사용자의 지시를 장비에서 돌릴 시험 절차로 만든다.\n"
              "각 스텝: desc(무엇을 확인하는지 한국어 한 줄), cli(실행할 명령 한 줄), "
              "type(contains=출력에 있어야 정상 / notcontains=없어야 정상 / 빈 문자열=오류만 없으면 합격), "
              "criteria(type 이 contains·notcontains 일 때 출력에서 찾을 문자열).\n"

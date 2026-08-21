@@ -64,6 +64,7 @@ import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import IdPill from '@/components/IdPill'
+import { useResults } from '@/pages/Cycles'
 import PickCell from '@/components/PickCell'
 import { useCodes } from '@/hooks/useCodes'
 import {
@@ -82,6 +83,7 @@ import {
   sessionIndex,
   stepResult,
   stepStatus,
+  stepVerdict,
   type StepKind,
   type TcData,
   type TcStep,
@@ -252,6 +254,8 @@ export default function TestCases({ me }: PageProps) {
   const [running, setRunning] = useState(false)
   /** 지금 돌고 있는 줄. -1 이면 안 돌고 있다 */
   const [runAt, setRunAt] = useState(-1)
+  /** 스텝 띠 색 — 설정 「실행 판정 기준」 이 정본(지시) */
+  const resDefs = useResults()
 
   const splitRef = useRef<HTMLDivElement>(null)
   /* 세부는 탭이 아니라 한 줄기 스크롤이다 — 레일과 서로를 따라간다 */
@@ -1971,27 +1975,26 @@ export default function TestCases({ me }: PageProps) {
                     <div className="sc-strip tc-strip">
                       <span className="sc-strip-lab">스텝</span>
                       {shownSteps.map((s2, i) => {
-                        const v = stepStatus(s2)
+                        /* 색은 **설정(실행 판정 기준)** 이 정본이다(지시).
+                           여기서 초록·빨강을 따로 정하면 설정을 바꿔도 띠만
+                           옛 색으로 남는다. */
+                        const v = stepVerdict(s2)
+                        const def = resDefs.find((r) => r.v === v)
                         const ran = !!s2.executed_at || !!s2.output
-                        const cls =
-                          i === runAt
-                            ? 'now'
-                            : v === 'Pass'
-                              ? 'pass'
-                              : v === 'Fail'
-                                ? 'fail'
-                                : v
-                                  ? 'part'
-                                  : ran
-                                    ? 'ran'
-                                    : ''
+                        const now = i === runAt
+                        const cls = now ? 'now' : def ? 'def' : v ? 'part' : ran ? 'ran' : ''
+                        const sty =
+                          !now && def?.color
+                            ? { background: def.color, borderColor: def.color, color: def.fg || '#fff' }
+                            : undefined
                         return (
                           <button
                             key={i}
                             type="button"
+                            style={sty}
                             className={`sc-seg ${cls}${i === stepIdx ? ' on' : ''}`}
                             title={`스텝 ${i + 1} · ${
-                              i === runAt ? '진행 중' : v || (ran ? '실행함(판정 없음)' : '미실행')
+                              now ? '진행 중' : def?.label || v || (ran ? '실행함(판정 없음)' : '미실행')
                             }`}
                             onClick={() => setStepIdx(i)}
                           >

@@ -202,7 +202,7 @@ export interface ResDef {
   group: 'pass' | 'fail' | 'neutral' | 'none'
 }
 
-function useResults(): ResDef[] {
+export function useResults(): ResDef[] {
   const codesQ = useQuery({
     queryKey: ['codes'],
     queryFn: async () => {
