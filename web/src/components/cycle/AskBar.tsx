@@ -1116,25 +1116,40 @@ export default function AskBar({ devices }: Props) {
    * 트리에 그 이름의 자리가 있으면 그 자리를 펴 놓고 고르게 한다.
    * `SNMP` 가 `SNMPv2` 를 짚는 것처럼 앞부분만 걸려도 인정한다.
    */
-  const foldOf = (q: string): string => {
+  const foldOf = (q: string, model?: string): string => {
     const flat = (v: string) => v.toLowerCase().replace(/[^0-9a-z가-힣]+/g, '')
     const t = flat(q)
     if (!t) return ''
-    let best = '',
-      bestDeep = -1
+    const hits: Array<{ id: string; depth: number }> = []
     for (const nd of tcTree) {
       const f = flat(nd.name)
       if (f.length < 2) continue
       const hit = t.includes(f) || (f.length >= 4 && t.includes(f.slice(0, 4)))
-      if (!hit) continue
-      // 더 깊은 마디가 이긴다 — 「E6100 SNMP」 면 뿌리(E6100)보다 SNMPv2
-      if (nd.depth > bestDeep) {
-        best = nd.id
-        bestDeep = nd.depth
-      }
+      if (hit) hits.push({ id: nd.id, depth: nd.depth })
     }
-    return best
+    if (!hits.length) return ''
+    /*
+     * 이름이 같은 마디가 **둘 이상 있다**(Coverage 에 「시스템 정보 조회」 가
+     * 두 벌 있었다). 깊은 것만 보고 고르면 빈 쪽을 짚어, 창을 열자마자
+     * 「0건」 에 트리도 접힌 채로 뜬다(지적 사진).
+     * 그 아래에 **볼 것이 있는** 마디를 고른다.
+     */
+    const want = String(model ?? '').trim().toLowerCase()
+    const n = (id: string) =>
+      tcAll.filter(
+        (x) => x.chain.includes(id) && (!want || String(x.model ?? '').trim().toLowerCase() === want),
+      ).length
+    const byDeep = [...hits].sort((a, b) => b.depth - a.depth)
+    return (byDeep.find((h) => n(h.id) > 0) ?? byDeep[0])?.id ?? ''
   }
+
+  /**
+   * 창을 열 때 펼 마디들 — 고른 자리까지의 조상 + **맨 위 층**.
+   *
+   * 조상만 펴면, 고른 자리가 없을 때 트리가 뿌리 한 줄로 접힌 채 뜬다.
+   */
+  const openFor = (id: string): Set<string> =>
+    new Set([...openTo(id), ...tcTree.filter((n2) => n2.depth === 0).map((n2) => n2.id)])
 
   /** 그 마디의 조상들 — 트리를 그만큼 펴 준다 */
   const openTo = (id: string): Set<string> => {
@@ -1226,9 +1241,9 @@ export default function AskBar({ devices }: Props) {
         setTcOnlyModel(true)
         setTcFind('')
         setTcPick(new Set())
-        const f0 = foldOf(said)
+        const f0 = foldOf(said, m0)
         setTcFold(f0)
-        setTcOpen(openTo(f0))
+        setTcOpen(openFor(f0))
         setLikeAsk(true)
         return
       }
@@ -1315,9 +1330,9 @@ export default function AskBar({ devices }: Props) {
     setTcOnlyModel(true)
     setTcFind('')
     setTcPick(new Set())
-    const fold = foldOf(said)
+    const fold = foldOf(said, askModel || curDev?.model || '')
     setTcFold(fold)
-    setTcOpen(openTo(fold))
+    setTcOpen(openFor(fold))
     if (fold)
       setFlowLog((v) => [
         ...v,
@@ -2544,9 +2559,9 @@ export default function AskBar({ devices }: Props) {
                                 setTcOnlyModel(true)
                                 void findLike(asked, d).then(() => {
                                   setTcFind('')
-                                  const fd = foldOf(asked)
+                                  const fd = foldOf(asked, String(d.model ?? ''))
                                   setTcFold(fd)
-                                  setTcOpen(openTo(fd))
+                                  setTcOpen(openFor(fd))
                                   if (fd)
                                     setFlowLog((v) => [
                                       ...v,
@@ -2627,9 +2642,9 @@ export default function AskBar({ devices }: Props) {
                     setTcOnlyModel(true)
                     void findLike(asked, d2).then(() => {
                       setTcFind('')
-                      const fd = foldOf(asked)
+                      const fd = foldOf(asked, String(d2?.model ?? pickDev.model ?? ''))
                       setTcFold(fd)
-                      setTcOpen(openTo(fd))
+                      setTcOpen(openFor(fd))
                       if (fd)
                         setFlowLog((v) => [
                           ...v,
@@ -2730,11 +2745,14 @@ export default function AskBar({ devices }: Props) {
               const kids = (pid: string) =>
                 tcTree.filter((n) => n.parent === pid && (cnt.get(n.id) ?? 0) > 0)
               const near = new Map(like.map((x, i) => [x.tcid, i]))
+              /* 골라 둔 자리에 볼 것이 없으면 **전체로 되돌린다** — 빈 목록
+                 앞에서 「없습니다」 만 보고 있게 두지 않는다(지적 사진) */
+              const fold = !tcFold || (cnt.get(tcFold) ?? 0) > 0 ? tcFold : ''
               const rows = mine
-                .filter((x) => !tcFold || x.chain.includes(tcFold))
+                .filter((x) => !fold || x.chain.includes(fold))
                 // 말과 비슷하다고 서버가 짚어 준 것을 맨 위로
                 .sort((a, b) => (near.get(a.tcid) ?? 99) - (near.get(b.tcid) ?? 99))
-              const foldName = tcTree.find((n) => n.id === tcFold)?.name ?? ''
+              const foldName = tcTree.find((n) => n.id === fold)?.name ?? ''
 
               /**
                * 트리 한 줄 — Coverage 트리와 **같은 꼴**(지시).
@@ -2853,9 +2871,9 @@ export default function AskBar({ devices }: Props) {
                   </aside>
                   <div className="ask-tclist">
                     <div className="ask-likegrp">
-                      {tcFold ? `${foldName} — ${rows.length}건` : `시험 항목 ${rows.length}건`}
-                      {like.length > 0 && !tcFold && !q ? ' · 말과 비슷한 것 위로' : ''}
-                      {tcFold && (
+                      {fold ? `${foldName} — ${rows.length}건` : `시험 항목 ${rows.length}건`}
+                      {like.length > 0 && !fold && !q ? ' · 말과 비슷한 것 위로' : ''}
+                      {fold && (
                         <button type="button" className="ask-tcall" onClick={() => setTcFold('')}>
                           전체 보기
                         </button>
