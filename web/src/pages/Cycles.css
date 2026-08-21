@@ -7479,3 +7479,286 @@ a.bc-cur:hover { text-decoration: underline; }
 .cxp-statab td.ng { color: var(--c-fail); font-weight: 600; }
 .cxp-aitext { font-size: var(--fs-sm); color: var(--c-text-muted); max-height: 240px; overflow: auto; }
 .cxp-aitext p { margin: 2px 0; }
+
+/* ── AI 첫 화면 — 보내 주신 목업 그대로 ────────────────────────────
+   제목 · 입력칸(모드 고르개가 그 안) · 오프너 셋. 관리자는 ⚙ 로 고친다. */
+.ask-home {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.ask-home.editing { background: #eef3fb; }
+.ask-homewrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 64px 24px 80px;
+}
+.ask-home.editing .ask-homewrap { padding-bottom: 110px; }
+.ask-hometitle {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.6px;
+  text-align: center;
+  width: 100%;
+  max-width: 640px;
+}
+.ask-hometools {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 5;
+}
+.ask-gearbtn,
+.ask-edcancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 8px;
+  color: var(--c-text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+.ask-gearbtn:hover { background: #f6f8fa; color: var(--c-text); }
+.ask-edcancel { border: 0; background: none; }
+.ask-edcancel:hover { background: #e2eaf5; color: var(--c-text); }
+.ask-edbadge {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #dce8f8;
+  color: var(--c-primary);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+/* 입력 + 모드 한 상자 */
+.ask-askbox2 {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px 7px 18px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.05);
+}
+.ask-askbox2:focus-within { border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-bg); }
+.ask-askin2 {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  border: 0;
+  outline: none;
+  background: none;
+  font-size: 14px;
+}
+.ask-askin2::placeholder { color: #aeb7c1; }
+.ask-modewrap { position: relative; flex: none; }
+.ask-modebtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--c-border);
+  background: #f7f9fb;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--c-text-muted);
+}
+.ask-modebtn:hover { background: #eef2f7; }
+.ask-modebtn[aria-expanded='true'] {
+  background: var(--c-primary-bg);
+  border-color: #bcd3f0;
+  color: var(--c-primary);
+}
+.ask-modebtn .car { font-style: normal; font-size: 10px; }
+.ask-modeback { position: fixed; inset: 0; z-index: 19; }
+.ask-modemenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  z-index: 20;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.16);
+  display: block;
+}
+.ask-mi {
+  display: flex;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border: 0;
+  background: none;
+  border-radius: 9px;
+  cursor: pointer;
+  font: inherit;
+}
+.ask-mi:hover { background: #f5f8fb; }
+.ask-mi-ck { width: 16px; flex: none; color: var(--c-primary); font-size: 12px; visibility: hidden; }
+.ask-mi.on .ask-mi-ck { visibility: visible; }
+.ask-mi-tx b { display: block; font-size: 13px; font-weight: 700; color: var(--c-primary); }
+.ask-mi-tx p { margin: 2px 0 0; font-size: 11.5px; color: var(--c-text-muted); line-height: 1.5; }
+.ask-mi-tx small { display: block; margin-top: 3px; font-size: 11px; color: var(--c-text-faint); }
+.ask-send2 {
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  background: #cfd6de;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.ask-send2.on { background: var(--c-primary); }
+.ask-send2.on:hover { background: var(--c-primary-ink, #0f56b8); }
+.ask-send2:disabled { cursor: default; }
+
+/* 오프너 */
+.ask-ops { width: 100%; max-width: 640px; display: flex; flex-direction: column; gap: 8px; }
+.ask-oprow { position: relative; display: flex; align-items: stretch; }
+.ask-op {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 11px 40px 11px 14px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 11px;
+  cursor: pointer;
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: 12.5px;
+}
+.ask-op:hover { border-color: #bcd3f0; background: #f9fcff; color: var(--c-text); }
+.ask-op-tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask-op-ic {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  font-size: 12px;
+}
+.ask-op-x {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border: 0;
+  background: none;
+  border-radius: 50%;
+  color: var(--c-text-faint);
+  cursor: pointer;
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.ask-oprow:hover .ask-op-x { opacity: 1; }
+.ask-op-x:hover { background: #f0f3f7; color: var(--c-text); }
+.ask-oprow.ed {
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  background: var(--c-surface);
+  border: 1px solid #c9d9ef;
+  border-radius: 11px;
+}
+.ask-oprow.ed:focus-within { border-color: var(--c-primary); box-shadow: 0 0 0 3px var(--c-primary-bg); }
+.ask-op-in {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--c-text-muted);
+}
+.ask-op-x.on { position: static; transform: none; opacity: 1; }
+.ask-op-ic.plus { background: #eef3fb; }
+.ask-opadd {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px dashed #c9d9ef;
+  background: var(--c-surface);
+  border-radius: 11px;
+  color: var(--c-primary);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  text-align: left;
+}
+.ask-opadd:hover { background: #f7fbff; border-color: var(--c-primary); }
+.ask-opshow {
+  align-self: center;
+  border: 0;
+  background: none;
+  color: var(--c-text-faint);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* 고치는 동안의 바닥 줄 */
+.ask-edbar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--c-surface);
+  border-top: 1px solid var(--c-border);
+  box-shadow: 0 -2px 12px rgba(16, 24, 40, 0.06);
+}
+.ask-edbar .sp { flex: 1; }

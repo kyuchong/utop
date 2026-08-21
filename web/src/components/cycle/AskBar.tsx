@@ -267,6 +267,21 @@ export default function AskBar({ devices }: Props) {
   const [adopting, setAdopting] = useState('')
   /** 질문 보기 고치기 — 관리자만. ⚙ 로 켠다 */
   const [exEdit, setExEdit] = useState(false)
+  /** 고치기 전 값 — 「취소」 는 이것으로 되돌린다 */
+  const exBack = useRef<Array<{ q: string; d?: string }>>([])
+  /** 모드 고르개(목업) — 입력칸 안에서 펼친다 */
+  const [modeOpen, setModeOpen] = useState(false)
+  /** 이 브라우저에서 감춘 오프너 — 남의 화면은 그대로다 */
+  const [exHide, setExHide] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('utop.ai.exhide') || '[]') as string[]
+    } catch {
+      return []
+    }
+  })
+  useEffect(() => {
+    localStorage.setItem('utop.ai.exhide', JSON.stringify(exHide))
+  }, [exHide])
   const [exSay, setExSay] = useState('')
   const [amAdmin, setAmAdmin] = useState(false)
   /** 같은 모델이 여러 대일 때 — 어느 장비로 보낼지 고르는 창 */
@@ -2064,131 +2079,232 @@ export default function AskBar({ devices }: Props) {
         </div>
       )}
 
-      {/* 첫 화면 — 무엇을 시킬 수 있나. 예시가 없으면 사람은 아무것도 못 친다 */}
+      {/* 첫 화면 — 보내 주신 목업 그대로(지시).
+          제목 · 입력칸(모드 고르개가 그 안에) · 오프너 셋.
+          관리자는 ⚙ 로 오프너를 이 자리에서 고친다. */}
       {!draft && !making && (
-        <div className="ask-hero">
-          <h1>무엇을 시험할까요?</h1>
-          <p className="ask-lead">장비 이름과 확인하고 싶은 것을 평소 말하듯 적어주세요.</p>
-          {/* 첫 화면의 입력은 **여기 크게** 있다(목업) — 아래 고정 줄은
-              일이 시작된 뒤에 나온다. 두 군데 다 두면 어디에 적는지 헷갈린다. */}
-          <div className="ask-bigin">
-            <input
-              className="ask-bigin-in"
-              value={text}
-              placeholder={
-                mode === 'basic'
-                  ? '예: E6100 시스템 정보 조회 시험해줘'
-                  : '예: E6100 1번 포트에 1G 부하 걸어서 손실 없는지 보는 시험 만들어줘'
-              }
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.nativeEvent.isComposing) return
-                if (e.key === 'Enter') void submit()
-              }}
-            />
-            <button
-              className={`ask-bigsend${mode === 'adv' ? ' adv' : ''}`}
-              type="button"
-              title="보내기 (Enter)"
-              disabled={!text.trim()}
-              onClick={() => void submit()}
-            >
-              ➤
-            </button>
-          </div>
-          {/* 무엇을 하러 왔나 — 두 갈래(목업 v9). 고른 갈래는 기억한다.
-              일반은 **이미 있는 시험**을 골라 그대로 돌리고, 고급은 없는
-              시험을 말로 짓는다. 짓는 쪽이 여태 이 화면이 하던 일이다. */}
-          <div className="ask-modes">
-            <button
-              type="button"
-              className={`ask-mode${mode === 'basic' ? ' on' : ''}`}
-              onClick={() => setMode('basic')}
-            >
-              <span className="ask-moder" aria-hidden="true" />
-              <b>General AI Assistant</b>
-              <p>이미 만들어진 시험 항목을 찾아 그대로 실행합니다.</p>
-              <em>명령을 몰라도 됩니다. 누구나.</em>
-            </button>
-            <button
-              type="button"
-              className={`ask-mode adv${mode === 'adv' ? ' on' : ''}`}
-              onClick={() => setMode('adv')}
-            >
-              <span className="ask-moder" aria-hidden="true" />
-              <b>Advanced AI Assistant</b>
-              <p>없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다.</p>
-              <em>장비를 아는 사람이.</em>
-            </button>
-          </div>
-          {/* 예시 — 무엇을 시킬 수 있는지 눌러서 안다. 관리자는 ⚙ 로 고친다 */}
-          <div className="ask-exline">
-            {!exEdit && (
-              <div className="ask-chips">
-                {examples.map((x, i) => (
-                  <button
-                    key={x.q || i}
-                    type="button"
-                    className="ask-chip"
-                    title={x.d || x.q}
-                    onClick={() => void submit(x.q)}
-                  >
-                    {x.q}
-                  </button>
-                ))}
-              </div>
+        <div className={`ask-home${exEdit ? ' editing' : ''}`}>
+          {exEdit && <span className="ask-edbadge">오프너 편집 모드</span>}
+          <div className="ask-hometools">
+            {amAdmin && !exEdit && (
+              <button
+                className="ask-gearbtn"
+                type="button"
+                title="오프너 문구를 이 자리에서 바로 고칩니다"
+                onClick={() => {
+                  exBack.current = examples.map((x) => ({ ...x }))
+                  setExEdit(true)
+                }}
+              >
+                <IconSettings /> 설정
+              </button>
             )}
-            {amAdmin && (
-              <div className="ask-extools">
-                {exSay && <span className="muted small">{exSay}</span>}
-                {exEdit && (
-                  <button
-                    className="btn small"
-                    type="button"
-                    onClick={() => {
-                      void exSave().then((ok) => {
-                        if (ok) setExEdit(false)
-                      })
-                    }}
-                  >
-                    저장
-                  </button>
-                )}
+            {exEdit && (
+              <button
+                className="ask-edcancel"
+                type="button"
+                onClick={() => {
+                  setExamples(exBack.current.map((x) => ({ ...x })))
+                  setExEdit(false)
+                }}
+              >
+                ✕ 편집 취소
+              </button>
+            )}
+          </div>
+
+          <div className="ask-homewrap">
+            <h1 className="ask-hometitle">무엇을 도와드릴까요?</h1>
+
+            {/* 입력 + 모드 — 한 상자 안이다(목업) */}
+            <div className="ask-askbox2">
+              <input
+                className="ask-askin2"
+                value={text}
+                disabled={exEdit}
+                placeholder={
+                  mode === 'basic'
+                    ? '예: E6100 시스템 정보 조회 시험해줘'
+                    : '예: E6100 1번 포트에 1G 부하 걸어 손실 없는지 보는 시험 만들어줘'
+                }
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing) return
+                  if (e.key === 'Enter' && text.trim()) void submit()
+                }}
+              />
+              <span className="ask-modewrap">
                 <button
-                  className={`ask-exgear${exEdit ? ' on' : ''}`}
+                  className="ask-modebtn"
                   type="button"
-                  title={exEdit ? '고치기 끝내기' : '질문 보기 고치기 (관리자)'}
-                  onClick={() => {
-                    if (exEdit) void exSave()
-                    setExEdit((v) => !v)
+                  aria-haspopup="true"
+                  aria-expanded={modeOpen}
+                  disabled={exEdit}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setModeOpen((v) => !v)
                   }}
                 >
-                  <IconSettings />
+                  {mode === 'basic' ? 'General' : 'Advanced'}
+                  <i className="car" aria-hidden="true">
+                    ▾
+                  </i>
                 </button>
-              </div>
-            )}
+                {modeOpen && (
+                  <>
+                    <span className="ask-modeback" onClick={() => setModeOpen(false)} />
+                    <span className="ask-modemenu" role="menu">
+                      {(
+                        [
+                          [
+                            'basic',
+                            'General AI Assistant',
+                            '이미 만들어진 시험 항목을 찾아 그대로 실행합니다.',
+                            '명령을 몰라도 됩니다. 누구나.',
+                          ],
+                          [
+                            'adv',
+                            'Advanced AI Assistant',
+                            '없는 시험을 새로 만듭니다. 스텝마다 명령과 판정 기준을 정합니다.',
+                            '장비를 아는 사람이.',
+                          ],
+                        ] as const
+                      ).map(([k, nm, desc, who]) => (
+                        <button
+                          key={k}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={mode === k}
+                          className={`ask-mi${mode === k ? ' on' : ''}`}
+                          onClick={() => {
+                            setMode(k)
+                            setModeOpen(false)
+                          }}
+                        >
+                          <span className="ask-mi-ck">✔</span>
+                          <span className="ask-mi-tx">
+                            <b>{nm}</b>
+                            <p>{desc}</p>
+                            <small>{who}</small>
+                          </span>
+                        </button>
+                      ))}
+                    </span>
+                  </>
+                )}
+              </span>
+              <button
+                className={`ask-send2${text.trim() && !exEdit ? ' on' : ''}`}
+                type="button"
+                title="보내기 (Enter)"
+                disabled={exEdit || !text.trim()}
+                onClick={() => void submit()}
+              >
+                ➤
+              </button>
+            </div>
+
+            {/* 오프너 — 눌러서 무엇을 시킬 수 있는지 안다 */}
+            <div className="ask-ops">
+              {exEdit
+                ? examples.map((x, i) => (
+                    <div className="ask-oprow ed" key={i}>
+                      <span className="ask-op-ic">✦</span>
+                      <input
+                        className="ask-op-in"
+                        value={x.q}
+                        placeholder="오프너 문구"
+                        onChange={(e) => exSet(i, { q: e.target.value })}
+                      />
+                      <button
+                        type="button"
+                        className="ask-op-x on"
+                        title="이 오프너 지우기"
+                        onClick={() => exDel(i)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))
+                : examples
+                    .filter((x) => x.q.trim() && !exHide.includes(x.q))
+                    .map((x, i) => (
+                      <div className="ask-oprow" key={x.q || i}>
+                        <button
+                          type="button"
+                          className="ask-op"
+                          title={x.d || x.q}
+                          onClick={() => void submit(x.q)}
+                        >
+                          <span className="ask-op-ic">✦</span>
+                          <span className="ask-op-tx">{x.q}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="ask-op-x"
+                          title="이 오프너 숨기기 (내 화면에서만)"
+                          onClick={() => setExHide((v) => [...v, x.q])}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+              {exEdit && (
+                <button className="ask-opadd" type="button" onClick={exAdd}>
+                  <span className="ask-op-ic plus">＋</span>오프너 추가
+                </button>
+              )}
+              {!exEdit && exHide.length > 0 && (
+                <button
+                  className="ask-opshow"
+                  type="button"
+                  onClick={() => setExHide([])}
+                >
+                  숨긴 오프너 {exHide.length}개 다시 보기
+                </button>
+              )}
+            </div>
           </div>
-          {/* 고치는 중에는 칩이 아니라 적는 칸이다 — 칸이 넓어야 고칠 수 있다 */}
-          {examples.map((x, i) =>
-            exEdit ? (
-              <div className="ask-exedit" key={i}>
-                <div className="ask-execol">
-                  <input
-                    value={x.q}
-                    placeholder="예) E6100 rate limit 시험해줘"
-                    onChange={(e) => exSet(i, { q: e.target.value })}
-                  />
-                </div>
-                <button type="button" className="ask-exdel" title="지우기" onClick={() => exDel(i)}>
-                  ✕
-                </button>
-              </div>
-            ) : null,
-          )}
+
           {exEdit && (
-            <button type="button" className="ask-exadd" onClick={exAdd}>
-              ＋ 질문 추가
-            </button>
+            <div className="ask-edbar">
+              <button
+                className="btn"
+                type="button"
+                onClick={() =>
+                  setExamples([
+                    { q: 'E6100 시스템 정보 조회 시험해줘' },
+                    { q: 'E6100 SNMP 시험해줘' },
+                    { q: 'E6100 인터페이스 1번 shutdown 반복 시험 3회' },
+                  ])
+                }
+              >
+                기본값으로
+              </button>
+              <span className="sp" />
+              {exSay && <span className="muted small">{exSay}</span>}
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  setExamples(exBack.current.map((x) => ({ ...x })))
+                  setExEdit(false)
+                }}
+              >
+                취소
+              </button>
+              <button
+                className="btn primary"
+                type="button"
+                onClick={() => {
+                  void exSave().then((ok) => {
+                    if (ok) setExEdit(false)
+                  })
+                }}
+              >
+                변경사항 저장
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -2854,8 +2970,35 @@ export default function AskBar({ devices }: Props) {
               /* 마디마다 그 **아래 전부**를 센다 — 폴더를 골라도 걸리게 */
               const cnt = new Map<string, number>()
               for (const t of mine) for (const nd of t.chain) cnt.set(nd, (cnt.get(nd) ?? 0) + 1)
+              /*
+               * 말에서 자리를 짚었으면 **그 가지만** 보여 준다(지시).
+               * 「SNMP 시험해줘」 라고 했는데 SYSTEM·MAINT 가 나란히 서 있으면
+               * 어디를 보라는 것인지 알 수 없다. 조상과 그 아래만 남기고,
+               * 나머지는 「전체 보기」 를 눌렀을 때 돌아온다.
+               */
+              const up = new Map(tcTree.map((n) => [n.id, n.parent]))
+              const inBranch = (id: string, at: string): boolean => {
+                if (!at) return true
+                if (id === at) return true
+                // 조상인가 — at 에서 위로 올라가며 만나면 그렇다
+                let c2 = up.get(at) ?? ''
+                while (c2) {
+                  if (c2 === id) return true
+                  c2 = up.get(c2) ?? ''
+                }
+                // 자손인가 — id 에서 위로 올라가며 at 을 만나면 그렇다
+                let c3 = up.get(id) ?? ''
+                while (c3) {
+                  if (c3 === at) return true
+                  c3 = up.get(c3) ?? ''
+                }
+                return false
+              }
               const kids = (pid: string) =>
-                tcTree.filter((n) => n.parent === pid && (cnt.get(n.id) ?? 0) > 0)
+                tcTree.filter(
+                  (n) =>
+                    n.parent === pid && (cnt.get(n.id) ?? 0) > 0 && inBranch(n.id, tcFold),
+                )
               const near = new Map(like.map((x, i) => [x.tcid, i]))
               /* 골라 둔 자리에 볼 것이 없으면 **전체로 되돌린다** — 빈 목록
                  앞에서 「없습니다」 만 보고 있게 두지 않는다(지적 사진) */
