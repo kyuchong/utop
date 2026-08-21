@@ -2207,6 +2207,8 @@ export default function AskBar({ devices }: Props) {
                 <div className="tc-inner">
                   <section className="panel tc-seqcol" style={{ flexBasis: seqW }} ref={seqRef}>
                     <div className="tc-title">
+                      {/* 한 건이면 번호를 세우고, 여러 건이면 「고른 시험 n건」
+                          한 마디로 족하다(지시) */}
                       {draft.object && /^TC-/i.test(draft.object) && (
                         <>
                           <span className="tc-tid">{draft.object}</span>
@@ -2214,42 +2216,7 @@ export default function AskBar({ devices }: Props) {
                         </>
                       )}
                       <b title={draft.name}>{draft.name}</b>
-                      {/* 여러 시험을 이어 붙였으면 **지금 보고 있는 스텝이
-                          어느 시험의 것인지** 여기서 말해 준다(지적) */}
-                      {(() => {
-                        if (!seqSteps.some((x) => x.head)) return null
-                        let at = ''
-                        for (let i = 0; i <= Math.min(stepAt, seqSteps.length - 1); i += 1)
-                          if (seqSteps[i]?.head) at = String(seqSteps[i]?.step ?? '')
-                        if (!at) return null
-                        return (
-                          <>
-                            <span className="tc-title-div" aria-hidden="true" />
-                            <span className="ask-inwhich ell" title={at}>
-                              {at}
-                            </span>
-                          </>
-                        )
-                      })()}
                       <span className="sp" />
-                      <button
-                        className="btn small primary"
-                        type="button"
-                        title="처음부터 끝까지 돌립니다"
-                        disabled={running || !devId}
-                        onClick={() => void run()}
-                      >
-                        ▶ 전체
-                      </button>
-                      <button
-                        className="btn small"
-                        type="button"
-                        title="고른 줄부터 끝까지"
-                        disabled={running || !devId || stepAt < 0}
-                        onClick={() => void run(undefined, stepAt)}
-                      >
-                        ▶ 여기부터
-                      </button>
                       {(() => {
                         const done = (ran ?? []).filter((r) => r && (r.repeatResult || r.status)).length
                         const pass = (ran ?? []).filter(
@@ -2338,8 +2305,9 @@ export default function AskBar({ devices }: Props) {
                                     {open ? '▾' : '▸'}
                                   </button>
                                   <i className="ask-grpn">{gi + 1}</i>
-                                  {hd?.step && <span className="ask-grpid">{hd.step}</span>}
-                                  <b className="ell">{hd?.text || hd?.step || '시험'}</b>
+                                  <b className="ell" title={hd?.step ? `${hd.text} · ${hd.step}` : hd?.text}>
+                                    {hd?.text || hd?.step || '시험'}
+                                  </b>
                                   <span className="sp" />
                                   <span className="muted small">
                                     {done}/{to - from}

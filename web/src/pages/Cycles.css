@@ -7335,19 +7335,24 @@ a.bc-cur:hover { text-decoration: underline; }
   padding: 8px 8px 12px;
 }
 .ask-grp {
+  --grp: var(--c-primary);
+  --grp-bg: var(--c-primary-bg-soft);
   border: 1px solid var(--c-border-soft);
-  border-left: 3px solid var(--c-primary);
+  border-left: 3px solid var(--grp);
   border-radius: 10px;
   background: var(--c-surface);
   overflow: hidden;
 }
+/* 잇달아 선 카드가 서로 갈리게 색을 돌린다(사진) */
+.ask-grp:nth-child(3n + 2) { --grp: #7c5cd6; --grp-bg: #f3effd; }
+.ask-grp:nth-child(3n) { --grp: #1f8a52; --grp-bg: #eef8f2; }
 .ask-grp.folded { background: #fbfcfd; }
 .ask-grph {
   display: flex;
   align-items: center;
   gap: 7px;
   padding: 6px 10px;
-  background: var(--c-primary-bg-soft);
+  background: var(--grp-bg);
   border-bottom: 1px solid var(--c-border-soft);
   min-width: 0;
 }
@@ -7367,7 +7372,7 @@ a.bc-cur:hover { text-decoration: underline; }
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--c-primary);
+  background: var(--grp);
   color: #fff;
   font-style: normal;
   font-size: var(--fs-xs);
@@ -7384,6 +7389,8 @@ a.bc-cur:hover { text-decoration: underline; }
 }
 .ask-grprun {
   flex: none;
+  opacity: 0;
+  transition: opacity 0.12s;
   border: 1px solid transparent;
   background: transparent;
   color: var(--c-primary);
@@ -7391,7 +7398,10 @@ a.bc-cur:hover { text-decoration: underline; }
   border-radius: 6px;
   padding: 1px 6px;
 }
-.ask-grprun:hover:not(:disabled) { background: var(--c-primary-bg); border-color: #cddff5; }
+.ask-grp:hover .ask-grprun,
+.ask-grprun:focus-visible { opacity: 1; }
+.ask-grprun { color: var(--grp); }
+.ask-grprun:hover:not(:disabled) { background: #fff; border-color: var(--grp); }
 .ask-grprun:disabled { color: var(--c-text-faint); cursor: default; }
 /* 카드 안에서는 목록이 제 스크롤을 갖지 않는다 — 바깥 한 줄기로 구른다 */
 .ask-grp .sq { flex: none; }
