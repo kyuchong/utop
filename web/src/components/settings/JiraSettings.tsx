@@ -37,6 +37,8 @@ interface LoginCheck {
   last_fail?: { user?: string; why?: string; at?: string } | null
 }
 
+type Tab = 'conn' | 'login' | 'etc'
+
 interface Proj {
   key: string
   name: string
@@ -66,6 +68,10 @@ export default function JiraSettings() {
   const [projects, setProjects] = useState<Proj[]>([])
   const [types, setTypes] = useState<IType[]>([])
   /** 「지금 되는지 보기」 — 저장된 설정으로 실제 상태를 물어본다 */
+  const [tab, setTab] = useState<Tab>(() => {
+    const v = localStorage.getItem('utop.jira.tab')
+    return v === 'login' || v === 'etc' ? v : 'conn'
+  })
   const [chk, setChk] = useState<LoginCheck | null>(null)
   const [chking, setChking] = useState(false)
   /**
@@ -92,8 +98,31 @@ export default function JiraSettings() {
       if (r.ok) setCfg((await r.json()) as Cfg)
     })()
   }, [])
+  useEffect(() => {
+    localStorage.setItem('utop.jira.tab', tab)
+  }, [tab])
 
   const set = (p: Partial<Cfg>) => setCfg((c) => ({ ...c, ...p }))
+
+  /**
+   * 로그인 칸은 **고르는 즉시 저장한다.**
+   *
+   * 체크만 하고 저장을 안 해서 「① 꺼져 있습니다」 를 보는 일이 있었다
+   * (사진). 스위치 하나 켜는 데 저장 단추를 기억하게 할 이유가 없다.
+   */
+  const setSave = async (p: Partial<Cfg>) => {
+    const next = { ...cfg, ...p }
+    setCfg(next)
+    setBusy('login')
+    try {
+      const r = await apiFetch('/api/jira/config', { method: 'POST', body: JSON.stringify(next) })
+      setMsg(
+        r.ok ? { kind: 'ok', text: '저장했습니다' } : { kind: 'err', text: '저장하지 못했습니다' },
+      )
+    } finally {
+      setBusy('')
+    }
+  }
 
   const save = async (what: string) => {
     setBusy(what)
@@ -173,7 +202,30 @@ export default function JiraSettings() {
         {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
       </div>
 
+      {/* 탭 셋 — 연결 · 로그인 · 기본값(자주 쓰는 프로젝트 포함)(지시).
+          한 화면에 네 카드가 늘어서면 어느 것을 고치는 중인지 흐려진다. */}
+      <div className="jira-tabs">
+        {(
+          [
+            ['conn', '연결'],
+            ['login', '로그인'],
+            ['etc', '기본값 · 자주 쓰는 프로젝트'],
+          ] as Array<[Tab, string]>
+        ).map(([k, lb]) => (
+          <button
+            key={k}
+            type="button"
+            className={`jira-tab${tab === k ? ' on' : ''}`}
+            onClick={() => setTab(k)}
+          >
+            {lb}
+          </button>
+        ))}
+      </div>
+
       <div className="jira-cols">
+        {tab === 'conn' && (
+          <>
         {/* 붙는 것. 이게 안 되면 나머지는 볼 것도 없다 */}
         <div className="panel jira-card">
           <b className="jira-t">연결</b>
@@ -232,7 +284,11 @@ export default function JiraSettings() {
           </p>
         </div>
 
+          </>
+        )}
 
+        {tab === 'login' && (
+          <>
         {/* Jira 계정 로그인 — **연결과는 다른 일**이다(지시: 연결은 그대로 두고
             옆에 카드 하나 더). 연결은 이슈를 등록·조회하는 자격이고, 이쪽은
             사람이 들어오는 문이다. 한 칸에 섞여 있으면 어느 것을 고치는지
@@ -248,7 +304,7 @@ export default function JiraSettings() {
             <input
               type="checkbox"
               checked={!!cfg.login_enabled}
-              onChange={(e) => set({ login_enabled: e.target.checked })}
+              onChange={(e) => void setSave({ login_enabled: e.target.checked })}
             />
             <b>Jira 계정으로 로그인</b> — UTOP 로그인에 Jira ID/비밀번호를 씁니다
           </label>
@@ -262,6 +318,7 @@ export default function JiraSettings() {
                   value={cfg.login_url ?? ''}
                   placeholder={`비우면 「연결」의 주소 — ${cfg.url || 'https://…'}`}
                   onChange={(e) => set({ login_url: e.target.value })}
+                  onBlur={(e) => void setSave({ login_url: e.target.value.trim() })}
                 />
                 <i className="muted small">
                   로그인만 다른 Jira 로 물어볼 때 적습니다. 이슈 등록·조회는 「연결」의 주소를
@@ -272,7 +329,7 @@ export default function JiraSettings() {
                 <input
                   type="checkbox"
                   checked={cfg.login_auto_create !== false}
-                  onChange={(e) => set({ login_auto_create: e.target.checked })}
+                  onChange={(e) => void setSave({ login_auto_create: e.target.checked })}
                 />
                 처음 들어온 사람을 <b>계정 명단에 자동으로 싣는다</b> — 끄면 관리자가 먼저
                 등록한 사람만 들어옵니다
@@ -353,7 +410,11 @@ export default function JiraSettings() {
             </button>
           </div>
         </div>
+          </>
+        )}
 
+        {tab === 'etc' && (
+          <>
         {/* 기본값 — 이슈 등록 창에서 미리 골라 둘 것 */}
         <div className="panel jira-card">
           <b className="jira-t">기본값</b>
@@ -451,6 +512,8 @@ export default function JiraSettings() {
             </button>
           </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   )

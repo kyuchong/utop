@@ -528,11 +528,14 @@
 .set-head .sp { margin-left: auto; }
 /* 세 덩이를 나란히. auto-fit 으로 두었더니 「자주 쓰는 프로젝트」 만
    아래로 떨어져서 두 줄이 됐다 — 세 덩이는 한눈에 놓여야 한다 */
+/* 탭으로 갈라 놓으니 한 탭에 카드가 하나나 둘이다. 3등분을 그대로 두면
+   카드가 화면 왼쪽에서 좁게 서서 글이 뭉갠다 — 카드에 제 폭을 준다. */
 .jira-cols {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 420px));
   gap: 12px;
   align-items: start;
+  justify-content: start;
 }
 @media (max-width: 1100px) {
   .jira-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1490,3 +1493,19 @@ button.dcc-st:disabled { cursor: default; }
 /* 로그인 URL 처럼 딸린 칸은 한 칸 들여쓴다 */
 .jira-f.sub { margin-left: 18px; }
 .jira-f.sub i { font-style: normal; }
+
+/* Jira 설정 탭 — 연결 · 로그인 · 기본값 */
+.jira-tabs { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
+.jira-tab {
+  height: 30px;
+  padding: 0 13px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 8px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.jira-tab:hover { background: #f6f8fa; }
+.jira-tab.on { background: var(--c-primary); border-color: var(--c-primary); color: #fff; font-weight: 600; }
