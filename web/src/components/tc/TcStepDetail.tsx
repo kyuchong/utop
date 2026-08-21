@@ -83,6 +83,14 @@ interface Props {
   onInsertAfter?: (steps: TcStep[]) => void
   /** 이 스텝의 **몸통 뒤에** 끼운다 — If 의 「거짓일 때」 가 그 자리다 */
   onInsertAfterBlock?: (steps: TcStep[]) => void
+  /** If 의 두 갈래에 지금 들어 있는 줄들 */
+  branches?: {
+    yes: Array<{ i: number; kind: string; text: string }>
+    no: Array<{ i: number; kind: string; text: string }>
+    hasElse: boolean
+  }
+  /** 갈래의 줄을 눌렀을 때 — 그 스텝으로 옮겨 간다 */
+  onGoStep?: (i: number) => void
 }
 
 /**
@@ -114,6 +122,8 @@ export default function TcStepDetail({
   loopVar,
   onInsertAfter,
   onInsertAfterBlock,
+  branches,
+  onGoStep,
   readOnly = false,
 }: Props) {
   const [picked, setPicked] = useState('')
@@ -124,9 +134,7 @@ export default function TcStepDetail({
   const [capOpen, setCapOpen] = useState(false)
   /* If 의 두 갈래를 그 자리에서 만든다 — 변수 하나 고르고 글자 적으면 끝 */
   const [yesTx, setYesTx] = useState('')
-  const [yesV, setYesV] = useState('')
   const [noTx, setNoTx] = useState('')
-  const [noV, setNoV] = useState('')
   /** 펼쳐 본 회차. 0 이면 안 폈다 */
   const [round, setRound] = useState(0)
   /** 지금 열려 있는 고르기 목록 — 어느 칸에 넣을지까지 담는다 */
@@ -903,69 +911,105 @@ export default function TcStepDetail({
               대부분이고, 더 필요하면 만들어진 줄을 고치면 된다.
             */}
             {(() => {
+              /*
+               * 두 갈래를 **있는 그대로** 보여 준다.
+               *
+               * 만드는 칸만 있고 든 것을 안 보여 주니, 넣고 나서 어디로 갔는지
+               * 목록에서 다시 찾아야 했다(지적: 획기적으로 개선). 지금 그 갈래에
+               * 무엇이 도는지 줄로 세우고, 누르면 그 스텝으로 간다. 새 문구는
+               * 아래 한 칸에 적으면 그 갈래 안에 들어간다 — 들여쓰기는 우리가 한다.
+               */
               const vars = [
                 ...(loopVar ? [loopVar] : []),
                 '_verdict',
                 ...new Set([...takenVars, ...mine]),
               ]
-              const mk = (v: string, tx: string) =>
-                `${v ? '${' + v + '} ' : ''}${tx}`.trim()
-              const box = (
+              const put = (into: 'yes' | 'no', tx: string) => {
+                const t = tx.trim()
+                if (!t) return
+                const d = Number(step.indent ?? 0)
+                if (into === 'yes') onInsertAfter?.([{ kind: 'message', indent: d + 1, text: t }])
+                else if (branches?.hasElse)
+                  onInsertAfterBlock?.([{ kind: 'message', indent: d + 1, text: t }])
+                else
+                  onInsertAfterBlock?.([
+                    { kind: 'else', indent: d },
+                    { kind: 'message', indent: d + 1, text: t },
+                  ])
+              }
+              const side = (
                 cls: 'yes' | 'no',
                 label: string,
-                v: string,
-                setV: (x: string) => void,
+                rows: Array<{ i: number; kind: string; text: string }>,
                 tx: string,
-                setTx: (x: string) => void,
-                add: () => void,
+                setTx: (v: string) => void,
               ) => (
-                <div className={`sd-f`}>
+                <div className="sd-f">
                   <span className="sd-lab">{label}</span>
                   <div className={`sd-br ${cls}`}>
-                    <select value={v} onChange={(e) => setV(e.target.value)}>
-                      <option value="">(변수 없이)</option>
-                      {vars.map((x) => (
-                        <option key={x} value={x}>
-                          {'${' + x + '}'}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      value={tx}
-                      placeholder={cls === 'yes' ? '정상입니다' : '맞지 않습니다'}
-                      onChange={(e) => setTx(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && add()}
-                    />
-                    <button className="btn small" type="button" onClick={add} disabled={!tx.trim() && !v}>
-                      ＋ 넣기
-                    </button>
-                    <i className="sd-brp">{mk(v, tx) || '남길 말을 적으세요'}</i>
+                    {rows.length === 0 ? (
+                      <i className="sd-brnone">
+                        {cls === 'yes' ? '아직 없습니다 — 참일 때 할 일을 적으세요' : '아직 없습니다 — 거짓일 때 할 일을 적으세요'}
+                      </i>
+                    ) : (
+                      <ul className="sd-brlist">
+                        {rows.map((r) => (
+                          <li key={r.i}>
+                            <button type="button" onClick={() => onGoStep?.(r.i)} title="이 스텝으로">
+                              <b>{r.kind === 'message' ? '문구' : r.kind}</b>
+                              <span>{r.text || '(내용 없음)'}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="sd-bradd">
+                      <input
+                        value={tx}
+                        placeholder={cls === 'yes' ? '예) ${i}번 포트 정상입니다' : '예) ⚠ ${i}번 포트 다릅니다'}
+                        onChange={(e) => setTx(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Enter') return
+                          put(cls, tx)
+                          setTx('')
+                        }}
+                      />
+                      {/* 변수는 눌러서 끼운다 — 이름을 외우게 하지 않는다 */}
+                      <select
+                        value=""
+                        title="변수 끼우기"
+                        onChange={(e) => {
+                          if (!e.target.value) return
+                          setTx(`${tx}${tx && !tx.endsWith(' ') ? ' ' : ''}\${${e.target.value}}`)
+                          e.currentTarget.value = ''
+                        }}
+                      >
+                        <option value="">${'{ }'}</option>
+                        {vars.map((x) => (
+                          <option key={x} value={x}>
+                            {x}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="btn small"
+                        type="button"
+                        disabled={!tx.trim()}
+                        onClick={() => {
+                          put(cls, tx)
+                          setTx('')
+                        }}
+                      >
+                        ＋ 넣기
+                      </button>
+                    </div>
                   </div>
                 </div>
               )
               return (
                 <>
-                  {box('yes', '참일 때', yesV, setYesV, yesTx, setYesTx, () => {
-                    onInsertAfter?.([
-                      {
-                        kind: 'message',
-                        indent: Number(step.indent ?? 0) + 1,
-                        text: mk(yesV, yesTx),
-                      },
-                    ])
-                    setYesTx('')
-                  })}
-                  {box('no', '거짓일 때', noV, setNoV, noTx, setNoTx, () => {
-                    onInsertAfterBlock?.([
-                      { kind: 'else', indent: Number(step.indent ?? 0) },
-                      {
-                        kind: 'message',
-                        indent: Number(step.indent ?? 0) + 1,
-                        text: mk(noV, noTx),
-                      },
-                    ])
-                    setNoTx('')
-                  })}
+                  {side('yes', '참일 때', branches?.yes ?? [], yesTx, setYesTx)}
+                  {side('no', '거짓일 때', branches?.no ?? [], noTx, setNoTx)}
                 </>
               )
             })()}

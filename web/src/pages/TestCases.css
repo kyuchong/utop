@@ -3181,3 +3181,27 @@ table.tb tr.r-bad td:first-child {
 }
 .sd-br.yes .sd-brp { color: #12643a; }
 .sd-br.no .sd-brp { color: #a02323; }
+
+/* If 의 갈래 — 든 것을 보여 주고, 아래 한 칸으로 더한다 */
+.sd-br { flex-direction: column; align-items: stretch; }
+.sd-brnone { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-muted); }
+.sd-brlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.sd-brlist button {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  padding: 2px 4px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.sd-brlist button:hover { background: rgba(255, 255, 255, 0.8); }
+.sd-brlist b { flex: none; font-size: var(--fs-xs); color: var(--c-text-faint); font-weight: 600; }
+.sd-brlist span { font-family: var(--font-mono); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-bradd { display: flex; align-items: center; gap: 5px; }
+.sd-bradd select { height: 26px; border: 1px solid var(--c-border); border-radius: 6px; background: #fff; font-size: var(--fs-xs); }

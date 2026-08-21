@@ -84,6 +84,7 @@ import {
   sessionIndex,
   stepResult,
   stepStatus,
+  stepSummary,
   stepVerdict,
   type StepKind,
   type TcData,
@@ -2084,6 +2085,29 @@ export default function TestCases({ me }: PageProps) {
                     block={blockInfo}
                     loopVar={loopVarAt(shownSteps, stepIdx)}
                     onInsertAfter={(arr) => stepIdx >= 0 && insertAfter(stepIdx, arr)}
+                    /* If 의 두 갈래에 **지금 무엇이 들어 있는지** 를 넘긴다.
+                       만드는 칸만 있고 든 것을 안 보여 주면, 넣고 나서
+                       어디로 갔는지 목록에서 다시 찾아야 한다. */
+                    branches={(() => {
+                      if (stepIdx < 0 || (steps[stepIdx]?.kind ?? '') !== 'if') return undefined
+                      const d = Number(steps[stepIdx]?.indent ?? 0)
+                      const body = blockEnd(steps, stepIdx)
+                      const yes = []
+                      for (let k = stepIdx + 1; k < body; k++)
+                        yes.push({ i: k, kind: String(steps[k]?.kind ?? 'cli'), text: stepSummary(steps[k]!) })
+                      const elseAt =
+                        (steps[body]?.kind ?? '') === 'else' && Number(steps[body]?.indent ?? 0) === d
+                          ? body
+                          : -1
+                      const no = []
+                      if (elseAt >= 0) {
+                        const eBody = blockEnd(steps, elseAt)
+                        for (let k = elseAt + 1; k < eBody; k++)
+                          no.push({ i: k, kind: String(steps[k]?.kind ?? 'cli'), text: stepSummary(steps[k]!) })
+                      }
+                      return { yes, no, hasElse: elseAt >= 0 }
+                    })()}
+                    onGoStep={(i) => setStepIdx(i)}
                     /* If 의 「거짓일 때」 는 몸통 **뒤**에 와야 한다 —
                        바로 뒤에 넣으면 참일 때 도는 줄이 되어 버린다 */
                     onInsertAfterBlock={(arr) =>
