@@ -111,9 +111,12 @@ export default function TcTable({
      「어느 열의 값을, 어느 행에서」 두 가지만 고르면 된다. 정규식은
      아무도 안 쓴다(지적) — iTest 의 Response Map 이 하는 일이 이것이다. */
   const [capCol, setCapCol] = useState('')
-  const [capWhere, setCapWhere] = useState('')
   const [capVar, setCapVar] = useState('')
   const [capN, setCapN] = useState('1')
+  /* 「시작 행 · 마지막 행 · 변수」 세 가지로 끝나야 한다(지시). 조건식을
+     사람이 짜게 하지 않는다 — 두 행을 고르면 규칙은 우리가 만든다. */
+  const [rowA, setRowA] = useState('')
+  const [rowB, setRowB] = useState('')
   /** 회차를 넣어 본 값 — `${i}` 가 든 기준을 지금 표에 대 보려면 필요하다 */
   const subs = (t: string) => (loopVar ? subVars(t, { [loopVar]: capN }) : t)
 
@@ -145,6 +148,27 @@ export default function TcTable({
   /** 마지막으로 누른 행 — Shift 범위 선택의 기준점 */
   const lastRow = useRef(-1)
   const allKvs = [...new Set((tbl?.rows ?? []).map((r) => r[keyAt] ?? ''))].filter(Boolean)
+  /**
+   * 고른 두 행에서 **반복 규칙**을 뽑는다.
+   *
+   * `Te0/1` 과 `Te0/24` 를 고르면 「앞은 Te0/ · 뒤는 없음 · 1부터 24까지」.
+   * 사람은 시작과 끝만 고르고, `${i}` 를 어디에 넣을지는 우리가 안다.
+   * 숫자 자리가 다르게 생겼으면(Po12 ↔ Te0/3) 규칙이 안 나온다 — 그때는
+   * 한 행만 보는 것으로 둔다.
+   */
+  const rng = (() => {
+    const m1 = /^(.*?)(\d+)(\D*)$/.exec(rowA)
+    const m2 = /^(.*?)(\d+)(\D*)$/.exec(rowB)
+    if (!m1 || !m2 || m1[1] !== m2[1] || m1[3] !== m2[3]) return null
+    const from = Number(m1[2])
+    const to = Number(m2[2])
+    if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) return null
+    return { pre: m1[1] ?? '', suf: m1[3] ?? '', from, to }
+  })()
+  const lv = loopVar || 'i'
+  /** 만들어지는 행 조건 — 여럿이면 `${i}` 자리로, 하나면 그 값 그대로 */
+  const capWhereAuto =
+    rng && rng.to > rng.from ? `${rng.pre}\${${lv}}${rng.suf}` : rowA || rowB
   const allOn = allKvs.length > 0 && allKvs.every((v) => keys.includes(v))
   /** 행 하나 고르기 — Shift 면 지난 번 누른 행부터 범위로 */
   const pickRow = (r: number, kv: string, shift: boolean) => {
@@ -158,17 +182,14 @@ export default function TcTable({
     lastRow.current = r
   }
 
-  /** capture — 누른 칸을 「값 열」 로, 그 행의 기준 값을 「행 조건」 으로 */
+  /** capture — 누른 칸으로 「담을 칸」 을, 그 행으로 시작/마지막 행을 채운다 */
   const pickCap = (c: number, row: string[]) => {
     const col = cols[c] ?? ''
     if (!col) return
     setCapCol(col)
     const kv = row[keyAt] ?? ''
-    /* 반복 안이면 회차 번호로 바꿔 권한다 — Te0/13 을 그대로 두면 24회를
-       돌려도 13번 줄만 스물네 번 본다(그 함정을 여기서 막는다). */
-    const m = loopVar ? /^(.*?)(\d+)(\D*)$/.exec(kv) : null
-    setCapWhere(m ? `${m[1]}\${${loopVar}}${m[3]}` : kv)
-    if (m?.[2]) setCapN(m[2])
+    if (!rowA) setRowA(kv)
+    else if (!rowB && kv !== rowA) setRowB(kv)
     if (!capVar) {
       const base = col.toLowerCase().replace(/[^a-z0-9_]/g, '') || 'val'
       const used = new Set(takenVars)
@@ -241,10 +262,17 @@ export default function TcTable({
 
       {cap ? (
         <div className="tb-say">
-          {/* 고른 것을 사람 말로 되읽어 준다 — 문법을 몰라도 맞게 골랐는지 안다 */}
+          {/* 시작 행 · 마지막 행 · 변수. 이것 말고는 묻지 않는다(지시) */}
           <label className="tb-key">
             행 찾는 열
-            <select value={keyAt} onChange={(e) => setKeyAt(Number(e.target.value))}>
+            <select
+              value={keyAt}
+              onChange={(e) => {
+                setKeyAt(Number(e.target.value))
+                setRowA('')
+                setRowB('')
+              }}
+            >
               {cols.map((c, i) => (
                 <option key={i} value={i}>
                   {c || `(${i + 1}번째 열)`}
@@ -253,39 +281,50 @@ export default function TcTable({
             </select>
           </label>
           <span className="tb-sent">
-            <b>{keyCol}</b> 가{' '}
-            <input
-              className="tb-in"
-              value={capWhere}
-              placeholder={loopVar ? `Te0/\${${loopVar}}` : '값'}
-              onChange={(e) => setCapWhere(e.target.value)}
-              title="이 행을 찾는 값. 반복 안이면 회차 번호를 넣으세요"
-            />{' '}
-            인 행의 <b>{capCol || '— 칸을 누르세요'}</b> 칸을{' '}
-            <input
-              className="tb-in v"
-              value={capVar}
-              placeholder="변수 이름"
-              onChange={(e) => setCapVar(e.target.value.trim())}
-              title="이 값을 담을 변수 이름"
-            />{' '}
-            에 담습니다.
-            {loopVar && !capWhere.includes('${') && capWhere ? (
-              <button
-                className="btn small"
-                type="button"
-                title={`회차 번호(\${${loopVar}})로 바꿉니다 — 그래야 회차마다 다른 행을 봅니다`}
-                onClick={() => {
-                  const m = /^(.*?)(\d+)(\D*)$/.exec(capWhere)
-                  if (m) {
-                    setCapWhere(`${m[1]}\${${loopVar}}${m[3]}`)
-                    setCapN(m[2] ?? '1')
-                  }
-                }}
-              >
-                회차 번호로
-              </button>
-            ) : null}
+            <label className="tb-key">
+              시작 행
+              <select value={rowA} onChange={(e) => setRowA(e.target.value)}>
+                <option value="">고르세요</option>
+                {allKvs.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="tb-key">
+              마지막 행
+              <select value={rowB} onChange={(e) => setRowB(e.target.value)}>
+                <option value="">(한 행만)</option>
+                {allKvs.map((v) => (
+                  <option key={v} value={v}>
+                    {v}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="tb-key">
+              담을 칸
+              <select value={capCol} onChange={(e) => setCapCol(e.target.value)}>
+                <option value="">고르세요</option>
+                {cols
+                  .filter((c) => c.trim())
+                  .map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label className="tb-key">
+              변수
+              <input
+                className="tb-in v"
+                value={capVar}
+                placeholder="이름"
+                onChange={(e) => setCapVar(e.target.value.trim())}
+              />
+            </label>
           </span>
         </div>
       ) : (
@@ -466,73 +505,73 @@ export default function TcTable({
 
       {cap ? (
         <div className="tb-foot">
-          {/* 지금 이 출력에서 실제로 뭐가 잡히는지 바로 보여 준다.
-              저장하고 돌려 봐야 아는 것이 제일 답답하다. */}
-          {loopVar && capWhere.includes('${') ? (
-            <span className="tb-live">
-              회차{' '}
-              <input
-                className="tb-in n"
-                value={capN}
-                onChange={(e) => setCapN(e.target.value.replace(/\D/g, '') || '1')}
-              />{' '}
-              일 때 →{' '}
-              <b>
-                {(() => {
-                  const g = tableCapture(
-                    text,
-                    { col: capCol, where: `${keyCol}=${quoteVal(capWhere)}` },
-                    { [loopVar]: capN },
-                  )
-                  return g === null ? '(그런 행이 없습니다)' : g || '(빈 칸)'
-                })()}
-              </b>
-            </span>
-          ) : capCol && capWhere ? (
-            <span className="tb-live">
-              지금 잡히는 값 →{' '}
-              <b>
-                {(() => {
-                  const g = tableCapture(text, {
-                    col: capCol,
-                    where: `${keyCol}=${quoteVal(capWhere)}`,
-                  })
-                  return g === null ? '(그런 행이 없습니다)' : g || '(빈 칸)'
-                })()}
-              </b>
-            </span>
-          ) : null}
-          <code className="tb-code" title="이대로 스텝에 들어갑니다">
-            {capVar || '변수'} = {keyCol}={capWhere || '…'} 행의 {capCol || '…'} 칸
-          </code>
-          {/* 못 누르는 단추만 있고 까닭이 없으면 사람은 멈춘다(지적) */}
-          {(!capCol || !capVar || !capWhere) && (
-            <span className="tb-need">
-              {!capCol
-                ? '담을 값이 있는 칸(또는 열 이름)을 누르세요'
-                : !capWhere
-                  ? '어느 행인지 적으세요'
-                  : '변수 이름을 적으세요'}
-            </span>
-          )}
+          {/* 무엇이 만들어지는지 사람 말로 — 문법은 안 보여 준다 */}
+          <span className="tb-live">
+            {capCol && (rowA || rowB) ? (
+              rng && rng.to > rng.from ? (
+                <>
+                  <b>
+                    {rowA} ~ {rowB}
+                  </b>{' '}
+                  {rng.to - rng.from + 1}행 · 회차{' '}
+                  <input
+                    className="tb-in n"
+                    value={capN}
+                    onChange={(e) => setCapN(e.target.value.replace(/\D/g, '') || String(rng.from))}
+                  />{' '}
+                  일 때 <b>{capVar || '변수'}</b> ={' '}
+                  <b>
+                    {(() => {
+                      const g = tableCapture(
+                        text,
+                        { col: capCol, where: `${keyCol}=${quoteVal(capWhereAuto)}` },
+                        { [lv]: capN },
+                      )
+                      return g === null ? '(그런 행이 없습니다)' : g || '(빈 칸)'
+                    })()}
+                  </b>{' '}
+                  <i className="muted">
+                    반복은 {rng.from} ~ {rng.to} 로 두세요 (지금 반복 변수 ${'{'}
+                    {lv}
+                    {'}'})
+                  </i>
+                </>
+              ) : (
+                <>
+                  <b>{rowA || rowB}</b> 한 행 · <b>{capVar || '변수'}</b> ={' '}
+                  <b>
+                    {(() => {
+                      const g = tableCapture(text, {
+                        col: capCol,
+                        where: `${keyCol}=${quoteVal(capWhereAuto)}`,
+                      })
+                      return g === null ? '(그런 행이 없습니다)' : g || '(빈 칸)'
+                    })()}
+                  </b>
+                </>
+              )
+            ) : (
+              <i className="muted">표에서 담고 싶은 칸을 누르세요 — 시작 행과 담을 칸이 채워집니다</i>
+            )}
+          </span>
           <button
             className="btn primary small"
             type="button"
-            disabled={!capCol || !capVar || !capWhere}
+            disabled={!capCol || !capVar || (!rowA && !rowB)}
             title={
               !capCol
-                ? '값이 있는 칸이나 열 이름을 먼저 누르세요'
-                : !capWhere
-                  ? '행 조건이 비었습니다'
+                ? '담을 칸을 고르세요'
+                : !rowA && !rowB
+                  ? '시작 행을 고르세요'
                   : !capVar
-                    ? '변수 이름이 비었습니다'
+                    ? '변수 이름을 적으세요'
                     : '이 값을 변수로 담습니다'
             }
             onClick={() =>
               onCapture?.({
                 var: capVar,
                 col: capCol,
-                where: `${keyCol}=${quoteVal(capWhere)}`,
+                where: `${keyCol}=${quoteVal(capWhereAuto)}`,
               })
             }
           >
