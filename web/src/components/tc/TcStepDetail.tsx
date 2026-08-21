@@ -1167,11 +1167,11 @@ export default function TcStepDetail({
             {/* 직접 입력칸은 뺐다(지적 ×2) — 기준은 블럭 클릭·글자 끌기로만.
                 응답에 없는 문구가 필요한 드문 경우는 아직 없다는 판단(합의) */}
             {isTbl && (
+              /* 안내 글자는 뺐다(지시) — 눌러 보면 그 판이 스스로 말한다 */
               <span className="sd-hint">
                 <button className="btn small" type="button" onClick={() => setTblOpen(true)}>
                   표에서 고르기
-                </button>{' '}
-                표 응답이면 <b>볼 행</b>과 <b>그 행이 어때야 하는지</b>를 눌러 표 기준을 만듭니다.
+                </button>
               </span>
             )}
             {String(step.type) === 'expr' && String(step.criteria ?? '').trim() && !stepRules(step).length && (
@@ -1254,7 +1254,6 @@ export default function TcStepDetail({
                 )
               })}
             </div>
-            <span className="sd-hint">뒤 스텝에서 {'${이름}'} 으로 씁니다</span>
           </div>
         ) : null}
 
@@ -1267,7 +1266,11 @@ export default function TcStepDetail({
             <div className="sd-rlab">
               <span>Result</span>
               {verdict && <b className={`status ${verdict.toLowerCase()}`}>{verdict}</b>}
-              {step.reason && <span className="sd-why">{step.reason}</span>}
+              {/* 「판정기준 없음」 은 Result 가 아니라 **판정 기준** 쪽 말이다(지시).
+                  결과 자리에 두면 무언가 결과가 난 것처럼 읽힌다 */}
+              {step.reason && !String(step.reason).startsWith('판정기준 없음') && (
+                <span className="sd-why">{step.reason}</span>
+              )}
               <span className="sp" />
               {step.executed_at && (
                 <span className="muted small">{step.executed_at.slice(0, 16).replace('T', ' ')}</span>
