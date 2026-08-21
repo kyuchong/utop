@@ -625,7 +625,7 @@ async function runOne(
       }
       flush(acc || `[오류] ${perr}`, true)
 
-      Object.assign(vars, extractVars(step, acc))
+      Object.assign(vars, extractVars(step, acc, vars))
       const hasCrit = stepRules(step).some((r) => r.t !== 'skip' && r.t !== 'skipcol') || !!String(step.criteria ?? step.expected ?? '').trim()
       const j = hasCrit
         ? judge(step, acc, vars)
@@ -664,7 +664,7 @@ async function runOne(
           : `[Trap 없음] ${step.trapSec ?? 15}초 동안 오지 않았습니다`
         : String(r.output ?? r.error ?? '')
 
-    Object.assign(vars, extractVars(step, output))
+    Object.assign(vars, extractVars(step, output, vars))
     // 판정기준을 안 적었으면 '됐나 안 됐나' 로 본다 — ping 은 그것만으로
     // 충분한 경우가 대부분이다.
     const hasCriteria =
@@ -1211,7 +1211,7 @@ async function runOne(
     return 'Fail'
   }
 
-  Object.assign(vars, extractVars(step, output))
+  Object.assign(vars, extractVars(step, output, vars))
   const { verdict, reason } = judge(step, output, vars)
   ctx.onStep(i, {
     output,
@@ -1271,7 +1271,7 @@ function seedVars(ctx: RunCtx, upto: number, vars: Record<string, string>) {
     }
     const out = stepResult(s)
     if (!out) continue
-    Object.assign(vars, extractVars(s, out))
+    Object.assign(vars, extractVars(s, out, vars))
   }
 }
 

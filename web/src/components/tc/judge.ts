@@ -40,6 +40,18 @@ export function subVars(text: string, vars: Record<string, string>): string {
   let s = String(text ?? '')
   for (let i = 0; i < 5; i++) {
     const next = s
+      /*
+       * `${i+100}` 처럼 **더하고 빼는 것**까지 받는다(지시: iTest 의
+       * `set t [expr $i + 100]`). 반복 번호와 SNMP 인덱스가 어긋나 있는
+       * 자료가 흔하다 — 그때마다 반복을 두 벌로 쪼개게 할 수는 없다.
+       * 숫자가 아니면 그냥 둔다.
+       */
+      .replace(/\$\{(\w+)\s*([+\-*])\s*(\d+)\}/g, (m, k: string, op: string, n: string) => {
+        const base = Number(vars[k])
+        if (!Number.isFinite(base)) return m
+        const v = Number(n)
+        return String(op === '+' ? base + v : op === '-' ? base - v : base * v)
+      })
       .replace(/\$\{(\w+)\}/g, (m, k: string) => vars[k] ?? m)
       .replace(/\$(\w+)/g, (m, k: string) => vars[k] ?? m)
     if (next === s) break
@@ -801,7 +813,17 @@ export function extractOne(rule: string, text: string): string | null {
   return (m[1] ?? m[0] ?? '').trim()
 }
 
-export function extractVars(step: TcStep, output: string): Record<string, string> {
+export function extractVars(
+  step: TcStep,
+  output: string,
+  /**
+   * 지금까지의 변수 — **캡처 규칙 안에서도 쓴다**(지시: iTest 의
+   * `t1_col1('$i')` 처럼). 반복 안에서 `/^Gi0\/${i}\s+(\S+)/m` 로 그 회차의
+   * 줄만 집어낼 수 있어야 한다. 여태 판정 칩만 치환을 지나고 캡처는 글자
+   * 그대로였다 — 그래서 반복마다 같은 줄만 집혔다.
+   */
+  vars: Record<string, string> = {},
+): Record<string, string> {
   const out: Record<string, string> = {}
   /* 줄제외 칩(+옛 뺄 줄)은 캡처에서도 그 줄을 뺀다 — 「전체를 변수로」 가
      날짜 줄까지 담으면 뒤 Diff 가 늘 다르다고 한다(지적). 판정과 캡처가
@@ -813,7 +835,7 @@ export function extractVars(step: TcStep, output: string): Record<string, string
   ]
   for (const r of rules) {
     if (!r.name || !r.rule) continue
-    const re = toRegExp(r.rule)
+    const re = toRegExp(subVars(r.rule, vars))
     if (!re) continue
     const m = re.exec(output)
     if (m) out[r.name] = (m[1] ?? m[0] ?? '').trim()
