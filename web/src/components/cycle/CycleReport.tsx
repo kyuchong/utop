@@ -9,6 +9,7 @@ import { boardShot } from '@/components/tc/boardShot'
 import { deviceShort } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import type { TcPortLink, TcWire } from '@/components/tc/types'
+import { STEP_ACT_ON, type StepAct } from '@/components/settings/StepActions'
 
 interface Props {
   cycleId: string
@@ -178,6 +179,18 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
     }
   }, [tcQ.data, devQ.data])
 
+  /* 결과서에 실을 종류 — SETUP → TC Step Action */
+  const actQ = useQuery({
+    queryKey: ['step-actions'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/step-actions')
+      if (!r.ok) return {} as Record<string, StepAct>
+      return ((await r.json()) as { items?: Record<string, StepAct> }).items ?? {}
+    },
+  })
+  const acts = actQ.data ?? {}
+
   const tcs: LguTc[] = useMemo(() => {
     const extra = tcQ.data
     return items.map((it) => {
@@ -200,14 +213,15 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
         // diff·계측기 스텝이 결과서에서 통째로 빠졌다.
         // 계측기 응답(JSON)은 화면처럼 표로 편다 — 200 갈래면 중괄호
         // 200줄이 그대로 실렸었다.
-        steps: (it.steps ?? []).map((st) => {
+        /* 끈 종류는 결과서에 안 싣는다(SETUP → TC Step Action) */
+        steps: (it.steps ?? []).filter((st) => (acts[String(st.kind ?? 'cli')] ?? STEP_ACT_ON).pptx).map((st) => {
           if (String(st.kind ?? '') !== 'instrument') return st
           const t = meterTableText(st.output)
           return t ? { ...st, output: t } : st
         }),
       }
     })
-  }, [items, tcQ.data, drawn, devQ.data])
+  }, [items, tcQ.data, drawn, devQ.data, acts])
 
   const slides = useMemo(() => (tcs.length ? buildSlides(tcs) : []), [tcs])
 

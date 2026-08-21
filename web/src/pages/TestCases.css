@@ -3265,3 +3265,7 @@ table.tb tr.r-bad td:first-child {
 .sd-goto.yes { border-color: #bfe3cd; background: #f8fdfa; color: #12643a; }
 .sd-goto.no { border-color: #f0c8c8; background: #fefafa; color: #a02323; }
 .sd-say { width: 100%; }
+
+/* Diff 안의 두 문구 — 맞으면 초록, 다르면 붉음 */
+.sd-say2 { display: flex; gap: 8px; flex-wrap: wrap; }
+.sd-say2 > label { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 3px; font-size: var(--fs-xs); color: var(--c-text-faint); }

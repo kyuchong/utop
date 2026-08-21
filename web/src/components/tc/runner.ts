@@ -409,6 +409,25 @@ export function judgeMeterStats(
     : { ok: true, reason: said.join(' / ') }
 }
 
+/**
+ * Diff 가 **적어 둔 말**을 로그에 남긴다.
+ *
+ * 결과에 따라 문구를 남기려고 If 를 둘씩 만들 일이 아니다(지시) — 견준
+ * 줄이 곧 그 결과를 말한다. 비워 두면 아무 말도 안 한다.
+ */
+function sayDiff(
+  ctx: RunCtx,
+  i: number,
+  step: TcStep,
+  ok: boolean,
+  vars: Record<string, string>,
+) {
+  const raw = ok ? step.msgYes : step.msgNo
+  const say = String(raw ?? '').trim()
+  if (!say) return
+  ctx.onLog({ i, text: subVars(say, vars), kind: ok ? 'pass' : 'fail' })
+}
+
 /** 스텝이 쓰는 장비. 자리가 비었거나 없는 장비면 이유를 돌려준다. */
 function deviceOf(ctx: RunCtx, step: TcStep): { dev?: Device; error?: string } {
   const k = sessionIndex(step.session)
@@ -570,6 +589,7 @@ async function runOne(
         repeatResult: ok ? 'Pass' : 'Fail',
       })
       ctx.onLog({ i, text: head, kind: ok ? 'pass' : 'fail', label: '비교 결과' })
+      sayDiff(ctx, i, step, ok, vars)
       return ok ? 'Pass' : 'Fail'
     }
 
@@ -585,6 +605,7 @@ async function runOne(
       repeatResult: ok ? 'Pass' : 'Fail',
     })
     ctx.onLog({ i, text: why, kind: ok ? 'pass' : 'fail', label: '비교 결과' })
+    sayDiff(ctx, i, step, ok, vars)
     return ok ? 'Pass' : 'Fail'
   }
 

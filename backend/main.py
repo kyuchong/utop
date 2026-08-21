@@ -14827,6 +14827,49 @@ def _load_ui_options():
         except: pass
     return {"show_req_id": True, "show_tc_id": True}
 
+# ── 스텝 종류별 쓰임새 (SETUP → TC Step Action) ─────────────────
+#
+# 종류마다 「실행 로그에 찍을까 · ＋스텝 목록에 내놓을까 · 결과서(PPTX)에
+# 실을까」 가 현장마다 다르다. 여태 코드에 박혀 있어서 고치려면 배포를
+# 해야 했다(지시: 설정 페이지로).
+STEP_ACT_FILE = DATA_DIR / "state" / "step_actions.json"
+
+
+def _load_step_actions() -> dict:
+    try:
+        if STEP_ACT_FILE.exists():
+            return json.loads(STEP_ACT_FILE.read_text(encoding="utf-8")) or {}
+    except Exception:
+        pass
+    return {}
+
+
+@app.get("/api/step-actions")
+async def step_actions_get():
+    """{종류: {log, add, pptx}} — 안 적힌 종류는 셋 다 켠 것으로 본다."""
+    return {"items": _load_step_actions()}
+
+
+@app.post("/api/step-actions")
+async def step_actions_save(payload: dict, token: str = ""):
+    _require_admin(token)
+    items = payload.get("items")
+    if not isinstance(items, dict):
+        raise HTTPException(400, "items 가 없습니다")
+    clean = {}
+    for k, v in items.items():
+        if not isinstance(v, dict):
+            continue
+        clean[str(k)] = {
+            "log": bool(v.get("log", True)),
+            "add": bool(v.get("add", True)),
+            "pptx": bool(v.get("pptx", True)),
+        }
+    STEP_ACT_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STEP_ACT_FILE.write_text(json.dumps(clean, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"ok": True, "items": clean}
+
+
 @app.get("/api/ui-options")
 async def ui_options_get():
     return _load_ui_options()

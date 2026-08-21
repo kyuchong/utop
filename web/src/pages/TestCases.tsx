@@ -31,6 +31,7 @@ import TcMapReqDialog from '@/components/tc/TcMapReqDialog'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import TcSequence from '@/components/tc/TcSequence'
 import RunLog, { type LogLine } from '@/components/tc/RunLog'
+import { STEP_ACT_ON, type StepAct } from '@/components/settings/StepActions'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTree from '@/components/tc/TcTree'
 import FolderSortBtn from '@/components/FolderSortBtn'
@@ -259,6 +260,18 @@ export default function TestCases({ me }: PageProps) {
   const [runAt, setRunAt] = useState(-1)
   /* 실행 로그 — 여태 버리고 있었다(onLog 가 빈 함수였다). 24회를 도는
      동안 화면이 조용하면 「지금 뭘 하고 있나」 를 알 수 없다(지적). */
+  /* 종류마다 「로그에 찍을까 · ＋스텝에 내놓을까」 — SETUP 의 TC Step Action */
+  const stepActs = useQuery({
+    queryKey: ['step-actions'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/step-actions')
+      if (!r.ok) return {} as Record<string, StepAct>
+      return ((await r.json()) as { items?: Record<string, StepAct> }).items ?? {}
+    },
+    staleTime: 60_000,
+  })
+  const actOf = (k?: string): StepAct => stepActs.data?.[String(k ?? 'cli')] ?? STEP_ACT_ON
+
   const [logs, setLogs] = useState<LogLine[]>([])
   const [logOnly, setLogOnly] = useState(false)
   const logN = useRef(0)
@@ -975,22 +988,6 @@ export default function TestCases({ me }: PageProps) {
     clearPicked()
   }
 
-  /**
-   * 여러 줄을 **고른 줄 바로 뒤에** 끼운다.
-   *
-   * 「결과에 따라 문구 남기기」 같은 것은 If·Else·Message 넷을 손으로
-   * 만들어야 했다 — 들여쓰기까지 맞춰서. 누구나 쓰라는 것이 목적인데
-   * 그 넷을 외우게 할 수는 없다(지시). 만드는 쪽에서 통째로 넣는다.
-   */
-  const insertAfter = (i: number, arr: TcStep[]) => {
-    if (!arr.length) return
-    const at = Math.min(i + 1, steps.length)
-    const next = [...steps.slice(0, at), ...arr, ...steps.slice(at)]
-    patch({ checks: next })
-    setStepIdx(at)
-    clearPicked()
-  }
-
   /** 줄이 늘거나 자리가 바뀌면 고른 번호가 다른 줄을 가리킨다 */
   const clearPicked = () => {
     setPicked(new Set())
@@ -1399,6 +1396,8 @@ export default function TestCases({ me }: PageProps) {
           // 실행 판을 없앴다. 무슨 일이 있었나는 스텝 줄과 그 줄의
           // Result 에 남는다 — 로그를 따로 쌓아 둘 자리가 없다.
           onLog: (l) => {
+            /* 끈 종류는 로그에 안 찍는다(SETUP → TC Step Action) */
+            if (l.i >= 0 && !actOf(steps[l.i]?.kind).log) return
             const at = new Date()
             setLogs((prev) => {
               const line: LogLine = {
@@ -1930,6 +1929,7 @@ export default function TestCases({ me }: PageProps) {
                       // 수동 스텝은 여기 안 나온다. 별개 탭이다.
                       hide={(s) => s.kind === 'manual'}
                       onRun={running ? undefined : (i) => void doRun(i, true)}
+                      addKinds={(k) => actOf(k).add}
                     />
                   )}
                   {/* 실행 로그 — 줄 단위로 색이 있는 판(지시: iTest 처럼).
@@ -2085,7 +2085,6 @@ export default function TestCases({ me }: PageProps) {
                     onGoTraffic={() => setTab('traffic')}
                     block={blockInfo}
                     loopVar={loopVarAt(shownSteps, stepIdx)}
-                    onInsertAfter={(arr) => stepIdx >= 0 && insertAfter(stepIdx, arr)}
                     /* If 가 「몇 번 스텝으로 이동」 을 고를 수 있게 목록을 넘긴다 */
                     /* 목록에 보이는 번호(2.1 · 2.1.1)를 그대로 쓴다 —
                        고르개만 1,2,3 이면 어느 줄인지 못 찾는다(지적) */

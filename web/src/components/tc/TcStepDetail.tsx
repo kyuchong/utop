@@ -78,8 +78,6 @@ interface Props {
    * 을 그대로 두면 24회를 돌려도 같은 줄만 스물네 번 본다.
    */
   loopVar?: string
-  /** 이 스텝 **바로 뒤에** 여러 줄을 끼운다 (「결과 문구 붙이기」) */
-  onInsertAfter?: (steps: TcStep[]) => void
   /** 이 시험의 스텝 목록 — If 의 「어느 스텝으로 이동」 이 고른다 */
   stepList?: Array<{ i: number; label: string }>
 }
@@ -119,7 +117,6 @@ export default function TcStepDetail({
   onGoTraffic,
   block,
   loopVar,
-  onInsertAfter,
   stepList,
   readOnly = false,
 }: Props) {
@@ -737,41 +734,29 @@ export default function TcStepDetail({
                 맞으면 <b>합격</b>, 아니면 <b>불합격</b>입니다.
               </span>
               {/*
-                결과에 따라 문구를 남기는 것은 If·Else·Message **넷**을 손으로
-                만들고 들여쓰기까지 맞춰야 했다. 누구나 쓰라는 것이 목적인데
-                그 넷을 외우게 할 수는 없다(지시) — 한 번에 넣어 준다.
+                결과 문구는 **Diff 안에서** 적는다(지시). If 를 두 개나
+                만들 일이 아니다 — 견준 줄이 곧 그 결과를 말한다.
               */}
-              {onInsertAfter && (
-                <div className="sd-pick">
-                  <button
-                    className="btn small"
-                    type="button"
-                    title="이 Diff 뒤에 「틀리면 ⚠ 문구 · 맞으면 정상 문구」 를 만들어 넣습니다"
-                    onClick={() => {
-                      const d = Number(step.indent ?? 0)
-                      const rd = loopVar ? `\${${loopVar}}회째 — ` : ''
-                      const L = String(step.cmpLeft ?? '').trim()
-                      const R = String(step.cmpRight ?? '').trim()
-                      const both = L && R ? ` (${L} · ${R})` : ''
-                      onInsertAfter([
-                        { kind: 'if', indent: d, condition: "${_verdict_en} == 'FAIL'" },
-                        {
-                          kind: 'message',
-                          indent: d + 1,
-                          text: `⚠ ${rd}맞지 않습니다${both}`,
-                        },
-                        { kind: 'else', indent: d },
-                        { kind: 'message', indent: d + 1, text: `${rd}정상입니다${both}` },
-                      ])
-                    }}
-                  >
-                    결과 문구 붙이기
-                  </button>
-                  <span className="muted small">
-                    틀리면 ⚠ 한 줄, 맞으면 정상 한 줄을 로그에 남깁니다
-                  </span>
-                </div>
-              )}
+              <div className="sd-say2">
+                <label>
+                  <span>맞으면</span>
+                  <input
+                    className="sd-say yes"
+                    value={step.msgYes ?? ''}
+                    placeholder="정상입니다"
+                    onChange={(e) => onChange({ msgYes: e.target.value })}
+                  />
+                </label>
+                <label>
+                  <span>다르면</span>
+                  <input
+                    className="sd-say no"
+                    value={step.msgNo ?? ''}
+                    placeholder="부적합입니다"
+                    onChange={(e) => onChange({ msgNo: e.target.value })}
+                  />
+                </label>
+              </div>
             </div>
 
             {/* running-config 를 견줄 때 uptime·카운터처럼 돌릴 때마다

@@ -36,6 +36,8 @@ interface Props {
    * 고쳐진다 — 옛 화면이 그렇게 틀렸다.
    */
   hide?: (s: TcStep) => boolean
+  /** 「＋스텝」 에 내놓을 종류 고르기 — SETUP 의 TC Step Action */
+  addKinds?: (k: string) => boolean
   /** 이 스텝만 실행 */
   onRun?: (i: number) => void
   /** 보기만 하는 목록 — 「＋ 스텝」 을 감춘다 */
@@ -64,6 +66,7 @@ export default function TcSequence({
   picked,
   onPick,
   hide,
+  addKinds,
   onRun,
   readOnly = false,
 }: Props) {
@@ -331,7 +334,9 @@ export default function TcSequence({
       <details className="sq-add">
         <summary>＋ 스텝</summary>
         <div className="sq-add-list">
-          {ADD_KINDS.map((k) => (
+          {/* 끈 종류는 안 내놓는다(SETUP → TC Step Action). 이미 만든
+              스텝은 그대로 돈다 — 목록에서만 뺀다 */}
+          {ADD_KINDS.filter((k) => !addKinds || addKinds(String(k.k))).map((k) => (
             <button
               key={k.k}
               type="button"

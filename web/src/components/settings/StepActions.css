@@ -1,0 +1,52 @@
+/* TC Step Action — 표 하나. 체크박스가 주인공이라 나머지는 조용히 */
+.sa { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+.sa-head { display: flex; align-items: center; gap: 10px; flex: none; }
+.sa-head .sp { margin-left: auto; }
+.sa-note {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #e8f5ed;
+  border: 1px solid #b9dfc8;
+  color: #12643a;
+  font-size: var(--fs-xs);
+}
+.sa-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+.sa-tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+.sa-tbl thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f7f9fb;
+  border-bottom: 1px solid var(--c-border);
+  padding: 6px 10px;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--c-text-faint);
+  white-space: nowrap;
+  text-align: center;
+}
+.sa-tbl thead th.c-k { text-align: left; width: 220px; }
+.sa-tbl tbody td { border-bottom: 1px solid var(--c-border-soft); padding: 4px 10px; text-align: center; }
+.sa-tbl tbody td.c-k { text-align: left; display: flex; align-items: baseline; gap: 8px; }
+.sa-tbl tbody tr:hover { background: #f7f9fb; }
+.sa-tbl input[type='checkbox'] { width: 15px; height: 15px; }
+/* 열 전체 켜고 끄기 */
+.sa-all {
+  margin-left: 6px;
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  border-radius: 999px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  padding: 0 7px;
+  cursor: pointer;
+  color: var(--c-text-muted);
+}
+.sa-all:hover { border-color: var(--c-primary); color: var(--c-primary); }
