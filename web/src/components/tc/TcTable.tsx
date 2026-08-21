@@ -79,6 +79,15 @@ export default function TcTable({
   const [keyAt, setKeyAt] = useState(() => {
     const i = prev ? cols.findIndex((c) => c.toLowerCase() === prev.keyCol.toLowerCase()) : -1
     if (i >= 0) return i
+    /*
+     * SNMP 표(OID·Index·Value)는 **Value 로 찾는다.**
+     *
+     * 「값이 가장 고유한 열」 규칙을 그대로 두면 OID 가 뽑힌다 — 그러면
+     * 「OID 가 …1.2.1.1.${i} 인 행」 이라는, 절대 안 맞는 조건이 만들어진다.
+     * 이 장비는 13번 포트만 인덱스가 113 이고 나머지는 포트+1000 이라
+     * 인덱스로는 짝지을 수 없다(실제 자료). 사람이 아는 것은 포트 이름이다.
+     */
+    if (cols[0] === 'OID' && cols[2] === 'Value') return 2
     /* 기본 기준 열 = 값이 가장 고유한 열(Port 같은 것). 첫 열을 쓰면
        show arp 의 Protocol 처럼 전 행이 같은 값이라, 한 행을 찍는 순간
        모든 행이 같이 토글된다(지적: 선택이 이상함). */
