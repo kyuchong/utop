@@ -20,6 +20,8 @@ import './Accounts.css'
  */
 interface User {
   username: string
+  /** 'jira' 면 동기화가 잠근 것 — 관리자가 잠근 것과 갈라 둔다 */
+  locked_by?: string
   name?: string
   email?: string
   role?: string
@@ -42,6 +44,10 @@ interface SyncStat {
   found?: number
   new?: number
   changed?: number
+  /** Jira 에서 나가 이번에 잠근 사람 */
+  locked?: number
+  /** Jira 로 돌아와 잠금을 푼 사람 */
+  unlocked?: number
   active?: number
   inactive?: number
 }
@@ -134,7 +140,12 @@ export default function Accounts() {
     onSuccess: (j) => {
       void qc.invalidateQueries({ queryKey: ['users'] })
       void qc.invalidateQueries({ queryKey: ['jira-sync'] })
-      say('ok', `Jira 사용자 ${j.found}명 — 새로 ${j.new}명 · 고침 ${j.changed}명`)
+      say(
+        'ok',
+        `Jira 사용자 ${j.found}명 — 새로 ${j.new}명 · 고침 ${j.changed}명` +
+          `${j.locked ? ` · 비활성 잠금 ${j.locked}명` : ''}` +
+          `${j.unlocked ? ` · 잠금 해제 ${j.unlocked}명` : ''}`,
+      )
     },
     onError: (e: Error) => say('err', String(e.message).slice(0, 200)),
   })
@@ -278,7 +289,7 @@ export default function Accounts() {
               <b>{last.at}</b>
               <span className="muted small">
                 Jira 사용자 {last.found}명 · 활성 {last.active} · 비활성 {last.inactive} — 지난번
-                새로 {last.new}명 · 고침 {last.changed}명
+                새로 {last.new}명 · 고침 {last.changed}명 · 비활성 잠금 {last.locked ?? 0}명
               </span>
             </>
           ) : (
@@ -502,6 +513,14 @@ export default function Accounts() {
                   {cur.source !== 'jira' ? '—' : cur.jira_active === false ? '비활성' : '활성'}
                 </i>
               </div>
+              {cur.active === false && (
+                <div className="acc-kv">
+                  <span>잠근 까닭</span>
+                  <i className="bad">
+                    {cur.locked_by === 'jira' ? 'Jira 에서 비활성' : '관리자가 잠금'}
+                  </i>
+                </div>
+              )}
               <div className="acc-kv">
                 <span>UTOP 권한</span>
                 <i>{cur.role || '팀원'}</i>

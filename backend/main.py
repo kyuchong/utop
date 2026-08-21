@@ -13501,18 +13501,24 @@ async def api_users_jira_sync(payload: dict = None, token: str = ""):
     by_name = {str(u.get("username") or "").lower(): u for u in data["users"]}
     by_key = {str(u.get("jira_key") or ""): u for u in data["users"] if u.get("jira_key")}
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    new_n = chg_n = 0
+    new_n = chg_n = off_n = back_n = 0
     for j in rows:
         cur = by_key.get(j["jira_key"]) if j["jira_key"] else None
         if cur is None:
             cur = by_name.get(j["username"].lower())
         if cur is None:
-            data["users"].append({
+            nu = {
                 "id": j["username"], "username": j["username"], "name": j["name"],
-                "role": "팀원", "email": j["email"], "active": True, "source": "jira",
+                "role": "팀원", "email": j["email"], "active": bool(j["jira_active"]),
+                "source": "jira",
                 "jira_key": j["jira_key"], "jira_active": j["jira_active"],
                 "created_at": now, "synced_at": now,
-            })
+            }
+            if not j["jira_active"]:
+                # Jira 에서 이미 나간 사람 — 이름은 남기되 들어오지는 못한다
+                nu["locked_by"] = "jira"
+                off_n += 1
+            data["users"].append(nu)
             new_n += 1
             continue
         before = (cur.get("name"), cur.get("email"), cur.get("jira_active"), cur.get("jira_key"))
@@ -13525,10 +13531,26 @@ async def api_users_jira_sync(payload: dict = None, token: str = ""):
         cur["jira_active"] = j["jira_active"]
         cur["source"] = "jira"
         cur["synced_at"] = now
+        """
+        Jira 에서 나간 사람은 **여기서도 잠근다.**
+
+        퇴사자가 명단에 활성으로 남아 있으면 「누가 들어올 수 있나」 가 틀린
+        답을 준다. 다만 **우리가 잠근 것만** 되돌린다(locked_by) — 관리자가
+        따로 잠근 사람을 Jira 가 살아났다고 풀어 주면 안 된다.
+        """
+        if not j["jira_active"] and cur.get("active", True):
+            cur["active"] = False
+            cur["locked_by"] = "jira"
+            off_n += 1
+        elif j["jira_active"] and cur.get("active") is False and cur.get("locked_by") == "jira":
+            cur["active"] = True
+            cur.pop("locked_by", None)
+            back_n += 1
         if before != (cur.get("name"), cur.get("email"), cur.get("jira_active"), cur.get("jira_key")):
             chg_n += 1
     _users_save_sync(data)
     stat = {"at": now, "found": len(rows), "new": new_n, "changed": chg_n,
+            "locked": off_n, "unlocked": back_n,
             "active": len([x for x in rows if x["jira_active"]]),
             "inactive": len([x for x in rows if not x["jira_active"]])}
     cfg = _jira_cfg()
