@@ -690,9 +690,22 @@ async function runOne(
     const hasCriteria =
       stepRules(step).some((r) => r.t !== 'skip' && r.t !== 'skipcol') || !!String(step.criteria ?? step.expected ?? '').trim()
     const okByItself = kind === 'snmp_trap' ? !!r.trap : !!r.ok
+    /*
+     * 판정기준이 없을 때 **왜 적합인지** 적는다.
+     *
+     * 「똑같이 판정기준이 없는데 CLI 는 회색이고 SNMP 는 PASS 라니 말이
+     * 되냐」(지적). 규칙은 그대로 두되(SNMP·ping 은 답이 왔는가가 곧
+     * 시험이다) 근거를 밝힌다 — 화면에 까닭이 없으면 규칙이 제멋대로로
+     * 보인다.
+     */
     const j = hasCriteria
       ? judge(step, output, vars)
-      : { verdict: (okByItself ? 'Pass' : 'Fail') as Verdict, reason: okByItself ? '' : String(r.error ?? '응답 없음') }
+      : {
+          verdict: (okByItself ? 'Pass' : 'Fail') as Verdict,
+          reason: okByItself
+            ? '판정기준 없음 — 응답이 와서 적합(SNMP·Ping 은 응답 자체를 봅니다)'
+            : String(r.error ?? '응답 없음'),
+        }
 
     ctx.onStep(i, {
       output,
@@ -1393,6 +1406,8 @@ export async function runSteps(
    * 새 배열로 갈아 끼운다). 그러니 여기서 직접 적어 둔다.
    */
   const lastPatch = new Map<number, Partial<TcStep>>()
+  /** 깊이별로 **마지막 If 의 참·거짓** — 바로 뒤 Else 가 본다 */
+  const lastIf = new Map<number, boolean>()
   const ctx: RunCtx = {
     ...ctx0,
     onStep: (i, patch) => {
@@ -1462,7 +1477,41 @@ export async function runSteps(
           else fail++
           done++
         }
+        // 바로 뒤에 올 수 있는 Else 가 이것을 본다
+        lastIf.set(Number(s.indent ?? 0), yes)
         if (yes) await walk(i + 1, body)
+        i = body
+        continue
+      }
+
+      /*
+       * Else — 바로 위 If 가 거짓일 때만 몸통을 돈다.
+       *
+       * 「같으면 이것, 다르면 저것」 을 적을 길이 없어 조건을 뒤집은 If 를
+       * 하나 더 놓아야 했다(지적). 조건이 두 군데 있으면 한쪽만 고치는 날이
+       * 온다. 짝이 되는 If 는 **같은 깊이에서 마지막으로 돈 If** 다.
+       */
+      if (kind === 'else') {
+        const body = blockEnd(ctx.steps, i)
+        const d = Number(s.indent ?? 0)
+        const prev = lastIf.get(d)
+        if (prev === undefined) {
+          ctx.onLog({ i, kind: 'warn', text: '위에 If 가 없습니다 — 이 Else 는 건너뜁니다' })
+          ctx.onStep(i, { output: '짝이 되는 If 가 없습니다', executed_at: new Date().toISOString() })
+          i = body
+          continue
+        }
+        const run = !prev
+        ctx.onStep(i, {
+          condResult: run ? 'Y' : 'N',
+          output: run ? '위 If 가 거짓이라 여기를 돕니다' : '위 If 가 참이라 건너뜁니다',
+          reason: run ? '위 If 가 거짓' : '위 If 가 참 — 건너뜀',
+          executed_at: new Date().toISOString(),
+          status: '',
+          repeatResult: '',
+        })
+        ctx.onLog({ i, kind: run ? 'info' : 'skip', text: run ? '거짓 갈래를 돕니다' : '위 If 가 참 — 건너뜀' })
+        if (run) await walk(i + 1, body)
         i = body
         continue
       }

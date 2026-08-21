@@ -99,6 +99,14 @@ export type StepKind =
   | 'map'
   // 흐름
   | 'if'
+  /**
+   * If 의 **거짓 갈래**.
+   *
+   * If 는 참일 때만 몸통을 돌았다. 「같으면 이것, 다르면 저것」 을 적을
+   * 길이 없어 조건을 뒤집은 If 를 하나 더 놓아야 했다 — 조건이 두 군데
+   * 있으면 한쪽만 고치는 날이 온다(지적).
+   */
+  | 'else'
   | 'loop'
   | 'switch'
   | 'wait'
@@ -502,6 +510,7 @@ export const STEP_KINDS: Array<{
   { k: 'map', label: '치환', group: 'run', icon: 'swap' },
   { k: 'instrument', label: '계측기', group: 'run', icon: 'meter' },
   { k: 'if', label: 'If', group: 'flow', icon: 'branch' },
+  { k: 'else', label: 'Else', group: 'flow', icon: 'branch' },
   { k: 'loop', label: 'Loop', group: 'flow', icon: 'loop' },
   { k: 'switch', label: 'Switch', group: 'flow', icon: 'switch' },
   { k: 'wait', label: 'Wait', group: 'flow', icon: 'clock' },
@@ -627,6 +636,7 @@ export const STEP_CONTENT: Record<string, { label: string; hint?: string }> = {
   snmp_set: { label: 'OID · 넣을 값' },
   snmp_trap: { label: 'OID · 기다릴 초' },
   if: { label: '조건' },
+  else: { label: '거짓일 때', hint: '바로 위 If 가 거짓이면 아래 들여쓴 줄들을 돕니다' },
   loop: { label: '반복' },
   switch: { label: '기준 값' },
   wait: { label: '기다릴 초' },
@@ -644,7 +654,7 @@ export const STEP_CONTENT: Record<string, { label: string; hint?: string }> = {
  * 몸통이 끊긴다. 넣는 자리·접는 자리 모두 이것을 봐야 한다.
  */
 export function isBlockKind(k?: string): boolean {
-  return k === 'loop' || k === 'if' || k === 'switch'
+  return k === 'loop' || k === 'if' || k === 'else' || k === 'switch'
 }
 
 /** 실행할 때 장비로 아무것도 안 나가는 종류. 줄 색을 달리해 한눈에 가른다. */
@@ -697,6 +707,7 @@ export function stepSummary(s: TcStep): string {
     return s.waitLeft ? `${base} · ${s.waitLeft}초 남음` : base
   }
   if (k === 'if') return (s.condition || s.step || '').trim()
+  if (k === 'else') return (s.step || '바로 위 If 가 거짓일 때').trim()
   if (k === 'switch') return (s.switchExpr || s.step || '').trim()
   if (k === 'loop') {
     if (s.forFrom !== undefined && s.forTo !== undefined)
