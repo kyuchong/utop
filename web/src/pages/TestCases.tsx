@@ -973,6 +973,22 @@ export default function TestCases({ me }: PageProps) {
     clearPicked()
   }
 
+  /**
+   * 여러 줄을 **고른 줄 바로 뒤에** 끼운다.
+   *
+   * 「결과에 따라 문구 남기기」 같은 것은 If·Else·Message 넷을 손으로
+   * 만들어야 했다 — 들여쓰기까지 맞춰서. 누구나 쓰라는 것이 목적인데
+   * 그 넷을 외우게 할 수는 없다(지시). 만드는 쪽에서 통째로 넣는다.
+   */
+  const insertAfter = (i: number, arr: TcStep[]) => {
+    if (!arr.length) return
+    const at = Math.min(i + 1, steps.length)
+    const next = [...steps.slice(0, at), ...arr, ...steps.slice(at)]
+    patch({ checks: next })
+    setStepIdx(at)
+    clearPicked()
+  }
+
   /** 줄이 늘거나 자리가 바뀌면 고른 번호가 다른 줄을 가리킨다 */
   const clearPicked = () => {
     setPicked(new Set())
@@ -2066,6 +2082,7 @@ export default function TestCases({ me }: PageProps) {
                     onGoTraffic={() => setTab('traffic')}
                     block={blockInfo}
                     loopVar={loopVarAt(shownSteps, stepIdx)}
+                    onInsertAfter={(arr) => stepIdx >= 0 && insertAfter(stepIdx, arr)}
                   />
                   )}
                 </section>

@@ -89,6 +89,11 @@ export default function RunLog({
               <i className="rl-at">{l.at}</i>
               {l.round ? <b className="rl-rd">{l.round}회</b> : null}
               {l.i >= 0 && <b className="rl-no">{l.i + 1}</b>}
+              {/* 색은 **판정 딱지**에만 준다(지시). 줄 전체를 물들이면 무엇이
+                  결과이고 무엇이 설명인지 구분이 안 된다 */}
+              {l.kind === 'pass' && <b className="rl-v ok">적합</b>}
+              {l.kind === 'fail' && <b className="rl-v bad">부적합</b>}
+              {l.kind === 'warn' && <b className="rl-v warn">주의</b>}
               <span className="rl-tx">{l.text}</span>
             </div>
           ))

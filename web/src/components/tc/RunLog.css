@@ -96,17 +96,26 @@
   min-width: 0;
 }
 
+/* 판정 딱지 — 색은 여기만. 줄 전체를 물들이면 무엇이 결과인지 안 보인다 */
+.rl-v {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.rl-v.ok { background: #e8f5ed; color: #12643a; }
+.rl-v.bad { background: #fdeaea; color: #a02323; }
+.rl-v.warn { background: #fff3e0; color: #8a5a00; }
+
 /* 적합 */
 .rl-line.pass {
   border-left-color: var(--c-pass);
-  color: #12643a;
-  background: #f4fbf7;
 }
-/* 부적합 */
+/* 부적합 — 눈이 먼저 가야 하는 줄이라 글자까지 세운다 */
 .rl-line.fail {
   border-left-color: var(--c-fail);
   color: #a02323;
-  background: #fdf5f5;
   font-weight: 600;
 }
 /* 건너뜀 */
