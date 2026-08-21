@@ -1021,6 +1021,17 @@ _LOGIN_FAIL_MAX = 3
 _LOGIN_LOCK_SEC = 60
 
 
+def _jira_verify_flag(cfg: dict) -> bool:
+    """TLS 인증서를 검증할까 — **안 정했으면 검증한다.**
+
+    설정 파일에 `verify: null` 이 들어 있는 경우가 있다(옛 화면이 남긴 값).
+    `cfg.get("verify", True)` 는 그때 None 을 돌려주어 라이브러리마다 다르게
+    해석된다 — 켜고 끈 기억이 없는데 동작이 달라진다.
+    """
+    v = cfg.get("verify")
+    return True if v is None else bool(v)
+
+
 def _jira_login_on() -> bool:
     cfg = _jira_cfg()
     return bool(cfg.get("login_enabled")) and bool(str(cfg.get("url") or "").strip())
@@ -1041,14 +1052,19 @@ async def _jira_verify_login(username: str, password: str) -> tuple:
         return None, "no-url"
     basic = _b64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
     try:
-        async with httpx.AsyncClient(timeout=12, verify=cfg.get("verify", True)) as c:
+        async with httpx.AsyncClient(timeout=12, verify=_jira_verify_flag(cfg)) as c:
             r = await c.get(
                 base + "/rest/api/2/myself",
                 headers={"Accept": "application/json", "Authorization": "Basic " + basic},
             )
     except Exception as exc:
-        # Jira 가 안 뜨거나 망이 막혔다 — 로컬 계정으로 넘어간다
-        print(f"[jira-login] 붙지 못했습니다: {str(exc)[:200]}", flush=True)
+        # Jira 가 안 뜨거나 망이 막혔다 — 로컬 계정으로 넘어간다.
+        # 인증서 문제는 따로 말한다. 「닿지 못했습니다」 로 뭉개면 망을 뒤지게
+        # 되는데, 실제로는 체크박스 하나(TLS 검증)나 인증서 갱신이면 끝난다.
+        msg = str(exc)
+        print(f"[jira-login] 붙지 못했습니다: {msg[:200]}", flush=True)
+        if "CERTIFICATE" in msg.upper() or "SSL" in msg.upper():
+            return None, "cert"
         return None, "unreachable"
     if r.status_code == 200:
         try:
@@ -1208,6 +1224,12 @@ async def api_login(req: LoginReq):
             raise HTTPException(
                 401,
                 "Jira 가 사람 확인(CAPTCHA)을 걸었습니다 — Jira 웹에 한 번 로그인해 풀고 다시 시도하세요",
+            )
+        if why == "cert":
+            raise HTTPException(
+                401,
+                "Jira 인증서에 문제가 있어 물어보지 못했습니다(만료 등) — "
+                "SETUP → Jira 연동에서 「TLS 인증서 검증」 을 끄거나 인증서를 갱신하세요",
             )
         if why == "unreachable":
             raise HTTPException(
@@ -13401,16 +13423,25 @@ async def jira_login_check(token: str = ""):
         out["reachable"] = False
         out["reason"] = "Jira 주소가 없습니다 — 「Jira 연동」 에서 먼저 넣으세요"
         return out
+    out["verify"] = _jira_verify_flag(cfg)
     import httpx as _hx
     try:
-        async with _hx.AsyncClient(timeout=8, verify=cfg.get("verify", True)) as c:
+        async with _hx.AsyncClient(timeout=8, verify=out["verify"]) as c:
             r = await c.get(url + "/rest/api/2/serverInfo")
         out["reachable"] = r.status_code < 500
         out["status"] = r.status_code
         out["reason"] = "" if r.status_code < 500 else f"Jira 가 {r.status_code} 로 답했습니다"
     except Exception as exc:
+        msg = str(exc)
         out["reachable"] = False
-        out["reason"] = f"닿지 못했습니다 — {str(exc)[:120]}"
+        if "CERTIFICATE" in msg.upper() or "SSL" in msg.upper():
+            out["cert"] = True
+            out["reason"] = (
+                "Jira 인증서에 문제가 있습니다(만료 등) — 위 「TLS 인증서 검증」 을 끄거나 "
+                "인증서를 갱신하세요"
+            )
+        else:
+            out["reason"] = f"닿지 못했습니다 — {msg[:120]}"
     return out
 
 

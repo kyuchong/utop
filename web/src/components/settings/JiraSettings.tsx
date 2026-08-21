@@ -27,6 +27,9 @@ interface LoginCheck {
   status?: number
   reason?: string
   cloud?: boolean
+  /** 인증서 문제(만료 등) — 체크박스 하나면 넘어간다 */
+  cert?: boolean
+  verify?: boolean
   last_fail?: { user?: string; why?: string; at?: string } | null
 }
 
@@ -251,6 +254,12 @@ export default function JiraSettings() {
                         ? `③ Jira 에 닿습니다${chk.status ? ` (${chk.status})` : ''}`
                         : `③ ${chk.reason || '닿지 못했습니다'}`}
                     </span>
+                    {chk.cert && (
+                      <span className="acc-chk warn">
+                        인증서가 만료됐거나 사내 자체서명입니다. 위 <b>「TLS 인증서 검증」</b> 을
+                        끄면 바로 됩니다 — 인증서를 갱신하는 것이 본래 자리입니다.
+                      </span>
+                    )}
                     {chk.cloud && (
                       <span className="acc-chk warn">
                         Jira Cloud 는 <b>계정 비밀번호로 REST 로그인이 안 됩니다</b> — 사람마다 API
@@ -266,6 +275,8 @@ export default function JiraSettings() {
                             ? 'Jira 가 CAPTCHA 를 걸었습니다 — Jira 웹에 한 번 로그인해 푸세요'
                             : chk.last_fail.why === 'unreachable'
                               ? 'Jira 에 닿지 못했습니다'
+                          : chk.last_fail.why === 'cert'
+                            ? 'Jira 인증서 문제(만료 등)'
                               : chk.last_fail.why}{' '}
                         <i className="muted">{chk.last_fail.at}</i>
                       </span>
