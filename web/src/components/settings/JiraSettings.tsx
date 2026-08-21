@@ -205,6 +205,33 @@ export default function JiraSettings() {
             />
             TLS 인증서 검증 (사내 자체서명 인증서로 실패하면 해제)
           </label>
+          <div className="jira-act">
+            <button
+              className="btn primary small"
+              type="button"
+              disabled={!!busy}
+              onClick={() => void save('conn')}
+            >
+              저장
+            </button>
+            <button className="btn small" type="button" disabled={!!busy} onClick={() => void test()}>
+              연결 테스트
+            </button>
+          </div>
+          <p className="muted small jira-note">
+            비밀번호 대신 <b>PAT</b>(Personal Access Token) 를 권합니다. 자격증명은 백엔드에만
+            남고 밖으로 나가지 않습니다.
+          </p>
+        </div>
+
+
+        {/* Jira 계정 로그인 — **연결과는 다른 일**이다(지시: 연결은 그대로 두고
+            옆에 카드 하나 더). 연결은 이슈를 등록·조회하는 자격이고, 이쪽은
+            사람이 들어오는 문이다. 한 칸에 섞여 있으면 어느 것을 고치는지
+            헷갈린다. */}
+        <div className="panel jira-card">
+          <b className="jira-t">Jira 계정 로그인</b>
+          <span className="muted small">회원가입 없이 Jira 아이디·비밀번호로 들어옵니다</span>
           {/* 사원이 모두 Jira 계정을 갖고 있어 회원가입을 두지 않는다(지시).
               문제가 생기면 이 스위치만 끄면 옛 방식으로 즉시 되돌아간다.
               ★ 켜도 **기존 계정은 그대로** 들어온다 — 로그인은 UTOP
@@ -220,16 +247,17 @@ export default function JiraSettings() {
           {cfg.login_enabled && (
             <>
               {/* 이슈를 등록·조회하는 Jira 와 사람을 확인하는 Jira 가 다를 수
-                  있다(지시: 사내에 둘이다). 비우면 위 주소를 그대로 쓴다 */}
+                  있다(지시: 사내에 둘이다). 비우면 「연결」 카드의 주소를 쓴다 */}
               <label className="jira-f sub">
                 Jira 로그인 URL
                 <input
                   value={cfg.login_url ?? ''}
-                  placeholder={`비우면 위 주소 — ${cfg.url || 'https://…'}`}
+                  placeholder={`비우면 「연결」의 주소 — ${cfg.url || 'https://…'}`}
                   onChange={(e) => set({ login_url: e.target.value })}
                 />
                 <i className="muted small">
-                  로그인만 다른 Jira 로 물어볼 때 적습니다. 이슈 등록·조회는 위 주소 그대로입니다.
+                  로그인만 다른 Jira 로 물어볼 때 적습니다. 이슈 등록·조회는 「연결」의 주소를
+                  그대로 씁니다.
                 </i>
               </label>
               <label className="jira-ck sub">
@@ -261,12 +289,12 @@ export default function JiraSettings() {
                 {chk && (
                   <>
                     <span className={`acc-chk ${chk.enabled ? 'ok' : 'bad'}`}>
-                      {chk.enabled ? '① 켜져 있습니다' : '① 꺼져 있습니다 — 저장하면 켜집니다'}
+                      {chk.enabled ? '① 켜져 있습니다' : '① 꺼져 있습니다 — 켜고 저장하세요'}
                     </span>
                     <span className={`acc-chk ${chk.url ? 'ok' : 'bad'}`}>
                       {chk.url
                         ? `② 로그인 주소 ${chk.url}${chk.separate ? ' (이슈용과 따로)' : ' (이슈용과 같음)'}`
-                        : '② 주소가 없습니다 — 위에 넣으세요'}
+                        : '② 주소가 없습니다 — 「연결」에 Jira URL 을 넣으세요'}
                     </span>
                     <span className={`acc-chk ${chk.reachable ? 'ok' : 'bad'}`}>
                       {chk.reachable
@@ -275,8 +303,9 @@ export default function JiraSettings() {
                     </span>
                     {chk.cert && (
                       <span className="acc-chk warn">
-                        인증서가 만료됐거나 사내 자체서명입니다. 위 <b>「TLS 인증서 검증」</b> 을
-                        끄면 바로 됩니다 — 인증서를 갱신하는 것이 본래 자리입니다.
+                        인증서가 만료됐거나 사내 자체서명입니다. 「연결」의{' '}
+                        <b>「TLS 인증서 검증」</b> 을 끄면 바로 됩니다 — 인증서를 갱신하는 것이
+                        본래 자리입니다.
                       </span>
                     )}
                     {chk.cloud && (
@@ -310,18 +339,11 @@ export default function JiraSettings() {
               className="btn primary small"
               type="button"
               disabled={!!busy}
-              onClick={() => void save('conn')}
+              onClick={() => void save('login')}
             >
               저장
             </button>
-            <button className="btn small" type="button" disabled={!!busy} onClick={() => void test()}>
-              연결 테스트
-            </button>
           </div>
-          <p className="muted small jira-note">
-            비밀번호 대신 <b>PAT</b>(Personal Access Token) 를 권합니다. 자격증명은 백엔드에만
-            남고 밖으로 나가지 않습니다.
-          </p>
         </div>
 
         {/* 기본값 — 이슈 등록 창에서 미리 골라 둘 것 */}
