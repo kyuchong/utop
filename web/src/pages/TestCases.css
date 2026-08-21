@@ -3299,9 +3299,8 @@ table.tb tr.r-bad td:first-child {
  * 아래에 붙은 실행 로그가 화면 밖으로 밀려났다 — 「로그가 사라졌다」 로
  * 보인다. 높이를 못 박고, 긴 것은 **각 칸 안에서** 구르게 한다.
  */
+/* 높이는 화면에서 재서 넣는다(TestCases.tsx). 여기서는 넘치는 것만 막는다 */
 .railsec[data-sec='steps'] > .railsec-b {
-  height: calc(100vh - 300px);
-  min-height: 420px;
   display: flex;
   flex-direction: column;
   overflow: hidden;

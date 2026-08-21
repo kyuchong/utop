@@ -274,6 +274,36 @@ export default function TestCases({ me }: PageProps) {
 
   const [logs, setLogs] = useState<LogLine[]>([])
   const [logOnly, setLogOnly] = useState(false)
+  /*
+   * Automation 판의 높이 — **자리를 재서** 채운다.
+   *
+   * `100vh - 300px` 처럼 빼는 값을 박아 두면 화면마다 남거나 잘린다
+   * (지적: 32인치에서 아래가 논다). 판이 실제로 시작하는 자리를 재고
+   * 창 바닥까지를 준다 — 모니터가 무엇이든 딱 맞는다.
+   */
+  const paneRef = useRef<HTMLDivElement | null>(null)
+  const [paneH, setPaneH] = useState(0)
+  useEffect(() => {
+    const fit = () => {
+      const el = paneRef.current
+      if (!el) return
+      const top = el.getBoundingClientRect().top
+      const next = Math.max(360, Math.round(window.innerHeight - top - 14))
+      setPaneH((cur) => (Math.abs(cur - next) > 2 ? next : cur))
+    }
+    fit()
+    window.addEventListener('resize', fit)
+    /* 위쪽 줄(빵부스러기·탭·알림 띠)이 늘거나 줄면 자리도 바뀐다 */
+    const ro = new ResizeObserver(fit)
+    if (document.body) ro.observe(document.body)
+    const t = window.setTimeout(fit, 120)
+    return () => {
+      window.removeEventListener('resize', fit)
+      ro.disconnect()
+      window.clearTimeout(t)
+    }
+  }, [tab, view, openId])
+
   /* 실행 로그 높이 — 손잡이로 잡는다(지시). 기억해 둔다 */
   const [logH, setLogH] = useState(() => {
     const v = Number(localStorage.getItem('utop.tc.logh'))
@@ -1798,7 +1828,7 @@ export default function TestCases({ me }: PageProps) {
     steps: (
               // Automation 만 안에서 좌우로 나뉜다 — 목록과 세부.
               // 바깥 칸 수는 그대로라 탭을 옮겨도 화면이 출렁이지 않는다.
-              <div className="tc-inner">
+              <div className="tc-inner" ref={paneRef} style={paneH ? { height: paneH } : undefined}>
                 {/* 목록 */}
                 <section className="panel tc-seqcol" style={{ flexBasis: seqW }}>
                   <div className="tc-run">
