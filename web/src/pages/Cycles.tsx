@@ -2399,15 +2399,6 @@ function CycleBoard({
   /* 목록 줄에서 바로 고친다(지시) — 값 목록은 설정의 코드표·카탈로그를 쓴다 */
   const CY_STATUS = useCodes('cycle_status', [])
   const CY_CUST = useCodes('cycle_customer', [])
-  /** 모델그룹·모델명은 카탈로그가 정본이다 — 지도에서 뽑아 쓴다 */
-  const modelOpts = useMemo(
-    () => [...mgroupOf.keys()].sort((a, b) => a.localeCompare(b, 'ko')),
-    [mgroupOf],
-  )
-  const groupOpts = useMemo(
-    () => [...new Set([...mgroupOf.values()].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko')),
-    [mgroupOf],
-  )
   /**
    * 한 칸만 고쳐 저장한다.
    *
@@ -2918,14 +2909,21 @@ function CycleBoard({
                       >
                         {c.cid || c.version || c.name || c.id}
                       </button>
-                      {/* 제목은 그 자리에서 고친다(지시). 실행 화면으로 가는 길은
-                          왼쪽 사이클 ID 가 맡는다 — 한 칸이 두 일을 하면 고치려다
-                          화면이 넘어간다. */}
+                      {/* 한 번 누르면 실행 화면으로, **두 번** 누르면 고친다(지시) */}
                       <PickCell
+                        dbl
                         value={c.name ?? ''}
-                        cls="cyt-name"
-                        title="제목 — 고치고 Enter"
+                        title={`${c.name ?? ''} — 누르면 실행 화면, 두 번 누르면 고칩니다`}
                         onSave={(v) => setCyCell(c.id, { name: v })}
+                        view={
+                          <button
+                            type="button"
+                            className="cyt-name cyt-ell"
+                            onClick={() => onRun(c.id)}
+                          >
+                            {c.name || '–'}
+                          </button>
+                        }
                       />
                       {renderCols.map((c2) => {
                         switch (c2.k) {
@@ -2934,23 +2932,19 @@ function CycleBoard({
                             // 보이는데 목록만 – 였다(지적)
                             const mg2 =
                               (c.model_group ?? '').trim() || mgroupOf.get(c.model ?? '') || ''
+                            /* 모델그룹·모델명은 여기서 고치지 않는다(지시) —
+                               트리 자리를 바꾸는 값이라 수정 창에서 다룬다 */
                             return (
-                              <PickCell
-                                key={c2.k}
-                                value={mg2}
-                                opts={groupOpts}
-                                onSave={(v) => setCyCell(c.id, { model_group: v })}
-                              />
+                              <span key={c2.k} className="muted small cyt-ell" title={mg2}>
+                                {mg2 || '–'}
+                              </span>
                             )
                           }
                           case 'md':
                             return (
-                              <PickCell
-                                key={c2.k}
-                                value={c.model ?? ''}
-                                opts={modelOpts}
-                                onSave={(v) => setCyCell(c.id, { model: v })}
-                              />
+                              <span key={c2.k} className="muted small cyt-ell" title={c.model ?? ''}>
+                                {c.model || '–'}
+                              </span>
                             )
                           case 'f_status':
                             return (
@@ -3013,8 +3007,10 @@ function CycleBoard({
                             return (
                               <PickCell
                                 key={c2.k}
+                                dbl
                                 value={c.version ?? ''}
-                                title="버전 — 고치고 Enter"
+                                cls="muted small cyt-ell"
+                                title="버전 — 두 번 누르면 고칩니다"
                                 onSave={(v) => setCyCell(c.id, { version: v })}
                               />
                             )

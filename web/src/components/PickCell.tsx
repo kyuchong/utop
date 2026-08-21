@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type React from 'react'
 
 /**
  * 표 안에서 **그 자리에서 고치는 칸**.
@@ -16,6 +17,8 @@ export default function PickCell({
   onSave,
   title,
   cls,
+  dbl = false,
+  view,
 }: {
   value: string
   /** 고를 값들. 비우면 **글자 칸**이 된다(제목·버전처럼 정해진 값이 없는 칸) */
@@ -24,8 +27,18 @@ export default function PickCell({
   title?: string
   /** 그 칸의 꼴을 더 얹을 때 */
   cls?: string
+  /**
+   * **두 번 눌러야** 고치는 칸(지시).
+   *
+   * 한 번 누르는 것이 다른 일(실행 화면으로 가기)인 칸이 있다 — 그런 자리는
+   * 고치는 문을 두 번 누르기로 옮긴다.
+   */
+  dbl?: boolean
+  /** 두 번 누르기 칸이 평소에 보여 줄 것 — 안 주면 글자 그대로 */
+  view?: React.ReactNode
 }) {
   const [busy, setBusy] = useState(false)
+  const [open, setOpen] = useState(false)
   const [txt, setTxt] = useState(value)
   useEffect(() => setTxt(value), [value])
 
@@ -41,21 +54,40 @@ export default function PickCell({
     onPointerDown: (e: { stopPropagation: () => void }) => e.stopPropagation(),
   }
 
+  if (dbl && !open)
+    return (
+      <span
+        className={`pick-view${cls ? ' ' + cls : ''}`}
+        title={title ?? '두 번 누르면 고칩니다'}
+        onDoubleClick={(e) => {
+          e.stopPropagation()
+          setOpen(true)
+        }}
+      >
+        {view ?? (value || <span className="muted">–</span>)}
+      </span>
+    )
+
   if (!opts || opts.length === 0)
     return (
       <input
         className={`pick-live${cls ? ' ' + cls : ''}`}
         value={txt}
+        autoFocus={dbl}
         disabled={busy}
         title={title ?? '고치고 Enter — 자리를 떠도 저장됩니다'}
         {...stop}
         onChange={(e) => setTxt(e.target.value)}
-        onBlur={() => save(txt)}
+        onBlur={() => {
+          setOpen(false)
+          save(txt)
+        }}
         onKeyDown={(e) => {
           e.stopPropagation()
           if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
           if (e.key === 'Escape') {
             setTxt(value)
+            setOpen(false)
             ;(e.target as HTMLInputElement).blur()
           }
         }}

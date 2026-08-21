@@ -479,3 +479,14 @@ select.pick-live:hover {
 /* 우선순위 알약·유형 딱지는 제 색을 지킨다 */
 select.pick-live.rq-prio,
 select.pick-live.tag { width: auto; max-width: 100%; }
+
+/* 두 번 눌러야 고치는 칸 — 평소에는 그냥 글자·단추다 */
+.pick-view {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pick-view > .cyt-name { width: 100%; text-align: left; }
