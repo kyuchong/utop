@@ -2289,6 +2289,10 @@ def _prompt_of(purpose: str) -> dict:
         "hint": base.get("hint") or "",
         "system": (saved.get("system") or "").strip() or base.get("system") or "",
         "llm": saved.get("llm") or "",
+        # 채팅 화면 쪽 — 여는 말·입력칸 안내·추천 질문(지시)
+        "greeting": saved.get("greeting") or base.get("greeting") or "",
+        "placeholder": saved.get("placeholder") or base.get("placeholder") or "",
+        "asks": list(saved.get("asks") or base.get("asks") or []),
     }
 
 
@@ -2337,6 +2341,10 @@ async def llm_purposes():
             "system": cur["system"],
             "llm": cur["llm"],
             "default": v.get("system") or "",
+            # 채팅 화면에서 보이는 것 — 여는 말·입력칸 안내·추천 질문(지시)
+            "greeting": cur.get("greeting") or "",
+            "placeholder": cur.get("placeholder") or "",
+            "asks": cur.get("asks") or [],
         })
     return {"purposes": out}
 
@@ -2352,6 +2360,10 @@ async def llm_purposes_save(data: dict):
         ps[k] = {
             "system": str((v or {}).get("system") or ""),
             "llm": str((v or {}).get("llm") or ""),
+            # 채팅 화면 쪽 값 — 없으면 빈 것으로 둔다(옛 저장본 호환)
+            "greeting": str((v or {}).get("greeting") or ""),
+            "placeholder": str((v or {}).get("placeholder") or ""),
+            "asks": [str(x) for x in ((v or {}).get("asks") or []) if str(x).strip()],
         }
     cur["purposes"] = ps
     PROMPTS_FILE.parent.mkdir(parents=True, exist_ok=True)

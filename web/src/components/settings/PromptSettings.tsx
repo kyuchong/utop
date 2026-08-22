@@ -21,6 +21,12 @@ interface Purpose {
   llm: string
   /** 코드가 들고 있는 기본값 — 되돌릴 때 쓴다 */
   default: string
+  /** 채팅 화면을 열 때 AI 가 먼저 하는 말 (마크다운) */
+  greeting: string
+  /** 입력칸에 흐리게 떠 있는 안내 */
+  placeholder: string
+  /** 눌러서 바로 묻는 추천 질문 */
+  asks: string[]
 }
 
 interface Llm {
@@ -46,7 +52,13 @@ export default function PromptSettings() {
         const [a, b] = await Promise.all([apiFetch('/api/llm/purposes'), apiFetch('/api/llms')])
         const j = (await a.json()) as { purposes?: Purpose[] }
         const k = (await b.json()) as { llms?: Llm[] }
-        setItems(j.purposes ?? [])
+        /* 옛 저장본에는 채팅 쪽 값이 없다 — 없으면 빈 것으로 세운다 */
+        setItems((j.purposes ?? []).map((x) => ({
+          ...x,
+          greeting: x.greeting ?? '',
+          placeholder: x.placeholder ?? '',
+          asks: Array.isArray(x.asks) ? x.asks : [],
+        })))
         setLlms(k.llms ?? [])
       } catch {
         setNote('설정을 읽지 못했습니다')
@@ -62,7 +74,19 @@ export default function PromptSettings() {
     setNote('')
     try {
       const body = {
-        purposes: Object.fromEntries(items.map((x) => [x.id, { system: x.system, llm: x.llm }])),
+        purposes: Object.fromEntries(
+          items.map((x) => [
+            x.id,
+            {
+              system: x.system,
+              llm: x.llm,
+              greeting: x.greeting,
+              placeholder: x.placeholder,
+              /* 빈 줄은 버린다 — 「＋질문 추가」 를 눌러 놓고 안 적은 것 */
+              asks: x.asks.filter((q) => q.trim()),
+            },
+          ]),
+        ),
       }
       const r = await apiFetch('/api/llm/purposes', { method: 'POST', body: JSON.stringify(body) })
       if (!r.ok) throw new Error(String(r.status))
@@ -153,6 +177,69 @@ export default function PromptSettings() {
                 placeholder="비우면 기본값을 씁니다"
                 onChange={(e) => set(x.id, { system: e.target.value })}
               />
+            </div>
+
+            {/* 채팅 화면에서 보이는 것 — 프롬프트는 AI 가 읽고, 이 셋은
+                사람이 본다(지시: 붉은 상자). 여는 말·입력칸 안내·추천 질문. */}
+            <div className="ps-chat">
+              <div className="ps-chat-h">
+                <b>AI 채팅 화면 (이 AI 토글 열 때)</b>
+                <span className="muted small">사람이 보는 자리입니다 — 프롬프트와 달리 화면에 그대로 뜹니다.</span>
+              </div>
+
+              <label className="ps-fld">
+                <span>오프닝 멘트 · 마크다운</span>
+                <textarea
+                  rows={4}
+                  value={x.greeting}
+                  placeholder="안녕하세요. 저는 U-TOP 에서 … 관련하여 답변하는 Assistant 입니다."
+                  onChange={(e) => set(x.id, { greeting: e.target.value })}
+                />
+              </label>
+
+              <label className="ps-fld">
+                <span>입력창 안내</span>
+                <input
+                  value={x.placeholder}
+                  placeholder="가장 많이 실패한 원인은? 을 입력해 보세요"
+                  onChange={(e) => set(x.id, { placeholder: e.target.value })}
+                />
+              </label>
+
+              <div className="ps-fld">
+                <span>추천 질문 (클릭형 칩)</span>
+                {x.asks.length === 0 && (
+                  <span className="muted small">아직 없습니다. 아래에서 더하세요.</span>
+                )}
+                {x.asks.map((q, i) => (
+                  <div className="ps-ask" key={i}>
+                    <input
+                      value={q}
+                      placeholder="눌러서 바로 묻게 할 말"
+                      onChange={(e) =>
+                        set(x.id, { asks: x.asks.map((v, j) => (j === i ? e.target.value : v)) })
+                      }
+                    />
+                    <button
+                      className="btn small"
+                      type="button"
+                      title="이 질문을 지웁니다"
+                      onClick={() => set(x.id, { asks: x.asks.filter((_, j) => j !== i) })}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <div>
+                  <button
+                    className="btn small"
+                    type="button"
+                    onClick={() => set(x.id, { asks: [...x.asks, ''] })}
+                  >
+                    ＋ 질문 추가
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
             ))}
