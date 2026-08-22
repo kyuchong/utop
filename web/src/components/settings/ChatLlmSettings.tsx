@@ -109,7 +109,15 @@ export default function ChatLlmSettings() {
 
   const load = async (keepId?: string) => {
     try {
-      const r = await apiFetch('/api/llms')
+      /*
+       * **캐시를 건너뛴다.**
+       *
+       * 저장하자마자 목록을 다시 읽는데, 브라우저가 30초 묵은 응답을 그대로
+       * 돌려주어 방금 고친 이름이 옛 이름으로 되돌아 보였다(지적). 서버에서도
+       * 이 경로의 캐시를 걷었지만, 이미 브라우저에 남은 것까지 지나치려면
+       * 여기서도 말해 줘야 한다.
+       */
+      const r = await apiFetch('/api/llms', { cache: 'no-store' })
       if (!r.ok) throw new Error('목록을 불러오지 못했습니다')
       const b = (await r.json()) as { llms?: Llm[] }
       const list = b.llms ?? []

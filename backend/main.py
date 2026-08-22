@@ -122,14 +122,16 @@ _LIVE_PATHS = (
     "/api/custom-fields",
     "/api/permissions",
     "/api/global-params",
+    # 사람이 그 자리에서 고치는 설정 — 30초 캐시가 「저장했는데 옛 이름이
+    # 다시 보인다」 를 만들었다(지적). 고치자마자 다시 읽는 자료다.
+    "/api/llms",
+    "/api/prompts",
 )
 
 _CACHEABLE_PATHS = (
     "/api/device-catalog",
     "/api/branding",
     "/api/help",
-    "/api/llms",
-    "/api/prompts",
     "/api/page-ai",
     "/api/dify/assistants",
     "/api/ui-options",
