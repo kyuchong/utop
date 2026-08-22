@@ -118,6 +118,15 @@ export default function JiraPanels() {
     void patch({ panels: { ...(cur.panels ?? {}), [kind]: [...s] } })
   }
 
+  /* 두 가지 일이 한 화면에 쌓여 있었다(지적) — 탭으로 가른다.
+     기본값: 이슈를 어디로 낼까 · 이슈 패널: 이슈 본문에 무엇을 담을까 */
+  const [tab, setTab] = useState<'def' | 'panel'>(() =>
+    localStorage.getItem('utop.jirapanel.tab') === 'def' ? 'def' : 'panel',
+  )
+  useEffect(() => {
+    localStorage.setItem('utop.jirapanel.tab', tab)
+  }, [tab])
+
   const setAll = (kind: string, on: boolean) =>
     void patch({ panels: { ...(cur.panels ?? {}), [kind]: on ? PANELS.map((p) => p.k) : [] } })
 
@@ -130,13 +139,42 @@ export default function JiraPanels() {
         </span>
         <span className="sp" />
         {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
-        <button className="btn small" type="button" disabled={busy} onClick={() => void loadProjects()}>
-          프로젝트 불러오기
-        </button>
+        {tab === 'panel' && (
+          <button
+            className="btn small"
+            type="button"
+            disabled={busy}
+            onClick={() => void loadProjects()}
+          >
+            프로젝트 불러오기
+          </button>
+        )}
       </div>
 
-      {/* 기본값 · 자주 쓰는 프로젝트 — 연동 설정에서 옮겨 왔다(지시) */}
-      <JiraDefaults />
+      {/* 탭 둘 — 장비·Jira 연동 화면과 같은 seg 꼴(지시) */}
+      <div className="seg jp-seg" role="tablist">
+        {(
+          [
+            ['def', '기본값'],
+            ['panel', '이슈 패널'],
+          ] as Array<['def' | 'panel', string]>
+        ).map(([k, lb]) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={tab === k}
+            className={`seg-btn${tab === k ? ' on' : ''}`}
+            onClick={() => setTab(k)}
+          >
+            {lb}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'def' && <JiraDefaults />}
+      {tab === 'panel' && (
+        <>
 
 
       {/* 자동 등록. 기본이 꺼짐인 것이 중요하다 — 64건 돌려 20건 깨지면
@@ -252,6 +290,8 @@ export default function JiraPanels() {
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   )
 }

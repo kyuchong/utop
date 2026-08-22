@@ -1524,3 +1524,10 @@ button.dcc-st:disabled { cursor: default; }
 .jira-sdot { width: 8px; height: 8px; border-radius: 50%; flex: none; position: relative; top: -1px; }
 .jira-sdot.ok { background: var(--c-pass); }
 .jira-sdot.off { background: #cfd6de; border: 1px solid #b9c2cc; }
+
+/* Jira 화면들의 탭 줄 — 카드와 같은 간격으로 띄운다 */
+.jira-seg,
+.jp-seg { margin: 0 0 10px; }
+/* 기본값 두 카드는 좁게 — 고르개 두 개에 화면 폭을 다 줄 이유가 없다 */
+.jd-cols { max-width: 980px; }
+.jd-msg { display: block; margin: 0 0 6px; }
