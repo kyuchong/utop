@@ -13412,7 +13412,7 @@ async def chat_stream(req: ChatRequest):
                     if text:
                         yield "data: " + _json.dumps({"text": text}) + "\n\n"
         except Exception as e:
-            yield "data: " + _json.dumps({"text": f"[Claude API 오류] {e}"}) + "\n\n"
+            yield "data: " + _json.dumps({"text": f"[Claude API 오류] {_llm_err(e)}"}) + "\n\n"
         yield "data: [DONE]\n\n"
     return StreamingResponse(generate(), media_type="text/event-stream")
 
@@ -13455,7 +13455,7 @@ async def chat(req: ChatRequest):
         )
         reply = response.content[0].text
     except Exception as e:
-        reply = f"[Claude API 오류] {e}"
+        reply = f"[Claude API 오류] {_llm_err(e)}"
 
     return {"reply": reply}
 
@@ -15510,7 +15510,7 @@ async def tc_generate(tc_id: str, payload: dict):
         )
         raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
     except Exception as e:
-        raise HTTPException(502, f"모델 호출에 실패했습니다: {e}") from e
+        raise HTTPException(502, f"모델 호출에 실패했습니다: {_llm_err(e)}") from e
 
     # 모델이 ```json 으로 감싸는 경우가 있다
     m = re.search(r"\{.*\}", raw, re.S)
@@ -15531,6 +15531,29 @@ async def tc_generate(tc_id: str, payload: dict):
             "embed_ready": bool(docs) or bool(_rag_cfg().get("embed_url")),
         },
     }
+
+
+def _llm_err(e: Exception) -> str:
+    """모델이 준 실패를 **사람 말로** 바꾼다.
+
+    Anthropic 은 영어 한 덩어리(JSON 통째)로 답한다. 「credit balance is
+    too low」 를 그대로 화면에 던져 놓으면 무엇을 해야 하는지 알 수 없다
+    (지적: 이건 뭐야). 흔한 셋은 풀어 쓰고, 나머지는 원문을 남긴다 —
+    모르는 실패를 지어내 설명하는 것이 더 나쁘다.
+    """
+    t = str(e)
+    low = t.lower()
+    if "credit balance is too low" in low or ("insufficient" in low and "credit" in low):
+        return ("Claude 계정에 크레딧이 없습니다 — console.anthropic.com 의 "
+                "Plans & Billing 에서 충전하거나, 용도별 프롬프트에서 사용 LLM 을 "
+                "랩 안의 로컬 LLM 으로 바꾸세요")
+    if "authentication_error" in low or "invalid x-api-key" in low or "401" in t[:40]:
+        return "API 키가 맞지 않습니다 — 설정 → LLM 설정에서 키를 다시 넣으세요"
+    if "rate_limit" in low or "429" in t[:40]:
+        return "잠시 뒤에 다시 하세요 — 짧은 사이에 너무 여러 번 불렀습니다(rate limit)"
+    if "not_found_error" in low or ("model" in low and "not found" in low):
+        return "모델 이름이 맞지 않습니다 — 설정 → LLM 설정에서 모델을 다시 고르세요"
+    return t
 
 
 def _anthropic_from(llm: Optional[dict]):
@@ -15671,7 +15694,7 @@ async def _llm_text(use: str, system: str, user: str, max_tokens: int = 1500,
         )
         return "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
     except Exception as e:
-        raise HTTPException(502, f"모델 호출에 실패했습니다: {e}") from e
+        raise HTTPException(502, f"모델 호출에 실패했습니다: {_llm_err(e)}") from e
 
 
 _DESCRIBE_SYSTEM = """당신은 유비쿼스 네트워크 장비 시험 문서를 쓰는 사람이다.
