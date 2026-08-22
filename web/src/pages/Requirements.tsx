@@ -299,6 +299,10 @@ export default function Requirements({ me }: Props) {
   /* Info 의 상태·우선순위는 **늘 고칠 수 있다**(지시). 고친 값은 위
      제목 자리의 「저장」 단추가 저장한다. */
   const REQ_STATUS = useCodes('req_status', ['작성중', '검토중', '검토완료', '보류', '폐기'])
+  /* 연결된 시험을 그 자리에서 고치려면 시험 쪽 코드값이 필요하다(지시:
+     시험항목 페이지처럼) — 같은 열쇠를 쓰므로 설정을 고치면 둘 다 따라온다 */
+  const TC_TYPE = useCodes('tc_type', ['FT', 'Function'])
+  const TC_STATUS = useCodes('tc_status', ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류'])
   const REQ_PRIO = useCodes('req_priority', ['High', 'Medium', 'Low'])
   const [infoDraft, setInfoDraft] = useState<{ status: string; priority: string } | null>(null)
   const [infoSaving, setInfoSaving] = useState(false)
@@ -634,6 +638,48 @@ export default function Requirements({ me }: Props) {
    * 뒤엣것을 쓴다). req_id 만 비웠더니 tc[] 로 이어진 줄은 해제를 눌러도
    * 그대로 남았다. TC 자체는 지워지지 않는다.
    */
+  /**
+   * 연결된 시험의 한 칸을 **그 자리에서** 고친다(지시: 시험항목 페이지처럼).
+   *
+   * 여태 이 표는 읽기만 됐다. 제안으로 만든 시험은 유형·상태가 비어 있는데,
+   * 그것을 채우러 매번 시험항목 화면으로 건너가야 했다.
+   */
+  const setTcCell = async (t: TestCaseMeta, patch: Record<string, unknown>) => {
+    try {
+      await tcApi.save(t.tcid, {
+        tcid: t.tcid,
+        name: t.name ?? '',
+        type: t.type ?? '',
+        status: t.status ?? '',
+        severity: t.severity ?? '',
+        req_id: t.req_id ?? '',
+        ...patch,
+      })
+      void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
+    } catch (e) {
+      window.alert(e instanceof Error ? `저장하지 못했습니다 — ${e.message}` : '저장하지 못했습니다')
+    }
+  }
+
+  /** 아주 지운다 — 「해제」(떼기)와 다른 일이라 단추도 따로 둔다 */
+  const delTcM = useMutation({
+    mutationFn: async (t: TestCaseMeta) => {
+      await tcApi.remove(t.tcid)
+      const owner = ownerOf.get(t.tcid) ?? selectedReq
+      if (owner && (owner.tc ?? []).some((ref) => ref?.tcid === t.tcid)) {
+        await reqApi.save(reqPk(owner), {
+          ...owner,
+          tc: (owner.tc ?? []).filter((ref) => ref?.tcid !== t.tcid),
+        })
+      }
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
+      void qc.invalidateQueries({ queryKey: ['req', 'list'] })
+    },
+    onError: (e: Error) => window.alert(`지우지 못했습니다 — ${e.message}`),
+  })
+
   const unlinkM = useMutation({
     mutationFn: async (t: TestCaseMeta) => {
       await tcApi.save(t.tcid, {
@@ -1417,15 +1463,26 @@ export default function Requirements({ me }: Props) {
                             </a>
                           </div>
                           <div>
-                            {t.type ? <span className="tag">{t.type}</span> : null}
+                            <PickCell
+                              value={t.type ?? ''}
+                              opts={TC_TYPE}
+                              title="고르면 바로 저장됩니다"
+                              onSave={(v) => setTcCell(t, { type: v })}
+                            />
                           </div>
                           <div className="muted small">{t._cli_count ?? '-'}</div>
-                          <div className={`status ${statusClass(t.status)}`}>
-                            ● {t.status || '미실행'}
-                          </div>
                           <div>
+                            <PickCell
+                              value={t.status ?? ''}
+                              opts={TC_STATUS}
+                              title="고르면 바로 저장됩니다"
+                              cls={`status ${statusClass(t.status)}`}
+                              onSave={(v) => setTcCell(t, { status: v })}
+                            />
+                          </div>
+                          <div className="rq-tcacts">
                             <button
-                              className="btn small danger"
+                              className="btn small"
                               type="button"
                               disabled={unlinkM.isPending}
                               title="이 요구사항에서 뗍니다. TC 자체는 지워지지 않습니다"
@@ -1435,6 +1492,23 @@ export default function Requirements({ me }: Props) {
                               }}
                             >
                               해제
+                            </button>
+                            {/* 지우기는 되돌릴 수 없다 — 해제와 눈에 띄게 갈라 둔다 */}
+                            <button
+                              className="btn small danger"
+                              type="button"
+                              disabled={delTcM.isPending}
+                              title="이 시험을 아주 지웁니다 — 되돌릴 수 없습니다"
+                              onClick={() => {
+                                if (
+                                  window.confirm(
+                                    `'${t.name || t.tcid}' 를 아주 지울까요?\n스텝·실행 기록까지 함께 사라지고 되돌릴 수 없습니다.`,
+                                  )
+                                )
+                                  delTcM.mutate(t)
+                              }}
+                            >
+                              삭제
                             </button>
                           </div>
                         </div>

@@ -1069,3 +1069,13 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 .cov-obj { margin-left: 20px; }
 .cov-mkbar { display: flex; align-items: center; gap: 6px; padding: 6px 0 2px; }
 .cov-mkbar .sp { margin-left: auto; }
+
+/* 연결된 시험 줄의 단추 — 「해제」(뗀다)와 「삭제」(아주 지운다)는 다른 일이다 */
+.rq-tcacts { display: flex; gap: 4px; justify-content: flex-end; }
+
+/* Coverages 표 — 칸이 다섯이다(제목·유형·Step·상태·단추).
+   여태 넷만 적어 두어 단추 칸이 제 크기를 못 잡았다. 단추가 둘로 늘면서
+   드러났다(지시: 유형 고르기·삭제를 여기서). */
+html .tc-body .table .tr {
+  grid-template-columns: minmax(0, 1fr) 110px 60px 110px 132px;
+}
