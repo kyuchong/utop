@@ -15579,8 +15579,10 @@ async def tc_generate(tc_id: str, payload: dict):
 
     if want_llm:
         # 로컬이든 Claude 든 한 길로 — _llm_text 가 종류를 가려서 부른다
-        raw = await _llm_text("coverage_automation", _GEN_SYSTEM, user,
-                              max_tokens=4000, llm_id=want_llm)
+        _got, raw = await _ask_json("coverage_automation", _GEN_SYSTEM, user,
+                                    max_tokens=4000, llm_id=want_llm)
+        if isinstance(_got, dict):
+            raw = json.dumps(_got, ensure_ascii=False)
     else:
         try:
             msg = cl.messages.create(
@@ -15635,6 +15637,56 @@ def _llm_err(e: Exception) -> str:
     if "not_found_error" in low or ("model" in low and "not found" in low):
         return "모델 이름이 맞지 않습니다 — 설정 → LLM 설정에서 모델을 다시 고르세요"
     return t
+
+
+def _json_from(raw: str):
+    """모델이 준 글에서 **JSON 을 건져 낸다**.
+
+    작은 모델은 ```json 으로 감싸거나, 앞에 「알겠습니다」 를 붙이거나,
+    뒤에 설명을 단다. 한 번에 못 읽었다고 「모델이 JSON 을 돌려주지
+    않았습니다」 로 끝내면 사람이 할 수 있는 일이 없다(지적).
+
+    못 건지면 None 이다 — 지어내지 않는다.
+    """
+    t = str(raw or "").strip()
+    if not t:
+        return None
+    # ```json … ``` 껍데기부터 벗긴다
+    m = re.search(r"```(?:json)?\s*(.+?)```", t, re.S | re.I)
+    if m:
+        t = m.group(1).strip()
+    for pat in (r"\{.*\}", r"\[.*\]"):
+        m = re.search(pat, t, re.S)
+        if not m:
+            continue
+        chunk = m.group(0)
+        try:
+            return json.loads(chunk)
+        except json.JSONDecodeError:
+            # 끝에 쉼표가 붙거나 홑따옴표를 쓰는 것 정도는 봐준다
+            fixed = re.sub(r",\s*([}\]])", r"\1", chunk)
+            try:
+                return json.loads(fixed)
+            except json.JSONDecodeError:
+                continue
+    return None
+
+
+async def _ask_json(use: str, system: str, user: str, max_tokens: int = 1500,
+                    llm_id: str = "", tries: int = 2):
+    """JSON 을 받아 낼 때까지 (짧게) 다시 묻는다. (읽은 것, 마지막 원문)
+
+    한 번 더 묻는 값이 사람이 다시 누르는 값보다 싸다. 두 번을 넘기지는
+    않는다 — 안 되는 모델은 세 번도 안 된다.
+    """
+    raw = ""
+    for i in range(max(1, tries)):
+        u = user if i == 0 else (user + "\n\n앞의 답은 JSON 이 아니었다. **JSON 만** 출력하라. 설명·인사·코드펜스 금지.")
+        raw = await _llm_text(use, system, u, max_tokens=max_tokens, llm_id=llm_id, want_json=True)
+        got = _json_from(raw)
+        if got is not None:
+            return got, raw
+    return None, raw
 
 
 def _anthropic_from(llm: Optional[dict]):
@@ -15712,7 +15764,7 @@ def _llm_for(use: str, llm_id: str = "") -> Optional[dict]:
 
 
 async def _llm_text(use: str, system: str, user: str, max_tokens: int = 1500,
-                    llm_id: str = "") -> str:
+                    llm_id: str = "", want_json: bool = False) -> str:
     """등록 LLM 으로 한 번 물어보고 글자만 돌려준다.
 
     OpenAI 호환(vLLM 등)과 Anthropic 을 둘 다 받는다. 등록된 것이 없으면
@@ -15741,9 +15793,17 @@ async def _llm_text(use: str, system: str, user: str, max_tokens: int = 1500,
             "temperature": float(llm.get("temperature") or 0.7),
             "messages": [{"role": "system", "content": sys_p}, {"role": "user", "content": user}],
         }
+        # JSON 이 필요하면 **규격으로** 부탁한다. 말로만 「JSON 만 출력하라」 고
+        # 하면 작은 모델은 곧잘 설명을 앞에 붙인다(지적: 모델이 JSON 을 안 줬다).
+        if want_json:
+            body["response_format"] = {"type": "json_object"}
         try:
             async with httpx.AsyncClient(timeout=120) as c:
                 r = await c.post(url, json=body, headers=headers)
+                if r.status_code >= 400 and want_json:
+                    # 이 규격을 모르는 서버가 있다 — 빼고 한 번 더
+                    body.pop("response_format", None)
+                    r = await c.post(url, json=body, headers=headers)
                 r.raise_for_status()
                 d = r.json()
             return str(((d.get("choices") or [{}])[0].get("message") or {}).get("content") or "").strip()
@@ -15861,18 +15921,13 @@ async def tc_describe(tc_id: str, payload: dict):
         f"=== 시험 절차 {len(lines)}스텝 ===\n" + "\n".join(lines) + "\n"
     )
 
-    raw = await _llm_text(
+    out, raw = await _ask_json(
         "tc_describe", _DESCRIBE_SYSTEM, user, max_tokens=1500,
         llm_id=str(payload.get("llm") or ""),
     )
-
-    m = re.search(r"\{.*\}", raw, re.S)
-    if not m:
-        raise HTTPException(502, "모델이 JSON 을 돌려주지 않았습니다")
-    try:
-        out = json.loads(m.group(0))
-    except json.JSONDecodeError as e:
-        raise HTTPException(502, f"모델 응답을 읽지 못했습니다: {e}") from e
+    if not isinstance(out, dict):
+        raise HTTPException(502, "모델이 JSON 을 돌려주지 않았습니다 — 받은 것: "
+                                 + (str(raw)[:160].replace("\n", " ") or "(빈 응답)"))
 
     return {
         "success": True,
@@ -15947,17 +16002,15 @@ async def req_ai_coverage(req_id: str, payload: dict):
         "이미 있는 것과 겹치지 않는 시험 항목만 제안하라. "
         'JSON 만 출력한다: {"items":[{"name":"...","object":"..."}]}'
     )
-    raw = await _llm_text(
+    out, raw = await _ask_json(
         "req_coverage", _prompt_of("req_coverage")["system"], user,
         max_tokens=2000, llm_id=str(payload.get("llm") or ""),
     )
-    m = re.search(r"\{.*\}", raw, re.S)
-    if not m:
-        raise HTTPException(502, "모델이 JSON 을 돌려주지 않았습니다")
-    try:
-        out = json.loads(m.group(0))
-    except json.JSONDecodeError as e:
-        raise HTTPException(502, f"모델 응답을 읽지 못했습니다: {e}") from e
+    if not isinstance(out, dict):
+        # 무엇을 받았는지 함께 보여 준다 — 「JSON 이 아니었다」 만으로는
+        # 모델을 바꿔야 하는지 프롬프트를 고쳐야 하는지 알 수 없다(지적)
+        raise HTTPException(502, "모델이 JSON 을 돌려주지 않았습니다 — 받은 것: "
+                                 + (str(raw)[:160].replace("\n", " ") or "(빈 응답)"))
     items = [
         {"name": str(x.get("name") or "").strip(), "object": str(x.get("object") or "").strip()}
         for x in (out.get("items") or []) if str(x.get("name") or "").strip()
@@ -15994,17 +16047,13 @@ async def tc_ai_manual(tc_id: str, payload: dict):
         '수동 시험서를 JSON 으로만 출력한다: '
         '{"steps":[{"step":"무엇을 한다","data":"무엇을 넣는다","expected":"무엇이 나와야 한다"}]}'
     )
-    raw = await _llm_text(
+    out, raw = await _ask_json(
         "coverage_manual", _prompt_of("coverage_manual")["system"], user,
         max_tokens=2500, llm_id=str(payload.get("llm") or ""),
     )
-    m = re.search(r"\{.*\}", raw, re.S)
-    if not m:
-        raise HTTPException(502, "모델이 JSON 을 돌려주지 않았습니다")
-    try:
-        out = json.loads(m.group(0))
-    except json.JSONDecodeError as e:
-        raise HTTPException(502, f"모델 응답을 읽지 못했습니다: {e}") from e
+    if not isinstance(out, dict):
+        raise HTTPException(502, "모델이 JSON 을 돌려주지 않았습니다 — 받은 것: "
+                                 + (str(raw)[:160].replace("\n", " ") or "(빈 응답)"))
     steps = [
         {
             "step": str(x.get("step") or "").strip(),
