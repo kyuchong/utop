@@ -1026,7 +1026,9 @@ select.cy-v.na { color: #999; }
   flex: none;
   text-transform: uppercase;
 }
-.ce-dates { display: flex; gap: 4px; }
+/* 한 줄을 통째로 쓰는 칸 — 기간처럼 둘이 나란히 서야 하는 것 */
+.ce-sec > .ce-span { grid-column: 1 / -1; }
+.ce-dates { display: flex; gap: 4px; max-width: 340px; }
 .ce-dates input { min-width: 0; flex: 1; }
 .ce-cols { flex: 1; min-height: 0; display: flex; gap: 10px; padding: 10px 14px; }
 /* 두 열 — 요구사항(좁게) · 시험항목(넓게) */

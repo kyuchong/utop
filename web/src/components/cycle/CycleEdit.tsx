@@ -1094,9 +1094,10 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
             <span>담당 (Owner)</span>
             <input value={assignee} onChange={(e) => setAssignee(e.target.value)} />
           </label>
-          {/* 기간은 아랫줄로(지시) — 오른쪽 끝에서 잘려 보였다 */}
-          <span style={{ flexBasis: '100%', height: 0 }} aria-hidden />
-          <label className="fld">
+          {/* 기간은 **제 줄**을 쓴다(지시) — 오른쪽 끝에서 잘려 보였다.
+              이 상자는 grid 라 flexBasis 로는 줄이 안 바뀐다. 열을 통째로
+              차지하게 해서 아랫줄로 내린다. */}
+          <label className="fld ce-span">
             <span>기간</span>
             <span className="ce-dates">
               <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
