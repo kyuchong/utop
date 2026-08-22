@@ -602,6 +602,70 @@ export default function TcTraffic({ data, onChange }: Props) {
     }
     setBusy('ports')
     setMsg('')
+    /*
+     * STC 는 이 단추가 아예 없었다(지적). 포트를 손으로 적어야 했는데,
+     * 「1/1」 인지 「1/1/1」 인지 슬롯이 몇 번부터인지는 섀시가 안다 —
+     * 못 읽으면 틀린 번호로 스트림이 서고, 트래픽을 걸어야 그제야 안다.
+     *
+     * 읽는 길만 다르다: N2X 는 데몬에게, STC 는 REST 세션에게 묻는다.
+     * 화면에 서는 것(칩·예약 표시)은 같은 벌이라 손놀림이 갈리지 않는다.
+     */
+    if (kind === 'stc') {
+      try {
+        const r = await apiFetch('/api/stc/sess/portstatus', {
+          method: 'POST',
+          body: JSON.stringify({
+            chassis: cfg.chassis,
+            restIp: 'localhost',
+            restPort: cfg.restPort ?? 8888,
+          }),
+        })
+        const j = (await r.json()) as {
+          ok?: boolean
+          error?: string
+          ports?: Array<{
+            slot?: number | string
+            port?: number | string
+            status?: string
+            who?: string
+            link?: string
+            speed?: string
+          }>
+        }
+        if (j.ok === false) throw new Error(j.error || '포트를 읽지 못했습니다')
+        const out = (j.ports ?? []).map((x) => {
+          const st = String(x.status ?? '')
+          const link = String(x.link ?? '')
+          return {
+            id: `${x.slot ?? ''}/${x.port ?? ''}`,
+            // 「free」 는 잡을 수 있는가 — 비었거나 내가 잡은 것
+            free: st === 'free' || st === 'mine' || st === '',
+            mine: st === 'mine',
+            who:
+              st === 'mine'
+                ? '내가 잡음(예약됨)'
+                : st === 'other'
+                  ? `남이 씀${x.who ? ` — ${x.who}` : ''}`
+                  : `빈 포트${link ? ` · 링크 ${link}` : ''}${x.speed ? ` ${x.speed}` : ''}`,
+            state: st,
+            lock: String(x.who ?? ''),
+          }
+        })
+        setChassisPorts(out)
+        const mineN = out.filter((x) => x.mine).length
+        const otherN = out.filter((x) => x.state === 'other').length
+        setMsg(
+          out.length
+            ? `포트 ${out.length}개 · 내가 잡은 것 ${mineN}개 · 남이 쓰는 것 ${otherN}개`
+            : '섀시가 포트를 돌려주지 않았습니다 — REST 서버·섀시 주소를 확인하세요',
+        )
+      } catch (e) {
+        setMsg(e instanceof Error ? e.message : String(e))
+      } finally {
+        setBusy('')
+      }
+      return
+    }
     try {
       const q = `/api/n2x/ports?server=${encodeURIComponent(cfg.chassis)}&label=${encodeURIComponent(cfg.n2xLabel || 'utop')}`
       const r = await apiFetch(q)
@@ -1031,17 +1095,15 @@ export default function TcTraffic({ data, onChange }: Props) {
                 setCfg({ ports: pp })
               }}
             />
-            {kind !== 'stc' && (
-              <button
-                className="btn small"
-                type="button"
-                disabled={!!busy || !cfg.chassis}
-                title="섀시에 실제로 꽂힌 포트를 읽어 옵니다"
-                onClick={() => void readPorts()}
-              >
-                {busy === 'ports' ? '읽는 중…' : '섀시에서 읽기'}
-              </button>
-            )}
+            <button
+              className="btn small"
+              type="button"
+              disabled={!!busy || !cfg.chassis}
+              title="섀시에 실제로 꽂힌 포트를 읽어 옵니다"
+              onClick={() => void readPorts()}
+            >
+              {busy === 'ports' ? '읽는 중…' : '섀시에서 읽기'}
+            </button>
             {chassisPorts.length > 0 && (
               <>
                 <datalist id="tt-chassis-ports">
