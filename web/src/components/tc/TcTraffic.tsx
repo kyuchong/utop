@@ -287,26 +287,22 @@ export default function TcTraffic({ data, onChange }: Props) {
   const curMeter = meters.find((d) => (d.ip ?? '').trim() === (cfg.chassis ?? '').trim())
   const kind = meterKind(curMeter)
   /**
-   * STC REST 서버 포트.
+   * STC REST 서버가 사는 곳 — 주소와 포트.
    *
-   * 여기서만 8888 로 박아 두었더니, REST 서버를 다른 포트로 띄운 랩에서는
-   * 이 탭만 못 붙었다 — 계측기 등록 화면은 **등록해 둔 포트**로 묻고 있어서
-   * 거기서는 되고 여기서는 「stcweb.exe 를 찾을 수 없습니다」 가 떴다
-   * (지적). 등록한 값이 정본이고, 이 탭 값은 그것을 덮어쓸 때만 쓴다.
-   */
-  const restPort = Number(cfg.restPort ?? curMeter?.port ?? 8888) || 8888
-  /**
-   * REST 서버 주소.
+   * STC 는 자리가 둘이다: **섀시**(장비 IP)와 **REST 서버**(윈도우 PC).
+   * 이 탭은 그것을 `localhost:8888` 로 박아 두어, 다른 데 띄운 랩에서는
+   * 이 탭만 못 붙었다(지적). 계측기 등록의 **stc 접속 줄**에 둘 다 이미
+   * 있다 — 그 줄이 정본이다.
    *
-   * STC 는 자리가 둘이다 — **섀시**(장비 IP)와 **REST 서버**(윈도우 PC).
-   * 이 탭은 REST 서버를 `localhost` 로 박아 두었는데 백엔드는 리눅스라
-   * 거기엔 아무도 없다(지적). 계측기 등록의 stc 접속 줄에 그 주소가
-   * 이미 있다 — 그것을 쓴다. 서버도 같은 곳을 한 번 더 본다.
+   * 장비의 `port` 를 쓰면 안 된다. 그것은 CLI 로 붙는 포트(22 따위)라
+   * REST 포트 자리에 22 가 떴다(지적). 계측기에도 SSH 줄이 있을 수 있어,
+   * 「장비의 포트」 는 여기서 물어볼 값이 아니다.
    */
-  const restIp =
-    (curMeter?.access ?? []).find((a) => String(a.protocol ?? '').toLowerCase() === 'stc')?.host ||
-    ''
-
+  const stcAccess = (curMeter?.access ?? []).find(
+    (a) => String(a.protocol ?? '').toLowerCase() === 'stc',
+  )
+  const restPort = Number(cfg.restPort ?? stcAccess?.port ?? 8888) || 8888
+  const restIp = String(stcAccess?.host ?? '').trim()
 
   const setCfg = (patch: Partial<MeterCfg>) => onChange({ meterCfg: { ...cfg, ...patch } })
   const setStream = (i: number, patch: Partial<MeterStream>) =>
