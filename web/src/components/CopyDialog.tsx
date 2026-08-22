@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { IconChevron, IconFolder, IconProject, IconReqDoc, IconTcDoc } from '@/components/icons'
 import '@/components/ReqTree.css'
@@ -44,6 +44,7 @@ const leafCat = (r: Req) => String(r.cat4 || r.cat3 || r.cat2 || r.cat1 || '')
  * 쓴다(지시) — 창마다 다른 트리를 만들면 같은 자료가 화면마다 달라 보인다.
  */
 export default function CopyDialog({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
+  const qc = useQueryClient()
   const [picks, setPicks] = useState<Pick[]>([])
   const [dst, setDst] = useState<Pick | null>(null)
   const [swap, setSwap] = useState(true)
@@ -421,6 +422,14 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
       if (!r.ok || !j.ok) throw new Error(j.detail || '복사하지 못했습니다')
       setMsg(`폴더 ${j.cats ?? 0}개 · 요구사항 ${j.reqs ?? 0}건 · 시험 ${j.tcs ?? 0}건 복사했습니다`)
       setPicks([])
+      setSkip(new Set())
+      /* 붙인 것이 **이 창에서 바로** 보여야 한다(지적) — 오른쪽 트리를 다시
+         읽는다. 안 그러면 붙였는지 아닌지 창을 닫아 봐야 안다. */
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['copy-cats'] }),
+        qc.invalidateQueries({ queryKey: ['copy-reqs'] }),
+        qc.invalidateQueries({ queryKey: ['copy-tcs'] }),
+      ])
       onDone()
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e))

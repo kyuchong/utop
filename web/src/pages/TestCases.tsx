@@ -2253,9 +2253,10 @@ export default function TestCases({ me }: PageProps) {
         <CopyDialog
           onClose={() => setCopyOpen(false)}
           onDone={() => {
-            void qc.invalidateQueries({ queryKey: ['tcs'] })
-            void qc.invalidateQueries({ queryKey: ['reqs'] })
-            void qc.invalidateQueries({ queryKey: ['req-categories'] })
+            /* 복사한 것이 **창을 닫자마자** 보여야 한다(지적: 새로고침해야
+               보였다). 어느 목록이 무슨 열쇠를 쓰는지 일일이 세느니 통째로
+               다시 읽는다 — 이 화면의 자료는 그리 크지 않다. */
+            void qc.invalidateQueries()
           }}
         />
       )}
