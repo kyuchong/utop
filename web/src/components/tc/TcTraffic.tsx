@@ -286,6 +286,15 @@ export default function TcTraffic({ data, onChange }: Props) {
   )
   const curMeter = meters.find((d) => (d.ip ?? '').trim() === (cfg.chassis ?? '').trim())
   const kind = meterKind(curMeter)
+  /**
+   * STC REST 서버 포트.
+   *
+   * 여기서만 8888 로 박아 두었더니, REST 서버를 다른 포트로 띄운 랩에서는
+   * 이 탭만 못 붙었다 — 계측기 등록 화면은 **등록해 둔 포트**로 묻고 있어서
+   * 거기서는 되고 여기서는 「stcweb.exe 를 찾을 수 없습니다」 가 떴다
+   * (지적). 등록한 값이 정본이고, 이 탭 값은 그것을 덮어쓸 때만 쓴다.
+   */
+  const restPort = Number(cfg.restPort ?? curMeter?.port ?? 8888) || 8888
 
   const setCfg = (patch: Partial<MeterCfg>) => onChange({ meterCfg: { ...cfg, ...patch } })
   const setStream = (i: number, patch: Partial<MeterStream>) =>
@@ -374,7 +383,7 @@ export default function TcTraffic({ data, onChange }: Props) {
       const path = kind === 'stc' ? '/api/stc/meter/query' : '/api/n2x/traffic/stat'
       const body =
         kind === 'stc'
-          ? { cfg: { chassis: cfg.chassis, restIp: 'localhost', restPort: cfg.restPort ?? 8888 } }
+          ? { cfg: { chassis: cfg.chassis, restIp: 'localhost', restPort } }
           : { server: cfg.chassis, label: cfg.n2xLabel || 'utop' }
       const r = await apiFetch(path, { method: 'POST', body: JSON.stringify(body) })
       const j = (await r.json()) as {
@@ -524,7 +533,7 @@ export default function TcTraffic({ data, onChange }: Props) {
         const r = await apiFetch('/api/stc/meter/arp', {
           method: 'POST',
           body: JSON.stringify({
-            cfg: { chassis: cfg.chassis, restIp: 'localhost', restPort: cfg.restPort ?? 8888 },
+            cfg: { chassis: cfg.chassis, restIp: 'localhost', restPort },
           }),
         })
         const j = (await r.json()) as { ok?: boolean; error?: string; text?: string; mac?: string }
@@ -613,7 +622,7 @@ export default function TcTraffic({ data, onChange }: Props) {
         body: JSON.stringify({
           chassis: cfg.chassis,
           restIp: 'localhost',
-          restPort: cfg.restPort ?? 8888,
+          restPort,
         }),
       }).catch(() => {})
     }, 400)
@@ -652,7 +661,7 @@ export default function TcTraffic({ data, onChange }: Props) {
           body: JSON.stringify({
             chassis: cfg.chassis,
             restIp: 'localhost',
-            restPort: cfg.restPort ?? 8888,
+            restPort,
             ...(force ? { force: 1 } : {}),
           }),
         })
@@ -1117,7 +1126,8 @@ export default function TcTraffic({ data, onChange }: Props) {
             {kind === 'stc' ? (
               <input
                 type="number"
-                value={cfg.restPort ?? 8888}
+                value={restPort}
+                title="계측기 등록에 적어 둔 포트를 씁니다 — 여기서 고치면 이 시험에서만 달라집니다"
                 onChange={(e) => setCfg({ restPort: Number(e.target.value) || 8888 })}
               />
             ) : (

@@ -9865,6 +9865,14 @@ async def stc_server_start(data: dict = None):
         return {"ok": True, "already": True, "listening": True}
     exe = _find_stcweb()
     if not exe:
+        # 이 서버가 리눅스면 stcweb 은 여기서 뜰 수 있는 물건이 아니다.
+        # 「환경변수를 지정하라」 만 적어 두면 없는 파일을 찾아 헤매게 된다
+        # (지적: 계측기는 붙는데 시험 탭에서만 이 말이 뜬다).
+        if os.name != "nt":
+            return {"ok": False, "error":
+                    f"STC REST 서버(포트 {port})에 닿지 못했습니다 — 이 서버는 리눅스라 "
+                    "stcweb 을 여기서 띄울 수 없습니다. STC PC 에서 REST 서버를 켜고, "
+                    "계측기 등록의 포트가 그 서버 포트와 같은지 확인하세요."}
         return {"ok": False, "error": "stcweb.exe 를 찾을 수 없습니다. STCWEB_PATH 환경변수로 경로를 지정하세요."}
     workdir = os.path.dirname(exe)
     # Popen 으로 detached 기동 (asyncio subprocess 는 Windows uvicorn 루프에서 미지원)
