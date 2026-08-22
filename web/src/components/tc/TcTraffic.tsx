@@ -608,7 +608,7 @@ export default function TcTraffic({ data, onChange }: Props) {
   useEffect(() => {
     if (kind !== 'stc' || !cfg.chassis) return
     const t = window.setTimeout(() => {
-      void apiFetch('/api/stc/sess/portstatus', {
+      void apiFetch('/api/stc/conncheck', {
         method: 'POST',
         body: JSON.stringify({
           chassis: cfg.chassis,
@@ -637,57 +637,74 @@ export default function TcTraffic({ data, onChange }: Props) {
      * 화면에 서는 것(칩·예약 표시)은 같은 벌이라 손놀림이 갈리지 않는다.
      */
     if (kind === 'stc') {
-      try {
-        const r = await apiFetch('/api/stc/sess/portstatus', {
+      /*
+       * **계측기 등록 화면과 같은 길로 묻는다**(지적: 거기서는 조회가 된다).
+       *
+       * 여태 이 단추는 영속 세션(portstatus)에 물었다. 그 길은 세션이 살아
+       * 있어야 하고, BLL 이 뜨는 데 오래 걸리면 「timed out waiting for
+       * session to start」 로 끝난다. conncheck 는 제 세션을 열어 섀시
+       * 인벤토리만 읽고 닫는다 — 계측기 등록 화면이 쓰는 그 길이다.
+       * 서버가 결과를 잠깐 쥐고 있어 두 번째부터는 곧바로 온다.
+       */
+      const ask = async (force: boolean) => {
+        const r = await apiFetch('/api/stc/conncheck', {
           method: 'POST',
           body: JSON.stringify({
             chassis: cfg.chassis,
             restIp: 'localhost',
             restPort: cfg.restPort ?? 8888,
+            ...(force ? { force: 1 } : {}),
           }),
         })
-        const j = (await r.json()) as {
+        return (await r.json().catch(() => ({}))) as {
           ok?: boolean
           error?: string
-          age?: number
-          ports?: Array<{
+          cached?: boolean
+          cache_age?: number
+          modules?: Array<{
             slot?: number | string
-            port?: number | string
-            status?: string
-            who?: string
-            link?: string
-            speed?: string
+            port_detail?: Array<{ index?: string; status?: string; owner?: string }>
           }>
         }
+      }
+      try {
+        let j = await ask(false)
+        /* 쥐고 있던 것이 비었으면 한 번은 새로 묻는다 — 빈 값을 쥔 채
+           「포트가 없다」 고 말하면 사람이 케이블을 뒤진다 */
+        if (j.ok !== false && !(j.modules ?? []).length) j = await ask(true)
         if (j.ok === false) throw new Error(j.error || '포트를 읽지 못했습니다')
-        const out = (j.ports ?? []).map((x) => {
-          const st = String(x.status ?? '')
-          const link = String(x.link ?? '')
-          return {
-            id: `${x.slot ?? ''}/${x.port ?? ''}`,
-            // 「free」 는 잡을 수 있는가 — 비었거나 내가 잡은 것
-            free: st === 'available' || st === 'mine',
-            mine: st === 'mine',
-            who:
-              st === 'mine'
-                ? '내가 잡음(예약됨)'
-                : st === 'other'
-                  ? `남이 씀${x.who ? ` — ${x.who}` : ''}`
-                  : st === 'unavailable'
-                    ? '쓸 수 없음'
-                    : `빈 포트${link ? ` · 링크 ${link}` : ''}${x.speed ? ` ${x.speed}` : ''}`,
-            state: st,
-            lock: String(x.who ?? ''),
+        const out: Array<{
+          id: string
+          free: boolean
+          mine: boolean
+          who: string
+          state: string
+          lock: string
+        }> = []
+        for (const m of j.modules ?? []) {
+          const slot = String(m.slot ?? '')
+          if (!slot) continue
+          for (const d of m.port_detail ?? []) {
+            const st = String(d.status ?? '')
+            const owner = String(d.owner ?? '').replace(/@+$/, '')
+            out.push({
+              id: `${slot}/${d.index ?? ''}`,
+              free: st !== 'reserved',
+              /* 섀시는 U-TOP 을 한 계정으로 본다 — 「내 것」 은 여기서 못 가린다 */
+              mine: false,
+              who: st === 'reserved' ? `예약됨${owner ? ` — ${owner}` : ''}` : '빈 포트',
+              state: st,
+              lock: owner,
+            })
           }
-        })
+        }
         setChassisPorts(out)
-        const mineN = out.filter((x) => x.mine).length
-        const otherN = out.filter((x) => x.state === 'other').length
-        const age = Number(j.age ?? 0)
+        const usedN = out.filter((x) => !x.free).length
+        const age = Number(j.cache_age ?? 0)
         setMsg(
           out.length
-            ? `포트 ${out.length}개 · 내가 잡은 것 ${mineN}개 · 남이 쓰는 것 ${otherN}개` +
-                (age > 12 ? ` · ${Math.round(age)}초 전 값(새로 읽는 중 — 다시 누르면 새 값)` : '')
+            ? `포트 ${out.length}개 · 빈 포트 ${out.length - usedN}개 · 예약된 것 ${usedN}개` +
+                (j.cached ? ` · ${age}초 전에 읽은 값` : '')
             : '섀시가 포트를 돌려주지 않았습니다 — REST 서버·섀시 주소를 확인하세요',
         )
       } catch (e) {
