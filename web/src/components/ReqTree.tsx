@@ -126,6 +126,19 @@ export default function ReqTree({
   }, [openIds])
 
   /** 우클릭 메뉴 */
+  /** 이 폴더와 그 아래 폴더 id 전부 — Expand/Collapse All 이 쓴다(승인) */
+  const descIds = (n: { id: string; children?: Array<{ id: string; children?: unknown[] }> }): string[] => {
+    const out: string[] = [n.id]
+    const walk = (k: { id: string; children?: Array<{ id: string; children?: unknown[] }> }) => {
+      for (const c of k.children ?? []) {
+        out.push(c.id)
+        walk(c as { id: string; children?: Array<{ id: string; children?: unknown[] }> })
+      }
+    }
+    walk(n)
+    return out
+  }
+
   const [ctx, setCtx] = useState<Ctx | null>(null)
   /** 제자리 이름 변경 중인 폴더 id */
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -815,6 +828,8 @@ export default function ReqTree({
         >
           {ctx.cat.id ? (
             <>
+              {/* 여섯 줄 한 벌(승인) — 프로젝트 줄이든 폴더 줄이든 같다.
+                  복사·붙여넣기는 「+ Copy」 창으로 옮겼다(승인). */}
               {ctx.cat.depth < MAX_CAT_DEPTH && (
                 <button
                   type="button"
@@ -825,42 +840,45 @@ export default function ReqTree({
                     setOpenIds((s) => new Set(s).add(ctx.cat.id))
                   }}
                 >
-                  하위 폴더 추가
+                  Add subfolder
                 </button>
               )}
               <button type="button" onClick={() => startRename(ctx.cat)}>
-                이름 변경 <span className="rt-key">F2</span>
+                Rename <span className="rt-key">F2</span>
               </button>
               <hr />
+              {/* 이 폴더 **아래만** 펼치고 접는다(승인) — 트리 전체가 아니다 */}
               <button
                 type="button"
                 onClick={() => {
-                  setClip(ctx.cat)
+                  const ids = descIds(ctx.cat)
+                  setOpenIds((s) => {
+                    const n = new Set(s)
+                    ids.forEach((i: string) => n.add(i))
+                    return n
+                  })
                   setCtx(null)
                 }}
               >
-                복사
+                Expand All
               </button>
               <button
                 type="button"
-                disabled={!clip || pasteM.isPending || isSelfOrDesc(clip.id, ctx.cat.id)}
-                title={
-                  clip && isSelfOrDesc(clip.id, ctx.cat.id)
-                    ? '자기 자신이나 하위에는 붙여넣을 수 없습니다'
-                    : ''
-                }
                 onClick={() => {
-                  if (!clip) return
-                  pasteM.mutate({ src: clip, parentId: ctx.cat.id })
-                  setClip(null)
+                  const ids = descIds(ctx.cat)
+                  setOpenIds((s) => {
+                    const n = new Set(s)
+                    ids.forEach((i: string) => n.delete(i))
+                    return n
+                  })
                   setCtx(null)
                 }}
               >
-                붙여넣기
+                Collapse All
               </button>
               <hr />
               <button type="button" className="danger" onClick={() => doDelete(ctx.cat)}>
-                삭제
+                Delete
               </button>
             </>
           ) : (

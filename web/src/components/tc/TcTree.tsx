@@ -122,6 +122,19 @@ export default function TcTree({
     void qc.invalidateQueries({ queryKey: ['req-categories'] })
     void qc.invalidateQueries({ queryKey: ['req', 'list'] })
   }
+  /** 이 폴더와 그 아래 폴더 id 전부 — Expand/Collapse All 이 쓴다(승인) */
+  const descIds = (n: { id: string; children?: Array<{ id: string; children?: unknown[] }> }): string[] => {
+    const out: string[] = [n.id]
+    const walk = (k: { id: string; children?: Array<{ id: string; children?: unknown[] }> }) => {
+      for (const c of k.children ?? []) {
+        out.push(c.id)
+        walk(c as { id: string; children?: Array<{ id: string; children?: unknown[] }> })
+      }
+    }
+    walk(n)
+    return out
+  }
+
   const [ctx, setCtx] = useState<{ x: number; y: number; node: CategoryTreeNode } | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameText, setRenameText] = useState('')
@@ -643,7 +656,7 @@ export default function TcTree({
                 setOpenIds((x) => new Set(x).add(n.id))
               }}
             >
-              하위 폴더 추가
+              Add subfolder
             </button>
           )}
           <button
@@ -655,7 +668,37 @@ export default function TcTree({
               setRenameText(n.name)
             }}
           >
-            이름 변경 <span className="rt-key">F2</span>
+            Rename <span className="rt-key">F2</span>
+          </button>
+          <hr />
+          {/* 이 폴더 **아래만** 펼치고 접는다(승인) */}
+          <button
+            type="button"
+            onClick={() => {
+              const ids = descIds(ctx.node)
+              setOpenIds((x) => {
+                const n = new Set(x)
+                ids.forEach((i: string) => n.add(i))
+                return n
+              })
+              setCtx(null)
+            }}
+          >
+            Expand All
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const ids = descIds(ctx.node)
+              setOpenIds((x) => {
+                const n = new Set(x)
+                ids.forEach((i: string) => n.delete(i))
+                return n
+              })
+              setCtx(null)
+            }}
+          >
+            Collapse All
           </button>
           <hr />
           <button
@@ -672,7 +715,7 @@ export default function TcTree({
                 removeM.mutate(n.id)
             }}
           >
-            삭제
+            Delete
           </button>
         </div>
       )}
