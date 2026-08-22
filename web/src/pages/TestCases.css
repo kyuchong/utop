@@ -3404,3 +3404,16 @@ table.tb tr.r-bad td:first-child {
   min-height: 0;
   overflow: auto;
 }
+
+/* 최근 결과 — 사이클 목록의 결과 배지와 같은 꼴 */
+.tc-lastres { display: flex; align-items: center; }
+.tc-lrchip {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -1639,14 +1639,33 @@ export default function TestCases({ me }: PageProps) {
 
   /** SETUP 에서 만든 INFO 필드(커스텀)도 열로 — ⚙ 에서 켜고 끈다(피드백) */
   /** ⚙ 후보 = SETUP 시험항목 INFO 필드 그대로(라벨·숨김·활성 반영) */
+  /*
+   * 시험마다 **가장 최근 결과** — 목록 한 열(지시).
+   *
+   * 결과는 사이클 안에 산다. 목록에서 못 보면 「이 시험 요즘 되나」 를
+   * 알려고 사이클을 하나씩 열어 봐야 한다.
+   */
+  const lastRes = useQuery({
+    queryKey: ['tc-last-result'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/tc-last-result')
+      if (!r.ok) return {} as Record<string, { result: string; cycle_name?: string; at?: string }>
+      const j = (await r.json()) as {
+        items?: Record<string, { result: string; cycle_name?: string; at?: string }>
+      }
+      return j.items ?? {}
+    },
+  })
+
   const infoColDefs = useInfoCols('tc')
   const visCols = useMemo(
     () => infoColDefs.filter((c) => cols.includes(c.k)),
     [infoColDefs, cols],
   )
-  /** 고정: ☐·Name·모델그룹·모델명 | INFO 열들 | REQ Map */
+  /** 고정: ☐·제목·모델그룹·모델명 | INFO 열들 | 최근 결과 · REQ Map */
   const listGrid =
-    `26px minmax(240px, 1fr) 84px 76px ${visCols.map((c) => c.w).join(' ')} 56px`.trim()
+    `26px minmax(240px, 1fr) 84px 76px ${visCols.map((c) => c.w).join(' ')} 76px 72px`.trim()
   /* 목록에서 그 자리 고치기(지시) — 값 목록은 설정의 코드표를 쓴다 */
   const C_TYPE = useCodes('tc_type', ['FT', 'Function'])
   const C_STATUS = useCodes('tc_status', ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류'])
@@ -1705,6 +1724,26 @@ export default function TestCases({ me }: PageProps) {
             {pick(t, 'run_type', String(t.kind ?? (t.run_type as string) ?? ''), C_RUN)}
           </div>
         )
+      case 'last': {
+        const lr = lastRes.data?.[t.tcid]
+        const v = String(lr?.result ?? '')
+        const def = resDefs.find((d) => d.v === v)
+        return (
+          <div key={k} className="tc-lastres">
+            {v ? (
+              <span
+                className="tc-lrchip"
+                style={{ background: def?.color ?? '#e9edf2', color: def?.fg ?? '#5b6670' }}
+                title={`${lr?.cycle_name ?? ''}${lr?.at ? ` · ${String(lr.at).slice(0, 10)}` : ''}`}
+              >
+                {v}
+              </span>
+            ) : (
+              <span className="muted">–</span>
+            )}
+          </div>
+        )
+      }
       case 'map':
         return (
           <div className="tc-map" key={k}>
@@ -2722,6 +2761,7 @@ export default function TestCases({ me }: PageProps) {
                       </select>
                     </div>
                   ))}
+                  <div>최근 결과</div>
                   <div>REQ Map</div>
                 </div>
                 {shownListRows.length === 0 ? (
@@ -2788,6 +2828,7 @@ export default function TestCases({ me }: PageProps) {
                         {colCell('model_group', t)}
                         {colCell('model', t)}
                         {visCols.map((c) => colCell(c.k, t))}
+                        {colCell('last', t)}
                         {colCell('map', t)}
                       </div>
                       </div>

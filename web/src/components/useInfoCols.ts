@@ -19,7 +19,8 @@ export interface InfoCol {
 const BASE: Record<'req' | 'tc' | 'cycle', Array<{ kind: string; k: string; label: string; w: string }>> = {
   req: [
     { kind: 'req_status', k: 'f_status', label: '상태', w: '62px' },
-    { kind: 'req_priority', k: 'f_priority', label: '우선순위', w: '60px' },
+    /* 「Medium」 이 잘려 보였다(지적) — 약간 넓힌다 */
+    { kind: 'req_priority', k: 'f_priority', label: '우선순위', w: '78px' },
   ],
   tc: [
     { kind: 'tc_type', k: 'f_type', label: '유형', w: '58px' },

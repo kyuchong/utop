@@ -4835,6 +4835,44 @@ def _tc_meta_extra(meta: dict, d: dict):
         1 for c in _checks if (c.get("kind") or "cli") in _judge
     )
 
+@app.get("/api/tc-last-result")
+async def tc_last_result():
+    """시험마다 **가장 최근 시험 결과** — 목록의 한 열(지시).
+
+    결과는 사이클 안에 산다(`cycle.data->items[].result`). 어느 사이클에서
+    마지막으로 무엇이 났는지는 목록에서 바로 보여야 한다 — 그러지 않으면
+    「이 시험 요즘 되나」 를 알려고 사이클을 하나씩 열어 봐야 한다.
+
+    가장 나중에 손댄 사이클 것이 이긴다.
+    """
+    try:
+        async with db.pool().acquire() as c:
+            rows = await c.fetch(
+                """
+                SELECT c.id, c.name, c.updated_at,
+                       it->>'tcid'   AS tcid,
+                       it->>'result' AS result
+                FROM cycle c, jsonb_array_elements(COALESCE(c.data->'items', '[]'::jsonb)) it
+                WHERE COALESCE(it->>'result', '') <> ''
+                ORDER BY c.updated_at DESC NULLS LAST
+                """
+            )
+    except Exception as e:
+        return {"items": {}, "error": str(e)[:200]}
+    out: dict = {}
+    for r in rows:
+        t = str(r["tcid"] or "").strip()
+        if not t or t in out:
+            continue        # 앞엣것이 가장 나중에 손댄 사이클이다
+        out[t] = {
+            "result": str(r["result"] or ""),
+            "cycle_id": str(r["id"] or ""),
+            "cycle_name": str(r["name"] or ""),
+            "at": r["updated_at"].isoformat() if r["updated_at"] else "",
+        }
+    return {"items": out}
+
+
 @app.get("/api/tc")
 async def get_all_tc(meta: int = 0):
     """
