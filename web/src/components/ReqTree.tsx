@@ -524,11 +524,12 @@ export default function ReqTree({
         <span className="rt-title" title={full ? `${full} — ${r.title ?? ''}` : (r.title ?? '')}>
           {r.title || full || '(제목 없음)'}
         </span>
-        <span className="rt-cnts">
+        <span className="rt-cnts inline">
           <i className="rt-ct" title={`연결 TC ${tcn}건`}>
-            TC {tcn}
+            T {tcn}
           </i>
         </span>
+        <span className="rt-sp" />
       </div>
     )
   }
@@ -652,18 +653,32 @@ export default function ReqTree({
             </b>
           )}
 
-          {/* 요구사항 수 · 시험 수.
-              **0 도 적는다.** 없을 때 안 적으면 「아직 안 센 것」 인지
-              「세어 보니 0」 인지 구별이 안 된다 — 커버리지에서 0 은
-              그 자체가 읽어야 할 값이다. */}
-          <span className="rt-cnts">
+          {/* 수는 **이름 바로 뒤**에(지시). 오른쪽 끝에 몰아 두었더니 이름과
+              수 사이가 멀어 어느 줄의 수인지 눈으로 이어야 했다.
+              **0 도 적는다** — 「아직 안 센 것」 과 「세어 보니 0」 은 다르다. */}
+          <span className="rt-cnts inline">
             <i className="rt-cq" title={`요구사항 ${cnt.req}건`}>
-              REQ {cnt.req}
+              R {cnt.req}
             </i>
             <i className="rt-ct" title={`시험 ${cnt.tc}건`}>
-              TC {cnt.tc}
+              T {cnt.tc}
             </i>
           </span>
+          <span className="rt-sp" />
+          {/* 끝의 ⋯ — 올려야 보이고, 누르면 우클릭과 같은 메뉴다(지시) */}
+          <button
+            type="button"
+            className="rt-more"
+            title="폴더 메뉴"
+            aria-label="폴더 메뉴"
+            onClick={(e) => {
+              e.stopPropagation()
+              const b = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              setCtx({ x: b.right - 4, y: b.bottom + 2, cat: n })
+            }}
+          >
+            ⋯
+          </button>
         </div>
 
         {addingTo === n.id && (

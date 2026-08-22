@@ -386,7 +386,8 @@ export default function TcTree({
           <span className="rt-title" title={[full, r.title].filter(Boolean).join(' — ')}>
             {r.title || full || '(제목 없음)'}
           </span>
-          <span className="rt-cnt">{mine.length || ''}</span>
+          <span className="rt-cnt inline">( {mine.length} )</span>
+          <span className="rt-sp" />
         </div>
       </div>
     )
@@ -477,7 +478,23 @@ export default function TcTree({
               {n.name}
             </b>
           )}
-          <span className="rt-cnt">{total}</span>
+          {/* 수는 이름 바로 뒤(지시) */}
+          <span className="rt-cnt inline">( {total} )</span>
+          <span className="rt-sp" />
+          {/* 끝의 ⋯ — 올려야 보이고, 누르면 우클릭과 같은 메뉴다(지시) */}
+          <button
+            type="button"
+            className="rt-more"
+            title="폴더 메뉴"
+            aria-label="폴더 메뉴"
+            onClick={(e) => {
+              e.stopPropagation()
+              const b = (e.currentTarget as HTMLElement).getBoundingClientRect()
+              setCtx({ x: b.right - 4, y: b.bottom + 2, node: n })
+            }}
+          >
+            ⋯
+          </button>
         </div>
         {addingTo === n.id && (
           <div className="rt-add" style={{ paddingLeft: 8 + n.depth * 14 }}>
