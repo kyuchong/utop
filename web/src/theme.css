@@ -540,6 +540,14 @@ html .cyt-row {
   gap: 0;
   padding: var(--row-py) var(--row-px);
 }
+/* 칸 안에서는 **접지 않는다** — 접히면 줄 높이가 들쭉날쭉해진다(지적).
+   넘치면 말줄임으로 자른다. 날짜·배지·이름이 여기 걸린다 */
+html .cyt-row > * {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
 /* 머리글 단추도 머리줄 글자와 같은 크기·색 */
 html .cyt-row.cyt-hd .cyt-th {
   font-size: var(--fs-label);

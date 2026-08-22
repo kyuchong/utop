@@ -1608,16 +1608,23 @@ export default function Cycles({ me }: PageProps) {
     「진행」 은 완료/진행중/대기 파생 배지 — INFO 상태(cycle_status 값)와
     다른 것이라 이름을 갈랐다. */
 const CYT_FIXED: Array<{ k: string; label: string; w: string }> = [
-  { k: 'iss', label: '결함', w: '34px' },
-  { k: 'tests', label: '항목', w: '34px' },
-  { k: 'prg', label: '진행결과', w: '76px' },
-  { k: 'run', label: '진행', w: '44px' },
+  /*
+   * 칸 폭 — **글자가 접히지 않는 만큼**(지적: 날짜가 두 줄로 접힌다).
+   *
+   * 줄 여백을 한 벌로 맞추면서 칸마다 좌우 6px 이 들어갔다. 그만큼 알맹이
+   * 자리가 좁아져 날짜(2026-08-19)와 배지(진행중·대기)가 접혔다. 접히면
+   * 줄 높이가 들쭉날쭉해져 표가 통째로 흐트러진다 — 폭을 그만큼 준다.
+   */
+  { k: 'iss', label: '결함', w: '44px' },
+  { k: 'tests', label: '항목', w: '44px' },
+  { k: 'prg', label: '진행결과', w: '92px' },
+  { k: 'run', label: '진행', w: '62px' },
   /* 제목과 함께 넉넉해야 하는 칸(지시) — 남는 폭을 나눠 갖는다 */
   { k: 'version', label: '버전', w: 'minmax(140px, 0.6fr)' },
-  { k: 'created', label: '생성일자', w: '62px' },
-  { k: 'updated', label: '변경일자', w: '62px' },
-  { k: 'creator', label: '생성자', w: '46px' },
-  { k: 'ass', label: '담당자', w: '46px' },
+  { k: 'created', label: '생성일자', w: '96px' },
+  { k: 'updated', label: '변경일자', w: '96px' },
+  { k: 'creator', label: '생성자', w: '60px' },
+  { k: 'ass', label: '담당자', w: '60px' },
 ]
 
 /** 인라인 항목 카드의 고를 수 있는 필드 — 시험항목(Coverage) ⚙ 과 같은 목록 */
