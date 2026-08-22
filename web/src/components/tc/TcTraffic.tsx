@@ -767,6 +767,11 @@ export default function TcTraffic({ data, onChange }: Props) {
         return rows
       }
 
+      /* 오래 걸릴 수 있는 일이다 — 말없이 멎어 있으면 고장으로 읽힌다 */
+      const slowNote = window.setTimeout(
+        () => setMsg('섀시에 묻는 중… 세션을 새로 여는 중이면 30초쯤 걸립니다'),
+        1500,
+      )
       try {
         let out: Row[] = []
         let how = '빠른 길'
@@ -777,9 +782,18 @@ export default function TcTraffic({ data, onChange }: Props) {
           try {
             out = await fast()
           } catch (e) {
+            /* 왜 느린 길로 갔는지 **화면에 적는다.** 로그에만 남기면 느린
+               이유를 물어볼 때마다 서버를 뒤져야 한다 */
+            const why = e instanceof Error ? e.message : String(e)
             console.warn('[stc] 빠른 길 실패 → 되는 길로', e)
             out = await slow(false)
-            how = '느린 길(세션을 새로 여는 중이라 다음엔 빨라집니다)'
+            how = `느린 길 — 빠른 길이 안 됨: ${why.slice(0, 60)}`
+            /* 다음 번엔 빠른 길로 가도록 **뒤에서 세션을 세워 둔다.**
+               사람은 기다리지 않는다 — 이 요청의 답은 이미 나왔다. */
+            void apiFetch('/api/stc/sess/portstatus', {
+              method: 'POST',
+              body: JSON.stringify(body),
+            }).catch(() => {})
           }
         }
         setChassisPorts(out)
@@ -800,6 +814,7 @@ export default function TcTraffic({ data, onChange }: Props) {
       } catch (e) {
         setMsg(e instanceof Error ? e.message : String(e))
       } finally {
+        window.clearTimeout(slowNote)
         slowAge.current = -1
         setBusy('')
       }
