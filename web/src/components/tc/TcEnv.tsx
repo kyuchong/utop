@@ -83,15 +83,18 @@ export default function TcEnv({ data, onChange, tcid }: Props) {
           <button
             className="btn small"
             type="button"
-            disabled={askM.isPending || stepCount === 0}
+            /* 스텝이 없어도 켠다(지적: 단추가 안 켜져 생성 불가).
+               요구사항에서 뽑아 만든 시험은 이름만 있고 스텝은 아직 없다 —
+               정작 그때 목적이 필요하다. 그때는 요구사항의 구현의도를 읽는다 */
+            disabled={askM.isPending}
             title={
               stepCount === 0
-                ? '스텝이 있어야 그것을 읽고 쓸 수 있습니다'
+                ? '스텝이 아직 없어 요구사항의 구현의도와 제목을 읽고 씁니다'
                 : `스텝 ${stepCount}개를 읽고 목적과 사전조건을 씁니다`
             }
             onClick={() => askM.mutate()}
           >
-            {askM.isPending ? '읽는 중…' : '✨ 스텝을 보고 쓰기'}
+            {askM.isPending ? '읽는 중…' : stepCount === 0 ? '✨ AI 로 쓰기' : '✨ 스텝을 보고 쓰기'}
           </button>
         </div>
 
@@ -101,7 +104,9 @@ export default function TcEnv({ data, onChange, tcid }: Props) {
           <div className="tc-prop">
             <div className="tc-prop-head">
               <b>이렇게 쓸까요</b>
-              <span className="muted small">스텝 {stepCount}개를 읽었습니다</span>
+              <span className="muted small">
+                  {stepCount ? `스텝 ${stepCount}개를 읽었습니다` : '요구사항과 제목을 읽었습니다'}
+                </span>
               <span className="sp" />
               <button
                 className="btn small primary"

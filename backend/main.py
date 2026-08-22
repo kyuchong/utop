@@ -15969,8 +15969,27 @@ async def tc_describe(tc_id: str, payload: dict):
         raise HTTPException(404, "TC 를 찾을 수 없습니다")
 
     checks = tc.get("checks") if isinstance(tc.get("checks"), list) else []
-    if not checks:
-        raise HTTPException(400, "스텝이 없습니다 — 먼저 스텝을 만드세요")
+
+    # 스텝이 없어도 쓴다(지적: 단추가 안 켜진다 — 생성 불가).
+    #
+    # 원래 이 길은 「스텝 → 목적」 이었다. 그런데 시험을 요구사항에서 먼저
+    # 뽑아 만들면 이름만 있고 스텝은 아직 없다 — 정작 그때 목적이 필요하다.
+    # 스텝이 없으면 **요구사항의 구현의도**를 재료로 쓴다. 그것마저 없으면
+    # 이름뿐인데, 그때는 지어내지 말라고 일러 둔다.
+    intent = ""
+    try:
+        rid = str(tc.get("req_id") or "").strip()
+        if rid:
+            r = await db.req_get(rid)
+            if not isinstance(r, dict):
+                for x in await db.req_list_full():
+                    if str(x.get("reqid") or "") == rid or str(x.get("id") or "") == rid:
+                        r = x
+                        break
+            if isinstance(r, dict):
+                intent = str(r.get("desc") or "").strip()
+    except Exception as e:
+        print(f"[tc_describe] 요구사항을 못 읽었습니다: {e}", flush=True)
 
     sessions = tc.get("sessions") if isinstance(tc.get("sessions"), list) else []
     sess_txt = []
@@ -16006,7 +16025,13 @@ async def tc_describe(tc_id: str, payload: dict):
         f"=== 쓰는 장비 ===\n" + ("\n".join(sess_txt) or "(지정 안 됨)") + "\n\n"
         f"=== 이미 적힌 목적 ===\n{tc.get('object_md') or '(비어 있음)'}\n\n"
         f"=== 이미 적힌 사전조건 ===\n{tc.get('precondition_md') or '(비어 있음)'}\n\n"
-        f"=== 시험 절차 {len(lines)}스텝 ===\n" + "\n".join(lines) + "\n"
+        + (
+            f"=== 시험 절차 {len(lines)}스텝 ===\n" + "\n".join(lines) + "\n"
+            if lines else
+            "=== 시험 절차 ===\n(아직 없음 — 아래 요구사항과 시험 제목만 보고 쓴다. "
+            "명령어나 수치를 지어내지 말고, 무엇을 확인하는 시험인지와 준비 조건만 적어라.)\n"
+        )
+        + (f"\n=== 요구사항 구현의도 ===\n{intent[:4000]}\n" if intent else "")
     )
 
     out, raw = await _ask_json(
