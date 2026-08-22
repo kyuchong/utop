@@ -9938,10 +9938,13 @@ async def stc_server_start(data: dict = None):
 
 
 # STC 인벤토리 캐시 — 매번 ChassisConnect 하면 수십 초가 걸린다.
-# N2X ports 처럼 잠깐(기본 60초) 담아 두고, 그 안의 재조회는 즉시 돌려준다.
-# 「새로고침」(force) 이면 무시하고 다시 읽는다.
+# 담아 두고, 그 안의 재조회는 즉시 돌려준다. 「새로고침」(force) 이면 무시한다.
+#
+# 60초는 짧았다. 이 값이 말하는 것은 **어떤 슬롯에 몇 포트가 꽂혀 있나**
+# 이고, 그것은 사람이 카드를 뽑았다 꽂을 때나 바뀐다 — 시험 하나 만드는
+# 동안 바뀔 일이 없다(지적: 느리다). 예약 상태는 이 캐시로 보지 않는다.
 _STC_CC_CACHE = {}   # "chassis|rest_ip:rest_port" -> {"ts": t, "data": {...}}
-_STC_CC_TTL = 60
+_STC_CC_TTL = 600
 
 
 @app.post("/api/stc/conncheck")

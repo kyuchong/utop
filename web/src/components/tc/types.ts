@@ -1059,6 +1059,16 @@ export interface MeterCfg {
   model?: string
   /** 이 시험이 쓰는 포트 — "모듈/포트" 목록 */
   ports?: string[]
+  /**
+   * 섀시에서 마지막으로 읽어 온 포트 목록.
+   *
+   * 읽는 데 수십 초가 드는데 그 결과를 아무 데도 안 남겨, 시험을 다시 열
+   * 때마다 처음부터 기다렸다(지적: 느리다). 시험과 함께 저장해 두고 열자마자
+   * 보여 준 뒤, 새로 읽히면 갈아 끼운다.
+   */
+  seenPorts?: string[]
+  /** 그것을 읽은 시각(ISO) — 「언제 것인가」 를 말해 주려고 */
+  seenAt?: string
   streams?: MeterStream[]
   [k: string]: unknown
 }

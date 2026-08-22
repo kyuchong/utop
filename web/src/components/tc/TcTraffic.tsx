@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isMeter, meterKind } from './device'
@@ -497,7 +497,19 @@ export default function TcTraffic({ data, onChange }: Props) {
    */
   const [chassisPorts, setChassisPorts] = useState<
     Array<{ id: string; free: boolean; mine: boolean; who: string; state: string; lock: string }>
-  >([])
+  >(() =>
+    /* 지난번에 읽어 둔 것으로 **먼저 그린다**. 섀시에 묻는 값은 수십 초라,
+       다시 열 때마다 빈 화면을 보고 기다릴 이유가 없다(지적: 느리다).
+       언제 읽은 것인지는 아래 줄이 말한다. */
+    ((data.meterCfg?.seenPorts as string[] | undefined) ?? []).map((id) => ({
+      id,
+      free: true,
+      mine: false,
+      who: '지난번에 읽은 포트',
+      state: 'seen',
+      lock: '',
+    })),
+  )
   /**
    * N2X 기계의 데몬이 옛 판인가.
    *
@@ -642,7 +654,10 @@ export default function TcTraffic({ data, onChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg.chassis, kind])
 
-  const readPorts = async () => {
+  /** 되는 길로 읽었을 때 그 값이 몇 초 전 것인가 (-1 이면 방금 읽음) */
+  const slowAge = useRef(-1)
+
+  const readPorts = async (force = false) => {
     if (!cfg.chassis) {
       setMsg('계측기를 먼저 고르세요')
       return
@@ -659,59 +674,93 @@ export default function TcTraffic({ data, onChange }: Props) {
      */
     if (kind === 'stc') {
       /*
-       * **계측기 등록 화면과 같은 길로 묻는다**(지적: 거기서는 조회가 된다).
+       * **빠른 길을 먼저, 안 되면 되는 길로.**
        *
-       * 여태 이 단추는 영속 세션(portstatus)에 물었다. 그 길은 세션이 살아
-       * 있어야 하고, BLL 이 뜨는 데 오래 걸리면 「timed out waiting for
-       * session to start」 로 끝난다. conncheck 는 제 세션을 열어 섀시
-       * 인벤토리만 읽고 닫는다 — 계측기 등록 화면이 쓰는 그 길이다.
-       * 서버가 결과를 잠깐 쥐고 있어 두 번째부터는 곧바로 온다.
+       * N2X 는 기계에 데몬이 늘 떠 있어 묻는 즉시 답이 온다. STC 는 그런
+       * 것이 없어 세션을 여는 값이 그대로 사람 기다리는 시간이 된다
+       * (지적: N2X 는 엄청 빠르다).
+       *
+       *   · 빠른 길(portstatus): 살아 있는 세션에 묻는다. 두 번째부터는
+       *     거의 즉시고, 예약이 누구 것인지까지 온다.
+       *   · 되는 길(conncheck): 제 세션을 열고 인벤토리만 읽고 닫는다.
+       *     수십 초가 들지만 세션이 죽어 있어도 된다.
+       *
+       * 빠른 길이 실패할 때만 되는 길로 내려간다. 어느 길로 읽었는지는
+       * 아래 줄에 적는다 — 느릴 때 왜 느린지 사람이 알아야 한다.
        */
-      const ask = async (force: boolean) => {
-        const r = await apiFetch('/api/stc/conncheck', {
+      const body = {
+        chassis: cfg.chassis,
+        restIp,
+        restPort,
+      }
+      type Row = { id: string; free: boolean; mine: boolean; who: string; state: string; lock: string }
+
+      const fast = async (): Promise<Row[]> => {
+        const r = await apiFetch('/api/stc/sess/portstatus', {
           method: 'POST',
-          body: JSON.stringify({
-            chassis: cfg.chassis,
-            restIp,
-            restPort,
-            ...(force ? { force: 1 } : {}),
-          }),
+          body: JSON.stringify(body),
         })
-        return (await r.json().catch(() => ({}))) as {
+        const j = (await r.json().catch(() => ({}))) as {
           ok?: boolean
           error?: string
-          cached?: boolean
-          cache_age?: number
-          modules?: Array<{
-            slot?: number | string
-            port_detail?: Array<{ index?: string; status?: string; owner?: string }>
-          }>
+          ports?: Array<{ slot?: string | number; port?: string | number; status?: string; who?: string }>
         }
+        if (j.ok === false) throw new Error(j.error || '포트를 읽지 못했습니다')
+        const rows = (j.ports ?? []).map((x) => {
+          const st = String(x.status ?? '')
+          return {
+            id: `${x.slot ?? ''}/${x.port ?? ''}`,
+            free: st === 'available' || st === 'mine',
+            mine: st === 'mine',
+            who:
+              st === 'mine'
+                ? '내가 잡음(예약됨)'
+                : st === 'other'
+                  ? `남이 씀${x.who ? ` — ${x.who}` : ''}`
+                  : st === 'unavailable'
+                    ? '쓸 수 없음'
+                    : '빈 포트',
+            state: st,
+            lock: String(x.who ?? ''),
+          }
+        })
+        if (!rows.length) throw new Error('빈 응답')
+        return rows
       }
-      try {
-        let j = await ask(false)
+
+      const slow = async (f: boolean): Promise<Row[]> => {
+        const ask = async (force2: boolean) => {
+          const r = await apiFetch('/api/stc/conncheck', {
+            method: 'POST',
+            body: JSON.stringify({ ...body, ...(force2 ? { force: 1 } : {}) }),
+          })
+          return (await r.json().catch(() => ({}))) as {
+            ok?: boolean
+            error?: string
+            cached?: boolean
+            cache_age?: number
+            modules?: Array<{
+              slot?: number | string
+              port_detail?: Array<{ index?: string; status?: string; owner?: string }>
+            }>
+          }
+        }
+        let j = await ask(f)
         /* 쥐고 있던 것이 비었으면 한 번은 새로 묻는다 — 빈 값을 쥔 채
            「포트가 없다」 고 말하면 사람이 케이블을 뒤진다 */
-        if (j.ok !== false && !(j.modules ?? []).length) j = await ask(true)
+        if (!f && j.ok !== false && !(j.modules ?? []).length) j = await ask(true)
         if (j.ok === false) throw new Error(j.error || '포트를 읽지 못했습니다')
-        const out: Array<{
-          id: string
-          free: boolean
-          mine: boolean
-          who: string
-          state: string
-          lock: string
-        }> = []
+        slowAge.current = j.cached ? Number(j.cache_age ?? 0) : -1
+        const rows: Row[] = []
         for (const m of j.modules ?? []) {
           const slot = String(m.slot ?? '')
           if (!slot) continue
           for (const d of m.port_detail ?? []) {
             const st = String(d.status ?? '')
             const owner = String(d.owner ?? '').replace(/@+$/, '')
-            out.push({
+            rows.push({
               id: `${slot}/${d.index ?? ''}`,
               free: st !== 'reserved',
-              /* 섀시는 U-TOP 을 한 계정으로 본다 — 「내 것」 은 여기서 못 가린다 */
               mine: false,
               who: st === 'reserved' ? `예약됨${owner ? ` — ${owner}` : ''}` : '빈 포트',
               state: st,
@@ -719,18 +768,43 @@ export default function TcTraffic({ data, onChange }: Props) {
             })
           }
         }
+        return rows
+      }
+
+      try {
+        let out: Row[] = []
+        let how = '빠른 길'
+        if (force) {
+          out = await slow(true)
+          how = '섀시에 다시 물음'
+        } else {
+          try {
+            out = await fast()
+          } catch (e) {
+            console.warn('[stc] 빠른 길 실패 → 되는 길로', e)
+            out = await slow(false)
+            how = '느린 길(세션을 새로 여는 중이라 다음엔 빨라집니다)'
+          }
+        }
         setChassisPorts(out)
+        if (out.length) {
+          setCfg({ seenPorts: out.map((x) => x.id), seenAt: new Date().toISOString() })
+        }
         const usedN = out.filter((x) => !x.free).length
-        const age = Number(j.cache_age ?? 0)
+        const mineN = out.filter((x) => x.mine).length
+        const age = slowAge.current
         setMsg(
           out.length
             ? `포트 ${out.length}개 · 빈 포트 ${out.length - usedN}개 · 예약된 것 ${usedN}개` +
-                (j.cached ? ` · ${age}초 전에 읽은 값` : '')
+                (mineN ? ` (내가 잡은 것 ${mineN}개)` : '') +
+                ` · ${how}` +
+                (age >= 0 ? ` · ${age}초 전에 읽은 값` : '')
             : '섀시가 포트를 돌려주지 않았습니다 — REST 서버·섀시 주소를 확인하세요',
         )
       } catch (e) {
         setMsg(e instanceof Error ? e.message : String(e))
       } finally {
+        slowAge.current = -1
         setBusy('')
       }
       return
@@ -1169,11 +1243,27 @@ export default function TcTraffic({ data, onChange }: Props) {
               className="btn small"
               type="button"
               disabled={!!busy || !cfg.chassis}
-              title="섀시에 실제로 꽂힌 포트를 읽어 옵니다"
+              title={
+                kind === 'stc'
+                  ? '섀시에 실제로 꽂힌 포트를 읽어 옵니다 (10분 안에 읽은 것이 있으면 그것을 씁니다)'
+                  : '섀시에 실제로 꽂힌 포트를 읽어 옵니다'
+              }
               onClick={() => void readPorts()}
             >
               {busy === 'ports' ? '읽는 중…' : '섀시에서 읽기'}
             </button>
+            {/* 카드를 갈아 끼웠을 때 — 쥐고 있던 것을 버리고 다시 묻는다 */}
+            {kind === 'stc' && chassisPorts.length > 0 && (
+              <button
+                className="btn small"
+                type="button"
+                disabled={!!busy || !cfg.chassis}
+                title="쥐고 있던 값을 버리고 섀시에 다시 묻습니다 — 수십 초 걸립니다"
+                onClick={() => void readPorts(true)}
+              >
+                ⟳ 새로
+              </button>
+            )}
             {chassisPorts.length > 0 && (
               <>
                 <datalist id="tt-chassis-ports">
