@@ -107,13 +107,15 @@ export default function ChatLlmSettings() {
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
   const [probe, setProbe] = useState('')
   /*
-   * Claude 모델 목록 — **손으로 치지 않는다**(지시).
+   * 고를 모델 목록 — **손으로 치지 않는다**(지시).
    *
    * 「sonet」 처럼 한 글자 틀린 모델명은 부를 때가 되어서야 실패한다. 키를
    * 넣으면 실제 목록을 읽고, 없으면 아는 것부터 보여 준다.
+   *
+   * Claude 와 OpenAI 호환이 같은 손놀림이다 — 물어보는 주소만 다르다.
    */
-  const [claudeModels, setClaudeModels] = useState<string[]>([])
-  const [claudeNote, setClaudeNote] = useState('')
+  const [pickModels, setPickModels] = useState<string[]>([])
+  const [pickNote, setPickNote] = useState('')
 
   const load = async (keepId?: string) => {
     try {
@@ -147,14 +149,15 @@ export default function ChatLlmSettings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /* Anthropic 을 고르면 모델 목록을 읽는다 — 키를 넣으면 실제 목록으로 */
+  /* Anthropic·OpenAI 호환을 고르면 모델 목록을 읽는다 — 키를 넣으면 실제 목록으로 */
   useEffect(() => {
-    if (draft?.type !== 'anthropic') return
+    const t = draft?.type
+    if (t !== 'anthropic' && t !== 'openai') return
     let alive = true
     void (async () => {
-      const r = await apiFetch('/api/anthropic/models', {
+      const r = await apiFetch(t === 'anthropic' ? '/api/anthropic/models' : '/api/openai/models', {
         method: 'POST',
-        body: JSON.stringify({ apikey: draft.apikey || '', endpoint: draft.endpoint || '' }),
+        body: JSON.stringify({ apikey: draft?.apikey || '', endpoint: draft?.endpoint || '' }),
       })
       const j = (await r.json().catch(() => ({}))) as {
         models?: string[]
@@ -162,8 +165,8 @@ export default function ChatLlmSettings() {
         error?: string
       }
       if (!alive) return
-      setClaudeModels(j.models ?? [])
-      setClaudeNote(j.error || j.source || '')
+      setPickModels(j.models ?? [])
+      setPickNote(j.error || j.source || '')
     })()
     return () => {
       alive = false
@@ -205,6 +208,25 @@ export default function ChatLlmSettings() {
                 completion_mode: 'chat',
                 vision_support: 'support',
                 structured_output: 'support',
+              }
+            : {}),
+        }
+      }
+      if (t === 'openai') {
+        /* 주소는 채우되 **잠그지 않는다** — 「OpenAI 호환」 에는 사내
+           게이트웨이나 다른 서비스도 들어온다(지시: 디폴트 입력) */
+        const fresh = !d.endpoint
+        return {
+          ...d,
+          type: t,
+          compat_mode: 'openai',
+          ...(fresh
+            ? {
+                endpoint: 'https://api.openai.com/v1',
+                model: 'gpt-4o',
+                context_size: 128000,
+                max_tokens: 4096,
+                completion_mode: 'chat',
               }
             : {}),
         }
@@ -389,7 +411,11 @@ export default function ChatLlmSettings() {
                     value={draft.type === 'anthropic' ? 'https://api.anthropic.com' : draft.endpoint}
                     readOnly={draft.type === 'anthropic'}
                     className={draft.type === 'anthropic' ? 'ro' : undefined}
-                    placeholder="http://10.10.30.219:4821/v1"
+                    placeholder={
+                      draft.type === 'openai'
+                        ? 'https://api.openai.com/v1'
+                        : 'http://10.10.30.219:4821/v1'
+                    }
                     onChange={(e) => set('endpoint', e.target.value)}
                   />
                 </label>
@@ -397,20 +423,20 @@ export default function ChatLlmSettings() {
                   <span>모델명</span>
                   {/* Claude 는 **고르게** 한다(지시) — 「sonet」 처럼 한 글자
                       틀린 이름은 부를 때가 되어서야 실패한다 */}
-                  {draft.type === 'anthropic' ? (
+                  {draft.type === 'anthropic' || draft.type === 'openai' ? (
                     <>
                       <select value={draft.model} onChange={(e) => set('model', e.target.value)}>
                         <option value="">고르세요</option>
-                        {claudeModels.map((m) => (
+                        {pickModels.map((m) => (
                           <option key={m} value={m}>
                             {m}
                           </option>
                         ))}
-                        {draft.model && !claudeModels.includes(draft.model) && (
+                        {draft.model && !pickModels.includes(draft.model) && (
                           <option value={draft.model}>{draft.model} (목록에 없음)</option>
                         )}
                       </select>
-                      {claudeNote && <i className="muted small">{claudeNote}</i>}
+                      {pickNote && <i className="muted small">{pickNote}</i>}
                     </>
                   ) : (
                     <input
@@ -426,7 +452,11 @@ export default function ChatLlmSettings() {
                     type="password"
                     value={draft.apikey}
                     placeholder={
-                      draft.type === 'anthropic' ? 'sk-ant-… (필수)' : '없으면 비워 둡니다'
+                      draft.type === 'anthropic'
+                        ? 'sk-ant-… (필수)'
+                        : draft.type === 'openai'
+                          ? 'sk-… (openai.com 은 필수)'
+                          : '없으면 비워 둡니다'
                     }
                     onChange={(e) => set('apikey', e.target.value)}
                   />

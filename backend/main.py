@@ -553,6 +553,44 @@ async def anthropic_models(body: dict):
         return {"ok": False, "models": fallback, "error": f"닿지 못했습니다 — {str(e)[:120]}"}
 
 
+@app.post("/api/openai/models")
+async def openai_models(body: dict):
+    """OpenAI 호환 서버에서 고를 모델 목록 — Claude 와 같은 손놀림으로(지시).
+
+    OpenAI 규격은 `GET {주소}/models` 한 번이면 된다. 랩의 vLLM 도 같은
+    말을 하므로 사내 서버에도 그대로 통한다 — 주소만 다르다.
+
+    키를 몸통으로 받는 까닭은 Anthropic 쪽과 같다: 주소에 실으면 서버
+    로그에 키가 남고, 저장 전에도 물어볼 수 있어야 한다.
+    """
+    import httpx
+    fallback = ["gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "o3-mini"]
+    key = str((body or {}).get("apikey") or "").strip()
+    base = str((body or {}).get("endpoint") or "https://api.openai.com/v1").rstrip("/")
+    if not base.endswith("/v1") and "api.openai.com" in base:
+        base += "/v1"
+    if not key and "api.openai.com" in base:
+        # 공식 주소는 키 없이 목록을 안 준다 — 아는 것부터 보여 준다
+        return {"ok": True, "models": fallback, "source": "기본 목록 (키를 넣으면 실제 목록을 읽습니다)"}
+    try:
+        headers = {"Authorization": "Bearer " + key} if key else {}
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.get(base + "/models", headers=headers)
+        if r.status_code == 200:
+            ids = [str(m.get("id") or "") for m in (r.json().get("data") or []) if m.get("id")]
+            # 임베딩·음성·이미지까지 다 나온다 — 글 짓는 것만 남긴다
+            chat = [m for m in ids if not any(
+                w in m for w in ("embedding", "whisper", "tts", "dall-e", "moderation", "audio", "realtime")
+            )]
+            return {"ok": True, "models": sorted(chat) or ids or fallback,
+                    "source": "OpenAI" if "api.openai.com" in base else base}
+        if r.status_code in (401, 403):
+            return {"ok": False, "models": fallback, "error": f"키를 받지 않았습니다 ({r.status_code})"}
+        return {"ok": False, "models": fallback, "error": f"{r.status_code} · {r.text[:120]}"}
+    except Exception as e:
+        return {"ok": False, "models": fallback, "error": f"닿지 못했습니다 — {str(e)[:120]}"}
+
+
 @app.post("/api/llms/{llm_id}/test")
 async def test_llm(llm_id: str):
     """저장된 설정으로 실제로 한 번 불러 본다.
