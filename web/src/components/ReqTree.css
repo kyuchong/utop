@@ -608,11 +608,13 @@
   font-variant-numeric: tabular-nums;
 }
 .rt-nums i { font-style: normal; }
+/* 시험항목 트리의 수는 **더 흐리게**(지시) — 읽는 것은 이름이고, 수는
+   곁눈으로 스치는 값이다 */
 .rt-num {
   margin-left: 6px;
   flex: none;
   font-size: var(--fs-xs);
-  color: var(--c-text-faint);
+  color: #b6bfca;
   font-variant-numeric: tabular-nums;
 }
 .rt-sp { flex: 1; }
