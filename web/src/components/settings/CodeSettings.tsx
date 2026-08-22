@@ -426,7 +426,7 @@ export default function CodeSettings({ target }: Props) {
         ))}
         <button
           type="button"
-          className="seg-btn seg-add"
+          className="ps-tab seg-add"
           title="고를 값을 갖는 칸을 새로 만듭니다"
           onClick={() => {
             setNewTab('')

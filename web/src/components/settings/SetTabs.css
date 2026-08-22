@@ -36,3 +36,26 @@
   padding: 0 6px;
 }
 .ps-tab.on .cnt { color: var(--c-primary); background: var(--c-primary-bg, #eef4ff); }
+
+/* 갈래 이름 옆에 붙는 것들 — INFO 필드·커스텀 필드가 쓴다.
+   알약이던 때는 고른 탭이 **진한 바탕**이라 흰 글씨였다. 밑줄 탭은 바탕이
+   없어 그대로 두면 흰 글씨가 흰 바탕에 얹혀 사라진다(지적: INFO 필드도 봐라). */
+.ps-tab .seg-made {
+  margin-left: 2px;
+  padding: 0 5px;
+  border-radius: var(--r-chip, 999px);
+  background: var(--c-border-soft);
+  color: var(--c-text-faint);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+.ps-tab.on .seg-made { background: var(--c-primary-bg, #eef4ff); color: var(--c-primary); }
+.ps-tab .seg-vis { margin-left: 0; }
+.ps-tab.on .seg-vis { background: #dcf3e4; color: #1f7a45; }
+.ps-tab.on .seg-vis:not(.on) { background: #e6e9ee; color: #6b7480; }
+/* 「탭 지우기」 ✕ 는 고른 탭에만 뜬다 — 흐리게 두고 얹으면 붉게 */
+.ps-tab .seg-x { margin-left: 2px; opacity: 0.45; cursor: pointer; font-weight: 700; }
+.ps-tab .seg-x:hover { opacity: 1; color: var(--c-fail); }
+/* 「＋ 탭 추가」 — 값 탭이 아니라 만드는 자리다. 흐리게, 조금 떨어뜨려 */
+.ps-tab.seg-add { margin-left: 8px; color: var(--c-text-faint); font-weight: 400; }
+.ps-tab.seg-add:hover { color: var(--c-primary); }
