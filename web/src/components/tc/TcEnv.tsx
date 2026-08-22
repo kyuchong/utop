@@ -94,7 +94,7 @@ export default function TcEnv({ data, onChange, tcid }: Props) {
             }
             onClick={() => askM.mutate()}
           >
-            {askM.isPending ? '읽는 중…' : stepCount === 0 ? '✨ AI 로 쓰기' : '✨ 스텝을 보고 쓰기'}
+            <span className={`ai-mark${askM.isPending ? ' on' : ''}`}>✨</span> AI
           </button>
         </div>
 

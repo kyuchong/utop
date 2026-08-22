@@ -1340,7 +1340,7 @@ export default function Requirements({ me }: Props) {
                       title="구현내용을 읽고, 이미 있는 시험과 겹치지 않는 항목을 제안합니다"
                       onClick={() => void askCoverage()}
                     >
-                      {covBusy ? '뽑는 중…' : '✨ 뽑아 보기'}
+                      <span className={`ai-mark${covBusy ? ' on' : ''}`}>✨</span> AI
                     </button>
                   </div>
                   {covErr && <div className="form-error">{covErr}</div>}

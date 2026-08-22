@@ -413,7 +413,11 @@ ${md}` : md))
             disabled={aiBusy}
             title="제목과 이미 적힌 글을 읽고 구현의도 초안을 씁니다"
           >
-            {aiBusy ? '쓰는 중…' : '✨ AI 초안'}
+            {/* 이름은 「✨ AI」 한 벌이다(지시). 도는 동안 글자를 바꾸면
+                단추 폭이 들썩이고, 무엇보다 「쓰는 중」 「뽑는 중」 이 자리마다
+                달라 읽는 사람이 매번 새로 읽어야 했다. 도는 것은 별표가
+                숨쉬는 것으로 보인다 */}
+            <span className={`ai-mark${aiBusy ? ' on' : ''}`}>✨</span> AI
           </button>
           <button
             className="btn"

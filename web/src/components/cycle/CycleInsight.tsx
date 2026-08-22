@@ -148,7 +148,7 @@ export default function CycleInsight({ mode, cycleId, title, items, onClose }: P
                 disabled={busy}
                 onClick={() => void make()}
               >
-                {busy ? '만드는 중…' : text ? '다시 만들기' : '요약 만들기'}
+                {text ? '다시 만들기' : '요약 만들기'}
               </button>
               {/* 브라우저 인쇄로 PDF 를 뽑는다 — 따로 만드는 것보다 글꼴·
                   줄바꿈이 화면과 같아서 어긋날 일이 없다 */}

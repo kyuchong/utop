@@ -623,3 +623,15 @@ html .cyt-row:not(.cyt-hd):hover {
 html .tcl-rw .rq-tr.tc-tr:not(.rq-th) {
   box-shadow: inset 0 -1px 0 #dde3ea;
 }
+
+/* ── AI 단추 ──
+   이름은 「✨ AI」 한 벌이다(지시). 자리마다 「스텝 설계」 「뽑아 보기」 로
+   다르면 같은 일인 줄 모르고, 도는 동안 글자를 바꾸면 폭이 들썩인다.
+   도는 것은 **별표가 숨쉬는 것**으로 보인다 — 글자는 그대로 둔다. */
+.ai-mark { display: inline-block; }
+.ai-mark.on { animation: ai-breathe 1s ease-in-out infinite alternate; }
+@keyframes ai-breathe {
+  from { opacity: 0.35; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1.08); }
+}
+@media (prefers-reduced-motion: reduce) { .ai-mark.on { animation: none; opacity: 0.6; } }

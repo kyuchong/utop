@@ -281,7 +281,7 @@ export default function TcManual({ data, onChange, tcid = '' }: Props) {
             title="시험 목적과 자동 스텝을 읽고 수동 시험서 초안을 씁니다"
             onClick={() => void askAi()}
           >
-            {aiBusy ? '쓰는 중…' : '✨ AI 초안'}
+            <span className={`ai-mark${aiBusy ? ' on' : ''}`}>✨</span> AI
           </button>
           <button className="btn small" type="button" onClick={add}>
             ＋ 수동 스텝

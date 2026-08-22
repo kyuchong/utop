@@ -112,7 +112,7 @@ export default function TcSuggest({ tcid, data, intent, onChange }: Props) {
           }
           onClick={() => genM.mutate()}
         >
-          {genM.isPending ? '설계 중…' : '✨ 스텝 설계'}
+          <span className={`ai-mark${genM.isPending ? ' on' : ''}`}>✨</span> AI
         </button>
       </div>
 

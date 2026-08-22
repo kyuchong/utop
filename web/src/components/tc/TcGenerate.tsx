@@ -102,7 +102,7 @@ export default function TcGenerate({ tcid, data, onChange }: Props) {
           disabled={genM.isPending || !prompt.trim()}
           onClick={() => genM.mutate()}
         >
-          {genM.isPending ? '만드는 중…' : '만들기'}
+          만들기
         </button>
       </div>
 

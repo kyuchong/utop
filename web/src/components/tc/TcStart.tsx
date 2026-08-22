@@ -216,7 +216,7 @@ export default function TcStart({ devices, onClose, onMade }: Props) {
               disabled={!!busy || !want.trim()}
               onClick={() => void look()}
             >
-              {busy === 'look' ? '찾는 중…' : '찾기'}
+              찾기
             </button>
           </div>
           <div className="tcs-devs">
