@@ -132,3 +132,26 @@
 .cpd-tree .rt-req.cpd-ro { cursor: default; opacity: 0.85; }
 .cpd-tree .rt-fold.on,
 .cpd-tree .rt-req.on { background: var(--c-primary-bg); font-weight: 600; }
+
+/* 칸 사이 이동바 — 목록 쪽 손잡이와 같은 꼴, 세로판 */
+.cpd-grip {
+  flex: none;
+  width: 7px;
+  cursor: ew-resize;
+  position: relative;
+  background: transparent;
+}
+.cpd-grip::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 3px;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: 999px;
+  background: var(--c-border);
+}
+.cpd-grip:hover::before { background: var(--c-primary); }
+/* 줄 앞 체크박스 — 무엇이 골라졌는지 눈으로 센다 */
+.cpd-ck { flex: none; width: 14px; height: 14px; margin: 0 2px 0 0; }

@@ -60,6 +60,21 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
    * 뒤에 있는 목록을 보면서 고를 수 있다.
    */
   const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+  /** 칸 사이 이동바 — 트리와 시험 목록의 몫을 사람이 나눈다(지시) */
+  const [wSrc, setWSrc] = useState(420)
+  const [wDst, setWDst] = useState(420)
+  const grip = (get: () => number, set: (v: number) => void) => (e: React.PointerEvent) => {
+    e.preventDefault()
+    const x0 = e.clientX
+    const w0 = get()
+    const move = (ev: PointerEvent) => set(Math.max(220, Math.min(900, w0 + (ev.clientX - x0))))
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
   const drag = (e: React.PointerEvent) => {
     const box = (e.currentTarget as HTMLElement).closest('.modal') as HTMLElement | null
     if (!box) return
@@ -159,6 +174,15 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
             style={{ paddingLeft: 6 + depth * 14 }}
             onClick={() => (side === 'L' ? toggle({ kind: 'cat', id: c.id }) : setDst({ kind: 'cat', id: c.id }))}
           >
+            <input
+              type="checkbox"
+              className="cpd-ck"
+              checked={on}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() =>
+                side === 'L' ? toggle({ kind: 'cat', id: c.id }) : setDst({ kind: 'cat', id: c.id })
+              }
+            />
             <button
               type="button"
               className={`rt-caret${open.has(c.id) ? ' open' : ''}`}
@@ -197,6 +221,20 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
               }}
               title={side === 'L' ? '누르면 고르고, 오른쪽 칸에 이 요구사항의 시험이 섭니다' : undefined}
             >
+              <input
+                type="checkbox"
+                className="cpd-ck"
+                checked={
+                  side === 'L' ? has({ kind: 'req', id: r.id }) : dst?.kind === 'req' && dst.id === r.id
+                }
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => {
+                  if (side === 'L') {
+                    setAtReq(r.id)
+                    toggle({ kind: 'req', id: r.id })
+                  } else setDst({ kind: 'req', id: r.id })
+                }}
+              />
               <span className="rt-dicon" aria-hidden="true">
                 📄
               </span>
@@ -243,6 +281,14 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
             style={{ paddingLeft: 8 }}
             onClick={() => side === 'L' && toggle({ kind: 'tc', id: t.tcid })}
           >
+            <input
+              type="checkbox"
+              className="cpd-ck"
+              disabled={side === 'R'}
+              checked={side === 'L' && has({ kind: 'tc', id: t.tcid })}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() => side === 'L' && toggle({ kind: 'tc', id: t.tcid })}
+            />
             <span className="rt-dicon" aria-hidden="true">
               🧪
             </span>
@@ -291,7 +337,7 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
         style={pos ? { position: 'fixed', left: pos.x, top: pos.y, margin: 0 } : undefined}
       >
         <div className="modal-head cpd-grab" onPointerDown={drag} title="끌어서 옮깁니다">
-          <b>복사</b>
+          <b>프로젝트 복사</b>
           <span className="muted small">
             왼쪽에서 고르고 → 오른쪽 자리를 고른 뒤 화살표를 누르세요
           </span>
@@ -307,10 +353,11 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
               <em>{picks.length ? `${picks.length}개 고름` : '폴더·요구사항·시험을 고르세요'}</em>
             </div>
             <div className="cpd-two">
-              <div className="cpd-col">
+              <div className="cpd-col" style={{ flex: `0 0 ${wSrc}px` }}>
                 <div className="cpd-sub">폴더 · 요구사항</div>
                 {tree('L')}
               </div>
+              <div className="cpd-grip" onPointerDown={grip(() => wSrc, setWSrc)} title="좌우로 끌어 폭을 바꿉니다" />
               <div className="cpd-col">
                 <div className="cpd-sub">시험 항목</div>
                 {tcPane('L')}
@@ -346,10 +393,11 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
               </em>
             </div>
             <div className="cpd-two">
-              <div className="cpd-col">
+              <div className="cpd-col" style={{ flex: `0 0 ${wDst}px` }}>
                 <div className="cpd-sub">폴더 · 요구사항</div>
                 {tree('R')}
               </div>
+              <div className="cpd-grip" onPointerDown={grip(() => wDst, setWDst)} title="좌우로 끌어 폭을 바꿉니다" />
               <div className="cpd-col">
                 <div className="cpd-sub">그 자리에 있는 시험</div>
                 {tcPane('R')}
