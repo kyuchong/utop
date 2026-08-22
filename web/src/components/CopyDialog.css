@@ -117,7 +117,7 @@
 .cpd-pane.src { flex: 2.1; }
 .cpd-two { display: flex; flex: 1; min-height: 0; }
 .cpd-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.cpd-col + .cpd-col { border-left: 1px solid var(--c-border); }
+.cpd-col + .cpd-col { border-left: 0; }
 .cpd-sub {
   padding: 4px 8px;
   font-size: var(--fs-xs);
@@ -133,19 +133,22 @@
 .cpd-tree .rt-fold.on,
 .cpd-tree .rt-req.on { background: var(--c-primary-bg); font-weight: 600; }
 
-/* 칸 사이 이동바 — 목록 쪽 손잡이와 같은 꼴, 세로판 */
+/* 칸 사이 이동바 — 목록 쪽 손잡이와 같은 꼴, 세로판.
+   양옆에 **세로 선**을 둔다(지시) — 선이 없으면 두 칸이 한 칸처럼 붙어 보인다. */
 .cpd-grip {
   flex: none;
-  width: 7px;
+  width: 9px;
   cursor: ew-resize;
   position: relative;
   background: transparent;
+  border-left: 1px solid var(--c-border);
+  border-right: 1px solid var(--c-border);
 }
 .cpd-grip::before {
   content: '';
   position: absolute;
   top: 50%;
-  left: 2px;
+  left: 3px;
   width: 3px;
   height: 44px;
   margin-top: -22px;
