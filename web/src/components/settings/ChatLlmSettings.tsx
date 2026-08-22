@@ -106,6 +106,14 @@ export default function ChatLlmSettings() {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
   const [probe, setProbe] = useState('')
+  /*
+   * Claude 모델 목록 — **손으로 치지 않는다**(지시).
+   *
+   * 「sonet」 처럼 한 글자 틀린 모델명은 부를 때가 되어서야 실패한다. 키를
+   * 넣으면 실제 목록을 읽고, 없으면 아는 것부터 보여 준다.
+   */
+  const [claudeModels, setClaudeModels] = useState<string[]>([])
+  const [claudeNote, setClaudeNote] = useState('')
 
   const load = async (keepId?: string) => {
     try {
@@ -138,6 +146,29 @@ export default function ChatLlmSettings() {
     // 첫 로드만. sel 이 바뀔 때마다 다시 부르면 고치던 내용이 날아간다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /* Anthropic 을 고르면 모델 목록을 읽는다 — 키를 넣으면 실제 목록으로 */
+  useEffect(() => {
+    if (draft?.type !== 'anthropic') return
+    let alive = true
+    void (async () => {
+      const r = await apiFetch('/api/anthropic/models', {
+        method: 'POST',
+        body: JSON.stringify({ apikey: draft.apikey || '', endpoint: draft.endpoint || '' }),
+      })
+      const j = (await r.json().catch(() => ({}))) as {
+        models?: string[]
+        source?: string
+        error?: string
+      }
+      if (!alive) return
+      setClaudeModels(j.models ?? [])
+      setClaudeNote(j.error || j.source || '')
+    })()
+    return () => {
+      alive = false
+    }
+  }, [draft?.type, draft?.apikey, draft?.endpoint])
 
   const dirty = useMemo(() => {
     if (!draft) return false
@@ -351,26 +382,52 @@ export default function ChatLlmSettings() {
                 </div>
                 <label className="fld">
                   <span>엔드포인트</span>
+                  {/* Anthropic 은 주소가 정해져 있다(지시) — 고쳐 쓸 일이 없어
+                      기본값으로 채우고 잠근다. 잘못 고쳐 두면 SDK 가 엉뚱한
+                      데로 간다. */}
                   <input
-                    value={draft.endpoint}
+                    value={draft.type === 'anthropic' ? 'https://api.anthropic.com' : draft.endpoint}
+                    readOnly={draft.type === 'anthropic'}
+                    className={draft.type === 'anthropic' ? 'ro' : undefined}
                     placeholder="http://10.10.30.219:4821/v1"
                     onChange={(e) => set('endpoint', e.target.value)}
                   />
                 </label>
                 <label className="fld">
                   <span>모델명</span>
-                  <input
-                    value={draft.model}
-                    placeholder="gemma-4-31b-it"
-                    onChange={(e) => set('model', e.target.value)}
-                  />
+                  {/* Claude 는 **고르게** 한다(지시) — 「sonet」 처럼 한 글자
+                      틀린 이름은 부를 때가 되어서야 실패한다 */}
+                  {draft.type === 'anthropic' ? (
+                    <>
+                      <select value={draft.model} onChange={(e) => set('model', e.target.value)}>
+                        <option value="">고르세요</option>
+                        {claudeModels.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                        {draft.model && !claudeModels.includes(draft.model) && (
+                          <option value={draft.model}>{draft.model} (목록에 없음)</option>
+                        )}
+                      </select>
+                      {claudeNote && <i className="muted small">{claudeNote}</i>}
+                    </>
+                  ) : (
+                    <input
+                      value={draft.model}
+                      placeholder="gemma-4-31b-it"
+                      onChange={(e) => set('model', e.target.value)}
+                    />
+                  )}
                 </label>
                 <label className="fld">
                   <span>API Key</span>
                   <input
                     type="password"
                     value={draft.apikey}
-                    placeholder="없으면 비워 둡니다"
+                    placeholder={
+                      draft.type === 'anthropic' ? 'sk-ant-… (필수)' : '없으면 비워 둡니다'
+                    }
                     onChange={(e) => set('apikey', e.target.value)}
                   />
                 </label>

@@ -518,6 +518,38 @@ async def delete_llm(llm_id: str):
     return {"success": True}
 
 
+@app.post("/api/anthropic/models")
+async def anthropic_models(body: dict):
+    """Claude 에서 쓸 수 있는 모델 목록 — **모델명을 손으로 치지 않게**(지시).
+
+    저장 전에도 물어볼 수 있어야 해서 키를 몸통으로 받는다(주소에 실으면
+    서버 로그에 키가 남는다). 키가 없거나 못 닿으면 **아는 모델**을 돌려준다 —
+    목록이 비면 고를 수가 없다.
+    """
+    import httpx
+    fallback = ["claude-opus-5", "claude-sonnet-5", "claude-haiku-4-5-20251001"]
+    key = str((body or {}).get("apikey") or "").strip()
+    base = str((body or {}).get("endpoint") or "https://api.anthropic.com").rstrip("/")
+    if base.endswith("/v1"):
+        base = base[:-3]
+    if not key:
+        return {"ok": True, "models": fallback, "source": "기본 목록 (키를 넣으면 실제 목록을 읽습니다)"}
+    try:
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.get(
+                base + "/v1/models",
+                headers={"x-api-key": key, "anthropic-version": "2023-06-01"},
+            )
+        if r.status_code == 200:
+            ids = [str(m.get("id") or "") for m in (r.json().get("data") or []) if m.get("id")]
+            return {"ok": True, "models": ids or fallback, "source": "Anthropic"}
+        if r.status_code in (401, 403):
+            return {"ok": False, "models": fallback, "error": f"키를 받지 않았습니다 ({r.status_code})"}
+        return {"ok": False, "models": fallback, "error": f"{r.status_code} · {r.text[:120]}"}
+    except Exception as e:
+        return {"ok": False, "models": fallback, "error": f"닿지 못했습니다 — {str(e)[:120]}"}
+
+
 @app.post("/api/llms/{llm_id}/test")
 async def test_llm(llm_id: str):
     """저장된 설정으로 실제로 한 번 불러 본다.

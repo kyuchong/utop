@@ -193,3 +193,9 @@
     width: 100%;
   }
 }
+
+/* 고쳐 쓸 일이 없는 칸 — 잠근 티만 낸다 */
+.llm-detail .fld input.ro {
+  background: var(--c-surface-alt);
+  color: var(--c-text-muted);
+}
