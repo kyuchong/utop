@@ -538,11 +538,46 @@ async def test_llm(llm_id: str):
         raise HTTPException(404, "LLM 을 찾을 수 없습니다")
 
     base = (llm.get("endpoint") or "").rstrip("/")
+    ltype = str(llm.get("type") or "").lower()
+    model = (llm.get("model") or "").strip()
+
+    # ── Claude(Anthropic) 는 말이 다르다 ──────────────────────────
+    #
+    # OpenAI 계열은 `/v1/models` 에 Bearer 를 얹지만, Anthropic 은 `x-api-key`
+    # 와 `anthropic-version` 을 쓴다. 그래서 여기까지 오면 늘 실패했고, 설정이
+    # 맞는데도 「연결 테스트」 가 안 된다는 말을 들었다(지적).
+    if ltype in ("claude", "anthropic") or "anthropic.com" in base:
+        key = str(llm.get("apikey") or "").strip()
+        if not key:
+            return {"ok": False, "detail": "API Key 가 비어 있습니다 (sk-ant-… 키를 넣으세요)"}
+        url = (base or "https://api.anthropic.com").rstrip("/")
+        if url.endswith("/v1"):
+            url = url[:-3]
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                r = await client.get(
+                    url + "/v1/models",
+                    headers={"x-api-key": key, "anthropic-version": "2023-06-01"},
+                )
+            if r.status_code == 200:
+                names = [str(m.get("id") or "") for m in (r.json().get("data") or [])]
+                if model and names and model not in names:
+                    return {
+                        "ok": False,
+                        "detail": f"키는 맞는데 '{model}' 모델이 없습니다",
+                        "models": names[:20],
+                    }
+                return {"ok": True, "detail": f"연결됨 (모델 {len(names)}개)", "models": names[:20]}
+            if r.status_code in (401, 403):
+                return {"ok": False, "detail": f"키를 받지 않았습니다 ({r.status_code})"}
+            return {"ok": False, "detail": f"{r.status_code} · {r.text[:160]}"}
+        except Exception as e:
+            return {"ok": False, "detail": f"닿지 못했습니다 — {str(e)[:160]}"}
+
     if not base:
         return {"ok": False, "detail": "엔드포인트가 비어 있습니다"}
     # 사람은 보통 .../v1 까지 적어 둔다. 안 적었으면 붙여 준다.
     root = base[:-3].rstrip("/") if base.endswith("/v1") else base
-    model = (llm.get("model") or "").strip()
     headers = {}
     if llm.get("apikey"):
         headers["Authorization"] = f"Bearer {llm['apikey']}"
