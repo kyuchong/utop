@@ -15970,6 +15970,23 @@ async def req_ai_intent(req_id: str, payload: dict):
     return {"ok": True, "text": text}
 
 
+def _tc_title(name: str, obj: str) -> str:
+    """제안의 **제목**. 번호를 적어 오면 목적의 첫 줄로 바꾼다.
+
+    모델이 name 자리에 「TC-1」 같은 순번을 적고 정작 제목은 object 에 쓰는
+    일이 잦다(지적: 제목이 없어). 그대로 만들면 목록에 TC-1…TC-6 만 서서
+    무슨 시험인지 알 수 없다.
+    """
+    nm = str(name or "").strip()
+    ob = str(obj or "").strip()
+    if nm and not re.match(r"^(tc|테스트|시험)?[\s\-_#.]*\d+$", nm, re.I):
+        return nm
+    if not ob:
+        return nm
+    first = re.split(r"[\n.]", ob)[0].strip()
+    return (first or ob)[:160]
+
+
 @app.post("/api/req/{req_id}/ai-coverage")
 async def req_ai_coverage(req_id: str, payload: dict):
     """구현의도 → **덮을 시험 항목 목록** 초안. 저장하지 않는다.
@@ -15999,7 +16016,9 @@ async def req_ai_coverage(req_id: str, payload: dict):
         f"요구사항: {req.get('title') or ''}\n\n"
         f"=== 구현의도 ===\n{intent[:6000]}\n\n"
         f"=== 이미 있는 시험 항목 ===\n" + ("\n".join(f"- {x}" for x in have) or "(없음)") + "\n\n"
-        "이미 있는 것과 겹치지 않는 시험 항목만 제안하라. "
+        "이미 있는 것과 겹치지 않는 시험 항목만 제안하라.\n"
+        "name 은 **시험 항목의 제목**이다 — 「무엇을 어떻게 확인하는가」 로 적고, "
+        "TC-1 같은 번호나 순번을 적지 마라. object 는 그 시험의 목적이다.\n"
         'JSON 만 출력한다: {"items":[{"name":"...","object":"..."}]}'
     )
     out, raw = await _ask_json(
@@ -16011,10 +16030,12 @@ async def req_ai_coverage(req_id: str, payload: dict):
         # 모델을 바꿔야 하는지 프롬프트를 고쳐야 하는지 알 수 없다(지적)
         raise HTTPException(502, "모델이 JSON 을 돌려주지 않았습니다 — 받은 것: "
                                  + (str(raw)[:160].replace("\n", " ") or "(빈 응답)"))
-    items = [
-        {"name": str(x.get("name") or "").strip(), "object": str(x.get("object") or "").strip()}
-        for x in (out.get("items") or []) if str(x.get("name") or "").strip()
-    ]
+    items = []
+    for x in (out.get("items") or []):
+        ob = str(x.get("object") or "").strip()
+        nm = _tc_title(x.get("name") or x.get("title") or "", ob)
+        if nm:
+            items.append({"name": nm, "object": ob})
     return {"ok": True, "items": items, "have": len(have)}
 
 
@@ -16058,7 +16079,7 @@ async def req_make_tcs(req_id: str, payload: dict, token: str = ""):
             tcid = await _next_tc_id(c)
             d = {
                 "tcid": tcid,
-                "name": str(it.get("name") or "").strip(),
+                "name": _tc_title(it.get("name") or "", it.get("object") or ""),
                 # 제안이 말한 「무엇을 확인하는가」 는 시험 목적 자리에 그대로 앉힌다
                 "object_md": str(it.get("object") or "").strip(),
                 "req_id": str(req.get("id") or req.get("reqid") or req_id),
