@@ -2337,7 +2337,7 @@ def _prompt_of(purpose: str) -> dict:
     }
 
 
-def _llm_pick(purpose: str = ""):
+def _llm_pick(purpose: str = "", llm_id: str = ""):
     """
     쓸 수 있는 로컬 LLM 하나.
 
@@ -2356,7 +2356,8 @@ def _llm_pick(purpose: str = ""):
         t = str(l.get("type") or "").lower()
         return t in ("local", "vllm", "openai", "openai-compatible", "")
 
-    want = _prompt_of(purpose).get("llm") if purpose else ""
+    # 화면에서 고른 것이 먼저다 — 설정의 기본값은 안 고른 사람을 위한 것
+    want = llm_id or (_prompt_of(purpose).get("llm") if purpose else "")
     if want:
         for l in llms:
             if str(l.get("id") or "") == want and _ok(l):
@@ -2563,7 +2564,7 @@ async def llm_wiring(payload: dict):
     if not devs or not meters:
         return {"ok": False, "error": "장비와 계측기가 있어야 배선을 그립니다"}
 
-    llm = _llm_pick("wiring")
+    llm = _llm_pick("wiring", str(payload.get("llm") or ""))
     if not llm:
         return {"ok": False, "error": "등록된 로컬 LLM 이 없습니다 — 설정 › LLM 설정에서 켜세요"}
     sys_p = _prompt_of("wiring")["system"]
@@ -11813,17 +11814,26 @@ async def rag_index(payload: dict, token: str = ""):
     return {"ok": ok, "id": doc_id, "source": source}
 
 # ── 로컬 LLM(gemma) 공용 호출 ──
-def _ai_llm():
-    """AI 통합 기능용 LLM 선택 — 로컬(vLLM/OpenAI 호환) 우선. claude 타입은 스키마가 달라 제외."""
+def _ai_llm(llm_id: str = ""):
+    """AI 통합 기능용 LLM 선택 — 로컬(vLLM/OpenAI 호환) 우선. claude 타입은 스키마가 달라 제외.
+
+    `llm_id` 는 화면에서 사람이 고른 것이다(지시: 탭마다 드롭바). 고른 것이
+    있으면 그것을 쓴다 — 목록에서 사라졌으면 여느 때처럼 고른다.
+    """
     init_llms_file()
     llms = (load_json(LLMS_FILE).get("llms") or [])
+    if llm_id:
+        got = next((l for l in llms if str(l.get("id") or "") == llm_id), None)
+        if got and got.get("endpoint"):
+            return got
     act = [l for l in llms if l.get("status", "active") == "active" and l.get("endpoint") and str(l.get("type") or "").lower() != "claude"]
     loc = [l for l in act if str(l.get("type") or "").lower() == "local"]
     return (loc[0] if loc else (act[0] if act else None))
 
-async def _ai_chat(messages, max_tokens=1800, temperature=0.3, json_schema=None, timeout=180):
+async def _ai_chat(messages, max_tokens=1800, temperature=0.3, json_schema=None, timeout=180,
+                   llm_id: str = ""):
     """OpenAI 호환 chat/completions 1회 호출 → (content, error). json_schema 지정 시 vLLM guided_json."""
-    llm = _ai_llm()
+    llm = _ai_llm(llm_id)
     if not llm:
         return None, "등록된 로컬 LLM이 없습니다 — AI Assistant ▸ LLM 설정에서 등록하세요."
     import httpx
@@ -12003,7 +12013,7 @@ def _cycle_result_ctx(cycle, fails_detail=True):
             head += "\n\n[Fail 상세]" + "\n".join(fd)
     return head
 
-async def _cycle_ai_summary(cycle_id):
+async def _cycle_ai_summary(cycle_id, llm_id: str = ""):
     """Gemma로 Cycle 요약 생성 → cycle 의 ai_summary 에 저장."""
     cycle = await db.cycle_get(cycle_id)
     if cycle is None:
@@ -12059,10 +12069,11 @@ async def _cycle_ai_summary(cycle_id):
              "구성: ## 총평(2~3문장 — 이 제품·버전 회차의 품질 판단) / ## 전체·수동·자동 현황(집계를 표로 정리하고 눈에 띄는 점 1~2문장) / "
              "## Fail 분석(항목별 원인 추정과 근거 — 출력·판정기준 인용) / ## 권고사항(재시험·설정확인 등 구체적으로). "
              "결과에 없는 내용은 추측하지 말고, Fail이 없으면 Fail 분석은 '해당 없음'으로 쓴다.")
-    ans, err = await _ai_chat([{"role": "system", "content": sys_p}, {"role": "user", "content": ctx}], max_tokens=1600)
+    ans, err = await _ai_chat([{"role": "system", "content": sys_p}, {"role": "user", "content": ctx}],
+                              max_tokens=1600, llm_id=llm_id)
     if err:
         return None, err
-    llm = _ai_llm() or {}
+    llm = _ai_llm(llm_id) or {}
     cycle = await db.cycle_get(cycle_id)   # 재로드(요약 생성 동안의 변경 보존)
     cycle["ai_summary"] = {"text": ans, "at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "model": llm.get("model", "")}
     await db.cycle_upsert(cycle_id, cycle)
@@ -12280,7 +12291,8 @@ async def cycle_run_stop(payload: dict = None, token: str = ""):
 
 @app.post("/api/cycle/{cycle_id}/summarize")
 async def cycle_summarize(cycle_id: str, payload: dict = None):
-    summ, err = await _cycle_ai_summary(cycle_id)
+    # 누구에게 맡길지 화면이 고른다(지시) — 안 고르면 여느 때처럼
+    summ, err = await _cycle_ai_summary(cycle_id, str((payload or {}).get("llm") or ""))
     if err:
         return {"ok": False, "error": err}
     return {"ok": True, "summary": summ}
@@ -15507,8 +15519,10 @@ async def tc_generate(tc_id: str, payload: dict):
         prompt = "\n\n".join(parts)
         gquery = " ".join(x for x in [name, str((req or {}).get("title") or ""), obj[:200]] if x)
 
+    # 누구에게 맡길지 화면이 고른다(지시). 안 고르면 여태처럼 Claude 다.
+    want_llm = str(payload.get("llm") or "").strip()
     cl, cmodel = _claude_any()
-    if cl is None:
+    if cl is None and not want_llm:
         raise HTTPException(
             503,
             "쓸 수 있는 Claude 가 없습니다 — 설정 → LLM 설정에 Anthropic 을 등록하거나 "
@@ -15539,16 +15553,21 @@ async def tc_generate(tc_id: str, payload: dict):
         f"=== 근거 3. 요구사항·매뉴얼 ===\n{doc_txt}\n"
     )
 
-    try:
-        msg = cl.messages.create(
-            model=cmodel or CLAUDE_FALLBACK_MODEL,
-            max_tokens=4000,
-            system=_GEN_SYSTEM,
-            messages=[{"role": "user", "content": user}],
-        )
-        raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
-    except Exception as e:
-        raise HTTPException(502, f"모델 호출에 실패했습니다: {_llm_err(e)}") from e
+    if want_llm:
+        # 로컬이든 Claude 든 한 길로 — _llm_text 가 종류를 가려서 부른다
+        raw = await _llm_text("coverage_automation", _GEN_SYSTEM, user,
+                              max_tokens=4000, llm_id=want_llm)
+    else:
+        try:
+            msg = cl.messages.create(
+                model=cmodel or CLAUDE_FALLBACK_MODEL,
+                max_tokens=4000,
+                system=_GEN_SYSTEM,
+                messages=[{"role": "user", "content": user}],
+            )
+            raw = "".join(b.text for b in msg.content if getattr(b, "type", "") == "text").strip()
+        except Exception as e:
+            raise HTTPException(502, f"모델 호출에 실패했습니다: {_llm_err(e)}") from e
 
     # 모델이 ```json 으로 감싸는 경우가 있다
     m = re.search(r"\{.*\}", raw, re.S)
@@ -15837,6 +15856,140 @@ async def tc_describe(tc_id: str, payload: dict):
         "precondition_md": str(out.get("precondition_md") or ""),
         "steps": len(lines),
     }
+
+
+@app.post("/api/req/{req_id}/ai-intent")
+async def req_ai_intent(req_id: str, payload: dict):
+    """짧은 요청 → **구현의도** 초안. 저장하지 않는다.
+
+    여태 이 글은 손으로만 썼다 — 용도별 프롬프트에 REQ-Intent 자리는 있는데
+    화면에 부르는 자리가 없었다(지시: Intent 에도 LLM 드롭바를).
+
+    저장하지 않는 까닭은 목적·스텝 쪽과 같다: 모델이 쓴 글이 사람 눈을
+    거치지 않고 문서가 되면 안 된다. 화면이 보여 주고 사람이 「넣기」 를
+    누른다.
+    """
+    req = payload.get("req") if isinstance(payload.get("req"), dict) else None
+    if req is None:
+        req = await db.req_get(req_id)
+    if not isinstance(req, dict):
+        raise HTTPException(404, "요구사항을 찾을 수 없습니다")
+
+    say = str(payload.get("text") or "").strip()
+    user = (
+        f"요구사항 ID: {req.get('reqid') or req_id}\n"
+        f"제목: {req.get('title') or '(없음)'}\n"
+        f"자리: {' › '.join(str(req.get(k) or '') for k in ('cat1', 'cat2', 'cat3', 'cat4') if req.get(k))}\n\n"
+        f"=== 사람이 적은 요청 ===\n{say or '(없음 — 제목과 이미 적힌 글로 다듬어라)'}\n\n"
+        f"=== 이미 적힌 구현내용 ===\n{str(req.get('desc') or '')[:4000] or '(비어 있음)'}\n\n"
+        "구현의도를 마크다운으로 써라. 제목 줄은 넣지 말고 본문만 쓴다."
+    )
+    text = await _llm_text(
+        "req_intent", _prompt_of("req_intent")["system"], user,
+        max_tokens=1800, llm_id=str(payload.get("llm") or ""),
+    )
+    return {"ok": True, "text": text}
+
+
+@app.post("/api/req/{req_id}/ai-coverage")
+async def req_ai_coverage(req_id: str, payload: dict):
+    """구현의도 → **덮을 시험 항목 목록** 초안. 저장하지 않는다.
+
+    이름과 목적까지다 — 스텝은 여기서 만들지 않는다(용도 프롬프트의 규칙).
+    사람이 골라서 시험항목으로 만든다.
+    """
+    req = payload.get("req") if isinstance(payload.get("req"), dict) else None
+    if req is None:
+        req = await db.req_get(req_id)
+    if not isinstance(req, dict):
+        raise HTTPException(404, "요구사항을 찾을 수 없습니다")
+
+    intent = str(req.get("desc") or "").strip()
+    if not intent:
+        raise HTTPException(400, "구현내용이 비어 있습니다 — Intent 를 먼저 쓰세요")
+
+    have = []
+    try:
+        for t in await db.tc_list_meta():
+            if str(t.get("req_id") or "") == str(req.get("reqid") or req_id):
+                have.append(str(t.get("name") or ""))
+    except Exception as e:
+        print(f"[req_ai_coverage] 이미 있는 시험을 읽지 못했습니다: {e}", flush=True)
+
+    user = (
+        f"요구사항: {req.get('title') or ''}\n\n"
+        f"=== 구현의도 ===\n{intent[:6000]}\n\n"
+        f"=== 이미 있는 시험 항목 ===\n" + ("\n".join(f"- {x}" for x in have) or "(없음)") + "\n\n"
+        "이미 있는 것과 겹치지 않는 시험 항목만 제안하라. "
+        'JSON 만 출력한다: {"items":[{"name":"...","object":"..."}]}'
+    )
+    raw = await _llm_text(
+        "req_coverage", _prompt_of("req_coverage")["system"], user,
+        max_tokens=2000, llm_id=str(payload.get("llm") or ""),
+    )
+    m = re.search(r"\{.*\}", raw, re.S)
+    if not m:
+        raise HTTPException(502, "모델이 JSON 을 돌려주지 않았습니다")
+    try:
+        out = json.loads(m.group(0))
+    except json.JSONDecodeError as e:
+        raise HTTPException(502, f"모델 응답을 읽지 못했습니다: {e}") from e
+    items = [
+        {"name": str(x.get("name") or "").strip(), "object": str(x.get("object") or "").strip()}
+        for x in (out.get("items") or []) if str(x.get("name") or "").strip()
+    ]
+    return {"ok": True, "items": items, "have": len(have)}
+
+
+@app.post("/api/tc/{tc_id}/ai-manual")
+async def tc_ai_manual(tc_id: str, payload: dict):
+    """목적·자동 스텝을 읽고 **수동 시험서** 초안. 저장하지 않는다.
+
+    수동 스텝은 사람이 읽고 따라 하는 글이라 셋으로 나뉜다 —
+    무엇을 한다 / 무엇을 넣는다 / 무엇이 나와야 한다.
+    """
+    tc_id = _tc_id_norm(tc_id)
+    tc = payload.get("tc") if isinstance(payload.get("tc"), dict) else None
+    if tc is None:
+        tc = await db.tc_get(tc_id)
+    if not isinstance(tc, dict):
+        raise HTTPException(404, "TC 를 찾을 수 없습니다")
+
+    checks = tc.get("checks") if isinstance(tc.get("checks"), list) else []
+    auto = []
+    for c in checks[:200]:
+        if not isinstance(c, dict) or c.get("kind") == "manual":
+            continue
+        auto.append(f"- {c.get('desc') or ''} / {c.get('cli') or c.get('oid') or ''} → {c.get('criteria') or ''}")
+
+    user = (
+        f"시험 제목: {tc.get('name') or '(없음)'}\n\n"
+        f"=== 시험 목적 ===\n{str(tc.get('object_md') or '')[:3000] or '(비어 있음)'}\n\n"
+        f"=== 사전 준비 조건 ===\n{str(tc.get('precondition_md') or '')[:1500] or '(비어 있음)'}\n\n"
+        f"=== 자동 스텝(참고) ===\n" + ("\n".join(auto) or "(없음)") + "\n\n"
+        '수동 시험서를 JSON 으로만 출력한다: '
+        '{"steps":[{"step":"무엇을 한다","data":"무엇을 넣는다","expected":"무엇이 나와야 한다"}]}'
+    )
+    raw = await _llm_text(
+        "coverage_manual", _prompt_of("coverage_manual")["system"], user,
+        max_tokens=2500, llm_id=str(payload.get("llm") or ""),
+    )
+    m = re.search(r"\{.*\}", raw, re.S)
+    if not m:
+        raise HTTPException(502, "모델이 JSON 을 돌려주지 않았습니다")
+    try:
+        out = json.loads(m.group(0))
+    except json.JSONDecodeError as e:
+        raise HTTPException(502, f"모델 응답을 읽지 못했습니다: {e}") from e
+    steps = [
+        {
+            "step": str(x.get("step") or "").strip(),
+            "data": str(x.get("data") or "").strip(),
+            "expected": str(x.get("expected") or "").strip(),
+        }
+        for x in (out.get("steps") or []) if str(x.get("step") or "").strip()
+    ]
+    return {"ok": True, "steps": steps}
 
 
 @app.get("/api/tc/{tc_id}/cycles")

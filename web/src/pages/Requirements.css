@@ -1050,3 +1050,15 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 .rq-rail-b { display: block; }
 .rq-rail-b > .rq-rail-c { padding-top: 10px; }
 
+
+/* 시험 항목 제안 — 만들지는 않는다. 이름과 목적까지다(지시) */
+.cov-ai { display: flex; align-items: center; gap: 6px; padding: 4px 0 6px; }
+.cov-ai .sp { margin-left: auto; }
+.cov-idea {
+  margin: 0 0 8px 18px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-sm);
+}

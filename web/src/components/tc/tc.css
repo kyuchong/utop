@@ -598,3 +598,7 @@
   padding: 1px 8px;
   white-space: nowrap;
 }
+
+/* 수동 시험서 초안 — 넣기 전에 읽는 자리 */
+.mn-prop { margin: 6px 0 4px 18px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.mn-prop li { font-size: var(--fs-sm); }

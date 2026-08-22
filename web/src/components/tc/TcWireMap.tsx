@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
+import LlmPick, { useLlmPick } from '@/components/LlmPick'
 import type { Device } from '@/pages/Devices'
 import { deviceName, deviceShort, isMeter } from './device'
 import type { TcPortLink, TcWire } from './types'
@@ -48,6 +49,8 @@ export default function TcWireMap({
   onChange,
 }: Props) {
   const [say, setSay] = useState('')
+  /** 배선을 누구에게 맡길지 — 이 자리에서 고른 것은 이 자리에만 기억한다(지시) */
+  const [llm, setLlm] = useLlmPick('wiring')
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
 
@@ -228,6 +231,7 @@ export default function TcWireMap({
         method: 'POST',
         body: JSON.stringify({
           text: say,
+          llm,
           devices: all
             .filter((d) => !isMeter(d))
             .map((d) => ({ id: d.id, label: deviceShort(d), ports: portsOf(d) })),
@@ -360,6 +364,7 @@ export default function TcWireMap({
             if (e.key === 'Enter') void askAi()
           }}
         />
+        <LlmPick value={llm} onChange={setLlm} />
         <button
           className="btn small"
           type="button"

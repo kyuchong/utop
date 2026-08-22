@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import LlmPick, { useLlmPick } from '@/components/LlmPick'
 import type { TcData, TcSlot, TcStep } from './types'
 
 interface Proposal {
@@ -34,6 +35,8 @@ interface Props {
  */
 export default function TcGenerate({ tcid, data, onChange }: Props) {
   const [prompt, setPrompt] = useState('')
+  /** 한 줄 요청도 누구에게 맡길지 고른다 — 스텝 설계와 같은 자리를 쓴다 */
+  const [llm, setLlm] = useLlmPick('automation')
   const [prop, setProp] = useState<Proposal | null>(null)
   const [ground, setGround] = useState<Grounding | null>(null)
   const [err, setErr] = useState('')
@@ -43,7 +46,7 @@ export default function TcGenerate({ tcid, data, onChange }: Props) {
       const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ prompt, llm }),
       })
       const b = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(b.detail || `만들지 못했습니다 (${r.status})`)
@@ -80,6 +83,8 @@ export default function TcGenerate({ tcid, data, onChange }: Props) {
       <div className="tc-card-head">
         <b>자연어로 만들기</b>
         <span className="muted small">한 줄로 적으면 슬롯과 스텝을 만듭니다</span>
+        <span className="sp" />
+        <LlmPick value={llm} onChange={setLlm} />
       </div>
 
       <div className="gen-bar">

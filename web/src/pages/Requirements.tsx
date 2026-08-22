@@ -10,6 +10,7 @@ import PresenceBar from '@/components/PresenceBar'
 import { usePageCrowd } from '@/components/usePageCrowd'
 import { usePresence } from '@/components/usePresence'
 import ReqTree from '@/components/ReqTree'
+import LlmPick, { useLlmPick } from '@/components/LlmPick'
 import { useCodes } from '@/hooks/useCodes'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import {
@@ -691,6 +692,43 @@ export default function Requirements({ me }: Props) {
     return { linked: out, ownerOf: owner }
   }, [folderMode, folderReqs, selectedReq, tcsFor, tcById])
 
+  /**
+   * 이 요구사항을 덮을 **시험 항목 제안**(지시: Coverage 에도 드롭바).
+   *
+   * 만들지는 않는다 — 이름과 목적까지다. 어느 폴더에 어느 모델로 만들지는
+   * 사람이 정하는 것이고, 그 결정을 모델에게 맡기면 엉뚱한 자리에 시험이
+   * 쌓인다.
+   */
+  const [covLlm, setCovLlm] = useLlmPick('req-coverage')
+  const [covBusy, setCovBusy] = useState(false)
+  const [covErr, setCovErr] = useState('')
+  const [covIdea, setCovIdea] = useState<Array<{ name: string; object: string }>>([])
+
+  const askCoverage = async () => {
+    if (!selectedReq) return
+    setCovBusy(true)
+    setCovErr('')
+    try {
+      const r = await apiFetch(`/api/req/${encodeURIComponent(reqPk(selectedReq))}/ai-coverage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ req: selectedReq, llm: covLlm }),
+      })
+      const b = (await r.json().catch(() => ({}))) as {
+        items?: Array<{ name: string; object: string }>
+        detail?: string
+      }
+      if (!r.ok) throw new Error(b.detail || `만들지 못했습니다 (${r.status})`)
+      setCovIdea(b.items ?? [])
+      if (!(b.items ?? []).length) setCovErr('제안할 것이 없다고 합니다')
+    } catch (e) {
+      setCovIdea([])
+      setCovErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setCovBusy(false)
+    }
+  }
+
   /** 이 요구사항 한 건을 같이 보는 사람 */
   const presence = usePresence(selected ? `req:${selected}` : 'req', meName)
 
@@ -1203,6 +1241,33 @@ export default function Requirements({ me }: Props) {
                     onToggle={() => toggleSec('tc')}
                   >
                 <div className="tc-body scroll">
+                  {/* 무엇이 덜 덮였는지 보고 바로 시험 이름을 뽑는다(지시) */}
+                  <div className="cov-ai">
+                    <b className="small">시험 항목 제안</b>
+                    <span className="sp" />
+                    <LlmPick value={covLlm} onChange={setCovLlm} />
+                    <button
+                      className="btn small"
+                      type="button"
+                      disabled={covBusy || !selectedReq}
+                      title="구현내용을 읽고, 이미 있는 시험과 겹치지 않는 항목을 제안합니다"
+                      onClick={() => void askCoverage()}
+                    >
+                      {covBusy ? '뽑는 중…' : '✨ 뽑아 보기'}
+                    </button>
+                  </div>
+                  {covErr && <div className="form-error">{covErr}</div>}
+                  {covIdea.length > 0 && (
+                    <ol className="cov-idea">
+                      {covIdea.map((x, i) => (
+                        <li key={i}>
+                          <b>{x.name}</b>
+                          {x.object && <div className="muted small">{x.object}</div>}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+
                   <div className={`cov-bar ${linked.length === 0 ? 'none' : cov.fail > 0 ? 'bad' : cov.idle > 0 ? 'warn' : 'good'}`}>
                     {linked.length === 0 ? (
                       <>

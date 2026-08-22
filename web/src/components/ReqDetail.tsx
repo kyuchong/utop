@@ -9,6 +9,7 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
+import LlmPick, { useLlmPick } from '@/components/LlmPick'
 import Markdown from './Markdown'
 import MarkdownEditor from './MarkdownEditorLazy'
 import './ReqDetail.css'
@@ -264,6 +265,36 @@ function DetailDoc({ req, desc }: { req: Requirement; desc: string }) {
   const [embedding, setEmbedding] = useState(false)
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
 
+  /**
+   * 구현의도를 **AI 에게 다듬게 한다**(지시: Intent 에도 드롭바를).
+   *
+   * 바로 칸에 넣지 않는다 — 이미 쓴 글이 소리 없이 없어지면 안 된다.
+   * 아래에 초안으로 보여 주고 「넣기」 를 누르면 그때 편집 칸으로 간다.
+   */
+  const [llm, setLlm] = useLlmPick('req-intent')
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiText, setAiText] = useState('')
+
+  const askAi = async () => {
+    setAiBusy(true)
+    setNote({ kind: '', msg: '' })
+    try {
+      const r = await apiFetch(`/api/req/${encodeURIComponent(reqPk(req))}/ai-intent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ req: { ...req, desc: editing ? draft : desc }, llm }),
+      })
+      const b = (await r.json().catch(() => ({}))) as { text?: string; detail?: string }
+      if (!r.ok) throw new Error(b.detail || `만들지 못했습니다 (${r.status})`)
+      setAiText(String(b.text || '').trim())
+      if (!String(b.text || '').trim()) setNote({ kind: 'err', msg: '모델이 빈 글을 돌려줬습니다' })
+    } catch (e) {
+      setNote({ kind: 'err', msg: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setAiBusy(false)
+    }
+  }
+
   const doImport = async (f: File) => {
     setImporting(true)
     setNote({ kind: '', msg: '' })
@@ -374,6 +405,16 @@ ${md}` : md))
           >
             {importing ? '변환 중…' : '파일 등록'}
           </button>
+          <LlmPick value={llm} onChange={setLlm} />
+          <button
+            className="btn"
+            type="button"
+            onClick={() => void askAi()}
+            disabled={aiBusy}
+            title="제목과 이미 적힌 글을 읽고 구현의도 초안을 씁니다"
+          >
+            {aiBusy ? '쓰는 중…' : '✨ AI 초안'}
+          </button>
           <button
             className="btn"
             type="button"
@@ -406,6 +447,33 @@ ${md}` : md))
       </div>
 
       {error && <div className="form-error">{error}</div>}
+
+      {/* AI 초안 — 사람이 읽고 넣는다. 바로 덮으면 되돌릴 수가 없다 */}
+      {aiText && (
+        <div className="rd-ai">
+          <div className="rd-ai-head">
+            <b>이렇게 쓸까요</b>
+            <span className="sp" />
+            <button
+              className="btn small primary"
+              type="button"
+              onClick={() => {
+                setDraft(aiText)
+                setEditing(true)
+                setAiText('')
+              }}
+            >
+              편집칸에 넣기
+            </button>
+            <button className="btn small" type="button" onClick={() => setAiText('')}>
+              버리기
+            </button>
+          </div>
+          <div className="rd-ai-body">
+            <Markdown text={aiText} />
+          </div>
+        </div>
+      )}
 
       {editing ? (
         <div className="doc-editor">

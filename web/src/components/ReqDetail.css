@@ -156,3 +156,21 @@
 }
 .kv-sel:hover { border-color: var(--c-border); background: var(--c-surface); }
 .kv-sel:focus { border-color: var(--c-primary); background: var(--c-surface); outline: none; }
+
+/* AI 초안 — 본문 위에 얹는다. 바로 덮지 않고 사람이 보고 넣는다(지시) */
+.rd-ai {
+  margin: 8px 0;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: #fbfcfd;
+}
+.rd-ai-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border-soft);
+  font-size: var(--fs-sm);
+}
+.rd-ai-head .sp { margin-left: auto; }
+.rd-ai-body { padding: 8px 12px; max-height: 320px; overflow: auto; }

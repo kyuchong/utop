@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import LlmPick, { useLlmPick } from '@/components/LlmPick'
 import type { TcData, TcStep } from './types'
 
 interface Proposal {
@@ -37,6 +38,8 @@ interface Props {
  * 경고하고 단추를 끈다.
  */
 export default function TcSuggest({ tcid, data, intent, onChange }: Props) {
+  /** 스텝 설계를 누구에게 맡길지(지시) */
+  const [llm, setLlm] = useLlmPick('automation')
   const [prop, setProp] = useState<Proposal | null>(null)
   const [ground, setGround] = useState<Grounding | null>(null)
   const [err, setErr] = useState('')
@@ -51,7 +54,7 @@ export default function TcSuggest({ tcid, data, intent, onChange }: Props) {
         headers: { 'Content-Type': 'application/json' },
         // 프롬프트를 안 보낸다 — 서버가 요구사항 구현의도와 시험 목적으로
         // 만든다. 저장 안 한 목적으로도 만들 수 있게 tc 를 실어 보낸다.
-        body: JSON.stringify({ tc: data }),
+        body: JSON.stringify({ tc: data, llm }),
       })
       const b = await r.json().catch(() => ({}))
       if (!r.ok) throw new Error(b.detail || `만들지 못했습니다 (${r.status})`)
@@ -97,6 +100,7 @@ export default function TcSuggest({ tcid, data, intent, onChange }: Props) {
         <b>요구사항으로 만들기</b>
         <span className="muted small">구현의도와 시험 목적을 읽고 스텝을 설계합니다</span>
         <span className="sp" />
+        <LlmPick value={llm} onChange={setLlm} />
         <button
           className="btn small"
           type="button"

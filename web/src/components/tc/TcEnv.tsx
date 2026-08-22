@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import LlmPick, { useLlmPick } from '@/components/LlmPick'
 import type { TcData } from './types'
 
 interface Props {
@@ -39,20 +40,7 @@ export default function TcEnv({ data, onChange, tcid }: Props) {
    * 나가지 않아 자료를 맡길 수 있고, Claude 는 글이 낫다. 매번 고를 수
    * 있어야 한다. 고른 것은 기억한다.
    */
-  const [llm, setLlm] = useState(() => localStorage.getItem('utop.tc.llm') || '')
-
-  const llmQ = useQuery({
-    queryKey: ['llm-choices'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/llm-choices')
-      if (!r.ok) throw new Error('LLM 목록을 불러오지 못했습니다')
-      return (await r.json()) as {
-        choices?: Array<{ id: string; name: string; model?: string; local?: boolean }>
-      }
-    },
-    staleTime: 60_000,
-  })
-  const choices = llmQ.data?.choices ?? []
+  const [llm, setLlm] = useLlmPick('object')
 
   const askM = useMutation({
     mutationFn: async () => {
@@ -91,25 +79,7 @@ export default function TcEnv({ data, onChange, tcid }: Props) {
           {/* 스텝은 캡쳐로 만들어지는데 이 글은 여전히 손으로 써야 했다.
               스텝을 읽고 대신 쓰게 한다 — 반대 방향(목적 → 스텝)은 이미
               「AI 로 만들기」 가 하고 있다. */}
-          {choices.length > 1 && (
-            <select
-              className="tc-llm"
-              value={llm}
-              title="누구에게 맡길지"
-              onChange={(e) => {
-                setLlm(e.target.value)
-                localStorage.setItem('utop.tc.llm', e.target.value)
-              }}
-            >
-              <option value="">자동</option>
-              {choices.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.local ? '🏠 ' : '☁ '}
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          )}
+          <LlmPick value={llm} onChange={setLlm} />
           <button
             className="btn small"
             type="button"

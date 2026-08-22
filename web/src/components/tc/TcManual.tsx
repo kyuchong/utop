@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { apiFetch } from '@/api/client'
+import LlmPick, { useLlmPick } from '@/components/LlmPick'
 import type { TcData, TcStep } from './types'
 import './tc.css'
 
 interface Props {
   data: TcData
   onChange: (patch: Partial<TcData>) => void
+  /** 지금 열려 있는 TC — 초안을 부탁할 때 필요하다 */
+  tcid?: string
 }
 
 /**
@@ -27,11 +30,44 @@ interface Props {
  * '전부' 인 척하지 않는다 — 머리에 전체 스텝 수를 함께 적고, 나머지는
  * Automation 탭에 있다고 말한다.
  */
-export default function TcManual({ data, onChange }: Props) {
+export default function TcManual({ data, onChange, tcid = '' }: Props) {
   const all = (data.checks ?? []) as TcStep[]
   const [busy, setBusy] = useState(-1)
   /** 크게 보고 있는 사진. 새 탭으로 띄우면 돌아올 때 화면이 처음으로 돌아간다 */
   const [big, setBig] = useState('')
+  /**
+   * 수동 시험서 초안 — 목적과 자동 스텝을 읽고 쓴다(지시: 매뉴얼에도 드롭바).
+   * 바로 넣지 않는다. 아래에 보여 주고 「스텝으로 넣기」 를 누르면 그때 붙는다.
+   */
+  const [llm, setLlm] = useLlmPick('manual')
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiErr, setAiErr] = useState('')
+  const [aiSteps, setAiSteps] = useState<Array<{ step: string; data: string; expected: string }>>([])
+
+  const askAi = async () => {
+    setAiBusy(true)
+    setAiErr('')
+    try {
+      const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}/ai-manual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // 저장 안 한 목적·스텝으로도 뽑을 수 있어야 한다
+        body: JSON.stringify({ tc: data, llm }),
+      })
+      const b = (await r.json().catch(() => ({}))) as {
+        steps?: Array<{ step: string; data: string; expected: string }>
+        detail?: string
+      }
+      if (!r.ok) throw new Error(b.detail || `만들지 못했습니다 (${r.status})`)
+      setAiSteps(b.steps ?? [])
+      if (!(b.steps ?? []).length) setAiErr('모델이 아무 스텝도 돌려주지 않았습니다')
+    } catch (e) {
+      setAiSteps([])
+      setAiErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setAiBusy(false)
+    }
+  }
   const target = useRef<{ i: number; field: 'data_img' | 'expected_img' } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -236,10 +272,67 @@ export default function TcManual({ data, onChange }: Props) {
           <span className="muted small">
             {idxs.length}개 · 사람이 읽고 따라 하는 절차입니다
           </span>
+          <span className="sp" />
+          <LlmPick value={llm} onChange={setLlm} />
+          <button
+            className="btn small"
+            type="button"
+            disabled={aiBusy || !tcid}
+            title="시험 목적과 자동 스텝을 읽고 수동 시험서 초안을 씁니다"
+            onClick={() => void askAi()}
+          >
+            {aiBusy ? '쓰는 중…' : '✨ AI 초안'}
+          </button>
           <button className="btn small" type="button" onClick={add}>
             ＋ 수동 스텝
           </button>
         </div>
+
+        {aiErr && <div className="tc-err">{aiErr}</div>}
+
+        {/* 초안 — 사람이 보고 넣는다. 바로 붙이면 쓰던 시험서가 흔들린다 */}
+        {aiSteps.length > 0 && (
+          <div className="tc-prop">
+            <div className="tc-prop-head">
+              <b>이렇게 쓸까요</b>
+              <span className="muted small">{aiSteps.length}개</span>
+              <span className="sp" />
+              <button
+                className="btn small primary"
+                type="button"
+                onClick={() => {
+                  onChange({
+                    checks: [
+                      ...all,
+                      ...aiSteps.map((x) => ({
+                        kind: 'manual' as const,
+                        indent: 0,
+                        step: x.step,
+                        data: x.data,
+                        expected: x.expected,
+                      })),
+                    ],
+                  })
+                  setAiSteps([])
+                }}
+              >
+                스텝으로 넣기
+              </button>
+              <button className="btn small" type="button" onClick={() => setAiSteps([])}>
+                버리기
+              </button>
+            </div>
+            <ol className="mn-prop">
+              {aiSteps.map((x, i) => (
+                <li key={i}>
+                  <b>{x.step}</b>
+                  {x.data && <span className="muted small"> · 넣는 값: {x.data}</span>}
+                  {x.expected && <div className="muted small">기대: {x.expected}</div>}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
 
         {/* 이 탭이 시험 전체인 것처럼 보이면 안 된다. 옛 화면이 그래서
             656스텝 중 7개만 보였다. */}

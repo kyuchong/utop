@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
+import LlmPick, { useLlmPick } from '@/components/LlmPick'
 import { itemVerdict, verdictClass, verdictLabel, type CycleItemLite } from '@/pages/Cycles'
 import './CycleInsight.css'
 
@@ -28,6 +29,8 @@ function span(items: CycleItemLite[]): { first: string; last: string } {
  */
 export default function CycleInsight({ mode, cycleId, title, items, onClose }: Props) {
   const [busy, setBusy] = useState(false)
+  /** 결과 요약을 누구에게 맡길지(지시) */
+  const [llm, setLlm] = useLlmPick('cycle-summary')
   const [text, setText] = useState('')
   const [at, setAt] = useState('')
   const [err, setErr] = useState('')
@@ -61,7 +64,7 @@ export default function CycleInsight({ mode, cycleId, title, items, onClose }: P
     try {
       const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycleId)}/summarize`, {
         method: 'POST',
-        body: JSON.stringify({}),
+        body: JSON.stringify({ llm }),
       })
       const j = (await r.json()) as {
         ok?: boolean
@@ -138,6 +141,7 @@ export default function CycleInsight({ mode, cycleId, title, items, onClose }: P
           <span className="sp" />
           {mode === 'ai' && (
             <>
+              <LlmPick value={llm} onChange={setLlm} />
               <button
                 className="btn small"
                 type="button"

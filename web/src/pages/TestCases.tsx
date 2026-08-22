@@ -1841,7 +1841,7 @@ export default function TestCases({ me }: PageProps) {
               <TcTraffic data={d} onChange={patch} />
     ),
     manual: (
-              <TcManual data={d} onChange={patch} />
+              <TcManual data={d} onChange={patch} tcid={openId} />
     ),
     steps: (
               // Automation 만 안에서 좌우로 나뉜다 — 목록과 세부.
