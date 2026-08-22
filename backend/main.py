@@ -15592,7 +15592,12 @@ def _llm_for(use: str, llm_id: str = "") -> Optional[dict]:
         print(f"[_llm_for] LLM 목록을 읽지 못했습니다: {e}", flush=True)
         return None
     if llm_id:
-        return next((l for l in llms if str(l.get("id")) == llm_id), None)
+        got = next((l for l in llms if str(l.get("id")) == llm_id), None)
+        if got:
+            return got
+        # 골라 둔 것이 지워졌다 — 여기서 None 을 주면 「쓸 수 있는 LLM 이
+        # 없습니다」 로 끝났다(지적). 산 것 중에서 다시 고른다.
+        print(f"[_llm_for] 골라 둔 LLM({llm_id}) 이 목록에 없습니다 — 산 것으로 대신합니다", flush=True)
     # Anthropic 은 주소가 고정이라 칸이 비어 있을 수 있다 — 키가 있으면 산 것
     live = [
         l for l in llms
