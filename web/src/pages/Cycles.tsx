@@ -3758,7 +3758,9 @@ function CycleDetail({
   const runlineRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     if (st.on && follow)
-      runlineRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      // 가운데로 붙잡아 둔다(지시) — 'nearest' 는 줄이 끝자락에 걸려
+      // 다음 줄로 넘어갈 때마다 목록이 한 줄씩 튀었다
+      runlineRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }, [st.on, st.itemAt, follow])
 
   const colsRef = useRef<HTMLDivElement>(null)
@@ -4419,7 +4421,10 @@ function CycleDetail({
         <div className="cy-cols" ref={colsRef}>
         {/* 2열 — 이 회차를 돌리고 결과를 보는 칸. 머리(제목·단추·통계·거르기)와
             표가 한 카드에 든다. */}
-        <section className="panel cy-exec">
+        {/* 돌고 있으면 **테두리가 숨을 쉰다**(지시). 곁눈으로 봐도 지금
+            도는 중인지 멎었는지 알아야 한다 — 줄 하나만 깜빡이면 목록을
+            스크롤해 놓았을 때 아무 표시도 안 남는다 */}
+        <section className={`panel cy-exec${st.on ? ' cy-live' : ''}`}>
         {/* ② 공통 액션 바 — 요구사항·시험항목과 **같은 차례**.
             Edit·Bulk Edit | Add·Delete·Export. 세 화면을 오가는 사람이 매번
             어디에 무엇이 있는지 다시 찾지 않게. */}
@@ -5569,8 +5574,19 @@ function CycleDetail({
             {cur ? (
               <>
                 <div className="cxp-h">
-                  <b className="cxp-hid">{cur.tcid}</b>
-                  <h3 className="cxp-hnm">{cur.name || cur.tcid}</h3>
+                  {/* 부적합이 난 자리에서 **그 시험으로 바로 건너뛴다**(지시).
+                      새 탭으로 연다 — 사이클 화면은 결과를 손보던 자리라
+                      그것을 잃으면 안 된다. 돌아올 곳이 남아 있어야 한다. */}
+                  <a
+                    className="cxp-hlink"
+                    href={gotoHref('tc', cur.tcid)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={`${cur.tcid} 를 새 탭에서 엽니다`}
+                  >
+                    <b className="cxp-hid">{cur.tcid}</b>
+                    <h3 className="cxp-hnm">{cur.name || cur.tcid}</h3>
+                  </a>
                   <span className="sp" />
                   {(() => {
                     /* 결함 등록 — Fail 만이 아니라 Blocked·진행불가도 결함을 단다 */

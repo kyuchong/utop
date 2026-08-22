@@ -7930,3 +7930,40 @@ a.bc-cur:hover { text-decoration: underline; }
   box-shadow: 0 -2px 12px rgba(16, 24, 40, 0.06);
 }
 .ask-edbar .sp { flex: 1; }
+
+/* 부적합 → 그 시험으로. 링크인 줄 알아야 누른다 — 밑줄은 얹을 때만 */
+.cxp-hlink {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+.cxp-hlink:hover .cxp-hid,
+.cxp-hlink:hover .cxp-hnm { text-decoration: underline; }
+.cxp-hlink:hover .cxp-hnm { color: var(--c-primary); }
+
+/* ── 실행 중인 칸 ─────────────────────────────────────────
+   돌고 있으면 테두리가 숨을 쉰다(지시). 줄 하나만 깜빡이면 목록을 내려
+   놓았을 때 아무 표시도 안 남는다 — 칸 전체가 말해야 곁눈으로도 보인다. */
+.panel.cy-exec.cy-live {
+  border-color: var(--c-primary);
+  animation: cy-edge 1.4s ease-in-out infinite alternate;
+}
+@keyframes cy-edge {
+  from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c-primary) 34%, transparent); }
+  to   { box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-primary) 22%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel.cy-exec.cy-live { animation: none; }
+}
+
+/* 빵부스러기 아래 선이 둘로 보이던 것 —
+   위 줄(.rq-bar)의 아래 선과 이 카드(.panel)의 **제 테두리**가 맞붙어
+   두 줄로 읽혔다(지적: 굵은 건 뭐냐). 회차를 열면 이 카드가 화면 전체라
+   테두리가 할 일이 없다 — 걷는다. */
+.split.cy.cy-execfull .panel.cy-exec {
+  border: 0;
+  border-radius: 0;
+}
