@@ -524,10 +524,8 @@ export default function ReqTree({
         <span className="rt-title" title={full ? `${full} — ${r.title ?? ''}` : (r.title ?? '')}>
           {r.title || full || '(제목 없음)'}
         </span>
-        <span className="rt-cnts inline">
-          <i className="rt-ct" title={`연결 TC ${tcn}건`}>
-            T {tcn}
-          </i>
+        <span className="rt-nums">
+          <i title={`연결 TC ${tcn}건`}>T {tcn}</i>
         </span>
         <span className="rt-sp" />
       </div>
@@ -656,13 +654,9 @@ export default function ReqTree({
           {/* 수는 **이름 바로 뒤**에(지시). 오른쪽 끝에 몰아 두었더니 이름과
               수 사이가 멀어 어느 줄의 수인지 눈으로 이어야 했다.
               **0 도 적는다** — 「아직 안 센 것」 과 「세어 보니 0」 은 다르다. */}
-          <span className="rt-cnts inline">
-            <i className="rt-cq" title={`요구사항 ${cnt.req}건`}>
-              R {cnt.req}
-            </i>
-            <i className="rt-ct" title={`시험 ${cnt.tc}건`}>
-              T {cnt.tc}
-            </i>
+          <span className="rt-nums">
+            <i title={`요구사항 ${cnt.req}건`}>R {cnt.req}</i>
+            <i title={`시험 ${cnt.tc}건`}>T {cnt.tc}</i>
           </span>
           <span className="rt-sp" />
           {/* 끝의 ⋯ — 올려야 보이고, 누르면 우클릭과 같은 메뉴다(지시) */}

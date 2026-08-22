@@ -592,8 +592,29 @@
 .rt-fold[data-depth='3'] .rt-ficon { color: #e3c069; }
 .rt-fold[data-depth='4'] .rt-ficon { color: #ead8a4; }
 
-/* 수는 이름 바로 뒤(지시) — 오른쪽 끝에 몰면 어느 줄의 수인지 눈으로 잇게 된다 */
-.rt-cnts.inline { margin-left: 6px; display: inline-flex; gap: 5px; flex: none; }
+/*
+ * 수는 **이름 바로 뒤에 글자로**(지시).
+ *
+ * 알약 배지로 두었더니 칸이 늘어나 이름과 수 사이가 벌어졌다 — 배지를 빼고
+ * 글자만 붙인다. 붙는 자리가 곧 그 줄의 수라는 말이 된다.
+ */
+.rt-nums {
+  margin-left: 6px;
+  display: inline-flex;
+  gap: 6px;
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.rt-nums i { font-style: normal; }
+.rt-num {
+  margin-left: 6px;
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  font-variant-numeric: tabular-nums;
+}
 .rt-sp { flex: 1; }
 /* 끝의 ⋯ — 올려야 보인다 */
 .rt-more {
@@ -613,4 +634,8 @@
 .rt-more:hover { background: var(--c-primary-bg); color: var(--c-primary); }
 
 /* 시험항목 트리의 수도 이름 바로 뒤 — 같은 규칙 한 벌 */
-.rt-cnt.inline { margin-left: 6px; flex: none; }
+
+
+/* 이름은 **제 폭만** 쓴다 — flex:1 로 두면 수가 오른쪽 끝으로 밀린다 */
+.rt-fold .rt-fname,
+.rt-req .rt-title { flex: 0 1 auto; }

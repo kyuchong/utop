@@ -386,7 +386,8 @@ export default function TcTree({
           <span className="rt-title" title={[full, r.title].filter(Boolean).join(' — ')}>
             {r.title || full || '(제목 없음)'}
           </span>
-          <span className="rt-cnt inline">( {mine.length} )</span>
+          {/* 배지는 뺐다(지시) — 글자 바로 뒤에 수만 붙인다 */}
+          <span className="rt-num">{mine.length}</span>
           <span className="rt-sp" />
         </div>
       </div>
@@ -479,7 +480,7 @@ export default function TcTree({
             </b>
           )}
           {/* 수는 이름 바로 뒤(지시) */}
-          <span className="rt-cnt inline">( {total} )</span>
+          <span className="rt-num">{total}</span>
           <span className="rt-sp" />
           {/* 끝의 ⋯ — 올려야 보이고, 누르면 우클릭과 같은 메뉴다(지시) */}
           <button
