@@ -51,12 +51,19 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
   const [openL, setOpenL] = useState<Set<string>>(new Set())
   const [openR, setOpenR] = useState<Set<string>>(new Set())
 
+  /*
+   * 열쇠는 **이 창 것으로 따로** 쓴다.
+   *
+   * `['req-categories']` 를 그대로 썼더니 다른 화면이 먼저 담아 둔 값(모양이
+   * 다른 것)이 그대로 왔고, 배열이 아닌 것을 훑다가 화면이 통째로 하얘졌다
+   * (지적). 같은 열쇠는 같은 모양을 뜻한다.
+   */
   const catsQ = useQuery({
-    queryKey: ['req-categories'],
+    queryKey: ['copy-cats'],
     queryFn: async () => {
       const r = await apiFetch('/api/req-categories')
       const j = (await r.json()) as { categories?: Cat[] }
-      return j.categories ?? []
+      return Array.isArray(j?.categories) ? j.categories : []
     },
   })
   const reqsQ = useQuery({
@@ -64,7 +71,7 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
     queryFn: async () => {
       const r = await apiFetch('/api/req')
       const j = (await r.json()) as { reqs?: Req[] }
-      return j.reqs ?? []
+      return Array.isArray(j?.reqs) ? j.reqs : []
     },
   })
   const tcsQ = useQuery({
@@ -72,13 +79,14 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
     queryFn: async () => {
       const r = await apiFetch('/api/tc?meta=1')
       const j = (await r.json()) as { tcs?: Tc[] }
-      return j.tcs ?? []
+      return Array.isArray(j?.tcs) ? j.tcs : []
     },
   })
 
-  const cats = catsQ.data ?? []
-  const reqs = reqsQ.data ?? []
-  const tcs = tcsQ.data ?? []
+  /* 어떤 응답이 와도 배열로 본다 — 화면이 하얘지느니 비어 보이는 편이 낫다 */
+  const cats = Array.isArray(catsQ.data) ? catsQ.data : []
+  const reqs = Array.isArray(reqsQ.data) ? reqsQ.data : []
+  const tcs = Array.isArray(tcsQ.data) ? tcsQ.data : []
   const kids = useMemo(() => {
     const m = new Map<string, Cat[]>()
     for (const c of cats) m.set(String(c.parent_id ?? ''), [...(m.get(String(c.parent_id ?? '')) ?? []), c])
