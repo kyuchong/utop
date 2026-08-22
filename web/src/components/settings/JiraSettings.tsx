@@ -181,8 +181,8 @@ export default function JiraSettings() {
       <div className="seg jira-seg" role="tablist">
         {(
           [
-            ['conn', '연결'],
-            ['login', '로그인'],
+            ['conn', 'Jira Rest API'],
+            ['login', 'Jira SSO'],
           ] as Array<[Tab, string]>
         ).map(([k, lb]) => (
           <button
@@ -203,7 +203,7 @@ export default function JiraSettings() {
           <>
         {/* 붙는 것. 이게 안 되면 나머지는 볼 것도 없다 */}
         <div className="panel jira-card">
-          <b className="jira-t">연결</b>
+          <b className="jira-t">Jira Rest API</b>
           {/* 지금 어떤 상태인지 카드 안에서 읽힌다 — 저장값만 늘어놓으면
               「이게 지금 쓰이는 값인가」 를 알 수 없다 */}
           <div className="jira-state">
@@ -285,7 +285,7 @@ export default function JiraSettings() {
             사람이 들어오는 문이다. 한 칸에 섞여 있으면 어느 것을 고치는지
             헷갈린다. */}
         <div className="panel jira-card">
-          <b className="jira-t">Jira 계정 로그인</b>
+          <b className="jira-t">Jira SSO</b>
           <span className="muted small">회원가입 없이 Jira 아이디·비밀번호로 들어옵니다</span>
           <div className="jira-state">
             <span className={`jira-sdot ${cfg.login_enabled ? 'ok' : 'off'}`} />
@@ -317,13 +317,13 @@ export default function JiraSettings() {
                 Jira 로그인 URL
                 <input
                   value={cfg.login_url ?? ''}
-                  placeholder={`비우면 「연결」의 주소 — ${cfg.url || 'https://…'}`}
+                  placeholder={`비우면 「Jira Rest API」의 주소 — ${cfg.url || 'https://…'}`}
                   onChange={(e) => set({ login_url: e.target.value })}
                   onBlur={(e) => void setSave({ login_url: e.target.value.trim() })}
                 />
                 <i className="muted small">
-                  로그인만 다른 Jira 로 물어볼 때 적습니다. 이슈 등록·조회는 「연결」의 주소를
-                  그대로 씁니다.
+                  로그인만 다른 Jira 로 물어볼 때 적습니다. 이슈 등록·조회는 「Jira Rest API」의
+                  주소를 그대로 씁니다.
                 </i>
               </label>
               <label className="jira-ck sub">
@@ -360,7 +360,7 @@ export default function JiraSettings() {
                     <span className={`acc-chk ${chk.url ? 'ok' : 'bad'}`}>
                       {chk.url
                         ? `② 로그인 주소 ${chk.url}${chk.separate ? ' (이슈용과 따로)' : ' (이슈용과 같음 — 사람 확인용 Jira 가 따로면 위에 적으세요)'}`
-                        : '② 주소가 없습니다 — 「연결」에 Jira URL 을 넣으세요'}
+                        : '② 주소가 없습니다 — 「Jira Rest API」 에 URL 을 넣으세요'}
                     </span>
                     <span className={`acc-chk ${chk.reachable ? 'ok' : 'bad'}`}>
                       {chk.reachable
@@ -369,7 +369,7 @@ export default function JiraSettings() {
                     </span>
                     {chk.cert && (
                       <span className="acc-chk warn">
-                        인증서가 만료됐거나 사내 자체서명입니다. 「연결」의{' '}
+                        인증서가 만료됐거나 사내 자체서명입니다. 「Jira Rest API」의{' '}
                         <b>「TLS 인증서 검증」</b> 을 끄면 바로 됩니다 — 인증서를 갱신하는 것이
                         본래 자리입니다.
                       </span>
