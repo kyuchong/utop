@@ -653,6 +653,28 @@ export default function TcTraffic({ data, onChange }: Props) {
   /** 되는 길로 읽었을 때 그 값이 몇 초 전 것인가 (-1 이면 방금 읽음) */
   const slowAge = useRef(-1)
 
+  /**
+   * 진행 상태 — **무엇을 하는 중이고 몇 초가 흘렀나**(지시).
+   *
+   * 「읽는 중…」 만 떠 있으면 10초가 지났는지 40초가 지났는지 알 수 없어,
+   * 멎은 것인지 도는 것인지 사람이 판단을 못 한다. 하는 일과 흘린 초를
+   * 함께 적는다.
+   */
+  const [phase, setPhase] = useState('')
+  const startedAt = useRef(0)
+  const [, bump] = useState(0)
+  useEffect(() => {
+    if (!phase) return
+    const iv = window.setInterval(() => bump((n) => n + 1), 250)
+    return () => window.clearInterval(iv)
+  }, [phase])
+  const secs = phase ? (Date.now() - startedAt.current) / 1000 : 0
+  const begin = (what: string) => {
+    startedAt.current = Date.now()
+    setPhase(what)
+  }
+  const took = () => `${((Date.now() - startedAt.current) / 1000).toFixed(1)}초`
+
   const readPorts = async (force = false) => {
     if (!cfg.chassis) {
       setMsg('계측기를 먼저 고르세요')
@@ -660,6 +682,7 @@ export default function TcTraffic({ data, onChange }: Props) {
     }
     setBusy('ports')
     setMsg('')
+    begin(kind === 'stc' ? '섀시에 묻는 중' : 'N2X 에 묻는 중')
     /*
      * STC 는 이 단추가 아예 없었다(지적). 포트를 손으로 적어야 했는데,
      * 「1/1」 인지 「1/1/1」 인지 슬롯이 몇 번부터인지는 섀시가 안다 —
@@ -767,25 +790,29 @@ export default function TcTraffic({ data, onChange }: Props) {
         return rows
       }
 
-      /* 오래 걸릴 수 있는 일이다 — 말없이 멎어 있으면 고장으로 읽힌다 */
+      /* 오래 걸릴 수 있는 일이다 — 말없이 멎어 있으면 고장으로 읽힌다.
+         무엇을 하는 중인지는 위 진행 줄이 초와 함께 말한다 */
       const slowNote = window.setTimeout(
-        () => setMsg('섀시에 묻는 중… 세션을 새로 여는 중이면 30초쯤 걸립니다'),
+        () => setMsg('세션을 새로 여는 중이면 30초쯤 걸립니다 — 기다려 주세요'),
         1500,
       )
       try {
         let out: Row[] = []
         let how = '빠른 길'
         if (force) {
+          begin('섀시에 다시 묻는 중')
           out = await slow(true)
           how = '섀시에 다시 물음'
         } else {
           try {
+            begin('살아 있는 세션에 묻는 중')
             out = await fast()
           } catch (e) {
             /* 왜 느린 길로 갔는지 **화면에 적는다.** 로그에만 남기면 느린
                이유를 물어볼 때마다 서버를 뒤져야 한다 */
             const why = e instanceof Error ? e.message : String(e)
             console.warn('[stc] 빠른 길 실패 → 되는 길로', e)
+            begin('세션을 새로 여는 중 (오래 걸립니다)')
             out = await slow(false)
             how = `느린 길 — 빠른 길이 안 됨: ${why.slice(0, 60)}`
             /* 다음 번엔 빠른 길로 가도록 **뒤에서 세션을 세워 둔다.**
@@ -807,7 +834,7 @@ export default function TcTraffic({ data, onChange }: Props) {
           out.length
             ? `포트 ${out.length}개 · 빈 포트 ${out.length - usedN}개 · 예약된 것 ${usedN}개` +
                 (mineN ? ` (내가 잡은 것 ${mineN}개)` : '') +
-                ` · ${how}` +
+                ` · ${how} · ${took()}` +
                 (age >= 0 ? ` · ${age}초 전에 읽은 값` : '')
             : '섀시가 포트를 돌려주지 않았습니다 — REST 서버·섀시 주소를 확인하세요',
         )
@@ -816,6 +843,7 @@ export default function TcTraffic({ data, onChange }: Props) {
       } finally {
         window.clearTimeout(slowNote)
         slowAge.current = -1
+        setPhase('')
         setBusy('')
       }
       return
@@ -877,11 +905,12 @@ export default function TcTraffic({ data, onChange }: Props) {
       setMsg(
         `포트 ${out.length}개 · 내가 잡은 것 ${mineN}개 · 빈 포트 ${freeN}개 · 남이 쓰는 것 ${
           out.length - mineN - freeN
-        }개`,
+        }개 · ${took()}`,
       )
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e))
     } finally {
+      setPhase('')
       setBusy('')
     }
   }
@@ -1235,6 +1264,15 @@ export default function TcTraffic({ data, onChange }: Props) {
               />
             )}
           </label>
+          {/* 진행 상태는 **REST 포트 오른쪽 빈자리**에 세운다(지시).
+              단추 옆에 두면 포트 칸이 밀려 줄이 접혔다. 여기는 늘 비어
+              있던 자리라 무엇도 밀지 않는다. */}
+          {phase && (
+            <span className="tt-prog" title="지금 하고 있는 일과 흘린 시간">
+              <i className="tt-prog-dot" aria-hidden="true" />
+              {phase} · <b>{secs.toFixed(1)}초</b>
+            </span>
+          )}
           {/* 시험 포트 — 이름표에 긴 안내문과 단추를 같이 넣었더니
               104px 짜리 칸을 넘겨 카드 밖으로 삐져나왔다. 이름표는 짧게,
               예시는 칸 안내로, 단추는 칸 뒤에 둔다. */}

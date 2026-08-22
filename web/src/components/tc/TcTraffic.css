@@ -607,3 +607,26 @@
 }
 .tt-pv-tbl tbody tr { cursor: default; }
 .tt-pv-tbl tbody tr:hover { background: var(--c-surface-2); }
+
+/* 진행 상태 — 하는 일과 흘린 초(지시). 멎은 것인지 도는 것인지 이것으로 안다 */
+.tt-prog {
+  /* REST 포트 칸 오른쪽 — 칸들과 같은 줄에서 아래(글자 줄)에 맞춘다 */
+  align-self: flex-end;
+  padding-bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  white-space: nowrap;
+}
+.tt-prog b { font-family: var(--font-mono); color: var(--c-text); }
+.tt-prog-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  animation: tt-pulse 1s ease-in-out infinite alternate;
+}
+@keyframes tt-pulse { from { opacity: 0.25; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .tt-prog-dot { animation: none; } }
