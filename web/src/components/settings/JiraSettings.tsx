@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/api/client'
+import SetTabs from './SetTabs'
 import './Accounts.css'
 
 /** 저장되는 것 */
@@ -175,28 +176,17 @@ export default function JiraSettings() {
         {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
       </div>
 
-      {/* 탭 둘 — 연결 · 로그인(지시). 생김새는 **장비 화면 것 그대로**(seg) —
-          같은 일을 하는 자리가 화면마다 달라 보일 이유가 없다.
+      {/* 탭 둘 — 연결 · 로그인(지시). SETUP 안의 갈래는 **한 벌**이다(지적:
+          어떤 페이지는 알약, 어떤 페이지는 밑줄이었다).
           기본값·자주 쓰는 프로젝트는 「Jira 프로젝트 패널 설정」 으로 옮겼다. */}
-      <div className="seg jira-seg" role="tablist">
-        {(
-          [
-            ['conn', 'Jira Rest API'],
-            ['login', 'Jira SSO'],
-          ] as Array<[Tab, string]>
-        ).map(([k, lb]) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={tab === k}
-            className={`seg-btn${tab === k ? ' on' : ''}`}
-            onClick={() => setTab(k)}
-          >
-            {lb}
-          </button>
-        ))}
-      </div>
+      <SetTabs<Tab>
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { k: 'conn', label: 'Jira Rest API', hint: '이슈를 읽고 쓰는 연결' },
+          { k: 'login', label: 'Jira SSO', hint: 'Jira 계정으로 UTOP 에 로그인' },
+        ]}
+      />
 
       <div className="jira-cols">
         {tab === 'conn' && (

@@ -9,6 +9,7 @@ import JiraSettings from '@/components/settings/JiraSettings'
 import Accounts from '@/components/settings/Accounts'
 import StepActions from '@/components/settings/StepActions'
 import JiraPanels from '@/components/settings/JiraPanels'
+import MailSettings from '@/components/settings/MailSettings'
 import Branding from '@/components/settings/Branding'
 import {
   IconAccounts,
@@ -25,7 +26,7 @@ import './Settings.css'
 
 // 'chat' 은 없앴다 — Chat 모델 설정은 'llm' 안의 탭으로 들어갔다.
 // 서버 연결과 모델 설정을 따로 두면 같은 모델을 두 군데서 고치게 된다.
-type Section = 'stepacts' | 'verdicts' | 'llm' | 'prompts' | 'accounts' | 'perms' | 'catalog' | 'codes' | 'reqcodes' | 'cyclecodes' | 'fields' | 'jira' | 'jirapanels' | 'branding' | 'export' | 'import'
+type Section = 'mail' | 'stepacts' | 'verdicts' | 'llm' | 'prompts' | 'accounts' | 'perms' | 'catalog' | 'codes' | 'reqcodes' | 'cyclecodes' | 'fields' | 'jira' | 'jirapanels' | 'branding' | 'export' | 'import'
 
 /**
  * 설정 화면.
@@ -80,6 +81,8 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
     items: [
       { key: 'jira', label: 'Jira 연동', icon: IconPlug, ready: true },
       { key: 'jirapanels', label: 'Jira 프로젝트 패널 설정', icon: IconPerms, ready: true },
+      /* 메일 — 서버는 진작 보낼 줄 알았는데 설정할 자리가 없었다(지시) */
+      { key: 'mail', label: '메일 설정', icon: IconPlug, ready: true },
     ],
   },
   {
@@ -166,6 +169,8 @@ export default function Settings() {
           <JiraSettings />
         ) : sec === 'jirapanels' ? (
           <JiraPanels />
+        ) : sec === 'mail' ? (
+          <MailSettings />
         ) : sec === 'branding' ? (
           <Branding />
         ) : sec === 'export' ? (

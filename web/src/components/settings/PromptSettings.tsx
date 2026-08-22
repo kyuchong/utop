@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/api/client'
+import SetTabs from './SetTabs'
 
 /**
  * 용도별 프롬프트 · 쓸 모델.
@@ -116,19 +117,11 @@ export default function PromptSettings() {
         <div className="empty">불러오는 중…</div>
       ) : (
         <>
-          <div className="ps-tabs" role="tablist">
-            {items.map((x) => (
-              <button
-                key={x.id}
-                type="button"
-                role="tab"
-                className={`ps-tab${(tab || items[0]?.id) === x.id ? ' on' : ''}`}
-                onClick={() => setTab(x.id)}
-              >
-                {x.label}
-              </button>
-            ))}
-          </div>
+          <SetTabs
+            value={tab || items[0]?.id || ''}
+            onChange={setTab}
+            tabs={items.map((x) => ({ k: x.id, label: x.label, hint: x.hint }))}
+          />
           {items
             .filter((x) => x.id === (tab || items[0]?.id))
             .map((x) => (

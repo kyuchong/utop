@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import JiraDefaults from './JiraDefaults'
 import { apiFetch } from '@/api/client'
+import SetTabs from './SetTabs'
 
 /**
  * 이슈 본문에 넣을 판.
@@ -151,26 +152,15 @@ export default function JiraPanels() {
         )}
       </div>
 
-      {/* 탭 둘 — 장비·Jira 연동 화면과 같은 seg 꼴(지시) */}
-      <div className="seg jp-seg" role="tablist">
-        {(
-          [
-            ['def', '기본값'],
-            ['panel', '이슈 패널'],
-          ] as Array<['def' | 'panel', string]>
-        ).map(([k, lb]) => (
-          <button
-            key={k}
-            type="button"
-            role="tab"
-            aria-selected={tab === k}
-            className={`seg-btn${tab === k ? ' on' : ''}`}
-            onClick={() => setTab(k)}
-          >
-            {lb}
-          </button>
-        ))}
-      </div>
+      {/* 탭 둘 — SETUP 안의 갈래는 한 벌이다(지적) */}
+      <SetTabs<'def' | 'panel'>
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { k: 'def', label: '기본값', hint: '새 이슈에 미리 채울 값·자주 쓰는 프로젝트' },
+          { k: 'panel', label: '이슈 패널', hint: '화면에 띄울 Jira 패널' },
+        ]}
+      />
 
       {tab === 'def' && <JiraDefaults />}
       {tab === 'panel' && (

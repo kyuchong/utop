@@ -1564,3 +1564,54 @@ button.dcc-st:disabled { cursor: default; }
 /* 질문 한 줄 — 지우기 단추가 늘 같은 자리에 있어야 손이 헤매지 않는다 */
 .ps-ask { display: flex; align-items: center; gap: 6px; }
 .ps-ask input { flex: 1; min-width: 0; }
+
+/* ── 메일 설정 ──
+   첫 갈래는 「어디로 보내는가」(SMTP), 나머지는 「무슨 글을 보내는가」. */
+.ml-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  margin-bottom: 12px;
+}
+.ml-on { display: flex; align-items: center; gap: 8px; }
+.ml-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.ml-row > .fld { flex: 1 1 220px; min-width: 0; }
+.ml-row > .ml-sm { flex: 0 0 110px; }
+.ml-row > .ml-md { flex: 0 0 180px; }
+.ml .fld { display: flex; flex-direction: column; gap: 4px; }
+.ml .fld > span { font-size: var(--fs-xs); color: var(--c-text-muted); }
+.ml .fld input,
+.ml .fld select,
+.ml .fld textarea {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+.ml .fld textarea { resize: vertical; line-height: 1.5; }
+/* 폼 본문은 HTML 이다 — 고정폭이라야 태그가 눈에 들어온다 */
+.ml-code {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: #fdfdfe;
+  color: var(--c-text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  resize: vertical;
+}
+.ml-ph { display: flex; align-items: center; gap: 8px; font-size: var(--fs-xs); color: var(--c-text-muted); }
+.ml-ph .sp { margin-left: auto; }
+.ml-secs { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.ml-sec { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-sm); }
+.ml-test { background: #fbfcfd; }
