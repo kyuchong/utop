@@ -51,8 +51,6 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
   const [mode, setMode] = useState<'all' | 'req' | 'tc'>('all')
   /** 폴더·요구사항을 통째로 고르되 **뺀 시험** — 체크를 푼 것 */
   const [skip, setSkip] = useState<Set<string>>(new Set())
-  /** 대상 프로젝트의 같은 모델 장비로 세션 바꾸기(기본 끔) */
-  const [swapSess, setSwapSess] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [openL, setOpenL] = useState<Set<string>>(new Set())
@@ -165,7 +163,13 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
     return { cats: cs, reqs: rs }
   }
   /** 고른 것으로 헤아린 시험 — 뺀 것은 안 센다 */
-  const pickedTcIds = useMemo(() => {
+  /*
+   * 고른 수는 **그릴 때마다 센다**.
+   *
+   * 기억(useMemo)해 두었더니 폴더를 골라도 숫자가 그대로인 일이 있었다
+   * (지적). 트리가 수천 줄도 아니고, 세는 값이 늘 맞는 편이 낫다.
+   */
+  const pickedTcIds = (() => {
     const out = new Set<string>()
     for (const p of picks) {
       if (p.kind === 'tc') out.add(p.id)
@@ -174,18 +178,16 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
     }
     for (const s0 of skip) out.delete(s0)
     return out
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [picks, skip, tcsOf, reqsOf, kids])
+  })()
   const nCat = picks.filter((p) => p.kind === 'cat').length
-  const nReq = useMemo(() => {
+  const nReq = (() => {
     const out = new Set<string>()
     for (const p of picks) {
       if (p.kind === 'req') out.add(p.id)
       else if (p.kind === 'cat') for (const rid of under(p.id).reqs) out.add(rid)
     }
     return out.size
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [picks, reqsOf, kids])
+  })()
   const toggle = (p: Pick) =>
     setPicks((cur) =>
       has(p) ? cur.filter((x) => !(x.kind === p.kind && x.id === p.id)) : [...cur, p],
@@ -213,16 +215,24 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
             key={`c:${c.id}`}
             className={`rt-fold${on ? ' on' : ''}`}
             style={{ paddingLeft: 6 + depth * 14 }}
-            onClick={() => (side === 'L' ? toggle({ kind: 'cat', id: c.id }) : setDst({ kind: 'cat', id: c.id }))}
+            onClick={() => {
+              if (side === 'L') {
+                toggle({ kind: 'cat', id: c.id })
+                setOpen((cur) => new Set(cur).add(c.id))
+              } else setDst({ kind: 'cat', id: c.id })
+            }}
           >
             <input
               type="checkbox"
               className="cpd-ck"
               checked={on}
               onClick={(e) => e.stopPropagation()}
-              onChange={() =>
-                side === 'L' ? toggle({ kind: 'cat', id: c.id }) : setDst({ kind: 'cat', id: c.id })
-              }
+              onChange={() => {
+                if (side === 'L') {
+                  toggle({ kind: 'cat', id: c.id })
+                  setOpen((cur) => new Set(cur).add(c.id))
+                } else setDst({ kind: 'cat', id: c.id })
+              }}
             />
             <button
               type="button"
@@ -378,7 +388,6 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
           mode,
           skip_tcs: [...skip],
           swap_model: swap,
-          swap_sessions: swapSess,
         }),
       })
       const j = (await r.json()) as {
@@ -492,14 +501,7 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
               <input type="checkbox" checked={swap} onChange={(e) => setSwap(e.target.checked)} />
               대상 모델로 바꿈
             </label>
-            <label className="cpd-sw">
-              <input
-                type="checkbox"
-                checked={swapSess}
-                onChange={(e) => setSwapSess(e.target.checked)}
-              />
-              세션도 대상 장비로
-            </label>
+
           </div>
 
           <section className="cpd-pane src">

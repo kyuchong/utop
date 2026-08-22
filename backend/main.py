@@ -4702,8 +4702,6 @@ async def copy_tree(body: dict, token: str = ""):
     mode = str(body.get("mode") or "all")
     # 폴더·요구사항을 통째로 고르되 **뺄 시험**은 따로 온다(체크 해제한 것)
     skip_tc = {str(x) for x in (body.get("skip_tcs") or [])}
-    # 대상 프로젝트의 같은 모델 장비로 세션을 바꿀까(기본 끔)
-    swap_sess = bool(body.get("swap_sessions"))
     if not items or not dst_id:
         raise HTTPException(400, "무엇을 어디로 복사할지 골라 주세요")
 
@@ -4755,16 +4753,8 @@ async def copy_tree(body: dict, token: str = ""):
         for st in d.get("checks") or []:
             for k in ("output", "status", "reason", "repeatResult", "executed_at", "took_ms", "rounds", "response"):
                 st.pop(k, None)
-        if swap_sess and dst_md:
-            # 같은 모델 장비가 그 랩에 있으면 그 자리에 앉힌다. 없으면 원본
-            # 그대로 둔다 — 잘못 앉히느니 비워 두는 편이 낫다.
-            rows = await c.fetch("SELECT id FROM device WHERE model = $1 ORDER BY ip", dst_md)
-            pool_ids = [str(r["id"]) for r in rows]
-            sess = d.get("sessions")
-            if isinstance(sess, list) and pool_ids:
-                d["sessions"] = [
-                    pool_ids[i] if i < len(pool_ids) else s0 for i, s0 in enumerate(sess)
-                ]
+        # 세션(장비 자리)은 **그대로 둔다**(지시). 장비가 여러 대면 어느 것을
+        # 어느 자리에 앉힐지 기계가 정할 수 없다 — 사람이 고를 일이다.
         await db.tc_upsert(nid, d)
         made["tcs"] += 1
 
