@@ -181,3 +181,8 @@
 }
 .cpd-mode label.on { color: #12539f; font-weight: 700; }
 .cpd-mid { width: 150px; }
+
+/* 최상위는 프로젝트 — 폴더보다 도드라지게 */
+.cpd-prj { font-weight: 700; color: #12539f; }
+/* 폴더를 짚었을 때 그 시험이 어느 요구사항 것인지 */
+.cpd-req { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); margin-right: 8px; }

@@ -55,8 +55,13 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
   const [msg, setMsg] = useState('')
   const [openL, setOpenL] = useState<Set<string>>(new Set())
   const [openR, setOpenR] = useState<Set<string>>(new Set())
-  /** 왼쪽에서 짚은 요구사항 — 그 시험들이 가운데 칸에 선다 */
-  const [atReq, setAtReq] = useState('')
+  /**
+   * 왼쪽에서 **짚은 자리** — 폴더든 요구사항이든.
+   *
+   * 폴더를 짚으면 그 아래 시험이 통째로 옆 칸에 선다(지적: 폴더를 고르면
+   * 시험 칸이 비어 있다). 거기서 낱개로 빼면 된다.
+   */
+  const [at, setAt] = useState<Pick | null>(null)
   /*
    * 창 자리 — 머리줄을 잡아 옮긴다(지시).
    *
@@ -179,15 +184,22 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
     for (const s0 of skip) out.delete(s0)
     return out
   })()
-  const nCat = picks.filter((p) => p.kind === 'cat').length
-  const nReq = (() => {
-    const out = new Set<string>()
+  /** 고른 것에 **딸려 온** 폴더·요구사항 — 체크로 보여야 한다(지적) */
+  const covered = (() => {
+    const cs = new Set<string>()
+    const rs = new Set<string>()
     for (const p of picks) {
-      if (p.kind === 'req') out.add(p.id)
-      else if (p.kind === 'cat') for (const rid of under(p.id).reqs) out.add(rid)
+      if (p.kind === 'cat') {
+        const u = under(p.id)
+        u.cats.forEach((x) => cs.add(x))
+        u.reqs.forEach((x) => rs.add(x))
+      } else if (p.kind === 'req') rs.add(p.id)
     }
-    return out.size
+    return { cats: cs, reqs: rs }
   })()
+
+  const nCat = covered.cats.size
+  const nReq = covered.reqs.size
   const toggle = (p: Pick) =>
     setPicks((cur) =>
       has(p) ? cur.filter((x) => !(x.kind === p.kind && x.id === p.id)) : [...cur, p],
@@ -209,7 +221,8 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
       const out: React.ReactNode[] = []
       for (const c of kids.get(parent) ?? []) {
         const kid = (kids.get(c.id)?.length ?? 0) + (reqsOf.get(c.id)?.length ?? 0)
-        const on = side === 'L' ? has({ kind: 'cat', id: c.id }) : dst?.kind === 'cat' && dst.id === c.id
+        const on =
+          side === 'L' ? covered.cats.has(c.id) : dst?.kind === 'cat' && dst.id === c.id
         out.push(
           <div
             key={`c:${c.id}`}
@@ -218,6 +231,7 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
             onClick={() => {
               if (side === 'L') {
                 toggle({ kind: 'cat', id: c.id })
+                setAt({ kind: 'cat', id: c.id })
                 setOpen((cur) => new Set(cur).add(c.id))
               } else setDst({ kind: 'cat', id: c.id })
             }}
@@ -230,6 +244,7 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
               onChange={() => {
                 if (side === 'L') {
                   toggle({ kind: 'cat', id: c.id })
+                  setAt({ kind: 'cat', id: c.id })
                   setOpen((cur) => new Set(cur).add(c.id))
                 } else setDst({ kind: 'cat', id: c.id })
               }}
@@ -245,10 +260,11 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
             >
               {kid ? <IconChevron /> : <span className="rt-dot" />}
             </button>
+            {/* 최상위는 **프로젝트**다 — 폴더와 같은 아이콘이면 갈리지 않는다(지적) */}
             <span className="rt-ficon" aria-hidden="true">
-              📁
+              {depth === 0 ? '🗂' : '📁'}
             </span>
-            <span className="rt-fname">{c.name}</span>
+            <span className={`rt-fname${depth === 0 ? ' cpd-prj' : ''}`}>{c.name}</span>
             {kid > 0 && <span className="rt-cnt">{kid}</span>}
           </div>,
         )
@@ -257,7 +273,7 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
         for (const r of reqsOf.get(c.id) ?? []) {
           const ron =
             side === 'L'
-              ? has({ kind: 'req', id: r.id }) || atReq === r.id
+              ? covered.reqs.has(r.id) || (at?.kind === 'req' && at.id === r.id)
               : dst?.kind === 'req' && dst.id === r.id
           out.push(
             <div
@@ -266,7 +282,7 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
               style={{ paddingLeft: 6 + (depth + 1) * 14 }}
               onClick={() => {
                 if (side === 'L') {
-                  setAtReq(r.id)
+                  setAt({ kind: 'req', id: r.id })
                   toggle({ kind: 'req', id: r.id })
                 } else setDst({ kind: 'req', id: r.id })
               }}
@@ -275,13 +291,11 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
               <input
                 type="checkbox"
                 className="cpd-ck"
-                checked={
-                  side === 'L' ? has({ kind: 'req', id: r.id }) : dst?.kind === 'req' && dst.id === r.id
-                }
+                checked={side === 'L' ? covered.reqs.has(r.id) : dst?.kind === 'req' && dst.id === r.id}
                 onClick={(e) => e.stopPropagation()}
                 onChange={() => {
                   if (side === 'L') {
-                    setAtReq(r.id)
+                    setAt({ kind: 'req', id: r.id })
                     toggle({ kind: 'req', id: r.id })
                   } else setDst({ kind: 'req', id: r.id })
                 }}
@@ -310,20 +324,27 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
    * 붙이기 전에 이미 있는 것을 보면 같은 시험을 두 번 넣지 않는다.
    */
   const tcPane = (side: 'L' | 'R') => {
-    const rid = side === 'L' ? atReq : dst?.kind === 'req' ? dst.id : ''
-    const list = tcsOf.get(rid) ?? []
-    if (!rid)
-      return (
-        <div className="cpd-empty">
-          {side === 'L'
-            ? '왼쪽에서 요구사항을 누르면 그 시험이 여기 섭니다.'
-            : '붙일 요구사항을 고르면 그 자리에 있는 시험이 보입니다.'}
-        </div>
-      )
-    if (!list.length) return <div className="cpd-empty">이 요구사항에는 시험이 없습니다.</div>
+    /* 왼쪽은 **짚은 자리**의 시험을 다 세운다 — 폴더면 그 아래 전부(지적),
+       요구사항이면 그 요구사항 것. 오른쪽은 붙일 요구사항의 것을 보여만 준다. */
+    let rows: Array<{ t: Tc; req: string }> = []
+    if (side === 'R') {
+      const rid = dst?.kind === 'req' ? dst.id : ''
+      rows = (tcsOf.get(rid) ?? []).map((t) => ({ t, req: '' }))
+      if (!rid)
+        return <div className="cpd-empty">붙일 요구사항을 고르면 그 자리에 있는 시험이 보입니다.</div>
+    } else {
+      if (!at) return <div className="cpd-empty">왼쪽에서 폴더나 요구사항을 누르면 그 시험이 여기 섭니다.</div>
+      const rids =
+        at.kind === 'req' ? [at.id] : under(at.id).reqs
+      const title = new Map(reqs.map((r) => [r.id, r.title || r.reqid || r.id]))
+      for (const rid of rids)
+        for (const t of tcsOf.get(rid) ?? [])
+          rows.push({ t, req: at.kind === 'cat' ? String(title.get(rid) ?? '') : '' })
+    }
+    if (!rows.length) return <div className="cpd-empty">여기에는 시험이 없습니다.</div>
     return (
       <div className="rt cpd-tree">
-        {list.map((t) => (
+        {rows.map(({ t, req }) => (
           <div
             key={t.tcid}
             className={`rt-req${side === 'L' && pickedTcIds.has(t.tcid) ? ' on' : ''}${
@@ -350,8 +371,6 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
               onClick={(e) => e.stopPropagation()}
               onChange={() => {
                 if (side !== 'L') return
-                /* 폴더·요구사항을 골라 자동으로 켜진 것은 **빼는 목록**으로
-                   내린다(승인). 낱개로 고른 것은 그 자리에서 뺀다. */
                 if (has({ kind: 'tc', id: t.tcid })) toggle({ kind: 'tc', id: t.tcid })
                 else
                   setSkip((cur) => {
@@ -367,6 +386,7 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
             </span>
             <span className="rt-title">{t.name || t.tcid}</span>
             <span className="rt-cnts">
+              {req && <i className="cpd-req">{req}</i>}
               <i className="rt-ct">{t.tcid}</i>
             </span>
           </div>
