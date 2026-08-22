@@ -1,5 +1,8 @@
 /* 「+ Copy」 — 좌우 두 판과 가운데 화살표. 창은 넓게 쓴다(트리가 둘이다) */
-.modal.cpd { width: 1040px; max-width: 96vw; }
+/* 창은 넓게 — 트리 셋이 든다(지시: 좌우 폭이 너무 작다) */
+.modal.cpd { width: 1360px; max-width: 97vw; }
+/* 머리줄을 잡으면 창이 따라온다(지시) */
+.cpd-grab { cursor: move; user-select: none; }
 .cpd-body {
   display: flex;
   align-items: stretch;
@@ -101,3 +104,21 @@
   cursor: pointer;
 }
 .cpd-msg { font-size: var(--fs-sm); color: var(--c-text-muted); }
+
+/* Source 는 두 칸 — 왼쪽 폴더·요구사항, 오른쪽 그 요구사항의 시험(지시) */
+.cpd-pane.src { flex: 2.1; }
+.cpd-two { display: flex; flex: 1; min-height: 0; }
+.cpd-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.cpd-col + .cpd-col { border-left: 1px solid var(--c-border); }
+.cpd-sub {
+  padding: 4px 8px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  border-bottom: 1px solid var(--c-border-soft);
+  background: #fbfcfd;
+}
+.cpd-empty { padding: 14px 10px; color: var(--c-text-faint); font-size: var(--fs-sm); }
+/* 트리 생김새는 1열 폴더 트리(rt-*) 그대로 — 여기서는 자리만 준다 */
+.cpd-tree { flex: 1; min-height: 340px; max-height: 56vh; overflow: auto; padding: 4px 0; }
+.cpd-tree .rt-fold.on,
+.cpd-tree .rt-req.on { background: var(--c-primary-bg); font-weight: 600; }
