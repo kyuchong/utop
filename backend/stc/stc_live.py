@@ -14,6 +14,7 @@
 #   - 호출은 main.py 가 단일 asyncio 락으로 직렬화하므로 self.stc 동시접근은 없다.
 import os
 import json
+import time
 
 REG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "stc_resv_registry.json")
 WORK_SESS = "U_TOP_work"
@@ -94,8 +95,39 @@ class StcLive:
                             pass
             except Exception:
                 pass
-            self.stc = stchttp.StcHttp(rest_ip, port=rest_port)
-            self.stc.new_session("utop", WORK_SESS)
+            # 세션 띄우기는 **한 번에 안 될 수 있다**.
+            #
+            # REST 서버는 BLL 프로세스를 띄우고 기다리는데, 그 시간이 서버
+            # 쪽 상한을 넘으면 500 「timed out waiting for session to start」
+            # 가 온다(겪었다). 그런데 그 뒤 몇 초면 세션이 실제로 떠 있는
+            # 일이 잦다 — 그때는 **붙기만 하면 된다**. 한 번 실패로 끝내지
+            # 않고, 새로 띄우기와 붙기를 번갈아 세 번까지 해 본다.
+            self.stc = stchttp.StcHttp(rest_ip, port=rest_port, timeout=180)
+            last = None
+            for _try in range(3):
+                try:
+                    self.stc.new_session("utop", WORK_SESS)
+                    last = None
+                    break
+                except Exception as e:
+                    last = e
+                    time.sleep(3.0)
+                    try:
+                        for s2 in self.stc.sessions():
+                            if s2.split(" - ")[0] == WORK_SESS:
+                                self.stc.join_session(s2)
+                                last = None
+                                break
+                    except Exception:
+                        pass
+                    if last is None:
+                        break
+            if last is not None:
+                raise RuntimeError(
+                    "STC 세션을 띄우지 못했습니다 — REST 서버가 응답할 때까지 기다리다 "
+                    "그만뒀습니다. 잠시 뒤 다시 하거나 STC REST 서버를 다시 시작하세요. "
+                    "(원인: %s)" % str(last)[:160]
+                )
             p = _split(self.stc.get("system1", "children-Project"))
             self.project = p[0] if p else self.stc.create("project", under="system1")
             self.handles = {}

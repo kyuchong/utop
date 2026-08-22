@@ -10034,6 +10034,22 @@ _STC_WATCH_TTL = 90            # 이 초 동안 아무도 안 물어보면 폴�
 _stc_poller_started = False
 _STC_LIVE_ACTIONS = {"connect", "reserve", "releaseports", "forcereset"}
 
+def _stc_err(msg: str) -> str:
+    """STC 가 준 실패를 사람 말로. 원문은 뒤에 남긴다."""
+    t = str(msg or "")
+    low = t.lower()
+    if "timed out waiting for session" in low:
+        return ("STC REST 서버가 세션을 못 띄웠습니다 — 계측기 안의 BLL 이 뜨는 데 "
+                "오래 걸리는 중입니다. 20초쯤 뒤 다시 누르거나, 그래도 같으면 "
+                "REST 서버를 다시 시작하세요. (원문: " + t[:120] + ")")
+    if "connection refused" in low or "failed to establish" in low:
+        return ("STC REST 서버에 닿지 못했습니다 — 서버가 떠 있는지(기본 8888) 확인하세요. "
+                "(원문: " + t[:120] + ")")
+    if "session not found" in low:
+        return ("STC 세션이 끊겼습니다 — 다시 누르면 새로 붙습니다. (원문: " + t[:120] + ")")
+    return t
+
+
 def _run_stc_helper(action, chassis, rest_ip, rest_port, params):
     """stc_session.py 서브프로세스(트래픽 단계용). JSON dict 반환(예외도 dict)."""
     helper = str(Path(__file__).parent / "stc" / "stc_session.py")
@@ -10058,7 +10074,10 @@ def _run_stc_helper(action, chassis, rest_ip, rest_port, params):
 async def _stc_live_status(chassis, rest_ip, rest_port):
     # 상태는 읽기전용 서브프로세스(U_TOP_status)로 — 영속 세션 핸들 손상 없이 안정적.
     #  예약 세션(StcLive/U_TOP_work)과 독립이라 락 불필요.
-    res = await asyncio.to_thread(_run_stc_helper, "portstatus", chassis, rest_ip, rest_port, {"user": "_utop_status_"})
+    # light: 링크·속도(포트마다 REST 왕복)는 건너뛴다. 목록과 예약 상태가
+    # 이 화면이 쓰는 전부다 — 왕복 수가 절반 아래로 준다(지적: 느리다).
+    res = await asyncio.to_thread(_run_stc_helper, "portstatus", chassis, rest_ip, rest_port,
+                                  {"user": "_utop_status_", "light": True})
     if isinstance(res, dict) and res.get("ok"):
         _stc_status_cache[chassis] = {"ts": _t.time(), "rows": res.get("ports", [])}
     return res
@@ -10131,16 +10150,32 @@ async def stc_sess(action: str, data: dict = None):
         _stc_status_seen[chassis] = _t.time()      # 지금 보고 있다
         _ensure_poller()
         cache = _stc_status_cache.get(chassis)
-        if not cache or (_t.time() - cache["ts"] > 12):
+        now = _t.time()
+        # 있는 값을 **먼저 준다**. 섀시에 묻는 일은 포트마다 REST 왕복이라
+        # 몇 초가 든다 — 그동안 화면이 멎어 있으면 「느리다」 가 된다(지적).
+        # 묵은 값이면 뒤에서 새로 읽어 두고, 다음 번에 새 값이 나간다.
+        if cache and (now - cache["ts"]) > 12:
+            async def _bg():
+                async with _stc_status_lock:
+                    c2 = _stc_status_cache.get(chassis)
+                    if not c2 or (_t.time() - c2["ts"]) > 12:
+                        await _stc_live_status(chassis, rest_ip, rest_port)
+            try:
+                asyncio.create_task(_bg())
+            except Exception as e:
+                print(f"[stc] 뒷일로 못 넘겼습니다: {e}", flush=True)
+        elif not cache:
+            # 처음 한 번은 어쩔 수 없이 기다린다 — 줄 것이 없다
             async with _stc_status_lock:
-                c2 = _stc_status_cache.get(chassis)
-                if not c2 or (_t.time() - c2["ts"] > 12):
+                if not _stc_status_cache.get(chassis):
                     await _stc_live_status(chassis, rest_ip, rest_port)
             cache = _stc_status_cache.get(chassis)
         rows = cache["rows"] if cache else []
         return {"ok": True, "action": "portstatus", "user": user,
                 "ports": _overlay_mine(rows, user),
-                "cached": True, "ts": (cache["ts"] if cache else 0)}
+                "cached": True, "ts": (cache["ts"] if cache else 0),
+                # 몇 초 전 값인가 — 화면이 「지금 것」 인 척하지 않게
+                "age": round(now - cache["ts"], 1) if cache else 0}
 
     # 그 외 모든 액션(예약/해제/강제리셋/연결/트래픽): 서브프로세스.
     #  예약/해제는 command-only(ReservePortCommand/RevokeOwner)라 포트 오브젝트를 안 만들어
@@ -10149,6 +10184,9 @@ async def stc_sess(action: str, data: dict = None):
         res = await asyncio.to_thread(_run_stc_helper, action, chassis, rest_ip, rest_port, params)
     if action in ("reserve", "releaseports", "forcereset", "connect"):
         _stc_status_cache.pop(chassis, None)   # 점유 변화 → 다음 조회에서 실상태 반영
+    # 영어 한 덩어리를 그대로 던지지 않는다 — 무엇을 해야 하는지까지 적는다
+    if isinstance(res, dict) and res.get("error"):
+        res["error"] = _stc_err(res["error"])
     return res
 
 @app.get("/api/cycle/{cycle_id}")

@@ -147,7 +147,9 @@ def main():
 
     try:
         # StcHttp 생성자가 REST 서버에 즉시 접속하므로 try 안에서 생성해 오류를 JSON 으로 보고
-        stc = stchttp.StcHttp(rest_ip, port=rest_port)
+        # 세션이 뜨기를 기다리는 시간을 넉넉히 — 기본값으로는 BLL 이 뜨는
+        # 동안 클라이언트가 먼저 포기해 「timed out」 으로 보인다(겪었다)
+        stc = stchttp.StcHttp(rest_ip, port=rest_port, timeout=180)
         existing = find_session(stc)
         if action == "end":
             if existing:
@@ -491,8 +493,14 @@ def main():
                             available = "AVAILABLE" in own
                             csv_list = [x.strip() for x in str(gi.get("PortsCsvString") or gi.get("Index") or "").split(",") if x.strip()]
                             # 실제 케이블 링크상태/속도: 그룹의 PhysicalPort 에서 LinkStatus/LineSpeedStatus 읽음
+                            #
+                            # 이 읽기가 **포트마다 REST 왕복 한 번**이다. 44포트면 그만큼
+                            # 더 걸린다 — 포트 목록만 필요할 때(「섀시에서 읽기」)는 건너뛴다
+                            # (지적: STC 포트 읽기가 느리다). params.light 로 끈다.
                             link_map = {}
                             try:
+                                if params.get("light"):
+                                    raise StopIteration
                                 pps = _split(stc.get(g, "children-PhysicalPort"))
                                 for _i, _pp in enumerate(pps):
                                     if _i < len(csv_list):
@@ -501,6 +509,8 @@ def main():
                                             link_map[csv_list[_i]] = (str(_ppi.get("LinkStatus") or ""), str(_ppi.get("LineSpeedStatus") or ""))
                                         except Exception:
                                             pass
+                            except StopIteration:
+                                pass
                             except Exception:
                                 pass
                             for pidx in csv_list:

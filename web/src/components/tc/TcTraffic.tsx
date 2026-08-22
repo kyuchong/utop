@@ -595,6 +595,32 @@ export default function TcTraffic({ data, onChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cfg.chassis, kind])
 
+  /*
+   * STC 는 **미리 데워 둔다**(지적: 포트 읽기가 느리다).
+   *
+   * 느린 것은 첫 한 번이다 — 세션을 붙이고 섀시에 물어 포트마다 값을
+   * 읽는다. 사람이 단추를 누른 뒤에 그 일을 시작하면 그 몇 초를 그대로
+   * 기다린다. 탭을 열 때 조용히 시켜 두면, 누를 때쯤에는 답이 와 있다.
+   *
+   * 화면은 건드리지 않는다 — 실패해도 사람이 알 일이 아니고, 단추를
+   * 누르면 그때 제대로 말한다.
+   */
+  useEffect(() => {
+    if (kind !== 'stc' || !cfg.chassis) return
+    const t = window.setTimeout(() => {
+      void apiFetch('/api/stc/sess/portstatus', {
+        method: 'POST',
+        body: JSON.stringify({
+          chassis: cfg.chassis,
+          restIp: 'localhost',
+          restPort: cfg.restPort ?? 8888,
+        }),
+      }).catch(() => {})
+    }, 400)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfg.chassis, kind])
+
   const readPorts = async () => {
     if (!cfg.chassis) {
       setMsg('계측기를 먼저 고르세요')
@@ -623,6 +649,7 @@ export default function TcTraffic({ data, onChange }: Props) {
         const j = (await r.json()) as {
           ok?: boolean
           error?: string
+          age?: number
           ports?: Array<{
             slot?: number | string
             port?: number | string
@@ -639,14 +666,16 @@ export default function TcTraffic({ data, onChange }: Props) {
           return {
             id: `${x.slot ?? ''}/${x.port ?? ''}`,
             // 「free」 는 잡을 수 있는가 — 비었거나 내가 잡은 것
-            free: st === 'free' || st === 'mine' || st === '',
+            free: st === 'available' || st === 'mine',
             mine: st === 'mine',
             who:
               st === 'mine'
                 ? '내가 잡음(예약됨)'
                 : st === 'other'
                   ? `남이 씀${x.who ? ` — ${x.who}` : ''}`
-                  : `빈 포트${link ? ` · 링크 ${link}` : ''}${x.speed ? ` ${x.speed}` : ''}`,
+                  : st === 'unavailable'
+                    ? '쓸 수 없음'
+                    : `빈 포트${link ? ` · 링크 ${link}` : ''}${x.speed ? ` ${x.speed}` : ''}`,
             state: st,
             lock: String(x.who ?? ''),
           }
@@ -654,9 +683,11 @@ export default function TcTraffic({ data, onChange }: Props) {
         setChassisPorts(out)
         const mineN = out.filter((x) => x.mine).length
         const otherN = out.filter((x) => x.state === 'other').length
+        const age = Number(j.age ?? 0)
         setMsg(
           out.length
-            ? `포트 ${out.length}개 · 내가 잡은 것 ${mineN}개 · 남이 쓰는 것 ${otherN}개`
+            ? `포트 ${out.length}개 · 내가 잡은 것 ${mineN}개 · 남이 쓰는 것 ${otherN}개` +
+                (age > 12 ? ` · ${Math.round(age)}초 전 값(새로 읽는 중 — 다시 누르면 새 값)` : '')
             : '섀시가 포트를 돌려주지 않았습니다 — REST 서버·섀시 주소를 확인하세요',
         )
       } catch (e) {
