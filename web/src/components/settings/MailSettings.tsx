@@ -5,14 +5,17 @@ import SetTabs, { useSetTab } from './SetTabs'
 /**
  * 메일 설정.
  *
- * 서버는 진작부터 메일을 보낼 줄 알았다 — 가입 승인, @멘션, 요구사항·
- * 시험항목 공유, 사이클 배정. 그런데 **설정할 자리가 새 화면에 없었다**.
- * 그래서 보낼 수는 있는데 어디로 어떻게 보내는지는 손댈 수가 없었다
+ * 서버는 진작부터 메일을 보낼 줄 알았다 — @멘션, 요구사항·시험항목 공유,
+ * 사이클 배정. 그런데 **설정할 자리가 새 화면에 없었다**. 그래서 보낼
+ * 수는 있는데 어디로 어떻게 보내는지는 손댈 수가 없었다
  * (지시: SETUP › INTEGRATION 아래 메일 설정 페이지).
  *
- * 갈래가 다섯이다. 첫 갈래는 **어디로 보내는가**(SMTP)고, 나머지 넷은
+ * 갈래가 넷이다. 첫 갈래는 **어디로 보내는가**(SMTP)고, 나머지 셋은
  * **무슨 글을 보내는가**(폼)다. 폼은 HTML 이라 코드처럼 보이지만, 고치는
- * 사람은 문구만 고친다 — 자리표({{name}} 같은 것)를 함께 적어 둔다.
+ * 사람은 문구만 고친다 — 자리표({{model}} 같은 것)를 함께 적어 둔다.
+ *
+ * **가입 승인 폼은 두지 않는다**(지시: 가입 승인이 필요 없다 — Jira 로
+ * 로그인한다). 서버에 저장된 값은 지우지 않고 그대로 지고 간다.
  */
 
 interface Cfg {
@@ -24,6 +27,8 @@ interface Cfg {
   password: string
   from_addr: string
   from_name: string
+  /** 가입 승인 메일의 단추 링크. 칸은 걷었지만(지시) 값은 그대로 지고
+      간다 — 저장할 때 빈 값으로 덮으면 이미 나가던 메일의 단추가 죽는다 */
   app_url: string
   approval_subject: string
   approval_html: string
@@ -73,12 +78,15 @@ const TC_SEC: Array<[string, string]> = [
   ['cycle', '사이클'],
 ]
 
-type Tab = 'smtp' | 'signup' | 'req' | 'tc' | 'cycle'
+type Tab = 'smtp' | 'req' | 'tc' | 'cycle'
 
 export default function MailSettings() {
-  const [tab, setTab] = useSetTab<Tab>('mail', 'smtp')
+  const [tab0, setTab] = useSetTab<Tab>('mail', 'smtp')
+  /* 없어진 갈래를 기억하고 있을 수 있다(가입 폼을 걷었다) — 모르는 값이면 첫 갈래 */
+  const tab: Tab = (['smtp', 'req', 'tc', 'cycle'] as Tab[]).includes(tab0) ? tab0 : 'smtp'
   const [cfg, setCfg] = useState<Cfg>(BLANK)
-  const [def, setDef] = useState({ approval_subject: '', approval_html: '', cycle_subject: '', cycle_html: '' })
+  /* 되돌릴 기본 폼 — 가입 쪽은 화면에서 걷었으니 안 받는다 */
+  const [def, setDef] = useState({ cycle_subject: '', cycle_html: '' })
   const [req, setReq] = useState<ShareForm>({ subject: '', sections: {}, intro: '', outro: '' })
   const [tc, setTc] = useState<ShareForm>({ subject: '', sections: {}, intro: '', outro: '' })
   const [busy, setBusy] = useState(false)
@@ -96,15 +104,11 @@ export default function MailSettings() {
         if (a.ok) {
           const j = (await a.json()) as {
             config?: Partial<Cfg>
-            default_approval_subject?: string
-            default_approval_html?: string
             default_cycle_subject?: string
             default_cycle_html?: string
           }
           setCfg({ ...BLANK, ...(j.config ?? {}) })
           setDef({
-            approval_subject: j.default_approval_subject ?? '',
-            approval_html: j.default_approval_html ?? '',
             cycle_subject: j.default_cycle_subject ?? '',
             cycle_html: j.default_cycle_html ?? '',
           })
@@ -221,7 +225,7 @@ export default function MailSettings() {
       <div className="set-head">
         <b>메일 설정</b>
         <span className="muted small">
-          @멘션 알림·가입 승인 등 시스템 메일 발송에 씁니다. (관리자 전용)
+          @멘션 알림·요구사항/시험항목 공유·사이클 배정 메일에 씁니다. (관리자 전용)
         </span>
         <span className="sp" />
         {note.msg && <span className={`set-note ${note.kind}`}>{note.msg}</span>}
@@ -235,7 +239,6 @@ export default function MailSettings() {
         onChange={setTab}
         tabs={[
           { k: 'smtp', label: '메일 설정', hint: '어디로 보내는가 — SMTP' },
-          { k: 'signup', label: '가입 메일 폼', hint: '가입 승인 메일에 쓸 글' },
           { k: 'req', label: 'REQ 공유 폼', hint: '요구사항을 공유할 때 쓸 글' },
           { k: 'tc', label: 'TC 공유 폼', hint: '시험항목을 공유할 때 쓸 글' },
           { k: 'cycle', label: '사이클 배정 폼', hint: '담당자에게 배정을 알릴 때 쓸 글' },
@@ -311,14 +314,6 @@ export default function MailSettings() {
               </label>
             </div>
 
-            <label className="fld">
-              <span>로그인(앱) 주소 — 가입 승인 메일의 「로그인 하러 가기」 단추 링크</span>
-              <input
-                value={cfg.app_url}
-                placeholder="예: http://220.1.1.253:9000 (비우면 단추 대신 안내문)"
-                onChange={(e) => set('app_url', e.target.value)}
-              />
-            </label>
           </div>
 
           {/* 보내 보기 — 설정이 맞는지는 눌러 보기 전에는 알 수 없다 */}
@@ -346,43 +341,6 @@ export default function MailSettings() {
             </i>
           </div>
         </>
-      )}
-
-      {tab === 'signup' && (
-        <div className="ml-card">
-          <label className="fld">
-            <span>제목</span>
-            <input
-              value={cfg.approval_subject}
-              placeholder={def.approval_subject}
-              onChange={(e) => set('approval_subject', e.target.value)}
-            />
-          </label>
-          <div className="ml-ph">
-            <span>본문 (HTML)</span>
-            <span className="sp" />
-            <button
-              className="btn small"
-              type="button"
-              disabled={!def.approval_html || cfg.approval_html === def.approval_html}
-              title="처음 폼으로 되돌립니다"
-              onClick={() => set('approval_html', def.approval_html)}
-            >
-              ↺ 기본값
-            </button>
-          </div>
-          <textarea
-            className="ml-code"
-            rows={18}
-            value={cfg.approval_html}
-            placeholder="비우면 기본 폼을 씁니다"
-            onChange={(e) => set('approval_html', e.target.value)}
-          />
-          <i className="muted small">
-            자리표: {'{{name}}'} {'{{username}}'} {'{{email}}'} {'{{dept}}'} {'{{team}}'}{' '}
-            {'{{position}}'} {'{{duty}}'} {'{{app_url}}'} {'{{login_button}}'}
-          </i>
-        </div>
       )}
 
       {tab === 'req' && shareTab('req', req, setReq, REQ_SEC)}
