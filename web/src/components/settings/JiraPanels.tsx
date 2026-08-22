@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import JiraDefaults from './JiraDefaults'
 import { apiFetch } from '@/api/client'
 
 /**
@@ -133,6 +134,10 @@ export default function JiraPanels() {
           프로젝트 불러오기
         </button>
       </div>
+
+      {/* 기본값 · 자주 쓰는 프로젝트 — 연동 설정에서 옮겨 왔다(지시) */}
+      <JiraDefaults />
+
 
       {/* 자동 등록. 기본이 꺼짐인 것이 중요하다 — 64건 돌려 20건 깨지면
           이슈가 20개 생기는데 그중 열여덟은 같은 원인이거나 시험이 틀린

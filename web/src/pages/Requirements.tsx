@@ -810,9 +810,18 @@ export default function Requirements({ me }: Props) {
             ...rest,
             id: pk,
             reqid: nid,
-            // 제목은 그대로 둔다 — 복제는 ID 만 새로 받는 것이다.
-            // 「(복사)」 꼬리를 붙였더니 지우는 일이 하나 늘었다.
-            title: r.title ?? '',
+            /*
+             * 제목 끝에 **(복제)** 를 붙인다(지적).
+             *
+             * 그대로 두었더니 같은 이름이 나란히 서서 어느 것이 원본인지
+             * 목록에서 갈리지 않았다. 이름을 고치는 한 번의 수고보다,
+             * 잘못된 줄을 고치는 사고가 크다. 이미 「(복제)」 가 붙어 있으면
+             * 또 붙이지 않는다.
+             */
+            title: (() => {
+              const t = String(r.title ?? '').trim()
+              return t.endsWith('(복제)') ? t : `${t} (복제)`.trim()
+            })(),
             tc: [],
           }),
         })

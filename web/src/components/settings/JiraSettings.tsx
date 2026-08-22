@@ -37,18 +37,7 @@ interface LoginCheck {
   last_fail?: { user?: string; why?: string; at?: string } | null
 }
 
-type Tab = 'conn' | 'login' | 'etc'
-
-interface Proj {
-  key: string
-  name: string
-}
-
-interface IType {
-  id: string
-  name: string
-  subtask?: boolean
-}
+type Tab = 'conn' | 'login'
 
 /**
  * Jira 연동 설정.
@@ -65,13 +54,10 @@ export default function JiraSettings() {
   const [cfg, setCfg] = useState<Cfg>({})
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
   const [busy, setBusy] = useState('')
-  const [projects, setProjects] = useState<Proj[]>([])
-  const [types, setTypes] = useState<IType[]>([])
   /** 「지금 되는지 보기」 — 저장된 설정으로 실제 상태를 물어본다 */
-  const [tab, setTab] = useState<Tab>(() => {
-    const v = localStorage.getItem('utop.jira.tab')
-    return v === 'login' || v === 'etc' ? v : 'conn'
-  })
+  const [tab, setTab] = useState<Tab>(() =>
+    localStorage.getItem('utop.jira.tab') === 'login' ? 'login' : 'conn',
+  )
   /** 계정 쪽 요약 — 로그인 탭 머리줄에 「명단이 몇인지」 를 적는다 */
   const [acc, setAcc] = useState<{ users?: number; jira?: number; last?: string } | null>(null)
   const [chk, setChk] = useState<LoginCheck | null>(null)
@@ -178,41 +164,6 @@ export default function JiraSettings() {
     }
   }
 
-  const loadProjects = async () => {
-    setBusy('proj')
-    try {
-      const r = await apiFetch('/api/jira/projects')
-      const j = (await r.json()) as { ok?: boolean; projects?: Proj[]; error?: string }
-      if (!j.ok) {
-        setMsg({ kind: 'err', text: j.error || '프로젝트를 못 읽었습니다' })
-        return
-      }
-      setProjects(j.projects ?? [])
-      setMsg({ kind: 'ok', text: `프로젝트 ${(j.projects ?? []).length}개` })
-    } finally {
-      setBusy('')
-    }
-  }
-
-  // 프로젝트가 정해지면 그 프로젝트의 이슈유형을 읽는다
-  useEffect(() => {
-    const pj = cfg.default_project
-    if (!pj) return
-    void (async () => {
-      const r = await apiFetch(`/api/jira/issuetypes?project=${encodeURIComponent(pj)}`)
-      const j = (await r.json()) as { ok?: boolean; issuetypes?: IType[] }
-      if (j.ok) setTypes((j.issuetypes ?? []).filter((t) => !t.subtask))
-    })()
-  }, [cfg.default_project])
-
-  const fav = new Set(cfg.fav_projects ?? [])
-  const toggleFav = (k: string) => {
-    const n = new Set(fav)
-    if (n.has(k)) n.delete(k)
-    else n.add(k)
-    set({ fav_projects: [...n] })
-  }
-
   return (
     <div className="set-page">
       <div className="set-head">
@@ -224,20 +175,22 @@ export default function JiraSettings() {
         {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
       </div>
 
-      {/* 탭 셋 — 연결 · 로그인 · 기본값(자주 쓰는 프로젝트 포함)(지시).
-          한 화면에 네 카드가 늘어서면 어느 것을 고치는 중인지 흐려진다. */}
-      <div className="jira-tabs">
+      {/* 탭 둘 — 연결 · 로그인(지시). 생김새는 **장비 화면 것 그대로**(seg) —
+          같은 일을 하는 자리가 화면마다 달라 보일 이유가 없다.
+          기본값·자주 쓰는 프로젝트는 「Jira 프로젝트 패널 설정」 으로 옮겼다. */}
+      <div className="seg jira-seg" role="tablist">
         {(
           [
             ['conn', '연결'],
             ['login', '로그인'],
-            ['etc', '기본값 · 자주 쓰는 프로젝트'],
           ] as Array<[Tab, string]>
         ).map(([k, lb]) => (
           <button
             key={k}
             type="button"
-            className={`jira-tab${tab === k ? ' on' : ''}`}
+            role="tab"
+            aria-selected={tab === k}
+            className={`seg-btn${tab === k ? ' on' : ''}`}
             onClick={() => setTab(k)}
           >
             {lb}
@@ -261,7 +214,6 @@ export default function JiraSettings() {
                   {cfg.auth === 'bearer' ? 'PAT(Bearer)' : 'ID/비밀번호(Basic)'} · 조회 계정{' '}
                   <b>{cfg.user || '(없음)'}</b> · 토큰 {cfg.token ? '있음' : '없음'} · TLS 검증{' '}
                   {cfg.verify === false ? '끔' : '켬'}
-                  {projects.length ? ` · 프로젝트 ${projects.length}개` : ''}
                 </>
               ) : (
                 '주소가 없습니다 — 아래에 Jira URL 을 넣으세요'
@@ -456,122 +408,6 @@ export default function JiraSettings() {
               onClick={() => void save('login')}
             >
               저장
-            </button>
-          </div>
-        </div>
-          </>
-        )}
-
-        {tab === 'etc' && (
-          <>
-        {/* 기본값 — 이슈 등록 창에서 미리 골라 둘 것 */}
-        <div className="panel jira-card">
-          <b className="jira-t">기본값</b>
-          <span className="muted small">이슈를 등록할 때 미리 골라 둡니다</span>
-          <div className="jira-state">
-            <span className={`jira-sdot ${cfg.default_project ? 'ok' : 'off'}`} />
-            <span className="muted small">
-              지금 값 — 프로젝트 <b>{cfg.default_project || '(안 정함)'}</b> · 이슈유형{' '}
-              <b>{cfg.default_issuetype || '(안 정함)'}</b>
-            </span>
-          </div>
-          <label className="jira-f">
-            <span>기본 프로젝트</span>
-            <div className="jira-row">
-              <select
-                value={cfg.default_project ?? ''}
-                onChange={(e) => set({ default_project: e.target.value })}
-              >
-                <option value="">고르세요</option>
-                {projects.map((p) => (
-                  <option key={p.key} value={p.key}>
-                    {p.key} · {p.name}
-                  </option>
-                ))}
-                {/* 아직 안 불러왔어도 저장된 값은 보여야 한다 */}
-                {cfg.default_project && !projects.some((p) => p.key === cfg.default_project) && (
-                  <option value={cfg.default_project}>{cfg.default_project}</option>
-                )}
-              </select>
-              <button
-                className="btn small"
-                type="button"
-                disabled={!!busy}
-                onClick={() => void loadProjects()}
-              >
-                프로젝트 불러오기
-              </button>
-            </div>
-          </label>
-          <label className="jira-f">
-            <span>기본 이슈유형</span>
-            <select
-              value={cfg.default_issuetype ?? ''}
-              onChange={(e) => set({ default_issuetype: e.target.value })}
-            >
-              <option value="">고르세요</option>
-              {types.map((t) => (
-                <option key={t.id} value={t.name}>
-                  {t.name}
-                </option>
-              ))}
-              {cfg.default_issuetype && !types.some((t) => t.name === cfg.default_issuetype) && (
-                <option value={cfg.default_issuetype}>{cfg.default_issuetype}</option>
-              )}
-            </select>
-          </label>
-          <div className="jira-act">
-            <button
-              className="btn primary small"
-              type="button"
-              disabled={!!busy}
-              onClick={() => void save('def')}
-            >
-              기본값 저장
-            </button>
-          </div>
-        </div>
-
-        {/* 자주 쓰는 프로젝트 — 수백 개가 드롭다운에 늘어서면 못 고른다 */}
-        <div className="panel jira-card">
-          <b className="jira-t">자주 쓰는 프로젝트</b>
-          <div className="jira-state">
-            <span className={`jira-sdot ${fav.size ? 'ok' : 'off'}`} />
-            <span className="muted small">
-              {fav.size ? `고른 ${fav.size}개만 나옵니다` : '아무것도 안 골랐습니다 — 전부 나옵니다'}
-              {projects.length ? ` · 불러온 프로젝트 ${projects.length}개` : ''}
-            </span>
-          </div>
-          <span className="muted small">
-            고른 것만 이슈 등록 드롭다운에 나옵니다. 하나도 안 고르면 전부 나옵니다.
-          </span>
-          {projects.length === 0 ? (
-            <p className="muted small jira-note">
-              「프로젝트 불러오기」 를 누르면 여기에 목록이 나옵니다.
-            </p>
-          ) : (
-            <div className="jira-favs">
-              {projects.map((p) => (
-                <label key={p.key} className="jira-fav">
-                  <input
-                    type="checkbox"
-                    checked={fav.has(p.key)}
-                    onChange={() => toggleFav(p.key)}
-                  />
-                  <b>{p.key}</b>
-                  <span className="muted">{p.name}</span>
-                </label>
-              ))}
-            </div>
-          )}
-          <div className="jira-act">
-            <button
-              className="btn primary small"
-              type="button"
-              disabled={!!busy || projects.length === 0}
-              onClick={() => void save('fav')}
-            >
-              {fav.size ? `고른 ${fav.size}개 저장` : '저장'}
             </button>
           </div>
         </div>
