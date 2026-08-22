@@ -95,14 +95,16 @@
   min-height: 0;
 }
 .cy-cols > .cy-exec { flex: none; }
+/* 요구사항·시험항목 표와 같은 모양으로(승인 2026-08-22).
+   테두리 1px 이 첫 줄을 아래로 밀어 1열 트리와 어긋난다 — 걷는다. */
 .cy-list {
   overflow-x: auto;
   flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  border: 1px solid var(--c-border);
-  border-radius: var(--r-card);
+  border: 0;
+  border-radius: 0;
 }
 .cy-side {
   flex: 0 0 auto;
@@ -121,8 +123,9 @@
      머리글이 두 줄로 접힌다. 그보다는 가로로 미는 편이 낫다. */
   /* 캐럿 · 체크 · 제목 · 진행 · 결함 · 결과 · 타입 · 담당 · 실행자 · 실행 (TC ID 열 제거) */
   grid-template-columns: 20px 28px minmax(120px, 1fr) 90px 38px 58px 56px 68px 68px 108px;
-  gap: 6px;
-  min-width: 600px;
+  /* 칸 사이 여백은 칸이 갖는다(좌우 6px) — gap 까지 주면 두 겹이 된다.
+     최소 폭도 뺐다: 두 화면은 좁아지면 글자를 줄이지 가로로 밀지 않는다 */
+  gap: 0;
   align-items: center;
   padding: var(--row-py) var(--row-px);
   min-height: var(--row-h);
@@ -289,7 +292,7 @@
    「부적합」 세 글자만 보고는 아무것도 못 한다. 어느 스텝이 왜 떨어졌는지
    보려고 TC 화면으로 건너가면 무엇을 보러 갔는지 잊는다. */
 .cy-row[role='button'] { cursor: pointer; }
-.cy-row.on { outline: 2px solid var(--c-primary); outline-offset: -2px; }
+.cy-row.on { background: var(--c-primary-bg); }
 .cy-steps-pane {
   border: 1px solid var(--c-border);
   border-radius: var(--r-card);
@@ -1282,9 +1285,9 @@ select.cy-v.na { color: #999; }
 }
 
 /* Ctrl·Shift 로 고른 항목. 네모 없이 줄 자체가 칠해진다 */
+/* 고른 줄은 **채움만** — 두 화면과 같게(승인). 왼쪽 띠·외곽선은 뺐다 */
 .cy-row.picked {
   background: var(--c-primary-bg);
-  box-shadow: inset 2px 0 0 var(--c-primary);
 }
 
 /* Shift+누르기가 글자 선택으로도 잡힌다 — 목록에서는 막는다.

@@ -540,6 +540,7 @@ select.pick-live.tag { width: auto; max-width: 100%; }
 .rq-tr.tc-tr.rq-th,
 .cy-list .cy-row.cy-hd,
 .cy-row.cy-hd {
+  min-height: var(--list-h);
   background: #e9edf2;
   color: #5b6670;
   font-size: var(--fs-label);
