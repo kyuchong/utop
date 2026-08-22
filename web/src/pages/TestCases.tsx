@@ -31,6 +31,7 @@ import TcMapReqDialog from '@/components/tc/TcMapReqDialog'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import TcSequence from '@/components/tc/TcSequence'
 import RunLog, { type LogLine } from '@/components/tc/RunLog'
+import CopyDialog from '@/components/CopyDialog'
 import { STEP_ACT_ON, type StepAct } from '@/components/settings/StepActions'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTree from '@/components/tc/TcTree'
@@ -272,6 +273,8 @@ export default function TestCases({ me }: PageProps) {
   })
   const actOf = (k?: string): StepAct => stepActs.data?.[String(k ?? 'cli')] ?? STEP_ACT_ON
 
+  /* 「+ Copy」 창 — 폴더·요구사항·시험을 골라 다른 자리에 붙인다(승인) */
+  const [copyOpen, setCopyOpen] = useState(false)
   const [logs, setLogs] = useState<LogLine[]>([])
   const [logOnly, setLogOnly] = useState(false)
   /* 판 높이는 **짜임(flex)** 으로 채운다 — 재서 넣던 것을 걷었다(지적:
@@ -2245,6 +2248,17 @@ export default function TestCases({ me }: PageProps) {
 
   return (
     <>
+      {/* 「+ Copy」 — 왼쪽에서 고르고 오른쪽 자리에 붙인다(승인) */}
+      {copyOpen && (
+        <CopyDialog
+          onClose={() => setCopyOpen(false)}
+          onDone={() => {
+            void qc.invalidateQueries({ queryKey: ['tcs'] })
+            void qc.invalidateQueries({ queryKey: ['reqs'] })
+            void qc.invalidateQueries({ queryKey: ['req-categories'] })
+          }}
+        />
+      )}
       {form !== undefined && (
         <TcForm
           editing={form}
@@ -2582,6 +2596,11 @@ export default function TestCases({ me }: PageProps) {
                   {/* 여러 건을 한 번에 만드는 창 — 요구사항 화면과 같은 이름 */}
                   <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
                     + Bulk New
+                  </button>
+                  {/* 파일로 내보냈다 가져오는 대신 **자리를 골라 옮긴다**(승인).
+                      폴더·요구사항·시험을 골라 다른 자리에 붙인다 */}
+                  <button className="btn" type="button" onClick={() => setCopyOpen(true)}>
+                    + Copy
                   </button>
                   {listPick.size > 0 && (
                     <>

@@ -1,0 +1,103 @@
+/* 「+ Copy」 — 좌우 두 판과 가운데 화살표. 창은 넓게 쓴다(트리가 둘이다) */
+.modal.cpd { width: 1040px; max-width: 96vw; }
+.cpd-body {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 10px 12px;
+  min-height: 0;
+}
+.cpd-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--c-surface);
+}
+.cpd-h {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #e9edf2;
+  color: #5b6670;
+  font-size: var(--fs-label);
+  font-weight: 700;
+  border-bottom: 1px solid var(--c-border);
+}
+.cpd-h em { font-style: normal; font-weight: 400; color: var(--c-text-faint); }
+.cpd-tree {
+  flex: 1;
+  min-height: 320px;
+  max-height: 52vh;
+  overflow: auto;
+  padding: 4px 0;
+  font-size: var(--fs-sm);
+}
+.cpd-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 26px;
+  padding-right: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cpd-row:hover { background: var(--c-surface-2); }
+.cpd-row.on { background: var(--c-primary-bg); font-weight: 600; }
+.cpd-row.off { opacity: 0.55; cursor: default; }
+.cpd-row .cpd-lb { overflow: hidden; text-overflow: ellipsis; }
+.cpd-row em {
+  font-style: normal;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  font-family: var(--font-mono);
+}
+.cpd-caret {
+  border: 0;
+  background: transparent;
+  width: 14px;
+  color: var(--c-text-faint);
+  cursor: pointer;
+  transition: transform 0.12s;
+  padding: 0;
+}
+.cpd-caret.open { transform: rotate(90deg); }
+.cpd-caret.ph { cursor: default; }
+.cpd-ic { font-style: normal; font-size: 11px; }
+.cpd-more {
+  font-size: var(--fs-xs);
+  color: var(--c-primary);
+  cursor: pointer;
+  padding: 2px 0;
+}
+.cpd-more:hover { text-decoration: underline; }
+
+/* 가운데 — 화살표 하나가 곧 「복사」 다 */
+.cpd-mid {
+  flex: none;
+  width: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.cpd-go {
+  width: 56px;
+  height: 44px;
+  font-size: 20px;
+  line-height: 1;
+}
+.cpd-sw {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  cursor: pointer;
+}
+.cpd-msg { font-size: var(--fs-sm); color: var(--c-text-muted); }

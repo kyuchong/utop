@@ -4627,6 +4627,188 @@ async def get_req(req_id: str):
     return r
 
 # REQ 저장 (생성/수정)
+# ══════════════ 폴더·요구사항·시험 통째로 복사 ══════════════
+#
+# 「+ Copy」 창 하나가 이 일을 다 한다(승인 2026-08-22). 파일로 내보냈다
+# 가져오는 길은 「이 줄이 어느 요구사항에 붙나」 를 사람이 다시 정해 줘야
+# 했다 — 붙일 자리를 먼저 고르고 옮기면 그 물음이 아예 사라진다.
+#
+# 규칙(승인): 새 ID 로 발번 · 요구사항↔시험 연결은 새 ID 끼리 유지 ·
+# 대상 프로젝트의 모델그룹·모델명으로 갈아 끼움(끌 수 있음) · 같은 이름이면
+# 「(복제)」 를 붙여 새로 만든다(덮어쓰기 없음) · 실행 이력은 안 가져온다.
+
+
+def _cat_path(cats: dict, cid: str) -> list:
+    """뿌리부터 이 폴더까지 — req 의 cat1..cat4 가 이 길을 담는다."""
+    out, cur, guard = [], cid, 0
+    while cur and guard < 12:
+        out.append(cur)
+        cur = (cats.get(cur) or {}).get("parent_id")
+        guard += 1
+    return list(reversed(out))
+
+
+def _leaf_cat(r: dict) -> str:
+    for k in ("cat4", "cat3", "cat2", "cat1"):
+        v = str((r.get(k) or "")).strip()
+        if v:
+            return v
+    return ""
+
+
+async def _next_req_id(c) -> str:
+    from datetime import datetime as _dt
+    import re as _r
+    iso = _dt.now().isocalendar()
+    prefix = "REQ-%02d%02d-" % (iso[0] % 100, iso[1])
+    rows = await c.fetch("SELECT data->>'reqid' AS reqid FROM req WHERE data->>'reqid' LIKE $1", prefix + "%")
+    mx = 0
+    for r in rows:
+        m = _r.match("^" + _r.escape(prefix) + r"(\d+)$", r["reqid"] or "")
+        if m:
+            mx = max(mx, int(m.group(1)))
+    return prefix + str(mx + 1).zfill(4)
+
+
+async def _next_tc_id(c) -> str:
+    from datetime import datetime as _dt
+    import re as _r
+    iso = _dt.now().isocalendar()
+    prefix = "TC-%02d%02d-" % (iso[0] % 100, iso[1])
+    rows = await c.fetch("SELECT tcid FROM tc WHERE tcid LIKE $1", prefix + "%")
+    mx = 0
+    for r in rows:
+        m = _r.match("^" + _r.escape(prefix) + r"(\d+)$", r["tcid"] or "")
+        if m:
+            mx = max(mx, int(m.group(1)))
+    return prefix + str(mx + 1).zfill(4)
+
+
+@app.post("/api/copy-tree")
+async def copy_tree(body: dict, token: str = ""):
+    """Source 에서 고른 것들을 Destination 아래로 **복사**한다.
+
+    items: [{kind: 'cat'|'req'|'tc', id}]   — 여럿 가능
+    dst  : {kind: 'cat'|'req', id}          — 폴더나 요구사항
+    swap_model: 대상 프로젝트의 모델그룹·모델명으로 갈아 끼울까(기본 켜짐)
+    """
+    _user_from_token(token)
+    items = [x for x in (body.get("items") or []) if isinstance(x, dict)]
+    dst = body.get("dst") or {}
+    dst_kind = str(dst.get("kind") or "")
+    dst_id = str(dst.get("id") or "")
+    swap = body.get("swap_model") is not False
+    if not items or not dst_id:
+        raise HTTPException(400, "무엇을 어디로 복사할지 골라 주세요")
+
+    cats = {c["id"]: dict(c) for c in await db.cat_list()}
+    reqs = {r["id"]: dict(r) for r in await db.req_list_full()}
+    tcs_meta = await db.tc_list_meta()
+    tc_by_req: dict = {}
+    for t in tcs_meta:
+        tc_by_req.setdefault(str(t.get("req_id") or ""), []).append(str(t.get("tcid")))
+
+    # 대상 프로젝트(뿌리 폴더)의 모델 정보 — 갈아 끼울 값
+    base_cat = dst_id if dst_kind == "cat" else _leaf_cat(reqs.get(dst_id) or {})
+    root = (_cat_path(cats, base_cat) or [base_cat])[0]
+    async with db.pool().acquire() as c:
+        prow = await c.fetchrow(
+            "SELECT customer, model_group, model FROM project WHERE cat_id = $1", root
+        )
+    dst_mg = str((prow or {}).get("model_group") or "") if prow else ""
+    dst_md = str((prow or {}).get("model") or "") if prow else ""
+
+    made = {"cats": 0, "reqs": 0, "tcs": 0}
+    now_ms = int(datetime.now().timestamp() * 1000)
+    seq = {"n": 0}
+
+    def _uid(p: str) -> str:
+        seq["n"] += 1
+        return f"{p}-{now_ms}-{seq['n']}"
+
+    async def copy_tc(c, tcid: str, req_id: str) -> None:
+        src = await db.tc_get(tcid)
+        if not src:
+            return
+        nid = await _next_tc_id(c)
+        d = dict(src)
+        d["tcid"] = nid
+        d["req_id"] = req_id
+        if swap:
+            if dst_mg:
+                d["model_group"] = dst_mg
+            if dst_md:
+                d["model"] = dst_md
+        # 실행 흔적은 안 가져온다 — 복사본은 「아직 안 돌린 것」 이다(승인)
+        for k in ("result_history", "issue_list", "last_run", "cycles"):
+            d.pop(k, None)
+        for st in d.get("checks") or []:
+            for k in ("output", "status", "reason", "repeatResult", "executed_at", "took_ms", "rounds", "response"):
+                st.pop(k, None)
+        await db.tc_upsert(nid, d)
+        made["tcs"] += 1
+
+    async def copy_req(c, rid: str, cat_id: str) -> None:
+        src = reqs.get(rid)
+        if not src:
+            return
+        path = _cat_path(cats, cat_id)
+        nid = _uid("rq")
+        d = dict(src.get("data") or src)
+        d["id"] = nid
+        d["reqid"] = await _next_req_id(c)
+        d["tc"] = []
+        for i in range(4):
+            d[f"cat{i + 1}"] = path[i] if i < len(path) else None
+        if swap:
+            if dst_mg:
+                d["model_group"] = dst_mg
+            if dst_md:
+                d["model"] = dst_md
+        await db.req_upsert(nid, d)
+        made["reqs"] += 1
+        for t in tc_by_req.get(rid, []):
+            await copy_tc(c, t, nid)
+
+    async def copy_cat(c, cid: str, parent: str) -> None:
+        src = cats.get(cid)
+        if not src:
+            return
+        name = str(src.get("name") or "")
+        # 같은 이름이 이미 있으면 「(복제)」 — 덮어쓰지 않는다(승인)
+        sibs = {str(v.get("name") or "") for v in cats.values() if str(v.get("parent_id") or "") == str(parent or "")}
+        if name in sibs:
+            name = f"{name} (복제)"
+        nid = _uid("cat")
+        await db.cat_upsert(nid, name, parent or None, int(src.get("sort_order") or 0))
+        cats[nid] = {"id": nid, "name": name, "parent_id": parent}
+        made["cats"] += 1
+        for r in list(reqs.values()):
+            if _leaf_cat(r) == cid:
+                await copy_req(c, str(r["id"]), nid)
+        for k, v in list(cats.items()):
+            if str(v.get("parent_id") or "") == cid and not k.startswith("cat-" + str(now_ms)):
+                await copy_cat(c, k, nid)
+
+    async with db.pool().acquire() as c:
+        for it in items:
+            kind = str(it.get("kind") or "")
+            sid = str(it.get("id") or "")
+            if kind == "cat":
+                if dst_kind != "cat":
+                    raise HTTPException(400, "폴더는 폴더 아래로만 복사합니다")
+                await copy_cat(c, sid, dst_id)
+            elif kind == "req":
+                if dst_kind != "cat":
+                    raise HTTPException(400, "요구사항은 폴더 아래로만 복사합니다")
+                await copy_req(c, sid, dst_id)
+            elif kind == "tc":
+                if dst_kind != "req":
+                    raise HTTPException(400, "시험 항목은 요구사항 아래로만 복사합니다")
+                await copy_tc(c, sid, dst_id)
+    return {"ok": True, **made}
+
+
 @app.get("/api/req-next-id")
 async def req_next_id():
     """다음 요구사항 ID — REQ-<연2><ISO주차2>-<주차별 순번4>.
