@@ -540,13 +540,32 @@ html .cyt-row {
   gap: 0;
   padding: var(--row-py) var(--row-px);
 }
-/* 칸 안에서는 **접지 않는다** — 접히면 줄 높이가 들쭉날쭉해진다(지적).
-   넘치면 말줄임으로 자른다. 날짜·배지·이름이 여기 걸린다 */
+/*
+ * 칸은 **모두 같은 상자**다(지적: 제목 칸만 위아래가 더 커 보인다).
+ *
+ * 칸마다 든 것이 다르다 — 어떤 칸은 글자, 어떤 칸은 단추, 어떤 칸은 고르개
+ * (PickCell)다. 그대로 두면 저마다 제 높이로 서서 한 칸만 도드라진다.
+ * 세로 가운데로 세우고 높이를 22px 로 못 박는다 — 줄(28px) 안에서 위아래
+ * 3px 씩 남는 그 값이다. 접지 않고, 넘치면 말줄임으로 자른다.
+ */
 html .cyt-row > * {
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+  line-height: 1.4;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+}
+/* 고르개·글자 칸이 상자를 꽉 채우게 — 안쪽에서 또 높이를 만들지 않는다 */
+html .cyt-row > * > .pick-live,
+html .cyt-row > * > .pick-view,
+html .cyt-row .pick-live,
+html .cyt-row .pick-view {
+  height: 22px;
+  line-height: 22px;
+  display: block;
 }
 /* 머리글 단추도 머리줄 글자와 같은 크기·색 */
 html .cyt-row.cyt-hd .cyt-th {

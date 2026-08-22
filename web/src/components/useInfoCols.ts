@@ -31,7 +31,8 @@ const BASE: Record<'req' | 'tc' | 'cycle', Array<{ kind: string; k: string; labe
   // 실행 결과 탭은 열이 아니라 진행결과 바가 쓰는 값 체계라 뺀다
   cycle: [
     { kind: 'cycle_status', k: 'f_status', label: '상태', w: '62px' },
-    { kind: 'cycle_customer', k: 'f_customer', label: '고객', w: '62px' },
+    /* 고객 이름은 「LGUPLUS」 처럼 길다 — 62px 로는 잘렸다(지적) */
+    { kind: 'cycle_customer', k: 'f_customer', label: '고객', w: '92px' },
   ],
 }
 
