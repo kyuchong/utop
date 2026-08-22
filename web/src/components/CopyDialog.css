@@ -1,8 +1,8 @@
 /* 「+ Copy」 — 좌우 두 판과 가운데 화살표. 창은 넓게 쓴다(트리가 둘이다) */
 /* 창은 크게 — 트리가 넷이다(지시: 상하·좌우 더 크게) */
 .modal.cpd {
-  width: 1720px;
-  max-width: 98vw;
+  width: 1980px;
+  max-width: 99vw;
   height: 88vh;
   max-height: 92vh;
   display: flex;

@@ -406,13 +406,13 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
           </section>
         </div>
 
-        <div className="modal-foot">
-          {msg && <span className="cpd-msg">{msg}</span>}
-          <span className="sp" />
-          <button className="btn" type="button" onClick={onClose}>
-            닫기
-          </button>
-        </div>
+        {/* 닫기는 오른쪽 위 × 하나다(지시) — 바닥에 또 두면 어느 쪽을 눌러야
+            하는지 매번 고르게 된다. 바닥은 결과만 말한다. */}
+        {msg && (
+          <div className="modal-foot">
+            <span className="cpd-msg">{msg}</span>
+          </div>
+        )}
       </div>
     </div>
   )
