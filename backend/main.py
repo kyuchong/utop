@@ -16018,6 +16018,75 @@ async def req_ai_coverage(req_id: str, payload: dict):
     return {"ok": True, "items": items, "have": len(have)}
 
 
+@app.post("/api/req/{req_id}/make-tcs")
+async def req_make_tcs(req_id: str, payload: dict, token: str = ""):
+    """제안한 시험 항목을 **진짜 시험항목으로 만든다**. 고른 것만.
+
+    제안을 보여만 주고 끝냈더니 옮겨 적을 길이 없었다(지적: 저장을 할 수
+    없다). 그렇다고 모델이 만든 것을 곧장 밀어 넣지도 않는다 — 사람이
+    고른 것만 만들고, **스텝은 비워 둔다**. 무엇을 어떤 명령으로 볼지는
+    Automation 탭에서 정한다.
+
+    자리와 모델은 **요구사항에서 물려받는다** — 요구사항이 선 폴더가
+    시험도 설 자리고, 모델그룹·모델명은 그 프로젝트의 것이다. 이 둘을
+    사람이 다시 고르게 하면 제안을 받는 뜻이 없다.
+    """
+    u = _user_from_token(token)
+    req = await db.req_get(req_id)
+    if not isinstance(req, dict):
+        raise HTTPException(404, "요구사항을 찾을 수 없습니다")
+    items = [x for x in (payload.get("items") or []) if str((x or {}).get("name") or "").strip()]
+    if not items:
+        raise HTTPException(400, "만들 항목이 없습니다")
+
+    # 프로젝트(뿌리 폴더)의 모델그룹·모델명 — 신규 시험은 이 둘이 있어야 한다
+    mg = str(req.get("model_group") or "")
+    md = str(req.get("model") or "")
+    root = str(req.get("cat1") or "")
+    if root and (not mg or not md):
+        async with db.pool().acquire() as c:
+            prow = await c.fetchrow(
+                "SELECT model_group, model FROM project WHERE cat_id = $1", root
+            )
+        if prow:
+            mg = mg or str(prow["model_group"] or "")
+            md = md or str(prow["model"] or "")
+
+    made = []
+    async with db.pool().acquire() as c:
+        for it in items:
+            tcid = await _next_tc_id(c)
+            d = {
+                "tcid": tcid,
+                "name": str(it.get("name") or "").strip(),
+                # 제안이 말한 「무엇을 확인하는가」 는 시험 목적 자리에 그대로 앉힌다
+                "object_md": str(it.get("object") or "").strip(),
+                "req_id": str(req.get("id") or req.get("reqid") or req_id),
+                "status": "작성중",
+                "model_group": mg,
+                "model": md,
+                "checks": [],
+                "created_by": (u or {}).get("name") or (u or {}).get("username") or "",
+                "updated_by": (u or {}).get("name") or (u or {}).get("username") or "",
+            }
+            for i in range(4):
+                k = f"cat{i + 1}"
+                if req.get(k):
+                    d[k] = req[k]
+            await db.tc_upsert(tcid, d)
+            made.append({"tcid": tcid, "name": d["name"]})
+
+    # 요구사항 쪽 포인터에도 적어 둔다 — 연결은 두 곳에 산다
+    try:
+        cur = list(req.get("tc") or [])
+        req["tc"] = cur + [m["tcid"] for m in made if m["tcid"] not in cur]
+        await db.req_upsert(str(req.get("id") or req_id), req)
+    except Exception as e:
+        print(f"[req_make_tcs] 요구사항 쪽 연결을 적지 못했습니다: {e}", flush=True)
+
+    return {"ok": True, "made": made, "model_group": mg, "model": md}
+
+
 @app.post("/api/tc/{tc_id}/ai-manual")
 async def tc_ai_manual(tc_id: str, payload: dict):
     """목적·자동 스텝을 읽고 **수동 시험서** 초안. 저장하지 않는다.

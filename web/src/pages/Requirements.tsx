@@ -703,6 +703,9 @@ export default function Requirements({ me }: Props) {
   const [covBusy, setCovBusy] = useState(false)
   const [covErr, setCovErr] = useState('')
   const [covIdea, setCovIdea] = useState<Array<{ name: string; object: string }>>([])
+  /** 만들 것으로 고른 제안의 자리 번호 — 처음엔 모두 켠다 */
+  const [covPick, setCovPick] = useState<Set<number>>(new Set())
+  const [covMaking, setCovMaking] = useState(false)
 
   const askCoverage = async () => {
     if (!selectedReq) return
@@ -720,12 +723,50 @@ export default function Requirements({ me }: Props) {
       }
       if (!r.ok) throw new Error(b.detail || `만들지 못했습니다 (${r.status})`)
       setCovIdea(b.items ?? [])
+      setCovPick(new Set((b.items ?? []).map((_, i) => i)))
       if (!(b.items ?? []).length) setCovErr('제안할 것이 없다고 합니다')
     } catch (e) {
       setCovIdea([])
       setCovErr(e instanceof Error ? e.message : String(e))
     } finally {
       setCovBusy(false)
+    }
+  }
+
+  /**
+   * 고른 제안을 **진짜 시험항목으로**.
+   *
+   * 자리(폴더)와 모델그룹·모델명은 요구사항에서 물려받는다 — 다시 고르게
+   * 하면 제안을 받는 뜻이 없다. 스텝은 비운다: 무엇을 어떤 명령으로 볼지는
+   * Automation 탭에서 정하는 일이다.
+   */
+  const makeTcs = async () => {
+    if (!selectedReq || covPick.size === 0) return
+    setCovMaking(true)
+    setCovErr('')
+    try {
+      const picked = covIdea.filter((_, i) => covPick.has(i))
+      const r = await apiFetch(`/api/req/${encodeURIComponent(reqPk(selectedReq))}/make-tcs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: picked }),
+      })
+      const b = (await r.json().catch(() => ({}))) as {
+        made?: Array<{ tcid: string; name: string }>
+        detail?: string
+      }
+      if (!r.ok) throw new Error(b.detail || `만들지 못했습니다 (${r.status})`)
+      setCovIdea([])
+      setCovPick(new Set())
+      void qc.invalidateQueries({ queryKey: ['tcs'] })
+      void qc.invalidateQueries()
+      window.alert(
+        `${(b.made ?? []).length}건을 만들었습니다 — ${(b.made ?? []).map((m) => m.tcid).join(', ')}`,
+      )
+    } catch (e) {
+      setCovErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setCovMaking(false)
     }
   }
 
@@ -1258,14 +1299,55 @@ export default function Requirements({ me }: Props) {
                   </div>
                   {covErr && <div className="form-error">{covErr}</div>}
                   {covIdea.length > 0 && (
-                    <ol className="cov-idea">
-                      {covIdea.map((x, i) => (
-                        <li key={i}>
-                          <b>{x.name}</b>
-                          {x.object && <div className="muted small">{x.object}</div>}
-                        </li>
-                      ))}
-                    </ol>
+                    <div className="cov-made">
+                      <ol className="cov-idea">
+                        {covIdea.map((x, i) => (
+                          <li key={i}>
+                            <label className="cov-pick">
+                              <input
+                                type="checkbox"
+                                checked={covPick.has(i)}
+                                onChange={(e) =>
+                                  setCovPick((s2) => {
+                                    const n = new Set(s2)
+                                    if (e.target.checked) n.add(i)
+                                    else n.delete(i)
+                                    return n
+                                  })
+                                }
+                              />
+                              <b>{x.name}</b>
+                            </label>
+                            {x.object && <div className="muted small cov-obj">{x.object}</div>}
+                          </li>
+                        ))}
+                      </ol>
+                      <div className="cov-mkbar">
+                        <span className="muted small">
+                          고른 {covPick.size}건을 이 요구사항 자리에 만듭니다 — 스텝은 비어 있고,
+                          모델그룹·모델명은 이 프로젝트 것을 씁니다.
+                        </span>
+                        <span className="sp" />
+                        <button
+                          className="btn small"
+                          type="button"
+                          onClick={() => {
+                            setCovIdea([])
+                            setCovPick(new Set())
+                          }}
+                        >
+                          버리기
+                        </button>
+                        <button
+                          className="btn small primary"
+                          type="button"
+                          disabled={covMaking || covPick.size === 0}
+                          onClick={() => void makeTcs()}
+                        >
+                          {covMaking ? '만드는 중…' : `시험항목 만들기 (${covPick.size})`}
+                        </button>
+                      </div>
+                    </div>
                   )}
 
                   <div className={`cov-bar ${linked.length === 0 ? 'none' : cov.fail > 0 ? 'bad' : cov.idle > 0 ? 'warn' : 'good'}`}>
