@@ -47,6 +47,12 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
   const [picks, setPicks] = useState<Pick[]>([])
   const [dst, setDst] = useState<Pick | null>(null)
   const [swap, setSwap] = useState(true)
+  /** 무엇을 복사하나(승인) — 요구사항+시험 · 요구사항만 · 시험만 */
+  const [mode, setMode] = useState<'all' | 'req' | 'tc'>('all')
+  /** 폴더·요구사항을 통째로 고르되 **뺀 시험** — 체크를 푼 것 */
+  const [skip, setSkip] = useState<Set<string>>(new Set())
+  /** 대상 프로젝트의 같은 모델 장비로 세션 바꾸기(기본 끔) */
+  const [swapSess, setSwapSess] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
   const [openL, setOpenL] = useState<Set<string>>(new Set())
@@ -145,6 +151,41 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
   }, [tcs])
 
   const has = (p: Pick) => picks.some((x) => x.kind === p.kind && x.id === p.id)
+
+  /** 이 폴더 아래의 폴더·요구사항을 다 모은다 — 체크는 「아래를 다 가져간다」 는 뜻 */
+  const under = (cid: string): { cats: string[]; reqs: string[] } => {
+    const cs: string[] = []
+    const rs: string[] = []
+    const walk = (id: string) => {
+      cs.push(id)
+      for (const r of reqsOf.get(id) ?? []) rs.push(r.id)
+      for (const k of kids.get(id) ?? []) walk(k.id)
+    }
+    walk(cid)
+    return { cats: cs, reqs: rs }
+  }
+  /** 고른 것으로 헤아린 시험 — 뺀 것은 안 센다 */
+  const pickedTcIds = useMemo(() => {
+    const out = new Set<string>()
+    for (const p of picks) {
+      if (p.kind === 'tc') out.add(p.id)
+      else if (p.kind === 'req') for (const t of tcsOf.get(p.id) ?? []) out.add(t.tcid)
+      else for (const rid of under(p.id).reqs) for (const t of tcsOf.get(rid) ?? []) out.add(t.tcid)
+    }
+    for (const s0 of skip) out.delete(s0)
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picks, skip, tcsOf, reqsOf, kids])
+  const nCat = picks.filter((p) => p.kind === 'cat').length
+  const nReq = useMemo(() => {
+    const out = new Set<string>()
+    for (const p of picks) {
+      if (p.kind === 'req') out.add(p.id)
+      else if (p.kind === 'cat') for (const rid of under(p.id).reqs) out.add(rid)
+    }
+    return out.size
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picks, reqsOf, kids])
   const toggle = (p: Pick) =>
     setPicks((cur) =>
       has(p) ? cur.filter((x) => !(x.kind === p.kind && x.id === p.id)) : [...cur, p],
@@ -275,19 +316,41 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
         {list.map((t) => (
           <div
             key={t.tcid}
-            className={`rt-req${side === 'L' && has({ kind: 'tc', id: t.tcid }) ? ' on' : ''}${
+            className={`rt-req${side === 'L' && pickedTcIds.has(t.tcid) ? ' on' : ''}${
               side === 'R' ? ' cpd-ro' : ''
             }`}
             style={{ paddingLeft: 8 }}
-            onClick={() => side === 'L' && toggle({ kind: 'tc', id: t.tcid })}
+            onClick={() => {
+              if (side !== 'L') return
+              if (has({ kind: 'tc', id: t.tcid })) toggle({ kind: 'tc', id: t.tcid })
+              else
+                setSkip((cur) => {
+                  const n = new Set(cur)
+                  if (n.has(t.tcid)) n.delete(t.tcid)
+                  else n.add(t.tcid)
+                  return n
+                })
+            }}
           >
             <input
               type="checkbox"
               className="cpd-ck"
               disabled={side === 'R'}
-              checked={side === 'L' && has({ kind: 'tc', id: t.tcid })}
+              checked={side === 'L' && pickedTcIds.has(t.tcid)}
               onClick={(e) => e.stopPropagation()}
-              onChange={() => side === 'L' && toggle({ kind: 'tc', id: t.tcid })}
+              onChange={() => {
+                if (side !== 'L') return
+                /* 폴더·요구사항을 골라 자동으로 켜진 것은 **빼는 목록**으로
+                   내린다(승인). 낱개로 고른 것은 그 자리에서 뺀다. */
+                if (has({ kind: 'tc', id: t.tcid })) toggle({ kind: 'tc', id: t.tcid })
+                else
+                  setSkip((cur) => {
+                    const n = new Set(cur)
+                    if (n.has(t.tcid)) n.delete(t.tcid)
+                    else n.add(t.tcid)
+                    return n
+                  })
+              }}
             />
             <span className="rt-dicon" aria-hidden="true">
               🧪
@@ -309,7 +372,14 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
     try {
       const r = await apiFetch('/api/copy-tree', {
         method: 'POST',
-        body: JSON.stringify({ items: picks, dst, swap_model: swap }),
+        body: JSON.stringify({
+          items: mode === 'tc' ? [...pickedTcIds].map((id) => ({ kind: 'tc', id })) : picks,
+          dst,
+          mode,
+          skip_tcs: [...skip],
+          swap_model: swap,
+          swap_sessions: swapSess,
+        }),
       })
       const j = (await r.json()) as {
         ok?: boolean
@@ -348,29 +418,72 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
 
         <div className="cpd-body">
           <section className="cpd-pane src">
-            <div className="cpd-h">
-              Source
-              <em>{picks.length ? `${picks.length}개 고름` : '폴더·요구사항·시험을 고르세요'}</em>
-            </div>
+            <div className="cpd-h mid">Source</div>
             <div className="cpd-two">
               <div className="cpd-col" style={{ flex: `0 0 ${wSrc}px` }}>
-                <div className="cpd-sub">폴더 · 요구사항</div>
+                <div className="cpd-sub">
+                  폴더 · 요구사항
+                  <em>
+                    폴더 {nCat} · 요구사항 {nReq}
+                  </em>
+                </div>
                 {tree('L')}
               </div>
               <div className="cpd-grip" onPointerDown={grip(() => wSrc, setWSrc)} title="좌우로 끌어 폭을 바꿉니다" />
               <div className="cpd-col">
-                <div className="cpd-sub">시험 항목</div>
+                <div className="cpd-sub">
+                  시험 항목
+                  <em>시험 {pickedTcIds.size}</em>
+                </div>
                 {tcPane('L')}
               </div>
             </div>
           </section>
 
           <div className="cpd-mid">
+            {/* 무엇을 복사하나(승인) — 셋 중 하나 */}
+            <div className="cpd-mode">
+              {(
+                [
+                  ['all', '요구사항 + 시험'],
+                  ['req', '요구사항만'],
+                  ['tc', '시험만'],
+                ] as Array<[typeof mode, string]>
+              ).map(([k, lb]) => (
+                <label key={k} className={mode === k ? 'on' : ''}>
+                  <input
+                    type="radio"
+                    name="cpd-mode"
+                    checked={mode === k}
+                    onChange={() => {
+                      setMode(k)
+                      setDst(null)
+                    }}
+                  />
+                  {lb}
+                </label>
+              ))}
+            </div>
             <button
               className="btn primary cpd-go"
               type="button"
-              disabled={!picks.length || !dst || busy}
-              title={!picks.length ? '왼쪽에서 고르세요' : !dst ? '오른쪽 자리를 고르세요' : '복사합니다'}
+              disabled={
+                !picks.length ||
+                !dst ||
+                busy ||
+                (mode === 'tc' ? dst.kind !== 'req' : dst.kind !== 'cat')
+              }
+              title={
+                !picks.length
+                  ? '왼쪽에서 고르세요'
+                  : !dst
+                    ? '오른쪽 자리를 고르세요'
+                    : mode === 'tc' && dst.kind !== 'req'
+                      ? '시험만 복사할 때는 붙일 자리로 **요구사항**을 고르세요'
+                      : mode !== 'tc' && dst.kind !== 'cat'
+                        ? '붙일 자리로 **폴더**를 고르세요'
+                        : '복사합니다'
+              }
               onClick={() => void go()}
             >
               ➜
@@ -379,19 +492,18 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
               <input type="checkbox" checked={swap} onChange={(e) => setSwap(e.target.checked)} />
               대상 모델로 바꿈
             </label>
+            <label className="cpd-sw">
+              <input
+                type="checkbox"
+                checked={swapSess}
+                onChange={(e) => setSwapSess(e.target.checked)}
+              />
+              세션도 대상 장비로
+            </label>
           </div>
 
           <section className="cpd-pane src">
-            <div className="cpd-h">
-              Destination
-              <em>
-                {dst
-                  ? dst.kind === 'cat'
-                    ? '폴더에 붙입니다'
-                    : '요구사항에 붙입니다'
-                  : '붙일 자리를 고르세요'}
-              </em>
-            </div>
+            <div className="cpd-h mid">Destination</div>
             <div className="cpd-two">
               <div className="cpd-col" style={{ flex: `0 0 ${wDst}px` }}>
                 <div className="cpd-sub">폴더 · 요구사항</div>

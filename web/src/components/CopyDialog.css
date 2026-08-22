@@ -158,3 +158,26 @@
 .cpd-grip:hover::before { background: var(--c-primary); }
 /* 줄 앞 체크박스 — 무엇이 골라졌는지 눈으로 센다 */
 .cpd-ck { flex: none; width: 14px; height: 14px; margin: 0 2px 0 0; }
+
+/* 머리줄은 가운데(지시) · 칸 이름 오른쪽 끝에 고른 수 */
+.cpd-h.mid { justify-content: center; }
+.cpd-sub { display: flex; align-items: baseline; gap: 8px; }
+.cpd-sub em {
+  margin-left: auto;
+  font-style: normal;
+  font-weight: 700;
+  color: #12539f;
+}
+/* 무엇을 복사하나 — 셋 중 하나 */
+.cpd-mode { display: flex; flex-direction: column; gap: 3px; margin-bottom: 6px; }
+.cpd-mode label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cpd-mode label.on { color: #12539f; font-weight: 700; }
+.cpd-mid { width: 150px; }

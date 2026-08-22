@@ -4698,6 +4698,12 @@ async def copy_tree(body: dict, token: str = ""):
     dst_kind = str(dst.get("kind") or "")
     dst_id = str(dst.get("id") or "")
     swap = body.get("swap_model") is not False
+    # 무엇을 복사하나(승인): all=요구사항+시험 · req=요구사항만 · tc=시험만
+    mode = str(body.get("mode") or "all")
+    # 폴더·요구사항을 통째로 고르되 **뺄 시험**은 따로 온다(체크 해제한 것)
+    skip_tc = {str(x) for x in (body.get("skip_tcs") or [])}
+    # 대상 프로젝트의 같은 모델 장비로 세션을 바꿀까(기본 끔)
+    swap_sess = bool(body.get("swap_sessions"))
     if not items or not dst_id:
         raise HTTPException(400, "무엇을 어디로 복사할지 골라 주세요")
 
@@ -4727,6 +4733,10 @@ async def copy_tree(body: dict, token: str = ""):
         return f"{p}-{now_ms}-{seq['n']}"
 
     async def copy_tc(c, tcid: str, req_id: str) -> None:
+        if mode == "req":
+            return          # 「요구사항만」 — 시험은 따라가지 않는다
+        if tcid in skip_tc:
+            return          # 시험 칸에서 체크를 뺀 것
         src = await db.tc_get(tcid)
         if not src:
             return
@@ -4745,6 +4755,16 @@ async def copy_tree(body: dict, token: str = ""):
         for st in d.get("checks") or []:
             for k in ("output", "status", "reason", "repeatResult", "executed_at", "took_ms", "rounds", "response"):
                 st.pop(k, None)
+        if swap_sess and dst_md:
+            # 같은 모델 장비가 그 랩에 있으면 그 자리에 앉힌다. 없으면 원본
+            # 그대로 둔다 — 잘못 앉히느니 비워 두는 편이 낫다.
+            rows = await c.fetch("SELECT id FROM device WHERE model = $1 ORDER BY ip", dst_md)
+            pool_ids = [str(r["id"]) for r in rows]
+            sess = d.get("sessions")
+            if isinstance(sess, list) and pool_ids:
+                d["sessions"] = [
+                    pool_ids[i] if i < len(pool_ids) else s0 for i, s0 in enumerate(sess)
+                ]
         await db.tc_upsert(nid, d)
         made["tcs"] += 1
 
