@@ -295,6 +295,18 @@ export default function TcTraffic({ data, onChange }: Props) {
    * (지적). 등록한 값이 정본이고, 이 탭 값은 그것을 덮어쓸 때만 쓴다.
    */
   const restPort = Number(cfg.restPort ?? curMeter?.port ?? 8888) || 8888
+  /**
+   * REST 서버 주소.
+   *
+   * STC 는 자리가 둘이다 — **섀시**(장비 IP)와 **REST 서버**(윈도우 PC).
+   * 이 탭은 REST 서버를 `localhost` 로 박아 두었는데 백엔드는 리눅스라
+   * 거기엔 아무도 없다(지적). 계측기 등록의 stc 접속 줄에 그 주소가
+   * 이미 있다 — 그것을 쓴다. 서버도 같은 곳을 한 번 더 본다.
+   */
+  const restIp =
+    (curMeter?.access ?? []).find((a) => String(a.protocol ?? '').toLowerCase() === 'stc')?.host ||
+    ''
+
 
   const setCfg = (patch: Partial<MeterCfg>) => onChange({ meterCfg: { ...cfg, ...patch } })
   const setStream = (i: number, patch: Partial<MeterStream>) =>
@@ -383,7 +395,7 @@ export default function TcTraffic({ data, onChange }: Props) {
       const path = kind === 'stc' ? '/api/stc/meter/query' : '/api/n2x/traffic/stat'
       const body =
         kind === 'stc'
-          ? { cfg: { chassis: cfg.chassis, restIp: 'localhost', restPort } }
+          ? { cfg: { chassis: cfg.chassis, restIp, restPort } }
           : { server: cfg.chassis, label: cfg.n2xLabel || 'utop' }
       const r = await apiFetch(path, { method: 'POST', body: JSON.stringify(body) })
       const j = (await r.json()) as {
@@ -533,7 +545,7 @@ export default function TcTraffic({ data, onChange }: Props) {
         const r = await apiFetch('/api/stc/meter/arp', {
           method: 'POST',
           body: JSON.stringify({
-            cfg: { chassis: cfg.chassis, restIp: 'localhost', restPort },
+            cfg: { chassis: cfg.chassis, restIp, restPort },
           }),
         })
         const j = (await r.json()) as { ok?: boolean; error?: string; text?: string; mac?: string }
@@ -621,7 +633,7 @@ export default function TcTraffic({ data, onChange }: Props) {
         method: 'POST',
         body: JSON.stringify({
           chassis: cfg.chassis,
-          restIp: 'localhost',
+          restIp,
           restPort,
         }),
       }).catch(() => {})
@@ -660,7 +672,7 @@ export default function TcTraffic({ data, onChange }: Props) {
           method: 'POST',
           body: JSON.stringify({
             chassis: cfg.chassis,
-            restIp: 'localhost',
+            restIp,
             restPort,
             ...(force ? { force: 1 } : {}),
           }),

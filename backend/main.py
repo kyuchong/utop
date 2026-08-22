@@ -8819,9 +8819,18 @@ async def stc_run(data: dict):
         _setenv("STC_DEVB_IP", params.get("devBip"))
         _setenv("STC_DEVB_GW", params.get("devBgw"))
         _setenv("STC_DEVB_MAC", params.get("devBmac"))
-    # REST 대상이 로컬이면 stcweb.exe REST 서버를 자동 기동
-    rest_ip = str((params.get("restIp") if params else "") or "localhost").strip().lower()
-    rest_port = int((params.get("restPort") if params else 8888) or 8888)
+    # REST 대상이 로컬이면 stcweb.exe REST 서버를 자동 기동.
+    # 안 알려 줬으면 계측기 등록에서 찾는다 — 이 서버는 리눅스라 localhost 엔 없다
+    _rip0, rest_port = await _stc_rest_for(
+        str((params.get("chassis") if params else "") or ""),
+        (params.get("restIp") if params else ""),
+        (params.get("restPort") if params else None),
+    )
+    rest_ip = str(_rip0).strip().lower()
+    if params is not None:
+        params["restIp"], params["restPort"] = _rip0, rest_port
+        _setenv("STC_REST_IP", _rip0)
+        _setenv("STC_REST_PORT", rest_port)
     if rest_ip in ("localhost", "127.0.0.1", "") and not _port_listening(rest_port):
         await broadcast({"type": "stc_line", "line": "[REST] localhost:" + str(rest_port) + " 미기동 → 서버 자동 시작"})
         srv = await stc_server_start({"port": rest_port})
@@ -8882,8 +8891,9 @@ async def stc_traffic_run(data: dict):
     p = _stc_traffic_proc.get("p")
     if p is not None and p.poll() is None:
         return {"ok": False, "error": "이미 전송 중입니다. 먼저 정지하세요."}
-    rest_ip = str(data.get("restIp") or "localhost").strip().lower()
-    rest_port = int(data.get("restPort") or 8888)
+    _rip1, rest_port = await _stc_rest_for(str(data.get("chassis") or ""), data.get("restIp"), data.get("restPort"))
+    rest_ip = str(_rip1).strip().lower()
+    data["restIp"], data["restPort"] = _rip1, rest_port   # 전송 스크립트도 같은 곳을 본다
     if rest_ip in ("localhost", "127.0.0.1", "") and not _port_listening(rest_port):
         srv = await stc_server_start({"port": rest_port})
         if not srv.get("ok"):
@@ -8905,7 +8915,7 @@ async def stc_traffic_run(data: dict):
     _ports_csv = ",".join([str(x).split("/")[-2] + "/" + str(x).split("/")[-1] for x in (data.get("ports") or [])])
     _user = str(data.get("user") or "admin")
     _chassis = str(data.get("chassis") or "192.168.5.100").strip()
-    _rip = data.get("restIp") or "localhost"
+    _rip = data.get("restIp") or rest_ip or "localhost"
     _rport = rest_port
     # 전송 직전: 위저드 예약(U_TOP_op)을 빠르게 해제 → 포트 free → U_TOP_tx 가 RevokeOwner(~50초) 없이 즉시 예약.
     #  (전송 스크립트가 예약 후 레지스트리에 user 를 다시 써서 위저드 '내 예약' 표시를 유지함)
@@ -9822,12 +9832,10 @@ async def stc_meter_action(action: str, data: dict):
     cfg = (data or {}).get("cfg") or {}
     if action not in ("build", "arp", "start", "stop", "query", "close", "disconnect"):
         return {"ok": False, "error": "알 수 없는 action: " + str(action)}
-    if not cfg.get("restPort"):
-        cfg["restPort"] = 8888
-    if not cfg.get("restIp"):
-        cfg["restIp"] = "localhost"
-    rest_ip = str(cfg.get("restIp")).strip().lower()
-    rest_port = int(cfg.get("restPort"))
+    _rip, _rport = await _stc_rest_for(str(cfg.get("chassis") or ""), cfg.get("restIp"), cfg.get("restPort"))
+    cfg["restIp"], cfg["restPort"] = _rip, _rport
+    rest_ip = str(_rip).strip().lower()
+    rest_port = int(_rport)
     if rest_ip in ("localhost", "127.0.0.1", "") and not _port_listening(rest_port):
         srv = await stc_server_start({"port": rest_port})
         if not srv.get("ok"):
@@ -9858,6 +9866,41 @@ async def stc_meter_action(action: str, data: dict):
     return {"ok": ok, "text": (text or "").strip(), "code": rc}
 
 @app.post("/api/stc/server/start")
+async def _stc_rest_for(chassis: str, rest_ip: str = "", rest_port=None):
+    """이 섀시의 **REST 서버 주소**. 화면이 안 알려 주면 등록에서 찾는다.
+
+    STC 는 두 자리가 있다: 섀시(장비 IP)와 REST 서버(윈도우 PC). 화면 몇
+    군데가 REST 서버를 `localhost` 로 박아 두었는데, 이 서버는 리눅스라
+    거기엔 아무도 없다 — 그래서 「stcweb.exe 를 찾을 수 없습니다」 로
+    끝났다(지적: 계측기는 붙는데 시험 탭에서만).
+
+    계측기 등록의 stc 접속 줄에 그 주소가 이미 있다(host·port). 그것이
+    정본이다. 못 찾으면 받은 값을 그대로 쓴다 — 지어내지 않는다.
+    """
+    ip = str(rest_ip or "").strip()
+    port = int(rest_port or 0) or 0
+    local = ip.lower() in ("", "localhost", "127.0.0.1")
+    if not local and port:
+        return ip, port
+    try:
+        for d in await db.device_list(with_ifs=False):
+            if str(d.get("ip") or "").strip() != str(chassis or "").strip():
+                continue
+            for a in (d.get("access") or []):
+                if str(a.get("protocol") or "").lower() != "stc":
+                    continue
+                h = str(a.get("host") or "").strip()
+                p = int(a.get("port") or 0) or 0
+                if local and h:
+                    ip = h
+                if not port and p:
+                    port = p
+                break
+    except Exception as e:
+        print(f"[stc] 등록에서 REST 주소를 못 읽었습니다: {e}", flush=True)
+    return (ip or "localhost"), (port or 8888)
+
+
 async def stc_server_start(data: dict = None):
     data = data or {}
     port = int(data.get("port") or 8888)
@@ -9918,8 +9961,8 @@ async def stc_conncheck(data: dict = None):
             d["cache_age"] = round(_t.time() - hit["ts"])
             return d
     chassis = (data.get("chassis") or "192.168.5.100").strip()
-    rest_ip = (data.get("restIp") or "localhost").strip()
-    rest_port = int(data.get("restPort") or 8888)
+    # 화면이 안 알려 줬으면 계측기 등록에서 찾는다
+    rest_ip, rest_port = await _stc_rest_for(chassis, data.get("restIp"), data.get("restPort"))
     # 로컬 REST 서버 자동 기동
     if rest_ip.lower() in ("localhost", "127.0.0.1", "") and not _port_listening(rest_port):
         srv = await stc_server_start({"port": rest_port})
@@ -9992,8 +10035,7 @@ async def _run_stc_reserve(action, ports, chassis, rest_ip, rest_port):
 async def stc_reserve(data: dict = None):
     data = data or {}
     chassis = (data.get("chassis") or "192.168.5.100").strip()
-    rest_ip = (data.get("restIp") or "localhost").strip()
-    rest_port = int(data.get("restPort") or 8888)
+    rest_ip, rest_port = await _stc_rest_for(chassis, data.get("restIp"), data.get("restPort"))
     ports = (data.get("ports") or "").strip()  # "1/15,1/16" — 예약할 전체 집합
     return await _run_stc_reserve("reserve", ports, chassis, rest_ip, rest_port)
 
@@ -10001,16 +10043,14 @@ async def stc_reserve(data: dict = None):
 async def stc_reserve_status(data: dict = None):
     data = data or {}
     chassis = (data.get("chassis") or "192.168.5.100").strip()
-    rest_ip = (data.get("restIp") or "localhost").strip()
-    rest_port = int(data.get("restPort") or 8888)
+    rest_ip, rest_port = await _stc_rest_for(chassis, data.get("restIp"), data.get("restPort"))
     return await _run_stc_reserve("status", "-", chassis, rest_ip, rest_port)
 
 @app.post("/api/stc/release")
 async def stc_release(data: dict = None):
     data = data or {}
     chassis = (data.get("chassis") or "192.168.5.100").strip()
-    rest_ip = (data.get("restIp") or "localhost").strip()
-    rest_port = int(data.get("restPort") or 8888)
+    rest_ip, rest_port = await _stc_rest_for(chassis, data.get("restIp"), data.get("restPort"))
     return await _run_stc_reserve("release", "-", chassis, rest_ip, rest_port)
 
 # ───────────────────────────────────────────
@@ -10142,8 +10182,7 @@ async def stc_sess(action: str, data: dict = None):
         return {"ok": False, "error": "알 수 없는 단계: " + action}
     data = data or {}
     chassis = (data.get("chassis") or "192.168.5.100").strip()
-    rest_ip = (data.get("restIp") or "localhost").strip()
-    rest_port = int(data.get("restPort") or 8888)
+    rest_ip, rest_port = await _stc_rest_for(chassis, data.get("restIp"), data.get("restPort"))
     params = data.get("params") or {}
     user = str(params.get("user") or "admin")
     # 로컬 REST 서버 자동 기동
