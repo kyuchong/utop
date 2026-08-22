@@ -5162,14 +5162,21 @@ async def tc_last_result():
     """
     try:
         async with db.pool().acquire() as c:
+            # DISTINCT ON — **시험마다 한 줄**만 올라온다.
+            #
+            # 여태 (사이클 × 항목) 을 전부 파이썬으로 끌어와 앞엣것만 남기고
+            # 버렸다. 사이클 200개 × 항목 100개면 2만 줄을 새로고침 때마다
+            # 만들었다 버린 셈이다(지적: 새로고침을 계속하면 CPU 100%).
+            # 고르는 일은 PG 가 훨씬 싸게 한다.
             rows = await c.fetch(
                 """
-                SELECT c.id, c.name, c.updated_at,
+                SELECT DISTINCT ON (it->>'tcid')
+                       c.id, c.name, c.updated_at,
                        it->>'tcid'   AS tcid,
                        it->>'result' AS result
                 FROM cycle c, jsonb_array_elements(COALESCE(c.data->'items', '[]'::jsonb)) it
                 WHERE COALESCE(it->>'result', '') <> ''
-                ORDER BY c.updated_at DESC NULLS LAST
+                ORDER BY it->>'tcid', c.updated_at DESC NULLS LAST
                 """
             )
     except Exception as e:
@@ -10017,6 +10024,13 @@ _stc_live_lock = asyncio.Lock()       # 예약/해제/연결(U_TOP_work) 직렬�
 _stc_status_lock = asyncio.Lock()     # 상태 서브프로세스(U_TOP_status) 중복 방지
 _stc_status_cache = {}         # chassis -> {"ts": float, "rows": [...]}
 _stc_status_targets = {}       # chassis -> (rest_ip, rest_port)
+# 마지막으로 「포트 상태 좀」 하고 물어본 시각. chassis -> epoch
+#
+# 여태 한 번 물어본 섀시는 **영영** 목록에 남았고, 폴러가 3초마다 TCL
+# 서브프로세스를 띄웠다. 아무도 안 보고 있어도 그랬다 — 253 의 CPU 가
+# 종일 붙어 있던 것이 이것이다(지적). 보는 사람이 없으면 멈춘다.
+_stc_status_seen = {}
+_STC_WATCH_TTL = 90            # 이 초 동안 아무도 안 물어보면 폴러에서 뺀다
 _stc_poller_started = False
 _STC_LIVE_ACTIONS = {"connect", "reserve", "releaseports", "forcereset"}
 
@@ -10052,12 +10066,21 @@ async def _stc_live_status(chassis, rest_ip, rest_port):
 async def _stc_poller_loop():
     while True:
         try:
+            now = _t.time()
             for ch, (rip, rport) in list(_stc_status_targets.items()):
+                # 보고 있는 사람이 없으면 뺀다. 서브프로세스 한 번이 가볍지
+                # 않다 — 섀시 하나만 남아 있어도 코어 하나를 문다.
+                if now - _stc_status_seen.get(ch, 0) > _STC_WATCH_TTL:
+                    _stc_status_targets.pop(ch, None)
+                    _stc_status_seen.pop(ch, None)
+                    print(f"[stc] 보는 사람이 없어 상태 폴링을 멈춥니다 — {ch}", flush=True)
+                    continue
                 async with _stc_status_lock:   # sync-poll 과 같은 U_TOP_status 세션 → 직렬화 필수
                     await _stc_live_status(ch, rip, rport)
         except Exception:
             pass
-        await asyncio.sleep(3)
+        # 볼 것이 없으면 느리게 — 빈 채로 3초마다 깨울 이유가 없다
+        await asyncio.sleep(3 if _stc_status_targets else 15)
 
 def _ensure_poller():
     global _stc_poller_started
@@ -10105,6 +10128,7 @@ async def stc_sess(action: str, data: dict = None):
     # 상태조회: 단일 폴러 캐시 + 계정별 mine 덧칠
     if action == "portstatus":
         _stc_status_targets[chassis] = (rest_ip, rest_port)
+        _stc_status_seen[chassis] = _t.time()      # 지금 보고 있다
         _ensure_poller()
         cache = _stc_status_cache.get(chassis)
         if not cache or (_t.time() - cache["ts"] > 12):
