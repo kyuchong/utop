@@ -1,6 +1,14 @@
 /* 「+ Copy」 — 좌우 두 판과 가운데 화살표. 창은 넓게 쓴다(트리가 둘이다) */
-/* 창은 넓게 — 트리 셋이 든다(지시: 좌우 폭이 너무 작다) */
-.modal.cpd { width: 1360px; max-width: 97vw; }
+/* 창은 크게 — 트리가 넷이다(지시: 상하·좌우 더 크게) */
+.modal.cpd {
+  width: 1720px;
+  max-width: 98vw;
+  height: 88vh;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+.modal.cpd .cpd-body { flex: 1; min-height: 0; }
 /* 머리줄을 잡으면 창이 따라온다(지시) */
 .cpd-grab { cursor: move; user-select: none; }
 .cpd-body {
@@ -119,6 +127,8 @@
 }
 .cpd-empty { padding: 14px 10px; color: var(--c-text-faint); font-size: var(--fs-sm); }
 /* 트리 생김새는 1열 폴더 트리(rt-*) 그대로 — 여기서는 자리만 준다 */
-.cpd-tree { flex: 1; min-height: 340px; max-height: 56vh; overflow: auto; padding: 4px 0; }
+.cpd-tree { flex: 1; min-height: 0; overflow: auto; padding: 4px 0; }
+/* 붙일 자리 쪽 시험은 보기만 한다 — 고르는 것이 아니다 */
+.cpd-tree .rt-req.cpd-ro { cursor: default; opacity: 0.85; }
 .cpd-tree .rt-fold.on,
 .cpd-tree .rt-req.on { background: var(--c-primary-bg); font-weight: 600; }

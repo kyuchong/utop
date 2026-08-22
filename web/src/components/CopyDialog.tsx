@@ -213,19 +213,35 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
     return <div className="rt cpd-tree">{draw('', 0)}</div>
   }
 
-  /** 가운데 칸 — 짚은 요구사항의 시험 항목 */
-  const tcPane = () => {
-    const list = tcsOf.get(atReq) ?? []
-    if (!atReq) return <div className="cpd-empty">왼쪽에서 요구사항을 누르면 그 시험이 여기 섭니다.</div>
+  /**
+   * 시험 칸 — 짚은 요구사항의 시험 항목.
+   *
+   * 왼쪽(Source)에서는 **골라서 옮길 것**이고, 오른쪽(Destination)에서는
+   * **지금 그 자리에 무엇이 있나**를 보는 자리다(지시: 2열도 두 칸으로).
+   * 붙이기 전에 이미 있는 것을 보면 같은 시험을 두 번 넣지 않는다.
+   */
+  const tcPane = (side: 'L' | 'R') => {
+    const rid = side === 'L' ? atReq : dst?.kind === 'req' ? dst.id : ''
+    const list = tcsOf.get(rid) ?? []
+    if (!rid)
+      return (
+        <div className="cpd-empty">
+          {side === 'L'
+            ? '왼쪽에서 요구사항을 누르면 그 시험이 여기 섭니다.'
+            : '붙일 요구사항을 고르면 그 자리에 있는 시험이 보입니다.'}
+        </div>
+      )
     if (!list.length) return <div className="cpd-empty">이 요구사항에는 시험이 없습니다.</div>
     return (
       <div className="rt cpd-tree">
         {list.map((t) => (
           <div
             key={t.tcid}
-            className={`rt-req${has({ kind: 'tc', id: t.tcid }) ? ' on' : ''}`}
+            className={`rt-req${side === 'L' && has({ kind: 'tc', id: t.tcid }) ? ' on' : ''}${
+              side === 'R' ? ' cpd-ro' : ''
+            }`}
             style={{ paddingLeft: 8 }}
-            onClick={() => toggle({ kind: 'tc', id: t.tcid })}
+            onClick={() => side === 'L' && toggle({ kind: 'tc', id: t.tcid })}
           >
             <span className="rt-dicon" aria-hidden="true">
               🧪
@@ -297,7 +313,7 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
               </div>
               <div className="cpd-col">
                 <div className="cpd-sub">시험 항목</div>
-                {tcPane()}
+                {tcPane('L')}
               </div>
             </div>
           </section>
@@ -318,12 +334,27 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
             </label>
           </div>
 
-          <section className="cpd-pane">
+          <section className="cpd-pane src">
             <div className="cpd-h">
               Destination
-              <em>{dst ? (dst.kind === 'cat' ? '폴더에 붙입니다' : '요구사항에 붙입니다') : '붙일 자리를 고르세요'}</em>
+              <em>
+                {dst
+                  ? dst.kind === 'cat'
+                    ? '폴더에 붙입니다'
+                    : '요구사항에 붙입니다'
+                  : '붙일 자리를 고르세요'}
+              </em>
             </div>
-            {tree('R')}
+            <div className="cpd-two">
+              <div className="cpd-col">
+                <div className="cpd-sub">폴더 · 요구사항</div>
+                {tree('R')}
+              </div>
+              <div className="cpd-col">
+                <div className="cpd-sub">그 자리에 있는 시험</div>
+                {tcPane('R')}
+              </div>
+            </div>
           </section>
         </div>
 
