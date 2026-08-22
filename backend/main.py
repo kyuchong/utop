@@ -182,6 +182,9 @@ for f, default in [
             import json as _json
             _json.dump(default, fp, ensure_ascii=False, indent=2)
 
+# 등록된 것이 모델을 안 들고 있을 때 쓰는 이름 — 한 곳에 둔다
+CLAUDE_FALLBACK_MODEL = "claude-sonnet-4-5-20250929"
+
 # Anthropic 클라이언트 (API 키 없으면 None)
 _api_key = os.environ.get("ANTHROPIC_API_KEY", "")
 claude_client = anthropic.Anthropic(api_key=_api_key) if _api_key else None
@@ -13388,17 +13391,19 @@ def _build_chat_messages(req: "ChatRequest"):
 async def chat_stream(req: ChatRequest):
     from fastapi.responses import StreamingResponse
     import json as _json
-    if not claude_client:
+    # 설정에 등록한 Claude 가 있으면 그 키로 — .env 는 그다음이다(지적)
+    cl, cmodel = _claude_any()
+    if not cl:
         async def err():
-            yield "data: " + _json.dumps({"text": "Claude API 키가 설정되지 않았습니다."}) + "\n\n"
+            yield "data: " + _json.dumps({"text": "쓸 수 있는 Claude 가 없습니다 — 설정 → LLM 설정에 Anthropic 을 등록하거나 .env 에 ANTHROPIC_API_KEY 를 넣으세요."}) + "\n\n"
             yield "data: [DONE]\n\n"
         return StreamingResponse(err(), media_type="text/event-stream")
     system_prompt, messages = _build_chat_messages(req)
     safe_max = min(max(req.max_tokens, 2048), 8192)
     async def generate():
         try:
-            with claude_client.messages.stream(
-                model="claude-sonnet-4-6",
+            with cl.messages.stream(
+                model=cmodel or "claude-sonnet-4-6",
                 max_tokens=safe_max,
                 system=system_prompt,
                 messages=messages,
@@ -13413,8 +13418,9 @@ async def chat_stream(req: ChatRequest):
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
-    if not claude_client:
-        return {"reply": "Claude API 키가 설정되지 않았습니다.\n\nbackend 폴더와 같은 위치에 .env 파일을 만들고\nANTHROPIC_API_KEY=sk-ant-...\n를 입력 후 서버를 재시작하세요."}
+    cl, cmodel = _claude_any()
+    if not cl:
+        return {"reply": "쓸 수 있는 Claude 가 없습니다.\n\n설정 → LLM 설정에서 Anthropic 을 등록하고 API 키를 넣거나,\nbackend 폴더와 같은 위치의 .env 에 ANTHROPIC_API_KEY=sk-ant-... 를 넣고 서버를 재시작하세요."}
 
     # 장비/절차 컨텍스트 로드
     devices = load_json(DEVICES_FILE)["devices"]
@@ -13441,8 +13447,8 @@ async def chat(req: ChatRequest):
     messages.append({"role": "user", "content": req.message})
 
     try:
-        response = claude_client.messages.create(
-            model="claude-sonnet-4-6",
+        response = cl.messages.create(
+            model=cmodel or "claude-sonnet-4-6",
             max_tokens=min(max(req.max_tokens, 2048), 8192),
             system=system_prompt,
             messages=messages
@@ -15463,8 +15469,13 @@ async def tc_generate(tc_id: str, payload: dict):
         prompt = "\n\n".join(parts)
         gquery = " ".join(x for x in [name, str((req or {}).get("title") or ""), obj[:200]] if x)
 
-    if claude_client is None:
-        raise HTTPException(503, "ANTHROPIC_API_KEY 가 설정되지 않았습니다 (.env)")
+    cl, cmodel = _claude_any()
+    if cl is None:
+        raise HTTPException(
+            503,
+            "쓸 수 있는 Claude 가 없습니다 — 설정 → LLM 설정에 Anthropic 을 등록하거나 "
+            ".env 에 ANTHROPIC_API_KEY 를 넣으세요",
+        )
 
     devs = await _grounding_devices(gquery)
     prev = await _grounding_steps(gquery)
@@ -15491,8 +15502,8 @@ async def tc_generate(tc_id: str, payload: dict):
     )
 
     try:
-        msg = claude_client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+        msg = cl.messages.create(
+            model=cmodel or CLAUDE_FALLBACK_MODEL,
             max_tokens=4000,
             system=_GEN_SYSTEM,
             messages=[{"role": "user", "content": user}],
@@ -15522,6 +15533,45 @@ async def tc_generate(tc_id: str, payload: dict):
     }
 
 
+def _anthropic_from(llm: Optional[dict]):
+    """등록해 둔 Claude 로 부르는 실물.
+
+    설정 화면에서 키를 넣고 「연결 시험」 까지 통과했는데, 정작 일을 시킬
+    때는 `.env` 의 키만 봤다 — 키가 없으면 「쓸 수 있는 LLM 이 없습니다」
+    로 끝났다(지적: 등록하고 통신까지 확인했는데 왜 없다고 하나).
+    """
+    key = str((llm or {}).get("apikey") or "").strip()
+    if not key:
+        return claude_client
+    try:
+        ep = str((llm or {}).get("endpoint") or "").strip().rstrip("/")
+        kw = {"api_key": key}
+        # 기본 주소면 굳이 넘기지 않는다 — SDK 가 알아서 붙인다
+        if ep and not ep.startswith("https://api.anthropic.com"):
+            kw["base_url"] = ep
+        return anthropic.Anthropic(**kw)
+    except Exception as e:
+        print(f"[_anthropic_from] 등록 Claude 를 세우지 못했습니다: {e}", flush=True)
+        return claude_client
+
+
+def _claude_any():
+    """등록된 Claude 중 아무거나, 없으면 `.env` 의 것. (실물, 모델명)"""
+    try:
+        init_llms_file()
+        llms = load_json(LLMS_FILE).get("llms") or []
+    except Exception:
+        llms = []
+    for l in llms:
+        if str(l.get("status", "active")) != "active":
+            continue
+        if str(l.get("type") or "").lower() in ("claude", "anthropic") and l.get("apikey"):
+            c = _anthropic_from(l)
+            if c is not None:
+                return c, str(l.get("model") or "").strip() or CLAUDE_FALLBACK_MODEL
+    return claude_client, CLAUDE_FALLBACK_MODEL
+
+
 def _llm_for(use: str, llm_id: str = "") -> Optional[dict]:
     """이 일에 쓸 LLM 하나.
 
@@ -15543,7 +15593,12 @@ def _llm_for(use: str, llm_id: str = "") -> Optional[dict]:
         return None
     if llm_id:
         return next((l for l in llms if str(l.get("id")) == llm_id), None)
-    live = [l for l in llms if str(l.get("status", "active")) == "active" and l.get("endpoint")]
+    # Anthropic 은 주소가 고정이라 칸이 비어 있을 수 있다 — 키가 있으면 산 것
+    live = [
+        l for l in llms
+        if str(l.get("status", "active")) == "active"
+        and (l.get("endpoint") or (str(l.get("type") or "").lower() in ("claude", "anthropic") and l.get("apikey")))
+    ]
     return next((l for l in live if use in (l.get("uses") or [])), None) or (live[0] if live else None)
 
 
@@ -15561,6 +15616,7 @@ async def _llm_text(use: str, system: str, user: str, max_tokens: int = 1500,
     """
     # 'claude' 는 등록 목록에 없는 특별한 값 — .env 의 기본 Claude 를 뜻한다
     llm = None if llm_id == "claude" else _llm_for(use, llm_id)
+    why = ""   # 등록 LLM 이 왜 안 됐는가 — 사람에게 그대로 알려 준다
     sys_p = str(((llm or {}).get("field_prompts") or {}).get(use) or "").strip() or system
 
     if llm and str(llm.get("type") or "").lower() not in ("claude", "anthropic", "bedrock"):
@@ -15585,17 +15641,25 @@ async def _llm_text(use: str, system: str, user: str, max_tokens: int = 1500,
         except Exception as e:
             # 등록 LLM 이 죽어 있을 수 있다. 조용히 실패하지 않고 Claude 로 넘어간다.
             print(f"[_llm_text] 등록 LLM({llm.get('name')}) 호출 실패 → Claude 로 시도: {e}", flush=True)
+            why = f"등록 LLM({llm.get('name') or llm.get('model') or '이름 없음'}) 호출 실패: {e}"
 
-    if claude_client is None:
+    if str((llm or {}).get("type") or "").lower() in ("claude", "anthropic"):
+        # 등록해 둔 Claude — 그 키로 부른다(여태 .env 키만 봤다)
+        cl, cmodel = _anthropic_from(llm), str((llm or {}).get("model") or "").strip()
+    else:
+        cl, cmodel = _claude_any()
+
+    if cl is None:
         raise HTTPException(
             503,
+            (why + " — 등록한 LLM 주소·모델명을 확인하세요")
+            if why else
             "쓸 수 있는 LLM 이 없습니다 — 설정 → Chat LLM 에 등록하거나 "
             ".env 에 ANTHROPIC_API_KEY 를 넣으세요",
         )
     try:
-        msg = claude_client.messages.create(
-            model=(llm or {}).get("model") if (llm or {}).get("type", "").lower() in ("claude", "anthropic")
-            else "claude-sonnet-4-5-20250929",
+        msg = cl.messages.create(
+            model=cmodel or CLAUDE_FALLBACK_MODEL,
             max_tokens=max_tokens,
             system=sys_p,
             messages=[{"role": "user", "content": user}],
@@ -15767,8 +15831,9 @@ async def llm_choices():
         for l in llms
         if str(l.get("status", "active")) == "active" and l.get("endpoint")
     ]
-    if claude_client is not None:
-        out.append({"id": "claude", "name": "Claude", "model": "claude-sonnet-4-5", "local": False})
+    _cl, _cm = _claude_any()
+    if _cl is not None:
+        out.append({"id": "claude", "name": "Claude", "model": _cm or "claude-sonnet-4-5", "local": False})
     return {"choices": out}
 
 

@@ -153,6 +153,69 @@ export default function PromptSettings() {
                   ))}
                 </select>
               </label>
+
+              {/* 채팅 화면에서 보이는 것 — 프롬프트는 AI 가 읽고, 이 셋은
+                  사람이 본다(지시: 붉은 상자). 여는 말·입력칸 안내·추천 질문. */}
+              <div className="ps-chat">
+                <div className="ps-chat-h">
+                  <b>AI 채팅 화면 (이 AI 토글 열 때)</b>
+                  <span className="muted small">사람이 보는 자리입니다 — 프롬프트와 달리 화면에 그대로 뜹니다.</span>
+                </div>
+
+                <label className="ps-fld">
+                  <span>오프닝 멘트 · 마크다운</span>
+                  <textarea
+                    rows={4}
+                    value={x.greeting}
+                    placeholder="안녕하세요. 저는 U-TOP 에서 … 관련하여 답변하는 Assistant 입니다."
+                    onChange={(e) => set(x.id, { greeting: e.target.value })}
+                  />
+                </label>
+
+                <label className="ps-fld">
+                  <span>입력창 안내</span>
+                  <input
+                    value={x.placeholder}
+                    placeholder="가장 많이 실패한 원인은? 을 입력해 보세요"
+                    onChange={(e) => set(x.id, { placeholder: e.target.value })}
+                  />
+                </label>
+
+                <div className="ps-fld">
+                  <span>추천 질문 (클릭형 칩)</span>
+                  {x.asks.length === 0 && (
+                    <span className="muted small">아직 없습니다. 아래에서 더하세요.</span>
+                  )}
+                  {x.asks.map((q, i) => (
+                    <div className="ps-ask" key={i}>
+                      <input
+                        value={q}
+                        placeholder="눌러서 바로 묻게 할 말"
+                        onChange={(e) =>
+                          set(x.id, { asks: x.asks.map((v, j) => (j === i ? e.target.value : v)) })
+                        }
+                      />
+                      <button
+                        className="btn small"
+                        type="button"
+                        title="이 질문을 지웁니다"
+                        onClick={() => set(x.id, { asks: x.asks.filter((_, j) => j !== i) })}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  <div>
+                    <button
+                      className="btn small"
+                      type="button"
+                      onClick={() => set(x.id, { asks: [...x.asks, ''] })}
+                    >
+                      ＋ 질문 추가
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
             {/* 오른쪽 — 시스템 프롬프트가 주인공이다. 크게. */}
             <div className="ps-right">
@@ -179,68 +242,6 @@ export default function PromptSettings() {
               />
             </div>
 
-            {/* 채팅 화면에서 보이는 것 — 프롬프트는 AI 가 읽고, 이 셋은
-                사람이 본다(지시: 붉은 상자). 여는 말·입력칸 안내·추천 질문. */}
-            <div className="ps-chat">
-              <div className="ps-chat-h">
-                <b>AI 채팅 화면 (이 AI 토글 열 때)</b>
-                <span className="muted small">사람이 보는 자리입니다 — 프롬프트와 달리 화면에 그대로 뜹니다.</span>
-              </div>
-
-              <label className="ps-fld">
-                <span>오프닝 멘트 · 마크다운</span>
-                <textarea
-                  rows={4}
-                  value={x.greeting}
-                  placeholder="안녕하세요. 저는 U-TOP 에서 … 관련하여 답변하는 Assistant 입니다."
-                  onChange={(e) => set(x.id, { greeting: e.target.value })}
-                />
-              </label>
-
-              <label className="ps-fld">
-                <span>입력창 안내</span>
-                <input
-                  value={x.placeholder}
-                  placeholder="가장 많이 실패한 원인은? 을 입력해 보세요"
-                  onChange={(e) => set(x.id, { placeholder: e.target.value })}
-                />
-              </label>
-
-              <div className="ps-fld">
-                <span>추천 질문 (클릭형 칩)</span>
-                {x.asks.length === 0 && (
-                  <span className="muted small">아직 없습니다. 아래에서 더하세요.</span>
-                )}
-                {x.asks.map((q, i) => (
-                  <div className="ps-ask" key={i}>
-                    <input
-                      value={q}
-                      placeholder="눌러서 바로 묻게 할 말"
-                      onChange={(e) =>
-                        set(x.id, { asks: x.asks.map((v, j) => (j === i ? e.target.value : v)) })
-                      }
-                    />
-                    <button
-                      className="btn small"
-                      type="button"
-                      title="이 질문을 지웁니다"
-                      onClick={() => set(x.id, { asks: x.asks.filter((_, j) => j !== i) })}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-                <div>
-                  <button
-                    className="btn small"
-                    type="button"
-                    onClick={() => set(x.id, { asks: [...x.asks, ''] })}
-                  >
-                    ＋ 질문 추가
-                  </button>
-                </div>
-              </div>
-            </div>
           </div>
             ))}
         </>
