@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import { IconChevron } from '@/components/icons'
+import { IconChevron, IconFolder, IconProject, IconReqDoc, IconTcDoc } from '@/components/icons'
 import '@/components/ReqTree.css'
 import './CopyDialog.css'
 
@@ -260,9 +260,10 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
             >
               {kid ? <IconChevron /> : <span className="rt-dot" />}
             </button>
-            {/* 최상위는 **프로젝트**다 — 폴더와 같은 아이콘이면 갈리지 않는다(지적) */}
+            {/* 아이콘은 **1열 트리 것 그대로**(지적: 프로젝트는 파란 아이콘이었다) —
+                최상위는 파란 프로젝트, 아래는 폴더(편 것/닫은 것) */}
             <span className="rt-ficon" aria-hidden="true">
-              {depth === 0 ? '🗂' : '📁'}
+              {depth === 0 ? <IconProject /> : <IconFolder open={open.has(c.id)} />}
             </span>
             <span className={`rt-fname${depth === 0 ? ' cpd-prj' : ''}`}>{c.name}</span>
             {kid > 0 && <span className="rt-cnt">{kid}</span>}
@@ -301,7 +302,7 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
                 }}
               />
               <span className="rt-dicon" aria-hidden="true">
-                📄
+                <IconReqDoc />
               </span>
               <span className="rt-title">{r.title || r.reqid || r.id}</span>
               <span className="rt-cnts">
@@ -382,7 +383,7 @@ export default function CopyDialog({ onClose, onDone }: { onClose: () => void; o
               }}
             />
             <span className="rt-dicon" aria-hidden="true">
-              🧪
+              <IconTcDoc />
             </span>
             <span className="rt-title">{t.name || t.tcid}</span>
             <span className="rt-cnts">
