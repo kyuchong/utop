@@ -12,6 +12,7 @@
  * 갈래로 돌아가 있으면, 고치던 자리를 매번 다시 찾아야 한다.
  */
 import { useEffect, useState } from 'react'
+import './SetTabs.css'
 
 export default function SetTabs<T extends string>({
   tabs,

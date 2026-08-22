@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import ChatLlmSettings from './ChatLlmSettings'
+import SetTabs from './SetTabs'
 import './LlmSettings.css'
 
 interface RagCfg {
@@ -25,10 +26,10 @@ const EMPTY: RagCfg = {
 
 type Tab = 'chat' | 'embed' | 'rerank'
 
-const TABS: Array<{ k: Tab; label: string }> = [
-  { k: 'chat', label: 'Chat LLM' },
-  { k: 'embed', label: '임베딩' },
-  { k: 'rerank', label: '리랭커' },
+const TABS: Array<{ k: Tab; label: string; hint: string }> = [
+  { k: 'chat', label: 'Chat LLM', hint: '답을 만드는 모델 — 등록·연결 시험' },
+  { k: 'embed', label: '임베딩', hint: '글을 벡터로 바꾸는 서버' },
+  { k: 'rerank', label: '리랭커', hint: '찾아온 것을 다시 줄 세우는 서버' },
 ]
 
 /**
@@ -225,24 +226,16 @@ export default function LlmSettings() {
   return (
     // Chat LLM 은 목록과 상세를 나란히 두므로 기본 720px 로는 좁다.
     <div className={`set-page${tab === 'chat' ? ' wide' : ''}`}>
-      <div className="seg" role="tablist">
-        {TABS.map((t) => (
-          <button
-            key={t.k}
-            type="button"
-            role="tab"
-            aria-selected={tab === t.k}
-            className={`seg-btn${tab === t.k ? ' on' : ''}`}
-            onClick={() => {
-              setTab(t.k)
-              setProbe('')
-              setNote({ kind: '', msg: '' })
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* SETUP 안의 갈래는 한 벌이다(지시) — 용도별 프롬프트와 같은 줄 */}
+      <SetTabs<Tab>
+        value={tab}
+        onChange={(k) => {
+          setTab(k)
+          setProbe('')
+          setNote({ kind: '', msg: '' })
+        }}
+        tabs={TABS.map((t) => ({ k: t.k, label: t.label, hint: t.hint }))}
+      />
 
       {tab === 'chat' ? <ChatLlmSettings /> : serverTab(tab)}
     </div>

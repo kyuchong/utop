@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import './SetTabs.css'
 import type { CfMeta, CfTarget, CfType, CustomField } from '@/hooks/useCustomFields'
 import './CustomFieldSettings.css'
 
@@ -199,14 +200,14 @@ export default function CustomFieldSettings() {
 
       {note.msg && <div className={`set-note ${note.kind}`}>{note.msg}</div>}
 
-      <div className="seg" role="tablist">
+      <div className="ps-tabs" role="tablist">
         {Object.entries(targets).map(([k, label]) => (
           <button
             key={k}
             type="button"
             role="tab"
             aria-selected={target === k}
-            className={`seg-btn${target === k ? ' on' : ''}`}
+            className={`ps-tab${target === k ? ' on' : ''}`}
             onClick={() => {
               setTarget(k as CfTarget)
               setDraft(null)

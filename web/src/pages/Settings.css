@@ -677,30 +677,7 @@
   resize: vertical;
 }
 
-/* 용도 탭 — 한 번에 하나만 본다 */
-.ps-tabs {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-  border-bottom: 1px solid var(--c-border);
-  margin-bottom: 10px;
-}
-.ps-tab {
-  padding: 6px 14px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: none;
-  color: var(--c-text-muted);
-  font: inherit;
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-.ps-tab.on {
-  color: var(--c-primary);
-  border-bottom-color: var(--c-primary);
-  font-weight: 700;
-}
-.ps-tab:hover:not(.on) { color: var(--c-text); }
+/* 갈래 탭은 SetTabs.css 한 곳에 있다 — SETUP 밖 화면도 같은 줄을 쓴다 */
 
 .ps-item {
   border: 1px solid var(--c-border-soft);

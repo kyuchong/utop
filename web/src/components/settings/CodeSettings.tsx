@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import './SetTabs.css'
 import { cfOptions, type CfMeta, type CustomField } from '@/hooks/useCustomFields'
 import MarkdownEditor from '@/components/MarkdownEditorLazy'
 
@@ -309,14 +310,14 @@ export default function CodeSettings({ target }: Props) {
 
       {note.msg && <div className={`set-note ${note.kind}`}>{note.msg}</div>}
 
-      <div className="seg" role="tablist">
+      <div className="ps-tabs" role="tablist">
         {tabs.map((t) => (
           <button
             key={t.key}
             type="button"
             role="tab"
             aria-selected={kind === t.key}
-            className={`seg-btn${kind === t.key ? ' on' : ''}`}
+            className={`ps-tab${kind === t.key ? ' on' : ''}`}
             onClick={() => {
               setKind(t.key)
               setDraft('')

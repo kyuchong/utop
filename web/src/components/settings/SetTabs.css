@@ -1,0 +1,38 @@
+/* SETUP 안 한 페이지의 갈래 — **한 벌**(지시).
+   여기 한 곳에 두는 까닭: 장비 카탈로그처럼 SETUP 밖에서도 열리는 화면이
+   있어서, Settings.css 에 두면 그 화면에서만 탭이 민얼굴로 나온다. */
+.ps-tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--c-border);
+  margin-bottom: 10px;
+}
+.ps-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.ps-tab.on {
+  color: var(--c-primary);
+  border-bottom-color: var(--c-primary);
+  font-weight: 700;
+}
+.ps-tab:hover:not(.on) { color: var(--c-text); }
+/* 갈래 안의 개수 — 「이 탭에 몇 개 있나」 */
+.ps-tab .cnt {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  background: var(--c-surface-soft, #f1f4f8);
+  border-radius: 999px;
+  padding: 0 6px;
+}
+.ps-tab.on .cnt { color: var(--c-primary); background: var(--c-primary-bg, #eef4ff); }

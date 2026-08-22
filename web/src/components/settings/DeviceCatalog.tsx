@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import './SetTabs.css'
 import type { Device } from '@/pages/Devices'
 
 interface Item {
@@ -404,7 +405,7 @@ export default function DeviceCatalog({
       {/* 트리만 볼 때는 탭 줄을 **아예 그리지 않는다**(지시) — `hidden` 은
           `.seg { display:flex }` 에 밀려 그대로 보였다. */}
       {only !== 'tree' && (
-      <div className="seg" role="tablist">
+      <div className="ps-tabs" role="tablist">
         {(
           [
             ['tree', '트리'],
@@ -420,7 +421,7 @@ export default function DeviceCatalog({
             type="button"
             role="tab"
             aria-selected={view === k}
-            className={`seg-btn${view === k ? ' on' : ''}`}
+            className={`ps-tab${view === k ? ' on' : ''}`}
             onClick={() => pickView(k)}
           >
             {label}
