@@ -11983,16 +11983,36 @@ def _ai_json(content):
         return None
 
 # ── Cycle → Markdown 변환 · RAG 색인 · AI 요약 ──
+def _step_verdict(s):
+    """스텝 하나의 판정 — 화면(types.ts stepVerdict)과 같은 자리를 본다.
+
+    실행기는 `status`(PASS/FAIL)·`repeatResult`(Pass/Fail) 에 적고, 옛
+    자료와 손 입력은 `result` 에 있다. 여태 서버는 result 만 읽어서,
+    **자동 실행 결과가 전부 빈 것으로 보였다**(지적: 수동은 반영되는데
+    자동은 안 된다)."""
+    v = str(s.get("result") or "").strip().upper()
+    if v:
+        return v
+    st = str(s.get("status") or "").strip().upper()
+    if st in ("PASS", "FAIL", "WIP", "BLOCKED"):
+        return st
+    return str(s.get("repeatResult") or "").strip().upper()
+
+
 def _item_verdict(item):
     """항목 판정. result/status 필드 우선, 비어 있으면 스텝 결과로 유도
-    (스텝 단위 실행·수동 입력 시 항목 필드가 비므로 — 프론트 cycleItemStatus와 동일 규칙)."""
+    (스텝 단위 실행·수동 입력 시 항목 필드가 비므로 — 프론트 itemVerdict 와 동일 규칙)."""
     v = str(item.get("result") or item.get("status") or "").strip().upper()
     if v in ("PASS", "FAIL"):
         return v
     if v in ("N/A", "NA"):
         return "N/A"
-    steps = [s for s in (item.get("steps") or []) if isinstance(s, dict)]
-    rs = [str(s.get("result") or "").strip().upper() for s in steps]
+    # 수동 스텝은 자동 판정에서 뺀다 — 사람이 보는 것은 사람이 따로 적는다
+    steps = [
+        s for s in (item.get("steps") or [])
+        if isinstance(s, dict) and not (s.get("manual") or s.get("action") == "수동")
+    ]
+    rs = [_step_verdict(s) for s in steps]
     filled = [r for r in rs if r]
     if not filled:
         return v
