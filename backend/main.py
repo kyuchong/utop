@@ -12018,8 +12018,9 @@ def _item_verdict(item):
         return v
     if any(r in ("FAIL", "불합격") for r in filled):   # Fail 하나라도 → Fail
         return "FAIL"
-    if len(filled) < len(rs):                          # 일부만 입력 → 미실행(예정) 취급
-        return v
+    # 「전부 채워져야 Pass」 로 하면 안 된다 — 메시지·주석 같은 스텝은
+    # 판정이 원래 없어서, 그 줄 하나 때문에 영영 미정으로 남는다(화면
+    # itemVerdict 는 some(Pass) 로 본다 — 같은 규칙로 맞춘다)
     if any(r in ("PASS", "합격") for r in filled):     # Fail 없고 Pass 있으면 → Pass
         return "PASS"
     return "N/A"
