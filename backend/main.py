@@ -5187,7 +5187,7 @@ async def tc_last_result():
                 continue        # 아직 안 돌린 항목은 「최근 결과」 가 아니다
             # 화면 딱지는 설정(실행 판정 기준)의 값 이름을 쓴다 — PASS/FAIL
             # 대문자를 그 이름으로 되돌린다
-            label = {"PASS": "Pass", "FAIL": "Fail", "N/A": "진행불가"}.get(v, v)
+            label = {"PASS": "Pass", "FAIL": "Fail", "N/A": "진행불가", "BLOCKED": "Blocked"}.get(v, v)
             out[t] = {
                 "result": label,
                 "cycle_id": str(r["id"] or ""),
