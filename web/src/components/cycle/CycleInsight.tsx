@@ -148,6 +148,7 @@ export default function CycleInsight({ mode, cycleId, title, items, onClose }: P
                 disabled={busy}
                 onClick={() => void make()}
               >
+                {busy && <i className="btn-spin" aria-hidden="true" />}
                 {text ? '다시 만들기' : '요약 만들기'}
               </button>
               {/* 브라우저 인쇄로 PDF 를 뽑는다 — 따로 만드는 것보다 글꼴·

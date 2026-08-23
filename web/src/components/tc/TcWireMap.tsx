@@ -371,6 +371,7 @@ export default function TcWireMap({
           disabled={busy || !say.trim()}
           onClick={() => void askAi()}
         >
+          {busy && <i className="btn-spin" aria-hidden="true" />}
           말로 잇기
         </button>
       </div>

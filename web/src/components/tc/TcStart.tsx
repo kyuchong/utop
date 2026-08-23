@@ -216,6 +216,7 @@ export default function TcStart({ devices, onClose, onMade }: Props) {
               disabled={!!busy || !want.trim()}
               onClick={() => void look()}
             >
+              {busy === 'look' && <i className="btn-spin" aria-hidden="true" />}
               찾기
             </button>
           </div>

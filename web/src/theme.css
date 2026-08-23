@@ -626,12 +626,44 @@ html .tcl-rw .rq-tr.tc-tr:not(.rq-th) {
 
 /* ── AI 단추 ──
    이름은 「✨ AI」 한 벌이다(지시). 자리마다 「스텝 설계」 「뽑아 보기」 로
-   다르면 같은 일인 줄 모르고, 도는 동안 글자를 바꾸면 폭이 들썩인다.
-   도는 것은 **별표가 숨쉬는 것**으로 보인다 — 글자는 그대로 둔다. */
-.ai-mark { display: inline-block; }
-.ai-mark.on { animation: ai-breathe 1s ease-in-out infinite alternate; }
-@keyframes ai-breathe {
-  from { opacity: 0.35; transform: scale(0.92); }
-  to   { opacity: 1; transform: scale(1.08); }
+   다르면 같은 일인 줄 모른다. 도는 동안 글자는 안 바꾼다 — 폭이 들썩인다.
+
+   대신 **별 자리에서 고리가 돈다**(지시: 스피너가 보였으면). 숨쉬기만으로는
+   「도는 중인지 그냥 그런 모양인지」 가 안 갈렸다. 자리를 같은 크기로
+   잡아 두어 도는 동안에도 단추 폭이 그대로다. */
+.ai-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
 }
-@media (prefers-reduced-motion: reduce) { .ai-mark.on { animation: none; opacity: 0.6; } }
+.ai-mark.on { font-size: 0; }          /* 별표는 잠시 감춘다 */
+.ai-mark.on::before {
+  content: '';
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: ai-spin 0.7s linear infinite;
+}
+
+/* 짓는 일이 아닌 단추(말로 잇기·찾기·요약 만들기…)도 도는 것이 보여야
+   한다 — 「…중」 글자를 걷었으니 이것이 그 자리를 대신한다 */
+.btn-spin {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  vertical-align: -2px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: ai-spin 0.7s linear infinite;
+}
+@keyframes ai-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ai-mark.on::before,
+  .btn-spin { animation: none; opacity: 0.5; }
+}

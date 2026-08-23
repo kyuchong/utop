@@ -3417,3 +3417,17 @@ table.tb tr.r-bad td:first-child {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* 붙어 있는 요구사항으로 건너뛰는 길 — 목록 칸과 Info 칸, 빵부스러기 */
+.tc-reqgo {
+  color: var(--c-primary);
+  text-decoration: none;
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.tc-reqgo:hover { text-decoration: underline; }
+.tc-map .tc-reqgo { margin-right: 6px; }
+.tc-crumb-go { margin-left: 4px; color: var(--c-primary); text-decoration: none; }
+.tc-crumb-go:hover { text-decoration: underline; }
+.tc-reqid { display: flex; align-items: center; gap: 6px; }
+.tc-reqid input { flex: 1; min-width: 0; }

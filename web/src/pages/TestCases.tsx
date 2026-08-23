@@ -65,7 +65,7 @@ import TcSuggest from '@/components/tc/TcSuggest'
 import { deviceLabel, isMeter } from '@/components/tc/device'
 import type { Device } from '@/pages/Devices'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
-import { gotoHref, onGoto, reflectUrl } from '@/api/goto'
+import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import IdPill from '@/components/IdPill'
 import { useResults } from '@/pages/Cycles'
 import PickCell from '@/components/PickCell'
@@ -1747,9 +1747,23 @@ export default function TestCases({ me }: PageProps) {
           </div>
         )
       }
-      case 'map':
+      case 'map': {
+        /* 붙어 있는 요구사항으로 **건너뛰는 길**(지시: 시험항목에서 요구사항
+           페이지로 갈 수가 없다). 요구사항 화면이 시험으로 건너뛰는 것과
+           같은 문법이다 — 왼쪽 단추로 가고, Ctrl·오른쪽 단추로 새 탭. */
+        const rr = reqByKey.get(t.req_id || '')
         return (
           <div className="tc-map" key={k}>
+            {rr && (
+              <a
+                className="tc-reqgo"
+                href={gotoHref('req', reqPk(rr))}
+                title={`${reqLabel(rr)} ${rr.title ?? ''} — 이 요구사항으로 갑니다`}
+                onClick={(e) => gotoClick(e, 'req', reqPk(rr))}
+              >
+                {reqLabel(rr)}
+              </a>
+            )}
             <button
               type="button"
               className="linkish"
@@ -1763,6 +1777,7 @@ export default function TestCases({ me }: PageProps) {
             </span>
           </div>
         )
+      }
       case 'created_by':
         return <div className="muted" key={k}>{(t.created_by as string) || '–'}</div>
       case 'updated_by':
@@ -2434,6 +2449,19 @@ export default function TestCases({ me }: PageProps) {
                   >
                     {detailPath.req}
                   </button>
+                  {/* 단추는 「이 요구사항의 시험만 보기」 로 그대로 두고,
+                      요구사항 화면으로 가는 길은 ↗ 로 따로 낸다(지시) —
+                      한 자리에 두 뜻을 담으면 어느 쪽이 될지 모른다 */}
+                  {detailPath.reqPk && (
+                    <a
+                      className="tc-crumb-go"
+                      href={gotoHref('req', detailPath.reqPk)}
+                      title="요구사항 화면에서 이 요구사항을 엽니다 (Ctrl+클릭 = 새 탭)"
+                      onClick={(e) => gotoClick(e, 'req', detailPath.reqPk)}
+                    >
+                      ↗
+                    </a>
+                  )}
                 </>
               )}
               <span className="rq-crumb-sep">›</span>

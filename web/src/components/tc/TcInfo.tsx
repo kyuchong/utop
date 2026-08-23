@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import { gotoClick, gotoHref } from '@/api/goto'
 import { api, categoryApi } from '@/api/client'
 import { reqLabel, reqPk } from '@/types'
 import { useCodes } from '@/hooks/useCodes'
@@ -163,7 +164,21 @@ export default function TcInfo({ data, onChange }: Props) {
         <div className="tc-grid tc-grid-idt">
           <label className="fld">
             <span>요구사항 ID</span>
-            <input value={curReqId || (cur ? cur : '–')} readOnly tabIndex={-1} />
+            <div className="tc-reqid">
+              <input value={curReqId || (cur ? cur : '–')} readOnly tabIndex={-1} />
+              {/* 붙어 있는 요구사항으로 건너뛴다(지시) — 요구사항 화면이
+                  시험으로 건너뛰는 것과 같은 문법 */}
+              {cur && (
+                <a
+                  className="tc-reqgo"
+                  href={gotoHref('req', cur)}
+                  title="요구사항 화면에서 이 요구사항을 엽니다 (Ctrl+클릭 = 새 탭)"
+                  onClick={(e) => gotoClick(e, 'req', cur)}
+                >
+                  ↗
+                </a>
+              )}
+            </div>
           </label>
           <div className="fld" ref={reqBoxRef}>
             <span>요구사항 제목</span>
