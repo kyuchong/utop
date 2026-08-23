@@ -1046,6 +1046,10 @@ _AUTH_PUBLIC = (
     "/api/logout",
     "/api/health",
     "/api/req-images/",     # 마크다운 안 <img> 는 헤더를 못 붙인다
+    # 로그인 **화면**이 이것으로 그려진다 — 로고·회사 사진·이름. 로그인
+    # 전이라 세션이 없다(지적: 로그인 시 사진이 안 나온다). 비밀이 아니라
+    # 회사 간판이라 열어 둔다.
+    "/api/branding",
     "/openapi.json",
     "/docs",
     "/redoc",
