@@ -3835,6 +3835,18 @@ function CycleDetail({
   })
   const [colsOpen, setColsOpen] = useState(false)
   const fShow = (k: string) => !hideF.has(k)
+  const rgtStyle = useMemo(() => {
+    if (!hideF.size) return undefined     // 다 보일 때는 CSS 판 그대로
+    const W: Record<string, string> = {
+      who: '24px', by: '60px', kind: '18px', hist: '62px',
+      when: '62px', took: '58px', stt: '76px',
+    }
+    const cols = ['who', 'by', 'kind', 'hist', 'when', 'took', 'stt']
+      .filter((k) => !hideF.has(k))
+      .map((k) => W[k])
+      .join(' ')
+    return { gridTemplateColumns: cols || 'none' } as React.CSSProperties
+  }, [hideF])
   const fFlip = (k: string) =>
     setHideF((cur) => {
       const n = new Set(cur)
@@ -5358,7 +5370,7 @@ function CycleDetail({
                 <span className="cxp-no">No</span>
                 <span />
                 <span className="cxp-rmain">시험 항목</span>
-                <span className="cxp-rgt">
+                <span className="cxp-rgt" style={rgtStyle}>
                   {fShow('who') && (
                     <span title="담당자">
                       <i className="hd-ic">
@@ -5553,7 +5565,7 @@ function CycleDetail({
                         </span>
                       </span>
                       {/* 오른쪽 무리 — 한 묶음(간격 균일): M/A · 이력 · 결과 셀렉트 · ▶ · 회귀 · 점 */}
-                      <span className="cxp-rgt" onClick={(e) => e.stopPropagation()}>
+                      <span className="cxp-rgt" style={rgtStyle} onClick={(e) => e.stopPropagation()}>
                         {/* 담당자 — 읽기 전용. 할당은 사이클 수정 창에서 */}
                         {fShow('who') && (() => {
                           const who = String(it.assignee ?? '')

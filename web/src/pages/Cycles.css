@@ -7993,8 +7993,21 @@ a.bc-cur:hover { text-decoration: underline; }
 .cxp-hist.go:hover > i { filter: brightness(0.94); }
 
 /* ── 항목 × 회차 Matrix ── */
-.modal.cym { width: min(1200px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }
-.cym-body { overflow: auto; padding: 0 14px 14px; }
+/* 판이 크다(지시: 가로/세로 늘려) — 항목 60건 × 회차 여럿이면 작은 창은
+   굴리기만 하다 끝난다. 화면을 거의 다 쓴다. */
+.modal.cym {
+  width: 96vw;
+  max-width: 96vw;
+  height: 92vh;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+.modal.cym .modal-head { flex: none; }
+.cym-body { flex: 1; min-height: 0; overflow: auto; padding: 0 14px 14px; }
+/* 항목 이름 열은 왼쪽에 고정 — 오른쪽으로 굴려도 무엇의 줄인지 보인다 */
+.cym-tbl .cym-nm { position: sticky; left: 0; background: var(--c-surface); z-index: 1; }
+.cym-tbl thead .cym-nm { z-index: 2; background: #f4f6f9; }
 .cym-tbl { border-collapse: collapse; width: 100%; }
 .cym-tbl th, .cym-tbl td {
   border: 1px solid var(--c-border-soft);
