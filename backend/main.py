@@ -1002,7 +1002,7 @@ def _user_from_token(token: str):
     return _find_user(s.get("username")) if s else None
 
 def _require_admin(token: str):
-    u = _user_from_token(token)
+    u = _user_from_token(token or _REQ_TOKEN.get(""))
     if not u:
         raise HTTPException(401, "로그인이 필요합니다")
     if u.get("role") != "관리자":
@@ -1060,6 +1060,16 @@ _AUTH_PUBLIC = (
 )
 
 
+# 지금 요청의 토큰 — 미들웨어가 담아 두고 관리자 검사(_require_admin)가
+# 꺼내 쓴다.
+#
+# 화면은 토큰을 **헤더**로 보내는데, 관리자 자리들은 함수 인자(token: str = "")
+# 로 받아 **주소의 ?token=** 만 봤다. 그래서 저장이 조용히 401 로 떨어지고
+# 화면은 옛 값을 다시 보여 줬다(지적: 15 를 16 으로 고쳐도 되돌아간다).
+# 자리마다 손대면 또 빠뜨린다 — 한 곳에서 받는다.
+_REQ_TOKEN: "contextvars.ContextVar[str]" = contextvars.ContextVar("_REQ_TOKEN", default="")
+
+
 def _token_from(request) -> str:
     """Authorization: Bearer 우선, 없으면 기존 방식(쿼리 ?token=)."""
     h = request.headers.get("authorization") or ""
@@ -1103,9 +1113,12 @@ async def _require_login(request, call_next):
     if request.method == "OPTIONS" or not path.startswith("/api/"):
         return await call_next(request)      # 화면·정적 파일은 통과
     if any(path.startswith(p) for p in _AUTH_PUBLIC):
+        _REQ_TOKEN.set(_token_from(request))
         return await call_next(request)
 
-    s = await _session_of(_token_from(request))
+    _tok = _token_from(request)
+    _REQ_TOKEN.set(_tok)
+    s = await _session_of(_tok)
     if not s:
         from fastapi.responses import JSONResponse
         return JSONResponse({"detail": "로그인이 필요합니다"}, status_code=401)
@@ -1786,8 +1799,11 @@ async def api_branding_get():
             "login_font": b.get("login_font") or ""}
 
 @app.post("/api/branding")
-async def api_branding_save(payload: dict, token: str = ""):
-    _require_admin(token)
+async def api_branding_save(payload: dict, request: Request, token: str = ""):
+    # 화면은 Authorization 헤더로 토큰을 보낸다. 여기서 쿼리(?token=)만 보아
+    # 401 이 났고, 저장은 조용히 실패해 새로고침하면 옛 값이 돌아왔다
+    # (지적: 15 를 16 으로 고쳐도 15 로 되돌아간다).
+    _require_admin(token or _token_from(request))
     b = _load_branding()
     for k in ("name_text", "name_size", "name_color", "name_font", "name_accent_color", "link_url",
               "login_title", "login_sub", "login_size", "login_color", "login_accent_color",
@@ -1809,13 +1825,13 @@ async def api_branding_save(payload: dict, token: str = ""):
             "name_accent_color": b.get("name_accent_color") or ""}
 
 @app.post("/api/branding/login-image")
-async def api_branding_login_image(payload: dict, token: str = ""):
+async def api_branding_login_image(payload: dict, request: Request, token: str = ""):
     """로그인 화면 왼쪽 판에 깔 사진 — 회사 건물처럼 우리 것을 올린다(지시).
 
     남의 사진을 갖다 쓰지 않는다. 올리는 사람이 권리를 아는 사진이라야
     한다 — 그래서 자동으로 받아 오지 않고 **올리는 자리**만 둔다.
     """
-    _require_admin(token)
+    _require_admin(token or _token_from(request))
     img = str(payload.get("image") or "")
     if img and not img.startswith("data:image/"):
         raise HTTPException(400, "이미지 파일만 등록할 수 있습니다")
@@ -1828,9 +1844,9 @@ async def api_branding_login_image(payload: dict, token: str = ""):
 
 
 @app.post("/api/branding/login-logo")
-async def api_branding_login_logo(payload: dict, token: str = ""):
+async def api_branding_login_logo(payload: dict, request: Request, token: str = ""):
     """로그인 화면 로고 — 메뉴 로고와 **따로** 둔다(지시)."""
-    _require_admin(token)
+    _require_admin(token or _token_from(request))
     logo = str(payload.get("logo") or "")
     if logo and not logo.startswith("data:image/"):
         raise HTTPException(400, "이미지 파일만 등록할 수 있습니다")
@@ -1843,8 +1859,8 @@ async def api_branding_login_logo(payload: dict, token: str = ""):
 
 
 @app.post("/api/branding/logo")
-async def api_branding_logo(payload: dict, token: str = ""):
-    _require_admin(token)
+async def api_branding_logo(payload: dict, request: Request, token: str = ""):
+    _require_admin(token or _token_from(request))
     logo = str(payload.get("logo") or "")
     if logo and not logo.startswith("data:image/"):
         raise HTTPException(400, "이미지 파일만 등록할 수 있습니다")
