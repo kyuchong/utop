@@ -1,0 +1,56 @@
+/* 색 고르개 — 여러 화면이 같이 쓴다(요구사항·TC·사이클 INFO 필드,
+   실행 판정 기준). 클래스 이름은 옛 자리(vd-)를 그대로 둔다 —
+   두 곳이 같은 그림을 쓰는데 이름만 갈리면 다음 사람이 헷갈린다. */
+.vd-pick { position: relative; display: inline-block; }
+.vd-pickb {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid;
+  border-radius: 999px;
+  padding: 3px 10px 3px 12px;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+  max-width: 190px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.vd-pickb > i { flex: none; width: 12px; height: 12px; border-radius: 50%; }
+.vd-pickback { position: fixed; inset: 0; z-index: 30; }
+.vd-pickpop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 31;
+  display: block;
+  width: 232px;
+  padding: 10px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.16);
+}
+.vd-pickpop > b { display: block; font-size: var(--fs-xs); color: var(--c-text-muted); margin-bottom: 7px; }
+.vd-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.vd-sw2 {
+  height: 30px;
+  border: 1px solid;
+  border-radius: 8px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  cursor: pointer;
+}
+.vd-sw2.on { outline: 2px solid var(--c-primary); outline-offset: 1px; }
+.vd-fine { display: flex; gap: 12px; margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--c-border-soft); }
+.vd-fine label { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs); color: var(--c-text-muted); }
+.vd-fine input { width: 34px; height: 22px; padding: 0; border: 1px solid var(--c-border); border-radius: 5px; background: none; }
+
+
+/* 팔레트 — 한 줄이 한 계열, 왼쪽이 진하다(지시: 아주 다양하게).
+   백 가지가 넘으니 판을 넓히고 높이는 제한해 그 안에서 구른다. */
+.vd-pickpop { width: 384px; max-height: 60vh; overflow: auto; }
+.vd-grid { grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.vd-sw2 { height: 24px; border-radius: 5px; }

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import './SetTabs.css'
+import { ColorPick } from './ColorPick'
 import { cfOptions, type CfMeta, type CustomField } from '@/hooks/useCustomFields'
 import MarkdownEditor from '@/components/MarkdownEditorLazy'
 
@@ -622,25 +623,33 @@ export default function CodeSettings({ target }: Props) {
                         const fg = st.fg || '#ffffff'
                         return (
                           <span className="dc-style">
-                            <input
-                              type="color"
-                              value={bg}
+                            {/* 무엇을 고르는 색인지 글자로 적는다(지적) —
+                                동그라미 둘만 있으면 어느 쪽이 바탕인지 모른다 */}
+                            <span className="dc-lb">바탕</span>
+                            <ColorPick
                               title="바탕색"
-                              onChange={(e) => saveStyle(v, { color: e.target.value })}
+                              value={bg}
+                              onPick={(c) => saveStyle(v, { color: c })}
                             />
-                            <input
-                              type="color"
-                              value={fg}
+                            <span className="dc-lb">글자</span>
+                            <ColorPick
                               title="글자색"
-                              onChange={(e) => saveStyle(v, { fg: e.target.value })}
+                              value={fg}
+                              onPick={(c) => saveStyle(v, { fg: c })}
                             />
+                            <span className="dc-lb">결과</span>
                             <i
                               className={`dc-prev sh-${kstyle.shape || 'fill'}`}
-                              style={{ background: bg, color: fg }}
-                              title="목록에서 이렇게 보입니다"
+                              style={{
+                                background: bg,
+                                color: fg,
+                                width: kstyle.w ? `${Number(kstyle.w)}px` : undefined,
+                              }}
+                              title={`목록에서 이렇게 보입니다 — 폭 ${kstyle.w || '기본'}`}
                             >
                               {v}
                             </i>
+                            <span className="muted small">{kstyle.w ? `${kstyle.w}px` : '자동'}</span>
                           </span>
                         )
                       })()}
