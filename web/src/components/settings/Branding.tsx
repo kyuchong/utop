@@ -144,9 +144,10 @@ export default function Branding() {
           <input
             type="number"
             min={10}
-            max={40}
+            max={60}
             value={size}
             placeholder="15"
+            title="10~60px. 비우면 기본값(15px)"
             onChange={(e) => setSize(e.target.value)}
           />
         </label>

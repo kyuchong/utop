@@ -189,7 +189,14 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
               <b
                 className="nav-logo-nm"
                 style={{
-                  fontSize: brand.size ? `${Math.min(Number(brand.size) || 15, 40)}px` : undefined,
+                  /* 숫자가 아니면 그때만 기본값이다 — 「|| 15」 를 값 자리에
+                     두어 0·빈칸·글자가 들어오면 조용히 15 로 눌렸다(지적:
+                     무조건 15 로 고정된다) */
+                  fontSize: (() => {
+                    const n = Number(String(brand.size ?? '').trim())
+                    if (!Number.isFinite(n) || n <= 0) return undefined
+                    return `${Math.min(Math.max(n, 10), 60)}px`
+                  })(),
                   color: brand.color || undefined,
                   fontFamily: brand.font || undefined,
                 }}
