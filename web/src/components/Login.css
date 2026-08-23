@@ -3,7 +3,9 @@
    접는다 — 폰에서 사진이 화면을 다 먹으면 정작 칸이 안 보인다. */
 .lg {
   display: grid;
-  grid-template-columns: 1.05fr 1fr;
+  /* 사진 판을 줄인다(지적: 사진이 너무 크다) — 넓은 화면일수록 사진이
+     화면을 다 먹었다. 폭을 고정으로 잡고 남는 것은 로그인 쪽이 갖는다. */
+  grid-template-columns: minmax(320px, 38vw) 1fr;
   min-height: 100vh;
   background: var(--c-surface, #fff);
 }
@@ -13,7 +15,7 @@
   position: relative;
   display: flex;
   align-items: flex-end;
-  padding: 56px;
+  padding: 40px;
   overflow: hidden;
   /* 사진이 없을 때 — 회사 색으로 칠한 판이 대신 선다 */
   background:
@@ -43,12 +45,12 @@
 }
 .lg-sidein h1 {
   margin: 0 0 10px;
-  font-size: 34px;
+  font-size: 26px;
   line-height: 1.25;
   font-weight: 800;
   letter-spacing: -0.01em;
 }
-.lg-sidein p { margin: 0 0 22px; font-size: 15px; color: rgb(255 255 255 / 0.82); }
+.lg-sidein p { margin: 0 0 18px; font-size: 14px; color: rgb(255 255 255 / 0.82); }
 .lg-pts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .lg-pts li {
   position: relative;
@@ -98,9 +100,13 @@
 .lg-foot { margin-top: 6px; font-size: 12px; line-height: 1.6; color: var(--c-text-faint); }
 
 /* 좁은 화면 — 왼쪽 판은 머리 띠로 줄인다 */
+/* 아주 넓은 화면 — 사진이 계속 커지지 않게 상한을 둔다 */
+@media (min-width: 1600px) {
+  .lg { grid-template-columns: 560px 1fr; }
+}
 @media (max-width: 900px) {
   .lg { grid-template-columns: 1fr; }
-  .lg-side { min-height: 190px; padding: 24px; align-items: center; }
+  .lg-side { min-height: 150px; padding: 20px 24px; align-items: center; }
   .lg-sidein h1 { font-size: 24px; }
   .lg-pts { display: none; }
 }
