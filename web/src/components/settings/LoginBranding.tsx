@@ -25,7 +25,7 @@ export default function LoginBranding() {
   useEffect(() => {
     void (async () => {
       try {
-        const r = await apiFetch('/api/branding')
+        const r = await apiFetch('/api/branding', { cache: 'no-store' })
         if (!r.ok) return
         const b = (await r.json()) as {
           login_image?: string
@@ -88,6 +88,19 @@ export default function LoginBranding() {
         body: JSON.stringify({ image: loginImg }),
       })
       if (!r3.ok) throw new Error('사진을 저장하지 못했습니다')
+      /* 저장한 값을 서버에서 다시 읽어 화면에 얹는다 — 저장은 됐는데
+         화면이 옛것이면 사람은 「저장이 안 됐다」 고 읽는다(지적) */
+      const back = await apiFetch('/api/branding', { cache: 'no-store' })
+      if (back.ok) {
+        const b = (await back.json()) as Record<string, string>
+        setLoginImg(b.login_image ?? '')
+        setLoginLogo(b.login_logo ?? '')
+        setLoginTitle(b.login_title ?? '')
+        setLoginSub(b.login_sub ?? '')
+        setLoginSize(b.login_size ?? '')
+        setLoginColor(b.login_color || '#ffffff')
+        setLoginAccent(b.login_accent_color || '#ff5b5b')
+      }
       setMsg('저장했습니다')
     } catch (e) {
       setMsg(e instanceof Error ? e.message : String(e))

@@ -126,11 +126,15 @@ _LIVE_PATHS = (
     # 다시 보인다」 를 만들었다(지적). 고치자마자 다시 읽는 자료다.
     "/api/llms",
     "/api/prompts",
+    # 브랜딩 — 고치고 새로고침하면 옛 값이 돌아왔다(지적: 크기 변경이 안 된다,
+    # 사진 제거가 안 된다). 30초 캐시가 방금 저장한 것을 덮고 있었다.
+    # 로고·이름은 자주 읽히지만 그 몇 KB 를 아끼자고 「저장이 안 되는 화면」
+    # 을 만들 수는 없다.
+    "/api/branding",
 )
 
 _CACHEABLE_PATHS = (
     "/api/device-catalog",
-    "/api/branding",
     "/api/help",
     "/api/page-ai",
     "/api/dify/assistants",

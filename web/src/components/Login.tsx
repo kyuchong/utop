@@ -45,7 +45,7 @@ export default function Login({ onDone }: Props) {
   useEffect(() => {
     void (async () => {
       try {
-        const r = await apiFetch('/api/branding')
+        const r = await apiFetch('/api/branding', { cache: 'no-store' })
         if (r.ok) setBrand((await r.json()) as typeof brand)
       } catch {
         /* 못 읽으면 기본 얼굴로 뜬다 — 로그인은 되어야 한다 */

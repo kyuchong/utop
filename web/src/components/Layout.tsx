@@ -119,7 +119,7 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
   useEffect(() => {
     void (async () => {
       try {
-        const r = await apiFetch('/api/branding')
+        const r = await apiFetch('/api/branding', { cache: 'no-store' })
         if (!r.ok) return
         const b = (await r.json()) as {
           logo?: string

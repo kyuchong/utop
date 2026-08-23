@@ -21,7 +21,7 @@ export default function Branding() {
 
   useEffect(() => {
     void (async () => {
-      const r = await apiFetch('/api/branding')
+      const r = await apiFetch('/api/branding', { cache: 'no-store' })
       if (!r.ok) return
       const b = (await r.json()) as {
         logo?: string
@@ -83,6 +83,16 @@ export default function Branding() {
       if (!r2.ok) {
         const b = (await r2.json().catch(() => ({}))) as { detail?: string }
         throw new Error(b.detail || String(r2.status))
+      }
+      const back = await apiFetch('/api/branding', { cache: 'no-store' })
+      if (back.ok) {
+        const b = (await back.json()) as Record<string, string>
+        setName(b.name_text ?? '')
+        setSize(b.name_size ?? '')
+        if (b.name_color) setColor(b.name_color)
+        if (b.name_accent_color) setAccent(b.name_accent_color)
+        setFont(b.name_font ?? '')
+        setLink(b.link_url ?? '')
       }
       setMsg('저장했습니다 — 화면을 새로고침하면 메뉴에 보입니다')
     } catch (e) {
