@@ -5,7 +5,8 @@
  * 고르는데 브라우저 기본 색고르개만 있어 쓰기가 힘들었다(지적: 색 선택이
  * 너무 불편하다 — 진한색부터 연한색까지 다량으로 달라).
  */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import './ColorPick.css'
 
 /*
@@ -158,9 +159,28 @@ export function ColorPick({
   onPick: (c: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const btn = useRef<HTMLButtonElement>(null)
+  /**
+   * 판은 **화면 맨 위에 띄운다**(지시: 카드 아래로 숨는다).
+   *
+   * 카드 안에 붙여 두었더니 설정 화면의 스크롤 상자(overflow)가 잘라 먹어
+   * 판이 카드 밑으로 사라졌다. 몸통(body)에 붙이고 단추 자리를 재서 그
+   * 아래에 놓는다 — 어떤 상자에도 안 갇힌다. 아래가 좁으면 위로 띄운다.
+   */
+  const at = (() => {
+    const r = btn.current?.getBoundingClientRect()
+    if (!r) return { left: 0, top: 0 }
+    const W = 420
+    const H = 460
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - W - 8))
+    const below = window.innerHeight - r.bottom
+    const top = below > H + 12 ? r.bottom + 6 : Math.max(8, r.top - H - 6)
+    return { left, top }
+  })()
   return (
     <span className="vd-pick">
       <button
+        ref={btn}
         type="button"
         className="vd-pickb one"
         title={`${title} — 누르면 색 한 벌이 뜹니다`}
@@ -169,10 +189,11 @@ export function ColorPick({
         <i style={{ background: value }} />
         <em>{value.toUpperCase()}</em>
       </button>
-      {open && (
-        <>
-          <span className="vd-pickback" onClick={() => setOpen(false)} />
-          <span className="vd-pickpop">
+      {open &&
+        createPortal(
+          <>
+            <span className="vd-pickback" onClick={() => setOpen(false)} />
+            <span className="vd-pickpop" style={{ left: at.left, top: at.top }}>
             <b>{title}</b>
             {/* 계열마다 한 줄 — 왼쪽이 진하고 오른쪽이 여리다(지시:
                 아이콘을 줄이고 전체가 한 번에 보이게). 이름을 왼쪽에 적어
@@ -205,9 +226,10 @@ export function ColorPick({
                 <input type="color" value={value} onChange={(e) => onPick(e.target.value)} />
               </label>
             </span>
-          </span>
-        </>
-      )}
+            </span>
+          </>,
+          document.body,
+        )}
     </span>
   )
 }

@@ -18,12 +18,11 @@
   white-space: nowrap;
 }
 .vd-pickb > i { flex: none; width: 12px; height: 12px; border-radius: 50%; }
-.vd-pickback { position: fixed; inset: 0; z-index: 30; }
+.vd-pickback { position: fixed; inset: 0; z-index: 1199; }
 .vd-pickpop {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 31;
+  /* 몸통에 붙는다 — 카드·스크롤 상자에 안 갇힌다(지시) */
+  position: fixed;
+  z-index: 1200;
   display: block;
   width: 232px;
   padding: 10px;
