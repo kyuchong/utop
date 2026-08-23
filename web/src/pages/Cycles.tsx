@@ -5111,13 +5111,14 @@ function CycleDetail({
               />
               {/* ⚙ — 오른쪽 필드를 보이거나 숨긴다(지시 ①) */}
               <span className="cxp-cols">
+                {/* 옆의 「내 것만」 아이콘 단추와 **같은 틀**(지시: 크기 통일) */}
                 <button
                   type="button"
-                  className="btn small"
+                  className={`cxp-mine${colsOpen ? ' on' : ''}`}
                   title="목록 필드 보이기/숨기기"
                   onClick={() => setColsOpen((v) => !v)}
                 >
-                  ⚙
+                  <IconSettings />
                 </button>
                 {colsOpen && (
                   <div className="cxp-colspop" onMouseLeave={() => setColsOpen(false)}>
