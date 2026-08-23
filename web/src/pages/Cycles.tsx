@@ -3835,18 +3835,6 @@ function CycleDetail({
   })
   const [colsOpen, setColsOpen] = useState(false)
   const fShow = (k: string) => !hideF.has(k)
-  const rgtStyle = useMemo(() => {
-    if (!hideF.size) return undefined     // 다 보일 때는 CSS 판 그대로
-    const W: Record<string, string> = {
-      who: '24px', by: '60px', kind: '18px', hist: '62px',
-      when: '62px', took: '58px', stt: '76px',
-    }
-    const cols = ['who', 'by', 'kind', 'hist', 'when', 'took', 'stt']
-      .filter((k) => !hideF.has(k))
-      .map((k) => W[k])
-      .join(' ')
-    return { gridTemplateColumns: cols || 'none' } as React.CSSProperties
-  }, [hideF])
   const fFlip = (k: string) =>
     setHideF((cur) => {
       const n = new Set(cur)
@@ -5370,9 +5358,9 @@ function CycleDetail({
                 <span className="cxp-no">No</span>
                 <span />
                 <span className="cxp-rmain">시험 항목</span>
-                <span className="cxp-rgt" style={rgtStyle}>
+                <span className="cxp-rgt">
                   {fShow('who') && (
-                    <span title="담당자">
+                    <span className="hf-who" title="담당자">
                       <i className="hd-ic">
                         <IconAccounts />
                       </i>
@@ -5380,7 +5368,7 @@ function CycleDetail({
                     </span>
                   )}
                   {fShow('by') && (
-                    <span title="실행자">
+                    <span className="hf-who" title="실행자">
                       <i className="hd-ic">
                         <IconHand />
                       </i>
@@ -5388,7 +5376,7 @@ function CycleDetail({
                     </span>
                   )}
                   {fShow('kind') && (
-                    <span title="타입 — 자동(A) · 수동(M)">
+                    <span className="hf-kind" title="타입 — 자동(A) · 수동(M)">
                       <i className="hd-ic">
                         <IconTag />
                       </i>
@@ -5396,7 +5384,7 @@ function CycleDetail({
                     </span>
                   )}
                   {fShow('hist') && (
-                    <span title="기존 결과 — 지난 회차의 판정. 누르면 회차별 Matrix">
+                    <span className="hf-hist" title="기존 결과 — 지난 회차의 판정. 누르면 회차별 Matrix">
                       <i className="hd-ic">
                         <IconNote />
                       </i>
@@ -5404,7 +5392,7 @@ function CycleDetail({
                     </span>
                   )}
                   {fShow('when') && (
-                    <span title="시험 시각">
+                    <span className="hf-when" title="시험 시각">
                       <i className="hd-ic">
                         <IconClock />
                       </i>
@@ -5412,7 +5400,7 @@ function CycleDetail({
                     </span>
                   )}
                   {fShow('took') && (
-                    <span title="소요 시간">
+                    <span className="hf-took" title="소요 시간">
                       <i className="hd-ic">
                         <IconWave />
                       </i>
@@ -5420,7 +5408,7 @@ function CycleDetail({
                     </span>
                   )}
                   {fShow('stt') && (
-                    <span title="진행 상태">
+                    <span className="hf-stt" title="진행 상태">
                       <i className="hd-ic">
                         <IconPing />
                       </i>
@@ -5565,7 +5553,7 @@ function CycleDetail({
                         </span>
                       </span>
                       {/* 오른쪽 무리 — 한 묶음(간격 균일): M/A · 이력 · 결과 셀렉트 · ▶ · 회귀 · 점 */}
-                      <span className="cxp-rgt" style={rgtStyle} onClick={(e) => e.stopPropagation()}>
+                      <span className="cxp-rgt" onClick={(e) => e.stopPropagation()}>
                         {/* 담당자 — 읽기 전용. 할당은 사이클 수정 창에서 */}
                         {fShow('who') && (() => {
                           const who = String(it.assignee ?? '')

@@ -8034,3 +8034,31 @@ a.bc-cur:hover { text-decoration: underline; }
 .cym-x.blocked { background: var(--c-blocked, #8b93a1); color: var(--vfg-blocked, #fff); }
 .cym-x.na { background: var(--c-na, #8b93a1); color: var(--vfg-na, #fff); }
 .cym-x.none { background: transparent; color: var(--c-text-faint); font-weight: 400; }
+
+/* ── 오른쪽 필드 무리 — **고정폭, 오른쪽 붙임**(지시) ──
+   그리드는 칸을 픽셀로 박아 두어, 필드를 숨기면 남은 것이 그 판에서
+   다시 배치되며 간격이 벌어졌다 — 숨긴 뜻(제목을 넓게)이 사라진다.
+   필드마다 제 폭을 갖고 오른쪽에 붙는다. 하나를 숨기면 딱 그 폭만큼
+   제목이 넓어진다. 머리줄과 몸줄이 같은 폭을 쓴다. */
+.cxp-rgt,
+.cxp.onecol .cxp-rgt,
+.cxp-side.fmanual .cxp-rgt,
+.cxp-row.cxp-hd .cxp-rgt {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  grid-template-columns: none;
+}
+.cxp-rgt > * { flex: none; }
+/* 폭 한 벌 — 줄의 필드와 머리줄의 이름이 같은 값을 쓴다 */
+.cxp-rgt .cxp-who, .cxp-rgt .hf-who { width: 24px; justify-content: center; }
+.cxp-rgt .cxp-k, .cxp-rgt .hf-kind { width: 18px; text-align: center; }
+.cxp-rgt .cxp-hist, .cxp-rgt .hf-hist { width: 62px; }
+.cxp-rgt .cxp-when, .cxp-rgt .hf-when { width: 98px; text-align: right; }
+.cxp-rgt .cxp-took, .cxp-rgt .hf-took { width: 44px; text-align: right; }
+.cxp-rgt .cxp-stt, .cxp-rgt .cxp-run, .cxp-rgt .cxp-wait, .cxp-rgt .hf-stt {
+  width: 76px;
+  text-align: center;
+}
+.cxp-row.cxp-hd .cxp-rgt > span { display: inline-flex; align-items: center; justify-content: center; }
