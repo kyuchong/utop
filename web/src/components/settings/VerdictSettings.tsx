@@ -38,15 +38,22 @@ const BASE_DESC: Record<string, string> = {
   Pass: '기준대로 동작함',
   Fail: '기준과 다름 — 결함을 답니다',
   WIP: '보는 중 · 판정 전',
-  Blocked: '앞단이 막혀 못 함',
-  진행불가: '이 회차에서 뺄 것',
+  Blocked: '앞단이 막혀 시험을 못 함 (검증 불가)',
+  진행불가: '이 회차에서는 시험할 수 없음 (검증 불가)',
   '': '아직 안 돌림',
 }
 
+/**
+ * 집계 계열 — 판정을 **셋으로만** 나눈다(지시).
+ *
+ * 「그 밖」 은 셈에서 뺀다는 말일 뿐 무엇인지는 말해 주지 않았다. Blocked·
+ * 진행불가는 **시험을 못 한 사유**고, 미실행·WIP 도 결국 「아직 검증되지
+ * 않음」 이다 — 합격도 실패도 아닌 것은 한 이름으로 부른다.
+ */
 const GRP_LB: Record<Grp, string> = {
-  pass: '합격으로 셈',
-  fail: '실패로 셈',
-  neutral: '그 밖 (합격률 제외)',
+  pass: 'Pass — 합격으로 셈',
+  fail: 'Fail — 실패로 셈',
+  neutral: '검증 불가 — 합격률에서 뺌',
 }
 
 function metaOf(it?: Item): { color?: string; fg?: string; desc?: string; group?: Grp } {
@@ -285,6 +292,9 @@ export default function VerdictSettings() {
       <p className="muted">
         사이클 실행에서 고르는 판정값입니다. <b>기본 여섯</b>은 판정 규칙이 물고 있어 지울 수
         없지만 <b>색은 바꿀 수 있습니다</b>. 새 기준을 더하면 판정 드롭다운·집계에 함께 섭니다.
+        <br />
+        집계는 <b>Pass · Fail · 검증 불가</b> 셋뿐입니다 — Blocked·진행불가는 시험을 못 한
+        사유고, 미실행·WIP 도 아직 검증되지 않은 것이라 모두 <b>검증 불가</b>로 셉니다.
       </p>
       {msg.t && <div className={`set-msg ${msg.k}`}>{msg.t}</div>}
 
