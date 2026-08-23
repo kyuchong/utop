@@ -1119,11 +1119,25 @@ html .rq-listcol .rq-tr.rq-th {
   font-size: var(--fs-xs);
   font-weight: 700;
 }
-/* 줄 왼쪽 그룹 색 띠 — 지금은 액센트 고정, 그룹핑이 오면 그룹 색을 문다 */
+/* 줄 왼쪽 그룹 색 띠 — 지금은 액센트 고정, 그룹핑이 오면 그룹 색을 문다.
+   그림자(inset)로 그렸더니 다른 규칙에 눌려 안 보였다 — 테두리가 확실하다.
+   머리줄에도 투명 테두리를 같은 폭으로 줘 눈금이 안 어긋난다. */
 html .rq-listcol .rq-tr:not(.rq-th) {
-  box-shadow: inset 4px 0 0 var(--m-accent, #4353ff);
+  border-left: 4px solid var(--m-accent, #4353ff);
+  box-shadow: none;
 }
+html .rq-listcol .rq-tr.rq-th { border-left: 4px solid transparent; }
 html .rq-listcol .rq-tr:not(.rq-th):hover { background: var(--surface-2, #f2f4f7); }
+
+/* ── 판은 끝까지 차야 한다(지적: 판이 다르다) ──
+   main 의 오른쪽 여백(12px)과 split 위 여백(8px) 이 회색 틈으로 남아
+   카드처럼 떠 보였다. 이 화면에서만 걷는다 — 판은 창 끝에 붙는다. */
+html .split.rq-split {
+  padding-top: 0;
+  margin-right: -12px;
+}
+/* 도구줄 아래 눈금 — 목업의 toolbar 와 같은 1px */
+html .rq-listcol .rq-mid-h { border-bottom: 1px solid var(--line-soft, #eef0f4); }
 
 /* 통채움 셀 — 셀 여백을 걷고 색이 셀을 다 채운다(Monday 시그니처) */
 html .rq-listcol .rq-tr > div.rq-cell-fill { padding: 0; }

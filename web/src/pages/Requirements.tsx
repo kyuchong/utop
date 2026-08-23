@@ -1143,7 +1143,7 @@ export default function Requirements({ me }: Props) {
         <PresenceBar users={selectedReq ? presence.users : crowd} me={meName} />
       </div>
 
-      <div className="split" ref={splitRef}>
+      <div className="split rq-split" ref={splitRef}>
         {/* 접었을 때 — 세로 띠 하나만 남는다. 사이클·TC 화면과 같은 모양.
             아주 없애면 다시 펼 길이 없어지고 어디 있었는지도 잊는다. */}
         {!treeOpen && (
