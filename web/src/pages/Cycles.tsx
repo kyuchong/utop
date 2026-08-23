@@ -52,6 +52,7 @@ import { isJudgeStep, stepVerdict, type StepRound, type TcStep } from '@/compone
 // 정해져야 세 화면이 같아 보인다.
 import '@/components/ReqTree.css'
 import './Cycles.css'
+import { fillOf } from '@/lib/fieldFill'
 
 /** 사이클 한 건 — 목록용 요약(`/api/cycle?meta=1`) */
 export interface CycleMeta {
@@ -2453,25 +2454,11 @@ function CycleBoard({
   })
 
   /** 통채움 색 — SETUP 값 색이 정본, 없으면 Monday 팔레트(승인 A안) */
-  const MONDAY_CY: Record<string, string> = {
-    준비: '#fdab3d', 진행중: '#579bfc', 진행: '#579bfc', 완료: '#00c875',
-    보류: '#9ca3af', 취소: '#6b7280', Pass: '#00c875', Fail: '#ef4666',
-  }
-  const CY_HUES = ['#579bfc', '#00c875', '#a25ddc', '#ff9d19', '#e2445c', '#0086c0', '#7f5347', '#9ca3af']
+  /** 기본색은 한 곳에서 온다(lib/fieldFill) — 설정 화면이 보여 주는 그 색이다 */
   const cyFill = (kind: string, value: string): string => {
     if (!value) return ''
     const it = (codesAll.data?.items ?? []).find((x) => x.kind === kind && x.value === value)
-    let meta: { color?: string } = {}
-    try {
-      meta = JSON.parse(it?.note || '{}') as typeof meta
-    } catch {
-      /* 옛 자료 */
-    }
-    if (meta.color) return meta.color
-    if (MONDAY_CY[value]) return MONDAY_CY[value]!
-    let h = 0
-    for (let i = 0; i < value.length; i += 1) h = (h * 31 + value.charCodeAt(i)) >>> 0
-    return CY_HUES[h % CY_HUES.length]!
+    return fillOf(it?.note, value).bg
   }
   /** 통채움 칸 하나 — 셀이 곧 드롭다운이다 */
   const cyCell = (

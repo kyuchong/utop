@@ -41,6 +41,7 @@ import {
   type TestCaseMeta,
 } from '@/types'
 import './Requirements.css'
+import { fillOf } from '@/lib/fieldFill'
 
 /**
  * REQ ↔ TC 연결 화면.
@@ -357,20 +358,10 @@ export default function Requirements({ me }: Props) {
     }
   }
 
-  const MONDAY: Record<string, string> = {
-    /* 상태 */ 작성중: '#fdab3d', 검토중: '#579bfc', 검토완료: '#00c875', 보류: '#9ca3af', 폐기: '#6b7280',
-    /* 우선순위 */ High: '#ef4666', Medium: '#fdab3d', Low: '#9ca3af',
-  }
+  /** 기본색은 한 곳에서 온다(lib/fieldFill) — 설정 화면이 보여 주는 그 색이다 */
   const codeFill = (kind: string, value: string): { bg: string; fg: string } => {
     const it = (codesQ.data?.items ?? []).find((x) => x.kind === kind && x.value === value)
-    let meta: { color?: string; fg?: string } = {}
-    try {
-      meta = JSON.parse(it?.note || '{}') as typeof meta
-    } catch {
-      /* 옛 자료 */
-    }
-    const bg = meta.color || MONDAY[value] || '#9ca3af'
-    return { bg, fg: meta.fg || '#fff' }   // 글자색도 설정이 정본(지시)
+    return fillOf(it?.note, value)
   }
 
   /** 우클릭 메뉴 — 목업 그대로: 채우기 · 복제 · 삭제(지시) */

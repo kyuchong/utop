@@ -1435,6 +1435,45 @@ async def code_list(kind: str = "") -> list[dict]:
         return [dict(r) for r in rows]
 
 
+async def code_orphans(kind: str) -> list[dict]:
+    """**쓰이고 있는데 목록에 없는 값**.
+
+    화면은 이런 값을 붉은 글자(`목록에 없음`)로 보여 준다 — 설정에 없으니
+    색도 못 정하고, 드롭다운에서 한 번 다른 값을 고르면 되돌릴 수도 없다.
+    옛 자료에 남은 값이 대부분이라, 설정 화면에서 한 번에 목록에 넣게 한다.
+    """
+    col = {
+        "tc_type": ("tc", "type"),
+        "tc_status": ("tc", "status"),
+        "tc_severity": ("tc", "severity"),
+        "req_status": ("req", "status"),
+        "req_priority": ("req", "priority"),
+    }.get(kind)
+    key = {"tc_run_type": "run_type", "tc_origin": "origin"}.get(kind)
+    async with pool().acquire() as c:
+        known = {
+            r["value"]
+            for r in await c.fetch("SELECT value FROM code_item WHERE kind=$1", kind)
+        }
+        if col:
+            table, name = col
+            rows = await c.fetch(
+                f"SELECT {name} AS v, count(*) AS n FROM {table} "
+                f"WHERE {name} IS NOT NULL AND {name} <> '' GROUP BY 1 ORDER BY 2 DESC"
+            )
+        elif key:
+            rows = await c.fetch(
+                "SELECT data->>$1 AS v, count(*) AS n FROM tc "
+                "WHERE coalesce(data->>$1,'') <> '' GROUP BY 1 ORDER BY 2 DESC",
+                key,
+            )
+        else:
+            return []
+        return [
+            {"value": r["v"], "used": r["n"]} for r in rows if r["v"] not in known
+        ]
+
+
 async def code_upsert(item: dict) -> None:
     kind = (item.get("kind") or "").strip()
     value = (item.get("value") or "").strip()

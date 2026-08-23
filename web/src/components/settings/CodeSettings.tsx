@@ -5,6 +5,7 @@ import './SetTabs.css'
 import { ColorPick } from './ColorPick'
 import { cfOptions, type CfMeta, type CustomField } from '@/hooks/useCustomFields'
 import MarkdownEditor from '@/components/MarkdownEditorLazy'
+import { defaultBg } from '@/lib/fieldFill'
 
 interface Item {
   kind: string
@@ -98,6 +99,22 @@ export default function CodeSettings({ target }: Props) {
       const r = await apiFetch('/api/codes')
       if (!r.ok) throw new Error('불러오지 못했습니다')
       return (await r.json()) as { items: Item[]; kinds: Record<string, string> }
+    },
+  })
+
+  /**
+   * **쓰이고 있는데 목록에 없는 값**(지적: 아무것도 안 했는데 붉은 글자).
+   *
+   * 옛 자료에 남은 값이다. 화면은 그것을 `목록에 없음`으로 붉게 보여 주는데,
+   * 여기서 한 번 넣어 주면 색도 정할 수 있고 붉은 글자도 사라진다.
+   */
+  const orphanQ = useQuery({
+    queryKey: ['codes', 'orphans', kind],
+    enabled: !!kind && !kind.startsWith('cf:'),
+    queryFn: async () => {
+      const r = await apiFetch(`/api/codes/orphans?kind=${encodeURIComponent(kind)}`)
+      if (!r.ok) return { items: [] as Array<{ value: string; used: number }> }
+      return (await r.json()) as { items: Array<{ value: string; used: number }> }
     },
   })
 
@@ -573,6 +590,36 @@ export default function CodeSettings({ target }: Props) {
               <span className="muted small">위에 있는 것부터 드롭다운에 뜹니다</span>
             </div>
 
+            {/* 옛 자료에만 남은 값 — 목록에 없어서 화면이 붉게 보여 준다(지적) */}
+            {(orphanQ.data?.items ?? []).length > 0 && (
+              <div className="dc-orphan">
+                <b>목록에 없는데 쓰이고 있는 값</b>
+                <span className="muted small">
+                  화면에서 붉은 「목록에 없음」으로 보입니다. 넣으면 색도 정할 수 있습니다.
+                </span>
+                <span className="dc-orphan-vals">
+                  {(orphanQ.data?.items ?? []).map((o) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      className="btn small"
+                      disabled={busy}
+                      title={`${o.used}건이 쓰는 중 — 눌러서 목록에 넣습니다`}
+                      onClick={() =>
+                        saveM.mutate({
+                          kind,
+                          value: o.value,
+                          sort_order: (cur?.values.length ?? 0) + 1,
+                        })
+                      }
+                    >
+                      + {o.value} <i className="muted">{o.used}건</i>
+                    </button>
+                  ))}
+                </span>
+              </div>
+            )}
+
             {/* 필드 하나의 생김새 — 목록 세 화면이 이 값을 같이 읽는다(지시) */}
             {!cur.cf && (
               <div className="dc-kstyle">
@@ -678,7 +725,11 @@ export default function CodeSettings({ target }: Props) {
                           이것을 읽는다. 오른쪽에 실물 그대로 미리 보인다 */}
                       {!cur.cf && kind !== 'cycle_result' && (() => {
                         const st = styleOf(i)
-                        const bg = st.color || '#9ca3af'
+                        /* 안 정했으면 **목록에서 실제로 나오는 색**을 보여 준다
+                           (지적: 아무것도 설정 안 했는데 녹색이었다). 여기가
+                           회색으로 거짓말을 하고 있었다 — 색은 목록 페이지에
+                           박혀 있었고 설정은 그것을 몰랐다 */
+                        const bg = st.color || defaultBg(v)
                         const fg = st.fg || '#ffffff'
                         return (
                           <span className="dc-style">
@@ -696,6 +747,7 @@ export default function CodeSettings({ target }: Props) {
                               value={fg}
                               onPick={(c) => saveStyle(v, { fg: c })}
                             />
+                            {!st.color && <span className="dc-dft" title="이 값은 색을 따로 정하지 않았습니다. 이름에 맞춘 기본색이 나옵니다">기본</span>}
                             <span className="dc-lb">결과</span>
                             <i
                               className={`dc-prev sh-${kstyle.shape || 'fill'}`}

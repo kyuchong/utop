@@ -1688,6 +1688,16 @@ button.dcc-st:disabled { cursor: default; }
 
 /* 값 줄의 색 고르개 — 무엇을 고르는지 글자로 적는다(지적) */
 .dc-lb { font-size: var(--fs-xs); color: var(--c-text-muted); }
+/* 색을 따로 정하지 않은 값 — 이름에 맞춘 기본색이 나온다는 표시(지적:
+   설정은 회색인데 목록은 녹색이었다) */
+.dc-dft {
+  padding: 1px 6px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  font-size: 10.5px;
+  color: var(--c-text-muted);
+  white-space: nowrap;
+}
 .dc-style { flex-wrap: wrap; }
 
 /* INFO 필드 값 줄 — 한 줄로 세운다(지적: 2행으로 접힌다).
@@ -1713,3 +1723,17 @@ button.dcc-st:disabled { cursor: default; }
   overflow: hidden;
 }
 .brand-loginprev img { width: 100%; height: 100%; object-fit: cover; }
+
+/* 목록에 없는데 쓰이는 값 — 한 줄로 모아 두고 눌러서 넣는다 */
+.dc-orphan {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-warn-bg, #fff8ed);
+}
+.dc-orphan > b { font-size: var(--fs-sm); }
+.dc-orphan-vals { display: flex; flex-wrap: wrap; gap: 6px; }
+.dc-orphan-vals .btn i { font-style: normal; margin-left: 4px; font-size: 10.5px; }

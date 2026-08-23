@@ -93,6 +93,7 @@ import {
   type TcStep,
 } from '@/components/tc/types'
 import './TestCases.css'
+import { fillOf } from '@/lib/fieldFill'
 
 type Tab = 'steps' | 'info' | 'env' | 'topo' | 'traffic' | 'manual' | 'history' | 'cycle'
 
@@ -1695,31 +1696,11 @@ export default function TestCases({ me }: PageProps) {
     },
     staleTime: 60_000,
   })
-  const MONDAY_TC: Record<string, string> = {
-    /* 상태 */ 작성중: '#fdab3d', 검토중: '#579bfc', 승인: '#00c875',
-    PASS: '#00c875', FAIL: '#ef4666', Pass: '#00c875', Fail: '#ef4666', 보류: '#9ca3af',
-    /* 유형 */ 기능: '#579bfc', Function: '#579bfc', 성능: '#a25ddc', FT: '#579bfc',
-    /* 중요도 */ Blocker: '#e2445c', Critical: '#e2445c', MJ: '#ff9d19',
-    치명: '#e2445c', 중대: '#ff9d19', 보통: '#fdab3d', 경미: '#9ca3af',
-    /* 타입 */ 자동: '#00c875', 수동: '#7f5347', A: '#00c875', M: '#7f5347',
-    /* 구분 */ 자체: '#037f4c', 고객: '#0086c0',
-  }
-  /** 팔레트에 없는 값이면 글자로 색을 정한다 — 같은 값은 늘 같은 색 */
-  const HUES = ['#579bfc', '#00c875', '#a25ddc', '#ff9d19', '#e2445c', '#0086c0', '#7f5347', '#9ca3af']
-  const autoHue = (v: string) => {
-    let h = 0
-    for (let i = 0; i < v.length; i += 1) h = (h * 31 + v.charCodeAt(i)) >>> 0
-    return HUES[h % HUES.length]!
-  }
-  const codeFill = (kind: string, value: string): string => {
+  /** 기본색은 한 곳에서 온다(lib/fieldFill) — 설정 화면이 보여 주는 그 색이다.
+      바탕뿐 아니라 **글자색도 설정이 정본**이다(지시) */
+  const codeFill = (kind: string, value: string): { bg: string; fg: string } => {
     const it = (codesQ2.data?.items ?? []).find((x) => x.kind === kind && x.value === value)
-    let meta: { color?: string } = {}
-    try {
-      meta = JSON.parse(it?.note || '{}') as typeof meta
-    } catch {
-      /* 옛 자료 */
-    }
-    return meta.color || MONDAY_TC[value] || (value ? autoHue(value) : '#e9edf2')
+    return fillOf(it?.note, value)
   }
 
   /** Monday 통채움 칸 하나(승인 A안) — 여섯 칸이 같은 부품을 쓴다 */
@@ -1729,18 +1710,21 @@ export default function TestCases({ me }: PageProps) {
     kind: string,
     v: string,
     opts: readonly string[],
-  ) => (
-    <div className="tc-cell-fill" key={k}>
-      {v ? (
-        <div className="tc-mfill" style={{ background: codeFill(kind, v) }}>
-          {pick(t, k, v, opts)}
-        </div>
-      ) : (
-        /* 값이 없으면 칠하지 않는다 — 빈 값에 색을 주면 뜻이 생겨 버린다 */
-        <div className="tc-mfill none">{pick(t, k, v, opts)}</div>
-      )}
-    </div>
-  )
+  ) => {
+    const f = codeFill(kind, v)
+    return (
+      <div className="tc-cell-fill" key={k}>
+        {v ? (
+          <div className="tc-mfill" style={{ background: f.bg, color: f.fg }}>
+            {pick(t, k, v, opts)}
+          </div>
+        ) : (
+          /* 값이 없으면 칠하지 않는다 — 빈 값에 색을 주면 뜻이 생겨 버린다 */
+          <div className="tc-mfill none">{pick(t, k, v, opts)}</div>
+        )}
+      </div>
+    )
+  }
 
   /** 줄 우클릭 메뉴 — 요구사항 2열과 같은 부품(승인) */
   const [rowMenu, setRowMenu] = useState<{
@@ -1872,7 +1856,7 @@ export default function TestCases({ me }: PageProps) {
             {v ? (
               <div
                 className="tc-mfill"
-                style={{ background: def?.color ?? codeFill('cycle_result', v), color: def?.fg ?? '#fff' }}
+                style={{ background: def?.color ?? codeFill('cycle_result', v).bg, color: def?.fg ?? codeFill('cycle_result', v).fg }}
                 title={`${lr?.cycle_name ?? ''}${lr?.at ? ` · ${String(lr.at).slice(0, 10)}` : ''}`}
               >
                 {def?.label ?? v}

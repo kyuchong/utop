@@ -3597,6 +3597,14 @@ async def codes_list(kind: str = ""):
     return {"items": items, "kinds": kinds}
 
 
+@app.get("/api/codes/orphans")
+async def codes_orphans(kind: str = ""):
+    """쓰이고 있는데 목록에 없는 값 — 설정 화면이 「목록에 넣기」를 띄운다."""
+    if not kind:
+        return {"items": []}
+    return {"items": await db.code_orphans(kind)}
+
+
 @app.get("/api/cycle-desc-template")
 async def cycle_desc_template_get():
     """사이클 설명 틀 — 보고서 패턴을 맞추려고 사람이 정의해 둔다."""
