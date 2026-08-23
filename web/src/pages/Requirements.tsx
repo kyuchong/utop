@@ -347,7 +347,20 @@ export default function Requirements({ me }: Props) {
       return
     }
     if (!window.confirm(`아래 ${below.length}건에 「${v || '(빈 값)'}」 을 채울까요?`)) return
-    for (const r2 of below) await setField(r2, { [key]: v })
+    /* 한 건씩 저장하고 그때마다 목록을 다시 읽으면 33건이 33번 왕복한다 —
+       느린 까닭이 그것이었다(지적). 한꺼번에 보내고 목록은 끝에 한 번만
+       다시 읽는다. 여덟씩 묶어 보내 서버도 한 번에 몰리지 않게 한다. */
+    try {
+      const CH = 8
+      for (let i = 0; i < below.length; i += CH) {
+        await Promise.all(
+          below.slice(i, i + CH).map((r2) => reqApi.save(reqPk(r2), { ...r2, [key]: v })),
+        )
+      }
+      await qc.invalidateQueries({ queryKey: ['req', 'list'] })
+    } catch (e) {
+      window.alert(e instanceof Error ? `저장하지 못했습니다 — ${e.message}` : '저장하지 못했습니다')
+    }
   }
   const [infoDraft, setInfoDraft] = useState<{ status: string; priority: string } | null>(null)
   const [infoSaving, setInfoSaving] = useState(false)
