@@ -126,6 +126,62 @@ export default function CodeSettings({ target }: Props) {
     void qc.invalidateQueries({ queryKey: ['req', 'list'] })
   }
 
+  /**
+   * 값 하나의 **생김새** — 바탕색·글자색(지시).
+   *
+   * 목록의 통채움이 이 값을 읽는다. 여태 색은 실행 판정 기준(cycle_result)
+   * 에서만 고를 수 있었고 상태·우선순위 같은 칸은 코드의 팔레트가 정했다 —
+   * 사람이 못 고쳤다.
+   */
+  const saveStyle = (value: string, patch: { color?: string; fg?: string }) => {
+    const it = items.find((x) => x.value === value)
+    let meta: Record<string, unknown> = {}
+    try {
+      meta = JSON.parse(it?.note || '{}') as Record<string, unknown>
+    } catch {
+      /* 옛 자료 */
+    }
+    void apiFetch('/api/codes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        kind,
+        value,
+        sort_order: it?.sort_order ?? 0,
+        note: JSON.stringify({ ...meta, ...patch }),
+      }),
+    }).then(invalidate)
+  }
+  const styleOf = (i: number): { color?: string; fg?: string } => {
+    try {
+      return JSON.parse(items[i]?.note || '{}') as { color?: string; fg?: string }
+    } catch {
+      return {}
+    }
+  }
+
+  /** 필드(탭) 단위 생김새 — 폭·모양·정렬 */
+  const styleQ = useQuery({
+    queryKey: ['code-kind-style'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes/kind-style')
+      if (!r.ok) throw new Error('필드 모양을 불러오지 못했습니다')
+      return (await r.json()) as { styles: Record<string, { w?: string; shape?: string; align?: string }> }
+    },
+    staleTime: 30_000,
+  })
+  const kstyle = styleQ.data?.styles?.[kind] ?? {}
+  const saveKindStyle = (patch: { w?: string; shape?: string; align?: string }) => {
+    void apiFetch('/api/codes/kind-style', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, ...kstyle, ...patch }),
+    }).then(() => {
+      void qc.invalidateQueries({ queryKey: ['code-kind-style'] })
+      invalidate()
+    })
+  }
+
   /** 실행 결과(cycle_result) 값의 색·계열 — note 에 JSON 으로 담는다 */
   const saveMeta = (value: string, color?: string, group?: string) => {
     const it = items.find((x) => x.value === value)
@@ -503,6 +559,50 @@ export default function CodeSettings({ target }: Props) {
               <span className="muted small">위에 있는 것부터 드롭다운에 뜹니다</span>
             </div>
 
+            {/* 필드 하나의 생김새 — 목록 세 화면이 이 값을 같이 읽는다(지시) */}
+            {!cur.cf && (
+              <div className="dc-kstyle">
+                <label>
+                  <span>폭</span>
+                  <input
+                    type="number"
+                    min={40}
+                    max={400}
+                    placeholder="자동"
+                    defaultValue={kstyle.w ?? ''}
+                    title="목록에서 이 열이 차지할 px. 비우면 기본값"
+                    onBlur={(e) => saveKindStyle({ w: e.target.value })}
+                  />
+                  <i className="muted small">px</i>
+                </label>
+                <label>
+                  <span>모양</span>
+                  <select
+                    value={kstyle.shape || 'fill'}
+                    onChange={(e) => saveKindStyle({ shape: e.target.value })}
+                  >
+                    <option value="fill">셀 채움 (Monday)</option>
+                    <option value="pill">둥근 알약</option>
+                    <option value="tag">사각 태그</option>
+                    <option value="text">글자만</option>
+                  </select>
+                </label>
+                <label>
+                  <span>정렬</span>
+                  <select
+                    value={kstyle.align || 'center'}
+                    onChange={(e) => saveKindStyle({ align: e.target.value })}
+                  >
+                    <option value="center">가운데</option>
+                    <option value="left">왼쪽</option>
+                  </select>
+                </label>
+                <span className="muted small">
+                  요구사항·시험항목·사이클 목록이 이 설정을 함께 씁니다.
+                </span>
+              </div>
+            )}
+
             {listQ.isLoading || cfQ.isLoading ? (
               <div className="empty">불러오는 중…</div>
             ) : cur.values.length === 0 ? (
@@ -514,6 +614,36 @@ export default function CodeSettings({ target }: Props) {
                   return (
                     <div className="dc-row" key={v}>
                       <b className="dc-name">{v}</b>
+                      {/* 값마다 **바탕·글자 두 색**(지시) — 목록의 통채움이
+                          이것을 읽는다. 오른쪽에 실물 그대로 미리 보인다 */}
+                      {!cur.cf && kind !== 'cycle_result' && (() => {
+                        const st = styleOf(i)
+                        const bg = st.color || '#9ca3af'
+                        const fg = st.fg || '#ffffff'
+                        return (
+                          <span className="dc-style">
+                            <input
+                              type="color"
+                              value={bg}
+                              title="바탕색"
+                              onChange={(e) => saveStyle(v, { color: e.target.value })}
+                            />
+                            <input
+                              type="color"
+                              value={fg}
+                              title="글자색"
+                              onChange={(e) => saveStyle(v, { fg: e.target.value })}
+                            />
+                            <i
+                              className={`dc-prev sh-${kstyle.shape || 'fill'}`}
+                              style={{ background: bg, color: fg }}
+                              title="목록에서 이렇게 보입니다"
+                            >
+                              {v}
+                            </i>
+                          </span>
+                        )
+                      })()}
                       {/* 실행 결과 값은 색과 계열(집계 규칙)을 함께 정한다 */}
                       {kind === 'cycle_result' && !cur.cf && (() => {
                         let meta: { color?: string; group?: string } = {}

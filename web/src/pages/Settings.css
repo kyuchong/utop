@@ -1641,3 +1641,47 @@ button.dcc-st:disabled { cursor: default; }
 .ml-secs { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 .ml-sec { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-sm); }
 .ml-test { background: #fbfcfd; }
+
+/* ── INFO 필드 — 값마다 색, 필드마다 모양(지시) ── */
+.dc-style { display: inline-flex; align-items: center; gap: 6px; }
+.dc-style input[type='color'] {
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--c-border);
+  border-radius: 5px;
+  background: none;
+  cursor: pointer;
+}
+/* 미리 보기 — 목록에 뜨는 그 모양 그대로 */
+.dc-prev {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 74px;
+  height: 24px;
+  padding: 0 10px;
+  font-style: normal;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+}
+.dc-prev.sh-fill { border-radius: 0; }
+.dc-prev.sh-pill { border-radius: 999px; }
+.dc-prev.sh-tag { border-radius: 4px; }
+.dc-prev.sh-text { background: none !important; color: var(--c-text) !important; font-weight: 600; }
+
+.dc-kstyle {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-soft, #fbfcfd);
+}
+.dc-kstyle label { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
+.dc-kstyle label > span { color: var(--c-text-muted); font-size: var(--fs-xs); }
+.dc-kstyle input[type='number'] { width: 74px; padding: 4px 6px; border: 1px solid var(--c-border); border-radius: var(--radius-sm); font: inherit; }
+.dc-kstyle select { padding: 4px 6px; border: 1px solid var(--c-border); border-radius: var(--radius-sm); font: inherit; }

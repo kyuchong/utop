@@ -321,6 +321,20 @@ export default function Requirements({ me }: Props) {
     },
     staleTime: 60_000,
   })
+  /** 필드(탭) 단위 생김새 — SETUP › INFO 필드에서 정한 폭·모양·정렬(지시) */
+  const kstyleQ = useQuery({
+    queryKey: ['code-kind-style'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes/kind-style')
+      if (!r.ok) throw new Error('필드 모양을 불러오지 못했습니다')
+      return (await r.json()) as {
+        styles: Record<string, { w?: string; shape?: string; align?: string }>
+      }
+    },
+    staleTime: 30_000,
+  })
+  const kstyle = (kind: string) => kstyleQ.data?.styles?.[kind] ?? {}
+
   const MONDAY: Record<string, string> = {
     /* 상태 */ 작성중: '#fdab3d', 검토중: '#579bfc', 검토완료: '#00c875', 보류: '#9ca3af', 폐기: '#6b7280',
     /* 우선순위 */ High: '#ef4666', Medium: '#fdab3d', Low: '#9ca3af',
@@ -334,7 +348,7 @@ export default function Requirements({ me }: Props) {
       /* 옛 자료 */
     }
     const bg = meta.color || MONDAY[value] || '#9ca3af'
-    return { bg, fg: meta.fg || '#fff' }
+    return { bg, fg: meta.fg || '#fff' }   // 글자색도 설정이 정본(지시)
   }
 
   /** 우클릭 메뉴 — 목업 그대로: 채우기 · 복제 · 삭제(지시) */
@@ -586,8 +600,18 @@ export default function Requirements({ me }: Props) {
       absolute 방식은 환경에 따라 안 보이는 곳에 열렸다(피드백: 반응 없음). */
   const [reqGearAt, setReqGearAt] = useState<{ x: number; y: number } | null>(null)
   const reqVisCols = infoCols.filter((c) => reqCols.has(c.k))
-  const reqGrid =
-    `26px minmax(0, 1fr) 84px 76px 38px 50px ${reqVisCols.map((c) => c.w).join(' ')}`.trim()
+  const reqGrid = (() => {
+    /* 열 폭은 **설정이 정본**이다(지시) — 안 정했으면 코드의 기본값 */
+    const W: Record<string, string> = { f_status: 'req_status', f_priority: 'req_priority' }
+    const cols = reqVisCols
+      .map((c) => {
+        const k = W[c.k]
+        const w = k ? kstyleQ.data?.styles?.[k]?.w : ''
+        return w ? `${Number(w)}px` : c.w
+      })
+      .join(' ')
+    return `26px minmax(0, 1fr) 84px 76px 38px 50px ${cols}`.trim()
+  })()
 
   /** 소속 프로젝트의 모델그룹·모델명 — 요구사항에는 모델 필드가 없다.
       프로젝트가 모델을 고정하므로(정책) 사슬 맨 위(cat1)에서 상속해 보인다. */
@@ -1886,10 +1910,11 @@ export default function Requirements({ me }: Props) {
                             /* Monday 통채움(승인) — 셀 전체가 값의 색이고,
                                그대로 드롭다운이다. 우클릭 = 아래로 채우기 */
                             const f = codeFill('req_status', r.status ?? '')
+                            const ks = kstyle('req_status')
                             return (
-                              <div className="rq-cell-fill" key={c2.k}>
+                              <div className={`rq-cell-fill al-${ks.align || 'center'}`} key={c2.k}>
                                 <div
-                                  className="rq-mfill"
+                                  className={`rq-mfill sh-${ks.shape || 'fill'}`}
                                   style={{ background: f.bg, color: f.fg }}
                                 >
                                   <PickCell
@@ -1904,10 +1929,11 @@ export default function Requirements({ me }: Props) {
                           }
                           case 'f_priority': {
                             const f = codeFill('req_priority', r.priority ?? '')
+                            const ks = kstyle('req_priority')
                             return (
-                              <div className="rq-cell-fill" key={c2.k}>
+                              <div className={`rq-cell-fill al-${ks.align || 'center'}`} key={c2.k}>
                                 <div
-                                  className="rq-mfill"
+                                  className={`rq-mfill sh-${ks.shape || 'fill'}`}
                                   style={{ background: f.bg, color: f.fg }}
                                 >
                                   <PickCell

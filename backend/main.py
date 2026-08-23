@@ -3564,6 +3564,39 @@ async def codes_kind_label(payload: dict):
     return {"success": True}
 
 
+@app.get("/api/codes/kind-style")
+async def codes_kind_style_get():
+    """필드(탭) 단위 모양 — 폭·모양·정렬.
+
+    값마다의 색은 code.note 에 산다. 이건 **그 필드 전체**의 생김새다:
+    목록에서 몇 px 를 차지하고, 값을 셀 채움으로 그릴지 알약으로 그릴지.
+    여태 코드에 박혀 있어 폭 하나 고치는 데도 배포를 해야 했다(지시).
+    """
+    return {"styles": _kv_load_sync("code_kind_style", {}) or {}}
+
+
+@app.post("/api/codes/kind-style")
+async def codes_kind_style_set(payload: dict):
+    """{kind, w, shape, align} — 빈 값은 지운다(기본으로 돌아간다)."""
+    kind = str(payload.get("kind") or "").strip()
+    if not kind:
+        raise HTTPException(400, "어느 필드인지 알려 주세요")
+    cur = _kv_load_sync("code_kind_style", {}) or {}
+    one = dict(cur.get(kind) or {})
+    for k in ("w", "shape", "align"):
+        v = payload.get(k)
+        if v is None or str(v).strip() == "":
+            one.pop(k, None)
+        else:
+            one[k] = str(v).strip()
+    if one:
+        cur[kind] = one
+    else:
+        cur.pop(kind, None)
+    _kv_save_sync("code_kind_style", cur)
+    return {"success": True, "styles": cur}
+
+
 @app.post("/api/codes")
 async def codes_save(payload: dict):
     try:
