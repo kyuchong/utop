@@ -1131,14 +1131,9 @@ html .rq-listcol .rq-tr.rq-th {
   font-size: var(--fs-xs);
   font-weight: 700;
 }
-/* 줄 왼쪽 그룹 색 띠 — 지금은 액센트 고정, 그룹핑이 오면 그룹 색을 문다.
-   그림자(inset)로 그렸더니 다른 규칙에 눌려 안 보였다 — 테두리가 확실하다.
-   머리줄에도 투명 테두리를 같은 폭으로 줘 눈금이 안 어긋난다. */
-html .rq-listcol .rq-tr:not(.rq-th) {
-  border-left: 4px solid var(--m-accent, #4353ff);
-  box-shadow: none;
-}
-html .rq-listcol .rq-tr.rq-th { border-left: 4px solid transparent; }
+/* 왼쪽 그룹 색 띠는 걷었다(지적: 무슨 뜻이냐) — 목업에선 그룹 색인데
+   그룹핑이 없는 지금은 뜻 없는 색이다. 그룹핑이 들어올 때 그룹 색으로
+   되살린다. */
 html .rq-listcol .rq-tr:not(.rq-th):hover { background: var(--surface-2, #f2f4f7); }
 
 /* ── 판은 끝까지 차야 한다(지적: 판이 다르다) ──
