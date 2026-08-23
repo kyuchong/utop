@@ -1079,3 +1079,68 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 html .tc-body .table .tr {
   grid-template-columns: minmax(0, 1fr) 110px 60px 110px 132px;
 }
+
+/* ══ 요구사항 2열 — 판 + Monday 표 (승인) ══
+   카드가 아니라 **판**이다: 둥근 껍데기·그림자 없이 가장자리까지 차고,
+   옆 판과는 1px 선으로만 나뉜다. 1열은 손대지 않는다(지시). */
+html .split > .panel.rq-listcol {
+  border: 0;
+  border-radius: 0;
+  border-left: 1px solid var(--c-border);
+  background: var(--c-surface);
+}
+
+/* 표 골격 — 셀 세로 보더 + 가운데 정렬(제목만 왼쪽). 칸 사이 gap 을 걷고
+   보더가 눈금을 긋는다 — gap 이 남아 있으면 선이 조각난다 */
+html .rq-listcol .rq-tr {
+  column-gap: 0;
+}
+html .rq-listcol .rq-tr > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-width: 0;
+  height: 100%;
+  padding: 0 6px;
+  border-right: 1px solid var(--line-soft, #eef0f4);
+}
+html .rq-listcol .rq-tr > div:last-child { border-right: 0; }
+/* 제목은 왼쪽 — 글은 왼끝을 맞춰야 훑인다 */
+html .rq-listcol .rq-tr > div.rq-name,
+html .rq-listcol .rq-tr.rq-th > div:nth-child(2) {
+  justify-content: flex-start;
+  text-align: left;
+}
+/* 머리줄 — 옅은 바탕, 또렷한 눈금 */
+html .rq-listcol .rq-tr.rq-th {
+  background: var(--surface-2, #f2f4f7);
+  color: var(--ink-2, #5d6472);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+/* 줄 왼쪽 그룹 색 띠 — 지금은 액센트 고정, 그룹핑이 오면 그룹 색을 문다 */
+html .rq-listcol .rq-tr:not(.rq-th) {
+  box-shadow: inset 4px 0 0 var(--m-accent, #4353ff);
+}
+html .rq-listcol .rq-tr:not(.rq-th):hover { background: var(--surface-2, #f2f4f7); }
+
+/* 통채움 셀 — 셀 여백을 걷고 색이 셀을 다 채운다(Monday 시그니처) */
+html .rq-listcol .rq-tr > div.rq-cell-fill { padding: 0; }
+.rq-mfill {
+  width: 100%;
+  height: 100%;
+  min-height: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  color: #fff;
+}
+.rq-mfill .pick-live { text-align: center; text-align-last: center; font-weight: 700; }
+.rq-mfill .pick-live:hover { border-color: rgb(255 255 255 / 0.4); }
+.rq-mfill:hover { filter: brightness(0.95); }
+/* TC 커버리지 */
+.rq-mfill.cov-ok { background: var(--m-pass, #12b76a); }
+.rq-mfill.cov-no { background: var(--m-fail, #ef4666); }

@@ -304,6 +304,51 @@ export default function Requirements({ me }: Props) {
   const TC_TYPE = useCodes('tc_type', ['FT', 'Function'])
   const TC_STATUS = useCodes('tc_status', ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류'])
   const REQ_PRIO = useCodes('req_priority', ['High', 'Medium', 'Low'])
+
+  /**
+   * Monday 통채움 셀의 색 — **설정(INFO 필드)에서 값에 칠한 색이 정본**이고,
+   * 안 칠했으면 Monday 팔레트로 기본을 깐다(승인). 코드 meta 는 note(JSON)
+   * 에 산다 — 실행 판정 기준과 같은 자리다.
+   */
+  const codesQ = useQuery({
+    queryKey: ['codes'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes')
+      if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
+      return (await r.json()) as {
+        items: Array<{ kind: string; value: string; note?: string | null }>
+      }
+    },
+    staleTime: 60_000,
+  })
+  const MONDAY: Record<string, string> = {
+    /* 상태 */ 작성중: '#fdab3d', 검토중: '#579bfc', 검토완료: '#00c875', 보류: '#9ca3af', 폐기: '#6b7280',
+    /* 우선순위 */ High: '#ef4666', Medium: '#fdab3d', Low: '#9ca3af',
+  }
+  const codeFill = (kind: string, value: string): { bg: string; fg: string } => {
+    const it = (codesQ.data?.items ?? []).find((x) => x.kind === kind && x.value === value)
+    let meta: { color?: string; fg?: string } = {}
+    try {
+      meta = JSON.parse(it?.note || '{}') as typeof meta
+    } catch {
+      /* 옛 자료 */
+    }
+    const bg = meta.color || MONDAY[value] || '#9ca3af'
+    return { bg, fg: meta.fg || '#fff' }
+  }
+
+  /** 우클릭 아래로 채우기 — 시험항목 목록과 같은 손(승인) */
+  const fillDownReq = async (from: Requirement, key: 'status' | 'priority', v: string) => {
+    const at = midReqs.findIndex((x) => reqPk(x) === reqPk(from))
+    if (at < 0) return
+    const below = midReqs.slice(at + 1)
+    if (!below.length) {
+      window.alert('아래에 줄이 없습니다')
+      return
+    }
+    if (!window.confirm(`아래 ${below.length}건에 「${v || '(빈 값)'}」 을 채울까요?`)) return
+    for (const r2 of below) await setField(r2, { [key]: v })
+  }
   const [infoDraft, setInfoDraft] = useState<{ status: string; priority: string } | null>(null)
   const [infoSaving, setInfoSaving] = useState(false)
   useEffect(() => {
@@ -1760,37 +1805,66 @@ export default function Requirements({ me }: Props) {
                           Map
                         </button>
                       </div>
-                      <div
-                        className={`rq-cov ${n > 0 ? 'covered' : 'none'}`}
-                        title={n > 0 ? `${n}개 시험이 덮고 있습니다` : '덮는 시험이 없습니다'}
-                      >
-                        {n > 0 ? `TC ${n}` : '미커버'}
+                      {/* Monday 통채움 — 미커버(빨강)가 이 표에서 제일 값진
+                          신호라 셀 통째로 말한다(승인) */}
+                      <div className="rq-cell-fill">
+                        <div
+                          className={`rq-mfill ${n > 0 ? 'cov-ok' : 'cov-no'}`}
+                          title={n > 0 ? `${n}개 시험이 덮고 있습니다` : '덮는 시험이 없습니다'}
+                        >
+                          {n > 0 ? `TC ${n}` : '미커버'}
+                        </div>
                       </div>
                       {reqVisCols.map((c2) => {
                         switch (c2.k) {
-                          case 'f_status':
+                          case 'f_status': {
+                            /* Monday 통채움(승인) — 셀 전체가 값의 색이고,
+                               그대로 드롭다운이다. 우클릭 = 아래로 채우기 */
+                            const f = codeFill('req_status', r.status ?? '')
                             return (
-                              <div className="muted small" key={c2.k}>
-                                <PickCell
-                                  value={r.status ?? ''}
-                                  opts={REQ_STATUS}
-                                  title="상태 — 고르면 바로 저장됩니다"
-                                  onSave={(v) => setField(r, { status: v })}
-                                />
+                              <div className="rq-cell-fill" key={c2.k}>
+                                <div
+                                  className="rq-mfill"
+                                  style={{ background: f.bg, color: f.fg }}
+                                  onContextMenu={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    void fillDownReq(r, 'status', r.status ?? '')
+                                  }}
+                                >
+                                  <PickCell
+                                    value={r.status ?? ''}
+                                    opts={REQ_STATUS}
+                                    title="상태 — 고르면 바로 저장 · 우클릭 = 아래로 채우기"
+                                    onSave={(v) => setField(r, { status: v })}
+                                  />
+                                </div>
                               </div>
                             )
-                          case 'f_priority':
+                          }
+                          case 'f_priority': {
+                            const f = codeFill('req_priority', r.priority ?? '')
                             return (
-                              <div key={c2.k}>
-                                <PickCell
-                                  value={r.priority ?? ''}
-                                  opts={REQ_PRIO}
-                                  cls={`rq-prio p-${String(r.priority ?? '').toLowerCase()}`}
-                                  title="우선순위 — 고르면 바로 저장됩니다"
-                                  onSave={(v) => setField(r, { priority: v })}
-                                />
+                              <div className="rq-cell-fill" key={c2.k}>
+                                <div
+                                  className="rq-mfill"
+                                  style={{ background: f.bg, color: f.fg }}
+                                  onContextMenu={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    void fillDownReq(r, 'priority', r.priority ?? '')
+                                  }}
+                                >
+                                  <PickCell
+                                    value={r.priority ?? ''}
+                                    opts={REQ_PRIO}
+                                    title="우선순위 — 고르면 바로 저장 · 우클릭 = 아래로 채우기"
+                                    onSave={(v) => setField(r, { priority: v })}
+                                  />
+                                </div>
                               </div>
                             )
+                          }
                           default: {
                             // 커스텀 INFO 필드 — 값은 data->custom
                             const v = String(
