@@ -1739,7 +1739,7 @@ export default function TestCases({ me }: PageProps) {
                 style={{ background: def?.color ?? '#e9edf2', color: def?.fg ?? '#5b6670' }}
                 title={`${lr?.cycle_name ?? ''}${lr?.at ? ` · ${String(lr.at).slice(0, 10)}` : ''}`}
               >
-                {v}
+                {def?.label ?? v}
               </span>
             ) : (
               <span className="muted">–</span>

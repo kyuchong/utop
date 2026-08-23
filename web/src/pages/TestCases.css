@@ -3412,7 +3412,10 @@ table.tb tr.r-bad td:first-child {
   border-radius: 999px;
   font-size: var(--fs-xs);
   font-weight: 700;
-  max-width: 100%;
+  /* 폭 한 값(지시) — Pass 와 Fail 이 글자 수대로 제각각이면 열이 들쭉하다 */
+  width: 56px;
+  text-align: center;
+  box-sizing: border-box;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
