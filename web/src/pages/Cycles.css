@@ -1580,11 +1580,14 @@ table.tb td.k {
   font-weight: 700;
   font-size: var(--fs-xs);
 }
-.cy-v.pass    { background: #dcfce7; color: #15803d; border-color: #86efac; }
-.cy-v.fail    { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
-.cy-v.wip     { background: #fef9c3; color: #a16207; border-color: #fde047; }
-.cy-v.blocked { background: #e5e7eb; color: #374151; border-color: #d1d5db; }
-.cy-v.na      { background: #fae8ff; color: #86198f; border-color: #f0abfc; }
+/* 설정(실행 판정 기준)에서 고른 **그 색 그대로**. 옅게 섞어 놓으면
+   글자색으로 흰색을 고른 사람의 배지가 흰-분홍이 된다(지적: 붉은색이 왜
+   이래). 설정 미리 보기와 실물이 같아야 색을 고를 수 있다. */
+.cy-v.pass    { background: var(--c-pass, #0d9488); color: var(--vfg-pass, #fff); border-color: var(--c-pass, #0d9488); }
+.cy-v.fail    { background: var(--c-fail, #dc2626); color: var(--vfg-fail, #fff); border-color: var(--c-fail, #dc2626); }
+.cy-v.wip     { background: var(--c-draft, #2563eb); color: var(--vfg-wip, #fff); border-color: var(--c-draft, #2563eb); }
+.cy-v.blocked { background: var(--c-blocked, #8b93a1); color: var(--vfg-blocked, #dc2626); border-color: var(--c-blocked, #8b93a1); }
+.cy-v.na      { background: var(--c-na, #8b93a1); color: var(--vfg-na, #dc2626); border-color: var(--c-na, #8b93a1); }
 .cy-v.none    { background: var(--c-surface-2); color: var(--c-text-muted); border-color: var(--c-border); }
 
 /* 스텝 결과 배지 — cy-v 와 같은 규칙 */
@@ -1595,9 +1598,9 @@ table.tb td.k {
   font-weight: 700;
   font-size: var(--fs-xs);
 }
-.sc-v.pass    { background: #dcfce7; color: #15803d; border-color: #86efac; }
-.sc-v.fail    { background: #fee2e2; color: #b91c1c; border-color: #fca5a5; }
-.sc-v.wip     { background: #fef9c3; color: #a16207; border-color: #fde047; }
+.sc-v.pass    { background: var(--c-pass, #0d9488); color: var(--vfg-pass, #fff); border-color: var(--c-pass, #0d9488); }
+.sc-v.fail    { background: var(--c-fail, #dc2626); color: var(--vfg-fail, #fff); border-color: var(--c-fail, #dc2626); }
+.sc-v.wip     { background: var(--c-draft, #2563eb); color: var(--vfg-wip, #fff); border-color: var(--c-draft, #2563eb); }
 .sc-v.blocked { background: #e5e7eb; color: #374151; border-color: #d1d5db; }
 .sc-v.na      { background: #fae8ff; color: #86198f; border-color: #f0abfc; }
 .sc-v.none    { background: var(--c-surface-2); color: var(--c-text-muted); border-color: var(--c-border); }
@@ -3792,8 +3795,7 @@ table.tb td.k {
   color: var(--c-text-faint);
   border: 1px solid var(--c-border);
 }
-.cxp-hist > i.hv-pass { background: #d9f4e6; color: #0a7a45; border-color: #b2e6cd; }
-.cxp-hist > i.hv-fail { background: #fde4e4; color: #c22; border-color: #f6c6c6; }
+/* (설정 색 그대로 — 아래 6690줄께 한 벌만 쓴다) */
 .cxp-hist > i:hover { filter: brightness(0.93); }
 
 /* 수동 항목 한 개 Pass — 줄에서 바로 */
@@ -6689,26 +6691,25 @@ table.tb td.k {
 /* 판정 배지 색을 설정값에서 끌어 쓴다 — 「실행 판정 기준」 에서 색을
    바꾸면 줄 색 띠·배지·집계 막대가 함께 따라온다. */
 .cxp-hist > i.hv-pass {
-  background: color-mix(in srgb, var(--c-pass) 16%, #fff);
-  color: color-mix(in srgb, var(--c-pass) 85%, #000);
-  border-color: color-mix(in srgb, var(--c-pass) 35%, #fff);
+  background: var(--c-pass, #0d9488);
+  color: var(--vfg-pass, #fff);
+  border-color: var(--c-pass, #0d9488);
 }
 .cxp-hist > i.hv-fail {
-  background: color-mix(in srgb, var(--c-fail) 14%, #fff);
-  color: var(--c-fail);
-  border-color: color-mix(in srgb, var(--c-fail) 32%, #fff);
+  background: var(--c-fail, #dc2626);
+  color: var(--vfg-fail, #fff);
+  border-color: var(--c-fail, #dc2626);
 }
 .cxp-row.v-blocked { border-right-color: var(--c-blocked, #e8820c); }
 .cxp-row.v-na { border-right-color: var(--c-na, #999); }
 .cxp-sumb .bar > s.p { background: var(--c-pass); }
 .cxp-sumb .bar > s.f { background: var(--c-fail); }
 
-/* 글자색도 설정에서 온다 — 바탕과 따로 고른다(지시) */
-.cxp-hist > i.hv-pass { color: var(--vfg-pass, color-mix(in srgb, var(--c-pass) 85%, #000)); }
-.cxp-hist > i.hv-fail { color: var(--vfg-fail, var(--c-fail)); }
-.cxp-hist > i.hv-wip { color: var(--vfg-wip, #a16207); }
-.cxp-hist > i.hv-blocked { color: var(--vfg-blocked, #b45309); }
-.cxp-hist > i.hv-na { color: var(--vfg-na, #64748b); }
+/* 글자색도 설정에서 온다 — 바탕과 따로 고른다(지시). 바탕은 위에서
+   설정 색 그대로 깔았으니 여기서는 글자만 얹는다 */
+.cxp-hist > i.hv-wip { background: var(--c-draft, #2563eb); color: var(--vfg-wip, #fff); border-color: var(--c-draft, #2563eb); }
+.cxp-hist > i.hv-blocked { background: var(--c-blocked, #8b93a1); color: var(--vfg-blocked, #dc2626); border-color: var(--c-blocked, #8b93a1); }
+.cxp-hist > i.hv-na { background: var(--c-na, #8b93a1); color: var(--vfg-na, #dc2626); border-color: var(--c-na, #8b93a1); }
 
 /* ── 작업 흐름·스텝 설정 판을 크게(지시) ─────────────────────────
    폭을 한 번 더 늘리고, 작업 흐름 글자는 전반적으로 한 눈금 키운다. */
