@@ -1226,3 +1226,5 @@ html .rq-listcol .rq-tr > div.rq-cell-fill.al-left { justify-content: flex-start
 html .rq-listcol .rq-tr > div.rq-cell-fill.al-center { justify-content: center; }
 /* 통채움 안의 고르개도 필드 글꼴을 따른다 */
 .rq-mfill .pick-live { font: inherit; font-weight: inherit; font-size: inherit; }
+/* 통채움 안의 값이 잘리지 않게 — 칸을 다 쓰고 넘치면 … 로 */
+.rq-mfill .pick-live { width: 100%; min-width: 0; text-overflow: ellipsis; }

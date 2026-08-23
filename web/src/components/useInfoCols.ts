@@ -18,9 +18,10 @@ export interface InfoCol {
 
 const BASE: Record<'req' | 'tc' | 'cycle', Array<{ kind: string; k: string; label: string; w: string }>> = {
   req: [
-    { kind: 'req_status', k: 'f_status', label: '상태', w: '62px' },
-    /* 「Medium」 이 잘려 보였다(지적) — 약간 넓힌다 */
-    { kind: 'req_priority', k: 'f_priority', label: '우선순위', w: '78px' },
+    /* 통채움이 되면서 값이 「작…」 으로 잘렸다(지적) — 값이 통째로 서는
+       폭이다. 「작성중」·「검토완료」·「Medium」 을 실측한 값 */
+    { kind: 'req_status', k: 'f_status', label: '상태', w: '84px' },
+    { kind: 'req_priority', k: 'f_priority', label: '우선순위', w: '92px' },
   ],
   tc: [
     /* 너무 조였더니 값도 머리 이름도 잘렸다(지적: 필드 내용이 안 보인다) —

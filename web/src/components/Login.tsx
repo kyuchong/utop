@@ -31,15 +31,9 @@ export default function Login({ onDone }: Props) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [brand, setBrand] = useState<{
-    logo?: string
-    name_text?: string
     login_image?: string
     login_title?: string
     login_sub?: string
-    name_size?: string
-    name_color?: string
-    name_accent_color?: string
-    name_font?: string
     login_logo?: string
     login_size?: string
     login_color?: string
@@ -81,7 +75,7 @@ export default function Login({ onDone }: Props) {
 
   /* 이름의 [x] 는 **강조 표시**다(브랜딩 규칙) — 그대로 찍으면 대괄호가
      화면에 남는다(지적). 왼쪽 판도 메뉴와 같은 규칙으로 읽는다 */
-  const titleRaw = brand.login_title || brand.name_text || 'UTOP'
+  const titleRaw = brand.login_title || 'ubiQuoss-TOP'
   const titleParts = titleRaw.split(/(\[[^\]]*\])/g).filter(Boolean)
   const sub = brand.login_sub || '유비쿼스 네트워크 장비 시험 자동화'
 
@@ -98,11 +92,12 @@ export default function Login({ onDone }: Props) {
         <div className="lg-sidein">
           {/* 로고는 색을 뒤집지 않는다 — 흰 덩어리로 보였다(지적).
               어두운 판 위라 흰 판 하나에 얹어 원래 색으로 보인다 */}
-          {/* 로그인 로고는 **메뉴 로고와 따로다**(지시). 안 올렸으면 메뉴
-              것을 빌려 쓴다 — 둘 다 없을 때만 글자 마크 */}
-          {brand.login_logo || brand.logo ? (
+          {/* 로그인 로고는 **메뉴와 완전히 따로다**(지시). 메뉴 것을 빌려
+              쓰지 않는다 — 한쪽을 고치면 다른 쪽이 따라 바뀌던 그 문제다.
+              안 올렸으면 글자 마크가 선다 */}
+          {brand.login_logo ? (
             <span className="lg-logobox">
-              <img src={brand.login_logo || brand.logo} alt="" />
+              <img src={brand.login_logo} alt="" />
             </span>
           ) : (
             <div className="lg-logotext">UTOP</div>
@@ -111,20 +106,16 @@ export default function Login({ onDone }: Props) {
             style={{
               /* 브랜딩에서 정한 크기를 따른다(지적: 무조건 20 이다) —
                  메뉴는 작게 쓰는 자리라 그 값의 1.6배로 키워 세운다 */
-              /* 로그인 화면 제 값이 먼저다(지시: 구분해). 안 정했으면
-                 메뉴 값의 1.6배 — 로그인은 크게 쓰는 자리다 */
-              fontSize: brand.login_size
-                ? `${Math.min(Number(brand.login_size) || 26, 72)}px`
-                : brand.name_size
-                  ? `${Math.min(Number(brand.name_size) || 15, 40) * 1.6}px`
-                  : undefined,
-              fontFamily: brand.login_font || brand.name_font || undefined,
+              /* 로그인 화면은 **제 값만 본다**(지시: 완전 분리).
+                 안 정했으면 이 화면의 기본값(26px)이다 */
+              fontSize: `${Math.min(Number(brand.login_size) || 26, 72)}px`,
+              fontFamily: brand.login_font || undefined,
               color: brand.login_color || undefined,
             }}
           >
             {titleParts.map((t, i) =>
               t.startsWith('[') && t.endsWith(']') ? (
-                <b key={i} className="lg-ac" style={{ color: brand.login_accent_color || brand.name_accent_color || undefined }}>
+                <b key={i} className="lg-ac" style={{ color: brand.login_accent_color || '#ff5b5b' }}>
                   {t.slice(1, -1)}
                 </b>
               ) : (
