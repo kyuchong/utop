@@ -326,7 +326,10 @@ export default function VerdictSettings() {
                   <td>
                     <i
                       className="vd-chip"
-                      style={{ background: `${color}22`, color: fg, borderColor: `${color}55` }}
+                      /* 실제 화면과 **같은 색**으로 보여 준다 — 바탕을 13% 로 옅게
+                           깔고 글자색은 흰색 그대로였더니, 흰 글자가 흰 바탕에
+                           얹혀 안 보였다(지적: 붉은색이 잘 안 보인다) */
+                        style={{ background: color, color: fg, borderColor: color }}
                     >
                       {b.label}
                     </i>
@@ -408,7 +411,10 @@ export default function VerdictSettings() {
                     <td>
                       <i
                         className="vd-chip"
-                        style={{ background: `${color}22`, color: fg, borderColor: `${color}55` }}
+                        /* 실제 화면과 **같은 색**으로 보여 준다 — 바탕을 13% 로 옅게
+                           깔고 글자색은 흰색 그대로였더니, 흰 글자가 흰 바탕에
+                           얹혀 안 보였다(지적: 붉은색이 잘 안 보인다) */
+                        style={{ background: color, color: fg, borderColor: color }}
                       >
                         {it.value}
                       </i>
@@ -525,7 +531,7 @@ export default function VerdictSettings() {
           <ColorPick title="글자색" value={dFg} onPick={setDFg} />
           <i
             className="vd-chip"
-            style={{ background: `${dColor}22`, color: dFg, borderColor: `${dColor}55` }}
+            style={{ background: dColor, color: dFg, borderColor: dColor }}
           >
             {draft.trim() || '미리 보기'}
           </i>

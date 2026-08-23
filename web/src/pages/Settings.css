@@ -886,6 +886,10 @@
 .vd-tbl th, .vd-tbl td { padding: 6px 8px; border-bottom: 1px solid var(--c-border-soft); text-align: left; }
 .vd-tbl th { font-size: var(--fs-xs); color: var(--c-text-faint); font-weight: 600; }
 .vd-tbl .r { text-align: right; white-space: nowrap; }
+/* 판정 딱지 미리 보기 — **실행 화면에 뜨는 그 색 그대로**.
+   옅게 깔아 두었더니 흰 글자가 흰 바탕에 얹혀 사라졌다(지적).
+   옅은 바탕을 고른 사람을 위해 테두리를 한 겹 더 두른다 — 흰 바탕이면
+   딱지가 어디서 끝나는지 안 보인다. */
 .vd-chip {
   display: inline-block;
   font-style: normal;
@@ -893,7 +897,8 @@
   font-size: var(--fs-xs);
   border: 1px solid;
   border-radius: 999px;
-  padding: 1px 10px;
+  padding: 2px 12px;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.06);
 }
 .vd-sw { position: relative; display: inline-flex; cursor: pointer; }
 .vd-sw > span {
