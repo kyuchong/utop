@@ -51,7 +51,26 @@
 
 /* 팔레트 — 한 줄이 한 계열, 왼쪽이 진하다(지시: 아주 다양하게).
    백 가지가 넘으니 판을 넓히고 높이는 제한해 그 안에서 구른다. */
-/* 판을 넓힌다(지시) — 한 계열 여섯 단계가 넉넉히 서고 색이 크게 보인다 */
-.vd-pickpop { width: 560px; max-width: 92vw; max-height: 66vh; overflow: auto; }
-.vd-grid { grid-template-columns: repeat(6, 1fr); gap: 6px; }
-.vd-sw2 { height: 34px; border-radius: 6px; }
+/* 판 — **전체가 한 번에**(지시). 색 칸을 작게 하고 계열마다 한 줄로 세워
+   백 가지가 굴리지 않고 다 보이게 한다. */
+.vd-pickpop { width: 420px; max-width: 94vw; max-height: none; overflow: visible; }
+.vd-fams { display: flex; flex-direction: column; gap: 3px; }
+.vd-fam { display: flex; align-items: center; gap: 7px; }
+.vd-fam > em {
+  flex: 0 0 58px;
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--c-text-muted);
+  text-align: right;
+}
+.vd-famrow { display: flex; gap: 3px; flex: 1; }
+.vd-sw3 {
+  flex: 1;
+  height: 18px;
+  border: 1px solid rgb(0 0 0 / 0.08);
+  border-radius: 4px;
+  padding: 0;
+  cursor: pointer;
+}
+.vd-sw3:hover { transform: scale(1.12); }
+.vd-sw3.on { outline: 2px solid var(--c-primary); outline-offset: 1px; }

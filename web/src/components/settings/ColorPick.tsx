@@ -174,19 +174,29 @@ export function ColorPick({
           <span className="vd-pickback" onClick={() => setOpen(false)} />
           <span className="vd-pickpop">
             <b>{title}</b>
-            <span className="vd-grid">
-              {PALETTE.map((p) => (
-                <button
-                  key={p.nm}
-                  type="button"
-                  title={p.nm}
-                  className={`vd-sw2${p.color.toLowerCase() === value.toLowerCase() ? ' on' : ''}`}
-                  style={{ background: p.color }}
-                  onClick={() => {
-                    onPick(p.color)
-                    setOpen(false)
-                  }}
-                />
+            {/* 계열마다 한 줄 — 왼쪽이 진하고 오른쪽이 여리다(지시:
+                아이콘을 줄이고 전체가 한 번에 보이게). 이름을 왼쪽에 적어
+                무슨 색 줄인지 훑어 내려갈 수 있다 */}
+            <span className="vd-fams">
+              {FAMS.map((f) => (
+                <span className="vd-fam" key={f.nm}>
+                  <em>{f.nm}</em>
+                  <span className="vd-famrow">
+                    {f.list.map((p) => (
+                      <button
+                        key={p.color}
+                        type="button"
+                        title={p.nm}
+                        className={`vd-sw3${p.color.toLowerCase() === value.toLowerCase() ? ' on' : ''}`}
+                        style={{ background: p.color }}
+                        onClick={() => {
+                          onPick(p.color)
+                          setOpen(false)
+                        }}
+                      />
+                    ))}
+                  </span>
+                </span>
               ))}
             </span>
             <span className="vd-fine">
@@ -201,5 +211,17 @@ export function ColorPick({
     </span>
   )
 }
+
+/** 계열별로 묶은 것 — 이름의 「 · 」 앞이 계열이다 */
+const FAMS: Array<{ nm: string; list: Array<{ nm: string; color: string; fg: string }> }> = (() => {
+  const m = new Map<string, Array<{ nm: string; color: string; fg: string }>>()
+  for (const p of PALETTE) {
+    const fam = p.nm.split(' · ')[0] ?? p.nm
+    const arr = m.get(fam) ?? []
+    arr.push(p)
+    m.set(fam, arr)
+  }
+  return [...m.entries()].map(([nm, list]) => ({ nm, list }))
+})()
 
 export { PALETTE }

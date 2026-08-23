@@ -60,6 +60,17 @@ interface Tab {
  * 답이 칸마다 달랐다(상태는 여기, 우리가 만든 칸은 커스텀 필드 화면).
  * 값을 고치는 자리는 하나여야 한다.
  */
+/** 필드 하나의 생김새 — SETUP 에서 정하고 목록 세 화면이 함께 읽는다 */
+export interface KStyle {
+  w?: string
+  shape?: string
+  align?: string
+  weight?: string
+  size?: string
+  font?: string
+  caps?: string
+}
+
 export default function CodeSettings({ target }: Props) {
   const qc = useQueryClient()
   const [kind, setKind] = useState(
@@ -161,18 +172,20 @@ export default function CodeSettings({ target }: Props) {
     }
   }
 
-  /** 필드(탭) 단위 생김새 — 폭·모양·정렬 */
+  /** 필드(탭) 단위 생김새 — 폭·모양·정렬·글꼴(지시) */
   const styleQ = useQuery({
     queryKey: ['code-kind-style'],
     queryFn: async () => {
       const r = await apiFetch('/api/codes/kind-style')
       if (!r.ok) throw new Error('필드 모양을 불러오지 못했습니다')
-      return (await r.json()) as { styles: Record<string, { w?: string; shape?: string; align?: string }> }
+      return (await r.json()) as {
+        styles: Record<string, KStyle>
+      }
     },
     staleTime: 30_000,
   })
   const kstyle = styleQ.data?.styles?.[kind] ?? {}
-  const saveKindStyle = (patch: { w?: string; shape?: string; align?: string }) => {
+  const saveKindStyle = (patch: Partial<KStyle>) => {
     void apiFetch('/api/codes/kind-style', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -598,6 +611,52 @@ export default function CodeSettings({ target }: Props) {
                     <option value="left">왼쪽</option>
                   </select>
                 </label>
+                {/* 글꼴 — 필드 단위다(지시). 값마다 다르면 한 열이 들쭉해진다 */}
+                <label>
+                  <span>글꼴</span>
+                  <select
+                    value={kstyle.font || 'sans'}
+                    onChange={(e) => saveKindStyle({ font: e.target.value })}
+                  >
+                    <option value="sans">화면 기본</option>
+                    <option value="mono">고정폭 (숫자·ID 가 맞음)</option>
+                    <option value="serif">명조</option>
+                  </select>
+                </label>
+                <label>
+                  <span>굵기</span>
+                  <select
+                    value={kstyle.weight || '700'}
+                    onChange={(e) => saveKindStyle({ weight: e.target.value })}
+                  >
+                    <option value="400">보통</option>
+                    <option value="600">약간 굵게</option>
+                    <option value="700">굵게</option>
+                    <option value="800">아주 굵게</option>
+                  </select>
+                </label>
+                <label>
+                  <span>크기</span>
+                  <select
+                    value={kstyle.size || '12'}
+                    onChange={(e) => saveKindStyle({ size: e.target.value })}
+                  >
+                    <option value="11">작게</option>
+                    <option value="12">보통</option>
+                    <option value="13">크게</option>
+                    <option value="14">아주 크게</option>
+                  </select>
+                </label>
+                <label>
+                  <span>대소문자</span>
+                  <select
+                    value={kstyle.caps || 'none'}
+                    onChange={(e) => saveKindStyle({ caps: e.target.value })}
+                  >
+                    <option value="none">그대로</option>
+                    <option value="upper">전부 대문자</option>
+                  </select>
+                </label>
                 <span className="muted small">
                   요구사항·시험항목·사이클 목록이 이 설정을 함께 씁니다.
                 </span>
@@ -644,6 +703,15 @@ export default function CodeSettings({ target }: Props) {
                                 background: bg,
                                 color: fg,
                                 width: kstyle.w ? `${Number(kstyle.w)}px` : undefined,
+                                fontWeight: Number(kstyle.weight || 700),
+                                fontSize: `${Number(kstyle.size || 12)}px`,
+                                fontFamily:
+                                  kstyle.font === 'mono'
+                                    ? 'var(--font-mono)'
+                                    : kstyle.font === 'serif'
+                                      ? 'Georgia, "Noto Serif KR", serif'
+                                      : undefined,
+                                textTransform: kstyle.caps === 'upper' ? 'uppercase' : undefined,
                               }}
                               title={`목록에서 이렇게 보입니다 — 폭 ${kstyle.w || '기본'}`}
                             >

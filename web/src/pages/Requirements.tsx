@@ -328,12 +328,34 @@ export default function Requirements({ me }: Props) {
       const r = await apiFetch('/api/codes/kind-style')
       if (!r.ok) throw new Error('필드 모양을 불러오지 못했습니다')
       return (await r.json()) as {
-        styles: Record<string, { w?: string; shape?: string; align?: string }>
+        styles: Record<string, {
+          w?: string
+          shape?: string
+          align?: string
+          weight?: string
+          size?: string
+          font?: string
+          caps?: string
+        }>
       }
     },
     staleTime: 30_000,
   })
   const kstyle = (kind: string) => kstyleQ.data?.styles?.[kind] ?? {}
+  /** 설정한 글꼴을 실제 칸에 입힌다(지시) */
+  const kfont = (kind: string): React.CSSProperties => {
+    const k = kstyle(kind)
+    return {
+      fontWeight: Number(k.weight || 700),
+      fontSize: `${Number(k.size || 12)}px`,
+      ...(k.font === 'mono'
+        ? { fontFamily: 'var(--font-mono)' }
+        : k.font === 'serif'
+          ? { fontFamily: 'Georgia, "Noto Serif KR", serif' }
+          : {}),
+      ...(k.caps === 'upper' ? { textTransform: 'uppercase' as const } : {}),
+    }
+  }
 
   const MONDAY: Record<string, string> = {
     /* 상태 */ 작성중: '#fdab3d', 검토중: '#579bfc', 검토완료: '#00c875', 보류: '#9ca3af', 폐기: '#6b7280',
@@ -1915,7 +1937,7 @@ export default function Requirements({ me }: Props) {
                               <div className={`rq-cell-fill al-${ks.align || 'center'}`} key={c2.k}>
                                 <div
                                   className={`rq-mfill sh-${ks.shape || 'fill'}`}
-                                  style={{ background: f.bg, color: f.fg }}
+                                  style={{ background: f.bg, color: f.fg, ...kfont('req_status') }}
                                 >
                                   <PickCell
                                     value={r.status ?? ''}
@@ -1934,7 +1956,7 @@ export default function Requirements({ me }: Props) {
                               <div className={`rq-cell-fill al-${ks.align || 'center'}`} key={c2.k}>
                                 <div
                                   className={`rq-mfill sh-${ks.shape || 'fill'}`}
-                                  style={{ background: f.bg, color: f.fg }}
+                                  style={{ background: f.bg, color: f.fg, ...kfont('req_priority') }}
                                 >
                                   <PickCell
                                     value={r.priority ?? ''}

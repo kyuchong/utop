@@ -3577,13 +3577,13 @@ async def codes_kind_style_get():
 
 @app.post("/api/codes/kind-style")
 async def codes_kind_style_set(payload: dict):
-    """{kind, w, shape, align} — 빈 값은 지운다(기본으로 돌아간다)."""
+    """{kind, w, shape, align, weight, size, font, caps} — 빈 값은 지운다."""
     kind = str(payload.get("kind") or "").strip()
     if not kind:
         raise HTTPException(400, "어느 필드인지 알려 주세요")
     cur = _kv_load_sync("code_kind_style", {}) or {}
     one = dict(cur.get(kind) or {})
-    for k in ("w", "shape", "align"):
+    for k in ("w", "shape", "align", "weight", "size", "font", "caps"):
         v = payload.get(k)
         if v is None or str(v).strip() == "":
             one.pop(k, None)

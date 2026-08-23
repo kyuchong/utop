@@ -1224,3 +1224,5 @@ html .rq-listcol .rq-tr > div.rq-cell-fill { padding: 0; }
 .rq-mfill.sh-text .pick-live { color: var(--c-text); }
 html .rq-listcol .rq-tr > div.rq-cell-fill.al-left { justify-content: flex-start; }
 html .rq-listcol .rq-tr > div.rq-cell-fill.al-center { justify-content: center; }
+/* 통채움 안의 고르개도 필드 글꼴을 따른다 */
+.rq-mfill .pick-live { font: inherit; font-weight: inherit; font-size: inherit; }
