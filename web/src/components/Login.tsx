@@ -63,7 +63,10 @@ export default function Login({ onDone }: Props) {
     }
   }
 
-  const title = brand.login_title || brand.name_text || 'UTOP'
+  /* 이름의 [x] 는 **강조 표시**다(브랜딩 규칙) — 그대로 찍으면 대괄호가
+     화면에 남는다(지적). 왼쪽 판도 메뉴와 같은 규칙으로 읽는다 */
+  const titleRaw = brand.login_title || brand.name_text || 'UTOP'
+  const titleParts = titleRaw.split(/(\[[^\]]*\])/g).filter(Boolean)
   const sub = brand.login_sub || '유비쿼스 네트워크 장비 시험 자동화'
 
   return (
@@ -77,12 +80,26 @@ export default function Login({ onDone }: Props) {
             다른데 글자는 늘 읽혀야 한다 */}
         <div className="lg-veil" />
         <div className="lg-sidein">
+          {/* 로고는 색을 뒤집지 않는다 — 흰 덩어리로 보였다(지적).
+              어두운 판 위라 흰 판 하나에 얹어 원래 색으로 보인다 */}
           {brand.logo ? (
-            <img className="lg-logo" src={brand.logo} alt="" />
+            <span className="lg-logobox">
+              <img src={brand.logo} alt="" />
+            </span>
           ) : (
             <div className="lg-logotext">UTOP</div>
           )}
-          <h1>{title}</h1>
+          <h1>
+            {titleParts.map((t, i) =>
+              t.startsWith('[') && t.endsWith(']') ? (
+                <b key={i} className="lg-ac">
+                  {t.slice(1, -1)}
+                </b>
+              ) : (
+                <span key={i}>{t}</span>
+              ),
+            )}
+          </h1>
           <p>{sub}</p>
           <ul className="lg-pts">
             <li>요구사항 → 시험항목 → 사이클을 한 줄기로</li>
