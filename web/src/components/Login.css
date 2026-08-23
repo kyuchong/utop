@@ -126,3 +126,7 @@
   .lg-sidein h1 { font-size: 24px; }
   .lg-pts { display: none; }
 }
+
+/* 로고 — 들어가는 자리 머리(지시). 밝은 판이라 뒤집지 않는다 */
+.lg-formlogo { display: inline-flex; align-items: center; margin-bottom: 2px; }
+.lg-formlogo img { height: 34px; display: block; }

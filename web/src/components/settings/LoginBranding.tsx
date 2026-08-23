@@ -189,48 +189,6 @@ export default function LoginBranding() {
         </button>
       </div>
       <div className="brand-row">
-        <span className="brand-preview">
-          {loginLogo ? (
-            <img src={loginLogo} alt="로그인 로고" />
-          ) : (
-            <i className="muted small">메뉴 로고를 씁니다</i>
-          )}
-        </span>
-        <label className="btn primary small brand-up">
-          로그인 로고 등록
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/svg+xml"
-            hidden
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (!f) return
-              if (f.size > 3 * 1024 * 1024) {
-                setMsg('3MB 이하 그림만 됩니다')
-                return
-              }
-              const fr = new FileReader()
-              fr.onload = () => setLoginLogo(String(fr.result || ''))
-              fr.readAsDataURL(f)
-            }}
-          />
-        </label>
-        <button
-          className="btn small"
-          type="button"
-          disabled={!loginLogo}
-          onClick={() => {
-            setLoginLogo('')
-            void apiFetch('/api/branding/login-logo', {
-              method: 'POST',
-              body: JSON.stringify({ logo: '' }),
-            }).then(() => setMsg('로그인 로고를 지웠습니다'))
-          }}
-        >
-          제거
-        </button>
-      </div>
-      <div className="brand-row">
         <label className="brand-f">
           제목 크기(px)
           <input
@@ -273,6 +231,48 @@ export default function LoginBranding() {
       {/* 오른쪽 판 — 들어가는 자리(지시). 문구가 코드에 박혀 있어 고칠 수
           없던 것들이다 */}
       <h4 className="brand-h2">오른쪽 판 — 들어가는 자리</h4>
+      <div className="brand-row">
+        <span className="brand-preview">
+          {loginLogo ? (
+            <img src={loginLogo} alt="로그인 로고" />
+          ) : (
+            <i className="muted small">메뉴 로고를 씁니다</i>
+          )}
+        </span>
+        <label className="btn primary small brand-up">
+          로그인 로고 등록
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/svg+xml"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              if (!f) return
+              if (f.size > 3 * 1024 * 1024) {
+                setMsg('3MB 이하 그림만 됩니다')
+                return
+              }
+              const fr = new FileReader()
+              fr.onload = () => setLoginLogo(String(fr.result || ''))
+              fr.readAsDataURL(f)
+            }}
+          />
+        </label>
+        <button
+          className="btn small"
+          type="button"
+          disabled={!loginLogo}
+          onClick={() => {
+            setLoginLogo('')
+            void apiFetch('/api/branding/login-logo', {
+              method: 'POST',
+              body: JSON.stringify({ logo: '' }),
+            }).then(() => setMsg('로그인 로고를 지웠습니다'))
+          }}
+        >
+          제거
+        </button>
+      </div>
       <div className="brand-row">
         <label className="brand-nm">
           폼 제목

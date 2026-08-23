@@ -97,16 +97,6 @@ export default function Login({ onDone }: Props) {
         <div className="lg-sidein">
           {/* 로고는 색을 뒤집지 않는다 — 흰 덩어리로 보였다(지적).
               어두운 판 위라 흰 판 하나에 얹어 원래 색으로 보인다 */}
-          {/* 로그인 로고는 **메뉴와 완전히 따로다**(지시). 메뉴 것을 빌려
-              쓰지 않는다 — 한쪽을 고치면 다른 쪽이 따라 바뀌던 그 문제다.
-              안 올렸으면 글자 마크가 선다 */}
-          {brand.login_logo ? (
-            <span className="lg-logobox">
-              <img src={brand.login_logo} alt="" />
-            </span>
-          ) : (
-            <div className="lg-logotext">UTOP</div>
-          )}
           <h1
             style={{
               /* 브랜딩에서 정한 크기를 따른다(지적: 무조건 20 이다) —
@@ -146,6 +136,13 @@ export default function Login({ onDone }: Props) {
             void submit()
           }}
         >
+          {/* 로고는 **들어가는 자리** 머리에 선다(지시) — 옛 화면도 폼 위에
+              마크가 있었다. 왼쪽은 사진과 글만 남는다 */}
+          {brand.login_logo && (
+            <span className="lg-formlogo">
+              <img src={brand.login_logo} alt="" />
+            </span>
+          )}
           <h2>{brand.login_form_title || 'ubiQuoss TOP 로그인'}</h2>
 
           {error && <div className="form-error">{error}</div>}
