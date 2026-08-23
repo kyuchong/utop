@@ -1670,7 +1670,7 @@ export default function TestCases({ me }: PageProps) {
     /* 값 실측대로 바싹(지시: 간격 최소) — 모델그룹 「LGU+_E61xx」 78 ·
        모델명 「E6100」 62 · 최근 결과 딱지 62 · REQ Map 링크 148.
        줄어든 것은 전부 제목 몫이다. */
-    `26px minmax(240px, 1fr) 78px 62px ${visCols.map((c) => c.w).join(' ')} 62px 148px`.trim()
+    `26px minmax(220px, 1fr) 86px 66px ${visCols.map((c) => c.w).join(' ')} 74px 150px`.trim()
   /* 목록에서 그 자리 고치기(지시) — 값 목록은 설정의 코드표를 쓴다 */
   const C_TYPE = useCodes('tc_type', ['FT', 'Function'])
   const C_STATUS = useCodes('tc_status', ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류'])

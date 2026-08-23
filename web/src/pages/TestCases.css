@@ -3476,9 +3476,13 @@ html .tc-listview .rq-tr > div {
   text-align: center;
   min-width: 0;
   height: 100%;
-  padding: 0 5px;
+  padding: 0 4px;
   border-right: 1px solid #dde3ea;
 }
+/* 고르개가 칸을 다 쓰게 — 좁혀 두면 값이 「Fu…」 로 잘린다(지적) */
+html .tc-listview .rq-tr .pick-live,
+html .tc-listview .rq-tr .tc-fill { width: 100%; min-width: 0; }
+html .tc-listview .rq-th .tc-colf { width: 100%; }
 html .tc-listview .rq-tr > div:last-child { border-right: 0; }
 html .tc-listview .rq-tr:not(.rq-th) { border-bottom: 1px solid #dde3ea; }
 html .tc-listview .rq-tr.rq-th { border-bottom: 1px solid var(--c-border); }
