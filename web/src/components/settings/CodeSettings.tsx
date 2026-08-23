@@ -357,7 +357,7 @@ export default function CodeSettings({ target }: Props) {
   const busy = saveM.isPending || delM.isPending || cfSaveM.isPending
 
   return (
-    <div className="set-page">
+    <div className="set-page wide">
       <div className="set-head">
         <div>
           <h3>{TITLE[target]!.h}</h3>

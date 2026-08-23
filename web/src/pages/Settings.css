@@ -1689,3 +1689,12 @@ button.dcc-st:disabled { cursor: default; }
 /* 값 줄의 색 고르개 — 무엇을 고르는지 글자로 적는다(지적) */
 .dc-lb { font-size: var(--fs-xs); color: var(--c-text-muted); }
 .dc-style { flex-wrap: wrap; }
+
+/* INFO 필드 값 줄 — 한 줄로 세운다(지적: 2행으로 접힌다).
+   720px 상한에 갇혀 색 고르개 둘·결과가 다음 줄로 넘어갔다. */
+.dc-row { flex-wrap: nowrap; }
+.dc-row > .dc-name { flex: 0 0 130px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.dc-style { flex-wrap: nowrap; white-space: nowrap; }
+.dc-style .vd-pickb { padding: 2px 6px; }
+.dc-style .vd-pickb > em { font-size: 10.5px; }
+.dc-prev { min-width: 88px; }
