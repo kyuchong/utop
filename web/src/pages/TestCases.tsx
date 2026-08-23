@@ -1668,7 +1668,8 @@ export default function TestCases({ me }: PageProps) {
   )
   /** 고정: ☐·제목·모델그룹·모델명 | INFO 열들 | 최근 결과 · REQ Map */
   const listGrid =
-    `26px minmax(240px, 1fr) 84px 76px ${visCols.map((c) => c.w).join(' ')} 76px 72px`.trim()
+    /* REQ Map 156px — REQ-2632-0003 링크가 잘리지 않게(지시) */
+    `26px minmax(240px, 1fr) 84px 76px ${visCols.map((c) => c.w).join(' ')} 76px 156px`.trim()
   /* 목록에서 그 자리 고치기(지시) — 값 목록은 설정의 코드표를 쓴다 */
   const C_TYPE = useCodes('tc_type', ['FT', 'Function'])
   const C_STATUS = useCodes('tc_status', ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류'])
@@ -1693,14 +1694,45 @@ export default function TestCases({ me }: PageProps) {
       window.alert(e instanceof Error ? `저장하지 못했습니다 — ${e.message}` : '저장하지 못했습니다')
     }
   }
+  /**
+   * 아래로 채우기(지시) — 이 줄의 값을 **보이는 목록에서 이 줄 아래 전부**에
+   * 넣는다. 새로 만든 시험 수십 건의 유형·중요도를 한 줄씩 고르는 일이
+   * 실제로 있었다. 몇 건을 바꾸는지 물어보고 한다 — 엑셀 채우기와 같은 손.
+   */
+  const fillDown = async (fromTcid: string, k: string, v: string) => {
+    const at = shownListRows.findIndex((x) => x.tcid === fromTcid)
+    if (at < 0) return
+    const below = shownListRows.slice(at + 1)
+    if (!below.length) {
+      window.alert('아래에 줄이 없습니다')
+      return
+    }
+    if (!window.confirm(`아래 ${below.length}건에 「${v || '(빈 값)'}」 을 채울까요?`)) return
+    for (const r of below) await setCell(r.tcid, { [k]: v })
+    setMsg({ kind: 'ok', text: `${below.length}건에 채웠습니다` })
+  }
+
   const pick = (t: TestCaseMeta, k: string, v: string, opts: readonly string[], cls?: string) => (
-    <PickCell
-      value={v}
-      opts={opts}
-      title="고르면 바로 저장됩니다"
-      onSave={(nv) => setCell(t.tcid, { [k]: nv })}
-      {...(cls ? { cls } : {})}
-    />
+    <span className="tc-fill">
+      <PickCell
+        value={v}
+        opts={opts}
+        title="고르면 바로 저장됩니다"
+        onSave={(nv) => setCell(t.tcid, { [k]: nv })}
+        {...(cls ? { cls } : {})}
+      />
+      <button
+        type="button"
+        className="tc-filldn"
+        title="이 값을 아래 줄 전부에 채웁니다"
+        onClick={(e) => {
+          e.stopPropagation()
+          void fillDown(t.tcid, k, v)
+        }}
+      >
+        ↓
+      </button>
+    </span>
   )
 
   /** 선택형 열 한 칸 — 열쇠(k)로 그린다 */

@@ -3447,3 +3447,23 @@ table.tb tr.r-bad td:first-child {
   text-decoration: none;
 }
 .tc-reqid-link:hover { text-decoration: underline; border-color: var(--c-primary); }
+
+/* 아래로 채우기 — 평소엔 숨고, 칸에 올리면 ↓ 가 나온다(지시).
+   늘 보이면 고르개 40개 옆에 40개가 서서 표가 시끄럽다 */
+.tc-fill { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
+.tc-filldn {
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  background: var(--c-surface);
+  color: var(--c-primary);
+  font-size: 11px;
+  line-height: 1;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  cursor: pointer;
+  opacity: 0;
+  flex: none;
+}
+.tc-fill:hover .tc-filldn { opacity: 1; }
+.tc-filldn:hover { background: var(--c-primary-bg); }
