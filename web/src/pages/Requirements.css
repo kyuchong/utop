@@ -1184,3 +1184,34 @@ html .rq-listcol .rq-tr > div.rq-cell-fill { padding: 0; }
 /* TC 커버리지 */
 .rq-mfill.cov-ok { background: var(--m-pass, #12b76a); }
 .rq-mfill.cov-no { background: var(--m-fail, #ef4666); }
+
+/* 줄 우클릭 메뉴 — 목업의 .menu 그대로 */
+.rq-ctxmenu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 200px;
+  padding: 5px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface);
+  box-shadow: 0 8px 30px rgb(16 24 40 / 0.16);
+}
+.rq-ctxmenu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.rq-ctxmenu button:hover:not(:disabled) { background: var(--c-surface-2, #f2f4f7); }
+.rq-ctxmenu button:disabled { color: var(--c-text-faint); cursor: default; }
+.rq-ctxmenu button.danger { color: var(--c-fail, #ef4666); }
+.rq-ctxdiv { height: 1px; margin: 4px 6px; background: var(--c-border-soft); }

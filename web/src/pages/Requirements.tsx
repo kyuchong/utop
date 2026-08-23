@@ -337,7 +337,28 @@ export default function Requirements({ me }: Props) {
     return { bg, fg: meta.fg || '#fff' }
   }
 
-  /** 우클릭 아래로 채우기 — 시험항목 목록과 같은 손(승인) */
+  /** 우클릭 메뉴 — 목업 그대로: 채우기 · 복제 · 삭제(지시) */
+  const [rowMenu, setRowMenu] = useState<{ r: Requirement; key: 'status' | 'priority' | ''; x: number; y: number } | null>(null)
+  useEffect(() => {
+    if (!rowMenu) return
+    const away = () => setRowMenu(null)
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setRowMenu(null)
+    const t = window.setTimeout(() => {
+      window.addEventListener('mousedown', away)
+      window.addEventListener('contextmenu', away)
+    }, 0)
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener('mousedown', away)
+      window.removeEventListener('contextmenu', away)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [rowMenu])
+
+
+
+  /** 아래로 채우기 — 묶어 보낸다 */
   const fillDownReq = async (from: Requirement, key: 'status' | 'priority', v: string) => {
     const at = midReqs.findIndex((x) => reqPk(x) === reqPk(from))
     if (at < 0) return
@@ -346,7 +367,6 @@ export default function Requirements({ me }: Props) {
       window.alert('아래에 줄이 없습니다')
       return
     }
-    if (!window.confirm(`아래 ${below.length}건에 「${v || '(빈 값)'}」 을 채울까요?`)) return
     /* 한 건씩 저장하고 그때마다 목록을 다시 읽으면 33건이 33번 왕복한다 —
        느린 까닭이 그것이었다(지적). 한꺼번에 보내고 목록은 끝에 한 번만
        다시 읽는다. 여덟씩 묶어 보내 서버도 한 번에 몰리지 않게 한다. */
@@ -1058,6 +1078,32 @@ export default function Requirements({ me }: Props) {
         <ReqBulkForm presetFolder={selectedFolder ?? null} onClose={() => setImportOpen(false)} />
       )}
       {mapFor && <ReqMapDialog req={mapFor} onClose={() => setMapFor(null)} />}
+
+      {/* 줄 우클릭 메뉴 — 목업 그대로(지시): 채우기 · 복제 · 삭제 */}
+      {rowMenu && (
+        <div
+          className="rq-ctxmenu"
+          style={{
+            left: Math.min(rowMenu.x, window.innerWidth - 220),
+            top: Math.min(rowMenu.y, window.innerHeight - 160),
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <button
+            type="button"
+            disabled={!rowMenu.key}
+            title={rowMenu.key ? '' : '상태·우선순위 칸에서 우클릭하면 그 값을 채웁니다'}
+            onClick={() => {
+              const m = rowMenu
+              setRowMenu(null)
+              if (m.key) void fillDownReq(m.r, m.key, (m.key === 'status' ? m.r.status : m.r.priority) ?? '')
+            }}
+          >
+            ⬇ 아래 행에 {rowMenu.key === 'priority' ? '우선순위' : rowMenu.key === 'status' ? '상태' : '값'} 채우기
+          </button>
+        </div>
+      )}
       {newProj && (
         <NewProjectDialog
           onClose={() => setNewProj(false)}
@@ -1762,6 +1808,16 @@ export default function Requirements({ me }: Props) {
                       style={{ gridTemplateColumns: reqGrid }}
                       // 끌어서 1열 폴더로 — 5px 은 눌러 고르기와 안 겹친다
                       onPointerDown={(e) => beginRowDrag(e, r)}
+                      /* 우클릭 = 메뉴(지시: 목업 그대로). 어느 칸에서 눌렀는지
+                         보고 「채우기」 가 무엇을 채울지 정한다 */
+                      onContextMenu={(e) => {
+                        e.preventDefault()
+                        const cell = (e.target as HTMLElement).closest('.rq-cell-fill')
+                        const idx = cell ? [...(cell.parentElement?.children ?? [])].indexOf(cell) : -1
+                        const heads = ['', '', '', '', '', '', ...reqVisCols.map((c) => c.k)]
+                        const k = heads[idx] === 'f_priority' ? 'priority' : heads[idx] === 'f_status' ? 'status' : ''
+                        setRowMenu({ r, key: k as 'status' | 'priority' | '', x: e.clientX, y: e.clientY })
+                      }}
                     >
                       <div className="rq-ck">
                         <input
@@ -1835,11 +1891,6 @@ export default function Requirements({ me }: Props) {
                                 <div
                                   className="rq-mfill"
                                   style={{ background: f.bg, color: f.fg }}
-                                  onContextMenu={(e) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    void fillDownReq(r, 'status', r.status ?? '')
-                                  }}
                                 >
                                   <PickCell
                                     value={r.status ?? ''}
@@ -1858,11 +1909,6 @@ export default function Requirements({ me }: Props) {
                                 <div
                                   className="rq-mfill"
                                   style={{ background: f.bg, color: f.fg }}
-                                  onContextMenu={(e) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    void fillDownReq(r, 'priority', r.priority ?? '')
-                                  }}
                                 >
                                   <PickCell
                                     value={r.priority ?? ''}
