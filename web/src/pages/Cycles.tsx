@@ -3819,6 +3819,33 @@ function CycleDetail({
   /* 「시험 진행 요약」 — **무조건 접힌 채로** 뜬다(지시). 기억하지 않는다:
      돌리는 화면에 들어오는 까닭은 절차를 보려는 것이지 요약이 아니다. */
   const [sumOpen, setSumOpen] = useState(false)
+  /**
+   * 목록 오른쪽 필드 보이기/숨기기(지시: ⚙).
+   *
+   * 좁은 화면에서 일곱 칸이 다 서면 제목이 먼저 잘린다 — 무엇을 볼지는
+   * 사람마다 달라서 고르게 한다. 숨긴 것만 기억한다(새 필드가 생기면
+   * 저절로 보이게).
+   */
+  const [hideF, setHideF] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem('utop.cycle.execHide') || '[]') as string[])
+    } catch {
+      return new Set()
+    }
+  })
+  const [colsOpen, setColsOpen] = useState(false)
+  const fShow = (k: string) => !hideF.has(k)
+  const fFlip = (k: string) =>
+    setHideF((cur) => {
+      const n = new Set(cur)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      localStorage.setItem('utop.cycle.execHide', JSON.stringify([...n]))
+      return n
+    })
+  /** 기존 결과를 누르면 — 항목 × 사이클 Matrix(지시) */
+  const [matrixOn, setMatrixOn] = useState(false)
+  const [matrixAt, setMatrixAt] = useState('')
   const [pbEl, setPbEl] = useState<HTMLElement | null>(null)
   useEffect(() => {
     setPbEl(document.getElementById('cy-pbslot'))
@@ -4651,6 +4678,17 @@ function CycleDetail({
           {/* 1행 카드 — 회차를 다루는 단추 자리(지시). 맨 위 빵부스러기에
               있던 「전체 실행 · 시험 완료 · 시험결과 요약」 이 여기로 온다. */}
           <div className="cxp-actcard">
+            {/* 시험 진행 요약 — 상시 카드 한 줄을 접고 단추로(지시).
+                누르면 아래에 인라인으로 펼쳐진다 */}
+            <button
+              className={`btn small${sumOpen ? ' primary' : ''}`}
+              type="button"
+              aria-expanded={sumOpen}
+              title="이 회차의 INFO·집계를 인라인으로 펼칩니다"
+              onClick={() => setSumOpen((v2) => !v2)}
+            >
+              {sumOpen ? '▾' : '▸'} 시험 진행 요약
+            </button>
             {finish && (
               <button
                 className="btn small primary"
@@ -4751,24 +4789,11 @@ function CycleDetail({
                 전체·수동·자동 세 막대. 도는 중이면 앞에 진행이 붙는다. */}
             <span className="sp" />
           </div>
-          {/* 2행 — **시험 진행 요약**(지시). 목록에서 사이클 ID 를 눌러
-              펼치던 세부내역이 여기로 왔다. 기본은 접힘 — 돌리는 화면에서
-              늘 펴 두면 절차가 그만큼 밀린다. */}
-          <div className={`cxp-infocard${sumOpen ? ' open' : ''}`}>
-            <button
-              type="button"
-              className="cxp-infoh"
-              aria-expanded={sumOpen}
-              onClick={() => setSumOpen((v) => !v)}
-            >
-              <i aria-hidden="true">{sumOpen ? '▾' : '▸'}</i>
-              <b>시험 진행 요약</b>
-              <span className="muted small">
-                {cycle.cid || cycle.id} · {cycle.model || '–'}
-                {cycle.version ? ` · ${cycle.version}` : ''}
-              </span>
-            </button>
-            {sumOpen && (
+          {/* 시험 진행 요약 — 위 1행 카드의 단추가 연다(지시). 접혀 있을
+              때는 줄 하나도 차지하지 않는다. */}
+          {sumOpen && (
+          <div className="cxp-infocard open">
+            {(
               <div className="cxp-infobody">
                 {/* ① INFO */}
                 <div className="cxp-infosec">
@@ -4888,6 +4913,78 @@ function CycleDetail({
               </div>
             )}
           </div>
+          )}
+
+          {/* ── 항목 × 회차 Matrix(지시 ②) — 기존 결과를 누르면 뜬다.
+              한 항목의 이력만이 아니라 **모든 항목의 회차별 판정**을 한 판에
+              편다. 누른 항목 줄을 밝혀 두어 「내가 보던 것」 을 잃지 않는다. */}
+          {matrixOn && (() => {
+            const cols = [
+              { id: '__cur', label: `${cycle.cid || '이번 회차'}${cycle.version ? ` (${cycle.version})` : ''}` },
+              ...others.map((c) => ({
+                id: c.id,
+                label: c.cid || c.version || c.id,
+              })),
+            ]
+            const cellOf = new Map<string, Map<string, Verdict>>()
+            cellOf.set('__cur', new Map(items.map((x) => [x.tcid, itemVerdict(x)])))
+            for (const c of others)
+              cellOf.set(c.id, new Map((c.items ?? []).map((x) => [x.tcid, itemVerdict(x)])))
+            const chip = (v2: Verdict | undefined) =>
+              v2 === undefined ? (
+                <i className="cym-x none">–</i>
+              ) : (
+                <i className={`cym-x ${verdictClass(v2)}`}>{v2 ? verdictLabel(v2) : '미실행'}</i>
+              )
+            return (
+              <div className="modal-back" onMouseDown={() => setMatrixOn(false)}>
+                <div
+                  className="modal cym"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="항목별 시험결과 Matrix"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <div className="modal-head">
+                    <b>항목별 시험결과</b>
+                    <span className="muted small">
+                      항목 {items.length}건 × 회차 {cols.length}개 — 같은 TC 가 든 다른 사이클에서 모았습니다
+                    </span>
+                    <span className="sp" />
+                    <button className="btn small" type="button" onClick={() => setMatrixOn(false)}>
+                      닫기
+                    </button>
+                  </div>
+                  <div className="cym-body scroll">
+                    <table className="cym-tbl">
+                      <thead>
+                        <tr>
+                          <th className="cym-nm">시험 항목</th>
+                          {cols.map((c) => (
+                            <th key={c.id} title={c.label}>
+                              {c.label}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {items.map((x) => (
+                          <tr key={x.tcid} className={x.tcid === matrixAt ? 'on' : ''}>
+                            <td className="cym-nm" title={`${x.tcid} ${x.name ?? ''}`}>
+                              <b>{x.tcid}</b> {x.name ?? ''}
+                            </td>
+                            {cols.map((c) => (
+                              <td key={c.id}>{chip(cellOf.get(c.id)?.get(x.tcid))}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
 
         <div className={`cxp${oneCol ? ' onecol' : ''}`}>
           <aside className={`cxp-side${''}`} ref={sideRef} style={{ width: sideW }}>
@@ -5012,6 +5109,37 @@ function CycleDetail({
                 value={fq}
                 onChange={(e) => setFq(e.target.value)}
               />
+              {/* ⚙ — 오른쪽 필드를 보이거나 숨긴다(지시 ①) */}
+              <span className="cxp-cols">
+                <button
+                  type="button"
+                  className="btn small"
+                  title="목록 필드 보이기/숨기기"
+                  onClick={() => setColsOpen((v) => !v)}
+                >
+                  ⚙
+                </button>
+                {colsOpen && (
+                  <div className="cxp-colspop" onMouseLeave={() => setColsOpen(false)}>
+                    {(
+                      [
+                        ['who', '담당자'],
+                        ['by', '실행자'],
+                        ['kind', '타입 (M/A)'],
+                        ['hist', '기존 결과'],
+                        ['when', '시험 시각'],
+                        ['took', '소요'],
+                        ['stt', '진행 상태'],
+                      ] as Array<[string, string]>
+                    ).map(([k, lb]) => (
+                      <label key={k}>
+                        <input type="checkbox" checked={fShow(k)} onChange={() => fFlip(k)} />
+                        {lb}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </span>
                           {pick.size > 0 && !st.on && (
                 /* 고른 항목 전부에 같은 판정 — Pass 만이 아니라 아무 값이나 */
                 <select
@@ -5230,51 +5358,61 @@ function CycleDetail({
                 <span />
                 <span className="cxp-rmain">시험 항목</span>
                 <span className="cxp-rgt">
-                  <span title="담당자">
-                    <i className="hd-ic">
-                      <IconAccounts />
-                    </i>
-                    <em className="hd-lb">담당자</em>
-                  </span>
-                  <span title="실행자">
-                    <i className="hd-ic">
-                      <IconHand />
-                    </i>
-                    <em className="hd-lb">실행자</em>
-                  </span>
-                  <span title="타입 — 자동(A) · 수동(M)">
-                    <i className="hd-ic">
-                      <IconTag />
-                    </i>
-                    <em className="hd-lb">타입</em>
-                  </span>
-                  <span title="기존 결과 — 지난 회차의 판정">
-                    <i className="hd-ic">
-                      <IconNote />
-                    </i>
-                    <em className="hd-lb">기존 결과</em>
-                  </span>
-                  {(
-                    <>
-                      <span title="시험 시각">
-                        <i className="hd-ic">
-                          <IconClock />
-                        </i>
-                        <em className="hd-lb">시험 시각</em>
-                      </span>
-                      <span title="소요 시간">
-                        <i className="hd-ic">
-                          <IconWave />
-                        </i>
-                        <em className="hd-lb">소요</em>
-                      </span>
-                      <span title="진행 상태">
-                        <i className="hd-ic">
-                          <IconPing />
-                        </i>
-                        <em className="hd-lb">진행 상태</em>
-                      </span>
-                    </>
+                  {fShow('who') && (
+                    <span title="담당자">
+                      <i className="hd-ic">
+                        <IconAccounts />
+                      </i>
+                      <em className="hd-lb">담당자</em>
+                    </span>
+                  )}
+                  {fShow('by') && (
+                    <span title="실행자">
+                      <i className="hd-ic">
+                        <IconHand />
+                      </i>
+                      <em className="hd-lb">실행자</em>
+                    </span>
+                  )}
+                  {fShow('kind') && (
+                    <span title="타입 — 자동(A) · 수동(M)">
+                      <i className="hd-ic">
+                        <IconTag />
+                      </i>
+                      <em className="hd-lb">타입</em>
+                    </span>
+                  )}
+                  {fShow('hist') && (
+                    <span title="기존 결과 — 지난 회차의 판정. 누르면 회차별 Matrix">
+                      <i className="hd-ic">
+                        <IconNote />
+                      </i>
+                      <em className="hd-lb">기존 결과</em>
+                    </span>
+                  )}
+                  {fShow('when') && (
+                    <span title="시험 시각">
+                      <i className="hd-ic">
+                        <IconClock />
+                      </i>
+                      <em className="hd-lb">시험 시각</em>
+                    </span>
+                  )}
+                  {fShow('took') && (
+                    <span title="소요 시간">
+                      <i className="hd-ic">
+                        <IconWave />
+                      </i>
+                      <em className="hd-lb">소요</em>
+                    </span>
+                  )}
+                  {fShow('stt') && (
+                    <span title="진행 상태">
+                      <i className="hd-ic">
+                        <IconPing />
+                      </i>
+                      <em className="hd-lb">진행 상태</em>
+                    </span>
                   )}
                 </span>
               </div>
@@ -5416,7 +5554,7 @@ function CycleDetail({
                       {/* 오른쪽 무리 — 한 묶음(간격 균일): M/A · 이력 · 결과 셀렉트 · ▶ · 회귀 · 점 */}
                       <span className="cxp-rgt" onClick={(e) => e.stopPropagation()}>
                         {/* 담당자 — 읽기 전용. 할당은 사이클 수정 창에서 */}
-                        {(() => {
+                        {fShow('who') && (() => {
                           const who = String(it.assignee ?? '')
                             .split(/[,·/;]+/)
                             .map((x) => x.trim())
@@ -5439,7 +5577,7 @@ function CycleDetail({
                         })()}
                         {/* 실행자 — 담당(맡은 이)과 다르다. 실제로 돌린 사람이다.
                             칸이 24px 이므로 담당자와 같은 첫 글자 꼴로 둔다 */}
-                        {(() => {
+                        {fShow('by') && (() => {
                           const by = String(it.executed_by ?? '').trim()
                           /* 자동으로 돈 줄은 사람 대신 AI 표(지시) */
                           if (it.executed_auto) {
@@ -5464,23 +5602,30 @@ function CycleDetail({
                         {/* 시험 타입 — TC 가 정본 */}
                         {(() => {
                           const kd = typeOf(it)
+                          if (!fShow('kind')) return null
                           return (
                             <i className={`cxp-k ${kd}`} title={kd === 'manual' ? '수동' : '자동'}>
                               {kd === 'manual' ? 'M' : 'A'}
                             </i>
                           )
                         })()}
-                        {/* 기존 시험 결과 — 자리 상시 유지, 없으면 미진행 */}
-                        {(() => {
+                        {/* 기존 시험 결과 — 자리 상시 유지, 없으면 미진행.
+                            누르면 항목 × 회차 Matrix 가 뜬다(지시 ②) */}
+                        {fShow('hist') && (() => {
                           const h = (histAll.get(it.tcid) ?? []).slice(0, 5)
                           const last = h[0]
                           return (
                             <span
-                              className="cxp-hist"
+                              className="cxp-hist go"
+                              role="button"
+                              onClick={() => {
+                                setMatrixAt(it.tcid)
+                                setMatrixOn(true)
+                              }}
                               title={
                                 h.length
-                                  ? `기존 시험이력 (읽기 전용)\n${h.map((x) => `${x.label}: ${verdictLabel(x.v)}`).join('\n')}`
-                                  : '기존 시험이력 없음'
+                                  ? `기존 시험이력 — 누르면 회차별 Matrix\n${h.map((x) => `${x.label}: ${verdictLabel(x.v)}`).join('\n')}`
+                                  : '기존 시험이력 없음 — 누르면 회차별 Matrix'
                               }
                             >
                               {last ? (
@@ -5494,34 +5639,34 @@ function CycleDetail({
                             </span>
                           )
                         })()}
-                        {(
-                          <>
-                            <span className="cxp-when muted small">
-                              {it.executed_at ? String(it.executed_at).replace('T', ' ').slice(0, 16) : '–'}
-                            </span>
-                            <span className="cxp-took muted small">
-                              {(() => {
-                                const ms = (shown.steps ?? []).reduce(
-                                  (a2, x2) => a2 + (Number((x2 as { took_ms?: number }).took_ms) || 0),
-                                  0,
-                                )
-                                return ms ? `${(ms / 1000).toFixed(1)}s` : '–'
-                              })()}
-                            </span>
-                          </>
+                        {fShow('when') && (
+                          <span className="cxp-when muted small">
+                            {it.executed_at ? String(it.executed_at).replace('T', ' ').slice(0, 16) : '–'}
+                          </span>
+                        )}
+                        {fShow('took') && (
+                          <span className="cxp-took muted small">
+                            {(() => {
+                              const ms = (shown.steps ?? []).reduce(
+                                (a2, x2) => a2 + (Number((x2 as { took_ms?: number }).took_ms) || 0),
+                                0,
+                              )
+                              return ms ? `${(ms / 1000).toFixed(1)}s` : '–'
+                            })()}
+                          </span>
                         )}
                         {/* 진행 상태 */}
                         {/* 이번 실행에서 이 줄이 어디쯤인가 — 도는 중이면 몇 번째
                             스텝인지까지, 아직이면 「대기」. 끝난 줄은 판정이 말한다. */}
-                        {st.on && st.itemAt === at ? (
+                        {fShow('stt') && (st.on && st.itemAt === at ? (
                           <i className="cxp-run">
                             ● 실행 중
                             {st.stepAt >= 0 ? ` · ${st.stepAt + 1}/${st.stepCount}` : ''}
                           </i>
                         ) : st.on && runQ.has(at) && !v ? (
                           <i className="cxp-wait">대기</i>
-                        ) : null}
-                        {!(st.on && (st.itemAt === at || runQ.has(at))) && (
+                        ) : null)}
+                        {fShow('stt') && !(st.on && (st.itemAt === at || runQ.has(at))) && (
                           <i className="cxp-stt">{v ? '완료' : '대기 전'}</i>
                         )}
                       </span>

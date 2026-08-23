@@ -7968,3 +7968,56 @@ a.bc-cur:hover { text-decoration: underline; }
   border: 0;
   border-radius: 0;
 }
+
+/* ── ⚙ 필드 보이기/숨기기(지시 ①) ── */
+.cxp-cols { position: relative; display: inline-flex; }
+.cxp-colspop {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+  white-space: nowrap;
+}
+.cxp-colspop label { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); cursor: pointer; }
+
+/* 기존 결과 — 누를 수 있다(지시 ②) */
+.cxp-hist.go { cursor: pointer; }
+.cxp-hist.go:hover > i { filter: brightness(0.94); }
+
+/* ── 항목 × 회차 Matrix ── */
+.modal.cym { width: min(1200px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }
+.cym-body { overflow: auto; padding: 0 14px 14px; }
+.cym-tbl { border-collapse: collapse; width: 100%; }
+.cym-tbl th, .cym-tbl td {
+  border: 1px solid var(--c-border-soft);
+  padding: 4px 8px;
+  font-size: var(--fs-xs);
+  text-align: center;
+  white-space: nowrap;
+}
+.cym-tbl thead th { position: sticky; top: 0; background: #f4f6f9; z-index: 1; }
+.cym-tbl .cym-nm { text-align: left; max-width: 380px; overflow: hidden; text-overflow: ellipsis; }
+.cym-tbl tr.on td { background: var(--c-accent-soft, #eef4ff); }
+/* 판정 칸 — 설정 색 그대로. 없는 칸(그 회차에 이 TC 없음)은 흐린 – */
+.cym-x {
+  display: inline-block;
+  min-width: 56px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-style: normal;
+  font-weight: 700;
+}
+.cym-x.pass { background: var(--c-pass, #0d9488); color: var(--vfg-pass, #fff); }
+.cym-x.fail { background: var(--c-fail, #dc2626); color: var(--vfg-fail, #fff); }
+.cym-x.wip { background: var(--c-draft, #2563eb); color: var(--vfg-wip, #fff); }
+.cym-x.blocked { background: var(--c-blocked, #8b93a1); color: var(--vfg-blocked, #fff); }
+.cym-x.na { background: var(--c-na, #8b93a1); color: var(--vfg-na, #fff); }
+.cym-x.none { background: transparent; color: var(--c-text-faint); font-weight: 400; }
