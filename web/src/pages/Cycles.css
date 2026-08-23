@@ -8088,3 +8088,72 @@ a.bc-cur:hover { text-decoration: underline; }
 .cxp-actcard .cxp-div { flex: none; width: 1px; height: 18px; background: var(--c-border); }
 /* 막대 숫자 — 「17/62 (27%)」 가 들어가 폭이 좀 는다 */
 .cxp-sumb .nm { white-space: nowrap; }
+
+/* ══ 사이클 목록 — 판 + 엑셀 표 (승인 A안) ══
+   요구사항·시험항목과 같은 벌. 1열·2열 카드 껍데기를 벗겨 판으로 두고,
+   사이는 1열의 오른선 하나로만 나눈다. */
+html .split.cy { padding-top: 0; margin-right: -12px; margin-left: -12px; }
+html .split.cy > .panel.cy-tree {
+  border: 0;
+  border-radius: 0;
+  border-right: 1px solid var(--c-border);
+  background: var(--c-surface);
+}
+html .split.cy > .panel.cy-main {
+  border: 0;
+  border-radius: 0;
+  background: var(--c-surface);
+}
+html .split.cy > .panel.cy-tree > .lh { border-bottom: 0; }
+
+/* 엑셀 눈금 — 세로+가로. gap 을 걷고 보더가 눈금을 긋는다 */
+html .cyt .cyt-row { gap: 0; }
+html .cyt .cyt-row > * {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px;
+  border-right: 1px solid #dde3ea;
+}
+html .cyt .cyt-row > *:last-child { border-right: 0; }
+html .cyt .cyt-row.cyt-c { border-bottom: 1px solid #dde3ea; }
+html .cyt .cyt-row.cyt-hd { border-bottom: 1px solid var(--c-border); }
+/* 제목·Key 는 왼쪽 — 글은 왼끝이 맞아야 훑인다 */
+html .cyt .cyt-row > .cyt-name,
+html .cyt .cyt-row > .cyt-key,
+html .cyt .cyt-row.cyt-hd > *:nth-child(3),
+html .cyt .cyt-row.cyt-hd > *:nth-child(4) {
+  justify-content: flex-start;
+  text-align: left;
+}
+/* 머리줄 — 옅은 바탕. 필터 걸린 열은 파랗게 */
+html .cyt .cyt-row.cyt-hd {
+  background: var(--surface-2, #f2f4f7);
+  color: var(--ink-2, #5d6472);
+  font-weight: 700;
+}
+html .cyt .cyt-row.cyt-c:hover { background: var(--surface-2, #f2f4f7); }
+
+/* 통채움 — 셀이 곧 드롭다운 */
+html .cyt .cyt-row > .cyt-cell-fill { padding: 0; }
+.cyt-mfill {
+  width: 100%;
+  height: 100%;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+}
+.cyt-mfill .pick-live { color: #fff; text-align: center; text-align-last: center; font-weight: 700; width: 100%; }
+.cyt-mfill select.pick-live:hover,
+.cyt-mfill select.pick-live:focus { background: var(--c-surface); color: var(--c-text); }
+.cyt-mfill .pick-live option { color: var(--c-text); background: var(--c-surface); font-weight: 400; }
+/* 값이 없으면 칠하지 않는다 */
+.cyt-mfill.none { background: transparent; }
+.cyt-mfill.none .pick-live { color: var(--c-text-muted); font-weight: 400; }

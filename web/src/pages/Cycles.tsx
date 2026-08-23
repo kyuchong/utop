@@ -2442,6 +2442,52 @@ function CycleBoard({
     }
   }
 
+  const codesAll = useQuery({
+    queryKey: ['codes'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes')
+      if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
+      return (await r.json()) as { items: Array<{ kind: string; value: string; note?: string | null }> }
+    },
+    staleTime: 60_000,
+  })
+
+  /** 통채움 색 — SETUP 값 색이 정본, 없으면 Monday 팔레트(승인 A안) */
+  const MONDAY_CY: Record<string, string> = {
+    준비: '#fdab3d', 진행중: '#579bfc', 진행: '#579bfc', 완료: '#00c875',
+    보류: '#9ca3af', 취소: '#6b7280', Pass: '#00c875', Fail: '#ef4666',
+  }
+  const CY_HUES = ['#579bfc', '#00c875', '#a25ddc', '#ff9d19', '#e2445c', '#0086c0', '#7f5347', '#9ca3af']
+  const cyFill = (kind: string, value: string): string => {
+    if (!value) return ''
+    const it = (codesAll.data?.items ?? []).find((x) => x.kind === kind && x.value === value)
+    let meta: { color?: string } = {}
+    try {
+      meta = JSON.parse(it?.note || '{}') as typeof meta
+    } catch {
+      /* 옛 자료 */
+    }
+    if (meta.color) return meta.color
+    if (MONDAY_CY[value]) return MONDAY_CY[value]!
+    let h = 0
+    for (let i = 0; i < value.length; i += 1) h = (h * 31 + value.charCodeAt(i)) >>> 0
+    return CY_HUES[h % CY_HUES.length]!
+  }
+  /** 통채움 칸 하나 — 셀이 곧 드롭다운이다 */
+  const cyCell = (
+    key: string,
+    kind: string,
+    v: string,
+    opts: readonly string[],
+    onSave: (x: string) => void,
+  ) => (
+    <span className="cyt-cell-fill" key={key}>
+      <span className={`cyt-mfill${v ? '' : ' none'}`} style={v ? { background: cyFill(kind, v) } : undefined}>
+        <PickCell value={v} opts={opts} onSave={onSave} />
+      </span>
+    </span>
+  )
+
   const cytGrid = useMemo(
     () =>
       ['24px', '18px', 'minmax(88px, 100px)', 'minmax(200px, 1.4fr)', ...renderCols.map((c) => c.w)].join(
@@ -2936,22 +2982,12 @@ function CycleBoard({
                               </span>
                             )
                           case 'f_status':
-                            return (
-                              <PickCell
-                                key={c2.k}
-                                value={c.status ?? ''}
-                                opts={CY_STATUS}
-                                onSave={(v) => setCyCell(c.id, { status: v })}
-                              />
+                            return cyCell(c2.k, 'cycle_status', c.status ?? '', CY_STATUS, (v) =>
+                              setCyCell(c.id, { status: v }),
                             )
                           case 'f_customer':
-                            return (
-                              <PickCell
-                                key={c2.k}
-                                value={c.customer ?? ''}
-                                opts={CY_CUST}
-                                onSave={(v) => setCyCell(c.id, { customer: v })}
-                              />
+                            return cyCell(c2.k, 'cycle_customer', c.customer ?? '', CY_CUST, (v) =>
+                              setCyCell(c.id, { customer: v }),
                             )
                           case 'iss':
                             return (
