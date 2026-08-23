@@ -32,6 +32,15 @@ export default function Login({ onDone }: Props) {
     login_image?: string
     login_title?: string
     login_sub?: string
+    name_size?: string
+    name_color?: string
+    name_accent_color?: string
+    name_font?: string
+    login_logo?: string
+    login_size?: string
+    login_color?: string
+    login_accent_color?: string
+    login_font?: string
   }>({})
 
   /* 브랜딩은 로그인 전에도 읽을 수 있다 — 이 화면이 그것으로 그려진다 */
@@ -82,17 +91,33 @@ export default function Login({ onDone }: Props) {
         <div className="lg-sidein">
           {/* 로고는 색을 뒤집지 않는다 — 흰 덩어리로 보였다(지적).
               어두운 판 위라 흰 판 하나에 얹어 원래 색으로 보인다 */}
-          {brand.logo ? (
+          {/* 로그인 로고는 **메뉴 로고와 따로다**(지시). 안 올렸으면 메뉴
+              것을 빌려 쓴다 — 둘 다 없을 때만 글자 마크 */}
+          {brand.login_logo || brand.logo ? (
             <span className="lg-logobox">
-              <img src={brand.logo} alt="" />
+              <img src={brand.login_logo || brand.logo} alt="" />
             </span>
           ) : (
             <div className="lg-logotext">UTOP</div>
           )}
-          <h1>
+          <h1
+            style={{
+              /* 브랜딩에서 정한 크기를 따른다(지적: 무조건 20 이다) —
+                 메뉴는 작게 쓰는 자리라 그 값의 1.6배로 키워 세운다 */
+              /* 로그인 화면 제 값이 먼저다(지시: 구분해). 안 정했으면
+                 메뉴 값의 1.6배 — 로그인은 크게 쓰는 자리다 */
+              fontSize: brand.login_size
+                ? `${Math.min(Number(brand.login_size) || 26, 72)}px`
+                : brand.name_size
+                  ? `${Math.min(Number(brand.name_size) || 15, 40) * 1.6}px`
+                  : undefined,
+              fontFamily: brand.login_font || brand.name_font || undefined,
+              color: brand.login_color || undefined,
+            }}
+          >
             {titleParts.map((t, i) =>
               t.startsWith('[') && t.endsWith(']') ? (
-                <b key={i} className="lg-ac">
+                <b key={i} className="lg-ac" style={{ color: brand.login_accent_color || brand.name_accent_color || undefined }}>
                   {t.slice(1, -1)}
                 </b>
               ) : (
@@ -119,7 +144,7 @@ export default function Login({ onDone }: Props) {
           }}
         >
           <h2>로그인</h2>
-          <p className="lg-hint">회사 계정 또는 Jira 계정으로 들어갑니다.</p>
+          <p className="lg-hint">UMS(Jira) 계정으로 접속이 가능합니다.</p>
 
           {error && <div className="form-error">{error}</div>}
 

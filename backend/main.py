@@ -1772,14 +1772,22 @@ async def api_branding_get():
             # 로그인 화면 왼쪽 판 — 회사 건물 사진과 그 위에 얹는 글(지시)
             "login_image": b.get("login_image") or "",
             "login_title": b.get("login_title") or "",
-            "login_sub": b.get("login_sub") or ""}
+            "login_sub": b.get("login_sub") or "",
+            # 로그인 화면 로고·글자 — **메뉴 것과 따로다**(지시: 구분해).
+            # 한 값을 둘이 나눠 쓰니 한쪽을 고치면 다른 쪽이 따라 바뀌었다.
+            "login_logo": b.get("login_logo") or "",
+            "login_size": b.get("login_size") or "",
+            "login_color": b.get("login_color") or "",
+            "login_accent_color": b.get("login_accent_color") or "",
+            "login_font": b.get("login_font") or ""}
 
 @app.post("/api/branding")
 async def api_branding_save(payload: dict, token: str = ""):
     _require_admin(token)
     b = _load_branding()
     for k in ("name_text", "name_size", "name_color", "name_font", "name_accent_color", "link_url",
-              "login_title", "login_sub"):
+              "login_title", "login_sub", "login_size", "login_color", "login_accent_color",
+              "login_font"):
         if k in payload:
             b[k] = str(payload.get(k) or "")[:200]
     if "fab_greeting" in payload:
@@ -1811,6 +1819,21 @@ async def api_branding_login_image(payload: dict, token: str = ""):
         raise HTTPException(400, "이미지가 너무 큽니다 (6MB 이하로 올려주세요)")
     b = _load_branding()
     b["login_image"] = img
+    save_json(BRANDING_FILE, b)
+    return {"ok": True}
+
+
+@app.post("/api/branding/login-logo")
+async def api_branding_login_logo(payload: dict, token: str = ""):
+    """로그인 화면 로고 — 메뉴 로고와 **따로** 둔다(지시)."""
+    _require_admin(token)
+    logo = str(payload.get("logo") or "")
+    if logo and not logo.startswith("data:image/"):
+        raise HTTPException(400, "이미지 파일만 등록할 수 있습니다")
+    if len(logo) > 4_000_000:
+        raise HTTPException(400, "이미지가 너무 큽니다 (3MB 이하로 올려주세요)")
+    b = _load_branding()
+    b["login_logo"] = logo
     save_json(BRANDING_FILE, b)
     return {"ok": True}
 
