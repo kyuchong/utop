@@ -5510,6 +5510,17 @@ function CycleDetail({
                     {grpFold.has(g.k) ? null : (
                       <>
                     <div
+                      onContextMenu={(e) => {
+                        /* 줄 우클릭 = 아래 행에 결과 채우기(지시) — 오른쪽
+                           판정 셀렉트와 같은 손. 보이는 목록 기준이다 */
+                        e.preventDefault()
+                        const below = rows.slice(i + 1)
+                        if (!below.length) return
+                        if (!window.confirm(`아래 ${below.length}건에 「${v || '미실행'}」 을 채울까요?`)) return
+                        void (async () => {
+                          for (const x of below) await setResult(x.tcid, v === '' ? '미실행' : v)
+                        })()
+                      }}
                       className={`cxp-row v-${verdictClass(v)}${on ? ' on' : ''}${
                         pick.has(at) ? ' picked' : ''
                       }${st.itemAt === at && st.on ? ' running' : ''}`}
