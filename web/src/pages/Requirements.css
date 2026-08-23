@@ -1135,6 +1135,17 @@ html .rq-listcol .rq-tr:not(.rq-th):hover { background: var(--surface-2, #f2f4f7
 html .split.rq-split {
   padding-top: 0;
   margin-right: -12px;
+  margin-left: -12px;
+}
+
+/* 1열도 판이다(지적: 카드로 하면 안 된다 — 목업과 비교).
+   내용·동작은 그대로 — 벗기는 것은 껍데기뿐이다. 오른쪽 1px 선만 남아
+   2열과 나뉜다. 목업의 tree 판과 같은 꼴. */
+html .rq-split > .panel.req-tree-panel {
+  border: 0;
+  border-radius: 0;
+  border-right: 1px solid var(--c-border);
+  background: var(--c-surface);
 }
 /* 도구줄 아래 눈금 — 목업의 toolbar 와 같은 1px */
 html .rq-listcol .rq-mid-h { border-bottom: 1px solid var(--line-soft, #eef0f4); }
