@@ -1107,9 +1107,15 @@ html .rq-listcol .rq-tr > div {
   border-right: 1px solid var(--line-soft, #eef0f4);
 }
 html .rq-listcol .rq-tr > div:last-child { border-right: 0; }
-/* 가로 눈금 — 엑셀 표(지적). 세로만 있으면 표가 아니라 열 나열이다 */
-html .rq-listcol .rq-tr { border-bottom: 1px solid var(--line-soft, #eef0f4); }
+/* 가로 눈금 — 엑셀 표(지적). 세로만 있으면 표가 아니라 열 나열이다.
+   세 화면 통일 규칙이 같은 무게로 0 을 긋고 뒤에 서서 지웠다 — :not 를
+   붙여 한 급 올린다 */
+html .rq-listcol .rq-tr:not(.rq-th) { border-bottom: 1px solid var(--line-soft, #eef0f4); }
 html .rq-listcol .rq-tr.rq-th { border-bottom: 1px solid var(--c-border); }
+
+/* 1열 폴더 상단의 구분선은 걷는다(지시) — 판이 되면서 이 선이 빵부스러기
+   밑선과 겹쳐 이중 눈금으로 보였다 */
+html .req-tree-panel > .lh { border-bottom: 0; }
 /* 제목은 왼쪽 — 글은 왼끝을 맞춰야 훑인다 */
 html .rq-listcol .rq-tr > div.rq-name,
 html .rq-listcol .rq-tr.rq-th > div:nth-child(2) {
