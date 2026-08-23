@@ -2707,7 +2707,8 @@ table.tb tr.r-bad td:first-child {
   grid-template-columns:
     30px minmax(220px, 1fr)
     74px 78px 64px;
-  column-gap: 8px;
+  /* 칸 사이는 최소로(지시) — 이름이 그만큼 넓어진다. 폭은 열이 이미 진다 */
+  column-gap: 3px;
 }
 .tc-req {
   display: flex;

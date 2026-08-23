@@ -23,11 +23,12 @@ const BASE: Record<'req' | 'tc' | 'cycle', Array<{ kind: string; k: string; labe
     { kind: 'req_priority', k: 'f_priority', label: '우선순위', w: '78px' },
   ],
   tc: [
-    { kind: 'tc_type', k: 'f_type', label: '유형', w: '58px' },
-    { kind: 'tc_status', k: 'f_status', label: '상태', w: '62px' },
-    { kind: 'tc_severity', k: 'f_severity', label: '중요도', w: '58px' },
-    { kind: 'tc_run_type', k: 'f_kind', label: '타입', w: '52px' },
-    { kind: 'tc_origin', k: 'f_origin', label: '구분', w: '54px' },
+    /* 값 실측대로 바싹(지시) — 머리(이름+∨)가 서는 최소 폭 */
+    { kind: 'tc_type', k: 'f_type', label: '유형', w: '50px' },
+    { kind: 'tc_status', k: 'f_status', label: '상태', w: '56px' },
+    { kind: 'tc_severity', k: 'f_severity', label: '중요도', w: '56px' },
+    { kind: 'tc_run_type', k: 'f_kind', label: '타입', w: '46px' },
+    { kind: 'tc_origin', k: 'f_origin', label: '구분', w: '46px' },
   ],
   // 실행 결과 탭은 열이 아니라 진행결과 바가 쓰는 값 체계라 뺀다
   cycle: [
