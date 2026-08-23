@@ -8157,3 +8157,12 @@ html .cyt .cyt-row > .cyt-cell-fill { padding: 0; }
 /* 값이 없으면 칠하지 않는다 */
 .cyt-mfill.none { background: transparent; }
 .cyt-mfill.none .pick-live { color: var(--c-text-muted); font-weight: 400; }
+
+/* 표를 감싸던 카드 — 이것이 「2열이 카드 같다」 의 정체였다(지적).
+   판 안에서 표는 껍데기 없이 가장자리까지 찬다. 바깥 여백도 걷는다. */
+html .cy-main > .cy-board { padding-left: 0; padding-right: 0; }
+html .cy-board > .panel.cyt-card {
+  border: 0;
+  border-radius: 0;
+  background: var(--c-surface);
+}
