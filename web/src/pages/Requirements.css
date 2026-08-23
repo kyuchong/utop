@@ -1171,7 +1171,15 @@ html .rq-listcol .rq-tr > div.rq-cell-fill { padding: 0; }
   color: #fff;
 }
 .rq-mfill .pick-live { text-align: center; text-align-last: center; font-weight: 700; }
-.rq-mfill .pick-live:hover { border-color: rgb(255 255 255 / 0.4); }
+/* 열었을 때·연 직후 — 공용 규칙이 바탕을 흰색으로 바꾸는데 글자가 흰색
+   그대로라 메뉴도 셀도 백지가 됐다(지적). 흰 바탕이면 글자는 검게 */
+.rq-mfill select.pick-live:hover,
+.rq-mfill select.pick-live:focus {
+  background: var(--c-surface);
+  color: var(--c-text);
+  border-color: rgb(255 255 255 / 0.4);
+}
+.rq-mfill .pick-live option { color: var(--c-text); background: var(--c-surface); font-weight: 400; }
 .rq-mfill:hover { filter: brightness(0.95); }
 /* TC 커버리지 */
 .rq-mfill.cov-ok { background: var(--m-pass, #12b76a); }
