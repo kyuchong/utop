@@ -4680,15 +4680,19 @@ function CycleDetail({
           <div className="cxp-actcard">
             {/* 시험 진행 요약 — 상시 카드 한 줄을 접고 단추로(지시).
                 누르면 아래에 인라인으로 펼쳐진다 */}
+            {/* 요약은 「펼침 토글」 이고 완료·실행은 「하는 일」 이다 — 같은
+                단추 얼굴로 나란히 서면 구분이 안 된다(지시 ①). 토글은 맨
+                왼쪽에 민얼굴로, 사이에 세로선을 긋는다 */}
             <button
-              className={`btn small${sumOpen ? ' primary' : ''}`}
+              className={`cxp-sumtg${sumOpen ? ' on' : ''}`}
               type="button"
               aria-expanded={sumOpen}
               title="이 회차의 INFO·집계를 인라인으로 펼칩니다"
               onClick={() => setSumOpen((v2) => !v2)}
             >
-              {sumOpen ? '▾' : '▸'} 시험 진행 요약
+              <i aria-hidden="true">{sumOpen ? '▾' : '▸'}</i> 시험 진행 요약
             </button>
+            <span className="cxp-div" aria-hidden="true" />
             {finish && (
               <button
                 className="btn small primary"
@@ -4705,8 +4709,9 @@ function CycleDetail({
               </button>
             )}
             <span className="cy-execslot" id="cy-execbar" />
-          {/* 전체·수동·자동 막대는 1행 카드 안이다(지시: 원복) —
-              단추 오른쪽 빈자리가 그 자리다. */}
+            {/* 막대는 카드 **가운데**(지시 ②) — 앞뒤 sp 가 남는 자리를 반씩 진다 */}
+            <span className="sp" />
+          {/* 전체·수동·자동 막대는 1행 카드 안이다(지시: 원복) */}
             {(() => {
               const tally = (xs: CycleItemLite[]) => {
                 let p = 0
@@ -4740,7 +4745,9 @@ function CycleDetail({
                         <s className="f" style={{ width: `${t.n ? (t.f / t.n) * 100 : 0}%` }} />
                       </i>
                       <i className="nm">
-                        {t.p}/{t.n}
+                        {/* 「완료/전체 (진척%)」 — 몇 건이 끝났는지와 몇 %인지를
+                            한 눈에(지시: 67/67(100%) 꼴) */}
+                        {t.p + t.f}/{t.n} ({t.n ? Math.round(((t.p + t.f) / t.n) * 100) : 0}%)
                       </i>
                       {/* 올리면 뜨는 현황 카드 — 랙 화면 장비 말풍선과 같은 꼴(지시) */}
                       <span className="cxp-tip" role="tooltip">
@@ -4756,15 +4763,22 @@ function CycleDetail({
                         </span>
                         <span className="cxp-tipr">
                           <i>합격</i>
-                          <span className="p">{t.p}건</span>
+                          <span className="p">
+                            {t.p}/{t.n} ({t.n ? Math.round((t.p / t.n) * 100) : 0}%)
+                          </span>
                         </span>
                         <span className="cxp-tipr">
                           <i>실패</i>
-                          <span className="f">{t.f}건</span>
+                          <span className="f">
+                            {t.f}/{t.n} ({t.n ? Math.round((t.f / t.n) * 100) : 0}%)
+                          </span>
                         </span>
                         <span className="cxp-tipr">
                           <i>미실행</i>
-                          <span>{t.n - t.p - t.f}건</span>
+                          <span>
+                            {t.n - t.p - t.f}/{t.n} (
+                            {t.n ? Math.round(((t.n - t.p - t.f) / t.n) * 100) : 0}%)
+                          </span>
                         </span>
                         <span className="cxp-tipr">
                           <i>합격률</i>

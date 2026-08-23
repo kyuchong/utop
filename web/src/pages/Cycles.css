@@ -8062,3 +8062,28 @@ a.bc-cur:hover { text-decoration: underline; }
   text-align: center;
 }
 .cxp-row.cxp-hd .cxp-rgt > span { display: inline-flex; align-items: center; justify-content: center; }
+
+/* 시험 진행 요약 토글 — 단추(하는 일)와 다른 얼굴(지시 ①: 구분이 안 된다).
+   민얼굴 글자 + 화살표. 열려 있으면 파랗게 세운다. */
+.cxp-sumtg {
+  border: 0;
+  background: transparent;
+  padding: 3px 4px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--c-text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.cxp-sumtg > i { font-style: normal; color: var(--c-text-faint); }
+.cxp-sumtg:hover { color: var(--c-primary); }
+.cxp-sumtg.on { color: var(--c-primary); }
+.cxp-sumtg.on > i { color: var(--c-primary); }
+/* 카드 안 세로 구분선 */
+.cxp-actcard .cxp-div { flex: none; width: 1px; height: 18px; background: var(--c-border); }
+/* 막대 숫자 — 「17/62 (27%)」 가 들어가 폭이 좀 는다 */
+.cxp-sumb .nm { white-space: nowrap; }
