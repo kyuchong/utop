@@ -1696,8 +1696,20 @@ export default function TestCases({ me }: PageProps) {
     staleTime: 60_000,
   })
   const MONDAY_TC: Record<string, string> = {
-    작성중: '#fdab3d', 검토중: '#579bfc', 승인: '#00c875',
-    PASS: '#00c875', FAIL: '#ef4666', 보류: '#9ca3af',
+    /* 상태 */ 작성중: '#fdab3d', 검토중: '#579bfc', 승인: '#00c875',
+    PASS: '#00c875', FAIL: '#ef4666', Pass: '#00c875', Fail: '#ef4666', 보류: '#9ca3af',
+    /* 유형 */ 기능: '#579bfc', Function: '#579bfc', 성능: '#a25ddc', FT: '#579bfc',
+    /* 중요도 */ Blocker: '#e2445c', Critical: '#e2445c', MJ: '#ff9d19',
+    치명: '#e2445c', 중대: '#ff9d19', 보통: '#fdab3d', 경미: '#9ca3af',
+    /* 타입 */ 자동: '#00c875', 수동: '#7f5347', A: '#00c875', M: '#7f5347',
+    /* 구분 */ 자체: '#037f4c', 고객: '#0086c0',
+  }
+  /** 팔레트에 없는 값이면 글자로 색을 정한다 — 같은 값은 늘 같은 색 */
+  const HUES = ['#579bfc', '#00c875', '#a25ddc', '#ff9d19', '#e2445c', '#0086c0', '#7f5347', '#9ca3af']
+  const autoHue = (v: string) => {
+    let h = 0
+    for (let i = 0; i < v.length; i += 1) h = (h * 31 + v.charCodeAt(i)) >>> 0
+    return HUES[h % HUES.length]!
   }
   const codeFill = (kind: string, value: string): string => {
     const it = (codesQ2.data?.items ?? []).find((x) => x.kind === kind && x.value === value)
@@ -1707,8 +1719,28 @@ export default function TestCases({ me }: PageProps) {
     } catch {
       /* 옛 자료 */
     }
-    return meta.color || MONDAY_TC[value] || '#9ca3af'
+    return meta.color || MONDAY_TC[value] || (value ? autoHue(value) : '#e9edf2')
   }
+
+  /** Monday 통채움 칸 하나(승인 A안) — 여섯 칸이 같은 부품을 쓴다 */
+  const fillCell = (
+    t: TestCaseMeta,
+    k: string,
+    kind: string,
+    v: string,
+    opts: readonly string[],
+  ) => (
+    <div className="tc-cell-fill" key={k}>
+      {v ? (
+        <div className="tc-mfill" style={{ background: codeFill(kind, v) }}>
+          {pick(t, k, v, opts)}
+        </div>
+      ) : (
+        /* 값이 없으면 칠하지 않는다 — 빈 값에 색을 주면 뜻이 생겨 버린다 */
+        <div className="tc-mfill none">{pick(t, k, v, opts)}</div>
+      )}
+    </div>
+  )
 
   /** 줄 우클릭 메뉴 — 요구사항 2열과 같은 부품(승인) */
   const [rowMenu, setRowMenu] = useState<{
@@ -1819,36 +1851,34 @@ export default function TestCases({ me }: PageProps) {
       case 'model':
         return <div className="muted" key={k}>{colVal(k, t)}</div>
       case 'type':
-        return (
-          <div key={k}>
-            {pick(t, 'type', t.type ?? '', C_TYPE, 'tag')}
-          </div>
-        )
+        return fillCell(t, 'type', 'tc_type', t.type ?? '', C_TYPE)
       case 'severity':
-        return <div key={k}>{pick(t, 'severity', t.severity ?? '', C_SEV)}</div>
+        return fillCell(t, 'severity', 'tc_severity', t.severity ?? '', C_SEV)
       case 'kind':
         // 값 셈은 colVal 한 곳만 — 두 군데로 갈라져 한쪽만 고치는 사고를 겪었다
-        return (
-          <div key={k}>
-            {pick(t, 'run_type', String(t.kind ?? (t.run_type as string) ?? ''), C_RUN)}
-          </div>
+        return fillCell(
+          t,
+          'run_type',
+          'tc_run_type',
+          String(t.kind ?? (t.run_type as string) ?? ''),
+          C_RUN,
         )
       case 'last': {
         const lr = lastRes.data?.[t.tcid]
         const v = String(lr?.result ?? '')
         const def = resDefs.find((d) => d.v === v)
         return (
-          <div key={k} className="tc-lastres">
+          <div key={k} className="tc-cell-fill">
             {v ? (
-              <span
-                className="tc-lrchip"
-                style={{ background: def?.color ?? '#e9edf2', color: def?.fg ?? '#5b6670' }}
+              <div
+                className="tc-mfill"
+                style={{ background: def?.color ?? codeFill('cycle_result', v), color: def?.fg ?? '#fff' }}
                 title={`${lr?.cycle_name ?? ''}${lr?.at ? ` · ${String(lr.at).slice(0, 10)}` : ''}`}
               >
                 {def?.label ?? v}
-              </span>
+              </div>
             ) : (
-              <span className="muted">–</span>
+              <div className="tc-mfill none">–</div>
             )}
           </div>
         )
@@ -1891,20 +1921,14 @@ export default function TestCases({ me }: PageProps) {
       case 'updated':
         return <div className="muted" key={k}>{String(t._updated_at_pg ?? '').slice(0, 10) || '–'}</div>
       case 'status':
-        /* 통채움(승인) — 상태만 색으로 채운다. 다섯 칸을 다 칠하면 최근
-           결과와 필터가 묻힌다. 색은 INFO 필드 설정이 정본 */
-        return (
-          <div className="tc-cell-fill" key={k}>
-            <div className="tc-mfill" style={{ background: codeFill('tc_status', t.status ?? '') }}>
-              {pick(t, 'status', t.status ?? '', C_STATUS)}
-            </div>
-          </div>
-        )
+        return fillCell(t, 'status', 'tc_status', t.status ?? '', C_STATUS)
       case 'origin':
-        return (
-          <div className="muted" key={k}>
-            {pick(t, 'origin', String((t as Record<string, unknown>).origin ?? ''), C_ORIGIN)}
-          </div>
+        return fillCell(
+          t,
+          'origin',
+          'tc_origin',
+          String((t as Record<string, unknown>).origin ?? ''),
+          C_ORIGIN,
         )
       default: {
         // 커스텀 INFO 필드 열 — 값은 data->custom 에 산다

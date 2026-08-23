@@ -3529,3 +3529,7 @@ html .tc-split > .tc-content {
   border-radius: 0;
   background: var(--c-surface);
 }
+
+/* 값이 없는 칸 — 칠하지 않는다. 빈 값에 색을 주면 뜻이 생긴다 */
+.tc-mfill.none { background: transparent; color: var(--c-text-faint); font-weight: 400; }
+.tc-mfill.none .pick-live { color: var(--c-text-muted); font-weight: 400; }
