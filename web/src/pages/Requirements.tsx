@@ -1707,26 +1707,22 @@ export default function Requirements({ me }: Props) {
           </div>
           {/* 검색 줄은 도구줄 오른쪽으로 옮겼다(피드백) */}
           <div className="rq-list scroll">
-            <div className="rq-selbar">
-              <label className="rq-selall">
-                <input
-                  type="checkbox"
-                  checked={allListPicked}
-                  ref={(el) => {
-                    if (el) el.indeterminate = pickedInList.length > 0 && !allListPicked
-                  }}
-                  disabled={!sortedFolderReqs.length}
-                  onChange={toggleAllList}
-                />
-                Select All
-              </label>
-              <span className="rq-seldiv" aria-hidden="true" />
-              <span className="muted small">Selected : {pickedInList.length}</span>
-            </div>
-
+            {/* Select All 줄은 걷었다(지시) — 전체 선택은 머리줄 첫 칸
+                체크박스가 한다. 엑셀·Monday 표의 그 자리다. */}
             <div className="rq-table">
               <div className="rq-tr rq-th" style={{ gridTemplateColumns: reqGrid }}>
-                <div />
+                <div className="rq-ck">
+                  <input
+                    type="checkbox"
+                    checked={allListPicked}
+                    title={`전체 선택${pickedInList.length ? ` (${pickedInList.length}건 선택됨)` : ''}`}
+                    ref={(el) => {
+                      if (el) el.indeterminate = pickedInList.length > 0 && !allListPicked
+                    }}
+                    disabled={!sortedFolderReqs.length}
+                    onChange={toggleAllList}
+                  />
+                </div>
                 {/* ID 열은 뺐다 — 고르면 위 빵부스러기에 그대로 나온다.
                     고정: Name·모델(상속)·Map·TC. INFO 필드는 ⚙ 가 정한다. */}
                 <div>제목</div>
