@@ -127,6 +127,8 @@
   .lg-pts { display: none; }
 }
 
-/* 로고 — 들어가는 자리 머리(지시). 밝은 판이라 뒤집지 않는다 */
-.lg-formlogo { display: inline-flex; align-items: center; margin-bottom: 2px; }
+/* 로고·폼 제목 — 들어가는 자리 머리, **가운데**(지시).
+   칸과 단추는 왼끝을 맞춘 채 머리만 가운데로 — 옛 화면도 그 꼴이다. */
+.lg-formlogo { display: flex; justify-content: center; margin-bottom: 2px; }
 .lg-formlogo img { height: 34px; display: block; }
+.lg-form h2 { text-align: center; }
