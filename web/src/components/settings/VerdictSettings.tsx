@@ -339,13 +339,11 @@ export default function VerdictSettings() {
                       onPick={(f) => save.mutate({ value: b.v, color, fg: f, group: b.group, label: m.label, desc: m.desc })}
                     />
                   </td>
-                  <td>
-                    {/* 글자도 고친다(지시: Pass 를 PASS 로). 값(v)은 판정
-                        규칙이 물고 있어 그대로 두고, **보이는 글자**만 바꾼다.
-                        칸 자체가 실물 색 그대로의 딱지다 — 미리 보기 따로,
-                        고치는 칸 따로면 두 개가 어긋난다 */}
+                  <td className="vd-fillcell">
+                    {/* Monday 꼴(지시) — 딱지가 아니라 **셀을 색으로 가득**.
+                        그 셀이 곧 고치는 칸이다: 눌러서 글자를 바꾼다 */}
                     <input
-                      className="vd-chip vd-chip-in"
+                      className="vd-fill vd-chip-in"
                       defaultValue={label}
                       style={{ background: color, color: fg, borderColor: color }}
                       onBlur={(e) => {
@@ -432,14 +430,9 @@ export default function VerdictSettings() {
                         onPick={(f) => save.mutate({ value: it.value, color, fg: f, group: grp })}
                       />
                     </td>
-                    <td>
-                      <i
-                        className="vd-chip"
-                        /* 실제 화면과 **같은 색**으로 보여 준다 — 바탕을 13% 로 옅게
-                           깔고 글자색은 흰색 그대로였더니, 흰 글자가 흰 바탕에
-                           얹혀 안 보였다(지적: 붉은색이 잘 안 보인다) */
-                        style={{ background: color, color: fg, borderColor: color }}
-                      >
+                    <td className="vd-fillcell">
+                      {/* 더한 판정도 같은 꼴 — 셀을 색으로 가득(지시) */}
+                      <i className="vd-fill" style={{ background: color, color: fg }}>
                         {it.value}
                       </i>
                     </td>
