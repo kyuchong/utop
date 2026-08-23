@@ -4560,6 +4560,22 @@ function CycleDetail({
               setRowMenu(null)
               if (t) goto('tc', t)
             }}
+            onFill={() => {
+              const src = items[rowMenu.at]
+              setRowMenu(null)
+              if (!src) return
+              const v0 = itemVerdict(src)
+              const at0 = rows.findIndex((x) => x.tcid === src.tcid)
+              const below = at0 >= 0 ? rows.slice(at0 + 1) : []
+              if (!below.length) {
+                window.alert('아래에 줄이 없습니다')
+                return
+              }
+              if (!window.confirm(`아래 ${below.length}건에 「${v0 || '미실행'}」 을 채울까요?`)) return
+              void (async () => {
+                for (const x of below) await setResult(x.tcid, v0 === '' ? '미실행' : v0)
+              })()
+            }}
             onRemove={() => {
               const n = pick.size || 1
               const ids = new Set(
@@ -6417,12 +6433,15 @@ function CycleRowMenu({
   onClose,
   onEdit,
   onGoTc,
+  onFill,
   onRemove,
 }: {
   at: { x: number; y: number }
   count: number
   onClose: () => void
   onEdit: () => void
+  /** 이 줄의 결과를 아래 행 전부에(지시) */
+  onFill?: () => void
   /** TC ID 열을 뺐다 — 시험으로 가는 길은 여기다 */
   onGoTc?: () => void
   /** 사이클에서 빼기 — 위 단추 줄을 걷어냈으니 여기가 길이다 */
@@ -6454,6 +6473,11 @@ function CycleRowMenu({
       <button type="button" onClick={onEdit}>
         {count > 1 ? `${count}건 한꺼번에 고치기` : '고치기 (결과·담당자·메모)'}
       </button>
+      {onFill && (
+        <button type="button" onClick={onFill}>
+          ↓ 아래 행에 결과 채우기
+        </button>
+      )}
       {onGoTc && (
         <button type="button" onClick={onGoTc}>
           시험 열기 (TC)
