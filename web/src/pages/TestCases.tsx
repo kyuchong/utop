@@ -1715,25 +1715,23 @@ export default function TestCases({ me }: PageProps) {
   }
 
   const pick = (t: TestCaseMeta, k: string, v: string, opts: readonly string[], cls?: string) => (
-    <span className="tc-fill">
+    /* 아래로 채우기는 **우클릭**이다(지시) — 단추를 세우면 자리를 먹고,
+       엑셀에서 손에 익은 문이 그쪽이다. 몇 건인지 물어보고 채운다 */
+    <span
+      className="tc-fill"
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        void fillDown(t.tcid, k, v)
+      }}
+    >
       <PickCell
         value={v}
         opts={opts}
-        title="고르면 바로 저장됩니다"
+        title="고르면 바로 저장됩니다 · 우클릭 = 이 값을 아래 줄 전부에"
         onSave={(nv) => setCell(t.tcid, { [k]: nv })}
         {...(cls ? { cls } : {})}
       />
-      <button
-        type="button"
-        className="tc-filldn"
-        title="이 값을 아래 줄 전부에 채웁니다"
-        onClick={(e) => {
-          e.stopPropagation()
-          void fillDown(t.tcid, k, v)
-        }}
-      >
-        ↓
-      </button>
     </span>
   )
 
