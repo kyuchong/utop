@@ -3520,3 +3520,12 @@ html .tc-listview .rq-tr > div.tc-cell-fill { padding: 0; }
 .tc-mfill select.pick-live:hover,
 .tc-mfill select.pick-live:focus { background: var(--c-surface); color: var(--c-text); }
 .tc-mfill .pick-live option { color: var(--c-text); background: var(--c-surface); font-weight: 400; }
+
+/* 2열 바깥 껍데기 — 이것이 카드였다(지적: 2열 상단 봐라).
+   안쪽 판을 아무리 벗겨도 이 한 겹이 둥근 테두리로 감싸고 있었다.
+   1열과는 그쪽 오른선 하나로 나뉜다 — 여기서 또 그으면 두 줄이 된다. */
+html .tc-split > .tc-content {
+  border: 0;
+  border-radius: 0;
+  background: var(--c-surface);
+}
