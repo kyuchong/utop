@@ -92,6 +92,9 @@
 .lg-form { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 14px; }
 .lg-form h2 { margin: 0; font-size: 24px; font-weight: 800; }
 .lg-hint { margin: -8px 0 4px; font-size: 13px; color: var(--c-text-muted); }
+/* 옛 화면의 안내 줄 — 칸 아래, 로그인 위 */
+.lg-note { margin: 2px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--c-text-muted); }
+.lg-keep { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; color: var(--c-text); cursor: pointer; }
 .lg-fld { display: flex; flex-direction: column; gap: 6px; }
 .lg-fld > span { font-size: 12px; color: var(--c-text-muted); }
 .lg-fld input {

@@ -21,8 +21,12 @@ interface Props {
  * 뜬다. 토큰은 localStorage 에 둔다 — 새로고침마다 다시 로그인하게 만들
  * 수는 없다.
  */
+/** 아이디를 기억해 두는 자리 — 비밀번호는 절대 안 담는다 */
+const KEEP_KEY = 'utop.login.id'
+
 export default function Login({ onDone }: Props) {
-  const [username, setUsername] = useState('')
+  const [username, setUsername] = useState(() => localStorage.getItem(KEEP_KEY) || '')
+  const [keep, setKeep] = useState(() => !!localStorage.getItem(KEEP_KEY))
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -64,6 +68,9 @@ export default function Login({ onDone }: Props) {
     setError('')
     try {
       const r = await authApi.login(username.trim(), password)
+      /* 아이디만 남긴다(지시: 아이디 저장) — 비밀번호는 담지 않는다 */
+      if (keep) localStorage.setItem(KEEP_KEY, username.trim())
+      else localStorage.removeItem(KEEP_KEY)
       onDone(r.user)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -143,8 +150,7 @@ export default function Login({ onDone }: Props) {
             void submit()
           }}
         >
-          <h2>로그인</h2>
-          <p className="lg-hint">UMS(Jira) 계정으로 접속이 가능합니다.</p>
+          <h2>ubiQuoss TOP 로그인</h2>
 
           {error && <div className="form-error">{error}</div>}
 
@@ -154,7 +160,7 @@ export default function Login({ onDone }: Props) {
               autoFocus
               value={username}
               autoComplete="username"
-              placeholder="사번 또는 아이디"
+              placeholder="ID를 입력 하세요"
               onChange={(e) => setUsername(e.target.value)}
             />
           </label>
@@ -167,6 +173,21 @@ export default function Login({ onDone }: Props) {
               autoComplete="current-password"
               onChange={(e) => setPassword(e.target.value)}
             />
+          </label>
+
+          {/* 옛 화면과 같은 차례(지시) — 안내 → 아이디 저장 → 로그인 */}
+          <p className="lg-note">UMS(Jira) 계정으로 접속이 가능합니다.</p>
+
+          <label className="lg-keep">
+            <input
+              type="checkbox"
+              checked={keep}
+              onChange={(e) => {
+                setKeep(e.target.checked)
+                if (!e.target.checked) localStorage.removeItem(KEEP_KEY)
+              }}
+            />
+            아이디 저장
           </label>
 
           <button className="btn primary lg-go" type="submit" disabled={busy}>
