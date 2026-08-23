@@ -5778,10 +5778,33 @@ function CycleDetail({
                   <select
                     className={`cy-v cxp-big ${verdictClass(itemVerdict(liveNow ? { ...cur, steps: st.liveSteps, result: '' } : cur))}`}
                     value={itemVerdict(cur)}
-                    title="결과를 손으로 정합니다"
+                    title="결과를 손으로 정합니다 · 우클릭 = 이 결과를 아래 행 전부에"
                     onChange={(e) =>
                       void setResult(cur.tcid, e.target.value === '' ? '미실행' : e.target.value)
                     }
+                    onContextMenu={(e) => {
+                      /* 아래 행에 결과 채우기(지시) — 요구사항·시험항목 목록과
+                         같은 손이다. 보이는 목록에서 이 줄 아래 전부. */
+                      e.preventDefault()
+                      e.stopPropagation()
+                      const v0 = itemVerdict(cur)
+                      const at0 = rows.findIndex((x) => x.tcid === cur.tcid)
+                      if (at0 < 0) return
+                      const below = rows.slice(at0 + 1)
+                      if (!below.length) {
+                        window.alert('아래에 줄이 없습니다')
+                        return
+                      }
+                      if (
+                        !window.confirm(
+                          `아래 ${below.length}건에 「${v0 || '미실행'}」 을 채울까요?`,
+                        )
+                      )
+                        return
+                      void (async () => {
+                        for (const x of below) await setResult(x.tcid, v0 === '' ? '미실행' : v0)
+                      })()
+                    }}
                   >
                     {resDefs.map((r) => (
                       <option key={r.v} value={r.v} style={r.color ? { color: r.color } : undefined}>
