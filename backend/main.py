@@ -5154,44 +5154,46 @@ def _tc_meta_extra(meta: dict, d: dict):
 async def tc_last_result():
     """시험마다 **가장 최근 시험 결과** — 목록의 한 열(지시).
 
-    결과는 사이클 안에 산다(`cycle.data->items[].result`). 어느 사이클에서
-    마지막으로 무엇이 났는지는 목록에서 바로 보여야 한다 — 그러지 않으면
-    「이 시험 요즘 되나」 를 알려고 사이클을 하나씩 열어 봐야 한다.
+    결과는 사이클 안에 산다. 다만 `result` 칸만 보면 안 된다 — 자동 실행은
+    항목 칸을 비워 두고 **스텝에만** 결과를 남긴다(사람이 손으로 찍을 때만
+    항목 칸이 찬다). 그래서 돌려 놓고도 목록이 「–」 였다(지적: 제대로
+    반영되고 있는 건가). 판정은 실행 화면과 같은 규칙(_item_verdict)으로
+    스텝에서 유도한다.
 
     가장 나중에 손댄 사이클 것이 이긴다.
     """
     try:
         async with db.pool().acquire() as c:
-            # DISTINCT ON — **시험마다 한 줄**만 올라온다.
-            #
-            # 여태 (사이클 × 항목) 을 전부 파이썬으로 끌어와 앞엣것만 남기고
-            # 버렸다. 사이클 200개 × 항목 100개면 2만 줄을 새로고침 때마다
-            # 만들었다 버린 셈이다(지적: 새로고침을 계속하면 CPU 100%).
-            # 고르는 일은 PG 가 훨씬 싸게 한다.
             rows = await c.fetch(
                 """
-                SELECT DISTINCT ON (it->>'tcid')
-                       c.id, c.name, c.updated_at,
-                       it->>'tcid'   AS tcid,
-                       it->>'result' AS result
-                FROM cycle c, jsonb_array_elements(COALESCE(c.data->'items', '[]'::jsonb)) it
-                WHERE COALESCE(it->>'result', '') <> ''
-                ORDER BY it->>'tcid', c.updated_at DESC NULLS LAST
+                SELECT id, name, updated_at, data->'items' AS items
+                FROM cycle
+                ORDER BY updated_at DESC NULLS LAST
                 """
             )
     except Exception as e:
         return {"items": {}, "error": str(e)[:200]}
     out: dict = {}
     for r in rows:
-        t = str(r["tcid"] or "").strip()
-        if not t or t in out:
-            continue        # 앞엣것이 가장 나중에 손댄 사이클이다
-        out[t] = {
-            "result": str(r["result"] or ""),
-            "cycle_id": str(r["id"] or ""),
-            "cycle_name": str(r["name"] or ""),
-            "at": r["updated_at"].isoformat() if r["updated_at"] else "",
-        }
+        items = r["items"] if isinstance(r["items"], list) else []
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            t = str(it.get("tcid") or "").strip()
+            if not t or t in out:
+                continue        # 앞엣것이 가장 나중에 손댄 사이클이다
+            v = _item_verdict(it)
+            if not v:
+                continue        # 아직 안 돌린 항목은 「최근 결과」 가 아니다
+            # 화면 딱지는 설정(실행 판정 기준)의 값 이름을 쓴다 — PASS/FAIL
+            # 대문자를 그 이름으로 되돌린다
+            label = {"PASS": "Pass", "FAIL": "Fail", "N/A": "진행불가"}.get(v, v)
+            out[t] = {
+                "result": label,
+                "cycle_id": str(r["id"] or ""),
+                "cycle_name": str(r["name"] or ""),
+                "at": r["updated_at"].isoformat() if r["updated_at"] else "",
+            }
     return {"items": out}
 
 
