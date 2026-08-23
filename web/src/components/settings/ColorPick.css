@@ -51,6 +51,7 @@
 
 /* 팔레트 — 한 줄이 한 계열, 왼쪽이 진하다(지시: 아주 다양하게).
    백 가지가 넘으니 판을 넓히고 높이는 제한해 그 안에서 구른다. */
-.vd-pickpop { width: 384px; max-height: 60vh; overflow: auto; }
-.vd-grid { grid-template-columns: repeat(6, 1fr); gap: 4px; }
-.vd-sw2 { height: 24px; border-radius: 5px; }
+/* 판을 넓힌다(지시) — 한 계열 여섯 단계가 넉넉히 서고 색이 크게 보인다 */
+.vd-pickpop { width: 560px; max-width: 92vw; max-height: 66vh; overflow: auto; }
+.vd-grid { grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.vd-sw2 { height: 34px; border-radius: 6px; }
