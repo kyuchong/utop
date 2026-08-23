@@ -73,7 +73,6 @@ import { useCodes } from '@/hooks/useCodes'
 import {
   reqLabel,
   reqPk,
-  statusClass,
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
@@ -1684,6 +1683,61 @@ export default function TestCases({ me }: PageProps) {
    * 목록이 들고 있는 것은 **요약**이라(스텝·회차 기록이 빠져 있다) 그대로
    * 되돌려 보내면 그것들이 지워진다. 원본을 읽어 그 위에 얹는다.
    */
+  /** 통채움 색 — SETUP 의 값 색이 정본, 없으면 Monday 팔레트(승인) */
+  const codesQ2 = useQuery({
+    queryKey: ['codes'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes')
+      if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
+      return (await r.json()) as {
+        items: Array<{ kind: string; value: string; note?: string | null }>
+      }
+    },
+    staleTime: 60_000,
+  })
+  const MONDAY_TC: Record<string, string> = {
+    작성중: '#fdab3d', 검토중: '#579bfc', 승인: '#00c875',
+    PASS: '#00c875', FAIL: '#ef4666', 보류: '#9ca3af',
+  }
+  const codeFill = (kind: string, value: string): string => {
+    const it = (codesQ2.data?.items ?? []).find((x) => x.kind === kind && x.value === value)
+    let meta: { color?: string } = {}
+    try {
+      meta = JSON.parse(it?.note || '{}') as typeof meta
+    } catch {
+      /* 옛 자료 */
+    }
+    return meta.color || MONDAY_TC[value] || '#9ca3af'
+  }
+
+  /** 줄 우클릭 메뉴 — 요구사항 2열과 같은 부품(승인) */
+  const [rowMenu, setRowMenu] = useState<{
+    tcid: string
+    k: string
+    v: string
+    x: number
+    y: number
+  } | null>(null)
+  useEffect(() => {
+    if (!rowMenu) return
+    const away = () => setRowMenu(null)
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setRowMenu(null)
+    const t = window.setTimeout(() => {
+      window.addEventListener('mousedown', away)
+      window.addEventListener('contextmenu', away)
+    }, 0)
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener('mousedown', away)
+      window.removeEventListener('contextmenu', away)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [rowMenu])
+  const COLLB: Record<string, string> = {
+    type: '유형', status: '상태', severity: '중요도', run_type: '타입', origin: '구분',
+  }
+
   const setCell = async (tcid: string, p: Record<string, string>) => {
     try {
       const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}`)
@@ -1709,9 +1763,27 @@ export default function TestCases({ me }: PageProps) {
       window.alert('아래에 줄이 없습니다')
       return
     }
-    if (!window.confirm(`아래 ${below.length}건에 「${v || '(빈 값)'}」 을 채울까요?`)) return
-    for (const r of below) await setCell(r.tcid, { [k]: v })
-    setMsg({ kind: 'ok', text: `${below.length}건에 채웠습니다` })
+    /* 한 건씩 저장하고 그때마다 목록을 다시 읽으면 수십 번 왕복한다 —
+       여덟씩 묶어 보내고 목록은 끝에 한 번만 다시 읽는다 */
+    setMsg({ kind: 'ok', text: `${below.length}건에 채우는 중…` })
+    try {
+      const CH = 8
+      for (let i = 0; i < below.length; i += CH) {
+        await Promise.all(
+          below.slice(i, i + CH).map(async (r) => {
+            const res = await apiFetch(`/api/tc/${encodeURIComponent(r.tcid)}`)
+            if (!res.ok) throw new Error('시험을 불러오지 못했습니다')
+            const cur = (await res.json()) as TcData
+            await tcApi.save(r.tcid, { ...cur, [k]: v, checks: cur.checks ?? [] })
+          }),
+        )
+      }
+      await qc.invalidateQueries({ queryKey: ['tc'] })
+      void tcQ.refetch()
+      setMsg({ kind: 'ok', text: `${below.length}건에 채웠습니다` })
+    } catch (e) {
+      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
+    }
   }
 
   const pick = (t: TestCaseMeta, k: string, v: string, opts: readonly string[], cls?: string) => (
@@ -1720,9 +1792,11 @@ export default function TestCases({ me }: PageProps) {
     <span
       className="tc-fill"
       onContextMenu={(e) => {
+        /* 우클릭 = **메뉴**(승인) — 목업 그대로. 어느 칸에서 눌렀는지 담아
+           두고 메뉴가 「무엇을 채울지」 를 말한다 */
         e.preventDefault()
         e.stopPropagation()
-        void fillDown(t.tcid, k, v)
+        setRowMenu({ tcid: t.tcid, k, v, x: e.clientX, y: e.clientY })
       }}
     >
       <PickCell
@@ -1817,9 +1891,13 @@ export default function TestCases({ me }: PageProps) {
       case 'updated':
         return <div className="muted" key={k}>{String(t._updated_at_pg ?? '').slice(0, 10) || '–'}</div>
       case 'status':
+        /* 통채움(승인) — 상태만 색으로 채운다. 다섯 칸을 다 칠하면 최근
+           결과와 필터가 묻힌다. 색은 INFO 필드 설정이 정본 */
         return (
-          <div className={`status ${statusClass(t.status)}`} key={k}>
-            {pick(t, 'status', t.status ?? '', C_STATUS)}
+          <div className="tc-cell-fill" key={k}>
+            <div className="tc-mfill" style={{ background: codeFill('tc_status', t.status ?? '') }}>
+              {pick(t, 'status', t.status ?? '', C_STATUS)}
+            </div>
           </div>
         )
       case 'origin':
@@ -2333,6 +2411,30 @@ export default function TestCases({ me }: PageProps) {
         />
       )}
       {mapTc && <TcMapReqDialog tc={mapTc} onClose={() => setMapTc(null)} />}
+
+      {/* 줄 우클릭 메뉴 — 요구사항 2열과 같은 꼴(승인) */}
+      {rowMenu && (
+        <div
+          className="rq-ctxmenu"
+          style={{
+            left: Math.min(rowMenu.x, window.innerWidth - 220),
+            top: Math.min(rowMenu.y, window.innerHeight - 120),
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              const m = rowMenu
+              setRowMenu(null)
+              void fillDown(m.tcid, m.k, m.v)
+            }}
+          >
+            ⬇ 아래 행에 {COLLB[rowMenu.k] ?? '값'} 채우기
+          </button>
+        </div>
+      )}
       {revOpen && openId && (
         <TcRevisions
           tcid={openId}
@@ -2789,34 +2891,28 @@ export default function TestCases({ me }: PageProps) {
                 </div>
               </div>
 
-              <div className="rq-selbar">
-                <label className="rq-selall">
-                  <input
-                    type="checkbox"
-                    checked={shownListRows.length > 0 && listPick.size === shownListRows.length}
-                    ref={(el) => {
-                      if (el)
-                        el.indeterminate =
-                          listPick.size > 0 && listPick.size < shownListRows.length
-                    }}
-                    disabled={!shownListRows.length}
-                    onChange={() =>
-                      setListPick(
-                        listPick.size === shownListRows.length
-                          ? new Set()
-                          : new Set(shownListRows.map((t) => t.tcid)),
-                      )
-                    }
-                  />
-                  Select All
-                </label>
-                <span className="rq-seldiv" aria-hidden="true" />
-                <span className="muted small">Selected : {listPick.size}</span>
-              </div>
-
+              {/* Select All 줄은 걷었다(승인) — 전체 선택은 머리줄 첫 칸이 한다 */}
               <div className="rq-table">
                 <div className="rq-tr tc-tr rq-th" style={{ gridTemplateColumns: listGrid }}>
-                  <div />
+                  <div className="rq-ck">
+                    <input
+                      type="checkbox"
+                      checked={shownListRows.length > 0 && listPick.size === shownListRows.length}
+                      title={`전체 선택${listPick.size ? ` (${listPick.size}건 선택됨)` : ''}`}
+                      ref={(el) => {
+                        if (el)
+                          el.indeterminate = listPick.size > 0 && listPick.size < shownListRows.length
+                      }}
+                      disabled={!shownListRows.length}
+                      onChange={() =>
+                        setListPick(
+                          listPick.size === shownListRows.length
+                            ? new Set()
+                            : new Set(shownListRows.map((t) => t.tcid)),
+                        )
+                      }
+                    />
+                  </div>
                   <div>제목</div>
                   {/* 고정 열 + INFO 열 + REQ Map. 머리 자체가 필터다 */}
                   {(

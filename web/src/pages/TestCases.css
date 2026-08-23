@@ -3451,3 +3451,68 @@ table.tb tr.r-bad td:first-child {
 
 /* 아래로 채우기 — 우클릭(지시). 칸은 고르개가 그대로 다 쓴다 */
 .tc-fill { display: block; width: 100%; min-width: 0; }
+
+/* ══ 시험항목 2열 — 판 + Monday 표 (승인) ══ */
+html .split.tc-split { padding-top: 0; margin-right: -12px; margin-left: -12px; }
+html .tc-split > .panel.tc-listcol {
+  border: 0;
+  border-radius: 0;
+  border-right: 1px solid var(--c-border);   /* 1열·2열 사이는 이 선 하나 */
+  background: var(--c-surface);
+}
+html .tc-split > .panel.tc-listview {
+  border: 0;
+  border-radius: 0;
+  background: var(--c-surface);
+}
+html .tc-listcol > .lh { border-bottom: 0; }
+
+/* 엑셀 눈금 — 세로+가로 */
+html .tc-listview .rq-tr { column-gap: 0; }
+html .tc-listview .rq-tr > div {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-width: 0;
+  height: 100%;
+  padding: 0 5px;
+  border-right: 1px solid #dde3ea;
+}
+html .tc-listview .rq-tr > div:last-child { border-right: 0; }
+html .tc-listview .rq-tr:not(.rq-th) { border-bottom: 1px solid #dde3ea; }
+html .tc-listview .rq-tr.rq-th { border-bottom: 1px solid var(--c-border); }
+/* 제목은 왼쪽 */
+html .tc-listview .rq-tr > div.tc-name,
+html .tc-listview .rq-tr > div.rq-name,
+html .tc-listview .rq-tr.rq-th > div:nth-child(2) {
+  justify-content: flex-start;
+  text-align: left;
+}
+/* 머리줄 — 옅은 바탕. 필터가 걸린 열은 파랗게 선다 */
+html .tc-listview .rq-tr.rq-th {
+  background: var(--surface-2, #f2f4f7);
+  color: var(--ink-2, #5d6472);
+  font-weight: 700;
+}
+html .tc-listview .rq-th .tc-colf { background: transparent; border: 0; font-weight: 700; color: inherit; }
+html .tc-listview .rq-th .tc-colf.on { color: var(--c-primary); }
+html .tc-listview .rq-tr:not(.rq-th):hover { background: var(--surface-2, #f2f4f7); }
+
+/* 통채움 — 상태 */
+html .tc-listview .rq-tr > div.tc-cell-fill { padding: 0; }
+.tc-mfill {
+  width: 100%;
+  height: 100%;
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+}
+.tc-mfill .pick-live { color: #fff; text-align: center; text-align-last: center; font-weight: 700; }
+.tc-mfill select.pick-live:hover,
+.tc-mfill select.pick-live:focus { background: var(--c-surface); color: var(--c-text); }
+.tc-mfill .pick-live option { color: var(--c-text); background: var(--c-surface); font-weight: 400; }
