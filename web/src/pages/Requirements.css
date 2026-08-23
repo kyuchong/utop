@@ -1086,7 +1086,8 @@ html .tc-body .table .tr {
 html .split > .panel.rq-listcol {
   border: 0;
   border-radius: 0;
-  border-left: 1px solid var(--c-border);
+  /* 사이 선은 **하나**다(지적) — 1열의 오른선이 긋는다. 여기서 또 그으면
+     두 줄이 된다 */
   background: var(--c-surface);
 }
 
@@ -1106,6 +1107,9 @@ html .rq-listcol .rq-tr > div {
   border-right: 1px solid var(--line-soft, #eef0f4);
 }
 html .rq-listcol .rq-tr > div:last-child { border-right: 0; }
+/* 가로 눈금 — 엑셀 표(지적). 세로만 있으면 표가 아니라 열 나열이다 */
+html .rq-listcol .rq-tr { border-bottom: 1px solid var(--line-soft, #eef0f4); }
+html .rq-listcol .rq-tr.rq-th { border-bottom: 1px solid var(--c-border); }
 /* 제목은 왼쪽 — 글은 왼끝을 맞춰야 훑인다 */
 html .rq-listcol .rq-tr > div.rq-name,
 html .rq-listcol .rq-tr.rq-th > div:nth-child(2) {
