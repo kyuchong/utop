@@ -164,21 +164,22 @@ export default function TcInfo({ data, onChange }: Props) {
         <div className="tc-grid tc-grid-idt">
           <label className="fld">
             <span>요구사항 ID</span>
-            <div className="tc-reqid">
-              <input value={curReqId || (cur ? cur : '–')} readOnly tabIndex={-1} />
-              {/* 붙어 있는 요구사항으로 건너뛴다(지시) — 요구사항 화면이
-                  시험으로 건너뛰는 것과 같은 문법 */}
-              {cur && (
-                <a
-                  className="tc-reqgo"
-                  href={gotoHref('req', cur)}
-                  title="요구사항 화면에서 이 요구사항을 엽니다 (Ctrl+클릭 = 새 탭)"
-                  onClick={(e) => gotoClick(e, 'req', cur)}
-                >
-                  ↗
-                </a>
-              )}
-            </div>
+            {/* **번호 자체가 링크다**(지시: 옆에 단추를 두는 것보다).
+                읽기 전용 칸에 단추를 붙이면 칸은 죽어 있는데 옆에서만
+                무언가 되는 꼴이라, 어디를 눌러야 하는지 매번 찾게 된다.
+                왼쪽 단추로 가고 Ctrl·오른쪽 단추로 새 탭 — 다른 화면과 같다. */}
+            {cur ? (
+              <a
+                className="tc-reqid-link"
+                href={gotoHref('req', cur)}
+                title={`${curReqId || cur} — 요구사항 화면에서 엽니다 (Ctrl+클릭 = 새 탭)`}
+                onClick={(e) => gotoClick(e, 'req', cur)}
+              >
+                {curReqId || cur}
+              </a>
+            ) : (
+              <input value="–" readOnly tabIndex={-1} />
+            )}
           </label>
           <div className="fld" ref={reqBoxRef}>
             <span>요구사항 제목</span>

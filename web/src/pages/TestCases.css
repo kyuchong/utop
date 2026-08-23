@@ -3429,5 +3429,18 @@ table.tb tr.r-bad td:first-child {
 .tc-map .tc-reqgo { margin-right: 6px; }
 .tc-crumb-go { margin-left: 4px; color: var(--c-primary); text-decoration: none; }
 .tc-crumb-go:hover { text-decoration: underline; }
-.tc-reqid { display: flex; align-items: center; gap: 6px; }
-.tc-reqid input { flex: 1; min-width: 0; }
+/* 요구사항 번호 — 칸처럼 서 있되 **번호 자체가 링크**다(지시).
+   테두리를 옅게 남겨 다른 칸들과 줄이 맞는다. */
+.tc-reqid-link {
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  border: 1px solid var(--c-border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-soft, #fbfcfd);
+  color: var(--c-primary);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+}
+.tc-reqid-link:hover { text-decoration: underline; border-color: var(--c-primary); }
