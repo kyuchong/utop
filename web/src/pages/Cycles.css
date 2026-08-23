@@ -8047,20 +8047,21 @@ a.bc-cur:hover { text-decoration: underline; }
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 6px;
+  /* 간격은 필드 폭이 이미 벌려 준다 — 사이는 최소로(지시: 최대한 줄여) */
+  gap: 2px;
   grid-template-columns: none;
 }
 .cxp-rgt > * { flex: none; }
-/* 폭 한 벌 — 줄의 필드와 머리줄의 이름이 같은 값을 쓴다 */
-.cxp-rgt .cxp-who, .cxp-rgt .hf-who { width: 24px; justify-content: center; }
-.cxp-rgt .cxp-k, .cxp-rgt .hf-kind { width: 18px; text-align: center; }
-.cxp-rgt .cxp-hist, .cxp-rgt .hf-hist { width: 62px; }
-.cxp-rgt .cxp-when, .cxp-rgt .hf-when { width: 98px; text-align: right; }
-.cxp-rgt .cxp-took, .cxp-rgt .hf-took { width: 44px; text-align: right; }
-.cxp-rgt .cxp-stt, .cxp-rgt .cxp-run, .cxp-rgt .cxp-wait, .cxp-rgt .hf-stt {
-  width: 76px;
-  text-align: center;
-}
+/* 폭 한 벌 — 줄의 필드와 머리줄의 이름이 같은 값을 쓴다.
+   값이 실제로 차지하는 만큼만 준다: 날짜 88 · 소요 36 · 완료 44 … */
+.cxp-rgt .cxp-who, .cxp-rgt .hf-who { width: 20px; justify-content: center; }
+.cxp-rgt .cxp-k, .cxp-rgt .hf-kind { width: 15px; text-align: center; padding: 0 1px; }
+.cxp-rgt .cxp-hist, .cxp-rgt .hf-hist { width: 46px; }
+.cxp-rgt .cxp-when, .cxp-rgt .hf-when { width: 88px; text-align: right; }
+.cxp-rgt .cxp-took, .cxp-rgt .hf-took { width: 36px; text-align: right; }
+.cxp-rgt .cxp-stt, .cxp-rgt .hf-stt { width: 44px; text-align: center; }
+/* 실행 중 표시는 글이 길다 — 제 크기로 서되 줄은 안 민다 */
+.cxp-rgt .cxp-run, .cxp-rgt .cxp-wait { width: auto; padding: 0 5px; text-align: center; }
 .cxp-row.cxp-hd .cxp-rgt > span { display: inline-flex; align-items: center; justify-content: center; }
 
 /* 시험 진행 요약 토글 — 단추(하는 일)와 다른 얼굴(지시 ①: 구분이 안 된다).
