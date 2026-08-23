@@ -10,6 +10,10 @@ import { apiFetch } from '@/api/client'
  */
 export default function Branding() {
   const [logo, setLogo] = useState('')
+  /* 로그인 화면 왼쪽 판 — 회사 건물 사진과 그 위 글(지시) */
+  const [loginImg, setLoginImg] = useState('')
+  const [loginTitle, setLoginTitle] = useState('')
+  const [loginSub, setLoginSub] = useState('')
   const [name, setName] = useState('')
   const [size, setSize] = useState('')
   const [color, setColor] = useState('#e8eaf0')
@@ -25,6 +29,9 @@ export default function Branding() {
       if (!r.ok) return
       const b = (await r.json()) as {
         logo?: string
+        login_image?: string
+        login_title?: string
+        login_sub?: string
         name_text?: string
         name_size?: string
         name_color?: string
@@ -33,6 +40,9 @@ export default function Branding() {
         link_url?: string
       }
       setLogo(b.logo ?? '')
+      setLoginImg((b as { login_image?: string }).login_image ?? '')
+      setLoginTitle((b as { login_title?: string }).login_title ?? '')
+      setLoginSub((b as { login_sub?: string }).login_sub ?? '')
       setName(b.name_text ?? '')
       setSize(b.name_size ?? '')
       if (b.name_color) setColor(b.name_color)
@@ -56,6 +66,20 @@ export default function Branding() {
     fr.readAsDataURL(f)
   }
 
+  const pickLogin = (f: File | undefined) => {
+    if (!f) return
+    if (f.size > 6 * 1024 * 1024) {
+      setMsg('6MB 이하 사진만 됩니다')
+      return
+    }
+    const fr = new FileReader()
+    fr.onload = () => {
+      setLoginImg(String(fr.result || ''))
+      setMsg('')
+    }
+    fr.readAsDataURL(f)
+  }
+
   const save = async () => {
     setBusy(true)
     setMsg('')
@@ -70,11 +94,21 @@ export default function Branding() {
           name_accent_color: accent,
           name_font: font,
           link_url: link,
+          login_title: loginTitle,
+          login_sub: loginSub,
         }),
       })
       if (!r.ok) {
         const b = (await r.json().catch(() => ({}))) as { detail?: string }
         throw new Error(b.detail || String(r.status))
+      }
+      const r3 = await apiFetch('/api/branding/login-image', {
+        method: 'POST',
+        body: JSON.stringify({ image: loginImg }),
+      })
+      if (!r3.ok) {
+        const b3 = (await r3.json().catch(() => ({}))) as { detail?: string }
+        throw new Error(b3.detail || '로그인 사진을 저장하지 못했습니다')
       }
       const r2 = await apiFetch('/api/branding/logo', {
         method: 'POST',
@@ -116,6 +150,58 @@ export default function Branding() {
         <button className="btn small" type="button" disabled={!logo} onClick={() => setLogo('')}>
           제거
         </button>
+      </div>
+
+      {/* 로그인 화면 — 왼쪽 판(지시). 사진은 **올리는 것**이지 인터넷에서
+          가져오는 것이 아니다: 남의 사진에는 권리가 붙어 있다 */}
+      <h3 className="brand-h2">로그인 화면</h3>
+      <p className="muted small">
+        로그인 화면 왼쪽 판에 깔리는 사진입니다. 회사 건물 사진처럼 <b>우리가 쓸 권리가 있는
+        사진</b>을 올려 주세요. 안 올리면 회사 색으로 칠한 판이 대신 섭니다. (JPG·PNG, 6MB 이하)
+      </p>
+      <div className="brand-row">
+        <span className="brand-loginprev">
+          {loginImg ? (
+            <img src={loginImg} alt="로그인 사진 미리보기" />
+          ) : (
+            <i className="muted small">사진 없음 — 색 판으로 뜹니다</i>
+          )}
+        </span>
+        <label className="btn primary small brand-up">
+          사진 등록
+          <input
+            type="file"
+            accept="image/png,image/jpeg"
+            hidden
+            onChange={(e) => pickLogin(e.target.files?.[0])}
+          />
+        </label>
+        <button
+          className="btn small"
+          type="button"
+          disabled={!loginImg}
+          onClick={() => setLoginImg('')}
+        >
+          제거
+        </button>
+      </div>
+      <div className="brand-row">
+        <label className="brand-nm">
+          로그인 화면 제목 (비우면 표시 텍스트)
+          <input
+            value={loginTitle}
+            placeholder="유비쿼스 시험 자동화 플랫폼"
+            onChange={(e) => setLoginTitle(e.target.value)}
+          />
+        </label>
+        <label className="brand-nm">
+          그 아래 한 줄
+          <input
+            value={loginSub}
+            placeholder="요구사항부터 결과서까지 한 줄기로"
+            onChange={(e) => setLoginSub(e.target.value)}
+          />
+        </label>
       </div>
 
       <div className="brand-row">

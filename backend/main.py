@@ -1764,13 +1764,18 @@ async def api_branding_get():
             "name_font": b.get("name_font") or "", "name_accent_color": b.get("name_accent_color") or "",
             "fab_greeting": b.get("fab_greeting") or "", "fab_quick": (b.get("fab_quick") if isinstance(b.get("fab_quick"), list) else []),
             "fab_prompt": b.get("fab_prompt") or "", "fab_rules": b.get("fab_rules") or "",
-            "link_url": b.get("link_url") or ""}
+            "link_url": b.get("link_url") or "",
+            # 로그인 화면 왼쪽 판 — 회사 건물 사진과 그 위에 얹는 글(지시)
+            "login_image": b.get("login_image") or "",
+            "login_title": b.get("login_title") or "",
+            "login_sub": b.get("login_sub") or ""}
 
 @app.post("/api/branding")
 async def api_branding_save(payload: dict, token: str = ""):
     _require_admin(token)
     b = _load_branding()
-    for k in ("name_text", "name_size", "name_color", "name_font", "name_accent_color", "link_url"):
+    for k in ("name_text", "name_size", "name_color", "name_font", "name_accent_color", "link_url",
+              "login_title", "login_sub"):
         if k in payload:
             b[k] = str(payload.get(k) or "")[:200]
     if "fab_greeting" in payload:
@@ -1786,6 +1791,25 @@ async def api_branding_save(payload: dict, token: str = ""):
     return {"ok": True, "name_text": b.get("name_text") or "", "name_size": b.get("name_size") or "",
             "name_color": b.get("name_color") or "", "name_font": b.get("name_font") or "",
             "name_accent_color": b.get("name_accent_color") or ""}
+
+@app.post("/api/branding/login-image")
+async def api_branding_login_image(payload: dict, token: str = ""):
+    """로그인 화면 왼쪽 판에 깔 사진 — 회사 건물처럼 우리 것을 올린다(지시).
+
+    남의 사진을 갖다 쓰지 않는다. 올리는 사람이 권리를 아는 사진이라야
+    한다 — 그래서 자동으로 받아 오지 않고 **올리는 자리**만 둔다.
+    """
+    _require_admin(token)
+    img = str(payload.get("image") or "")
+    if img and not img.startswith("data:image/"):
+        raise HTTPException(400, "이미지 파일만 등록할 수 있습니다")
+    if len(img) > 8_000_000:   # base64 약 6MB — 사진이라 로고보다 넉넉히
+        raise HTTPException(400, "이미지가 너무 큽니다 (6MB 이하로 올려주세요)")
+    b = _load_branding()
+    b["login_image"] = img
+    save_json(BRANDING_FILE, b)
+    return {"ok": True}
+
 
 @app.post("/api/branding/logo")
 async def api_branding_logo(payload: dict, token: str = ""):

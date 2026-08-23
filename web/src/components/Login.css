@@ -1,59 +1,106 @@
-.login-back {
-  position: fixed;
+/* 로그인 — 좌우 두 판(지시).
+   왼쪽은 보여 주는 자리, 오른쪽은 들어가는 자리. 좁은 화면에서는 왼쪽을
+   접는다 — 폰에서 사진이 화면을 다 먹으면 정작 칸이 안 보인다. */
+.lg {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  min-height: 100vh;
+  background: var(--c-surface, #fff);
+}
+
+/* ── 왼쪽 ── */
+.lg-side {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  padding: 56px;
+  overflow: hidden;
+  /* 사진이 없을 때 — 회사 색으로 칠한 판이 대신 선다 */
+  background:
+    radial-gradient(120% 90% at 15% 10%, #2b3aa0 0%, transparent 60%),
+    linear-gradient(135deg, #101a3a 0%, #1b2c6b 55%, #2f3fa6 100%);
+  background-size: cover;
+  background-position: center;
+}
+.lg-side.has-img { background-size: cover; background-position: center; }
+
+/* 사진 위 글자가 읽히게 한 겹 — 사진마다 밝기가 다르다 */
+.lg-veil {
+  position: absolute;
   inset: 0;
+  background: linear-gradient(180deg, rgb(6 12 32 / 0.35) 0%, rgb(6 12 32 / 0.78) 100%);
+}
+.lg-sidein { position: relative; color: #fff; max-width: 560px; }
+.lg-logo { height: 38px; margin-bottom: 20px; filter: brightness(0) invert(1); }
+.lg-logotext {
+  display: inline-block;
+  margin-bottom: 20px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.14);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+.lg-sidein h1 {
+  margin: 0 0 10px;
+  font-size: 34px;
+  line-height: 1.25;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.lg-sidein p { margin: 0 0 22px; font-size: 15px; color: rgb(255 255 255 / 0.82); }
+.lg-pts { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.lg-pts li {
+  position: relative;
+  padding-left: 20px;
+  font-size: 13.5px;
+  color: rgb(255 255 255 / 0.78);
+}
+.lg-pts li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 0.55);
+}
+
+/* ── 오른쪽 ── */
+.lg-main {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--c-topbar);
+  padding: 40px;
 }
-
-.login-box {
-  width: 340px;
-  padding: var(--sp-6);
-  border-radius: var(--r-card);
+.lg-form { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 14px; }
+.lg-form h2 { margin: 0; font-size: 24px; font-weight: 800; }
+.lg-hint { margin: -8px 0 4px; font-size: 13px; color: var(--c-text-muted); }
+.lg-fld { display: flex; flex-direction: column; gap: 6px; }
+.lg-fld > span { font-size: 12px; color: var(--c-text-muted); }
+.lg-fld input {
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
   background: var(--c-surface);
-  box-shadow: 0 12px 40px rgb(0 0 0 / 0.35);
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
+  color: var(--c-text);
+  font: inherit;
+  font-size: 14px;
 }
-
-.login-logo {
-  font-size: var(--fs-2xl);
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.login-sub {
-  margin-top: -10px;
-  color: var(--c-text-faint);
-  font-size: var(--fs-sm);
-}
-
-.login-fld {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.login-fld > span {
-  font-size: var(--fs-xs);
-  color: var(--c-text-faint);
-}
-
-.login-fld input {
-  border: 1px solid #b6bec8;
-  border-radius: var(--radius-sm);
-  padding: 9px 10px;
-}
-
-.login-fld input:focus {
+.lg-fld input:focus {
   outline: none;
   border-color: var(--c-primary);
-  box-shadow: 0 0 0 2px var(--c-primary-bg);
+  box-shadow: 0 0 0 3px var(--c-primary-bg, #eef4ff);
 }
+.lg-go { height: 42px; font-size: 15px; font-weight: 700; border-radius: 8px; }
+.lg-foot { margin-top: 6px; font-size: 12px; line-height: 1.6; color: var(--c-text-faint); }
 
-.login-go {
-  margin-top: var(--sp-2);
-  padding: 10px;
+/* 좁은 화면 — 왼쪽 판은 머리 띠로 줄인다 */
+@media (max-width: 900px) {
+  .lg { grid-template-columns: 1fr; }
+  .lg-side { min-height: 190px; padding: 24px; align-items: center; }
+  .lg-sidein h1 { font-size: 24px; }
+  .lg-pts { display: none; }
 }
