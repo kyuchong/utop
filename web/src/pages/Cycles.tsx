@@ -222,7 +222,7 @@ export function useResults(): ResDef[] {
     for (const i of codesQ.data?.items ?? []) {
       if (i.kind !== 'cycle_result') continue
       const val = i.value.trim()
-      let meta: { color?: string; fg?: string; group?: string } = {}
+      let meta: { color?: string; fg?: string; label?: string; group?: string } = {}
       try {
         meta = JSON.parse(i.note || '{}') as typeof meta
       } catch {
@@ -234,12 +234,19 @@ export function useResults(): ResDef[] {
       const at = base.findIndex((b) => b.v === val)
       if (at >= 0) {
         const cur = base[at]
-        if (cur && (meta.color || meta.fg))
-          base[at] = { ...cur, color: meta.color ?? cur.color, fg: meta.fg ?? cur.fg }
+        /* 색과 **글자**를 설정이 덮는다(지시: Pass 를 PASS 로). 값은 그대로라
+           판정 규칙·저장된 결과는 안 흔들린다 — 보이는 글자만 바뀐다 */
+        if (cur && (meta.color || meta.fg || meta.label))
+          base[at] = {
+            ...cur,
+            color: meta.color ?? cur.color,
+            fg: meta.fg ?? cur.fg,
+            label: meta.label || cur.label,
+          }
         continue
       }
       if (!val) continue
-      base.push({ v: val, label: val, cls: 'custom', color: meta.color, fg: meta.fg, group: g })
+      base.push({ v: val, label: meta.label || val, cls: 'custom', color: meta.color, fg: meta.fg, group: g })
     }
     return base
   }, [codesQ.data])
@@ -4945,7 +4952,7 @@ function CycleDetail({
                       <option value="">전체</option>
                       {resDefs.map((r) => (
                         <option key={r.v} value={r.v}>
-                          {verdictLabel(r.v as Verdict)}
+                          {r.label}
                         </option>
                       ))}
                       <option value="_none">미실행</option>

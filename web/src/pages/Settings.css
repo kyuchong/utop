@@ -899,7 +899,19 @@
   border-radius: 999px;
   padding: 2px 12px;
   box-shadow: 0 0 0 1px rgb(0 0 0 / 0.06);
+  /* 폭을 한 값으로(지시) — Pass 와 진행불가가 제각각이면 표가 들쭉하다 */
+  width: 92px;
+  text-align: center;
+  box-sizing: border-box;
 }
+/* 글자를 그 자리에서 고친다 — 딱지 그대로가 입력 칸이다 */
+.vd-chip-in {
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--fs-xs);
+  outline: none;
+}
+.vd-chip-in:focus { box-shadow: 0 0 0 2px var(--c-primary); }
 .vd-sw { position: relative; display: inline-flex; cursor: pointer; }
 .vd-sw > span {
   display: block;

@@ -56,17 +56,18 @@ const GRP_LB: Record<Grp, string> = {
   neutral: '검증 불가 — 합격률에서 뺌',
 }
 
-function metaOf(it?: Item): { color?: string; fg?: string; desc?: string; group?: Grp } {
+function metaOf(it?: Item): { color?: string; fg?: string; desc?: string; label?: string; group?: Grp } {
   if (!it) return {}
   try {
     const m = JSON.parse(it.note || '{}') as {
       color?: string
       fg?: string
       desc?: string
+      label?: string
       group?: string
     }
     const g = m.group === 'pass' || m.group === 'fail' ? m.group : 'neutral'
-    return { color: m.color, fg: m.fg, desc: m.desc, group: g }
+    return { color: m.color, fg: m.fg, desc: m.desc, label: m.label, group: g }
   } catch {
     return {}
   }
@@ -241,6 +242,9 @@ export default function VerdictSettings() {
       color?: string
       fg?: string
       desc?: string
+      /** 화면에 보일 글자 — 값(value)은 판정 규칙이 물고 있어 못 바꾸고,
+          보이는 글자만 바꾼다(지시: Pass 를 PASS 로) */
+      label?: string
       group?: Grp
       sort?: number
     }) => {
@@ -255,6 +259,7 @@ export default function VerdictSettings() {
           color: p.color,
           fg: p.fg,
           desc: p.desc,
+          label: p.label || undefined,
           group: p.group ?? 'neutral',
         }),
         }),
@@ -317,32 +322,41 @@ export default function VerdictSettings() {
               const m = metaOf(byVal.get(b.v))
               const color = m.color || b.color
               const fg = m.fg || b.fg
+              const label = m.label || b.label
               return (
                 <tr key={b.v || '_none'}>
                   <td>
                     <ColorPick
                       title="바탕색"
                       value={color}
-                      onPick={(c) => save.mutate({ value: b.v, color: c, fg, group: b.group })}
+                      onPick={(c) => save.mutate({ value: b.v, color: c, fg, group: b.group, label: m.label, desc: m.desc })}
                     />
                   </td>
                   <td>
                     <ColorPick
                       title="글자색"
                       value={fg}
-                      onPick={(f) => save.mutate({ value: b.v, color, fg: f, group: b.group })}
+                      onPick={(f) => save.mutate({ value: b.v, color, fg: f, group: b.group, label: m.label, desc: m.desc })}
                     />
                   </td>
                   <td>
-                    <i
-                      className="vd-chip"
-                      /* 실제 화면과 **같은 색**으로 보여 준다 — 바탕을 13% 로 옅게
-                           깔고 글자색은 흰색 그대로였더니, 흰 글자가 흰 바탕에
-                           얹혀 안 보였다(지적: 붉은색이 잘 안 보인다) */
-                        style={{ background: color, color: fg, borderColor: color }}
-                    >
-                      {b.label}
-                    </i>
+                    {/* 글자도 고친다(지시: Pass 를 PASS 로). 값(v)은 판정
+                        규칙이 물고 있어 그대로 두고, **보이는 글자**만 바꾼다.
+                        칸 자체가 실물 색 그대로의 딱지다 — 미리 보기 따로,
+                        고치는 칸 따로면 두 개가 어긋난다 */}
+                    <input
+                      className="vd-chip vd-chip-in"
+                      defaultValue={label}
+                      style={{ background: color, color: fg, borderColor: color }}
+                      onBlur={(e) => {
+                        const nv = e.target.value.trim()
+                        if (nv && nv !== label)
+                          save.mutate({ value: b.v, color, fg, group: b.group, label: nv, desc: m.desc })
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                      }}
+                    />
                   </td>
                   <td className="muted">{GRP_LB[b.group]}</td>
                   <td>
@@ -353,7 +367,7 @@ export default function VerdictSettings() {
                       onBlur={(e) => {
                         const t = e.target.value.trim()
                         if (t === (m.desc ?? '')) return
-                        save.mutate({ value: b.v, color, fg, desc: t, group: b.group })
+                        save.mutate({ value: b.v, color, fg, desc: t, group: b.group, label: m.label })
                       }}
                     />
                   </td>
