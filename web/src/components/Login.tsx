@@ -39,6 +39,11 @@ export default function Login({ onDone }: Props) {
     login_color?: string
     login_accent_color?: string
     login_font?: string
+    login_form_title?: string
+    login_id_ph?: string
+    login_note?: string
+    login_foot?: string
+    login_keep?: string
   }>({})
 
   /* 브랜딩은 로그인 전에도 읽을 수 있다 — 이 화면이 그것으로 그려진다 */
@@ -141,7 +146,7 @@ export default function Login({ onDone }: Props) {
             void submit()
           }}
         >
-          <h2>ubiQuoss TOP 로그인</h2>
+          <h2>{brand.login_form_title || 'ubiQuoss TOP 로그인'}</h2>
 
           {error && <div className="form-error">{error}</div>}
 
@@ -151,7 +156,7 @@ export default function Login({ onDone }: Props) {
               autoFocus
               value={username}
               autoComplete="username"
-              placeholder="ID를 입력 하세요"
+              placeholder={brand.login_id_ph || 'ID를 입력 하세요'}
               onChange={(e) => setUsername(e.target.value)}
             />
           </label>
@@ -167,8 +172,13 @@ export default function Login({ onDone }: Props) {
           </label>
 
           {/* 옛 화면과 같은 차례(지시) — 안내 → 아이디 저장 → 로그인 */}
-          <p className="lg-note">UMS(Jira) 계정으로 접속이 가능합니다.</p>
+          {(brand.login_note ?? 'UMS(Jira) 계정으로 접속이 가능합니다.') && (
+            <p className="lg-note">
+              {brand.login_note || 'UMS(Jira) 계정으로 접속이 가능합니다.'}
+            </p>
+          )}
 
+          {brand.login_keep !== 'off' && (
           <label className="lg-keep">
             <input
               type="checkbox"
@@ -180,14 +190,17 @@ export default function Login({ onDone }: Props) {
             />
             아이디 저장
           </label>
+          )}
 
           <button className="btn primary lg-go" type="submit" disabled={busy}>
             {busy ? '확인 중…' : '로그인'}
           </button>
 
-          <div className="lg-foot">
-            비밀번호를 잊었으면 관리자에게 알려 주세요 — 계정은 SETUP › 계정 관리에서 다룹니다.
-          </div>
+          {(brand.login_foot ?? '비밀번호를 잊었으면 관리자에게 알려 주세요.') && (
+            <div className="lg-foot">
+              {brand.login_foot || '비밀번호를 잊었으면 관리자에게 알려 주세요.'}
+            </div>
+          )}
         </form>
       </main>
     </div>

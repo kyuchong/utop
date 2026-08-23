@@ -19,6 +19,12 @@ export default function LoginBranding() {
   const [loginSize, setLoginSize] = useState('')
   const [loginColor, setLoginColor] = useState('#ffffff')
   const [loginAccent, setLoginAccent] = useState('#ff5b5b')
+  /* 오른쪽 판 — 들어가는 자리(지시: 오른쪽 화면 설정) */
+  const [formTitle, setFormTitle] = useState('')
+  const [idPh, setIdPh] = useState('')
+  const [note, setNote] = useState('')
+  const [foot, setFoot] = useState('')
+  const [keepOn, setKeepOn] = useState(true)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState('')
 
@@ -35,6 +41,11 @@ export default function LoginBranding() {
           login_size?: string
           login_color?: string
           login_accent_color?: string
+          login_form_title?: string
+          login_id_ph?: string
+          login_note?: string
+          login_foot?: string
+          login_keep?: string
         }
         setLoginImg(b.login_image ?? '')
         setLoginLogo(b.login_logo ?? '')
@@ -43,6 +54,11 @@ export default function LoginBranding() {
         setLoginSize(b.login_size ?? '')
         setLoginColor(b.login_color || '#ffffff')
         setLoginAccent(b.login_accent_color || '#ff5b5b')
+        setFormTitle(b.login_form_title ?? '')
+        setIdPh(b.login_id_ph ?? '')
+        setNote(b.login_note ?? '')
+        setFoot(b.login_foot ?? '')
+        setKeepOn(b.login_keep !== 'off')
       } catch {
         setMsg('설정을 읽지 못했습니다')
       }
@@ -75,6 +91,11 @@ export default function LoginBranding() {
           login_size: loginSize,
           login_color: loginColor,
           login_accent_color: loginAccent,
+          login_form_title: formTitle,
+          login_id_ph: idPh,
+          login_note: note,
+          login_foot: foot,
+          login_keep: keepOn ? 'on' : 'off',
         }),
       })
       if (!r.ok) throw new Error('저장하지 못했습니다')
@@ -100,6 +121,11 @@ export default function LoginBranding() {
         setLoginSize(b.login_size ?? '')
         setLoginColor(b.login_color || '#ffffff')
         setLoginAccent(b.login_accent_color || '#ff5b5b')
+        setFormTitle(b.login_form_title ?? '')
+        setIdPh(b.login_id_ph ?? '')
+        setNote(b.login_note ?? '')
+        setFoot(b.login_foot ?? '')
+        setKeepOn(b.login_keep !== 'off')
       }
       setMsg('저장했습니다')
     } catch (e) {
@@ -118,6 +144,7 @@ export default function LoginBranding() {
         색으로 칠한 판이 대신 섭니다. (JPG·PNG, 6MB 이하)
       </p>
 
+      <h4 className="brand-h2">왼쪽 판 — 보여 주는 자리</h4>
       <div className="brand-row">
         <span className="brand-loginprev">
           {loginImg ? (
@@ -240,6 +267,52 @@ export default function LoginBranding() {
             placeholder="요구사항부터 결과서까지 한 줄기로"
             onChange={(e) => setLoginSub(e.target.value)}
           />
+        </label>
+      </div>
+
+      {/* 오른쪽 판 — 들어가는 자리(지시). 문구가 코드에 박혀 있어 고칠 수
+          없던 것들이다 */}
+      <h4 className="brand-h2">오른쪽 판 — 들어가는 자리</h4>
+      <div className="brand-row">
+        <label className="brand-nm">
+          폼 제목
+          <input
+            value={formTitle}
+            placeholder="ubiQuoss TOP 로그인"
+            onChange={(e) => setFormTitle(e.target.value)}
+          />
+        </label>
+        <label className="brand-nm">
+          아이디 칸 안내
+          <input
+            value={idPh}
+            placeholder="ID를 입력 하세요"
+            onChange={(e) => setIdPh(e.target.value)}
+          />
+        </label>
+      </div>
+      <div className="brand-row">
+        <label className="brand-nm">
+          안내 줄 (비우면 안 보입니다)
+          <input
+            value={note}
+            placeholder="UMS(Jira) 계정으로 접속이 가능합니다."
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </label>
+        <label className="brand-nm">
+          맨 아래 안내 (비우면 안 보입니다)
+          <input
+            value={foot}
+            placeholder="비밀번호를 잊었으면 관리자에게 알려 주세요."
+            onChange={(e) => setFoot(e.target.value)}
+          />
+        </label>
+      </div>
+      <div className="brand-row">
+        <label className="brand-f" style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+          <input type="checkbox" checked={keepOn} onChange={(e) => setKeepOn(e.target.checked)} />
+          「아이디 저장」 보이기
         </label>
       </div>
 

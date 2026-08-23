@@ -172,15 +172,14 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
             role="button"
             tabIndex={0}
             style={{ cursor: 'pointer' }}
-            title={brand.link || '대시보드로'}
-            onClick={() => {
-              if (brand.link) window.open(brand.link, '_blank', 'noopener')
-              else onNavigate('dashboard')
-            }}
+            title="이 화면을 새로 읽습니다"
+            /* 새 탭으로 열던 것을 걷는다(지적) — 로고를 누르는 손은 「처음
+               자리로」 나 「다시 읽기」 지 새 창이 아니다. 지금 보던 화면을
+               그대로 다시 읽는다: 주소가 그대로라 고르던 것도 유지된다. */
+            onClick={() => window.location.reload()}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                if (brand.link) window.open(brand.link, '_blank', 'noopener')
-                else onNavigate('dashboard')
+                window.location.reload()
               }
             }}
           >

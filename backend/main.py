@@ -1796,7 +1796,13 @@ async def api_branding_get():
             "login_size": b.get("login_size") or "",
             "login_color": b.get("login_color") or "",
             "login_accent_color": b.get("login_accent_color") or "",
-            "login_font": b.get("login_font") or ""}
+            "login_font": b.get("login_font") or "",
+            # 오른쪽 판(들어가는 자리) — 코드에 박혀 있던 문구를 뺀다(지시)
+            "login_form_title": b.get("login_form_title") or "",
+            "login_id_ph": b.get("login_id_ph") or "",
+            "login_note": b.get("login_note") or "",
+            "login_foot": b.get("login_foot") or "",
+            "login_keep": b.get("login_keep") or ""}
 
 @app.post("/api/branding")
 async def api_branding_save(payload: dict, request: Request, token: str = ""):
@@ -1807,7 +1813,8 @@ async def api_branding_save(payload: dict, request: Request, token: str = ""):
     b = _load_branding()
     for k in ("name_text", "name_size", "name_color", "name_font", "name_accent_color", "link_url",
               "login_title", "login_sub", "login_size", "login_color", "login_accent_color",
-              "login_font"):
+              "login_font", "login_form_title", "login_id_ph", "login_note", "login_foot",
+              "login_keep"):
         if k in payload:
             b[k] = str(payload.get(k) or "")[:200]
     if "fab_greeting" in payload:
