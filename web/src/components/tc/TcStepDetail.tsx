@@ -234,6 +234,16 @@ export default function TcStepDetail({
   const kind = (step.kind || 'cli') as StepKind
   const info = stepKindInfo(kind)
   const result = stepResult(step)
+  /**
+   * 숫자가 **글자 그대로** 박힌 뽑기 식인가.
+   *
+   * `(15:54)` 처럼 그때의 값을 통째로 박으면, 시계·카운터처럼 값이 바뀌는
+   * 자리에서 다음엔 안 맞는다(지적: 값이 변했는데 이전 값이 남아 있다).
+   * 백슬래시 뒤(\d)가 아닌 맨숫자가 있으면 고정 식으로 본다.
+   */
+  const looksFrozen = (rule: string) => /(?<!\\)\d/.test(rule)
+  /** 박힌 숫자를 「아무 수나」(\d+) 로 바꾼다 — `(15:54)` → `(\d+:\d+)` */
+  const loosenRule = (rule: string) => rule.replace(/\d+/g, '\\d+')
   const verdict = stepStatus(step)
   /**
    * 어떤 칸을 띄울지는 종류가 정한다.
@@ -1460,9 +1470,11 @@ export default function TcStepDetail({
                                 `${v.name} ← `,
                                 '',
                               ) ?? '안 잡힙니다'
-                            : loopVar
-                              ? `1회차(${'${' + loopVar + '}'}=1) 로는 안 잡힙니다`
-                              : '이 응답에서는 안 잡힙니다'
+                            : v.rule && looksFrozen(v.rule)
+                              ? '값이 박혀 있어 안 맞습니다 → 「수는 아무 수나」'
+                              : loopVar
+                                ? `1회차(${'${' + loopVar + '}'}=1) 로는 안 잡힙니다`
+                                : '이 응답에서는 안 잡힙니다'
                           : got || '(빈 값)'
                         : '아직 실행 전'}
                     </span>
@@ -1478,6 +1490,23 @@ export default function TcStepDetail({
                         ? `${v.tbl.where || (v.tbl.row ? `${v.tbl.row}번째 줄` : '첫 줄')} 행의 ${v.tbl.col} 칸`
                         : v.rule}
                     </code>
+                    {/* 고정 숫자가 박힌 식이면 한 번에 풀어 준다(지적: 값이 바뀌면
+                        옛 값이 남는다). `(15:54)` → `(\d+:\d+)` */}
+                    {!v.tbl && v.rule && looksFrozen(v.rule) && v.key.startsWith('q') && (
+                      <button
+                        type="button"
+                        className="btn small sd-loosen"
+                        title={`이 식은 숫자를 글자 그대로 찾습니다 — 값이 바뀌면 안 맞습니다.\n눌러서 「아무 수나」 로 바꿉니다: ${loosenRule(v.rule)}`}
+                        onClick={() => {
+                          const idx = Number(v.key.slice(1))
+                          const qs = (step.queries ?? []).slice()
+                          if (qs[idx]) qs[idx] = { ...qs[idx], q: loosenRule(v.rule!) }
+                          onChange({ queries: qs })
+                        }}
+                      >
+                        수는 아무 수나
+                      </button>
+                    )}
                     <button type="button" className="if-x" aria-label="지우기" onClick={v.drop}>
                       ×
                     </button>

@@ -3581,3 +3581,6 @@ html .tc-listview .rq-tr > div.tc-cell-fill.al-center { justify-content: center;
   padding: 3px 8px;
   cursor: pointer;
 }
+
+/* 뽑기 식이 고정 숫자라 안 맞을 때 — 한 번에 「아무 수나」로 푸는 단추 */
+.sd-loosen { height: 20px; padding: 0 8px; font-size: 11px; white-space: nowrap; }
