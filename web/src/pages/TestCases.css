@@ -3584,3 +3584,14 @@ html .tc-listview .rq-tr > div.tc-cell-fill.al-center { justify-content: center;
 
 /* 뽑기 식이 고정 숫자라 안 맞을 때 — 한 번에 「아무 수나」로 푸는 단추 */
 .sd-loosen { height: 20px; padding: 0 8px; font-size: 11px; white-space: nowrap; }
+
+/* 드래그 변수 뽑기 — 앞 라벨로 그 자리를 콕 집었다는 표시 */
+.sd-anchor {
+  font-style: normal;
+  margin-left: 5px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--c-primary-bg, #eef4ff);
+  color: var(--c-primary, #1f5fa8);
+  font-size: 10.5px;
+}

@@ -125,6 +125,8 @@ export default function TcStepDetail({
   readOnly = false,
 }: Props) {
   const [picked, setPicked] = useState('')
+  /** 고른 값 **앞의 같은 줄 글자**(라벨) — 숫자만으로는 어느 숫자인지 못 집는다 */
+  const [pickCtx, setPickCtx] = useState('')
   /** 뽑기에서 알려 줄 말 한 줄 — 조용히 다르게 담으면 왜 값이 다른지 모른다 */
   const [capNote, setCapNote] = useState('')
   /** 눌린 블럭 — [변수로 · 있으면 합격 · 있으면 불합격] 메뉴가 뜬 자리 */
@@ -412,6 +414,32 @@ export default function TcStepDetail({
    * 한 군데만 맞을 때에만 느슨하게 둔다. 그때는 「돌릴 때마다 달라지는 수」
    * 라는 뜻이 맞다.
    */
+  /**
+   * 고른 값을 **앞 라벨로 콕 집는** 자국.
+   *
+   * `\d+` 하나만으로는 show environment 처럼 숫자가 많은 응답에서 아무
+   * 숫자나 맞는다(지적: 70 을 끌었는데 고정된다). 앞선 안전장치는 그때 값을
+   * 고정해 버렸는데, 그러면 값이 바뀌어도 안 따라간다.
+   *
+   * 대신 고른 값 **앞의 같은 줄 글자**를 닻으로 삼는다 — `current 70` 이면
+   * `current\s+(\d+)`. 라벨을 뒤에서부터 한 낱말씩 늘려, 이 응답에서 딱 한
+   * 군데만 맞을 때까지 붙인다. 그러면 값(수)은 아무 수나 따라가면서도 **그
+   * 자리**를 집는다. 라벨로도 유일해지지 않으면 그때만 고른 값 그대로로 둔다.
+   */
+  const anchoredLoose = (value: string, ctx: string): string | null => {
+    const val = patternFrom(value.trim(), true) // 값은 아무 수나
+    const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const toRe = (x: string) => esc(x).replace(/\d+/g, '\\d+').replace(/[ \t]+/g, '\\s+')
+    const parts = ctx.split(/([ \t]+)/).filter((x) => x !== '')
+    for (let k = 1; k <= parts.length; k += 1) {
+      const anchor = parts.slice(parts.length - k).join('')
+      if (!anchor.trim()) continue
+      const pat = `${toRe(anchor)}(${val})`
+      if (hitCount(pat) === 1) return pat
+    }
+    return null
+  }
+
   const addVarFromBlock = (text: string, loose = true) => {
     const used = new Set([...takenVars, ...mine])
     let name = 'var1'
@@ -422,20 +450,43 @@ export default function TcStepDetail({
       }
     }
     const t = text.trim()
-    let pat = patternFrom(t, loose)
-    if (loose && hitCount(pat) > 1) {
-      pat = patternFrom(t, false)
-      setCapNote(
-        `수를 풀면 이 응답에서 여러 줄에 맞아 첫 줄이 담깁니다 — 고른 값 그대로로 담았습니다. 줄마다 돌려 가며 보려면 「표에서 값 뽑기」 를 쓰세요.`,
-      )
+    let q = `(${patternFrom(t, loose)})`
+    if (loose && hitCount(patternFrom(t, true)) > 1) {
+      // 여러 군데 맞는다 — 앞 라벨로 그 자리를 집어 본다
+      const anchored = anchoredLoose(t, pickCtx)
+      if (anchored) {
+        q = anchored
+        setCapNote('앞의 라벨로 그 자리를 집었습니다 — 값이 바뀌면 그 자리의 새 값을 따라갑니다.')
+      } else {
+        // 라벨로도 못 가리면 그때만 고른 값 그대로(고정)
+        q = `(${patternFrom(t, false)})`
+        setCapNote(
+          '이 응답에서 여러 군데에 맞고 앞 라벨로도 한 곳으로 못 좁혔습니다 — 고른 값 그대로로 담았습니다. 줄마다 보려면 「표에서 값 뽑기」 를 쓰세요.',
+        )
+      }
     }
-    onChange({ queries: [...(step.queries ?? []), { q: `(${pat})`, var: name }] })
+    onChange({ queries: [...(step.queries ?? []), { q, var: name }] })
   }
 
   /** 응답에서 글자를 고르면 판정·변수로 만들 수 있게 잡아둔다 */
   const grab = () => {
-    const t = window.getSelection()?.toString() ?? ''
-    if (t.trim()) setPicked(t.trim())
+    const sel = window.getSelection()
+    const t = sel?.toString() ?? ''
+    if (!t.trim()) return
+    setPicked(t.trim())
+    // 고른 값 **앞의 같은 줄 글자**(라벨)를 함께 잡아 둔다 — 숫자만으로는
+    // show environment 처럼 숫자 많은 응답에서 어느 숫자인지 못 집는다
+    let ctx = ''
+    try {
+      const r = sel!.getRangeAt(0)
+      const whole = r.startContainer.textContent ?? ''
+      const off = r.startOffset
+      const lineStart = whole.lastIndexOf('\n', off - 1) + 1
+      ctx = whole.slice(lineStart, off)
+    } catch {
+      /* 위치를 못 잡으면 라벨 없이 간다 — 옛 동작 그대로 */
+    }
+    setPickCtx(ctx)
   }
 
   return (
@@ -1712,22 +1763,25 @@ export default function TcStepDetail({
                           「이 값 그대로」 도 옆에 둔다 */}
                       {(() => {
                         const n = hitCount(patternFrom(picked.trim(), true))
+                        // 여러 군데 맞아도 앞 라벨로 그 자리를 집을 수 있으면 문제 아니다
+                        const willAnchor = n > 1 && !!anchoredLoose(picked.trim(), pickCtx)
+                        const willFreeze = n > 1 && !willAnchor
                         return (
                           <button
                             className="btn small"
                             type="button"
                             title={`변수로 뽑습니다 — 수는 아무 수나 맞습니다\n${varPreview(picked, true)}${
-                              n > 1 ? `\n이 응답에서 ${n}군데에 맞습니다 — 고른 값 그대로로 담습니다` : ''
-                            }`}
+                              willAnchor ? '\n앞 라벨로 그 자리를 집습니다 — 값이 바뀌면 따라갑니다' : ''
+                            }${willFreeze ? `\n이 응답에서 ${n}군데에 맞고 라벨로도 못 좁혀 고른 값 그대로 담습니다` : ''}`}
                             onClick={() => {
                               addVarFromBlock(picked, true)
                               setPicked('')
                             }}
                           >
                             변수로 (수는 아무 수나)
-                            {/* 여러 군데 맞으면 누르기 **전에** 알린다 — 누른 뒤
-                                알면 이미 엉뚱한 값이 담긴 뒤다 */}
-                            {n > 1 && <i className="sd-hit">{n}군데</i>}
+                            {/* 라벨로 집으면 「그 자리」, 못 좁히면 「N군데」(진짜 문제) */}
+                            {willAnchor && <i className="sd-anchor">그 자리</i>}
+                            {willFreeze && <i className="sd-hit">{n}군데</i>}
                           </button>
                         )
                       })()}
