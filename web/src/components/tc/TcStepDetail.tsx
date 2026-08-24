@@ -63,6 +63,8 @@ interface Props {
    * 누르게 하지 말고 여기서 한 번에 넣는다.
    */
   block?: { empty: boolean; after: number; wrap: (n: number) => void }
+  /** 감싸는 반복의 **값 목록**을 채운다 — 표에서 고른 행들이 그대로 들어간다 */
+  onLoopList?: (list: string) => void
   /**
    * 보기만 하는 판.
    *
@@ -116,6 +118,7 @@ export default function TcStepDetail({
   meterCfg,
   onGoTraffic,
   block,
+  onLoopList,
   loopVar,
   stepList,
   readOnly = false,
@@ -1528,6 +1531,9 @@ export default function TcStepDetail({
                      뒤엣것이 앞엣것을 조용히 덮어써서 왜 값이 다른지 모른다 */
                   const keep = (step.queries ?? []).filter((x) => x.var !== q.var)
                   onChange({ queries: [...keep, { var: q.var, col: q.col, where: q.where }] })
+                  /* 고른 행들을 감싸는 반복에 그대로 넣는다 — 여기서 안 넣으면
+                     사람이 그 목록을 손으로 다시 옮겨 적어야 한다 */
+                  if (q.list) onLoopList?.(q.list)
                   setCapOpen(false)
                 }}
               />

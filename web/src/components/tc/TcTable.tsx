@@ -24,8 +24,8 @@ interface Props {
    * 무엇을 만드나」 뿐이라 화면을 둘로 나누지 않는다.
    */
   mode?: 'judge' | 'capture'
-  /** capture — 이대로 변수로 */
-  onCapture?: (q: { var: string; col: string; where: string }) => void
+  /** capture — 이대로 변수로. `list` 는 감싸는 반복이 돌 값 목록이다 */
+  onCapture?: (q: { var: string; col: string; where: string; list?: string }) => void
   /** capture — 이미 쓰고 있는 변수 이름(겹치면 덮어써 버린다) */
   takenVars?: string[]
   /**
@@ -156,19 +156,30 @@ export default function TcTable({
    * 숫자 자리가 다르게 생겼으면(Po12 ↔ Te0/3) 규칙이 안 나온다 — 그때는
    * 한 행만 보는 것으로 둔다.
    */
-  const rng = (() => {
-    const m1 = /^(.*?)(\d+)(\D*)$/.exec(rowA)
-    const m2 = /^(.*?)(\d+)(\D*)$/.exec(rowB)
-    if (!m1 || !m2 || m1[1] !== m2[1] || m1[3] !== m2[3]) return null
-    const from = Number(m1[2])
-    const to = Number(m2[2])
-    if (!Number.isFinite(from) || !Number.isFinite(to) || to < from) return null
-    return { pre: m1[1] ?? '', suf: m1[3] ?? '', from, to }
+  /**
+   * 시작 행 ~ 마지막 행 = **표에 있는 그 행들**.
+   *
+   * 여태는 두 행의 끝 숫자로 등차수열을 만들었다. 포트 이름처럼 1씩 늘어나는
+   * 자리에서는 맞았지만, 번호가 띄엄띄엄하면 헛것이 나온다(지적) — OID
+   * `…1.5.113` 과 `…1.5.1001` 을 고르면 113~1001, **889행**을 돈다고 나오고
+   * 그 사이 대부분은 있지도 않은 행이다. Po12·22·42·52 도 마찬가지로 없는
+   * Po32 를 찾다가 「그런 행이 없습니다」 가 됐다.
+   *
+   * 사람이 고른 것은 「113번부터 1001번까지의 수」가 아니라 **화면에서 이
+   * 줄부터 저 줄까지**다. 그러면 표의 차례대로 그 사이 행을 그대로 쓰면 된다.
+   */
+  const rowsBetween = (() => {
+    if (!tbl || !rowA || !rowB || rowA === rowB) return []
+    const kvs = tbl.rows.map((r) => r[keyAt] ?? '')
+    const a = kvs.indexOf(rowA)
+    const b = kvs.indexOf(rowB)
+    if (a < 0 || b < 0) return []
+    const [lo, hi] = a <= b ? [a, b] : [b, a]
+    return kvs.slice(lo, hi + 1).filter(Boolean)
   })()
   const lv = loopVar || 'i'
-  /** 만들어지는 행 조건 — 여럿이면 `${i}` 자리로, 하나면 그 값 그대로 */
-  const capWhereAuto =
-    rng && rng.to > rng.from ? `${rng.pre}\${${lv}}${rng.suf}` : rowA || rowB
+  /** 만들어지는 행 조건 — 여러 행이면 `${i}` 자리로, 하나면 그 값 그대로 */
+  const capWhereAuto = rowsBetween.length > 1 ? `\${${lv}}` : rowA || rowB
   const allOn = allKvs.length > 0 && allKvs.every((v) => keys.includes(v))
   /** 행 하나 고르기 — Shift 면 지난 번 누른 행부터 범위로 */
   const pickRow = (r: number, kv: string, shift: boolean) => {
@@ -508,44 +519,39 @@ export default function TcTable({
           {/* 무엇이 만들어지는지 사람 말로 — 문법은 안 보여 준다 */}
           <span className="tb-live">
             {capCol && (rowA || rowB) ? (
-              rng && rng.to > rng.from ? (
+              rowsBetween.length > 1 ? (
                 <>
                   <b>
                     {rowA} ~ {rowB}
                   </b>{' '}
-                  {rng.to - rng.from + 1}행 · 회차{' '}
+                  {rowsBetween.length}행 · 회차{' '}
                   <input
                     className="tb-in n"
                     value={capN}
-                    onChange={(e) => setCapN(e.target.value.replace(/\D/g, '') || String(rng.from))}
+                    onChange={(e) => setCapN(e.target.value.replace(/\D/g, '') || '1')}
                   />{' '}
                   일 때 <b>{capVar || '변수'}</b> ={' '}
                   <b>
                     {(() => {
+                      const idx = Math.max(1, Math.min(rowsBetween.length, Number(capN) || 1)) - 1
                       const g = tableCapture(
                         text,
                         { col: capCol, where: `${keyCol}=${quoteVal(capWhereAuto)}` },
-                        { [lv]: capN },
+                        { [lv]: String(rowsBetween[idx] ?? '') },
                       )
                       return g === null ? '(그런 행이 없습니다)' : g || '(빈 칸)'
                     })()}
                   </b>{' '}
+                  {/* 반복이 무엇을 돌게 되는지 그대로 보여 준다 — 숫자 범위가
+                      아니라 **이 행들**이다(지적: 행 순서대로 넣고 싶은 건데) */}
                   <i className="muted">
-                    반복은 {rng.from} ~ {rng.to} 로 두세요 (지금 반복 변수 ${'{'}
-                    {lv}
-                    {'}'})
+                    반복은 이 {rowsBetween.length}행을 차례로 돕니다 ({rowsBetween.slice(0, 3).join(' · ')}
+                    {rowsBetween.length > 3 ? ' …' : ''}) — 「이대로 변수로」 를 누르면 감싸는 반복의 목록에
+                    함께 넣습니다
                   </i>
                 </>
               ) : (
                 <>
-                  {/* 마지막 행을 골랐는데 규칙이 안 나오면 그것은 조용히
-                      무시된다 — 고른 사람은 24행이 담기는 줄 안다(지적).
-                      무시하고 있다는 것을 화면이 말해야 한다 */}
-                  {rowA && rowB && (
-                    <i className="tb-warn">
-                      {rowA} 와 {rowB} 는 번호 꼴이 달라 범위가 안 됩니다 — 시작 행만 담습니다
-                    </i>
-                  )}
                   <b>{rowA || rowB}</b> 한 행 · <b>{capVar || '변수'}</b> ={' '}
                   <b>
                     {(() => {
@@ -580,6 +586,8 @@ export default function TcTable({
                 var: capVar,
                 col: capCol,
                 where: `${keyCol}=${quoteVal(capWhereAuto)}`,
+                // 감싸는 반복이 돌 값 — 사람이 고른 그 행들 그대로
+                ...(rowsBetween.length > 1 ? { list: rowsBetween.join(', ') } : {}),
               })
             }
           >

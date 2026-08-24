@@ -456,6 +456,20 @@ function deviceOf(ctx: RunCtx, step: TcStep): { dev?: Device; error?: string } {
  * 회차 번호를 권할 때 쓴다 — 반복 안인데 `Te0/13` 을 그대로 두면 24회를
  * 돌려도 같은 줄만 스물네 번 본다.
  */
+/** 이 스텝을 감싸는 반복이 **몇 번째 줄**인가 — 그 반복의 값 목록을 채우려면 필요하다 */
+export function loopIndexAt(steps: TcStep[], at: number): number {
+  if (at < 0) return -1
+  let depth = Number(steps[at]?.indent ?? 0)
+  for (let i = at - 1; i >= 0; i--) {
+    const d = Number(steps[i]?.indent ?? 0)
+    if (d >= depth) continue
+    depth = d
+    if (steps[i]?.kind === 'loop') return i
+    if (depth === 0) break
+  }
+  return -1
+}
+
 export function loopVarAt(steps: TcStep[], at: number): string {
   if (at < 0) return ''
   let depth = Number(steps[at]?.indent ?? 0)

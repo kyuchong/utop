@@ -76,7 +76,14 @@ import {
   type Requirement,
   type TestCaseMeta,
 } from '@/types'
-import { blockEnd, loopVarAt, runPicked, runSteps, type RunCtx } from '@/components/tc/runner'
+import {
+  blockEnd,
+  loopIndexAt,
+  loopVarAt,
+  runPicked,
+  runSteps,
+  type RunCtx,
+} from '@/components/tc/runner'
 import { extractOne } from '@/components/tc/judge'
 import type { PickItem } from '@/components/tc/PickList'
 import {
@@ -2338,6 +2345,19 @@ export default function TestCases({ me }: PageProps) {
                     onGoTraffic={() => setTab('traffic')}
                     block={blockInfo}
                     loopVar={loopVarAt(shownSteps, stepIdx)}
+                    /* 표에서 고른 행들을 감싸는 반복의 값 목록으로 — 손으로
+                       다시 옮겨 적게 하지 않는다 */
+                    onLoopList={(list) => {
+                      const at = loopIndexAt(shownSteps, stepIdx)
+                      if (at < 0) return
+                      patchStep(at, {
+                        forList: list,
+                        forFrom: undefined,
+                        forTo: undefined,
+                        loopCount: undefined,
+                        loopVar: shownSteps[at]?.loopVar || 'i',
+                      })
+                    }}
                     /* If 가 「몇 번 스텝으로 이동」 을 고를 수 있게 목록을 넘긴다 */
                     /* 목록에 보이는 번호(2.1 · 2.1.1)를 그대로 쓴다 —
                        고르개만 1,2,3 이면 어느 줄인지 못 찾는다(지적) */
