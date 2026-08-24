@@ -14,7 +14,12 @@ export interface InfoCol {
   k: string
   label: string
   w: string
+  /** 설정의 코드 종류(req_status 등) — 만든 칸은 없다 */
+  kind?: string
 }
+
+/** 열 폭의 **기본값**(지시: 기본 40, 손으로 조절). 설정에서 정하면 그것이 이긴다 */
+export const COL_W_DEFAULT = 40
 
 const BASE: Record<'req' | 'tc' | 'cycle', Array<{ kind: string; k: string; label: string; w: string }>> = {
   req: [
@@ -50,6 +55,18 @@ export function useInfoCols(target: 'req' | 'tc' | 'cycle'): InfoCol[] {
     },
     staleTime: 30_000,
   })
+  /* 열 폭은 **설정이 정본**이다(지시) — 세 화면이 여기 한 곳에서 받아 간다.
+     여태 요구사항만 이 값을 읽었고 시험항목·사이클은 코드에 박힌 폭을
+     썼다. 한 군데서 정하지 않으면 「설정했는데 안 바뀐다」가 된다. */
+  const styleQ = useQuery({
+    queryKey: ['code-kind-style'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes/kind-style')
+      if (!r.ok) return { styles: {} as Record<string, { w?: string }> }
+      return (await r.json()) as { styles: Record<string, { w?: string }> }
+    },
+    staleTime: 30_000,
+  })
   const cfQ = useQuery({
     queryKey: ['custom-fields', target],
     // cycle 은 커스텀 필드 대상이 아니다 (CF_TARGETS = tc·req)
@@ -64,13 +81,22 @@ export function useInfoCols(target: 'req' | 'tc' | 'cycle'): InfoCol[] {
   })
   return useMemo(() => {
     const kinds = kindsQ.data?.kinds
+    const styles = styleQ.data?.styles ?? {}
     const base = BASE[target]
       // 숨긴(비활성) 기본 칸은 kinds 에서 빠져서 온다
       .filter((b) => !kinds || b.kind in kinds)
-      .map((b) => ({ k: b.k, label: kinds?.[b.kind] || b.label, w: b.w }))
+      .map((b) => {
+        const w = Number(styles[b.kind]?.w)
+        return {
+          k: b.k,
+          label: kinds?.[b.kind] || b.label,
+          kind: b.kind,
+          w: `${Number.isFinite(w) && w > 0 ? w : COL_W_DEFAULT}px`,
+        }
+      })
     const cf = (cfQ.data?.items ?? [])
       .filter((f) => f.show_list !== false)
       .map((f) => ({ k: `cf_${f.key}`, label: f.label, w: 'minmax(72px, 110px)' }))
     return [...base, ...cf]
-  }, [kindsQ.data, cfQ.data, target])
+  }, [kindsQ.data, cfQ.data, styleQ.data, target])
 }

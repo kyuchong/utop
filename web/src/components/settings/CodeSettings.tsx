@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import './SetTabs.css'
@@ -6,6 +6,7 @@ import { ColorPick } from './ColorPick'
 import { cfOptions, type CfMeta, type CustomField } from '@/hooks/useCustomFields'
 import MarkdownEditor from '@/components/MarkdownEditorLazy'
 import { defaultBg } from '@/lib/fieldFill'
+import { COL_W_DEFAULT } from '@/components/useInfoCols'
 
 interface Item {
   kind: string
@@ -202,6 +203,20 @@ export default function CodeSettings({ target }: Props) {
     staleTime: 30_000,
   })
   const kstyle = styleQ.data?.styles?.[kind] ?? {}
+  /**
+   * 폭은 **누르는 즉시** 반영한다(지적: 30 은 되는데 바로 조정이 안 된다).
+   *
+   * 여태 칸을 떠날 때(onBlur)만 저장해서, 위·아래 화살표를 눌러도 화면이
+   * 그대로였다. 폭은 눈으로 맞추는 값이라 한 칸 올릴 때마다 보여야 한다.
+   * 다만 화살표를 연타할 때마다 저장하면 통신이 줄줄이 나가므로 잠깐
+   * 기다렸다가 마지막 값 하나만 보낸다.
+   */
+  const wTimer = useRef<number | null>(null)
+  const bumpW = (v: string) => {
+    if (wTimer.current) window.clearTimeout(wTimer.current)
+    wTimer.current = window.setTimeout(() => saveKindStyle({ w: v }), 250)
+  }
+
   const saveKindStyle = (patch: Partial<KStyle>) => {
     void apiFetch('/api/codes/kind-style', {
       method: 'POST',
@@ -625,13 +640,18 @@ export default function CodeSettings({ target }: Props) {
               <div className="dc-kstyle">
                 <label>
                   <span>폭</span>
+                  {/* 폭은 늘 **손으로 정하는 값**이다(지시). 「자동」으로 비워
+                      두면 어디서 정해지는지 알 수 없었다 — 기본 40 을 넣어
+                      두고 거기서 올리고 내린다. 40 아래도 된다(지적) */}
                   <input
+                    key={kind}
                     type="number"
-                    min={40}
+                    min={20}
                     max={400}
-                    placeholder="자동"
-                    defaultValue={kstyle.w ?? ''}
-                    title="목록에서 이 열이 차지할 px. 비우면 기본값"
+                    step={2}
+                    defaultValue={kstyle.w || String(COL_W_DEFAULT)}
+                    title="목록에서 이 열이 차지할 px — 기본 40"
+                    onChange={(e) => bumpW(e.target.value)}
                     onBlur={(e) => saveKindStyle({ w: e.target.value })}
                   />
                   <i className="muted small">px</i>
@@ -754,7 +774,7 @@ export default function CodeSettings({ target }: Props) {
                               style={{
                                 background: bg,
                                 color: fg,
-                                width: kstyle.w ? `${Number(kstyle.w)}px` : undefined,
+                                width: `${Number(kstyle.w) || COL_W_DEFAULT}px`,
                                 fontWeight: Number(kstyle.weight || 700),
                                 fontSize: `${Number(kstyle.size || 12)}px`,
                                 fontFamily:
@@ -765,11 +785,11 @@ export default function CodeSettings({ target }: Props) {
                                       : undefined,
                                 textTransform: kstyle.caps === 'upper' ? 'uppercase' : undefined,
                               }}
-                              title={`목록에서 이렇게 보입니다 — 폭 ${kstyle.w || '기본'}`}
+                              title={`목록에서 이렇게 보입니다 — 폭 ${kstyle.w || COL_W_DEFAULT}px`}
                             >
                               {v}
                             </i>
-                            <span className="muted small">{kstyle.w ? `${kstyle.w}px` : '자동'}</span>
+                            <span className="muted small">{`${Number(kstyle.w) || COL_W_DEFAULT}px`}</span>
                           </span>
                         )
                       })()}

@@ -613,18 +613,10 @@ export default function Requirements({ me }: Props) {
       absolute 방식은 환경에 따라 안 보이는 곳에 열렸다(피드백: 반응 없음). */
   const [reqGearAt, setReqGearAt] = useState<{ x: number; y: number } | null>(null)
   const reqVisCols = infoCols.filter((c) => reqCols.has(c.k))
-  const reqGrid = (() => {
-    /* 열 폭은 **설정이 정본**이다(지시) — 안 정했으면 코드의 기본값 */
-    const W: Record<string, string> = { f_status: 'req_status', f_priority: 'req_priority' }
-    const cols = reqVisCols
-      .map((c) => {
-        const k = W[c.k]
-        const w = k ? kstyleQ.data?.styles?.[k]?.w : ''
-        return w ? `${Number(w)}px` : c.w
-      })
-      .join(' ')
-    return `26px minmax(0, 1fr) 84px 76px 38px 50px ${cols}`.trim()
-  })()
+  /* 열 폭은 **설정이 정본**이다(지시) — useInfoCols 가 이미 그것을 들고 온다 */
+  const reqGrid = `26px minmax(0, 1fr) 84px 76px 38px 50px ${reqVisCols
+    .map((c) => c.w)
+    .join(' ')}`.trim()
 
   /** 소속 프로젝트의 모델그룹·모델명 — 요구사항에는 모델 필드가 없다.
       프로젝트가 모델을 고정하므로(정책) 사슬 맨 위(cat1)에서 상속해 보인다. */
