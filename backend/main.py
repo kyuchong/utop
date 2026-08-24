@@ -5279,7 +5279,8 @@ async def tc_last_result():
     반영되고 있는 건가). 판정은 실행 화면과 같은 규칙(_item_verdict)으로
     스텝에서 유도한다.
 
-    가장 나중에 손댄 사이클 것이 이긴다.
+    **가장 나중에 돌린 것**이 이긴다 — 사이클을 고친 시각이 아니라 항목을
+    실행한 시각(`last_run`)으로 고른다.
     """
     try:
         async with db.pool().acquire() as c:
@@ -5292,28 +5293,44 @@ async def tc_last_result():
             )
     except Exception as e:
         return {"items": {}, "error": str(e)[:200]}
-    out: dict = {}
+    def _when(v) -> str:
+        """시각 문자열을 견줄 수 있는 한 가지 꼴로. 자료에 `2026-06-29 14:53:44`
+        와 `2026-06-29T14:53:44` 가 섞여 있어, 그대로 견주면 같은 순간인데도
+        T 쪽이 늘 나중으로 읽힌다."""
+        return str(v or "")[:19].replace("T", " ")
+
+    best: dict = {}
     for r in rows:
         items = r["items"] if isinstance(r["items"], list) else []
+        cyc_at = r["updated_at"].isoformat() if r["updated_at"] else ""
         for it in items:
             if not isinstance(it, dict):
                 continue
             t = str(it.get("tcid") or "").strip()
-            if not t or t in out:
-                continue        # 앞엣것이 가장 나중에 손댄 사이클이다
+            if not t:
+                continue
             v = _item_verdict(it)
             if not v:
                 continue        # 아직 안 돌린 항목은 「최근 결과」 가 아니다
+            # **언제 돌렸나**로 고른다(지적: 실행했을 때 Pass 인데 안 바뀐다).
+            # 여태는 「사이클을 마지막으로 고친 시각」 순으로 앞엣것을 썼다.
+            # 그래서 같은 시험이 두 사이클에 들어 있으면, 어제 Pass 로 돌린
+            # 것이 아니라 오늘 이름만 고친 사이클의 옛 Fail 이 이겼다. 말풍선의
+            # 시각도 실행 시각이 아니라 사이클을 고친 시각이었다.
+            at = _when(it.get("last_run")) or _when(cyc_at)
+            prev = best.get(t)
+            if prev and prev[0] >= at:
+                continue
             # 화면 딱지는 설정(실행 판정 기준)의 값 이름을 쓴다 — PASS/FAIL
             # 대문자를 그 이름으로 되돌린다
             label = {"PASS": "Pass", "FAIL": "Fail", "N/A": "진행불가", "BLOCKED": "Blocked"}.get(v, v)
-            out[t] = {
+            best[t] = (at, {
                 "result": label,
                 "cycle_id": str(r["id"] or ""),
                 "cycle_name": str(r["name"] or ""),
-                "at": r["updated_at"].isoformat() if r["updated_at"] else "",
-            }
-    return {"items": out}
+                "at": str(it.get("last_run") or cyc_at or ""),
+            })
+    return {"items": {k: val for k, (_, val) in best.items()}}
 
 
 @app.get("/api/tc")
