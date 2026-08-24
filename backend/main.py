@@ -6673,20 +6673,28 @@ async def run_cli_stream(payload: dict):
         _lk_got = True
         try:
             try:
+                # netmiko 는 **블로킹**이다. 접속·enable·프롬프트 찾기를 async 안에서
+                # 그대로 부르면, 그 몇 초 동안 **이벤트 루프 전체가 선다** — 같은
+                # 반복의 SNMP 도, 남의 요청도, health 까지 멎는다(지적: 반복이 많은
+                # 시험이 엄청 느리거나 멈춘다). 48회 반복이면 그 멈춤이 48번 쌓인다.
+                # 스레드로 밀어내면 기다리는 동안에도 서버는 계속 돈다.
                 if payload.get("require_session"):
                     conn = ent.get("conn")
                     if conn is None:
                         try:
-                            conn = _ensure_conn(ent, params)
+                            conn = await asyncio.to_thread(_ensure_conn, ent, params)
                         except Exception as _re0s:
                             yield _sse({"err": "세션이 열려 있지 않습니다 — 자동 재접속 실패: " + _conn_fail_msg(params, _re0s)}); yield _sse({"done": True}); return
-                    ent["ts"] = _t.time(); _force_enable(conn, params, ent)
+                    ent["ts"] = _t.time()
+                    await asyncio.to_thread(_force_enable, conn, params, ent)
                 else:
-                    conn = _ensure_conn(ent, params)
+                    conn = await asyncio.to_thread(_ensure_conn, ent, params)
                 ent["ts"] = _t.time()
                 bp = (getattr(conn, "base_prompt", "") or "").strip().rstrip("#>$ ").split("(")[0].strip()
                 if not bp:
-                    try: bp = (conn.find_prompt() or "").strip().rstrip("#>$ ").split("(")[0].strip()
+                    try:
+                        _fp = await asyncio.to_thread(conn.find_prompt)
+                        bp = (_fp or "").strip().rstrip("#>$ ").split("(")[0].strip()
                     except Exception: bp = ""
                 pr = (_restr.escape(bp) + r"\S*[#>]\s*$") if bp else None
                 for cmd in commands:
@@ -6694,10 +6702,10 @@ async def run_cli_stream(payload: dict):
                     await asyncio.sleep(0)
                     # 스텝을 나눠 보내면 그 사이 설정 모드가 풀릴 수 있다 —
                     # 풀렸으면 쌓아 둔 문맥을 조용히 되밟는다(지시: 프롬프트 유지)
-                    _cfg_ctx_keep(conn, ent, cmd)
-                    try: conn.read_channel()
+                    await asyncio.to_thread(_cfg_ctx_keep, conn, ent, cmd)
+                    try: await asyncio.to_thread(conn.read_channel)
                     except Exception: pass
-                    conn.write_channel(cmd + "\n")
+                    await asyncio.to_thread(conn.write_channel, cmd + "\n")
                     _cfg_ctx_note(ent, cmd)
                     echo_done = False; pending = ""; idle = 0; dl = _tstr.time() + 30
                     while _tstr.time() < dl:
