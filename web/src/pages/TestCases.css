@@ -3545,3 +3545,16 @@ html .tc-listview .rq-tr > div.tc-cell-fill.al-left { justify-content: flex-star
 html .tc-listview .rq-tr > div.tc-cell-fill.al-center { justify-content: center; }
 /* 통채움 안의 값이 잘리지 않게 — 칸을 다 쓰고 넘치면 … 로 */
 .tc-mfill .pick-live { width: 100%; min-width: 0; text-overflow: ellipsis; font-size: inherit; }
+
+/* 표에서 값 뽑기 — 고른 것이 조용히 무시될 때 그것을 말해 주는 한 줄.
+   마지막 행을 골랐는데 번호 꼴이 달라 범위가 안 되면, 여태는 아무 말 없이
+   시작 행 하나만 담겼다. 고른 사람은 24행이 담기는 줄 안다(지적). */
+.tb-warn {
+  font-style: normal;
+  margin-right: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--c-warn-bg, #fff4e5);
+  color: var(--c-warn, #b25e09);
+  font-size: var(--fs-xs);
+}
