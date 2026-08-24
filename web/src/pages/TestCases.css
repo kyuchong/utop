@@ -2540,7 +2540,25 @@ table.tb tr.r-bad td:first-child {
   display: flex;
   flex-direction: column;
 }
-.pp-q { margin: 8px 12px; }
+/* 검색칸 — 여태 테두리·바탕 없는 날 것 입력칸이라 모달 밖으로 삐져나왔다
+   (지적). 표준 모달 입력칸 꼴로 두고, flex 열에서 stretch 로 늘지 않게
+   폭을 모달 안(양옆 12px)으로 가둔다. box-sizing:border-box 는 전역이다. */
+.pp-q {
+  display: block;
+  align-self: stretch;
+  margin: 10px 12px;
+  padding: 8px 10px;
+  border: 1px solid #b6bec8;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-md);
+}
+.pp-q:focus {
+  outline: 2px solid var(--c-primary-bg);
+  border-color: var(--c-primary);
+}
 .pp-body { flex: 1; min-height: 0; overflow: auto; padding-bottom: 8px; }
 /* 어느 파일 것인가 — 같은 이름이 여러 파일에 있으면 뒤가 앞을 덮는다 */
 .pp-file {
