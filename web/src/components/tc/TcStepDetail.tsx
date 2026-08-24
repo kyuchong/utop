@@ -124,6 +124,8 @@ export default function TcStepDetail({
   readOnly = false,
 }: Props) {
   const [picked, setPicked] = useState('')
+  /** 뽑기에서 알려 줄 말 한 줄 — 조용히 다르게 담으면 왜 값이 다른지 모른다 */
+  const [capNote, setCapNote] = useState('')
   /** 눌린 블럭 — [변수로 · 있으면 합격 · 있으면 불합격] 메뉴가 뜬 자리 */
   const [blockAt, setBlockAt] = useState<{ v: string; x: number; y: number; kind?: 'col' } | null>(null)
   const [tblOpen, setTblOpen] = useState(false)
@@ -377,7 +379,28 @@ export default function TcStepDetail({
       고르기 전에 결과를 볼 수 있어야 한다 */
   const varPreview = (text: string, loose: boolean) => `찾는 자국: ${patternFrom(text.trim(), loose)}`
 
-  /** 블럭 → 변수. 이름은 자동(varN) — 창(prompt)은 파이어폭스에서 막힌다 */
+  /** 이 자국이 지금 응답에서 **몇 군데** 맞나 */
+  const hitCount = (pat: string): number => {
+    try {
+      return (capSrc.match(new RegExp(pat, 'gm')) ?? []).length
+    } catch {
+      return 0
+    }
+  }
+
+  /**
+   * 블럭 → 변수. 이름은 자동(varN) — 창(prompt)은 파이어폭스에서 막힌다.
+   *
+   * 느슨한 자국이 **여러 군데 맞으면 고른 값 그대로**로 되돌린다(지적).
+   *
+   * SNMP walk 처럼 같은 꼴이 줄줄이 있는 응답에서, 둘째 줄
+   * `…1.1.1001 = 1001` 을 끌면 수가 전부 `\d+` 가 되어 맨 위 `…1.1.113 = 113`
+   * 에 먼저 맞는다 — 정규식은 늘 처음 맞는 자리를 잡는다. 고른 줄이 아니라
+   * 엉뚱한 줄이 담기고, 그것을 견주니 늘 부적합이 났다.
+   *
+   * 한 군데만 맞을 때에만 느슨하게 둔다. 그때는 「돌릴 때마다 달라지는 수」
+   * 라는 뜻이 맞다.
+   */
   const addVarFromBlock = (text: string, loose = true) => {
     const used = new Set([...takenVars, ...mine])
     let name = 'var1'
@@ -387,9 +410,15 @@ export default function TcStepDetail({
         break
       }
     }
-    onChange({
-      queries: [...(step.queries ?? []), { q: `(${patternFrom(text.trim(), loose)})`, var: name }],
-    })
+    const t = text.trim()
+    let pat = patternFrom(t, loose)
+    if (loose && hitCount(pat) > 1) {
+      pat = patternFrom(t, false)
+      setCapNote(
+        `수를 풀면 이 응답에서 여러 줄에 맞아 첫 줄이 담깁니다 — 고른 값 그대로로 담았습니다. 줄마다 돌려 가며 보려면 「표에서 값 뽑기」 를 쓰세요.`,
+      )
+    }
+    onChange({ queries: [...(step.queries ?? []), { q: `(${pat})`, var: name }] })
   }
 
   /** 응답에서 글자를 고르면 판정·변수로 만들 수 있게 잡아둔다 */
@@ -1636,17 +1665,27 @@ export default function TcStepDetail({
                       {/* 수가 매번 달라지는 자리(시각·카운터)를 위해 **느슨하게**
                           가 기본이다. 수 자체가 답인 자리(「0 errors」)를 위해
                           「이 값 그대로」 도 옆에 둔다 */}
-                      <button
-                        className="btn small"
-                        type="button"
-                        title={`변수로 뽑습니다 — 수는 아무 수나 맞습니다\n${varPreview(picked, true)}`}
-                        onClick={() => {
-                          addVarFromBlock(picked, true)
-                          setPicked('')
-                        }}
-                      >
-                        변수로 (수는 아무 수나)
-                      </button>
+                      {(() => {
+                        const n = hitCount(patternFrom(picked.trim(), true))
+                        return (
+                          <button
+                            className="btn small"
+                            type="button"
+                            title={`변수로 뽑습니다 — 수는 아무 수나 맞습니다\n${varPreview(picked, true)}${
+                              n > 1 ? `\n이 응답에서 ${n}군데에 맞습니다 — 고른 값 그대로로 담습니다` : ''
+                            }`}
+                            onClick={() => {
+                              addVarFromBlock(picked, true)
+                              setPicked('')
+                            }}
+                          >
+                            변수로 (수는 아무 수나)
+                            {/* 여러 군데 맞으면 누르기 **전에** 알린다 — 누른 뒤
+                                알면 이미 엉뚱한 값이 담긴 뒤다 */}
+                            {n > 1 && <i className="sd-hit">{n}군데</i>}
+                          </button>
+                        )
+                      })()}
                       <button
                         className="btn small"
                         type="button"
@@ -1696,6 +1735,10 @@ export default function TcStepDetail({
                         이 줄 제외
                       </button>
                     </>
+                  ) : capNote ? (
+                    <span className="sd-capnote" onClick={() => setCapNote('')} title="눌러서 지웁니다">
+                      {capNote}
+                    </span>
                   ) : (
                     <span className="muted small">
                       네모 친 값을 누르거나 글자를 끌어 기준·변수를 만듭니다 — 칩이 모두
