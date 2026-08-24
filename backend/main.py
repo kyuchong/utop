@@ -7300,6 +7300,44 @@ async def snmp_oids(q: str = "", limit: int = 50):
     }
 
 
+async def _snmp_write_comms(host: str) -> list:
+    """SET 에 시도할 **쓰기 커뮤니티 후보**를 차례로.
+
+    장비마다 관례가 다르다: 어떤 건 읽기 public·쓰기 private, 어떤 건
+    public 하나로 읽기·쓰기 다 된다(public-RW). 하나만 골라 보내면 한쪽
+    장비에서 늘 막힌다(지적: 수동 .8.2 는 되는데 도구는 noSuchName). 그래서
+    **여러 개를 차례로** 시도한다 — 실패한 SET 은 장비를 바꾸지 않으니 안전하다.
+
+    차례: 등록된 쓰기 커뮤니티 → 등록된 읽기 커뮤니티 → private → public.
+    """
+    out = []
+    try:
+        host = (host or "").strip()
+        ro = wo = ""
+        for d in await db.device_list(with_ifs=False):
+            if str(d.get("ip") or "").strip() != host:
+                continue
+            snmp = _acc_of(d, "snmp")
+            params = snmp.get("params") or {}
+            for _ in range(2):
+                if isinstance(params, str):
+                    try:
+                        params = json.loads(params)
+                    except Exception:
+                        params = {}
+            if not isinstance(params, dict):
+                params = {}
+            ro = snmp.get("username") or snmp.get("community") or ""
+            wo = params.get("community_rw") or ""
+            break
+        for c in (wo, ro, "private", "public"):
+            if c and c not in out:
+                out.append(c)
+    except Exception:
+        out = ["private", "public"]
+    return out or ["private", "public"]
+
+
 async def _snmp_comm_for(host: str, rw: bool):
     """이 IP 장비에 **저장된 커뮤니티**를 찾는다.
 
@@ -7438,7 +7476,10 @@ async def snmp_set_api(payload: dict):
     value = payload.get("value")
     value = "" if value is None else str(value)
     # 쓰기 커뮤니티는 장비에 등록된 것을 먼저 쓴다(지적: noAccess). 없으면 private.
-    community = payload.get("community") or await _snmp_comm_for(host, rw=True) or "private"
+    # 명시했으면 그것만. 아니면 여러 쓰기 커뮤니티를 차례로 시도한다(지적).
+    _explicit = payload.get("community")
+    comm_cands = [_explicit] if _explicit else (await _snmp_write_comms(host))
+    community = comm_cands[0]
     ver = (payload.get("version") or "v2c").lower()
     vtype = (payload.get("type") or "").strip().lower()   # 선택: i/s/u/a … 없으면 자동(숫자→정수, 그 외→문자열)
     _load_snmp_enums()                                     # enum 맵 최신화
@@ -7484,7 +7525,6 @@ async def snmp_set_api(payload: dict):
             cands = ["i", "u", "c", "g"] if (_digits.isdigit() and value not in ("", "-")) else ["s"]
         eng = SnmpEngine()
         transport = await UdpTransportTarget.create((host, port), timeout=3, retries=1)
-        auth = CommunityData(community, mpModel=mp)
         last_err = None
         # OID 후보 — 스칼라는 인스턴스 `.0` 을 찍어야 SET 이 먹는다.
         # `…3.6`(객체)으로 SET 하면 딱 noAccess 가 난다(지적: 커뮤니티도 RW 인데
@@ -7496,7 +7536,14 @@ async def snmp_set_api(payload: dict):
         if _last_arc != "0":
             oid_cands.append(_bare + ".0")
         _used_oid = oid
-        for oi, _oid in enumerate(oid_cands):
+        _used_comm = community
+        # 커뮤니티 후보를 바깥에서 돈다 — 하나가 막히면(noAccess/noSuchName 등)
+        # 다음 커뮤니티로. 실패한 SET 은 장비를 안 바꾸므로 안전하다.
+        for cmi, community in enumerate(comm_cands):
+         _used_comm = community
+         auth = CommunityData(community, mpModel=mp)
+         _comm_blocked = False
+         for oi, _oid in enumerate(oid_cands):
           _used_oid = _oid
           for ci, tt in enumerate(cands):
             try:
@@ -7511,8 +7558,14 @@ async def snmp_set_api(payload: dict):
                 es = str(errStat.prettyPrint()); last_err = es
                 if "wrongType" in es and ci < len(cands) - 1:
                     continue   # 타입 불일치 → 다음 후보 타입으로 재시도
+                _blockish = any(x in es for x in (
+                    "noAccess", "noSuchName", "noSuchInstance", "notWritable", "authorizationError"))
                 # 인스턴스 문제로 보이면 `.0` 붙인 다음 OID 후보로 넘어간다
-                if ("noAccess" in es or "noSuchName" in es or "notWritable" in es) and oi < len(oid_cands) - 1:
+                if _blockish and oi < len(oid_cands) - 1:
+                    break
+                # OID 를 다 써도 막히면 **다음 커뮤니티**로 (public-RW vs private-RW)
+                if _blockish and cmi < len(comm_cands) - 1:
+                    _comm_blocked = True
                     break
                 _tnn = _SNMP_TYPE_NAMES.get(tt, tt)
                 _hint = "\n→ 보낸 값: [" + str(value) + "] 타입: " + _tnn   # 실제 전송된 값/타입 (auto→3 변환 확인용)
@@ -7540,6 +7593,8 @@ async def snmp_set_api(payload: dict):
                     _hint += "\n→ 타입 불일치. [i:" + value + "]·[u:" + value + "]·[c:" + value + "]·[g:" + value + "]·[s:..]·[x:HEX] 로 지정 가능"
                 elif "genErr" in es:
                     _hint += "\n→ genErr = 장비가 SET 거부. ① 백엔드(uvicorn) 재시작 여부 확인(enum 이름→정수 변환) ② 해당 포트 상태/쓰기권한 ③ 듀플렉스 auto는 장비에 따라 SET 불가일 수 있음"
+                if not _explicit and len(comm_cands) > 1:
+                    _hint += "\n→ 시도한 커뮤니티: " + " · ".join(comm_cands) + " (다 거부). 맞는 쓰기 커뮤니티를 Devices 의 SNMP 줄에 넣으세요."
                 return {"ok": False, "error": es, "output": "[SNMP SET 실패] " + es + _hint}
             lines = []
             for vb in varBinds:
@@ -7549,6 +7604,8 @@ async def snmp_set_api(payload: dict):
                     lines.append(str(vb))
             _tn = _SNMP_TYPE_NAMES.get(tt, tt)
             _note = "" if _used_oid == oid else ("\n→ 인스턴스 `.0` 을 붙여 성공했습니다 (" + _used_oid + "). 스칼라 OID 는 끝에 .0 이 있어야 SET 이 먹습니다.")
+            if not _explicit and _used_comm != comm_cands[0]:
+                _note += "\n→ 쓰기 커뮤니티 '" + str(_used_comm) + "' 로 됐습니다. Devices 에 넣어 두면 다음부턴 바로 됩니다."
             return {"ok": True, "output": "[SNMP SET OK] (type=" + _tn + ")\n" + ("\n".join(lines) if lines else (_used_oid + " = " + value)) + _note, "mode": "set"}
         return {"ok": False, "error": last_err or "SET 실패", "output": "[SNMP SET 오류] " + str(last_err or "")}
     except Exception as e:
