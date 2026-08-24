@@ -7422,6 +7422,10 @@ async def snmp_get_api(payload: dict):
         from pysnmp.hlapi.v3arch.asyncio import (
             SnmpEngine, CommunityData, UdpTransportTarget, ContextData,
             ObjectType, ObjectIdentity, get_cmd, walk_cmd)
+        try:
+            from pysnmp.hlapi.v3arch.asyncio import bulk_walk_cmd as _bulk_walk_cmd
+        except Exception:
+            _bulk_walk_cmd = None
         eng = SnmpEngine()
         # 첫 패킷이 늦으면 이 시간을 다 기다린다 — 가끔 3s 씩 튀던 까닭이다
         # (지적). 짧게 잡고 재시도 1 로 유실만 메꾼다.
@@ -7431,9 +7435,18 @@ async def snmp_get_api(payload: dict):
         async def _do_walk():
             rows = []
             try:
-                async for (eInd, eStat, eIdx, vbs) in walk_cmd(
+                # v2c(mp==1) 면 GETBULK — 한 번에 여러 행을 받아 왕복·유실을 줄인다.
+                # v1 이나 미지원이면 GETNEXT(walk_cmd)로 떨어진다.
+                if _bulk_walk_cmd is not None and mp == 1:
+                    _walker = _bulk_walk_cmd(
                         eng, auth, transport, ContextData(),
-                        ObjectType(ObjectIdentity(oid)), lexicographicMode=False):
+                        0, 25,
+                        ObjectType(ObjectIdentity(oid)), lexicographicMode=False)
+                else:
+                    _walker = walk_cmd(
+                        eng, auth, transport, ContextData(),
+                        ObjectType(ObjectIdentity(oid)), lexicographicMode=False)
+                async for (eInd, eStat, eIdx, vbs) in _walker:
                     if eInd or eStat:
                         break
                     for vb in vbs:
