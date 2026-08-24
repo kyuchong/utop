@@ -7407,7 +7407,9 @@ async def snmp_get_api(payload: dict):
             SnmpEngine, CommunityData, UdpTransportTarget, ContextData,
             ObjectType, ObjectIdentity, get_cmd, walk_cmd)
         eng = SnmpEngine()
-        transport = await UdpTransportTarget.create((host, port), timeout=3, retries=1)
+        # 첫 패킷이 늦으면 이 시간을 다 기다린다 — 가끔 3s 씩 튀던 까닭이다
+        # (지적). 짧게 잡고 재시도 1 로 유실만 메꾼다.
+        transport = await UdpTransportTarget.create((host, port), timeout=1.2, retries=1)
         auth = CommunityData(community, mpModel=mp)
 
         async def _do_walk():
