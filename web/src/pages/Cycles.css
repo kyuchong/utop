@@ -1289,7 +1289,7 @@ select.cy-v.na { color: #999; }
 /* Ctrl·Shift 로 고른 항목. 네모 없이 줄 자체가 칠해진다 */
 /* 고른 줄은 **채움만** — 두 화면과 같게(승인). 왼쪽 띠·외곽선은 뺐다 */
 .cy-row.picked {
-  background: var(--c-primary-bg);
+  background: var(--sel-bg, var(--c-primary-bg));
 }
 
 /* Shift+누르기가 글자 선택으로도 잡힌다 — 목록에서는 막는다.

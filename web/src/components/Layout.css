@@ -541,6 +541,13 @@
 .main[data-page='requirements'] { --page-tint: #e8f1fd; --page-ink: #1f5fa8; }
 .main[data-page='testcases']    { --page-tint: #e9f6ec; --page-ink: #1f7a45; }
 .main[data-page='cycles']       { --page-tint: #f0ebfb; --page-ink: #5b3bb5; }
+/* 고른 자리 색 — 위 두 값에서 그대로 온다(theme.css 의 --sel-* 참조) */
+.main[data-page='requirements'],
+.main[data-page='testcases'],
+.main[data-page='cycles'] {
+  --sel-bg: var(--page-tint);
+  --sel-ink: var(--page-ink);
+}
 .main[data-page='requirements'],
 .main[data-page='testcases'],
 .main[data-page='cycles'] { --page-bg: #f2f4f7; }

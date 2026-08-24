@@ -910,7 +910,7 @@ a.tc-name:hover { color: var(--c-primary); text-decoration: underline; }
 /* 체크박스 칸 · 고른 줄 */
 .rq-ck { display: flex; align-items: center; }
 .rq-ck input { margin: 0; }
-.rq-tr.picked { background: var(--c-primary-bg); }
+.rq-tr.picked { background: var(--sel-bg, var(--c-primary-bg)); }
 
 /* Select All | Selected : N — 시험항목과 같은 자리·같은 높이(지시) */
 .rq-selbar {

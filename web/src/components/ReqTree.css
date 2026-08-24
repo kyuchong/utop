@@ -5,7 +5,8 @@
 .rt {
   --rt-r: 6px;
   --rt-hover: #f2f5f8;
-  --rt-sel: #eaf1fb;
+  /* 고른 줄 바탕 — 화면 색을 따른다(요구사항 파랑·시험항목 녹색·사이클 보라) */
+  --rt-sel: var(--sel-bg, #eaf1fb);
   --rt-line: #e8ecf0;
   /* 줄 구분선. 테두리색(--rt-line)보다 더 옅어야 '선을 그었다'는 느낌이
      안 난다 — 있는 줄 모르지만 없으면 눈이 새는 정도. */
@@ -90,7 +91,7 @@
    있는지가 오른쪽 패널이 무엇을 보여주는지를 정한다. */
 .rt-fold.on,
 .rt-fold.on:hover { background: var(--rt-sel); }
-.rt-fold.on .rt-fname { color: var(--c-primary); }
+.rt-fold.on .rt-fname { color: var(--sel-ink, var(--c-primary)); }
 
 /* 끌어온 요구사항을 받을 수 있는 폴더 */
 .rt-fold.dropinto {
@@ -190,7 +191,7 @@
 /* 고른 줄은 첫째든 셋째든 같아 보여야 한다. 열려 있는 것만 굵게 두었더니
    Ctrl 로 더 고른 줄은 흐린 채라 「골라진 건가」 싶다. */
 .rt-req.on .rt-title,
-.rt-req.picked .rt-title { font-weight: 700; color: var(--c-primary); }
+.rt-req.picked .rt-title { font-weight: 700; color: var(--sel-ink, var(--c-primary)); }
 
 /* 끌고 있는 줄은 흐리게 — 어느 것을 옮기는 중인지 보인다 */
 .rt-req.dragging { opacity: 0.4; }

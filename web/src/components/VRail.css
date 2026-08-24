@@ -53,7 +53,7 @@
 .vrail-b.on {
   background: var(--c-surface);
   border-color: var(--c-border);
-  color: var(--c-primary);
+  color: var(--sel-ink, var(--c-primary));
   box-shadow: 0 1px 2px rgb(16 24 40 / 0.06);
 }
 .vrail-b.on > i { opacity: 1; }
@@ -66,7 +66,7 @@
   bottom: 6px;
   width: 3px;
   border-radius: 0 3px 3px 0;
-  background: var(--c-primary);
+  background: var(--sel-ink, var(--c-primary));
 }
 
 /* 개수 — 아이콘 아래 숫자 */
@@ -81,8 +81,8 @@
   padding: 2px 5px;
 }
 .vrail-b.on .vrail-n {
-  color: var(--c-primary);
-  background: var(--c-primary-bg);
+  color: var(--sel-ink, var(--c-primary));
+  background: var(--sel-bg, var(--c-primary-bg));
 }
 
 /* 이름 — 올렸을 때만 오른쪽 말풍선.
