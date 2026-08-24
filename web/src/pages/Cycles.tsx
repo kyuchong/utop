@@ -53,6 +53,7 @@ import { isJudgeStep, stepVerdict, type StepRound, type TcStep } from '@/compone
 import '@/components/ReqTree.css'
 import './Cycles.css'
 import { fillOf } from '@/lib/fieldFill'
+import { useKindStyle } from '@/components/useKindStyle'
 
 /** 사이클 한 건 — 목록용 요약(`/api/cycle?meta=1`) */
 export interface CycleMeta {
@@ -2454,11 +2455,14 @@ function CycleBoard({
   })
 
   /** 통채움 색 — SETUP 값 색이 정본, 없으면 Monday 팔레트(승인 A안) */
+  /* 칸의 색·모양·정렬·글꼴은 모두 설정이 정본이다(지시) — 세 화면이 같은 부품 */
+  const { fontOf: kfont, shapeCls, alignCls } = useKindStyle()
   /** 기본색은 한 곳에서 온다(lib/fieldFill) — 설정 화면이 보여 주는 그 색이다 */
-  const cyFill = (kind: string, value: string): string => {
-    if (!value) return ''
+  const cyFill = (kind: string, value: string): { background: string; color: string } | undefined => {
+    if (!value) return undefined
     const it = (codesAll.data?.items ?? []).find((x) => x.kind === kind && x.value === value)
-    return fillOf(it?.note, value).bg
+    const f = fillOf(it?.note, value)
+    return { background: f.bg, color: f.fg }
   }
   /** 통채움 칸 하나 — 셀이 곧 드롭다운이다 */
   const cyCell = (
@@ -2468,8 +2472,11 @@ function CycleBoard({
     opts: readonly string[],
     onSave: (x: string) => void,
   ) => (
-    <span className="cyt-cell-fill" key={key}>
-      <span className={`cyt-mfill${v ? '' : ' none'}`} style={v ? { background: cyFill(kind, v) } : undefined}>
+    <span className={`cyt-cell-fill ${alignCls(kind)}`} key={key}>
+      <span
+        className={`cyt-mfill${v ? ` ${shapeCls(kind)}` : ' none'}`}
+        style={v ? { ...cyFill(kind, v), ...kfont(kind) } : undefined}
+      >
         <PickCell value={v} opts={opts} onSave={onSave} />
       </span>
     </span>

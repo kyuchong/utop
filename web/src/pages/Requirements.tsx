@@ -42,6 +42,7 @@ import {
 } from '@/types'
 import './Requirements.css'
 import { fillOf } from '@/lib/fieldFill'
+import { useKindStyle } from '@/components/useKindStyle'
 
 /**
  * REQ ↔ TC 연결 화면.
@@ -322,41 +323,8 @@ export default function Requirements({ me }: Props) {
     },
     staleTime: 60_000,
   })
-  /** 필드(탭) 단위 생김새 — SETUP › INFO 필드에서 정한 폭·모양·정렬(지시) */
-  const kstyleQ = useQuery({
-    queryKey: ['code-kind-style'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/codes/kind-style')
-      if (!r.ok) throw new Error('필드 모양을 불러오지 못했습니다')
-      return (await r.json()) as {
-        styles: Record<string, {
-          w?: string
-          shape?: string
-          align?: string
-          weight?: string
-          size?: string
-          font?: string
-          caps?: string
-        }>
-      }
-    },
-    staleTime: 30_000,
-  })
-  const kstyle = (kind: string) => kstyleQ.data?.styles?.[kind] ?? {}
-  /** 설정한 글꼴을 실제 칸에 입힌다(지시) */
-  const kfont = (kind: string): React.CSSProperties => {
-    const k = kstyle(kind)
-    return {
-      fontWeight: Number(k.weight || 700),
-      fontSize: `${Number(k.size || 12)}px`,
-      ...(k.font === 'mono'
-        ? { fontFamily: 'var(--font-mono)' }
-        : k.font === 'serif'
-          ? { fontFamily: 'Georgia, "Noto Serif KR", serif' }
-          : {}),
-      ...(k.caps === 'upper' ? { textTransform: 'uppercase' as const } : {}),
-    }
-  }
+  /* 필드 한 칸의 생김새 — 세 화면이 같은 부품을 쓴다(useKindStyle) */
+  const { styleOf: kstyle, fontOf: kfont } = useKindStyle()
 
   /** 기본색은 한 곳에서 온다(lib/fieldFill) — 설정 화면이 보여 주는 그 색이다 */
   const codeFill = (kind: string, value: string): { bg: string; fg: string } => {

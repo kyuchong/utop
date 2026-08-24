@@ -94,6 +94,7 @@ import {
 } from '@/components/tc/types'
 import './TestCases.css'
 import { fillOf } from '@/lib/fieldFill'
+import { useKindStyle } from '@/components/useKindStyle'
 
 type Tab = 'steps' | 'info' | 'env' | 'topo' | 'traffic' | 'manual' | 'history' | 'cycle'
 
@@ -1696,6 +1697,8 @@ export default function TestCases({ me }: PageProps) {
     },
     staleTime: 60_000,
   })
+  /* 칸의 모양·정렬·글꼴도 설정이 정본이다(지시) — 세 화면이 같은 부품 */
+  const { fontOf: kfont, shapeCls, alignCls } = useKindStyle()
   /** 기본색은 한 곳에서 온다(lib/fieldFill) — 설정 화면이 보여 주는 그 색이다.
       바탕뿐 아니라 **글자색도 설정이 정본**이다(지시) */
   const codeFill = (kind: string, value: string): { bg: string; fg: string } => {
@@ -1713,9 +1716,12 @@ export default function TestCases({ me }: PageProps) {
   ) => {
     const f = codeFill(kind, v)
     return (
-      <div className="tc-cell-fill" key={k}>
+      <div className={`tc-cell-fill ${alignCls(kind)}`} key={k}>
         {v ? (
-          <div className="tc-mfill" style={{ background: f.bg, color: f.fg }}>
+          <div
+            className={`tc-mfill ${shapeCls(kind)}`}
+            style={{ background: f.bg, color: f.fg, ...kfont(kind) }}
+          >
             {pick(t, k, v, opts)}
           </div>
         ) : (
