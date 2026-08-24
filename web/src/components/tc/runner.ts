@@ -1379,7 +1379,10 @@ function seedVars(ctx: RunCtx, upto: number, vars: Record<string, string>) {
     if (!s || (s.kind || 'cli') !== 'loop') continue
     const name = String(s.loopVar ?? '').trim()
     // 이 스텝을 감싸고 있는 반복만 — 이미 끝난 반복은 값을 남기지 않는다
-    if (name && blockEnd(ctx.steps, i) > upto) vars[name] = String(s.forFrom ?? 1)
+    if (name && blockEnd(ctx.steps, i) > upto) {
+      const first = String(s.forList ?? '').split(/[,\s]+/).map((x) => x.trim()).filter(Boolean)[0]
+      vars[name] = first ?? String(s.forFrom ?? 1)
+    }
   }
   for (let i = 0; i < upto && i < ctx.steps.length; i++) {
     const s = ctx.steps[i]
@@ -1637,9 +1640,17 @@ export async function runSteps(
         const from0 = Number(s.forFrom ?? 1)
         const to0 = Number(s.forTo ?? s.loopCount ?? 1)
         const stepBy = Math.max(1, Number(s.forStep ?? 1))
+        /* 값 **목록** — 등차가 아닌 자리를 위한 것(지적: Po12·22·42·52).
+           범위는 12,13,14… 로 돌기 때문에 띄엄띄엄한 번호는 표현이 안 되고,
+           증가 10 으로 두면 없는 Po32 를 찾다가 「그런 행이 없습니다」 가 된다. */
+        const list = String(s.forList ?? '')
+          .split(/[,\s]+/)
+          .map((x) => x.trim())
+          .filter(Boolean)
         // 자료에 forFrom/forTo 와 loopCount 두 형태가 있다. 없으면 1회.
-        const times =
-          s.forFrom !== undefined && s.forTo !== undefined
+        const times = list.length
+          ? list.length
+          : s.forFrom !== undefined && s.forTo !== undefined
             ? Math.max(0, Math.floor((to0 - from0) / stepBy) + 1)
             : Math.max(1, Number(s.loopCount ?? 1))
         /*
@@ -1703,7 +1714,7 @@ export async function runSteps(
         for (let n = 0; n < rounds; n++) {
           if (ctx.signal.aborted) break
           round = n + 1
-          if (s.loopVar) vars[s.loopVar] = String(from0 + n * stepBy)
+          if (s.loopVar) vars[s.loopVar] = list.length ? String(list[n]) : String(from0 + n * stepBy)
           for (let j = i + 1; j < body; j++) lastPatch.delete(j)
           await walk(i + 1, body)
           for (let j = i + 1; j < body; j++) {

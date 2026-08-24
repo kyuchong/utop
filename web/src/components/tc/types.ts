@@ -372,6 +372,8 @@ export interface TcStep {
   forFrom?: number
   forTo?: number
   forStep?: number
+  /** 반복 값 **목록** — `12,22,42,52`. 등차가 아닌 자리(띄엄띄엄한 포트 번호)용 */
+  forList?: string
   /** kind=diff — 견줄 두 값과 견주는 법 */
   cmpLeft?: string
   cmpOp?: string

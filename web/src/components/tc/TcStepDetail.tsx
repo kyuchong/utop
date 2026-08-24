@@ -286,6 +286,8 @@ export default function TcStepDetail({
   ].filter((x): x is string => !!x)
   /** 반복 방식 — 자료에 '몇 회' 와 '범위' 두 형태가 섞여 있다 */
   const loopByRange = step.forFrom !== undefined && step.forTo !== undefined
+  /** 값 목록으로 도는 반복 — 등차가 아닌 번호(Po12·22·42·52)를 위한 것 */
+  const loopByList = String(step.forList ?? '').trim() !== ''
 
   /**
    * 판정 칩 — rules 가 정본. 없으면 옛 type·criteria 를 칩으로 읽어 보여주고,
@@ -1049,6 +1051,7 @@ export default function TcStepDetail({
                   className={`seg-btn${loopByRange ? '' : ' on'}`}
                   onClick={() =>
                     onChange({
+                      forList: '',
                       forFrom: undefined,
                       forTo: undefined,
                       loopCount: step.loopCount ?? 3,
@@ -1059,9 +1062,10 @@ export default function TcStepDetail({
                 </button>
                 <button
                   type="button"
-                  className={`seg-btn${loopByRange ? ' on' : ''}`}
+                  className={`seg-btn${loopByRange && !loopByList ? ' on' : ''}`}
                   onClick={() =>
                     onChange({
+                      forList: '',
                       forFrom: step.forFrom ?? 1,
                       forTo: step.forTo ?? 24,
                       loopVar: step.loopVar || 'i',
@@ -1070,10 +1074,55 @@ export default function TcStepDetail({
                 >
                   범위 (포트 번호 …)
                 </button>
+                {/* 띄엄띄엄한 번호는 범위로 표현이 안 된다(지적: Po12·22·42·52).
+                    등차로 두면 없는 Po32 를 찾다가 「그런 행이 없습니다」 가 된다 */}
+                <button
+                  type="button"
+                  className={`seg-btn${loopByList ? ' on' : ''}`}
+                  onClick={() =>
+                    onChange({
+                      forList: step.forList || '',
+                      forFrom: undefined,
+                      forTo: undefined,
+                      loopCount: undefined,
+                      loopVar: step.loopVar || 'i',
+                    })
+                  }
+                >
+                  목록 (12,22,42 …)
+                </button>
               </div>
             </div>
 
-            {loopByRange ? (
+            {loopByList ? (
+              <div className="sd-f">
+                <span>값 목록 · 담을 변수</span>
+                <div className="sd-row">
+                  <input
+                    className="mono"
+                    value={step.forList ?? ''}
+                    placeholder="12, 22, 42, 52"
+                    title="쉼표로 나눕니다 — 회차마다 이 값이 차례로 들어갑니다"
+                    onChange={(e) => onChange({ forList: e.target.value })}
+                  />
+                  <input
+                    className="mono sd-narrow"
+                    value={step.loopVar ?? ''}
+                    placeholder="i"
+                    onChange={(e) => onChange({ loopVar: e.target.value })}
+                  />
+                </div>
+                <span className="sd-hint">
+                  {(() => {
+                    const vs = String(step.forList ?? '').split(/[,\s]+/).map((x) => x.trim()).filter(Boolean)
+                    const lv2 = step.loopVar || 'i'
+                    return vs.length
+                      ? `${vs.length}회 돕니다 — \${${lv2}} 에 ${vs.slice(0, 4).join(' · ')}${vs.length > 4 ? ' …' : ''} 가 차례로 들어갑니다`
+                      : '번호가 띄엄띄엄한 자리에 씁니다 — 예: Po12, Po22, Po42, Po52'
+                  })()}
+                </span>
+              </div>
+            ) : loopByRange ? (
               <div className="sd-f">
                 <span>범위 · 증가 · 담을 변수</span>
                 <div className="sd-row">
