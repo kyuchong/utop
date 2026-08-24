@@ -2545,7 +2545,12 @@ table.tb tr.r-bad td:first-child {
    폭을 모달 안(양옆 12px)으로 가둔다. box-sizing:border-box 는 전역이다. */
 .pp-q {
   display: block;
-  align-self: stretch;
+  box-sizing: border-box;
+  /* 폭을 **계산으로 못박는다** — stretch 는 input 에서 브라우저마다 살짝
+     넘칠 여지가 있다(지적: pp-q 가 튀어나온다). 모달 안쪽 폭(100%)에서 양옆
+     여백 24px 를 뺀 만큼만 차지 → 절대 안 넘친다. */
+  width: calc(100% - 24px);
+  max-width: calc(100% - 24px);
   margin: 10px 12px;
   padding: 8px 10px;
   border: 1px solid #b6bec8;
