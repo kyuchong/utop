@@ -127,8 +127,6 @@ export default function TcStepDetail({
   const [picked, setPicked] = useState('')
   /** 고른 값 **앞의 같은 줄 글자**(라벨) — 숫자만으로는 어느 숫자인지 못 집는다 */
   const [pickCtx, setPickCtx] = useState('')
-  /** 고른 값이 **숫자 일부**인가(앞/뒤에 숫자가 더 있다) — 그럼 느슨하게 풀면 안 된다 */
-  const [pickCut, setPickCut] = useState(false)
   /** 뽑기에서 알려 줄 말 한 줄 — 조용히 다르게 담으면 왜 값이 다른지 모른다 */
   const [capNote, setCapNote] = useState('')
   /** 눌린 블럭 — [변수로 · 있으면 합격 · 있으면 불합격] 메뉴가 뜬 자리 */
@@ -454,15 +452,8 @@ export default function TcStepDetail({
       }
     }
     const t = text.trim()
-    // 고른 값이 **숫자 일부**면 느슨하게 풀지 않는다(지적: 462 만 끌었는데
-    // 462324 가 담긴다). `\d+` 로 풀면 앞/뒤에 붙은 나머지 자리까지 삼킨다 —
-    // 고른 그대로 잡아야 462 는 462 다.
-    const effLoose = loose && !pickCut
-    if (loose && pickCut) {
-      setCapNote('고른 값이 숫자 일부라, 붙은 나머지 자리를 삼키지 않게 고른 그대로 담았습니다. 수 전체를 원하면 그 숫자를 통째로 드래그하세요.')
-    }
-    let q = `(${patternFrom(t, effLoose)})`
-    if (effLoose && hitCount(patternFrom(t, true)) > 1) {
+    let q = `(${patternFrom(t, loose)})`
+    if (loose && hitCount(patternFrom(t, true)) > 1) {
       // 여러 군데 맞는다 — 앞 라벨로 그 자리를 집어 본다
       const anchored = anchoredLoose(t, pickCtx)
       if (anchored) {
@@ -482,46 +473,45 @@ export default function TcStepDetail({
   /** 응답에서 글자를 고르면 판정·변수로 만들 수 있게 잡아둔다 */
   const grab = () => {
     const sel = window.getSelection()
-    const t = sel?.toString() ?? ''
-    if (!t.trim()) return
-    setPicked(t.trim())
+    const raw = sel?.toString() ?? ''
+    if (!raw.trim()) return
     /*
-     * 고른 값 **앞의 글자**(라벨)를 함께 잡아 둔다 — 숫자만으로는 어느 숫자인지
-     * 못 집는다.
+     * 드래그한 **그 자리의 값**을 잡는다(지적: 고정값 말고 그 영역의 값).
      *
-     * 여기서 `startContainer.textContent` 를 쓰면 안 된다(지적: 고쳤더니 안 된다).
-     * 출력은 값마다 상자로 감싸 그리므로 DOM 이 여러 조각으로 나뉜다 — 선택이
-     * 시작된 **그 조각의 글자만** 잡혀서 앞 라벨이 통째로 빠졌다. 그러면 자국을
-     * 한 곳으로 못 좁혀 「고른 값 그대로」(고정)로 떨어졌다.
+     * Range 로 출력 전체 글자에서 선택의 절대 위치를 구한다. 출력은 값마다
+     * 상자로 감싸 DOM 이 조각나 있는데, `host.textContent` + Range 오프셋을
+     * 쓰면 그 조각 경계와 상관없이 실제로 보이는 글자 그대로 다룰 수 있다.
      *
-     * Range 로 **출력 처음부터 선택 시작까지**를 잘라 읽는다. 조각 경계와
-     * 상관없이 실제로 눈에 보이는 앞글자가 그대로 나온다.
+     * 숫자를 건드렸으면 **그 수 전체**로 넓힌다 — `462188` 중 `462` 만 끌어도
+     * 그 수(462188)를 잡는다. 그래야 다음 실행에서 462XXX 로 바뀌어도 그 자리를
+     * 따라간다(느슨한 `\d+`). 「462 만」 을 글자 그대로 담으면 다음 값과 안 맞는다.
      */
+    let picked2 = raw.trim()
     let ctx = ''
     try {
       const r = sel!.getRangeAt(0)
       const node = r.startContainer
       const el = (node.nodeType === 1 ? (node as Element) : node.parentElement) as Element | null
-      const host = el?.closest('pre, .sd-res') ?? el
+      const host = (el?.closest('pre, .sd-res') ?? el) as Element | null
       if (host) {
+        const full = host.textContent ?? ''
         const pre = document.createRange()
         pre.selectNodeContents(host)
         pre.setEnd(r.startContainer, r.startOffset)
-        ctx = pre.toString().slice(-200)   // 앞 200자면 라벨을 찾기에 넉넉하다
-        /* 선택이 **숫자를 자르고** 들어갔는지 본다(지적: 462 만 끌었는데 462324
-           가 담긴다). 고른 글자 바로 앞/뒤가 숫자면, `\d+` 로 풀 때 붙어 있는
-           나머지 자리까지 삼킨다 — 그럴 땐 고른 그대로 잡아야 한다. Range 로
-           앞 한 글자·뒤 한 글자를 정확히 읽는다. */
-        const before = ctx.slice(-1)
-        const after = document.createRange()
-        after.selectNodeContents(host)
-        after.setStart(r.endContainer, r.endOffset)
-        const post = after.toString().slice(0, 1)
-        setPickCut(/\d/.test(before) || /\d/.test(post))
+        let start = pre.toString().length
+        let end = start + raw.length
+        // 숫자를 건드렸으면 앞뒤로 붙은 숫자까지 그 수 전체로 넓힌다
+        if (/\d/.test(full.slice(start, end))) {
+          while (start > 0 && /\d/.test(full[start - 1] ?? '')) start -= 1
+          while (end < full.length && /\d/.test(full[end] ?? '')) end += 1
+          picked2 = full.slice(start, end)
+        }
+        ctx = full.slice(Math.max(0, start - 200), start)   // 앞 라벨
       }
     } catch {
-      /* 위치를 못 잡으면 라벨 없이 간다 — 옛 동작 그대로 */
+      /* 위치를 못 잡으면 넓히지 않고 고른 글자 그대로 — 옛 동작 */
     }
+    setPicked(picked2.trim())
     setPickCtx(ctx)
   }
 
