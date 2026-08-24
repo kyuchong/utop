@@ -7589,80 +7589,87 @@ async def snmp_set_api(payload: dict):
         _last_arc = _bare.rsplit(".", 1)[-1] if "." in _bare else ""
         if _last_arc != "0":
             oid_cands.append(_bare + ".0")
-        _used_oid = oid
-        _used_comm = community
-        # 커뮤니티 후보를 바깥에서 돈다 — 하나가 막히면(noAccess/noSuchName 등)
-        # 다음 커뮤니티로. 실패한 SET 은 장비를 안 바꾸므로 안전하다.
-        for cmi, community in enumerate(comm_cands):
-         _used_comm = community
-         auth = CommunityData(community, mpModel=mp)
-         _comm_blocked = False
-         for oi, _oid in enumerate(oid_cands):
-          _used_oid = _oid
-          for ci, tt in enumerate(cands):
+        # 시도 목록을 **한 겹으로 펼친다** — 버전 × 커뮤니티 × OID × 타입.
+        # 중첩을 쌓으면 어디서 빠져나왔는지 알 수 없고, 보고하는 오류도 마지막
+        # 시도 것이 되어 엉뚱한 곳을 가리킨다(지적: private RW 인데 거부).
+        #
+        # 버전: 명시했으면 그것만. 아니면 v2c 뒤에 v1 도 본다 — 수동 snmpset 은
+        # 버전을 안 주면 흔히 v1 로 나가고, 그것만 쓰기를 받는 장비가 있다.
+        ver_cands = [ver] if payload.get("version") else ([ver, "v1"] if ver != "v1" else ["v1"])
+        attempts = []
+        for _vr in ver_cands:
+            for _cm in comm_cands:
+                for _od in oid_cands:
+                    for _tt in cands:
+                        attempts.append((_vr, _cm, _od, _tt))
+        _used_oid, _used_comm, _used_ver = oid, community, ver
+        _first_err = None       # 원래 OID·첫 커뮤니티의 오류 — 보고는 이걸로
+        _tried = []             # 무엇을 어떻게 보냈는지 (진단용)
+        for _vr, _cm, _od, tt in attempts:
+            _used_oid, _used_comm, _used_ver = _od, _cm, _vr
             try:
                 pv = _mkval(tt, value)
             except Exception as ex:
                 last_err = str(ex); continue
+            auth = CommunityData(_cm, mpModel=(0 if _vr == "v1" else 1))
             errInd, errStat, errIdx, varBinds = await set_cmd(
-                eng, auth, transport, ContextData(), ObjectType(ObjectIdentity(_oid), pv))
+                eng, auth, transport, ContextData(), ObjectType(ObjectIdentity(_od), pv))
             if errInd:
                 return {"ok": False, "error": str(errInd), "output": "[SNMP SET] " + str(errInd)}
             if errStat:
                 es = str(errStat.prettyPrint()); last_err = es
-                if "wrongType" in es and ci < len(cands) - 1:
-                    continue   # 타입 불일치 → 다음 후보 타입으로 재시도
-                _blockish = any(x in es for x in (
-                    "noAccess", "noSuchName", "noSuchInstance", "notWritable", "authorizationError"))
-                # 인스턴스 문제로 보이면 `.0` 붙인 다음 OID 후보로 넘어간다
-                if _blockish and oi < len(oid_cands) - 1:
-                    break
-                # OID 를 다 써도 막히면 **다음 커뮤니티**로 (public-RW vs private-RW)
-                if _blockish and cmi < len(comm_cands) - 1:
-                    _comm_blocked = True
-                    break
-                _tnn = _SNMP_TYPE_NAMES.get(tt, tt)
-                _hint = "\n→ 보낸 값: [" + str(value) + "] 타입: " + _tnn   # 실제 전송된 값/타입 (auto→3 변환 확인용)
-                # 이 OID에 enum이 있으면 유효값 안내
-                try:
-                    _ps = oid.split("."); _em2 = None
-                    for _cut in (1, 2, 0):
-                        _cand = ".".join(_ps[: len(_ps) - _cut]) if _cut else oid
-                        if SNMP_ENUM_MAP.get(_cand):
-                            _em2 = SNMP_ENUM_MAP[_cand]; break
-                    if _em2:
-                        _hint += "\n→ 유효값: " + ", ".join(nm + "(" + k + ")" for k, nm in sorted(_em2.items(), key=lambda x: int(x[0])))
-                except Exception:
-                    pass
-                if "noAccess" in es or "authorizationError" in es or "notWritable" in es:
-                    _hint += ("\n→ 장비가 쓰기를 거부했습니다(" + es + "). 커뮤니티는 **읽기(public)와 쓰기가 다릅니다** — "
-                              "Devices 에서 이 장비의 SNMP 줄에 **쓰기 커뮤니티(community_rw)** 를 넣으세요. "
-                              "장비에서도 그 커뮤니티에 write 권한과 이 OID 뷰가 열려 있어야 합니다.")
-                if "noSuchName" in es or "noSuchInstance" in es or "noCreation" in es:
-                    _hint += ("\n→ 보낸 OID: " + _used_oid + " — 이 인스턴스로는 SET 이 안 됩니다. "
-                              "① 그 번호가 맞는지(CLI 포트 번호 ≠ SNMP ifIndex 인 장비가 많습니다 — te0/2 가 ifIndex 2 가 아닐 수 있음). "
-                              "② 읽기는 되는데 SET 이 noSuchName 이면 그 OID 가 이 장비에선 쓰기 불가일 수 있습니다. "
-                              "③ 수동 snmpset 이 되면 그때 쓴 OID·버전(-v1/-v2c)·커뮤니티를 그대로 맞춰 보세요.")
-                if "wrongType" in es:
-                    _hint += "\n→ 타입 불일치. [i:" + value + "]·[u:" + value + "]·[c:" + value + "]·[g:" + value + "]·[s:..]·[x:HEX] 로 지정 가능"
-                elif "genErr" in es:
-                    _hint += "\n→ genErr = 장비가 SET 거부. ① 백엔드(uvicorn) 재시작 여부 확인(enum 이름→정수 변환) ② 해당 포트 상태/쓰기권한 ③ 듀플렉스 auto는 장비에 따라 SET 불가일 수 있음"
-                if not _explicit and len(comm_cands) > 1:
-                    _hint += "\n→ 시도한 커뮤니티: " + " · ".join(comm_cands) + " (다 거부). 맞는 쓰기 커뮤니티를 Devices 의 SNMP 줄에 넣으세요."
-                return {"ok": False, "error": es, "output": "[SNMP SET 실패] " + es + _hint}
-            lines = []
+                _sig = _vr + "/" + str(_cm) + " " + _od + " (" + _SNMP_TYPE_NAMES.get(tt, tt) + ")"
+                if _sig not in _tried:
+                    _tried.append(_sig)
+                if _first_err is None:
+                    _first_err = (es, _od, _cm, _vr, tt)
+                continue        # 다음 시도로 — 다 해 보고 아래에서 보고한다
+            # ── 성공 ──
+            lines2 = []
             for vb in varBinds:
                 try:
-                    lines.append(vb[0].prettyPrint() + " = " + _snmp_val_str(vb[1]))
+                    lines2.append(vb[0].prettyPrint() + " = " + _snmp_val_str(vb[1]))
                 except Exception:
-                    lines.append(str(vb))
+                    lines2.append(str(vb))
             _tn = _SNMP_TYPE_NAMES.get(tt, tt)
-            _note = "" if _used_oid == oid else ("\n→ 인스턴스 `.0` 을 붙여 성공했습니다 (" + _used_oid + "). 스칼라 OID 는 끝에 .0 이 있어야 SET 이 먹습니다.")
-            if not _explicit:
-                _SNMP_WCOMM_CACHE[host] = _used_comm   # 다음 반복부턴 이걸 먼저
+            _note = ""
+            if _used_oid != oid:
+                _note += "\n\u2192 \uc778\uc2a4\ud134\uc2a4 `.0` \uc744 \ubd99\uc5ec \uc131\uacf5\ud588\uc2b5\ub2c8\ub2e4 (" + _used_oid + ")."
             if not _explicit and _used_comm != comm_cands[0]:
-                _note += "\n→ 쓰기 커뮤니티 '" + str(_used_comm) + "' 로 됐습니다. Devices 에 넣어 두면 다음부턴 바로 됩니다."
-            return {"ok": True, "output": "[SNMP SET OK] (type=" + _tn + ")\n" + ("\n".join(lines) if lines else (_used_oid + " = " + value)) + _note, "mode": "set"}
+                _note += "\n\u2192 \uc4f0\uae30 \ucee4\ubba4\ub2c8\ud2f0 '" + str(_used_comm) + "' \ub85c \ub410\uc2b5\ub2c8\ub2e4. Devices \uc5d0 \ub123\uc5b4 \ub450\uba74 \ub2e4\uc74c\ubd80\ud134 \ubc14\ub85c \ub429\ub2c8\ub2e4."
+            if _used_ver != ver:
+                _note += "\n\u2192 SNMP " + _used_ver + " \ub85c \ub410\uc2b5\ub2c8\ub2e4 (v2c \ub294 \uac70\ubd80). \uc7a5\ube44 SNMP \uc124\uc815\uc758 \ubc84\uc804\uc744 " + _used_ver + " \ub85c \ub450\uc138\uc694."
+            if not _explicit:
+                _SNMP_WCOMM_CACHE[host] = _used_comm
+            return {"ok": True, "output": "[SNMP SET OK] (type=" + _tn + ")\n" + ("\n".join(lines2) if lines2 else (_used_oid + " = " + value)) + _note, "mode": "set"}
+
+        # ── 다 실패 ── 원래 OID·첫 시도의 오류로 보고한다(마지막 것은 `.0` 등 곁가지다)
+        if _first_err:
+            es, _eo, _ec, _ev2, _et = _first_err
+            _tnn = _SNMP_TYPE_NAMES.get(_et, _et)
+            _hint = "\n\u2192 \ubcf4\ub0b8 \uac12: [" + str(value) + "] \ud0c0\uc785: " + _tnn
+            _hint += "\n\u2192 \ubcf4\ub0b8 OID: " + _eo + " · \ucee4\ubba4\ub2c8\ud2f0: " + str(_ec) + " · \ubc84\uc804: " + _ev2
+            try:
+                _ps = oid.split("."); _em2 = None
+                for _cut in (1, 2, 0):
+                    _cand = ".".join(_ps[: len(_ps) - _cut]) if _cut else oid
+                    if SNMP_ENUM_MAP.get(_cand):
+                        _em2 = SNMP_ENUM_MAP[_cand]; break
+                if _em2:
+                    _hint += "\n\u2192 \uc720\ud6a8\uac12: " + ", ".join(nm + "(" + k + ")" for k, nm in sorted(_em2.items(), key=lambda x: int(x[0])))
+            except Exception:
+                pass
+            if "wrongType" in es:
+                _hint += "\n\u2192 \ud0c0\uc785 \ubd88\uc77c\uce58. [i:" + value + "]\u00b7[u:" + value + "]\u00b7[s:..]\u00b7[x:HEX] \ub85c \uc9c0\uc815 \uac00\ub2a5"
+            elif any(x in es for x in ("noAccess", "authorizationError", "notWritable", "readOnly")):
+                _hint += ("\n\u2192 \uc7a5\ube44\uac00 \uc4f0\uae30\ub97c \uac70\ubd80\ud588\uc2b5\ub2c8\ub2e4(" + es + "). \uc218\ub3d9 snmpset \uc774 \ub41c\ub2e4\uba74 \uadf8\ub54c\uc758 "
+                          "**OID\u00b7\ucee4\ubba4\ub2c8\ud2f0\u00b7\ubc84\uc804**\uc744 \uc704 \uc904\uacfc \uacac\uc918 \ubcf4\uc138\uc694 \u2014 \ud558\ub098\ub77c\ub3c4 \ub2e4\ub974\uba74 \uadf8\uac83\uc774 \uae30\uc900\uc785\ub2c8\ub2e4. "
+                          "\uc7a5\ube44 \ucabd ACL(\ud5c8\uc6a9 IP)\uc774 \uc788\uc73c\uba74 \uc774 \uc11c\ubc84 IP \ub3c4 \ub123\uc5b4\uc57c \ud569\ub2c8\ub2e4.")
+            elif "genErr" in es:
+                _hint += "\n\u2192 genErr = \uc7a5\ube44\uac00 SET \uac70\ubd80. \ud574\ub2f9 \ud3ec\ud2b8 \uc0c1\ud0dc\u00b7\uc4f0\uae30\uad8c\ud55c\uc744 \ud655\uc778\ud558\uc138\uc694"
+            if len(_tried) > 1:
+                _hint += "\n\u2192 \uc2dc\ub3c4: " + " · ".join(_tried[:8]) + ("  \u2026" if len(_tried) > 8 else "") + " (\ub2e4 \uac70\ubd80)"
+            return {"ok": False, "error": es, "output": "[SNMP SET \uc2e4\ud328] " + es + _hint}
         return {"ok": False, "error": last_err or "SET 실패", "output": "[SNMP SET 오류] " + str(last_err or "")}
     except Exception as e:
         _msg = str(e)
