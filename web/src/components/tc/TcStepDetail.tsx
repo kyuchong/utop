@@ -339,8 +339,41 @@ export default function TcStepDetail({
     if (chips.some((c) => c.t === t && c.v === val)) return
     writeChips([...chips, { t, v: val }])
   }
+  /**
+   * 고른 글자를 **찾는 자국**(정규식)으로 바꾼다.
+   *
+   * 여태는 고른 글자를 글자 그대로 박았다. 그래서 `28 days, 4 hours, 1 mins`
+   * 를 끌면 다음 실행에서는 하나도 안 맞았다 — 수는 늘 달라진다. 정규식을
+   * 사람이 손으로 쓰게 남겨 둔 셈이라, 그게 판정 기준 만들기에서 제일 무거운
+   * 짐이었다(지적: 판정 기준 설정하기 엄청 힘드네).
+   *
+   * `loose` 면 **수는 아무 수나, 사이 공백은 몇 칸이든** 맞게 푼다. 글자는
+   * 그대로 둔다 — `hours` 가 `hour` 로 바뀌는 장비는 없다.
+   *
+   *   「4 hours, 1 mins」 → `\d+\s+hours,\s+\d+\s+mins`
+   *
+   * 이러면 두 스텝이 같은 순간을 못 찍어도(초가 42 대 43) 시·분까지만 끌어서
+   * 견줄 수 있다. `loose` 를 끄면 고른 값 그대로 — 「0 errors」 처럼 수 자체가
+   * 답인 자리를 위한 것이다.
+   */
+  const patternFrom = (text: string, loose: boolean): string => {
+    const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    if (!loose) return esc(text)
+    return text
+      .split(/(\d+|\s+)/)
+      .filter((piece) => piece !== '' && piece !== undefined)
+      .map((piece) =>
+        /^\d+$/.test(piece) ? '\\d+' : /^\s+$/.test(piece) ? '\\s+' : esc(piece),
+      )
+      .join('')
+  }
+
+  /** 단추에 「무엇으로 찾게 되는지」를 미리 보여 준다 — 정규식을 모르는 사람도
+      고르기 전에 결과를 볼 수 있어야 한다 */
+  const varPreview = (text: string, loose: boolean) => `찾는 자국: ${patternFrom(text.trim(), loose)}`
+
   /** 블럭 → 변수. 이름은 자동(varN) — 창(prompt)은 파이어폭스에서 막힌다 */
-  const addVarFromBlock = (text: string) => {
+  const addVarFromBlock = (text: string, loose = true) => {
     const used = new Set([...takenVars, ...mine])
     let name = 'var1'
     for (let n = 1; n < 999; n++) {
@@ -349,8 +382,9 @@ export default function TcStepDetail({
         break
       }
     }
-    const esc2 = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    onChange({ queries: [...(step.queries ?? []), { q: `(${esc2})`, var: name }] })
+    onChange({
+      queries: [...(step.queries ?? []), { q: `(${patternFrom(text.trim(), loose)})`, var: name }],
+    })
   }
 
   /** 응답에서 글자를 고르면 판정·변수로 만들 수 있게 잡아둔다 */
@@ -1539,15 +1573,30 @@ export default function TcStepDetail({
                       <span className="sd-var">{picked.length > 28 ? `${picked.slice(0, 28)}…` : picked}</span>
                       {/* 끌어 고른 글자도 블럭과 같은 세 가지뿐(합의: 간단하게).
                           변수 이름은 자동(varN) — prompt 창은 파이어폭스가 막는다 */}
+                      {/* 수가 매번 달라지는 자리(시각·카운터)를 위해 **느슨하게**
+                          가 기본이다. 수 자체가 답인 자리(「0 errors」)를 위해
+                          「이 값 그대로」 도 옆에 둔다 */}
                       <button
                         className="btn small"
                         type="button"
+                        title={`변수로 뽑습니다 — 수는 아무 수나 맞습니다\n${varPreview(picked, true)}`}
                         onClick={() => {
-                          addVarFromBlock(picked)
+                          addVarFromBlock(picked, true)
                           setPicked('')
                         }}
                       >
-                        변수로
+                        변수로 (수는 아무 수나)
+                      </button>
+                      <button
+                        className="btn small"
+                        type="button"
+                        title={`고른 값 그대로 찾습니다\n${varPreview(picked, false)}`}
+                        onClick={() => {
+                          addVarFromBlock(picked, false)
+                          setPicked('')
+                        }}
+                      >
+                        이 값 그대로
                       </button>
                       <button
                         className="btn small"
