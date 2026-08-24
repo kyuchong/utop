@@ -2543,19 +2543,20 @@ table.tb td.k {
   grid-template-columns: 22px 16px minmax(0, 1fr) auto;
   align-items: center;
   gap: 7px;
-  padding: 6px 10px 6px 7px;
+  padding: 6px 10px 6px 10px;
   border-bottom: 1px solid var(--c-border);
-  /* 최근 결과 색 띠 — 오른쪽(합의: 제목·담당자·타입·기존결과·최근결과 차례) */
-  border-right: 6px solid var(--c-border);
+  /* 최근 결과 색 띠 — **왼쪽 끝**(지시). 오른쪽 끝까지 눈이 안 가도 결과가
+     한눈에 읽힌다. 번호 앞에 세로로 선다. */
+  border-left: 6px solid var(--c-border);
   cursor: pointer;
 }
 .cxp-row:hover { background: var(--c-surface-alt); }
 .cxp-row.on { background: var(--c-primary-bg); }
-.cxp-row.v-pass { border-right-color: var(--c-pass); }
-.cxp-row.v-fail { border-right-color: var(--c-fail); }
-.cxp-row.v-wip { border-right-color: var(--c-draft); }
-.cxp-row.v-blocked { border-right-color: #e8820c; }
-.cxp-row.v-na { border-right-color: #999; }
+.cxp-row.v-pass { border-left-color: var(--c-pass); }
+.cxp-row.v-fail { border-left-color: var(--c-fail); }
+.cxp-row.v-wip { border-left-color: var(--c-draft); }
+.cxp-row.v-blocked { border-left-color: #e8820c; }
+.cxp-row.v-na { border-left-color: #999; }
 .cxp-row.running { background: var(--c-primary-bg); }
 /* 한 줄 = ID + 제목 (사진처럼 낮게). 제목이 길면 …, 전체는 툴팁 */
 .cxp-rmain { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
@@ -6700,8 +6701,8 @@ table.tb td.k {
   color: var(--vfg-fail, #fff);
   border-color: var(--c-fail, #dc2626);
 }
-.cxp-row.v-blocked { border-right-color: var(--c-blocked, #e8820c); }
-.cxp-row.v-na { border-right-color: var(--c-na, #999); }
+.cxp-row.v-blocked { border-left-color: var(--c-blocked, #e8820c); }
+.cxp-row.v-na { border-left-color: var(--c-na, #999); }
 .cxp-sumb .bar > s.p { background: var(--c-pass); }
 .cxp-sumb .bar > s.f { background: var(--c-fail); }
 
