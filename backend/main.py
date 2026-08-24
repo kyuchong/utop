@@ -7482,19 +7482,34 @@ async def snmp_set_api(payload: dict):
         transport = await UdpTransportTarget.create((host, port), timeout=3, retries=1)
         auth = CommunityData(community, mpModel=mp)
         last_err = None
-        for ci, tt in enumerate(cands):
+        # OID 후보 — 스칼라는 인스턴스 `.0` 을 찍어야 SET 이 먹는다.
+        # `…3.6`(객체)으로 SET 하면 딱 noAccess 가 난다(지적: 커뮤니티도 RW 인데
+        # noAccess). 수동 snmpset 은 `…3.6.0` 을 쓴다. 인스턴스가 없어 보이면
+        # `.0` 을 붙인 것도 후보에 넣어, noAccess/noSuchName 이면 그것으로 다시 건다.
+        _bare = oid.rstrip(".")
+        oid_cands = [oid]
+        _last_arc = _bare.rsplit(".", 1)[-1] if "." in _bare else ""
+        if _last_arc != "0":
+            oid_cands.append(_bare + ".0")
+        _used_oid = oid
+        for oi, _oid in enumerate(oid_cands):
+          _used_oid = _oid
+          for ci, tt in enumerate(cands):
             try:
                 pv = _mkval(tt, value)
             except Exception as ex:
                 last_err = str(ex); continue
             errInd, errStat, errIdx, varBinds = await set_cmd(
-                eng, auth, transport, ContextData(), ObjectType(ObjectIdentity(oid), pv))
+                eng, auth, transport, ContextData(), ObjectType(ObjectIdentity(_oid), pv))
             if errInd:
                 return {"ok": False, "error": str(errInd), "output": "[SNMP SET] " + str(errInd)}
             if errStat:
                 es = str(errStat.prettyPrint()); last_err = es
                 if "wrongType" in es and ci < len(cands) - 1:
                     continue   # 타입 불일치 → 다음 후보 타입으로 재시도
+                # 인스턴스 문제로 보이면 `.0` 붙인 다음 OID 후보로 넘어간다
+                if ("noAccess" in es or "noSuchName" in es or "notWritable" in es) and oi < len(oid_cands) - 1:
+                    break
                 _tnn = _SNMP_TYPE_NAMES.get(tt, tt)
                 _hint = "\n→ 보낸 값: [" + str(value) + "] 타입: " + _tnn   # 실제 전송된 값/타입 (auto→3 변환 확인용)
                 # 이 OID에 enum이 있으면 유효값 안내
@@ -7524,7 +7539,8 @@ async def snmp_set_api(payload: dict):
                 except Exception:
                     lines.append(str(vb))
             _tn = _SNMP_TYPE_NAMES.get(tt, tt)
-            return {"ok": True, "output": "[SNMP SET OK] (type=" + _tn + ")\n" + ("\n".join(lines) if lines else (oid + " = " + value)), "mode": "set"}
+            _note = "" if _used_oid == oid else ("\n→ 인스턴스 `.0` 을 붙여 성공했습니다 (" + _used_oid + "). 스칼라 OID 는 끝에 .0 이 있어야 SET 이 먹습니다.")
+            return {"ok": True, "output": "[SNMP SET OK] (type=" + _tn + ")\n" + ("\n".join(lines) if lines else (_used_oid + " = " + value)) + _note, "mode": "set"}
         return {"ok": False, "error": last_err or "SET 실패", "output": "[SNMP SET 오류] " + str(last_err or "")}
     except Exception as e:
         _msg = str(e)
