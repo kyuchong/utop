@@ -1740,3 +1740,8 @@ button.dcc-st:disabled { cursor: default; }
 
 /* 관리자만 고치는 설정 — 못 고치는 사람에게는 흐리게, 손이 안 닿게(inert) */
 .cs-body[inert] { opacity: 0.55; }
+
+/* 로그인 화면 — 보여 주는 글(마크다운)은 줄을 다 쓴다 */
+.brand-md { display: block; }
+.brand-wide { display: block; width: 100%; }
+.brand-wide > span.small { display: block; margin-top: 6px; }

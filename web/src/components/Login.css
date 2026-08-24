@@ -3,9 +3,10 @@
    접는다 — 폰에서 사진이 화면을 다 먹으면 정작 칸이 안 보인다. */
 .lg {
   display: grid;
-  /* 사진 판을 줄인다(지적: 사진이 너무 크다) — 넓은 화면일수록 사진이
-     화면을 다 먹었다. 폭을 고정으로 잡고 남는 것은 로그인 쪽이 갖는다. */
-  grid-template-columns: minmax(320px, 38vw) 1fr;
+  /* **왼쪽 40 · 오른쪽 60**(지시). 왼쪽이 들어가는 판, 오른쪽이 사진이다.
+     비율로 잡아 두면 화면이 커져도 그 느낌이 유지된다 — 폭을 고정하면
+     큰 화면에서 사진만 늘어난다. */
+  grid-template-columns: 40% 60%;
   min-height: 100vh;
   background: var(--c-surface, #fff);
 }
@@ -117,15 +118,36 @@
 
 /* 좁은 화면 — 왼쪽 판은 머리 띠로 줄인다 */
 /* 아주 넓은 화면 — 사진이 계속 커지지 않게 상한을 둔다 */
-@media (min-width: 1600px) {
-  .lg { grid-template-columns: 560px 1fr; }
-}
 @media (max-width: 900px) {
+  /* 좁은 화면 — 들어가는 판만 남긴다. 폰에서 사진이 화면을 먹으면 정작
+     칸이 안 보인다. 사진은 위 띠로 줄인다 */
   .lg { grid-template-columns: 1fr; }
-  .lg-side { min-height: 150px; padding: 20px 24px; align-items: center; }
-  .lg-sidein h1 { font-size: 24px; }
-  .lg-pts { display: none; }
+  .lg-side { min-height: 150px; padding: 20px 24px; align-items: center; order: -1; }
+  .lg-sidein h1, .lg-md h1 { font-size: 24px; }
+  .lg-pts, .lg-md ul { display: none; }
 }
+
+/* 보여 주는 판의 알맹이가 마크다운일 때(지시).
+   제목 크기·색은 설정한 값을 그대로 물려받는다 — 마크다운으로 바꿨다고
+   여태 맞춰 둔 크기를 잃을 수는 없다. */
+.lg-md { color: rgb(255 255 255 / 0.86); font-size: 14px; line-height: 1.7; }
+.lg-md h1,
+.lg-md h2 {
+  margin: 0 0 10px;
+  font-size: var(--lg-h, 26px);
+  line-height: 1.25;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--lg-ink, #fff);
+}
+.lg-md h3 { margin: 14px 0 6px; font-size: 15px; color: #fff; }
+.lg-md p { margin: 0 0 12px; }
+.lg-md strong { color: #fff; }
+.lg-md a { color: #cfe0ff; }
+.lg-md code { background: rgb(255 255 255 / 0.14); padding: 1px 5px; border-radius: 5px; }
+.lg-md ul, .lg-md ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+.lg-md li { font-size: 13.5px; }
+.lg-md hr { border: 0; border-top: 1px solid rgb(255 255 255 / 0.22); margin: 14px 0; }
 
 /* 로고·폼 제목 — 들어가는 자리 머리, **가운데**(지시).
    칸과 단추는 왼끝을 맞춘 채 머리만 가운데로 — 옛 화면도 그 꼴이다. */

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/api/client'
+import MarkdownEditor from '@/components/MarkdownEditorLazy'
 
 /**
  * 로그인 화면 설정 — **브랜딩과 딴 페이지다**(지시: 페이지 자체를 분리).
@@ -16,6 +17,8 @@ export default function LoginBranding() {
   const [loginLogo, setLoginLogo] = useState('')
   const [loginTitle, setLoginTitle] = useState('')
   const [loginSub, setLoginSub] = useState('')
+  /** 보여 주는 판의 알맹이 — 마크다운(지시). 비우면 위의 제목·한 줄이 선다 */
+  const [loginMd, setLoginMd] = useState('')
   const [loginSize, setLoginSize] = useState('')
   const [loginColor, setLoginColor] = useState('#ffffff')
   const [loginAccent, setLoginAccent] = useState('#ff5b5b')
@@ -38,6 +41,7 @@ export default function LoginBranding() {
           login_logo?: string
           login_title?: string
           login_sub?: string
+          login_md?: string
           login_size?: string
           login_color?: string
           login_accent_color?: string
@@ -51,6 +55,7 @@ export default function LoginBranding() {
         setLoginLogo(b.login_logo ?? '')
         setLoginTitle(b.login_title ?? '')
         setLoginSub(b.login_sub ?? '')
+        setLoginMd(b.login_md ?? '')
         setLoginSize(b.login_size ?? '')
         setLoginColor(b.login_color || '#ffffff')
         setLoginAccent(b.login_accent_color || '#ff5b5b')
@@ -88,6 +93,7 @@ export default function LoginBranding() {
         body: JSON.stringify({
           login_title: loginTitle,
           login_sub: loginSub,
+          login_md: loginMd,
           login_size: loginSize,
           login_color: loginColor,
           login_accent_color: loginAccent,
@@ -118,6 +124,7 @@ export default function LoginBranding() {
         setLoginLogo(b.login_logo ?? '')
         setLoginTitle(b.login_title ?? '')
         setLoginSub(b.login_sub ?? '')
+        setLoginMd(b.login_md ?? '')
         setLoginSize(b.login_size ?? '')
         setLoginColor(b.login_color || '#ffffff')
         setLoginAccent(b.login_accent_color || '#ff5b5b')
@@ -225,6 +232,25 @@ export default function LoginBranding() {
             placeholder="요구사항부터 결과서까지 한 줄기로"
             onChange={(e) => setLoginSub(e.target.value)}
           />
+        </label>
+      </div>
+
+      {/* 알맹이를 통째로 마크다운으로(지시) — 제목 한 줄·설명 한 줄·점 세 개가
+          코드에 박혀 있어 문구 하나 고치는 데도 배포를 해야 했다 */}
+      <div className="brand-row brand-md">
+        <label className="brand-nm brand-wide">
+          보여 주는 글 (마크다운)
+          <MarkdownEditor
+            value={loginMd}
+            onChange={setLoginMd}
+            placeholder={
+              '# ubiQuoss-TOP\n유비쿼스 네트워크 장비 시험 자동화\n\n- 요구사항 → 시험항목 → 사이클을 한 줄기로\n- 장비 CLI·SNMP·계측기를 그대로 자동 실행\n- 결과는 회차로 남고 결과서까지'
+            }
+          />
+          <span className="muted small">
+            여기에 적으면 <b>위의 제목·한 줄·점 세 개를 대신합니다</b>. 비워 두면 여태 쓰던 글이
+            그대로 섭니다. 제목 크기·색은 위에서 정한 값을 마크다운 제목에도 그대로 입힙니다.
+          </span>
         </label>
       </div>
 

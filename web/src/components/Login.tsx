@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { authApi, apiFetch, type MeUser } from '@/api/client'
+import Markdown from '@/components/Markdown'
 import './Login.css'
 
 interface Props {
@@ -43,6 +44,7 @@ export default function Login({ onDone }: Props) {
     login_id_ph?: string
     login_note?: string
     login_foot?: string
+    login_md?: string
     login_keep?: string
   }>({})
 
@@ -85,49 +87,11 @@ export default function Login({ onDone }: Props) {
   const sub = brand.login_sub || '유비쿼스 네트워크 장비 시험 자동화'
 
   return (
+    /* **들어가는 판이 왼쪽**이다(지시). 로그인은 하루 한 번이라도 그 한 번이
+       손이 가는 자리라 먼저 만나야 한다. 사진은 오른쪽에서 넓게 받친다.
+       비율은 40 : 60(지시) — 칸이 좁으면 글자가 답답하고, 사진은 넓어야 산다. */
     <div className="lg">
-      {/* ── 왼쪽 — 우리 것을 보여 주는 판 ── */}
-      <aside
-        className={`lg-side${brand.login_image ? ' has-img' : ''}`}
-        style={brand.login_image ? { backgroundImage: `url(${brand.login_image})` } : undefined}
-      >
-        {/* 사진 위 글자가 읽히도록 어둡게 한 겹 덮는다 — 사진마다 밝기가
-            다른데 글자는 늘 읽혀야 한다 */}
-        <div className="lg-veil" />
-        <div className="lg-sidein">
-          {/* 로고는 색을 뒤집지 않는다 — 흰 덩어리로 보였다(지적).
-              어두운 판 위라 흰 판 하나에 얹어 원래 색으로 보인다 */}
-          <h1
-            style={{
-              /* 브랜딩에서 정한 크기를 따른다(지적: 무조건 20 이다) —
-                 메뉴는 작게 쓰는 자리라 그 값의 1.6배로 키워 세운다 */
-              /* 로그인 화면은 **제 값만 본다**(지시: 완전 분리).
-                 안 정했으면 이 화면의 기본값(26px)이다 */
-              fontSize: `${Math.min(Number(brand.login_size) || 26, 72)}px`,
-              fontFamily: brand.login_font || undefined,
-              color: brand.login_color || undefined,
-            }}
-          >
-            {titleParts.map((t, i) =>
-              t.startsWith('[') && t.endsWith(']') ? (
-                <b key={i} className="lg-ac" style={{ color: brand.login_accent_color || '#ff5b5b' }}>
-                  {t.slice(1, -1)}
-                </b>
-              ) : (
-                <span key={i}>{t}</span>
-              ),
-            )}
-          </h1>
-          <p>{sub}</p>
-          <ul className="lg-pts">
-            <li>요구사항 → 시험항목 → 사이클을 한 줄기로</li>
-            <li>장비 CLI·SNMP·계측기를 그대로 자동 실행</li>
-            <li>결과는 회차로 남고 결과서까지</li>
-          </ul>
-        </div>
-      </aside>
-
-      {/* ── 오른쪽 — 들어가는 판 ── */}
+      {/* ── 왼쪽 — 들어가는 판 ── */}
       <main className="lg-main">
         <form
           className="lg-form"
@@ -200,6 +164,60 @@ export default function Login({ onDone }: Props) {
           )}
         </form>
       </main>
+
+      {/* ── 오른쪽 — 우리 것을 보여 주는 판 ── */}
+      <aside
+        className={`lg-side${brand.login_image ? ' has-img' : ''}`}
+        style={brand.login_image ? { backgroundImage: `url(${brand.login_image})` } : undefined}
+      >
+        {/* 사진 위 글자가 읽히도록 어둡게 한 겹 덮는다 — 사진마다 밝기가
+            다른데 글자는 늘 읽혀야 한다 */}
+        <div className="lg-veil" />
+        <div className="lg-sidein">
+          {/* 알맹이는 **마크다운**이다(지시). 제목 한 줄·설명 한 줄·점 세 개가
+              코드에 박혀 있어서, 문구 하나 고치는 데도 배포를 해야 했다.
+              비워 두면 여태 쓰던 글이 그대로 선다 — 빈 판을 보여 줄 수는 없다.
+              제목 크기·색은 설정한 값을 마크다운 제목에도 그대로 입힌다. */}
+          {brand.login_md?.trim() ? (
+            <div
+              className="lg-md"
+              style={{
+                ['--lg-h' as string]: `${Math.min(Number(brand.login_size) || 26, 72)}px`,
+                ['--lg-ink' as string]: brand.login_color || '#fff',
+                fontFamily: brand.login_font || undefined,
+              }}
+            >
+              <Markdown text={brand.login_md} />
+            </div>
+          ) : (
+            <>
+              <h1
+                style={{
+                  fontSize: `${Math.min(Number(brand.login_size) || 26, 72)}px`,
+                  fontFamily: brand.login_font || undefined,
+                  color: brand.login_color || undefined,
+                }}
+              >
+                {titleParts.map((t, i) =>
+                  t.startsWith('[') && t.endsWith(']') ? (
+                    <b key={i} className="lg-ac" style={{ color: brand.login_accent_color || '#ff5b5b' }}>
+                      {t.slice(1, -1)}
+                    </b>
+                  ) : (
+                    <span key={i}>{t}</span>
+                  ),
+                )}
+              </h1>
+              <p>{sub}</p>
+              <ul className="lg-pts">
+                <li>요구사항 → 시험항목 → 사이클을 한 줄기로</li>
+                <li>장비 CLI·SNMP·계측기를 그대로 자동 실행</li>
+                <li>결과는 회차로 남고 결과서까지</li>
+              </ul>
+            </>
+          )}
+        </div>
+      </aside>
     </div>
   )
 }
