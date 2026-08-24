@@ -127,6 +127,8 @@ export default function TcStepDetail({
   const [picked, setPicked] = useState('')
   /** 고른 값 **앞의 같은 줄 글자**(라벨) — 숫자만으로는 어느 숫자인지 못 집는다 */
   const [pickCtx, setPickCtx] = useState('')
+  /** 고른 값이 **숫자 일부**인가(앞/뒤에 숫자가 더 있다) — 그럼 느슨하게 풀면 안 된다 */
+  const [pickCut, setPickCut] = useState(false)
   /** 뽑기에서 알려 줄 말 한 줄 — 조용히 다르게 담으면 왜 값이 다른지 모른다 */
   const [capNote, setCapNote] = useState('')
   /** 눌린 블럭 — [변수로 · 있으면 합격 · 있으면 불합격] 메뉴가 뜬 자리 */
@@ -452,8 +454,15 @@ export default function TcStepDetail({
       }
     }
     const t = text.trim()
-    let q = `(${patternFrom(t, loose)})`
-    if (loose && hitCount(patternFrom(t, true)) > 1) {
+    // 고른 값이 **숫자 일부**면 느슨하게 풀지 않는다(지적: 462 만 끌었는데
+    // 462324 가 담긴다). `\d+` 로 풀면 앞/뒤에 붙은 나머지 자리까지 삼킨다 —
+    // 고른 그대로 잡아야 462 는 462 다.
+    const effLoose = loose && !pickCut
+    if (loose && pickCut) {
+      setCapNote('고른 값이 숫자 일부라, 붙은 나머지 자리를 삼키지 않게 고른 그대로 담았습니다. 수 전체를 원하면 그 숫자를 통째로 드래그하세요.')
+    }
+    let q = `(${patternFrom(t, effLoose)})`
+    if (effLoose && hitCount(patternFrom(t, true)) > 1) {
       // 여러 군데 맞는다 — 앞 라벨로 그 자리를 집어 본다
       const anchored = anchoredLoose(t, pickCtx)
       if (anchored) {
@@ -499,6 +508,16 @@ export default function TcStepDetail({
         pre.selectNodeContents(host)
         pre.setEnd(r.startContainer, r.startOffset)
         ctx = pre.toString().slice(-200)   // 앞 200자면 라벨을 찾기에 넉넉하다
+        /* 선택이 **숫자를 자르고** 들어갔는지 본다(지적: 462 만 끌었는데 462324
+           가 담긴다). 고른 글자 바로 앞/뒤가 숫자면, `\d+` 로 풀 때 붙어 있는
+           나머지 자리까지 삼킨다 — 그럴 땐 고른 그대로 잡아야 한다. Range 로
+           앞 한 글자·뒤 한 글자를 정확히 읽는다. */
+        const before = ctx.slice(-1)
+        const after = document.createRange()
+        after.selectNodeContents(host)
+        after.setStart(r.endContainer, r.endOffset)
+        const post = after.toString().slice(0, 1)
+        setPickCut(/\d/.test(before) || /\d/.test(post))
       }
     } catch {
       /* 위치를 못 잡으면 라벨 없이 간다 — 옛 동작 그대로 */
