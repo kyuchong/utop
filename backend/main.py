@@ -1803,6 +1803,8 @@ async def api_branding_get():
             "login_note": b.get("login_note") or "",
             "login_foot": b.get("login_foot") or "",
             "login_md": b.get("login_md") or "",
+            "login_body_size": b.get("login_body_size") or "",
+            "login_body_color": b.get("login_body_color") or "",
             "login_keep": b.get("login_keep") or ""}
 
 @app.post("/api/branding")
@@ -1815,7 +1817,7 @@ async def api_branding_save(payload: dict, request: Request, token: str = ""):
     for k in ("name_text", "name_size", "name_color", "name_font", "name_accent_color", "link_url",
               "login_title", "login_sub", "login_size", "login_color", "login_accent_color",
               "login_font", "login_form_title", "login_id_ph", "login_note", "login_foot",
-              "login_md", "login_keep"):
+              "login_md", "login_body_size", "login_body_color", "login_keep"):
         if k in payload:
             b[k] = str(payload.get(k) or "")[:200]
     if "fab_greeting" in payload:

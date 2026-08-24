@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import Markdown from '@/components/Markdown'
+import { LG_FONT } from '@/components/Login'
+import '@/components/Login.css'
 
 /**
  * 로그인 화면 설정 — **브랜딩과 딴 페이지다**(지시: 페이지 자체를 분리).
@@ -19,6 +21,10 @@ export default function LoginBranding() {
   const [loginSub, setLoginSub] = useState('')
   /** 보여 주는 판의 알맹이 — 마크다운(지시). 비우면 위의 제목·한 줄이 선다 */
   const [loginMd, setLoginMd] = useState('')
+  /* 보여 주는 글의 글꼴·크기·색(지시) — 위지윅을 걷어낸 자리라 여기서 다 정한다 */
+  const [loginFont, setLoginFont] = useState('')
+  const [bodySize, setBodySize] = useState('')
+  const [bodyColor, setBodyColor] = useState('#ffffff')
   const [loginSize, setLoginSize] = useState('')
   const [loginColor, setLoginColor] = useState('#ffffff')
   const [loginAccent, setLoginAccent] = useState('#ff5b5b')
@@ -42,6 +48,9 @@ export default function LoginBranding() {
           login_title?: string
           login_sub?: string
           login_md?: string
+          login_font?: string
+          login_body_size?: string
+          login_body_color?: string
           login_size?: string
           login_color?: string
           login_accent_color?: string
@@ -56,6 +65,9 @@ export default function LoginBranding() {
         setLoginTitle(b.login_title ?? '')
         setLoginSub(b.login_sub ?? '')
         setLoginMd(b.login_md ?? '')
+        setLoginFont(b.login_font ?? '')
+        setBodySize(b.login_body_size ?? '')
+        setBodyColor(b.login_body_color || '#ffffff')
         setLoginSize(b.login_size ?? '')
         setLoginColor(b.login_color || '#ffffff')
         setLoginAccent(b.login_accent_color || '#ff5b5b')
@@ -94,6 +106,9 @@ export default function LoginBranding() {
           login_title: loginTitle,
           login_sub: loginSub,
           login_md: loginMd,
+          login_font: loginFont,
+          login_body_size: bodySize,
+          login_body_color: bodyColor,
           login_size: loginSize,
           login_color: loginColor,
           login_accent_color: loginAccent,
@@ -125,6 +140,9 @@ export default function LoginBranding() {
         setLoginTitle(b.login_title ?? '')
         setLoginSub(b.login_sub ?? '')
         setLoginMd(b.login_md ?? '')
+        setLoginFont(b.login_font ?? '')
+        setBodySize(b.login_body_size ?? '')
+        setBodyColor(b.login_body_color || '#ffffff')
         setLoginSize(b.login_size ?? '')
         setLoginColor(b.login_color || '#ffffff')
         setLoginAccent(b.login_accent_color || '#ff5b5b')
@@ -240,6 +258,33 @@ export default function LoginBranding() {
 
       {/* 알맹이를 통째로 마크다운으로(지시) — 제목 한 줄·설명 한 줄·점 세 개가
           코드에 박혀 있어 문구 하나 고치는 데도 배포를 해야 했다 */}
+      {/* 글꼴·크기·색(지시). 제목은 위에서 정하고, 여기는 **본문**이다 */}
+      <div className="brand-row">
+        <label className="brand-f">
+          글꼴
+          <select value={loginFont} onChange={(e) => setLoginFont(e.target.value)}>
+            <option value="">화면 기본</option>
+            <option value="mono">고정폭</option>
+            <option value="serif">명조</option>
+          </select>
+        </label>
+        <label className="brand-f">
+          본문 크기(px)
+          <input
+            type="number"
+            min={10}
+            max={32}
+            value={bodySize}
+            placeholder="14"
+            onChange={(e) => setBodySize(e.target.value)}
+          />
+        </label>
+        <label className="brand-f">
+          본문 색
+          <input type="color" value={bodyColor} onChange={(e) => setBodyColor(e.target.value)} />
+        </label>
+      </div>
+
       <div className="brand-row brand-md">
         <label className="brand-nm brand-wide">
           보여 주는 글 (마크다운)
@@ -259,7 +304,16 @@ export default function LoginBranding() {
             {/* 로그인 화면과 **같은 바탕**에 올려 본다 — 흰 종이에서 고르면
                 어두운 판 위에서 어떻게 보일지 알 수 없다 */}
             <div className="brand-mdview">
-              <div className="lg-md">
+              <div
+                className="lg-md"
+                style={{
+                  ['--lg-h' as string]: `${Math.min(Number(loginSize) || 26, 72)}px`,
+                  ['--lg-ink' as string]: loginColor || '#fff',
+                  ['--lg-body' as string]: `${Math.min(Math.max(Number(bodySize) || 14, 10), 32)}px`,
+                  ['--lg-bink' as string]: bodyColor || '#fff',
+                  fontFamily: LG_FONT[loginFont] ?? undefined,
+                }}
+              >
                 <Markdown text={loginMd || '_아직 적은 글이 없습니다 — 왼쪽에 적으면 여기 그대로 보입니다._'} />
               </div>
             </div>

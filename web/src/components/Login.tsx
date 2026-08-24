@@ -25,6 +25,14 @@ interface Props {
 /** 아이디를 기억해 두는 자리 — 비밀번호는 절대 안 담는다 */
 const KEEP_KEY = 'utop.login.id'
 
+/** 고른 글꼴 이름 → 실제 글꼴. 화면 기본은 손대지 않는다 */
+export const LG_FONT: Record<string, string | undefined> = {
+  '': undefined,
+  sans: undefined,
+  mono: 'var(--font-mono)',
+  serif: 'Georgia, "Noto Serif KR", serif',
+}
+
 export default function Login({ onDone }: Props) {
   const [username, setUsername] = useState(() => localStorage.getItem(KEEP_KEY) || '')
   const [keep, setKeep] = useState(() => !!localStorage.getItem(KEEP_KEY))
@@ -45,6 +53,8 @@ export default function Login({ onDone }: Props) {
     login_note?: string
     login_foot?: string
     login_md?: string
+    login_body_size?: string
+    login_body_color?: string
     login_keep?: string
   }>({})
 
@@ -181,10 +191,14 @@ export default function Login({ onDone }: Props) {
           {brand.login_md?.trim() ? (
             <div
               className="lg-md"
+              /* 제목·본문의 크기와 색, 글꼴을 설정에서 받는다(지시).
+                 위지윅을 걷어낸 자리라 여기서 다 정할 수 있어야 한다 */
               style={{
                 ['--lg-h' as string]: `${Math.min(Number(brand.login_size) || 26, 72)}px`,
                 ['--lg-ink' as string]: brand.login_color || '#fff',
-                fontFamily: brand.login_font || undefined,
+                ['--lg-body' as string]: `${Math.min(Math.max(Number(brand.login_body_size) || 14, 10), 32)}px`,
+                ['--lg-bink' as string]: brand.login_body_color || 'rgb(255 255 255 / 0.86)',
+                fontFamily: LG_FONT[brand.login_font ?? ''] ?? brand.login_font ?? undefined,
               }}
             >
               <Markdown text={brand.login_md} />
