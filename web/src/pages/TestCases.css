@@ -3558,3 +3558,7 @@ html .tc-listview .rq-tr > div.tc-cell-fill.al-center { justify-content: center;
   color: var(--c-warn, #b25e09);
   font-size: var(--fs-xs);
 }
+
+/* 표에서 값 뽑기 — 「이름으로 / 응답 순서로」 갈래. 바닥 줄 안에 앉는다 */
+.tb-seg { display: inline-flex; vertical-align: middle; margin: 0 2px; }
+.tb-seg .seg-btn { height: 20px; padding: 0 8px; font-size: var(--fs-xs); }

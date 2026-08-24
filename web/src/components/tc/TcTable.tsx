@@ -25,7 +25,14 @@ interface Props {
    */
   mode?: 'judge' | 'capture'
   /** capture — 이대로 변수로. `list` 는 감싸는 반복이 돌 값 목록이다 */
-  onCapture?: (q: { var: string; col: string; where: string; list?: string }) => void
+  onCapture?: (q: {
+    var: string
+    col: string
+    where?: string
+    row?: string
+    list?: string
+    range?: { from: number; to: number }
+  }) => void
   /** capture — 이미 쓰고 있는 변수 이름(겹치면 덮어써 버린다) */
   takenVars?: string[]
   /**
@@ -117,6 +124,14 @@ export default function TcTable({
      사람이 짜게 하지 않는다 — 두 행을 고르면 규칙은 우리가 만든다. */
   const [rowA, setRowA] = useState('')
   const [rowB, setRowB] = useState('')
+  /**
+   * 행을 **이름으로** 짚을까, **응답에 나온 자리로** 짚을까(지적: 응답 순서
+   * 대로 잡히게 하면 안 되나).
+   *
+   * 이름은 그 줄이 어디로 옮겨 가도 따라간다. 자리는 이름이 서로 다른 두
+   * 응답(CLI 의 `Po12` 와 SNMP 의 `…1.5.1001`)을 같은 순번으로 견줄 때 쓴다.
+   */
+  const [byPos, setByPos] = useState(false)
   /** 회차를 넣어 본 값 — `${i}` 가 든 기준을 지금 표에 대 보려면 필요하다 */
   const subs = (t: string) => (loopVar ? subVars(t, { [loopVar]: capN }) : t)
 
@@ -176,6 +191,16 @@ export default function TcTable({
     if (a < 0 || b < 0) return []
     const [lo, hi] = a <= b ? [a, b] : [b, a]
     return kvs.slice(lo, hi + 1).filter(Boolean)
+  })()
+  /** 고른 구간이 표에서 **몇 번째 줄부터 몇 번째 줄까지**인가 (1부터) */
+  const posRange = (() => {
+    if (!tbl) return null
+    const kvs = tbl.rows.map((r) => r[keyAt] ?? '')
+    const a = kvs.indexOf(rowA)
+    const b = rowB ? kvs.indexOf(rowB) : a
+    if (a < 0) return null
+    const [lo, hi] = b < 0 || a <= b ? [a, b < 0 ? a : b] : [b, a]
+    return { from: lo + 1, to: hi + 1 }
   })()
   const lv = loopVar || 'i'
   /** 만들어지는 행 조건 — 여러 행이면 `${i}` 자리로, 하나면 그 값 그대로 */
@@ -519,12 +544,32 @@ export default function TcTable({
           {/* 무엇이 만들어지는지 사람 말로 — 문법은 안 보여 준다 */}
           <span className="tb-live">
             {capCol && (rowA || rowB) ? (
-              rowsBetween.length > 1 ? (
+              rowsBetween.length > 1 && posRange ? (
                 <>
                   <b>
                     {rowA} ~ {rowB}
                   </b>{' '}
-                  {rowsBetween.length}행 · 회차{' '}
+                  {rowsBetween.length}행 ·{' '}
+                  {/* 이름으로 짚을까, 응답에 나온 자리로 짚을까(지적) */}
+                  <span className="seg tb-seg">
+                    <button
+                      type="button"
+                      className={`seg-btn${byPos ? '' : ' on'}`}
+                      title="그 줄의 이름으로 찾습니다 — 줄이 옮겨 가도 따라갑니다"
+                      onClick={() => setByPos(false)}
+                    >
+                      이름으로
+                    </button>
+                    <button
+                      type="button"
+                      className={`seg-btn${byPos ? ' on' : ''}`}
+                      title="응답에 나온 차례로 몇 번째 줄인지로 찾습니다 — 이름이 서로 다른 두 응답을 순번으로 견줄 때"
+                      onClick={() => setByPos(true)}
+                    >
+                      응답 순서로
+                    </button>
+                  </span>{' '}
+                  회차{' '}
                   <input
                     className="tb-in n"
                     value={capN}
@@ -533,21 +578,24 @@ export default function TcTable({
                   일 때 <b>{capVar || '변수'}</b> ={' '}
                   <b>
                     {(() => {
-                      const idx = Math.max(1, Math.min(rowsBetween.length, Number(capN) || 1)) - 1
-                      const g = tableCapture(
-                        text,
-                        { col: capCol, where: `${keyCol}=${quoteVal(capWhereAuto)}` },
-                        { [lv]: String(rowsBetween[idx] ?? '') },
-                      )
+                      const nth = Math.max(1, Math.min(rowsBetween.length, Number(capN) || 1))
+                      const g = byPos
+                        ? tableCapture(text, { col: capCol, row: String(posRange.from + nth - 1) })
+                        : tableCapture(
+                            text,
+                            { col: capCol, where: `${keyCol}=${quoteVal(capWhereAuto)}` },
+                            { [lv]: String(rowsBetween[nth - 1] ?? '') },
+                          )
                       return g === null ? '(그런 행이 없습니다)' : g || '(빈 칸)'
                     })()}
                   </b>{' '}
-                  {/* 반복이 무엇을 돌게 되는지 그대로 보여 준다 — 숫자 범위가
-                      아니라 **이 행들**이다(지적: 행 순서대로 넣고 싶은 건데) */}
                   <i className="muted">
-                    반복은 이 {rowsBetween.length}행을 차례로 돕니다 ({rowsBetween.slice(0, 3).join(' · ')}
-                    {rowsBetween.length > 3 ? ' …' : ''}) — 「이대로 변수로」 를 누르면 감싸는 반복의 목록에
-                    함께 넣습니다
+                    {byPos
+                      ? `반복을 ${posRange.from} ~ ${posRange.to} 로 둡니다 — 응답의 그 자리 줄을 차례로 봅니다`
+                      : `반복이 이 ${rowsBetween.length}행을 차례로 돕니다 (${rowsBetween
+                          .slice(0, 3)
+                          .join(' · ')}${rowsBetween.length > 3 ? ' …' : ''})`}
+                    {' — 「이대로 변수로」 를 누르면 감싸는 반복에 함께 넣습니다'}
                   </i>
                 </>
               ) : (
@@ -582,13 +630,23 @@ export default function TcTable({
                     : '이 값을 변수로 담습니다'
             }
             onClick={() =>
-              onCapture?.({
-                var: capVar,
-                col: capCol,
-                where: `${keyCol}=${quoteVal(capWhereAuto)}`,
-                // 감싸는 반복이 돌 값 — 사람이 고른 그 행들 그대로
-                ...(rowsBetween.length > 1 ? { list: rowsBetween.join(', ') } : {}),
-              })
+              onCapture?.(
+                byPos && rowsBetween.length > 1 && posRange
+                  ? {
+                      // 응답에 나온 **자리**로 — 반복은 그 자리 번호를 돈다
+                      var: capVar,
+                      col: capCol,
+                      row: `\${${lv}}`,
+                      range: posRange,
+                    }
+                  : {
+                      var: capVar,
+                      col: capCol,
+                      where: `${keyCol}=${quoteVal(capWhereAuto)}`,
+                      // 감싸는 반복이 돌 값 — 사람이 고른 그 행들 그대로
+                      ...(rowsBetween.length > 1 ? { list: rowsBetween.join(', ') } : {}),
+                    },
+              )
             }
           >
             이대로 변수로

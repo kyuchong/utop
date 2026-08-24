@@ -2347,15 +2347,15 @@ export default function TestCases({ me }: PageProps) {
                     loopVar={loopVarAt(shownSteps, stepIdx)}
                     /* 표에서 고른 행들을 감싸는 반복의 값 목록으로 — 손으로
                        다시 옮겨 적게 하지 않는다 */
-                    onLoopList={(list) => {
+                    onLoopList={(v) => {
                       const at = loopIndexAt(shownSteps, stepIdx)
                       if (at < 0) return
                       patchStep(at, {
-                        forList: list,
-                        forFrom: undefined,
-                        forTo: undefined,
-                        loopCount: undefined,
                         loopVar: shownSteps[at]?.loopVar || 'i',
+                        loopCount: undefined,
+                        ...(v.range
+                          ? { forList: '', forFrom: v.range.from, forTo: v.range.to, forStep: 1 }
+                          : { forList: v.list ?? '', forFrom: undefined, forTo: undefined }),
                       })
                     }}
                     /* If 가 「몇 번 스텝으로 이동」 을 고를 수 있게 목록을 넘긴다 */
