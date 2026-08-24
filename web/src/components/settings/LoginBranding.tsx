@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiFetch } from '@/api/client'
-import MarkdownEditor from '@/components/MarkdownEditorLazy'
+import Markdown from '@/components/Markdown'
 
 /**
  * 로그인 화면 설정 — **브랜딩과 딴 페이지다**(지시: 페이지 자체를 분리).
@@ -243,13 +243,27 @@ export default function LoginBranding() {
       <div className="brand-row brand-md">
         <label className="brand-nm brand-wide">
           보여 주는 글 (마크다운)
-          <MarkdownEditor
-            value={loginMd}
-            onChange={setLoginMd}
-            placeholder={
-              '# ubiQuoss-TOP\n유비쿼스 네트워크 장비 시험 자동화\n\n- 요구사항 → 시험항목 → 사이클을 한 줄기로\n- 장비 CLI·SNMP·계측기를 그대로 자동 실행\n- 결과는 회차로 남고 결과서까지'
-            }
-          />
+          {/* 위지윅 편집기를 걷어냈다(지적: 입력을 할 수가 없다, 헤드라인이
+              계속 떠 있다). 여기는 **마크다운을 적는 칸**이라 글칸이 제자리다 —
+              헛도는 도구보다 낫다. 옆에 결과를 그대로 보여 준다. */}
+          <div className="brand-mdrow">
+            <textarea
+              className="mono brand-mdin"
+              value={loginMd}
+              spellCheck={false}
+              placeholder={
+                '# ubiQuoss-TOP\n유비쿼스 네트워크 장비 시험 자동화\n\n- 요구사항 → 시험항목 → 사이클을 한 줄기로\n- 장비 CLI·SNMP·계측기를 그대로 자동 실행\n- 결과는 회차로 남고 결과서까지'
+              }
+              onChange={(e) => setLoginMd(e.target.value)}
+            />
+            {/* 로그인 화면과 **같은 바탕**에 올려 본다 — 흰 종이에서 고르면
+                어두운 판 위에서 어떻게 보일지 알 수 없다 */}
+            <div className="brand-mdview">
+              <div className="lg-md">
+                <Markdown text={loginMd || '_아직 적은 글이 없습니다 — 왼쪽에 적으면 여기 그대로 보입니다._'} />
+              </div>
+            </div>
+          </div>
           <span className="muted small">
             여기에 적으면 <b>위의 제목·한 줄·점 세 개를 대신합니다</b>. 비워 두면 여태 쓰던 글이
             그대로 섭니다. 제목 크기·색은 위에서 정한 값을 마크다운 제목에도 그대로 입힙니다.
