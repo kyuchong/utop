@@ -5429,14 +5429,6 @@ function CycleDetail({
               /* 표 머리 — 필드 차례는 지시 그대로다 */
               <div className="cxp-row cxp-hd">
                 <span className="cxp-no">No</span>
-                  {fShow('hist') && (
-                    <span className="hf-hist cxp-hist-left" title="기존 결과 — 지난 회차의 판정. 누르면 회차별 Matrix">
-                      <i className="hd-ic">
-                        <IconNote />
-                      </i>
-                      <em className="hd-lb">기존 결과</em>
-                    </span>
-                  )}
                 <span />
                 <span className="cxp-rmain">시험 항목</span>
                 <span className="cxp-rgt">
@@ -5462,6 +5454,14 @@ function CycleDetail({
                         <IconTag />
                       </i>
                       <em className="hd-lb">타입</em>
+                    </span>
+                  )}
+                  {fShow('hist') && (
+                    <span className="hf-hist" title="기존 결과 — 지난 회차의 판정. 누르면 회차별 Matrix">
+                      <i className="hd-ic">
+                        <IconNote />
+                      </i>
+                      <em className="hd-lb">기존 결과</em>
                     </span>
                   )}
                   {fShow('when') && (
@@ -5593,36 +5593,6 @@ function CycleDetail({
                     >
                       {/* 줄 번호 — 「몇 번째 항목」 으로 말이 오간다(지시) */}
                       <span className="cxp-no">{i + 1}</span>
-                      {/* 판정(Pass/Fail)을 **왼쪽 끝**으로(지시) — 오른쪽 끝까지 눈이
-                          가지 않아도 한눈에 읽힌다 */}
-                        {fShow('hist') && (() => {
-                          const h = (histAll.get(it.tcid) ?? []).slice(0, 5)
-                          const last = h[0]
-                          return (
-                            <span
-                              className="cxp-hist go cxp-hist-left"
-                              role="button"
-                              onClick={() => {
-                                setMatrixAt(it.tcid)
-                                setMatrixOn(true)
-                              }}
-                              title={
-                                h.length
-                                  ? `기존 시험이력 — 누르면 회차별 Matrix\n${h.map((x) => `${x.label}: ${verdictLabel(x.v)}`).join('\n')}`
-                                  : '기존 시험이력 없음 — 누르면 회차별 Matrix'
-                              }
-                            >
-                              {last ? (
-                                <i className={`hv-${verdictClass(last.v)} ro full short`}>
-                                  {shortVerdict(last.v)}
-                                  {h.length > 1 ? ` +${h.length - 1}` : ''}
-                                </i>
-                              ) : (
-                                <i className="hv-none ro full short">–</i>
-                              )}
-                            </span>
-                          )
-                        })()}
                       <input
                         type="checkbox"
                         checked={pick.has(at)}
@@ -5715,6 +5685,34 @@ function CycleDetail({
                         })()}
                         {/* 기존 시험 결과 — 자리 상시 유지, 없으면 미진행.
                             누르면 항목 × 회차 Matrix 가 뜬다(지시 ②) */}
+                        {fShow('hist') && (() => {
+                          const h = (histAll.get(it.tcid) ?? []).slice(0, 5)
+                          const last = h[0]
+                          return (
+                            <span
+                              className="cxp-hist go"
+                              role="button"
+                              onClick={() => {
+                                setMatrixAt(it.tcid)
+                                setMatrixOn(true)
+                              }}
+                              title={
+                                h.length
+                                  ? `기존 시험이력 — 누르면 회차별 Matrix\n${h.map((x) => `${x.label}: ${verdictLabel(x.v)}`).join('\n')}`
+                                  : '기존 시험이력 없음 — 누르면 회차별 Matrix'
+                              }
+                            >
+                              {last ? (
+                                <i className={`hv-${verdictClass(last.v)} ro full short`}>
+                                  {shortVerdict(last.v)}
+                                  {h.length > 1 ? ` +${h.length - 1}` : ''}
+                                </i>
+                              ) : (
+                                <i className="hv-none ro full short">–</i>
+                              )}
+                            </span>
+                          )
+                        })()}
                         {fShow('when') && (
                           <span className="cxp-when muted small">
                             {it.executed_at ? String(it.executed_at).replace('T', ' ').slice(0, 16) : '–'}
