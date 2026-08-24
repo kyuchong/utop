@@ -595,7 +595,7 @@ export default function TcTable({
                       : `반복이 이 ${rowsBetween.length}행을 차례로 돕니다 (${rowsBetween
                           .slice(0, 3)
                           .join(' · ')}${rowsBetween.length > 3 ? ' …' : ''})`}
-                    {' — 「이대로 변수로」 를 누르면 감싸는 반복에 함께 넣습니다'}
+                    {' — 「이대로 변수로」 를 누릅니다. 감싸는 반복이 비어 있으면 이 행들을 채워 줍니다(이미 짜 두셨으면 그대로 둡니다)'}
                   </i>
                 </>
               ) : (

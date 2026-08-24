@@ -2345,13 +2345,20 @@ export default function TestCases({ me }: PageProps) {
                     onGoTraffic={() => setTab('traffic')}
                     block={blockInfo}
                     loopVar={loopVarAt(shownSteps, stepIdx)}
-                    /* 표에서 고른 행들을 감싸는 반복의 값 목록으로 — 손으로
-                       다시 옮겨 적게 하지 않는다 */
+                    /* 표에서 고른 행들을 감싸는 반복에 넣는다 — 다만 **비어
+                       있는 반복에만**(지적: 값 뽑기 때마다 Loop 가 바뀐다).
+                       값 뽑기와 반복은 서로 다른 일이다. Index=${j} 로 그 회차
+                       줄을 읽는 것과, 반복이 무엇을 도는지는 별개다. 사람이 이미
+                       j 에 값을 넣어 두었으면 그것이 정본이다 — 덮지 않는다. */
                     onLoopList={(v) => {
                       const at = loopIndexAt(shownSteps, stepIdx)
                       if (at < 0) return
+                      const lp = shownSteps[at]
+                      const hasList = String(lp?.forList ?? '').trim() !== ''
+                      const hasRange = lp?.forFrom !== undefined && lp?.forTo !== undefined
+                      if (hasList || hasRange) return // 이미 짜 둔 반복은 그대로 둔다
                       patchStep(at, {
-                        loopVar: shownSteps[at]?.loopVar || 'i',
+                        loopVar: lp?.loopVar || 'i',
                         loopCount: undefined,
                         ...(v.range
                           ? { forList: '', forFrom: v.range.from, forTo: v.range.to, forStep: 1 }
