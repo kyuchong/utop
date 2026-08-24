@@ -7605,7 +7605,18 @@ async def snmp_set_api(payload: dict):
         _used_oid, _used_comm, _used_ver = oid, community, ver
         _first_err = None       # 원래 OID·첫 커뮤니티의 오류 — 보고는 이걸로
         _tried = []             # 무엇을 어떻게 보냈는지 (진단용)
+        _seen_err = {}          # (ver,comm) -> 마지막 오류. 같은 짝을 헛돌지 않게
+        _need_zero = False      # noSuchName 을 봤을 때만 `.0` 을 시도한다
         for _vr, _cm, _od, tt in attempts:
+            # **필요할 때만 넓힌다** — 조합을 다 돌면 응답 없는 커뮤니티에서
+            # 1.5초씩 먹어 시험이 느려진다(앞서 겪은 것). 규칙:
+            #  · `.0` 곁가지는 noSuchName(인스턴스 없음)을 봤을 때만
+            #  · 같은 (버전·커뮤니티)에서 wrongType 이 아니면 다른 타입은 무의미
+            _prev = _seen_err.get((_vr, _cm))
+            if _od != oid and not _need_zero:
+                continue
+            if _prev is not None and "wrongType" not in _prev and tt != cands[0]:
+                continue
             _used_oid, _used_comm, _used_ver = _od, _cm, _vr
             try:
                 pv = _mkval(tt, value)
@@ -7623,6 +7634,9 @@ async def snmp_set_api(payload: dict):
                     _tried.append(_sig)
                 if _first_err is None:
                     _first_err = (es, _od, _cm, _vr, tt)
+                _seen_err[(_vr, _cm)] = es
+                if "noSuchName" in es or "noSuchInstance" in es:
+                    _need_zero = True     # 인스턴스 문제 — `.0` 을 붙여 볼 값이 있다
                 continue        # 다음 시도로 — 다 해 보고 아래에서 보고한다
             # ── 성공 ──
             lines2 = []
