@@ -131,7 +131,15 @@ export default function TcTable({
    * 이름은 그 줄이 어디로 옮겨 가도 따라간다. 자리는 이름이 서로 다른 두
    * 응답(CLI 의 `Po12` 와 SNMP 의 `…1.5.1001`)을 같은 순번으로 견줄 때 쓴다.
    */
-  const [byPos, setByPos] = useState(false)
+  /**
+   * 이름으로 짚을까, 응답에 나온 자리로 짚을까.
+   *
+   * **반복 안에서는 자리(응답 순서)가 기본**이다(지적: index 1 이 1번 줄이어야
+   * 하는데 안 된다). walk 결과를 반복으로 훑을 때 사람이 바라는 건 「i번째
+   * 줄」이지, Index 열 값이 i 와 같은 행이 아니다 — i 는 1,2,3… 인데 그 열은
+   * 113,1001… 이라 절대 안 맞는다. 반복이 없을 때만 이름으로가 기본이다.
+   */
+  const [byPos, setByPos] = useState(() => !!loopVar)
   /** 회차를 넣어 본 값 — `${i}` 가 든 기준을 지금 표에 대 보려면 필요하다 */
   const subs = (t: string) => (loopVar ? subVars(t, { [loopVar]: capN }) : t)
 
