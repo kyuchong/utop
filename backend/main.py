@@ -12103,46 +12103,71 @@ def _ai_json(content):
 
 # ── Cycle → Markdown 변환 · RAG 색인 · AI 요약 ──
 def _step_verdict(s):
-    """스텝 하나의 판정 — 화면(types.ts stepVerdict)과 같은 자리를 본다.
+    """스텝 하나의 판정 — 화면(types.ts stepVerdict)과 **글자 하나까지 같게**.
 
-    실행기는 `status`(PASS/FAIL)·`repeatResult`(Pass/Fail) 에 적고, 옛
-    자료와 손 입력은 `result` 에 있다. 여태 서버는 result 만 읽어서,
-    **자동 실행 결과가 전부 빈 것으로 보였다**(지적: 수동은 반영되는데
-    자동은 안 된다)."""
-    v = str(s.get("result") or "").strip().upper()
-    if v:
-        return v
-    st = str(s.get("status") or "").strip().upper()
-    if st in ("PASS", "FAIL", "WIP", "BLOCKED"):
-        return st
-    return str(s.get("repeatResult") or "").strip().upper()
+    실행기는 `status`(PASS/FAIL)·`repeatResult`(Pass/Fail) 에 적고, 옛 자료와
+    손 입력은 `result` 에 있다.
+
+    아는 판정만 판정으로 친다. `repeatResult` 에는 「실행완료」 처럼 판정이
+    아닌 말도 들어 있어서, 그것을 그대로 판정으로 읽으면 셈이 어긋난다.
+    """
+    legacy = str(s.get("result") or "").strip()
+    if legacy:
+        return _norm_verdict(legacy)
+    # 화면은 `status ?? repeatResult` — status 가 아예 없을 때만 옛 칸을 본다
+    v = s.get("status")
+    if v is None:
+        v = s.get("repeatResult")
+    u = str(v or "").strip().upper()
+    return u if u in ("PASS", "FAIL", "WIP", "BLOCKED") else ""
+
+
+def _norm_verdict(v):
+    """같은 판정을 부르는 이름이 여럿이다 — 한 가지로 모은다."""
+    u = str(v or "").strip().upper()
+    if u in ("PASS", "합격"):
+        return "PASS"
+    if u in ("FAIL", "불합격"):
+        return "FAIL"
+    if u in ("N/A", "NA", "진행불가"):
+        return "N/A"
+    return str(v or "").strip()
 
 
 def _item_verdict(item):
-    """항목 판정. result/status 필드 우선, 비어 있으면 스텝 결과로 유도
-    (스텝 단위 실행·수동 입력 시 항목 필드가 비므로 — 프론트 itemVerdict 와 동일 규칙)."""
-    v = str(item.get("result") or item.get("status") or "").strip().upper()
-    if v in ("PASS", "FAIL"):
-        return v
-    if v in ("N/A", "NA"):
-        return "N/A"
+    """항목 판정 — **화면(Cycles.tsx itemVerdict)과 같은 규칙**.
+
+    여태 이 함수만 항목의 `status` 칸을 함께 읽었다. 화면은 `result` 만 본다.
+    그래서 한 번 깨진 뒤 다시 돌린 항목처럼 두 칸이 어긋난 자료에서, **상세는
+    Pass 인데 목록의 「최근 결과」는 Fail** 이 됐다(지적). 판정을 두 규칙으로
+    내리면 둘 중 하나는 반드시 틀린다 — 화면 쪽으로 맞춘다.
+
+    `미실행` 은 값이 아니라 표식이다. 사람이 「이건 안 돌린 것으로 둬라」 고
+    적어 둔 것이라, 스텝에 결과가 남아 있어도 판정으로 올리지 않는다.
+    """
+    r = str(item.get("result") or "").strip()
+    if r == "미실행":
+        return ""
+    if r:
+        return _norm_verdict(r)
+    steps = item.get("steps") or []
     # 수동 스텝은 자동 판정에서 뺀다 — 사람이 보는 것은 사람이 따로 적는다
-    steps = [
-        s for s in (item.get("steps") or [])
+    auto = [
+        s for s in steps
         if isinstance(s, dict) and not (s.get("manual") or s.get("action") == "수동")
     ]
-    rs = [_step_verdict(s) for s in steps]
-    filled = [r for r in rs if r]
-    if not filled:
-        return v
-    if any(r in ("FAIL", "불합격") for r in filled):   # Fail 하나라도 → Fail
+    if not auto:
+        return "N/A" if steps else ""
+    rs = [_step_verdict(s) for s in auto]
+    if len(auto) == 1:
+        return rs[0]
+    if any(x == "FAIL" for x in rs):          # Fail 하나라도 → Fail
         return "FAIL"
-    # 「전부 채워져야 Pass」 로 하면 안 된다 — 메시지·주석 같은 스텝은
-    # 판정이 원래 없어서, 그 줄 하나 때문에 영영 미정으로 남는다(화면
-    # itemVerdict 는 some(Pass) 로 본다 — 같은 규칙로 맞춘다)
-    if any(r in ("PASS", "합격") for r in filled):     # Fail 없고 Pass 있으면 → Pass
+    if any(x == "PASS" for x in rs):          # Fail 없고 Pass 있으면 → Pass
         return "PASS"
-    return "N/A"
+    # 메시지·주석처럼 판정이 없는 줄뿐이면 그 줄의 말을 그대로 (없으면 미실행)
+    return next((x for x in rs if x), "")
+
 
 def _tc_item_md(item, cycle):
     """Cycle 항목(스텝 포함)을 검색용 Markdown으로 직렬화."""
