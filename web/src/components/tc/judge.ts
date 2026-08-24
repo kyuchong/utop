@@ -444,6 +444,45 @@ export function tableCapture(
   return (row[ci] ?? '').trim()
 }
 
+/**
+ * 표 뽑기가 **왜** 못 잡았나 — 사람이 읽을 한 줄.
+ *
+ * 「없는 변수」 만 보면 어디가 틀렸는지 알 수 없다(지적: 설정도 했는데 없는
+ * 변수라고 나와). 대개는 **찾는 값이 그 열에 없다**: 반복이 `Index=1` 을
+ * 찾는데 표의 Index 는 113·1001… 뿐인 것. 그러면 있는 값 몇 개를 함께
+ * 보여 준다 — 반복을 그 값에 맞추거나 「응답 순서로」 로 바꾸면 된다.
+ */
+export function captureMiss(
+  output: string,
+  q: { var?: string; col?: string; where?: string; row?: string },
+  vars: Record<string, string> = {},
+): string | null {
+  if (!q.var || !q.col) return null
+  if (tableCapture(output, q, vars) !== null) return null // 잘 잡혔으면 할 말 없다
+  const tbl = anyTable(output)
+  if (!tbl) return `${q.var} ← 이 응답에서 표를 못 찾았습니다`
+  const at = (n: string) => tbl.cols.findIndex((c) => c.toLowerCase() === String(n).toLowerCase())
+  if (at(q.col) < 0) return `${q.var} ← 담을 칸 '${q.col}' 열이 표에 없습니다`
+  if (q.where && q.where.trim()) {
+    const toks = parseToks(subVars(q.where, vars))
+    const miss = toks.find((t) => at(t.col) < 0)
+    if (miss) return `${q.var} ← 찾는 열 '${miss.col}' 이 표에 없습니다`
+    // 어느 열에서 무엇을 찾다 없었나 + 그 열에 실제로 있는 값 몇 개
+    const t0 = toks[0]
+    const ci = t0 ? at(t0.col) : -1
+    const have = ci >= 0 ? [...new Set(tbl.rows.map((r) => r[ci] ?? '').filter(Boolean))] : []
+    const sample = have.slice(0, 8).join(' · ')
+    return `${q.var} ← ${t0 ? `${t0.col}=${t0.val}` : q.where} 인 행이 없습니다${
+      sample ? ` (있는 값: ${sample}${have.length > 8 ? ' …' : ''})` : ''
+    }`
+  }
+  if (q.row && q.row.trim()) {
+    return `${q.var} ← ${subVars(q.row, vars)} 번째 줄이 없습니다 (줄 수 ${tbl.rows.length})`
+  }
+  return `${q.var} ← 값을 못 찾았습니다`
+}
+
+
 export function quoteVal(v: string): string {
   return /\s/.test(v) ? `"${v}"` : v
 }

@@ -12,6 +12,7 @@ import {
   anyTable,
   parseTable,
   stepRules,
+  captureMiss,
   tableCapture,
   subVars,
   type JudgeRule,
@@ -1441,12 +1442,27 @@ export default function TcStepDetail({
                         겹침
                       </b>
                     )}
-                    <span className={`sd-vval${got == null ? ' none' : ''}`}>
+                    <span
+                      className={`sd-vval${got == null ? ' none' : ''}`}
+                      title={
+                        result && got == null && v.tbl
+                          ? captureMiss(capSrc, { var: v.name, ...v.tbl }, pvars) ?? ''
+                          : ''
+                      }
+                    >
                       {result
                         ? got == null
-                          ? loopVar
-                            ? `1회차(${'${' + loopVar + '}'}=1) 로는 안 잡힙니다`
-                            : '이 응답에서는 안 잡힙니다'
+                          ? /* 표 뽑기면 **왜** 안 잡히는지 그대로 보여 준다(지적:
+                               설정도 했는데 없는 변수라고 나와) — 「안 잡힙니다」
+                               만으로는 어디가 틀렸는지 알 수 없다 */
+                            v.tbl
+                            ? captureMiss(capSrc, { var: v.name, ...v.tbl }, pvars)?.replace(
+                                `${v.name} ← `,
+                                '',
+                              ) ?? '안 잡힙니다'
+                            : loopVar
+                              ? `1회차(${'${' + loopVar + '}'}=1) 로는 안 잡힙니다`
+                              : '이 응답에서는 안 잡힙니다'
                           : got || '(빈 값)'
                         : '아직 실행 전'}
                     </span>

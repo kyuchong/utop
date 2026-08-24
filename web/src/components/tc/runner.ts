@@ -6,6 +6,7 @@ import {
   stepRules,
   diffLines,
   diffText,
+  captureMiss,
   evalCondWhy,
   extractVars,
   judge,
@@ -769,6 +770,12 @@ async function runOne(
         : String(r.output ?? r.error ?? '')
 
     Object.assign(vars, extractVars(step, output, vars))
+    // 표 뽑기가 놓친 것을 **그 스텝에서** 말한다 — Diff 까지 가서 「없는
+    // 변수」 로 터지면 어디가 틀렸는지 알 수 없다(지적). 여기가 진짜 자리다.
+    for (const q of step.queries ?? []) {
+      const miss = captureMiss(output, q, vars)
+      if (miss) ctx.onLog({ i, text: miss, kind: 'warn', label: '못 뽑음' })
+    }
     // 판정기준을 안 적었으면 '됐나 안 됐나' 로 본다 — ping 은 그것만으로
     // 충분한 경우가 대부분이다.
     const hasCriteria =
@@ -1338,6 +1345,11 @@ async function runOne(
   }
 
   Object.assign(vars, extractVars(step, output, vars))
+  // 표 뽑기가 놓친 것을 이 스텝에서 말한다 — 뒤 Diff 의 「없는 변수」 보다 여기가 자리다
+  for (const q of step.queries ?? []) {
+    const miss = captureMiss(output, q, vars)
+    if (miss) ctx.onLog({ i, text: miss, kind: 'warn', label: '못 뽑음' })
+  }
   const { verdict, reason } = judge(step, output, vars)
   ctx.onStep(i, {
     output,
