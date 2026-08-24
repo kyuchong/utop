@@ -8177,3 +8177,15 @@ html .cy-board > .panel.cyt-card {
 html .cyt .cyt-row > .cyt-cell-fill.al-left { justify-content: flex-start; }
 html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 .cyt-mfill .pick-live { min-width: 0; text-overflow: ellipsis; font-size: inherit; }
+
+/* 실행 중 옆 진행률(지시) — 아래 띠와 같은 셈. 이름표보다 조금 여리게 두어
+   「몇/몇」 이 먼저 읽히고 %가 거들게 한다 */
+.cy-prog-pct {
+  font-style: normal;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.22);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}

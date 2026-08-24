@@ -4677,6 +4677,12 @@ function CycleDetail({
                   여러 줄로 흩어 놓았더니 정작 그 이름이 잔글씨였다(지적). */}
               <b className="cy-prog-t">
                 {st.waiting ? '실행 대기' : `${Math.min(st.done + 1, st.total)}/${st.total} 실행 중`}
+                {/* 진행률(%)을 옆에(지시). 아래 띠와 **같은 셈**이다 — 끝난
+                    항목 ÷ 전체. 띠는 눈금이 없어 「어디쯤인가」 가 숫자로도
+                    있어야 한다 */}
+                {!st.waiting && st.total > 0 && (
+                  <i className="cy-prog-pct">{Math.round((st.done / st.total) * 100)}%</i>
+                )}
               </b>
               <span className="cy-prog-item" title={st.itemName || ''}>
                 {st.waiting ? '실행 서버가 집기를 기다립니다…' : st.itemName || '…'}
