@@ -257,6 +257,12 @@ export interface TcStep {
   data_img_w?: number
   /** kind=cli 의 실제 명령. data 와 나뉘어 있는 것은 옛 화면 구조 그대로다 */
   cli?: string
+  /**
+   * 옛 형식의 스텝 종류표. 2026 년 중반까지 만든 시험은 SNMP 도 kind='cli' 로
+   * 두고 이 칸에 'SNMP Public'(읽기)·'SNMP Private'(쓰기) 로 갈래를 적었다.
+   * 새 형식은 kind 자체가 snmp_get·snmp_set 이라 이 칸을 안 쓴다.
+   */
+  action?: string
 
   /** Expected — 기대 결과 */
   expected?: string

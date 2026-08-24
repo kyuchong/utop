@@ -505,7 +505,32 @@ async function runOne(
 ): Promise<Verdict> {
   const step = ctx.steps[i]
   if (!step) return ''
-  const kind = step.kind || 'cli'
+  /**
+   * 옛 형식 SNMP 를 되살린다.
+   *
+   * 2026 년 중반까지 만든 시험은 SNMP 를 kind='cli' 로 두고 `action` 에
+   * 'SNMP Public'(읽기)·'SNMP Private'(쓰기) 로 적었다. OID 는 cli 칸에, 넣을
+   * 값은 대괄호로(`.1.3….6.0 [fiveMin]`). 러너가 action 을 안 봐서 이것들을
+   * **CLI 명령으로 장비에 그대로 보냈고**, 장비가 못 알아들어 SNMP Set 이
+   * 안 됐다(지적: 이 시험에서 SNMP Set 이 안 된 거야?).
+   *
+   * 새 형식(kind=snmp_get·snmp_set)은 건드리지 않는다 — kind 가 'cli' 이거나
+   * 없을 때만 본다.
+   */
+  const legacySnmp =
+    (!step.kind || step.kind === 'cli') && /^SNMP/i.test(String(step.action ?? ''))
+      ? (() => {
+          const raw = String(step.cli ?? step.oid ?? step.step ?? '').trim()
+          const write = /private|set/i.test(String(step.action))
+          const m = /^(\S+)\s*\[([^\]]*)\]\s*$/.exec(raw) // "OID [값]"
+          return {
+            kind: write ? 'snmp_set' : 'snmp_get',
+            oid: (m?.[1] ?? raw).replace(/\s+.*$/, ''),
+            value: m?.[2] ?? '',
+          }
+        })()
+      : null
+  const kind = legacySnmp ? legacySnmp.kind : step.kind || 'cli'
   const at = new Date().toISOString()
 
   /*
@@ -703,7 +728,7 @@ async function runOne(
 
     const snmp = {
       host,
-      oid: subVars(String(step.oid ?? ''), vars),
+      oid: subVars(legacySnmp?.oid ?? String(step.oid ?? ''), vars),
       community: step.community || undefined,
       version: step.snmpVersion || undefined,
       port: step.snmpPort || undefined,
@@ -757,7 +782,7 @@ async function runOne(
       kind === 'snmp_get'
           ? ['/api/snmp-get', snmp]
           : kind === 'snmp_set'
-            ? ['/api/snmp-set', { ...snmp, value: subVars(String(step.snmpValue ?? ''), vars), type: step.snmpType || undefined }]
+            ? ['/api/snmp-set', { ...snmp, value: subVars(legacySnmp?.value ?? String(step.snmpValue ?? ''), vars), type: step.snmpType || undefined }]
             : ['/api/snmp-trap/wait', { oid: snmp.oid, timeout: step.trapSec ?? 15 }]
 
     const r = await post(path as string, body, ctx.signal)
