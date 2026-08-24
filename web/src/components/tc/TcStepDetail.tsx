@@ -1543,6 +1543,25 @@ export default function TcStepDetail({
                         ? `${v.tbl.where || (v.tbl.row ? `${v.tbl.row}번째 줄` : '첫 줄')} 행의 ${v.tbl.col} 칸`
                         : v.rule}
                     </code>
+                    {/* 표 뽑기가 `열=${반복변수}` 로 잡혀 안 맞을 때 — i 는
+                        1,2,3… 인데 그 열 값은 113,1001… 이라 절대 안 맞는다
+                        (지적). 사람이 바란 건 「i번째 줄」이다. 한 번에
+                        「응답 순서로」(row) 로 바꾼다 */}
+                    {v.tbl && loopVar && v.tbl.where.includes('${' + loopVar + '}') && v.key.startsWith('q') && (
+                      <button
+                        type="button"
+                        className="btn small sd-loosen"
+                        title={`지금은 「${v.tbl.col}=${'${' + loopVar + '}'}」 — 그 열 값이 ${'${' + loopVar + '}'} 와 같은 행을 찾습니다.\ni 는 1,2,3… 인데 열 값은 113,1001… 이라 안 맞습니다.\n눌러서 「${'${' + loopVar + '}'}번째 줄」 로 바꿉니다.`}
+                        onClick={() => {
+                          const idx = Number(v.key.slice(1))
+                          const qs = (step.queries ?? []).slice()
+                          if (qs[idx]) qs[idx] = { ...qs[idx], where: '', row: '${' + loopVar + '}' }
+                          onChange({ queries: qs })
+                        }}
+                      >
+                        응답 순서로 ({'${' + loopVar + '}'}번째 줄)
+                      </button>
+                    )}
                     {/* 고정 숫자가 박힌 식이면 한 번에 풀어 준다(지적: 값이 바뀌면
                         옛 값이 남는다). `(15:54)` → `(\d+:\d+)` */}
                     {!v.tbl && v.rule && looksFrozen(v.rule) && v.key.startsWith('q') && (
