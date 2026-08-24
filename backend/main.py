@@ -7336,6 +7336,46 @@ async def snmp_oids(q: str = "", limit: int = 50):
 _SNMP_WCOMM_CACHE: dict = {}   # host -> 최근에 SET 이 통한 쓰기 커뮤니티
 
 
+async def _snmp_instances(host: str, comm: str, mp: int, col_oid: str, limit: int = 12):
+    """그 열(column)에 **실제로 있는 인스턴스 번호**를 몇 개 — 진단용.
+
+    장비의 ifIndex 는 1·2·3 이 아니라 101·102·112·1003… 처럼 띄엄띄엄한 경우가
+    많다(지적: MIB 브라우저로 보면 그렇다). 그때 `.8.2` 로 SET 하면 noSuchName
+    인데, 「없다」 만으로는 **무슨 번호를 써야 하는지** 알 수 없다. 있는 번호를
+    같이 보여 주면 반복을 그 값으로 맞출 수 있다.
+    """
+    out = []
+    try:
+        from pysnmp.hlapi.v3arch.asyncio import (
+            SnmpEngine, CommunityData, UdpTransportTarget, ContextData,
+            ObjectType, ObjectIdentity, walk_cmd)
+        try:
+            from pysnmp.hlapi.v3arch.asyncio import bulk_walk_cmd as _bw
+        except Exception:
+            _bw = None
+        eng = SnmpEngine()
+        tr = await UdpTransportTarget.create((host, 161), timeout=1.2, retries=0)
+        auth = CommunityData(comm, mpModel=mp)
+        base = col_oid.strip().lstrip(".")
+        walker = (_bw(eng, auth, tr, ContextData(), 0, 25, ObjectType(ObjectIdentity(base)), lexicographicMode=False)
+                  if _bw is not None and mp == 1 else
+                  walk_cmd(eng, auth, tr, ContextData(), ObjectType(ObjectIdentity(base)), lexicographicMode=False))
+        async for (ei, es2, ex, vbs) in walker:
+            if ei or es2:
+                break
+            for vb in vbs:
+                nm = _oid_to_num(vb[0].prettyPrint()).lstrip(".")
+                if nm.startswith(base + "."):
+                    out.append(nm[len(base) + 1:])
+            if len(out) >= limit:
+                break
+        _snmp_close(eng)
+    except Exception:
+        pass
+    return out[:limit]
+
+
+
 async def _snmp_write_comms(host: str) -> list:
     """SET 에 시도할 **쓰기 커뮤니티 후보**를 차례로.
 
@@ -7688,6 +7728,16 @@ async def snmp_set_api(payload: dict):
             if "wrongType" in es:
                 _hint += "\n\u2192 \ud0c0\uc785 \ubd88\uc77c\uce58. [i:" + value + "]\u00b7[u:" + value + "]\u00b7[s:..]\u00b7[x:HEX] \ub85c \uc9c0\uc815 \uac00\ub2a5"
             elif "noSuchName" in es or "noSuchInstance" in es:
+                # 있는 번호를 실제로 물어봐서 알려 준다 — 「없다」 만으로는
+                # 무슨 번호를 써야 할지 알 수 없다(지적: 인덱스가 101·1003…)
+                try:
+                    _col = oid.rstrip(".").rsplit(".", 1)[0]
+                    _have = await _snmp_instances(host, _ec, (0 if _ev2 == "v1" else 1), _col)
+                    if _have:
+                        _hint += ("\n\u2192 \uc774 \uc5f4\uc5d0 **\uc2e4\uc81c\ub85c \uc788\ub294 \ubc88\ud638**: "
+                                  + " \u00b7 ".join(_have) + " \u2026  \ubc18\ubcf5\uc744 \uc774 \uac12\uc73c\ub85c \ub450\uc138\uc694(\ubaa9\ub85d \ubc29\uc2dd).")
+                except Exception:
+                    pass
                 _hint += ("\n\u2192 \uc774 \uc7a5\ube44\ub294 **\uadf8 \ubc88\ud638\uc5d0 \uc4f0\uae30\ub97c \uc548 \ubc1b\uc2b5\ub2c8\ub2e4**(" + es + "). "
                           "\uc77d\uae30(GET)\ub294 \ub418\ub294\ub370 SET \ub9cc \uc774\ub7ec\uba74, \uadf8 \ubc88\ud638\uac00 \uc4f0\uae30 \ub300\uc0c1\uc774 \uc544\ub2c8\uac70\ub098 "
                           "CLI \ud3ec\ud2b8 \ubc88\ud638\uc640 SNMP ifIndex \uac00 \ub2e4\ub978 \uacbd\uc6b0\uc785\ub2c8\ub2e4 \u2014 \uc218\ub3d9\uc73c\ub85c \ub41c \ubc88\ud638\uc640 \uacac\uc918 \ubcf4\uc138\uc694.")
