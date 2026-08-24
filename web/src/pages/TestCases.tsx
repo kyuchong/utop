@@ -24,6 +24,7 @@ import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
+import { sendWs } from '@/api/wsBus'
 import { usePageCrowd } from '@/components/usePageCrowd'
 import TcBulkForm from '@/components/TcBulkForm'
 import TcBulkEdit from '@/components/tc/TcBulkEdit'
@@ -678,7 +679,31 @@ export default function TestCases({ me }: PageProps) {
    */
   /** 이 화면(시험항목 묶음)에 들어와 있는 사람들 — 상단 오른쪽 표시 몫 */
   const crowd = usePageCrowd('tc')
+  /** 지금 **누가 어느 시험을 돌리고 있나** — 모두가 본다(지시).
+      실행한 사람만 「진행중」이 보이던 것을 남들도 보게 한다 */
+  const [runningBy, setRunningBy] = useState<Record<string, string>>({})
+  useEffect(() => {
+    void apiFetch('/api/tc-running')
+      .then((r) => (r.ok ? r.json() : { items: {} }))
+      .then((j: { items?: Record<string, { user?: string }> }) => {
+        const m: Record<string, string> = {}
+        for (const [k, v] of Object.entries(j.items ?? {})) m[k] = v?.user ?? ''
+        setRunningBy(m)
+      })
+      .catch(() => {})
+  }, [])
   const presence = usePresence(openId ? `tc:${openId}` : 'tc', meName, (m) => {
+    if (m.type === 'tc_running') {
+      const id = String(m.tcid ?? '')
+      if (!id) return
+      setRunningBy((prev) => {
+        const n = { ...prev }
+        if (m.on) n[id] = String(m.user ?? '')
+        else delete n[id]
+        return n
+      })
+      return
+    }
     if (m.type !== 'tc_updated' || !openId || m.tcid !== openId) return
     // 소식은 서버가 보내는 것이라 무슨 값이 올지 화면이 정할 수 없다
     const by = typeof m.user === 'string' ? m.user : ''
@@ -1403,6 +1428,8 @@ export default function TestCases({ me }: PageProps) {
     const ac = new AbortController()
     runAbort.current = ac
     setRunning(true)
+    // 남들도 「실행 중」을 보게 알린다(지시). 끝나면 finally 에서 끈다
+    if (openId) sendWs({ type: 'tc_running', tcid: openId, user: meName, on: true })
     setMsg({
       kind: '',
       text: pick ? `고른 ${pick.length}줄 실행 중…` : only ? '스텝 실행 중…' : '실행 중…',
@@ -1487,6 +1514,7 @@ export default function TestCases({ me }: PageProps) {
       setRunning(false)
       setRunAt(-1)
       runAbort.current = null
+      if (openId) sendWs({ type: 'tc_running', tcid: openId, user: meName, on: false })
     }
   }
 
@@ -1995,6 +2023,15 @@ export default function TestCases({ me }: PageProps) {
               <div className="tc-inner">
                 {/* 목록 */}
                 <section className="panel tc-seqcol" style={{ flexBasis: seqW }}>
+                  {/* 남이 지금 이 시험을 돌리고 있으면 알린다(지시) — 내가 아닌
+                      사람이 실행 중일 때만. 두 사람이 동시에 돌려 결과를 덮는
+                      일을 막는 첫 신호다 */}
+                  {openId && runningBy[openId] && runningBy[openId] !== meName && (
+                    <div className="tc-runbanner">
+                      <span className="tc-runbanner-dot" aria-hidden="true" />
+                      <b>{runningBy[openId]}</b> 님이 지금 이 시험을 실행 중입니다
+                    </div>
+                  )}
                   <div className="tc-run">
                     {/* 줄 고르기 — 여태 한 줄씩만 눌러야 했다(지적).
                         모두 고르고 한 번에 건너뛰기·삭제하는 일이 흔하다. */}

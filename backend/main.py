@@ -284,6 +284,15 @@ async def _broadcast_presence(page):
             del page_controller[page]
     await broadcast({"type": "presence", "page": page, "users": users, "controller": ctrl})
 
+_tc_running: dict = {}   # tcid -> {"user": str, "at": ts} — 지금 자동 실행 중인 시험
+
+
+async def _broadcast_tc_running(tcid: str, user: str, on: bool):
+    """이 시험을 **누가 지금 돌리고 있나** — 보고 있는 모두에게. 실행한 사람만
+    「진행중」이 보이던 것을 남들도 보게 한다(지시)."""
+    await broadcast({"type": "tc_running", "tcid": tcid, "user": user, "on": bool(on)})
+
+
 async def _broadcast_focus(page):
     """이 화면에서 누가 어느 항목을 보고 있나 — {항목번호: [사람…]}"""
     if not page:
@@ -8831,6 +8840,13 @@ async def tc_revision_restore(tc_id: str, rev_id: int, request: Request):
     return {"ok": True}
 
 
+@app.get("/api/tc-running")
+async def tc_running_now():
+    """지금 자동 실행 중인 시험들 — 방금 접속한 사람이 현황을 받는다.
+    브로드캐스트는 이미 붙어 있는 사람에게만 가므로, 이 GET 이 초기값이다."""
+    return {"items": {k: v for k, v in _tc_running.items()}}
+
+
 @app.get("/api/presence")
 async def presence_roster(prefix: str = ""):
     """지금 접속해 있는 사람들 — prefix 로 화면을 좁힌다 (cycle → cycle:*)."""
@@ -14104,6 +14120,21 @@ async def websocket_endpoint(websocket: WebSocket):
                 pg = msg.get("page") or st.get("page")
                 if pg:
                     await _broadcast_focus(pg)
+            elif t == "tc_running" and st is not None:
+                # 실행 시작/끝을 모두에게 알린다. 연결이 끊기면(러너가 죽으면)
+                # 아래 disconnect 에서 이 연결이 켠 것들을 자동으로 끈다.
+                _tcid = str(msg.get("tcid") or "").strip()
+                _on = bool(msg.get("on"))
+                _u = str(msg.get("user") or st.get("user") or "").strip()
+                if _tcid:
+                    if _on:
+                        _tc_running[_tcid] = {"user": _u, "at": _t.time()}
+                        st.setdefault("running_tcs", set()).add(_tcid)
+                    else:
+                        _tc_running.pop(_tcid, None)
+                        if isinstance(st.get("running_tcs"), set):
+                            st["running_tcs"].discard(_tcid)
+                    await _broadcast_tc_running(_tcid, _u, _on)
             elif t == "takeover":
                 pg = msg.get("page"); u = msg.get("user")
                 if pg and u:
@@ -14113,6 +14144,12 @@ async def websocket_endpoint(websocket: WebSocket):
         st = ws_state.pop(id(websocket), None)
         if websocket in active_connections:
             active_connections.remove(websocket)
+        # 러너가 창을 닫거나 끊기면, 이 연결이 켠 「실행 중」을 자동으로 끈다 —
+        # 아니면 유령 진행중이 남는다.
+        for _rt in list((st or {}).get("running_tcs") or []):
+            _tc_running.pop(_rt, None)
+            try: await _broadcast_tc_running(_rt, "", False)
+            except Exception: pass
         if st and st.get("page"):
             await _broadcast_presence(st["page"])
             await _broadcast_focus(st["page"])

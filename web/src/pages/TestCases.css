@@ -3595,3 +3595,23 @@ html .tc-listview .rq-tr > div.tc-cell-fill.al-center { justify-content: center;
   color: var(--c-primary, #1f5fa8);
   font-size: 10.5px;
 }
+
+/* 남이 이 시험을 실행 중이라는 알림 띠 — 두 사람이 동시에 돌려 결과가
+   덮이는 것을 막는 첫 신호(지시: 남에게도 진행중이 보이게) */
+.tc-runbanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin: 0 0 6px;
+  border-radius: 7px;
+  background: var(--c-warn-bg, #fff4e5);
+  color: var(--c-warn, #b25e09);
+  font-size: var(--fs-sm);
+}
+.tc-runbanner-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--c-warn, #b25e09);
+  animation: tc-runpulse 1s ease-in-out infinite;
+}
+@keyframes tc-runpulse { 0%,100% { opacity: 1 } 50% { opacity: 0.3 } }
