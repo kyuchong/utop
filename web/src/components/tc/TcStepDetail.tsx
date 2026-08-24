@@ -476,15 +476,30 @@ export default function TcStepDetail({
     const t = sel?.toString() ?? ''
     if (!t.trim()) return
     setPicked(t.trim())
-    // 고른 값 **앞의 같은 줄 글자**(라벨)를 함께 잡아 둔다 — 숫자만으로는
-    // show environment 처럼 숫자 많은 응답에서 어느 숫자인지 못 집는다
+    /*
+     * 고른 값 **앞의 글자**(라벨)를 함께 잡아 둔다 — 숫자만으로는 어느 숫자인지
+     * 못 집는다.
+     *
+     * 여기서 `startContainer.textContent` 를 쓰면 안 된다(지적: 고쳤더니 안 된다).
+     * 출력은 값마다 상자로 감싸 그리므로 DOM 이 여러 조각으로 나뉜다 — 선택이
+     * 시작된 **그 조각의 글자만** 잡혀서 앞 라벨이 통째로 빠졌다. 그러면 자국을
+     * 한 곳으로 못 좁혀 「고른 값 그대로」(고정)로 떨어졌다.
+     *
+     * Range 로 **출력 처음부터 선택 시작까지**를 잘라 읽는다. 조각 경계와
+     * 상관없이 실제로 눈에 보이는 앞글자가 그대로 나온다.
+     */
     let ctx = ''
     try {
       const r = sel!.getRangeAt(0)
-      const whole = r.startContainer.textContent ?? ''
-      const off = r.startOffset
-      // 앞 200자(줄바꿈 넘어서까지) — 센서 이름이 윗줄에 있는 꼴도 잡는다
-      ctx = whole.slice(Math.max(0, off - 200), off)
+      const node = r.startContainer
+      const el = (node.nodeType === 1 ? (node as Element) : node.parentElement) as Element | null
+      const host = el?.closest('pre, .sd-res') ?? el
+      if (host) {
+        const pre = document.createRange()
+        pre.selectNodeContents(host)
+        pre.setEnd(r.startContainer, r.startOffset)
+        ctx = pre.toString().slice(-200)   // 앞 200자면 라벨을 찾기에 넉넉하다
+      }
     } catch {
       /* 위치를 못 잡으면 라벨 없이 간다 — 옛 동작 그대로 */
     }
