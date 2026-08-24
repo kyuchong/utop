@@ -1,0 +1,55 @@
+/* 권한 격자 — 열이 많다. 표는 제 상자 안에서만 가로로 구른다 */
+.pm-onoff { display: flex; align-items: center; gap: 12px; }
+.pm-sw { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+
+.pm-roles { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
+.pm-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 9px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: var(--c-surface);
+}
+.pm-role.fixed { background: var(--c-surface-alt); }
+.pm-jira {
+  font-style: normal;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  border-bottom: 1px dashed var(--c-border);
+  cursor: pointer;
+}
+.pm-jira.on { color: var(--c-primary); border-color: var(--c-primary); }
+
+.pm-grid-wrap { overflow-x: auto; }
+.pm-grid { border-collapse: collapse; font-size: var(--fs-sm); }
+.pm-grid th,
+.pm-grid td {
+  border: 1px solid var(--c-border-soft);
+  padding: 4px 6px;
+  text-align: center;
+  white-space: nowrap;
+}
+.pm-grid thead th { background: var(--c-surface-alt); font-weight: 700; }
+.pm-grid .pm-sub th { font-weight: 400; font-size: var(--fs-xs); color: var(--c-text-muted); }
+.pm-grid td.pm-mod,
+.pm-grid th.pm-mod {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: var(--c-surface);
+  min-width: 220px;
+}
+.pm-grid thead th.pm-mod { background: var(--c-surface-alt); }
+.pm-grid td.pm-mod i { display: block; font-style: normal; font-size: var(--fs-xs); }
+/* 하위(탭)는 한 칸 들여쓴다 — 어느 페이지 밑인지 보여야 한다 */
+.pm-grid tr.pm-child td.pm-mod { padding-left: 22px; }
+.pm-grid tr.pm-child td.pm-mod b { font-weight: 400; }
+.pm-na { background: var(--c-surface-alt); }
+.pm-dash { color: var(--c-text-faint); }
+
+/* 여섯 칸을 하나씩 누르지 않게 — 모듈 하나를 통째로 주거나 뺀다 */
+.pm-quick { display: flex; flex-direction: column; gap: 4px; padding: 8px 12px 12px; }
+.pm-quick > span { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pm-quick i { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-muted); min-width: 200px; }

@@ -10557,25 +10557,98 @@ async def delete_cycle(cycle_id: str):
 # ───────────────────────────────────────────
 # 라우터 - 장비
 # ───────────────────────────────────────────
-@app.get("/api/permissions")
-async def get_permissions():
-    try:
-        d = load_json(PERMISSIONS_FILE)
-    except Exception:
-        d = {}
+# ── 페이지·모듈 권한 ─────────────────────────────────────────────────
+# 참고한 것: QMetry(모듈 × 권리 격자) · TestRail(역할 = 권한 묶음, 이름을
+# 바꾸고 새로 만들 수 있다) · Zephyr Scale(맨 위 켬/끔) · Xray(제 체계를 안
+# 만들고 Jira 권한에 얹는다).
+#
+# 어느 툴도 「메뉴 보임」 을 따로 관리하지 않는다 — 격자 하나에서 파생시킨다.
+# 표를 두 벌 두면 반드시 어긋나기 때문이다. 여기도 그 방식이다: 「보기」 가
+# 없으면 메뉴에 안 뜬다.
+#
+# **꺼진 채로 나간다.** 켜는 순간 아무도 아무것도 못 하는 사고를 막는다 —
+# 표를 다 채운 뒤 사람이 켠다.
+#
+# 역할에 `jira` 칸을 비워 둔다. 계정 연동이 정리되면 Jira 그룹·프로젝트
+# 역할이 여기 들어와 정본이 된다(지시). 그때 표를 다시 짜지 않아도 되게.
+_PERM_RIGHTS = ("view", "create", "edit", "delete", "run", "folder")
+
+_PERM_DEFAULT_ROLES = [
+    {"key": "admin", "label": "관리자", "builtin": True, "jira": []},
+    {"key": "lead", "label": "팀장", "builtin": True, "jira": []},
+    {"key": "owner", "label": "담당", "builtin": True, "jira": []},
+    {"key": "member", "label": "팀원", "builtin": True, "jira": []},
+]
+
+
+def _perm_doc() -> dict:
+    """저장된 권한 문서. 없으면 「사용 안 함」 기본값."""
+    d = _kv_load_sync("permissions", None)
     if not isinstance(d, dict):
         d = {}
-    perms = d.get("perms", {})
-    return {"perms": perms if isinstance(perms, dict) else {}}
+    roles = d.get("roles")
+    if not isinstance(roles, list) or not roles:
+        roles = [dict(r) for r in _PERM_DEFAULT_ROLES]
+    grid = d.get("grid")
+    if not isinstance(grid, dict):
+        grid = {}
+    return {
+        "enabled": bool(d.get("enabled")),
+        "roles": roles,
+        "grid": grid,
+        # 옛 화면이 읽던 칸 — 아직 살려 둔다
+        "perms": d.get("perms") if isinstance(d.get("perms"), dict) else {},
+    }
+
+
+@app.get("/api/permissions")
+async def get_permissions():
+    """모든 화면이 메뉴를 그리기 전에 읽는다 — 로그인만 하면 볼 수 있다."""
+    return _perm_doc()
+
 
 @app.post("/api/permissions")
-async def save_permissions(data: dict = None):
+async def save_permissions(data: dict = None, token: str = ""):
+    """**관리자만**(지시) — 여기서 잘못 저장하면 아무도 못 들어온다."""
+    _require_admin(token)
     data = data or {}
-    perms = data.get("perms", {})
-    if not isinstance(perms, dict):
-        perms = {}
-    save_json(PERMISSIONS_FILE, {"perms": perms})
-    return {"ok": True}
+    cur = _perm_doc()
+
+    roles = data.get("roles")
+    if isinstance(roles, list) and roles:
+        cur["roles"] = [
+            {
+                "key": str(r.get("key") or "").strip(),
+                "label": str(r.get("label") or "").strip(),
+                "builtin": bool(r.get("builtin")),
+                "jira": [str(x) for x in (r.get("jira") or []) if str(x).strip()],
+            }
+            for r in roles
+            if isinstance(r, dict) and str(r.get("key") or "").strip()
+        ]
+    grid = data.get("grid")
+    if isinstance(grid, dict):
+        cur["grid"] = {
+            str(m): {
+                str(rk): [x for x in (rv or []) if x in _PERM_RIGHTS]
+                for rk, rv in (mv or {}).items()
+            }
+            for m, mv in grid.items()
+        }
+    if "enabled" in data:
+        cur["enabled"] = bool(data.get("enabled"))
+    if isinstance(data.get("perms"), dict):
+        cur["perms"] = data["perms"]
+
+    # **관리자를 0명으로 만들 수 없다.** 관리자 역할에서 SETUP 접근을 빼면
+    # 아무도 이 화면에 다시 못 들어온다 — 잠긴 방에 열쇠를 두고 나오는 꼴이다.
+    admin_key = next((r["key"] for r in cur["roles"] if r.get("builtin") and r["key"] == "admin"), "admin")
+    cur["grid"].setdefault("settings", {})
+    cur["grid"]["settings"][admin_key] = list(_PERM_RIGHTS)
+
+    _kv_save_sync("permissions", cur)
+    return {"ok": True, **cur}
+
 
 # ───────────────────────────────────────────
 @app.get("/api/devices")
@@ -11366,6 +11439,10 @@ async def _db_init():
         # 빈 값을 캐시에 박고, 다음 저장이 그 빈 값으로 DB 를 덮어썼다.
         # 실사고: 「폭이 자꾸 변경돼」 — 배포할 때마다 열 폭이 기본값으로 복귀.
         ("code_kind_style", DATA_DIR / "code_kind_style.json"),
+        # 페이지·모듈 권한. 옛 파일(config/permissions.json)이 정본이면 그것을
+        # DB 로 옮긴다. 등록을 빼면 재시작 때 빈 격자가 캐시에 박히고 다음
+        # 저장이 DB 를 덮어써 **권한이 통째로 날아간다** — 바로 위에서 겪은 것.
+        ("permissions", PERMISSIONS_FILE),
         ("cycle_desc_template", DATA_DIR / "cycle_desc_template.json"),
         # 자연어 시험 첫 화면의 질문 보기 — 등록 안 하면 재시작 때 빈 값이
         # 캐시에 박히고 다음 저장이 DB 를 덮어쓴다(원본 앱에서 겪은 덫).

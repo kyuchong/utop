@@ -7,6 +7,7 @@ import VerdictSettings from '@/components/settings/VerdictSettings'
 import CustomFieldSettings from '@/components/settings/CustomFieldSettings'
 import JiraSettings from '@/components/settings/JiraSettings'
 import Accounts from '@/components/settings/Accounts'
+import PermSettings from '@/components/settings/PermSettings'
 import StepActions from '@/components/settings/StepActions'
 import JiraPanels from '@/components/settings/JiraPanels'
 import MailSettings from '@/components/settings/MailSettings'
@@ -90,7 +91,7 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
     title: 'Account',
     items: [
       { key: 'accounts', label: '계정 관리', icon: IconAccounts, ready: true },
-      { key: 'perms', label: '페이지별 접근 권한', icon: IconPerms, ready: false },
+      { key: 'perms', label: '페이지별 접근 권한', icon: IconPerms, ready: true },
     ],
   },
   {
@@ -170,6 +171,8 @@ export default function Settings() {
           <StepActions />
         ) : sec === 'accounts' ? (
           <Accounts />
+        ) : sec === 'perms' ? (
+          <PermSettings />
         ) : sec === 'jira' ? (
           <JiraSettings />
         ) : sec === 'jirapanels' ? (
