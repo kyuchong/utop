@@ -3619,8 +3619,12 @@ async def cycle_desc_template_set(payload: dict):
 
 
 @app.post("/api/codes/kind-hidden")
-async def codes_kind_hidden(payload: dict):
-    """기본 칸(탭) 숨기기/되살리기 — 값 자료는 지우지 않는다."""
+async def codes_kind_hidden(payload: dict, token: str = ""):
+    """기본 칸(탭) 숨기기/되살리기 — 값 자료는 지우지 않는다.
+
+    **관리자만**(지시). 세 화면이 함께 쓰는 설정이라, 한 사람이 고치면 모두의
+    화면이 바뀐다."""
+    _require_admin(token)
     kind = str(payload.get("kind") or "").strip()
     hidden = bool(payload.get("hidden"))
     if kind not in db.CODE_KINDS:
@@ -3635,8 +3639,9 @@ async def codes_kind_hidden(payload: dict):
 
 
 @app.post("/api/codes/kind-label")
-async def codes_kind_label(payload: dict):
-    """기본 칸(탭)의 표시 이름 바꾸기 — 빈 이름이면 원래대로."""
+async def codes_kind_label(payload: dict, token: str = ""):
+    """기본 칸(탭)의 표시 이름 바꾸기 — 빈 이름이면 원래대로. **관리자만**(지시)."""
+    _require_admin(token)
     kind = str(payload.get("kind") or "").strip()
     label = str(payload.get("label") or "").strip()
     if kind not in db.CODE_KINDS:
@@ -3662,8 +3667,11 @@ async def codes_kind_style_get():
 
 
 @app.post("/api/codes/kind-style")
-async def codes_kind_style_set(payload: dict):
-    """{kind, w, shape, align, weight, size, font, caps} — 빈 값은 지운다."""
+async def codes_kind_style_set(payload: dict, token: str = ""):
+    """{kind, w, shape, align, weight, size, font, caps} — 빈 값은 지운다.
+
+    **관리자만**(지시). 열 폭 하나가 모두의 목록을 바꾼다."""
+    _require_admin(token)
     kind = str(payload.get("kind") or "").strip()
     if not kind:
         raise HTTPException(400, "어느 필드인지 알려 주세요")
@@ -3684,7 +3692,9 @@ async def codes_kind_style_set(payload: dict):
 
 
 @app.post("/api/codes")
-async def codes_save(payload: dict):
+async def codes_save(payload: dict, token: str = ""):
+    """드롭다운에 들어가는 값 추가·수정 — **관리자만**(지시)."""
+    _require_admin(token)
     try:
         await db.code_upsert(payload)
     except ValueError as e:
@@ -3693,7 +3703,8 @@ async def codes_save(payload: dict):
 
 
 @app.delete("/api/codes/{kind}/{value}")
-async def codes_delete(kind: str, value: str):
+async def codes_delete(kind: str, value: str, token: str = ""):
+    _require_admin(token)
     # 쓰는 건수가 있어도 막지 않는다(피드백) — 지우는 것은 고르기 목록의
     # 항목뿐이고, 기록(data)에 저장된 값 문자열은 그대로 남는다.
     # 몇 건이 쓰는지는 화면이 확인창에서 미리 알린다.

@@ -1737,3 +1737,6 @@ button.dcc-st:disabled { cursor: default; }
 .dc-orphan > b { font-size: var(--fs-sm); }
 .dc-orphan-vals { display: flex; flex-wrap: wrap; gap: 6px; }
 .dc-orphan-vals .btn i { font-style: normal; margin-left: 4px; font-size: 10.5px; }
+
+/* 관리자만 고치는 설정 — 못 고치는 사람에게는 흐리게, 손이 안 닿게(inert) */
+.cs-body[inert] { opacity: 0.55; }

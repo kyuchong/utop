@@ -94,6 +94,26 @@ export default function CodeSettings({ target }: Props) {
   // 새 탭(= 「고르기」 커스텀 필드) 만들기
   const [newTab, setNewTab] = useState<string | null>(null)
 
+  /**
+   * 이 페이지는 **관리자만** 고친다(지시).
+   *
+   * 여기 값 하나가 요구사항·시험항목·사이클 세 화면 모두의 목록을 바꾼다.
+   * 한 사람이 열 폭을 40 으로 내리면 그 순간 모두의 화면이 그렇게 된다 —
+   * 여럿이 함께 쓰는 설정은 고칠 수 있는 사람을 좁혀 두어야 한다.
+   * 서버도 같이 막았다(화면만 막으면 막은 것이 아니다).
+   */
+  const meQ = useQuery({
+    queryKey: ['me'],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/me')
+      if (!r.ok) return { user: null } as { user: { role?: string } | null }
+      return (await r.json()) as { user: { role?: string } | null }
+    },
+  })
+  const role = meQ.data?.user?.role ?? ''
+  const canEdit = role === '관리자' || role === 'admin'
+
   const listQ = useQuery({
     queryKey: ['codes'],
     queryFn: async () => {
@@ -399,7 +419,7 @@ export default function CodeSettings({ target }: Props) {
     if (it) delM.mutate(it)
   }
 
-  const busy = saveM.isPending || delM.isPending || cfSaveM.isPending
+  const busy = !canEdit || saveM.isPending || delM.isPending || cfSaveM.isPending
 
   return (
     <div className="set-page wide">
@@ -412,6 +432,16 @@ export default function CodeSettings({ target }: Props) {
 
       {note.msg && <div className={`set-note ${note.kind}`}>{note.msg}</div>}
 
+      {/* 못 고치는 사람에게는 **왜** 못 고치는지 말해 준다 — 눌러도 아무 일이
+          없으면 고장 난 화면으로 읽힌다 */}
+      {meQ.data && !canEdit && (
+        <div className="set-note warn">
+          이 설정은 <b>관리자만</b> 고칠 수 있습니다. 여기 값 하나가 요구사항·시험항목·사이클 세 화면
+          모두의 목록을 바꾸기 때문입니다 — 보기는 그대로 되고, 바꿀 것이 있으면 관리자에게 알려 주세요.
+        </div>
+      )}
+
+      <div className="cs-body" inert={(meQ.data && !canEdit) || undefined}>
       <div className="ps-tabs" role="tablist">
         {tabs.map((t) => (
           <button
@@ -903,6 +933,7 @@ export default function CodeSettings({ target }: Props) {
           </div>
         </section>
       )}
+      </div>
     </div>
   )
 }
