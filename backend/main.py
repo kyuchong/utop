@@ -6650,7 +6650,19 @@ async def run_cli_stream(payload: dict):
     async def _gen():
         if not host_ok:
             yield _sse({"err": "IP가 없습니다"}); yield _sse({"done": True}); return
-        with ent["lock"]:
+        # 이 장비 세션 락을 **이벤트 루프를 막지 않고** 잡는다. 동기 `with` 로
+        # 잡으면, 앞 스트림이 안 풀어 둔 락을 다음 호출이 기다리며 **API 전체가
+        # 언다** — health 까지 죽는다(실사고: run-cli-stream 하나가 걸리자 서버가
+        # 통째로 「로딩중」). 논블로킹 시도 + await sleep 로 잡고, 오래 못 잡으면
+        # 비켜 준다. finally 로 반드시 푼다(스트림이 중간에 끊겨도).
+        _lk_got = False
+        _lk_dl = _t.time() + 20
+        while not ent["lock"].acquire(blocking=False):
+            await asyncio.sleep(0.05)
+            if _t.time() > _lk_dl:
+                yield _sse({"err": "이 장비 세션이 다른 실행에 잡혀 있습니다 — 잠시 뒤 다시 시도하세요"}); yield _sse({"done": True}); return
+        _lk_got = True
+        try:
             try:
                 if payload.get("require_session"):
                     conn = ent.get("conn")
@@ -6761,6 +6773,10 @@ async def run_cli_stream(payload: dict):
                 yield _sse({"done": True})
             except Exception as e:
                 yield _sse({"err": str(e)[:200]}); yield _sse({"done": True})
+        finally:
+            if _lk_got:
+                try: ent["lock"].release()
+                except Exception: pass
     return StreamingResponse(_gen(), media_type="text/event-stream", headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache", "Content-Encoding": "identity"})
 
 @app.post("/api/cli-complete")
