@@ -427,14 +427,16 @@ export default function TcStepDetail({
    * 자리**를 집는다. 라벨로도 유일해지지 않으면 그때만 고른 값 그대로로 둔다.
    */
   const anchoredLoose = (value: string, ctx: string): string | null => {
-    const val = patternFrom(value.trim(), true) // 값은 아무 수나
+    const val = patternFrom(value.trim(), true) // **값만** 아무 수나
     const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const toRe = (x: string) => esc(x).replace(/\d+/g, '\\d+').replace(/[ \t]+/g, '\\s+')
-    const parts = ctx.split(/([ \t]+)/).filter((x) => x !== '')
-    for (let k = 1; k <= parts.length; k += 1) {
-      const anchor = parts.slice(parts.length - k).join('')
-      if (!anchor.trim()) continue
-      const pat = `${toRe(anchor)}(${val})`
+    // 라벨(닻)의 숫자는 **그대로 둔다** — `Temperature 1` 과 `Temperature 2` 를
+    // 가르는 게 그 숫자다(지적: 겹치는 단어가 많아 구분이 안 된다). 숫자까지
+    // 풀면 둘이 같은 식이 되어 영영 못 좁힌다.
+    const toks = ctx.split(/\s+/).filter(Boolean) // 비공백 토큰만, 줄바꿈도 넘는다
+    for (let k = 1; k <= toks.length && k <= 10; k += 1) {
+      const anchor = toks.slice(toks.length - k).map(esc).join('\\s+')
+      // 닻과 값 사이는 \s* — 「Current:70」 처럼 붙어 있어도 잡는다
+      const pat = `${anchor}\\s*(${val})`
       if (hitCount(pat) === 1) return pat
     }
     return null
@@ -481,8 +483,8 @@ export default function TcStepDetail({
       const r = sel!.getRangeAt(0)
       const whole = r.startContainer.textContent ?? ''
       const off = r.startOffset
-      const lineStart = whole.lastIndexOf('\n', off - 1) + 1
-      ctx = whole.slice(lineStart, off)
+      // 앞 200자(줄바꿈 넘어서까지) — 센서 이름이 윗줄에 있는 꼴도 잡는다
+      ctx = whole.slice(Math.max(0, off - 200), off)
     } catch {
       /* 위치를 못 잡으면 라벨 없이 간다 — 옛 동작 그대로 */
     }
