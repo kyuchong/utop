@@ -831,9 +831,17 @@ async function runOne(
       repeatResult: j.verdict,
       reason: j.reason,
     })
+    // 로그는 **실제 보낸 OID**를 보여 준다 — 원본(step.oid)은 `.8.$i` 라
+    // $i 가 풀렸는지 알 수 없다(지적). subVars 를 지난 snmp.oid 를 쓴다.
+    const sentVal =
+      kind === 'snmp_set' ? subVars(legacySnmp?.value ?? String(step.snmpValue ?? ''), vars) : ''
+    const sentText =
+      kind === 'snmp_get' || kind === 'snmp_set'
+        ? `${snmp.oid}${sentVal ? ` = ${sentVal}` : ''}`
+        : stepSummary(step)
     ctx.onLog({
       i,
-      text: `${stepSummary(step)}${j.reason ? ` — ${j.reason}` : ''}`,
+      text: `${sentText}${j.reason ? ` — ${j.reason}` : ''}`,
       kind: j.verdict === 'Pass' ? 'pass' : j.verdict === 'Fail' ? 'fail' : 'info',
     })
     return j.verdict

@@ -7531,6 +7531,11 @@ async def snmp_set_api(payload: dict):
                     _hint += ("\n→ 장비가 쓰기를 거부했습니다(" + es + "). 커뮤니티는 **읽기(public)와 쓰기가 다릅니다** — "
                               "Devices 에서 이 장비의 SNMP 줄에 **쓰기 커뮤니티(community_rw)** 를 넣으세요. "
                               "장비에서도 그 커뮤니티에 write 권한과 이 OID 뷰가 열려 있어야 합니다.")
+                if "noSuchName" in es or "noSuchInstance" in es or "noCreation" in es:
+                    _hint += ("\n→ 보낸 OID: " + _used_oid + " — 이 인스턴스로는 SET 이 안 됩니다. "
+                              "① 그 번호가 맞는지(CLI 포트 번호 ≠ SNMP ifIndex 인 장비가 많습니다 — te0/2 가 ifIndex 2 가 아닐 수 있음). "
+                              "② 읽기는 되는데 SET 이 noSuchName 이면 그 OID 가 이 장비에선 쓰기 불가일 수 있습니다. "
+                              "③ 수동 snmpset 이 되면 그때 쓴 OID·버전(-v1/-v2c)·커뮤니티를 그대로 맞춰 보세요.")
                 if "wrongType" in es:
                     _hint += "\n→ 타입 불일치. [i:" + value + "]·[u:" + value + "]·[c:" + value + "]·[g:" + value + "]·[s:..]·[x:HEX] 로 지정 가능"
                 elif "genErr" in es:
