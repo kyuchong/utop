@@ -11350,6 +11350,11 @@ async def _db_init():
         #   파일은 원래 없던 키라 경로는 자리표시용이다(파일 없음 → DB 만).
         ("code_kind_labels", DATA_DIR / "code_kind_labels.json"),
         ("code_kind_hidden", DATA_DIR / "code_kind_hidden.json"),
+        # INFO 필드의 폭·모양·정렬·글꼴. 바로 위 두 형제는 등록해 두고 이것만
+        # 빠져 있었다 — 저장은 DB 에 되는데 다시 올리면 `_kv_load_sync` 가
+        # 빈 값을 캐시에 박고, 다음 저장이 그 빈 값으로 DB 를 덮어썼다.
+        # 실사고: 「폭이 자꾸 변경돼」 — 배포할 때마다 열 폭이 기본값으로 복귀.
+        ("code_kind_style", DATA_DIR / "code_kind_style.json"),
         ("cycle_desc_template", DATA_DIR / "cycle_desc_template.json"),
         # 자연어 시험 첫 화면의 질문 보기 — 등록 안 하면 재시작 때 빈 값이
         # 캐시에 박히고 다음 저장이 DB 를 덮어쓴다(원본 앱에서 겪은 덫).
