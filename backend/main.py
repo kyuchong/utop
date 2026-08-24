@@ -7300,13 +7300,51 @@ async def snmp_oids(q: str = "", limit: int = 50):
     }
 
 
+async def _snmp_comm_for(host: str, rw: bool):
+    """이 IP 장비에 **저장된 커뮤니티**를 찾는다.
+
+    읽기(public)는 되고 쓰기만 noAccess 로 막히던 까닭이 여기 있었다(지적):
+    SNMP Set 이 늘 기본값 'private' 로 나갔는데, 장비의 쓰기 커뮤니티는 따로
+    등록돼 있다(장비 SNMP 줄의 `community_rw`). 그 값을 꺼내 쓴다.
+
+    rw=True 면 쓰기 커뮤니티를 먼저, 없으면 읽기 커뮤니티, 그것도 없으면
+    None(부르는 쪽이 기본값을 쓴다).
+    """
+    try:
+        host = (host or "").strip()
+        if not host:
+            return None
+        for d in await db.device_list(with_ifs=False):
+            if str(d.get("ip") or "").strip() != host:
+                continue
+            snmp = _acc_of(d, "snmp")
+            params = snmp.get("params") or {}
+            # params 가 문자열(때로 이중 인코딩)로 저장된 자료가 있다 — 풀어 준다
+            for _ in range(2):
+                if isinstance(params, str):
+                    try:
+                        params = json.loads(params)
+                    except Exception:
+                        params = {}
+            if not isinstance(params, dict):
+                params = {}
+            ro = snmp.get("username") or snmp.get("community") or ""
+            wo = params.get("community_rw") or ""
+            if rw:
+                return (wo or ro or None)
+            return (ro or None)
+    except Exception:
+        pass
+    return None
+
+
 @app.post("/api/snmp-get")
 async def snmp_get_api(payload: dict):
     _load_snmp_enums()   # JSON(MIB 추출) 변경 시 자동 재로드 → mib_enums.py 재실행만으로 반영(서버 재시작 불필요)
     eng = None
     host = (payload.get("host") or "").strip()
     oid = (payload.get("oid") or "").strip()
-    community = payload.get("community") or "public"
+    community = payload.get("community") or await _snmp_comm_for(host, rw=False) or "public"
     ver = (payload.get("version") or "v2c").lower()
     try:
         port = int(payload.get("port", 161) or 161)
@@ -7395,7 +7433,8 @@ async def snmp_set_api(payload: dict):
     oid = (payload.get("oid") or "").strip().lstrip(".")
     value = payload.get("value")
     value = "" if value is None else str(value)
-    community = payload.get("community") or "private"
+    # 쓰기 커뮤니티는 장비에 등록된 것을 먼저 쓴다(지적: noAccess). 없으면 private.
+    community = payload.get("community") or await _snmp_comm_for(host, rw=True) or "private"
     ver = (payload.get("version") or "v2c").lower()
     vtype = (payload.get("type") or "").strip().lower()   # 선택: i/s/u/a … 없으면 자동(숫자→정수, 그 외→문자열)
     _load_snmp_enums()                                     # enum 맵 최신화
@@ -7469,6 +7508,10 @@ async def snmp_set_api(payload: dict):
                         _hint += "\n→ 유효값: " + ", ".join(nm + "(" + k + ")" for k, nm in sorted(_em2.items(), key=lambda x: int(x[0])))
                 except Exception:
                     pass
+                if "noAccess" in es or "authorizationError" in es or "notWritable" in es:
+                    _hint += ("\n→ 장비가 쓰기를 거부했습니다(" + es + "). 커뮤니티는 **읽기(public)와 쓰기가 다릅니다** — "
+                              "Devices 에서 이 장비의 SNMP 줄에 **쓰기 커뮤니티(community_rw)** 를 넣으세요. "
+                              "장비에서도 그 커뮤니티에 write 권한과 이 OID 뷰가 열려 있어야 합니다.")
                 if "wrongType" in es:
                     _hint += "\n→ 타입 불일치. [i:" + value + "]·[u:" + value + "]·[c:" + value + "]·[g:" + value + "]·[s:..]·[x:HEX] 로 지정 가능"
                 elif "genErr" in es:
