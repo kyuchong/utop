@@ -972,8 +972,8 @@ export default function TcStepDetail({
             {(step.mapSrc || '').trim() && (step.mapRules || '').trim()
               ? (() => {
                   const r = applyMapRules(
-                    subVars(String(step.mapSrc ?? ''), gp.values),
-                    String(step.mapRules ?? ''),
+                    subVars(String(step.mapSrc ?? ''), pvars),
+                    subVars(String(step.mapRules ?? ''), pvars),
                   )
                   return (
                     <span className="sd-prev">

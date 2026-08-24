@@ -665,7 +665,10 @@ async function runOne(
    */
   if (kind === 'map') {
     const src = subVars(String(step.mapSrc ?? ''), vars)
-    const { out, hits } = applyMapRules(src, String(step.mapRules ?? ''))
+    // 대응표에도 변수를 푼다(지적: 대응표가 적용 안 된다). 「바꿀 값」 만
+    // 풀고 대응표는 글자 그대로 두면, `${value} = 2` 같은 규칙이 영영 안 맞는다 —
+    // 한쪽만 푸는 것은 규칙이 아니라 함정이다.
+    const { out, hits } = applyMapRules(src, subVars(String(step.mapRules ?? ''), vars))
     const name = String(step.mapVar ?? '').trim()
     if (name) vars[name] = out
     const head = name ? `\${${name}} = ${out}` : out
@@ -1454,7 +1457,7 @@ function seedVars(ctx: RunCtx, upto: number, vars: Record<string, string>) {
       if (name)
         vars[name] = applyMapRules(
           subVars(String(s.mapSrc ?? ''), vars),
-          String(s.mapRules ?? ''),
+          subVars(String(s.mapRules ?? ''), vars),
         ).out
       continue
     }
