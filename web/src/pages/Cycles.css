@@ -8192,3 +8192,16 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   font-weight: 800;
   letter-spacing: -0.01em;
 }
+
+/* 판정(Pass/Fail)을 왼쪽 끝으로(지시) — No 바로 뒤에 자리한다.
+   flex 행에서 이름 칸(cxp-rmain)보다 앞에 오도록 자연 순서로 두고,
+   번호와 세로로 정렬되게 여백만 맞춘다. */
+.cxp-row > .cxp-hist-left,
+.cxp-row.cxp-hd > .cxp-hist-left {
+  flex: none;
+  margin-right: 6px;
+  min-width: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
