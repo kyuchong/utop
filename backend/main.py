@@ -7607,12 +7607,21 @@ async def snmp_set_api(payload: dict):
         _tried = []             # 무엇을 어떻게 보냈는지 (진단용)
         _seen_err = {}          # (ver,comm) -> 마지막 오류. 같은 짝을 헛돌지 않게
         _need_zero = False      # noSuchName 을 봤을 때만 `.0` 을 시도한다
+        _oid_class = False      # 오류가 **OID 문제**로 보이나 (noSuchName …)
+        _acc_class = False      # 오류가 **권한 문제**로 보이나 (noAccess …)
         for _vr, _cm, _od, tt in attempts:
             # **필요할 때만 넓힌다** — 조합을 다 돌면 응답 없는 커뮤니티에서
             # 1.5초씩 먹어 시험이 느려진다(앞서 겪은 것). 규칙:
             #  · `.0` 곁가지는 noSuchName(인스턴스 없음)을 봤을 때만
             #  · 같은 (버전·커뮤니티)에서 wrongType 이 아니면 다른 타입은 무의미
             _prev = _seen_err.get((_vr, _cm))
+            # 오류 **갈래대로만** 넓힌다(지적: SET 동작이 이상하다 — 8조합을
+            # 헛돌았다). noSuchName 은 OID 문제라 커뮤니티·버전을 바꿔도 소용이
+            # 없고, noAccess 는 권한 문제라 OID 를 바꿔도 소용이 없다.
+            if _oid_class and (_vr, _cm) != (ver_cands[0], comm_cands[0]):
+                continue        # OID 문제 — 커뮤니티·버전은 건드릴 이유가 없다
+            if _acc_class and _od != oid:
+                continue        # 권한 문제 — `.0` 곁가지는 뜻이 없다
             if _od != oid and not _need_zero:
                 continue
             if _prev is not None and "wrongType" not in _prev and tt != cands[0]:
@@ -7637,6 +7646,9 @@ async def snmp_set_api(payload: dict):
                 _seen_err[(_vr, _cm)] = es
                 if "noSuchName" in es or "noSuchInstance" in es:
                     _need_zero = True     # 인스턴스 문제 — `.0` 을 붙여 볼 값이 있다
+                    _oid_class = True
+                elif any(x in es for x in ("noAccess", "authorizationError", "notWritable", "readOnly")):
+                    _acc_class = True
                 continue        # 다음 시도로 — 다 해 보고 아래에서 보고한다
             # ── 성공 ──
             lines2 = []
@@ -7675,6 +7687,10 @@ async def snmp_set_api(payload: dict):
                 pass
             if "wrongType" in es:
                 _hint += "\n\u2192 \ud0c0\uc785 \ubd88\uc77c\uce58. [i:" + value + "]\u00b7[u:" + value + "]\u00b7[s:..]\u00b7[x:HEX] \ub85c \uc9c0\uc815 \uac00\ub2a5"
+            elif "noSuchName" in es or "noSuchInstance" in es:
+                _hint += ("\n\u2192 \uc774 \uc7a5\ube44\ub294 **\uadf8 \ubc88\ud638\uc5d0 \uc4f0\uae30\ub97c \uc548 \ubc1b\uc2b5\ub2c8\ub2e4**(" + es + "). "
+                          "\uc77d\uae30(GET)\ub294 \ub418\ub294\ub370 SET \ub9cc \uc774\ub7ec\uba74, \uadf8 \ubc88\ud638\uac00 \uc4f0\uae30 \ub300\uc0c1\uc774 \uc544\ub2c8\uac70\ub098 "
+                          "CLI \ud3ec\ud2b8 \ubc88\ud638\uc640 SNMP ifIndex \uac00 \ub2e4\ub978 \uacbd\uc6b0\uc785\ub2c8\ub2e4 \u2014 \uc218\ub3d9\uc73c\ub85c \ub41c \ubc88\ud638\uc640 \uacac\uc918 \ubcf4\uc138\uc694.")
             elif any(x in es for x in ("noAccess", "authorizationError", "notWritable", "readOnly")):
                 _hint += ("\n\u2192 \uc7a5\ube44\uac00 \uc4f0\uae30\ub97c \uac70\ubd80\ud588\uc2b5\ub2c8\ub2e4(" + es + "). \uc218\ub3d9 snmpset \uc774 \ub41c\ub2e4\uba74 \uadf8\ub54c\uc758 "
                           "**OID\u00b7\ucee4\ubba4\ub2c8\ud2f0\u00b7\ubc84\uc804**\uc744 \uc704 \uc904\uacfc \uacac\uc918 \ubcf4\uc138\uc694 \u2014 \ud558\ub098\ub77c\ub3c4 \ub2e4\ub974\uba74 \uadf8\uac83\uc774 \uae30\uc900\uc785\ub2c8\ub2e4. "
