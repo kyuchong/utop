@@ -7300,6 +7300,9 @@ async def snmp_oids(q: str = "", limit: int = 50):
     }
 
 
+_SNMP_WCOMM_CACHE: dict = {}   # host -> 최근에 SET 이 통한 쓰기 커뮤니티
+
+
 async def _snmp_write_comms(host: str) -> list:
     """SET 에 시도할 **쓰기 커뮤니티 후보**를 차례로.
 
@@ -7330,7 +7333,8 @@ async def _snmp_write_comms(host: str) -> list:
             ro = snmp.get("username") or snmp.get("community") or ""
             wo = params.get("community_rw") or ""
             break
-        for c in (wo, ro, "private", "public"):
+        _cached = _SNMP_WCOMM_CACHE.get(host)
+        for c in (_cached, wo, ro, "private", "public"):
             if c and c not in out:
                 out.append(c)
     except Exception:
@@ -7524,7 +7528,9 @@ async def snmp_set_api(payload: dict):
             _digits = value.lstrip("-")
             cands = ["i", "u", "c", "g"] if (_digits.isdigit() and value not in ("", "-")) else ["s"]
         eng = SnmpEngine()
-        transport = await UdpTransportTarget.create((host, port), timeout=3, retries=1)
+        # 안 맞는 커뮤니티는 응답이 없어 타임아웃까지 매달린다 — 짧게(지적:
+        # 시험 진행 중 갑자기 느려진다). 되는 커뮤니티는 캐시로 첫 시도에 맞는다.
+        transport = await UdpTransportTarget.create((host, port), timeout=1.5, retries=0)
         last_err = None
         # OID 후보 — 스칼라는 인스턴스 `.0` 을 찍어야 SET 이 먹는다.
         # `…3.6`(객체)으로 SET 하면 딱 noAccess 가 난다(지적: 커뮤니티도 RW 인데
@@ -7604,6 +7610,8 @@ async def snmp_set_api(payload: dict):
                     lines.append(str(vb))
             _tn = _SNMP_TYPE_NAMES.get(tt, tt)
             _note = "" if _used_oid == oid else ("\n→ 인스턴스 `.0` 을 붙여 성공했습니다 (" + _used_oid + "). 스칼라 OID 는 끝에 .0 이 있어야 SET 이 먹습니다.")
+            if not _explicit:
+                _SNMP_WCOMM_CACHE[host] = _used_comm   # 다음 반복부턴 이걸 먼저
             if not _explicit and _used_comm != comm_cands[0]:
                 _note += "\n→ 쓰기 커뮤니티 '" + str(_used_comm) + "' 로 됐습니다. Devices 에 넣어 두면 다음부턴 바로 됩니다."
             return {"ok": True, "output": "[SNMP SET OK] (type=" + _tn + ")\n" + ("\n".join(lines) if lines else (_used_oid + " = " + value)) + _note, "mode": "set"}
