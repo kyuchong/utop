@@ -7331,7 +7331,11 @@ async def _snmp_comm_for(host: str, rw: bool):
             ro = snmp.get("username") or snmp.get("community") or ""
             wo = params.get("community_rw") or ""
             if rw:
-                return (wo or ro or None)
+                # 쓰기는 **쓰기 커뮤니티만** 쓴다. 읽기 커뮤니티로 되돌아가면
+                # 안 된다(지적: 수동은 private 로 되는데 도구는 안 된다) —
+                # 읽기 community 가 public 이면 SET 을 public 으로 보내 noAccess
+                # 가 난다. 없으면 None → 부르는 쪽이 관례값 'private' 를 쓴다.
+                return (wo or None)
             return (ro or None)
     except Exception:
         pass
