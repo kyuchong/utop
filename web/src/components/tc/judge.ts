@@ -459,6 +459,13 @@ export function captureMiss(
 ): string | null {
   if (!q.var || !q.col) return null
   if (tableCapture(output, q, vars) !== null) return null // 잘 잡혔으면 할 말 없다
+  /* 반복 변수가 **안 풀린 채** 남아 있으면 그것이 진짜 까닭이다.
+     `${i}` 에 값이 없으면 「Interface=${i} 인 행이 없습니다」 처럼 엉뚱한 곳을
+     가리키게 된다(지적). 대개 이 스텝이 **반복 안에 안 들어가 있어서**다 —
+     반복 줄에 「비어 있음」 이 붙어 있으면 그 경우다. */
+  const _un = /\$\{(\w+)\}/.exec(subVars(String(q.where ?? q.row ?? ''), vars))
+  if (_un)
+    return `${q.var} ← \${${_un[1]}} 에 값이 없습니다 — 이 스텝이 반복 안에 있지 않습니다. 반복 줄 아래로 한 칸 들여쓰세요(반복 줄의 「아래 N줄 넣기」).`
   const tbl = anyTable(output)
   if (!tbl) return `${q.var} ← 이 응답에서 표를 못 찾았습니다`
   const at = (n: string) => tbl.cols.findIndex((c) => c.toLowerCase() === String(n).toLowerCase())
