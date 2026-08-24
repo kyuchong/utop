@@ -12,6 +12,8 @@ export interface LogLine {
   text: string
   /** 반복 안이면 몇 회차인가 */
   round?: number
+  /** 제자리에서 갱신되는 줄(Wait 남은 시간 등) — 같은 값이면 갈아 끼운다 */
+  tick?: string
   at: string
 }
 

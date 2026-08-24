@@ -1466,7 +1466,18 @@ export default function TestCases({ me }: PageProps) {
                 label: l.label,
                 text: l.text,
                 round: l.round,
+                tick: l.tick,
                 at: `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}:${String(at.getSeconds()).padStart(2, '0')}`,
+              }
+              /* 제자리에서 갱신되는 줄(Wait 의 남은 시간)은 **갈아 끼운다** —
+                 새로 쌓으면 20초 대기에 스무 줄이 깔려 다른 말이 묻힌다(지시). */
+              if (l.tick) {
+                const at2 = prev.findIndex((x) => x.tick === l.tick)
+                if (at2 >= 0) {
+                  const cp = prev.slice()
+                  cp[at2] = { ...line, n: prev[at2]!.n }
+                  return cp
+                }
               }
               /* 폭주 막이 — 100회 반복이면 수천 줄이 된다. 오래된 것부터 버린다 */
               const next = [...prev, line]

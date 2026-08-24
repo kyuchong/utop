@@ -56,6 +56,14 @@ export interface RunLog {
    */
   round?: number
   /**
+   * **제자리에서 갱신되는 줄**임을 알리는 표.
+   *
+   * Wait 의 남은 시간처럼 1초마다 바뀌는 값은, 줄을 새로 쌓으면 20초 대기에
+   * 스무 줄이 깔려 정작 다른 말이 묻힌다(지시: 줄어드는 게 로그에 보이게).
+   * 같은 `tick` 을 단 줄은 앞엣것을 갈아 끼운다 — 한 줄이 세면서 줄어든다.
+   */
+  tick?: string
+  /**
    * 줄 앞에 세우는 **무슨 말인지**. 「비교 결과」 · 「데이터 치환 결과」.
    *
    * 로그가 `'Te0/1' == 'Te0/1'` 로만 적히면 무엇을 한 줄인지 다시 짚어야
@@ -700,14 +708,18 @@ async function runOne(
    */
   if (kind === 'wait') {
     const sec = Math.min(Math.max(0, Number(step.waitSec ?? 0)), 600)
-    ctx.onLog({ i, text: `${sec}초 기다림`, kind: 'info' })
+    // 남은 시간을 **로그에서도** 보여 준다(지시). 줄을 새로 쌓지 않고 같은
+    // 줄을 갈아 끼운다 — 20초면 스무 줄이 깔려 다른 말이 묻힌다.
+    const tick = `wait-${i}`
     for (let left = sec; left > 0; left--) {
       ctx.onStep(i, { waitLeft: left, output: `${sec}초 중 ${left}초 남음` })
+      ctx.onLog({ i, tick, kind: 'info', label: '대기', text: `${sec}초 중 ${left}초 남음` })
       await sleep(1000, ctx.signal)
     }
     // 남은 시간은 지운다 — 안 지우면 다 기다린 줄이 목록에 「1초 남음」 인
     // 채로 남고, 그것이 저장까지 따라간다.
     ctx.onStep(i, { waitLeft: undefined, output: `${sec}초 기다렸습니다`, executed_at: at })
+    ctx.onLog({ i, tick, kind: 'info', label: '대기', text: `${sec}초 기다렸습니다` })
     return ''
   }
 
