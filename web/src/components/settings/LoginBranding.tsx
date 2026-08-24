@@ -22,7 +22,7 @@ export default function LoginBranding() {
   const [loginSize, setLoginSize] = useState('')
   const [loginColor, setLoginColor] = useState('#ffffff')
   const [loginAccent, setLoginAccent] = useState('#ff5b5b')
-  /* 오른쪽 판 — 들어가는 자리(지시: 오른쪽 화면 설정) */
+  /* 들어가는 자리 — 이제 **왼쪽**이다(지시: 로그인을 왼쪽으로) */
   const [formTitle, setFormTitle] = useState('')
   const [idPh, setIdPh] = useState('')
   const [note, setNote] = useState('')
@@ -146,12 +146,15 @@ export default function LoginBranding() {
     <div className="brand-set">
       <h3>로그인 화면</h3>
       <p className="muted small">
-        로그인 화면에만 쓰이는 값입니다 — 왼쪽 메뉴의 로고·이름과는 <b>따로</b> 갑니다.
+        로그인 화면에만 쓰이는 값입니다 — 왼쪽 메뉴의 로고·이름과는 <b>따로</b> 갑니다. 화면은{' '}
+        <b>왼쪽이 로그인, 오른쪽이 사진</b>(40 : 60)입니다.
         사진은 회사 건물처럼 <b>우리가 쓸 권리가 있는 사진</b>을 올려 주세요. 안 올리면 회사
         색으로 칠한 판이 대신 섭니다. (JPG·PNG, 6MB 이하)
       </p>
 
-      <h4 className="brand-h2">왼쪽 판 — 보여 주는 자리</h4>
+      {/* 화면에서 사진 판을 오른쪽으로 옮겼다(지시) — 이름표도 따라간다.
+          화면과 설정이 서로 다른 쪽을 가리키면 고칠 때마다 헷갈린다 */}
+      <h4 className="brand-h2">오른쪽 판 — 보여 주는 자리 (회사 사진)</h4>
       <div className="brand-row">
         <span className="brand-loginprev">
           {loginImg ? (
@@ -254,9 +257,9 @@ export default function LoginBranding() {
         </label>
       </div>
 
-      {/* 오른쪽 판 — 들어가는 자리(지시). 문구가 코드에 박혀 있어 고칠 수
+      {/* 들어가는 자리 — 이제 왼쪽이다(지시). 문구가 코드에 박혀 있어 고칠 수
           없던 것들이다 */}
-      <h4 className="brand-h2">오른쪽 판 — 들어가는 자리</h4>
+      <h4 className="brand-h2">왼쪽 판 — 들어가는 자리 (로그인)</h4>
       <div className="brand-row">
         <span className="brand-preview">
           {loginLogo ? (
