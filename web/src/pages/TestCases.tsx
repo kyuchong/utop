@@ -792,6 +792,12 @@ export default function TestCases({ me }: PageProps) {
   useEffect(() => {
     dirtyRef.current = dirty
   }, [dirty])
+  // 편집기를 벗어나면(목록·openId 없음) 안 저장한 변경은 **버린 것**이다 —
+  // dirty 를 끈다. 안 그러면 목록에서 폴더를 옮길 때마다 「저장하지 않은
+  // 변경이 있습니다」 확인창이 계속 떴다(지적). 나갈 때 한 번만 묻는다.
+  useEffect(() => {
+    if (!openId) setDirty(false)
+  }, [openId])
 
   useEffect(() => {
     if (!fullQ.data) return
