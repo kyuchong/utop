@@ -48,6 +48,8 @@ interface SyncStat {
   locked?: number
   /** Jira 로 돌아와 잠금을 푼 사람 */
   unlocked?: number
+  /** Jira 팀장/그룹장 그룹에서 직급이 팀장으로 잡힌 사람 */
+  leads?: number
   active?: number
   inactive?: number
 }
@@ -145,6 +147,7 @@ export default function Accounts() {
       say(
         'ok',
         `Jira 사용자 ${j.found}명 — 새로 ${j.new}명 · 고침 ${j.changed}명` +
+          `${j.leads ? ` · 팀장 ${j.leads}명` : ''}` +
           `${j.locked ? ` · 비활성 잠금 ${j.locked}명` : ''}` +
           `${j.unlocked ? ` · 잠금 해제 ${j.unlocked}명` : ''}`,
       )
@@ -295,7 +298,7 @@ export default function Accounts() {
               <b>{last.at}</b>
               <span className="muted small">
                 Jira 사용자 {last.found}명 · 활성 {last.active} · 비활성 {last.inactive} — 지난번
-                새로 {last.new}명 · 고침 {last.changed}명 · 비활성 잠금 {last.locked ?? 0}명
+                새로 {last.new}명 · 고침 {last.changed}명{last.leads ? ` · 팀장 ${last.leads}명` : ''} · 비활성 잠금 {last.locked ?? 0}명
               </span>
             </>
           ) : (

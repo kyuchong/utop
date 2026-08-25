@@ -1527,6 +1527,9 @@ async def api_user_update(username: str, payload: dict, token: str = "", request
                 u["email"] = _em
             if payload.get("role") in ROLES:
                 u["role"] = payload.get("role")
+                # 관리자가 손으로 정한 역할은 **못**이 된다 — Jira 동기화(role_by=jira)가
+                # 다음에 팀장으로 되돌리지 않게, jira 표식을 뗀다.
+                u.pop("role_by", None)
             if payload.get("active") is not None:
                 _was_pending = bool(u.get("pending"))
                 u["active"] = bool(payload.get("active"))
@@ -14560,6 +14563,50 @@ def _jira_fetch_users(q: str = "", limit: int = 2000) -> tuple:
     return out, None
 
 
+def _jira_leaders(cfg=None) -> set:
+    """Jira 에서 **직급(리더)** 을 유추한다 — 팀장·그룹장.
+
+    Jira 사용자 API 에는 직급 필드가 없다. 다만 「팀장」·「그룹장」 은 **그룹**
+    으로 남아 있어(팀장·기술팀 팀장·연구소 팀장/그룹장·그룹장/담당 …), 그
+    구성원을 읽으면 누가 리더인지 알 수 있다. 사원·선임·책임·수석은 그룹이
+    없어 Jira 로는 가릴 수 없다 — 그건 못 채운다.
+
+    비싼 짓(사람마다 조회)이 아니다: picker 로 리더 그룹 이름을 몇 개 찾고,
+    그 그룹의 구성원만 읽는다(십수 번의 호출).
+    """
+    cfg = cfg or _jira_cfg()
+    gnames = set()
+    for q in ("팀장", "그룹장"):
+        r, err = _jira_call("GET", "/rest/api/2/groups/picker",
+                            cfg=cfg, params={"query": q, "maxResults": 50})
+        if err or not r.is_success:
+            continue
+        for g in (r.json().get("groups") or []):
+            nm = str(g.get("name") or "").strip()
+            # 이름에 팀장/그룹장이 든 그룹만 — picker 는 느슨히 걸린다
+            if nm and ("팀장" in nm or "그룹장" in nm):
+                gnames.add(nm)
+    leaders = set()
+    for nm in gnames:
+        start = 0
+        while start < 2000:
+            r, err = _jira_call("GET", "/rest/api/2/group/member", cfg=cfg,
+                                params={"groupname": nm, "startAt": start,
+                                        "maxResults": 200, "includeInactiveUsers": "true"})
+            if err or not r.is_success:
+                break
+            j = r.json() or {}
+            vals = j.get("values") or []
+            for m in vals:
+                un = str(m.get("name") or "").strip().lower()
+                if un:
+                    leaders.add(un)
+            if j.get("isLast") or len(vals) < 200:
+                break
+            start += 200
+    return leaders
+
+
 @app.get("/api/users/jira-sync")
 async def api_users_jira_sync_status(token: str = ""):
     """지난번 동기화가 언제·어떻게 됐나 (화면 머리줄)."""
@@ -14589,11 +14636,16 @@ async def api_users_jira_sync(payload: dict = None, token: str = ""):
     rows, err = await asyncio.to_thread(_jira_fetch_users, q)
     if err:
         return {"ok": False, **err}
+    # 직급(리더) 유추 — 팀장·그룹장 그룹의 구성원. 못 읽어도 동기화는 계속한다.
+    try:
+        leaders = await asyncio.to_thread(_jira_leaders)
+    except Exception:
+        leaders = set()
     data = _users_load_sync()
     by_name = {str(u.get("username") or "").lower(): u for u in data["users"]}
     by_key = {str(u.get("jira_key") or ""): u for u in data["users"] if u.get("jira_key")}
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    new_n = chg_n = off_n = back_n = 0
+    new_n = chg_n = off_n = back_n = lead_n = 0
     for j in rows:
         cur = by_key.get(j["jira_key"]) if j["jira_key"] else None
         if cur is None:
@@ -14604,14 +14656,18 @@ async def api_users_jira_sync(payload: dict = None, token: str = ""):
             # 안 그러면 지워도 다음 동기화마다 되살아난다.
             if not j["jira_active"]:
                 continue
+            _is_lead = j["username"].lower() in leaders
             nu = {
                 "id": j["username"], "username": j["username"], "name": j["name"],
-                "role": "팀원", "email": j["email"], "active": True,
+                "role": "팀장" if _is_lead else "팀원", "email": j["email"], "active": True,
                 "dept": j.get("dept") or "",
                 "source": "jira",
                 "jira_key": j["jira_key"], "jira_active": True,
                 "created_at": now, "synced_at": now,
             }
+            if _is_lead:
+                nu["role_by"] = "jira"
+                lead_n += 1
             data["users"].append(nu)
             new_n += 1
             continue
@@ -14624,6 +14680,14 @@ async def api_users_jira_sync(payload: dict = None, token: str = ""):
             cur["jira_key"] = j["jira_key"]
         if j.get("dept") and not str(cur.get("dept") or "").strip():
             cur["dept"] = j["dept"]   # 비어 있을 때만 — 관리자가 정한 소속은 그대로
+        # 직급(리더) — Jira 의 팀장/그룹장 그룹이 정본. **관리자가 손으로 정한
+        # 역할(관리자·담당, 또는 손으로 준 팀장)은 안 건드린다** — jira 가 준
+        # 것(role_by=jira)만 올리고 내린다. 이 규칙은 active 의 locked_by 와 같다.
+        _is_lead = str(cur.get("username") or "").lower() in leaders
+        if _is_lead and cur.get("role") == "팀원":
+            cur["role"] = "팀장"; cur["role_by"] = "jira"; lead_n += 1
+        elif not _is_lead and cur.get("role") == "팀장" and cur.get("role_by") == "jira":
+            cur["role"] = "팀원"; cur.pop("role_by", None)
         cur["jira_active"] = j["jira_active"]
         cur["source"] = "jira"
         cur["synced_at"] = now
@@ -14646,7 +14710,7 @@ async def api_users_jira_sync(payload: dict = None, token: str = ""):
             chg_n += 1
     _users_save_sync(data)
     stat = {"at": now, "found": len(rows), "new": new_n, "changed": chg_n,
-            "locked": off_n, "unlocked": back_n,
+            "locked": off_n, "unlocked": back_n, "leads": lead_n,
             "active": len([x for x in rows if x["jira_active"]]),
             "inactive": len([x for x in rows if not x["jira_active"]])}
     cfg = _jira_cfg()
