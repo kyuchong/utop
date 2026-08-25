@@ -1478,122 +1478,99 @@ export default function TcStepDetail({
                 }}
               />
             ) : null}
-            <div className="sd-chips">
+            {/* 판정 기준 — **입력칸 줄**로(지시: 칩 말고 입력칸에).
+                한 줄이 기준 하나다: [종류] [값] [×]. 견줌이면 값 자리가
+                [왼쪽] [==] [오른쪽] 으로 늘어난다(지시: 비교 넣으면 == 고르는
+                것만 생기게). 칸 생김새는 「보낼 명령」 과 같다 — .sd-f 의
+                input/select 규칙을 그대로 물려받는다. */}
+            <div className="sd-crits">
               {chips.map((c, n) => {
+                const set = (patch: Partial<JudgeRule>) =>
+                  writeChips(chips.map((x, j) => (j === n ? { ...x, ...patch } : x)))
+                const del = () => writeChips(chips.filter((_, j) => j !== n))
+                /* 열제외·표는 블럭에서 짜 온 **구조**라 글자로 고치면 깨진다 —
+                   종류를 못 바꾸게 두고 값만 보여 준다. */
+                const fixed = c.t === 'skipcol' || c.t === 'table'
                 const tlab =
                   c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : c.t === 'cmp' ? '견줌' : '표'
-                /* 견줌 칩 — 왼쪽·연산자·오른쪽을 바로 고친다. 오른쪽은 ${} 로
-                   전역 파라미터를 골라 넣을 수 있다(응답값 vs 파라미터). */
-                if (c.t === 'cmp')
-                  return (
-                    <span key={n} className="sd-chip sd-chipcmp cmp">
-                      <i>{tlab}</i>
-                      <input
-                        className="sd-chipin mono"
-                        value={c.l ?? ''}
-                        placeholder="${변수}"
-                        title={(c.l ?? '').includes('$') ? `지금 값: ${subVars(c.l ?? '', gp.values)}` : undefined}
-                        /* 비었으면 안내글(${변수}) 폭. 한글은 두 칸을 먹어
-                           6ch 로는 「${변」 까지만 보였다(지적) */
-                        style={{ width: `${(c.l ?? '') ? Math.min(Math.max(c.l!.length + 1, 8), 32) : 8}ch` }}
-                        onChange={(e) =>
-                          writeChips(chips.map((x, j) => (j === n ? { ...x, l: e.target.value } : x)))
-                        }
-                      />
+                return (
+                  <div className="sd-crit" key={n}>
+                    {fixed ? (
+                      <span className={`sd-crit-t fixed ${c.t}`}>{tlab}</span>
+                    ) : (
                       <select
-                        className="sd-chipop"
-                        value={c.op || '=='}
-                        onChange={(e) =>
-                          writeChips(chips.map((x, j) => (j === n ? { ...x, op: e.target.value } : x)))
-                        }
+                        className="sd-crit-t"
+                        value={c.t}
+                        title="이 기준을 어떻게 볼까"
+                        onChange={(e) => set({ t: e.target.value as JudgeRule['t'] })}
                       >
-                        <option value="==">==</option>
-                        <option value="!=">!=</option>
-                        <option value="포함">포함</option>
-                        <option value=">">&gt;</option>
-                        <option value="<">&lt;</option>
-                        <option value=">=">&gt;=</option>
-                        <option value="<=">&lt;=</option>
+                        <option value="has">있어야</option>
+                        <option value="not">없어야</option>
+                        <option value="cmp">견줌</option>
+                        <option value="skip">줄제외</option>
                       </select>
+                    )}
+
+                    {c.t === 'cmp' ? (
+                      <>
+                        <input
+                          className="sd-crit-in mono"
+                          value={c.l ?? ''}
+                          placeholder="${변수} 또는 값"
+                          title={(c.l ?? '').includes('$') ? `지금 값: ${subVars(c.l ?? '', gp.values)}` : undefined}
+                          onChange={(e) => set({ l: e.target.value })}
+                        />
+                        {/* 견줌일 때만 나오는 견주는 법 */}
+                        <select
+                          className="sd-crit-op"
+                          value={c.op || '=='}
+                          onChange={(e) => set({ op: e.target.value })}
+                        >
+                          <option value="==">==</option>
+                          <option value="!=">!=</option>
+                          <option value="포함">포함</option>
+                          <option value=">">&gt;</option>
+                          <option value="<">&lt;</option>
+                          <option value=">=">&gt;=</option>
+                          <option value="<=">&lt;=</option>
+                        </select>
+                        <input
+                          className="sd-crit-in mono"
+                          value={c.v ?? ''}
+                          placeholder="${전역파라미터} 또는 값"
+                          title={(c.v ?? '').includes('$') ? `지금 값: ${subVars(c.v ?? '', gp.values)}` : undefined}
+                          onChange={(e) => set({ v: e.target.value })}
+                        />
+                        <button
+                          type="button"
+                          className="sd-crit-pick"
+                          title="오른쪽에 전역 파라미터 넣기"
+                          onClick={() => {
+                            setCmpAt(n)
+                            setPick('p-crit')
+                          }}
+                        >
+                          {'${ }'}
+                        </button>
+                      </>
+                    ) : (
                       <input
-                        className="sd-chipin mono"
-                        value={c.v ?? ''}
-                        placeholder="${전역파라미터}"
-                        title={(c.v ?? '').includes('$') ? `지금 값: ${subVars(c.v ?? '', gp.values)}` : undefined}
-                        /* 비었으면 안내글(${전역파라미터}) 폭 — 한글 여섯 자 */
-                        style={{ width: `${(c.v ?? '') ? Math.min(Math.max(c.v!.length + 1, 8), 32) : 16}ch` }}
-                        onChange={(e) =>
-                          writeChips(chips.map((x, j) => (j === n ? { ...x, v: e.target.value } : x)))
-                        }
-                      />
-                      <button
-                        type="button"
-                        className="sd-chip-mini"
-                        title="오른쪽에 전역 파라미터 넣기"
-                        onClick={() => {
-                          setCmpAt(n)
-                          setPick('p-crit')
-                        }}
-                      >
-                        {'${ }'}
-                      </button>
-                      <button
-                        type="button"
-                        title="이 기준 빼기"
-                        onClick={() => writeChips(chips.filter((_, j) => j !== n))}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  )
-                /* 있어야·없어야·줄제외 는 **글자 기준**이라 고칠 수 있어야 한다
-                   (지시: 판정 기준 수정 가능하게, 보낼 명령 칸처럼). 열제외·표는
-                   블럭에서 짜 온 구조라 글자로 고치면 깨지므로 칩 그대로 둔다. */
-                const editable = c.t === 'has' || c.t === 'not' || c.t === 'skip'
-                if (editable)
-                  return (
-                    <span key={n} className={`sd-chip sd-chipedit ${c.t}`}>
-                      <i>{tlab}</i>
-                      <input
-                        className="sd-chipin mono"
+                        className="sd-crit-in mono"
                         value={c.v}
                         placeholder="기준 값"
+                        readOnly={fixed}
                         title={c.v.includes('$') ? `지금 값: ${subVars(c.v, gp.values)}` : undefined}
-                        style={{ width: `${Math.min(Math.max((c.v?.length ?? 0) + 1, 6), 48)}ch` }}
-                        onChange={(e) =>
-                          writeChips(chips.map((x, j) => (j === n ? { ...x, v: e.target.value } : x)))
-                        }
+                        onChange={(e) => set({ v: e.target.value })}
                       />
-                      <button
-                        type="button"
-                        title="이 기준 빼기"
-                        onClick={() => writeChips(chips.filter((_, j) => j !== n))}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  )
-                return (
-                  <span
-                    key={n}
-                    className={`sd-chip ${c.t}`}
-                    title={c.v.includes('$') ? `지금 값: ${subVars(c.v, gp.values)}` : undefined}
-                  >
-                    <i>{tlab}</i>
-                    {c.v}
-                    <button
-                      type="button"
-                      title="이 기준 빼기"
-                      onClick={() => writeChips(chips.filter((_, j) => j !== n))}
-                    >
+                    )}
+
+                    <button type="button" className="sd-crit-x" title="이 기준 빼기" onClick={del}>
                       ×
                     </button>
-                  </span>
+                  </div>
                 )
               })}
-              {!chips.length && (
-                <span className="muted small">없으면 판정하지 않습니다</span>
-              )}
+              {!chips.length && <span className="muted small">없으면 판정하지 않습니다</span>}
             </div>
             {/* 직접 입력칸은 뺐다(지적 ×2) — 기준은 블럭 클릭·글자 끌기로만.
                 응답에 없는 문구가 필요한 드문 경우는 아직 없다는 판단(합의) */}
