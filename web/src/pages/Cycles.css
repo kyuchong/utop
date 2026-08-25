@@ -2551,13 +2551,20 @@ table.tb td.k {
   cursor: pointer;
 }
 .cxp-row:hover { background: var(--c-surface-alt); }
-.cxp-row.on { background: var(--c-primary-bg); }
 .cxp-row.v-pass { border-left-color: var(--c-pass); }
 .cxp-row.v-fail { border-left-color: var(--c-fail); }
 .cxp-row.v-wip { border-left-color: var(--c-draft); }
 .cxp-row.v-blocked { border-left-color: #e8820c; }
 .cxp-row.v-na { border-left-color: #999; }
 .cxp-row.running { background: var(--c-primary-bg); }
+/* 고른 줄 — **또렷한 파랑**(지적: 강조가 안 보인다). 왼쪽 6px 띠는 결과색이
+   차지하고 있어, 고름 표시는 진한 바탕 + 오른쪽 끝 파란 심지로 낸다.
+   실행 중(running)보다 뒤에 둬, 고른·실행 중이 겹쳐도 고름색이 이긴다. */
+.cxp-row.on,
+.cxp-row.running.on {
+  background: color-mix(in srgb, var(--c-primary) 16%, #fff);
+  box-shadow: inset -4px 0 0 var(--c-primary);
+}
 /* 한 줄 = ID + 제목 (사진처럼 낮게). 제목이 길면 …, 전체는 툴팁 */
 .cxp-rmain { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
 /* 오른쪽 무리는 한 span(.cxp-rgt) — 간격이 균일하고 이름만 … 로 줄어든다 */
