@@ -1476,14 +1476,17 @@ export default function TestCases({ me }: PageProps) {
                 at: `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}:${String(at.getSeconds()).padStart(2, '0')}`,
               }
               /* 제자리에서 갱신되는 줄(Wait 의 남은 시간)은 **갈아 끼운다** —
-                 새로 쌓으면 20초 대기에 스무 줄이 깔려 다른 말이 묻힌다(지시). */
-              if (l.tick) {
-                const at2 = prev.findIndex((x) => x.tick === l.tick)
-                if (at2 >= 0) {
-                  const cp = prev.slice()
-                  cp[at2] = { ...line, n: prev[at2]!.n }
-                  return cp
-                }
+                 새로 쌓으면 20초 대기에 스무 줄이 깔려 다른 말이 묻힌다(지시).
+                 다만 **맨 끝 줄일 때만** 갈아 끼운다. tick 은 `wait-<스텝번호>`
+                 라 실행이 달라도 값이 같아서, 로그 전체를 뒤지면 **지난 실행의
+                 대기 줄**을 찾아 그 자리에 덮어썼다 — 새 실행 줄은 아래 쌓이는데
+                 대기만 옛 자리에서 갱신돼 로그가 뒤섞였다(지적).
+                 대기 중에는 그 줄이 늘 마지막이므로 이 조건으로 충분하다. */
+              const last = prev.length - 1
+              if (l.tick && last >= 0 && prev[last]!.tick === l.tick) {
+                const cp = prev.slice()
+                cp[last] = { ...line, n: prev[last]!.n }
+                return cp
               }
               /* 폭주 막이 — 100회 반복이면 수천 줄이 된다. 오래된 것부터 버린다 */
               const next = [...prev, line]
