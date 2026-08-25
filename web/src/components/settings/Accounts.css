@@ -425,3 +425,16 @@
 .acc-sideact { display: flex; align-items: center; gap: 6px; padding-top: 4px; }
 .acc-sideact .sp { margin-left: auto; }
 .acc-sideact .btn.danger { color: var(--c-fail); }
+
+/* 퇴사자(Jira 비활성) 숨김 토글 */
+.acc-hideret {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.acc-hideret em { font-style: normal; font-weight: 700; color: var(--c-text-faint); }

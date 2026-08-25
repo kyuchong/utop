@@ -92,6 +92,8 @@ export default function Accounts() {
   const [st, setSt] = useState<StFilter>('all')
   const [role, setRole] = useState('')
   const [dept, setDept] = useState('')
+  /** 퇴사자(Jira 비활성) 숨김 — 기본 켜짐(지시: 표에서 제거). 데이터는 두고 화면만 */
+  const [hideRetired, setHideRetired] = useState(true)
   const [at, setAt] = useState('')
   const [draft, setDraft] = useState<Partial<User>>({})
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
@@ -215,6 +217,9 @@ export default function Accounts() {
     const key = q.trim().toLowerCase()
     return all
       .filter((u) => {
+        // 퇴사자(Jira 비활성)는 표에서 뺀다(지시). 다만 상태 「잠김」 을
+        // 일부러 보고 있을 땐 숨기지 않는다 — 그건 그걸 보러 간 것이다.
+        if (hideRetired && st !== 'off' && u.jira_active === false) return false
         if (st === 'active' && u.active === false) return false
         if (st === 'off' && u.active !== false) return false
         if (st === 'jira' && u.source !== 'jira') return false
@@ -227,7 +232,7 @@ export default function Accounts() {
           .some((x) => x.includes(key))
       })
       .sort((a, b) => String(a.name || a.username).localeCompare(String(b.name || b.username)))
-  }, [all, q, st, role, dept])
+  }, [all, q, st, role, dept, hideRetired])
 
   const cur = all.find((u) => u.username === at) ?? null
   const val = (k: keyof User) => String((draft[k] ?? cur?.[k] ?? '') as string)
@@ -237,6 +242,7 @@ export default function Accounts() {
   }
 
   const nOff = all.filter((u) => u.active === false).length
+  const nRetired = all.filter((u) => u.jira_active === false).length
   const nJira = all.filter((u) => u.source === 'jira').length
   const last = info.data?.last ?? null
   const on = !!info.data?.login_enabled
@@ -414,6 +420,16 @@ export default function Accounts() {
         <div className="acc-card grow">
           <div className="acc-bar">
             <span className="muted small">사용자 {rows.length}명</span>
+            {nRetired > 0 && (
+              <label className="acc-hideret" title="Jira 에서 나간 사람(퇴사자)을 목록에서 뺍니다. 기록은 그대로 남습니다.">
+                <input
+                  type="checkbox"
+                  checked={hideRetired}
+                  onChange={(e) => setHideRetired(e.target.checked)}
+                />
+                퇴사자 숨김 <em>{nRetired}</em>
+              </label>
+            )}
             <span className="sp" />
             <input
               className="acc-find"
