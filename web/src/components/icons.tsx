@@ -630,6 +630,15 @@ export const IconCodeList = (p: P) => (
   </Svg>
 )
 
+/** REQ-TC 합본 — 문서(요구사항)와 시험이 줄로 이어진 표 */
+export const IconReqTc = (p: P) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="7" height="16" rx="1.5" />
+    <rect x="14" y="4" width="7" height="16" rx="1.5" />
+    <path d="M10 9h4M10 15h4" />
+  </Svg>
+)
+
 /** 요구사항 INFO 필드 (문서에 붙은 고를 값 목록) */
 export const IconReqCodeList = (p: P) => (
   <Svg {...p}>

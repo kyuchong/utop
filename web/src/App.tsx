@@ -7,6 +7,7 @@ import { useFreshBuild } from '@/components/useFreshBuild'
 import { goto, onGoto as onGotoEvent, reflectUrl } from '@/api/goto'
 import Dashboard from '@/pages/Dashboard'
 import Requirements from '@/pages/Requirements'
+import ReqTc from '@/pages/ReqTc'
 import TestCases from '@/pages/TestCases'
 import Settings from '@/pages/Settings'
 import AiTc from '@/pages/AiTc'
@@ -169,6 +170,8 @@ export default function App() {
     >
       {page === 'dashboard' ? (
         <Dashboard onNav={(k) => setPage(k)} />
+      ) : page === 'reqtc' ? (
+        <ReqTc me={user} />
       ) : page === 'requirements' ? (
         <Requirements me={user} />
       ) : page === 'testcases' ? (
