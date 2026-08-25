@@ -214,6 +214,57 @@ export default function GlobalParams({ only }: Props) {
   const setCell = (i: number, key: keyof Row, v: string) =>
     setRows(cur.map((r, j) => (j === i ? { ...r, [key]: key === 'name' ? nameOk(v) : v } : r)))
 
+  /** 표의 칸 차례 — 엑셀 3열(이름 · 값 · 설명)과 그대로 맞물린다 */
+  const COLS: Array<keyof Row> = ['name', 'value', 'desc']
+
+  /**
+   * 엑셀에서 **여러 줄을 복사해 붙이면** 표에 그대로 채운다(지시).
+   *
+   * 엑셀은 칸을 탭, 줄을 줄바꿈으로 클립보드에 싣는다(TSV). 그래서 파일을
+   * 올릴 것도, 엑셀 라이브러리도 필요 없다 — 붙여넣기를 가로채 쪼개면 된다.
+   *
+   * 붙인 **그 칸부터** 오른쪽·아래로 채운다. 줄은 **같은 그룹 안에서만**
+   * 이어 쓴다 — `cur` 는 파일 전체가 한 줄로 늘어선 배열이라, 그냥 다음
+   * 칸을 쓰면 옆 그룹의 값을 덮어쓴다. 모자라면 그 그룹으로 새 줄을 만든다.
+   *
+   * 탭도 줄바꿈도 없으면 **그냥 한 칸 붙여넣기**다 — 예전 그대로 둔다.
+   */
+  const pasteGrid = (i: number, key: keyof Row, txt: string): boolean => {
+    if (!/[\t\r\n]/.test(txt)) return false
+    const grid = txt
+      .replace(/\r\n?/g, '\n')
+      .replace(/\n+$/, '') // 엑셀은 끝에 줄바꿈을 하나 붙여 보낸다
+      .split('\n')
+      .map((ln) => ln.split('\t'))
+    if (!grid.length) return false
+
+    const c0 = Math.max(0, COLS.indexOf(key))
+    const group = cur[i]?.group ?? ''
+    // 이 줄부터, **같은 그룹**인 줄들이 채울 자리다
+    const slots: number[] = []
+    for (let k = i; k < cur.length; k++) if ((cur[k]?.group ?? '') === group) slots.push(k)
+
+    const next = cur.slice()
+    grid.forEach((cells, r) => {
+      let at = slots[r]
+      if (at === undefined) {
+        next.push({ group, name: '', value: '', desc: '' })
+        at = next.length - 1
+      }
+      const row = { ...next[at] }
+      cells.forEach((v, c) => {
+        const col = COLS[c0 + c]
+        if (!col) return // 3열을 넘는 칸은 버린다
+        const t = v.trim()
+        row[col] = col === 'name' ? nameOk(t) : t
+      })
+      next[at] = row
+    })
+    setRows(next)
+    setMsg(`${grid.length}줄을 채웠습니다 — 저장해야 반영됩니다`)
+    return true
+  }
+
   /**
    * 하위 그룹.
    *
@@ -317,6 +368,10 @@ export default function GlobalParams({ only }: Props) {
       className={mono ? 'mono' : ''}
       value={cur[i]?.[key] ?? ''}
       placeholder={ph}
+      /* 엑셀에서 여러 줄을 복사해 붙이면 표로 펴 넣는다(지시) */
+      onPaste={(e) => {
+        if (pasteGrid(i, key, e.clipboardData.getData('text/plain'))) e.preventDefault()
+      }}
       onChange={(e) => setCell(i, key, e.target.value)}
     />
   )
