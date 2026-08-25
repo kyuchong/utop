@@ -103,11 +103,29 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
+  /* 손을 댔는가 — 바깥을 잘못 눌러 애써 적은 것을 날리지 않게 하는 잣대.
+     제목·설명·상태·고객·모델·버전·담당·기간·담은 항목 중 하나라도 있으면
+     「댄 것」이다. 편집 화면은 이미 값이 차 있어 늘 「댄 것」으로 잡힌다 —
+     맞다, 있는 사이클을 고치다 바깥을 눌러도 닫지 않는다. 닫기 단추로 닫는다. */
+  const dirty =
+    !!cname.trim() ||
+    !!cdesc.trim() ||
+    !!cstat ||
+    !!ccust ||
+    !!model ||
+    !!vgroup ||
+    !!newVgroup.trim() ||
+    !!version.trim() ||
+    !!assignee.trim() ||
+    !!start ||
+    !!end ||
+    picked.length > 0
+
   useEffect(() => {
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && !busy && onClose()
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && !busy && !dirty && onClose()
     window.addEventListener('keydown', esc)
     return () => window.removeEventListener('keydown', esc)
-  }, [onClose, busy])
+  }, [onClose, busy, dirty])
 
   const reqQuery = useQuery({ queryKey: ['reqs'], queryFn: ({ signal }) => api.listRequirements(signal) })
   const catQuery = useQuery({ queryKey: ['req-categories'], queryFn: ({ signal }) => categoryApi.list(signal) })
@@ -825,7 +843,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
   if (popupOnly) return <>{popupJsx}</>
 
   return (
-    <div className="modal-back" onMouseDown={() => !busy && onClose()}>
+    <div className="modal-back" onMouseDown={() => !busy && !dirty && onClose()}>
       <div
         className="modal ce"
         role="dialog"
