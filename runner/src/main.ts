@@ -266,7 +266,11 @@ async function doRun(run: Run): Promise<void> {
             step_name: String(steps[i]?.cli ?? steps[i]?.step ?? '').split('\n')[0] ?? '',
           })
           if (push.stop) ac.abort()
-          void push.flush()
+          // 스텝 경계는 **바로** 올린다(force). 예전엔 700ms 묶음에 얹혀,
+          // 그 안에 다음 스텝이 시작하면 step_at 이 덮여 화면이 1→3 으로
+          // 건너뛰었다 — 빠른 2번 스텝의 파란 강조가 통째로 사라졌다.
+          // 스텝 시작은 드문 사건이라 매번 올려도 부담이 없다(로그는 그대로 묶음).
+          void push.flush(true)
         },
         onLog: (line) => {
           push.addLog(line)
