@@ -931,8 +931,14 @@ export default function Cycles({ me }: PageProps) {
     })
 
   /** 이 폴더(가지) 아래 사이클 id 를 모두 모은다 — 한꺼번에 지우려고 */
-  const cycleIdsUnder = (n: Node): string[] =>
-    n.cycle ? [n.cycle.id] : n.children.flatMap(cycleIdsUnder)
+  const cycleIdsUnder = (n: Node): string[] => [
+    // 트리는 사이클을 **폴더의 `cycles` 배열**에 담는다(개수도 여기서 센다).
+    // 여태 여기만 옛 `cycle`(단수)를 봐서, 삭제가 대상을 하나도 못 찾고
+    // 조용히 지나갔다(지적: 삭제가 안 된다). 개수는 1인데 지울 게 0이었다.
+    ...(n.cycle ? [n.cycle.id] : []),
+    ...(n.cycles ?? []).map((c) => c.id),
+    ...n.children.flatMap(cycleIdsUnder),
+  ]
 
   /** 사이클 여러 개를 한꺼번에 지운다 */
   const deleteCycles = async (ids: string[]): Promise<boolean> => {
