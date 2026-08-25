@@ -733,17 +733,23 @@ export default function TcStepDetail({
           <label className="sd-f">
             <span className="sd-lab">
               OID
-              {/* 1.3.6.1.2.1.1.3.0 을 외우거나 문서를 뒤지게 두지 않는다.
-                  MIB 에서 뽑아 둔 이름표에서 골라 넣는다. */}
-              <button
-                type="button"
-                className="sd-pickbtn"
-                title="MIB 이름으로 찾기"
-                onClick={() => setPick(pick === 'oid' ? '' : 'oid')}
-              >
-                🔎 이름으로 찾기
-              </button>
-              {paramPick('oid', 'p-oid').btn}
+              {/* 단추가 둘이라 **묶어서** 오른쪽에 나란히 — `.sd-pickbtn` 은
+                  홑 단추를 칸 오른쪽 끝에 앉히려 absolute(right:0) 라, 그대로
+                  둘을 두면 같은 자리에 포개진다(지적: 버튼 2개 겹침).
+                  포개지면 위에 깔린 것만 눌려 「이름으로 찾기」 를 못 쓴다. */}
+              <span className="sd-two">
+                {/* 1.3.6.1.2.1.1.3.0 을 외우거나 문서를 뒤지게 두지 않는다.
+                    MIB 에서 뽑아 둔 이름표에서 골라 넣는다. */}
+                <button
+                  type="button"
+                  className="sd-pickbtn"
+                  title="MIB 이름으로 찾기"
+                  onClick={() => setPick(pick === 'oid' ? '' : 'oid')}
+                >
+                  🔎 이름으로 찾기
+                </button>
+                {paramPick('oid', 'p-oid').btn}
+              </span>
             </span>
             {paramPick('oid', 'p-oid').list}
             {pick === 'oid' && (
