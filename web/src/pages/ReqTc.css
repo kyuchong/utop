@@ -1,64 +1,63 @@
-/* REQ-TC — 요구사항과 시험을 한 판에.
-   1열 폴더 · 2열 합본 목록. 상세는 팝업(합의) — 시험 상세는 탭이 여덟이라
-   옆 칸에 안 들어간다.
+/* REQ-TC — 상단 가로바 · 폴더 트리 · 요구사항 표(지시, 사진).
 
    이름은 **rqtc-** 를 쓴다. 처음에 rt- 로 지었다가 ReqTree.css(요구사항·
    Coverage 의 폴더 트리)가 이미 쓰는 이름과 일곱 개나 겹쳤고, CSS 는 전역이라
    **기존 트리에 이 화면의 배경색이 새어 들어갔다**(지적: 폴더 색이 이상하다).
    기존 화면은 안 건드린다는 뜻을 지키려면 이름부터 갈라야 한다. */
-.rqtc {
-  display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 10px;
-  height: 100%;
-  min-height: 0;
-}
 
-/* ── 1열 ── */
-.rqtc-side {
+/* 상단 가로바 — 짙은 청록(색은 재량 지시). 왼쪽 메뉴(#2b3138)와 부딪히지
+   않으면서 제품 이름과 프로젝트가 한눈에 서도록 어둡게 깐다. */
+.rqtc-shell {
+  --rqtc-top-bg: #12505e;
+  --rqtc-top-fg: #eaf4f6;
   display: flex;
   flex-direction: column;
+  height: 100%;
   min-height: 0;
-  overflow-y: auto;
-  padding: 8px 6px;
+  gap: 8px;
 }
-.rqtc-sidehead {
-  padding: 4px 8px 8px;
-  font-size: var(--fs-sm);
-}
-.rqtc-cat {
+.rqtc-top {
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: 100%;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: var(--fs-sm);
-  text-align: left;
-  padding: 5px 8px;
-  border-radius: 6px;
-  cursor: pointer;
+  gap: 14px;
+  padding: 0 14px;
+  height: 46px;
+  flex: none;
+  border-radius: var(--radius, 8px);
+  background: var(--rqtc-top-bg);
+  color: var(--rqtc-top-fg);
 }
-.rqtc-cat:hover { background: var(--c-surface-alt); }
-.rqtc-cat.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
-.rqtc-n { margin-left: auto; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.rqtc-top .sp { flex: 1; }
+.rqtc-brand { font-weight: 700; font-size: var(--fs-sm); letter-spacing: -0.01em; }
+.rqtc-topinfo { font-size: var(--fs-xs); color: rgb(255 255 255 / 78%); }
+.rqtc-barebadge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #c0392b;
+  color: #fff;
+  font-size: var(--fs-xs);
+}
 
-/* ── 2열 ── */
-.rqtc-main { display: flex; flex-direction: column; min-height: 0; }
-.rqtc-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--c-border);
+/* ── 두 판 ── */
+.rqtc {
+  display: grid;
+  grid-template-columns: 264px minmax(0, 1fr);
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
 }
-.rqtc-head .sp { flex: 1; }
-.rqtc-bare { color: #c0392b; }
-.rqtc-only { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); cursor: pointer; }
+
+/* ── 폴더 트리 ── */
+.rqtc-side { display: flex; flex-direction: column; min-height: 0; }
+.rqtc-sidehead {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-sm);
+}
+.rqtc-sidetools { padding: 8px; border-bottom: 1px solid var(--c-border); }
 .rqtc-q {
-  width: 260px;
+  width: 100%;
   height: 28px;
   padding: 0 9px;
   border: 1px solid var(--c-border);
@@ -68,37 +67,33 @@
   font: inherit;
   font-size: var(--fs-sm);
 }
-.rqtc-rows { flex: 1; min-height: 0; overflow-y: auto; }
+.rqtc-tree { flex: 1; min-height: 0; overflow-y: auto; padding: 4px; }
 
-/* 요구사항 줄 — 묶음 머리. 시험이 없으면 흐리게 두어 구멍이 눈에 띈다 */
-.rqtc-req {
+.rqtc-fold {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--c-border);
-  background: var(--c-surface-alt);
+  gap: 5px;
+  padding: 4px 6px;
+  border-radius: 6px;
   font-size: var(--fs-sm);
+  cursor: pointer;
+  white-space: nowrap;
 }
-.rqtc-req.bare { background: transparent; }
-.rqtc-req.bare .rqtc-id, .rqtc-req.bare .rqtc-title { color: var(--c-text-faint); }
-.rqtc-req .sp, .rqtc-tc .sp { flex: 1; }
-
-/* 시험 줄 — 요구사항 아래로 들여쓴다 */
-.rqtc-tc {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 6px 10px 6px 42px;
-  border-bottom: 1px solid var(--c-border);
-  font-size: var(--fs-sm);
-}
-.rqtc-tc:hover, .rqtc-req:hover { background: var(--c-primary-bg); }
+.rqtc-fold:hover { background: var(--c-surface-alt); }
+/* **고른 것만** 색이 있다(지적) — 나머지는 흰 바탕 그대로 */
+.rqtc-fold.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
+.rqtc-fold.root { font-weight: 700; }
+.rqtc-fico { flex: none; font-size: 12px; }
+.rqtc-fnm { overflow: hidden; text-overflow: ellipsis; }
+/* R·T 배지 — 요구사항 수 · 시험 수 */
+.rqtc-rt { margin-left: auto; flex: none; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.rqtc-rt i { font-style: normal; opacity: 0.65; margin-right: 2px; margin-left: 6px; }
+.rqtc-rt i:first-child { margin-left: 0; }
 
 .rqtc-caret {
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -109,51 +104,105 @@
   transition: transform 0.12s;
 }
 .rqtc-caret.open { transform: rotate(90deg); }
-.rqtc-caret:disabled { opacity: 0.25; cursor: default; }
-.rqtc-icon { flex: none; font-size: 12px; }
-.rqtc-id {
-  flex: none;
+.rqtc-caret:disabled { opacity: 0.2; cursor: default; }
+
+/* ── 오른쪽 ── */
+.rqtc-main { display: flex; flex-direction: column; min-height: 0; }
+.rqtc-crumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-sm);
+}
+.rqtc-crumbgo {
+  border: 0;
+  background: transparent;
+  color: var(--c-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 0 2px;
+  cursor: pointer;
+}
+.rqtc-crumbgo:hover { text-decoration: underline; }
+.rqtc-sep { font-style: normal; color: var(--c-text-faint); }
+.rqtc-crumbn {
+  margin-left: 8px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.rqtc-deep, .rqtc-only { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+
+.rqtc-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-xs);
+}
+.rqtc-bar .sp { flex: 1; }
+
+/* ── 표 ── */
+.rqtc-tbl { flex: 1; min-height: 0; overflow: auto; }
+.rqtc-tr {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 120px 96px 92px 92px 92px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.rqtc-tr > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rqtc-tr:not(.rqtc-th):hover { background: var(--c-primary-bg); }
+.rqtc-th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--c-surface-alt);
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+  cursor: default;
+}
+.rqtc-th:hover { background: var(--c-surface-alt); }
+/* 시험 줄 — 요구사항 아래로 들여쓴다 */
+.rqtc-sub { background: #fbfcfd; }
+.rqtc-sub .c-title { padding-left: 18px; }
+
+.rqtc-rid {
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   color: var(--c-primary);
-  min-width: 92px;
+  margin-right: 8px;
 }
-/* 제목은 눌러서 팝업을 연다 — 단추지만 글처럼 보이게 */
-.rqtc-title {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: var(--fs-sm);
-  text-align: left;
-  padding: 0;
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.rqtc-rid.tc { color: #1f7a45; }
+
+/* TC 칸이 곧 커버리지다 — 미커버가 이 표에서 제일 값진 신호라 통째로 칠한다 */
+.rqtc-cov {
+  display: inline-block;
+  min-width: 62px;
+  text-align: center;
+  padding: 2px 8px;
+  border-radius: 5px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
 }
-.rqtc-title:hover { text-decoration: underline; }
-.rqtc-st, .rqtc-kind {
-  flex: none;
+.rqtc-cov.ok { background: #e6f6ee; color: #116245; }
+.rqtc-cov.no { background: #fdecec; color: #a02323; }
+.rqtc-kind {
   font-size: var(--fs-xs);
   color: var(--c-text-muted);
   border: 1px solid var(--c-border);
   border-radius: 10px;
   padding: 1px 7px;
 }
-.rqtc-cnt {
-  flex: none;
-  min-width: 26px;
-  text-align: center;
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  color: var(--c-primary);
-  background: var(--c-primary-bg);
-  border-radius: 10px;
-  padding: 1px 7px;
-}
-.rqtc-cnt.zero { color: var(--c-text-faint); background: transparent; font-weight: 400; }
-.rqtc-v { flex: none; font-size: var(--fs-xs); font-weight: 700; }
+.rqtc-v { font-size: var(--fs-xs); font-weight: 700; }
 .rqtc-v.pass { color: var(--c-pass, #1d9e75); }
 .rqtc-v.fail { color: var(--c-fail, #e24b4a); }
 
@@ -184,7 +233,14 @@
   font-size: var(--fs-sm);
 }
 .rqtc-popline:last-child { border-bottom: 0; }
-.rqtc-popline .mono { font-family: var(--font-mono); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rqtc-popline .sp { flex: 1; }
+.rqtc-popline .mono {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .rqtc-desc { margin: 14px 0 0; font-size: var(--fs-sm); line-height: 1.7; white-space: pre-wrap; }
 
 @media (max-width: 900px) {

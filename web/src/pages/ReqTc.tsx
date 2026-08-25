@@ -1,323 +1,426 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { api, categoryApi, apiFetch, type MeUser } from '@/api/client'
+import { api, categoryApi, projectApi, apiFetch, type MeUser } from '@/api/client'
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
 import { goto } from '@/api/goto'
 import { IconChevron } from '@/components/icons'
+import ReqForm from '@/components/ReqForm'
+import ProjectPicker, { currentProject, onProjectChange } from '@/components/ProjectPicker'
 import './ReqTc.css'
 
 interface Props {
   me?: MeUser | null
 }
 
-/** 한 요구사항과 그에 붙은 시험들 — 화면이 그리는 단위 */
-interface Pair {
-  req: Requirement | null // null 이면 「요구사항 없는 시험」 묶음
-  tcs: TestCaseMeta[]
-}
-
 /**
- * REQ-TC — 요구사항과 시험을 **한 판에** 놓고 본다(지시).
+ * REQ-TC — 요구사항과 시험을 한 판에(지시, 사진).
  *
- * 지금은 요구사항과 시험항목(Coverage)이 각자 제 화면이라, 어느 요구사항에
- * 어떤 시험이 붙었나를 보려면 두 화면을 오간다. 더 나쁜 것은 **시험이 하나도
- * 없는 요구사항**이 어디에도 안 보인다는 점이다 — 213 기준 57건 중 51건이
- * 그렇다. 합쳐 놓으면 그것이 첫 화면에서 바로 드러난다.
+ * 사진의 문법 그대로: **상단 가로바(제품 이름 · 프로젝트 고르기) — 폴더 트리 —
+ * 요구사항 표**. 표의 **TC 칸이 곧 커버리지**다(미커버 / TC N). 캐럿을 누르면
+ * 그 요구사항에 붙은 시험이 아래로 펴진다 — 여기가 REQ 와 TC 를 합쳐 보는
+ * 자리라서다.
  *
- * **읽기 전용이다.** 아무것도 쓰지 않고, 이미 있는 `/api/req`·`/api/tc` 를
- * 그대로 읽는다. 자료 구조도 안 바꾼다 — 연결(`tc.req_id` → `req.id`)은
- * 원래 있던 것이다. 기존 화면(Requirements·Coverage)은 손대지 않는다(지시).
+ * **사업자·모델그룹·모델명은 프로젝트가 정본이다**(지시). 요구사항마다 따로
+ * 적지 않는다 — 요구사항의 분류 사슬을 타고 올라가 그 프로젝트를 찾고, 거기
+ * 적힌 값을 표에 세운다. 그래서 모델을 바꾸면 한 곳만 고치면 된다.
  *
- * 줄 모양은 사진(Testiny)의 문법을 따른다 — 요구사항이 묶음 머리로 서고 그
- * 아래 시험이 들여써진다. 다만 **ID 접두어로 가르지 않는다**: 실제 자료의
- * 요구사항 ID 는 `REQ-2633-0003` 도 있고 `U-REQ-SYS-HW-Spec-002` 도 있어
- * 「REQ 로 시작」 이 늘 참이 아니다. 아이콘과 들여쓰기로 가른다.
+ * **읽고 고치기만 한다. 구조는 안 바꾼다.** 이미 있는 /api/req · /api/tc ·
+ * /api/req-categories · /api/projects 만 읽고, 고칠 때는 이미 있는 부품
+ * (ReqForm)을 그대로 부른다 — 편집기를 두 벌 만들면 한쪽만 고치는 날이 온다.
+ * 기존 Requirements · Coverage 화면은 손대지 않는다(지시).
  */
 export default function ReqTc({ me }: Props) {
   void me
-  /** 펼친 요구사항 — 기본은 **접힘**. 안 그러면 빈 줄 51개가 화면을 덮는다 */
-  const [open, setOpen] = useState<Set<string>>(new Set())
-  /** 시험이 붙은 요구사항만 보기 — 커버리지 구멍을 볼 땐 꺼서 본다 */
-  const [onlyWithTc, setOnlyWithTc] = useState(false)
-  const [q, setQ] = useState('')
-  /** 1열에서 고른 폴더(분류) */
   const [cat, setCat] = useState('')
-  /** 팝업으로 연 것 — 요구사항이거나 시험 */
+  const [openCat, setOpenCat] = useState<Set<string>>(new Set())
+  const [openReq, setOpenReq] = useState<Set<string>>(new Set())
+  const [q, setQ] = useState('')
+  /** 하위 폴더까지 함께 볼까 — 사진의 「하위 폴더 포함」 */
+  const [deep, setDeep] = useState(true)
+  const [onlyBare, setOnlyBare] = useState(false)
   const [pop, setPop] = useState<{ kind: 'req' | 'tc'; id: string } | null>(null)
+  /** undefined = 안 열림 · null = 새로 만들기 · 값 = 그 요구사항 고치기 */
+  const [edit, setEdit] = useState<Requirement | null | undefined>(undefined)
+  const [prj, setPrj] = useState(currentProject)
+
+  useEffect(() => onProjectChange(() => setPrj(currentProject())), [])
 
   const reqQ = useQuery({ queryKey: ['reqs'], queryFn: ({ signal }) => api.listRequirements(signal) })
   const tcQ = useQuery({ queryKey: ['tcs'], queryFn: ({ signal }) => api.listTestCases(signal) })
   const catQ = useQuery({ queryKey: ['req-categories'], queryFn: ({ signal }) => categoryApi.list(signal) })
+  const prjQ = useQuery({ queryKey: ['projects'], queryFn: ({ signal }) => projectApi.list(signal) })
 
   const reqs = useMemo(() => reqQ.data?.reqs ?? [], [reqQ.data])
   const tcs = useMemo(() => tcQ.data?.tcs ?? [], [tcQ.data])
-  // 분류 API 는 `{categories: [...]}` 로 온다 — 배열이 아니다
   const cats = useMemo(() => catQ.data?.categories ?? [], [catQ.data])
+  const projects = useMemo(() => prjQ.data?.projects ?? [], [prjQ.data])
 
-  /** 분류 트리 — 고른 폴더 아래(하위 포함) 요구사항만 남긴다 */
-  const catKids = useMemo(() => {
-    const m = new Map<string, string[]>()
+  /** 분류 자식 — 트리를 그리고 「아래 전부」를 셀 때 쓴다 */
+  const kids = useMemo(() => {
+    const m = new Map<string, typeof cats>()
     for (const c of cats) {
       const k = c.parent_id ?? ''
-      m.set(k, [...(m.get(k) ?? []), c.id])
+      m.set(k, [...(m.get(k) ?? []), c])
     }
     return m
   }, [cats])
-  const catUnder = (id: string): string[] => [id, ...(catKids.get(id) ?? []).flatMap(catUnder)]
+
+  /** 그 분류와 그 아래 전부 */
+  const under = useMemo(() => {
+    const f = (id: string): string[] => [id, ...(kids.get(id) ?? []).flatMap((c) => f(c.id))]
+    return f
+  }, [kids])
+
+  /** 요구사항이 매달린 분류 — cat1~cat4 중 **가장 깊은 것**이 제자리다 */
+  const catOf = (r: Requirement) => String(r.cat4 || r.cat3 || r.cat2 || r.cat1 || '')
+  const catsOf = (r: Requirement) => [r.cat1, r.cat2, r.cat3, r.cat4].filter(Boolean).map(String)
 
   /**
-   * 요구사항마다 제 시험을 붙인다.
-   *
-   * 잇는 키는 **`req.id`(내부 키)** 다 — 화면에 보이는 `reqid` 가 아니다.
-   * `tc.req_id` 에 든 값이 그것이라, reqid 로 맞추면 71건이 통째로 안 붙는다.
+   * 요구사항마다 제 시험. 잇는 키는 **req.id**(내부 키)다 — 화면에 보이는
+   * reqid 로 맞추면 하나도 안 붙는다(실제로 그렇게 어긋나 있었다).
    */
-  const pairs: Pair[] = useMemo(() => {
-    const byReq = new Map<string, TestCaseMeta[]>()
-    const loose: TestCaseMeta[] = []
+  const tcOf = useMemo(() => {
+    const m = new Map<string, TestCaseMeta[]>()
     for (const t of tcs) {
       const k = String(t.req_id ?? '').trim()
-      if (!k) loose.push(t)
-      else byReq.set(k, [...(byReq.get(k) ?? []), t])
+      if (k) m.set(k, [...(m.get(k) ?? []), t])
     }
-    const out: Pair[] = reqs.map((r) => ({ req: r, tcs: byReq.get(reqPk(r)) ?? [] }))
-    // 어디에도 안 붙은 시험 — 사진의 「폴더에 없는 테스트 케이스」 자리다.
-    // 안 보이면 「내 시험이 사라졌다」 가 된다.
-    if (loose.length) out.push({ req: null, tcs: loose })
-    return out
-  }, [reqs, tcs])
+    return m
+  }, [tcs])
 
-  const shown = useMemo(() => {
-    const n = q.trim().toLowerCase()
-    const inCat = cat ? new Set(catUnder(cat)) : null
-    return pairs.filter((p) => {
-      if (onlyWithTc && !p.tcs.length) return false
-      if (inCat) {
-        if (!p.req) return false
-        const own = [p.req.cat1, p.req.cat2, p.req.cat3, p.req.cat4].filter(Boolean) as string[]
-        if (!own.some((c) => inCat.has(c))) return false
-      }
-      if (!n) return true
-      // 요구사항이 걸리면 그 묶음째, 시험이 걸려도 그 묶음을 보인다
-      const hay = [p.req ? reqLabel(p.req) : '', p.req?.title ?? '', ...p.tcs.map((t) => `${t.tcid} ${t.name ?? ''}`)]
-      return hay.join(' ').toLowerCase().includes(n)
-    })
-  }, [pairs, q, onlyWithTc, cat, catUnder])
+  /** 프로젝트로 좁히기 — 프로젝트 하나가 최상위 폴더 하나(cat_id)와 짝이다 */
+  const prjCats = useMemo(() => (prj ? new Set(under(prj)) : null), [prj, under])
+  const inPrj = (r: Requirement) => !prjCats || catsOf(r).some((c) => prjCats.has(c))
 
-  /** 찾는 중에는 저절로 펴 준다 — 접힌 채로는 무엇이 걸렸는지 안 보인다 */
-  const isOpen = (k: string) => open.has(k) || !!q.trim()
-  const toggle = (k: string) =>
-    setOpen((s) => {
-      const n = new Set(s)
-      if (n.has(k)) n.delete(k)
-      else n.add(k)
-      return n
-    })
+  /**
+   * 이 요구사항이 속한 프로젝트 — **사업자·모델그룹·모델명의 정본**(지시).
+   * 분류 사슬 어느 하나가 그 프로젝트의 최상위 폴더 아래면 그 프로젝트다.
+   */
+  const prjOf = useMemo(() => {
+    const byCat = new Map<string, (typeof projects)[number]>()
+    for (const p of projects) for (const c of under(p.cat_id)) byCat.set(c, p)
+    return (r: Requirement) => catsOf(r).map((c) => byCat.get(c)).find(Boolean)
+  }, [projects, under])
 
-  /** 팝업에서 이전·다음으로 걸어 다닐 차례 — 지금 보이는 줄 순서 그대로 */
-  const flat = useMemo(() => {
-    const rows: Array<{ kind: 'req' | 'tc'; id: string }> = []
-    for (const p of shown) {
-      if (p.req) rows.push({ kind: 'req', id: reqPk(p.req) })
-      if (isOpen(p.req ? reqPk(p.req) : '__loose__')) for (const t of p.tcs) rows.push({ kind: 'tc', id: t.tcid })
-    }
-    return rows
-  }, [shown, open, q])
-
-  const step = (d: number) => {
-    if (!pop) return
-    const at = flat.findIndex((x) => x.kind === pop.kind && x.id === pop.id)
-    const next = flat[at + d]
-    if (next) setPop(next)
+  /** 그 분류(하위 포함) 아래 요구사항·시험 수 — 트리의 R·T 배지 */
+  const countOf = (id: string) => {
+    const set = new Set(under(id))
+    const rs = reqs.filter((r) => catsOf(r).some((c) => set.has(c)))
+    return { r: rs.length, t: rs.reduce((n, r) => n + (tcOf.get(reqPk(r))?.length ?? 0), 0) }
   }
 
-  const total = pairs.length
-  const covered = pairs.filter((p) => p.req && p.tcs.length).length
-  const bare = pairs.filter((p) => p.req && !p.tcs.length).length
+  /** 표에 실을 줄 */
+  const rows = useMemo(() => {
+    const n = q.trim().toLowerCase()
+    const set = cat ? new Set(under(cat)) : null
+    return reqs.filter((r) => {
+      if (!inPrj(r)) return false
+      if (set && !(deep ? catsOf(r).some((c) => set.has(c)) : catOf(r) === cat)) return false
+      if (onlyBare && (tcOf.get(reqPk(r))?.length ?? 0) > 0) return false
+      if (!n) return true
+      const tt = (tcOf.get(reqPk(r)) ?? []).map((t) => `${t.tcid} ${t.name ?? ''}`).join(' ')
+      return `${reqLabel(r)} ${r.title ?? ''} ${tt}`.toLowerCase().includes(n)
+    })
+  }, [reqs, q, cat, deep, onlyBare, tcOf, prjCats, under])
+
+  /** 빵부스러기 — 고른 폴더까지의 길 */
+  const crumb = useMemo(() => {
+    const out: Array<{ id: string; name: string }> = []
+    let at = cats.find((c) => c.id === cat)
+    while (at) {
+      out.unshift({ id: at.id, name: at.name })
+      const pid = at.parent_id
+      at = pid ? cats.find((c) => c.id === pid) : undefined
+    }
+    return out
+  }, [cat, cats])
+
+  const toggle = (s: Set<string>, k: string, set: (v: Set<string>) => void) => {
+    const n = new Set(s)
+    if (n.has(k)) n.delete(k)
+    else n.add(k)
+    set(n)
+  }
+
+  const bare = rows.filter((r) => !(tcOf.get(reqPk(r))?.length ?? 0)).length
 
   if (reqQ.isLoading || tcQ.isLoading) return <div className="empty">불러오는 중…</div>
   if (reqQ.error) return <div className="load-error">{(reqQ.error as Error).message}</div>
 
+  /** 폴더 한 가지 */
+  const Tree = ({ parent, depth }: { parent: string | null; depth: number }) => (
+    <>
+      {(kids.get(parent ?? '') ?? []).map((c) => {
+        const kid = kids.get(c.id) ?? []
+        const on = openCat.has(c.id)
+        const n = countOf(c.id)
+        const root = depth === 0
+        return (
+          <div key={c.id}>
+            <div
+              className={`rqtc-fold${cat === c.id ? ' on' : ''}${root ? ' root' : ''}`}
+              style={{ paddingLeft: 6 + depth * 14 }}
+              onClick={() => setCat(cat === c.id ? '' : c.id)}
+            >
+              <button
+                type="button"
+                className={`rqtc-caret${on ? ' open' : ''}`}
+                disabled={!kid.length}
+                aria-label={on ? '접기' : '펴기'}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggle(openCat, c.id, setOpenCat)
+                }}
+              >
+                <IconChevron />
+              </button>
+              <span className="rqtc-fico" aria-hidden="true">
+                {root ? '🗂' : '📁'}
+              </span>
+              <span className="rqtc-fnm">{c.name}</span>
+              <span className="rqtc-rt">
+                <i>R</i>
+                {n.r} <i>T</i>
+                {n.t}
+              </span>
+            </div>
+            {on && <Tree parent={c.id} depth={depth + 1} />}
+          </div>
+        )
+      })}
+    </>
+  )
+
   return (
-    <div className="rqtc">
-      {/* ── 1열 폴더 — 사진 그대로 「변함 없음」(지시) ── */}
-      <aside className="panel rqtc-side">
-        <div className="rqtc-sidehead">
-          <b>요구사항 폴더</b>
-        </div>
-        <button type="button" className={`rqtc-cat${cat === '' ? ' on' : ''}`} onClick={() => setCat('')}>
-          전체 <span className="rqtc-n">{reqs.length}</span>
-        </button>
-        <CatTree cats={cats} depth={0} parent={null} sel={cat} onSel={setCat} reqs={reqs} />
-      </aside>
+    <div className="rqtc-shell">
+      {/* ── 상단 가로바(지시, 사진) — **이 화면 안에만** 둔다.
+             기존 화면의 틀(Layout)은 안 건드린다(지시: REQ-TC 만). ── */}
+      <header className="rqtc-top">
+        <span className="rqtc-brand">ubiQuoss Test Orchestration Platform</span>
+        <ProjectPicker />
+        <span className="sp" />
+        <span className="rqtc-topinfo">
+          요구사항 {rows.length}건
+          {bare > 0 && <b className="rqtc-barebadge">미커버 {bare}</b>}
+        </span>
+      </header>
 
-      {/* ── 2열 — 요구사항 줄 + 그 아래 시험 줄 ── */}
-      <section className="panel rqtc-main">
-        <div className="rqtc-head">
-          <b>REQ · TC</b>
-          <span className="muted small">
-            요구사항 {total - (pairs.some((p) => !p.req) ? 1 : 0)}건 · 시험 붙음 {covered} ·{' '}
-            <b className={bare ? 'rqtc-bare' : ''}>시험 없음 {bare}</b>
-          </span>
-          <span className="sp" />
-          <label className="rqtc-only">
-            <input type="checkbox" checked={onlyWithTc} onChange={(e) => setOnlyWithTc(e.target.checked)} />
-            시험 있는 것만
-          </label>
-          <input
-            className="rqtc-q"
-            value={q}
-            placeholder="요구사항 · 시험 제목/ID 로 찾기"
-            onChange={(e) => setQ(e.target.value)}
-          />
-        </div>
+      <div className="rqtc">
+        {/* ── 폴더 트리 ── */}
+        <aside className="panel rqtc-side">
+          <div className="rqtc-sidehead">
+            <b>Folder Tree</b>
+          </div>
+          <div className="rqtc-sidetools">
+            <input
+              className="rqtc-q"
+              value={q}
+              placeholder="요구사항 · 시험 찾기"
+              onChange={(e) => setQ(e.target.value)}
+            />
+          </div>
+          <div className="rqtc-tree">
+            <div className={`rqtc-fold${cat === '' ? ' on' : ''}`} onClick={() => setCat('')}>
+              <span className="rqtc-caret" />
+              <span className="rqtc-fico" aria-hidden="true">
+                🗂
+              </span>
+              <span className="rqtc-fnm">전체</span>
+              <span className="rqtc-rt">
+                <i>R</i>
+                {reqs.filter(inPrj).length}
+              </span>
+            </div>
+            <Tree parent={null} depth={0} />
+          </div>
+        </aside>
 
-        <div className="rqtc-rows">
-          {shown.map((p) => {
-            const key = p.req ? reqPk(p.req) : '__loose__'
-            const on = isOpen(key)
-            return (
-              <div key={key}>
-                {/* 요구사항 줄 — 묶음 머리 */}
-                <div className={`rqtc-req${p.tcs.length ? '' : ' bare'}`}>
-                  <button
-                    type="button"
-                    className={`rqtc-caret${on ? ' open' : ''}`}
-                    aria-label={on ? '접기' : '펴기'}
-                    disabled={!p.tcs.length}
-                    onClick={() => toggle(key)}
-                  >
-                    <IconChevron />
+        {/* ── 요구사항 표 ── */}
+        <section className="panel rqtc-main">
+          <div className="rqtc-crumb">
+            {crumb.length ? (
+              crumb.map((c, i) => (
+                <span key={c.id}>
+                  {i > 0 && <i className="rqtc-sep">›</i>}
+                  <button type="button" className="rqtc-crumbgo" onClick={() => setCat(c.id)}>
+                    {c.name}
                   </button>
-                  <span className="rqtc-icon" aria-hidden="true">
-                    📄
-                  </span>
-                  <span className="rqtc-id">{p.req ? reqLabel(p.req) : '(요구사항 없음)'}</span>
-                  {p.req ? (
-                    <button type="button" className="rqtc-title" onClick={() => setPop({ kind: 'req', id: reqPk(p.req!) })}>
-                      {p.req.title || '(제목 없음)'}
-                    </button>
-                  ) : (
-                    <span className="rqtc-title muted">어느 요구사항에도 안 붙은 시험</span>
-                  )}
-                  <span className="sp" />
-                  {p.req?.status && <span className="rqtc-st">{p.req.status}</span>}
-                  <span className={`rqtc-cnt${p.tcs.length ? '' : ' zero'}`}>{p.tcs.length}</span>
-                </div>
+                </span>
+              ))
+            ) : (
+              <b>전체</b>
+            )}
+            <span className="rqtc-crumbn">
+              {rows.length}건
+              {cat && (
+                <label className="rqtc-deep" title="하위 폴더의 요구사항까지 함께 봅니다">
+                  <input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
+                  하위 폴더 포함
+                </label>
+              )}
+            </span>
+          </div>
 
-                {/* 시험 줄 — 들여써서 그 아래 */}
-                {on &&
-                  p.tcs.map((t) => (
-                    <div className="rqtc-tc" key={t.tcid}>
-                      <span className="rqtc-icon" aria-hidden="true">
-                        🧪
-                      </span>
-                      <span className="rqtc-id">{t.tcid}</span>
-                      <button type="button" className="rqtc-title" onClick={() => setPop({ kind: 'tc', id: t.tcid })}>
-                        {t.name || '(제목 없음)'}
+          <div className="rqtc-bar">
+            {/* 만드는 창은 **이미 있는 것**(ReqForm)을 그대로 부른다 */}
+            <button className="btn small primary" type="button" onClick={() => setEdit(null)}>
+              ＋ New
+            </button>
+            <span className="sp" />
+            <label className="rqtc-only">
+              <input type="checkbox" checked={onlyBare} onChange={(e) => setOnlyBare(e.target.checked)} />
+              미커버만
+            </label>
+          </div>
+
+          <div className="rqtc-tbl">
+            <div className="rqtc-tr rqtc-th">
+              <div className="c-caret" />
+              <div className="c-title">제목</div>
+              <div className="c-mg">모델그룹</div>
+              <div className="c-md">모델명</div>
+              <div className="c-tc">TC</div>
+              <div className="c-st">상태</div>
+              <div className="c-pr">우선순위</div>
+            </div>
+
+            {rows.map((r) => {
+              const pk = reqPk(r)
+              const list = tcOf.get(pk) ?? []
+              const on = openReq.has(pk)
+              const p = prjOf(r)
+              return (
+                <div key={pk}>
+                  <div className="rqtc-tr" onClick={() => setPop({ kind: 'req', id: pk })}>
+                    <div className="c-caret">
+                      <button
+                        type="button"
+                        className={`rqtc-caret${on ? ' open' : ''}`}
+                        disabled={!list.length}
+                        aria-label={on ? '접기' : '펴기'}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggle(openReq, pk, setOpenReq)
+                        }}
+                      >
+                        <IconChevron />
                       </button>
-                      <span className="sp" />
-                      {t.kind && <span className="rqtc-kind">{t.kind}</span>}
-                      {t.status && <span className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>}
                     </div>
-                  ))}
-              </div>
-            )
-          })}
-          {!shown.length && <div className="empty">보여 줄 것이 없습니다.</div>}
-        </div>
-      </section>
+                    <div className="c-title">
+                      <span className="rqtc-rid">{reqLabel(r)}</span>
+                      <span className="rqtc-rtitle">{r.title || '(제목 없음)'}</span>
+                    </div>
+                    {/* 사업자·모델은 **프로젝트가 정본**이라 여기서 끌어다 쓴다 */}
+                    <div className="c-mg">{p?.model_group || '–'}</div>
+                    <div className="c-md">{p?.model || '–'}</div>
+                    <div className="c-tc">
+                      <span className={`rqtc-cov ${list.length ? 'ok' : 'no'}`}>
+                        {list.length ? `TC ${list.length}` : '미커버'}
+                      </span>
+                    </div>
+                    <div className="c-st">{r.status || '–'}</div>
+                    <div className="c-pr">{r.priority || '–'}</div>
+                  </div>
+
+                  {/* 붙은 시험 — 합쳐 보는 자리라서 아래로 편다 */}
+                  {on &&
+                    list.map((t) => (
+                      <div
+                        className="rqtc-tr rqtc-sub"
+                        key={t.tcid}
+                        onClick={() => setPop({ kind: 'tc', id: t.tcid })}
+                      >
+                        <div className="c-caret" />
+                        <div className="c-title">
+                          <span className="rqtc-rid tc">{t.tcid}</span>
+                          <span className="rqtc-rtitle">{t.name || '(제목 없음)'}</span>
+                        </div>
+                        <div className="c-mg">{p?.model_group || '–'}</div>
+                        <div className="c-md">{p?.model || '–'}</div>
+                        <div className="c-tc">
+                          <span className="rqtc-kind">{String(t.kind ?? t.type ?? '') || '시험'}</span>
+                        </div>
+                        <div className="c-st">
+                          {t.status ? (
+                            <span className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>
+                          ) : (
+                            '–'
+                          )}
+                        </div>
+                        <div className="c-pr">{String(t.severity ?? '') || '–'}</div>
+                      </div>
+                    ))}
+                </div>
+              )
+            })}
+            {!rows.length && <div className="empty">보여 줄 요구사항이 없습니다.</div>}
+          </div>
+        </section>
+      </div>
 
       {pop && (
         <DetailPop
           kind={pop.kind}
           id={pop.id}
           onClose={() => setPop(null)}
-          onPrev={() => step(-1)}
-          onNext={() => step(1)}
+          onEdit={
+            pop.kind === 'req'
+              ? () => {
+                  const r = reqs.find((x) => reqPk(x) === pop.id)
+                  if (r) {
+                    setPop(null)
+                    setEdit(r)
+                  }
+                }
+              : undefined
+          }
+        />
+      )}
+
+      {/* 요구사항 만들기·고치기 — **이미 있는 창**을 그대로 부른다 */}
+      {edit !== undefined && (
+        <ReqForm
+          editing={edit}
+          presetFolder={cat || null}
+          onClose={() => {
+            setEdit(undefined)
+            void reqQ.refetch()
+          }}
         />
       )}
     </div>
   )
 }
 
-/** 1열 분류 트리 — 요구사항 화면의 트리를 **건드리지 않으려고** 여기 따로 둔다 */
-function CatTree({
-  cats,
-  parent,
-  depth,
-  sel,
-  onSel,
-  reqs,
-}: {
-  cats: Array<{ id: string; name: string; parent_id: string | null }>
-  parent: string | null
-  depth: number
-  sel: string
-  onSel: (v: string) => void
-  reqs: Requirement[]
-}) {
-  const mine = cats.filter((c) => (c.parent_id ?? null) === parent)
-  if (!mine.length) return null
-  return (
-    <>
-      {mine.map((c) => {
-        const n = reqs.filter((r) => [r.cat1, r.cat2, r.cat3, r.cat4].includes(c.id)).length
-        return (
-          <div key={c.id}>
-            <button
-              type="button"
-              className={`rqtc-cat${sel === c.id ? ' on' : ''}`}
-              style={{ paddingLeft: 10 + depth * 14 }}
-              onClick={() => onSel(sel === c.id ? '' : c.id)}
-            >
-              📁 {c.name} <span className="rqtc-n">{n || ''}</span>
-            </button>
-            <CatTree cats={cats} parent={c.id} depth={depth + 1} sel={sel} onSel={onSel} reqs={reqs} />
-          </div>
-        )
-      })}
-    </>
-  )
-}
-
 /**
- * 상세 팝업 — **읽기 중심**(합의).
+ * 상세 팝업 — 3열로는 좁아서 팝업으로 넓게 본다(지시).
  *
- * 시험 상세는 탭이 여덟이라 3열에 안 들어간다. 그래서 팝업으로 넓게 본다.
- * 다만 **편집기를 여기 복제하지 않는다** — 두 벌이 되면 한쪽만 고치는 날이
- * 오고, 그것은 「기존 것을 건드리지 말라」 는 뜻과도 어긋난다. 고칠 때는
- * 원래 화면으로 넘긴다.
- *
- * 62건짜리 묶음을 훑을 때 매번 닫았다 여는 것은 고통스러우니 **이전·다음**을
- * 둔다(합의).
+ * 고치는 것은 **원래 부품**으로 넘긴다: 요구사항은 ReqForm, 시험은 Coverage.
+ * 편집기를 여기 복제하면 두 벌이 되고, 한쪽만 고치는 날이 온다.
  */
 function DetailPop({
   kind,
   id,
   onClose,
-  onPrev,
-  onNext,
+  onEdit,
 }: {
   kind: 'req' | 'tc'
   id: string
   onClose: () => void
-  onPrev: () => void
-  onNext: () => void
+  onEdit?: () => void
 }) {
   useEffect(() => {
-    const k = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-      if (e.key === 'ArrowLeft') onPrev()
-      if (e.key === 'ArrowRight') onNext()
-    }
+    const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
-  }, [onClose, onPrev, onNext])
+  }, [onClose])
 
   const q = useQuery({
     queryKey: ['rqtc-detail', kind, id],
     queryFn: async () => {
-      const r = await apiFetch(kind === 'req' ? `/api/req/${encodeURIComponent(id)}` : `/api/tc/${encodeURIComponent(id)}`)
+      const r = await apiFetch(
+        kind === 'req' ? `/api/req/${encodeURIComponent(id)}` : `/api/tc/${encodeURIComponent(id)}`,
+      )
       if (!r.ok) throw new Error('불러오지 못했습니다')
       return (await r.json()) as Record<string, unknown>
     },
@@ -333,15 +436,13 @@ function DetailPop({
           <b>{kind === 'req' ? '요구사항' : '시험항목'}</b>
           <span className="rqtc-popid">{String(d.reqid || d.tcid || id)}</span>
           <span className="sp" />
-          <button className="btn small" type="button" onClick={onPrev} title="이전 (←)">
-            ◀
-          </button>
-          <button className="btn small" type="button" onClick={onNext} title="다음 (→)">
-            ▶
-          </button>
-          {/* 고치는 것은 원래 화면에서 — 편집기를 여기 복제하지 않는다 */}
+          {onEdit && (
+            <button className="btn small primary" type="button" onClick={onEdit}>
+              고치기
+            </button>
+          )}
           <button
-            className="btn small primary"
+            className="btn small"
             type="button"
             onClick={() => {
               goto(kind, String(d.id || d.tcid || id))
@@ -370,7 +471,6 @@ function DetailPop({
                     ['우선순위', d.priority],
                     ['유형', d.type],
                     ['심각도', d.severity],
-                    ['실행 타입', d.run_type],
                     ['모델', d.model],
                     ['만든이', d.created_by],
                     ['고친이', d.updated_by],
@@ -391,10 +491,12 @@ function DetailPop({
                   <div className="rqtc-poplist">
                     {(d.tc as Array<Record<string, unknown>>).map((t, i) => (
                       <div className="rqtc-popline" key={i}>
-                        <span className="rqtc-id">{String(t.tcid ?? '')}</span>
+                        <span className="rqtc-rid tc">{String(t.tcid ?? '')}</span>
                         <span>{String(t.name ?? '')}</span>
                         <span className="sp" />
-                        {!!t.status && <span className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>}
+                        {!!t.status && (
+                          <span className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -407,12 +509,14 @@ function DetailPop({
                   <div className="rqtc-poplist">
                     {steps.map((s, i) => (
                       <div className="rqtc-popline" key={i}>
-                        <span className="rqtc-id">#{i + 1}</span>
+                        <span className="rqtc-rid">#{i + 1}</span>
                         <span className="rqtc-kind">{String(s.kind ?? s.action ?? '')}</span>
                         <span className="mono">{String(s.cli ?? s.step ?? s.desc ?? '')}</span>
                         <span className="sp" />
                         {!!s.repeatResult && (
-                          <span className={`rqtc-v ${statusClass(String(s.repeatResult))}`}>{String(s.repeatResult)}</span>
+                          <span className={`rqtc-v ${statusClass(String(s.repeatResult))}`}>
+                            {String(s.repeatResult)}
+                          </span>
                         )}
                       </div>
                     ))}
@@ -420,7 +524,7 @@ function DetailPop({
                 </>
               )}
 
-              {!!d.desc && <p className="rqtc-desc">{String(d.desc)}</p>}
+              {!!d.overview && <p className="rqtc-desc">{String(d.overview)}</p>}
             </>
           )}
         </div>
