@@ -102,15 +102,23 @@
   width: 100%;
   padding: 9px 12px;
   border: 0;
-  border-top: 1px solid var(--c-border-nav);
+  /* 메뉴는 **어두운 판**이다. 밝은 색(--c-primary-bg 는 거의 흰색)을 쓰면
+     흰 덩어리로 튄다(지적). 가름선·글자·눌림색 모두 메뉴 줄(.nav-item)이
+     쓰는 규칙 — 흰색의 낮은 투명도 — 을 그대로 쓴다. */
+  border-top: 1px solid rgb(255 255 255 / 8%);
+  border-radius: var(--radius);
   background: transparent;
-  color: var(--c-text-muted);
+  color: var(--c-nav-fg);
   font: inherit;
   font-size: var(--fs-sm);
   text-align: left;
   cursor: pointer;
 }
-.nav-collapse:hover { background: var(--c-primary-bg); color: var(--c-primary); }
+.nav-collapse:hover {
+  background: rgb(255 255 255 / 8%);
+  color: var(--c-nav-fg-strong);
+}
+.nav-collapse:hover .nav-icon { color: var(--c-nav-fg-strong); }
 .nav-collapse .nav-icon { flex: none; display: inline-flex; }
 /* 접으면 글자가 들어갈 자리가 없다 — 아이콘만 남기고 가운데로 */
 .app.nav-collapsed .nav-collapse { justify-content: center; padding: 9px 0; }
