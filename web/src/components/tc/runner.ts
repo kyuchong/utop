@@ -648,14 +648,8 @@ async function runOne(
       return ok ? 'Pass' : 'Fail'
     }
 
-    /* 오차 이내(~)면 허용치를 연산자에 붙여 보낸다 — `~5` · `~5%`.
-       흔들리는 값(CPU·카운터)을 CLI·SNMP 로 같이 읽을 때 「가까우면 합격」. */
-    const opTok =
-      op === '~'
-        ? `~${String(step.cmpTol ?? '').trim()}${step.cmpTolPct ? '%' : ''}`
-        : op
     const { ok, why } = evalCondWhy(
-      `${step.cmpLeft ?? ''} ${opTok} ${step.cmpRight ?? ''}`,
+      `${step.cmpLeft ?? ''} ${op} ${step.cmpRight ?? ''}`,
       vars,
     )
     ctx.onStep(i, {
