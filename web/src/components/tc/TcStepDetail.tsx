@@ -1469,6 +1469,24 @@ export default function TcStepDetail({
                 「있어야 [E6100] == [${Model_Name}]」(지시). 「비교」 를 누르면
                 그 줄에 견주는 칸이 생기고, 다시 누르면 없어진다. */}
             <div className="sd-jrs">
+              {/* 기준이 **여럿일 때** 어떻게 묶나(지시: AND·OR 도 설정 가능).
+                  줄제외·열제외는 판정을 안 내므로 세지 않는다. */}
+              {chips.filter((c) => c.t !== 'skip' && c.t !== 'skipcol').length > 1 && (
+                <div className="sd-join">
+                  <select
+                    value={step.ruleJoin === 'or' ? 'or' : 'and'}
+                    onChange={(e) => onChange({ ruleJoin: e.target.value as 'and' | 'or' })}
+                  >
+                    <option value="and">모두 맞아야 (AND)</option>
+                    <option value="or">하나만 맞아도 (OR)</option>
+                  </select>
+                  <span className="muted small">
+                    {step.ruleJoin === 'or'
+                      ? '아래 기준 중 하나라도 맞으면 합격입니다'
+                      : '아래 기준이 모두 맞아야 합격입니다'}
+                  </span>
+                </div>
+              )}
               {chips.map((c, n) => {
                 const set = (patch: Partial<JudgeRule>) =>
                   writeChips(chips.map((x, j) => (j === n ? { ...x, ...patch } : x)))

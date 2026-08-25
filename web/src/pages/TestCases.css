@@ -1038,6 +1038,9 @@ button.sq-caret svg { width: 11px; height: 11px; }
    세로 flex 에서 flex-basis:158px 가 먹어 줄 간격이 벌어졌다(지적: 깨짐). */
 .sd-jrs { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 4px; padding-right: 86px; }
 .sd-jr { display: flex; align-items: center; gap: 5px; }
+/* 기준을 어떻게 묶나 — 기준이 둘 이상일 때만 나온다 */
+.sd-join { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+.sd-join select { flex: none; width: 168px; }
 .sd-jr .sd-jr-t { flex: none; width: 78px; }
 .sd-jr .sd-jr-t.fixed {
   display: inline-flex;

@@ -757,45 +757,64 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
         raw2.split(/\r?\n/).find((l) => l.toLowerCase().includes(t))
       return (hit ?? '').trim().slice(0, 100)
     }
-    const fails: string[] = []
-    const oks: string[] = []
+    /* 기준 **하나하나의 결과**를 모은다. 전에는 맞은 말·틀린 말만 두 무더기로
+       쌓아서 「모두 맞아야(AND)」 밖에 못 했다 — 「하나만 맞아도(OR)」 를
+       두려면 어느 기준이 맞았는지가 기준 단위로 남아야 한다(지시).
+       견줌 꼬리가 붙은 줄은 **그 줄 안에서는 둘 다** 맞아야 한다
+       (「있어야 E6100 == ${Model_Name}」 은 한 뜻이다). */
+    const res: Array<{ ok: boolean; why: string }> = []
     for (const r of rules) {
       if (r.t === 'skip' || r.t === 'skipcol') continue
-      // 견줌 칩 — 값끼리 본다(응답 변수 vs 전역 파라미터 따위). Diff 스텝과
-      // 같은 잣대(evalCondWhy)를 쓴다. l·op·v 가 없으면(짓는 중) 건너뛴다.
+      // 견줌 칩(옛 자료) — 값끼리 본다. Diff 와 같은 잣대(evalCondWhy).
       if (r.t === 'cmp') {
         const expr = `${r.l ?? ''} ${r.op || '=='} ${r.v ?? ''}`.trim()
         if (!String(r.l ?? '').trim() && !String(r.v ?? '').trim()) continue
-        const res = evalCondWhy(expr, vars)
-        ;(res.ok ? oks : fails).push(`견줌 ${res.why}`)
+        const e = evalCondWhy(expr, vars)
+        res.push({ ok: e.ok, why: `견줌 ${e.why}` })
         continue
       }
       const v = subVars(String(r.v ?? ''), vars).trim()
       if (!v) continue
       if (r.t === 'has' || r.t === 'not') {
+        let ok: boolean
+        const why: string[] = []
         if (r.t === 'has') {
-          if (hasTok(v)) oks.push(`"${v}" 있음 → ${lineOf2(v)}`)
-          else fails.push(`"${v}" 없음`)
+          ok = hasTok(v)
+          why.push(ok ? `"${v}" 있음 → ${lineOf2(v)}` : `"${v}" 없음`)
         } else {
-          if (hasTok(v)) fails.push(`있으면 안 되는 "${v}" 있음 → ${lineOf2(v)}`)
-          else oks.push(`"${v}" 없음(정상)`)
+          ok = !hasTok(v)
+          why.push(ok ? `"${v}" 없음(정상)` : `있으면 안 되는 "${v}" 있음 → ${lineOf2(v)}`)
         }
-        /* 견줌 꼬리 — 그 값이 전역 파라미터 따위와 맞는지까지 본다.
-           Diff 스텝과 같은 잣대(evalCondWhy). 견줄 값이 비어 있으면 건너뛴다. */
+        /* 견줌 꼬리 — 그 값이 전역 파라미터 따위와 맞는지까지. 비면 건너뛴다 */
         const rhs = String(r.rhs ?? '').trim()
         if (String(r.op ?? '').trim() && rhs) {
-          const res = evalCondWhy(`${r.v} ${r.op} ${rhs}`, vars)
-          ;(res.ok ? oks : fails).push(`견줌 ${res.why}`)
+          const e = evalCondWhy(`${r.v} ${r.op} ${rhs}`, vars)
+          ok = ok && e.ok
+          why.push(`견줌 ${e.why}`)
         }
+        res.push({ ok, why: why.join(' · ') })
       } else {
         const tr = judgeTable(raw2, v)
-        if (tr.verdict === 'Fail') fails.push(tr.reason)
-        else oks.push(tr.reason)
+        res.push({ ok: tr.verdict !== 'Fail', why: tr.reason })
       }
     }
-    if (!fails.length && !oks.length) return { verdict: '', reason: '판정기준 없음' }
-    if (fails.length) return { verdict: 'Fail', reason: fails.join(' · ') }
-    return { verdict: 'Pass', reason: oks.join(' · ') }
+    if (!res.length) return { verdict: '', reason: '판정기준 없음' }
+
+    /* 기준을 어떻게 묶나 — 모두 맞아야(and·기본) · 하나만 맞아도(or) */
+    const or = String((step as { ruleJoin?: string }).ruleJoin ?? '') === 'or'
+    const good = res.filter((x) => x.ok)
+    const bad = res.filter((x) => !x.ok)
+    if (or) {
+      // 하나만 맞아도 합격. 맞은 것을 앞세워 「무엇 때문에 붙었나」 를 보인다.
+      if (good.length)
+        return {
+          verdict: 'Pass',
+          reason: `${res.length}개 중 ${good.length}개 맞음(OR) — ${good.map((x) => x.why).join(' · ')}`,
+        }
+      return { verdict: 'Fail', reason: `모두 어긋남(OR) — ${bad.map((x) => x.why).join(' · ')}` }
+    }
+    if (bad.length) return { verdict: 'Fail', reason: bad.map((x) => x.why).join(' · ') }
+    return { verdict: 'Pass', reason: good.map((x) => x.why).join(' · ') }
   }
 
   if (type === 'none') return { verdict: '', reason: '판정 안 함' }
