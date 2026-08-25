@@ -1454,25 +1454,54 @@ export default function TcStepDetail({
               />
             ) : null}
             <div className="sd-chips">
-              {chips.map((c, n) => (
-                <span
-                  key={n}
-                  className={`sd-chip ${c.t}`}
-                  title={c.v.includes('$') ? `지금 값: ${subVars(c.v, gp.values)}` : undefined}
-                >
-                  <i>
-                    {c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : '표'}
-                  </i>
-                  {c.v}
-                  <button
-                    type="button"
-                    title="이 기준 빼기"
-                    onClick={() => writeChips(chips.filter((_, j) => j !== n))}
+              {chips.map((c, n) => {
+                const tlab =
+                  c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : '표'
+                /* 있어야·없어야·줄제외 는 **글자 기준**이라 고칠 수 있어야 한다
+                   (지시: 판정 기준 수정 가능하게, 보낼 명령 칸처럼). 열제외·표는
+                   블럭에서 짜 온 구조라 글자로 고치면 깨지므로 칩 그대로 둔다. */
+                const editable = c.t === 'has' || c.t === 'not' || c.t === 'skip'
+                if (editable)
+                  return (
+                    <span key={n} className={`sd-chip sd-chipedit ${c.t}`}>
+                      <i>{tlab}</i>
+                      <input
+                        className="sd-chipin mono"
+                        value={c.v}
+                        placeholder="기준 값"
+                        title={c.v.includes('$') ? `지금 값: ${subVars(c.v, gp.values)}` : undefined}
+                        style={{ width: `${Math.min(Math.max((c.v?.length ?? 0) + 1, 6), 48)}ch` }}
+                        onChange={(e) =>
+                          writeChips(chips.map((x, j) => (j === n ? { ...x, v: e.target.value } : x)))
+                        }
+                      />
+                      <button
+                        type="button"
+                        title="이 기준 빼기"
+                        onClick={() => writeChips(chips.filter((_, j) => j !== n))}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  )
+                return (
+                  <span
+                    key={n}
+                    className={`sd-chip ${c.t}`}
+                    title={c.v.includes('$') ? `지금 값: ${subVars(c.v, gp.values)}` : undefined}
                   >
-                    ×
-                  </button>
-                </span>
-              ))}
+                    <i>{tlab}</i>
+                    {c.v}
+                    <button
+                      type="button"
+                      title="이 기준 빼기"
+                      onClick={() => writeChips(chips.filter((_, j) => j !== n))}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )
+              })}
               {!chips.length && (
                 <span className="muted small">없으면 판정하지 않습니다</span>
               )}

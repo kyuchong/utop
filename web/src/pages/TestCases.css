@@ -1044,6 +1044,24 @@ button.sq-caret svg { width: 11px; height: 11px; }
 .sd-chip.not { background: #fdecec; border-color: #e24b4a; color: #8f1f1f; }
 .sd-chip.table { background: #e9f1fb; border-color: #5b9bd5; color: #1f5fa8; }
 .sd-chip i { font-style: normal; font-weight: 700; font-size: 10px; opacity: 0.75; flex: none; }
+/* 고칠 수 있는 기준 칩 — 값을 「보낼 명령」 칸처럼 바로 친다. 칩 색은 두고
+   값 자리만 흰 입력칸으로 파, 고칠 수 있다는 티를 낸다. */
+.sd-chip.sd-chipedit { padding-right: 3px; }
+.sd-chip .sd-chipin {
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--c-text);
+  font-size: var(--fs-xs);
+  padding: 1px 5px;
+  min-width: 4ch;
+  max-width: 100%;
+}
+.sd-chip .sd-chipin:focus {
+  outline: none;
+  border-color: currentColor;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.06);
+}
 .sd-chip button {
   border: 0;
   background: transparent;
