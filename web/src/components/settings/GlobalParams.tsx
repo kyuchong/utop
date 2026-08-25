@@ -117,16 +117,35 @@ export default function GlobalParams({ only }: Props) {
 
   const saveM = useMutation({
     mutationFn: async () => {
+      /* 이미 저장돼 있던 빈칸 이름도 여기서 함께 고친다 — 입력 때 바꾸는
+         것만으로는 **손대지 않은 옛 이름**이 깨진 채 남는다. 어차피 그
+         이름으로는 값을 꺼낼 수 없으니 남겨 둘 이유가 없다. */
+      let fixed = 0
+      const clean: File = {}
+      for (const [file, rows2] of Object.entries(data)) {
+        if (!Array.isArray(rows2)) {
+          clean[file] = rows2 as never
+          continue
+        }
+        clean[file] = (rows2 as Row[]).map((r) => {
+          const nm = String(r.name ?? '')
+          const ok = nameOk(nm)
+          if (ok !== nm) fixed++
+          return ok === nm ? r : { ...r, name: ok }
+        })
+      }
       const r = await apiFetch('/api/global-params', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(clean),
       })
       if (!r.ok) throw new Error('저장하지 못했습니다')
+      if (fixed) setData(clean)
+      return fixed
     },
-    onSuccess: () => {
+    onSuccess: (fixed) => {
       setDirty(false)
-      setMsg('저장했습니다')
+      setMsg(fixed ? `저장했습니다 — 빈칸이 든 이름 ${fixed}개를 밑줄로 고쳤습니다` : '저장했습니다')
       void qc.invalidateQueries({ queryKey: ['global-params'] })
     },
     onError: (e) => setMsg(e instanceof Error ? e.message : String(e)),
@@ -178,8 +197,22 @@ export default function GlobalParams({ only }: Props) {
     setMsg('')
   }
 
+  /**
+   * 이름의 빈칸은 **밑줄로**(지시).
+   *
+   * 값은 `${이름}` 으로 꺼내 쓰는데, 치환기(judge.subVars)가 이름을 `\w+`
+   * — 영문·숫자·밑줄로만 읽는다. 그래서 「Main Memory」 처럼 빈칸이 든
+   * 이름은 값은 멀쩡히 저장되는데 **영영 안 풀린다**(실제로 213 에 두 개가
+   * 그 꼴로 있었다). 에러도 안 나고 글자 그대로 남아 더 나쁘다.
+   *
+   * 빈칸을 허용하고 패턴만 넓히는 길도 있지만, 짧은 형태 `$이름` 은 끝을
+   * 알 수 없어 원리상 빈칸을 못 받는다 — `${Main Memory}` 는 되고
+   * `$Main Memory` 는 안 되는 어긋난 규칙이 생긴다. 이름을 한 가지로 맞춘다.
+   */
+  const nameOk = (v: string) => v.replace(/\s+/g, '_')
+
   const setCell = (i: number, key: keyof Row, v: string) =>
-    setRows(cur.map((r, j) => (j === i ? { ...r, [key]: v } : r)))
+    setRows(cur.map((r, j) => (j === i ? { ...r, [key]: key === 'name' ? nameOk(v) : v } : r)))
 
   /**
    * 하위 그룹.
