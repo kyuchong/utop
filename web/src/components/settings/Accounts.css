@@ -189,7 +189,9 @@
   width: 140px;
 }
 .acc-tbl col.c-name {
-  width: 110px;
+  /* 「강경묵(생산)」 처럼 이름+부서가 든 표시명이라 110px 로는 잘렸다(지적).
+     넓힌다 — 남는 폭은 auto 인 메일 열이 내준다. */
+  width: 220px;
 }
 .acc-tbl col.c-mail {
   width: auto;

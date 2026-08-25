@@ -453,7 +453,7 @@ export default function Accounts() {
                     className={`${u.active === false ? 'off' : ''}${at === u.username ? ' on' : ''}`}
                     onClick={() => pick(u)}
                   >
-                    <td className="ell">
+                    <td className="ell" title={u.name || u.username}>
                       <b>{u.name || u.username}</b>
                       <span className={`acc-tag ${u.active === false ? 'off' : 'ok'}`}>
                         {u.active === false ? '잠김' : '활성'}
