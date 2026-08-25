@@ -14518,12 +14518,17 @@ def _jira_fetch_users(q: str = "", limit: int = 2000) -> tuple:
             if not name or name in seen:
                 continue
             seen.add(name)
+            _disp = str(u.get("displayName") or name).strip()
+            # 이름 괄호에 부서가 든다: 「강경묵(생산)」·「권민수(검증)_중…」.
+            # 소속 칸이 비어 있으면 이걸 채운다(직급/소속을 보고 싶다는 지적).
+            _m = re.search(r"\(([^)]+)\)", _disp)
             out.append({
                 "username": name,
                 "jira_key": str(u.get("key") or u.get("accountId") or "").strip(),
-                "name": str(u.get("displayName") or name).strip(),
+                "name": _disp,
                 "email": str(u.get("emailAddress") or "").strip(),
                 "jira_active": bool(u.get("active")),
+                "dept": (_m.group(1).strip() if _m else ""),
             })
         if len(rows) < 200:
             break
@@ -14573,6 +14578,7 @@ async def api_users_jira_sync(payload: dict = None, token: str = ""):
             nu = {
                 "id": j["username"], "username": j["username"], "name": j["name"],
                 "role": "팀원", "email": j["email"], "active": bool(j["jira_active"]),
+                "dept": j.get("dept") or "",
                 "source": "jira",
                 "jira_key": j["jira_key"], "jira_active": j["jira_active"],
                 "created_at": now, "synced_at": now,
@@ -14591,6 +14597,8 @@ async def api_users_jira_sync(payload: dict = None, token: str = ""):
             cur["email"] = j["email"]
         if j["jira_key"]:
             cur["jira_key"] = j["jira_key"]
+        if j.get("dept") and not str(cur.get("dept") or "").strip():
+            cur["dept"] = j["dept"]   # 비어 있을 때만 — 관리자가 정한 소속은 그대로
         cur["jira_active"] = j["jira_active"]
         cur["source"] = "jira"
         cur["synced_at"] = now
