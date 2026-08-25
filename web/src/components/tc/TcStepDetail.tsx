@@ -877,6 +877,7 @@ export default function TcStepDetail({
                 >
                   <option value="==">같다</option>
                   <option value="!=">다르다</option>
+                  <option value="~">오차 이내</option>
                   <option value="포함">포함한다</option>
                   <option value=">">크다</option>
                   <option value="<">작다</option>
@@ -890,6 +891,30 @@ export default function TcStepDetail({
                   onChange={(e) => onChange({ cmpRight: e.target.value })}
                 />
               </div>
+              {/* 오차 이내(~) — 흔들리는 값을 두 곳에서 읽어 견줄 때. 허용치를
+                  절대값(±5)이나 %(±5%)로 준다. 「11 과 12」 도 ±2 면 합격이다. */}
+              {step.cmpOp === '~' && (
+                <div className="sd-row" style={{ marginTop: 6, alignItems: 'center', gap: 6 }}>
+                  <span className="sd-hint" style={{ margin: 0 }}>허용 오차 ±</span>
+                  <input
+                    className="mono sd-narrow2"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={step.cmpTol ?? ''}
+                    placeholder="5"
+                    onChange={(e) => onChange({ cmpTol: e.target.value })}
+                  />
+                  <select
+                    className="sd-narrow2"
+                    value={step.cmpTolPct ? 'pct' : 'abs'}
+                    onChange={(e) => onChange({ cmpTolPct: e.target.value === 'pct' })}
+                  >
+                    <option value="abs">그만큼(절대값)</option>
+                    <option value="pct">퍼센트(%)</option>
+                  </select>
+                </div>
+              )}
               <span className="sd-hint">
                 앞 스텝에서 뽑은 값은 <b>{'${이름}'}</b>, 그냥 글자는 그대로 적습니다.
                 맞으면 <b>합격</b>, 아니면 <b>불합격</b>입니다.

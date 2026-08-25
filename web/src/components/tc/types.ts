@@ -384,6 +384,9 @@ export interface TcStep {
   cmpLeft?: string
   cmpOp?: string
   cmpRight?: string
+  /** kind=diff, cmpOp='~' — 허용 오차. cmpTolPct 면 %, 아니면 절대값 */
+  cmpTol?: string
+  cmpTolPct?: boolean
   /** kind=map — 바꿀 값 (보통 `${변수}`) */
   mapSrc?: string
   /** kind=map — 대응표. 한 줄에 하나, `왼쪽 = 오른쪽` */
@@ -764,8 +767,13 @@ export function stepSummary(s: TcStep): string {
     return `${(s.oid || '').trim()}${s.snmpValue ? ` = ${s.snmpValue}` : ''}`.trim()
   if (k === 'snmp_trap')
     return `${(s.oid || '아무 Trap').trim()} · ${s.trapSec ?? 15}초 대기`
-  if (k === 'diff')
-    return `${(s.cmpLeft || '').trim()} ${s.cmpOp || '=='} ${(s.cmpRight || '').trim()}`.trim()
+  if (k === 'diff') {
+    const _op =
+      s.cmpOp === '~'
+        ? `~${(s.cmpTol || '').trim()}${s.cmpTolPct ? '%' : ''}`
+        : s.cmpOp || '=='
+    return `${(s.cmpLeft || '').trim()} ${_op} ${(s.cmpRight || '').trim()}`.trim()
+  }
   if (k === 'map')
     return `${(s.mapSrc || '').trim()}${s.mapVar ? ` → \${${s.mapVar}}` : ''}`.trim()
   if (k === 'wait') {

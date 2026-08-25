@@ -1011,11 +1011,14 @@ export function evalCondWhy(
 
   // `=` 하나도 견줌으로 받는다. 사람은 그렇게 쓴다.
   // `<>` 도 다름으로 받는다(옛 자료·다른 도구 습관).
-  const m = /^(.*?)\s*(==|!=|<>|>=|<=|=|>|<|포함|contains)\s*(.*)$/.exec(s)
+  // `~N` · `~N%` 는 **오차 이내**다 — 값이 늘 흔들리는 것(CPU·카운터·온도)을
+  // CLI 와 SNMP 로 같이 읽으면 재는 순간이 달라 딱 같을 수가 없다. 「가까우면
+  // 합격」 이 있어야 그런 시험이 산다.
+  const m = /^(.*?)\s*(~[0-9.]*%?|==|!=|<>|>=|<=|=|>|<|포함|contains)\s*(.*)$/.exec(s)
   if (!m) {
     return {
       ok: false,
-      why: `견줌으로 읽을 수 없습니다 — == != > < >= <= 포함 중 하나가 있어야 합니다`,
+      why: `견줌으로 읽을 수 없습니다 — == != > < >= <= ~ 포함 중 하나가 있어야 합니다`,
     }
   }
 
@@ -1026,6 +1029,31 @@ export function evalCondWhy(
   const na = Number(a)
   const nb = Number(b)
   const numeric = a !== '' && b !== '' && Number.isFinite(na) && Number.isFinite(nb)
+
+  const warn0 = missing.length
+    ? ` · ${missing.map((x) => `\${${x}}`).join(', ')} 은 없는 변수라 글자 그대로 견줬습니다`
+    : ''
+
+  // 오차 이내(~) — 숫자만. `~5` 는 ±5, `~5%` 는 ±5%.
+  if (op.startsWith('~')) {
+    const pct = op.endsWith('%')
+    const amt = parseFloat(op.slice(1)) // 「~」 만이면 NaN → 0 (딱 같아야 함)
+    const tol = Number.isFinite(amt) ? amt : 0
+    if (!numeric) {
+      return { ok: false, why: `'${a}' ~ '${b}' — 숫자가 아니라 오차로 견줄 수 없습니다${warn0}` }
+    }
+    const diff = Math.abs(na - nb)
+    const okT = pct
+      ? Math.abs(nb) < 1e-12
+        ? diff < 1e-12
+        : (diff / Math.abs(nb)) * 100 <= tol
+      : diff <= tol
+    const capTxt = pct ? `허용 ±${tol}%` : `허용 ±${tol}`
+    return {
+      ok: okT,
+      why: `'${a}' ~ '${b}' (차이 ${Math.round(diff * 1000) / 1000} · ${capTxt})${warn0}`,
+    }
+  }
 
   let ok: boolean
   switch (op) {
