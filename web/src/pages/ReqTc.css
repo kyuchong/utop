@@ -1,0 +1,189 @@
+/* REQ-TC — 요구사항과 시험을 한 판에.
+   1열 폴더 · 2열 합본 목록. 상세는 팝업(합의) — 시험 상세는 탭이 여덟이라
+   옆 칸에 안 들어간다. 기존 화면 CSS 는 안 건드린다(지시): 이름을 rt- 로
+   따로 쓴다. */
+.rt {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ── 1열 ── */
+.rt-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 6px;
+}
+.rt-sidehead {
+  padding: 4px 8px 8px;
+  font-size: var(--fs-sm);
+}
+.rt-cat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.rt-cat:hover { background: var(--c-surface-alt); }
+.rt-cat.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
+.rt-n { margin-left: auto; font-size: var(--fs-xs); color: var(--c-text-faint); }
+
+/* ── 2열 ── */
+.rt-main { display: flex; flex-direction: column; min-height: 0; }
+.rt-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--c-border);
+}
+.rt-head .sp { flex: 1; }
+.rt-bare { color: #c0392b; }
+.rt-only { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); cursor: pointer; }
+.rt-q {
+  width: 260px;
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  background: var(--c-surface);
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+.rt-rows { flex: 1; min-height: 0; overflow-y: auto; }
+
+/* 요구사항 줄 — 묶음 머리. 시험이 없으면 흐리게 두어 구멍이 눈에 띈다 */
+.rt-req {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface-alt);
+  font-size: var(--fs-sm);
+}
+.rt-req.bare { background: transparent; }
+.rt-req.bare .rt-id, .rt-req.bare .rt-title { color: var(--c-text-faint); }
+.rt-req .sp, .rt-tc .sp { flex: 1; }
+
+/* 시험 줄 — 요구사항 아래로 들여쓴다 */
+.rt-tc {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px 6px 42px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-sm);
+}
+.rt-tc:hover, .rt-req:hover { background: var(--c-primary-bg); }
+
+.rt-caret {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--c-text-faint);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.rt-caret.open { transform: rotate(90deg); }
+.rt-caret:disabled { opacity: 0.25; cursor: default; }
+.rt-icon { flex: none; font-size: 12px; }
+.rt-id {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--c-primary);
+  min-width: 92px;
+}
+/* 제목은 눌러서 팝업을 연다 — 단추지만 글처럼 보이게 */
+.rt-title {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  padding: 0;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rt-title:hover { text-decoration: underline; }
+.rt-st, .rt-kind {
+  flex: none;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  padding: 1px 7px;
+}
+.rt-cnt {
+  flex: none;
+  min-width: 26px;
+  text-align: center;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-primary);
+  background: var(--c-primary-bg);
+  border-radius: 10px;
+  padding: 1px 7px;
+}
+.rt-cnt.zero { color: var(--c-text-faint); background: transparent; font-weight: 400; }
+.rt-v { flex: none; font-size: var(--fs-xs); font-weight: 700; }
+.rt-v.pass { color: var(--c-pass, #1d9e75); }
+.rt-v.fail { color: var(--c-fail, #e24b4a); }
+
+/* ── 팝업 ── */
+.rt-pop { width: min(1000px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }
+.rt-popid { font-family: var(--font-mono); font-size: var(--fs-xs); color: var(--c-primary); }
+.rt-popbody { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px; }
+.rt-poptitle { margin: 0 0 12px; font-size: 17px; }
+.rt-poph { margin: 16px 0 6px; font-size: var(--fs-sm); color: var(--c-text-muted); }
+.rt-kv { display: flex; flex-wrap: wrap; gap: 8px; }
+.rt-kvi {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  padding: 3px 9px;
+}
+.rt-kvi i { font-style: normal; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.rt-kvi b { font-size: var(--fs-sm); }
+.rt-poplist { border: 1px solid var(--c-border); border-radius: 8px; overflow: hidden; }
+.rt-popline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-sm);
+}
+.rt-popline:last-child { border-bottom: 0; }
+.rt-popline .mono { font-family: var(--font-mono); font-size: var(--fs-xs); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt-desc { margin: 14px 0 0; font-size: var(--fs-sm); line-height: 1.7; white-space: pre-wrap; }
+
+@media (max-width: 900px) {
+  .rt { grid-template-columns: 1fr; }
+  .rt-side { display: none; }
+}
