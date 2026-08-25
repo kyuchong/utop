@@ -138,86 +138,86 @@ export default function ReqTc({ me }: Props) {
   if (reqQ.error) return <div className="load-error">{(reqQ.error as Error).message}</div>
 
   return (
-    <div className="rt">
+    <div className="rqtc">
       {/* ── 1열 폴더 — 사진 그대로 「변함 없음」(지시) ── */}
-      <aside className="panel rt-side">
-        <div className="rt-sidehead">
+      <aside className="panel rqtc-side">
+        <div className="rqtc-sidehead">
           <b>요구사항 폴더</b>
         </div>
-        <button type="button" className={`rt-cat${cat === '' ? ' on' : ''}`} onClick={() => setCat('')}>
-          전체 <span className="rt-n">{reqs.length}</span>
+        <button type="button" className={`rqtc-cat${cat === '' ? ' on' : ''}`} onClick={() => setCat('')}>
+          전체 <span className="rqtc-n">{reqs.length}</span>
         </button>
         <CatTree cats={cats} depth={0} parent={null} sel={cat} onSel={setCat} reqs={reqs} />
       </aside>
 
       {/* ── 2열 — 요구사항 줄 + 그 아래 시험 줄 ── */}
-      <section className="panel rt-main">
-        <div className="rt-head">
+      <section className="panel rqtc-main">
+        <div className="rqtc-head">
           <b>REQ · TC</b>
           <span className="muted small">
             요구사항 {total - (pairs.some((p) => !p.req) ? 1 : 0)}건 · 시험 붙음 {covered} ·{' '}
-            <b className={bare ? 'rt-bare' : ''}>시험 없음 {bare}</b>
+            <b className={bare ? 'rqtc-bare' : ''}>시험 없음 {bare}</b>
           </span>
           <span className="sp" />
-          <label className="rt-only">
+          <label className="rqtc-only">
             <input type="checkbox" checked={onlyWithTc} onChange={(e) => setOnlyWithTc(e.target.checked)} />
             시험 있는 것만
           </label>
           <input
-            className="rt-q"
+            className="rqtc-q"
             value={q}
             placeholder="요구사항 · 시험 제목/ID 로 찾기"
             onChange={(e) => setQ(e.target.value)}
           />
         </div>
 
-        <div className="rt-rows">
+        <div className="rqtc-rows">
           {shown.map((p) => {
             const key = p.req ? reqPk(p.req) : '__loose__'
             const on = isOpen(key)
             return (
               <div key={key}>
                 {/* 요구사항 줄 — 묶음 머리 */}
-                <div className={`rt-req${p.tcs.length ? '' : ' bare'}`}>
+                <div className={`rqtc-req${p.tcs.length ? '' : ' bare'}`}>
                   <button
                     type="button"
-                    className={`rt-caret${on ? ' open' : ''}`}
+                    className={`rqtc-caret${on ? ' open' : ''}`}
                     aria-label={on ? '접기' : '펴기'}
                     disabled={!p.tcs.length}
                     onClick={() => toggle(key)}
                   >
                     <IconChevron />
                   </button>
-                  <span className="rt-icon" aria-hidden="true">
+                  <span className="rqtc-icon" aria-hidden="true">
                     📄
                   </span>
-                  <span className="rt-id">{p.req ? reqLabel(p.req) : '(요구사항 없음)'}</span>
+                  <span className="rqtc-id">{p.req ? reqLabel(p.req) : '(요구사항 없음)'}</span>
                   {p.req ? (
-                    <button type="button" className="rt-title" onClick={() => setPop({ kind: 'req', id: reqPk(p.req!) })}>
+                    <button type="button" className="rqtc-title" onClick={() => setPop({ kind: 'req', id: reqPk(p.req!) })}>
                       {p.req.title || '(제목 없음)'}
                     </button>
                   ) : (
-                    <span className="rt-title muted">어느 요구사항에도 안 붙은 시험</span>
+                    <span className="rqtc-title muted">어느 요구사항에도 안 붙은 시험</span>
                   )}
                   <span className="sp" />
-                  {p.req?.status && <span className="rt-st">{p.req.status}</span>}
-                  <span className={`rt-cnt${p.tcs.length ? '' : ' zero'}`}>{p.tcs.length}</span>
+                  {p.req?.status && <span className="rqtc-st">{p.req.status}</span>}
+                  <span className={`rqtc-cnt${p.tcs.length ? '' : ' zero'}`}>{p.tcs.length}</span>
                 </div>
 
                 {/* 시험 줄 — 들여써서 그 아래 */}
                 {on &&
                   p.tcs.map((t) => (
-                    <div className="rt-tc" key={t.tcid}>
-                      <span className="rt-icon" aria-hidden="true">
+                    <div className="rqtc-tc" key={t.tcid}>
+                      <span className="rqtc-icon" aria-hidden="true">
                         🧪
                       </span>
-                      <span className="rt-id">{t.tcid}</span>
-                      <button type="button" className="rt-title" onClick={() => setPop({ kind: 'tc', id: t.tcid })}>
+                      <span className="rqtc-id">{t.tcid}</span>
+                      <button type="button" className="rqtc-title" onClick={() => setPop({ kind: 'tc', id: t.tcid })}>
                         {t.name || '(제목 없음)'}
                       </button>
                       <span className="sp" />
-                      {t.kind && <span className="rt-kind">{t.kind}</span>}
-                      {t.status && <span className={`rt-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>}
+                      {t.kind && <span className="rqtc-kind">{t.kind}</span>}
+                      {t.status && <span className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>}
                     </div>
                   ))}
               </div>
@@ -266,11 +266,11 @@ function CatTree({
           <div key={c.id}>
             <button
               type="button"
-              className={`rt-cat${sel === c.id ? ' on' : ''}`}
+              className={`rqtc-cat${sel === c.id ? ' on' : ''}`}
               style={{ paddingLeft: 10 + depth * 14 }}
               onClick={() => onSel(sel === c.id ? '' : c.id)}
             >
-              📁 {c.name} <span className="rt-n">{n || ''}</span>
+              📁 {c.name} <span className="rqtc-n">{n || ''}</span>
             </button>
             <CatTree cats={cats} parent={c.id} depth={depth + 1} sel={sel} onSel={onSel} reqs={reqs} />
           </div>
@@ -315,7 +315,7 @@ function DetailPop({
   }, [onClose, onPrev, onNext])
 
   const q = useQuery({
-    queryKey: ['rt-detail', kind, id],
+    queryKey: ['rqtc-detail', kind, id],
     queryFn: async () => {
       const r = await apiFetch(kind === 'req' ? `/api/req/${encodeURIComponent(id)}` : `/api/tc/${encodeURIComponent(id)}`)
       if (!r.ok) throw new Error('불러오지 못했습니다')
@@ -328,10 +328,10 @@ function DetailPop({
 
   return (
     <div className="modal-back" onMouseDown={onClose}>
-      <div className="modal rt-pop" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="modal rqtc-pop" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <b>{kind === 'req' ? '요구사항' : '시험항목'}</b>
-          <span className="rt-popid">{String(d.reqid || d.tcid || id)}</span>
+          <span className="rqtc-popid">{String(d.reqid || d.tcid || id)}</span>
           <span className="sp" />
           <button className="btn small" type="button" onClick={onPrev} title="이전 (←)">
             ◀
@@ -355,15 +355,15 @@ function DetailPop({
           </button>
         </div>
 
-        <div className="rt-popbody">
+        <div className="rqtc-popbody">
           {q.isLoading ? (
             <div className="empty">불러오는 중…</div>
           ) : q.error ? (
             <div className="load-error">{(q.error as Error).message}</div>
           ) : (
             <>
-              <h3 className="rt-poptitle">{String(d.title || d.name || '(제목 없음)')}</h3>
-              <div className="rt-kv">
+              <h3 className="rqtc-poptitle">{String(d.title || d.name || '(제목 없음)')}</h3>
+              <div className="rqtc-kv">
                 {(
                   [
                     ['상태', d.status],
@@ -378,7 +378,7 @@ function DetailPop({
                 )
                   .filter(([, v]) => v !== undefined && v !== null && String(v) !== '')
                   .map(([k, v]) => (
-                    <div className="rt-kvi" key={k}>
+                    <div className="rqtc-kvi" key={k}>
                       <i>{k}</i>
                       <b>{String(v)}</b>
                     </div>
@@ -387,14 +387,14 @@ function DetailPop({
 
               {kind === 'req' && Array.isArray(d.tc) && (d.tc as unknown[]).length > 0 && (
                 <>
-                  <h4 className="rt-poph">붙은 시험 {(d.tc as unknown[]).length}건</h4>
-                  <div className="rt-poplist">
+                  <h4 className="rqtc-poph">붙은 시험 {(d.tc as unknown[]).length}건</h4>
+                  <div className="rqtc-poplist">
                     {(d.tc as Array<Record<string, unknown>>).map((t, i) => (
-                      <div className="rt-popline" key={i}>
-                        <span className="rt-id">{String(t.tcid ?? '')}</span>
+                      <div className="rqtc-popline" key={i}>
+                        <span className="rqtc-id">{String(t.tcid ?? '')}</span>
                         <span>{String(t.name ?? '')}</span>
                         <span className="sp" />
-                        {!!t.status && <span className={`rt-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>}
+                        {!!t.status && <span className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>}
                       </div>
                     ))}
                   </div>
@@ -403,16 +403,16 @@ function DetailPop({
 
               {kind === 'tc' && steps.length > 0 && (
                 <>
-                  <h4 className="rt-poph">스텝 {steps.length}개</h4>
-                  <div className="rt-poplist">
+                  <h4 className="rqtc-poph">스텝 {steps.length}개</h4>
+                  <div className="rqtc-poplist">
                     {steps.map((s, i) => (
-                      <div className="rt-popline" key={i}>
-                        <span className="rt-id">#{i + 1}</span>
-                        <span className="rt-kind">{String(s.kind ?? s.action ?? '')}</span>
+                      <div className="rqtc-popline" key={i}>
+                        <span className="rqtc-id">#{i + 1}</span>
+                        <span className="rqtc-kind">{String(s.kind ?? s.action ?? '')}</span>
                         <span className="mono">{String(s.cli ?? s.step ?? s.desc ?? '')}</span>
                         <span className="sp" />
                         {!!s.repeatResult && (
-                          <span className={`rt-v ${statusClass(String(s.repeatResult))}`}>{String(s.repeatResult)}</span>
+                          <span className={`rqtc-v ${statusClass(String(s.repeatResult))}`}>{String(s.repeatResult)}</span>
                         )}
                       </div>
                     ))}
@@ -420,7 +420,7 @@ function DetailPop({
                 </>
               )}
 
-              {!!d.desc && <p className="rt-desc">{String(d.desc)}</p>}
+              {!!d.desc && <p className="rqtc-desc">{String(d.desc)}</p>}
             </>
           )}
         </div>
