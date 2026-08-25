@@ -142,6 +142,8 @@ export default function TcStepDetail({
   /** 지금 열려 있는 고르기 목록 — 어느 칸에 넣을지까지 담는다 */
   /** 어느 칸에 넣을 목록을 열어 두었나 */
   const [pick, setPick] = useState('')
+  /** 견줌 칩의 **오른쪽**을 전역 파라미터로 채울 때, 어느 칩인지. -1 = 아님 */
+  const [cmpAt, setCmpAt] = useState(-1)
   const [oidQ, setOidQ] = useState('')
 
   /**
@@ -1439,6 +1441,16 @@ export default function TcStepDetail({
               >
                 {'${ } 기준 넣기'}
               </button>
+              {/* 견줌 — 응답에서 잡은 값을 전역 파라미터 따위와 == 로 견준다.
+                  Diff 스텝을 따로 안 만들고 판정 기준 안에서 바로(지시). */}
+              <button
+                type="button"
+                className="sd-pickbtn"
+                title="견줌 — 응답에서 잡은 값(${변수})을 전역 파라미터와 == 로 견줍니다"
+                onClick={() => writeChips([...chips, { t: 'cmp', l: '', op: '==', v: '' }])}
+              >
+                ± 견줌
+              </button>
             </span>
             {pick === 'p-crit' ? (
               <ParamPicker
@@ -1446,9 +1458,18 @@ export default function TcStepDetail({
                 values={gp.values}
                 loading={gp.loading}
                 empty={gp.empty}
-                onClose={() => setPick('')}
+                onClose={() => {
+                  setPick('')
+                  setCmpAt(-1)
+                }}
                 onPick={(x) => {
-                  addChipFrom('has', x.value)
+                  // 견줌 칩의 오른쪽을 채우는 중이면 그 자리에, 아니면 있어야 칩으로
+                  if (cmpAt >= 0) {
+                    writeChips(chips.map((y, j) => (j === cmpAt ? { ...y, v: x.value } : y)))
+                    setCmpAt(-1)
+                  } else {
+                    addChipFrom('has', x.value)
+                  }
                   setPick('')
                 }}
               />
@@ -1456,7 +1477,68 @@ export default function TcStepDetail({
             <div className="sd-chips">
               {chips.map((c, n) => {
                 const tlab =
-                  c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : '표'
+                  c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : c.t === 'cmp' ? '견줌' : '표'
+                /* 견줌 칩 — 왼쪽·연산자·오른쪽을 바로 고친다. 오른쪽은 ${} 로
+                   전역 파라미터를 골라 넣을 수 있다(응답값 vs 파라미터). */
+                if (c.t === 'cmp')
+                  return (
+                    <span key={n} className="sd-chip sd-chipcmp cmp">
+                      <i>{tlab}</i>
+                      <input
+                        className="sd-chipin mono"
+                        value={c.l ?? ''}
+                        placeholder="${변수}"
+                        title={(c.l ?? '').includes('$') ? `지금 값: ${subVars(c.l ?? '', gp.values)}` : undefined}
+                        style={{ width: `${Math.min(Math.max((c.l?.length ?? 0) + 1, 6), 32)}ch` }}
+                        onChange={(e) =>
+                          writeChips(chips.map((x, j) => (j === n ? { ...x, l: e.target.value } : x)))
+                        }
+                      />
+                      <select
+                        className="sd-chipop"
+                        value={c.op || '=='}
+                        onChange={(e) =>
+                          writeChips(chips.map((x, j) => (j === n ? { ...x, op: e.target.value } : x)))
+                        }
+                      >
+                        <option value="==">==</option>
+                        <option value="!=">!=</option>
+                        <option value="포함">포함</option>
+                        <option value=">">&gt;</option>
+                        <option value="<">&lt;</option>
+                        <option value=">=">&gt;=</option>
+                        <option value="<=">&lt;=</option>
+                      </select>
+                      <input
+                        className="sd-chipin mono"
+                        value={c.v ?? ''}
+                        placeholder="${전역파라미터}"
+                        title={(c.v ?? '').includes('$') ? `지금 값: ${subVars(c.v ?? '', gp.values)}` : undefined}
+                        style={{ width: `${Math.min(Math.max((c.v?.length ?? 0) + 1, 8), 32)}ch` }}
+                        onChange={(e) =>
+                          writeChips(chips.map((x, j) => (j === n ? { ...x, v: e.target.value } : x)))
+                        }
+                      />
+                      <button
+                        type="button"
+                        className="sd-chip-mini"
+                        title="오른쪽에 전역 파라미터 넣기"
+                        onClick={() => {
+                          setCmpAt(n)
+                          setPick('p-crit')
+                        }}
+                      >
+                        {'${ }'}
+                      </button>
+                      <button
+                        type="button"
+                        title="이 기준 빼기"
+                        onClick={() => writeChips(chips.filter((_, j) => j !== n))}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  )
                 /* 있어야·없어야·줄제외 는 **글자 기준**이라 고칠 수 있어야 한다
                    (지시: 판정 기준 수정 가능하게, 보낼 명령 칸처럼). 열제외·표는
                    블럭에서 짜 온 구조라 글자로 고치면 깨지므로 칩 그대로 둔다. */

@@ -625,8 +625,15 @@ export function judgeTable(
  * 칩이 없으면 판정 안 함.** 칩이 있으면 옛 type·criteria 보다 우선한다.
  */
 export interface JudgeRule {
-  t: 'has' | 'not' | 'table' | 'skip' | 'skipcol'
+  t: 'has' | 'not' | 'table' | 'skip' | 'skipcol' | 'cmp'
   v: string
+  /**
+   * t='cmp' — **값끼리 견줌**. 응답에서 잡은 값(`${변수}`)을 전역 파라미터나
+   * 다른 값과 견준다. `l`(왼쪽) `op`(견주는 법) `v`(오른쪽). Diff 스텝을 따로
+   * 안 만들고 판정 기준 안에서 바로 견주려는 것(지시).
+   */
+  l?: string
+  op?: string
 }
 
 /**
@@ -714,7 +721,7 @@ export function stepRules(step: TcStep): JudgeRule[] {
   return r.filter(
     (x): x is JudgeRule =>
       !!x && typeof x === 'object' && typeof (x as JudgeRule).v === 'string' &&
-      ['has', 'not', 'table', 'skip', 'skipcol'].includes(String((x as JudgeRule).t)),
+      ['has', 'not', 'table', 'skip', 'skipcol', 'cmp'].includes(String((x as JudgeRule).t)),
   )
 }
 
@@ -750,7 +757,16 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
     const fails: string[] = []
     const oks: string[] = []
     for (const r of rules) {
-      if (r.t === 'skip') continue
+      if (r.t === 'skip' || r.t === 'skipcol') continue
+      // 견줌 칩 — 값끼리 본다(응답 변수 vs 전역 파라미터 따위). Diff 스텝과
+      // 같은 잣대(evalCondWhy)를 쓴다. l·op·v 가 없으면(짓는 중) 건너뛴다.
+      if (r.t === 'cmp') {
+        const expr = `${r.l ?? ''} ${r.op || '=='} ${r.v ?? ''}`.trim()
+        if (!String(r.l ?? '').trim() && !String(r.v ?? '').trim()) continue
+        const res = evalCondWhy(expr, vars)
+        ;(res.ok ? oks : fails).push(`견줌 ${res.why}`)
+        continue
+      }
       const v = subVars(String(r.v ?? ''), vars).trim()
       if (!v) continue
       if (r.t === 'has') {

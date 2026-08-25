@@ -1062,6 +1062,29 @@ button.sq-caret svg { width: 11px; height: 11px; }
   border-color: currentColor;
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.06);
 }
+/* 견줌 칩 — 값끼리 견준다(응답값 vs 전역 파라미터). 파란 톤으로 has/not 과
+   갈라 보이게 한다. 왼쪽·연산자·오른쪽 세 칸. */
+.sd-chip.cmp { background: #eef3fb; border-color: #5b7fd5; color: #2a4a8f; padding-right: 3px; }
+.sd-chip .sd-chipop {
+  border: 1px solid rgba(0, 0, 0, 0.18);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--c-text);
+  font-size: var(--fs-xs);
+  padding: 1px 2px;
+}
+.sd-chip .sd-chip-mini {
+  border: 1px solid currentColor;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 10px;
+  line-height: 1;
+  padding: 2px 4px;
+  cursor: pointer;
+  opacity: 0.8;
+}
+.sd-chip .sd-chip-mini:hover { opacity: 1; }
 .sd-chip button {
   border: 0;
   background: transparent;
