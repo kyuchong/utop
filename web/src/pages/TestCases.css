@@ -1048,6 +1048,9 @@ button.sq-caret svg { width: 11px; height: 11px; }
    값 자리만 흰 입력칸으로 파, 고칠 수 있다는 티를 낸다. */
 .sd-chip.sd-chipedit { padding-right: 3px; }
 .sd-chip .sd-chipin {
+  /* 폭을 글자(ch) 로 잡으므로 **content-box** 여야 한다 — border-box 면
+     지정한 ch 안에 padding·테두리가 먹혀 끝 글자가 잘린다(지적: E6100→E610). */
+  box-sizing: content-box;
   border: 1px solid rgba(0, 0, 0, 0.18);
   border-radius: 6px;
   background: #fff;
