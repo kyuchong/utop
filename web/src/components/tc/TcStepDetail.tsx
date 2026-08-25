@@ -906,7 +906,7 @@ export default function TcStepDetail({
                   <input
                     className="sd-say yes"
                     value={step.msgYes ?? ''}
-                    placeholder="정상입니다"
+                    placeholder="적합"
                     onChange={(e) => onChange({ msgYes: e.target.value })}
                   />
                 </label>
@@ -915,7 +915,7 @@ export default function TcStepDetail({
                   <input
                     className="sd-say no"
                     value={step.msgNo ?? ''}
-                    placeholder="부적합입니다"
+                    placeholder="부적합"
                     onChange={(e) => onChange({ msgNo: e.target.value })}
                   />
                 </label>

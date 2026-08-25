@@ -2486,6 +2486,9 @@ table.tb tr.r-bad td:first-child {
 .sd-f > .sd-prev,
 .sd-f > .sd-cond,
 .sd-f > .sd-vars,
+/* Diff 의 맞으면·다르면 두 줄도 오른쪽 칸이다. 빠져 있어서 84px 이름 칸에
+   눌려 「적합」·「부적합」 이 「정」·「부」 로 잘렸다(지적). */
+.sd-f > .sd-say2,
 .sd-f > .pk {
   grid-column: 2;
 }
