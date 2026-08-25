@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api, categoryApi, projectApi, apiFetch, type MeUser } from '@/api/client'
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
 import { goto } from '@/api/goto'
-import { IconChevron } from '@/components/icons'
+import { IconChevron, IconSearch, IconSort } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import ProjectPicker, { currentProject, onProjectChange } from '@/components/ProjectPicker'
 import './ReqTc.css'
@@ -42,6 +42,29 @@ export default function ReqTc({ me }: Props) {
   /** undefined = 안 열림 · null = 새로 만들기 · 값 = 그 요구사항 고치기 */
   const [edit, setEdit] = useState<Requirement | null | undefined>(undefined)
   const [prj, setPrj] = useState(currentProject)
+  /** 1열 머리의 찾기 — 아이콘을 눌러 폈다 접는다(사진) */
+  const [findOn, setFindOn] = useState(false)
+  /** 폴더 판 접기 — 표를 넓게 볼 때(사진의 접기 단추) */
+  const [foldSide, setFoldSide] = useState(false)
+  /** 폴더 정렬 — 이름순 · 요구사항 많은 순 */
+  const [fsort, setFsort] = useState<'name' | 'req'>('name')
+  /** 표에서 고른 줄 — 사진의 체크박스 */
+  const [sel, setSel] = useState<Set<string>>(new Set())
+  /** 로고·제품 이름은 **브랜딩 설정**이 정본이다 — 여기 박아 넣지 않는다 */
+  const [brand, setBrand] = useState<{ logo?: string; name?: string }>({})
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await apiFetch('/api/branding', { cache: 'no-store' })
+        if (!r.ok) return
+        const b = (await r.json()) as { logo?: string; name_text?: string }
+        setBrand({ logo: b.logo, name: b.name_text })
+      } catch {
+        /* 못 읽어도 화면은 떠야 한다 */
+      }
+    })()
+  }, [])
 
   useEffect(() => onProjectChange(() => setPrj(currentProject())), [])
 
@@ -150,7 +173,9 @@ export default function ReqTc({ me }: Props) {
   /** 폴더 한 가지 */
   const Tree = ({ parent, depth }: { parent: string | null; depth: number }) => (
     <>
-      {(kids.get(parent ?? '') ?? []).map((c) => {
+      {[...(kids.get(parent ?? '') ?? [])]
+        .sort((a, b) => (fsort === 'name' ? a.name.localeCompare(b.name) : countOf(b.id).r - countOf(a.id).r))
+        .map((c) => {
         const kid = kids.get(c.id) ?? []
         const on = openCat.has(c.id)
         const n = countOf(c.id)
@@ -196,7 +221,14 @@ export default function ReqTc({ me }: Props) {
       {/* ── 상단 가로바(지시, 사진) — **이 화면 안에만** 둔다.
              기존 화면의 틀(Layout)은 안 건드린다(지시: REQ-TC 만). ── */}
       <header className="rqtc-top">
-        <span className="rqtc-brand">ubiQuoss Test Orchestration Platform</span>
+        {brand.logo ? (
+          <img className="rqtc-logo" src={brand.logo} alt="" />
+        ) : (
+          <span className="rqtc-logo ph" aria-hidden="true">
+            U
+          </span>
+        )}
+        <span className="rqtc-brand">{brand.name || 'ubiQuoss'} Test Orchestration Platform</span>
         <ProjectPicker />
         <span className="sp" />
         <span className="rqtc-topinfo">
@@ -205,20 +237,87 @@ export default function ReqTc({ me }: Props) {
         </span>
       </header>
 
-      <div className="rqtc">
+      <div className={`rqtc${foldSide ? ' folded' : ''}`}>
+        {/* 접었을 때 — 다시 펴는 단추만 가느다랗게 남긴다 */}
+        {foldSide && (
+          <button
+            type="button"
+            className="rqtc-unfold"
+            title="폴더 판 펴기"
+            onClick={() => setFoldSide(false)}
+          >
+            ⇥
+          </button>
+        )}
         {/* ── 폴더 트리 ── */}
+        {!foldSide && (
         <aside className="panel rqtc-side">
           <div className="rqtc-sidehead">
             <b>Folder Tree</b>
+            <span className="sp" />
+            {/* 찾기·정렬·더보기 — 사진의 머리줄 */}
+            <button
+              type="button"
+              className={`rqtc-ib${findOn || q ? ' on' : ''}`}
+              title="찾기"
+              onClick={() => {
+                setFindOn((v) => !v)
+                if (findOn) setQ('')
+              }}
+            >
+              <IconSearch />
+            </button>
+            <button
+              type="button"
+              className="rqtc-ib"
+              title={fsort === 'name' ? '이름순 (눌러서 요구사항 많은 순)' : '요구사항 많은 순 (눌러서 이름순)'}
+              onClick={() => setFsort((v) => (v === 'name' ? 'req' : 'name'))}
+            >
+              <IconSort />
+            </button>
+            <button type="button" className="rqtc-ib" title="더 보기">
+              ⋯
+            </button>
+            {/* 폴더 판 접기 — 표를 넓게 본다(지적: 접기 단추가 없다) */}
+            <button
+              type="button"
+              className="rqtc-ib"
+              title="폴더 판 접기"
+              onClick={() => setFoldSide(true)}
+            >
+              ⇤
+            </button>
           </div>
-          <div className="rqtc-sidetools">
-            <input
-              className="rqtc-q"
-              value={q}
-              placeholder="요구사항 · 시험 찾기"
-              onChange={(e) => setQ(e.target.value)}
-            />
+          {/* ＋ New Folder — 고른 폴더 **아래**에 만든다(안 고르면 최상위) */}
+          <div className="rqtc-newf">
+            <button
+              className="btn small"
+              type="button"
+              onClick={() => {
+                const nm = window.prompt(
+                  cat ? '새 폴더 이름 (고른 폴더 아래에 만듭니다)' : '새 폴더 이름 (최상위)',
+                )?.trim()
+                if (!nm) return
+                void categoryApi.create(nm, cat || null).then(() => {
+                  void catQ.refetch()
+                  if (cat) setOpenCat((o) => new Set([...o, cat]))
+                })
+              }}
+            >
+              ＋ New Folder
+            </button>
           </div>
+          {(findOn || q) && (
+            <div className="rqtc-sidetools">
+              <input
+                className="rqtc-q"
+                autoFocus
+                value={q}
+                placeholder="요구사항 · 시험 찾기"
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
+          )}
           <div className="rqtc-tree">
             <div className={`rqtc-fold${cat === '' ? ' on' : ''}`} onClick={() => setCat('')}>
               <span className="rqtc-caret" />
@@ -234,6 +333,7 @@ export default function ReqTc({ me }: Props) {
             <Tree parent={null} depth={0} />
           </div>
         </aside>
+        )}
 
         {/* ── 요구사항 표 ── */}
         <section className="panel rqtc-main">
@@ -266,6 +366,14 @@ export default function ReqTc({ me }: Props) {
             <button className="btn small primary" type="button" onClick={() => setEdit(null)}>
               ＋ New
             </button>
+            {sel.size > 0 && (
+              <>
+                <span className="rqtc-selinfo">{sel.size}개 고름</span>
+                <button className="btn small" type="button" onClick={() => setSel(new Set())}>
+                  고르기 해제
+                </button>
+              </>
+            )}
             <span className="sp" />
             <label className="rqtc-only">
               <input type="checkbox" checked={onlyBare} onChange={(e) => setOnlyBare(e.target.checked)} />
@@ -275,6 +383,17 @@ export default function ReqTc({ me }: Props) {
 
           <div className="rqtc-tbl">
             <div className="rqtc-tr rqtc-th">
+              <div className="c-chk">
+                <input
+                  type="checkbox"
+                  aria-label="전체 고르기"
+                  checked={rows.length > 0 && sel.size === rows.length}
+                  ref={(el) => {
+                    if (el) el.indeterminate = sel.size > 0 && sel.size < rows.length
+                  }}
+                  onChange={(e) => setSel(e.target.checked ? new Set(rows.map(reqPk)) : new Set())}
+                />
+              </div>
               <div className="c-caret" />
               <div className="c-title">제목</div>
               <div className="c-mg">모델그룹</div>
@@ -291,7 +410,18 @@ export default function ReqTc({ me }: Props) {
               const p = prjOf(r)
               return (
                 <div key={pk}>
-                  <div className="rqtc-tr" onClick={() => setPop({ kind: 'req', id: pk })}>
+                  <div
+                    className={`rqtc-tr${sel.has(pk) ? ' picked' : ''}`}
+                    onClick={() => setPop({ kind: 'req', id: pk })}
+                  >
+                    <div className="c-chk" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label="고르기"
+                        checked={sel.has(pk)}
+                        onChange={() => toggle(sel, pk, setSel)}
+                      />
+                    </div>
                     <div className="c-caret">
                       <button
                         type="button"
@@ -313,10 +443,16 @@ export default function ReqTc({ me }: Props) {
                     {/* 사업자·모델은 **프로젝트가 정본**이라 여기서 끌어다 쓴다 */}
                     <div className="c-mg">{p?.model_group || '–'}</div>
                     <div className="c-md">{p?.model || '–'}</div>
-                    <div className="c-tc">
-                      <span className={`rqtc-cov ${list.length ? 'ok' : 'no'}`}>
+                    <div className="c-tc" onClick={(e) => e.stopPropagation()}>
+                      {/* 배지를 눌러도 펴진다 — 캐럿만으로는 인라인이 있는 줄 모른다(지적) */}
+                      <button
+                        type="button"
+                        className={`rqtc-cov ${list.length ? 'ok' : 'no'}${list.length ? ' go' : ''}`}
+                        title={list.length ? (on ? '접기' : '붙은 시험 펴기') : '덮는 시험이 없습니다'}
+                        onClick={() => list.length && toggle(openReq, pk, setOpenReq)}
+                      >
                         {list.length ? `TC ${list.length}` : '미커버'}
-                      </span>
+                      </button>
                     </div>
                     <div className="c-st">{r.status || '–'}</div>
                     <div className="c-pr">{r.priority || '–'}</div>
@@ -330,6 +466,7 @@ export default function ReqTc({ me }: Props) {
                         key={t.tcid}
                         onClick={() => setPop({ kind: 'tc', id: t.tcid })}
                       >
+                        <div className="c-chk" />
                         <div className="c-caret" />
                         <div className="c-title">
                           <span className="rqtc-rid tc">{t.tcid}</span>

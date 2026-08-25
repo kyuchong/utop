@@ -28,7 +28,25 @@
   color: var(--rqtc-top-fg);
 }
 .rqtc-top .sp { flex: 1; }
-.rqtc-brand { font-weight: 700; font-size: var(--fs-sm); letter-spacing: -0.01em; }
+/* 로고 + 제품 이름 — 이름이 너무 작다는 지적. 상단바의 얼굴이라 키운다 */
+.rqtc-logo {
+  flex: none;
+  height: 26px;
+  width: auto;
+  max-width: 120px;
+  border-radius: 5px;
+  object-fit: contain;
+}
+.rqtc-logo.ph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  background: rgb(255 255 255 / 16%);
+  font-weight: 800;
+  font-size: 14px;
+}
+.rqtc-brand { font-weight: 800; font-size: 16px; letter-spacing: -0.01em; }
 .rqtc-topinfo { font-size: var(--fs-xs); color: rgb(255 255 255 / 78%); }
 .rqtc-barebadge {
   margin-left: 8px;
@@ -47,14 +65,53 @@
   flex: 1;
   min-height: 0;
 }
+/* 폴더 판을 접으면 표가 넓어지고, 펴는 단추만 가느다랗게 남는다 */
+.rqtc.folded { grid-template-columns: 26px minmax(0, 1fr); }
+.rqtc-unfold {
+  align-self: start;
+  width: 26px;
+  height: 34px;
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  background: var(--c-surface);
+  color: var(--c-text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.rqtc-unfold:hover { border-color: var(--c-primary); color: var(--c-primary); }
 
 /* ── 폴더 트리 ── */
 .rqtc-side { display: flex; flex-direction: column; min-height: 0; }
 .rqtc-sidehead {
-  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 8px 7px 12px;
   border-bottom: 1px solid var(--c-border);
   font-size: var(--fs-sm);
 }
+.rqtc-sidehead .sp { flex: 1; }
+/* 찾기·정렬·더보기 — 사진의 머리줄 아이콘들 */
+.rqtc-ib {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.rqtc-ib:hover { background: var(--c-surface-alt); color: var(--c-text); }
+.rqtc-ib.on { background: var(--c-primary-bg); border-color: var(--c-primary); color: var(--c-primary); }
+/* ＋ New Folder — 머리줄 바로 밑(사진) */
+.rqtc-newf { padding: 8px; border-bottom: 1px solid var(--c-border); }
+.rqtc-newf .btn { width: 100%; }
 .rqtc-sidetools { padding: 8px; border-bottom: 1px solid var(--c-border); }
 .rqtc-q {
   width: 100%;
@@ -151,7 +208,7 @@
 .rqtc-tbl { flex: 1; min-height: 0; overflow: auto; }
 .rqtc-tr {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 120px 96px 92px 92px 92px;
+  grid-template-columns: 30px 26px minmax(0, 1fr) 120px 96px 92px 92px 92px;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
@@ -174,6 +231,12 @@
 /* 시험 줄 — 요구사항 아래로 들여쓴다 */
 .rqtc-sub { background: #fbfcfd; }
 .rqtc-sub .c-title { padding-left: 18px; }
+.c-chk { display: flex; align-items: center; justify-content: center; }
+.c-chk input { margin: 0; cursor: pointer; }
+/* 고른 줄 — 파랗게. 마우스만 올린 것과 갈라 보이게 조금 진하다 */
+.rqtc-tr.picked { background: var(--c-primary-bg); }
+.rqtc-tr.picked:hover { background: #dcebff; }
+.rqtc-selinfo { font-size: var(--fs-xs); color: var(--c-primary); font-weight: 700; }
 
 .rqtc-rid {
   font-family: var(--font-mono);
@@ -186,6 +249,8 @@
 /* TC 칸이 곧 커버리지다 — 미커버가 이 표에서 제일 값진 신호라 통째로 칠한다 */
 .rqtc-cov {
   display: inline-block;
+  border: 0;
+  font: inherit;
   min-width: 62px;
   text-align: center;
   padding: 2px 8px;
@@ -195,6 +260,8 @@
 }
 .rqtc-cov.ok { background: #e6f6ee; color: #116245; }
 .rqtc-cov.no { background: #fdecec; color: #a02323; }
+.rqtc-cov.go { cursor: pointer; }
+.rqtc-cov.go:hover { filter: brightness(0.94); }
 .rqtc-kind {
   font-size: var(--fs-xs);
   color: var(--c-text-muted);
