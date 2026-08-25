@@ -1431,30 +1431,16 @@ export default function TcStepDetail({
           <div className="sd-f">
             <span className="sd-lab">
               판정 기준
-              {/* 단추가 둘이라 **묶어서** 오른쪽에 나란히 — 홑 단추(absolute)
-                  그대로 두면 둘이 같은 자리에 겹친다(지적) */}
-              <span className="sd-two">
-                {/* 전역 파라미터와 비교(지적) — 골라서 「있어야 \${이름}」 칩으로.
-                    실행할 때 실제 값으로 바뀌어 응답과 비교된다 */}
-                <button
-                  type="button"
-                  className="sd-pickbtn"
-                  title="전역 파라미터를 판정 기준으로 — 있어야 ${이름} 칩이 됩니다"
-                  onClick={() => setPick(pick === 'p-crit' ? '' : 'p-crit')}
-                >
-                  {'${ } 기준 넣기'}
-                </button>
-                {/* 견줌 — 응답에서 잡은 값을 전역 파라미터 따위와 == 로 견준다.
-                    Diff 스텝을 따로 안 만들고 판정 기준 안에서 바로(지시). */}
-                <button
-                  type="button"
-                  className="sd-pickbtn"
-                  title="견줌 — 응답에서 잡은 값(${변수})을 전역 파라미터와 == 로 견줍니다"
-                  onClick={() => writeChips([...chips, { t: 'cmp', l: '', op: '==', v: '' }])}
-                >
-                  ± 견줌
-                </button>
-              </span>
+              {/* 견줌은 **줄마다 「± 비교」** 로 붙인다(지시) — 여기 단추는
+                  기준 넣기 하나뿐이라 다시 홑 단추로 둔다 */}
+              <button
+                type="button"
+                className="sd-pickbtn"
+                title="전역 파라미터를 판정 기준으로 — 있어야 ${이름} 줄이 됩니다"
+                onClick={() => setPick(pick === 'p-crit' ? '' : 'p-crit')}
+              >
+                {'${ } 기준 넣기'}
+              </button>
             </span>
             {pick === 'p-crit' ? (
               <ParamPicker
@@ -1469,7 +1455,8 @@ export default function TcStepDetail({
                 onPick={(x) => {
                   // 견줌 칩의 오른쪽을 채우는 중이면 그 자리에, 아니면 있어야 칩으로
                   if (cmpAt >= 0) {
-                    writeChips(chips.map((y, j) => (j === cmpAt ? { ...y, v: x.value } : y)))
+                    // 그 줄의 **견줄 값**을 채운다 (있어야 E6100 == ${이름})
+                    writeChips(chips.map((y, j) => (j === cmpAt ? { ...y, rhs: x.value } : y)))
                     setCmpAt(-1)
                   } else {
                     addChipFrom('has', x.value)
@@ -1478,51 +1465,52 @@ export default function TcStepDetail({
                 }}
               />
             ) : null}
-            {/* 판정 기준 — **입력칸 줄**로(지시: 칩 말고 입력칸에).
-                한 줄이 기준 하나다: [종류] [값] [×]. 견줌이면 값 자리가
-                [왼쪽] [==] [오른쪽] 으로 늘어난다(지시: 비교 넣으면 == 고르는
-                것만 생기게). 칸 생김새는 「보낼 명령」 과 같다 — .sd-f 의
-                input/select 규칙을 그대로 물려받는다. */}
-            <div className="sd-crits">
+            {/* 판정 기준 — **한 줄이 기준 하나**. 견줌은 그 줄에 꼬리로 붙는다:
+                「있어야 [E6100] == [${Model_Name}]」(지시). 「비교」 를 누르면
+                그 줄에 견주는 칸이 생기고, 다시 누르면 없어진다. */}
+            <div className="sd-jrs">
               {chips.map((c, n) => {
                 const set = (patch: Partial<JudgeRule>) =>
                   writeChips(chips.map((x, j) => (j === n ? { ...x, ...patch } : x)))
-                const del = () => writeChips(chips.filter((_, j) => j !== n))
-                /* 열제외·표는 블럭에서 짜 온 **구조**라 글자로 고치면 깨진다 —
-                   종류를 못 바꾸게 두고 값만 보여 준다. */
+                /* 열제외·표는 블럭에서 짜 온 **구조**라 종류를 못 바꾸게 둔다 */
                 const fixed = c.t === 'skipcol' || c.t === 'table'
                 const tlab =
                   c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : c.t === 'cmp' ? '견줌' : '표'
+                /* 견줌 꼬리가 켜져 있나 — 견주는 법(op)이 있으면 켜진 것 */
+                const cmpOn = !!String(c.op ?? '').trim()
+                /* 견줌은 **글자 기준**에만 붙인다(줄제외·열제외·표는 뜻이 없다) */
+                const canCmp = c.t === 'has' || c.t === 'not'
                 return (
-                  <div className="sd-crit" key={n}>
+                  <div className="sd-jr" key={n}>
                     {fixed ? (
-                      <span className={`sd-crit-t fixed ${c.t}`}>{tlab}</span>
+                      <span className={`sd-jr-t fixed ${c.t}`}>{tlab}</span>
                     ) : (
                       <select
-                        className="sd-crit-t"
+                        className="sd-jr-t"
                         value={c.t}
                         title="이 기준을 어떻게 볼까"
                         onChange={(e) => set({ t: e.target.value as JudgeRule['t'] })}
                       >
                         <option value="has">있어야</option>
                         <option value="not">없어야</option>
-                        <option value="cmp">견줌</option>
                         <option value="skip">줄제외</option>
                       </select>
                     )}
 
-                    {c.t === 'cmp' ? (
+                    <input
+                      className="sd-jr-in mono"
+                      value={c.v}
+                      placeholder="기준 값"
+                      readOnly={fixed}
+                      title={c.v.includes('$') ? `지금 값: ${subVars(c.v, gp.values)}` : undefined}
+                      onChange={(e) => set({ v: e.target.value })}
+                    />
+
+                    {/* ── 견줌 꼬리 ── */}
+                    {cmpOn && (
                       <>
-                        <input
-                          className="sd-crit-in mono"
-                          value={c.l ?? ''}
-                          placeholder="${변수} 또는 값"
-                          title={(c.l ?? '').includes('$') ? `지금 값: ${subVars(c.l ?? '', gp.values)}` : undefined}
-                          onChange={(e) => set({ l: e.target.value })}
-                        />
-                        {/* 견줌일 때만 나오는 견주는 법 */}
                         <select
-                          className="sd-crit-op"
+                          className="sd-jr-op"
                           value={c.op || '=='}
                           onChange={(e) => set({ op: e.target.value })}
                         >
@@ -1535,16 +1523,16 @@ export default function TcStepDetail({
                           <option value="<=">&lt;=</option>
                         </select>
                         <input
-                          className="sd-crit-in mono"
-                          value={c.v ?? ''}
-                          placeholder="${전역파라미터} 또는 값"
-                          title={(c.v ?? '').includes('$') ? `지금 값: ${subVars(c.v ?? '', gp.values)}` : undefined}
-                          onChange={(e) => set({ v: e.target.value })}
+                          className="sd-jr-in mono"
+                          value={c.rhs ?? ''}
+                          placeholder="${전역파라미터}"
+                          title={(c.rhs ?? '').includes('$') ? `지금 값: ${subVars(c.rhs ?? '', gp.values)}` : undefined}
+                          onChange={(e) => set({ rhs: e.target.value })}
                         />
                         <button
                           type="button"
-                          className="sd-crit-pick"
-                          title="오른쪽에 전역 파라미터 넣기"
+                          className="sd-jr-mini"
+                          title="견줄 값으로 전역 파라미터 고르기"
                           onClick={() => {
                             setCmpAt(n)
                             setPick('p-crit')
@@ -1553,18 +1541,24 @@ export default function TcStepDetail({
                           {'${ }'}
                         </button>
                       </>
-                    ) : (
-                      <input
-                        className="sd-crit-in mono"
-                        value={c.v}
-                        placeholder="기준 값"
-                        readOnly={fixed}
-                        title={c.v.includes('$') ? `지금 값: ${subVars(c.v, gp.values)}` : undefined}
-                        onChange={(e) => set({ v: e.target.value })}
-                      />
+                    )}
+                    {canCmp && (
+                      <button
+                        type="button"
+                        className="sd-jr-mini"
+                        title={cmpOn ? '견줌 빼기' : '이 값을 전역 파라미터와 견주기'}
+                        onClick={() => (cmpOn ? set({ op: '', rhs: '' }) : set({ op: '==' }))}
+                      >
+                        {cmpOn ? '견줌 빼기' : '± 비교'}
+                      </button>
                     )}
 
-                    <button type="button" className="sd-crit-x" title="이 기준 빼기" onClick={del}>
+                    <button
+                      type="button"
+                      className="sd-jr-x"
+                      title="이 기준 빼기"
+                      onClick={() => writeChips(chips.filter((_, j) => j !== n))}
+                    >
                       ×
                     </button>
                   </div>

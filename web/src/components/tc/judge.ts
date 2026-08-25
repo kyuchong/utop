@@ -628,12 +628,15 @@ export interface JudgeRule {
   t: 'has' | 'not' | 'table' | 'skip' | 'skipcol' | 'cmp'
   v: string
   /**
-   * t='cmp' — **값끼리 견줌**. 응답에서 잡은 값(`${변수}`)을 전역 파라미터나
-   * 다른 값과 견준다. `l`(왼쪽) `op`(견주는 법) `v`(오른쪽). Diff 스텝을 따로
-   * 안 만들고 판정 기준 안에서 바로 견주려는 것(지시).
+   * **견줌 꼬리** — 「있어야 E6100 == ${Model_Name}」(지시).
+   *
+   * `op` 가 있으면 그 기준의 값(`v`)을 `rhs` 와 한 번 더 견준다. 응답에 있는지
+   * (has/not)만이 아니라, 그 값이 전역 파라미터와 **같은지**까지 본다.
+   * `l` 은 옛 t='cmp' 줄의 왼쪽 — 이미 저장된 자료를 위해 남겨 둔다.
    */
-  l?: string
   op?: string
+  rhs?: string
+  l?: string
 }
 
 /**
@@ -769,12 +772,21 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
       }
       const v = subVars(String(r.v ?? ''), vars).trim()
       if (!v) continue
-      if (r.t === 'has') {
-        if (hasTok(v)) oks.push(`"${v}" 있음 → ${lineOf2(v)}`)
-        else fails.push(`"${v}" 없음`)
-      } else if (r.t === 'not') {
-        if (hasTok(v)) fails.push(`있으면 안 되는 "${v}" 있음 → ${lineOf2(v)}`)
-        else oks.push(`"${v}" 없음(정상)`)
+      if (r.t === 'has' || r.t === 'not') {
+        if (r.t === 'has') {
+          if (hasTok(v)) oks.push(`"${v}" 있음 → ${lineOf2(v)}`)
+          else fails.push(`"${v}" 없음`)
+        } else {
+          if (hasTok(v)) fails.push(`있으면 안 되는 "${v}" 있음 → ${lineOf2(v)}`)
+          else oks.push(`"${v}" 없음(정상)`)
+        }
+        /* 견줌 꼬리 — 그 값이 전역 파라미터 따위와 맞는지까지 본다.
+           Diff 스텝과 같은 잣대(evalCondWhy). 견줄 값이 비어 있으면 건너뛴다. */
+        const rhs = String(r.rhs ?? '').trim()
+        if (String(r.op ?? '').trim() && rhs) {
+          const res = evalCondWhy(`${r.v} ${r.op} ${rhs}`, vars)
+          ;(res.ok ? oks : fails).push(`견줌 ${res.why}`)
+        }
       } else {
         const tr = judgeTable(raw2, v)
         if (tr.verdict === 'Fail') fails.push(tr.reason)

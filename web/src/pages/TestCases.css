@@ -1032,11 +1032,14 @@ button.sq-caret svg { width: 11px; height: 11px; }
    첫 줄은 오른쪽 위 단추 묶음(.sd-two)과 같은 높이라, 그만큼 자리를 비워
    둔다 — 안 그러면 × 가 단추에 가려 안 눌린다(지적). */
 .sd-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; padding-right: 124px; }
-.sd-crits { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 4px; padding-right: 124px; }
-.sd-crit { display: flex; align-items: center; gap: 5px; }
-/* 종류 — 있어야·없어야·견줌·줄제외 */
-.sd-crit .sd-crit-t { flex: none; width: 78px; }
-.sd-crit .sd-crit-t.fixed {
+/* 판정 기준 — **한 줄이 기준 하나**(지시: 칩 말고 입력칸).
+   「있어야 E6100 == ${Model_Name}」 처럼, 견줌은 그 줄에 **꼬리로 붙는다**.
+   이름은 sd-jr(judge rule) — .sd-crit 은 옛 판정방식 칸이 이미 쓰던 이름이라
+   세로 flex 에서 flex-basis:158px 가 먹어 줄 간격이 벌어졌다(지적: 깨짐). */
+.sd-jrs { display: flex; flex-direction: column; gap: 4px; margin: 2px 0 4px; padding-right: 86px; }
+.sd-jr { display: flex; align-items: center; gap: 5px; }
+.sd-jr .sd-jr-t { flex: none; width: 78px; }
+.sd-jr .sd-jr-t.fixed {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1047,11 +1050,10 @@ button.sq-caret svg { width: 11px; height: 11px; }
   color: var(--c-text-muted);
   font-size: var(--fs-xs);
 }
-/* 값 — 「보낼 명령」 처럼 넓게 */
-.sd-crit .sd-crit-in { flex: 1; min-width: 0; }
-/* 견줌일 때만 나오는 견주는 법 */
-.sd-crit .sd-crit-op { flex: none; width: 72px; }
-.sd-crit .sd-crit-pick {
+.sd-jr .sd-jr-in { flex: 1; min-width: 0; }
+/* 견줌 꼬리 — 「비교」 를 누르면 나온다 */
+.sd-jr .sd-jr-op { flex: none; width: 68px; }
+.sd-jr .sd-jr-mini {
   flex: none;
   border: 1px solid var(--tc-line);
   background: var(--c-surface);
@@ -1063,8 +1065,8 @@ button.sq-caret svg { width: 11px; height: 11px; }
   cursor: pointer;
   white-space: nowrap;
 }
-.sd-crit .sd-crit-pick:hover { border-color: var(--c-primary); color: var(--c-primary); }
-.sd-crit .sd-crit-x {
+.sd-jr .sd-jr-mini:hover { border-color: var(--c-primary); color: var(--c-primary); }
+.sd-jr .sd-jr-x {
   flex: none;
   border: 0;
   background: transparent;
@@ -1074,7 +1076,7 @@ button.sq-caret svg { width: 11px; height: 11px; }
   padding: 0 4px;
   cursor: pointer;
 }
-.sd-crit .sd-crit-x:hover { color: var(--c-fail, #e24b4a); }
+.sd-jr .sd-jr-x:hover { color: var(--c-fail, #e24b4a); }
 .sd-chip {
   display: inline-flex;
   align-items: center;
