@@ -92,6 +92,29 @@
 .nav-foot {
   margin-top: auto;
 }
+
+/* 접기 — **맨 아래, 사용자 밑**(지시). 메뉴 줄과 같은 문법으로 납작하게
+   둔다: 아이콘 + 글자 한 줄. 위 구석에 떠 있던 네모 단추를 여기로 내렸다. */
+.nav-collapse {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-top: 1px solid var(--c-border-nav);
+  background: transparent;
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.nav-collapse:hover { background: var(--c-primary-bg); color: var(--c-primary); }
+.nav-collapse .nav-icon { flex: none; display: inline-flex; }
+/* 접으면 글자가 들어갈 자리가 없다 — 아이콘만 남기고 가운데로 */
+.app.nav-collapsed .nav-collapse { justify-content: center; padding: 9px 0; }
+.app.nav-collapsed .nav-collapse .nav-label { display: none; }
 .nav-status {
   padding: 6px 0 8px;
 }
@@ -124,33 +147,6 @@
    Docker Desktop 처럼 사이드바 오른쪽 경계에 걸쳐 띄운다.
    메뉴 안에 두면 접을 때 버튼도 같이 움직여 눈으로 쫓아가야 한다. */
 /* 접기 버튼은 흰 배경으로 띄워 경계에 걸친 느낌을 유지한다 */
-.nav-toggle {
-  position: absolute;
-  top: 8px;
-  left: calc(var(--nav-w) - 16px);
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--c-border-nav);
-  border-radius: var(--radius-sm);
-  background: var(--c-surface);
-  color: var(--c-primary);
-  box-shadow: 0 1px 3px rgb(20 28 38 / 0.12);
-  transition: left 0.15s ease;
-}
-
-.nav-toggle:hover {
-  background: var(--c-primary-bg);
-  border-color: #cfe0f5;
-}
-
-.app.nav-collapsed .nav-toggle {
-  left: calc(var(--nav-w-collapsed) - 16px);
-}
-
 /* 묶음 사이에 선을 긋는다. 설정 화면과 같은 규칙 —
    붙여 두면 묶은 티가 안 나서 결국 전부 훑게 된다 */
 .nav-section + .nav-section {

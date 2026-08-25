@@ -157,17 +157,6 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
     <div className={`app${collapsed ? ' nav-collapsed' : ''}`}>
       <div className="app-body">
         <nav className="nav" aria-label="주 메뉴">
-          <button
-            type="button"
-            className="nav-toggle"
-            onClick={() => setCollapsed((v) => !v)}
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
-            title={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
-          >
-            <IconPanelToggle />
-          </button>
-
           {/* 로고 — 설정 → 브랜딩에서 올린다. 접으면 마크만, 펼치면
               이름까지. 누르면 브랜딩에 적은 링크로, 없으면 대시보드로. */}
           <div
@@ -272,6 +261,22 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
                 ⏻
               </button>
             </div>
+
+            {/* 접기 — **맨 아래, 사용자 밑**(지시). 위 구석에 있던 것을 내렸다.
+                접은 상태에서는 글자가 들어갈 자리가 없어 아이콘만 남고,
+                무엇인지는 올렸을 때 말풍선으로 말한다. */}
+            <button
+              type="button"
+              className="nav-collapse"
+              onClick={() => setCollapsed((v) => !v)}
+              aria-expanded={!collapsed}
+              title={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
+            >
+              <span className="nav-icon">
+                <IconPanelToggle />
+              </span>
+              <span className="nav-label">{collapsed ? '펼치기' : '축소'}</span>
+            </button>
           </div>
         </nav>
 
