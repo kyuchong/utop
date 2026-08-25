@@ -1086,6 +1086,9 @@ button.sq-caret svg { width: 11px; height: 11px; }
   padding: 2px 4px;
   cursor: pointer;
   opacity: 0.8;
+  /* 자리가 좁아도 「${ }」 가 두 줄로 접히지 않게 */
+  white-space: nowrap;
+  flex: none;
 }
 .sd-chip .sd-chip-mini:hover { opacity: 1; }
 .sd-chip button {
@@ -1778,11 +1781,21 @@ button.sq-caret svg { width: 11px; height: 11px; }
 .sq-res.cond-n { color: #97620d; font-weight: 600; }
 
 /* 왼쪽·오른쪽 각각 넣기 — 한쪽에만 두면 반대쪽은 손으로 쳐야 한다 */
-/* 단추 **두 개**를 나란히. `.sd-pickbtn` 은 홑 단추를 칸 오른쪽 끝에 앉히려
-   absolute(right:0) 인데, 그 상태로 둘을 두면 **같은 자리에 겹친다**(지적:
-   전역 파라미터·견줌 단추가 겹침). 묶음 안에서는 흐름으로 돌려 나란히 세운다. */
-.sd-two { margin-left: auto; display: inline-flex; gap: 4px; position: relative; z-index: 2; }
-.sd-two .sd-pickbtn { position: static; margin-left: 0; }
+/* 단추 **두 개**를 나란히.
+   `.sd-pickbtn` 은 홑 단추가 **좁은 이름 칸(84px)을 빠져나와** 칸 오른쪽
+   끝에 붙으려고 absolute(right:0) 다. 그대로 둘을 두면 같은 자리에 겹치고
+   (지적), 반대로 흐름으로 돌리면 84px 안에 갇혀 글자가 세로로 접힌다(지적).
+   그래서 **묶음이 대신 오른쪽에 붙고**, 단추는 그 안에서만 나란히 선다. */
+.sd-two {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 0;
+}
+.sd-two .sd-pickbtn { position: static; margin-left: 0; white-space: nowrap; }
 
 /* 스텝 설명. 명령 뒤에 옅게 — 훑을 때 찾는 것은 명령이라 그것이 먼저다 */
 .sq-desc {
