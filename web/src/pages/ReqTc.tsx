@@ -422,16 +422,22 @@ export default function ReqTc({ me }: Props) {
                         onChange={() => toggle(sel, pk, setSel)}
                       />
                     </div>
-                    <div className="c-caret">
+                    {/* 접기/펼치기 — 체크박스 **오른쪽**(지시). 시험이 0건이어도
+                        끄지 않는다: 꺼 두면 단추가 없는 줄 알고, 「덮는 시험이
+                        없다」 는 사실도 못 본다(지적: 인라인 기능이 없다). */}
+                    <div className="c-caret" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        className={`rqtc-caret${on ? ' open' : ''}`}
-                        disabled={!list.length}
-                        aria-label={on ? '접기' : '펴기'}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggle(openReq, pk, setOpenReq)
-                        }}
+                        className={`rqtc-caret big${on ? ' open' : ''}${list.length ? '' : ' none'}`}
+                        aria-label={on ? '접기' : '펼치기'}
+                        title={
+                          list.length
+                            ? on
+                              ? '접기'
+                              : `붙은 시험 ${list.length}건 펼치기`
+                            : '덮는 시험이 없습니다'
+                        }
+                        onClick={() => toggle(openReq, pk, setOpenReq)}
                       >
                         <IconChevron />
                       </button>
@@ -459,6 +465,14 @@ export default function ReqTc({ me }: Props) {
                   </div>
 
                   {/* 붙은 시험 — 합쳐 보는 자리라서 아래로 편다 */}
+                  {on && !list.length && (
+                    <div className="rqtc-tr rqtc-sub rqtc-none">
+                      <div className="c-chk" />
+                      <div className="c-caret" />
+                      <div className="c-title muted">덮는 시험이 없습니다 — Coverage 에서 시험을 붙이세요</div>
+                      <div /> <div /> <div /> <div /> <div />
+                    </div>
+                  )}
                   {on &&
                     list.map((t) => (
                       <div

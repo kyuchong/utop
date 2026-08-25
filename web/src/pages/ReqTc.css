@@ -162,6 +162,19 @@
 }
 .rqtc-caret.open { transform: rotate(90deg); }
 .rqtc-caret:disabled { opacity: 0.2; cursor: default; }
+/* 표의 접기/펼치기 — 트리의 것보다 크고 또렷하게. 작고 흐리면 단추가
+   **없는 줄 안다**(지적). 시험이 0건인 줄은 옅게 두되 누를 수는 있다. */
+.rqtc-caret.big {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--c-border);
+  border-radius: 5px;
+  color: var(--c-text-muted);
+  background: var(--c-surface);
+}
+.rqtc-caret.big:hover { border-color: var(--c-primary); color: var(--c-primary); }
+.rqtc-caret.big.none { color: var(--c-text-faint); border-style: dashed; }
+.rqtc-none .c-title { font-size: var(--fs-xs); }
 
 /* ── 오른쪽 ── */
 .rqtc-main { display: flex; flex-direction: column; min-height: 0; }
