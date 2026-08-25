@@ -1572,6 +1572,30 @@ async def api_user_delete(username: str, token: str = ""):
     _users_save_sync(data)
     return {"ok": True}
 
+@app.post("/api/users/delete-retired")
+async def api_users_delete_retired(token: str = ""):
+    """Jira 에서 나간 사람(jira_active=False)을 **명단에서 지운다**(지시: 퇴사자
+    필요 없음).
+
+    기록은 안 깨진다 — 사이클의 실행자·담당자는 이름 **문자열**로 담겨 있어
+    (FK 가 아니다) 계정을 지워도 그 기록의 이름은 남는다. admin 은 못 지운다.
+
+    다음 동기화에서 되살아나지 않게, 동기화 쪽에서 비활성 신규는 안 만든다.
+    """
+    _require_admin(token)
+    data = _users_load_sync()
+    before = len(data["users"])
+    kept, gone = [], []
+    for u in data["users"]:
+        if u.get("username") != "admin" and u.get("jira_active") is False:
+            gone.append(u.get("username"))
+        else:
+            kept.append(u)
+    data["users"] = kept
+    _users_save_sync(data)
+    return {"ok": True, "deleted": before - len(kept), "names": gone[:50]}
+
+
 # init_users_file() 은 startup 훅에서 호출 (모듈 로드 시점엔 DB 풀 없음)
 
 # ───────────────────────────────────────────
@@ -14575,18 +14599,19 @@ async def api_users_jira_sync(payload: dict = None, token: str = ""):
         if cur is None:
             cur = by_name.get(j["username"].lower())
         if cur is None:
+            # **비활성(퇴사자) 신규는 안 만든다**(지시: 퇴사자 필요 없음).
+            # 명단에 없고 이미 Jira 에서 나간 사람은 애초에 추가하지 않는다 —
+            # 안 그러면 지워도 다음 동기화마다 되살아난다.
+            if not j["jira_active"]:
+                continue
             nu = {
                 "id": j["username"], "username": j["username"], "name": j["name"],
-                "role": "팀원", "email": j["email"], "active": bool(j["jira_active"]),
+                "role": "팀원", "email": j["email"], "active": True,
                 "dept": j.get("dept") or "",
                 "source": "jira",
-                "jira_key": j["jira_key"], "jira_active": j["jira_active"],
+                "jira_key": j["jira_key"], "jira_active": True,
                 "created_at": now, "synced_at": now,
             }
-            if not j["jira_active"]:
-                # Jira 에서 이미 나간 사람 — 이름은 남기되 들어오지는 못한다
-                nu["locked_by"] = "jira"
-                off_n += 1
             data["users"].append(nu)
             new_n += 1
             continue

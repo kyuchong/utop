@@ -438,3 +438,4 @@
   white-space: nowrap;
 }
 .acc-hideret em { font-style: normal; font-weight: 700; color: var(--c-text-faint); }
+.acc-delret { margin-left: 8px; white-space: nowrap; }

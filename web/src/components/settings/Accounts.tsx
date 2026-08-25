@@ -421,14 +421,37 @@ export default function Accounts() {
           <div className="acc-bar">
             <span className="muted small">사용자 {rows.length}명</span>
             {nRetired > 0 && (
-              <label className="acc-hideret" title="Jira 에서 나간 사람(퇴사자)을 목록에서 뺍니다. 기록은 그대로 남습니다.">
-                <input
-                  type="checkbox"
-                  checked={hideRetired}
-                  onChange={(e) => setHideRetired(e.target.checked)}
-                />
-                퇴사자 숨김 <em>{nRetired}</em>
-              </label>
+              <>
+                <label className="acc-hideret" title="Jira 에서 나간 사람(퇴사자)을 목록에서 뺍니다. 기록은 그대로 남습니다.">
+                  <input
+                    type="checkbox"
+                    checked={hideRetired}
+                    onChange={(e) => setHideRetired(e.target.checked)}
+                  />
+                  퇴사자 숨김 <em>{nRetired}</em>
+                </label>
+                <button
+                  className="btn small danger acc-delret"
+                  type="button"
+                  title="Jira 에서 나간 사람을 명단에서 완전히 지웁니다. 과거 기록의 이름은 남습니다."
+                  onClick={async () => {
+                    if (
+                      !window.confirm(
+                        `Jira 비활성(퇴사자) ${nRetired}명을 명단에서 지웁니다.\n` +
+                          '과거 시험 기록의 이름은 남습니다. 다음 동기화에서도 다시 만들지 않습니다.\n계속할까요?',
+                      )
+                    )
+                      return
+                    const r = await apiFetch('/api/users/delete-retired', { method: 'POST' })
+                    const j = (await r.json().catch(() => ({}))) as { deleted?: number; detail?: string }
+                    if (!r.ok) window.alert(j.detail || '지우지 못했습니다')
+                    else window.alert(`${j.deleted ?? 0}명을 지웠습니다.`)
+                    await users.refetch()
+                  }}
+                >
+                  퇴사자 삭제
+                </button>
+              </>
             )}
             <span className="sp" />
             <input
