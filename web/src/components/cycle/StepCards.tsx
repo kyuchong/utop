@@ -188,6 +188,18 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
 
   /* 스텝 진행 띠 — 카드 스무 장을 굴리기 전에 전체 판이 한눈에 보여야
      한다(지적: 세부가 부실). 누르면 그 스텝 카드로 내려간다. */
+  /* 지금 파랗게 밝힐 번호 칸. 도는 스텝이 번호가 있으면 그 칸이지만,
+     대기·치환·메시지처럼 번호 없는 스텝이 돌 때는 강조가 통째로 사라진다
+     (지적: 스텝 번호에 파란 강조가 안 보인다). 그럴 땐 바로 앞의 번호 칸을,
+     앞이 없으면 바로 뒤의 첫 번호 칸을 밝혀 — 도는 동안엔 늘 파란 칸이 있다. */
+  const nowAt = (() => {
+    if (runningAt < 0) return -1
+    if (noOf[runningAt]! > 0) return runningAt
+    for (let k = runningAt - 1; k >= 0; k--) if (noOf[k]! > 0) return k
+    for (let k = runningAt + 1; k < noOf.length; k++) if (noOf[k]! > 0) return k
+    return -1
+  })()
+
   const judged = all.map((s2, at) => ({ s: s2, at })).filter((x) => noOf[x.at]! > 0)
   const strip =
     judged.length >= 1 ? (
@@ -198,7 +210,7 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
           const v = stepVerdict(st2 as TcStep)
           const def = resDefs.find((r) => r.v === v)
           const ran = !!st2.executed_at || !!st2.output
-          const now = at === runningAt
+          const now = at === nowAt
           /* 진행 중이면 파랑, 아니면 설정이 정한 그 판정의 색.
              설정에 없는 값이면 「그 밖의 판정」, 판정이 없으면 실행함/미실행 */
           const cls = now ? 'now' : def ? 'def' : v ? 'part' : ran ? 'ran' : ''
@@ -213,7 +225,7 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
               style={sty}
               className={`sc-seg ${cls}`}
               title={`Step ${noOf[at]} · ${
-                at === runningAt ? '진행 중' : v || (ran ? '실행함(판정 없음)' : '미실행')
+                at === nowAt ? '진행 중' : v || (ran ? '실행함(판정 없음)' : '미실행')
               }`}
               onClick={() =>
                 cardRefs.current[at]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
