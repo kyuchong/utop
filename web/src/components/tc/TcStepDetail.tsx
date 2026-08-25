@@ -127,6 +127,9 @@ export default function TcStepDetail({
   const [picked, setPicked] = useState('')
   /** 고른 값 **앞의 같은 줄 글자**(라벨) — 숫자만으로는 어느 숫자인지 못 집는다 */
   const [pickCtx, setPickCtx] = useState('')
+  /** 드래그가 **숫자를 자르고** 들어갔나(앞/뒤에 숫자가 더 있다). 그럼 그
+      자릿수만큼(\d{n})만 잡아, 붙은 나머지 자리를 안 삼킨다 */
+  const [pickCut, setPickCut] = useState(false)
   /** 뽑기에서 알려 줄 말 한 줄 — 조용히 다르게 담으면 왜 값이 다른지 모른다 */
   const [capNote, setCapNote] = useState('')
   /** 눌린 블럭 — [변수로 · 있으면 합격 · 있으면 불합격] 메뉴가 뜬 자리 */
@@ -376,14 +379,18 @@ export default function TcStepDetail({
    * 견줄 수 있다. `loose` 를 끄면 고른 값 그대로 — 「0 errors」 처럼 수 자체가
    * 답인 자리를 위한 것이다.
    */
-  const patternFrom = (text: string, loose: boolean): string => {
+  const patternFrom = (text: string, loose: boolean, bounded = false): string => {
     const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     if (!loose) return esc(text)
+    // bounded = 숫자를 잘라 골랐을 때. 그 **자릿수만큼**(\d{n}) 만 잡아 붙어
+    // 있는 나머지 자리를 안 삼킨다. 온전한 수는 \d+ 로 길이 무관 따라간다.
     return text
       .split(/(\d+|\s+)/)
       .filter((piece) => piece !== '' && piece !== undefined)
       .map((piece) =>
-        /^\d+$/.test(piece) ? '\\d+' : /^\s+$/.test(piece) ? '\\s+' : esc(piece),
+        /^\d+$/.test(piece)
+          ? (bounded ? `\\d{${piece.length}}` : '\\d+')
+          : /^\s+$/.test(piece) ? '\\s+' : esc(piece),
       )
       .join('')
   }
@@ -426,8 +433,8 @@ export default function TcStepDetail({
    * 군데만 맞을 때까지 붙인다. 그러면 값(수)은 아무 수나 따라가면서도 **그
    * 자리**를 집는다. 라벨로도 유일해지지 않으면 그때만 고른 값 그대로로 둔다.
    */
-  const anchoredLoose = (value: string, ctx: string): string | null => {
-    const val = patternFrom(value.trim(), true) // **값만** 아무 수나
+  const anchoredLoose = (value: string, ctx: string, bounded = false): string | null => {
+    const val = patternFrom(value.trim(), true, bounded) // 값만 — 자른 수면 그 자릿수만큼
     const esc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     // 라벨(닻)의 숫자는 **그대로 둔다** — `Temperature 1` 과 `Temperature 2` 를
     // 가르는 게 그 숫자다(지적: 겹치는 단어가 많아 구분이 안 된다). 숫자까지
@@ -452,16 +459,17 @@ export default function TcStepDetail({
       }
     }
     const t = text.trim()
-    let q = `(${patternFrom(t, loose)})`
-    if (loose && hitCount(patternFrom(t, true)) > 1) {
+    const bounded = pickCut   // 숫자를 잘라 골랐으면 그 자릿수만큼(\d{n})
+    let q = `(${patternFrom(t, loose, bounded)})`
+    if (loose && hitCount(patternFrom(t, true, bounded)) > 1) {
       // 여러 군데 맞는다 — 앞 라벨로 그 자리를 집어 본다
-      const anchored = anchoredLoose(t, pickCtx)
+      const anchored = anchoredLoose(t, pickCtx, bounded)
       if (anchored) {
         q = anchored
         setCapNote('앞의 라벨로 그 자리를 집었습니다 — 값이 바뀌면 그 자리의 새 값을 따라갑니다.')
       } else {
         // 라벨로도 못 가리면 그때만 고른 값 그대로(고정)
-        q = `(${patternFrom(t, false)})`
+        q = `(${patternFrom(t, false, bounded)})`
         setCapNote(
           '이 응답에서 여러 군데에 맞고 앞 라벨로도 한 곳으로 못 좁혔습니다 — 고른 값 그대로로 담았습니다. 줄마다 보려면 「표에서 값 뽑기」 를 쓰세요.',
         )
@@ -486,6 +494,7 @@ export default function TcStepDetail({
      */
     const picked2 = raw.trim()
     let ctx = ''
+    let cut = false
     try {
       const r = sel!.getRangeAt(0)
       const node = r.startContainer
@@ -498,12 +507,17 @@ export default function TcStepDetail({
         pre.setEnd(r.startContainer, r.startOffset)
         const start = pre.toString().length
         ctx = full.slice(Math.max(0, start - 200), start)   // 앞 라벨(선택 시작 앞)
+        // 숫자 한복판/끝을 잘라 골랐나 — 앞·뒤 한 글자가 숫자면 그렇다.
+        // 그럼 그 자릿수만큼만 잡아야 붙은 나머지 자리를 안 삼킨다.
+        const endAbs = start + raw.length
+        cut = /\d/.test(raw) && (/\d/.test(full[start - 1] ?? '') || /\d/.test(full[endAbs] ?? ''))
       }
     } catch {
       /* 위치를 못 잡으면 라벨 없이 간다 — 고른 글자는 그대로다 */
     }
     setPicked(picked2)
     setPickCtx(ctx)
+    setPickCut(cut)
   }
 
   return (
