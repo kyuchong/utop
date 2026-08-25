@@ -1493,7 +1493,9 @@ export default function TcStepDetail({
                         value={c.l ?? ''}
                         placeholder="${변수}"
                         title={(c.l ?? '').includes('$') ? `지금 값: ${subVars(c.l ?? '', gp.values)}` : undefined}
-                        style={{ width: `${Math.min(Math.max((c.l?.length ?? 0) + 1, 6), 32)}ch` }}
+                        /* 비었으면 안내글(${변수}) 폭. 한글은 두 칸을 먹어
+                           6ch 로는 「${변」 까지만 보였다(지적) */
+                        style={{ width: `${(c.l ?? '') ? Math.min(Math.max(c.l!.length + 1, 8), 32) : 8}ch` }}
                         onChange={(e) =>
                           writeChips(chips.map((x, j) => (j === n ? { ...x, l: e.target.value } : x)))
                         }
@@ -1518,7 +1520,8 @@ export default function TcStepDetail({
                         value={c.v ?? ''}
                         placeholder="${전역파라미터}"
                         title={(c.v ?? '').includes('$') ? `지금 값: ${subVars(c.v ?? '', gp.values)}` : undefined}
-                        style={{ width: `${Math.min(Math.max((c.v?.length ?? 0) + 1, 8), 32)}ch` }}
+                        /* 비었으면 안내글(${전역파라미터}) 폭 — 한글 여섯 자 */
+                        style={{ width: `${(c.v ?? '') ? Math.min(Math.max(c.v!.length + 1, 8), 32) : 16}ch` }}
                         onChange={(e) =>
                           writeChips(chips.map((x, j) => (j === n ? { ...x, v: e.target.value } : x)))
                         }

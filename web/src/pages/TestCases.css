@@ -1028,7 +1028,10 @@ button.sq-caret svg { width: 11px; height: 11px; }
 .bv-hd { color: #5b6470; font-weight: 700; }
 
 /* 판정 기준 칩 — 종류 드롭다운을 대신한다(합의) */
-.sd-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; }
+/* 칩 줄은 칸 오른쪽 끝까지 뻗는데, 그 오른쪽 위에는 단추 묶음(.sd-two)이
+   떠 있다. 칩이 늘어 그 자리까지 닿으면 **× 가 단추에 가려 안 눌린다**(지적).
+   단추 묶음 폭(≈114px)만큼 자리를 비워 둬, 칩이 그 밑으로 안 들어간다. */
+.sd-chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0 4px; padding-right: 124px; }
 .sd-chip {
   display: inline-flex;
   align-items: center;
