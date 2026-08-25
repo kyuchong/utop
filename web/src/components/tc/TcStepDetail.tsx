@@ -1493,7 +1493,7 @@ export default function TcStepDetail({
                 /* 열제외·표는 블럭에서 짜 온 **구조**라 종류를 못 바꾸게 둔다 */
                 const fixed = c.t === 'skipcol' || c.t === 'table'
                 const tlab =
-                  c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : c.t === 'cmp' ? '견줌' : '표'
+                  c.t === 'has' ? '있어야' : c.t === 'not' ? '없어야' : c.t === 'skip' ? '줄제외' : c.t === 'skipcol' ? '열제외' : c.t === 'cmp' ? '비교' : '표'
                 /* 견줌 꼬리가 켜져 있나 — 견주는 법(op)이 있으면 켜진 것 */
                 const cmpOn = !!String(c.op ?? '').trim()
                 /* 견줌은 **글자 기준**에만 붙인다(줄제외·열제외·표는 뜻이 없다) */

@@ -770,7 +770,7 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
         const expr = `${r.l ?? ''} ${r.op || '=='} ${r.v ?? ''}`.trim()
         if (!String(r.l ?? '').trim() && !String(r.v ?? '').trim()) continue
         const e = evalCondWhy(expr, vars)
-        res.push({ ok: e.ok, why: `견줌 ${e.why}` })
+        res.push({ ok: e.ok, why: `비교 ${e.why}` })
         continue
       }
       const v = subVars(String(r.v ?? ''), vars).trim()
@@ -790,7 +790,7 @@ export function judge(step: TcStep, output: string, vars: Record<string, string>
         if (String(r.op ?? '').trim() && rhs) {
           const e = evalCondWhy(`${r.v} ${r.op} ${rhs}`, vars)
           ok = ok && e.ok
-          why.push(`견줌 ${e.why}`)
+          why.push(`비교 ${e.why}`)
         }
         res.push({ ok, why: why.join(' · ') })
       } else {
@@ -1062,7 +1062,7 @@ export function evalCondWhy(
   if (!m) {
     return {
       ok: false,
-      why: `견줌으로 읽을 수 없습니다 — == != > < >= <= 포함 중 하나가 있어야 합니다`,
+      why: `비교로 읽을 수 없습니다 — == != > < >= <= 포함 중 하나가 있어야 합니다`,
     }
   }
 
