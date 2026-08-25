@@ -476,17 +476,15 @@ export default function TcStepDetail({
     const raw = sel?.toString() ?? ''
     if (!raw.trim()) return
     /*
-     * 드래그한 **그 자리의 값**을 잡는다(지적: 고정값 말고 그 영역의 값).
+     * 드래그한 **그대로** 잡는다(지시). 수 전체로 넓히지 않는다 — `462188` 중
+     * `41` 만 끌면 잡는 값도 그 자리다. 「수는 아무 수나」 로 뽑으면 그 자리의
+     * 숫자가 `\d+` 로 풀려, 41 이 42 로 바뀌어도 그 자리를 따라간다.
      *
-     * Range 로 출력 전체 글자에서 선택의 절대 위치를 구한다. 출력은 값마다
-     * 상자로 감싸 DOM 이 조각나 있는데, `host.textContent` + Range 오프셋을
-     * 쓰면 그 조각 경계와 상관없이 실제로 보이는 글자 그대로 다룰 수 있다.
-     *
-     * 숫자를 건드렸으면 **그 수 전체**로 넓힌다 — `462188` 중 `462` 만 끌어도
-     * 그 수(462188)를 잡는다. 그래야 다음 실행에서 462XXX 로 바뀌어도 그 자리를
-     * 따라간다(느슨한 `\d+`). 「462 만」 을 글자 그대로 담으면 다음 값과 안 맞는다.
+     * 앞 라벨(ctx)만 Range 로 정확히 읽는다 — 출력은 값마다 상자로 감싸 DOM 이
+     * 조각나 있어서, `host.textContent` + Range 오프셋으로 선택 시작 위치를
+     * 구해 그 앞글자를 그대로 얻는다.
      */
-    let picked2 = raw.trim()
+    const picked2 = raw.trim()
     let ctx = ''
     try {
       const r = sel!.getRangeAt(0)
@@ -498,20 +496,13 @@ export default function TcStepDetail({
         const pre = document.createRange()
         pre.selectNodeContents(host)
         pre.setEnd(r.startContainer, r.startOffset)
-        let start = pre.toString().length
-        let end = start + raw.length
-        // 숫자를 건드렸으면 앞뒤로 붙은 숫자까지 그 수 전체로 넓힌다
-        if (/\d/.test(full.slice(start, end))) {
-          while (start > 0 && /\d/.test(full[start - 1] ?? '')) start -= 1
-          while (end < full.length && /\d/.test(full[end] ?? '')) end += 1
-          picked2 = full.slice(start, end)
-        }
-        ctx = full.slice(Math.max(0, start - 200), start)   // 앞 라벨
+        const start = pre.toString().length
+        ctx = full.slice(Math.max(0, start - 200), start)   // 앞 라벨(선택 시작 앞)
       }
     } catch {
-      /* 위치를 못 잡으면 넓히지 않고 고른 글자 그대로 — 옛 동작 */
+      /* 위치를 못 잡으면 라벨 없이 간다 — 고른 글자는 그대로다 */
     }
-    setPicked(picked2.trim())
+    setPicked(picked2)
     setPickCtx(ctx)
   }
 
