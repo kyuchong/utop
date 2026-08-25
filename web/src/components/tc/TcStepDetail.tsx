@@ -1546,10 +1546,10 @@ export default function TcStepDetail({
                       <button
                         type="button"
                         className="sd-jr-mini"
-                        title={cmpOn ? '견줌 빼기' : '이 값을 전역 파라미터와 견주기'}
+                        title={cmpOn ? '비교 빼기' : '이 값을 전역 파라미터와 비교하기'}
                         onClick={() => (cmpOn ? set({ op: '', rhs: '' }) : set({ op: '==' }))}
                       >
-                        {cmpOn ? '견줌 빼기' : '± 비교'}
+                        {cmpOn ? '비교 빼기' : '± 비교'}
                       </button>
                     )}
 
