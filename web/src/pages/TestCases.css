@@ -1778,8 +1778,11 @@ button.sq-caret svg { width: 11px; height: 11px; }
 .sq-res.cond-n { color: #97620d; font-weight: 600; }
 
 /* 왼쪽·오른쪽 각각 넣기 — 한쪽에만 두면 반대쪽은 손으로 쳐야 한다 */
-.sd-two { margin-left: auto; display: inline-flex; gap: 4px; }
-.sd-two .sd-pickbtn { margin-left: 0; }
+/* 단추 **두 개**를 나란히. `.sd-pickbtn` 은 홑 단추를 칸 오른쪽 끝에 앉히려
+   absolute(right:0) 인데, 그 상태로 둘을 두면 **같은 자리에 겹친다**(지적:
+   전역 파라미터·견줌 단추가 겹침). 묶음 안에서는 흐름으로 돌려 나란히 세운다. */
+.sd-two { margin-left: auto; display: inline-flex; gap: 4px; position: relative; z-index: 2; }
+.sd-two .sd-pickbtn { position: static; margin-left: 0; }
 
 /* 스텝 설명. 명령 뒤에 옅게 — 훑을 때 찾는 것은 명령이라 그것이 먼저다 */
 .sq-desc {

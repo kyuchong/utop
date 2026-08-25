@@ -1431,26 +1431,30 @@ export default function TcStepDetail({
           <div className="sd-f">
             <span className="sd-lab">
               판정 기준
-              {/* 전역 파라미터와 비교(지적) — 골라서 「있어야 \${이름}」 칩으로.
-                  실행할 때 실제 값으로 바뀌어 응답과 비교된다 */}
-              <button
-                type="button"
-                className="sd-pickbtn"
-                title="전역 파라미터를 판정 기준으로 — 있어야 ${이름} 칩이 됩니다"
-                onClick={() => setPick(pick === 'p-crit' ? '' : 'p-crit')}
-              >
-                {'${ } 기준 넣기'}
-              </button>
-              {/* 견줌 — 응답에서 잡은 값을 전역 파라미터 따위와 == 로 견준다.
-                  Diff 스텝을 따로 안 만들고 판정 기준 안에서 바로(지시). */}
-              <button
-                type="button"
-                className="sd-pickbtn"
-                title="견줌 — 응답에서 잡은 값(${변수})을 전역 파라미터와 == 로 견줍니다"
-                onClick={() => writeChips([...chips, { t: 'cmp', l: '', op: '==', v: '' }])}
-              >
-                ± 견줌
-              </button>
+              {/* 단추가 둘이라 **묶어서** 오른쪽에 나란히 — 홑 단추(absolute)
+                  그대로 두면 둘이 같은 자리에 겹친다(지적) */}
+              <span className="sd-two">
+                {/* 전역 파라미터와 비교(지적) — 골라서 「있어야 \${이름}」 칩으로.
+                    실행할 때 실제 값으로 바뀌어 응답과 비교된다 */}
+                <button
+                  type="button"
+                  className="sd-pickbtn"
+                  title="전역 파라미터를 판정 기준으로 — 있어야 ${이름} 칩이 됩니다"
+                  onClick={() => setPick(pick === 'p-crit' ? '' : 'p-crit')}
+                >
+                  {'${ } 기준 넣기'}
+                </button>
+                {/* 견줌 — 응답에서 잡은 값을 전역 파라미터 따위와 == 로 견준다.
+                    Diff 스텝을 따로 안 만들고 판정 기준 안에서 바로(지시). */}
+                <button
+                  type="button"
+                  className="sd-pickbtn"
+                  title="견줌 — 응답에서 잡은 값(${변수})을 전역 파라미터와 == 로 견줍니다"
+                  onClick={() => writeChips([...chips, { t: 'cmp', l: '', op: '==', v: '' }])}
+                >
+                  ± 견줌
+                </button>
+              </span>
             </span>
             {pick === 'p-crit' ? (
               <ParamPicker
