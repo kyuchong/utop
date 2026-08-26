@@ -776,9 +776,10 @@ function TcPop({ id, onClose }: { id: string; onClose: () => void; onEdit: () =>
         aria-modal="true"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <div className="modal-head">
-          <b>시험항목</b>
-          <span className="rqtc-popid">{id}</span>
+        {/* 머리줄은 얇게 — **이름·자리는 안쪽 화면의 빵부스러기가 말한다**
+            (지시: 시험항목 옆 ID 자리를 그걸로 대체). 여기서 또 적으면 같은
+            말이 두 줄이 되고, 정작 어느 폴더의 시험인지는 안 보인다. */}
+        <div className="modal-head slim">
           <span className="sp" />
           <button
             className="btn small"
@@ -794,7 +795,6 @@ function TcPop({ id, onClose }: { id: string; onClose: () => void; onEdit: () =>
             닫기
           </button>
         </div>
-        {/* 화면이 제 여백·격자를 갖고 있으므로 팝업이 덧대지 않는다 */}
         <div className="rqtc-embed">
           <TestCases embedTc={id} />
         </div>
