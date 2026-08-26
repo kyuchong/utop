@@ -307,6 +307,7 @@
 .rqtc-lastv.pass { color: var(--c-pass, #1d9e75); }
 .rqtc-lastv.fail { color: var(--c-fail, #e24b4a); }
 .rqtc-popnone { padding: 10px; font-size: var(--fs-xs); color: #a02323; font-weight: 700; }
+.rqtc-hintline { margin: 18px 0 0; font-size: var(--fs-xs); color: var(--c-text-faint); }
 
 /* ── 줄 안의 조각들 ──
    인라인 표를 걷어낼 때 이 규칙들이 같이 잘려 나가, ID 가 **브라우저 기본

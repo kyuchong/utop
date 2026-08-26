@@ -8,7 +8,6 @@ import { IconChevron, IconSearch, IconSort } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
-import TcDetail from '@/components/tc/TcDetail'
 import ProjectPicker, { currentProject, onProjectChange } from '@/components/ProjectPicker'
 import './ReqTc.css'
 
@@ -719,9 +718,9 @@ const REQ_TABS: Array<{ k: 'info' | 'detail' | 'tc' | 'runs' | 'history'; label:
 /**
  * 상세 팝업 — **자세히 보는 자리**(지시). 3열로는 좁아서 팝업으로 넓게 본다.
  *
- * 알맹이는 **이미 있는 부품**을 부른다. 요구사항은 `ReqDetail`(Requirements
- * 화면이 쓰는 그것), 시험은 `TcDetail`(탭을 스스로 갖고 스스로 저장한다).
- * 여기서 다시 만들면 편집기가 두 벌이 되고, 한쪽만 고치는 날이 온다.
+ * 요구사항은 **이미 있는 부품**(ReqDetail — Requirements 화면이 쓰는 그것)을
+ * 탭으로 갈아 끼운다. 시험은 아직 그런 부품이 없어(세부 판이 TestCases 안에
+ * 박혀 있다) **읽어서 보이는 것**만 한다 — 고치는 것은 Coverage 로 넘긴다.
  */
 function DetailPop({
   kind,
@@ -740,50 +739,152 @@ function DetailPop({
   onEdit: () => void
   onSeeTcs?: () => void
 }) {
-  const [tab, setTab] = useState<'info' | 'detail' | 'tc' | 'runs' | 'history'>('info')
-
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
   }, [onClose])
 
-  /* ── 시험항목 — TcDetail 이 탭·저장까지 스스로 한다 ── */
-  if (kind === 'tc') {
-    return (
-      <div className="modal-back" onMouseDown={onClose}>
-        <div
-          className="modal rqtc-pop wide"
-          role="dialog"
-          aria-modal="true"
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <div className="modal-head">
-            <b>시험항목</b>
-            <span className="rqtc-popid">{id}</span>
-            <span className="sp" />
-            <button
-              className="btn small"
-              type="button"
-              onClick={() => {
-                goto('tc', id)
-                onClose()
-              }}
-            >
-              Coverage 에서 열기
-            </button>
-            <button className="btn small" type="button" onClick={onClose}>
-              닫기
-            </button>
-          </div>
-          <div className="rqtc-popbody flush">
-            <TcDetail tcid={id} onClose={onClose} />
-          </div>
+  if (kind === 'req')
+    return <ReqPop id={id} req={req} tcs={tcs} onClose={onClose} onEdit={onEdit} onSeeTcs={onSeeTcs} />
+
+  /* ── 시험항목 ──
+     TcDetail 을 얹어 봤다가 물렸다: 그 부품은 스텝 종류가 manual/auto 둘뿐이던
+     시절 것이라 `data.slots` 를 읽고(지금은 `sessions`), 스텝을 kind==='auto'
+     로 거른다(지금은 cli·wait·diff…). 그래서 스텝 5개짜리 시험이 **「스텝이
+     없습니다」** 로 보였다(지적) — 빈 화면이 거짓말을 하는 것이 제일 나쁘다.
+     제대로 된 탭(Object·Traffic·Cycle 포함)은 Coverage 의 세부 판을 부품으로
+     빼야 나온다. 그때까지는 **읽어서 보여 주는 것**만 정확히 한다. */
+  return <TcPop id={id} onClose={onClose} onEdit={onEdit} />
+}
+
+/** 시험항목 팝업 — 있는 그대로 읽어 보인다(스텝·판정·결과) */
+function TcPop({ id, onClose, onEdit }: { id: string; onClose: () => void; onEdit: () => void }) {
+  const q = useQuery({
+    queryKey: ['rqtc-tc', id],
+    queryFn: async () => {
+      const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`)
+      if (!r.ok) throw new Error('불러오지 못했습니다')
+      return (await r.json()) as Record<string, unknown>
+    },
+  })
+  const d = q.data ?? {}
+  const steps = Array.isArray(d.checks) ? (d.checks as Array<Record<string, unknown>>) : []
+  const sessions = Array.isArray(d.sessions) ? (d.sessions as unknown[]) : []
+
+  return (
+    <div className="modal-back" onMouseDown={onClose}>
+      <div className="modal rqtc-pop wide" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <b>시험항목</b>
+          <span className="rqtc-popid">{String(d.tcid || id)}</span>
+          <span className="sp" />
+          <button className="btn small primary" type="button" onClick={onEdit}>
+            정보 고치기
+          </button>
+          <button
+            className="btn small"
+            type="button"
+            onClick={() => {
+              goto('tc', id)
+              onClose()
+            }}
+          >
+            Coverage 에서 열기
+          </button>
+          <button className="btn small" type="button" onClick={onClose}>
+            닫기
+          </button>
+        </div>
+        <div className="rqtc-popbody">
+          {q.isLoading ? (
+            <div className="empty">불러오는 중…</div>
+          ) : q.error ? (
+            <div className="load-error">{(q.error as Error).message}</div>
+          ) : (
+            <>
+              <h3 className="rqtc-poptitle">{String(d.name || '(제목 없음)')}</h3>
+              <div className="rqtc-kv">
+                {(
+                  [
+                    ['상태', d.status],
+                    ['모델그룹', d.model_group],
+                    ['모델명', d.model],
+                    ['유형', d.type],
+                    ['중요도', d.severity],
+                    ['실행 타입', d.run_type],
+                    ['구분', d.origin],
+                    ['요구사항', d.req_id],
+                    ['세션', sessions.join(' · ')],
+                    ['만든이', d.created_by],
+                    ['고친이', d.updated_by],
+                  ] as Array<[string, unknown]>
+                )
+                  .filter(([, v]) => v !== undefined && v !== null && String(v) !== '')
+                  .map(([k, v]) => (
+                    <div className="rqtc-kvi" key={k}>
+                      <i>{k}</i>
+                      <b>{String(v)}</b>
+                    </div>
+                  ))}
+              </div>
+
+              <h4 className="rqtc-poph">스텝 {steps.length}개</h4>
+              {steps.length ? (
+                <div className="rqtc-poplist">
+                  {steps.map((s, i) => (
+                    <div className="rqtc-popline step" key={i}>
+                      <span className="rqtc-rid">#{i + 1}</span>
+                      <span className="rqtc-kind">{String(s.kind ?? s.action ?? 'cli')}</span>
+                      <span className="mono">
+                        {String(s.cli ?? s.oid ?? s.step ?? s.desc ?? s.condition ?? '')}
+                      </span>
+                      <span className="sp" />
+                      {!!s.repeatResult && (
+                        <span className={`rqtc-v ${statusClass(String(s.repeatResult))}`}>
+                          {String(s.repeatResult)}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="rqtc-popnone">스텝이 없습니다</div>
+              )}
+
+              {!!d.overview && (
+                <>
+                  <h4 className="rqtc-poph">시험 목적</h4>
+                  <p className="rqtc-desc">{String(d.overview)}</p>
+                </>
+              )}
+              <p className="rqtc-hintline">
+                스텝을 고치거나 토폴로지·트래픽·사이클을 보려면 <b>Coverage 에서 열기</b>.
+              </p>
+            </>
+          )}
         </div>
       </div>
-    )
-  }
+    </div>
+  )
+}
 
+function ReqPop({
+  id,
+  req,
+  tcs,
+  onClose,
+  onEdit,
+  onSeeTcs,
+}: {
+  id: string
+  req?: Requirement
+  tcs: TestCaseMeta[]
+  onClose: () => void
+  onEdit: () => void
+  onSeeTcs?: () => void
+}) {
+  const [tab, setTab] = useState<'info' | 'detail' | 'tc' | 'runs' | 'history'>('info')
   /* ── 요구사항 — ReqDetail 을 탭으로 갈아 끼운다 ── */
   return (
     <div className="modal-back" onMouseDown={onClose}>
