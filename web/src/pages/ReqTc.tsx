@@ -7,6 +7,8 @@ import { fillOf } from '@/lib/fieldFill'
 import { IconChevron, IconSearch, IconSort } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import TcForm from '@/components/TcForm'
+import ReqDetail from '@/components/ReqDetail'
+import TcDetail from '@/components/tc/TcDetail'
 import ProjectPicker, { currentProject, onProjectChange } from '@/components/ProjectPicker'
 import './ReqTc.css'
 
@@ -620,6 +622,8 @@ export default function ReqTc({ me }: Props) {
         <DetailPop
           kind={pop.kind}
           id={pop.id}
+          req={pop.kind === 'req' ? reqs.find((x) => reqPk(x) === pop.id) : undefined}
+          tcs={pop.kind === 'req' ? (tcOf.get(pop.id) ?? []) : []}
           onClose={() => setPop(null)}
           onEdit={() => {
             if (pop.kind === 'req') {
@@ -703,45 +707,90 @@ function Fill({
  * 보는 것은 여기서 다 한다(스텝·판정·결과까지). 다만 **고치는 것은 원래
  * 부품**으로 넘긴다 — 편집기를 복제하면 두 벌이 되고, 한쪽만 고치는 날이 온다.
  */
+/** 요구사항 팝업의 탭 — Requirements 화면과 같은 차례 */
+const REQ_TABS: Array<{ k: 'info' | 'detail' | 'tc' | 'runs' | 'history'; label: string }> = [
+  { k: 'info', label: 'Info' },
+  { k: 'detail', label: 'Intent' },
+  { k: 'tc', label: 'Coverages' },
+  { k: 'runs', label: 'Execution History' },
+  { k: 'history', label: 'Change History' },
+]
+
+/**
+ * 상세 팝업 — **자세히 보는 자리**(지시). 3열로는 좁아서 팝업으로 넓게 본다.
+ *
+ * 알맹이는 **이미 있는 부품**을 부른다. 요구사항은 `ReqDetail`(Requirements
+ * 화면이 쓰는 그것), 시험은 `TcDetail`(탭을 스스로 갖고 스스로 저장한다).
+ * 여기서 다시 만들면 편집기가 두 벌이 되고, 한쪽만 고치는 날이 온다.
+ */
 function DetailPop({
   kind,
   id,
+  req,
+  tcs,
   onClose,
   onEdit,
   onSeeTcs,
 }: {
   kind: 'req' | 'tc'
   id: string
+  req?: Requirement
+  tcs: TestCaseMeta[]
   onClose: () => void
   onEdit: () => void
   onSeeTcs?: () => void
 }) {
+  const [tab, setTab] = useState<'info' | 'detail' | 'tc' | 'runs' | 'history'>('info')
+
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', k)
     return () => window.removeEventListener('keydown', k)
   }, [onClose])
 
-  const q = useQuery({
-    queryKey: ['rqtc-detail', kind, id],
-    queryFn: async () => {
-      const r = await apiFetch(
-        kind === 'req' ? `/api/req/${encodeURIComponent(id)}` : `/api/tc/${encodeURIComponent(id)}`,
-      )
-      if (!r.ok) throw new Error('불러오지 못했습니다')
-      return (await r.json()) as Record<string, unknown>
-    },
-  })
+  /* ── 시험항목 — TcDetail 이 탭·저장까지 스스로 한다 ── */
+  if (kind === 'tc') {
+    return (
+      <div className="modal-back" onMouseDown={onClose}>
+        <div
+          className="modal rqtc-pop wide"
+          role="dialog"
+          aria-modal="true"
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <div className="modal-head">
+            <b>시험항목</b>
+            <span className="rqtc-popid">{id}</span>
+            <span className="sp" />
+            <button
+              className="btn small"
+              type="button"
+              onClick={() => {
+                goto('tc', id)
+                onClose()
+              }}
+            >
+              Coverage 에서 열기
+            </button>
+            <button className="btn small" type="button" onClick={onClose}>
+              닫기
+            </button>
+          </div>
+          <div className="rqtc-popbody flush">
+            <TcDetail tcid={id} onClose={onClose} />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
-  const d = q.data ?? {}
-  const steps = Array.isArray(d.checks) ? (d.checks as Array<Record<string, unknown>>) : []
-
+  /* ── 요구사항 — ReqDetail 을 탭으로 갈아 끼운다 ── */
   return (
     <div className="modal-back" onMouseDown={onClose}>
-      <div className="modal rqtc-pop" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="modal rqtc-pop wide" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <b>{kind === 'req' ? '요구사항' : '시험항목'}</b>
-          <span className="rqtc-popid">{String(d.reqid || d.tcid || id)}</span>
+          <b>요구사항</b>
+          <span className="rqtc-popid">{req ? reqLabel(req) : id}</span>
           <span className="sp" />
           {onSeeTcs && (
             <button className="btn small" type="button" onClick={onSeeTcs}>
@@ -755,98 +804,54 @@ function DetailPop({
             className="btn small"
             type="button"
             onClick={() => {
-              goto(kind, String(d.id || d.tcid || id))
+              goto('req', id)
               onClose()
             }}
           >
-            {kind === 'req' ? 'Requirements 에서 열기' : 'Coverage 에서 열기'}
+            Requirements 에서 열기
           </button>
           <button className="btn small" type="button" onClick={onClose}>
             닫기
           </button>
         </div>
 
+        <div className="rqtc-poptabs">
+          {REQ_TABS.map((t) => (
+            <button
+              key={t.k}
+              type="button"
+              className={tab === t.k ? 'on' : ''}
+              onClick={() => setTab(t.k)}
+            >
+              {t.label}
+              {t.k === 'tc' && <em>{tcs.length}</em>}
+            </button>
+          ))}
+        </div>
+
         <div className="rqtc-popbody">
-          {q.isLoading ? (
-            <div className="empty">불러오는 중…</div>
-          ) : q.error ? (
-            <div className="load-error">{(q.error as Error).message}</div>
-          ) : (
-            <>
-              <h3 className="rqtc-poptitle">{String(d.title || d.name || '(제목 없음)')}</h3>
-              <div className="rqtc-kv">
-                {(
-                  [
-                    ['상태', d.status],
-                    ['우선순위', d.priority],
-                    ['모델그룹', d.model_group],
-                    ['모델명', d.model],
-                    ['유형', d.type],
-                    ['중요도', d.severity],
-                    ['실행 타입', d.run_type],
-                    ['구분', d.origin],
-                    ['만든이', d.created_by],
-                    ['고친이', d.updated_by],
-                  ] as Array<[string, unknown]>
-                )
-                  .filter(([, v]) => v !== undefined && v !== null && String(v) !== '')
-                  .map(([k, v]) => (
-                    <div className="rqtc-kvi" key={k}>
-                      <i>{k}</i>
-                      <b>{String(v)}</b>
-                    </div>
-                  ))}
+          {!req ? (
+            <div className="empty">요구사항을 찾지 못했습니다.</div>
+          ) : tab === 'tc' ? (
+            /* Coverages — 붙은 시험. Requirements 화면도 이 목록을 제가 그린다 */
+            tcs.length ? (
+              <div className="rqtc-poplist">
+                {tcs.map((t) => (
+                  <div className="rqtc-popline" key={t.tcid}>
+                    <span className="rqtc-rid tc">{t.tcid}</span>
+                    <span>{t.name || '(제목 없음)'}</span>
+                    <span className="sp" />
+                    {!!t.status && (
+                      <span className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>
+                    )}
+                  </div>
+                ))}
               </div>
-
-              {kind === 'req' && Array.isArray(d.tc) && (
-                <>
-                  <h4 className="rqtc-poph">붙은 시험 {(d.tc as unknown[]).length}건</h4>
-                  {(d.tc as unknown[]).length ? (
-                    <div className="rqtc-poplist">
-                      {(d.tc as Array<Record<string, unknown>>).map((t, i) => (
-                        <div className="rqtc-popline" key={i}>
-                          <span className="rqtc-rid tc">{String(t.tcid ?? '')}</span>
-                          <span>{String(t.name ?? '')}</span>
-                          <span className="sp" />
-                          {!!t.status && (
-                            <span className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rqtc-popnone">덮는 시험이 없습니다</div>
-                  )}
-                </>
-              )}
-
-              {kind === 'tc' && (
-                <>
-                  <h4 className="rqtc-poph">스텝 {steps.length}개</h4>
-                  {steps.length ? (
-                    <div className="rqtc-poplist">
-                      {steps.map((s, i) => (
-                        <div className="rqtc-popline step" key={i}>
-                          <span className="rqtc-rid">#{i + 1}</span>
-                          <span className="rqtc-kind">{String(s.kind ?? s.action ?? 'cli')}</span>
-                          <span className="mono">{String(s.cli ?? s.step ?? s.desc ?? '')}</span>
-                          <span className="sp" />
-                          {!!s.repeatResult && (
-                            <span className={`rqtc-v ${statusClass(String(s.repeatResult))}`}>
-                              {String(s.repeatResult)}
-                            </span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rqtc-popnone">스텝이 없습니다</div>
-                  )}
-                </>
-              )}
-
-              {!!(d.overview || d.desc) && <p className="rqtc-desc">{String(d.overview || d.desc)}</p>}
-            </>
+            ) : (
+              <div className="rqtc-popnone">덮는 시험이 없습니다</div>
+            )
+          ) : (
+            <ReqDetail req={req} tcs={tcs} tab={tab} />
           )}
         </div>
       </div>
