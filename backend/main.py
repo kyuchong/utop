@@ -1468,7 +1468,13 @@ async def api_me_change_password(payload: dict, token: str = ""):
 @app.get("/api/users")
 async def api_users(token: str = ""):
     _require_admin(token)
-    return {"users": [_public_user(u) for u in _users_load_sync()["users"]], "roles": ROLES}
+    return {
+        "users": [
+            {**_public_user(u), "retired": _is_retired(u), "org": _org_of(u)}
+            for u in _users_load_sync()["users"]
+        ],
+        "roles": ROLES,
+    }
 
 @app.post("/api/users")
 async def api_user_create(payload: dict, token: str = ""):
@@ -1575,6 +1581,37 @@ async def api_user_delete(username: str, token: str = ""):
     _users_save_sync(data)
     return {"ok": True}
 
+def _org_of(u: dict) -> str:
+    """이 사람의 조직.
+
+    관리자가 정한 소속(dept)이 있으면 그것이 정본이다. 없으면 **이름 괄호**에서
+    뽑는다 — 「강경묵(생산)」·「김대원(SW3)」 처럼 Jira 표시이름이 조직을 달고
+    온다. 동기화를 다시 돌리지 않아도 조직별로 묶을 수 있게 하려는 것이다.
+    """
+    d = str(u.get("dept") or "").strip()
+    if d:
+        return d
+    m = re.search(r"\(([^)]+)\)", str(u.get("name") or ""))
+    if not m:
+        return ""
+    v = m.group(1).strip()
+    # 「퇴사자」·「퇴사-비활성화불가」 는 조직이 아니다
+    return "" if "퇴사" in v else v
+
+
+def _is_retired(u: dict) -> bool:
+    """나간 사람인가.
+
+    **Jira 비활성만 보면 안 된다**(지적: 퇴사 계정이 안 지워진다). 실제 자료를
+    보면 나간 사람이 계정은 살아 있고 **이름에 표시**만 달려 있다 —
+    「김진보(퇴사자)」·「김대환(Bilab) (퇴사-비활성화불가)」 처럼. 그래서 이름의
+    「퇴사」 표기도 함께 본다. 둘 중 하나면 나간 사람이다.
+    """
+    if u.get("jira_active") is False:
+        return True
+    return "퇴사" in str(u.get("name") or "")
+
+
 @app.post("/api/users/delete-retired")
 async def api_users_delete_retired(token: str = ""):
     """Jira 에서 나간 사람(jira_active=False)을 **명단에서 지운다**(지시: 퇴사자
@@ -1590,7 +1627,7 @@ async def api_users_delete_retired(token: str = ""):
     before = len(data["users"])
     kept, gone = [], []
     for u in data["users"]:
-        if u.get("username") != "admin" and u.get("jira_active") is False:
+        if u.get("username") != "admin" and _is_retired(u):
             gone.append(u.get("username"))
         else:
             kept.append(u)

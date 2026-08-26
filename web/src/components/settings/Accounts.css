@@ -439,3 +439,40 @@
 }
 .acc-hideret em { font-style: normal; font-weight: 700; color: var(--c-text-faint); }
 .acc-delret { margin-left: 8px; white-space: nowrap; }
+
+
+/* 조직 머리줄 — 계정을 조직별로 나눠 본다(지시) */
+.acc-orghd td { padding: 0 !important; background: var(--c-surface-alt); }
+.acc-orghd button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.acc-orghd button:hover { background: var(--c-primary-bg); }
+.acc-orghd i {
+  font-style: normal;
+  color: var(--c-text-faint);
+  transition: transform 0.12s;
+  display: inline-block;
+}
+.acc-orghd i.open { transform: rotate(90deg); }
+.acc-orghd em {
+  font-style: normal;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--c-text-faint);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 9px;
+  padding: 0 7px;
+}

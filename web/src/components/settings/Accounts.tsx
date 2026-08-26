@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, Fragment } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import './Accounts.css'
@@ -29,6 +29,10 @@ interface User {
   source?: string
   jira_key?: string
   jira_active?: boolean
+  /** 나간 사람인가 — 서버가 판정한다(Jira 비활성 또는 이름의 「퇴사」 표기) */
+  retired?: boolean
+  /** 조직 — 소속(dept)이 있으면 그것, 없으면 이름 괄호에서 (서버가 준다) */
+  org?: string
   company?: string
   dept?: string
   team?: string
@@ -222,7 +226,7 @@ export default function Accounts() {
       .filter((u) => {
         // 퇴사자(Jira 비활성)는 표에서 뺀다(지시). 다만 상태 「잠김」 을
         // 일부러 보고 있을 땐 숨기지 않는다 — 그건 그걸 보러 간 것이다.
-        if (hideRetired && st !== 'off' && u.jira_active === false) return false
+        if (hideRetired && st !== 'off' && (u.retired ?? u.jira_active === false)) return false
         if (st === 'active' && u.active === false) return false
         if (st === 'off' && u.active !== false) return false
         if (st === 'jira' && u.source !== 'jira') return false
@@ -245,7 +249,34 @@ export default function Accounts() {
   }
 
   const nOff = all.filter((u) => u.active === false).length
-  const nRetired = all.filter((u) => u.jira_active === false).length
+  const nRetired = all.filter((u) => u.retired ?? u.jira_active === false).length
+
+  /** 접어 둔 조직 */
+  const [shutOrg, setShutOrg] = useState<Set<string>>(new Set())
+  const toggleOrg = (k: string) =>
+    setShutOrg((o) => {
+      const n = new Set(o)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      return n
+    })
+
+  /**
+   * 조직별 묶음 — 사람 많은 조직이 위로. 「소속 없음」 은 늘 맨 아래다:
+   * 채워야 할 것이지 먼저 볼 것이 아니다.
+   */
+  const groups = useMemo(() => {
+    const m = new Map<string, User[]>()
+    for (const u of rows) {
+      const k = String(u.org || '').trim()
+      m.set(k, [...(m.get(k) ?? []), u])
+    }
+    return [...m.entries()].sort((a, b) => {
+      if (!a[0]) return 1
+      if (!b[0]) return -1
+      return b[1].length - a[1].length || a[0].localeCompare(b[0])
+    })
+  }, [rows])
   const nJira = all.filter((u) => u.source === 'jira').length
   const last = info.data?.last ?? null
   const on = !!info.data?.login_enabled
@@ -489,7 +520,21 @@ export default function Accounts() {
                     </td>
                   </tr>
                 )}
-                {rows.map((u) => (
+                {/* 조직별로 나눠 낸다(지시). 조직은 서버가 준 org —
+                    소속(dept)이 있으면 그것, 없으면 이름 괄호에서 뽑는다.
+                    동기화를 다시 안 돌려도 묶이게 하려는 것이다. */}
+                {groups.map(([org, list]) => (
+                  <Fragment key={org || '__none__'}>
+                    <tr className="acc-orghd">
+                      <td colSpan={7}>
+                        <button type="button" onClick={() => toggleOrg(org)}>
+                          <i className={shutOrg.has(org) ? '' : 'open'}>▸</i>
+                          {org || '소속 없음'}
+                          <em>{list.length}</em>
+                        </button>
+                      </td>
+                    </tr>
+                    {!shutOrg.has(org) && list.map((u) => (
                   <tr
                     key={u.username}
                     className={`${u.active === false ? 'off' : ''}${at === u.username ? ' on' : ''}`}
@@ -516,6 +561,8 @@ export default function Accounts() {
                     <td className="muted small">{u.synced_at || u.last_login || ''}</td>
                     <td className="ell mail">{u.email}</td>
                   </tr>
+                    ))}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
