@@ -251,6 +251,57 @@
 .rqtc-tr.picked:hover { background: #dcebff; }
 .rqtc-selinfo { font-size: var(--fs-xs); color: var(--c-primary); font-weight: 700; }
 
+/* ── 먼데이 통채움 — 셀 전체가 값의 색(지시) ── */
+.rqtc-fillc { padding: 0; overflow: visible; }
+.rqtc-fill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  border-radius: 4px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 6px;
+}
+.rqtc-fill.none { background: #eef1f4; color: var(--c-text-faint); font-weight: 400; }
+
+/* ── 인라인 하위 표 — 자체 머리줄을 가진 한 덩이(사진: 사이클 인라인 카드) ── */
+.rqtc-itcard {
+  margin: 6px 12px 10px 66px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--c-surface);
+  box-shadow: 0 1px 3px rgb(20 28 38 / 0.06);
+}
+.rqtc-itrow {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr) 116px 92px 76px 76px 72px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.rqtc-itrow:last-child { border-bottom: 0; }
+.rqtc-itrow > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rqtc-itrow:not(.rqtc-ithd):hover { background: var(--c-primary-bg); }
+.rqtc-ithd {
+  background: var(--c-surface-alt);
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+  cursor: default;
+}
+.rqtc-itnm { color: var(--c-text); }
+.rqtc-itnone { cursor: default; }
+.rqtc-itnone:hover { background: transparent; }
+.rqtc-idle { font-size: var(--fs-xs); color: var(--c-text-faint); font-style: normal; }
+.rqtc-itrow em { font-style: normal; }
+
 .rqtc-rid {
   font-family: var(--font-mono);
   font-size: var(--fs-xs);

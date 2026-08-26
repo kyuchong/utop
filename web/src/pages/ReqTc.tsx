@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api, categoryApi, projectApi, apiFetch, type MeUser } from '@/api/client'
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
 import { goto } from '@/api/goto'
+import { fillOf } from '@/lib/fieldFill'
 import { IconChevron, IconSearch, IconSort } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import ProjectPicker, { currentProject, onProjectChange } from '@/components/ProjectPicker'
@@ -72,6 +73,18 @@ export default function ReqTc({ me }: Props) {
   const tcQ = useQuery({ queryKey: ['tcs'], queryFn: ({ signal }) => api.listTestCases(signal) })
   const catQ = useQuery({ queryKey: ['req-categories'], queryFn: ({ signal }) => categoryApi.list(signal) })
   const prjQ = useQuery({ queryKey: ['projects'], queryFn: ({ signal }) => projectApi.list(signal) })
+  /** 먼데이 통채움 색 — **설정이 정본**이다(lib/fieldFill). 화면에 박지 않는다 */
+  const codesQ = useQuery({
+    queryKey: ['codes'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/codes')
+      if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
+      return (await r.json()) as { items: Array<{ kind: string; value: string; note?: string | null }> }
+    },
+    staleTime: 60_000,
+  })
+  const codeFill = (kind: string, value: string) =>
+    fillOf((codesQ.data?.items ?? []).find((x) => x.kind === kind && x.value === value)?.note, value)
 
   const reqs = useMemo(() => reqQ.data?.reqs ?? [], [reqQ.data])
   const tcs = useMemo(() => tcQ.data?.tcs ?? [], [tcQ.data])
@@ -460,47 +473,76 @@ export default function ReqTc({ me }: Props) {
                         {list.length ? `TC ${list.length}` : '미커버'}
                       </button>
                     </div>
-                    <div className="c-st">{r.status || '–'}</div>
-                    <div className="c-pr">{r.priority || '–'}</div>
+                    {/* 먼데이 통채움(지시) — 셀 **전체**가 값의 색이다.
+                        상태·우선순위는 이 표에서 눈이 가장 먼저 가는 값이라
+                        글자만 칠하면 표가 안 읽힌다. */}
+                    <div className="c-st rqtc-fillc">
+                      {r.status ? (
+                        <span className="rqtc-fill" style={{ background: codeFill('req_status', r.status).bg, color: codeFill('req_status', r.status).fg }}>
+                          {r.status}
+                        </span>
+                      ) : (
+                        <span className="rqtc-fill none">–</span>
+                      )}
+                    </div>
+                    <div className="c-pr rqtc-fillc">
+                      {r.priority ? (
+                        <span className="rqtc-fill" style={{ background: codeFill('req_priority', r.priority).bg, color: codeFill('req_priority', r.priority).fg }}>
+                          {r.priority}
+                        </span>
+                      ) : (
+                        <span className="rqtc-fill none">–</span>
+                      )}
+                    </div>
                   </div>
 
                   {/* 붙은 시험 — 합쳐 보는 자리라서 아래로 편다 */}
-                  {on && !list.length && (
-                    <div className="rqtc-tr rqtc-sub rqtc-none">
-                      <div className="c-chk" />
-                      <div className="c-caret" />
-                      <div className="c-title muted">덮는 시험이 없습니다 — Coverage 에서 시험을 붙이세요</div>
-                      <div /> <div /> <div /> <div /> <div />
+                  {/* 인라인 하위 표 — **자체 머리줄**을 가진 한 덩이(지시, 사진).
+                      요구사항 칸을 물려 쓰지 않는다: 시험은 볼 것이 다르다
+                      (실행 타입·결과). 사이클 화면의 인라인 카드와 같은 문법. */}
+                  {on && (
+                    <div className="rqtc-itcard">
+                      <div className="rqtc-itrow rqtc-ithd">
+                        <span>TC ID</span>
+                        <span>이름</span>
+                        <span>모델그룹</span>
+                        <span>모델명</span>
+                        <span>유형</span>
+                        <span>실행 타입</span>
+                        <span>결과</span>
+                      </div>
+                      {list.map((t) => (
+                        <div
+                          className="rqtc-itrow"
+                          key={t.tcid}
+                          onClick={() => setPop({ kind: 'tc', id: t.tcid })}
+                        >
+                          <span className="rqtc-rid tc">{t.tcid}</span>
+                          <span className="rqtc-itnm">{t.name || '(제목 없음)'}</span>
+                          <span>{p?.model_group || '–'}</span>
+                          <span>{p?.model || '–'}</span>
+                          <span>
+                            {t.type ? <em className="rqtc-kind">{String(t.type)}</em> : '–'}
+                          </span>
+                          <span>{String(t.run_type ?? t.kind ?? '') || '–'}</span>
+                          <span>
+                            {t.status ? (
+                              <em className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</em>
+                            ) : (
+                              <em className="rqtc-idle">미실행</em>
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                      {!list.length && (
+                        <div className="rqtc-itrow rqtc-itnone">
+                          <span />
+                          <span className="muted">덮는 시험이 없습니다 — Coverage 에서 시험을 붙이세요</span>
+                          <span /> <span /> <span /> <span /> <span />
+                        </div>
+                      )}
                     </div>
                   )}
-                  {on &&
-                    list.map((t) => (
-                      <div
-                        className="rqtc-tr rqtc-sub"
-                        key={t.tcid}
-                        onClick={() => setPop({ kind: 'tc', id: t.tcid })}
-                      >
-                        <div className="c-chk" />
-                        <div className="c-caret" />
-                        <div className="c-title">
-                          <span className="rqtc-rid tc">{t.tcid}</span>
-                          <span className="rqtc-rtitle">{t.name || '(제목 없음)'}</span>
-                        </div>
-                        <div className="c-mg">{p?.model_group || '–'}</div>
-                        <div className="c-md">{p?.model || '–'}</div>
-                        <div className="c-tc">
-                          <span className="rqtc-kind">{String(t.kind ?? t.type ?? '') || '시험'}</span>
-                        </div>
-                        <div className="c-st">
-                          {t.status ? (
-                            <span className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>
-                          ) : (
-                            '–'
-                          )}
-                        </div>
-                        <div className="c-pr">{String(t.severity ?? '') || '–'}</div>
-                      </div>
-                    ))}
                 </div>
               )
             })}
