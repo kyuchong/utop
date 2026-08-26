@@ -184,9 +184,22 @@ const TABS: Tab[] = ['steps', 'info', 'env', 'topo', 'traffic', 'manual', 'histo
 interface PageProps {
   /** 지금 사람. 같이 보고 있는 사람을 가리는 데 쓴다 */
   me?: { username?: string; name?: string } | null
+  /**
+   * **끼워 넣기** — 이 시험 하나만 세부로 연다(REQ-TC 팝업이 쓴다).
+   *
+   * 세부 판을 부품으로 빼는 대신 이 화면을 통째로 얹는다. 탭(Info·Object·
+   * Topology·Traffic·Manual·Automation·Execution·Cycle)과 그 안의 동작이
+   * **같은 코드**라야 두 자리가 갈리지 않는다 — 베껴 만들면 한쪽만 고치는
+   * 날이 온다(지시: 실제 페이지와 동일하게).
+   *
+   * 끼워 넣었을 때는 목록·트리를 감추고, 이 화면의 기억(어느 TC 를 보고
+   * 있었나·주소)에는 손대지 않는다. 팝업을 열었다고 원래 화면이 옮겨
+   * 앉으면 안 된다.
+   */
+  embedTc?: string
 }
 
-export default function TestCases({ me }: PageProps) {
+export default function TestCases({ me, embedTc }: PageProps) {
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>(() => {
     const v = localStorage.getItem(TAB_KEY) as Tab | null
@@ -194,7 +207,7 @@ export default function TestCases({ me }: PageProps) {
     // 기본으로 돌린다.
     return v && TABS.includes(v) ? v : 'steps'
   })
-  const [openId, setOpenId] = useState(() => localStorage.getItem(OPEN_KEY) || '')
+  const [openId, setOpenId] = useState(() => embedTc || localStorage.getItem(OPEN_KEY) || '')
   /**
    * 인라인으로 보는 중인가 — 표에서 ▸ 로 펼치면 켜진다.
    *
@@ -327,11 +340,12 @@ export default function TestCases({ me }: PageProps) {
    * 한다. 접으면 폭은 그대로 기억해 두었다가 펼 때 되돌린다.
    */
   const [listOpen, setListOpen] = useState(
-    () => localStorage.getItem('utop.tc.listOpen') !== '0',
+    () => !embedTc && localStorage.getItem('utop.tc.listOpen') !== '0',
   )
   useEffect(() => {
+    if (embedTc) return
     localStorage.setItem('utop.tc.listOpen', listOpen ? '1' : '0')
-  }, [listOpen])
+  }, [listOpen, embedTc])
   // 기본값을 바꿀 때는 key 도 올린다 — 이미 저장된 옛 값이 이겨서 아무도
   // 변화를 못 본다(Resizer.tsx 주석). 3열이 남는 폭을 갖게 되면서 2열의
   // 적정 폭도 달라졌다.
@@ -737,8 +751,9 @@ export default function TestCases({ me }: PageProps) {
   }, [tab])
 
   useEffect(() => {
+    if (embedTc) return // 끼워 넣기 — 원래 화면이 보던 자리를 옮기지 않는다
     localStorage.setItem(OPEN_KEY, openId)
-  }, [openId])
+  }, [openId, embedTc])
 
   /**
    * 기억해 둔 TC 가 그새 지워졌을 수 있다.
@@ -2715,7 +2730,7 @@ export default function TestCases({ me }: PageProps) {
       <div className="split tc-split" ref={splitRef}>
         {/* 접었을 때 — 세로 띠 하나만 남는다.
             아주 없애면 다시 펼 길이 없어지고, 어디에 있었는지도 잊는다. */}
-        {!listOpen && (
+        {!listOpen && !embedTc && (
           <button
             type="button"
             className="tc-fold"

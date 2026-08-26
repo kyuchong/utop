@@ -8,6 +8,7 @@ import { IconChevron, IconSearch, IconSort } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
+import TestCases from '@/pages/TestCases'
 import ProjectPicker, { currentProject, onProjectChange } from '@/components/ProjectPicker'
 import './ReqTc.css'
 
@@ -758,30 +759,27 @@ function DetailPop({
   return <TcPop id={id} onClose={onClose} onEdit={onEdit} />
 }
 
-/** 시험항목 팝업 — 있는 그대로 읽어 보인다(스텝·판정·결과) */
-function TcPop({ id, onClose, onEdit }: { id: string; onClose: () => void; onEdit: () => void }) {
-  const q = useQuery({
-    queryKey: ['rqtc-tc', id],
-    queryFn: async () => {
-      const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`)
-      if (!r.ok) throw new Error('불러오지 못했습니다')
-      return (await r.json()) as Record<string, unknown>
-    },
-  })
-  const d = q.data ?? {}
-  const steps = Array.isArray(d.checks) ? (d.checks as Array<Record<string, unknown>>) : []
-  const sessions = Array.isArray(d.sessions) ? (d.sessions as unknown[]) : []
-
+/**
+ * 시험항목 팝업 — **Coverage 화면을 통째로 얹는다**(지시: 실제 페이지와 동일하게).
+ *
+ * 세부 판을 부품으로 빼 오는 대신 그 화면 자체를 끼워 넣는다. 탭(Info·Object·
+ * Topology·Traffic·Manual·Automation·Execution·Cycle)과 그 안의 동작이 **같은
+ * 코드**라 두 자리가 갈릴 수 없다. 베껴 만들면 한쪽만 고치는 날이 온다 —
+ * 실제로 옛 부품(TcDetail)을 얹었다가 스텝을 하나도 못 읽어 물렸다.
+ */
+function TcPop({ id, onClose }: { id: string; onClose: () => void; onEdit: () => void }) {
   return (
     <div className="modal-back" onMouseDown={onClose}>
-      <div className="modal rqtc-pop wide" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
+      <div
+        className="modal rqtc-pop full"
+        role="dialog"
+        aria-modal="true"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div className="modal-head">
           <b>시험항목</b>
-          <span className="rqtc-popid">{String(d.tcid || id)}</span>
+          <span className="rqtc-popid">{id}</span>
           <span className="sp" />
-          <button className="btn small primary" type="button" onClick={onEdit}>
-            정보 고치기
-          </button>
           <button
             className="btn small"
             type="button"
@@ -796,73 +794,9 @@ function TcPop({ id, onClose, onEdit }: { id: string; onClose: () => void; onEdi
             닫기
           </button>
         </div>
-        <div className="rqtc-popbody">
-          {q.isLoading ? (
-            <div className="empty">불러오는 중…</div>
-          ) : q.error ? (
-            <div className="load-error">{(q.error as Error).message}</div>
-          ) : (
-            <>
-              <h3 className="rqtc-poptitle">{String(d.name || '(제목 없음)')}</h3>
-              <div className="rqtc-kv">
-                {(
-                  [
-                    ['상태', d.status],
-                    ['모델그룹', d.model_group],
-                    ['모델명', d.model],
-                    ['유형', d.type],
-                    ['중요도', d.severity],
-                    ['실행 타입', d.run_type],
-                    ['구분', d.origin],
-                    ['요구사항', d.req_id],
-                    ['세션', sessions.join(' · ')],
-                    ['만든이', d.created_by],
-                    ['고친이', d.updated_by],
-                  ] as Array<[string, unknown]>
-                )
-                  .filter(([, v]) => v !== undefined && v !== null && String(v) !== '')
-                  .map(([k, v]) => (
-                    <div className="rqtc-kvi" key={k}>
-                      <i>{k}</i>
-                      <b>{String(v)}</b>
-                    </div>
-                  ))}
-              </div>
-
-              <h4 className="rqtc-poph">스텝 {steps.length}개</h4>
-              {steps.length ? (
-                <div className="rqtc-poplist">
-                  {steps.map((s, i) => (
-                    <div className="rqtc-popline step" key={i}>
-                      <span className="rqtc-rid">#{i + 1}</span>
-                      <span className="rqtc-kind">{String(s.kind ?? s.action ?? 'cli')}</span>
-                      <span className="mono">
-                        {String(s.cli ?? s.oid ?? s.step ?? s.desc ?? s.condition ?? '')}
-                      </span>
-                      <span className="sp" />
-                      {!!s.repeatResult && (
-                        <span className={`rqtc-v ${statusClass(String(s.repeatResult))}`}>
-                          {String(s.repeatResult)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="rqtc-popnone">스텝이 없습니다</div>
-              )}
-
-              {!!d.overview && (
-                <>
-                  <h4 className="rqtc-poph">시험 목적</h4>
-                  <p className="rqtc-desc">{String(d.overview)}</p>
-                </>
-              )}
-              <p className="rqtc-hintline">
-                스텝을 고치거나 토폴로지·트래픽·사이클을 보려면 <b>Coverage 에서 열기</b>.
-              </p>
-            </>
-          )}
+        {/* 화면이 제 여백·격자를 갖고 있으므로 팝업이 덧대지 않는다 */}
+        <div className="rqtc-embed">
+          <TestCases embedTc={id} />
         </div>
       </div>
     </div>
