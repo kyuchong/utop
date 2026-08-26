@@ -373,12 +373,23 @@
 .rqtc-fill.none { background: #eef1f4; color: var(--c-text-faint); font-weight: 400; }
 
 /* ── 팝업 ── */
-.rqtc-pop { width: min(1000px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }
+/* 공용 `.modal` 은 max-width:620px 이다(ReqForm.css) — 그대로 두면 96vw 를
+   줘도 620px 에서 잘려 안쪽 화면이 세로로 짜부라진다(지적: 팝업이 깨진다).
+   이 팝업들은 넓어야 하므로 그 제한을 푼다. */
+.rqtc-pop { width: min(1000px, 94vw); max-width: min(1000px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }
 /* 탭이 든 팝업은 넓어야 한다 — 스텝·토폴로지가 들어온다 */
-.rqtc-pop.wide { width: min(1240px, 96vw); height: 86vh; max-height: 86vh; }
+.rqtc-pop.wide { width: min(1240px, 96vw); max-width: min(1240px, 96vw); height: 86vh; max-height: 86vh; }
 /* Coverage 를 통째로 얹는 팝업 — 그 화면이 3열이라 넓어야 한다 */
-.rqtc-pop.full { width: 96vw; height: 92vh; max-height: 92vh; }
-.rqtc-embed { flex: 1; min-height: 0; display: flex; }
+/* Coverage 를 통째로 얹는 팝업 — 그 화면이 3열이라 거의 전체 폭이 필요하다 */
+.rqtc-pop.full {
+  width: 97vw;
+  max-width: 97vw;
+  height: 94vh;
+  max-height: 94vh;
+}
+/* 바깥 판의 여백이 폭을 더 깎지 않게 */
+.rqtc-pop.full ~ *, .modal-back:has(.rqtc-pop.full) { padding: 0; }
+.rqtc-embed { flex: 1; min-height: 0; min-width: 0; display: flex; overflow: hidden; }
 /* 끼워 넣은 화면이 팝업 안을 꽉 채우게 — 제 격자를 그대로 쓴다 */
 .rqtc-embed > * { flex: 1; min-width: 0; min-height: 0; }
 /* 팝업 안 탭 줄 — Requirements 화면과 같은 차례 */
