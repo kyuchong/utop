@@ -384,10 +384,12 @@
 /* 얇은 머리줄 — 이름은 안쪽 빵부스러기가 말한다 */
 .rqtc-pop .modal-head.slim { padding: 6px 12px; border-bottom: 0; }
 .rqtc-pop.full {
-  width: 97vw;
-  max-width: 97vw;
-  height: 94vh;
-  max-height: 94vh;
+  /* 3열 화면이라 넓어야 하지만 화면에 꽉 차면 팝업으로 안 읽힌다 —
+     뒤가 살짝 비쳐야 「덮여 있다」 가 보인다(지시: 조금 줄이기). */
+  width: min(1560px, 90vw);
+  max-width: min(1560px, 90vw);
+  height: 90vh;
+  max-height: 90vh;
 }
 /* 바깥 판의 여백이 폭을 더 깎지 않게 */
 .rqtc-pop.full ~ *, .modal-back:has(.rqtc-pop.full) { padding: 0; }
