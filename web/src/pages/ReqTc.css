@@ -146,6 +146,8 @@
 .rqtc-rt { margin-left: auto; flex: none; font-size: var(--fs-xs); color: var(--c-text-faint); }
 .rqtc-rt i { font-style: normal; opacity: 0.65; margin-right: 2px; margin-left: 6px; }
 .rqtc-rt i:first-child { margin-left: 0; }
+/* 덮이지 않은 폴더 — 트리만 훑어도 구멍이 보인다 */
+.rqtc-rt.bare { color: #a02323; font-weight: 700; }
 
 .rqtc-caret {
   flex: none;
@@ -178,13 +180,49 @@
 
 /* ── 오른쪽 ── */
 .rqtc-main { display: flex; flex-direction: column; min-height: 0; }
+/* 무엇을 셀지 고르는 줄 — 토글 · 빵부스러기 · 찾기 */
+.rqtc-modebar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--c-border);
+}
+.rqtc-modebar .sp { flex: 1; }
+.rqtc-seg { display: inline-flex; border: 1px solid var(--c-border); border-radius: 7px; overflow: hidden; flex: none; }
+.rqtc-seg button {
+  padding: 5px 14px;
+  border: 0;
+  background: var(--c-surface);
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+.rqtc-seg button.on { background: var(--c-primary); color: #fff; }
+.rqtc-q.top { width: 240px; }
+/* 「이 요구사항만」 걸린 표시 — 안 보이면 왜 몇 건뿐인지 모른다 */
+.rqtc-scope {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  padding: 2px 4px 2px 9px;
+  border: 1px solid var(--c-primary);
+  border-radius: 10px;
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+.rqtc-scope button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 12px; padding: 0 3px; }
 .rqtc-crumb {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--c-border);
   font-size: var(--fs-sm);
+  min-width: 0;
 }
 .rqtc-crumbgo {
   border: 0;
@@ -221,7 +259,7 @@
 .rqtc-tbl { flex: 1; min-height: 0; overflow: auto; }
 .rqtc-tr {
   display: grid;
-  grid-template-columns: 30px 26px minmax(0, 1fr) 120px 96px 92px 92px 92px;
+  grid-template-columns: 30px minmax(0, 1fr) 116px 92px 84px 84px 76px 66px 72px 84px 128px;
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
@@ -229,6 +267,8 @@
   font-size: var(--fs-sm);
   cursor: pointer;
 }
+/* 요구사항 모드는 칸이 적다 — 같은 줄 부품을 쓰되 격자만 바꾼다 */
+.rqtc-tr:not(.tc) { grid-template-columns: 30px minmax(0, 1fr) 120px 96px 92px 92px 92px; }
 .rqtc-tr > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rqtc-tr:not(.rqtc-th):hover { background: var(--c-primary-bg); }
 .rqtc-th {
@@ -250,6 +290,24 @@
 .rqtc-tr.picked { background: var(--c-primary-bg); }
 .rqtc-tr.picked:hover { background: #dcebff; }
 .rqtc-selinfo { font-size: var(--fs-xs); color: var(--c-primary); font-weight: 700; }
+.rqtc-foot {
+  flex: none;
+  padding: 7px 12px;
+  border-top: 1px solid var(--c-border);
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+.rqtc-bare { color: #c0392b; }
+/* 시험이 없을 때 — 그 자리에서 만들 수 있게 말한다 */
+.rqtc-none { padding: 34px 16px; text-align: center; display: flex; flex-direction: column; gap: 6px; }
+.rqtc-none b { color: #a02323; font-size: var(--fs-sm); }
+.rqtc-none span { color: var(--c-text-faint); font-size: var(--fs-xs); }
+/* 최근 결과 — 통채움이 아니라 글자색(판정은 색이 정해져 있다) */
+.rqtc-lastv { display: block; text-align: center; font-size: var(--fs-xs); font-weight: 700; }
+.rqtc-lastv.pass { color: var(--c-pass, #1d9e75); }
+.rqtc-lastv.fail { color: var(--c-fail, #e24b4a); }
+.rqtc-popnone { padding: 10px; font-size: var(--fs-xs); color: #a02323; font-weight: 700; }
+.rqtc-popline.step { display: flex; }
 
 /* ── 먼데이 통채움 — 셀 전체가 값의 색(지시) ── */
 .rqtc-fillc { padding: 0; overflow: visible; }
@@ -267,79 +325,6 @@
   padding: 0 6px;
 }
 .rqtc-fill.none { background: #eef1f4; color: var(--c-text-faint); font-weight: 400; }
-
-/* ── 인라인 하위 표 — 자체 머리줄을 가진 한 덩이(사진: 사이클 인라인 카드) ── */
-.rqtc-itcard {
-  margin: 6px 12px 10px 66px;
-  border: 1px solid var(--c-border);
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--c-surface);
-  box-shadow: 0 1px 3px rgb(20 28 38 / 0.06);
-}
-.rqtc-itrow {
-  display: grid;
-  grid-template-columns: 30px 108px minmax(0, 1fr) 116px 92px 76px 76px 72px;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--c-border);
-  font-size: var(--fs-sm);
-  cursor: pointer;
-}
-.rqtc-itrow:last-child { border-bottom: 0; }
-.rqtc-itrow > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rqtc-itrow:not(.rqtc-ithd):hover { background: var(--c-primary-bg); }
-.rqtc-ithd {
-  background: var(--c-surface-alt);
-  color: var(--c-text-muted);
-  font-size: var(--fs-xs);
-  cursor: default;
-}
-.rqtc-itnm { color: var(--c-text); }
-.rqtc-itnone { cursor: default; }
-.rqtc-itnone:hover { background: transparent; }
-.rqtc-idle { font-size: var(--fs-xs); color: var(--c-text-faint); font-style: normal; }
-.rqtc-itrow em { font-style: normal; }
-/* 인라인에서 시험 만들기 — 표의 마지막 줄로 둔다(사이클의 「＋ TC」 문법) */
-.rqtc-itadd { background: #fbfcfd; }
-.rqtc-itadd:hover { background: var(--c-primary-bg); }
-.rqtc-addlink { color: var(--c-primary); font-weight: 700; font-size: var(--fs-xs); }
-
-.rqtc-rid {
-  font-family: var(--font-mono);
-  font-size: var(--fs-xs);
-  color: var(--c-primary);
-  margin-right: 8px;
-}
-.rqtc-rid.tc { color: #1f7a45; }
-
-/* TC 칸이 곧 커버리지다 — 미커버가 이 표에서 제일 값진 신호라 통째로 칠한다 */
-.rqtc-cov {
-  display: inline-block;
-  border: 0;
-  font: inherit;
-  min-width: 62px;
-  text-align: center;
-  padding: 2px 8px;
-  border-radius: 5px;
-  font-size: var(--fs-xs);
-  font-weight: 700;
-}
-.rqtc-cov.ok { background: #e6f6ee; color: #116245; }
-.rqtc-cov.no { background: #fdecec; color: #a02323; }
-.rqtc-cov.go { cursor: pointer; }
-.rqtc-cov.go:hover { filter: brightness(0.94); }
-.rqtc-kind {
-  font-size: var(--fs-xs);
-  color: var(--c-text-muted);
-  border: 1px solid var(--c-border);
-  border-radius: 10px;
-  padding: 1px 7px;
-}
-.rqtc-v { font-size: var(--fs-xs); font-weight: 700; }
-.rqtc-v.pass { color: var(--c-pass, #1d9e75); }
-.rqtc-v.fail { color: var(--c-fail, #e24b4a); }
 
 /* ── 팝업 ── */
 .rqtc-pop { width: min(1000px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }

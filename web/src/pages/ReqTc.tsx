@@ -14,51 +14,50 @@ interface Props {
   me?: MeUser | null
 }
 
+/** 2열이 무엇을 세나 — 목업에서 고른 「토글」 */
+type Mode = 'req' | 'tc'
+const MODE_KEY = 'utop.reqtc.mode'
+
 /**
- * REQ-TC — 요구사항과 시험을 한 판에(지시, 사진).
+ * REQ-TC — 요구사항과 시험을 한 화면에서(지시, 목업 확정).
  *
- * 사진의 문법 그대로: **상단 가로바(제품 이름 · 프로젝트 고르기) — 폴더 트리 —
- * 요구사항 표**. 표의 **TC 칸이 곧 커버리지**다(미커버 / TC N). 캐럿을 누르면
- * 그 요구사항에 붙은 시험이 아래로 펴진다 — 여기가 REQ 와 TC 를 합쳐 보는
- * 자리라서다.
+ * **트리는 폴더만, 표는 한 벌, 무엇을 셀지는 토글이 정한다.**
+ * 요구사항을 트리에 넣는 안도 있었지만, 그러면 트리가 길어지고(폴더 29 +
+ * 요구사항 57) 무엇보다 **요구사항을 표로 관리할 길이 사라진다** — 213 은
+ * 57건 중 51건이 미커버라, 훑고 메우려면 정렬·거르기·여러 개 고르기가 되는
+ * 표가 있어야 한다. 대신 「요구사항 줄을 누르면 그 시험으로 좁혀지는」 다리를
+ * 놓아, 트리에 넣었을 때 얻으려던 흐름을 그대로 얻는다.
  *
- * **사업자·모델그룹·모델명은 프로젝트가 정본이다**(지시). 요구사항마다 따로
- * 적지 않는다 — 요구사항의 분류 사슬을 타고 올라가 그 프로젝트를 찾고, 거기
- * 적힌 값을 표에 세운다. 그래서 모델을 바꾸면 한 곳만 고치면 된다.
+ * **사업자·모델그룹·모델명은 프로젝트가 정본**(지시). 시험은 제 값을 갖고
+ * 있으므로 그것을 먼저 쓰고, 없으면 프로젝트 값으로 채운다.
  *
- * **읽고 고치기만 한다. 구조는 안 바꾼다.** 이미 있는 /api/req · /api/tc ·
- * /api/req-categories · /api/projects 만 읽고, 고칠 때는 이미 있는 부품
- * (ReqForm)을 그대로 부른다 — 편집기를 두 벌 만들면 한쪽만 고치는 날이 온다.
- * 기존 Requirements · Coverage 화면은 손대지 않는다(지시).
+ * **읽고 고치기만 한다. 구조는 안 바꾼다.** 이미 있는 API 만 읽고, 고칠 때는
+ * 이미 있는 부품(ReqForm·TcForm)을 부른다 — 편집기를 두 벌 만들면 한쪽만
+ * 고치는 날이 온다. 기존 Requirements·Coverage 화면은 손대지 않는다(지시).
  */
 export default function ReqTc({ me }: Props) {
   void me
+  const [mode, setMode] = useState<Mode>(() => (localStorage.getItem(MODE_KEY) as Mode) || 'req')
   const [cat, setCat] = useState('')
   const [openCat, setOpenCat] = useState<Set<string>>(new Set())
-  const [openReq, setOpenReq] = useState<Set<string>>(new Set())
+  /** 「이 요구사항의 시험만」 — 요구사항 줄을 눌렀을 때 걸리는 다리 */
+  const [reqOnly, setReqOnly] = useState('')
   const [q, setQ] = useState('')
-  /** 하위 폴더까지 함께 볼까 — 사진의 「하위 폴더 포함」 */
+  const [findOn, setFindOn] = useState(false)
+  const [fsort, setFsort] = useState<'name' | 'req'>('name')
   const [deep, setDeep] = useState(true)
   const [onlyBare, setOnlyBare] = useState(false)
-  const [pop, setPop] = useState<{ kind: 'req' | 'tc'; id: string } | null>(null)
-  /** undefined = 안 열림 · null = 새로 만들기 · 값 = 그 요구사항 고치기 */
-  const [edit, setEdit] = useState<Requirement | null | undefined>(undefined)
-  const [prj, setPrj] = useState(currentProject)
-  /** 1열 머리의 찾기 — 아이콘을 눌러 폈다 접는다(사진) */
-  const [findOn, setFindOn] = useState(false)
-  /** 폴더 판 접기 — 표를 넓게 볼 때(사진의 접기 단추) */
   const [foldSide, setFoldSide] = useState(false)
-  /** 폴더 정렬 — 이름순 · 요구사항 많은 순 */
-  const [fsort, setFsort] = useState<'name' | 'req'>('name')
-  /** 표에서 고른 줄 — 사진의 체크박스 */
   const [sel, setSel] = useState<Set<string>>(new Set())
-  /** 인라인 하위 표에서 고른 시험 — 요구사항 체크와 따로 센다 */
-  const [selTc, setSelTc] = useState<Set<string>>(new Set())
-  /** 시험 만들기 — 어느 요구사항에 붙일지(req.id). ''면 안 열림 */
-  const [mkTc, setMkTc] = useState('')
-  /** 로고·제품 이름은 **브랜딩 설정**이 정본이다 — 여기 박아 넣지 않는다 */
+  const [pop, setPop] = useState<{ kind: 'req' | 'tc'; id: string } | null>(null)
+  /** undefined = 안 열림 · null = 새로 만들기 · 값 = 그것을 고치기 */
+  const [editReq, setEditReq] = useState<Requirement | null | undefined>(undefined)
+  const [editTc, setEditTc] = useState<TestCaseMeta | null | undefined>(undefined)
+  const [prj, setPrj] = useState(currentProject)
   const [brand, setBrand] = useState<{ logo?: string; name?: string }>({})
 
+  useEffect(() => localStorage.setItem(MODE_KEY, mode) as void, [mode])
+  useEffect(() => onProjectChange(() => setPrj(currentProject())), [])
   useEffect(() => {
     void (async () => {
       try {
@@ -72,54 +71,57 @@ export default function ReqTc({ me }: Props) {
     })()
   }, [])
 
-  useEffect(() => onProjectChange(() => setPrj(currentProject())), [])
-
   const reqQ = useQuery({ queryKey: ['reqs'], queryFn: ({ signal }) => api.listRequirements(signal) })
   const tcQ = useQuery({ queryKey: ['tcs'], queryFn: ({ signal }) => api.listTestCases(signal) })
   const catQ = useQuery({ queryKey: ['req-categories'], queryFn: ({ signal }) => categoryApi.list(signal) })
   const prjQ = useQuery({ queryKey: ['projects'], queryFn: ({ signal }) => projectApi.list(signal) })
-  /** 먼데이 통채움 색 — **설정이 정본**이다(lib/fieldFill). 화면에 박지 않는다 */
+  /** 먼데이 통채움 색 — **설정이 정본**(lib/fieldFill). 화면에 색을 박지 않는다 */
   const codesQ = useQuery({
     queryKey: ['codes'],
+    staleTime: 60_000,
     queryFn: async () => {
       const r = await apiFetch('/api/codes')
       if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
       return (await r.json()) as { items: Array<{ kind: string; value: string; note?: string | null }> }
     },
-    staleTime: 60_000,
   })
-  const codeFill = (kind: string, value: string) =>
-    fillOf((codesQ.data?.items ?? []).find((x) => x.kind === kind && x.value === value)?.note, value)
+  /** 최근 결과 — 결과는 사이클 안에 살아서 따로 읽는다 */
+  const lastQ = useQuery({
+    queryKey: ['tc-last-result'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/tc-last-result')
+      if (!r.ok) return {} as Record<string, { result: string; cycle_name?: string; at?: string }>
+      const j = (await r.json()) as {
+        items?: Record<string, { result: string; cycle_name?: string; at?: string }>
+      }
+      return j.items ?? {}
+    },
+  })
 
   const reqs = useMemo(() => reqQ.data?.reqs ?? [], [reqQ.data])
   const tcs = useMemo(() => tcQ.data?.tcs ?? [], [tcQ.data])
   const cats = useMemo(() => catQ.data?.categories ?? [], [catQ.data])
   const projects = useMemo(() => prjQ.data?.projects ?? [], [prjQ.data])
+  const lastOf = (id: string) => lastQ.data?.[id]?.result ?? ''
 
-  /** 분류 자식 — 트리를 그리고 「아래 전부」를 셀 때 쓴다 */
+  const codeFill = (kind: string, value: string) =>
+    fillOf((codesQ.data?.items ?? []).find((x) => x.kind === kind && x.value === value)?.note, value)
+
   const kids = useMemo(() => {
     const m = new Map<string, typeof cats>()
-    for (const c of cats) {
-      const k = c.parent_id ?? ''
-      m.set(k, [...(m.get(k) ?? []), c])
-    }
+    for (const c of cats) m.set(c.parent_id ?? '', [...(m.get(c.parent_id ?? '') ?? []), c])
     return m
   }, [cats])
-
-  /** 그 분류와 그 아래 전부 */
   const under = useMemo(() => {
     const f = (id: string): string[] => [id, ...(kids.get(id) ?? []).flatMap((c) => f(c.id))]
     return f
   }, [kids])
 
-  /** 요구사항이 매달린 분류 — cat1~cat4 중 **가장 깊은 것**이 제자리다 */
-  const catOf = (r: Requirement) => String(r.cat4 || r.cat3 || r.cat2 || r.cat1 || '')
   const catsOf = (r: Requirement) => [r.cat1, r.cat2, r.cat3, r.cat4].filter(Boolean).map(String)
+  const catOf = (r: Requirement) => String(r.cat4 || r.cat3 || r.cat2 || r.cat1 || '')
 
-  /**
-   * 요구사항마다 제 시험. 잇는 키는 **req.id**(내부 키)다 — 화면에 보이는
-   * reqid 로 맞추면 하나도 안 붙는다(실제로 그렇게 어긋나 있었다).
-   */
+  /** 시험 → 요구사항. 잇는 키는 **req.id**(내부 키)다 — reqid 로는 안 붙는다 */
   const tcOf = useMemo(() => {
     const m = new Map<string, TestCaseMeta[]>()
     for (const t of tcs) {
@@ -128,43 +130,54 @@ export default function ReqTc({ me }: Props) {
     }
     return m
   }, [tcs])
+  const reqById = useMemo(() => new Map(reqs.map((r) => [reqPk(r), r])), [reqs])
 
-  /** 프로젝트로 좁히기 — 프로젝트 하나가 최상위 폴더 하나(cat_id)와 짝이다 */
   const prjCats = useMemo(() => (prj ? new Set(under(prj)) : null), [prj, under])
   const inPrj = (r: Requirement) => !prjCats || catsOf(r).some((c) => prjCats.has(c))
 
-  /**
-   * 이 요구사항이 속한 프로젝트 — **사업자·모델그룹·모델명의 정본**(지시).
-   * 분류 사슬 어느 하나가 그 프로젝트의 최상위 폴더 아래면 그 프로젝트다.
-   */
+  /** 이 요구사항의 프로젝트 — 사업자·모델의 정본 */
   const prjOf = useMemo(() => {
     const byCat = new Map<string, (typeof projects)[number]>()
     for (const p of projects) for (const c of under(p.cat_id)) byCat.set(c, p)
-    return (r: Requirement) => catsOf(r).map((c) => byCat.get(c)).find(Boolean)
+    return (r?: Requirement) => (r ? catsOf(r).map((c) => byCat.get(c)).find(Boolean) : undefined)
   }, [projects, under])
 
-  /** 그 분류(하위 포함) 아래 요구사항·시험 수 — 트리의 R·T 배지 */
   const countOf = (id: string) => {
     const set = new Set(under(id))
-    const rs = reqs.filter((r) => catsOf(r).some((c) => set.has(c)))
+    const rs = reqs.filter((r) => inPrj(r) && catsOf(r).some((c) => set.has(c)))
     return { r: rs.length, t: rs.reduce((n, r) => n + (tcOf.get(reqPk(r))?.length ?? 0), 0) }
   }
 
-  /** 표에 실을 줄 */
-  const rows = useMemo(() => {
+  const inCat = (r: Requirement) => {
+    if (!cat) return true
+    const set = new Set(under(cat))
+    return deep ? catsOf(r).some((c) => set.has(c)) : catOf(r) === cat
+  }
+
+  /** 요구사항 줄 */
+  const reqRows = useMemo(() => {
     const n = q.trim().toLowerCase()
-    const set = cat ? new Set(under(cat)) : null
     return reqs.filter((r) => {
-      if (!inPrj(r)) return false
-      if (set && !(deep ? catsOf(r).some((c) => set.has(c)) : catOf(r) === cat)) return false
+      if (!inPrj(r) || !inCat(r)) return false
       if (onlyBare && (tcOf.get(reqPk(r))?.length ?? 0) > 0) return false
       if (!n) return true
-      const tt = (tcOf.get(reqPk(r)) ?? []).map((t) => `${t.tcid} ${t.name ?? ''}`).join(' ')
-      return `${reqLabel(r)} ${r.title ?? ''} ${tt}`.toLowerCase().includes(n)
+      return `${reqLabel(r)} ${r.title ?? ''}`.toLowerCase().includes(n)
     })
   }, [reqs, q, cat, deep, onlyBare, tcOf, prjCats, under])
 
-  /** 빵부스러기 — 고른 폴더까지의 길 */
+  /** 시험 줄 — 폴더(또는 고른 요구사항)에 매인 것만 */
+  const tcRows = useMemo(() => {
+    const n = q.trim().toLowerCase()
+    const ok = (t: TestCaseMeta) => {
+      const rid = String(t.req_id ?? '')
+      if (reqOnly) return rid === reqOnly
+      const r = reqById.get(rid)
+      if (!r) return false
+      return inPrj(r) && inCat(r)
+    }
+    return tcs.filter((t) => ok(t) && (!n || `${t.tcid} ${t.name ?? ''}`.toLowerCase().includes(n)))
+  }, [tcs, q, cat, deep, reqOnly, reqById, prjCats, under])
+
   const crumb = useMemo(() => {
     const out: Array<{ id: string; name: string }> = []
     let at = cats.find((c) => c.id === cat)
@@ -183,61 +196,72 @@ export default function ReqTc({ me }: Props) {
     set(n)
   }
 
-  const bare = rows.filter((r) => !(tcOf.get(reqPk(r))?.length ?? 0)).length
+  /** 다리 — 요구사항 줄을 누르면 그 시험으로 간다(트리에 요구사항을 넣는 대신) */
+  const goTcOf = (pk: string) => {
+    setReqOnly(pk)
+    setMode('tc')
+    setSel(new Set())
+  }
+  const pickFolder = (id: string) => {
+    setCat(cat === id ? '' : id)
+    setReqOnly('')
+    setSel(new Set())
+  }
+
+  const bare = reqRows.filter((r) => !(tcOf.get(reqPk(r))?.length ?? 0)).length
+  const rowsN = mode === 'req' ? reqRows.length : tcRows.length
+  const onlyReq = reqOnly ? reqById.get(reqOnly) : undefined
 
   if (reqQ.isLoading || tcQ.isLoading) return <div className="empty">불러오는 중…</div>
   if (reqQ.error) return <div className="load-error">{(reqQ.error as Error).message}</div>
 
-  /** 폴더 한 가지 */
   const Tree = ({ parent, depth }: { parent: string | null; depth: number }) => (
     <>
       {[...(kids.get(parent ?? '') ?? [])]
         .sort((a, b) => (fsort === 'name' ? a.name.localeCompare(b.name) : countOf(b.id).r - countOf(a.id).r))
         .map((c) => {
-        const kid = kids.get(c.id) ?? []
-        const on = openCat.has(c.id)
-        const n = countOf(c.id)
-        const root = depth === 0
-        return (
-          <div key={c.id}>
-            <div
-              className={`rqtc-fold${cat === c.id ? ' on' : ''}${root ? ' root' : ''}`}
-              style={{ paddingLeft: 6 + depth * 14 }}
-              onClick={() => setCat(cat === c.id ? '' : c.id)}
-            >
-              <button
-                type="button"
-                className={`rqtc-caret${on ? ' open' : ''}`}
-                disabled={!kid.length}
-                aria-label={on ? '접기' : '펴기'}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggle(openCat, c.id, setOpenCat)
-                }}
+          const kid = kids.get(c.id) ?? []
+          const on = openCat.has(c.id)
+          const n = countOf(c.id)
+          return (
+            <div key={c.id}>
+              <div
+                className={`rqtc-fold${cat === c.id ? ' on' : ''}${depth === 0 ? ' root' : ''}`}
+                style={{ paddingLeft: 6 + depth * 14 }}
+                onClick={() => pickFolder(c.id)}
               >
-                <IconChevron />
-              </button>
-              <span className="rqtc-fico" aria-hidden="true">
-                {root ? '🗂' : '📁'}
-              </span>
-              <span className="rqtc-fnm">{c.name}</span>
-              <span className="rqtc-rt">
-                <i>R</i>
-                {n.r} <i>T</i>
-                {n.t}
-              </span>
+                <button
+                  type="button"
+                  className={`rqtc-caret${on ? ' open' : ''}`}
+                  disabled={!kid.length}
+                  aria-label={on ? '접기' : '펴기'}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    toggle(openCat, c.id, setOpenCat)
+                  }}
+                >
+                  <IconChevron />
+                </button>
+                <span className="rqtc-fico" aria-hidden="true">
+                  {depth === 0 ? '🗂' : '📁'}
+                </span>
+                <span className="rqtc-fnm">{c.name}</span>
+                {/* 덮이지 않은 폴더는 T 를 붉게 — 트리만 훑어도 구멍이 보인다 */}
+                <span className={`rqtc-rt${n.r > 0 && n.t === 0 ? ' bare' : ''}`}>
+                  <i>R</i>
+                  {n.r} <i>T</i>
+                  {n.t}
+                </span>
+              </div>
+              {on && <Tree parent={c.id} depth={depth + 1} />}
             </div>
-            {on && <Tree parent={c.id} depth={depth + 1} />}
-          </div>
-        )
-      })}
+          )
+        })}
     </>
   )
 
   return (
     <div className="rqtc-shell">
-      {/* ── 상단 가로바(지시, 사진) — **이 화면 안에만** 둔다.
-             기존 화면의 틀(Layout)은 안 건드린다(지시: REQ-TC 만). ── */}
       <header className="rqtc-top">
         {brand.logo ? (
           <img className="rqtc-logo" src={brand.logo} alt="" />
@@ -250,138 +274,148 @@ export default function ReqTc({ me }: Props) {
         <ProjectPicker />
         <span className="sp" />
         <span className="rqtc-topinfo">
-          요구사항 {rows.length}건
-          {bare > 0 && <b className="rqtc-barebadge">미커버 {bare}</b>}
+          요구사항 {reqRows.length}건{bare > 0 && <b className="rqtc-barebadge">미커버 {bare}</b>}
         </span>
       </header>
 
       <div className={`rqtc${foldSide ? ' folded' : ''}`}>
-        {/* 접었을 때 — 다시 펴는 단추만 가느다랗게 남긴다 */}
         {foldSide && (
-          <button
-            type="button"
-            className="rqtc-unfold"
-            title="폴더 판 펴기"
-            onClick={() => setFoldSide(false)}
-          >
+          <button type="button" className="rqtc-unfold" title="폴더 판 펴기" onClick={() => setFoldSide(false)}>
             ⇥
           </button>
         )}
-        {/* ── 폴더 트리 ── */}
         {!foldSide && (
-        <aside className="panel rqtc-side">
-          <div className="rqtc-sidehead">
-            <b>Folder Tree</b>
-            <span className="sp" />
-            {/* 찾기·정렬·더보기 — 사진의 머리줄 */}
-            <button
-              type="button"
-              className={`rqtc-ib${findOn || q ? ' on' : ''}`}
-              title="찾기"
-              onClick={() => {
-                setFindOn((v) => !v)
-                if (findOn) setQ('')
-              }}
-            >
-              <IconSearch />
-            </button>
-            <button
-              type="button"
-              className="rqtc-ib"
-              title={fsort === 'name' ? '이름순 (눌러서 요구사항 많은 순)' : '요구사항 많은 순 (눌러서 이름순)'}
-              onClick={() => setFsort((v) => (v === 'name' ? 'req' : 'name'))}
-            >
-              <IconSort />
-            </button>
-            <button type="button" className="rqtc-ib" title="더 보기">
-              ⋯
-            </button>
-            {/* 폴더 판 접기 — 표를 넓게 본다(지적: 접기 단추가 없다) */}
-            <button
-              type="button"
-              className="rqtc-ib"
-              title="폴더 판 접기"
-              onClick={() => setFoldSide(true)}
-            >
-              ⇤
-            </button>
-          </div>
-          {/* ＋ New Folder — 고른 폴더 **아래**에 만든다(안 고르면 최상위) */}
-          <div className="rqtc-newf">
-            <button
-              className="btn small"
-              type="button"
-              onClick={() => {
-                const nm = window.prompt(
-                  cat ? '새 폴더 이름 (고른 폴더 아래에 만듭니다)' : '새 폴더 이름 (최상위)',
-                )?.trim()
-                if (!nm) return
-                void categoryApi.create(nm, cat || null).then(() => {
-                  void catQ.refetch()
-                  if (cat) setOpenCat((o) => new Set([...o, cat]))
-                })
-              }}
-            >
-              ＋ New Folder
-            </button>
-          </div>
-          {(findOn || q) && (
-            <div className="rqtc-sidetools">
-              <input
-                className="rqtc-q"
-                autoFocus
-                value={q}
-                placeholder="요구사항 · 시험 찾기"
-                onChange={(e) => setQ(e.target.value)}
-              />
+          <aside className="panel rqtc-side">
+            <div className="rqtc-sidehead">
+              <b>Folder Tree</b>
+              <span className="sp" />
+              <button
+                type="button"
+                className={`rqtc-ib${findOn || q ? ' on' : ''}`}
+                title="찾기"
+                onClick={() => {
+                  setFindOn((v) => !v)
+                  if (findOn) setQ('')
+                }}
+              >
+                <IconSearch />
+              </button>
+              <button
+                type="button"
+                className="rqtc-ib"
+                title={fsort === 'name' ? '이름순 (눌러서 요구사항 많은 순)' : '요구사항 많은 순 (눌러서 이름순)'}
+                onClick={() => setFsort((v) => (v === 'name' ? 'req' : 'name'))}
+              >
+                <IconSort />
+              </button>
+              <button type="button" className="rqtc-ib" title="더 보기">
+                ⋯
+              </button>
+              <button type="button" className="rqtc-ib" title="폴더 판 접기" onClick={() => setFoldSide(true)}>
+                ⇤
+              </button>
             </div>
-          )}
-          <div className="rqtc-tree">
-            <div className={`rqtc-fold${cat === '' ? ' on' : ''}`} onClick={() => setCat('')}>
-              <span className="rqtc-caret" />
-              <span className="rqtc-fico" aria-hidden="true">
-                🗂
-              </span>
-              <span className="rqtc-fnm">전체</span>
-              <span className="rqtc-rt">
-                <i>R</i>
-                {reqs.filter(inPrj).length}
-              </span>
+            <div className="rqtc-newf">
+              <button
+                className="btn small"
+                type="button"
+                onClick={() => {
+                  const nm = window
+                    .prompt(cat ? '새 폴더 이름 (고른 폴더 아래에 만듭니다)' : '새 폴더 이름 (최상위)')
+                    ?.trim()
+                  if (!nm) return
+                  void categoryApi.create(nm, cat || null).then(() => {
+                    void catQ.refetch()
+                    if (cat) setOpenCat((o) => new Set([...o, cat]))
+                  })
+                }}
+              >
+                ＋ New Folder
+              </button>
             </div>
-            <Tree parent={null} depth={0} />
-          </div>
-        </aside>
+            {(findOn || q) && (
+              <div className="rqtc-sidetools">
+                <input
+                  className="rqtc-q"
+                  autoFocus
+                  value={q}
+                  placeholder="요구사항 · 시험 찾기"
+                  onChange={(e) => setQ(e.target.value)}
+                />
+              </div>
+            )}
+            <div className="rqtc-tree">
+              <div className={`rqtc-fold${cat === '' ? ' on' : ''}`} onClick={() => pickFolder('')}>
+                <span className="rqtc-caret" />
+                <span className="rqtc-fico" aria-hidden="true">
+                  🗂
+                </span>
+                <span className="rqtc-fnm">전체</span>
+                <span className="rqtc-rt">
+                  <i>R</i>
+                  {reqs.filter(inPrj).length}
+                </span>
+              </div>
+              <Tree parent={null} depth={0} />
+            </div>
+          </aside>
         )}
 
-        {/* ── 요구사항 표 ── */}
         <section className="panel rqtc-main">
-          <div className="rqtc-crumb">
-            {crumb.length ? (
-              crumb.map((c, i) => (
-                <span key={c.id}>
-                  {i > 0 && <i className="rqtc-sep">›</i>}
-                  <button type="button" className="rqtc-crumbgo" onClick={() => setCat(c.id)}>
-                    {c.name}
+          {/* ── 무엇을 셀지 고르는 토글(목업 확정) ── */}
+          <div className="rqtc-modebar">
+            <div className="rqtc-seg">
+              <button type="button" className={mode === 'req' ? 'on' : ''} onClick={() => setMode('req')}>
+                요구사항
+              </button>
+              <button type="button" className={mode === 'tc' ? 'on' : ''} onClick={() => setMode('tc')}>
+                시험항목
+              </button>
+            </div>
+            <div className="rqtc-crumb">
+              {crumb.length ? (
+                crumb.map((c, i) => (
+                  <span key={c.id}>
+                    {i > 0 && <i className="rqtc-sep">›</i>}
+                    <button type="button" className="rqtc-crumbgo" onClick={() => pickFolder(c.id)}>
+                      {c.name}
+                    </button>
+                  </span>
+                ))
+              ) : (
+                <b>전체</b>
+              )}
+              {/* 「이 요구사항만」 걸린 상태를 늘 보이게 — 안 보이면 왜 몇 건뿐인지 모른다 */}
+              {onlyReq && (
+                <span className="rqtc-scope">
+                  {reqLabel(onlyReq)} {onlyReq.title}
+                  <button type="button" title="이 요구사항 좁히기 해제" onClick={() => setReqOnly('')}>
+                    ✕
                   </button>
                 </span>
-              ))
-            ) : (
-              <b>전체</b>
-            )}
-            <span className="rqtc-crumbn">
-              {rows.length}건
-              {cat && (
-                <label className="rqtc-deep" title="하위 폴더의 요구사항까지 함께 봅니다">
+              )}
+              {cat && !reqOnly && (
+                <label className="rqtc-deep" title="하위 폴더까지 함께 봅니다">
                   <input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
                   하위 폴더 포함
                 </label>
               )}
-            </span>
+            </div>
+            <span className="sp" />
+            <input
+              className="rqtc-q top"
+              value={q}
+              placeholder={mode === 'req' ? '요구사항 찾기 (이름 · ID)' : '시험 찾기 (이름 · TC ID)'}
+              onChange={(e) => setQ(e.target.value)}
+            />
           </div>
 
           <div className="rqtc-bar">
-            {/* 만드는 창은 **이미 있는 것**(ReqForm)을 그대로 부른다 */}
-            <button className="btn small primary" type="button" onClick={() => setEdit(null)}>
+            <button
+              className="btn small primary"
+              type="button"
+              onClick={() => (mode === 'req' ? setEditReq(null) : setEditTc(null))}
+            >
               ＋ New
             </button>
             {sel.size > 0 && (
@@ -393,205 +427,191 @@ export default function ReqTc({ me }: Props) {
               </>
             )}
             <span className="sp" />
-            <label className="rqtc-only">
-              <input type="checkbox" checked={onlyBare} onChange={(e) => setOnlyBare(e.target.checked)} />
-              미커버만
-            </label>
+            {mode === 'req' && (
+              <label className="rqtc-only">
+                <input type="checkbox" checked={onlyBare} onChange={(e) => setOnlyBare(e.target.checked)} />
+                미커버만
+              </label>
+            )}
           </div>
 
           <div className="rqtc-tbl">
-            <div className="rqtc-tr rqtc-th">
-              <div className="c-chk">
-                <input
-                  type="checkbox"
-                  aria-label="전체 고르기"
-                  checked={rows.length > 0 && sel.size === rows.length}
-                  ref={(el) => {
-                    if (el) el.indeterminate = sel.size > 0 && sel.size < rows.length
-                  }}
-                  onChange={(e) => setSel(e.target.checked ? new Set(rows.map(reqPk)) : new Set())}
-                />
-              </div>
-              <div className="c-caret" />
-              <div className="c-title">제목</div>
-              <div className="c-mg">모델그룹</div>
-              <div className="c-md">모델명</div>
-              <div className="c-tc">TC</div>
-              <div className="c-st">상태</div>
-              <div className="c-pr">우선순위</div>
-            </div>
-
-            {rows.map((r) => {
-              const pk = reqPk(r)
-              const list = tcOf.get(pk) ?? []
-              const on = openReq.has(pk)
-              const p = prjOf(r)
-              return (
-                <div key={pk}>
-                  <div
-                    className={`rqtc-tr${sel.has(pk) ? ' picked' : ''}`}
-                    onClick={() => setPop({ kind: 'req', id: pk })}
-                  >
-                    <div className="c-chk" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        aria-label="고르기"
-                        checked={sel.has(pk)}
-                        onChange={() => toggle(sel, pk, setSel)}
-                      />
-                    </div>
-                    {/* 접기/펼치기 — 체크박스 **오른쪽**(지시). 시험이 0건이어도
-                        끄지 않는다: 꺼 두면 단추가 없는 줄 알고, 「덮는 시험이
-                        없다」 는 사실도 못 본다(지적: 인라인 기능이 없다). */}
-                    <div className="c-caret" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        className={`rqtc-caret big${on ? ' open' : ''}${list.length ? '' : ' none'}`}
-                        aria-label={on ? '접기' : '펼치기'}
-                        title={
-                          list.length
-                            ? on
-                              ? '접기'
-                              : `붙은 시험 ${list.length}건 펼치기`
-                            : '덮는 시험이 없습니다'
-                        }
-                        onClick={() => toggle(openReq, pk, setOpenReq)}
-                      >
-                        <IconChevron />
-                      </button>
-                    </div>
-                    <div className="c-title">
-                      <span className="rqtc-rid">{reqLabel(r)}</span>
-                      <span className="rqtc-rtitle">{r.title || '(제목 없음)'}</span>
-                    </div>
-                    {/* 사업자·모델은 **프로젝트가 정본**이라 여기서 끌어다 쓴다 */}
-                    <div className="c-mg">{p?.model_group || '–'}</div>
-                    <div className="c-md">{p?.model || '–'}</div>
-                    <div className="c-tc" onClick={(e) => e.stopPropagation()}>
-                      {/* 배지를 눌러도 펴진다 — 캐럿만으로는 인라인이 있는 줄 모른다(지적) */}
-                      <button
-                        type="button"
-                        className={`rqtc-cov ${list.length ? 'ok' : 'no'}${list.length ? ' go' : ''}`}
-                        title={list.length ? (on ? '접기' : '붙은 시험 펴기') : '덮는 시험이 없습니다'}
-                        onClick={() => list.length && toggle(openReq, pk, setOpenReq)}
-                      >
-                        {list.length ? `TC ${list.length}` : '미커버'}
-                      </button>
-                    </div>
-                    {/* 먼데이 통채움(지시) — 셀 **전체**가 값의 색이다.
-                        상태·우선순위는 이 표에서 눈이 가장 먼저 가는 값이라
-                        글자만 칠하면 표가 안 읽힌다. */}
-                    <div className="c-st rqtc-fillc">
-                      {r.status ? (
-                        <span className="rqtc-fill" style={{ background: codeFill('req_status', r.status).bg, color: codeFill('req_status', r.status).fg }}>
-                          {r.status}
-                        </span>
-                      ) : (
-                        <span className="rqtc-fill none">–</span>
-                      )}
-                    </div>
-                    <div className="c-pr rqtc-fillc">
-                      {r.priority ? (
-                        <span className="rqtc-fill" style={{ background: codeFill('req_priority', r.priority).bg, color: codeFill('req_priority', r.priority).fg }}>
-                          {r.priority}
-                        </span>
-                      ) : (
-                        <span className="rqtc-fill none">–</span>
-                      )}
-                    </div>
+            {mode === 'req' ? (
+              <>
+                <div className="rqtc-tr rqtc-th">
+                  <div className="c-chk">
+                    <input
+                      type="checkbox"
+                      aria-label="전체 고르기"
+                      checked={reqRows.length > 0 && sel.size === reqRows.length}
+                      ref={(el) => {
+                        if (el) el.indeterminate = sel.size > 0 && sel.size < reqRows.length
+                      }}
+                      onChange={(e) => setSel(e.target.checked ? new Set(reqRows.map(reqPk)) : new Set())}
+                    />
                   </div>
-
-                  {/* 붙은 시험 — 합쳐 보는 자리라서 아래로 편다 */}
-                  {/* 인라인 하위 표 — **자체 머리줄**을 가진 한 덩이(지시, 사진).
-                      요구사항 칸을 물려 쓰지 않는다: 시험은 볼 것이 다르다
-                      (실행 타입·결과). 사이클 화면의 인라인 카드와 같은 문법. */}
-                  {on && (
-                    <div className="rqtc-itcard">
-                      <div className="rqtc-itrow rqtc-ithd">
-                        <span className="c-chk">
-                          <input
-                            type="checkbox"
-                            aria-label="이 요구사항의 시험 전체 고르기"
-                            checked={list.length > 0 && list.every((t) => selTc.has(t.tcid))}
-                            ref={(el) => {
-                              if (el) {
-                                const n = list.filter((t) => selTc.has(t.tcid)).length
-                                el.indeterminate = n > 0 && n < list.length
-                              }
-                            }}
-                            onChange={(e) =>
-                              setSelTc((old) => {
-                                const nx = new Set(old)
-                                for (const t of list) {
-                                  if (e.target.checked) nx.add(t.tcid)
-                                  else nx.delete(t.tcid)
-                                }
-                                return nx
-                              })
-                            }
-                          />
-                        </span>
-                        <span>TC ID</span>
-                        <span>이름</span>
-                        <span>모델그룹</span>
-                        <span>모델명</span>
-                        <span>유형</span>
-                        <span>실행 타입</span>
-                        <span>결과</span>
+                  <div className="c-title">제목</div>
+                  <div className="c-mg">모델그룹</div>
+                  <div className="c-md">모델명</div>
+                  <div className="c-tc">TC</div>
+                  <div className="c-st">상태</div>
+                  <div className="c-pr">우선순위</div>
+                </div>
+                {reqRows.map((r) => {
+                  const pk = reqPk(r)
+                  const n = tcOf.get(pk)?.length ?? 0
+                  const p = prjOf(r)
+                  return (
+                    <div
+                      className={`rqtc-tr${sel.has(pk) ? ' picked' : ''}`}
+                      key={pk}
+                      title="눌러서 이 요구사항의 시험 보기"
+                      onClick={() => goTcOf(pk)}
+                    >
+                      <div className="c-chk" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={sel.has(pk)} onChange={() => toggle(sel, pk, setSel)} />
                       </div>
-                      {list.map((t) => (
-                        <div
-                          className="rqtc-itrow"
-                          key={t.tcid}
-                          onClick={() => setPop({ kind: 'tc', id: t.tcid })}
+                      <div className="c-title">
+                        <button
+                          type="button"
+                          className="rqtc-rid"
+                          title="요구사항 상세"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setPop({ kind: 'req', id: pk })
+                          }}
                         >
-                          <span className="c-chk" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              aria-label="고르기"
-                              checked={selTc.has(t.tcid)}
-                              onChange={() => toggle(selTc, t.tcid, setSelTc)}
-                            />
-                          </span>
-                          <span className="rqtc-rid tc">{t.tcid}</span>
-                          <span className="rqtc-itnm">{t.name || '(제목 없음)'}</span>
-                          <span>{p?.model_group || '–'}</span>
-                          <span>{p?.model || '–'}</span>
-                          <span>
-                            {t.type ? <em className="rqtc-kind">{String(t.type)}</em> : '–'}
-                          </span>
-                          <span>{String(t.run_type ?? t.kind ?? '') || '–'}</span>
-                          <span>
-                            {t.status ? (
-                              <em className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</em>
-                            ) : (
-                              <em className="rqtc-idle">미실행</em>
-                            )}
-                          </span>
-                        </div>
-                      ))}
-                      {!list.length && (
-                        <div className="rqtc-itrow rqtc-itnone">
-                          <span />
-                          <span />
-                          <span className="muted">아직 붙은 시험이 없습니다 — 아래 「＋ TC」 로 만드세요</span>
-                          <span /> <span /> <span /> <span /> <span />
-                        </div>
-                      )}
-                      {/* 인라인에서 시험 만들기 — 이미 있는 TcForm 을 부르되
-                          **그 요구사항에 미리 연결**해서 연다(presetReqId).
-                          그래서 만들자마자 이 자리에 붙는다. */}
-                      <div className="rqtc-itrow rqtc-itadd" onClick={() => setMkTc(pk)}>
-                        <span />
-                        <span className="rqtc-addlink">＋ TC</span>
-                        <span /> <span /> <span /> <span /> <span /> <span />
+                          {reqLabel(r)}
+                        </button>
+                        <span className="rqtc-rtitle">{r.title || '(제목 없음)'}</span>
+                      </div>
+                      <div className="c-mg">{p?.model_group || '–'}</div>
+                      <div className="c-md">{p?.model || '–'}</div>
+                      <div className="c-tc rqtc-fillc">
+                        <span className={`rqtc-cov ${n ? 'ok' : 'no'}`}>{n ? `TC ${n}` : '미커버'}</span>
+                      </div>
+                      <Fill kind="req_status" v={r.status} cls="c-st" f={codeFill} />
+                      <Fill kind="req_priority" v={r.priority} cls="c-pr" f={codeFill} />
+                    </div>
+                  )
+                })}
+                {!reqRows.length && <div className="empty">보여 줄 요구사항이 없습니다.</div>}
+              </>
+            ) : (
+              <>
+                <div className="rqtc-tr tc rqtc-th">
+                  <div className="c-chk">
+                    <input
+                      type="checkbox"
+                      aria-label="전체 고르기"
+                      checked={tcRows.length > 0 && sel.size === tcRows.length}
+                      ref={(el) => {
+                        if (el) el.indeterminate = sel.size > 0 && sel.size < tcRows.length
+                      }}
+                      onChange={(e) => setSel(e.target.checked ? new Set(tcRows.map((t) => t.tcid)) : new Set())}
+                    />
+                  </div>
+                  <div className="c-title">제목</div>
+                  <div className="c-mg">모델그룹</div>
+                  <div className="c-md">모델명</div>
+                  <div className="c-ty">유형</div>
+                  <div className="c-st">상태</div>
+                  <div className="c-sv">중요도</div>
+                  <div className="c-rt">타입</div>
+                  <div className="c-og">구분</div>
+                  <div className="c-last">최근 결과</div>
+                  <div className="c-map">REQ Map</div>
+                </div>
+                {tcRows.map((t) => {
+                  const r = reqById.get(String(t.req_id ?? ''))
+                  const p = prjOf(r)
+                  const last = lastOf(t.tcid)
+                  return (
+                    <div
+                      className={`rqtc-tr tc${sel.has(t.tcid) ? ' picked' : ''}`}
+                      key={t.tcid}
+                      onClick={() => setPop({ kind: 'tc', id: t.tcid })}
+                    >
+                      <div className="c-chk" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={sel.has(t.tcid)}
+                          onChange={() => toggle(sel, t.tcid, setSel)}
+                        />
+                      </div>
+                      <div className="c-title">
+                        <button
+                          type="button"
+                          className="rqtc-rid tc"
+                          title="시험항목 상세"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setPop({ kind: 'tc', id: t.tcid })
+                          }}
+                        >
+                          {t.tcid}
+                        </button>
+                        <span className="rqtc-rtitle">{t.name || '(제목 없음)'}</span>
+                      </div>
+                      {/* 시험은 제 모델 값을 갖고 있다 — 없으면 프로젝트 값으로 */}
+                      <div className="c-mg">{String(t.model_group ?? '') || p?.model_group || '–'}</div>
+                      <div className="c-md">{String(t.model ?? '') || p?.model || '–'}</div>
+                      <Fill kind="tc_type" v={t.type} cls="c-ty" f={codeFill} />
+                      <Fill kind="tc_status" v={t.status} cls="c-st" f={codeFill} />
+                      <Fill kind="tc_severity" v={t.severity} cls="c-sv" f={codeFill} />
+                      <Fill kind="tc_run_type" v={String(t.run_type ?? '')} cls="c-rt" f={codeFill} />
+                      <Fill kind="tc_origin" v={String(t.origin ?? '')} cls="c-og" f={codeFill} />
+                      <div className="c-last rqtc-fillc">
+                        {last ? (
+                          <span className={`rqtc-lastv ${statusClass(last)}`}>{last}</span>
+                        ) : (
+                          <span className="rqtc-fill none">–</span>
+                        )}
+                      </div>
+                      <div className="c-map">
+                        {r ? (
+                          <button
+                            type="button"
+                            className="rqtc-rid"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPop({ kind: 'req', id: reqPk(r) })
+                            }}
+                          >
+                            {reqLabel(r)}
+                          </button>
+                        ) : (
+                          '–'
+                        )}
                       </div>
                     </div>
-                  )}
-                </div>
-              )
-            })}
-            {!rows.length && <div className="empty">보여 줄 요구사항이 없습니다.</div>}
+                  )
+                })}
+                {!tcRows.length && (
+                  <div className="rqtc-none">
+                    {onlyReq ? (
+                      <>
+                        <b>이 요구사항에는 시험이 없습니다</b>
+                        <span>위 ＋New 로 만들면 이 요구사항에 바로 붙습니다</span>
+                      </>
+                    ) : (
+                      <b>보여 줄 시험이 없습니다.</b>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="rqtc-foot">
+            {mode === 'req' ? (
+              <>
+                요구사항 {rowsN}건 · 시험 붙음 {rowsN - bare} ·{' '}
+                <b className={bare ? 'rqtc-bare' : ''}>미커버 {bare}</b> — 줄을 누르면 그 요구사항의 시험을 봅니다
+              </>
+            ) : (
+              <>시험 {rowsN}건</>
+            )}
           </div>
         </section>
       </div>
@@ -601,42 +621,46 @@ export default function ReqTc({ me }: Props) {
           kind={pop.kind}
           id={pop.id}
           onClose={() => setPop(null)}
-          onEdit={
-            pop.kind === 'req'
-              ? () => {
-                  const r = reqs.find((x) => reqPk(x) === pop.id)
-                  if (r) {
-                    setPop(null)
-                    setEdit(r)
-                  }
-                }
-              : undefined
-          }
+          onEdit={() => {
+            if (pop.kind === 'req') {
+              const r = reqs.find((x) => reqPk(x) === pop.id)
+              if (r) {
+                setPop(null)
+                setEditReq(r)
+              }
+            } else {
+              const t = tcs.find((x) => x.tcid === pop.id)
+              if (t) {
+                setPop(null)
+                setEditTc(t)
+              }
+            }
+          }}
+          onSeeTcs={pop.kind === 'req' ? () => { setPop(null); goTcOf(pop.id) } : undefined}
         />
       )}
 
-      {/* 시험 만들기 — 요구사항에 미리 연결해서 연다 */}
-      {!!mkTc && (
-        <TcForm
-          editing={null}
-          presetReqId={mkTc}
-          onClose={() => setMkTc('')}
-          onCreated={() => {
-            setMkTc('')
-            void tcQ.refetch()
-            setOpenReq((o) => new Set([...o, mkTc]))
+      {editReq !== undefined && (
+        <ReqForm
+          editing={editReq}
+          presetFolder={cat || null}
+          onClose={() => {
+            setEditReq(undefined)
+            void reqQ.refetch()
           }}
         />
       )}
-
-      {/* 요구사항 만들기·고치기 — **이미 있는 창**을 그대로 부른다 */}
-      {edit !== undefined && (
-        <ReqForm
-          editing={edit}
-          presetFolder={cat || null}
+      {editTc !== undefined && (
+        <TcForm
+          editing={editTc}
+          presetReqId={reqOnly || undefined}
           onClose={() => {
-            setEdit(undefined)
-            void reqQ.refetch()
+            setEditTc(undefined)
+            void tcQ.refetch()
+          }}
+          onCreated={() => {
+            setEditTc(undefined)
+            void tcQ.refetch()
           }}
         />
       )}
@@ -644,22 +668,53 @@ export default function ReqTc({ me }: Props) {
   )
 }
 
+/** 통채움 한 칸 — 셀 전체가 값의 색(먼데이). 색은 설정이 정본이다 */
+function Fill({
+  kind,
+  v,
+  cls,
+  f,
+}: {
+  kind: string
+  v?: string | null
+  cls: string
+  f: (kind: string, value: string) => { bg: string; fg: string }
+}) {
+  const val = String(v ?? '')
+  if (!val)
+    return (
+      <div className={`${cls} rqtc-fillc`}>
+        <span className="rqtc-fill none">–</span>
+      </div>
+    )
+  const c = f(kind, val)
+  return (
+    <div className={`${cls} rqtc-fillc`}>
+      <span className="rqtc-fill" style={{ background: c.bg, color: c.fg }}>
+        {val}
+      </span>
+    </div>
+  )
+}
+
 /**
- * 상세 팝업 — 3열로는 좁아서 팝업으로 넓게 본다(지시).
+ * 상세 팝업 — **자세히 보는 자리**(지시). 3열로는 좁아서 팝업으로 넓게 본다.
  *
- * 고치는 것은 **원래 부품**으로 넘긴다: 요구사항은 ReqForm, 시험은 Coverage.
- * 편집기를 여기 복제하면 두 벌이 되고, 한쪽만 고치는 날이 온다.
+ * 보는 것은 여기서 다 한다(스텝·판정·결과까지). 다만 **고치는 것은 원래
+ * 부품**으로 넘긴다 — 편집기를 복제하면 두 벌이 되고, 한쪽만 고치는 날이 온다.
  */
 function DetailPop({
   kind,
   id,
   onClose,
   onEdit,
+  onSeeTcs,
 }: {
   kind: 'req' | 'tc'
   id: string
   onClose: () => void
-  onEdit?: () => void
+  onEdit: () => void
+  onSeeTcs?: () => void
 }) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -688,11 +743,14 @@ function DetailPop({
           <b>{kind === 'req' ? '요구사항' : '시험항목'}</b>
           <span className="rqtc-popid">{String(d.reqid || d.tcid || id)}</span>
           <span className="sp" />
-          {onEdit && (
-            <button className="btn small primary" type="button" onClick={onEdit}>
-              고치기
+          {onSeeTcs && (
+            <button className="btn small" type="button" onClick={onSeeTcs}>
+              이 요구사항의 시험 보기
             </button>
           )}
+          <button className="btn small primary" type="button" onClick={onEdit}>
+            고치기
+          </button>
           <button
             className="btn small"
             type="button"
@@ -721,9 +779,12 @@ function DetailPop({
                   [
                     ['상태', d.status],
                     ['우선순위', d.priority],
+                    ['모델그룹', d.model_group],
+                    ['모델명', d.model],
                     ['유형', d.type],
-                    ['심각도', d.severity],
-                    ['모델', d.model],
+                    ['중요도', d.severity],
+                    ['실행 타입', d.run_type],
+                    ['구분', d.origin],
                     ['만든이', d.created_by],
                     ['고친이', d.updated_by],
                   ] as Array<[string, unknown]>
@@ -737,46 +798,54 @@ function DetailPop({
                   ))}
               </div>
 
-              {kind === 'req' && Array.isArray(d.tc) && (d.tc as unknown[]).length > 0 && (
+              {kind === 'req' && Array.isArray(d.tc) && (
                 <>
                   <h4 className="rqtc-poph">붙은 시험 {(d.tc as unknown[]).length}건</h4>
-                  <div className="rqtc-poplist">
-                    {(d.tc as Array<Record<string, unknown>>).map((t, i) => (
-                      <div className="rqtc-popline" key={i}>
-                        <span className="rqtc-rid tc">{String(t.tcid ?? '')}</span>
-                        <span>{String(t.name ?? '')}</span>
-                        <span className="sp" />
-                        {!!t.status && (
-                          <span className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  {(d.tc as unknown[]).length ? (
+                    <div className="rqtc-poplist">
+                      {(d.tc as Array<Record<string, unknown>>).map((t, i) => (
+                        <div className="rqtc-popline" key={i}>
+                          <span className="rqtc-rid tc">{String(t.tcid ?? '')}</span>
+                          <span>{String(t.name ?? '')}</span>
+                          <span className="sp" />
+                          {!!t.status && (
+                            <span className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rqtc-popnone">덮는 시험이 없습니다</div>
+                  )}
                 </>
               )}
 
-              {kind === 'tc' && steps.length > 0 && (
+              {kind === 'tc' && (
                 <>
                   <h4 className="rqtc-poph">스텝 {steps.length}개</h4>
-                  <div className="rqtc-poplist">
-                    {steps.map((s, i) => (
-                      <div className="rqtc-popline" key={i}>
-                        <span className="rqtc-rid">#{i + 1}</span>
-                        <span className="rqtc-kind">{String(s.kind ?? s.action ?? '')}</span>
-                        <span className="mono">{String(s.cli ?? s.step ?? s.desc ?? '')}</span>
-                        <span className="sp" />
-                        {!!s.repeatResult && (
-                          <span className={`rqtc-v ${statusClass(String(s.repeatResult))}`}>
-                            {String(s.repeatResult)}
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  {steps.length ? (
+                    <div className="rqtc-poplist">
+                      {steps.map((s, i) => (
+                        <div className="rqtc-popline step" key={i}>
+                          <span className="rqtc-rid">#{i + 1}</span>
+                          <span className="rqtc-kind">{String(s.kind ?? s.action ?? 'cli')}</span>
+                          <span className="mono">{String(s.cli ?? s.step ?? s.desc ?? '')}</span>
+                          <span className="sp" />
+                          {!!s.repeatResult && (
+                            <span className={`rqtc-v ${statusClass(String(s.repeatResult))}`}>
+                              {String(s.repeatResult)}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rqtc-popnone">스텝이 없습니다</div>
+                  )}
                 </>
               )}
 
-              {!!d.overview && <p className="rqtc-desc">{String(d.overview)}</p>}
+              {!!(d.overview || d.desc) && <p className="rqtc-desc">{String(d.overview || d.desc)}</p>}
             </>
           )}
         </div>
