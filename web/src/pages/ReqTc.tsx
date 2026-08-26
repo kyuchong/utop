@@ -6,6 +6,7 @@ import { goto } from '@/api/goto'
 import { fillOf } from '@/lib/fieldFill'
 import { IconChevron, IconSearch, IconSort } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
+import TcForm from '@/components/TcForm'
 import ProjectPicker, { currentProject, onProjectChange } from '@/components/ProjectPicker'
 import './ReqTc.css'
 
@@ -51,6 +52,10 @@ export default function ReqTc({ me }: Props) {
   const [fsort, setFsort] = useState<'name' | 'req'>('name')
   /** 표에서 고른 줄 — 사진의 체크박스 */
   const [sel, setSel] = useState<Set<string>>(new Set())
+  /** 인라인 하위 표에서 고른 시험 — 요구사항 체크와 따로 센다 */
+  const [selTc, setSelTc] = useState<Set<string>>(new Set())
+  /** 시험 만들기 — 어느 요구사항에 붙일지(req.id). ''면 안 열림 */
+  const [mkTc, setMkTc] = useState('')
   /** 로고·제품 이름은 **브랜딩 설정**이 정본이다 — 여기 박아 넣지 않는다 */
   const [brand, setBrand] = useState<{ logo?: string; name?: string }>({})
 
@@ -503,6 +508,29 @@ export default function ReqTc({ me }: Props) {
                   {on && (
                     <div className="rqtc-itcard">
                       <div className="rqtc-itrow rqtc-ithd">
+                        <span className="c-chk">
+                          <input
+                            type="checkbox"
+                            aria-label="이 요구사항의 시험 전체 고르기"
+                            checked={list.length > 0 && list.every((t) => selTc.has(t.tcid))}
+                            ref={(el) => {
+                              if (el) {
+                                const n = list.filter((t) => selTc.has(t.tcid)).length
+                                el.indeterminate = n > 0 && n < list.length
+                              }
+                            }}
+                            onChange={(e) =>
+                              setSelTc((old) => {
+                                const nx = new Set(old)
+                                for (const t of list) {
+                                  if (e.target.checked) nx.add(t.tcid)
+                                  else nx.delete(t.tcid)
+                                }
+                                return nx
+                              })
+                            }
+                          />
+                        </span>
                         <span>TC ID</span>
                         <span>이름</span>
                         <span>모델그룹</span>
@@ -517,6 +545,14 @@ export default function ReqTc({ me }: Props) {
                           key={t.tcid}
                           onClick={() => setPop({ kind: 'tc', id: t.tcid })}
                         >
+                          <span className="c-chk" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              aria-label="고르기"
+                              checked={selTc.has(t.tcid)}
+                              onChange={() => toggle(selTc, t.tcid, setSelTc)}
+                            />
+                          </span>
                           <span className="rqtc-rid tc">{t.tcid}</span>
                           <span className="rqtc-itnm">{t.name || '(제목 없음)'}</span>
                           <span>{p?.model_group || '–'}</span>
@@ -537,10 +573,19 @@ export default function ReqTc({ me }: Props) {
                       {!list.length && (
                         <div className="rqtc-itrow rqtc-itnone">
                           <span />
-                          <span className="muted">덮는 시험이 없습니다 — Coverage 에서 시험을 붙이세요</span>
+                          <span />
+                          <span className="muted">아직 붙은 시험이 없습니다 — 아래 「＋ TC」 로 만드세요</span>
                           <span /> <span /> <span /> <span /> <span />
                         </div>
                       )}
+                      {/* 인라인에서 시험 만들기 — 이미 있는 TcForm 을 부르되
+                          **그 요구사항에 미리 연결**해서 연다(presetReqId).
+                          그래서 만들자마자 이 자리에 붙는다. */}
+                      <div className="rqtc-itrow rqtc-itadd" onClick={() => setMkTc(pk)}>
+                        <span />
+                        <span className="rqtc-addlink">＋ TC</span>
+                        <span /> <span /> <span /> <span /> <span /> <span />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -567,6 +612,20 @@ export default function ReqTc({ me }: Props) {
                 }
               : undefined
           }
+        />
+      )}
+
+      {/* 시험 만들기 — 요구사항에 미리 연결해서 연다 */}
+      {!!mkTc && (
+        <TcForm
+          editing={null}
+          presetReqId={mkTc}
+          onClose={() => setMkTc('')}
+          onCreated={() => {
+            setMkTc('')
+            void tcQ.refetch()
+            setOpenReq((o) => new Set([...o, mkTc]))
+          }}
         />
       )}
 

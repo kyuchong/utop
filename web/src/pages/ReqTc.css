@@ -279,7 +279,7 @@
 }
 .rqtc-itrow {
   display: grid;
-  grid-template-columns: 108px minmax(0, 1fr) 116px 92px 76px 76px 72px;
+  grid-template-columns: 30px 108px minmax(0, 1fr) 116px 92px 76px 76px 72px;
   align-items: center;
   gap: 8px;
   padding: 6px 10px;
@@ -301,6 +301,10 @@
 .rqtc-itnone:hover { background: transparent; }
 .rqtc-idle { font-size: var(--fs-xs); color: var(--c-text-faint); font-style: normal; }
 .rqtc-itrow em { font-style: normal; }
+/* 인라인에서 시험 만들기 — 표의 마지막 줄로 둔다(사이클의 「＋ TC」 문법) */
+.rqtc-itadd { background: #fbfcfd; }
+.rqtc-itadd:hover { background: var(--c-primary-bg); }
+.rqtc-addlink { color: var(--c-primary); font-weight: 700; font-size: var(--fs-xs); }
 
 .rqtc-rid {
   font-family: var(--font-mono);
