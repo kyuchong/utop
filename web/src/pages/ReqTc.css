@@ -740,3 +740,22 @@
   font-weight: 400;
 }
 .rqtc-act button.x:hover { background: rgb(255 255 255 / 16%); color: #fff; }
+
+/* 만들기 ⋯ — 청록으로 채운다(지시). 이 줄에서 「누르면 뭔가 생기는」 단추는
+   이것 하나라, 오른쪽의 보기 손잡이들과 색으로 갈라 둔다. */
+.rqtc-newb {
+  background: var(--c-sel-teal);
+  /* 점 셋도 진하게(지시) — 옅으면 청록 판 위에서 묻혀, 채운 보람이 없다.
+     기본 굵기로는 15px 글자가 여려서 900 으로 세우고 한 치수 키운다. */
+  color: var(--c-sel-teal-ink);
+  border-color: transparent;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1;
+}
+.rqtc-newb:hover,
+.rqtc-newb[aria-expanded='true'] {
+  background: var(--c-app-top);
+  border-color: transparent;
+  color: #fff;
+}

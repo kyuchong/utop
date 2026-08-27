@@ -765,12 +765,15 @@ export default function ReqTc({ me }: Props) {
                 Coverage
               </button>
             </div>
+            {/* 세로선 — 「무엇을 볼지」(토글)와 「무엇을 만들지」(⋯)를
+                가른다(지시). 붙어 있으면 토글의 일부처럼 읽힌다. */}
+            <span className="rqtc-vsep" aria-hidden="true" />
             {/* 만들기 셋은 **⋯ 안으로**(지시). 늘 서 있을 필요가 없는
                 것들이라 줄을 먹고 있었다 — 눌러서 꺼내 쓴다. */}
             <div className="rqtc-more">
               <button
                 type="button"
-                className="rqtc-ib"
+                className="rqtc-ib rqtc-newb"
                 aria-haspopup="menu"
                 aria-expanded={newOpen}
                 title="만들기"
