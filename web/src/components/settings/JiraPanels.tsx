@@ -141,7 +141,9 @@ export default function JiraPanels() {
     void patch({ panels: { ...(cur.panels ?? {}), [kind]: on ? PANELS.map((p) => p.k) : [] } })
 
   return (
-    <div className="set-page">
+    /* 넓은 판을 쓴다 — 기본 판은 720px 이라 Defect·CR 두 칸이 각각 200px
+       남짓으로 눌렸다(지적). 이 화면은 세 칸을 나란히 놓고 견주는 일이다. */
+    <div className="set-page wide jp-page">
       <div className="set-head">
         <b>Jira 프로젝트 패널 설정</b>
         <span className="muted small">
@@ -361,7 +363,11 @@ function FieldDefaults({
     const isCR = kind === 'cr'
     const hit = types.find((t) => {
       const n = t.name.toLowerCase()
-      return isCR ? n.includes('cr') || n.includes('change') : n.includes('defect') || n.includes('bug')
+      /* 한글 이름을 쓰는 프로젝트가 많다 — 영문만 보면 못 찾고 맨 앞 것
+         (큰틀·Epic 따위)이 뽑혀 엉뚱한 칸이 뜬다(지적). */
+      return isCR
+        ? n.includes('cr') || n.includes('change') || t.name.includes('변경') || t.name.includes('요청')
+        : n.includes('defect') || n.includes('bug') || t.name.includes('결함') || t.name.includes('버그')
     })
     return hit?.name ?? types[0]?.name ?? ''
   }, [types, kind])

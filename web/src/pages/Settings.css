@@ -591,9 +591,14 @@
 .jp-auto .sp { margin-left: auto; }
 .jp-sw { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 700; }
 .jp-cols { display: flex; gap: 12px; align-items: flex-start; min-height: 0; }
-.jp-list { flex: 0 0 240px; padding: 6px; max-height: 60vh; overflow: auto; }
+/* 프로젝트 칸 — 240 → 300px(지시). 「#UBQS Product Specifications(공공
+   Only)」 처럼 긴 이름이 세 줄로 접혀 목록이 길어졌다. */
+.jp-list { flex: 0 0 300px; padding: 6px; max-height: 60vh; overflow: auto; }
 .jp-lh { padding: 4px 6px 6px; font-size: var(--fs-xs); color: var(--c-text-muted); }
 .jp-empty { padding: 6px; }
+/* 줄마다 가름선 — 이름이 두 줄로 접히는 줄이 섞여 있어, 선이 없으면 어디까지가
+   한 프로젝트인지 눈이 짚어야 한다(지시). */
+.jp-item + .jp-item { border-top: 1px solid var(--c-border-soft, #eef1f5); }
 .jp-item {
   display: flex;
   align-items: center;
