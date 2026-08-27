@@ -1,8 +1,15 @@
+/* 이 화면도 **흰 카드**다(지시). 화면 바탕이 청록이 된 뒤로 이 판만 끝에서
+   끝까지 흰색이라, 다른 화면과 달리 「판 위에 놓인 것」 으로 안 보였다.
+   카드 모양은 한 곳(.panel)에서 오므로 같은 값을 쓴다. */
 .dfl {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-box);
+  overflow: hidden;
 }
 
 .dfl-head {
