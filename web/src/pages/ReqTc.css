@@ -629,3 +629,13 @@
 
 /* 표 바깥도 닫는다 — 엑셀의 판은 네 변이 다 선이다 */
 .rqtc-tbl { border: 1px solid var(--c-border); border-radius: 4px; }
+
+/* 도구줄의 세로 가름선 — 만들기 / 고치기 / 지우기를 갈라 둔다.
+   되돌릴 수 없는 삭제는 선 너머 끝자리에 서야 손이 덜 닿는다. */
+.rqtc-vsep {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: var(--c-border);
+}

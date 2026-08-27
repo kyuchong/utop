@@ -6,6 +6,11 @@ import { goto } from '@/api/goto'
 import { fillOf } from '@/lib/fieldFill'
 import { IconChevron, IconGrip, IconPanel, IconSearch, IconSort } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
+import ReqBulkForm from '@/components/ReqBulkForm'
+import ReqBulkEdit from '@/components/ReqBulkEdit'
+import TcBulkForm from '@/components/TcBulkForm'
+import TcBulkEdit from '@/components/tc/TcBulkEdit'
+import CopyDialog from '@/components/CopyDialog'
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
 import TestCases from '@/pages/TestCases'
@@ -161,6 +166,12 @@ export default function ReqTc({ me }: Props) {
    * 덮어써서, 폴더 네 칸만 보내면 제목·내용이 다 지워진다.
    */
   const [dropCat, setDropCat] = useState('')
+  /* 도구줄이 여는 창들 — 요구사항·시험항목 화면의 것을 그대로 쓴다.
+     같은 일을 하는 창을 새로 만들면 두 화면이 서로 다르게 동작한다. */
+  const [bulkNew, setBulkNew] = useState(false)
+  const [bulkEdit, setBulkEdit] = useState(false)
+  const [copyOpen, setCopyOpen] = useState(false)
+  const [actBusy, setActBusy] = useState('')
   const moveToCat = async (ids: string[], catId: string) => {
     const p = pathOf(catId)
     for (const id of ids) {
@@ -182,6 +193,67 @@ export default function ReqTc({ me }: Props) {
     await reqQ.refetch()
     await tcQ.refetch()
   }
+  /**
+   * 고른 요구사항을 복제한다 — 요구사항 화면과 **같은 방식**이다.
+   * 새 ID 는 신규 생성이 쓰는 /api/req-next-id 그대로 받는다. 복제라고 다른
+   * 규칙으로 매기면 「어느 ID 가 왜 이 모양이지」 를 두 가지로 기억해야 한다.
+   * 제목 끝에 (복제)를 붙인다 — 안 붙이면 같은 이름이 나란히 서서 어느 것이
+   * 원본인지 알 수 없다.
+   */
+  const cloneReqs = async () => {
+    const ids = [...sel]
+    if (!ids.length) return
+    if (!window.confirm(`고른 ${ids.length}건을 복제합니다.`)) return
+    setActBusy('clone')
+    try {
+      for (const id of ids) {
+        const r = (await api.getRequirement(id)) as unknown as Record<string, unknown>
+        const nid = ((await (await apiFetch('/api/req-next-id')).json()) as { reqid?: string }).reqid ?? ''
+        const pk = `rq-${Date.now()}-${Math.floor(Math.random() * 1e4)}`
+        const { id: _i, reqid: _r, tc: _t, ...rest } = r
+        const t = String(rest.title ?? '').trim()
+        await apiFetch(`/api/req/${encodeURIComponent(pk)}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            ...rest,
+            id: pk,
+            reqid: nid,
+            title: t.endsWith('(복제)') ? t : `${t} (복제)`.trim(),
+            tc: [],
+          }),
+        })
+      }
+      setSel(new Set())
+      await reqQ.refetch()
+    } catch (e) {
+      window.alert(`복제하지 못했습니다 — ${String((e as Error).message)}`)
+    } finally {
+      setActBusy('')
+    }
+  }
+
+  /** 고른 것을 지운다 — 되돌릴 수 없으니 몇 건인지 적어 두고 묻는다 */
+  const deletePicked = async () => {
+    const ids = [...sel]
+    if (!ids.length) return
+    const what = mode === 'req' ? '요구사항' : '시험'
+    if (!window.confirm(`고른 ${what} ${ids.length}건을 삭제합니다.\n되돌릴 수 없습니다. 계속할까요?`)) return
+    setActBusy('del')
+    try {
+      for (const id of ids) {
+        const url = mode === 'req' ? `/api/req/${encodeURIComponent(id)}` : `/api/tc/${encodeURIComponent(id)}`
+        await apiFetch(url, { method: 'DELETE' })
+      }
+      setSel(new Set())
+      await reqQ.refetch()
+      await tcQ.refetch()
+    } catch (e) {
+      window.alert(`지우지 못했습니다 — ${String((e as Error).message)}`)
+    } finally {
+      setActBusy('')
+    }
+  }
+
   /** 끌고 있는 것들 — 고른 줄이 여럿이면 그 전부, 아니면 잡은 줄 하나 */
   const dragIds = (id: string) => (sel.has(id) ? [...sel] : [id])
 
@@ -518,6 +590,13 @@ export default function ReqTc({ me }: Props) {
             />
           </div>
 
+          {/* 도구줄 — 요구사항·시험항목 화면의 그 줄을 그대로 옮겨 왔다(지시).
+              만들기는 늘 서 있고, 고른 뒤에만 고치기·복제·삭제가 선다:
+                없음    → ＋New · ＋Bulk New (시험은 ＋Copy 도)
+                1건     → … | Edit  Clone | Delete
+                2건 이상 → … | Bulk Edit  Clone | Delete
+              삭제는 구분선 너머 끝자리다 — 되돌릴 수 없는 것은 손이 닿기
+              어려운 곳에 둔다. */}
           <div className="rqtc-bar">
             <button
               className="btn small primary"
@@ -526,11 +605,72 @@ export default function ReqTc({ me }: Props) {
             >
               ＋ New
             </button>
+            <button
+              className="btn small"
+              type="button"
+              title="엑셀·문서에서 붙여넣어 여러 건을 한 번에 만듭니다"
+              onClick={() => setBulkNew(true)}
+            >
+              ＋ Bulk New
+            </button>
+            {mode === 'tc' && (
+              <button
+                className="btn small"
+                type="button"
+                title="다른 폴더·요구사항의 시험을 복사해 옵니다"
+                onClick={() => setCopyOpen(true)}
+              >
+                ＋ Copy
+              </button>
+            )}
             {sel.size > 0 && (
               <>
+                <span className="rqtc-vsep" aria-hidden="true" />
+                {sel.size === 1 ? (
+                  <button
+                    className="btn small"
+                    type="button"
+                    title="고른 것을 고칩니다"
+                    onClick={() => {
+                      const id = [...sel][0]!
+                      if (mode === 'req') setEditReq(reqById.get(id) ?? null)
+                      else setEditTc(tcs.find((t) => t.tcid === id) ?? null)
+                    }}
+                  >
+                    Edit
+                  </button>
+                ) : (
+                  <button
+                    className="btn small"
+                    type="button"
+                    title={`고른 ${sel.size}건을 한꺼번에 고칩니다`}
+                    onClick={() => setBulkEdit(true)}
+                  >
+                    Bulk Edit
+                  </button>
+                )}
+                {mode === 'req' && (
+                  <button
+                    className="btn small"
+                    type="button"
+                    disabled={!!actBusy}
+                    onClick={() => void cloneReqs()}
+                  >
+                    {actBusy === 'clone' ? '복제 중…' : 'Clone'}
+                  </button>
+                )}
+                <span className="rqtc-vsep" aria-hidden="true" />
+                <button
+                  className="btn small danger"
+                  type="button"
+                  disabled={!!actBusy}
+                  onClick={() => void deletePicked()}
+                >
+                  {actBusy === 'del' ? '삭제 중…' : 'Delete'}
+                </button>
                 <span className="rqtc-selinfo">{sel.size}개 고름</span>
                 <button className="btn small" type="button" onClick={() => setSel(new Set())}>
-                  고르기 해제
+                  해제
                 </button>
               </>
             )}
@@ -776,6 +916,45 @@ export default function ReqTc({ me }: Props) {
               있는 수인지 헷갈린다. */}
         </section>
       </div>
+
+      {bulkNew &&
+        (mode === 'req' ? (
+          <ReqBulkForm presetFolder={cat || null} onClose={() => setBulkNew(false)} />
+        ) : (
+          <TcBulkForm onClose={() => setBulkNew(false)} />
+        ))}
+      {bulkEdit &&
+        (mode === 'req' ? (
+          <ReqBulkEdit
+            ids={[...sel]}
+            onClose={() => setBulkEdit(false)}
+            onDone={() => {
+              setBulkEdit(false)
+              setSel(new Set())
+              void reqQ.refetch()
+            }}
+          />
+        ) : (
+          <TcBulkEdit
+            items={tcs.filter((t) => sel.has(t.tcid))}
+            onClose={() => setBulkEdit(false)}
+            onDone={() => {
+              setBulkEdit(false)
+              setSel(new Set())
+              void tcQ.refetch()
+            }}
+          />
+        ))}
+      {copyOpen && (
+        <CopyDialog
+          onClose={() => setCopyOpen(false)}
+          onDone={() => {
+            setCopyOpen(false)
+            void reqQ.refetch()
+            void tcQ.refetch()
+          }}
+        />
+      )}
 
       {pop && (
         <DetailPop
