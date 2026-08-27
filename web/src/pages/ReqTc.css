@@ -249,13 +249,37 @@
   font-weight: 700;
 }
 .rqtc-scope button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 12px; padding: 0 3px; }
+/* 빵부스러기 — **왼쪽부터** 서고, 폴더 그림과 / 로 잇는다(지시).
+   마지막 마디는 굵게 — 지금 보고 있는 자리가 어디인지 먼저 읽혀야 한다. */
 .rqtc-crumb {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   font-size: var(--fs-md);
   min-width: 0;
+  overflow: hidden;
+  margin-right: auto;
 }
+.rqtc-crumbi { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.rqtc-cfico { flex: none; display: inline-flex; }
+.rqtc-cfico svg { width: 15px; height: 15px; }
+.rqtc-crumbgo.last { font-weight: 700; color: var(--c-text); }
+/* 링크 복사 배지 — 「지금 보고 있는 이 자리」 를 그대로 보낸다 */
+.rqtc-copy {
+  flex: none;
+  margin-left: 8px;
+  height: 22px;
+  padding: 0 10px;
+  border: 1px solid var(--c-sel-teal);
+  border-radius: 999px;
+  background: var(--c-sel-teal);
+  color: var(--c-sel-teal-ink);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+.rqtc-copy:hover { background: var(--c-app-top); border-color: var(--c-app-top); color: #fff; }
 .rqtc-crumbgo {
   border: 0;
   background: transparent;
@@ -266,7 +290,7 @@
   cursor: pointer;
 }
 .rqtc-crumbgo:hover { text-decoration: underline; }
-.rqtc-sep { font-style: normal; color: var(--c-text-faint); }
+.rqtc-sep { font-style: normal; color: var(--c-text-faint); margin: 0 4px; }
 .rqtc-crumbn {
   margin-left: 8px;
   font-size: var(--fs-xs);

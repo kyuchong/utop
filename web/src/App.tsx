@@ -73,6 +73,9 @@ export default function App() {
       ['ce', 'utop.cycle.ce', 'cycles'],
       ['cycle', 'utop.cycle.sel', 'cycles'],
       ['report', 'utop.report.cycle', 'executions'],
+      /* ?cat=cat-… — REQ-Coverage 의 폴더 링크. 「지금 보는 이 자리」 를
+         그대로 보내려면 폴더도 주소가 있어야 한다(지시: 링크 복사). */
+      ['cat', 'utop.reqtc.cat', 'reqtc'],
     ] as const
     /*
      * 주소를 **지우지 않는다.** 전에는 읽고 바로 지웠는데, 그러면 주소창이

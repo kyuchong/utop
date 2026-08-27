@@ -3,11 +3,11 @@ import type React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser } from '@/api/client'
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
-import { goto } from '@/api/goto'
+import { goto, gotoHref, onGoto } from '@/api/goto'
 import { fillOf } from '@/lib/fieldFill'
 import PickCell from '@/components/PickCell'
 import { useCodes } from '@/hooks/useCodes'
-import { IconChevron, IconGrip, IconPanel, IconSearch, IconSettings, IconSort } from '@/components/icons'
+import { IconChevron, IconFolder, IconGrip, IconPanel, IconSearch, IconSettings, IconSort } from '@/components/icons'
 import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
 import { useInfoCols } from '@/components/useInfoCols'
 import ReqForm from '@/components/ReqForm'
@@ -87,6 +87,20 @@ export default function ReqTc({ me }: Props) {
   const [editReq, setEditReq] = useState<Requirement | null | undefined>(undefined)
   const [editTc, setEditTc] = useState<TestCaseMeta | null | undefined>(undefined)
   const [prjs, setPrjs] = useState<string[]>(currentProjects)
+
+  /* 링크로 들어오면 그 폴더를 편다 — App 이 주소를 읽어 알려 준다 */
+  useEffect(() => {
+    const open1 = (id: string) => {
+      if (!id) return
+      setCat(id)
+      setReqOnly('')
+      setOpenCat((o) => new Set([...o, id]))
+    }
+    open1(new URLSearchParams(window.location.search).get('cat') ?? '')
+    return onGoto((kind, id) => {
+      if (kind === 'cat') open1(id)
+    })
+  }, [])
 
   /* 상단바(Layout)에서 프로젝트를 바꾸면 이 화면이 다시 좁힌다.
      **고른 폴더도 함께 푼다.** 폴더는 프로젝트에 매여 있어서, 그대로 두면
@@ -336,6 +350,8 @@ export default function ReqTc({ me }: Props) {
   const [moreOpen, setMoreOpen] = useState(false)
   /** 만들기 메뉴 — ⋯ 안에 ＋New·＋Bulk New·＋Copy 가 든다 */
   const [newOpen, setNewOpen] = useState(false)
+  /** 링크 복사 알림 — 눌렀는데 아무 일도 없으면 됐는지 알 수 없다 */
+  const [copied, setCopied] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const exportTc = async () => {
     const id = [...sel][0]
@@ -830,15 +846,44 @@ export default function ReqTc({ me }: Props) {
             <div className="rqtc-crumb">
               {crumb.length ? (
                 crumb.map((c, i) => (
-                  <span key={c.id}>
-                    {i > 0 && <i className="rqtc-sep">›</i>}
-                    <button type="button" className="rqtc-crumbgo" onClick={() => pickFolder(c.id)}>
+                  <span className="rqtc-crumbi" key={c.id}>
+                    {i > 0 && <i className="rqtc-sep">/</i>}
+                    {/* 폴더 그림 — 「이건 폴더다」 를 글자 앞에서 말한다 */}
+                    <span className="rqtc-cfico" aria-hidden="true">
+                      <IconFolder open={i === crumb.length - 1} />
+                    </span>
+                    <button
+                      type="button"
+                      className={`rqtc-crumbgo${i === crumb.length - 1 ? ' last' : ''}`}
+                      onClick={() => pickFolder(c.id)}
+                    >
                       {c.name}
                     </button>
                   </span>
                 ))
               ) : null /* 폴더를 안 골랐을 때 「전체」 라 적던 것을 뺀다(지시) —
                            1열의 「전체」 줄이 이미 그 말을 하고 있다 */}
+              {/* 링크 나누기 — 「지금 보고 있는 이 자리」 를 그대로 보낸다.
+                  말로 「E6100 밑 MGMT 폴더 보세요」 하면 상대가 다시 찾아야 한다. */}
+              <button
+                type="button"
+                className="rqtc-copy"
+                title="이 화면 링크 복사"
+                onClick={() => {
+                  const url = onlyReq
+                    ? new URL(gotoHref('req', reqOnly), window.location.origin).href
+                    : cat
+                      ? new URL(gotoHref('cat', cat), window.location.origin).href
+                      : `${window.location.origin}${window.location.pathname}`
+                  void navigator.clipboard
+                    .writeText(url)
+                    .then(() => setCopied(true))
+                    .catch(() => window.prompt('아래 주소를 복사하세요', url))
+                  window.setTimeout(() => setCopied(false), 1400)
+                }}
+              >
+                {copied ? '복사됨' : '링크 복사'}
+              </button>
               {/* 「이 요구사항만」 걸린 상태를 늘 보이게 — 안 보이면 왜 몇 건뿐인지 모른다 */}
               {onlyReq && (
                 <span className="rqtc-scope">
