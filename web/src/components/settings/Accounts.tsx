@@ -751,6 +751,9 @@ function OrgRows({
   const mem = node.members ?? []
   const n = q.trim().toLowerCase()
   const showMem = n ? mem.filter((m) => m.name.toLowerCase().includes(n)) : mem
+  /* 사람이 하나도 없는 마디는 내지 않는다(지시: 0 은 제거).
+     아래 가지까지 세므로, 제 몫은 없어도 아래에 사람이 있으면 남는다. */
+  if (total === 0) return null
   /* 찾는 중에는 걸린 것이 없는 가지를 접어 둔다 — 빈 마디만 늘어놓지 않게 */
   if (n && !hasHit(node, n)) return null
 
