@@ -68,10 +68,34 @@
 }
 .rqtc-ib:hover { background: var(--c-surface-alt); color: var(--c-text); }
 .rqtc-ib.on { background: var(--c-primary-bg); border-color: var(--c-primary); color: var(--c-primary); }
-/* ＋ New Folder — 머리줄 바로 밑(사진) */
-.rqtc-newf { padding: 8px; border-bottom: 1px solid var(--c-border); }
-.rqtc-newf .btn { width: 100%; }
-.rqtc-sidetools { padding: 8px; border-bottom: 1px solid var(--c-border); }
+/* 2행 — ＋ New Folder 와 정렬·더보기(지시·사진) */
+.rqtc-newf {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border-bottom: 1px solid var(--c-border);
+}
+.rqtc-newf .sp { flex: 1; }
+/* 만들기는 남는 폭을 다 먹지 않는다 — 오른쪽 손잡이 자리를 남겨야 한다 */
+.rqtc-newf .btn { flex: none; }
+/* 3행 — 찾기. 돋보기를 칸 안에 겹쳐 두고 글자를 그만큼 밀어 넣는다 */
+.rqtc-sidetools {
+  position: relative;
+  padding: 8px;
+  border-bottom: 1px solid var(--c-border);
+}
+.rqtc-qico {
+  position: absolute;
+  left: 17px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: var(--c-text-faint);
+  pointer-events: none;
+}
+.rqtc-qico svg { width: 13px; height: 13px; }
+.rqtc-sidetools .rqtc-q { padding-left: 26px; }
 .rqtc-q {
   width: 100%;
   height: 28px;

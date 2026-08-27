@@ -46,7 +46,6 @@ export default function ReqTc({ me }: Props) {
   /** 「이 요구사항의 시험만」 — 요구사항 줄을 눌렀을 때 걸리는 다리 */
   const [reqOnly, setReqOnly] = useState('')
   const [q, setQ] = useState('')
-  const [findOn, setFindOn] = useState(false)
   const [fsort, setFsort] = useState<'name' | 'req'>('name')
   const [deep, setDeep] = useState(true)
   const [onlyBare, setOnlyBare] = useState(false)
@@ -268,35 +267,16 @@ export default function ReqTc({ me }: Props) {
         )}
         {!foldSide && (
           <aside className="panel rqtc-side">
+            {/* 1행 — 이름과 접기 단추만(지시·사진) */}
             <div className="rqtc-sidehead">
               <b>Folder Tree</b>
               <span className="sp" />
-              <button
-                type="button"
-                className={`rqtc-ib${findOn || q ? ' on' : ''}`}
-                title="찾기"
-                onClick={() => {
-                  setFindOn((v) => !v)
-                  if (findOn) setQ('')
-                }}
-              >
-                <IconSearch />
-              </button>
-              <button
-                type="button"
-                className="rqtc-ib"
-                title={fsort === 'name' ? '이름순 (눌러서 요구사항 많은 순)' : '요구사항 많은 순 (눌러서 이름순)'}
-                onClick={() => setFsort((v) => (v === 'name' ? 'req' : 'name'))}
-              >
-                <IconSort />
-              </button>
-              <button type="button" className="rqtc-ib" title="더 보기">
-                ⋯
-              </button>
               <button type="button" className="rqtc-ib" title="폴더 판 접기" onClick={() => setFoldSide(true)}>
                 ⇤
               </button>
             </div>
+            {/* 2행 — 만들기와 손잡이들. 사진처럼 만들기가 왼쪽을 채우고
+                정렬·더보기가 오른쪽 끝에 붙는다. */}
             <div className="rqtc-newf">
               <button
                 className="btn small"
@@ -314,18 +294,32 @@ export default function ReqTc({ me }: Props) {
               >
                 ＋ New Folder
               </button>
+              <span className="sp" />
+              <button
+                type="button"
+                className={`rqtc-ib${fsort === 'req' ? ' on' : ''}`}
+                title={fsort === 'name' ? '이름순 (눌러서 요구사항 많은 순)' : '요구사항 많은 순 (눌러서 이름순)'}
+                onClick={() => setFsort((v) => (v === 'name' ? 'req' : 'name'))}
+              >
+                <IconSort />
+              </button>
+              <button type="button" className="rqtc-ib" title="더 보기">
+                ⋯
+              </button>
             </div>
-            {(findOn || q) && (
-              <div className="rqtc-sidetools">
-                <input
-                  className="rqtc-q"
-                  autoFocus
-                  value={q}
-                  placeholder="요구사항 · 시험 찾기"
-                  onChange={(e) => setQ(e.target.value)}
-                />
-              </div>
-            )}
+            {/* 3행 — 찾기. 여닫는 단추를 두면 한 번 더 눌러야 하고, 접혀
+                있으면 걸러 볼 수 있다는 걸 모른다. 늘 보인다(사진). */}
+            <div className="rqtc-sidetools">
+              <span className="rqtc-qico" aria-hidden="true">
+                <IconSearch />
+              </span>
+              <input
+                className="rqtc-q"
+                value={q}
+                placeholder="폴더 · 요구사항 찾기"
+                onChange={(e) => setQ(e.target.value)}
+              />
+            </div>
             <div className="rqtc-tree">
               <div className={`rqtc-fold${cat === '' ? ' on' : ''}`} onClick={() => pickFolder('')}>
                 <span className="rqtc-caret" />
