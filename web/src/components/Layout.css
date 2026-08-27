@@ -61,7 +61,10 @@
      한 판으로 이어진 느낌이 끊긴다. 흰 카드가 이미 경계를 만든다. */
   /* 위 여백은 본문 카드와 같은 4px — 상단바 바로 아래에서 메뉴와 카드가
      같은 줄에서 시작해야 한 판으로 보인다(지시: 간격을 줄여). */
-  padding: 4px 10px var(--sp-4);
+  /* 좌우 6px. 150px 안에 「Requirements」(굵게 87px)가 … 없이 들어가야
+     한다(지적: 글자가 잘린다). 6+6 판 + 8+8 항목 + 18 아이콘 + 8 사이 +
+     87 글자 = 141px — 9px 남는다. */
+  padding: 4px 6px var(--sp-4);
   /* 접힘 툴팁이 메뉴 바깥으로 나가야 하므로 자르지 않는다.
      항목이 화면 높이를 넘길 만큼 늘어나면 안쪽 래퍼에 스크롤을 주고
      툴팁을 position:fixed 로 바꿔야 한다. */
@@ -210,11 +213,12 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
   text-align: left;
-  /* 메뉴가 늘어나 세로가 빠듯하다. 행 간격을 줄인다. */
-  padding: 6px var(--sp-3);
+  /* 메뉴가 늘어나 세로가 빠듯하다. 행 간격을 줄인다.
+     좌우는 8px — 위 .nav 주석의 셈에 맞춘다. */
+  padding: 6px 8px;
   border: 0;
   border-radius: var(--radius);
   margin: 1px 0;
