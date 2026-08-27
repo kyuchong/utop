@@ -9,6 +9,38 @@
    (.nav-brand / .nav-search / .nav-status 참고) */
 
 /* ── 본문 ──────────────────────────────────────────────────── */
+/* 맨 윗줄 — 화면 전체 폭(사진). 메뉴바가 이 아래로 들어가 「1행 / 2행 2열」
+   이 된다. 색은 메뉴(어두운 판)와 한 식구로 보이게 짙은 청록. */
+.app-top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 48px;
+  padding: 0 14px;
+  background: #12505e;
+  color: #eaf4f6;
+}
+.app-top .sp { flex: 1; }
+.app-top-logo {
+  flex: none;
+  height: 28px;
+  width: auto;
+  max-width: 130px;
+  border-radius: 5px;
+  object-fit: contain;
+}
+.app-top-logo.ph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  background: rgb(255 255 255 / 16%);
+  font-weight: 800;
+}
+.app-top-brand { font-weight: 800; font-size: 16px; letter-spacing: -0.01em; }
+.app-top-who { font-size: var(--fs-sm); color: rgb(255 255 255 / 80%); }
+
 .app-body {
   position: relative;   /* 접기 버튼을 사이드바 경계에 띄우기 위한 기준 */
   flex: 1;

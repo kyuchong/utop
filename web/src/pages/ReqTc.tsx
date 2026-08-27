@@ -9,7 +9,7 @@ import ReqForm from '@/components/ReqForm'
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
 import TestCases from '@/pages/TestCases'
-import ProjectPicker, { currentProject, onProjectChange } from '@/components/ProjectPicker'
+import { currentProject, onProjectChange } from '@/components/ProjectPicker'
 import './ReqTc.css'
 
 interface Props {
@@ -56,22 +56,9 @@ export default function ReqTc({ me }: Props) {
   const [editReq, setEditReq] = useState<Requirement | null | undefined>(undefined)
   const [editTc, setEditTc] = useState<TestCaseMeta | null | undefined>(undefined)
   const [prj, setPrj] = useState(currentProject)
-  const [brand, setBrand] = useState<{ logo?: string; name?: string }>({})
 
-  useEffect(() => localStorage.setItem(MODE_KEY, mode) as void, [mode])
+  /* 상단바(Layout)에서 프로젝트를 바꾸면 이 화면이 다시 좁힌다 */
   useEffect(() => onProjectChange(() => setPrj(currentProject())), [])
-  useEffect(() => {
-    void (async () => {
-      try {
-        const r = await apiFetch('/api/branding', { cache: 'no-store' })
-        if (!r.ok) return
-        const b = (await r.json()) as { logo?: string; name_text?: string }
-        setBrand({ logo: b.logo, name: b.name_text })
-      } catch {
-        /* 못 읽어도 화면은 떠야 한다 */
-      }
-    })()
-  }, [])
 
   const reqQ = useQuery({ queryKey: ['reqs'], queryFn: ({ signal }) => api.listRequirements(signal) })
   const tcQ = useQuery({ queryKey: ['tcs'], queryFn: ({ signal }) => api.listTestCases(signal) })
@@ -264,21 +251,6 @@ export default function ReqTc({ me }: Props) {
 
   return (
     <div className="rqtc-shell">
-      <header className="rqtc-top">
-        {brand.logo ? (
-          <img className="rqtc-logo" src={brand.logo} alt="" />
-        ) : (
-          <span className="rqtc-logo ph" aria-hidden="true">
-            U
-          </span>
-        )}
-        <span className="rqtc-brand">{brand.name || 'ubiQuoss'} Test Orchestration Platform</span>
-        <ProjectPicker />
-        <span className="sp" />
-        <span className="rqtc-topinfo">
-          요구사항 {reqRows.length}건{bare > 0 && <b className="rqtc-barebadge">미커버 {bare}</b>}
-        </span>
-      </header>
 
       <div className={`rqtc${foldSide ? ' folded' : ''}`}>
         {foldSide && (

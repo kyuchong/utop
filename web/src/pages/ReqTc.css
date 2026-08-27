@@ -8,55 +8,12 @@
 /* 상단 가로바 — 짙은 청록(색은 재량 지시). 왼쪽 메뉴(#2b3138)와 부딪히지
    않으면서 제품 이름과 프로젝트가 한눈에 서도록 어둡게 깐다. */
 .rqtc-shell {
-  --rqtc-top-bg: #12505e;
-  --rqtc-top-fg: #eaf4f6;
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
   gap: 8px;
 }
-.rqtc-top {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 0 14px;
-  height: 46px;
-  flex: none;
-  border-radius: var(--radius, 8px);
-  background: var(--rqtc-top-bg);
-  color: var(--rqtc-top-fg);
-}
-.rqtc-top .sp { flex: 1; }
-/* 로고 + 제품 이름 — 이름이 너무 작다는 지적. 상단바의 얼굴이라 키운다 */
-.rqtc-logo {
-  flex: none;
-  height: 26px;
-  width: auto;
-  max-width: 120px;
-  border-radius: 5px;
-  object-fit: contain;
-}
-.rqtc-logo.ph {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  background: rgb(255 255 255 / 16%);
-  font-weight: 800;
-  font-size: 14px;
-}
-.rqtc-brand { font-weight: 800; font-size: 16px; letter-spacing: -0.01em; }
-.rqtc-topinfo { font-size: var(--fs-xs); color: rgb(255 255 255 / 78%); }
-.rqtc-barebadge {
-  margin-left: 8px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: #c0392b;
-  color: #fff;
-  font-size: var(--fs-xs);
-}
-
 /* ── 두 판 ── */
 .rqtc {
   display: grid;
