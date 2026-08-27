@@ -498,3 +498,14 @@
 tr.noacct { cursor: default; }
 tr.noacct b { color: var(--c-text-faint); }
 tr.noacct:hover { background: transparent; }
+
+/* 장(長) 표 — 팀원 줄과 갈라 보이게 */
+.acc-leadtag {
+  margin-left: 7px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: #fff;
+  background: #12505e;
+  border-radius: 9px;
+  padding: 0 7px;
+}

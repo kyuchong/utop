@@ -749,6 +749,7 @@ function OrgRows({
   const total = countOf(node)
   const kids = node.children ?? []
   const mem = node.members ?? []
+  const lead = leadOf(node)
   const n = q.trim().toLowerCase()
   const showMem = n ? mem.filter((m) => m.name.toLowerCase().includes(n)) : mem
   /* 사람이 하나도 없는 마디는 내지 않는다(지시: 0 은 제거).
@@ -765,12 +766,35 @@ function OrgRows({
             <i className={open ? 'open' : ''}>▸</i>
             {node.name}
             <em>{total}</em>
-            {node.lead && <span className="acc-lead">— {node.lead}</span>}
+            {lead && <span className="acc-lead">— {lead.name} {lead.rank}</span>}
           </button>
         </td>
       </tr>
       {open && (
         <>
+          {/* 장(長)도 **계정 줄**로 낸다(지시) — 이름표만 있으면 그 사람의
+              계정·역할·메일을 알 수 없다. 「장」 표를 달아 팀원과 가른다. */}
+          {lead && (!n || lead.name.toLowerCase().includes(n)) && (() => {
+            const u = findAcct(lead.name)
+            return (
+              <tr
+                className={`${u ? '' : 'noacct'}${u && at === u.username ? ' on' : ''}`}
+                onClick={() => u && onPick(u)}
+              >
+                <td className="ell" style={{ paddingLeft: 10 + (depth + 1) * 16 }}>
+                  <b>{lead.name}</b>
+                  <span className="acc-leadtag">장</span>
+                  {lead.rank && <span className="acc-rank">{lead.rank}</span>}
+                </td>
+                <td className="ell">{u?.username ?? <span className="muted">계정 없음</span>}</td>
+                <td>{u?.role ?? ''}</td>
+                <td className="ell">{node.name}</td>
+                <td className="ell">{u?.synced_at ?? ''}</td>
+                <td className="ell">{u?.email ?? ''}</td>
+                <td />
+              </tr>
+            )
+          })()}
           {showMem.map((m) => {
             const u = findAcct(m.name)
             return (
@@ -811,14 +835,36 @@ function OrgRows({
   )
 }
 
-/** 이 마디 아래 사람 수 — 조직도에 적힌 수가 아니라 **실제로 담긴 수**를 센다 */
+/** 장(長) 이름표를 사람으로 — 「최승태 책임M」 → {name:'최승태', rank:'책임M'} */
+function leadOf(n: OrgNode): { name: string; rank: string } | null {
+  const t = String(n.lead ?? '').trim()
+  if (!t) return null
+  const at = t.lastIndexOf(' ')
+  return at > 0 ? { name: t.slice(0, at), rank: t.slice(at + 1) } : { name: t, rank: '' }
+}
+
+/**
+ * 이 마디 아래 사람 수 — **이름으로 헤아린다.**
+ *
+ * 장이 아래 담당의 장을 겸하거나(최지훈: 그룹장 겸 담당장) 제 팀의 팀원으로도
+ * 올라 있으면(권종혁), 그냥 더하면 한 사람이 두 번 세인다. 이름으로 세면
+ * 받은 조직도의 숫자와 그대로 맞는다(ISP사업그룹 8 · 연구소 67).
+ */
+function namesIn(n: OrgNode, into: Set<string> = new Set()): Set<string> {
+  const L = leadOf(n)
+  if (L) into.add(L.name)
+  for (const m of n.members ?? []) into.add(m.name)
+  for (const c of n.children ?? []) namesIn(c, into)
+  return into
+}
 function countOf(n: OrgNode): number {
-  return (n.members?.length ?? 0) + (n.children ?? []).reduce((s, c) => s + countOf(c), 0)
+  return namesIn(n).size
 }
 
 /** 찾는 글자가 이 가지 어딘가에 있나 */
 function hasHit(n: OrgNode, q: string): boolean {
   if (n.name.toLowerCase().includes(q)) return true
+  if (String(n.lead ?? '').toLowerCase().includes(q)) return true
   if ((n.members ?? []).some((m) => m.name.toLowerCase().includes(q))) return true
   return (n.children ?? []).some((c) => hasHit(c, q))
 }
