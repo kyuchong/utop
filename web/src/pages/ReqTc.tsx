@@ -7,7 +7,17 @@ import { goto, gotoHref, onGoto } from '@/api/goto'
 import { fillOf } from '@/lib/fieldFill'
 import PickCell from '@/components/PickCell'
 import { useCodes } from '@/hooks/useCodes'
-import { IconChevron, IconFolder, IconGrip, IconPanel, IconSearch, IconSettings, IconSort } from '@/components/icons'
+import {
+  IconChevron,
+  IconFolder,
+  IconGrip,
+  IconPanel,
+  IconParam,
+  IconSearch,
+  IconSettings,
+  IconSort,
+} from '@/components/icons'
+import GlobalParams from '@/components/settings/GlobalParams'
 import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
 import { useInfoCols } from '@/components/useInfoCols'
 import ReqForm from '@/components/ReqForm'
@@ -365,6 +375,9 @@ export default function ReqTc({ me }: Props) {
   const [openTab, setOpenTab] = useState<'info' | 'detail' | 'tc' | 'runs' | 'history'>('info')
   /** 시험항목도 같은 규칙 — ID 는 팝업, 제목은 이 화면(지시) */
   const [openTc, setOpenTc] = useState('')
+  /* 전역 파라미터 — Coverage 화면의 그 단추를 여기에도(지시). 스텝에서
+     ${이름} 으로 쓰는 값이라, 시험을 보다가 바로 열어 고칠 일이 잦다. */
+  const [gpOpen, setGpOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const exportTc = async () => {
     const id = [...sel][0]
@@ -736,6 +749,15 @@ export default function ReqTc({ me }: Props) {
               <button type="button" className="rqtc-ib" title="더 보기">
                 ⋯
               </button>
+              <button
+                type="button"
+                className={`rqtc-ib${gpOpen ? ' on' : ''}`}
+                title="전역 파라미터 — 스텝에서 ${이름} 으로 쓰는 값"
+                aria-pressed={gpOpen}
+                onClick={() => setGpOpen((v) => !v)}
+              >
+                <IconParam />
+              </button>
             </div>
             {/* 3행 — 찾기. 여닫는 단추를 두면 한 번 더 눌러야 하고, 접혀
                 있으면 걸러 볼 수 있다는 걸 모른다. 늘 보인다(사진). */}
@@ -1041,7 +1063,22 @@ export default function ReqTc({ me }: Props) {
               어려운 곳에 둔다. */}
           {/* 제목을 누르면 표 자리에 **그 요구사항 화면**이 선다(지시).
               1열 폴더는 그대로 남아, 옆 것으로 넘어가기 쉽다. */}
-          {openTc ? (
+          {gpOpen ? (
+            <div className="rqtc-one">
+              <div className="rqtc-onehead">
+                <button type="button" className="btn small" onClick={() => setGpOpen(false)}>
+                  ← 목록
+                </button>
+                <b className="rqtc-onetitle">전역 파라미터</b>
+                <span className="muted small">스텝에서 ${'{'}이름{'}'} 으로 씁니다</span>
+              </div>
+              {/* 설정 화면이 쓰는 **그 부품**을 그대로 얹는다 — 베껴 만들면
+                  한쪽에서 고친 값이 다른 쪽에 안 보이는 날이 온다. */}
+              <div className="rqtc-gp">
+                <GlobalParams />
+              </div>
+            </div>
+          ) : openTc ? (
             <div className="rqtc-one">
               <div className="rqtc-onehead">
                 <button type="button" className="btn small" onClick={() => setOpenTc('')}>

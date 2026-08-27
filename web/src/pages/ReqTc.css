@@ -826,3 +826,6 @@
   white-space: nowrap;
 }
 .rqtc-rtitle.as-link:hover { text-decoration: underline; color: var(--c-primary); }
+
+/* 전역 파라미터 판 — 2열 자리에 그대로 편다 */
+.rqtc-gp { flex: 1; min-height: 0; overflow: auto; padding: 12px; }
