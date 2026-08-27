@@ -57,7 +57,7 @@
   /* Zephyr Enterprise 처럼 어두운 메뉴 + 흰 글자. */
   background: var(--c-nav-dark);
   color: var(--c-nav-fg);
-  border-right: 1px solid rgb(255 255 255 / 8%);
+  border-right: 1px solid var(--c-border-nav);
   padding: 12px 10px var(--sp-4);
   /* 접힘 툴팁이 메뉴 바깥으로 나가야 하므로 자르지 않는다.
      항목이 화면 높이를 넘길 만큼 늘어나면 안쪽 래퍼에 스크롤을 주고
@@ -82,7 +82,7 @@
 }
 .nav-brand-sub {
   font-size: var(--fs-xs);
-  color: rgb(255 255 255 / 55%);
+  color: var(--c-text-faint);
   white-space: nowrap;
 }
 /* 올린 로고 — 접으면 이것만 남는다. 아래 메뉴와는 가로 줄로 가른다 */
@@ -91,7 +91,7 @@
   align-items: center;
   gap: 8px;
   padding-bottom: 8px;
-  border-bottom: 1px solid rgb(255 255 255 / 14%);
+  border-bottom: 1px solid var(--c-border-nav);
   margin-bottom: 8px;
 }
 .nav-logo-img {
@@ -137,7 +137,7 @@
   /* 메뉴는 **어두운 판**이다. 밝은 색(--c-primary-bg 는 거의 흰색)을 쓰면
      흰 덩어리로 튄다(지적). 가름선·글자·눌림색 모두 메뉴 줄(.nav-item)이
      쓰는 규칙 — 흰색의 낮은 투명도 — 을 그대로 쓴다. */
-  border-top: 1px solid rgb(255 255 255 / 8%);
+  border-top: 1px solid var(--c-border-nav);
   border-radius: var(--radius);
   background: transparent;
   color: var(--c-nav-fg);
@@ -147,7 +147,7 @@
   cursor: pointer;
 }
 .nav-collapse:hover {
-  background: rgb(255 255 255 / 8%);
+  background: rgb(18 80 94 / 7%);
   color: var(--c-nav-fg-strong);
 }
 .nav-collapse:hover .nav-icon { color: var(--c-nav-fg-strong); }
@@ -166,10 +166,10 @@
   width: 100%;
   justify-content: flex-start;
   color: var(--c-nav-fg);
-  border-color: rgb(255 255 255 / 16%);
+  border-color: var(--c-text-faint);
 }
 .nav-status .ts-chip:hover {
-  background: rgb(255 255 255 / 8%);
+  background: rgb(18 80 94 / 7%);
 }
 /* 팝업은 메뉴 아래쪽에 있으니 위로 펼친다 */
 .nav-status .ts-pop {
@@ -192,13 +192,13 @@
 .nav-section + .nav-section {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid rgb(255 255 255 / 10%);
+  border-top: 1px solid var(--c-border-nav);
 }
 .nav-group {
   font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: 0.06em;
-  color: rgb(255 255 255 / 52%);  /* 청록 바탕 — 흰 기운으로 (대비 4.7) */
+  color: var(--c-text-muted);
   margin: 0 var(--sp-3) 5px;
   white-space: nowrap;
 }
@@ -226,7 +226,7 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  color: rgb(255 255 255 / 60%);
+  color: var(--c-text-faint);
 }
 
 .nav-label {
@@ -236,7 +236,7 @@
 }
 
 .nav-item:hover {
-  background: rgb(255 255 255 / 8%);
+  background: rgb(18 80 94 / 7%);
   color: var(--c-nav-fg-strong);
 }
 .nav-item:hover .nav-icon {
@@ -245,7 +245,7 @@
 
 /* 지금 보는 화면 — 왼쪽에 강조 띠 하나 두고 밝게. */
 .nav-item.on {
-  background: rgb(255 255 255 / 12%);
+  background: rgb(18 80 94 / 12%);
   color: var(--c-nav-fg-strong);
   font-weight: 700;
   box-shadow: inset 3px 0 0 var(--c-primary);
@@ -372,7 +372,7 @@
 .nav-user {
   margin-top: auto;
   padding-top: var(--sp-2);
-  border-top: 1px solid rgb(255 255 255 / 10%);
+  border-top: 1px solid var(--c-border-nav);
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -399,7 +399,7 @@
 }
 /* 어두운 메뉴에서 보조 글자(역할 등)도 읽히게 */
 .nav .muted {
-  color: rgb(255 255 255 / 50%);
+  color: var(--c-text-faint);
 }
 
 .nav-user-name {
@@ -416,7 +416,7 @@
   border: 0;
   border-radius: var(--r-chip);
   background: transparent;
-  color: rgb(255 255 255 / 55%);
+  color: var(--c-text-faint);
   font-size: var(--fs-md);
 }
 
