@@ -35,27 +35,35 @@ const TRACKED = new Set([
  * 없다(지적). 화면에서 목록을 보고 **REQ-2633-0016 제목** 으로 바꿔 찍는다.
  * 누르면 가는 곳은 그대로 속 열쇠를 쓴다.
  */
+/**
+ * 한 줄을 **칸으로 나눈다**(지시): 언제 · 무엇(결함·사이클…) · ID · 제목.
+ *
+ * 예전엔 한 문장으로 이어 붙여, 좁은 판에서 두세 줄로 접히고 무엇이 ID 이고
+ * 무엇이 제목인지 눈이 짚어야 했다. 칸이 나뉘면 세로로 줄이 맞아, 「결함만
+ * 보고 싶다」 를 눈으로 훑을 수 있다.
+ */
 function lineOf(
   it: AuditItem,
   label?: (kind: string, id: string) => string,
-): { text: string; go?: { kind: GotoKind; id: string } } {
-  const who = it.username ? ` · ${it.username}` : ''
-  const nm = label?.(it.kind, it.ref_id) || it.ref_id
+): { kind: string; act: string; id: string; name: string; who: string; go?: { kind: GotoKind; id: string } } {
+  const who = it.username || ''
+  const nm = label?.(it.kind, it.ref_id) || ''
   const act = it.action || ''
+  const base = { id: it.ref_id, name: nm, who }
   if (it.kind === 'tc') {
     if (act.startsWith('run'))
-      return { text: `실행 — ${it.ref_id}${act.slice(3)}${who}`, go: { kind: 'tc', id: it.ref_id } }
-    if (act === 'deleted') return { text: `시험 삭제 — ${it.ref_id}${who}` }
-    return { text: `시험 저장 — ${it.ref_id}${who}`, go: { kind: 'tc', id: it.ref_id } }
+      return { ...base, kind: '실행', act: act.slice(3).trim(), go: { kind: 'tc', id: it.ref_id } }
+    if (act === 'deleted') return { ...base, kind: '시험', act: '삭제' }
+    return { ...base, kind: '시험', act: '저장', go: { kind: 'tc', id: it.ref_id } }
   }
   if (it.kind === 'req') {
-    if (act === 'deleted') return { text: `요구사항 삭제 — ${nm}${who}` }
-    return { text: `요구사항 저장 — ${nm}${who}`, go: { kind: 'req', id: it.ref_id } }
+    if (act === 'deleted') return { ...base, kind: '요구사항', act: '삭제' }
+    return { ...base, kind: '요구사항', act: '저장', go: { kind: 'req', id: it.ref_id } }
   }
   if (it.kind === 'cycle')
-    return { text: `사이클 저장 — ${nm}${who}`, go: { kind: 'cycle', id: it.ref_id } }
-  if (it.kind === 'defect') return { text: `결함 — ${it.ref_id}${who}` }
-  return { text: `${it.kind} ${act} — ${it.ref_id}${who}` }
+    return { ...base, kind: '사이클', act: '저장', go: { kind: 'cycle', id: it.ref_id } }
+  if (it.kind === 'defect') return { ...base, kind: '결함', act: act || '' }
+  return { ...base, kind: it.kind, act }
 }
 
 export default function NotifyBell({ collapsed }: { collapsed?: boolean }) {
@@ -207,7 +215,13 @@ export default function NotifyBell({ collapsed }: { collapsed?: boolean }) {
                     }}
                   >
                     <span className="nb-at">{fmt(it.at)}</span>
-                    <span className="nb-tx">{L.text}</span>
+                    <span className={`nb-kind k-${it.kind}`}>{L.kind}</span>
+                    <span className="nb-act">{L.act}</span>
+                    <span className="nb-id">{L.id}</span>
+                    <span className="nb-nm" title={L.name}>
+                      {L.name}
+                    </span>
+                    <span className="nb-who">{L.who}</span>
                   </div>
                 )
               })

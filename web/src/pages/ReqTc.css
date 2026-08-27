@@ -287,7 +287,7 @@
 .rqtc-tbl { flex: 1; min-height: 0; overflow: auto; }
 .rqtc-tr {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) 100px 80px 68px 68px 62px 54px 60px 70px 108px;
+  grid-template-columns: 44px minmax(0, 1fr) 100px 80px 68px 68px 62px 54px 60px 70px 108px;
   align-items: center;
   /* 칸 사이 8 → 4px. 칩은 글자만큼만 넓어서, 칸이 넓으면 칩 사이가 휑하니
      벌어져 세 칸이 서로 딴 줄처럼 보인다(지적: 더 줄여). */
@@ -320,7 +320,26 @@
 /* 시험 줄 — 요구사항 아래로 들여쓴다 */
 .rqtc-sub { background: #fbfcfd; }
 .rqtc-sub .c-title { padding-left: 18px; }
-.c-chk { display: flex; align-items: center; justify-content: center; }
+.c-chk { display: flex; align-items: center; justify-content: center; gap: 2px; }
+/* 점 여섯 — 잡아서 끄는 자리. 늘 옅게 두다가 줄에 마우스를 올리면 진해진다.
+   또렷하게 두면 스무 줄에 손잡이가 스무 개라 표가 시끄럽다. */
+.rqtc-grip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--c-text-faint);
+  opacity: 0.35;
+  cursor: grab;
+}
+.rqtc-tr:hover .rqtc-grip { opacity: 1; }
+.rqtc-grip:active { cursor: grabbing; }
+/* 받을 수 있는 폴더 — 끌고 있는 동안만 테두리가 선다 */
+.rqtc-fold.drop {
+  background: var(--c-sel-teal);
+  color: var(--c-sel-teal-ink);
+  outline: 2px solid var(--c-app-top);
+  outline-offset: -2px;
+}
 .c-chk input { margin: 0; cursor: pointer; }
 /* 고른 줄 — 파랗게. 마우스만 올린 것과 갈라 보이게 조금 진하다 */
 .rqtc-tr.picked { background: var(--c-primary-bg); }

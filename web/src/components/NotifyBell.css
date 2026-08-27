@@ -95,3 +95,37 @@
 /* 어두운 상단바 위의 종 — 메뉴에 있을 때의 색을 그대로 쓰면 안 보인다 */
 .app-top .nb-btn { color: #eaf4f6; }
 .app-top .nb-btn:hover { background: rgb(255 255 255 / 16%); }
+
+
+/* ── 상단바에서 편 알림 — **넓게, 칸으로**(지시) ─────────────────
+   언제 · 무엇 · 무엇을 했나 · ID · 제목 · 누가. 한 문장으로 이어 붙이면
+   좁은 판에서 두세 줄로 접히고, 무엇이 ID 이고 무엇이 제목인지 눈이 짚어야
+   한다. 칸이 나뉘면 세로로 줄이 맞아 「결함만」 을 훑을 수 있다. */
+.app-top .nb-pop { width: min(920px, calc(100vw - 32px)); }
+.app-top .nb-row {
+  display: grid;
+  grid-template-columns: 96px 68px 52px 140px minmax(0, 1fr) 92px;
+  gap: 8px;
+  align-items: center;
+  padding: 5px 12px;
+}
+.app-top .nb-at { font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* 종류 — 색으로 갈라 둔다. 스무 줄에서 결함만 골라 보게 */
+.app-top .nb-kind {
+  justify-self: start;
+  padding: 1px 7px;
+  border-radius: 4px;
+  background: var(--c-surface-alt, #eef1f5);
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.app-top .nb-kind.k-defect { background: #fde8e8; color: #a02323; }
+.app-top .nb-kind.k-cycle { background: #efe9fb; color: #5b3bb5; }
+.app-top .nb-kind.k-req { background: #e8f1fd; color: #1f5fa8; }
+.app-top .nb-kind.k-tc { background: #e9f6ec; color: #1f7a45; }
+.app-top .nb-act { font-size: var(--fs-xs); color: var(--c-text-faint); white-space: nowrap; }
+.app-top .nb-id { font-family: var(--font-mono); font-size: var(--fs-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-top .nb-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-top .nb-who { font-size: var(--fs-xs); color: var(--c-text-faint); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { api, categoryApi, projectApi, apiFetch, type MeUser } from '@/api/client'
+import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser } from '@/api/client'
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
 import { goto } from '@/api/goto'
 import { fillOf } from '@/lib/fieldFill'
-import { IconChevron, IconPanel, IconSearch, IconSort } from '@/components/icons'
+import { IconChevron, IconGrip, IconPanel, IconSearch, IconSort } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
@@ -140,6 +140,51 @@ export default function ReqTc({ me }: Props) {
     return f
   }, [kids])
 
+  /** 이 폴더의 조상 길(뿌리부터). cat1..cat4 는 그 길을 네 칸에 나눠 담는다 */
+  const pathOf = useMemo(() => {
+    const par = new Map(cats.map((c) => [c.id, c.parent_id ?? '']))
+    return (id: string): string[] => {
+      const out: string[] = []
+      let cur = id
+      for (let i = 0; i < 8 && cur; i++) {
+        out.unshift(cur)
+        cur = par.get(cur) ?? ''
+      }
+      return out
+    }
+  }, [cats])
+
+  /**
+   * 요구사항을 다른 폴더로 옮긴다 — 끌어다 놓기(지시·Testiny).
+   *
+   * **원본을 읽어 폴더만 갈아 끼운다.** save_req 는 보낸 것으로 통째로
+   * 덮어써서, 폴더 네 칸만 보내면 제목·내용이 다 지워진다.
+   */
+  const [dropCat, setDropCat] = useState('')
+  const moveToCat = async (ids: string[], catId: string) => {
+    const p = pathOf(catId)
+    for (const id of ids) {
+      try {
+        const full = (await api.getRequirement(id)) as unknown as Record<string, unknown>
+        await reqApi.save(id, {
+          ...full,
+          cat1: p[0] ?? '',
+          cat2: p[1] ?? '',
+          cat3: p[2] ?? '',
+          cat4: p[3] ?? '',
+        })
+      } catch (e) {
+        window.alert(`옮기지 못했습니다 — ${String((e as Error).message)}`)
+        break
+      }
+    }
+    setSel(new Set())
+    await reqQ.refetch()
+    await tcQ.refetch()
+  }
+  /** 끌고 있는 것들 — 고른 줄이 여럿이면 그 전부, 아니면 잡은 줄 하나 */
+  const dragIds = (id: string) => (sel.has(id) ? [...sel] : [id])
+
   const catsOf = (r: Requirement) => [r.cat1, r.cat2, r.cat3, r.cat4].filter(Boolean).map(String)
   const catOf = (r: Requirement) => String(r.cat4 || r.cat3 || r.cat2 || r.cat1 || '')
 
@@ -268,9 +313,25 @@ export default function ReqTc({ me }: Props) {
           return (
             <div key={c.id}>
               <div
-                className={`rqtc-fold${cat === c.id ? ' on' : ''}${depth === 0 ? ' root' : ''}`}
+                className={`rqtc-fold${cat === c.id ? ' on' : ''}${depth === 0 ? ' root' : ''}${
+                  dropCat === c.id ? ' drop' : ''
+                }`}
                 style={{ paddingLeft: 6 + depth * 14 }}
                 onClick={() => pickFolder(c.id)}
+                onDragOver={(e) => {
+                  if (!e.dataTransfer.types.includes('text/utop-req')) return
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  setDropCat(c.id)
+                }}
+                onDragLeave={() => setDropCat((v) => (v === c.id ? '' : v))}
+                onDrop={(e) => {
+                  const ids = e.dataTransfer.getData('text/utop-req')
+                  setDropCat('')
+                  if (!ids) return
+                  e.preventDefault()
+                  void moveToCat(ids.split(',').filter(Boolean), c.id)
+                }}
               >
                 <button
                   type="button"
@@ -521,6 +582,20 @@ export default function ReqTc({ me }: Props) {
                       onClick={() => goTcOf(pk)}
                     >
                       <div className="c-chk" onClick={(e) => e.stopPropagation()}>
+                        {/* 점 여섯 — 잡아서 왼쪽 폴더로 끌면 그 폴더로 옮긴다
+                            (지시·Testiny). 줄 전체를 끌게 하면 「눌러서 보기」
+                            와 헷갈려, 보려던 것이 옮겨진다. */}
+                        <span
+                          className="rqtc-grip"
+                          draggable
+                          title="끌어서 왼쪽 폴더로 옮기기"
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/utop-req', dragIds(pk).join(','))
+                            e.dataTransfer.effectAllowed = 'move'
+                          }}
+                        >
+                          <IconGrip />
+                        </span>
                         <input type="checkbox" checked={sel.has(pk)} onChange={() => toggle(sel, pk, setSel)} />
                       </div>
                       <div className="c-title">
