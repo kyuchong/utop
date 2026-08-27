@@ -612,14 +612,11 @@
   --sel-bg: var(--page-tint);
   --sel-ink: var(--page-ink);
 }
-.main[data-page='requirements'],
-.main[data-page='testcases'],
-.main[data-page='cycles'] { --page-bg: #f2f4f7; }
-.main[data-page='requirements'],
-.main[data-page='testcases'],
-.main[data-page='cycles'] {
-  background: var(--page-bg);
-}
+/* 이 세 화면만 제 바탕(#f2f4f7 회색)을 따로 칠하고 있었다. 그래서 상단바
+   아래가 청록인 다른 화면과 달리 여기만 회색이었다(지적: 시험 항목 쪽 색이
+   이상하다). 바탕은 .app 하나가 칠한다 — 화면마다 다시 칠하면 이렇게
+   갈린다. 색조(--page-tint)는 그대로 둔다: 그건 바탕이 아니라 「이 줄이
+   뿌리」 라는 표시다. */
 
 /* 옛 판으로 보고 있다는 알림 — 화면 맨 위를 가로지른다.
    같은 자료를 서로 다른 수로 읽는 일이 이것 때문에 났다. */
