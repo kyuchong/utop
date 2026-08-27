@@ -303,6 +303,7 @@
    넓으면 그만큼이 빈 자리로 남는다(지적: 더 줄여). 여기가 바닥이다 —
    더 좁히면 「미커버」 가 잘린다. */
 .rqtc-tr:not(.tc) { grid-template-columns: 28px minmax(0, 1fr) 104px 80px 56px 60px 68px; }
+.rqtc-tr > div > * { min-width: 0; }
 .rqtc-tr > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rqtc-tr:not(.rqtc-th):hover { background: var(--c-primary-bg); }
 .rqtc-th {
@@ -515,3 +516,47 @@
   .rqtc { grid-template-columns: 1fr; }
   .rqtc-side { display: none; }
 }
+
+/* ── 쪽 나누기 — 표 맨 아래(지시·사진) ──────────────────────────
+   왼쪽에 「몇 번째부터 몇 번째, 모두 몇 건」, 오른쪽에 쪽 번호. */
+.rqtc-pager {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--c-border);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+.rqtc-pager .sp { flex: 1; }
+.rqtc-pgn { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.rqtc-pgn select {
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: var(--c-surface);
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 1px 4px;
+  cursor: pointer;
+}
+.rqtc-pg { display: inline-flex; align-items: center; gap: 2px; }
+.rqtc-pg button {
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.rqtc-pg button:hover:not(:disabled) { background: var(--c-surface-alt); }
+/* 지금 쪽 — 상단바 색으로 채운다. 「고른 것」 과 같은 뜻이라 같은 무게로 */
+.rqtc-pg button.on { background: var(--c-app-top); color: #fff; font-weight: 700; }
+.rqtc-pg button:disabled { opacity: 0.3; cursor: default; }
+.rqtc-pg i { font-style: normal; padding: 0 2px; color: var(--c-text-faint); }

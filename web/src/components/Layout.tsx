@@ -18,6 +18,8 @@ import {
 import NotifyBell from '@/components/NotifyBell'
 import ProjectPicker from '@/components/ProjectPicker'
 import TopUser from '@/components/TopUser'
+import PresenceBar from '@/components/PresenceBar'
+import { usePageCrowd } from '@/components/usePageCrowd'
 import TopStatus from './TopStatus'
 import { apiFetch } from '@/api/client'
 import './Layout.css'
@@ -108,6 +110,8 @@ interface Props {
 }
 
 export default function Layout({ user, onLogout, current, onNavigate, children }: Props) {
+  /* 접두어를 비워 **어느 화면이든** 들어와 있는 사람을 모두 센다 */
+  const crowd = usePageCrowd('')
   // 접힘 상태는 사람마다 취향이 갈리므로 브라우저에 기억시킨다.
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSE_KEY) === '1',
@@ -176,6 +180,10 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
           <span className="app-top-div" aria-hidden="true" />
           <ProjectPicker />
           <span className="sp" />
+          {/* 지금 UTOP 을 같이 쓰고 있는 사람(지시) — 어느 화면에 있든 보인다.
+              같은 자료를 둘이 고치다 덮어쓰는 일이 잦아, 「지금 누가 들어와
+              있나」 는 화면 하나가 아니라 도구 전체의 소식이다. */}
+          <PresenceBar users={crowd} me={user?.name || user?.username || ''} />
           {/* 알림 — 왼쪽 메뉴 맨 아래에 있던 것을 여기로 올렸다(지시).
               소식은 어느 화면에 있든 눈에 걸려야 하는데, 메뉴 맨 아래는
               접으면 아이콘만 남고 스크롤 밖으로 밀리기도 했다. */}

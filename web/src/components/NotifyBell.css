@@ -31,6 +31,7 @@
 }
 
 /* 판 — 메뉴 옆으로 떠오른다 (아래는 화면 밖이라 위·오른쪽으로) */
+/* 왼쪽 메뉴 맨 아래에 있던 시절의 자리 — 오른쪽 옆으로 폈다 */
 .nb-pop {
   position: absolute;
   left: calc(100% + 10px);
@@ -79,3 +80,18 @@
 .nb-row.go:hover { background: var(--c-primary-bg); }
 .nb-row.go .nb-tx { color: var(--c-primary); }
 .nb-row.new .nb-tx { font-weight: 700; }
+
+
+/* 상단바로 올라온 뒤(지시) — 오른쪽 끝에 서 있으므로 **아래로, 왼쪽으로**
+   편다. 옛 자리(오른쪽 옆)로 펴면 화면 밖으로 나가 아무것도 안 보인다
+   (지적: 알림을 눌러도 내용이 안 보인다). */
+.app-top .nb-pop {
+  left: auto;
+  right: 0;
+  bottom: auto;
+  top: calc(100% + 8px);
+  z-index: 90;
+}
+/* 어두운 상단바 위의 종 — 메뉴에 있을 때의 색을 그대로 쓰면 안 보인다 */
+.app-top .nb-btn { color: #eaf4f6; }
+.app-top .nb-btn:hover { background: rgb(255 255 255 / 16%); }

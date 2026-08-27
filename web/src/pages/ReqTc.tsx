@@ -38,6 +38,23 @@ const MODE_KEY = 'utop.reqtc.mode'
  * 이미 있는 부품(ReqForm·TcForm)을 부른다 — 편집기를 두 벌 만들면 한쪽만
  * 고치는 날이 온다. 기존 Requirements·Coverage 화면은 손대지 않는다(지시).
  */
+/**
+ * 낼 쪽 번호 — 처음·끝과 지금 언저리만. 0 은 「…」 자리다.
+ * 쉰두 쪽이면 번호를 쉰둘 다 늘어놓을 수 없다.
+ */
+function pagesOf(cur: number, last: number): number[] {
+  if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1)
+  const out = new Set<number>([1, last, cur, cur - 1, cur + 1])
+  const ps = [...out].filter((p) => p >= 1 && p <= last).sort((a, b) => a - b)
+  const res: number[] = []
+  for (let i = 0; i < ps.length; i++) {
+    const p = ps[i]!
+    if (i > 0 && p - ps[i - 1]! > 1) res.push(0)
+    res.push(p)
+  }
+  return res
+}
+
 export default function ReqTc({ me }: Props) {
   void me
   const [mode, setMode] = useState<Mode>(() => (localStorage.getItem(MODE_KEY) as Mode) || 'req')
@@ -215,6 +232,21 @@ export default function ReqTc({ me }: Props) {
 
   const bare = reqRows.filter((r) => !(tcOf.get(reqPk(r))?.length ?? 0)).length
   const rowsN = mode === 'req' ? reqRows.length : tcRows.length
+
+  /* 쪽 나누기 — 수천 줄을 한 번에 그리면 스크롤이 뻑뻑하고, 「몇 번째쯤
+     보고 있나」 를 알 길도 없다. 한 쪽 크기는 사람이 정한다. */
+  const [per, setPer] = useState(100)
+  const [page, setPage] = useState(1)
+  const pageN = Math.max(1, Math.ceil(rowsN / per))
+  /* 거르개가 바뀌면 1쪽으로 — 3쪽을 보다 좁히면 그 쪽이 없어져 빈 화면이
+     되고, 사람은 「걸러진 게 없다」 고 읽는다 */
+  useEffect(() => setPage(1), [mode, cat, deep, q, onlyBare, reqOnly, prj, per])
+  useEffect(() => {
+    if (page > pageN) setPage(pageN)
+  }, [page, pageN])
+  const from = (page - 1) * per
+  const reqPageRows = useMemo(() => reqRows.slice(from, from + per), [reqRows, from, per])
+  const tcPageRows = useMemo(() => tcRows.slice(from, from + per), [tcRows, from, per])
   const onlyReq = reqOnly ? reqById.get(reqOnly) : undefined
 
   if (reqQ.isLoading || tcQ.isLoading) return <div className="empty">불러오는 중…</div>
@@ -477,7 +509,7 @@ export default function ReqTc({ me }: Props) {
                   <div className="c-st">상태</div>
                   <div className="c-pr">우선순위</div>
                 </div>
-                {reqRows.map((r) => {
+                {reqPageRows.map((r) => {
                   const pk = reqPk(r)
                   const n = tcOf.get(pk)?.length ?? 0
                   const p = prjOf(r)
@@ -542,7 +574,7 @@ export default function ReqTc({ me }: Props) {
                   <div className="c-last">최근 결과</div>
                   <div className="c-map">REQ Map</div>
                 </div>
-                {tcRows.map((t) => {
+                {tcPageRows.map((t) => {
                   const r = reqById.get(String(t.req_id ?? ''))
                   const p = prjOf(r)
                   const last = lastOf(t.tcid)
@@ -620,6 +652,47 @@ export default function ReqTc({ me }: Props) {
                   </div>
                 )}
               </>
+            )}
+          </div>
+
+          {/* 쪽 나누기 — 왼쪽에 「몇 번째부터 몇 번째, 모두 몇 건」,
+              오른쪽에 쪽 번호(사진). 한 쪽이면 번호는 안 낸다. */}
+          <div className="rqtc-pager">
+            <span className="rqtc-pgn">
+              {rowsN === 0 ? 0 : from + 1} – {Math.min(from + per, rowsN)}
+              <select value={per} onChange={(e) => setPer(Number(e.target.value))}>
+                {[50, 100, 200, 500].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              of {rowsN}
+            </span>
+            <span className="sp" />
+            {pageN > 1 && (
+              <span className="rqtc-pg">
+                <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>
+                  ‹
+                </button>
+                {pagesOf(page, pageN).map((p, i) =>
+                  p === 0 ? (
+                    <i key={`gap${i}`}>…</i>
+                  ) : (
+                    <button
+                      key={p}
+                      type="button"
+                      className={p === page ? 'on' : ''}
+                      onClick={() => setPage(p)}
+                    >
+                      {p}
+                    </button>
+                  ),
+                )}
+                <button type="button" disabled={page >= pageN} onClick={() => setPage(page + 1)}>
+                  ›
+                </button>
+              </span>
             )}
           </div>
 
