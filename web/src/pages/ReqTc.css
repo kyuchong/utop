@@ -28,25 +28,12 @@
   min-height: 0;
 }
 /* 폴더 판을 접으면 표가 넓어지고, 펴는 단추만 가느다랗게 남는다 */
-/* 접으면 이동바가 없다 — 펴는 단추와 표가 맞붙지 않게 여백을 되돌린다 */
-.rqtc.folded { grid-template-columns: 34px minmax(0, 1fr); gap: 6px; }
-.rqtc-unfold {
-  align-self: start;
-  width: 34px;
-  height: 42px;
-  border: 1px solid var(--c-border);
-  border-radius: 7px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--c-primary-bg);
-  border-color: var(--c-primary);
-  color: var(--c-primary);
-  font: inherit;
-  cursor: pointer;
-}
-.rqtc-unfold svg { width: 20px; height: 20px; }
-.rqtc-unfold:hover { border-color: var(--c-primary); color: var(--c-primary); }
+/* 접으면 1열이 **통째로 사라진다**(지시·Testiny). 가느다란 띠를 남겨 두면
+   그만큼 표가 못 넓어지고, 그 띠가 무엇인지도 알기 어렵다. 다시 펴는 길은
+   2열 머리줄의 단추다 — 그 단추가 늘 같은 자리에 있어 헤맬 일이 없다. */
+.rqtc.folded { grid-template-columns: minmax(0, 1fr); gap: 0; }
+/* 접힌 상태의 가느다란 띠 단추는 없앴다 — 1열이 통째로 사라지고,
+   펴는 길은 2열 머리줄의 단추다 */
 
 /* ── 폴더 트리 ── */
 .rqtc-side { display: flex; flex-direction: column; min-height: 0; }
@@ -86,17 +73,16 @@
 /* 접기 단추만 옅은 상자에 담는다(사진) — 손잡이가 아니라 이 판을 여닫는
    것이라, 나란한 아이콘들 사이에서 눈에 먼저 걸려야 한다. */
 .rqtc-foldb {
-  /* 옅은 상자만으로는 잘 안 보인다(지적). 테두리를 그어 단추임을 못 박고,
-     나란한 손잡이들보다 한 치수 크게 잡는다 — 이건 손잡이가 아니라 이 판을
-     통째로 여닫는 단추다. */
+  /* 테두리 없음(지시). 옅은 상자와 큰 치수만으로 충분히 걸린다 — 이건
+     손잡이가 아니라 이 판을 통째로 여닫는 단추라 한 치수 크게 잡는다. */
   width: 34px;
   height: 34px;
   background: var(--c-primary-bg);
-  border-color: var(--c-primary);
+  border-color: transparent;
   color: var(--c-primary);
 }
 .rqtc-foldb svg { width: 20px; height: 20px; }
-.rqtc-foldb:hover { background: var(--c-primary); color: #fff; }
+.rqtc-foldb:hover { background: var(--c-primary); border-color: transparent; color: #fff; }
 /* 2행 — ＋ New Folder 와 정렬·더보기(지시·사진) */
 .rqtc-newf {
   display: flex;

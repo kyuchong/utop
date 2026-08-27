@@ -261,11 +261,6 @@ export default function ReqTc({ me }: Props) {
         ref={gridRef}
         style={foldSide ? undefined : { gridTemplateColumns: `${sideW}px 6px minmax(0, 1fr)` }}
       >
-        {foldSide && (
-          <button type="button" className="rqtc-unfold" title="폴더 판 펴기" onClick={() => setFoldSide(false)}>
-            <IconPanel open />
-          </button>
-        )}
         {!foldSide && (
           <aside className="panel rqtc-side">
             {/* 1행 — 이름과 접기 단추만(지시·사진) */}
@@ -360,6 +355,17 @@ export default function ReqTc({ me }: Props) {
         <section className="panel rqtc-main">
           {/* ── 무엇을 셀지 고르는 토글(목업 확정) ── */}
           <div className="rqtc-modebar">
+            {/* 폴더 판 여닫기 — 접으면 1열이 **통째로 사라지고**, 다시 펴는
+                길은 여기뿐이다(지시·Testiny). 그래서 이 단추는 접었든 폈든
+                늘 같은 자리에 서 있어야 한다. */}
+            <button
+              type="button"
+              className="rqtc-ib rqtc-foldb"
+              title={foldSide ? '폴더 판 펴기' : '폴더 판 접기'}
+              onClick={() => setFoldSide((v) => !v)}
+            >
+              <IconPanel open={foldSide} />
+            </button>
             <div className="rqtc-seg">
               <button type="button" className={mode === 'req' ? 'on' : ''} onClick={() => setMode('req')}>
                 요구사항
