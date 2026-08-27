@@ -29,21 +29,23 @@
 }
 /* 폴더 판을 접으면 표가 넓어지고, 펴는 단추만 가느다랗게 남는다 */
 /* 접으면 이동바가 없다 — 펴는 단추와 표가 맞붙지 않게 여백을 되돌린다 */
-.rqtc.folded { grid-template-columns: 30px minmax(0, 1fr); gap: 6px; }
+.rqtc.folded { grid-template-columns: 34px minmax(0, 1fr); gap: 6px; }
 .rqtc-unfold {
   align-self: start;
-  width: 30px;
-  height: 38px;
+  width: 34px;
+  height: 42px;
   border: 1px solid var(--c-border);
   border-radius: 7px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background: var(--c-primary-bg);
+  border-color: var(--c-primary);
   color: var(--c-primary);
   font: inherit;
   cursor: pointer;
 }
+.rqtc-unfold svg { width: 20px; height: 20px; }
 .rqtc-unfold:hover { border-color: var(--c-primary); color: var(--c-primary); }
 
 /* ── 폴더 트리 ── */
@@ -82,10 +84,17 @@
 /* 접기 단추만 옅은 상자에 담는다(사진) — 손잡이가 아니라 이 판을 여닫는
    것이라, 나란한 아이콘들 사이에서 눈에 먼저 걸려야 한다. */
 .rqtc-foldb {
+  /* 옅은 상자만으로는 잘 안 보인다(지적). 테두리를 그어 단추임을 못 박고,
+     나란한 손잡이들보다 한 치수 크게 잡는다 — 이건 손잡이가 아니라 이 판을
+     통째로 여닫는 단추다. */
+  width: 34px;
+  height: 34px;
   background: var(--c-primary-bg);
+  border-color: var(--c-primary);
   color: var(--c-primary);
 }
-.rqtc-foldb:hover { background: var(--c-primary-bg); border-color: var(--c-primary); }
+.rqtc-foldb svg { width: 20px; height: 20px; }
+.rqtc-foldb:hover { background: var(--c-primary); color: #fff; }
 /* 2행 — ＋ New Folder 와 정렬·더보기(지시·사진) */
 .rqtc-newf {
   display: flex;
@@ -148,9 +157,10 @@
 /* **고른 것만** 색이 있다(지적) — 나머지는 흰 바탕 그대로 */
 .rqtc-fold.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
 .rqtc-fold.root { font-weight: 700; }
-/* 폴더 그림 — 12 → 15px(지시). 줄 자체도 그만큼 숨통이 트인다 */
-.rqtc-fico { flex: none; font-size: 15px; display: inline-flex; align-items: center; }
-.rqtc-fico svg { width: 16px; height: 16px; }
+/* 폴더 그림 — 아직 작다(지적). 글자(14px)보다 확실히 커야 줄머리에서 먼저
+   눈에 걸린다. 캐럿도 같이 키워 셋의 높이를 맞춘다. */
+.rqtc-fico { flex: none; font-size: 18px; display: inline-flex; align-items: center; }
+.rqtc-fico svg { width: 20px; height: 20px; }
 .rqtc-fnm { overflow: hidden; text-overflow: ellipsis; }
 /* R·T 배지 — 요구사항 수 · 시험 수 */
 .rqtc-rt { margin-left: auto; flex: none; font-size: var(--fs-xs); color: var(--c-text-faint); }
@@ -161,8 +171,8 @@
 
 .rqtc-caret {
   flex: none;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
