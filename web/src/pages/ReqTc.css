@@ -158,7 +158,7 @@
 .rqtc-fold {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 3px;
   padding: 5px 6px;
   border-radius: 6px;
   /* 두 카드 안 글자는 13px — 본문 기준값(--fs-md)과 같다(지시: 전체적으로
@@ -189,19 +189,24 @@
 /* 덮이지 않은 폴더 — 트리만 훑어도 구멍이 보인다 */
 .rqtc-rt.bare { color: #a02323; font-weight: 700; }
 
+/* 폴더 접기/펼치기 — 18px 로는 눌러야 하는 자리인 줄 모른다(지적).
+   누르는 칸을 24px 로 키우고, 꺾쇠 자체도 16 → 18px 로 또렷하게.
+   색도 한 단 진하게 — 흐리면 크기와 상관없이 「꾸밈」 으로 읽힌다. */
 .rqtc-caret {
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 0;
   background: transparent;
-  color: var(--c-text-faint);
+  color: var(--c-text-muted);
   cursor: pointer;
   transition: transform 0.12s;
 }
+.rqtc-caret svg { width: 18px; height: 18px; }
+.rqtc-caret:hover:not(:disabled) { color: var(--c-primary); }
 .rqtc-caret.open { transform: rotate(90deg); }
 .rqtc-caret:disabled { opacity: 0.2; cursor: default; }
 /* 표의 접기/펼치기 — 트리의 것보다 크고 또렷하게. 작고 흐리면 단추가
