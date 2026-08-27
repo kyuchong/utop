@@ -6,6 +6,12 @@
 .dfx-body {
   gap: var(--sp-4);
 }
+/* 세로 flex 안에서 칸이 **눌리지 않게** 한다.
+   .modal-body 는 flex-direction:column 이라, 두 판으로 나눠 높이가 정해진
+   뒤로는 안쪽 것들이 남는 높이에 맞춰 줄어들었다 — 판 여섯이 테두리만 남고
+   글 넣는 칸이 0px 이 됐다(지적: 입력 부분이 다 잘려 있다).
+   스크롤은 .modal-body 가 이미 맡는다. */
+.dfx-body > * { flex: none; }
 
 .dfx-fld {
   display: flex;
