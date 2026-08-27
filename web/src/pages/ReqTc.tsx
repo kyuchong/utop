@@ -249,7 +249,7 @@ export default function ReqTc({ me }: Props) {
      칸은 이제 켜진 열 쪽에서 나온다 — 두 곳에서 그리면 두 번 보인다. */
   /* ID 를 제 칸으로 뗀다(지시: ID 와 제목 사이에도 세로선). 한 칸에 같이
      두면 선을 그을 자리가 없다 — 표의 선은 칸 사이에만 선다. */
-  const gridReq = `52px 108px minmax(0, 1fr) 110px 80px 65px ${visCols.map((c) => c.w).join(' ')}`.trim()
+  const gridReq = `52px 108px minmax(0, 1fr) 110px 80px 65px 132px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridTc = `52px 108px minmax(0, 1fr) 100px 80px 70px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridOf = (tc: boolean) => (tc ? gridTc : gridReq)
   /* 표에서 바로 고치는 칸이 쓸 값들 — 설정(codes)이 정본이다 */
@@ -1164,6 +1164,9 @@ export default function ReqTc({ me }: Props) {
                   <div className="c-md">모델명</div>
                   {/* 이 칸이 세는 것은 「그 요구사항을 덮은 시험」 이다(지시) */}
                   <div className="c-tc">Coverage</div>
+                  {/* 어느 시험이 덮고 있나 — 숫자만으로는 「무엇이」 를 모른다.
+                      Coverage 모드의 REQ Map 과 짝이다(지시). */}
+                  <div className="c-map">TC Map</div>
                   {visCols.map((c) => (
                     <div key={c.k}>{c.label}</div>
                   ))}
@@ -1229,6 +1232,38 @@ export default function ReqTc({ me }: Props) {
                       <div className="c-md">{p?.model || '–'}</div>
                       <div className="c-tc rqtc-fillc">
                         <span className={`rqtc-cov ${n ? 'ok' : 'no'}`}>{n ? `TC ${n}` : '미커버'}</span>
+                      </div>
+                      <div className="c-map" onClick={(e) => e.stopPropagation()}>
+                        {n ? (
+                          <>
+                            <button
+                              type="button"
+                              className="rqtc-rid tc"
+                              title={(tcOf.get(pk) ?? []).map((t) => t.tcid).join(', ')}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setPop({ kind: 'tc', id: (tcOf.get(pk) ?? [])[0]!.tcid })
+                              }}
+                            >
+                              {(tcOf.get(pk) ?? [])[0]!.tcid}
+                            </button>
+                            {n > 1 && (
+                              <button
+                                type="button"
+                                className="rqtc-more-n"
+                                title="이 요구사항의 시험 모두 보기"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  goTcOf(pk)
+                                }}
+                              >
+                                +{n - 1}
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          '–'
+                        )}
                       </div>
                       {/* 켜진 열 — 상태·우선순위는 그 자리에서 고칠 수 있고,
                           커스텀 필드는 값만 낸다 */}

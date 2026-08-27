@@ -829,3 +829,20 @@
 
 /* 전역 파라미터 판 — 2열 자리에 그대로 편다 */
 .rqtc-gp { flex: 1; min-height: 0; overflow: auto; padding: 12px; }
+
+/* TC Map 의 「+N」 — 하나만 보이고 나머지는 이 단추가 말한다.
+   시험이 열둘이면 열두 개를 다 늘어놓을 수 없다. */
+.rqtc-more-n {
+  flex: none;
+  margin-left: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--c-surface-alt, #eef1f5);
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 1px 7px;
+  cursor: pointer;
+}
+.rqtc-more-n:hover { background: var(--c-sel-teal); color: var(--c-sel-teal-ink); }
