@@ -13,6 +13,7 @@ import ReqBulkEdit from '@/components/ReqBulkEdit'
 import TcBulkForm from '@/components/TcBulkForm'
 import TcBulkEdit from '@/components/tc/TcBulkEdit'
 import CopyDialog from '@/components/CopyDialog'
+import { buildTcFile, tcFileName, downloadJson, parseTcFile } from '@/components/tc/portable'
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
 import TestCases from '@/pages/TestCases'
@@ -207,6 +208,36 @@ export default function ReqTc({ me }: Props) {
   /** INFO 열 값 — 열이 곧 필드다 */
   const colVal = (row: Record<string, unknown>, k: string) => String(row[k] ?? '')
   const [gearAt, setGearAt] = useState<{ x: number; y: number } | null>(null)
+  /* ⋯ — 시험 하나를 파일로 떼고 붙인다(Coverage 화면의 그 메뉴).
+     랩마다 UTOP 이 따로 서 있어서, 한쪽에서 만든 시험을 다른 쪽에서 그대로
+     돌리고 싶은 일이 잦다. DB 를 통째로 옮기면 장비 비밀번호까지 따라가므로
+     시험 하나만 파일로 뗀다. */
+  const [moreOpen, setMoreOpen] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const exportTc = async () => {
+    const id = [...sel][0]
+    if (!id) return
+    try {
+      const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`)
+      const d = (await r.json()) as Record<string, unknown>
+      downloadJson(tcFileName(d as never), buildTcFile({ ...d, tcid: id } as never, new Map()))
+    } catch (e) {
+      window.alert(`내보내지 못했습니다 — ${String((e as Error).message)}`)
+    }
+  }
+  const importTc = async (file: File) => {
+    try {
+      const f = parseTcFile(await file.text())
+      const tc = { ...f.tc } as Record<string, unknown>
+      const id = String(tc.tcid ?? '')
+      if (!id) throw new Error('파일에 TC ID 가 없습니다')
+      await apiFetch(`/api/tc/${encodeURIComponent(id)}`, { method: 'POST', body: JSON.stringify(tc) })
+      await tcQ.refetch()
+      window.alert(`가져왔습니다 — ${id}`)
+    } catch (e) {
+      window.alert(`가져오지 못했습니다 — ${String((e as Error).message)}`)
+    }
+  }
   const moveToCat = async (ids: string[], catId: string) => {
     const p = pathOf(catId)
     for (const id of ids) {
@@ -512,55 +543,6 @@ export default function ReqTc({ me }: Props) {
             <div className="rqtc-sidehead">
               <b>Folder Tree</b>
               <span className="sp" />
-            {/* 정렬·열 고르기 — 요구사항·시험항목 화면의 그 자리 그대로(지시).
-                정렬이 ⚙ 왼쪽에 선다. */}
-            <ListSortBtn value={listSort} onChange={setListSort} />
-            <button
-              type="button"
-              className="rqtc-ib"
-              title="INFO 필드 보이기/숨기기 — SETUP 구성과 같은 목록"
-              aria-expanded={!!gearAt}
-              onClick={(e) => setGearAt(gearAt ? null : { x: e.clientX, y: e.clientY })}
-            >
-              <IconSettings />
-            </button>
-            {gearAt && (
-              <>
-                <div className="tc-menu-back" style={{ zIndex: 60 }} onClick={() => setGearAt(null)} />
-                <div
-                  className="tc-menu tc-colpop"
-                  role="menu"
-                  style={{
-                    position: 'fixed',
-                    left: Math.max(8, gearAt.x - 170),
-                    top: gearAt.y + 10,
-                    right: 'auto',
-                    zIndex: 61,
-                  }}
-                >
-                  {infoCols.length === 0 && (
-                    <span className="muted small">INFO 필드가 없습니다 — SETUP 에서 만듭니다</span>
-                  )}
-                  {infoCols.map((c2) => (
-                    <label key={c2.k}>
-                      <input
-                        type="checkbox"
-                        checked={showCols.has(c2.k)}
-                        onChange={() =>
-                          setShowCols((s2) => {
-                            const n2 = new Set(s2)
-                            if (n2.has(c2.k)) n2.delete(c2.k)
-                            else n2.add(c2.k)
-                            return n2
-                          })
-                        }
-                      />
-                      {c2.label}
-                    </label>
-                  ))}
-                </div>
-              </>
-            )}
             </div>
             {/* 2행 — 만들기와 손잡이들. 사진처럼 만들기가 왼쪽을 채우고
                 정렬·더보기가 오른쪽 끝에 붙는다. */}
@@ -779,6 +761,107 @@ export default function ReqTc({ me }: Props) {
               </>
             )}
             <span className="sp" />
+            {/* 정렬·열 고르기 — 요구사항·시험항목 화면의 그 자리 그대로(지시).
+                정렬이 ⚙ 왼쪽에 선다. */}
+            {mode === 'tc' && (
+              <div className="rqtc-more">
+                <button
+                  type="button"
+                  className="rqtc-ib"
+                  aria-haspopup="menu"
+                  aria-expanded={moreOpen}
+                  title="파일로 내보내기·가져오기"
+                  onClick={() => setMoreOpen((v) => !v)}
+                >
+                  ⋯
+                </button>
+                {moreOpen && (
+                  <>
+                    <div className="tc-menu-back" onClick={() => setMoreOpen(false)} />
+                    <div className="tc-menu" role="menu">
+                      <button
+                        type="button"
+                        disabled={sel.size !== 1}
+                        title={sel.size === 1 ? undefined : '시험 하나를 고르세요'}
+                        onClick={() => {
+                          setMoreOpen(false)
+                          void exportTc()
+                        }}
+                      >
+                        파일로 내보내기
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMoreOpen(false)
+                          fileRef.current?.click()
+                        }}
+                      >
+                        파일에서 가져오기
+                      </button>
+                    </div>
+                  </>
+                )}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".json,application/json"
+                  hidden
+                  onChange={(e) => {
+                    const f2 = e.target.files?.[0]
+                    e.target.value = ''
+                    if (f2) void importTc(f2)
+                  }}
+                />
+              </div>
+            )}
+            <ListSortBtn value={listSort} onChange={setListSort} />
+            <button
+              type="button"
+              className="rqtc-ib"
+              title="INFO 필드 보이기/숨기기 — SETUP 구성과 같은 목록"
+              aria-expanded={!!gearAt}
+              onClick={(e) => setGearAt(gearAt ? null : { x: e.clientX, y: e.clientY })}
+            >
+              <IconSettings />
+            </button>
+            {gearAt && (
+              <>
+                <div className="tc-menu-back" style={{ zIndex: 60 }} onClick={() => setGearAt(null)} />
+                <div
+                  className="tc-menu tc-colpop"
+                  role="menu"
+                  style={{
+                    position: 'fixed',
+                    left: Math.max(8, gearAt.x - 170),
+                    top: gearAt.y + 10,
+                    right: 'auto',
+                    zIndex: 61,
+                  }}
+                >
+                  {infoCols.length === 0 && (
+                    <span className="muted small">INFO 필드가 없습니다 — SETUP 에서 만듭니다</span>
+                  )}
+                  {infoCols.map((c2) => (
+                    <label key={c2.k}>
+                      <input
+                        type="checkbox"
+                        checked={showCols.has(c2.k)}
+                        onChange={() =>
+                          setShowCols((s2) => {
+                            const n2 = new Set(s2)
+                            if (n2.has(c2.k)) n2.delete(c2.k)
+                            else n2.add(c2.k)
+                            return n2
+                          })
+                        }
+                      />
+                      {c2.label}
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
             {mode === 'req' && (
               <label className="rqtc-only">
                 <input type="checkbox" checked={onlyBare} onChange={(e) => setOnlyBare(e.target.checked)} />

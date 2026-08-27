@@ -639,3 +639,6 @@
   margin: 0 2px;
   background: var(--c-border);
 }
+
+/* ⋯ 메뉴가 설 자리 — 팝업이 이 단추를 기준으로 뜬다 */
+.rqtc-more { position: relative; display: inline-flex; }
