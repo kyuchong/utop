@@ -17,7 +17,9 @@
 /* ── 두 판 ── */
 .rqtc {
   display: grid;
-  grid-template-columns: 264px minmax(0, 1fr);
+  /* 폭은 이동바가 인라인으로 정한다 — 여기 값은 처음 한 칸 그릴 때만 쓴다.
+     가운데 6px 은 이동바 자리다. */
+  grid-template-columns: 264px 6px minmax(0, 1fr);
   gap: 8px;
   flex: 1;
   min-height: 0;

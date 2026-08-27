@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, categoryApi, projectApi, apiFetch, type MeUser } from '@/api/client'
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
@@ -10,6 +10,7 @@ import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
 import TestCases from '@/pages/TestCases'
 import { currentProject, onProjectChange } from '@/components/ProjectPicker'
+import Resizer, { useResizableWidth } from '@/components/Resizer'
 import './ReqTc.css'
 
 interface Props {
@@ -50,6 +51,9 @@ export default function ReqTc({ me }: Props) {
   const [deep, setDeep] = useState(true)
   const [onlyBare, setOnlyBare] = useState(false)
   const [foldSide, setFoldSide] = useState(false)
+  /* 두 판 사이 이동바(지시) — 다른 화면과 같은 부품을 쓴다. 폭은 기억한다. */
+  const [sideW, setSideW] = useResizableWidth('rqtcSideW', 264, 180, 620)
+  const gridRef = useRef<HTMLDivElement>(null)
   const [sel, setSel] = useState<Set<string>>(new Set())
   const [pop, setPop] = useState<{ kind: 'req' | 'tc'; id: string } | null>(null)
   /** undefined = 안 열림 · null = 새로 만들기 · 값 = 그것을 고치기 */
@@ -252,7 +256,11 @@ export default function ReqTc({ me }: Props) {
   return (
     <div className="rqtc-shell">
 
-      <div className={`rqtc${foldSide ? ' folded' : ''}`}>
+      <div
+        className={`rqtc${foldSide ? ' folded' : ''}`}
+        ref={gridRef}
+        style={foldSide ? undefined : { gridTemplateColumns: `${sideW}px 6px minmax(0, 1fr)` }}
+      >
         {foldSide && (
           <button type="button" className="rqtc-unfold" title="폴더 판 펴기" onClick={() => setFoldSide(false)}>
             ⇥
@@ -333,6 +341,13 @@ export default function ReqTc({ me }: Props) {
               <Tree parent={null} depth={0} />
             </div>
           </aside>
+        )}
+        {!foldSide && (
+          <Resizer
+            label="폴더 판 폭 조절"
+            onResize={setSideW}
+            getOrigin={() => gridRef.current?.getBoundingClientRect().left ?? 0}
+          />
         )}
 
         <section className="panel rqtc-main">
