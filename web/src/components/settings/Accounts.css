@@ -499,13 +499,5 @@ tr.noacct { cursor: default; }
 tr.noacct b { color: var(--c-text-faint); }
 tr.noacct:hover { background: transparent; }
 
-/* 장(長) 표 — 팀원 줄과 갈라 보이게 */
-.acc-leadtag {
-  margin-left: 7px;
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  color: #fff;
-  background: #12505e;
-  border-radius: 9px;
-  padding: 0 7px;
-}
+/* 장(長)은 역할 칸에 「담당」 으로 — 따로 표를 달지 않는다 */
+.acc-role-lead { font-weight: 700; color: #12505e; }

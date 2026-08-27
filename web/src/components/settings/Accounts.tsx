@@ -783,11 +783,12 @@ function OrgRows({
               >
                 <td className="ell" style={{ paddingLeft: 10 + (depth + 1) * 16 }}>
                   <b>{lead.name}</b>
-                  <span className="acc-leadtag">장</span>
                   {lead.rank && <span className="acc-rank">{lead.rank}</span>}
                 </td>
                 <td className="ell">{u?.username ?? <span className="muted">계정 없음</span>}</td>
-                <td>{u?.role ?? ''}</td>
+                {/* 장(長)은 역할 칸에 **담당**으로 적는다(지시) — 따로 표를 달지
+                    않는다. 이 칸이 모두 「팀원」 이라 비어 있던 자리다. */}
+                <td className="acc-role-lead">담당</td>
                 <td className="ell">{node.name}</td>
                 <td className="ell">{u?.synced_at ?? ''}</td>
                 <td className="ell">{u?.email ?? ''}</td>
