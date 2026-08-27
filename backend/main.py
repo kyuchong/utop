@@ -1612,6 +1612,28 @@ def _is_retired(u: dict) -> bool:
     return "퇴사" in str(u.get("name") or "")
 
 
+@app.get("/api/org")
+async def api_org_get():
+    """조직도 — 회사 → 그룹 → 담당 → 팀 → 사람.
+
+    사람은 `{name, rank}` 다. **직급(rank)은 Jira 에 없다**(확인함) — 사람이
+    준 조직도가 정본이고, 여기 담아 둔다. 계정과는 **이름으로** 잇는다:
+    계정 이름이 「강경묵(생산)」 처럼 꼬리를 달고 있어 괄호·밑줄 앞까지만 본다.
+    """
+    return {"org": _kv_load_sync("org_tree", None)}
+
+
+@app.post("/api/org")
+async def api_org_save(payload: dict, token: str = ""):
+    """조직도 통째로 저장. 관리자만."""
+    _require_admin(token)
+    org = (payload or {}).get("org")
+    if not isinstance(org, dict) or not org.get("name"):
+        raise HTTPException(400, "조직도 모양이 아닙니다")
+    _kv_save_sync("org_tree", org)
+    return {"ok": True}
+
+
 @app.post("/api/users/delete-retired")
 async def api_users_delete_retired(token: str = ""):
     """Jira 에서 나간 사람(jira_active=False)을 **명단에서 지운다**(지시: 퇴사자
@@ -11794,6 +11816,10 @@ async def _db_init():
         # DB 를 덮어써 **기록이 통째로 날아간다**. 실사고: 재시작 뒤 시험
         # 기록이 사라졌다.
         ("nl_chats", DATA_DIR / "nl_chats.json"),
+        # 조직도(회사 → 그룹 → 담당 → 팀 → 사람). 계정 화면이 이걸로 묶어 본다.
+        # 등록을 빼면 재시작 때 빈 조직도가 캐시에 박히고 다음 저장이 DB 를
+        # 덮어써 통째로 날아간다 — 위 형제들이 겪은 그 덫이다.
+        ("org_tree", DATA_DIR / "org_tree.json"),
     ]
     for _key, _fp in _KV_MIGRATIONS:
         _kv_register_fallback(_key, _fp)

@@ -476,3 +476,25 @@
   border-radius: 9px;
   padding: 0 7px;
 }
+
+
+/* 조직도 — 깊이마다 옅게 갈라 층이 보이게 */
+.acc-orghd.d0 td { background: #e9eef3; }
+.acc-orghd.d1 td { background: #eef2f6; }
+.acc-orghd.d2 td { background: #f3f6f9; }
+.acc-orghd.d3 td, .acc-orghd.d4 td { background: #f7f9fb; }
+.acc-lead { margin-left: 8px; font-weight: 400; font-size: var(--fs-xs); color: var(--c-text-muted); }
+/* 직급 — 이름 옆 작은 알약 */
+.acc-rank {
+  margin-left: 7px;
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  color: var(--c-text-muted);
+  border: 1px solid var(--c-border);
+  border-radius: 9px;
+  padding: 0 6px;
+}
+/* 계정이 없는 사람 — 지우지 않고 흐리게. 「아직 안 쓰는 사람」 이 보여야 한다 */
+tr.noacct { cursor: default; }
+tr.noacct b { color: var(--c-text-faint); }
+tr.noacct:hover { background: transparent; }

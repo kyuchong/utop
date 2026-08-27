@@ -1,4 +1,4 @@
-import { useMemo, useState, Fragment } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import './Accounts.css'
@@ -81,6 +81,15 @@ interface LoginCheck {
 }
 
 type StFilter = 'all' | 'active' | 'off' | 'jira' | 'local'
+
+/** 조직도 한 마디 — 회사·그룹·담당·팀. 잎에 사람이 달린다 */
+interface OrgNode {
+  name: string
+  count?: number
+  lead?: string | null
+  members?: Array<{ name: string; rank?: string }>
+  children?: OrgNode[]
+}
 
 const FIELDS: Array<{ k: keyof User; label: string }> = [
   { k: 'name', label: '이름' },
@@ -251,6 +260,36 @@ export default function Accounts() {
   const nOff = all.filter((u) => u.active === false).length
   const nRetired = all.filter((u) => u.retired ?? u.jira_active === false).length
 
+  /**
+   * 조직도 — 회사 → 그룹 → 담당 → 팀 → 사람(직급). 사람이 준 표가 정본이다.
+   * **직급은 Jira 에 없다**(확인함) — 이 표에만 있다.
+   */
+  const orgQ = useQuery({
+    queryKey: ['org'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/org')
+      if (!r.ok) return null
+      return ((await r.json()) as { org: OrgNode | null }).org
+    },
+  })
+
+  /** 계정 이름은 「강경묵(생산)」 처럼 꼬리를 단다 — 괄호·밑줄 앞까지만 본다 */
+  const nameKey = (v?: string) =>
+    (String(v ?? '').split(/[([_]/)[0] ?? '').replace(/\s+/g, '')
+  const acctBy = useMemo(() => {
+    const m = new Map<string, User>()
+    for (const u of all) {
+      const k = nameKey(u.name || u.username)
+      if (k && !m.has(k)) m.set(k, u)
+    }
+    return m
+  }, [all])
+  const findAcct = (nm: string) =>
+    acctBy.get(nameKey(nm)) ?? acctBy.get(nameKey(nm.replace(/\d+$/, '')))
+
+  const org = orgQ.data ?? null
+
   /** 접어 둔 조직 */
   const [shutOrg, setShutOrg] = useState<Set<string>>(new Set())
   const toggleOrg = (k: string) =>
@@ -265,18 +304,6 @@ export default function Accounts() {
    * 조직별 묶음 — 사람 많은 조직이 위로. 「소속 없음」 은 늘 맨 아래다:
    * 채워야 할 것이지 먼저 볼 것이 아니다.
    */
-  const groups = useMemo(() => {
-    const m = new Map<string, User[]>()
-    for (const u of rows) {
-      const k = String(u.org || '').trim()
-      m.set(k, [...(m.get(k) ?? []), u])
-    }
-    return [...m.entries()].sort((a, b) => {
-      if (!a[0]) return 1
-      if (!b[0]) return -1
-      return b[1].length - a[1].length || a[0].localeCompare(b[0])
-    })
-  }, [rows])
   const nJira = all.filter((u) => u.source === 'jira').length
   const last = info.data?.last ?? null
   const on = !!info.data?.login_enabled
@@ -520,50 +547,39 @@ export default function Accounts() {
                     </td>
                   </tr>
                 )}
-                {/* 조직별로 나눠 낸다(지시). 조직은 서버가 준 org —
-                    소속(dept)이 있으면 그것, 없으면 이름 괄호에서 뽑는다.
-                    동기화를 다시 안 돌려도 묶이게 하려는 것이다. */}
-                {groups.map(([org, list]) => (
-                  <Fragment key={org || '__none__'}>
-                    <tr className="acc-orghd">
-                      <td colSpan={7}>
-                        <button type="button" onClick={() => toggleOrg(org)}>
-                          <i className={shutOrg.has(org) ? '' : 'open'}>▸</i>
-                          {org || '소속 없음'}
-                          <em>{list.length}</em>
-                        </button>
+                {/* 조직도 그대로 — 회사 → 그룹 → 담당 → 팀 → 사람(지시).
+                    사람은 이름으로 계정과 잇는다. 계정이 없는 사람도 **숨기지
+                    않는다** — 「누가 UTOP 을 아직 안 쓰나」 가 이 표의 값어치다. */}
+                {org ? (
+                  <OrgRows
+                    node={org}
+                    depth={0}
+                    shut={shutOrg}
+                    onToggle={toggleOrg}
+                    findAcct={findAcct}
+                    at={at}
+                    onPick={pick}
+                    q={q}
+                  />
+                ) : (
+                  rows.map((u) => (
+                    <tr
+                      key={u.username}
+                      className={`${u.active === false ? 'off' : ''}${at === u.username ? ' on' : ''}`}
+                      onClick={() => pick(u)}
+                    >
+                      <td className="ell" title={u.name || u.username}>
+                        <b>{u.name || u.username}</b>
                       </td>
+                      <td className="ell">{u.username}</td>
+                      <td>{u.role}</td>
+                      <td className="ell">{u.dept || '소속 없음'}</td>
+                      <td className="ell">{u.synced_at || ''}</td>
+                      <td className="ell">{u.email}</td>
+                      <td />
                     </tr>
-                    {!shutOrg.has(org) && list.map((u) => (
-                  <tr
-                    key={u.username}
-                    className={`${u.active === false ? 'off' : ''}${at === u.username ? ' on' : ''}`}
-                    onClick={() => pick(u)}
-                  >
-                    <td className="ell" title={u.name || u.username}>
-                      <b>{u.name || u.username}</b>
-                      <span className={`acc-tag ${u.active === false ? 'off' : 'ok'}`}>
-                        {u.active === false ? '잠김' : '활성'}
-                      </span>
-                      {u.jira_active === false && (
-                        <span className="acc-tag off" title="Jira 에서 비활성입니다">
-                          Jira 비활성
-                        </span>
-                      )}
-                    </td>
-                    <td className="mono ell">{u.username}</td>
-                    <td className="ell">{u.role || '팀원'}</td>
-                    <td className="ell">
-                      {[u.dept, u.team].filter(Boolean).join(' · ') || (
-                        <span className="muted">소속 없음</span>
-                      )}
-                    </td>
-                    <td className="muted small">{u.synced_at || u.last_login || ''}</td>
-                    <td className="ell mail">{u.email}</td>
-                  </tr>
-                    ))}
-                  </Fragment>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -699,4 +715,107 @@ export default function Accounts() {
       </div>
     </div>
   )
+}
+
+
+/**
+ * 조직도 줄 — 회사 → 그룹 → 담당 → 팀 → 사람.
+ *
+ * 마디는 접었다 펼 수 있고, 사람 수와 **장**(— 최지훈 전무)을 함께 보인다.
+ * 사람은 이름으로 계정을 찾아 잇는다. **계정이 없는 사람도 지우지 않는다** —
+ * 「누가 아직 UTOP 을 안 쓰나」 가 이 표에서 제일 값진 신호다.
+ */
+function OrgRows({
+  node,
+  depth,
+  shut,
+  onToggle,
+  findAcct,
+  at,
+  onPick,
+  q,
+}: {
+  node: OrgNode
+  depth: number
+  shut: Set<string>
+  onToggle: (k: string) => void
+  findAcct: (nm: string) => User | undefined
+  at: string
+  onPick: (u: User) => void
+  q: string
+}) {
+  const key = `${depth}:${node.name}`
+  const open = !shut.has(key) || !!q.trim()
+  const total = countOf(node)
+  const kids = node.children ?? []
+  const mem = node.members ?? []
+  const n = q.trim().toLowerCase()
+  const showMem = n ? mem.filter((m) => m.name.toLowerCase().includes(n)) : mem
+  /* 찾는 중에는 걸린 것이 없는 가지를 접어 둔다 — 빈 마디만 늘어놓지 않게 */
+  if (n && !hasHit(node, n)) return null
+
+  return (
+    <>
+      <tr className={`acc-orghd d${Math.min(depth, 4)}`}>
+        <td colSpan={7}>
+          <button type="button" onClick={() => onToggle(key)} style={{ paddingLeft: 10 + depth * 16 }}>
+            <i className={open ? 'open' : ''}>▸</i>
+            {node.name}
+            <em>{total}</em>
+            {node.lead && <span className="acc-lead">— {node.lead}</span>}
+          </button>
+        </td>
+      </tr>
+      {open && (
+        <>
+          {showMem.map((m) => {
+            const u = findAcct(m.name)
+            return (
+              <tr
+                key={`${key}/${m.name}`}
+                className={`${u ? '' : 'noacct'}${u && at === u.username ? ' on' : ''}`}
+                onClick={() => u && onPick(u)}
+              >
+                <td className="ell" style={{ paddingLeft: 10 + (depth + 1) * 16 }}>
+                  <b>{m.name}</b>
+                  {m.rank && <span className="acc-rank">{m.rank}</span>}
+                </td>
+                <td className="ell">{u?.username ?? <span className="muted">계정 없음</span>}</td>
+                <td>{u?.role ?? ''}</td>
+                <td className="ell">{node.name}</td>
+                <td className="ell">{u?.synced_at ?? ''}</td>
+                <td className="ell">{u?.email ?? ''}</td>
+                <td />
+              </tr>
+            )
+          })}
+          {kids.map((c) => (
+            <OrgRows
+              key={c.name}
+              node={c}
+              depth={depth + 1}
+              shut={shut}
+              onToggle={onToggle}
+              findAcct={findAcct}
+              at={at}
+              onPick={onPick}
+              q={q}
+            />
+          ))}
+        </>
+      )}
+    </>
+  )
+}
+
+/** 이 마디 아래 사람 수 — 조직도에 적힌 수가 아니라 **실제로 담긴 수**를 센다 */
+function countOf(n: OrgNode): number {
+  return (n.members?.length ?? 0) + (n.children ?? []).reduce((s, c) => s + countOf(c), 0)
+}
+
+/** 찾는 글자가 이 가지 어딘가에 있나 */
+function hasHit(n: OrgNode, q: string): boolean {
+  if (n.name.toLowerCase().includes(q)) return true
+  if ((n.members ?? []).some((m) => m.name.toLowerCase().includes(q))) return true
+  return (n.children ?? []).some((c) => hasHit(c, q))
 }
