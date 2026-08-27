@@ -9,7 +9,7 @@ import ReqForm from '@/components/ReqForm'
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
 import TestCases from '@/pages/TestCases'
-import { currentProject, onProjectChange } from '@/components/ProjectPicker'
+import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import './ReqTc.css'
 
@@ -75,7 +75,7 @@ export default function ReqTc({ me }: Props) {
   /** undefined = 안 열림 · null = 새로 만들기 · 값 = 그것을 고치기 */
   const [editReq, setEditReq] = useState<Requirement | null | undefined>(undefined)
   const [editTc, setEditTc] = useState<TestCaseMeta | null | undefined>(undefined)
-  const [prj, setPrj] = useState(currentProject)
+  const [prjs, setPrjs] = useState<string[]>(currentProjects)
 
   /* 상단바(Layout)에서 프로젝트를 바꾸면 이 화면이 다시 좁힌다.
      **고른 폴더도 함께 푼다.** 폴더는 프로젝트에 매여 있어서, 그대로 두면
@@ -85,7 +85,7 @@ export default function ReqTc({ me }: Props) {
   useEffect(
     () =>
       onProjectChange(() => {
-        setPrj(currentProject())
+        setPrjs(currentProjects())
         setCat('')
         setReqOnly('')
         setSel(new Set())
@@ -199,7 +199,12 @@ export default function ReqTc({ me }: Props) {
   }, [tcs])
   const reqById = useMemo(() => new Map(reqs.map((r) => [reqPk(r), r])), [reqs])
 
-  const prjCats = useMemo(() => (prj ? new Set(under(prj)) : null), [prj, under])
+  /* 고른 프로젝트들 아래 폴더를 모두 모은다 — 여럿을 함께 볼 수 있다(지시).
+     하나도 안 골랐으면 null 이고, 그건 「전체」 다. */
+  const prjCats = useMemo(
+    () => (prjs.length ? new Set(prjs.flatMap((p) => under(p))) : null),
+    [prjs, under],
+  )
   const inPrj = (r: Requirement) => !prjCats || catsOf(r).some((c) => prjCats.has(c))
 
   /** 이 요구사항의 프로젝트 — 사업자·모델의 정본 */
@@ -285,7 +290,7 @@ export default function ReqTc({ me }: Props) {
   const pageN = Math.max(1, Math.ceil(rowsN / per))
   /* 거르개가 바뀌면 1쪽으로 — 3쪽을 보다 좁히면 그 쪽이 없어져 빈 화면이
      되고, 사람은 「걸러진 게 없다」 고 읽는다 */
-  useEffect(() => setPage(1), [mode, cat, deep, q, onlyBare, reqOnly, prj, per])
+  useEffect(() => setPage(1), [mode, cat, deep, q, onlyBare, reqOnly, prjs, per])
   useEffect(() => {
     if (page > pageN) setPage(pageN)
   }, [page, pageN])
@@ -304,7 +309,7 @@ export default function ReqTc({ me }: Props) {
            골랐는데 다른 제품 폴더가 같이 나온다). 폴더는 프로젝트에 매여
            있어서, 남겨 두면 늘 (0 / 0) 인 줄이 남아 「비었나, 잘못 골랐나」
            를 헷갈리게 한다. 아래 가지는 이미 그 프로젝트 안이라 안 거른다. */
-        .filter((c) => depth > 0 || !prj || c.id === prj)
+        .filter((c) => depth > 0 || !prjs.length || prjs.includes(c.id))
         .sort((a, b) => (fsort === 'name' ? a.name.localeCompare(b.name) : countOf(b.id).r - countOf(a.id).r))
         .map((c) => {
           const kid = kids.get(c.id) ?? []

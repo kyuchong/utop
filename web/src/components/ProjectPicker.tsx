@@ -8,9 +8,19 @@ import './ProjectPicker.css'
 /** 고른 프로젝트를 기억해 둔다 — 새로고침마다 다시 고르게 할 수는 없다 */
 const KEY = 'utop.project'
 
-/** 지금 고른 프로젝트의 cat_id (없으면 '' = 전체). 화면들이 이걸로 좁힌다 */
+/**
+ * 지금 고른 프로젝트들의 cat_id. 빈 배열이면 **전체**다.
+ *
+ * 여럿을 고를 수 있다(지시) — 같은 장비의 두 모델을 나란히 보고 싶은 일이
+ * 잦다. 「전체」 는 고르기가 아니라 **비우기**라, 다른 것과 함께 고를 수 없다.
+ */
+export function currentProjects(): string[] {
+  return (localStorage.getItem(KEY) || '').split(',').filter(Boolean)
+}
+
+/** 옛 부름 — 첫 번째 하나만. 새 화면은 currentProjects 를 쓴다 */
 export function currentProject(): string {
-  return localStorage.getItem(KEY) || ''
+  return currentProjects()[0] ?? ''
 }
 
 /** 프로젝트가 바뀌면 알린다 — 화면이 다시 그리도록 */
@@ -34,12 +44,12 @@ export function onProjectChange(f: () => void): () => void {
 export default function ProjectPicker() {
   const [open, setOpen] = useState(false)
   const [mk, setMk] = useState(false)
-  const [sel, setSel] = useState(currentProject)
+  const [sel, setSel] = useState<string[]>(currentProjects)
   const box = useRef<HTMLDivElement>(null)
 
   const q = useQuery({ queryKey: ['projects'], queryFn: ({ signal }) => projectApi.list(signal) })
   const projects = q.data?.projects ?? []
-  const cur = projects.find((p) => p.cat_id === sel)
+  const picked = projects.filter((p) => sel.includes(p.cat_id))
 
   /* 바깥을 누르면 닫는다 — 메뉴가 열린 채 남아 있으면 뒤가 안 눌린다 */
   useEffect(() => {
@@ -56,11 +66,22 @@ export default function ProjectPicker() {
     }
   }, [open])
 
+  /**
+   * 고르기 — 프로젝트는 **여닫이**(누르면 켜고 끈다), 「전체」 는 비우기.
+   *
+   * 여럿 고르는 중에 메뉴가 닫히면 하나 고를 때마다 다시 열어야 한다.
+   * 그래서 프로젝트를 누를 땐 열어 둔다. 「전체」 는 더 고를 것이 없으니 닫는다.
+   */
   const pick = (catId: string) => {
-    setSel(catId)
-    if (catId) localStorage.setItem(KEY, catId)
+    const next = !catId
+      ? []
+      : sel.includes(catId)
+        ? sel.filter((x) => x !== catId)
+        : [...sel, catId]
+    setSel(next)
+    if (next.length) localStorage.setItem(KEY, next.join(','))
     else localStorage.removeItem(KEY)
-    setOpen(false)
+    if (!catId) setOpen(false)
     window.dispatchEvent(new Event('utop:project'))
   }
 
@@ -70,7 +91,13 @@ export default function ProjectPicker() {
         <span className="prjp-ico" aria-hidden="true">
           ▣
         </span>
-        <span className="prjp-nm">{cur?.name || '전체 프로젝트'}</span>
+        <span className="prjp-nm">
+          {picked.length === 0
+            ? '전체 프로젝트'
+            : picked.length === 1
+              ? picked[0]!.name
+              : `${picked[0]!.name} 외 ${picked.length - 1}`}
+        </span>
         {/* 꺾쇠는 **오른쪽 끝**에(지시·Testiny). 이름 바로 뒤에 붙어 있으면
             이름이 길고 짧음에 따라 자리가 옮겨 다녀, 누를 곳을 눈으로 다시
             찾아야 한다. 문자 ▾ 는 글꼴마다 크기가 제각각이라 도형으로 그린다. */}
@@ -81,25 +108,25 @@ export default function ProjectPicker() {
 
       {open && (
         <div className="prjp-menu" role="menu">
-          <button type="button" className={`prjp-item${sel === '' ? ' on' : ''}`} onClick={() => pick('')}>
+          <button type="button" className={`prjp-item${sel.length === 0 ? ' on' : ''}`} onClick={() => pick('')}>
             {/* 네모 기호 대신 **진짜 체크박스**(지시) — 지금 무엇을 고른
                 것인지 기호로 짐작하지 않아도 된다. 고르는 것은 단추가 맡으니
                 이 칸은 표시만 한다. */}
-            <input type="checkbox" className="prjp-chk" checked={sel === ''} readOnly tabIndex={-1} />
+            <input type="checkbox" className="prjp-chk" checked={sel.length === 0} readOnly tabIndex={-1} />
             전체 프로젝트
           </button>
           {projects.map((p) => (
             <button
               key={p.id}
               type="button"
-              className={`prjp-item${p.cat_id === sel ? ' on' : ''}`}
+              className={`prjp-item${sel.includes(p.cat_id) ? ' on' : ''}`}
               onClick={() => pick(p.cat_id)}
               title={[p.customer, p.model_group, p.model].filter(Boolean).join(' · ')}
             >
               <input
                 type="checkbox"
                 className="prjp-chk"
-                checked={p.cat_id === sel}
+                checked={sel.includes(p.cat_id)}
                 readOnly
                 tabIndex={-1}
               />
