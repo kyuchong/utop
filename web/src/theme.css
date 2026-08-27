@@ -1,3 +1,15 @@
+/* Inter (가변) — SIL Open Font License 1.1. https://rsms.me/inter/
+   가변 폰트 한 장으로 100~900 굵기를 모두 낸다. 굵기마다 파일을 두면
+   여섯 장을 받아야 하고, 그중 안 받아진 굵기는 브라우저가 억지로
+   두껍게 그려 글자가 뭉갠다. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/InterVariable.woff2') format('woff2');
+}
+
 /* ══════════════════════════════════════════════════════════════════
    UTOP 디자인 토큰 — 목업(requirement_tc_link_mockup.html) 에서 추출.
 
@@ -74,7 +86,11 @@
   --fs-label: var(--fs-xs);
 
   /* 글꼴은 한 벌만 쓴다. 여기서만 정하고 나머지는 상속받는다. */
-  --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR',
+  /* 영문·숫자는 Inter — Testiny 와 같은 글씨체다(지시). 파일을 우리 안에
+     실어 둔다(web/public/fonts): 사내망이라 구글 폰트 같은 바깥 주소를
+     부르면 안 뜨거나 느리다. Inter 에는 한글이 없어 그다음의 맑은 고딕이
+     이어받는다 — 영문만 바뀌고 한글은 지금 그대로다. */
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR',
     'Malgun Gothic', Arial, sans-serif;
   --font-mono: 'Cascadia Mono', Consolas, 'D2Coding', monospace;
 
