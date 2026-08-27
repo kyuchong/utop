@@ -17,6 +17,7 @@ import {
 } from './icons'
 import NotifyBell from '@/components/NotifyBell'
 import ProjectPicker from '@/components/ProjectPicker'
+import ReqTcModeToggle from '@/components/ReqTcMode'
 import TopUser from '@/components/TopUser'
 import PresenceBar from '@/components/PresenceBar'
 import { usePageCrowd } from '@/components/usePageCrowd'
@@ -188,6 +189,15 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
               있으면 한 덩어리로 읽혀, 프로젝트가 이름의 일부처럼 보인다. */}
           <span className="app-top-div" aria-hidden="true" />
           <ProjectPicker />
+          {/* 무엇을 볼지 — REQ-Coverage 에서만 뜬다(지시). 프로젝트 오른쪽,
+              세로선 너머다: 왼쪽은 「어느 프로젝트」, 오른쪽은 「그 안에서
+              무엇을」 이다. 다른 화면에서는 뜻이 없어 안 낸다. */}
+          {current === 'reqtc' && (
+            <>
+              <span className="app-top-div" aria-hidden="true" />
+              <ReqTcModeToggle />
+            </>
+          )}
           <span className="sp" />
           {/* 지금 UTOP 을 같이 쓰고 있는 사람(지시) — 어느 화면에 있든 보인다.
               같은 자료를 둘이 고치다 덮어쓰는 일이 잦아, 「지금 누가 들어와

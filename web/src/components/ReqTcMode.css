@@ -1,0 +1,27 @@
+/* 상단바의 Requirements / Coverage 토글.
+   어두운 상단바 위라 색을 새로 정하지 않고 **흰색의 낮은 투명도**를 쓴다 —
+   프로젝트 고르기(.prjp-btn)와 같은 규칙이라 둘이 한 벌로 보인다.
+   고른 칸만 승인받은 청록(#a8d3dd)으로 찬다: 이 줄에서 「지금 무엇을 보고
+   있나」 는 그 한 칸이다. */
+.rtm {
+  display: inline-flex;
+  flex: none;
+  height: 28px;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 10%);
+  overflow: hidden;
+}
+.rtm button {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  background: transparent;
+  color: rgb(255 255 255 / 78%);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rtm button:hover:not(.on) { background: rgb(255 255 255 / 14%); color: #fff; }
+.rtm button.on { background: var(--c-sel-teal); color: var(--c-sel-teal-ink); }

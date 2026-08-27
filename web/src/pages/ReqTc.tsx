@@ -21,6 +21,7 @@ import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
 import TestCases from '@/pages/TestCases'
 import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
+import { currentMode, onModeChange, setMode as setSharedMode } from '@/components/ReqTcMode'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import './ReqTc.css'
 
@@ -30,7 +31,6 @@ interface Props {
 
 /** 2열이 무엇을 세나 — 목업에서 고른 「토글」 */
 type Mode = 'req' | 'tc'
-const MODE_KEY = 'utop.reqtc.mode'
 
 /**
  * REQ-TC — 요구사항과 시험을 한 화면에서(지시, 목업 확정).
@@ -68,7 +68,14 @@ function pagesOf(cur: number, last: number): number[] {
 
 export default function ReqTc({ me }: Props) {
   void me
-  const [mode, setMode] = useState<Mode>(() => (localStorage.getItem(MODE_KEY) as Mode) || 'req')
+  /* 무엇을 볼지는 **상단바 토글**이 정한다(지시) — 여기서는 읽기만 한다.
+     화면 안에도 토글을 두면 같은 것을 두 곳에서 고치게 된다. */
+  const [mode, setModeState] = useState<Mode>(currentMode)
+  useEffect(() => onModeChange(() => setModeState(currentMode())), [])
+  const setMode = (m: Mode) => {
+    setModeState(m)
+    setSharedMode(m)
+  }
   const [cat, setCat] = useState('')
   const [openCat, setOpenCat] = useState<Set<string>>(new Set())
   /** 「이 요구사항의 시험만」 — 요구사항 줄을 눌렀을 때 걸리는 다리 */
@@ -773,17 +780,9 @@ export default function ReqTc({ me }: Props) {
             >
               <IconPanel open={foldSide} />
             </button>
-            <div className="rqtc-seg">
-              <button type="button" className={mode === 'req' ? 'on' : ''} onClick={() => setMode('req')}>
-                Requirements
-              </button>
-              <button type="button" className={mode === 'tc' ? 'on' : ''} onClick={() => setMode('tc')}>
-                Coverage
-              </button>
-            </div>
-            {/* 세로선 — 「무엇을 볼지」(토글)와 「무엇을 만들지」(⋯)를
-                가른다(지시). 붙어 있으면 토글의 일부처럼 읽힌다. */}
-            <span className="rqtc-vsep" aria-hidden="true" />
+            {/* Requirements/Coverage 토글은 **상단바**로 올렸다(지시) —
+                프로젝트 오른쪽, 세로선 너머다. 여기 또 두면 같은 것을 두 곳
+                에서 고치게 된다. */}
             {/* 만들기 셋은 **⋯ 안으로**(지시). 늘 서 있을 필요가 없는
                 것들이라 줄을 먹고 있었다 — 눌러서 꺼내 쓴다. */}
             <div className="rqtc-more">
