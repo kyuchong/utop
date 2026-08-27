@@ -511,17 +511,27 @@
 }
 .acc-orghd:hover .acc-orgtools { display: inline-flex; }
 .acc-orgtools button {
+  /* 글자가 버튼 안에서 밀려 있었다(지적). 전각 ＋ 와 ✎ 는 글꼴마다 폭과
+     기준선이 제각각이라 line-height 로는 안 맞는다. 칸을 플렉스로 만들어
+     **가운데를 못 박고**, 안쪽 여백을 0 으로 둬 글자가 밀 자리를 없앤다. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 22px;
   height: 22px;
+  padding: 0;
   border: 1px solid var(--c-border);
   border-radius: 5px;
   background: var(--c-surface);
   color: var(--c-text-muted);
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1;
   cursor: pointer;
 }
+/* 그림은 글꼴 기준선을 안 타므로 어디서나 같은 자리에 앉는다 — 연필·휴지통은
+   이모지로 두면 판마다 색까지 달라진다. 이미 쓰는 아이콘을 그대로 쓴다. */
+.acc-orgtools button svg { width: 13px; height: 13px; }
 .acc-orgtools button:hover { border-color: var(--c-primary); color: var(--c-primary); }
 
 tr.noacct { cursor: pointer; }

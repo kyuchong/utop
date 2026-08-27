@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import { IconEdit, IconTrash } from '@/components/icons'
 import './Accounts.css'
 
 /**
@@ -1051,7 +1052,7 @@ function OrgRows({
                 if (nm) onOrgEdit('node', { path: me, name: nm })
               }}
             >
-              ＋
+              +
             </button>
             <button
               type="button"
@@ -1061,7 +1062,7 @@ function OrgRows({
                 if (nm && nm !== node.name) onOrgEdit('rename', { path: me, name: nm })
               }}
             >
-              ✎
+              <IconEdit />
             </button>
             {depth > 0 && (
               <button
@@ -1072,7 +1073,7 @@ function OrgRows({
                     onOrgEdit('delete-node', { path: me })
                 }}
               >
-                ×
+                <IconTrash />
               </button>
             )}
           </span>
