@@ -209,6 +209,9 @@
   gap: 8px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--c-border);
+  /* 메뉴가 이 줄 밖으로 나가 뜬다 — 자르면 아무것도 안 보인다 */
+  position: relative;
+  z-index: 5;
 }
 .rqtc-modebar .sp { flex: 1; }
 .rqtc-seg { display: inline-flex; border: 1px solid var(--c-border); border-radius: 7px; overflow: hidden; flex: none; }
@@ -668,8 +671,19 @@
   background: var(--c-border);
 }
 
-/* ⋯ 메뉴가 설 자리 — 팝업이 이 단추를 기준으로 뜬다 */
+/* ⋯ 메뉴가 설 자리 — 팝업이 이 단추를 기준으로 뜬다.
+   .tc-menu 는 시험항목 화면에서 만들어진 것이라 **오른쪽 기준**으로 편다
+   (거기선 ⋯ 가 줄 오른쪽 끝에 있다). 여기서는 왼쪽에 서 있어 그대로 두면
+   화면 밖으로 나가 안 보인다(지적). 이 안에서만 왼쪽 기준으로 되돌린다. */
 .rqtc-more { position: relative; display: inline-flex; }
+.rqtc-more .tc-menu {
+  left: 0;
+  right: auto;
+  top: calc(100% + 6px);
+}
+/* 오른쪽 끝의 ⋯(파일 내보내기)는 그대로 오른쪽 기준이다 — 거기서 왼쪽으로
+   펴면 이번엔 그쪽이 화면을 넘는다. */
+.rqtc-modebar > .rqtc-more:last-of-type .tc-menu { left: auto; right: 0; }
 
 /* 우클릭 메뉴 — 아래로 채우기 */
 .rqtc-ctx {
