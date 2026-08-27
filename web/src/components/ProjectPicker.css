@@ -14,7 +14,12 @@
   font: inherit;
   font-size: var(--fs-sm);
   cursor: pointer;
-  max-width: 280px;
+  /* 폭을 **고정**한다(지적: 프로젝트 이름에 따라 탭이 왔다 갔다 한다).
+     이름 길이에 맞춰 늘었다 줄었다 하면 옆의 것들이 함께 밀려, 프로젝트를
+     바꿀 때마다 상단바가 흔들린다. 긴 이름은 말줄임으로 접는다 — 전체
+     이름은 눌러서 연 목록에 그대로 있다. */
+  width: 200px;
+  flex: none;
 }
 .prjp-btn:hover { background: rgb(255 255 255 / 18%); }
 .prjp-ico { flex: none; opacity: 0.8; font-size: 11px; }
