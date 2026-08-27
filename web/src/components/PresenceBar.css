@@ -35,13 +35,15 @@
 /* ── 상단바 안 ── 청록 바탕의 **보색(따뜻한 호박색)** 으로 세운다(지시).
    같은 청록 계열로 두면 바탕에 묻혀 「지금 누가 있나」 가 눈에 안 걸린다.
    이 화면에서 따뜻한 색은 여기 하나뿐이라 눈이 먼저 간다. */
+/* 바탕은 **비운다**(지시) — 호박색 알약이 상단바에서 너무 소리쳤다.
+   동그라미의 색만으로도 사람이라는 것은 읽히고, 글자는 상단바의 다른
+   글자와 같은 흰색이라 한 줄로 가지런하다. */
 .app-top .pb {
   flex: none;
-  padding: 3px 10px 3px 5px;
+  padding: 3px 6px 3px 5px;
   border-radius: 999px;
-  background: #f4a72c;
-  color: #4a2c00;
+  background: transparent;
 }
-.app-top .pb-av { border-color: #f4a72c; }
-.app-top .pb-av.me { background: #7a4a00; }
-.app-top .pb-n { color: #4a2c00; font-weight: 800; }
+.app-top .pb-av { border-color: var(--c-app-top); }
+.app-top .pb-av.me { background: #f4a72c; color: #4a2c00; }
+.app-top .pb-n { color: #eaf4f6; font-weight: 700; }

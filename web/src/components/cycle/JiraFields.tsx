@@ -304,8 +304,10 @@ function UserPick({
  * 고르는 칸은 id 로 들고 있어서, 그대로 내면 「10521」 같은 숫자가 보인다.
  * 사람이 고른 것은 이름이므로 이름으로 되돌려 적는다.
  *
- * 값이 없어도 **필수는 남긴다** — 「아직 안 골랐다」 가 미리보기에서 보여야
- * 등록을 눌러 보고서야 알게 되는 일이 없다.
+ * **칸은 하나도 빼지 않는다.** 빈 것을 감췄더니 미리보기에 네 줄만 남아,
+ * 무엇을 더 고를 수 있는지 알 수 없었다(지적). 안 고른 칸은 「(선택)」 으로,
+ * 안 고른 **필수**는 「—」 로 적고 이름을 붉게 둔다 — 등록을 눌러 보고서야
+ * 빠진 것을 알게 되면 늦다.
  */
 export function toPreviewRows(
   fields: JiraField[],
@@ -321,7 +323,11 @@ export function toPreviewRows(
       if (f.type === 'array') txt = (Array.isArray(v) ? v : []).map((x) => nameOf(String(x))).join(', ')
       else if (String(v ?? '')) txt = nameOf(String(v))
     } else txt = String(v ?? '').trim()
-    if (txt || f.required) rows.push({ label: f.name || f.id, val: txt || '—', req: !!f.required })
+    rows.push({
+      label: f.name || f.id,
+      val: txt || (f.required ? '—' : '(선택)'),
+      req: !!f.required && !txt,
+    })
   }
   return rows
 }

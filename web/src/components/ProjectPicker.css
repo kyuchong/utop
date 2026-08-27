@@ -76,6 +76,8 @@
 .prjp-item:hover { background: var(--c-surface-alt); }
 .prjp-item.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
 .prjp-item .prjp-ico { opacity: 0.7; }
+/* 고른 프로젝트 표시 — 누르는 것은 줄 전체라, 이 칸은 눈으로만 읽는다 */
+.prjp-chk { flex: none; margin: 0; pointer-events: none; }
 .prjp-itnm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 모델그룹 / 모델명 — 프로젝트가 이 값의 정본이라 여기서 미리 보인다 */
 /* 모델그룹 / 모델명 — 프로젝트가 이 값의 정본이라 여기서 미리 보인다.

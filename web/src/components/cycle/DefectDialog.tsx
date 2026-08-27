@@ -663,7 +663,9 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
                   {prevRows.map((r) => (
                     <div className="dfx-prevf" key={r.label}>
                       <div className={`dfx-prevk${r.req ? ' req' : ''}`}>{r.label}</div>
-                      <div className="dfx-prevv">{r.val}</div>
+                      <div className={`dfx-prevv${r.val === '(선택)' || r.val === '—' ? ' none' : ''}`}>
+                        {r.val}
+                      </div>
                     </div>
                   ))}
                   {labelList.length > 0 && (

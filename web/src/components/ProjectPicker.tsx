@@ -82,7 +82,11 @@ export default function ProjectPicker() {
       {open && (
         <div className="prjp-menu" role="menu">
           <button type="button" className={`prjp-item${sel === '' ? ' on' : ''}`} onClick={() => pick('')}>
-            <span className="prjp-ico">▤</span> 전체 프로젝트
+            {/* 네모 기호 대신 **진짜 체크박스**(지시) — 지금 무엇을 고른
+                것인지 기호로 짐작하지 않아도 된다. 고르는 것은 단추가 맡으니
+                이 칸은 표시만 한다. */}
+            <input type="checkbox" className="prjp-chk" checked={sel === ''} readOnly tabIndex={-1} />
+            전체 프로젝트
           </button>
           {projects.map((p) => (
             <button
@@ -92,7 +96,13 @@ export default function ProjectPicker() {
               onClick={() => pick(p.cat_id)}
               title={[p.customer, p.model_group, p.model].filter(Boolean).join(' · ')}
             >
-              <span className="prjp-ico">▣</span>
+              <input
+                type="checkbox"
+                className="prjp-chk"
+                checked={p.cat_id === sel}
+                readOnly
+                tabIndex={-1}
+              />
               <span className="prjp-itnm">{p.name}</span>
               <span className="prjp-sub">{[p.model_group, p.model].filter(Boolean).join(' / ')}</span>
             </button>

@@ -744,6 +744,11 @@ export default function ReqTc({ me }: Props) {
               </select>
               of {rowsN}
             </span>
+            {/* 미커버는 남긴다 — 요약 줄은 없앴지만(지시) 이 수는 이 화면이
+                있는 까닭이다. 줄을 늘리지 않으려고 쪽 줄에 얹었다. */}
+            {mode === 'req' && bare > 0 && (
+              <span className="rqtc-barepg">미커버 {bare}</span>
+            )}
             <span className="sp" />
             {pageN > 1 && (
               <span className="rqtc-pg">
@@ -771,16 +776,9 @@ export default function ReqTc({ me }: Props) {
             )}
           </div>
 
-          <div className="rqtc-foot">
-            {mode === 'req' ? (
-              <>
-                요구사항 {rowsN}건 · 시험 붙음 {rowsN - bare} ·{' '}
-                <b className={bare ? 'rqtc-bare' : ''}>미커버 {bare}</b> — 줄을 누르면 그 요구사항의 시험을 봅니다
-              </>
-            ) : (
-              <>시험 {rowsN}건</>
-            )}
-          </div>
+          {/* 아래 요약 줄은 뺐다(지시) — 쪽 나누기 줄이 바로 위에서 「몇 건」
+              을 이미 말한다. 같은 수를 두 줄로 적으면 어느 것이 지금 보고
+              있는 수인지 헷갈린다. */}
         </section>
       </div>
 

@@ -579,3 +579,14 @@
 .rqtc-pg button.on { background: var(--c-app-top); color: #fff; font-weight: 700; }
 .rqtc-pg button:disabled { opacity: 0.3; cursor: default; }
 .rqtc-pg i { font-style: normal; padding: 0 2px; color: var(--c-text-faint); }
+
+/* 쪽 줄에 얹은 미커버 — 붉게 두어 훑기만 해도 구멍이 보인다 */
+.rqtc-barepg {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #fdeeee;
+  color: #a02323;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}

@@ -336,3 +336,6 @@
 /* 필수인데 아직 안 고른 칸은 붉게 — 등록을 눌러 보고서야 알면 늦다 */
 .dfx-prevk.req { color: #c0414f; }
 .dfx-prevv { font-size: var(--fs-sm); word-break: break-word; }
+/* 안 고른 칸 — 값이 아니라 「아직 비었다」 는 표시라 옅게 둔다 */
+.dfx-prevv:has(+ *) { }
+.dfx-prevf .dfx-prevv.none { color: var(--c-text-faint); }
