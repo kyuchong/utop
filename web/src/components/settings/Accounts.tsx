@@ -230,10 +230,17 @@ export default function Accounts() {
 
   const roles = users.data?.roles ?? ['관리자', '담당', '팀장', '팀원']
   const all = useMemo(() => users.data?.users ?? [], [users.data])
-  const depts = useMemo(
-    () => [...new Set(all.map((u) => String(u.dept || '').trim()).filter(Boolean))].sort(),
-    [all],
-  )
+  /* 소속은 **사람 많은 순**으로. 이름순이면 1명짜리가 맨 위에 오고 정작
+     17명짜리를 찾으러 끝까지 훑어야 한다. */
+  const depts = useMemo(() => {
+    const n = new Map<string, number>()
+    for (const u of all) {
+      const d = String(u.dept || '').trim()
+      if (d) n.set(d, (n.get(d) ?? 0) + 1)
+    }
+    return [...n.keys()].sort((a, b) => (n.get(b) ?? 0) - (n.get(a) ?? 0) || a.localeCompare(b))
+  }, [all])
+  const [deptOpen, setDeptOpen] = useState(false)
   const rows = useMemo(() => {
     const key = q.trim().toLowerCase()
     return all
@@ -637,17 +644,32 @@ export default function Accounts() {
                 <span>전체 소속</span>
                 <em>{all.length}</em>
               </button>
-              {depts.map((d) => (
+              {/* 소속이 30개가 넘는다. 다 펼치면 레일이 화면 두 배 높이가 돼
+                  위쪽 상태·역할이 스크롤 밖으로 밀린다 — 정작 자주 쓰는 게
+                  그 둘이다. 사람 많은 순으로 8개만 두고 나머지는 접는다.
+                  고른 소속은 접혀 있어도 늘 보인다. */}
+              {depts
+                .filter((d, i) => deptOpen || i < 8 || d === dept)
+                .map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    className={`acc-railb${dept === d ? ' on' : ''}`}
+                    onClick={() => setDept(d)}
+                  >
+                    <span>{d}</span>
+                    <em>{all.filter((u) => u.dept === d).length}</em>
+                  </button>
+                ))}
+              {depts.length > 8 && (
                 <button
-                  key={d}
                   type="button"
-                  className={`acc-railb${dept === d ? ' on' : ''}`}
-                  onClick={() => setDept(d)}
+                  className="acc-railmore"
+                  onClick={() => setDeptOpen((v) => !v)}
                 >
-                  <span>{d}</span>
-                  <em>{all.filter((u) => u.dept === d).length}</em>
+                  {deptOpen ? '접기' : `더 보기 ${depts.length - 8}`}
                 </button>
-              ))}
+              )}
             </>
           )}
         </nav>
