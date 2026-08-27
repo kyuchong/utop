@@ -218,7 +218,7 @@ export default function ReqTc({ me }: Props) {
      칸은 이제 켜진 열 쪽에서 나온다 — 두 곳에서 그리면 두 번 보인다. */
   /* ID 를 제 칸으로 뗀다(지시: ID 와 제목 사이에도 세로선). 한 칸에 같이
      두면 선을 그을 자리가 없다 — 표의 선은 칸 사이에만 선다. */
-  const gridReq = `52px 108px minmax(0, 1fr) 104px 80px 56px ${visCols.map((c) => c.w).join(' ')}`.trim()
+  const gridReq = `52px 108px minmax(0, 1fr) 110px 80px 65px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridTc = `52px 108px minmax(0, 1fr) 100px 80px 70px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridOf = (tc: boolean) => (tc ? gridTc : gridReq)
   /* 표에서 바로 고치는 칸이 쓸 값들 — 설정(codes)이 정본이다 */
