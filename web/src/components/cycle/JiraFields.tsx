@@ -299,6 +299,34 @@ function UserPick({
 }
 
 /**
+ * 화면 값 → **미리보기에 적을 글**.
+ *
+ * 고르는 칸은 id 로 들고 있어서, 그대로 내면 「10521」 같은 숫자가 보인다.
+ * 사람이 고른 것은 이름이므로 이름으로 되돌려 적는다.
+ *
+ * 값이 없어도 **필수는 남긴다** — 「아직 안 골랐다」 가 미리보기에서 보여야
+ * 등록을 눌러 보고서야 알게 되는 일이 없다.
+ */
+export function toPreviewRows(
+  fields: JiraField[],
+  value: JiraFieldValues,
+): Array<{ label: string; val: string; req: boolean }> {
+  const rows: Array<{ label: string; val: string; req: boolean }> = []
+  for (const f of fields) {
+    const v = value[f.id]
+    const nameOf = (id: string) =>
+      (f.options ?? []).find((o) => String(o.id) === String(id))?.name ?? String(id)
+    let txt = ''
+    if (f.options && f.options.length) {
+      if (f.type === 'array') txt = (Array.isArray(v) ? v : []).map((x) => nameOf(String(x))).join(', ')
+      else if (String(v ?? '')) txt = nameOf(String(v))
+    } else txt = String(v ?? '').trim()
+    if (txt || f.required) rows.push({ label: f.name || f.id, val: txt || '—', req: !!f.required })
+  }
+  return rows
+}
+
+/**
  * 화면 값 → Jira 가 받는 모양.
  *
  * 고르는 칸은 {id}, 여러 개면 [{id}], 사람은 {name}, 나머지는 글자. 이 모양이

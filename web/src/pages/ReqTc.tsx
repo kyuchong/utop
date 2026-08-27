@@ -223,6 +223,11 @@ export default function ReqTc({ me }: Props) {
   const Tree = ({ parent, depth }: { parent: string | null; depth: number }) => (
     <>
       {[...(kids.get(parent ?? '') ?? [])]
+        /* 프로젝트를 고르면 **그 프로젝트의 폴더만** 낸다(지적: 6100 을
+           골랐는데 다른 제품 폴더가 같이 나온다). 폴더는 프로젝트에 매여
+           있어서, 남겨 두면 늘 (0 / 0) 인 줄이 남아 「비었나, 잘못 골랐나」
+           를 헷갈리게 한다. 아래 가지는 이미 그 프로젝트 안이라 안 거른다. */
+        .filter((c) => depth > 0 || !prj || c.id === prj)
         .sort((a, b) => (fsort === 'name' ? a.name.localeCompare(b.name) : countOf(b.id).r - countOf(a.id).r))
         .map((c) => {
           const kid = kids.get(c.id) ?? []

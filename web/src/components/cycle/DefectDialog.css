@@ -140,10 +140,15 @@
 .dfx-foot {
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
-  padding: var(--sp-4) var(--sp-5);
+  /* .modal-foot 이 space-between 이라 단추 셋이 화면 폭만큼 벌어져 있었다
+     (지적). 왼쪽 상태는 .sp 가 이미 밀어 주므로, 여기서는 왼쪽부터 세우고
+     단추끼리는 6px 만 띄운다 — 셋이 한 묶음으로 읽혀야 한다. */
+  justify-content: flex-start;
+  gap: 6px;
+  padding: var(--sp-3) var(--sp-5);
   border-top: 1px solid var(--c-border);
 }
+.dfx-foot .sp { flex: 1; }
 
 
 /* ── 결함 팝업 — 지라 이슈 등록 꼴(2·3번 그림) ──────────────────
@@ -322,3 +327,12 @@
   white-space: pre-wrap;
   word-break: break-all;
 }
+
+/* 미리보기 아래 — 왼쪽에서 고른 칸들. 본문이 아니라 이슈의 **속성**이라
+   따로 모은다. 두 줄로 세워 스물두 칸이 세로로 길게 늘어지지 않게 한다. */
+.dfx-prevgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.dfx-prevf { padding: 6px 0; border-bottom: 1px solid var(--c-border-soft, #f2f4f7); min-width: 0; }
+.dfx-prevk { font-size: var(--fs-xs); font-weight: 600; color: var(--c-text-faint); }
+/* 필수인데 아직 안 고른 칸은 붉게 — 등록을 눌러 보고서야 알면 늦다 */
+.dfx-prevk.req { color: #c0414f; }
+.dfx-prevv { font-size: var(--fs-sm); word-break: break-word; }

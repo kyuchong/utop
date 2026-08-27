@@ -4,7 +4,7 @@ import { stepVerdict, type TcStep } from '@/components/tc/types'
 import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
 import './DefectDialog.css'
 import { buildDefectWiki, kernelFromSteps, wikiToHtml, type WikiStep } from '@/lib/jiraWiki'
-import JiraFields, { toJiraFields, type JiraField, type JiraFieldValues } from './JiraFields'
+import JiraFields, { toJiraFields, toPreviewRows, type JiraField, type JiraFieldValues } from './JiraFields'
 
 /** UTOP 안에 쌓는 결함 한 건 */
 export interface DefectRec {
@@ -171,6 +171,12 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
   const wiki = useMemo(
     () => buildDefectWiki(panels, briefs as WikiStep[]),
     [panels, briefs],
+  )
+  /* 미리보기 아래에 적을 것들 — 왼쪽에서 고른 그대로 */
+  const prevRows = useMemo(() => toPreviewRows(jfDefs, jfVals), [jfDefs, jfVals])
+  const labelList = useMemo(
+    () => labels.split(',').map((x) => x.trim()).filter(Boolean),
+    [labels],
   )
 
   // 드롭다운 목록
@@ -646,6 +652,29 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
               {proj || '프로젝트 선택'} · {itype || '이슈유형'}
             </div>
             <div className="jw" dangerouslySetInnerHTML={{ __html: wikiToHtml(wiki) }} />
+
+            {/* 왼쪽에서 고른 칸들 — 본문이 아니라 이슈의 **속성**이라 아래에
+                따로 모은다(지시). 비어 있는 필수도 「—」 로 남겨, 등록을
+                눌러 보고서야 빠진 것을 알게 되는 일이 없다. */}
+            {(prevRows.length > 0 || labelList.length > 0) && (
+              <>
+                <hr className="jw-hr" />
+                <div className="dfx-prevgrid">
+                  {prevRows.map((r) => (
+                    <div className="dfx-prevf" key={r.label}>
+                      <div className={`dfx-prevk${r.req ? ' req' : ''}`}>{r.label}</div>
+                      <div className="dfx-prevv">{r.val}</div>
+                    </div>
+                  ))}
+                  {labelList.length > 0 && (
+                    <div className="dfx-prevf">
+                      <div className="dfx-prevk">라벨</div>
+                      <div className="dfx-prevv">{labelList.join(', ')}</div>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
         </div>
