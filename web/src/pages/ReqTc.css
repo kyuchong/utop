@@ -18,14 +18,17 @@
 .rqtc {
   display: grid;
   /* 폭은 이동바가 인라인으로 정한다 — 여기 값은 처음 한 칸 그릴 때만 쓴다.
-     가운데 6px 은 이동바 자리다. */
-  grid-template-columns: 264px 6px minmax(0, 1fr);
-  gap: 8px;
+     가운데 10px 은 이동바 자리다. 두 카드 사이는 **그 10px 이 전부**다
+     (지시: 간격을 더 줄여). 22px(8+6+8)에서 10px 로 줄었다 — 이동바를
+     10px 로 남겨 둔 것은 2px 짜리 선을 마우스로 집기 어렵기 때문이다. */
+  grid-template-columns: 264px 10px minmax(0, 1fr);
+  gap: 0;
   flex: 1;
   min-height: 0;
 }
 /* 폴더 판을 접으면 표가 넓어지고, 펴는 단추만 가느다랗게 남는다 */
-.rqtc.folded { grid-template-columns: 26px minmax(0, 1fr); }
+/* 접으면 이동바가 없다 — 펴는 단추와 표가 맞붙지 않게 여백을 되돌린다 */
+.rqtc.folded { grid-template-columns: 26px minmax(0, 1fr); gap: 6px; }
 .rqtc-unfold {
   align-self: start;
   width: 26px;
