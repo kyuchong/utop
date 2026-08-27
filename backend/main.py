@@ -1700,6 +1700,47 @@ def _org_at(org: dict, path: list) -> dict | None:
     return cur if not path or str(org.get("name")) == str(path[0]) else None
 
 
+@app.post("/api/org/seed")
+async def api_org_seed(payload: dict = None, token: str = ""):
+    """이미지에 실린 조직도를 **손으로 심는다**. 관리자만.
+
+    시작할 때 자동으로 심지만(비어 있을 때만), 그게 안 먹은 서버에서는
+    확인할 길이 없었다 — 서버에 들어갈 수 없으면 「왜 안 됐나」 를 물을 데가
+    없다(253 지적). 눌러서 심고 **결과를 눈으로 보게** 한다.
+
+    이미 조직도가 있으면 안 덮는다. 덮으려면 force 를 줘야 한다 — 화면이
+    먼저 물어본 뒤에 보낸다.
+    """
+    _require_admin(token)
+    force = bool((payload or {}).get("force"))
+    cur = _kv_load_sync("org_tree", None)
+    seed = Path(__file__).parent / "seed" / "org_tree.json"
+    if not seed.exists():
+        raise HTTPException(404, "씨앗 파일이 이미지에 없습니다 — 코드를 다시 받으세요")
+    if cur and not force:
+        return {"ok": False, "had": True, "name": cur.get("name"),
+                "detail": "이미 조직도가 있습니다"}
+    org = json.loads(seed.read_text(encoding="utf-8"))
+    _kv_save_sync("org_tree", org)
+
+    people: set = set()
+
+    def walk(n: dict):
+        t = str(n.get("lead") or "").strip()
+        if t:
+            i = t.rfind(" ")
+            people.add(t[:i] if i > 0 else t)
+        for m in (n.get("members") or []):
+            people.add(str(m.get("name") or ""))
+        for c in (n.get("children") or []):
+            walk(c)
+
+    walk(org)
+    people.discard("")
+    return {"ok": True, "had": bool(cur), "nodes": len(list(_org_walk(org))),
+            "people": len(people), **_apply_org_roles(org)}
+
+
 @app.post("/api/org/node")
 async def api_org_node_add(payload: dict, token: str = ""):
     """조직을 하나 만든다 — 고른 조직 **아래**에. 관리자만."""

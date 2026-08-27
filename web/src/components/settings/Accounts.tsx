@@ -408,6 +408,38 @@ export default function Accounts() {
     return { at: m, lead }
   }, [org])
 
+  const seedOrg = useMutation({
+    mutationFn: async (force: boolean) => {
+      const r = await apiFetch('/api/org/seed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force }),
+      })
+      const j = (await r.json().catch(() => ({}))) as {
+        ok?: boolean; had?: boolean; nodes?: number; people?: number
+        role_up?: number; detail?: string; name?: string
+      }
+      if (!r.ok) throw new Error(j.detail || '심지 못했습니다')
+      return j
+    },
+    onSuccess: (j, force) => {
+      if (j.ok) {
+        window.alert(
+          `조직도를 심었습니다 — 조직 ${j.nodes}개 · 사람 ${j.people}명` +
+            (j.role_up ? `\n장 ${j.role_up}명의 역할을 담당으로 맞췄습니다.` : ''),
+        )
+        void orgQ.refetch()
+        void users.refetch()
+        return
+      }
+      // 이미 있다 — 덮을지 물어본다. 물어보지 않고 덮으면 이 서버에서
+      // 옮겨 놓은 조직이 통째로 날아간다.
+      if (!force && window.confirm(`이 서버에는 이미 조직도가 있습니다(${j.name ?? ''}).\n코드에 실린 조직도로 덮어쓸까요? 여기서 옮겨 놓은 것은 사라집니다.`))
+        seedOrg.mutate(true)
+    },
+    onError: (e) => window.alert(String((e as Error).message)),
+  })
+
   const setOrgRole = useMutation({
     mutationFn: async (b: { name: string; role: string }) => {
       const r = await apiFetch('/api/org/member-role', {
@@ -470,6 +502,18 @@ export default function Accounts() {
           </span>
           <span className="sp" />
           <span className="muted small">설정은 SETUP → Jira 연동</span>
+          {/* 조직도 받아오기 — 시작할 때 자동으로 심지만(비어 있을 때만),
+              그게 안 먹은 서버에서는 확인할 길이 없었다(253 지적). 눌러서
+              심고 **결과를 눈으로 보게** 한다. */}
+          <button
+            className="btn small"
+            type="button"
+            disabled={seedOrg.isPending}
+            title="이 서버에 조직도가 없으면 코드에 실린 조직도를 심습니다"
+            onClick={() => seedOrg.mutate(false)}
+          >
+            {seedOrg.isPending ? '심는 중…' : '조직도 받아오기'}
+          </button>
           <button
             className="btn primary small"
             type="button"
