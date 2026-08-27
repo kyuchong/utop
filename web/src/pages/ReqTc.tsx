@@ -4,7 +4,9 @@ import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser } from '@/a
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
 import { goto } from '@/api/goto'
 import { fillOf } from '@/lib/fieldFill'
-import { IconChevron, IconGrip, IconPanel, IconSearch, IconSort } from '@/components/icons'
+import { IconChevron, IconGrip, IconPanel, IconSearch, IconSettings, IconSort } from '@/components/icons'
+import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
+import { useInfoCols } from '@/components/useInfoCols'
 import ReqForm from '@/components/ReqForm'
 import ReqBulkForm from '@/components/ReqBulkForm'
 import ReqBulkEdit from '@/components/ReqBulkEdit'
@@ -172,6 +174,39 @@ export default function ReqTc({ me }: Props) {
   const [bulkEdit, setBulkEdit] = useState(false)
   const [copyOpen, setCopyOpen] = useState(false)
   const [actBusy, setActBusy] = useState('')
+
+  /* 목록 정렬 — 세 화면이 같은 세 가지를 쓴다(트리 순서·이름·최근) */
+  const [listSort, setListSort] = useState<ListSortMode>(
+    () => (localStorage.getItem('utop.reqtc.listsort') as ListSortMode) || 'tree',
+  )
+  useEffect(() => localStorage.setItem('utop.reqtc.listsort', listSort), [listSort])
+
+  /* INFO 열 — **설정이 정본**이다(useInfoCols 가 이름·폭을 들고 온다).
+     어느 열을 볼지는 사람마다 다르니 이 브라우저에 기억한다. */
+  const infoCols = useInfoCols(mode === 'req' ? 'req' : 'tc')
+  const [showCols, setShowCols] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('utop.reqtc.infocols')
+      if (raw) return new Set(JSON.parse(raw) as string[])
+    } catch {
+      /* 깨진 값이면 기본으로 */
+    }
+    return new Set<string>()
+  })
+  useEffect(() => {
+    localStorage.setItem('utop.reqtc.infocols', JSON.stringify([...showCols]))
+  }, [showCols])
+  const visCols = infoCols.filter((c) => showCols.has(c.k))
+  /* 격자 폭 — 고정 칸 + 고른 INFO 열. **폭은 설정이 정본**이라 useInfoCols 가
+     들고 온 값을 그대로 쓴다(화면에 숫자를 박지 않는다). */
+  const gridReq = `52px minmax(0, 1fr) 104px 80px 56px 60px 68px ${visCols.map((c) => c.w).join(' ')}`.trim()
+  const gridTc = `52px minmax(0, 1fr) 100px 80px 68px 68px 62px 54px 60px 70px 108px ${visCols
+    .map((c) => c.w)
+    .join(' ')}`.trim()
+  const gridOf = (tc: boolean) => (tc ? gridTc : gridReq)
+  /** INFO 열 값 — 열이 곧 필드다 */
+  const colVal = (row: Record<string, unknown>, k: string) => String(row[k] ?? '')
+  const [gearAt, setGearAt] = useState<{ x: number; y: number } | null>(null)
   const moveToCat = async (ids: string[], catId: string) => {
     const p = pathOf(catId)
     for (const id of ids) {
@@ -367,8 +402,28 @@ export default function ReqTc({ me }: Props) {
     if (page > pageN) setPage(pageN)
   }, [page, pageN])
   const from = (page - 1) * per
-  const reqPageRows = useMemo(() => reqRows.slice(from, from + per), [reqRows, from, per])
-  const tcPageRows = useMemo(() => tcRows.slice(from, from + per), [tcRows, from, per])
+  /* 정렬 — 기본은 「트리 순서」(자료가 온 차례)다. 이름순으로 세워 두면 같은
+     폴더 것이 목록 여기저기에 흩어져, 왼쪽에서 폴더를 짚어 놓고도 오른쪽에서
+     그걸 다시 찾아야 한다. */
+  const sorted = <T,>(arr: T[], nameOf: (x: T) => string, atOf: (x: T) => string): T[] => {
+    if (listSort === 'tree') return arr
+    const a = [...arr]
+    if (listSort === 'name') a.sort((x, y) => nameOf(x).localeCompare(nameOf(y)))
+    else a.sort((x, y) => atOf(y).localeCompare(atOf(x)))
+    return a
+  }
+  const reqSorted = useMemo(
+    () => sorted(reqRows, (r) => String(r.title ?? ''), (r) => String((r as { updated_at?: string }).updated_at ?? '')),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [reqRows, listSort],
+  )
+  const tcSorted = useMemo(
+    () => sorted(tcRows, (t) => String(t.name ?? ''), (t) => String((t as { updated_at?: string }).updated_at ?? '')),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tcRows, listSort],
+  )
+  const reqPageRows = useMemo(() => reqSorted.slice(from, from + per), [reqSorted, from, per])
+  const tcPageRows = useMemo(() => tcSorted.slice(from, from + per), [tcSorted, from, per])
   const onlyReq = reqOnly ? reqById.get(reqOnly) : undefined
 
   if (reqQ.isLoading || tcQ.isLoading) return <div className="empty">불러오는 중…</div>
@@ -457,6 +512,55 @@ export default function ReqTc({ me }: Props) {
             <div className="rqtc-sidehead">
               <b>Folder Tree</b>
               <span className="sp" />
+            {/* 정렬·열 고르기 — 요구사항·시험항목 화면의 그 자리 그대로(지시).
+                정렬이 ⚙ 왼쪽에 선다. */}
+            <ListSortBtn value={listSort} onChange={setListSort} />
+            <button
+              type="button"
+              className="rqtc-ib"
+              title="INFO 필드 보이기/숨기기 — SETUP 구성과 같은 목록"
+              aria-expanded={!!gearAt}
+              onClick={(e) => setGearAt(gearAt ? null : { x: e.clientX, y: e.clientY })}
+            >
+              <IconSettings />
+            </button>
+            {gearAt && (
+              <>
+                <div className="tc-menu-back" style={{ zIndex: 60 }} onClick={() => setGearAt(null)} />
+                <div
+                  className="tc-menu tc-colpop"
+                  role="menu"
+                  style={{
+                    position: 'fixed',
+                    left: Math.max(8, gearAt.x - 170),
+                    top: gearAt.y + 10,
+                    right: 'auto',
+                    zIndex: 61,
+                  }}
+                >
+                  {infoCols.length === 0 && (
+                    <span className="muted small">INFO 필드가 없습니다 — SETUP 에서 만듭니다</span>
+                  )}
+                  {infoCols.map((c2) => (
+                    <label key={c2.k}>
+                      <input
+                        type="checkbox"
+                        checked={showCols.has(c2.k)}
+                        onChange={() =>
+                          setShowCols((s2) => {
+                            const n2 = new Set(s2)
+                            if (n2.has(c2.k)) n2.delete(c2.k)
+                            else n2.add(c2.k)
+                            return n2
+                          })
+                        }
+                      />
+                      {c2.label}
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
             </div>
             {/* 2행 — 만들기와 손잡이들. 사진처럼 만들기가 왼쪽을 채우고
                 정렬·더보기가 오른쪽 끝에 붙는다. */}
@@ -686,7 +790,7 @@ export default function ReqTc({ me }: Props) {
           <div className="rqtc-tbl">
             {mode === 'req' ? (
               <>
-                <div className="rqtc-tr rqtc-th">
+                <div className="rqtc-tr rqtc-th" style={{ gridTemplateColumns: gridOf(false) }}>
                   <div className="c-chk">
                     <input
                       type="checkbox"
@@ -704,6 +808,9 @@ export default function ReqTc({ me }: Props) {
                   <div className="c-tc">TC</div>
                   <div className="c-st">상태</div>
                   <div className="c-pr">우선순위</div>
+                  {visCols.map((c) => (
+                    <div key={c.k}>{c.label}</div>
+                  ))}
                 </div>
                 {reqPageRows.map((r) => {
                   const pk = reqPk(r)
@@ -712,6 +819,7 @@ export default function ReqTc({ me }: Props) {
                   return (
                     <div
                       className={`rqtc-tr${sel.has(pk) ? ' picked' : ''}`}
+                      style={{ gridTemplateColumns: gridOf(false) }}
                       key={pk}
                       title="눌러서 이 요구사항의 시험 보기"
                       onClick={() => goTcOf(pk)}
@@ -754,6 +862,12 @@ export default function ReqTc({ me }: Props) {
                       </div>
                       <Fill kind="req_status" v={r.status} cls="c-st" f={codeFill} />
                       <Fill kind="req_priority" v={r.priority} cls="c-pr" f={codeFill} />
+                      {/* 고른 INFO 열 — 열이 곧 필드다 */}
+                      {visCols.map((c) => (
+                        <div className="ell" key={c.k}>
+                          {colVal(r as unknown as Record<string, unknown>, c.k)}
+                        </div>
+                      ))}
                     </div>
                   )
                 })}
@@ -761,7 +875,7 @@ export default function ReqTc({ me }: Props) {
               </>
             ) : (
               <>
-                <div className="rqtc-tr tc rqtc-th">
+                <div className="rqtc-tr tc rqtc-th" style={{ gridTemplateColumns: gridOf(true) }}>
                   <div className="c-chk">
                     <input
                       type="checkbox"
@@ -783,6 +897,9 @@ export default function ReqTc({ me }: Props) {
                   <div className="c-og">구분</div>
                   <div className="c-last">최근 결과</div>
                   <div className="c-map">REQ Map</div>
+                  {visCols.map((c) => (
+                    <div key={c.k}>{c.label}</div>
+                  ))}
                 </div>
                 {tcPageRows.map((t) => {
                   const r = reqById.get(String(t.req_id ?? ''))
@@ -791,6 +908,7 @@ export default function ReqTc({ me }: Props) {
                   return (
                     <div
                       className={`rqtc-tr tc${sel.has(t.tcid) ? ' picked' : ''}`}
+                      style={{ gridTemplateColumns: gridOf(true) }}
                       key={t.tcid}
                       onClick={() => setPop({ kind: 'tc', id: t.tcid })}
                     >
@@ -846,6 +964,11 @@ export default function ReqTc({ me }: Props) {
                           '–'
                         )}
                       </div>
+                      {visCols.map((c) => (
+                        <div className="ell" key={c.k}>
+                          {colVal(t as unknown as Record<string, unknown>, c.k)}
+                        </div>
+                      ))}
                     </div>
                   )
                 })}
