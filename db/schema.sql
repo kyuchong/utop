@@ -628,3 +628,43 @@ CREATE INDEX IF NOT EXISTS idx_tch_tcid ON tc_history(tcid, id DESC);
 -- 봐서 이미 저장된 행들의 kind 가 비어 있다. 기동마다 돌아도 멱등.
 UPDATE tc SET kind = data->>'run_type'
  WHERE (kind IS NULL OR kind = '') AND COALESCE(data->>'run_type', '') <> '';
+
+-- ══════════════════════════════════════════════════════════════════
+-- 위키 (wiki_page) — 프로젝트마다 갖는 문서.
+--
+-- 남의 위키를 붙이지 않고 여기 둔 까닭: 계정·프로젝트·링크가 한 벌이라야
+-- 문서에서 REQ-2633-0003 을 짚고, 반대로 그 요구사항에서 「이 문서가 나를
+-- 참조한다」 를 말할 수 있다. 위키를 따로 띄우면 그 둘이 영영 안 만난다.
+--
+-- 본문은 두 벌로 담는다.
+--   body   — 편집기가 읽고 쓰는 블록(JSONB). **이것이 정본**이다.
+--   plain  — 찾기용 민글. 블록을 뒤져 찾을 수는 없다.
+-- 마크다운을 정본으로 삼지 않는 것은 색·체크박스가 마크다운에 없어서다
+-- (구현내용 편집기가 Milkdown 을 물린 그 까닭).
+-- ══════════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS wiki_page (
+  id          TEXT PRIMARY KEY,
+  project     TEXT NOT NULL DEFAULT '',   -- 프로젝트의 cat_id. '' 는 공용
+  parent_id   TEXT,                       -- 문서 트리. NULL 이면 맨 위
+  title       TEXT NOT NULL DEFAULT '',
+  body        JSONB NOT NULL DEFAULT '[]'::jsonb,
+  plain       TEXT NOT NULL DEFAULT '',
+  ord         INTEGER NOT NULL DEFAULT 0,
+  created_by  TEXT,
+  updated_by  TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_wiki_project ON wiki_page(project);
+CREATE INDEX IF NOT EXISTS idx_wiki_parent  ON wiki_page(parent_id);
+
+-- 지난 판 — 저장할 때마다 한 줄. 되돌릴 수 있어야 사람이 마음 놓고 고친다.
+CREATE TABLE IF NOT EXISTS wiki_rev (
+  id         BIGSERIAL PRIMARY KEY,
+  page_id    TEXT NOT NULL,
+  title      TEXT NOT NULL DEFAULT '',
+  body       JSONB NOT NULL DEFAULT '[]'::jsonb,
+  who        TEXT,
+  at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_wiki_rev_page ON wiki_rev(page_id, at DESC);

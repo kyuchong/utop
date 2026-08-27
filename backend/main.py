@@ -9377,6 +9377,147 @@ async def presence_roster(prefix: str = ""):
     return {"users": seen}
 
 
+# ══════════════════════════════════════════════════════════════════
+# 위키 — 프로젝트마다 갖는 문서
+#
+# 본문(body)은 편집기가 읽고 쓰는 **블록**이 정본이고, 찾기용 민글(plain)을
+# 함께 담는다. 블록을 뒤져 찾을 수는 없다.
+# ══════════════════════════════════════════════════════════════════
+def _wiki_plain(body) -> str:
+    """블록에서 글자만 훑어 낸다 — 찾기가 읽을 것.
+
+    블록 꼴은 편집기가 정한다. 우리가 아는 것은 「어딘가에 text 가 있다」
+    뿐이라, 모양을 따지지 않고 재귀로 긁는다. 모양이 바뀌어도 안 깨진다.
+    """
+    out = []
+
+    def walk(v):
+        if isinstance(v, dict):
+            t = v.get("text")
+            if isinstance(t, str):
+                out.append(t)
+            for x in v.values():
+                walk(x)
+        elif isinstance(v, list):
+            for x in v:
+                walk(x)
+
+    walk(body)
+    return " ".join(out)[:200000]
+
+
+@app.get("/api/wiki")
+async def wiki_list(project: str = ""):
+    """문서 트리 — 본문은 안 준다. 목록에 본문까지 실으면 수백 KB 가 된다."""
+    async with db.pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT id, project, parent_id, title, ord, updated_by, updated_at "
+            "FROM wiki_page WHERE ($1='' OR project=$1) ORDER BY ord, title",
+            project,
+        )
+    return {
+        "pages": [
+            {**dict(r), "updated_at": r["updated_at"].isoformat() if r["updated_at"] else None}
+            for r in rows
+        ]
+    }
+
+
+@app.get("/api/wiki/{pid}")
+async def wiki_get(pid: str):
+    async with db.pool().acquire() as c:
+        r = await c.fetchrow("SELECT * FROM wiki_page WHERE id=$1", pid)
+    if not r:
+        raise HTTPException(404, "문서를 찾을 수 없습니다")
+    d = dict(r)
+    for k in ("created_at", "updated_at"):
+        if d.get(k):
+            d[k] = d[k].isoformat()
+    if isinstance(d.get("body"), str):
+        try:
+            d["body"] = json.loads(d["body"])
+        except Exception:
+            d["body"] = []
+    return {"page": d}
+
+
+@app.post("/api/wiki/{pid}")
+async def wiki_save(pid: str, payload: dict, request: Request):
+    """만들기·고치기 공통.
+
+    저장할 때마다 **지난 판을 한 줄 남긴다**(wiki_rev). 되돌릴 수 있어야 사람이
+    마음 놓고 고친다 — 못 되돌리면 지우기가 무서워 문서가 안 정리된다.
+    """
+    s = getattr(request.state, "user", None)
+    who = (s or {}).get("username") or ""
+    title = str(payload.get("title") or "")
+    body = payload.get("body")
+    if body is None:
+        body = []
+    plain = _wiki_plain(body)
+    async with db.pool().acquire() as c:
+        old = await c.fetchrow("SELECT title, body FROM wiki_page WHERE id=$1", pid)
+        if old:
+            await c.execute(
+                "INSERT INTO wiki_rev (page_id, title, body, who) VALUES ($1,$2,$3::jsonb,$4)",
+                pid, old["title"], old["body"] if isinstance(old["body"], str) else json.dumps(old["body"], ensure_ascii=False), who,
+            )
+            await c.execute(
+                "UPDATE wiki_page SET title=$2, body=$3::jsonb, plain=$4, updated_by=$5, "
+                "updated_at=now() WHERE id=$1",
+                pid, title, json.dumps(body, ensure_ascii=False), plain, who,
+            )
+        else:
+            await c.execute(
+                "INSERT INTO wiki_page (id, project, parent_id, title, body, plain, ord, created_by, updated_by) "
+                "VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$8)",
+                pid, str(payload.get("project") or ""), payload.get("parent_id"),
+                title, json.dumps(body, ensure_ascii=False), plain,
+                int(payload.get("ord") or 0), who,
+            )
+    try: asyncio.create_task(broadcast({"type": "wiki_updated", "id": pid}))
+    except Exception: pass
+    return {"ok": True, "id": pid}
+
+
+@app.patch("/api/wiki/{pid}")
+async def wiki_patch(pid: str, payload: dict):
+    """자리 옮기기·이름 바꾸기 — 본문은 안 건드린다(지난 판도 안 남긴다)."""
+    sets, args = [], []
+    for k in ("title", "parent_id", "project", "ord"):
+        if k in payload:
+            args.append(payload[k])
+            sets.append(f"{k}=${len(args)}")
+    if not sets:
+        return {"ok": True}
+    sets.append("updated_at=now()")
+    args.append(pid)
+    async with db.pool().acquire() as c:
+        await c.execute(f"UPDATE wiki_page SET {', '.join(sets)} WHERE id=${len(args)}", *args)
+    return {"ok": True}
+
+
+@app.delete("/api/wiki/{pid}")
+async def wiki_delete(pid: str):
+    """지운다. **아래 문서가 있으면 안 지운다** — 통째로 사라지면 되돌릴 수 없다."""
+    async with db.pool().acquire() as c:
+        kid = await c.fetchval("SELECT count(*) FROM wiki_page WHERE parent_id=$1", pid)
+        if kid:
+            raise HTTPException(400, f"아래 문서가 {kid}개 있습니다 — 먼저 옮기거나 지우세요")
+        await c.execute("DELETE FROM wiki_page WHERE id=$1", pid)
+    return {"ok": True}
+
+
+@app.get("/api/wiki/{pid}/revs")
+async def wiki_revs(pid: str, limit: int = 30):
+    async with db.pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT id, title, who, at FROM wiki_rev WHERE page_id=$1 ORDER BY at DESC LIMIT $2",
+            pid, max(1, min(200, limit)),
+        )
+    return {"revs": [{**dict(r), "at": r["at"].isoformat()} for r in rows]}
+
+
 @app.get("/api/audit")
 async def audit_list_api(limit: int = 300):
     """수정 이력 — 알림 종이 읽는다. 최신이 앞."""

@@ -54,6 +54,8 @@ export const NAV: NavGroup[] = [
       { key: 'requirements', label: 'Requirements', Icon: IconRequirements },
       { key: 'testcases', label: 'Coverage', Icon: IconTestCase },
       { key: 'cycles', label: 'Cycles', Icon: IconCycle },
+      /* 위키 — 프로젝트마다 갖는 문서. 시험 규격·설정 절차가 여기 쌓인다 */
+      { key: 'wiki', label: 'Wiki', Icon: IconKnowledge },
       /* 「Reports」 는 걷었다(지시) — 집계·축·결과 상세·거르개가 모두
          사이클 폴더 현황으로 옮겨 갔다. 옛 주소(executions)로 들어오면
          사이클 화면으로 넘긴다(App.tsx). */

@@ -1,0 +1,117 @@
+/* 위키 — 왼쪽 문서 트리, 오른쪽 편집기.
+   열쇠 접두어는 `wk-`. 이 프로젝트의 CSS 는 전역이라 새 화면은 제 접두어를
+   가져야 한다 — `rt-`·`pp-` 로 두 번 남의 화면을 망가뜨렸다. */
+.wk {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 6px;
+  flex: 1;
+  min-height: 0;
+}
+.wk-side { display: flex; flex-direction: column; min-height: 0; }
+.wk-head {
+  flex: none;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-md);
+}
+.wk-newrow { flex: none; padding: 8px; border-bottom: 1px solid var(--c-border); }
+.wk-newrow .btn { width: 100%; }
+.wk-find { flex: none; position: relative; padding: 8px; border-bottom: 1px solid var(--c-border); }
+.wk-fico {
+  position: absolute;
+  left: 17px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: var(--c-text-faint);
+  pointer-events: none;
+}
+.wk-fico svg { width: 13px; height: 13px; }
+.wk-find input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 9px 0 26px;
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  background: var(--c-surface);
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-md);
+}
+.wk-tree { flex: 1; min-height: 0; overflow: auto; padding: 6px; }
+.wk-empty { padding: 14px 10px; line-height: 1.7; }
+
+.wk-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: var(--fs-md);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.wk-row:hover { background: var(--c-surface-alt); }
+/* 고른 문서 — 다른 화면과 같은 청록(승인) */
+.wk-row.on { background: var(--c-sel-teal); color: var(--c-sel-teal-ink); font-weight: 700; }
+.wk-row .sp { flex: 1; }
+.wk-caret {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--c-text-muted);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.wk-caret svg { width: 14px; height: 14px; }
+.wk-caret.open { transform: rotate(90deg); }
+.wk-caret:disabled { opacity: 0.2; cursor: default; }
+.wk-ico { flex: none; display: inline-flex; }
+.wk-ico svg { width: 16px; height: 16px; }
+.wk-nm { overflow: hidden; text-overflow: ellipsis; }
+
+/* 손잡이 — 마우스를 올린 줄에서만. 늘 보이면 목록이 시끄럽다 */
+.wk-tools { display: none; gap: 1px; }
+.wk-row:hover .wk-tools { display: inline-flex; }
+.wk-tools button {
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.wk-tools button:hover { background: var(--c-surface); color: var(--c-primary); }
+
+/* ── 편집기 판 ── */
+.wk-main { display: flex; flex-direction: column; min-height: 0; }
+.wke { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.wke-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--c-border);
+}
+.wke-head .sp { flex: 1; }
+.wke-title { font-size: 15px; }
+/* 저장 알림 — 조용히 떴다 사라진다. 「저장하세요」 를 물어보지 않는다 */
+.wke-state { font-size: var(--fs-xs); color: var(--c-text-faint); }
+.wke-state.ok { color: #1f7a45; font-weight: 700; }
+.wke-body { flex: 1; min-height: 0; overflow: auto; padding: 8px 0 40px; }
+.wke-load { padding: 12px 20px; }
+/* BlockNote 는 제 글꼴을 들고 온다 — 이 도구의 글꼴로 맞춘다 */
+.wke-body .bn-container,
+.wke-body .bn-editor { font-family: var(--font-ui); }
