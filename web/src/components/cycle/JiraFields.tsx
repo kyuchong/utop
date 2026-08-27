@@ -33,6 +33,34 @@ const SKIP = new Set([
   'labels',
 ])
 
+/**
+ * 실제로 쓰는 칸만 남긴다(지시).
+ *
+ * createmeta 는 그 프로젝트가 아는 칸을 **스물두 개** 다 준다 — 시작일·
+ * 완료일·OS/BSP/HW/FW 시험버전·영향받는 버전… 결함 하나 올리자고 다 채우는
+ * 사람은 없고, 스물두 칸을 스크롤하다 정작 필수를 놓친다.
+ *
+ * 이름으로 고른다. 열쇠는 customfield_10521 처럼 프로젝트마다 다르지만
+ * 이름은 사람이 붙인 것이라 그대로다.
+ *
+ * **필수는 목록에 없어도 남긴다.** 감췄다가 Jira 가 물리면 왜 안 되는지
+ * 화면 어디에도 안 나온다.
+ */
+const KEEP = new Set([
+  '우선순위',
+  '사업자',
+  '이슈분류',
+  '구성요소',
+  '이슈단계',
+  '문제유형',
+  '시험시설',
+  '발생빈도',
+  '목표버전',
+  '대외OPEN',
+])
+const keyOfName = (v?: string) => String(v ?? '').replace(/\s+/g, '').split('(')[0] ?? ''
+export const wanted = (f: JiraField) => !!f.required || KEEP.has(keyOfName(f.name || f.id))
+
 export type JiraFieldValues = Record<string, unknown>
 
 export default function JiraFields({
@@ -74,7 +102,7 @@ export default function JiraFields({
           setErr(j.error || '칸을 못 읽었습니다')
           setFields([])
         } else {
-          const fs = (j.fields ?? []).filter((f) => !SKIP.has(f.id))
+          const fs = (j.fields ?? []).filter((f) => !SKIP.has(f.id)).filter(wanted)
           /* 필수를 위로 — 아래에 묻히면 왜 등록이 안 되는지 스물두 칸을
              훑어야 한다 */
           fs.sort((a, b) => (b.required ? 1 : 0) - (a.required ? 1 : 0))
