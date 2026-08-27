@@ -169,7 +169,9 @@
 }
 .rqtc-fold:hover { background: var(--c-surface-alt); }
 /* **고른 것만** 색이 있다(지적) — 나머지는 흰 바탕 그대로 */
-.rqtc-fold.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
+/* 고른 폴더 — 청록(승인: A). 옅은 파랑은 상단바·바탕의 청록과 계열이
+   달라, 화면에 파랑과 청록이 같이 놀았다. */
+.rqtc-fold.on { background: var(--c-sel-teal); color: var(--c-sel-teal-ink); font-weight: 700; }
 .rqtc-fold.root { font-weight: 700; }
 /* 폴더 그림 — 아직 작다(지적). 글자(14px)보다 확실히 커야 줄머리에서 먼저
    눈에 걸린다. 캐럿도 같이 키워 셋의 높이를 맞춘다. */
@@ -245,9 +247,9 @@
   font-weight: 700;
   cursor: pointer;
 }
-/* 고른 칸과 ＋ New 는 **상단바와 같은 색**(지시). 파랑을 따로 쓰면 화면에
-   파랑이 둘(상단바 청록 · 단추 파랑)이라 어느 쪽이 이 화면의 색인지 흐려진다. */
-.rqtc-seg button.on { background: var(--c-app-top); color: #fff; }
+/* 고른 칸(요구사항/시험항목)도 같은 청록으로(지시) — 폴더에서 고른 것과
+   여기서 고른 것이 같은 색이라야 「고른 것」 이 한 가지 뜻이 된다. */
+.rqtc-seg button.on { background: var(--c-sel-teal); color: var(--c-sel-teal-ink); }
 .rqtc-bar .btn.primary {
   background: var(--c-app-top);
   border-color: var(--c-app-top);
