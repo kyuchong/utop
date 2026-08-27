@@ -52,10 +52,10 @@
 /* 찾기·정렬·더보기 — 사진의 머리줄 아이콘들 */
 .rqtc-ib {
   flex: none;
-  /* 26 → 30px(지시). 아이콘도 15px 로 함께 키운다 — 상자만 키우면
-     가운데 그림이 되레 작아 보인다. */
-  width: 30px;
-  height: 30px;
+  /* 한 줄에 선 것들을 **모두 28px 한 치수**로 맞춘다(승인) — 34·32·30 이
+     섞여 있어 줄이 울퉁불퉁했다. 아이콘은 16px. */
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -67,21 +67,21 @@
   font-size: 15px;
   cursor: pointer;
 }
-.rqtc-ib svg { width: 17px; height: 17px; }
+.rqtc-ib svg { width: 16px; height: 16px; }
 .rqtc-ib:hover { background: var(--c-surface-alt); color: var(--c-text); }
 .rqtc-ib.on { background: var(--c-primary-bg); border-color: var(--c-primary); color: var(--c-primary); }
 /* 접기 단추만 옅은 상자에 담는다(사진) — 손잡이가 아니라 이 판을 여닫는
    것이라, 나란한 아이콘들 사이에서 눈에 먼저 걸려야 한다. */
 .rqtc-foldb {
-  /* 테두리 없음(지시). 옅은 상자와 큰 치수만으로 충분히 걸린다 — 이건
-     손잡이가 아니라 이 판을 통째로 여닫는 단추라 한 치수 크게 잡는다. */
-  width: 34px;
-  height: 34px;
+  /* 테두리 없음(지시). 옅은 상자만으로 충분히 걸린다 — 크기는 옆의 것들과
+     같은 28px 로 맞춘다(승인). */
+  width: 28px;
+  height: 28px;
   background: var(--c-primary-bg);
   border-color: transparent;
   color: var(--c-primary);
 }
-.rqtc-foldb svg { width: 20px; height: 20px; }
+.rqtc-foldb svg { width: 16px; height: 16px; }
 .rqtc-foldb:hover { background: var(--c-primary); border-color: transparent; color: #fff; }
 /* 2행 — ＋ New Folder 와 정렬·더보기(지시·사진) */
 .rqtc-newf {
@@ -205,7 +205,7 @@
 .rqtc-modebar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   padding: 8px 12px;
   border-bottom: 1px solid var(--c-border);
 }
@@ -214,8 +214,8 @@
 /* 토글 칸 — 옆에 선 단추들과 **같은 높이**여야 한 줄로 읽힌다(지시).
    32px 로 못 박고, 단추도 같은 값을 쓴다. */
 .rqtc-seg button {
-  height: 32px;
-  padding: 0 14px;
+  height: 28px;
+  padding: 0 12px;
   border: 0;
   background: var(--c-surface);
   color: var(--c-text-muted);
@@ -681,8 +681,8 @@
 /* 도구줄 단추 — 토글과 같은 높이·같은 글자 크기(지시). 한 줄에 나란히 서는
    것들이라 높이가 다르면 줄이 울퉁불퉁해 보인다. */
 .rqtc-modebar .btn.small {
-  height: 32px;
-  padding: 0 12px;
+  height: 28px;
+  padding: 0 10px;
   font-size: var(--fs-md);
 }
-.rqtc-modebar .rqtc-vsep { height: 22px; }
+.rqtc-modebar .rqtc-vsep { height: 20px; }
