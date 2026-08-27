@@ -7,9 +7,11 @@
   gap: 7px;
   height: 30px;
   padding: 0 10px;
-  border: 1px solid rgb(255 255 255 / 22%);
+  /* 테두리 없음(지시). 옅은 바탕만으로도 「누르는 자리」 가 보인다 —
+     어두운 상단바 위에서 선까지 그으면 바탕과 선이 두 겹으로 읽힌다. */
+  border: 0;
   border-radius: 7px;
-  background: rgb(255 255 255 / 10%);
+  background: rgb(255 255 255 / 12%);
   color: inherit;
   font: inherit;
   font-size: var(--fs-sm);
