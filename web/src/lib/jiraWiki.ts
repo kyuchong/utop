@@ -69,6 +69,19 @@ export function stepsToWiki(steps: WikiStep[]): string {
   return blocks.join('\n----\n')
 }
 
+/** 스텝의 명령과 출력을 콘솔 기록처럼 잇는다 — 6번 판의 자동 채움 */
+export function kernelFromSteps(steps: WikiStep[]): string {
+  const L: string[] = []
+  for (const s of steps) {
+    if (!s.cli) continue
+    L.push(`# ${s.cli}`)
+    const out = String(s.output ?? '').trim()
+    if (out) L.push(out)
+    L.push('')
+  }
+  return L.join('\n').trimEnd()
+}
+
 /**
  * 여섯 판을 Jira 설명으로 편다.
  *
@@ -85,6 +98,10 @@ export function buildDefectWiki(
   return WIKI_PANELS.map(({ k, title }) => {
     let body = String(panels[k] ?? '').trim()
     if (k === 'steps' && !body && steps.length) body = stepsToWiki(steps)
+    if (k === 'kernel' && !body && steps.length) {
+      const kn = kernelFromSteps(steps)
+      if (kn) body = `{noformat}\n${kn}\n{noformat}`
+    }
     if (k === 'topo' && opts?.image) body = `!구성도.png|thumbnail!\n${body}`
     if (!body) body = '（내용 없음）'
     return `{panel:title=${title}}\n${body}\n{panel}`

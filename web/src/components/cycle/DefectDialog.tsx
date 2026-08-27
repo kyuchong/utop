@@ -3,7 +3,7 @@ import { apiFetch } from '@/api/client'
 import { stepVerdict, type TcStep } from '@/components/tc/types'
 import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
 import './DefectDialog.css'
-import { buildDefectWiki, wikiToHtml, type WikiStep } from '@/lib/jiraWiki'
+import { buildDefectWiki, kernelFromSteps, wikiToHtml, type WikiStep } from '@/lib/jiraWiki'
 
 /** UTOP 안에 쌓는 결함 한 건 */
 export interface DefectRec {
@@ -521,61 +521,90 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
 
           {/* 이슈 본문 여섯 판 — 여기 적은 것이 그대로 Jira 설명이 된다.
               번호를 붙여 두면 사람이 「3번 비었다」 고 말할 수 있다. */}
-          {PANELS.map((p, i) => (
-            <div className="dfx-panel" key={p.k}>
-              <div className="dfx-ph">
-                {i + 1}. {p.label}
-              </div>
-              <textarea
-                value={panels[p.k] ?? ''}
-                rows={p.rows}
-                placeholder={p.ph}
-                disabled={pushed}
-                onChange={(e) => setPanel(p.k, e.target.value)}
-              />
-              {p.k === 'steps' && !String(panels.steps ?? '').trim() && briefs.length > 0 && (
-                <button
-                  type="button"
-                  className="dfx-fill"
-                  disabled={pushed}
-                  onClick={() => setPanel('steps', stepsText(briefs))}
-                >
-                  깨진 스텝 {briefs.length}개로 채우기
-                </button>
-              )}
-            </div>
-          ))}
-
-          {/* 깨진 스텝 — 참고용. 위 5번에 무엇을 적을지 여기서 보고 옮긴다 */}
-          <div className="dfx-steps">
-            <div className="dfx-sh">깨진 스텝 내용 (참고)</div>
-            {briefs.length === 0 ? (
-              <div className="muted small">담을 스텝이 없습니다.</div>
-            ) : (
-              briefs.map((b) => (
-                <div key={b.no} className={`dfx-step ${b.status === 'Fail' ? 'fail' : ''}`}>
-                  <div className="dfx-st-h">
-                    <b>#{b.no}</b>
-                    <span>{b.desc || b.cli}</span>
-                    <span className="sp" />
-                    {b.status && <span className={`dfx-badge ${b.status === 'Fail' ? 'fail' : b.status === 'Pass' ? 'pass' : ''}`}>{b.status}</span>}
-                  </div>
-                  {b.cli && <pre className="dfx-cli">{b.cli}</pre>}
-                  {b.criteria && (
-                    <div className="dfx-meta">
-                      <span className="k">판정 기준</span> {b.criteria}
-                    </div>
+          {PANELS.map((p, i) => {
+            /* 5번(절차·결과)과 6번(로그)은 **자동으로 채워진다.** 손으로
+               옮겨 적게 하면 아무도 안 적고, 적더라도 옮기다 틀린다.
+               사람이 고친 글이 있으면 그것이 이긴다 — 자동은 비어 있을 때만.
+               자동으로 채운 판은 읽기만 하게 두고 「자동입력」 을 달아,
+               왜 못 고치는지를 그 자리에서 말한다. */
+            const autoSteps = p.k === 'steps' && briefs.length > 0
+            const autoKern = p.k === 'kernel' && !!kernelFromSteps(briefs as WikiStep[])
+            const typed = String(panels[p.k] ?? '').trim()
+            const auto = !typed && (autoSteps || autoKern)
+            return (
+              <div className="dfx-panel" key={p.k}>
+                <div className="dfx-ph">
+                  <span>
+                    {i + 1}. {p.label}
+                  </span>
+                  {auto && <span className="dfx-auto">자동입력</span>}
+                  {auto && (
+                    <button
+                      type="button"
+                      className="dfx-edit"
+                      disabled={pushed}
+                      title="자동으로 채운 글을 가져와 손으로 고칩니다"
+                      onClick={() =>
+                        setPanel(
+                          p.k,
+                          autoSteps
+                            ? stepsText(briefs)
+                            : kernelFromSteps(briefs as WikiStep[]),
+                        )
+                      }
+                    >
+                      고치기
+                    </button>
                   )}
-                  {b.reason && (
-                    <div className="dfx-meta">
-                      <span className="k">판정 근거</span> {b.reason}
-                    </div>
-                  )}
-                  {b.output && <pre className="dfx-out">{b.output.slice(0, 1200)}</pre>}
                 </div>
-              ))
-            )}
-          </div>
+                {auto ? (
+                  autoSteps ? (
+                    <div className="dfx-auto-b">
+                      {briefs.map((b) => (
+                        <div key={b.no} className={`dfx-step ${b.status === 'Fail' ? 'fail' : ''}`}>
+                          <div className="dfx-st-h">
+                            <b>#{b.no}</b>
+                            <span>{b.desc || b.cli}</span>
+                            <span className="sp" />
+                            {b.status && (
+                              <span
+                                className={`dfx-badge ${b.status === 'Fail' ? 'fail' : b.status === 'Pass' ? 'pass' : ''}`}
+                              >
+                                {b.status}
+                              </span>
+                            )}
+                          </div>
+                          {b.cli && <pre className="dfx-cli">{b.cli}</pre>}
+                          {b.criteria && (
+                            <div className="dfx-meta">
+                              <span className="k">기대 결과</span> {b.criteria}
+                            </div>
+                          )}
+                          {b.reason && (
+                            <div className="dfx-meta">
+                              <span className="k">판정 근거</span> {b.reason}
+                            </div>
+                          )}
+                          {b.output && <pre className="dfx-out">{b.output.slice(0, 1200)}</pre>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <pre className="dfx-auto-log">{kernelFromSteps(briefs as WikiStep[])}</pre>
+                  )
+                ) : (
+                  <textarea
+                    value={panels[p.k] ?? ''}
+                    rows={p.rows}
+                    placeholder={p.ph}
+                    disabled={pushed}
+                    onChange={(e) => setPanel(p.k, e.target.value)}
+                  />
+                )}
+              </div>
+            )
+          })}
+
         </div>
 
         {/* 오른쪽 — Jira 에 올라갈 모습 그대로. 「등록하고 나서 열어 보니

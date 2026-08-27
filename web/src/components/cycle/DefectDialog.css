@@ -282,3 +282,43 @@
   .dfx-two { flex-direction: column; }
   .dfx-two > .dfx-body { border-right: 0; border-bottom: 1px solid var(--c-border); }
 }
+
+/* ── 자동으로 채워지는 판(5·6번) ────────────────────────────────
+   손으로 옮겨 적게 하면 아무도 안 적고, 적더라도 옮기다 틀린다. */
+.dfx-ph { display: flex; align-items: center; gap: 8px; }
+.dfx-ph > span:first-child { flex: 1; }
+.dfx-auto {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 3px;
+  background: #d1fae5;
+  color: #065f46;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+}
+/* 자동으로 채운 글도 고칠 수 있어야 한다 — 눌러서 글 상자로 바꾼다 */
+.dfx-edit {
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: var(--c-primary);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 0 2px;
+  cursor: pointer;
+}
+.dfx-edit:hover { text-decoration: underline; }
+.dfx-auto-b { padding: 8px; display: flex; flex-direction: column; gap: 8px; background: #f6fdf9; }
+.dfx-auto-log {
+  margin: 0;
+  padding: 9px 10px;
+  max-height: 160px;
+  overflow: auto;
+  background: #f6fdf9;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
