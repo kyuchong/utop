@@ -1631,7 +1631,55 @@ async def api_org_save(payload: dict, token: str = ""):
     if not isinstance(org, dict) or not org.get("name"):
         raise HTTPException(400, "조직도 모양이 아닙니다")
     _kv_save_sync("org_tree", org)
-    return {"ok": True}
+    return {"ok": True, **_apply_org_roles(org)}
+
+
+def _apply_org_roles(org: dict) -> dict:
+    """조직도의 **장**을 계정 역할 「담당」 으로 맞춘다.
+
+    표에만 「담당」 이라 적고 실제 역할은 팀원이면, 눌러서 열어 본 사람이
+    두 값을 보고 어느 쪽이 맞는지 알 수 없다(지적). 실제 역할을 바꾼다.
+
+    **관리자는 절대 안 내린다** — 조직의 장이라고 관리자 권한을 뺏으면
+    그 사람이 화면을 못 쓴다(실제로 전규종이 관리자다). 팀원·팀장만 올린다.
+
+    표식(`role_by='org'`)을 남겨, 장에서 내려오면 **우리가 올린 것만** 되돌린다.
+    관리자가 손으로 정한 역할은 건드리지 않는다 — Jira 동기화의 규칙과 같다.
+    """
+    leads: set = set()
+
+    def walk(n: dict):
+        t = str(n.get("lead") or "").strip()
+        if t:
+            i = t.rfind(" ")
+            leads.add((t[:i] if i > 0 else t))
+        for c in (n.get("children") or []):
+            walk(c)
+
+    walk(org)
+
+    def key(v) -> str:
+        return re.split(r"[(\[_]", str(v or ""))[0].replace(" ", "")
+
+    lead_keys = {key(x) for x in leads} | {key(re.sub(r"\d+$", "", x)) for x in leads}
+    data = _users_load_sync()
+    up = down = 0
+    for u in data["users"]:
+        if u.get("role") == "관리자":
+            continue  # 관리자는 안 내린다
+        k = key(u.get("name") or u.get("username"))
+        if k and k in lead_keys:
+            if u.get("role") != "담당":
+                u["role"] = "담당"
+                u["role_by"] = "org"
+                up += 1
+        elif u.get("role") == "담당" and u.get("role_by") == "org":
+            u["role"] = "팀원"
+            u.pop("role_by", None)
+            down += 1
+    if up or down:
+        _users_save_sync(data)
+    return {"role_up": up, "role_down": down}
 
 
 @app.post("/api/users/delete-retired")

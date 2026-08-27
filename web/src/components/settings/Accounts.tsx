@@ -786,9 +786,10 @@ function OrgRows({
                   {lead.rank && <span className="acc-rank">{lead.rank}</span>}
                 </td>
                 <td className="ell">{u?.username ?? <span className="muted">계정 없음</span>}</td>
-                {/* 장(長)은 역할 칸에 **담당**으로 적는다(지시) — 따로 표를 달지
-                    않는다. 이 칸이 모두 「팀원」 이라 비어 있던 자리다. */}
-                <td className="acc-role-lead">담당</td>
+                {/* 역할은 **있는 그대로** 보인다. 조직도를 저장할 때 장의 역할이
+                    실제로 「담당」 으로 맞춰지므로(_apply_org_roles), 표와 편집판이
+                    같은 값을 말한다 — 표에만 적으면 둘이 어긋난다(지적). */}
+                <td className={u?.role === '담당' ? 'acc-role-lead' : undefined}>{u?.role ?? ''}</td>
                 <td className="ell">{node.name}</td>
                 <td className="ell">{u?.synced_at ?? ''}</td>
                 <td className="ell">{u?.email ?? ''}</td>
