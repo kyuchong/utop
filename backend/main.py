@@ -1409,7 +1409,9 @@ async def api_me(request: Request, token: str = ""):
     u = _find_user(s.get("username")) if s else _user_from_token(token)
     if not u:
         raise HTTPException(401, "세션이 없습니다")
-    return {"user": _public_user(u)}
+    # 상단바가 이름 뒤에 팀·소속담당을 적는다 — 그 값은 **조직도가 정본**이다
+    w = _org_where(u.get("name") or u.get("username") or "")
+    return {"user": {**_public_user(u), **{k: v for k, v in w.items() if v}}}
 
 @app.post("/api/me/avatar")
 async def api_me_avatar(payload: dict, token: str = ""):
@@ -1602,6 +1604,50 @@ def _org_of(u: dict) -> str:
     v = m.group(1).strip()
     # 「퇴사자」·「퇴사-비활성화불가」 는 조직이 아니다
     return "" if "퇴사" in v else v
+
+
+def _org_where(name: str) -> dict:
+    """조직도에서 이 사람의 **팀·담당**을 찾는다.
+
+    소속담당은 조직도가 정본이다. dept 는 Jira 표시이름 꼬리에서 뽑은 값이라
+    「전규종(검증)」 → 「검증」 이 되는데, 그 사람은 실제로 **품질보증담당**의
+    장이다(지적). 두 값이 다르면 조직도를 따른다.
+
+    길에서 이름이 「…팀」 으로 끝나는 마디를 팀으로, 「…담당」 으로 끝나는
+    마디를 담당으로 본다. 겸임이면 처음 찾은 자리를 쓴다 — 어느 쪽인지는
+    사람이 조직도에서 정한다.
+    """
+    key = re.split(r"[(\[_]", str(name or ""))[0].replace(" ", "")
+    if not key:
+        return {}
+    org = _kv_load_sync("org_tree", None)
+    if not isinstance(org, dict):
+        return {}
+    found: dict = {}
+
+    def walk(n: dict, path: list):
+        nonlocal found
+        if found:
+            return
+        p = [*path, str(n.get("name") or "")]
+        names = []
+        t = str(n.get("lead") or "").strip()
+        if t:
+            i = t.rfind(" ")
+            names.append(t[:i] if i > 0 else t)
+        names += [str(m.get("name") or "") for m in (n.get("members") or [])]
+        if any(re.split(r"[(\[_]", x)[0].replace(" ", "") == key for x in names):
+            found = {
+                "team": next((x for x in reversed(p) if x.endswith("팀")), ""),
+                "dept": next((x for x in reversed(p) if x.endswith("담당")), ""),
+                "org_path": " › ".join(p[1:]),
+            }
+            return
+        for c in (n.get("children") or []):
+            walk(c, p)
+
+    walk(org, [])
+    return found
 
 
 def _is_retired(u: dict) -> bool:

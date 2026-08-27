@@ -46,7 +46,17 @@
   font-size: var(--fs-xs);
   color: rgb(255 255 255 / 72%);
 }
-.tpu-caret { flex: none; opacity: 0.75; font-size: 10px; }
+/* 꺾쇠 — 오른쪽 끝. 열면 위를 가리켜 지금 열려 있음을 단추만 봐도 안다 */
+.tpu-caret {
+  flex: none;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.8;
+  transition: transform 0.12s;
+}
+.tpu-caret svg { width: 14px; height: 14px; transform: rotate(90deg); }
+.tpu-caret.open svg { transform: rotate(-90deg); }
 
 /* ── 열린 메뉴 — 여기부터는 흰 판이다 ── */
 .tpu-menu {

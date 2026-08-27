@@ -667,3 +667,9 @@
   cursor: pointer;
 }
 .rqtc-ctx button:hover:not(:disabled) { background: var(--c-surface-alt); }
+
+
+/* ID 칸 — 제목과 갈라 세웠다(지시). 고정폭 글꼴이라 자릿수가 달라도
+   줄이 흔들리지 않는다. */
+.rqtc-tr > .c-id { min-width: 0; }
+.rqtc-tr > .c-id .rqtc-rid { margin-right: 0; }

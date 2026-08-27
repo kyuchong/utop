@@ -216,8 +216,10 @@ export default function ReqTc({ me }: Props) {
      들고 온 값을 그대로 쓴다(화면에 숫자를 박지 않는다). */
   /* 고정 칸(고르기·제목·모델·TC/최근·Map) + **켜진 열**. 상태·우선순위 같은
      칸은 이제 켜진 열 쪽에서 나온다 — 두 곳에서 그리면 두 번 보인다. */
-  const gridReq = `52px minmax(0, 1fr) 104px 80px 56px ${visCols.map((c) => c.w).join(' ')}`.trim()
-  const gridTc = `52px minmax(0, 1fr) 100px 80px 70px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
+  /* ID 를 제 칸으로 뗀다(지시: ID 와 제목 사이에도 세로선). 한 칸에 같이
+     두면 선을 그을 자리가 없다 — 표의 선은 칸 사이에만 선다. */
+  const gridReq = `52px 108px minmax(0, 1fr) 104px 80px 56px ${visCols.map((c) => c.w).join(' ')}`.trim()
+  const gridTc = `52px 108px minmax(0, 1fr) 100px 80px 70px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridOf = (tc: boolean) => (tc ? gridTc : gridReq)
   /* 표에서 바로 고치는 칸이 쓸 값들 — 설정(codes)이 정본이다 */
   const REQ_STATUS = useCodes('req_status', ['작성중', '검토중', '검토완료', '보류', '폐기'])
@@ -1007,10 +1009,12 @@ export default function ReqTc({ me }: Props) {
                       onChange={(e) => setSel(e.target.checked ? new Set(reqRows.map(reqPk)) : new Set())}
                     />
                   </div>
+                  <div className="c-id">ID</div>
                   <div className="c-title">제목</div>
                   <div className="c-mg">모델그룹</div>
                   <div className="c-md">모델명</div>
-                  <div className="c-tc">TC</div>
+                  {/* 이 칸이 세는 것은 「그 요구사항을 덮은 시험」 이다(지시) */}
+                  <div className="c-tc">Coverage</div>
                   {visCols.map((c) => (
                     <div key={c.k}>{c.label}</div>
                   ))}
@@ -1044,7 +1048,7 @@ export default function ReqTc({ me }: Props) {
                         </span>
                         <input type="checkbox" checked={sel.has(pk)} onChange={() => toggle(sel, pk, setSel)} />
                       </div>
-                      <div className="c-title">
+                      <div className="c-id">
                         <button
                           type="button"
                           className="rqtc-rid"
@@ -1056,6 +1060,8 @@ export default function ReqTc({ me }: Props) {
                         >
                           {reqLabel(r)}
                         </button>
+                      </div>
+                      <div className="c-title">
                         <span className="rqtc-rtitle">{r.title || '(제목 없음)'}</span>
                       </div>
                       <div className="c-mg">{p?.model_group || '–'}</div>
@@ -1149,7 +1155,7 @@ export default function ReqTc({ me }: Props) {
                           onChange={() => toggle(sel, t.tcid, setSel)}
                         />
                       </div>
-                      <div className="c-title">
+                      <div className="c-id">
                         <button
                           type="button"
                           className="rqtc-rid tc"
@@ -1161,6 +1167,8 @@ export default function ReqTc({ me }: Props) {
                         >
                           {t.tcid}
                         </button>
+                      </div>
+                      <div className="c-title">
                         <span className="rqtc-rtitle">{t.name || '(제목 없음)'}</span>
                       </div>
                       {/* 시험은 제 모델 값을 갖고 있다 — 없으면 프로젝트 값으로 */}

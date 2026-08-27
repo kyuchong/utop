@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { IconChevron } from '@/components/icons'
 import './TopUser.css'
 
 /**
@@ -72,8 +73,10 @@ export default function TopUser({
               「· ·」 처럼 빈 자리가 남지 않게 한다. */}
           {sub && <span className="tpu-sub">{sub}</span>}
         </span>
-        <span className="tpu-caret" aria-hidden="true">
-          ▾
+        {/* 꺾쇠 — 프로젝트 고르기와 **같은 도형·같은 자리**(지시).
+            문자 ▾ 는 글꼴마다 크기가 제각각이라 두 단추가 달라 보였다. */}
+        <span className={`tpu-caret${open ? ' open' : ''}`} aria-hidden="true">
+          <IconChevron />
         </span>
       </button>
 
