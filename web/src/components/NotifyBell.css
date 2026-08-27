@@ -104,12 +104,16 @@
 .app-top .nb-pop { width: min(920px, calc(100vw - 32px)); }
 .app-top .nb-row {
   display: grid;
-  grid-template-columns: 96px 68px 52px 140px minmax(0, 1fr) 92px;
+  /* 「PASS 2 FAIL 0」 같은 값이 52px 을 넘어 옆 칸(ID)을 덮고 있었다(지적).
+     칸을 넓히고, **모든 칸을 넘치면 자르게** 한다 — 격자는 칸이 넘쳐도
+     막아 주지 않는다. 넘친 글자는 잘리고, 전체는 말풍선으로 본다. */
+  grid-template-columns: 92px 64px 104px 132px minmax(0, 1fr) 84px;
   gap: 8px;
   align-items: center;
   padding: 5px 12px;
 }
-.app-top .nb-at { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.app-top .nb-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-top .nb-at { font-variant-numeric: tabular-nums; }
 /* 종류 — 색으로 갈라 둔다. 스무 줄에서 결함만 골라 보게 */
 .app-top .nb-kind {
   justify-self: start;

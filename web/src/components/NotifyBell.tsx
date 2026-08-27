@@ -216,8 +216,12 @@ export default function NotifyBell({ collapsed }: { collapsed?: boolean }) {
                   >
                     <span className="nb-at">{fmt(it.at)}</span>
                     <span className={`nb-kind k-${it.kind}`}>{L.kind}</span>
-                    <span className="nb-act">{L.act}</span>
-                    <span className="nb-id">{L.id}</span>
+                    <span className="nb-act" title={L.act}>
+                      {L.act}
+                    </span>
+                    <span className="nb-id" title={L.id}>
+                      {L.id}
+                    </span>
                     <span className="nb-nm" title={L.name}>
                       {L.name}
                     </span>
