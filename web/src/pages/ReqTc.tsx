@@ -1124,14 +1124,12 @@ export default function ReqTc({ me }: Props) {
                       onChange={(e) => setSel(e.target.checked ? new Set(tcRows.map((t) => t.tcid)) : new Set())}
                     />
                   </div>
+                  <div className="c-id">ID</div>
                   <div className="c-title">제목</div>
                   <div className="c-mg">모델그룹</div>
                   <div className="c-md">모델명</div>
-                  <div className="c-ty">유형</div>
-                  <div className="c-st">상태</div>
-                  <div className="c-sv">중요도</div>
-                  <div className="c-rt">타입</div>
-                  <div className="c-og">구분</div>
+                  {/* 유형·상태·중요도·타입·구분은 이제 **켜진 열** 쪽에서 나온다
+                      (⚙ 로 켜고 끈다) — 여기 또 두면 머리와 몸이 어긋난다. */}
                   <div className="c-last">최근 결과</div>
                   <div className="c-map">REQ Map</div>
                   {visCols.map((c) => (
