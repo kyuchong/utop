@@ -1677,6 +1677,13 @@ async def api_org_member_role(payload: dict, token: str = ""):
     return {"ok": True, "hit": hit}
 
 
+def _org_walk(n: dict):
+    """마디를 하나씩 내준다 — 뿌리부터 깊이 우선."""
+    yield n
+    for c in (n.get("children") or []):
+        yield from _org_walk(c)
+
+
 def _org_at(org: dict, path: list) -> dict | None:
     """이름 길로 마디를 찾는다. 같은 이름이 여러 곳에 있어도(사업1담당 밑
     네트워크사업1팀 처럼) 길로 찾으면 헷갈리지 않는다."""
@@ -1802,7 +1809,15 @@ async def api_org_move_member(payload: dict, token: str = ""):
 
     strip(org)
     if picked is None:
-        raise HTTPException(404, f"조직도에 「{nm}」 이(가) 없습니다")
+        # 조직도 어디에도 없던 사람 — **새로 넣는다.** 계정은 있는데 조직도에
+        # 이름이 없는 사람이 45명이다(admin·qag 를 포함해). 없다고 물리면
+        # 그 45명을 조직에 넣을 방법이 아예 없다.
+        for n2 in _org_walk(org):
+            L = str(n2.get("lead") or "").strip()
+            i2 = L.rfind(" ")
+            if (L[:i2] if i2 > 0 else L) == nm:
+                raise HTTPException(400, f"「{nm}」 은(는) 그 조직의 장입니다 — 조직의 장을 바꾸세요")
+        picked = {"name": nm}
     dest.setdefault("members", []).append(picked)
     _kv_save_sync("org_tree", org)
     return {"ok": True, "to": dest.get("name")}

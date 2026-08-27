@@ -383,16 +383,29 @@ export default function Accounts() {
     if (org) walk(org, [])
     return out
   }, [org])
-  /** 이 사람이 지금 어느 조직에 있나 — 옮기기 칸의 처음 값 */
+  /**
+   * 이 사람이 지금 어느 조직에 있나 — 옮기기 칸의 처음 값.
+   *
+   * **장(長)도 함께 본다.** 조직도는 장을 `lead`, 팀원을 `members` 로 따로
+   * 담는다. 팀원만 훑었더니 윤경수 같은 장이 전부 「조직도에 없음」 으로
+   * 나왔다(지적) — 정작 그 조직의 장인데.
+   */
   const orgOf = useMemo(() => {
     const m = new Map<string, string>()
+    const lead = new Set<string>()
     const walk = (n: OrgNode, path: string[]) => {
       const p = [...path, n.name]
-      for (const x of n.members ?? []) m.set(nameKey(x.name), p.slice(1).join(' › '))
+      const label = p.slice(1).join(' › ')
+      const L = leadOf(n)
+      if (L) {
+        lead.add(nameKey(L.name))
+        if (!m.has(nameKey(L.name))) m.set(nameKey(L.name), label)
+      }
+      for (const x of n.members ?? []) m.set(nameKey(x.name), label)
       for (const c of n.children ?? []) walk(c, p)
     }
     if (org) walk(org, [])
-    return m
+    return { at: m, lead }
   }, [org])
 
   const setOrgRole = useMutation({
@@ -799,8 +812,13 @@ export default function Accounts() {
             <label className="acc-fld">
               <span>조직</span>
               <select
-                value={orgOf.get(nameKey(atOrg.name)) ?? ''}
-                disabled={orgEdit.isPending}
+                value={orgOf.at.get(nameKey(atOrg.name)) ?? ''}
+                disabled={orgEdit.isPending || orgOf.lead.has(nameKey(atOrg.name))}
+                title={
+                  orgOf.lead.has(nameKey(atOrg.name))
+                    ? '이 사람은 그 조직의 장입니다 — 옮기려면 조직의 장을 바꿔야 합니다'
+                    : undefined
+                }
                 onChange={(e) => {
                   const p = orgPaths.find((x) => x.label === e.target.value)
                   if (p) orgEdit.mutate({ at: 'move-member', body: { name: atOrg.name, to: p.path } })
@@ -896,8 +914,13 @@ export default function Accounts() {
             <label className="acc-fld">
               <span>조직</span>
               <select
-                value={orgOf.get(nameKey(cur.name || cur.username)) ?? ''}
-                disabled={orgEdit.isPending}
+                value={orgOf.at.get(nameKey(cur.name || cur.username)) ?? ''}
+                disabled={orgEdit.isPending || orgOf.lead.has(nameKey(cur.name || cur.username))}
+                title={
+                  orgOf.lead.has(nameKey(cur.name || cur.username))
+                    ? '이 사람은 그 조직의 장입니다 — 옮기려면 조직의 장을 바꿔야 합니다'
+                    : undefined
+                }
                 onChange={(e) => {
                   const p = orgPaths.find((x) => x.label === e.target.value)
                   if (p) orgEdit.mutate({ at: 'move-member', body: { name: nameOnly(cur.name || cur.username), to: p.path } })
