@@ -763,6 +763,89 @@ export default function ReqTc({ me }: Props) {
                 Coverage
               </button>
             </div>
+            {/* 세로선 뒤로 **하는 일**이 선다(지시) — 왼쪽은 무엇을 볼지,
+                오른쪽은 그것으로 무엇을 할지. 한 줄로 합치니 표가 그만큼
+                길어진다. */}
+            <span className="rqtc-vsep" aria-hidden="true" />
+            <button
+              className="btn small primary"
+              type="button"
+              onClick={() => (mode === 'req' ? setEditReq(null) : setEditTc(null))}
+            >
+              ＋ New
+            </button>
+            <button
+              className="btn small"
+              type="button"
+              title="엑셀·문서에서 붙여넣어 여러 건을 한 번에 만듭니다"
+              onClick={() => setBulkNew(true)}
+            >
+              ＋ Bulk New
+            </button>
+            {mode === 'tc' && (
+              <button
+                className="btn small"
+                type="button"
+                title="다른 폴더·요구사항의 시험을 복사해 옵니다"
+                onClick={() => setCopyOpen(true)}
+              >
+                ＋ Copy
+              </button>
+            )}
+            {sel.size > 0 && (
+              <>
+                <span className="rqtc-vsep" aria-hidden="true" />
+                {sel.size === 1 ? (
+                  <button
+                    className="btn small"
+                    type="button"
+                    title="고른 것을 고칩니다"
+                    onClick={() => {
+                      const id = [...sel][0]!
+                      if (mode === 'req') setEditReq(reqById.get(id) ?? null)
+                      else setEditTc(tcs.find((t) => t.tcid === id) ?? null)
+                    }}
+                  >
+                    Edit
+                  </button>
+                ) : (
+                  <button
+                    className="btn small"
+                    type="button"
+                    title={`고른 ${sel.size}건을 한꺼번에 고칩니다`}
+                    onClick={() => setBulkEdit(true)}
+                  >
+                    Bulk Edit
+                  </button>
+                )}
+                {mode === 'req' && (
+                  <button
+                    className="btn small"
+                    type="button"
+                    disabled={!!actBusy}
+                    onClick={() => void cloneReqs()}
+                  >
+                    {actBusy === 'clone' ? '복제 중…' : 'Clone'}
+                  </button>
+                )}
+                <span className="rqtc-vsep" aria-hidden="true" />
+                <button
+                  className="btn small danger"
+                  type="button"
+                  disabled={!!actBusy}
+                  onClick={() => void deletePicked()}
+                >
+                  {actBusy === 'del' ? '삭제 중…' : 'Delete'}
+                </button>
+                <span className="rqtc-selinfo">{sel.size}개 고름</span>
+                <button className="btn small" type="button" onClick={() => setSel(new Set())}>
+                  해제
+                </button>
+              </>
+            )}
+            <span className="sp" />
+
+
             <div className="rqtc-crumb">
               {crumb.length ? (
                 crumb.map((c, i) => (
@@ -792,6 +875,14 @@ export default function ReqTc({ me }: Props) {
               )}
             </div>
             <span className="sp" />
+            {/* 미커버만 — 찾기 칸 왼쪽(지시). 둘 다 「무엇을 볼지」 를 좁히는
+                것이라 나란히 있어야 한 묶음으로 읽힌다. */}
+            {mode === 'req' && (
+              <label className="rqtc-only">
+                <input type="checkbox" checked={onlyBare} onChange={(e) => setOnlyBare(e.target.checked)} />
+                미커버만
+              </label>
+            )}
             <input
               className="rqtc-q top"
               value={q}
@@ -909,92 +1000,6 @@ export default function ReqTc({ me }: Props) {
                 2건 이상 → … | Bulk Edit  Clone | Delete
               삭제는 구분선 너머 끝자리다 — 되돌릴 수 없는 것은 손이 닿기
               어려운 곳에 둔다. */}
-          <div className="rqtc-bar">
-            <button
-              className="btn small primary"
-              type="button"
-              onClick={() => (mode === 'req' ? setEditReq(null) : setEditTc(null))}
-            >
-              ＋ New
-            </button>
-            <button
-              className="btn small"
-              type="button"
-              title="엑셀·문서에서 붙여넣어 여러 건을 한 번에 만듭니다"
-              onClick={() => setBulkNew(true)}
-            >
-              ＋ Bulk New
-            </button>
-            {mode === 'tc' && (
-              <button
-                className="btn small"
-                type="button"
-                title="다른 폴더·요구사항의 시험을 복사해 옵니다"
-                onClick={() => setCopyOpen(true)}
-              >
-                ＋ Copy
-              </button>
-            )}
-            {sel.size > 0 && (
-              <>
-                <span className="rqtc-vsep" aria-hidden="true" />
-                {sel.size === 1 ? (
-                  <button
-                    className="btn small"
-                    type="button"
-                    title="고른 것을 고칩니다"
-                    onClick={() => {
-                      const id = [...sel][0]!
-                      if (mode === 'req') setEditReq(reqById.get(id) ?? null)
-                      else setEditTc(tcs.find((t) => t.tcid === id) ?? null)
-                    }}
-                  >
-                    Edit
-                  </button>
-                ) : (
-                  <button
-                    className="btn small"
-                    type="button"
-                    title={`고른 ${sel.size}건을 한꺼번에 고칩니다`}
-                    onClick={() => setBulkEdit(true)}
-                  >
-                    Bulk Edit
-                  </button>
-                )}
-                {mode === 'req' && (
-                  <button
-                    className="btn small"
-                    type="button"
-                    disabled={!!actBusy}
-                    onClick={() => void cloneReqs()}
-                  >
-                    {actBusy === 'clone' ? '복제 중…' : 'Clone'}
-                  </button>
-                )}
-                <span className="rqtc-vsep" aria-hidden="true" />
-                <button
-                  className="btn small danger"
-                  type="button"
-                  disabled={!!actBusy}
-                  onClick={() => void deletePicked()}
-                >
-                  {actBusy === 'del' ? '삭제 중…' : 'Delete'}
-                </button>
-                <span className="rqtc-selinfo">{sel.size}개 고름</span>
-                <button className="btn small" type="button" onClick={() => setSel(new Set())}>
-                  해제
-                </button>
-              </>
-            )}
-            <span className="sp" />
-            {mode === 'req' && (
-              <label className="rqtc-only">
-                <input type="checkbox" checked={onlyBare} onChange={(e) => setOnlyBare(e.target.checked)} />
-                미커버만
-              </label>
-            )}
-          </div>
-
           <div className="rqtc-tbl">
             {mode === 'req' ? (
               <>

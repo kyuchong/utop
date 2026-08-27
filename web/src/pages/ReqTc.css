@@ -211,8 +211,11 @@
 }
 .rqtc-modebar .sp { flex: 1; }
 .rqtc-seg { display: inline-flex; border: 1px solid var(--c-border); border-radius: 7px; overflow: hidden; flex: none; }
+/* 토글 칸 — 옆에 선 단추들과 **같은 높이**여야 한 줄로 읽힌다(지시).
+   32px 로 못 박고, 단추도 같은 값을 쓴다. */
 .rqtc-seg button {
-  padding: 5px 14px;
+  height: 32px;
+  padding: 0 14px;
   border: 0;
   background: var(--c-surface);
   color: var(--c-text-muted);
@@ -673,3 +676,13 @@
    줄이 흔들리지 않는다. */
 .rqtc-tr > .c-id { min-width: 0; }
 .rqtc-tr > .c-id .rqtc-rid { margin-right: 0; }
+
+
+/* 도구줄 단추 — 토글과 같은 높이·같은 글자 크기(지시). 한 줄에 나란히 서는
+   것들이라 높이가 다르면 줄이 울퉁불퉁해 보인다. */
+.rqtc-modebar .btn.small {
+  height: 32px;
+  padding: 0 12px;
+  font-size: var(--fs-md);
+}
+.rqtc-modebar .rqtc-vsep { height: 22px; }
