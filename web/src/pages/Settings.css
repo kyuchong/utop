@@ -599,6 +599,8 @@
 /* 줄마다 가름선 — 이름이 두 줄로 접히는 줄이 섞여 있어, 선이 없으면 어디까지가
    한 프로젝트인지 눈이 짚어야 한다(지시). */
 .jp-item + .jp-item { border-top: 1px solid var(--c-border-soft, #eef1f5); }
+/* 이름이 남는 폭을 먹고, 넘치면 제 안에서 접힌다 — 옆의 표를 밀지 않는다 */
+.jp-item > .muted { flex: 1; min-width: 0; }
 .jp-item {
   display: flex;
   align-items: center;
@@ -615,7 +617,13 @@
 .jp-item:hover { background: var(--c-hover, #f4f5f7); }
 .jp-item.on { background: var(--c-primary-soft, #eef4ff); }
 .jp-item .sp { margin-left: auto; }
+/* 「설정됨」 표 — **한 줄로**(지시). 이름이 두 줄로 접히는 줄에서는 이 표가
+   남는 폭에 맞춰 「설정 / 됨」 으로 갈라졌다. 줄이거나 줄바꿈을 막지 않으면,
+   글자 두 자짜리 표가 세로로 서서 줄 높이를 밀어 올린다. */
 .jp-tag {
+  flex: none;
+  white-space: nowrap;
+  align-self: center;
   padding: 0 5px;
   border-radius: var(--r-chip);
   background: var(--c-surface-2);
