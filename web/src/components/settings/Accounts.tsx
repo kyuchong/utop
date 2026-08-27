@@ -333,6 +333,25 @@ export default function Accounts() {
     if (org) walk(org)
     return m
   }, [org])
+  /* 조직도에 없는 계정 — **45개나 된다**(admin·qag 를 비롯해 조직도에 이름이
+     없는 사람들). 표가 조직도만 그리니 이들은 어느 칸을 눌러도 나올 자리가
+     없었다(지적: UTOP 계정 고르면 아무것도 안 나온다). 트리 끝에 따로 낸다. */
+  const orgNames = useMemo(() => {
+    const s2 = new Set<string>()
+    const walk = (n: OrgNode) => {
+      const L = leadOf(n)
+      if (L) s2.add(nameKey(L.name))
+      for (const m of n.members ?? []) s2.add(nameKey(m.name))
+      for (const c of n.children ?? []) walk(c)
+    }
+    if (org) walk(org)
+    return s2
+  }, [org])
+  const loose = useMemo(
+    () => rows.filter((u) => !orgNames.has(nameKey(u.name || u.username))),
+    [rows, orgNames],
+  )
+
   const setOrgRole = useMutation({
     mutationFn: async (b: { name: string; role: string }) => {
       const r = await apiFetch('/api/org/member-role', {
@@ -624,8 +643,49 @@ export default function Accounts() {
                     orgRole={orgRole}
                     q={q}
                   />
-                ) : (
-                  rows.map((u) => (
+                ) : null}
+                {/* 조직도에 없는 계정 — admin·qag 처럼 조직도에 이름이 없는
+                    계정이 45개다. 트리만 그리면 이들은 **어느 칸을 눌러도
+                    나올 자리가 없다**(지적: UTOP 계정 고르면 아무것도 안
+                    나온다). 트리 끝에 한 묶음으로 낸다. */}
+                {org && loose.length > 0 && (
+                  <>
+                    <tr className="acc-orghd d0">
+                      <td colSpan={7}>
+                        <button
+                          type="button"
+                          onClick={() => toggleOrg('loose')}
+                          style={{ paddingLeft: 10 }}
+                        >
+                          <i className={shutOrg.has('loose') ? '' : 'open'}>▸</i>
+                          조직도에 없는 계정
+                          <em>{loose.length}</em>
+                        </button>
+                      </td>
+                    </tr>
+                    {!shutOrg.has('loose') &&
+                      loose.map((u) => (
+                        <tr
+                          key={`loose/${u.username}`}
+                          className={`${u.active === false ? 'off' : ''}${
+                            at === u.username ? ' on' : ''
+                          }`}
+                          onClick={() => pick(u)}
+                        >
+                          <td className="ell" style={{ paddingLeft: 26 }} title={u.name || u.username}>
+                            <b>{u.name || u.username}</b>
+                          </td>
+                          <td className="ell">{u.username}</td>
+                          <td>{u.role}</td>
+                          <td className="ell">{u.dept || '소속 없음'}</td>
+                          <td className="ell">{u.synced_at || ''}</td>
+                          <td className="ell">{u.email}</td>
+                          <td />
+                        </tr>
+                      ))}
+                  </>
+                )}
+                {!org && (rows.map((u) => (
                     <tr
                       key={u.username}
                       className={`${u.active === false ? 'off' : ''}${at === u.username ? ' on' : ''}`}
@@ -641,8 +701,7 @@ export default function Accounts() {
                       <td className="ell">{u.email}</td>
                       <td />
                     </tr>
-                  ))
-                )}
+                  )))}
               </tbody>
             </table>
           </div>
