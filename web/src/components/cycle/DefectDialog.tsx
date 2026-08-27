@@ -4,6 +4,7 @@ import { stepVerdict, type TcStep } from '@/components/tc/types'
 import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
 import './DefectDialog.css'
 import { buildDefectWiki, kernelFromSteps, wikiToHtml, type WikiStep } from '@/lib/jiraWiki'
+import JiraFields, { toJiraFields, type JiraField, type JiraFieldValues } from './JiraFields'
 
 /** UTOP 안에 쌓는 결함 한 건 */
 export interface DefectRec {
@@ -159,6 +160,10 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
   const [panels, setPanels] = useState<Record<string, string>>(() => ({
     ...(existing?.panels ?? {}),
   }))
+  /* 이 프로젝트가 요구하는 칸들 — Jira 에게 물어 그린다(JiraFields) */
+  const [jfVals, setJfVals] = useState<JiraFieldValues>({})
+  const [jfDefs, setJfDefs] = useState<JiraField[]>([])
+  const [labels, setLabels] = useState('utop')
   const setPanel = (k: string, v: string) => setPanels((p) => ({ ...p, [k]: v }))
   /* 미리보기 = 올라갈 글. 두 곳에서 따로 만들면 화면에서 본 것과 Jira 에
      남은 것이 달라지고, 그 어긋남은 이슈를 연 사람이 아니라 그걸 읽는
@@ -353,6 +358,13 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
       setMsg({ kind: 'err', text: '프로젝트 키를 고르세요' })
       return
     }
+    /* 필수 칸이 비면 Jira 는 「필드가 잘못됐다」 한 줄만 주고 어느 칸인지
+       말해 주지 않는다. 보내기 전에 여기서 짚어 준다. */
+    const jira = toJiraFields(jfDefs, jfVals)
+    if (jira.missing.length) {
+      setMsg({ kind: 'err', text: `채워야 하는 칸: ${jira.missing.join(', ')}` })
+      return
+    }
     const d = await save()
     if (!d) return
     setBusy('push')
@@ -368,6 +380,8 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
           reporter,
           panels,
           description: wiki,
+          labels: labels.split(',').map((x) => x.trim()).filter(Boolean),
+          fields: jira.fields,
         }),
       })
       const j = (await r.json()) as { ok?: boolean; key?: string; url?: string; error?: string; defect?: DefectRec }
@@ -605,6 +619,19 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
             )
           })}
 
+          <JiraFields
+            project={proj}
+            issuetype={itype}
+            value={jfVals}
+            onChange={setJfVals}
+            onLoaded={setJfDefs}
+            disabled={pushed}
+          />
+
+          <label className="dfx-fld wide">
+            <span>라벨 (쉼표 구분)</span>
+            <input value={labels} disabled={pushed} onChange={(e) => setLabels(e.target.value)} />
+          </label>
         </div>
 
         {/* 오른쪽 — Jira 에 올라갈 모습 그대로. 「등록하고 나서 열어 보니

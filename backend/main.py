@@ -17852,6 +17852,11 @@ async def defect_push_jira(did: str, payload: dict = None):
     prio = payload.get("priority") or d.get("priority")
     if prio:
         body["priority"] = prio
+    # 화면이 그린 Jira 칸(createmeta)이 오면 함께 싣는다. 프로젝트마다 필수가
+    # 다르고(사업자·이슈분류·시험시설…), 여기 없으면 Jira 가 그냥 물린다.
+    # 화면이 준 값이 뒤에 온다 — 사람이 방금 고른 것이 이겨야 한다.
+    if isinstance(payload.get("fields"), dict):
+        fields.update(payload["fields"])
     if fields:
         body["fields"] = fields
     res = await jira_create_issue(body)
