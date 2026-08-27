@@ -7203,7 +7203,8 @@ table.tb td.k {
      둔다. 이 화면에는 그 조상이 없어 `1px solid var(--tc-line)` 이 통째로
      무효가 되었고, 입력칸의 테두리가 사라져 어디가 칸인지 안 보였다(지적). */
   --tc-r: 6px;
-  --tc-bg: #fbfcfd;
+  /* 시험 항목 화면과 같은 이유로 흰색 — 청록 바탕에서 회색으로 보였다 */
+  --tc-bg: var(--c-surface);
   --tc-hover: #f2f5f8;
   --tc-sel: #eaf1fb;
   --tc-line: #e8ecf0;

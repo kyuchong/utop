@@ -18,7 +18,10 @@
 .tc-bar,
 .tc-split {
   --tc-r: 6px;
-  --tc-bg: #fbfcfd;
+  /* 판 바탕은 **흰색**이다. #fbfcfd 는 회색 바탕 위에서 고른 값이라,
+     바탕이 청록으로 바뀌자 흰색이 아니라 칙칙하게 보였다(지적: 시험 항목
+     부분은 흰색이어야 하는 것 아닌가). 다른 화면의 카드와 같은 색을 쓴다. */
+  --tc-bg: var(--c-surface);
   --tc-hover: #f2f5f8;
   --tc-sel: #eaf1fb;
   --tc-line: #e8ecf0;
