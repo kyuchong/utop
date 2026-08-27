@@ -133,7 +133,7 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  padding: 5px 6px;
+  padding: 2px 6px;
   border-radius: 6px;
   /* 두 카드 안 글자는 13px — 본문 기준값(--fs-md)과 같다(지시: 전체적으로
      13px). 14px 로 올렸더니 왼쪽 메뉴(13px)보다 한 단 커서 표만 떠 보였다. */
@@ -287,7 +287,7 @@
 .rqtc-tbl { flex: 1; min-height: 0; overflow: auto; }
 .rqtc-tr {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 100px 80px 68px 68px 62px 54px 60px 70px 108px;
+  grid-template-columns: 52px minmax(0, 1fr) 100px 80px 68px 68px 62px 54px 60px 70px 108px;
   align-items: center;
   /* 칸 사이 8 → 4px. 칩은 글자만큼만 넓어서, 칸이 넓으면 칩 사이가 휑하니
      벌어져 세 칸이 서로 딴 줄처럼 보인다(지적: 더 줄여). */
@@ -321,17 +321,19 @@
 .rqtc-sub { background: #fbfcfd; }
 .rqtc-sub .c-title { padding-left: 18px; }
 .c-chk { display: flex; align-items: center; justify-content: center; gap: 2px; }
-/* 점 여섯 — 잡아서 끄는 자리. 늘 옅게 두다가 줄에 마우스를 올리면 진해진다.
-   또렷하게 두면 스무 줄에 손잡이가 스무 개라 표가 시끄럽다. */
+/* 점 여섯 — 잡아서 끄는 자리. 옅게 두었더니 있는 줄도 몰랐다(지적).
+   진하고 크게, 그리고 체크박스와 **띄운다** — 붙어 있으면 끌려다 체크가
+   눌린다. 줄에 마우스를 올리면 한 단 더 진해져 「지금 이 줄」 을 말한다. */
 .rqtc-grip {
   flex: none;
   display: inline-flex;
   align-items: center;
-  color: var(--c-text-faint);
-  opacity: 0.35;
+  margin-right: 6px;
+  color: var(--c-text-muted);
   cursor: grab;
 }
-.rqtc-tr:hover .rqtc-grip { opacity: 1; }
+.rqtc-grip svg { width: 15px; height: 17px; }
+.rqtc-tr:hover .rqtc-grip { color: var(--c-app-top); }
 .rqtc-grip:active { cursor: grabbing; }
 /* 받을 수 있는 폴더 — 끌고 있는 동안만 테두리가 선다 */
 .rqtc-fold.drop {
