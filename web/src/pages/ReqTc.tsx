@@ -258,7 +258,7 @@ export default function ReqTc({ me }: Props) {
       <div
         className={`rqtc${foldSide ? ' folded' : ''}`}
         ref={gridRef}
-        style={foldSide ? undefined : { gridTemplateColumns: `${sideW}px 10px minmax(0, 1fr)` }}
+        style={foldSide ? undefined : { gridTemplateColumns: `${sideW}px 6px minmax(0, 1fr)` }}
       >
         {foldSide && (
           <button type="button" className="rqtc-unfold" title="폴더 판 펴기" onClick={() => setFoldSide(false)}>
