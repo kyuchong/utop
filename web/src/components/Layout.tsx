@@ -176,55 +176,8 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
       )}
       <div className="app-body">
         <nav className="nav" aria-label="주 메뉴">
-          {/* 로고 — 설정 → 브랜딩에서 올린다. 접으면 마크만, 펼치면
-              이름까지. 누르면 브랜딩에 적은 링크로, 없으면 대시보드로. */}
-          <div
-            className="nav-brand"
-            aria-label="로고"
-            role="button"
-            tabIndex={0}
-            style={{ cursor: 'pointer' }}
-            title="이 화면을 새로 읽습니다"
-            /* 새 탭으로 열던 것을 걷는다(지적) — 로고를 누르는 손은 「처음
-               자리로」 나 「다시 읽기」 지 새 창이 아니다. 지금 보던 화면을
-               그대로 다시 읽는다: 주소가 그대로라 고르던 것도 유지된다. */
-            onClick={() => window.location.reload()}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                window.location.reload()
-              }
-            }}
-          >
-            {brand.logo && <img className="nav-logo-img" src={brand.logo} alt="로고" />}
-            {brand.name && (
-              <b
-                className="nav-logo-nm"
-                style={{
-                  /* 숫자가 아니면 그때만 기본값이다 — 「|| 15」 를 값 자리에
-                     두어 0·빈칸·글자가 들어오면 조용히 15 로 눌렸다(지적:
-                     무조건 15 로 고정된다) */
-                  fontSize: (() => {
-                    const n = Number(String(brand.size ?? '').trim())
-                    if (!Number.isFinite(n) || n <= 0) return undefined
-                    return `${Math.min(Math.max(n, 10), 60)}px`
-                  })(),
-                  color: brand.color || undefined,
-                  fontFamily: brand.font || undefined,
-                }}
-              >
-                {/* [Q] 처럼 대괄호로 감싼 글자는 강조 색 */}
-                {brand.name.split(/(\[[^\]]*\])/).map((seg, i) =>
-                  seg.startsWith('[') && seg.endsWith(']') ? (
-                    <i key={i} style={{ fontStyle: 'normal', color: brand.accent || '#e02020' }}>
-                      {seg.slice(1, -1)}
-                    </i>
-                  ) : (
-                    seg
-                  ),
-                )}
-              </b>
-            )}
-          </div>
+          {/* 로고·제품 이름은 **상단바**로 옮겼다(지시) — 메뉴에서 걷어낸다.
+              같은 것이 두 곳에 있으면 좁혔을 때 두 번 겹쳐 보인다. */}
 
           {NAV.map((group, gi) => (
             <div className="nav-section" key={group.title ?? `g${gi}`}>
