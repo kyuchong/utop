@@ -642,3 +642,28 @@
 
 /* ⋯ 메뉴가 설 자리 — 팝업이 이 단추를 기준으로 뜬다 */
 .rqtc-more { position: relative; display: inline-flex; }
+
+/* 우클릭 메뉴 — 아래로 채우기 */
+.rqtc-ctx {
+  position: fixed;
+  z-index: 90;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--c-surface);
+  box-shadow: 0 10px 28px rgb(15 30 45 / 22%);
+}
+.rqtc-ctx button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 7px 10px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.rqtc-ctx button:hover:not(:disabled) { background: var(--c-surface-alt); }

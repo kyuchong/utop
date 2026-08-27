@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser } from '@/api/client'
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
 import { goto } from '@/api/goto'
 import { fillOf } from '@/lib/fieldFill'
+import PickCell from '@/components/PickCell'
+import { useCodes } from '@/hooks/useCodes'
 import { IconChevron, IconGrip, IconPanel, IconSearch, IconSettings, IconSort } from '@/components/icons'
 import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
 import { useInfoCols } from '@/components/useInfoCols'
@@ -191,9 +194,12 @@ export default function ReqTc({ me }: Props) {
   const FIXED_COLS = useMemo(
     () =>
       new Set(
+        /* INFO 열의 열쇠는 f_status·f_priority 처럼 **f_ 로 시작한다**
+           (useInfoCols). status·priority 로 적었더니 하나도 안 걸러져,
+           고르면 빈 칸이 뒤에 하나 더 붙었다(지적). */
         mode === 'req'
-          ? ['model_group', 'model', 'status', 'priority']
-          : ['model_group', 'model', 'type', 'status', 'severity', 'run_type', 'origin'],
+          ? ['f_status', 'f_priority']
+          : ['f_type', 'f_status', 'f_severity', 'f_kind', 'f_origin'],
       ),
     [mode],
   )
@@ -221,8 +227,113 @@ export default function ReqTc({ me }: Props) {
     .map((c) => c.w)
     .join(' ')}`.trim()
   const gridOf = (tc: boolean) => (tc ? gridTc : gridReq)
-  /** INFO 열 값 — 열이 곧 필드다 */
-  const colVal = (row: Record<string, unknown>, k: string) => String(row[k] ?? '')
+  /* 표에서 바로 고치는 칸이 쓸 값들 — 설정(codes)이 정본이다 */
+  const REQ_STATUS = useCodes('req_status', ['작성중', '검토중', '검토완료', '보류', '폐기'])
+  const REQ_PRIORITY = useCodes('req_priority', ['High', 'Medium', 'Low'])
+  const TC_STATUS = useCodes('tc_status', ['작성중', '검토중', '검토완료', '보류', '폐기'])
+  const TC_SEVERITY = useCodes('tc_severity', ['Blocker', 'Critical', 'Major', 'Minor'])
+
+  /**
+   * 한 칸만 고쳐 저장한다.
+   *
+   * **원본을 읽어 그 칸만 갈아 끼운다** — 서버의 저장은 보낸 것으로 통째로
+   * 덮어써서, 칸 하나만 보내면 나머지가 다 지워진다(폴더 옮기기에서 겪은 그것).
+   */
+  const setOneField = async (kind: 'req' | 'tc', id: string, p: Record<string, unknown>) => {
+    try {
+      if (kind === 'req') {
+        const full = (await api.getRequirement(id)) as unknown as Record<string, unknown>
+        await reqApi.save(id, { ...full, ...p })
+        await reqQ.refetch()
+      } else {
+        const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`)
+        const full = (await r.json()) as Record<string, unknown>
+        await apiFetch(`/api/tc/${encodeURIComponent(id)}`, {
+          method: 'POST',
+          body: JSON.stringify({ ...full, ...p }),
+        })
+        await tcQ.refetch()
+      }
+    } catch (e) {
+      window.alert(`고치지 못했습니다 — ${String((e as Error).message)}`)
+    }
+  }
+
+  /* 우클릭한 칸 — 「아래로 채우기」 가 여기서 뜬다 */
+  const [rowMenu, setRowMenu] = useState<{
+    kind: 'req' | 'tc'
+    id: string
+    field: string
+    label: string
+    value: string
+    x: number
+    y: number
+  } | null>(null)
+  useEffect(() => {
+    if (!rowMenu) return
+    const off = () => setRowMenu(null)
+    window.addEventListener('mousedown', off)
+    window.addEventListener('scroll', off, true)
+    return () => {
+      window.removeEventListener('mousedown', off)
+      window.removeEventListener('scroll', off, true)
+    }
+  }, [rowMenu])
+
+  /**
+   * 아래로 채우기 — 그 줄 **아래 전부**를 같은 값으로.
+   *
+   * 한 건씩 저장하고 그때마다 목록을 다시 읽으면 서른 건이 서른 번 왕복한다.
+   * 여덟씩 묶어 보내고 목록은 끝에 한 번만 다시 읽는다.
+   */
+  const fillDown = async () => {
+    const m = rowMenu
+    setRowMenu(null)
+    if (!m) return
+    const rows: string[] =
+      m.kind === 'req' ? reqPageRows.map((r) => reqPk(r)) : tcPageRows.map((t) => t.tcid)
+    const at = rows.indexOf(m.id)
+    const below = at < 0 ? [] : rows.slice(at + 1)
+    if (!below.length) {
+      window.alert('아래에 줄이 없습니다')
+      return
+    }
+    if (!window.confirm(`아래 ${below.length}줄의 ${m.label} 을(를) 「${m.value || '(빈 값)'}」 로 채웁니다.`))
+      return
+    setActBusy('fill')
+    try {
+      const CH = 8
+      for (let i = 0; i < below.length; i += CH) {
+        await Promise.all(
+          below.slice(i, i + CH).map(async (id) => {
+            if (m.kind === 'req') {
+              const full = (await api.getRequirement(id)) as unknown as Record<string, unknown>
+              await reqApi.save(id, { ...full, [m.field]: m.value })
+            } else {
+              const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`)
+              const full = (await r.json()) as Record<string, unknown>
+              await apiFetch(`/api/tc/${encodeURIComponent(id)}`, {
+                method: 'POST',
+                body: JSON.stringify({ ...full, [m.field]: m.value }),
+              })
+            }
+          }),
+        )
+      }
+      await reqQ.refetch()
+      await tcQ.refetch()
+    } catch (e) {
+      window.alert(`채우지 못했습니다 — ${String((e as Error).message)}`)
+    } finally {
+      setActBusy('')
+    }
+  }
+
+  /** INFO 열 값 — 커스텀 필드는 **data->custom** 안에 있다(cf_<열쇠>) */
+  const colVal = (row: Record<string, unknown>, k: string) => {
+    const cf = (row.custom ?? {}) as Record<string, unknown>
+    return String((k.startsWith('cf_') ? cf[k.slice(3)] : row[k]) ?? '')
+  }
   const [gearAt, setGearAt] = useState<{ x: number; y: number } | null>(null)
   /* ⋯ — 시험 하나를 파일로 떼고 붙인다(Coverage 화면의 그 메뉴).
      랩마다 UTOP 이 따로 서 있어서, 한쪽에서 만든 시험을 다른 쪽에서 그대로
@@ -557,7 +668,10 @@ export default function ReqTc({ me }: Props) {
             {/* 접기 단추는 **2열 머리줄 하나**로 모았다(지시) — 그 단추가
                 접기·펴기를 다 하므로, 여기 또 두면 접는 길이 둘이 된다. */}
             <div className="rqtc-sidehead">
-              <b>Folder Tree</b>
+              {/* 이름 — 이 판이 무엇을 담는지 그대로 적는다(지시).
+                  가운데 정렬이라 좌우 빈칸을 둘 다 둔다. */}
+              <span className="sp" />
+              <b>Requirements &amp; Coverage</b>
               <span className="sp" />
             </div>
             {/* 2행 — 만들기와 손잡이들. 사진처럼 만들기가 왼쪽을 채우고
@@ -649,10 +763,10 @@ export default function ReqTc({ me }: Props) {
             </button>
             <div className="rqtc-seg">
               <button type="button" className={mode === 'req' ? 'on' : ''} onClick={() => setMode('req')}>
-                요구사항
+                Requirements
               </button>
               <button type="button" className={mode === 'tc' ? 'on' : ''} onClick={() => setMode('tc')}>
-                시험항목
+                Coverage
               </button>
             </div>
             <div className="rqtc-crumb">
@@ -959,8 +1073,44 @@ export default function ReqTc({ me }: Props) {
                       <div className="c-tc rqtc-fillc">
                         <span className={`rqtc-cov ${n ? 'ok' : 'no'}`}>{n ? `TC ${n}` : '미커버'}</span>
                       </div>
-                      <Fill kind="req_status" v={r.status} cls="c-st" f={codeFill} />
-                      <Fill kind="req_priority" v={r.priority} cls="c-pr" f={codeFill} />
+                      <Fill
+                        kind="req_status"
+                        v={r.status}
+                        cls="c-st"
+                        f={codeFill}
+                        opts={REQ_STATUS}
+                        onSave={(x) => void setOneField('req', pk, { status: x })}
+                        onFill={(e) =>
+                          setRowMenu({
+                            kind: 'req',
+                            id: pk,
+                            field: 'status',
+                            label: '상태',
+                            value: String(r.status ?? ''),
+                            x: e.clientX,
+                            y: e.clientY,
+                          })
+                        }
+                      />
+                      <Fill
+                        kind="req_priority"
+                        v={r.priority}
+                        cls="c-pr"
+                        f={codeFill}
+                        opts={REQ_PRIORITY}
+                        onSave={(x) => void setOneField('req', pk, { priority: x })}
+                        onFill={(e) =>
+                          setRowMenu({
+                            kind: 'req',
+                            id: pk,
+                            field: 'priority',
+                            label: '우선순위',
+                            value: String(r.priority ?? ''),
+                            x: e.clientX,
+                            y: e.clientY,
+                          })
+                        }
+                      />
                       {/* 고른 INFO 열 — 열이 곧 필드다 */}
                       {visCols.map((c) => (
                         <div className="ell" key={c.k}>
@@ -1036,8 +1186,44 @@ export default function ReqTc({ me }: Props) {
                       <div className="c-mg">{String(t.model_group ?? '') || p?.model_group || '–'}</div>
                       <div className="c-md">{String(t.model ?? '') || p?.model || '–'}</div>
                       <Fill kind="tc_type" v={t.type} cls="c-ty" f={codeFill} />
-                      <Fill kind="tc_status" v={t.status} cls="c-st" f={codeFill} />
-                      <Fill kind="tc_severity" v={t.severity} cls="c-sv" f={codeFill} />
+                      <Fill
+                        kind="tc_status"
+                        v={t.status}
+                        cls="c-st"
+                        f={codeFill}
+                        opts={TC_STATUS}
+                        onSave={(x) => void setOneField('tc', t.tcid, { status: x })}
+                        onFill={(e) =>
+                          setRowMenu({
+                            kind: 'tc',
+                            id: t.tcid,
+                            field: 'status',
+                            label: '상태',
+                            value: String(t.status ?? ''),
+                            x: e.clientX,
+                            y: e.clientY,
+                          })
+                        }
+                      />
+                      <Fill
+                        kind="tc_severity"
+                        v={t.severity}
+                        cls="c-sv"
+                        f={codeFill}
+                        opts={TC_SEVERITY}
+                        onSave={(x) => void setOneField('tc', t.tcid, { severity: x })}
+                        onFill={(e) =>
+                          setRowMenu({
+                            kind: 'tc',
+                            id: t.tcid,
+                            field: 'severity',
+                            label: '중요도',
+                            value: String(t.severity ?? ''),
+                            x: e.clientX,
+                            y: e.clientY,
+                          })
+                        }
+                      />
                       <Fill kind="tc_run_type" v={String(t.run_type ?? '')} cls="c-rt" f={codeFill} />
                       <Fill kind="tc_origin" v={String(t.origin ?? '')} cls="c-og" f={codeFill} />
                       <div className="c-last rqtc-fillc">
@@ -1139,6 +1325,24 @@ export default function ReqTc({ me }: Props) {
         </section>
       </div>
 
+      {/* 아래로 채우기 — 우클릭한 칸의 값을 그 아래 줄에 모두 넣는다.
+          같은 값을 스무 줄에 손으로 고르는 일이 잦다. */}
+      {rowMenu && (
+        <div
+          className="rqtc-ctx"
+          style={{
+            left: Math.min(rowMenu.x, window.innerWidth - 240),
+            top: Math.min(rowMenu.y, window.innerHeight - 90),
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <button type="button" disabled={!!actBusy} onClick={() => void fillDown()}>
+            ⬇ 아래 줄에 {rowMenu.label} 「{rowMenu.value || '(빈 값)'}」 채우기
+          </button>
+        </div>
+      )}
+
       {bulkNew &&
         (mode === 'req' ? (
           <ReqBulkForm presetFolder={cat || null} onClose={() => setBulkNew(false)} />
@@ -1233,29 +1437,66 @@ export default function ReqTc({ me }: Props) {
 }
 
 /** 통채움 한 칸 — 셀 전체가 값의 색(먼데이). 색은 설정이 정본이다 */
+/**
+ * 통채움 칸. **고를 값(opts)을 주면 그 자리에서 고친다**(지시).
+ *
+ * 고치려고 상세를 열었다 닫는 걸음이 하루에도 여럿이다. 요구사항 화면이
+ * 쓰는 PickCell 을 그대로 얹는다 — 평소엔 글자처럼 조용하고, 올리면 드러나고,
+ * 고르면 바로 저장한다.
+ */
 function Fill({
   kind,
   v,
   cls,
   f,
+  opts,
+  onSave,
+  onFill,
 }: {
   kind: string
   v?: string | null
   cls: string
   f: (kind: string, value: string) => { bg: string; fg: string }
+  opts?: readonly string[]
+  onSave?: (v: string) => void
+  /** 우클릭 = 아래로 채우기 */
+  onFill?: (e: React.MouseEvent) => void
 }) {
   const val = String(v ?? '')
-  if (!val)
+  if (!opts || !onSave) {
+    if (!val)
+      return (
+        <div className={`${cls} rqtc-fillc`}>
+          <span className="rqtc-fill none">–</span>
+        </div>
+      )
+    const c0 = f(kind, val)
     return (
       <div className={`${cls} rqtc-fillc`}>
-        <span className="rqtc-fill none">–</span>
+        <span className="rqtc-fill" style={{ background: c0.bg, color: c0.fg }}>
+          {val}
+        </span>
       </div>
     )
+  }
   const c = f(kind, val)
   return (
-    <div className={`${cls} rqtc-fillc`}>
-      <span className="rqtc-fill" style={{ background: c.bg, color: c.fg }}>
-        {val}
+    <div
+      className={`${cls} rqtc-fillc`}
+      onClick={(e) => e.stopPropagation()}
+      onContextMenu={(e) => {
+        if (!onFill) return
+        e.preventDefault()
+        e.stopPropagation()
+        onFill(e)
+      }}
+      title="고르면 바로 저장 · 우클릭 = 아래로 채우기"
+    >
+      <span
+        className={`rqtc-fill${val ? '' : ' none'}`}
+        style={val ? { background: c.bg, color: c.fg } : undefined}
+      >
+        <PickCell value={val} opts={opts} title="고르면 바로 저장됩니다" onSave={onSave} />
       </span>
     </div>
   )

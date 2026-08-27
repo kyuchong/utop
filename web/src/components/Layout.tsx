@@ -49,7 +49,7 @@ export const NAV: NavGroup[] = [
     items: [
       /* 요구사항과 시험을 **합쳐 보는** 자리(지시). 기존 두 화면은 그대로 두고
          여기서만 합친다 — Requirements 바로 위. */
-      { key: 'reqtc', label: 'REQ-TC', Icon: IconReqTc },
+      { key: 'reqtc', label: 'REQ-Coverage', Icon: IconReqTc },
       { key: 'requirements', label: 'Requirements', Icon: IconRequirements },
       { key: 'testcases', label: 'Coverage', Icon: IconTestCase },
       { key: 'cycles', label: 'Cycles', Icon: IconCycle },
