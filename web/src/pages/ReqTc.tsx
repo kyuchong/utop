@@ -60,8 +60,21 @@ export default function ReqTc({ me }: Props) {
   const [editTc, setEditTc] = useState<TestCaseMeta | null | undefined>(undefined)
   const [prj, setPrj] = useState(currentProject)
 
-  /* 상단바(Layout)에서 프로젝트를 바꾸면 이 화면이 다시 좁힌다 */
-  useEffect(() => onProjectChange(() => setPrj(currentProject())), [])
+  /* 상단바(Layout)에서 프로젝트를 바꾸면 이 화면이 다시 좁힌다.
+     **고른 폴더도 함께 푼다.** 폴더는 프로젝트에 매여 있어서, 그대로 두면
+     새 프로젝트에 없는 폴더로 거르게 되고 2열이 통째로 빈다(지적: E6100 을
+     골랐는데 아무것도 안 나온다). 고른 줄과 「이 요구사항만」 도 같이 푼다 —
+     남겨 두면 딴 프로젝트의 것을 붙들고 있는 셈이다. */
+  useEffect(
+    () =>
+      onProjectChange(() => {
+        setPrj(currentProject())
+        setCat('')
+        setReqOnly('')
+        setSel(new Set())
+      }),
+    [],
+  )
 
   const reqQ = useQuery({ queryKey: ['reqs'], queryFn: ({ signal }) => api.listRequirements(signal) })
   const tcQ = useQuery({ queryKey: ['tcs'], queryFn: ({ signal }) => api.listTestCases(signal) })
