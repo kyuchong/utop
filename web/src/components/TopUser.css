@@ -1,0 +1,82 @@
+/* 상단 오른쪽 「나」 단추.
+   어두운 상단바 위라 색을 새로 정하지 않고 **흰색의 낮은 투명도**를 쓴다 —
+   프로젝트 고르기(.prjp-btn)와 같은 규칙이라 둘이 한 벌로 보인다. */
+.tpu { position: relative; }
+
+.tpu-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 30px;
+  padding: 0 9px 0 4px;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 10%);
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  max-width: 220px;
+}
+.tpu-btn:hover,
+.tpu-btn.on { background: rgb(255 255 255 / 18%); }
+
+/* 머리글자 동그라미 — 사진이 없어도 「사람」 이라는 것이 먼저 읽힌다 */
+.tpu-av {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 22%);
+  font-size: 11px;
+  font-weight: 800;
+}
+.tpu-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.tpu-caret { flex: none; opacity: 0.75; font-size: 10px; }
+
+/* ── 열린 메뉴 — 여기부터는 흰 판이다 ── */
+.tpu-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 60;
+  min-width: 208px;
+  padding: 6px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  box-shadow: 0 10px 28px rgb(15 30 45 / 18%);
+}
+.tpu-head { display: flex; align-items: center; gap: 9px; padding: 7px 8px 9px; }
+.tpu-av.big {
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+}
+.tpu-headt { display: flex; flex-direction: column; min-width: 0; }
+.tpu-headt b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tpu-sep { height: 1px; margin: 2px 2px 4px; background: var(--c-border); }
+
+.tpu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.tpu-item:hover { background: var(--c-surface-alt); }
+/* 로그아웃은 되돌리려면 다시 들어와야 한다 — 다른 줄과 색으로 갈라 둔다 */
+.tpu-item.out { color: #a02323; font-weight: 700; }
+.tpu-item.out:hover { background: #fdeeee; }

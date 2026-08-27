@@ -17,6 +17,7 @@ import {
 } from './icons'
 import NotifyBell from '@/components/NotifyBell'
 import ProjectPicker from '@/components/ProjectPicker'
+import TopUser from '@/components/TopUser'
 import TopStatus from './TopStatus'
 import { apiFetch } from '@/api/client'
 import './Layout.css'
@@ -171,7 +172,16 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
           <span className="app-top-brand">{brand.name || 'ubiQuoss'} Test Orchestration Platform</span>
           <ProjectPicker />
           <span className="sp" />
-          <span className="app-top-who">{user?.name || user?.username || ''}</span>
+          {/* 「나」 단추 — 이름만 적혀 있었다(지시: 받은 그림처럼).
+              글자만 있으면 누를 수 있는지 몰라, 로그아웃하려면 왼쪽 메뉴 맨
+              아래까지 내려가야 했다. */}
+          <TopUser
+            name={user?.name || user?.username || ''}
+            role={user?.role}
+            isAdmin={user?.role === '관리자'}
+            onSettings={() => onNavigate?.('settings')}
+            onLogout={onLogout}
+          />
         </header>
       )}
       <div className="app-body">
