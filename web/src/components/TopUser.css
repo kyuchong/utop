@@ -16,7 +16,7 @@
   font: inherit;
   font-size: var(--fs-sm);
   cursor: pointer;
-  max-width: 220px;
+  max-width: 380px;
 }
 .tpu-btn:hover,
 .tpu-btn.on { background: rgb(255 255 255 / 18%); }
@@ -34,7 +34,18 @@
   font-size: 11px;
   font-weight: 800;
 }
-.tpu-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+/* 이름 + 역할·팀·소속담당 — 한 줄에 이어 붙인다(지시).
+   이름은 굵게, 뒤따르는 것들은 여리게 두어 「누구인가」 가 먼저 읽히게. */
+.tpu-who { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; }
+.tpu-nm { flex: none; font-weight: 700; }
+.tpu-sub {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-xs);
+  color: rgb(255 255 255 / 72%);
+}
 .tpu-caret { flex: none; opacity: 0.75; font-size: 10px; }
 
 /* ── 열린 메뉴 — 여기부터는 흰 판이다 ── */

@@ -15,12 +15,17 @@ import './TopUser.css'
 export default function TopUser({
   name,
   role,
+  team,
+  dept,
   isAdmin,
   onSettings,
   onLogout,
 }: {
   name: string
   role?: string
+  /** 팀 · 소속담당 — 「누가」 만으로는 같은 이름이 갈리지 않는다(지시) */
+  team?: string
+  dept?: string
   isAdmin?: boolean
   onSettings?: () => void
   onLogout?: () => void
@@ -45,6 +50,7 @@ export default function TopUser({
   }, [open])
 
   if (!name) return null
+  const sub = [role, team, dept].map((x) => String(x ?? '').trim()).filter(Boolean).join(' · ')
   /* 머리글자 — 그림이 없으니 이름 첫 글자로 대신한다 */
   const initial = name.trim().charAt(0) || '?'
 
@@ -60,7 +66,12 @@ export default function TopUser({
         <span className="tpu-av" aria-hidden="true">
           {initial}
         </span>
-        <span className="tpu-nm">{name}</span>
+        <span className="tpu-who">
+          <b className="tpu-nm">{name}</b>
+          {/* 역할·팀·소속담당 — 이름 뒤에 이어 붙인다. 없는 것은 안 적어,
+              「· ·」 처럼 빈 자리가 남지 않게 한다. */}
+          {sub && <span className="tpu-sub">{sub}</span>}
+        </span>
         <span className="tpu-caret" aria-hidden="true">
           ▾
         </span>
@@ -74,7 +85,7 @@ export default function TopUser({
             </span>
             <div className="tpu-headt">
               <b>{name}</b>
-              {role && <span className="muted small">{role}</span>}
+              {sub && <span className="muted small">{sub}</span>}
             </div>
           </div>
           <div className="tpu-sep" />

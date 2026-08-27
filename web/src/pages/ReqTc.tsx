@@ -187,45 +187,37 @@ export default function ReqTc({ me }: Props) {
 
   /* INFO 열 — **설정이 정본**이다(useInfoCols 가 이름·폭을 들고 온다).
      어느 열을 볼지는 사람마다 다르니 이 브라우저에 기억한다. */
-  const infoColsAll = useInfoCols(mode === 'req' ? 'req' : 'tc')
-  /* **이미 표에 서 있는 칸은 목록에서 뺀다.** 안 빼면 골랐을 때 같은 값이
-     두 번 나온다(지적: 상태·우선순위가 또 추가된다). 요구사항 화면은 그
-     칸들을 INFO 로만 내지만, 이 표는 고정 칸으로 늘 갖고 있다. */
-  const FIXED_COLS = useMemo(
-    () =>
-      new Set(
-        /* INFO 열의 열쇠는 f_status·f_priority 처럼 **f_ 로 시작한다**
-           (useInfoCols). status·priority 로 적었더니 하나도 안 걸러져,
-           고르면 빈 칸이 뒤에 하나 더 붙었다(지적). */
-        mode === 'req'
-          ? ['f_status', 'f_priority']
-          : ['f_type', 'f_status', 'f_severity', 'f_kind', 'f_origin'],
-      ),
-    [mode],
-  )
-  const infoCols = useMemo(
-    () => infoColsAll.filter((c) => !FIXED_COLS.has(c.k)),
-    [infoColsAll, FIXED_COLS],
-  )
-  const [showCols, setShowCols] = useState<Set<string>>(() => {
+  /**
+   * 톱니가 다루는 열 — **표에 이미 있는 칸까지 여기서 켜고 끈다.**
+   *
+   * 앞서 겹친다고 목록에서 빼 버렸더니 고를 것이 하나도 안 남아 「INFO 필드가
+   * 없습니다」 만 떴다(지적). 겹침의 진짜 까닭은 「같은 칸을 두 번 그린 것」
+   * 이지 「목록에 있는 것」 이 아니다. 요구사항 화면처럼 이 칸들을 목록이
+   * 갖게 하고, 표는 **켜진 것만** 그린다.
+   */
+  const infoCols = useInfoCols(mode === 'req' ? 'req' : 'tc')
+  const [showCols, setShowCols] = useState<Set<string> | null>(() => {
     try {
       const raw = localStorage.getItem('utop.reqtc.infocols')
       if (raw) return new Set(JSON.parse(raw) as string[])
     } catch {
       /* 깨진 값이면 기본으로 */
     }
-    return new Set<string>()
+    /* null = 아직 정한 적 없음 → **전부 켜짐**. 빈 Set 과 갈라 두어야
+       「다 껐다」 와 「아직 안 정했다」 가 구별된다. */
+    return null
   })
   useEffect(() => {
-    localStorage.setItem('utop.reqtc.infocols', JSON.stringify([...showCols]))
+    if (showCols) localStorage.setItem('utop.reqtc.infocols', JSON.stringify([...showCols]))
   }, [showCols])
-  const visCols = infoCols.filter((c) => showCols.has(c.k))
+  const isOn = (k: string) => (showCols ? showCols.has(k) : true)
+  const visCols = infoCols.filter((c) => isOn(c.k))
   /* 격자 폭 — 고정 칸 + 고른 INFO 열. **폭은 설정이 정본**이라 useInfoCols 가
      들고 온 값을 그대로 쓴다(화면에 숫자를 박지 않는다). */
-  const gridReq = `52px minmax(0, 1fr) 104px 80px 56px 60px 68px ${visCols.map((c) => c.w).join(' ')}`.trim()
-  const gridTc = `52px minmax(0, 1fr) 100px 80px 68px 68px 62px 54px 60px 70px 108px ${visCols
-    .map((c) => c.w)
-    .join(' ')}`.trim()
+  /* 고정 칸(고르기·제목·모델·TC/최근·Map) + **켜진 열**. 상태·우선순위 같은
+     칸은 이제 켜진 열 쪽에서 나온다 — 두 곳에서 그리면 두 번 보인다. */
+  const gridReq = `52px minmax(0, 1fr) 104px 80px 56px ${visCols.map((c) => c.w).join(' ')}`.trim()
+  const gridTc = `52px minmax(0, 1fr) 100px 80px 70px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridOf = (tc: boolean) => (tc ? gridTc : gridReq)
   /* 표에서 바로 고치는 칸이 쓸 값들 — 설정(codes)이 정본이다 */
   const REQ_STATUS = useCodes('req_status', ['작성중', '검토중', '검토완료', '보류', '폐기'])
@@ -976,10 +968,10 @@ export default function ReqTc({ me }: Props) {
                     <label key={c2.k}>
                       <input
                         type="checkbox"
-                        checked={showCols.has(c2.k)}
+                        checked={isOn(c2.k)}
                         onChange={() =>
                           setShowCols((s2) => {
-                            const n2 = new Set(s2)
+                            const n2 = new Set(s2 ?? infoCols.map((c3) => c3.k))
                             if (n2.has(c2.k)) n2.delete(c2.k)
                             else n2.add(c2.k)
                             return n2
@@ -1019,8 +1011,6 @@ export default function ReqTc({ me }: Props) {
                   <div className="c-mg">모델그룹</div>
                   <div className="c-md">모델명</div>
                   <div className="c-tc">TC</div>
-                  <div className="c-st">상태</div>
-                  <div className="c-pr">우선순위</div>
                   {visCols.map((c) => (
                     <div key={c.k}>{c.label}</div>
                   ))}
@@ -1073,50 +1063,41 @@ export default function ReqTc({ me }: Props) {
                       <div className="c-tc rqtc-fillc">
                         <span className={`rqtc-cov ${n ? 'ok' : 'no'}`}>{n ? `TC ${n}` : '미커버'}</span>
                       </div>
-                      <Fill
-                        kind="req_status"
-                        v={r.status}
-                        cls="c-st"
-                        f={codeFill}
-                        opts={REQ_STATUS}
-                        onSave={(x) => void setOneField('req', pk, { status: x })}
-                        onFill={(e) =>
-                          setRowMenu({
-                            kind: 'req',
-                            id: pk,
-                            field: 'status',
-                            label: '상태',
-                            value: String(r.status ?? ''),
-                            x: e.clientX,
-                            y: e.clientY,
-                          })
-                        }
-                      />
-                      <Fill
-                        kind="req_priority"
-                        v={r.priority}
-                        cls="c-pr"
-                        f={codeFill}
-                        opts={REQ_PRIORITY}
-                        onSave={(x) => void setOneField('req', pk, { priority: x })}
-                        onFill={(e) =>
-                          setRowMenu({
-                            kind: 'req',
-                            id: pk,
-                            field: 'priority',
-                            label: '우선순위',
-                            value: String(r.priority ?? ''),
-                            x: e.clientX,
-                            y: e.clientY,
-                          })
-                        }
-                      />
-                      {/* 고른 INFO 열 — 열이 곧 필드다 */}
-                      {visCols.map((c) => (
-                        <div className="ell" key={c.k}>
-                          {colVal(r as unknown as Record<string, unknown>, c.k)}
-                        </div>
-                      ))}
+                      {/* 켜진 열 — 상태·우선순위는 그 자리에서 고칠 수 있고,
+                          커스텀 필드는 값만 낸다 */}
+                      {visCols.map((c) =>
+                        c.k === 'f_status' ? (
+                          <Fill
+                            key={c.k}
+                            kind="req_status"
+                            v={r.status}
+                            cls="c-st"
+                            f={codeFill}
+                            opts={REQ_STATUS}
+                            onSave={(x) => void setOneField('req', pk, { status: x })}
+                            onFill={(e) =>
+                              setRowMenu({ kind: 'req', id: pk, field: 'status', label: '상태', value: String(r.status ?? ''), x: e.clientX, y: e.clientY })
+                            }
+                          />
+                        ) : c.k === 'f_priority' ? (
+                          <Fill
+                            key={c.k}
+                            kind="req_priority"
+                            v={r.priority}
+                            cls="c-pr"
+                            f={codeFill}
+                            opts={REQ_PRIORITY}
+                            onSave={(x) => void setOneField('req', pk, { priority: x })}
+                            onFill={(e) =>
+                              setRowMenu({ kind: 'req', id: pk, field: 'priority', label: '우선순위', value: String(r.priority ?? ''), x: e.clientX, y: e.clientY })
+                            }
+                          />
+                        ) : (
+                          <div className="ell" key={c.k}>
+                            {colVal(r as unknown as Record<string, unknown>, c.k)}
+                          </div>
+                        ),
+                      )}
                     </div>
                   )
                 })}
@@ -1185,47 +1166,6 @@ export default function ReqTc({ me }: Props) {
                       {/* 시험은 제 모델 값을 갖고 있다 — 없으면 프로젝트 값으로 */}
                       <div className="c-mg">{String(t.model_group ?? '') || p?.model_group || '–'}</div>
                       <div className="c-md">{String(t.model ?? '') || p?.model || '–'}</div>
-                      <Fill kind="tc_type" v={t.type} cls="c-ty" f={codeFill} />
-                      <Fill
-                        kind="tc_status"
-                        v={t.status}
-                        cls="c-st"
-                        f={codeFill}
-                        opts={TC_STATUS}
-                        onSave={(x) => void setOneField('tc', t.tcid, { status: x })}
-                        onFill={(e) =>
-                          setRowMenu({
-                            kind: 'tc',
-                            id: t.tcid,
-                            field: 'status',
-                            label: '상태',
-                            value: String(t.status ?? ''),
-                            x: e.clientX,
-                            y: e.clientY,
-                          })
-                        }
-                      />
-                      <Fill
-                        kind="tc_severity"
-                        v={t.severity}
-                        cls="c-sv"
-                        f={codeFill}
-                        opts={TC_SEVERITY}
-                        onSave={(x) => void setOneField('tc', t.tcid, { severity: x })}
-                        onFill={(e) =>
-                          setRowMenu({
-                            kind: 'tc',
-                            id: t.tcid,
-                            field: 'severity',
-                            label: '중요도',
-                            value: String(t.severity ?? ''),
-                            x: e.clientX,
-                            y: e.clientY,
-                          })
-                        }
-                      />
-                      <Fill kind="tc_run_type" v={String(t.run_type ?? '')} cls="c-rt" f={codeFill} />
-                      <Fill kind="tc_origin" v={String(t.origin ?? '')} cls="c-og" f={codeFill} />
                       <div className="c-last rqtc-fillc">
                         {last ? (
                           <span className={`rqtc-lastv ${statusClass(last)}`}>{last}</span>
@@ -1249,11 +1189,52 @@ export default function ReqTc({ me }: Props) {
                           '–'
                         )}
                       </div>
-                      {visCols.map((c) => (
-                        <div className="ell" key={c.k}>
-                          {colVal(t as unknown as Record<string, unknown>, c.k)}
-                        </div>
-                      ))}
+                      {/* 켜진 열 — 상태·중요도는 그 자리에서 고칠 수 있다 */}
+                      {visCols.map((c) => {
+                        const F = (
+                          kind: string,
+                          v: unknown,
+                          cls: string,
+                          opts?: readonly string[],
+                          field?: string,
+                          label?: string,
+                        ) => (
+                          <Fill
+                            key={c.k}
+                            kind={kind}
+                            v={String(v ?? '')}
+                            cls={cls}
+                            f={codeFill}
+                            opts={opts}
+                            onSave={field ? (x) => void setOneField('tc', t.tcid, { [field]: x }) : undefined}
+                            onFill={
+                              field
+                                ? (e) =>
+                                    setRowMenu({
+                                      kind: 'tc',
+                                      id: t.tcid,
+                                      field,
+                                      label: label ?? '',
+                                      value: String(v ?? ''),
+                                      x: e.clientX,
+                                      y: e.clientY,
+                                    })
+                                : undefined
+                            }
+                          />
+                        )
+                        if (c.k === 'f_type') return F('tc_type', t.type, 'c-ty')
+                        if (c.k === 'f_status') return F('tc_status', t.status, 'c-st', TC_STATUS, 'status', '상태')
+                        if (c.k === 'f_severity')
+                          return F('tc_severity', t.severity, 'c-sv', TC_SEVERITY, 'severity', '중요도')
+                        if (c.k === 'f_kind') return F('tc_run_type', t.run_type, 'c-rt')
+                        if (c.k === 'f_origin') return F('tc_origin', t.origin, 'c-og')
+                        return (
+                          <div className="ell" key={c.k}>
+                            {colVal(t as unknown as Record<string, unknown>, c.k)}
+                          </div>
+                        )
+                      })}
                     </div>
                   )
                 })}

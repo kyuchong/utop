@@ -102,7 +102,8 @@ const COLLAPSE_KEY = 'utop.nav.collapsed'
 
 interface Props {
   /** 로그인한 사람 (좌측 하단에 표시) */
-  user?: { username?: string; name?: string; role?: string } | null
+  /** 상단바가 이름 뒤에 팀·소속담당까지 적는다 — /api/me 가 그대로 준다 */
+  user?: { username?: string; name?: string; role?: string; team?: string; dept?: string } | null
   onLogout?: () => void
   current: string
   onNavigate: (key: string) => void
@@ -194,6 +195,8 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
           <TopUser
             name={user?.name || user?.username || ''}
             role={user?.role}
+            team={String(user?.team ?? '')}
+            dept={String(user?.dept ?? '')}
             isAdmin={user?.role === '관리자'}
             onSettings={() => onNavigate?.('settings')}
             onLogout={onLogout}
