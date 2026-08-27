@@ -213,3 +213,66 @@
   cursor: pointer;
 }
 .dfx-fill:hover { background: var(--c-primary); color: #fff; }
+
+/* ── 두 판 — 왼쪽에 적고, 오른쪽에 올라갈 모습 ──────────────────
+   「등록하고 나서 열어 보니 엉뚱하더라」 를 없애는 것이 목적이다. */
+.modal.dfx.wide { max-width: 1180px; width: calc(100vw - 48px); }
+.dfx-two { display: flex; flex: 1; min-height: 0; }
+.dfx-two > .dfx-body { flex: 1 1 50%; min-width: 0; border-right: 1px solid var(--c-border); }
+.dfx-prev {
+  flex: 1 1 50%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-surface);
+}
+.dfx-prevh {
+  flex: none;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-text-faint);
+}
+.dfx-prevb { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px; }
+.dfx-prevtitle { font-size: 17px; font-weight: 700; line-height: 1.35; word-break: break-word; }
+.dfx-prevsub { margin: 4px 0 12px; font-size: var(--fs-xs); color: var(--c-text-faint); }
+
+/* ── 위키 → 화면. Jira 가 보여 줄 모양에 가깝게 ── */
+.jw-panel { margin: 10px 0; border: 1px solid var(--c-border); border-radius: 6px; overflow: hidden; }
+.jw-panel-h {
+  padding: 7px 12px;
+  background: var(--c-surface-alt, #f4f5f7);
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+.jw-panel-b { padding: 9px 12px; }
+.jw-ln { font-size: var(--fs-md); line-height: 1.7; word-break: break-word; }
+.jw-gap { height: 6px; }
+.jw-hr { border: 0; border-top: 1px solid var(--c-border); margin: 10px 0; }
+.jw-pre {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  background: var(--c-surface-alt, #f4f5f7);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-x: auto;
+}
+/* 판정 표시 — 글자보다 색이 먼저 읽혀야 한다 */
+.jw-ok { color: #00875a; font-weight: 700; }
+.jw-ng { color: #de350b; font-weight: 700; }
+.jw-na { color: #ff991f; font-weight: 700; }
+
+/* 좁은 화면에서는 아래로 접는다 — 두 판을 억지로 나란히 두면 둘 다 못 읽는다 */
+@media (max-width: 1100px) {
+  .dfx-two { flex-direction: column; }
+  .dfx-two > .dfx-body { border-right: 0; border-bottom: 1px solid var(--c-border); }
+}

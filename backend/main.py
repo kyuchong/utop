@@ -17769,8 +17769,9 @@ def _defect_jira_body(d: dict) -> str:
                 v = _defect_steps_body(d)
             if not v:
                 continue
-            L.append(f"h3. {i}. {label}")
+            L.append("{panel:title=%d. %s}" % (i, label))
             L.append(v)
+            L.append("{panel}")
             L.append("")
         return "\n".join(L)
     return _defect_steps_body(d)
@@ -17837,12 +17838,16 @@ async def defect_push_jira(did: str, payload: dict = None):
     # 무엇이 올라갔는지 아무도 모른다.
     if isinstance(payload.get("panels"), dict):
         d = {**d, "panels": payload["panels"]}
+    # 화면이 만든 본문이 오면 **그것을 그대로** 올린다. 미리보기와 같은
+    # 함수에서 나온 글이라, 서버가 다시 만들면 화면에서 본 것과 Jira 에 남는
+    # 것이 갈린다 — 그 어긋남은 이슈를 연 사람이 아니라 읽는 개발자가 겪는다.
+    desc = str(payload.get("description") or "").strip() or _defect_jira_body(d)
     body = {
         "project": proj,
         "issuetype": itype,
         "summary": payload.get("title") or d.get("title") or d.get("tc_name") or did,
-        "description": _defect_jira_body(d),
-        "labels": ["utop"],
+        "description": desc,
+        "labels": [x for x in (payload.get("labels") or ["utop"]) if str(x).strip()],
     }
     prio = payload.get("priority") or d.get("priority")
     if prio:

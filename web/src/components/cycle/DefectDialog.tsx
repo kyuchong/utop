@@ -3,6 +3,7 @@ import { apiFetch } from '@/api/client'
 import { stepVerdict, type TcStep } from '@/components/tc/types'
 import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
 import './DefectDialog.css'
+import { buildDefectWiki, wikiToHtml, type WikiStep } from '@/lib/jiraWiki'
 
 /** UTOP 안에 쌓는 결함 한 건 */
 export interface DefectRec {
@@ -159,6 +160,13 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
     ...(existing?.panels ?? {}),
   }))
   const setPanel = (k: string, v: string) => setPanels((p) => ({ ...p, [k]: v }))
+  /* 미리보기 = 올라갈 글. 두 곳에서 따로 만들면 화면에서 본 것과 Jira 에
+     남은 것이 달라지고, 그 어긋남은 이슈를 연 사람이 아니라 그걸 읽는
+     개발자가 먼저 겪는다. 그래서 한 함수로 만들어 둘 다 쓴다. */
+  const wiki = useMemo(
+    () => buildDefectWiki(panels, briefs as WikiStep[]),
+    [panels, briefs],
+  )
 
   // 드롭다운 목록
   const [projects, setProjects] = useState<Array<{ key: string; name: string }>>([])
@@ -359,6 +367,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
           component: comp,
           reporter,
           panels,
+          description: wiki,
         }),
       })
       const j = (await r.json()) as { ok?: boolean; key?: string; url?: string; error?: string; defect?: DefectRec }
@@ -382,7 +391,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
 
   return (
     <div className="modal-back" onMouseDown={onClose}>
-      <div className="modal dfx" role="dialog" aria-modal="true" aria-label="결함 등록" onMouseDown={(e) => e.stopPropagation()}>
+      <div className="modal dfx wide" role="dialog" aria-modal="true" aria-label="결함 등록" onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <b>결함 {defect ? defect.id : '등록'}</b>
           <span className="muted small">
@@ -395,6 +404,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
           </button>
         </div>
 
+        <div className="dfx-two">
         <div className="modal-body dfx-body">
           {/* 맨 윗줄 — 어디에, 무엇으로 올릴 것인가(2·3번 그림) */}
           <div className="dfx-top">
@@ -566,6 +576,22 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
               ))
             )}
           </div>
+        </div>
+
+        {/* 오른쪽 — Jira 에 올라갈 모습 그대로. 「등록하고 나서 열어 보니
+            엉뚱하더라」 를 없애는 것이 이 판의 목적이다. */}
+        <div className="dfx-prev">
+          <div className="dfx-prevh">Jira 이슈 미리보기</div>
+          <div className="dfx-prevb">
+            <div className="dfx-prevtitle">
+              {title || <span className="muted">제목을 입력하세요</span>}
+            </div>
+            <div className="dfx-prevsub">
+              {proj || '프로젝트 선택'} · {itype || '이슈유형'}
+            </div>
+            <div className="jw" dangerouslySetInnerHTML={{ __html: wikiToHtml(wiki) }} />
+          </div>
+        </div>
         </div>
 
         <div className="modal-foot dfx-foot">
