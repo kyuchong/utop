@@ -820,11 +820,16 @@ export default function Accounts() {
                     : undefined
                 }
                 onChange={(e) => {
+                  /* 빈 칸을 고르면 **조직도에서 뺀다.** 넣기만 되면 시험 삼아
+                     넣어 본 사람을 되돌릴 길이 없다(지적). */
                   const p = orgPaths.find((x) => x.label === e.target.value)
-                  if (p) orgEdit.mutate({ at: 'move-member', body: { name: atOrg.name, to: p.path } })
+                  orgEdit.mutate({
+                    at: 'move-member',
+                    body: { name: atOrg.name, to: p ? p.path : [] },
+                  })
                 }}
               >
-                <option value="">(조직도에 없음)</option>
+                <option value="">(조직도에 없음 — 골라서 빼기)</option>
                 {orgPaths.map((p) => (
                   <option key={p.label} value={p.label}>
                     {p.label}
@@ -923,10 +928,13 @@ export default function Accounts() {
                 }
                 onChange={(e) => {
                   const p = orgPaths.find((x) => x.label === e.target.value)
-                  if (p) orgEdit.mutate({ at: 'move-member', body: { name: nameOnly(cur.name || cur.username), to: p.path } })
+                  orgEdit.mutate({
+                    at: 'move-member',
+                    body: { name: nameOnly(cur.name || cur.username), to: p ? p.path : [] },
+                  })
                 }}
               >
-                <option value="">(조직도에 없음)</option>
+                <option value="">(조직도에 없음 — 골라서 빼기)</option>
                 {orgPaths.map((p) => (
                   <option key={p.label} value={p.label}>
                     {p.label}

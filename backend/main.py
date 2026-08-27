@@ -1788,8 +1788,11 @@ async def api_org_move_member(payload: dict, token: str = ""):
     org = _kv_load_sync("org_tree", None)
     if not isinstance(org, dict):
         raise HTTPException(404, "조직도가 없습니다")
-    dest = _org_at(org, to)
-    if dest is None:
+    # 옮길 곳이 비었으면 **조직도에서 뺀다**(「(조직도에 없음)」 을 고른 것).
+    # 넣기만 되고 빼기가 없으면, 시험 삼아 넣어 본 사람을 되돌릴 길이 없다
+    # (지적: 조직도에 없는 계정으로 다시 못 바꾼다).
+    dest = _org_at(org, to) if to else None
+    if to and dest is None:
         raise HTTPException(404, "옮길 조직을 못 찾았습니다")
 
     picked = None
@@ -1808,6 +1811,11 @@ async def api_org_move_member(payload: dict, token: str = ""):
             strip(c)
 
     strip(org)
+    if dest is None:
+        # 빼기 — 조직도에 없던 사람이면 이미 목적을 이룬 것이라 조용히 넘긴다
+        if picked is not None:
+            _kv_save_sync("org_tree", org)
+        return {"ok": True, "to": None, "removed": picked is not None}
     if picked is None:
         # 조직도 어디에도 없던 사람 — **새로 넣는다.** 계정은 있는데 조직도에
         # 이름이 없는 사람이 45명이다(admin·qag 를 포함해). 없다고 물리면
