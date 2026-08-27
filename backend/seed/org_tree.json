@@ -1,0 +1,1323 @@
+{
+ "kind": "org",
+ "lead": null,
+ "name": "유비쿼스",
+ "members": [],
+ "children": [
+  {
+   "kind": "org",
+   "lead": null,
+   "name": "유비쿼스 대표이사",
+   "count": 2,
+   "members": [],
+   "children": []
+  },
+  {
+   "kind": "org",
+   "lead": "최지훈 전무",
+   "name": "ISP사업그룹",
+   "count": 8,
+   "members": [],
+   "children": [
+    {
+     "kind": "org",
+     "lead": "최지훈 전무",
+     "name": "사업1담당",
+     "count": 4,
+     "members": [],
+     "children": [
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "네트웍사업1팀",
+       "count": 3,
+       "members": [
+        {
+         "name": "변기두",
+         "rank": "책임M"
+        },
+        {
+         "name": "이소영",
+         "rank": "선임"
+        },
+        {
+         "name": "김성민",
+         "rank": "사원"
+        }
+       ],
+       "children": []
+      }
+     ]
+    },
+    {
+     "kind": "org",
+     "lead": "윤경수 책임M",
+     "name": "사업2담당",
+     "count": 4,
+     "members": [],
+     "children": [
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "네트웍사업2팀",
+       "count": 3,
+       "members": [
+        {
+         "name": "박남혁",
+         "rank": "책임M"
+        },
+        {
+         "name": "천경용",
+         "rank": "선임"
+        },
+        {
+         "name": "이설",
+         "rank": "사원"
+        }
+       ],
+       "children": []
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "org",
+   "lead": "정재욱 상무대우",
+   "name": "공공사업그룹",
+   "count": 8,
+   "members": [],
+   "children": [
+    {
+     "kind": "org",
+     "lead": "정재욱 상무대우",
+     "name": "사업3담당",
+     "count": 8,
+     "members": [],
+     "children": [
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "네트웍사업3팀",
+       "count": 4,
+       "members": [
+        {
+         "name": "김수현",
+         "rank": "책임M"
+        },
+        {
+         "name": "박철오",
+         "rank": "책임M"
+        },
+        {
+         "name": "엄영석",
+         "rank": "선임"
+        },
+        {
+         "name": "권민정",
+         "rank": "사원"
+        }
+       ],
+       "children": []
+      },
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "네트웍사업4팀",
+       "count": 3,
+       "members": [
+        {
+         "name": "김준호1",
+         "rank": "책임M"
+        },
+        {
+         "name": "서은호",
+         "rank": "책임M"
+        },
+        {
+         "name": "황성복",
+         "rank": "책임M"
+        }
+       ],
+       "children": []
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "org",
+   "lead": "조원석 상무대우",
+   "name": "해외사업담당",
+   "count": 9,
+   "members": [],
+   "children": [
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "해외사업팀",
+     "count": 1,
+     "members": [
+      {
+       "name": "김현정",
+       "rank": "책임M"
+      }
+     ],
+     "children": []
+    },
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "유비쿼스 재팬",
+     "count": 8,
+     "members": [
+      {
+       "name": "이정길",
+       "rank": "대표이사"
+      }
+     ],
+     "children": [
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "관리지원팀",
+       "count": 7,
+       "members": [
+        {
+         "name": "박상훈",
+         "rank": "상무대우"
+        },
+        {
+         "name": "권은경",
+         "rank": "책임M"
+        },
+        {
+         "name": "김영준",
+         "rank": "책임M"
+        },
+        {
+         "name": "김현정",
+         "rank": "책임M"
+        },
+        {
+         "name": "유상만",
+         "rank": "책임M"
+        },
+        {
+         "name": "이화신",
+         "rank": "선임"
+        },
+        {
+         "name": "성관형",
+         "rank": "선임"
+        }
+       ],
+       "children": []
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "kind": "org",
+   "lead": "조용수 상무",
+   "name": "고객품질담당",
+   "count": 27,
+   "members": [],
+   "children": [
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "기술1팀",
+     "count": 6,
+     "members": [
+      {
+       "name": "이준선",
+       "rank": "책임M"
+      },
+      {
+       "name": "장선황",
+       "rank": "책임M"
+      },
+      {
+       "name": "김수정",
+       "rank": "선임"
+      },
+      {
+       "name": "김명권",
+       "rank": "사원"
+      },
+      {
+       "name": "김정혁",
+       "rank": "사원"
+      },
+      {
+       "name": "김태식",
+       "rank": "사원"
+      }
+     ],
+     "children": []
+    },
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "기술2팀",
+     "count": 11,
+     "members": [
+      {
+       "name": "오서우",
+       "rank": "책임M"
+      },
+      {
+       "name": "변상호",
+       "rank": "책임M"
+      },
+      {
+       "name": "이승현",
+       "rank": "책임M"
+      },
+      {
+       "name": "정민환",
+       "rank": "책임M"
+      },
+      {
+       "name": "김형준",
+       "rank": "선임"
+      },
+      {
+       "name": "박영욱",
+       "rank": "선임"
+      },
+      {
+       "name": "우영준",
+       "rank": "선임"
+      },
+      {
+       "name": "구영호",
+       "rank": "사원"
+      },
+      {
+       "name": "이유재",
+       "rank": "사원"
+      },
+      {
+       "name": "이창신",
+       "rank": "사원"
+      },
+      {
+       "name": "한진민",
+       "rank": "사원"
+      }
+     ],
+     "children": []
+    },
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "기술3팀",
+     "count": 9,
+     "members": [
+      {
+       "name": "전한기",
+       "rank": "책임M"
+      },
+      {
+       "name": "용석형",
+       "rank": "책임M"
+      },
+      {
+       "name": "이승훈1",
+       "rank": "책임M"
+      },
+      {
+       "name": "아피크",
+       "rank": "선임"
+      },
+      {
+       "name": "안형준",
+       "rank": "선임"
+      },
+      {
+       "name": "한민희",
+       "rank": "선임"
+      },
+      {
+       "name": "김홍범",
+       "rank": "사원"
+      },
+      {
+       "name": "이정운",
+       "rank": "사원"
+      },
+      {
+       "name": "황태호",
+       "rank": "사원"
+      }
+     ],
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "org",
+   "lead": "장상갑 책임M",
+   "name": "전략구매담당",
+   "count": 6,
+   "members": [],
+   "children": [
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "구매팀",
+     "count": 5,
+     "members": [
+      {
+       "name": "이진우",
+       "rank": "책임M"
+      },
+      {
+       "name": "이원석",
+       "rank": "책임M"
+      },
+      {
+       "name": "서진이",
+       "rank": "선임"
+      },
+      {
+       "name": "한제헌",
+       "rank": "선임"
+      },
+      {
+       "name": "김준호2",
+       "rank": "사원"
+      }
+     ],
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "org",
+   "lead": "권종혁 상무대우",
+   "name": "제조혁신담당",
+   "count": 31,
+   "members": [],
+   "children": [
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "생산관리팀",
+     "count": 14,
+     "members": [
+      {
+       "name": "권종혁",
+       "rank": "상무대우"
+      },
+      {
+       "name": "이광규",
+       "rank": "책임M"
+      },
+      {
+       "name": "정주현",
+       "rank": "책임M"
+      },
+      {
+       "name": "설재혁",
+       "rank": "책임M"
+      },
+      {
+       "name": "김승훈",
+       "rank": "책임M"
+      },
+      {
+       "name": "이용수",
+       "rank": "책임M"
+      },
+      {
+       "name": "윤혜림",
+       "rank": "선임"
+      },
+      {
+       "name": "민병훈",
+       "rank": "선임"
+      },
+      {
+       "name": "이은지",
+       "rank": "선임"
+      },
+      {
+       "name": "박상현",
+       "rank": "사원"
+      },
+      {
+       "name": "이기현",
+       "rank": "사원"
+      },
+      {
+       "name": "최치윤",
+       "rank": "사원"
+      },
+      {
+       "name": "김예지",
+       "rank": "사원"
+      },
+      {
+       "name": "김민서",
+       "rank": "사원"
+      }
+     ],
+     "children": []
+    },
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "품질혁신팀",
+     "count": 17,
+     "members": [
+      {
+       "name": "김동철",
+       "rank": "책임M"
+      },
+      {
+       "name": "김성연",
+       "rank": "책임M"
+      },
+      {
+       "name": "김용균",
+       "rank": "책임M"
+      },
+      {
+       "name": "김창환",
+       "rank": "책임M"
+      },
+      {
+       "name": "박성훈",
+       "rank": "책임M"
+      },
+      {
+       "name": "김경환",
+       "rank": "책임M"
+      },
+      {
+       "name": "김성진",
+       "rank": "책임M"
+      },
+      {
+       "name": "류청우",
+       "rank": "책임M"
+      },
+      {
+       "name": "우승오",
+       "rank": "책임M"
+      },
+      {
+       "name": "윤현민",
+       "rank": "책임M"
+      },
+      {
+       "name": "강경묵",
+       "rank": "선임"
+      },
+      {
+       "name": "강용승",
+       "rank": "선임"
+      },
+      {
+       "name": "김동운",
+       "rank": "선임"
+      },
+      {
+       "name": "최채욱",
+       "rank": "선임"
+      },
+      {
+       "name": "이진헌",
+       "rank": "선임"
+      },
+      {
+       "name": "정영환",
+       "rank": "선임"
+      },
+      {
+       "name": "장재황",
+       "rank": "사원"
+      }
+     ],
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "org",
+   "lead": "전규종 상무대우",
+   "name": "품질보증담당",
+   "count": 18,
+   "members": [],
+   "children": [
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "PA1팀",
+     "count": 5,
+     "members": [
+      {
+       "name": "이재익",
+       "rank": "책임M"
+      },
+      {
+       "name": "김인겸",
+       "rank": "책임M"
+      },
+      {
+       "name": "임종현",
+       "rank": "책임M"
+      },
+      {
+       "name": "박우섭",
+       "rank": "사원"
+      },
+      {
+       "name": "권주안",
+       "rank": "사원"
+      }
+     ],
+     "children": []
+    },
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "PA2팀",
+     "count": 7,
+     "members": [
+      {
+       "name": "윤용진",
+       "rank": "책임M"
+      },
+      {
+       "name": "정쌍봉",
+       "rank": "책임M"
+      },
+      {
+       "name": "황성욱",
+       "rank": "책임M"
+      },
+      {
+       "name": "서호찬",
+       "rank": "선임"
+      },
+      {
+       "name": "이준원",
+       "rank": "선임"
+      },
+      {
+       "name": "정민권",
+       "rank": "선임"
+      },
+      {
+       "name": "김형일",
+       "rank": "사원"
+      }
+     ],
+     "children": []
+    },
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "QA팀",
+     "count": 5,
+     "members": [
+      {
+       "name": "주원기",
+       "rank": "책임M"
+      },
+      {
+       "name": "이승훈2",
+       "rank": "선임"
+      },
+      {
+       "name": "권민수",
+       "rank": "사원"
+      },
+      {
+       "name": "박선우",
+       "rank": "사원"
+      },
+      {
+       "name": "장수완",
+       "rank": "사원"
+      }
+     ],
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "org",
+   "lead": "최승태 책임M",
+   "name": "전략소싱담당",
+   "count": 4,
+   "members": [],
+   "children": [
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "전략소싱팀",
+     "count": 3,
+     "members": [
+      {
+       "name": "홍성민",
+       "rank": "책임M"
+      },
+      {
+       "name": "김광영",
+       "rank": "책임M"
+      },
+      {
+       "name": "백선진",
+       "rank": "사원"
+      }
+     ],
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "org",
+   "lead": "김재국 상무",
+   "name": "연구소",
+   "count": 67,
+   "members": [],
+   "children": [
+    {
+     "kind": "org",
+     "lead": "허태훈 상무대우",
+     "name": "SW1담당",
+     "count": 13,
+     "members": [],
+     "children": [
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "SW1팀",
+       "count": 6,
+       "members": [
+        {
+         "name": "이한표",
+         "rank": "책임M"
+        },
+        {
+         "name": "신상현",
+         "rank": "책임M"
+        },
+        {
+         "name": "최문건",
+         "rank": "책임M"
+        },
+        {
+         "name": "이무근",
+         "rank": "선임"
+        },
+        {
+         "name": "이준서",
+         "rank": "선임"
+        },
+        {
+         "name": "이종윤",
+         "rank": "연구원"
+        }
+       ],
+       "children": []
+      },
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "SW2팀",
+       "count": 6,
+       "members": [
+        {
+         "name": "강민수",
+         "rank": "책임M"
+        },
+        {
+         "name": "김보민",
+         "rank": "책임M"
+        },
+        {
+         "name": "김민재",
+         "rank": "책임M"
+        },
+        {
+         "name": "박영수",
+         "rank": "책임M"
+        },
+        {
+         "name": "이진호",
+         "rank": "연구원"
+        },
+        {
+         "name": "정태윤",
+         "rank": "연구원"
+        }
+       ],
+       "children": []
+      }
+     ]
+    },
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "SW2담당",
+     "count": 13,
+     "members": [],
+     "children": [
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "SW3팀",
+       "count": 7,
+       "members": [
+        {
+         "name": "서정웅",
+         "rank": "책임M"
+        },
+        {
+         "name": "김지수",
+         "rank": "책임M"
+        },
+        {
+         "name": "박성철",
+         "rank": "책임M"
+        },
+        {
+         "name": "정종대",
+         "rank": "책임M"
+        },
+        {
+         "name": "안영훈",
+         "rank": "연구원"
+        },
+        {
+         "name": "강승엽",
+         "rank": "연구원"
+        },
+        {
+         "name": "안창회",
+         "rank": "연구원"
+        }
+       ],
+       "children": []
+      },
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "SW4팀",
+       "count": 6,
+       "members": [
+        {
+         "name": "박형은",
+         "rank": "책임M"
+        },
+        {
+         "name": "김부근",
+         "rank": "책임M"
+        },
+        {
+         "name": "전구현",
+         "rank": "책임M"
+        },
+        {
+         "name": "황신애",
+         "rank": "책임M"
+        },
+        {
+         "name": "김주연",
+         "rank": "연구원"
+        },
+        {
+         "name": "이승민",
+         "rank": "연구원"
+        }
+       ],
+       "children": []
+      }
+     ]
+    },
+    {
+     "kind": "org",
+     "lead": "서치덕 상무대우",
+     "name": "SW3담당",
+     "count": 17,
+     "members": [],
+     "children": [
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "SW5팀",
+       "count": 5,
+       "members": [
+        {
+         "name": "윤정환",
+         "rank": "책임M"
+        },
+        {
+         "name": "문동민",
+         "rank": "책임M"
+        },
+        {
+         "name": "김정식",
+         "rank": "연구원"
+        },
+        {
+         "name": "신기윤",
+         "rank": "연구원"
+        },
+        {
+         "name": "조석훈",
+         "rank": "연구원"
+        }
+       ],
+       "children": []
+      },
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "SW6팀",
+       "count": 4,
+       "members": [
+        {
+         "name": "박용국",
+         "rank": "책임M"
+        },
+        {
+         "name": "손도일",
+         "rank": "책임M"
+        },
+        {
+         "name": "이헌일",
+         "rank": "책임M"
+        },
+        {
+         "name": "염정현",
+         "rank": "연구원"
+        }
+       ],
+       "children": []
+      },
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "SW7팀",
+       "count": 4,
+       "members": [
+        {
+         "name": "한관우",
+         "rank": "책임M"
+        },
+        {
+         "name": "김대원",
+         "rank": "책임M"
+        },
+        {
+         "name": "김진성",
+         "rank": "연구원"
+        },
+        {
+         "name": "손대훈",
+         "rank": "연구원"
+        }
+       ],
+       "children": []
+      },
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "EMS팀",
+       "count": 3,
+       "members": [
+        {
+         "name": "안병학",
+         "rank": "책임M"
+        },
+        {
+         "name": "박조훈",
+         "rank": "책임M"
+        },
+        {
+         "name": "함윤진",
+         "rank": "연구원"
+        }
+       ],
+       "children": []
+      }
+     ]
+    },
+    {
+     "kind": "org",
+     "lead": "김경석 상무대우",
+     "name": "해외R&D담당",
+     "count": 5,
+     "members": [],
+     "children": [
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "해외R&D팀",
+       "count": 4,
+       "members": [
+        {
+         "name": "오세도",
+         "rank": "책임M"
+        },
+        {
+         "name": "이주희",
+         "rank": "책임M"
+        },
+        {
+         "name": "김영집",
+         "rank": "책임M"
+        },
+        {
+         "name": "김준희",
+         "rank": "연구원"
+        }
+       ],
+       "children": []
+      }
+     ]
+    },
+    {
+     "kind": "org",
+     "lead": "양영석 상무대우",
+     "name": "HW담당",
+     "count": 17,
+     "members": [],
+     "children": [
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "HW1팀",
+       "count": 10,
+       "members": [
+        {
+         "name": "손동일",
+         "rank": "책임M"
+        },
+        {
+         "name": "김상진",
+         "rank": "책임M"
+        },
+        {
+         "name": "김철환",
+         "rank": "책임M"
+        },
+        {
+         "name": "신상균",
+         "rank": "책임M"
+        },
+        {
+         "name": "윤용선",
+         "rank": "책임M"
+        },
+        {
+         "name": "전진욱",
+         "rank": "책임M"
+        },
+        {
+         "name": "정홍석",
+         "rank": "책임M"
+        },
+        {
+         "name": "채희용",
+         "rank": "책임M"
+        },
+        {
+         "name": "이찬희",
+         "rank": "선임"
+        },
+        {
+         "name": "김용찬",
+         "rank": "연구원"
+        }
+       ],
+       "children": []
+      },
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "HW2팀",
+       "count": 6,
+       "members": [
+        {
+         "name": "변광수",
+         "rank": "책임M"
+        },
+        {
+         "name": "이규성",
+         "rank": "책임M"
+        },
+        {
+         "name": "이신",
+         "rank": "책임M"
+        },
+        {
+         "name": "소경환",
+         "rank": "책임M"
+        },
+        {
+         "name": "이상일",
+         "rank": "책임M"
+        },
+        {
+         "name": "장원준",
+         "rank": "책임M"
+        }
+       ],
+       "children": []
+      }
+     ]
+    },
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "개발과제 T/F",
+     "count": 1,
+     "members": [
+      {
+       "name": "임성일",
+       "rank": "책임M"
+      }
+     ],
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "org",
+   "lead": null,
+   "name": "레인보우 T/F",
+   "count": 8,
+   "members": [
+    {
+     "name": "김형종",
+     "rank": "고문"
+    },
+    {
+     "name": "허태훈",
+     "rank": "상무대우"
+    },
+    {
+     "name": "조규남",
+     "rank": "상무"
+    },
+    {
+     "name": "이완희",
+     "rank": "책임M"
+    },
+    {
+     "name": "전동훈",
+     "rank": "선임"
+    },
+    {
+     "name": "오현지",
+     "rank": "연구원"
+    },
+    {
+     "name": "이주은",
+     "rank": "연구원"
+    },
+    {
+     "name": "이혜리",
+     "rank": "연구원"
+    }
+   ],
+   "children": []
+  },
+  {
+   "kind": "org",
+   "lead": "김준형 상무대우",
+   "name": "PI담당",
+   "count": 5,
+   "members": [],
+   "children": [
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "PI팀",
+     "count": 4,
+     "members": [
+      {
+       "name": "서정호",
+       "rank": "책임M"
+      },
+      {
+       "name": "조영진",
+       "rank": "선임"
+      },
+      {
+       "name": "진성민",
+       "rank": "사원"
+      },
+      {
+       "name": "이주원",
+       "rank": "사원"
+      }
+     ],
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "org",
+   "lead": "이창호 상무",
+   "name": "경영기획담당",
+   "count": 3,
+   "members": [],
+   "children": [
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "HR팀",
+     "count": 2,
+     "members": [
+      {
+       "name": "송성찬",
+       "rank": "책임M"
+      },
+      {
+       "name": "이재경",
+       "rank": "선임"
+      }
+     ],
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "org",
+   "lead": null,
+   "name": "투자전략그룹",
+   "count": 3,
+   "members": [],
+   "children": [
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "투자1팀",
+     "count": 1,
+     "members": [
+      {
+       "name": "은봉오",
+       "rank": "책임M"
+      }
+     ],
+     "children": []
+    },
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "투자2팀",
+     "count": 2,
+     "members": [
+      {
+       "name": "황호준",
+       "rank": "책임M"
+      },
+      {
+       "name": "한상훈",
+       "rank": "선임"
+      }
+     ],
+     "children": []
+    }
+   ]
+  },
+  {
+   "kind": "org",
+   "lead": null,
+   "name": "경영관리부문",
+   "count": 14,
+   "members": [],
+   "children": [
+    {
+     "kind": "org",
+     "lead": "박상훈 상무대우",
+     "name": "재무담당",
+     "count": 6,
+     "members": [],
+     "children": [
+      {
+       "kind": "org",
+       "lead": null,
+       "name": "재무관리팀",
+       "count": 5,
+       "members": [
+        {
+         "name": "권은경",
+         "rank": "책임M"
+        },
+        {
+         "name": "유상만",
+         "rank": "책임M"
+        },
+        {
+         "name": "김소연",
+         "rank": "선임"
+        },
+        {
+         "name": "성관형",
+         "rank": "선임"
+        },
+        {
+         "name": "백승연",
+         "rank": "사원"
+        }
+       ],
+       "children": []
+      }
+     ]
+    },
+    {
+     "kind": "org",
+     "lead": null,
+     "name": "경영지원팀",
+     "count": 8,
+     "members": [
+      {
+       "name": "김민철",
+       "rank": "상무대우"
+      },
+      {
+       "name": "김영준",
+       "rank": "책임M"
+      },
+      {
+       "name": "김은정",
+       "rank": "책임M"
+      },
+      {
+       "name": "오익희",
+       "rank": "책임M"
+      },
+      {
+       "name": "김문혁",
+       "rank": "선임"
+      },
+      {
+       "name": "이화신",
+       "rank": "선임"
+      },
+      {
+       "name": "김성재",
+       "rank": "사원"
+      },
+      {
+       "name": "강다현",
+       "rank": "사원"
+      }
+     ],
+     "children": []
+    }
+   ]
+  }
+ ]
+}

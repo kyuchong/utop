@@ -11916,6 +11916,23 @@ async def _db_init():
         _kv_register_fallback(_key, _fp)
         try: await _kv_init_async(_key, _fp, sizeguard=True)
         except Exception as _me: print(f"[startup] KV migrate '{_key}' failed: {_me}", flush=True)
+    # 조직도 씨앗 — **비어 있을 때만** 채운다.
+    #
+    # 조직도는 app_kv(DB) 에 산다. 그래서 코드만 받은 서버(253)는 계정 화면이
+    # 예전 납작한 목록 그대로였다(지적). DATA_DIR 은 도커 볼륨이라 자료를
+    # 거기 두면 이미지를 따라가지 못한다 — 그래서 씨앗은 backend/ 안에 둔다.
+    #
+    # 이미 조직도가 있으면 **손대지 않는다.** 사람이 옮겨 놓은 것을 배포할
+    # 때마다 되돌리면, 고쳐도 소용없는 화면이 된다.
+    try:
+        if not _kv_load_sync("org_tree", None):
+            _seed = Path(__file__).parent / "seed" / "org_tree.json"
+            if _seed.exists():
+                _kv_save_sync("org_tree", json.loads(_seed.read_text(encoding="utf-8")))
+                print("[startup] 조직도 씨앗 심음", flush=True)
+    except Exception as _se:
+        print(f"[startup] 조직도 씨앗 실패: {_se}", flush=True)
+
     # 조직도의 장 → 계정 역할 「담당」 을 **한 번 맞춘다**. 저장할 때만 맞추면
     # 이미 들어 있는 조직도는 아무도 다시 저장하기 전까지 표(담당)와 편집판
     # (팀원)이 어긋난 채로 남는다(지적). 관리자는 안 내린다.
