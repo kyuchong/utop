@@ -282,6 +282,26 @@
   padding: 10px 0;
 }
 
+/* 접혔을 때 고른 메뉴 — 사진처럼 **레일 끝에 곧은 막대**와 밝은 알약.
+   inset 그림자로 그리면 알약의 둥근 모서리를 따라 띠가 휘어 3px 짜리
+   초승달이 된다 — 아이콘만 남은 좁은 레일에서는 그게 안 보인다.
+   그래서 막대는 따로 그리고, 판 좌우 여백(6px)을 건너 레일 끝에 붙인다. */
+.app.nav-collapsed .nav-item.on,
+.app.nav-collapsed .nav-item.on[data-key] {
+  box-shadow: none;
+  background: rgb(255 255 255 / 72%);
+}
+.app.nav-collapsed .nav-item.on::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 3px;
+  bottom: 3px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--nav-c, var(--c-primary));
+}
+
 .app.nav-collapsed .nav-label {
   display: none;
 }

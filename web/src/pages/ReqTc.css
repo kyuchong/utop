@@ -32,8 +32,11 @@
   height: 34px;
   border: 1px solid var(--c-border);
   border-radius: 7px;
-  background: var(--c-surface);
-  color: var(--c-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
   font: inherit;
   cursor: pointer;
 }
@@ -68,6 +71,13 @@
 }
 .rqtc-ib:hover { background: var(--c-surface-alt); color: var(--c-text); }
 .rqtc-ib.on { background: var(--c-primary-bg); border-color: var(--c-primary); color: var(--c-primary); }
+/* 접기 단추만 옅은 상자에 담는다(사진) — 손잡이가 아니라 이 판을 여닫는
+   것이라, 나란한 아이콘들 사이에서 눈에 먼저 걸려야 한다. */
+.rqtc-foldb {
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+}
+.rqtc-foldb:hover { background: var(--c-primary-bg); border-color: var(--c-primary); }
 /* 2행 — ＋ New Folder 와 정렬·더보기(지시·사진) */
 .rqtc-newf {
   display: flex;

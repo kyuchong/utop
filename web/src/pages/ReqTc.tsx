@@ -4,7 +4,7 @@ import { api, categoryApi, projectApi, apiFetch, type MeUser } from '@/api/clien
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
 import { goto } from '@/api/goto'
 import { fillOf } from '@/lib/fieldFill'
-import { IconChevron, IconSearch, IconSort } from '@/components/icons'
+import { IconChevron, IconPanel, IconSearch, IconSort } from '@/components/icons'
 import ReqForm from '@/components/ReqForm'
 import TcForm from '@/components/TcForm'
 import ReqDetail from '@/components/ReqDetail'
@@ -262,7 +262,7 @@ export default function ReqTc({ me }: Props) {
       >
         {foldSide && (
           <button type="button" className="rqtc-unfold" title="폴더 판 펴기" onClick={() => setFoldSide(false)}>
-            ⇥
+            <IconPanel open />
           </button>
         )}
         {!foldSide && (
@@ -271,8 +271,13 @@ export default function ReqTc({ me }: Props) {
             <div className="rqtc-sidehead">
               <b>Folder Tree</b>
               <span className="sp" />
-              <button type="button" className="rqtc-ib" title="폴더 판 접기" onClick={() => setFoldSide(true)}>
-                ⇤
+              <button
+                type="button"
+                className="rqtc-ib rqtc-foldb"
+                title="폴더 판 접기"
+                onClick={() => setFoldSide(true)}
+              >
+                <IconPanel />
               </button>
             </div>
             {/* 2행 — 만들기와 손잡이들. 사진처럼 만들기가 왼쪽을 채우고
