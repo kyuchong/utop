@@ -1904,7 +1904,7 @@ async def run_sweep_dead(stale_sec: int = 180) -> int:
 _DEFECT_COLS = (
     "id, title, status, severity, cycle_id, cycle_name, tcid, tc_name, model, "
     "version, steps, note, jira_project, project_name, issue_type, priority, "
-    "fix_version, component, reporter, jira_key, created_by, created_at, updated_at"
+    "fix_version, component, reporter, panels, jira_key, created_by, created_at, updated_at"
 )
 
 
@@ -1916,6 +1916,14 @@ def _defect_row(r) -> dict:
             d["steps"] = json.loads(v)
         except Exception:
             d["steps"] = None
+    p = d.get("panels")
+    if isinstance(p, str):
+        try:
+            d["panels"] = json.loads(p)
+        except Exception:
+            d["panels"] = {}
+    if d.get("panels") is None:
+        d["panels"] = {}
     for k in ("created_at", "updated_at"):
         if d.get(k) is not None:
             d[k] = d[k].isoformat()
@@ -2045,15 +2053,16 @@ async def defect_create(d: dict) -> dict:
         r = await c.fetchrow(
             "INSERT INTO defect (id, title, status, severity, cycle_id, cycle_name, "
             "tcid, tc_name, model, version, steps, note, jira_project, project_name, "
-            "issue_type, priority, fix_version, component, reporter, jira_key, created_by) "
-            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) "
+            "issue_type, priority, fix_version, component, reporter, panels, jira_key, created_by) "
+            "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12,$13,$14,$15,$16,$17,$18,$19,$20::jsonb,$21,$22) "
             "RETURNING " + _DEFECT_COLS,
             d["id"], d.get("title"), d.get("status", "open"), d.get("severity"),
             d.get("cycle_id"), d.get("cycle_name"), d.get("tcid"), d.get("tc_name"),
             d.get("model"), d.get("version"), json.dumps(d.get("steps") or []),
             d.get("note"), d.get("jira_project"), d.get("project_name"),
             d.get("issue_type"), d.get("priority"), d.get("fix_version"),
-            d.get("component"), d.get("reporter"), d.get("jira_key"), d.get("created_by"),
+            d.get("component"), d.get("reporter"), json.dumps(d.get("panels") or {}),
+            d.get("jira_key"), d.get("created_by"),
         )
         return _defect_row(r)
 
@@ -2090,14 +2099,19 @@ async def defect_by_item(cycle_id: str, tcid: str):
 
 
 _DEFECT_PATCH = ("title", "status", "severity", "note", "jira_key", "jira_project",
-                 "project_name", "issue_type", "priority", "fix_version", "component", "reporter")
+                 "project_name", "issue_type", "priority", "fix_version", "component",
+                 "reporter", "panels")
 
 
 async def defect_update(did: str, patch: dict):
     sets, args = [], []
     for k in _DEFECT_PATCH:
         if k in patch:
-            args.append(patch[k]); sets.append(f"{k}=${len(args)}")
+            if k == "panels":
+                args.append(json.dumps(patch[k] or {}))
+                sets.append(f"{k}=${len(args)}::jsonb")
+            else:
+                args.append(patch[k]); sets.append(f"{k}=${len(args)}")
     if not sets:
         return await defect_get(did)
     sets.append("updated_at=now()")

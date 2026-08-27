@@ -593,6 +593,10 @@ ALTER TABLE defect ADD COLUMN IF NOT EXISTS priority     TEXT;
 ALTER TABLE defect ADD COLUMN IF NOT EXISTS fix_version  TEXT;
 ALTER TABLE defect ADD COLUMN IF NOT EXISTS component    TEXT;
 ALTER TABLE defect ADD COLUMN IF NOT EXISTS reporter     TEXT;
+-- 이슈 본문 여섯 판(관련 근거·목적·사전 준비 조건·시험 구성도·시험 절차 및
+-- 결과·Kernel Log). 판마다 칸을 만들면 판이 늘 때마다 스키마를 고쳐야 해서
+-- 한 칸에 담는다 — 무엇을 담을지는 프로젝트마다 다르다(Jira 패널 설정).
+ALTER TABLE defect ADD COLUMN IF NOT EXISTS panels JSONB DEFAULT '{}'::jsonb;
 CREATE INDEX IF NOT EXISTS idx_defect_status  ON defect(status);
 CREATE INDEX IF NOT EXISTS idx_defect_cycle   ON defect(cycle_id);
 CREATE INDEX IF NOT EXISTS idx_defect_tcid    ON defect(tcid);

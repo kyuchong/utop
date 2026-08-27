@@ -138,3 +138,78 @@
   padding: var(--sp-4) var(--sp-5);
   border-top: 1px solid var(--c-border);
 }
+
+
+/* ── 결함 팝업 — 지라 이슈 등록 꼴(2·3번 그림) ──────────────────
+   위에 「어디에·무엇으로」, 그 아래 제목, 그리고 본문 여섯 판. 사람이
+   실제로 적는 것은 여섯 판이라 그것이 가장 넓은 자리를 갖는다. */
+.dfx-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.dfx-req { color: #c0392b; font-style: normal; }
+
+/* 그 밖의 칸 — 접어 둔다. 채워진 값은 접힌 줄에 적어 열지 않고도 안다 */
+.dfx-more {
+  margin: 4px 0 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: var(--c-surface-alt, #f7f9fb);
+}
+.dfx-more > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+.dfx-more > summary::marker { color: var(--c-text-faint); }
+.dfx-more > summary .muted { font-weight: 400; }
+.dfx-more > .dfx-grid { padding: 0 10px 10px; }
+
+/* 본문 판 — 머리줄은 회색 띠, 몸은 흰 칸(그림 그대로) */
+.dfx-panel {
+  margin-bottom: 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.dfx-ph {
+  padding: 7px 10px;
+  background: var(--c-surface-alt, #eef1f5);
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+.dfx-panel textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  border: 0;
+  padding: 9px 10px;
+  background: var(--c-surface);
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-sm);
+  resize: vertical;
+}
+.dfx-panel textarea:focus { outline: 2px solid var(--c-primary); outline-offset: -2px; }
+/* 5번은 깨진 스텝으로 한 번에 채울 수 있다 — 손으로 옮겨 적지 않게 */
+.dfx-fill {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-top: 1px dashed var(--c-border);
+  padding: 6px;
+  background: var(--c-primary-bg);
+  color: var(--c-primary);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+.dfx-fill:hover { background: var(--c-primary); color: #fff; }

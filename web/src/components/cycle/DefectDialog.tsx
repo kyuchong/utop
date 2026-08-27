@@ -22,7 +22,34 @@ export interface DefectRec {
   created_by?: string | null
   created_at?: string | null
   steps?: unknown
+  /** 이슈 본문 여섯 판 — 관련 근거·목적·사전 준비 조건·시험 구성도·시험 절차 및 결과·Kernel Log */
+  panels?: Record<string, string>
 }
+
+/** 깨진 스텝을 5번 판에 넣을 글로 편다 — 사람이 손보기 쉬운 평문으로 */
+function stepsText(bs: Array<{ no: number | string; desc?: string; cli?: string; status?: string; criteria?: string; reason?: string; output?: string }>): string {
+  const L: string[] = []
+  for (const b of bs) {
+    L.push(`#${b.no} ${b.desc || b.cli || ''}${b.status ? ` (${b.status})` : ''}`)
+    if (b.cli) L.push(`  명령: ${b.cli}`)
+    if (b.criteria) L.push(`  판정 기준: ${b.criteria}`)
+    if (b.reason) L.push(`  판정 근거: ${b.reason}`)
+    const out = String(b.output ?? '').trim()
+    if (out) L.push(out.split('\n').map((x) => `  ${x}`).join('\n'))
+    L.push('')
+  }
+  return L.join('\n').trimEnd()
+}
+
+/** 이슈 본문 판 — 백엔드 _DEFECT_PANELS 와 같은 차례·같은 열쇠 */
+const PANELS: Array<{ k: string; label: string; ph: string; rows: number }> = [
+  { k: 'req', label: '관련 근거', ph: '관련 사이클 / 시험 항목', rows: 3 },
+  { k: 'purpose', label: '목적', ph: '시험 목적', rows: 3 },
+  { k: 'pre', label: '사전 준비 조건', ph: '사전 준비 조건', rows: 3 },
+  { k: 'topo', label: '시험 구성도', ph: '구성 설명 또는 파일명', rows: 3 },
+  { k: 'steps', label: '시험 절차 및 결과', ph: '시험 절차 및 결과를 입력하세요', rows: 6 },
+  { k: 'kernel', label: 'Kernel Log & Syslog', ph: 'Kernel Log / Syslog 출력', rows: 4 },
+]
 
 interface Props {
   /** 사이클에서 열 때만 준다. Defects 목록에서 열면 없다(이미 저장된 결함이라) */
@@ -125,6 +152,13 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
         briefs[0] ? ` — ${briefs[0].reason || briefs[0].desc}` : ''
       }`.trim(),
   )
+
+  /* 이슈 본문 여섯 판 — Jira 프로젝트 패널 설정과 같은 차례·같은 이름.
+     번호를 붙여 두면 사람이 「3번 비었다」 고 말할 수 있다. */
+  const [panels, setPanels] = useState<Record<string, string>>(() => ({
+    ...(existing?.panels ?? {}),
+  }))
+  const setPanel = (k: string, v: string) => setPanels((p) => ({ ...p, [k]: v }))
 
   // 드롭다운 목록
   const [projects, setProjects] = useState<Array<{ key: string; name: string }>>([])
@@ -236,6 +270,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
           fix_version: fixv,
           component: comp,
           reporter,
+          panels,
         }),
       })
       const j = (await r.json()) as { defect: DefectRec; existed?: boolean }
@@ -275,6 +310,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
           fix_version: fixv,
           component: comp,
           reporter,
+          panels,
         }),
       })
       const j = (await r.json()) as { defect: DefectRec }
@@ -322,6 +358,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
           fix_version: fixv,
           component: comp,
           reporter,
+          panels,
         }),
       })
       const j = (await r.json()) as { ok?: boolean; key?: string; url?: string; error?: string; defect?: DefectRec }
@@ -359,39 +396,56 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
         </div>
 
         <div className="modal-body dfx-body">
-          {/* 제목 */}
-          <label className="dfx-fld wide">
-            <span>제목</span>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={pushed} />
-          </label>
-
-          {/* 아홉 칸 — 프로젝트 키·프로젝트명·이슈유형·우선순위·수정버전·구성요소·보고자·등록자·등록일 */}
-          <div className="dfx-grid">
+          {/* 맨 윗줄 — 어디에, 무엇으로 올릴 것인가(2·3번 그림) */}
+          <div className="dfx-top">
             <label className="dfx-fld">
-              <span>프로젝트 키</span>
+              <span>프로젝트</span>
               <select value={proj} onChange={(e) => setProj(e.target.value)} disabled={pushed}>
                 <option value="">— 고르기 —</option>
                 {projects.map((p) => (
                   <option key={p.key} value={p.key}>
-                    {p.key}
+                    {p.key} · {p.name}
                   </option>
                 ))}
               </select>
             </label>
+            <label className="dfx-fld">
+              <span>이슈유형</span>
+              <select value={itype} onChange={(e) => setItype(e.target.value)} disabled={pushed}>
+                {(itypes.length ? itypes : ['Defect']).map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {/* 제목 — 그림의 차례대로 프로젝트·이슈유형 **아래**에 온다.
+              별표는 「비면 못 올린다」 는 뜻이다. */}
+          <label className="dfx-fld wide">
+            <span>
+              제목 <i className="dfx-req">*</i>
+            </span>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} disabled={pushed} />
+          </label>
 
+          {/* 그 밖의 칸 — 우선순위·수정버전·구성요소·보고자·등록자·등록일.
+              늘 펼쳐 두면 본문 여섯 판이 스크롤 밖으로 밀린다. 정작 사람이
+              적는 것은 그 여섯 판이다. 접어 두되, 채워진 것은 접힌 줄에
+              적어 무엇이 들었는지 열지 않고도 안다. */}
+          <details className="dfx-more">
+            <summary>
+              이슈 칸 더 보기
+              <span className="muted small">
+                {[prio, fixv, comp, reporter].filter(Boolean).join(' · ') || '비어 있음'}
+              </span>
+            </summary>
+          {/* 프로젝트·이슈유형은 맨 윗줄로 옮겼다 — 여기 또 두면 같은 값을
+              고치는 칸이 둘이라 어느 것이 먹는지 알 수 없다. */}
+          <div className="dfx-grid">
             <label className="dfx-fld">
               <span>프로젝트명</span>
               <input value={projName} onChange={(e) => setProjName(e.target.value)} disabled={pushed} placeholder="프로젝트를 고르면 채워집니다" />
-            </label>
-
-            <label className="dfx-fld">
-              <span>이슈유형</span>
-              <input list="dfx-itypes" value={itype} onChange={(e) => setItype(e.target.value)} disabled={pushed} />
-              <datalist id="dfx-itypes">
-                {itypes.map((t) => (
-                  <option key={t} value={t} />
-                ))}
-              </datalist>
             </label>
 
             <label className="dfx-fld">
@@ -453,9 +507,38 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
             </label>
           </div>
 
-          {/* 깨진 스텝 — 무엇이 어떻게 깨졌나 */}
+          </details>
+
+          {/* 이슈 본문 여섯 판 — 여기 적은 것이 그대로 Jira 설명이 된다.
+              번호를 붙여 두면 사람이 「3번 비었다」 고 말할 수 있다. */}
+          {PANELS.map((p, i) => (
+            <div className="dfx-panel" key={p.k}>
+              <div className="dfx-ph">
+                {i + 1}. {p.label}
+              </div>
+              <textarea
+                value={panels[p.k] ?? ''}
+                rows={p.rows}
+                placeholder={p.ph}
+                disabled={pushed}
+                onChange={(e) => setPanel(p.k, e.target.value)}
+              />
+              {p.k === 'steps' && !String(panels.steps ?? '').trim() && briefs.length > 0 && (
+                <button
+                  type="button"
+                  className="dfx-fill"
+                  disabled={pushed}
+                  onClick={() => setPanel('steps', stepsText(briefs))}
+                >
+                  깨진 스텝 {briefs.length}개로 채우기
+                </button>
+              )}
+            </div>
+          ))}
+
+          {/* 깨진 스텝 — 참고용. 위 5번에 무엇을 적을지 여기서 보고 옮긴다 */}
           <div className="dfx-steps">
-            <div className="dfx-sh">깨진 스텝 내용</div>
+            <div className="dfx-sh">깨진 스텝 내용 (참고)</div>
             {briefs.length === 0 ? (
               <div className="muted small">담을 스텝이 없습니다.</div>
             ) : (

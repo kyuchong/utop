@@ -17725,6 +17725,7 @@ async def defect_create_api(payload: dict, request: Request):
                 "fix_version": payload.get("fix_version"),
                 "component": payload.get("component"),
                 "reporter": payload.get("reporter"),
+                "panels": payload.get("panels") or {},
                 "created_by": who,
             })
             break
@@ -17738,8 +17739,45 @@ async def defect_create_api(payload: dict, request: Request):
     return {"defect": d, "existed": False}
 
 
+# 이슈 본문의 여섯 판 — 화면(Jira 프로젝트 패널 설정)과 같은 차례·같은 이름.
+# 번호를 붙이는 것은 사람이 「3번 비었다」 고 말할 수 있게 하기 위해서다.
+_DEFECT_PANELS = [
+    ("req", "관련 근거"),
+    ("purpose", "목적"),
+    ("pre", "사전 준비 조건"),
+    ("topo", "시험 구성도"),
+    ("steps", "시험 절차 및 결과"),
+    ("kernel", "Kernel Log & Syslog"),
+]
+
+
 def _defect_jira_body(d: dict) -> str:
-    """결함의 깨진 스텝을 Jira wiki 마크업 설명으로 편다."""
+    """결함을 Jira wiki 마크업 설명으로 편다.
+
+    사람이 화면에서 채운 **여섯 판**이 있으면 그것으로 쓴다. 없으면 예전처럼
+    깨진 스텝만 편다 — 옛 결함도 그대로 올라가야 한다.
+
+    「시험 절차 및 결과」 는 비어 있으면 스텝으로 채운다. 그 판만큼은 화면이
+    자동으로 만들어 주는 것이라, 사람이 손대지 않았다고 빼면 안 된다.
+    """
+    p = d.get("panels") or {}
+    if any(str(p.get(k) or "").strip() for k, _ in _DEFECT_PANELS):
+        L = []
+        for i, (k, label) in enumerate(_DEFECT_PANELS, 1):
+            v = str(p.get(k) or "").strip()
+            if k == "steps" and not v:
+                v = _defect_steps_body(d)
+            if not v:
+                continue
+            L.append(f"h3. {i}. {label}")
+            L.append(v)
+            L.append("")
+        return "\n".join(L)
+    return _defect_steps_body(d)
+
+
+def _defect_steps_body(d: dict) -> str:
+    """깨진 스텝을 Jira wiki 마크업으로 편다."""
     L = []
     L.append("h3. 시험 정보")
     L.append("|| 항목 || 내용 |")
@@ -17794,10 +17832,15 @@ async def defect_push_jira(did: str, payload: dict = None):
     rep = payload.get("reporter") or d.get("reporter")
     if rep:
         fields["reporter"] = {"name": rep}
+    # 화면에서 방금 고친 판이 오면 그것으로 쓴다 — 「변경 저장」 을 먼저
+    # 누르지 않고 바로 올리는 사람이 있다. 저장 안 했다고 옛 본문이 올라가면
+    # 무엇이 올라갔는지 아무도 모른다.
+    if isinstance(payload.get("panels"), dict):
+        d = {**d, "panels": payload["panels"]}
     body = {
         "project": proj,
         "issuetype": itype,
-        "summary": d.get("title") or d.get("tc_name") or did,
+        "summary": payload.get("title") or d.get("title") or d.get("tc_name") or did,
         "description": _defect_jira_body(d),
         "labels": ["utop"],
     }
@@ -17814,6 +17857,7 @@ async def defect_push_jira(did: str, payload: dict = None):
         "status": "pushed", "jira_key": key,
         "jira_project": proj, "issue_type": itype,
         "priority": prio, "fix_version": fv, "component": comp, "reporter": rep,
+        **({"panels": payload["panels"]} if isinstance(payload.get("panels"), dict) else {}),
     })
     try: asyncio.create_task(broadcast({"type": "defect_updated", "id": did}))
     except Exception: pass
