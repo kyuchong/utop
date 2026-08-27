@@ -19,6 +19,12 @@ const PANELS: Array<{ k: string; label: string; auto: boolean }> = [
 ]
 
 /** 프로젝트 하나의 설정 */
+/** 종류(Defect·CR) 하나의 설정 — 어느 이슈유형으로, 어떤 값을 미리 채울지 */
+interface KindCfg {
+  issuetype?: string
+  field_defaults?: Record<string, string>
+}
+
 interface Tmpl {
   /** Fail 을 자동으로 이슈로 올리나 */
   auto?: boolean
@@ -26,6 +32,9 @@ interface Tmpl {
   auto_models?: string[]
   /** 종류별로 켤 판 */
   panels?: Record<string, string[]>
+  /** 종류별 이슈유형·필드 기본값 — 이슈 등록 팝업이 이 값으로 칸을 미리 채운다 */
+  defect?: KindCfg
+  cr?: KindCfg
 }
 
 interface Proj {
@@ -201,18 +210,38 @@ export default function JiraPanels() {
             </p>
           ) : (
             projects.map((p) => (
-              <button
+              <div
                 key={p.key}
-                type="button"
                 className={`jp-item${sel === p.key ? ' on' : ''}`}
+                role="button"
+                tabIndex={0}
                 onClick={() => setSel(p.key)}
+                onKeyDown={(e) => e.key === 'Enter' && setSel(p.key)}
               >
                 <b>{p.key}</b>
                 <span className="muted">{p.name}</span>
                 <span className="sp" />
-                {tmpl[p.key]?.auto && <span className="jp-tag on">자동</span>}
-                {tmpl[p.key] && !tmpl[p.key]?.auto && <span className="jp-tag">설정됨</span>}
-              </button>
+                {/* 줄마다 스위치 — 프로젝트를 고르지 않고도 켜고 끈다(사진).
+                    고르고 → 위 카드에서 켜는 두 걸음이 매번 걸린다. */}
+                <button
+                  type="button"
+                  className={`jp-mini${tmpl[p.key]?.auto ? ' on' : ''}`}
+                  title="Fail 자동 이슈 등록"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const t = tmpl[p.key] ?? {}
+                    const next = { ...tmpl, [p.key]: { ...t, auto: !t.auto } }
+                    setTmpl(next)
+                    void apiFetch('/api/jira/config', {
+                      method: 'POST',
+                      body: JSON.stringify({ panel_templates: next }),
+                    })
+                  }}
+                >
+                  <i />
+                </button>
+                {tmpl[p.key] && <span className="jp-tag">설정됨</span>}
+              </div>
             ))
           )}
         </div>
@@ -235,18 +264,29 @@ export default function JiraPanels() {
                       해제
                     </button>
                   </div>
-                  {PANELS.map((p) => (
+                  <div className="jp-sub">표시 패널</div>
+                  {PANELS.map((p, i) => (
                     <label key={p.k} className="jp-panel">
                       <input
                         type="checkbox"
                         checked={on.has(p.k)}
                         onChange={() => togglePanel(kd.k, p.k)}
                       />
-                      <span>{p.label}</span>
+                      <span>
+                        {i + 1}. {p.label}
+                      </span>
                       <span className="sp" />
                       <span className="muted small">{p.auto ? '자동' : '수동'}</span>
                     </label>
                   ))}
+                  {/* 필드 기본값 — 이슈 등록 팝업이 이 값으로 칸을 미리 채운다.
+                      매번 같은 값을 고르는 자리(우선순위·사업자…)가 있어서다. */}
+                  <FieldDefaults
+                    project={sel}
+                    kind={kd.k}
+                    cfg={(cur[kd.k as 'defect' | 'cr'] ?? {}) as KindCfg}
+                    onSave={(v) => void patch({ [kd.k]: v } as Partial<Tmpl>)}
+                  />
                 </div>
               )
             })}
@@ -282,6 +322,159 @@ export default function JiraPanels() {
       </div>
         </>
       )}
+    </div>
+  )
+}
+
+
+/**
+ * 필드 기본값 — 이 프로젝트·이 이슈유형으로 낼 때 **미리 채워 둘 값**.
+ *
+ * 결함을 올릴 때마다 우선순위·사업자·이슈분류를 같은 값으로 다시 고르고
+ * 있다. 여기서 한 번 정해 두면 이슈 등록 팝업이 그 값으로 칸을 채운 채 뜬다.
+ *
+ * 이슈유형을 먼저 정해야 한다 — Jira 는 이슈유형마다 칸이 다르다.
+ */
+function FieldDefaults({
+  project,
+  kind,
+  cfg,
+  onSave,
+}: {
+  project: string
+  kind: string
+  cfg: KindCfg
+  onSave: (v: KindCfg) => void
+}) {
+  const [types, setTypes] = useState<Array<{ id?: string; name: string }>>([])
+  const [fields, setFields] = useState<
+    Array<{ id: string; name?: string; required?: boolean; type?: string; options?: Array<{ id?: string; name?: string }> | null }>
+  >([])
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  /* 이슈유형 목록 — 프로젝트가 정해지면 한 번 */
+  useEffect(() => {
+    if (!project) return
+    let dead = false
+    void (async () => {
+      try {
+        const r = await apiFetch(`/api/jira/issuetypes?project=${encodeURIComponent(project)}`)
+        const j = (await r.json()) as { ok?: boolean; issuetypes?: Array<{ id?: string; name: string }> }
+        if (!dead && j.ok) setTypes(j.issuetypes ?? [])
+      } catch {
+        /* 못 읽으면 이름을 손으로 적는다 */
+      }
+    })()
+    return () => {
+      dead = true
+    }
+  }, [project])
+
+  /* 정해 둔 것이 없으면 이름으로 짐작한다 — Defect 는 defect·bug, CR 은 cr·change */
+  const guess = useMemo(() => {
+    const isCR = kind === 'cr'
+    const hit = types.find((t) => {
+      const n = t.name.toLowerCase()
+      return isCR ? n.includes('cr') || n.includes('change') : n.includes('defect') || n.includes('bug')
+    })
+    return hit?.name ?? types[0]?.name ?? ''
+  }, [types, kind])
+  const itype = cfg.issuetype || guess
+
+  const load = async () => {
+    if (!project || !itype) return
+    setBusy(true)
+    setErr('')
+    try {
+      const r = await apiFetch(
+        `/api/jira/createmeta?project=${encodeURIComponent(project)}&issuetype=${encodeURIComponent(itype)}`,
+      )
+      const j = (await r.json()) as { ok?: boolean; fields?: typeof fields; error?: string }
+      if (!j.ok) {
+        setErr(j.error || '칸을 못 읽었습니다')
+        setFields([])
+        return
+      }
+      const skip = new Set(['project', 'issuetype', 'summary', 'description', 'attachment', 'issuelinks', 'labels'])
+      setFields((j.fields ?? []).filter((f) => !skip.has(f.id)))
+    } catch (e) {
+      setErr(String((e as Error).message))
+    } finally {
+      setBusy(false)
+    }
+  }
+  /* 프로젝트·이슈유형이 정해지면 알아서 읽는다 — 「로드」 를 눌러야만 보이면
+     설정이 있는지조차 모른다. 손으로 다시 읽는 길은 단추로 남겨 둔다. */
+  useEffect(() => {
+    void load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, itype])
+
+  const setDefault = (fid: string, v: string) => {
+    const d = { ...(cfg.field_defaults ?? {}) }
+    if (v) d[fid] = v
+    else delete d[fid]
+    onSave({ ...cfg, issuetype: itype, field_defaults: d })
+  }
+
+  return (
+    <div className="jp-fd">
+      <div className="jp-sub">
+        필드 기본값
+        <span className="muted small">— 이슈 등록 시 자동 입력</span>
+        <span className="sp" />
+        <button className="btn small" type="button" disabled={busy} onClick={() => void load()}>
+          {busy ? '읽는 중…' : '다시 읽기'}
+        </button>
+      </div>
+
+      <label className="jp-fld">
+        <span>이슈유형</span>
+        <select
+          value={itype}
+          onChange={(e) => onSave({ ...cfg, issuetype: e.target.value })}
+        >
+          {!types.length && <option value={itype}>{itype || '(없음)'}</option>}
+          {types.map((t) => (
+            <option key={t.name} value={t.name}>
+              {t.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {err && <p className="muted small">칸을 못 읽었습니다 — {err}</p>}
+      {!err &&
+        fields.map((f) => {
+          const v = cfg.field_defaults?.[f.id] ?? ''
+          return (
+            <label className="jp-fld" key={f.id}>
+              <span className={f.required ? 'req' : undefined}>
+                {f.name || f.id}
+                {f.required ? ' *' : ''}
+              </span>
+              {f.options && f.options.length ? (
+                <select value={v} onChange={(e) => setDefault(f.id, e.target.value)}>
+                  <option value="">(기본값 없음)</option>
+                  {f.options.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name}
+                    </option>
+                  ))}
+                </select>
+              ) : f.type === 'date' ? (
+                <input type="date" value={v} onChange={(e) => setDefault(f.id, e.target.value)} />
+              ) : (
+                <input
+                  value={v}
+                  placeholder="기본값 없음"
+                  onChange={(e) => setDefault(f.id, e.target.value)}
+                />
+              )}
+            </label>
+          )
+        })}
     </div>
   )
 }

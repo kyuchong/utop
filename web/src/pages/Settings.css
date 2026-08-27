@@ -1771,3 +1771,59 @@ button.dcc-st:disabled { cursor: default; }
 @media (max-width: 1200px) {
   .brand-mdrow { grid-template-columns: 1fr; }
 }
+
+/* ── Jira 패널 설정 — 줄마다 스위치 · 필드 기본값 ────────────────
+   프로젝트를 고르지 않고도 자동 등록을 켜고 끈다. 고르고 → 위 카드에서
+   켜는 두 걸음이 매번 걸렸다. */
+.jp-mini {
+  flex: none;
+  width: 34px;
+  height: 19px;
+  padding: 2px;
+  border: 0;
+  border-radius: 10px;
+  background: #d7dce3;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.jp-mini.on { background: var(--c-primary); }
+.jp-mini i {
+  display: block;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+  transition: transform 0.15s;
+}
+.jp-mini.on i { transform: translateX(15px); }
+
+/* 칸 안의 작은 머리 — 「표시 패널」·「필드 기본값」 */
+.jp-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--c-border-soft, #eef1f5);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+.jp-sub .sp { flex: 1; }
+.jp-fd { display: flex; flex-direction: column; }
+.jp-fld { display: flex; flex-direction: column; gap: 3px; margin-bottom: 7px; }
+.jp-fld > span { font-size: var(--fs-xs); font-weight: 600; color: var(--c-text-muted); }
+/* 필수는 붉게 — 별표만으로는 스무 칸 사이에서 안 걸린다 */
+.jp-fld > span.req { color: #c0414f; }
+.jp-fld select,
+.jp-fld input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 9px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: var(--c-surface);
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-sm);
+}
