@@ -159,7 +159,7 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
       {/* 맨 윗줄 — **화면 전체 폭**(지시, 사진). 메뉴바는 이 아래로 들어간다.
           그래야 「1행 = 상단바 / 2행 = 메뉴바 + 본문」 이 된다.
           지금은 REQ-TC 에서만 띄운다 — 다른 화면은 손대지 않는다(지시). */}
-      {current === 'reqtc' && (
+      {(
         <header className="app-top">
           {brand.logo ? (
             <img className="app-top-logo" src={brand.logo} alt="" />
