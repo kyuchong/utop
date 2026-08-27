@@ -495,9 +495,11 @@
   padding: 0 6px;
 }
 /* 계정이 없는 사람 — 지우지 않고 흐리게. 「아직 안 쓰는 사람」 이 보여야 한다 */
-tr.noacct { cursor: default; }
+/* 계정 없는 사람도 **고를 수 있다**(지시) — 역할을 넣어야 하기 때문이다.
+   그래서 손 모양과 hover 를 되돌린다. 이름만 옅게 두어 「계정은 없다」 는
+   것은 그대로 알아보게 한다. */
+tr.noacct { cursor: pointer; }
 tr.noacct b { color: var(--c-text-faint); }
-tr.noacct:hover { background: transparent; }
 
 /* 장(長)은 역할 칸에 「담당」 으로 — 따로 표를 달지 않는다 */
 .acc-role-lead { font-weight: 700; color: #12505e; }

@@ -1634,6 +1634,49 @@ async def api_org_save(payload: dict, token: str = ""):
     return {"ok": True, **_apply_org_roles(org)}
 
 
+@app.post("/api/org/member-role")
+async def api_org_member_role(payload: dict, token: str = ""):
+    """조직도의 **계정 없는 사람**에게 역할을 준다. 관리자만.
+
+    조직도 204명 중 40명은 계정이 아예 없다(확인함 — 이름 표기가 달라 못
+    이어진 것이 아니라, 그 이름이 계정 목록 어디에도 없다). Jira 계정이
+    없으면 UTOP 을 안 쓰는 사람이라 계정을 만들어 줄 수도 없다.
+
+    그런데도 역할은 적어 두어야 한다(지시) — 조직도는 「누가 무엇을 맡나」
+    를 보는 표이지 「누가 UTOP 을 쓰나」 만 보는 표가 아니다. 그래서 역할을
+    **조직도 그 사람 칸에** 담는다. 나중에 그 사람의 계정이 생기면 계정 쪽
+    역할이 이 값을 덮는다 — 계정이 있으면 계정이 정본이다.
+    """
+    _require_admin(token)
+    nm = str((payload or {}).get("name") or "").strip()
+    role = str((payload or {}).get("role") or "").strip()
+    if not nm:
+        raise HTTPException(400, "이름이 없습니다")
+    org = _kv_load_sync("org_tree", None)
+    if not isinstance(org, dict):
+        raise HTTPException(404, "조직도가 없습니다")
+
+    hit = 0
+
+    def walk(n: dict):
+        nonlocal hit
+        for m in (n.get("members") or []):
+            if str(m.get("name") or "").strip() == nm:
+                if role:
+                    m["role"] = role
+                else:
+                    m.pop("role", None)
+                hit += 1
+        for c in (n.get("children") or []):
+            walk(c)
+
+    walk(org)
+    if not hit:
+        raise HTTPException(404, f"조직도에 「{nm}」 이(가) 없습니다")
+    _kv_save_sync("org_tree", org)
+    return {"ok": True, "hit": hit}
+
+
 def _apply_org_roles(org: dict) -> dict:
     """조직도의 **장**을 계정 역할 「담당」 으로 맞춘다.
 

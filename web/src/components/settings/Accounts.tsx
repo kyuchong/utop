@@ -87,7 +87,7 @@ interface OrgNode {
   name: string
   count?: number
   lead?: string | null
-  members?: Array<{ name: string; rank?: string }>
+  members?: Array<{ name: string; rank?: string; role?: string }>
   children?: OrgNode[]
 }
 
@@ -254,6 +254,7 @@ export default function Accounts() {
   const val = (k: keyof User) => String((draft[k] ?? cur?.[k] ?? '') as string)
   const pick = (u: User) => {
     setAt(u.username)
+    setAtOrg(null)
     setDraft({})
   }
 
@@ -319,6 +320,31 @@ export default function Accounts() {
   }, [acctBy, okNames, narrow])
 
   const org = orgQ.data ?? null
+
+  /* 계정 없는 사람 — 조직도 40명은 계정이 아예 없다(확인함). 그래도 역할은
+     적어야 하므로(지시) 줄을 고를 수 있게 하고, 역할은 조직도에 담는다. */
+  const [atOrg, setAtOrg] = useState<{ name: string; rank: string; org: string } | null>(null)
+  const orgRole = useMemo(() => {
+    const m = new Map<string, string>()
+    const walk = (n: OrgNode) => {
+      for (const x of n.members ?? []) if (x.role) m.set(x.name, x.role)
+      for (const c of n.children ?? []) walk(c)
+    }
+    if (org) walk(org)
+    return m
+  }, [org])
+  const setOrgRole = useMutation({
+    mutationFn: async (b: { name: string; role: string }) => {
+      const r = await apiFetch('/api/org/member-role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(b),
+      })
+      if (!r.ok) throw new Error(await r.text())
+      return r.json()
+    },
+    onSuccess: () => void orgQ.refetch(),
+  })
 
   /** 접어 둔 조직 */
   const [shutOrg, setShutOrg] = useState<Set<string>>(new Set())
@@ -590,6 +616,12 @@ export default function Accounts() {
                     keep={keep}
                     at={at}
                     onPick={pick}
+                    atOrg={atOrg?.name ?? ''}
+                    onPickOrg={(p) => {
+                      setAt('')
+                      setAtOrg(p)
+                    }}
+                    orgRole={orgRole}
                     q={q}
                   />
                 ) : (
@@ -615,6 +647,54 @@ export default function Accounts() {
             </table>
           </div>
         </div>
+
+        {/* 오른쪽 — 계정 없는 사람. 고칠 수 있는 것이 역할 하나뿐이라
+            계정 판을 그대로 쓰지 않는다. 없는 칸(Jira ID·잠금)을 늘어놓으면
+            무엇을 할 수 있는 자리인지 흐려진다. */}
+        {!cur && atOrg && (
+          <aside className="acc-side">
+            <div className="acc-sidet">
+              <b>{atOrg.name}</b>
+              {atOrg.rank && <span className="acc-tag">{atOrg.rank}</span>}
+              <span className="sp" />
+              <button type="button" className="acc-x" onClick={() => setAtOrg(null)}>
+                ×
+              </button>
+            </div>
+            <div className="acc-sidesub">
+              <span className="muted small">{atOrg.org}</span>
+              <span className="muted small">계정 없음</span>
+            </div>
+            <div className="acc-jira">
+              <b>UTOP 계정이 없습니다</b>
+              <p className="muted small" style={{ margin: '6px 0 0' }}>
+                Jira 계정이 없어 UTOP 에 로그인하지 않는 분입니다. 계정을 만들어 드릴 수는
+                없지만, 역할은 조직도에 적어 둘 수 있습니다. 나중에 계정이 생기면 계정 쪽
+                역할이 정본이 됩니다.
+              </p>
+            </div>
+            <label className="acc-fld">
+              <span>역할</span>
+              <select
+                value={orgRole.get(atOrg.name) ?? ''}
+                disabled={setOrgRole.isPending}
+                onChange={(e) =>
+                  setOrgRole.mutate({ name: atOrg.name, role: e.target.value })
+                }
+              >
+                <option value="">(없음)</option>
+                {roles.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {setOrgRole.isError && (
+              <p className="muted small">저장 실패 — {String(setOrgRole.error)}</p>
+            )}
+          </aside>
+        )}
 
         {/* 오른쪽 — 고른 사람 */}
         {cur && (
@@ -765,6 +845,9 @@ function OrgRows({
   keep,
   at,
   onPick,
+  atOrg,
+  onPickOrg,
+  orgRole,
   q,
 }: {
   node: OrgNode
@@ -773,6 +856,9 @@ function OrgRows({
   onToggle: (k: string) => void
   findAcct: (nm: string) => User | undefined
   keep: (nm: string) => boolean
+  atOrg: string
+  onPickOrg: (p: { name: string; rank: string; org: string }) => void
+  orgRole: Map<string, string>
   at: string
   onPick: (u: User) => void
   q: string
@@ -837,15 +923,21 @@ function OrgRows({
             return (
               <tr
                 key={`${key}/${m.name}`}
-                className={`${u ? '' : 'noacct'}${u && at === u.username ? ' on' : ''}`}
-                onClick={() => u && onPick(u)}
+                /* 계정이 없어도 **고를 수 있다**(지시: 역할을 넣어야 한다).
+                   고르면 오른쪽에서 역할만 정하고, 그 값은 조직도에 담긴다. */
+                className={`${u ? '' : 'noacct'}${
+                  (u ? at === u.username : atOrg === m.name) ? ' on' : ''
+                }`}
+                onClick={() =>
+                  u ? onPick(u) : onPickOrg({ name: m.name, rank: m.rank ?? '', org: node.name })
+                }
               >
                 <td className="ell" style={{ paddingLeft: 10 + (depth + 1) * 16 }}>
                   <b>{m.name}</b>
                   {m.rank && <span className="acc-rank">{m.rank}</span>}
                 </td>
                 <td className="ell">{u?.username ?? <span className="muted">계정 없음</span>}</td>
-                <td>{u?.role ?? ''}</td>
+                <td>{u?.role ?? orgRole.get(m.name) ?? ''}</td>
                 <td className="ell">{node.name}</td>
                 <td className="ell">{u?.synced_at ?? ''}</td>
                 <td className="ell">{u?.email ?? ''}</td>
@@ -864,6 +956,9 @@ function OrgRows({
               keep={keep}
               at={at}
               onPick={onPick}
+              atOrg={atOrg}
+              onPickOrg={onPickOrg}
+              orgRole={orgRole}
               q={q}
             />
           ))}
