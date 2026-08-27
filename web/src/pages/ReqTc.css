@@ -41,7 +41,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 12px 8px 8px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--c-border);
   /* 판 이름도 본문과 같은 13px(지시). 굵기(700)로 이름임을 말한다 —
      크기까지 키우면 이 줄만 튀어 표가 아래로 밀린다. */

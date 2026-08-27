@@ -380,18 +380,9 @@ export default function ReqTc({ me }: Props) {
         {!foldSide && (
           <aside className="panel rqtc-side">
             {/* 1행 — 이름과 접기 단추만(지시·사진) */}
+            {/* 접기 단추는 **2열 머리줄 하나**로 모았다(지시) — 그 단추가
+                접기·펴기를 다 하므로, 여기 또 두면 접는 길이 둘이 된다. */}
             <div className="rqtc-sidehead">
-              {/* 접기 단추가 **왼쪽**, 이름이 그 오른쪽(지시).
-                  펴는 단추도 접었을 때 같은 자리(왼쪽 끝)에 서므로, 접고 펴도
-                  손이 같은 곳을 짚는다. */}
-              <button
-                type="button"
-                className="rqtc-ib rqtc-foldb"
-                title="폴더 판 접기"
-                onClick={() => setFoldSide(true)}
-              >
-                <IconPanel />
-              </button>
               <b>Folder Tree</b>
               <span className="sp" />
             </div>
