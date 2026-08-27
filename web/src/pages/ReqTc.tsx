@@ -500,9 +500,8 @@ export default function ReqTc({ me }: Props) {
                     </button>
                   </span>
                 ))
-              ) : (
-                <b>전체</b>
-              )}
+              ) : null /* 폴더를 안 골랐을 때 「전체」 라 적던 것을 뺀다(지시) —
+                           1열의 「전체」 줄이 이미 그 말을 하고 있다 */}
               {/* 「이 요구사항만」 걸린 상태를 늘 보이게 — 안 보이면 왜 몇 건뿐인지 모른다 */}
               {onlyReq && (
                 <span className="rqtc-scope">

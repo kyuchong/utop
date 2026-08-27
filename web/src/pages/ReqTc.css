@@ -310,7 +310,9 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--c-surface-alt);
+  background: #eef1f5;
+  border-bottom: 2px solid var(--c-border);
+  font-weight: 700;
   color: var(--c-text-muted);
   /* 본문이 13px 이니 머리는 한 단 아래인 12px. 같은 크기면 안 갈린다. */
   font-size: var(--fs-sm);
@@ -320,7 +322,11 @@
 /* 시험 줄 — 요구사항 아래로 들여쓴다 */
 .rqtc-sub { background: #fbfcfd; }
 .rqtc-sub .c-title { padding-left: 18px; }
+/* 체크박스 — 기본 13px 은 표 안에서 너무 작아 겨냥이 안 된다(지적).
+   16px 로 키운다. 브라우저 기본 모양은 그대로 두어, 이 도구 안에서만
+   달라 보이지 않게 한다. */
 .c-chk { display: flex; align-items: center; justify-content: center; gap: 2px; }
+.c-chk input[type='checkbox'] { width: 16px; height: 16px; margin: 0; cursor: pointer; }
 /* 점 여섯 — 잡아서 끄는 자리. 옅게 두었더니 있는 줄도 몰랐다(지적).
    진하고 크게, 그리고 체크박스와 **띄운다** — 붙어 있으면 끌려다 체크가
    눌린다. 줄에 마우스를 올리면 한 단 더 진해져 「지금 이 줄」 을 말한다. */
@@ -592,3 +598,9 @@
   font-size: var(--fs-xs);
   font-weight: 700;
 }
+
+
+/* 표 바깥도 닫는다 — 엑셀의 판은 네 변이 다 선이다. 오른쪽 끝 칸의
+   세로선만 지워, 테두리와 두 줄로 겹치지 않게 한다. */
+.rqtc-tr:last-child { border-bottom: 0; }
+.rqtc-th > div { border-right-color: var(--c-border); }
