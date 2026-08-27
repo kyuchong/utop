@@ -334,6 +334,8 @@ export default function ReqTc({ me }: Props) {
      돌리고 싶은 일이 잦다. DB 를 통째로 옮기면 장비 비밀번호까지 따라가므로
      시험 하나만 파일로 뗀다. */
   const [moreOpen, setMoreOpen] = useState(false)
+  /** 만들기 메뉴 — ⋯ 안에 ＋New·＋Bulk New·＋Copy 가 든다 */
+  const [newOpen, setNewOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const exportTc = async () => {
     const id = [...sel][0]
@@ -763,35 +765,62 @@ export default function ReqTc({ me }: Props) {
                 Coverage
               </button>
             </div>
-            {/* 세로선 뒤로 **하는 일**이 선다(지시) — 왼쪽은 무엇을 볼지,
-                오른쪽은 그것으로 무엇을 할지. 한 줄로 합치니 표가 그만큼
-                길어진다. */}
-            <span className="rqtc-vsep" aria-hidden="true" />
-            <button
-              className="btn small primary"
-              type="button"
-              onClick={() => (mode === 'req' ? setEditReq(null) : setEditTc(null))}
-            >
-              ＋ New
-            </button>
-            <button
-              className="btn small"
-              type="button"
-              title="엑셀·문서에서 붙여넣어 여러 건을 한 번에 만듭니다"
-              onClick={() => setBulkNew(true)}
-            >
-              ＋ Bulk New
-            </button>
-            {mode === 'tc' && (
+            {/* 만들기 셋은 **⋯ 안으로**(지시). 늘 서 있을 필요가 없는
+                것들이라 줄을 먹고 있었다 — 눌러서 꺼내 쓴다. */}
+            <div className="rqtc-more">
               <button
-                className="btn small"
                 type="button"
-                title="다른 폴더·요구사항의 시험을 복사해 옵니다"
-                onClick={() => setCopyOpen(true)}
+                className="rqtc-ib"
+                aria-haspopup="menu"
+                aria-expanded={newOpen}
+                title="만들기"
+                onClick={() => setNewOpen((v) => !v)}
               >
-                ＋ Copy
+                ⋯
               </button>
-            )}
+              {newOpen && (
+                <>
+                  <div className="tc-menu-back" onClick={() => setNewOpen(false)} />
+                  <div className="tc-menu" role="menu">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewOpen(false)
+                        if (mode === 'req') setEditReq(null)
+                        else setEditTc(null)
+                      }}
+                    >
+                      ＋ New
+                    </button>
+                    <button
+                      type="button"
+                      title="엑셀·문서에서 붙여넣어 여러 건을 한 번에 만듭니다"
+                      onClick={() => {
+                        setNewOpen(false)
+                        setBulkNew(true)
+                      }}
+                    >
+                      ＋ Bulk New
+                    </button>
+                    {mode === 'tc' && (
+                      <button
+                        type="button"
+                        title="다른 폴더·요구사항의 시험을 복사해 옵니다"
+                        onClick={() => {
+                          setNewOpen(false)
+                          setCopyOpen(true)
+                        }}
+                      >
+                        ＋ Copy
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+            {/* 세로선 — 왼쪽은 「무엇을 볼지·무엇을 만들지」, 오른쪽은
+                「지금 어디를 보고 있나」(빵부스러기)다(지시). */}
+            <span className="rqtc-vsep" aria-hidden="true" />
             {sel.size > 0 && (
               <>
                 <span className="rqtc-vsep" aria-hidden="true" />
@@ -875,6 +904,8 @@ export default function ReqTc({ me }: Props) {
               )}
             </div>
             <span className="sp" />
+            {/* 세로선 — 여기서부터는 「어떻게 볼지」 다(지시) */}
+            <span className="rqtc-vsep" aria-hidden="true" />
             {/* 미커버만 — 찾기 칸 왼쪽(지시). 둘 다 「무엇을 볼지」 를 좁히는
                 것이라 나란히 있어야 한 묶음으로 읽힌다. */}
             {mode === 'req' && (
