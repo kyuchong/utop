@@ -54,10 +54,11 @@
   /* 플렉스 아이템의 기본 min-width 는 auto(=min-content) 라서, 이게 없으면
      접었을 때 width:56px 이 min-content(185px)로 되밀려 폭이 안 줄어든다. */
   min-width: 0;
-  /* Zephyr Enterprise 처럼 어두운 메뉴 + 흰 글자. */
+  /* 메뉴는 제 색이 없다 — 화면 바탕(옅은 청록)이 그대로 비친다. */
   background: var(--c-nav-dark);
   color: var(--c-nav-fg);
-  border-right: 1px solid var(--c-border-nav);
+  /* 세로 가름선 없음(지시) — 메뉴는 바탕이 비치는 판이라 선을 그으면
+     한 판으로 이어진 느낌이 끊긴다. 흰 카드가 이미 경계를 만든다. */
   padding: 12px 10px var(--sp-4);
   /* 접힘 툴팁이 메뉴 바깥으로 나가야 하므로 자르지 않는다.
      항목이 화면 높이를 넘길 만큼 늘어나면 안쪽 래퍼에 스크롤을 주고
