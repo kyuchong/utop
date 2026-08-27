@@ -821,57 +821,6 @@ export default function ReqTc({ me }: Props) {
             {/* 세로선 — 왼쪽은 「무엇을 볼지·무엇을 만들지」, 오른쪽은
                 「지금 어디를 보고 있나」(빵부스러기)다(지시). */}
             <span className="rqtc-vsep" aria-hidden="true" />
-            {sel.size > 0 && (
-              <>
-                <span className="rqtc-vsep" aria-hidden="true" />
-                {sel.size === 1 ? (
-                  <button
-                    className="btn small"
-                    type="button"
-                    title="고른 것을 고칩니다"
-                    onClick={() => {
-                      const id = [...sel][0]!
-                      if (mode === 'req') setEditReq(reqById.get(id) ?? null)
-                      else setEditTc(tcs.find((t) => t.tcid === id) ?? null)
-                    }}
-                  >
-                    Edit
-                  </button>
-                ) : (
-                  <button
-                    className="btn small"
-                    type="button"
-                    title={`고른 ${sel.size}건을 한꺼번에 고칩니다`}
-                    onClick={() => setBulkEdit(true)}
-                  >
-                    Bulk Edit
-                  </button>
-                )}
-                {mode === 'req' && (
-                  <button
-                    className="btn small"
-                    type="button"
-                    disabled={!!actBusy}
-                    onClick={() => void cloneReqs()}
-                  >
-                    {actBusy === 'clone' ? '복제 중…' : 'Clone'}
-                  </button>
-                )}
-                <span className="rqtc-vsep" aria-hidden="true" />
-                <button
-                  className="btn small danger"
-                  type="button"
-                  disabled={!!actBusy}
-                  onClick={() => void deletePicked()}
-                >
-                  {actBusy === 'del' ? '삭제 중…' : 'Delete'}
-                </button>
-                <span className="rqtc-selinfo">{sel.size}개 고름</span>
-                <button className="btn small" type="button" onClick={() => setSel(new Set())}>
-                  해제
-                </button>
-              </>
-            )}
             <span className="sp" />
 
 
@@ -1348,6 +1297,50 @@ export default function ReqTc({ me }: Props) {
               있는 수인지 헷갈린다. */}
         </section>
       </div>
+
+      {/* 고른 것에 하는 일 — **아래에서 떠오르는 줄**(승인).
+          위 도구줄에 두었더니 고를 때마다 단추가 늘어났다 줄었다 하며 옆
+          단추 자리가 밀려, 누르려던 곳이 다른 단추로 바뀌었다. 표 위에 떠
+          있어 스무 줄 아래에서 골라도 위로 올라갈 일이 없다. */}
+      {sel.size > 0 && (
+        <div className="rqtc-act" role="toolbar" aria-label="고른 것에 할 일">
+          <span className="rqtc-act-n">{sel.size}개 선택</span>
+          <span className="rqtc-act-sep" aria-hidden="true" />
+          {sel.size === 1 ? (
+            <button
+              type="button"
+              onClick={() => {
+                const id = [...sel][0]!
+                if (mode === 'req') setEditReq(reqById.get(id) ?? null)
+                else setEditTc(tcs.find((t) => t.tcid === id) ?? null)
+              }}
+            >
+              Edit
+            </button>
+          ) : (
+            <button type="button" onClick={() => setBulkEdit(true)}>
+              Bulk Edit
+            </button>
+          )}
+          {mode === 'req' && (
+            <button type="button" disabled={!!actBusy} onClick={() => void cloneReqs()}>
+              {actBusy === 'clone' ? '복제 중…' : 'Clone'}
+            </button>
+          )}
+          <span className="rqtc-act-sep" aria-hidden="true" />
+          <button
+            type="button"
+            className="danger"
+            disabled={!!actBusy}
+            onClick={() => void deletePicked()}
+          >
+            {actBusy === 'del' ? '삭제 중…' : 'Delete'}
+          </button>
+          <button type="button" className="x" title="고르기 해제" onClick={() => setSel(new Set())}>
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* 아래로 채우기 — 우클릭한 칸의 값을 그 아래 줄에 모두 넣는다.
           같은 값을 스무 줄에 손으로 고르는 일이 잦다. */}

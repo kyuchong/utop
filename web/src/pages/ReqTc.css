@@ -200,7 +200,8 @@
 .rqtc-none .c-title { font-size: var(--fs-xs); }
 
 /* ── 오른쪽 ── */
-.rqtc-main { display: flex; flex-direction: column; min-height: 0; }
+.rqtc-main {
+  display: flex; flex-direction: column; min-height: 0; }
 /* 무엇을 셀지 고르는 줄 — 토글 · 빵부스러기 · 찾기 */
 .rqtc-modebar {
   display: flex;
@@ -686,3 +687,56 @@
   font-size: var(--fs-md);
 }
 .rqtc-modebar .rqtc-vsep { height: 20px; }
+
+/* ── 고른 것에 하는 일 — 아래에서 떠오르는 줄(승인) ──────────────
+   위 도구줄에 두면 고를 때마다 단추가 늘어났다 줄었다 하며 옆 단추 자리가
+   밀린다. 표 위에 떠 있어 스무 줄 아래에서 골라도 위로 올라갈 일이 없다. */
+.rqtc-act {
+  /* 화면 기준으로 띄운다 — 표 안에 넣으면 표가 스크롤될 때 같이 밀려
+     올라가, 정작 아래쪽 줄을 고를 때 안 보인다. */
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  z-index: 40;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: var(--c-app-top);
+  color: #eaf4f6;
+  box-shadow: 0 10px 28px rgb(10 40 50 / 32%);
+  animation: rqtc-rise 0.15s ease-out;
+}
+/* 떠오르는 느낌 — 갑자기 나타나면 무엇이 바뀌었는지 눈이 못 따라간다 */
+@keyframes rqtc-rise {
+  from { opacity: 0; transform: translate(-50%, 10px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+.rqtc-act-n { font-size: var(--fs-sm); font-weight: 700; padding: 0 4px; }
+.rqtc-act-sep { width: 1px; height: 18px; background: rgb(255 255 255 / 28%); margin: 0 2px; }
+.rqtc-act button {
+  height: 26px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--c-sel-teal-ink);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+.rqtc-act button:hover:not(:disabled) { background: var(--c-sel-teal); }
+.rqtc-act button:disabled { opacity: 0.55; cursor: default; }
+/* 되돌릴 수 없는 것은 색으로도 갈라 둔다 */
+.rqtc-act button.danger { background: #c0392b; color: #fff; }
+.rqtc-act button.danger:hover:not(:disabled) { background: #a02b1f; }
+.rqtc-act button.x {
+  background: transparent;
+  color: rgb(255 255 255 / 78%);
+  padding: 0 6px;
+  font-weight: 400;
+}
+.rqtc-act button.x:hover { background: rgb(255 255 255 / 16%); color: #fff; }
