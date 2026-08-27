@@ -498,6 +498,32 @@
 /* 계정 없는 사람도 **고를 수 있다**(지시) — 역할을 넣어야 하기 때문이다.
    그래서 손 모양과 hover 를 되돌린다. 이름만 옅게 두어 「계정은 없다」 는
    것은 그대로 알아보게 한다. */
+/* 조직 고치기 손잡이 — 마우스를 올린 줄에서만. 늘 보이면 60줄에 단추가
+   180개라 조직도가 안 읽힌다. */
+.acc-orghd td { position: relative; }
+.acc-orgtools {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: none;
+  gap: 2px;
+}
+.acc-orghd:hover .acc-orgtools { display: inline-flex; }
+.acc-orgtools button {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--c-border);
+  border-radius: 5px;
+  background: var(--c-surface);
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+.acc-orgtools button:hover { border-color: var(--c-primary); color: var(--c-primary); }
+
 tr.noacct { cursor: pointer; }
 tr.noacct b { color: var(--c-text-faint); }
 

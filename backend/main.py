@@ -1677,6 +1677,137 @@ async def api_org_member_role(payload: dict, token: str = ""):
     return {"ok": True, "hit": hit}
 
 
+def _org_at(org: dict, path: list) -> dict | None:
+    """이름 길로 마디를 찾는다. 같은 이름이 여러 곳에 있어도(사업1담당 밑
+    네트워크사업1팀 처럼) 길로 찾으면 헷갈리지 않는다."""
+    cur = org
+    for step in (path or [])[1:]:
+        nxt = None
+        for c in (cur.get("children") or []):
+            if str(c.get("name")) == str(step):
+                nxt = c
+                break
+        if nxt is None:
+            return None
+        cur = nxt
+    return cur if not path or str(org.get("name")) == str(path[0]) else None
+
+
+@app.post("/api/org/node")
+async def api_org_node_add(payload: dict, token: str = ""):
+    """조직을 하나 만든다 — 고른 조직 **아래**에. 관리자만."""
+    _require_admin(token)
+    path = (payload or {}).get("path") or []
+    name = str((payload or {}).get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "조직 이름이 없습니다")
+    org = _kv_load_sync("org_tree", None)
+    if not isinstance(org, dict):
+        raise HTTPException(404, "조직도가 없습니다")
+    at = _org_at(org, path)
+    if at is None:
+        raise HTTPException(404, "그 조직을 못 찾았습니다")
+    kids = at.setdefault("children", [])
+    if any(str(c.get("name")) == name for c in kids):
+        raise HTTPException(400, f"「{name}」 은(는) 이미 있습니다")
+    kids.append({"name": name})
+    _kv_save_sync("org_tree", org)
+    return {"ok": True}
+
+
+@app.post("/api/org/rename")
+async def api_org_rename(payload: dict, token: str = ""):
+    """조직 이름을 바꾼다. 관리자만."""
+    _require_admin(token)
+    path = (payload or {}).get("path") or []
+    name = str((payload or {}).get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "새 이름이 없습니다")
+    org = _kv_load_sync("org_tree", None)
+    if not isinstance(org, dict):
+        raise HTTPException(404, "조직도가 없습니다")
+    at = _org_at(org, path)
+    if at is None:
+        raise HTTPException(404, "그 조직을 못 찾았습니다")
+    at["name"] = name
+    _kv_save_sync("org_tree", org)
+    return {"ok": True}
+
+
+@app.post("/api/org/delete-node")
+async def api_org_node_del(payload: dict, token: str = ""):
+    """**빈 조직만** 지운다. 관리자만.
+
+    사람이나 하위 조직이 든 마디를 지우면 그 사람들이 조직도에서 통째로
+    사라진다 — 되돌릴 방법이 없다. 비었을 때만 지우게 해, 잘못 만든 것을
+    치우는 데만 쓰이게 한다.
+    """
+    _require_admin(token)
+    path = (payload or {}).get("path") or []
+    if len(path) < 2:
+        raise HTTPException(400, "맨 위 조직은 못 지웁니다")
+    org = _kv_load_sync("org_tree", None)
+    if not isinstance(org, dict):
+        raise HTTPException(404, "조직도가 없습니다")
+    parent = _org_at(org, path[:-1])
+    if parent is None:
+        raise HTTPException(404, "그 조직을 못 찾았습니다")
+    gone = None
+    for c in (parent.get("children") or []):
+        if str(c.get("name")) == str(path[-1]):
+            gone = c
+            break
+    if gone is None:
+        raise HTTPException(404, "그 조직을 못 찾았습니다")
+    if (gone.get("members") or []) or (gone.get("children") or []) or gone.get("lead"):
+        raise HTTPException(400, "빈 조직만 지울 수 있습니다 — 먼저 사람을 옮기세요")
+    parent["children"] = [c for c in parent["children"] if c is not gone]
+    _kv_save_sync("org_tree", org)
+    return {"ok": True}
+
+
+@app.post("/api/org/move-member")
+async def api_org_move_member(payload: dict, token: str = ""):
+    """사람을 다른 조직으로 옮긴다. 관리자만.
+
+    직급·역할은 사람에게 붙은 것이라 그대로 들고 간다 — 옮겼다고 직급이
+    지워지면 옮기기가 두려운 기능이 된다.
+    """
+    _require_admin(token)
+    nm = str((payload or {}).get("name") or "").strip()
+    to = (payload or {}).get("to") or []
+    if not nm:
+        raise HTTPException(400, "이름이 없습니다")
+    org = _kv_load_sync("org_tree", None)
+    if not isinstance(org, dict):
+        raise HTTPException(404, "조직도가 없습니다")
+    dest = _org_at(org, to)
+    if dest is None:
+        raise HTTPException(404, "옮길 조직을 못 찾았습니다")
+
+    picked = None
+
+    def strip(n: dict):
+        nonlocal picked
+        keep = []
+        for m in (n.get("members") or []):
+            if str(m.get("name") or "").strip() == nm and picked is None:
+                picked = m
+            else:
+                keep.append(m)
+        if n.get("members") is not None:
+            n["members"] = keep
+        for c in (n.get("children") or []):
+            strip(c)
+
+    strip(org)
+    if picked is None:
+        raise HTTPException(404, f"조직도에 「{nm}」 이(가) 없습니다")
+    dest.setdefault("members", []).append(picked)
+    _kv_save_sync("org_tree", org)
+    return {"ok": True, "to": dest.get("name")}
+
+
 def _apply_org_roles(org: dict) -> dict:
     """조직도의 **장**을 계정 역할 「담당」 으로 맞춘다.
 

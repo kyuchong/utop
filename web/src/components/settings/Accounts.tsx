@@ -83,6 +83,10 @@ interface LoginCheck {
 type StFilter = 'all' | 'active' | 'off' | 'jira' | 'local'
 
 /** 조직도 한 마디 — 회사·그룹·담당·팀. 잎에 사람이 달린다 */
+/** 계정 이름의 꼬리를 뗀다 — 「강경묵(생산)」 → 「강경묵」. 조직도는 꼬리
+    없는 이름을 쓰므로, 옮길 때 이 이름으로 찾는다. */
+const nameOnly = (v?: string) => (String(v ?? '').split(/[([_]/)[0] ?? '').trim()
+
 interface OrgNode {
   name: string
   count?: number
@@ -351,6 +355,44 @@ export default function Accounts() {
     () => rows.filter((u) => !orgNames.has(nameKey(u.name || u.username))),
     [rows, orgNames],
   )
+
+  /* 조직도 고치기 — 만들기·이름 바꾸기·지우기·사람 옮기기. 한 곳으로 모아
+     둔다: 넷 다 조직도 하나를 고쳐 다시 읽는 같은 일이다. */
+  const orgEdit = useMutation({
+    mutationFn: async (b: { at: string; body: unknown }) => {
+      const r = await apiFetch(`/api/org/${b.at}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(b.body),
+      })
+      if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { detail?: string }).detail || '고치지 못했습니다')
+      return r.json()
+    },
+    onSuccess: () => void orgQ.refetch(),
+    onError: (e) => window.alert(String((e as Error).message)),
+  })
+  /** 옮길 곳 고르기용 — 모든 조직의 이름 길 */
+  const orgPaths = useMemo(() => {
+    const out: Array<{ path: string[]; label: string }> = []
+    const walk = (n: OrgNode, path: string[]) => {
+      const p = [...path, n.name]
+      if (p.length > 1) out.push({ path: p, label: p.slice(1).join(' › ') })
+      for (const c of n.children ?? []) walk(c, p)
+    }
+    if (org) walk(org, [])
+    return out
+  }, [org])
+  /** 이 사람이 지금 어느 조직에 있나 — 옮기기 칸의 처음 값 */
+  const orgOf = useMemo(() => {
+    const m = new Map<string, string>()
+    const walk = (n: OrgNode, path: string[]) => {
+      const p = [...path, n.name]
+      for (const x of n.members ?? []) m.set(nameKey(x.name), p.slice(1).join(' › '))
+      for (const c of n.children ?? []) walk(c, p)
+    }
+    if (org) walk(org, [])
+    return m
+  }, [org])
 
   const setOrgRole = useMutation({
     mutationFn: async (b: { name: string; role: string }) => {
@@ -641,6 +683,8 @@ export default function Accounts() {
                       setAtOrg(p)
                     }}
                     orgRole={orgRole}
+                    path={[]}
+                    onOrgEdit={(at, body) => orgEdit.mutate({ at, body })}
                     q={q}
                   />
                 ) : null}
@@ -749,6 +793,26 @@ export default function Accounts() {
                 ))}
               </select>
             </label>
+            {/* 조직 옮기기 — 조직도의 사람 칸을 통째로 옮긴다. 직급·역할은
+                사람에게 붙은 것이라 그대로 따라간다. */}
+            <label className="acc-fld">
+              <span>조직</span>
+              <select
+                value={orgOf.get(nameKey(atOrg.name)) ?? ''}
+                disabled={orgEdit.isPending}
+                onChange={(e) => {
+                  const p = orgPaths.find((x) => x.label === e.target.value)
+                  if (p) orgEdit.mutate({ at: 'move-member', body: { name: atOrg.name, to: p.path } })
+                }}
+              >
+                <option value="">(조직도에 없음)</option>
+                {orgPaths.map((p) => (
+                  <option key={p.label} value={p.label}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             {setOrgRole.isError && (
               <p className="muted small">저장 실패 — {String(setOrgRole.error)}</p>
             )}
@@ -822,6 +886,26 @@ export default function Accounts() {
                 {roles.map((r) => (
                   <option key={r} value={r}>
                     {r}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {/* 조직 옮기기 — 조직도의 사람 칸을 통째로 옮긴다. 직급·역할은
+                사람에게 붙은 것이라 그대로 따라간다. */}
+            <label className="acc-fld">
+              <span>조직</span>
+              <select
+                value={orgOf.get(nameKey(cur.name || cur.username)) ?? ''}
+                disabled={orgEdit.isPending}
+                onChange={(e) => {
+                  const p = orgPaths.find((x) => x.label === e.target.value)
+                  if (p) orgEdit.mutate({ at: 'move-member', body: { name: nameOnly(cur.name || cur.username), to: p.path } })
+                }}
+              >
+                <option value="">(조직도에 없음)</option>
+                {orgPaths.map((p) => (
+                  <option key={p.label} value={p.label}>
+                    {p.label}
                   </option>
                 ))}
               </select>
@@ -907,6 +991,8 @@ function OrgRows({
   atOrg,
   onPickOrg,
   orgRole,
+  path,
+  onOrgEdit,
   q,
 }: {
   node: OrgNode
@@ -918,6 +1004,9 @@ function OrgRows({
   atOrg: string
   onPickOrg: (p: { name: string; rank: string; org: string }) => void
   orgRole: Map<string, string>
+  /** 뿌리부터 이 마디까지의 이름 길 — 같은 이름이 여러 곳에 있어도 안 헷갈린다 */
+  path: string[]
+  onOrgEdit: (at: string, body: unknown) => void
   at: string
   onPick: (u: User) => void
   q: string
@@ -932,9 +1021,12 @@ function OrgRows({
   const showMem = mem
     .filter((m) => keep(m.name))
     .filter((m) => (n ? m.name.toLowerCase().includes(n) : true))
-  /* 사람이 하나도 없는 마디는 내지 않는다(지시: 0 은 제거).
-     아래 가지까지 세므로, 제 몫은 없어도 아래에 사람이 있으면 남는다. */
-  if (total === 0) return null
+  const me = [...path, node.name]
+  /* 사람이 없는 마디는 **찾는 중일 때만** 감춘다.
+     예전엔 늘 감췄는데(지시: 0 은 제거), 그러면 방금 만든 조직이 곧바로
+     사라져 사람을 옮겨 넣을 수가 없다 — 만들기가 쓸모없는 기능이 된다.
+     찾을 때는 걸린 것만 보여야 하므로 그때는 그대로 감춘다. */
+  if (total === 0 && n) return null
   /* 찾는 중에는 걸린 것이 없는 가지를 접어 둔다 — 빈 마디만 늘어놓지 않게 */
   if (n && !hasHit(node, n)) return null
 
@@ -948,6 +1040,42 @@ function OrgRows({
             <em>{total}</em>
             {lead && <span className="acc-lead">— {lead.name} {lead.rank}</span>}
           </button>
+          {/* 조직 고치기 — 마우스를 올린 줄에서만 뜬다. 늘 보이면 60줄에
+              단추가 180개라 조직도가 안 읽힌다. */}
+          <span className="acc-orgtools">
+            <button
+              type="button"
+              title="하위 조직 만들기"
+              onClick={() => {
+                const nm = window.prompt(`「${node.name}」 아래에 만들 조직 이름`)?.trim()
+                if (nm) onOrgEdit('node', { path: me, name: nm })
+              }}
+            >
+              ＋
+            </button>
+            <button
+              type="button"
+              title="이름 바꾸기"
+              onClick={() => {
+                const nm = window.prompt('새 조직 이름', node.name)?.trim()
+                if (nm && nm !== node.name) onOrgEdit('rename', { path: me, name: nm })
+              }}
+            >
+              ✎
+            </button>
+            {depth > 0 && (
+              <button
+                type="button"
+                title="빈 조직 지우기"
+                onClick={() => {
+                  if (window.confirm(`「${node.name}」 을(를) 지웁니다. 계속할까요?`))
+                    onOrgEdit('delete-node', { path: me })
+                }}
+              >
+                ×
+              </button>
+            )}
+          </span>
         </td>
       </tr>
       {open && (
@@ -1018,6 +1146,8 @@ function OrgRows({
               atOrg={atOrg}
               onPickOrg={onPickOrg}
               orgRole={orgRole}
+              path={me}
+              onOrgEdit={onOrgEdit}
               q={q}
             />
           ))}
