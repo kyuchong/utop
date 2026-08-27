@@ -39,6 +39,15 @@
   font-weight: 800;
 }
 .app-top-brand { font-weight: 800; font-size: 16px; letter-spacing: -0.01em; }
+/* 제품 이름과 프로젝트 사이 세로 가름선.
+   어두운 바탕이라 선도 흰색의 낮은 투명도로 — 회색을 쓰면 바탕에 묻힌다. */
+.app-top-div {
+  flex: none;
+  width: 1px;
+  height: 22px;
+  margin: 0 2px;
+  background: rgb(255 255 255 / 26%);
+}
 .app-top-who { font-size: var(--fs-sm); color: rgb(255 255 255 / 80%); }
 
 .app-body {

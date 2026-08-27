@@ -170,6 +170,10 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
             </span>
           )}
           <span className="app-top-brand">{brand.name || 'ubiQuoss'} Test Orchestration Platform</span>
+          {/* 가름선 — 「이 도구가 무엇인가」(왼쪽)와 「지금 무엇을 보고
+              있나」(오른쪽)를 나눈다. 제품 이름과 프로젝트 이름이 붙어
+              있으면 한 덩어리로 읽혀, 프로젝트가 이름의 일부처럼 보인다. */}
+          <span className="app-top-div" aria-hidden="true" />
           <ProjectPicker />
           <span className="sp" />
           {/* 알림 — 왼쪽 메뉴 맨 아래에 있던 것을 여기로 올렸다(지시).
