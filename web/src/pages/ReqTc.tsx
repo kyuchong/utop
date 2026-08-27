@@ -184,7 +184,23 @@ export default function ReqTc({ me }: Props) {
 
   /* INFO 열 — **설정이 정본**이다(useInfoCols 가 이름·폭을 들고 온다).
      어느 열을 볼지는 사람마다 다르니 이 브라우저에 기억한다. */
-  const infoCols = useInfoCols(mode === 'req' ? 'req' : 'tc')
+  const infoColsAll = useInfoCols(mode === 'req' ? 'req' : 'tc')
+  /* **이미 표에 서 있는 칸은 목록에서 뺀다.** 안 빼면 골랐을 때 같은 값이
+     두 번 나온다(지적: 상태·우선순위가 또 추가된다). 요구사항 화면은 그
+     칸들을 INFO 로만 내지만, 이 표는 고정 칸으로 늘 갖고 있다. */
+  const FIXED_COLS = useMemo(
+    () =>
+      new Set(
+        mode === 'req'
+          ? ['model_group', 'model', 'status', 'priority']
+          : ['model_group', 'model', 'type', 'status', 'severity', 'run_type', 'origin'],
+      ),
+    [mode],
+  )
+  const infoCols = useMemo(
+    () => infoColsAll.filter((c) => !FIXED_COLS.has(c.k)),
+    [infoColsAll, FIXED_COLS],
+  )
   const [showCols, setShowCols] = useState<Set<string>>(() => {
     try {
       const raw = localStorage.getItem('utop.reqtc.infocols')
