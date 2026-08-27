@@ -172,6 +172,10 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
           <span className="app-top-brand">{brand.name || 'ubiQuoss'} Test Orchestration Platform</span>
           <ProjectPicker />
           <span className="sp" />
+          {/* 알림 — 왼쪽 메뉴 맨 아래에 있던 것을 여기로 올렸다(지시).
+              소식은 어느 화면에 있든 눈에 걸려야 하는데, 메뉴 맨 아래는
+              접으면 아이콘만 남고 스크롤 밖으로 밀리기도 했다. */}
+          <NotifyBell collapsed />
           {/* 「나」 단추 — 이름만 적혀 있었다(지시: 받은 그림처럼).
               글자만 있으면 누를 수 있는지 몰라, 로그아웃하려면 왼쪽 메뉴 맨
               아래까지 내려가야 했다. */}
@@ -216,32 +220,13 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
             </div>
           ))}
 
-          {/* 아래쪽 — 내 장비 현황과 사용자. 오른쪽 위 구석은 눈이 잘 가지
-              않아 상단바에서 여기로 내렸다. 메뉴를 접어도 아이콘으로 남는다. */}
+          {/* 아래쪽 — 내 장비 현황만 남는다.
+              계정과 알림은 **상단바 오른쪽**으로 올렸다(지시). 같은 것이 두
+              곳에 있으면 어느 쪽이 진짜인지 헷갈리고, 로그아웃하려고 메뉴
+              맨 아래까지 내려가야 했다. */}
           <div className="nav-foot">
-            {/* 알림 종 — 자리 비운 사이의 저장·실행·결함 소식이 쌓인다 */}
-            <NotifyBell collapsed={collapsed} />
             <div className="nav-status">
               <TopStatus me={user} />
-            </div>
-            <div className="nav-user">
-              <div className="nav-user-face" title={user?.name || user?.username || ''}>
-                {(user?.name || user?.username || '?').slice(0, 1)}
-              </div>
-              <div className="nav-user-who">
-                <div className="nav-user-name">{user?.name || user?.username || '알 수 없음'}</div>
-                {user?.role && user.role !== (user.name || user.username) && (
-                  <div className="muted small">{user.role}</div>
-                )}
-              </div>
-              <button
-                type="button"
-                className="nav-user-out"
-                title="로그아웃"
-                onClick={onLogout}
-              >
-                ⏻
-              </button>
             </div>
 
             {/* 접기 — **맨 아래, 사용자 밑**(지시). 위 구석에 있던 것을 내렸다.

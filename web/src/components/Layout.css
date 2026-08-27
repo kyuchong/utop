@@ -252,9 +252,12 @@
   color: var(--c-nav-fg-strong);
 }
 
-/* 지금 보는 화면 — 왼쪽에 강조 띠 하나 두고 밝게. */
+/* 지금 보는 화면 — **흰 판**으로 도드라진다(지시).
+   청록 바탕 위에서 12% 짜리 옅은 얼룩은 「눌러 둔 것」 으로 안 읽혔다.
+   본문 카드가 흰색이니, 고른 메뉴가 흰색이면 그 카드와 한 줄기로 이어져
+   「여기를 보고 있다」 가 모양으로 드러난다. */
 .nav-item.on {
-  background: rgb(18 80 94 / 12%);
+  background: var(--c-surface);
   color: var(--c-nav-fg-strong);
   font-weight: 700;
   box-shadow: inset 3px 0 0 var(--c-primary);
@@ -291,7 +294,7 @@
 .app.nav-collapsed .nav-item.on,
 .app.nav-collapsed .nav-item.on[data-key] {
   box-shadow: none;
-  background: rgb(255 255 255 / 72%);
+  background: var(--c-surface);
 }
 .app.nav-collapsed .nav-item.on::before {
   content: '';
