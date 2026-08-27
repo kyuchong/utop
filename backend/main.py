@@ -11933,6 +11933,35 @@ async def _db_init():
     except Exception as _se:
         print(f"[startup] 조직도 씨앗 실패: {_se}", flush=True)
 
+    # 역할 씨앗 — **딱 한 번만** 심는다.
+    #
+    # 팀장 24 · 담당 18 은 사람이 손으로 정한 값이다(role_by 가 비어 있다).
+    # 조직도처럼 다시 만들어 낼 수 없어, 아이디→역할 명단을 씨앗으로 싣는다.
+    #
+    # 두 가지를 지킨다.
+    #  · **팀원인 사람만** 올린다 — 이미 정해 둔 역할을 배포가 덮으면 안 된다.
+    #    관리자는 손도 안 댄다(내리면 그 사람이 화면을 못 쓴다).
+    #  · 한 번 심고 표식을 남긴다. 안 그러면 253 에서 누군가를 일부러 팀원으로
+    #    되돌려도 다음 재시작이 도로 올려, 고쳐도 소용없는 화면이 된다.
+    try:
+        _rd = _users_load_sync()
+        if not _rd.get("role_seed_v1"):
+            _rs = Path(__file__).parent / "seed" / "roles.json"
+            _seeded = 0
+            if _rs.exists():
+                _want = json.loads(_rs.read_text(encoding="utf-8"))
+                for _u in _rd["users"]:
+                    _r = _want.get(_u.get("username"))
+                    if _r and _u.get("role") == "팀원":
+                        _u["role"] = _r
+                        _seeded += 1
+            _rd["role_seed_v1"] = True
+            _users_save_sync(_rd)
+            if _seeded:
+                print(f"[startup] 역할 씨앗 {_seeded}명 심음", flush=True)
+    except Exception as _re2:
+        print(f"[startup] 역할 씨앗 실패: {_re2}", flush=True)
+
     # 조직도의 장 → 계정 역할 「담당」 을 **한 번 맞춘다**. 저장할 때만 맞추면
     # 이미 들어 있는 조직도는 아무도 다시 저장하기 전까지 표(담당)와 편집판
     # (팀원)이 어긋난 채로 남는다(지적). 관리자는 안 내린다.
