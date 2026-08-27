@@ -221,26 +221,11 @@ export default function JiraPanels() {
                 <b>{p.key}</b>
                 <span className="muted">{p.name}</span>
                 <span className="sp" />
-                {/* 줄마다 스위치 — 프로젝트를 고르지 않고도 켜고 끈다(사진).
-                    고르고 → 위 카드에서 켜는 두 걸음이 매번 걸린다. */}
-                <button
-                  type="button"
-                  className={`jp-mini${tmpl[p.key]?.auto ? ' on' : ''}`}
-                  title="Fail 자동 이슈 등록"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    const t = tmpl[p.key] ?? {}
-                    const next = { ...tmpl, [p.key]: { ...t, auto: !t.auto } }
-                    setTmpl(next)
-                    void apiFetch('/api/jira/config', {
-                      method: 'POST',
-                      body: JSON.stringify({ panel_templates: next }),
-                    })
-                  }}
-                >
-                  <i />
-                </button>
-                {tmpl[p.key] && <span className="jp-tag">설정됨</span>}
+                {/* 줄마다 스위치는 뺐다(지시) — 목록에 스위치가 마흔 개면
+                    프로젝트를 고르러 온 눈이 그것부터 본다. 켜고 끄는 일은
+                    위 카드의 스위치 하나로 한다. */}
+                {tmpl[p.key]?.auto && <span className="jp-tag on">자동</span>}
+                {tmpl[p.key] && !tmpl[p.key]?.auto && <span className="jp-tag">설정됨</span>}
               </div>
             ))
           )}

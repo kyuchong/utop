@@ -622,9 +622,18 @@
   flex: 1;
   min-width: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  /* Defect 와 CR 은 **나란히**(지시). auto-fit 은 칸이 260px 을 못 채우면
+     한 줄로 접는데, 필드 기본값이 붙으면서 그 폭을 못 채워 세로로 쌓였다.
+     둘로 못 박고, 「보낼 장비 모델」 만 아래 한 줄을 다 쓴다 — 두 종류를
+     견주며 보는 것이 이 화면의 일이라 그 둘이 갈라지면 안 된다. */
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
   align-items: start;
+}
+.jp-models { grid-column: 1 / -1; }
+/* 정말 좁을 때만 접는다 — 접으면 견주기가 안 되므로 마지막 수단이다 */
+@media (max-width: 900px) {
+  .jp-kinds { grid-template-columns: 1fr; }
 }
 .jp-kind { padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; }
 .jp-kh { display: flex; align-items: center; gap: 6px; }
@@ -1772,32 +1781,7 @@ button.dcc-st:disabled { cursor: default; }
   .brand-mdrow { grid-template-columns: 1fr; }
 }
 
-/* ── Jira 패널 설정 — 줄마다 스위치 · 필드 기본값 ────────────────
-   프로젝트를 고르지 않고도 자동 등록을 켜고 끈다. 고르고 → 위 카드에서
-   켜는 두 걸음이 매번 걸렸다. */
-.jp-mini {
-  flex: none;
-  width: 34px;
-  height: 19px;
-  padding: 2px;
-  border: 0;
-  border-radius: 10px;
-  background: #d7dce3;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.jp-mini.on { background: var(--c-primary); }
-.jp-mini i {
-  display: block;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 25%);
-  transition: transform 0.15s;
-}
-.jp-mini.on i { transform: translateX(15px); }
-
+/* ── Jira 패널 설정 — 필드 기본값 ─────────────────────────────── */
 /* 칸 안의 작은 머리 — 「표시 패널」·「필드 기본값」 */
 .jp-sub {
   display: flex;
