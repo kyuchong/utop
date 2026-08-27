@@ -288,6 +288,36 @@ export default function Accounts() {
   const findAcct = (nm: string) =>
     acctBy.get(nameKey(nm)) ?? acctBy.get(nameKey(nm.replace(/\d+$/, '')))
 
+  /* 왼쪽 레일의 상태·역할·소속 필터를 **조직도 표에도** 먹인다.
+     표가 조직도로 바뀌면서 OrgRows 가 검색어만 보고 있었다 — 그래서
+     「Jira 계정」·「UTOP 계정」 을 눌러도 표가 그대로였다(지적). */
+  const okNames = useMemo(() => {
+    const s = new Set<string>()
+    for (const u of all) {
+      if (hideRetired && st !== 'off' && (u.retired ?? u.jira_active === false)) continue
+      if (st === 'active' && u.active === false) continue
+      if (st === 'off' && u.active !== false) continue
+      if (st === 'jira' && u.source !== 'jira') continue
+      if (st === 'local' && u.source === 'jira') continue
+      if (role && u.role !== role) continue
+      if (dept && String(u.dept || '') !== dept) continue
+      s.add(nameKey(u.name || u.username))
+    }
+    return s
+  }, [all, st, role, dept, hideRetired])
+  /* 좁히지 않았을 땐 **계정 없는 사람도 남긴다** — 「누가 아직 UTOP 을 안
+     쓰나」 가 이 표의 값어치다. 좁혔을 땐 계정의 성질을 묻는 것이므로
+     계정 없는 사람은 답이 없어 빠진다. (퇴사 숨김은 좁힘으로 안 친다) */
+  const narrow = st !== 'all' || !!role || !!dept
+  const keep = useMemo(() => {
+    const f = (nm: string) => {
+      const u = acctBy.get(nameKey(nm)) ?? acctBy.get(nameKey(nm.replace(/\d+$/, '')))
+      if (!u) return !narrow
+      return okNames.has(nameKey(u.name || u.username))
+    }
+    return f
+  }, [acctBy, okNames, narrow])
+
   const org = orgQ.data ?? null
 
   /** 접어 둔 조직 */
@@ -557,6 +587,7 @@ export default function Accounts() {
                     shut={shutOrg}
                     onToggle={toggleOrg}
                     findAcct={findAcct}
+                    keep={keep}
                     at={at}
                     onPick={pick}
                     q={q}
@@ -731,6 +762,7 @@ function OrgRows({
   shut,
   onToggle,
   findAcct,
+  keep,
   at,
   onPick,
   q,
@@ -740,18 +772,21 @@ function OrgRows({
   shut: Set<string>
   onToggle: (k: string) => void
   findAcct: (nm: string) => User | undefined
+  keep: (nm: string) => boolean
   at: string
   onPick: (u: User) => void
   q: string
 }) {
   const key = `${depth}:${node.name}`
   const open = !shut.has(key) || !!q.trim()
-  const total = countOf(node)
+  const total = countOf(node, keep)
   const kids = node.children ?? []
   const mem = node.members ?? []
   const lead = leadOf(node)
   const n = q.trim().toLowerCase()
-  const showMem = n ? mem.filter((m) => m.name.toLowerCase().includes(n)) : mem
+  const showMem = mem
+    .filter((m) => keep(m.name))
+    .filter((m) => (n ? m.name.toLowerCase().includes(n) : true))
   /* 사람이 하나도 없는 마디는 내지 않는다(지시: 0 은 제거).
      아래 가지까지 세므로, 제 몫은 없어도 아래에 사람이 있으면 남는다. */
   if (total === 0) return null
@@ -774,7 +809,7 @@ function OrgRows({
         <>
           {/* 장(長)도 **계정 줄**로 낸다(지시) — 이름표만 있으면 그 사람의
               계정·역할·메일을 알 수 없다. 「장」 표를 달아 팀원과 가른다. */}
-          {lead && (!n || lead.name.toLowerCase().includes(n)) && (() => {
+          {lead && keep(lead.name) && (!n || lead.name.toLowerCase().includes(n)) && (() => {
             const u = findAcct(lead.name)
             return (
               <tr
@@ -826,6 +861,7 @@ function OrgRows({
               shut={shut}
               onToggle={onToggle}
               findAcct={findAcct}
+              keep={keep}
               at={at}
               onPick={onPick}
               q={q}
@@ -852,15 +888,19 @@ function leadOf(n: OrgNode): { name: string; rank: string } | null {
  * 올라 있으면(권종혁), 그냥 더하면 한 사람이 두 번 세인다. 이름으로 세면
  * 받은 조직도의 숫자와 그대로 맞는다(ISP사업그룹 8 · 연구소 67).
  */
-function namesIn(n: OrgNode, into: Set<string> = new Set()): Set<string> {
+function namesIn(
+  n: OrgNode,
+  keep: (nm: string) => boolean,
+  into: Set<string> = new Set(),
+): Set<string> {
   const L = leadOf(n)
-  if (L) into.add(L.name)
-  for (const m of n.members ?? []) into.add(m.name)
-  for (const c of n.children ?? []) namesIn(c, into)
+  if (L && keep(L.name)) into.add(L.name)
+  for (const m of n.members ?? []) if (keep(m.name)) into.add(m.name)
+  for (const c of n.children ?? []) namesIn(c, keep, into)
   return into
 }
-function countOf(n: OrgNode): number {
-  return namesIn(n).size
+function countOf(n: OrgNode, keep: (nm: string) => boolean): number {
+  return namesIn(n, keep).size
 }
 
 /** 찾는 글자가 이 가지 어딘가에 있나 */

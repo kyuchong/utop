@@ -11873,6 +11873,18 @@ async def _db_init():
         _kv_register_fallback(_key, _fp)
         try: await _kv_init_async(_key, _fp, sizeguard=True)
         except Exception as _me: print(f"[startup] KV migrate '{_key}' failed: {_me}", flush=True)
+    # 조직도의 장 → 계정 역할 「담당」 을 **한 번 맞춘다**. 저장할 때만 맞추면
+    # 이미 들어 있는 조직도는 아무도 다시 저장하기 전까지 표(담당)와 편집판
+    # (팀원)이 어긋난 채로 남는다(지적). 관리자는 안 내린다.
+    try:
+        _org = _kv_load_sync("org_tree", None)
+        if isinstance(_org, dict) and _org.get("name"):
+            _r = _apply_org_roles(_org)
+            if _r.get("role_up") or _r.get("role_down"):
+                print(f"[startup] 조직 역할 맞춤: {_r}", flush=True)
+    except Exception as _oe:
+        print(f"[startup] 조직 역할 맞춤 실패: {_oe}", flush=True)
+
     # ai_usage/ai_feedback 는 _load_items_store(path) 우회 매핑 등록
     _ITEMS_STORE_KV_MAP[str(AI_USAGE_FILE)] = "ai_usage"
     _ITEMS_STORE_KV_MAP[str(FEEDBACK_FILE)] = "ai_feedback"
