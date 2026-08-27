@@ -285,14 +285,15 @@
 
 /* ── 표 ── */
 .rqtc-tbl { flex: 1; min-height: 0; overflow: auto; }
+/* **엑셀 표처럼**(지시) — 칸마다 세로선, 줄마다 가로선.
+   칸 사이 여백(gap)은 0 이다: 격자에 틈을 주면 그 틈에는 선을 그을 수 없어
+   표가 안 닫힌다. 여백은 칸 **안쪽**으로 옮겼다(좌우 8px). */
 .rqtc-tr {
   display: grid;
   grid-template-columns: 52px minmax(0, 1fr) 100px 80px 68px 68px 62px 54px 60px 70px 108px;
-  align-items: center;
-  /* 칸 사이 8 → 4px. 칩은 글자만큼만 넓어서, 칸이 넓으면 칩 사이가 휑하니
-     벌어져 세 칸이 서로 딴 줄처럼 보인다(지적: 더 줄여). */
-  gap: 4px;
-  padding: 6px 12px;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
   border-bottom: 1px solid var(--c-border);
   font-size: var(--fs-md);
   cursor: pointer;
@@ -302,9 +303,21 @@
    칩은 글자만큼만 넓어(미커버 52 · 작성중 52 · Medium 62) 칸이 그보다
    넓으면 그만큼이 빈 자리로 남는다(지적: 더 줄여). 여기가 바닥이다 —
    더 좁히면 「미커버」 가 잘린다. */
-.rqtc-tr:not(.tc) { grid-template-columns: 28px minmax(0, 1fr) 104px 80px 56px 60px 68px; }
+.rqtc-tr:not(.tc) { grid-template-columns: 52px minmax(0, 1fr) 104px 80px 56px 60px 68px; }
+/* 칸 — 세로 가름선과 안쪽 여백. 줄 높이도 여기서 정해진다.
+   칩(미커버·Draft·Medium)이 20px 이라 22px 아래로는 못 내린다. */
+.rqtc-tr > div {
+  display: flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 1px 8px;
+  border-right: 1px solid var(--c-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rqtc-tr > div:last-child { border-right: 0; }
 .rqtc-tr > div > * { min-width: 0; }
-.rqtc-tr > div { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rqtc-tr:not(.rqtc-th):hover { background: var(--c-primary-bg); }
 .rqtc-th {
   position: sticky;
@@ -600,7 +613,5 @@
 }
 
 
-/* 표 바깥도 닫는다 — 엑셀의 판은 네 변이 다 선이다. 오른쪽 끝 칸의
-   세로선만 지워, 테두리와 두 줄로 겹치지 않게 한다. */
-.rqtc-tr:last-child { border-bottom: 0; }
-.rqtc-th > div { border-right-color: var(--c-border); }
+/* 표 바깥도 닫는다 — 엑셀의 판은 네 변이 다 선이다 */
+.rqtc-tbl { border: 1px solid var(--c-border); border-radius: 4px; }
