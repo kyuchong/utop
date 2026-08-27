@@ -163,10 +163,16 @@
 .rqtc-fico { flex: none; font-size: 18px; display: inline-flex; align-items: center; }
 .rqtc-fico svg { width: 20px; height: 20px; }
 .rqtc-fnm { overflow: hidden; text-overflow: ellipsis; }
-/* R·T 배지 — 요구사항 수 · 시험 수 */
-.rqtc-rt { margin-left: auto; flex: none; font-size: var(--fs-xs); color: var(--c-text-faint); }
-.rqtc-rt i { font-style: normal; opacity: 0.65; margin-right: 2px; margin-left: 6px; }
-.rqtc-rt i:first-child { margin-left: 0; }
+/* 개수 — 「이름 (요구사항 / 시험)」. 이름 **바로 옆**에 붙는다(지시).
+   오른쪽 끝으로 밀면 이름과 숫자 사이가 비어, 어느 줄의 숫자인지 눈이 한
+   번 더 짚어야 한다. */
+.rqtc-rt {
+  flex: none;
+  margin-left: 5px;
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  font-variant-numeric: tabular-nums;
+}
 /* 덮이지 않은 폴더 — 트리만 훑어도 구멍이 보인다 */
 .rqtc-rt.bare { color: #a02323; font-weight: 700; }
 
@@ -221,7 +227,14 @@
   font-weight: 700;
   cursor: pointer;
 }
-.rqtc-seg button.on { background: var(--c-primary); color: #fff; }
+/* 고른 칸과 ＋ New 는 **상단바와 같은 색**(지시). 파랑을 따로 쓰면 화면에
+   파랑이 둘(상단바 청록 · 단추 파랑)이라 어느 쪽이 이 화면의 색인지 흐려진다. */
+.rqtc-seg button.on { background: var(--c-app-top); color: #fff; }
+.rqtc-bar .btn.primary {
+  background: var(--c-app-top);
+  border-color: var(--c-app-top);
+}
+.rqtc-bar .btn.primary:hover { background: #0d4451; border-color: #0d4451; }
 .rqtc-q.top { width: 240px; }
 /* 「이 요구사항만」 걸린 표시 — 안 보이면 왜 몇 건뿐인지 모른다 */
 .rqtc-scope {

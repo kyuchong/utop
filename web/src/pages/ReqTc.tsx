@@ -238,11 +238,12 @@ export default function ReqTc({ me }: Props) {
                   {depth === 0 ? '🗂' : '📁'}
                 </span>
                 <span className="rqtc-fnm">{c.name}</span>
-                {/* 덮이지 않은 폴더는 T 를 붉게 — 트리만 훑어도 구멍이 보인다 */}
+                {/* 개수는 **이름 바로 오른쪽**에 붙인다(지시) — 오른쪽 끝에
+                    밀어 두면 폴더 이름과 숫자 사이가 비어, 어느 줄의 숫자인지
+                    눈이 한 번 더 짚어야 한다.
+                    덮이지 않은 폴더는 붉게 — 트리만 훑어도 구멍이 보인다 */}
                 <span className={`rqtc-rt${n.r > 0 && n.t === 0 ? ' bare' : ''}`}>
-                  <i>R</i>
-                  {n.r} <i>T</i>
-                  {n.t}
+                  ({n.r} / {n.t})
                 </span>
               </div>
               {on && <Tree parent={c.id} depth={depth + 1} />}
@@ -333,8 +334,12 @@ export default function ReqTc({ me }: Props) {
                 </span>
                 <span className="rqtc-fnm">전체</span>
                 <span className="rqtc-rt">
-                  <i>R</i>
-                  {reqs.filter(inPrj).length}
+                  ({reqs.filter(inPrj).length} /{' '}
+                  {tcs.filter((t) => {
+                    const r = reqById.get(String(t.req_id ?? ''))
+                    return !!r && inPrj(r)
+                  }).length}
+                  )
                 </span>
               </div>
               <Tree parent={null} depth={0} />

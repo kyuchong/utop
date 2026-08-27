@@ -18,7 +18,7 @@
   gap: 14px;
   height: 48px;
   padding: 0 14px;
-  background: #12505e;
+  background: var(--c-app-top);
   color: #eaf4f6;
 }
 .app-top .sp { flex: 1; }
@@ -64,7 +64,9 @@
   /* 좌우 6px. 150px 안에 「Requirements」(굵게 87px)가 … 없이 들어가야
      한다(지적: 글자가 잘린다). 6+6 판 + 8+8 항목 + 18 아이콘 + 8 사이 +
      87 글자 = 141px — 9px 남는다. */
-  padding: 4px 6px var(--sp-4);
+  /* 오른쪽 여백은 2px — 메뉴바와 첫 카드 사이가 벌어져 보였다(지적).
+     왼쪽만 6px 로 남겨 아이콘이 화면 끝에 붙지 않게 한다. */
+  padding: 4px 2px var(--sp-4) 6px;
   /* 접힘 툴팁이 메뉴 바깥으로 나가야 하므로 자르지 않는다.
      항목이 화면 높이를 넘길 만큼 늘어나면 안쪽 래퍼에 스크롤을 주고
      툴팁을 position:fixed 로 바꿔야 한다. */
@@ -333,8 +335,9 @@
 .main {
   flex: 1;
   min-width: 0;
-  /* 상단바와 카드 사이는 좁게(지시) — 8px 이던 위 여백을 4px 로. */
-  padding: 4px var(--sp-3) var(--sp-3);
+  /* 상단바와 카드 사이는 좁게(지시) — 8px 이던 위 여백을 4px 로.
+     왼쪽도 4px — 메뉴바가 이미 제 여백을 갖고 있어 12px 은 겹친다. */
+  padding: 4px var(--sp-3) var(--sp-3) 4px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
