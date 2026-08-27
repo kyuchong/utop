@@ -797,3 +797,32 @@
   border-color: transparent;
   color: #fff;
 }
+
+/* ── 2열이 요구사항 한 건이 될 때(지시) ─────────────────────────
+   제목을 누르면 표 자리에 그 요구사항 화면이 선다. 1열 폴더는 그대로 남아
+   옆 것으로 넘어가기 쉽다. */
+.rqtc-one { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.rqtc-onehead {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--c-border);
+}
+.rqtc-onehead .sp { flex: 1; }
+.rqtc-onetitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 제목 — 표에서 누르는 자리다. 평소엔 글자처럼 두고 올리면 밑줄로 말한다 */
+.rqtc-rtitle.as-link {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rqtc-rtitle.as-link:hover { text-decoration: underline; color: var(--c-primary); }

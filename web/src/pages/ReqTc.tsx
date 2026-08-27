@@ -359,6 +359,12 @@ export default function ReqTc({ me }: Props) {
   const [newOpen, setNewOpen] = useState(false)
   /** 링크 복사 알림 — 눌렀는데 아무 일도 없으면 됐는지 알 수 없다 */
   const [copied, setCopied] = useState(false)
+  /* 제목을 누르면 2열이 **그 요구사항 화면**이 된다(지시) — 팝업이 아니다.
+     ID 는 팝업, 제목은 이 화면. 둘이 같은 부품(ReqBody)을 쓴다. */
+  const [openReq, setOpenReq] = useState('')
+  const [openTab, setOpenTab] = useState<'info' | 'detail' | 'tc' | 'runs' | 'history'>('info')
+  /** 시험항목도 같은 규칙 — ID 는 팝업, 제목은 이 화면(지시) */
+  const [openTc, setOpenTc] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
   const exportTc = async () => {
     const id = [...sel][0]
@@ -575,6 +581,12 @@ export default function ReqTc({ me }: Props) {
   /* 거르개가 바뀌면 1쪽으로 — 3쪽을 보다 좁히면 그 쪽이 없어져 빈 화면이
      되고, 사람은 「걸러진 게 없다」 고 읽는다 */
   useEffect(() => setPage(1), [mode, cat, deep, q, onlyBare, reqOnly, prjs, per])
+  /* 목록이 바뀌면 열어 둔 상세는 닫는다 — 딴 폴더를 보면서 옛 상세가 남아
+     있으면, 화면이 무엇을 말하는지 알 수 없다. */
+  useEffect(() => {
+    setOpenReq('')
+    setOpenTc('')
+  }, [mode, cat, prjs])
   useEffect(() => {
     if (page > pageN) setPage(pageN)
   }, [page, pageN])
@@ -1027,6 +1039,73 @@ export default function ReqTc({ me }: Props) {
                 2건 이상 → … | Bulk Edit  Clone | Delete
               삭제는 구분선 너머 끝자리다 — 되돌릴 수 없는 것은 손이 닿기
               어려운 곳에 둔다. */}
+          {/* 제목을 누르면 표 자리에 **그 요구사항 화면**이 선다(지시).
+              1열 폴더는 그대로 남아, 옆 것으로 넘어가기 쉽다. */}
+          {openTc ? (
+            <div className="rqtc-one">
+              <div className="rqtc-onehead">
+                <button type="button" className="btn small" onClick={() => setOpenTc('')}>
+                  ← 목록
+                </button>
+                <b className="rqtc-onetitle">
+                  {tcs.find((t) => t.tcid === openTc)?.name || '(제목 없음)'}
+                </b>
+                <span className="rqtc-popid">{openTc}</span>
+                <span className="sp" />
+                <button className="btn small" type="button" onClick={() => goto('tc', openTc)}>
+                  Coverage 에서 열기
+                </button>
+              </div>
+              {/* Coverage 화면을 통째로 얹는다 — 탭과 그 안의 동작이 **같은
+                  코드**라 두 자리가 갈릴 수 없다. 베껴 만들면 한쪽만 고치는
+                  날이 온다(옛 부품을 얹었다가 스텝을 하나도 못 읽어 물렸다). */}
+              <div className="rqtc-embed">
+                <TestCases embedTc={openTc} />
+              </div>
+            </div>
+          ) : openReq ? (
+            <div className="rqtc-one">
+              <div className="rqtc-onehead">
+                <button type="button" className="btn small" onClick={() => setOpenReq('')}>
+                  ← 목록
+                </button>
+                <b className="rqtc-onetitle">
+                  {reqById.get(openReq)?.title || '(제목 없음)'}
+                </b>
+                <span className="rqtc-popid">
+                  {(() => {
+                    const r0 = reqById.get(openReq)
+                    return r0 ? reqLabel(r0) : openReq
+                  })()}
+                </span>
+                <span className="sp" />
+                <button
+                  className="btn small"
+                  type="button"
+                  onClick={() => {
+                    setReqOnly(openReq)
+                    setOpenReq('')
+                    setMode('tc')
+                  }}
+                >
+                  이 요구사항의 시험 보기
+                </button>
+                <button
+                  className="btn small primary"
+                  type="button"
+                  onClick={() => setEditReq(reqById.get(openReq) ?? null)}
+                >
+                  고치기
+                </button>
+              </div>
+              <ReqBody
+                req={reqById.get(openReq)}
+                tcs={tcOf.get(openReq) ?? []}
+                tab={openTab}
+                setTab={setOpenTab}
+              />
+            </div>
+          ) : (
           <div className="rqtc-tbl">
             {mode === 'req' ? (
               <>
@@ -1061,8 +1140,9 @@ export default function ReqTc({ me }: Props) {
                       className={`rqtc-tr${sel.has(pk) ? ' picked' : ''}`}
                       style={{ gridTemplateColumns: gridOf(false) }}
                       key={pk}
-                      title="눌러서 이 요구사항의 시험 보기"
-                      onClick={() => goTcOf(pk)}
+                      /* 줄 전체를 누르는 것은 뺐다(지시) — ID 는 팝업, 제목은
+                         이 화면으로 간다. 줄까지 누르는 자리가 되면 어디를
+                         눌렀는지에 따라 다른 일이 나서 헷갈린다. */
                     >
                       <div className="c-chk" onClick={(e) => e.stopPropagation()}>
                         {/* 점 여섯 — 잡아서 왼쪽 폴더로 끌면 그 폴더로 옮긴다
@@ -1095,7 +1175,18 @@ export default function ReqTc({ me }: Props) {
                         </button>
                       </div>
                       <div className="c-title">
-                        <span className="rqtc-rtitle">{r.title || '(제목 없음)'}</span>
+                        <button
+                          type="button"
+                          className="rqtc-rtitle as-link"
+                          title="눌러서 이 요구사항 화면 보기"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setOpenReq(pk)
+                            setOpenTab('info')
+                          }}
+                        >
+                          {r.title || '(제목 없음)'}
+                        </button>
                       </div>
                       <div className="c-mg">{p?.model_group || '–'}</div>
                       <div className="c-md">{p?.model || '–'}</div>
@@ -1177,7 +1268,6 @@ export default function ReqTc({ me }: Props) {
                       className={`rqtc-tr tc${sel.has(t.tcid) ? ' picked' : ''}`}
                       style={{ gridTemplateColumns: gridOf(true) }}
                       key={t.tcid}
-                      onClick={() => setPop({ kind: 'tc', id: t.tcid })}
                     >
                       <div className="c-chk" onClick={(e) => e.stopPropagation()}>
                         <input
@@ -1200,7 +1290,17 @@ export default function ReqTc({ me }: Props) {
                         </button>
                       </div>
                       <div className="c-title">
-                        <span className="rqtc-rtitle">{t.name || '(제목 없음)'}</span>
+                        <button
+                          type="button"
+                          className="rqtc-rtitle as-link"
+                          title="눌러서 이 시험항목 화면 보기"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setOpenTc(t.tcid)
+                          }}
+                        >
+                          {t.name || '(제목 없음)'}
+                        </button>
                       </div>
                       {/* 시험은 제 모델 값을 갖고 있다 — 없으면 프로젝트 값으로 */}
                       <div className="c-mg">{String(t.model_group ?? '') || p?.model_group || '–'}</div>
@@ -1292,6 +1392,8 @@ export default function ReqTc({ me }: Props) {
               </>
             )}
           </div>
+
+          )}
 
           {/* 쪽 나누기 — 왼쪽에 「몇 번째부터 몇 번째, 모두 몇 건」,
               오른쪽에 쪽 번호(사진). 한 쪽이면 번호는 안 낸다. */}
@@ -1715,46 +1817,71 @@ function ReqPop({
           </button>
         </div>
 
-        <div className="rqtc-poptabs">
-          {REQ_TABS.map((t) => (
-            <button
-              key={t.k}
-              type="button"
-              className={tab === t.k ? 'on' : ''}
-              onClick={() => setTab(t.k)}
-            >
-              {t.label}
-              {t.k === 'tc' && <em>{tcs.length}</em>}
-            </button>
-          ))}
-        </div>
-
-        <div className="rqtc-popbody">
-          {!req ? (
-            <div className="empty">요구사항을 찾지 못했습니다.</div>
-          ) : tab === 'tc' ? (
-            /* Coverages — 붙은 시험. Requirements 화면도 이 목록을 제가 그린다 */
-            tcs.length ? (
-              <div className="rqtc-poplist">
-                {tcs.map((t) => (
-                  <div className="rqtc-popline" key={t.tcid}>
-                    <span className="rqtc-rid tc">{t.tcid}</span>
-                    <span>{t.name || '(제목 없음)'}</span>
-                    <span className="sp" />
-                    {!!t.status && (
-                      <span className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rqtc-popnone">덮는 시험이 없습니다</div>
-            )
-          ) : (
-            <ReqDetail req={req} tcs={tcs} tab={tab} />
-          )}
-        </div>
+        <ReqBody req={req} tcs={tcs} tab={tab} setTab={setTab} />
       </div>
     </div>
+  )
+}
+
+/**
+ * 요구사항 상세의 **속** — 탭과 몸.
+ *
+ * 팝업(ID 를 눌렀을 때)과 2열 화면(제목을 눌렀을 때)이 **같은 부품**을 쓴다.
+ * 두 벌로 만들면 한쪽만 고치는 날이 오고, 같은 요구사항이 자리에 따라 다르게
+ * 보인다.
+ */
+function ReqBody({
+  req,
+  tcs,
+  tab,
+  setTab,
+}: {
+  req?: Requirement
+  tcs: TestCaseMeta[]
+  tab: 'info' | 'detail' | 'tc' | 'runs' | 'history'
+  setTab: (t: 'info' | 'detail' | 'tc' | 'runs' | 'history') => void
+}) {
+  return (
+    <>
+      <div className="rqtc-poptabs">
+        {REQ_TABS.map((t) => (
+          <button
+            key={t.k}
+            type="button"
+            className={tab === t.k ? 'on' : ''}
+            onClick={() => setTab(t.k)}
+          >
+            {t.label}
+            {t.k === 'tc' && <em>{tcs.length}</em>}
+          </button>
+        ))}
+      </div>
+
+      <div className="rqtc-popbody">
+        {!req ? (
+          <div className="empty">요구사항을 찾지 못했습니다.</div>
+        ) : tab === 'tc' ? (
+          /* Coverages — 붙은 시험. Requirements 화면도 이 목록을 제가 그린다 */
+          tcs.length ? (
+            <div className="rqtc-poplist">
+              {tcs.map((t) => (
+                <div className="rqtc-popline" key={t.tcid}>
+                  <span className="rqtc-rid tc">{t.tcid}</span>
+                  <span>{t.name || '(제목 없음)'}</span>
+                  <span className="sp" />
+                  {!!t.status && (
+                    <span className={`rqtc-v ${statusClass(String(t.status))}`}>{String(t.status)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rqtc-popnone">덮는 시험이 없습니다</div>
+          )
+        ) : (
+          <ReqDetail req={req} tcs={tcs} tab={tab} />
+        )}
+      </div>
+    </>
   )
 }
