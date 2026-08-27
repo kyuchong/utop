@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { IconChevron } from '@/components/icons'
 import { useQuery } from '@tanstack/react-query'
 import { projectApi } from '@/api/client'
 import NewProjectDialog from '@/components/NewProjectDialog'
@@ -70,8 +71,11 @@ export default function ProjectPicker() {
           ▣
         </span>
         <span className="prjp-nm">{cur?.name || '전체 프로젝트'}</span>
-        <span className="prjp-caret" aria-hidden="true">
-          ▾
+        {/* 꺾쇠는 **오른쪽 끝**에(지시·Testiny). 이름 바로 뒤에 붙어 있으면
+            이름이 길고 짧음에 따라 자리가 옮겨 다녀, 누를 곳을 눈으로 다시
+            찾아야 한다. 문자 ▾ 는 글꼴마다 크기가 제각각이라 도형으로 그린다. */}
+        <span className={`prjp-caret${open ? ' open' : ''}`} aria-hidden="true">
+          <IconChevron />
         </span>
       </button>
 
