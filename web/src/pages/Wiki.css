@@ -115,3 +115,19 @@
 /* BlockNote 는 제 글꼴을 들고 온다 — 이 도구의 글꼴로 맞춘다 */
 .wke-body .bn-container,
 .wke-body .bn-editor { font-family: var(--font-ui); }
+
+/* ── 글자 눈금 ─────────────────────────────────────────────────
+   BlockNote 기본은 제목 1 이 본문의 두 배가 넘는다(지적: 너무 다르다).
+   시험 문서는 제목이 여러 겹이라 그 눈금이면 한 화면에 두 마디밖에 안 든다.
+
+   본문 15px 을 기준으로 24 / 19 / 16 으로 좁힌다 — 위아래가 한 단씩만
+   차이 나서, 제목인 줄은 알되 글이 끊기지 않는다. 본문이 이 도구의 기본
+   13px 보다 큰 것은 문서는 읽는 글이기 때문이다(표는 훑고, 문서는 읽는다). */
+.wke-body .bn-editor { font-size: 15px; line-height: 1.7; }
+.wke-body .bn-block-content[data-content-type='heading'][data-level='1'] { font-size: 24px; }
+.wke-body .bn-block-content[data-content-type='heading'][data-level='2'] { font-size: 19px; }
+.wke-body .bn-block-content[data-content-type='heading'][data-level='3'] { font-size: 16px; }
+/* 제목 위 여백 — 앞 문단과 붙어 있으면 어디서 마디가 갈리는지 안 보인다 */
+.wke-body .bn-block-outer:not(:first-child) > .bn-block > .bn-block-content[data-content-type='heading'] {
+  margin-top: 14px;
+}
