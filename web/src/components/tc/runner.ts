@@ -1324,6 +1324,12 @@ async function runOne(
   }
   let acc = ''
   let err = ''
+  /* 장비가 **실제로 뭔가를 돌려줬는가.**
+     acc 만으로는 못 본다 — 명령 에코 줄(`E5924RK# show clock`)은 실행기가
+     제 손으로 적어 넣는 것이라, 장비가 한 글자도 안 보내도 acc 는 차 있다.
+     그래서 서버가 보내 준 출력 조각(e.o)이 하나라도 있었는지를 따로 센다. */
+  let gotOut = false
+  const t0 = Date.now()
   const flush = throttled((s) => ctx.onStep(i, { output: s, executed_at: at }))
   /**
    * 방금 명령을 찍었는가.
@@ -1369,6 +1375,7 @@ async function runOne(
         }
       } else if (e.o != null) {
         let chunk = e.o
+        if (String(chunk).trim() !== '') gotOut = true
         if (afterCmd) {
           chunk = chunk.replace(/^\r?\n/, '')
           if (chunk !== '') afterCmd = false
@@ -1398,6 +1405,32 @@ async function runOne(
     const miss = captureMiss(output, q, vars)
     if (miss) ctx.onLog({ i, text: miss, kind: 'warn', label: '못 뽑음' })
   }
+  const ms = Date.now() - t0
+
+  /*
+   * **장비가 한 글자도 안 돌려줬으면 불합격이다.**
+   *
+   * 여태는 그것이 「판정기준 없음」 으로 조용히 지나갔다(지적: 스텝이 다
+   * 넘어가면서 장비에는 아무것도 안 들어감). 판정기준을 안 적은 조회
+   * 스텝은 원래 판정을 안 하는데, 「응답이 비었다」 와 「기준이 없다」 가
+   * 같은 자리에서 같은 회색으로 끝나 버린 것이다.
+   *
+   * 둘은 전혀 다른 일이다. 기준이 없는 것은 **사람이 안 적은 것**이고,
+   * 응답이 없는 것은 **장비에 닿지 않은 것**이다. 뒤엣것을 넘기면 열세
+   * 스텝이 아무것도 안 하고 「합격도 불합격도 아님」 으로 끝나고, 다음
+   * 스텝들은 뽑지 못한 변수로 엉뚱한 판정을 낸다 — 이 시험에서 실제로
+   * 그렇게 됐다(치환·Diff 가 없는 변수로 견줌).
+   *
+   * 명령을 보냈는데 침묵인 것만 잡는다. 보낼 명령이 없던 스텝은 위에서
+   * 이미 걸러졌다.
+   */
+  if (!gotOut) {
+    const why = err || '장비가 아무것도 응답하지 않았습니다 — 세션이 끊겼거나 명령이 장비에 닿지 않았습니다'
+    ctx.onStep(i, { output, executed_at: at, status: 'FAIL', repeatResult: 'Fail', reason: why })
+    ctx.onLog({ i, text: `${commands[0]} — ${why} (${ms}ms)`, kind: 'fail' })
+    return 'Fail'
+  }
+
   const { verdict, reason } = judge(step, output, vars)
   ctx.onStep(i, {
     output,
@@ -1408,7 +1441,10 @@ async function runOne(
   })
   ctx.onLog({
     i,
-    text: `${commands[0]}${commands.length > 1 ? ` 외 ${commands.length - 1}` : ''}${reason ? ` — ${reason}` : ''}`,
+    /* 걸린 시간을 함께 남긴다 — 열세 스텝이 한 초 안에 다 끝났다면 그건
+       빠른 것이 아니라 아무 일도 안 일어난 것이다. 그 사실이 로그에
+       보여야 사람이 알아차린다. */
+    text: `${commands[0]}${commands.length > 1 ? ` 외 ${commands.length - 1}` : ''}${reason ? ` — ${reason}` : ''} (${ms}ms)`,
     kind: verdict === 'Pass' ? 'pass' : verdict === 'Fail' ? 'fail' : 'info',
   })
   return verdict
