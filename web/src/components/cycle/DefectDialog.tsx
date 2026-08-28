@@ -4,6 +4,7 @@ import { stepVerdict, type TcStep } from '@/components/tc/types'
 import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
 import './DefectDialog.css'
 import { buildDefectWiki, kernelFromSteps, wikiToHtml, type WikiStep } from '@/lib/jiraWiki'
+import AutoGrow from './AutoGrow'
 import JiraFields, { toJiraFields, toPreviewRows, type JiraField, type JiraFieldValues } from './JiraFields'
 
 /** UTOP 안에 쌓는 결함 한 건 */
@@ -24,7 +25,7 @@ export interface DefectRec {
   created_by?: string | null
   created_at?: string | null
   steps?: unknown
-  /** 이슈 본문 여섯 판 — 관련 근거·목적·사전 준비 조건·시험 구성도·시험 절차 및 결과·Kernel Log */
+  /** 이슈 본문 여덟 판 — 현상·시험구성도·시험절차·시험내역·Config·Core·Kernel Log·첨부파일 */
   panels?: Record<string, string>
 }
 
@@ -43,14 +44,20 @@ function stepsText(bs: Array<{ no: number | string; desc?: string; cli?: string;
   return L.join('\n').trimEnd()
 }
 
-/** 이슈 본문 판 — 백엔드 _DEFECT_PANELS 와 같은 차례·같은 열쇠 */
+/** 이슈 본문 판 — 백엔드 _DEFECT_PANELS 와 같은 차례·같은 열쇠.
+ *
+ * 여덟 판으로 바꿨다(지시). 열쇠는 **바꾸지 않은 것을 그대로 둔다** —
+ * topo·steps·kernel 은 자리와 이름만 옮겼다. 열쇠를 새로 지으면 이미
+ * 저장된 결함의 그 판이 빈 칸이 되고, 자동 채움도 끊긴다. */
 const PANELS: Array<{ k: string; label: string; ph: string; rows: number }> = [
-  { k: 'req', label: '관련 근거', ph: '관련 사이클 / 시험 항목', rows: 3 },
-  { k: 'purpose', label: '목적', ph: '시험 목적', rows: 3 },
-  { k: 'pre', label: '사전 준비 조건', ph: '사전 준비 조건', rows: 3 },
-  { k: 'topo', label: '시험 구성도', ph: '구성 설명 또는 파일명', rows: 3 },
-  { k: 'steps', label: '시험 절차 및 결과', ph: '시험 절차 및 결과를 입력하세요', rows: 6 },
-  { k: 'kernel', label: 'Kernel Log & Syslog', ph: 'Kernel Log / Syslog 출력', rows: 4 },
+  { k: 'symptom', label: '현상', ph: '무엇이 어떻게 잘못 나왔는지', rows: 3 },
+  { k: 'topo', label: '시험구성도', ph: '구성 설명 또는 파일명', rows: 3 },
+  { k: 'steps', label: '시험절차', ph: '시험 절차를 입력하세요', rows: 6 },
+  { k: 'detail', label: '시험내역', ph: '사이클 / 시험 항목 / 모델 · 버전', rows: 3 },
+  { k: 'config', label: 'Configuration File (Config File)', ph: 'running-config 또는 파일명', rows: 4 },
+  { k: 'core', label: 'Core File (Upload Core file)', ph: 'core 파일 이름 · 올린 곳', rows: 3 },
+  { k: 'kernel', label: 'Kernel Log & Syslog 조회', ph: 'Kernel Log / Syslog 출력', rows: 4 },
+  { k: 'attach', label: '첨부파일', ph: '첨부한 파일 이름 · 설명', rows: 3 },
 ]
 
 interface Props {
@@ -539,10 +546,10 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
 
           </details>
 
-          {/* 이슈 본문 여섯 판 — 여기 적은 것이 그대로 Jira 설명이 된다.
+          {/* 이슈 본문 여덟 판 — 여기 적은 것이 그대로 Jira 설명이 된다.
               번호를 붙여 두면 사람이 「3번 비었다」 고 말할 수 있다. */}
           {PANELS.map((p, i) => {
-            /* 5번(절차·결과)과 6번(로그)은 **자동으로 채워진다.** 손으로
+            /* 3번(시험절차)과 7번(Kernel Log)은 **자동으로 채워진다.** 손으로
                옮겨 적게 하면 아무도 안 적고, 적더라도 옮기다 틀린다.
                사람이 고친 글이 있으면 그것이 이긴다 — 자동은 비어 있을 때만.
                자동으로 채운 판은 읽기만 하게 두고 「자동입력」 을 달아,
@@ -613,9 +620,9 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
                     <pre className="dfx-auto-log">{kernelFromSteps(briefs as WikiStep[])}</pre>
                   )
                 ) : (
-                  <textarea
+                  <AutoGrow
                     value={panels[p.k] ?? ''}
-                    rows={p.rows}
+                    minRows={p.rows}
                     placeholder={p.ph}
                     disabled={pushed}
                     onChange={(e) => setPanel(p.k, e.target.value)}

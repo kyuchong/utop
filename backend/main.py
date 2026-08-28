@@ -17973,23 +17973,28 @@ async def defect_create_api(payload: dict, request: Request):
 
 # 이슈 본문의 여섯 판 — 화면(Jira 프로젝트 패널 설정)과 같은 차례·같은 이름.
 # 번호를 붙이는 것은 사람이 「3번 비었다」 고 말할 수 있게 하기 위해서다.
+# 이슈 본문 판 — 웹의 WIKI_PANELS 와 **같은 차례·같은 열쇠**여야 한다.
+# 여덟 판으로 바꿨다(지시). 이름이 바뀐 판도 열쇠는 그대로 두었다:
+# 열쇠를 새로 지으면 이미 저장된 결함의 그 판이 빈 칸이 된다.
 _DEFECT_PANELS = [
-    ("req", "관련 근거"),
-    ("purpose", "목적"),
-    ("pre", "사전 준비 조건"),
-    ("topo", "시험 구성도"),
-    ("steps", "시험 절차 및 결과"),
-    ("kernel", "Kernel Log & Syslog"),
+    ("symptom", "현상"),
+    ("topo", "시험구성도"),
+    ("steps", "시험절차"),
+    ("detail", "시험내역"),
+    ("config", "Configuration File (Config File)"),
+    ("core", "Core File (Upload Core file)"),
+    ("kernel", "Kernel Log & Syslog 조회"),
+    ("attach", "첨부파일"),
 ]
 
 
 def _defect_jira_body(d: dict) -> str:
     """결함을 Jira wiki 마크업 설명으로 편다.
 
-    사람이 화면에서 채운 **여섯 판**이 있으면 그것으로 쓴다. 없으면 예전처럼
+    사람이 화면에서 채운 **여덟 판**이 있으면 그것으로 쓴다. 없으면 예전처럼
     깨진 스텝만 편다 — 옛 결함도 그대로 올라가야 한다.
 
-    「시험 절차 및 결과」 는 비어 있으면 스텝으로 채운다. 그 판만큼은 화면이
+    「시험절차」 는 비어 있으면 스텝으로 채운다. 그 판만큼은 화면이
     자동으로 만들어 주는 것이라, 사람이 손대지 않았다고 빼면 안 된다.
     """
     p = d.get("panels") or {}

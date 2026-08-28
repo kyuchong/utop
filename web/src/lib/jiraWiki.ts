@@ -24,14 +24,16 @@ export interface WikiStep {
   rca?: string
 }
 
-/** 여섯 판 — 번호·제목은 Jira 에 그대로 나간다 */
+/** 여덟 판 — 번호·제목은 Jira 에 그대로 나간다 */
 export const WIKI_PANELS: Array<{ k: string; title: string }> = [
-  { k: 'req', title: '1. 관련 근거' },
-  { k: 'purpose', title: '2. 목적' },
-  { k: 'pre', title: '3. 사전 준비 조건' },
-  { k: 'topo', title: '4. 시험 구성도' },
-  { k: 'steps', title: '5. 시험 절차 및 결과' },
-  { k: 'kernel', title: '6. Kernel Log & Syslog' },
+  { k: 'symptom', title: '1. 현상' },
+  { k: 'topo', title: '2. 시험구성도' },
+  { k: 'steps', title: '3. 시험절차' },
+  { k: 'detail', title: '4. 시험내역' },
+  { k: 'config', title: '5. Configuration File (Config File)' },
+  { k: 'core', title: '6. Core File (Upload Core file)' },
+  { k: 'kernel', title: '7. Kernel Log & Syslog 조회' },
+  { k: 'attach', title: '8. 첨부파일' },
 ]
 
 /** 스텝을 위키 블록으로 — 판정 표시는 Jira 가 아는 (/) (x) (?) 를 쓴다 */
@@ -69,7 +71,7 @@ export function stepsToWiki(steps: WikiStep[]): string {
   return blocks.join('\n----\n')
 }
 
-/** 스텝의 명령과 출력을 콘솔 기록처럼 잇는다 — 6번 판의 자동 채움 */
+/** 스텝의 명령과 출력을 콘솔 기록처럼 잇는다 — 7번 판의 자동 채움 */
 export function kernelFromSteps(steps: WikiStep[]): string {
   const L: string[] = []
   for (const s of steps) {
@@ -83,9 +85,9 @@ export function kernelFromSteps(steps: WikiStep[]): string {
 }
 
 /**
- * 여섯 판을 Jira 설명으로 편다.
+ * 여덟 판을 Jira 설명으로 편다.
  *
- * 「5. 시험 절차 및 결과」 는 사람이 손댄 글이 있으면 그것을, 없으면 스텝에서
+ * 「3. 시험절차」 는 사람이 손댄 글이 있으면 그것을, 없으면 스텝에서
  * 만든 것을 쓴다 — 자동으로 채워 주는 판이라 손을 안 댔다고 빼면 안 된다.
  * 빈 판도 제목은 남긴다: 「여긴 아직 안 적었다」 와 「그런 항목이 없다」 는
  * 읽는 사람에게 다른 뜻이다.

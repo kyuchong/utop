@@ -206,7 +206,10 @@
   color: inherit;
   font: inherit;
   font-size: var(--fs-sm);
-  resize: vertical;
+  /* 저절로 자라므로 안에 스크롤이 생길 일이 없다 — 남으면 손으로 늘린
+     높이가 글보다 커진 때뿐이라, 굴림대를 숨겨 칸이 흔들리지 않게 한다 */
+  overflow: hidden;
+  resize: none;
 }
 .dfx-panel textarea:focus { outline: 2px solid var(--c-primary); outline-offset: -2px; }
 /* 5번은 깨진 스텝으로 한 번에 채울 수 있다 — 손으로 옮겨 적지 않게 */
