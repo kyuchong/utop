@@ -7,7 +7,7 @@ import {
   FormattingToolbarController,
   getFormattingToolbarItems,
 } from '@blocknote/react'
-import { BlockNoteView } from '@blocknote/mantine'
+import { BlockNoteView, lightDefaultTheme } from '@blocknote/mantine'
 import {
   BlockNoteSchema,
   defaultBlockSpecs,
@@ -24,6 +24,34 @@ import '@blocknote/mantine/style.css'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch } from '@/api/client'
 import { reqLabel, reqPk } from '@/types'
+
+/**
+ * 편집기 색 — **UTOP 색을 쓴다.**
+ *
+ * BlockNote 기본 글자색은 #3F3F3F 다. 우리 글자색(#131920)보다 훨씬 옅고
+ * 푸른 기가 없어, 같은 화면 안에서 문서 본문만 흐릿하고 누렇게 보인다.
+ * 다른 화면의 표·목록과 나란히 놓고 보면 바로 드러난다.
+ *
+ * CSS 로는 못 덮는다 — BlockNote 는 이 값들을 **인라인 style 변수**로 박아
+ * 넣어서, 어떤 선택자를 써도 진다. 그러니 넘겨주는 색표 자체를 고친다.
+ *
+ * 글에 사람이 칠한 색(사업1담당의 파랑 같은 것)은 **건드리지 않는다.**
+ * 그건 BlockNote 팔레트에서 고른 값이 글 안에 박혀 있어, 여기서 바꾸면
+ * 이미 쓴 문서의 색이 소리 없이 달라진다.
+ */
+const THEME = {
+  ...lightDefaultTheme,
+  colors: {
+    ...lightDefaultTheme.colors,
+    editor: { text: '#131920', background: '#ffffff' },
+    menu: { text: '#131920', background: '#ffffff' },
+    tooltip: { text: '#131920', background: '#eef1f4' },
+    hovered: { text: '#131920', background: '#eef1f4' },
+    selected: { text: '#0d2b3a', background: '#a8d3dd' },
+    disabled: { text: '#98a2ad', background: '#f2f4f6' },
+    border: '#c3cbd4',
+  },
+}
 
 /** 기본 조각에 「짚기」 를 더한 서식 — 편집기가 이 서식으로 글을 읽고 쓴다 */
 const SCHEMA = BlockNoteSchema.create({
@@ -232,7 +260,7 @@ export default function WikiEditor({
         {!ready && <div className="muted small wke-load">읽는 중…</div>}
         <BlockNoteView
           editor={editor}
-          theme="light"
+          theme={THEME}
           slashMenu={false}
           formattingToolbar={false}
           onChange={() => {
