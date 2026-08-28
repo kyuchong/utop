@@ -133,17 +133,46 @@
    그래서 **어느 단도 본문 아래로 내려가지 않는다**. 아래 단들은 크기 대신
    굵기와 색으로 갈린다: 15px 아래로는 한글이 굵어져도 잘 안 읽힌다.
    줄높이를 함께 박는 것은 아래 손잡이 높이를 이 값에서 계산하기 때문이다. */
-.wke-body .bn-block-content[data-content-type='heading'] { font-weight: 700; }
-.wke-body .bn-block-content[data-content-type='heading'][data-level='1'] { font-size: 25px; line-height: 1.35; font-weight: 800; }
-.wke-body .bn-block-content[data-content-type='heading'][data-level='2'] { font-size: 20px; line-height: 1.4; font-weight: 800; }
-.wke-body .bn-block-content[data-content-type='heading'][data-level='3'] { font-size: 17px; line-height: 1.5; }
-.wke-body .bn-block-content[data-content-type='heading'][data-level='4'] { font-size: 16px; line-height: 1.6; }
-.wke-body .bn-block-content[data-content-type='heading'][data-level='5'] { font-size: 15px; line-height: 1.7; }
-/* 6단은 본문과 같은 크기라 **색으로** 가른다 — 더 줄일 곳이 없다 */
+/* **BlockNote 가 제목마다 박아 둔 padding-top:18px 을 걷어낸다.**
+
+   제목 위 간격은 아래 바깥 여백이 이미 맡고 있어, 두 곳에서 따로 벌리고
+   있었다. 게다가 그 18px 때문에 글자만 안쪽으로 내려앉고 왼쪽 손잡이 상자는
+   블록 맨 위에 그대로 붙어, 제목마다 손잡이가 위로 어긋났다(지적: 제목
+   4~6). 여기를 문단과 같은 3px 로 되돌리면 모든 블록의 속이 같은 꼴이 되어,
+   손잡이 높이를 「줄높이 + 위아래 3px」 한 식으로 셀 수 있다. */
+.wke-body .bn-block-content[data-content-type='heading'] {
+  padding-top: 3px;
+  font-weight: 700;
+}
+.wke-body .bn-block-content[data-content-type='heading'][data-level='1'] {
+  font-size: 28px;
+  line-height: 1.3;
+  font-weight: 800;
+}
+.wke-body .bn-block-content[data-content-type='heading'][data-level='2'] {
+  font-size: 25px;
+  line-height: 1.35;
+  font-weight: 800;
+}
+.wke-body .bn-block-content[data-content-type='heading'][data-level='3'] {
+  font-size: 23px;
+  line-height: 1.4;
+  font-weight: 700;
+}
+.wke-body .bn-block-content[data-content-type='heading'][data-level='4'] {
+  font-size: 21px;
+  line-height: 1.45;
+  font-weight: 700;
+}
+.wke-body .bn-block-content[data-content-type='heading'][data-level='5'] {
+  font-size: 19px;
+  line-height: 1.5;
+  font-weight: 700;
+}
 .wke-body .bn-block-content[data-content-type='heading'][data-level='6'] {
-  font-size: 15px;
-  line-height: 1.7;
-  color: var(--c-text-mute);
+  font-size: 17px;
+  line-height: 1.55;
+  font-weight: 700;
 }
 /* 제목 위 여백 — 앞 문단과 붙어 있으면 어디서 마디가 갈리는지 안 보인다.
 
@@ -151,7 +180,9 @@
    왼쪽 손잡이(＋·점 여섯)는 제자리에 남아, 손잡이가 글자보다 위에 뜬다
    (지적: 점 여섯 자리가 이상하다). 손잡이는 바깥 상자를 따라간다. */
 .wke-body .bn-block-outer:not(:first-child):has(> .bn-block > .bn-block-content[data-content-type='heading']) {
-  margin-top: 14px;
+  /* 걷어낸 18px 을 여기로 돌려준다 — 보이던 간격(18+14)을 크게 안 바꾸되,
+     제목이 커진 만큼 조금 좁힌다 */
+  margin-top: 26px;
 }
 
 /* 짚은 조각 — 요구사항은 파랑, 시험은 초록. 다른 화면의 ID 색과 같다:
@@ -241,7 +272,11 @@
   display: flex;
   align-items: center;
 }
-.wke-body .bn-block-outer:has(> .bn-block > [data-content-type='heading'][data-level='1']) .bn-side-menu { height: 40px; }
-.wke-body .bn-block-outer:has(> .bn-block > [data-content-type='heading'][data-level='2']) .bn-side-menu { height: 34px; }
-.wke-body .bn-block-outer:has(> .bn-block > [data-content-type='heading'][data-level='3']) .bn-side-menu { height: 32px; }
-.wke-body .bn-block-outer:has(> .bn-block > [data-content-type='heading'][data-level='4']) .bn-side-menu { height: 32px; }
+.wke-body .bn-block-outer:has(> .bn-block > [data-content-type='heading'][data-level='1']) .bn-side-menu { height: 42px; }
+.wke-body .bn-block-outer:has(> .bn-block > [data-content-type='heading'][data-level='2']) .bn-side-menu { height: 40px; }
+.wke-body .bn-block-outer:has(> .bn-block > [data-content-type='heading'][data-level='3']) .bn-side-menu { height: 38px; }
+.wke-body .bn-block-outer:has(> .bn-block > [data-content-type='heading'][data-level='4']) .bn-side-menu { height: 37px; }
+/* 5·6 단은 본문과 같은 15px 이라 본문 줄 높이와 같다 — 기본 30px 과 1.5px
+   차이지만, 빠뜨리면 「4~6만 어긋난다」 가 또 나온다. 적어 둔다. */
+.wke-body .bn-block-outer:has(> .bn-block > [data-content-type='heading'][data-level='5']) .bn-side-menu { height: 35px; }
+.wke-body .bn-block-outer:has(> .bn-block > [data-content-type='heading'][data-level='6']) .bn-side-menu { height: 33px; }

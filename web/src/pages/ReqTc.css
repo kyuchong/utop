@@ -863,3 +863,12 @@
 .rqtc-mapb:hover { background: var(--c-sel-teal); border-color: var(--c-sel-teal); color: var(--c-sel-teal-ink); }
 /* Map 칸 — 단추 하나만 서는 좁은 칸 */
 .rqtc-tr > .c-mapb { justify-content: center; }
+
+/* No — 자리번호. 오른쪽에 붙이고 숫자 폭을 고정한다(tabular-nums):
+   1 과 11 이 어긋나 보이면 세로로 훑을 때 눈이 자꾸 걸린다. */
+.rqtc-tr > .c-no {
+  justify-content: flex-end;
+  color: var(--c-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.rqtc-th > .c-no { justify-content: center; color: inherit; }

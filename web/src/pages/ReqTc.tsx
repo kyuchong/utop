@@ -250,8 +250,8 @@ export default function ReqTc({ me }: Props) {
      칸은 이제 켜진 열 쪽에서 나온다 — 두 곳에서 그리면 두 번 보인다. */
   /* ID 를 제 칸으로 뗀다(지시: ID 와 제목 사이에도 세로선). 한 칸에 같이
      두면 선을 그을 자리가 없다 — 표의 선은 칸 사이에만 선다. */
-  const gridReq = `52px 108px minmax(0, 1fr) 110px 80px 65px 52px 132px ${visCols.map((c) => c.w).join(' ')}`.trim()
-  const gridTc = `52px 108px minmax(0, 1fr) 100px 80px 70px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
+  const gridReq = `52px 48px 108px minmax(0, 1fr) 110px 80px 65px 52px 132px ${visCols.map((c) => c.w).join(' ')}`.trim()
+  const gridTc = `52px 48px 108px minmax(0, 1fr) 100px 80px 70px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridOf = (tc: boolean) => (tc ? gridTc : gridReq)
   /* 표에서 바로 고치는 칸이 쓸 값들 — 설정(codes)이 정본이다 */
   const REQ_STATUS = useCodes('req_status', ['작성중', '검토중', '검토완료', '보류', '폐기'])
@@ -1162,6 +1162,9 @@ export default function ReqTc({ me }: Props) {
                       onChange={(e) => setSel(e.target.checked ? new Set(reqRows.map(reqPk)) : new Set())}
                     />
                   </div>
+                  {/* 몇 번째 줄인가 — ID 는 뜻을 담은 이름이라
+                      「지금 어디쯤」 을 못 말해 준다. 쪽을 넘겨도 이어진다. */}
+                  <div className="c-no">No</div>
                   <div className="c-id">ID</div>
                   <div className="c-title">제목</div>
                   <div className="c-mg">모델그룹</div>
@@ -1177,7 +1180,7 @@ export default function ReqTc({ me }: Props) {
                     <div key={c.k}>{c.label}</div>
                   ))}
                 </div>
-                {reqPageRows.map((r) => {
+                {reqPageRows.map((r, i) => {
                   const pk = reqPk(r)
                   const n = tcOf.get(pk)?.length ?? 0
                   const p = prjOf(r)
@@ -1207,6 +1210,9 @@ export default function ReqTc({ me }: Props) {
                         </span>
                         <input type="checkbox" checked={sel.has(pk)} onChange={() => toggle(sel, pk, setSel)} />
                       </div>
+                      {/* 쪽을 넘겨도 이어지는 번호 — 매 쪽 1부터 다시 세면
+                          「200개 중 어디」 를 못 읽는다 */}
+                      <div className="c-no">{from + i + 1}</div>
                       <div className="c-id">
                         <button
                           type="button"
@@ -1338,6 +1344,9 @@ export default function ReqTc({ me }: Props) {
                       onChange={(e) => setSel(e.target.checked ? new Set(tcRows.map((t) => t.tcid)) : new Set())}
                     />
                   </div>
+                  {/* 몇 번째 줄인가 — ID 는 뜻을 담은 이름이라
+                      「지금 어디쯤」 을 못 말해 준다. 쪽을 넘겨도 이어진다. */}
+                  <div className="c-no">No</div>
                   <div className="c-id">ID</div>
                   <div className="c-title">제목</div>
                   <div className="c-mg">모델그룹</div>
@@ -1350,7 +1359,7 @@ export default function ReqTc({ me }: Props) {
                     <div key={c.k}>{c.label}</div>
                   ))}
                 </div>
-                {tcPageRows.map((t) => {
+                {tcPageRows.map((t, i) => {
                   const r = reqById.get(String(t.req_id ?? ''))
                   const p = prjOf(r)
                   const last = lastOf(t.tcid)
@@ -1367,6 +1376,9 @@ export default function ReqTc({ me }: Props) {
                           onChange={() => toggle(sel, t.tcid, setSel)}
                         />
                       </div>
+                      {/* 쪽을 넘겨도 이어지는 번호 — 매 쪽 1부터 다시 세면
+                          「200개 중 어디」 를 못 읽는다 */}
+                      <div className="c-no">{from + i + 1}</div>
                       <div className="c-id">
                         <button
                           type="button"
