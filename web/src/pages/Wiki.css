@@ -371,3 +371,32 @@
    잘라도 종이에 빈 장이 나온다. 그 조상을 다 찾아 푸는 것은 화면을 고칠
    때마다 다시 틀어질 싸움이다. 이제 본문만 담은 창을 새로 띄워 찍는다
    (WikiEditor 의 「PDF · 인쇄」). */
+
+/* 문서가 매인 프로젝트.
+   테두리 없는 맨 select 는 브라우저 기본 꼴이 그대로 나와 옆 글자와
+   크기·글꼴이 따로 놀았다(지적). 이 도구의 다른 고르기 칸과 같은 꼴로
+   맞추고, 무엇을 고르는 칸인지 이름표를 앞에 단다. */
+.wke-prjbox { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.wke-prjbox > span { font-size: var(--fs-xs); color: var(--c-text-faint); white-space: nowrap; }
+.wke-prj {
+  height: 26px;
+  max-width: 220px;
+  box-sizing: border-box;
+  padding: 0 26px 0 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: var(--c-surface)
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2 4.5 6 8.5 10 4.5' fill='none' stroke='%23626d78' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>")
+    no-repeat right 8px center / 10px;
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  appearance: none;
+}
+.wke-prj:hover { border-color: var(--c-primary); }
+.wke-prj:focus { outline: 2px solid var(--c-primary); outline-offset: -2px; }
+
+/* 「워드 가져오기」 는 label 이라 단추 꼴을 따로 입힌다 — 안의 file 입력은
+   숨겨 두고 label 을 누르면 열린다 */
+.wke-imp { display: inline-flex; align-items: center; cursor: pointer; }

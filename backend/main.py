@@ -9571,6 +9571,91 @@ async def wiki_delete(pid: str):
     return {"ok": True}
 
 
+@app.post("/api/wiki/import-docx")
+async def wiki_import_docx(payload: dict):
+    """워드(.docx) 를 위키가 읽을 수 있는 HTML 로 푼다.
+
+    브라우저는 .docx 를 못 읽는다 — 압축 파일이라 풀어야 하고, 그림은 그 안에
+    따로 들어 있다. 그래서 서버가 푼다.
+
+    **그림은 문서에 함께 담는다**(data URI). 파일 서버를 따로 두지 않아도 되고,
+    문서를 옮기거나 내보내도 그림이 안 깨진다. 다만 무한정 담지는 않는다 —
+    큰 사진이 몇 장만 있어도 문서가 수십 MB 가 되어 여는 것부터 느려진다.
+
+    **표 안의 표**가 까다롭다. 편집기의 표는 칸 안에 표를 담지 못한다. 그렇다고
+    버리면 내용이 사라지므로, 안쪽 표를 **바깥 표 뒤로 떼어** 내고 원래 자리에는
+    「여기에 표가 있었다」 는 표시를 남긴다. 모양은 펴지지만 잃는 글자는 없다.
+    """
+    import base64 as _b64, io as _io
+    raw = str(payload.get("data") or "")
+    if raw.strip().startswith("data:") and "," in raw:
+        raw = raw.split(",", 1)[1]
+    try:
+        blob = _b64.b64decode(raw)
+    except Exception as e:
+        return {"ok": False, "error": "파일을 읽지 못했습니다: " + str(e)[:120]}
+    if not blob:
+        return {"ok": False, "error": "빈 파일입니다"}
+
+    try:
+        import mammoth
+        from bs4 import BeautifulSoup
+    except Exception as e:
+        return {"ok": False, "error": "변환기를 불러오지 못했습니다: " + str(e)[:120]}
+
+    # 그림 — 너무 큰 것은 줄여 담는다. 원본 그대로면 문서가 못 열 만큼 무거워진다.
+    def _img(image):
+        with image.open() as f:
+            data = f.read()
+        ctype = (image.content_type or "image/png")
+        try:
+            from PIL import Image
+            im = Image.open(_io.BytesIO(data))
+            if im.width > 1600:
+                im = im.convert("RGB") if im.mode in ("P", "CMYK") else im
+                h = max(1, round(im.height * 1600 / im.width))
+                im = im.resize((1600, h))
+                buf = _io.BytesIO()
+                im.save(buf, format="PNG")
+                data, ctype = buf.getvalue(), "image/png"
+        except Exception:
+            pass  # 못 줄이면 원본 그대로 — 그림 하나 때문에 가져오기를 막지 않는다
+        return {"src": f"data:{ctype};base64,{_b64.b64encode(data).decode()}"}
+
+    try:
+        res = mammoth.convert_to_html(_io.BytesIO(blob), convert_image=mammoth.images.img_element(_img))
+        html = res.value or ""
+    except Exception as e:
+        return {"ok": False, "error": "워드 문서를 푸는 데 실패했습니다: " + str(e)[:200]}
+
+    # 표 안의 표를 바깥으로 떼어 낸다
+    moved = 0
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        for outer in list(soup.find_all("table")):
+            inners = [t for t in outer.find_all("table") if t is not outer]
+            for inner in inners:
+                mark = soup.new_tag("p")
+                moved += 1
+                mark.string = f"[표 {moved}] — 아래에 이어집니다"
+                inner.replace_with(mark)
+                cap = soup.new_tag("p")
+                cap.string = f"[표 {moved}] 위 표 안에 있던 표"
+                outer.insert_after(inner)
+                outer.insert_after(cap)
+        html = str(soup)
+    except Exception:
+        pass  # 못 펴도 가져오기는 계속한다
+
+    return {
+        "ok": True,
+        "html": html,
+        "nested_tables": moved,
+        # 무엇이 안 넘어왔는지 사람이 알아야 한다 — 조용히 빠지면 나중에 찾는다
+        "messages": [str(m) for m in (res.messages or [])][:20],
+    }
+
+
 @app.get("/api/wiki/{pid}/revs")
 async def wiki_revs(pid: str, limit: int = 30):
     async with db.pool().acquire() as c:

@@ -189,6 +189,8 @@ export default function WikiEditor({
             만들 때의 프로젝트가 그냥 박히고 끝이면, 「전체」 로 두고 쓴 문서는
             영영 공용으로 남고 잘못 박힌 것은 고칠 길이 없다. 여기서 옮긴다.
             나중에 AI 가 프로젝트별로 문서를 찾을 때 읽는 값이 이것이다. */}
+        <span className="wke-prjbox">
+        <span>프로젝트</span>
         <select
           className="wke-prj"
           value={project ?? ''}
@@ -208,7 +210,60 @@ export default function WikiEditor({
             </option>
           ))}
         </select>
+        </span>
         <span className="sp" />
+        {/* 워드 가져오기 — 그대로 옮겨 온다(지시: 표·그림·표 안의 표까지).
+            .docx 는 압축 파일이라 브라우저가 못 읽는다. 서버가 풀어 HTML 로
+            돌려주면 편집기가 그것을 블록으로 읽는다 — 우리가 블록을 손으로
+            짜지 않는 까닭은, 편집기가 아는 꼴이 곧 편집기가 다시 열 수 있는
+            꼴이기 때문이다. */}
+        <label className="btn small wke-imp">
+          워드 가져오기
+          <input
+            type="file"
+            accept=".docx"
+            hidden
+            onChange={async (e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (!f) return
+              setState('saving')
+              try {
+                const b64 = await new Promise<string>((ok, no) => {
+                  const fr = new FileReader()
+                  fr.onload = () => ok(String(fr.result ?? ''))
+                  fr.onerror = () => no(new Error('파일을 읽지 못했습니다'))
+                  fr.readAsDataURL(f)
+                })
+                const r = await apiFetch('/api/wiki/import-docx', {
+                  method: 'POST',
+                  body: JSON.stringify({ data: b64 }),
+                })
+                const j = (await r.json()) as { ok?: boolean; html?: string; error?: string; nested_tables?: number }
+                if (!j.ok || !j.html) {
+                  window.alert(j.error || '워드 문서를 읽지 못했습니다')
+                  setState('')
+                  return
+                }
+                const blocks = await editor.tryParseHTMLToBlocks(j.html)
+                /* 지금 글 **뒤에 잇는다.** 덮어쓰면 되돌릴 길이 없다 —
+                   문서를 통째로 갈아 끼우려면 사람이 먼저 지우면 된다. */
+                editor.insertBlocks(blocks, editor.document[editor.document.length - 1]!, 'after')
+                dirty.current = true
+                await save()
+                if (j.nested_tables) {
+                  window.alert(
+                    `가져왔습니다. 표 안에 있던 표 ${j.nested_tables}개는 편집기가 칸 안에 표를 담지 못해 ` +
+                      `바깥 표 뒤로 떼어 놓았습니다 — 「[표 N]」 표시를 따라가면 됩니다.`,
+                  )
+                }
+              } catch (err) {
+                window.alert(err instanceof Error ? err.message : String(err))
+                setState('')
+              }
+            }}
+          />
+        </label>
         {/* PDF — 따로 만들지 않고 **브라우저의 인쇄**를 부른다. 그 창에서
             「대상」 을 「PDF로 저장」 으로 고르면 된다. 서버에서 PDF 를 굽는
             길도 있지만, 그러면 화면과 종이가 서로 다른 코드로 그려져 언젠가
@@ -243,22 +298,45 @@ export default function WikiEditor({
               `<!doctype html><html lang="ko"><head><meta charset="utf-8">` +
                 `<title>${(title || '문서').replace(/[<>&]/g, '')}</title>${css}` +
                 `<style>
-                   body { margin: 24px; background: #fff; }
+                   /* 앱 CSS 를 통째로 들고 왔으므로 **화면용 규칙을 되돌린다.**
+                      그 안에는 「창은 굴러선 안 된다」(html·body overflow:hidden)
+                      와 「칸은 제 안에서만 굴린다」(.wke-body overflow:auto)가
+                      들어 있다. 화면에서는 맞지만 종이에서는 첫 장 밖이 잘려
+                      백지가 나온다(지적). */
+                   html, body { height: auto !important; overflow: visible !important; margin: 0 !important; background: #fff !important; }
+                   .wke-body {
+                     display: block !important;
+                     flex: none !important;
+                     height: auto !important;
+                     max-height: none !important;
+                     min-height: 0 !important;
+                     overflow: visible !important;
+                     padding: 24px !important;
+                   }
+                   .bn-editor { padding-inline: 0 !important; }
                    /* 제목이 장 끝에 혼자 남지 않게, 표·코드는 쪼개지지 않게 */
                    .bn-block-content[data-content-type='heading'] { break-after: avoid; }
-                   table, pre, .wv { break-inside: avoid; }
-                 </style></head><body class="wke-body">` +
+                   table, pre, .wv, img { break-inside: avoid; }
+                   img { max-width: 100% !important; height: auto !important; }
+                   @page { margin: 14mm; }
+                 </style></head><body>` +
+                `<div class="wke-body">` +
                 `<h1 style="font-size:26px;margin:0 0 16px">${(title || '문서').replace(/[<>&]/g, '')}</h1>` +
                 `<div class="bn-editor">${body.innerHTML}</div>` +
-                `</body></html>`,
+                `</div></body></html>`,
             )
             w.document.close()
             /* 글꼴·그림이 다 들어온 뒤에 인쇄 창을 연다 — 바로 부르면
                글자가 자리를 잡기 전에 찍혀 줄이 어긋난다 */
-            w.onload = () => {
+            const go = () => {
               w.focus()
               w.print()
             }
+            /* 복사해 간 스타일 파일이 **다 실린 뒤**에 찍는다. 바로 부르면
+               꾸밈이 하나도 안 입은 채로 찍힌다. onload 가 이미 지나간
+               경우를 대비해 준비 상태도 함께 본다. */
+            if (w.document.readyState === 'complete') window.setTimeout(go, 300)
+            else w.onload = () => window.setTimeout(go, 300)
           }}
         >
           PDF · 인쇄
