@@ -7122,6 +7122,14 @@ async def run_cli_stream(payload: dict):
                 pr = (_restr.escape(bp) + r"\S*[#>]\s*$") if bp else None
                 for cmd in commands:
                     yield _sse({"cmd": cmd})       # 명령 입력 표시(라이브 터미널에 '$ cmd')
+                    # 장비가 **무엇을 돌려줬는지** 남긴다.
+                    #
+                    # 여태 이 자리에 기록이 없어서, 「명령은 나갔는데 화면에
+                    # 아무것도 안 나온다」 를 만났을 때 접속이 죽은 것인지
+                    # 장비가 침묵한 것인지 가릴 방법이 없었다(지적). 받은
+                    # 바이트와 걸린 시간만 남겨도 그 둘이 갈린다 — 0바이트면
+                    # 장비가 안 보낸 것이고, 오래 걸렸으면 기다리다 끝난 것이다.
+                    _cli_t0 = _tstr.time(); _cli_n = 0
                     await asyncio.sleep(0)
                     # 스텝을 나눠 보내면 그 사이 설정 모드가 풀릴 수 있다 —
                     # 풀렸으면 쌓아 둔 문맥을 조용히 되밟는다(지시: 프롬프트 유지)
@@ -7137,6 +7145,7 @@ async def run_cli_stream(payload: dict):
                         except Exception: ch = ""
                         if ch:
                             idle = 0
+                            _cli_n += len(ch)
                             if not echo_done:
                                 pending += ch
                                 _nl = pending.find("\n")
@@ -7209,6 +7218,13 @@ async def run_cli_stream(payload: dict):
                     if pending.strip() and not (pr and _restr.search(pr, pending.strip())):
                         yield _sse({"o": pending})
                         await asyncio.sleep(0)
+                    _cli_ms = int((_tstr.time() - _cli_t0) * 1000)
+                    print(
+                        f"[cli] {params.get('host')} sess={payload.get('sess')} "
+                        f"{_cli_n}B {_cli_ms}ms"
+                        f"{' 응답없음' if _cli_n == 0 else ''} :: {cmd[:80]}",
+                        flush=True,
+                    )
                 ent["ts"] = _t.time()
                 yield _sse({"done": True})
             except Exception as e:
