@@ -407,7 +407,7 @@ export default function WikiEditor({
                       재현해 확인했다: 26 / 24 / 14px 그대로 나온다. */
                    .wke-body .bn-editor { font-size: 14px !important; }
                    /* **클래스가 아니라 태그로 집는다.**
-                      안쪽 글을 `.bn-inline-content` 로 집었는데 그 이름이 늘
+                      안쪽 글을 클래스 이름으로 집었는데 그 이름이 늘
                       붙는 게 아니었다 — 그래서 바깥 크기(26px)는 먹고 안쪽
                       h1 은 그것의 2배(52px)로 남았다. 문서 이름(h1.doc)만
                       빼고, 모든 제목 태그가 바깥 크기를 그대로 물려받는다. */
