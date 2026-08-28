@@ -9504,73 +9504,13 @@ async def wiki_get(pid: str):
     return {"page": d}
 
 
-@app.post("/api/wiki/{pid}")
-async def wiki_save(pid: str, payload: dict, request: Request):
-    """만들기·고치기 공통.
-
-    저장할 때마다 **지난 판을 한 줄 남긴다**(wiki_rev). 되돌릴 수 있어야 사람이
-    마음 놓고 고친다 — 못 되돌리면 지우기가 무서워 문서가 안 정리된다.
-    """
-    s = getattr(request.state, "user", None)
-    who = (s or {}).get("username") or ""
-    title = str(payload.get("title") or "")
-    body = payload.get("body")
-    if body is None:
-        body = []
-    plain = _wiki_plain(body)
-    async with db.pool().acquire() as c:
-        old = await c.fetchrow("SELECT title, body FROM wiki_page WHERE id=$1", pid)
-        if old:
-            await c.execute(
-                "INSERT INTO wiki_rev (page_id, title, body, who) VALUES ($1,$2,$3::jsonb,$4)",
-                pid, old["title"], old["body"] if isinstance(old["body"], str) else json.dumps(old["body"], ensure_ascii=False), who,
-            )
-            await c.execute(
-                "UPDATE wiki_page SET title=$2, body=$3::jsonb, plain=$4, updated_by=$5, "
-                "updated_at=now() WHERE id=$1",
-                pid, title, json.dumps(body, ensure_ascii=False), plain, who,
-            )
-        else:
-            await c.execute(
-                "INSERT INTO wiki_page (id, project, parent_id, title, body, plain, ord, created_by, updated_by) "
-                "VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$8)",
-                pid, str(payload.get("project") or ""), payload.get("parent_id"),
-                title, json.dumps(body, ensure_ascii=False), plain,
-                int(payload.get("ord") or 0), who,
-            )
-    try: asyncio.create_task(broadcast({"type": "wiki_updated", "id": pid}))
-    except Exception: pass
-    return {"ok": True, "id": pid}
-
-
-@app.patch("/api/wiki/{pid}")
-async def wiki_patch(pid: str, payload: dict):
-    """자리 옮기기·이름 바꾸기 — 본문은 안 건드린다(지난 판도 안 남긴다)."""
-    sets, args = [], []
-    for k in ("title", "parent_id", "project", "ord"):
-        if k in payload:
-            args.append(payload[k])
-            sets.append(f"{k}=${len(args)}")
-    if not sets:
-        return {"ok": True}
-    sets.append("updated_at=now()")
-    args.append(pid)
-    async with db.pool().acquire() as c:
-        await c.execute(f"UPDATE wiki_page SET {', '.join(sets)} WHERE id=${len(args)}", *args)
-    return {"ok": True}
-
-
-@app.delete("/api/wiki/{pid}")
-async def wiki_delete(pid: str):
-    """지운다. **아래 문서가 있으면 안 지운다** — 통째로 사라지면 되돌릴 수 없다."""
-    async with db.pool().acquire() as c:
-        kid = await c.fetchval("SELECT count(*) FROM wiki_page WHERE parent_id=$1", pid)
-        if kid:
-            raise HTTPException(400, f"아래 문서가 {kid}개 있습니다 — 먼저 옮기거나 지우세요")
-        await c.execute("DELETE FROM wiki_page WHERE id=$1", pid)
-    return {"ok": True}
-
-
+# ── 고정 주소는 {pid} 보다 **먼저** 등록한다 ─────────────────────────
+#
+# FastAPI 는 먼저 등록된 길부터 맞춰 본다. `/api/wiki/{pid}` 가 위에 있으면
+# `/api/wiki/pdf` 요청이 pid="pdf" 로 걸려 **「pdf 라는 이름의 문서를 저장」**
+# 이 된다. 200 이 돌아오니 화면은 성공으로 보이는데 정작 PDF 는 없다 —
+# 그리고 wiki_page 에 쓰레기 문서가 하나 생긴다. 워드 가져오기도 같은 일을
+# 겪었다(지적: PDF·워드 둘 다 안 된다).
 @app.post("/api/wiki/pdf")
 async def wiki_pdf(payload: dict):
     """문서를 **PDF 파일로 구워서** 돌려준다.
@@ -9769,6 +9709,73 @@ async def wiki_import_docx(payload: dict):
         # 무엇이 안 넘어왔는지 사람이 알아야 한다 — 조용히 빠지면 나중에 찾는다
         "messages": [str(m) for m in (res.messages or [])][:20],
     }
+
+
+@app.post("/api/wiki/{pid}")
+async def wiki_save(pid: str, payload: dict, request: Request):
+    """만들기·고치기 공통.
+
+    저장할 때마다 **지난 판을 한 줄 남긴다**(wiki_rev). 되돌릴 수 있어야 사람이
+    마음 놓고 고친다 — 못 되돌리면 지우기가 무서워 문서가 안 정리된다.
+    """
+    s = getattr(request.state, "user", None)
+    who = (s or {}).get("username") or ""
+    title = str(payload.get("title") or "")
+    body = payload.get("body")
+    if body is None:
+        body = []
+    plain = _wiki_plain(body)
+    async with db.pool().acquire() as c:
+        old = await c.fetchrow("SELECT title, body FROM wiki_page WHERE id=$1", pid)
+        if old:
+            await c.execute(
+                "INSERT INTO wiki_rev (page_id, title, body, who) VALUES ($1,$2,$3::jsonb,$4)",
+                pid, old["title"], old["body"] if isinstance(old["body"], str) else json.dumps(old["body"], ensure_ascii=False), who,
+            )
+            await c.execute(
+                "UPDATE wiki_page SET title=$2, body=$3::jsonb, plain=$4, updated_by=$5, "
+                "updated_at=now() WHERE id=$1",
+                pid, title, json.dumps(body, ensure_ascii=False), plain, who,
+            )
+        else:
+            await c.execute(
+                "INSERT INTO wiki_page (id, project, parent_id, title, body, plain, ord, created_by, updated_by) "
+                "VALUES ($1,$2,$3,$4,$5::jsonb,$6,$7,$8,$8)",
+                pid, str(payload.get("project") or ""), payload.get("parent_id"),
+                title, json.dumps(body, ensure_ascii=False), plain,
+                int(payload.get("ord") or 0), who,
+            )
+    try: asyncio.create_task(broadcast({"type": "wiki_updated", "id": pid}))
+    except Exception: pass
+    return {"ok": True, "id": pid}
+
+
+@app.patch("/api/wiki/{pid}")
+async def wiki_patch(pid: str, payload: dict):
+    """자리 옮기기·이름 바꾸기 — 본문은 안 건드린다(지난 판도 안 남긴다)."""
+    sets, args = [], []
+    for k in ("title", "parent_id", "project", "ord"):
+        if k in payload:
+            args.append(payload[k])
+            sets.append(f"{k}=${len(args)}")
+    if not sets:
+        return {"ok": True}
+    sets.append("updated_at=now()")
+    args.append(pid)
+    async with db.pool().acquire() as c:
+        await c.execute(f"UPDATE wiki_page SET {', '.join(sets)} WHERE id=${len(args)}", *args)
+    return {"ok": True}
+
+
+@app.delete("/api/wiki/{pid}")
+async def wiki_delete(pid: str):
+    """지운다. **아래 문서가 있으면 안 지운다** — 통째로 사라지면 되돌릴 수 없다."""
+    async with db.pool().acquire() as c:
+        kid = await c.fetchval("SELECT count(*) FROM wiki_page WHERE parent_id=$1", pid)
+        if kid:
+            raise HTTPException(400, f"아래 문서가 {kid}개 있습니다 — 먼저 옮기거나 지우세요")
+        await c.execute("DELETE FROM wiki_page WHERE id=$1", pid)
+    return {"ok": True}
 
 
 @app.get("/api/wiki/{pid}/revs")
