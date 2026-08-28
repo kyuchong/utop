@@ -872,3 +872,25 @@
   font-variant-numeric: tabular-nums;
 }
 .rqtc-th > .c-no { justify-content: center; color: inherit; }
+
+/* 시험을 열었을 때의 맨 윗줄 — 끼워 넣은 화면이 그리는 같은 줄은 감춘다.
+   자리를 말하는 줄이 둘이면 어느 것이 지금인지 알 수 없고, 「목록」 단추도
+   둘이 된다(지적: 목록이 두 번 나온다). */
+.rqtc-embed .rq-bar { display: none; }
+/* 「← 목록」 은 빵부스러기 맨 앞 — 되돌아가는 길은 자리 이야기의 첫머리다 */
+.rqtc-back {
+  flex: none;
+  height: 24px;
+  padding: 0 9px;
+  margin-right: 4px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: var(--c-surface);
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rqtc-back:hover { background: var(--c-primary-bg); border-color: var(--c-primary); }

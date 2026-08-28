@@ -568,6 +568,31 @@ export default function ReqTc({ me }: Props) {
     return out
   }, [cat, cats])
 
+  /**
+   * 열어 둔 시험의 **자리**.
+   *
+   * 끼워 넣은 Coverage 화면도 제 빵부스러기를 그린다. 그러면 한 화면에
+   * 빵부스러기가 둘, 「목록」 이 둘이 된다(지적). 자리를 말하는 줄은 화면에
+   * 하나여야 하고, 그 자리는 **맨 윗줄**이다 — 폴더를 볼 때 자리가 적히던
+   * 그 자리에, 시험을 열면 시험의 자리가 적힌다(지시).
+   *
+   * 폴더는 요구사항의 cat1..cat4 다. 시험은 폴더에 직접 안 달리고 요구사항을
+   * 통해 달리므로, 그 요구사항의 길이 곧 시험의 길이다.
+   */
+  const tcCrumb = useMemo(() => {
+    if (!openTc) return null
+    const t = tcs.find((x) => x.tcid === openTc)
+    const r = t?.req_id ? reqById.get(String(t.req_id)) : undefined
+    const folders = r
+      ? [r.cat1, r.cat2, r.cat3, r.cat4]
+          .filter(Boolean)
+          .map((id) => cats.find((c) => c.id === String(id)))
+          .filter((c): c is NonNullable<typeof c> => !!c)
+          .map((c) => ({ id: c.id, name: c.name }))
+      : []
+    return { folders, req: r ?? null, name: t?.name || openTc }
+  }, [openTc, tcs, reqById, cats])
+
   const toggle = (s: Set<string>, k: string, set: (v: Set<string>) => void) => {
     const n = new Set(s)
     if (n.has(k)) n.delete(k)
@@ -881,7 +906,63 @@ export default function ReqTc({ me }: Props) {
 
 
             <div className="rqtc-crumb">
-              {crumb.length ? (
+              {tcCrumb ? (
+                /* 시험을 열었을 때 — 이 줄이 **그 시험의 자리**를 말한다.
+                   끼워 넣은 화면의 같은 줄은 감춘다(.rqtc-embed .rq-bar). */
+                <>
+                  <button type="button" className="rqtc-back" onClick={() => setOpenTc('')}>
+                    ← 목록
+                  </button>
+                  <span className="rqtc-crumbi">
+                    <button type="button" className="rqtc-crumbgo" onClick={() => setOpenTc('')}>
+                      Coverage
+                    </button>
+                  </span>
+                  {tcCrumb.folders.map((c) => (
+                    <span className="rqtc-crumbi" key={c.id}>
+                      <i className="rqtc-sep">/</i>
+                      <span className="rqtc-cfico" aria-hidden="true">
+                        <IconFolder />
+                      </span>
+                      <button
+                        type="button"
+                        className="rqtc-crumbgo"
+                        onClick={() => {
+                          setOpenTc('')
+                          pickFolder(c.id)
+                        }}
+                      >
+                        {c.name}
+                      </button>
+                    </span>
+                  ))}
+                  {tcCrumb.req && (
+                    <span className="rqtc-crumbi">
+                      <i className="rqtc-sep">/</i>
+                      <button
+                        type="button"
+                        className="rqtc-crumbgo"
+                        title="이 요구사항을 엽니다"
+                        onClick={() => {
+                          setOpenTc('')
+                          setOpenReq(reqPk(tcCrumb.req as Requirement))
+                        }}
+                      >
+                        {tcCrumb.req.title || reqLabel(tcCrumb.req)}
+                      </button>
+                    </span>
+                  )}
+                  <span className="rqtc-crumbi">
+                    <i className="rqtc-sep">/</i>
+                    <b className="rqtc-crumbgo last">{tcCrumb.name}</b>
+                  </span>
+                  <span className="rqtc-popid">{openTc}</span>
+                  <span className="sp" />
+                  <button className="btn small" type="button" onClick={() => goto('tc', openTc)}>
+                    Coverage 에서 열기
+                  </button>
+                </>
+              ) : crumb.length ? (
                 crumb.map((c, i) => (
                   <span className="rqtc-crumbi" key={c.id}>
                     {i > 0 && <i className="rqtc-sep">/</i>}
@@ -902,6 +983,7 @@ export default function ReqTc({ me }: Props) {
                            1열의 「전체」 줄이 이미 그 말을 하고 있다 */}
               {/* 링크 나누기 — 「지금 보고 있는 이 자리」 를 그대로 보낸다.
                   말로 「E6100 밑 MGMT 폴더 보세요」 하면 상대가 다시 찾아야 한다. */}
+              {!tcCrumb && (
               <button
                 type="button"
                 className="rqtc-copy"
@@ -921,6 +1003,7 @@ export default function ReqTc({ me }: Props) {
               >
                 {copied ? '복사됨' : '링크 복사'}
               </button>
+              )}
               {/* 「이 요구사항만」 걸린 상태를 늘 보이게 — 안 보이면 왜 몇 건뿐인지 모른다 */}
               {onlyReq && (
                 <span className="rqtc-scope">
@@ -930,7 +1013,7 @@ export default function ReqTc({ me }: Props) {
                   </button>
                 </span>
               )}
-              {cat && !reqOnly && (
+              {cat && !reqOnly && !tcCrumb && (
                 <label className="rqtc-deep" title="하위 폴더까지 함께 봅니다">
                   <input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
                   하위 폴더 포함
@@ -1084,19 +1167,10 @@ export default function ReqTc({ me }: Props) {
             </div>
           ) : openTc ? (
             <div className="rqtc-one">
-              <div className="rqtc-onehead">
-                <button type="button" className="btn small" onClick={() => setOpenTc('')}>
-                  ← 목록
-                </button>
-                <b className="rqtc-onetitle">
-                  {tcs.find((t) => t.tcid === openTc)?.name || '(제목 없음)'}
-                </b>
-                <span className="rqtc-popid">{openTc}</span>
-                <span className="sp" />
-                <button className="btn small" type="button" onClick={() => goto('tc', openTc)}>
-                  Coverage 에서 열기
-                </button>
-              </div>
+              {/* 머리줄이 없다 — 「목록으로」 · 제목 · 번호 · 「Coverage 에서
+                  열기」 는 모두 **맨 윗줄**로 올라갔다(지시). 여기 두면
+                  끼워 넣은 화면의 같은 줄과 둘이 되어, 「목록」 이 두 번
+                  나온다(지적). */}
               {/* Coverage 화면을 통째로 얹는다 — 탭과 그 안의 동작이 **같은
                   코드**라 두 자리가 갈릴 수 없다. 베껴 만들면 한쪽만 고치는
                   날이 온다(옛 부품을 얹었다가 스텝을 하나도 못 읽어 물렸다). */}
