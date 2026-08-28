@@ -23,6 +23,7 @@ import { useInfoCols } from '@/components/useInfoCols'
 import ReqForm from '@/components/ReqForm'
 import ReqBulkForm from '@/components/ReqBulkForm'
 import ReqBulkEdit from '@/components/ReqBulkEdit'
+import ReqMapDialog from '@/components/ReqMapDialog'
 import TcBulkForm from '@/components/TcBulkForm'
 import TcBulkEdit from '@/components/tc/TcBulkEdit'
 import CopyDialog from '@/components/CopyDialog'
@@ -249,7 +250,7 @@ export default function ReqTc({ me }: Props) {
      칸은 이제 켜진 열 쪽에서 나온다 — 두 곳에서 그리면 두 번 보인다. */
   /* ID 를 제 칸으로 뗀다(지시: ID 와 제목 사이에도 세로선). 한 칸에 같이
      두면 선을 그을 자리가 없다 — 표의 선은 칸 사이에만 선다. */
-  const gridReq = `52px 108px minmax(0, 1fr) 110px 80px 65px 132px ${visCols.map((c) => c.w).join(' ')}`.trim()
+  const gridReq = `52px 108px minmax(0, 1fr) 110px 80px 65px 52px 132px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridTc = `52px 108px minmax(0, 1fr) 100px 80px 70px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridOf = (tc: boolean) => (tc ? gridTc : gridReq)
   /* 표에서 바로 고치는 칸이 쓸 값들 — 설정(codes)이 정본이다 */
@@ -369,6 +370,9 @@ export default function ReqTc({ me }: Props) {
   const [newOpen, setNewOpen] = useState(false)
   /** 링크 복사 알림 — 눌렀는데 아무 일도 없으면 됐는지 알 수 없다 */
   const [copied, setCopied] = useState(false)
+  /* 시험 연결 — 요구사항 화면이 쓰던 **그 창**을 그대로 얹는다(지시).
+     TC Map 칸은 보여 주기만 한다: 붙였다 떼는 일은 이 창이 한다. */
+  const [mapFor, setMapFor] = useState<Requirement | null>(null)
   /* 제목을 누르면 2열이 **그 요구사항 화면**이 된다(지시) — 팝업이 아니다.
      ID 는 팝업, 제목은 이 화면. 둘이 같은 부품(ReqBody)을 쓴다. */
   const [openReq, setOpenReq] = useState('')
@@ -1164,6 +1168,8 @@ export default function ReqTc({ me }: Props) {
                   <div className="c-md">모델명</div>
                   {/* 이 칸이 세는 것은 「그 요구사항을 덮은 시험」 이다(지시) */}
                   <div className="c-tc">Coverage</div>
+                  {/* 붙였다 떼는 자리 — 보여 주기(TC Map)와는 다른 일이다 */}
+                  <div className="c-mapb">Map</div>
                   {/* 어느 시험이 덮고 있나 — 숫자만으로는 「무엇이」 를 모른다.
                       Coverage 모드의 REQ Map 과 짝이다(지시). */}
                   <div className="c-map">TC Map</div>
@@ -1232,6 +1238,19 @@ export default function ReqTc({ me }: Props) {
                       <div className="c-md">{p?.model || '–'}</div>
                       <div className="c-tc rqtc-fillc">
                         <span className={`rqtc-cov ${n ? 'ok' : 'no'}`}>{n ? `TC ${n}` : '미커버'}</span>
+                      </div>
+                      <div className="c-mapb" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="rqtc-mapb"
+                          title="시험 연결 — 체크해서 붙였다 뗍니다"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setMapFor(r)
+                          }}
+                        >
+                          Map
+                        </button>
                       </div>
                       <div className="c-map" onClick={(e) => e.stopPropagation()}>
                         {n ? (
@@ -1579,6 +1598,17 @@ export default function ReqTc({ me }: Props) {
             ⬇ 아래 줄에 {rowMenu.label} 「{rowMenu.value || '(빈 값)'}」 채우기
           </button>
         </div>
+      )}
+
+      {mapFor && (
+        <ReqMapDialog
+          req={mapFor}
+          onClose={() => {
+            setMapFor(null)
+            void reqQ.refetch()
+            void tcQ.refetch()
+          }}
+        />
       )}
 
       {bulkNew &&

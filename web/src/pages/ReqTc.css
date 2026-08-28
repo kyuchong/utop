@@ -846,3 +846,20 @@
   cursor: pointer;
 }
 .rqtc-more-n:hover { background: var(--c-sel-teal); color: var(--c-sel-teal-ink); }
+
+/* Map — 시험을 붙였다 떼는 자리. 옆의 TC Map(보여 주기)과 일이 달라
+   단추 꼴로 둔다: 글자면 눌러도 되는지 알 수 없다. */
+.rqtc-mapb {
+  border: 1px solid var(--c-border);
+  border-radius: 5px;
+  background: var(--c-surface);
+  color: var(--c-primary);
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: 1px 7px;
+  cursor: pointer;
+}
+.rqtc-mapb:hover { background: var(--c-sel-teal); border-color: var(--c-sel-teal); color: var(--c-sel-teal-ink); }
+/* Map 칸 — 단추 하나만 서는 좁은 칸 */
+.rqtc-tr > .c-mapb { justify-content: center; }
