@@ -234,7 +234,13 @@ export default function Wiki() {
         {!cur ? (
           <div className="empty">왼쪽에서 문서를 고르세요.</div>
         ) : (
-          <WikiEditor key={cur.id} id={cur.id} title={cur.title} onSaved={() => void listQ.refetch()} />
+          <WikiEditor
+            key={cur.id}
+            id={cur.id}
+            title={cur.title}
+            project={cur.project}
+            onSaved={() => void listQ.refetch()}
+          />
         )}
       </section>
     </div>

@@ -388,3 +388,18 @@
   .wke-body .bn-block-content[data-content-type='heading'] { break-after: avoid; }
   .wv, .wke-body table, .wke-body pre { break-inside: avoid; }
 }
+
+/* 문서가 매인 프로젝트 — 제목 옆에 조용히. 자주 바꾸는 값이 아니라
+   단추처럼 세우지 않고 글처럼 둔다. */
+.wke-prj {
+  height: 24px;
+  max-width: 200px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-text-mute);
+  font: inherit;
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.wke-prj:hover { border-color: var(--c-border); background: var(--c-surface); }

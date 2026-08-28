@@ -497,20 +497,35 @@
 /* 공용 `.modal` 은 max-width:620px 이다(ReqForm.css) — 그대로 두면 96vw 를
    줘도 620px 에서 잘려 안쪽 화면이 세로로 짜부라진다(지적: 팝업이 깨진다).
    이 팝업들은 넓어야 하므로 그 제한을 푼다. */
-.rqtc-pop { width: min(1000px, 94vw); max-width: min(1000px, 94vw); max-height: 86vh; display: flex; flex-direction: column; }
-/* 탭이 든 팝업은 넓어야 한다 — 스텝·토폴로지가 들어온다 */
-.rqtc-pop.wide { width: min(1240px, 96vw); max-width: min(1240px, 96vw); height: 86vh; max-height: 86vh; }
+/* **화면을 최대한 쓴다**(지시·Confluence 그림 보기).
+
+   앞서는 「꽉 차면 팝업으로 안 읽힌다」 며 폭을 줄여 두었는데, 그 값이
+   실제로는 양옆에 쓸모없는 빈 띠만 남겼다. 요구사항 본문도 시험 스텝도
+   가로로 긴 글이라, 좁힌 만큼 줄바꿈이 늘고 표가 잘린다.
+
+   대신 **뒤를 더 어둡게** 해서 「덮여 있다」 를 색으로 말한다 — Confluence 가
+   그림을 크게 띄우면서도 팝업으로 읽히는 까닭이 그것이다. 크기로 말하지
+   않고 어둠으로 말한다. */
+.modal-back:has(.rqtc-pop) { background: rgb(9 18 26 / 62%); }
+.rqtc-pop,
+.rqtc-pop.wide {
+  width: 96vw;
+  max-width: 96vw;
+  height: 94vh;
+  max-height: 94vh;
+  display: flex;
+  flex-direction: column;
+}
 /* Coverage 를 통째로 얹는 팝업 — 그 화면이 3열이라 넓어야 한다 */
 /* Coverage 를 통째로 얹는 팝업 — 그 화면이 3열이라 거의 전체 폭이 필요하다 */
 /* 얇은 머리줄 — 이름은 안쪽 빵부스러기가 말한다 */
 .rqtc-pop .modal-head.slim { padding: 6px 12px; border-bottom: 0; }
 .rqtc-pop.full {
-  /* 3열 화면이라 넓어야 하지만 화면에 꽉 차면 팝업으로 안 읽힌다 —
-     뒤가 살짝 비쳐야 「덮여 있다」 가 보인다(지시: 조금 줄이기). */
-  width: min(1560px, 90vw);
-  max-width: min(1560px, 90vw);
-  height: 90vh;
-  max-height: 90vh;
+  /* 3열 화면이라 가장 넓어야 한다 — 위와 같은 크기 */
+  width: 96vw;
+  max-width: 96vw;
+  height: 94vh;
+  max-height: 94vh;
 }
 /* 바깥 판의 여백이 폭을 더 깎지 않게 */
 .rqtc-pop.full ~ *, .modal-back:has(.rqtc-pop.full) { padding: 0; }
@@ -900,3 +915,9 @@
    좁은 자리에 탭이 다 보이는데 화살표까지 서면 줄만 길어진다 — 갈 곳이
    눈앞에 다 있는데 굳이 한 칸씩 옮기는 단추를 둘 까닭이 없다. */
 .rqtc-embed .hrail-nav { display: none; }
+
+/* 빵부스러기는 **한 줄로** 흐른다. 자리가 모자라면 접히지 말고 가로로
+   밀리게 둔다 — 두 줄로 접히면 그 아래 줄들이 통째로 내려가 화면이 출렁인다. */
+.rqtc-crumb { flex-wrap: nowrap; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.rqtc-crumb::-webkit-scrollbar { height: 0; }
+.rqtc-crumbgo { white-space: nowrap; }

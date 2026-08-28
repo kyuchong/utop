@@ -1121,7 +1121,13 @@ export default function ReqTc({ me }: Props) {
               )}
             </div>
             <span className="sp" />
-            {/* 세로선 — 여기서부터는 「어떻게 볼지」 다(지시) */}
+            {/* 여기부터는 **목록을 어떻게 볼지** 정하는 것들이다 — 미커버만·
+                찾기·정렬·열 고르기. 상세를 열면 목록이 없으므로 다 치운다.
+                할 일도 없는 단추가 자리를 먹으면 빵부스러기가 밀려 두 줄로
+                접힌다(지적: 빵부스러기가 잘린다). 치우면 그 줄이 통째로
+                자리 이야기 몫이 된다. */}
+            {!openTc && !openReq && !gpOpen && (
+            <>
             <span className="rqtc-vsep" aria-hidden="true" />
             {/* 미커버만 — 찾기 칸 왼쪽(지시). 둘 다 「무엇을 볼지」 를 좁히는
                 것이라 나란히 있어야 한 묶음으로 읽힌다. */}
@@ -1238,6 +1244,8 @@ export default function ReqTc({ me }: Props) {
                   ))}
                 </div>
               </>
+            )}
+            </>
             )}
           </div>
 

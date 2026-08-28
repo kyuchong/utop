@@ -22,7 +22,7 @@ import { ko } from '@blocknote/core/locales'
 import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
 import { useQuery } from '@tanstack/react-query'
-import { api, apiFetch } from '@/api/client'
+import { api, apiFetch, projectApi } from '@/api/client'
 import { reqLabel, reqPk } from '@/types'
 
 /**
@@ -74,10 +74,13 @@ const SCHEMA = BlockNoteSchema.create({
 export default function WikiEditor({
   id,
   title,
+  project,
   onSaved,
 }: {
   id: string
   title: string
+  /** 이 문서가 매인 프로젝트(빈 값 = 공용) */
+  project?: string
   onSaved?: () => void
 }) {
   const [ready, setReady] = useState(false)
@@ -110,6 +113,8 @@ export default function WikiEditor({
     },
     staleTime: 60_000,
   })
+
+  const prjQ = useQuery({ queryKey: ['projects'], queryFn: ({ signal }) => projectApi.list(signal), staleTime: 60_000 })
 
   const editor = useCreateBlockNote({
     // 메뉴·말풍선을 한국어로 — 「/」 를 쳤을 때 나오는 이름들이다
@@ -180,6 +185,29 @@ export default function WikiEditor({
     <div className="wke">
       <div className="wke-head">
         <b className="wke-title">{title || '(이름 없음)'}</b>
+        {/* 이 문서가 **어느 프로젝트 것인가**(지시).
+            만들 때의 프로젝트가 그냥 박히고 끝이면, 「전체」 로 두고 쓴 문서는
+            영영 공용으로 남고 잘못 박힌 것은 고칠 길이 없다. 여기서 옮긴다.
+            나중에 AI 가 프로젝트별로 문서를 찾을 때 읽는 값이 이것이다. */}
+        <select
+          className="wke-prj"
+          value={project ?? ''}
+          title="이 문서가 매인 프로젝트 — 비워 두면 모든 프로젝트에서 보입니다"
+          onChange={async (e) => {
+            await apiFetch(`/api/wiki/${encodeURIComponent(id)}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ project: e.target.value }),
+            })
+            onSaved?.()
+          }}
+        >
+          <option value="">공용 (모든 프로젝트)</option>
+          {(prjQ.data?.projects ?? []).map((p) => (
+            <option key={p.cat_id} value={p.cat_id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
         <span className="sp" />
         {/* PDF — 따로 만들지 않고 **브라우저의 인쇄**를 부른다. 그 창에서
             「대상」 을 「PDF로 저장」 으로 고르면 된다. 서버에서 PDF 를 굽는
