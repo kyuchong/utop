@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import { onGoto } from '@/api/goto'
 import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
 import { IconChevron, IconFolder, IconSearch } from '@/components/icons'
 import WikiEditor from '@/components/WikiEditor'
@@ -40,7 +41,25 @@ export default function Wiki() {
   })
   const pages = useMemo(() => listQ.data?.pages ?? [], [listQ.data])
 
-  const [openId, setOpenId] = useState('')
+  /* 지금 보던 문서를 기억한다 — 다른 화면에 다녀오면 처음으로 돌아가
+     버리면 「어디까지 읽었지」 를 매번 다시 찾아야 한다. 주소(?wiki=…)로
+     들어온 것도 App 이 여기에 넣어 준다. */
+  const [openId, setOpenId] = useState(() => {
+    try {
+      return localStorage.getItem('utop.wiki.open') ?? ''
+    } catch {
+      return ''
+    }
+  })
+  useEffect(() => {
+    try {
+      if (openId) localStorage.setItem('utop.wiki.open', openId)
+    } catch {
+      /* 사생활 보호 모드 */
+    }
+  }, [openId])
+  /* 문서 안에서 다른 문서를 짚어 눌렀을 때 — 같은 화면 안에서 넘어간다 */
+  useEffect(() => onGoto((kind, id) => { if (kind === 'wiki') setOpenId(id) }), [])
   const [q, setQ] = useState('')
   const [shut, setShut] = useState<Set<string>>(new Set())
 

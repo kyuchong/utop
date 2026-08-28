@@ -64,6 +64,16 @@ export default function WikiEditor({
     queryFn: ({ signal }) => api.listTestCases(signal),
     staleTime: 60_000,
   })
+  /* 문서 목록 — 문서끼리 짚으려면 이것이 있어야 한다. 위키에서 가장 많이
+     쓰는 링크는 바깥이 아니라 **옆 문서**다. */
+  const pageQ = useQuery({
+    queryKey: ['wiki', ''],
+    queryFn: async () => {
+      const r = await apiFetch('/api/wiki?project=')
+      return (await r.json()) as { pages: Array<{ id: string; title: string }> }
+    },
+    staleTime: 60_000,
+  })
 
   const editor = useCreateBlockNote({
     // 메뉴·말풍선을 한국어로 — 「/」 를 쳤을 때 나오는 이름들이다
@@ -232,8 +242,8 @@ export default function WikiEditor({
               )
             }
           />
-          {/* 「@」 — 요구사항·시험을 골라 박는다. ID 로도 이름으로도 찾는다:
-              ID 를 외우고 있는 사람은 없다. */}
+          {/* 「@」 — 문서·요구사항·시험을 골라 박는다. ID 로도 이름으로도
+              찾는다: ID 를 외우고 있는 사람은 없다. */}
           <SuggestionMenuController
             triggerCharacter="@"
             getItems={async (query) => {
@@ -262,7 +272,22 @@ export default function WikiEditor({
                       ' ',
                     ]),
                 }))
-              return [...reqs, ...tcs]
+              /* 문서를 **맨 앞에** 둔다 — 문서를 쓰는 동안 가장 자주 짚는
+                 것이 옆 문서다. 자기 자신은 뺀다: 자기를 가리키는 링크는
+                 눌러도 아무 일이 안 일어나 고장으로 보인다. */
+              const docs = (pageQ.data?.pages ?? [])
+                .filter((p) => p.id !== id && (!n || String(p.title ?? '').toLowerCase().includes(n)))
+                .slice(0, 20)
+                .map((p) => ({
+                  title: p.title || '(이름 없음)',
+                  group: '문서',
+                  onItemClick: () =>
+                    editor.insertInlineContent([
+                      { type: 'ref', props: { kind: 'wiki', id: p.id, label: String(p.title ?? '') } },
+                      ' ',
+                    ]),
+                }))
+              return [...docs, ...reqs, ...tcs]
             }}
           />
         </BlockNoteView>

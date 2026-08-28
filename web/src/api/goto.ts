@@ -9,8 +9,10 @@
  * 창 하나에 화면 하나뿐이니 알림 하나로 족하다.
  */
 /** cat = REQ-Coverage 의 폴더. 「지금 보는 자리」 를 링크로 보내려면 폴더도
-    주소가 있어야 한다(지시: 링크 복사). */
-export type GotoKind = 'tc' | 'req' | 'cycle' | 'ce' | 'report' | 'cat'
+    주소가 있어야 한다(지시: 링크 복사).
+    wiki = 위키 문서. 문서끼리 서로 짚으려면 문서에도 주소가 있어야 한다 —
+    링크 없는 위키는 그냥 글 뭉치다. */
+export type GotoKind = 'tc' | 'req' | 'cycle' | 'ce' | 'report' | 'cat' | 'wiki'
 
 export function goto(kind: GotoKind, id: string): void {
   window.dispatchEvent(new CustomEvent('utop:goto', { detail: { kind, id } }))

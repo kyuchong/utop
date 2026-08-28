@@ -26,17 +26,22 @@ export const RefSpec = createReactInlineContentSpec(
   {
     render: ({ inlineContent }) => {
       const p = inlineContent.props as { kind: string; id: string; label: string }
-      const tc = p.kind === 'tc'
+      const kind = p.kind === 'tc' ? 'tc' : p.kind === 'wiki' ? 'wiki' : 'req'
+      /* 문서 조각은 **이름**을 보인다. 문서 열쇠(wk-17...)는 사람이 읽을 것이
+         못 된다 — 요구사항·시험은 ID 자체가 뜻을 담지만 문서는 아니다. */
+      const text = kind === 'wiki' ? p.label || p.id : p.id
+      const open = () => goto(kind, p.id)
       return (
         <span
-          className={`wk-ref${tc ? ' tc' : ''}`}
+          className={`wk-ref ${kind}`}
           title={p.label ? `${p.id} — ${p.label}` : p.id}
-          onClick={() => goto(tc ? 'tc' : 'req', p.id)}
+          onClick={open}
           role="link"
           tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && goto(tc ? 'tc' : 'req', p.id)}
+          onKeyDown={(e) => e.key === 'Enter' && open()}
         >
-          {p.id}
+          {kind === 'wiki' && <span className="wk-ref-ico" aria-hidden="true">📄</span>}
+          {text}
         </span>
       )
     },
