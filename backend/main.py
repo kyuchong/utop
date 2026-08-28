@@ -9435,8 +9435,16 @@ async def wiki_list(project: str = ""):
     """문서 트리 — 본문은 안 준다. 목록에 본문까지 실으면 수백 KB 가 된다."""
     async with db.pool().acquire() as c:
         rows = await c.fetch(
+            # 프로젝트를 골랐어도 **프로젝트 없는 문서는 늘 보인다.**
+            #
+            # 「전체 프로젝트」 로 두고 쓴 문서는 project 가 빈 값으로 저장된다.
+            # 그런데 나중에 프로젝트를 하나 고르면 그 문서들이 목록에서 통째로
+            # 사라져, 쓴 사람은 **지워진 줄 안다**(지적: 문서가 다 날아갔다).
+            # 빈 값은 「이 프로젝트 것이 아니다」 가 아니라 「어느 프로젝트에도
+            # 매이지 않았다」 — 공용 문서다. 공용은 어디서 보든 보여야 한다.
             "SELECT id, project, parent_id, title, ord, updated_by, updated_at "
-            "FROM wiki_page WHERE ($1='' OR project=$1) ORDER BY ord, title",
+            "FROM wiki_page WHERE ($1='' OR project=$1 OR coalesce(project,'')='') "
+            "ORDER BY ord, title",
             project,
         )
     return {
@@ -9461,7 +9469,10 @@ async def wiki_search(q: str, project: str = "", limit: int = 40):
     async with db.pool().acquire() as c:
         rows = await c.fetch(
             "SELECT id, title, plain FROM wiki_page "
-            "WHERE ($2='' OR project=$2) AND (title ILIKE $1 OR plain ILIKE $1) "
+            # 목록과 **같은 규칙** — 프로젝트 없는 문서는 늘 걸린다.
+            # 목록에는 보이는데 찾기에는 안 걸리면 그건 더 헷갈린다.
+            "WHERE ($2='' OR project=$2 OR coalesce(project,'')='') "
+            "AND (title ILIKE $1 OR plain ILIKE $1) "
             "ORDER BY updated_at DESC LIMIT $3",
             f"%{n}%", project, max(1, min(200, limit)),
         )

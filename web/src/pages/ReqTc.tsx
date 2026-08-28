@@ -92,7 +92,25 @@ export default function ReqTc({ me }: Props) {
     setModeState(m)
     setSharedMode(m)
   }
-  const [cat, setCat] = useState('')
+  /* 마지막으로 보던 폴더를 기억한다(지시).
+     여태 들어올 때마다 「전체」 로 돌아갔다 — 74건짜리 목록 앞에서 트리를
+     다시 펼쳐 제 폴더를 찾아 들어가야 했다. 하루에도 여러 번 오가는 자리라
+     그 몇 초가 매번 쌓인다. 주소(?cat=)로 들어오면 App 이 같은 열쇠에 적어
+     주므로, 링크로 들어온 자리도 여기서 이어진다. */
+  const [cat, setCat] = useState(() => {
+    try {
+      return localStorage.getItem('utop.reqtc.cat') ?? ''
+    } catch {
+      return ''
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('utop.reqtc.cat', cat)
+    } catch {
+      /* 사생활 보호 모드 */
+    }
+  }, [cat])
   const [openCat, setOpenCat] = useState<Set<string>>(new Set())
   /** 「이 요구사항의 시험만」 — 요구사항 줄을 눌렀을 때 걸리는 다리 */
   const [reqOnly, setReqOnly] = useState('')
@@ -629,6 +647,21 @@ export default function ReqTc({ me }: Props) {
     }
   }, [openTc, openReq, cat])
 
+  /** 열어 둔 요구사항의 자리 — 시험(tcCrumb)과 **같은 꼴**이다.
+      두 상세가 서로 다른 모양으로 서면, 같은 화면인데 무엇을 열었느냐에
+      따라 눈이 다른 데를 찾아야 한다(지적: 표시 방법이 다르다). */
+  const reqCrumb = useMemo(() => {
+    if (!openReq) return null
+    const r = reqById.get(openReq)
+    if (!r) return null
+    const folders = [r.cat1, r.cat2, r.cat3, r.cat4]
+      .filter(Boolean)
+      .map((id) => cats.find((c) => c.id === String(id)))
+      .filter((c): c is NonNullable<typeof c> => !!c)
+      .map((c) => ({ id: c.id, name: c.name }))
+    return { folders, name: r.title || '(제목 없음)', label: reqLabel(r) }
+  }, [openReq, reqById, cats])
+
   const toggle = (s: Set<string>, k: string, set: (v: Set<string>) => void) => {
     const n = new Set(s)
     if (n.has(k)) n.delete(k)
@@ -998,6 +1031,37 @@ export default function ReqTc({ me }: Props) {
                   </span>
                   <span className="rqtc-popid">{openTc}</span>
                 </>
+              ) : reqCrumb ? (
+                <>
+                  <span className="rqtc-crumbi">
+                    <button type="button" className="rqtc-crumbgo" onClick={() => setOpenReq('')}>
+                      Requirements
+                    </button>
+                  </span>
+                  {reqCrumb.folders.map((c) => (
+                    <span className="rqtc-crumbi" key={c.id}>
+                      <i className="rqtc-sep">/</i>
+                      <span className="rqtc-cfico" aria-hidden="true">
+                        <IconFolder />
+                      </span>
+                      <button
+                        type="button"
+                        className="rqtc-crumbgo"
+                        onClick={() => {
+                          setOpenReq('')
+                          pickFolder(c.id)
+                        }}
+                      >
+                        {c.name}
+                      </button>
+                    </span>
+                  ))}
+                  <span className="rqtc-crumbi">
+                    <i className="rqtc-sep">/</i>
+                    <b className="rqtc-crumbgo last">{reqCrumb.name}</b>
+                  </span>
+                  <span className="rqtc-popid">{reqCrumb.label}</span>
+                </>
               ) : crumb.length ? (
                 crumb.map((c, i) => (
                   <span className="rqtc-crumbi" key={c.id}>
@@ -1223,19 +1287,13 @@ export default function ReqTc({ me }: Props) {
             </div>
           ) : openReq ? (
             <div className="rqtc-one">
+              {/* 시험 쪽의 「할 일 줄」 과 같은 꼴이다 — 왼쪽에 되돌아가기,
+                  오른쪽에 이 상세에서 할 일. 제목과 번호는 맨 윗줄
+                  빵부스러기가 말한다(지시: 두 상세를 일치시킬 것). */}
               <div className="rqtc-onehead">
-                <button type="button" className="btn small" onClick={() => setOpenReq('')}>
+                <button type="button" className="btn" onClick={() => setOpenReq('')}>
                   ← 목록
                 </button>
-                <b className="rqtc-onetitle">
-                  {reqById.get(openReq)?.title || '(제목 없음)'}
-                </b>
-                <span className="rqtc-popid">
-                  {(() => {
-                    const r0 = reqById.get(openReq)
-                    return r0 ? reqLabel(r0) : openReq
-                  })()}
-                </span>
                 <span className="sp" />
                 <button
                   className="btn small"
