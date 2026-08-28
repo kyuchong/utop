@@ -19,6 +19,22 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 크로미움과 한글 글꼴.
+#
+# PDF 를 서버에서 굽는다(playwright). 글꼴을 안 깔면 한글이 전부 네모로
+# 나온다 — 종이에서 그건 백지나 다름없다. Noto CJK 한 벌만 넣는다.
+# `--with-deps` 는 쓰지 않는다 — 데비안 trixie 에 없는 옛 글꼴 꾸러미
+# (ttf-unifont 등)를 찾다가 설치가 통째로 실패한다. 필요한 라이브러리만
+# 직접 적고, 크로미움은 그다음에 받는다.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libnss3 libnspr4 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 \
+      libcups2 libdrm2 libxkbcommon0 libatspi2.0-0 libxcomposite1 \
+      libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 \
+      libcairo2 libasound2 \
+      fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/* \
+    && playwright install chromium
+
 COPY backend/ ./backend/
 COPY tools/ ./tools/
 COPY db/ ./db/

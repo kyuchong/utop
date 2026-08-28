@@ -53,6 +53,68 @@ const THEME = {
   },
 }
 
+/**
+ * 종이에 찍을 때의 서식.
+ *
+ * 바깥 스타일 파일 하나에 종이가 통째로 걸리면 안 된다. 제목 눈금·글머리·
+ * 표·코드·간격을 여기서 다 준다 — 앱 CSS 가 실리든 말든 같은 종이가 나온다.
+ */
+const PRINT_CSS = `
+/* 화면용 규칙을 되돌린다 — 이 도구의 화면은 창 높이에 맞춘 틀 안에서
+   안쪽만 굴린다. 그대로 찍으면 첫 장 밖이 잘린다. */
+html, body { height: auto !important; margin: 0 !important; background: #fff !important; }
+* { overflow: visible !important; max-height: none !important; }
+/* 다른 화면이 「인쇄하면 저 팝업만」 이라며 body 아래를 다 숨기는 규칙을 둔다.
+   앱 CSS 를 들고 오면 그것까지 따라와 종이가 백지가 된다. 되돌린다. */
+@media print { body, body * { visibility: visible !important; } }
+
+.wke-body { display: block !important; height: auto !important; padding: 24px !important; }
+.bn-editor { padding-inline: 0 !important; }
+
+/* 고르기 칸·손잡이는 종이에서 할 일이 없다 */
+.wv-pick, .bn-side-menu, .bn-formatting-toolbar, select, button { display: none !important; }
+
+/* 제목은 **태그로** 집는다. 클래스 이름으로 집었더니 그 이름이 늘 붙는 게
+   아니어서, 바깥 크기(26px)는 먹고 안쪽 h1 은 그 2배로 남았다. */
+.wke-body .bn-editor { font-size: 14px !important; }
+.wke-body h1:not(.doc), .wke-body h2, .wke-body h3,
+.wke-body h4, .wke-body h5, .wke-body h6,
+.wke-body .bn-inline-content {
+  font-size: inherit !important; font-weight: inherit !important;
+  line-height: inherit !important; margin: 0 !important;
+}
+.wke-body [data-content-type='heading'] { font-weight: 700 !important; padding-top: 14px !important; }
+.wke-body [data-content-type='heading']:not([data-level]),
+.wke-body [data-content-type='heading'][data-level='1'] { font-size: 26px !important; }
+.wke-body [data-content-type='heading'][data-level='2'] { font-size: 24px !important; }
+.wke-body [data-content-type='heading'][data-level='3'] { font-size: 22px !important; }
+.wke-body [data-content-type='heading'][data-level='4'] { font-size: 20px !important; }
+.wke-body [data-content-type='heading'][data-level='5'] { font-size: 18px !important; }
+.wke-body [data-content-type='heading'][data-level='6'] { font-size: 16px !important; }
+h1.doc { font-size: 30px !important; }
+
+/* 앱 CSS 가 안 실려도 되게 — 글머리·번호·표·코드를 여기서 준다 */
+.wke-body .bn-block-outer { margin: 0; }
+.wke-body .bn-block-content { padding: 3px 0; display: flex; width: 100%; }
+.wke-body [data-content-type='bulletListItem'] > *:first-child,
+.wke-body [data-content-type='numberedListItem'] > *:first-child { flex: 1; }
+.wke-body [data-content-type='bulletListItem']::before { content: '\\2022'; min-width: 22px; display: inline-block; }
+.wke-body [data-content-type='numberedListItem']::before { content: attr(data-index) '.'; min-width: 22px; display: inline-block; }
+.wke-body [data-content-type='checkListItem'] input { margin-right: 8px; }
+.wke-body [data-content-type='checkListItem'][data-checked='true'] .bn-inline-content { text-decoration: line-through; }
+.wke-body p { margin: 0; }
+.wke-body a { color: #1f5fb0; }
+.wke-body pre { background: #f4f6f8; border: 1px solid #d8dee4; border-radius: 6px;
+                padding: 10px 12px; white-space: pre-wrap; font-size: 12px; }
+table { border-collapse: collapse !important; }
+th, td { border: 1px solid #b9c1c9 !important; padding: 4px 8px !important; }
+img { max-width: 100% !important; height: auto !important; }
+
+/* 제목이 장 끝에 혼자 남지 않게, 표·코드·그림은 쪼개지지 않게 */
+.wke-body [data-content-type='heading'] { break-after: avoid; }
+table, pre, .wv, img { break-inside: avoid; }
+`
+
 /** 기본 조각에 「짚기」 를 더한 서식 — 편집기가 이 서식으로 글을 읽고 쓴다 */
 const SCHEMA = BlockNoteSchema.create({
   inlineContentSpecs: { ...defaultInlineContentSpecs, ref: RefSpec },
@@ -314,28 +376,20 @@ export default function WikiEditor({
         <button
           type="button"
           className="btn small"
-          title="인쇄 창이 열립니다 — 「대상」 을 「PDF로 저장」 으로 고르세요"
-          onClick={() => {
-            /* 인쇄는 **본문만 담은 창**을 새로 띄워서 한다.
-             *
-             * 처음에는 @media print 로 화면의 다른 부분을 감췄는데, 아무것도
-             * 안 나왔다(지적). 이 도구의 화면은 창 높이에 맞춘 틀 안에서
-             * 안쪽만 굴리는 구조라, 조상 가운데 하나만 잘라도 종이에는 빈
-             * 장이 나온다. 그 조상을 다 찾아 푸는 것은 화면을 고칠 때마다
-             * 다시 틀어질 싸움이다.
-             *
-             * 글만 새 창에 옮겨 담으면 그 싸움이 없어진다. 글꼴·색은 이
-             * 문서의 스타일을 그대로 복사해 간다 — 화면에서 본 그대로 나가야
-             * 한다. */
+          title="PDF 파일을 바로 내려받습니다"
+          onClick={async () => {
+            /* **서버에서 굽는다.**
+
+               여태는 인쇄 창을 띄웠다 — 미리보기가 뜨고 대상을 고르고 저장을
+               눌러야 했고, 종이가 화면과 자꾸 갈렸다(인쇄 창이 앱 CSS 를 못
+               불러오거나 옛 판을 들고 갔다).
+
+               지금 화면에 그려진 그 HTML 을 그대로 보내 크로미움으로 찍는다.
+               화면을 그리는 엔진과 종이를 찍는 엔진이 하나라 갈릴 자리가 없다. */
             const body = document.querySelector('.wke-body .bn-editor')
             if (!body) return
             const css = [...document.querySelectorAll('style, link[rel="stylesheet"]')]
               .map((n) => {
-                /* **주소를 절대 주소로 바꾼다.**
-                   인쇄 창은 about:blank 라 기준 주소가 없다. `/assets/…` 를
-                   그대로 넘기면 그 CSS 는 아예 안 불러와지고, 창이 브라우저
-                   기본 서식으로 그려진다 — 제목이 기본 2배로 부풀던 진짜
-                   까닭이다(지적: 변한 게 없다). */
                 if (n.tagName !== 'LINK') return n.outerHTML
                 const href = new URL(
                   (n as HTMLLinkElement).getAttribute('href') ?? '',
@@ -344,166 +398,48 @@ export default function WikiEditor({
                 return `<link rel="stylesheet" href="${href}">`
               })
               .join('\n')
-            const w = window.open('', '_blank', 'width=900,height=1000')
-            if (!w) {
-              window.alert('팝업이 막혀 있습니다 — 이 사이트의 팝업을 허용해 주세요')
-              return
-            }
-            w.document.write(
+            const nm = (title || '문서').replace(/[<>&/\\:*?"|]/g, '')
+            const html =
               `<!doctype html><html lang="ko"><head><meta charset="utf-8">` +
-                `<base href="${document.baseURI}">` +
-                `<title>${(title || '문서').replace(/[<>&]/g, '')}</title>${css}` +
-                `<style>
-                   /* 앱 CSS 를 통째로 들고 왔으므로 **화면용 규칙을 되돌린다.**
-                      그 안에는 「창은 굴러선 안 된다」(html·body overflow:hidden)
-                      와 「칸은 제 안에서만 굴린다」(.wke-body overflow:auto)가
-                      들어 있다. 화면에서는 맞지만 종이에서는 첫 장 밖이 잘려
-                      백지가 나온다(지적). */
-                   /* **모든 잘림을 통째로 푼다.**
-                      앞서 html·body·.wke-body 셋만 풀었는데도 백지가 나왔다
-                      (지적). 앱 CSS 를 통째로 들고 오는 이상, 어느 조상이
-                      잘라내는지 하나씩 찾는 것은 화면을 고칠 때마다 다시 할
-                      일이다. 이 창은 찍고 버리는 문서라 전부 풀어도 잃을
-                      것이 없다. */
-                   /* **다른 화면의 인쇄 규칙을 되돌린다.**
-
-                      앱 CSS 안에는 「인쇄할 때 body 아래를 모두 숨기고 저
-                      팝업만 보인다」 는 규칙이 있다 — 사이클의 이슈 팝업이
-                      만들어 둔 것이다. 앱 CSS 를 통째로 들고 오면서 이 규칙까지
-                      따라와, 우리 창에는 그 팝업이 없으니 전부 숨겨져
-                      백지가 됐다(지적). 화면에는 보이는데 미리보기만 비던 까닭이
-                      이것이다 — 잘린 게 아니라 숨겨진 것이었다. */
-                   @media print { body, body * { visibility: visible !important; } }
-                   * { overflow: visible !important; max-height: none !important; }
-                   html, body { height: auto !important; margin: 0 !important; background: #fff !important; }
-                   .wke-body {
-                     display: block !important;
-                     flex: none !important;
-                     height: auto !important;
-                     max-height: none !important;
-                     min-height: 0 !important;
-                     overflow: visible !important;
-                     padding: 24px !important;
-                   }
-                   .bn-editor { padding-inline: 0 !important; }
-
-                   /* ── 종이에서만 다르게 굴어야 하는 것들 ──────────────
-
-                      화면은 **고칠 수 있는 곳**이라 고르기 칸과 손잡이가 있다.
-                      종이는 읽기만 하는 곳이다. 고르기 칸이 그대로 찍히면
-                      보고서가 아니라 화면 사진이 된다(지적). */
-                   .wv-pick, .bn-side-menu, .bn-formatting-toolbar,
-                   select, button { display: none !important; }
-
-                   /* 목록 — 글머리와 글이 **같은 줄**에 서야 한다. 종이에서
-                      글머리만 한 줄 위로 뜨면 무엇에 붙은 표시인지 알 수 없다. */
-                   .bn-block-content[data-content-type='bulletListItem'],
-                   .bn-block-content[data-content-type='numberedListItem'],
-                   .bn-block-content[data-content-type='checkListItem'] {
-                     display: flex !important;
-                     align-items: baseline !important;
-                   }
-                   .bn-block-content[data-content-type='checkListItem'] { align-items: center !important; }
-
-                   /* 표 — 테두리가 있어야 표로 읽힌다 */
-                   table { border-collapse: collapse !important; width: auto !important; }
-                   th, td { border: 1px solid #b9c1c9 !important; padding: 4px 8px !important; }
-
-                   /* 문서 이름은 어떤 제목보다 커야 한다 — 이 종이가 무엇인지
-                      말하는 한 줄이다 */
-                   h1.doc { font-size: 30px !important; }
-
-                   /* **눈금을 이 창 안에 직접 박는다.**
-
-                      여태 앱 CSS 를 복사해 오는 것에 기댔는데, 인쇄 창은 지금
-                      열려 있는 페이지의 CSS 주소를 그대로 가져간다 — 탭이 옛
-                      판으로 돌고 있으면 종이도 옛 판이 된다. 화면은 맞는데
-                      PDF 만 다르던 까닭이다(지적).
-
-                      앱 CSS 판이 무엇이든 이기게 여기서 못박는다. 옛 CSS 로
-                      재현해 확인했다: 26 / 24 / 14px 그대로 나온다. */
-                   .wke-body .bn-editor { font-size: 14px !important; }
-                   /* **클래스가 아니라 태그로 집는다.**
-                      안쪽 글을 클래스 이름으로 집었는데 그 이름이 늘
-                      붙는 게 아니었다 — 그래서 바깥 크기(26px)는 먹고 안쪽
-                      h1 은 그것의 2배(52px)로 남았다. 문서 이름(h1.doc)만
-                      빼고, 모든 제목 태그가 바깥 크기를 그대로 물려받는다. */
-                   .wke-body h1:not(.doc),
-                   .wke-body h2, .wke-body h3,
-                   .wke-body h4, .wke-body h5, .wke-body h6,
-                   .wke-body .bn-inline-content {
-                     font-size: inherit !important;
-                     font-weight: inherit !important;
-                     margin: 0 !important;
-                     line-height: inherit !important;
-                   }
-                   .wke-body [data-content-type='heading'] { font-weight: 700 !important; }
-                   .wke-body [data-content-type='heading']:not([data-level]),
-                   .wke-body [data-content-type='heading'][data-level='1'] { font-size: 26px !important; }
-                   .wke-body [data-content-type='heading'][data-level='2'] { font-size: 24px !important; }
-                   .wke-body [data-content-type='heading'][data-level='3'] { font-size: 22px !important; }
-                   .wke-body [data-content-type='heading'][data-level='4'] { font-size: 20px !important; }
-                   .wke-body [data-content-type='heading'][data-level='5'] { font-size: 18px !important; }
-                   .wke-body [data-content-type='heading'][data-level='6'] { font-size: 16px !important; }
-
-                   /* ── 앱 CSS 가 안 실려도 되게, 여기서 다 그린다 ──────────
-                      바깥 스타일 파일 하나에 종이가 통째로 걸리면 안 된다.
-                      글머리·번호·체크·표·코드·그림은 전부 여기서 준다. */
-                   .wke-body .bn-block-outer { margin: 0; }
-                   .wke-body .bn-block-content { padding: 3px 0; display: flex; width: 100%; }
-                   .wke-body [data-content-type='heading'] { padding-top: 14px !important; }
-                   .wke-body [data-content-type='bulletListItem'] > *:first-child,
-                   .wke-body [data-content-type='numberedListItem'] > *:first-child { flex: 1; }
-                   .wke-body [data-content-type='bulletListItem']::before {
-                     content: '•';
-                     min-width: 22px;
-                     display: inline-block;
-                   }
-                   .wke-body [data-content-type='numberedListItem']::before {
-                     content: attr(data-index) '.';
-                     min-width: 22px;
-                     display: inline-block;
-                   }
-                   .wke-body [data-content-type='checkListItem'] input { margin-right: 8px; }
-                   .wke-body [data-content-type='checkListItem'][data-checked='true'] .bn-inline-content {
-                     text-decoration: line-through;
-                   }
-                   .wke-body pre {
-                     background: #f4f6f8;
-                     border: 1px solid #d8dee4;
-                     border-radius: 6px;
-                     padding: 10px 12px;
-                     white-space: pre-wrap;
-                     font-size: 12px;
-                   }
-                   .wke-body a { color: #1f5fb0; }
-                   .wke-body p { margin: 0; }
-                   /* 제목이 장 끝에 혼자 남지 않게, 표·코드는 쪼개지지 않게 */
-                   .bn-block-content[data-content-type='heading'] { break-after: avoid; }
-                   table, pre, .wv, img { break-inside: avoid; }
-                   img { max-width: 100% !important; height: auto !important; }
-                   @page { margin: 14mm; }
-                 </style></head><body>` +
-                `<div class="wke-body">` +
-                `<h1 class="doc" style="margin:0 0 20px">${(title || '문서').replace(/[<>&]/g, '')}</h1>` +
-                `<div class="bn-editor">${body.innerHTML}</div>` +
-                `</div></body></html>`,
-            )
-            w.document.close()
-            /* 글꼴·그림이 다 들어온 뒤에 인쇄 창을 연다 — 바로 부르면
-               글자가 자리를 잡기 전에 찍혀 줄이 어긋난다 */
-            const go = () => {
-              w.focus()
-              w.print()
+              `<base href="${document.baseURI}">${css}` +
+              `<style>${PRINT_CSS}</style></head><body>` +
+              `<div class="wke-body"><h1 class="doc" style="margin:0 0 20px">${nm}</h1>` +
+              `<div class="bn-editor">${body.innerHTML}</div></div></body></html>`
+            setState('saving')
+            try {
+              const r = await apiFetch('/api/wiki/pdf', {
+                method: 'POST',
+                body: JSON.stringify({ html, title: nm }),
+              })
+              const j = (await r.json().catch(() => ({}))) as {
+                ok?: boolean
+                name?: string
+                data?: string
+                error?: string
+              }
+              if (!j.ok || !j.data) {
+                window.alert(`PDF 를 만들지 못했습니다.\n\n${j.error ?? `서버가 ${r.status} 로 답했습니다`}`)
+                setState('')
+                return
+              }
+              /* 파일로 떨군다 — 대화상자 없이 바로 내려받힌다 */
+              const bin = atob(j.data)
+              const buf = new Uint8Array(bin.length)
+              for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
+              const url = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }))
+              const a = document.createElement('a')
+              a.href = url
+              a.download = j.name ?? `${nm}.pdf`
+              a.click()
+              URL.revokeObjectURL(url)
+              setState('')
+            } catch (e) {
+              window.alert(e instanceof Error ? e.message : String(e))
+              setState('')
             }
-            /* 복사해 간 스타일 파일이 **다 실린 뒤**에 찍는다. 바로 부르면
-               꾸밈이 하나도 안 입은 채로 찍힌다. onload 가 이미 지나간
-               경우를 대비해 준비 상태도 함께 본다. */
-            if (w.document.readyState === 'complete') window.setTimeout(go, 300)
-            else w.onload = () => window.setTimeout(go, 300)
           }}
         >
-          PDF · 인쇄
+          PDF 내려받기
         </button>
         <button
           type="button"

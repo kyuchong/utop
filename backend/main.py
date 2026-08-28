@@ -9571,6 +9571,48 @@ async def wiki_delete(pid: str):
     return {"ok": True}
 
 
+@app.post("/api/wiki/pdf")
+async def wiki_pdf(payload: dict):
+    """문서를 **PDF 파일로 구워서** 돌려준다.
+
+    여태는 브라우저 인쇄 창을 띄웠다 — 미리보기가 뜨고, 대상을 고르고, 저장을
+    눌러야 했다. 게다가 종이가 화면과 자꾸 갈렸다: 인쇄 창이 앱 CSS 를 못
+    불러오거나 옛 판을 들고 갔다.
+
+    화면이 보내 준 **그 HTML 그대로** 크로미움으로 찍는다. 화면을 그리는
+    엔진과 종이를 찍는 엔진이 하나라, 갈릴 자리가 없다.
+    """
+    html = str(payload.get("html") or "")
+    title = str(payload.get("title") or "문서")
+    if not html.strip():
+        return {"ok": False, "error": "찍을 내용이 없습니다"}
+    try:
+        from playwright.async_api import async_playwright
+    except Exception as e:
+        return {"ok": False, "error": "PDF 엔진이 없습니다: " + str(e)[:120]}
+
+    import base64 as _b64
+    try:
+        async with async_playwright() as pw:
+            br = await pw.chromium.launch(args=["--no-sandbox", "--disable-dev-shm-usage"])
+            pg = await br.new_page()
+            # 글꼴·그림이 다 앉은 뒤에 찍는다. 바로 찍으면 글자가 자리를 잡기
+            # 전이라 줄이 어긋나고 그림 자리가 빈다.
+            await pg.set_content(html, wait_until="networkidle")
+            await pg.emulate_media(media="print")
+            pdf = await pg.pdf(
+                format="A4",
+                margin={"top": "14mm", "right": "14mm", "bottom": "14mm", "left": "14mm"},
+                print_background=True,
+            )
+            await br.close()
+    except Exception as e:
+        return {"ok": False, "error": "PDF 를 만들지 못했습니다: " + str(e)[:300]}
+
+    print(f"[pdf] {title} — {len(pdf)}B", flush=True)
+    return {"ok": True, "name": f"{title}.pdf", "data": _b64.b64encode(pdf).decode()}
+
+
 @app.post("/api/wiki/import-docx")
 async def wiki_import_docx(payload: dict):
     """워드(.docx) 를 위키가 읽을 수 있는 HTML 로 푼다.
