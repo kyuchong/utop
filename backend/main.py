@@ -9423,6 +9423,34 @@ async def wiki_list(project: str = ""):
     }
 
 
+@app.get("/api/wiki/search")
+async def wiki_search(q: str, project: str = "", limit: int = 40):
+    """**본문까지** 찾는다 — 이름만으로는 「그 말이 어느 문서에 있더라」 를 못 찾는다.
+
+    민글(plain)을 그대로 훑는다. 전문검색 색인을 쓰지 않는 것은 문서가 수천
+    장이 아니기 때문이다 — 지금 크기에서 ILIKE 로 충분하고, 색인은 한국어
+    형태소를 걸어야 제구실을 해서 값이 크다.
+    """
+    n = (q or "").strip()
+    if not n:
+        return {"hits": []}
+    async with db.pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT id, title, plain FROM wiki_page "
+            "WHERE ($2='' OR project=$2) AND (title ILIKE $1 OR plain ILIKE $1) "
+            "ORDER BY updated_at DESC LIMIT $3",
+            f"%{n}%", project, max(1, min(200, limit)),
+        )
+    out = []
+    for r in rows:
+        p = r["plain"] or ""
+        i = p.lower().find(n.lower())
+        # 걸린 자리 앞뒤를 잘라 보여 준다 — 「어디에 있나」 를 열지 않고 알게
+        snip = p[max(0, i - 40) : i + 80] if i >= 0 else ""
+        out.append({"id": r["id"], "title": r["title"], "snippet": snip})
+    return {"hits": out}
+
+
 @app.get("/api/wiki/{pid}")
 async def wiki_get(pid: str):
     async with db.pool().acquire() as c:
@@ -9516,6 +9544,23 @@ async def wiki_revs(pid: str, limit: int = 30):
             pid, max(1, min(200, limit)),
         )
     return {"revs": [{**dict(r), "at": r["at"].isoformat()} for r in rows]}
+
+
+@app.get("/api/wiki/rev/{rev_id}")
+async def wiki_rev_get(rev_id: int):
+    """지난 판 하나. 되돌리려면 그때의 본문이 있어야 한다."""
+    async with db.pool().acquire() as c:
+        r = await c.fetchrow("SELECT * FROM wiki_rev WHERE id=$1", rev_id)
+    if not r:
+        raise HTTPException(404, "그 판을 찾을 수 없습니다")
+    d = dict(r)
+    d["at"] = d["at"].isoformat()
+    if isinstance(d.get("body"), str):
+        try:
+            d["body"] = json.loads(d["body"])
+        except Exception:
+            d["body"] = []
+    return {"rev": d}
 
 
 @app.get("/api/audit")

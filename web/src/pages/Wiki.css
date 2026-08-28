@@ -131,3 +131,76 @@
 .wke-body .bn-block-outer:not(:first-child) > .bn-block > .bn-block-content[data-content-type='heading'] {
   margin-top: 14px;
 }
+
+/* 짚은 조각 — 요구사항은 파랑, 시험은 초록. 다른 화면의 ID 색과 같다:
+   같은 것을 가리키는데 자리마다 색이 다르면 눈이 매번 다시 배운다. */
+.wk-ref {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  margin: 0 1px;
+  border-radius: 5px;
+  background: #e8f1fd;
+  color: #1f5fa8;
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.wk-ref:hover { background: #d6e7fb; }
+.wk-ref.tc { background: #e9f6ec; color: #1f7a45; }
+.wk-ref.tc:hover { background: #d7eedd; }
+
+/* 본문에서 걸린 것 — 트리 아래에 따로 낸다. 트리에 섞으면 「이 문서가
+   어느 폴더 것인지」 가 흐려진다. */
+.wk-hits { margin-top: 10px; border-top: 1px solid var(--c-border); padding-top: 8px; }
+.wk-hitsh {
+  padding: 2px 6px 6px;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--c-text-faint);
+}
+.wk-hit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.wk-hit:hover { background: var(--c-surface-alt); }
+.wk-hit.on { background: var(--c-sel-teal); color: var(--c-sel-teal-ink); }
+.wk-hit b { font-size: var(--fs-md); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 걸린 자리 앞뒤 — 열지 않고도 「이 문서가 맞나」 를 안다 */
+.wk-hit span {
+  font-size: var(--fs-xs);
+  color: var(--c-text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wk-hit.on span { color: var(--c-sel-teal-ink); opacity: 0.8; }
+
+/* 변경 이력 — 편집기 위에 펴진다. 되돌리면 지금 글이 다시 지난 판으로
+   남으므로, 되돌린 것을 또 되돌릴 수 있다. */
+.wke-revs {
+  flex: none;
+  max-height: 240px;
+  overflow: auto;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface-alt, #f7f9fb);
+}
+.wke-rev {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: var(--fs-sm);
+}
+.wke-rev + .wke-rev { border-top: 1px solid var(--c-border-soft, #eef1f5); }
+.wke-rev .sp { flex: 1; }
+.wke-rev-at { font-variant-numeric: tabular-nums; color: var(--c-text-muted); }
+.wke-rev-who { color: var(--c-text-faint); min-width: 90px; }
+.wke-rev-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

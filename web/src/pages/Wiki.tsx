@@ -88,9 +88,24 @@ export default function Wiki() {
     await listQ.refetch()
   }
 
-  /* 찾기 — 이름으로 좁힌다. 본문 찾기는 서버가 plain 을 들고 있으니
-     다음에 붙인다(지금 없는 것을 있는 척하지 않는다). */
+  /* 찾기 — 트리는 **이름**으로 좁히고, 본문은 서버가 뒤진다.
+     이름만으로는 「그 말이 어느 문서에 있더라」 를 못 찾는다. */
   const n = q.trim().toLowerCase()
+  const hitQ = useQuery({
+    queryKey: ['wiki-search', prj, n],
+    enabled: n.length >= 2,
+    queryFn: async () => {
+      const r = await apiFetch(
+        `/api/wiki/search?q=${encodeURIComponent(n)}&project=${encodeURIComponent(prj)}`,
+      )
+      return (await r.json()) as { hits: Array<{ id: string; title: string; snippet: string }> }
+    },
+  })
+  /* 이름에 안 걸린 것만 아래에 따로 낸다 — 같은 문서가 두 번 나오면
+     「왜 두 개지」 를 생각하게 된다 */
+  const bodyHits = (hitQ.data?.hits ?? []).filter(
+    (h) => !h.title.toLowerCase().includes(n),
+  )
   const hit = (p: Page): boolean =>
     p.title.toLowerCase().includes(n) || (kids.get(p.id) ?? []).some(hit)
 
@@ -177,6 +192,21 @@ export default function Wiki() {
             </div>
           ) : (
             <Tree parent="" depth={0} />
+          )}
+          {n.length >= 2 && bodyHits.length > 0 && (
+            <div className="wk-hits">
+              <div className="wk-hitsh">본문에서 {bodyHits.length}건</div>
+              {bodyHits.map((h) => (
+                <div
+                  className={`wk-hit${openId === h.id ? ' on' : ''}`}
+                  key={h.id}
+                  onClick={() => setOpenId(h.id)}
+                >
+                  <b>{h.title || '(이름 없음)'}</b>
+                  <span>{h.snippet}</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </aside>
