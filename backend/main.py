@@ -9628,6 +9628,27 @@ async def wiki_import_docx(payload: dict):
     except Exception as e:
         return {"ok": False, "error": "워드 문서를 푸는 데 실패했습니다: " + str(e)[:200]}
 
+    # 푼 결과가 비었으면 **왜 비었는지** 말한다.
+    #
+    # 200 으로 답했는데 화면은 「못 가져왔다」 만 띄우면, 서버 탓인지 문서 탓인지
+    # 알 길이 없다(지적: 200인데 못 가져왔다고 한다). 흔한 까닭은 옛 .doc 를
+    # 이름만 .docx 로 바꾼 경우다 — 속이 전혀 다른 형식이라 풀리지 않는다.
+    if not html.strip():
+        why = "문서에서 옮길 내용을 찾지 못했습니다"
+        if blob[:2] == b"\xd0\xcf":
+            why = "옛 워드(.doc) 형식입니다 — 워드에서 「다른 이름으로 저장 → .docx」 한 뒤 다시 해 주세요"
+        elif blob[:2] != b"PK":
+            why = "워드 문서가 아닙니다(.docx 가 아님)"
+        elif not (res.messages or []):
+            why = "문서가 비어 있습니다"
+        print(f"[docx] 빈 결과 — {len(blob)}B 머리={blob[:4]!r} :: {why}", flush=True)
+        return {
+            "ok": False,
+            "error": why,
+            "bytes": len(blob),
+            "messages": [str(m) for m in (res.messages or [])][:10],
+        }
+
     # 표 안의 표를 바깥으로 떼어 낸다
     moved = 0
     try:
@@ -9647,6 +9668,11 @@ async def wiki_import_docx(payload: dict):
     except Exception:
         pass  # 못 펴도 가져오기는 계속한다
 
+    print(
+        f"[docx] {len(blob)}B 머리={blob[:4]!r} html={len(html)}글자 "
+        f"표속표={moved} 알림={len(res.messages or [])}",
+        flush=True,
+    )
     return {
         "ok": True,
         "html": html,
