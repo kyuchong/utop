@@ -7,11 +7,13 @@ import {
 import { BlockNoteView } from '@blocknote/mantine'
 import {
   BlockNoteSchema,
+  defaultBlockSpecs,
   defaultInlineContentSpecs,
   filterSuggestionItems,
   type PartialBlock,
 } from '@blocknote/core'
 import { RefSpec } from './wikiRef'
+import { ViewSpec } from './wikiView'
 import { ko } from '@blocknote/core/locales'
 import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
@@ -22,6 +24,8 @@ import { reqLabel, reqPk } from '@/types'
 /** 기본 조각에 「짚기」 를 더한 서식 — 편집기가 이 서식으로 글을 읽고 쓴다 */
 const SCHEMA = BlockNoteSchema.create({
   inlineContentSpecs: { ...defaultInlineContentSpecs, ref: RefSpec },
+  /* 「살아 있는 표」 — 숫자가 아니라 질의를 담는 블록(wikiView) */
+  blockSpecs: { ...defaultBlockSpecs, utopView: ViewSpec() },
 })
 
 /**
@@ -236,6 +240,17 @@ export default function WikiEditor({
                     group: '짚기',
                     /* 「@」 를 대신 쳐 준다 — 짚는 길이 둘이면 하나는 잊힌다 */
                     onItemClick: () => editor.insertInlineContent('@'),
+                  },
+                  {
+                    title: 'UTOP 표 끼우기',
+                    subtext: '사이클 진행·덮임을 문서 안에 살아 있는 채로 놓습니다',
+                    group: '짚기',
+                    onItemClick: () =>
+                      editor.insertBlocks(
+                        [{ type: 'utopView' } as unknown as PartialBlock],
+                        editor.getTextCursorPosition().block,
+                        'after',
+                      ),
                   },
                 ],
                 query,

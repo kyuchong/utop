@@ -9396,6 +9396,14 @@ def _wiki_plain(body) -> str:
             t = v.get("text")
             if isinstance(t, str):
                 out.append(t)
+            # 「살아 있는 표」 는 글자가 없다 — 담긴 것은 질의뿐이라, 찾기가
+            # 훑을 것이 하나도 없어 문서에서 통째로 사라진다. 무엇을 가리키는
+            # 블록인지만 남긴다: 사이클 ID 로 문서를 찾는 일이 실제로 있다.
+            if v.get("type") == "utopView":
+                p = v.get("props") or {}
+                out.append(" ".join(
+                    str(x) for x in ("UTOP 표", p.get("view"), p.get("cycle"), p.get("project")) if x
+                ))
             for x in v.values():
                 walk(x)
         elif isinstance(v, list):
