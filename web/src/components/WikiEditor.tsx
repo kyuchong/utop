@@ -239,9 +239,24 @@ export default function WikiEditor({
                   method: 'POST',
                   body: JSON.stringify({ data: b64 }),
                 })
-                const j = (await r.json()) as { ok?: boolean; html?: string; error?: string; nested_tables?: number }
+                const j = (await r.json().catch(() => ({}))) as {
+                  ok?: boolean
+                  html?: string
+                  error?: string
+                  detail?: string
+                  nested_tables?: number
+                }
                 if (!j.ok || !j.html) {
-                  window.alert(j.error || '워드 문서를 읽지 못했습니다')
+                  /* **왜 안 됐는지 그대로 말한다.**
+                     여태 「워드 문서를 읽지 못했습니다」 한 줄로 뭉뚱그려서,
+                     서버가 없는 주소를 준 것인지 문서가 이상한 것인지 알 수가
+                     없었다(지적). 404 는 서버가 아직 안 올라간 것이다 —
+                     그건 문서 탓이 아니므로 그렇게 말해 줘야 한다. */
+                  const why =
+                    r.status === 404
+                      ? '이 서버에는 아직 워드 가져오기가 없습니다 — 서버를 새로 받아 주세요(./update.sh)'
+                      : j.error || j.detail || `서버가 ${r.status} 로 답했습니다`
+                  window.alert(`워드 문서를 가져오지 못했습니다.\n\n${why}`)
                   setState('')
                   return
                 }
