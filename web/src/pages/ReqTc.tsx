@@ -24,6 +24,7 @@ import ReqForm from '@/components/ReqForm'
 import ReqBulkForm from '@/components/ReqBulkForm'
 import ReqBulkEdit from '@/components/ReqBulkEdit'
 import ReqMapDialog from '@/components/ReqMapDialog'
+import TcMapReqDialog from '@/components/tc/TcMapReqDialog'
 import TcBulkForm from '@/components/TcBulkForm'
 import TcBulkEdit from '@/components/tc/TcBulkEdit'
 import CopyDialog from '@/components/CopyDialog'
@@ -34,6 +35,10 @@ import TestCases from '@/pages/TestCases'
 import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
 import { currentMode, onModeChange, setMode as setSharedMode } from '@/components/ReqTcMode'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
+/* 요구사항 화면은 지웠지만 그 CSS 는 남아 있고, 끼워 넣은 Coverage 화면이
+   거기 사는 규칙(rq-bar·railbox)을 쓴다. 읽던 화면이 없어졌으니 여기서 읽는다 —
+   안 읽으면 시험 상세가 모양 없이 무너진다. */
+import './Requirements.css'
 import './ReqTc.css'
 
 interface Props {
@@ -251,7 +256,7 @@ export default function ReqTc({ me }: Props) {
   /* ID 를 제 칸으로 뗀다(지시: ID 와 제목 사이에도 세로선). 한 칸에 같이
      두면 선을 그을 자리가 없다 — 표의 선은 칸 사이에만 선다. */
   const gridReq = `52px 48px 108px minmax(0, 1fr) 110px 80px 65px 52px 132px ${visCols.map((c) => c.w).join(' ')}`.trim()
-  const gridTc = `52px 48px 108px minmax(0, 1fr) 100px 80px 70px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
+  const gridTc = `52px 48px 108px minmax(0, 1fr) 100px 80px 70px 52px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridOf = (tc: boolean) => (tc ? gridTc : gridReq)
   /* 표에서 바로 고치는 칸이 쓸 값들 — 설정(codes)이 정본이다 */
   const REQ_STATUS = useCodes('req_status', ['작성중', '검토중', '검토완료', '보류', '폐기'])
@@ -373,6 +378,9 @@ export default function ReqTc({ me }: Props) {
   /* 시험 연결 — 요구사항 화면이 쓰던 **그 창**을 그대로 얹는다(지시).
      TC Map 칸은 보여 주기만 한다: 붙였다 떼는 일은 이 창이 한다. */
   const [mapFor, setMapFor] = useState<Requirement | null>(null)
+  /* 시험 쪽에서 요구사항을 붙였다 뗀다 — Coverage 화면의 그 창을 그대로
+     쓴다(TcMapReqDialog). 붙이는 규칙이 두 벌이면 한쪽만 고치는 날이 온다. */
+  const [mapTcFor, setMapTcFor] = useState<TestCaseMeta | null>(null)
   /* 제목을 누르면 2열이 **그 요구사항 화면**이 된다(지시) — 팝업이 아니다.
      ID 는 팝업, 제목은 이 화면. 둘이 같은 부품(ReqBody)을 쓴다. */
   const [openReq, setOpenReq] = useState('')
@@ -1431,6 +1439,9 @@ export default function ReqTc({ me }: Props) {
                   {/* 유형·상태·중요도·타입·구분은 이제 **켜진 열** 쪽에서 나온다
                       (⚙ 로 켜고 끈다) — 여기 또 두면 머리와 몸이 어긋난다. */}
                   <div className="c-last">최근 결과</div>
+                  {/* 붙였다 떼는 자리 — 오른쪽 REQ Map 은 붙은 것을 보여
+                      주기만 한다(요구사항 쪽 Map · TC Map 과 같은 짝). */}
+                  <div className="c-mapb">Map</div>
                   <div className="c-map">REQ Map</div>
                   {visCols.map((c) => (
                     <div key={c.k}>{c.label}</div>
@@ -1491,6 +1502,19 @@ export default function ReqTc({ me }: Props) {
                         ) : (
                           <span className="rqtc-fill none">–</span>
                         )}
+                      </div>
+                      <div className="c-mapb" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="rqtc-mapb"
+                          title="요구사항 연결 — 체크해서 붙였다 뗍니다"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setMapTcFor(t)
+                          }}
+                        >
+                          Map
+                        </button>
                       </div>
                       <div className="c-map">
                         {r ? (
@@ -1695,6 +1719,16 @@ export default function ReqTc({ me }: Props) {
         </div>
       )}
 
+      {mapTcFor && (
+        <TcMapReqDialog
+          tc={mapTcFor}
+          onClose={() => {
+            setMapTcFor(null)
+            void reqQ.refetch()
+            void tcQ.refetch()
+          }}
+        />
+      )}
       {mapFor && (
         <ReqMapDialog
           req={mapFor}

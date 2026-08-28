@@ -6,10 +6,8 @@ import { useLiveRefresh } from '@/components/useLiveRefresh'
 import { useFreshBuild } from '@/components/useFreshBuild'
 import { goto, onGoto as onGotoEvent, reflectUrl } from '@/api/goto'
 import Dashboard from '@/pages/Dashboard'
-import Requirements from '@/pages/Requirements'
 import ReqTc from '@/pages/ReqTc'
 import Wiki from '@/pages/Wiki'
-import TestCases from '@/pages/TestCases'
 import Settings from '@/pages/Settings'
 import AiTc from '@/pages/AiTc'
 import Cycles from '@/pages/Cycles'
@@ -68,8 +66,8 @@ export default function App() {
    */
   useEffect(() => {
     const kinds = [
-      ['tc', 'utop.tc.open', 'testcases'],
-      ['req', 'utop.req.sel', 'requirements'],
+      ['tc', 'utop.tc.open', 'reqtc'],
+      ['req', 'utop.req.sel', 'reqtc'],
       // ?ce=CE-2633-002 — 실행 링크. cycle 보다 앞이라 둘 다 있으면 ce 가 이긴다
       ['ce', 'utop.cycle.ce', 'cycles'],
       ['cycle', 'utop.cycle.sel', 'cycles'],
@@ -181,10 +179,6 @@ export default function App() {
         <ReqTc me={user} />
       ) : page === 'wiki' ? (
         <Wiki />
-      ) : page === 'requirements' ? (
-        <Requirements me={user} />
-      ) : page === 'testcases' ? (
-        <TestCases me={user} />
       ) : page === 'ai-tc' ? (
         <AiTc />
       ) : page === 'cycles' ? (

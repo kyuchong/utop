@@ -6,13 +6,11 @@ import {
   IconKnowledge,
   IconPanelToggle,
   IconRelease,
-  IconRequirements,
   IconReqTc,
   IconDevice,
   IconInstrument,
   IconRack,
   IconSettings,
-  IconTestCase,
   IconSparkle,
 } from './icons'
 import NotifyBell from '@/components/NotifyBell'
@@ -51,8 +49,11 @@ export const NAV: NavGroup[] = [
       /* 요구사항과 시험을 **합쳐 보는** 자리(지시). 기존 두 화면은 그대로 두고
          여기서만 합친다 — Requirements 바로 위. */
       { key: 'reqtc', label: 'REQ-Coverage', Icon: IconReqTc },
-      { key: 'requirements', label: 'Requirements', Icon: IconRequirements },
-      { key: 'testcases', label: 'Coverage', Icon: IconTestCase },
+      /* Requirements · Coverage 두 줄을 뺐다(지시).
+         두 화면이 하던 일은 REQ-Coverage 가 다 한다 — 요구사항 목록과 시험
+         목록, 상세, 붙이기(Map)까지. 같은 일을 하는 자리가 셋이면 사람마다
+         다른 자리에서 일하게 되고, 고칠 때도 셋을 다 봐야 한다.
+         주소(?req= · ?tc=)는 살려 둔다 — 남이 보낸 링크가 죽으면 안 된다. */
       { key: 'cycles', label: 'Cycles', Icon: IconCycle },
       /* 위키 — 프로젝트마다 갖는 문서. 시험 규격·설정 절차가 여기 쌓인다 */
       { key: 'wiki', label: 'Wiki', Icon: IconKnowledge },

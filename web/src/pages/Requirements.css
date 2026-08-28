@@ -1,3 +1,10 @@
+/* 요구사항 화면의 CSS.
+   **화면(pages/Requirements.tsx)은 지웠다**(지시) — 그 일은 REQ-Coverage 가
+   다 한다. 그런데 이 파일은 남긴다: 끼워 넣은 Coverage 화면이 여기 사는
+   `rq-bar`·`rq-crumb`·`railbox` 를 그대로 쓴다. 파일째 지우면 REQ-Coverage
+   안의 시험 상세가 모양 없이 무너진다.
+   쓰는 곳이 없어진 규칙은 한 번에 걷어내지 않는다 — 무엇이 아직 쓰이는지
+   확인하며 줄여야 한다. */
 .split {
   flex: 1;
   min-height: 0;
