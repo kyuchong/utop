@@ -153,6 +153,18 @@ export default function WikiEditor({
       <div className="wke-head">
         <b className="wke-title">{title || '(이름 없음)'}</b>
         <span className="sp" />
+        {/* PDF — 따로 만들지 않고 **브라우저의 인쇄**를 부른다. 그 창에서
+            「대상」 을 「PDF로 저장」 으로 고르면 된다. 서버에서 PDF 를 굽는
+            길도 있지만, 그러면 화면과 종이가 서로 다른 코드로 그려져 언젠가
+            어긋난다 — 지금 보는 그 글이 그대로 나가야 한다. */}
+        <button
+          type="button"
+          className="btn small"
+          title="인쇄 창이 열립니다 — 「대상」 을 「PDF로 저장」 으로 고르세요"
+          onClick={() => window.print()}
+        >
+          PDF · 인쇄
+        </button>
         <button
           type="button"
           className="btn small"

@@ -9,7 +9,9 @@
   gap: 7px;
   height: 30px;
   padding: 0 9px 0 4px;
-  border: 1px solid rgb(255 255 255 / 22%);
+  /* 테두리 없음(지시) — 옅은 바탕만으로도 누를 곳인 줄 안다. 상단바에
+     테두리 친 것이 이것뿐이라 혼자 상자처럼 떠 보였다. */
+  border: 0;
   border-radius: 7px;
   background: rgb(255 255 255 / 10%);
   color: inherit;

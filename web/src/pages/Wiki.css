@@ -40,7 +40,28 @@
   font: inherit;
   font-size: var(--fs-md);
 }
-.wk-tree { flex: 1; min-height: 0; overflow: auto; padding: 6px; }
+/* 굴림대는 **늘 보이게 자리를 잡아 둔다**(지시: 세로·가로 바).
+   문서 이름이 길거나 층이 깊으면 가로로도 밀리는데, 겹쳐 뜨는 굴림대는
+   마우스를 올려야 나타나서 「밀린 줄」 을 모른 채 이름 끝을 놓친다. */
+.wk-tree {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px;
+  scrollbar-gutter: stable;
+}
+.wk-tree, .wke-body { scrollbar-width: thin; }
+.wk-tree::-webkit-scrollbar, .wke-body::-webkit-scrollbar { width: 10px; height: 10px; }
+.wk-tree::-webkit-scrollbar-thumb, .wke-body::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 6px;
+  background: #c3c9d0;
+  background-clip: content-box;
+}
+.wk-tree::-webkit-scrollbar-thumb:hover, .wke-body::-webkit-scrollbar-thumb:hover { background: #a8b0b8; background-clip: content-box; }
+/* 이름이 길면 줄이지 말고 **가로로 민다** — 「E61xx_Series_…」 로 잘리면
+   비슷한 이름끼리 구별이 안 된다 */
+.wk-row { white-space: nowrap; }
 .wk-empty { padding: 14px 10px; line-height: 1.7; }
 
 .wk-row {
@@ -110,7 +131,7 @@
 /* 저장 알림 — 조용히 떴다 사라진다. 「저장하세요」 를 물어보지 않는다 */
 .wke-state { font-size: var(--fs-xs); color: var(--c-text-faint); }
 .wke-state.ok { color: #1f7a45; font-weight: 700; }
-.wke-body { flex: 1; min-height: 0; overflow: auto; padding: 8px 0 40px; }
+.wke-body { flex: 1; min-height: 0; overflow: auto; padding: 8px 0 40px; scrollbar-gutter: stable; }
 .wke-load { padding: 12px 20px; }
 /* BlockNote 는 제 글꼴을 들고 온다 — 이 도구의 글꼴로 맞춘다 */
 .wke-body .bn-container,
@@ -342,4 +363,28 @@
   font-size: 14px;
   font-weight: 700;
   line-height: 1;
+}
+
+/* ── 인쇄 · PDF ───────────────────────────────────────────────
+   종이로 내보낼 때는 **본문만** 남긴다. 메뉴·트리·도구줄은 종이에서 할 일이
+   없다. 브라우저의 「PDF로 저장」 이 이 규칙을 그대로 읽는다.
+
+   화면 틀은 창 높이에 맞춰 놓고 안쪽에서 굴리는데, 그대로 인쇄하면 **첫 장만
+   나오고 나머지가 잘린다.** 인쇄할 때만 그 잠금을 푼다. */
+@media print {
+  html, body, #root, .app { height: auto !important; overflow: visible !important; }
+  .app-top, .nav, .wk-side, .wke-head, .wke-revs, .bn-side-menu, .bn-formatting-toolbar { display: none !important; }
+  .wk { display: block !important; }
+  .wk-main, .wke, .wke-body {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+  .panel { border: 0 !important; box-shadow: none !important; background: #fff !important; }
+  /* 제목이 장 끝에 혼자 남지 않게 — 제목 아래 첫 줄은 붙여서 넘긴다 */
+  .wke-body .bn-block-content[data-content-type='heading'] { break-after: avoid; }
+  .wv, .wke-body table, .wke-body pre { break-inside: avoid; }
 }
