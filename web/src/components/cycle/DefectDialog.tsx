@@ -5,6 +5,12 @@ import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
 import './DefectDialog.css'
 import { buildDefectWiki, kernelFromSteps, wikiToHtml, type WikiStep, configFromSteps} from '@/lib/jiraWiki'
 import AutoGrow from './AutoGrow'
+import { boardShot } from '@/components/tc/boardShot'
+import { wireShot } from '@/components/tc/wireMermaid'
+import { connParams } from '@/components/tc/device'
+import { sessionIndex } from '@/components/tc/types'
+import type { Device } from '@/pages/Devices'
+import type { TcPortLink, TcWire } from '@/components/tc/types'
 import JiraFields, { toJiraFields, toPreviewRows, type JiraField, type JiraFieldValues } from './JiraFields'
 
 /** UTOP 안에 쌓는 결함 한 건 */
@@ -151,7 +157,60 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
     () => (item ? ((item.steps ?? []) as unknown as WikiStep[]) : briefsFromDefect(existing) as unknown as WikiStep[]),
     [item, existing],
   )
-  const cfgText = useMemo(() => configFromSteps(allSteps), [allSteps])
+  const cfgFromSteps = useMemo(() => configFromSteps(allSteps), [allSteps])
+
+  /**
+   * 깨졌을 때의 **설정 파일**.
+   *
+   * 시험이 `show running-config` 를 찍어 두었으면 그것을 쓴다. 대개는 안
+   * 찍는다 — 시험은 확인할 것만 보지 설정 전체를 뜨지 않는다. 그런데 결함을
+   * 볼 사람에게는 **그때 장비가 어떤 설정이었나**가 첫 물음이다.
+   *
+   * 그래서 스텝에 없으면 결함을 여는 이 순간 장비에서 한 번 읽어 온다. 읽고
+   * 나면 결함에 **글로 박히므로**, 나중에 장비 설정이 바뀌어도 이 결함에
+   * 남은 것은 그때 읽은 그대로다.
+   *
+   * 「깨진 그 순간」 과 「결함을 연 순간」 사이에 시간이 있다. 시험이 끝나고
+   * 바로 여는 흐름이라 대개 같지만, 같다고 우기지 않고 언제 읽었는지를
+   * 함께 적는다.
+   */
+  const [cfgLive, setCfgLive] = useState('')
+  useEffect(() => {
+    if (cfgFromSteps || !item?.devId || existing) return
+    let dead = false
+    void (async () => {
+      try {
+        const dr = await apiFetch('/api/devices')
+        const devs = ((await dr.json()) as { devices?: Device[] }).devices ?? []
+        const dev = devs.find((d) => d.id === item.devId)
+        if (!dev) return
+        const r = await apiFetch('/api/run-cli', {
+          method: 'POST',
+          body: JSON.stringify({
+            ...connParams(dev),
+            /* 세션 자리 — 스텝이 앉은 그 자리로 읽어야 같은 장비의 같은
+             접속에서 나온 설정이다 */
+          sess: sessionIndex(
+            String((allSteps[0] as unknown as { session?: string })?.session ?? ''),
+          ),
+            commands: ['show running-config'],
+            require_session: true,
+          }),
+        })
+        const j = (await r.json()) as { ok?: boolean; outputs?: string[]; output?: string }
+        const out = (j.outputs?.join('\n') || j.output || '').trim()
+        if (!dead && out) setCfgLive(out)
+      } catch {
+        /* 못 읽어도 결함 등록은 막지 않는다 — 설정은 곁들이는 값이다 */
+      }
+    })()
+    return () => {
+      dead = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfgFromSteps, item?.devId, existing])
+
+  const cfgText = cfgFromSteps || cfgLive
 
   /* 구성도 — 시험항목이 가진 그림이다. 프로젝트가 따로 갖고 있는 그림은
      이 시스템에 없다: 구성도는 「이 시험을 어떻게 꾸몄나」 라서 시험항목에
@@ -164,9 +223,29 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
     void (async () => {
       try {
         const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}`)
-        const j = (await r.json()) as { tc?: { topo_img?: string } ; topo_img?: string }
-        const img = j.tc?.topo_img || j.topo_img || ''
-        if (!dead) setTopoImg(String(img))
+        const t = (await r.json()) as Record<string, unknown>
+        const e = (t.tc as Record<string, unknown>) ?? t
+        const img = String(e.topo_img ?? '')
+        if (img) {
+          if (!dead) setTopoImg(img)
+          return
+        }
+        /* 그림이 저장돼 있지 않으면 **판을 그려서** 만든다.
+           구성도는 대개 배선판에만 있고 그림으로는 안 굽혀 있다 — 결과서가
+           같은 일을 한다(CycleReport). 여기서만 「구성도 없음」 이라고 하면
+           같은 시험이 화면마다 다른 말을 한다. */
+        const wiring = (e.wiring ?? []) as TcWire[]
+        const links = (e.portLinks ?? []) as TcPortLink[]
+        if (!wiring.length && !links.length) return
+        const dr = await apiFetch('/api/devices')
+        const devices = ((await dr.json()) as { devices?: Device[] }).devices ?? []
+        if (!devices.length) return
+        const sessions = Array.isArray(e.sessions) ? (e.sessions as string[]) : []
+        const placed = (e.topoNodes ?? []) as Array<{ dev: string; x: number; y: number }>
+        const shot = placed.length
+          ? await boardShot({ devices, wiring, links, sessions, placed })
+          : await wireShot({ devices, wiring, links, sessions })
+        if (!dead && shot) setTopoImg(shot.data)
       } catch {
         /* 못 읽으면 그림 없이 간다 — 결함 등록이 그림 때문에 막히면 안 된다 */
       }
