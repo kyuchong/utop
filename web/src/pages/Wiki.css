@@ -280,3 +280,21 @@
    차이지만, 빠뜨리면 「4~6만 어긋난다」 가 또 나온다. 적어 둔다. */
 .wke-body .bn-block-outer:has(> .bn-block > [data-content-type='heading'][data-level='5']) .bn-side-menu { height: 35px; }
 .wke-body .bn-block-outer:has(> .bn-block > [data-content-type='heading'][data-level='6']) .bn-side-menu { height: 33px; }
+
+/* 「/」·「@」 메뉴 — **화면 높이를 넘지 않게** 가둔다.
+
+   BlockNote 가 주는 것은 max-height:100% 뿐이라 화면 아래쪽에서 열면 상자가
+   창 밖으로 넘어간다. 안쪽 스크롤은 끝까지 내려가는데 아래 항목은 창에
+   가려 영영 못 고른다(지적: 더 이상 안 내려간다).
+
+   이 메뉴는 편집기 밖(body)에 붙어 뜨므로 .wke-body 로 감쌀 수 없다.
+   클래스가 BlockNote 전용이라 다른 화면과 부딪히지 않는다.
+
+   !important 는 순서 때문이다 — 패키지 규칙(.bn-mantine .bn-suggestion-menu)
+   과 자릿수가 같아, 어느 CSS 가 먼저 실리느냐에 따라 이겼다 졌다 한다. */
+.bn-suggestion-menu {
+  max-height: min(340px, 55vh) !important;
+  overflow-y: auto !important;
+  /* 메뉴 끝까지 굴렸을 때 그 뒤 문서가 따라 굴러가지 않게 */
+  overscroll-behavior: contain;
+}
