@@ -334,3 +334,12 @@
 .wv-bare-i:hover { background: var(--c-primary-bg); }
 .wv-bare-i b { color: #1f5fb0; flex: none; }
 .wv-bare-i span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 도구줄에 더한 단추 — 글자표(•, 1., ☑, ⇥)를 아이콘처럼 쓴다.
+   기본 단추는 그림 아이콘이라 크기가 같아 보이게 폭을 맞춘다. */
+.wk-tb {
+  min-width: 28px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}

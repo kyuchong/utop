@@ -3,6 +3,9 @@ import {
   useCreateBlockNote,
   SuggestionMenuController,
   getDefaultReactSlashMenuItems,
+  FormattingToolbar,
+  FormattingToolbarController,
+  getFormattingToolbarItems,
 } from '@blocknote/react'
 import { BlockNoteView } from '@blocknote/mantine'
 import {
@@ -14,6 +17,7 @@ import {
 } from '@blocknote/core'
 import { RefSpec } from './wikiRef'
 import { ViewSpec } from './wikiView'
+import ListButtons, { BlockKindSelect } from './wikiListButtons'
 import { ko } from '@blocknote/core/locales'
 import '@blocknote/core/fonts/inter.css'
 import '@blocknote/mantine/style.css'
@@ -218,6 +222,7 @@ export default function WikiEditor({
           editor={editor}
           theme="light"
           slashMenu={false}
+          formattingToolbar={false}
           onChange={() => {
             if (!ready) return
             dirty.current = true
@@ -226,6 +231,29 @@ export default function WikiEditor({
             timer.current = window.setTimeout(() => void save(), 2000)
           }}
         >
+          {/* 글자를 고르면 뜨는 도구줄 — 기본 단추에 **목록 둘**을 더한다.
+              목록은 글을 적는 동안 가장 자주 켜고 끄는 것이라, 종류
+              고름표 안에 묻어 두면 매번 두 번 눌러 들어가야 한다.
+              들여쓰기·내어쓰기도 목록 바로 옆으로 옮겼다 — 기본 자리는
+              맨 끝이라 목록과 멀어 「없다」 로 읽힌다(지적). */}
+          <FormattingToolbarController
+            formattingToolbar={() => (
+              <FormattingToolbar>
+                {/* 종류 고름표는 우리 것을 쓴다 — 기본 것은 여러 줄을
+                    골라도 첫 줄만 바꾼다(지적). 들여쓰기 둘도 빼고 아래
+                    ListButtons 가 목록 바로 옆에서 낸다: 같은 일을 하는
+                    단추가 둘이면 하나는 반드시 다르게 동작하게 된다. */}
+                <BlockKindSelect />
+                {getFormattingToolbarItems().filter(
+                  (b) =>
+                    b.key !== 'blockTypeSelect' &&
+                    b.key !== 'nestBlockButton' &&
+                    b.key !== 'unnestBlockButton',
+                )}
+                <ListButtons />
+              </FormattingToolbar>
+            )}
+          />
           {/* 「/」 — 기본 블록들에 「REQ · TC 짚기」 를 더한다. 그 항목은
               「@」 를 대신 쳐 준다: 짚는 길이 둘이면 하나는 잊힌다. */}
           <SuggestionMenuController
