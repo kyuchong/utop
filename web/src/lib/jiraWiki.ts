@@ -85,6 +85,27 @@ export function kernelFromSteps(steps: WikiStep[]): string {
 }
 
 /**
+ * `show running-config` 를 찍은 스텝의 출력 — 5번 판의 자동 채움.
+ *
+ * 설정 파일을 따로 보관하는 곳은 없다. 있다면 시험 중에 장비에서 그대로
+ * 찍어 온 그 출력이다. 그러니 **명령으로 찾는다**: `show running-config`,
+ * 줄여 친 `sh run` 까지 본다(현장에서는 줄여 친다).
+ *
+ * 여러 번 찍었으면 **마지막 것**을 쓴다 — 설정을 바꿔 가며 시험하므로,
+ * 깨졌을 때의 설정은 마지막에 찍은 쪽이다.
+ */
+export function configFromSteps(steps: WikiStep[]): string {
+  const re = /\bsh(?:o(?:w)?)?\s+run(?:n(?:ing)?)?(?:-config)?\b/i
+  for (let i = steps.length - 1; i >= 0; i--) {
+    const s = steps[i]!
+    if (!re.test(String(s.cli ?? ''))) continue
+    const out = String(s.output ?? '').trim()
+    if (out) return out
+  }
+  return ''
+}
+
+/**
  * 여덟 판을 Jira 설명으로 편다.
  *
  * 「3. 시험절차」 는 사람이 손댄 글이 있으면 그것을, 없으면 스텝에서
@@ -95,7 +116,7 @@ export function kernelFromSteps(steps: WikiStep[]): string {
 export function buildDefectWiki(
   panels: Record<string, string>,
   steps: WikiStep[],
-  opts?: { image?: boolean },
+  opts?: { image?: boolean; config?: string },
 ): string {
   return WIKI_PANELS.map(({ k, title }) => {
     let body = String(panels[k] ?? '').trim()
@@ -104,6 +125,15 @@ export function buildDefectWiki(
       const kn = kernelFromSteps(steps)
       if (kn) body = `{noformat}\n${kn}\n{noformat}`
     }
+    /* 설정 파일 — 사람이 적은 글이 없을 때만 자동으로 채운다. 파일이 크므로
+       Jira 가 접어 주는 {code} 로 감싼다: {noformat} 은 수천 줄이 그대로
+       펼쳐져 이슈를 읽을 수가 없다. */
+    if (k === 'config' && !body && opts?.config) {
+      body = `{code:title=show running-config|collapse=true}\n${opts.config}\n{code}`
+    }
+    /* 구성도 — 그림은 이슈에 첨부로 올리고 여기서는 그 이름을 부른다.
+       첨부가 없으면 Jira 는 깨진 그림 자리를 보여 준다. 그래서 올리는 쪽
+       (DefectDialog) 이 첨부에 성공할 때만 이 표시가 서야 한다. */
     if (k === 'topo' && opts?.image) body = `!구성도.png|thumbnail!\n${body}`
     if (!body) body = '（내용 없음）'
     return `{panel:title=${title}}\n${body}\n{panel}`

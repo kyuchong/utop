@@ -342,3 +342,19 @@
 /* 안 고른 칸 — 값이 아니라 「아직 비었다」 는 표시라 옅게 둔다 */
 .dfx-prevv:has(+ *) { }
 .dfx-prevf .dfx-prevv.none { color: var(--c-text-faint); }
+
+/* 구성도 자동 판 — 그림은 칸 너비에 맞추고, 세로로는 눌러 담지 않는다.
+   비율을 깨면 포트 이름이 찌그러져 무엇에 무엇이 물렸는지 못 읽는다. */
+.dfx-topo {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 8px;
+}
+.dfx-topo img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  background: #fff;
+}

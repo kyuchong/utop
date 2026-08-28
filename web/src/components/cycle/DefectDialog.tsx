@@ -3,7 +3,7 @@ import { apiFetch } from '@/api/client'
 import { stepVerdict, type TcStep } from '@/components/tc/types'
 import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
 import './DefectDialog.css'
-import { buildDefectWiki, kernelFromSteps, wikiToHtml, type WikiStep } from '@/lib/jiraWiki'
+import { buildDefectWiki, kernelFromSteps, wikiToHtml, type WikiStep, configFromSteps} from '@/lib/jiraWiki'
 import AutoGrow from './AutoGrow'
 import JiraFields, { toJiraFields, toPreviewRows, type JiraField, type JiraFieldValues } from './JiraFields'
 
@@ -143,6 +143,36 @@ function fmtDate(iso?: string | null): string {
  */
 export default function DefectDialog({ cycle, item, existing, onClose, onSaved, onDeleted }: Props) {
   const briefs = useMemo(() => (item ? briefsOf(item) : briefsFromDefect(existing)), [item, existing])
+
+  /* 설정 파일을 찾을 때는 **깨진 것만이 아니라 모든 스텝**을 본다.
+     briefs 는 Fail 이 있으면 그것만 골라 담으므로, 통과한 `show
+     running-config` 스텝이 거기엔 없다. */
+  const allSteps = useMemo(
+    () => (item ? ((item.steps ?? []) as unknown as WikiStep[]) : briefsFromDefect(existing) as unknown as WikiStep[]),
+    [item, existing],
+  )
+  const cfgText = useMemo(() => configFromSteps(allSteps), [allSteps])
+
+  /* 구성도 — 시험항목이 가진 그림이다. 프로젝트가 따로 갖고 있는 그림은
+     이 시스템에 없다: 구성도는 「이 시험을 어떻게 꾸몄나」 라서 시험항목에
+     붙는다. 결함이 걸린 그 항목의 것이 곧 이 결함의 구성도다. */
+  const tcid = item?.tcid || existing?.tcid || ''
+  const [topoImg, setTopoImg] = useState('')
+  useEffect(() => {
+    if (!tcid) return
+    let dead = false
+    void (async () => {
+      try {
+        const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}`)
+        const j = (await r.json()) as { tc?: { topo_img?: string } ; topo_img?: string }
+        const img = j.tc?.topo_img || j.topo_img || ''
+        if (!dead) setTopoImg(String(img))
+      } catch {
+        /* 못 읽으면 그림 없이 간다 — 결함 등록이 그림 때문에 막히면 안 된다 */
+      }
+    })()
+    return () => { dead = true }
+  }, [tcid])
   const failN = briefs.filter((b) => b.status === 'Fail').length
   const heading = item ? item.name || item.tcid : existing?.tc_name || existing?.title || existing?.id || '결함'
 
@@ -176,8 +206,14 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
      남은 것이 달라지고, 그 어긋남은 이슈를 연 사람이 아니라 그걸 읽는
      개발자가 먼저 겪는다. 그래서 한 함수로 만들어 둘 다 쓴다. */
   const wiki = useMemo(
-    () => buildDefectWiki(panels, briefs as WikiStep[]),
-    [panels, briefs],
+    () =>
+      buildDefectWiki(panels, briefs as WikiStep[], {
+        /* 그림 표시는 **첨부에 성공할 때만** 서야 하지만, 미리보기에서는
+           올릴 예정임을 보여 준다 — 등록 뒤에 첨부가 따라 붙는다 */
+        image: !!topoImg && !String(panels.topo ?? '').trim(),
+        config: cfgText,
+      }),
+    [panels, briefs, topoImg, cfgText],
   )
   /* 미리보기 아래에 적을 것들 — 왼쪽에서 고른 그대로 */
   const prevRows = useMemo(() => toPreviewRows(jfDefs, jfVals), [jfDefs, jfVals])
@@ -406,7 +442,25 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
         setDefect(j.defect)
         onSaved(j.defect)
       }
-      setMsg({ kind: 'ok', text: `지라에 등록했습니다 — ${j.key}` })
+      /* 그림은 본문에 못 담는다 — 본문의 !구성도.png! 는 **첨부를 부르는
+         이름**이라, 첨부가 없으면 Jira 는 깨진 그림 자리를 보여 준다.
+         그래서 이슈를 만든 **뒤에** 올린다. 여기서 실패해도 이슈는 이미
+         만들어졌으므로 등록 자체를 되돌리지 않고, 무엇이 안 됐는지만
+         말한다 — 사람이 Jira 에서 직접 끌어다 놓으면 된다. */
+      let note = ''
+      if (j.key && topoImg && !String(panels.topo ?? '').trim()) {
+        try {
+          const ar = await apiFetch(`/api/jira/issue/${encodeURIComponent(j.key)}/attach`, {
+            method: 'POST',
+            body: JSON.stringify({ data: topoImg, filename: '구성도.png', mime: 'image/png' }),
+          })
+          const aj = (await ar.json()) as { ok?: boolean; error?: string }
+          if (!aj.ok) note = ` (구성도 첨부 실패: ${aj.error || '알 수 없음'})`
+        } catch {
+          note = ' (구성도를 첨부하지 못했습니다)'
+        }
+      }
+      setMsg({ kind: note ? 'err' : 'ok', text: `지라에 등록했습니다 — ${j.key}${note}` })
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
     } finally {
@@ -556,8 +610,10 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
                왜 못 고치는지를 그 자리에서 말한다. */
             const autoSteps = p.k === 'steps' && briefs.length > 0
             const autoKern = p.k === 'kernel' && !!kernelFromSteps(briefs as WikiStep[])
+            const autoTopo = p.k === 'topo' && !!topoImg
+            const autoCfg = p.k === 'config' && !!cfgText
             const typed = String(panels[p.k] ?? '').trim()
-            const auto = !typed && (autoSteps || autoKern)
+            const auto = !typed && (autoSteps || autoKern || autoTopo || autoCfg)
             return (
               <div className="dfx-panel" key={p.k}>
                 <div className="dfx-ph">
@@ -576,7 +632,11 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
                           p.k,
                           autoSteps
                             ? stepsText(briefs)
-                            : kernelFromSteps(briefs as WikiStep[]),
+                            : autoCfg
+                              ? cfgText
+                              : autoTopo
+                                ? '' /* 그림은 글로 못 가져온다 — 설명을 적는 칸이 된다 */
+                                : kernelFromSteps(briefs as WikiStep[]),
                         )
                       }
                     >
@@ -585,7 +645,19 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
                   )}
                 </div>
                 {auto ? (
-                  autoSteps ? (
+                  autoTopo ? (
+                    /* 구성도 — 이슈에는 첨부로 올라간다. 여기서 보여 주는
+                       것은 「무엇이 올라갈지」 다: 등록하고 나서 열어 보니
+                       엉뚱한 그림이더라를 없앤다. */
+                    <div className="dfx-auto-b dfx-topo">
+                      <img src={topoImg} alt="구성도" />
+                      <div className="muted small">
+                        시험항목 {tcid} 의 구성도 — 등록할 때 「구성도.png」 로 첨부됩니다
+                      </div>
+                    </div>
+                  ) : autoCfg ? (
+                    <pre className="dfx-auto-log">{cfgText.slice(0, 4000)}</pre>
+                  ) : autoSteps ? (
                     <div className="dfx-auto-b">
                       {briefs.map((b) => (
                         <div key={b.no} className={`dfx-step ${b.status === 'Fail' ? 'fail' : ''}`}>
