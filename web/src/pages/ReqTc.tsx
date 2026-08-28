@@ -742,11 +742,16 @@ export default function ReqTc({ me }: Props) {
   const tcPageRows = useMemo(() => tcSorted.slice(from, from + per), [tcSorted, from, per])
   const onlyReq = reqOnly ? reqById.get(reqOnly) : undefined
 
+  /* 폴더 줄의 ⋯ 메뉴 — 어느 폴더에 떠 있나.
+
+     **훅은 아래 조기 반환보다 위에 있어야 한다.** 아래에 두었더니 읽는
+     동안에는 훅이 하나 적고 다 읽고 나면 하나 늘어, React 가 「훅 개수가
+     달라졌다」(#310) 로 화면을 통째로 걷어 냈다 — 로그인하면 백지가 되던
+     것이 이것이다. 조건부 반환 뒤에는 어떤 훅도 두지 않는다. */
+  const [catMenu, setCatMenu] = useState('')
+
   if (reqQ.isLoading || tcQ.isLoading) return <div className="empty">불러오는 중…</div>
   if (reqQ.error) return <div className="load-error">{(reqQ.error as Error).message}</div>
-
-  /* 폴더 줄의 ⋯ 메뉴 — 어느 폴더에 떠 있나 */
-  const [catMenu, setCatMenu] = useState('')
 
   const Tree = ({ parent, depth }: { parent: string | null; depth: number }) => (
     <>
