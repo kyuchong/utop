@@ -894,3 +894,8 @@
   white-space: nowrap;
 }
 .rqtc-back:hover { background: var(--c-primary-bg); border-color: var(--c-primary); }
+
+/* 탭 줄의 앞·다음 화살표는 끼워 넣었을 때 뺀다(지시).
+   좁은 자리에 탭이 다 보이는데 화살표까지 서면 줄만 길어진다 — 갈 곳이
+   눈앞에 다 있는데 굳이 한 칸씩 옮기는 단추를 둘 까닭이 없다. */
+.rqtc-embed .hrail-nav { display: none; }

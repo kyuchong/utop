@@ -3758,3 +3758,11 @@ html .tc-listview .rq-tr > div.tc-cell-fill.al-center { justify-content: center;
   animation: tc-runpulse 1s ease-in-out infinite;
 }
 @keyframes tc-runpulse { 0%,100% { opacity: 1 } 50% { opacity: 0.3 } }
+
+/* 시험 상세의 판 바탕 — **흰색**이다(지적: 2열 카드가 청록이다).
+
+   .railbox 는 공용 부품이라 앱 바탕색(청록)을 칠하고 있었다. 요구사항
+   화면에서는 그 위에 흰 칸들이 떠 보이는 그림이지만, 시험 상세는 카드
+   **안쪽**이라 청록이 비치면 카드가 두 겹으로 보인다. 다른 화면의 카드와
+   같은 흰색을 쓴다. */
+.tc-railbody .railbox { background: var(--c-surface); }

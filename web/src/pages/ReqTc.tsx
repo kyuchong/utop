@@ -957,10 +957,6 @@ export default function ReqTc({ me }: Props) {
                     <b className="rqtc-crumbgo last">{tcCrumb.name}</b>
                   </span>
                   <span className="rqtc-popid">{openTc}</span>
-                  <span className="sp" />
-                  <button className="btn small" type="button" onClick={() => goto('tc', openTc)}>
-                    Coverage 에서 열기
-                  </button>
                 </>
               ) : crumb.length ? (
                 crumb.map((c, i) => (
@@ -1175,7 +1171,14 @@ export default function ReqTc({ me }: Props) {
                   코드**라 두 자리가 갈릴 수 없다. 베껴 만들면 한쪽만 고치는
                   날이 온다(옛 부품을 얹었다가 스텝을 하나도 못 읽어 물렸다). */}
               <div className="rqtc-embed">
-                <TestCases embedTc={openTc} />
+                <TestCases
+                  embedTc={openTc}
+                  embedActions={
+                    <button className="btn" type="button" onClick={() => goto('tc', openTc)}>
+                      Coverage 에서 열기
+                    </button>
+                  }
+                />
               </div>
             </div>
           ) : openReq ? (
@@ -1573,7 +1576,12 @@ export default function ReqTc({ me }: Props) {
           )}
 
           {/* 쪽 나누기 — 왼쪽에 「몇 번째부터 몇 번째, 모두 몇 건」,
-              오른쪽에 쪽 번호(사진). 한 쪽이면 번호는 안 낸다. */}
+              오른쪽에 쪽 번호(사진). 한 쪽이면 번호는 안 낸다.
+
+              **상세를 열면 감춘다**(지시). 그 줄은 목록이 몇 건인지를 말하는데,
+              지금 화면에 목록이 없다. 「1 – 62 of 62」 가 상세 밑에 남아 있으면
+              무엇을 세는 숫자인지 알 수 없다. */}
+          {!gpOpen && !openTc && !openReq && (
           <div className="rqtc-pager">
             <span className="rqtc-pgn">
               {rowsN === 0 ? 0 : from + 1} – {Math.min(from + per, rowsN)}
@@ -1617,6 +1625,7 @@ export default function ReqTc({ me }: Props) {
               </span>
             )}
           </div>
+          )}
 
           {/* 아래 요약 줄은 뺐다(지시) — 쪽 나누기 줄이 바로 위에서 「몇 건」
               을 이미 말한다. 같은 수를 두 줄로 적으면 어느 것이 지금 보고

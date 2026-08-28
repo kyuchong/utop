@@ -197,9 +197,11 @@ interface PageProps {
    * 앉으면 안 된다.
    */
   embedTc?: string
+  /** 끼워 넣은 화면이 머리줄 오른쪽에 얹는 단추 */
+  embedActions?: React.ReactNode
 }
 
-export default function TestCases({ me, embedTc }: PageProps) {
+export default function TestCases({ me, embedTc, embedActions }: PageProps) {
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>(() => {
     const v = localStorage.getItem(TAB_KEY) as Tab | null
@@ -1667,6 +1669,11 @@ export default function TestCases({ me, embedTc }: PageProps) {
                   </button>
 
                   <span className="sp" />
+
+                  {/* 끼워 넣은 화면이 준 단추 — 「Coverage 에서 열기」 같은 것.
+                      끼운 쪽 줄에 두면 자리 이야기(빵부스러기)와 할 일이 한
+                      줄에 섞인다. 할 일은 할 일 줄에 선다(지시). */}
+                  {embedActions}
 
                   {/* 이름·ID 는 위 빵부스러기에 이미 있다. 여기에도 적었더니
                       같은 글이 두 줄로 보였다 — 이 줄은 알림·탭 몫이다. */}
