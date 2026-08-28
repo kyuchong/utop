@@ -9689,6 +9689,8 @@ async def wiki_import_docx(payload: dict):
             "ok": False,
             "error": why,
             "bytes": len(blob),
+            # 파일 머리 네 글자 — 사람이 화면에서 바로 읽고 갈릴 수 있게
+            "head": blob[:4].hex(" "),
             "messages": [str(m) for m in (res.messages or [])][:10],
         }
 

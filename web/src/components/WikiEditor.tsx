@@ -244,6 +244,9 @@ export default function WikiEditor({
                   html?: string
                   error?: string
                   detail?: string
+                  bytes?: number
+                  head?: string
+                  messages?: string[]
                   nested_tables?: number
                 }
                 if (!j.ok || !j.html) {
@@ -256,7 +259,21 @@ export default function WikiEditor({
                     r.status === 404
                       ? '이 서버에는 아직 워드 가져오기가 없습니다 — 서버를 새로 받아 주세요(./update.sh)'
                       : j.error || j.detail || `서버가 ${r.status} 로 답했습니다`
-                  window.alert(`워드 문서를 가져오지 못했습니다.\n\n${why}`)
+                  /* 서버가 본 것을 **그대로 화면에 낸다.**
+                     여태 까닭 한 줄만 띄우고 나머지는 서버 기록에만 남겼다 —
+                     그걸 보려면 터미널을 열어야 했다. 크기·파일 머리·변환기
+                     알림까지 여기서 말한다. 그 셋이면 옛 .doc 인지, 빈 문서인지,
+                     변환기가 걸린 것인지 그 자리에서 갈린다. */
+                  const detail = [
+                    j.bytes ? `크기 ${j.bytes}B` : '',
+                    j.head ? `파일 머리 ${j.head}` : '',
+                    ...(j.messages ?? []).slice(0, 3),
+                  ]
+                    .filter(Boolean)
+                    .join('\n')
+                  window.alert(
+                    `워드 문서를 가져오지 못했습니다.\n\n${why}${detail ? '\n\n' + detail : ''}`,
+                  )
                   setState('')
                   return
                 }
