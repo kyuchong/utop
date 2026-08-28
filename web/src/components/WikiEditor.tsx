@@ -382,6 +382,30 @@ export default function WikiEditor({
                    /* 문서 이름은 어떤 제목보다 커야 한다 — 이 종이가 무엇인지
                       말하는 한 줄이다 */
                    h1.doc { font-size: 30px !important; }
+
+                   /* **눈금을 이 창 안에 직접 박는다.**
+
+                      여태 앱 CSS 를 복사해 오는 것에 기댔는데, 인쇄 창은 지금
+                      열려 있는 페이지의 CSS 주소를 그대로 가져간다 — 탭이 옛
+                      판으로 돌고 있으면 종이도 옛 판이 된다. 화면은 맞는데
+                      PDF 만 다르던 까닭이다(지적).
+
+                      앱 CSS 판이 무엇이든 이기게 여기서 못박는다. 옛 CSS 로
+                      재현해 확인했다: 26 / 24 / 14px 그대로 나온다. */
+                   .wke-body .bn-editor { font-size: 14px !important; }
+                   .wke-body .bn-inline-content {
+                     font-size: inherit !important;
+                     font-weight: inherit !important;
+                     margin: 0 !important;
+                   }
+                   .wke-body [data-content-type='heading'] { font-weight: 700 !important; }
+                   .wke-body [data-content-type='heading']:not([data-level]),
+                   .wke-body [data-content-type='heading'][data-level='1'] { font-size: 26px !important; }
+                   .wke-body [data-content-type='heading'][data-level='2'] { font-size: 24px !important; }
+                   .wke-body [data-content-type='heading'][data-level='3'] { font-size: 22px !important; }
+                   .wke-body [data-content-type='heading'][data-level='4'] { font-size: 20px !important; }
+                   .wke-body [data-content-type='heading'][data-level='5'] { font-size: 18px !important; }
+                   .wke-body [data-content-type='heading'][data-level='6'] { font-size: 16px !important; }
                    /* 제목이 장 끝에 혼자 남지 않게, 표·코드는 쪼개지지 않게 */
                    .bn-block-content[data-content-type='heading'] { break-after: avoid; }
                    table, pre, .wv, img { break-inside: avoid; }
