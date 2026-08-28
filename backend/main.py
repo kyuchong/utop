@@ -9542,10 +9542,17 @@ async def wiki_pdf(payload: dict):
             # 전이라 줄이 어긋나고 그림 자리가 빈다.
             await pg.set_content(html, wait_until="networkidle")
             await pg.emulate_media(media="print")
+            # 배율 90%(지시).
+            #
+            # 100% 로 찍으면 CSS 에 적은 크기가 그대로 나간다 — 틀리진 않지만
+            # 종이에서는 빡빡하다. 90% 로 한 번 줄이면 한 장에 더 담기고,
+            # **글자와 표와 그림이 같은 비율로** 줄어 균형이 안 깨진다.
+            # 글자 크기만 따로 줄이면 표·그림만 커 보인다.
             pdf = await pg.pdf(
                 format="A4",
                 margin={"top": "14mm", "right": "14mm", "bottom": "14mm", "left": "14mm"},
                 print_background=True,
+                scale=0.9,
             )
             await br.close()
     except Exception as e:
