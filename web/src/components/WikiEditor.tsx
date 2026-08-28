@@ -261,9 +261,20 @@ export default function WikiEditor({
                   return
                 }
                 const blocks = await editor.tryParseHTMLToBlocks(j.html)
+                if (!blocks.length) {
+                  window.alert('워드 문서를 읽었지만 옮길 블록이 없습니다.')
+                  setState('')
+                  return
+                }
                 /* 지금 글 **뒤에 잇는다.** 덮어쓰면 되돌릴 길이 없다 —
-                   문서를 통째로 갈아 끼우려면 사람이 먼저 지우면 된다. */
-                editor.insertBlocks(blocks, editor.document[editor.document.length - 1]!, 'after')
+                   문서를 통째로 갈아 끼우려면 사람이 먼저 지우면 된다.
+
+                   빈 문서면 붙일 자리가 없다 — 그때는 통째로 갈아 끼운다.
+                   `document[length-1]` 을 그냥 쓰면 빈 문서에서 undefined 라
+                   거기서 터진다. */
+                const last = editor.document[editor.document.length - 1]
+                if (last) editor.insertBlocks(blocks, last, 'after')
+                else editor.replaceBlocks(editor.document, blocks)
                 dirty.current = true
                 await save()
                 if (j.nested_tables) {
