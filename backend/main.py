@@ -9678,10 +9678,27 @@ async def wiki_import_docx(payload: dict):
             "messages": [str(m) for m in (res.messages or [])][:10],
         }
 
-    # 표 안의 표를 바깥으로 떼어 낸다
+    # 표 안의 표를 바깥으로 떼어 내고, **글자 크기는 버린다.**
     moved = 0
     try:
         soup = BeautifulSoup(html, "html.parser")
+
+        # 워드에서 온 글자 크기를 걷어낸다.
+        #
+        # 워드 문서는 같은 「제목 2」 인데도 12pt 인 것과 10pt 인 것이 섞여
+        # 있다(실제 원본이 그랬다). mammoth 는 그 크기를 글자마다 그대로
+        # 옮기므로, 편집기에서도 제목이 어떤 건 크고 어떤 건 작다(지적).
+        #
+        # 크기가 아니라 **제목 몇 단인가**만 가져온다. 그러면 워드가 어떻든
+        # 이 문서의 눈금으로 정돈된다 — 위키는 문서마다 제목 크기가 달라지면
+        # 목차로 읽히지 않는다. 색·굵기 같은 다른 꾸밈은 건드리지 않는다.
+        import re as _restyle
+        for el in soup.find_all(style=True):
+            st = _restyle.sub(r"font-size\s*:[^;]*;?", "", el["style"]).strip()
+            if st:
+                el["style"] = st
+            else:
+                del el["style"]
         for outer in list(soup.find_all("table")):
             inners = [t for t in outer.find_all("table") if t is not outer]
             for inner in inners:
