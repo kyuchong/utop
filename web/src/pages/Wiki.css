@@ -170,9 +170,16 @@
 
    안쪽 글은 바깥이 정한 크기를 그대로 물려받는다. 굵기도 마찬가지다 —
    굵기는 바깥에서 이미 700 으로 준다. */
-.wke-body .bn-inline-content {
+.wke-body .bn-inline-content,
+.wke-body .bn-block-content h1,
+.wke-body .bn-block-content h2,
+.wke-body .bn-block-content h3,
+.wke-body .bn-block-content h4,
+.wke-body .bn-block-content h5,
+.wke-body .bn-block-content h6 {
   font-size: inherit;
   font-weight: inherit;
+  line-height: inherit;
   margin: 0;
 }
 

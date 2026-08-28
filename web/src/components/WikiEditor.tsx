@@ -406,10 +406,19 @@ export default function WikiEditor({
                       앱 CSS 판이 무엇이든 이기게 여기서 못박는다. 옛 CSS 로
                       재현해 확인했다: 26 / 24 / 14px 그대로 나온다. */
                    .wke-body .bn-editor { font-size: 14px !important; }
+                   /* **클래스가 아니라 태그로 집는다.**
+                      안쪽 글을 `.bn-inline-content` 로 집었는데 그 이름이 늘
+                      붙는 게 아니었다 — 그래서 바깥 크기(26px)는 먹고 안쪽
+                      h1 은 그것의 2배(52px)로 남았다. 문서 이름(h1.doc)만
+                      빼고, 모든 제목 태그가 바깥 크기를 그대로 물려받는다. */
+                   .wke-body h1:not(.doc),
+                   .wke-body h2, .wke-body h3,
+                   .wke-body h4, .wke-body h5, .wke-body h6,
                    .wke-body .bn-inline-content {
                      font-size: inherit !important;
                      font-weight: inherit !important;
                      margin: 0 !important;
+                     line-height: inherit !important;
                    }
                    .wke-body [data-content-type='heading'] { font-weight: 700 !important; }
                    .wke-body [data-content-type='heading']:not([data-level]),
