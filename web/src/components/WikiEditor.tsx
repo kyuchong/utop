@@ -419,14 +419,22 @@ export default function WikiEditor({
                 method: 'POST',
                 body: JSON.stringify({ html, title: nm }),
               })
-              const j = (await r.json().catch(() => ({}))) as {
-                ok?: boolean
-                name?: string
-                data?: string
-                error?: string
+              /* 응답을 **글자로 먼저 받는다.**
+                 바로 json() 으로 읽으면, JSON 이 아닌 것이 왔을 때 무엇이
+                 왔는지 알 길이 없다 — 「서버가 200 으로 답했다」 한 줄만 남고
+                 정작 몸통을 못 본다(지적). 앞부분을 그대로 보여 준다. */
+              const raw = await r.text()
+              let j: { ok?: boolean; name?: string; data?: string; error?: string } = {}
+              try {
+                j = JSON.parse(raw)
+              } catch {
+                /* JSON 이 아니다 — 아래에서 몸통을 그대로 보인다 */
               }
               if (!j.ok || !j.data) {
-                window.alert(`PDF 를 만들지 못했습니다.\n\n${j.error ?? `서버가 ${r.status} 로 답했습니다`}`)
+                const why =
+                  j.error ??
+                  `서버가 ${r.status} 로 답했습니다\n받은 것(앞부분): ${raw.slice(0, 200)}`
+                window.alert(`PDF 를 만들지 못했습니다.\n\n${why}`)
                 setState('')
                 return
               }

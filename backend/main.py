@@ -9584,6 +9584,8 @@ async def wiki_pdf(payload: dict):
     """
     html = str(payload.get("html") or "")
     title = str(payload.get("title") or "문서")
+    # 들어온 것부터 남긴다 — 요청이 여기까지 왔는지가 첫 갈림길이다.
+    print(f"[pdf] 요청 도착 — {title} / html {len(html)}글자", flush=True)
     if not html.strip():
         return {"ok": False, "error": "찍을 내용이 없습니다"}
     try:
