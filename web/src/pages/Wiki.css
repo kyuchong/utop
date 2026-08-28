@@ -136,8 +136,8 @@
    수 있는 곳에서 따로 잡을 일이다. 짐작으로 고쳐 넣으면 지금처럼 안 걸리는
    규칙만 쌓인다.
 
-   본문 크기만 남긴다 — 문서는 읽는 글이라 표(13px)보다 커야 한다. */
-.wke-body .bn-editor { font-size: 15px; }
+   본문 크기만 남긴다 — 문서는 읽는 글이라 표(13px)보다 커야 한다(지정: 14px). */
+.wke-body .bn-editor { font-size: 14px; }
 
 /* 제목 눈금 — **`--level` 을 덮는다.**
 
@@ -150,16 +150,16 @@
    제목이 아니다), 위쪽은 한 단에 10px 넘게 벌어지는데 아래쪽은 1~4px 라
    여섯 단이 세 단처럼 보인다.
 
-   본문 15px 위로 **2px 이상씩** 고르게 벌린다. 어느 단도 본문 아래로
-   내려가지 않는다. 제목 1 에는 data-level 이 아예 안 붙으므로
+   본문 14px 위로 **2px 씩 고르게** 벌린다(지정: 26/24/22/20/18/16).
+   어느 단도 본문 아래로 내려가지 않는다. 제목 1 에는 data-level 이 안 붙으므로
    :not([data-level]) 로 집는다 — 이걸 몰라 [data-level='1'] 로 썼던 규칙은
    내내 헛돌았다. */
-.wke-body .bn-block-content[data-content-type='heading']:not([data-level]) { --level: 28px; }
-.wke-body .bn-block-content[data-content-type='heading'][data-level='2'] { --level: 25px; }
-.wke-body .bn-block-content[data-content-type='heading'][data-level='3'] { --level: 23px; }
-.wke-body .bn-block-content[data-content-type='heading'][data-level='4'] { --level: 21px; }
-.wke-body .bn-block-content[data-content-type='heading'][data-level='5'] { --level: 19px; }
-.wke-body .bn-block-content[data-content-type='heading'][data-level='6'] { --level: 17px; }
+.wke-body .bn-block-content[data-content-type='heading']:not([data-level]) { --level: 26px; }
+.wke-body .bn-block-content[data-content-type='heading'][data-level='2'] { --level: 24px; }
+.wke-body .bn-block-content[data-content-type='heading'][data-level='3'] { --level: 22px; }
+.wke-body .bn-block-content[data-content-type='heading'][data-level='4'] { --level: 20px; }
+.wke-body .bn-block-content[data-content-type='heading'][data-level='5'] { --level: 18px; }
+.wke-body .bn-block-content[data-content-type='heading'][data-level='6'] { --level: 16px; }
 
 /* 짚은 조각 — 요구사항은 파랑, 시험은 초록. 다른 화면의 ID 색과 같다:
    같은 것을 가리키는데 자리마다 색이 다르면 눈이 매번 다시 배운다. */
