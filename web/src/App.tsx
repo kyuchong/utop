@@ -27,9 +27,13 @@ export default function App() {
   // 요구사항으로 튕기면 다시 찾아 들어가야 한다.
   const [page, setPage] = useState(() => {
     try {
-      return localStorage.getItem(PAGE_KEY) || 'requirements'
+      const p = localStorage.getItem(PAGE_KEY) || 'reqtc'
+      /* 지운 화면의 이름이 기억에 남아 있으면 「아직 안 옮겼습니다」 백지가
+         나온다(지적: 이상한 페이지) — Requirements·Coverage 는 REQ-Coverage
+         로 합쳐졌으므로 그리로 보낸다. */
+      return p === 'requirements' || p === 'testcases' ? 'reqtc' : p
     } catch {
-      return 'requirements'
+      return 'reqtc'
     }
   })
 
