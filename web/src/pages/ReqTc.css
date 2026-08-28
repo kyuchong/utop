@@ -921,3 +921,25 @@
 .rqtc-crumb { flex-wrap: nowrap; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .rqtc-crumb::-webkit-scrollbar { height: 0; }
 .rqtc-crumbgo { white-space: nowrap; }
+
+/* 폴더 줄의 ⋯ — 마우스를 올린 줄에서만. 늘 보이면 트리가 단추로 시끄럽다. */
+.rqtc-fold .sp { flex: 1; }
+.rqtc-fmenu { position: relative; flex: none; }
+.rqtc-fmore {
+  width: 22px;
+  height: 20px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--c-text-faint);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  visibility: hidden;
+}
+.rqtc-fold:hover .rqtc-fmore,
+.rqtc-fmore[aria-expanded='true'] { visibility: visible; }
+.rqtc-fmore:hover { background: var(--c-primary-bg); color: var(--c-text); }
+/* 메뉴는 단추 밑, 왼쪽 맞춤 — 트리가 왼쪽 판이라 오른쪽으로 나가면 잘린다 */
+.rqtc-fmenu .tc-menu { left: auto; right: 0; top: calc(100% + 4px); }
+.rqtc-fmenu .tc-menu .danger { color: #b4272d; }

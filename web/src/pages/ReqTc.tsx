@@ -745,6 +745,9 @@ export default function ReqTc({ me }: Props) {
   if (reqQ.isLoading || tcQ.isLoading) return <div className="empty">불러오는 중…</div>
   if (reqQ.error) return <div className="load-error">{(reqQ.error as Error).message}</div>
 
+  /* 폴더 줄의 ⋯ 메뉴 — 어느 폴더에 떠 있나 */
+  const [catMenu, setCatMenu] = useState('')
+
   const Tree = ({ parent, depth }: { parent: string | null; depth: number }) => (
     <>
       {[...(kids.get(parent ?? '') ?? [])]
@@ -803,6 +806,102 @@ export default function ReqTc({ me }: Props) {
                     덮이지 않은 폴더는 붉게 — 트리만 훑어도 구멍이 보인다 */}
                 <span className={`rqtc-rt${n.r > 0 && n.t === 0 ? ' bare' : ''}`}>
                   ({n.r} / {n.t})
+                </span>
+                <span className="sp" />
+                {/* ⋯ — 마우스를 올린 줄에서만 보인다(지시). 늘 보이면 트리가
+                    단추로 시끄럽다. 하는 일이 그 폴더에 매이므로 줄 위가
+                    제자리다 — 위 도구줄에 두면 「어느 폴더에?」 를 또 물어야
+                    한다. */}
+                <span className="rqtc-fmenu" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    className="rqtc-fmore"
+                    aria-haspopup="menu"
+                    aria-expanded={catMenu === c.id}
+                    onClick={() => setCatMenu((v) => (v === c.id ? '' : c.id))}
+                  >
+                    ⋯
+                  </button>
+                  {catMenu === c.id && (
+                    <>
+                      <div className="tc-menu-back" onClick={() => setCatMenu('')} />
+                      <div className="tc-menu" role="menu">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCatMenu('')
+                            const nm = window.prompt(`「${c.name}」 아래 새 폴더 이름`)?.trim()
+                            if (!nm) return
+                            void categoryApi.create(nm, c.id).then(() => {
+                              void catQ.refetch()
+                              setOpenCat((o) => new Set([...o, c.id]))
+                            })
+                          }}
+                        >
+                          ＋ 하위 폴더
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCatMenu('')
+                            const nm = window.prompt('폴더 이름', c.name)?.trim()
+                            if (!nm || nm === c.name) return
+                            void categoryApi.rename(c.id, nm, c.parent_id ?? null).then(() => void catQ.refetch())
+                          }}
+                        >
+                          이름 바꾸기
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!kid.length}
+                          onClick={() => {
+                            setCatMenu('')
+                            /* 이 폴더 아래 전부 — 펼치기·접기는 자손까지다.
+                               한 층만 바꾸면 「눌렀는데 반쯤만 됐다」 로 보인다 */
+                            const all: string[] = []
+                            const walk = (id: string) => {
+                              all.push(id)
+                              for (const k of kids.get(id) ?? []) walk(k.id)
+                            }
+                            walk(c.id)
+                            setOpenCat((o) => {
+                              const x = new Set(o)
+                              const opening = !on
+                              for (const id of all) {
+                                if (opening) x.add(id)
+                                else x.delete(id)
+                              }
+                              return x
+                            })
+                          }}
+                        >
+                          {on ? '모두 접기' : '모두 펼치기'}
+                        </button>
+                        <button
+                          type="button"
+                          className="danger"
+                          onClick={() => {
+                            setCatMenu('')
+                            if (
+                              !window.confirm(
+                                `「${c.name}」 폴더를 지웁니다.\n안의 요구사항은 지워지지 않고 폴더만 없어집니다.`,
+                              )
+                            )
+                              return
+                            void categoryApi.remove(c.id).then(
+                              () => {
+                                if (cat === c.id) setCat('')
+                                void catQ.refetch()
+                              },
+                              (err) => window.alert(err instanceof Error ? err.message : String(err)),
+                            )
+                          }}
+                        >
+                          삭제
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </span>
               </div>
               {on && <Tree parent={c.id} depth={depth + 1} />}
