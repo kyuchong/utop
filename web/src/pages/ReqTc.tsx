@@ -3,7 +3,7 @@ import type React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser } from '@/api/client'
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
-import { goto, gotoHref, onGoto } from '@/api/goto'
+import { goto, onGoto } from '@/api/goto'
 import { fillOf } from '@/lib/fieldFill'
 import PickCell from '@/components/PickCell'
 import { useCodes } from '@/hooks/useCodes'
@@ -111,12 +111,30 @@ export default function ReqTc({ me }: Props) {
       /* 사생활 보호 모드 */
     }
   }, [cat])
-  const [openCat, setOpenCat] = useState<Set<string>>(new Set())
+  /* 펼쳐 둔 폴더를 기억한다(지적: 새로 고치면 무조건 접힌다).
+     층이 깊은 트리에서 새로 고칠 때마다 다시 펼치는 것은, 보던 자리를
+     기억해 두고도 거기까지 가는 길만 매번 잃는 것과 같다. */
+  const [openCat, setOpenCat] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('utop.reqtc.opencat')
+      return new Set(raw ? (JSON.parse(raw) as string[]) : [])
+    } catch {
+      return new Set()
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('utop.reqtc.opencat', JSON.stringify([...openCat]))
+    } catch {
+      /* 사생활 보호 모드 */
+    }
+  }, [openCat])
   /** 「이 요구사항의 시험만」 — 요구사항 줄을 눌렀을 때 걸리는 다리 */
   const [reqOnly, setReqOnly] = useState('')
   const [q, setQ] = useState('')
   const [fsort, setFsort] = useState<'name' | 'req'>('name')
-  const [deep, setDeep] = useState(true)
+  /* 하위 폴더는 **늘 함께 본다** — 끄는 손잡이를 없앴다(지시) */
+  const deep = true
   const [onlyBare, setOnlyBare] = useState(false)
   const [foldSide, setFoldSide] = useState(false)
   /* 두 판 사이 이동바(지시) — 다른 화면과 같은 부품을 쓴다. 폭은 기억한다. */
@@ -391,8 +409,6 @@ export default function ReqTc({ me }: Props) {
   const [moreOpen, setMoreOpen] = useState(false)
   /** 만들기 메뉴 — ⋯ 안에 ＋New·＋Bulk New·＋Copy 가 든다 */
   const [newOpen, setNewOpen] = useState(false)
-  /** 링크 복사 알림 — 눌렀는데 아무 일도 없으면 됐는지 알 수 없다 */
-  const [copied, setCopied] = useState(false)
   /* 시험 연결 — 요구사항 화면이 쓰던 **그 창**을 그대로 얹는다(지시).
      TC Map 칸은 보여 주기만 한다: 붙였다 떼는 일은 이 창이 한다. */
   const [mapFor, setMapFor] = useState<Requirement | null>(null)
@@ -986,11 +1002,8 @@ export default function ReqTc({ me }: Props) {
                       끼워 넣은 화면이 이미 그린다. 둘이 되면 어느 것을
                       눌러야 하는지 묻게 된다(지적). 이 줄은 **자리**만
                       말하고, 되돌아가려면 첫 칸 「Coverage」 를 누른다. */}
-                  <span className="rqtc-crumbi">
-                    <button type="button" className="rqtc-crumbgo" onClick={() => setOpenTc('')}>
-                      Coverage
-                    </button>
-                  </span>
+                  {/* 뿌리 칸(「Coverage」)은 뺐다(지적) — 그런 화면이 이제
+                      없다. 자리는 폴더에서 시작한다. */}
                   {tcCrumb.folders.map((c) => (
                     <span className="rqtc-crumbi" key={c.id}>
                       <i className="rqtc-sep">/</i>
@@ -1081,29 +1094,9 @@ export default function ReqTc({ me }: Props) {
                 ))
               ) : null /* 폴더를 안 골랐을 때 「전체」 라 적던 것을 뺀다(지시) —
                            1열의 「전체」 줄이 이미 그 말을 하고 있다 */}
-              {/* 링크 나누기 — 「지금 보고 있는 이 자리」 를 그대로 보낸다.
-                  말로 「E6100 밑 MGMT 폴더 보세요」 하면 상대가 다시 찾아야 한다. */}
-              {!tcCrumb && (
-              <button
-                type="button"
-                className="rqtc-copy"
-                title="이 화면 링크 복사"
-                onClick={() => {
-                  const url = onlyReq
-                    ? new URL(gotoHref('req', reqOnly), window.location.origin).href
-                    : cat
-                      ? new URL(gotoHref('cat', cat), window.location.origin).href
-                      : `${window.location.origin}${window.location.pathname}`
-                  void navigator.clipboard
-                    .writeText(url)
-                    .then(() => setCopied(true))
-                    .catch(() => window.prompt('아래 주소를 복사하세요', url))
-                  window.setTimeout(() => setCopied(false), 1400)
-                }}
-              >
-                {copied ? '복사됨' : '링크 복사'}
-              </button>
-              )}
+              {/* 「링크 복사」 는 뺐다(지시) — 주소창이 이제 지금 보는 것을 그대로
+                  적으므로 주소를 그냥 복사하면 된다. 같은 일을 하는 단추가
+                  둘이면 어느 쪽이 맞는지 묻게 된다. */}
               {/* 「이 요구사항만」 걸린 상태를 늘 보이게 — 안 보이면 왜 몇 건뿐인지 모른다 */}
               {onlyReq && (
                 <span className="rqtc-scope">
@@ -1113,13 +1106,8 @@ export default function ReqTc({ me }: Props) {
                   </button>
                 </span>
               )}
-              {cat && !reqOnly && !tcCrumb && (
-                <label className="rqtc-deep" title="하위 폴더까지 함께 봅니다">
-                  <input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
-                  하위 폴더 포함
-                </label>
-              )}
-            </div>
+              {/* 「하위 폴더 포함」 은 뺐다(지시) — 폴더를 고르면 그 아래까지 함께
+                  보는 것이 사람이 기대하는 바다. */}</div>
             <span className="sp" />
             {/* 여기부터는 **목록을 어떻게 볼지** 정하는 것들이다 — 미커버만·
                 찾기·정렬·열 고르기. 상세를 열면 목록이 없으므로 다 치운다.
@@ -1285,11 +1273,13 @@ export default function ReqTc({ me }: Props) {
               <div className="rqtc-embed">
                 <TestCases
                   embedTc={openTc}
-                  embedActions={
-                    <button className="btn" type="button" onClick={() => goto('tc', openTc)}>
-                      Coverage 에서 열기
-                    </button>
-                  }
+                  /* 「Coverage 에서 열기」 는 뺐다(지시) — 그 화면을 지웠으니
+                     갈 곳이 없다. */
+                  /* 끼운 화면의 「← 목록」 이 **이 화면의 목록**으로 오게 한다.
+                     여태는 그 화면 제 목록으로 돌아가, 돌아와 보면 우리 표가
+                     아니라 남의 표가 서 있었다 — TC ID 칸이 없는 그 표다
+                     (지적: 목록으로 오면 TC ID 가 안 보인다). */
+                  onEmbedBack={() => setOpenTc('')}
                 />
               </div>
             </div>

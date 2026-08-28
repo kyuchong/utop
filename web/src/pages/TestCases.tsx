@@ -199,9 +199,11 @@ interface PageProps {
   embedTc?: string
   /** 끼워 넣은 화면이 머리줄 오른쪽에 얹는 단추 */
   embedActions?: React.ReactNode
+  /** 끼워 넣었을 때 「← 목록」 이 갈 곳 — 끼운 화면의 목록이다 */
+  onEmbedBack?: () => void
 }
 
-export default function TestCases({ me, embedTc, embedActions }: PageProps) {
+export default function TestCases({ me, embedTc, embedActions, onEmbedBack }: PageProps) {
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>(() => {
     const v = localStorage.getItem(TAB_KEY) as Tab | null
@@ -1650,6 +1652,12 @@ export default function TestCases({ me, embedTc, embedActions }: PageProps) {
                     onClick={() => {
                       if (dirty && !window.confirm('저장하지 않은 변경이 있습니다. 목록으로 갈까요?'))
                         return
+                      /* 끼워 넣었으면 **끼운 화면의 목록**으로 간다. 제
+                         목록으로 돌아가면, 돌아와 보니 남의 표가 서 있다. */
+                      if (onEmbedBack) {
+                        onEmbedBack()
+                        return
+                      }
                       setOpenId('')
                       window.history.pushState({ utop: true }, '', window.location.pathname)
                     }}
