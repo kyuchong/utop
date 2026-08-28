@@ -313,7 +313,19 @@ export default function WikiEditor({
             const body = document.querySelector('.wke-body .bn-editor')
             if (!body) return
             const css = [...document.querySelectorAll('style, link[rel="stylesheet"]')]
-              .map((n) => n.outerHTML)
+              .map((n) => {
+                /* **주소를 절대 주소로 바꾼다.**
+                   인쇄 창은 about:blank 라 기준 주소가 없다. `/assets/…` 를
+                   그대로 넘기면 그 CSS 는 아예 안 불러와지고, 창이 브라우저
+                   기본 서식으로 그려진다 — 제목이 기본 2배로 부풀던 진짜
+                   까닭이다(지적: 변한 게 없다). */
+                if (n.tagName !== 'LINK') return n.outerHTML
+                const href = new URL(
+                  (n as HTMLLinkElement).getAttribute('href') ?? '',
+                  document.baseURI,
+                ).href
+                return `<link rel="stylesheet" href="${href}">`
+              })
               .join('\n')
             const w = window.open('', '_blank', 'width=900,height=1000')
             if (!w) {
@@ -322,6 +334,7 @@ export default function WikiEditor({
             }
             w.document.write(
               `<!doctype html><html lang="ko"><head><meta charset="utf-8">` +
+                `<base href="${document.baseURI}">` +
                 `<title>${(title || '문서').replace(/[<>&]/g, '')}</title>${css}` +
                 `<style>
                    /* 앱 CSS 를 통째로 들고 왔으므로 **화면용 규칙을 되돌린다.**
