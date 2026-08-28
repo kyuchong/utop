@@ -369,10 +369,9 @@ export default function WikiEditor({
             }}
           />
         </label>
-        {/* PDF — 따로 만들지 않고 **브라우저의 인쇄**를 부른다. 그 창에서
-            「대상」 을 「PDF로 저장」 으로 고르면 된다. 서버에서 PDF 를 굽는
-            길도 있지만, 그러면 화면과 종이가 서로 다른 코드로 그려져 언젠가
-            어긋난다 — 지금 보는 그 글이 그대로 나가야 한다. */}
+        {/* PDF — **서버에서 구워 파일로 내려받는다.** 인쇄 창을 거치지
+            않는다(지시). 화면을 그리는 엔진과 종이를 찍는 엔진이 같은
+            크로미움이라, 화면과 종이가 갈릴 자리가 없다. */}
         <button
           type="button"
           className="btn small"
@@ -387,10 +386,19 @@ export default function WikiEditor({
                지금 화면에 그려진 그 HTML 을 그대로 보내 크로미움으로 찍는다.
                화면을 그리는 엔진과 종이를 찍는 엔진이 하나라 갈릴 자리가 없다. */
             const body = document.querySelector('.wke-body .bn-editor')
-            if (!body) return
-            const css = [...document.querySelectorAll('style, link[rel="stylesheet"]')]
+            if (!body) {
+              /* 여기서 조용히 빠져나가면 단추가 **아무 일도 안 하는 것**처럼
+                 보인다 — 눌렀는지 안 눌렀는지도 알 수 없다(지적: 동작이 안
+                 된다). 못 찾았으면 못 찾았다고 말한다. */
+              window.alert('문서 본문을 찾지 못했습니다 — 문서를 열고 다시 눌러 주세요.')
+              return
+            }
+            /* 스타일은 **주소만** 넘긴다.
+               style 태그까지 통째로 담으면 몸통이 수백 KB 로 불어, 앞단(nginx)
+               의 몸통 크기 제한에 걸려 413 으로 잘린다. 서버는 같은 망 안에
+               있으니 주소만 주면 제가 받아 온다. */
+            const css = [...document.querySelectorAll('link[rel="stylesheet"]')]
               .map((n) => {
-                if (n.tagName !== 'LINK') return n.outerHTML
                 const href = new URL(
                   (n as HTMLLinkElement).getAttribute('href') ?? '',
                   document.baseURI,
