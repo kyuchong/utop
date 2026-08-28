@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
 import { stepVerdict, type TcStep } from '@/components/tc/types'
 import type { CycleItemLite, CycleStep } from '@/pages/Cycles'
@@ -79,7 +79,6 @@ interface Props {
 }
 
 const isFail = (r: string) => r === 'Fail' || r === '불합격'
-const PRIORITIES = ['Blocker', 'Critical', 'Major', 'Minor', 'Trivial']
 
 /** 한 스텝을 결함에 담을 모양으로 추린다 */
 interface StepBrief {
@@ -128,14 +127,6 @@ function briefsFromDefect(d: DefectRec | null): StepBrief[] {
   }))
 }
 
-/** "2026년 8월 9일 14:30:05" */
-function fmtDate(iso?: string | null): string {
-  if (!iso) return '지금(등록 시)'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
-}
 
 /**
  * 결함 등록 창.
@@ -259,10 +250,10 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
   const [proj, setProj] = useState(existing?.jira_project ?? '')
   const [projName, setProjName] = useState(existing?.project_name ?? '')
   const [itype, setItype] = useState(existing?.issue_type ?? 'Defect')
-  const [prio, setPrio] = useState(existing?.priority ?? 'Major')
-  const [fixv, setFixv] = useState(existing?.fix_version ?? cycle?.version ?? '')
-  const [comp, setComp] = useState(existing?.component ?? cycle?.model ?? '')
-  const [reporter, setReporter] = useState(existing?.reporter ?? '')
+  const prio = existing?.priority ?? 'Major'
+  const fixv = existing?.fix_version ?? cycle?.version ?? ''
+  const comp = existing?.component ?? cycle?.model ?? ''
+  const reporter = existing?.reporter ?? ''
   const [me, setMe] = useState(existing?.created_by ?? '')
   const [title, setTitle] = useState(
     existing?.title ??
@@ -304,14 +295,10 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
   // 드롭다운 목록
   const [projects, setProjects] = useState<Array<{ key: string; name: string }>>([])
   const [itypes, setItypes] = useState<string[]>([])
-  const [versions, setVersions] = useState<string[]>([])
-  const [comps, setComps] = useState<string[]>([])
-  const [users, setUsers] = useState<Array<{ name: string; displayName: string }>>([])
 
   const [defect, setDefect] = useState<DefectRec | null>(existing)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState<{ kind: string; text: string }>({ kind: '', text: '' })
-  const utoggle = useRef(0)
 
   // 나(등록자) — 아직 저장 전이면 백엔드가 채우기 전이라 여기서 보여만 준다
   useEffect(() => {
@@ -343,21 +330,20 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
   // 프로젝트를 고르면 이슈유형·수정버전·구성요소를 그 프로젝트 것으로 갈아 끼운다
   useEffect(() => {
     if (!proj) {
-      setItypes([]); setVersions([]); setComps([])
+      setItypes([])
       return
     }
     const p = projects.find((x) => x.key === proj)
     if (p && p.name) setProjName(p.name)
     void (async () => {
       try {
-        const [it, ve, co] = await Promise.all([
-          apiFetch(`/api/jira/issuetypes?project=${encodeURIComponent(proj)}`).then((r) => r.json()),
-          apiFetch(`/api/jira/versions?project=${encodeURIComponent(proj)}`).then((r) => r.json()),
-          apiFetch(`/api/jira/components?project=${encodeURIComponent(proj)}`).then((r) => r.json()),
-        ])
+        /* 이슈유형만 물으면 된다 — 수정버전·구성요소 칸은 「이슈 칸 더 보기」
+           와 함께 없어졌고, 그 값들은 아래 Jira 칸 묶음이 제 손으로 받아 온다.
+           안 쓰는 값을 받으러 매번 다녀올 까닭이 없다. */
+        const it = await apiFetch(
+          `/api/jira/issuetypes?project=${encodeURIComponent(proj)}`,
+        ).then((r) => r.json())
         if (it?.ok) setItypes((it.issuetypes ?? []).map((t: { name: string }) => t.name).filter(Boolean))
-        if (ve?.ok) setVersions((ve.versions ?? []).map((v: { name: string }) => v.name).filter(Boolean))
-        if (co?.ok) setComps((co.components ?? []).map((c: { name: string }) => c.name).filter(Boolean))
       } catch {
         /* 무시 */
       }
@@ -365,27 +351,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proj, projects])
 
-  // 보고자 검색 — 타이핑을 살짝 늦춰서 부른다
-  const onReporterType = (v: string) => {
-    setReporter(v)
-    const q = v.trim()
-    if (q.length < 1) return
-    const seq = ++utoggle.current
-    window.setTimeout(() => {
-      if (seq !== utoggle.current) return
-      void (async () => {
-        try {
-          const r = await apiFetch(
-            `/api/jira/user-search?q=${encodeURIComponent(q)}${proj ? `&project=${encodeURIComponent(proj)}` : ''}`,
-          )
-          const j = (await r.json()) as { ok?: boolean; users?: Array<{ name: string; displayName: string }> }
-          if (j.ok) setUsers(j.users ?? [])
-        } catch {
-          /* 무시 */
-        }
-      })()
-    }, 250)
-  }
+  /* 보고자 찾기는 뺐다 — 그 칸이 「이슈 칸 더 보기」 안에 있었다 */
 
   /** UTOP 안에 저장(항목당 하나). 이미 있으면 그대로 쓴다. */
   const save = async (): Promise<DefectRec | null> => {
@@ -603,81 +569,13 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
               늘 펼쳐 두면 본문 여섯 판이 스크롤 밖으로 밀린다. 정작 사람이
               적는 것은 그 여섯 판이다. 접어 두되, 채워진 것은 접힌 줄에
               적어 무엇이 들었는지 열지 않고도 안다. */}
-          <details className="dfx-more">
-            <summary>
-              이슈 칸 더 보기
-              <span className="muted small">
-                {[prio, fixv, comp, reporter].filter(Boolean).join(' · ') || '비어 있음'}
-              </span>
-            </summary>
-          {/* 프로젝트·이슈유형은 맨 윗줄로 옮겼다 — 여기 또 두면 같은 값을
-              고치는 칸이 둘이라 어느 것이 먹는지 알 수 없다. */}
-          <div className="dfx-grid">
-            <label className="dfx-fld">
-              <span>프로젝트명</span>
-              <input value={projName} onChange={(e) => setProjName(e.target.value)} disabled={pushed} placeholder="프로젝트를 고르면 채워집니다" />
-            </label>
+          {/* 「이슈 칸 더 보기」 를 뺐다(지시).
 
-            <label className="dfx-fld">
-              <span>우선순위</span>
-              <input list="dfx-prio" value={prio} onChange={(e) => setPrio(e.target.value)} disabled={pushed} />
-              <datalist id="dfx-prio">
-                {PRIORITIES.map((t) => (
-                  <option key={t} value={t} />
-                ))}
-              </datalist>
-            </label>
-
-            <label className="dfx-fld">
-              <span>수정버전</span>
-              <input list="dfx-versions" value={fixv} onChange={(e) => setFixv(e.target.value)} disabled={pushed} />
-              <datalist id="dfx-versions">
-                {versions.map((t) => (
-                  <option key={t} value={t} />
-                ))}
-              </datalist>
-            </label>
-
-            <label className="dfx-fld">
-              <span>구성요소</span>
-              <input list="dfx-comps" value={comp} onChange={(e) => setComp(e.target.value)} disabled={pushed} />
-              <datalist id="dfx-comps">
-                {comps.map((t) => (
-                  <option key={t} value={t} />
-                ))}
-              </datalist>
-            </label>
-
-            <label className="dfx-fld">
-              <span>보고자</span>
-              <input
-                list="dfx-users"
-                value={reporter}
-                onChange={(e) => onReporterType(e.target.value)}
-                disabled={pushed}
-                placeholder="이름/ID 로 검색"
-              />
-              <datalist id="dfx-users">
-                {users.map((u) => (
-                  <option key={u.name} value={u.name}>
-                    {u.displayName}
-                  </option>
-                ))}
-              </datalist>
-            </label>
-
-            <label className="dfx-fld">
-              <span>등록자</span>
-              <input value={me} readOnly className="ro" />
-            </label>
-
-            <label className="dfx-fld">
-              <span>등록일</span>
-              <input value={fmtDate(defect?.created_at)} readOnly className="ro" />
-            </label>
-          </div>
-
-          </details>
+              그 안에 있던 우선순위·구성요소·목표버전은 아래 Jira 칸 묶음이
+              **같은 값을 다시 묻고** 있었다 — 한 값을 고치는 자리가 둘이면
+              어느 쪽이 나가는지 알 수 없다. 프로젝트명은 프로젝트를 고르면
+              저절로 채워지고, 등록자·등록일은 고칠 수 있는 값이 아니라
+              팝업 아래 「UTOP에 등록됨」 줄이 이미 말한다. */}
 
           {/* 이슈 본문 여덟 판 — 여기 적은 것이 그대로 Jira 설명이 된다.
               번호를 붙여 두면 사람이 「3번 비었다」 고 말할 수 있다. */}
