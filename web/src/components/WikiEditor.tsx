@@ -345,6 +345,32 @@ export default function WikiEditor({
                      padding: 24px !important;
                    }
                    .bn-editor { padding-inline: 0 !important; }
+
+                   /* ── 종이에서만 다르게 굴어야 하는 것들 ──────────────
+
+                      화면은 **고칠 수 있는 곳**이라 고르기 칸과 손잡이가 있다.
+                      종이는 읽기만 하는 곳이다. 고르기 칸이 그대로 찍히면
+                      보고서가 아니라 화면 사진이 된다(지적). */
+                   .wv-pick, .bn-side-menu, .bn-formatting-toolbar,
+                   select, button { display: none !important; }
+
+                   /* 목록 — 글머리와 글이 **같은 줄**에 서야 한다. 종이에서
+                      글머리만 한 줄 위로 뜨면 무엇에 붙은 표시인지 알 수 없다. */
+                   .bn-block-content[data-content-type='bulletListItem'],
+                   .bn-block-content[data-content-type='numberedListItem'],
+                   .bn-block-content[data-content-type='checkListItem'] {
+                     display: flex !important;
+                     align-items: baseline !important;
+                   }
+                   .bn-block-content[data-content-type='checkListItem'] { align-items: center !important; }
+
+                   /* 표 — 테두리가 있어야 표로 읽힌다 */
+                   table { border-collapse: collapse !important; width: auto !important; }
+                   th, td { border: 1px solid #b9c1c9 !important; padding: 4px 8px !important; }
+
+                   /* 문서 이름은 어떤 제목보다 커야 한다 — 이 종이가 무엇인지
+                      말하는 한 줄이다 */
+                   h1.doc { font-size: 30px !important; }
                    /* 제목이 장 끝에 혼자 남지 않게, 표·코드는 쪼개지지 않게 */
                    .bn-block-content[data-content-type='heading'] { break-after: avoid; }
                    table, pre, .wv, img { break-inside: avoid; }
@@ -352,7 +378,7 @@ export default function WikiEditor({
                    @page { margin: 14mm; }
                  </style></head><body>` +
                 `<div class="wke-body">` +
-                `<h1 style="font-size:26px;margin:0 0 16px">${(title || '문서').replace(/[<>&]/g, '')}</h1>` +
+                `<h1 class="doc" style="margin:0 0 20px">${(title || '문서').replace(/[<>&]/g, '')}</h1>` +
                 `<div class="bn-editor">${body.innerHTML}</div>` +
                 `</div></body></html>`,
             )

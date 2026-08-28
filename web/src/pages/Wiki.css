@@ -175,7 +175,11 @@
    어느 단도 본문 아래로 내려가지 않는다. 제목 1 에는 data-level 이 안 붙으므로
    :not([data-level]) 로 집는다 — 이걸 몰라 [data-level='1'] 로 썼던 규칙은
    내내 헛돌았다. */
-.wke-body .bn-block-content[data-content-type='heading']:not([data-level]) { --level: 26px; }
+/* 제목 1 은 `data-level` 이 **붙을 때도 있고 안 붙을 때도 있다** — 만든
+   길에 따라 다르다. 둘 다 집는다: 한쪽만 적어 두면 어떤 문서에서는 눈금이
+   통째로 안 먹고 기본값(3em)이 나온다(지적: PDF 에서 제목이 너무 크다). */
+.wke-body .bn-block-content[data-content-type='heading']:not([data-level]),
+.wke-body .bn-block-content[data-content-type='heading'][data-level='1'] { --level: 26px; }
 .wke-body .bn-block-content[data-content-type='heading'][data-level='2'] { --level: 24px; }
 .wke-body .bn-block-content[data-content-type='heading'][data-level='3'] { --level: 22px; }
 .wke-body .bn-block-content[data-content-type='heading'][data-level='4'] { --level: 20px; }
