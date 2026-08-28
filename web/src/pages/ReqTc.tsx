@@ -601,6 +601,34 @@ export default function ReqTc({ me }: Props) {
     return { folders, req: r ?? null, name: t?.name || openTc }
   }, [openTc, tcs, reqById, cats])
 
+  /**
+   * 지금 보고 있는 것을 **주소창에 적는다.**
+   *
+   * 여태 주소는 남이 보낸 링크로 **들어올 때만** 쓰였다. 그래서 이 화면에서
+   * 시험을 열어 놓고 주소를 복사하면 남에게 「REQ-Coverage 첫 화면」 이
+   * 갔다 — 정작 보여 주려던 그 시험이 아니라. 새로 고쳐도 처음으로
+   * 돌아갔다.
+   *
+   * 차례가 곧 좁은 것부터다: 시험 > 요구사항 > 폴더. 셋 다 아니면 주소를
+   * 비운다.
+   *
+   * replaceState 를 쓴다. 폴더를 훑는 동안 pushState 로 쌓으면 뒤로가기를
+   * 스무 번 눌러야 여기서 빠져나간다 — 그건 「뒤로」 가 아니다.
+   */
+  useEffect(() => {
+    const p = window.location.pathname
+    const url = openTc
+      ? `${p}?tc=${encodeURIComponent(openTc)}`
+      : openReq
+        ? `${p}?req=${encodeURIComponent(openReq)}`
+        : cat
+          ? `${p}?cat=${encodeURIComponent(cat)}`
+          : p
+    if (window.location.pathname + window.location.search !== url) {
+      window.history.replaceState({ utop: true }, '', url)
+    }
+  }, [openTc, openReq, cat])
+
   const toggle = (s: Set<string>, k: string, set: (v: Set<string>) => void) => {
     const n = new Set(s)
     if (n.has(k)) n.delete(k)
@@ -921,9 +949,10 @@ export default function ReqTc({ me }: Props) {
                 /* 시험을 열었을 때 — 이 줄이 **그 시험의 자리**를 말한다.
                    끼워 넣은 화면의 같은 줄은 감춘다(.rqtc-embed .rq-bar). */
                 <>
-                  <button type="button" className="rqtc-back" onClick={() => setOpenTc('')}>
-                    ← 목록
-                  </button>
+                  {/* 「← 목록」 은 여기 두지 않는다 — 바로 아래 할 일 줄에
+                      끼워 넣은 화면이 이미 그린다. 둘이 되면 어느 것을
+                      눌러야 하는지 묻게 된다(지적). 이 줄은 **자리**만
+                      말하고, 되돌아가려면 첫 칸 「Coverage」 를 누른다. */}
                   <span className="rqtc-crumbi">
                     <button type="button" className="rqtc-crumbgo" onClick={() => setOpenTc('')}>
                       Coverage

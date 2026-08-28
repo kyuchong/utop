@@ -46,17 +46,18 @@ export const NAV: NavGroup[] = [
   {
     title: 'QUALITY',
     items: [
-      /* 요구사항과 시험을 **합쳐 보는** 자리(지시). 기존 두 화면은 그대로 두고
-         여기서만 합친다 — Requirements 바로 위. */
-      { key: 'reqtc', label: 'REQ-Coverage', Icon: IconReqTc },
-      /* Requirements · Coverage 두 줄을 뺐다(지시).
-         두 화면이 하던 일은 REQ-Coverage 가 다 한다 — 요구사항 목록과 시험
-         목록, 상세, 붙이기(Map)까지. 같은 일을 하는 자리가 셋이면 사람마다
-         다른 자리에서 일하게 되고, 고칠 때도 셋을 다 봐야 한다.
-         주소(?req= · ?tc=)는 살려 둔다 — 남이 보낸 링크가 죽으면 안 된다. */
-      { key: 'cycles', label: 'Cycles', Icon: IconCycle },
-      /* 위키 — 프로젝트마다 갖는 문서. 시험 규격·설정 절차가 여기 쌓인다 */
+      /* 차례는 **일이 흘러가는 차례**다(지시): 적고 → 덮고 → 돌린다.
+         위키에 규격과 절차를 적고, REQ-Coverage 에서 요구사항을 시험으로
+         덮고, 사이클로 돌린다. */
       { key: 'wiki', label: 'Wiki', Icon: IconKnowledge },
+      /* 요구사항과 시험을 **합쳐 보는** 자리(지시).
+         Requirements · Coverage 두 줄은 뺐다 — 그 일을 여기서 다 한다.
+         요구사항 목록과 시험 목록, 상세, 붙이기(Map)까지. 같은 일을 하는
+         자리가 셋이면 사람마다 다른 자리에서 일하게 되고, 고칠 때도 셋을
+         다 봐야 한다. 주소(?req= · ?tc=)는 살려 둔다 — 남이 보낸 링크가
+         죽으면 안 된다. */
+      { key: 'reqtc', label: 'REQ-Coverage', Icon: IconReqTc },
+      { key: 'cycles', label: 'Cycles', Icon: IconCycle },
       /* 「Reports」 는 걷었다(지시) — 집계·축·결과 상세·거르개가 모두
          사이클 폴더 현황으로 옮겨 갔다. 옛 주소(executions)로 들어오면
          사이클 화면으로 넘긴다(App.tsx). */
