@@ -227,12 +227,17 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
            같은 시험이 화면마다 다른 말을 한다. */
         const wiring = (e.wiring ?? []) as TcWire[]
         const links = (e.portLinks ?? []) as TcPortLink[]
-        if (!wiring.length && !links.length) return
+        const placed = (e.topoNodes ?? []) as Array<{ dev: string; x: number; y: number }>
+        const sessions = Array.isArray(e.sessions) ? (e.sessions as string[]) : []
+        /* **선이 없어도 그린다.**
+           앞서는 배선이 하나도 없으면 그리지 않았는데, 장비 한 대짜리 시험은
+           선이 없는 것이 정상이다 — 그래도 「무엇을 놓고 시험했나」 는 그림이
+           말해 준다(지적: 배선판이 구성도에 보여야 한다). 판에 놓인 것도
+           이어진 것도 아무것도 없을 때만 접는다. */
+        if (!wiring.length && !links.length && !placed.length && !sessions.length) return
         const dr = await apiFetch('/api/devices')
         const devices = ((await dr.json()) as { devices?: Device[] }).devices ?? []
         if (!devices.length) return
-        const sessions = Array.isArray(e.sessions) ? (e.sessions as string[]) : []
-        const placed = (e.topoNodes ?? []) as Array<{ dev: string; x: number; y: number }>
         const shot = placed.length
           ? await boardShot({ devices, wiring, links, sessions, placed })
           : await wireShot({ devices, wiring, links, sessions })

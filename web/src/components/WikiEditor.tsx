@@ -318,7 +318,23 @@ export default function WikiEditor({
                       와 「칸은 제 안에서만 굴린다」(.wke-body overflow:auto)가
                       들어 있다. 화면에서는 맞지만 종이에서는 첫 장 밖이 잘려
                       백지가 나온다(지적). */
-                   html, body { height: auto !important; overflow: visible !important; margin: 0 !important; background: #fff !important; }
+                   /* **모든 잘림을 통째로 푼다.**
+                      앞서 html·body·.wke-body 셋만 풀었는데도 백지가 나왔다
+                      (지적). 앱 CSS 를 통째로 들고 오는 이상, 어느 조상이
+                      잘라내는지 하나씩 찾는 것은 화면을 고칠 때마다 다시 할
+                      일이다. 이 창은 찍고 버리는 문서라 전부 풀어도 잃을
+                      것이 없다. */
+                   /* **다른 화면의 인쇄 규칙을 되돌린다.**
+
+                      앱 CSS 안에는 「인쇄할 때 body 아래를 모두 숨기고 저
+                      팝업만 보인다」 는 규칙이 있다 — 사이클의 이슈 팝업이
+                      만들어 둔 것이다. 앱 CSS 를 통째로 들고 오면서 이 규칙까지
+                      따라와, 우리 창에는 그 팝업이 없으니 전부 숨겨져
+                      백지가 됐다(지적). 화면에는 보이는데 미리보기만 비던 까닭이
+                      이것이다 — 잘린 게 아니라 숨겨진 것이었다. */
+                   @media print { body, body * { visibility: visible !important; } }
+                   * { overflow: visible !important; max-height: none !important; }
+                   html, body { height: auto !important; margin: 0 !important; background: #fff !important; }
                    .wke-body {
                      display: block !important;
                      flex: none !important;
