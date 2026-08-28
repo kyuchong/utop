@@ -910,9 +910,12 @@ export default function ReqTc({ me }: Props) {
             {/* 세로선 — 왼쪽은 「무엇을 볼지·무엇을 만들지」, 오른쪽은
                 「지금 어디를 보고 있나」(빵부스러기)다(지시). */}
             <span className="rqtc-vsep" aria-hidden="true" />
-            <span className="sp" />
-
-
+            {/* 여기 있던 여백(sp)을 걷어낸다.
+                왼쪽에 Requirements/Coverage 토글과 만들기 단추들이 서 있던
+                시절의 것이다. 토글은 상단바로, 만들기는 ⋯ 와 떠오르는 줄로
+                옮겼는데 여백만 남아, 빵부스러기가 빈칸만큼 오른쪽으로 밀려
+                가운데에 떠 있었다(지적). 자리를 말하는 줄은 세로선 바로
+                오른쪽에서 시작한다. */}
             <div className="rqtc-crumb">
               {tcCrumb ? (
                 /* 시험을 열었을 때 — 이 줄이 **그 시험의 자리**를 말한다.
