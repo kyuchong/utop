@@ -76,7 +76,11 @@ html, body { height: auto !important; margin: 0 !important; background: #fff !im
 
 /* 제목은 **태그로** 집는다. 클래스 이름으로 집었더니 그 이름이 늘 붙는 게
    아니어서, 바깥 크기(26px)는 먹고 안쪽 h1 은 그 2배로 남았다. */
-.wke-body .bn-editor { font-size: 14px !important; }
+/* **종이 눈금은 pt 로 준다.**
+   화면 눈금(px)은 96dpi 기준이라 종이에 그대로 옮기면 한 치수 커진다 —
+   워드 원본의 제목 2 가 10pt 인데 우리는 18pt 로 나갔다(지적).
+   보고서 눈금으로 맞춘다: 본문 10pt 에 제목이 한 단씩 얹힌다. */
+.wke-body .bn-editor { font-size: 10pt !important; line-height: 1.5 !important; }
 .wke-body h1:not(.doc), .wke-body h2, .wke-body h3,
 .wke-body h4, .wke-body h5, .wke-body h6,
 .wke-body .bn-inline-content {
@@ -85,13 +89,13 @@ html, body { height: auto !important; margin: 0 !important; background: #fff !im
 }
 .wke-body [data-content-type='heading'] { font-weight: 700 !important; padding-top: 14px !important; }
 .wke-body [data-content-type='heading']:not([data-level]),
-.wke-body [data-content-type='heading'][data-level='1'] { font-size: 26px !important; }
-.wke-body [data-content-type='heading'][data-level='2'] { font-size: 24px !important; }
-.wke-body [data-content-type='heading'][data-level='3'] { font-size: 22px !important; }
-.wke-body [data-content-type='heading'][data-level='4'] { font-size: 20px !important; }
-.wke-body [data-content-type='heading'][data-level='5'] { font-size: 18px !important; }
-.wke-body [data-content-type='heading'][data-level='6'] { font-size: 16px !important; }
-h1.doc { font-size: 30px !important; }
+.wke-body [data-content-type='heading'][data-level='1'] { font-size: 16pt !important; }
+.wke-body [data-content-type='heading'][data-level='2'] { font-size: 13pt !important; }
+.wke-body [data-content-type='heading'][data-level='3'] { font-size: 12pt !important; }
+.wke-body [data-content-type='heading'][data-level='4'] { font-size: 11pt !important; }
+.wke-body [data-content-type='heading'][data-level='5'] { font-size: 10.5pt !important; }
+.wke-body [data-content-type='heading'][data-level='6'] { font-size: 10pt !important; }
+h1.doc { font-size: 18pt !important; }
 
 /* 앱 CSS 가 안 실려도 되게 — 글머리·번호·표·코드를 여기서 준다 */
 .wke-body .bn-block-outer { margin: 0; }
@@ -105,13 +109,15 @@ h1.doc { font-size: 30px !important; }
 .wke-body p { margin: 0; }
 .wke-body a { color: #1f5fb0; }
 .wke-body pre { background: #f4f6f8; border: 1px solid #d8dee4; border-radius: 6px;
-                padding: 10px 12px; white-space: pre-wrap; font-size: 12px; }
+                padding: 8px 10px; white-space: pre-wrap; font-size: 9pt; }
 table { border-collapse: collapse !important; }
 th, td { border: 1px solid #b9c1c9 !important; padding: 4px 8px !important; }
 img { max-width: 100% !important; height: auto !important; }
 
-/* 제목이 장 끝에 혼자 남지 않게, 표·코드·그림은 쪼개지지 않게 */
-.wke-body [data-content-type='heading'] { break-after: avoid; }
+/* 표·코드·그림만 쪼개지지 않게 한다.
+   제목에 「다음과 붙어라」 를 걸었더니 뒤따르는 표가 크면 제목이 통째로
+   다음 장으로 밀려 앞 장이 텅 비었다(지적). 제목 하나 외로워지는 것보다
+   빈 장이 나오는 쪽이 훨씬 나쁘다. */
 table, pre, .wv, img { break-inside: avoid; }
 `
 
