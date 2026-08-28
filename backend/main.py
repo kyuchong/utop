@@ -9628,6 +9628,49 @@ async def wiki_import_docx(payload: dict):
     except Exception as e:
         return {"ok": False, "error": "워드 문서를 푸는 데 실패했습니다: " + str(e)[:200]}
 
+    # mammoth 가 빈손이면 **직접 뜯는다.**
+    #
+    # mammoth 는 스타일·번호 정의가 온전한 문서를 전제한다. 다른 도구가 만든
+    # docx, 옛 문서를 변환한 docx 는 그 전제를 깨서 빈 결과가 나온다. 그럴 때
+    # 「못 가져왔다」 로 끝내면 사람은 방법이 없다 — 글자는 분명히 문서 안에
+    # 있는데도.
+    #
+    # word/document.xml 을 열어 문단(w:p)과 표(w:tbl)만 곧이곧대로 옮긴다.
+    # 서식은 잃지만 **글과 표 구조는 살아 남는다.** 아무것도 못 가져오는 것보다
+    # 낫고, 사람이 문서에서 이어 고칠 수 있다.
+    if not html.strip():
+        try:
+            import zipfile as _zip, re as _re2, html as _h
+            with _zip.ZipFile(_io.BytesIO(blob)) as z:
+                xml = z.read("word/document.xml").decode("utf-8", "ignore")
+
+            def _text(node: str) -> str:
+                return _h.escape("".join(_re2.findall(r"<w:t[^>]*>(.*?)</w:t>", node, _re2.S)))
+
+            out = []
+            # 표와 문단을 **나온 차례대로** 훑는다 — 문단만 먼저 모으면 표가
+            # 문서 끝으로 밀려 읽는 차례가 바뀐다.
+            for m in _re2.finditer(r"<w:tbl>.*?</w:tbl>|<w:p[ >].*?</w:p>", xml, _re2.S):
+                blk = m.group(0)
+                if blk.startswith("<w:tbl"):
+                    rows = []
+                    for tr in _re2.findall(r"<w:tr[ >].*?</w:tr>", blk, _re2.S):
+                        cells = _re2.findall(r"<w:tc[ >].*?</w:tc>", tr, _re2.S)
+                        rows.append("<tr>" + "".join(f"<td>{_text(c)}</td>" for c in cells) + "</tr>")
+                    if rows:
+                        out.append("<table>" + "".join(rows) + "</table>")
+                else:
+                    t = _text(blk)
+                    if not t.strip():
+                        continue
+                    lvl = _re2.search(r'w:pStyle w:val="Heading(\d)"', blk)
+                    out.append(f"<h{lvl.group(1)}>{t}</h{lvl.group(1)}>" if lvl else f"<p>{t}</p>")
+            if out:
+                html = "".join(out)
+                print(f"[docx] mammoth 빈손 → 직접 뜯음: {len(out)}덩이", flush=True)
+        except Exception as e:
+            print(f"[docx] 직접 뜯기도 실패: {str(e)[:120]}", flush=True)
+
     # 푼 결과가 비었으면 **왜 비었는지** 말한다.
     #
     # 200 으로 답했는데 화면은 「못 가져왔다」 만 띄우면, 서버 탓인지 문서 탓인지

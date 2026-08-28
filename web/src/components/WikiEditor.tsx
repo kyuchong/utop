@@ -419,6 +419,39 @@ export default function WikiEditor({
                    .wke-body [data-content-type='heading'][data-level='4'] { font-size: 20px !important; }
                    .wke-body [data-content-type='heading'][data-level='5'] { font-size: 18px !important; }
                    .wke-body [data-content-type='heading'][data-level='6'] { font-size: 16px !important; }
+
+                   /* ── 앱 CSS 가 안 실려도 되게, 여기서 다 그린다 ──────────
+                      바깥 스타일 파일 하나에 종이가 통째로 걸리면 안 된다.
+                      글머리·번호·체크·표·코드·그림은 전부 여기서 준다. */
+                   .wke-body .bn-block-outer { margin: 0; }
+                   .wke-body .bn-block-content { padding: 3px 0; display: flex; width: 100%; }
+                   .wke-body [data-content-type='heading'] { padding-top: 14px !important; }
+                   .wke-body [data-content-type='bulletListItem'] > *:first-child,
+                   .wke-body [data-content-type='numberedListItem'] > *:first-child { flex: 1; }
+                   .wke-body [data-content-type='bulletListItem']::before {
+                     content: '•';
+                     min-width: 22px;
+                     display: inline-block;
+                   }
+                   .wke-body [data-content-type='numberedListItem']::before {
+                     content: attr(data-index) '.';
+                     min-width: 22px;
+                     display: inline-block;
+                   }
+                   .wke-body [data-content-type='checkListItem'] input { margin-right: 8px; }
+                   .wke-body [data-content-type='checkListItem'][data-checked='true'] .bn-inline-content {
+                     text-decoration: line-through;
+                   }
+                   .wke-body pre {
+                     background: #f4f6f8;
+                     border: 1px solid #d8dee4;
+                     border-radius: 6px;
+                     padding: 10px 12px;
+                     white-space: pre-wrap;
+                     font-size: 12px;
+                   }
+                   .wke-body a { color: #1f5fb0; }
+                   .wke-body p { margin: 0; }
                    /* 제목이 장 끝에 혼자 남지 않게, 표·코드는 쪼개지지 않게 */
                    .bn-block-content[data-content-type='heading'] { break-after: avoid; }
                    table, pre, .wv, img { break-inside: avoid; }
