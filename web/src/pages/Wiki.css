@@ -365,41 +365,9 @@
   line-height: 1;
 }
 
-/* ── 인쇄 · PDF ───────────────────────────────────────────────
-   종이로 내보낼 때는 **본문만** 남긴다. 메뉴·트리·도구줄은 종이에서 할 일이
-   없다. 브라우저의 「PDF로 저장」 이 이 규칙을 그대로 읽는다.
-
-   화면 틀은 창 높이에 맞춰 놓고 안쪽에서 굴리는데, 그대로 인쇄하면 **첫 장만
-   나오고 나머지가 잘린다.** 인쇄할 때만 그 잠금을 푼다. */
-@media print {
-  html, body, #root, .app { height: auto !important; overflow: visible !important; }
-  .app-top, .nav, .wk-side, .wke-head, .wke-revs, .bn-side-menu, .bn-formatting-toolbar { display: none !important; }
-  .wk { display: block !important; }
-  .wk-main, .wke, .wke-body {
-    display: block !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    border: 0 !important;
-    box-shadow: none !important;
-  }
-  .panel { border: 0 !important; box-shadow: none !important; background: #fff !important; }
-  /* 제목이 장 끝에 혼자 남지 않게 — 제목 아래 첫 줄은 붙여서 넘긴다 */
-  .wke-body .bn-block-content[data-content-type='heading'] { break-after: avoid; }
-  .wv, .wke-body table, .wke-body pre { break-inside: avoid; }
-}
-
-/* 문서가 매인 프로젝트 — 제목 옆에 조용히. 자주 바꾸는 값이 아니라
-   단추처럼 세우지 않고 글처럼 둔다. */
-.wke-prj {
-  height: 24px;
-  max-width: 200px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--c-text-mute);
-  font: inherit;
-  font-size: var(--fs-xs);
-  cursor: pointer;
-}
-.wke-prj:hover { border-color: var(--c-border); background: var(--c-surface); }
+/* 인쇄용 규칙은 걷어냈다.
+   화면의 다른 부분을 감추는 방식으로는 아무것도 안 찍혔다(지적) — 이 도구의
+   화면은 창 높이에 맞춘 틀 안에서 안쪽만 굴리는 구조라, 조상 가운데 하나만
+   잘라도 종이에 빈 장이 나온다. 그 조상을 다 찾아 푸는 것은 화면을 고칠
+   때마다 다시 틀어질 싸움이다. 이제 본문만 담은 창을 새로 띄워 찍는다
+   (WikiEditor 의 「PDF · 인쇄」). */

@@ -187,7 +187,36 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
               U
             </span>
           )}
-          <span className="app-top-brand">{brand.name || 'ubiQuoss'} Test Orchestration Platform</span>
+          {/* **설정한 이름을 그대로 낸다.**
+
+              여태 뒤에 「Test Orchestration Platform」 이 코드에 박혀 있어,
+              이름을 「ubiQuoss Test Studio」 로 바꿔도 옛 이름이 따라붙어
+              두 이름이 한 줄에 섰다(지적). 설정 화면은 「여기 적은 것이 곧
+              이름」 이라고 말하는데 화면은 그것을 앞머리로만 썼다.
+
+              크기·색·글꼴도 설정을 따른다. 적어 둔 값이 화면에 안 나오면
+              그 칸은 있으나 마나다. 대괄호로 감싼 글자는 강조 색으로 —
+              `ubi[Q]uoss` 처럼 적으면 그 한 글자만 색이 바뀐다. */}
+          <span
+            className="app-top-brand"
+            style={{
+              fontSize: brand.size ? `${brand.size}px` : undefined,
+              color: brand.color || undefined,
+              fontFamily: brand.font === 'Monospace' ? 'var(--font-mono)' : brand.font || undefined,
+            }}
+          >
+            {(brand.name || 'ubiQuoss Test Orchestration Platform')
+              .split(/(\[[^\]]*\])/)
+              .map((part, i) =>
+                part.startsWith('[') && part.endsWith(']') ? (
+                  <b key={i} style={{ color: brand.accent || undefined }}>
+                    {part.slice(1, -1)}
+                  </b>
+                ) : (
+                  part
+                ),
+              )}
+          </span>
           {/* 가름선 — 「이 도구가 무엇인가」(왼쪽)와 「지금 무엇을 보고
               있나」(오른쪽)를 나눈다. 제품 이름과 프로젝트 이름이 붙어
               있으면 한 덩어리로 읽혀, 프로젝트가 이름의 일부처럼 보인다. */}

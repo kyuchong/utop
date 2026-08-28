@@ -217,7 +217,49 @@ export default function WikiEditor({
           type="button"
           className="btn small"
           title="인쇄 창이 열립니다 — 「대상」 을 「PDF로 저장」 으로 고르세요"
-          onClick={() => window.print()}
+          onClick={() => {
+            /* 인쇄는 **본문만 담은 창**을 새로 띄워서 한다.
+             *
+             * 처음에는 @media print 로 화면의 다른 부분을 감췄는데, 아무것도
+             * 안 나왔다(지적). 이 도구의 화면은 창 높이에 맞춘 틀 안에서
+             * 안쪽만 굴리는 구조라, 조상 가운데 하나만 잘라도 종이에는 빈
+             * 장이 나온다. 그 조상을 다 찾아 푸는 것은 화면을 고칠 때마다
+             * 다시 틀어질 싸움이다.
+             *
+             * 글만 새 창에 옮겨 담으면 그 싸움이 없어진다. 글꼴·색은 이
+             * 문서의 스타일을 그대로 복사해 간다 — 화면에서 본 그대로 나가야
+             * 한다. */
+            const body = document.querySelector('.wke-body .bn-editor')
+            if (!body) return
+            const css = [...document.querySelectorAll('style, link[rel="stylesheet"]')]
+              .map((n) => n.outerHTML)
+              .join('\n')
+            const w = window.open('', '_blank', 'width=900,height=1000')
+            if (!w) {
+              window.alert('팝업이 막혀 있습니다 — 이 사이트의 팝업을 허용해 주세요')
+              return
+            }
+            w.document.write(
+              `<!doctype html><html lang="ko"><head><meta charset="utf-8">` +
+                `<title>${(title || '문서').replace(/[<>&]/g, '')}</title>${css}` +
+                `<style>
+                   body { margin: 24px; background: #fff; }
+                   /* 제목이 장 끝에 혼자 남지 않게, 표·코드는 쪼개지지 않게 */
+                   .bn-block-content[data-content-type='heading'] { break-after: avoid; }
+                   table, pre, .wv { break-inside: avoid; }
+                 </style></head><body class="wke-body">` +
+                `<h1 style="font-size:26px;margin:0 0 16px">${(title || '문서').replace(/[<>&]/g, '')}</h1>` +
+                `<div class="bn-editor">${body.innerHTML}</div>` +
+                `</body></html>`,
+            )
+            w.document.close()
+            /* 글꼴·그림이 다 들어온 뒤에 인쇄 창을 연다 — 바로 부르면
+               글자가 자리를 잡기 전에 찍혀 줄이 어긋난다 */
+            w.onload = () => {
+              w.focus()
+              w.print()
+            }
+          }}
         >
           PDF · 인쇄
         </button>
