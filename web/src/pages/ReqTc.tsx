@@ -344,11 +344,24 @@ export default function ReqTc({ me }: Props) {
   /* ID 를 제 칸으로 뗀다(지시: ID 와 제목 사이에도 세로선). 한 칸에 같이
      두면 선을 그을 자리가 없다 — 표의 선은 칸 사이에만 선다. */
   /* ID 칸은 **글자 길이에 맞춰** 넓어진다(지시). 108px 로 못박아 두었더니
-     ID 규칙이 모델그룹 기준으로 바뀌면서 길어져 끝이 잘렸다(지적:
-     LGUP-E61xx_R000…). max-content 면 가장 긴 ID 에 맞춰 서고, 그래도
-     제목이 밀리지 않게 위쪽에 최소 108px 을 둔다 — 짧은 앞머리일 때
-     칸이 쪼그라들어 머리글자(ID)가 눌리는 것도 막는다. */
-  const idCol = 'minmax(108px, max-content)'
+     ID 규칙이 모델그룹 기준으로 바뀌면서 길어져 끝이 잘렸다.
+
+     max-content 는 못 쓴다 — 머리줄과 각 줄이 **서로 다른 그리드**라
+     (.rqtc-th 와 .rqtc-tr 이 따로 gridTemplateColumns 를 갖는다) 각자
+     제 안의 내용으로 계산한다. 머리줄에는 「ID」 두 글자뿐이라 좁게 서고
+     본문은 넓게 서서, 칸과 자료가 어긋난다(지적: 필드와 데이터 열이
+     따로 논다).
+
+     그래서 **가장 긴 ID 의 글자 수로 px 을 계산해** 양쪽에 같은 값을 준다.
+     같은 숫자를 넣으니 어긋날 수가 없다. 8px 은 이 칸이 쓰는 고정폭
+     글꼴의 한 글자 폭, 22 는 좌우 여백이다. */
+  const idW = useMemo(() => {
+    let n = 0
+    for (const r of reqs) n = Math.max(n, reqLabel(r).length)
+    for (const t of tcs) n = Math.max(n, (t.tcid || '').length)
+    return Math.max(108, Math.min(260, n * 8 + 22))
+  }, [reqs, tcs])
+  const idCol = `${idW}px`
   const gridReq = `52px 48px ${idCol} minmax(0, 1fr) 110px 80px 78px 52px 132px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridTc = `52px 48px ${idCol} minmax(0, 1fr) 100px 80px 70px 52px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridOf = (tc: boolean) => (tc ? gridTc : gridReq)
