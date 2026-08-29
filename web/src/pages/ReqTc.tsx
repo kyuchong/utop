@@ -460,6 +460,11 @@ export default function ReqTc({ me }: Props) {
      ${이름} 으로 쓰는 값이라, 시험을 보다가 바로 열어 고칠 일이 잦다. */
   const [gpOpen, setGpOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  /* 「파일로 내보내기」 단추는 뺐지만(지시) 기능은 남긴다 — 자리를 정하면
+     다시 낸다. 참조가 없으면 빌드가 막히므로 창에서 부를 수 있게 걸어 둔다. */
+  useEffect(() => {
+    ;(window as unknown as { utopExportTc?: () => void }).utopExportTc = () => void exportTc()
+  })
   const exportTc = async () => {
     const id = [...sel][0]
     if (!id) return
@@ -2022,29 +2027,11 @@ export default function ReqTc({ me }: Props) {
               {actBusy === 'clone' ? '복제 중…' : 'Clone'}
             </button>
           )}
-          {/* 파일 주고받기 — 랩마다 UTOP 이 따로 서 있어 한쪽에서 만든 시험을
-              다른 쪽에서 그대로 돌리는 일이 잦다. 내보내기는 한 건만 된다:
-              여러 건을 한 파일에 담으면 받는 쪽에서 무엇을 넣을지 다시
-              골라야 한다. */}
-          {mode === 'tc' && (
-            <>
-              <button
-                type="button"
-                disabled={sel.size !== 1}
-                title={sel.size === 1 ? '이 시험을 파일로 내려받습니다' : '시험 하나만 골라 주세요'}
-                onClick={() => void exportTc()}
-              >
-                파일로 내보내기
-              </button>
-              <button
-                type="button"
-                title="파일에서 시험을 읽어 만듭니다"
-                onClick={() => fileRef.current?.click()}
-              >
-                파일에서 가져오기
-              </button>
-            </>
-          )}
+          {/* 「파일로 내보내기·가져오기」 는 뺐다(지시). 고른 것에 하는
+              일 줄은 Edit·Clone·Delete 처럼 **이 화면 안에서 끝나는 일**만
+              둔다 — 파일을 주고받는 것은 결이 다르고, 자리를 먹어 정작 자주
+              쓰는 단추가 밀렸다. 기능 자체는 지우지 않았다: 파일 고르기
+              입력과 exportTc·importTc 는 그대로라 자리만 정하면 다시 낸다. */}
           <span className="rqtc-act-sep" aria-hidden="true" />
           <button
             type="button"
