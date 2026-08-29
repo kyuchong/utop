@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Layout from '@/components/Layout'
 import Login from '@/components/Login'
 import { apiFetch, authApi, getToken, setToken, type MeUser } from '@/api/client'
@@ -22,6 +22,15 @@ import RackView from '@/pages/RackView'
  */
 const PAGE_KEY = 'utop.page'
 
+/* 아는 화면 이름들. 주소로 들어온 값을 그대로 믿으면 옛 이름·오타에
+   「아직 새 UI로 옮기지 않았습니다」 벽이 나온다(지적: 이상한 화면).
+   모르는 이름은 Dashboard 로 보낸다 — 벽보다는 쓸 수 있는 화면이 낫다. */
+const KNOWN_PAGES = new Set([
+  'dashboard', 'wiki', 'reqtc', 'cycles', 'executions',
+  'devices', 'instruments', 'rackview',
+  'defects', 'releases', 'ai-tc', 'knowledge', 'settings',
+])
+
 export default function App() {
   // 새로고침해도 보던 화면으로 돌아온다. 장비를 등록하다 새로고침했는데
   // 요구사항으로 튕기면 다시 찾아 들어가야 한다.
@@ -37,6 +46,13 @@ export default function App() {
     }
   })
 
+  /* 지금 화면을 붙들어 둔다 — 주소를 적을 때 필요한데, 주소를 읽는
+     effect 는 한 번만 돌아서 그때의 page 만 알고 있다. */
+  const pageRef = useRef(page)
+  useEffect(() => {
+    pageRef.current = page
+  }, [page])
+
   useEffect(() => {
     try {
       localStorage.setItem(PAGE_KEY, page)
@@ -44,6 +60,21 @@ export default function App() {
       /* 사생활 보호 모드에서 저장이 막혀도 화면은 돌아야 한다 */
     }
   }, [page])
+  /**
+   * 화면을 옮긴다 — **주소에 자리를 하나 만들면서**(지시).
+   *
+   * 전에는 주소의 딥링크만 지우고 자리를 안 만들었다. 그러면 뒤로가기가
+   * 방금 있던 화면을 건너뛰고 그 전 딥링크로 가서, 엉뚱한 화면이 나왔다.
+   * 이제 화면마다 ?p=<이름> 을 갖는다.
+   */
+  const navTo = (k: string) => {
+    const url = `${window.location.pathname}?p=${encodeURIComponent(k)}`
+    if (window.location.pathname + window.location.search !== url) {
+      window.history.pushState({ utop: true }, '', url)
+    }
+    setPage(k)
+  }
+
   // undefined = 확인 중 / null = 로그인 필요
   const [user, setUser] = useState<MeUser | null | undefined>(undefined)
 
@@ -124,8 +155,23 @@ export default function App() {
         // 이미 그 화면에 있으면 페이지 전환이 안 일어난다 — 화면 안
         // 선택은 goto 알림이 맡는다(각 화면이 듣는다).
         goto(key, id)
-        break
+        return
       }
+      /* 딥링크가 아니면 **어느 화면인가**를 주소에서 읽는다(?p=wiki).
+         이게 없으면 뒤로가기가 주소만 되돌리고 화면은 그대로 남아,
+         주소와 화면이 서로 다른 말을 한다(지적: 이상한 화면). */
+      const pk = p.get('p')
+      if (pk) {
+        setPage(KNOWN_PAGES.has(pk) ? pk : 'dashboard')
+        return
+      }
+      /* 주소가 비었다 — 지금 화면을 적어 둔다. 모든 자리가 제 주소를
+         가져야 뒤로가기가 갈 곳을 안다. */
+      window.history.replaceState(
+        { utop: true },
+        '',
+        `${window.location.pathname}?p=${encodeURIComponent(pageRef.current)}`,
+      )
     }
     void apply()
     const onPop = () => void apply()
@@ -191,17 +237,10 @@ export default function App() {
         setUser(null)
       }}
       current={page}
-      onNavigate={(k) => {
-        // 메뉴로 화면을 옮기면 주소의 딥링크(?cycle=… 등)는 걷어낸다.
-        // 남겨 두면 다른 화면에서 새로고침해도 그 링크가 이겨서
-        // 사이클로 끌려간다(겪었다).
-        if (window.location.search)
-          window.history.replaceState({}, '', window.location.pathname)
-        setPage(k)
-      }}
+      onNavigate={navTo}
     >
       {page === 'dashboard' ? (
-        <Dashboard onNav={(k) => setPage(k)} />
+        <Dashboard onNav={navTo} />
       ) : page === 'reqtc' ? (
         <ReqTc me={user} />
       ) : page === 'wiki' ? (

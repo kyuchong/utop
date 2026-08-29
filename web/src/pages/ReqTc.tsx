@@ -721,7 +721,9 @@ export default function ReqTc({ me }: Props) {
         ? `${p}?req=${encodeURIComponent(reqShow)}`
         : cat
           ? `${p}?cat=${encodeURIComponent(cat)}`
-          : p
+          /* 아무것도 안 골랐어도 **어느 화면인지**는 적는다. 빈 주소를
+             남기면 뒤로가기가 여기로 왔을 때 무엇을 보여야 할지 모른다. */
+          : `${p}?p=reqtc`
     if (window.location.pathname + window.location.search !== url) {
       window.history.replaceState({ utop: true }, '', url)
     }
