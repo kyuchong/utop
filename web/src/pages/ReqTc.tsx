@@ -343,8 +343,14 @@ export default function ReqTc({ me }: Props) {
      칸은 이제 켜진 열 쪽에서 나온다 — 두 곳에서 그리면 두 번 보인다. */
   /* ID 를 제 칸으로 뗀다(지시: ID 와 제목 사이에도 세로선). 한 칸에 같이
      두면 선을 그을 자리가 없다 — 표의 선은 칸 사이에만 선다. */
-  const gridReq = `52px 48px 108px minmax(0, 1fr) 110px 80px 78px 52px 132px ${visCols.map((c) => c.w).join(' ')}`.trim()
-  const gridTc = `52px 48px 108px minmax(0, 1fr) 100px 80px 70px 52px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
+  /* ID 칸은 **글자 길이에 맞춰** 넓어진다(지시). 108px 로 못박아 두었더니
+     ID 규칙이 모델그룹 기준으로 바뀌면서 길어져 끝이 잘렸다(지적:
+     LGUP-E61xx_R000…). max-content 면 가장 긴 ID 에 맞춰 서고, 그래도
+     제목이 밀리지 않게 위쪽에 최소 108px 을 둔다 — 짧은 앞머리일 때
+     칸이 쪼그라들어 머리글자(ID)가 눌리는 것도 막는다. */
+  const idCol = 'minmax(108px, max-content)'
+  const gridReq = `52px 48px ${idCol} minmax(0, 1fr) 110px 80px 78px 52px 132px ${visCols.map((c) => c.w).join(' ')}`.trim()
+  const gridTc = `52px 48px ${idCol} minmax(0, 1fr) 100px 80px 70px 52px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridOf = (tc: boolean) => (tc ? gridTc : gridReq)
   /* 표에서 바로 고치는 칸이 쓸 값들 — 설정(codes)이 정본이다 */
   const REQ_STATUS = useCodes('req_status', ['작성중', '검토중', '검토완료', '보류', '폐기'])

@@ -40,7 +40,11 @@ export default function App() {
       /* 지운 화면의 이름이 기억에 남아 있으면 「아직 안 옮겼습니다」 백지가
          나온다(지적: 이상한 페이지) — Requirements·Coverage 는 REQ-Coverage
          로 합쳐졌으므로 그리로 보낸다. */
-      return p === 'requirements' || p === 'testcases' ? 'reqtc' : p
+      if (p === 'requirements' || p === 'testcases') return 'reqtc'
+      /* 그 밖에 **모르는 이름**도 벽 대신 쓸 수 있는 화면으로 보낸다.
+         이름을 하나씩 적어 두는 방식은 지울 때마다 여기를 같이 고쳐야 해서
+         한 번은 빠뜨린다 — 아는 이름이 아니면 다 보내는 편이 안전하다. */
+      return KNOWN_PAGES.has(p) ? p : 'reqtc'
     } catch {
       return 'reqtc'
     }
