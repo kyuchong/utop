@@ -3917,6 +3917,9 @@ async def id_migrate_plan(token: str = ""):
 async def id_migrate_apply(token: str = ""):
     _require_admin(token)
     async with db.pool().acquire() as c:
+        # 반쪽만 옮겨진 것이 있으면 먼저 맞춘다 — 안 그러면 plan 이 칸만
+        # 보고 「이미 됐다」 로 넘겨서 data 가 영영 옛 값으로 남는다.
+        await id_migrate.repair(c)
         p = await id_migrate.plan(c)
         if not p["moves"]:
             return {"ok": True, "counts": {}, "note": "옮길 것이 없습니다"}
@@ -5418,32 +5421,66 @@ def _leaf_cat(r: dict) -> str:
     return ""
 
 
-async def _next_req_id(c) -> str:
-    from datetime import datetime as _dt
+async def _group_of_cat(c, cat_id: str) -> str:
+    """이 폴더가 속한 **프로젝트의 모델그룹**. 뿌리까지 타고 올라가 찾는다."""
+    if not cat_id:
+        return ""
+    row = await c.fetchrow(
+        """
+        WITH RECURSIVE up AS (
+          SELECT id, parent_id FROM req_category WHERE id = $1
+          UNION ALL
+          SELECT c.id, c.parent_id FROM up u JOIN req_category c ON c.id = u.parent_id
+        )
+        SELECT p.model_group FROM up
+        JOIN project p ON p.cat_id = up.id
+        LIMIT 1
+        """,
+        cat_id,
+    )
+    return str((row or {}).get("model_group") or "") if row else ""
+
+
+async def _next_id(c, mg: str, letter: str) -> str:
+    """다음 ID — **모델그룹 기준**(E61xx_R0001).
+
+    앞머리는 모델그룹이고 순번은 그 그룹 안에서만 센다. 주차를 쓰던 옛
+    규칙(REQ-2633-0016)은 모델그룹을 모를 때만 남긴다 — 프로젝트에 안 속한
+    폴더가 아직 있어서, 거기서 만들면 앞머리를 정할 수가 없다. 지어내느니
+    옛 모양으로 두고, 폴더를 프로젝트 밑으로 옮긴 뒤 ID 옮기기로 따라오게
+    하는 편이 낫다.
+
+    순번은 **그 그룹의 현재 최댓값 +1** 이다. 두 사람이 같은 순간에 만들면
+    같은 번호가 나올 수 있는데, 그건 옛 규칙도 같았고 저장할 때 한 번 더
+    올려 준다(save_req).
+    """
     import re as _r
-    iso = _dt.now().isocalendar()
-    prefix = "REQ-%02d%02d-" % (iso[0] % 100, iso[1])
-    rows = await c.fetch("SELECT data->>'reqid' AS reqid FROM req WHERE data->>'reqid' LIKE $1", prefix + "%")
+    if not mg:
+        from datetime import datetime as _dt
+        iso = _dt.now().isocalendar()
+        head = "REQ" if letter == "R" else "TC"
+        prefix = "%s-%02d%02d-" % (head, iso[0] % 100, iso[1])
+    else:
+        prefix = f"{mg}_{letter}"
+    col = "data->>'reqid'" if letter == "R" else "tcid"
+    tbl = "req" if letter == "R" else "tc"
+    rows = await c.fetch(
+        f"SELECT {col} AS v FROM {tbl} WHERE {col} LIKE $1", prefix + "%"
+    )
     mx = 0
     for r in rows:
-        m = _r.match("^" + _r.escape(prefix) + r"(\d+)$", r["reqid"] or "")
+        m = _r.match("^" + _r.escape(prefix) + r"(\d+)$", r["v"] or "")
         if m:
             mx = max(mx, int(m.group(1)))
     return prefix + str(mx + 1).zfill(4)
 
 
-async def _next_tc_id(c) -> str:
-    from datetime import datetime as _dt
-    import re as _r
-    iso = _dt.now().isocalendar()
-    prefix = "TC-%02d%02d-" % (iso[0] % 100, iso[1])
-    rows = await c.fetch("SELECT tcid FROM tc WHERE tcid LIKE $1", prefix + "%")
-    mx = 0
-    for r in rows:
-        m = _r.match("^" + _r.escape(prefix) + r"(\d+)$", r["tcid"] or "")
-        if m:
-            mx = max(mx, int(m.group(1)))
-    return prefix + str(mx + 1).zfill(4)
+async def _next_req_id(c, cat_id: str = "") -> str:
+    return await _next_id(c, await _group_of_cat(c, cat_id), "R")
+
+
+async def _next_tc_id(c, mg: str = "") -> str:
+    return await _next_id(c, mg, "T")
 
 
 @app.post("/api/copy-tree")
@@ -5512,7 +5549,7 @@ async def copy_tree(body: dict, token: str = ""):
         src = await db.tc_get(tcid)
         if not src:
             return
-        nid = await _next_tc_id(c)
+        nid = await _next_tc_id(c, dst_mg)
         d = dict(src)
         d["tcid"] = nid
         d["req_id"] = req_id
@@ -5540,7 +5577,7 @@ async def copy_tree(body: dict, token: str = ""):
         nid = _uid("rq")
         d = dict(src.get("data") or src)
         d["id"] = nid
-        d["reqid"] = await _next_req_id(c)
+        d["reqid"] = await _next_req_id(c, cat_id)
         d["tc"] = []
         for i in range(4):
             d[f"cat{i + 1}"] = path[i] if i < len(path) else None
@@ -5594,51 +5631,32 @@ async def copy_tree(body: dict, token: str = ""):
 
 
 @app.get("/api/req-next-id")
-async def req_next_id():
-    """다음 요구사항 ID — REQ-<연2><ISO주차2>-<주차별 순번4>.
+async def req_next_id(cat: str = ""):
+    """다음 요구사항 ID — **모델그룹 기준**(E61xx_R0001).
 
-    2026년 ISO 15주차의 첫 건이면 REQ-2615-0001. 순번은 그 주차 안에서만
-    센다(다음 주면 다시 0001). 그 프리픽스의 현재 최대 순번 +1 을 서버에서
-    매겨, 두 사람이 같은 순간에 만들어도 안 겹친다(겹치면 save_req 가 한 번
-    더 올려 준다)."""
-    from datetime import datetime as _dt
-    import re as _re_r
-    iso = _dt.now().isocalendar()
-    yy = iso[0] % 100
-    ww = iso[1]
-    prefix = "REQ-%02d%02d-" % (yy, ww)
+    `cat` 은 만들 자리의 폴더다. 그 폴더의 뿌리 프로젝트가 모델그룹을 쥐고
+    있어서, 어디에 만드느냐에 따라 앞머리가 갈린다. 안 주면(또는 프로젝트에
+    안 속한 폴더면) 옛 주차 규칙으로 떨어진다 — 앞머리를 지어내지 않는다.
+    """
     async with db.pool().acquire() as c:
-        rows = await c.fetch(
-            "SELECT data->>'reqid' AS reqid FROM req WHERE data->>'reqid' LIKE $1",
-            prefix + "%",
-        )
-    mx = 0
-    for r in rows:
-        m = _re_r.match("^" + _re_r.escape(prefix) + r"(\d+)$", r["reqid"] or "")
-        if m:
-            mx = max(mx, int(m.group(1)))
-    return {"reqid": prefix + str(mx + 1).zfill(4), "prefix": prefix, "seq": mx + 1}
+        mg = await _group_of_cat(c, (cat or "").strip())
+        rid = await _next_id(c, mg, "R")
+    return {"reqid": rid, "prefix": rid[: -4], "group": mg}
 
 
 @app.get("/api/tc-next-id")
-async def tc_next_id():
-    """다음 시험 ID — TC-<연2><ISO주차2>-<주차별 순번4>.
+async def tc_next_id(mg: str = "", cat: str = ""):
+    """다음 시험 ID — **모델그룹 기준**(E61xx_T0001).
 
-    요구사항(REQ-2632-0001)과 같은 규칙이라 나란히 읽힌다. tcid 는 곧 PK 라
-    겹치면 남의 시험을 덮어쓴다 — 그래서 그 프리픽스의 현재 최대 순번 +1 을
-    서버가 매긴다."""
-    from datetime import datetime as _dt
-    import re as _re_t
-    iso = _dt.now().isocalendar()
-    prefix = "TC-%02d%02d-" % (iso[0] % 100, iso[1])
+    tcid 는 곧 PK 라 겹치면 남의 시험을 덮어쓴다. 그래서 그 앞머리의 현재
+    최대 순번 +1 을 서버가 매긴다. 모델그룹은 시험 만들 때 고르는 값이라
+    화면이 직접 준다(mg). 없으면 폴더(cat)로 찾아보고, 그것도 없으면 옛
+    주차 규칙이다.
+    """
     async with db.pool().acquire() as c:
-        rows = await c.fetch("SELECT tcid FROM tc WHERE tcid LIKE $1", prefix + "%")
-    mx = 0
-    for r in rows:
-        m = _re_t.match("^" + _re_t.escape(prefix) + r"(\d+)$", r["tcid"] or "")
-        if m:
-            mx = max(mx, int(m.group(1)))
-    return {"tcid": prefix + str(mx + 1).zfill(4), "prefix": prefix, "seq": mx + 1}
+        g = (mg or "").strip() or await _group_of_cat(c, (cat or "").strip())
+        tid = await _next_id(c, g, "T")
+    return {"tcid": tid, "prefix": tid[: -4], "group": g}
 
 
 @app.post("/api/req/{req_id}")
@@ -12605,6 +12623,16 @@ async def _db_init():
         await db._repair_double_json()
     except Exception as e:
         print(f'[startup] jsonb 손질 실패: {e}', flush=True)
+    # ID 옮기기가 칸만 고치고 data 는 안 고친 판이 나갔다. req 는 data 가
+    # 정본이라 화면에 옛 ID 가 그대로 보였다. 어긋난 것이 있으면 맞춘다 —
+    # 없으면 아무 일도 안 하므로 매번 돌아도 된다.
+    try:
+        async with db.pool().acquire() as _c:
+            _f = await id_migrate.repair(_c)
+        if _f["req"] or _f["tc"]:
+            print(f"[id] 반쪽 옮김 손질 — 요구사항 {_f['req']} · 시험항목 {_f['tc']}건", flush=True)
+    except Exception as e:
+        print(f'[startup] ID 손질 실패: {e}', flush=True)
     # 워커 스레드(run_cli 등)에서 asyncio.run_coroutine_threadsafe 호출용 메인 루프 참조 저장.
     # 스레드 안에서는 asyncio.get_event_loop() 가 새 루프를 만들거나 실패하므로,
     # 요청 처리 스레드에서 broadcast() 를 예약하려면 반드시 여기서 잡은 루프를 써야 한다.
@@ -17858,7 +17886,7 @@ async def req_make_tcs(req_id: str, payload: dict, token: str = ""):
     made = []
     async with db.pool().acquire() as c:
         for it in items:
-            tcid = await _next_tc_id(c)
+            tcid = await _next_tc_id(c, mg)
             d = {
                 "tcid": tcid,
                 "name": _tc_title(it.get("name") or "", it.get("object") or ""),

@@ -56,20 +56,9 @@ export default function TcForm({ editing, presetReqId, onCreated, onClose }: Pro
 
   useEffect(() => {
     setTcid(editing?.tcid ?? '')
-    // 새로 만들 때는 서버가 주차별로 매기는 다음 ID(TC-2632-0001)를 받아
-    // 채운다. 사람이 못 바꾼다 — tcid 는 곧 PK 라, 손으로 바꾸면 남의
-    // 시험을 덮거나 사이클·실행 이력의 참조가 끊긴다.
-    if (editing === null) {
-      void (async () => {
-        try {
-          const r = await apiFetch('/api/tc-next-id')
-          const j = (await r.json()) as { tcid?: string }
-          if (j.tcid) setTcid(j.tcid)
-        } catch {
-          /* 실패해도 저장할 때 사람이 볼 수 있게 빈 칸으로 둔다 */
-        }
-      })()
-    }
+    // 새 ID 는 아래의 딴 effect 가 받는다 — 모델그룹에 따라 앞머리가
+    // 갈리므로 모델그룹을 고를 때마다 다시 물어야 한다.
+
     setName(editing?.name ?? '')
     setReqId(editing?.req_id ?? presetReqId ?? '')
     setType(editing?.type ?? '')
@@ -95,6 +84,27 @@ export default function TcForm({ editing, presetReqId, onCreated, onClose }: Pro
   const reqs = reqQ.data?.reqs ?? []
 
   /** 적용 모델 선택지 — 카탈로그가 정본 (손으로 치면 표기가 갈린다) */
+  /* 새 ID — **모델그룹**이 앞머리다(E61xx_T0001). 모델그룹을 고를 때마다
+     다시 받는다. tcid 는 곧 PK 라 사람이 못 바꾼다 — 손으로 바꾸면 남의
+     시험을 덮거나 사이클·실행 이력의 참조가 끊긴다. */
+  useEffect(() => {
+    if (editing !== null) return
+    let dead = false
+    void (async () => {
+      try {
+        const g = mg && mg !== COMMON ? mg : ''
+        const r = await apiFetch(`/api/tc-next-id?mg=${encodeURIComponent(g)}`)
+        const j = (await r.json()) as { tcid?: string }
+        if (!dead && j.tcid) setTcid(j.tcid)
+      } catch {
+        /* 실패해도 저장할 때 사람이 볼 수 있게 빈 칸으로 둔다 */
+      }
+    })()
+    return () => {
+      dead = true
+    }
+  }, [editing, mg])
+
   const rolesQ = useQuery({
     queryKey: ['device-roles'],
     queryFn: async () => {

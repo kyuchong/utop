@@ -32,12 +32,22 @@ from __future__ import annotations
 import json
 import re
 
-# 새 모양인가 — 앞머리(사업자_모델그룹) + _ + R/T/C + 네 자리.
-# 앞머리에 밑줄이 들어가므로 `.+` 로 욕심껏 잡는다: LGUPLUS_E61xx_R0001 에서
-# 앞머리는 LGUPLUS_E61xx 다. 사업자가 「공공」·「사내」 처럼 한글일 수 있어
-# 글자 종류를 묶지 않는다.
+# 새 모양인가 — 앞머리(모델그룹) + _ + R/T/C + 네 자리. 앞머리에 밑줄이나
+# 한글이 들어갈 수 있어(KT-E61xx·공공_UbiEnt) 글자 종류를 묶지 않는다.
 NEW_RE = re.compile(r"^.+_[RTC]\d{4}$")
 NEW_EXEC_RE = re.compile(r"^.+_C\d{4}-E\d{3}$")
+
+
+def is_current(old: str, mg: str, letter: str) -> bool:
+    """이 ID 가 **지금 모델그룹의 것**인가.
+
+    「새 모양이면 건너뛴다」 로 두었더니, 프로젝트의 모델그룹을 고쳐도
+    이미 매긴 ID 가 옛 앞머리를 그대로 달고 있었다(지적: 모델그룹 기준으로
+    자동으로 바뀌어야 한다). 모양이 아니라 **앞머리가 지금 것인지**를 본다.
+    """
+    if not mg:
+        return False
+    return bool(re.match(rf"^{re.escape(mg)}_{letter}\d{{4}}$", old or ""))
 
 
 def pick_group(stored: str, model: str, m2g: dict[str, str], known: set[str]) -> str:
@@ -125,7 +135,7 @@ async def plan(c) -> dict:
     for r in await c.fetch("SELECT id, reqid, title FROM req ORDER BY created_at, id"):
         old = r["reqid"] or ""
         mg = rg.get(r["id"], "")
-        if NEW_RE.match(old):
+        if is_current(old, mg, "R"):
             continue
         if not mg:
             skipped.append({"kind": "req", "pk": r["id"], "old": old,
@@ -139,9 +149,9 @@ async def plan(c) -> dict:
         "SELECT tcid, name, data->>'model_group' mg, data->>'model' md FROM tc ORDER BY created_at, tcid"
     ):
         old = r["tcid"]
-        if NEW_RE.match(old):
-            continue
         mg = pick_group(r["mg"] or "", r["md"] or "", m2g, known)
+        if is_current(old, mg, "T"):
+            continue
         if not mg:
             skipped.append({"kind": "tc", "pk": old, "old": old,
                             "why": "모델그룹·모델명이 비어 있어 앞머리를 못 정합니다"})
@@ -155,9 +165,9 @@ async def plan(c) -> dict:
     ):
         data = r["data"] if isinstance(r["data"], dict) else json.loads(r["data"] or "{}")
         old = data.get("cid") or ""
-        if NEW_RE.match(old):
-            continue
         mg = pick_group("", r["model"] or "", m2g, known)
+        if is_current(old, mg, "C"):
+            continue
         if not mg:
             skipped.append({"kind": "cycle", "pk": r["id"], "old": old,
                             "why": f"모델 '{r['model'] or ''}' 의 모델그룹을 못 찾습니다"})
@@ -195,13 +205,28 @@ async def apply(c, p: dict) -> dict:
 
         # ── 요구사항 — 사람이 보는 칸만 바꾼다. 링크는 속열쇠라 안 건드린다
         for m in (x for x in moves if x["kind"] == "req"):
-            await c.execute("UPDATE req SET reqid = $1 WHERE id = $2", m["new"], m["pk"])
+            # **칸과 data 를 함께 고친다.** req 는 data 가 정본이고 칸은
+            # 거기서 뽑아 둔 것이다(db.req_upsert). 칸만 고치면 화면에는
+            # 옛 ID 가 그대로 보이고, 다음 저장 때 칸이 옛 값으로 되돌아간다.
+            await c.execute(
+                """UPDATE req
+                      SET reqid = $1,
+                          data = jsonb_set(data, '{reqid}', to_jsonb($1::text))
+                    WHERE id = $2""",
+                m["new"], m["pk"],
+            )
             n["req"] += 1
 
         # ── 시험항목 — PK 를 옮기고, 가리키던 곳을 따라 옮긴다
         tcmap = {m["old"]: m["new"] for m in moves if m["kind"] == "tc"}
         for old, new in tcmap.items():
-            await c.execute("UPDATE tc SET tcid = $1 WHERE tcid = $2", new, old)
+            await c.execute(
+                """UPDATE tc
+                      SET tcid = $1,
+                          data = jsonb_set(data, '{tcid}', to_jsonb($1::text))
+                    WHERE tcid = $2""",
+                new, old,
+            )
             n["tc"] += 1
             r = await c.execute("UPDATE defect SET tcid = $1 WHERE tcid = $2", new, old)
             n["defect"] += int(r.split()[-1]) if r.split()[-1].isdigit() else 0
@@ -232,3 +257,33 @@ async def apply(c, p: dict) -> dict:
                 await c.execute("UPDATE cycle SET data = $1 WHERE id = $2",
                                 json.dumps(data, ensure_ascii=False), row["id"])
     return n
+
+
+async def repair(c) -> dict:
+    """**칸만 바뀌고 data 는 안 바뀐 것**을 맞춘다.
+
+    처음 판이 칸만 고쳤다. req 는 data 가 정본이라 화면에 옛 ID 가 그대로
+    보였고, tc 도 data 안의 tcid 가 옛 값으로 남았다. 이미 눌러 버린 설치처가
+    있으므로, 기동할 때마다 한 번씩 훑어 맞춘다 — 어긋난 것이 없으면 아무
+    일도 안 한다.
+
+    맞추는 방향은 **칸 → data** 다. 칸이 새 ID 를 들고 있는 쪽이 옮기기가
+    실제로 정한 값이다.
+    """
+    fixed = {"req": 0, "tc": 0}
+    async with c.transaction():
+        r = await c.execute(
+            """UPDATE req
+                  SET data = jsonb_set(data, '{reqid}', to_jsonb(reqid))
+                WHERE reqid ~ '_R[0-9]{4}$'
+                  AND coalesce(data->>'reqid', '') <> reqid"""
+        )
+        fixed["req"] = int(r.split()[-1]) if r.split()[-1].isdigit() else 0
+        r = await c.execute(
+            """UPDATE tc
+                  SET data = jsonb_set(data, '{tcid}', to_jsonb(tcid))
+                WHERE tcid ~ '_T[0-9]{4}$'
+                  AND coalesce(data->>'tcid', '') <> tcid"""
+        )
+        fixed["tc"] = int(r.split()[-1]) if r.split()[-1].isdigit() else 0
+    return fixed

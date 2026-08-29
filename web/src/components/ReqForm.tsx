@@ -120,20 +120,9 @@ ${md}` : md))
 
   useEffect(() => {
     setReqid(editing?.reqid ?? '')
-    // 새로 만들 때는 서버가 주차별로 매기는 다음 ID(REQ-2615-0001)를 받아
-    // 채운다. 사람이 못 바꾼다 — 규칙(연·ISO주차·순번)이 깨지면 추적성이
-    // 흐트러진다.
-    if (editing === null) {
-      void (async () => {
-        try {
-          const r = await apiFetch('/api/req-next-id')
-          const j = (await r.json()) as { reqid?: string }
-          if (j.reqid) setReqid(j.reqid)
-        } catch {
-          /* 실패해도 저장 시 서버가 채운다 */
-        }
-      })()
-    }
+    // 새 ID 는 아래의 딴 effect 가 받는다 — 폴더에 따라 앞머리가 갈리므로
+    // 폴더를 고를 때마다 다시 물어야 한다.
+
     setTitle(editing?.title ?? '')
     setCat1(editing?.cat1 ?? '')
     setCat2(editing?.cat2 ?? '')
@@ -182,6 +171,27 @@ ${md}` : md))
     setCat3(chain[2] ?? '')
     setCat4(chain[3] ?? '')
   }, [isNew, presetFolder, catQ.data])
+  /* 새 ID — **어느 폴더에 만드느냐**에 따라 앞머리가 갈린다(E61xx_R0001).
+     그 폴더의 뿌리 프로젝트가 모델그룹을 쥐고 있어서, 폴더를 고칠 때마다
+     다시 받는다. 사람이 못 바꾼다 — 손으로 바꾸면 번호가 겹친다. */
+  const deepCat = cat4 || cat3 || cat2 || cat1
+  useEffect(() => {
+    if (editing !== null) return
+    let dead = false
+    void (async () => {
+      try {
+        const r = await apiFetch(`/api/req-next-id?cat=${encodeURIComponent(deepCat)}`)
+        const j = (await r.json()) as { reqid?: string }
+        if (!dead && j.reqid) setReqid(j.reqid)
+      } catch {
+        /* 실패해도 저장 시 서버가 채운다 */
+      }
+    })()
+    return () => {
+      dead = true
+    }
+  }, [editing, deepCat])
+
   const lv2 = useMemo(() => tree.find((p) => p.id === cat1)?.children ?? [], [tree, cat1])
   const lv3 = useMemo(() => lv2.find((p) => p.id === cat2)?.children ?? [], [lv2, cat2])
 
