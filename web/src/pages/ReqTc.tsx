@@ -940,7 +940,7 @@ export default function ReqTc({ me }: Props) {
                             setOpenCat((o) => new Set([...o, c.id]))
                           }}
                         >
-                          하위 폴더 추가
+                          Add subfolder
                         </button>
                         <button
                           type="button"
@@ -950,7 +950,7 @@ export default function ReqTc({ me }: Props) {
                             setRenameName(c.name)
                           }}
                         >
-                          이름 바꾸기
+                          Rename
                         </button>
                         <div className="tc-menu-sep" />
                         {/* 펼치기·접기는 **자손까지**. 한 층만 바꾸면
@@ -969,7 +969,7 @@ export default function ReqTc({ me }: Props) {
                             setOpenCat((o) => new Set([...o, ...all]))
                           }}
                         >
-                          모두 펼치기
+                          Expand all
                         </button>
                         <button
                           type="button"
@@ -985,7 +985,7 @@ export default function ReqTc({ me }: Props) {
                             setOpenCat((o) => new Set([...o].filter((x) => !all.includes(x))))
                           }}
                         >
-                          모두 접기
+                          Collapse all
                         </button>
                         <div className="tc-menu-sep" />
                         <button
@@ -1008,7 +1008,7 @@ export default function ReqTc({ me }: Props) {
                             )
                           }}
                         >
-                          삭제
+                          Delete
                         </button>
                       </div>
                     </>

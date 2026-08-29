@@ -1005,3 +1005,13 @@
   font: inherit;
   font-size: var(--fs-sm);
 }
+
+/* 메뉴 줄에 마우스를 올리면 색이 바뀐다.
+   공용 규칙이 `--tc-hover` 를 쓰는데 그 값은 시험항목 화면에서만 정해져
+   있어, 이 화면 메뉴에서는 아무 일도 안 일어났다(지적). 여기서 정한다. */
+.rqtc-side .tc-menu button:hover:not(:disabled),
+.rqtc-fmenu .tc-menu button:hover:not(:disabled) {
+  background: var(--c-primary-bg);
+  color: var(--c-text);
+}
+.rqtc-fmenu .tc-menu button.danger:hover:not(:disabled) { background: #fdeceb; color: #b4272d; }
