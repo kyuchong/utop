@@ -1598,7 +1598,17 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                         <div
                           className="tc-menu"
                           role="menu"
-                          style={{ position: 'fixed', left: menuAt.x, top: menuAt.y, right: 'auto', zIndex: 300 }}
+                          /* 자리는 화면 좌표로 못박는다. 공용 규칙(.tc-menu)이
+                             top:34px·right:0 을 갖고 있어, 그것이 남으면 메뉴가
+                             위로 끌려 올라가 첫 줄이 잘린다(지적). 넷 다 덮는다. */
+                          style={{
+                            position: 'fixed',
+                            left: menuAt.x,
+                            top: menuAt.y,
+                            right: 'auto',
+                            bottom: 'auto',
+                            zIndex: 300,
+                          }}
                         >
                           {/* 랩마다 UTOP 이 따로 서 있어서 한쪽에서 만든 시험을 다른
                               쪽에서 그대로 돌리고 싶은 일이 잦다. DB 를 통째로 옮기면

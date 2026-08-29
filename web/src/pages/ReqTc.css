@@ -1125,3 +1125,8 @@
   font-weight: 700;
 }
 .rqtc-tcmore .tc-dots:hover { background: #93c9d5; border-color: #93c9d5; }
+
+
+/* 끼워 넣은 화면의 ⋯ 메뉴 — 자리는 인라인 style 이 정한다.
+   공용 규칙의 top:34px 이 남아 있으면 메뉴가 위로 끌려 첫 줄이 잘린다. */
+.rqtc-tcmore .tc-menu { top: auto; right: auto; }
