@@ -149,8 +149,12 @@
 .rqtc-fold.root { font-weight: 700; }
 /* 폴더 그림 — 아직 작다(지적). 글자(14px)보다 확실히 커야 줄머리에서 먼저
    눈에 걸린다. 캐럿도 같이 키워 셋의 높이를 맞춘다. */
-.rqtc-fico { flex: none; font-size: 18px; display: inline-flex; align-items: center; }
-.rqtc-fico svg { width: 20px; height: 20px; }
+/* 폴더 그림은 **13px**(지시: 너무 크다). 이름보다 커지면 눈이 그림부터
+   훑어, 정작 찾는 이름이 늦게 잡힌다. 위 두 층(전체·프로젝트)은 층을
+   가르는 표라 조금 크게 둔다. */
+.rqtc-fico { flex: none; font-size: 13px; display: inline-flex; align-items: center; width: 19px; justify-content: center; }
+.rqtc-fold.root > .rqtc-fico { font-size: 16px; }
+.rqtc-fico svg { width: 15px; height: 15px; }
 .rqtc-fnm { overflow: hidden; text-overflow: ellipsis; }
 /* 개수 — 「이름 (요구사항 / 시험)」. 이름 **바로 옆**에 붙는다(지시).
    오른쪽 끝으로 밀면 이름과 숫자 사이가 비어, 어느 줄의 숫자인지 눈이 한

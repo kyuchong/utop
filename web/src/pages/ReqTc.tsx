@@ -406,7 +406,6 @@ export default function ReqTc({ me }: Props) {
      랩마다 UTOP 이 따로 서 있어서, 한쪽에서 만든 시험을 다른 쪽에서 그대로
      돌리고 싶은 일이 잦다. DB 를 통째로 옮기면 장비 비밀번호까지 따라가므로
      시험 하나만 파일로 뗀다. */
-  const [moreOpen, setMoreOpen] = useState(false)
   /** 만들기 메뉴 — ⋯ 안에 ＋New·＋Bulk New·＋Copy 가 든다 */
   const [newOpen, setNewOpen] = useState(false)
   /* 시험 연결 — 요구사항 화면이 쓰던 **그 창**을 그대로 얹는다(지시).
@@ -801,8 +800,12 @@ export default function ReqTc({ me }: Props) {
                 >
                   <IconChevron />
                 </button>
+                {/* 층마다 **다른 종류**로 보이게 한다(지시·목업 B).
+                    전체는 서랍(🗃), 프로젝트는 집(🏠), 그 아래는 폴더(📁).
+                    셋 다 폴더 그림이면 「전체 · 프로젝트 · 폴더」 가 한 덩어리로
+                    읽혀 층이 안 갈린다. */}
                 <span className="rqtc-fico" aria-hidden="true">
-                  {depth === 0 ? '🗂' : '📁'}
+                  {depth === 0 ? '🏠' : '📁'}
                 </span>
                 <span className="rqtc-fnm">{c.name}</span>
                 {/* 개수는 **이름 바로 오른쪽**에 붙인다(지시) — 오른쪽 끝에
@@ -993,8 +996,9 @@ export default function ReqTc({ me }: Props) {
             <div className="rqtc-tree">
               <div className={`rqtc-fold${cat === '' ? ' on' : ''}`} onClick={() => pickFolder('')}>
                 <span className="rqtc-caret" />
+                {/* 「전체」 는 서랍 — 프로젝트를 담는 자리다 */}
                 <span className="rqtc-fico" aria-hidden="true">
-                  🗂
+                  🗃
                 </span>
                 <span className="rqtc-fnm">전체</span>
                 <span className="rqtc-rt">
@@ -1238,45 +1242,11 @@ export default function ReqTc({ me }: Props) {
             {/* 정렬·열 고르기 — **찾기 칸 오른쪽**(지시). 도구줄에 두었더니
                 만들기·지우기와 한 줄에 섞여, 「무엇을 하는 단추」 와 「어떻게
                 볼지 정하는 단추」 가 구별되지 않았다. 정렬이 ⚙ 왼쪽에 선다. */}
+            {/* ⋯ 를 뺐다(지시) — 안에 있던 「파일로 내보내기·가져오기」 는
+                아래 떠오르는 줄로 옮겼다. 하는 일이 고른 것에 매이므로 고른
+                것 옆이 제자리다. */}
             {mode === 'tc' && (
-              <div className="rqtc-more">
-                <button
-                  type="button"
-                  className="rqtc-ib"
-                  aria-haspopup="menu"
-                  aria-expanded={moreOpen}
-                  title="파일로 내보내기·가져오기"
-                  onClick={() => setMoreOpen((v) => !v)}
-                >
-                  ⋯
-                </button>
-                {moreOpen && (
-                  <>
-                    <div className="tc-menu-back" onClick={() => setMoreOpen(false)} />
-                    <div className="tc-menu" role="menu">
-                      <button
-                        type="button"
-                        disabled={sel.size !== 1}
-                        title={sel.size === 1 ? undefined : '시험 하나를 고르세요'}
-                        onClick={() => {
-                          setMoreOpen(false)
-                          void exportTc()
-                        }}
-                      >
-                        파일로 내보내기
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMoreOpen(false)
-                          fileRef.current?.click()
-                        }}
-                      >
-                        파일에서 가져오기
-                      </button>
-                    </div>
-                  </>
-                )}
+              <>
                 <input
                   ref={fileRef}
                   type="file"
@@ -1288,7 +1258,7 @@ export default function ReqTc({ me }: Props) {
                     if (f2) void importTc(f2)
                   }}
                 />
-              </div>
+              </>
             )}
             <ListSortBtn value={listSort} onChange={setListSort} />
             <button
@@ -1877,6 +1847,29 @@ export default function ReqTc({ me }: Props) {
             <button type="button" disabled={!!actBusy} onClick={() => void cloneReqs()}>
               {actBusy === 'clone' ? '복제 중…' : 'Clone'}
             </button>
+          )}
+          {/* 파일 주고받기 — 랩마다 UTOP 이 따로 서 있어 한쪽에서 만든 시험을
+              다른 쪽에서 그대로 돌리는 일이 잦다. 내보내기는 한 건만 된다:
+              여러 건을 한 파일에 담으면 받는 쪽에서 무엇을 넣을지 다시
+              골라야 한다. */}
+          {mode === 'tc' && (
+            <>
+              <button
+                type="button"
+                disabled={sel.size !== 1}
+                title={sel.size === 1 ? '이 시험을 파일로 내려받습니다' : '시험 하나만 골라 주세요'}
+                onClick={() => void exportTc()}
+              >
+                파일로 내보내기
+              </button>
+              <button
+                type="button"
+                title="파일에서 시험을 읽어 만듭니다"
+                onClick={() => fileRef.current?.click()}
+              >
+                파일에서 가져오기
+              </button>
+            </>
           )}
           <span className="rqtc-act-sep" aria-hidden="true" />
           <button
