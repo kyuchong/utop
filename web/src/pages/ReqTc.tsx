@@ -823,6 +823,11 @@ export default function ReqTc({ me }: Props) {
         )
         .map((c) => {
           const kid = kids.get(c.id) ?? []
+          /* 이 폴더에 **바로 달린** 요구사항. 「폴더 + 요구사항」 일 때는
+             이것도 펼칠 거리다 — 하위 폴더가 없다고 단추를 꺼 두면 끝단
+             폴더의 요구사항은 영영 못 본다(지적: 요구사항+폴더가 안 된다). */
+          const own = treeReqs ? reqs.filter((r) => catOf(r) === c.id) : []
+          const canOpen = kid.length > 0 || own.length > 0
           const on = openCat.has(c.id)
           const n = countOf(c.id)
           return (
@@ -851,7 +856,7 @@ export default function ReqTc({ me }: Props) {
                 <button
                   type="button"
                   className={`rqtc-caret${on ? ' open' : ''}`}
-                  disabled={!kid.length}
+                  disabled={!canOpen}
                   aria-label={on ? '접기' : '펴기'}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -923,7 +928,7 @@ export default function ReqTc({ me }: Props) {
                             「눌렀는데 반쯤만 됐다」 로 보인다. */}
                         <button
                           type="button"
-                          disabled={!kid.length}
+                          disabled={!canOpen}
                           onClick={() => {
                             setCatMenu('')
                             const all: string[] = []
@@ -939,7 +944,7 @@ export default function ReqTc({ me }: Props) {
                         </button>
                         <button
                           type="button"
-                          disabled={!kid.length}
+                          disabled={!canOpen}
                           onClick={() => {
                             setCatMenu('')
                             const all: string[] = []
@@ -1028,10 +1033,7 @@ export default function ReqTc({ me }: Props) {
                   <Tree parent={c.id} depth={depth + 1} />
                   {/* 이 폴더에 바로 달린 요구사항 — 「폴더 + 요구사항」 일 때만.
                       누르면 그 요구사항 하나로 좁혀 본다. */}
-                  {treeReqs &&
-                    reqs
-                      .filter((r) => catOf(r) === c.id)
-                      .map((r) => (
+                  {own.map((r) => (
                         <div
                           key={reqPk(r)}
                           className={`rqtc-fold rqtc-treq${reqOnly === reqPk(r) ? ' on' : ''}`}
@@ -1044,8 +1046,8 @@ export default function ReqTc({ me }: Props) {
                             📄
                           </span>
                           <span className="rqtc-fnm">{r.title || reqLabel(r)}</span>
-                        </div>
-                      ))}
+                    </div>
+                  ))}
                 </>
               )}
             </div>

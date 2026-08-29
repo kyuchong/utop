@@ -141,6 +141,8 @@ export interface ReqCategory {
   sort_order: number
   /** 이 분류를 쓰는 요구사항 수 (cat1/cat2/cat3 중 하나로 참조) */
   req_count: number
+  /** 마지막으로 고친 때 — 트리의 「최근」 정렬이 본다 */
+  updated_at?: string | null
 }
 
 /** 프로젝트 — 요구사항 트리 최상위 폴더의 메타. 이름의 정본은 폴더다 */

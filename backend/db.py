@@ -626,7 +626,9 @@ async def cat_list() -> list[dict]:
               SELECT s.root, k.id
                 FROM req_category k JOIN sub s ON k.parent_id = s.node
             )
-            SELECT c.id, c.name, c.parent_id, c.sort_order,
+            -- updated_at 도 함께 — 화면의 「최근」 정렬이 이 값을 본다.
+            -- 안 주면 그 정렬이 아무 일도 안 한다(지적: 정렬이 안 먹는다).
+            SELECT c.id, c.name, c.parent_id, c.sort_order, c.updated_at,
                    (SELECT count(*) FROM req r
                      WHERE r.cat1 IN (SELECT node FROM sub WHERE root = c.id)
                         OR r.cat2 IN (SELECT node FROM sub WHERE root = c.id)
@@ -637,7 +639,11 @@ async def cat_list() -> list[dict]:
             ORDER BY c.parent_id NULLS FIRST, c.sort_order, c.name
             """
         )
-        return [dict(r) for r in rows]
+        # 시각은 글자로 내보낸다 — JSON 이 날짜 객체를 그대로 못 담는다
+        return [
+            {**dict(r), "updated_at": r["updated_at"].isoformat() if r["updated_at"] else None}
+            for r in rows
+        ]
 
 
 async def cat_upsert(cid: str, name: str, parent_id: Optional[str],
