@@ -1112,7 +1112,7 @@ function CycleBoard({
 
   const cytGrid = useMemo(
     () =>
-      ['24px', '18px', 'minmax(88px, 100px)', 'minmax(200px, 1.4fr)', ...renderCols.map((c) => c.w)].join(
+      ['24px', '18px', 'minmax(140px, max-content)', 'minmax(180px, 1.2fr)', ...renderCols.map((c) => c.w)].join(
         ' ',
       ),
     [renderCols],

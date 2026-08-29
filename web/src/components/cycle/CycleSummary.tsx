@@ -82,34 +82,6 @@ export default function CycleSummary({
     return { ...tally(items), iss, who: who.size, manual: tally(man), auto: tally(aut) }
   }, [items, groupOf])
 
-  /* ── 날짜별 누적 Pass/Fail — TestRail 트렌드 방식 ──
-     원천은 항목의 executed_at. 옛 자료엔 드문드문이라, 날이 2개 미만이면
-     선 대신 「아직 쌓이는 중」 이라고 말한다 — 점 하나로 선을 그으면
-     그래프가 거짓말처럼 보인다. */
-  const trend = useMemo(() => {
-    const byDay = new Map<string, { p: number; f: number }>()
-    for (const it of items) {
-      const d = String(it.executed_at ?? '').slice(0, 10)
-      if (!d) continue
-      const v = itemVerdict(it as CycleItemLite)
-      const g = v ? groupOf(v) : ''
-      if (g !== 'pass' && g !== 'fail') continue
-      const cur = byDay.get(d) ?? { p: 0, f: 0 }
-      if (g === 'pass') cur.p += 1
-      else cur.f += 1
-      byDay.set(d, cur)
-    }
-    const days = [...byDay.keys()].sort()
-    let cp = 0
-    let cf = 0
-    return days.map((d) => {
-      const v = byDay.get(d) as { p: number; f: number }
-      cp += v.p
-      cf += v.f
-      return { d, p: cp, f: cf }
-    })
-  }, [items, groupOf])
-
   const donut = useMemo(() => {
     const segs = [
       { k: 'pass', n: t.pass, cls: 'p' },
@@ -206,30 +178,6 @@ export default function CycleSummary({
           <div><b>{t.who}</b><span>담당자</span></div>
           <div><b>{dday || '–'}</b><span>{dday ? `종료 ${String(cycle.end_date ?? '').slice(5, 10)}` : '기간 없음'}</span></div>
         </div>
-        {trend.length >= 2 ? (
-          <svg
-            className="cyl-trend"
-            viewBox="0 0 400 56"
-            preserveAspectRatio="none"
-            aria-label="날짜별 누적 Pass/Fail"
-          >
-            {(() => {
-              const max = Math.max(...trend.map((x) => Math.max(x.p, x.f)), 1)
-              const X = (i: number) => (i / (trend.length - 1)) * 396 + 2
-              const Y = (v: number) => 52 - (v / max) * 44
-              const line = (get: (x: { p: number; f: number }) => number) =>
-                trend.map((x, i) => `${X(i)},${Y(get(x))}`).join(' ')
-              return (
-                <>
-                  <polyline className="p" points={line((x) => x.p)} />
-                  <polyline className="f" points={line((x) => x.f)} />
-                </>
-              )
-            })()}
-          </svg>
-        ) : (
-          <div className="cyl-notrend">날짜별 트렌드 — 실행 시각이 2일 이상 쌓이면 그려집니다</div>
-        )}
       </div>
 
       <div className="cyl-col cyl-side">
@@ -249,7 +197,7 @@ export default function CycleSummary({
         <div className="cyl-btns">
           {/* 실행이 맨 위다(지적: 실행 단추가 안 보인다). 여기가 실행
               화면으로 들어가는 정문이고, 클릭 미로가 아니다. */}
-          <button type="button" className="btn cyl-teal" onClick={onOpen}>
+          <button type="button" className="btn cyl-teal cyl-run" onClick={onOpen}>
             ▶ 시험 실행
           </button>
           <button type="button" className="btn" onClick={onEdit}>
