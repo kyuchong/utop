@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
@@ -1592,7 +1593,12 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                     >
                       ⋯
                     </button>
-                    {menuOpen && (
+                    {menuOpen &&
+                      /* **화면 맨 위(body)로 빼낸다.**
+                         fixed 로 띄워도 조상 상자가 겹침 순서를 만들면 그 안에
+                         갇혀 위쪽이 눌린다 — 첫 줄이 계속 가려졌다(지적 세 번).
+                         body 로 빼면 어떤 상자도 못 덮는다. */
+                      createPortal(
                       <>
                         <div className="tc-menu-back" onClick={() => setMenuOpen(false)} />
                         <div
@@ -1663,7 +1669,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                           </button>
                         </div>
                       </>
-                    )}
+                      , document.body)}
                   </div>
   )
 
