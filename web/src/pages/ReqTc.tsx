@@ -16,7 +16,11 @@ import {
   IconSettings,
 } from '@/components/icons'
 import GlobalParams from '@/components/settings/GlobalParams'
-import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
+import ListSortBtn, {
+  FolderSortBtn,
+  type FolderSortMode,
+  type ListSortMode,
+} from '@/components/ListSortBtn'
 import { useInfoCols } from '@/components/useInfoCols'
 import ReqForm from '@/components/ReqForm'
 import ReqBulkForm from '@/components/ReqBulkForm'
@@ -134,6 +138,23 @@ export default function ReqTc({ me }: Props) {
   /* 트리에 요구사항까지 낼지 — 폴더만 볼 때가 기본이다(지시로 고를 수 있게).
      스무 폴더 밑에 요구사항이 다 펼쳐지면 트리가 목록이 되어, 정작 폴더를
      짚는 일이 어려워진다. */
+  /* 폴더 정렬 — 되살린다(지시: 지우라던 것은 ＋New Folder 였다).
+     고른 값은 기억한다. */
+  const [fsort, setFsort] = useState<FolderSortMode>(() => {
+    try {
+      return (localStorage.getItem('utop.reqtc.fsort') as FolderSortMode) || 'name'
+    } catch {
+      return 'name'
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('utop.reqtc.fsort', fsort)
+    } catch {
+      /* 사생활 보호 모드 */
+    }
+  }, [fsort])
+
   const [treeReqs, setTreeReqs] = useState(() => {
     try {
       return localStorage.getItem('utop.reqtc.treereqs') === '1'
@@ -821,7 +842,15 @@ export default function ReqTc({ me }: Props) {
            있어서, 남겨 두면 늘 (0 / 0) 인 줄이 남아 「비었나, 잘못 골랐나」
            를 헷갈리게 한다. 아래 가지는 이미 그 프로젝트 안이라 안 거른다. */
         .filter((c) => depth > 0 || !prjs.length || prjs.includes(c.id))
-        .sort((a, b) => a.name.localeCompare(b.name))
+        .sort((a, b) =>
+          fsort === 'name'
+            ? a.name.localeCompare(b.name)
+            : fsort === 'req'
+              ? countOf(b.id).r - countOf(a.id).r
+              : String((b as { updated_at?: string }).updated_at ?? '').localeCompare(
+                  String((a as { updated_at?: string }).updated_at ?? ''),
+                ),
+        )
         .map((c) => {
           const kid = kids.get(c.id) ?? []
           /* 이 폴더에 **바로 달린** 요구사항. 「폴더 + 요구사항」 일 때는
@@ -834,7 +863,7 @@ export default function ReqTc({ me }: Props) {
           return (
             <div key={c.id}>
               <div
-                className={`rqtc-fold${cat === c.id ? ' on' : ''}${depth === 0 ? ' root' : ''}${
+                className={`rqtc-fold${cat === c.id && !openReq && !openTc ? ' on' : ''}${depth === 0 ? ' root' : ''}${
                   dropCat === c.id ? ' drop' : ''
                 }`}
                 style={{ paddingLeft: 6 + depth * 14 }}
@@ -1037,10 +1066,9 @@ export default function ReqTc({ me }: Props) {
                                것이 없다. */
                             setOpenTc('')
                             setOpenReq(reqPk(r))
-                            /* 폴더 칠을 지운다 — 요구사항을 보고 있는데 폴더도
-                               함께 파랗게 남으면 지금 무엇을 열었는지 둘로
-                               보인다(지적). 고른 것은 하나여야 한다. */
-                            setCat('')
+                            /* 고른 폴더는 **그대로 둔다** — 지우면 목록이
+                               「전체」 로 튄다(지적). 칠만 안 한다: 아래
+                               rqtc-fold 의 on 조건이 openReq 를 본다. */
                           }}
                           title={`${reqLabel(r)} ${r.title ?? ''}`}
                         >
@@ -1078,8 +1106,7 @@ export default function ReqTc({ me }: Props) {
                   「Add subfolder」 로 만든다. 어디에 만드는지가 그 자리에
                   보여야 한다. */}
               <span className="sp" />
-              {/* 폴더 정렬을 뺐다(지시) — 표의 열 정렬로 대신한다. 트리와
-                  표 두 곳에서 차례를 정하면 어느 쪽이 이겼는지 알 수 없다. */}
+              <FolderSortBtn value={fsort} onChange={setFsort} />
               {/* ⋯ — 여태 아무 일도 안 하는 단추였다(지적). 트리에 무엇까지
                   낼지를 여기서 고른다. 2열 ⋯ 와 같은 색·같은 꼴이다. */}
               <span className="rqtc-more">
@@ -1184,7 +1211,7 @@ export default function ReqTc({ me }: Props) {
             {/* 상세를 열면 이 자리에 **목록·저장**이 선다(지시).
                 판 여닫기와 만들기는 목록을 볼 때 쓰는 것이라, 상세에서는
                 자리만 먹는다. 줄 하나가 통째로 준다. */}
-            {openReq || openTc ? (
+            {openReq || openTc || gpOpen ? (
               <>
                 <button
                   type="button"
@@ -1192,6 +1219,7 @@ export default function ReqTc({ me }: Props) {
                   onClick={() => {
                     setOpenReq('')
                     setOpenTc('')
+                    setGpOpen(false)
                   }}
                 >
                   ← 목록
@@ -1234,7 +1262,7 @@ export default function ReqTc({ me }: Props) {
                 에서 고치게 된다. */}
             {/* 만들기 셋은 **⋯ 안으로**(지시). 늘 서 있을 필요가 없는
                 것들이라 줄을 먹고 있었다 — 눌러서 꺼내 쓴다. */}
-            {!openReq && !openTc && (
+            {!openReq && !openTc && !gpOpen && (
             <div className="rqtc-more">
               <button
                 type="button"
@@ -1390,11 +1418,41 @@ export default function ReqTc({ me }: Props) {
                     title="이 요구사항으로 바로 가는 주소를 복사합니다"
                     onClick={() => {
                       const url = `${window.location.origin}${window.location.pathname}?req=${encodeURIComponent(reqCrumb.label)}`
-                      void navigator.clipboard
-                        .writeText(url)
-                        .then(() => setCopiedId(true))
-                        .catch(() => window.prompt('아래 주소를 복사하세요', url))
-                      window.setTimeout(() => setCopiedId(false), 1200)
+                      /* http 로 여는 화면에서는 navigator.clipboard 가 아예
+                         없다 — 브라우저가 안전한 주소(https·localhost)에서만
+                         준다. 그래서 눌러도 아무 일이 없었다(지적).
+                         옛 방식(숨은 칸 + execCommand)으로 받아 낸다. */
+                      const copy = async () => {
+                        try {
+                          if (navigator.clipboard && window.isSecureContext) {
+                            await navigator.clipboard.writeText(url)
+                            return true
+                          }
+                        } catch {
+                          /* 아래 옛 방식으로 */
+                        }
+                        const ta = document.createElement('textarea')
+                        ta.value = url
+                        ta.style.cssText = 'position:fixed;left:-9999px'
+                        document.body.appendChild(ta)
+                        ta.select()
+                        let ok = false
+                        try {
+                          ok = document.execCommand('copy')
+                        } catch {
+                          ok = false
+                        }
+                        ta.remove()
+                        return ok
+                      }
+                      void copy().then((ok) => {
+                        if (ok) {
+                          setCopiedId(true)
+                          window.setTimeout(() => setCopiedId(false), 1200)
+                        } else {
+                          window.prompt('아래 주소를 복사하세요', url)
+                        }
+                      })
                     }}
                   >
                     {copiedId ? '주소 복사됨' : reqCrumb.label}

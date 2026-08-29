@@ -1043,4 +1043,7 @@
 /* 표가 없는 줄도 글자가 밀리지 않게 자리를 비워 둔다 */
 .fsort-pop button, .rqtc-side .tc-menu button { display: flex; align-items: center; }
 /* 폴더 ⋯ 메뉴는 **오른쪽으로** 펼친다 — 왼쪽 판이라 왼쪽으로 열면 트리를 덮는다 */
-.rqtc-fmenu .tc-menu { left: 100%; right: auto; top: 0; margin-left: 4px; }
+/* 폴더 ⋯ 메뉴 — 단추 **아래**, 왼쪽 맞춤.
+   오른쪽(right:0)으로 열면 트리를 덮고, 판 밖(left:100%)으로 열면 잘려서
+   안 보인다(지적 두 번). 판 안에서 아래로 편다. */
+.rqtc-fmenu .tc-menu { left: auto; right: 0; top: calc(100% + 4px); margin-left: 0; }
