@@ -9810,6 +9810,60 @@ async def wiki_import_docx(payload: dict):
     try:
         soup = BeautifulSoup(html, "html.parser")
 
+        # ── 그림을 제목 밖으로 꺼낸다 ──────────────────────────
+        #
+        # 워드는 제목 문단 안에 그림을 넣는다(<h2>숙박비 기준<br/><img/></h2>).
+        # 편집기의 제목 블록은 **글자만** 담아서, 그 안의 그림은 통째로
+        # 버려진다 — 서버는 잘 넘겼는데 화면에는 한 장도 안 나왔다(지적).
+        # 그림을 제목 뒤로 꺼내 제 블록으로 세운다. 글은 제목에 남는다.
+        for _h in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6", "li"]):
+            _imgs = _h.find_all("img")
+            if not _imgs:
+                continue
+            for _im in _imgs:
+                _im.extract()
+                _p = soup.new_tag("p")
+                _p.append(_im)
+                _h.insert_after(_p)
+            # 그림만 있던 제목은 빈 껍데기로 남는다 — 빈 제목은 목차를 어지럽힌다
+            if not _h.get_text(strip=True):
+                _h.decompose()
+
+        # ── 제목 단을 **원본 크기에 맞춘다** ───────────────────
+        #
+        # 이 문서는 문단 109개 중 91개가 「제목 2」 다. 워드에서 제목 2 는
+        # 14pt(≈19px)인데 위키의 2단은 24px 이라, 문서 전체가 부풀어 보였다
+        # (지적: 글씨가 왜 그리 큰가). 단 번호를 그대로 옮기지 말고 **그
+        # 문서에서 그 제목이 실제로 몇 px 이었나**를 보고 가장 가까운 단으로
+        # 옮긴다. 그러면 워드에서 보던 크기 그대로 읽힌다.
+        _WIKI_PX = [26, 24, 22, 20, 18, 16]   # 위키 1~6단 (승인된 눈금)
+        try:
+            import zipfile as _zip
+            _st = _zip.ZipFile(_io.BytesIO(blob)).read("word/styles.xml").decode("utf-8", "ignore")
+            _lv2px = {}
+            for _m in re.finditer(r"<w:style [^>]*w:styleId=\"([^\"]+)\">(.*?)</w:style>", _st, re.S):
+                _body = _m.group(2)
+                _nm = re.search(r'<w:name w:val="heading (\d)"', _body)
+                _sz = re.search(r'<w:sz w:val="(\d+)"', _body)
+                if _nm and _sz:
+                    _lv2px[int(_nm.group(1))] = int(_sz.group(1)) / 2 * 4 / 3
+            _map, _floor = {}, 1
+            for _lv in sorted(_lv2px):
+                _px = _lv2px[_lv]
+                _best = min(range(len(_WIKI_PX)), key=lambda i: abs(_WIKI_PX[i] - _px)) + 1
+                _best = max(_best, _floor)          # 아래 단이 위 단보다 커지면 안 된다
+                _map[_lv] = min(6, _best)
+                _floor = _map[_lv] + 1
+            if _map:
+                for _lv in sorted(_map, reverse=True):   # 뒤에서부터 — 겹쳐 덮지 않게
+                    if _map[_lv] == _lv:
+                        continue
+                    for _el in soup.find_all(f"h{_lv}"):
+                        _el.name = f"h{_map[_lv]}"
+                print(f"[docx] 제목 단 옮김 {_map} (원본 pt→px {_lv2px})", flush=True)
+        except Exception as _e:
+            print(f"[docx] 제목 크기를 못 읽었습니다: {str(_e)[:100]}", flush=True)
+
         # 워드에서 온 글자 크기를 걷어낸다.
         #
         # 워드 문서는 같은 「제목 2」 인데도 12pt 인 것과 10pt 인 것이 섞여
