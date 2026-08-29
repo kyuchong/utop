@@ -3964,6 +3964,31 @@ async def create_project(body: ProjectIn):
     return {"success": True, "id": pid, "cat_id": cid}
 
 
+@app.put("/api/projects/{pid}")
+async def update_project(pid: str, body: ProjectIn):
+    """프로젝트의 **메타**를 고친다 — 고객사·모델그룹·모델명·설명.
+
+    이름은 여기서 안 고친다. 프로젝트 이름은 곧 트리 맨 위 폴더 이름이라
+    폴더 쪽(req-categories)이 정본이고, 두 문으로 고치게 두면 한쪽만 바뀌는
+    날이 온다. 화면도 이름은 Rename 으로 보낸다.
+
+    모델그룹은 ID 앞머리다(E61xx_R0001). 이미 매긴 ID 는 따라 바뀌지
+    않는다 — 바꾼 뒤 새로 만드는 것부터 새 앞머리를 받는다.
+    """
+    async with db.pool().acquire() as c:
+        cur = await c.fetchrow("SELECT id FROM project WHERE id = $1", pid)
+        if cur is None:
+            raise HTTPException(404, "프로젝트를 찾을 수 없습니다")
+        await c.execute(
+            """UPDATE project
+                  SET customer = $2, model_group = $3, model = $4, description = $5
+                WHERE id = $1""",
+            pid, (body.customer or "").strip(), (body.model_group or "").strip(),
+            (body.model or "").strip(), (body.description or "").strip(),
+        )
+    return {"success": True}
+
+
 # ───────────────────────────────────────────
 # 문서 → 마크다운 변환
 #

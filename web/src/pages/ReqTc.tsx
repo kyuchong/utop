@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser } from '@/api/client'
+import EditProjectDialog from '@/components/EditProjectDialog'
+import MoveCatDialog from '@/components/MoveCatDialog'
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
 import { goto, onGoto } from '@/api/goto'
 import { fillOf } from '@/lib/fieldFill'
@@ -818,6 +820,8 @@ export default function ReqTc({ me }: Props) {
      CSS 로 세 번 고쳐도 어느 한쪽이 늘 잘렸다(지적). 단추 자리를 재서
      그 자리에 고정으로 띄우면 어떤 상자에도 안 걸린다. */
   const [catMenu, setCatMenu] = useState('')
+  const [moving, setMoving] = useState('')
+  const [editPrj, setEditPrj] = useState('')
   const [catMenuAt, setCatMenuAt] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   /* 「하위 폴더」 를 고르면 그 폴더 밑에 **이름 칸이 바로 열린다**(지시·사진).
      창을 띄워 묻지 않는 까닭: 어디에 만드는지가 그 자리에 보여야 한다.
@@ -896,6 +900,20 @@ export default function ReqTc({ me }: Props) {
     await categoryApi.rename(id, nm, parent)
     await catQ.refetch()
   }
+  /* 옮기기 — 이름은 그대로 두고 부모만 바꾼다. rename 이 이미 부모를
+     받으므로 같은 문을 쓴다: 문이 둘이면 한쪽에만 규칙이 붙는 날이 온다. */
+  const doMove = async (id: string, name: string, parent: string | null) => {
+    setMoving('')
+    try {
+      await categoryApi.rename(id, name, parent)
+      await catQ.refetch()
+      setToast('옮겼습니다')
+      window.setTimeout(() => setToast(''), 1800)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '옮기지 못했습니다')
+    }
+  }
+
   const [newName, setNewName] = useState('')
 
   const makeSub = async (parent: string, name: string) => {
@@ -1078,6 +1096,30 @@ export default function ReqTc({ me }: Props) {
                           }}
                         >
                           Rename
+                        </button>
+                        {/* 프로젝트 폴더에만 — 고객사·모델그룹은 프로젝트의 것이지
+                            폴더의 것이 아니다. 아닌 폴더에 내면 눌러 보고 실망한다. */}
+                        {projects.some((p) => p.cat_id === c.id) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCatMenu('')
+                              setEditPrj(c.id)
+                            }}
+                          >
+                            프로젝트 수정
+                          </button>
+                        )}
+                        {/* 옮기기 — 서버는 진작 되는데 화면에 길이 없었다(지적).
+                            이름 바꾸기 옆이 자리다: 둘 다 「이 폴더 자체」 를 만지는 일이다. */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCatMenu('')
+                            setMoving(c.id)
+                          }}
+                        >
+                          Move to…
                         </button>
                         <div className="tc-menu-sep" />
                         {/* 펼치기·접기는 **자손까지**. 한 층만 바꾸면
@@ -2207,6 +2249,34 @@ export default function ReqTc({ me }: Props) {
       {/* 저장 알림 — 오른쪽 위에 잠깐 떴다 사라진다(지시).
           단추 옆에 글자로 두면 저장했는지 눈이 안 간다. */}
       {toast && <div className="rqtc-toast">{toast}</div>}
+      {editPrj && (() => {
+        const p = projects.find((x) => x.cat_id === editPrj)
+        if (!p) return null
+        return (
+          <EditProjectDialog
+            project={p}
+            onSaved={() => {
+              setEditPrj('')
+              setToast('저장되었습니다')
+              window.setTimeout(() => setToast(''), 1800)
+            }}
+            onClose={() => setEditPrj('')}
+          />
+        )
+      })()}
+      {moving && (() => {
+        const c = cats.find((x) => x.id === moving)
+        if (!c) return null
+        return (
+          <MoveCatDialog
+            cat={c}
+            cats={cats}
+            projectIds={new Set(projects.map((p) => p.cat_id))}
+            onMove={(parent) => void doMove(c.id, c.name, parent)}
+            onClose={() => setMoving('')}
+          />
+        )
+      })()}
 
       {/* 고른 것에 하는 일 — **아래에서 떠오르는 줄**(승인).
           위 도구줄에 두었더니 고를 때마다 단추가 늘어났다 줄었다 하며 옆

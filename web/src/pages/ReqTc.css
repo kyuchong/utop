@@ -1130,3 +1130,80 @@
 /* 끼워 넣은 화면의 ⋯ 메뉴 — 자리는 인라인 style 이 정한다.
    공용 규칙의 top:34px 이 남아 있으면 메뉴가 위로 끌려 첫 줄이 잘린다. */
 .rqtc-tcmore .tc-menu { top: auto; right: auto; }
+
+/* ── 폴더 옮기기 창 ───────────────────────────────────────────
+   갈 수 없는 곳은 아예 안 낸다 — 눌러 놓고 되돌리면 왜 안 되는지 배우기
+   전에 짜증부터 난다. 깊이만큼 들여쓴다: 이름만 늘어놓으면 어디 밑인지 모른다. */
+.modal.mvc { max-width: 520px; }
+.mvc-find {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+}
+.mvc-list {
+  max-height: 44vh;
+  overflow: auto;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+}
+.mvc-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--c-border-weak, #eef1f4);
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.mvc-row:hover { background: var(--c-surface-alt); }
+.mvc-row.on { background: var(--c-sel-teal); color: var(--c-sel-teal-ink); font-weight: 700; }
+.mvc-nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mvc-tag {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #eaf4f7;
+  color: #24515e;
+  font-size: var(--fs-xs, 11px);
+  font-weight: 700;
+}
+.mvc-row.on .mvc-tag { background: rgb(255 255 255 / 55%); }
+.mvc-note {
+  padding: 8px 11px;
+  border-radius: var(--radius-sm);
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #7c3a08;
+  font-size: var(--fs-sm);
+}
+.mvc-go {
+  background: var(--c-sel-teal);
+  border-color: var(--c-sel-teal);
+  color: var(--c-sel-teal-ink);
+  font-weight: 700;
+}
+.mvc-go:disabled { opacity: 0.5; cursor: default; }
+
+/* 프로젝트 수정 창 — 모델그룹이 ID 앞머리라, 무엇이 걸린 일인지 창 안에서 말한다 */
+.epd-note {
+  padding: 8px 11px;
+  border-radius: var(--radius-sm);
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+.epd-go.dirty {
+  background: var(--c-sel-teal);
+  border-color: var(--c-sel-teal);
+  color: var(--c-sel-teal-ink);
+  font-weight: 700;
+}
+.epd-go:disabled { opacity: 0.55; cursor: default; }
