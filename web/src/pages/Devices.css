@@ -493,5 +493,15 @@ select.dv-cell { cursor: pointer; }
 }
 .dev-page > .dev-lay { flex: none; }
 .dev-page > .dg { flex: 1; min-height: 0; }
-.dev-page > .set-page { flex: 1; min-height: 0; }
+/* 카탈로그는 .set-page 를 쓰는데 거기엔 좌우 여백(--sp-4)이 있다. 그래서
+   탭줄(장비 등록 현황·장비 카탈로그)은 판 끝에 붙고 카드만 안으로 밀려,
+   왼쪽도 오른쪽도 선이 어긋났다(지적). 이 자리에서는 좌우 여백을 뺀다 —
+   탭줄과 카드가 같은 세로선에서 시작하고 끝난다. 위아래 여백은 그대로다:
+   탭줄과 카드 사이는 떨어져 있어야 한다. */
+.dev-page > .set-page {
+  flex: 1;
+  min-height: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
 .dev-lay .sp { margin-left: auto; }
