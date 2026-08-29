@@ -124,3 +124,23 @@
   background: var(--c-surface-alt, #f6f9fa);
   font-size: var(--fs-sm);
 }
+
+/* 수동·자동 나눔 — 잣대는 표와 같다(kindOf). 큰 바 아래 두 줄 */
+.cyl-split { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.cyl-splitrow { display: flex; align-items: center; gap: 8px; font-size: var(--fs-sm); }
+.cyl-splitlab { flex: none; width: 30px; color: var(--c-text-soft, #52616b); font-weight: 700; }
+.cyl-minibar {
+  display: flex;
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--c-none, #d7dee3);
+}
+.cyl-minibar .p { background: var(--c-pass, #2e9e63); }
+.cyl-minibar .f { background: var(--c-fail, #d64545); }
+.cyl-minibar .o { background: var(--c-blocked, #e8a13c); }
+.cyl-minibar .n { background: transparent; }
+.cyl-splitnum { flex: none; color: var(--c-text-faint, #8a99a3); white-space: nowrap; }
+.cyl-splitnum .p { color: var(--c-pass, #2e9e63); }
+.cyl-splitnum .f { color: var(--c-fail, #d64545); }

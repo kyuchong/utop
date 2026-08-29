@@ -318,7 +318,7 @@ export function firstFail(steps: CycleStep[]): { at: number; reason: string } | 
  * Manual 만 있는 시험을 자동으로 돌린 줄 알고 「왜 안 돌았지」 하는 일이
  * 있었다. 스텝을 열어 보기 전에 목록에서 갈려야 한다.
  */
-function kindOf(steps: CycleStep[]): 'manual' | 'auto' | 'mixed' | '' {
+export function kindOf(steps: CycleStep[]): 'manual' | 'auto' | 'mixed' | '' {
   if (!steps.length) return ''
   let m = 0
   let a = 0
@@ -909,26 +909,16 @@ export default function Cycles({ me }: PageProps) {
     「진행」 은 완료/진행중/대기 파생 배지 — INFO 상태(cycle_status 값)와
     다른 것이라 이름을 갈랐다. */
 const CYT_FIXED: Array<{ k: string; label: string; w: string }> = [
-  /*
-   * 칸 폭 — **글자가 접히지 않는 만큼**(지적: 날짜가 두 줄로 접힌다).
-   *
-   * 줄 여백을 한 벌로 맞추면서 칸마다 좌우 6px 이 들어갔다. 그만큼 알맹이
-   * 자리가 좁아져 날짜(2026-08-19)와 배지(진행중·대기)가 접혔다. 접히면
-   * 줄 높이가 들쭉날쭉해져 표가 통째로 흐트러진다 — 폭을 그만큼 준다.
-   */
-  { k: 'iss', label: '결함', w: '44px' },
-  { k: 'tests', label: '항목', w: '44px' },
-  { k: 'prg', label: '진행결과', w: '92px' },
-  { k: 'run', label: '진행', w: '62px' },
-  /* 제목과 함께 넉넉해야 하는 칸(지시) — 남는 폭을 나눠 갖는다 */
-  /* 버전그룹 — 사이클 축의 분류다(승인 목업). 폴더 레일이 없어지면서
-     사업자·제품군·버전그룹 열이 폴더 몫을 한다 */
+  /* 승인 목업의 열 그대로: … 버전그룹 · 버전 · 진행 · 결과 · 상태 · 기간 · 담당.
+     결함·항목·생성/변경일자·생성자는 뺐다 — 요약 카드와 진행 툴팁이 말한다.
+     목업에 없는 열이 잔뜩 서 있으면 「목업과 다르다」 가 된다(지적). */
   { k: 'vg', label: '버전그룹', w: '84px' },
-  { k: 'version', label: '버전', w: 'minmax(140px, 0.6fr)' },
-  { k: 'created', label: '생성일자', w: '96px' },
-  { k: 'updated', label: '변경일자', w: '96px' },
-  { k: 'creator', label: '생성자', w: '60px' },
-  { k: 'ass', label: '담당자', w: '60px' },
+  { k: 'version', label: '버전', w: 'minmax(110px, 0.5fr)' },
+  { k: 'prg', label: '진행', w: '96px' },
+  { k: 'res', label: '결과', w: '76px' },
+  { k: 'run', label: '상태', w: '68px' },
+  { k: 'period', label: '기간', w: '104px' },
+  { k: 'ass', label: '담당', w: '64px' },
 ]
 
 /** 인라인 항목 카드의 고를 수 있는 필드 — 시험항목(Coverage) ⚙ 과 같은 목록 */
@@ -1007,11 +997,13 @@ function CycleBoard({
   const [cytCols, setCytCols] = useState<Set<string>>(() => {
     try {
       const raw = localStorage.getItem('utop.cycle.infocols')
-      if (raw) return new Set(JSON.parse(raw) as string[])
+      if (raw) return new Set((JSON.parse(raw) as string[]).filter((k) => k !== 'f_customer'))
     } catch {
       /* 깨진 저장값이면 기본으로 */
     }
-    return new Set(['f_status', 'f_customer'])
+    /* 목업에는 INFO 열이 없다 — 기본은 빈 판, ⚙ 로 켠다. 사업자는
+       고정 열이 됐으므로 저장값에 f_customer 가 남아 있어도 걷어낸다 */
+    return new Set<string>()
   })
   const toggleCytCol = (k: string) =>
     setCytCols((cur) => {
@@ -1034,10 +1026,11 @@ function CycleBoard({
   /** 표에 서는 열들 — 고정(모델) + INFO(⚙) + 고정(관리), 끌어 둔 차례 반영 */
   const renderCols = useMemo(() => {
     const base = [
-      /* 제품군 — 사이클엔 없고 카탈로그(famOf)가 안다. 승인 목업의 열 */
-      { k: 'fam', label: '제품군', w: '64px' },
-      { k: 'mg', label: '모델그룹', w: '80px' },
-      { k: 'md', label: '모델명', w: '72px' },
+      /* 목업 차례: ID·이름 다음 사업자·제품군·모델그룹. 모델명은 뺐다 —
+         프로젝트에서도 뺀 값이다(모델그룹까지만 정한다). */
+      { k: 'cust', label: '사업자', w: '64px' },
+      { k: 'fam', label: '제품군', w: '56px' },
+      { k: 'mg', label: '모델그룹', w: '88px' },
       ...infoCols.filter((c) => cytCols.has(c.k)),
       ...CYT_FIXED,
     ]
@@ -1303,7 +1296,6 @@ function CycleBoard({
   }, [cycles, q, stats, fCust, fFam, fVg, famOf])
 
 
-  const fmtD = (v?: string | null) => (v ? String(v).slice(0, 10) : '–')
   const TH = (col: string, label: string, right?: boolean, dragKey?: string) => {
     // 머리글을 끌어 열 차례를 바꾼다(지시로 부활). 클릭은 그대로 정렬
     const dk = dragKey ?? col
@@ -1327,7 +1319,9 @@ function CycleBoard({
     )
   }
 
-  const pickCycle = pick ? cycles.find((c) => c.id === pick) : undefined
+  /* 카드는 상시다(지시) — 고른 게 없으면 **보이는 목록의 첫 줄**을 보인다.
+     걸러서 사라진 사이클을 붙들고 있지 않는다. */
+  const pickCycle = (pick ? shown.find((c) => c.id === pick) : undefined) ?? shown[0]
   return (
     <div className="cy-board scroll">
       {/* 요약 카드 — 줄을 누르면 표 위에 선다(승인 목업). 도넛·진행바·
@@ -1341,7 +1335,6 @@ function CycleBoard({
           onEdit={() => onEdit(pickCycle.id)}
           onOpen={() => onRun(pickCycle.id)}
           onReport={() => setBReport(pickCycle)}
-          onClose={() => setPick('')}
         />
       )}
       {/* 시험항목 2열과 같은 카드 안에 도구줄·표가 든다 */}
@@ -1517,13 +1510,7 @@ function CycleBoard({
           {TH('id', 'Key')}
           {TH('name', '제목')}
           {renderCols.map((c2) =>
-            c2.k === 'iss'
-              ? TH('iss', '결함', true, 'iss')
-              : c2.k === 'tests'
-                ? TH('tests', '항목', true, 'tests')
-                : c2.k === 'prg'
-                  ? TH('pct', '진행결과', false, 'prg')
-                  : TH(c2.k, c2.label, false, c2.k),
+            c2.k === 'prg' ? TH('pct', '진행', false, 'prg') : TH(c2.k, c2.label, false, c2.k),
           )}
         </div>
         {(sortCol === ''
@@ -1557,6 +1544,9 @@ function CycleBoard({
                         case 'md': return (c2.model ?? '').toLowerCase()
                         case 'fam': return (famOf.get(c2.model ?? '') ?? '').toLowerCase()
                         case 'vg': return (c2.version_group ?? '').toLowerCase()
+                        case 'cust': return (c2.customer ?? '').toLowerCase()
+                        case 'res': return (stats.get(c2.id)?.fail ?? 0)
+                        case 'period': return c2.start_date ?? ''
                         case 'f_status': return (c2.status ?? '').toLowerCase()
                         case 'f_customer': return (c2.customer ?? '').toLowerCase()
                         case 'customer': return (c2.customer ?? '').toLowerCase()
@@ -1581,7 +1571,7 @@ function CycleBoard({
                 return (
                   <React.Fragment key={c.id}>
                     <div
-                      className={`cyt-row cyt-c${pick === c.id ? ' cyl-on' : ''}`}
+                      className={`cyt-row cyt-c${pickCycle?.id === c.id ? ' cyl-on' : ''}`}
                       style={{ gridTemplateColumns: cytGrid }}
                       /* 줄을 누르면 요약 카드가 선다(승인). 단추·입력·선택
                          같은 일하는 부품 위 클릭은 그 부품 몫이다 */
@@ -1591,7 +1581,7 @@ function CycleBoard({
                            줄로 새면 카드가 열리며 표가 밀려, 두 번째 클릭이
                            딴 줄에 떨어진다(검증에서 재현). */
                         if (el.closest('button, input, select, textarea, a, [contenteditable], .pick-view')) return
-                        setPick((cur2) => (cur2 === c.id ? '' : c.id))
+                        setPick(c.id)
                       }}
                       /* 우클릭 메뉴 — 트리에 있던 것을 줄이 잇는다(검증:
                          트리를 지우며 여는 곳이 함께 사라져 메뉴가 죽어 있었다) */
@@ -1639,8 +1629,8 @@ function CycleBoard({
                            떠서 이상하다). 고르면 **요약**이 먼저다(승인 목업).
                            실행은 요약 카드의 「▶ 실행 화면 열기」 로 간다 —
                            보려던 사람이 실행 화면에 끌려가지 않는다. */
-                        title={`${c.cid || c.id} — 누르면 결과 요약이 열립니다`}
-                        onClick={() => setPick((cur2) => (cur2 === c.id ? '' : c.id))}
+                        title={`${c.cid || c.id} — 누르면 위 요약이 이 사이클로 갈아탑니다`}
+                        onClick={() => setPick(c.id)}
                       >
                         {c.cid || c.version || c.name || c.id}
                       </button>
@@ -1668,12 +1658,6 @@ function CycleBoard({
                               </span>
                             )
                           }
-                          case 'md':
-                            return (
-                              <span key={c2.k} className="muted small cyt-ell" title={c.model ?? ''}>
-                                {c.model || '–'}
-                              </span>
-                            )
                           case 'fam': {
                             const fam2 = famOf.get(c.model ?? '') || ''
                             return (
@@ -1692,21 +1676,29 @@ function CycleBoard({
                             return cyCell(c2.k, 'cycle_status', c.status ?? '', CY_STATUS, (v) =>
                               setCyCell(c.id, { status: v }),
                             )
-                          case 'f_customer':
+                          case 'cust':
+                            /* 사업자 — 그 자리에서 고친다(코드표 cycle_customer) */
                             return cyCell(c2.k, 'cycle_customer', c.customer ?? '', CY_CUST, (v) =>
                               setCyCell(c.id, { customer: v }),
                             )
-                          case 'iss':
+                          case 'res':
                             return (
-                              <span key={c2.k} className={`tr${t.iss ? ' cyt-fail' : ''}`}>
-                                {t.iss || '–'}
+                              <span key={c2.k} className="cyl-res">
+                                <b className="p">{t.pass}✓</b> <b className="f">{t.fail}✗</b>
                               </span>
                             )
-                          case 'tests':
+                          case 'period': {
+                            const d = (v?: string | null) => (v ? String(v).slice(5, 10) : '')
+                            const p2 = [d(c.start_date), d(c.end_date)].filter(Boolean).join('~')
                             return (
-                              <span key={c2.k} className="tr">
-                                {t.total}
+                              <span key={c2.k} className="muted small cyt-ell" title={p2}>
+                                {p2 || '–'}
                               </span>
+                            )
+                          }
+                          case 'f_customer':
+                            return cyCell(c2.k, 'cycle_customer', c.customer ?? '', CY_CUST, (v) =>
+                              setCyCell(c.id, { customer: v }),
                             )
                           case 'prg':
                             return (
@@ -1758,24 +1750,6 @@ function CycleBoard({
                                 title="버전 — 두 번 누르면 고칩니다"
                                 onSave={(v) => setCyCell(c.id, { version: v })}
                               />
-                            )
-                          case 'created':
-                            return (
-                              <span key={c2.k} className="muted small">
-                                {fmtD(c._created_at_pg)}
-                              </span>
-                            )
-                          case 'updated':
-                            return (
-                              <span key={c2.k} className="muted small">
-                                {fmtD(c._updated_at_pg)}
-                              </span>
-                            )
-                          case 'creator':
-                            return (
-                              <span key={c2.k} className="muted small cyt-ell" title={c.created_by ?? ''}>
-                                {c.created_by || '–'}
-                              </span>
                             )
                           default:
                             return (

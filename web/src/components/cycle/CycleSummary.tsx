@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react'
 import { apiFetch } from '@/api/client'
-import { itemVerdict, type CycleItemLite, type CycleMeta } from '@/pages/Cycles'
+import { itemVerdict, kindOf, type CycleItemLite, type CycleMeta } from '@/pages/Cycles'
 import './CycleSummary.css'
 
 /**
- * 사이클 결과 요약 카드 — 표에서 사이클을 고르면 표 **위**에 선다(승인 목업).
+ * 사이클 결과 요약 카드 — 표 위에 **상시** 선다(지시). 줄·ID 를 누르면
+ * 들어가는 게 아니라 이 카드가 그 사이클로 갈아탄다.
  *
  * 조사(16개 툴)에서 가져온 것:
  *   도넛(Qase) · 세그먼트 진행바(Xray·Testiny) · 날짜별 누적 트렌드(TestRail)
@@ -24,7 +25,6 @@ interface Props {
   onEdit: () => void
   onOpen: () => void
   onReport: () => void
-  onClose: () => void
 }
 
 /** 도넛 조각 하나 — SVG 원호. conic-gradient 는 조각 클릭을 못 나눈다 */
@@ -44,30 +44,42 @@ export default function CycleSummary({
   onEdit,
   onOpen,
   onReport,
-  onClose,
 }: Props) {
   const items = useMemo(() => cycle.items ?? [], [cycle.items])
 
   /* ── 집계 — 표와 같은 잣대 ── */
   const t = useMemo(() => {
-    let pass = 0
-    let fail = 0
-    let other = 0
+    /* 수동·자동을 가른다(지시: 결과가 분리되어 있지 않다).
+       가름 잣대도 표의 그것(kindOf)이다 — 다르면 두 숫자가 어긋난다. */
+    const tally = (arr: CycleItemLite[]) => {
+      let pass = 0
+      let fail = 0
+      let other = 0
+      for (const it of arr) {
+        const v = itemVerdict(it)
+        const g = v ? groupOf(v) : 'none'
+        if (g === 'pass') pass += 1
+        else if (g === 'fail') fail += 1
+        else if (v) other += 1
+      }
+      const total = arr.length
+      const done = pass + fail + other
+      return { total, done, pass, fail, other, none: total - done }
+    }
     let iss = 0
     const who = new Set<string>()
     for (const it of items) {
-      const v = itemVerdict(it as CycleItemLite)
-      const g = v ? groupOf(v) : 'none'
-      if (g === 'pass') pass += 1
-      else if (g === 'fail') fail += 1
-      else if (v) other += 1
       iss += it.issues?.length ?? 0
       const a = String(it.assignee ?? '').trim()
       if (a) who.add(a)
     }
-    const total = items.length
-    const done = pass + fail + other
-    return { total, done, pass, fail, other, none: total - done, iss, who: who.size }
+    const isManual = (it: CycleItemLite) => {
+      const kd = kindOf(it.steps ?? [])
+      return !(kd === 'auto' || kd === 'mixed')
+    }
+    const man = items.filter(isManual)
+    const aut = items.filter((x) => !isManual(x))
+    return { ...tally(items), iss, who: who.size, manual: tally(man), auto: tally(aut) }
   }, [items, groupOf])
 
   /* ── 날짜별 누적 Pass/Fail — TestRail 트렌드 방식 ──
@@ -171,6 +183,23 @@ export default function CycleSummary({
           {t.total}개 항목 중 {t.done} 실행 ({t.total ? Math.round((t.done / t.total) * 100) : 0}
           %) · 남은 {t.none}
         </div>
+        {/* 수동·자동 따로(지시) — 잣대는 표와 같다(kindOf) */}
+        <div className="cyl-split">
+          {([['수동', t.manual], ['자동', t.auto]] as const).map(([lab, m]) => (
+            <div className="cyl-splitrow" key={lab}>
+              <span className="cyl-splitlab">{lab}</span>
+              <span className="cyl-minibar" aria-hidden="true">
+                <i className="p" style={{ flexGrow: m.pass }} />
+                <i className="f" style={{ flexGrow: m.fail }} />
+                <i className="o" style={{ flexGrow: m.other }} />
+                <i className="n" style={{ flexGrow: m.none }} />
+              </span>
+              <span className="cyl-splitnum">
+                {m.total}건 · <b className="p">{m.pass}✓</b> <b className="f">{m.fail}✗</b> · 미실행 {m.none}
+              </span>
+            </div>
+          ))}
+        </div>
         <div className="cyl-kv">
           <div><b>{t.total}</b><span>전체 항목</span></div>
           <div><b className={t.iss ? 'bad' : ''}>{t.iss}</b><span>이슈 등록</span></div>
@@ -204,12 +233,9 @@ export default function CycleSummary({
       </div>
 
       <div className="cyl-col cyl-side">
-        <div className="cyl-sidehead">
-          <h3>이 사이클로 하는 일</h3>
-          <button type="button" className="cyl-x" title="요약 닫기" onClick={onClose}>
-            ×
-          </button>
-        </div>
+        {/* 닫기 단추가 없다 — 이 카드는 **상시**다(지시). 줄을 고르면
+            내용만 갈아탄다. */}
+        <h3>이 사이클로 하는 일</h3>
         <div className="cyl-meta">
           사업자 <b>{cycle.customer || '–'}</b>
           {family ? <> · 제품군 <b>{family}</b></> : null}
@@ -221,17 +247,19 @@ export default function CycleSummary({
           기간 <b>{period || '–'}</b> · 담당 <b>{cycle.assignee || '–'}</b>
         </div>
         <div className="cyl-btns">
+          {/* 실행이 맨 위다(지적: 실행 단추가 안 보인다). 여기가 실행
+              화면으로 들어가는 정문이고, 클릭 미로가 아니다. */}
+          <button type="button" className="btn cyl-teal" onClick={onOpen}>
+            ▶ 시험 실행
+          </button>
           <button type="button" className="btn" onClick={onEdit}>
             ＋ 시험 항목 넣기 / 빼기
           </button>
-          <button type="button" className="btn cyl-teal" onClick={() => setMail(true)}>
+          <button type="button" className="btn" onClick={() => setMail(true)}>
             📧 결과 메일 발송
           </button>
           <button type="button" className="btn" onClick={onReport}>
             📄 고객사 결과서
-          </button>
-          <button type="button" className="btn" onClick={onOpen}>
-            ▶ 실행 화면 열기
           </button>
         </div>
       </div>

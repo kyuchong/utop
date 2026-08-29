@@ -8232,3 +8232,8 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
 /* 지금 도는 실행 — 깜빡여서 눈이 간다. 라이브가 아닌 「진행중」 과 다르다 */
 .cyt-st.cyl-live { animation: cyl-blink 1.2s ease-in-out infinite; }
 @keyframes cyl-blink { 50% { opacity: 0.45; } }
+
+/* 결과 칸 — 목업의 「52✓ 11✗」 */
+.cyl-res { font-size: var(--fs-sm); white-space: nowrap; }
+.cyl-res .p { color: var(--c-pass, #2e9e63); }
+.cyl-res .f { color: var(--c-fail, #d64545); margin-left: 4px; }
