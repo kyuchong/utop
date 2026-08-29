@@ -879,6 +879,13 @@ export default function ReqTc({ me }: Props) {
      훑어 내리는 것만으로도 값이 바뀌어 나갔다. */
   const [reqDraft, setReqDraft] = useState<{ status?: string; priority?: string }>({})
   const [toast, setToast] = useState('')
+  /* 끼워 넣은 Coverage 화면이 넘겨 준 저장·⋯ — 머리줄은 이 화면이 그린다 */
+  const [tcApi2, setTcApi2] = useState<{
+    dirty: boolean
+    saving: boolean
+    save: () => void
+    menu: React.ReactNode
+  } | null>(null)
   const [renaming, setRenaming] = useState('')
   const [renameName, setRenameName] = useState('')
 
@@ -1352,21 +1359,38 @@ export default function ReqTc({ me }: Props) {
                     지금 값을 한 번 더 저장한다. */}
                 {/* 고친 것이 있으면 **초록으로 살아난다**(지시) — 누르기
                     전에는 저장할 것이 없다는 뜻이라 쉰 채로 둔다. */}
-                <button
-                  type="button"
-                  className={`btn small rqtc-savebtn${Object.keys(reqDraft).length ? ' dirty' : ''}`}
-                  disabled={!Object.keys(reqDraft).length || saveState === 'saving'}
-                  title={Object.keys(reqDraft).length ? '고친 값을 저장합니다' : '고친 것이 없습니다'}
-                  onClick={async () => {
-                    if (!openReq || !Object.keys(reqDraft).length) return
-                    await setOneField('req', openReq, reqDraft)
-                    setReqDraft({})
-                    setToast('저장되었습니다')
-                    window.setTimeout(() => setToast(''), 1800)
-                  }}
-                >
-                  {saveState === 'saving' ? '저장 중…' : '저장'}
-                </button>
+                {openTc ? (
+                  <>
+                    <button
+                      type="button"
+                      className={`btn small rqtc-savebtn${tcApi2?.dirty ? ' dirty' : ''}`}
+                      disabled={!tcApi2?.dirty || !!tcApi2?.saving}
+                      title={tcApi2?.dirty ? '고친 값을 저장합니다' : '고친 것이 없습니다'}
+                      onClick={() => tcApi2?.save()}
+                    >
+                      {tcApi2?.saving ? '저장 중…' : '저장'}
+                    </button>
+                    <span className="sp" />
+                    {/* ⋯ 도 위로(지시) — 끼운 화면이 만든 그대로 얹는다 */}
+                    {tcApi2?.menu}
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className={`btn small rqtc-savebtn${Object.keys(reqDraft).length ? ' dirty' : ''}`}
+                    disabled={!Object.keys(reqDraft).length || saveState === 'saving'}
+                    title={Object.keys(reqDraft).length ? '고친 값을 저장합니다' : '고친 것이 없습니다'}
+                    onClick={async () => {
+                      if (!openReq || !Object.keys(reqDraft).length) return
+                      await setOneField('req', openReq, reqDraft)
+                      setReqDraft({})
+                      setToast('저장되었습니다')
+                      window.setTimeout(() => setToast(''), 1800)
+                    }}
+                  >
+                    {saveState === 'saving' ? '저장 중…' : '저장'}
+                  </button>
+                )}
               </>
             ) : (
               <button
@@ -1720,6 +1744,7 @@ export default function ReqTc({ me }: Props) {
                      아니라 남의 표가 서 있었다 — TC ID 칸이 없는 그 표다
                      (지적: 목록으로 오면 TC ID 가 안 보인다). */
                   onEmbedBack={() => setOpenTc('')}
+                  onEmbedApi={setTcApi2}
                 />
               </div>
             </div>

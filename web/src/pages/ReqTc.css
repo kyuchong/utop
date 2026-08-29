@@ -1111,3 +1111,7 @@
   from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: none; }
 }
+
+/* 끼워 넣은 화면의 머리줄은 감춘다 — 저장·⋯ 를 맨 윗줄로 올렸으므로(지시)
+   여기 두면 같은 단추가 두 줄로 겹친다. */
+.rqtc-embed .tc-dethead { display: none; }

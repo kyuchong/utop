@@ -201,9 +201,13 @@ interface PageProps {
   embedActions?: React.ReactNode
   /** 끼워 넣었을 때 「← 목록」 이 갈 곳 — 끼운 화면의 목록이다 */
   onEmbedBack?: () => void
+  /** 끼워 넣은 화면이 **머리줄을 대신 그리도록** 넘기는 것들.
+      저장은 이 화면만 할 수 있으므로(고친 값이 여기 있다) 단추를 밖에 두려면
+      상태와 함수를 함께 줘야 한다. */
+  onEmbedApi?: (a: { dirty: boolean; saving: boolean; save: () => void; menu: React.ReactNode }) => void
 }
 
-export default function TestCases({ me, embedTc, embedActions, onEmbedBack }: PageProps) {
+export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEmbedApi }: PageProps) {
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>(() => {
     const v = localStorage.getItem(TAB_KEY) as Tab | null
@@ -1644,6 +1648,20 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack }: Pa
 
   // 탭은 세부 왼쪽 **세로 레일**(VRail)이 맡는다 — 요구사항 화면과 같은
   // 부품이다. 머리줄(detHead)에는 ← 목록 · 저장 · 알림만 남는다.
+
+  /* 끼워 넣은 화면에 저장·⋯ 를 넘긴다 — 그 화면이 제 머리줄에 그린다.
+     여기 머리줄은 감춘다(.rqtc-embed .tc-dethead): 같은 단추가 두 줄로
+     겹쳐 어느 것을 눌러야 하는지 묻게 된다(지적). */
+  useEffect(() => {
+    if (!embedTc) return
+    onEmbedApi?.({
+      dirty,
+      saving: saveM.isPending,
+      save: () => saveM.mutate(),
+      menu: moreMenu,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embedTc, dirty, saveM.isPending, menuOpen, openId])
 
   const detHead = (
                 <div className="tc-dethead">
