@@ -1217,9 +1217,25 @@ export default function ReqTc({ me }: Props) {
                 {/* 「저장」 은 상태 표시다 — 상태·우선순위는 고치는 즉시
                     저장되므로 누를 것이 없다. 눌러야 저장되는 줄 알고 안
                     누른 채 나가는 일이 없어야 한다. */}
-                <span className={`rqtc-saved${saveState === 'saved' ? ' ok' : ''}`}>
-                  {saveState === 'saving' ? '저장 중…' : saveState === 'saved' ? '저장됨 ✓' : '저장됨'}
-                </span>
+                {/* 단추 꼴로 세운다(지시). 눌러도 되지만, 상태·우선순위는
+                    고치는 즉시 저장되므로 대개 누를 일이 없다 — 눌렀을 때는
+                    지금 값을 한 번 더 저장한다. */}
+                <button
+                  type="button"
+                  className={`btn small${saveState === 'saved' ? ' ok' : ''}`}
+                  disabled={saveState === 'saving'}
+                  title="상태·우선순위는 고치는 즉시 저장됩니다"
+                  onClick={() => {
+                    const r0 = reqById.get(openReq)
+                    if (!r0) return
+                    void setOneField('req', openReq, {
+                      status: r0.status ?? '',
+                      priority: r0.priority ?? '',
+                    })
+                  }}
+                >
+                  {saveState === 'saving' ? '저장 중…' : saveState === 'saved' ? '저장됨 ✓' : '저장'}
+                </button>
               </>
             ) : (
               <button
@@ -1389,7 +1405,7 @@ export default function ReqTc({ me }: Props) {
                   <button
                     type="button"
                     className="rqtc-popid rqtc-copyid"
-                    title="이 요구사항 주소 복사"
+                    title="이 요구사항으로 바로 가는 주소를 복사합니다"
                     onClick={() => {
                       const url = `${window.location.origin}${window.location.pathname}?req=${encodeURIComponent(openReq)}`
                       void navigator.clipboard
@@ -1399,7 +1415,7 @@ export default function ReqTc({ me }: Props) {
                       window.setTimeout(() => setCopiedId(false), 1200)
                     }}
                   >
-                    {copiedId ? `복사됨 · ${reqCrumb.label}` : reqCrumb.label}
+                    {copiedId ? '주소 복사됨' : reqCrumb.label}
                   </button>
                 </>
               ) : crumb.length ? (
