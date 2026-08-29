@@ -3766,3 +3766,8 @@ html .tc-listview .rq-tr > div.tc-cell-fill.al-center { justify-content: center;
    **안쪽**이라 청록이 비치면 카드가 두 겹으로 보인다. 다른 화면의 카드와
    같은 흰색을 쓴다. */
 .tc-railbody .railbox { background: var(--c-surface); }
+
+/* 저장 단추 — 고친 것이 있을 때만 살아난다. 요구사항 상세와 같은 초록이다:
+   두 화면이 다른 색을 쓰면 같은 일을 하는데도 매번 다시 배운다. */
+.tc-savebtn.dirty { background: #34d399; border-color: #34d399; color: #06301f; font-weight: 700; }
+.tc-savebtn:disabled { opacity: 0.55; cursor: default; }

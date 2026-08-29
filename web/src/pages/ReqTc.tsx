@@ -833,6 +833,43 @@ export default function ReqTc({ me }: Props) {
   }, [openReq])
 
   const [copiedId, setCopiedId] = useState(false)
+
+  /** 주소 복사 — http 로 여는 화면에는 navigator.clipboard 가 없다.
+      옛 방식(숨은 칸)으로 받아 내고, 그것도 안 되면 주소를 띄운다. */
+  const copyLink = (kind: 'req' | 'tc', id: string) => {
+    const url = `${window.location.origin}${window.location.pathname}?${kind}=${encodeURIComponent(id)}`
+    const run = async () => {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(url)
+          return true
+        }
+      } catch {
+        /* 아래 옛 방식으로 */
+      }
+      const ta = document.createElement('textarea')
+      ta.value = url
+      ta.style.cssText = 'position:fixed;left:-9999px'
+      document.body.appendChild(ta)
+      ta.select()
+      let ok = false
+      try {
+        ok = document.execCommand('copy')
+      } catch {
+        ok = false
+      }
+      ta.remove()
+      return ok
+    }
+    void run().then((ok) => {
+      if (ok) {
+        setCopiedId(true)
+        window.setTimeout(() => setCopiedId(false), 1200)
+      } else {
+        window.prompt('아래 주소를 복사하세요', url)
+      }
+    })
+  }
   /* 「저장」 은 누르는 단추가 아니라 **상태 표시**다. 상태·우선순위는 고치는
      즉시 저장되므로 누를 것이 없다 — 누를 수 없는 단추를 두면 「눌러야
      저장되나」 를 묻게 된다. */
@@ -1461,7 +1498,16 @@ export default function ReqTc({ me }: Props) {
                     <i className="rqtc-sep">/</i>
                     <b className="rqtc-crumbgo last">{tcCrumb.name}</b>
                   </span>
-                  <span className="rqtc-popid">{openTc}</span>
+                  {/* 시험 배지도 누르면 주소가 복사된다(지시) —
+                      요구사항 쪽과 같은 꼴이다. */}
+                  <button
+                    type="button"
+                    className={`rqtc-popid rqtc-copyid${copiedId ? ' done' : ''}`}
+                    title="이 시험으로 바로 가는 주소를 복사합니다"
+                    onClick={() => copyLink('tc', openTc)}
+                  >
+                    {copiedId ? '주소 복사됨' : openTc}
+                  </button>
                 </>
               ) : reqCrumb ? (
                 <>
@@ -1501,44 +1547,7 @@ export default function ReqTc({ me }: Props) {
                     type="button"
                     className={`rqtc-popid rqtc-copyid${copiedId ? ' done' : ''}`}
                     title="이 요구사항으로 바로 가는 주소를 복사합니다"
-                    onClick={() => {
-                      const url = `${window.location.origin}${window.location.pathname}?req=${encodeURIComponent(reqCrumb.label)}`
-                      /* http 로 여는 화면에서는 navigator.clipboard 가 아예
-                         없다 — 브라우저가 안전한 주소(https·localhost)에서만
-                         준다. 그래서 눌러도 아무 일이 없었다(지적).
-                         옛 방식(숨은 칸 + execCommand)으로 받아 낸다. */
-                      const copy = async () => {
-                        try {
-                          if (navigator.clipboard && window.isSecureContext) {
-                            await navigator.clipboard.writeText(url)
-                            return true
-                          }
-                        } catch {
-                          /* 아래 옛 방식으로 */
-                        }
-                        const ta = document.createElement('textarea')
-                        ta.value = url
-                        ta.style.cssText = 'position:fixed;left:-9999px'
-                        document.body.appendChild(ta)
-                        ta.select()
-                        let ok = false
-                        try {
-                          ok = document.execCommand('copy')
-                        } catch {
-                          ok = false
-                        }
-                        ta.remove()
-                        return ok
-                      }
-                      void copy().then((ok) => {
-                        if (ok) {
-                          setCopiedId(true)
-                          window.setTimeout(() => setCopiedId(false), 1200)
-                        } else {
-                          window.prompt('아래 주소를 복사하세요', url)
-                        }
-                      })
-                    }}
+                    onClick={() => copyLink('req', reqCrumb.label)}
                   >
                     {copiedId ? '주소 복사됨' : reqCrumb.label}
                   </button>

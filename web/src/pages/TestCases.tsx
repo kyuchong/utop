@@ -276,6 +276,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack }: Pa
   // 편집 중인 TC 전체. 목록의 메타가 아니라 스텝까지 든 원본이다.
   const [d, setD] = useState<TcData>({})
   const [dirty, setDirty] = useState(false)
+  const [toast, setToast] = useState('')
 
   /** 여러 줄 고르기. 지우거나 건너뛰기를 한 번에 하려는 것 */
   const [picked, setPicked] = useState<Set<number>>(new Set())
@@ -1214,7 +1215,10 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack }: Pa
     onSuccess: () => {
       setDirty(false)
       setRemote(null)
-      setMsg({ kind: 'ok', text: '저장했습니다' })
+      /* 오른쪽 위에 잠깐 떴다 사라진다(지시) — 줄 안의 작은 글자는 저장했는지
+         눈이 안 간다. 요구사항 상세와 같은 자리·같은 꼴이다. */
+      setToast('저장되었습니다')
+      window.setTimeout(() => setToast(''), 1800)
       void qc.invalidateQueries({ queryKey: ['tc', openId] })
       void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
     },
@@ -1666,9 +1670,11 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack }: Pa
                   </button>
                   {/* 탭은 왼쪽 **세로 레일**로 갔다(지시·사진) — 이 줄은
                       ← 목록 · 저장 · 알림 몫이다. */}
-                  {/* 저장 — 고친 게 있으면 파랗게, 다 저장돼 있으면 쉰다 */}
+                  {/* 저장 — 고친 게 있으면 **초록으로 살아난다**(지시).
+                      요구사항 상세와 같은 색·같은 문법이다: 두 화면이 다르면
+                      같은 일을 하는데도 매번 다시 배운다. */}
                   <button
-                    className={`btn${dirty ? ' primary' : ''}`}
+                    className={`btn tc-savebtn${dirty ? ' dirty' : ''}`}
                     type="button"
                     disabled={saveM.isPending || !dirty}
                     onClick={() => saveM.mutate()}
@@ -2641,6 +2647,8 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack }: Pa
           if (f) void importFile(f)
         }}
       />
+
+      {toast && <div className="rqtc-toast">{toast}</div>}
 
       {error ? (
         <div className="load-error">
