@@ -1015,3 +1015,7 @@
   color: var(--c-text);
 }
 .rqtc-fmenu .tc-menu button.danger:hover:not(:disabled) { background: #fdeceb; color: #b4272d; }
+
+/* 요구사항 배지 — 누르면 주소가 복사된다 */
+.rqtc-copyid { border: 0; background: transparent; cursor: pointer; font: inherit; }
+.rqtc-copyid:hover { text-decoration: underline; }

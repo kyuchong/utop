@@ -795,6 +795,7 @@ export default function ReqTc({ me }: Props) {
   const [newUnder, setNewUnder] = useState('')
   /* 이름은 **그 줄에서 바로** 고친다(지시) — 창을 띄우면 어느 폴더를 고치는
      중인지 화면에서 사라진다. */
+  const [copiedId, setCopiedId] = useState(false)
   const [renaming, setRenaming] = useState('')
   const [renameName, setRenameName] = useState('')
 
@@ -1044,9 +1045,16 @@ export default function ReqTc({ me }: Props) {
                   {own.map((r) => (
                         <div
                           key={reqPk(r)}
-                          className={`rqtc-fold rqtc-treq${reqOnly === reqPk(r) ? ' on' : ''}`}
+                          className={`rqtc-fold rqtc-treq${openReq === reqPk(r) ? ' on' : ''}`}
                           style={{ paddingLeft: 6 + (depth + 1) * 14 }}
-                          onClick={() => setReqOnly(reqPk(r))}
+                          onClick={() => {
+                            /* 트리에서 요구사항을 누르면 **그 요구사항을 연다**
+                               (지시) — 목록을 좁히는 것이 아니다. 좁히기는
+                               폴더가 하는 일이고, 요구사항은 끝단이라 더 좁힐
+                               것이 없다. */
+                            setOpenTc('')
+                            setOpenReq(reqPk(r))
+                          }}
                           title={`${reqLabel(r)} ${r.title ?? ''}`}
                         >
                           <span className="rqtc-caret" />
@@ -1355,7 +1363,23 @@ export default function ReqTc({ me }: Props) {
                     <i className="rqtc-sep">/</i>
                     <b className="rqtc-crumbgo last">{reqCrumb.name}</b>
                   </span>
-                  <span className="rqtc-popid">{reqCrumb.label}</span>
+                  {/* 배지 — 누르면 이 자리 주소가 복사된다(지시).
+                      말로 「REQ-2632-0003 보세요」 하면 상대가 다시 찾는다. */}
+                  <button
+                    type="button"
+                    className="rqtc-popid rqtc-copyid"
+                    title="이 요구사항 주소 복사"
+                    onClick={() => {
+                      const url = `${window.location.origin}${window.location.pathname}?req=${encodeURIComponent(openReq)}`
+                      void navigator.clipboard
+                        .writeText(url)
+                        .then(() => setCopiedId(true))
+                        .catch(() => window.prompt('아래 주소를 복사하세요', url))
+                      window.setTimeout(() => setCopiedId(false), 1200)
+                    }}
+                  >
+                    {copiedId ? '복사됨' : reqCrumb.label}
+                  </button>
                 </>
               ) : crumb.length ? (
                 crumb.map((c, i) => (
@@ -1565,6 +1589,15 @@ export default function ReqTc({ me }: Props) {
                 tcs={tcOf.get(openReq) ?? []}
                 tab={openTab}
                 setTab={setOpenTab}
+                edit={{
+                  status: String(reqById.get(openReq)?.status ?? ''),
+                  priority: String(reqById.get(openReq)?.priority ?? ''),
+                  statuses: REQ_STATUS,
+                  priorities: REQ_PRIORITY,
+                  /* 고치면 바로 저장한다 — 저장 단추를 두면 안 누르고 나가는
+                     사람이 반드시 나온다. */
+                  onChange: (p) => void setOneField('req', openReq, p),
+                }}
               />
             </div>
           ) : (
@@ -2407,11 +2440,20 @@ function ReqBody({
   tcs,
   tab,
   setTab,
+  edit,
 }: {
   req?: Requirement
   tcs: TestCaseMeta[]
   tab: 'info' | 'detail' | 'tc' | 'runs' | 'history'
   setTab: (t: 'info' | 'detail' | 'tc' | 'runs' | 'history') => void
+  /** Info 의 상태·우선순위를 그 자리에서 고친다(지시) */
+  edit?: {
+    status: string
+    priority: string
+    statuses: readonly string[]
+    priorities: readonly string[]
+    onChange: (p: { status?: string; priority?: string }) => void
+  }
 }) {
   return (
     <>
@@ -2451,7 +2493,7 @@ function ReqBody({
             <div className="rqtc-popnone">덮는 시험이 없습니다</div>
           )
         ) : (
-          <ReqDetail req={req} tcs={tcs} tab={tab} />
+          <ReqDetail req={req} tcs={tcs} tab={tab} edit={edit} />
         )}
       </div>
     </>
