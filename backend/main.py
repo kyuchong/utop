@@ -3889,6 +3889,23 @@ class ProjectIn(BaseModel):
 # 무엇이 무엇으로 바뀌는지 먼저 보이고, 그다음에 누르게 한다 —
 # 되돌릴 수는 있지만(id_alias), 안 보고 누르게 두면 안 된다.
 # ───────────────────────────────────────────
+@app.get("/api/id-alias")
+async def id_alias_lookup(old: str = ""):
+    """옛 ID 로 물으면 새 ID 를 준다.
+
+    주소·위키·메일에 붙여 둔 옛 ID 는 우리가 못 고친다. 화면이 못 찾았을 때
+    여기 한 번 물어보고 넘어가면, 옛 링크가 계속 살아 있다. 로그인만 되면
+    쓸 수 있게 두었다 — 이 표는 「무엇이 무엇이 되었나」 뿐이라 숨길 것이 없고,
+    막아 두면 링크가 끊기는 쪽 손해가 크다.
+    """
+    v = (old or "").strip()
+    if not v:
+        return {"new_id": ""}
+    async with db.pool().acquire() as c:
+        row = await c.fetchrow("SELECT new_id, kind FROM id_alias WHERE old_id = $1", v)
+    return {"new_id": row["new_id"] if row else "", "kind": row["kind"] if row else ""}
+
+
 @app.get("/api/id-migrate/plan")
 async def id_migrate_plan(token: str = ""):
     _require_admin(token)

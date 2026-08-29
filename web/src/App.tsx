@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Layout from '@/components/Layout'
 import Login from '@/components/Login'
-import { authApi, getToken, setToken, type MeUser } from '@/api/client'
+import { apiFetch, authApi, getToken, setToken, type MeUser } from '@/api/client'
 import { useLiveRefresh } from '@/components/useLiveRefresh'
 import { useFreshBuild } from '@/components/useFreshBuild'
 import { goto, onGoto as onGotoEvent, reflectUrl } from '@/api/goto'
@@ -88,11 +88,33 @@ export default function App() {
      * 늘 IP 뿐이라 지금 보는 것을 남에게 보낼 수가 없었다. 옛 화면이
      * `#cycle=…` 로 하던 그 일이다. 뒤로가기도 이 주소들을 따라간다.
      */
-    const apply = () => {
+    /* 옛 ID 로 온 주소를 **새 ID 로 넘겨준다.**
+       ID 규칙이 모델그룹 기준으로 바뀌었는데, 북마크·위키·메일에 붙여 둔
+       옛 주소(?req=REQ-2632-0002)는 우리가 고칠 수 없다. 못 찾겠으면
+       한 번 물어보고 넘어간다 — 물어보는 값이 없으면(=안 바뀐 ID) 그대로다.
+       주소창도 새 ID 로 고쳐 준다: 다음에 복사할 때 옛 것이 또 퍼지면 안 된다. */
+    const translate = async (key: string, id: string): Promise<string> => {
+      if (key !== 'req' && key !== 'tc' && key !== 'cycle' && key !== 'ce') return id
+      try {
+        const r = await apiFetch(`/api/id-alias?old=${encodeURIComponent(id)}`)
+        if (!r.ok) return id
+        const j = (await r.json()) as { new_id?: string }
+        return j.new_id || id
+      } catch {
+        return id
+      }
+    }
+
+    const apply = async () => {
       const p = new URLSearchParams(window.location.search)
       for (const [key, store, to] of kinds) {
-        const id = p.get(key)
-        if (!id) continue
+        const raw = p.get(key)
+        if (!raw) continue
+        const id = await translate(key, raw)
+        if (id !== raw) {
+          p.set(key, id)
+          window.history.replaceState({ utop: true }, '', `${window.location.pathname}?${p}`)
+        }
         try {
           localStorage.setItem(store, id)
         } catch {
@@ -105,9 +127,10 @@ export default function App() {
         break
       }
     }
-    apply()
-    window.addEventListener('popstate', apply)
-    return () => window.removeEventListener('popstate', apply)
+    void apply()
+    const onPop = () => void apply()
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
   }, [])
 
   // 남이 바꾼 것을 어느 화면에 있든 바로 들여온다. 화면마다 따로 붙이면
