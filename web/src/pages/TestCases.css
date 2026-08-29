@@ -3784,3 +3784,17 @@ html .tc-listview .rq-tr > div.tc-cell-fill.al-center { justify-content: center;
   overflow: hidden;
 }
 .tc-logcol .rl { flex: 1; min-height: 0; }
+
+/* **머리줄을 46px 로 맞춘다.** 세 칸의 구분선이 한 줄에서 만나야 한다
+   (지적: 붉은 선). 옆 칸 머리(.tc-colh)가 46px 인데 로그 머리만 28px 이라
+   선이 층졌다 — 목록 아래에 누워 있던 시절의 크기다.
+   위 테두리도 뺀다: 그때는 위가 스텝 목록이라 선이 필요했지만, 지금은
+   왼쪽이 스텝 상세라 세로선이 그 몫을 한다. */
+.tc-logcol .rl { border-top: 0; }
+.tc-logcol .rl-head {
+  min-height: 46px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--c-surface);
+}
