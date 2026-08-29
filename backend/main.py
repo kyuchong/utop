@@ -9829,6 +9829,32 @@ async def wiki_import_docx(payload: dict):
             if not _h.get_text(strip=True):
                 _h.decompose()
 
+        # ── 「제목」 이라 적혀 있지만 본문인 줄 ────────────────
+        #
+        # 이 문서는 본문 줄에도 「제목 2」 를 썼다(실제 원본). 진짜 제목인
+        # 「AI … 진행 현황 요약」 과 본문인 「고객사 원격 시연 일정 : …」 이
+        # 워드에서 **완전히 같다** — 스타일도 목록 수준도 같아서 기계가 가릴
+        # 수 없다(지적: 본문이 제목으로 들어온다).
+        #
+        # 그래서 **사람이 고르게 한다.** 몇 단이 몇 개인지 세어 돌려주고,
+        # 「N단부터 본문으로」 를 받으면 그때 내린다. 짐작으로 내리면 진짜
+        # 제목까지 함께 내려가 목차가 사라진다.
+        head_src = {}
+        for _lv in range(1, 7):
+            _n = len(soup.find_all(f"h{_lv}"))
+            if _n:
+                head_src[_lv] = _n
+        _from = payload.get("body_from")
+        try:
+            _from = int(_from) if _from is not None else 0
+        except Exception:
+            _from = 0
+        if _from and 1 <= _from <= 6:
+            for _lv in range(_from, 7):
+                for _el in soup.find_all(f"h{_lv}"):
+                    _el.name = "p"
+            print(f"[docx] 제목 {_from}단 이하를 본문으로 내렸습니다", flush=True)
+
         # ── 제목 단을 **원본 크기에 맞춘다** ───────────────────
         #
         # 이 문서는 문단 109개 중 91개가 「제목 2」 다. 워드에서 제목 2 는
@@ -9907,6 +9933,8 @@ async def wiki_import_docx(payload: dict):
         # 그림을 몇 장 떼어 냈나 — 화면이 「사진 N장」 이라고 말해 준다.
         # 조용히 넘어가면 안 가져온 것인지 아닌지 알 수가 없다(지적).
         "images": saved["n"],
+        # 단마다 몇 줄인지 — 화면이 이걸 보고 「본문으로 내릴까요」 를 묻는다
+        "headings": head_src,
         # 무엇이 안 넘어왔는지 사람이 알아야 한다 — 조용히 빠지면 나중에 찾는다
         "messages": [str(m) for m in (res.messages or [])][:20],
     }

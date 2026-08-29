@@ -303,10 +303,12 @@ export default function WikiEditor({
                   fr.onerror = () => no(new Error('파일을 읽지 못했습니다'))
                   fr.readAsDataURL(f)
                 })
-                const r = await apiFetch('/api/wiki/import-docx', {
-                  method: 'POST',
-                  body: JSON.stringify({ data: b64 }),
-                })
+                const ask = async (bodyFrom?: number) =>
+                  await apiFetch('/api/wiki/import-docx', {
+                    method: 'POST',
+                    body: JSON.stringify(bodyFrom ? { data: b64, body_from: bodyFrom } : { data: b64 }),
+                  })
+                let r = await ask()
                 const j = (await r.json().catch(() => ({}))) as {
                   ok?: boolean
                   html?: string
@@ -317,6 +319,7 @@ export default function WikiEditor({
                   messages?: string[]
                   nested_tables?: number
                   images?: number
+                  headings?: Record<string, number>
                 }
                 if (!j.ok || !j.html) {
                   /* **왜 안 됐는지 그대로 말한다.**
@@ -345,6 +348,31 @@ export default function WikiEditor({
                   )
                   setState('')
                   return
+                }
+                /* **「제목」 이라 적혀 있지만 본문인 줄**을 사람이 고른다.
+                   워드에서 본문 줄에도 제목 스타일을 쓰는 일이 흔한데(실제
+                   원본이 그랬다: 제목 2 가 91개), 진짜 제목과 워드에서
+                   완전히 같아 기계가 못 가린다(지적). 짐작으로 내리면 진짜
+                   제목까지 사라지므로 **몇 개인지 세어 보이고 묻는다.** */
+                const heads = j.headings ?? {}
+                const many = Object.entries(heads)
+                  .map(([lv, n]) => [Number(lv), n] as const)
+                  .filter(([lv, n]) => lv >= 2 && n >= 15)
+                  .sort((a, b) => a[0] - b[0])[0]
+                if (many) {
+                  const [lv, n] = many
+                  const yes = window.confirm(
+                    `이 문서는 「제목 ${lv}」 로 표시된 줄이 ${n}개입니다.\n` +
+                      `워드에서 본문에도 제목 스타일을 쓰면 이렇게 됩니다 — ` +
+                      `제목인 줄과 본문인 줄이 워드에서 같아 가릴 수가 없습니다.\n\n` +
+                      `제목 ${lv}단 아래를 **본문으로** 옮길까요?\n` +
+                      `[확인] 본문으로 · [취소] 제목 그대로`,
+                  )
+                  if (yes) {
+                    const r2 = await ask(lv)
+                    const j2 = (await r2.json().catch(() => ({}))) as typeof j
+                    if (j2.ok && j2.html) j.html = j2.html
+                  }
                 }
                 const blocks = await editor.tryParseHTMLToBlocks(j.html)
                 if (!blocks.length) {
