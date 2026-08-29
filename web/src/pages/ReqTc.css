@@ -91,7 +91,8 @@
   align-items: center;
   gap: 4px;
   padding: 8px;
-  border-bottom: 1px solid var(--c-border);
+  /* 가로 구분선을 뺐다(지시) — 아래 찾기 칸이 이미 줄을 가르고, 선이
+     겹치면 판이 층층이 잘려 보인다. */
 }
 .rqtc-newf .sp { flex: 1; }
 /* 만들기는 남는 폭을 다 먹지 않는다 — 오른쪽 손잡이 자리를 남겨야 한다.

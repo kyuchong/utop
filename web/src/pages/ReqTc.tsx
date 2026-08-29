@@ -1010,27 +1010,6 @@ export default function ReqTc({ me }: Props) {
                         >
                           삭제
                         </button>
-                        <div className="tc-menu-sep" />
-                        {/* 이 폴더의 시험으로 사이클을 만든다 — 폴더를 고른
-                            채로 사이클 화면에 가면 그 폴더가 이미 걸려 있다 */}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCatMenu('')
-                            try {
-                              localStorage.setItem('utop.reqtc.cat', c.id)
-                            } catch {
-                              /* 사생활 보호 모드 */
-                            }
-                            goto('cat', c.id)
-                            window.dispatchEvent(new CustomEvent('utop:newcycle', { detail: { cat: c.id } }))
-                            window.alert(
-                              `「${c.name}」 폴더가 걸린 채로 사이클 화면을 엽니다 — 거기서 새 사이클을 만드세요.`,
-                            )
-                          }}
-                        >
-                          사이클 만들기
-                        </button>
                       </div>
                     </>
                   )}
@@ -1095,16 +1074,8 @@ export default function ReqTc({ me }: Props) {
       >
         {!foldSide && (
           <aside className="panel rqtc-side">
-            {/* 1행 — 이름과 접기 단추만(지시·사진) */}
-            {/* 접기 단추는 **2열 머리줄 하나**로 모았다(지시) — 그 단추가
-                접기·펴기를 다 하므로, 여기 또 두면 접는 길이 둘이 된다. */}
-            <div className="rqtc-sidehead">
-              {/* 이름 — 이 판이 무엇을 담는지 그대로 적는다(지시).
-                  가운데 정렬이라 좌우 빈칸을 둘 다 둔다. */}
-              <span className="sp" />
-              <b>Requirements &amp; Coverage</b>
-              <span className="sp" />
-            </div>
+            {/* 판 이름 줄을 뺐다(지시) — 왼쪽 메뉴의 REQ-Coverage 가 이미
+                무엇인지 말한다. 줄 하나가 통째로 트리 몫이 된다. */}
             {/* 2행 — 만들기와 손잡이들. 사진처럼 만들기가 왼쪽을 채우고
                 정렬·더보기가 오른쪽 끝에 붙는다. */}
             <div className="rqtc-newf">
