@@ -134,6 +134,9 @@ export default function ReqTc({ me }: Props) {
   /** 「이 요구사항의 시험만」 — 요구사항 줄을 눌렀을 때 걸리는 다리 */
   const [reqOnly, setReqOnly] = useState('')
   const [q, setQ] = useState('')
+  /* 1열 찾기는 **트리 안에서만** 쓴다. 여태 2열 찾기와 같은 값을 써서, 여기에
+     치면 오른쪽 표가 걸러졌다(지적). 두 칸이 하는 일이 다르니 값도 달라야 한다. */
+  const [treeQ, setTreeQ] = useState('')
 
   /* 트리에 요구사항까지 낼지 — 폴더만 볼 때가 기본이다(지시로 고를 수 있게).
      스무 폴더 밑에 요구사항이 다 펼쳐지면 트리가 목록이 되어, 정작 폴더를
@@ -741,7 +744,14 @@ export default function ReqTc({ me }: Props) {
     setSel(new Set())
   }
   const pickFolder = (id: string) => {
-    setCat(cat === id ? '' : id)
+    /* 상세를 보고 있으면 폴더를 누르는 것은 「목록으로 돌아가 그 폴더를
+       본다」 는 뜻이다. 그때 껐다 켜기를 하면 이미 고른 폴더를 눌렀을 때
+       꺼져서 「전체」 로 튄다(지적). 상세를 닫고 그 폴더로 간다. */
+    const inDetail = !!openReq || !!openTc || gpOpen
+    setOpenReq('')
+    setOpenTc('')
+    setGpOpen(false)
+    setCat(inDetail ? id : cat === id ? '' : id)
     setReqOnly('')
     setSel(new Set())
   }
@@ -842,6 +852,16 @@ export default function ReqTc({ me }: Props) {
            있어서, 남겨 두면 늘 (0 / 0) 인 줄이 남아 「비었나, 잘못 골랐나」
            를 헷갈리게 한다. 아래 가지는 이미 그 프로젝트 안이라 안 거른다. */
         .filter((c) => depth > 0 || !prjs.length || prjs.includes(c.id))
+        /* 찾기 — 이름이 걸리거나, 자손 중에 걸리는 것이 있으면 남긴다.
+           자손을 안 보면 「MGMT 밑 SNMP」 를 찾을 때 MGMT 가 사라져 길이
+           끊긴다. */
+        .filter((c) => {
+          const n = treeQ.trim().toLowerCase()
+          if (!n) return true
+          const hit = (x: { id: string; name: string }): boolean =>
+            x.name.toLowerCase().includes(n) || (kids.get(x.id) ?? []).some(hit)
+          return hit(c)
+        })
         .sort((a, b) =>
           fsort === 'name'
             ? a.name.localeCompare(b.name)
@@ -858,7 +878,7 @@ export default function ReqTc({ me }: Props) {
              폴더의 요구사항은 영영 못 본다(지적: 요구사항+폴더가 안 된다). */
           const own = treeReqs ? reqs.filter((r) => catOf(r) === c.id) : []
           const canOpen = kid.length > 0 || own.length > 0
-          const on = openCat.has(c.id)
+          const on = openCat.has(c.id) || !!treeQ.trim()
           const n = countOf(c.id)
           return (
             <div key={c.id}>
@@ -1106,6 +1126,19 @@ export default function ReqTc({ me }: Props) {
                   「Add subfolder」 로 만든다. 어디에 만드는지가 그 자리에
                   보여야 한다. */}
               <span className="sp" />
+              {/* 찾기 — 정렬 **왼쪽**(지시). 무엇을 볼지 좁히는 일이라
+                  차례 정하기보다 앞에 온다. */}
+              <span className="rqtc-sidefind">
+                <span className="rqtc-qico" aria-hidden="true">
+                  <IconSearch />
+                </span>
+                <input
+                  className="rqtc-q"
+                  value={treeQ}
+                  placeholder="폴더 찾기"
+                  onChange={(e) => setTreeQ(e.target.value)}
+                />
+              </span>
               <FolderSortBtn value={fsort} onChange={setFsort} />
               {/* ⋯ — 여태 아무 일도 안 하는 단추였다(지적). 트리에 무엇까지
                   낼지를 여기서 고른다. 2열 ⋯ 와 같은 색·같은 꼴이다. */}
@@ -1162,17 +1195,7 @@ export default function ReqTc({ me }: Props) {
             </div>
             {/* 3행 — 찾기. 여닫는 단추를 두면 한 번 더 눌러야 하고, 접혀
                 있으면 걸러 볼 수 있다는 걸 모른다. 늘 보인다(사진). */}
-            <div className="rqtc-sidetools">
-              <span className="rqtc-qico" aria-hidden="true">
-                <IconSearch />
-              </span>
-              <input
-                className="rqtc-q"
-                value={q}
-                placeholder="폴더 · 요구사항 찾기"
-                onChange={(e) => setQ(e.target.value)}
-              />
-            </div>
+
             <div className="rqtc-tree">
               <div className={`rqtc-fold${cat === '' ? ' on' : ''}`} onClick={() => pickFolder('')}>
                 <span className="rqtc-caret" />
@@ -1324,6 +1347,7 @@ export default function ReqTc({ me }: Props) {
                 옮겼는데 여백만 남아, 빵부스러기가 빈칸만큼 오른쪽으로 밀려
                 가운데에 떠 있었다(지적). 자리를 말하는 줄은 세로선 바로
                 오른쪽에서 시작한다. */}
+            {!gpOpen && (
             <div className="rqtc-crumb">
               {tcCrumb ? (
                 /* 시험을 열었을 때 — 이 줄이 **그 시험의 자리**를 말한다.
@@ -1414,7 +1438,7 @@ export default function ReqTc({ me }: Props) {
                       말로 「REQ-2632-0003 보세요」 하면 상대가 다시 찾는다. */}
                   <button
                     type="button"
-                    className="rqtc-popid rqtc-copyid"
+                    className={`rqtc-popid rqtc-copyid${copiedId ? ' done' : ''}`}
                     title="이 요구사항으로 바로 가는 주소를 복사합니다"
                     onClick={() => {
                       const url = `${window.location.origin}${window.location.pathname}?req=${encodeURIComponent(reqCrumb.label)}`
@@ -1490,7 +1514,9 @@ export default function ReqTc({ me }: Props) {
                 </span>
               )}
               {/* 「하위 폴더 포함」 은 뺐다(지시) — 폴더를 고르면 그 아래까지 함께
-                  보는 것이 사람이 기대하는 바다. */}</div>
+                  보는 것이 사람이 기대하는 바다. */}
+            </div>
+            )}
             <span className="sp" />
             {/* 여기부터는 **목록을 어떻게 볼지** 정하는 것들이다 — 미커버만·
                 찾기·정렬·열 고르기. 상세를 열면 목록이 없으므로 다 치운다.

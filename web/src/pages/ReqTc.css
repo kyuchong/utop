@@ -1043,7 +1043,33 @@
 /* 표가 없는 줄도 글자가 밀리지 않게 자리를 비워 둔다 */
 .fsort-pop button, .rqtc-side .tc-menu button { display: flex; align-items: center; }
 /* 폴더 ⋯ 메뉴는 **오른쪽으로** 펼친다 — 왼쪽 판이라 왼쪽으로 열면 트리를 덮는다 */
-/* 폴더 ⋯ 메뉴 — 단추 **아래**, 왼쪽 맞춤.
-   오른쪽(right:0)으로 열면 트리를 덮고, 판 밖(left:100%)으로 열면 잘려서
-   안 보인다(지적 두 번). 판 안에서 아래로 편다. */
-.rqtc-fmenu .tc-menu { left: auto; right: 0; top: calc(100% + 4px); margin-left: 0; }
+/* 폴더 ⋯ 메뉴 — 단추 아래, **오른쪽으로** 편다(지시).
+   판 밖(left:100%)으로 열면 트리가 잘라 버려 안 보였다. 트리의 잘림을 풀고
+   메뉴는 단추 왼쪽에 맞춰 오른쪽으로 흐르게 한다. */
+.rqtc-fmenu .tc-menu { left: 0; right: auto; top: calc(100% + 4px); margin-left: 0; }
+/* 메뉴가 판 밖으로 나가도 잘리지 않게 — 트리는 세로로만 굴린다 */
+.rqtc-tree { overflow-x: visible; }
+
+/* 1열 찾기 — 머리줄 안, 정렬 왼쪽 */
+.rqtc-sidefind { position: relative; display: inline-flex; align-items: center; flex: 1; min-width: 0; }
+.rqtc-sidefind .rqtc-qico {
+  position: absolute; left: 8px; display: inline-flex;
+  color: var(--c-text-faint); pointer-events: none;
+}
+.rqtc-sidefind .rqtc-qico svg { width: 13px; height: 13px; }
+.rqtc-sidefind .rqtc-q {
+  width: 100%; min-width: 0; height: 28px; box-sizing: border-box;
+  padding: 0 8px 0 26px;
+  border: 1px solid var(--c-border); border-radius: 7px;
+  background: var(--c-surface); font: inherit; font-size: var(--fs-sm);
+}
+/* 1열 ⋯ 는 2열 ⋯ 와 같은 꼴·같은 색이다(지시) */
+.rqtc-side .rqtc-ib, .rqtc-fmore { color: var(--c-text-muted); }
+.rqtc-fmore { font-size: 16px; font-weight: 700; }
+/* 메뉴 글자는 폴더가 골라졌든 아니든 같은 굵기다 — 줄에서 굵기를 물려받아
+   고른 폴더의 메뉴만 굵게 나왔다(지적) */
+.rqtc-fmenu .tc-menu button { font-weight: 400; }
+/* 전역 파라미터 아이콘 — 더 크고 진하게(지시) */
+.rqtc-side .rqtc-ib svg { width: 21px; height: 21px; stroke-width: 2.1; }
+/* 복사됨 — 글꼴을 본문 글꼴로(지시: 이쁘게) */
+.rqtc-copyid.done { font-family: var(--font-ui); font-weight: 700; color: #1f7a45; border-color: #1f7a45; background: #eaf6ee; }
