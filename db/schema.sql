@@ -112,6 +112,19 @@ CREATE TABLE IF NOT EXISTS project (
   created_at  TIMESTAMPTZ DEFAULT now()
 );
 
+-- ── 옛 ID → 새 ID ────────────────────────────────────────────
+-- ID 규칙을 모델그룹 기준(E61xx-R0001)으로 옮기면서, 옛 ID 로 들어오는
+-- 링크가 안 끊기게 남기는 표. 위키 문서·Jira 이슈·AI 총평처럼 **남의
+-- 글 안에 손으로 적힌** 옛 ID 는 우리가 고칠 수 없다 — 그것들이 여기를
+-- 거쳐 새 것을 찾아간다. 되돌릴 때도 이 표가 근거다.
+CREATE TABLE IF NOT EXISTS id_alias (
+  old_id   TEXT PRIMARY KEY,
+  new_id   TEXT NOT NULL,
+  kind     TEXT NOT NULL,
+  moved_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_id_alias_new ON id_alias (new_id);
+
 -- ── REQ (요구사항) ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS req (
   id            TEXT PRIMARY KEY,

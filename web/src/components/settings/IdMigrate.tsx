@@ -1,0 +1,128 @@
+import { useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import { apiFetch } from '@/api/client'
+
+/**
+ * ID 옮기기 — 옛 ID 를 **모델그룹 기준**으로.
+ *
+ *     E61xx-R0001 · E61xx-T0001 · E61xx-C0001 · E61xx-C0001-E001
+ *
+ * 왜 화면에 두나 — 서버에 들어가 명령을 치는 방식이면, 손이 안 닿는
+ * 설치처(253)는 사람이 거기까지 가서 쳐야 한다. 여기 두면 받기만 하고
+ * 눌러서 끝난다. 그리고 **먼저 보여 준다** — 이 서버의 진짜 데이터로
+ * 무엇이 무엇으로 바뀌는지 세어서 낸 다음에 누르게 한다.
+ */
+interface Move { kind: string; pk: string; old: string; new: string; name?: string
+                 execs?: Array<{ old: string; new: string }> }
+interface Skip { kind: string; pk: string; old: string; why: string }
+
+const LAB: Record<string, string> = { req: '요구사항', tc: '시험항목', cycle: '사이클' }
+
+export default function IdMigrate() {
+  const [done, setDone] = useState<Record<string, number> | null>(null)
+  const q = useQuery({
+    queryKey: ['id-migrate-plan'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/id-migrate/plan')
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || '미리 보기를 못 만들었습니다')
+      return (await r.json()) as { moves: Move[]; skipped: Skip[] }
+    },
+  })
+  const run = useMutation({
+    mutationFn: async () => {
+      const r = await apiFetch('/api/id-migrate/apply', { method: 'POST' })
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || '옮기지 못했습니다')
+      return (await r.json()) as { counts: Record<string, number> }
+    },
+    onSuccess: (d) => { setDone(d.counts); void q.refetch() },
+  })
+
+  if (q.isLoading) return <div className="muted">세는 중…</div>
+  if (q.error) return <div className="load-error">{(q.error as Error).message}</div>
+
+  const moves = q.data?.moves ?? []
+  const skipped = q.data?.skipped ?? []
+  const execs = moves.reduce((a, m) => a + (m.execs?.length ?? 0), 0)
+  const byKind = (k: string) => moves.filter((m) => m.kind === k)
+
+  return (
+    <div className="idm">
+      <div className="set-h">
+        <b>ID 옮기기</b>
+        <span className="muted small">
+          옛 ID 를 모델그룹 기준으로 — <code>E61xx-R0001</code> · <code>E61xx-T0001</code> ·{' '}
+          <code>E61xx-C0001</code> · <code>E61xx-C0001-E001</code>
+        </span>
+      </div>
+
+      {done && (
+        <div className="idm-done">
+          옮겼습니다 — 요구사항 {done.req ?? 0} · 시험항목 {done.tc ?? 0} · 사이클 {done.cycle ?? 0} ·
+          실행 {done.exec ?? 0}건 (이슈 연결 {done.defect ?? 0} · 변경 이력 {done.history ?? 0}건 따라 옮김)
+        </div>
+      )}
+
+      {moves.length === 0 ? (
+        <div className="idm-none">옮길 것이 없습니다. 이미 모두 새 규칙입니다.</div>
+      ) : (
+        <>
+          <div className="idm-sum">
+            {(['req', 'tc', 'cycle'] as const).map((k) => (
+              <span key={k} className="idm-chip">{LAB[k]} <b>{byKind(k).length}</b></span>
+            ))}
+            <span className="idm-chip">실행 <b>{execs}</b></span>
+          </div>
+
+          <div className="idm-tblwrap">
+            <table className="idm-tbl">
+              <thead><tr><th>구분</th><th>지금</th><th>바뀔 ID</th><th>이름</th></tr></thead>
+              <tbody>
+                {moves.map((m) => (
+                  <tr key={`${m.kind}-${m.pk}`}>
+                    <td>{LAB[m.kind] ?? m.kind}</td>
+                    <td className="idm-old">{m.old || '(없음)'}</td>
+                    <td className="idm-new">{m.new}</td>
+                    <td className="idm-nm">{m.name || ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {skipped.length > 0 && (
+        <div className="idm-skip">
+          {/* 조용히 빼면 「다 됐구나」 로 읽힌다. 못 옮긴 것은 반드시 밝힌다. */}
+          <b>못 옮기는 것 {skipped.length}건</b>
+          <ul>
+            {Object.entries(
+              skipped.reduce<Record<string, number>>((a, s) => ({ ...a, [s.why]: (a[s.why] ?? 0) + 1 }), {}),
+            ).map(([why, n]) => (
+              <li key={why}>{n}건 — {why}</li>
+            ))}
+          </ul>
+          <span className="muted small">
+            폴더를 프로젝트 아래로 옮기거나 시험항목에 모델그룹을 채운 뒤 다시 누르면 이어서 옮깁니다.
+          </span>
+        </div>
+      )}
+
+      <div className="idm-foot">
+        <span className="muted small">
+          옛 ID 는 표로 남아, 위키·Jira 에 적힌 옛 ID 도 계속 새 것을 찾아갑니다.
+        </span>
+        <span className="sp" />
+        <button
+          className="btn idm-go"
+          type="button"
+          disabled={moves.length === 0 || run.isPending}
+          onClick={() => run.mutate()}
+        >
+          {run.isPending ? '옮기는 중…' : `${moves.length}건 옮기기`}
+        </button>
+      </div>
+      {run.error && <div className="load-error">{(run.error as Error).message}</div>}
+    </div>
+  )
+}

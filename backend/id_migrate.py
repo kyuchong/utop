@@ -161,3 +161,65 @@ async def plan(c) -> dict:
                       "name": r["name"] or "", "execs": execs})
 
     return {"moves": moves, "skipped": skipped}
+
+
+async def apply(c, p: dict) -> dict:
+    """계산한 것을 **실제로 쓴다**. 한 트랜잭션 안에서 전부 되거나 전부 안 된다.
+
+    시험항목만 유독 손이 많이 간다 — tcid 가 곧 PK 라, 이걸 가리키는 곳을
+    전부 같이 옮겨야 한다. 외래키가 안 걸려 있어 DB 가 안 막아 주므로,
+    빠뜨리면 조용히 끊긴다. 그래서 여기 한 곳에 모아 둔다.
+
+    손대지 않는 것: AI 총평 같은 **글** 안에 적힌 옛 ID. 남의 문장을
+    기계가 고치면 뜻이 상한다. 대신 id_alias 가 옛 ID 를 받아 준다.
+    """
+    moves = p["moves"]
+    n = {"req": 0, "tc": 0, "cycle": 0, "exec": 0, "defect": 0, "history": 0}
+
+    async with c.transaction():
+        for m in moves:
+            await c.execute(
+                """INSERT INTO id_alias (old_id, new_id, kind) VALUES ($1, $2, $3)
+                   ON CONFLICT (old_id) DO UPDATE SET new_id = EXCLUDED.new_id""",
+                m["old"] or f"({m['kind']}:{m['pk']})", m["new"], m["kind"],
+            )
+
+        # ── 요구사항 — 사람이 보는 칸만 바꾼다. 링크는 속열쇠라 안 건드린다
+        for m in (x for x in moves if x["kind"] == "req"):
+            await c.execute("UPDATE req SET reqid = $1 WHERE id = $2", m["new"], m["pk"])
+            n["req"] += 1
+
+        # ── 시험항목 — PK 를 옮기고, 가리키던 곳을 따라 옮긴다
+        tcmap = {m["old"]: m["new"] for m in moves if m["kind"] == "tc"}
+        for old, new in tcmap.items():
+            await c.execute("UPDATE tc SET tcid = $1 WHERE tcid = $2", new, old)
+            n["tc"] += 1
+            r = await c.execute("UPDATE defect SET tcid = $1 WHERE tcid = $2", new, old)
+            n["defect"] += int(r.split()[-1]) if r.split()[-1].isdigit() else 0
+            r = await c.execute("UPDATE tc_history SET tcid = $1 WHERE tcid = $2", new, old)
+            n["history"] += int(r.split()[-1]) if r.split()[-1].isdigit() else 0
+
+        # ── 사이클 · 실행 — data 안에 있다. 담긴 시험항목 ID 도 함께 옮긴다
+        cyc = {m["pk"]: m for m in moves if m["kind"] == "cycle"}
+        for row in await c.fetch("SELECT id, data FROM cycle"):
+            data = row["data"] if isinstance(row["data"], dict) else json.loads(row["data"] or "{}")
+            m = cyc.get(row["id"])
+            touched = False
+            if m:
+                data["cid"] = m["new"]
+                if data.get("ce"):
+                    data["ce"] = m["new"]
+                for i, it in enumerate(data.get("items") or []):
+                    it["ceid"] = f"{m['new']}-E{i + 1:03d}"
+                    n["exec"] += 1
+                n["cycle"] += 1
+                touched = True
+            # 담긴 시험항목 — 그 사이클이 안 옮겨져도 TC 는 옮겨졌을 수 있다
+            for it in data.get("items") or []:
+                if it.get("tcid") in tcmap:
+                    it["tcid"] = tcmap[it["tcid"]]
+                    touched = True
+            if touched:
+                await c.execute("UPDATE cycle SET data = $1 WHERE id = $2",
+                                json.dumps(data, ensure_ascii=False), row["id"])
+    return n

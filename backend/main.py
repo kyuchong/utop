@@ -25,6 +25,7 @@ from pydantic import BaseModel
 import anthropic
 import engine
 import db  # PostgreSQL 접속 레이어 (커넥션 풀 + CRUD 헬퍼)
+import id_migrate  # 옛 ID → 모델그룹 기준 ID 옮기기
 
 # ───────────────────────────────────────────
 # 경로 설정
@@ -3878,6 +3879,33 @@ class ProjectIn(BaseModel):
     model_group: str = ""
     model: str = ""
     description: str = ""
+
+
+# ───────────────────────────────────────────
+# ID 옮기기 — 모델그룹 기준(E61xx-R0001)으로
+#
+# **화면에서 눌러서 한다.** 서버에 들어가 명령을 치는 방식이면 253 처럼
+# 제가 손 못 대는 곳은 사람이 거기까지 가서 쳐야 한다. 미리 보기로
+# 무엇이 무엇으로 바뀌는지 먼저 보이고, 그다음에 누르게 한다 —
+# 되돌릴 수는 있지만(id_alias), 안 보고 누르게 두면 안 된다.
+# ───────────────────────────────────────────
+@app.get("/api/id-migrate/plan")
+async def id_migrate_plan(token: str = ""):
+    _require_admin(token)
+    async with db.pool().acquire() as c:
+        return await id_migrate.plan(c)
+
+
+@app.post("/api/id-migrate/apply")
+async def id_migrate_apply(token: str = ""):
+    _require_admin(token)
+    async with db.pool().acquire() as c:
+        p = await id_migrate.plan(c)
+        if not p["moves"]:
+            return {"ok": True, "counts": {}, "note": "옮길 것이 없습니다"}
+        counts = await id_migrate.apply(c, p)
+    print(f"[id] 옮김 {counts}", flush=True)
+    return {"ok": True, "counts": counts, "skipped": len(p["skipped"])}
 
 
 @app.get("/api/projects")

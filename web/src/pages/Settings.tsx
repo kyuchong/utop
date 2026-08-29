@@ -22,13 +22,14 @@ import {
   IconPerms,
   IconPlug,
 } from '@/components/icons'
+import IdMigrate from '@/components/settings/IdMigrate'
 import Transfer from '@/pages/Transfer'
 import { IconTransfer } from '@/components/icons'
 import './Settings.css'
 
 // 'chat' 은 없앴다 — Chat 모델 설정은 'llm' 안의 탭으로 들어갔다.
 // 서버 연결과 모델 설정을 따로 두면 같은 모델을 두 군데서 고치게 된다.
-type Section = 'loginbrand' | 'mail' | 'stepacts' | 'verdicts' | 'llm' | 'prompts' | 'accounts' | 'perms' | 'catalog' | 'codes' | 'reqcodes' | 'cyclecodes' | 'fields' | 'jira' | 'jirapanels' | 'branding' | 'export' | 'import'
+type Section = 'loginbrand' | 'mail' | 'stepacts' | 'verdicts' | 'llm' | 'prompts' | 'accounts' | 'perms' | 'catalog' | 'codes' | 'reqcodes' | 'cyclecodes' | 'fields' | 'jira' | 'jirapanels' | 'branding' | 'export' | 'import' | 'idmigrate'
 
 /**
  * 설정 화면.
@@ -99,6 +100,7 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
     items: [
       { key: 'export', label: '데이터 내보내기', icon: IconTransfer, ready: true },
       { key: 'import', label: '데이터 가져오기', icon: IconTransfer, ready: true },
+      { key: 'idmigrate', label: 'ID 옮기기', icon: IconTransfer, ready: true },
     ],
   },
   {
@@ -187,6 +189,8 @@ export default function Settings() {
           <Transfer mode="export" />
         ) : sec === 'import' ? (
           <Transfer mode="import" />
+        ) : sec === 'idmigrate' ? (
+          <IdMigrate />
         ) : (
           <div className="set-todo">
             <b>{cur.label}</b>
