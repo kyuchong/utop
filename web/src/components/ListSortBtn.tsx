@@ -4,19 +4,20 @@ import { IconSort } from './icons'
 /** 2열 목록 정렬 — 세 화면이 같은 세 가지를 쓴다 */
 export type ListSortMode = 'tree' | 'name' | 'recent'
 
-const OPTS: ReadonlyArray<readonly [ListSortMode, string, string]> = [
-  ['tree', '트리 순서', '왼쪽 트리에 선 차례 그대로 — 어느 폴더 것인지 눈으로 따라간다'],
-  ['name', '이름', '가나다·ABC 차례'],
-  ['recent', '최근', '나중에 고친 것이 위로'],
+/* 곁말은 짧게 — 길면 팝업이 옆으로 새어 글이 잘린다(지적) */
+const OPTS: ReadonlyArray<readonly [ListSortMode, string]> = [
+  ['tree', '트리 순서'],
+  ['name', '이름'],
+  ['recent', '최근'],
 ]
 
 /** 1열 폴더 정렬 — 목록 정렬과 **같은 꼴**을 쓴다(지시) */
 export type FolderSortMode = 'name' | 'req' | 'recent'
 
-const FOPTS: ReadonlyArray<readonly [FolderSortMode, string, string]> = [
-  ['name', '이름', '가나다·ABC 차례'],
-  ['req', '요구사항 많은 순', '건수가 많은 폴더가 위로 — 무게가 어디 있는지 보인다'],
-  ['recent', '최근', '나중에 고친 것이 위로'],
+const FOPTS: ReadonlyArray<readonly [FolderSortMode, string]> = [
+  ['name', '이름'],
+  ['req', '요구사항 많은 순'],
+  ['recent', '최근'],
 ]
 
 /**
@@ -67,12 +68,11 @@ export default function ListSortBtn({
       </button>
       {open && (
         <div className="fsort-pop" role="menu">
-          {OPTS.map(([v, label, hint]) => (
+          {OPTS.map(([v, label]) => (
             <button
               key={v}
               type="button"
               className={value === v ? 'on' : undefined}
-              title={hint}
               onClick={() => {
                 onChange(v)
                 setOpen(false)
@@ -133,7 +133,7 @@ export function FolderSortBtn({
       </button>
       {open && (
         <div className="fsort-pop" role="menu">
-          {FOPTS.map(([k, label, hint]) => (
+          {FOPTS.map(([k, label]) => (
             <button
               key={k}
               type="button"
@@ -143,8 +143,7 @@ export function FolderSortBtn({
                 setOpen(false)
               }}
             >
-              <b>{label}</b>
-              <span>{hint}</span>
+              {label}
             </button>
           ))}
         </div>
