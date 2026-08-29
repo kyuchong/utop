@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser } from '@/api/client'
@@ -343,24 +343,23 @@ export default function ReqTc({ me }: Props) {
      칸은 이제 켜진 열 쪽에서 나온다 — 두 곳에서 그리면 두 번 보인다. */
   /* ID 를 제 칸으로 뗀다(지시: ID 와 제목 사이에도 세로선). 한 칸에 같이
      두면 선을 그을 자리가 없다 — 표의 선은 칸 사이에만 선다. */
-  /* ID 칸은 **글자 길이에 맞춰** 넓어진다(지시). 108px 로 못박아 두었더니
-     ID 규칙이 모델그룹 기준으로 바뀌면서 길어져 끝이 잘렸다.
+  /* ID 칸은 **지금 보이는 자료에 맞춰** 넓어진다(지시).
 
-     max-content 는 못 쓴다 — 머리줄과 각 줄이 **서로 다른 그리드**라
-     (.rqtc-th 와 .rqtc-tr 이 따로 gridTemplateColumns 를 갖는다) 각자
-     제 안의 내용으로 계산한다. 머리줄에는 「ID」 두 글자뿐이라 좁게 서고
-     본문은 넓게 서서, 칸과 자료가 어긋난다(지적: 필드와 데이터 열이
-     따로 논다).
+     못 쓴 방법 둘.
+     · max-content — 머리줄(.rqtc-th)과 각 줄(.rqtc-tr)이 서로 다른 그리드라
+       각자 제 안의 내용으로 계산한다. 머리줄은 「ID」 두 글자뿐이라 좁게
+       서고 본문은 넓게 서서, 칸과 자료가 어긋났다(지적).
+     · 글자수 × 상수 — 한 글자 폭을 찍어서 곱했다. 글꼴이 바뀌거나 ID 에
+       한글이 섞이면 틀리고, 실제로 너무 넓게 나왔다(지적: 하드코딩).
 
-     그래서 **가장 긴 ID 의 글자 수로 px 을 계산해** 양쪽에 같은 값을 준다.
-     같은 숫자를 넣으니 어긋날 수가 없다. 8px 은 이 칸이 쓰는 고정폭
-     글꼴의 한 글자 폭, 22 는 좌우 여백이다. */
-  const idW = useMemo(() => {
-    let n = 0
-    for (const r of reqs) n = Math.max(n, reqLabel(r).length)
-    for (const t of tcs) n = Math.max(n, (t.tcid || '').length)
-    return Math.max(108, Math.min(260, n * 8 + 22))
-  }, [reqs, tcs])
+     그래서 **실제로 잰다.** 지금 표에 있는 것 중 가장 긴 ID 하나를 안 보이는
+     자리에 같은 차림새로 세워 두고 그 폭을 읽는다. 재는 값이 칸 폭에
+     매이지 않으므로 넓어졌다 좁아졌다 하며 도는 일이 없다. */
+
+  /* 잰 값은 상태로 들고 있는다 — 그리드 문자열이 여기서 만들어지고,
+     재는 일은 줄이 정해진 뒤(아래)라야 할 수 있다. */
+  const idProbe = useRef<HTMLSpanElement>(null)
+  const [idW, setIdW] = useState(108)
   const idCol = `${idW}px`
   const gridReq = `52px 48px ${idCol} minmax(0, 1fr) 110px 80px 78px 52px 132px ${visCols.map((c) => c.w).join(' ')}`.trim()
   const gridTc = `52px 48px ${idCol} minmax(0, 1fr) 100px 80px 70px 52px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
@@ -832,6 +831,21 @@ export default function ReqTc({ me }: Props) {
   )
   const reqPageRows = useMemo(() => reqSorted.slice(from, from + per), [reqSorted, from, per])
   const tcPageRows = useMemo(() => tcSorted.slice(from, from + per), [tcSorted, from, per])
+
+  const longestId = useMemo(() => {
+    const v = mode === 'tc' ? tcPageRows.map((t) => t.tcid || '') : reqPageRows.map((r) => reqLabel(r))
+    return v.reduce((a, b) => (b.length > a.length ? b : a), '')
+  }, [mode, reqPageRows, tcPageRows])
+  useLayoutEffect(() => {
+    const el = idProbe.current
+    if (!el) return
+    // 좌우 여백은 칸이 실제로 쓰는 값을 읽는다 — 여기도 찍으면 같은 잘못이다
+    const cell = el.parentElement as HTMLElement | null
+    const cs = cell ? getComputedStyle(cell) : null
+    const pad = cs ? parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) : 0
+    const w = Math.ceil(el.getBoundingClientRect().width + pad) + 2
+    setIdW((old) => (Math.abs(old - w) > 1 ? Math.max(46, Math.min(280, w)) : old))
+  }, [longestId])
   const onlyReq = reqOnly ? reqById.get(reqOnly) : undefined
 
   /* 폴더 줄의 ⋯ 메뉴 — 어느 폴더에 떠 있나.
@@ -2352,6 +2366,14 @@ export default function ReqTc({ me }: Props) {
 
       {/* 저장 알림 — 오른쪽 위에 잠깐 떴다 사라진다(지시).
           단추 옆에 글자로 두면 저장했는지 눈이 안 간다. */}
+      {/* ID 칸 폭을 재는 자. 눈에는 안 보이지만 **표의 그 칸과 같은 차림새**로
+          서야 같은 폭이 나온다 — 그래서 클래스를 그대로 쓴다. aria-hidden 이라
+          읽어 주는 기계는 건너뛴다. */}
+      <div className="rqtc-idprobe" aria-hidden="true">
+        <div className="c-id">
+          <span className="rqtc-rid" ref={idProbe}>{longestId || 'ID'}</span>
+        </div>
+      </div>
       {toast && <div className="rqtc-toast">{toast}</div>}
       {editPrj && (() => {
         const p = projects.find((x) => x.cat_id === editPrj)
