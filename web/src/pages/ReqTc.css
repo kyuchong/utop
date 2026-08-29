@@ -1083,3 +1083,31 @@
 .rqtc-side .rqtc-ib svg { width: 21px; height: 21px; stroke-width: 2.1; }
 /* 복사됨 — 글꼴을 본문 글꼴로(지시: 이쁘게) */
 .rqtc-copyid.done { font-family: var(--font-ui); font-weight: 700; color: #1f7a45; border-color: #1f7a45; background: #eaf6ee; }
+
+/* 저장 단추 — 고친 것이 있을 때만 살아난다 */
+.rqtc-savebtn.dirty {
+  background: #34d399;
+  border-color: #34d399;
+  color: #06301f;
+  font-weight: 700;
+}
+.rqtc-savebtn:disabled { opacity: 0.55; cursor: default; }
+/* 저장 알림 — 오른쪽 위에 잠깐. 지나가는 말이라 자리를 차지하지 않는다 */
+.rqtc-toast {
+  position: fixed;
+  right: 18px;
+  top: 62px;
+  z-index: 300;
+  padding: 9px 16px;
+  border-radius: 8px;
+  background: #0d2b3a;
+  color: #eaf4f6;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  box-shadow: 0 8px 22px rgba(20, 30, 60, 0.24);
+  animation: rqtc-toast-in 0.16s ease-out;
+}
+@keyframes rqtc-toast-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}

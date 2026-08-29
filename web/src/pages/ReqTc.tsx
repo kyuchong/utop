@@ -825,11 +825,23 @@ export default function ReqTc({ me }: Props) {
   const [newUnder, setNewUnder] = useState('')
   /* 이름은 **그 줄에서 바로** 고친다(지시) — 창을 띄우면 어느 폴더를 고치는
      중인지 화면에서 사라진다. */
+  useEffect(() => {
+    /* 다른 요구사항으로 넘어가면 들고 있던 값은 버린다 — 남겨 두면 엉뚱한
+       요구사항에 저장된다. */
+    setReqDraft({})
+    setSaveState('')
+  }, [openReq])
+
   const [copiedId, setCopiedId] = useState(false)
   /* 「저장」 은 누르는 단추가 아니라 **상태 표시**다. 상태·우선순위는 고치는
      즉시 저장되므로 누를 것이 없다 — 누를 수 없는 단추를 두면 「눌러야
      저장되나」 를 묻게 된다. */
   const [saveState, setSaveState] = useState<'' | 'saving' | 'saved'>('')
+  /* 고친 값을 **손에 들고 있다가** 저장 단추를 누를 때 보낸다(지시).
+     자동 저장은 「고치는 중」 과 「고쳤다」 를 구별하지 못한다 — 드롭다운을
+     훑어 내리는 것만으로도 값이 바뀌어 나갔다. */
+  const [reqDraft, setReqDraft] = useState<{ status?: string; priority?: string }>({})
+  const [toast, setToast] = useState('')
   const [renaming, setRenaming] = useState('')
   const [renameName, setRenameName] = useState('')
 
@@ -1301,21 +1313,22 @@ export default function ReqTc({ me }: Props) {
                 {/* 단추 꼴로 세운다(지시). 눌러도 되지만, 상태·우선순위는
                     고치는 즉시 저장되므로 대개 누를 일이 없다 — 눌렀을 때는
                     지금 값을 한 번 더 저장한다. */}
+                {/* 고친 것이 있으면 **초록으로 살아난다**(지시) — 누르기
+                    전에는 저장할 것이 없다는 뜻이라 쉰 채로 둔다. */}
                 <button
                   type="button"
-                  className={`btn small${saveState === 'saved' ? ' ok' : ''}`}
-                  disabled={saveState === 'saving'}
-                  title="상태·우선순위는 고치는 즉시 저장됩니다"
-                  onClick={() => {
-                    const r0 = reqById.get(openReq)
-                    if (!r0) return
-                    void setOneField('req', openReq, {
-                      status: r0.status ?? '',
-                      priority: r0.priority ?? '',
-                    })
+                  className={`btn small rqtc-savebtn${Object.keys(reqDraft).length ? ' dirty' : ''}`}
+                  disabled={!Object.keys(reqDraft).length || saveState === 'saving'}
+                  title={Object.keys(reqDraft).length ? '고친 값을 저장합니다' : '고친 것이 없습니다'}
+                  onClick={async () => {
+                    if (!openReq || !Object.keys(reqDraft).length) return
+                    await setOneField('req', openReq, reqDraft)
+                    setReqDraft({})
+                    setToast('저장되었습니다')
+                    window.setTimeout(() => setToast(''), 1800)
                   }}
                 >
-                  {saveState === 'saving' ? '저장 중…' : saveState === 'saved' ? '저장됨 ✓' : '저장'}
+                  {saveState === 'saving' ? '저장 중…' : '저장'}
                 </button>
               </>
             ) : (
@@ -1712,13 +1725,12 @@ export default function ReqTc({ me }: Props) {
                 tab={openTab}
                 setTab={setOpenTab}
                 edit={{
-                  status: String(reqById.get(openReq)?.status ?? ''),
-                  priority: String(reqById.get(openReq)?.priority ?? ''),
+                  status: String(reqDraft.status ?? reqById.get(openReq)?.status ?? ''),
+                  priority: String(reqDraft.priority ?? reqById.get(openReq)?.priority ?? ''),
                   statuses: REQ_STATUS,
                   priorities: REQ_PRIORITY,
-                  /* 고치면 바로 저장한다 — 저장 단추를 두면 안 누르고 나가는
-                     사람이 반드시 나온다. */
-                  onChange: (p) => void setOneField('req', openReq, p),
+                  /* 고친 값은 **들고만 있는다** — 나가는 것은 저장 단추다(지시) */
+                  onChange: (p) => setReqDraft((d) => ({ ...d, ...p })),
                 }}
               />
             </div>
@@ -2147,6 +2159,10 @@ export default function ReqTc({ me }: Props) {
               있는 수인지 헷갈린다. */}
         </section>
       </div>
+
+      {/* 저장 알림 — 오른쪽 위에 잠깐 떴다 사라진다(지시).
+          단추 옆에 글자로 두면 저장했는지 눈이 안 간다. */}
+      {toast && <div className="rqtc-toast">{toast}</div>}
 
       {/* 고른 것에 하는 일 — **아래에서 떠오르는 줄**(승인).
           위 도구줄에 두었더니 고를 때마다 단추가 늘어났다 줄었다 하며 옆
