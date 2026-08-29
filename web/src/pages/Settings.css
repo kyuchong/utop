@@ -1824,3 +1824,39 @@ button.dcc-st:disabled { cursor: default; }
   font: inherit;
   font-size: var(--fs-sm);
 }
+
+/* 저장 단추 — 값이 바뀌면 **청록으로 켜지고**, 저장하고 나면 옅은 청록으로
+   가라앉는다(지시). 색은 이미 승인받은 그 청록(--c-sel-teal) 한 벌이라
+   화면마다 다른 초록이 서지 않는다. */
+.gp-save {
+  background: #eaf4f7;
+  border-color: #cfe4ea;
+  color: #4c7480;
+  font-weight: 700;
+}
+.gp-save.dirty {
+  background: var(--c-sel-teal);
+  border-color: var(--c-sel-teal);
+  color: var(--c-sel-teal-ink);
+}
+.gp-save:disabled { cursor: default; }
+
+/* 저장 알림 — 오른쪽 위에 잠깐. 지나가는 말이라 자리를 차지하지 않는다 */
+.gp-toast {
+  position: fixed;
+  right: 18px;
+  top: 62px;
+  z-index: 300;
+  padding: 9px 16px;
+  border-radius: 8px;
+  background: #0d2b3a;
+  color: #eaf4f6;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  box-shadow: 0 8px 22px rgb(20 30 60 / 24%);
+  animation: gp-toast-in 0.16s ease-out;
+}
+@keyframes gp-toast-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}

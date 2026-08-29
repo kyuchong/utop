@@ -61,6 +61,7 @@ export default function GlobalParams({ only }: Props) {
   const [sel, setSel] = useState(only ?? GLOBAL)
   const [data, setData] = useState<File>({})
   const [dirty, setDirty] = useState(false)
+  const [toast, setToast] = useState('')
   const [msg, setMsg] = useState('')
   /**
    * 아직 파라미터가 하나도 없는 그룹.
@@ -115,6 +116,12 @@ export default function GlobalParams({ only }: Props) {
     }
   }, [q.data])
 
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(''), 2000)
+    return () => clearTimeout(t)
+  }, [toast])
+
   const saveM = useMutation({
     mutationFn: async () => {
       /* 이미 저장돼 있던 빈칸 이름도 여기서 함께 고친다 — 입력 때 바꾸는
@@ -145,7 +152,10 @@ export default function GlobalParams({ only }: Props) {
     },
     onSuccess: (fixed) => {
       setDirty(false)
-      setMsg(fixed ? `저장했습니다 — 빈칸이 든 이름 ${fixed}개를 밑줄로 고쳤습니다` : '저장했습니다')
+      /* 지나가는 알림(지시) — 저장은 끝나면 아무것도 안 바뀐 것처럼
+         보여서, 눌린 게 맞나 한 번 더 누르게 된다. */
+      setToast(fixed ? `저장되었습니다 — 빈칸이 든 이름 ${fixed}개를 밑줄로 고쳤습니다` : '저장되었습니다')
+      setMsg('')
       void qc.invalidateQueries({ queryKey: ['global-params'] })
     },
     onError: (e) => setMsg(e instanceof Error ? e.message : String(e)),
@@ -481,6 +491,7 @@ export default function GlobalParams({ only }: Props) {
 
   return (
     <div className="gp">
+      {toast && <div className="gp-toast">{toast}</div>}
       <div className="gp-head">
         <b>{only ? label(only) : '전역 파라미터'}</b>
         <span className="muted small">
@@ -488,8 +499,11 @@ export default function GlobalParams({ only }: Props) {
         </span>
         <span className="sp" />
         {msg && <span className="muted small">{msg}</span>}
+        {/* 값이 바뀌면 **청록으로 켜지고**, 저장하고 나면 옅은 청록으로
+            가라앉는다(지시). 「저장할 게 있다」 를 글자가 아니라 색이
+            먼저 말한다 — 글자는 다 읽어야 알지만 색은 안 읽어도 안다. */}
         <button
-          className="btn primary"
+          className={`btn gp-save${dirty ? ' dirty' : ''}`}
           type="button"
           disabled={saveM.isPending || !dirty}
           onClick={() => saveM.mutate()}
