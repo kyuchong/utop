@@ -1225,3 +1225,35 @@
    필요한 폭」 이 나온다. 그리드인 채로 두면 칸이 트랙 폭을 따라간다. */
 .rqtc-idprobe .rqtc-tr { display: block; border: 0; }
 .rqtc-idprobe .c-id { display: inline-flex; overflow: visible; }
+
+/* 창 머리줄의 빵부스러기 — ID 조각과 단추 셋을 걷어낸 자리(지시).
+   자리를 말하는 줄이라 왼쪽에서 시작하고, 길면 앞을 줄인다. */
+.rqtc-popcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--c-text-soft, #52616b);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.rqtc-popcrumb > span { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.rqtc-popcrumb > span:last-child { color: var(--c-text); font-weight: 700; }
+.rqtc-popcrumb i { color: var(--c-text-faint); font-style: normal; }
+
+/* 앞뒤로 넘기는 화살표 — 닫기 왼쪽. 갈 곳이 없으면 흐려진다 */
+.rqtc-popnav { display: inline-flex; gap: 2px; }
+.rqtc-popnav button {
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.rqtc-popnav button:hover:not(:disabled) { background: var(--c-surface-alt); }
+.rqtc-popnav button:disabled { opacity: 0.4; cursor: default; }

@@ -2576,7 +2576,52 @@ export default function ReqTc({ me }: Props) {
               }
             }
           }}
-          onSeeTcs={pop.kind === 'req' ? () => { setPop(null); goTcOf(pop.id) } : undefined}
+          /* 이 요구사항이 앉은 자리 — 프로젝트부터 폴더까지. 창 머리줄이
+             ID 조각 대신 이걸 낸다(지시). */
+          crumb={
+            pop.kind === 'req'
+              ? (() => {
+                  const r = reqs.find((x) => reqPk(x) === pop.id)
+                  if (!r) return []
+                  return [r.cat1, r.cat2, r.cat3, r.cat4]
+                    .filter(Boolean)
+                    .map((c) => cats.find((x) => x.id === String(c))?.name)
+                    .filter((n): n is string => !!n)
+                })()
+              : undefined
+          }
+          /* 앞뒤 요구사항 — **지금 보고 있는 그 차례**대로 넘긴다(지시).
+             걸러 놓고 정렬해 둔 목록이 곧 사람이 보는 차례다. 원래 자료
+             순서로 넘기면 화면에 없는 것이 튀어나온다. */
+          onStep={
+            pop.kind === 'req'
+              ? (d) => {
+                  const list = reqSorted.map((r) => reqPk(r))
+                  const i = list.indexOf(pop.id)
+                  if (i < 0) return
+                  const n = list[(i + d + list.length) % list.length]
+                  if (n) setPop({ kind: 'req', id: n })
+                }
+              : undefined
+          }
+          /* 상태·우선순위를 그 자리에서 고친다(지적: 수정이 안 된다).
+             ReqDetail 은 진작 받을 준비가 되어 있었는데 창이 안 넘겼다. */
+          edit={
+            pop.kind === 'req'
+              ? (() => {
+                  const r = reqs.find((x) => reqPk(x) === pop.id)
+                  if (!r) return undefined
+                  return {
+                    status: String(r.status ?? ''),
+                    priority: String(r.priority ?? ''),
+                    statuses: REQ_STATUS,
+                    priorities: REQ_PRIORITY,
+                    onChange: (p: { status?: string; priority?: string }) =>
+                      void setOneField('req', pop.id, p),
+                  }
+                })()
+              : undefined
+          }
         />
       )}
 
@@ -2701,17 +2746,27 @@ function DetailPop({
   id,
   req,
   tcs,
+  crumb,
   onClose,
   onEdit,
-  onSeeTcs,
+  onStep,
+  edit,
 }: {
   kind: 'req' | 'tc'
   id: string
   req?: Requirement
   tcs: TestCaseMeta[]
+  crumb?: string[]
   onClose: () => void
   onEdit: () => void
-  onSeeTcs?: () => void
+  onStep?: (d: -1 | 1) => void
+  edit?: {
+    status: string
+    priority: string
+    statuses: readonly string[]
+    priorities: readonly string[]
+    onChange: (p: { status?: string; priority?: string }) => void
+  }
 }) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -2720,7 +2775,16 @@ function DetailPop({
   }, [onClose])
 
   if (kind === 'req')
-    return <ReqPop id={id} req={req} tcs={tcs} onClose={onClose} onEdit={onEdit} onSeeTcs={onSeeTcs} />
+    return (
+      <ReqPop
+        req={req}
+        tcs={tcs}
+        crumb={crumb ?? []}
+        onClose={onClose}
+        onStep={onStep}
+        edit={edit}
+      />
+    )
 
   /* ── 시험항목 ──
      TcDetail 을 얹어 봤다가 물렸다: 그 부품은 스텝 종류가 manual/auto 둘뿐이던
@@ -2777,19 +2841,27 @@ function TcPop({ id, onClose }: { id: string; onClose: () => void; onEdit: () =>
 }
 
 function ReqPop({
-  id,
   req,
   tcs,
+  crumb,
   onClose,
-  onEdit,
-  onSeeTcs,
+  onStep,
+  edit,
 }: {
-  id: string
   req?: Requirement
   tcs: TestCaseMeta[]
+  /** 이 요구사항이 앉은 자리 — 프로젝트부터 폴더까지 */
+  crumb: string[]
   onClose: () => void
-  onEdit: () => void
-  onSeeTcs?: () => void
+  /** 앞뒤 요구사항으로. 갈 곳이 없으면 안 준다 */
+  onStep?: (d: -1 | 1) => void
+  edit?: {
+    status: string
+    priority: string
+    statuses: readonly string[]
+    priorities: readonly string[]
+    onChange: (p: { status?: string; priority?: string }) => void
+  }
 }) {
   const [tab, setTab] = useState<'info' | 'detail' | 'tc' | 'runs' | 'history'>('info')
   /* ── 요구사항 — ReqDetail 을 탭으로 갈아 끼운다 ── */
@@ -2798,32 +2870,45 @@ function ReqPop({
       <div className="modal rqtc-pop wide" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <b>요구사항</b>
-          <span className="rqtc-popid">{req ? reqLabel(req) : id}</span>
+          {/* **이 줄은 자리를 말한다(지시).** 전에는 ID 조각과 단추 셋이
+              있었는데, 셋 다 다른 데서도 할 수 있는 일이라 이 줄을 다
+              먹으면서 정작 「이게 어디 것인가」 는 안 보였다. ID 는 바로
+              아래 Info 첫 줄에 있다. */}
+          <nav className="rqtc-popcrumb" aria-label="자리">
+            {crumb.map((c, i) => (
+              <span key={`${c}-${i}`}>
+                {i > 0 && <i aria-hidden="true">›</i>}
+                {c}
+              </span>
+            ))}
+          </nav>
           <span className="sp" />
-          {onSeeTcs && (
-            <button className="btn small" type="button" onClick={onSeeTcs}>
-              이 요구사항의 시험 보기
+          {/* 앞뒤로 넘기기(지시) — 목록으로 나갔다 다시 들어오지 않아도
+              옆 것을 볼 수 있다. 갈 곳이 없으면 눌리지 않는다. */}
+          <div className="rqtc-popnav">
+            <button
+              type="button"
+              title="이전 요구사항"
+              disabled={!onStep}
+              onClick={() => onStep?.(-1)}
+            >
+              ‹
             </button>
-          )}
-          <button className="btn small primary" type="button" onClick={onEdit}>
-            고치기
-          </button>
-          <button
-            className="btn small"
-            type="button"
-            onClick={() => {
-              goto('req', id)
-              onClose()
-            }}
-          >
-            Requirements 에서 열기
-          </button>
+            <button
+              type="button"
+              title="다음 요구사항"
+              disabled={!onStep}
+              onClick={() => onStep?.(1)}
+            >
+              ›
+            </button>
+          </div>
           <button className="btn small" type="button" onClick={onClose}>
             닫기
           </button>
         </div>
 
-        <ReqBody req={req} tcs={tcs} tab={tab} setTab={setTab} />
+        <ReqBody req={req} tcs={tcs} tab={tab} setTab={setTab} edit={edit} />
       </div>
     </div>
   )
