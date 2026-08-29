@@ -3771,3 +3771,16 @@ html .tc-listview .rq-tr > div.tc-cell-fill.al-center { justify-content: center;
    두 화면이 다른 색을 쓰면 같은 일을 하는데도 매번 다시 배운다. */
 .tc-savebtn.dirty { background: #34d399; border-color: #34d399; color: #06301f; font-weight: 700; }
 .tc-savebtn:disabled { opacity: 0.55; cursor: default; }
+
+/* 실행 로그 칸 — 스텝 상세 오른쪽(지시). 목록 아래에 누워 높이를 나눠
+   가질 때는 둘 다 짧았다. 창을 넓게 쓰면서 오른쪽이 통째로 비었으니
+   거기 세로로 세운다. 안의 로그는 칸을 꽉 채운다. */
+.tc-logcol {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  min-height: 0;
+  overflow: hidden;
+}
+.tc-logcol .rl { flex: 1; min-height: 0; }

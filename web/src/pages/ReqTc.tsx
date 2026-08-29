@@ -5,7 +5,7 @@ import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser } from '@/a
 import EditProjectDialog from '@/components/EditProjectDialog'
 import MoveCatDialog from '@/components/MoveCatDialog'
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
-import { goto, onGoto } from '@/api/goto'
+import { onGoto } from '@/api/goto'
 import { fillOf } from '@/lib/fieldFill'
 import PickCell from '@/components/PickCell'
 import { useCodes } from '@/hooks/useCodes'
@@ -2561,35 +2561,24 @@ export default function ReqTc({ me }: Props) {
           req={pop.kind === 'req' ? reqs.find((x) => reqPk(x) === pop.id) : undefined}
           tcs={pop.kind === 'req' ? (tcOf.get(pop.id) ?? []) : []}
           onClose={() => setPop(null)}
-          onEdit={() => {
-            if (pop.kind === 'req') {
-              const r = reqs.find((x) => reqPk(x) === pop.id)
-              if (r) {
-                setPop(null)
-                setEditReq(r)
-              }
-            } else {
-              const t = tcs.find((x) => x.tcid === pop.id)
-              if (t) {
-                setPop(null)
-                setEditTc(t)
-              }
-            }
-          }}
           /* 이 요구사항이 앉은 자리 — 프로젝트부터 폴더까지. 창 머리줄이
              ID 조각 대신 이걸 낸다(지시). */
-          crumb={
-            pop.kind === 'req'
-              ? (() => {
-                  const r = reqs.find((x) => reqPk(x) === pop.id)
-                  if (!r) return []
-                  return [r.cat1, r.cat2, r.cat3, r.cat4]
-                    .filter(Boolean)
-                    .map((c) => cats.find((x) => x.id === String(c))?.name)
-                    .filter((n): n is string => !!n)
-                })()
-              : undefined
-          }
+          crumb={(() => {
+            /* 시험은 폴더에 직접 안 달리고 **요구사항을 통해** 달린다.
+               그 요구사항의 길이 곧 시험의 길이다. */
+            const r =
+              pop.kind === 'req'
+                ? reqs.find((x) => reqPk(x) === pop.id)
+                : (() => {
+                    const t = tcs.find((x) => x.tcid === pop.id)
+                    return t?.req_id ? reqById.get(String(t.req_id)) : undefined
+                  })()
+            if (!r) return []
+            return [r.cat1, r.cat2, r.cat3, r.cat4]
+              .filter(Boolean)
+              .map((c) => cats.find((x) => x.id === String(c))?.name)
+              .filter((n): n is string => !!n)
+          })()}
           /* 앞뒤 요구사항 — **지금 보고 있는 그 차례**대로 넘긴다(지시).
              걸러 놓고 정렬해 둔 목록이 곧 사람이 보는 차례다. 원래 자료
              순서로 넘기면 화면에 없는 것이 튀어나온다. */
@@ -2748,7 +2737,6 @@ function DetailPop({
   tcs,
   crumb,
   onClose,
-  onEdit,
   onStep,
   edit,
 }: {
@@ -2758,7 +2746,6 @@ function DetailPop({
   tcs: TestCaseMeta[]
   crumb?: string[]
   onClose: () => void
-  onEdit: () => void
   onStep?: (d: -1 | 1) => void
   edit?: {
     status: string
@@ -2793,7 +2780,7 @@ function DetailPop({
      없습니다」** 로 보였다(지적) — 빈 화면이 거짓말을 하는 것이 제일 나쁘다.
      제대로 된 탭(Object·Traffic·Cycle 포함)은 Coverage 의 세부 판을 부품으로
      빼야 나온다. 그때까지는 **읽어서 보여 주는 것**만 정확히 한다. */
-  return <TcPop id={id} onClose={onClose} onEdit={onEdit} />
+  return <TcPop id={id} crumb={crumb ?? []} onClose={onClose} />
 }
 
 /**
@@ -2804,7 +2791,16 @@ function DetailPop({
  * 코드**라 두 자리가 갈릴 수 없다. 베껴 만들면 한쪽만 고치는 날이 온다 —
  * 실제로 옛 부품(TcDetail)을 얹었다가 스텝을 하나도 못 읽어 물렸다.
  */
-function TcPop({ id, onClose }: { id: string; onClose: () => void; onEdit: () => void }) {
+function TcPop({
+  id,
+  crumb,
+  onClose,
+}: {
+  id: string
+  /** 이 시험이 앉은 자리 — 요구사항의 폴더 길이 곧 시험의 길이다 */
+  crumb: string[]
+  onClose: () => void
+}) {
   return (
     <div className="modal-back" onMouseDown={onClose}>
       <div
@@ -2813,21 +2809,21 @@ function TcPop({ id, onClose }: { id: string; onClose: () => void; onEdit: () =>
         aria-modal="true"
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {/* 머리줄은 얇게 — **이름·자리는 안쪽 화면의 빵부스러기가 말한다**
-            (지시: 시험항목 옆 ID 자리를 그걸로 대체). 여기서 또 적으면 같은
-            말이 두 줄이 되고, 정작 어느 폴더의 시험인지는 안 보인다. */}
+        {/* 요구사항 창과 **같은 차림**이다(지시): 무엇인지 · 어디 것인지 · 닫기.
+            두 창이 다르게 서면 같은 화면인데 무엇을 열었느냐에 따라 눈이
+            다른 데를 찾아야 한다. 「Coverage 에서 열기」 는 뺐다 — 이미
+            Coverage 를 통째로 얹어 놓고 또 열라는 것은 말이 안 된다. */}
         <div className="modal-head slim">
+          <b>시험 항목</b>
+          <nav className="rqtc-popcrumb" aria-label="자리">
+            {crumb.map((c, i) => (
+              <span key={`${c}-${i}`}>
+                {i > 0 && <i aria-hidden="true">›</i>}
+                {c}
+              </span>
+            ))}
+          </nav>
           <span className="sp" />
-          <button
-            className="btn small"
-            type="button"
-            onClick={() => {
-              goto('tc', id)
-              onClose()
-            }}
-          >
-            Coverage 에서 열기
-          </button>
           <button className="btn small" type="button" onClick={onClose}>
             닫기
           </button>

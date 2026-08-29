@@ -316,14 +316,9 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
      손잡이를 움직이면 화면 전체가 커졌다 작아졌다 한다). 카드 → 레일 →
      마디 → 두 칸이 한 줄로 이어져 남는 높이를 나눠 갖는다. */
 
-  /* 실행 로그 높이 — 손잡이로 잡는다(지시). 기억해 둔다 */
-  const [logH, setLogH] = useState(() => {
-    const v = Number(localStorage.getItem('utop.tc.logh'))
-    return Number.isFinite(v) && v >= 90 ? v : 200
-  })
-  useEffect(() => {
-    localStorage.setItem('utop.tc.logh', String(logH))
-  }, [logH])
+  /* 실행 로그 **폭** — 스텝 상세 오른쪽에 세로로 선다(지시). 전에는
+     스텝 목록 아래에 누워 높이를 나눠 가졌다. 기억해 둔다 */
+  const [logW, setLogW] = useResizableWidth('tcLogW', 380, 240, 900)
   const logN = useRef(0)
   /** 스텝 띠 색 — 설정 「실행 판정 기준」 이 정본(지시) */
   const resDefs = useResults()
@@ -2302,45 +2297,6 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                       addKinds={(k) => actOf(k).add}
                     />
                   )}
-                  {/* 실행 로그 — 줄 단위로 색이 있는 판(지시: iTest 처럼).
-                      목록 아래에 붙여 두면 도는 것을 곁눈으로 볼 수 있다. */}
-                  {/* 실행 로그는 **늘 보인다**(지시). 돌리기 전에는 「아직
-                      돌리지 않았습니다」 라고 적힌 채 자리를 지킨다 — 나타났다
-                      사라지면 그때마다 목록 높이가 출렁인다. */}
-                  {true && (
-                    <>
-                      {/* 위아래로 잡아 끄는 손잡이 — 목록과 로그의 몫을 나눈다 */}
-                      <div
-                        className="tc-vsplit"
-                        title="위아래로 끌어 로그 높이를 바꿉니다"
-                        onPointerDown={(e) => {
-                          e.preventDefault()
-                          const y0 = e.clientY
-                          const h0 = logH
-                          const el = e.currentTarget
-                          el.setPointerCapture(e.pointerId)
-                          const move = (ev: PointerEvent) => {
-                            const next = Math.max(90, Math.min(760, h0 + (y0 - ev.clientY)))
-                            setLogH(next)
-                          }
-                          const up = () => {
-                            el.removeEventListener('pointermove', move)
-                            el.removeEventListener('pointerup', up)
-                          }
-                          el.addEventListener('pointermove', move)
-                          el.addEventListener('pointerup', up)
-                        }}
-                      />
-                      <RunLog
-                        lines={logs}
-                        only={logOnly}
-                        onOnly={setLogOnly}
-                        onClear={() => setLogs([])}
-                        onPick={(i) => setStepIdx(i)}
-                        height={logH}
-                      />
-                    </>
-                  )}
                   {/* 고른 줄이 있을 때만 뜬다. 목록 **아래**에 둔다 — 위에 두면 띠가
                       나타나는 순간 줄이 통째로 아래로 밀려서, 방금 누른 칸이
                       손 밑에서 달아난다. */}
@@ -2515,6 +2471,28 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                     })()}
                   />
                   )}
+                </section>
+                {/* 실행 로그 — **스텝 상세 오른쪽**으로 옮겼다(지시).
+                    스텝 목록 아래에 있을 때는 목록과 높이를 나눠 가져서
+                    둘 다 짧았다. 창을 넓게 쓰게 되면서 오른쪽이 통째로
+                    비었으니, 거기 세로로 세우면 셋 다 넉넉해진다.
+                    높이를 안 주면 제 칸을 꽉 채운다. */}
+                <Resizer
+                  label="실행 로그 폭 조절"
+                  /* 오른쪽 판이라 폭이 거꾸로다. Resizer 는 `마우스x - 기준`
+                     을 주는데, 여기서는 `기준 - 마우스x` 가 폭이다 — 기준을
+                     오른쪽 끝으로 잡고 부호를 뒤집는다. */
+                  onResize={(w) => setLogW(-w)}
+                  getOrigin={() => splitRef.current?.getBoundingClientRect().right ?? 0}
+                />
+                <section className="panel tc-logcol" style={{ width: logW }}>
+                  <RunLog
+                    lines={logs}
+                    only={logOnly}
+                    onOnly={setLogOnly}
+                    onClear={() => setLogs([])}
+                    onPick={(i) => setStepIdx(i)}
+                  />
                 </section>
               </div>
     ),
