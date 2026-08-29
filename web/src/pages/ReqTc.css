@@ -1039,16 +1039,26 @@
 .rqtc-copyid:hover { border-color: var(--c-primary); background: var(--c-primary-bg); text-decoration: none; }
 
 /* 고른 것 표시 — 메뉴에서 지금 무엇이 켜져 있는지 눌러 보지 않고 안다 */
-.fsort-tick, .tc-menu-tick { font-style: normal; margin-right: 6px; color: var(--c-primary); font-weight: 700; }
+/* 고른 것 표시 — 자리를 늘 비워 둔다. 체크가 있을 때만 자리를 만들면
+   글자가 좌우로 밀려, 무엇이 바뀐 건지 눈이 한 번 더 짚는다. */
+.fsort-tick, .tc-menu-tick {
+  flex: none;
+  width: 14px;
+  font-style: normal;
+  margin-right: 4px;
+  color: var(--c-primary);
+  font-weight: 700;
+}
+/* 고른 줄은 색으로도 말한다 — 체크 하나는 훑을 때 놓치기 쉽다 */
+.fsort-pop button.on, .tc-menu button.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
 /* 표가 없는 줄도 글자가 밀리지 않게 자리를 비워 둔다 */
 .fsort-pop button, .rqtc-side .tc-menu button { display: flex; align-items: center; }
 /* 폴더 ⋯ 메뉴는 **오른쪽으로** 펼친다 — 왼쪽 판이라 왼쪽으로 열면 트리를 덮는다 */
 /* 폴더 ⋯ 메뉴 — 단추 아래, **오른쪽으로** 편다(지시).
    판 밖(left:100%)으로 열면 트리가 잘라 버려 안 보였다. 트리의 잘림을 풀고
    메뉴는 단추 왼쪽에 맞춰 오른쪽으로 흐르게 한다. */
-.rqtc-fmenu .tc-menu { left: 0; right: auto; top: calc(100% + 4px); margin-left: 0; }
-/* 메뉴가 판 밖으로 나가도 잘리지 않게 — 트리는 세로로만 굴린다 */
-.rqtc-tree { overflow-x: visible; }
+/* 자리는 JS 가 화면 좌표로 정한다(ReqTc.tsx) — 여기서는 겹침 순서만 */
+.rqtc-fmenu-pop { z-index: 200; }
 
 /* 1열 찾기 — 머리줄 안, 정렬 왼쪽 */
 .rqtc-sidefind { position: relative; display: inline-flex; align-items: center; flex: 1; min-width: 0; }

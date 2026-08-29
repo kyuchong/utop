@@ -38,6 +38,8 @@ export default function ListSortBtn({
   onChange: (v: ListSortMode) => void
 }) {
   const [open, setOpen] = useState(false)
+  /* 팝업을 **화면 좌표**에 띄운다 — 판 안에 두면 좁은 칸이 잘라 버린다 */
+  const [at, setAt] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const ref = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
@@ -62,12 +64,20 @@ export default function ListSortBtn({
         title={`목록 정렬 — 지금: ${OPTS.find((o) => o[0] === value)?.[1] ?? ''}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={(e) => {
+          const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+          setAt({ x: r.left, y: r.bottom + 4 })
+          setOpen((v) => !v)
+        }}
       >
         <IconSort />
       </button>
       {open && (
-        <div className="fsort-pop" role="menu">
+        <div
+          className="fsort-pop"
+          role="menu"
+          style={{ position: 'fixed', left: at.x, top: at.y, right: 'auto' }}
+        >
           {OPTS.map(([v, label]) => (
             <button
               key={v}
@@ -80,7 +90,7 @@ export default function ListSortBtn({
             >
               {/* 지금 고른 것에 체크 — 눌러 보기 전에는 무엇으로 서 있는지
                   알 수 없었다(지적) */}
-              {value === v && <i className="fsort-tick">✓</i>}
+              <i className="fsort-tick">{value === v ? '✓' : ''}</i>
               {label}
             </button>
           ))}
@@ -106,6 +116,8 @@ export function FolderSortBtn({
   onChange: (v: FolderSortMode) => void
 }) {
   const [open, setOpen] = useState(false)
+  /* 팝업을 **화면 좌표**에 띄운다 — 판 안에 두면 좁은 칸이 잘라 버린다 */
+  const [at, setAt] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   const ref = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
@@ -130,12 +142,20 @@ export function FolderSortBtn({
         title={`폴더 정렬 — 지금: ${FOPTS.find((o) => o[0] === value)?.[1] ?? ''}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={(e) => {
+          const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+          setAt({ x: r.left, y: r.bottom + 4 })
+          setOpen((v) => !v)
+        }}
       >
         <IconSort />
       </button>
       {open && (
-        <div className="fsort-pop" role="menu">
+        <div
+          className="fsort-pop"
+          role="menu"
+          style={{ position: 'fixed', left: at.x, top: at.y, right: 'auto' }}
+        >
           {FOPTS.map(([k, label]) => (
             <button
               key={k}
@@ -146,6 +166,9 @@ export function FolderSortBtn({
                 setOpen(false)
               }}
             >
+              {/* 지금 고른 것에 체크 — 셋 중 무엇인지 눌러 보기 전에는 알 수
+                  없었다(지적). 표가 없는 줄도 자리를 비워 글자가 안 밀린다. */}
+              <i className="fsort-tick">{value === k ? '✓' : ''}</i>
               {label}
             </button>
           ))}

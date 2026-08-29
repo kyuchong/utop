@@ -807,7 +807,12 @@ export default function ReqTc({ me }: Props) {
      동안에는 훅이 하나 적고 다 읽고 나면 하나 늘어, React 가 「훅 개수가
      달라졌다」(#310) 로 화면을 통째로 걷어 냈다 — 로그인하면 백지가 되던
      것이 이것이다. 조건부 반환 뒤에는 어떤 훅도 두지 않는다. */
+  /* 폴더 ⋯ 메뉴 — **화면 좌표에 띄운다.**
+     판 안에 두면 트리가 잘라 버리고, 판 밖으로 밀면 화면 밖으로 나간다.
+     CSS 로 세 번 고쳐도 어느 한쪽이 늘 잘렸다(지적). 단추 자리를 재서
+     그 자리에 고정으로 띄우면 어떤 상자에도 안 걸린다. */
   const [catMenu, setCatMenu] = useState('')
+  const [catMenuAt, setCatMenuAt] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   /* 「하위 폴더」 를 고르면 그 폴더 밑에 **이름 칸이 바로 열린다**(지시·사진).
      창을 띄워 묻지 않는 까닭: 어디에 만드는지가 그 자리에 보여야 한다.
      창은 화면 한가운데 떠서 「어느 폴더 밑이더라」 를 다시 생각하게 한다. */
@@ -956,14 +961,22 @@ export default function ReqTc({ me }: Props) {
                     className="rqtc-fmore"
                     aria-haspopup="menu"
                     aria-expanded={catMenu === c.id}
-                    onClick={() => setCatMenu((v) => (v === c.id ? '' : c.id))}
+                    onClick={(e) => {
+                      const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                      setCatMenuAt({ x: r.left, y: r.bottom + 4 })
+                      setCatMenu((v) => (v === c.id ? '' : c.id))
+                    }}
                   >
                     ⋯
                   </button>
                   {catMenu === c.id && (
                     <>
                       <div className="tc-menu-back" onClick={() => setCatMenu('')} />
-                      <div className="tc-menu rqtc-fmenu-pop" role="menu">
+                      <div
+                        className="tc-menu rqtc-fmenu-pop"
+                        role="menu"
+                        style={{ position: 'fixed', left: catMenuAt.x, top: catMenuAt.y, right: 'auto' }}
+                      >
                         <button
                           type="button"
                           onClick={() => {
@@ -1125,7 +1138,8 @@ export default function ReqTc({ me }: Props) {
               {/* 「＋ New Folder」 를 뺐다(지시) — 폴더는 그 폴더의 ⋯ 에서
                   「Add subfolder」 로 만든다. 어디에 만드는지가 그 자리에
                   보여야 한다. */}
-              <span className="sp" />
+              {/* 남는 여백(sp)도 함께 걷는다 — 그 단추가 있던 자리가 그대로
+                  빈칸으로 남아, 찾기 칸이 오른쪽 끝에 쪼그라들어 있었다(지적). */}
               {/* 찾기 — 정렬 **왼쪽**(지시). 무엇을 볼지 좁히는 일이라
                   차례 정하기보다 앞에 온다. */}
               <span className="rqtc-sidefind">
@@ -1165,7 +1179,7 @@ export default function ReqTc({ me }: Props) {
                           setSideMenu(false)
                         }}
                       >
-                        {!treeReqs && <i className="tc-menu-tick">✓</i>}
+                        <i className="tc-menu-tick">{!treeReqs ? '✓' : ''}</i>
                         폴더만 보기
                       </button>
                       <button
@@ -1176,7 +1190,7 @@ export default function ReqTc({ me }: Props) {
                           setSideMenu(false)
                         }}
                       >
-                        {treeReqs && <i className="tc-menu-tick">✓</i>}
+                        <i className="tc-menu-tick">{treeReqs ? '✓' : ''}</i>
                         폴더 + 요구사항
                       </button>
                     </div>
@@ -1234,7 +1248,14 @@ export default function ReqTc({ me }: Props) {
             {/* 상세를 열면 이 자리에 **목록·저장**이 선다(지시).
                 판 여닫기와 만들기는 목록을 볼 때 쓰는 것이라, 상세에서는
                 자리만 먹는다. 줄 하나가 통째로 준다. */}
-            {openReq || openTc || gpOpen ? (
+            {gpOpen ? (
+              /* 전역 파라미터는 제 화면 안에 「저장됨」 과 닫기를 갖고 있다.
+                 여기 줄까지 두면 같은 말이 두 줄로 나간다(지적) — 돌아가는
+                 길만 남긴다. */
+              <button type="button" className="btn small" onClick={() => setGpOpen(false)}>
+                ← 목록
+              </button>
+            ) : openReq || openTc ? (
               <>
                 <button
                   type="button"
