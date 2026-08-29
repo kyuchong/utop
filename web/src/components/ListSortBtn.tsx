@@ -10,6 +10,15 @@ const OPTS: ReadonlyArray<readonly [ListSortMode, string, string]> = [
   ['recent', '최근', '나중에 고친 것이 위로'],
 ]
 
+/** 1열 폴더 정렬 — 목록 정렬과 **같은 꼴**을 쓴다(지시) */
+export type FolderSortMode = 'name' | 'req' | 'recent'
+
+const FOPTS: ReadonlyArray<readonly [FolderSortMode, string, string]> = [
+  ['name', '이름', '가나다·ABC 차례'],
+  ['req', '요구사항 많은 순', '건수가 많은 폴더가 위로 — 무게가 어디 있는지 보인다'],
+  ['recent', '최근', '나중에 고친 것이 위로'],
+]
+
 /**
  * 목록 정렬 아이콘 — **⚙ 왼쪽**에 선다(지시).
  *
@@ -70,6 +79,72 @@ export default function ListSortBtn({
               }}
             >
               {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </span>
+  )
+}
+
+/**
+ * 1열 폴더 정렬 — 목록 정렬(ListSortBtn)과 **같은 아이콘·같은 팝업**이다.
+ *
+ * 여태 이 자리는 눌러서 두 값을 오가는 토글이었다. 그래서 지금 무엇으로
+ * 서 있는지 눌러 보기 전에는 알 수 없었고, 오른쪽 목록 정렬과 생김새는
+ * 같은데 동작이 달랐다(지적: 오른쪽 것과 똑같이 해 달라). 두 자리가 같은
+ * 문법을 쓰면 한 번 배운 것이 양쪽에서 통한다.
+ */
+export function FolderSortBtn({
+  value,
+  onChange,
+}: {
+  value: FolderSortMode
+  onChange: (v: FolderSortMode) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLSpanElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const away = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
+    window.addEventListener('mousedown', away)
+    window.addEventListener('keydown', esc)
+    return () => {
+      window.removeEventListener('mousedown', away)
+      window.removeEventListener('keydown', esc)
+    }
+  }, [open])
+
+  return (
+    <span className="fsort" ref={ref}>
+      <button
+        type="button"
+        className={`lh-findbtn${open ? ' on' : ''}`}
+        title={`폴더 정렬 — 지금: ${FOPTS.find((o) => o[0] === value)?.[1] ?? ''}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <IconSort />
+      </button>
+      {open && (
+        <div className="fsort-pop" role="menu">
+          {FOPTS.map(([k, label, hint]) => (
+            <button
+              key={k}
+              type="button"
+              className={value === k ? 'on' : ''}
+              onClick={() => {
+                onChange(k)
+                setOpen(false)
+              }}
+            >
+              <b>{label}</b>
+              <span>{hint}</span>
             </button>
           ))}
         </div>

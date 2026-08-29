@@ -9,16 +9,18 @@ import PickCell from '@/components/PickCell'
 import { useCodes } from '@/hooks/useCodes'
 import {
   IconChevron,
-  IconFolder,
   IconGrip,
   IconPanel,
   IconParam,
   IconSearch,
   IconSettings,
-  IconSort,
 } from '@/components/icons'
 import GlobalParams from '@/components/settings/GlobalParams'
-import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
+import ListSortBtn, {
+  FolderSortBtn,
+  type FolderSortMode,
+  type ListSortMode,
+} from '@/components/ListSortBtn'
 import { useInfoCols } from '@/components/useInfoCols'
 import ReqForm from '@/components/ReqForm'
 import ReqBulkForm from '@/components/ReqBulkForm'
@@ -132,7 +134,41 @@ export default function ReqTc({ me }: Props) {
   /** 「이 요구사항의 시험만」 — 요구사항 줄을 눌렀을 때 걸리는 다리 */
   const [reqOnly, setReqOnly] = useState('')
   const [q, setQ] = useState('')
-  const [fsort, setFsort] = useState<'name' | 'req'>('name')
+  /* 폴더 정렬 — 2열 목록 정렬과 **같은 꼴**을 쓴다(지시). 기억해 둔다:
+     한 번 정해 놓고 매번 다시 고르게 하면 그건 설정이 아니라 잔일이다. */
+  const [fsort, setFsort] = useState<FolderSortMode>(() => {
+    try {
+      return (localStorage.getItem('utop.reqtc.fsort') as FolderSortMode) || 'name'
+    } catch {
+      return 'name'
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('utop.reqtc.fsort', fsort)
+    } catch {
+      /* 사생활 보호 모드 */
+    }
+  }, [fsort])
+
+  /* 트리에 요구사항까지 낼지 — 폴더만 볼 때가 기본이다(지시로 고를 수 있게).
+     스무 폴더 밑에 요구사항이 다 펼쳐지면 트리가 목록이 되어, 정작 폴더를
+     짚는 일이 어려워진다. */
+  const [treeReqs, setTreeReqs] = useState(() => {
+    try {
+      return localStorage.getItem('utop.reqtc.treereqs') === '1'
+    } catch {
+      return false
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('utop.reqtc.treereqs', treeReqs ? '1' : '0')
+    } catch {
+      /* 사생활 보호 모드 */
+    }
+  }, [treeReqs])
+  const [sideMenu, setSideMenu] = useState(false)
   /* 하위 폴더는 **늘 함께 본다** — 끄는 손잡이를 없앴다(지시) */
   const deep = true
   const [onlyBare, setOnlyBare] = useState(false)
@@ -748,6 +784,21 @@ export default function ReqTc({ me }: Props) {
      달라졌다」(#310) 로 화면을 통째로 걷어 냈다 — 로그인하면 백지가 되던
      것이 이것이다. 조건부 반환 뒤에는 어떤 훅도 두지 않는다. */
   const [catMenu, setCatMenu] = useState('')
+  /* 「하위 폴더」 를 고르면 그 폴더 밑에 **이름 칸이 바로 열린다**(지시·사진).
+     창을 띄워 묻지 않는 까닭: 어디에 만드는지가 그 자리에 보여야 한다.
+     창은 화면 한가운데 떠서 「어느 폴더 밑이더라」 를 다시 생각하게 한다. */
+  const [newUnder, setNewUnder] = useState('')
+  const [newName, setNewName] = useState('')
+
+  const makeSub = async (parent: string, name: string) => {
+    const nm = name.trim()
+    if (!nm) return
+    await categoryApi.create(nm, parent)
+    setNewUnder('')
+    setNewName('')
+    await catQ.refetch()
+    setOpenCat((o) => new Set([...o, parent]))
+  }
 
   if (reqQ.isLoading || tcQ.isLoading) return <div className="empty">불러오는 중…</div>
   if (reqQ.error) return <div className="load-error">{(reqQ.error as Error).message}</div>
@@ -760,7 +811,16 @@ export default function ReqTc({ me }: Props) {
            있어서, 남겨 두면 늘 (0 / 0) 인 줄이 남아 「비었나, 잘못 골랐나」
            를 헷갈리게 한다. 아래 가지는 이미 그 프로젝트 안이라 안 거른다. */
         .filter((c) => depth > 0 || !prjs.length || prjs.includes(c.id))
-        .sort((a, b) => (fsort === 'name' ? a.name.localeCompare(b.name) : countOf(b.id).r - countOf(a.id).r))
+        .sort((a, b) =>
+          fsort === 'name'
+            ? a.name.localeCompare(b.name)
+            : fsort === 'req'
+              ? countOf(b.id).r - countOf(a.id).r
+              : /* 최근 — 나중에 고친 것이 위로 */
+                String((b as { updated_at?: string }).updated_at ?? '').localeCompare(
+                  String((a as { updated_at?: string }).updated_at ?? ''),
+                ),
+        )
         .map((c) => {
           const kid = kids.get(c.id) ?? []
           const on = openCat.has(c.id)
@@ -833,20 +893,17 @@ export default function ReqTc({ me }: Props) {
                   {catMenu === c.id && (
                     <>
                       <div className="tc-menu-back" onClick={() => setCatMenu('')} />
-                      <div className="tc-menu" role="menu">
+                      <div className="tc-menu rqtc-fmenu-pop" role="menu">
                         <button
                           type="button"
                           onClick={() => {
                             setCatMenu('')
-                            const nm = window.prompt(`「${c.name}」 아래 새 폴더 이름`)?.trim()
-                            if (!nm) return
-                            void categoryApi.create(nm, c.id).then(() => {
-                              void catQ.refetch()
-                              setOpenCat((o) => new Set([...o, c.id]))
-                            })
+                            setNewUnder(c.id)
+                            setNewName('')
+                            setOpenCat((o) => new Set([...o, c.id]))
                           }}
                         >
-                          ＋ 하위 폴더
+                          하위 폴더 추가
                         </button>
                         <button
                           type="button"
@@ -854,37 +911,49 @@ export default function ReqTc({ me }: Props) {
                             setCatMenu('')
                             const nm = window.prompt('폴더 이름', c.name)?.trim()
                             if (!nm || nm === c.name) return
-                            void categoryApi.rename(c.id, nm, c.parent_id ?? null).then(() => void catQ.refetch())
+                            void categoryApi
+                              .rename(c.id, nm, c.parent_id ?? null)
+                              .then(() => void catQ.refetch())
                           }}
                         >
                           이름 바꾸기
                         </button>
+                        <div className="tc-menu-sep" />
+                        {/* 펼치기·접기는 **자손까지**. 한 층만 바꾸면
+                            「눌렀는데 반쯤만 됐다」 로 보인다. */}
                         <button
                           type="button"
                           disabled={!kid.length}
                           onClick={() => {
                             setCatMenu('')
-                            /* 이 폴더 아래 전부 — 펼치기·접기는 자손까지다.
-                               한 층만 바꾸면 「눌렀는데 반쯤만 됐다」 로 보인다 */
                             const all: string[] = []
                             const walk = (id: string) => {
                               all.push(id)
                               for (const k of kids.get(id) ?? []) walk(k.id)
                             }
                             walk(c.id)
-                            setOpenCat((o) => {
-                              const x = new Set(o)
-                              const opening = !on
-                              for (const id of all) {
-                                if (opening) x.add(id)
-                                else x.delete(id)
-                              }
-                              return x
-                            })
+                            setOpenCat((o) => new Set([...o, ...all]))
                           }}
                         >
-                          {on ? '모두 접기' : '모두 펼치기'}
+                          모두 펼치기
                         </button>
+                        <button
+                          type="button"
+                          disabled={!kid.length}
+                          onClick={() => {
+                            setCatMenu('')
+                            const all: string[] = []
+                            const walk = (id: string) => {
+                              all.push(id)
+                              for (const k of kids.get(id) ?? []) walk(k.id)
+                            }
+                            walk(c.id)
+                            setOpenCat((o) => new Set([...o].filter((x) => !all.includes(x))))
+                          }}
+                        >
+                          모두 접기
+                        </button>
+                        <div className="tc-menu-sep" />
                         <button
                           type="button"
                           className="danger"
@@ -907,12 +976,78 @@ export default function ReqTc({ me }: Props) {
                         >
                           삭제
                         </button>
+                        <div className="tc-menu-sep" />
+                        {/* 이 폴더의 시험으로 사이클을 만든다 — 폴더를 고른
+                            채로 사이클 화면에 가면 그 폴더가 이미 걸려 있다 */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCatMenu('')
+                            try {
+                              localStorage.setItem('utop.reqtc.cat', c.id)
+                            } catch {
+                              /* 사생활 보호 모드 */
+                            }
+                            goto('cat', c.id)
+                            window.dispatchEvent(new CustomEvent('utop:newcycle', { detail: { cat: c.id } }))
+                            window.alert(
+                              `「${c.name}」 폴더가 걸린 채로 사이클 화면을 엽니다 — 거기서 새 사이클을 만드세요.`,
+                            )
+                          }}
+                        >
+                          사이클 만들기
+                        </button>
                       </div>
                     </>
                   )}
                 </span>
               </div>
-              {on && <Tree parent={c.id} depth={depth + 1} />}
+              {/* 새 하위 폴더 이름 — **그 폴더 바로 밑**에서 친다(사진).
+                  어디에 만드는지가 눈에 보여야 한다. Enter 로 만들고,
+                  Esc 나 X 로 접는다. */}
+              {newUnder === c.id && (
+                <div className="rqtc-newsub" style={{ paddingLeft: 6 + (depth + 1) * 14 }}>
+                  <input
+                    autoFocus
+                    value={newName}
+                    placeholder="폴더 이름"
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void makeSub(c.id, newName)
+                      if (e.key === 'Escape') setNewUnder('')
+                    }}
+                    onBlur={() => void makeSub(c.id, newName)}
+                  />
+                  <button type="button" title="그만두기" onMouseDown={() => setNewUnder('')}>
+                    ✕
+                  </button>
+                </div>
+              )}
+              {on && (
+                <>
+                  <Tree parent={c.id} depth={depth + 1} />
+                  {/* 이 폴더에 바로 달린 요구사항 — 「폴더 + 요구사항」 일 때만.
+                      누르면 그 요구사항 하나로 좁혀 본다. */}
+                  {treeReqs &&
+                    reqs
+                      .filter((r) => catOf(r) === c.id)
+                      .map((r) => (
+                        <div
+                          key={reqPk(r)}
+                          className={`rqtc-fold rqtc-treq${reqOnly === reqPk(r) ? ' on' : ''}`}
+                          style={{ paddingLeft: 6 + (depth + 1) * 14 }}
+                          onClick={() => setReqOnly(reqPk(r))}
+                          title={`${reqLabel(r)} ${r.title ?? ''}`}
+                        >
+                          <span className="rqtc-caret" />
+                          <span className="rqtc-fico" aria-hidden="true">
+                            📄
+                          </span>
+                          <span className="rqtc-fnm">{r.title || reqLabel(r)}</span>
+                        </div>
+                      ))}
+                </>
+              )}
             </div>
           )
         })}
@@ -959,17 +1094,48 @@ export default function ReqTc({ me }: Props) {
                 ＋ New Folder
               </button>
               <span className="sp" />
-              <button
-                type="button"
-                className={`rqtc-ib${fsort === 'req' ? ' on' : ''}`}
-                title={fsort === 'name' ? '이름순 (눌러서 요구사항 많은 순)' : '요구사항 많은 순 (눌러서 이름순)'}
-                onClick={() => setFsort((v) => (v === 'name' ? 'req' : 'name'))}
-              >
-                <IconSort />
-              </button>
-              <button type="button" className="rqtc-ib" title="더 보기">
-                ⋯
-              </button>
+              <FolderSortBtn value={fsort} onChange={setFsort} />
+              {/* ⋯ — 여태 아무 일도 안 하는 단추였다(지적). 트리에 무엇까지
+                  낼지를 여기서 고른다. 2열 ⋯ 와 같은 색·같은 꼴이다. */}
+              <span className="rqtc-more">
+                <button
+                  type="button"
+                  className={`rqtc-ib${sideMenu ? ' on' : ''}`}
+                  aria-haspopup="menu"
+                  aria-expanded={sideMenu}
+                  title="트리에 무엇까지 낼지"
+                  onClick={() => setSideMenu((v) => !v)}
+                >
+                  ⋯
+                </button>
+                {sideMenu && (
+                  <>
+                    <div className="tc-menu-back" onClick={() => setSideMenu(false)} />
+                    <div className="tc-menu" role="menu">
+                      <button
+                        type="button"
+                        className={!treeReqs ? 'on' : ''}
+                        onClick={() => {
+                          setTreeReqs(false)
+                          setSideMenu(false)
+                        }}
+                      >
+                        폴더만 보기
+                      </button>
+                      <button
+                        type="button"
+                        className={treeReqs ? 'on' : ''}
+                        onClick={() => {
+                          setTreeReqs(true)
+                          setSideMenu(false)
+                        }}
+                      >
+                        폴더 + 요구사항
+                      </button>
+                    </div>
+                  </>
+                )}
+              </span>
               <button
                 type="button"
                 className={`rqtc-ib${gpOpen ? ' on' : ''}`}
@@ -1112,11 +1278,14 @@ export default function ReqTc({ me }: Props) {
                       말하고, 되돌아가려면 첫 칸 「Coverage」 를 누른다. */}
                   {/* 뿌리 칸(「Coverage」)은 뺐다(지적) — 그런 화면이 이제
                       없다. 자리는 폴더에서 시작한다. */}
-                  {tcCrumb.folders.map((c) => (
+                  {tcCrumb.folders.map((c, i) => (
                     <span className="rqtc-crumbi" key={c.id}>
                       <i className="rqtc-sep">/</i>
+                      {/* 1열 트리와 **같은 그림**을 쓴다(지시) — 맨 앞은
+                          프로젝트(집), 그 아래는 폴더. 같은 자리를 가리키는데
+                          그림이 다르면 같은 것인 줄 모른다. */}
                       <span className="rqtc-cfico" aria-hidden="true">
-                        <IconFolder />
+                        {i === 0 ? '🏠' : '📁'}
                       </span>
                       <button
                         type="button"
@@ -1159,11 +1328,14 @@ export default function ReqTc({ me }: Props) {
                       Requirements
                     </button>
                   </span>
-                  {reqCrumb.folders.map((c) => (
+                  {reqCrumb.folders.map((c, i) => (
                     <span className="rqtc-crumbi" key={c.id}>
                       <i className="rqtc-sep">/</i>
+                      {/* 1열 트리와 **같은 그림**을 쓴다(지시) — 맨 앞은
+                          프로젝트(집), 그 아래는 폴더. 같은 자리를 가리키는데
+                          그림이 다르면 같은 것인 줄 모른다. */}
                       <span className="rqtc-cfico" aria-hidden="true">
-                        <IconFolder />
+                        {i === 0 ? '🏠' : '📁'}
                       </span>
                       <button
                         type="button"
@@ -1189,7 +1361,7 @@ export default function ReqTc({ me }: Props) {
                     {i > 0 && <i className="rqtc-sep">/</i>}
                     {/* 폴더 그림 — 「이건 폴더다」 를 글자 앞에서 말한다 */}
                     <span className="rqtc-cfico" aria-hidden="true">
-                      <IconFolder open={i === crumb.length - 1} />
+                      {i === 0 ? '🏠' : '📁'}
                     </span>
                     <button
                       type="button"
