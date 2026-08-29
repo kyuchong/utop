@@ -1,0 +1,126 @@
+/* 사이클 결과 요약 카드 — 접두어 cyl- (전 CSS 에서 빈 것 확인).
+   판정 색은 .split.cy 가 설정(실행 판정 기준)에서 풀어 둔 CSS 변수를
+   물려받는다 — 여기서 색을 새로 정하면 표의 바와 카드의 도넛이 다른
+   색으로 같은 것을 말하게 된다. */
+.cyl {
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr) 300px;
+  margin-bottom: 8px;
+  flex: none;
+}
+.cyl-col { padding: 12px 16px; min-width: 0; }
+.cyl-col + .cyl-col { border-left: 1px solid var(--c-border); }
+.cyl-col h3 {
+  margin: 0 0 10px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--c-text-soft, #52616b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cyl-col h3 b { color: var(--c-text); font-family: var(--font-mono); font-size: 12px; }
+
+/* ── 도넛 ── */
+.cyl-donutbox { display: flex; align-items: center; gap: 16px; }
+.cyl-donut { width: 116px; height: 116px; flex: none; }
+.cyl-donut path { fill: none; stroke-width: 14; }
+.cyl-donut .p { stroke: var(--c-pass, #2e9e63); }
+.cyl-donut .f { stroke: var(--c-fail, #d64545); }
+.cyl-donut .o { stroke: var(--c-blocked, #e8a13c); }
+.cyl-donut .n { stroke: var(--c-none, #d7dee3); }
+.cyl-dpct { font-size: 21px; font-weight: 800; fill: var(--c-text); }
+.cyl-dlab { font-size: 9px; fill: var(--c-text-faint, #8a99a3); letter-spacing: 1px; }
+.cyl-legend { display: flex; flex-direction: column; gap: 5px; font-size: var(--fs-sm); }
+.cyl-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 6px;
+}
+.cyl-legend .p { background: var(--c-pass, #2e9e63); }
+.cyl-legend .f { background: var(--c-fail, #d64545); }
+.cyl-legend .o { background: var(--c-blocked, #e8a13c); }
+.cyl-legend .n { background: var(--c-none, #d7dee3); }
+.cyl-legend b { margin-left: 2px; }
+
+/* ── 진행바 + 셈 + 트렌드 ── */
+.cyl-segbar {
+  display: flex;
+  height: 14px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--c-none, #d7dee3);
+  margin: 2px 0 4px;
+}
+.cyl-segbar i { min-width: 0; }
+.cyl-segbar .p { background: var(--c-pass, #2e9e63); }
+.cyl-segbar .f { background: var(--c-fail, #d64545); }
+.cyl-segbar .o { background: var(--c-blocked, #e8a13c); }
+.cyl-segbar .n { background: transparent; }
+.cyl-segtxt { font-size: var(--fs-xs, 11px); color: var(--c-text-faint, #8a99a3); }
+.cyl-kv { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+.cyl-kv > div {
+  background: var(--c-surface-alt, #f6f9fa);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  text-align: center;
+}
+.cyl-kv b { display: block; font-size: 16px; }
+.cyl-kv b.bad { color: var(--c-fail, #d64545); }
+.cyl-kv span { font-size: var(--fs-xs, 11px); color: var(--c-text-faint, #8a99a3); }
+.cyl-trend { width: 100%; height: 56px; margin-top: 10px; }
+.cyl-trend polyline { fill: none; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.cyl-trend .p { stroke: var(--c-pass, #2e9e63); }
+.cyl-trend .f { stroke: var(--c-fail, #d64545); }
+.cyl-notrend {
+  margin-top: 12px;
+  font-size: var(--fs-xs, 11px);
+  color: var(--c-text-faint, #8a99a3);
+}
+
+/* ── 오른쪽 — 자리와 단추 ── */
+.cyl-sidehead { display: flex; align-items: flex-start; }
+.cyl-sidehead h3 { flex: 1; }
+.cyl-x {
+  border: 0;
+  background: transparent;
+  color: var(--c-text-faint, #8a99a3);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.cyl-x:hover { color: var(--c-text); }
+.cyl-meta { font-size: var(--fs-sm); color: var(--c-text-soft, #52616b); line-height: 1.9; }
+.cyl-meta b { color: var(--c-text); }
+.cyl-btns { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.cyl-btns .btn { text-align: left; font-weight: 700; }
+.cyl-teal {
+  background: var(--c-sel-teal, #a8d3dd) !important;
+  border-color: var(--c-sel-teal, #a8d3dd) !important;
+  color: var(--c-sel-teal-ink, #0d4451) !important;
+}
+
+/* 좁은 화면 — 세 칸이 안 들어가면 세로로 쌓는다 */
+@media (max-width: 1100px) {
+  .cyl { grid-template-columns: 1fr; }
+  .cyl-col + .cyl-col { border-left: 0; border-top: 1px solid var(--c-border); }
+}
+
+/* ── 결과 메일 창 ── */
+.modal.cyl-mail { max-width: 640px; }
+.cyl-mailprev {
+  width: 100%;
+  height: 300px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  background: #fff;
+}
+.cyl-mailmsg {
+  padding: 8px 11px;
+  border-radius: 8px;
+  background: var(--c-surface-alt, #f6f9fa);
+  font-size: var(--fs-sm);
+}

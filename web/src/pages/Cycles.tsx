@@ -6,7 +6,6 @@ import { useCodes } from '@/hooks/useCodes'
 import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import ListHead from '@/components/ListHead'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { goto, onGoto, reflectUrl, gotoHref } from '@/api/goto'
 import CycleEdit from '@/components/cycle/CycleEdit'
@@ -14,6 +13,7 @@ import CycleReport from '@/components/cycle/CycleReport'
 import StepCards from '@/components/cycle/StepCards'
 import CycleItemEdit from '@/components/cycle/CycleItemEdit'
 import CycleInsight from '@/components/cycle/CycleInsight'
+import CycleSummary from '@/components/cycle/CycleSummary'
 import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import { useMultiSelect } from '@/components/useMultiSelect'
@@ -21,16 +21,12 @@ import PresenceBar from '@/components/PresenceBar'
 import { usePageCrowd } from '@/components/usePageCrowd'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
-import FolderSortBtn from '@/components/FolderSortBtn'
 import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
-import type { FolderSortMode } from '@/types'
 import { sendWs } from '@/api/wsBus'
 import {
   IconChevron,
   IconEdit,
   IconExecution,
-  IconFolder,
-  IconPanel,
   IconAccounts,
   IconClock,
   IconHand,
@@ -345,35 +341,10 @@ interface CatModel {
   vendor?: string | null
 }
 
-interface Node {
-  key: string
-  label: string
-  depth: number
-  children: Node[]
-  /** 잎이면 사이클 하나 (트리가 버전그룹까지만이라 이제 안 만든다) */
-  cycle?: CycleMeta
-  /** 이 폴더(버전그룹)에 바로 담긴 사이클들 — 오른쪽 표가 그린다 */
-  cycles?: CycleMeta[]
-  /** 가지가 품은 사이클 수 */
-  count: number
-  /** 사이클이 아직 없는 빈 폴더인가 */
-  empty?: boolean
-  /** 폴더 종류 — 버전그룹만 사람이 만든 것이라 지울 수 있다 */
-  kind?: 'family' | 'mgroup' | 'model' | 'vgroup' | 'free'
-  /** 버전그룹 폴더가 매달린 모델·그룹 이름 (폴더를 지울 때 KV 에서 뺀다) */
-  model?: string
-  vgroup?: string
-}
 
-/** 이 가지 아래의 사이클 전부 */
-function cyclesUnder(n: Node): CycleMeta[] {
-  if (n.cycle) return [n.cycle]
-  return [...(n.cycles ?? []), ...n.children.flatMap(cyclesUnder)]
-}
 
 /** 보던 자리를 기억한다 — 화면 이름은 App 이, 그 안은 여기가 */
 const CY_SEL_KEY = 'utop.cycle.sel'
-const CY_OPEN_KEY = 'utop.cycle.open'
 
 const NO_CAT = '(카탈로그에 없는 모델)'
 const NO_GROUP = '(버전그룹 없음)'
@@ -429,77 +400,7 @@ function pathOfCycle(
   return `${ROOT}/${cust}/${fam}/${mg}/${model}/${vg}`
 }
 
-/**
- * 트리를 세운다 — **자유 폴더**.
- *
- * 폴더는 카탈로그와 상관없는 그냥 폴더다(KV 에 경로 목록). 사이클은
- * 자기 folder 경로에 붙고, 경로가 없는 옛 사이클은 모델·버전그룹에서
- * 파생한 자리에 붙는다 — 이관 없이 섞여 산다.
- */
-/** 폴더 정렬 열쇠 — 숫자 앞자리는 자릿수를 맞춘다(2 가 11 뒤로 가는 것을 막는다) */
-function sortKey(mode: FolderSortMode, label: string): string {
-  if (mode === 'num') {
-    const m = /^(\d+)/.exec(label.trim())
-    return m ? String(m[1]).padStart(8, '0') + label : '\uffff' + label
-  }
-  return label
-}
 
-function build(
-  cycles: CycleMeta[],
-  freeFolders: string[],
-  famOf: Map<string, string>,
-  mgroupOf: Map<string, string>,
-  sortMode: FolderSortMode = 'kor',
-): Node[] {
-  interface T { node: Node; kids: Map<string, T> }
-  const root: T = {
-    node: { key: '', label: '', depth: -1, count: 0, children: [] },
-    kids: new Map(),
-  }
-  const ensure = (path: string): T => {
-    let cur = root
-    const parts = path.split('/').filter(Boolean)
-    parts.forEach((name, d) => {
-      let t = cur.kids.get(name)
-      if (!t) {
-        const key = parts.slice(0, d + 1).join('/')
-        t = {
-          node: { key, label: name, depth: d, count: 0, children: [], kind: 'free' },
-          kids: new Map(),
-        }
-        cur.kids.set(name, t)
-      }
-      cur = t
-    })
-    return cur
-  }
-
-  // 맨 위 한 자리는 사이클이 없어도 늘 있다 — 트리가 통째로 비면 어디를
-  // 눌러야 할지 알 수 없다.
-  ensure(ROOT)
-  for (const path of freeFolders) if (path.trim()) ensure(`${ROOT}/${path.trim()}`)
-  // 트리는 버전그룹(폴더)까지만 — 사이클은 잎이 아니라 폴더에 담긴다.
-  // 오른쪽 표가 그 버전들을 그린다.
-  for (const c of cycles) {
-    const t = ensure(pathOfCycle(c, famOf, mgroupOf))
-    t.node.cycles = [...(t.node.cycles ?? []), c]
-  }
-
-  const srt = (a: string, b: string) =>
-    sortKey(sortMode, a).localeCompare(sortKey(sortMode, b), sortMode === 'kor' ? 'ko' : 'en')
-  const finish = (t: T): Node => {
-    const folders = [...t.kids.values()]
-      .sort((a, b) => srt(a.node.label, b.node.label))
-      .map(finish)
-    t.node.children = folders
-    t.node.count =
-      folders.reduce((a, n) => a + n.count, 0) + (t.node.cycles?.length ?? 0)
-    t.node.empty = t.node.count === 0
-    return t.node
-  }
-  return [...root.kids.values()].sort((a, b) => srt(a.node.label, b.node.label)).map(finish)
-}
 
 interface PageProps {
   me?: { username?: string; name?: string } | null
@@ -513,17 +414,6 @@ export default function Cycles({ me }: PageProps) {
    * 새로고침하면 트리가 통째로 접히고 「왼쪽에서 사이클을 고르세요」 로
    * 튕겨서, 64건짜리를 보다가 매번 다시 찾아 들어가야 했다.
    */
-  const [open, setOpen] = useState<Set<string>>(() => {
-    try {
-      const v = JSON.parse(localStorage.getItem(CY_OPEN_KEY) || '[]') as string[]
-      return new Set(Array.isArray(v) ? v : [])
-    } catch {
-      return new Set()
-    }
-  })
-  useEffect(() => {
-    localStorage.setItem(CY_OPEN_KEY, JSON.stringify([...open]))
-  }, [open])
   const qc = useQueryClient()
   const [making, setMaking] = useState(false)
   /** 우클릭 메뉴 — 어느 사이클 위에서, 화면 어디에 */
@@ -542,26 +432,12 @@ export default function Cycles({ me }: PageProps) {
   const resDefs = useResults()
 
   /** 폴더 우클릭 메뉴 — 폴더째 지우거나, 그 안 사이클을 한꺼번에 지운다 */
-  const [folderMenu, setFolderMenu] = useState<{ node: Node; x: number; y: number } | null>(null)
   /** 고칠 사이클 */
   const [editId, setEditId] = useState('')
   /** 말로 찾은 결과 — 만들기 창에 미리 채워 넣는다 */
   const [ask, setAsk] = useState<{ model: string; tcs: Array<{ tcid: string; name?: string | null; req_id?: string | null }> } | null>(null)
-  /**
-   * 1열을 접어 뒀나 — TC 화면과 같은 규칙.
-   *
-   * 64건짜리 사이클의 항목과 스텝을 들여다볼 때는 트리가 자리만 먹는다.
-   */
-  const [treeOpen, setTreeOpen] = useState(
-    () => localStorage.getItem('utop.cycle.treeOpen') !== '0',
-  )
-  /** 1열 폭 — 끌어서 바꾼다. TC 화면과 같은 부품을 쓴다 */
+  /** 판정색 CSS 변수를 거는 큰 상자 */
   const splitRef = useRef<HTMLDivElement>(null)
-  const [treeW, setTreeW] = useResizableWidth('utop.cycle.treeW', 250, 170, 460)
-  useEffect(() => {
-    localStorage.setItem('utop.cycle.treeOpen', treeOpen ? '1' : '0')
-  }, [treeOpen])
-
   /** 실행 화면은 Run·제목·딥링크로만 들어간다 — localStorage 복원은
       목록에서 새로고침해도 실행 화면으로 끌려가는 사고를 냈다 */
   const [sel, setSel] = useState(
@@ -575,26 +451,13 @@ export default function Cycles({ me }: PageProps) {
   const [pendingIt] = useState(
     () => new URLSearchParams(window.location.search).get('it') || '',
   )
-  /** 트리에서 폴더를 골랐으면 관제판을 그 묶음으로 좁힌다.
-      key 를 저장해 새로고침해도 같은 폴더로 돌아온다 */
-  const [scope, setScope] = useState<{ key: string; label: string; ids: Set<string> } | null>(null)
   // 고르면 주소창에 남긴다 — 옛 화면의 #cycle=… 과 같은 일
   // 링크·뒤로가기로 온 채 다른 사이클을 가리키면 갈아탄다
   useEffect(() => {
     localStorage.setItem(CY_SEL_KEY, sel)
   }, [sel])
-  const [q, setQ] = useState('')
   /** 이 화면(사이클 묶음)에 들어와 있는 사람들 — 상단 오른쪽 표시 몫 */
   const crowd = usePageCrowd('cycle')
-  /** 폴더 정렬 — 요구사항·시험항목과 **같은 아이콘·같은 네 가지**(지시) */
-  const [folderSort, setFolderSort] = useState<FolderSortMode>(() => {
-    const v = localStorage.getItem('utop.cycle.foldersort')
-    return v === 'num' || v === 'abc' || v === 'kor' || v === 'manual' ? v : 'kor'
-  })
-  useEffect(() => {
-    localStorage.setItem('utop.cycle.foldersort', folderSort)
-  }, [folderSort])
-
   /** 복제 대화상자가 열린 사이클 id — 비면 닫힘 */
   const [cloneId, setCloneId] = useState('')
 
@@ -618,16 +481,17 @@ export default function Cycles({ me }: PageProps) {
   /**
    * 지금 도는 실행 — 사이클을 안 열어 봐도 알아야 한다.
    *
-   * 실행이 서버에서 도니 내 창에서 시작한 것이 아닐 수 있다. 트리에
+   * 실행이 서버에서 도니 내 창에서 시작한 것이 아닐 수 있다. 목록에
    * 표시가 없으면 남이 돌리는 사이클을 열어서 또 걸게 된다 — 그러면
-   * 「이미 돌고 있습니다」 로 막히고 나서야 안다.
+   * 「이미 돌고 있습니다」 로 막히고 나서야 안다. (트리를 걷어내며 함께
+   * 지웠다가, 검증에서 이 회귀가 잡혀 표의 「진행」 칸으로 되살렸다.)
    */
   const runsQ = useQuery({
-    queryKey: ['runs', 'active'],
+    queryKey: ['runs-active'],
     queryFn: async () => {
       const r = await apiFetch('/api/runs?active=1')
-      if (!r.ok) throw new Error('실행을 불러오지 못했습니다')
-      return (await r.json()) as { runs: { cycle_id: string; started_by?: string | null }[] }
+      if (!r.ok) return { runs: [] as Array<{ cycle_id: string; started_by?: string }> }
+      return (await r.json()) as { runs: Array<{ cycle_id: string; started_by?: string }> }
     },
     // WebSocket 이 알려 주지만, 놓쳤을 때를 대비해 가끔 물어본다
     refetchInterval: 30_000,
@@ -657,25 +521,6 @@ export default function Cycles({ me }: PageProps) {
     },
     staleTime: 60_000,
   })
-
-  /** 자유 폴더 경로 목록 — 카탈로그와 무관한 그냥 폴더 (KV) */
-  const fQ = useQuery({
-    queryKey: ['cycle-free-folders'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/cycle-folders')
-      if (!r.ok) return { folders: [] as string[] }
-      const j = (await r.json()) as { folders?: string[] }
-      return { folders: Array.isArray(j.folders) ? j.folders.filter((x) => typeof x === 'string') : [] }
-    },
-  })
-  const freeFolders = useMemo(() => fQ.data?.folders ?? [], [fQ.data])
-  const saveFolders = async (next: string[]) => {
-    await apiFetch('/api/cycle-folders', {
-      method: 'POST',
-      body: JSON.stringify({ folders: [...new Set(next)] }),
-    })
-    await fQ.refetch()
-  }
 
   // 버전그룹만 사람이 만드는 폴더. 사이클이 아직 없는 것도 보여야 한다
   const vgQ = useQuery({
@@ -725,16 +570,6 @@ export default function Cycles({ me }: PageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cycles, sel])
 
-  const shown = useMemo(() => {
-    const n = q.trim().toLowerCase()
-    if (!n) return cycles
-    return cycles.filter((c) =>
-      [c.name, c.model, c.version, c.model_group, c.version_group, c.customer]
-        .filter(Boolean)
-        .some((x) => String(x).toLowerCase().includes(n)),
-    )
-  }, [cycles, q])
-
   /**
    * 계측기(IXIA·Spirent…)는 사이클 트리에서 뺀다 — 사이클은 유비쿼스
    * 장비를 검증하는 것이고, 계측기는 시험 도구지 시험 대상이 아니다.
@@ -760,10 +595,6 @@ export default function Cycles({ me }: PageProps) {
   const mgroupOf = useMemo(
     () => new Map(models.map((m) => [m.name, (m.model_group ?? '').trim()])),
     [models],
-  )
-  const tree = useMemo(
-    () => build(shown, freeFolders, famOf, mgroupOf, folderSort),
-    [shown, freeFolders, famOf, mgroupOf, folderSort],
   )
   const cur = cycles.find((c) => c.id === sel)
   /*
@@ -862,362 +693,10 @@ export default function Cycles({ me }: PageProps) {
 
   /** 고른 폴더 아래 사이클 — id 스냅샷이 아니라 경로로 거른다.
       스냅샷이면 복제·새로 만든 것이 그 폴더 화면에 안 보인다(겪었다) */
-  const scopedCycles = useMemo(() => {
-    if (!scope) return cycles
-    return cycles.filter((c) => {
-      const p2 = pathOfCycle(c, famOf, mgroupOf)
-      return p2 === scope.key || p2.startsWith(scope.key + '/')
-    })
-  }, [cycles, scope, famOf, mgroupOf])
 
-  /** 고른 폴더가 회차를 **직접** 담고 있나 — 담고 있으면 버전그룹이다.
-      2열이 「버전 목록」이냐 「버전별 요약」이냐를 이걸로 가른다(지시). */
-  const scopeHasCycles = useMemo(() => {
-    if (!scope) return false
-    const walk = (ns: Node[]): boolean => {
-      for (const n of ns) {
-        if (n.key === scope.key) {
-          /*
-           * 회차를 **담을 수 있는 자리**면 목록을 보여 준다.
-           *
-           * 여태 「지금 든 회차가 있는가」 로만 봐서, 빈 버전그룹을 고르면
-           * 「아직 회차가 없습니다」 한 줄만 나오고 만드는 단추조차 없었다
-           * (지적: 표 리스트라도 나와야 사이클을 추가하지). 아래에 폴더가
-           * 없는 잎이면 그 자리가 곧 버전그룹이다.
-           */
-          return (n.cycles?.length ?? 0) > 0 || (n.children?.length ?? 0) === 0
-        }
-        if (scope.key.startsWith(n.key + '/') && walk(n.children)) return true
-      }
-      return false
-    }
-    return walk(tree)
-  }, [scope, tree])
-
-  // 새로고침 복원 — 저장해 둔 폴더(scope)로 돌아온다. 한 번만 시도한다
-  const scopeRestored = useRef(false)
-  useEffect(() => {
-    if (scopeRestored.current || scope || !tree.length) return
-    const want = localStorage.getItem('utop.cycle.scope') || ''
-    scopeRestored.current = true
-    if (!want) return
-    const findNode = (ns: Node[]): Node | null => {
-      for (const n of ns) {
-        if (n.key === want) return n
-        const hit = findNode(n.children)
-        if (hit) return hit
-      }
-      return null
-    }
-    const node = findNode(tree)
-    if (!node) return
-    // 조상 폴더도 펼쳐 둔다 — 어디를 보고 있는지 트리에서도 보이게
-    setOpen((x) => {
-      const n2 = new Set(x)
-      const parts = want.split('/')
-      for (let i = 1; i <= parts.length; i++) n2.add(parts.slice(0, i).join('/'))
-      return n2
-    })
-    setScope({ key: node.key, label: node.label, ids: new Set(cyclesUnder(node).map((c) => c.id)) })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tree, scope])
-
-  const toggle = (k: string) =>
-    setOpen((s) => {
-      const n = new Set(s)
-      if (n.has(k)) n.delete(k)
-      else n.add(k)
-      return n
-    })
-
-  /** 이 폴더(가지) 아래 사이클 id 를 모두 모은다 — 한꺼번에 지우려고 */
-  const cycleIdsUnder = (n: Node): string[] => [
-    // 트리는 사이클을 **폴더의 `cycles` 배열**에 담는다(개수도 여기서 센다).
-    // 여태 여기만 옛 `cycle`(단수)를 봐서, 삭제가 대상을 하나도 못 찾고
-    // 조용히 지나갔다(지적: 삭제가 안 된다). 개수는 1인데 지울 게 0이었다.
-    ...(n.cycle ? [n.cycle.id] : []),
-    ...(n.cycles ?? []).map((c) => c.id),
-    ...n.children.flatMap(cycleIdsUnder),
-  ]
-
-  /** 사이클 여러 개를 한꺼번에 지운다 */
-  const deleteCycles = async (ids: string[]): Promise<boolean> => {
-    let ok = true
-    for (const id of ids) {
-      try {
-        const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`, { method: 'DELETE' })
-        if (!r.ok) ok = false
-      } catch {
-        ok = false
-      }
-    }
-    if (sel && ids.includes(sel)) setSel('')
-    await listQ.refetch()
-    return ok
-  }
 
   /** 폴더 아래 사이클을 모두 지운다(폴더 자체는 둔다) */
-  /**
-   * 요구사항 트리와 같은 문법 — 창(prompt)이 아니라 **그 자리 입력칸**.
-   * addingTo: 부모 키(''=최상위) / undefined=닫힘. renaming: 고치는 중인 키.
-   */
-  const [addingTo, setAddingTo] = useState<string | undefined>(undefined)
-  const [draftName, setDraftName] = useState('')
-  const [renaming, setRenaming] = useState<string | null>(null)
-  const [renameText, setRenameText] = useState('')
 
-  /** 하위 폴더 추가 — 그냥 경로 하나 늘리는 일이다. 카탈로그 안 건드린다 */
-  const addFolder = async (parent: string, name: string) => {
-    name = name.trim()
-    if (!name) return
-    if (name.includes('/')) {
-      window.alert('폴더 이름에는 / 를 쓸 수 없습니다')
-      return
-    }
-    // 열쇠는 Root 아래로, 저장(KV)은 Root 를 뗀 경로로
-    const path = parent ? `${parent}/${name}` : `${ROOT}/${name}`
-    const stored = bareKey(path)
-    if (stored.split('/').length > 6) {
-      window.alert('폴더는 (Root 아래로) 6층까지만 됩니다')
-      return
-    }
-    setAddingTo(undefined)
-    setDraftName('')
-    await saveFolders([...freeFolders, stored])
-    if (parent) setOpen((x) => new Set(x).add(parent))
-  }
-
-  /** 이름 변경 — 하위 경로와 그 안 사이클까지 같이 옮긴다 */
-  const renameFolder = async (n: Node, name: string) => {
-    setRenaming(null)
-    name = name.trim()
-    if (!name || name === n.label || name.includes('/')) return
-    const parts = n.key.split('/')
-    const next = [...parts.slice(0, -1), name].join('/')
-    const from = bareKey(n.key)
-    const to = bareKey(next)
-    const moved = freeFolders.map((p) =>
-      p === from || p.startsWith(from + '/') ? to + p.slice(from.length) : p,
-    )
-    // 이 폴더 밑 사이클들도 새 경로를 갖는다 — 통째로 읽어 통째로 저장
-    // (요약본 되저장은 실행 결과를 지운다)
-    for (const c of cyclesUnder(n)) {
-      const r = await apiFetch(`/api/cycle/${encodeURIComponent(c.id)}`)
-      if (!r.ok) continue
-      const full = (await r.json()) as Record<string, unknown>
-      const eff = pathOfCycle(c, famOf, mgroupOf)
-      await apiFetch(`/api/cycle/${encodeURIComponent(c.id)}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          ...full,
-          id: c.id,
-          folder: bareKey(next + eff.slice(n.key.length)),
-        }),
-      })
-    }
-    await Promise.all([saveFolders(moved), listQ.refetch()])
-  }
-
-  /** 삭제 — 사이클이 없을 때만. 하위 폴더는 같이 사라진다 */
-  const removeFolder = async (n: Node) => {
-    if (n.count > 0) {
-      window.alert('이 폴더에 사이클이 있습니다 — 사이클을 먼저 정리하거나 옮기세요')
-      return
-    }
-    if (!window.confirm(`「${n.label}」 폴더를 지웁니다.` + (n.children.length ? '\n하위 폴더도 함께 사라집니다.' : ''))) return
-    const gone = bareKey(n.key)
-    await saveFolders(freeFolders.filter((p) => p !== gone && !p.startsWith(gone + '/')))
-  }
-
-  const deleteFolderCycles = async (n: Node) => {
-    const ids = cycleIdsUnder(n)
-    if (!ids.length) return
-    if (!window.confirm(`「${n.label}」 아래 사이클 ${ids.length}건을 지웁니다.\n각 회차의 실행 결과도 함께 사라집니다.`)) return
-    const ok = await deleteCycles(ids)
-    if (!ok) window.alert('일부를 지우지 못했습니다.')
-  }
-
-
-
-
-  const renderNode = (n: Node): React.ReactNode => {
-    const isOpen = open.has(n.key) || !!q.trim()
-    const leaf = n.children.length === 0
-    return (
-      <div key={n.key}>
-        <div
-          className={`${n.cycle ? 'rt-req' : 'rt-fold'} cy-node${
-            n.cycle?.id === sel ? ' on' : ''
-          }${!n.cycle && n.depth === 0 ? ' rt-top' : ''}`}
-          role="button"
-          tabIndex={0}
-          style={{ paddingLeft: 6 + (n.depth + 1) * 14 }}
-          onClick={() => {
-            if (n.cycle) {
-              setSel(n.cycle.id)
-              return
-            }
-            // 폴더 클릭은 **고르기**다 — 오른쪽에 그 묶음의 버전별 요약판.
-            // 접고 펴는 것은 화살표 단추 몫이라 여기서는 펼치기만 한다.
-            // 클릭할 때마다 접혔다 펴졌다 하면 고르러 간 손이 트리를 흔든다.
-            setOpen((x) => new Set(x).add(n.key))
-            localStorage.setItem('utop.cycle.scope', n.key)
-            setScope({ key: n.key, label: n.label, ids: new Set(cyclesUnder(n).map((c) => c.id)) })
-            setSel('')
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              if (n.cycle) {
-                setSel(n.cycle.id)
-              } else {
-                setOpen((x) => new Set(x).add(n.key))
-                localStorage.setItem('utop.cycle.scope', n.key)
-            setScope({ key: n.key, label: n.label, ids: new Set(cyclesUnder(n).map((c) => c.id)) })
-                setSel('')
-              }
-            }
-            // 요구사항 트리와 같은 문법 — F2 로 제자리 이름 변경
-            if (e.key === 'F2' && !n.cycle) {
-              e.preventDefault()
-              setRenaming(n.key)
-              setRenameText(n.label)
-            }
-          }}
-          onContextMenu={(e) => {
-            e.preventDefault()
-            if (n.cycle) {
-              setSel(n.cycle.id)
-              setMenu({ id: n.cycle.id, x: e.clientX, y: e.clientY })
-            } else {
-              // 폴더 — 폴더째 지우거나 그 안 사이클을 한꺼번에 지운다
-              setFolderMenu({ node: n, x: e.clientX, y: e.clientY })
-            }
-          }}
-        >
-          {leaf ? (
-            <span className="rt-caret">
-              <span className="rt-dot" />
-            </span>
-          ) : (
-            <button
-              type="button"
-              className={`rt-caret${isOpen ? ' open' : ''}`}
-              aria-label={isOpen ? '접기' : '펼치기'}
-              onClick={(e) => {
-                e.stopPropagation()
-                toggle(n.key)
-              }}
-            >
-              <IconChevron />
-            </button>
-          )}
-          {/* 모델그룹 · 모델 · 버전그룹은 폴더, 버전(사이클)은 항목 */}
-          {!leaf && (
-            <span className="rt-ficon" aria-hidden="true">
-              <IconFolder open={isOpen} />
-            </span>
-          )}
-          {/* 빈 폴더 표시는 전용 클래스로 — 'empty' 는 「비어 있음」 안내문
-              스타일과 이름이 겹쳐 줄이 64px 로 부풀었다(겪었다) */}
-          {renaming === n.key ? (
-            // 창을 띄우지 않고 그 자리에서 고친다 (F2 · 더블클릭) — 요구사항과 동일
-            <input
-              autoFocus
-              className="rt-rename"
-              value={renameText}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => setRenameText(e.target.value)}
-              onBlur={() => setRenaming(null)}
-              onKeyDown={(e) => {
-                // 키가 폴더 줄로 새면 안 된다 — 스페이스를 줄이 가로챈다(겪었다)
-                e.stopPropagation()
-                if (e.key === 'Enter') void renameFolder(n, renameText)
-                if (e.key === 'Escape') setRenaming(null)
-              }}
-            />
-          ) : (
-            <span
-              className={`${n.cycle ? 'rt-title' : 'rt-fname'} cy-nm${n.empty ? ' cy-nm-empty' : ''}`}
-              onDoubleClick={(e) => {
-                if (n.cycle) return
-                e.stopPropagation()
-                setRenaming(n.key)
-                setRenameText(n.label)
-              }}
-            >
-              {n.label}
-            </span>
-          )}
-          {/* 지금 누가 돌리고 있나.
-              실행이 서버에서 도니 내 창에서 시작한 것이 아닐 수 있다.
-              표시가 없으면 남이 돌리는 사이클을 열어 또 걸게 된다. */}
-          {n.cycle && running.has(n.cycle.id) && (
-            <span className="cy-runmark" title={`${running.get(n.cycle.id)} 님이 돌리는 중`}>
-              ● {running.get(n.cycle.id)}
-            </span>
-          )}
-          {/* 잎은 항목 수, 가지는 사이클 수 — 뜻이 다르니 제목으로 갈라 둔다 */}
-          <span className="rt-cnt" title={n.cycle ? '시험 항목' : '사이클'}>
-            {n.count || ''}
-          </span>
-        </div>
-        {addingTo === n.key && (
-          <div className="rt-add" style={{ paddingLeft: 8 + (n.depth + 2) * 14 }}>
-            <input
-              autoFocus
-              value={draftName}
-              placeholder="폴더 이름"
-              onChange={(e) => setDraftName(e.target.value)}
-              onKeyDown={(e) => {
-                e.stopPropagation()
-                if (e.key === 'Enter') void addFolder(n.key, draftName)
-                if (e.key === 'Escape') setAddingTo(undefined)
-              }}
-            />
-            <button className="btn small primary" type="button" onClick={() => void addFolder(n.key, draftName)}>
-              추가
-            </button>
-            <button className="btn small" type="button" onClick={() => setAddingTo(undefined)}>
-              취소
-            </button>
-          </div>
-        )}
-        {isOpen && n.children.map(renderNode)}
-      </div>
-    )
-  }
-
-  /** 빵부스러기 — 트리 경로 그대로. 조각을 누르면 그 폴더 보드로 간다 */
-  const crumbs = useMemo(() => {
-    const path = cur ? pathOfCycle(cur, famOf, mgroupOf) : scope ? scope.key : ''
-    const parts = path.split('/').filter(Boolean)
-    return parts.map((label, i) => ({ label, key: parts.slice(0, i + 1).join('/') }))
-  }, [cur, scope, famOf])
-
-  /** 빵부스러기·복원이 함께 쓰는 폴더 이동 — 상세를 닫고 그 묶음을 보인다 */
-  const scopeToKey = (key: string) => {
-    const findNode = (ns: Node[]): Node | null => {
-      for (const n of ns) {
-        if (n.key === key) return n
-        const hit = findNode(n.children)
-        if (hit) return hit
-      }
-      return null
-    }
-    const node = findNode(tree)
-    if (!node) return
-    localStorage.setItem('utop.cycle.scope', node.key)
-    setOpen((x) => {
-      const n2 = new Set(x)
-      const parts = key.split('/')
-      for (let i = 1; i <= parts.length; i++) n2.add(parts.slice(0, i).join('/'))
-      return n2
-    })
-    setScope({ key: node.key, label: node.label, ids: new Set(cyclesUnder(node).map((c) => c.id)) })
-    setSel('')
-  }
 
   return (
     // 요구사항·TC 화면과 **같은 뼈대**를 쓴다. 세 화면을 오가는 사람이
@@ -1233,7 +712,6 @@ export default function Cycles({ me }: PageProps) {
             className="rq-crumb-home"
             onClick={() => {
               localStorage.removeItem('utop.cycle.scope')
-              setScope(null)
               setSel('')
             }}
           >
@@ -1244,7 +722,6 @@ export default function Cycles({ me }: PageProps) {
                사이클 ID › 제목. 제품군은 카탈로그에 생기면 앞에 붙인다 */
             <>
               {(() => {
-                const segs = pathOfCycle(cur, famOf, mgroupOf).split('/').filter(Boolean)
                 return [
                   vendorOf.get(cur.model ?? '') ?? '',
                   famOf.get(cur.model ?? '') ?? '',
@@ -1257,26 +734,14 @@ export default function Cycles({ me }: PageProps) {
                 ]
                   .map((t) => String(t ?? '').trim())
                   .filter(Boolean)
-                  .map((t, i) => {
-                    const at2 = segs.indexOf(t)
-                    return (
-                      <span key={`${t}-${i}`}>
-                        <span className="rq-crumb-sep">›</span>
-                        {at2 >= 0 ? (
-                          <button
-                            type="button"
-                            className="cy-crumb-go"
-                            title="이 폴더의 사이클 목록으로 갑니다"
-                            onClick={() => scopeToKey(segs.slice(0, at2 + 1).join('/'))}
-                          >
-                            {t}
-                          </button>
-                        ) : (
-                          <span className="cy-crumb-x">{t}</span>
-                        )}
-                      </span>
-                    )
-                  })
+                  .map((t, i) => (
+                    /* 폴더 레일이 없어졌으니 조각은 자리만 말한다 — 누르는
+                       길은 「사이클」 홈 하나면 된다 */
+                    <span key={`${t}-${i}`}>
+                      <span className="rq-crumb-sep">›</span>
+                      <span className="cy-crumb-x">{t}</span>
+                    </span>
+                  ))
               })()}
               {/* 사이클 번호도 이름 오른쪽 알약에 — 누르면 주소를 복사(지시) */}
               <IdPill
@@ -1292,24 +757,7 @@ export default function Cycles({ me }: PageProps) {
               )}
             </>
           ) : (
-            <>
-              {crumbs.map((c) => (
-                <span key={c.key}>
-                  <span className="rq-crumb-sep">›</span>
-                  <button
-                    type="button"
-                    className="cy-crumb-go"
-                    title="이 폴더의 사이클 목록으로 갑니다"
-                    onClick={() => scopeToKey(c.key)}
-                  >
-                    {c.label}
-                  </button>
-                </span>
-              ))}
-              <span className="muted small">
-                {scope ? `사이클 ${scopedCycles.length}건` : '왼쪽에서 사이클을 고르세요'}
-              </span>
-            </>
+            <span className="muted small">사이클 {cycles.length}건 — 줄을 누르면 결과 요약</span>
           )}
         </span>
         <span className="sp" />
@@ -1349,109 +797,9 @@ export default function Cycles({ me }: PageProps) {
         } as React.CSSProperties
       }
     >
-      {/* 접었을 때 — 세로 띠 하나만 남는다. TC 화면과 같은 모양이다.
-          아주 없애면 다시 펼 길이 없어지고 어디에 있었는지도 잊는다. */}
-      {!cur && !treeOpen && (
-        <button
-          type="button"
-          className="tc-fold"
-          title="사이클 펼치기"
-          onClick={() => setTreeOpen(true)}
-        >
-          <IconPanel open />
-          <span className="tc-fold-t">Cycle Tree {cycles.length}</span>
-        </button>
-      )}
-      {!cur && treeOpen && (
-      <section className="panel cy-tree" style={{ flexBasis: treeW }}>
-        <ListHead
-          // 이름표(「Cycle Tree 4」)를 뺐다(지시) — 위 빵부스러기와 칸 맨
-          // 아래가 이미 말한다
-          name=""
-          onCollapse={() => setTreeOpen(false)}
-          search={{ value: q, placeholder: '모델 · 버전으로 찾기', onChange: setQ }}
-          extra={<FolderSortBtn value={folderSort} onChange={setFolderSort} />}
-          /* 「+」 단추와 「사이클 만들기」 는 걷었다(지시) — 오른쪽 칸의
-             「+ New」 가 그 몫을 한다. 폴더 만들기·다시 읽기는 ⋯ 에 남는다 */
-          menu={
-            <>
-              <button
-                type="button"
-                onClick={() => {
-                  setAddingTo('')
-                  setDraftName('')
-                }}
-              >
-                최상위 폴더 추가
-              </button>
-              <button type="button" disabled={!sel} onClick={() => sel && setEditId(sel)}>
-                선택 사이클 편집
-              </button>
-              <hr />
-              <button type="button" onClick={() => void listQ.refetch()}>
-                다시 읽기
-              </button>
-            </>
-          }
-        />
-        {/* 늘 펴진 찾기 칸은 걷어냈다 — 머리줄 돋보기와 **같은 값**이라
-            두 군데서 같은 것을 걸렀다(세 화면 찾기를 하나로 맞추며). */}
-        {/* `rt` 가 구분선·hover·선택색 변수를 들고 있다 — 빠지면 변수가
-            무효라 줄 사이 선이 통째로 사라진다(겪었다). 요구사항 트리와
-            같은 시각 규칙은 이 클래스 하나로 온다. */}
-        <div className="cy-body rt">
-          {/* 여기 있던 「가짜 Root 줄」 은 걷어냈다 — 트리에 **진짜 Root**
-              노드가 서면서 같은 이름이 두 줄이 됐다(지적 사진). 누르면
-              전체 요약으로 가는 일은 그 진짜 Root 가 한다. */}
-          {addingTo === '' && (
-            <div className="rt-add" style={{ paddingLeft: 8 }}>
-              <input
-                autoFocus
-                value={draftName}
-                placeholder="새 최상위 폴더 이름"
-                onChange={(e) => setDraftName(e.target.value)}
-                onKeyDown={(e) => {
-                  e.stopPropagation()
-                  if (e.key === 'Enter') void addFolder('', draftName)
-                  if (e.key === 'Escape') setAddingTo(undefined)
-                }}
-              />
-              <button className="btn small primary" type="button" onClick={() => void addFolder('', draftName)}>
-                추가
-              </button>
-              <button className="btn small" type="button" onClick={() => setAddingTo(undefined)}>
-                취소
-              </button>
-            </div>
-          )}
-          {listQ.isLoading ? (
-            <div className="empty">불러오는 중…</div>
-          ) : tree.length ? (
-            tree.map(renderNode)
-          ) : (
-            <div className="empty">사이클이 없습니다.</div>
-          )}
-        </div>
-        {/* 카드 바닥 상태 바 — 세 화면이 같은 자리에서 같은 말을 한다(지시) */}
-        <div className="bottom colbot">
-          <span>
-            폴더 {freeFolders.length}개 · 사이클 {cycles.length}건
-          </span>
-          {scope && <span>{scopedCycles.length}건 · 이 폴더</span>}
-        </div>
-      </section>
-      )}
-
-      {/* 1열 ↔ 나머지. TC 화면과 같은 손잡이를 쓴다.
-          회차를 열면(실행 화면) 트리가 통째로 접히므로 손잡이도 걷는다(지시) */}
-      {treeOpen && !cur && (
-        <Resizer
-          label="사이클 목록 폭 조절"
-          onResize={setTreeW}
-          getOrigin={() => splitRef.current?.getBoundingClientRect().left ?? 0}
-        />
-      )}
-
+      {/* 1열 폴더 레일은 뺐다(승인) — 사업자·제품군·버전그룹은 표의
+          열과 도구줄 필터가 맡는다. 사이클은 폴더가 아니라 **시간과
+          버전**으로 정리된다. */}
       {menu && (
         <CycleMenu
           at={menu}
@@ -1474,59 +822,6 @@ export default function Cycles({ me }: PageProps) {
         />
       )}
 
-      {folderMenu && (
-        <FolderMenu
-          at={folderMenu}
-          onClose={() => setFolderMenu(null)}
-          entries={(() => {
-            const n = folderMenu.node
-            const done = (fn: () => void) => () => {
-              setFolderMenu(null)
-              fn()
-            }
-            const out: MenuEntry[] = []
-            if (n.key === '__root') {
-              out.push({
-                label: '+ 최상위 폴더 추가',
-                fn: done(() => {
-                  setAddingTo('')
-                  setDraftName('')
-                }),
-              })
-              return out
-            }
-            // 폴더는 그냥 폴더다 — 층 구분 없이 같은 세 가지
-            if (n.key.split('/').length < 6)
-              out.push({
-                label: '+ 하위 폴더 추가',
-                fn: done(() => {
-                  setOpen((x) => new Set(x).add(n.key))
-                  setAddingTo(n.key)
-                  setDraftName('')
-                }),
-              })
-            out.push({
-              label: '이름 변경 (F2)',
-              fn: done(() => {
-                setRenaming(n.key)
-                setRenameText(n.label)
-              }),
-            })
-            out.push('hr')
-            out.push({
-              label: n.count > 0 ? '폴더 지우기 — 사이클이 있어 못 지웁니다' : '폴더 지우기',
-              disabled: n.count > 0,
-              fn: done(() => void removeFolder(n)),
-            })
-            if (n.count > 0)
-              out.push({
-                label: `이 폴더의 사이클 ${n.count}건 지우기`,
-                fn: done(() => void deleteFolderCycles(n)),
-              })
-            return out
-                    })()}
-        />
-      )}
 
       {/* 만들기와 고치기가 같은 창이다. 다르게 만들면 「만들 때는 되는데
           고칠 때는 안 되는 것」 이 반드시 생긴다. */}
@@ -1581,20 +876,9 @@ export default function Cycles({ me }: PageProps) {
             mgroup={(cur.model_group ?? '').trim() || (mgroupOf.get(cur.model ?? '') ?? '')}
             finish={{ can: allJudged, busy: finishing, onDo: () => void finishExec() }}
           />
-        ) : scope && !scopeHasCycles ? (
-          /* 폴더(Root·사업자·제품군·모델그룹·모델명)를 골랐다 — 2열은
-             **버전별 결과 요약**이다(지시). 회차를 직접 담은 폴더
-             (버전그룹)만 아래 목록으로 간다. */
-          <CycleFolderSummary
-            title={scope.label}
-            path={scope.key}
-            cycles={scopedCycles}
-            onOpen={(id) => setSel(id)}
-            onScope={scopeToKey}
-          />
         ) : (
           <CycleBoard
-            cycles={scopedCycles}
+            cycles={cycles}
             mgroupOf={mgroupOf}
             famOf={famOf}
             onNew={() => setMaking(true)}
@@ -1602,6 +886,8 @@ export default function Cycles({ me }: PageProps) {
             onDel={(ids) => void delCycles(ids)}
             onEdit={(id) => setEditId(id)}
             onRun={(id) => setSel(id)}
+            onMenu={(id, x, y) => setMenu({ id, x, y })}
+            running={running}
             onRefresh={() => void listQ.refetch()}
           />
         )}
@@ -1635,6 +921,9 @@ const CYT_FIXED: Array<{ k: string; label: string; w: string }> = [
   { k: 'prg', label: '진행결과', w: '92px' },
   { k: 'run', label: '진행', w: '62px' },
   /* 제목과 함께 넉넉해야 하는 칸(지시) — 남는 폭을 나눠 갖는다 */
+  /* 버전그룹 — 사이클 축의 분류다(승인 목업). 폴더 레일이 없어지면서
+     사업자·제품군·버전그룹 열이 폴더 몫을 한다 */
+  { k: 'vg', label: '버전그룹', w: '84px' },
   { k: 'version', label: '버전', w: 'minmax(140px, 0.6fr)' },
   { k: 'created', label: '생성일자', w: '96px' },
   { k: 'updated', label: '변경일자', w: '96px' },
@@ -1667,681 +956,6 @@ const IT_COLS: Array<{ k: string; label: string; w: string }> = [
  * 건너갔다가 다시 돌아오는 왕복이 없어진다.
  */
 /** 서버가 센 한 층의 현황 — `/api/cycle/rollup` 한 번이면 끝난다 */
-interface RollTally {
-  n: number
-  pass: number
-  fail: number
-  other: number
-  none: number
-  cycles: number
-  last_run: string
-  open_defects: number
-  pass_rate: number
-  progress: number
-}
-interface RollKid extends RollTally {
-  key: string
-  leaf: boolean
-}
-interface RollCycle {
-  id: string
-  cid?: string | null
-  name?: string | null
-  version?: string | null
-  version_group?: string | null
-  model?: string | null
-  status?: string | null
-  assignee?: string | null
-  end_date?: string | null
-  n: number
-  pass: number
-  fail: number
-  other: number
-  none: number
-  last_run: string
-}
-interface Roll {
-  path: string
-  level: string
-  totals: RollTally
-  children: RollKid[]
-  /** 「나누기 기준」 을 골랐을 때의 묶음 — 하위 폴더 대신 이것으로 그린다 */
-  axis?: string
-  groups: RollKid[]
-  cycles: RollCycle[]
-  trend: Array<{ at: string; pass: number; fail: number; pass_rate: number }>
-}
-
-const LV_KID: Record<string, string> = {
-  root: '사업자',
-  operator: '제품군',
-  family: '모델그룹',
-  model_group: '모델명',
-  model: '버전그룹',
-  version_group: '회차',
-}
-
-/**
- * 폴더 한 층의 현황 — 사업자·제품군·모델그룹·모델명·버전그룹 어디서나
- * **같은 짜임**이다(합의): KPI 다섯 → 막대와 추이 → 자식 비교표.
- * 세는 일은 서버(`/api/cycle/rollup`)가 한다. 화면은 그리기만 한다.
- */
-function CycleFolderSummary({
-  title,
-  path,
-  cycles,
-  onOpen,
-  onScope,
-}: {
-  title: string
-  path: string
-  cycles: CycleMeta[]
-  onOpen: (id: string) => void
-  onScope?: (key: string) => void
-}) {
-  /** 기간 — 기본은 전체다. 90일로 자르면 지난 회차가 통째로 빠진다 */
-  const [days, setDays] = useState(0)
-  const [mailOpen, setMailOpen] = useState(false)
-  /** 나누기 기준 — 빈 값이면 하위 폴더로 나눈다(옛 Reports 의 「축」) */
-  const [axis, setAxis] = useState('')
-  /** 결과 상세 거르개 */
-  const [dq, setDq] = useState('')
-  const [dKind, setDKind] = useState('')
-  const [dSev, setDSev] = useState('')
-  const [dCyc, setDCyc] = useState('')
-  const [dVerd, setDVerd] = useState('')
-  const [dSize, setDSize] = useState(20)
-  const [dPage, setDPage] = useState(0)
-  const from = useMemo(() => {
-    if (!days) return ''
-    const d = new Date()
-    d.setDate(d.getDate() - days)
-    return d.toISOString().slice(0, 10)
-  }, [days])
-
-  const q = useQuery({
-    queryKey: ['cycle', 'rollup', path, from, axis],
-    queryFn: async () => {
-      const u = `/api/cycle/rollup?path=${encodeURIComponent(path)}${
-        from ? `&date_from=${from}` : ''
-      }${axis ? `&axis=${axis}` : ''}`
-      const r = await apiFetch(u)
-      if (!r.ok) throw new Error('현황을 불러오지 못했습니다')
-      return (await r.json()) as Roll
-    },
-    staleTime: 30_000,
-  })
-
-  /** 결과 상세 — 항목 한 줄씩. 거르개가 걸린 채로 서버가 골라 준다 */
-  const det = useQuery({
-    queryKey: ['cycle', 'rollup', 'items', path, from, dq, dKind, dSev, dCyc, dVerd, dSize, dPage],
-    queryFn: async () => {
-      const u =
-        `/api/cycle/rollup/items?path=${encodeURIComponent(path)}` +
-        (from ? `&date_from=${from}` : '') +
-        (dq ? `&q=${encodeURIComponent(dq)}` : '') +
-        (dKind ? `&kind=${dKind}` : '') +
-        (dSev ? `&severity=${encodeURIComponent(dSev)}` : '') +
-        (dCyc ? `&cycle=${encodeURIComponent(dCyc)}` : '') +
-        (dVerd ? `&verdict=${dVerd}` : '') +
-        `&limit=${dSize}&offset=${dPage * dSize}`
-      const r = await apiFetch(u)
-      if (!r.ok) throw new Error('결과 상세를 불러오지 못했습니다')
-      return (await r.json()) as {
-        total: number
-        rows: Array<{
-          tcid: string
-          name: string
-          verdict: string
-          group: string
-          severity?: string | null
-          req_id?: string | null
-          cycle: string
-          cycle_id: string
-          executed_at?: string | null
-          fails: number
-        }>
-        cycles: Array<{ id: string; name: string }>
-      }
-    },
-    staleTime: 20_000,
-  })
-
-  const roll = q.data
-  const t = roll?.totals
-  const kidLabel = LV_KID[roll?.level ?? 'root'] ?? '하위'
-
-  /** 색 막대 한 줄 — 합격·실패·그 밖·미실행 */
-  const bar = (r: { n: number; pass: number; fail: number; other: number; none: number }) => {
-    const w = (x: number) => (r.n ? `${(x / r.n) * 100}%` : '0%')
-    return (
-      <span className="cs-bar" aria-hidden="true">
-        <i className="cs-b pass" style={{ width: w(r.pass) }} />
-        <i className="cs-b fail" style={{ width: w(r.fail) }} />
-        <i className="cs-b etc" style={{ width: w(r.other) }} />
-        <i className="cs-b left" style={{ width: w(r.none) }} />
-      </span>
-    )
-  }
-
-  /** 주별 합격률 — 점이 둘 미만이면 그릴 것이 없다 */
-  const trendSvg = () => {
-    const pts = roll?.trend ?? []
-    if (pts.length < 2) return <div className="cs-nodata">추이를 그릴 만큼 회차가 쌓이지 않았습니다.</div>
-    const W = 420
-    const H = 132
-    const pad = 24
-    const x = (i: number) => pad + (i * (W - pad * 2)) / (pts.length - 1)
-    const y = (v: number) => H - pad - (v / 100) * (H - pad * 2)
-    const d = pts
-      .map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.pass_rate).toFixed(1)}`)
-      .join(' ')
-    return (
-      <svg viewBox={`0 0 ${W} ${H}`} className="cs-svg" role="img" aria-label="주별 합격률">
-        {[0, 50, 100].map((g) => (
-          <g key={g}>
-            <line x1={pad} x2={W - pad} y1={y(g)} y2={y(g)} stroke="var(--c-border-soft)" />
-            <text x="2" y={y(g) + 3} className="cs-ax">
-              {g}%
-            </text>
-          </g>
-        ))}
-        <path d={d} fill="none" stroke="var(--c-primary)" strokeWidth="2" />
-        {pts.map((p, i) => (
-          <circle key={p.at} cx={x(i)} cy={y(p.pass_rate)} r="3" fill="var(--c-primary)">
-            <title>{`${p.at} · 합격 ${p.pass} · 실패 ${p.fail} · ${p.pass_rate}%`}</title>
-          </circle>
-        ))}
-        {pts.map((p, i) =>
-          i % Math.ceil(pts.length / 6) === 0 ? (
-            <text key={`l${p.at}`} x={x(i)} y={H - 6} className="cs-ax" textAnchor="middle">
-              {p.at.slice(5)}
-            </text>
-          ) : null,
-        )}
-      </svg>
-    )
-  }
-
-  return (
-    <div className="cs scroll">
-      <div className="cs-hd">
-        <b className="cs-t">{title}</b>
-        <span className="muted small">
-          회차 {t?.cycles ?? cycles.length}건 · 항목 {t?.n ?? 0}건
-        </span>
-        <span className="sp" />
-        <select
-          className="cy-v"
-          value={days}
-          title="기간 — 항목이 실행된 날 기준. 회차·항목 수는 그대로입니다"
-          onChange={(e) => setDays(Number(e.target.value))}
-        >
-          <option value={0}>기간: 전체</option>
-          <option value={30}>최근 30일</option>
-          <option value={90}>최근 90일</option>
-          <option value={180}>최근 180일</option>
-        </select>
-        {/* 보고서는 두 갈래다(합의) — 인쇄(PDF) 와 메일. 자료는 같다 */}
-        <button
-          className="btn small"
-          type="button"
-          title="지금 보는 이 현황을 A4 한 장으로 인쇄합니다 — 인쇄 창에서 「PDF로 저장」"
-          onClick={() => window.print()}
-        >
-          보고서 PDF
-        </button>
-        <button
-          className="btn small"
-          type="button"
-          title="이 현황을 메일로 보냅니다"
-          onClick={() => setMailOpen(true)}
-        >
-          메일 보내기
-        </button>
-      </div>
-
-      {q.isLoading && <div className="empty">세는 중…</div>}
-      {q.isError && <div className="empty">현황을 불러오지 못했습니다.</div>}
-
-      {roll && t && t.cycles === 0 && (
-        <div className="empty">이 폴더에는 아직 회차가 없습니다.</div>
-      )}
-
-      {roll && t && t.cycles > 0 && (
-        <>
-          {/* 1행 — 먼저 답할 다섯 가지 */}
-          <section className="cs-kpis">
-            <div className="cs-kpi">
-              <i>합격률</i>
-              <b className={t.pass_rate >= 80 ? 'ok' : t.pass_rate < 50 ? 'ng' : ''}>
-                {t.pass_rate}%
-              </b>
-              <em>
-                {t.pass}/{t.pass + t.fail}
-              </em>
-            </div>
-            <div className="cs-kpi">
-              <i>진척률</i>
-              <b>{t.progress}%</b>
-              <em>
-                {t.n - t.none}/{t.n}
-              </em>
-            </div>
-            <div className="cs-kpi">
-              <i>시험 항목</i>
-              <b>{t.n}</b>
-              <em>회차 {t.cycles}</em>
-            </div>
-            <div className="cs-kpi">
-              <i>열린 결함</i>
-              <b className={t.open_defects ? 'ng' : ''}>{t.open_defects}</b>
-            </div>
-            <div className="cs-kpi">
-              <i>마지막 실행</i>
-              <b className="sm">{t.last_run || '–'}</b>
-            </div>
-          </section>
-
-          {/* 2행 — 어디가 약한가(막대) · 좋아지고 있나(추이) */}
-          <section className="cs-two">
-            <div className="cs-pan">
-              <b className="cs-panh">
-                <select
-                  className="cy-v"
-                  value={axis}
-                  title="무엇으로 나눠 볼까 — 옛 리포트의 「축」"
-                  onChange={(e) => setAxis(e.target.value)}
-                >
-                  <option value="">하위 폴더 ({kidLabel})</option>
-                  <option value="cycle">사이클(버전)</option>
-                  <option value="version_group">버전그룹</option>
-                  <option value="model">모델</option>
-                  <option value="customer">고객</option>
-                  <option value="status">사이클 상태</option>
-                  <option value="severity">심각도</option>
-                  <option value="assignee">담당자</option>
-                </select>
-                <span>별 판정 — 합격률 낮은 순</span>
-              </b>
-              {(axis ? roll.groups : roll.children).map((k) => (
-                <button
-                  type="button"
-                  key={k.key}
-                  className="cs-brow"
-                  title={`${k.key} — 항목 ${k.n} · 합격 ${k.pass} · 실패 ${k.fail} · 미실행 ${k.none}`}
-                  disabled={!!axis || !onScope || roll.level === 'version_group'}
-                  onClick={() => !axis && onScope?.(`${roll.path}/${k.key}`)}
-                >
-                  <span className="cs-bnm">{k.key}</span>
-                  {bar(k)}
-                  <em className="cs-bn">{k.n}</em>
-                  <em>{k.pass_rate}%</em>
-                </button>
-              ))}
-              <div className="cs-legend">
-                <span>
-                  <i className="cs-d pass" />합격 {t.pass}
-                </span>
-                <span>
-                  <i className="cs-d fail" />실패 {t.fail}
-                </span>
-                <span>
-                  <i className="cs-d etc" />그 밖 {t.other}
-                </span>
-                <span>
-                  <i className="cs-d left" />미실행 {t.none}
-                </span>
-              </div>
-            </div>
-            <div className="cs-pan">
-              <b>주별 합격률 추이</b>
-              {trendSvg()}
-            </div>
-          </section>
-
-          {/* 3행 — 자식 비교표. 버전그룹 아래면 회차 목록이 온다 */}
-          <div className="cs-tbl">
-            <div className="cs-row cs-th">
-              <div>{roll.level === 'version_group' ? '회차' : kidLabel}</div>
-              <div>{roll.level === 'version_group' ? '모델 · 버전그룹' : '회차'}</div>
-              <div>항목</div>
-              <div>진행</div>
-              <div>합격률</div>
-              <div>{roll.level === 'version_group' ? '상태' : '열린 결함'}</div>
-              <div>{roll.level === 'version_group' ? '담당' : '마지막 실행'}</div>
-            </div>
-            {roll.level === 'version_group'
-              ? roll.cycles.map((r) => {
-                  const done = r.pass + r.fail
-                  return (
-                    <button
-                      type="button"
-                      key={r.id}
-                      className="cs-row cs-c"
-                      title="이 회차를 엽니다"
-                      onClick={() => onOpen(r.id)}
-                    >
-                      <div className="cs-nm">{r.version || r.name || r.cid || r.id}</div>
-                      <div className="muted">
-                        {[r.model, r.version_group].filter(Boolean).join(' · ') || '–'}
-                      </div>
-                      <div className="muted">{r.n}</div>
-                      <div className="cs-prog">
-                        {bar(r)}
-                        <em>{r.n ? Math.round(((r.n - r.none) / r.n) * 100) : 0}%</em>
-                      </div>
-                      <div className="cs-pct">{done ? Math.round((r.pass / done) * 100) : 0}%</div>
-                      <div className="muted">{r.status || '–'}</div>
-                      <div className="muted">{r.assignee || '–'}</div>
-                    </button>
-                  )
-                })
-              : roll.children.map((k) => (
-                  <button
-                    type="button"
-                    key={k.key}
-                    className="cs-row cs-c"
-                    title="이 폴더로 들어갑니다"
-                    onClick={() => onScope?.(`${roll.path}/${k.key}`)}
-                  >
-                    <div className="cs-nm">{k.key}</div>
-                    <div className="muted">{k.cycles}</div>
-                    <div className="muted">{k.n}</div>
-                    <div className="cs-prog">
-                      {bar(k)}
-                      <em>{k.progress}%</em>
-                    </div>
-                    <div className="cs-pct">{k.pass_rate}%</div>
-                    <div className="muted">{k.open_defects || '–'}</div>
-                    <div className="muted">{k.last_run || '–'}</div>
-                  </button>
-                ))}
-          </div>
-        </>
-      )}
-      {roll && t && t.cycles > 0 && (
-        /* 결과 상세 — 옛 Reports 의 아래 표가 이 자리로 왔다(지시) */
-        <section className="cs-det">
-          <div className="cs-deth">
-            <b>결과 상세</b>
-            <span className="muted small">총 {det.data?.total ?? 0}건</span>
-            <input
-              className="cs-dq"
-              value={dq}
-              placeholder="TC ID · 이름 · 요구사항으로 찾기"
-              onChange={(e) => {
-                setDq(e.target.value)
-                setDPage(0)
-              }}
-            />
-            <select
-              className="cy-v"
-              value={dVerd}
-              onChange={(e) => {
-                setDVerd(e.target.value)
-                setDPage(0)
-              }}
-            >
-              <option value="">결과 전체</option>
-              <option value="pass">합격</option>
-              <option value="fail">불합격</option>
-              <option value="neutral">그 밖</option>
-              <option value="none">미실행</option>
-            </select>
-            <select
-              className="cy-v"
-              value={dKind}
-              onChange={(e) => {
-                setDKind(e.target.value)
-                setDPage(0)
-              }}
-            >
-              <option value="">타입 전체</option>
-              <option value="auto">Auto</option>
-              <option value="manual">Manual</option>
-              <option value="mixed">섞임</option>
-            </select>
-            <select
-              className="cy-v"
-              value={dSev}
-              onChange={(e) => {
-                setDSev(e.target.value)
-                setDPage(0)
-              }}
-            >
-              <option value="">심각도 전체</option>
-              {['치명', '높음', '보통', '낮음'].map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
-              ))}
-            </select>
-            <select
-              className="cy-v"
-              value={dCyc}
-              onChange={(e) => {
-                setDCyc(e.target.value)
-                setDPage(0)
-              }}
-            >
-              <option value="">사이클 전체</option>
-              {(det.data?.cycles ?? []).map((c) => (
-                <option key={c.id} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <span className="sp" />
-            <button
-              className="btn small"
-              type="button"
-              title="지금 걸린 폴더·기간·거르개 그대로 원자료를 내려받습니다"
-              onClick={() => {
-                const u =
-                  `/api/cycle/rollup/csv?path=${encodeURIComponent(path)}` +
-                  (from ? `&date_from=${from}` : '') +
-                  (dq ? `&q=${encodeURIComponent(dq)}` : '') +
-                  (dKind ? `&kind=${dKind}` : '') +
-                  (dSev ? `&severity=${encodeURIComponent(dSev)}` : '') +
-                  (dCyc ? `&cycle=${encodeURIComponent(dCyc)}` : '') +
-                  (dVerd ? `&verdict=${dVerd}` : '')
-                window.open(u, '_blank')
-              }}
-            >
-              Excel
-            </button>
-            <select
-              className="cy-v"
-              value={dSize}
-              title="한 쪽에 몇 줄"
-              onChange={(e) => {
-                setDSize(Number(e.target.value))
-                setDPage(0)
-              }}
-            >
-              {[20, 50, 100, 200].map((n) => (
-                <option key={n} value={n}>
-                  {n}개
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="cs-dtbl">
-            <div className="cs-drow cs-dth">
-              <div>결과</div>
-              <div>TC ID</div>
-              <div>시험항목</div>
-              <div>심각도</div>
-              <div>요구사항</div>
-              <div>사이클</div>
-              <div>실행일</div>
-            </div>
-            {(det.data?.rows ?? []).map((r, i) => (
-              <div className={`cs-drow g-${r.group}`} key={`${r.cycle_id}-${r.tcid}-${i}`}>
-                <div className="cs-dv">
-                  {r.group === 'pass'
-                    ? '합격'
-                    : r.group === 'fail'
-                      ? '불합격'
-                      : r.verdict || '미실행'}
-                </div>
-                <div className="cs-dtc">{r.tcid}</div>
-                <div className="cs-dnm" title={r.name}>
-                  {r.name}
-                  {r.fails > 0 && <em className="cs-dfail"> {r.fails} 부적합</em>}
-                </div>
-                <div className="muted">{r.severity || '–'}</div>
-                <div className="muted">{r.req_id || '–'}</div>
-                <div className="muted">{r.cycle}</div>
-                <div className="muted">
-                  {r.executed_at ? String(r.executed_at).replace('T', ' ').slice(0, 16) : '–'}
-                </div>
-              </div>
-            ))}
-            {det.data && det.data.rows.length === 0 && (
-              <div className="empty">거른 조건에 맞는 항목이 없습니다.</div>
-            )}
-          </div>
-          {det.data && det.data.total > dSize && (
-            <div className="cs-dpg">
-              <button
-                className="btn small"
-                type="button"
-                disabled={dPage === 0}
-                onClick={() => setDPage((v) => Math.max(0, v - 1))}
-              >
-                ‹ 이전
-              </button>
-              <span className="muted small">
-                {dPage + 1} / {Math.ceil(det.data.total / dSize)}
-              </span>
-              <button
-                className="btn small"
-                type="button"
-                disabled={(dPage + 1) * dSize >= det.data.total}
-                onClick={() => setDPage((v) => v + 1)}
-              >
-                다음 ›
-              </button>
-            </div>
-          )}
-        </section>
-      )}
-      {mailOpen && (
-        <CycleMailBox path={path} from={from} onClose={() => setMailOpen(false)} />
-      )}
-    </div>
-  )
-}
-
-/**
- * 보고서 메일 — 보내기 전에 **그 모습 그대로** 보여 준다. 자료는 화면과
- * 같은 집계(`/api/cycle/rollup`)이고, 지어 주는 일은 서버가 한다.
- */
-function CycleMailBox({
-  path,
-  from,
-  onClose,
-}: {
-  path: string
-  from: string
-  onClose: () => void
-}) {
-  const [to, setTo] = useState('')
-  const [subject, setSubject] = useState('')
-  const [note, setNote] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [msg, setMsg] = useState('')
-
-  const pv = useQuery({
-    queryKey: ['cycle', 'rollup', 'preview', path, from, note],
-    queryFn: async () => {
-      const r = await apiFetch(
-        `/api/cycle/rollup/preview?path=${encodeURIComponent(path)}${
-          from ? `&date_from=${from}` : ''
-        }${note ? `&note=${encodeURIComponent(note)}` : ''}`,
-      )
-      if (!r.ok) throw new Error('미리 보기를 만들지 못했습니다')
-      return (await r.json()) as { subject: string; headline: string; html: string }
-    },
-  })
-
-  useEffect(() => {
-    if (pv.data?.subject && !subject) setSubject(pv.data.subject)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pv.data?.subject])
-
-  const send = async () => {
-    setBusy(true)
-    setMsg('')
-    try {
-      const r = await apiFetch('/api/cycle/rollup/mail', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path, date_from: from, to, subject, note }),
-      })
-      const b = (await r.json().catch(() => ({}))) as { detail?: string; to?: string[] }
-      if (!r.ok) throw new Error(b.detail || '보내지 못했습니다')
-      setMsg(`보냈습니다 — ${(b.to ?? []).join(', ')}`)
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="modal-back" onMouseDown={() => !busy && onClose()}>
-      <div className="modal cs-mail" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
-        <div className="modal-h">
-          <b>보고서 메일</b>
-          <span className="sp" />
-          <button className="btn small" type="button" onClick={onClose}>
-            닫기
-          </button>
-        </div>
-        <div className="cs-mail-b">
-          <label className="cs-mf">
-            <span>받는 사람</span>
-            <input
-              value={to}
-              placeholder="여러 명이면 쉼표로 — a@ubiquoss.com, b@ubiquoss.com"
-              onChange={(e) => setTo(e.target.value)}
-            />
-          </label>
-          <label className="cs-mf">
-            <span>제목</span>
-            <input value={subject} onChange={(e) => setSubject(e.target.value)} />
-          </label>
-          <label className="cs-mf">
-            <span>한마디</span>
-            <input
-              value={note}
-              placeholder="맨 위에 노란 상자로 붙습니다 (비워 두면 안 붙습니다)"
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </label>
-          <div className="cs-mpv-h">보내질 모습</div>
-          <div className="cs-mpv" dangerouslySetInnerHTML={{ __html: pv.data?.html ?? '' }} />
-          {msg && <div className="cs-mmsg">{msg}</div>}
-        </div>
-        <div className="modal-f">
-          <span className="muted small">자료는 지금 보는 현황과 같습니다.</span>
-          <span className="sp" />
-          <button
-            className="btn primary"
-            type="button"
-            disabled={!to.trim() || busy}
-            onClick={() => void send()}
-          >
-            {busy ? '보내는 중…' : '보내기'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 function CycleBoard({
   cycles,
@@ -2353,6 +967,8 @@ function CycleBoard({
   onEdit,
   onRun,
   onRefresh,
+  onMenu,
+  running,
 }: {
   cycles: CycleMeta[]
   /** 카탈로그 지도 — 사이클에 비어 있으면 모델명으로 보강(수정 창과 같은 값) */
@@ -2369,8 +985,19 @@ function CycleBoard({
   onRefresh: () => void
   /** 실행 — 한 개 골라 열면서 전체 실행을 건다 */
   onRun: (id: string) => void
+  /** 우클릭 메뉴 — 부모의 CycleMenu 를 연다 */
+  onMenu: (id: string, x: number, y: number) => void
+  /** 지금 도는 실행 — cycle_id → 돌리는 사람 */
+  running: Map<string, string>
 }) {
   const [q, setQ] = useState('')
+  /* 요약 카드가 보는 사이클 — 줄을 누르면 선다(승인 목업). 실행 화면으로
+     가는 길(Key 클릭)과 다르다: 이건 「보기」 고 그건 「들어가기」 다. */
+  const [pick, setPick] = useState('')
+  /* 사업자·제품군·버전그룹 필터 — 폴더 레일이 하던 좁히기를 잇는다(승인) */
+  const [fCust, setFCust] = useState('')
+  const [fFam, setFFam] = useState('')
+  const [fVg, setFVg] = useState('')
   /** ⚙ = 사이클 INFO 필드만(SETUP 과 1:1, 합의 규칙). 라벨 개명·숨김을
       그대로 따른다. 실행 결과 탭은 열이 아니라 진행결과 바의 값 체계.
       모델그룹·모델명은 고정 열(합의)이고 관리 열들도 고정이다. */
@@ -2407,6 +1034,8 @@ function CycleBoard({
   /** 표에 서는 열들 — 고정(모델) + INFO(⚙) + 고정(관리), 끌어 둔 차례 반영 */
   const renderCols = useMemo(() => {
     const base = [
+      /* 제품군 — 사이클엔 없고 카탈로그(famOf)가 안다. 승인 목업의 열 */
+      { k: 'fam', label: '제품군', w: '64px' },
       { k: 'mg', label: '모델그룹', w: '80px' },
       { k: 'md', label: '모델명', w: '72px' },
       ...infoCols.filter((c) => cytCols.has(c.k)),
@@ -2527,7 +1156,7 @@ function CycleBoard({
   /** ⋯ — 체크한 사이클 1개의 요약·보고서·내보내기 (실행 화면에서 옮겨 왔다) */
   const [moreAt, setMoreAt] = useState<{ x: number; y: number } | null>(null)
   const [bInsight, setBInsight] = useState<'ai' | 'metrics' | null>(null)
-  const [bReport, setBReport] = useState(false)
+  const [bReport, setBReport] = useState<CycleMeta | null>(null)
   const oneCycle = picked.size === 1 ? cycles.find((c) => c.id === [...picked][0]) : undefined
   const exportCycleCsv = (c: CycleMeta) => {
     const rows = c.items ?? []
@@ -2659,6 +1288,9 @@ function CycleBoard({
   const shown = useMemo(() => {
     const nq = q.trim().toLowerCase()
     let arr = cycles
+    if (fCust) arr = arr.filter((c) => (c.customer ?? '') === fCust)
+    if (fFam) arr = arr.filter((c) => (famOf.get(c.model ?? '') ?? '') === fFam)
+    if (fVg) arr = arr.filter((c) => (c.version_group ?? '') === fVg)
     if (nq)
       arr = arr.filter((c) =>
         [c.cid, c.id, c.version, c.name, c.version_group, c.model]
@@ -2668,7 +1300,7 @@ function CycleBoard({
           .includes(nq),
       )
     return arr
-  }, [cycles, q, stats])
+  }, [cycles, q, stats, fCust, fFam, fVg, famOf])
 
 
   const fmtD = (v?: string | null) => (v ? String(v).slice(0, 10) : '–')
@@ -2695,8 +1327,23 @@ function CycleBoard({
     )
   }
 
+  const pickCycle = pick ? cycles.find((c) => c.id === pick) : undefined
   return (
     <div className="cy-board scroll">
+      {/* 요약 카드 — 줄을 누르면 표 위에 선다(승인 목업). 도넛·진행바·
+          트렌드·메타·단추(항목 넣기빼기·결과 메일·결과서·실행 열기) */}
+      {pickCycle && (
+        <CycleSummary
+          cycle={pickCycle}
+          groupOf={groupOf}
+          family={famOf.get(pickCycle.model ?? '') ?? ''}
+          mgroup={(pickCycle.model_group ?? '').trim() || mgroupOf.get(pickCycle.model ?? '') || ''}
+          onEdit={() => onEdit(pickCycle.id)}
+          onOpen={() => onRun(pickCycle.id)}
+          onReport={() => setBReport(pickCycle)}
+          onClose={() => setPick('')}
+        />
+      )}
       {/* 시험항목 2열과 같은 카드 안에 도구줄·표가 든다 */}
       <section className="panel cyt-card">
       {/* 도구줄 — 추가·복제·삭제는 왼쪽, 찾기는 오른쪽 */}
@@ -2756,6 +1403,27 @@ function CycleBoard({
         )}
         {msg && <span className="tc-msg ok">{msg}</span>}
         <span className="sp" />
+        {/* 사업자·제품군·버전그룹 — 폴더 레일이 하던 좁히기(승인 목업).
+            선택지는 지금 목록에 실제로 있는 값만 — 없는 것을 골라 봐야
+            빈 표만 나온다 */}
+        {([
+          ['사업자', fCust, setFCust, [...new Set(cycles.map((c) => c.customer ?? '').filter(Boolean))]],
+          ['제품군', fFam, setFFam, [...new Set(cycles.map((c) => famOf.get(c.model ?? '') ?? '').filter(Boolean))]],
+          ['버전그룹', fVg, setFVg, [...new Set(cycles.map((c) => c.version_group ?? '').filter(Boolean))]],
+        ] as Array<[string, string, (v: string) => void, string[]]>).map(([lab, v, set, opts]) => (
+          <select
+            key={lab}
+            className={`cyl-filter${v ? ' on' : ''}`}
+            value={v}
+            title={lab}
+            onChange={(e) => set(e.target.value)}
+          >
+            <option value=''>{lab} 전체</option>
+            {opts.sort((a, b) => a.localeCompare(b, 'ko')).map((o) => (
+              <option key={o}>{o}</option>
+            ))}
+          </select>
+        ))}
         <input
           className="cy-q"
           placeholder="Search…"
@@ -2887,6 +1555,8 @@ function CycleBoard({
                         case 'name': return (c2.name ?? '').toLowerCase()
                         case 'mg': return ((c2.model_group ?? '').trim() || mgroupOf.get(c2.model ?? '') || '').toLowerCase()
                         case 'md': return (c2.model ?? '').toLowerCase()
+                        case 'fam': return (famOf.get(c2.model ?? '') ?? '').toLowerCase()
+                        case 'vg': return (c2.version_group ?? '').toLowerCase()
                         case 'f_status': return (c2.status ?? '').toLowerCase()
                         case 'f_customer': return (c2.customer ?? '').toLowerCase()
                         case 'customer': return (c2.customer ?? '').toLowerCase()
@@ -2910,7 +1580,26 @@ function CycleBoard({
                 const open = exp.has(c.id)
                 return (
                   <React.Fragment key={c.id}>
-                    <div className="cyt-row cyt-c" style={{ gridTemplateColumns: cytGrid }}>
+                    <div
+                      className={`cyt-row cyt-c${pick === c.id ? ' cyl-on' : ''}`}
+                      style={{ gridTemplateColumns: cytGrid }}
+                      /* 줄을 누르면 요약 카드가 선다(승인). 단추·입력·선택
+                         같은 일하는 부품 위 클릭은 그 부품 몫이다 */
+                      onClick={(e) => {
+                        const el = e.target as HTMLElement
+                        /* .pick-view = 더블클릭 수정 칸(제목·버전). 단일 클릭이
+                           줄로 새면 카드가 열리며 표가 밀려, 두 번째 클릭이
+                           딴 줄에 떨어진다(검증에서 재현). */
+                        if (el.closest('button, input, select, textarea, a, [contenteditable], .pick-view')) return
+                        setPick((cur2) => (cur2 === c.id ? '' : c.id))
+                      }}
+                      /* 우클릭 메뉴 — 트리에 있던 것을 줄이 잇는다(검증:
+                         트리를 지우며 여는 곳이 함께 사라져 메뉴가 죽어 있었다) */
+                      onContextMenu={(e) => {
+                        e.preventDefault()
+                        onMenu(c.id, e.clientX, e.clientY)
+                      }}
+                    >
                       <span className="cyt-ck">
                         <input
                           type="checkbox"
@@ -2981,6 +1670,20 @@ function CycleBoard({
                                 {c.model || '–'}
                               </span>
                             )
+                          case 'fam': {
+                            const fam2 = famOf.get(c.model ?? '') || ''
+                            return (
+                              <span key={c2.k} className="muted small cyt-ell" title={fam2}>
+                                {fam2 || '–'}
+                              </span>
+                            )
+                          }
+                          case 'vg':
+                            return (
+                              <span key={c2.k} className="muted small cyt-ell" title={c.version_group ?? ''}>
+                                {c.version_group || '–'}
+                              </span>
+                            )
                           case 'f_status':
                             return cyCell(c2.k, 'cycle_status', c.status ?? '', CY_STATUS, (v) =>
                               setCyCell(c.id, { status: v }),
@@ -3020,7 +1723,19 @@ function CycleBoard({
                                 <b>{t.pct}%</b>
                               </span>
                             )
-                          case 'run':
+                          case 'run': {
+                            /* 지금 도는 실행이 있으면 그게 이긴다 — stats 의
+                               「진행중」 은 결과가 쌓였다는 말이지 지금 돈다는
+                               말이 아니다 */
+                            const by = running.get(c.id)
+                            if (by)
+                              return (
+                                <span key={c2.k}>
+                                  <i className="cyt-st run cyl-live" title={`${by} 실행 중`}>
+                                    ▶ 실행중
+                                  </i>
+                                </span>
+                              )
                             return (
                               <span key={c2.k}>
                                 <i className={`cyt-st ${status}`}>
@@ -3028,6 +1743,7 @@ function CycleBoard({
                                 </i>
                               </span>
                             )
+                          }
                           case 'version':
                             return (
                               <PickCell
@@ -3207,7 +1923,7 @@ function CycleBoard({
               메트릭스
             </button>
             <hr />
-            <button type="button" role="menuitem" onClick={() => { setMoreAt(null); setBReport(true) }}>
+            <button type="button" role="menuitem" onClick={() => { setMoreAt(null); setBReport(oneCycle ?? null) }}>
               PPTX (고객사 결과서)
             </button>
             <button
@@ -3230,12 +1946,12 @@ function CycleBoard({
           onClose={() => setBInsight(null)}
         />
       )}
-      {bReport && oneCycle && (
+      {bReport && (
         <CycleReport
-          cycleId={oneCycle.id}
-          model={oneCycle.model}
-          version={oneCycle.version}
-          onClose={() => setBReport(false)}
+          cycleId={bReport.id}
+          model={bReport.model}
+          version={bReport.version}
+          onClose={() => setBReport(null)}
         />
       )}
       {prgTip && (() => {
@@ -6541,59 +5257,7 @@ function CycleRowMenu({
   )
 }
 
-/**
- * 폴더 우클릭 메뉴.
- *
- * 사이클 하나가 아니라 **폴더째** 손보는 자리. 그 안 사이클(버전)을 한꺼번에
- * 지우거나, 사람이 만든 버전그룹 폴더 자체를 지운다. 카탈로그가 주인인
- * 모델·모델그룹 폴더는 지울 수 없다 — 장비 목록에서 오는 것이라서다.
- */
-type MenuEntry = { label: string; fn?: () => void; disabled?: boolean } | 'hr'
 
-function FolderMenu({
-  at,
-  entries,
-  onClose,
-}: {
-  at: { node: Node; x: number; y: number }
-  entries: MenuEntry[]
-  onClose: () => void
-}) {
-  useEffect(() => {
-    const away = () => onClose()
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    const timer = setTimeout(() => {
-      window.addEventListener('mousedown', away)
-      window.addEventListener('contextmenu', away)
-    }, 0)
-    window.addEventListener('keydown', esc)
-    return () => {
-      clearTimeout(timer)
-      window.removeEventListener('mousedown', away)
-      window.removeEventListener('contextmenu', away)
-      window.removeEventListener('keydown', esc)
-    }
-  }, [onClose])
-
-  return (
-    <div
-      className="cy-menu"
-      style={{ left: at.x, top: at.y }}
-      onMouseDown={(e) => e.stopPropagation()}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      {entries.map((en, i) =>
-        en === 'hr' ? (
-          <hr key={i} />
-        ) : (
-          <button key={i} type="button" disabled={en.disabled} onClick={en.fn}>
-            {en.label}
-          </button>
-        ),
-      )}
-    </div>
-  )
-}
 
 function StepDetail({
   item,

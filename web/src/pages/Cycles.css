@@ -8101,7 +8101,9 @@ a.bc-cur:hover { text-decoration: underline; }
 /* ══ 사이클 목록 — 판 + 엑셀 표 (승인 A안) ══
    요구사항·시험항목과 같은 벌. 1열·2열 카드 껍데기를 벗겨 판으로 두고,
    사이는 1열의 오른선 하나로만 나눈다. */
-html .split.cy { padding-top: 0; margin-right: -12px; margin-left: -12px; }
+/* 본문 여백이 12px 이던 시절의 보정이다 — 여백을 4px 로 줄인 뒤(좌우
+   맞춤 수정)에도 -12px 로 당겨, 양쪽이 8px 씩 화면 밖으로 나가 있었다. */
+html .split.cy { padding-top: 0; margin-right: -4px; margin-left: -4px; }
 html .split.cy > .panel.cy-tree {
   border: 0;
   border-radius: 0;
@@ -8201,3 +8203,32 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   font-weight: 800;
   letter-spacing: -0.01em;
 }
+
+/* ── 사이클 목록 개편(승인 목업) — 접두어 cyl- ────────────────
+   폴더 레일이 없어지고, 사업자·제품군·버전그룹은 도구줄 필터와 표의
+   열이 맡는다. 요약 카드 자체는 CycleSummary.css 에 있다. */
+.cyl-filter {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 7px;
+  background: var(--c-surface);
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-text);
+  max-width: 130px;
+}
+.cyl-filter.on {
+  background: var(--c-sel-teal, #a8d3dd);
+  border-color: var(--c-sel-teal, #a8d3dd);
+  color: var(--c-sel-teal-ink, #0d4451);
+  font-weight: 700;
+}
+
+/* 고른 줄 — 요약 카드가 보는 사이클. hover 색보다 한 층 진하게 */
+.cyt-row.cyl-on { background: #e8f3f6; box-shadow: inset 3px 0 0 var(--c-sel-teal, #a8d3dd); }
+.cyt-row.cyl-on:hover { background: #e0eef2; }
+
+/* 지금 도는 실행 — 깜빡여서 눈이 간다. 라이브가 아닌 「진행중」 과 다르다 */
+.cyt-st.cyl-live { animation: cyl-blink 1.2s ease-in-out infinite; }
+@keyframes cyl-blink { 50% { opacity: 0.45; } }

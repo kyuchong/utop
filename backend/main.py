@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import html as _h
 import re
 import asyncio
 import httpx
@@ -8860,6 +8861,116 @@ async def cycle_rollup_mail(payload: dict):
     return {"success": True, "to": sent, "subject": subject}
 
 
+# ───────────────────────────────────────────
+# 사이클 하나의 결과 메일 — 요약 카드의 「결과 메일 발송」 이 부른다.
+#
+# rollup/mail(폴더 단위)과 다른 물건이다: 이건 **한 사이클**의 결과다.
+# 폴더 레일이 없어지면서(승인) 사이클 화면의 발송 단위도 사이클이 됐다.
+# rollup/mail 은 인증도 enabled 체크도 없는데, 새 길은 share-mail 을
+# 본받아 둘 다 한다 — 무인증 발송 구멍을 새로 파지 않는다.
+# ───────────────────────────────────────────
+async def _cycle_mail_html(cycle_id: str, note: str = "") -> tuple[str, str]:
+    """(제목, HTML). 메일 클라이언트는 CSS 클래스를 못 읽는다 — 전부 인라인."""
+    c = await db.cycle_get(cycle_id)
+    if not c:
+        raise HTTPException(404, "사이클을 찾을 수 없습니다")
+    grp_of = await _ru_groups()
+    items = c.get("items") or []
+    n_pass = n_fail = n_done = 0
+    rows = []
+    for it in items:
+        v = db.item_verdict(it, it.get("steps") or [])
+        g = grp_of.get(v, "neutral" if v else "none")
+        if v:
+            n_done += 1
+        if g == "pass":
+            n_pass += 1
+        elif g == "fail":
+            n_fail += 1
+        color = {"pass": "#1f7a45", "fail": "#c33"}.get(g, "#667")
+        rows.append(
+            f"<tr><td style='padding:4px 8px;border-bottom:1px solid #eee;"
+            f"font-family:Consolas,monospace;font-size:11px;color:#888'>"
+            f"{_h.escape(str(it.get('ceid') or it.get('tcid') or ''))}</td>"
+            f"<td style='padding:4px 8px;border-bottom:1px solid #eee'>"
+            f"{_h.escape(str(it.get('name') or ''))}</td>"
+            f"<td style='padding:4px 8px;border-bottom:1px solid #eee;"
+            f"font-weight:700;color:{color}'>{_h.escape(v or '미실행')}</td></tr>"
+        )
+    total = len(items)
+    rate = round(n_pass / n_done * 100) if n_done else 0
+    prog = round(n_done / total * 100) if total else 0
+    head = " · ".join(
+        x for x in (
+            str(c.get("customer") or ""), str(c.get("model") or ""),
+            str(c.get("version_group") or ""), str(c.get("version") or ""),
+        ) if x
+    )
+    subject = f"[UTOP] {c.get('name') or c.get('cid') or cycle_id} 시험 결과"
+    ai = ((c.get("ai_summary") or {}).get("text") or "").strip()
+    ai_html = (
+        "<h3 style='margin:18px 0 6px;font-size:14px'>AI 총평</h3>"
+        f"<div style='white-space:pre-wrap;background:#f7f9fa;border:1px solid #e5eaee;"
+        f"border-radius:8px;padding:10px 12px;font-size:12px'>{_h.escape(ai)}</div>"
+    ) if ai else ""
+    note_html = (
+        f"<div style='background:#fff8e6;border:1px solid #eadfa8;border-radius:8px;"
+        f"padding:8px 12px;margin:0 0 12px;font-size:12px'>{_h.escape(note)}</div>"
+    ) if note else ""
+    kv = "".join(
+        f"<td style='padding:8px 14px;text-align:center;border:1px solid #e5eaee'>"
+        f"<div style='font-size:20px;font-weight:800;color:{col}'>{val}</div>"
+        f"<div style='font-size:11px;color:#889'>{lab}</div></td>"
+        for lab, val, col in (
+            ("전체", total, "#123"), ("실행", n_done, "#123"),
+            ("Pass", n_pass, "#1f7a45"), ("Fail", n_fail, "#c33"),
+            ("합격률", f"{rate}%", "#1f7a45"), ("진행률", f"{prog}%", "#123"),
+        )
+    )
+    html = (
+        f"<div style='font-family:Malgun Gothic,Apple SD Gothic Neo,sans-serif;color:#1a2530'>"
+        f"<h2 style='margin:0 0 2px;font-size:17px'>{_h.escape(str(c.get('name') or ''))}"
+        f" <span style='font-family:Consolas,monospace;font-size:12px;color:#889'>"
+        f"{_h.escape(str(c.get('cid') or ''))}</span></h2>"
+        f"<div style='font-size:12px;color:#556;margin:0 0 12px'>{_h.escape(head)}</div>"
+        f"{note_html}"
+        f"<table style='border-collapse:collapse;margin:0 0 16px'><tr>{kv}</tr></table>"
+        f"<table style='border-collapse:collapse;width:100%;font-size:12px'>"
+        f"<tr><th style='text-align:left;padding:4px 8px;border-bottom:2px solid #d5dde2'>ID</th>"
+        f"<th style='text-align:left;padding:4px 8px;border-bottom:2px solid #d5dde2'>항목</th>"
+        f"<th style='text-align:left;padding:4px 8px;border-bottom:2px solid #d5dde2'>결과</th></tr>"
+        f"{''.join(rows)}</table>{ai_html}"
+        f"<div style='margin-top:16px;font-size:11px;color:#99a'>ubiQuoss-TOP 자동 발송</div></div>"
+    )
+    return subject, html
+
+
+@app.get("/api/cycle/{cycle_id}/mail-preview")
+async def cycle_mail_preview(cycle_id: str, note: str = "", token: str = ""):
+    if not _user_from_token(token):
+        raise HTTPException(401, "로그인이 필요합니다")
+    subject, html = await _cycle_mail_html(cycle_id, note)
+    return {"subject": subject, "html": html}
+
+
+@app.post("/api/cycle/{cycle_id}/mail")
+async def cycle_mail(cycle_id: str, payload: dict, token: str = ""):
+    if not _user_from_token(token):
+        raise HTTPException(401, "로그인이 필요합니다")
+    to = payload.get("to") or ""
+    if not str(to).strip():
+        raise HTTPException(400, "받는 사람을 적어 주세요")
+    if not _load_mail_cfg().get("enabled"):
+        raise HTTPException(400, "메일 발송이 꺼져 있습니다 (시스템 → 메일 설정)")
+    subject, html = await _cycle_mail_html(cycle_id, str(payload.get("note") or "").strip())
+    subject = str(payload.get("subject") or "").strip() or subject
+    try:
+        sent = _send_mail(to, subject, html, html=True)
+    except Exception as e:
+        raise HTTPException(400, f"보내지 못했습니다 — {e}")
+    return {"success": True, "to": sent, "subject": subject}
+
+
 # 버전그룹 폴더 — `{ "<모델명>": ["R200", "R300"] }`
 #
 # 모델그룹·모델명은 장비 카탈로그가 master 다. 자유 입력으로 두었더니
@@ -9652,12 +9763,22 @@ async def wiki_pdf(payload: dict):
             # 종이에서는 빡빡하다. 90% 로 한 번 줄이면 한 장에 더 담기고,
             # **글자와 표와 그림이 같은 비율로** 줄어 균형이 안 깨진다.
             # 글자 크기만 따로 줄이면 표·그림만 커 보인다.
-            pdf = await pg.pdf(
-                format="A4",
-                margin={"top": "14mm", "right": "14mm", "bottom": "14mm", "left": "14mm"},
-                print_background=True,
-                scale=0.9,
-            )
+            if payload.get("slide"):
+                # 결과서 슬라이드(1280×720 고정 지오메트리) — 쪽 크기를
+                # 슬라이드에 맞추면 한 장이 정확히 한 쪽이 된다. A4 에
+                # 욱여넣으면 잘리거나 여백이 남는다.
+                pdf = await pg.pdf(
+                    width="1280px",
+                    height="720px",
+                    print_background=True,
+                )
+            else:
+                pdf = await pg.pdf(
+                    format="A4",
+                    margin={"top": "14mm", "right": "14mm", "bottom": "14mm", "left": "14mm"},
+                    print_background=True,
+                    scale=0.9,
+                )
             await br.close()
     except Exception as e:
         return {"ok": False, "error": "PDF 를 만들지 못했습니다: " + str(e)[:300]}

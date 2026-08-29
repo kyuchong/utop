@@ -254,6 +254,55 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
     }
   }
 
+  /**
+   * PDF 저장 — **미리보기의 그 장들을 그대로 굽는다**(승인: 고객사 결과서).
+   *
+   * 장 HTML(1280×720 인라인 스타일)이 이미 있으므로 새로 그릴 것이 없다.
+   * 위키 PDF 와 같은 서버 크로미움을 쓰되, 쪽 크기를 슬라이드에 맞춘다
+   * (slide 플래그) — A4 에 욱여넣으면 잘리거나 여백이 남는다.
+   */
+  const savePdf = async () => {
+    setBusy(true)
+    setMsg('PDF 만드는 중…')
+    try {
+      /* 크로미움 기본 body 여백(8px)을 반드시 끈다 — 쪽 크기와 슬라이드가
+         1280×720 으로 딱 맞물리는 지오메트리라, 8px 만 밀려도 장마다 오른쪽이
+         잘리고 낱장이 낀다(검증에서 픽셀로 재현). 미리보기 iframe 은 같은
+         리셋을 이미 넣고 있었다 — PDF 만 빠져 있었다. 마지막 장의
+         page-break 도 끈다: 빈 마지막 장을 만들 수 있다. */
+      const html = slides
+        .map((h) => `<div class="pg">${h}</div>`)
+        .join('')
+      const r = await apiFetch('/api/wiki/pdf', {
+        method: 'POST',
+        body: JSON.stringify({
+          html:
+            `<style>html,body{margin:0;padding:0}` +
+            `.pg{width:1280px;height:720px;overflow:hidden;page-break-after:always}` +
+            `.pg:last-child{page-break-after:auto}</style>${html}`,
+          title: `시험결과서_${[model, version].filter(Boolean).join('_') || cycleId}`,
+          slide: true,
+        }),
+      })
+      const j = (await r.json()) as { ok?: boolean; name?: string; data?: string; error?: string }
+      if (!j.ok || !j.data) throw new Error(j.error || 'PDF 를 만들지 못했습니다')
+      const bin = atob(j.data)
+      const buf = new Uint8Array(bin.length)
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
+      const url = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = j.name || 'report.pdf'
+      a.click()
+      URL.revokeObjectURL(url)
+      setMsg(`PDF ${slides.length}장 저장했습니다`)
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'PDF 저장에 실패했습니다')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const loading = cycQ.isLoading || (items.length > 0 && tcQ.isLoading)
 
   return (
@@ -285,6 +334,14 @@ export default function CycleReport({ cycleId, model, version, onClose }: Props)
             onClick={() => void save()}
           >
             {busy ? '…' : '⬇ PPTX 저장'}
+          </button>
+          <button
+            className="btn small"
+            type="button"
+            disabled={busy || !slides.length}
+            onClick={() => void savePdf()}
+          >
+            ⬇ PDF 저장
           </button>
           <button className="btn small" type="button" disabled={busy} onClick={onClose}>
             ✕
