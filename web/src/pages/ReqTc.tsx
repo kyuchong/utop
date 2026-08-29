@@ -359,6 +359,7 @@ export default function ReqTc({ me }: Props) {
   /* 잰 값은 상태로 들고 있는다 — 그리드 문자열이 여기서 만들어지고,
      재는 일은 줄이 정해진 뒤(아래)라야 할 수 있다. */
   const idProbe = useRef<HTMLDivElement>(null)
+  const headProbe = useRef<HTMLDivElement>(null)
   const [idW, setIdW] = useState(108)
   const idCol = `${idW}px`
   const gridReq = `52px 48px ${idCol} minmax(0, 1fr) 110px 80px 78px 52px 132px ${visCols.map((c) => c.w).join(' ')}`.trim()
@@ -845,8 +846,19 @@ export default function ReqTc({ me }: Props) {
        잘렸다(지적). 자를 진짜 줄 안에 세우고 칸을 통째로 재면,
        여백이든 선이든 나중에 바뀌어도 따라온다. */
     const w = Math.ceil(el.getBoundingClientRect().width) + 1
-    setIdW((old) => (Math.abs(old - w) > 1 ? Math.max(46, Math.min(280, w)) : old))
-  }, [longestId])
+    /* 아래위 한계도 **잰 값**으로 잡는다.
+       · 아래 — 머리글자 「ID」 가 들어갈 폭. ID 가 짧다고 칸이 그보다
+         좁아지면 이번엔 머리줄이 잘린다.
+       · 위 — 이 판 폭의 35%. 앞머리가 길어져도 제목 칸을 다 먹어서는
+         안 된다. 280px 같은 숫자를 박아 두면 좁은 화면에서는 여전히
+         제목을 밀고, 넓은 화면에서는 공연히 자른다.
+       35% 라는 몫만 제가 정한 것이고, 나머지는 화면에서 읽는다. */
+    const floor = Math.ceil(headProbe.current?.getBoundingClientRect().width ?? 0) + 1
+    const panel = el.closest('.rqtc-main')?.clientWidth ?? 0
+    const cap = panel ? Math.round(panel * 0.35) : w
+    const next = Math.max(floor, Math.min(cap, w))
+    setIdW((old) => (Math.abs(old - next) > 1 ? next : old))
+  }, [longestId, sideW, foldSide])
   const onlyReq = reqOnly ? reqById.get(reqOnly) : undefined
 
   /* 폴더 줄의 ⋯ 메뉴 — 어느 폴더에 떠 있나.
@@ -2378,6 +2390,11 @@ export default function ReqTc({ me }: Props) {
           <div className="c-id" ref={idProbe}>
             <button type="button" className="rqtc-rid">{longestId || 'ID'}</button>
           </div>
+        </div>
+        {/* 머리글자용 자 — 아래 한계를 재려고 따로 세운다. 머리줄은 단추가
+            아니라 글자라 차림새가 달라, 같은 자로는 못 잰다. */}
+        <div className="rqtc-tr rqtc-th">
+          <div className="c-id" ref={headProbe}>ID</div>
         </div>
       </div>
       {toast && <div className="rqtc-toast">{toast}</div>}
