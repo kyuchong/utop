@@ -1370,9 +1370,9 @@ export default function ReqTc({ me }: Props) {
                     >
                       {tcApi2?.saving ? '저장 중…' : '저장'}
                     </button>
-                    <span className="sp" />
-                    {/* ⋯ 도 위로(지시) — 끼운 화면이 만든 그대로 얹는다 */}
-                    {tcApi2?.menu}
+                    {/* ⋯ 는 **줄 오른쪽 끝**으로(지시). 빵부스러기와 섞이면
+                        자리 이야기 중간에 할 일이 끼어든다. 그리려면 자리를
+                        빵부스러기 뒤로 미뤄야 해서, 아래 줄 끝에서 낸다. */}
                   </>
                 ) : (
                   <button
@@ -1617,6 +1617,9 @@ export default function ReqTc({ me }: Props) {
                 할 일도 없는 단추가 자리를 먹으면 빵부스러기가 밀려 두 줄로
                 접힌다(지적: 빵부스러기가 잘린다). 치우면 그 줄이 통째로
                 자리 이야기 몫이 된다. */}
+            {openTc && tcApi2?.menu && (
+              <span className="rqtc-tcmore">{tcApi2.menu}</span>
+            )}
             {!openTc && !openReq && !gpOpen && (
             <>
             <span className="rqtc-vsep" aria-hidden="true" />

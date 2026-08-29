@@ -1115,3 +1115,13 @@
 /* 끼워 넣은 화면의 머리줄은 감춘다 — 저장·⋯ 를 맨 윗줄로 올렸으므로(지시)
    여기 두면 같은 단추가 두 줄로 겹친다. */
 .rqtc-embed .tc-dethead { display: none; }
+
+/* 시험 상세의 ⋯ — 줄 오른쪽 끝, 청록으로(지시) */
+.rqtc-tcmore { flex: none; margin-left: auto; }
+.rqtc-tcmore .tc-dots {
+  background: var(--c-sel-teal);
+  border-color: var(--c-sel-teal);
+  color: var(--c-sel-teal-ink);
+  font-weight: 700;
+}
+.rqtc-tcmore .tc-dots:hover { background: #93c9d5; border-color: #93c9d5; }

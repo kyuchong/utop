@@ -249,6 +249,9 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
   const view: 'list' | 'detail' = openId ? 'detail' : 'list'
   const [stepIdx, setStepIdx] = useState(-1)
   const [menuOpen, setMenuOpen] = useState(false)
+  /* 메뉴 자리를 화면 좌표로 잡는다 — 줄 안에 두면 좁은 칸이 잘라 버려
+     항목이 안 보였다(지적). */
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
   // 1열 「+」(최상위 폴더 추가)는 뺐다(피드백) — 최상위=프로젝트.
   /** 3열 머리의 ⋯ — 이 칸을 무엇으로 쓸지 고르는 자리 */
   /** 명령어 캡쳐를 열면 3열이 그것으로 바뀐다 — 캡쳐하는 동안 스텝 세부는 볼 일이 없다 */
@@ -1581,14 +1584,22 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                       type="button"
                       aria-haspopup="menu"
                       aria-expanded={menuOpen}
-                      onClick={() => setMenuOpen((v) => !v)}
+                      onClick={(e) => {
+                        const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                        setMenuAt({ x: Math.max(8, r.right - 190), y: r.bottom + 4 })
+                        setMenuOpen((v) => !v)
+                      }}
                     >
                       ⋯
                     </button>
                     {menuOpen && (
                       <>
                         <div className="tc-menu-back" onClick={() => setMenuOpen(false)} />
-                        <div className="tc-menu" role="menu">
+                        <div
+                          className="tc-menu"
+                          role="menu"
+                          style={{ position: 'fixed', left: menuAt.x, top: menuAt.y, right: 'auto', zIndex: 300 }}
+                        >
                           {/* 랩마다 UTOP 이 따로 서 있어서 한쪽에서 만든 시험을 다른
                               쪽에서 그대로 돌리고 싶은 일이 잦다. DB 를 통째로 옮기면
                               장비 비밀번호까지 따라가므로, 시험 하나만 파일로 뗀다. */}
