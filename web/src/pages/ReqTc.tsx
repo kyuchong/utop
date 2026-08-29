@@ -343,6 +343,7 @@ export default function ReqTc({ me }: Props) {
    * 덮어써서, 칸 하나만 보내면 나머지가 다 지워진다(폴더 옮기기에서 겪은 그것).
    */
   const setOneField = async (kind: 'req' | 'tc', id: string, p: Record<string, unknown>) => {
+    setSaveState('saving')
     try {
       if (kind === 'req') {
         const full = (await api.getRequirement(id)) as unknown as Record<string, unknown>
@@ -357,7 +358,10 @@ export default function ReqTc({ me }: Props) {
         })
         await tcQ.refetch()
       }
+      setSaveState('saved')
+      window.setTimeout(() => setSaveState(''), 1500)
     } catch (e) {
+      setSaveState('')
       window.alert(`고치지 못했습니다 — ${String((e as Error).message)}`)
     }
   }
@@ -796,6 +800,10 @@ export default function ReqTc({ me }: Props) {
   /* 이름은 **그 줄에서 바로** 고친다(지시) — 창을 띄우면 어느 폴더를 고치는
      중인지 화면에서 사라진다. */
   const [copiedId, setCopiedId] = useState(false)
+  /* 「저장」 은 누르는 단추가 아니라 **상태 표시**다. 상태·우선순위는 고치는
+     즉시 저장되므로 누를 것이 없다 — 누를 수 없는 단추를 두면 「눌러야
+     저장되나」 를 묻게 된다. */
+  const [saveState, setSaveState] = useState<'' | 'saving' | 'saved'>('')
   const [renaming, setRenaming] = useState('')
   const [renameName, setRenameName] = useState('')
 
@@ -1087,22 +1095,9 @@ export default function ReqTc({ me }: Props) {
             {/* 2행 — 만들기와 손잡이들. 사진처럼 만들기가 왼쪽을 채우고
                 정렬·더보기가 오른쪽 끝에 붙는다. */}
             <div className="rqtc-newf">
-              <button
-                className="btn small"
-                type="button"
-                onClick={() => {
-                  const nm = window
-                    .prompt(cat ? '새 폴더 이름 (고른 폴더 아래에 만듭니다)' : '새 폴더 이름 (최상위)')
-                    ?.trim()
-                  if (!nm) return
-                  void categoryApi.create(nm, cat || null).then(() => {
-                    void catQ.refetch()
-                    if (cat) setOpenCat((o) => new Set([...o, cat]))
-                  })
-                }}
-              >
-                ＋ New Folder
-              </button>
+              {/* 「＋ New Folder」 를 뺐다(지시) — 폴더는 그 폴더의 ⋯ 에서
+                  「Add subfolder」 로 만든다. 어디에 만드는지가 그 자리에
+                  보여야 한다. */}
               <span className="sp" />
               <FolderSortBtn value={fsort} onChange={setFsort} />
               {/* ⋯ — 여태 아무 일도 안 하는 단추였다(지적). 트리에 무엇까지
@@ -1204,19 +1199,44 @@ export default function ReqTc({ me }: Props) {
             {/* 폴더 판 여닫기 — 접으면 1열이 **통째로 사라지고**, 다시 펴는
                 길은 여기뿐이다(지시·Testiny). 그래서 이 단추는 접었든 폈든
                 늘 같은 자리에 서 있어야 한다. */}
-            <button
-              type="button"
-              className="rqtc-ib rqtc-foldb"
-              title={foldSide ? '폴더 판 펴기' : '폴더 판 접기'}
-              onClick={() => setFoldSide((v) => !v)}
-            >
-              <IconPanel open={foldSide} />
-            </button>
+            {/* 상세를 열면 이 자리에 **목록·저장**이 선다(지시).
+                판 여닫기와 만들기는 목록을 볼 때 쓰는 것이라, 상세에서는
+                자리만 먹는다. 줄 하나가 통째로 준다. */}
+            {openReq || openTc ? (
+              <>
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={() => {
+                    setOpenReq('')
+                    setOpenTc('')
+                  }}
+                >
+                  ← 목록
+                </button>
+                {/* 「저장」 은 상태 표시다 — 상태·우선순위는 고치는 즉시
+                    저장되므로 누를 것이 없다. 눌러야 저장되는 줄 알고 안
+                    누른 채 나가는 일이 없어야 한다. */}
+                <span className={`rqtc-saved${saveState === 'saved' ? ' ok' : ''}`}>
+                  {saveState === 'saving' ? '저장 중…' : saveState === 'saved' ? '저장됨 ✓' : '저장됨'}
+                </span>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="rqtc-ib rqtc-foldb"
+                title={foldSide ? '폴더 판 펴기' : '폴더 판 접기'}
+                onClick={() => setFoldSide((v) => !v)}
+              >
+                <IconPanel open={foldSide} />
+              </button>
+            )}
             {/* Requirements/Coverage 토글은 **상단바**로 올렸다(지시) —
                 프로젝트 오른쪽, 세로선 너머다. 여기 또 두면 같은 것을 두 곳
                 에서 고치게 된다. */}
             {/* 만들기 셋은 **⋯ 안으로**(지시). 늘 서 있을 필요가 없는
                 것들이라 줄을 먹고 있었다 — 눌러서 꺼내 쓴다. */}
+            {!openReq && !openTc && (
             <div className="rqtc-more">
               <button
                 type="button"
@@ -1268,6 +1288,7 @@ export default function ReqTc({ me }: Props) {
                 </>
               )}
             </div>
+            )}
             {/* 세로선 — 왼쪽은 「무엇을 볼지·무엇을 만들지」, 오른쪽은
                 「지금 어디를 보고 있나」(빵부스러기)다(지시). */}
             <span className="rqtc-vsep" aria-hidden="true" />
@@ -1378,7 +1399,7 @@ export default function ReqTc({ me }: Props) {
                       window.setTimeout(() => setCopiedId(false), 1200)
                     }}
                   >
-                    {copiedId ? '복사됨' : reqCrumb.label}
+                    {copiedId ? `복사됨 · ${reqCrumb.label}` : reqCrumb.label}
                   </button>
                 </>
               ) : crumb.length ? (
@@ -1557,33 +1578,9 @@ export default function ReqTc({ me }: Props) {
             </div>
           ) : openReq ? (
             <div className="rqtc-one">
-              {/* 시험 쪽의 「할 일 줄」 과 같은 꼴이다 — 왼쪽에 되돌아가기,
-                  오른쪽에 이 상세에서 할 일. 제목과 번호는 맨 윗줄
-                  빵부스러기가 말한다(지시: 두 상세를 일치시킬 것). */}
-              <div className="rqtc-onehead">
-                <button type="button" className="btn" onClick={() => setOpenReq('')}>
-                  ← 목록
-                </button>
-                <span className="sp" />
-                <button
-                  className="btn small"
-                  type="button"
-                  onClick={() => {
-                    setReqOnly(openReq)
-                    setOpenReq('')
-                    setMode('tc')
-                  }}
-                >
-                  이 요구사항의 시험 보기
-                </button>
-                <button
-                  className="btn small primary"
-                  type="button"
-                  onClick={() => setEditReq(reqById.get(openReq) ?? null)}
-                >
-                  고치기
-                </button>
-              </div>
+              {/* 머리줄을 없앴다(지시) — 「목록·저장」 은 맨 윗줄로 갔고,
+                  「이 요구사항의 시험 보기」·「고치기」 는 뺐다. 탭이 바로
+                  시작하니 줄 두 개가 준다. */}
               <ReqBody
                 req={reqById.get(openReq)}
                 tcs={tcOf.get(openReq) ?? []}

@@ -1019,3 +1019,21 @@
 /* 요구사항 배지 — 누르면 주소가 복사된다 */
 .rqtc-copyid { border: 0; background: transparent; cursor: pointer; font: inherit; }
 .rqtc-copyid:hover { text-decoration: underline; }
+
+/* 「저장됨」 — 누르는 단추가 아니라 상태 표시다 */
+.rqtc-saved { flex: none; font-size: var(--fs-xs); color: var(--c-text-faint); }
+.rqtc-saved.ok { color: #1f7a45; font-weight: 700; }
+/* 요구사항 배지 — 알약 꼴로 세운다(지시) */
+.rqtc-copyid {
+  flex: none;
+  padding: 2px 9px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface);
+  color: var(--c-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.rqtc-copyid:hover { border-color: var(--c-primary); background: var(--c-primary-bg); text-decoration: none; }
