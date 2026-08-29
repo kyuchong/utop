@@ -138,6 +138,12 @@ export default function ReqTc({ me }: Props) {
      치면 오른쪽 표가 걸러졌다(지적). 두 칸이 하는 일이 다르니 값도 달라야 한다. */
   const [treeQ, setTreeQ] = useState('')
 
+  /* 글자를 견주기 전에 **자모 결합 방식을 맞춘다.**
+     같은 「시스템」 이라도 붙여 저장한 것(3글자)과 풀어 저장한 것(7글자)이
+     있다. 그대로 견주면 한 글자도 안 걸린다(지적: 한글이 안 된다).
+     맥에서 만든 파일·붙여넣기로 들어온 이름이 흔히 풀린 꼴이다. */
+  const norm = (v: unknown) => String(v ?? '').normalize('NFC').toLowerCase()
+
   /* 트리에 요구사항까지 낼지 — 폴더만 볼 때가 기본이다(지시로 고를 수 있게).
      스무 폴더 밑에 요구사항이 다 펼쳐지면 트리가 목록이 되어, 정작 폴더를
      짚는 일이 어려워진다. */
@@ -861,10 +867,19 @@ export default function ReqTc({ me }: Props) {
            자손을 안 보면 「MGMT 밑 SNMP」 를 찾을 때 MGMT 가 사라져 길이
            끊긴다. */
         .filter((c) => {
-          const n = treeQ.trim().toLowerCase()
+          const n = norm(treeQ.trim())
           if (!n) return true
+          /* 폴더 이름만 보던 것을 고친다(지적) — 사람은 「System Temp」 처럼
+             **요구사항 이름**으로도 찾는다. 그 요구사항이 든 폴더를 남긴다.
+             자손도 함께 본다: 안 그러면 「MGMT 밑」 을 찾을 때 길이 끊긴다. */
           const hit = (x: { id: string; name: string }): boolean =>
-            x.name.toLowerCase().includes(n) || (kids.get(x.id) ?? []).some(hit)
+            norm(x.name).includes(n) ||
+            reqs.some(
+              (r) =>
+                catOf(r) === x.id &&
+                (norm(r.title).includes(n) || norm(reqLabel(r)).includes(n)),
+            ) ||
+            (kids.get(x.id) ?? []).some(hit)
           return hit(c)
         })
         .sort((a, b) =>
@@ -881,7 +896,17 @@ export default function ReqTc({ me }: Props) {
           /* 이 폴더에 **바로 달린** 요구사항. 「폴더 + 요구사항」 일 때는
              이것도 펼칠 거리다 — 하위 폴더가 없다고 단추를 꺼 두면 끝단
              폴더의 요구사항은 영영 못 본다(지적: 요구사항+폴더가 안 된다). */
-          const own = treeReqs ? reqs.filter((r) => catOf(r) === c.id) : []
+          const nq = norm(treeQ.trim())
+          const own = (treeReqs || !!nq
+            ? reqs.filter((r) => catOf(r) === c.id)
+            : []
+          ).filter(
+            (r) =>
+              !nq ||
+              norm(r.title).includes(nq) ||
+              norm(reqLabel(r)).includes(nq) ||
+              norm(c.name).includes(nq),
+          )
           const canOpen = kid.length > 0 || own.length > 0
           const on = openCat.has(c.id) || !!treeQ.trim()
           const n = countOf(c.id)
@@ -1099,9 +1124,11 @@ export default function ReqTc({ me }: Props) {
                                것이 없다. */
                             setOpenTc('')
                             setOpenReq(reqPk(r))
-                            /* 고른 폴더는 **그대로 둔다** — 지우면 목록이
-                               「전체」 로 튄다(지적). 칠만 안 한다: 아래
-                               rqtc-fold 의 on 조건이 openReq 를 본다. */
+                            /* **그 요구사항이 든 폴더**를 고른 것으로 둔다.
+                               그래야 「← 목록」 으로 돌아왔을 때 그 폴더가
+                               서 있다(지적: 색이 유지돼야 하나 옮겨가야 하나
+                               — 돌아갈 자리는 그 요구사항이 있던 폴더다). */
+                            setCat(c.id)
                           }}
                           title={`${reqLabel(r)} ${r.title ?? ''}`}
                         >
