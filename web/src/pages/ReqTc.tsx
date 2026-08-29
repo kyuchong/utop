@@ -358,7 +358,7 @@ export default function ReqTc({ me }: Props) {
 
   /* 잰 값은 상태로 들고 있는다 — 그리드 문자열이 여기서 만들어지고,
      재는 일은 줄이 정해진 뒤(아래)라야 할 수 있다. */
-  const idProbe = useRef<HTMLSpanElement>(null)
+  const idProbe = useRef<HTMLDivElement>(null)
   const [idW, setIdW] = useState(108)
   const idCol = `${idW}px`
   const gridReq = `52px 48px ${idCol} minmax(0, 1fr) 110px 80px 78px 52px 132px ${visCols.map((c) => c.w).join(' ')}`.trim()
@@ -839,11 +839,12 @@ export default function ReqTc({ me }: Props) {
   useLayoutEffect(() => {
     const el = idProbe.current
     if (!el) return
-    // 좌우 여백은 칸이 실제로 쓰는 값을 읽는다 — 여기도 찍으면 같은 잘못이다
-    const cell = el.parentElement as HTMLElement | null
-    const cs = cell ? getComputedStyle(cell) : null
-    const pad = cs ? parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) : 0
-    const w = Math.ceil(el.getBoundingClientRect().width + pad) + 2
+    /* **칸 자체를 잰다.** 앞서는 글자만 재고 여백을 따로 더하려 했는데,
+       자가 .rqtc-tr 밖에 있어서 `.rqtc-tr > div { padding: 1px 8px }` 와
+       오른쪽 선 1px 이 안 붙어 0 으로 읽혔다 — 17px 이 모자라 ID 가
+       잘렸다(지적). 자를 진짜 줄 안에 세우고 칸을 통째로 재면,
+       여백이든 선이든 나중에 바뀌어도 따라온다. */
+    const w = Math.ceil(el.getBoundingClientRect().width) + 1
     setIdW((old) => (Math.abs(old - w) > 1 ? Math.max(46, Math.min(280, w)) : old))
   }, [longestId])
   const onlyReq = reqOnly ? reqById.get(reqOnly) : undefined
@@ -2370,8 +2371,13 @@ export default function ReqTc({ me }: Props) {
           서야 같은 폭이 나온다 — 그래서 클래스를 그대로 쓴다. aria-hidden 이라
           읽어 주는 기계는 건너뛴다. */}
       <div className="rqtc-idprobe" aria-hidden="true">
-        <div className="c-id">
-          <span className="rqtc-rid" ref={idProbe}>{longestId || 'ID'}</span>
+        {/* **진짜 줄 안에 세운다.** 표의 그 칸이 받는 규칙(.rqtc-tr > div 의
+            여백·선, 단추의 글꼴)을 하나도 빠짐없이 받아야 같은 폭이 나온다.
+            단추(span 아님)인 것도 그래서다. */}
+        <div className="rqtc-tr">
+          <div className="c-id" ref={idProbe}>
+            <button type="button" className="rqtc-rid">{longestId || 'ID'}</button>
+          </div>
         </div>
       </div>
       {toast && <div className="rqtc-toast">{toast}</div>}

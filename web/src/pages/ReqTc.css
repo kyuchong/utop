@@ -1221,4 +1221,7 @@
   white-space: nowrap;
   pointer-events: none;
 }
-.rqtc-idprobe .c-id { display: inline-block; }
+/* 자 안의 줄은 그리드를 풀고, 칸은 내용만큼만 선다 — 그래야 「이 ID 에
+   필요한 폭」 이 나온다. 그리드인 채로 두면 칸이 트랙 폭을 따라간다. */
+.rqtc-idprobe .rqtc-tr { display: block; border: 0; }
+.rqtc-idprobe .c-id { display: inline-flex; overflow: visible; }
