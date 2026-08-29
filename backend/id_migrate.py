@@ -254,8 +254,14 @@ async def apply(c, p: dict) -> dict:
                     it["tcid"] = tcmap[it["tcid"]]
                     touched = True
             if touched:
+                # **json.dumps 를 하지 않는다.** 풀에 jsonb 코덱이 걸려 있어
+                # dict 를 그대로 넘기면 알아서 JSON 이 된다. 글자로 넘기면
+                # 「JSON 문자열 하나」 로 겹싸여 저장되고, 그러면 data->>'cid'
+                # 가 안 잡히고 jsonb_set 이 'cannot set path in scalar' 로
+                # 죽는다(겪었다: 사이클 3건). db._repair_double_json 이 있는
+                # 까닭도 같은 사고다.
                 await c.execute("UPDATE cycle SET data = $1 WHERE id = $2",
-                                json.dumps(data, ensure_ascii=False), row["id"])
+                                data, row["id"])
     return n
 
 
@@ -270,7 +276,7 @@ async def repair(c) -> dict:
     맞추는 방향은 **칸 → data** 다. 칸이 새 ID 를 들고 있는 쪽이 옮기기가
     실제로 정한 값이다.
     """
-    fixed = {"req": 0, "tc": 0}
+    fixed = {"req": 0, "tc": 0, "cycle": 0}
     async with c.transaction():
         r = await c.execute(
             """UPDATE req
@@ -286,4 +292,11 @@ async def repair(c) -> dict:
                   AND coalesce(data->>'tcid', '') <> tcid"""
         )
         fixed["tc"] = int(r.split()[-1]) if r.split()[-1].isdigit() else 0
+        # 겹싸여 글자로 저장된 사이클 data 벗기기 — 처음 판이 json.dumps 를
+        # 한 번 더 해서 「JSON 문자열」 이 되었다. 내용은 그 안에 온전하다.
+        r = await c.execute(
+            """UPDATE cycle SET data = (data #>> '{}')::jsonb
+                WHERE jsonb_typeof(data) = 'string'"""
+        )
+        fixed["cycle"] = int(r.split()[-1]) if r.split()[-1].isdigit() else 0
     return fixed

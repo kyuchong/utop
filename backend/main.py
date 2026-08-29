@@ -12629,8 +12629,12 @@ async def _db_init():
     try:
         async with db.pool().acquire() as _c:
             _f = await id_migrate.repair(_c)
-        if _f["req"] or _f["tc"]:
-            print(f"[id] 반쪽 옮김 손질 — 요구사항 {_f['req']} · 시험항목 {_f['tc']}건", flush=True)
+        if _f["req"] or _f["tc"] or _f["cycle"]:
+            print(
+                f"[id] 반쪽 옮김 손질 — 요구사항 {_f['req']} · 시험항목 {_f['tc']} · "
+                f"사이클 {_f['cycle']}건",
+                flush=True,
+            )
     except Exception as e:
         print(f'[startup] ID 손질 실패: {e}', flush=True)
     # 워커 스레드(run_cli 등)에서 asyncio.run_coroutine_threadsafe 호출용 메인 루프 참조 저장.
