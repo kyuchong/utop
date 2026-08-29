@@ -78,6 +78,9 @@ export default function ListSortBtn({
                 setOpen(false)
               }}
             >
+              {/* 지금 고른 것에 체크 — 눌러 보기 전에는 무엇으로 서 있는지
+                  알 수 없었다(지적) */}
+              {value === v && <i className="fsort-tick">✓</i>}
               {label}
             </button>
           ))}

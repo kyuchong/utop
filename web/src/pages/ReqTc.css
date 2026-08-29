@@ -1037,3 +1037,10 @@
   white-space: nowrap;
 }
 .rqtc-copyid:hover { border-color: var(--c-primary); background: var(--c-primary-bg); text-decoration: none; }
+
+/* 고른 것 표시 — 메뉴에서 지금 무엇이 켜져 있는지 눌러 보지 않고 안다 */
+.fsort-tick, .tc-menu-tick { font-style: normal; margin-right: 6px; color: var(--c-primary); font-weight: 700; }
+/* 표가 없는 줄도 글자가 밀리지 않게 자리를 비워 둔다 */
+.fsort-pop button, .rqtc-side .tc-menu button { display: flex; align-items: center; }
+/* 폴더 ⋯ 메뉴는 **오른쪽으로** 펼친다 — 왼쪽 판이라 왼쪽으로 열면 트리를 덮는다 */
+.rqtc-fmenu .tc-menu { left: 100%; right: auto; top: 0; margin-left: 4px; }

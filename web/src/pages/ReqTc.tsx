@@ -16,11 +16,7 @@ import {
   IconSettings,
 } from '@/components/icons'
 import GlobalParams from '@/components/settings/GlobalParams'
-import ListSortBtn, {
-  FolderSortBtn,
-  type FolderSortMode,
-  type ListSortMode,
-} from '@/components/ListSortBtn'
+import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
 import { useInfoCols } from '@/components/useInfoCols'
 import ReqForm from '@/components/ReqForm'
 import ReqBulkForm from '@/components/ReqBulkForm'
@@ -134,22 +130,6 @@ export default function ReqTc({ me }: Props) {
   /** 「이 요구사항의 시험만」 — 요구사항 줄을 눌렀을 때 걸리는 다리 */
   const [reqOnly, setReqOnly] = useState('')
   const [q, setQ] = useState('')
-  /* 폴더 정렬 — 2열 목록 정렬과 **같은 꼴**을 쓴다(지시). 기억해 둔다:
-     한 번 정해 놓고 매번 다시 고르게 하면 그건 설정이 아니라 잔일이다. */
-  const [fsort, setFsort] = useState<FolderSortMode>(() => {
-    try {
-      return (localStorage.getItem('utop.reqtc.fsort') as FolderSortMode) || 'name'
-    } catch {
-      return 'name'
-    }
-  })
-  useEffect(() => {
-    try {
-      localStorage.setItem('utop.reqtc.fsort', fsort)
-    } catch {
-      /* 사생활 보호 모드 */
-    }
-  }, [fsort])
 
   /* 트리에 요구사항까지 낼지 — 폴더만 볼 때가 기본이다(지시로 고를 수 있게).
      스무 폴더 밑에 요구사항이 다 펼쳐지면 트리가 목록이 되어, 정작 폴더를
@@ -695,17 +675,21 @@ export default function ReqTc({ me }: Props) {
    */
   useEffect(() => {
     const p = window.location.pathname
+    /* 주소에는 **사람이 읽는 ID**(REQ-2633-0016)를 적는다(지적).
+       내부 열쇠(rq-1786…)는 우리끼리 쓰는 값이라, 주소창에 나오면 무엇을
+       가리키는지 알 수 없고 링크를 눈으로 확인할 수도 없다. */
+    const reqShow = openReq ? reqLabel(reqById.get(openReq) ?? ({} as Requirement)) || openReq : ''
     const url = openTc
       ? `${p}?tc=${encodeURIComponent(openTc)}`
       : openReq
-        ? `${p}?req=${encodeURIComponent(openReq)}`
+        ? `${p}?req=${encodeURIComponent(reqShow)}`
         : cat
           ? `${p}?cat=${encodeURIComponent(cat)}`
           : p
     if (window.location.pathname + window.location.search !== url) {
       window.history.replaceState({ utop: true }, '', url)
     }
-  }, [openTc, openReq, cat])
+  }, [openTc, openReq, cat, reqById])
 
   /** 열어 둔 요구사항의 자리 — 시험(tcCrumb)과 **같은 꼴**이다.
       두 상세가 서로 다른 모양으로 서면, 같은 화면인데 무엇을 열었느냐에
@@ -837,16 +821,7 @@ export default function ReqTc({ me }: Props) {
            있어서, 남겨 두면 늘 (0 / 0) 인 줄이 남아 「비었나, 잘못 골랐나」
            를 헷갈리게 한다. 아래 가지는 이미 그 프로젝트 안이라 안 거른다. */
         .filter((c) => depth > 0 || !prjs.length || prjs.includes(c.id))
-        .sort((a, b) =>
-          fsort === 'name'
-            ? a.name.localeCompare(b.name)
-            : fsort === 'req'
-              ? countOf(b.id).r - countOf(a.id).r
-              : /* 최근 — 나중에 고친 것이 위로 */
-                String((b as { updated_at?: string }).updated_at ?? '').localeCompare(
-                  String((a as { updated_at?: string }).updated_at ?? ''),
-                ),
-        )
+        .sort((a, b) => a.name.localeCompare(b.name))
         .map((c) => {
           const kid = kids.get(c.id) ?? []
           /* 이 폴더에 **바로 달린** 요구사항. 「폴더 + 요구사항」 일 때는
@@ -1062,6 +1037,10 @@ export default function ReqTc({ me }: Props) {
                                것이 없다. */
                             setOpenTc('')
                             setOpenReq(reqPk(r))
+                            /* 폴더 칠을 지운다 — 요구사항을 보고 있는데 폴더도
+                               함께 파랗게 남으면 지금 무엇을 열었는지 둘로
+                               보인다(지적). 고른 것은 하나여야 한다. */
+                            setCat('')
                           }}
                           title={`${reqLabel(r)} ${r.title ?? ''}`}
                         >
@@ -1099,7 +1078,8 @@ export default function ReqTc({ me }: Props) {
                   「Add subfolder」 로 만든다. 어디에 만드는지가 그 자리에
                   보여야 한다. */}
               <span className="sp" />
-              <FolderSortBtn value={fsort} onChange={setFsort} />
+              {/* 폴더 정렬을 뺐다(지시) — 표의 열 정렬로 대신한다. 트리와
+                  표 두 곳에서 차례를 정하면 어느 쪽이 이겼는지 알 수 없다. */}
               {/* ⋯ — 여태 아무 일도 안 하는 단추였다(지적). 트리에 무엇까지
                   낼지를 여기서 고른다. 2열 ⋯ 와 같은 색·같은 꼴이다. */}
               <span className="rqtc-more">
@@ -1125,6 +1105,7 @@ export default function ReqTc({ me }: Props) {
                           setSideMenu(false)
                         }}
                       >
+                        {!treeReqs && <i className="tc-menu-tick">✓</i>}
                         폴더만 보기
                       </button>
                       <button
@@ -1135,6 +1116,7 @@ export default function ReqTc({ me }: Props) {
                           setSideMenu(false)
                         }}
                       >
+                        {treeReqs && <i className="tc-menu-tick">✓</i>}
                         폴더 + 요구사항
                       </button>
                     </div>
@@ -1407,7 +1389,7 @@ export default function ReqTc({ me }: Props) {
                     className="rqtc-popid rqtc-copyid"
                     title="이 요구사항으로 바로 가는 주소를 복사합니다"
                     onClick={() => {
-                      const url = `${window.location.origin}${window.location.pathname}?req=${encodeURIComponent(openReq)}`
+                      const url = `${window.location.origin}${window.location.pathname}?req=${encodeURIComponent(reqCrumb.label)}`
                       void navigator.clipboard
                         .writeText(url)
                         .then(() => setCopiedId(true))
@@ -1557,13 +1539,8 @@ export default function ReqTc({ me }: Props) {
               1열 폴더는 그대로 남아, 옆 것으로 넘어가기 쉽다. */}
           {gpOpen ? (
             <div className="rqtc-one">
-              <div className="rqtc-onehead">
-                <button type="button" className="btn small" onClick={() => setGpOpen(false)}>
-                  ← 목록
-                </button>
-                <b className="rqtc-onetitle">전역 파라미터</b>
-                <span className="muted small">스텝에서 ${'{'}이름{'}'} 으로 씁니다</span>
-              </div>
+              {/* 머리줄을 뺐다(지시) — 위 빵부스러기 줄에 이미 「← 목록」 이
+                  있어 같은 말이 두 줄로 나갔다. */}
               {/* 설정 화면이 쓰는 **그 부품**을 그대로 얹는다 — 베껴 만들면
                   한쪽에서 고친 값이 다른 쪽에 안 보이는 날이 온다. */}
               <div className="rqtc-gp">
