@@ -5,7 +5,10 @@ import { apiFetch } from '@/api/client'
 /**
  * ID 옮기기 — 옛 ID 를 **모델그룹 기준**으로.
  *
- *     E61xx-R0001 · E61xx-T0001 · E61xx-C0001 · E61xx-C0001-E001
+ *     LGUP-E61xx_R0001 · _T0001 · _C0001 · _C0001-E001
+ *
+ * 앞머리는 **모델그룹 그대로**다 — 모델그룹이 이미 사업자를 알아볼 만큼
+ * 줄여 담은 통칭이라(지시), 사업자를 덧붙이면 같은 말이 두 번 들어간다.
  *
  * 왜 화면에 두나 — 서버에 들어가 명령을 치는 방식이면, 손이 안 닿는
  * 설치처(253)는 사람이 거기까지 가서 쳐야 한다. 여기 두면 받기만 하고
@@ -50,8 +53,8 @@ export default function IdMigrate() {
       <div className="set-h">
         <b>ID 옮기기</b>
         <span className="muted small">
-          옛 ID 를 모델그룹 기준으로 — <code>E61xx-R0001</code> · <code>E61xx-T0001</code> ·{' '}
-          <code>E61xx-C0001</code> · <code>E61xx-C0001-E001</code>
+          옛 ID 를 모델그룹 기준으로 — <code>LGUP-E61xx_R0001</code> ·{' '}
+          <code>_T0001</code> · <code>_C0001</code> · <code>_C0001-E001</code>
         </span>
       </div>
 

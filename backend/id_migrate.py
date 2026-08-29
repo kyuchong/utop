@@ -1,13 +1,19 @@
 """옛 ID → **모델그룹 기준 ID** 로 옮기기.
 
-    E61xx-R0001        요구사항   (req.reqid)
-    E61xx-T0001        시험항목   (tc.tcid — 이건 PK 다)
-    E61xx-C0001        사이클     (cycle.data.cid)
-    E61xx-C0001-E001   실행       (cycle.data.items[].ceid)
+    LGU+_E61xx_R0001        요구사항   (req.reqid)
+    LGU+_E61xx_T0001        시험항목   (tc.tcid — 이건 PK 다)
+    LGU+_E61xx_C0001        사이클     (cycle.data.cid)
+    LGU+_E61xx_C0001-E001   실행       (cycle.data.items[].ceid)
 
-왜 모델그룹인가 — 요구사항과 시험항목은 **사업자를 가리지 않는다**(지시).
-E61xx 의 시험항목은 KT 든 LGU+ 든 같이 쓰고, 어느 사업자용인지는 사이클을
-만들 때 정한다. 그래서 ID 의 앞머리는 사업자가 아니라 제품군이다.
+앞머리는 **모델그룹 그대로**다. 사업자명(LGUPLUS·KT)은 딴 칸에 따로 있고,
+모델그룹은 그 사업자를 알아볼 만큼 줄여 담아 사람이 붙인 통칭이다(지시).
+그러니 여기서 사업자를 덧붙이면 같은 말이 두 번 들어간다.
+
+그래서 이 코드는 모델그룹을 **손대지 않는다** — 자르지도 붙이지도 않는다.
+앞머리를 무엇으로 할지는 카탈로그에서 이름을 고치는 것으로 정해진다.
+
+실행만 `-` 로 잇는다(C0001-E001). 실행은 홀로 서는 것이 아니라 **그 사이클
+안의 몇 번째**라, 이음쇠가 달라야 눈이 「사이클 밑」 으로 읽는다.
 
 왜 주차(2633)를 뺐나 — 순번이 모델그룹 안에서 통짜로 유일하면 주차는
 장식이다. 「언제 만들었나」 는 만든 날 칸이 이미 말한다. 주차를 남기면
@@ -26,28 +32,28 @@ from __future__ import annotations
 import json
 import re
 
-# 새 모양인가 — 앞머리(모델그룹) + R/T/C + 네 자리
-NEW_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_+-]*-[RTC]\d{4}$")
-NEW_EXEC_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_+-]*-C\d{4}-E\d{3}$")
+# 새 모양인가 — 앞머리(사업자_모델그룹) + _ + R/T/C + 네 자리.
+# 앞머리에 밑줄이 들어가므로 `.+` 로 욕심껏 잡는다: LGUPLUS_E61xx_R0001 에서
+# 앞머리는 LGUPLUS_E61xx 다. 사업자가 「공공」·「사내」 처럼 한글일 수 있어
+# 글자 종류를 묶지 않는다.
+NEW_RE = re.compile(r"^.+_[RTC]\d{4}$")
+NEW_EXEC_RE = re.compile(r"^.+_C\d{4}-E\d{3}$")
 
 
-def norm_group(raw: str, known: set[str]) -> str:
-    """모델그룹에서 **사업자를 뗀다**.
+def pick_group(stored: str, model: str, m2g: dict[str, str], known: set[str]) -> str:
+    """이 항목의 **모델그룹**을 고른다.
 
-    쓰던 값에 사업자가 붙어 있다(LGU+_E61xx, KT_U97xxS). 사용자가 카탈로그는
-    정리했지만 프로젝트·시험항목에 박힌 옛 값은 그대로다. 밑줄 앞을 떼어
-    보고, 그 결과가 **실제로 있는 모델그룹일 때만** 받아들인다 — 아니면
-    함부로 자르다 엉뚱한 앞머리를 만든다.
+    카탈로그를 먼저 본다 — 사람이 이름을 고치는 곳이 거기라, 거기가 정본이다.
+    적어 둔 값(LGU+_E61xx)이 카탈로그에 없으면 이름이 바뀐 것이니, 모델명으로
+    지금 이름을 다시 찾는다. 둘 다 없으면 적어 둔 값을 그대로 쓴다 — 모르는
+    이름을 지어내지 않는다.
     """
-    g = (raw or "").strip()
-    if not g:
-        return ""
-    if g in known:
+    g = (stored or "").strip()
+    if g and g in known:
         return g
-    if "_" in g:
-        tail = g.split("_", 1)[1]
-        if tail in known:
-            return tail
+    byv = m2g.get((model or "").strip(), "")
+    if byv:
+        return byv
     return g
 
 
@@ -66,7 +72,7 @@ async def _model_to_group(c) -> dict[str, str]:
     return {r["name"]: r["model_group"] for r in rows}
 
 
-async def _req_group(c, known: set[str]) -> dict[str, str]:
+async def _req_group(c, m2g: dict[str, str], known: set[str]) -> dict[str, str]:
     """요구사항 → 모델그룹. 폴더를 뿌리까지 타고 올라가 그 뿌리의 프로젝트를 본다."""
     rows = await c.fetch(
         """
@@ -76,13 +82,16 @@ async def _req_group(c, known: set[str]) -> dict[str, str]:
           SELECT u.id, c.id, c.parent_id FROM up u JOIN req_category c ON c.id = u.parent_id
         ),
         root AS (SELECT id, root FROM up WHERE parent_id IS NULL)
-        SELECT r.id, p.model_group
+        SELECT r.id, p.model_group, p.model
         FROM req r
         LEFT JOIN root ON root.id = r.cat1
         LEFT JOIN project p ON p.cat_id = root.root
         """
     )
-    return {r["id"]: norm_group(r["model_group"] or "", known) for r in rows}
+    return {
+        r["id"]: pick_group(r["model_group"] or "", r["model"] or "", m2g, known)
+        for r in rows
+    }
 
 
 async def plan(c) -> dict:
@@ -97,22 +106,22 @@ async def plan(c) -> dict:
     def take(mg: str, letter: str) -> str:
         k = (mg, letter)
         used[k] = used.get(k, 0) + 1
-        return f"{mg}-{letter}{used[k]:04d}"
+        return f"{mg}_{letter}{used[k]:04d}"
 
     async def seed(sql: str, letter: str):
         for r in await c.fetch(sql):
             v = r[0] or ""
-            m = re.match(rf"^(.+)-{letter}(\d{{4}})$", v)
+            m = re.match(rf"^(.+)_{letter}(\d{{4}})$", v)
             if m:
                 k = (m.group(1), letter)
                 used[k] = max(used.get(k, 0), int(m.group(2)))
 
-    await seed("SELECT reqid FROM req WHERE reqid ~ '-R[0-9]{4}$'", "R")
-    await seed("SELECT tcid FROM tc WHERE tcid ~ '-T[0-9]{4}$'", "T")
-    await seed("SELECT data->>'cid' FROM cycle WHERE data->>'cid' ~ '-C[0-9]{4}$'", "C")
+    await seed("SELECT reqid FROM req WHERE reqid ~ '_R[0-9]{4}$'", "R")
+    await seed("SELECT tcid FROM tc WHERE tcid ~ '_T[0-9]{4}$'", "T")
+    await seed("SELECT data->>'cid' FROM cycle WHERE data->>'cid' ~ '_C[0-9]{4}$'", "C")
 
     # ── 요구사항 ──────────────────────────────────────────────
-    rg = await _req_group(c, known)
+    rg = await _req_group(c, m2g, known)
     for r in await c.fetch("SELECT id, reqid, title FROM req ORDER BY created_at, id"):
         old = r["reqid"] or ""
         mg = rg.get(r["id"], "")
@@ -132,7 +141,7 @@ async def plan(c) -> dict:
         old = r["tcid"]
         if NEW_RE.match(old):
             continue
-        mg = norm_group(r["mg"] or "", known) or norm_group(m2g.get(r["md"] or "", ""), known)
+        mg = pick_group(r["mg"] or "", r["md"] or "", m2g, known)
         if not mg:
             skipped.append({"kind": "tc", "pk": old, "old": old,
                             "why": "모델그룹·모델명이 비어 있어 앞머리를 못 정합니다"})
@@ -148,7 +157,7 @@ async def plan(c) -> dict:
         old = data.get("cid") or ""
         if NEW_RE.match(old):
             continue
-        mg = norm_group(m2g.get(r["model"] or "", ""), known)
+        mg = pick_group("", r["model"] or "", m2g, known)
         if not mg:
             skipped.append({"kind": "cycle", "pk": r["id"], "old": old,
                             "why": f"모델 '{r['model'] or ''}' 의 모델그룹을 못 찾습니다"})
