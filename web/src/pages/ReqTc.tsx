@@ -293,6 +293,10 @@ export default function ReqTc({ me }: Props) {
    * 덮어써서, 폴더 네 칸만 보내면 제목·내용이 다 지워진다.
    */
   const [dropCat, setDropCat] = useState('')
+  /* 끌고 있는 **폴더**. 요구사항 끌기(text/utop-req)와 따로 둔다 — 받는
+     쪽 규칙이 서로 다르다: 요구사항은 아무 폴더에나 가지만, 폴더는 제
+     하위로는 못 간다(고리가 된다). */
+  const [dragCat, setDragCat] = useState('')
   /* 도구줄이 여는 창들 — 요구사항·시험항목 화면의 것을 그대로 쓴다.
      같은 일을 하는 창을 새로 만들면 두 화면이 서로 다르게 동작한다. */
   const [bulkNew, setBulkNew] = useState(false)
@@ -902,6 +906,25 @@ export default function ReqTc({ me }: Props) {
   }
   /* 옮기기 — 이름은 그대로 두고 부모만 바꾼다. rename 이 이미 부모를
      받으므로 같은 문을 쓴다: 문이 둘이면 한쪽에만 규칙이 붙는 날이 온다. */
+  /* 제 하위 — 여기로는 못 간다. 끌 때마다 세지 않고 폴더 목록이 바뀔 때만 센다. */
+  const kidsOfCat = useMemo(() => {
+    const m = new Map<string, string[]>()
+    for (const c of cats) m.set(c.parent_id ?? '', [...(m.get(c.parent_id ?? '') ?? []), c.id])
+    return m
+  }, [cats])
+  const banFor = (id: string): Set<string> => {
+    const out = new Set<string>([id])
+    const walk = (k: string) => {
+      for (const x of kidsOfCat.get(k) ?? []) {
+        out.add(x)
+        walk(x)
+      }
+    }
+    walk(id)
+    return out
+  }
+  const isPrjCat = (id: string) => projects.some((p) => p.cat_id === id)
+
   const doMove = async (id: string, name: string, parent: string | null) => {
     setMoving('')
     try {
@@ -989,19 +1012,55 @@ export default function ReqTc({ me }: Props) {
               <div
                 className={`rqtc-fold${cat === c.id && !openReq && !openTc ? ' on' : ''}${depth === 0 ? ' root' : ''}${
                   dropCat === c.id ? ' drop' : ''
-                }`}
+                }${dragCat === c.id ? ' dragging' : ''}`}
                 style={{ paddingLeft: 6 + depth * 14 }}
                 onClick={() => pickFolder(c.id)}
+                /* 폴더를 끌어서 옮긴다(지시). 이름 바꾸는 중에는 못 끈다 —
+                   글자를 골라 끌려는 손이 폴더를 통째로 끌고 간다. */
+                draggable={renaming !== c.id}
+                onDragStart={(e) => {
+                  e.stopPropagation()
+                  e.dataTransfer.setData('text/utop-cat', c.id)
+                  e.dataTransfer.effectAllowed = 'move'
+                  setDragCat(c.id)
+                }}
+                onDragEnd={() => {
+                  setDragCat('')
+                  setDropCat('')
+                }}
                 onDragOver={(e) => {
-                  if (!e.dataTransfer.types.includes('text/utop-req')) return
+                  const t = e.dataTransfer.types
+                  if (t.includes('text/utop-cat')) {
+                    /* 제 하위로는 못 간다(고리). 프로젝트는 맨 위가 자리라
+                       아예 못 들어간다 — 서버도 막지만, 여기서 막아야
+                       끌어다 놓고 나서 되돌아가는 일이 없다. */
+                    if (!dragCat || banFor(dragCat).has(c.id) || isPrjCat(dragCat)) return
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                    setDropCat(c.id)
+                    return
+                  }
+                  if (!t.includes('text/utop-req')) return
                   e.preventDefault()
                   e.dataTransfer.dropEffect = 'move'
                   setDropCat(c.id)
                 }}
                 onDragLeave={() => setDropCat((v) => (v === c.id ? '' : v))}
                 onDrop={(e) => {
-                  const ids = e.dataTransfer.getData('text/utop-req')
                   setDropCat('')
+                  const moved = e.dataTransfer.getData('text/utop-cat')
+                  if (moved) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const src = cats.find((x) => x.id === moved)
+                    setDragCat('')
+                    if (!src || src.parent_id === c.id) return
+                    if (banFor(moved).has(c.id) || isPrjCat(moved)) return
+                    void doMove(moved, src.name, c.id)
+                    setOpenCat((o) => new Set([...o, c.id]))
+                    return
+                  }
+                  const ids = e.dataTransfer.getData('text/utop-req')
                   if (!ids) return
                   e.preventDefault()
                   void moveToCat(ids.split(',').filter(Boolean), c.id)
@@ -1336,7 +1395,31 @@ export default function ReqTc({ me }: Props) {
                 있으면 걸러 볼 수 있다는 걸 모른다. 늘 보인다(사진). */}
 
             <div className="rqtc-tree">
-              <div className={`rqtc-fold${cat === '' ? ' on' : ''}`} onClick={() => pickFolder('')}>
+              {/* 「전체」 에 떨어뜨리면 **맨 위로** 나온다 — 프로젝트 층이다.
+                  이 자리가 없으면 한 번 폴더 안에 넣은 것을 다시 꺼낼 길이
+                  드래그에는 없어서, 꺼낼 때만 메뉴를 써야 한다. */}
+              <div
+                className={`rqtc-fold${cat === '' ? ' on' : ''}${dropCat === '\u0000root' ? ' drop' : ''}`}
+                onClick={() => pickFolder('')}
+                onDragOver={(e) => {
+                  if (!e.dataTransfer.types.includes('text/utop-cat')) return
+                  if (!dragCat || !cats.find((x) => x.id === dragCat)?.parent_id) return
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  setDropCat('\u0000root')
+                }}
+                onDragLeave={() => setDropCat((v) => (v === '\u0000root' ? '' : v))}
+                onDrop={(e) => {
+                  const moved = e.dataTransfer.getData('text/utop-cat')
+                  setDropCat('')
+                  setDragCat('')
+                  if (!moved) return
+                  e.preventDefault()
+                  const src = cats.find((x) => x.id === moved)
+                  if (!src || !src.parent_id) return
+                  void doMove(moved, src.name, null)
+                }}
+              >
                 <span className="rqtc-caret" />
                 {/* 「전체」 는 서랍 — 프로젝트를 담는 자리다 */}
                 <span className="rqtc-fico" aria-hidden="true">

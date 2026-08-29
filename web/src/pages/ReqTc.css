@@ -1207,3 +1207,6 @@
   font-weight: 700;
 }
 .epd-go:disabled { opacity: 0.55; cursor: default; }
+
+/* 끌고 있는 폴더는 흐리게 — 어느 것을 쥐고 있는지 손이 안 보여 준다 */
+.rqtc-fold.dragging { opacity: 0.45; }
