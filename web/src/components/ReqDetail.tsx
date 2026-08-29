@@ -93,7 +93,7 @@ export default function ReqDetail({ req, tcs, tab, edit }: Props) {
           <dt>프로젝트</dt>
           <dd>
             {prj
-              ? [prj.name, [prj.customer, prj.model].filter(Boolean).join(' · ')]
+              ? [prj.name, [prj.customer, prj.model_group].filter(Boolean).join(' · ')]
                   .filter(Boolean)
                   .join(' — ')
               : '미지정'}

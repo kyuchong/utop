@@ -649,7 +649,7 @@ export default function ReqTree({
               // 정보는 올려야 보인다.
               title={
                 prj
-                  ? [n.name, [prj.customer, prj.model].filter(Boolean).join(' · '), prj.description]
+                  ? [n.name, [prj.customer, prj.model_group].filter(Boolean).join(' · '), prj.description]
                       .filter(Boolean)
                       .join(' — ')
                   : n.name

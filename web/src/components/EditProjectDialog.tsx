@@ -4,7 +4,7 @@ import { apiFetch, projectApi } from '@/api/client'
 import type { Project } from '@/types'
 
 /**
- * 프로젝트 수정 — 고객사·모델그룹·모델명·설명.
+ * 프로젝트 수정 — 고객사·모델그룹·설명.
  *
  * 이름은 여기 없다. 프로젝트 이름은 곧 트리 맨 위 폴더 이름이라 Rename 이
  * 정본이다. 두 곳에서 고치게 두면 한쪽만 바뀌는 날이 온다.
@@ -23,7 +23,6 @@ export default function EditProjectDialog({ project, onSaved, onClose }: Props) 
   const qc = useQueryClient()
   const [customer, setCustomer] = useState(project.customer || '')
   const [mg, setMg] = useState(project.model_group || '')
-  const [md, setMd] = useState(project.model || '')
   const [desc, setDesc] = useState(project.description || '')
 
   const rolesQ = useQuery({
@@ -38,16 +37,11 @@ export default function EditProjectDialog({ project, onSaved, onClose }: Props) 
     },
     staleTime: 60_000,
   })
-  const modelOpts = (rolesQ.data?.models ?? []).filter(
-    (m) => !mg || (rolesQ.data?.model_info?.[m]?.model_group ?? '') === mg,
-  )
-
   const saveM = useMutation({
     mutationFn: () =>
       projectApi.update(project.id, {
         customer: customer.trim(),
         model_group: mg,
-        model: md,
         description: desc.trim(),
       }),
     onSuccess: () => {
@@ -59,7 +53,6 @@ export default function EditProjectDialog({ project, onSaved, onClose }: Props) 
   const changed =
     customer.trim() !== (project.customer || '') ||
     mg !== (project.model_group || '') ||
-    md !== (project.model || '') ||
     desc.trim() !== (project.description || '')
 
   return (
@@ -100,10 +93,7 @@ export default function EditProjectDialog({ project, onSaved, onClose }: Props) 
             <span>모델그룹</span>
             <select
               value={mg}
-              onChange={(e) => {
-                setMg(e.target.value)
-                setMd('')
-              }}
+              onChange={(e) => setMg(e.target.value)}
             >
               <option value="">(선택)</option>
               {(rolesQ.data?.groups ?? []).map((g) => (
@@ -115,16 +105,6 @@ export default function EditProjectDialog({ project, onSaved, onClose }: Props) 
             </select>
           </label>
 
-          <label className="fld">
-            <span>모델명</span>
-            <select value={md} onChange={(e) => setMd(e.target.value)}>
-              <option value="">(선택)</option>
-              {modelOpts.map((m) => (
-                <option key={m}>{m}</option>
-              ))}
-              {md && !modelOpts.includes(md) && <option>{md}</option>}
-            </select>
-          </label>
 
           <label className="fld">
             <span>설명</span>

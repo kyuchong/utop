@@ -167,13 +167,12 @@ export const projectApi = {
     name: string
     customer: string
     model_group: string
-    model: string
     description: string
   }) => send<{ success: boolean; id: string; cat_id: string }>('POST', '/api/projects', p),
   /** 메타만 고친다. 이름은 폴더(categoryApi.rename)가 정본이다. */
   update: (
     id: string,
-    p: { customer: string; model_group: string; model: string; description: string },
+    p: { customer: string; model_group: string; description: string },
   ) =>
     send<{ success: boolean }>('PUT', `/api/projects/${encodeURIComponent(id)}`, {
       name: '',

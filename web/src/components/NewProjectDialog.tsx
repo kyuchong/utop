@@ -21,7 +21,6 @@ export default function NewProjectDialog({ onCreated, onClose }: Props) {
   const [name, setName] = useState('')
   const [customer, setCustomer] = useState('')
   const [mg, setMg] = useState('')
-  const [md, setMd] = useState('')
   const [desc, setDesc] = useState('')
 
   const rolesQ = useQuery({
@@ -36,17 +35,12 @@ export default function NewProjectDialog({ onCreated, onClose }: Props) {
     },
     staleTime: 60_000,
   })
-  const modelOpts = (rolesQ.data?.models ?? []).filter(
-    (m) => !mg || (rolesQ.data?.model_info?.[m]?.model_group ?? '') === mg,
-  )
-
   const createM = useMutation({
     mutationFn: () =>
       projectApi.create({
         name: name.trim(),
         customer: customer.trim(),
         model_group: mg,
-        model: md,
         description: desc.trim(),
       }),
     onSuccess: (d) => {
@@ -101,10 +95,7 @@ export default function NewProjectDialog({ onCreated, onClose }: Props) {
             <span>모델그룹</span>
             <select
               value={mg}
-              onChange={(e) => {
-                setMg(e.target.value)
-                setMd('')
-              }}
+              onChange={(e) => setMg(e.target.value)}
             >
               <option value="">(선택)</option>
               {(rolesQ.data?.groups ?? []).map((g) => (
@@ -113,15 +104,6 @@ export default function NewProjectDialog({ onCreated, onClose }: Props) {
             </select>
           </label>
 
-          <label className="fld">
-            <span>모델명</span>
-            <select value={md} onChange={(e) => setMd(e.target.value)}>
-              <option value="">(선택)</option>
-              {modelOpts.map((m) => (
-                <option key={m}>{m}</option>
-              ))}
-            </select>
-          </label>
 
           <label className="fld">
             <span>설명</span>

@@ -121,7 +121,7 @@ export default function ProjectPicker() {
               type="button"
               className={`prjp-item${sel.includes(p.cat_id) ? ' on' : ''}`}
               onClick={() => pick(p.cat_id)}
-              title={[p.customer, p.model_group, p.model].filter(Boolean).join(' · ')}
+              title={[p.customer, p.model_group].filter(Boolean).join(' · ')}
             >
               <input
                 type="checkbox"
@@ -131,7 +131,7 @@ export default function ProjectPicker() {
                 tabIndex={-1}
               />
               <span className="prjp-itnm">{p.name}</span>
-              <span className="prjp-sub">{[p.model_group, p.model].filter(Boolean).join(' / ')}</span>
+              <span className="prjp-sub">{[p.model_group].filter(Boolean).join(' / ')}</span>
             </button>
           ))}
           {!projects.length && !q.isLoading && <div className="prjp-empty">프로젝트가 없습니다</div>}

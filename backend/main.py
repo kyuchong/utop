@@ -3966,7 +3966,11 @@ async def create_project(body: ProjectIn):
 
 @app.put("/api/projects/{pid}")
 async def update_project(pid: str, body: ProjectIn):
-    """프로젝트의 **메타**를 고친다 — 고객사·모델그룹·모델명·설명.
+    """프로젝트의 **메타**를 고친다 — 고객사·모델그룹·설명.
+
+    모델명은 여기서 안 건드린다(지시로 화면에서 뺐다). 한 모델그룹에
+    모델이 여럿이라(E61xx 에 E6100·E6124) 프로젝트가 하나를 못 고른다.
+    이미 들어 있던 값은 **지우지 않는다** — 통복제가 아직 그것을 본다.
 
     이름은 여기서 안 고친다. 프로젝트 이름은 곧 트리 맨 위 폴더 이름이라
     폴더 쪽(req-categories)이 정본이고, 두 문으로 고치게 두면 한쪽만 바뀌는
@@ -3981,10 +3985,10 @@ async def update_project(pid: str, body: ProjectIn):
             raise HTTPException(404, "프로젝트를 찾을 수 없습니다")
         await c.execute(
             """UPDATE project
-                  SET customer = $2, model_group = $3, model = $4, description = $5
+                  SET customer = $2, model_group = $3, description = $4
                 WHERE id = $1""",
             pid, (body.customer or "").strip(), (body.model_group or "").strip(),
-            (body.model or "").strip(), (body.description or "").strip(),
+            (body.description or "").strip(),
         )
     return {"success": True}
 
@@ -5479,6 +5483,18 @@ async def copy_tree(body: dict, token: str = ""):
         )
     dst_mg = str((prow or {}).get("model_group") or "") if prow else ""
     dst_md = str((prow or {}).get("model") or "") if prow else ""
+    # 프로젝트에서 모델명을 뺐다(지시). 그러면 갈아 끼울 값이 없는데,
+    # 그 모델그룹에 모델이 **하나뿐이면** 고를 것도 하나라 그것을 쓴다.
+    # 여럿이면 비워 둔다 — 아무거나 넣으면 틀린 모델로 시험이 돈다.
+    if not dst_md and dst_mg:
+        async with db.pool().acquire() as c:
+            only = await c.fetch(
+                """SELECT name FROM device_catalog
+                    WHERE kind = 'model' AND model_group = $1""",
+                dst_mg,
+            )
+        if len(only) == 1:
+            dst_md = str(only[0]["name"])
 
     made = {"cats": 0, "reqs": 0, "tcs": 0}
     now_ms = int(datetime.now().timestamp() * 1000)
