@@ -1635,8 +1635,12 @@ function CycleBoard({
                       <button
                         type="button"
                         className="cyt-key"
-                        title={`${c.cid || c.id} — 누르면 실행 화면으로 갑니다`}
-                        onClick={() => onRun(c.id)}
+                        /* 실행 화면 직행을 뺐다(지적: 누르자마자 실행 화면이
+                           떠서 이상하다). 고르면 **요약**이 먼저다(승인 목업).
+                           실행은 요약 카드의 「▶ 실행 화면 열기」 로 간다 —
+                           보려던 사람이 실행 화면에 끌려가지 않는다. */
+                        title={`${c.cid || c.id} — 누르면 결과 요약이 열립니다`}
+                        onClick={() => setPick((cur2) => (cur2 === c.id ? '' : c.id))}
                       >
                         {c.cid || c.version || c.name || c.id}
                       </button>
