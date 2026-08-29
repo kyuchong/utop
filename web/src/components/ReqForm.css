@@ -18,6 +18,13 @@
   color: var(--c-text);
   width: 100%;
   max-width: 620px;
+  /* **창은 제 내용만큼만 높다.**
+     몸통이 flex:1 이라 창이 90vh 까지 늘어나, 칸 다섯 개짜리 창 밑에
+     빈 흰 바닥이 380px 남았다(지적). fit-content 로 못박으면 내용만큼
+     서고, 내용이 길면 아래 max-height 가 막고 몸통이 스스로 구른다.
+     제 높이를 정해 둔 창(.modal.ce·.tmr·.ask-pick)은 더 좁은 규칙이라
+     그대로 이긴다. */
+  height: fit-content;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
