@@ -94,7 +94,9 @@ export const NAV: NavGroup[] = [
     title: 'AI',
     items: [
       { key: 'ai-tc', label: 'AI', Icon: IconSparkle },
-      { key: 'knowledge', label: 'Knowledge', Icon: IconKnowledge },
+      /* Knowledge 는 뺐다(지적: 이상한 화면). 화면도 자료도 없는데 메뉴에만
+         있어서, 누를 때마다 「아직 안 옮겼습니다」 벽을 만났다. 하는 일도
+         Wiki 와 겹친다 — 문서는 Wiki 한 곳이다. */
     ],
   },
   {

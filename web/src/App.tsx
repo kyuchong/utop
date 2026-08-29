@@ -28,13 +28,13 @@ const PAGE_KEY = 'utop.page'
 const KNOWN_PAGES = new Set([
   'dashboard', 'wiki', 'reqtc', 'cycles', 'executions',
   'devices', 'instruments', 'rackview',
-  'defects', 'releases', 'ai-tc', 'knowledge', 'settings',
+  'defects', 'releases', 'ai-tc', 'settings',
 ])
 
 export default function App() {
   // 새로고침해도 보던 화면으로 돌아온다. 장비를 등록하다 새로고침했는데
   // 요구사항으로 튕기면 다시 찾아 들어가야 한다.
-  const [page, setPage] = useState(() => {
+  const [page, setPageRaw] = useState(() => {
     try {
       const p = localStorage.getItem(PAGE_KEY) || 'reqtc'
       /* 지운 화면의 이름이 기억에 남아 있으면 「아직 안 옮겼습니다」 백지가
@@ -78,6 +78,14 @@ export default function App() {
     }
     setPage(k)
   }
+
+  // undefined = 확인 중 / null = 로그인 필요
+  /* **죽은 화면 이름이 들어와도 벽을 세우지 않는다.**
+     화면을 합치거나 지울 때 setPage('requirements') 같은 자리가 한 군데씩
+     남는다 — 실제로 goto 처리기와 Dashboard 카드 다섯 곳이 그랬다. 이름을
+     하나씩 찾아 고치는 것만으로는 다음에 또 빠뜨리므로, 들어오는 값을
+     여기서 한 번 거른다. */
+  const setPage = (k: string) => setPageRaw(KNOWN_PAGES.has(k) ? k : 'reqtc')
 
   // undefined = 확인 중 / null = 로그인 필요
   const [user, setUser] = useState<MeUser | null | undefined>(undefined)
@@ -201,11 +209,26 @@ export default function App() {
     () =>
       onGotoEvent((kind, id) => {
         reflectUrl(kind, id)
+        /* **여기가 「이상한 화면」 의 진짜 원인이었다(지적).**
+           Requirements·Coverage 를 REQ-Coverage 로 합칠 때 이 자리를
+           안 고쳤다. ?cat= 로 들어오면 App 이 화면을 reqtc 로 맞춘 뒤
+           곧바로 goto 가 여기로 와서 없어진 'requirements' 로 덮어썼다 —
+           그래서 「아직 새 UI로 옮기지 않았습니다」 벽이 떴다.
+           시험(tc)은 'testcases' 로 보내고 있었는데 그것도 없어진 화면이다. */
         if (kind === 'tc') {
           localStorage.setItem('utop.tc.open', id)
-          setPage('testcases')
+          setPage('reqtc')
+        } else if (kind === 'cat') {
+          localStorage.setItem('utop.reqtc.cat', id)
+          setPage('reqtc')
+        } else if (kind === 'wiki') {
+          localStorage.setItem('utop.wiki.open', id)
+          setPage('wiki')
         } else if (kind === 'cycle') {
           localStorage.setItem('utop.cycle.sel', id)
+          setPage('cycles')
+        } else if (kind === 'ce') {
+          localStorage.setItem('utop.cycle.ce', id)
           setPage('cycles')
         } else if (kind === 'report') {
           // 지나간 실행을 시간순으로 보는 화면. 어느 회차에서 왔는지 남겨
@@ -214,7 +237,7 @@ export default function App() {
           setPage('executions')
         } else {
           localStorage.setItem('utop.req.sel', id)
-          setPage('requirements')
+          setPage('reqtc')
         }
       }),
     [],
@@ -266,12 +289,21 @@ export default function App() {
         <RackView />
       ) : page === 'settings' ? (
         <Settings />
-      ) : (
+      ) : page === 'releases' ? (
+        /* 아직 안 만든 화면. 「기존 화면에서 계속 사용할 수 있습니다」 라고
+           적어 두었는데 옛 화면이 없어져 **거짓말**이 되었다(지적). 무엇을
+           할 자리인지와 지금 어디를 쓰면 되는지를 적는다. */
         <div className="empty">
-          이 화면은 아직 새 UI로 옮기지 않았습니다.
+          <b>Releases — 준비 중입니다.</b>
           <br />
-          기존 화면에서 계속 사용할 수 있습니다.
+          버전별로 무엇이 들어갔고 어느 시험이 돌았는지 모아 볼 자리입니다.
+          <br />
+          지금은 <b>Cycles</b> 에서 버전을 골라 보실 수 있습니다.
         </div>
+      ) : (
+        /* 여기로 오면 안 된다 — 주소·기억에 모르는 이름이 들어온 것이다.
+           벽을 세우느니 쓸 수 있는 화면을 낸다. */
+        <ReqTc me={user} />
       )}
     </Layout>
     </>

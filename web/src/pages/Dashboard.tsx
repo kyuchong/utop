@@ -243,7 +243,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
               <b style={{ width: `${pctOf(ov('Blocked'), ovAll)}%`, background: '#EF9F27' }} />
             </span>
           </button>
-          <button type="button" className="dash-card" onClick={() => onNav('testcases')}>
+          <button type="button" className="dash-card" onClick={() => onNav('reqtc')}>
             <i>자동화율</i>
             <b>{autoTotal ? `${pctOf(d?.automation?.auto ?? 0, autoTotal)}%` : '–'}</b>
             <em>{d ? `자동 ${d.automation?.auto} / 전체 ${autoTotal}` : ''}</em>
@@ -279,7 +279,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
           <button
             type="button"
             className="dash-card dash-card3"
-            onClick={() => onNav('requirements')}
+            onClick={() => onNav('reqtc')}
           >
             <i>시험 자산</i>
             <span className="dash-tri">
@@ -493,7 +493,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
       {/* 도넛 셋 — 요구사항 커버리지 · TC 실행 현황 · 자동화 */}
       {ws.has('donuts') && (
         <div className="dash-donuts">
-          <button type="button" className="dash-wide dash-dn" onClick={() => onNav('requirements')}>
+          <button type="button" className="dash-wide dash-dn" onClick={() => onNav('reqtc')}>
             <Donut pct={d ? pctOf(d.coverage?.covered, d.coverage?.total) : 0} color="#378ADD" />
             <span className="dash-dn-t">
               <i>요구사항 커버리지</i>
@@ -502,7 +502,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
               <em>미연결 {d ? d.coverage?.total - d.coverage?.covered : '–'}</em>
             </span>
           </button>
-          <button type="button" className="dash-wide dash-dn" onClick={() => onNav('testcases')}>
+          <button type="button" className="dash-wide dash-dn" onClick={() => onNav('reqtc')}>
             <Donut pct={d ? pctOf(d.tcexec?.executed, d.tcexec?.total) : 0} color="#7F77DD" />
             <span className="dash-dn-t">
               <i>TC 실행 현황 (최근 결과)</i>
@@ -516,7 +516,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
               </em>
             </span>
           </button>
-          <button type="button" className="dash-wide dash-dn" onClick={() => onNav('testcases')}>
+          <button type="button" className="dash-wide dash-dn" onClick={() => onNav('reqtc')}>
             <Donut
               pct={autoTotal ? pctOf(d?.automation?.auto ?? 0, autoTotal) : 0}
               color="#1D9E75"
