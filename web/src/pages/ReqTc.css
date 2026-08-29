@@ -989,3 +989,18 @@
    잘렸다(지적: 정렬 기능이 안 보인다). 이 판은 왼쪽 끝에 붙어 있으므로
    단추 왼쪽에 맞춰 오른쪽으로 편다. */
 .rqtc-side .fsort-pop { right: auto; left: 0; }
+
+/* 폴더 이름 고치기 — 그 줄에서 바로. 이름 자리를 그대로 쓴다. */
+.rqtc-rename {
+  flex: 1;
+  min-width: 0;
+  height: 24px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  border: 1px solid var(--c-primary);
+  border-radius: 5px;
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  font-size: var(--fs-sm);
+}

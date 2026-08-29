@@ -793,6 +793,18 @@ export default function ReqTc({ me }: Props) {
      창을 띄워 묻지 않는 까닭: 어디에 만드는지가 그 자리에 보여야 한다.
      창은 화면 한가운데 떠서 「어느 폴더 밑이더라」 를 다시 생각하게 한다. */
   const [newUnder, setNewUnder] = useState('')
+  /* 이름은 **그 줄에서 바로** 고친다(지시) — 창을 띄우면 어느 폴더를 고치는
+     중인지 화면에서 사라진다. */
+  const [renaming, setRenaming] = useState('')
+  const [renameName, setRenameName] = useState('')
+
+  const doRename = async (id: string, parent: string | null, was: string, name: string) => {
+    const nm = name.trim()
+    setRenaming('')
+    if (!nm || nm === was) return
+    await categoryApi.rename(id, nm, parent)
+    await catQ.refetch()
+  }
   const [newName, setNewName] = useState('')
 
   const makeSub = async (parent: string, name: string) => {
@@ -877,7 +889,22 @@ export default function ReqTc({ me }: Props) {
                 <span className="rqtc-fico" aria-hidden="true">
                   {depth === 0 ? '🏠' : '📁'}
                 </span>
-                <span className="rqtc-fnm">{c.name}</span>
+                {renaming === c.id ? (
+                  <input
+                    className="rqtc-rename"
+                    autoFocus
+                    value={renameName}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setRenameName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void doRename(c.id, c.parent_id ?? null, c.name, renameName)
+                      if (e.key === 'Escape') setRenaming('')
+                    }}
+                    onBlur={() => void doRename(c.id, c.parent_id ?? null, c.name, renameName)}
+                  />
+                ) : (
+                  <span className="rqtc-fnm">{c.name}</span>
+                )}
                 {/* 개수는 **이름 바로 오른쪽**에 붙인다(지시) — 오른쪽 끝에
                     밀어 두면 폴더 이름과 숫자 사이가 비어, 어느 줄의 숫자인지
                     눈이 한 번 더 짚어야 한다.
@@ -919,11 +946,8 @@ export default function ReqTc({ me }: Props) {
                           type="button"
                           onClick={() => {
                             setCatMenu('')
-                            const nm = window.prompt('폴더 이름', c.name)?.trim()
-                            if (!nm || nm === c.name) return
-                            void categoryApi
-                              .rename(c.id, nm, c.parent_id ?? null)
-                              .then(() => void catQ.refetch())
+                            setRenaming(c.id)
+                            setRenameName(c.name)
                           }}
                         >
                           이름 바꾸기
