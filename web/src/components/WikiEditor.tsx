@@ -316,6 +316,7 @@ export default function WikiEditor({
                   head?: string
                   messages?: string[]
                   nested_tables?: number
+                  images?: number
                 }
                 if (!j.ok || !j.html) {
                   /* **왜 안 됐는지 그대로 말한다.**
@@ -362,6 +363,9 @@ export default function WikiEditor({
                 else editor.replaceBlocks(editor.document, blocks)
                 dirty.current = true
                 await save()
+                /* 그림이 몇 장 들어왔는지 말해 준다 — 조용히 넘어가면
+                   안 가져온 것인지 원래 없던 것인지 알 수가 없다(지적). */
+                if (j.images) window.alert(`가져왔습니다 — 사진 ${j.images}장을 함께 옮겼습니다.`)
                 if (j.nested_tables) {
                   window.alert(
                     `가져왔습니다. 표 안에 있던 표 ${j.nested_tables}개는 편집기가 칸 안에 표를 담지 못해 ` +

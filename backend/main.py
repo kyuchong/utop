@@ -9673,9 +9673,12 @@ async def wiki_import_docx(payload: dict):
     브라우저는 .docx 를 못 읽는다 — 압축 파일이라 풀어야 하고, 그림은 그 안에
     따로 들어 있다. 그래서 서버가 푼다.
 
-    **그림은 문서에 함께 담는다**(data URI). 파일 서버를 따로 두지 않아도 되고,
-    문서를 옮기거나 내보내도 그림이 안 깨진다. 다만 무한정 담지는 않는다 —
-    큰 사진이 몇 장만 있어도 문서가 수십 MB 가 되어 여는 것부터 느려진다.
+    **그림은 파일로 떼어 저장한다.** 처음에는 문서 안에 data URI 로 담았는데,
+    그림 다섯 장짜리 보고서 하나가 HTML 500KB 가 되었고 그대로 위키 본문에
+    실려 저장이 무거워졌다(지적: 사진이 저장이 안 된다). 파일로 빼면 본문에는
+    주소 한 줄만 남는다 — 요구사항 그림이 이미 쓰는 그 자리(data/req_images)
+    와 그 주소(/api/req-images/…)를 그대로 쓴다. 볼륨 하나만 챙기면 함께
+    백업되는 것도 같다.
 
     **표 안의 표**가 까다롭다. 편집기의 표는 칸 안에 표를 담지 못한다. 그렇다고
     버리면 내용이 사라지므로, 안쪽 표를 **바깥 표 뒤로 떼어** 내고 원래 자리에는
@@ -9698,11 +9701,16 @@ async def wiki_import_docx(payload: dict):
     except Exception as e:
         return {"ok": False, "error": "변환기를 불러오지 못했습니다: " + str(e)[:120]}
 
-    # 그림 — 너무 큰 것은 줄여 담는다. 원본 그대로면 문서가 못 열 만큼 무거워진다.
+    # 그림 — 파일로 떼어 두고 주소만 돌려준다. 너무 큰 것은 줄인다.
+    import secrets as _sec
+    saved = {"n": 0}
+
     def _img(image):
         with image.open() as f:
             data = f.read()
         ctype = (image.content_type or "image/png")
+        ext = {"image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif",
+               "image/webp": ".webp", "image/bmp": ".bmp"}.get(ctype, ".png")
         try:
             from PIL import Image
             im = Image.open(_io.BytesIO(data))
@@ -9712,10 +9720,18 @@ async def wiki_import_docx(payload: dict):
                 im = im.resize((1600, h))
                 buf = _io.BytesIO()
                 im.save(buf, format="PNG")
-                data, ctype = buf.getvalue(), "image/png"
+                data, ext = buf.getvalue(), ".png"
         except Exception:
             pass  # 못 줄이면 원본 그대로 — 그림 하나 때문에 가져오기를 막지 않는다
-        return {"src": f"data:{ctype};base64,{_b64.b64encode(data).decode()}"}
+        try:
+            REQ_IMG_DIR.mkdir(parents=True, exist_ok=True)
+            name = f"wk-{int(datetime.now().timestamp() * 1000)}-{_sec.token_hex(4)}{ext}"
+            (REQ_IMG_DIR / name).write_bytes(data)
+            saved["n"] += 1
+            return {"src": f"/api/req-images/{name}"}
+        except Exception:
+            # 못 쓰면 문서 안에 담는다 — 그림을 잃느니 무거운 편이 낫다
+            return {"src": f"data:{ctype};base64,{_b64.b64encode(data).decode()}"}
 
     try:
         res = mammoth.convert_to_html(_io.BytesIO(blob), convert_image=mammoth.images.img_element(_img))
@@ -9834,6 +9850,9 @@ async def wiki_import_docx(payload: dict):
         "ok": True,
         "html": html,
         "nested_tables": moved,
+        # 그림을 몇 장 떼어 냈나 — 화면이 「사진 N장」 이라고 말해 준다.
+        # 조용히 넘어가면 안 가져온 것인지 아닌지 알 수가 없다(지적).
+        "images": saved["n"],
         # 무엇이 안 넘어왔는지 사람이 알아야 한다 — 조용히 빠지면 나중에 찾는다
         "messages": [str(m) for m in (res.messages or [])][:20],
     }
