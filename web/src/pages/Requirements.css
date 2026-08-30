@@ -1246,3 +1246,21 @@ html .rq-listcol .rq-tr > div.rq-cell-fill.al-center { justify-content: center; 
 .rq-mfill .pick-live { font: inherit; font-weight: inherit; font-size: inherit; }
 /* 통채움 안의 값이 잘리지 않게 — 칸을 다 쓰고 넘치면 … 로 */
 .rq-mfill .pick-live { width: 100%; min-width: 0; text-overflow: ellipsis; }
+/* ── 2열 카드 클릭 규칙(지시): 아이콘=팝업 · 제목 더블클릭=편집 · 모델명 드롭다운 ── */
+.rqtc-ticon {
+  border: 0; background: none; padding: 0 2px; cursor: pointer; flex: none;
+  color: var(--c-text-faint, #8a99a3); display: inline-flex; align-items: center;
+  vertical-align: -3px; margin-right: 4px;
+}
+.rqtc-ticon:hover { color: var(--c-primary, #0e7490); }
+.rqtc-ticon svg { width: 14px; height: 14px; }
+.c-title .rqtc-rtitle { cursor: default; }
+.rqtc-tedit {
+  flex: 1; min-width: 0; width: 100%; border: 1px solid var(--c-primary, #0e7490);
+  border-radius: 6px; padding: 2px 6px; font: inherit; font-size: inherit;
+}
+.rqtc-mdsel {
+  width: 100%; max-width: 100%; border: 1px solid transparent; background: none;
+  border-radius: 6px; padding: 2px 2px; font: inherit; font-size: inherit; cursor: pointer;
+}
+.rqtc-mdsel:hover { border-color: var(--c-border, #cfd8de); background: var(--c-surface, #fff); }

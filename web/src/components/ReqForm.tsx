@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { categoryApi, reqApi, apiFetch } from '@/api/client'
+import { api, categoryApi, reqApi, apiFetch } from '@/api/client'
 import { buildCategoryTree, reqPk, type Requirement } from '@/types'
 import { useCodes } from '@/hooks/useCodes'
 import { missingRequired, useCustomFields } from '@/hooks/useCustomFields'
@@ -200,7 +200,7 @@ ${md}` : md))
       // PK 는 한 번 정해지면 바꾸지 않는다. reqid(REQ-001)는 사람이 읽는 이름이라
       // 나중에 바뀔 수 있어서, 그걸 PK 로 쓰면 이름을 고칠 때마다 행이 갈라진다.
       const id = isNew ? `rq-${Date.now()}` : reqPk(editing)
-      return reqApi.save(id, {
+      const body = {
         reqid: reqid.trim(),
         title: title.trim(),
         cat1: cat1 || null,
@@ -211,7 +211,13 @@ ${md}` : md))
         priority,
         desc: desc.trim(),
         custom,
-      })
+      }
+      if (isNew) return reqApi.save(id, body)
+      /* 편집은 **원본을 읽어 그 위에 얹는다**(검증) — 서버 저장은 통째
+         덮어쓰기라, 폼에 없는 필드(model 등)를 안 실으면 조용히 지워진다.
+         setOneField·트리 이동과 같은 규약. */
+      const full = (await api.getRequirement(id)) as unknown as Record<string, unknown>
+      return reqApi.save(id, { ...full, ...body })
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['req', 'list'] })

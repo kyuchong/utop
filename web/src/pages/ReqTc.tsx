@@ -14,8 +14,10 @@ import {
   IconGrip,
   IconPanel,
   IconParam,
+  IconReqDoc,
   IconSearch,
   IconSettings,
+  IconTcDoc,
 } from '@/components/icons'
 import GlobalParams from '@/components/settings/GlobalParams'
 import ListSortBtn, {
@@ -370,6 +372,9 @@ export default function ReqTc({ me }: Props) {
   const REQ_PRIORITY = useCodes('req_priority', ['High', 'Medium', 'Low'])
   const TC_STATUS = useCodes('tc_status', ['작성중', '검토중', '검토완료', '보류', '폐기'])
   const TC_SEVERITY = useCodes('tc_severity', ['Blocker', 'Critical', 'Major', 'Minor'])
+  const TC_TYPE = useCodes('tc_type', ['FT', 'Function'])
+  const TC_RUN = useCodes('tc_run_type', ['수동', '자동'])
+  const TC_ORIGIN = useCodes('tc_origin', ['자체', '고객'])
 
   /**
    * 한 칸만 고쳐 저장한다.
@@ -399,6 +404,111 @@ export default function ReqTc({ me }: Props) {
       setSaveState('')
       window.alert(`고치지 못했습니다 — ${String((e as Error).message)}`)
     }
+  }
+
+  /* 모델명 선택지 — 카탈로그(장비 역할)가 정본. 그 줄의 모델그룹에
+     속한 모델만 내민다(지시: 드롭다운으로 설정). */
+  const mrolesQ = useQuery({
+    queryKey: ['device-roles'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/device-roles')
+      return (await r.json()) as {
+        models?: string[]
+        model_info?: Record<string, { model_group?: string | null }>
+      }
+    },
+    staleTime: 60_000,
+  })
+  const modelsOf = useMemo(() => {
+    const m = new Map<string, string[]>()
+    const info = mrolesQ.data?.model_info ?? {}
+    for (const [name, meta] of Object.entries(info)) {
+      const g = String(meta?.model_group ?? '').trim()
+      if (!g) continue
+      m.set(g, [...(m.get(g) ?? []), name])
+    }
+    for (const v of m.values()) v.sort()
+    return m
+  }, [mrolesQ.data])
+  /** 모델명 칸 — 그 자리 드롭다운(지시). 그룹을 모르면 손대지 않는다 */
+  const mdCell = (mg: string, cur2: string, onPick: (v: string) => void) => {
+    const opts2 = modelsOf.get(mg) ?? []
+    if (!opts2.length) return <div className="c-md">{cur2 || '–'}</div>
+    return (
+      <div className="c-md" onClick={(e) => e.stopPropagation()}>
+        <select
+          className="rqtc-mdsel"
+          value={cur2}
+          title="모델명 — 고르면 바로 저장됩니다"
+          onChange={(e) => onPick(e.target.value)}
+        >
+          {!opts2.includes(cur2) && <option value={cur2}>{cur2 || '–'}</option>}
+          {opts2.map((x) => (
+            <option key={x} value={x}>
+              {x}
+            </option>
+          ))}
+        </select>
+      </div>
+    )
+  }
+
+  /* 제목 그 자리 편집(지시: 두 번 클릭) — 트리 이름변경과 같은 커서 보존:
+     「함께 보는 중」 새로고침이 줄을 다시 그려도 커서가 안 튄다 */
+  const [tEdit, setTEdit] = useState<{ kind: 'req' | 'tc'; id: string; text: string; orig: string } | null>(null)
+  const tCaret = useRef(0)
+  const tFocused = useRef<string | null>(null)
+  const saveTEdit = () => {
+    /* 갱신함수 안에서 저장하면 안 된다 — 갱신함수는 두 번 불릴 수 있다.
+       핸들러는 매 렌더 새로 잡히니 closure 의 tEdit 이 곧 현재 값이다. */
+    const cur3 = tEdit
+    setTEdit(null)
+    if (!cur3) return
+    const txt = cur3.text.trim()
+    /* 안 바뀌었으면 저장하지 않는다(검증) — 무변경 저장도 updated_at 을
+       올려 줄이 맨 위로 점프하고, 이력이 쌓이고, 전 접속자를 refetch 시킨다 */
+    if (txt && txt !== cur3.orig.trim())
+      void setOneField(cur3.kind, cur3.id, cur3.kind === 'req' ? { title: txt } : { name: txt })
+  }
+  const titleEditInput = () => {
+    if (!tEdit) return null
+    const ek = `${tEdit.kind}:${tEdit.id}`
+    return (
+      <input
+        className="rqtc-tedit"
+        ref={(el) => {
+          if (!el || !tEdit) return
+          if (tFocused.current !== ek) {
+            tFocused.current = ek
+            el.focus()
+            el.select()
+            tCaret.current = el.value.length
+          } else if (!document.activeElement || document.activeElement === document.body) {
+            el.focus()
+            el.setSelectionRange(tCaret.current, tCaret.current)
+          }
+        }}
+        value={tEdit.text}
+        onClick={(e) => {
+          e.stopPropagation()
+          tCaret.current = e.currentTarget.selectionStart ?? tCaret.current
+        }}
+        onChange={(e) => {
+          tCaret.current = e.target.selectionStart ?? e.target.value.length
+          setTEdit((c4) => (c4 ? { ...c4, text: e.target.value } : c4))
+        }}
+        onKeyUp={(e) => {
+          tCaret.current = e.currentTarget.selectionStart ?? tCaret.current
+        }}
+        onKeyDown={(e) => {
+          e.stopPropagation()
+          if (e.nativeEvent.isComposing || e.keyCode === 229) return
+          if (e.key === 'Enter') saveTEdit()
+          if (e.key === 'Escape') setTEdit(null)
+        }}
+        onBlur={saveTEdit}
+      />
+    )
   }
 
   /* 우클릭한 칸 — 「아래로 채우기」 가 여기서 뜬다 */
@@ -2023,31 +2133,51 @@ export default function ReqTc({ me }: Props) {
                         <button
                           type="button"
                           className="rqtc-rid"
-                          title="요구사항 상세"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setPop({ kind: 'req', id: pk })
-                          }}
-                        >
-                          {reqLabel(r)}
-                        </button>
-                      </div>
-                      <div className="c-title">
-                        <button
-                          type="button"
-                          className="rqtc-rtitle as-link"
-                          title="눌러서 이 요구사항 화면 보기"
+                          title="상세 화면으로(지시: ID = 상세)"
                           onClick={(e) => {
                             e.stopPropagation()
                             setOpenReq(pk)
                             setOpenTab('info')
                           }}
                         >
-                          {r.title || '(제목 없음)'}
+                          {reqLabel(r)}
                         </button>
                       </div>
+                      <div className="c-title">
+                        {/* 아이콘 = 팝업, 제목 원클릭 = 없음, 두 번 = 편집(지시) */}
+                        <button
+                          type="button"
+                          className="rqtc-ticon"
+                          title="팝업으로 보기"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setPop({ kind: 'req', id: pk })
+                          }}
+                        >
+                          <IconReqDoc />
+                        </button>
+                        {tEdit && tEdit.kind === 'req' && tEdit.id === pk ? (
+                          titleEditInput()
+                        ) : (
+                          <span
+                            className="rqtc-rtitle"
+                            title="두 번 누르면 제목을 고칩니다"
+                            onDoubleClick={(e) => {
+                              e.stopPropagation()
+                              tFocused.current = null
+                              setTEdit({ kind: 'req', id: pk, text: r.title ?? '', orig: r.title ?? '' })
+                            }}
+                          >
+                            {r.title || '(제목 없음)'}
+                          </span>
+                        )}
+                      </div>
                       <div className="c-mg">{p?.model_group || '–'}</div>
-                      <div className="c-md">{p?.model || '–'}</div>
+                      {mdCell(
+                        String(p?.model_group ?? ''),
+                        String((r as unknown as Record<string, unknown>).model ?? '') || p?.model || '',
+                        (v) => void setOneField('req', pk, { model: v }),
+                      )}
                       <div className="c-tc rqtc-fillc">
                         <span className={`rqtc-cov ${n ? 'ok' : 'no'}`}>{n ? `TC ${n}` : '미커버'}</span>
                       </div>
@@ -2192,31 +2322,51 @@ export default function ReqTc({ me }: Props) {
                         <button
                           type="button"
                           className="rqtc-rid tc"
-                          title="시험항목 상세"
+                          title="상세 화면으로(지시: ID = 상세)"
                           onClick={(e) => {
                             e.stopPropagation()
-                            setPop({ kind: 'tc', id: t.tcid })
+                            setOpenTc(t.tcid)
                           }}
                         >
                           {t.tcid}
                         </button>
                       </div>
                       <div className="c-title">
+                        {/* 아이콘 = 팝업, 제목 원클릭 = 없음, 두 번 = 편집(지시) */}
                         <button
                           type="button"
-                          className="rqtc-rtitle as-link"
-                          title="눌러서 이 시험항목 화면 보기"
+                          className="rqtc-ticon tc"
+                          title="팝업으로 보기"
                           onClick={(e) => {
                             e.stopPropagation()
-                            setOpenTc(t.tcid)
+                            setPop({ kind: 'tc', id: t.tcid })
                           }}
                         >
-                          {t.name || '(제목 없음)'}
+                          <IconTcDoc />
                         </button>
+                        {tEdit && tEdit.kind === 'tc' && tEdit.id === t.tcid ? (
+                          titleEditInput()
+                        ) : (
+                          <span
+                            className="rqtc-rtitle"
+                            title="두 번 누르면 제목을 고칩니다"
+                            onDoubleClick={(e) => {
+                              e.stopPropagation()
+                              tFocused.current = null
+                              setTEdit({ kind: 'tc', id: t.tcid, text: t.name ?? '', orig: t.name ?? '' })
+                            }}
+                          >
+                            {t.name || '(제목 없음)'}
+                          </span>
+                        )}
                       </div>
                       {/* 시험은 제 모델 값을 갖고 있다 — 없으면 프로젝트 값으로 */}
                       <div className="c-mg">{String(t.model_group ?? '') || p?.model_group || '–'}</div>
-                      <div className="c-md">{String(t.model ?? '') || p?.model || '–'}</div>
+                      {mdCell(
+                        String(t.model_group ?? '') || String(p?.model_group ?? ''),
+                        String(t.model ?? '') || p?.model || '',
+                        (v) => void setOneField('tc', t.tcid, { model: v }),
+                      )}
                       <div className="c-last rqtc-fillc">
                         {last ? (
                           <span className={`rqtc-lastv ${statusClass(last)}`}>{last}</span>
@@ -2287,12 +2437,12 @@ export default function ReqTc({ me }: Props) {
                             }
                           />
                         )
-                        if (c.k === 'f_type') return F('tc_type', t.type, 'c-ty')
+                        if (c.k === 'f_type') return F('tc_type', t.type, 'c-ty', TC_TYPE, 'type', '유형')
                         if (c.k === 'f_status') return F('tc_status', t.status, 'c-st', TC_STATUS, 'status', '상태')
                         if (c.k === 'f_severity')
                           return F('tc_severity', t.severity, 'c-sv', TC_SEVERITY, 'severity', '중요도')
-                        if (c.k === 'f_kind') return F('tc_run_type', t.run_type, 'c-rt')
-                        if (c.k === 'f_origin') return F('tc_origin', t.origin, 'c-og')
+                        if (c.k === 'f_kind') return F('tc_run_type', t.run_type, 'c-rt', TC_RUN, 'run_type', '타입')
+                        if (c.k === 'f_origin') return F('tc_origin', t.origin, 'c-og', TC_ORIGIN, 'origin', '구분')
                         return (
                           <div className="ell" key={c.k}>
                             {colVal(t as unknown as Record<string, unknown>, c.k)}
