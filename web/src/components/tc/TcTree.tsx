@@ -138,6 +138,11 @@ export default function TcTree({
   const [ctx, setCtx] = useState<{ x: number; y: number; node: CategoryTreeNode } | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [renameText, setRenameText] = useState('')
+  /* 커서 보존 — 「함께 보는 중」 새로고침이 트리를 다시 짜면 입력칸이 갈려
+     autoFocus 가 커서를 맨 뒤로 보냈다(지적: 한 글자씩만 고쳐진다).
+     자리를 기억해 두고, 초점이 떨어졌을 때만 제자리로 되돌린다. */
+  const renCaret = useRef(0)
+  const renFocused = useRef<string | null>(null)
   const [addingTo, setAddingTo] = useState<string | null | undefined>(undefined)
   const [draftName, setDraftName] = useState('')
   const [catErr, setCatErr] = useState('')
@@ -434,6 +439,7 @@ export default function TcTree({
             if (e.key === 'F2') {
               e.preventDefault()
               setCtx(null)
+              renFocused.current = null
               setRenaming(n.id)
               setRenameText(n.name)
             }
@@ -463,12 +469,36 @@ export default function TcTree({
           {renaming === n.id ? (
             // 창을 띄우지 않고 그 자리에서 고친다 (F2 · 두 번 누르기)
             <input
-              autoFocus
+              ref={(el) => {
+                if (!el || renaming !== n.id) return
+                if (renFocused.current !== n.id) {
+                  /* 이름 변경 시작 — 초점 주고 전체 선택(탐색기와 같다) */
+                  renFocused.current = n.id
+                  el.focus()
+                  el.select()
+                  renCaret.current = el.value.length
+                } else if (!document.activeElement || document.activeElement === document.body) {
+                  /* 새로고침이 입력칸을 갈아 끼우면 초점이 몸통으로 떨어진다
+                     — 그때만 기억한 자리로 커서를 되돌린다. 사람이 다른 칸을
+                     누른 경우(초점이 딴 데 살아 있음)는 안 뺏는다. */
+                  el.focus()
+                  el.setSelectionRange(renCaret.current, renCaret.current)
+                }
+              }}
               className="rt-rename"
               value={renameText}
               onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => setRenameText(e.target.value)}
+              onClick={(e) => {
+                e.stopPropagation()
+                renCaret.current = e.currentTarget.selectionStart ?? renCaret.current
+              }}
+              onChange={(e) => {
+                renCaret.current = e.target.selectionStart ?? e.target.value.length
+                setRenameText(e.target.value)
+              }}
+              onKeyUp={(e) => {
+                renCaret.current = e.currentTarget.selectionStart ?? renCaret.current
+              }}
               onBlur={() => setRenaming(null)}
               onKeyDown={(e) => {
                 // 키가 폴더 줄로 새면 안 된다 — 줄이 스페이스를 「고르기」 로
@@ -485,6 +515,7 @@ export default function TcTree({
               title={n.name}
               onDoubleClick={(e) => {
                 e.stopPropagation()
+                renFocused.current = null
                 setRenaming(n.id)
                 setRenameText(n.name)
               }}
@@ -664,6 +695,7 @@ export default function TcTree({
             onClick={() => {
               const n = ctx.node
               setCtx(null)
+              renFocused.current = null
               setRenaming(n.id)
               setRenameText(n.name)
             }}

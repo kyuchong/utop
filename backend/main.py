@@ -12930,6 +12930,67 @@ async def _db_init():
             )
     except Exception as e:
         print(f'[startup] ID 손질 실패: {e}', flush=True)
+    # 모델그룹 이름 정규화 — 옛 값(LGU+_E61xx)이 프로젝트·TC 문서에 남아
+    # 화면이 카탈로그 정본(E61xx)과 어긋났다(지적: 자동으로 따라와야 한다).
+    # 규칙은 ID 옮기기와 같다: **카탈로그에 있는 꼬리**일 때만 바꾸고,
+    # 지어내지 않는다. 멱등이라 기동마다 돌아도 된다 — 253 도 update.sh 만
+    # 돌리면 자동으로 맞는다.
+    try:
+        _groups = {
+            str(it.get("name") or "").strip()
+            for it in await db.catalog_list()
+            if str(it.get("kind")) == "group"
+        }
+        _groups.discard("")
+
+        def _norm_mg(v) -> str | None:
+            t = str(v or "").strip()
+            if not t or t in _groups or "_" not in t:
+                return None
+            tail = t.split("_", 1)[1]
+            return tail if tail in _groups else None
+
+        if _groups:
+            _fixed = {"project": 0, "tc": 0, "cycle": 0}
+            async with db.pool().acquire() as _c:
+                for _r in await _c.fetch(
+                    "SELECT id, model_group FROM project "
+                    "WHERE COALESCE(model_group,'') <> ''"
+                ):
+                    _t = _norm_mg(_r["model_group"])
+                    if _t:
+                        await _c.execute(
+                            "UPDATE project SET model_group=$2 WHERE id=$1", _r["id"], _t
+                        )
+                        _fixed["project"] += 1
+                for _r in await _c.fetch(
+                    "SELECT tcid, data->>'model_group' AS mg FROM tc "
+                    "WHERE COALESCE(data->>'model_group','') <> ''"
+                ):
+                    _t = _norm_mg(_r["mg"])
+                    if _t:
+                        await _c.execute(
+                            "UPDATE tc SET data = jsonb_set(data, '{model_group}', "
+                            "to_jsonb($2::text)) WHERE tcid=$1",
+                            _r["tcid"], _t,
+                        )
+                        _fixed["tc"] += 1
+                for _r in await _c.fetch(
+                    "SELECT id, data->>'model_group' AS mg FROM cycle "
+                    "WHERE COALESCE(data->>'model_group','') <> ''"
+                ):
+                    _t = _norm_mg(_r["mg"])
+                    if _t:
+                        await _c.execute(
+                            "UPDATE cycle SET data = jsonb_set(data, '{model_group}', "
+                            "to_jsonb($2::text)) WHERE id=$1",
+                            _r["id"], _t,
+                        )
+                        _fixed["cycle"] += 1
+            if any(_fixed.values()):
+                print(f"[startup] 모델그룹 정규화: {_fixed}", flush=True)
+    except Exception as e:
+        print(f"[startup] 모델그룹 정규화 실패: {e}", flush=True)
     # 워커 스레드(run_cli 등)에서 asyncio.run_coroutine_threadsafe 호출용 메인 루프 참조 저장.
     # 스레드 안에서는 asyncio.get_event_loop() 가 새 루프를 만들거나 실패하므로,
     # 요청 처리 스레드에서 broadcast() 를 예약하려면 반드시 여기서 잡은 루프를 써야 한다.

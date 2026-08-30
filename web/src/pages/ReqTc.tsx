@@ -933,7 +933,7 @@ export default function ReqTc({ me }: Props) {
   /* 고친 값을 **손에 들고 있다가** 저장 단추를 누를 때 보낸다(지시).
      자동 저장은 「고치는 중」 과 「고쳤다」 를 구별하지 못한다 — 드롭다운을
      훑어 내리는 것만으로도 값이 바뀌어 나갔다. */
-  const [reqDraft, setReqDraft] = useState<{ status?: string; priority?: string }>({})
+  const [reqDraft, setReqDraft] = useState<{ title?: string; status?: string; priority?: string }>({})
   const [toast, setToast] = useState('')
   /* 끼워 넣은 Coverage 화면이 넘겨 준 저장·⋯ — 머리줄은 이 화면이 그린다 */
   const [tcApi2, setTcApi2] = useState<{
@@ -1942,6 +1942,7 @@ export default function ReqTc({ me }: Props) {
                 tab={openTab}
                 setTab={setOpenTab}
                 edit={{
+                  title: String(reqDraft.title ?? reqById.get(openReq)?.title ?? ''),
                   status: String(reqDraft.status ?? reqById.get(openReq)?.status ?? ''),
                   priority: String(reqDraft.priority ?? reqById.get(openReq)?.priority ?? ''),
                   statuses: REQ_STATUS,
@@ -2601,11 +2602,13 @@ export default function ReqTc({ me }: Props) {
                   const r = reqs.find((x) => reqPk(x) === pop.id)
                   if (!r) return undefined
                   return {
+                    title: String(r.title ?? ''),
                     status: String(r.status ?? ''),
                     priority: String(r.priority ?? ''),
                     statuses: REQ_STATUS,
                     priorities: REQ_PRIORITY,
-                    onChange: (p: { status?: string; priority?: string }) =>
+                    /* 팝업은 저장 단추가 없다 — 고치면 바로 나간다(기존 결) */
+                    onChange: (p: { title?: string; status?: string; priority?: string }) =>
                       void setOneField('req', pop.id, p),
                   }
                 })()
@@ -2748,11 +2751,12 @@ function DetailPop({
   onClose: () => void
   onStep?: (d: -1 | 1) => void
   edit?: {
+    title: string
     status: string
     priority: string
     statuses: readonly string[]
     priorities: readonly string[]
-    onChange: (p: { status?: string; priority?: string }) => void
+    onChange: (p: { title?: string; status?: string; priority?: string }) => void
   }
 }) {
   useEffect(() => {
@@ -2852,11 +2856,12 @@ function ReqPop({
   /** 앞뒤 요구사항으로. 갈 곳이 없으면 안 준다 */
   onStep?: (d: -1 | 1) => void
   edit?: {
+    title: string
     status: string
     priority: string
     statuses: readonly string[]
     priorities: readonly string[]
-    onChange: (p: { status?: string; priority?: string }) => void
+    onChange: (p: { title?: string; status?: string; priority?: string }) => void
   }
 }) {
   const [tab, setTab] = useState<'info' | 'detail' | 'tc' | 'runs' | 'history'>('info')
@@ -2930,11 +2935,12 @@ function ReqBody({
   setTab: (t: 'info' | 'detail' | 'tc' | 'runs' | 'history') => void
   /** Info 의 상태·우선순위를 그 자리에서 고친다(지시) */
   edit?: {
+    title: string
     status: string
     priority: string
     statuses: readonly string[]
     priorities: readonly string[]
-    onChange: (p: { status?: string; priority?: string }) => void
+    onChange: (p: { title?: string; status?: string; priority?: string }) => void
   }
 }) {
   return (

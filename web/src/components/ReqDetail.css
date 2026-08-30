@@ -174,3 +174,7 @@
 }
 .rd-ai-head .sp { margin-left: auto; }
 .rd-ai-body { padding: 8px 12px; max-height: 320px; overflow: auto; }
+/* 제목 인라인 수정 — 두 번 누르면 입력칸 (지시) */
+.kv .kv-titleedit { font: inherit; }
+.kv .pick-view.kv-titleedit { cursor: text; border-bottom: 1px dashed transparent; }
+.kv .pick-view.kv-titleedit:hover { border-bottom-color: var(--c-border, #cfd8de); }

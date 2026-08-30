@@ -12,16 +12,18 @@ import {
 import LlmPick, { useLlmPick } from '@/components/LlmPick'
 import Markdown from './Markdown'
 import MarkdownEditor from './MarkdownEditorLazy'
+import PickCell from './PickCell'
 import './ReqDetail.css'
 
 interface Props {
   /** 상태·우선순위를 **늘 고칠 수 있게**(지시). 없으면 읽기 전용 */
   edit?: {
+    title: string
     status: string
     priority: string
     statuses: readonly string[]
     priorities: readonly string[]
-    onChange: (p: { status?: string; priority?: string }) => void
+    onChange: (p: { title?: string; status?: string; priority?: string }) => void
   }
   req: Requirement
   /** 이 요구사항에 연결된 TC (Requirements 페이지가 이미 계산해 둔 것) */
@@ -89,7 +91,22 @@ export default function ReqDetail({ req, tcs, tab, edit }: Props) {
           <dt>REQ ID</dt>
           <dd>{reqLabel(req) || '—'}</dd>
           <dt>제목</dt>
-          <dd>{req.title || '—'}</dd>
+          <dd>
+            {edit ? (
+              /* 두 번 누르면 그 자리에서 고친다(지시) — 상태·우선순위와
+                 같이 값은 들고만 있고, 나가는 것은 위 「저장」 단추다 */
+              <PickCell
+                dbl
+                value={edit.title}
+                view={edit.title || '(제목 없음)'}
+                cls="kv-titleedit"
+                title="두 번 누르면 제목을 고칩니다 — 위 「저장」 으로 저장됩니다"
+                onSave={(nv) => edit.onChange({ title: nv })}
+              />
+            ) : (
+              req.title || '—'
+            )}
+          </dd>
           <dt>프로젝트</dt>
           <dd>
             {prj
