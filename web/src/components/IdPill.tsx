@@ -12,7 +12,7 @@ export default function IdPill({
   href,
   title,
 }: {
-  /** 보여 줄 번호 — REQ-… · TC-… · 사이클 ID */
+  /** 보여 줄 번호 — REQ-… · TC-… · 플랜 ID */
   id: string
   /** 이 자리를 여는 주소(gotoHref 가 만든 것) */
   href: string

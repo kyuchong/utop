@@ -100,7 +100,7 @@ function fromRun(r: Run, prev: RunState): RunState {
 }
 
 /**
- * 사이클 실행 — 보기만 한다.
+ * 플랜 실행 — 보기만 한다.
  *
  * 전에는 이 자리에서 직접 돌렸다. 그러니 **탭을 닫으면 실행이 멈췄다.**
  * 64건을 걸어 놓고 자리를 뜰 수가 없었고, 실행 서버를 따로 둔 의미도
@@ -139,7 +139,7 @@ export function useCycleRun(cycleId: string) {
   }, [])
 
   /**
-   * 이 사이클의 실행에 붙는다.
+   * 이 플랜의 실행에 붙는다.
    *
    * 도는 것이 있으면 그것에, 없으면 **마지막으로 돈 것**에 붙는다. 잠깐
    * 자리를 비운 사이에 끝났을 수도 있는데, 그때 아무것도 안 보이면
@@ -160,7 +160,7 @@ export function useCycleRun(cycleId: string) {
     await pull(cur.id, 0)
   }, [cycleId, pull])
 
-  // 화면을 열 때 · 사이클을 바꿀 때
+  // 화면을 열 때 · 플랜을 바꿀 때
   useEffect(() => {
     setSt(EMPTY)
     seenRef.current = 0

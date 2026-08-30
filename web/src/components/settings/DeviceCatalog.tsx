@@ -877,7 +877,7 @@ export default function DeviceCatalog({
 
           <div className="hint">
             기본 인터페이스를 적어두면 장비 등록에서 이 모델을 고를 때 포트가 그대로 채워집니다.
-            모델명 자체를 바꾸는 것은 사이클·시험이 물려 있어 막아 두었습니다.
+            모델명 자체를 바꾸는 것은 플랜·시험이 물려 있어 막아 두었습니다.
           </div>
         </section>
         )}

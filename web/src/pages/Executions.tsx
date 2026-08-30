@@ -71,14 +71,14 @@ function span(a?: string | null, b?: string | null): string {
  *
  * 메뉴에는 있는데 페이지가 없었다. 만들 수가 없었다 — **보여 줄 것이
  * 없었으니까.** 실행이 브라우저 안에서만 일어나서 창을 닫으면 흔적도 없이
- * 사라졌다. 남는 것은 사이클 항목에 찍힌 시각 한 줄뿐이었다.
+ * 사라졌다. 남는 것은 플랜 항목에 찍힌 시각 한 줄뿐이었다.
  *
  * 실행을 서버로 옮기면서 누가·언제·무엇을·몇 건·얼마나·어떻게 됐는지가
  * 다 남는다. 밤새 돌려 놓고 아침에 보는 자리가 여기다.
  *
- * 사이클 화면과 다른 점: 저기는 **한 사이클**을 붙들고 보는 자리고, 여기는
- * **모든 사이클의 실행**을 시간순으로 훑는 자리다. 「어제 밤에 뭐가
- * 돌았나」 는 사이클을 하나씩 열어서는 못 답한다.
+ * 플랜 화면과 다른 점: 저기는 **한 플랜**을 붙들고 보는 자리고, 여기는
+ * **모든 플랜의 실행**을 시간순으로 훑는 자리다. 「어제 밤에 뭐가
+ * 돌았나」 는 플랜을 하나씩 열어서는 못 답한다.
  */
 export default function Executions() {
   const qc = useQueryClient()
@@ -128,7 +128,7 @@ export default function Executions() {
       let pick: number[] | undefined
       if (failedOnly) {
         const c = await apiFetch(`/api/cycle/${encodeURIComponent(r.cycle_id)}`)
-        if (!c.ok) throw new Error('사이클을 읽지 못했습니다')
+        if (!c.ok) throw new Error('플랜을 읽지 못했습니다')
         const j = (await c.json()) as { items?: { steps?: { status?: string }[] }[] }
         pick = (j.items ?? [])
           .map((it, i) => ({ i, bad: (it.steps ?? []).some((x) => x.status === 'FAIL') }))
@@ -157,13 +157,13 @@ export default function Executions() {
   }
 
   /**
-   * 그 실행이 돈 사이클의 항목들.
+   * 그 실행이 돈 플랜의 항목들.
    *
    * 로그만 있으면 얇다 — 「무엇이 오갔나」 는 알아도 「그 스텝의 명령이
-   * 뭐였고 무엇이 나왔고 왜 그렇게 판정됐나」 를 모른다. 사이클 화면에서
+   * 뭐였고 무엇이 나왔고 왜 그렇게 판정됐나」 를 모른다. 플랜 화면에서
    * 보던 스텝 카드를 여기서도 그대로 쓴다.
    *
-   * 스텝 결과는 사이클 문서에 있고 나중 실행이 덮는다. 그래서 **가장
+   * 스텝 결과는 플랜 문서에 있고 나중 실행이 덮는다. 그래서 **가장
    * 최근 실행이 아니면** 그렇다고 말해 준다 — 옛 실행을 골라 놓고 최신
    * 결과를 보면서 헷갈리는 것보다 낫다.
    */
@@ -172,14 +172,14 @@ export default function Executions() {
     enabled: !!cur?.cycle_id,
     queryFn: async () => {
       const r = await apiFetch(`/api/cycle/${encodeURIComponent(cur?.cycle_id ?? '')}`)
-      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      if (!r.ok) throw new Error('플랜을 불러오지 못했습니다')
       return (await r.json()) as { items?: CycleItemLite[] }
     },
   })
   const [openItem, setOpenItem] = useState(-1)
   useEffect(() => setOpenItem(-1), [sel])
   const exItems = cycQ.data?.items ?? []
-  /** 이 실행이 그 사이클의 가장 최근 것인가 */
+  /** 이 실행이 그 플랜의 가장 최근 것인가 */
   const isLatest = !!cur && runs.find((r) => r.cycle_id === cur.cycle_id)?.id === cur.id
 
   const detQ = useQuery({
@@ -234,7 +234,7 @@ export default function Executions() {
         <ListHead
           name="실행"
           count={runs.length}
-          search={{ value: q, placeholder: '사이클 이름으로 찾기', onChange: setQ }}
+          search={{ value: q, placeholder: '플랜 이름으로 찾기', onChange: setQ }}
         />
 
         {/* 지금 무엇이 살아 있나. 이력을 훑기 전에 이것부터 눈에 들어와야
@@ -274,7 +274,7 @@ export default function Executions() {
         <div className="ex-rows">
           <div className="ex-row head">
             <span>상태</span>
-            <span>사이클</span>
+            <span>플랜</span>
             <span>사람</span>
             <span>건수</span>
             <span>시작</span>
@@ -284,7 +284,7 @@ export default function Executions() {
             <div className="empty">불러오는 중…</div>
           ) : runs.length === 0 ? (
             <div className="empty">
-              아직 돌린 것이 없습니다. 사이클에서 「▶ 전체 실행」 을 누르면 여기 쌓입니다.
+              아직 돌린 것이 없습니다. 플랜에서 「▶ 전체 실행」 을 누르면 여기 쌓입니다.
             </div>
           ) : (
             runs.map((r) => {
@@ -415,7 +415,7 @@ export default function Executions() {
               <div className="ex-steps">
                 {!isLatest && (
                   <div className="ex-old">
-                    이 사이클을 그 뒤에 또 돌렸습니다 — 아래 스텝은 <b>가장 최근</b> 결과입니다.
+                    이 플랜을 그 뒤에 또 돌렸습니다 — 아래 스텝은 <b>가장 최근</b> 결과입니다.
                     이 실행의 것은 아래 로그로 보세요.
                   </div>
                 )}

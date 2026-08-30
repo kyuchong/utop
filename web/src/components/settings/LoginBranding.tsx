@@ -297,7 +297,7 @@ export default function LoginBranding() {
               value={loginMd}
               spellCheck={false}
               placeholder={
-                '# ubiQuoss-TOP\n유비쿼스 네트워크 장비 시험 자동화\n\n- 요구사항 → 시험항목 → 사이클을 한 줄기로\n- 장비 CLI·SNMP·계측기를 그대로 자동 실행\n- 결과는 회차로 남고 결과서까지'
+                '# ubiQuoss-TOP\n유비쿼스 네트워크 장비 시험 자동화\n\n- 요구사항 → 시험항목 → 플랜을 한 줄기로\n- 장비 CLI·SNMP·계측기를 그대로 자동 실행\n- 결과는 회차로 남고 결과서까지'
               }
               onChange={(e) => setLoginMd(e.target.value)}
             />

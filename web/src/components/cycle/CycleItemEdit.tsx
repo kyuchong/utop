@@ -15,7 +15,7 @@ interface Props {
 }
 
 /**
- * 사이클 항목 고치기 — 한 건이든 여러 건이든 같은 창.
+ * 플랜 항목 고치기 — 한 건이든 여러 건이든 같은 창.
  *
  * 여러 건일 때가 중요하다. 스무 건을 돌리고 담당자를 한 명에게 몰아 주거나
  * 결과를 한꺼번에 바꾸는 일이 잦은데, 줄마다 드롭다운을 여는 것은 일이 아니다.
@@ -88,7 +88,7 @@ export default function CycleItemEdit({ items, results, onClose, onApply }: Prop
         className="modal cie"
         role="dialog"
         aria-modal="true"
-        aria-label="사이클 항목 고치기"
+        aria-label="플랜 항목 고치기"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="modal-head">

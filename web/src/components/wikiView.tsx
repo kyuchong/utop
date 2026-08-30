@@ -13,7 +13,7 @@ import { reqPk } from '@/types'
  * 그 순간부터 틀리기 시작한다 — 다음 달에 이 문서를 여는 사람은 그것이
  * 언제 적 숫자인지 알 길이 없다.
  *
- * 그래서 담는 것은 **숫자가 아니라 질의**다(어느 사이클·어느 프로젝트).
+ * 그래서 담는 것은 **숫자가 아니라 질의**다(어느 플랜·어느 프로젝트).
  * Zephyr 가 Confluence 에서 매크로로 하는 일이 이것이고, 보고서를 따로 두지
  * 않고 글 사이에 꽂게 한 까닭도 같다: 보고서를 따로 두면 「왜 이런 숫자가
  * 나왔나」 를 적은 글과 그 숫자가 갈라진다.
@@ -22,11 +22,11 @@ import { reqPk } from '@/types'
 type Props = { view: string; cycle: string; project: string }
 
 const VIEWS = [
-  { k: 'cycle', label: '사이클 진행' },
+  { k: 'cycle', label: '플랜 진행' },
   { k: 'coverage', label: '덮임 (Coverage)' },
 ] as const
 
-/** 통과·부적합·그 밖·미실행 — 사이클 화면과 같은 갈래로 센다 */
+/** 통과·부적합·그 밖·미실행 — 플랜 화면과 같은 갈래로 센다 */
 function tally(items: CycleItemLite[]) {
   let pass = 0, fail = 0, other = 0, none = 0
   for (const it of items) {
@@ -50,7 +50,7 @@ function CycleView({ id }: { id: string }) {
   })
   if (!id) return null
   if (q.isLoading) return <div className="wv-load">읽는 중…</div>
-  if (q.isError || !q.data) return <div className="wv-err">사이클을 못 읽었습니다 — 지워졌을 수 있습니다</div>
+  if (q.isError || !q.data) return <div className="wv-err">플랜을 못 읽었습니다 — 지워졌을 수 있습니다</div>
   const c = q.data
   const t = tally(c.items ?? [])
   /* 통과율은 **실행한 것 중에서** 센다. 미실행을 분모에 넣으면 시험을
@@ -149,7 +149,7 @@ function Pick({ p, set }: { p: Props; set: (x: Partial<Props>) => void }) {
       </select>
       {p.view === 'cycle' && (
         <select value={p.cycle} onChange={(e) => set({ cycle: e.target.value })}>
-          <option value="">— 사이클 —</option>
+          <option value="">— 플랜 —</option>
           {(cyQ.data?.cycles ?? []).map((c) => (
             <option key={c.id} value={c.id}>
               {c.cid || c.id} · {[c.model, c.version].filter(Boolean).join(' ')}
@@ -186,7 +186,7 @@ export const ViewSpec = createReactBlockSpec(
           <div className="wv-top">
             <span className="wv-tag">{label}</span>
             <span className="sp" />
-            {/* 고른 뒤에도 바꿀 수 있어야 한다 — 사이클을 잘못 골랐다고
+            {/* 고른 뒤에도 바꿀 수 있어야 한다 — 플랜을 잘못 골랐다고
                 블록을 지웠다 다시 만들게 하면 글 흐름이 끊긴다 */}
             {editor.isEditable && <Pick p={p} set={set} />}
           </div>

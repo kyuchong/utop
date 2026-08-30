@@ -239,7 +239,7 @@ export default function ReqTc({ me }: Props) {
       return (await r.json()) as { items: Array<{ kind: string; value: string; note?: string | null }> }
     },
   })
-  /** 최근 결과 — 결과는 사이클 안에 살아서 따로 읽는다 */
+  /** 최근 결과 — 결과는 플랜 안에 살아서 따로 읽는다 */
   const lastQ = useQuery({
     queryKey: ['tc-last-result'],
     staleTime: 30_000,

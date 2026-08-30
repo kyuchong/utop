@@ -1,0 +1,49 @@
+/* 담당 고르개 — 공용(assp- 접두어, 겹침 금지 규칙).
+   조직도 꼴(지시): 왼쪽 조직 클릭 → 오른쪽 사람 클릭, 두 번이면 끝. */
+.assp-ovl { position: fixed; inset: 0; z-index: 55; }
+.assp {
+  position: fixed; z-index: 60; width: 380px; max-height: 388px;
+  display: flex; flex-direction: column;
+  background: var(--c-surface, #fff); border: 1px solid var(--c-border, #dfe5ea);
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14); padding: 8px;
+}
+.assp-quick { display: flex; gap: 6px; margin-bottom: 6px; }
+.assp-mebtn, .assp-clearbtn {
+  border: 1px solid var(--c-border, #dfe5ea); background: var(--c-surface-alt, #f4f7f9);
+  border-radius: 6px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.assp-mebtn { color: #0e7490; font-weight: 700; flex: 1; text-align: left; }
+.assp-mebtn:hover, .assp-clearbtn:hover { background: #dbeef5; }
+.assp-clearbtn { color: var(--c-text-faint, #8a99a3); }
+.assp > input {
+  border: 1px solid var(--c-border, #dfe5ea); border-radius: 6px;
+  padding: 5px 8px; font: inherit; font-size: 12.5px; margin-bottom: 6px;
+}
+.assp-body { display: flex; gap: 6px; min-height: 0; flex: 1; }
+.assp-orgs {
+  width: 132px; flex: none; overflow-y: auto; min-height: 0;
+  border-right: 1px solid var(--c-border-soft, #eef2f5); padding-right: 6px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.assp-orgs.dim { opacity: 0.45; }
+.assp-org {
+  display: flex; align-items: center; gap: 4px; width: 100%; text-align: left;
+  border: 0; background: none; padding: 5px 8px; border-radius: 6px;
+  cursor: pointer; font: inherit; font-size: 12px; color: inherit;
+}
+.assp-org .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assp-org .cnt { font-size: 10.5px; color: var(--c-text-faint, #8a99a3); }
+.assp-org:hover { background: var(--c-surface-alt, #f4f7f9); }
+.assp-org.on { background: #dbeef5; font-weight: 700; }
+.assp-hdr {
+  font-size: 11px; font-weight: 700; color: var(--c-text-soft, #5b6875); padding: 6px;
+}
+.assp-list { flex: 1; overflow-y: auto; min-height: 0; }
+.assp-opt {
+  display: flex; width: 100%; text-align: left; align-items: center; gap: 6px;
+  border: 0; background: none; padding: 5px 8px; border-radius: 6px;
+  cursor: pointer; font: inherit; font-size: 12.5px; color: inherit;
+}
+.assp-opt.on { background: #dbeef5; }
+.assp-opt.cur { font-weight: 700; }
+.assp-opt .org { margin-left: auto; font-size: 11px; color: var(--c-text-faint, #8a99a3); }

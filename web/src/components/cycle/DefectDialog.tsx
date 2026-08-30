@@ -59,7 +59,7 @@ const PANELS: Array<{ k: string; label: string; ph: string; rows: number }> = [
   { k: 'symptom', label: '현상', ph: '무엇이 어떻게 잘못 나왔는지', rows: 3 },
   { k: 'topo', label: '시험구성도', ph: '구성 설명 또는 파일명', rows: 3 },
   { k: 'steps', label: '시험절차', ph: '시험 절차를 입력하세요', rows: 6 },
-  { k: 'detail', label: '시험내역', ph: '사이클 / 시험 항목 / 모델 · 버전', rows: 3 },
+  { k: 'detail', label: '시험내역', ph: '플랜 / 시험 항목 / 모델 · 버전', rows: 3 },
   { k: 'config', label: 'Configuration File (Config File)', ph: 'running-config 또는 파일명', rows: 4 },
   { k: 'core', label: 'Core File (Upload Core file)', ph: 'core 파일 이름 · 올린 곳', rows: 3 },
   { k: 'kernel', label: 'Kernel Log & Syslog 조회', ph: 'Kernel Log / Syslog 출력', rows: 4 },
@@ -67,7 +67,7 @@ const PANELS: Array<{ k: string; label: string; ph: string; rows: number }> = [
 ]
 
 interface Props {
-  /** 사이클에서 열 때만 준다. Defects 목록에서 열면 없다(이미 저장된 결함이라) */
+  /** 플랜에서 열 때만 준다. Defects 목록에서 열면 없다(이미 저장된 결함이라) */
   cycle?: { id: string; model?: string | null; version?: string | null }
   item?: CycleItemLite
   /** 이미 걸린 결함 (있으면 그 값으로 채운다). 목록에서 열면 반드시 있다 */
@@ -131,7 +131,7 @@ function briefsFromDefect(d: DefectRec | null): StepBrief[] {
 /**
  * 결함 등록 창.
  *
- * 사이클 항목에서 「이슈 생성」 을 누르면 뜬다. 깨진 스텝을 그대로 담고,
+ * 플랜 항목에서 「이슈 생성」 을 누르면 뜬다. 깨진 스텝을 그대로 담고,
  * 프로젝트 키·프로젝트명·이슈유형·우선순위·수정버전·구성요소·보고자·등록자·
  * 등록일 아홉 칸을 채워 Jira 이슈로 올린다.
  *

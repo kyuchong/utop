@@ -5,7 +5,7 @@ import { apiFetch } from '@/api/client'
 /**
  * ID 옮기기 — 옛 ID 를 **모델그룹 기준**으로.
  *
- *     LGUP-E61xx_R0001 · _T0001 · _C0001 · _C0001-E001
+ *     LGUP-E61xx_R0001 · _T0001 · _P0001 · _P0001-E001
  *
  * 앞머리는 **모델그룹 그대로**다 — 모델그룹이 이미 사업자를 알아볼 만큼
  * 줄여 담은 통칭이라(지시), 사업자를 덧붙이면 같은 말이 두 번 들어간다.
@@ -19,7 +19,7 @@ interface Move { kind: string; pk: string; old: string; new: string; name?: stri
                  execs?: Array<{ old: string; new: string }> }
 interface Skip { kind: string; pk: string; old: string; why: string }
 
-const LAB: Record<string, string> = { req: '요구사항', tc: '시험항목', cycle: '사이클' }
+const LAB: Record<string, string> = { req: '요구사항', tc: '시험항목', cycle: '플랜' }
 
 export default function IdMigrate() {
   const [done, setDone] = useState<Record<string, number> | null>(null)
@@ -54,13 +54,13 @@ export default function IdMigrate() {
         <b>ID 옮기기</b>
         <span className="muted small">
           옛 ID 를 모델그룹 기준으로 — <code>LGUP-E61xx_R0001</code> ·{' '}
-          <code>_T0001</code> · <code>_C0001</code> · <code>_C0001-E001</code>
+          <code>_T0001</code> · <code>_P0001</code> · <code>_P0001-E001</code>
         </span>
       </div>
 
       {done && (
         <div className="idm-done">
-          옮겼습니다 — 요구사항 {done.req ?? 0} · 시험항목 {done.tc ?? 0} · 사이클 {done.cycle ?? 0} ·
+          옮겼습니다 — 요구사항 {done.req ?? 0} · 시험항목 {done.tc ?? 0} · 플랜 {done.cycle ?? 0} ·
           실행 {done.exec ?? 0}건 (이슈 연결 {done.defect ?? 0} · 변경 이력 {done.history ?? 0}건 따라 옮김)
         </div>
       )}

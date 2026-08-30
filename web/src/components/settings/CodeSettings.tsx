@@ -31,8 +31,8 @@ const TITLE: Record<string, { h: string; p: string }> = {
     p: '요구사항 편집 창에서 고를 값을 여기서 정합니다. 전에는 코드에 박혀 있어 배포해야 늘릴 수 있었습니다.',
   },
   cycle: {
-    h: '사이클 INFO 필드',
-    p: '사이클 만들기·편집에서 고를 값(상태·고객 등)을 여기서 정합니다.',
+    h: '플랜 INFO 필드',
+    p: '플랜 만들기·편집에서 고를 값(상태·고객 등)을 여기서 정합니다.',
   },
 }
 
@@ -79,7 +79,7 @@ export default function CodeSettings({ target }: Props) {
     target === 'req' ? 'req_status' : target === 'cycle' ? 'cycle_status' : 'tc_type',
   )
   const [draft, setDraft] = useState('')
-  /** 사이클 설명 틀 — 보고서 패턴을 맞추는 사람이 정의한 본문 */
+  /** 플랜 설명 틀 — 보고서 패턴을 맞추는 사람이 정의한 본문 */
   const [descTpl, setDescTpl] = useState<string | null>(null)
   const tplQ = useQuery({
     queryKey: ['cycle-desc-template'],
@@ -97,7 +97,7 @@ export default function CodeSettings({ target }: Props) {
   /**
    * 이 페이지는 **관리자만** 고친다(지시).
    *
-   * 여기 값 하나가 요구사항·시험항목·사이클 세 화면 모두의 목록을 바꾼다.
+   * 여기 값 하나가 요구사항·시험항목·플랜 세 화면 모두의 목록을 바꾼다.
    * 한 사람이 열 폭을 40 으로 내리면 그 순간 모두의 화면이 그렇게 된다 —
    * 여럿이 함께 쓰는 설정은 고칠 수 있는 사람을 좁혀 두어야 한다.
    * 서버도 같이 막았다(화면만 막으면 막은 것이 아니다).
@@ -436,7 +436,7 @@ export default function CodeSettings({ target }: Props) {
           없으면 고장 난 화면으로 읽힌다 */}
       {meQ.data && !canEdit && (
         <div className="set-note warn">
-          이 설정은 <b>관리자만</b> 고칠 수 있습니다. 여기 값 하나가 요구사항·시험항목·사이클 세 화면
+          이 설정은 <b>관리자만</b> 고칠 수 있습니다. 여기 값 하나가 요구사항·시험항목·플랜 세 화면
           모두의 목록을 바꾸기 때문입니다 — 보기는 그대로 되고, 바꿀 것이 있으면 관리자에게 알려 주세요.
         </div>
       )}
@@ -574,7 +574,7 @@ export default function CodeSettings({ target }: Props) {
           <div className="set-card-head">
             <b>탭 추가</b>
             <span className="muted small">
-              {target === 'tc' ? 'TC' : target === 'cycle' ? '사이클' : '요구사항'} 편집 화면에
+              {target === 'tc' ? 'TC' : target === 'cycle' ? '플랜' : '요구사항'} 편집 화면에
               드롭다운 칸이 하나 생깁니다
             </span>
           </div>
@@ -755,7 +755,7 @@ export default function CodeSettings({ target }: Props) {
                   </select>
                 </label>
                 <span className="muted small">
-                  요구사항·시험항목·사이클 목록이 이 설정을 함께 씁니다.
+                  요구사항·시험항목·플랜 목록이 이 설정을 함께 씁니다.
                 </span>
               </div>
             )}
@@ -900,11 +900,11 @@ export default function CodeSettings({ target }: Props) {
           <div className="set-card-head">
             <b>설명 (Description) 틀</b>
             <span className="muted small">
-              새 사이클을 만들 때 설명 칸에 이 틀이 미리 채워집니다 — 보고서 패턴을
+              새 플랜을 만들 때 설명 칸에 이 틀이 미리 채워집니다 — 보고서 패턴을
               맞추는 용도
             </span>
           </div>
-          {/* 사이클 창의 설명 칸과 같은 마크다운 편집기 — 같은 서식으로 틀을 짠다 */}
+          {/* 플랜 창의 설명 칸과 같은 마크다운 편집기 — 같은 서식으로 틀을 짠다 */}
           <div className="ce-md dc-tplmd">
             <MarkdownEditor
               value={descTpl ?? tplQ.data?.text ?? ''}

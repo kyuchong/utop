@@ -67,7 +67,7 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
     items: [
       { key: 'reqcodes', label: '요구사항 INFO 필드', icon: IconReqCodeList, ready: true },
       { key: 'codes', label: 'TC INFO 필드', icon: IconCodeList, ready: true },
-      { key: 'cyclecodes', label: '사이클 INFO 필드', icon: IconCodeList, ready: true },
+      { key: 'cyclecodes', label: '플랜 INFO 필드', icon: IconCodeList, ready: true },
       { key: 'verdicts', label: '실행 판정 기준', icon: IconCodeList, ready: true },
       { key: 'stepacts', label: 'TC Step Action', icon: IconCodeList, ready: true },
       { key: 'fields', label: '커스텀 필드', icon: IconCustomField, ready: true },

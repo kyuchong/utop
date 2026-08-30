@@ -49,7 +49,7 @@ export const NAV: NavGroup[] = [
     items: [
       /* 차례는 **일이 흘러가는 차례**다(지시): 적고 → 덮고 → 돌린다.
          위키에 규격과 절차를 적고, REQ-Coverage 에서 요구사항을 시험으로
-         덮고, 사이클로 돌린다. */
+         덮고, 플랜로 돌린다. */
       { key: 'wiki', label: 'Wiki', Icon: IconKnowledge },
       /* 요구사항과 시험을 **합쳐 보는** 자리(지시).
          Requirements · Coverage 두 줄은 뺐다 — 그 일을 여기서 다 한다.
@@ -58,13 +58,13 @@ export const NAV: NavGroup[] = [
          다 봐야 한다. 주소(?req= · ?tc=)는 살려 둔다 — 남이 보낸 링크가
          죽으면 안 된다. */
       { key: 'reqtc', label: 'REQ-Coverage', Icon: IconReqTc },
-      { key: 'cycles', label: 'Cycles', Icon: IconCycle },
-      /* Runs — Testiny 처럼 사이클(플랜)과 **별개 메뉴**(지시). 사이클은
+      { key: 'cycles', label: 'Plans', Icon: IconCycle },
+      /* Runs — Testiny 처럼 플랜(플랜)과 **별개 메뉴**(지시). 플랜은
          계획을 다루고, Runs 는 결과를 다룬다. */
       { key: 'runs', label: 'Runs', Icon: IconExecution },
       /* 「Reports」 는 걷었다(지시) — 집계·축·결과 상세·거르개가 모두
-         사이클 폴더 현황으로 옮겨 갔다. 옛 주소(executions)로 들어오면
-         사이클 화면으로 넘긴다(App.tsx). */
+         플랜 폴더 현황으로 옮겨 갔다. 옛 주소(executions)로 들어오면
+         플랜 화면으로 넘긴다(App.tsx). */
     ],
   },
   {

@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, projectApi } from '@/api/client'
 import { currentProjects } from '@/components/ProjectPicker'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
+import AssigneePicker from '@/components/AssigneePicker'
 import { goto, onGoto, reflectUrl, gotoHref } from '@/api/goto'
 import CycleEdit from '@/components/cycle/CycleEdit'
 import CycleReport from '@/components/cycle/CycleReport'
@@ -52,7 +53,7 @@ import { isJudgeStep, stepVerdict, type StepRound, type TcStep } from '@/compone
 import '@/components/ReqTree.css'
 import './Cycles.css'
 
-/** 사이클 한 건 — 목록용 요약(`/api/cycle?meta=1`) */
+/** 플랜 한 건 — 목록용 요약(`/api/cycle?meta=1`) */
 export interface CycleMeta {
   /** 제품군 스냅샷 — 표에서 직접 고를 수 있다(지시). 비면 카탈로그에서 파생 */
   family?: string | null
@@ -72,14 +73,14 @@ export interface CycleMeta {
   /** 부여 ID — C-<연2><주차2>-<순번3>. 서버가 매긴다 */
   cid?: string | null
   created_by?: string | null
-  /** 사이클 상태 — 설정 → 사이클 INFO 필드 값 */
+  /** 플랜 상태 — 설정 → 플랜 INFO 필드 값 */
   status?: string | null
   /** AI 요약 — 목록 응답(data_summary)에 그대로 실려 온다 */
   ai_summary?: { text?: string; at?: string } | null
-  /** 실행 ID — 사이클 ID 에서 파생 (C-2633-002 → CE-2633-002). 첫 Run 때 박힌다 */
+  /** 실행 ID — 플랜 ID 에서 파생 (C-2633-002 → CE-2633-002). 첫 Run 때 박힌다 */
   ce?: string | null
   description?: string | null
-  /** 복제 원본 사이클 id */
+  /** 복제 원본 플랜 id */
   cloned_from?: string | null
   /** 자유 폴더 경로 (예: L3/E6100/R100). 비면 모델·버전그룹에서 파생 */
   folder?: string | null
@@ -90,7 +91,7 @@ export interface CycleMeta {
 export interface CycleItemLite {
   tcid: string
   req_id?: string | null
-  /** 항목 실행 ID — CETC-<사이클 파생>-NN */
+  /** 항목 실행 ID — CETC-<플랜 파생>-NN */
   ceid?: string | null
   /** 사람이 손으로 정한 결과. 있으면 스텝 집계보다 이것이 이긴다 */
   result?: string | null
@@ -157,7 +158,7 @@ export interface CycleStep {
    * 계측기 스텝.
    *
    * CLI 는 「무엇을 보냈나(cli)」 와 「무엇이 나와야 하나(criteria)」 가
-   * 칸에 있는데 계측기는 그 둘이 없다. 그래서 사이클 카드에 ACTUAL DATA
+   * 칸에 있는데 계측기는 그 둘이 없다. 그래서 플랜 카드에 ACTUAL DATA
    * 하나만 뜨고 무엇을 시킨 것인지도 안 보였다. 여기 있어야 카드가 읽는다.
    */
   meterAct?: string | null
@@ -294,7 +295,7 @@ export function itemVerdict(it: CycleItemLite): Verdict {
  * 이 항목이 **왜** 깨졌나 — 처음 깨진 스텝과 그 근거.
  *
  * 전에는 「3단계 중 1 부적합」 까지만 보였다. 그래서 무엇이 왜 깨졌는지
- * 알려면 항목을 열고 스텝을 하나씩 눌러 들어가야 했다. 64건짜리 사이클에서
+ * 알려면 항목을 열고 스텝을 하나씩 눌러 들어가야 했다. 64건짜리 플랜에서
  * 깨진 것이 다섯이면 그 짓을 다섯 번 한다.
  *
  * 처음 깨진 것만 본다. 앞이 깨지면 뒤는 대개 그 여파라 나열해 봐야
@@ -385,16 +386,16 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
   /**
    * 새로고침해도 보던 자리로 돌아온다.
    *
-   * TC 화면은 이미 그렇게 하는데(`utop.tc.open`) 사이클만 안 하고 있었다.
-   * 새로고침하면 트리가 통째로 접히고 「왼쪽에서 사이클을 고르세요」 로
+   * TC 화면은 이미 그렇게 하는데(`utop.tc.open`) 플랜만 안 하고 있었다.
+   * 새로고침하면 트리가 통째로 접히고 「왼쪽에서 플랜을 고르세요」 로
    * 튕겨서, 64건짜리를 보다가 매번 다시 찾아 들어가야 했다.
    */
   const qc = useQueryClient()
   const [making, setMaking] = useState(false)
-  /** 우클릭 메뉴 — 어느 사이클 위에서, 화면 어디에 */
+  /** 우클릭 메뉴 — 어느 플랜 위에서, 화면 어디에 */
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   /**
-   * 우클릭 메뉴가 시킨 일 — 사이클 상세가 받아 한다.
+   * 우클릭 메뉴가 시킨 일 — 플랜 상세가 받아 한다.
    *
    * 메뉴는 트리(페이지)에 있고 그 일을 할 줄 아는 것은 상세라, 신호로
    * 건넨다. 숫자를 함께 올려 같은 일을 두 번 시켜도 전달된다.
@@ -406,8 +407,8 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
   /** 판정 한 벌 — 설정 「실행 판정 기준」 이 정본. 색을 CSS 로 푼다 */
   const resDefs = useResults()
 
-  /** 폴더 우클릭 메뉴 — 폴더째 지우거나, 그 안 사이클을 한꺼번에 지운다 */
-  /** 고칠 사이클 */
+  /** 폴더 우클릭 메뉴 — 폴더째 지우거나, 그 안 플랜을 한꺼번에 지운다 */
+  /** 고칠 플랜 */
   const [editId, setEditId] = useState('')
   /** 말로 찾은 결과 — 만들기 창에 미리 채워 넣는다 */
   const [ask, setAsk] = useState<{ model: string; tcs: Array<{ tcid: string; name?: string | null; req_id?: string | null }> } | null>(null)
@@ -418,7 +419,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
   const [sel, setSel] = useState(
     () => new URLSearchParams(window.location.search).get('cycle') || '',
   )
-  /** ?ce=CE-… 로 들어왔다 — 목록이 오면 그 사이클을 찾아 연다 */
+  /** ?ce=CE-… 로 들어왔다 — 목록이 오면 그 플랜을 찾아 연다 */
   const [pendingCe, setPendingCe] = useState(
     () => new URLSearchParams(window.location.search).get('ce') || '',
   )
@@ -427,11 +428,11 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
     () => new URLSearchParams(window.location.search).get('it') || '',
   )
   // 고르면 주소창에 남긴다 — 옛 화면의 #cycle=… 과 같은 일
-  // 링크·뒤로가기로 온 채 다른 사이클을 가리키면 갈아탄다
+  // 링크·뒤로가기로 온 채 다른 플랜을 가리키면 갈아탄다
   useEffect(() => {
     localStorage.setItem(CY_SEL_KEY, sel)
   }, [sel])
-  /** 이 화면(사이클 묶음)에 들어와 있는 사람들 — 상단 오른쪽 표시 몫 */
+  /** 이 화면(플랜 묶음)에 들어와 있는 사람들 — 상단 오른쪽 표시 몫 */
   const crowd = usePageCrowd('cycle')
   /* 표(목록) ↔ 플랜 — 표의 ID 를 누르면 플랜으로(지시). 기억한다:
      새로고침해도 보던 화면이 유지돼야 한다. */
@@ -440,7 +441,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
     const v = localStorage.getItem('utop.cycle.view')
     return v === 'plan' ? v : 'list'
   })
-  /* 메뉴가 곧 얼굴이다(지시: 사이클과 Run 을 잘 구분) — Cycles 메뉴는
+  /* 메뉴가 곧 얼굴이다(지시: 플랜과 Run 을 잘 구분) — Cycles 메뉴는
      계획(목록·플랜), Runs 메뉴는 실행. 메뉴를 오가면 얼굴도 따라간다. */
   useEffect(() => {
     /* 두 메뉴 다 목록으로 든다(레일을 뺐다) — Runs 에선 ID 를 누르면
@@ -461,14 +462,14 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
   const [planReport, setPlanReport] = useState<CycleMeta | null>(null)
   const [planInsight, setPlanInsight] = useState<{ c: CycleMeta; mode: 'ai' | 'metrics' } | null>(null)
 
-  /** 복제 대화상자가 열린 사이클 id — 비면 닫힘 */
+  /** 복제 대화상자가 열린 플랜 id — 비면 닫힘 */
   const [cloneId, setCloneId] = useState('')
 
-  /** 고른 사이클 삭제 — 실행 결과도 같이 사라지니 묻고 지운다 */
+  /** 고른 플랜 삭제 — 실행 결과도 같이 사라지니 묻고 지운다 */
   const delCycles = async (ids: string[]) => {
     if (!ids.length) return
     if (
-      !window.confirm(`사이클 ${ids.length}건을 지웁니다.\n각 회차의 실행 결과도 함께 사라집니다.`)
+      !window.confirm(`플랜 ${ids.length}건을 지웁니다.\n각 회차의 실행 결과도 함께 사라집니다.`)
     )
       return
     for (const id of ids) {
@@ -482,10 +483,10 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
   }
 
   /**
-   * 지금 도는 실행 — 사이클을 안 열어 봐도 알아야 한다.
+   * 지금 도는 실행 — 플랜을 안 열어 봐도 알아야 한다.
    *
    * 실행이 서버에서 도니 내 창에서 시작한 것이 아닐 수 있다. 목록에
-   * 표시가 없으면 남이 돌리는 사이클을 열어서 또 걸게 된다 — 그러면
+   * 표시가 없으면 남이 돌리는 플랜을 열어서 또 걸게 된다 — 그러면
    * 「이미 돌고 있습니다」 로 막히고 나서야 안다. (트리를 걷어내며 함께
    * 지웠다가, 검증에서 이 회귀가 잡혀 표의 「진행」 칸으로 되살렸다.)
    */
@@ -509,7 +510,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
     queryKey: ['cycles'],
     queryFn: async () => {
       const r = await apiFetch('/api/cycle?meta=1')
-      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      if (!r.ok) throw new Error('플랜을 불러오지 못했습니다')
       return (await r.json()) as { cycles: CycleMeta[] }
     },
   })
@@ -529,7 +530,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
     staleTime: 60_000,
   })
 
-  // 버전그룹만 사람이 만드는 폴더. 사이클이 아직 없는 것도 보여야 한다
+  // 버전그룹만 사람이 만드는 폴더. 플랜이 아직 없는 것도 보여야 한다
   const vgQ = useQuery({
     queryKey: ['cycle-version-groups'],
     queryFn: async () => {
@@ -578,7 +579,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
   }, [cycles, sel])
 
   /**
-   * 계측기(IXIA·Spirent…)는 사이클 트리에서 뺀다 — 사이클은 유비쿼스
+   * 계측기(IXIA·Spirent…)는 플랜 트리에서 뺀다 — 플랜은 유비쿼스
    * 장비를 검증하는 것이고, 계측기는 시험 도구지 시험 대상이 아니다.
    */
   const meterish = (x: CatModel & { kind?: string }) =>
@@ -598,7 +599,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
     () => new Map(models.map((m) => [m.name, (m.vendor ?? '').trim()])),
     [models],
   )
-  /** 모델그룹 — 사이클에 비어 있으면 카탈로그에서 보강한다 */
+  /** 모델그룹 — 플랜에 비어 있으면 카탈로그에서 보강한다 */
   const mgroupOf = useMemo(
     () => new Map(models.map((m) => [m.name, (m.model_group ?? '').trim()])),
     [models],
@@ -607,15 +608,15 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
   /*
    * **이 화면에 있다고 알린다.**
    *
-   * 여태 사이클 목록에서는 아무도 알리지 않았다 — 알리는 곳이 사이클을 연
+   * 여태 플랜 목록에서는 아무도 알리지 않았다 — 알리는 곳이 플랜을 연
    * 뒤(CycleDetail)뿐이라, 목록만 보고 있으면 서버 명단에 안 올라 오른쪽
-   * 위가 늘 비었다(지적). 목록에서는 `cycle`, 한 건을 열면 그 사이클 이름
+   * 위가 늘 비었다(지적). 목록에서는 `cycle`, 한 건을 열면 그 플랜 이름
    * 으로 알린다(연 뒤에는 CycleDetail 도 같은 이름을 알린다 — 같은 값이라
    * 부딪히지 않는다).
    */
   usePresence(cur ? `cycle:${cur.id}` : 'cycle', me?.name || me?.username || '')
 
-  // ?ce=CE-… 링크 — 목록이 오면 그 사이클로
+  // ?ce=CE-… 링크 — 목록이 오면 그 플랜로
   useEffect(() => {
     if (!pendingCe || !cycles.length) return
     const hit = cycles.find((c) => String(c.ce ?? '') === pendingCe)
@@ -698,11 +699,11 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
     }
   }
 
-  /** 고른 폴더 아래 사이클 — id 스냅샷이 아니라 경로로 거른다.
+  /** 고른 폴더 아래 플랜 — id 스냅샷이 아니라 경로로 거른다.
       스냅샷이면 복제·새로 만든 것이 그 폴더 화면에 안 보인다(겪었다) */
 
 
-  /** 폴더 아래 사이클을 모두 지운다(폴더 자체는 둔다) */
+  /** 폴더 아래 플랜을 모두 지운다(폴더 자체는 둔다) */
 
 
   return (
@@ -714,7 +715,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
       {(cur || cyView === 'list') && (
       <div className="rq-bar">
         <span className="rq-crumb">
-          {/* 「사이클」 을 누르면 관제판(고른 것 없음)으로 돌아간다 */}
+          {/* 「플랜」 을 누르면 관제판(고른 것 없음)으로 돌아간다 */}
           <button
             type="button"
             className="rq-crumb-home"
@@ -723,11 +724,11 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
               setSel('')
             }}
           >
-            {cur ? 'Cycle Executions' : '사이클'}
+            {cur ? 'Cycle Executions' : '플랜'}
           </button>
           {cur ? (
             /* 실행 중 — Cycle Execution › 모델그룹 › 모델명 › 버전그룹 › 버전 ›
-               사이클 ID › 제목. 제품군은 카탈로그에 생기면 앞에 붙인다 */
+               플랜 ID › 제목. 제품군은 카탈로그에 생기면 앞에 붙인다 */
             <>
               {(() => {
                 return [
@@ -744,14 +745,14 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
                   .filter(Boolean)
                   .map((t, i) => (
                     /* 폴더 레일이 없어졌으니 조각은 자리만 말한다 — 누르는
-                       길은 「사이클」 홈 하나면 된다 */
+                       길은 「플랜」 홈 하나면 된다 */
                     <span key={`${t}-${i}`}>
                       <span className="rq-crumb-sep">›</span>
                       <span className="cy-crumb-x">{t}</span>
                     </span>
                   ))
               })()}
-              {/* 사이클 번호도 이름 오른쪽 알약에 — 누르면 주소를 복사(지시) */}
+              {/* 플랜 번호도 이름 오른쪽 알약에 — 누르면 주소를 복사(지시) */}
               <IdPill
                 id={String(cur.cid || cur.id || '')}
                 href={gotoHref('cycle', urlIdOf(String(cur.id)))}
@@ -765,7 +766,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
               )}
             </>
           ) : (
-            <span className="muted small">사이클 {cycles.length}건 — 줄을 누르면 결과 요약</span>
+            <span className="muted small">플랜 {cycles.length}건 — 줄을 누르면 결과 요약</span>
           )}
         </span>
         <span className="sp" />
@@ -773,7 +774,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
         {/* 「시험 완료」 는 오른쪽 칸 1행 카드가 직접 그린다(아래 CycleDetail) */}
 
         {/* 「함께 보는 중」 은 **오른쪽 끝 한 자리**만 쓴다(지적: 두 군데나
-            떴다). 사이클을 열었으면 그 사이클을 보는 사람(아래 CycleDetail 이
+            떴다). 플랜을 열었으면 그 플랜을 보는 사람(아래 CycleDetail 이
             이 자리에 끼운다), 목록이면 이 화면에 있는 사람 전부. */}
         {cur ? (
           /* 회차를 열면 「함께 보는 중」·저장 종은 **맨 윗줄 오른쪽 끝**에
@@ -807,7 +808,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
       }
     >
       {/* 1열 폴더 레일은 뺐다(승인) — 사업자·제품군·버전그룹은 표의
-          열과 도구줄 필터가 맡는다. 사이클은 폴더가 아니라 **시간과
+          열과 도구줄 필터가 맡는다. 플랜은 폴더가 아니라 **시간과
           버전**으로 정리된다. */}
       {menu && (
         <CycleMenu
@@ -823,7 +824,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
             setEditId(id)
           }}
           onDo={(what) => {
-            // 그 사이클을 먼저 연다 — 안 열려 있으면 시킬 데가 없다
+            // 그 플랜을 먼저 연다 — 안 열려 있으면 시킬 데가 없다
             setSel(menu.id)
             setMenu(null)
             setAct((a) => ({ what, n: (a?.n ?? 0) + 1 }))
@@ -902,7 +903,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
         {cur ? (
           <CycleDetail
             cycle={cur}
-            /* 회귀를 대 볼 후보 — 나머지 사이클 전부. 기본은 같은 모델의
+            /* 회귀를 대 볼 후보 — 나머지 플랜 전부. 기본은 같은 모델의
                최신 것이지만, 사람이 아무 것이나 고를 수 있다. */
             others={cycles.filter((c) => c.id !== cur.id)}
             act={act}
@@ -970,6 +971,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
               }
             })()}
             projects={prjQ.data?.projects ?? []}
+            meName={me?.name || me?.username || ''}
             onDup={(id) => setCloneId(id)}
             onDel={(ids) => void delCycles(ids)}
             onEdit={(id) => setEditId(id)}
@@ -988,11 +990,11 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
 }
 
 /**
- * 관제판 — 아직 아무 사이클도 안 골랐을 때.
+ * 관제판 — 아직 아무 플랜도 안 골랐을 때.
  *
- * 전에는 「왼쪽에서 사이클을 고르세요」 한 줄이었다. 이 화면의 질문은
+ * 전에는 「왼쪽에서 플랜을 고르세요」 한 줄이었다. 이 화면의 질문은
  * 「이번 버전, 내보내도 되나」 인데, 그 답의 첫 장이 빈 벽이면 안 된다.
- * 모델별로 사이클을 깔고, 카드마다 진행률과 Pass/Fail 을 바로 보여 준다 —
+ * 모델별로 플랜을 깔고, 카드마다 진행률과 Pass/Fail 을 바로 보여 준다 —
  * 어디가 급한지 열기 전에 보인다.
  */
 /** 고정 열(관리 정보) — ⚙ 대상이 아니다. ⚙ 는 INFO 필드만(합의 규칙).
@@ -1015,16 +1017,16 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
 /**
  * 트리를 세운다 — 모델그룹 · 모델은 **장비 카탈로그**가 주인.
  *
- * 옛 방식은 사이클을 만들 때 모델명을 자유 입력하게 뒀다. 그래서
- * `E4320-24P_2` 처럼 뒤에 `_2` 가 붙은 것이 생겼고, 사이클 7종 중 5종이
+ * 옛 방식은 플랜을 만들 때 모델명을 자유 입력하게 뒀다. 그래서
+ * `E4320-24P_2` 처럼 뒤에 `_2` 가 붙은 것이 생겼고, 플랜 7종 중 5종이
  * 카탈로그에 아예 없다. 카탈로그를 주인으로 삼으면 이런 것이 안 생기고,
  * 이미 생긴 것은 「카탈로그에 없는 모델」 로 모여 눈에 띈다.
  *
  * 버전그룹만 사람이 만든다. R200·R300 은 카탈로그가 알 수 없는, 이 회차
- * 묶음의 이름이라서다. 사이클이 아직 없는 빈 버전그룹도 보여야 해서
+ * 묶음의 이름이라서다. 플랜이 아직 없는 빈 버전그룹도 보여야 해서
  * 폴더 목록을 따로 받는다.
  */
-/** 사이클의 폴더 경로 — 제 것이 있으면 그것, 없으면 모델·버전그룹에서 */
+/** 플랜의 폴더 경로 — 제 것이 있으면 그것, 없으면 모델·버전그룹에서 */
 function pathOfCycle(
   c: CycleMeta,
   famOf: Map<string, string>,
@@ -1086,14 +1088,14 @@ function exportCycleCsv(c: CycleMeta): void {
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
   const a2 = document.createElement('a')
   a2.href = URL.createObjectURL(blob)
-  a2.download = `사이클_${[c.model, c.version].filter(Boolean).join('_') || c.id}.csv`
+  a2.download = `플랜_${[c.model, c.version].filter(Boolean).join('_') || c.id}.csv`
   a2.click()
   URL.revokeObjectURL(a2.href)
 }
 
 
 
-/** 사이클 한 건 — 항목과 진행 */
+/** 플랜 한 건 — 항목과 진행 */
 
 /**
  * 접어 둔 카드 — 오른쪽 칸 맨 위(시험 목적 · 사전 준비 조건 · 라벨).
@@ -1122,6 +1124,7 @@ function CycleBoard({
   catalog,
   prjDefault,
   projects,
+  meName,
   onDup,
   onDel,
   onEdit,
@@ -1132,7 +1135,7 @@ function CycleBoard({
   running,
 }: {
   cycles: CycleMeta[]
-  /** 카탈로그 지도 — 사이클에 비어 있으면 모델명으로 보강(수정 창과 같은 값) */
+  /** 카탈로그 지도 — 플랜에 비어 있으면 모델명으로 보강(수정 창과 같은 값) */
   mgroupOf: Map<string, string>
   famOf: Map<string, string>
   /** 카탈로그 원본 — 제품군·모델그룹·모델명 드롭다운의 선택지(지시) */
@@ -1141,11 +1144,13 @@ function CycleBoard({
   prjDefault: { customer?: string; model_group?: string; model?: string }
   /** 프로젝트 목록 — ＋New 행의 고르개(상단바가 「전체」 여도 고른다) */
   projects: Array<{ id?: string; cat_id?: string; name?: string; customer?: string; model_group?: string }>
+  /** 내 이름 — 담당 고르개의 「나에게」 */
+  meName: string
   /** 복제 — 한 개 골랐을 때 */
   onDup: (id: string) => void
   /** 삭제 — 고른 것들 */
   onDel: (ids: string[]) => void
-  /** 수정 — 한 개 골랐을 때 (사이클 편집 창) */
+  /** 수정 — 한 개 골랐을 때 (플랜 편집 창) */
   onEdit: (id: string) => void
   onRefresh: () => void
   /** 실행 — 한 개 골라 열면서 전체 실행을 건다 */
@@ -1172,32 +1177,10 @@ function CycleBoard({
   }, [catalog])
   /* 담당 드롭다운 — **앱 계정**(지라에서 온 것 포함). 장비 SSH 계정
      (admin·root)이 나왔었다(지적) — 그건 장비 목록의 접속 계정이다. */
-  const rolesQ = useQuery({
-    queryKey: ['user-names'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/user-names')
-      return (await r.json()) as { names?: Array<{ name: string; org: string }> }
-    },
-    staleTime: 60_000,
-  })
-  /* 조직도 꼴(지시) — 조직별로 묶고, 조직 없는 계정(봇·공용)은 맨 아래
-     「기타」 로. 검색은 이름·조직 둘 다 걸린다. */
-  const orgGroups = useMemo(() => {
-    const raw = rolesQ.data?.names ?? []
-    const g = new Map<string, string[]>()
-    for (const u of raw) {
-      const k = u.org || '기타'
-      g.set(k, [...(g.get(k) ?? []), u.name])
-    }
-    return [...g.entries()].sort((a, b) => {
-      if (a[0] === '기타') return 1
-      if (b[0] === '기타') return -1
-      return a[0].localeCompare(b[0], 'ko')
-    })
-  }, [rolesQ.data])
+  /* 담당 후보(/api/user-names)는 공용 AssigneePicker 가 스스로 읽는다 */
   /* 담당 팝오버 — 네이티브 select 는 마지막 열에서 창 밖으로 잘린다(지적).
      기간과 같은 방식: 창 안에 고정 + 검색 */
-  const [assPop, setAssPop] = useState<{ id: string; x: number; y: number; q: string } | null>(null)
+  const [assPop, setAssPop] = useState<{ id: string; x: number; y: number } | null>(null)
 
   /* ＋ New — 창을 띄우지 않고 **머리행 바로 아래**에서 만든다(지시).
      ID 는 서버가 자동으로 매기고(cid), 사람은 제목만 친다. 모델·버전은
@@ -1266,7 +1249,7 @@ function CycleBoard({
   const [fCust, setFCust] = useState('')
   const [fFam, setFFam] = useState('')
   const [fVg, setFVg] = useState('')
-  /** ⚙ = 사이클 INFO 필드만(SETUP 과 1:1, 합의 규칙). 라벨 개명·숨김을
+  /** ⚙ = 플랜 INFO 필드만(SETUP 과 1:1, 합의 규칙). 라벨 개명·숨김을
       그대로 따른다. 실행 결과 탭은 열이 아니라 진행결과 바의 값 체계.
       모델그룹·모델명은 고정 열(합의)이고 관리 열들도 고정이다. */
   const infoCols = useInfoCols('cycle')
@@ -1338,7 +1321,7 @@ function CycleBoard({
   const setCyCell = async (id: string, p: Record<string, string>) => {
     try {
       const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`)
-      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      if (!r.ok) throw new Error('플랜을 불러오지 못했습니다')
       const full = (await r.json()) as Record<string, unknown>
       const w = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`, {
         method: 'POST',
@@ -1416,16 +1399,16 @@ function CycleBoard({
   }
   /** 줄 체크 — 삭제·복제가 이걸 본다 */
   const [picked, setPicked] = useState<Set<string>>(new Set())
-  /** 인라인으로 펼친 사이클들 — 시험 항목이 줄 밑에 보인다 */
+  /** 인라인으로 펼친 플랜들 — 시험 항목이 줄 밑에 보인다 */
   const [exp, setExp] = useState<Set<string>>(new Set())
-  /** 사이클 ID 를 누르면 펼쳐지는 세부내역 — 보기만 한다 */
+  /** 플랜 ID 를 누르면 펼쳐지는 세부내역 — 보기만 한다 */
   /** 여러 개 고르고 Edit — 상태·고객·담당자를 한꺼번에 바꾼다 */
   const [bulkOpen, setBulkOpen] = useState(false)
   /** 방금 한 일의 결과 한 줄 — 시험항목 도구줄의 tc-msg 와 같은 자리 */
   const [msg, setMsg] = useState('')
   /** 진행결과 막대 호버 카드 — 랙뷰 장비 카드(rv-tip)와 같은 문법 */
   const [prgTip, setPrgTip] = useState<{ x: number; y: number; c: CycleMeta } | null>(null)
-  /** ⋯ — 체크한 사이클 1개의 요약·보고서·내보내기 (실행 화면에서 옮겨 왔다) */
+  /** ⋯ — 체크한 플랜 1개의 요약·보고서·내보내기 (실행 화면에서 옮겨 왔다) */
   const [moreAt, setMoreAt] = useState<{ x: number; y: number } | null>(null)
   const [bInsight, setBInsight] = useState<'ai' | 'metrics' | null>(null)
   const [bReport, setBReport] = useState<CycleMeta | null>(null)
@@ -1481,7 +1464,7 @@ function CycleBoard({
     return (v: string) => m.get(v) ?? (v ? 'neutral' : 'none')
   }, [resDefs])
 
-  // 사이클별 집계는 한 번만 — 표·거름·정렬이 다 같이 쓴다
+  // 플랜별 집계는 한 번만 — 표·거름·정렬이 다 같이 쓴다
   /** 목록에서 AI 요약 만들기 — 상세 화면과 같은 길이다 */
   /* 회차 AI 요약을 만들던 자리는 인라인 카드와 함께 실행 화면으로 갔다 —
      여기서는 목록만 그린다. */
@@ -1608,8 +1591,8 @@ function CycleBoard({
               type="button"
               title={
                 picked.size === 1
-                  ? '고른 사이클을 편집합니다'
-                  : '고른 사이클들의 상태·고객·담당자를 한꺼번에 바꿉니다'
+                  ? '고른 플랜을 편집합니다'
+                  : '고른 플랜들의 상태·고객·담당자를 한꺼번에 바꿉니다'
               }
               onClick={() => {
                 if (picked.size === 1) onEdit([...picked][0]!)
@@ -1622,7 +1605,7 @@ function CycleBoard({
               className="btn"
               type="button"
               disabled={picked.size !== 1}
-              title={picked.size === 1 ? '고른 사이클을 복제합니다' : '하나만 고르세요'}
+              title={picked.size === 1 ? '고른 플랜을 복제합니다' : '하나만 고르세요'}
               onClick={() => onDup([...picked][0]!)}
             >
               Clone
@@ -1631,7 +1614,7 @@ function CycleBoard({
               className="btn primary"
               type="button"
               disabled={picked.size !== 1}
-              title={picked.size === 1 ? '고른 사이클의 실행 화면을 엽니다' : '하나만 고르세요'}
+              title={picked.size === 1 ? '고른 플랜의 실행 화면을 엽니다' : '하나만 고르세요'}
               onClick={() => onRun([...picked][0]!)}
             >
               ▶ Run
@@ -1683,7 +1666,7 @@ function CycleBoard({
         <button
           type="button"
           className="btn cyt-more"
-          title={picked.size === 1 ? '요약 · 보고서 · 내보내기' : '사이클 하나를 체크하면 열립니다'}
+          title={picked.size === 1 ? '요약 · 보고서 · 내보내기' : '플랜 하나를 체크하면 열립니다'}
           disabled={picked.size !== 1}
           onClick={(e) => {
             const r2 = e.currentTarget.getBoundingClientRect()
@@ -1698,7 +1681,7 @@ function CycleBoard({
         <button
           type="button"
           className="lh-findbtn"
-          title="열 보이기/숨기기 — 사이클 INFO 필드 포함"
+          title="열 보이기/숨기기 — 플랜 INFO 필드 포함"
           onClick={(e) => {
             const r2 = e.currentTarget.getBoundingClientRect()
             setGearAt2((cur) => (cur ? null : { x: r2.right, y: r2.bottom + 4 }))
@@ -1719,7 +1702,7 @@ function CycleBoard({
                 right: 'auto',
               }}
             >
-              {/* SETUP 사이클 INFO 필드와 1:1(합의 규칙) */}
+              {/* SETUP 플랜 INFO 필드와 1:1(합의 규칙) */}
               {infoCols.length === 0 && (
                 <span className="muted small">INFO 필드가 없습니다 — SETUP 에서 만듭니다</span>
               )}
@@ -1794,7 +1777,7 @@ function CycleBoard({
             </select>
             <input
               autoFocus
-              placeholder="사이클 제목 — Enter 로 만들기, Esc 로 취소"
+              placeholder="플랜 제목 — Enter 로 만들기, Esc 로 취소"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={(e) => {
@@ -1851,58 +1834,13 @@ function CycleBoard({
           </>
         )}
         {assPop && (
-          <>
-            <span className="cyt-gearovl" onClick={() => setAssPop(null)} />
-            <div
-              className="cyt-asspop"
-              style={{ position: 'fixed', left: assPop.x, top: assPop.y, zIndex: 60 }}
-            >
-              <input
-                autoFocus
-                placeholder="이름 찾기"
-                value={assPop.q}
-                onChange={(e) => setAssPop((p) => (p ? { ...p, q: e.target.value } : p))}
-              />
-              <div className="cyt-asslist">
-                <button
-                  type="button"
-                  onClick={() => {
-                    void setCyCell(assPop.id, { assignee: '' })
-                    setAssPop(null)
-                  }}
-                >
-                  – (비움)
-                </button>
-                {orgGroups.map(([org, names]) => {
-                  const nq = assPop.q.normalize('NFC').toLowerCase()
-                  const hit = names.filter(
-                    (n) =>
-                      !nq ||
-                      n.normalize('NFC').toLowerCase().includes(nq) ||
-                      org.normalize('NFC').toLowerCase().includes(nq),
-                  )
-                  if (!hit.length) return null
-                  return (
-                    <div key={org}>
-                      <div className="cyt-assorg">{org}</div>
-                      {hit.map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => {
-                            void setCyCell(assPop.id, { assignee: n })
-                            setAssPop(null)
-                          }}
-                        >
-                          {n}
-                        </button>
-                      ))}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </>
+          <AssigneePicker
+            at={assPop}
+            value={String(cycles.find((c) => c.id === assPop.id)?.assignee ?? '')}
+            me={meName}
+            onPick={(n) => void setCyCell(assPop.id, { assignee: n })}
+            onClose={() => setAssPop(null)}
+          />
         )}
         {(sortCol === ''
           ? /* 열 머리글을 안 눌렀으면 목록 정렬대로 — 기본은 **트리 순서**
@@ -1986,7 +1924,7 @@ function CycleBoard({
                           }
                         />
                       </span>
-                      {/* 인라인 펼침 — 이 사이클에 어떤 항목이 있나 */}
+                      {/* 인라인 펼침 — 이 플랜에 어떤 항목이 있나 */}
                       <button
                         type="button"
                         className={`cy-expcaret${open ? ' open' : ''}`}
@@ -2014,7 +1952,7 @@ function CycleBoard({
                         {c.cid || c.version || c.name || c.id}
                       </button>
                       {/* 한 번 눌러도 아무 일 없고, **두 번** 누르면 고친다(지시).
-                          실행 화면으로 가는 길은 왼쪽 사이클 ID 가 맡는다. */}
+                          실행 화면으로 가는 길은 왼쪽 플랜 ID 가 맡는다. */}
                       <PickCell
                         dbl
                         value={c.name ?? ''}
@@ -2191,7 +2129,6 @@ function CycleBoard({
                                     id: c.id,
                                     x: Math.max(8, Math.min(r2.left - 60, window.innerWidth - 260)),
                                     y: r2.bottom + 4,
-                                    q: '',
                                   })
                                 }}
                               >
@@ -2201,7 +2138,7 @@ function CycleBoard({
                         }
                       })}
                     </div>
-                    {/* 사이클 = 시험항목의 모음 — 펼치면 그 목록이 보인다.
+                    {/* 플랜 = 시험항목의 모음 — 펼치면 그 목록이 보인다.
                         여기서는 보기만, 항목을 누르면 실행 화면으로 */}
                     {open && (
                       <div className="cyt-itcard">
@@ -2313,12 +2250,12 @@ function CycleBoard({
               })}
       </div>
       {cycles.length === 0 && (
-        <div className="empty">아직 사이클이 없습니다 — 위 + New 로 만드세요.</div>
+        <div className="empty">아직 플랜이 없습니다 — 위 + New 로 만드세요.</div>
       )}
       {/* 카드 바닥 상태 줄 — 세 화면이 같은 자리에서 같은 말을 한다(지시) */}
       <div className="bottom colbot">
         <span>
-          사이클 {shown.length}건
+          플랜 {shown.length}건
           {shown.length !== cycles.length && ` (전체 ${cycles.length}건)`}
         </span>
         {picked.size > 0 && <span>{picked.size}건 선택됨</span>}
@@ -2447,7 +2384,7 @@ function CycleBoard({
 }
 
 /**
- * Bulk Edit — 고른 사이클 여러 개를 한꺼번에 고친다.
+ * Bulk Edit — 고른 플랜 여러 개를 한꺼번에 고친다.
  *
  * 시험항목의 TcBulkEdit 과 같은 문법을 지킨다:
  *  1. 넣을 항목을 체크로 고른다 — 안 고른 칸은 손대지 않는다
@@ -2481,7 +2418,7 @@ function BulkEditDialog({
   const [bStatus, setBStatus] = useState('')
   const [bCust, setBCust] = useState('')
   const [bWho, setBWho] = useState('')
-  /** 이미 값이 있는 사이클을 덮을 것인가 */
+  /** 이미 값이 있는 플랜을 덮을 것인가 */
   const [over, setOver] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -2562,11 +2499,11 @@ function BulkEditDialog({
         className="modal bk"
         role="dialog"
         aria-modal="true"
-        aria-label="고른 사이클 한꺼번에 고치기"
+        aria-label="고른 플랜 한꺼번에 고치기"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="modal-head">
-          <b>고른 사이클 {ids.length}건 고치기</b>
+          <b>고른 플랜 {ids.length}건 고치기</b>
           <span className="sp" />
           <button className="btn small" type="button" disabled={busy} onClick={onClose}>
             ✕
@@ -2616,7 +2553,7 @@ function BulkEditDialog({
           {/* 무엇에 들어가는지 보여 준다 — 「n건」 숫자만 보고 덮어쓰기를
               누르게 하면 안 된다 */}
           <div className="bk-targets">
-            <div className="bk-thead">들어갈 사이클 {ids.length}건</div>
+            <div className="bk-thead">들어갈 플랜 {ids.length}건</div>
             <ul>
               {ids.map((id) => (
                 <li key={id} title={id}>
@@ -2679,7 +2616,7 @@ function CycleDetail({
   finish,
 }: {
   cycle: CycleMeta
-  /** 회귀를 대 볼 후보들 — 이 사이클을 뺀 전부. 기본은 같은 모델 최신 */
+  /** 회귀를 대 볼 후보들 — 이 플랜을 뺀 전부. 기본은 같은 모델 최신 */
   others: CycleMeta[]
   /** 지금 사람 — 접속자 표시와 「누가 고쳤나」 에 쓴다 */
   meName: string
@@ -2703,13 +2640,13 @@ function CycleDetail({
   const [openItem, setOpenItem] = useState(-1)
 
   /**
-   * 이 사이클을 누가 같이 보고 있나 · 남이 무엇을 고쳤나.
+   * 이 플랜을 누가 같이 보고 있나 · 남이 무엇을 고쳤나.
    *
-   * 사이클은 **여럿이 나눠 돌리는 자리**다. 요구사항·시험항목에는 접속자
+   * 플랜은 **여럿이 나눠 돌리는 자리**다. 요구사항·시험항목에는 접속자
    * 표시가 있는데 정작 부딪히기 쉬운 여기에는 없었다. 둘이 같은 항목에
    * 결과를 찍으면 나중 사람이 앞사람 것을 조용히 덮는다.
    *
-   * 막지는 않는다 — 랩에서는 같은 사이클을 여럿이 보는 일이 잦고, 잠가
+   * 막지는 않는다 — 랩에서는 같은 플랜을 여럿이 보는 일이 잦고, 잠가
    * 버리면 보려던 사람이 못 들어온다. 대신 **누가 있는지 보여 주고**,
    * 남이 고치면 그때 알린다.
    */
@@ -2717,7 +2654,7 @@ function CycleDetail({
    * 남이 고친 이력 — 새것이 앞이다.
    *
    * 처음엔 띠로 띄웠는데, 한 사람이 연달아 저장하면 앞의 것이 뒤의 것에
-   * 밀려 **누가 무엇을 언제** 했는지가 안 남았다. 사이클은 여럿이 나눠
+   * 밀려 **누가 무엇을 언제** 했는지가 안 남았다. 플랜은 여럿이 나눠
    * 돌리는 자리라 그 이력이 곧 알아야 할 일이다. 시험항목 화면과 같은
    * 종에 쌓아 두고 숫자만 보인다.
    */
@@ -2729,7 +2666,7 @@ function CycleDetail({
    * 방금 들어온 사람 · 나간 사람.
    *
    * 접속자 띠는 늘 거기 있어서, 보고 있지 않으면 누가 새로 들어온 것을
-   * 모른다. 같은 사이클을 둘이 만지다가 나중에 저장한 사람이 앞사람 것을
+   * 모른다. 같은 플랜을 둘이 만지다가 나중에 저장한 사람이 앞사람 것을
    * 덮는 일이 그래서 난다. 들고 남을 몇 초간 띄워 눈에 걸리게 한다.
    */
   const [joined, setJoined] = useState<{ who: string; how: 'in' | 'out' } | null>(null)
@@ -2765,14 +2702,14 @@ function CycleDetail({
   useEffect(() => {
     if (meName) sendWs({ type: 'focus', user: meName, page, at: openItem })
   }, [openItem, page, meName])
-  // 이 사이클을 떠나면 자리를 비운다
+  // 이 플랜을 떠나면 자리를 비운다
   useEffect(
     () => () => {
       if (meName) sendWs({ type: 'focus', user: meName, page, at: -1 })
     },
     [page, meName],
   )
-  // 다른 사이클로 옮기면 지난 것은 지운다 — 이 사이클의 이력이지 내 이력이 아니다
+  // 다른 플랜로 옮기면 지난 것은 지운다 — 이 플랜의 이력이지 내 이력이 아니다
   useEffect(() => {
     setSaves([])
     setSeen(0)
@@ -2784,14 +2721,14 @@ function CycleDetail({
    *   · 스텝 세부에 명령도 출력도 안 보이고
    *   · 그걸 되저장하면 **실행 결과가 통째로 날아간다**
    *
-   * 그래서 사이클을 고르면 온전한 것을 한 번 더 읽는다. 트리·집계는
+   * 그래서 플랜을 고르면 온전한 것을 한 번 더 읽는다. 트리·집계는
    * 요약본으로 충분하지만 여기서는 아니다.
    */
   const fullQ = useQuery({
     queryKey: ['cycle-full', cycle.id],
     queryFn: async () => {
       const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycle.id)}`)
-      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      if (!r.ok) throw new Error('플랜을 불러오지 못했습니다')
       return (await r.json()) as { items?: CycleItemLite[] }
     },
   })
@@ -2822,8 +2759,8 @@ function CycleDetail({
     if (!st.on) setStopping(false)
   }, [st.on])
   const startRun = (idxs: number[]) => {
-    /* 사이클 실행은 **자리를 먼저 잡는다**(지시). 남이 잡고 있으면 아예
-       진행하지 않는다 — 누가·어느 사이클에서 쓰는지까지 말해 준다.
+    /* 플랜 실행은 **자리를 먼저 잡는다**(지시). 남이 잡고 있으면 아예
+       진행하지 않는다 — 누가·어느 플랜에서 쓰는지까지 말해 준다.
        놓는 것은 회차 「시험 완료」 가 한다. */
     const devs = [
       ...new Set(
@@ -2992,7 +2929,7 @@ function CycleDetail({
       localStorage.setItem('utop.cycle.execHide', JSON.stringify([...n]))
       return n
     })
-  /** 기존 결과를 누르면 — 항목 × 사이클 Matrix(지시) */
+  /** 기존 결과를 누르면 — 항목 × 플랜 Matrix(지시) */
   const [matrixOn, setMatrixOn] = useState(false)
   const [matrixAt, setMatrixAt] = useState('')
   const [pbEl, setPbEl] = useState<HTMLElement | null>(null)
@@ -3004,7 +2941,7 @@ function CycleDetail({
   /**
    * AI 요약 — 「시험 진행 요약」 카드의 셋째 칸(지시).
    *
-   * 서버가 사이클에 저장해 두므로(ai_summary) 다시 열어도 마지막 요약이
+   * 서버가 플랜에 저장해 두므로(ai_summary) 다시 열어도 마지막 요약이
    * 그대로 보인다. 만들기는 여기서 시킨다.
    */
   /** 판정 계열(통과·실패·그 밖) — 설정의 실행 판정 기준이 정본이다 */
@@ -3054,7 +2991,7 @@ function CycleDetail({
    * 표 줄 우클릭 메뉴.
    *
    * 결과·담당자·메모를 고치는 길이다. 위 단추 줄에서 뺐으니 여기 둔다 —
-   * 트리에서 사이클을 우클릭하면 항목을 넣고 빼듯, 항목은 항목 줄에서.
+   * 트리에서 플랜을 우클릭하면 항목을 넣고 빼듯, 항목은 항목 줄에서.
    */
   const [rowMenu, setRowMenu] = useState<{ at: number; x: number; y: number } | null>(null)
   const [saving, setSaving] = useState(false)
@@ -3062,7 +2999,7 @@ function CycleDetail({
   /**
    * 항목을 넣고 뺀다.
    *
-   * 사이클을 만들 때만 고를 수 있으면, 시험 하나를 빠뜨렸을 때 사이클을
+   * 플랜을 만들 때만 고를 수 있으면, 시험 하나를 빠뜨렸을 때 플랜을
    * 다시 만들어야 한다. 그러면 이미 돌린 결과가 통째로 날아간다.
    */
   /** 항목 결과를 손으로 정한다 */
@@ -3206,7 +3143,7 @@ function CycleDetail({
   const typeOf = (it: CycleItemLite): 'manual' | 'auto' => {
     // 실행 타입의 값 체계는 SETUP 에서 바꿀 수 있다 — 'A'/'M' 을 쓰는
     // 곳이 실제로 있다. '자동' 글자만 알아듣던 탓에 A 로 적은 자동 TC 가
-    // 사이클에서 전부 M(수동)으로 보였고 자동 실행 단추도 안 떴다.
+    // 플랜에서 전부 M(수동)으로 보였고 자동 실행 단추도 안 떴다.
     const rt = String(tcRun.get(it.tcid) ?? '').trim().toUpperCase()
     if (rt === '자동' || rt === 'A' || rt === 'AUTO') return 'auto'
     if (rt === '수동' || rt === '혼합' || rt === 'M' || rt === 'MANUAL') return 'manual'
@@ -3215,7 +3152,7 @@ function CycleDetail({
   }
 
   /**
-   * 기존 시험이력 — **같은 TC ID 가 든 다른 사이클 전부**에서 모은다.
+   * 기존 시험이력 — **같은 TC ID 가 든 다른 플랜 전부**에서 모은다.
    * 복제 관계가 아니어도 잡힌다. 미실행은 이력이 아니라 뺀다.
    */
   const histAll = useMemo(() => {
@@ -3403,15 +3340,15 @@ function CycleDetail({
 
 
   /*
-   * 회귀 — **지난 사이클에선 Pass 였는데 이번에 Fail** 인 것.
+   * 회귀 — **지난 플랜에선 Pass 였는데 이번에 Fail** 인 것.
    *
-   * 사이클은 버전 검증이라, 정말 무서운 것은 「원래 깨져 있던 것」 이
+   * 플랜은 버전 검증이라, 정말 무서운 것은 「원래 깨져 있던 것」 이
    * 아니라 **되던 것이 무너진 것**이다. 표에서 Fail 로만 보이면 그 둘이
    * 섞여서, 회귀를 골라내려고 지난 결과서를 옆에 띄워 놓고 눈으로 대
    * 보게 된다. 여기서 대 준다.
    */
   const [prevId, setPrevId] = useState('')
-  // 사이클을 갈아타면 비교 상대도 자동으로 돌아간다
+  // 플랜을 갈아타면 비교 상대도 자동으로 돌아간다
   useEffect(() => setPrevId(''), [cycle.id])
   const prev = prevId
     ? others.find((c) => c.id === prevId)
@@ -3423,7 +3360,7 @@ function CycleDetail({
     enabled: Boolean(prev),
     queryFn: async () => {
       const r = await apiFetch(`/api/cycle/${encodeURIComponent(prev!.id)}`)
-      if (!r.ok) throw new Error('지난 사이클을 불러오지 못했습니다')
+      if (!r.ok) throw new Error('지난 플랜을 불러오지 못했습니다')
       return (await r.json()) as { items?: CycleItemLite[] }
     },
   })
@@ -3508,7 +3445,7 @@ function CycleDetail({
       ? `?ce=${encodeURIComponent(ce)}&it=${encodeURIComponent(ceid)}`
       : `?ce=${encodeURIComponent(ce)}`
     if (window.location.search !== want) {
-      // 실행 「진입」 은 한 칸 쌓는다 — 그래야 뒤로가기가 사이클 목록으로 온다.
+      // 실행 「진입」 은 한 칸 쌓는다 — 그래야 뒤로가기가 플랜 목록으로 온다.
       // 항목 사이 이동(&it=)은 덮어쓴다 — 항목마다 쌓이면 뒤로가기가 한참이다
       const already = new URLSearchParams(window.location.search).get('ce') === ce
       if (already) window.history.replaceState({ utop: true }, '', window.location.pathname + want)
@@ -3596,7 +3533,7 @@ function CycleDetail({
           prevName={prev?.version || prev?.name || ""}
         />
       ) : (
-      // 사이클 화면 — 왼쪽 세로 레일 + 한 줄기 스크롤(요구사항·시험항목과 같은
+      // 플랜 화면 — 왼쪽 세로 레일 + 한 줄기 스크롤(요구사항·시험항목과 같은
       // 부품). **실행 화면(RunPane)은 별개다** — 거기엔 레일을 얹지 않는다(지시).
       // 요약도 실행 중에 겹치지 않게 이 안으로 들어왔다.
       // 실행 페이지 — 요약·AI 요약 칸은 걷어냈다(지시). 그 둘은 목록에서
@@ -3632,7 +3569,7 @@ function CycleDetail({
                 (() => {
                   /* 실행은 자동 항목만 돈다(합의) — 수동은 사람이 찍는다.
                      수동뿐이면 단추가 꺼진다 */
-                  /* 실행 차례는 **화면에 보이는 차례**다(지적: 사이클 순서가
+                  /* 실행 차례는 **화면에 보이는 차례**다(지적: 플랜 순서가
                      있는데 순서대로 진행 안 된다).
                      화면은 묶음(그룹핑)으로 다시 늘어놓는데 실행은 원본
                      items 자리 순서로 돌아서, 보는 것과 도는 것이 어긋났다.
@@ -3682,7 +3619,7 @@ function CycleDetail({
             </>,
             barEl,
           )}
-        {/* **이 사이클** 을 같이 보는 사람 — 오른쪽 끝 한 자리에 끼운다 */}
+        {/* **이 플랜** 을 같이 보는 사람 — 오른쪽 끝 한 자리에 끼운다 */}
         {pbEl &&
           createPortal(
             <>
@@ -3738,7 +3675,7 @@ function CycleDetail({
                 (pick.size ? [...pick] : [rowMenu.at]).map((i2) => items[i2]?.tcid).filter(Boolean),
               )
               setRowMenu(null)
-              if (!window.confirm(`고른 ${n}건을 이 사이클에서 뺍니다.`)) return
+              if (!window.confirm(`고른 ${n}건을 이 플랜에서 뺍니다.`)) return
               void saveItems((cur2) => cur2.filter((x) => !ids.has(x.tcid))).then(sel.clear)
             }}
           />
@@ -3770,7 +3707,7 @@ function CycleDetail({
         )}
   
         {adding && (
-          /* 사이클 수정 창의 「항목 추가」 와 같은 팝업 — 다른 창이 뜨던 것 교체 */
+          /* 플랜 수정 창의 「항목 추가」 와 같은 팝업 — 다른 창이 뜨던 것 교체 */
           <CycleEdit
             cycleId={cycle.id}
             folders={{}}
@@ -3878,7 +3815,7 @@ function CycleDetail({
                 disabled={!finish.can || finish.busy}
                 title={
                   finish.can
-                    ? '종료일을 적고 사이클 목록으로 돌아갑니다'
+                    ? '종료일을 적고 플랜 목록으로 돌아갑니다'
                     : '모든 항목에 결과가 차면 완료할 수 있습니다'
                 }
                 onClick={finish.onDo}
@@ -3993,7 +3930,7 @@ function CycleDetail({
                   <div className="cxp-kv">
                     {(
                       [
-                        ['사이클 ID', cycle.cid],
+                        ['플랜 ID', cycle.cid],
                         ['제목', cycle.name],
                         ['고객', cycle.customer],
                         ['벤더', maker],
@@ -4140,7 +4077,7 @@ function CycleDetail({
                   <div className="modal-head">
                     <b>항목별 시험결과</b>
                     <span className="muted small">
-                      항목 {items.length}건 × 회차 {cols.length}개 — 같은 TC 가 든 다른 사이클에서 모았습니다
+                      항목 {items.length}건 × 회차 {cols.length}개 — 같은 TC 가 든 다른 플랜에서 모았습니다
                     </span>
                     <span className="sp" />
                     <button className="btn small" type="button" onClick={() => setMatrixOn(false)}>
@@ -4480,8 +4417,8 @@ function CycleDetail({
                     className={onlyRegress ? 'on' : ''}
                     title={
                       prev
-                        ? `${prev.version || prev.name || '지난 사이클'} 에선 Pass 였는데 이번에 Fail 인 것`
-                        : '비교할 지난 사이클이 없습니다'
+                        ? `${prev.version || prev.name || '지난 플랜'} 에선 Pass 였는데 이번에 Fail 인 것`
+                        : '비교할 지난 플랜이 없습니다'
                     }
                     onClick={() => setOnlyRegress((v2) => !v2)}
                   >
@@ -4746,7 +4683,7 @@ function CycleDetail({
                       </span>
                       {/* 오른쪽 무리 — 한 묶음(간격 균일): M/A · 이력 · 결과 셀렉트 · ▶ · 회귀 · 점 */}
                       <span className="cxp-rgt" onClick={(e) => e.stopPropagation()}>
-                        {/* 담당자 — 읽기 전용. 할당은 사이클 수정 창에서 */}
+                        {/* 담당자 — 읽기 전용. 할당은 플랜 수정 창에서 */}
                         {fShow('who') && (() => {
                           const who = String(it.assignee ?? '')
                             .split(/[,·/;]+/)
@@ -4920,7 +4857,7 @@ function CycleDetail({
               <>
                 <div className="cxp-h">
                   {/* 부적합이 난 자리에서 **그 시험으로 바로 건너뛴다**(지시).
-                      새 탭으로 연다 — 사이클 화면은 결과를 손보던 자리라
+                      새 탭으로 연다 — 플랜 화면은 결과를 손보던 자리라
                       그것을 잃으면 안 된다. 돌아올 곳이 남아 있어야 한다. */}
                   <a
                     className="cxp-hlink"
@@ -5008,8 +4945,8 @@ function CycleDetail({
                         ['실행자', cur.executed_by || '–'],
                         ['실행 시각', cur.executed_at ? String(cur.executed_at).slice(0, 16) : '–'],
                       ]
-                      /* 사이클에 실린 나머지 값 — 상태·고객에 더해, 앞으로
-                         늘어날 커스텀 필드(고객사·사이클 유형 …)가 코드 수정
+                      /* 플랜에 실린 나머지 값 — 상태·고객에 더해, 앞으로
+                         늘어날 커스텀 필드(고객사·플랜 유형 …)가 코드 수정
                          없이 자동으로 나온다. 수정 창에 칸이 생기면 화면이 따라온다 */
                       const KNOWN: Record<string, string> = { status: '상태', customer: '고객' }
                       const SKIP = new Set([
@@ -5033,7 +4970,7 @@ function CycleDetail({
                     })()}
                     {/* 제목은 길다 — 몇 열이 되든 맨 아래 한 줄을 통째로(예외) */}
                     <div className="wide">
-                      <i>사이클 제목</i>
+                      <i>플랜 제목</i>
                       <b>{cycle.name || '–'}</b>
                     </div>
                   </div>
@@ -5080,7 +5017,7 @@ function CycleDetail({
 }
 
 /**
- * 사이클 우클릭 메뉴.
+ * 플랜 우클릭 메뉴.
  *
  * 옛 화면이 트리에서 우클릭으로 하던 것들이다. 화면 위쪽 단추로 다 빼
  * 놓으면 단추가 여섯 개가 되고, 그중 넷은 어쩌다 한 번 쓴다.
@@ -5098,7 +5035,7 @@ function CycleMenu({
   onClose: () => void
   onChanged: () => void
   onEdit: (id: string) => void
-  /** 사이클 상세가 맡은 일 — 세부 내역·요약·PPTX·자동 실행 */
+  /** 플랜 상세가 맡은 일 — 세부 내역·요약·PPTX·자동 실행 */
   onDo: (what: 'details' | 'ai' | 'pptx' | 'run') => void
 }) {
   useEffect(() => {
@@ -5138,7 +5075,7 @@ function CycleMenu({
   }
 
   const del = async () => {
-    // 사이클을 지우면 그 안의 실행 결과가 같이 사라진다. 이름을 보여 주고 묻는다
+    // 플랜을 지우면 그 안의 실행 결과가 같이 사라진다. 이름을 보여 주고 묻는다
     const nm = `${cycle?.model ?? ''} ${cycle?.version ?? ''}`.trim() || at.id
     if (!window.confirm(`「${nm}」 을 지웁니다. 이 회차의 실행 결과도 같이 사라집니다.`)) return
     try {
@@ -5167,7 +5104,7 @@ function CycleMenu({
       onMouseDown={(e) => e.stopPropagation()}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {item(IconEdit, '사이클 수정 (항목·제목)', () => onEdit(at.id))}
+      {item(IconEdit, '플랜 수정 (항목·제목)', () => onEdit(at.id))}
       {item(IconReqDoc, '세부 내역 (Details)', () => onDo('details'))}
       {item(IconExecution, '보고서 출력 (AI 요약 PDF)', () => onDo('ai'))}
       {item(IconSlide, 'PPTX 출력 (AI 요약)', () => onDo('pptx'))}
@@ -5176,7 +5113,7 @@ function CycleMenu({
       <hr />
       {item(IconTag, '버전 이름만 바꾸기', () => void rename())}
       <hr />
-      {item(IconTrash, '사이클 삭제', () => void del())}
+      {item(IconTrash, '플랜 삭제', () => void del())}
     </div>
   )
 }
@@ -5190,7 +5127,7 @@ function CycleMenu({
  *  · 끝나면: 아래에 Pass·Fail·회귀 요약과 「표로 돌아가기」
  */
 /**
- * 사이클 복제 — 다른 툴들의 표준을 따른다.
+ * 플랜 복제 — 다른 툴들의 표준을 따른다.
  *
  * Zephyr Scale: 결과 상태로 걸러 복제, 결과·코멘트·결함은 전부 초기화.
  * TestRail(Rerun): 이전 상태별 체크박스 + Copy Assigned To 옵션.
@@ -5210,7 +5147,7 @@ function CloneDialog({
     queryKey: ['cycle-full', cycleId],
     queryFn: async () => {
       const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycleId)}`)
-      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      if (!r.ok) throw new Error('플랜을 불러오지 못했습니다')
       return (await r.json()) as Record<string, unknown>
     },
   })
@@ -5282,7 +5219,7 @@ function CloneDialog({
           ...full,
           id: nid,
           cid: '',
-          // 실행 ID 도 새로 — CE 는 사이클과 1:1 이다. 물려받으면 두 사이클이
+          // 실행 ID 도 새로 — CE 는 플랜과 1:1 이다. 물려받으면 두 플랜이
           // 같은 CE 를 갖게 된다 (첫 Run 때 새 cid 에서 파생된다)
           ce: '',
           // 원본을 기억한다 — 실행 화면의 「직전 결과」 가 이걸 가리킨다
@@ -5305,7 +5242,7 @@ function CloneDialog({
     <div className="modal-back" onMouseDown={() => !busy && onClose()}>
       <div className="modal cy-clone" role="dialog" aria-modal="true" onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <b>사이클 복제</b>
+          <b>플랜 복제</b>
           {err && <span className="muted small err">{err}</span>}
           <span className="sp" />
         </div>
@@ -5371,7 +5308,7 @@ function CloneDialog({
             </label>
             <p className="muted small">
               모든 항목은 미실행으로 시작합니다. 직전 시험 결과는 실행 화면의
-              항목별 「직전 결과」 칩으로 참고 표시됩니다(원본 사이클 기준).
+              항목별 「직전 결과」 칩으로 참고 표시됩니다(원본 플랜 기준).
             </p>
             <div className="cy-clone-f">
               <span className="sp" />
@@ -5462,10 +5399,10 @@ function RunPane({
         <button
           className="btn small cy-run-back"
           type="button"
-          title="사이클 화면으로 돌아갑니다 — 실행은 그대로 계속됩니다"
+          title="플랜 화면으로 돌아갑니다 — 실행은 그대로 계속됩니다"
           onClick={onExit}
         >
-          ← 사이클
+          ← 플랜
         </button>
         {!done && <span className="cy-run-dot" aria-hidden="true" />}
         <b>
@@ -5512,7 +5449,7 @@ function RunPane({
                   {it.tcid}
                 </span>
                 {isRegress(it) && (
-                  <b className="cy-regchip" title={`${prevName || '지난 사이클'} 에선 Pass`}>
+                  <b className="cy-regchip" title={`${prevName || '지난 플랜'} 에선 Pass`}>
                     회귀
                   </b>
                 )}
@@ -5606,7 +5543,7 @@ function CycleRowMenu({
   onFill?: () => void
   /** TC ID 열을 뺐다 — 시험으로 가는 길은 여기다 */
   onGoTc?: () => void
-  /** 사이클에서 빼기 — 위 단추 줄을 걷어냈으니 여기가 길이다 */
+  /** 플랜에서 빼기 — 위 단추 줄을 걷어냈으니 여기가 길이다 */
   onRemove?: () => void
 }) {
   useEffect(() => {
@@ -5647,7 +5584,7 @@ function CycleRowMenu({
       )}
       {onRemove && (
         <button type="button" className="danger" onClick={onRemove}>
-          사이클에서 빼기{count > 1 ? ` (${count})` : ''}
+          플랜에서 빼기{count > 1 ? ` (${count})` : ''}
         </button>
       )}
     </div>

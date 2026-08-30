@@ -1,4 +1,4 @@
-/* 사이클(플랜) 화면 — Testiny 「Working with Test Runs」 배치 그대로(지시).
+/* 플랜(플랜) 화면 — Testiny 「Working with Test Runs」 배치 그대로(지시).
    접두어 cpl- (전 CSS 에서 빈 것 확인). 판정 색은 .split.cy 의 CSS 변수. */
 .cpl {
   display: grid;
@@ -9,7 +9,7 @@
   min-width: 0;
 }
 
-/* ── ① 사이클 레일 ── */
+/* ── ① 플랜 레일 ── */
 .panel.cpl-rail {
   display: flex;
   flex-direction: column;
@@ -232,7 +232,7 @@
 .cyl-mailprev { width: 100%; height: 300px; border: 1px solid var(--c-border); border-radius: 8px; background: #fff; }
 .cyl-mailmsg { padding: 8px 11px; border-radius: 8px; background: var(--c-surface-alt, #f6f9fa); font-size: 12.5px; }
 
-/* 지금 도는 실행 — 레일에서 깜빡인다. 남이 돌리는 사이클을 몰라서 또 거는
+/* 지금 도는 실행 — 레일에서 깜빡인다. 남이 돌리는 플랜을 몰라서 또 거는
    사고를 막는다(검증에서 잡았던 그 회귀) */
 .cpl-run { margin-left: auto; color: var(--c-primary, #0e7490); animation: cpl-blink 1.2s infinite; }
 @keyframes cpl-blink { 50% { opacity: 0.35; } }
@@ -430,3 +430,14 @@
 .cpl-runbar .f { background: var(--c-fail, #e5484d); }
 .cpl-runbar .o { background: var(--c-blocked, #f5a623); }
 .cpl-runbar .n { background: #cfd8de; }
+
+/* ── 담당 고르개 단추·일괄 체크(지적: 담당 선정 불편) ── */
+.cpl-assbtn {
+  border: 1px dashed transparent; background: none; border-radius: 6px;
+  padding: 2px 8px; font: inherit; font-size: 12.5px; color: inherit; cursor: pointer;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cpl-assbtn:hover { border-color: var(--c-border, #dfe5ea); background: var(--c-surface, #fff); }
+.cpl-tbl .w-chk { width: 30px; text-align: center; }
+.cpl-tbl .w-chk input, .cpl-grpchk { cursor: pointer; vertical-align: -2px; }
+.cpl-grpchk { margin-right: 8px; }

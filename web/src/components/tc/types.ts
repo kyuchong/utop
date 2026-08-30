@@ -842,9 +842,9 @@ export function stepStatus(s: TcStep): string {
 }
 
 /**
- * 이 스텝의 판정 — 사이클 쪽 말(`Pass`·`Fail`·`WIP`·`Blocked`)로.
+ * 이 스텝의 판정 — 플랜 쪽 말(`Pass`·`Fail`·`WIP`·`Blocked`)로.
  *
- * 사이클 화면·결과서는 스텝의 `result` 를 읽고 있었다. 그런데 **아무도
+ * 플랜 화면·결과서는 스텝의 `result` 를 읽고 있었다. 그런데 **아무도
  * 거기에 안 쓴다** — 실행기는 `status`(PASS)와 `repeatResult`(Pass)에
  * 적는다. 그래서 자동으로 돌린 항목이 전부 「미실행」 으로 보였고,
  * 고객사 결과서에도 판정이 안 찍혔다.

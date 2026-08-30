@@ -24,7 +24,7 @@ export interface PickedItem {
 }
 
 interface Props {
-  /** 고칠 사이클. 없으면 새로 만든다 */
+  /** 고칠 플랜. 없으면 새로 만든다 */
   cycleId?: string
   folders: Record<string, string[]>
   /** 말로 찾아 온 것 — 모델과 시험을 미리 채워 둔다 */
@@ -44,7 +44,7 @@ interface CatItem {
 }
 
 /**
- * 사이클 만들기 · 고치기.
+ * 플랜 만들기 · 고치기.
  *
  * 세 칸이다 — **요구사항으로 좁히고, 시험을 고르고, 배정된 것을 본다.**
  * 옛 화면이 그렇게 되어 있고, 이유가 있다. 시험이 수백 건이라 평평한
@@ -63,7 +63,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
   const [vgroup, setVgroup] = useState('')
   const [newVgroup, setNewVgroup] = useState('')
   const [version, setVersion] = useState('')
-  /** 제목 — 사람이 손으로 적는 사이클 이름. 버전과 다른 칸이다 */
+  /** 제목 — 사람이 손으로 적는 플랜 이름. 버전과 다른 칸이다 */
   const [cname, setCname] = useState('')
   const [cdesc, setCdesc] = useState('')
   const [cstat, setCstat] = useState('')
@@ -106,7 +106,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
   /* 손을 댔는가 — 바깥을 잘못 눌러 애써 적은 것을 날리지 않게 하는 잣대.
      제목·설명·상태·고객·모델·버전·담당·기간·담은 항목 중 하나라도 있으면
      「댄 것」이다. 편집 화면은 이미 값이 차 있어 늘 「댄 것」으로 잡힌다 —
-     맞다, 있는 사이클을 고치다 바깥을 눌러도 닫지 않는다. 닫기 단추로 닫는다. */
+     맞다, 있는 플랜을 고치다 바깥을 눌러도 닫지 않는다. 닫기 단추로 닫는다. */
   const dirty =
     !!cname.trim() ||
     !!cdesc.trim() ||
@@ -153,7 +153,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
     enabled: editing,
     queryFn: async () => {
       const r = await apiFetch(`/api/cycle/${encodeURIComponent(cycleId ?? '')}`)
-      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      if (!r.ok) throw new Error('플랜을 불러오지 못했습니다')
       return (await r.json()) as Record<string, unknown>
     },
   })
@@ -199,7 +199,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
   const reqs: Requirement[] = reqQuery.data?.reqs ?? []
   const cats = useMemo(() => buildCategoryTree(catQuery.data?.categories ?? []), [catQuery.data])
   const allTcs = tcQuery.data?.tcs ?? []
-  /** 계측기(IXIA·Spirent…)는 뺀다 — 사이클은 유비쿼스 장비 검증이다 */
+  /** 계측기(IXIA·Spirent…)는 뺀다 — 플랜은 유비쿼스 장비 검증이다 */
   const meterish = (x: CatItem) =>
     (x.family ?? '').trim() === '계측기' ||
     /^(ixia|spirent|testcenter)/i.test(String(x.vendor ?? '').trim()) ||
@@ -445,7 +445,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
     setTcSel(new Set())
   }
 
-  /** 설명 틀 — 설정에서 사람이 정의한 것. 새 사이클에 미리 채운다 */
+  /** 설명 틀 — 설정에서 사람이 정의한 것. 새 플랜에 미리 채운다 */
   const tplQ = useQuery({
     queryKey: ['cycle-desc-template'],
     queryFn: async () => {
@@ -464,7 +464,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
     setCdesc((cur) => (cur.trim() ? cur : tplQ.data!.text))
   }, [tplQ.data, editing])
 
-  // 상태·고객 드롭다운 값 — 설정 → 사이클 INFO 필드가 정본
+  // 상태·고객 드롭다운 값 — 설정 → 플랜 INFO 필드가 정본
   const codesQ = useQuery({
     queryKey: ['codes'],
     queryFn: async () => {
@@ -545,7 +545,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
           style={{ paddingLeft: 4 + (n.depth - 1) * 12 }}
           /* 클릭은 고르기다 — 그 폴더(하위 포함)의 TC 로 좁힌다.
              접고 펴는 것은 화살표 몫. 클릭마다 접히면 고르러 간 손이
-             트리를 흔든다(사이클 트리에서 겪었다). */
+             트리를 흔든다(플랜 트리에서 겪었다). */
           onClick={() => {
             // 펼치지도 접지도 않는다 — 그건 화살표 몫. 클릭은 고르기뿐이다.
             setCatSel(catSel === n.id ? '' : n.id)
@@ -848,11 +848,11 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
         className="modal ce"
         role="dialog"
         aria-modal="true"
-        aria-label={editing ? '사이클 수정' : '사이클 만들기'}
+        aria-label={editing ? '플랜 수정' : '플랜 만들기'}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="modal-head">
-          <b>{editing ? '사이클 수정' : '사이클 만들기'}</b>
+          <b>{editing ? '플랜 수정' : '플랜 만들기'}</b>
           {/* 건수는 안 적는다 — 3열 머리(배정된 항목 N)가 이미 말한다 */}
           {err && <span className="muted small err">{err}</span>}
           <span className="sp" />
@@ -866,7 +866,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
                 className="btn small danger"
                 type="button"
                 disabled={!doneSel.size}
-                title="체크한 항목을 사이클에서 뺍니다"
+                title="체크한 항목을 플랜에서 뺍니다"
                 onClick={() => {
                   const withRuns = picked.filter(
                     (x) => doneSel.has(x.tcid) && (x.steps?.length ?? 0) > 0,

@@ -16,7 +16,7 @@ interface Msg {
  * 남이 바꾼 것을 내 화면에도 바로 들여온다.
  *
  * 서버는 처음부터 다 알리고 있었다 — 시험이 저장되면 `tc_updated`,
- * 지워지면 `tc_deleted`, 요구사항·사이클도 마찬가지. 그런데 화면이
+ * 지워지면 `tc_deleted`, 요구사항·플랜도 마찬가지. 그런데 화면이
  * **하나도 안 듣고 있었다.** 그래서 옆 사람이 저장해도 내 목록은 그대로고,
  * 새로고침을 눌러야 비로소 바뀌었다. 여러 사람이 붙는 것이 리눅스로 옮긴
  * 이유였는데 정작 그 자리가 비어 있었던 셈이다.
@@ -67,7 +67,7 @@ function invalidate(qc: QueryClient, m: Msg) {
     return
   }
 
-  // ── 사이클
+  // ── 플랜
   if (t === 'cycle_updated' || t === 'cycle_deleted' || t.startsWith('cycle_run_')) {
     void qc.invalidateQueries({ queryKey: ['cycles'] })
     void qc.invalidateQueries({ queryKey: ['cycle-version-groups'] })

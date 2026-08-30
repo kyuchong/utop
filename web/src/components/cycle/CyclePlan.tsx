@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch } from '@/api/client'
 import IdPill from '@/components/IdPill'
-import PickCell from '@/components/PickCell'
+import AssigneePicker from '@/components/AssigneePicker'
 import { gotoHref } from '@/api/goto'
 import {
   itemVerdict,
@@ -16,8 +16,8 @@ import { reqPk } from '@/types'
 import './CyclePlan.css'
 
 /**
- * 사이클(플랜) 화면 — **Testiny 「Working with Test Runs」 배치 그대로**(지시:
- * 그냥 똑같이). 왼쪽 사이클 레일 · 머리(수정·실행·메일·결과서) · 요약 띠
+ * 플랜(플랜) 화면 — **Testiny 「Working with Test Runs」 배치 그대로**(지시:
+ * 그냥 똑같이). 왼쪽 플랜 레일 · 머리(수정·실행·메일·결과서) · 요약 띠
  * (도넛 | 결과 줄 | 팀·상세·수동/자동 탭) · 항목 표(＋추가 · 담당/결과
  * 인라인). 실행 화면(수동/자동 분리)은 플랜 완료 뒤 별도로 간다(지시).
  *
@@ -25,7 +25,7 @@ import './CyclePlan.css'
  * group. 색도 .split.cy 가 풀어 둔 CSS 변수를 물려받는다.
  */
 interface Props {
-  /** 플랜(계획) 인가 실행인가 — Testiny 처럼 **딴 화면**이다(지적: 사이클에
+  /** 플랜(계획) 인가 실행인가 — Testiny 처럼 **딴 화면**이다(지적: 플랜에
       모든 걸 넣었나). 플랜에는 결과 열·러너가 없고, 실행이 그 둘을 갖는다. */
   mode: 'plan' | 'exec'
   cycles: CycleMeta[]
@@ -85,7 +85,7 @@ export default function CyclePlan({
     return (v: string) => m.get(v) ?? (v ? 'neutral' : 'none')
   }, [resDefs])
 
-  /* ── 완료 나눔 — 처음 보여 줄 사이클을 고를 때 쓴다 ── */
+  /* ── 완료 나눔 — 처음 보여 줄 플랜을 고를 때 쓴다 ── */
   /* 닫힘 = 상태가 '완료' 이거나 종료일이 지난 것. 「✔ 시험 완료」 흐름은
      status 를 안 건드리고 end_date 만 적는다(검증) — 상태 글자 하나에
      걸면 정상 완료가 영영 「열린」 레일에 남는다. */
@@ -94,10 +94,10 @@ export default function CyclePlan({
     String(c.status ?? '') === '완료' ||
     (!!c.end_date && String(c.end_date).slice(0, 10) < today)
 
-  /* 고른 사이클 — 기억한다. 없으면 첫 줄(요약은 상시다) */
+  /* 고른 플랜 — 기억한다. 없으면 첫 줄(요약은 상시다) */
   const [sel] = useState(() => localStorage.getItem('utop.cycle.plan') ?? '')
   /* 실행 ID(ceid) 부여 — 멱등이라 볼 때마다 쳐도 된다. 실행 화면에
-     들어가야만 부여되던 탓에, 플랜에서 갓 만든 사이클의 항목들은 ceid 가
+     들어가야만 부여되던 탓에, 플랜에서 갓 만든 플랜의 항목들은 ceid 가
      비어 인라인 수정이 「첫 번째 빈 항목」 을 덮었다(검증: 데이터 오염). */
   const stamped = useRef<Set<string>>(new Set())
   const cur =
@@ -253,8 +253,61 @@ export default function CyclePlan({
       else Object.assign(it, patch)
       await apiFetch(`/api/cycle/${encodeURIComponent(cur.id)}`, {
         method: 'POST',
-        body: JSON.stringify(full),
+        /* 저장자 귀속(검증) — 안 실으면 브로드캐스트가 직전 저장자
+           이름으로 나가 동료 알림이 오귀속·억제된다 */
+        body: JSON.stringify({ ...full, updated_by: meName }),
       })
+      onRefresh()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '저장하지 못했습니다')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const bulkAssign = async (name: string) => {
+    if (!cur || chk.size === 0) return
+    setBusy(true)
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cur.id)}`)
+      const full = (await r.json()) as Record<string, unknown>
+      const arr = (full.items ?? []) as Array<Record<string, unknown>>
+      /* setItemField 와 같은 규약: ceid 우선, 없으면 tcid — 빈 것끼리
+         매칭 금지(검증). 통짜 키 일치만 보면 스탬핑 직후 키가 낡아
+         조용히 빠진다. */
+      let n = 0
+      for (const k of chk) {
+        const i = k.indexOf('|')
+        const ceid = k.slice(0, i)
+        const tcid = k.slice(i + 1)
+        const it = ceid
+          ? arr.find((x) => String(x.ceid ?? '') === ceid)
+          : tcid
+            ? arr.find((x) => String(x.tcid ?? '') === tcid)
+            : undefined
+        if (it) {
+          it.assignee = name
+          n++
+        }
+      }
+      if (n === 0) {
+        window.alert('고른 항목을 찾지 못했습니다 — 화면을 새로 고친 뒤 다시 시도하세요')
+        return
+      }
+      /* 부분 일치를 소리 없이 저장하지 않는다(검증) — 몇 건이 빠지는지
+         묻고, 취소하면 체크를 남겨 새로 고친 뒤 다시 고르게 한다 */
+      if (n < chk.size) {
+        const ok = window.confirm(
+          `고른 ${chk.size}건 중 ${n}건만 문서에서 찾았습니다 — ` +
+            `${chk.size - n}건은 삭제되었거나 키가 바뀌었습니다. ${n}건만 배정할까요?`,
+        )
+        if (!ok) return
+      }
+      await apiFetch(`/api/cycle/${encodeURIComponent(cur.id)}`, {
+        method: 'POST',
+        body: JSON.stringify({ ...full, updated_by: meName }),
+      })
+      setChk(new Set())
       onRefresh()
     } catch (e) {
       window.alert(e instanceof Error ? e.message : '저장하지 못했습니다')
@@ -339,6 +392,47 @@ export default function CyclePlan({
   const [ptab, setPtab] = useState<'over' | 'cases'>('over')
   const [moreAt, setMoreAt] = useState<{ x: number; y: number } | null>(null)
   const [mail, setMail] = useState(false)
+  /* 담당 고르개(공용) — 지적: 두 번 누르고 손으로 치는 칸은 너무 불편.
+     bulk 면 체크한 항목 전부에 한 번에 준다. */
+  const [assAt, setAssAt] = useState<{
+    x: number
+    y: number
+    ceid: string
+    tcid: string
+    value: string
+    bulk?: boolean
+  } | null>(null)
+  const [chk, setChk] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    setChk(new Set())
+    setAssAt(null)
+  }, [cur?.id])
+  /* exec-ids 스탬핑·cid 재부여로 항목 키(ceid|tcid)가 바뀌면 체크가
+     낡는다(검증) — tcid 로 새 키에 갈아 끼우고, 사라진 항목은 버린다 */
+  useEffect(() => {
+    setChk((s2) => {
+      if (!s2.size) return s2
+      const valid = new Set(items.map(keyOfIt))
+      const byTc = new Map(
+        items
+          .filter((it) => String(it.tcid ?? '') !== '')
+          .map((it) => [String(it.tcid), keyOfIt(it)] as const),
+      )
+      const n2 = new Set<string>()
+      let ch = false
+      for (const k of s2) {
+        if (valid.has(k)) {
+          n2.add(k)
+          continue
+        }
+        ch = true
+        const tc = k.slice(k.indexOf('|') + 1)
+        const re = tc ? byTc.get(tc) : undefined
+        if (re) n2.add(re)
+      }
+      return ch ? n2 : s2
+    })
+  }, [items])
 
   const vcls = (v: string) => {
     if (!v || v === '미실행') return 'n'
@@ -348,11 +442,11 @@ export default function CyclePlan({
 
   return (
     <div className={`cpl${mode === 'exec' ? ' exec' : ''}${runIdx !== null && mode === 'exec' ? ' with-run' : ''}`}>
-      {/* ── 가운데 — 고른 사이클 ── */}
+      {/* ── 가운데 — 고른 플랜 ── */}
       <section className="panel cpl-main">
         {!cur ? (
           <div className="empty">
-            사이클이 골라지지 않았습니다 — 목록에서 ID 를 누르세요.
+            플랜이 골라지지 않았습니다 — 목록에서 ID 를 누르세요.
           </div>
         ) : (
           <>
@@ -627,6 +721,18 @@ export default function CyclePlan({
                   ＋ 추가
                 </button>
               )}
+              {chk.size > 0 && (
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={(e) => {
+                    const r2 = e.currentTarget.getBoundingClientRect()
+                    setAssAt({ x: r2.left, y: r2.bottom + 4, ceid: '', tcid: '', value: '', bulk: true })
+                  }}
+                >
+                  👤 담당 일괄 ({chk.size})
+                </button>
+              )}
               {busy && <span className="muted small">저장 중…</span>}
               <span className="sp" />
               <input
@@ -640,6 +746,20 @@ export default function CyclePlan({
               <table className="cpl-tbl">
                 <thead>
                   <tr>
+                    <th className="w-chk">
+                      {(() => {
+                        const keys = grouped.flatMap((g2) => g2.items.map(keyOfIt))
+                        const all = keys.length > 0 && keys.every((k) => chk.has(k))
+                        return (
+                          <input
+                            type="checkbox"
+                            title="보이는 항목 모두 고르기 — 고른 뒤 「담당 일괄」"
+                            checked={all}
+                            onChange={() => setChk(all ? new Set() : new Set(keys))}
+                          />
+                        )
+                      })()}
+                    </th>
                     <th className="w-id">ID</th>
                     <th>제목</th>
                     <th className="w-ass">담당</th>
@@ -666,7 +786,26 @@ export default function CyclePlan({
                       vcls={vcls}
                       meName={meName}
                       onOpen={openRun}
-                      onAssignee={(ceid, tcid, v) => void setItemField(ceid, tcid, { assignee: v })}
+                      chkKeys={chk}
+                      onChk={(keys, on) =>
+                        setChk((s2) => {
+                          const n2 = new Set(s2)
+                          for (const k of keys) {
+                            if (on) n2.add(k)
+                            else n2.delete(k)
+                          }
+                          return n2
+                        })
+                      }
+                      onAssPick={(it2, x, y) =>
+                        setAssAt({
+                          x,
+                          y,
+                          ceid: String(it2.ceid ?? ''),
+                          tcid: String(it2.tcid ?? ''),
+                          value: String(it2.assignee ?? ''),
+                        })
+                      }
                       onResult={(ceid, tcid, v, prev) =>
                         void setItemField(
                           ceid,
@@ -688,7 +827,7 @@ export default function CyclePlan({
                   ))}
                   {grouped.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="cpl-none">
+                      <td colSpan={6} className="cpl-none">
                         {items.length === 0
                           ? '아직 항목이 없습니다 — 「＋ 추가」 로 담으세요.'
                           : '거른 결과가 없습니다'}
@@ -704,6 +843,19 @@ export default function CyclePlan({
             </>
             )}
           </>
+        )}
+
+        {assAt && cur && (
+          <AssigneePicker
+            at={assAt}
+            value={assAt.value}
+            me={meName}
+            onPick={(n) => {
+              if (assAt.bulk) void bulkAssign(n)
+              else void setItemField(assAt.ceid, assAt.tcid, { assignee: n })
+            }}
+            onClose={() => setAssAt(null)}
+          />
         )}
 
         {moreAt && cur && (
@@ -771,17 +923,23 @@ export default function CyclePlan({
               <>
                 <div className="cpl-rfld">
                   <label>담당</label>
-                  <PickCell
-                    dbl
-                    value={String(runItem.assignee ?? '')}
-                    cls="cpl-ass"
-                    title="담당 — 두 번 누르면 고칩니다"
-                    onSave={(nv) =>
-                      void setItemField(String(runItem.ceid ?? ''), String(runItem.tcid ?? ''), {
-                        assignee: nv,
+                  <button
+                    type="button"
+                    className="cpl-assbtn"
+                    title="누르면 담당을 고릅니다"
+                    onClick={(e) => {
+                      const r2 = e.currentTarget.getBoundingClientRect()
+                      setAssAt({
+                        x: r2.left - 40,
+                        y: r2.bottom + 4,
+                        ceid: String(runItem.ceid ?? ''),
+                        tcid: String(runItem.tcid ?? ''),
+                        value: String(runItem.assignee ?? ''),
                       })
-                    }
-                  />
+                    }}
+                  >
+                    {String(runItem.assignee ?? '') || '– 담당 없음'}
+                  </button>
                 </div>
                 {fullQ.isLoading ? (
                   <div className="muted small">스텝을 읽는 중…</div>
@@ -931,6 +1089,10 @@ function MemoBox({ initial, onSave }: { initial: string; onSave: (t: string) => 
   )
 }
 
+/** 항목 하나의 고르기 키 — ceid|tcid 짝(빈 것끼리 겹치지 않게 둘 다) */
+const keyOfIt = (x: { ceid?: unknown; tcid?: unknown }) =>
+  `${String(x.ceid ?? '')}|${String(x.tcid ?? '')}`
+
 /** 요구사항 묶음 줄 + 그 아래 항목들 — Testiny 의 폴더 묶음 줄 */
 function GroupRows({
   g,
@@ -940,7 +1102,9 @@ function GroupRows({
   resDefs,
   vcls,
   onOpen,
-  onAssignee,
+  chkKeys,
+  onChk,
+  onAssPick,
   onResult,
 }: {
   mode: 'plan' | 'exec'
@@ -951,7 +1115,9 @@ function GroupRows({
   vcls: (v: string) => string
   meName: string
   onOpen: (it: CycleItemLite) => void
-  onAssignee: (ceid: string, tcid: string, v: string) => void
+  chkKeys: Set<string>
+  onChk: (keys: string[], on: boolean) => void
+  onAssPick: (it: CycleItemLite, x: number, y: number) => void
   onResult: (
     ceid: string,
     tcid: string,
@@ -962,7 +1128,15 @@ function GroupRows({
   return (
     <>
       <tr className="cpl-grp" onClick={onFold}>
-        <td colSpan={5}>
+        <td colSpan={6}>
+          <input
+            type="checkbox"
+            className="cpl-grpchk"
+            title="이 묶음 모두 고르기"
+            checked={g.items.length > 0 && g.items.every((x) => chkKeys.has(keyOfIt(x)))}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => onChk(g.items.map(keyOfIt), e.target.checked)}
+          />
           <span className="caret">{folded ? '▸' : '▾'}</span> 📁 {g.label}{' '}
           <span className="cnt">| {g.items.length}</span>
         </td>
@@ -983,16 +1157,29 @@ function GroupRows({
                 onOpen(it)
               }}
             >
+              <td className="w-chk">
+                <input
+                  type="checkbox"
+                  checked={chkKeys.has(keyOfIt(it))}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => onChk([keyOfIt(it)], e.target.checked)}
+                />
+              </td>
               <td className="cpl-tid">{it.tcid}</td>
               <td className="cpl-nm">{it.name || '(제목 없음)'}</td>
               <td>
-                <PickCell
-                  dbl
-                  value={String(it.assignee ?? '')}
-                  cls="cpl-ass"
-                  title="담당 — 두 번 누르면 고칩니다"
-                  onSave={(nv) => onAssignee(String(it.ceid ?? ''), String(it.tcid ?? ''), nv)}
-                />
+                <button
+                  type="button"
+                  className="cpl-assbtn"
+                  title="누르면 담당을 고릅니다"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const r2 = e.currentTarget.getBoundingClientRect()
+                    onAssPick(it, r2.left - 40, r2.bottom + 4)
+                  }}
+                >
+                  {String(it.assignee ?? '') || '–'}
+                </button>
               </td>
               {mode === 'exec' && (
               <td>

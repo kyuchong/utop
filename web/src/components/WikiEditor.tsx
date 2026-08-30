@@ -613,7 +613,7 @@ export default function WikiEditor({
                   },
                   {
                     title: 'UTOP 표 끼우기',
-                    subtext: '사이클 진행·덮임을 문서 안에 살아 있는 채로 놓습니다',
+                    subtext: '플랜 진행·덮임을 문서 안에 살아 있는 채로 놓습니다',
                     group: '짚기',
                     onItemClick: () =>
                       editor.insertBlocks(

@@ -14,7 +14,7 @@ import './Transfer.css'
 const PARTS = [
   { k: 'req', label: '요구사항', desc: '폴더 구조 + 요구사항 전부' },
   { k: 'tc', label: '시험항목', desc: '스텝·토폴로지 포함 전체, 요구사항 연결 유지' },
-  { k: 'cycle', label: '사이클', desc: '구성과 실행 결과' },
+  { k: 'cycle', label: '플랜', desc: '구성과 실행 결과' },
   { k: 'defect', label: '결함', desc: 'DEF-… 전부' },
   { k: 'device', label: '장비', desc: '접속 방식·인터페이스 (비밀번호는 기본 제외)' },
   { k: 'catalog', label: '카탈로그·랙', desc: '장비 카탈로그 + 랙 틀·부품' },

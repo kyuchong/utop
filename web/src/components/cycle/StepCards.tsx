@@ -531,7 +531,7 @@ export default function StepCards({ item, mode, runningAt, onSetResult, onSetImg
               {noOf[i]! > 0 && <b>Step#{noOf[i]}</b>}
               {/* 종류는 `kind` 가 정한다.
                   전에는 `action` 만 보고 비어 있으면 무조건 CLI 라고 적었다.
-                  그래서 Manual 스텝만 있는 시험이 사이클에서는 automation
+                  그래서 Manual 스텝만 있는 시험이 플랜에서는 automation
                   으로 보였다 — 사람이 할 일을 장비가 한 것처럼. */}
               <span className={`sc-kind k-${s.kind || 'cli'}`}>
                 {stepKindInfo(s.kind ?? undefined).label}

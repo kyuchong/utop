@@ -235,7 +235,7 @@ export default function ReqDetail({ req, tcs, tab, edit }: Props) {
       )}
 
       <p className="muted small" style={{ padding: '0 4px' }}>
-        실행 시각·소요 시간은 사이클 실행 기능을 옮긴 뒤에 함께 표시됩니다.
+        실행 시각·소요 시간은 플랜 실행 기능을 옮긴 뒤에 함께 표시됩니다.
         지금은 TC 의 마지막 상태만 집계합니다. (요구사항 {reqPk(req)})
       </p>
     </div>

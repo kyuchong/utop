@@ -224,7 +224,7 @@ export default function Login({ onDone }: Props) {
               </h1>
               <p>{sub}</p>
               <ul className="lg-pts">
-                <li>요구사항 → 시험항목 → 사이클을 한 줄기로</li>
+                <li>요구사항 → 시험항목 → 플랜을 한 줄기로</li>
                 <li>장비 CLI·SNMP·계측기를 그대로 자동 실행</li>
                 <li>결과는 회차로 남고 결과서까지</li>
               </ul>

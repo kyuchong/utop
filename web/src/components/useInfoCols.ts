@@ -56,7 +56,7 @@ export function useInfoCols(target: 'req' | 'tc' | 'cycle'): InfoCol[] {
     staleTime: 30_000,
   })
   /* 열 폭은 **설정이 정본**이다(지시) — 세 화면이 여기 한 곳에서 받아 간다.
-     여태 요구사항만 이 값을 읽었고 시험항목·사이클은 코드에 박힌 폭을
+     여태 요구사항만 이 값을 읽었고 시험항목·플랜은 코드에 박힌 폭을
      썼다. 한 군데서 정하지 않으면 「설정했는데 안 바뀐다」가 된다. */
   const styleQ = useQuery({
     queryKey: ['code-kind-style'],

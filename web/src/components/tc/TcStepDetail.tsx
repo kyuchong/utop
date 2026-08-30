@@ -1766,7 +1766,7 @@ export default function TcStepDetail({
             {/* 회차 — 반복 안의 스텝은 회차마다 결과가 다르다.
                 「10회 모두 적합」 만 적으면 몇 회차에 어떻게 깨졌는지 다시
                 못 찾는다. 그게 반복 시험에서 유일하게 궁금한 것이다.
-                사이클 화면과 같은 모양을 쓴다 — 오갈 때 눈이 안 헤맨다. */}
+                플랜 화면과 같은 모양을 쓴다 — 오갈 때 눈이 안 헤맨다. */}
             {(step.rounds?.length ?? 0) > 1 && (
               <div className="sd-rounds-wrap">
                 <span className="sd-rlab-i">회차</span>

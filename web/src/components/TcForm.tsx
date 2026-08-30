@@ -86,7 +86,7 @@ export default function TcForm({ editing, presetReqId, onCreated, onClose }: Pro
   /** 적용 모델 선택지 — 카탈로그가 정본 (손으로 치면 표기가 갈린다) */
   /* 새 ID — **모델그룹**이 앞머리다(E61xx_T0001). 모델그룹을 고를 때마다
      다시 받는다. tcid 는 곧 PK 라 사람이 못 바꾼다 — 손으로 바꾸면 남의
-     시험을 덮거나 사이클·실행 이력의 참조가 끊긴다. */
+     시험을 덮거나 플랜·실행 이력의 참조가 끊긴다. */
   useEffect(() => {
     if (editing !== null) return
     let dead = false
@@ -141,7 +141,7 @@ export default function TcForm({ editing, presetReqId, onCreated, onClose }: Pro
         severity,
         run_type: runType,
         origin,
-        // '*'(공용) 는 빈 값으로 저장 — 사이클 필터의 「미지정 = 공용」 규칙
+        // '*'(공용) 는 빈 값으로 저장 — 플랜 필터의 「미지정 = 공용」 규칙
         model_group: mg === COMMON ? '' : mg,
         model: mdl === COMMON ? '' : mdl,
         custom,

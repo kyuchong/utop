@@ -115,7 +115,7 @@
  * 여기서만 `.panel` 의 테두리·모서리를 걷어내고 있었다.
  *
  * 「세 장을 나란히 두면 테두리가 여섯 줄이라 시끄럽다」 고 판단했는데,
- * 그러다 보니 **요구사항·사이클은 카드인데 이 화면만 아니었다.** 화면마다
+ * 그러다 보니 **요구사항·플랜은 카드인데 이 화면만 아니었다.** 화면마다
  * 다르게 보이는 것이 테두리 몇 줄보다 나쁘다.
  *
  * 세 화면이 같은 카드를 쓴다. 대신 칸 사이를 벌려 테두리가 맞붙지 않게
@@ -2574,7 +2574,7 @@ table.tb tr.r-bad td:first-child {
  *
  * 전에는 이것 하나가 카드였고 안의 칸들은 카드를 안 그렸다 — 「카드 안의
  * 카드」 를 피하려던 것인데, 그러니 1열만 카드로 보이고 오른쪽은 세로줄
- * 하나 그은 커다란 판 하나로 읽혔다. 요구사항·사이클은 세 칸이 나란한
+ * 하나 그은 커다란 판 하나로 읽혔다. 요구사항·플랜은 세 칸이 나란한
  * 형제 카드다. 여기만 달랐다.
  *
  * 탭 줄은 2열과 3열을 **함께** 바꾸는 것이라 위에 그대로 둔다. 칸 안에
@@ -2757,7 +2757,7 @@ table.tb tr.r-bad td:first-child {
 }
 .sd-warn-act { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
 
-/* 회차 — 사이클 화면(.sc-rounds)과 같은 모양을 쓴다.
+/* 회차 — 플랜 화면(.sc-rounds)과 같은 모양을 쓴다.
    두 화면이 다르게 생기면 오갈 때마다 눈이 다시 찾는다 */
 .sd-rounds-wrap { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 4px; }
 .sd-rlab-i { flex: none; color: var(--c-muted, #888); font-size: 12px; }
@@ -2952,7 +2952,7 @@ table.tb tr.r-bad td:first-child {
   padding: 0 var(--row-px);
 }
 /* 바닥 상태 줄은 **세 화면이 같은 높이**여야 한다 — 여기만 0 이라 18px 로
-   눌려 있었다(요구사항·사이클은 30px). colbot 값을 그대로 쓴다. */
+   눌려 있었다(요구사항·플랜은 30px). colbot 값을 그대로 쓴다. */
 .tc-listview .bottom { flex: none; margin-top: 0; padding: 6px 10px; }
 
 
@@ -3066,7 +3066,7 @@ table.tb tr.r-bad td:first-child {
 /* List 도구줄의 ⋯ 이 오른끝(3번 자리)으로 가게 */
 .tc-listhead .rq-actions { width: 100%; }
 .tc-listhead .rq-actions .sp { flex: 1; }
-/* 도구줄 단추 — 사이클·요구사항과 같은 반 발짝 작게(26px).
+/* 도구줄 단추 — 플랜·요구사항과 같은 반 발짝 작게(26px).
    여기만 기본 크기(31px)라 세 화면 버튼이 달라 보였다(피드백). */
 .tc-listhead .rq-actions .btn {
   padding: 5px 12px;
@@ -3279,7 +3279,7 @@ table.tb tr.r-bad td:first-child {
 .sq-ro .sq-row[data-depth="3"] { --gx: 124px; }
 .sq-ro .sq-row[data-depth="4"] { --gx: 140px; }
 
-/* 스텝 띠 — 「스텝 상세」 머리 바로 아래(지시). 사이클 실행 화면과 같은 벌을
+/* 스텝 띠 — 「스텝 상세」 머리 바로 아래(지시). 플랜 실행 화면과 같은 벌을
    쓰고(.sc-strip/.sc-seg), 이 칸의 여백만 맞춘다. */
 .tc-detcol > .tc-strip {
   flex: none;
@@ -3549,7 +3549,7 @@ table.tb tr.r-bad td:first-child {
   overflow: auto;
 }
 
-/* 최근 결과 — 사이클 목록의 결과 배지와 같은 꼴 */
+/* 최근 결과 — 플랜 목록의 결과 배지와 같은 꼴 */
 .tc-lastres { display: flex; align-items: center; }
 .tc-lrchip {
   padding: 1px 7px;

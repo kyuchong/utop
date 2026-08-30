@@ -11,7 +11,7 @@ import { useCallback, useRef, useState } from 'react'
  *   Ctrl+누르면   — 하나씩 더하고 뺀다
  *   Shift+누르면  — 마지막에 누른 것부터 여기까지
  *
- * 요구사항·시험·사이클이 같은 규칙을 쓰도록 여기 한 곳에 둔다.
+ * 요구사항·시험·플랜이 같은 규칙을 쓰도록 여기 한 곳에 둔다.
  */
 export function useMultiSelect<T extends string | number>() {
   const [picked, setPicked] = useState<Set<T>>(new Set())

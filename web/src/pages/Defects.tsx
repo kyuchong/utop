@@ -24,7 +24,7 @@ function fmtDate(iso?: string | null): string {
 /**
  * Defects — 등록된 결함이 모이는 화면.
  *
- * 사이클 항목에서 「결함 등록」 을 누르면 그 자리에서 UTOP 에 쌓인다. 여기서
+ * 플랜 항목에서 「결함 등록」 을 누르면 그 자리에서 UTOP 에 쌓인다. 여기서
  * 그것들을 한눈에 보고, 골라서 「지라에 등록」 을 눌러 Jira 이슈로 민다.
  *
  * 칸은 등록 양식과 같다 — 프로젝트 키·프로젝트명·이슈유형·우선순위·수정버전·
@@ -89,7 +89,7 @@ export default function Defects() {
           <div className="empty">
             등록된 결함이 없습니다.
             <br />
-            <span className="muted small">사이클 화면에서 부적합 항목의 스텝을 열고 「＋ 결함 등록」 을 누르면 여기에 쌓입니다.</span>
+            <span className="muted small">플랜 화면에서 부적합 항목의 스텝을 열고 「＋ 결함 등록」 을 누르면 여기에 쌓입니다.</span>
           </div>
         ) : (
           <div className="dfl-tablewrap">

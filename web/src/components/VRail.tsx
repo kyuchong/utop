@@ -3,7 +3,7 @@ import { IconChevron } from '@/components/icons'
 import './VRail.css'
 
 /**
- * 세로 아이콘 레일 — 요구사항·시험항목(·사이클) 세부의 탭.
+ * 세로 아이콘 레일 — 요구사항·시험항목(·플랜) 세부의 탭.
  *
  * 화면마다 따로 만들면 폭도 표시도 갈린다. 탭 목록만 다르고 생김새는
  * 한 곳(VRail.css)에서 온다.

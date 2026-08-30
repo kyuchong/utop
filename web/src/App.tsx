@@ -204,7 +204,7 @@ export default function App() {
    */
   const staleBuild = useFreshBuild()
 
-  // 다른 화면의 것을 열어 달라는 부탁 (사이클에서 TC ID 를 누른 것 따위)
+  // 다른 화면의 것을 열어 달라는 부탁 (플랜에서 TC ID 를 누른 것 따위)
   useEffect(
     () =>
       onGotoEvent((kind, id) => {
@@ -280,7 +280,7 @@ export default function App() {
         /* Runs — 같은 부품, 실행 얼굴로 들어간다(Testiny 의 Test Runs) */
         <Cycles me={user} entry="runs" />
       ) : page === 'executions' ? (
-        /* 옛 Reports 자리 — 북마크로 들어오면 사이클 화면을 보여 준다 */
+        /* 옛 Reports 자리 — 북마크로 들어오면 플랜 화면을 보여 준다 */
         <Cycles me={user} />
       ) : page === 'defects' ? (
         <Defects />

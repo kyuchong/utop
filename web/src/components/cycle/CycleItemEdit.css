@@ -1,4 +1,4 @@
-/* 사이클 항목 고치기 — 한 건이든 여럿이든 같은 창 */
+/* 플랜 항목 고치기 — 한 건이든 여럿이든 같은 창 */
 .modal.cie { max-width: 520px; }
 .cie-body { gap: var(--sp-3); }
 .cie-hint { margin: 0; }

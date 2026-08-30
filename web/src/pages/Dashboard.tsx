@@ -60,7 +60,7 @@ const WIDGETS: Array<{ k: string; label: string }> = [
   { k: 'kpi', label: '상단 지표 (오늘·Pass·Fail…)' },
   { k: 'devices', label: '등록 장비' },
   { k: 'meters', label: 'Traffic Gen' },
-  { k: 'assets', label: '자산 현황 (REQ·TC·사이클)' },
+  { k: 'assets', label: '자산 현황 (REQ·TC·플랜)' },
   { k: 'defects', label: '열린 결함' },
   { k: 'attention', label: 'Attention Required' },
   { k: 'running', label: '실행 중 Test Run' },
@@ -293,7 +293,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
               </span>
               <span>
                 <b>{d ? d.assets?.cycles : '–'}</b>
-                <i>사이클</i>
+                <i>플랜</i>
               </span>
             </span>
           </button>
@@ -456,7 +456,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
           </div>
         )}
 
-        {/* 버전별 합격률 — 누르면 그 사이클 실행 화면 */}
+        {/* 버전별 합격률 — 누르면 그 플랜 실행 화면 */}
         {ws.has('versions') && (
           <div className="dash-wide">
             <div className="dash-wt">버전별 합격률 (최근 회차 — 누르면 실행 화면)</div>
@@ -484,7 +484,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
                   <em>{pctOf(v.ok, v.total)}%</em>
                 </button>
               ))}
-              {d && d.versions?.length === 0 && <div className="empty">아직 사이클이 없습니다.</div>}
+              {d && d.versions?.length === 0 && <div className="empty">아직 플랜이 없습니다.</div>}
             </div>
           </div>
         )}

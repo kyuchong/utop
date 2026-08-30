@@ -1,5 +1,5 @@
 /* Reports — 지금 어디까지 왔나.
-   사이클 화면은 한 사이클을 붙들고 보는 자리고, 여기는 전부를 한 장에
+   플랜 화면은 한 플랜을 붙들고 보는 자리고, 여기는 전부를 한 장에
    놓고 거른다. 숫자·그림·목록이 같은 거르개를 본다 */
 .rp { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
 .rp-tabs { align-self: flex-start; }

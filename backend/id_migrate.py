@@ -2,8 +2,8 @@
 
     LGU+_E61xx_R0001        요구사항   (req.reqid)
     LGU+_E61xx_T0001        시험항목   (tc.tcid — 이건 PK 다)
-    LGU+_E61xx_C0001        사이클     (cycle.data.cid)
-    LGU+_E61xx_C0001-E001   실행       (cycle.data.items[].ceid)
+    LGU+_E61xx_P0001        플랜     (cycle.data.cid)
+    LGU+_E61xx_P0001-E001   실행       (cycle.data.items[].ceid)
 
 앞머리는 **모델그룹 그대로**다. 사업자명(LGUPLUS·KT)은 딴 칸에 따로 있고,
 모델그룹은 그 사업자를 알아볼 만큼 줄여 담아 사람이 붙인 통칭이다(지시).
@@ -12,8 +12,8 @@
 그래서 이 코드는 모델그룹을 **손대지 않는다** — 자르지도 붙이지도 않는다.
 앞머리를 무엇으로 할지는 카탈로그에서 이름을 고치는 것으로 정해진다.
 
-실행만 `-` 로 잇는다(C0001-E001). 실행은 홀로 서는 것이 아니라 **그 사이클
-안의 몇 번째**라, 이음쇠가 달라야 눈이 「사이클 밑」 으로 읽는다.
+실행만 `-` 로 잇는다(C0001-E001). 실행은 홀로 서는 것이 아니라 **그 플랜
+안의 몇 번째**라, 이음쇠가 달라야 눈이 「플랜 밑」 으로 읽는다.
 
 왜 주차(2633)를 뺐나 — 순번이 모델그룹 안에서 통짜로 유일하면 주차는
 장식이다. 「언제 만들었나」 는 만든 날 칸이 이미 말한다. 주차를 남기면
@@ -128,7 +128,7 @@ async def plan(c) -> dict:
 
     await seed("SELECT reqid FROM req WHERE reqid ~ '_R[0-9]{4}$'", "R")
     await seed("SELECT tcid FROM tc WHERE tcid ~ '_T[0-9]{4}$'", "T")
-    await seed("SELECT data->>'cid' FROM cycle WHERE data->>'cid' ~ '_C[0-9]{4}$'", "C")
+    await seed("SELECT data->>'cid' FROM cycle WHERE data->>'cid' ~ '_P[0-9]{4}$'", "P")
 
     # ── 요구사항 ──────────────────────────────────────────────
     rg = await _req_group(c, m2g, known)
@@ -159,20 +159,20 @@ async def plan(c) -> dict:
         moves.append({"kind": "tc", "pk": old, "old": old,
                       "new": take(mg, "T"), "name": r["name"] or ""})
 
-    # ── 사이클 · 실행 ─────────────────────────────────────────
+    # ── 플랜 · 실행 ─────────────────────────────────────────
     for r in await c.fetch(
         "SELECT id, name, model, data FROM cycle ORDER BY created_at, id"
     ):
         data = r["data"] if isinstance(r["data"], dict) else json.loads(r["data"] or "{}")
         old = data.get("cid") or ""
         mg = pick_group("", r["model"] or "", m2g, known)
-        if is_current(old, mg, "C"):
+        if is_current(old, mg, "P"):
             continue
         if not mg:
             skipped.append({"kind": "cycle", "pk": r["id"], "old": old,
                             "why": f"모델 '{r['model'] or ''}' 의 모델그룹을 못 찾습니다"})
             continue
-        new = take(mg, "C")
+        new = take(mg, "P")
         execs = []
         for i, it in enumerate(data.get("items") or [], start=1):
             execs.append({"old": it.get("ceid") or "", "new": f"{new}-E{i:03d}"})
@@ -233,7 +233,7 @@ async def apply(c, p: dict) -> dict:
             r = await c.execute("UPDATE tc_history SET tcid = $1 WHERE tcid = $2", new, old)
             n["history"] += int(r.split()[-1]) if r.split()[-1].isdigit() else 0
 
-        # ── 사이클 · 실행 — data 안에 있다. 담긴 시험항목 ID 도 함께 옮긴다
+        # ── 플랜 · 실행 — data 안에 있다. 담긴 시험항목 ID 도 함께 옮긴다
         cyc = {m["pk"]: m for m in moves if m["kind"] == "cycle"}
         for row in await c.fetch("SELECT id, data FROM cycle"):
             data = row["data"] if isinstance(row["data"], dict) else json.loads(row["data"] or "{}")
@@ -248,7 +248,7 @@ async def apply(c, p: dict) -> dict:
                     n["exec"] += 1
                 n["cycle"] += 1
                 touched = True
-            # 담긴 시험항목 — 그 사이클이 안 옮겨져도 TC 는 옮겨졌을 수 있다
+            # 담긴 시험항목 — 그 플랜이 안 옮겨져도 TC 는 옮겨졌을 수 있다
             for it in data.get("items") or []:
                 if it.get("tcid") in tcmap:
                     it["tcid"] = tcmap[it["tcid"]]
@@ -258,7 +258,7 @@ async def apply(c, p: dict) -> dict:
                 # dict 를 그대로 넘기면 알아서 JSON 이 된다. 글자로 넘기면
                 # 「JSON 문자열 하나」 로 겹싸여 저장되고, 그러면 data->>'cid'
                 # 가 안 잡히고 jsonb_set 이 'cannot set path in scalar' 로
-                # 죽는다(겪었다: 사이클 3건). db._repair_double_json 이 있는
+                # 죽는다(겪었다: 플랜 3건). db._repair_double_json 이 있는
                 # 까닭도 같은 사고다.
                 await c.execute("UPDATE cycle SET data = $1 WHERE id = $2",
                                 data, row["id"])
@@ -292,7 +292,7 @@ async def repair(c) -> dict:
                   AND coalesce(data->>'tcid', '') <> tcid"""
         )
         fixed["tc"] = int(r.split()[-1]) if r.split()[-1].isdigit() else 0
-        # 겹싸여 글자로 저장된 사이클 data 벗기기 — 처음 판이 json.dumps 를
+        # 겹싸여 글자로 저장된 플랜 data 벗기기 — 처음 판이 json.dumps 를
         # 한 번 더 해서 「JSON 문자열」 이 되었다. 내용은 그 안에 온전하다.
         r = await c.execute(
             """UPDATE cycle SET data = (data #>> '{}')::jsonb

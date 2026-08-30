@@ -186,7 +186,7 @@ export default function JiraPanels() {
           <div>
             <b>Fail 자동 이슈 등록 — {sel}</b>
             <p className="muted small">
-              사이클을 돌려 이 프로젝트로 매긴 Fail 을 자동으로 이슈로 올립니다. 기본은 꺼짐입니다.
+              플랜을 돌려 이 프로젝트로 매긴 Fail 을 자동으로 이슈로 올립니다. 기본은 꺼짐입니다.
             </p>
           </div>
           <span className="sp" />
@@ -282,7 +282,7 @@ export default function JiraPanels() {
             <div className="panel jp-kind jp-models">
               <b className="jp-kt">이 프로젝트로 보낼 장비 모델</b>
               <p className="muted small">
-                한 줄에 하나. 사이클의 모델이 여기 있으면 그 결함은 <b>{sel}</b> 로 갑니다.
+                한 줄에 하나. 플랜의 모델이 여기 있으면 그 결함은 <b>{sel}</b> 로 갑니다.
               </p>
               <textarea
                 rows={5}

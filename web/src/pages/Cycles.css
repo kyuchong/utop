@@ -1,4 +1,4 @@
-/* 사이클 — 요구사항·TC 화면과 **같은 뼈대**(.split + .panel).
+/* 플랜 — 요구사항·TC 화면과 **같은 뼈대**(.split + .panel).
    세 화면을 오가는 사람이 매번 「여긴 어디가 목록이지」 를 다시 찾지 않게. */
 .cy.split { gap: 0; }
 .cy-tree {
@@ -21,16 +21,16 @@
   /* 여백은 `.rt` 한 곳에서 온다 — 세 화면 트리가 같은 값을 쓰도록(지시) */
 }
 /* 줄 자체는 요구사항 트리(ReqTree.css)의 .rt-fold/.rt-req 를 쓴다.
-   여기서는 사이클에만 있는 것만 더한다. */
+   여기서는 플랜에만 있는 것만 더한다. */
 .cy-node { cursor: pointer; }
 /* 트리 줄 높이는 아래 `.cy-tree .rt-fold, .cy-tree .rt-req` 한 곳에서
    --row-h 로 잡는다 (여기 있던 27px 은 그 규칙에 덮여 죽어 있었다). */
-/* 사이클이 아직 없는 버전그룹. 만들어 놓고 안 보이면 또 만든다 */
+/* 플랜이 아직 없는 버전그룹. 만들어 놓고 안 보이면 또 만든다 */
 /* 빈 폴더 이름 — 옅게. ('.empty' 안내문 스타일과 절대 겹치지 말 것) */
 .cy-nm-empty { color: var(--c-text-faint); }
 
 
-/* ── 사이클 한 건 ── */
+/* ── 플랜 한 건 ── */
 .cy-detail {
   display: flex;
   flex-direction: column;
@@ -369,7 +369,7 @@
 /*
  * 지금 돌고 있는 줄.
  *
- * 옅은 바탕 하나뿐이었다. 스무 줄짜리 사이클을 곁눈으로 보다가 「어디까지
+ * 옅은 바탕 하나뿐이었다. 스무 줄짜리 플랜을 곁눈으로 보다가 「어디까지
  * 갔지」 를 찾으려면 눈으로 훑어야 했다. 왼쪽에 굵은 띠를 세우고 숨쉬듯
  * 밝기를 바꾼다 — 멀리서도 한 줄이 살아 있는 것이 보인다.
  *
@@ -441,7 +441,7 @@
   box-shadow: inset 3px 0 0 var(--c-primary), inset 0 0 0 1px var(--c-warn, #d98324);
 }
 
-/* ── 사이클 만들기 ── */
+/* ── 플랜 만들기 ── */
 .modal.cn {
   width: 860px;
   max-width: 96vw;
@@ -902,7 +902,7 @@ select.cy-v.na { color: #999; }
   animation: cy-blink 1.05s step-end infinite;
 }
 
-/* ── 사이클 만들기·수정 (3열 배정) ── */
+/* ── 플랜 만들기·수정 (3열 배정) ── */
 /* 가로는 화면을 다 쓴다 — 세 칸이 나눠 갖기엔 넓을수록 좋다 */
 .modal.ce { width: 98vw; max-width: 98vw; height: 94vh; display: flex; flex-direction: column; }
 /* 머리줄 — 공용 .modal-head 가 space-between 이라 아이템이 흩어졌다.
@@ -1212,7 +1212,7 @@ select.cy-v.na { color: #999; }
 }
 .aitc-head .muted { flex: 1; min-width: 260px; }
 .aitc-body { flex: 1; min-height: 0; overflow: auto; padding-bottom: 14px; }
-/* 이 화면에서는 넓게 쓴다 — 사이클 트리 폭에 맞춰 좁게 둘 이유가 없다 */
+/* 이 화면에서는 넓게 쓴다 — 플랜 트리 폭에 맞춰 좁게 둘 이유가 없다 */
 .aitc-body .ask { padding: 0 14px 14px; }
 
 /* 판정기준이 빈 스텝 — 돌기만 하고 아무것도 확인하지 못한다 */
@@ -1394,7 +1394,7 @@ table.tb td.k {
 .cy-live-step { font-variant-numeric: tabular-nums; color: var(--c-text-muted); }
 
 /* 트리에서 「지금 돌고 있음」 — 누가 돌리는지까지.
-   표시가 없으면 남이 돌리는 사이클을 열어 또 걸게 된다 */
+   표시가 없으면 남이 돌리는 플랜을 열어 또 걸게 된다 */
 .cy-runmark {
   margin-left: 6px;
   padding: 0 5px;
@@ -2155,7 +2155,7 @@ table.tb td.k {
 }
 
 
-/* ── 관제판 — 사이클을 고르기 전 첫 화면 ─────────────────────── */
+/* ── 관제판 — 플랜을 고르기 전 첫 화면 ─────────────────────── */
 /* 1열(트리)과 2열 카드가 바짝 붙게 — 왼쪽은 손잡이만큼, 위는 트리와
    같은 높이에서 시작하도록 0 */
 .cy-board { padding: 0 var(--sp-4) var(--sp-3) 6px; }
@@ -2577,7 +2577,7 @@ table.tb td.k {
   gap: 7px;
 }
 .cxp-rgt > .cxp-k { justify-self: center; }
-/* 체크박스는 브라우저 기본 — 요구사항·시험항목·사이클과 같다 */
+/* 체크박스는 브라우저 기본 — 요구사항·시험항목·플랜과 같다 */
 .cxp-row > input[type='checkbox'] { margin: 0; }
 .cxp-rgt .cxp-hist { justify-self: start; }
 .cxp-hist > i.ro { cursor: default; }
@@ -2832,7 +2832,7 @@ table.tb td.k {
 }
 .cxp-dt { border-top: 1px solid var(--c-border); padding: 9px 2px 6px; font-weight: 700; font-size: var(--fs-sm); }
 
-/* ── 사이클 표 — Zephyr TEST CYCLES 문법. 보기 전용, 줄 클릭 = 실행 화면 ── */
+/* ── 플랜 표 — Zephyr TEST CYCLES 문법. 보기 전용, 줄 클릭 = 실행 화면 ── */
 /* 시험항목 2열과 같은 카드 — 도구줄과 표가 한 장 안에 든다 */
 .cyt-card {
   display: flex;
@@ -2857,7 +2857,7 @@ table.tb td.k {
 .cyt { background: var(--c-surface); overflow: auto; }
 .cyt-row {
   display: grid;
-  /* ☐ · ▸ · 사이클 ID · 제목 · 결함 · 항목 · 진행결과 · 상태 · 버전 ·
+  /* ☐ · ▸ · 플랜 ID · 제목 · 결함 · 항목 · 진행결과 · 상태 · 버전 ·
      생성일자 · 변경일자 · 생성자 · 담당자 */
   grid-template-columns:
     26px 20px minmax(105px, 130px) minmax(170px, 1fr) 40px 40px 104px 56px
@@ -3098,7 +3098,7 @@ table.tb td.k {
   margin-bottom: var(--sp-2);
 }
 
-/* 모델별 추이 — 사이클 하나가 막대 하나. 아래부터 Pass(초록)·Fail(빨강),
+/* 모델별 추이 — 플랜 하나가 막대 하나. 아래부터 Pass(초록)·Fail(빨강),
    나머지는 빈 회색. 열기 전에 흐름이 읽히는 것이 목적이라 작게 둔다. */
 .cy-btrend { display: inline-flex; align-items: flex-end; gap: 2px; }
 .cy-btr {
@@ -3146,7 +3146,7 @@ table.tb td.k {
 .cy-bcard-m > b.done { color: var(--c-pass); }
 .cy-bcard-m > b.bad { color: var(--c-fail); font-size: var(--fs-sm); }
 
-/* 빵부스러기의 「사이클」 — 관제판으로 돌아가는 길 */
+/* 빵부스러기의 「플랜」 — 관제판으로 돌아가는 길 */
 .rq-crumb-home {
   border: 0;
   background: transparent;
@@ -3360,7 +3360,7 @@ table.tb td.k {
 .cy-root.on { background: var(--c-primary-bg); box-shadow: inset 3px 0 0 var(--c-primary); }
 
 
-/* 사이클 만들기 — 2열 거르개 줄 (옛 화면의 필터) */
+/* 플랜 만들기 — 2열 거르개 줄 (옛 화면의 필터) */
 .ce-filters {
   display: flex;
   gap: 6px;
@@ -3496,7 +3496,7 @@ table.tb td.k {
 }
 .ce-addbar .sp { flex: 1; }
 
-/* ── 항목 추가 2단계 팝업 (1단계 = 사이클 수정) ── */
+/* ── 항목 추가 2단계 팝업 (1단계 = 플랜 수정) ── */
 .ce-popback {
   position: fixed;
   inset: 0;
@@ -3786,7 +3786,7 @@ table.tb td.k {
 }
 .cy-crumb-x { color: var(--c-text); }
 
-/* 기존 시험이력 칩 — 같은 TC 가 돈 다른 사이클들. 최근이 왼쪽 */
+/* 기존 시험이력 칩 — 같은 TC 가 돈 다른 플랜들. 최근이 왼쪽 */
 .cxp-hist { display: inline-flex; gap: 2px; flex: none; }
 .cxp-hist > i {
   font-style: normal;
@@ -3866,7 +3866,7 @@ table.tb td.k {
 .ms-pf button.p.on { background: #d9f4e6; color: #0a7a45; border-color: #7fd7ab; }
 .ms-pf button.f.on { background: #fde4e4; color: #c22; border-color: #f0a9a9; }
 
-/* ── 진행결과 호버 카드 — 랙뷰 rv-tip 을 그대로 입고 내용만 사이클 ── */
+/* ── 진행결과 호버 카드 — 랙뷰 rv-tip 을 그대로 입고 내용만 플랜 ── */
 .cy-ptip { min-width: 232px; max-width: 280px; }
 .cy-ptbar {
   display: flex;
@@ -3888,7 +3888,7 @@ table.tb td.k {
 .cy-ptrow > b { font-weight: 600; }
 .cy-ptrow > em { margin-left: auto; font-style: normal; font-weight: 700; }
 
-/* ── 세부내역 인라인 — 사이클 ID 를 누르면 줄 밑에 펼쳐진다. 보기만 한다 ── */
+/* ── 세부내역 인라인 — 플랜 ID 를 누르면 줄 밑에 펼쳐진다. 보기만 한다 ── */
 .cyt-dcard {
   margin: 2px 8px 8px 46px;
   border: 1px solid var(--c-border);
@@ -3925,7 +3925,7 @@ table.tb td.k {
   padding-top: 8px;
 }
 
-/* Bulk Edit — 바꿀 사이클 목록 */
+/* Bulk Edit — 바꿀 플랜 목록 */
 .cy-bulk-list {
   max-height: 140px;
   overflow-y: auto;
@@ -3937,7 +3937,7 @@ table.tb td.k {
   gap: 2px;
 }
 
-/* ── 사이클 복제 대화상자 — Zephyr·TestRail 표준 조합 ── */
+/* ── 플랜 복제 대화상자 — Zephyr·TestRail 표준 조합 ── */
 .modal.cy-clone { width: min(460px, 94vw); }
 .cy-clone-b { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 14px; }
 .cy-clone-sec {
@@ -4027,7 +4027,7 @@ table.tb td.k {
 .cxp-fon { color: var(--c-primary); border-color: var(--c-primary); }
 
 
-/* 보드 ⚙ 필터 — 사이클 INFO 필드 */
+/* 보드 ⚙ 필터 — 플랜 INFO 필드 */
 .cyt-gear-tb {
   font-size: 21px;
   line-height: 1;
@@ -4865,7 +4865,7 @@ table.tb td.k {
 /* 가져오며 이 장비에 맞춘 것들 */
 .ask-fit { color: var(--c-text); margin-bottom: 6px; }
 
-/* ── 사이클 화면의 세로 레일 ─────────────────────────────────────
+/* ── 플랜 화면의 세로 레일 ─────────────────────────────────────
    요구사항·시험항목과 **같은 부품**(VRail). 왼쪽 아이콘 레일 + 오른쪽
    한 줄기 스크롤. 칸은 「시험결과 요약」·「항목」 둘이다.
    **실행 화면(RunPane)은 별개다** — 거기에는 레일을 얹지 않는다(지시). */
@@ -7473,7 +7473,7 @@ a.bc-cur:hover { text-decoration: underline; }
 .ask-grp:not(:last-child) .sq-add { display: none; }
 
 /* ── 실행 화면 위 세 줄(지시) ───────────────────────────────────────
-   1행 시험 완료 카드(고정) · 2행 시험 진행 요약(접힘) · 3행 사이클 진행(고정) */
+   1행 시험 완료 카드(고정) · 2행 시험 진행 요약(접힘) · 3행 플랜 진행(고정) */
 .cxp-infocard {
   margin: 0 0 8px;
   border: 1px solid var(--c-border-soft);
@@ -8098,7 +8098,7 @@ a.bc-cur:hover { text-decoration: underline; }
 /* 막대 숫자 — 「17/62 (27%)」 가 들어가 폭이 좀 는다 */
 .cxp-sumb .nm { white-space: nowrap; }
 
-/* ══ 사이클 목록 — 판 + 엑셀 표 (승인 A안) ══
+/* ══ 플랜 목록 — 판 + 엑셀 표 (승인 A안) ══
    요구사항·시험항목과 같은 벌. 1열·2열 카드 껍데기를 벗겨 판으로 두고,
    사이는 1열의 오른선 하나로만 나눈다. */
 /* 본문 여백이 12px 이던 시절의 보정이다 — 여백을 4px 로 줄인 뒤(좌우
@@ -8204,7 +8204,7 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   letter-spacing: -0.01em;
 }
 
-/* ── 사이클 목록 개편(승인 목업) — 접두어 cyl- ────────────────
+/* ── 플랜 목록 개편(승인 목업) — 접두어 cyl- ────────────────
    폴더 레일이 없어지고, 사업자·제품군·버전그룹은 도구줄 필터와 표의
    열이 맡는다. 요약 카드 자체는 CycleSummary.css 에 있다. */
 .cyl-filter {
@@ -8225,7 +8225,7 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   font-weight: 700;
 }
 
-/* 고른 줄 — 요약 카드가 보는 사이클. hover 색보다 한 층 진하게 */
+/* 고른 줄 — 요약 카드가 보는 플랜. hover 색보다 한 층 진하게 */
 .cyt-row.cyl-on { background: #e8f3f6; box-shadow: inset 3px 0 0 var(--c-sel-teal, #a8d3dd); }
 .cyt-row.cyl-on:hover { background: #e0eef2; }
 

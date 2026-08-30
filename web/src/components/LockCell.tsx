@@ -7,7 +7,7 @@ export interface Lock {
   locked_by: string
   locked_name?: string | null
   cycle_id?: string | null
-  /** 어느 사이클에서 쓰는 중인가 — id 만으로는 사람이 못 읽는다(지시) */
+  /** 어느 플랜에서 쓰는 중인가 — id 만으로는 사람이 못 읽는다(지시) */
   cycle_name?: string | null
   cycle_cid?: string | null
   note?: string | null

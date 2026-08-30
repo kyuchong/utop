@@ -263,12 +263,12 @@ export default function TcInfo({ data, onChange }: Props) {
 
       {/* 적용 모델 — 모델마다 인터페이스가 달라 CLI·판정기준이 갈리므로
           시험을 모델그룹+모델명 기준으로 만든다. 비우면 공용이고,
-          사이클 만들기가 이 기준으로 항목을 거른다. */}
+          플랜 만들기가 이 기준으로 항목을 거른다. */}
       <section className="tc-card">
         <div className="tc-card-head">
           <b>적용 모델</b>
           <span className="muted small">
-            비우면 공용 — 사이클 만들기가 이 기준으로 항목을 거릅니다
+            비우면 공용 — 플랜 만들기가 이 기준으로 항목을 거릅니다
           </span>
         </div>
         <div className="tc-grid">
@@ -293,7 +293,7 @@ export default function TcInfo({ data, onChange }: Props) {
               value={String(data.model ?? '')}
               onChange={(e) => {
                 const m = e.target.value
-                // 모델을 고르면 그 모델의 그룹을 같이 채운다 — 따로 놀면 사이클이 못 거른다
+                // 모델을 고르면 그 모델의 그룹을 같이 채운다 — 따로 놀면 플랜이 못 거른다
                 const g = m ? (rolesQ.data?.model_info?.[m]?.model_group ?? mg) : mg
                 onChange({ model: m, model_group: g || mg })
               }}

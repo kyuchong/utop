@@ -11,7 +11,7 @@ import './NotifyBell.css'
  * 브라우저에 쌓는 방식이었는데, 그러면 꺼 둔 사이의 일과 남의 브라우저
  * 일이 안 남는다. 이력은 서버가 정본이고(전부 남는다), 웹소켓 소식은
  * 「새 이력이 생겼다」 는 초인종으로만 쓴다. 줄을 누르면 그 시험·
- * 요구사항·사이클로 간다.
+ * 요구사항·플랜로 간다.
  */
 
 interface AuditItem {
@@ -36,7 +36,7 @@ const TRACKED = new Set([
  * 누르면 가는 곳은 그대로 속 열쇠를 쓴다.
  */
 /**
- * 한 줄을 **칸으로 나눈다**(지시): 언제 · 무엇(결함·사이클…) · ID · 제목.
+ * 한 줄을 **칸으로 나눈다**(지시): 언제 · 무엇(결함·플랜…) · ID · 제목.
  *
  * 예전엔 한 문장으로 이어 붙여, 좁은 판에서 두세 줄로 접히고 무엇이 ID 이고
  * 무엇이 제목인지 눈이 짚어야 했다. 칸이 나뉘면 세로로 줄이 맞아, 「결함만
@@ -61,7 +61,7 @@ function lineOf(
     return { ...base, kind: '요구사항', act: '저장', go: { kind: 'req', id: it.ref_id } }
   }
   if (it.kind === 'cycle')
-    return { ...base, kind: '사이클', act: '저장', go: { kind: 'cycle', id: it.ref_id } }
+    return { ...base, kind: '플랜', act: '저장', go: { kind: 'cycle', id: it.ref_id } }
   if (it.kind === 'defect') return { ...base, kind: '결함', act: act || '' }
   return { ...base, kind: it.kind, act }
 }
@@ -83,7 +83,7 @@ export default function NotifyBell({ collapsed }: { collapsed?: boolean }) {
     queryKey: ['cycle', 'meta'],
     queryFn: async () => {
       const r = await apiFetch('/api/cycle?meta=1')
-      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      if (!r.ok) throw new Error('플랜을 불러오지 못했습니다')
       return (await r.json()) as {
         cycles: Array<{ id: string; cid?: string | null; name?: string | null }>
       }

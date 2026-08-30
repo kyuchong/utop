@@ -829,7 +829,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
      *
      * Traffic 탭에서 계측기를 고르고 저장을 안 한 채 다른 창을 보고 오면,
      * 다시 읽어온 값이 그것을 지우고 「저장됨」 으로 바꿔 놓았다. 고친 줄
-     * 알고 사이클을 돌리면 그제서야 「계측기를 고르지 않았습니다」 가 났다.
+     * 알고 플랜을 돌리면 그제서야 「계측기를 고르지 않았습니다」 가 났다.
      *
      * 같은 시험을 보고 있고 안 저장한 것이 있으면 그대로 둔다. 남이
      * 저장한 경우는 위 presence 가 띠로 알린다 — 불러올지는 사람이 고른다.
@@ -1028,7 +1028,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
    *
    * `fromRun` 이면 저장을 재촉하지 않는다. TC 화면의 실행은 **스텝이 잘
    * 만들어졌는지 보는 자리**지 결과를 남기는 자리가 아니다 — 결과를
-   * 남기는 것은 사이클이고 거기서는 실행기가 알아서 저장한다.
+   * 남기는 것은 플랜이고 거기서는 실행기가 알아서 저장한다.
    *
    * 전에는 실행만 해도 「저장 안 됨」 이 되어서, 아무것도 안 고쳤는데
    * 저장을 누르거나 나갈 때 물음창을 받아야 했다. 새로고침하면 사라지는
@@ -1531,7 +1531,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
        * 만들어졌는지 보는 자리**다 — 돌려 보고, 응답을 뜯어 보고, 판정
        * 기준을 고친다. 그때마다 저장을 재촉받을 이유가 없다.
        *
-       * 결과를 남기는 것은 사이클이고, 거기서는 실행기가 알아서 저장한다.
+       * 결과를 남기는 것은 플랜이고, 거기서는 실행기가 알아서 저장한다.
        */
       setMsg({
         kind: r.fail > 0 ? 'err' : 'ok',
@@ -1777,8 +1777,8 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
   /*
    * 시험마다 **가장 최근 결과** — 목록 한 열(지시).
    *
-   * 결과는 사이클 안에 산다. 목록에서 못 보면 「이 시험 요즘 되나」 를
-   * 알려고 사이클을 하나씩 열어 봐야 한다.
+   * 결과는 플랜 안에 산다. 목록에서 못 보면 「이 시험 요즘 되나」 를
+   * 알려고 플랜을 하나씩 열어 봐야 한다.
    */
   const lastRes = useQuery({
     queryKey: ['tc-last-result'],

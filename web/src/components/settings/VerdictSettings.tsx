@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 
 /**
- * 실행 판정 기준 — 사이클 실행에서 고르는 판정값(Pass·Fail·…)을 여기서 정한다.
+ * 실행 판정 기준 — 플랜 실행에서 고르는 판정값(Pass·Fail·…)을 여기서 정한다.
  *
  * 값은 `/api/codes` 의 `kind='cycle_result'` 한 곳에 산다. 색과 계열은 그 줄의
  * `note` 에 JSON(`{color, group}`)으로 담는다. **기본 여섯**(Pass·Fail·WIP·
@@ -163,7 +163,7 @@ export default function VerdictSettings() {
     <div className="set-page vd">
       <h2>실행 판정 기준</h2>
       <p className="muted">
-        사이클 실행에서 고르는 판정값입니다. <b>기본 여섯</b>은 판정 규칙이 물고 있어 지울 수
+        플랜 실행에서 고르는 판정값입니다. <b>기본 여섯</b>은 판정 규칙이 물고 있어 지울 수
         없지만 <b>색은 바꿀 수 있습니다</b>. 새 기준을 더하면 판정 드롭다운·집계에 함께 섭니다.
         <br />
         집계는 <b>Pass · Fail · 검증 불가</b> 셋뿐입니다 — Blocked·진행불가는 시험을 못 한

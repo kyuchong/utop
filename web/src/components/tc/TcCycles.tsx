@@ -23,13 +23,13 @@ interface Props {
 }
 
 /**
- * 사이클 탭 — 이 TC 가 어느 배포 검증에 들어갔고 결과가 어땠나.
+ * 플랜 탭 — 이 TC 가 어느 배포 검증에 들어갔고 결과가 어땠나.
  *
  * 실행 이력과 다른 질문이다. 저쪽은 '이 화면에서 언제 돌렸나'(만드는 동안의
  * 기록)이고, 이쪽은 '어느 릴리스 검증에 들어갔나'(공식 기록)다. 자료도 다른
- * 곳에 있다 — 이력은 파일, 사이클은 DB 다.
+ * 곳에 있다 — 이력은 파일, 플랜은 DB 다.
  *
- * 줄을 누르면 그 사이클로 넘어가야 하는데, Cycles 화면이 아직 새 UI 로
+ * 줄을 누르면 그 플랜로 넘어가야 하는데, Cycles 화면이 아직 새 UI 로
  * 안 옮겨졌다. 그래서 지금은 넘기지 않고, 대신 넘어가서 볼 만한 것(모델·
  * 버전·장비·스텝 집계)을 이 줄에 다 적어 둔다.
  */
@@ -38,7 +38,7 @@ export default function TcCycles({ tcid }: Props) {
     queryKey: ['tc', tcid, 'cycles'],
     queryFn: async () => {
       const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}/cycles`)
-      if (!r.ok) throw new Error('사이클을 불러오지 못했습니다')
+      if (!r.ok) throw new Error('플랜을 불러오지 못했습니다')
       return (await r.json()) as { cycles?: Row[] }
     },
   })
@@ -63,16 +63,16 @@ export default function TcCycles({ tcid }: Props) {
 
         {rows.length === 0 ? (
           <div className="empty">
-            이 TC 가 들어간 사이클이 없습니다.
+            이 TC 가 들어간 플랜이 없습니다.
             <br />
             <span className="muted small">
-              사이클은 배포 검증 단위입니다 — Cycles 화면에서 이 TC 를 담으면 여기 나옵니다.
+              플랜은 배포 검증 단위입니다 — Cycles 화면에서 이 TC 를 담으면 여기 나옵니다.
             </span>
           </div>
         ) : (
           <div className="tcyc-list">
             <div className="tcyc-row th">
-              <span>사이클</span>
+              <span>플랜</span>
               <span>장비</span>
               <span>실행</span>
               <span>사람</span>
@@ -82,12 +82,12 @@ export default function TcCycles({ tcid }: Props) {
             {rows.map((r, i) => (
               <div className="tcyc-row" key={`${r.cycle_id}-${i}`}>
                 <span className="cy-nm">
-                  {/* 누르면 그 사이클로 — Cycles 화면이 ?cycle= 딥링크를
+                  {/* 누르면 그 플랜로 — Cycles 화면이 ?cycle= 딥링크를
                       이미 받는다. 새 탭(Ctrl·우클릭)도 그대로 된다. */}
                   <a
                     className="linkish"
                     href={gotoHref('cycle', r.cycle_id)}
-                    title="이 사이클로 이동 (Ctrl+클릭·오른쪽 단추로 새 탭)"
+                    title="이 플랜로 이동 (Ctrl+클릭·오른쪽 단추로 새 탭)"
                     onClick={(e) => gotoClick(e, 'cycle', r.cycle_id)}
                   >
                     <b>{r.version || '(버전 없음)'}</b>

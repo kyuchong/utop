@@ -45,8 +45,8 @@ function arc(cx: number, cy: number, r: number, from: number, to: number): strin
 /**
  * Reports — 지금 어디까지 왔나.
  *
- * 사이클 화면은 **한 사이클**을 붙들고 보는 자리다. 그런데 「E5724RL 이
- * 지금 몇 % 왔나」 · 「어느 버전이 제일 많이 깨졌나」 는 사이클을 하나씩
+ * 플랜 화면은 **한 플랜**을 붙들고 보는 자리다. 그런데 「E5724RL 이
+ * 지금 몇 % 왔나」 · 「어느 버전이 제일 많이 깨졌나」 는 플랜을 하나씩
  * 열어서는 못 답한다.
  *
  * 여기는 **전부를 한 장에** 놓고 거른다. 숫자 · 그림 · 목록이 같은
@@ -64,7 +64,7 @@ export default function Reports() {
   const [q, setQ] = useState('')
   /** 기간 — 실행일 기준. 0 = 전체 */
   const [days, setDays] = useState(0)
-  /** 축 분석 — 사이클 INFO 필드가 곧 축이다 (조사 결론: 축 교체가 리포트 엔진) */
+  /** 축 분석 — 플랜 INFO 필드가 곧 축이다 (조사 결론: 축 교체가 리포트 엔진) */
   const [axis, setAxis] = useState<'cycle' | 'version_group' | 'model' | 'customer' | 'severity' | 'assignee' | 'cycle_status'>('cycle')
   const [axf, setAxf] = useState<{ axis: string; val: string } | null>(null)
   /** 결과 상세 페이지 — 500건 자르기 대신 (참고안) */
@@ -133,13 +133,13 @@ export default function Reports() {
 
   /** 축별 합격·불합격 — 축(INFO 필드)을 갈아 끼우면 리포트가 바뀐다 */
   const AXES: Array<{ k: typeof axis; label: string }> = [
-    { k: 'cycle', label: '사이클(버전)' },
+    { k: 'cycle', label: '플랜(버전)' },
     { k: 'version_group', label: '버전그룹' },
     { k: 'model', label: '모델' },
     { k: 'customer', label: '고객' },
     { k: 'severity', label: '심각도' },
     { k: 'assignee', label: '담당자' },
-    { k: 'cycle_status', label: '사이클 상태' },
+    { k: 'cycle_status', label: '플랜 상태' },
   ]
   const byCycle = useMemo(() => {
     const m = new Map<string, { name: string; id: string; pass: number; fail: number; rest: number }>()
@@ -167,7 +167,7 @@ export default function Reports() {
     if (!rows.length) return
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
     const csv = [
-      ['결과', 'TC ID', '시험항목', '심각도', '요구사항', '사이클', '버전', '버전그룹', '고객', '담당자', '실행일']
+      ['결과', 'TC ID', '시험항목', '심각도', '요구사항', '플랜', '버전', '버전그룹', '고객', '담당자', '실행일']
         .map(esc)
         .join(','),
       ...rows.map((r) =>
@@ -245,7 +245,7 @@ export default function Reports() {
                 <button
                   className={`btn small cxp-funnel${fCnt ? ' cxp-fon' : ''}`}
                   type="button"
-                  title="필터 — 기간 · 심각도 · 타입 · 사이클"
+                  title="필터 — 기간 · 심각도 · 타입 · 플랜"
                   onClick={(e) => {
                     const r2 = e.currentTarget.getBoundingClientRect()
                     setFiltAt((v2) => (v2 ? null : { x: r2.left, y: r2.bottom + 4 }))
@@ -319,7 +319,7 @@ export default function Reports() {
                       </button>
                     ))}
                   </div>
-                  <div className="rp-fsec">사이클</div>
+                  <div className="rp-fsec">플랜</div>
                   <div className="cxp-flist rp-fcyc">
                     <button type="button" className={cyc === '' ? 'on' : ''} onClick={() => setCyc('')}>
                       <s className="d all" />
@@ -440,7 +440,7 @@ export default function Reports() {
                 <select
                   className="rp-axis"
                   value={axis}
-                  title="축 — 사이클 INFO 필드를 갈아 끼우면 리포트가 바뀝니다"
+                  title="축 — 플랜 INFO 필드를 갈아 끼우면 리포트가 바뀝니다"
                   onChange={(e) => {
                     setAxis(e.target.value as typeof axis)
                     setAxf(null)
@@ -520,7 +520,7 @@ export default function Reports() {
               <span>시험항목</span>
               <span>심각도</span>
               <span>요구사항</span>
-              <span>사이클</span>
+              <span>플랜</span>
               <span>실행일</span>
             </div>
             {sumQ.isLoading ? (

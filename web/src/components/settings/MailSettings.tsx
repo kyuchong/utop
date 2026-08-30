@@ -6,7 +6,7 @@ import SetTabs, { useSetTab } from './SetTabs'
  * 메일 설정.
  *
  * 서버는 진작부터 메일을 보낼 줄 알았다 — @멘션, 요구사항·시험항목 공유,
- * 사이클 배정. 그런데 **설정할 자리가 새 화면에 없었다**. 그래서 보낼
+ * 플랜 배정. 그런데 **설정할 자리가 새 화면에 없었다**. 그래서 보낼
  * 수는 있는데 어디로 어떻게 보내는지는 손댈 수가 없었다
  * (지시: SETUP › INTEGRATION 아래 메일 설정 페이지).
  *
@@ -75,7 +75,7 @@ const TC_SEC: Array<[string, string]> = [
   ['steps', '시험 스텝'],
   ['issue', '결함'],
   ['history', '변경 이력'],
-  ['cycle', '사이클'],
+  ['cycle', '플랜'],
 ]
 
 type Tab = 'smtp' | 'req' | 'tc' | 'cycle'
@@ -225,7 +225,7 @@ export default function MailSettings() {
       <div className="set-head">
         <b>메일 설정</b>
         <span className="muted small">
-          @멘션 알림·요구사항/시험항목 공유·사이클 배정 메일에 씁니다. (관리자 전용)
+          @멘션 알림·요구사항/시험항목 공유·플랜 배정 메일에 씁니다. (관리자 전용)
         </span>
         <span className="sp" />
         {note.msg && <span className={`set-note ${note.kind}`}>{note.msg}</span>}
@@ -241,7 +241,7 @@ export default function MailSettings() {
           { k: 'smtp', label: '메일 설정', hint: '어디로 보내는가 — SMTP' },
           { k: 'req', label: 'REQ 공유 폼', hint: '요구사항을 공유할 때 쓸 글' },
           { k: 'tc', label: 'TC 공유 폼', hint: '시험항목을 공유할 때 쓸 글' },
-          { k: 'cycle', label: '사이클 배정 폼', hint: '담당자에게 배정을 알릴 때 쓸 글' },
+          { k: 'cycle', label: '플랜 배정 폼', hint: '담당자에게 배정을 알릴 때 쓸 글' },
         ]}
       />
 

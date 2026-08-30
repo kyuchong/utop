@@ -2000,7 +2000,7 @@ async def api_users_delete_retired(token: str = ""):
     """Jira 에서 나간 사람(jira_active=False)을 **명단에서 지운다**(지시: 퇴사자
     필요 없음).
 
-    기록은 안 깨진다 — 사이클의 실행자·담당자는 이름 **문자열**로 담겨 있어
+    기록은 안 깨진다 — 플랜의 실행자·담당자는 이름 **문자열**로 담겨 있어
     (FK 가 아니다) 계정을 지워도 그 기록의 이름은 남는다. admin 은 못 지운다.
 
     다음 동기화에서 되살아나지 않게, 동기화 쪽에서 비활성 신규는 안 만든다.
@@ -2094,13 +2094,13 @@ def _send_mail(to_addrs, subject: str, body: str, html: bool = False):
 
 _DEFAULT_APPROVAL_SUBJECT = "[ubiQuoss-TOP] \U0001F389 가입이 승인되었습니다"
 
-# 사이클 배정 알림 메일 기본 폼 (메일 설정 → 사이클 배정 폼에서 편집 가능)
+# 플랜 배정 알림 메일 기본 폼 (메일 설정 → 플랜 배정 폼에서 편집 가능)
 # 플레이스홀더: {{assignee}} {{model}} {{vgroup}} {{version}} {{period}} {{count}} {{items}} {{app_url}} {{login_button}}
-_DEFAULT_CYCLE_SUBJECT = "[ubiQuoss-TOP] 시험 사이클 배정 — {{model}} {{version}}"
+_DEFAULT_CYCLE_SUBJECT = "[ubiQuoss-TOP] 시험 플랜 배정 — {{model}} {{version}}"
 _DEFAULT_CYCLE_TPL = """<!DOCTYPE html><html><body style="margin:0;padding:0;background:#eef1f6;">
 <div style="font-family:'Malgun Gothic','맑은 고딕',Arial,sans-serif;max-width:960px;margin:0 auto;color:#1f2937;">
   <div style="background:linear-gradient(135deg,#2563eb,#4f8ae8);color:#fff;padding:18px 22px;border-radius:11px 11px 0 0;">
-    <div style="font-size:18px;font-weight:800;">📋 시험 사이클이 배정되었습니다</div>
+    <div style="font-size:18px;font-weight:800;">📋 시험 플랜이 배정되었습니다</div>
     <div style="font-size:12.5px;opacity:.92;margin-top:3px;">{{assignee}} 님, 아래 항목을 시험해 주세요.</div></div>
   <div style="border:1px solid #e3e8ef;border-top:none;border-radius:0 0 11px 11px;padding:20px 22px;">
     <table style="font-size:13px;line-height:1.7;margin-bottom:14px;">
@@ -2423,7 +2423,7 @@ async def api_share_mail(payload: dict, token: str = ""):
 
 @app.post("/api/notify/cycle")
 async def api_notify_cycle(payload: dict, token: str = ""):
-    """사이클 생성 시 담당자에게 배정 알림 메일 발송 (메일 발송 토글 ON일 때 프론트가 호출)."""
+    """플랜 생성 시 담당자에게 배정 알림 메일 발송 (메일 발송 토글 ON일 때 프론트가 호출)."""
     u = _user_from_token(token)
     if not u:
         raise HTTPException(401, "로그인이 필요합니다")
@@ -2470,7 +2470,7 @@ async def api_notify_cycle(payload: dict, token: str = ""):
         '<th style="padding:6px 10px;border:1px solid #e3e8ef;text-align:left;width:220px;white-space:nowrap;">TC ID</th>'
         '<th style="padding:6px 10px;border:1px solid #e3e8ef;text-align:left;">시험명</th>'
         f'</tr></thead><tbody>{rows}</tbody></table>')
-    # 메일 폼: 설정의 사이클 배정 폼(있으면) → 없으면 기본 폼. 플레이스홀더 치환.
+    # 메일 폼: 설정의 플랜 배정 폼(있으면) → 없으면 기본 폼. 플레이스홀더 치환.
     tpl = _mc.get("cycle_html") or _DEFAULT_CYCLE_TPL
     subj_tpl = _mc.get("cycle_subject") or _DEFAULT_CYCLE_SUBJECT
     def _fill(s):
@@ -2805,10 +2805,10 @@ LLM_PURPOSES: dict[str, dict] = {
         "hint": "시험항목 › Automation 스텝 · AI 화면의 고급 갈래(절차 짓기)가 함께 씁니다.",
         "system": "",  # 비우면 코드가 든 긴 규칙(nl_test.py)을 그대로 쓴다
     },
-    # ── 사이클 ──────────────────────────────────────────────────
+    # ── 플랜 ──────────────────────────────────────────────────
     "cycle_summary": {
         "label": "Cycle-Test Summary",
-        "hint": "사이클 실행 › 시험 진행 요약의 AI 요약을 씁니다.",
+        "hint": "플랜 실행 › 시험 진행 요약의 AI 요약을 씁니다.",
         "system": (
             "당신은 네트워크 장비 시험(QA) 결과 분석 전문가다. 주어진 회차 결과를 "
             "근거로 한국어 Markdown 보고서를 쓴다.\n"
@@ -4076,7 +4076,7 @@ async def get_req_image(name: str):
 # 같은 장비를 두 사람이 동시에 잡으면 시험이 통째로 망가진다. 50명이
 # 함께 쓰면 반드시 필요하다.
 #
-# 락은 사이클이 끝날 때까지 유지한다(시간 만료 없음). 자동으로 풀면
+# 락은 플랜이 끝날 때까지 유지한다(시간 만료 없음). 자동으로 풀면
 # 실제 시험 중인 장비를 남이 뺏을 수 있다. 대신 살아있음 신호를 남겨
 # '응답 없음' 을 보여주고, 푸는 것은 사람이 판단한다.
 # ───────────────────────────────────────────
@@ -4142,7 +4142,7 @@ async def codes_orphans(kind: str = ""):
 
 @app.get("/api/cycle-desc-template")
 async def cycle_desc_template_get():
-    """사이클 설명 틀 — 보고서 패턴을 맞추려고 사람이 정의해 둔다."""
+    """플랜 설명 틀 — 보고서 패턴을 맞추려고 사람이 정의해 둔다."""
     d = _kv_load_sync("cycle_desc_template", {}) or {}
     return {"text": str(d.get("text") or "")}
 
@@ -4318,7 +4318,7 @@ async def device_catalog_rename(payload: dict):
     old = str(payload.get("old") or "").strip()
     new = str(payload.get("new") or "").strip()
     if kind == "model":
-        raise HTTPException(400, "모델명은 사이클·시험이 물려 있어 여기서 못 바꿉니다")
+        raise HTTPException(400, "모델명은 플랜·시험이 물려 있어 여기서 못 바꿉니다")
     if kind not in db.CATALOG_KINDS or not old or not new:
         raise HTTPException(400, "kind·old·new 가 필요합니다")
     try:
@@ -5124,7 +5124,7 @@ async def list_locks():
             FROM resource_lock ORDER BY locked_at
             """
         )
-        # 「어느 사이클에서 쓰는 중인가」 — id 만으로는 사람이 못 읽는다(지시)
+        # 「어느 플랜에서 쓰는 중인가」 — id 만으로는 사람이 못 읽는다(지시)
         ids = [r["cycle_id"] for r in rows if r["cycle_id"]]
         nm: dict = {}
         if ids:
@@ -5154,11 +5154,11 @@ class LockBulkIn(BaseModel):
 @app.post("/api/locks/bulk")
 async def acquire_locks_bulk(body: LockBulkIn, request: Request):
     """
-    사이클 실행이 거는 자동 점유(지시). 걸려는 장비 가운데 **남이 잡은 것이
+    플랜 실행이 거는 자동 점유(지시). 걸려는 장비 가운데 **남이 잡은 것이
     하나라도 있으면 아무것도 잡지 않고 물러난다** — 반쯤 잡힌 채로 실패하면
     남의 자리만 붙들고 있게 된다.
 
-    막힌 자리는 「누가 · 어느 사이클에서」 까지 돌려준다.
+    막힌 자리는 「누가 · 어느 플랜에서」 까지 돌려준다.
     """
     me = _me(request)
     ids = [str(x).strip() for x in (body.resource_ids or []) if str(x).strip()]
@@ -5266,7 +5266,7 @@ async def release_lock(resource_id: str, request: Request):
 
 @app.delete("/api/locks/by-cycle/{cycle_id}")
 async def release_locks_of_cycle(cycle_id: str, request: Request):
-    """사이클이 끝나면 그 사이클이 잡은 것을 한꺼번에 푼다."""
+    """플랜이 끝나면 그 플랜이 잡은 것을 한꺼번에 푼다."""
     _me(request)
     async with db.pool().acquire() as c:
         r = await c.execute("DELETE FROM resource_lock WHERE cycle_id=$1", cycle_id)
@@ -5846,13 +5846,13 @@ def _tc_meta_extra(meta: dict, d: dict):
 async def tc_last_result():
     """시험마다 **가장 최근 시험 결과** — 목록의 한 열(지시).
 
-    결과는 사이클 안에 산다. 다만 `result` 칸만 보면 안 된다 — 자동 실행은
+    결과는 플랜 안에 산다. 다만 `result` 칸만 보면 안 된다 — 자동 실행은
     항목 칸을 비워 두고 **스텝에만** 결과를 남긴다(사람이 손으로 찍을 때만
     항목 칸이 찬다). 그래서 돌려 놓고도 목록이 「–」 였다(지적: 제대로
     반영되고 있는 건가). 판정은 실행 화면과 같은 규칙(_item_verdict)으로
     스텝에서 유도한다.
 
-    **가장 나중에 돌린 것**이 이긴다 — 사이클을 고친 시각이 아니라 항목을
+    **가장 나중에 돌린 것**이 이긴다 — 플랜을 고친 시각이 아니라 항목을
     실행한 시각(`last_run`)으로 고른다.
     """
     try:
@@ -5886,10 +5886,10 @@ async def tc_last_result():
             if not v:
                 continue        # 아직 안 돌린 항목은 「최근 결과」 가 아니다
             # **언제 돌렸나**로 고른다(지적: 실행했을 때 Pass 인데 안 바뀐다).
-            # 여태는 「사이클을 마지막으로 고친 시각」 순으로 앞엣것을 썼다.
-            # 그래서 같은 시험이 두 사이클에 들어 있으면, 어제 Pass 로 돌린
-            # 것이 아니라 오늘 이름만 고친 사이클의 옛 Fail 이 이겼다. 말풍선의
-            # 시각도 실행 시각이 아니라 사이클을 고친 시각이었다.
+            # 여태는 「플랜을 마지막으로 고친 시각」 순으로 앞엣것을 썼다.
+            # 그래서 같은 시험이 두 플랜에 들어 있으면, 어제 Pass 로 돌린
+            # 것이 아니라 오늘 이름만 고친 플랜의 옛 Fail 이 이겼다. 말풍선의
+            # 시각도 실행 시각이 아니라 플랜을 고친 시각이었다.
             at = _when(it.get("last_run")) or _when(cyc_at)
             prev = best.get(t)
             if prev and prev[0] >= at:
@@ -6194,7 +6194,7 @@ async def delete_tc_run_history(tc_id: str, idx: int = -1):
     except Exception as e:
         raise HTTPException(500, str(e))
 
-# 이 TC 를 참조하는 모든 사이클 items 에서 해당 항목 제거 (백그라운드용 헬퍼).
+# 이 TC 를 참조하는 모든 플랜 items 에서 해당 항목 제거 (백그라운드용 헬퍼).
 # ⚠️ 반드시 @app.delete 데코레이터 없이 순수 async 함수여야 함 — 데코레이터가 붙으면
 #    DELETE /api/tc/{tc_id} 라우팅이 이 헬퍼로 가버려 실제 tc_delete 호출이 안 됨 (버그).
 async def _clean_cycle_refs(tc_id: str):
@@ -6240,7 +6240,7 @@ async def delete_tc(tc_id: str):
         try: asyncio.create_task(_trash_bg())
         except Exception: pass
         await db.tc_delete(tc_id)
-        # 이 TC 를 참조하는 사이클 items 도 정리 (백그라운드) — 안 하면 프론트가 404 반복 조회
+        # 이 TC 를 참조하는 플랜 items 도 정리 (백그라운드) — 안 하면 프론트가 404 반복 조회
         try: asyncio.create_task(_clean_cycle_refs(tc_id))
         except Exception: pass
     # WS 브로드캐스트도 백그라운드 (다수 접속 시 순차 send 로 응답 지연)
@@ -8466,7 +8466,7 @@ async def get_all_cycles(meta: int = 0):
     return {"cycles": await db.cycle_list_full()}
 
 # ───────────────────────────────────────────
-# 사이클 트리 집계 — 폴더 한 층의 현황을 **서버가** 센다.
+# 플랜 트리 집계 — 폴더 한 층의 현황을 **서버가** 센다.
 #
 # 여태 화면이 회차·항목을 다 받아 브라우저에서 셌다. 사업자 층은 수천
 # 건이라 트리 위로 갈수록 느려진다. 여기서 한 번에 세어 내려준다.
@@ -8673,7 +8673,7 @@ async def cycle_rollup_items(
 ):
     """
     결과 상세 — 이 폴더에 걸린 **항목 한 줄씩**. 옛 Reports 의 아래 표다.
-    거르개: 찾기 · 타입(auto·manual) · 심각도 · 사이클 · 판정 · 기간.
+    거르개: 찾기 · 타입(auto·manual) · 심각도 · 플랜 · 판정 · 기간.
     """
     metas = await db.cycle_list_meta()
     cat = await db.catalog_list("model")
@@ -8840,7 +8840,7 @@ async def cycle_rollup_csv(
                                  verdict, limit=100000, offset=0)
     buf = _io.StringIO()
     w = _csv.writer(buf)
-    w.writerow(["결과", "TC ID", "시험항목", "부적합", "심각도", "요구사항", "사이클", "실행일"])
+    w.writerow(["결과", "TC ID", "시험항목", "부적합", "심각도", "요구사항", "플랜", "실행일"])
     for r in d["rows"]:
         w.writerow([
             {"pass": "합격", "fail": "불합격", "none": "미실행"}.get(r["group"], r["verdict"] or ""),
@@ -8884,10 +8884,10 @@ async def cycle_rollup_mail(payload: dict):
 
 
 # ───────────────────────────────────────────
-# 사이클 하나의 결과 메일 — 요약 카드의 「결과 메일 발송」 이 부른다.
+# 플랜 하나의 결과 메일 — 요약 카드의 「결과 메일 발송」 이 부른다.
 #
-# rollup/mail(폴더 단위)과 다른 물건이다: 이건 **한 사이클**의 결과다.
-# 폴더 레일이 없어지면서(승인) 사이클 화면의 발송 단위도 사이클이 됐다.
+# rollup/mail(폴더 단위)과 다른 물건이다: 이건 **한 플랜**의 결과다.
+# 폴더 레일이 없어지면서(승인) 플랜 화면의 발송 단위도 플랜이 됐다.
 # rollup/mail 은 인증도 enabled 체크도 없는데, 새 길은 share-mail 을
 # 본받아 둘 다 한다 — 무인증 발송 구멍을 새로 파지 않는다.
 # ───────────────────────────────────────────
@@ -8895,7 +8895,7 @@ async def _cycle_mail_html(cycle_id: str, note: str = "") -> tuple[str, str]:
     """(제목, HTML). 메일 클라이언트는 CSS 클래스를 못 읽는다 — 전부 인라인."""
     c = await db.cycle_get(cycle_id)
     if not c:
-        raise HTTPException(404, "사이클을 찾을 수 없습니다")
+        raise HTTPException(404, "플랜을 찾을 수 없습니다")
     grp_of = await _ru_groups()
     items = c.get("items") or []
     n_pass = n_fail = n_done = 0
@@ -8999,9 +8999,9 @@ async def cycle_mail(cycle_id: str, payload: dict, token: str = ""):
 # `E4320-24P_2` 같은 것이 생겼다. 버전그룹만 사람이 만든다 — R200, R300
 # 은 카탈로그가 알 수 없는, 이 회차 묶음의 이름이라서다.
 #
-# **파일이 아니라 DB 에 둔다.** 옛 사이클 폴더는
+# **파일이 아니라 DB 에 둔다.** 옛 플랜 폴더는
 # `data/state/cycle_folders.json` 이었고, 자료를 옮길 때 딸려오지 않아
-# 사이클 23건이 전부 이름 없는 폴더를 가리키게 됐다.
+# 플랜 23건이 전부 이름 없는 폴더를 가리키게 됐다.
 _VGROUP_KV = "cycle_version_groups"
 
 
@@ -9651,7 +9651,7 @@ def _wiki_plain(body) -> str:
                 out.append(t)
             # 「살아 있는 표」 는 글자가 없다 — 담긴 것은 질의뿐이라, 찾기가
             # 훑을 것이 하나도 없어 문서에서 통째로 사라진다. 무엇을 가리키는
-            # 블록인지만 남긴다: 사이클 ID 로 문서를 찾는 일이 실제로 있다.
+            # 블록인지만 남긴다: 플랜 ID 로 문서를 찾는 일이 실제로 있다.
             if v.get("type") == "utopView":
                 p = v.get("props") or {}
                 out.append(" ".join(
@@ -10269,7 +10269,7 @@ async def transfer_import(payload: dict):
                 await db.cycle_upsert(cid, _strip_derived(cyc))
                 n += 1
             except Exception as e:
-                done.setdefault("_errors", []).append(f"사이클 {cid}: {e}")
+                done.setdefault("_errors", []).append(f"플랜 {cid}: {e}")
         done["cycle"] = n
 
     if "defect" in parts:
@@ -11981,7 +11981,7 @@ async def pptx_render(payload: dict):
 
 
 async def _cycle_cid_prefix(data: dict) -> tuple[str, int]:
-    """cid 앞머리 — **모델그룹 기준**(E61xx_C0001), 요구사항·시험과 같은 규칙.
+    """cid 앞머리 — **모델그룹 기준**(E61xx_P0001), 요구사항·시험과 같은 규칙.
 
     모델그룹을 모르면(제목만 치고 만든 인라인 생성) 옛 주차 규칙으로
     떨어진다 — 앞머리를 지어내지 않는다. 나중에 모델그룹을 채우면
@@ -11998,7 +11998,7 @@ async def _cycle_cid_prefix(data: dict) -> tuple[str, int]:
             except Exception:
                 pass
     if mg:
-        return f"{mg}_C", 4
+        return f"{mg}_P", 4
     from datetime import datetime as _dt
     return db._cid_prefix_of(_dt.now()), 3
 
@@ -12013,10 +12013,10 @@ async def save_cycle(cycle_id: str, data: dict):
         except Exception:
             pass
     else:
-        # …단 하나의 예외(지적: 새 사이클 Key 가 E61xx 로 시작하지 않는다).
+        # …단 하나의 예외(지적: 새 플랜 Key 가 E61xx 로 시작하지 않는다).
         # 제목만 치고 만들면 모델그룹을 몰라 옛 규칙(C-2635-001)을 받는데,
         # 곧이어 모델그룹을 채워도 Key 가 그대로였다. **결과가 하나도 없는**
-        # 사이클은 아직 아무도 그 Key 를 문 데가 없으므로 새 규칙으로 다시
+        # 플랜은 아직 아무도 그 Key 를 문 데가 없으므로 새 규칙으로 다시
         # 매긴다. 결과가 쌓였으면 안 바꾼다 — 결함·링크가 그 ID 를 문다.
         try:
             _pfx, _w = await _cycle_cid_prefix(data or {})
@@ -12040,7 +12040,7 @@ async def save_cycle(cycle_id: str, data: dict):
             pass
     await db.cycle_upsert(cycle_id, data)
     # 누가 고쳤는지 함께 싣는다. 받는 쪽이 「내가 방금 저장한 것」 을 걸러야
-    # 하고, 남이 한 것이면 이름을 말해 줘야 한다 — 사이클은 여럿이 나눠
+    # 하고, 남이 한 것이면 이름을 말해 줘야 한다 — 플랜은 여럿이 나눠
     # 돌리는 자리라 「누가 3번을 Fail 로 바꿨나」 가 곧 알아야 할 일이다.
     _by = str((data or {}).get("updated_by") or "").strip()
     try:
@@ -12051,15 +12051,15 @@ async def save_cycle(cycle_id: str, data: dict):
 
 @app.post("/api/cycle/{cycle_id}/exec-ids")
 async def cycle_exec_ids(cycle_id: str):
-    """실행 ID 부여 — 사이클에 포함되는 값이다.
+    """실행 ID 부여 — 플랜에 포함되는 값이다.
 
-    CE 는 사이클 ID 에서 파생한다 (C-2633-002 → CE-2633-002). 사이클:실행이
-    1:1 이라는 결정 그대로 — 재시험은 Clone 이 새 사이클을 만드니 새 CE 다.
+    CE 는 플랜 ID 에서 파생한다 (C-2633-002 → CE-2633-002). 플랜:실행이
+    1:1 이라는 결정 그대로 — 재시험은 Clone 이 새 플랜을 만드니 새 CE 다.
     항목은 CETC-<파생>-NN. 멱등이라 실행 화면에 들어올 때마다 불러도 되고,
     나중에 항목을 더 넣으면 빈 번호만 채운다."""
     data = await db.cycle_get(cycle_id)
     if not data:
-        raise HTTPException(404, "사이클이 없습니다")
+        raise HTTPException(404, "플랜이 없습니다")
     cid = str(data.get("cid") or "").strip()
     if not cid:
         try:
@@ -12925,7 +12925,7 @@ async def _db_init():
         if _f["req"] or _f["tc"] or _f["cycle"]:
             print(
                 f"[id] 반쪽 옮김 손질 — 요구사항 {_f['req']} · 시험항목 {_f['tc']} · "
-                f"사이클 {_f['cycle']}건",
+                f"플랜 {_f['cycle']}건",
                 flush=True,
             )
     except Exception as e:
@@ -12957,10 +12957,10 @@ async def _db_init():
     except Exception as e:
         print(f"[startup] defect renumber failed: {e}", flush=True)
 
-    # 사이클 부여 ID — cid 없는 회차에 C-<연2><주차2>-<순번3> 을 채운다 (멱등)
+    # 플랜 부여 ID — cid 없는 회차에 C-<연2><주차2>-<순번3> 을 채운다 (멱등)
     try:
         _cn = await db.cycle_backfill_cids()
-        if _cn: print(f"[startup] 사이클 ID {_cn}건 부여 (C-연주차-순번)", flush=True)
+        if _cn: print(f"[startup] 플랜 ID {_cn}건 부여 (C-연주차-순번)", flush=True)
     except Exception as e:
         print(f"[startup] cycle cid backfill failed: {e}", flush=True)
 
@@ -14070,7 +14070,7 @@ async def _cycle_ai_summary(cycle_id, llm_id: str = ""):
             ("제품명", str(cycle.get("model") or "").strip()),
             ("버전그룹", str(cycle.get("version_group") or "").strip()),
             ("버전명", str(cycle.get("version") or "").strip()),
-            ("사이클", (str(cycle.get("cid") or "") + " " + str(cycle.get("name") or "")).strip()),
+            ("플랜", (str(cycle.get("cid") or "") + " " + str(cycle.get("name") or "")).strip()),
         ] if v
     )
     ctx = ("[제품 정보] " + _pinfo + "\n"
@@ -14124,7 +14124,7 @@ async def cycle_run_progress(payload: dict):
 
 @app.get("/api/dashboard")
 async def dashboard_data():
-    """대시보드 집계 — 위젯 전부를 한 번에. 사이클은 요약본(data_summary)만 읽어 가볍다."""
+    """대시보드 집계 — 위젯 전부를 한 번에. 플랜은 요약본(data_summary)만 읽어 가볍다."""
     from datetime import datetime as _dt, timedelta as _td
     devices = await db.device_list()
     meters = [d for d in devices if str(d.get("role") or "") == "계측기"]
@@ -15553,10 +15553,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 if st["page"]:
                     await _broadcast_presence(st["page"])
             elif t == "focus" and st is not None:
-                # 같은 사이클 안에서 **어느 항목**을 보고 있나.
+                # 같은 플랜 안에서 **어느 항목**을 보고 있나.
                 #
-                # 접속자(presence)는 화면 단위라, 사이클을 같이 보고 있다는
-                # 것까지만 안다. 사이클은 항목을 나눠 돌리는 자리라 정작
+                # 접속자(presence)는 화면 단위라, 플랜을 같이 보고 있다는
+                # 것까지만 안다. 플랜은 항목을 나눠 돌리는 자리라 정작
                 # 부딪히는 곳은 항목이다 — 둘이 같은 항목에 결과를 찍으면
                 # 나중 사람이 앞사람 것을 덮는다.
                 st["focus"] = msg.get("at")
@@ -18264,11 +18264,11 @@ async def tc_ai_manual(tc_id: str, payload: dict):
 
 @app.get("/api/tc/{tc_id}/cycles")
 async def tc_cycles(tc_id: str):
-    """이 TC 가 어느 사이클에서 돌았고 결과가 어땠나.
+    """이 TC 가 어느 플랜에서 돌았고 결과가 어땠나.
 
     실행 이력(`/run-history`)과 다른 질문이다. 저쪽은 '이 화면에서 언제
     돌렸나' 고, 이쪽은 '어느 배포 검증에 들어갔나' 다. 자료도 다른 곳에
-    있다 — 이력은 파일, 사이클은 DB 의 cycle 테이블이다.
+    있다 — 이력은 파일, 플랜은 DB 의 cycle 테이블이다.
     """
     tc_id = _tc_id_norm(tc_id)
     rows = await db.cycle_of_tc(tc_id)
@@ -18327,7 +18327,7 @@ async def llm_choices():
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 사이클 서버 실행
+# 플랜 서버 실행
 #
 # 전에는 브라우저가 실행을 붙들고 있었다. 64건을 걸어 놓고 탭을 닫으면
 # 거기서 멈췄고, 자리를 뜰 수가 없었다. 253 을 실행 서버로 둔 의미도
@@ -18372,7 +18372,7 @@ async def run_queue(payload: dict, request: Request):
         raise HTTPException(400, "cycle_id 가 필요합니다")
     cyc = await db.cycle_get(cycle_id)
     if cyc is None:
-        raise HTTPException(404, "사이클을 찾을 수 없습니다")
+        raise HTTPException(404, "플랜을 찾을 수 없습니다")
 
     picked = [int(x) for x in (payload.get("pick") or []) if str(x).lstrip("-").isdigit()]
     items = cyc.get("items") if isinstance(cyc.get("items"), list) else []
@@ -18381,12 +18381,12 @@ async def run_queue(payload: dict, request: Request):
     if not picked:
         raise HTTPException(400, "돌릴 항목이 없습니다")
 
-    # 같은 사이클을 둘이 동시에 돌리면 결과를 서로 덮는다. 한 번에 하나만.
+    # 같은 플랜을 둘이 동시에 돌리면 결과를 서로 덮는다. 한 번에 하나만.
     live = await db.run_active(cycle_id)
     if live:
         raise HTTPException(
             409,
-            f"이 사이클은 이미 돌고 있습니다 ({live[0].get('started_by') or '누군가'}). "
+            f"이 플랜은 이미 돌고 있습니다 ({live[0].get('started_by') or '누군가'}). "
             "끝나거나 멈춘 뒤에 다시 거세요.",
         )
 
@@ -18413,8 +18413,8 @@ async def run_list(
 ):
     """실행 목록.
 
-    `cycle_id` 가 있으면 그 사이클의 것, 없으면 **전부**. 「어제 밤에 뭐가
-    돌았나」 는 사이클을 하나씩 열어서는 못 답한다 — Executions 화면이
+    `cycle_id` 가 있으면 그 플랜의 것, 없으면 **전부**. 「어제 밤에 뭐가
+    돌았나」 는 플랜을 하나씩 열어서는 못 답한다 — Executions 화면이
     그 자리다.
     """
     if active:
@@ -18494,7 +18494,7 @@ async def run_done(run_id: str, payload: dict):
 async def runner_login(payload: dict):
     """실행기에게 보통 세션을 하나 내준다.
 
-    실행기는 사이클·TC 를 읽고 장비 세션을 열고 결과를 저장한다 — 사람이
+    실행기는 플랜·TC 를 읽고 장비 세션을 열고 결과를 저장한다 — 사람이
     하는 일과 똑같다. 그래서 인증 길을 따로 파지 않고 **평범한 토큰**을
     준다. 그러면 지금 있는 권한 검사가 그대로 적용된다.
 
@@ -18515,8 +18515,8 @@ async def runner_login(payload: dict):
 # ══════════════════════════════════════════════════════════════════════
 # Reports — 집계
 #
-# 「지금 이 장비 이 버전이 몇 % 왔나 · 어디가 깨졌나」 는 사이클을 하나씩
-# 열어서는 못 답한다. 사이클 24건을 화면이 하나씩 읽게 하면 느리기도 하고,
+# 「지금 이 장비 이 버전이 몇 % 왔나 · 어디가 깨졌나」 는 플랜을 하나씩
+# 열어서는 못 답한다. 플랜 24건을 화면이 하나씩 읽게 하면 느리기도 하고,
 # 무엇보다 같은 셈을 화면마다 다시 짜게 된다.
 #
 # 여기서 한 번에 세어 내려준다.
@@ -18573,7 +18573,7 @@ async def report_summary():
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 결함 (defect) — 사이클에서 「이슈 생성」 으로 걸고, Defects 화면에서 Jira 로 민다
+# 결함 (defect) — 플랜에서 「이슈 생성」 으로 걸고, Defects 화면에서 Jira 로 민다
 #
 # 항목 하나에 결함 하나. 바로 Jira 로 올리지 않는다 — 64건 돌려 20건 깨지면
 # 그중 열여덟은 같은 원인이거나 시험이 잘못된 것이다. UTOP 에 모아 사람이
@@ -18593,7 +18593,7 @@ async def defect_for_item(cycle_id: str, tcid: str):
 
 @app.post("/api/defects")
 async def defect_create_api(payload: dict, request: Request):
-    """사이클 항목에서 결함을 하나 만든다. 깨진 스텝 내용을 통째로 담는다."""
+    """플랜 항목에서 결함을 하나 만든다. 깨진 스텝 내용을 통째로 담는다."""
     cid = str(payload.get("cycle_id") or "").strip()
     tcid = str(payload.get("tcid") or "").strip()
     if not tcid:
@@ -18696,7 +18696,7 @@ def _defect_steps_body(d: dict) -> str:
     L = []
     L.append("h3. 시험 정보")
     L.append("|| 항목 || 내용 |")
-    L.append(f"| 사이클 | {d.get('cycle_name') or d.get('cycle_id') or '-'} |")
+    L.append(f"| 플랜 | {d.get('cycle_name') or d.get('cycle_id') or '-'} |")
     L.append(f"| 시험 | {d.get('tc_name') or ''} ({d.get('tcid') or ''}) |")
     L.append(f"| 모델 | {d.get('model') or '-'} |")
     L.append(f"| 버전 | {d.get('version') or '-'} |")
