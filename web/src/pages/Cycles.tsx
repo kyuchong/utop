@@ -946,7 +946,17 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
                 (x) => want.includes(x.name) || want.includes(x.cat_id) || want.includes(x.id),
               )
               if (!p) return {}
-              const mg = (p.model_group ?? '').trim()
+              /* 옛 프로젝트에는 사업자가 붙은 모델그룹(LGU+_E61xx)이 남아
+                 있다 — 카탈로그에 없는 이름이면 밑줄 뒤(E61xx)가 카탈로그에
+                 있을 때만 그걸 쓴다(ID 옮기기와 같은 규칙). 지어내지 않는다. */
+              const groups = new Set(
+                (catQ.data?.items ?? []).filter((it) => it.kind === 'group').map((it) => it.name),
+              )
+              let mg = (p.model_group ?? '').trim()
+              if (mg && !groups.has(mg) && mg.includes('_')) {
+                const tail = mg.split('_').slice(1).join('_')
+                if (groups.has(tail)) mg = tail
+              }
               const models = (catQ.data?.items ?? []).filter(
                 (it) => it.kind === 'model' && (it.model_group ?? '').trim() === mg,
               )
@@ -1153,16 +1163,17 @@ function CycleBoard({
     }
     return { families, groups: groups.map((g) => g.name), famOfGroup, modelsByGroup }
   }, [catalog])
-  /* 담당 드롭다운 — 계정 목록(장비 화면과 같은 원천) */
+  /* 담당 드롭다운 — **앱 계정**(지라에서 온 것 포함). 장비 SSH 계정
+     (admin·root)이 나왔었다(지적) — 그건 장비 목록의 접속 계정이다. */
   const rolesQ = useQuery({
-    queryKey: ['device-roles'],
+    queryKey: ['user-names'],
     queryFn: async () => {
-      const r = await apiFetch('/api/device-roles')
-      return (await r.json()) as { usernames?: string[] }
+      const r = await apiFetch('/api/user-names')
+      return (await r.json()) as { names?: string[] }
     },
     staleTime: 60_000,
   })
-  const users = rolesQ.data?.usernames ?? []
+  const users = rolesQ.data?.names ?? []
 
   /* ＋ New — 창을 띄우지 않고 **머리행 바로 아래**에서 만든다(지시).
      ID 는 서버가 자동으로 매기고(cid), 사람은 제목만 친다. 모델·버전은
@@ -1891,24 +1902,14 @@ function CycleBoard({
                       {renderCols.map((c2) => {
                         switch (c2.k) {
                           case 'mg': {
-                            /* 그 자리에서 고른다(지시). 그룹을 바꾸면 모델은
-                               비운다 — 딴 그룹의 모델이 남으면 거짓말이 된다.
-                               제품군도 그룹의 것으로 따라온다. */
+                            /* 프로젝트 디폴트 — 여기서 못 바꾼다(지시).
+                               모델그룹은 곧 ID 앞머리라, 바꾸면 Key 가
+                               거짓말이 된다. */
                             const mg2 =
                               (c.model_group ?? '').trim() || mgroupOf.get(c.model ?? '') || ''
                             return (
-                              <span key={c2.k} className="cyt-cell-fill">
-                                <PickCell
-                                  value={mg2}
-                                  opts={catOpts.groups}
-                                  onSave={(v) =>
-                                    setCyCell(c.id, {
-                                      model_group: v,
-                                      model: '',
-                                      family: catOpts.famOfGroup.get(v) || c.family || '',
-                                    })
-                                  }
-                                />
+                              <span key={c2.k} className="muted small cyt-ell" title={mg2}>
+                                {mg2 || '–'}
                               </span>
                             )
                           }
@@ -1972,7 +1973,9 @@ function CycleBoard({
                                   const r2 = e.currentTarget.getBoundingClientRect()
                                   setPeriodPop({
                                     id: c.id,
-                                    x: Math.max(8, r2.left - 40),
+                                    /* 오른쪽 끝 줄에서 열면 팝오버가 화면 밖으로
+                                       나갔다(지적) — 창 폭 안으로 되민다 */
+                                    x: Math.max(8, Math.min(r2.left - 40, window.innerWidth - 360)),
                                     y: r2.bottom + 4,
                                     start: d(c.start_date),
                                     end: d(c.end_date),

@@ -1474,6 +1474,24 @@ async def api_me_change_password(payload: dict, token: str = ""):
         _delete_one_session(k)
     return {"ok": True}
 
+@app.get("/api/user-names")
+async def api_user_names(token: str = ""):
+    """담당자 드롭다운용 — **이름만**. /api/users 는 관리자 전용이라
+    일반 사용자의 담당 고르기가 장비 SSH 계정(admin·root)만 보였다(지적).
+    지라에서 들어온 계정도 여기 다 있다. 퇴사자는 뺀다."""
+    if not _user_from_token(token):
+        raise HTTPException(401, "로그인이 필요합니다")
+    names = sorted(
+        {
+            str(u.get("name") or u.get("username") or "").strip()
+            for u in _users_load_sync()["users"]
+            if not _is_retired(u)
+        }
+        - {""}
+    )
+    return {"names": names}
+
+
 @app.get("/api/users")
 async def api_users(token: str = ""):
     _require_admin(token)
@@ -11983,11 +12001,37 @@ async def _cycle_cid_prefix(data: dict) -> tuple[str, int]:
 
 @app.post("/api/cycle/{cycle_id}")
 async def save_cycle(cycle_id: str, data: dict):
-    # 부여 ID — 없을 때만 새로 매긴다. 한 번 박히면 영원하다
+    # 부여 ID — 없을 때만 새로 매긴다. 한 번 박히면 영원하다…
     if not str((data or {}).get("cid") or "").strip():
         try:
             _pfx, _w = await _cycle_cid_prefix(data or {})
             data["cid"] = await db.cycle_next_cid(_pfx, _w)
+        except Exception:
+            pass
+    else:
+        # …단 하나의 예외(지적: 새 사이클 Key 가 E61xx 로 시작하지 않는다).
+        # 제목만 치고 만들면 모델그룹을 몰라 옛 규칙(C-2635-001)을 받는데,
+        # 곧이어 모델그룹을 채워도 Key 가 그대로였다. **결과가 하나도 없는**
+        # 사이클은 아직 아무도 그 Key 를 문 데가 없으므로 새 규칙으로 다시
+        # 매긴다. 결과가 쌓였으면 안 바꾼다 — 결함·링크가 그 ID 를 문다.
+        try:
+            _pfx, _w = await _cycle_cid_prefix(data or {})
+            _cid = str(data.get("cid") or "")
+            if _w == 4 and not _cid.startswith(_pfx):
+                _items = data.get("items") or []
+                _fresh = all(
+                    not str(it.get("result") or "").strip()
+                    and not any(
+                        str(st.get("result") or "").strip() for st in (it.get("steps") or [])
+                    )
+                    for it in _items
+                )
+                if _fresh:
+                    data["cid"] = await db.cycle_next_cid(_pfx, _w)
+                    data["ce"] = ""
+                    for it in _items:
+                        it.pop("ceid", None)  # exec-ids 가 새 cid 로 다시 매긴다
+                    print(f"[cycle] cid 재부여 {_cid} → {data['cid']}", flush=True)
         except Exception:
             pass
     await db.cycle_upsert(cycle_id, data)
