@@ -1,0 +1,238 @@
+/* 사이클(플랜) 화면 — Testiny 「Working with Test Runs」 배치 그대로(지시).
+   접두어 cpl- (전 CSS 에서 빈 것 확인). 판정 색은 .split.cy 의 CSS 변수. */
+.cpl {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* ── ① 사이클 레일 ── */
+.panel.cpl-rail {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+}
+.cpl-railhead { padding: 10px 12px 6px; font-weight: 700; font-size: 14px; }
+.cpl-create {
+  margin: 0 12px 8px;
+  border: 0;
+  border-radius: 6px;
+  padding: 6px 0;
+  background: var(--c-sel-teal, #a8d3dd);
+  color: var(--c-sel-teal-ink, #0d4451);
+  font-weight: 700;
+  cursor: pointer;
+}
+.cpl-railq {
+  margin: 0 12px 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+.cpl-raillist { flex: 1; min-height: 0; overflow-y: auto; }
+.cpl-railitem {
+  display: flex;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.cpl-railitem:hover { background: var(--c-surface-alt, #f4f7f9); }
+.cpl-railitem.on { background: #dbeef5; font-weight: 700; }
+.cpl-railitem.closed { color: var(--c-text-faint, #8a99a3); }
+.cpl-railnm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cpl-railempty { padding: 8px 12px; font-size: 12px; color: var(--c-text-faint, #8a99a3); }
+.cpl-closed { margin: 8px 12px; font-size: 11.5px; color: var(--c-text-faint, #8a99a3); }
+.cpl-closedh { font-weight: 700; margin-bottom: 2px; }
+
+/* ── 가운데 ── */
+.panel.cpl-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+}
+.cpl-crumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--c-border);
+}
+.cpl-crumb .sp { flex: 1; }
+.cpl-title { margin: 0; padding: 10px 14px 6px; font-size: 19px; }
+.cpl-chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 14px 10px; }
+.cpl-chip {
+  background: var(--c-surface-alt, #f1f5f8);
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 11.5px;
+  color: var(--c-text-soft, #5b6875);
+}
+.cpl-chip b { color: var(--c-text); }
+
+/* ── ③ 요약 띠 ── */
+.cpl-sum {
+  display: grid;
+  grid-template-columns: 220px 240px minmax(0, 1fr);
+  border-top: 1px solid var(--c-border);
+  border-bottom: 1px solid var(--c-border);
+  background: #fbfdfe;
+  flex: none;
+}
+.cpl-sum > div { padding: 12px 14px; min-width: 0; }
+.cpl-sum > div + div { border-left: 1px solid var(--c-border); }
+.cpl-donutcol { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.cpl-donut { width: 104px; height: 104px; }
+.cpl-donut path { fill: none; stroke-width: 12; }
+.cpl-donut .pass { stroke: var(--c-pass, #12b76a); }
+.cpl-donut .fail { stroke: var(--c-fail, #e5484d); }
+.cpl-donut .other { stroke: var(--c-blocked, #f5a623); }
+.cpl-donut .none { stroke: var(--c-none, #e2e8ed); }
+.cpl-dpct { font-size: 19px; font-weight: 800; fill: var(--c-text); }
+.cpl-dlab { font-size: 8px; fill: var(--c-text-faint, #8a99a3); letter-spacing: 1px; }
+.cpl-dsub { font-size: 11.5px; color: var(--c-text-faint, #8a99a3); }
+.cpl-rrow { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-size: 12.5px; }
+.cpl-rrow i { width: 14px; text-align: center; color: var(--c-text-faint, #8a99a3); font-style: normal; }
+.cpl-rrow b { margin-left: auto; }
+.cpl-rpill {
+  width: 44px;
+  text-align: center;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 0;
+}
+.cpl-rpill.p { background: var(--c-pass, #12b76a); }
+.cpl-rpill.f { background: var(--c-fail, #e5484d); }
+.cpl-rpill.o { background: var(--c-blocked, #f5a623); }
+.cpl-rpill.n { background: #8b97a2; }
+.cpl-rtotal {
+  border-top: 1px solid var(--c-border);
+  padding-top: 6px;
+  font-size: 12px;
+  color: var(--c-text-soft, #5b6875);
+  display: flex;
+}
+.cpl-rtotal b { margin-left: auto; }
+.cpl-tabs { display: flex; gap: 14px; border-bottom: 1px solid var(--c-border); margin-bottom: 8px; }
+.cpl-tabs button {
+  border: 0;
+  background: transparent;
+  padding: 0 0 6px;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--c-text-faint, #8a99a3);
+  cursor: pointer;
+}
+.cpl-tabs button.on {
+  border-bottom: 2px solid var(--c-sel-teal, #a8d3dd);
+  color: var(--c-text);
+  font-weight: 700;
+}
+.cpl-teamrow { display: flex; gap: 8px; font-size: 12.5px; padding: 4px 0; }
+.cpl-teamrow .who { color: var(--c-primary, #0e7490); }
+.cpl-teamrow .cnt { margin-left: auto; color: var(--c-text-faint, #8a99a3); }
+.cpl-info { font-size: 12px; color: var(--c-text-soft, #5b6875); line-height: 1.9; }
+.cpl-info b { color: var(--c-text); }
+.cpl-marow { display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 3px 0; }
+.cpl-marow .lab { flex: none; width: 30px; font-weight: 700; color: var(--c-text-soft, #5b6875); }
+.cpl-marow .bar {
+  display: flex;
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--c-none, #e2e8ed);
+}
+.cpl-marow .bar .p { background: var(--c-pass, #12b76a); }
+.cpl-marow .bar .f { background: var(--c-fail, #e5484d); }
+.cpl-marow .bar .o { background: var(--c-blocked, #f5a623); }
+.cpl-marow .bar .n { background: transparent; }
+.cpl-marow .num { flex: none; color: var(--c-text-faint, #8a99a3); white-space: nowrap; }
+.cpl-marow .num .p { color: var(--c-pass, #12b76a); }
+.cpl-marow .num .f { color: var(--c-fail, #e5484d); }
+
+/* ── ④ 항목 표 ── */
+.cpl-tbltools { display: flex; align-items: center; gap: 8px; padding: 8px 14px; flex: none; }
+.cpl-tbltools .sp { flex: 1; }
+.cpl-add {
+  border: 0;
+  border-radius: 6px;
+  padding: 5px 12px;
+  background: var(--c-sel-teal, #a8d3dd);
+  color: var(--c-sel-teal-ink, #0d4451);
+  font-weight: 700;
+  cursor: pointer;
+}
+.cpl-q { border: 1px solid var(--c-border); border-radius: 6px; padding: 5px 8px; width: 180px; font-size: 12px; }
+.cpl-tblwrap { min-height: 0; }
+.cpl-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cpl-tbl th {
+  font-size: 11px;
+  color: var(--c-text-faint, #8a99a3);
+  text-align: left;
+  padding: 6px 10px;
+  border-top: 1px solid var(--c-border);
+  border-bottom: 1px solid var(--c-border);
+}
+.cpl-tbl .w-id { width: 150px; }
+.cpl-tbl .w-ass { width: 110px; }
+.cpl-tbl .w-res { width: 120px; }
+.cpl-tbl .w-x { width: 26px; }
+.cpl-tbl td { padding: 5px 10px; border-bottom: 1px solid #eef2f5; }
+.cpl-grp td { background: #f4f7f9; font-weight: 700; font-size: 12px; cursor: pointer; }
+.cpl-grp .caret { color: var(--c-text-faint, #8a99a3); margin-right: 2px; }
+.cpl-grp .cnt { color: var(--c-text-faint, #8a99a3); font-weight: 400; }
+.cpl-tid { color: var(--c-primary, #0e7490); font-weight: 700; font-family: var(--font-mono); font-size: 11.5px; }
+.cpl-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 0; min-width: 200px; }
+.cpl-ass { font-size: 12px; }
+.cpl-res {
+  border: 1px solid transparent;
+  border-radius: 5px;
+  padding: 2px 4px;
+  font: inherit;
+  font-size: 12px;
+  background: transparent;
+  cursor: pointer;
+  max-width: 110px;
+}
+.cpl-res:hover { border-color: var(--c-border); background: #fff; }
+.cpl-res.p { color: var(--c-pass, #12b76a); font-weight: 700; }
+.cpl-res.f { color: var(--c-fail, #e5484d); font-weight: 700; }
+.cpl-res.o { color: var(--c-blocked, #b45309); font-weight: 700; }
+.cpl-res.n { color: var(--c-text-faint, #8a99a3); }
+.cpl-none { padding: 14px; color: var(--c-text-faint, #8a99a3); }
+.cpl-foot { padding: 8px 14px; font-size: 12px; color: var(--c-text-faint, #8a99a3); flex: none; }
+.cpl-teal {
+  background: var(--c-sel-teal, #a8d3dd) !important;
+  border-color: var(--c-sel-teal, #a8d3dd) !important;
+  color: var(--c-sel-teal-ink, #0d4451) !important;
+}
+
+/* 결과 메일 창 조각 — CycleSummary 시절 이름을 그대로 쓴다(다른 데 없음) */
+.modal.cyl-mail { max-width: 640px; }
+.cyl-mailprev { width: 100%; height: 300px; border: 1px solid var(--c-border); border-radius: 8px; background: #fff; }
+.cyl-mailmsg { padding: 8px 11px; border-radius: 8px; background: var(--c-surface-alt, #f6f9fa); font-size: 12.5px; }
+
+/* 지금 도는 실행 — 레일에서 깜빡인다. 남이 돌리는 사이클을 몰라서 또 거는
+   사고를 막는다(검증에서 잡았던 그 회귀) */
+.cpl-run { margin-left: auto; color: var(--c-primary, #0e7490); animation: cpl-blink 1.2s infinite; }
+@keyframes cpl-blink { 50% { opacity: 0.35; } }
