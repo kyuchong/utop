@@ -1481,15 +1481,19 @@ async def api_user_names(token: str = ""):
     지라에서 들어온 계정도 여기 다 있다. 퇴사자는 뺀다."""
     if not _user_from_token(token):
         raise HTTPException(401, "로그인이 필요합니다")
-    names = sorted(
-        {
-            str(u.get("name") or u.get("username") or "").strip()
-            for u in _users_load_sync()["users"]
-            if not _is_retired(u)
-        }
-        - {""}
-    )
-    return {"names": names}
+    out = []
+    seen = set()
+    for u in _users_load_sync()["users"]:
+        if _is_retired(u):
+            continue
+        nm = str(u.get("name") or u.get("username") or "").strip()
+        if not nm or nm in seen:
+            continue
+        seen.add(nm)
+        # 조직 — 담당 고르기가 조직도 꼴로 묶어 보인다(지시)
+        out.append({"name": nm, "org": str(_org_of(u) or "").strip()})
+    out.sort(key=lambda x: (x["org"] or "ㅎㅎㅎ", x["name"]))
+    return {"names": out}
 
 
 @app.get("/api/users")

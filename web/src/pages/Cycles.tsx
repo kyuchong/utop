@@ -436,14 +436,16 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
   /* 표(목록) ↔ 플랜 — 표의 ID 를 누르면 플랜으로(지시). 기억한다:
      새로고침해도 보던 화면이 유지돼야 한다. */
   const [cyView, setCyView] = useState<'list' | 'plan' | 'exec'>(() => {
-    if (entry === 'runs') return 'exec'
+    if (entry === 'runs') return 'list'
     const v = localStorage.getItem('utop.cycle.view')
     return v === 'plan' ? v : 'list'
   })
   /* 메뉴가 곧 얼굴이다(지시: 사이클과 Run 을 잘 구분) — Cycles 메뉴는
      계획(목록·플랜), Runs 메뉴는 실행. 메뉴를 오가면 얼굴도 따라간다. */
   useEffect(() => {
-    setCyView(entry === 'runs' ? 'exec' : 'list')
+    /* 두 메뉴 다 목록으로 든다(레일을 뺐다) — Runs 에선 ID 를 누르면
+       바로 실행 화면, Cycles 에선 플랜이다. */
+    setCyView('list')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry])
   const goView = (v: 'list' | 'plan' | 'exec', id?: string) => {
@@ -707,8 +709,9 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
     // 요구사항·TC 화면과 **같은 뼈대**를 쓴다. 세 화면을 오가는 사람이
     // 매번 「여긴 어디가 목록이지」 를 다시 찾지 않게.
     <>
-      {/* 맨 위 줄 — 지금 어디를 보고 있나. 요구사항·TC 화면(.rq-bar)과
-          같은 자리·같은 모양이다. */}
+      {/* 맨 위 줄 — 지금 어디를 보고 있나. 플랜·실행 화면은 Testiny 처럼
+          제 머리가 있으니 이 줄을 안 그린다(지시: 빵부스러기 제거). */}
+      {(cur || cyView === 'list') && (
       <div className="rq-bar">
         <span className="rq-crumb">
           {/* 「사이클」 을 누르면 관제판(고른 것 없음)으로 돌아간다 */}
@@ -780,6 +783,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
           <PresenceBar users={crowd} me={me?.name || me?.username || ''} />
         )}
       </div>
+      )}
 
     <div
       className={`split cy${cur ? ' cy-execfull' : ''}`}
@@ -920,7 +924,6 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
             meName={me?.name || me?.username || ''}
             onBack={() => goView(cyView === 'exec' ? 'plan' : 'list')}
             onExec={() => goView('exec')}
-            onNew={() => setMaking(true)}
             onEdit={(id) => setEditId(id)}
             onAddItems={(id) => setAddToId(id)}
             onRun={(id) => setSel(id)}
@@ -966,12 +969,13 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
                 model: models.length === 1 ? models[0]?.name : undefined,
               }
             })()}
+            projects={prjQ.data?.projects ?? []}
             onDup={(id) => setCloneId(id)}
             onDel={(ids) => void delCycles(ids)}
             onEdit={(id) => setEditId(id)}
             onRun={(id) => setSel(id)}
             onMenu={(id, x, y) => setMenu({ id, x, y })}
-            onOpenPlan={(id) => goView('plan', id)}
+            onOpenPlan={(id) => goView(entry === 'runs' ? 'exec' : 'plan', id)}
             running={running}
             onRefresh={() => void listQ.refetch()}
           />
@@ -1049,7 +1053,7 @@ const CYT_FIXED: Array<{ k: string; label: string; w: string }> = [
   { k: 'tests', label: '항목', w: '44px' },
   { k: 'prg', label: '진행', w: '96px' },
   { k: 'run', label: '상태', w: '68px' },
-  { k: 'period', label: '기간', w: '104px' },
+  { k: 'period', label: '기간', w: '150px' },
   { k: 'ass', label: '담당', w: '64px' },
 ]
 
@@ -1117,6 +1121,7 @@ function CycleBoard({
   famOf,
   catalog,
   prjDefault,
+  projects,
   onDup,
   onDel,
   onEdit,
@@ -1134,6 +1139,8 @@ function CycleBoard({
   catalog: Array<CatModel & { kind: string }>
   /** 인라인 생성 자동 채움 — 상단바 프로젝트에서 */
   prjDefault: { customer?: string; model_group?: string; model?: string }
+  /** 프로젝트 목록 — ＋New 행의 고르개(상단바가 「전체」 여도 고른다) */
+  projects: Array<{ id?: string; cat_id?: string; name?: string; customer?: string; model_group?: string }>
   /** 복제 — 한 개 골랐을 때 */
   onDup: (id: string) => void
   /** 삭제 — 고른 것들 */
@@ -1169,11 +1176,28 @@ function CycleBoard({
     queryKey: ['user-names'],
     queryFn: async () => {
       const r = await apiFetch('/api/user-names')
-      return (await r.json()) as { names?: string[] }
+      return (await r.json()) as { names?: Array<{ name: string; org: string }> }
     },
     staleTime: 60_000,
   })
-  const users = rolesQ.data?.names ?? []
+  /* 조직도 꼴(지시) — 조직별로 묶고, 조직 없는 계정(봇·공용)은 맨 아래
+     「기타」 로. 검색은 이름·조직 둘 다 걸린다. */
+  const orgGroups = useMemo(() => {
+    const raw = rolesQ.data?.names ?? []
+    const g = new Map<string, string[]>()
+    for (const u of raw) {
+      const k = u.org || '기타'
+      g.set(k, [...(g.get(k) ?? []), u.name])
+    }
+    return [...g.entries()].sort((a, b) => {
+      if (a[0] === '기타') return 1
+      if (b[0] === '기타') return -1
+      return a[0].localeCompare(b[0], 'ko')
+    })
+  }, [rolesQ.data])
+  /* 담당 팝오버 — 네이티브 select 는 마지막 열에서 창 밖으로 잘린다(지적).
+     기간과 같은 방식: 창 안에 고정 + 검색 */
+  const [assPop, setAssPop] = useState<{ id: string; x: number; y: number; q: string } | null>(null)
 
   /* ＋ New — 창을 띄우지 않고 **머리행 바로 아래**에서 만든다(지시).
      ID 는 서버가 자동으로 매기고(cid), 사람은 제목만 친다. 모델·버전은
@@ -1188,6 +1212,9 @@ function CycleBoard({
     end: string
   } | null>(null)
   const [newTitle, setNewTitle] = useState('')
+  /* ＋New 행의 프로젝트 — 상단바가 「전체」 면 모델그룹이 안 실리던 문제(지적).
+     행에서 직접 고른다. 상단바에 골라져 있으면 그게 기본. */
+  const [newPrj, setNewPrj] = useState('')
   const [addBusy, setAddBusy] = useState(false)
   const saveNew = async () => {
     const t = newTitle.trim()
@@ -1202,9 +1229,27 @@ function CycleBoard({
           name: t,
           items: [],
           created_at: new Date().toISOString().slice(0, 10),
-          /* 상단바 프로젝트에서 자동 채움(지시) — 모델그룹이 실리면
-             서버가 cid 를 새 규칙(E61xx_C0001)으로 매긴다 */
-          ...prjDefault,
+          /* 행에서 고른 프로젝트가 정본(지적: 「전체」 면 모델그룹이 빈다) —
+             모델그룹이 실리면 서버가 cid 를 새 규칙으로 매긴다. 옛 모델그룹
+             값(LGU+_E61xx)은 카탈로그에 있는 꼬리로 정규화. */
+          ...(() => {
+            const p = projects.find((x) => String(x.cat_id ?? x.id) === newPrj)
+            if (!p) return prjDefault
+            const groups = new Set(catalog.filter((x) => x.kind === 'group').map((x) => x.name))
+            let mg = (p.model_group ?? '').trim()
+            if (mg && !groups.has(mg) && mg.includes('_')) {
+              const tail = mg.split('_').slice(1).join('_')
+              if (groups.has(tail)) mg = tail
+            }
+            const models = catalog.filter(
+              (x) => x.kind === 'model' && (x.model_group ?? '').trim() === mg,
+            )
+            return {
+              ...(p.customer ? { customer: p.customer } : {}),
+              ...(mg ? { model_group: mg } : {}),
+              ...(models.length === 1 && models[0]?.name ? { model: models[0].name } : {}),
+            }
+          })(),
         }),
       })
       if (!r.ok) throw new Error(`저장 실패 (${r.status})`)
@@ -1261,7 +1306,7 @@ function CycleBoard({
     const base = [
       /* 목업 차례: ID·이름 다음 사업자·제품군·모델그룹. 모델명은 뺐다 —
          프로젝트에서도 뺀 값이다(모델그룹까지만 정한다). */
-      { k: 'cust', label: '사업자', w: '64px' },
+      { k: 'cust', label: '사업자', w: '92px' },
       { k: 'fam', label: '제품군', w: '64px' },
       { k: 'mg', label: '모델그룹', w: '96px' },
       { k: 'md', label: '모델명', w: '84px' },
@@ -1542,7 +1587,18 @@ function CycleBoard({
       <section className="panel cyt-card">
       {/* 도구줄 — 추가·복제·삭제는 왼쪽, 찾기는 오른쪽 */}
       <div className="cy-tools">
-        <button className="btn" type="button" onClick={() => setAdding(true)}>
+        <button
+          className="btn"
+          type="button"
+          onClick={() => {
+            setAdding(true)
+            const want = currentProjects()
+            const hit = projects.find(
+              (p) => want.includes(p.name ?? '') || want.includes(p.cat_id ?? '') || want.includes(p.id ?? ''),
+            )
+            setNewPrj(String(hit?.cat_id ?? hit?.id ?? projects[0]?.cat_id ?? projects[0]?.id ?? ''))
+          }}
+        >
           + New
         </button>
         {picked.size > 0 && (
@@ -1723,6 +1779,19 @@ function CycleBoard({
         {adding && (
           <div className="cyt-newrow">
             <span className="cyt-newid" title="ID 는 저장할 때 서버가 매깁니다">자동</span>
+            <select
+              className="cyt-newprj"
+              value={newPrj}
+              title="프로젝트 — 사업자·모델그룹·Key 앞머리가 여기서 온다"
+              onChange={(e) => setNewPrj(e.target.value)}
+            >
+              {projects.length === 0 && <option value="">(프로젝트 없음)</option>}
+              {projects.map((p) => (
+                <option key={String(p.cat_id ?? p.id)} value={String(p.cat_id ?? p.id)}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
             <input
               autoFocus
               placeholder="사이클 제목 — Enter 로 만들기, Esc 로 취소"
@@ -1778,6 +1847,60 @@ function CycleBoard({
               <button className="btn small" type="button" onClick={() => setPeriodPop(null)}>
                 닫기
               </button>
+            </div>
+          </>
+        )}
+        {assPop && (
+          <>
+            <span className="cyt-gearovl" onClick={() => setAssPop(null)} />
+            <div
+              className="cyt-asspop"
+              style={{ position: 'fixed', left: assPop.x, top: assPop.y, zIndex: 60 }}
+            >
+              <input
+                autoFocus
+                placeholder="이름 찾기"
+                value={assPop.q}
+                onChange={(e) => setAssPop((p) => (p ? { ...p, q: e.target.value } : p))}
+              />
+              <div className="cyt-asslist">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void setCyCell(assPop.id, { assignee: '' })
+                    setAssPop(null)
+                  }}
+                >
+                  – (비움)
+                </button>
+                {orgGroups.map(([org, names]) => {
+                  const nq = assPop.q.normalize('NFC').toLowerCase()
+                  const hit = names.filter(
+                    (n) =>
+                      !nq ||
+                      n.normalize('NFC').toLowerCase().includes(nq) ||
+                      org.normalize('NFC').toLowerCase().includes(nq),
+                  )
+                  if (!hit.length) return null
+                  return (
+                    <div key={org}>
+                      <div className="cyt-assorg">{org}</div>
+                      {hit.map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => {
+                            void setCyCell(assPop.id, { assignee: n })
+                            setAssPop(null)
+                          }}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </>
         )}
@@ -2054,15 +2177,26 @@ function CycleBoard({
                               />
                             )
                           default:
-                            /* 담당 — 계정 목록에서 고른다(지시) */
+                            /* 담당 — 창 안에 고정되는 팝오버로 고른다 */
                             return (
-                              <span key={c2.k} className="cyt-cell-fill">
-                                <PickCell
-                                  value={c.assignee ?? ''}
-                                  opts={users}
-                                  onSave={(v) => setCyCell(c.id, { assignee: v })}
-                                />
-                              </span>
+                              <button
+                                key={c2.k}
+                                type="button"
+                                className="cyt-period"
+                                title="누르면 담당을 고칩니다"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const r2 = e.currentTarget.getBoundingClientRect()
+                                  setAssPop({
+                                    id: c.id,
+                                    x: Math.max(8, Math.min(r2.left - 60, window.innerWidth - 260)),
+                                    y: r2.bottom + 4,
+                                    q: '',
+                                  })
+                                }}
+                              >
+                                {c.assignee || '–'}
+                              </button>
                             )
                         }
                       })}

@@ -36,7 +36,6 @@ interface Props {
   famOf: Map<string, string>
   mgroupOf: Map<string, string>
   meName: string
-  onNew: () => void
   onEdit: (id: string) => void
   /** ＋ 추가 — CycleEdit 의 항목 추가 팝업(popupOnly)을 연다 */
   onAddItems: (id: string) => void
@@ -69,7 +68,6 @@ export default function CyclePlan({
   famOf,
   mgroupOf,
   meName,
-  onNew,
   onEdit,
   onAddItems,
   onRun,
@@ -87,9 +85,7 @@ export default function CyclePlan({
     return (v: string) => m.get(v) ?? (v ? 'neutral' : 'none')
   }, [resDefs])
 
-  /* ── 레일: 연 것 / 닫힌 것(완료) — Testiny 의 open/closed 나눔 ── */
-  const [railQ, setRailQ] = useState('')
-  const [showClosed, setShowClosed] = useState(false)
+  /* ── 완료 나눔 — 처음 보여 줄 사이클을 고를 때 쓴다 ── */
   /* 닫힘 = 상태가 '완료' 이거나 종료일이 지난 것. 「✔ 시험 완료」 흐름은
      status 를 안 건드리고 end_date 만 적는다(검증) — 상태 글자 하나에
      걸면 정상 완료가 영영 「열린」 레일에 남는다. */
@@ -97,38 +93,15 @@ export default function CyclePlan({
   const isClosed = (c: CycleMeta) =>
     String(c.status ?? '') === '완료' ||
     (!!c.end_date && String(c.end_date).slice(0, 10) < today)
-  const railList = useMemo(() => {
-    const n = railQ.trim().normalize('NFC').toLowerCase()
-    const hit = (c: CycleMeta) =>
-      !n ||
-      [c.name, c.cid, c.model, c.version, c.version_group, c.customer]
-        .filter(Boolean)
-        .join(' ')
-        .normalize('NFC')
-        .toLowerCase()
-        .includes(n)
-    return {
-      open: cycles.filter((c) => !isClosed(c) && hit(c)),
-      closed: cycles.filter((c) => isClosed(c) && hit(c)),
-    }
-  }, [cycles, railQ])
 
   /* 고른 사이클 — 기억한다. 없으면 첫 줄(요약은 상시다) */
-  const [sel, setSel] = useState(() => localStorage.getItem('utop.cycle.plan') ?? '')
+  const [sel] = useState(() => localStorage.getItem('utop.cycle.plan') ?? '')
   /* 실행 ID(ceid) 부여 — 멱등이라 볼 때마다 쳐도 된다. 실행 화면에
      들어가야만 부여되던 탓에, 플랜에서 갓 만든 사이클의 항목들은 ceid 가
      비어 인라인 수정이 「첫 번째 빈 항목」 을 덮었다(검증: 데이터 오염). */
   const stamped = useRef<Set<string>>(new Set())
   const cur =
-    cycles.find((c) => c.id === sel) ?? railList.open[0] ?? railList.closed[0] ?? cycles[0]
-  const pickPlan = (id: string) => {
-    setSel(id)
-    try {
-      localStorage.setItem('utop.cycle.plan', id)
-    } catch {
-      /* 사생활 보호 모드 */
-    }
-  }
+    cycles.find((c) => c.id === sel) ?? cycles.find((c) => !isClosed(c)) ?? cycles[0]
 
   useEffect(() => {
     const id = cur?.id
@@ -362,6 +335,8 @@ export default function CyclePlan({
     void setItemField(String(runItem.ceid ?? ''), String(runItem.tcid ?? ''), { memo: text })
   }
 
+  /* 플랜의 탭 — Testiny 그대로: 개요 | 테스트 케이스(시험 항목) */
+  const [ptab, setPtab] = useState<'over' | 'cases'>('over')
   const [moreAt, setMoreAt] = useState<{ x: number; y: number } | null>(null)
   const [mail, setMail] = useState(false)
 
@@ -373,74 +348,11 @@ export default function CyclePlan({
 
   return (
     <div className={`cpl${mode === 'exec' ? ' exec' : ''}${runIdx !== null && mode === 'exec' ? ' with-run' : ''}`}>
-      {/* ── ① 레일 — Testiny 그대로 양쪽 다: 플랜에선 사이클 목록,
-          실행(Runs)에선 런 목록이다(지시: 사이클과 Run 잘 구분). ── */}
-      <section className="panel cpl-rail">
-        <div className="cpl-railhead">{mode === 'exec' ? 'Runs' : '사이클'}</div>
-        <button type="button" className="cpl-create" onClick={onNew}>
-          ▶ Create
-        </button>
-        <input
-          className="cpl-railq"
-          placeholder="사이클 찾기"
-          value={railQ}
-          onChange={(e) => setRailQ(e.target.value)}
-        />
-        <div className="cpl-raillist">
-          {railList.open.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className={`cpl-railitem${cur?.id === c.id ? ' on' : ''}`}
-              title={c.cid || c.id}
-              onClick={() => pickPlan(c.id)}
-            >
-              <span className="cpl-railnm">{c.name || c.cid || c.version || c.id}</span>
-              {running.has(c.id) && (
-                <span className="cpl-run" title={`${running.get(c.id)} 실행 중`}>▶</span>
-              )}
-            </button>
-          ))}
-          {railList.open.length === 0 && (
-            <div className="cpl-railempty">열린 사이클이 없습니다</div>
-          )}
-          {railList.closed.length > 0 && (
-            <div className="cpl-closed">
-              {showClosed ? (
-                <>
-                  <div className="cpl-closedh">완료 {railList.closed.length}건</div>
-                  {railList.closed.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className={`cpl-railitem closed${cur?.id === c.id ? ' on' : ''}`}
-                      onClick={() => pickPlan(c.id)}
-                    >
-                      <span className="cpl-railnm">{c.name || c.cid || c.id}</span>
-                    </button>
-                  ))}
-                  <button type="button" className="linkish" onClick={() => setShowClosed(false)}>
-                    접기
-                  </button>
-                </>
-              ) : (
-                <span>
-                  완료 사이클 {railList.closed.length}건.{' '}
-                  <button type="button" className="linkish" onClick={() => setShowClosed(true)}>
-                    보기
-                  </button>
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-      </section>
-
       {/* ── 가운데 — 고른 사이클 ── */}
       <section className="panel cpl-main">
         {!cur ? (
           <div className="empty">
-            아직 사이클이 없습니다 — 왼쪽 「▶ Create」 로 시작하세요.
+            사이클이 골라지지 않았습니다 — 목록에서 ID 를 누르세요.
           </div>
         ) : (
           <>
@@ -450,6 +362,9 @@ export default function CyclePlan({
                 {mode === 'plan' ? '← 목록' : '← 플랜'}
               </button>
               <IdPill id={String(cur.cid || cur.id)} href={gotoHref('cycle', String(cur.id))} />
+              {running.has(cur.id) && (
+                <span className="cpl-run" title={`${running.get(cur.id)} 실행 중`}>▶ 실행 중</span>
+              )}
               <span className="sp" />
               <button type="button" className="btn small" onClick={() => onEdit(cur.id)}>
                 ✎ 수정
@@ -483,6 +398,17 @@ export default function CyclePlan({
               </button>
             </div>
             <h1 className="cpl-title">{cur.name || '(이름 없음)'}</h1>
+            {mode === 'plan' && (
+              <div className="cpl-viewtabs">
+                <button type="button" className={ptab === 'over' ? 'on' : ''} onClick={() => setPtab('over')}>
+                  ▤ 개요
+                </button>
+                <button type="button" className={ptab === 'cases' ? 'on' : ''} onClick={() => setPtab('cases')}>
+                  ▦ 시험 항목
+                </button>
+              </div>
+            )}
+            {mode === 'exec' && (
             <div className="cpl-chips">
               <span className="cpl-chip">사업자 <b>{cur.customer || '–'}</b></span>
               {famOf.get(cur.model ?? '') && (
@@ -504,8 +430,10 @@ export default function CyclePlan({
                 </b>
               </span>
             </div>
+            )}
 
-            {/* ③ 요약 띠 — 도넛 | 결과 줄 | 탭 */}
+            {/* ③ 요약 띠 — 실행 화면의 결과 집계(Testiny 런 화면) */}
+            {mode === 'exec' && (
             <div className="cpl-sum">
               <div className="cpl-donutcol">
                 <svg viewBox="0 0 110 110" className="cpl-donut" aria-hidden="true">
@@ -598,8 +526,101 @@ export default function CyclePlan({
                 )}
               </div>
             </div>
+            )}
 
-            {/* ④ 항목 표 */}
+            {/* ③′ 개요 탭 — Testiny 테스트 계획 개요 그대로: 상세 카드 |
+                실행 열기 | 진행 도넛, 아래에 이 계획의 실행 목록 표 */}
+            {mode === 'plan' && ptab === 'over' && (
+              <div className="cpl-over">
+                <div className="cpl-cards">
+                  <div className="cpl-card">
+                    <div className="cpl-cardh">🗒 시험 계획 상세</div>
+                    <dl className="cpl-meta">
+                      <dt>작성자</dt><dd>{cur.created_by || '–'}</dd>
+                      <dt>생성 날짜</dt><dd>{String(cur._created_at_pg ?? '').slice(0, 10) || '–'}</dd>
+                      <dt>시험 항목 수</dt><dd>{t.total}</dd>
+                      <dt>사업자</dt><dd>{cur.customer || '–'}</dd>
+                      <dt>모델그룹</dt>
+                      <dd>{(cur.model_group ?? '').trim() || mgroupOf.get(cur.model ?? '') || '–'}</dd>
+                      <dt>모델</dt><dd>{cur.model || '–'}</dd>
+                      <dt>버전</dt>
+                      <dd>{[cur.version_group, cur.version].filter(Boolean).join(' · ') || '–'}</dd>
+                      <dt>기간</dt>
+                      <dd>
+                        {[cur.start_date, cur.end_date]
+                          .map((v) => String(v ?? '').slice(0, 10))
+                          .filter(Boolean)
+                          .join('~') || '–'}
+                      </dd>
+                      <dt>담당</dt><dd>{cur.assignee || '–'}</dd>
+                    </dl>
+                  </div>
+                  <div className="cpl-card cpl-openrun">
+                    <div className="cpl-cardh">시험 실행 열기</div>
+                    <button type="button" onClick={onExec} title="실행 화면으로 갑니다">
+                      <span className="cpl-openrun-ico">▶</span>
+                      <span className="cpl-openrun-id">{String(cur.ce || cur.cid || cur.id)}</span>
+                    </button>
+                  </div>
+                  <div className="cpl-card">
+                    <div className="cpl-cardh">진행률</div>
+                    <div className="cpl-covwrap">
+                      <svg viewBox="0 0 110 110" className="cpl-donut" aria-hidden="true">
+                        {donut.map((sg) => (
+                          <path key={sg.k} className={sg.k} d={sg.d} />
+                        ))}
+                        <text x="55" y="52" textAnchor="middle" className="cpl-dpct">
+                          {t.total ? Math.round((t.done / t.total) * 100) : 0}%
+                        </text>
+                        <text x="55" y="67" textAnchor="middle" className="cpl-dlab">
+                          COMPLETE
+                        </text>
+                      </svg>
+                      <div className="cpl-covtxt">
+                        이 계획의 시험 항목 {t.total}개 중 {t.done}개가 실행되었습니다.
+                        <br />
+                        <b className="p">✓ {t.pass}</b> · <b className="f">✗ {t.fail}</b> · ⊘ {t.other} ·
+                        미실행 {t.none}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="cpl-card cpl-runstbl">
+                  <div className="cpl-cardh">이 계획에서 생성된 시험 실행</div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th className="w-id">ID</th>
+                        <th>제목</th>
+                        <th className="w-bar">결과</th>
+                        <th className="w-dt">생성 날짜</th>
+                        <th className="w-dt">종료</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr onClick={onExec} title="실행 화면으로 갑니다">
+                        <td><span className="cpl-runid">{String(cur.ce || cur.cid || cur.id)}</span></td>
+                        <td>▶ {cur.name || '(이름 없음)'}</td>
+                        <td>
+                          <span className="cpl-runbar" aria-hidden="true">
+                            <i className="p" style={{ flexGrow: t.pass }} />
+                            <i className="f" style={{ flexGrow: t.fail }} />
+                            <i className="o" style={{ flexGrow: t.other }} />
+                            <i className="n" style={{ flexGrow: t.none }} />
+                          </span>
+                        </td>
+                        <td>{String(cur._created_at_pg ?? '').slice(0, 10) || '–'}</td>
+                        <td>{String(cur.end_date ?? '').slice(0, 10) || '–'}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* ④ 항목 표 — 플랜은 「시험 항목」 탭, 실행은 늘 */}
+            {(mode === 'exec' || ptab === 'cases') && (
+            <>
             <div className="cpl-tbltools">
               {mode === 'plan' && (
                 <button type="button" className="cpl-add" onClick={() => onAddItems(cur.id)}>
@@ -680,6 +701,8 @@ export default function CyclePlan({
             <div className="cpl-foot">
               {items.length}건
             </div>
+            </>
+            )}
           </>
         )}
 

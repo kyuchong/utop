@@ -2,7 +2,7 @@
    접두어 cpl- (전 CSS 에서 빈 것 확인). 판정 색은 .split.cy 의 CSS 변수. */
 .cpl {
   display: grid;
-  grid-template-columns: 200px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   flex: 1;
   min-height: 0;
@@ -238,7 +238,7 @@
 @keyframes cpl-blink { 50% { opacity: 0.35; } }
 
 /* ── ⑥ 러너(수동 실행) — Testiny Run test case ── */
-.cpl.with-run { grid-template-columns: 200px minmax(0, 1fr) 400px; }
+.cpl.with-run { grid-template-columns: minmax(0, 1fr) 400px; }
 .cpl-row { cursor: pointer; }
 .cpl-row:hover td { background: #f6fafc; }
 .panel.cpl-runner {
@@ -393,5 +393,40 @@
 }
 
 /* 실행 모드 — 레일 없이 전체 폭, 러너가 열리면 오른쪽 3열 */
-.cpl.exec { grid-template-columns: 200px minmax(0, 1fr); }
-.cpl.exec.with-run { grid-template-columns: 200px minmax(0, 1fr) 400px; }
+.cpl.exec { grid-template-columns: minmax(0, 1fr); }
+.cpl.exec.with-run { grid-template-columns: minmax(0, 1fr) 400px; }
+
+/* ── Testiny 플랜 탭·개요(지시: 똑같이) ── */
+.cpl-viewtabs { display: flex; gap: 18px; border-bottom: 1px solid var(--c-border, #dfe5ea); margin: 6px 0 14px; }
+.cpl-viewtabs button { border: 0; background: none; padding: 8px 2px; font: inherit; font-size: 13px; color: var(--c-text-soft, #5b6875); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.cpl-viewtabs button.on { color: var(--c-text, #1c2833); font-weight: 700; border-bottom-color: #0e7490; }
+.cpl-over { display: flex; flex-direction: column; gap: 12px; }
+.cpl-cards { display: grid; grid-template-columns: 1.2fr 1fr 1.4fr; gap: 12px; align-items: stretch; }
+.cpl-card { border: 1px solid var(--c-border, #dfe5ea); border-radius: 8px; padding: 12px 14px; background: var(--c-surface, #fff); min-width: 0; }
+.cpl-cardh { font-weight: 700; font-size: 13px; margin-bottom: 10px; }
+.cpl-meta { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 4px 10px; margin: 0; font-size: 12.5px; }
+.cpl-meta dt { color: var(--c-text-soft, #5b6875); }
+.cpl-meta dd { margin: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cpl-openrun button { width: 100%; height: calc(100% - 28px); min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--c-border, #dfe5ea); border-radius: 8px; background: none; cursor: pointer; }
+.cpl-openrun button:hover { background: var(--c-surface-alt, #f4f7f9); }
+.cpl-openrun-ico { width: 44px; height: 44px; border: 2px solid #0e7490; border-radius: 10px; color: #0e7490; font-size: 20px; display: flex; align-items: center; justify-content: center; }
+.cpl-openrun-id { color: #0e7490; font-size: 22px; font-weight: 700; font-family: Consolas, monospace; }
+.cpl-covwrap { display: flex; align-items: center; gap: 14px; }
+.cpl-covwrap .cpl-donut { width: 110px; flex: none; }
+.cpl-covtxt { font-size: 12.5px; line-height: 1.7; color: var(--c-text-soft, #5b6875); }
+.cpl-covtxt .p { color: var(--c-pass, #12b76a); }
+.cpl-covtxt .f { color: var(--c-fail, #e5484d); }
+.cpl-runstbl table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.cpl-runstbl th { text-align: left; color: var(--c-text-soft, #5b6875); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--c-border, #dfe5ea); }
+.cpl-runstbl td { padding: 8px; border-bottom: 1px solid var(--c-border-soft, #eef2f5); }
+.cpl-runstbl tbody tr { cursor: pointer; }
+.cpl-runstbl tbody tr:hover { background: var(--c-surface-alt, #f4f7f9); }
+.cpl-runstbl .w-bar { width: 220px; }
+.cpl-runstbl .w-dt { width: 110px; }
+.cpl-runid { color: #0e7490; font-weight: 700; font-family: Consolas, monospace; }
+.cpl-runbar { display: flex; width: 200px; height: 9px; border-radius: 5px; overflow: hidden; background: var(--c-border-soft, #e2e8ed); }
+.cpl-runbar i { display: block; }
+.cpl-runbar .p { background: var(--c-pass, #12b76a); }
+.cpl-runbar .f { background: var(--c-fail, #e5484d); }
+.cpl-runbar .o { background: var(--c-blocked, #f5a623); }
+.cpl-runbar .n { background: #cfd8de; }
