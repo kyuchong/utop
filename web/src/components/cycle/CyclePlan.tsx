@@ -246,7 +246,11 @@ export default function CyclePlan({
   /* ── 그 자리에서 고치기 — 문서 통째 읽고 그 칸만 얹어 되저장.
      요약(summary)만 되저장하면 items 가 날아간다(코드베이스의 그 함정). ── */
   const [busy, setBusy] = useState(false)
-  const setItemField = async (ceid: string, tcid: string, patch: Record<string, unknown>) => {
+  const setItemField = async (
+    ceid: string,
+    tcid: string,
+    patch: Record<string, unknown> | ((it: Record<string, unknown>) => void),
+  ) => {
     if (!cur) return
     setBusy(true)
     try {
@@ -265,7 +269,8 @@ export default function CyclePlan({
         window.alert('항목을 찾지 못했습니다 — 화면을 새로 고친 뒤 다시 시도하세요')
         return
       }
-      Object.assign(it, patch)
+      if (typeof patch === 'function') patch(it)
+      else Object.assign(it, patch)
       await apiFetch(`/api/cycle/${encodeURIComponent(cur.id)}`, {
         method: 'POST',
         body: JSON.stringify(full),
@@ -278,6 +283,78 @@ export default function CyclePlan({
     }
   }
 
+  /* ── 러너(수동 실행) — Testiny 「Run test case」 패널 그대로(지시).
+     항목 줄을 누르거나 ▶ 실행으로 연다. 목록 응답의 스텝은 라이트라
+     (판정용 result·kind 만) 본문(스텝·기대결과)은 전체 문서에서 읽는다. */
+  const [runIdx, setRunIdx] = useState<number | null>(null)
+  const [runTab, setRunTab] = useState<'detail' | 'comment' | 'history'>('detail')
+  const [jump, setJump] = useState(true)
+  const fullQ = useQuery({
+    queryKey: ['cycle-full', cur?.id ?? ''],
+    enabled: !!cur && runIdx !== null,
+    queryFn: async () => {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cur?.id ?? '')}`)
+      return (await r.json()) as { items?: Array<Record<string, unknown>> }
+    },
+  })
+  const runItem = runIdx !== null ? items[runIdx] : undefined
+  const runFull = useMemo(() => {
+    if (!runItem) return undefined
+    const arr = fullQ.data?.items ?? []
+    return (
+      arr.find((x) => String(x.ceid ?? '') && String(x.ceid ?? '') === String(runItem.ceid ?? '')) ??
+      arr.find((x) => String(x.tcid ?? '') === String(runItem.tcid ?? ''))
+    )
+  }, [fullQ.data, runItem])
+  const openRun = (it: CycleItemLite) => {
+    const i = items.findIndex(
+      (x) => (x.ceid && x.ceid === it.ceid) || (!x.ceid && x.tcid === it.tcid),
+    )
+    if (i >= 0) {
+      setRunIdx(i)
+      setRunTab('detail')
+    }
+  }
+  /* ▶ 실행 — 첫 미실행 항목부터. 다 끝났으면 첫 항목 */
+  const startRun = () => {
+    const i = items.findIndex((x) => !itemVerdict(x))
+    setRunIdx(i >= 0 ? i : items.length ? 0 : null)
+    setRunTab('detail')
+  }
+  const stepRun = (d: -1 | 1) => {
+    if (runIdx === null || !items.length) return
+    setRunIdx((runIdx + d + items.length) % items.length)
+  }
+  /* 판정 — 표의 인라인 셀렉트와 같은 규약. 주면 다음으로(Testiny) */
+  const giveVerdict = (v: string) => {
+    if (!runItem) return
+    const patch =
+      v === '미실행'
+        ? { result: '미실행' }
+        : {
+            result: v,
+            executed_by: runItem.executed_by || meName,
+            executed_at: new Date().toISOString().slice(0, 19).replace('T', ' '),
+          }
+    void setItemField(String(runItem.ceid ?? ''), String(runItem.tcid ?? ''), patch).then(() => {
+      if (jump) stepRun(1)
+    })
+  }
+  const giveStep = (si: number, v: string) => {
+    if (!runItem) return
+    void setItemField(String(runItem.ceid ?? ''), String(runItem.tcid ?? ''), (it) => {
+      const steps = (it.steps ?? []) as Array<Record<string, unknown>>
+      if (steps[si]) {
+        steps[si].result = v
+        steps[si].executed_at = new Date().toISOString().slice(0, 19).replace('T', ' ')
+      }
+    }).then(() => void fullQ.refetch())
+  }
+  const saveMemo = (text: string) => {
+    if (!runItem) return
+    void setItemField(String(runItem.ceid ?? ''), String(runItem.tcid ?? ''), { memo: text })
+  }
+
   const [moreAt, setMoreAt] = useState<{ x: number; y: number } | null>(null)
   const [mail, setMail] = useState(false)
 
@@ -288,7 +365,7 @@ export default function CyclePlan({
   }
 
   return (
-    <div className="cpl">
+    <div className={`cpl${runIdx !== null ? ' with-run' : ''}`}>
       {/* ── ① 사이클 레일 (Testiny Test runs) ── */}
       <section className="panel cpl-rail">
         <div className="cpl-railhead">사이클</div>
@@ -369,7 +446,9 @@ export default function CyclePlan({
               <button type="button" className="btn small" onClick={() => onEdit(cur.id)}>
                 ✎ 수정
               </button>
-              <button type="button" className="btn small" onClick={() => onRun(cur.id)}>
+              {/* ▶ 실행 = Testiny 러너(수동). 자동 실행 UI 는 따로 온다(지시)
+                  — 그때까지 기존 실행 화면은 ⋯ 안에 남긴다 */}
+              <button type="button" className="btn small cpl-teal" onClick={startRun}>
                 ▶ 실행
               </button>
               <button type="button" className="btn small" onClick={() => setMail(true)}>
@@ -548,6 +627,7 @@ export default function CyclePlan({
                       resDefs={resDefs}
                       vcls={vcls}
                       meName={meName}
+                      onOpen={openRun}
                       onAssignee={(ceid, tcid, v) => void setItemField(ceid, tcid, { assignee: v })}
                       onResult={(ceid, tcid, v, prev) =>
                         void setItemField(
@@ -605,6 +685,9 @@ export default function CyclePlan({
               <button type="button" role="menuitem" onClick={() => { setMoreAt(null); onCsv(cur) }}>
                 CSV 내보내기
               </button>
+              <button type="button" role="menuitem" onClick={() => { setMoreAt(null); onRun(cur.id) }}>
+                자동 실행 (기존 화면)
+              </button>
               <button type="button" role="menuitem" onClick={() => { setMoreAt(null); onDup(cur.id) }}>
                 복제
               </button>
@@ -617,6 +700,193 @@ export default function CyclePlan({
 
         {mail && cur && <CycleMailOne cycle={cur} onClose={() => setMail(false)} />}
       </section>
+
+      {/* ── ⑥ 러너(수동 실행) — Testiny 「Run test case」 그대로 ── */}
+      {runIdx !== null && runItem && (
+        <section className="panel cpl-runner">
+          <div className="cpl-rhead">
+            ▶ 시험 실행
+            <span className="sp" />
+            <button type="button" className="cpl-x" title="닫기" onClick={() => setRunIdx(null)}>
+              ✕
+            </button>
+          </div>
+          <div className="cpl-rtitle">
+            <span className="cpl-tid">{runItem.tcid}</span> {runItem.name || '(제목 없음)'}
+          </div>
+          <div className="cpl-rtabs">
+            {([['detail', '상세'], ['comment', '코멘트'], ['history', '이력']] as const).map(([k, lab]) => (
+              <button
+                key={k}
+                type="button"
+                className={runTab === k ? 'on' : ''}
+                onClick={() => setRunTab(k)}
+              >
+                {lab}
+              </button>
+            ))}
+          </div>
+          <div className="cpl-rbody">
+            {runTab === 'detail' && (
+              <>
+                <div className="cpl-rfld">
+                  <label>담당</label>
+                  <PickCell
+                    dbl
+                    value={String(runItem.assignee ?? '')}
+                    cls="cpl-ass"
+                    title="담당 — 두 번 누르면 고칩니다"
+                    onSave={(nv) =>
+                      void setItemField(String(runItem.ceid ?? ''), String(runItem.tcid ?? ''), {
+                        assignee: nv,
+                      })
+                    }
+                  />
+                </div>
+                {fullQ.isLoading ? (
+                  <div className="muted small">스텝을 읽는 중…</div>
+                ) : (
+                  <div className="cpl-rsteps">
+                    {((runFull?.steps ?? []) as Array<Record<string, unknown>>).map((st, si) => {
+                      const isManual =
+                        st.kind === 'manual' || st.manual === true || st.action === '수동'
+                      const what = String(st.step ?? st.desc ?? st.text ?? st.cli ?? '') || '(내용 없음)'
+                      const expected = String(st.expected ?? st.criteria ?? '')
+                      const res = String(st.result ?? '')
+                      if (st.kind === 'comment' || st.kind === 'message')
+                        return (
+                          <div className="cpl-rnote" key={si}>
+                            💬 {what}
+                          </div>
+                        )
+                      return (
+                        <div className={`cpl-rstep${res ? ` ${vcls(res)}` : ''}`} key={si}>
+                          <span className="no">{si + 1}</span>
+                          <span className="what">
+                            <b>{what}</b>
+                            {String(st.data ?? '') !== '' && <i>Data: {String(st.data)}</i>}
+                            {expected && <em>기대: {expected}</em>}
+                          </span>
+                          {isManual ? (
+                            <span className="res">
+                              <button
+                                type="button"
+                                className={`sv p${res === 'Pass' ? ' on' : ''}`}
+                                title="이 스텝 Pass"
+                                onClick={() => giveStep(si, 'Pass')}
+                              >
+                                ✓
+                              </button>
+                              <button
+                                type="button"
+                                className={`sv f${res === 'Fail' ? ' on' : ''}`}
+                                title="이 스텝 Fail"
+                                onClick={() => giveStep(si, 'Fail')}
+                              >
+                                ✗
+                              </button>
+                            </span>
+                          ) : (
+                            <span className={`chip ${vcls(res)}`}>{res || '자동'}</span>
+                          )}
+                        </div>
+                      )
+                    })}
+                    {((runFull?.steps ?? []) as unknown[]).length === 0 && (
+                      <div className="muted small">스텝이 없습니다</div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+            {runTab === 'comment' && (
+              <MemoBox
+                key={String(runItem.ceid ?? runItem.tcid)}
+                initial={String((runFull?.memo as string) ?? '')}
+                onSave={saveMemo}
+              />
+            )}
+            {runTab === 'history' && (
+              <div className="cpl-rhist">
+                실행자 <b>{runItem.executed_by || '–'}</b>
+                <br />
+                실행 시각 <b>{String(runItem.executed_at ?? '').slice(0, 19) || '–'}</b>
+                <br />
+                판정 <b>{itemVerdict(runItem) || '미실행'}</b>
+              </div>
+            )}
+          </div>
+          <div className="cpl-rfoot">
+            <div className="cpl-rverdicts">
+              <button type="button" className="cpl-vpass" onClick={() => giveVerdict('Pass')}>
+                ✓ Pass
+              </button>
+              <button type="button" className="cpl-vfail" onClick={() => giveVerdict('Fail')}>
+                ✗ Fail
+              </button>
+              <select
+                className="cpl-vetc"
+                value=""
+                title="다른 판정"
+                onChange={(e) => e.target.value && giveVerdict(e.target.value)}
+              >
+                <option value="">기타 ▾</option>
+                <option value="미실행">◌ 미실행</option>
+                {resDefs
+                  .filter((r) => r.v && r.v !== 'Pass' && r.v !== 'Fail' && r.v !== '미실행')
+                  .map((r) => (
+                    <option key={r.v} value={r.v}>
+                      {r.label || r.v}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <label className="cpl-jump">
+              <input type="checkbox" checked={jump} onChange={(e) => setJump(e.target.checked)} />
+              결과를 주면 다음 항목으로
+            </label>
+          </div>
+          <div className="cpl-rpager">
+            <button type="button" onClick={() => stepRun(-1)}>‹</button>
+            <span className="sp" />
+            {runIdx + 1} / {items.length}
+            <span className="sp" />
+            <button type="button" onClick={() => stepRun(1)}>›</button>
+            <button type="button" className="btn small" onClick={() => setRunIdx(null)}>
+              닫기
+            </button>
+          </div>
+        </section>
+      )}
+    </div>
+  )
+}
+
+/** 코멘트 칸 — 러너의 memo. 저장을 눌러야 나간다(입력마다 통짜 저장은 무겁다) */
+function MemoBox({ initial, onSave }: { initial: string; onSave: (t: string) => void }) {
+  const [text, setText] = useState(initial)
+  const [saved, setSaved] = useState(false)
+  return (
+    <div className="cpl-memo">
+      <textarea
+        rows={6}
+        value={text}
+        placeholder="코멘트를 적으세요"
+        onChange={(e) => {
+          setText(e.target.value)
+          setSaved(false)
+        }}
+      />
+      <button
+        type="button"
+        className="btn small"
+        onClick={() => {
+          onSave(text)
+          setSaved(true)
+        }}
+      >
+        {saved ? '저장됨' : '저장'}
+      </button>
     </div>
   )
 }
@@ -628,6 +898,7 @@ function GroupRows({
   onFold,
   resDefs,
   vcls,
+  onOpen,
   onAssignee,
   onResult,
 }: {
@@ -637,6 +908,7 @@ function GroupRows({
   resDefs: Array<{ v: string; label?: string }>
   vcls: (v: string) => string
   meName: string
+  onOpen: (it: CycleItemLite) => void
   onAssignee: (ceid: string, tcid: string, v: string) => void
   onResult: (
     ceid: string,
@@ -657,7 +929,17 @@ function GroupRows({
         g.items.map((it) => {
           const v = itemVerdict(it)
           return (
-            <tr key={it.ceid || it.tcid}>
+            <tr
+              key={it.ceid || it.tcid}
+              className="cpl-row"
+              /* 줄을 누르면 러너가 열린다(Testiny). 담당·결과 같은 일하는
+                 부품 위 클릭은 그 부품 몫 */
+              onClick={(e) => {
+                const el = e.target as HTMLElement
+                if (el.closest('button, input, select, textarea, .pick-view')) return
+                onOpen(it)
+              }}
+            >
               <td className="cpl-tid">{it.tcid}</td>
               <td className="cpl-nm">{it.name || '(제목 없음)'}</td>
               <td>

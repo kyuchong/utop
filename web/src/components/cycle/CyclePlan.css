@@ -236,3 +236,158 @@
    사고를 막는다(검증에서 잡았던 그 회귀) */
 .cpl-run { margin-left: auto; color: var(--c-primary, #0e7490); animation: cpl-blink 1.2s infinite; }
 @keyframes cpl-blink { 50% { opacity: 0.35; } }
+
+/* ── ⑥ 러너(수동 실행) — Testiny Run test case ── */
+.cpl.with-run { grid-template-columns: 200px minmax(0, 1fr) 400px; }
+.cpl-row { cursor: pointer; }
+.cpl-row:hover td { background: #f6fafc; }
+.panel.cpl-runner {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+}
+.cpl-rhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--c-border);
+  font-weight: 700;
+}
+.cpl-rhead .sp { flex: 1; }
+.cpl-x { border: 0; background: transparent; color: var(--c-text-faint, #8a99a3); cursor: pointer; font-size: 14px; }
+.cpl-x:hover { color: var(--c-text); }
+.cpl-rtitle { padding: 10px 12px 4px; font-size: 13.5px; font-weight: 700; }
+.cpl-rtitle .cpl-tid { margin-right: 6px; }
+.cpl-rtabs { display: flex; gap: 14px; padding: 0 12px; border-bottom: 1px solid var(--c-border); }
+.cpl-rtabs button {
+  border: 0;
+  background: transparent;
+  padding: 7px 0;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--c-text-faint, #8a99a3);
+  cursor: pointer;
+}
+.cpl-rtabs button.on { border-bottom: 2px solid var(--c-sel-teal, #a8d3dd); color: var(--c-text); font-weight: 700; }
+.cpl-rbody { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; }
+.cpl-rfld label { display: block; font-size: 10.5px; color: var(--c-text-faint, #8a99a3); letter-spacing: 0.5px; margin-bottom: 2px; }
+.cpl-rsteps { display: flex; flex-direction: column; gap: 6px; }
+.cpl-rnote {
+  background: #f2f7f2;
+  border: 1px solid #dcebdc;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #3c5a3c;
+}
+.cpl-rstep {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 8px;
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  align-items: start;
+  font-size: 12.5px;
+}
+.cpl-rstep.p { border-left: 3px solid var(--c-pass, #12b76a); }
+.cpl-rstep.f { border-left: 3px solid var(--c-fail, #e5484d); }
+.cpl-rstep .no { color: var(--c-text-faint, #8a99a3); font-family: var(--font-mono); font-weight: 700; }
+.cpl-rstep .what { min-width: 0; }
+.cpl-rstep .what b { display: block; white-space: pre-wrap; word-break: break-word; }
+.cpl-rstep .what i {
+  display: block;
+  font-style: normal;
+  color: var(--c-text-soft, #5b6875);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+.cpl-rstep .what em {
+  display: block;
+  font-style: normal;
+  color: var(--c-text-faint, #8a99a3);
+  font-size: 12px;
+  background: var(--c-surface-alt, #f8fafb);
+  border-radius: 6px;
+  padding: 4px 6px;
+  margin-top: 4px;
+  white-space: pre-wrap;
+}
+.cpl-rstep .res { display: flex; gap: 4px; }
+.cpl-rstep .sv {
+  border: 1px solid var(--c-border);
+  background: #fff;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cpl-rstep .sv.p.on { background: var(--c-pass, #12b76a); border-color: var(--c-pass, #12b76a); color: #fff; }
+.cpl-rstep .sv.f.on { background: var(--c-fail, #e5484d); border-color: var(--c-fail, #e5484d); color: #fff; }
+.cpl-rstep .chip {
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: var(--c-surface-alt, #f1f5f8);
+  color: var(--c-text-faint, #8a99a3);
+}
+.cpl-rstep .chip.p { color: var(--c-pass, #12b76a); font-weight: 700; }
+.cpl-rstep .chip.f { color: var(--c-fail, #e5484d); font-weight: 700; }
+.cpl-rhist { font-size: 12.5px; color: var(--c-text-soft, #5b6875); line-height: 2; }
+.cpl-rhist b { color: var(--c-text); }
+.cpl-memo { display: flex; flex-direction: column; gap: 6px; }
+.cpl-memo textarea {
+  border: 1px solid var(--c-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 12.5px;
+  resize: vertical;
+}
+.cpl-memo .btn { align-self: flex-end; }
+.cpl-rfoot { border-top: 1px solid var(--c-border); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; flex: none; }
+.cpl-rverdicts { display: flex; gap: 6px; align-items: center; }
+.cpl-vpass {
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 16px;
+  background: var(--c-pass, #12b76a);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cpl-vfail {
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 16px;
+  background: var(--c-fail, #e5484d);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.cpl-vetc { border: 1px solid var(--c-border); border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 12px; }
+.cpl-jump { font-size: 12px; color: var(--c-text-soft, #5b6875); display: flex; gap: 6px; align-items: center; }
+.cpl-rpager {
+  border-top: 1px solid var(--c-border);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--c-text-soft, #5b6875);
+  flex: none;
+}
+.cpl-rpager .sp { flex: 1; }
+.cpl-rpager > button:not(.btn) {
+  border: 1px solid var(--c-border);
+  background: #fff;
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+}
