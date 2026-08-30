@@ -3,7 +3,8 @@ import IdPill from '@/components/IdPill'
 import Markdown from '@/components/Markdown'
 import { createPortal } from 'react-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiFetch } from '@/api/client'
+import { apiFetch, projectApi } from '@/api/client'
+import { currentProjects } from '@/components/ProjectPicker'
 import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { goto, onGoto, reflectUrl, gotoHref } from '@/api/goto'
 import CycleEdit from '@/components/cycle/CycleEdit'
@@ -53,6 +54,8 @@ import './Cycles.css'
 
 /** 사이클 한 건 — 목록용 요약(`/api/cycle?meta=1`) */
 export interface CycleMeta {
+  /** 제품군 스냅샷 — 표에서 직접 고를 수 있다(지시). 비면 카탈로그에서 파생 */
+  family?: string | null
   id: string
   name?: string | null
   customer?: string | null
@@ -378,7 +381,7 @@ interface PageProps {
   me?: { username?: string; name?: string } | null
 }
 
-export default function Cycles({ me }: PageProps) {
+export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: 'cycles' | 'runs' }) {
   /**
    * 새로고침해도 보던 자리로 돌아온다.
    *
@@ -433,9 +436,16 @@ export default function Cycles({ me }: PageProps) {
   /* 표(목록) ↔ 플랜 — 표의 ID 를 누르면 플랜으로(지시). 기억한다:
      새로고침해도 보던 화면이 유지돼야 한다. */
   const [cyView, setCyView] = useState<'list' | 'plan' | 'exec'>(() => {
+    if (entry === 'runs') return 'exec'
     const v = localStorage.getItem('utop.cycle.view')
-    return v === 'plan' || v === 'exec' ? v : 'list'
+    return v === 'plan' ? v : 'list'
   })
+  /* 메뉴가 곧 얼굴이다(지시: 사이클과 Run 을 잘 구분) — Cycles 메뉴는
+     계획(목록·플랜), Runs 메뉴는 실행. 메뉴를 오가면 얼굴도 따라간다. */
+  useEffect(() => {
+    setCyView(entry === 'runs' ? 'exec' : 'list')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry])
   const goView = (v: 'list' | 'plan' | 'exec', id?: string) => {
     try {
       if (id) localStorage.setItem('utop.cycle.plan', id)
@@ -501,6 +511,10 @@ export default function Cycles({ me }: PageProps) {
       return (await r.json()) as { cycles: CycleMeta[] }
     },
   })
+
+  /* 프로젝트 — 인라인 생성 때 사업자·모델그룹(·모델)을 자동으로 채운다(지시).
+     상단바에서 고른 프로젝트가 기준이다. */
+  const prjQ = useQuery({ queryKey: ['projects'], queryFn: ({ signal }) => projectApi.list(signal) })
 
   // 모델그룹·모델의 주인은 장비 카탈로그다
   const catQ = useQuery({
@@ -923,6 +937,25 @@ export default function Cycles({ me }: PageProps) {
             cycles={cycles}
             mgroupOf={mgroupOf}
             famOf={famOf}
+            catalog={catQ.data?.items ?? []}
+            /* 인라인 생성의 자동 채움 — 상단바에서 고른 프로젝트의
+               사업자·모델그룹, 그 그룹에 모델이 하나뿐이면 모델까지 */
+            prjDefault={(() => {
+              const want = currentProjects()
+              const p = (prjQ.data?.projects ?? []).find(
+                (x) => want.includes(x.name) || want.includes(x.cat_id) || want.includes(x.id),
+              )
+              if (!p) return {}
+              const mg = (p.model_group ?? '').trim()
+              const models = (catQ.data?.items ?? []).filter(
+                (it) => it.kind === 'model' && (it.model_group ?? '').trim() === mg,
+              )
+              return {
+                customer: p.customer || undefined,
+                model_group: mg || undefined,
+                model: models.length === 1 ? models[0]?.name : undefined,
+              }
+            })()}
             onDup={(id) => setCloneId(id)}
             onDel={(ids) => void delCycles(ids)}
             onEdit={(id) => setEditId(id)}
@@ -1072,6 +1105,8 @@ function CycleBoard({
   cycles,
   mgroupOf,
   famOf,
+  catalog,
+  prjDefault,
   onDup,
   onDel,
   onEdit,
@@ -1085,6 +1120,10 @@ function CycleBoard({
   /** 카탈로그 지도 — 사이클에 비어 있으면 모델명으로 보강(수정 창과 같은 값) */
   mgroupOf: Map<string, string>
   famOf: Map<string, string>
+  /** 카탈로그 원본 — 제품군·모델그룹·모델명 드롭다운의 선택지(지시) */
+  catalog: Array<CatModel & { kind: string }>
+  /** 인라인 생성 자동 채움 — 상단바 프로젝트에서 */
+  prjDefault: { customer?: string; model_group?: string; model?: string }
   /** 복제 — 한 개 골랐을 때 */
   onDup: (id: string) => void
   /** 삭제 — 고른 것들 */
@@ -1102,10 +1141,41 @@ function CycleBoard({
   running: Map<string, string>
 }) {
   const [q, setQ] = useState('')
+  /* 드롭다운 선택지 — 카탈로그가 정본(지시: 제품군·모델그룹·모델명 고르기) */
+  const catOpts = useMemo(() => {
+    const families = [...new Set(catalog.filter((x) => x.kind === 'family').map((x) => x.name))]
+    const groups = catalog.filter((x) => x.kind === 'group')
+    const famOfGroup = new Map(groups.map((g) => [g.name, (g.family ?? '').trim()]))
+    const modelsByGroup = new Map<string, string[]>()
+    for (const m of catalog.filter((x) => x.kind === 'model')) {
+      const g = (m.model_group ?? '').trim()
+      modelsByGroup.set(g, [...(modelsByGroup.get(g) ?? []), m.name])
+    }
+    return { families, groups: groups.map((g) => g.name), famOfGroup, modelsByGroup }
+  }, [catalog])
+  /* 담당 드롭다운 — 계정 목록(장비 화면과 같은 원천) */
+  const rolesQ = useQuery({
+    queryKey: ['device-roles'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/device-roles')
+      return (await r.json()) as { usernames?: string[] }
+    },
+    staleTime: 60_000,
+  })
+  const users = rolesQ.data?.usernames ?? []
+
   /* ＋ New — 창을 띄우지 않고 **머리행 바로 아래**에서 만든다(지시).
      ID 는 서버가 자동으로 매기고(cid), 사람은 제목만 친다. 모델·버전은
      만든 뒤 ✎ 수정에서 채운다 — 만들기 문턱이 낮아야 일단 적는다. */
   const [adding, setAdding] = useState(false)
+  /* 기간 팝오버 — 달력(네이티브 date)으로 시작·종료를 고른다(지시) */
+  const [periodPop, setPeriodPop] = useState<{
+    id: string
+    x: number
+    y: number
+    start: string
+    end: string
+  } | null>(null)
   const [newTitle, setNewTitle] = useState('')
   const [addBusy, setAddBusy] = useState(false)
   const saveNew = async () => {
@@ -1121,6 +1191,9 @@ function CycleBoard({
           name: t,
           items: [],
           created_at: new Date().toISOString().slice(0, 10),
+          /* 상단바 프로젝트에서 자동 채움(지시) — 모델그룹이 실리면
+             서버가 cid 를 새 규칙(E61xx_C0001)으로 매긴다 */
+          ...prjDefault,
         }),
       })
       if (!r.ok) throw new Error(`저장 실패 (${r.status})`)
@@ -1178,8 +1251,9 @@ function CycleBoard({
       /* 목업 차례: ID·이름 다음 사업자·제품군·모델그룹. 모델명은 뺐다 —
          프로젝트에서도 뺀 값이다(모델그룹까지만 정한다). */
       { k: 'cust', label: '사업자', w: '64px' },
-      { k: 'fam', label: '제품군', w: '56px' },
-      { k: 'mg', label: '모델그룹', w: '88px' },
+      { k: 'fam', label: '제품군', w: '64px' },
+      { k: 'mg', label: '모델그룹', w: '96px' },
+      { k: 'md', label: '모델명', w: '84px' },
       ...infoCols.filter((c) => cytCols.has(c.k)),
       ...CYT_FIXED,
     ]
@@ -1659,6 +1733,43 @@ function CycleBoard({
             </button>
           </div>
         )}
+        {periodPop && (
+          <>
+            <span className="cyt-gearovl" onClick={() => setPeriodPop(null)} />
+            <div
+              className="cyt-periodpop"
+              style={{ position: 'fixed', left: periodPop.x, top: periodPop.y, zIndex: 60 }}
+            >
+              <label>
+                시작
+                <input
+                  type="date"
+                  value={periodPop.start}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setPeriodPop((p) => (p ? { ...p, start: v } : p))
+                    void setCyCell(periodPop.id, { start_date: v })
+                  }}
+                />
+              </label>
+              <label>
+                종료
+                <input
+                  type="date"
+                  value={periodPop.end}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setPeriodPop((p) => (p ? { ...p, end: v } : p))
+                    void setCyCell(periodPop.id, { end_date: v })
+                  }}
+                />
+              </label>
+              <button className="btn small" type="button" onClick={() => setPeriodPop(null)}>
+                닫기
+              </button>
+            </div>
+          </>
+        )}
         {(sortCol === ''
           ? /* 열 머리글을 안 눌렀으면 목록 정렬대로 — 기본은 **트리 순서**
                (왼쪽 트리에 선 폴더 차례). 어느 폴더 것인지 눈으로 따라간다 */
@@ -1780,23 +1891,53 @@ function CycleBoard({
                       {renderCols.map((c2) => {
                         switch (c2.k) {
                           case 'mg': {
-                            // 사이클에 비어 있으면 카탈로그에서 — 수정 창은 채워
-                            // 보이는데 목록만 – 였다(지적)
+                            /* 그 자리에서 고른다(지시). 그룹을 바꾸면 모델은
+                               비운다 — 딴 그룹의 모델이 남으면 거짓말이 된다.
+                               제품군도 그룹의 것으로 따라온다. */
                             const mg2 =
                               (c.model_group ?? '').trim() || mgroupOf.get(c.model ?? '') || ''
-                            /* 모델그룹·모델명은 여기서 고치지 않는다(지시) —
-                               트리 자리를 바꾸는 값이라 수정 창에서 다룬다 */
                             return (
-                              <span key={c2.k} className="muted small cyt-ell" title={mg2}>
-                                {mg2 || '–'}
+                              <span key={c2.k} className="cyt-cell-fill">
+                                <PickCell
+                                  value={mg2}
+                                  opts={catOpts.groups}
+                                  onSave={(v) =>
+                                    setCyCell(c.id, {
+                                      model_group: v,
+                                      model: '',
+                                      family: catOpts.famOfGroup.get(v) || c.family || '',
+                                    })
+                                  }
+                                />
+                              </span>
+                            )
+                          }
+                          case 'md': {
+                            /* 모델명 — 그룹의 모델만 고를 수 있다(지시로 열 복구) */
+                            const mg3 =
+                              (c.model_group ?? '').trim() || mgroupOf.get(c.model ?? '') || ''
+                            return (
+                              <span key={c2.k} className="cyt-cell-fill">
+                                <PickCell
+                                  value={c.model ?? ''}
+                                  opts={catOpts.modelsByGroup.get(mg3) ?? []}
+                                  onSave={(v) => setCyCell(c.id, { model: v })}
+                                />
                               </span>
                             )
                           }
                           case 'fam': {
-                            const fam2 = famOf.get(c.model ?? '') || ''
+                            /* 제품군 — 직접 고를 수 있다(지시). 고른 값이 정본,
+                               비면 카탈로그에서 파생 */
+                            const fam2 =
+                              (c.family ?? '').trim() || famOf.get(c.model ?? '') || ''
                             return (
-                              <span key={c2.k} className="muted small cyt-ell" title={fam2}>
-                                {fam2 || '–'}
+                              <span key={c2.k} className="cyt-cell-fill">
+                                <PickCell
+                                  value={fam2}
+                                  opts={catOpts.families}
+                                  onSave={(v) => setCyCell(c.id, { family: v })}
+                                />
                               </span>
                             )
                           }
@@ -1816,13 +1957,30 @@ function CycleBoard({
                               setCyCell(c.id, { customer: v }),
                             )
                           case 'period': {
-                            /* 2026-10-10~2026-11-10 — 연도까지 다 적는다(지시) */
+                            /* 2026-10-10~2026-11-10 — 연도까지(지시). 누르면
+                               달력 팝오버로 시작·종료를 고른다(지시) */
                             const d = (v?: string | null) => (v ? String(v).slice(0, 10) : '')
                             const p2 = [d(c.start_date), d(c.end_date)].filter(Boolean).join('~')
                             return (
-                              <span key={c2.k} className="muted small cyt-ell" title={p2}>
-                                {p2 || '–'}
-                              </span>
+                              <button
+                                key={c2.k}
+                                type="button"
+                                className="cyt-period"
+                                title="누르면 기간을 고칩니다"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const r2 = e.currentTarget.getBoundingClientRect()
+                                  setPeriodPop({
+                                    id: c.id,
+                                    x: Math.max(8, r2.left - 40),
+                                    y: r2.bottom + 4,
+                                    start: d(c.start_date),
+                                    end: d(c.end_date),
+                                  })
+                                }}
+                              >
+                                {p2 || '기간 넣기'}
+                              </button>
                             )
                           }
                           case 'f_customer':
@@ -1893,9 +2051,14 @@ function CycleBoard({
                               />
                             )
                           default:
+                            /* 담당 — 계정 목록에서 고른다(지시) */
                             return (
-                              <span key={c2.k} className="muted small cyt-ell" title={c.assignee ?? ''}>
-                                {c.assignee || '–'}
+                              <span key={c2.k} className="cyt-cell-fill">
+                                <PickCell
+                                  value={c.assignee ?? ''}
+                                  opts={users}
+                                  onSave={(v) => setCyCell(c.id, { assignee: v })}
+                                />
                               </span>
                             )
                         }

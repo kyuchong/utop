@@ -373,10 +373,10 @@ export default function CyclePlan({
 
   return (
     <div className={`cpl${mode === 'exec' ? ' exec' : ''}${runIdx !== null && mode === 'exec' ? ' with-run' : ''}`}>
-      {/* ── ① 사이클 레일 — 플랜에서만. 실행은 한 사이클에 붙박이다 ── */}
-      {mode === 'plan' && (
+      {/* ── ① 레일 — Testiny 그대로 양쪽 다: 플랜에선 사이클 목록,
+          실행(Runs)에선 런 목록이다(지시: 사이클과 Run 잘 구분). ── */}
       <section className="panel cpl-rail">
-        <div className="cpl-railhead">사이클</div>
+        <div className="cpl-railhead">{mode === 'exec' ? 'Runs' : '사이클'}</div>
         <button type="button" className="cpl-create" onClick={onNew}>
           ▶ Create
         </button>
@@ -435,7 +435,6 @@ export default function CyclePlan({
           )}
         </div>
       </section>
-      )}
 
       {/* ── 가운데 — 고른 사이클 ── */}
       <section className="panel cpl-main">

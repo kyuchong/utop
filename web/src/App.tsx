@@ -26,7 +26,7 @@ const PAGE_KEY = 'utop.page'
    「아직 새 UI로 옮기지 않았습니다」 벽이 나온다(지적: 이상한 화면).
    모르는 이름은 Dashboard 로 보낸다 — 벽보다는 쓸 수 있는 화면이 낫다. */
 const KNOWN_PAGES = new Set([
-  'dashboard', 'wiki', 'reqtc', 'cycles', 'executions',
+  'dashboard', 'wiki', 'reqtc', 'cycles', 'runs', 'executions',
   'devices', 'instruments', 'rackview',
   'defects', 'releases', 'ai-tc', 'settings',
 ])
@@ -275,7 +275,10 @@ export default function App() {
       ) : page === 'ai-tc' ? (
         <AiTc />
       ) : page === 'cycles' ? (
-        <Cycles me={user} />
+        <Cycles me={user} entry="cycles" />
+      ) : page === 'runs' ? (
+        /* Runs — 같은 부품, 실행 얼굴로 들어간다(Testiny 의 Test Runs) */
+        <Cycles me={user} entry="runs" />
       ) : page === 'executions' ? (
         /* 옛 Reports 자리 — 북마크로 들어오면 사이클 화면을 보여 준다 */
         <Cycles me={user} />

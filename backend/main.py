@@ -11958,13 +11958,36 @@ async def pptx_render(payload: dict):
     )
 
 
+async def _cycle_cid_prefix(data: dict) -> tuple[str, int]:
+    """cid 앞머리 — **모델그룹 기준**(E61xx_C0001), 요구사항·시험과 같은 규칙.
+
+    모델그룹을 모르면(제목만 치고 만든 인라인 생성) 옛 주차 규칙으로
+    떨어진다 — 앞머리를 지어내지 않는다. 나중에 모델그룹을 채우면
+    ID 옮기기(SETUP)가 새 규칙으로 따라온다."""
+    mg = str((data or {}).get("model_group") or "").strip()
+    if not mg:
+        model = str((data or {}).get("model") or "").strip()
+        if model:
+            try:
+                for it in await db.catalog_list():
+                    if str(it.get("kind")) == "model" and str(it.get("name")) == model:
+                        mg = str(it.get("model_group") or "").strip()
+                        break
+            except Exception:
+                pass
+    if mg:
+        return f"{mg}_C", 4
+    from datetime import datetime as _dt
+    return db._cid_prefix_of(_dt.now()), 3
+
+
 @app.post("/api/cycle/{cycle_id}")
 async def save_cycle(cycle_id: str, data: dict):
-    # 부여 ID(C-<연2><주차2>-<순번3>) — 없을 때만 새로 매긴다. 한 번 박히면 영원하다
+    # 부여 ID — 없을 때만 새로 매긴다. 한 번 박히면 영원하다
     if not str((data or {}).get("cid") or "").strip():
-        from datetime import datetime as _dt
         try:
-            data["cid"] = await db.cycle_next_cid(db._cid_prefix_of(_dt.now()))
+            _pfx, _w = await _cycle_cid_prefix(data or {})
+            data["cid"] = await db.cycle_next_cid(_pfx, _w)
         except Exception:
             pass
     await db.cycle_upsert(cycle_id, data)
@@ -11991,9 +12014,9 @@ async def cycle_exec_ids(cycle_id: str):
         raise HTTPException(404, "사이클이 없습니다")
     cid = str(data.get("cid") or "").strip()
     if not cid:
-        from datetime import datetime as _dt
         try:
-            cid = await db.cycle_next_cid(db._cid_prefix_of(_dt.now()))
+            _pfx, _w = await _cycle_cid_prefix(data)
+            cid = await db.cycle_next_cid(_pfx, _w)
             data["cid"] = cid
         except Exception:
             cid = ""

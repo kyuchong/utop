@@ -1967,8 +1967,11 @@ def _cid_prefix_of(dt) -> str:
     return "C-%02d%02d-" % (iso[0] % 100, iso[1])
 
 
-async def cycle_next_cid(prefix: str) -> str:
-    """C-<연2><주차2>-<순번3> — 그 주차 안에서 1부터. 한 번 박히면 안 바뀐다."""
+async def cycle_next_cid(prefix: str, width: int = 3) -> str:
+    """부여 ID — 그 앞머리 안에서 1부터. 한 번 박히면 안 바뀐다.
+
+    옛 주차 규칙(C-2635-)은 3자리, 모델그룹 규칙(E61xx_C)은 4자리 —
+    요구사항·시험항목(_R0001·_T0001)과 나란히 읽히게."""
     async with pool().acquire() as c:
         rows = await c.fetch(
             "SELECT data->>'cid' AS cid FROM cycle WHERE data->>'cid' LIKE $1", prefix + "%"
@@ -1978,7 +1981,7 @@ async def cycle_next_cid(prefix: str) -> str:
         tail = (r["cid"] or "")[len(prefix):]
         if tail.isdigit():
             mx = max(mx, int(tail))
-    return f"{prefix}{mx + 1:03d}"
+    return f"{prefix}{mx + 1:0{width}d}"
 
 
 async def cycle_backfill_cids() -> int:

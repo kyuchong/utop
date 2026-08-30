@@ -1,6 +1,7 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import {
   IconCycle,
+  IconExecution,
   IconDashboard,
   IconDefect,
   IconKnowledge,
@@ -58,6 +59,9 @@ export const NAV: NavGroup[] = [
          죽으면 안 된다. */
       { key: 'reqtc', label: 'REQ-Coverage', Icon: IconReqTc },
       { key: 'cycles', label: 'Cycles', Icon: IconCycle },
+      /* Runs — Testiny 처럼 사이클(플랜)과 **별개 메뉴**(지시). 사이클은
+         계획을 다루고, Runs 는 결과를 다룬다. */
+      { key: 'runs', label: 'Runs', Icon: IconExecution },
       /* 「Reports」 는 걷었다(지시) — 집계·축·결과 상세·거르개가 모두
          사이클 폴더 현황으로 옮겨 갔다. 옛 주소(executions)로 들어오면
          사이클 화면으로 넘긴다(App.tsx). */

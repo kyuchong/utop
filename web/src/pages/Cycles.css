@@ -8264,3 +8264,31 @@ html .cyt .cyt-row > .cyt-cell-fill.al-center { justify-content: center; }
   font: inherit;
   font-size: 12.5px;
 }
+
+/* 기간 칸 — 누르면 달력 팝오버(지시) */
+.cyt-period {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-sm);
+  color: var(--c-text-soft, #52616b);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  padding: 0;
+}
+.cyt-period:hover { color: var(--c-text); text-decoration: underline; }
+.cyt-periodpop {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 22px rgb(20 30 60 / 20%);
+}
+.cyt-periodpop label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--c-text-faint, #8a99a3); }
+.cyt-periodpop input { border: 1px solid var(--c-border); border-radius: 6px; padding: 4px 6px; font: inherit; font-size: 12px; }
