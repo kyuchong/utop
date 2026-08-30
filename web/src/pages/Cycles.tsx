@@ -432,17 +432,16 @@ export default function Cycles({ me }: PageProps) {
   const crowd = usePageCrowd('cycle')
   /* 표(목록) ↔ 플랜 — 표의 ID 를 누르면 플랜으로(지시). 기억한다:
      새로고침해도 보던 화면이 유지돼야 한다. */
-  const [planMode, setPlanMode] = useState(() => localStorage.getItem('utop.cycle.view') === 'plan')
-  const goPlan = (id: string) => {
+  const [cyView, setCyView] = useState<'list' | 'plan' | 'exec'>(() => {
+    const v = localStorage.getItem('utop.cycle.view')
+    return v === 'plan' || v === 'exec' ? v : 'list'
+  })
+  const goView = (v: 'list' | 'plan' | 'exec', id?: string) => {
     try {
-      localStorage.setItem('utop.cycle.plan', id)
-      localStorage.setItem('utop.cycle.view', 'plan')
+      if (id) localStorage.setItem('utop.cycle.plan', id)
+      localStorage.setItem('utop.cycle.view', v)
     } catch { /* 사생활 보호 모드 */ }
-    setPlanMode(true)
-  }
-  const goList = () => {
-    try { localStorage.setItem('utop.cycle.view', 'list') } catch { /* 〃 */ }
-    setPlanMode(false)
+    setCyView(v)
   }
 
   /** 플랜 화면의 부속 창들 — 항목 추가·결과서·AI/메트릭스 */
@@ -898,13 +897,15 @@ export default function Cycles({ me }: PageProps) {
             finish={{ can: allJudged, busy: finishing, onDo: () => void finishExec() }}
           />
         ) : (
-          planMode ? (
+          cyView !== 'list' ? (
           <CyclePlan
+            mode={cyView}
             cycles={cycles}
             mgroupOf={mgroupOf}
             famOf={famOf}
             meName={me?.name || me?.username || ''}
-            onBack={goList}
+            onBack={() => goView(cyView === 'exec' ? 'plan' : 'list')}
+            onExec={() => goView('exec')}
             onNew={() => setMaking(true)}
             onEdit={(id) => setEditId(id)}
             onAddItems={(id) => setAddToId(id)}
@@ -928,7 +929,7 @@ export default function Cycles({ me }: PageProps) {
             onEdit={(id) => setEditId(id)}
             onRun={(id) => setSel(id)}
             onMenu={(id, x, y) => setMenu({ id, x, y })}
-            onOpenPlan={goPlan}
+            onOpenPlan={(id) => goView('plan', id)}
             running={running}
             onRefresh={() => void listQ.refetch()}
           />

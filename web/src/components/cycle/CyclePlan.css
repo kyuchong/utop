@@ -391,3 +391,7 @@
   height: 26px;
   cursor: pointer;
 }
+
+/* 실행 모드 — 레일 없이 전체 폭, 러너가 열리면 오른쪽 3열 */
+.cpl.exec { grid-template-columns: minmax(0, 1fr); }
+.cpl.exec.with-run { grid-template-columns: minmax(0, 1fr) 400px; }

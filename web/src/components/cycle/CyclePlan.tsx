@@ -25,9 +25,14 @@ import './CyclePlan.css'
  * group. 색도 .split.cy 가 풀어 둔 CSS 변수를 물려받는다.
  */
 interface Props {
+  /** 플랜(계획) 인가 실행인가 — Testiny 처럼 **딴 화면**이다(지적: 사이클에
+      모든 걸 넣었나). 플랜에는 결과 열·러너가 없고, 실행이 그 둘을 갖는다. */
+  mode: 'plan' | 'exec'
   cycles: CycleMeta[]
-  /** ← 목록(표)으로 — 표의 ID 클릭으로 들어왔으니 나가는 길도 있어야 한다 */
+  /** ← 뒤로 — 플랜이면 목록(표)으로, 실행이면 플랜으로 */
   onBack: () => void
+  /** ▶ 실행 — 플랜에서 실행 화면으로 넘어간다(별도 화면) */
+  onExec: () => void
   famOf: Map<string, string>
   mgroupOf: Map<string, string>
   meName: string
@@ -57,8 +62,10 @@ function arc(cx: number, cy: number, r: number, a0: number, a1: number): string 
 }
 
 export default function CyclePlan({
+  mode,
   cycles,
   onBack,
+  onExec,
   famOf,
   mgroupOf,
   meName,
@@ -365,8 +372,9 @@ export default function CyclePlan({
   }
 
   return (
-    <div className={`cpl${runIdx !== null ? ' with-run' : ''}`}>
-      {/* ── ① 사이클 레일 (Testiny Test runs) ── */}
+    <div className={`cpl${mode === 'exec' ? ' exec' : ''}${runIdx !== null && mode === 'exec' ? ' with-run' : ''}`}>
+      {/* ── ① 사이클 레일 — 플랜에서만. 실행은 한 사이클에 붙박이다 ── */}
+      {mode === 'plan' && (
       <section className="panel cpl-rail">
         <div className="cpl-railhead">사이클</div>
         <button type="button" className="cpl-create" onClick={onNew}>
@@ -427,8 +435,9 @@ export default function CyclePlan({
           )}
         </div>
       </section>
+      )}
 
-      {/* ── 가운데 — 고른 사이클(플랜) ── */}
+      {/* ── 가운데 — 고른 사이클 ── */}
       <section className="panel cpl-main">
         {!cur ? (
           <div className="empty">
@@ -439,18 +448,24 @@ export default function CyclePlan({
             {/* ② 머리 — cid + 하는 일 단추들 */}
             <div className="cpl-crumb">
               <button type="button" className="btn small" onClick={onBack}>
-                ← 목록
+                {mode === 'plan' ? '← 목록' : '← 플랜'}
               </button>
               <IdPill id={String(cur.cid || cur.id)} href={gotoHref('cycle', String(cur.id))} />
               <span className="sp" />
               <button type="button" className="btn small" onClick={() => onEdit(cur.id)}>
                 ✎ 수정
               </button>
-              {/* ▶ 실행 = Testiny 러너(수동). 자동 실행 UI 는 따로 온다(지시)
-                  — 그때까지 기존 실행 화면은 ⋯ 안에 남긴다 */}
-              <button type="button" className="btn small cpl-teal" onClick={startRun}>
-                ▶ 실행
-              </button>
+              {mode === 'plan' ? (
+                /* 플랜의 ▶ 실행 = **실행 화면으로 이동**(Testiny — 딴 화면).
+                   자동 실행 UI 는 따로 온다(지시). */
+                <button type="button" className="btn small cpl-teal" onClick={onExec}>
+                  ▶ 실행
+                </button>
+              ) : (
+                <button type="button" className="btn small cpl-teal" onClick={startRun}>
+                  ▶ 시험 시작
+                </button>
+              )}
               <button type="button" className="btn small" onClick={() => setMail(true)}>
                 📧 결과 메일
               </button>
@@ -587,9 +602,11 @@ export default function CyclePlan({
 
             {/* ④ 항목 표 */}
             <div className="cpl-tbltools">
-              <button type="button" className="cpl-add" onClick={() => onAddItems(cur.id)}>
-                ＋ 추가
-              </button>
+              {mode === 'plan' && (
+                <button type="button" className="cpl-add" onClick={() => onAddItems(cur.id)}>
+                  ＋ 추가
+                </button>
+              )}
               {busy && <span className="muted small">저장 중…</span>}
               <span className="sp" />
               <input
@@ -606,7 +623,7 @@ export default function CyclePlan({
                     <th className="w-id">ID</th>
                     <th>제목</th>
                     <th className="w-ass">담당</th>
-                    <th className="w-res">결과</th>
+                    {mode === 'exec' && <th className="w-res">결과</th>}
                     <th className="w-x" />
                   </tr>
                 </thead>
@@ -624,6 +641,7 @@ export default function CyclePlan({
                           return n2
                         })
                       }
+                      mode={mode}
                       resDefs={resDefs}
                       vcls={vcls}
                       meName={meName}
@@ -702,7 +720,7 @@ export default function CyclePlan({
       </section>
 
       {/* ── ⑥ 러너(수동 실행) — Testiny 「Run test case」 그대로 ── */}
-      {runIdx !== null && runItem && (
+      {mode === 'exec' && runIdx !== null && runItem && (
         <section className="panel cpl-runner">
           <div className="cpl-rhead">
             ▶ 시험 실행
@@ -896,12 +914,14 @@ function GroupRows({
   g,
   folded,
   onFold,
+  mode,
   resDefs,
   vcls,
   onOpen,
   onAssignee,
   onResult,
 }: {
+  mode: 'plan' | 'exec'
   g: { rid: string; label: string; items: CycleItemLite[] }
   folded: boolean
   onFold: () => void
@@ -931,10 +951,11 @@ function GroupRows({
           return (
             <tr
               key={it.ceid || it.tcid}
-              className="cpl-row"
+              className={mode === 'exec' ? 'cpl-row' : ''}
               /* 줄을 누르면 러너가 열린다(Testiny). 담당·결과 같은 일하는
                  부품 위 클릭은 그 부품 몫 */
               onClick={(e) => {
+                if (mode !== 'exec') return
                 const el = e.target as HTMLElement
                 if (el.closest('button, input, select, textarea, .pick-view')) return
                 onOpen(it)
@@ -951,6 +972,7 @@ function GroupRows({
                   onSave={(nv) => onAssignee(String(it.ceid ?? ''), String(it.tcid ?? ''), nv)}
                 />
               </td>
+              {mode === 'exec' && (
               <td>
                 <select
                   className={`cpl-res ${vcls(v)}`}
@@ -970,6 +992,7 @@ function GroupRows({
                     ))}
                 </select>
               </td>
+              )}
               <td className="cpl-x" />
             </tr>
           )
