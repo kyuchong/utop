@@ -1161,7 +1161,12 @@ export default function ReqTc({ me }: Props) {
   if (reqQ.isLoading || tcQ.isLoading) return <div className="empty">불러오는 중…</div>
   if (reqQ.error) return <div className="load-error">{(reqQ.error as Error).message}</div>
 
-  const Tree = ({ parent, depth }: { parent: string | null; depth: number }) => (
+  /* ⚠ 렌더 안에서 만든 **컴포넌트**(<Tree/>)는 매 렌더 정체성이 바뀌어
+     React 가 트리를 통째로 리마운트한다 — 드래그 시작(setDragCat 리렌더)
+     순간 끌던 노드가 DOM 에서 사라져 크롬이 드래그를 취소했다(지적:
+     첫 번째는 안 잡히고 두 번째만 잡힘 — 두 번째는 같은 값이라 리렌더가
+     없어서다). **함수 호출**로 그리면 경계가 없어 자식 key 로만 맞춘다. */
+  const Tree = ({ parent, depth }: { parent: string | null; depth: number }): React.ReactNode => (
     <>
       {[...(kids.get(parent ?? '') ?? [])]
         /* 프로젝트를 고르면 **그 프로젝트의 폴더만** 낸다(지적: 6100 을
@@ -1478,7 +1483,7 @@ export default function ReqTc({ me }: Props) {
               )}
               {on && (
                 <>
-                  <Tree parent={c.id} depth={depth + 1} />
+                  {Tree({ parent: c.id, depth: depth + 1 })}
                   {/* 이 폴더에 바로 달린 요구사항 — 「폴더 + 요구사항」 일 때만.
                       누르면 그 요구사항 하나로 좁혀 본다. */}
                   {own.map((r) => (
@@ -1647,7 +1652,7 @@ export default function ReqTc({ me }: Props) {
                   )
                 </span>
               </div>
-              <Tree parent={null} depth={0} />
+              {Tree({ parent: null, depth: 0 })}
             </div>
           </aside>
         )}

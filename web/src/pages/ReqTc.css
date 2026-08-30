@@ -1262,3 +1262,8 @@
    글자를 못 고르게 해 늘 폴더가 통째로 끌리게 한다. */
 .rqtc-fold, .rqtc-fold * { user-select: none; -webkit-user-select: none; }
 .rqtc-fold { -webkit-user-drag: element; }
+/* 색 칩·드롭다운은 **칸 전체 폭**을 쓴다(지적: 글자 간격만큼 좁아져 하수
+   같다). 칩이 열 너비로 서고, 그 안 고르개도 꽉 찬다 — 값은 가운데. */
+.rqtc-fillc { width: 100%; }
+.rqtc-fillc .rqtc-fill { display: flex; width: 100%; justify-content: center; box-sizing: border-box; }
+.rqtc-fill select.pick-live { width: 100%; text-align: center; text-align-last: center; font-weight: inherit; }
