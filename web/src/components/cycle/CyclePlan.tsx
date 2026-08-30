@@ -26,6 +26,8 @@ import './CyclePlan.css'
  */
 interface Props {
   cycles: CycleMeta[]
+  /** ← 목록(표)으로 — 표의 ID 클릭으로 들어왔으니 나가는 길도 있어야 한다 */
+  onBack: () => void
   famOf: Map<string, string>
   mgroupOf: Map<string, string>
   meName: string
@@ -56,6 +58,7 @@ function arc(cx: number, cy: number, r: number, a0: number, a1: number): string 
 
 export default function CyclePlan({
   cycles,
+  onBack,
   famOf,
   mgroupOf,
   meName,
@@ -358,6 +361,9 @@ export default function CyclePlan({
           <>
             {/* ② 머리 — cid + 하는 일 단추들 */}
             <div className="cpl-crumb">
+              <button type="button" className="btn small" onClick={onBack}>
+                ← 목록
+              </button>
               <IdPill id={String(cur.cid || cur.id)} href={gotoHref('cycle', String(cur.id))} />
               <span className="sp" />
               <button type="button" className="btn small" onClick={() => onEdit(cur.id)}>
