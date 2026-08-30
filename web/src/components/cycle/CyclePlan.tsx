@@ -499,7 +499,7 @@ export default function CyclePlan({
                 기간{' '}
                 <b>
                   {[cur.start_date, cur.end_date]
-                    .map((v) => String(v ?? '').slice(5, 10))
+                    .map((v) => String(v ?? '').slice(0, 10))
                     .filter(Boolean)
                     .join('~') || '–'}
                 </b>

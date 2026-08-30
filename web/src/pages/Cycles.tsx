@@ -923,7 +923,6 @@ export default function Cycles({ me }: PageProps) {
             cycles={cycles}
             mgroupOf={mgroupOf}
             famOf={famOf}
-            onNew={() => setMaking(true)}
             onDup={(id) => setCloneId(id)}
             onDel={(ids) => void delCycles(ids)}
             onEdit={(id) => setEditId(id)}
@@ -1001,8 +1000,11 @@ const CYT_FIXED: Array<{ k: string; label: string; w: string }> = [
      목업에 없는 열이 잔뜩 서 있으면 「목업과 다르다」 가 된다(지적). */
   { k: 'vg', label: '버전그룹', w: '84px' },
   { k: 'version', label: '버전', w: 'minmax(110px, 0.5fr)' },
+  /* 결함·항목 수 — 목업 열로 갈 때 뺐다가 지시로 되살렸다.
+     결과(nn✓ nn✗) 열은 뺐다(지시) — 진행 바와 결함 수가 이미 말한다 */
+  { k: 'iss', label: '결함', w: '44px' },
+  { k: 'tests', label: '항목', w: '44px' },
   { k: 'prg', label: '진행', w: '96px' },
-  { k: 'res', label: '결과', w: '76px' },
   { k: 'run', label: '상태', w: '68px' },
   { k: 'period', label: '기간', w: '104px' },
   { k: 'ass', label: '담당', w: '64px' },
@@ -1070,7 +1072,6 @@ function CycleBoard({
   cycles,
   mgroupOf,
   famOf,
-  onNew,
   onDup,
   onDel,
   onEdit,
@@ -1084,8 +1085,6 @@ function CycleBoard({
   /** 카탈로그 지도 — 사이클에 비어 있으면 모델명으로 보강(수정 창과 같은 값) */
   mgroupOf: Map<string, string>
   famOf: Map<string, string>
-  /** 추가 — 새 사이클 만들기 */
-  onNew: () => void
   /** 복제 — 한 개 골랐을 때 */
   onDup: (id: string) => void
   /** 삭제 — 고른 것들 */
@@ -1103,6 +1102,37 @@ function CycleBoard({
   running: Map<string, string>
 }) {
   const [q, setQ] = useState('')
+  /* ＋ New — 창을 띄우지 않고 **머리행 바로 아래**에서 만든다(지시).
+     ID 는 서버가 자동으로 매기고(cid), 사람은 제목만 친다. 모델·버전은
+     만든 뒤 ✎ 수정에서 채운다 — 만들기 문턱이 낮아야 일단 적는다. */
+  const [adding, setAdding] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [addBusy, setAddBusy] = useState(false)
+  const saveNew = async () => {
+    const t = newTitle.trim()
+    if (!t || addBusy) return
+    setAddBusy(true)
+    try {
+      const id = `cycle-${Date.now()}`
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(id)}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          id,
+          name: t,
+          items: [],
+          created_at: new Date().toISOString().slice(0, 10),
+        }),
+      })
+      if (!r.ok) throw new Error(`저장 실패 (${r.status})`)
+      setNewTitle('')
+      setAdding(false)
+      onRefresh()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '만들지 못했습니다')
+    } finally {
+      setAddBusy(false)
+    }
+  }
   /* 사업자·제품군·버전그룹 필터 — 폴더 레일이 하던 좁히기를 잇는다(승인) */
   const [fCust, setFCust] = useState('')
   const [fFam, setFFam] = useState('')
@@ -1427,7 +1457,7 @@ function CycleBoard({
       <section className="panel cyt-card">
       {/* 도구줄 — 추가·복제·삭제는 왼쪽, 찾기는 오른쪽 */}
       <div className="cy-tools">
-        <button className="btn" type="button" onClick={onNew}>
+        <button className="btn" type="button" onClick={() => setAdding(true)}>
           + New
         </button>
         {picked.size > 0 && (
@@ -1596,9 +1626,39 @@ function CycleBoard({
           {TH('id', 'Key')}
           {TH('name', '제목')}
           {renderCols.map((c2) =>
-            c2.k === 'prg' ? TH('pct', '진행', false, 'prg') : TH(c2.k, c2.label, false, c2.k),
+            c2.k === 'iss'
+              ? TH('iss', '결함', true, 'iss')
+              : c2.k === 'tests'
+                ? TH('tests', '항목', true, 'tests')
+                : c2.k === 'prg'
+                  ? TH('pct', '진행', false, 'prg')
+                  : TH(c2.k, c2.label, false, c2.k),
           )}
         </div>
+        {adding && (
+          <div className="cyt-newrow">
+            <span className="cyt-newid" title="ID 는 저장할 때 서버가 매깁니다">자동</span>
+            <input
+              autoFocus
+              placeholder="사이클 제목 — Enter 로 만들기, Esc 로 취소"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') void saveNew()
+                if (e.key === 'Escape') {
+                  setAdding(false)
+                  setNewTitle('')
+                }
+              }}
+            />
+            <button className="btn small" type="button" disabled={addBusy || !newTitle.trim()} onClick={() => void saveNew()}>
+              {addBusy ? '만드는 중…' : '만들기'}
+            </button>
+            <button className="btn small" type="button" onClick={() => { setAdding(false); setNewTitle('') }}>
+              취소
+            </button>
+          </div>
+        )}
         {(sortCol === ''
           ? /* 열 머리글을 안 눌렀으면 목록 정렬대로 — 기본은 **트리 순서**
                (왼쪽 트리에 선 폴더 차례). 어느 폴더 것인지 눈으로 따라간다 */
@@ -1755,14 +1815,9 @@ function CycleBoard({
                             return cyCell(c2.k, 'cycle_customer', c.customer ?? '', CY_CUST, (v) =>
                               setCyCell(c.id, { customer: v }),
                             )
-                          case 'res':
-                            return (
-                              <span key={c2.k} className="cyl-res">
-                                <b className="p">{t.pass}✓</b> <b className="f">{t.fail}✗</b>
-                              </span>
-                            )
                           case 'period': {
-                            const d = (v?: string | null) => (v ? String(v).slice(5, 10) : '')
+                            /* 2026-10-10~2026-11-10 — 연도까지 다 적는다(지시) */
+                            const d = (v?: string | null) => (v ? String(v).slice(0, 10) : '')
                             const p2 = [d(c.start_date), d(c.end_date)].filter(Boolean).join('~')
                             return (
                               <span key={c2.k} className="muted small cyt-ell" title={p2}>
@@ -1773,6 +1828,18 @@ function CycleBoard({
                           case 'f_customer':
                             return cyCell(c2.k, 'cycle_customer', c.customer ?? '', CY_CUST, (v) =>
                               setCyCell(c.id, { customer: v }),
+                            )
+                          case 'iss':
+                            return (
+                              <span key={c2.k} className={`tr${t.iss ? ' cyt-fail' : ''}`}>
+                                {t.iss || '–'}
+                              </span>
+                            )
+                          case 'tests':
+                            return (
+                              <span key={c2.k} className="tr">
+                                {t.total}
+                              </span>
                             )
                           case 'prg':
                             return (
