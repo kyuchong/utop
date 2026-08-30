@@ -1264,3 +1264,7 @@ html .rq-listcol .rq-tr > div.rq-cell-fill.al-center { justify-content: center; 
   border-radius: 6px; padding: 2px 2px; font: inherit; font-size: inherit; cursor: pointer;
 }
 .rqtc-mdsel:hover { border-color: var(--c-border, #cfd8de); background: var(--c-surface, #fff); }
+/* 색 칩 안 드롭다운 — 펼친 목록이 칩의 흰 글자색을 물려받아 흰 바탕에
+   흰 글씨가 됐다(지적). 목록 글자·바탕을 명시한다(.rq-mfill 과 같은 처방). */
+.rqtc-fill .pick-live option { color: var(--c-text, #1c2833); background: var(--c-surface, #fff); font-weight: 400; }
+.rqtc-fill select.pick-live { min-width: 100%; }

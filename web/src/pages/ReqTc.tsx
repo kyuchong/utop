@@ -299,6 +299,9 @@ export default function ReqTc({ me }: Props) {
      쪽 규칙이 서로 다르다: 요구사항은 아무 폴더에나 가지만, 폴더는 제
      하위로는 못 간다(고리가 된다). */
   const [dragCat, setDragCat] = useState('')
+  /* dragstart 직후 dragover 는 아직 setState 반영 전이라 첫 프레임에
+     가드가 헛돈다(빠른 드롭이 안 먹음) — ref 로 동기 판별 */
+  const dragCatRef = useRef('')
   /* 도구줄이 여는 창들 — 요구사항·시험항목 화면의 것을 그대로 쓴다.
      같은 일을 하는 창을 새로 만들면 두 화면이 서로 다르게 동작한다. */
   const [bulkNew, setBulkNew] = useState(false)
@@ -920,25 +923,73 @@ export default function ReqTc({ me }: Props) {
     if (page > pageN) setPage(pageN)
   }, [page, pageN])
   const from = (page - 1) * per
-  /* 정렬 — 기본은 「트리 순서」(자료가 온 차례)다. 이름순으로 세워 두면 같은
-     폴더 것이 목록 여기저기에 흩어져, 왼쪽에서 폴더를 짚어 놓고도 오른쪽에서
-     그걸 다시 찾아야 한다. */
-  const sorted = <T,>(arr: T[], nameOf: (x: T) => string, atOf: (x: T) => string): T[] => {
-    if (listSort === 'tree') return arr
+  /* 정렬 — 기본 「트리 순서」 = **폴더 차례 + ID**. 서버가 온 차례(최근
+     수정 순)를 그대로 쓰면 값 하나 고칠 때마다 그 줄이 맨 위로 점프한다
+     (지적) — 고쳐도 줄이 제자리에 있어야 한다. */
+  const catOrder = useMemo(() => {
+    const kids = new Map<string | null, typeof cats>()
+    for (const c of cats) {
+      const k = c.parent_id ?? null
+      kids.set(k, [...(kids.get(k) ?? []), c])
+    }
+    for (const v of kids.values())
+      v.sort(
+        (a, b) =>
+          (a.sort_order ?? 0) - (b.sort_order ?? 0) ||
+          a.name.localeCompare(b.name, 'ko', { numeric: true }),
+      )
+    const idx = new Map<string, number>()
+    let i = 0
+    const walk = (pid: string | null) => {
+      for (const c of kids.get(pid) ?? []) {
+        idx.set(c.id, i++)
+        walk(c.id)
+      }
+    }
+    walk(null)
+    return idx
+  }, [cats])
+  const sorted = <T,>(
+    arr: T[],
+    nameOf: (x: T) => string,
+    atOf: (x: T) => string,
+    treeKey: (x: T) => readonly [number, string],
+  ): T[] => {
     const a = [...arr]
-    if (listSort === 'name') a.sort((x, y) => nameOf(x).localeCompare(nameOf(y)))
+    if (listSort === 'tree')
+      a.sort((x, y) => {
+        const [fx, ix] = treeKey(x)
+        const [fy, iy] = treeKey(y)
+        return fx - fy || ix.localeCompare(iy, undefined, { numeric: true })
+      })
+    else if (listSort === 'name') a.sort((x, y) => nameOf(x).localeCompare(nameOf(y)))
     else a.sort((x, y) => atOf(y).localeCompare(atOf(x)))
     return a
   }
   const reqSorted = useMemo(
-    () => sorted(reqRows, (r) => String(r.title ?? ''), (r) => String((r as { updated_at?: string }).updated_at ?? '')),
+    () =>
+      sorted(
+        reqRows,
+        (r) => String(r.title ?? ''),
+        (r) => String((r as { updated_at?: string }).updated_at ?? ''),
+        (r) => [catOrder.get(catOf(r)) ?? Number.MAX_SAFE_INTEGER, reqLabel(r)] as const,
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [reqRows, listSort],
+    [reqRows, listSort, catOrder],
   )
   const tcSorted = useMemo(
-    () => sorted(tcRows, (t) => String(t.name ?? ''), (t) => String((t as { updated_at?: string }).updated_at ?? '')),
+    () =>
+      sorted(
+        tcRows,
+        (t) => String(t.name ?? ''),
+        (t) => String((t as { updated_at?: string }).updated_at ?? ''),
+        (t) => {
+          const r = reqById.get(String(t.req_id ?? ''))
+          return [r ? (catOrder.get(catOf(r)) ?? Number.MAX_SAFE_INTEGER) : Number.MAX_SAFE_INTEGER, String(t.tcid)] as const
+        },
+      ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [tcRows, listSort],
+    [tcRows, listSort, catOrder, reqById],
   )
   const reqPageRows = useMemo(() => reqSorted.slice(from, from + per), [reqSorted, from, per])
   const tcPageRows = useMemo(() => tcSorted.slice(from, from + per), [tcSorted, from, per])
@@ -1180,9 +1231,11 @@ export default function ReqTc({ me }: Props) {
                   e.stopPropagation()
                   e.dataTransfer.setData('text/utop-cat', c.id)
                   e.dataTransfer.effectAllowed = 'move'
+                  dragCatRef.current = c.id
                   setDragCat(c.id)
                 }}
                 onDragEnd={() => {
+                  dragCatRef.current = ''
                   setDragCat('')
                   setDropCat('')
                 }}
@@ -1192,7 +1245,8 @@ export default function ReqTc({ me }: Props) {
                     /* 제 하위로는 못 간다(고리). 프로젝트는 맨 위가 자리라
                        아예 못 들어간다 — 서버도 막지만, 여기서 막아야
                        끌어다 놓고 나서 되돌아가는 일이 없다. */
-                    if (!dragCat || banFor(dragCat).has(c.id) || isPrjCat(dragCat)) return
+                    const dc = dragCatRef.current || dragCat
+                    if (!dc || banFor(dc).has(c.id) || isPrjCat(dc)) return
                     e.preventDefault()
                     e.dataTransfer.dropEffect = 'move'
                     setDropCat(c.id)

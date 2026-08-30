@@ -1257,3 +1257,8 @@
 }
 .rqtc-popnav button:hover:not(:disabled) { background: var(--c-surface-alt); }
 .rqtc-popnav button:disabled { opacity: 0.4; cursor: default; }
+/* 폴더 드래그가 첫 번째에 안 잡히던 문제(지적) — 글자가 선택 대상이면
+   크로뮴이 이름 글자 위 끌기를 「글자 선택 끌기」 로 가로챈다. 폴더 줄은
+   글자를 못 고르게 해 늘 폴더가 통째로 끌리게 한다. */
+.rqtc-fold, .rqtc-fold * { user-select: none; -webkit-user-select: none; }
+.rqtc-fold { -webkit-user-drag: element; }
