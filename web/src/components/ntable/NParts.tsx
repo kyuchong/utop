@@ -140,6 +140,21 @@ export function SelectEditor({
         ))}
         {!hit.length && !q.trim() && <div className="ntb-sec">선택지가 없습니다</div>}
       </div>
+      {edit && (
+        <OptionEdit
+          opt={edit.opt}
+          at={{ x: edit.x, y: edit.y }}
+          onClose={() => setEdit(null)}
+          onSave={(next) => {
+            setOpts(opts.map((o) => (o.value === edit.opt.value ? next : o)))
+            setEdit(null)
+          }}
+          onRemove={() => {
+            setOpts(opts.filter((o) => o.value !== edit.opt.value))
+            setEdit(null)
+          }}
+        />
+      )}
       {q.trim() && !exact && !lockDefs && (
         <>
           <div className="ntb-hr" />
@@ -159,26 +174,14 @@ export function SelectEditor({
           </button>
         </>
       )}
-      {edit && (
-        <OptionEdit
-          opt={edit.opt}
-          at={{ x: edit.x, y: edit.y }}
-          onClose={() => setEdit(null)}
-          onSave={(next) => {
-            setOpts(opts.map((o) => (o.value === edit.opt.value ? next : o)))
-            setEdit(null)
-          }}
-          onRemove={() => {
-            setOpts(opts.filter((o) => o.value !== edit.opt.value))
-            setEdit(null)
-          }}
-        />
-      )}
     </Pop>
   )
 }
 
-/** 선택지 하나 고치기 — 이름 · 색(팔레트) · 삭제 */
+/**
+ * 선택지 하나 고치기 — **한눈에 들어오게**(지적: 설정하기 너무 어렵다).
+ * 색은 점 한 줄, 그림은 눌러야 펼친다. 겹쳐 뜨는 판을 하나 줄였다.
+ */
 function OptionEdit({
   opt, at, onSave, onRemove, onClose,
 }: {
@@ -189,9 +192,10 @@ function OptionEdit({
   onClose: () => void
 }) {
   const [name, setName] = useState(opt.value)
+  const [showIcons, setShowIcons] = useState(false)
+  const keep = (p: Partial<NOption>) => onSave({ ...opt, value: name.trim() || opt.value, ...p })
   return (
-    <Pop at={at} w={168} onClose={onClose}>
-      <div className="ntb-sec">「{opt.value}」 고치기</div>
+    <Pop at={at} w={252} h={showIcons ? 420 : 210} onClose={onClose}>
       <input
         className="ntb-inp"
         autoFocus
@@ -199,55 +203,80 @@ function OptionEdit({
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {
           if (e.nativeEvent.isComposing || e.keyCode === 229) return
-          if (e.key === 'Enter' && name.trim()) onSave({ ...opt, value: name.trim() })
+          if (e.key === 'Enter' && name.trim()) keep({})
         }}
-        onBlur={() => name.trim() && name.trim() !== opt.value && onSave({ ...opt, value: name.trim() })}
+        onBlur={() => name.trim() && name.trim() !== opt.value && keep({})}
       />
-      <div className="ntb-sec">그림 — 글자 앞에 붙습니다</div>
-      <div className="ntb-icons">
-        <button
-          type="button"
-          className={`ntb-icb${opt.icon ? '' : ' on'}`}
-          title="그림 없이 점으로"
-          onClick={() => onSave({ ...opt, value: name.trim() || opt.value, icon: '' })}
-        >
-          ●
-        </button>
-        {ICON_SETS.map((g) =>
-          g.items.map((e) => (
-            <button
-              type="button"
-              key={e}
-              className={`ntb-icb${opt.icon === e ? ' on' : ''}`}
-              title={g.group}
-              onClick={() => onSave({ ...opt, value: name.trim() || opt.value, icon: e })}
-            >
-              {e}
-            </button>
-          )),
-        )}
-      </div>
+      {/* 색 — 점 한 줄이면 열 가지가 한눈에 든다(목록으로 늘어놓으면 스크롤) */}
       <div className="ntb-sec">색</div>
-      <div className="ntb-list">
+      <div className="ntb-dots">
         {PALETTE_KEYS.map((k) => (
           <button
             type="button"
-            className="ntb-opt"
             key={k}
-            onClick={() => onSave({ value: name.trim() || opt.value, color: k })}
+            title={PALETTE[k]?.label}
+            className={`ntb-cbtn${k === opt.color ? ' on' : ''}`}
+            onClick={() => keep({ color: k })}
           >
-            <span className="ntb-sw" style={{ background: PALETTE[k]?.bg, borderColor: PALETTE[k]?.dot }} />
-            {PALETTE[k]?.label}
-            {k === opt.color && <IcCheck className="ntb-chk" />}
+            <span className="ntb-cdot" style={{ background: PALETTE[k]?.dot }} />
           </button>
         ))}
       </div>
+      {/* 그림 — 안 쓰는 사람이 많아 접어 둔다 */}
+      <button type="button" className="ntb-mi" onClick={() => setShowIcons((v) => !v)}>
+        <span className="l">그림 {opt.icon ? opt.icon : '없음'}</span>
+        <span className="ntb-sub">{showIcons ? '접기' : '고르기 ›'}</span>
+      </button>
+      {showIcons && <IconPick cur={opt.icon ?? ''} onPick={(e) => keep({ icon: e })} />}
       <div className="ntb-hr" />
       <button type="button" className="ntb-mi dg" onClick={onRemove}>
         <IcTrash />
-        <span className="l">선택지 삭제</span>
+        <span className="l">삭제</span>
       </button>
     </Pop>
+  )
+}
+
+/** 그림 고르개 — 갈래로 묶고 이름으로 찾는다 */
+function IconPick({ cur, onPick }: { cur: string; onPick: (e: string) => void }) {
+  const [q, setQ] = useState('')
+  const nq = q.trim().toLowerCase()
+  return (
+    <div className="ntb-ipick">
+      <input
+        className="ntb-inp"
+        placeholder="그림 찾기 — 수동 · 합격 · 장비 …"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+      />
+      <div className="ntb-icons">
+        <button type="button" className={`ntb-icb${cur ? '' : ' on'}`} title="그림 없이" onClick={() => onPick('')}>
+          ●
+        </button>
+      </div>
+      {ICON_SETS.map((g) => {
+        const hit = g.items.filter((i) => !nq || i.k.includes(nq) || g.group.includes(nq))
+        if (!hit.length) return null
+        return (
+          <div key={g.group}>
+            <div className="ntb-sec">{g.group}</div>
+            <div className="ntb-icons">
+              {hit.map((i) => (
+                <button
+                  type="button"
+                  key={i.e}
+                  className={`ntb-icb${cur === i.e ? ' on' : ''}`}
+                  title={i.k}
+                  onClick={() => onPick(i.e)}
+                >
+                  {i.e}
+                </button>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -454,15 +483,17 @@ export function OptionsManager({
   onClose: () => void
 }) {
   const [add, setAdd] = useState('')
-  const [edit, setEdit] = useState<{ opt: NOption; x: number; y: number } | null>(null)
+  /** 그 자리에서 펴서 고친다 — 판이 세 겹으로 겹치던 것을 없앤다(지적) */
+  const [open, setOpen] = useState('')
   const opts = col.options ?? []
   const setOpts = (next: NOption[]) => onCol({ ...col, options: next })
   return (
-    <Pop at={at} w={244} h={400} onClose={onClose}>
+    <Pop at={at} w={300} h={440} onClose={onClose}>
       <div className="ntb-sec">「{col.label}」 의 고를 값</div>
       <div className="ntb-list">
         {opts.map((o, i) => (
-          <div className="ntb-opt" key={o.value}>
+          <div key={o.value}>
+          <div className="ntb-opt">
             <span className="ntb-ord">
               <button
                 type="button"
@@ -496,14 +527,60 @@ export function OptionsManager({
               type="button"
               className="ntb-more"
               title="이름·색·그림 고치기"
-              onClick={(e) => {
-                const r = e.currentTarget.getBoundingClientRect()
-                setEdit({ opt: o, x: r.right + 6, y: r.top - 60 })
-              }}
+              onClick={() => setOpen(open === o.value ? '' : o.value)}
             >
-              ⋯
+              {open === o.value ? '▾' : '⋯'}
             </button>
           </div>
+          {open === o.value && (
+            /* 그 줄 밑에서 바로 고친다 — 새 판이 안 뜬다 */
+            <div className="ntb-inline" key={`e-${o.value}`}>
+              <input
+                className="ntb-inp"
+                defaultValue={o.value}
+                onKeyDown={(e) => {
+                  if (e.nativeEvent.isComposing || e.keyCode === 229) return
+                  if (e.key !== 'Enter') return
+                  const t = (e.target as HTMLInputElement).value.trim()
+                  if (t) setOpts(opts.map((x) => (x.value === o.value ? { ...x, value: t } : x)))
+                }}
+                onBlur={(e) => {
+                  const t = e.target.value.trim()
+                  if (t && t !== o.value)
+                    setOpts(opts.map((x) => (x.value === o.value ? { ...x, value: t } : x)))
+                }}
+              />
+              <div className="ntb-dots">
+                {PALETTE_KEYS.map((k) => (
+                  <button
+                    type="button"
+                    key={k}
+                    title={PALETTE[k]?.label}
+                    className={`ntb-cbtn${k === o.color ? ' on' : ''}`}
+                    onClick={() => setOpts(opts.map((x) => (x.value === o.value ? { ...x, color: k } : x)))}
+                  >
+                    <span className="ntb-cdot" style={{ background: PALETTE[k]?.dot }} />
+                  </button>
+                ))}
+              </div>
+              <IconPick
+                cur={o.icon ?? ''}
+                onPick={(e) => setOpts(opts.map((x) => (x.value === o.value ? { ...x, icon: e } : x)))}
+              />
+              <button
+                type="button"
+                className="ntb-mi dg"
+                onClick={() => {
+                  setOpts(opts.filter((x) => x.value !== o.value))
+                  setOpen('')
+                }}
+              >
+                <IcTrash />
+                <span className="l">삭제</span>
+              </button>
+            </div>
+          )}
+        </div>
         ))}
         {!opts.length && <div className="ntb-sec">아직 값이 없습니다</div>}
       </div>
@@ -522,21 +599,6 @@ export function OptionsManager({
           setAdd('')
         }}
       />
-      {edit && (
-        <OptionEdit
-          opt={edit.opt}
-          at={{ x: edit.x, y: edit.y }}
-          onClose={() => setEdit(null)}
-          onSave={(next) => {
-            setOpts(opts.map((o) => (o.value === edit.opt.value ? next : o)))
-            setEdit(null)
-          }}
-          onRemove={() => {
-            setOpts(opts.filter((o) => o.value !== edit.opt.value))
-            setEdit(null)
-          }}
-        />
-      )}
     </Pop>
   )
 }

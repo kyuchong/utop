@@ -5,19 +5,27 @@
 export interface Paint { bg: string; fg: string; dot: string; label: string }
 
 export const PALETTE: Record<string, Paint> = {
-  gray: { bg: '#f5f5f4', fg: '#57534e', dot: '#a8a29e', label: '회색' },
-  amber: { bg: '#fffbeb', fg: '#b45309', dot: '#f59e0b', label: '노랑' },
-  emerald: { bg: '#ecfdf5', fg: '#047857', dot: '#10b981', label: '초록' },
-  blue: { bg: '#eff6ff', fg: '#1d4ed8', dot: '#3b82f6', label: '파랑' },
-  rose: { bg: '#fff1f2', fg: '#be123c', dot: '#f43f5e', label: '빨강' },
-  purple: { bg: '#faf5ff', fg: '#7e22ce', dot: '#a855f7', label: '보라' },
-  orange: { bg: '#fff7ed', fg: '#c2410c', dot: '#f97316', label: '주황' },
-  teal: { bg: '#f0fdfa', fg: '#0f766e', dot: '#14b8a6', label: '청록' },
-  lime: { bg: '#f7fee7', fg: '#4d7c0f', dot: '#84cc16', label: '연두' },
+  /* 노션과 같은 열 가지 — 이름도 그대로 쓴다(지시: 화면을 잘 보라) */
+  default: { bg: '#f6f5f4', fg: '#57534e', dot: '#c8c4c0', label: '기본' },
+  gray: { bg: '#f1f1ef', fg: '#5f5e5b', dot: '#9b9a97', label: '회색' },
+  brown: { bg: '#f4eeee', fg: '#7a5340', dot: '#a3714f', label: '갈색' },
+  orange: { bg: '#fbecdd', fg: '#a35200', dot: '#d9730d', label: '주황색' },
+  yellow: { bg: '#fbf3db', fg: '#8a6d00', dot: '#dfab01', label: '노란색' },
+  green: { bg: '#edf3ec', fg: '#0f7b6c', dot: '#0f7b6c', label: '초록색' },
+  blue: { bg: '#e7f3f8', fg: '#0b6e99', dot: '#0b6e99', label: '파란색' },
+  purple: { bg: '#f4f0f7', fg: '#6940a5', dot: '#6940a5', label: '보라색' },
+  pink: { bg: '#f9eef3', fg: '#ad1a72', dot: '#ad1a72', label: '분홍색' },
+  red: { bg: '#fdebec', fg: '#e03e3e', dot: '#e03e3e', label: '빨간색' },
 }
+/** 옛 이름 — 자료에 남아 있어도 색이 안 깨지게 */
+const ALIAS: Record<string, string> = {
+  amber: 'yellow', emerald: 'green', rose: 'red', teal: 'blue', lime: 'green',
+}
+
 export const PALETTE_KEYS = Object.keys(PALETTE)
 const GRAY: Paint = { bg: '#f5f5f4', fg: '#57534e', dot: '#a8a29e', label: '회색' }
-export const paintOf = (color?: string): Paint => PALETTE[color ?? 'gray'] ?? GRAY
+export const paintOf = (color?: string): Paint =>
+  PALETTE[color ?? 'gray'] ?? PALETTE[ALIAS[color ?? ''] ?? ''] ?? GRAY
 
 /** 색을 안 정한 값도 옆 값과는 구별되게 — 글자에서 팔레트 한 칸을 고른다 */
 export function autoColor(v: string): string {

@@ -95,23 +95,24 @@
 /* 팝오버 */
 .ntb-ovl { position: fixed; inset: 0; z-index: 90; }
 .ntb-pop { position: fixed; z-index: 91; background: #fff; border: 1px solid var(--ntb-bd, #e7e5e4); border-radius: 10px; box-shadow: 0 12px 34px rgba(0,0,0,.15); padding: 6px; font-size: 13px; color: #292524; max-height: 88vh; overflow-y: auto; }
-.ntb-inp { width: 100%; border: 1px solid #e7e5e4; border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 12.5px; margin-bottom: 6px; outline: none; }
+.ntb-inp { width: 100%; border: 1px solid #e7e5e4; border-radius: 6px; padding: 7px 9px; font: inherit; font-size: 13.5px; margin-bottom: 6px; outline: none; }
 .ntb-inp:focus { border-color: #a8a29e; }
-.ntb-sec { font-size: 11px; color: #a8a29e; font-weight: 600; padding: 6px 8px 3px; }
+.ntb-sec { font-size: 12px; color: #a8a29e; font-weight: 600; padding: 6px 8px 3px; }
 .ntb-hr { height: 1px; background: #f5f4f2; margin: 5px 2px; }
-.ntb-mi { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; padding: 6px 8px; border-radius: 6px; font: inherit; font-size: 13px; color: #44403c; cursor: pointer; text-align: left; }
+.ntb-mi { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; padding: 7px 9px; border-radius: 6px; font: inherit; font-size: 13.5px; color: #44403c; cursor: pointer; text-align: left; }
 .ntb-mi:hover { background: #fafaf9; }
 .ntb-mi:disabled { opacity: .38; cursor: not-allowed; }
 .ntb-mi .l { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 .ntb-mi.dg { color: #dc2626; }
-.ntb-sub { color: #a8a29e; font-size: 11.5px; border: 0; background: none; cursor: pointer; }
+.ntb-sub { color: #a8a29e; font-size: 12.5px; border: 0; background: none; cursor: pointer; }
 .ntb-x { border: 0; background: none; color: #c8c4c0; cursor: pointer; }
-.ntb-list { max-height: 230px; overflow-y: auto; }
-.ntb-opt { display: flex; align-items: center; gap: 7px; width: 100%; border: 0; background: none; padding: 4px 7px; border-radius: 6px; font: inherit; font-size: 13px; color: inherit; cursor: pointer; text-align: left; }
+.ntb-list { max-height: 260px; overflow-y: auto; }
+.ntb-opt { display: flex; align-items: center; gap: 7px; width: 100%; border: 0; background: none; padding: 5px 8px; border-radius: 6px; font: inherit; font-size: 13.5px; color: inherit; cursor: pointer; text-align: left; }
 .ntb-opt:hover { background: #fafaf9; }
 .ntb-optb { border: 0; background: none; padding: 0; cursor: pointer; flex: 1; text-align: left; }
 .ntb-chk { margin-left: auto; color: #78716c; flex: none; }
-.ntb-more { border: 0; background: none; color: #c8c4c0; cursor: pointer; padding: 0 2px; }
+.ntb-more { border: 0; background: none; color: #a8a29e; cursor: pointer;
+  padding: 2px 8px; border-radius: 6px; font-size: 14px; line-height: 1; flex: none; }
 .ntb-more:hover { color: #57534e; }
 .ntb-sw { width: 15px; height: 15px; border-radius: 4px; border: 1px solid; flex: none; }
 .ntb-quick { display: flex; gap: 6px; margin-bottom: 6px; }
@@ -237,11 +238,34 @@
 .ntb-ico { font-style: normal; font-size: 11px; line-height: 1;
   font-family: 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji','Twemoji Mozilla',sans-serif; }
 .ntb-icons { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 2px 4px 6px; }
-.ntb-icb { font-family: 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji','Twemoji Mozilla',sans-serif; border: 1px solid transparent; background: none; border-radius: 6px; padding: 3px 0; font-size: 14px; cursor: pointer; line-height: 1.2; }
+.ntb-icb { font-family: 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji','Twemoji Mozilla',sans-serif; border: 1px solid transparent; background: none; border-radius: 6px; padding: 4px 0; font-size: 16px; cursor: pointer; line-height: 1.2; }
 .ntb-icb:hover { background: #fafaf9; }
 .ntb-icb.on { border-color: #0e7490; background: #ecfeff; }
 
 /* 선택지 관리 — 차례 바꾸기 */
-.ntb-ord { display: inline-flex; flex-direction: column; gap: 0; }
-.ntb-ord button { border: 0; background: none; color: #c8c4c0; font-size: 9px; line-height: 1; cursor: pointer; padding: 0 2px; }
-.ntb-ord button:disabled { opacity: .3; cursor: not-allowed; }
+/* 차례 바꾸기 — 손가락으로 누를 만하게 키운다(지적: 너무 작다) */
+.ntb-ord { display: inline-flex; flex-direction: column; gap: 1px; flex: none; }
+.ntb-ord button {
+  border: 1px solid transparent; background: none; color: #a8a29e;
+  font-size: 12px; line-height: 1; cursor: pointer;
+  width: 22px; height: 16px; border-radius: 5px; padding: 0;
+}
+.ntb-ord button:hover { background: #f0efed; color: #292524; border-color: #e7e5e4; }
+.ntb-ord button:disabled { opacity: .28; cursor: not-allowed; background: none; border-color: transparent; }
+
+/* 색 고르개 — 노션처럼 둥근 점 */
+.ntb-cdot { width: 16px; height: 16px; border-radius: 50%; flex: none; }
+
+/* 색 점 한 줄 — 열 가지가 한눈에(지적: 설정이 어렵다) */
+.ntb-dots { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 6px 8px; }
+.ntb-cbtn { border: 2px solid transparent; background: none; border-radius: 50%; padding: 1px; cursor: pointer; line-height: 0; }
+.ntb-cbtn:hover { border-color: #e7e5e4; }
+.ntb-cbtn.on { border-color: #0e7490; }
+.ntb-icons { max-height: 132px; overflow-y: auto; }
+
+/* 그 자리에서 고치기 — 판을 더 안 띄운다 */
+.ntb-inline { border: 1px solid var(--ntb-line2, #f5f4f2); border-radius: 8px; padding: 6px; margin: 2px 4px 6px; background: #fcfcfb; }
+
+/* 그림 고르개 — 갈래·찾기 */
+.ntb-ipick { max-height: 260px; overflow-y: auto; }
+.ntb-icons { max-height: none; }

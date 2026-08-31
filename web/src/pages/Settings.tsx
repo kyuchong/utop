@@ -3,7 +3,6 @@ import { prefGet, prefSet } from '@/lib/prefs'
 import LlmSettings from '@/components/settings/LlmSettings'
 import PromptSettings from '@/components/settings/PromptSettings'
 import DeviceCatalog from '@/components/settings/DeviceCatalog'
-import CodeSettings from '@/components/settings/CodeSettings'
 import VerdictSettings from '@/components/settings/VerdictSettings'
 import CustomFieldSettings from '@/components/settings/CustomFieldSettings'
 import JiraSettings from '@/components/settings/JiraSettings'
@@ -18,7 +17,6 @@ import {
   IconAccounts,
   IconCodeList,
   IconCustomField,
-  IconReqCodeList,
   IconLlm,
   IconPerms,
   IconPlug,
@@ -30,7 +28,7 @@ import './Settings.css'
 
 // 'chat' 은 없앴다 — Chat 모델 설정은 'llm' 안의 탭으로 들어갔다.
 // 서버 연결과 모델 설정을 따로 두면 같은 모델을 두 군데서 고치게 된다.
-type Section = 'loginbrand' | 'mail' | 'stepacts' | 'verdicts' | 'llm' | 'prompts' | 'accounts' | 'perms' | 'catalog' | 'codes' | 'reqcodes' | 'cyclecodes' | 'fields' | 'jira' | 'jirapanels' | 'branding' | 'export' | 'import' | 'idmigrate'
+type Section = 'loginbrand' | 'mail' | 'stepacts' | 'verdicts' | 'llm' | 'prompts' | 'accounts' | 'perms' | 'catalog' | 'fields' | 'jira' | 'jirapanels' | 'branding' | 'export' | 'import' | 'idmigrate'
 
 /**
  * 설정 화면.
@@ -66,9 +64,6 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
   {
     title: 'Quality',
     items: [
-      { key: 'reqcodes', label: '요구사항 INFO 필드', icon: IconReqCodeList, ready: true },
-      { key: 'codes', label: 'TC INFO 필드', icon: IconCodeList, ready: true },
-      { key: 'cyclecodes', label: '플랜 INFO 필드', icon: IconCodeList, ready: true },
       { key: 'verdicts', label: '실행 판정 기준', icon: IconCodeList, ready: true },
       { key: 'stepacts', label: 'TC Step Action', icon: IconCodeList, ready: true },
       /* 커스텀 필드 화면은 내렸다(지시) — 이제 **표에서 바로** 만들고
@@ -162,12 +157,6 @@ export default function Settings() {
         ) : sec === 'catalog' ? (
           /* 옛 주소로 들어오면 그대로 열어 준다 — 메뉴에서만 뺐다 */
           <DeviceCatalog />
-        ) : sec === 'codes' ? (
-          <CodeSettings target="tc" />
-        ) : sec === 'reqcodes' ? (
-          <CodeSettings target="req" />
-        ) : sec === 'cyclecodes' ? (
-          <CodeSettings target="cycle" />
         ) : sec === 'verdicts' ? (
           <VerdictSettings />
         ) : sec === 'fields' ? (
