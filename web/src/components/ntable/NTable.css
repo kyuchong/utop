@@ -34,14 +34,20 @@
 .ntb-chip button { border: 0; background: none; color: var(--ntb-mut); cursor: pointer; font-size: 11px; padding: 0; }
 
 /* 표 */
-.ntb-wrap { overflow-x: auto; margin-top: 9px; }
+/* 가로 넘침은 **바깥 판**이 맡는다 — 여기서 overflow 를 잡으면 그것이
+   스크롤 상자가 되어 머리줄 고정(sticky)이 바깥 스크롤에 안 붙는다. */
+.ntb-wrap { overflow: visible; margin-top: 9px; }
 .ntb-tbl { width: 100%; border-collapse: collapse; table-layout: fixed; }
-.ntb-tbl th { text-align: left; padding: 0; border-bottom: 1px solid var(--ntb-line); position: relative; }
+/* 머리줄은 굴려도 남는다(지적: 내려야 무슨 칸인지 안 보인다) */
+.ntb-tbl th {
+  text-align: left; padding: 0; border-bottom: 1px solid var(--ntb-line);
+  position: sticky; top: 0; z-index: 3; background: var(--c-surface, #fff);
+}
 .ntb-hb { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 7px 9px; border-radius: 6px; font: inherit; font-size: 12px; font-weight: 400; color: var(--ntb-mut); cursor: pointer; white-space: nowrap; overflow: hidden; }
 .ntb-hb .l { overflow: hidden; text-overflow: ellipsis; }
 .ntb-hb:hover, .ntb-hb.on { background: var(--ntb-hov); color: var(--ntb-soft); }
 .ntb-ar { color: var(--ntb-mut); }
-.ntb-rs { position: absolute; right: -3px; top: 5px; bottom: 5px; width: 7px; cursor: col-resize; }
+.ntb-rs { position: absolute; right: -3px; top: 5px; bottom: 5px; width: 7px; cursor: col-resize; z-index: 4; }
 .ntb-rs:hover:after { content: ''; position: absolute; left: 2px; top: 0; bottom: 0; width: 2px; background: var(--ntb-acc); border-radius: 2px; }
 .ntb-tbl td { padding: 6px 9px; border-bottom: 1px solid var(--ntb-line2); vertical-align: middle; white-space: nowrap; overflow: hidden; }
 .ntb-row:hover td { background: var(--ntb-hov); }
@@ -150,7 +156,13 @@
 .ntb-tg:disabled { opacity: .45; cursor: not-allowed; }
 
 /* 아래 집계 · 일괄 바 */
-.ntb-foot { display: flex; align-items: center; padding: 9px 9px 2px; color: var(--ntb-mut); font-size: 12.5px; }
+/* 맨 아래 줄(건수·줄 수·쪽)도 굴려도 남는다(지적: 상시로 보여야 한다).
+   계산 줄은 이 줄 바로 위에 붙는다 — 두 줄이 겹치지 않게 높이를 맞춘다. */
+.ntb-foot {
+  display: flex; align-items: center; padding: 8px 9px; color: var(--ntb-mut); font-size: 12.5px;
+  position: sticky; bottom: 0; z-index: 4;
+  background: var(--c-surface, #fff); border-top: 1px solid var(--ntb-line, #f0efed);
+}
 .ntb-foot .sp { flex: 1; }
 .ntb-bulk { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 92; background: #292524; color: #fff; border-radius: 10px; padding: 9px 13px; display: flex; align-items: center; gap: 10px; font-size: 12.5px; box-shadow: 0 12px 30px rgba(0,0,0,.3); }
 .ntb-bulk b { background: #0e7490; border-radius: 5px; padding: 2px 9px; font-weight: 700; }
@@ -163,7 +175,11 @@
 .ntb-fill { padding: 0 !important; }
 
 /* 열마다 아래에서 세기(지시) · 쪽·줄 수 */
-.ntb-calcrow td { border-top: 1px solid var(--ntb-line, #f0efed); border-bottom: 0; padding: 4px 6px; }
+/* 계산 줄도 아래에 붙어 있는다 — 굴리는 중에도 합계가 보여야 뜻이 있다 */
+.ntb-calcrow td {
+  border-top: 1px solid var(--ntb-line, #f0efed); border-bottom: 0; padding: 4px 6px;
+  position: sticky; bottom: var(--ntb-footh, 35px); z-index: 2; background: var(--c-surface, #fff);
+}
 .ntb-calcb { border: 0; background: none; border-radius: 6px; padding: 3px 7px; font: inherit; font-size: 11.5px; color: #c8c4c0; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ntb-calcb:hover { background: #fafaf9; color: #57534e; }
 .ntb-calcb.on { color: #292524; font-weight: 600; }

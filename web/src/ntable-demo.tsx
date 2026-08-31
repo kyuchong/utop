@@ -52,6 +52,9 @@ function Demo() {
   const say = (s: string) => setLog((l) => [s, ...l].slice(0, 6))
   return (
     <div style={{ padding: '18px 22px', fontFamily: "'Pretendard','Malgun Gothic',sans-serif", background: '#fff' }}>
+      {/* 앱과 같은 꼴 — 표는 굴러가는 상자 안에 산다(.rqtc-tbl 처럼).
+          머리줄 고정이 이 상자에 붙는지 여기서 실제로 본다 */}
+      <div id="scrollbox" style={{ height: 300, overflow: 'auto', border: '1px solid #eee', borderRadius: 8 }}>
       <NTable
         title="11.HW"
         columns={cols}
@@ -74,6 +77,7 @@ function Demo() {
         onNew={(seed) => say(`새로 만들기 ${seed ? `(${seed.key}=${seed.value})` : ''}`)}
         onBulk={(a, ids) => say(`일괄 ${a}: ${ids.length}건`)}
       />
+      </div>
       <pre style={{ marginTop: 18, padding: 10, background: '#fafaf9', borderRadius: 8, fontSize: 12, color: '#57534e' }}>
         {log.join('\n') || '동작 기록이 여기 남습니다'}
       </pre>
