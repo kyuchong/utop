@@ -393,6 +393,17 @@ export default function ReqTc({ me }: Props) {
   const [nColRev, setNColRev] = useState(0)
   /** 노션 표가 제 목록(거르기·정렬·묶기·건수)을 통째로 쥔 상태 */
   const nOwn = ntb
+  /** 표 모양 전환 — 구분선 **아래**, 표 제 도구줄에 선다(지시) */
+  const tblToggle = (
+    <button
+      type="button"
+      className={`rqtc-tbtog${ntb ? ' on' : ''}`}
+      title={ntb ? '옛 표로 보기' : '노션 꼴 표로 보기 — 열·색·묶기를 표에서 바로'}
+      onClick={() => setNtb((v) => !v)}
+    >
+      {ntb ? '▦ 노션 표' : '▤ 옛 표'}
+    </button>
+  )
   /** 그 종류(kind)의 선택지를 SETUP 코드에서 — 색까지 함께 */
   const optsOf = (kind: string) =>
     (codesQ.data?.items ?? [])
@@ -905,6 +916,7 @@ export default function ReqTc({ me }: Props) {
       { key: 'model_group', label: '모델그룹', type: 'text', width: w('model_group', 96) },
       { key: 'model', label: '모델명', type: 'text', width: w('model', 88) },
       { key: 'cov', label: 'Coverage', type: 'text', width: w('cov', 92) },
+      { key: 'mapb', label: 'Map', type: 'text', width: w('mapb', 60) },
       { key: 'tcmap', label: 'TC Map', type: 'text', width: w('tcmap', 116) },
     ]
     const KIND: Record<string, { kind: string; field: string }> = {
@@ -1985,16 +1997,6 @@ export default function ReqTc({ me }: Props) {
             )}
             {/* 세로선 — 왼쪽은 「무엇을 볼지·무엇을 만들지」, 오른쪽은
                 「지금 어디를 보고 있나」(빵부스러기)다(지시). */}
-            {(
-              <button
-                type="button"
-                className={`rqtc-ib${ntb ? ' on' : ''}`}
-                title={ntb ? '옛 표로 보기' : '노션 꼴 표로 보기 — 열·색·묶기를 표에서 바로'}
-                onClick={() => setNtb((v) => !v)}
-              >
-                {ntb ? '표 ▦' : '표 ▤'}
-              </button>
-            )}
             <span className="rqtc-vsep" aria-hidden="true" />
             {/* 여기 있던 여백(sp)을 걷어낸다.
                 왼쪽에 Requirements/Coverage 토글과 만들기 단추들이 서 있던
@@ -2164,12 +2166,16 @@ export default function ReqTc({ me }: Props) {
                 미커버만
               </label>
             )}
-            <input
-              className="rqtc-q top"
-              value={q}
-              placeholder={mode === 'req' ? '요구사항 찾기 (이름 · ID)' : '시험 찾기 (이름 · TC ID)'}
-              onChange={(e) => setQ(e.target.value)}
-            />
+            {/* 노션 표는 제 검색을 갖고 있다 — 두 칸이 뜨면 어느 쪽이 먹는지
+                묻게 된다(지적: 뭔가 이상하다) */}
+            {!nOwn && (
+              <input
+                className="rqtc-q top"
+                value={q}
+                placeholder={mode === 'req' ? '요구사항 찾기 (이름 · ID)' : '시험 찾기 (이름 · TC ID)'}
+                onChange={(e) => setQ(e.target.value)}
+              />
+            )}
             {/* 정렬·열 고르기 — **찾기 칸 오른쪽**(지시). 도구줄에 두었더니
                 만들기·지우기와 한 줄에 섞여, 「무엇을 하는 단추」 와 「어떻게
                 볼지 정하는 단추」 가 구별되지 않았다. 정렬이 ⚙ 왼쪽에 선다. */}
@@ -2192,15 +2198,18 @@ export default function ReqTc({ me }: Props) {
               </>
             )}
             {!nOwn && <ListSortBtn value={listSort} onChange={setListSort} />}
-            <button
-              type="button"
-              className="rqtc-ib"
-              title="INFO 필드 보이기/숨기기 — SETUP 구성과 같은 목록"
-              aria-expanded={!!gearAt}
-              onClick={(e) => setGearAt(gearAt ? null : { x: e.clientX, y: e.clientY })}
-            >
-              <IconSettings />
-            </button>
+            {/* 열 고르기 — 노션 표에서는 「속성」 이 같은 일을 한다 */}
+            {!nOwn && (
+              <button
+                type="button"
+                className="rqtc-ib"
+                title="INFO 필드 보이기/숨기기 — SETUP 구성과 같은 목록"
+                aria-expanded={!!gearAt}
+                onClick={(e) => setGearAt(gearAt ? null : { x: e.clientX, y: e.clientY })}
+              >
+                <IconSettings />
+              </button>
+            )}
             {gearAt && (
               <>
                 <div className="tc-menu-back" style={{ zIndex: 60 }} onClick={() => setGearAt(null)} />
@@ -2307,6 +2316,9 @@ export default function ReqTc({ me }: Props) {
               />
             </div>
           ) : (
+          <>
+          {/* 표 모양 전환 — 옛 표를 볼 때도 같은 자리(구분선 아래)에 선다 */}
+          {!ntb && <div className="rqtc-tbbar">{tblToggle}</div>}
           <div className="rqtc-tbl">
             {mode === 'req' && ntb ? (
               /* 요구사항도 노션 꼴로(지시) — 켰을 때만. 옛 표는 그대로 있다 */
@@ -2315,6 +2327,8 @@ export default function ReqTc({ me }: Props) {
                 rows={nReqRows}
                 view={nview}
                 onView={setNview}
+                toolbarLeft={tblToggle}
+                onNew={() => setEditReq(null)}
                 lockDefs
                 onColumns={(cs) => {
                   for (const c of cs) {
@@ -2325,7 +2339,7 @@ export default function ReqTc({ me }: Props) {
                   setNColRev((n) => n + 1)
                 }}
                 onCell={(id, key, v) => void setOneField('req', id, { [key]: v })}
-                readOnlyKeys={['model_group', 'model', 'cov', 'tcmap']}
+                readOnlyKeys={['model_group', 'model', 'cov', 'tcmap', 'mapb']}
                 idKey="rid"
                 titleKey="title"
                 onOpen={(id) => {
@@ -2338,6 +2352,19 @@ export default function ReqTc({ me }: Props) {
                   else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
                 }}
                 renderCell={(r, c) => {
+                  if (c.key === 'mapb') {
+                    const rq = reqs.find((x) => reqPk(x) === r.__id)
+                    return (
+                      <button
+                        type="button"
+                        className="rqtc-mapb"
+                        title="시험 연결 — 체크해서 붙였다 뗍니다"
+                        onClick={() => rq && setMapFor(rq)}
+                      >
+                        Map
+                      </button>
+                    )
+                  }
                   if (c.key === 'cov') {
                     const n = (tcOf.get(r.__id) ?? []).length
                     return <span className={`rqtc-cov ${n ? 'ok' : 'no'}`}>{n ? `TC ${n}` : '미커버'}</span>
@@ -2576,6 +2603,8 @@ export default function ReqTc({ me }: Props) {
                 rows={nRows}
                 view={nview}
                 onView={setNview}
+                toolbarLeft={tblToggle}
+                onNew={() => setEditTc(null)}
                 lockDefs
                 onColumns={(cs) => {
                   /* 폭·숨김·순서는 계정별 보기 설정에 남긴다(서버로 따라간다).
@@ -2828,7 +2857,7 @@ export default function ReqTc({ me }: Props) {
               </>
             )}
           </div>
-
+          </>
           )}
 
           {/* 쪽 나누기 — 왼쪽에 「몇 번째부터 몇 번째, 모두 몇 건」,

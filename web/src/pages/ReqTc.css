@@ -1267,3 +1267,12 @@
 .rqtc-fillc { width: 100%; }
 .rqtc-fillc .rqtc-fill { display: flex; width: 100%; justify-content: center; box-sizing: border-box; }
 .rqtc-fill select.pick-live { width: 100%; text-align: center; text-align-last: center; font-weight: inherit; }
+/* 표 모양 전환 — 구분선 아래, 표 제 도구줄에(지시) */
+.rqtc-tbbar { display: flex; align-items: center; padding: 6px 2px; }
+.rqtc-tbtog {
+  display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid var(--c-border); background: #fff; border-radius: 7px;
+  padding: 4px 11px; font: inherit; font-size: 12.5px; color: var(--c-text-soft); cursor: pointer;
+}
+.rqtc-tbtog:hover { background: var(--c-surface-alt); }
+.rqtc-tbtog.on { background: #ecfeff; border-color: #a5e8f0; color: #0e7490; font-weight: 700; }

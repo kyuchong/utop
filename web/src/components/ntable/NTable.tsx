@@ -50,6 +50,8 @@ export interface NTableProps {
   titleKey?: string
   title?: string
   busy?: boolean
+  /** 도구줄 왼쪽 끝에 화면이 끼워 넣는 것(표 전환 단추 같은) */
+  toolbarLeft?: React.ReactNode
 }
 
 const BULK = [
@@ -66,7 +68,7 @@ export default function NTable(p: NTableProps) {
     columns, rows, view, onView, onColumns, onCell,
     people = [], meName, onOpen, onPeek, onNew, onBulk,
     renderCell, readOnlyKeys = [], lockDefs,
-    idKey = 'id', titleKey = 'title', title, busy,
+    idKey = 'id', titleKey = 'title', title, busy, toolbarLeft,
   } = p
 
   const [menuAt, setMenuAt] = useState<{ key: string; x: number; y: number } | null>(null)
@@ -301,6 +303,7 @@ export default function NTable(p: NTableProps) {
     <div className="ntb">
       {/* ── 도구줄 ── */}
       <div className="ntb-bar">
+        {toolbarLeft}
         {title && <div className="ntb-title">{title}</div>}
         <div className="ntb-cnt">{shown.length}개</div>
         {busy && <div className="ntb-cnt">저장 중…</div>}
