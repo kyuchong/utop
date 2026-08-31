@@ -10,6 +10,8 @@ export interface NOption {
   color: string
   /** 값 앞에 붙일 그림 — 없으면 글자만(지시: 수동=손가락, 자동=톱니바퀴) */
   icon?: string
+  /** 어떻게 보일지(지시) — 글자만 · 그림만 · 둘 다. 없으면 둘 다 */
+  show?: 'text' | 'icon' | 'both'
 }
 
 export interface NCol {

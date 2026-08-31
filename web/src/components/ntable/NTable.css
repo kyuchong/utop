@@ -235,7 +235,7 @@
 
 /* 선택지 그림 — 글자 앞에 붙는다(지시) */
 /* 그림은 이모지 글꼴을 명시한다 — 안 그러면 기계에 따라 네모로 보인다 */
-.ntb-ico { font-style: normal; font-size: 11px; line-height: 1;
+.ntb-ico { font-style: normal; font-size: 14px; line-height: 1;
   font-family: 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji','Twemoji Mozilla',sans-serif; }
 .ntb-icons { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 2px 4px 6px; }
 .ntb-icb { font-family: 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji','Twemoji Mozilla',sans-serif; border: 1px solid transparent; background: none; border-radius: 6px; padding: 4px 0; font-size: 16px; cursor: pointer; line-height: 1.2; }
@@ -269,3 +269,16 @@
 /* 그림 고르개 — 갈래·찾기 */
 .ntb-ipick { max-height: 260px; overflow-y: auto; }
 .ntb-icons { max-height: none; }
+
+/* 그림만 보일 때는 알약을 좁게 — 글자가 없으니 여백만 남으면 허전하다 */
+.ntb-pill.only { padding: 2px 7px; }
+.ntb-pill.only .ntb-ico { font-size: 15px; }
+/* 보이기 고르개 — 글자만 · 그림만 · 둘 다 */
+.ntb-segs { display: flex; gap: 4px; padding: 2px 6px 8px; }
+.ntb-seg { flex: 1; border: 1px solid var(--ntb-bd, #e7e5e4); background: #fff; border-radius: 6px; padding: 5px 0; font: inherit; font-size: 12.5px; color: #57534e; cursor: pointer; }
+.ntb-seg:hover { background: #fafaf9; }
+.ntb-seg.on { background: #ecfeff; border-color: #a5e8f0; color: #0e7490; font-weight: 700; }
+.ntb-seg:disabled { opacity: .4; cursor: not-allowed; }
+
+/* 색 고르개 줄 — 고른 색이 알약으로 바로 보인다 */
+.ntb-crow { display: flex; align-items: center; gap: 8px; padding: 4px 6px 8px; }

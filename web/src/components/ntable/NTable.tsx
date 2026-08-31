@@ -294,7 +294,7 @@ export default function NTable(p: NTableProps) {
               <span className="ntb-multi">
                 {multiVals(v).map((x) => {
                   const o = (c.options ?? []).find((y) => y.value === x)
-                  return <Pill key={x} value={x} color={o?.color} icon={o?.icon} />
+                  return <Pill key={x} value={x} color={o?.color} icon={o?.icon} show={o?.show} />
                 })}
               </span>
             ) : (
@@ -305,6 +305,7 @@ export default function NTable(p: NTableProps) {
               value={v}
               color={(c.options ?? []).find((o) => o.value === v)?.color}
               icon={(c.options ?? []).find((o) => o.value === v)?.icon}
+              show={(c.options ?? []).find((o) => o.value === v)?.show}
               caret
             />
           )}
@@ -537,6 +538,7 @@ export default function NTable(p: NTableProps) {
                           value={g.value || '(없음)'}
                           color={(gc?.options ?? []).find((o) => o.value === g.value)?.color}
                           icon={(gc?.options ?? []).find((o) => o.value === g.value)?.icon}
+                          show={(gc?.options ?? []).find((o) => o.value === g.value)?.show}
                         />
                         <span className="ntb-gcnt">{g.rows.length}건</span>
                         {onNew && view.groupBy && (

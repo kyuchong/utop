@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { PALETTE, PALETTE_KEYS, autoColor, paintOfAny } from './palette'
+import { autoColor, paintOfAny } from './palette'
 import { ICON_SETS } from './emoji'
+import { ColorPick } from '@/components/settings/ColorPick'
 import { multiJoin, multiVals, type NCol, type NOption, type NPerson, type NType } from './types'
 import {
   IcCheck, IcCopy, IcDate, IcFilter, IcGroup, IcHide, IcLeft, IcNumber, IcPerson,
@@ -39,20 +40,31 @@ export function Pop({
 
 /** 값 알약 — 점 + 글자(+ ▾). 색은 옵션 정의에서 온다 */
 export function Pill({
-  value, color, caret, icon,
+  value, color, caret, icon, show = 'both',
 }: {
   value: string
   color?: string
   caret?: boolean
   /** 값 앞 그림 — 있으면 점 대신 그린다 */
   icon?: string
+  /** 글자만 · 그림만 · 둘 다(지시) */
+  show?: 'text' | 'icon' | 'both'
 }) {
   if (!value) return <span className="ntb-empty">–</span>
   const p = paintOfAny(color ?? autoColor(value))
+  const onlyIcon = show === 'icon' && !!icon
   return (
-    <span className="ntb-pill" style={{ background: p.bg, color: p.fg }}>
-      {icon ? <i className="ntb-ico">{icon}</i> : <i className="ntb-dot" style={{ background: p.dot }} />}
-      {value}
+    <span
+      className={`ntb-pill${onlyIcon ? ' only' : ''}`}
+      style={{ background: p.bg, color: p.fg }}
+      title={value}
+    >
+      {icon && show !== 'text' ? (
+        <i className="ntb-ico">{icon}</i>
+      ) : (
+        <i className="ntb-dot" style={{ background: p.dot }} />
+      )}
+      {!onlyIcon && value}
       {caret && <i className="ntb-car">▾</i>}
     </span>
   )
@@ -120,7 +132,7 @@ export function SelectEditor({
         {hit.map((o) => (
           <div className="ntb-opt" key={o.value}>
             <button type="button" className="ntb-optb" onClick={() => toggle(o.value)}>
-              <Pill value={o.value} color={o.color} icon={o.icon} />
+              <Pill value={o.value} color={o.color} icon={o.icon} show={o.show} />
             </button>
             {has(o.value) && <IcCheck className="ntb-chk" />}
             {!lockDefs && (
@@ -208,19 +220,14 @@ function OptionEdit({
         onBlur={() => name.trim() && name.trim() !== opt.value && keep({})}
       />
       {/* 색 — 점 한 줄이면 열 가지가 한눈에 든다(목록으로 늘어놓으면 스크롤) */}
-      <div className="ntb-sec">색</div>
-      <div className="ntb-dots">
-        {PALETTE_KEYS.map((k) => (
-          <button
-            type="button"
-            key={k}
-            title={PALETTE[k]?.label}
-            className={`ntb-cbtn${k === opt.color ? ' on' : ''}`}
-            onClick={() => keep({ color: k })}
-          >
-            <span className="ntb-cdot" style={{ background: PALETTE[k]?.dot }} />
-          </button>
-        ))}
+      <div className="ntb-crow">
+        <span className="ntb-sec" style={{ padding: 0 }}>색</span>
+        <ColorPick
+          title={`「${opt.value}」 의 색`}
+          value={opt.color?.startsWith('#') ? opt.color : (paintOfAny(opt.color).dot ?? '#9ca3af')}
+          onPick={(c) => keep({ color: c })}
+        />
+        <Pill value={name.trim() || opt.value} color={opt.color} icon={opt.icon} show={opt.show} />
       </div>
       {/* 그림 — 안 쓰는 사람이 많아 접어 둔다 */}
       <button type="button" className="ntb-mi" onClick={() => setShowIcons((v) => !v)}>
@@ -522,7 +529,7 @@ export function OptionsManager({
                 ↓
               </button>
             </span>
-            <Pill value={o.value} color={o.color} icon={o.icon} />
+            <Pill value={o.value} color={o.color} icon={o.icon} show={o.show} />
             <button
               type="button"
               className="ntb-more"
@@ -550,16 +557,29 @@ export function OptionsManager({
                     setOpts(opts.map((x) => (x.value === o.value ? { ...x, value: t } : x)))
                 }}
               />
-              <div className="ntb-dots">
-                {PALETTE_KEYS.map((k) => (
+              {/* 색 — 옛 INFO 필드가 쓰던 **107색 고르개**를 그대로 쓴다
+                  (지적: 색이 다양하지 않다). 계열마다 진함→여림 여섯 단계 */}
+              <div className="ntb-crow">
+                <span className="ntb-sec" style={{ padding: 0 }}>색</span>
+                <ColorPick
+                  title={`「${o.value}」 의 색`}
+                  value={o.color?.startsWith('#') ? o.color : (paintOfAny(o.color).dot ?? '#9ca3af')}
+                  onPick={(c) => setOpts(opts.map((x) => (x.value === o.value ? { ...x, color: c } : x)))}
+                />
+                <Pill value={o.value} color={o.color} icon={o.icon} show={o.show} />
+              </div>
+              <div className="ntb-sec">보이기</div>
+              <div className="ntb-segs">
+                {([['both', '둘 다'], ['text', '글자만'], ['icon', '그림만']] as const).map(([k, lab]) => (
                   <button
                     type="button"
                     key={k}
-                    title={PALETTE[k]?.label}
-                    className={`ntb-cbtn${k === o.color ? ' on' : ''}`}
-                    onClick={() => setOpts(opts.map((x) => (x.value === o.value ? { ...x, color: k } : x)))}
+                    className={`ntb-seg${(o.show ?? 'both') === k ? ' on' : ''}`}
+                    disabled={k === 'icon' && !o.icon}
+                    title={k === 'icon' && !o.icon ? '그림을 먼저 고르세요' : ''}
+                    onClick={() => setOpts(opts.map((x) => (x.value === o.value ? { ...x, show: k } : x)))}
                   >
-                    <span className="ntb-cdot" style={{ background: PALETTE[k]?.dot }} />
+                    {lab}
                   </button>
                 ))}
               </div>
