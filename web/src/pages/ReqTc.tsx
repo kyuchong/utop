@@ -19,7 +19,7 @@ import {
 import GlobalParams from '@/components/settings/GlobalParams'
 import NTable from '@/components/ntable/NTable'
 import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
-import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
+import { EMPTY_VIEW, type NCalc, type NCol, type NOption, type NRow, type NView } from '@/components/ntable/types'
 import { paintOfAny } from '@/components/ntable/palette'
 import { type CfType, type CfMeta, type CustomField } from '@/hooks/useCustomFields'
 import ListSortBtn, {
@@ -460,7 +460,13 @@ export default function ReqTc({ me }: Props) {
       const now = a.options ?? []
       for (const [i, o] of now.entries()) {
         const prev = was.find((x) => x.value === o.value)
-        if (prev && prev.color === o.color && (prev.icon ?? '') === (o.icon ?? '')) continue
+        if (
+          prev &&
+          prev.color === o.color &&
+          (prev.icon ?? '') === (o.icon ?? '') &&
+          (prev.show ?? 'both') === (o.show ?? 'both')
+        )
+          continue
         const hex = o.color?.startsWith('#') ? o.color : (paintOfAny(o.color).dot ?? '')
         await apiFetch('/api/codes', {
           method: 'POST',
@@ -469,7 +475,7 @@ export default function ReqTc({ me }: Props) {
             value: o.value,
             sort_order: i,
             /* 그림도 함께 담는다 — 옛 화면들은 color·fg 만 읽으므로 안 깨진다 */
-            note: JSON.stringify({ color: hex, fg: '#fff', icon: o.icon || '' }),
+            note: JSON.stringify({ color: hex, fg: '#fff', icon: o.icon || '', show: o.show ?? 'both' }),
           }),
         })
         hit = true
@@ -522,6 +528,15 @@ export default function ReqTc({ me }: Props) {
       return {}
     }
   }
+  /** 보이기(글자만·그림만·둘 다)도 note 에 남긴다 — 여태 안 남아서
+      눌러도 서버에서 다시 읽으면 「둘 다」 로 되돌아갔다(지적) */
+  const cfShows = (f2: CustomField): Record<string, string> => {
+    try {
+      return (JSON.parse(f2.note || '{}') as { shows?: Record<string, string> }).shows ?? {}
+    } catch {
+      return {}
+    }
+  }
   const cfIcons = (f2: CustomField): Record<string, string> => {
     try {
       return (JSON.parse(f2.note || '{}') as { icons?: Record<string, string> }).icons ?? {}
@@ -568,9 +583,13 @@ export default function ReqTc({ me }: Props) {
         const optStr = opts.map((o) => o.value).join('\n')
         const colors = Object.fromEntries(opts.filter((o) => o.color).map((o) => [o.value, o.color]))
         const icons = Object.fromEntries(opts.filter((o) => o.icon).map((o) => [o.value, o.icon!]))
+        const shows = Object.fromEntries(
+          opts.filter((o) => o.show && o.show !== 'both').map((o) => [o.value, o.show!]),
+        )
         const oldOpt = (f3.options ?? '').trim()
         const oldColors = cfColors(f3)
         const oldIcons = cfIcons(f3)
+        const oldShows = cfShows(f3)
         const nameChanged = f3.label !== a.label
         const typeChanged = want !== f3.type
         /* 「다중 선택」 이 빠져 있어 값을 넣어도 저장이 안 갔다(재현함) */
@@ -579,7 +598,8 @@ export default function ReqTc({ me }: Props) {
           isPick &&
           (optStr.trim() !== oldOpt ||
             JSON.stringify(colors) !== JSON.stringify(oldColors) ||
-            JSON.stringify(icons) !== JSON.stringify(oldIcons))
+            JSON.stringify(icons) !== JSON.stringify(oldIcons) ||
+            JSON.stringify(shows) !== JSON.stringify(oldShows))
         if (!nameChanged && !typeChanged && !optChanged) continue
         let sendOpt = optStr
         let sendColors = colors
@@ -612,7 +632,7 @@ export default function ReqTc({ me }: Props) {
           label: a.label,
           type: want,
           options: isPick ? sendOpt : null,
-          note: JSON.stringify({ colors: sendColors, icons }),
+          note: JSON.stringify({ colors: sendColors, icons, shows }),
         })
       }
     }
@@ -638,12 +658,15 @@ export default function ReqTc({ me }: Props) {
       .filter((x) => x.kind === kind)
       .map((x) => {
         let icon = ''
+        let show: NOption['show'] = 'both'
         try {
-          icon = String((JSON.parse(x.note || '{}') as { icon?: string }).icon || '')
+          const j = JSON.parse(x.note || '{}') as { icon?: string; show?: NOption['show'] }
+          icon = String(j.icon || '')
+          if (j.show === 'text' || j.show === 'icon') show = j.show
         } catch {
           /* 옛 자료 — 그림 없음 */
         }
-        return { value: x.value, color: fillOf(x.note, x.value).bg, icon }
+        return { value: x.value, color: fillOf(x.note, x.value).bg, icon, show }
       })
   /** 노션 표의 열 — 고정 칸 + 켜진 INFO 열(설정과 1:1) */
   const nColsBase = useMemo<NCol[]>(() => {
@@ -701,7 +724,12 @@ export default function ReqTc({ me }: Props) {
                 .split('\n')
                 .map((x) => x.trim())
                 .filter(Boolean)
-                .map((v) => ({ value: v, color: cfColors(cf)[v] ?? '', icon: cfIcons(cf)[v] ?? '' })),
+                .map((v) => ({
+                  value: v,
+                  color: cfColors(cf)[v] ?? '',
+                  icon: cfIcons(cf)[v] ?? '',
+                  show: (cfShows(cf)[v] as NOption['show']) ?? 'both',
+                })),
             }
           : {}),
       })
@@ -1120,7 +1148,12 @@ export default function ReqTc({ me }: Props) {
                 .split('\n')
                 .map((x) => x.trim())
                 .filter(Boolean)
-                .map((v) => ({ value: v, color: cfColors(cf)[v] ?? '', icon: cfIcons(cf)[v] ?? '' })),
+                .map((v) => ({
+                  value: v,
+                  color: cfColors(cf)[v] ?? '',
+                  icon: cfIcons(cf)[v] ?? '',
+                  show: (cfShows(cf)[v] as NOption['show']) ?? 'both',
+                })),
             }
           : {}),
       })

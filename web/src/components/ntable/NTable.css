@@ -106,7 +106,7 @@
 .ntb-mi.dg { color: #dc2626; }
 .ntb-sub { color: #a8a29e; font-size: 12.5px; border: 0; background: none; cursor: pointer; }
 .ntb-x { border: 0; background: none; color: #c8c4c0; cursor: pointer; }
-.ntb-list { max-height: 260px; overflow-y: auto; }
+.ntb-list { overflow: visible; }
 .ntb-opt { display: flex; align-items: center; gap: 7px; width: 100%; border: 0; background: none; padding: 5px 8px; border-radius: 6px; font: inherit; font-size: 13.5px; color: inherit; cursor: pointer; text-align: left; }
 .ntb-opt:hover { background: #fafaf9; }
 .ntb-optb { border: 0; background: none; padding: 0; cursor: pointer; flex: 1; text-align: left; }
@@ -267,8 +267,8 @@
 .ntb-inline { border: 1px solid var(--ntb-line2, #f5f4f2); border-radius: 8px; padding: 6px; margin: 2px 4px 6px; background: #fcfcfb; }
 
 /* 그림 고르개 — 갈래·찾기 */
-.ntb-ipick { max-height: 260px; overflow-y: auto; }
-.ntb-icons { max-height: none; }
+.ntb-ipick { overflow: visible; }
+.ntb-icons { max-height: none; overflow: visible; }
 
 /* 그림만 보일 때는 알약을 좁게 — 글자가 없으니 여백만 남으면 허전하다 */
 .ntb-pill.only { padding: 2px 7px; }
@@ -282,3 +282,11 @@
 
 /* 색 고르개 줄 — 고른 색이 알약으로 바로 보인다 */
 .ntb-crow { display: flex; align-items: center; gap: 8px; padding: 4px 6px 8px; }
+
+/* 색 — 판 안에서 계열 고르고 진하기 고르기(띄우는 판 없음) */
+.ntb-colors { padding: 2px 6px 8px; }
+.ntb-cser { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+.ntb-cshades { display: flex; gap: 4px; }
+.ntb-cs { flex: 1; height: 26px; border: 2px solid transparent; border-radius: 6px; cursor: pointer; padding: 0; }
+.ntb-cs:hover { border-color: #c8c4c0; }
+.ntb-cs.on { border-color: #0e7490; }

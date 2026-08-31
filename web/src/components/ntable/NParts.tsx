@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { autoColor, paintOfAny } from './palette'
 import { ICON_SETS } from './emoji'
-import { ColorPick } from '@/components/settings/ColorPick'
+import { PALETTE as FULL } from '@/components/settings/ColorPick'
 import { multiJoin, multiVals, type NCol, type NOption, type NPerson, type NType } from './types'
 import {
   IcCheck, IcCopy, IcDate, IcFilter, IcGroup, IcHide, IcLeft, IcNumber, IcPerson,
@@ -220,15 +220,11 @@ function OptionEdit({
         onBlur={() => name.trim() && name.trim() !== opt.value && keep({})}
       />
       {/* 색 — 점 한 줄이면 열 가지가 한눈에 든다(목록으로 늘어놓으면 스크롤) */}
-      <div className="ntb-crow">
-        <span className="ntb-sec" style={{ padding: 0 }}>색</span>
-        <ColorPick
-          title={`「${opt.value}」 의 색`}
-          value={opt.color?.startsWith('#') ? opt.color : (paintOfAny(opt.color).dot ?? '#9ca3af')}
-          onPick={(c) => keep({ color: c })}
-        />
-        <Pill value={name.trim() || opt.value} color={opt.color} icon={opt.icon} show={opt.show} />
-      </div>
+      <div className="ntb-sec">색</div>
+      <ColorRow
+        cur={opt.color?.startsWith('#') ? opt.color : (paintOfAny(opt.color).dot ?? '')}
+        onPick={(c) => keep({ color: c })}
+      />
       {/* 그림 — 안 쓰는 사람이 많아 접어 둔다 */}
       <button type="button" className="ntb-mi" onClick={() => setShowIcons((v) => !v)}>
         <span className="l">그림 {opt.icon ? opt.icon : '없음'}</span>
@@ -241,6 +237,52 @@ function OptionEdit({
         <span className="l">삭제</span>
       </button>
     </Pop>
+  )
+}
+
+/** 색 고르개 — **판 안에서** 고른다(지적: 색판이 화면 밖으로 나가 못 고른다).
+    계열을 고르면 그 자리에서 진하기 여섯 단계가 펴진다. 띄우는 판이 없다. */
+function ColorRow({ cur, onPick }: { cur: string; onPick: (c: string) => void }) {
+  const series = useMemo(() => {
+    const m = new Map<string, Array<{ nm: string; color: string }>>()
+    for (const p of FULL) {
+      const k = p.nm.split(' · ')[0] ?? p.nm
+      m.set(k, [...(m.get(k) ?? []), { nm: p.nm, color: p.color }])
+    }
+    return [...m.entries()]
+  }, [])
+  const curHex = (cur || '').toLowerCase()
+  const mine = series.find(([, v]) => v.some((x) => x.color.toLowerCase() === curHex))
+  const [sel, setSel] = useState(mine?.[0] ?? series[0]?.[0] ?? '')
+  const shades = series.find(([k]) => k === sel)?.[1] ?? []
+  return (
+    <div className="ntb-colors">
+      <div className="ntb-cser">
+        {series.map(([k, v]) => (
+          <button
+            type="button"
+            key={k}
+            title={k}
+            className={`ntb-cbtn${k === sel ? ' on' : ''}`}
+            onClick={() => setSel(k)}
+          >
+            <span className="ntb-cdot" style={{ background: v[2]?.color ?? v[0]?.color }} />
+          </button>
+        ))}
+      </div>
+      <div className="ntb-cshades">
+        {shades.map((x) => (
+          <button
+            type="button"
+            key={x.color}
+            title={x.nm}
+            className={`ntb-cs${x.color.toLowerCase() === curHex ? ' on' : ''}`}
+            style={{ background: x.color }}
+            onClick={() => onPick(x.color)}
+          />
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -559,15 +601,11 @@ export function OptionsManager({
               />
               {/* 색 — 옛 INFO 필드가 쓰던 **107색 고르개**를 그대로 쓴다
                   (지적: 색이 다양하지 않다). 계열마다 진함→여림 여섯 단계 */}
-              <div className="ntb-crow">
-                <span className="ntb-sec" style={{ padding: 0 }}>색</span>
-                <ColorPick
-                  title={`「${o.value}」 의 색`}
-                  value={o.color?.startsWith('#') ? o.color : (paintOfAny(o.color).dot ?? '#9ca3af')}
-                  onPick={(c) => setOpts(opts.map((x) => (x.value === o.value ? { ...x, color: c } : x)))}
-                />
-                <Pill value={o.value} color={o.color} icon={o.icon} show={o.show} />
-              </div>
+              <div className="ntb-sec">색</div>
+              <ColorRow
+                cur={o.color?.startsWith('#') ? o.color : (paintOfAny(o.color).dot ?? '')}
+                onPick={(c) => setOpts(opts.map((x) => (x.value === o.value ? { ...x, color: c } : x)))}
+              />
               <div className="ntb-sec">보이기</div>
               <div className="ntb-segs">
                 {([['both', '둘 다'], ['text', '글자만'], ['icon', '그림만']] as const).map(([k, lab]) => (
@@ -575,8 +613,7 @@ export function OptionsManager({
                     type="button"
                     key={k}
                     className={`ntb-seg${(o.show ?? 'both') === k ? ' on' : ''}`}
-                    disabled={k === 'icon' && !o.icon}
-                    title={k === 'icon' && !o.icon ? '그림을 먼저 고르세요' : ''}
+                    title={k === 'icon' && !o.icon ? '아래에서 그림을 고르면 그림만 보입니다' : ''}
                     onClick={() => setOpts(opts.map((x) => (x.value === o.value ? { ...x, show: k } : x)))}
                   >
                     {lab}
