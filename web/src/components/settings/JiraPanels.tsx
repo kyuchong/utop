@@ -78,6 +78,19 @@ export default function JiraPanels() {
       const known = j.fav_projects?.length ? j.fav_projects : Object.keys(j.panel_templates ?? {})
       setProjects(known.map((k) => ({ key: k, name: '' })))
       setSel(known[0] ?? '')
+      /* 이름도 함께 보여야 한다(지적: 「자주 쓰는 프로젝트」 처럼 열쇠+이름).
+         이름은 Jira 에만 있어서 여태 「프로젝트 불러오기」 를 눌러야 나왔다 —
+         열 때 조용히 채운다. 못 읽어도 열쇠 목록은 그대로 선다. */
+      try {
+        const pr = await apiFetch('/api/jira/projects')
+        if (!pr.ok) return
+        const pj = (await pr.json()) as { ok?: boolean; projects?: Proj[] }
+        if (!pj.ok || !pj.projects?.length) return
+        const nameOf = new Map(pj.projects.map((x) => [x.key, x.name]))
+        setProjects((cur2) => cur2.map((x) => ({ ...x, name: x.name || (nameOf.get(x.key) ?? '') })))
+      } catch {
+        /* Jira 가 안 열려도 이 화면은 쓸 수 있어야 한다 */
+      }
     })()
   }, [])
 
