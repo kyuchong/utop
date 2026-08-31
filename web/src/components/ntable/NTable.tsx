@@ -94,6 +94,14 @@ export default function NTable(p: NTableProps) {
   const [folded, setFolded] = useState<Set<string>>(new Set())
   const [widths, setWidths] = useState<Record<string, number>>({})
   const [calcAt, setCalcAt] = useState<{ key: string; x: number; y: number } | null>(null)
+  /* ── 칸 옮겨 다니기 · 블록 · 끌어 채우기 (노션과 같은 조작) ──────────
+     칸을 한 번 누르면 **자리**만 잡힌다(고치기는 두 번 누르기·▾ 그대로).
+     그 뒤 화살표로 옮기고, Shift+화살표로 네모를 넓히고, Ctrl+C/V 로
+     주고받고, 네모 오른쪽 아래 손잡이를 끌면 아래로 값이 복사된다. */
+  const [foc, setFoc] = useState<{ r: number; c: number } | null>(null)
+  const [anch, setAnch] = useState<{ r: number; c: number } | null>(null)
+  /** 끌어 채우는 중 — 어디까지 왔나 */
+  const [fillTo, setFillTo] = useState<number | null>(null)
   const [page, setPage] = useState(1)
   const drag = useRef<{ key: string; x0: number; w0: number } | null>(null)
 
@@ -170,6 +178,9 @@ export default function NTable(p: NTableProps) {
     }
   }
 
+  /** 화면에 서는 차례 그대로의 줄 목록. 자리 번호는 이것으로 센다 —
+      묶음이 켜지면 줄 차례가 바뀌므로 paged 를 그냥 쓰면 어긋난다. */
+  const flatRef = useRef<NRow[]>([])
   const groups = useMemo(() => {
     if (!view.groupBy) return [{ value: '', rows: paged }]
     const gc = colOf(view.groupBy)
@@ -366,6 +377,167 @@ export default function NTable(p: NTableProps) {
     )
   }
 
+  /* ── 칸 조작 한 벌 ─────────────────────────────────────────────────
+     노션에서 하던 대로: 화살표로 옮기고, Shift 로 네모를 넓히고,
+     Ctrl+C/V 로 주고받고, 손잡이를 끌어 아래로 복사한다. */
+  const flat = flatRef.current
+  const roSet = useMemo(() => new Set(readOnlyKeys), [readOnlyKeys])
+  /** 이 칸에 값을 쓸 수 있나 — 계산 칸·ID·제목은 건드리지 않는다 */
+  const writable = (c: NCol) => !roSet.has(c.key) && c.key !== idKey && c.key !== titleKey
+  /** 지금 잡힌 네모 (자리 → 자리) */
+  const box = useMemo(() => {
+    if (!foc) return null
+    const a = anch ?? foc
+    return {
+      r0: Math.min(a.r, foc.r), r1: Math.max(a.r, foc.r),
+      c0: Math.min(a.c, foc.c), c1: Math.max(a.c, foc.c),
+    }
+  }, [foc, anch])
+  const inBox = (r: number, c: number) =>
+    !!box && r >= box.r0 && r <= box.r1 && c >= box.c0 && c <= box.c1
+  /** 끌어 채우는 동안 미리 보이는 자리 */
+  const inFill = (r: number, c: number) =>
+    fillTo !== null && !!box && c >= box.c0 && c <= box.c1 && r > box.r1 && r <= fillTo
+
+  const move = (dr: number, dc: number, grow: boolean) => {
+    if (!foc) return
+    const r = Math.max(0, Math.min(flat.length - 1, foc.r + dr))
+    const c = Math.max(0, Math.min(vis.length - 1, foc.c + dc))
+    if (grow) setAnch(anch ?? foc)
+    else setAnch(null)
+    setFoc({ r, c })
+  }
+
+  /** 글자를 클립보드로. **http 로 여는 서버**에는 navigator.clipboard 가
+      없다(보안 문맥이 아니다). 그래서 숨은 칸을 만들어 예전 방식으로
+      복사한다 — 이게 없으면 213 에서 Ctrl+C 가 조용히 아무 일도 안 한다. */
+  const copyText = (txt: string) => {
+    if (!txt) return
+    if (window.isSecureContext && navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(txt)
+      return
+    }
+    const ta = document.createElement('textarea')
+    ta.value = txt
+    ta.setAttribute('readonly', '')
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    try {
+      document.execCommand('copy')
+    } catch {
+      window.alert('복사하지 못했습니다 — 브라우저가 막았습니다')
+    }
+    document.body.removeChild(ta)
+  }
+
+  /** 네모를 탭 글자로 — 노션·엑셀이 주고받는 그 꼴 */
+  const boxText = () => {
+    if (!box) return ''
+    const out: string[] = []
+    for (let r = box.r0; r <= box.r1; r++) {
+      const row = flat[r]
+      if (!row) continue
+      out.push(vis.slice(box.c0, box.c1 + 1).map((c) => String(row[c.key] ?? '')).join('\t'))
+    }
+    return out.join('\n')
+  }
+
+  /** 붙여넣기 — 잡힌 자리부터 오른쪽·아래로 편다 */
+  const pasteAt = (text: string) => {
+    if (!foc || !text) return
+    const rows = text.replace(/\r/g, '').split('\n')
+    let n = 0
+    rows.forEach((line, dr) => {
+      line.split('\t').forEach((val, dc) => {
+        const row = flat[foc.r + dr]
+        const col = vis[foc.c + dc]
+        if (!row || !col || !writable(col)) return
+        if (String(row[col.key] ?? '') === val) return
+        onCell(row.__id, col.key, val)
+        n++
+      })
+    })
+    if (!n) window.alert('붙여넣을 수 있는 칸이 없습니다 — 계산 칸·ID·제목은 못 고칩니다')
+  }
+
+  /** 손잡이를 끌어 아래로 복사 — 네모 맨 윗줄 값을 아래에 깐다 */
+  const doFill = (to: number) => {
+    if (!box) return
+    for (let r = box.r1 + 1; r <= to; r++) {
+      const row = flat[r]
+      if (!row) continue
+      for (let c = box.c0; c <= box.c1; c++) {
+        const col = vis[c]
+        const src = flat[box.r0]
+        if (!col || !src || !writable(col)) continue
+        const v = String(src[col.key] ?? '')
+        if (String(row[col.key] ?? '') === v) continue
+        onCell(row.__id, col.key, v)
+      }
+    }
+  }
+
+  const onKey = (e: React.KeyboardEvent) => {
+    if (!foc) return
+    /* 글자를 치는 중이면 표가 가로채지 않는다 — 편집기·검색칸이 먼저다 */
+    const t = e.target as HTMLElement
+    if (t.closest('input, textarea, select, [contenteditable="true"]')) return
+    const K = e.key
+    if (K === 'ArrowUp' || K === 'ArrowDown' || K === 'ArrowLeft' || K === 'ArrowRight') {
+      e.preventDefault()
+      move(K === 'ArrowDown' ? 1 : K === 'ArrowUp' ? -1 : 0,
+           K === 'ArrowRight' ? 1 : K === 'ArrowLeft' ? -1 : 0, e.shiftKey)
+      return
+    }
+    if (K === 'Tab') {
+      e.preventDefault()
+      move(0, e.shiftKey ? -1 : 1, false)
+      return
+    }
+    if (K === 'Escape') {
+      setAnch(null)
+      setFoc(null)
+      return
+    }
+    if (K === 'Enter' || K === 'F2') {
+      e.preventDefault()
+      const row = flat[foc.r]
+      const col = vis[foc.c]
+      if (!row || !col || !writable(col)) return
+      if (col.type === 'select' || col.type === 'multiselect' || col.type === 'person') {
+        const el = document.querySelector(`[data-cell="${CSS.escape(row.__id)}|${CSS.escape(col.key)}"] button`)
+        ;(el as HTMLElement | null)?.click()
+      } else setEditAt({ row: row.__id, key: col.key })
+      return
+    }
+    if ((e.ctrlKey || e.metaKey) && (K === 'c' || K === 'C')) {
+      e.preventDefault()
+      copyText(boxText())
+      return
+    }
+    /* 붙여넣기는 **native paste 사건**으로 받는다(아래 onPaste). 여기서
+       navigator.clipboard.readText() 를 쓰면 http 로 여는 서버에서는
+       그 물건이 아예 없어 조용히 아무 일도 안 난다(213 이 그렇다). */
+    if ((e.ctrlKey || e.metaKey) && (K === 'd' || K === 'D')) {
+      /* 노션·엑셀의 「위 값으로 채우기」 */
+      e.preventDefault()
+      if (box) doFill(box.r1)
+      return
+    }
+    if (K === 'Delete' || K === 'Backspace') {
+      e.preventDefault()
+      if (!box) return
+      for (let r = box.r0; r <= box.r1; r++)
+        for (let c = box.c0; c <= box.c1; c++) {
+          const row = flat[r]
+          const col = vis[c]
+          if (row && col && writable(col) && String(row[col.key] ?? '')) onCell(row.__id, col.key, '')
+        }
+    }
+  }
+
   const allKeys = shown.map((r) => r.__id)
   const allOn = allKeys.length > 0 && allKeys.every((k) => checked.has(k))
   const curCol = menuAt ? colOf(menuAt.key) : undefined
@@ -473,7 +645,17 @@ export default function NTable(p: NTableProps) {
       )}
 
       {/* ── 표 ── */}
-      <div className="ntb-wrap">
+      <div className="ntb-wrap" tabIndex={-1} onKeyDown={onKey}
+        /* 붙여넣기는 native 사건으로 받는다 — http 서버에도 이건 온다 */
+        onPaste={(e) => {
+          if (!foc) return
+          const t = e.target as HTMLElement
+          if (t.closest('input, textarea, [contenteditable="true"]')) return
+          const txt = e.clipboardData?.getData('text/plain') ?? ''
+          if (!txt) return
+          e.preventDefault()
+          pasteAt(txt)
+        }}>
         <table className="ntb-tbl">
           <thead>
             <tr>
@@ -523,6 +705,7 @@ export default function NTable(p: NTableProps) {
             </tr>
           </thead>
           <tbody>
+            {((flatRef.current = []), null)}
             {groups.map((g) => {
               const gc = view.groupBy ? colOf(view.groupBy) : undefined
               const off = folded.has(g.value)
@@ -565,7 +748,10 @@ export default function NTable(p: NTableProps) {
                     </tr>
                   )}
                   {!off &&
-                    g.rows.map((r, i) => (
+                    g.rows.map((r, i) => {
+                      /* 그리는 차례 그대로 자리 번호를 매긴다 */
+                      const ri = flatRef.current.push(r) - 1
+                      return (
                       <tr key={r.__id} className={checked.has(r.__id) ? 'ntb-row on' : 'ntb-row'}>
                         <td className="ntb-gp">
                           <div className="ntb-gpin">
@@ -585,14 +771,62 @@ export default function NTable(p: NTableProps) {
                             <span className="ntb-no">{i + 1}</span>
                           </div>
                         </td>
-                        {vis.map((c) => (
-                          <td key={c.key} style={{ width: wOf(c) }}>
-                            {cell(r, c)}
-                          </td>
-                        ))}
+                        {vis.map((c, ci) => {
+                          const on = foc?.r === ri && foc?.c === ci
+                          const sel = inBox(ri, ci)
+                          const pre = inFill(ri, ci)
+                          const last = !!box && ri === box.r1 && ci === box.c1
+                          return (
+                            <td
+                              key={c.key}
+                              style={{ width: wOf(c) }}
+                              data-cell={`${r.__id}|${c.key}`}
+                              className={`${on ? 'ntb-foc ' : ''}${sel ? 'ntb-sel ' : ''}${pre ? 'ntb-pre' : ''}`.trim() || undefined}
+                              onMouseDown={(e) => {
+                                if ((e.target as HTMLElement).closest('button, input, select, textarea')) return
+                                setAnch(e.shiftKey ? (anch ?? foc) : null)
+                                setFoc({ r: ri, c: ci })
+                              }}
+                            >
+                              {cell(r, c)}
+                              {last && (
+                                /* 오른쪽 아래 손잡이 — 끌면 아래로 값이 복사된다 */
+                                <span
+                                  className="ntb-grab"
+                                  title="끌어서 아래로 채우기"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    const startY = e.clientY
+                                    const h = (e.currentTarget.closest('tr') as HTMLElement)?.offsetHeight || 30
+                                    /* 어디까지 왔는지는 **여기서** 들고 있는다.
+                                       setState 갱신 함수 안에서 저장을 부르면
+                                       React 가 그 함수를 두 번 부르는 자리라
+                                       한 줄이 두 번 저장된다(재현함). */
+                                    let to = ri
+                                    const mv = (m2: MouseEvent) => {
+                                      const d = Math.max(0, Math.round((m2.clientY - startY) / h))
+                                      to = Math.min(flatRef.current.length - 1, ri + d)
+                                      setFillTo(to)
+                                    }
+                                    const up = () => {
+                                      window.removeEventListener('mousemove', mv)
+                                      window.removeEventListener('mouseup', up)
+                                      setFillTo(null)
+                                      if (to > ri) doFill(to)
+                                    }
+                                    window.addEventListener('mousemove', mv)
+                                    window.addEventListener('mouseup', up)
+                                  }}
+                                />
+                              )}
+                            </td>
+                          )
+                        })}
                         <td className="ntb-fill" />
                       </tr>
-                    ))}
+                      )
+                    })}
                 </Fragment>
               )
             })}
