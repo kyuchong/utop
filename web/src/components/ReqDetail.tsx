@@ -12,7 +12,8 @@ import {
 import LlmPick, { useLlmPick } from '@/components/LlmPick'
 import Markdown from './Markdown'
 import MarkdownEditor from './MarkdownEditorLazy'
-import PickCell from './PickCell'
+import InfoPane from '@/components/info/InfoPane'
+import { goto } from '@/api/goto'
 import './ReqDetail.css'
 
 interface Props {
@@ -84,82 +85,69 @@ export default function ReqDetail({ req, tcs, tab, edit }: Props) {
     return { total: tcs.length, pass, fail, idle: tcs.length - pass - fail }
   }, [tcs])
 
+  /** 요구사항 화면에서 **고른** 시험항목 — 보기·이동용이다(자료는 안 바뀐다).
+      요구사항 1 : 시험항목 N 이라, 시험항목 화면의 「요구사항 제목」 과 뜻이
+      다르다(그쪽은 매다는 곳을 바꾼다). */
+  const [tcSel, setTcSel] = useState('')
+  const curTc = tcs.find((t) => t.tcid === tcSel) ?? tcs[0]
+
   if (tab === 'info') {
     return (
-      <div className="detail-body scroll">
-        <dl className="kv">
-          <dt>REQ ID</dt>
-          <dd>{reqLabel(req) || '—'}</dd>
-          <dt>제목</dt>
-          <dd>
-            {edit ? (
-              /* 두 번 누르면 그 자리에서 고친다(지시) — 상태·우선순위와
-                 같이 값은 들고만 있고, 나가는 것은 위 「저장」 단추다 */
-              <PickCell
-                dbl
-                value={edit.title}
-                view={edit.title || '(제목 없음)'}
-                cls="kv-titleedit"
-                title="두 번 누르면 제목을 고칩니다 — 위 「저장」 으로 저장됩니다"
-                onSave={(nv) => edit.onChange({ title: nv })}
-              />
-            ) : (
-              req.title || '—'
-            )}
-          </dd>
-          <dt>프로젝트</dt>
-          <dd>
-            {prj
-              ? [prj.name, [prj.customer, prj.model_group].filter(Boolean).join(' · ')]
-                  .filter(Boolean)
-                  .join(' — ')
-              : '미지정'}
-          </dd>
-          <dt>분류</dt>
-          <dd>{catText}</dd>
-          <dt>상태</dt>
-          <dd>
-            {edit ? (
-              <select
-                className="kv-sel"
-                value={edit.status}
-                title="고치면 위 「저장」 으로 저장됩니다"
-                onChange={(e) => edit.onChange({ status: e.target.value })}
-              >
-                {edit.statuses.map((x) => (
-                  <option key={x} value={x}>
-                    {x}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              req.status || '—'
-            )}
-          </dd>
-          <dt>우선순위</dt>
-          <dd>
-            {edit ? (
-              <select
-                className="kv-sel"
-                value={edit.priority}
-                title="고치면 위 「저장」 으로 저장됩니다"
-                onChange={(e) => edit.onChange({ priority: e.target.value })}
-              >
-                {edit.priorities.map((x) => (
-                  <option key={x} value={x}>
-                    {x}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              req.priority || '—'
-            )}
-          </dd>
-          <dt>연결 TC</dt>
-          <dd>{stat.total}건</dd>
-        </dl>
-
-      </div>
+      <InfoPane
+        project={
+          prj ? [prj.customer, prj.model_group, prj.model].filter(Boolean).join(' · ') : ''
+        }
+        category={catText}
+        req={{
+          id: reqPk(req),
+          label: reqLabel(req),
+          title: edit?.title ?? req.title ?? '',
+          options: [],
+          onPick: () => {},
+          onTitle: (v) => edit?.onChange({ title: v }),
+        }}
+        tc={{
+          id: curTc?.tcid ?? '',
+          title: String(curTc?.name ?? ''),
+          options: tcs.map((t) => ({ id: t.tcid, title: String(t.name ?? t.tcid) })),
+          onPick: (id) => setTcSel(id),
+          onGo: (id) => goto('tc', id),
+          hint: tcs.length
+            ? `이 요구사항을 덮는 시험항목 ${tcs.length}건 중 하나 — 골라서 ID 를 누르면 그리로 갑니다`
+            : '덮는 시험항목이 없습니다',
+        }}
+        modelGroup={{ value: String(prj?.model_group ?? ''), options: [] }}
+        model={{ value: String(prj?.model ?? ''), options: [] }}
+        fields={[
+          {
+            key: 'status',
+            label: '상태',
+            value: edit?.status ?? String(req.status ?? ''),
+            options: [...(edit?.statuses ?? [])],
+            onChange: edit ? (v) => edit.onChange({ status: v }) : undefined,
+          },
+          {
+            key: 'priority',
+            label: '우선순위',
+            value: edit?.priority ?? String(req.priority ?? ''),
+            options: [...(edit?.priorities ?? [])],
+            onChange: edit ? (v) => edit.onChange({ priority: v }) : undefined,
+          },
+        ]}
+        record={{
+          by: String(req.created_by ?? ''),
+          at: fmt(req.created_at as string | undefined),
+          upBy: String(req.updated_by ?? ''),
+          upAt: fmt(req.updated_at as string | undefined),
+        }}
+        extra={
+          <section className="ip-card">
+            <div className="ip-h">
+              덮는 시험 <em>{stat.total}건 · 통과 {stat.pass} · 실패 {stat.fail} · 대기 {stat.idle}</em>
+            </div>
+          </section>
+        }
+      />
     )
   }
 
