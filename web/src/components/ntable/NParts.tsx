@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { autoColor, paintOfAny } from './palette'
 import { ICON_SETS } from './emoji'
@@ -20,8 +20,24 @@ export function Pop({
   children: React.ReactNode
   className?: string
 }) {
-  const x = Math.max(8, Math.min(at.x, window.innerWidth - w - 8))
-  const y = Math.max(8, Math.min(at.y, window.innerHeight - h - 8))
+  /* 자리는 **잰 크기**로 잡는다. 예전엔 추정 높이(h) 로 잡아서, 내용이
+     길어지면(색 격자를 편 속성 판) 판이 창 밖으로 삐져나갔다 — 아래
+     끝이 잘려 색을 못 골랐다(지적). 그릴 때마다 다시 재고, 값이 같으면
+     그대로 둬서 맴돌지 않는다. */
+  const box = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState(() => ({
+    x: Math.max(8, Math.min(at.x, window.innerWidth - w - 8)),
+    y: Math.max(8, Math.min(at.y, window.innerHeight - h - 8)),
+  }))
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const nx = Math.max(8, Math.min(at.x, window.innerWidth - r.width - 8))
+    const ny = Math.max(8, Math.min(at.y, window.innerHeight - r.height - 8))
+    setPos((p) => (Math.abs(p.x - nx) < 1 && Math.abs(p.y - ny) < 1 ? p : { x: nx, y: ny }))
+  })
+  const { x, y } = pos
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
     window.addEventListener('keydown', esc)
@@ -30,7 +46,7 @@ export function Pop({
   return createPortal(
     <>
       <span className="ntb-ovl" onMouseDown={onClose} />
-      <div className={`ntb-pop ${className}`} style={{ left: x, top: y, width: w }}>
+      <div ref={box} className={`ntb-pop ${className}`} style={{ left: x, top: y, width: w }}>
         {children}
       </div>
     </>,
