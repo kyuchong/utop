@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
 import type React from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -8,17 +8,13 @@ import MoveCatDialog from '@/components/MoveCatDialog'
 import { reqLabel, reqPk, statusClass, type Requirement, type TestCaseMeta } from '@/types'
 import { onGoto } from '@/api/goto'
 import { fillOf } from '@/lib/fieldFill'
-import PickCell from '@/components/PickCell'
 import { useCodes } from '@/hooks/useCodes'
 import {
   IconChevron,
-  IconGrip,
   IconPanel,
   IconParam,
-  IconReqDoc,
   IconSearch,
   IconSettings,
-  IconTcDoc,
 } from '@/components/icons'
 import GlobalParams from '@/components/settings/GlobalParams'
 import NTable from '@/components/ntable/NTable'
@@ -265,9 +261,6 @@ export default function ReqTc({ me }: Props) {
   const projects = useMemo(() => prjQ.data?.projects ?? [], [prjQ.data])
   const lastOf = (id: string) => lastQ.data?.[id]?.result ?? ''
 
-  const codeFill = (kind: string, value: string) =>
-    fillOf((codesQ.data?.items ?? []).find((x) => x.kind === kind && x.value === value)?.note, value)
-
   const kids = useMemo(() => {
     const m = new Map<string, typeof cats>()
     for (const c of cats) m.set(c.parent_id ?? '', [...(m.get(c.parent_id ?? '') ?? []), c])
@@ -367,27 +360,13 @@ export default function ReqTc({ me }: Props) {
 
   /* 잰 값은 상태로 들고 있는다 — 그리드 문자열이 여기서 만들어지고,
      재는 일은 줄이 정해진 뒤(아래)라야 할 수 있다. */
-  const idProbe = useRef<HTMLDivElement>(null)
-  const headProbe = useRef<HTMLDivElement>(null)
-  const [idW, setIdW] = useState(108)
-  const idCol = `${idW}px`
-  const gridReq = `52px 48px ${idCol} minmax(0, 1fr) 110px 80px 78px 52px 132px ${visCols.map((c) => c.w).join(' ')}`.trim()
-  const gridTc = `52px 48px ${idCol} minmax(0, 1fr) 100px 80px 70px 52px 108px ${visCols.map((c) => c.w).join(' ')}`.trim()
-  const gridOf = (tc: boolean) => (tc ? gridTc : gridReq)
   /* 표에서 바로 고치는 칸이 쓸 값들 — 설정(codes)이 정본이다 */
   const REQ_STATUS = useCodes('req_status', ['작성중', '검토중', '검토완료', '보류', '폐기'])
   const REQ_PRIORITY = useCodes('req_priority', ['High', 'Medium', 'Low'])
-  const TC_STATUS = useCodes('tc_status', ['작성중', '검토중', '검토완료', '보류', '폐기'])
-  const TC_SEVERITY = useCodes('tc_severity', ['Blocker', 'Critical', 'Major', 'Minor'])
-  const TC_TYPE = useCodes('tc_type', ['FT', 'Function'])
-  const TC_RUN = useCodes('tc_run_type', ['수동', '자동'])
-  const TC_ORIGIN = useCodes('tc_origin', ['자체', '고객'])
 
   /* ── 노션 꼴 표(승인) — 기존 표는 그대로 두고 **골라서 켠다**.
      열·색은 SETUP 이 정본이라, 여기서는 그 값을 노션 모양으로 옮겨 담기만
      한다(두 벌 관리 금지). ── */
-  const [ntb, setNtb] = useState(() => prefGet('utop.reqtc.ntable') === '1')
-  useEffect(() => prefSet('utop.reqtc.ntable', ntb ? '1' : '0'), [ntb])
   const [nview, setNview] = useState<NView>({ ...EMPTY_VIEW })
   /* 폭·숨김·순서는 prefSet 으로만 남는데 그것은 상태가 아니다 — 고쳐도
      화면이 안 다시 그려졌다(검증). 이 숫자를 올려 다시 읽게 한다. */
@@ -404,34 +383,9 @@ export default function ReqTc({ me }: Props) {
   /* 고른 보기(탭) — 만들면 나만 보기로 시작하고 「모두에게 보이기」 로
      공용이 된다(승인). 탭을 고르면 그 한 벌이 화면에 얹힌다. */
   const [nvId, setNvId] = useState('')
-  /** 지금 화면 한 벌 — 새 탭·덮어쓰기가 이것을 담는다 */
-  const nBody: ViewBody = useMemo(
-    () => ({ kind: 'table', view: nview, calcs: nCalc, perPage: nPer }),
-    [nview, nCalc, nPer],
-  )
-  const applyView = (v: ViewDef | null) => {
-    setNvId(v?.id ?? '')
-    if (!v) {
-      setNview({ ...EMPTY_VIEW })
-      return
-    }
-    setNview({ ...EMPTY_VIEW, ...(v.body?.view ?? {}) })
-    if (v.body?.calcs) setNCalc(v.body.calcs)
-    if (v.body?.perPage) setNPer(v.body.perPage)
-  }
   /** 노션 표가 제 목록(거르기·정렬·묶기·건수)을 통째로 쥔 상태 */
-  const nOwn = ntb
-  /** 표 모양 전환 — 구분선 **아래**, 표 제 도구줄에 선다(지시) */
-  const tblToggle = (
-    <button
-      type="button"
-      className={`rqtc-tbtog${ntb ? ' on' : ''}`}
-      title={ntb ? '옛 표로 보기' : '노션 꼴 표로 보기 — 열·색·묶기를 표에서 바로'}
-      onClick={() => setNtb((v) => !v)}
-    >
-      {ntb ? '▦ 노션 표' : '▤ 옛 표'}
-    </button>
-  )
+  /** 표가 제 목록(거르기·정렬·묶기·건수)을 쥔다 — 옛 조종간은 물러났다 */
+  const nOwn = true
   /** 그 종류(kind)의 선택지를 SETUP 코드에서 — 색까지 함께 */
   const optsOf = (kind: string) =>
     (codesQ.data?.items ?? [])
@@ -525,108 +479,7 @@ export default function ReqTc({ me }: Props) {
 
   /* 모델명 선택지 — 카탈로그(장비 역할)가 정본. 그 줄의 모델그룹에
      속한 모델만 내민다(지시: 드롭다운으로 설정). */
-  const mrolesQ = useQuery({
-    queryKey: ['device-roles'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/device-roles')
-      return (await r.json()) as {
-        models?: string[]
-        model_info?: Record<string, { model_group?: string | null }>
-      }
-    },
-    staleTime: 60_000,
-  })
-  const modelsOf = useMemo(() => {
-    const m = new Map<string, string[]>()
-    const info = mrolesQ.data?.model_info ?? {}
-    for (const [name, meta] of Object.entries(info)) {
-      const g = String(meta?.model_group ?? '').trim()
-      if (!g) continue
-      m.set(g, [...(m.get(g) ?? []), name])
-    }
-    for (const v of m.values()) v.sort()
-    return m
-  }, [mrolesQ.data])
-  /** 모델명 칸 — 그 자리 드롭다운(지시). 그룹을 모르면 손대지 않는다 */
-  const mdCell = (mg: string, cur2: string, onPick: (v: string) => void) => {
-    const opts2 = modelsOf.get(mg) ?? []
-    if (!opts2.length) return <div className="c-md">{cur2 || '–'}</div>
-    return (
-      <div className="c-md" onClick={(e) => e.stopPropagation()}>
-        <select
-          className="rqtc-mdsel"
-          value={cur2}
-          title="모델명 — 고르면 바로 저장됩니다"
-          onChange={(e) => onPick(e.target.value)}
-        >
-          {!opts2.includes(cur2) && <option value={cur2}>{cur2 || '–'}</option>}
-          {opts2.map((x) => (
-            <option key={x} value={x}>
-              {x}
-            </option>
-          ))}
-        </select>
-      </div>
-    )
-  }
 
-  /* 제목 그 자리 편집(지시: 두 번 클릭) — 트리 이름변경과 같은 커서 보존:
-     「함께 보는 중」 새로고침이 줄을 다시 그려도 커서가 안 튄다 */
-  const [tEdit, setTEdit] = useState<{ kind: 'req' | 'tc'; id: string; text: string; orig: string } | null>(null)
-  const tCaret = useRef(0)
-  const tFocused = useRef<string | null>(null)
-  const saveTEdit = () => {
-    /* 갱신함수 안에서 저장하면 안 된다 — 갱신함수는 두 번 불릴 수 있다.
-       핸들러는 매 렌더 새로 잡히니 closure 의 tEdit 이 곧 현재 값이다. */
-    const cur3 = tEdit
-    setTEdit(null)
-    if (!cur3) return
-    const txt = cur3.text.trim()
-    /* 안 바뀌었으면 저장하지 않는다(검증) — 무변경 저장도 updated_at 을
-       올려 줄이 맨 위로 점프하고, 이력이 쌓이고, 전 접속자를 refetch 시킨다 */
-    if (txt && txt !== cur3.orig.trim())
-      void setOneField(cur3.kind, cur3.id, cur3.kind === 'req' ? { title: txt } : { name: txt })
-  }
-  const titleEditInput = () => {
-    if (!tEdit) return null
-    const ek = `${tEdit.kind}:${tEdit.id}`
-    return (
-      <input
-        className="rqtc-tedit"
-        ref={(el) => {
-          if (!el || !tEdit) return
-          if (tFocused.current !== ek) {
-            tFocused.current = ek
-            el.focus()
-            el.select()
-            tCaret.current = el.value.length
-          } else if (!document.activeElement || document.activeElement === document.body) {
-            el.focus()
-            el.setSelectionRange(tCaret.current, tCaret.current)
-          }
-        }}
-        value={tEdit.text}
-        onClick={(e) => {
-          e.stopPropagation()
-          tCaret.current = e.currentTarget.selectionStart ?? tCaret.current
-        }}
-        onChange={(e) => {
-          tCaret.current = e.target.selectionStart ?? e.target.value.length
-          setTEdit((c4) => (c4 ? { ...c4, text: e.target.value } : c4))
-        }}
-        onKeyUp={(e) => {
-          tCaret.current = e.currentTarget.selectionStart ?? tCaret.current
-        }}
-        onKeyDown={(e) => {
-          e.stopPropagation()
-          if (e.nativeEvent.isComposing || e.keyCode === 229) return
-          if (e.key === 'Enter') saveTEdit()
-          if (e.key === 'Escape') setTEdit(null)
-        }}
-        onBlur={saveTEdit}
-      />
-    )
-  }
 
   /* 우클릭한 칸 — 「아래로 채우기」 가 여기서 뜬다 */
   const [rowMenu, setRowMenu] = useState<{
@@ -698,11 +551,6 @@ export default function ReqTc({ me }: Props) {
     }
   }
 
-  /** INFO 열 값 — 커스텀 필드는 **data->custom** 안에 있다(cf_<열쇠>) */
-  const colVal = (row: Record<string, unknown>, k: string) => {
-    const cf = (row.custom ?? {}) as Record<string, unknown>
-    return String((k.startsWith('cf_') ? cf[k.slice(3)] : row[k]) ?? '')
-  }
   const [gearAt, setGearAt] = useState<{ x: number; y: number } | null>(null)
   /* ⋯ — 시험 하나를 파일로 떼고 붙인다(Coverage 화면의 그 메뉴).
      랩마다 UTOP 이 따로 서 있어서, 한쪽에서 만든 시험을 다른 쪽에서 그대로
@@ -839,8 +687,6 @@ export default function ReqTc({ me }: Props) {
     }
   }
 
-  /** 끌고 있는 것들 — 고른 줄이 여럿이면 그 전부, 아니면 잡은 줄 하나 */
-  const dragIds = (id: string) => (sel.has(id) ? [...sel] : [id])
 
   const catsOf = (r: Requirement) => [r.cat1, r.cat2, r.cat3, r.cat4].filter(Boolean).map(String)
   const catOf = (r: Requirement) => String(r.cat4 || r.cat3 || r.cat2 || r.cat1 || '')
@@ -970,6 +816,31 @@ export default function ReqTc({ me }: Props) {
     return withHide
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visCols, codesQ.data, nColRev])
+
+  /** 지금 화면 한 벌 — 새 탭·덮어쓰기가 이것을 담는다 */
+  const nBody: ViewBody = useMemo(
+    () => ({
+      hidden: nCols.filter((c) => c.hidden).map((c) => c.key),
+      widths: Object.fromEntries(nCols.filter((c) => c.width).map((c) => [c.key, c.width!])),
+      order: nCols.map((c) => c.key),
+    }),
+    [nCols],
+  )
+  /** 탭을 고르면 **열 배치**를 얹는다 — 탭에 담기는 것은 그것뿐이다(지시) */
+  const applyView = (v: ViewDef | null) => {
+    setNvId(v?.id ?? '')
+    const hid = new Set(v?.body?.hidden ?? [])
+    const w = v?.body?.widths ?? {}
+    const ord = v?.body?.order ?? []
+    for (const c of nCols) {
+      prefSet(`utop.ntb.hide.${nkey(c.key)}`, hid.has(c.key) ? '1' : '0')
+      if (w[c.key]) prefSet(`utop.ntb.w.${nkey(c.key)}`, String(w[c.key]))
+    }
+    prefSet(mode === 'req' ? 'utop.ntb.order.r' : 'utop.ntb.order', ord.join(','))
+    setNColRev((n) => n + 1)
+  }
+  /** 요구사항 열은 앞에 r_ 를 붙여 시험 열과 안 섞이게 */
+  const nkey = (k: string) => (mode === 'req' ? `r_${k}` : k)
 
   /** 노션 표의 줄 — 지금 폴더·프로젝트로 좁힌 시험들 */
   const nRows = useMemo<NRow[]>(
@@ -1209,32 +1080,6 @@ export default function ReqTc({ me }: Props) {
   const reqPageRows = useMemo(() => reqSorted.slice(from, from + per), [reqSorted, from, per])
   const tcPageRows = useMemo(() => tcSorted.slice(from, from + per), [tcSorted, from, per])
 
-  const longestId = useMemo(() => {
-    const v = mode === 'tc' ? tcPageRows.map((t) => t.tcid || '') : reqPageRows.map((r) => reqLabel(r))
-    return v.reduce((a, b) => (b.length > a.length ? b : a), '')
-  }, [mode, reqPageRows, tcPageRows])
-  useLayoutEffect(() => {
-    const el = idProbe.current
-    if (!el) return
-    /* **칸 자체를 잰다.** 앞서는 글자만 재고 여백을 따로 더하려 했는데,
-       자가 .rqtc-tr 밖에 있어서 `.rqtc-tr > div { padding: 1px 8px }` 와
-       오른쪽 선 1px 이 안 붙어 0 으로 읽혔다 — 17px 이 모자라 ID 가
-       잘렸다(지적). 자를 진짜 줄 안에 세우고 칸을 통째로 재면,
-       여백이든 선이든 나중에 바뀌어도 따라온다. */
-    const w = Math.ceil(el.getBoundingClientRect().width) + 1
-    /* 아래위 한계도 **잰 값**으로 잡는다.
-       · 아래 — 머리글자 「ID」 가 들어갈 폭. ID 가 짧다고 칸이 그보다
-         좁아지면 이번엔 머리줄이 잘린다.
-       · 위 — 이 판 폭의 35%. 앞머리가 길어져도 제목 칸을 다 먹어서는
-         안 된다. 280px 같은 숫자를 박아 두면 좁은 화면에서는 여전히
-         제목을 밀고, 넓은 화면에서는 공연히 자른다.
-       35% 라는 몫만 제가 정한 것이고, 나머지는 화면에서 읽는다. */
-    const floor = Math.ceil(headProbe.current?.getBoundingClientRect().width ?? 0) + 1
-    const panel = el.closest('.rqtc-main')?.clientWidth ?? 0
-    const cap = panel ? Math.round(panel * 0.35) : w
-    const next = Math.max(floor, Math.min(cap, w))
-    setIdW((old) => (Math.abs(old - next) > 1 ? next : old))
-  }, [longestId, sideW, foldSide])
   const onlyReq = reqOnly ? reqById.get(reqOnly) : undefined
 
   /* 폴더 줄의 ⋯ 메뉴 — 어느 폴더에 떠 있나.
@@ -2344,22 +2189,8 @@ export default function ReqTc({ me }: Props) {
               />
             </div>
           ) : (
-          <>
-          {/* 표 모양 전환 — 옛 표를 볼 때도 같은 자리(구분선 아래)에 선다 */}
-          {!ntb && <div className="rqtc-tbbar">{tblToggle}</div>}
-          {/* 보기(탭) 줄 — 이 표를 보는 방법들. 만들면 나만 보기로 시작한다 */}
-          {ntb && !openTc && !openReq && !gpOpen && (
-            <NViews
-              scope={mode === 'req' ? 'reqtc.req' : 'reqtc.tc'}
-              curId={nvId}
-              onPick={applyView}
-              current={nBody}
-              meName={me?.username || me?.name || ''}
-              isAdmin={me?.role === 'admin'}
-            />
-          )}
           <div className="rqtc-tbl">
-            {mode === 'req' && ntb ? (
+            {mode === 'req' ? (
               /* 요구사항도 노션 꼴로(지시) — 켰을 때만. 옛 표는 그대로 있다 */
               <NTable
                 columns={nReqCols}
@@ -2376,7 +2207,16 @@ export default function ReqTc({ me }: Props) {
                 rows={nReqRows}
                 view={nview}
                 onView={setNview}
-                toolbarLeft={tblToggle}
+                toolbarLeft={
+                  <NViews
+                    scope="reqtc.req"
+                    curId={nvId}
+                    onPick={applyView}
+                    current={nBody}
+                    meName={me?.username || me?.name || ''}
+                    isAdmin={me?.role === 'admin'}
+                  />
+                }
                 onNew={() => setEditReq(null)}
                 lockDefs
                 onColumns={(cs) => {
@@ -2441,212 +2281,9 @@ export default function ReqTc({ me }: Props) {
                   return undefined
                 }}
               />
-            ) : mode === 'req' ? (
-              <>
-                <div className="rqtc-tr rqtc-th" style={{ gridTemplateColumns: gridOf(false) }}>
-                  <div className="c-chk">
-                    <input
-                      type="checkbox"
-                      aria-label="전체 고르기"
-                      checked={reqRows.length > 0 && sel.size === reqRows.length}
-                      ref={(el) => {
-                        if (el) el.indeterminate = sel.size > 0 && sel.size < reqRows.length
-                      }}
-                      onChange={(e) => setSel(e.target.checked ? new Set(reqRows.map(reqPk)) : new Set())}
-                    />
-                  </div>
-                  {/* 몇 번째 줄인가 — ID 는 뜻을 담은 이름이라
-                      「지금 어디쯤」 을 못 말해 준다. 쪽을 넘겨도 이어진다. */}
-                  <div className="c-no">No</div>
-                  <div className="c-id">ID</div>
-                  <div className="c-title">제목</div>
-                  <div className="c-mg">모델그룹</div>
-                  <div className="c-md">모델명</div>
-                  {/* 이 칸이 세는 것은 「그 요구사항을 덮은 시험」 이다(지시) */}
-                  <div className="c-tc">Coverage</div>
-                  {/* 붙였다 떼는 자리 — 보여 주기(TC Map)와는 다른 일이다 */}
-                  <div className="c-mapb">Map</div>
-                  {/* 어느 시험이 덮고 있나 — 숫자만으로는 「무엇이」 를 모른다.
-                      Coverage 모드의 REQ Map 과 짝이다(지시). */}
-                  <div className="c-map">TC Map</div>
-                  {visCols.map((c) => (
-                    <div key={c.k}>{c.label}</div>
-                  ))}
-                </div>
-                {reqPageRows.map((r, i) => {
-                  const pk = reqPk(r)
-                  const n = tcOf.get(pk)?.length ?? 0
-                  const p = prjOf(r)
-                  return (
-                    <div
-                      className={`rqtc-tr${sel.has(pk) ? ' picked' : ''}`}
-                      style={{ gridTemplateColumns: gridOf(false) }}
-                      key={pk}
-                      /* 줄 전체를 누르는 것은 뺐다(지시) — ID 는 팝업, 제목은
-                         이 화면으로 간다. 줄까지 누르는 자리가 되면 어디를
-                         눌렀는지에 따라 다른 일이 나서 헷갈린다. */
-                    >
-                      <div className="c-chk" onClick={(e) => e.stopPropagation()}>
-                        {/* 점 여섯 — 잡아서 왼쪽 폴더로 끌면 그 폴더로 옮긴다
-                            (지시·Testiny). 줄 전체를 끌게 하면 「눌러서 보기」
-                            와 헷갈려, 보려던 것이 옮겨진다. */}
-                        <span
-                          className="rqtc-grip"
-                          draggable
-                          title="끌어서 왼쪽 폴더로 옮기기"
-                          onDragStart={(e) => {
-                            e.dataTransfer.setData('text/utop-req', dragIds(pk).join(','))
-                            e.dataTransfer.effectAllowed = 'move'
-                          }}
-                        >
-                          <IconGrip />
-                        </span>
-                        <input type="checkbox" checked={sel.has(pk)} onChange={() => toggle(sel, pk, setSel)} />
-                      </div>
-                      {/* 쪽을 넘겨도 이어지는 번호 — 매 쪽 1부터 다시 세면
-                          「200개 중 어디」 를 못 읽는다 */}
-                      <div className="c-no">{from + i + 1}</div>
-                      <div className="c-id">
-                        <button
-                          type="button"
-                          className="rqtc-rid"
-                          title="상세 화면으로(지시: ID = 상세)"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setOpenReq(pk)
-                            setOpenTab('info')
-                          }}
-                        >
-                          {reqLabel(r)}
-                        </button>
-                      </div>
-                      <div className="c-title">
-                        {/* 아이콘 = 팝업, 제목 원클릭 = 없음, 두 번 = 편집(지시) */}
-                        <button
-                          type="button"
-                          className="rqtc-ticon"
-                          title="팝업으로 보기"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setPop({ kind: 'req', id: pk })
-                          }}
-                        >
-                          <IconReqDoc />
-                        </button>
-                        {tEdit && tEdit.kind === 'req' && tEdit.id === pk ? (
-                          titleEditInput()
-                        ) : (
-                          <span
-                            className="rqtc-rtitle"
-                            title="두 번 누르면 제목을 고칩니다"
-                            onDoubleClick={(e) => {
-                              e.stopPropagation()
-                              tFocused.current = null
-                              setTEdit({ kind: 'req', id: pk, text: r.title ?? '', orig: r.title ?? '' })
-                            }}
-                          >
-                            {r.title || '(제목 없음)'}
-                          </span>
-                        )}
-                      </div>
-                      <div className="c-mg">{p?.model_group || '–'}</div>
-                      {mdCell(
-                        String(p?.model_group ?? ''),
-                        String((r as unknown as Record<string, unknown>).model ?? '') || p?.model || '',
-                        (v) => void setOneField('req', pk, { model: v }),
-                      )}
-                      <div className="c-tc rqtc-fillc">
-                        <span className={`rqtc-cov ${n ? 'ok' : 'no'}`}>{n ? `TC ${n}` : '미커버'}</span>
-                      </div>
-                      <div className="c-mapb" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          className="rqtc-mapb"
-                          title="시험 연결 — 체크해서 붙였다 뗍니다"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setMapFor(r)
-                          }}
-                        >
-                          Map
-                        </button>
-                      </div>
-                      <div className="c-map" onClick={(e) => e.stopPropagation()}>
-                        {n ? (
-                          <>
-                            <button
-                              type="button"
-                              className="rqtc-rid tc"
-                              title={(tcOf.get(pk) ?? []).map((t) => t.tcid).join(', ')}
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setPop({ kind: 'tc', id: (tcOf.get(pk) ?? [])[0]!.tcid })
-                              }}
-                            >
-                              {(tcOf.get(pk) ?? [])[0]!.tcid}
-                            </button>
-                            {n > 1 && (
-                              <button
-                                type="button"
-                                className="rqtc-more-n"
-                                title="이 요구사항의 시험 모두 보기"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  goTcOf(pk)
-                                }}
-                              >
-                                +{n - 1}
-                              </button>
-                            )}
-                          </>
-                        ) : (
-                          '–'
-                        )}
-                      </div>
-                      {/* 켜진 열 — 상태·우선순위는 그 자리에서 고칠 수 있고,
-                          커스텀 필드는 값만 낸다 */}
-                      {visCols.map((c) =>
-                        c.k === 'f_status' ? (
-                          <Fill
-                            key={c.k}
-                            kind="req_status"
-                            v={r.status}
-                            cls="c-st"
-                            f={codeFill}
-                            opts={REQ_STATUS}
-                            onSave={(x) => void setOneField('req', pk, { status: x })}
-                            onFill={(e) =>
-                              setRowMenu({ kind: 'req', id: pk, field: 'status', label: '상태', value: String(r.status ?? ''), x: e.clientX, y: e.clientY })
-                            }
-                          />
-                        ) : c.k === 'f_priority' ? (
-                          <Fill
-                            key={c.k}
-                            kind="req_priority"
-                            v={r.priority}
-                            cls="c-pr"
-                            f={codeFill}
-                            opts={REQ_PRIORITY}
-                            onSave={(x) => void setOneField('req', pk, { priority: x })}
-                            onFill={(e) =>
-                              setRowMenu({ kind: 'req', id: pk, field: 'priority', label: '우선순위', value: String(r.priority ?? ''), x: e.clientX, y: e.clientY })
-                            }
-                          />
-                        ) : (
-                          <div className="ell" key={c.k}>
-                            {colVal(r as unknown as Record<string, unknown>, c.k)}
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  )
-                })}
-                {!reqRows.length && <div className="empty">보여 줄 요구사항이 없습니다.</div>}
-              </>
-            ) : ntb ? (
-              /* 노션 꼴 표(승인) — 켰을 때만. 옛 표는 그대로 남아 있어
-                 언제든 되돌린다. Map·REQ Map·최근 결과처럼 특별한 칸은
-                 renderCell 로 이 화면이 직접 그린다. */
+            ) : (
+              /* 시험항목 표 — Map·REQ Map·최근 결과처럼 특별한 칸은
+                 renderCell 로 이 화면이 직접 그린다 */
               <NTable
                 columns={nCols}
                 calcs={nCalc}
@@ -2662,7 +2299,16 @@ export default function ReqTc({ me }: Props) {
                 rows={nRows}
                 view={nview}
                 onView={setNview}
-                toolbarLeft={tblToggle}
+                toolbarLeft={
+                  <NViews
+                    scope="reqtc.tc"
+                    curId={nvId}
+                    onPick={applyView}
+                    current={nBody}
+                    meName={me?.username || me?.name || ''}
+                    isAdmin={me?.role === 'admin'}
+                  />
+                }
                 onNew={() => setEditTc(null)}
                 lockDefs
                 onColumns={(cs) => {
@@ -2715,208 +2361,8 @@ export default function ReqTc({ me }: Props) {
                   return undefined
                 }}
               />
-            ) : (
-              <>
-                <div className="rqtc-tr tc rqtc-th" style={{ gridTemplateColumns: gridOf(true) }}>
-                  <div className="c-chk">
-                    <input
-                      type="checkbox"
-                      aria-label="전체 고르기"
-                      checked={tcRows.length > 0 && sel.size === tcRows.length}
-                      ref={(el) => {
-                        if (el) el.indeterminate = sel.size > 0 && sel.size < tcRows.length
-                      }}
-                      onChange={(e) => setSel(e.target.checked ? new Set(tcRows.map((t) => t.tcid)) : new Set())}
-                    />
-                  </div>
-                  {/* 몇 번째 줄인가 — ID 는 뜻을 담은 이름이라
-                      「지금 어디쯤」 을 못 말해 준다. 쪽을 넘겨도 이어진다. */}
-                  <div className="c-no">No</div>
-                  <div className="c-id">ID</div>
-                  <div className="c-title">제목</div>
-                  <div className="c-mg">모델그룹</div>
-                  <div className="c-md">모델명</div>
-                  {/* 유형·상태·중요도·타입·구분은 이제 **켜진 열** 쪽에서 나온다
-                      (⚙ 로 켜고 끈다) — 여기 또 두면 머리와 몸이 어긋난다. */}
-                  <div className="c-last">최근 결과</div>
-                  {/* 붙였다 떼는 자리 — 오른쪽 REQ Map 은 붙은 것을 보여
-                      주기만 한다(요구사항 쪽 Map · TC Map 과 같은 짝). */}
-                  <div className="c-mapb">Map</div>
-                  <div className="c-map">REQ Map</div>
-                  {visCols.map((c) => (
-                    <div key={c.k}>{c.label}</div>
-                  ))}
-                </div>
-                {tcPageRows.map((t, i) => {
-                  const r = reqById.get(String(t.req_id ?? ''))
-                  const p = prjOf(r)
-                  const last = lastOf(t.tcid)
-                  return (
-                    <div
-                      className={`rqtc-tr tc${sel.has(t.tcid) ? ' picked' : ''}`}
-                      style={{ gridTemplateColumns: gridOf(true) }}
-                      key={t.tcid}
-                    >
-                      <div className="c-chk" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          checked={sel.has(t.tcid)}
-                          onChange={() => toggle(sel, t.tcid, setSel)}
-                        />
-                      </div>
-                      {/* 쪽을 넘겨도 이어지는 번호 — 매 쪽 1부터 다시 세면
-                          「200개 중 어디」 를 못 읽는다 */}
-                      <div className="c-no">{from + i + 1}</div>
-                      <div className="c-id">
-                        <button
-                          type="button"
-                          className="rqtc-rid tc"
-                          title="상세 화면으로(지시: ID = 상세)"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setOpenTc(t.tcid)
-                          }}
-                        >
-                          {t.tcid}
-                        </button>
-                      </div>
-                      <div className="c-title">
-                        {/* 아이콘 = 팝업, 제목 원클릭 = 없음, 두 번 = 편집(지시) */}
-                        <button
-                          type="button"
-                          className="rqtc-ticon tc"
-                          title="팝업으로 보기"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setPop({ kind: 'tc', id: t.tcid })
-                          }}
-                        >
-                          <IconTcDoc />
-                        </button>
-                        {tEdit && tEdit.kind === 'tc' && tEdit.id === t.tcid ? (
-                          titleEditInput()
-                        ) : (
-                          <span
-                            className="rqtc-rtitle"
-                            title="두 번 누르면 제목을 고칩니다"
-                            onDoubleClick={(e) => {
-                              e.stopPropagation()
-                              tFocused.current = null
-                              setTEdit({ kind: 'tc', id: t.tcid, text: t.name ?? '', orig: t.name ?? '' })
-                            }}
-                          >
-                            {t.name || '(제목 없음)'}
-                          </span>
-                        )}
-                      </div>
-                      {/* 시험은 제 모델 값을 갖고 있다 — 없으면 프로젝트 값으로 */}
-                      <div className="c-mg">{String(t.model_group ?? '') || p?.model_group || '–'}</div>
-                      {mdCell(
-                        String(t.model_group ?? '') || String(p?.model_group ?? ''),
-                        String(t.model ?? '') || p?.model || '',
-                        (v) => void setOneField('tc', t.tcid, { model: v }),
-                      )}
-                      <div className="c-last rqtc-fillc">
-                        {last ? (
-                          <span className={`rqtc-lastv ${statusClass(last)}`}>{last}</span>
-                        ) : (
-                          <span className="rqtc-fill none">–</span>
-                        )}
-                      </div>
-                      <div className="c-mapb" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          className="rqtc-mapb"
-                          title="요구사항 연결 — 체크해서 붙였다 뗍니다"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setMapTcFor(t)
-                          }}
-                        >
-                          Map
-                        </button>
-                      </div>
-                      <div className="c-map">
-                        {r ? (
-                          <button
-                            type="button"
-                            className="rqtc-rid"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setPop({ kind: 'req', id: reqPk(r) })
-                            }}
-                          >
-                            {reqLabel(r)}
-                          </button>
-                        ) : (
-                          '–'
-                        )}
-                      </div>
-                      {/* 켜진 열 — 상태·중요도는 그 자리에서 고칠 수 있다 */}
-                      {visCols.map((c) => {
-                        const F = (
-                          kind: string,
-                          v: unknown,
-                          cls: string,
-                          opts?: readonly string[],
-                          field?: string,
-                          label?: string,
-                        ) => (
-                          <Fill
-                            key={c.k}
-                            kind={kind}
-                            v={String(v ?? '')}
-                            cls={cls}
-                            f={codeFill}
-                            opts={opts}
-                            onSave={field ? (x) => void setOneField('tc', t.tcid, { [field]: x }) : undefined}
-                            onFill={
-                              field
-                                ? (e) =>
-                                    setRowMenu({
-                                      kind: 'tc',
-                                      id: t.tcid,
-                                      field,
-                                      label: label ?? '',
-                                      value: String(v ?? ''),
-                                      x: e.clientX,
-                                      y: e.clientY,
-                                    })
-                                : undefined
-                            }
-                          />
-                        )
-                        if (c.k === 'f_type') return F('tc_type', t.type, 'c-ty', TC_TYPE, 'type', '유형')
-                        if (c.k === 'f_status') return F('tc_status', t.status, 'c-st', TC_STATUS, 'status', '상태')
-                        if (c.k === 'f_severity')
-                          return F('tc_severity', t.severity, 'c-sv', TC_SEVERITY, 'severity', '중요도')
-                        if (c.k === 'f_kind') return F('tc_run_type', t.run_type, 'c-rt', TC_RUN, 'run_type', '타입')
-                        if (c.k === 'f_origin') return F('tc_origin', t.origin, 'c-og', TC_ORIGIN, 'origin', '구분')
-                        return (
-                          <div className="ell" key={c.k}>
-                            {colVal(t as unknown as Record<string, unknown>, c.k)}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )
-                })}
-                {!tcRows.length && (
-                  <div className="rqtc-none">
-                    {onlyReq ? (
-                      <>
-                        <b>이 요구사항에는 시험이 없습니다</b>
-                        <span>위 ＋New 로 만들면 이 요구사항에 바로 붙습니다</span>
-                      </>
-                    ) : (
-                      <b>보여 줄 시험이 없습니다.</b>
-                    )}
-                  </div>
-                )}
-              </>
             )}
           </div>
-          </>
           )}
 
           {/* 쪽 나누기 — 왼쪽에 「몇 번째부터 몇 번째, 모두 몇 건」,
@@ -2979,24 +2425,6 @@ export default function ReqTc({ me }: Props) {
 
       {/* 저장 알림 — 오른쪽 위에 잠깐 떴다 사라진다(지시).
           단추 옆에 글자로 두면 저장했는지 눈이 안 간다. */}
-      {/* ID 칸 폭을 재는 자. 눈에는 안 보이지만 **표의 그 칸과 같은 차림새**로
-          서야 같은 폭이 나온다 — 그래서 클래스를 그대로 쓴다. aria-hidden 이라
-          읽어 주는 기계는 건너뛴다. */}
-      <div className="rqtc-idprobe" aria-hidden="true">
-        {/* **진짜 줄 안에 세운다.** 표의 그 칸이 받는 규칙(.rqtc-tr > div 의
-            여백·선, 단추의 글꼴)을 하나도 빠짐없이 받아야 같은 폭이 나온다.
-            단추(span 아님)인 것도 그래서다. */}
-        <div className="rqtc-tr">
-          <div className="c-id" ref={idProbe}>
-            <button type="button" className="rqtc-rid">{longestId || 'ID'}</button>
-          </div>
-        </div>
-        {/* 머리글자용 자 — 아래 한계를 재려고 따로 세운다. 머리줄은 단추가
-            아니라 글자라 차림새가 달라, 같은 자로는 못 잰다. */}
-        <div className="rqtc-tr rqtc-th">
-          <div className="c-id" ref={headProbe}>ID</div>
-        </div>
-      </div>
       {toast && <div className="rqtc-toast">{toast}</div>}
       {editPrj && (() => {
         const p = projects.find((x) => x.cat_id === editPrj)
@@ -3246,69 +2674,6 @@ export default function ReqTc({ me }: Props) {
 
 /** 통채움 한 칸 — 셀 전체가 값의 색(먼데이). 색은 설정이 정본이다 */
 /**
- * 통채움 칸. **고를 값(opts)을 주면 그 자리에서 고친다**(지시).
- *
- * 고치려고 상세를 열었다 닫는 걸음이 하루에도 여럿이다. 요구사항 화면이
- * 쓰는 PickCell 을 그대로 얹는다 — 평소엔 글자처럼 조용하고, 올리면 드러나고,
- * 고르면 바로 저장한다.
- */
-function Fill({
-  kind,
-  v,
-  cls,
-  f,
-  opts,
-  onSave,
-  onFill,
-}: {
-  kind: string
-  v?: string | null
-  cls: string
-  f: (kind: string, value: string) => { bg: string; fg: string }
-  opts?: readonly string[]
-  onSave?: (v: string) => void
-  /** 우클릭 = 아래로 채우기 */
-  onFill?: (e: React.MouseEvent) => void
-}) {
-  const val = String(v ?? '')
-  if (!opts || !onSave) {
-    if (!val)
-      return (
-        <div className={`${cls} rqtc-fillc`}>
-          <span className="rqtc-fill none">–</span>
-        </div>
-      )
-    const c0 = f(kind, val)
-    return (
-      <div className={`${cls} rqtc-fillc`}>
-        <span className="rqtc-fill" style={{ background: c0.bg, color: c0.fg }}>
-          {val}
-        </span>
-      </div>
-    )
-  }
-  const c = f(kind, val)
-  return (
-    <div
-      className={`${cls} rqtc-fillc`}
-      onClick={(e) => e.stopPropagation()}
-      onContextMenu={(e) => {
-        if (!onFill) return
-        e.preventDefault()
-        e.stopPropagation()
-        onFill(e)
-      }}
-      title="고르면 바로 저장 · 우클릭 = 아래로 채우기"
-    >
-      <span
-        className={`rqtc-fill${val ? '' : ' none'}`}
-        style={val ? { background: c.bg, color: c.fg } : undefined}
-      >
-        <PickCell value={val} opts={opts} title="고르면 바로 저장됩니다" onSave={onSave} />
-      </span>
-    </div>
-  )
-}
 
 /**
  * 상세 팝업 — **자세히 보는 자리**(지시). 3열로는 좁아서 팝업으로 넓게 본다.

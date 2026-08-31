@@ -345,9 +345,9 @@ export default function NTable(p: NTableProps) {
     <div className="ntb">
       {/* ── 도구줄 ── */}
       <div className="ntb-bar">
+        {/* 탭이 이 자리에 온다(지시) — 건수는 아래 줄이 이미 말한다 */}
         {toolbarLeft}
         {title && <div className="ntb-title">{title}</div>}
-        <div className="ntb-cnt">{shown.length}개</div>
         {busy && <div className="ntb-cnt">저장 중…</div>}
         <div className="ntb-tools">
           <div className="ntb-search">

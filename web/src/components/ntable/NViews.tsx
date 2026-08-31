@@ -3,23 +3,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { Pop } from './NParts'
 import { IcCheck, IcCopy, IcDots, IcPlus, IcTrash } from './NIcons'
-import type { NCalc, NView } from './types'
 
 /**
  * 보기(탭) 줄 — **한 줄이 곧 이 표를 보는 방법들**이다.
  *
+ * 탭 하나는 **열 배치 한 벌**이다 — 어떤 열을 보이게 둘지, 폭과 차례.
  * 만들면 **나만 보기**로 시작한다. 공용으로 올리는 「모두에게 보이기」 는
  * **관리자만** 누른다(지시: 관리자가 고민하고 승인한다 — 시스템 안정성).
  * 그 문턱이 있어 40명이 각자 만들어도 공용 줄이 안 더러워진다.
  * 넘치면 접어서 「⋯ 더보기」 로 낸다 — 탭 줄은 늘 한 줄이다.
  */
+/** 탭 한 벌 — **열을 보이게/안 보이게** 만 담는다(지시).
+    필터·정렬·계산·줄 수는 탭에 안 매이고 그대로 이어진다. */
 export interface ViewBody {
-  kind?: string
-  view?: NView
-  calcs?: Record<string, NCalc>
-  perPage?: number
-  widths?: Record<string, number>
   hidden?: string[]
+  widths?: Record<string, number>
   order?: string[]
 }
 export interface ViewDef {
@@ -70,7 +68,6 @@ export default function NViews({
         body: JSON.stringify({
           id: v.id, scope, name: v.name,
           shared: v.shared ?? false,
-          kind: v.body?.kind ?? 'table',
           body: v.body ?? {},
           sort_order: v.sort_order ?? views.length,
         }),
