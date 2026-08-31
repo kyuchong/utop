@@ -37,6 +37,8 @@ export interface NTableProps {
   onNew?: (seed?: { key: string; value: string }) => void
   /** 여러 줄 골라 한 번에 — 무엇을 할지는 쓰는 쪽이 정한다 */
   onBulk?: (action: string, ids: string[]) => void
+  /** 지금 체크된 줄 — 화면 제 도구줄(복제·삭제·⋯)이 이걸 본다 */
+  onSelect?: (ids: string[]) => void
   /** 특별한 칸은 쓰는 쪽이 그린다(Map·REQ Map 처럼). undefined 를 주면 기본 그림 */
   renderCell?: (row: NRow, col: NCol) => React.ReactNode | undefined
   /** 값이 못 고치는 칸(계산된 값 등) */
@@ -81,8 +83,14 @@ export default function NTable(p: NTableProps) {
   const [menuAt, setMenuAt] = useState<{ key: string; x: number; y: number } | null>(null)
   const [cellAt, setCellAt] = useState<{ row: string; key: string; x: number; y: number } | null>(null)
   const [editAt, setEditAt] = useState<{ row: string; key: string } | null>(null)
+  /* 고른 줄을 바깥에 흘려 준다 — 안 그러면 화면의 「복제·삭제·⋯」 가
+     영영 안 켜진다(플랜에서 재현). 그릴 때가 아니라 바뀔 때만 알린다. */
   const [panel, setPanel] = useState<{ kind: 'filter' | 'sort' | 'props'; x: number; y: number } | null>(null)
   const [checked, setChecked] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    p.onSelect?.([...checked])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [checked])
   const [folded, setFolded] = useState<Set<string>>(new Set())
   const [widths, setWidths] = useState<Record<string, number>>({})
   const [calcAt, setCalcAt] = useState<{ key: string; x: number; y: number } | null>(null)
@@ -243,15 +251,18 @@ export default function NTable(p: NTableProps) {
     const own = renderCell?.(r, c)
     if (own !== undefined) return own
     const v = String(r[c.key] ?? '')
-    const ro = readOnlyKeys.includes(c.key)
-    if (ro) return <span className="ntb-txt">{v || <span className="ntb-empty">–</span>}</span>
-    const editing = editAt?.row === r.__id && editAt.key === c.key
+    /* ID 는 **못 고치는 칸 검사보다 먼저** 본다. 뒤에 두면 ID 를
+       readOnlyKeys 에 넣는 순간(서버가 매기는 Key 라 당연히 넣는다)
+       링크가 조용히 맨 글자로 떨어져 상세로 못 들어간다(플랜에서 재현). */
     if (c.key === idKey)
       return (
         <button type="button" className="ntb-id" title="상세 화면으로" onClick={() => onOpen?.(r.__id)}>
           {v}
         </button>
       )
+    const ro = readOnlyKeys.includes(c.key)
+    if (ro) return <span className="ntb-txt">{v || <span className="ntb-empty">–</span>}</span>
+    const editing = editAt?.row === r.__id && editAt.key === c.key
     if (c.key === titleKey)
       return (
         <div className="ntb-ttl">

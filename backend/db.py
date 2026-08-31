@@ -1621,7 +1621,7 @@ async def code_usage(kind: str, value: str) -> int:
 # 값은 tc.data->'custom' / req.data->'custom' 에 들어간다. 여기서는 정의만
 # 다룬다 — schema.sql 의 custom_field 주석에 왜 나눴는지 적어 두었다.
 # ══════════════════════════════════════════════════════════════════════
-CF_TARGETS = {"tc": "테스트케이스", "req": "요구사항"}
+CF_TARGETS = {"tc": "테스트케이스", "req": "요구사항", "cycle": "플랜"}
 CF_TYPES = {
     "text": "한 줄 글",
     "textarea": "여러 줄 글",
