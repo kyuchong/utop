@@ -934,6 +934,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
           ) : (
           <CycleBoard
             isAdmin={me?.role === 'admin'}
+            onNew={() => setMaking(true)}
             cycles={cycles}
             mgroupOf={mgroupOf}
             famOf={famOf}
@@ -1078,6 +1079,7 @@ function CycleBoard({
   isAdmin,
   onDel,
   onEdit,
+  onNew,
   onRefresh,
   onOpenPlan,
 }: {
@@ -1099,6 +1101,9 @@ function CycleBoard({
   onDel: (ids: string[]) => void
   /** 수정 — 한 개 골랐을 때 (플랜 편집 창) */
   onEdit: (id: string) => void
+  /** 새로 만들기 — 만들기는 **다른 길**이다. onEdit('') 로는 안 열려
+      단추가 죽어 있었다(지적: "새로 만들기 버튼 동작 안해") */
+  onNew: () => void
   onRefresh: () => void
   /** 실행 — 한 개 골라 열면서 전체 실행을 건다 */
   onRun: (id: string) => void
@@ -1441,7 +1446,7 @@ function CycleBoard({
           idKey="key"
           titleKey="name"
           meName={meName}
-          onNew={() => onEdit('')}
+          onNew={() => onNew()}
           onOpen={(id) => onOpenPlan(id)}
           onPeek={(id) => onEdit(id)}
           onBulk={(a, ids) => {
