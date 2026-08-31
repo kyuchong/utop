@@ -2,33 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "utop",
-      "url": "http://localhost:9000",
-      "port": 9000
-    },
-    {
-      "name": "mock",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["/tmp/claude-1000/mock_server.py"],
-      "port": 8901
-    },
-    {
-      "name": "utop-server",
-      "runtimeExecutable": "py",
-      "runtimeArgs": [
-        "-3.11",
-        "-m",
-        "uvicorn",
-        "main:app",
-        "--app-dir",
-        "backend",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8000",
-        "--reload"
-      ],
-      "port": 8000
+      "name": "ntable-demo",
+      "runtimeExecutable": "sg",
+      "runtimeArgs": ["docker", "-c", "docker run --rm -p 5174:5174 -v /home/utop/utop/.claude/worktrees/new-conversation-67ab9a/web:/w -w /w node:20-alpine npx vite --host 0.0.0.0 --port 5174"],
+      "port": 5174
     }
   ]
 }

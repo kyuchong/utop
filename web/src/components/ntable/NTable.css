@@ -1,0 +1,158 @@
+/* 노션 꼴 표 — 접두어 ntb- (기존 CSS 와 절대 안 겹친다) */
+.ntb,
+.ntb-pop,
+.ntb-bulk {
+  --ntb-line: #f0efed;
+  --ntb-line2: #f5f4f2;
+  --ntb-bd: #e7e5e4;
+  --ntb-mut: #a8a29e;
+  --ntb-soft: #78716c;
+  --ntb-ink: #292524;
+  --ntb-acc: #0e7490;
+  --ntb-hov: #fafaf9;
+  color: var(--ntb-ink);
+  font-size: 13px;
+}
+
+/* 도구줄 */
+.ntb-bar { display: flex; align-items: center; gap: 10px; padding: 2px 0 9px; border-bottom: 1px solid var(--ntb-line); }
+.ntb-title { font-size: 16px; font-weight: 600; }
+.ntb-cnt { color: var(--ntb-mut); font-size: 12.5px; }
+.ntb-tools { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+.ntb-search { display: flex; align-items: center; gap: 6px; border: 1px solid var(--ntb-bd); border-radius: 7px; padding: 4px 9px; color: var(--ntb-mut); }
+.ntb-search input { border: 0; outline: none; font: inherit; font-size: 12.5px; width: 140px; background: none; color: var(--ntb-ink); }
+.ntb-tb { display: flex; align-items: center; gap: 5px; border: 0; background: none; border-radius: 6px; padding: 5px 9px; font: inherit; font-size: 12.5px; color: var(--ntb-soft); cursor: pointer; }
+.ntb-tb:hover { background: var(--ntb-hov); }
+.ntb-tb.on { background: #ecfeff; color: var(--ntb-acc); font-weight: 600; }
+.ntb-new { border: 0; background: var(--ntb-acc); color: #fff; border-radius: 7px; padding: 6px 13px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+
+/* 조건 칩 */
+.ntb-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 9px 0 0; }
+.ntb-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--ntb-bd); border-radius: 7px; padding: 4px 9px; font-size: 12px; color: var(--ntb-soft); }
+.ntb-chip.on { border-color: #bae6fd; background: #f0f9ff; color: #0369a1; }
+.ntb-chip b { font-weight: 600; }
+.ntb-chip button { border: 0; background: none; color: var(--ntb-mut); cursor: pointer; font-size: 11px; padding: 0; }
+
+/* 표 */
+.ntb-wrap { overflow-x: auto; margin-top: 9px; }
+.ntb-tbl { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.ntb-tbl th { text-align: left; padding: 0; border-bottom: 1px solid var(--ntb-line); position: relative; }
+.ntb-hb { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 7px 9px; border-radius: 6px; font: inherit; font-size: 12px; font-weight: 400; color: var(--ntb-mut); cursor: pointer; white-space: nowrap; overflow: hidden; }
+.ntb-hb .l { overflow: hidden; text-overflow: ellipsis; }
+.ntb-hb:hover, .ntb-hb.on { background: var(--ntb-hov); color: var(--ntb-soft); }
+.ntb-ar { color: var(--ntb-mut); }
+.ntb-rs { position: absolute; right: -3px; top: 5px; bottom: 5px; width: 7px; cursor: col-resize; }
+.ntb-rs:hover:after { content: ''; position: absolute; left: 2px; top: 0; bottom: 0; width: 2px; background: var(--ntb-acc); border-radius: 2px; }
+.ntb-tbl td { padding: 6px 9px; border-bottom: 1px solid var(--ntb-line2); vertical-align: middle; white-space: nowrap; overflow: hidden; }
+.ntb-row:hover td { background: var(--ntb-hov); }
+.ntb-row.on td { background: #f0f9ff; }
+.ntb-gp { width: 74px; }
+.ntb-tbl td.ntb-gp, .ntb-tbl th.ntb-gp { display: flex; align-items: center; gap: 5px; border-bottom: 0; padding-top: 9px; }
+.ntb-grip { color: #d6d3d1; cursor: grab; }
+.ntb-no { color: #c8c4c0; font-size: 12px; min-width: 16px; text-align: right; }
+.ntb-none { color: var(--ntb-mut); padding: 14px 9px; }
+.ntb-add { border: 0; background: none; color: var(--ntb-mut); font: inherit; font-size: 12.5px; padding: 7px 9px; cursor: pointer; width: 100%; text-align: left; }
+.ntb-add:hover { background: var(--ntb-hov); color: var(--ntb-soft); }
+
+/* 묶음 줄 */
+.ntb-grh td { background: var(--ntb-hov); border-bottom: 1px solid var(--ntb-line); padding: 6px 9px; font-size: 12.5px; }
+.ntb-gtog { border: 0; background: none; color: var(--ntb-mut); cursor: pointer; padding: 0 6px 0 0; font-size: 12px; }
+.ntb-gcnt { color: var(--ntb-mut); margin-left: 8px; font-size: 12px; }
+.ntb-gnew { float: right; border: 0; background: none; color: var(--ntb-mut); font: inherit; font-size: 12px; cursor: pointer; }
+.ntb-gnew:hover { color: var(--ntb-acc); }
+
+/* 값 알약 */
+.ntb-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 500; max-width: 100%; overflow: hidden; }
+.ntb-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.ntb-car { font-style: normal; font-size: 9px; opacity: .45; }
+.ntb-empty { color: #c8c4c0; }
+
+/* 셀 */
+.ntb-cellb { border: 0; background: none; padding: 0; font: inherit; cursor: pointer; max-width: 100%; overflow: hidden; text-align: left; color: inherit; }
+.ntb-id { border: 0; background: none; padding: 0; font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; color: var(--ntb-acc); cursor: pointer; }
+.ntb-id:hover { text-decoration: underline; }
+.ntb-ttl { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ntb-tico { border: 0; background: none; padding: 0; color: #c8c4c0; cursor: pointer; display: inline-flex; flex: none; }
+.ntb-tico:hover { color: var(--ntb-acc); }
+.ntb-ttltxt { overflow: hidden; text-overflow: ellipsis; }
+.ntb-open { margin-left: auto; display: none; align-items: center; gap: 3px; border: 1px solid var(--ntb-bd); background: #fff; border-radius: 5px; padding: 1px 7px; font: inherit; font-size: 11px; color: var(--ntb-soft); cursor: pointer; flex: none; }
+.ntb-row:hover .ntb-open { display: inline-flex; }
+.ntb-txt { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.ntb-cellinp { width: 100%; border: 1px solid var(--ntb-acc); border-radius: 6px; padding: 2px 6px; font: inherit; font-size: 13px; outline: none; }
+.ntb-per { display: inline-flex; align-items: center; gap: 6px; }
+.ntb-av { width: 19px; height: 19px; border-radius: 50%; background: #0e7490; color: #fff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+
+/* 팝오버 */
+.ntb-ovl { position: fixed; inset: 0; z-index: 90; }
+.ntb-pop { position: fixed; z-index: 91; background: #fff; border: 1px solid var(--ntb-bd, #e7e5e4); border-radius: 10px; box-shadow: 0 12px 34px rgba(0,0,0,.15); padding: 6px; font-size: 13px; color: #292524; max-height: 88vh; overflow-y: auto; }
+.ntb-inp { width: 100%; border: 1px solid #e7e5e4; border-radius: 6px; padding: 6px 8px; font: inherit; font-size: 12.5px; margin-bottom: 6px; outline: none; }
+.ntb-inp:focus { border-color: #a8a29e; }
+.ntb-sec { font-size: 11px; color: #a8a29e; font-weight: 600; padding: 6px 8px 3px; }
+.ntb-hr { height: 1px; background: #f5f4f2; margin: 5px 2px; }
+.ntb-mi { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; padding: 6px 8px; border-radius: 6px; font: inherit; font-size: 13px; color: #44403c; cursor: pointer; text-align: left; }
+.ntb-mi:hover { background: #fafaf9; }
+.ntb-mi:disabled { opacity: .38; cursor: not-allowed; }
+.ntb-mi .l { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.ntb-mi.dg { color: #dc2626; }
+.ntb-sub { color: #a8a29e; font-size: 11.5px; border: 0; background: none; cursor: pointer; }
+.ntb-x { border: 0; background: none; color: #c8c4c0; cursor: pointer; }
+.ntb-list { max-height: 230px; overflow-y: auto; }
+.ntb-opt { display: flex; align-items: center; gap: 7px; width: 100%; border: 0; background: none; padding: 4px 7px; border-radius: 6px; font: inherit; font-size: 13px; color: inherit; cursor: pointer; text-align: left; }
+.ntb-opt:hover { background: #fafaf9; }
+.ntb-optb { border: 0; background: none; padding: 0; cursor: pointer; flex: 1; text-align: left; }
+.ntb-chk { margin-left: auto; color: #78716c; flex: none; }
+.ntb-more { border: 0; background: none; color: #c8c4c0; cursor: pointer; padding: 0 2px; }
+.ntb-more:hover { color: #57534e; }
+.ntb-sw { width: 15px; height: 15px; border-radius: 4px; border: 1px solid; flex: none; }
+.ntb-quick { display: flex; gap: 6px; margin-bottom: 6px; }
+.ntb-me, .ntb-clear { border: 1px solid #e7e5e4; background: #f5f4f2; border-radius: 6px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer; }
+.ntb-me { color: #0e7490; font-weight: 700; flex: 1; text-align: left; }
+.ntb-clear { color: #a8a29e; }
+.ntb-two { display: flex; gap: 6px; }
+.ntb-orgs { width: 108px; flex: none; border-right: 1px solid #f5f4f2; padding-right: 5px; max-height: 232px; overflow-y: auto; }
+.ntb-org { display: flex; align-items: center; gap: 4px; width: 100%; border: 0; background: none; padding: 5px 7px; border-radius: 6px; font: inherit; font-size: 12px; color: inherit; cursor: pointer; text-align: left; }
+.ntb-org:hover { background: #fafaf9; }
+.ntb-org.on { background: #dbeef5; font-weight: 700; }
+.ntb-org .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.ntb-org .cnt { font-size: 10.5px; color: #a8a29e; }
+
+/* 달력 */
+.ntb-calh { display: flex; align-items: center; padding: 2px 6px 6px; font-size: 12.5px; font-weight: 600; }
+.ntb-calh .sp { flex: 1; }
+.ntb-calh button { border: 0; background: none; color: #a8a29e; cursor: pointer; padding: 0 5px; font-size: 14px; }
+.ntb-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.ntb-cal .h { font-size: 10.5px; color: #a8a29e; padding: 3px 0; }
+.ntb-cal button { border: 0; background: none; border-radius: 5px; padding: 5px 0; font: inherit; font-size: 12px; color: #57534e; cursor: pointer; }
+.ntb-cal button:hover { background: #fafaf9; }
+.ntb-cal button.on { background: #0e7490; color: #fff; font-weight: 700; }
+
+/* 필터·정렬·속성 판 */
+.ntb-fblk { border: 1px solid #f5f4f2; border-radius: 8px; padding: 5px; margin-bottom: 6px; }
+.ntb-frow { display: flex; align-items: center; padding: 2px 5px 5px; font-size: 12.5px; }
+.ntb-frow button { margin-left: auto; border: 0; background: none; color: #c8c4c0; cursor: pointer; }
+.ntb-fvals { display: flex; flex-direction: column; gap: 2px; }
+.ntb-fvals button { display: flex; align-items: center; gap: 6px; border: 0; background: none; border-radius: 6px; padding: 3px 5px; cursor: pointer; text-align: left; }
+.ntb-fvals button:hover { background: #fafaf9; }
+.ntb-fvals button.on { background: #f0f9ff; }
+/* 속성 판의 한 줄 — 색 견본(.ntb-sw)과 이름이 겹쳐 견본이 늘어났다(실측).
+   줄은 .ntb-prow 로 따로 쓴다. */
+.ntb-prow { display: flex; align-items: center; gap: 7px; width: 100%; padding: 4px 7px; border-radius: 6px; }
+.ntb-prow:hover { background: #fafaf9; }
+.ntb-prow .l { flex: 1; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.ntb-mv { border: 0; background: none; color: #c8c4c0; cursor: pointer; font-size: 11px; padding: 0 1px; }
+.ntb-mv:disabled { opacity: .3; cursor: not-allowed; }
+.ntb-tg { width: 28px; height: 16px; border-radius: 99px; background: #0e7490; border: 0; position: relative; cursor: pointer; flex: none; }
+.ntb-tg i { position: absolute; right: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; }
+.ntb-tg.off { background: #e7e5e4; }
+.ntb-tg.off i { right: auto; left: 2px; }
+.ntb-tg:disabled { opacity: .45; cursor: not-allowed; }
+
+/* 아래 집계 · 일괄 바 */
+.ntb-foot { display: flex; align-items: center; padding: 9px 9px 2px; color: var(--ntb-mut); font-size: 12.5px; }
+.ntb-foot .sp { flex: 1; }
+.ntb-bulk { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 92; background: #292524; color: #fff; border-radius: 10px; padding: 9px 13px; display: flex; align-items: center; gap: 10px; font-size: 12.5px; box-shadow: 0 12px 30px rgba(0,0,0,.3); }
+.ntb-bulk b { background: #0e7490; border-radius: 5px; padding: 2px 9px; font-weight: 700; }
+.ntb-bulk button { border: 0; background: none; color: #fff; opacity: .85; font: inherit; font-size: 12.5px; cursor: pointer; }
+.ntb-bulk button:hover { opacity: 1; }
+.ntb-bulk button.dg { color: #fca5a5; }
+.ntb-bx { opacity: .5 !important; }

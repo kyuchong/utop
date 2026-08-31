@@ -340,6 +340,59 @@ export default function CyclePlan({
       arr.find((x) => String(x.tcid ?? '') === String(runItem.tcid ?? ''))
     )
   }, [fullQ.data, runItem])
+  /**
+   * 스텝 스냅샷 채우기 — 항목은 추가될 때 `steps: []` 로 만들어진다.
+   * 그래서 TC 에 절차가 버젓이 있는데 러너가 「스텝이 없습니다」 를 냈다
+   * (지적). TC 문서의 **checks** 를 떠서 이 회차의 스냅샷으로 심는다 —
+   * 결과 기록도 이 줄들에 쌓인다. 옛 실행 화면이 하던 것과 같은 일이다.
+   *
+   * 수동/자동 가름은 **TC 의 run_type** 이 정본이다('A'/'AUTO'/'자동' 도
+   * 자동 — 글자 하나만 알아듣다가 자동 TC 가 전부 수동으로 보인 적이 있다).
+   * 갈랐더니 한 줄도 안 남으면 **거르지 않고 전부** 심는다 — 러너는 자동
+   * 스텝을 「자동」 칩으로 그릴 줄 알고, 있는 절차를 안 보여 주는 것이
+   * 사람에게 더 나쁘다.
+   */
+  const seeded = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (runIdx === null || !cur || !runItem) return
+    const tcid = String(runItem.tcid ?? '')
+    if (!tcid) return
+    if (!fullQ.data) return
+    if (((runFull?.steps as unknown[]) ?? []).length > 0) return
+    const key = `${cur.id}|${tcid}`
+    if (seeded.current.has(key)) return
+    seeded.current.add(key)
+    void (async () => {
+      try {
+        const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}`)
+        if (!r.ok) return
+        const j = (await r.json()) as {
+          data?: { checks?: Array<Record<string, unknown>>; run_type?: string }
+          checks?: Array<Record<string, unknown>>
+          run_type?: string
+        }
+        const doc = j.data ?? j
+        const checks = (doc.checks ?? []) as Array<Record<string, unknown>>
+        if (!checks.length) return
+        const rt = String(doc.run_type ?? '').trim().toUpperCase()
+        const auto = rt === '자동' || rt === 'A' || rt === 'AUTO'
+        const want = checks.filter((st) =>
+          auto
+            ? st.kind !== 'manual' && st.manual !== true && st.action !== '수동'
+            : st.kind === 'manual' || st.manual === true || st.action === '수동',
+        )
+        const seed = want.length ? want : checks
+        await setItemField(String(runItem.ceid ?? ''), tcid, (it) => {
+          if (((it.steps as unknown[]) ?? []).length === 0) it.steps = seed
+        })
+        void fullQ.refetch()
+      } catch {
+        /* 못 읽어도 러너는 계속 뜬다 */
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runIdx, cur?.id, runItem?.tcid, fullQ.data, runFull])
+
   const openRun = (it: CycleItemLite) => {
     const i = items.findIndex(
       (x) => (x.ceid && x.ceid === it.ceid) || (!x.ceid && x.tcid === it.tcid),
