@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PALETTE, PALETTE_KEYS, autoColor, paintOfAny } from './palette'
+import { ICON_SETS } from './emoji'
 import { multiJoin, multiVals, type NCol, type NOption, type NPerson, type NType } from './types'
 import {
   IcCheck, IcCopy, IcDate, IcFilter, IcGroup, IcHide, IcLeft, IcNumber, IcPerson,
@@ -37,12 +38,20 @@ export function Pop({
 }
 
 /** 값 알약 — 점 + 글자(+ ▾). 색은 옵션 정의에서 온다 */
-export function Pill({ value, color, caret }: { value: string; color?: string; caret?: boolean }) {
+export function Pill({
+  value, color, caret, icon,
+}: {
+  value: string
+  color?: string
+  caret?: boolean
+  /** 값 앞 그림 — 있으면 점 대신 그린다 */
+  icon?: string
+}) {
   if (!value) return <span className="ntb-empty">–</span>
   const p = paintOfAny(color ?? autoColor(value))
   return (
     <span className="ntb-pill" style={{ background: p.bg, color: p.fg }}>
-      <i className="ntb-dot" style={{ background: p.dot }} />
+      {icon ? <i className="ntb-ico">{icon}</i> : <i className="ntb-dot" style={{ background: p.dot }} />}
       {value}
       {caret && <i className="ntb-car">▾</i>}
     </span>
@@ -111,7 +120,7 @@ export function SelectEditor({
         {hit.map((o) => (
           <div className="ntb-opt" key={o.value}>
             <button type="button" className="ntb-optb" onClick={() => toggle(o.value)}>
-              <Pill value={o.value} color={o.color} />
+              <Pill value={o.value} color={o.color} icon={o.icon} />
             </button>
             {has(o.value) && <IcCheck className="ntb-chk" />}
             {!lockDefs && (
@@ -194,6 +203,30 @@ function OptionEdit({
         }}
         onBlur={() => name.trim() && name.trim() !== opt.value && onSave({ ...opt, value: name.trim() })}
       />
+      <div className="ntb-sec">그림 — 글자 앞에 붙습니다</div>
+      <div className="ntb-icons">
+        <button
+          type="button"
+          className={`ntb-icb${opt.icon ? '' : ' on'}`}
+          title="그림 없이 점으로"
+          onClick={() => onSave({ ...opt, value: name.trim() || opt.value, icon: '' })}
+        >
+          ●
+        </button>
+        {ICON_SETS.map((g) =>
+          g.items.map((e) => (
+            <button
+              type="button"
+              key={e}
+              className={`ntb-icb${opt.icon === e ? ' on' : ''}`}
+              title={g.group}
+              onClick={() => onSave({ ...opt, value: name.trim() || opt.value, icon: e })}
+            >
+              {e}
+            </button>
+          )),
+        )}
+      </div>
       <div className="ntb-sec">색</div>
       <div className="ntb-list">
         {PALETTE_KEYS.map((k) => (
@@ -411,6 +444,103 @@ export function TextEditor({
   )
 }
 
+/** 선택지 관리 — 값 추가·이름·색·그림·삭제를 한 자리에서(노션의 「속성 편집」) */
+export function OptionsManager({
+  col, at, onCol, onClose,
+}: {
+  col: NCol
+  at: { x: number; y: number }
+  onCol: (next: NCol) => void
+  onClose: () => void
+}) {
+  const [add, setAdd] = useState('')
+  const [edit, setEdit] = useState<{ opt: NOption; x: number; y: number } | null>(null)
+  const opts = col.options ?? []
+  const setOpts = (next: NOption[]) => onCol({ ...col, options: next })
+  return (
+    <Pop at={at} w={244} h={400} onClose={onClose}>
+      <div className="ntb-sec">「{col.label}」 의 고를 값</div>
+      <div className="ntb-list">
+        {opts.map((o, i) => (
+          <div className="ntb-opt" key={o.value}>
+            <span className="ntb-ord">
+              <button
+                type="button"
+                disabled={i === 0}
+                title="위로"
+                onClick={() => {
+                  const n = [...opts]
+                  const [x] = n.splice(i, 1)
+                  if (x) n.splice(i - 1, 0, x)
+                  setOpts(n)
+                }}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                disabled={i === opts.length - 1}
+                title="아래로"
+                onClick={() => {
+                  const n = [...opts]
+                  const [x] = n.splice(i, 1)
+                  if (x) n.splice(i + 1, 0, x)
+                  setOpts(n)
+                }}
+              >
+                ↓
+              </button>
+            </span>
+            <Pill value={o.value} color={o.color} icon={o.icon} />
+            <button
+              type="button"
+              className="ntb-more"
+              title="이름·색·그림 고치기"
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect()
+                setEdit({ opt: o, x: r.right + 6, y: r.top - 60 })
+              }}
+            >
+              ⋯
+            </button>
+          </div>
+        ))}
+        {!opts.length && <div className="ntb-sec">아직 값이 없습니다</div>}
+      </div>
+      <div className="ntb-hr" />
+      <input
+        className="ntb-inp"
+        placeholder="값 추가 — 적고 Enter"
+        value={add}
+        onChange={(e) => setAdd(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing || e.keyCode === 229) return
+          if (e.key !== 'Enter') return
+          const t = add.trim()
+          if (!t || opts.some((o) => o.value === t)) return
+          setOpts([...opts, { value: t, color: autoColor(t) }])
+          setAdd('')
+        }}
+      />
+      {edit && (
+        <OptionEdit
+          opt={edit.opt}
+          at={{ x: edit.x, y: edit.y }}
+          onClose={() => setEdit(null)}
+          onSave={(next) => {
+            setOpts(opts.map((o) => (o.value === edit.opt.value ? next : o)))
+            setEdit(null)
+          }}
+          onRemove={() => {
+            setOpts(opts.filter((o) => o.value !== edit.opt.value))
+            setEdit(null)
+          }}
+        />
+      )}
+    </Pop>
+  )
+}
+
 /* ── 헤더 필드 메뉴 ── */
 export function FieldMenu({
   col, at, canDelete, onCol, onSort, onFilter, onGroup, onInsert, onDup, onClose, lockDefs,
@@ -429,6 +559,7 @@ export function FieldMenu({
 }) {
   const [name, setName] = useState(col.label)
   const [typeAt, setTypeAt] = useState<{ x: number; y: number } | null>(null)
+  const [optAt, setOptAt] = useState<{ x: number; y: number } | null>(null)
   const TYPES: Array<{ k: NType; label: string }> = [
     { k: 'text', label: '텍스트' },
     { k: 'select', label: '선택 (하나)' },
@@ -464,6 +595,20 @@ export function FieldMenu({
         <span className="l">타입</span>
         <span className="ntb-sub">{TYPES.find((t) => t.k === col.type)?.label} ›</span>
       </button>
+      {(col.type === 'select' || col.type === 'multiselect') && (
+        <button
+          type="button"
+          className="ntb-mi"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect()
+            setOptAt({ x: r.right + 6, y: r.top - 40 })
+          }}
+        >
+          <IcSelect />
+          <span className="l">선택지 편집</span>
+          <span className="ntb-sub">{(col.options ?? []).length}개 ›</span>
+        </button>
+      )}
       <div className="ntb-hr" />
       <button type="button" className="ntb-mi" onClick={() => go(() => onSort('asc'))}>
         <IcSortAsc /><span className="l">오름차순 정렬</span>
@@ -499,6 +644,9 @@ export function FieldMenu({
       >
         <IcTrash /><span className="l">삭제</span>
       </button>
+      {optAt && (
+        <OptionsManager col={col} at={optAt} onCol={onCol} onClose={() => setOptAt(null)} />
+      )}
       {typeAt && (
         <Pop at={typeAt} w={158} h={220} onClose={() => setTypeAt(null)}>
           <div className="ntb-sec">필드 타입</div>

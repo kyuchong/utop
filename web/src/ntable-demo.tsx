@@ -20,8 +20,9 @@ const COLS: NCol[] = [
               { value: '승인', color: '#00c875' }, { value: '보류', color: '#9ca3af' }, { value: 'Draft', color: '#e2445c' }] },
   { key: 'severity', label: '중요도', type: 'select', width: 82,
     options: [{ value: 'CR', color: 'rose' }, { value: 'MJ', color: 'orange' }, { value: 'MN', color: 'gray' }] },
-  { key: 'run', label: '타입', type: 'select', width: 78,
-    options: [{ value: '수동', color: 'purple' }, { value: '자동', color: 'emerald' }] },
+  /* 지시: 수동=손가락, 자동=톱니바퀴 */
+  { key: 'run', label: '타입', type: 'select', width: 88,
+    options: [{ value: '수동', color: 'purple', icon: '👆' }, { value: '자동', color: 'emerald', icon: '⚙️' }] },
   { key: 'who', label: '담당', type: 'person', width: 98 },
   { key: 'due', label: '목표일', type: 'date', width: 106 },
 ]

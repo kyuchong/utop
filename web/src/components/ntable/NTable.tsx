@@ -292,15 +292,21 @@ export default function NTable(p: NTableProps) {
             /* 여러 개 고른 칸 — 담긴 만큼 알약을 잇는다 */
             multiVals(v).length ? (
               <span className="ntb-multi">
-                {multiVals(v).map((x) => (
-                  <Pill key={x} value={x} color={(c.options ?? []).find((o) => o.value === x)?.color} />
-                ))}
+                {multiVals(v).map((x) => {
+                  const o = (c.options ?? []).find((y) => y.value === x)
+                  return <Pill key={x} value={x} color={o?.color} icon={o?.icon} />
+                })}
               </span>
             ) : (
               <span className="ntb-empty">–</span>
             )
           ) : (
-            <Pill value={v} color={(c.options ?? []).find((o) => o.value === v)?.color} caret />
+            <Pill
+              value={v}
+              color={(c.options ?? []).find((o) => o.value === v)?.color}
+              icon={(c.options ?? []).find((o) => o.value === v)?.icon}
+              caret
+            />
           )}
         </button>
       )
@@ -527,6 +533,7 @@ export default function NTable(p: NTableProps) {
                         <Pill
                           value={g.value || '(없음)'}
                           color={(gc?.options ?? []).find((o) => o.value === g.value)?.color}
+                          icon={(gc?.options ?? []).find((o) => o.value === g.value)?.icon}
                         />
                         <span className="ntb-gcnt">{g.rows.length}건</span>
                         {onNew && view.groupBy && (

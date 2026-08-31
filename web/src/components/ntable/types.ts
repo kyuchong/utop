@@ -6,8 +6,10 @@ export const multiJoin = (vs: string[]): string => vs.join(', ')
 
 export interface NOption {
   value: string
-  /** palette.ts 의 색 이름 */
+  /** palette.ts 의 색 이름 또는 #RRGGBB */
   color: string
+  /** 값 앞에 붙일 그림 — 없으면 글자만(지시: 수동=손가락, 자동=톱니바퀴) */
+  icon?: string
 }
 
 export interface NCol {

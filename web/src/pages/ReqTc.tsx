@@ -439,7 +439,7 @@ export default function ReqTc({ me }: Props) {
       const now = a.options ?? []
       for (const [i, o] of now.entries()) {
         const prev = was.find((x) => x.value === o.value)
-        if (prev && prev.color === o.color) continue
+        if (prev && prev.color === o.color && (prev.icon ?? '') === (o.icon ?? '')) continue
         const hex = o.color?.startsWith('#') ? o.color : (paintOfAny(o.color).dot ?? '')
         await apiFetch('/api/codes', {
           method: 'POST',
@@ -447,7 +447,8 @@ export default function ReqTc({ me }: Props) {
             kind,
             value: o.value,
             sort_order: i,
-            note: JSON.stringify({ color: hex, fg: '#fff' }),
+            /* 그림도 함께 담는다 — 옛 화면들은 color·fg 만 읽으므로 안 깨진다 */
+            note: JSON.stringify({ color: hex, fg: '#fff', icon: o.icon || '' }),
           }),
         })
         hit = true
@@ -472,6 +473,13 @@ export default function ReqTc({ me }: Props) {
   const cfColors = (f2: CustomField): Record<string, string> => {
     try {
       return (JSON.parse(f2.note || '{}') as { colors?: Record<string, string> }).colors ?? {}
+    } catch {
+      return {}
+    }
+  }
+  const cfIcons = (f2: CustomField): Record<string, string> => {
+    try {
+      return (JSON.parse(f2.note || '{}') as { icons?: Record<string, string> }).icons ?? {}
     } catch {
       return {}
     }
@@ -506,14 +514,17 @@ export default function ReqTc({ me }: Props) {
         const opts = a.options ?? []
         const optStr = opts.map((o) => o.value).join('\n')
         const colors = Object.fromEntries(opts.filter((o) => o.color).map((o) => [o.value, o.color]))
+        const icons = Object.fromEntries(opts.filter((o) => o.icon).map((o) => [o.value, o.icon!]))
         const oldOpt = (f3.options ?? '').trim()
         const oldColors = cfColors(f3)
+        const oldIcons = cfIcons(f3)
         const nameChanged = f3.label !== a.label
         const typeChanged = want !== f3.type
         const optChanged =
           want === 'select' &&
           (optStr.trim() !== oldOpt ||
-            JSON.stringify(colors) !== JSON.stringify(oldColors))
+            JSON.stringify(colors) !== JSON.stringify(oldColors) ||
+            JSON.stringify(icons) !== JSON.stringify(oldIcons))
         if (!nameChanged && !typeChanged && !optChanged) continue
         let sendOpt = optStr
         let sendColors = colors
@@ -546,7 +557,7 @@ export default function ReqTc({ me }: Props) {
           label: a.label,
           type: want,
           options: want === 'select' ? sendOpt : null,
-          note: JSON.stringify({ colors: sendColors }),
+          note: JSON.stringify({ colors: sendColors, icons }),
         })
       }
     }
@@ -570,7 +581,15 @@ export default function ReqTc({ me }: Props) {
   const optsOf = (kind: string) =>
     (codesQ.data?.items ?? [])
       .filter((x) => x.kind === kind)
-      .map((x) => ({ value: x.value, color: fillOf(x.note, x.value).bg }))
+      .map((x) => {
+        let icon = ''
+        try {
+          icon = String((JSON.parse(x.note || '{}') as { icon?: string }).icon || '')
+        } catch {
+          /* 옛 자료 — 그림 없음 */
+        }
+        return { value: x.value, color: fillOf(x.note, x.value).bg, icon }
+      })
   /** 노션 표의 열 — 고정 칸 + 켜진 INFO 열(설정과 1:1) */
   const nCols = useMemo<NCol[]>(() => {
     const w = (k: string, d: number) => Number(prefGet(`utop.ntb.w.${k}`) ?? '') || d
@@ -613,7 +632,7 @@ export default function ReqTc({ me }: Props) {
                 .split('\n')
                 .map((x) => x.trim())
                 .filter(Boolean)
-                .map((v) => ({ value: v, color: cfColors(cf)[v] ?? '' })),
+                .map((v) => ({ value: v, color: cfColors(cf)[v] ?? '', icon: cfIcons(cf)[v] ?? '' })),
             }
           : {}),
       })
@@ -1018,7 +1037,7 @@ export default function ReqTc({ me }: Props) {
                 .split('\n')
                 .map((x) => x.trim())
                 .filter(Boolean)
-                .map((v) => ({ value: v, color: cfColors(cf)[v] ?? '' })),
+                .map((v) => ({ value: v, color: cfColors(cf)[v] ?? '', icon: cfIcons(cf)[v] ?? '' })),
             }
           : {}),
       })

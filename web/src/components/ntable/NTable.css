@@ -229,3 +229,17 @@
 
 /* 여러 개 고른 칸 — 알약을 잇는다 */
 .ntb-multi { display: inline-flex; gap: 3px; max-width: 100%; overflow: hidden; }
+
+/* 선택지 그림 — 글자 앞에 붙는다(지시) */
+/* 그림은 이모지 글꼴을 명시한다 — 안 그러면 기계에 따라 네모로 보인다 */
+.ntb-ico { font-style: normal; font-size: 11px; line-height: 1;
+  font-family: 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji','Twemoji Mozilla',sans-serif; }
+.ntb-icons { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; padding: 2px 4px 6px; }
+.ntb-icb { font-family: 'Segoe UI Emoji','Apple Color Emoji','Noto Color Emoji','Twemoji Mozilla',sans-serif; border: 1px solid transparent; background: none; border-radius: 6px; padding: 3px 0; font-size: 14px; cursor: pointer; line-height: 1.2; }
+.ntb-icb:hover { background: #fafaf9; }
+.ntb-icb.on { border-color: #0e7490; background: #ecfeff; }
+
+/* 선택지 관리 — 차례 바꾸기 */
+.ntb-ord { display: inline-flex; flex-direction: column; gap: 0; }
+.ntb-ord button { border: 0; background: none; color: #c8c4c0; font-size: 9px; line-height: 1; cursor: pointer; padding: 0 2px; }
+.ntb-ord button:disabled { opacity: .3; cursor: not-allowed; }
