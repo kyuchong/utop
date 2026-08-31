@@ -409,7 +409,15 @@ export default function ReqTc({ me }: Props) {
     await cfQ.refetch()
     setNColRev((n2) => n2 + 1)
   }
-  /** 표가 준 열 변경을 **필드 정의**로 옮긴다 — 이름·타입·선택지·삭제 */
+  /** 만든 칸의 색은 note 에 담는다 — 서버의 options 는 값만 담는 글자라서 */
+  const cfColors = (f2: CustomField): Record<string, string> => {
+    try {
+      return (JSON.parse(f2.note || '{}') as { colors?: Record<string, string> }).colors ?? {}
+    } catch {
+      return {}
+    }
+  }
+  /** 표가 준 열 변경을 **필드 정의**로 옮긴다 — 이름·타입·선택지·색·삭제 */
   const cfApply = (before: NCol[], after: NCol[]) => {
     const byKey = new Map<string, CustomField>(cfMine.map((x) => [`cf_${x.key}`, x]))
     /* 지운 것 */
@@ -434,8 +442,53 @@ export default function ReqTc({ me }: Props) {
           show_form: true,
           sort_order: after.indexOf(a),
         })
-      } else if (f3.label !== a.label || (T[a.type] ?? 'text') !== f3.type) {
-        void cfSave({ ...f3, label: a.label, type: T[a.type] ?? 'text' })
+      } else {
+        const want = T[a.type] ?? 'text'
+        const opts = a.options ?? []
+        const optStr = opts.map((o) => o.value).join('\n')
+        const colors = Object.fromEntries(opts.filter((o) => o.color).map((o) => [o.value, o.color]))
+        const oldOpt = (f3.options ?? '').trim()
+        const oldColors = cfColors(f3)
+        const nameChanged = f3.label !== a.label
+        const typeChanged = want !== f3.type
+        const optChanged =
+          want === 'select' &&
+          (optStr.trim() !== oldOpt ||
+            JSON.stringify(colors) !== JSON.stringify(oldColors))
+        if (!nameChanged && !typeChanged && !optChanged) continue
+        let sendOpt = optStr
+        let sendColors = colors
+        if (want === 'select' && !sendOpt.trim()) {
+          /* 서버는 선택 타입에 **고를 값**을 반드시 요구한다 — 값 없이
+             타입만 바꾸면 거절당해 「타입 선택이 안 된다」 로 보였다(지적).
+             그래서 값을 먼저 묻는다. */
+          const typed = window.prompt(
+            `「${a.label}」 에서 고를 값을 한 줄에 하나씩 적으세요`,
+            oldOpt || '작성중\n검토중\n완료',
+          )
+          if (typed === null) {
+            setNColRev((n2) => n2 + 1) /* 취소 — 화면을 원래대로 되돌린다 */
+            continue
+          }
+          sendOpt = typed
+            .split('\n')
+            .map((x) => x.trim())
+            .filter(Boolean)
+            .join('\n')
+          if (!sendOpt) {
+            window.alert('고를 값을 한 줄에 하나씩 적어야 선택 칸이 됩니다')
+            setNColRev((n2) => n2 + 1)
+            continue
+          }
+          sendColors = oldColors
+        }
+        void cfSave({
+          ...f3,
+          label: a.label,
+          type: want,
+          options: want === 'select' ? sendOpt : null,
+          note: JSON.stringify({ colors: sendColors }),
+        })
       }
     }
   }
@@ -501,7 +554,7 @@ export default function ReqTc({ me }: Props) {
                 .split('\n')
                 .map((x) => x.trim())
                 .filter(Boolean)
-                .map((v) => ({ value: v, color: '' })),
+                .map((v) => ({ value: v, color: cfColors(cf)[v] ?? '' })),
             }
           : {}),
       })
@@ -906,7 +959,7 @@ export default function ReqTc({ me }: Props) {
                 .split('\n')
                 .map((x) => x.trim())
                 .filter(Boolean)
-                .map((v) => ({ value: v, color: '' })),
+                .map((v) => ({ value: v, color: cfColors(cf)[v] ?? '' })),
             }
           : {}),
       })
