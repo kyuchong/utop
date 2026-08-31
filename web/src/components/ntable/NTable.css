@@ -43,34 +43,34 @@
   text-align: left; padding: 0; border-bottom: 1px solid var(--ntb-line);
   position: sticky; top: 0; z-index: 3; background: var(--c-surface, #fff);
 }
-.ntb-hb { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 7px 9px; border-radius: 6px; font: inherit; font-size: 12px; font-weight: 400; color: var(--ntb-mut); cursor: pointer; white-space: nowrap; overflow: hidden; }
+.ntb-hb { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 4px 8px; border-radius: 6px; font: inherit; font-size: 12px; font-weight: 400; color: var(--ntb-mut); cursor: pointer; white-space: nowrap; overflow: hidden; }
 .ntb-hb .l { overflow: hidden; text-overflow: ellipsis; }
 .ntb-hb:hover, .ntb-hb.on { background: var(--ntb-hov); color: var(--ntb-soft); }
 .ntb-ar { color: var(--ntb-mut); }
 .ntb-rs { position: absolute; right: -3px; top: 5px; bottom: 5px; width: 7px; cursor: col-resize; z-index: 4; }
 .ntb-rs:hover:after { content: ''; position: absolute; left: 2px; top: 0; bottom: 0; width: 2px; background: var(--ntb-acc); border-radius: 2px; }
-.ntb-tbl td { padding: 6px 9px; border-bottom: 1px solid var(--ntb-line2); vertical-align: middle; white-space: nowrap; overflow: hidden; }
+.ntb-tbl td { padding: 2px 8px; border-bottom: 1px solid var(--ntb-line2); vertical-align: middle; white-space: nowrap; overflow: hidden; }
 .ntb-row:hover td { background: var(--ntb-hov); }
 .ntb-row.on td { background: #f0f9ff; }
 /* 칸(td·th)에는 display:flex 를 주면 안 된다 — 표 폭 계산에서 빠져
    번호 칸이 남는 폭을 통째로 먹었다(실측). 속을 감싸는 줄로 편다. */
 .ntb-gp { width: 74px; }
-.ntb-gpin { display: flex; align-items: center; gap: 5px; }
+.ntb-gpin { display: flex; align-items: center; gap: 4px; }
 .ntb-grip { color: #d6d3d1; cursor: grab; }
 .ntb-no { color: #c8c4c0; font-size: 12px; min-width: 16px; text-align: right; }
 .ntb-none { color: var(--ntb-mut); padding: 14px 9px; }
-.ntb-add { border: 0; background: none; color: var(--ntb-mut); font: inherit; font-size: 12.5px; padding: 7px 9px; cursor: pointer; width: 100%; text-align: left; }
+.ntb-add { border: 0; background: none; color: var(--ntb-mut); font: inherit; font-size: 12.5px; padding: 4px 9px; cursor: pointer; width: 100%; text-align: left; }
 .ntb-add:hover { background: var(--ntb-hov); color: var(--ntb-soft); }
 
 /* 묶음 줄 */
-.ntb-grh td { background: var(--ntb-hov); border-bottom: 1px solid var(--ntb-line); padding: 6px 9px; font-size: 12.5px; }
+.ntb-grh td { background: var(--ntb-hov); border-bottom: 1px solid var(--ntb-line); padding: 3px 9px; font-size: 12.5px; }
 .ntb-gtog { border: 0; background: none; color: var(--ntb-mut); cursor: pointer; padding: 0 6px 0 0; font-size: 12px; }
 .ntb-gcnt { color: var(--ntb-mut); margin-left: 8px; font-size: 12px; }
 .ntb-gnew { float: right; border: 0; background: none; color: var(--ntb-mut); font: inherit; font-size: 12px; cursor: pointer; }
 .ntb-gnew:hover { color: var(--ntb-acc); }
 
 /* 값 알약 */
-.ntb-pill { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 10px; font-size: 12px; font-weight: 500; max-width: 100%; overflow: hidden; }
+.ntb-pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 1px 9px; font-size: 11.5px; font-weight: 500; max-width: 100%; overflow: hidden; }
 .ntb-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
 .ntb-car { font-style: normal; font-size: 9px; opacity: .45; }
 .ntb-empty { color: #c8c4c0; }
@@ -86,9 +86,9 @@
 .ntb-open { margin-left: auto; display: none; align-items: center; gap: 3px; border: 1px solid var(--ntb-bd); background: #fff; border-radius: 5px; padding: 1px 7px; font: inherit; font-size: 11px; color: var(--ntb-soft); cursor: pointer; flex: none; }
 .ntb-row:hover .ntb-open { display: inline-flex; }
 .ntb-txt { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
-.ntb-cellinp { width: 100%; border: 1px solid var(--ntb-acc); border-radius: 6px; padding: 2px 6px; font: inherit; font-size: 13px; outline: none; }
+.ntb-cellinp { width: 100%; border: 1px solid var(--ntb-acc); border-radius: 6px; padding: 0 6px; font: inherit; font-size: 13px; outline: none; }
 .ntb-per { display: inline-flex; align-items: center; gap: 6px; }
-.ntb-av { width: 19px; height: 19px; border-radius: 50%; background: #0e7490; color: #fff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.ntb-av { width: 17px; height: 17px; border-radius: 50%; background: #0e7490; color: #fff; font-size: 9.5px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 
 /* 팝오버 */
 .ntb-ovl { position: fixed; inset: 0; z-index: 90; }
@@ -159,7 +159,7 @@
 /* 맨 아래 줄(건수·줄 수·쪽)도 굴려도 남는다(지적: 상시로 보여야 한다).
    계산 줄은 이 줄 바로 위에 붙는다 — 두 줄이 겹치지 않게 높이를 맞춘다. */
 .ntb-foot {
-  display: flex; align-items: center; padding: 8px 9px; color: var(--ntb-mut); font-size: 12.5px;
+  display: flex; align-items: center; padding: 5px 9px; color: var(--ntb-mut); font-size: 12.5px;
   position: sticky; bottom: 0; z-index: 4;
   background: var(--c-surface, #fff); border-top: 1px solid var(--ntb-line, #f0efed);
 }
@@ -177,8 +177,8 @@
 /* 열마다 아래에서 세기(지시) · 쪽·줄 수 */
 /* 계산 줄도 아래에 붙어 있는다 — 굴리는 중에도 합계가 보여야 뜻이 있다 */
 .ntb-calcrow td {
-  border-top: 1px solid var(--ntb-line, #f0efed); border-bottom: 0; padding: 4px 6px;
-  position: sticky; bottom: var(--ntb-footh, 35px); z-index: 2; background: var(--c-surface, #fff);
+  border-top: 1px solid var(--ntb-line, #f0efed); border-bottom: 0; padding: 1px 6px;
+  position: sticky; bottom: var(--ntb-footh, 30px); z-index: 2; background: var(--c-surface, #fff);
 }
 .ntb-calcb { border: 0; background: none; border-radius: 6px; padding: 3px 7px; font: inherit; font-size: 11.5px; color: #c8c4c0; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ntb-calcb:hover { background: #fafaf9; color: #57534e; }

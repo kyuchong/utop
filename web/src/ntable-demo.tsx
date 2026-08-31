@@ -35,6 +35,11 @@ const ROWS: NRow[] = [
   { __id: '7', id: 'E61xx_T0069', title: 'Store temperature', type: '기능', status: '승인', severity: 'MJ', run: '자동', who: '박시험', due: '2026-09-08' },
   { __id: '8', id: 'E61xx_T0068', title: 'Operating temperature', type: '기능', status: 'Draft', severity: 'MJ', run: '자동', who: '전규종', due: '2026-09-08' },
 ]
+/* 25줄이 한 쪽에 들어가는지 보려고 늘려 둔다(개발 하니스 전용) */
+const MANY: NRow[] = Array.from({ length: 30 }, (_, i) => {
+  const b = ROWS[i % ROWS.length]!
+  return { ...b, __id: `r${i + 1}`, id: `E61xx_T${String(1000 + i)}` }
+})
 const PEOPLE = [
   { name: '전규종', org: '검증1그룹' }, { name: '김검증', org: '검증1그룹' },
   { name: '박시험', org: '검증1그룹' }, { name: '이품질', org: '품질보증팀' },
@@ -44,7 +49,7 @@ const PEOPLE = [
 
 function Demo() {
   const [cols, setCols] = useState<NCol[]>(COLS)
-  const [rows, setRows] = useState<NRow[]>(ROWS)
+  const [rows, setRows] = useState<NRow[]>(MANY)
   const [view, setView] = useState<NView>({ ...EMPTY_VIEW })
   const [calc, setCalc] = useState<Record<string, NCalc>>({ status: 'filled', due: 'empty', severity: 'unique' })
   const [per, setPer] = useState(25)
@@ -54,7 +59,7 @@ function Demo() {
     <div style={{ padding: '18px 22px', fontFamily: "'Pretendard','Malgun Gothic',sans-serif", background: '#fff' }}>
       {/* 앱과 같은 꼴 — 표는 굴러가는 상자 안에 산다(.rqtc-tbl 처럼).
           머리줄 고정이 이 상자에 붙는지 여기서 실제로 본다 */}
-      <div id="scrollbox" style={{ height: 300, overflow: 'auto', border: '1px solid #eee', borderRadius: 8 }}>
+      <div id="scrollbox" style={{ height: 760, overflow: 'auto', border: '1px solid #eee', borderRadius: 8 }}>
       <NTable
         title="11.HW"
         columns={cols}
