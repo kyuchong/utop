@@ -51,8 +51,9 @@ export function Pill({ value, color, caret }: { value: string; color?: string; c
 
 /* ── 선택 셀 편집기 — 값 고르기 · 새 값 만들기 · 선택지 이름/색 고치기 ── */
 export function SelectEditor({
-  col, value, at, onPick, onCol, onClose,
+  col, value, at, onPick, onCol, onClose, lockDefs,
 }: {
+  lockDefs?: boolean
   col: NCol
   value: string
   at: { x: number; y: number }
@@ -74,7 +75,7 @@ export function SelectEditor({
       <input
         className="ntb-inp"
         autoFocus
-        placeholder="값 찾기 · 새 값 입력"
+        placeholder={lockDefs ? '값 찾기' : '값 찾기 · 새 값 입력'}
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={(e) => {
@@ -82,6 +83,7 @@ export function SelectEditor({
           if (e.key === 'Enter') {
             const t = q.trim()
             if (!t) return
+            if (!exact && lockDefs) return /* 선택지는 SETUP 이 정본 — 여기서 못 만든다 */
             if (!exact) setOpts([...opts, { value: t, color: autoColor(t) }])
             onPick(t)
             onClose()
@@ -99,6 +101,7 @@ export function SelectEditor({
               <Pill value={o.value} color={o.color} />
             </button>
             {o.value === value && <IcCheck className="ntb-chk" />}
+            {!lockDefs && (
             <button
               type="button"
               className="ntb-more"
@@ -110,11 +113,12 @@ export function SelectEditor({
             >
               ⋯
             </button>
+            )}
           </div>
         ))}
         {!hit.length && !q.trim() && <div className="ntb-sec">선택지가 없습니다</div>}
       </div>
-      {q.trim() && !exact && (
+      {q.trim() && !exact && !lockDefs && (
         <>
           <div className="ntb-hr" />
           <button
@@ -395,8 +399,9 @@ export function TextEditor({
 
 /* ── 헤더 필드 메뉴 ── */
 export function FieldMenu({
-  col, at, canDelete, onCol, onSort, onFilter, onGroup, onInsert, onDup, onClose,
+  col, at, canDelete, onCol, onSort, onFilter, onGroup, onInsert, onDup, onClose, lockDefs,
 }: {
+  lockDefs?: boolean
   col: NCol
   at: { x: number; y: number }
   canDelete: boolean
@@ -420,6 +425,8 @@ export function FieldMenu({
     <Pop at={at} w={228} h={430} onClose={onClose}>
       <input
         className="ntb-inp"
+        readOnly={lockDefs}
+        title={lockDefs ? '이름은 SETUP 에서 고칩니다' : ''}
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {
@@ -431,7 +438,7 @@ export function FieldMenu({
       <button
         type="button"
         className="ntb-mi"
-        disabled={col.fixed}
+        disabled={col.fixed || lockDefs}
         onClick={(e) => {
           const r = e.currentTarget.getBoundingClientRect()
           setTypeAt(typeAt ? null : { x: r.right + 6, y: r.top })
@@ -455,13 +462,13 @@ export function FieldMenu({
         <IcGroup /><span className="l">이 필드로 그룹</span>
       </button>
       <div className="ntb-hr" />
-      <button type="button" className="ntb-mi" onClick={() => go(() => onInsert('left'))}>
+      <button type="button" className="ntb-mi" disabled={lockDefs} onClick={() => go(() => onInsert('left'))}>
         <IcLeft /><span className="l">왼쪽에 삽입</span>
       </button>
-      <button type="button" className="ntb-mi" onClick={() => go(() => onInsert('right'))}>
+      <button type="button" className="ntb-mi" disabled={lockDefs} onClick={() => go(() => onInsert('right'))}>
         <IcRight /><span className="l">오른쪽에 삽입</span>
       </button>
-      <button type="button" className="ntb-mi" onClick={() => go(onDup)}>
+      <button type="button" className="ntb-mi" disabled={lockDefs} onClick={() => go(onDup)}>
         <IcCopy /><span className="l">속성 복제</span>
       </button>
       <button type="button" className="ntb-mi" disabled={col.fixed} onClick={() => go(() => onCol({ ...col, hidden: true }))}>

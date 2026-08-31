@@ -30,6 +30,20 @@ const SYNC = new Set([
   // 끌어 맞춘 판·칸 폭(Resizer)
   'rqtcSideW', 'tcLogW', 'utop.ai.seqw', 'utop.cycle.execSideW', 'utop.tc.listW', 'utop.tc.seqW2',
 ])
+/* 열쇠가 미리 안 정해지는 것들 — 표의 열마다 폭·숨김 열쇠가 생긴다.
+   SYNC 는 정확히 맞는 열쇠만 봐서 utop.ntb.* 가 서버로 못 갔다(검증). */
+const SYNC_PRE = ['utop.ntb.']
+const isSync = (k: string) => SYNC.has(k) || SYNC_PRE.some((p) => k.startsWith(p))
+/** 이 PC 거울에 있는 동기화 대상 열쇠 전부 — 접두어 것까지 */
+const mirrorKeys = (): string[] => {
+  const out = [...SYNC]
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)
+    if (k && SYNC_PRE.some((p) => k.startsWith(p))) out.push(k)
+  }
+  return out
+}
+
 const OWNER = 'utop.pref.owner'
 
 let mem = new Map<string, string>()
@@ -86,16 +100,16 @@ export async function hydratePrefs(username: string): Promise<void> {
     /* 주인이 다른 PC 거울은 못 믿는다 — 지우고, 이사도 안 한다 */
     const prev = localStorage.getItem(OWNER)
     const sameOwner = prev === null || prev === username
-    if (!sameOwner) for (const k of SYNC) {
+    if (!sameOwner) for (const k of mirrorKeys()) {
       try { localStorage.removeItem(k) } catch { /* 사생활 보호 모드 */ }
     }
     mem = new Map()
-    for (const [k, v] of Object.entries(j.team ?? {})) if (SYNC.has(k)) mem.set(k, asStr(v))
-    for (const [k, v] of Object.entries(j.mine ?? {})) if (SYNC.has(k)) mem.set(k, asStr(v))
+    for (const [k, v] of Object.entries(j.team ?? {})) if (isSync(k)) mem.set(k, asStr(v))
+    for (const [k, v] of Object.entries(j.mine ?? {})) if (isSync(k)) mem.set(k, asStr(v))
     /* 이사 — 내 것이 서버에 하나도 없고, 이 PC 거울이 내 것일 때 한 번만 */
     const seed: Record<string, string> = {}
     if (sameOwner && Object.keys(j.mine ?? {}).length === 0) {
-      for (const k of SYNC) {
+      for (const k of mirrorKeys()) {
         const lv = localStorage.getItem(k)
         if (lv !== null) {
           mem.set(k, lv)
@@ -131,7 +145,7 @@ export function prefSet(k: string, v: string): void {
   } catch {
     /* 사생활 보호 모드 */
   }
-  if (!SYNC.has(k)) return
+  if (!isSync(k)) return
   mem.set(k, v)
   queue(k, v)
 }
@@ -143,7 +157,7 @@ export function prefRemove(k: string): void {
   } catch {
     /* 사생활 보호 모드 */
   }
-  if (!SYNC.has(k)) return
+  if (!isSync(k)) return
   mem.delete(k)
   queue(k, null)
 }

@@ -46,8 +46,10 @@
 .ntb-tbl td { padding: 6px 9px; border-bottom: 1px solid var(--ntb-line2); vertical-align: middle; white-space: nowrap; overflow: hidden; }
 .ntb-row:hover td { background: var(--ntb-hov); }
 .ntb-row.on td { background: #f0f9ff; }
+/* 칸(td·th)에는 display:flex 를 주면 안 된다 — 표 폭 계산에서 빠져
+   번호 칸이 남는 폭을 통째로 먹었다(실측). 속을 감싸는 줄로 편다. */
 .ntb-gp { width: 74px; }
-.ntb-tbl td.ntb-gp, .ntb-tbl th.ntb-gp { display: flex; align-items: center; gap: 5px; border-bottom: 0; padding-top: 9px; }
+.ntb-gpin { display: flex; align-items: center; gap: 5px; }
 .ntb-grip { color: #d6d3d1; cursor: grab; }
 .ntb-no { color: #c8c4c0; font-size: 12px; min-width: 16px; text-align: right; }
 .ntb-none { color: var(--ntb-mut); padding: 14px 9px; }
@@ -156,3 +158,6 @@
 .ntb-bulk button:hover { opacity: 1; }
 .ntb-bulk button.dg { color: #fca5a5; }
 .ntb-bx { opacity: .5 !important; }
+
+/* 남는 폭 먹는 빈 칸 — 지정한 폭이 그대로 서게 한다 */
+.ntb-fill { padding: 0 !important; }

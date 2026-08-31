@@ -388,6 +388,11 @@ export default function ReqTc({ me }: Props) {
   const [ntb, setNtb] = useState(() => prefGet('utop.reqtc.ntable') === '1')
   useEffect(() => prefSet('utop.reqtc.ntable', ntb ? '1' : '0'), [ntb])
   const [nview, setNview] = useState<NView>({ ...EMPTY_VIEW })
+  /* 폭·숨김·순서는 prefSet 으로만 남는데 그것은 상태가 아니다 — 고쳐도
+     화면이 안 다시 그려졌다(검증). 이 숫자를 올려 다시 읽게 한다. */
+  const [nColRev, setNColRev] = useState(0)
+  /** 노션 표가 제 목록(거르기·정렬·묶기·건수)을 통째로 쥔 상태 */
+  const nOwn = ntb
   /** 그 종류(kind)의 선택지를 SETUP 코드에서 — 색까지 함께 */
   const optsOf = (kind: string) =>
     (codesQ.data?.items ?? [])
@@ -419,9 +424,20 @@ export default function ReqTc({ me }: Props) {
           : { key: c.k, label: c.label, type: 'text', width: w(c.k, 96) },
       )
     }
-    return base.filter((c) => prefGet(`utop.ntb.hide.${c.key}`) !== '1')
+    /* 숨긴 열도 배열에 **남긴다** — 빼 버리면 속성 판에서도 사라져
+       「모두 보이기」 로도 못 되살린다(검증). 그리기는 NTable 이 거른다. */
+    const withHide = base.map((c) => ({ ...c, hidden: prefGet(`utop.ntb.hide.${c.key}`) === '1' }))
+    /* 사람이 바꾼 순서도 되살린다 */
+    const ord = (prefGet('utop.ntb.order') ?? '').split(',').filter(Boolean)
+    if (ord.length)
+      withHide.sort((a, b) => {
+        const ia = ord.indexOf(a.key)
+        const ib = ord.indexOf(b.key)
+        return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib)
+      })
+    return withHide
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visCols, codesQ.data])
+  }, [visCols, codesQ.data, nColRev])
 
   /**
    * 한 칸만 고쳐 저장한다.
@@ -431,17 +447,32 @@ export default function ReqTc({ me }: Props) {
    */
   const setOneField = async (kind: 'req' | 'tc', id: string, p: Record<string, unknown>) => {
     setSaveState('saving')
+    /** cf_<열쇠> 는 최상위가 아니라 custom 안에 산다(colVal·TcInfo 와 같은 규칙) */
+    const merge = (full: Record<string, unknown>) => {
+      const cf = { ...((full.custom ?? {}) as Record<string, unknown>) }
+      const top: Record<string, unknown> = { ...full }
+      /* 예전에 최상위로 잘못 박힌 cf_* 는 저장할 때 씻어 낸다 */
+      for (const k of Object.keys(top)) if (k.startsWith('cf_')) delete top[k]
+      let hit = false
+      for (const [k, v] of Object.entries(p)) {
+        if (k.startsWith('cf_')) {
+          cf[k.slice(3)] = v
+          hit = true
+        } else top[k] = v
+      }
+      return hit ? { ...top, custom: cf } : top
+    }
     try {
       if (kind === 'req') {
         const full = (await api.getRequirement(id)) as unknown as Record<string, unknown>
-        await reqApi.save(id, { ...full, ...p })
+        await reqApi.save(id, merge(full))
         await reqQ.refetch()
       } else {
         const r = await apiFetch(`/api/tc/${encodeURIComponent(id)}`)
         const full = (await r.json()) as Record<string, unknown>
         await apiFetch(`/api/tc/${encodeURIComponent(id)}`, {
           method: 'POST',
-          body: JSON.stringify({ ...full, ...p }),
+          body: JSON.stringify(merge(full)),
         })
         await tcQ.refetch()
       }
@@ -824,6 +855,34 @@ export default function ReqTc({ me }: Props) {
     })
   }, [reqs, q, cat, deep, onlyBare, tcOf, prjCats, under])
 
+  /** 요구사항 노션 표의 줄 */
+  const nReqRows = useMemo<NRow[]>(
+    () =>
+      reqRows.map((r) => {
+        const pk = reqPk(r)
+        const p = prjOf(r)
+        const ts = tcOf.get(pk) ?? []
+        return {
+          __id: pk,
+          rid: reqLabel(r),
+          title: r.title ?? '',
+          model_group: p?.model_group ?? '',
+          model: p?.model ?? '',
+          cov: ts.length ? `TC ${ts.length}` : '',
+          tcmap: ts[0]?.tcid ?? '',
+          status: String(r.status ?? ''),
+          priority: String(r.priority ?? ''),
+          ...Object.fromEntries(
+            Object.entries(((r as unknown as { custom?: Record<string, unknown> }).custom ?? {})).map(
+              ([k, v]) => [`cf_${k}`, String(v ?? '')],
+            ),
+          ),
+        }
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [reqRows, tcOf, projects],
+  )
+
   /** 시험 줄 — 폴더(또는 고른 요구사항)에 매인 것만 */
   const tcRows = useMemo(() => {
     const n = q.trim().toLowerCase()
@@ -836,6 +895,41 @@ export default function ReqTc({ me }: Props) {
     }
     return tcs.filter((t) => ok(t) && (!n || `${t.tcid} ${t.name ?? ''}`.toLowerCase().includes(n)))
   }, [tcs, q, cat, deep, reqOnly, reqById, prjCats, under])
+
+  /** 요구사항 노션 표의 열 — 고정 칸 + 켜진 INFO 열 */
+  const nReqCols = useMemo<NCol[]>(() => {
+    const w = (k: string, d: number) => Number(prefGet(`utop.ntb.w.r_${k}`) ?? '') || d
+    const base: NCol[] = [
+      { key: 'rid', label: 'ID', type: 'text', width: w('rid', 116), fixed: true },
+      { key: 'title', label: '제목', type: 'text', width: w('title', 420), fixed: true },
+      { key: 'model_group', label: '모델그룹', type: 'text', width: w('model_group', 96) },
+      { key: 'model', label: '모델명', type: 'text', width: w('model', 88) },
+      { key: 'cov', label: 'Coverage', type: 'text', width: w('cov', 92) },
+      { key: 'tcmap', label: 'TC Map', type: 'text', width: w('tcmap', 116) },
+    ]
+    const KIND: Record<string, { kind: string; field: string }> = {
+      f_status: { kind: 'req_status', field: 'status' },
+      f_priority: { kind: 'req_priority', field: 'priority' },
+    }
+    for (const c of visCols) {
+      const m = KIND[c.k]
+      base.push(
+        m
+          ? { key: m.field, label: c.label, type: 'select', width: w(m.field, 96), options: optsOf(m.kind) }
+          : { key: c.k, label: c.label, type: 'text', width: w(c.k, 96) },
+      )
+    }
+    const withHide = base.map((c) => ({ ...c, hidden: prefGet(`utop.ntb.hide.r_${c.key}`) === '1' }))
+    const ord = (prefGet('utop.ntb.order.r') ?? '').split(',').filter(Boolean)
+    if (ord.length)
+      withHide.sort((a, b) => {
+        const ia = ord.indexOf(a.key)
+        const ib = ord.indexOf(b.key)
+        return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib)
+      })
+    return withHide
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visCols, codesQ.data, nColRev])
 
   /** 노션 표의 줄 — 지금 폴더·프로젝트로 좁힌 시험들 */
   const nRows = useMemo<NRow[]>(
@@ -856,6 +950,13 @@ export default function ReqTc({ me }: Props) {
           severity: String(t.severity ?? ''),
           run_type: String(t.run_type ?? t.kind ?? ''),
           origin: String((t as unknown as Record<string, unknown>).origin ?? ''),
+          /* 만든 칸(cf_)은 최상위가 아니라 custom 안에 산다 — 안 펴면
+             늘 비어 보였다(검증) */
+          ...Object.fromEntries(
+            Object.entries(((t as unknown as { custom?: Record<string, unknown> }).custom ?? {})).map(
+              ([k, v]) => [`cf_${k}`, String(v ?? '')],
+            ),
+          ),
         }
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -989,6 +1090,9 @@ export default function ReqTc({ me }: Props) {
   useEffect(() => {
     setOpenReq('')
     setOpenTc('')
+    /* 목록이 통째로 갈리면 고른 줄도 푼다 — 남으면 딴 종류의 id 로
+       Edit·Delete 가 나간다(검증) */
+    setSel(new Set())
   }, [mode, cat, prjs])
   useEffect(() => {
     if (page > pageN) setPage(pageN)
@@ -1881,7 +1985,7 @@ export default function ReqTc({ me }: Props) {
             )}
             {/* 세로선 — 왼쪽은 「무엇을 볼지·무엇을 만들지」, 오른쪽은
                 「지금 어디를 보고 있나」(빵부스러기)다(지시). */}
-            {mode === 'tc' && (
+            {(
               <button
                 type="button"
                 className={`rqtc-ib${ntb ? ' on' : ''}`}
@@ -2087,7 +2191,7 @@ export default function ReqTc({ me }: Props) {
                 />
               </>
             )}
-            <ListSortBtn value={listSort} onChange={setListSort} />
+            {!nOwn && <ListSortBtn value={listSort} onChange={setListSort} />}
             <button
               type="button"
               className="rqtc-ib"
@@ -2204,7 +2308,64 @@ export default function ReqTc({ me }: Props) {
             </div>
           ) : (
           <div className="rqtc-tbl">
-            {mode === 'req' ? (
+            {mode === 'req' && ntb ? (
+              /* 요구사항도 노션 꼴로(지시) — 켰을 때만. 옛 표는 그대로 있다 */
+              <NTable
+                columns={nReqCols}
+                rows={nReqRows}
+                view={nview}
+                onView={setNview}
+                lockDefs
+                onColumns={(cs) => {
+                  for (const c of cs) {
+                    if (c.width) prefSet(`utop.ntb.w.r_${c.key}`, String(c.width))
+                    prefSet(`utop.ntb.hide.r_${c.key}`, c.hidden ? '1' : '0')
+                  }
+                  prefSet('utop.ntb.order.r', cs.map((c) => c.key).join(','))
+                  setNColRev((n) => n + 1)
+                }}
+                onCell={(id, key, v) => void setOneField('req', id, { [key]: v })}
+                readOnlyKeys={['model_group', 'model', 'cov', 'tcmap']}
+                idKey="rid"
+                titleKey="title"
+                onOpen={(id) => {
+                  setOpenReq(id)
+                  setOpenTab('info')
+                }}
+                onPeek={(id) => setPop({ kind: 'req', id })}
+                onBulk={(a, ids) => {
+                  if (a === 'del') void deletePicked(ids)
+                  else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
+                }}
+                renderCell={(r, c) => {
+                  if (c.key === 'cov') {
+                    const n = (tcOf.get(r.__id) ?? []).length
+                    return <span className={`rqtc-cov ${n ? 'ok' : 'no'}`}>{n ? `TC ${n}` : '미커버'}</span>
+                  }
+                  if (c.key === 'tcmap') {
+                    const ts = tcOf.get(r.__id) ?? []
+                    if (!ts.length) return <span className="ntb-empty">–</span>
+                    return (
+                      <span>
+                        <button
+                          type="button"
+                          className="rqtc-rid tc"
+                          onClick={() => setPop({ kind: 'tc', id: ts[0]!.tcid })}
+                        >
+                          {ts[0]!.tcid}
+                        </button>
+                        {ts.length > 1 && (
+                          <button type="button" className="rqtc-more-n" onClick={() => goTcOf(r.__id)}>
+                            +{ts.length - 1}
+                          </button>
+                        )}
+                      </span>
+                    )
+                  }
+                  return undefined
+                }}
+              />
+            ) : mode === 'req' ? (
               <>
                 <div className="rqtc-tr rqtc-th" style={{ gridTemplateColumns: gridOf(false) }}>
                   <div className="c-chk">
@@ -2415,13 +2576,16 @@ export default function ReqTc({ me }: Props) {
                 rows={nRows}
                 view={nview}
                 onView={setNview}
+                lockDefs
                 onColumns={(cs) => {
-                  /* 폭·숨김은 계정별 보기 설정에 남긴다(서버로 따라간다).
-                     선택지·색은 SETUP 이 정본이라 여기서 안 건드린다. */
+                  /* 폭·숨김·순서는 계정별 보기 설정에 남긴다(서버로 따라간다).
+                     선택지·색·이름은 SETUP 이 정본이라 표에서 잠갔다(lockDefs). */
                   for (const c of cs) {
                     if (c.width) prefSet(`utop.ntb.w.${c.key}`, String(c.width))
                     prefSet(`utop.ntb.hide.${c.key}`, c.hidden ? '1' : '0')
                   }
+                  prefSet('utop.ntb.order', cs.map((c) => c.key).join(','))
+                  setNColRev((n) => n + 1)
                 }}
                 onCell={(id, key, v) => void setOneField('tc', id, { [key]: v })}
                 readOnlyKeys={['model_group', 'model', 'last', 'req']}
@@ -2430,10 +2594,9 @@ export default function ReqTc({ me }: Props) {
                 onOpen={(id) => setOpenTc(id)}
                 onPeek={(id) => setPop({ kind: 'tc', id })}
                 onBulk={(a, ids) => {
-                  /* 고른 줄을 기존 일괄 통로(sel)로 넘긴다 — 삭제는 이미
-                     있는 deletePicked 가 확인창까지 갖고 있다. 나머지 일괄은
-                     다음 차례(지금 없는 것을 있는 척하지 않는다). */
-                  setSel(new Set(ids))
+                  /* 이 표는 제 선택을 스스로 들고 있다 — sel 에 옮겨 담으면
+                     아래 일괄 바가 둘이 되어 서로를 덮었다(검증).
+                     삭제는 ids 를 그대로 넘긴다(확인창은 deletePicked 몫). */
                   if (a === 'del') void deletePicked(ids)
                   else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
                 }}
@@ -2674,7 +2837,7 @@ export default function ReqTc({ me }: Props) {
               **상세를 열면 감춘다**(지시). 그 줄은 목록이 몇 건인지를 말하는데,
               지금 화면에 목록이 없다. 「1 – 62 of 62」 가 상세 밑에 남아 있으면
               무엇을 세는 숫자인지 알 수 없다. */}
-          {!gpOpen && !openTc && !openReq && (
+          {!gpOpen && !openTc && !openReq && !nOwn && (
           <div className="rqtc-pager">
             <span className="rqtc-pgn">
               {rowsN === 0 ? 0 : from + 1} – {Math.min(from + per, rowsN)}

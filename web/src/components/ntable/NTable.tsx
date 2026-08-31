@@ -41,6 +41,9 @@ export interface NTableProps {
   renderCell?: (row: NRow, col: NCol) => React.ReactNode | undefined
   /** 값이 못 고치는 칸(계산된 값 등) */
   readOnlyKeys?: string[]
+  /** 필드 **정의**(이름·타입·선택지·삽입·복제·삭제)를 잠근다 — 아직
+      저장할 곳이 없는 화면에서 있는 척하지 않으려고(검증) */
+  lockDefs?: boolean
   /** ID 로 쓸 열쇠(링크 꼴로 그린다) */
   idKey?: string
   /** 제목으로 쓸 열쇠(아이콘·열기 단추가 붙는다) */
@@ -62,7 +65,7 @@ export default function NTable(p: NTableProps) {
   const {
     columns, rows, view, onView, onColumns, onCell,
     people = [], meName, onOpen, onPeek, onNew, onBulk,
-    renderCell, readOnlyKeys = [],
+    renderCell, readOnlyKeys = [], lockDefs,
     idKey = 'id', titleKey = 'title', title, busy,
   } = p
 
@@ -399,12 +402,14 @@ export default function NTable(p: NTableProps) {
           <thead>
             <tr>
               <th className="ntb-gp">
-                <input
-                  type="checkbox"
-                  aria-label="모두 고르기"
-                  checked={allOn}
-                  onChange={() => setChecked(allOn ? new Set() : new Set(allKeys))}
-                />
+                <div className="ntb-gpin">
+                  <input
+                    type="checkbox"
+                    aria-label="모두 고르기"
+                    checked={allOn}
+                    onChange={() => setChecked(allOn ? new Set() : new Set(allKeys))}
+                  />
+                </div>
               </th>
               {vis.map((c) => {
                 const I = TYPE_ICON[c.type]
@@ -433,6 +438,9 @@ export default function NTable(p: NTableProps) {
                   </th>
                 )
               })}
+              {/* 남는 폭은 이 빈 칸이 먹는다 — 없으면 지정 폭에 비례해
+                  모든 칸이 늘어나 번호 칸까지 넓어진다(지적) */}
+              <th className="ntb-fill" />
             </tr>
           </thead>
           <tbody>
@@ -443,7 +451,7 @@ export default function NTable(p: NTableProps) {
                 <Fragment key={`g-${g.value}`}>
                   {view.groupBy && (
                     <tr className="ntb-grh">
-                      <td colSpan={vis.length + 1}>
+                      <td colSpan={vis.length + 2}>
                         <button
                           type="button"
                           className="ntb-gtog"
@@ -479,26 +487,29 @@ export default function NTable(p: NTableProps) {
                     g.rows.map((r, i) => (
                       <tr key={r.__id} className={checked.has(r.__id) ? 'ntb-row on' : 'ntb-row'}>
                         <td className="ntb-gp">
-                          <IcDots className="ntb-grip" />
-                          <input
-                            type="checkbox"
-                            checked={checked.has(r.__id)}
-                            onChange={(e) =>
-                              setChecked((s) => {
-                                const n = new Set(s)
-                                if (e.target.checked) n.add(r.__id)
-                                else n.delete(r.__id)
-                                return n
-                              })
-                            }
-                          />
-                          <span className="ntb-no">{i + 1}</span>
+                          <div className="ntb-gpin">
+                            <IcDots className="ntb-grip" />
+                            <input
+                              type="checkbox"
+                              checked={checked.has(r.__id)}
+                              onChange={(e) =>
+                                setChecked((s) => {
+                                  const n = new Set(s)
+                                  if (e.target.checked) n.add(r.__id)
+                                  else n.delete(r.__id)
+                                  return n
+                                })
+                              }
+                            />
+                            <span className="ntb-no">{i + 1}</span>
+                          </div>
                         </td>
                         {vis.map((c) => (
                           <td key={c.key} style={{ width: wOf(c) }}>
                             {cell(r, c)}
                           </td>
                         ))}
+                        <td className="ntb-fill" />
                       </tr>
                     ))}
                 </Fragment>
@@ -506,14 +517,14 @@ export default function NTable(p: NTableProps) {
             })}
             {shown.length === 0 && (
               <tr>
-                <td colSpan={vis.length + 1} className="ntb-none">
+                <td colSpan={vis.length + 2} className="ntb-none">
                   {rows.length ? '거른 결과가 없습니다' : '아직 줄이 없습니다'}
                 </td>
               </tr>
             )}
             {onNew && (
               <tr>
-                <td colSpan={vis.length + 1}>
+                <td colSpan={vis.length + 2}>
                   <button type="button" className="ntb-add" onClick={() => onNew()}>
                     ＋ 새로 만들기
                   </button>
@@ -535,7 +546,8 @@ export default function NTable(p: NTableProps) {
         <FieldMenu
           col={curCol}
           at={menuAt}
-          canDelete={vis.length > 1}
+          canDelete={!lockDefs && vis.length > 1}
+          lockDefs={lockDefs}
           onCol={(next) => putCol(curCol.key, next)}
           onSort={(d) => addSort(curCol.key, d)}
           onFilter={() => addFilter(curCol.key)}
@@ -549,6 +561,7 @@ export default function NTable(p: NTableProps) {
       {/* ── 셀 편집기 ── */}
       {cellAt && curCell && curRow && curCell.type === 'select' && (
         <SelectEditor
+          lockDefs={lockDefs}
           col={curCell}
           value={String(curRow[curCell.key] ?? '')}
           at={cellAt}
@@ -742,19 +755,21 @@ export default function NTable(p: NTableProps) {
               </button>
             ))}
           <div className="ntb-hr" />
-          <button
-            type="button"
-            className="ntb-mi"
-            onClick={() =>
-              onColumns([
-                ...columns,
-                { key: `f_${Date.now()}`, label: '새 속성', type: 'text', width: 110 },
-              ])
-            }
-          >
-            <IcPlus />
-            <span className="l">새 속성 만들기</span>
-          </button>
+          {!lockDefs && (
+            <button
+              type="button"
+              className="ntb-mi"
+              onClick={() =>
+                onColumns([
+                  ...columns,
+                  { key: `f_${Date.now()}`, label: '새 속성', type: 'text', width: 110 },
+                ])
+              }
+            >
+              <IcPlus />
+              <span className="l">새 속성 만들기</span>
+            </button>
+          )}
           <button type="button" className="ntb-mi" onClick={() => onColumns(columns.map((c) => ({ ...c, hidden: false })))}>
             <span className="l">모두 보이기</span>
           </button>
