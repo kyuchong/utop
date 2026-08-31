@@ -646,6 +646,9 @@ export default function ReqTc({ me }: Props) {
       f_origin: { kind: 'tc_origin', field: 'origin' },
     }
     for (const c of visCols) {
+      /* 만든 칸(cf_)은 아래에서 **정의째** 편다 — 여기서도 붙이면 같은
+         필드가 열로 두 번 서고, 하나를 지우면 둘 다 사라진다(지적) */
+      if (c.k.startsWith('cf_')) continue
       const m = KIND[c.k]
       base.push(
         m
@@ -1064,6 +1067,9 @@ export default function ReqTc({ me }: Props) {
       f_priority: { kind: 'req_priority', field: 'priority' },
     }
     for (const c of visCols) {
+      /* 만든 칸(cf_)은 아래에서 **정의째** 편다 — 여기서도 붙이면 같은
+         필드가 열로 두 번 서고, 하나를 지우면 둘 다 사라진다(지적) */
+      if (c.k.startsWith('cf_')) continue
       const m = KIND[c.k]
       base.push(
         m
