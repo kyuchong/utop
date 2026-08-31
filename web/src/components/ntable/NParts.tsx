@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { PALETTE, PALETTE_KEYS, autoColor, paintOfAny } from './palette'
-import type { NCol, NOption, NPerson, NType } from './types'
+import { multiJoin, multiVals, type NCol, type NOption, type NPerson, type NType } from './types'
 import {
   IcCheck, IcCopy, IcDate, IcFilter, IcGroup, IcHide, IcLeft, IcNumber, IcPerson,
   IcPlus, IcRight, IcSelect, IcSortAsc, IcSortDesc, IcText, IcTrash, TYPE_ICON,
@@ -64,6 +64,18 @@ export function SelectEditor({
   const [q, setQ] = useState('')
   const [edit, setEdit] = useState<{ opt: NOption; x: number; y: number } | null>(null)
   const opts = col.options ?? []
+  /** 여러 개 고르는 칸이면 골라도 안 닫는다 — 계속 담을 수 있게 */
+  const many = col.type === 'multiselect'
+  const cur = many ? multiVals(value) : []
+  const has = (v: string) => (many ? cur.includes(v) : value === v)
+  const toggle = (v: string) => {
+    if (!many) {
+      onPick(v)
+      onClose()
+      return
+    }
+    onPick(multiJoin(cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]))
+  }
   const nq = q.trim().normalize('NFC').toLowerCase()
   const hit = opts.filter((o) => !nq || o.value.normalize('NFC').toLowerCase().includes(nq))
   const exact = opts.some((o) => o.value === q.trim())
@@ -85,8 +97,9 @@ export function SelectEditor({
             if (!t) return
             if (!exact && lockDefs) return /* 선택지는 SETUP 이 정본 — 여기서 못 만든다 */
             if (!exact) setOpts([...opts, { value: t, color: autoColor(t) }])
-            onPick(t)
-            onClose()
+            toggle(t)
+            if (!many) onClose()
+            setQ('')
           }
         }}
       />
@@ -97,10 +110,10 @@ export function SelectEditor({
         </button>
         {hit.map((o) => (
           <div className="ntb-opt" key={o.value}>
-            <button type="button" className="ntb-optb" onClick={() => { onPick(o.value); onClose() }}>
+            <button type="button" className="ntb-optb" onClick={() => toggle(o.value)}>
               <Pill value={o.value} color={o.color} />
             </button>
-            {o.value === value && <IcCheck className="ntb-chk" />}
+            {has(o.value) && <IcCheck className="ntb-chk" />}
             {!lockDefs && (
             <button
               type="button"
@@ -127,8 +140,9 @@ export function SelectEditor({
             onClick={() => {
               const t = q.trim()
               setOpts([...opts, { value: t, color: autoColor(t) }])
-              onPick(t)
-              onClose()
+              toggle(t)
+              if (!many) onClose()
+              setQ('')
             }}
           >
             <IcPlus />
@@ -416,7 +430,9 @@ export function FieldMenu({
   const [name, setName] = useState(col.label)
   const [typeAt, setTypeAt] = useState<{ x: number; y: number } | null>(null)
   const TYPES: Array<{ k: NType; label: string }> = [
-    { k: 'text', label: '텍스트' }, { k: 'select', label: '선택' },
+    { k: 'text', label: '텍스트' },
+    { k: 'select', label: '선택 (하나)' },
+    { k: 'multiselect', label: '선택 (여러 개)' },
     { k: 'number', label: '숫자' }, { k: 'date', label: '날짜' }, { k: 'person', label: '사람' },
   ]
   const Cur = TYPE_ICON[col.type]

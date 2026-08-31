@@ -1627,6 +1627,8 @@ CF_TYPES = {
     "textarea": "여러 줄 글",
     "number": "숫자",
     "select": "고르기",
+    # 여러 개를 함께 고르는 칸 — 값은 쉼표로 이어 담는다("기능, 성능")
+    "multiselect": "여러 개 고르기",
     "date": "날짜",
     "checkbox": "예/아니오",
 }
@@ -1667,7 +1669,7 @@ async def cf_upsert(item: dict) -> int:
         raise ValueError(f"알 수 없는 종류입니다: {ftype}")
 
     options = (item.get("options") or "").strip()
-    if ftype == "select" and not options:
+    if ftype in ("select", "multiselect") and not options:
         raise ValueError("고르기 항목은 고를 값을 한 줄에 하나씩 적어야 합니다")
 
     # id 가 오면 그 행을 고친다. key 를 바꾸는 경우가 있어서 (target, key)

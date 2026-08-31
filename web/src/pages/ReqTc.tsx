@@ -20,6 +20,7 @@ import GlobalParams from '@/components/settings/GlobalParams'
 import NTable from '@/components/ntable/NTable'
 import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
+import { paintOfAny } from '@/components/ntable/palette'
 import { type CfType, type CfMeta, type CustomField } from '@/hooks/useCustomFields'
 import ListSortBtn, {
   FolderSortBtn,
@@ -409,6 +410,64 @@ export default function ReqTc({ me }: Props) {
     await cfQ.refetch()
     setNColRev((n2) => n2 + 1)
   }
+  /** 기본 열(상태·유형·중요도·타입·구분)이 쓰는 코드 종류 — 설정이 정본 */
+  const KIND_OF: Record<string, string> =
+    mode === 'req'
+      ? { status: 'req_status', priority: 'req_priority' }
+      : {
+          type: 'tc_type',
+          status: 'tc_status',
+          severity: 'tc_severity',
+          run_type: 'tc_run_type',
+          origin: 'tc_origin',
+        }
+  /**
+   * 기본 열의 **선택지·색**을 SETUP 코드에 저장한다.
+   *
+   * 여태 표에서 값을 더하거나 색을 골라도 아무 데도 안 갔다 — 그래서
+   * 「자동/수동을 고를 수 없다」(tc_run_type 에 값이 하나도 없었다),
+   * 「색을 못 지정한다」 였다(지적). 색은 **hex 로** 담는다: 다른 화면들이
+   * 그 값을 그대로 배경색으로 쓰기 때문이다.
+   */
+  const codeApply = async (before: NCol[], after: NCol[]) => {
+    let hit = false
+    for (const a of after) {
+      const kind = KIND_OF[a.key]
+      if (!kind || (a.type !== 'select' && a.type !== 'multiselect')) continue
+      const b = before.find((x) => x.key === a.key)
+      const was = b?.options ?? []
+      const now = a.options ?? []
+      for (const [i, o] of now.entries()) {
+        const prev = was.find((x) => x.value === o.value)
+        if (prev && prev.color === o.color) continue
+        const hex = o.color?.startsWith('#') ? o.color : (paintOfAny(o.color).dot ?? '')
+        await apiFetch('/api/codes', {
+          method: 'POST',
+          body: JSON.stringify({
+            kind,
+            value: o.value,
+            sort_order: i,
+            note: JSON.stringify({ color: hex, fg: '#fff' }),
+          }),
+        })
+        hit = true
+      }
+      for (const o of was) {
+        if (now.some((x) => x.value === o.value)) continue
+        if (!window.confirm(`「${o.value}」 를 고를 값 목록에서 지웁니다.\n이미 이 값으로 저장된 줄의 글자는 그대로 남습니다.`))
+          continue
+        await apiFetch(`/api/codes/${encodeURIComponent(kind)}/${encodeURIComponent(o.value)}`, {
+          method: 'DELETE',
+        })
+        hit = true
+      }
+    }
+    if (hit) {
+      await codesQ.refetch()
+      setNColRev((n) => n + 1)
+    }
+  }
+
   /** 만든 칸의 색은 note 에 담는다 — 서버의 options 는 값만 담는 글자라서 */
   const cfColors = (f2: CustomField): Record<string, string> => {
     try {
@@ -2381,6 +2440,7 @@ export default function ReqTc({ me }: Props) {
                   /* 이름·타입·새 필드·삭제는 **필드 정의**로 간다(지시:
                      SETUP 커스텀 필드 화면을 없애고 표에서 바로) */
                   cfApply(nReqCols, cs)
+                  void codeApply(nReqCols, cs)
                   for (const c of cs) {
                     if (c.width) prefSet(`utop.ntb.w.r_${c.key}`, String(c.width))
                     prefSet(`utop.ntb.hide.r_${c.key}`, c.hidden ? '1' : '0')
@@ -2474,6 +2534,7 @@ export default function ReqTc({ me }: Props) {
                 onColumns={(cs) => {
                   /* 이름·타입·새 필드·삭제는 **필드 정의**로 간다(지시) */
                   cfApply(nCols, cs)
+                  void codeApply(nCols, cs)
                   for (const c of cs) {
                     if (c.width) prefSet(`utop.ntb.w.${c.key}`, String(c.width))
                     prefSet(`utop.ntb.hide.${c.key}`, c.hidden ? '1' : '0')

@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { autoColor } from './palette'
-import { CALC_LABEL, type NCalc, type NCol, type NPerson, type NRow, type NView } from './types'
+import { CALC_LABEL, multiVals, type NCalc, type NCol, type NPerson, type NRow, type NView } from './types'
 import {
   DateEditor, FieldMenu, PersonEditor, Pill, Pop, SelectEditor, TextEditor,
 } from './NParts'
@@ -278,7 +278,7 @@ export default function NTable(p: NTableProps) {
           </button>
         </div>
       )
-    if (c.type === 'select')
+    if (c.type === 'select' || c.type === 'multiselect')
       return (
         <button
           type="button"
@@ -288,7 +288,20 @@ export default function NTable(p: NTableProps) {
             setCellAt({ row: r.__id, key: c.key, x: b.left, y: b.bottom + 4 })
           }}
         >
-          <Pill value={v} color={(c.options ?? []).find((o) => o.value === v)?.color} caret />
+          {c.type === 'multiselect' ? (
+            /* 여러 개 고른 칸 — 담긴 만큼 알약을 잇는다 */
+            multiVals(v).length ? (
+              <span className="ntb-multi">
+                {multiVals(v).map((x) => (
+                  <Pill key={x} value={x} color={(c.options ?? []).find((o) => o.value === x)?.color} />
+                ))}
+              </span>
+            ) : (
+              <span className="ntb-empty">–</span>
+            )
+          ) : (
+            <Pill value={v} color={(c.options ?? []).find((o) => o.value === v)?.color} caret />
+          )}
         </button>
       )
     if (c.type === 'person')
@@ -654,7 +667,7 @@ export default function NTable(p: NTableProps) {
       )}
 
       {/* ── 셀 편집기 ── */}
-      {cellAt && curCell && curRow && curCell.type === 'select' && (
+      {cellAt && curCell && curRow && (curCell.type === 'select' || curCell.type === 'multiselect') && (
         <SelectEditor
           lockDefs={lockDefs}
           col={curCell}

@@ -226,3 +226,6 @@
 .ncd-new { border: 0; background: none; color: #a8a29e; font: inherit; font-size: 12px; padding: 6px; border-radius: 6px; cursor: pointer; text-align: left; }
 .ncd-new:hover { background: #f0efed; color: #57534e; }
 .ncd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(248px, 1fr)); gap: 10px; padding: 10px 0; }
+
+/* 여러 개 고른 칸 — 알약을 잇는다 */
+.ntb-multi { display: inline-flex; gap: 3px; max-width: 100%; overflow: hidden; }

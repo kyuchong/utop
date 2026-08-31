@@ -1,4 +1,8 @@
-export type NType = 'text' | 'select' | 'number' | 'date' | 'person'
+export type NType = 'text' | 'select' | 'multiselect' | 'number' | 'date' | 'person'
+/** 여러 개 고르는 칸의 값 — 쉼표로 이어 담는다("기능, 성능") */
+export const multiVals = (v: string): string[] =>
+  String(v ?? '').split(',').map((x) => x.trim()).filter(Boolean)
+export const multiJoin = (vs: string[]): string => vs.join(', ')
 
 export interface NOption {
   value: string

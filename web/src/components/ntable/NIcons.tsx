@@ -40,9 +40,12 @@ export const IcCheck = S(<polyline points="20 6 9 17 4 12" />)
 export const IcPlus = S(<><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></>)
 export const IcOpen = S(<><path d="M7 17L17 7" /><path d="M9 7h8v8" /></>)
 
+export const IcMulti = S(<><circle cx="8" cy="8" r="5" /><circle cx="16" cy="16" r="5" /></>)
+
 export const TYPE_ICON = {
   text: IcText,
   select: IcSelect,
+  multiselect: IcMulti,
   number: IcNumber,
   date: IcDate,
   person: IcPerson,
