@@ -1,0 +1,71 @@
+/* INFO 칸 한 벌 — 요구사항·시험항목이 같이 쓴다. 접두어 ip- 하나만 */
+.ip { padding: 12px 14px 20px; display: flex; flex-direction: column; gap: 12px; }
+.ip-card {
+  background: #fff;
+  border: 1px solid var(--c-border, #e3eaec);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.ip-h {
+  padding: 8px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  border-bottom: 1px solid #f1f5f6;
+  background: #fafcfc;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.ip-h em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 400;
+  color: #93a6ab;
+}
+.ip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px 14px;
+  padding: 12px;
+}
+.ip-f { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ip-f.wide { grid-column: span 2; }
+@media (max-width: 720px) { .ip-f.wide { grid-column: span 1; } }
+.ip-f > span { font-size: 11.5px; color: #5b7176; font-weight: 600; }
+.ip-f input,
+.ip-f select {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--c-border, #e3eaec);
+  border-radius: 6px;
+  font: inherit;
+  font-size: 12.5px;
+  background: #fff;
+  box-sizing: border-box;
+}
+.ip-f input[readonly] { background: #f7fafa; color: #5b7176; }
+.ip-f select:disabled { background: #f7fafa; color: #93a6ab; }
+.ip-hint { font-style: normal; font-size: 11px; color: #93a6ab; }
+
+/* ID — 못 고치고 눌러서 이동한다 */
+.ip-id {
+  width: 100%;
+  text-align: left;
+  padding: 6px 9px;
+  border: 1px solid var(--c-border, #e3eaec);
+  border-radius: 6px;
+  background: #f7fafa;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #0d8f89;
+  cursor: pointer;
+}
+.ip-id:hover:not(:disabled) { background: #eff8f7; text-decoration: underline; }
+.ip-id:disabled { color: #5b7176; cursor: default; }
+.ip-id.none { display: block; color: #93a6ab; font-weight: 400; cursor: default; }
+
+.ip-grid.rec { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.ip-r { display: flex; flex-direction: column; gap: 2px; }
+.ip-r > span { font-size: 11.5px; color: #93a6ab; }
+.ip-r > b { font-size: 12.5px; }

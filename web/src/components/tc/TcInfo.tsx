@@ -1,12 +1,12 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import { gotoClick, gotoHref } from '@/api/goto'
-import { api, categoryApi } from '@/api/client'
+import { api, categoryApi, projectApi } from '@/api/client'
+import { goto } from '@/api/goto'
+import InfoPane from '@/components/info/InfoPane'
 import { reqLabel, reqPk } from '@/types'
 import { useCodes } from '@/hooks/useCodes'
 import { useCustomFields } from '@/hooks/useCustomFields'
-import CustomFieldInputs from '../CustomFieldInputs'
 import type { TcData } from './types'
 import './tc.css'
 
@@ -36,9 +36,6 @@ export default function TcInfo({ data, onChange }: Props) {
    * 네이티브 셀렉트는 수십 건이 되면 스크롤로 훑는 수밖에 없다.
    * 글자를 치면 경로·이름으로 걸러진 것만 남는다.
    */
-  const [reqOpen, setReqOpen] = useState(false)
-  const [reqQtext, setReqQtext] = useState('')
-  const reqBoxRef = useRef<HTMLDivElement>(null)
 
   /**
    * 붙일 요구사항을 **고른다.**
@@ -128,231 +125,104 @@ export default function TcInfo({ data, onChange }: Props) {
 
   const custom = (data.custom as Record<string, unknown>) ?? {}
 
-  const pick = (
-    label: string,
-    key: 'status' | 'run_type' | 'severity' | 'type' | 'origin',
-    opts: string[],
-  ) => (
-    <label className="fld">
-      <span>{label}</span>
-      <select value={data[key] ?? ''} onChange={(e) => onChange({ [key]: e.target.value })}>
-        <option value="">(선택)</option>
-        {opts.map((s) => (
-          <option key={s}>{s}</option>
-        ))}
-        {/* 설정에서 지운 값이 이미 저장돼 있을 수 있다. 자리를 만들지 않으면
-            다른 칸을 고치는 순간 조용히 빈 값이 된다. */}
-        {data[key] && !opts.includes(String(data[key])) && (
-          <option value={String(data[key])}>{String(data[key])} (없는 값)</option>
-        )}
-      </select>
-    </label>
-  )
+
+  /** 프로젝트 — 요구사항이 물고 있는 분류로 찾는다 */
+  const prjQ = useQuery({
+    queryKey: ['projects'],
+    queryFn: ({ signal }) => projectApi.list(signal),
+  })
+  const curReq = (reqQ.data?.reqs ?? []).find((x) => reqPk(x) === cur)
+  const catPath = useMemo(() => {
+    if (!curReq) return ''
+    const byId = new Map((catQ.data?.categories ?? []).map((c) => [c.id, c]))
+    const names: string[] = []
+    let at: string | null = String(
+      (curReq as Record<string, unknown>).cat4 ||
+        (curReq as Record<string, unknown>).cat3 ||
+        (curReq as Record<string, unknown>).cat2 ||
+        (curReq as Record<string, unknown>).cat1 ||
+        '',
+    )
+    while (at) {
+      const c = byId.get(at)
+      if (!c) break
+      names.unshift(c.name)
+      at = (c.parent_id ?? null) as string | null
+    }
+    return names.join(' › ')
+  }, [curReq, catQ.data])
+  const prjName = useMemo(() => {
+    const cats = new Set(
+      ['cat1', 'cat2', 'cat3', 'cat4']
+        .map((k) => String((curReq as Record<string, unknown> | undefined)?.[k] ?? ''))
+        .filter(Boolean),
+    )
+    const p = (prjQ.data?.projects ?? []).find((x) => cats.has(String(x.cat_id ?? '')))
+    return p ? [p.customer, p.model_group, p.model].filter(Boolean).join(' · ') : ''
+  }, [prjQ.data, curReq])
+
+  const F = (key: string, label: string, opts: string[]) => ({
+    key,
+    label,
+    value: String((data as Record<string, unknown>)[key] ?? ''),
+    options: opts,
+    onChange: (v: string) => onChange({ [key]: v } as Partial<TcData>),
+  })
 
   return (
-    <div className="tc-pane">
-      <section className="tc-card">
-        <div className="tc-card-head">
-          <b>기본</b>
-        </div>
-        {/* 윗줄은 '무엇에 대한 시험인가', 아랫줄은 '어떤 시험인가'.
-            요구사항과 제목은 글이라 넓게, 고르는 값 다섯은 좁게 한 줄에
-            나란히 둔다 — 한 격자에 섞어 흘려보내면 제목이 셀렉트만큼
-            좁아져서 긴 제목을 못 읽는다. */}
-        {/* ID 와 제목을 나란히 — 「요구사항 ID · 제목 / 시험항목 ID · 제목」
-            두 줄. ID 는 참조 번호라 읽기 전용이다. */}
-        <div className="tc-grid tc-grid-idt">
-          <label className="fld">
-            <span>요구사항 ID</span>
-            {/* **번호 자체가 링크다**(지시: 옆에 단추를 두는 것보다).
-                읽기 전용 칸에 단추를 붙이면 칸은 죽어 있는데 옆에서만
-                무언가 되는 꼴이라, 어디를 눌러야 하는지 매번 찾게 된다.
-                왼쪽 단추로 가고 Ctrl·오른쪽 단추로 새 탭 — 다른 화면과 같다. */}
-            {cur ? (
-              <a
-                className="tc-reqid-link"
-                href={gotoHref('req', cur)}
-                title={`${curReqId || cur} — 요구사항 화면에서 엽니다 (Ctrl+클릭 = 새 탭)`}
-                onClick={(e) => gotoClick(e, 'req', cur)}
-              >
-                {curReqId || cur}
-              </a>
-            ) : (
-              <input value="–" readOnly tabIndex={-1} />
-            )}
-          </label>
-          <div className="fld" ref={reqBoxRef}>
-            <span>요구사항 제목</span>
-            <div className="req-combo">
-              <input
-                value={
-                  reqOpen
-                    ? reqQtext
-                    : known
-                      ? (reqOpts.find((o) => o.pk === cur)?.label ?? '')
-                      : cur
-                        ? `${cur} (목록에 없음)`
-                        : '(연결 안 함)'
-                }
-                placeholder="검색해서 고르세요"
-                onFocus={() => {
-                  setReqOpen(true)
-                  setReqQtext('')
-                }}
-                onChange={(e) => setReqQtext(e.target.value)}
-                onBlur={() => setTimeout(() => setReqOpen(false), 150)}
-              />
-              {reqOpen && (
-                <div className="req-combo-list">
-                  <button
-                    type="button"
-                    className="muted"
-                    onMouseDown={() => {
-                      onChange({ req_id: '' })
-                      setReqOpen(false)
-                    }}
-                  >
-                    (연결 안 함)
-                  </button>
-                  {reqOpts
-                    .filter((o) => {
-                      const n = reqQtext.trim().toLowerCase()
-                      return !n || o.label.toLowerCase().includes(n)
-                    })
-                    .slice(0, 60)
-                    .map((o) => (
-                      <button
-                        key={o.pk}
-                        type="button"
-                        className={o.pk === cur ? 'on' : ''}
-                        onMouseDown={() => {
-                          onChange({ req_id: o.pk })
-                          setReqOpen(false)
-                        }}
-                      >
-                        {o.label}
-                      </button>
-                    ))}
-                </div>
-              )}
-            </div>
-          </div>
-          <label className="fld">
-            <span>시험항목 ID</span>
-            <input value={String(data.tcid ?? '') || '–'} readOnly tabIndex={-1} />
-          </label>
-          <label className="fld">
-            <span>시험항목 제목</span>
-            <input
-              value={data.name ?? ''}
-              placeholder="시험 제목"
-              onChange={(e) => onChange({ name: e.target.value })}
-            />
-          </label>
-        </div>
-
-        <div className="tc-grid tc-grid-5">
-          {pick('상태', 'status', STATUSES)}
-          {pick('실행 타입', 'run_type', RUN_TYPES)}
-          {pick('심각도', 'severity', SEVERITIES)}
-          {pick('유형', 'type', TYPES)}
-          {pick('발생 구분', 'origin', ORIGINS)}
-        </div>
-      </section>
-
-
-      {/* 적용 모델 — 모델마다 인터페이스가 달라 CLI·판정기준이 갈리므로
-          시험을 모델그룹+모델명 기준으로 만든다. 비우면 공용이고,
-          플랜 만들기가 이 기준으로 항목을 거른다. */}
-      <section className="tc-card">
-        <div className="tc-card-head">
-          <b>적용 모델</b>
-          <span className="muted small">
-            비우면 공용 — 플랜 만들기가 이 기준으로 항목을 거릅니다
-          </span>
-        </div>
-        <div className="tc-grid">
-          <label className="fld">
-            <span>모델그룹</span>
-            <select
-              value={mg}
-              onChange={(e) => onChange({ model_group: e.target.value, model: '' })}
-            >
-              <option value="">(공용)</option>
-              {(rolesQ.data?.groups ?? []).map((g) => (
-                <option key={g}>{g}</option>
-              ))}
-              {mg && !(rolesQ.data?.groups ?? []).includes(mg) && (
-                <option value={mg}>{mg} (목록에 없음)</option>
-              )}
-            </select>
-          </label>
-          <label className="fld">
-            <span>모델명</span>
-            <select
-              value={String(data.model ?? '')}
-              onChange={(e) => {
-                const m = e.target.value
-                // 모델을 고르면 그 모델의 그룹을 같이 채운다 — 따로 놀면 플랜이 못 거른다
-                const g = m ? (rolesQ.data?.model_info?.[m]?.model_group ?? mg) : mg
-                onChange({ model: m, model_group: g || mg })
-              }}
-            >
-              <option value="">{mg ? '(그룹 공용)' : '(공용)'}</option>
-              {modelOpts.map((m) => (
-                <option key={m}>{m}</option>
-              ))}
-              {!!data.model && !modelOpts.includes(String(data.model)) && (
-                <option value={String(data.model)}>{String(data.model)} (목록에 없음)</option>
-              )}
-            </select>
-          </label>
-        </div>
-      </section>
-
-      {/* 설정 → 커스텀 필드에서 늘린 칸. 기본 칸과 한 카드에 섞으면 어디까지가
-          원래 있던 것인지 알 수 없어 카드를 나눈다. */}
-      {cf.inForm.length > 0 && (
-        <section className="tc-card">
-          <div className="tc-card-head">
-            <b>추가 항목</b>
-            <span className="muted small">설정 → 커스텀 필드에서 정합니다</span>
-          </div>
-          <div className="tc-grid">
-            <CustomFieldInputs
-              flat
-              fields={cf.inForm}
-              values={custom}
-              onChange={(k, v) => onChange({ custom: { ...custom, [k]: v } })}
-            />
-          </div>
-        </section>
-      )}
-
-      <section className="tc-card">
-        <div className="tc-card-head">
-          <b>기록</b>
-          <span className="muted small">저장할 때 서버가 남깁니다</span>
-        </div>
-        <div className="tc-grid ro">
-          <div>
-            <span className="muted small">생성자</span>
-            <b>{data.created_by || '–'}</b>
-          </div>
-          <div>
-            <span className="muted small">생성일</span>
-            <b>{(data.created_at || '').slice(0, 16).replace('T', ' ') || '–'}</b>
-          </div>
-          <div>
-            <span className="muted small">변경자</span>
-            <b>{data.updated_by || '–'}</b>
-          </div>
-          <div>
-            <span className="muted small">변경일</span>
-            <b>{(data.updated_at || '').slice(0, 16).replace('T', ' ') || '–'}</b>
-          </div>
-        </div>
-      </section>
-    </div>
+    <InfoPane
+      project={prjName}
+      category={catPath}
+      req={{
+        id: cur,
+        label: curReqId || (known ? '' : cur),
+        title: curReq?.title ?? '',
+        options: reqOpts.map((o) => ({ id: o.pk, title: o.label })),
+        onPick: (id) => onChange({ req_id: id } as Partial<TcData>),
+        onGo: (id) => goto('req', id),
+        hint: '이 시험항목이 매달릴 요구사항입니다 — 바꾸면 연결이 옮겨집니다',
+      }}
+      tc={{
+        id: String(data.tcid ?? ''),
+        title: String(data.name ?? ''),
+        options: [],
+        onPick: () => {},
+        onTitle: (v) => onChange({ name: v } as Partial<TcData>),
+      }}
+      modelGroup={{
+        value: String(data.model_group ?? ''),
+        options: rolesQ.data?.groups ?? [],
+        onChange: (v) => onChange({ model_group: v, model: '' } as Partial<TcData>),
+      }}
+      model={{
+        value: String(data.model ?? ''),
+        options: modelOpts,
+        onChange: (v) => onChange({ model: v } as Partial<TcData>),
+      }}
+      fields={[
+        F('status', '상태', STATUSES),
+        F('run_type', '실행 타입', RUN_TYPES),
+        F('severity', '심각도', SEVERITIES),
+        F('type', '유형', TYPES),
+        F('origin', '발생 구분', ORIGINS),
+      ]}
+      custom={cf.inForm.map((f) => ({
+        key: `cf_${f.key}`,
+        label: f.label,
+        value: String(custom[f.key] ?? ''),
+        options:
+          f.type === 'select' || f.type === 'multiselect'
+            ? (f.options ?? '').split('\n').map((x: string) => x.trim()).filter(Boolean)
+            : undefined,
+        onChange: (v: string) =>
+          onChange({ custom: { ...custom, [f.key]: v } } as unknown as Partial<TcData>),
+      }))}
+      record={{
+        by: String(data.created_by ?? ''),
+        at: String((data as Record<string, unknown>).created_at ?? ''),
+        upBy: String(data.updated_by ?? ''),
+        upAt: String((data as Record<string, unknown>).updated_at ?? ''),
+      }}
+    />
   )
 }
