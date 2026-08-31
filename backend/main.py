@@ -12167,8 +12167,11 @@ async def api_plan_run_new(payload: dict):
     if plan_id and not plan:
         raise HTTPException(404, "플랜을 찾을 수 없습니다")
 
+    # Key 앞머리 — 모델명이 정본이고, 비면 모델그룹으로 떨어진다.
+    # 둘 다 비어야 RUN 이다(그 플랜은 아직 장비를 안 정한 것이다).
     model = str(p.get("model") or (plan or {}).get("model") or "").strip()
-    rid = await db.plan_run_next_key(model or "RUN")
+    pre = model or str((plan or {}).get("model_group") or "").strip()
+    rid = await db.plan_run_next_key(pre or "RUN")
 
     # 항목 복사 — 플랜의 items 를 결과칸이 빈 채로 떠 온다
     results = dict(p.get("results") or {})
