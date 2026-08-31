@@ -467,6 +467,9 @@ export default function NTable(p: NTableProps) {
             <tr>
               <th className="ntb-gp">
                 <div className="ntb-gpin">
+                  {/* 줄에는 끌기 손잡이가 있고 머리줄에는 없어 체크박스가
+                      25px 어긋났다(실측) — 같은 자리를 비워 맞춘다 */}
+                  <IcDots className="ntb-grip" style={{ visibility: 'hidden' }} aria-hidden="true" />
                   <input
                     type="checkbox"
                     aria-label="모두 고르기"

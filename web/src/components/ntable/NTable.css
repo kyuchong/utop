@@ -55,6 +55,8 @@
 /* 칸(td·th)에는 display:flex 를 주면 안 된다 — 표 폭 계산에서 빠져
    번호 칸이 남는 폭을 통째로 먹었다(실측). 속을 감싸는 줄로 편다. */
 .ntb-gp { width: 74px; }
+/* 머리줄 칸은 padding 0 이라 줄(2px 8px)보다 8px 왼쪽에 섰다(실측) — 맞춘다 */
+.ntb-tbl th.ntb-gp { padding: 0 8px; }
 .ntb-gpin { display: flex; align-items: center; gap: 4px; }
 .ntb-grip { color: #d6d3d1; cursor: grab; }
 .ntb-no { color: #c8c4c0; font-size: 12px; min-width: 16px; text-align: right; }
