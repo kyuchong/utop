@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import type { DragEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
@@ -160,7 +161,7 @@ const readLoad = (e: DragEvent): DragLoad | null => {
 
 export default function RackView() {
   const qc = useQueryClient()
-  const [lab, setLab] = useState(() => localStorage.getItem(LAB_KEY) ?? '')
+  const [lab, setLab] = useState(() => prefGet(LAB_KEY) ?? '')
   const [q, setQ] = useState('')
   const [form, setForm] = useState<Device | null | undefined>(undefined)
   const [tip, setTip] = useState<{ x: number; y: number; d: RvDevice } | null>(null)
@@ -231,7 +232,7 @@ export default function RackView() {
   const curLab = labs.some((l) => l.id === lab) ? lab : (labs[0]?.id ?? '')
   const pickLab = (id: string) => {
     setLab(id)
-    localStorage.setItem(LAB_KEY, id)
+    prefSet(LAB_KEY, id)
   }
 
   const racks = useMemo(

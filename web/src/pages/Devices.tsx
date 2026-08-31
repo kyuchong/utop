@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import DeviceCatalog from '@/components/settings/DeviceCatalog'
 import DeviceGrid from '@/components/devices/DeviceGrid'
 import './Devices.css'
@@ -301,11 +302,11 @@ export function EditCell({
  */
 export default function Devices({ me }: Props) {
   const [layout, setLayout] = useState<'table' | 'tree'>(() =>
-    localStorage.getItem('utop.dev.layout') === 'tree' ? 'tree' : 'table',
+    prefGet('utop.dev.layout') === 'tree' ? 'tree' : 'table',
   )
   const pick = (v: 'table' | 'tree') => {
     setLayout(v)
-    localStorage.setItem('utop.dev.layout', v)
+    prefSet('utop.dev.layout', v)
   }
 
   return (

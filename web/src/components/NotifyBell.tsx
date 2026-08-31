@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch } from '@/api/client'
 import { goto, type GotoKind } from '@/api/goto'
@@ -69,7 +70,7 @@ function lineOf(
 export default function NotifyBell({ collapsed }: { collapsed?: boolean }) {
   const [items, setItems] = useState<AuditItem[]>([])
   const [open, setOpen] = useState(false)
-  const [seenId, setSeenId] = useState<number>(() => Number(localStorage.getItem(SEEN) || 0))
+  const [seenId, setSeenId] = useState<number>(() => Number(prefGet(SEEN) || 0))
   const boxRef = useRef<HTMLDivElement | null>(null)
 
   /* 속 열쇠 → 사람이 읽는 이름. 목록은 화면 어딘가가 이미 받아 두었으므로
@@ -136,7 +137,7 @@ export default function NotifyBell({ collapsed }: { collapsed?: boolean }) {
     const top = items[0]?.id ?? 0
     if (top > seenId) {
       setSeenId(top)
-      localStorage.setItem(SEEN, String(top))
+      prefSet(SEEN, String(top))
     }
   }, [open, items, seenId])
 

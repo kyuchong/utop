@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { goto } from '@/api/goto'
@@ -112,7 +113,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
 
   const [ws, setWs] = useState<Set<string>>(() => {
     try {
-      const raw = localStorage.getItem('utop.dash.widgets2')
+      const raw = prefGet('utop.dash.widgets2')
       if (raw) return new Set(JSON.parse(raw) as string[])
     } catch {
       /* 깨진 저장값이면 기본(전부) */
@@ -124,7 +125,7 @@ export default function Dashboard({ onNav }: { onNav: (k: string) => void }) {
       const n = new Set(cur)
       if (n.has(k)) n.delete(k)
       else n.add(k)
-      localStorage.setItem('utop.dash.widgets2', JSON.stringify([...n]))
+      prefSet('utop.dash.widgets2', JSON.stringify([...n]))
       return n
     })
   const [gearAt, setGearAt] = useState<{ x: number; y: number } | null>(null)

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { prefGet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch } from '@/api/client'
 import IdPill from '@/components/IdPill'
@@ -95,7 +96,7 @@ export default function CyclePlan({
     (!!c.end_date && String(c.end_date).slice(0, 10) < today)
 
   /* 고른 플랜 — 기억한다. 없으면 첫 줄(요약은 상시다) */
-  const [sel] = useState(() => localStorage.getItem('utop.cycle.plan') ?? '')
+  const [sel] = useState(() => prefGet('utop.cycle.plan') ?? '')
   /* 실행 ID(ceid) 부여 — 멱등이라 볼 때마다 쳐도 된다. 실행 화면에
      들어가야만 부여되던 탓에, 플랜에서 갓 만든 플랜의 항목들은 ceid 가
      비어 인라인 수정이 「첫 번째 빈 항목」 을 덮었다(검증: 데이터 오염). */

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import DeviceForm, { expandRange } from '@/components/DeviceForm'
@@ -48,7 +49,7 @@ interface Row {
  */
 export default function DeviceGrid({ me }: { me?: { username?: string; role?: string } | null }) {
   const qc = useQueryClient()
-  const [lab, setLab] = useState<string>(() => localStorage.getItem('utop.dev.lab') || '')
+  const [lab, setLab] = useState<string>(() => prefGet('utop.dev.lab') || '')
   const [q, setQ] = useState('')
   const [colF, setColF] = useState<Record<string, string[]>>({})
   const [note, setNote] = useState<{ kind: string; msg: string }>({ kind: '', msg: '' })
@@ -65,7 +66,7 @@ export default function DeviceGrid({ me }: { me?: { username?: string; role?: st
     const t = setTimeout(() => setNote({ kind: '', msg: '' }), note.kind === 'err' ? 8000 : 3000)
     return () => clearTimeout(t)
   }, [note])
-  useEffect(() => localStorage.setItem('utop.dev.lab', lab), [lab])
+  useEffect(() => prefSet('utop.dev.lab', lab), [lab])
 
   const devQ = useQuery({
     queryKey: ['devices'],

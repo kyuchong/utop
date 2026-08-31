@@ -1,4 +1,5 @@
 import { Component, StrictMode, type ReactNode } from 'react'
+import { prefRemove } from '@/lib/prefs'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from '@/App'
@@ -55,7 +56,7 @@ class Boundary extends Component<{ children: ReactNode }, { err: string }> {
         <b>화면이 그리다 멈췄습니다 — 아래 글을 그대로 전달해 주세요.</b>
         {'\n\n' + this.state.err.slice(0, 2000)}
         {'\n\n'}
-        <button type="button" onClick={() => { localStorage.removeItem('utop.page'); window.location.href = window.location.pathname }}>
+        <button type="button" onClick={() => { prefRemove('utop.page'); window.location.href = window.location.pathname }}>
           기억 지우고 처음부터 열기
         </button>
       </div>

@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom'
+import { prefGet, prefSet } from '@/lib/prefs'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
@@ -211,12 +212,12 @@ interface PageProps {
 export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEmbedApi }: PageProps) {
   const qc = useQueryClient()
   const [tab, setTab] = useState<Tab>(() => {
-    const v = localStorage.getItem(TAB_KEY) as Tab | null
+    const v = prefGet(TAB_KEY) as Tab | null
     // 저장된 값이 지금 없는 탭일 수 있다(탭 이름을 바꾼 뒤). 빈 화면이 뜨느니
     // 기본으로 돌린다.
     return v && TABS.includes(v) ? v : 'steps'
   })
-  const [openId, setOpenId] = useState(() => embedTc || localStorage.getItem(OPEN_KEY) || '')
+  const [openId, setOpenId] = useState(() => embedTc || prefGet(OPEN_KEY) || '')
   /**
    * 인라인으로 보는 중인가 — 표에서 ▸ 로 펼치면 켜진다.
    *
@@ -229,14 +230,14 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
       모델그룹·모델명·REQ Map 은 고정 열이라 ⚙ 에 없다. */
   const [cols, setCols] = useState<string[]>(() => {
     try {
-      const v = JSON.parse(localStorage.getItem('utop.tc.infocols') || '')
+      const v = JSON.parse(prefGet('utop.tc.infocols') || '')
       return Array.isArray(v) ? (v as string[]) : COL_DEFAULT
     } catch {
       return COL_DEFAULT
     }
   })
   useEffect(() => {
-    localStorage.setItem('utop.tc.infocols', JSON.stringify(cols))
+    prefSet('utop.tc.infocols', JSON.stringify(cols))
   }, [cols])
   const [colsOpen, setColsOpen] = useState(false)
   /** 판(버전) 이력 창 */
@@ -269,11 +270,11 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
   const [gpOpen, setGpOpen] = useState(false)
   /** 1열 폴더 차례 — 요구사항 화면과 같은 저장 키를 쓴다(두 트리가 같은 순서) */
   const [folderSort, setFolderSort] = useState<'manual' | 'num' | 'abc' | 'kor'>(() => {
-    const v = localStorage.getItem('utop.req.foldersort')
+    const v = prefGet('utop.req.foldersort')
     return v === 'manual' || v === 'num' || v === 'abc' || v === 'kor' ? v : 'num'
   })
   useEffect(() => {
-    localStorage.setItem('utop.req.foldersort', folderSort)
+    prefSet('utop.req.foldersort', folderSort)
   }, [folderSort])
   const [form, setForm] = useState<TestCaseMeta | null | undefined>(undefined)
   const [bulkOpen, setBulkOpen] = useState(false)
@@ -348,11 +349,11 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
    * 한다. 접으면 폭은 그대로 기억해 두었다가 펼 때 되돌린다.
    */
   const [listOpen, setListOpen] = useState(
-    () => !embedTc && localStorage.getItem('utop.tc.listOpen') !== '0',
+    () => !embedTc && prefGet('utop.tc.listOpen') !== '0',
   )
   useEffect(() => {
     if (embedTc) return
-    localStorage.setItem('utop.tc.listOpen', listOpen ? '1' : '0')
+    prefSet('utop.tc.listOpen', listOpen ? '1' : '0')
   }, [listOpen, embedTc])
   // 기본값을 바꿀 때는 key 도 올린다 — 이미 저장된 옛 값이 이겨서 아무도
   // 변화를 못 본다(Resizer.tsx 주석). 3열이 남는 폭을 갖게 되면서 2열의
@@ -494,11 +495,11 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
    */
   /** 2열 목록 정렬 — 기본은 **트리 순서**(지시) */
   const [listSort, setListSort] = useState<ListSortMode>(() => {
-    const v = localStorage.getItem('utop.tc.listsort')
+    const v = prefGet('utop.tc.listsort')
     return v === 'name' || v === 'recent' ? v : 'tree'
   })
   useEffect(() => {
-    localStorage.setItem('utop.tc.listsort', listSort)
+    prefSet('utop.tc.listsort', listSort)
   }, [listSort])
 
   const listRows = useMemo(() => {
@@ -755,12 +756,12 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
    * 실패했을 때 무엇을 다시 해야 하는지 말해줄 수 없다.
    */
   useEffect(() => {
-    localStorage.setItem(TAB_KEY, tab)
+    prefSet(TAB_KEY, tab)
   }, [tab])
 
   useEffect(() => {
     if (embedTc) return // 끼워 넣기 — 원래 화면이 보던 자리를 옮기지 않는다
-    localStorage.setItem(OPEN_KEY, openId)
+    prefSet(OPEN_KEY, openId)
   }, [openId, embedTc])
 
   /**

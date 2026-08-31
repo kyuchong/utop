@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { prefGet, prefSet, prefRemove } from '@/lib/prefs'
 import IdPill from '@/components/IdPill'
 import Markdown from '@/components/Markdown'
 import { createPortal } from 'react-dom'
@@ -430,7 +431,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
   // 고르면 주소창에 남긴다 — 옛 화면의 #cycle=… 과 같은 일
   // 링크·뒤로가기로 온 채 다른 플랜을 가리키면 갈아탄다
   useEffect(() => {
-    localStorage.setItem(CY_SEL_KEY, sel)
+    prefSet(CY_SEL_KEY, sel)
   }, [sel])
   /** 이 화면(플랜 묶음)에 들어와 있는 사람들 — 상단 오른쪽 표시 몫 */
   const crowd = usePageCrowd('cycle')
@@ -438,7 +439,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
      새로고침해도 보던 화면이 유지돼야 한다. */
   const [cyView, setCyView] = useState<'list' | 'plan' | 'exec'>(() => {
     if (entry === 'runs') return 'list'
-    const v = localStorage.getItem('utop.cycle.view')
+    const v = prefGet('utop.cycle.view')
     return v === 'plan' ? v : 'list'
   })
   /* 메뉴가 곧 얼굴이다(지시: 플랜과 Run 을 잘 구분) — Cycles 메뉴는
@@ -451,8 +452,8 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
   }, [entry])
   const goView = (v: 'list' | 'plan' | 'exec', id?: string) => {
     try {
-      if (id) localStorage.setItem('utop.cycle.plan', id)
-      localStorage.setItem('utop.cycle.view', v)
+      if (id) prefSet('utop.cycle.plan', id)
+      prefSet('utop.cycle.view', v)
     } catch { /* 사생활 보호 모드 */ }
     setCyView(v)
   }
@@ -720,7 +721,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
             type="button"
             className="rq-crumb-home"
             onClick={() => {
-              localStorage.removeItem('utop.cycle.scope')
+              prefRemove('utop.cycle.scope')
               setSel('')
             }}
           >
@@ -1257,7 +1258,7 @@ function CycleBoard({
   const [gearAt2, setGearAt2] = useState<{ x: number; y: number } | null>(null)
   const [cytCols, setCytCols] = useState<Set<string>>(() => {
     try {
-      const raw = localStorage.getItem('utop.cycle.infocols')
+      const raw = prefGet('utop.cycle.infocols')
       if (raw) return new Set((JSON.parse(raw) as string[]).filter((k) => k !== 'f_customer'))
     } catch {
       /* 깨진 저장값이면 기본으로 */
@@ -1271,13 +1272,13 @@ function CycleBoard({
       const n = new Set(cur)
       if (n.has(k)) n.delete(k)
       else n.add(k)
-      localStorage.setItem('utop.cycle.infocols', JSON.stringify([...n]))
+      prefSet('utop.cycle.infocols', JSON.stringify([...n]))
       return n
     })
   /** 열 차례 — 머리글을 끌어 바꾼다(지시). 저장돼 다음에도 유지 */
   const [colOrder, setColOrder] = useState<string[]>(() => {
     try {
-      const raw = localStorage.getItem('utop.cycle.colorder')
+      const raw = prefGet('utop.cycle.colorder')
       if (raw) return JSON.parse(raw) as string[]
     } catch {
       /* 깨진 저장값이면 기본 차례 */
@@ -1306,7 +1307,7 @@ function CycleBoard({
     const b = keys.indexOf(to)
     if (a < 0 || b < 0 || a === b) return
     keys.splice(b, 0, keys.splice(a, 1)[0]!)
-    localStorage.setItem('utop.cycle.colorder', JSON.stringify(keys))
+    prefSet('utop.cycle.colorder', JSON.stringify(keys))
     setColOrder(keys)
   }
   /* 목록 줄에서 바로 고친다(지시) — 값 목록은 설정의 코드표·카탈로그를 쓴다 */
@@ -1382,11 +1383,11 @@ function CycleBoard({
   /** 머리글 클릭 정렬 — 열 이름 옆 화살표가 방향을 보여 준다 */
   /** 2열 목록 정렬 — 기본은 **트리 순서**(지시). 머리글을 누르면 그 열이 이긴다 */
   const [listSort, setListSort] = useState<ListSortMode>(() => {
-    const v = localStorage.getItem('utop.cycle.listsort')
+    const v = prefGet('utop.cycle.listsort')
     return v === 'name' || v === 'recent' ? v : 'tree'
   })
   useEffect(() => {
-    localStorage.setItem('utop.cycle.listsort', listSort)
+    prefSet('utop.cycle.listsort', listSort)
   }, [listSort])
   const [sortCol, setSortCol] = useState('')
   const [sortDir, setSortDir] = useState<1 | -1>(1)
@@ -1417,7 +1418,7 @@ function CycleBoard({
   /** 인라인 카드에 보일 필드 — 시험항목 화면과 같은 목록에서 ⚙ 로 고른다 */
   const [itCols, setItCols] = useState<Set<string>>(() => {
     try {
-      const raw = localStorage.getItem('utop.cycle.itcols')
+      const raw = prefGet('utop.cycle.itcols')
       if (raw) return new Set(JSON.parse(raw) as string[])
     } catch {
       /* 깨진 저장값이면 기본으로 */
@@ -1429,7 +1430,7 @@ function CycleBoard({
       const n = new Set(cur)
       if (n.has(k)) n.delete(k)
       else n.add(k)
-      localStorage.setItem('utop.cycle.itcols', JSON.stringify([...n]))
+      prefSet('utop.cycle.itcols', JSON.stringify([...n]))
       return n
     })
   /** ⚙ 팝업 자리 — 카드가 overflow 로 잘라먹지 않게 fixed 좌표로 띄운다 */
@@ -1722,7 +1723,7 @@ function CycleBoard({
                 onClick={() => {
                   const def = ['f_status', 'f_customer']
                   setCytCols(new Set(def))
-                  localStorage.setItem('utop.cycle.infocols', JSON.stringify(def))
+                  prefSet('utop.cycle.infocols', JSON.stringify(def))
                 }}
               >
                 기본값 복원
@@ -2914,7 +2915,7 @@ function CycleDetail({
    */
   const [hideF, setHideF] = useState<Set<string>>(() => {
     try {
-      return new Set(JSON.parse(localStorage.getItem('utop.cycle.execHide') || '[]') as string[])
+      return new Set(JSON.parse(prefGet('utop.cycle.execHide') || '[]') as string[])
     } catch {
       return new Set()
     }
@@ -2926,7 +2927,7 @@ function CycleDetail({
       const n = new Set(cur)
       if (n.has(k)) n.delete(k)
       else n.add(k)
-      localStorage.setItem('utop.cycle.execHide', JSON.stringify([...n]))
+      prefSet('utop.cycle.execHide', JSON.stringify([...n]))
       return n
     })
   /** 기존 결과를 누르면 — 항목 × 플랜 Matrix(지시) */
@@ -3246,10 +3247,10 @@ function CycleDetail({
   const oneCol = false
   /** 항목 목록을 무엇으로 묶나(지시) — 기본은 요구사항, 여태 하던 것 */
   const [grp, setGrp] = useState<string>(
-    () => localStorage.getItem('utop.cycle.grp') || 'req',
+    () => prefGet('utop.cycle.grp') || 'req',
   )
   useEffect(() => {
-    localStorage.setItem('utop.cycle.grp', grp)
+    prefSet('utop.cycle.grp', grp)
   }, [grp])
 
   /** 분류(폴더) 이름표 — cat1~4 에는 **ID** 가 들어 있어 그대로 쓰면

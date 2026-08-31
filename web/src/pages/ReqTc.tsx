@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import type React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser } from '@/api/client'
@@ -105,14 +106,14 @@ export default function ReqTc({ me }: Props) {
      주므로, 링크로 들어온 자리도 여기서 이어진다. */
   const [cat, setCat] = useState(() => {
     try {
-      return localStorage.getItem('utop.reqtc.cat') ?? ''
+      return prefGet('utop.reqtc.cat') ?? ''
     } catch {
       return ''
     }
   })
   useEffect(() => {
     try {
-      localStorage.setItem('utop.reqtc.cat', cat)
+      prefSet('utop.reqtc.cat', cat)
     } catch {
       /* 사생활 보호 모드 */
     }
@@ -122,7 +123,7 @@ export default function ReqTc({ me }: Props) {
      기억해 두고도 거기까지 가는 길만 매번 잃는 것과 같다. */
   const [openCat, setOpenCat] = useState<Set<string>>(() => {
     try {
-      const raw = localStorage.getItem('utop.reqtc.opencat')
+      const raw = prefGet('utop.reqtc.opencat')
       return new Set(raw ? (JSON.parse(raw) as string[]) : [])
     } catch {
       return new Set()
@@ -130,7 +131,7 @@ export default function ReqTc({ me }: Props) {
   })
   useEffect(() => {
     try {
-      localStorage.setItem('utop.reqtc.opencat', JSON.stringify([...openCat]))
+      prefSet('utop.reqtc.opencat', JSON.stringify([...openCat]))
     } catch {
       /* 사생활 보호 모드 */
     }
@@ -155,14 +156,14 @@ export default function ReqTc({ me }: Props) {
      고른 값은 기억한다. */
   const [fsort, setFsort] = useState<FolderSortMode>(() => {
     try {
-      return (localStorage.getItem('utop.reqtc.fsort') as FolderSortMode) || 'name'
+      return (prefGet('utop.reqtc.fsort') as FolderSortMode) || 'name'
     } catch {
       return 'name'
     }
   })
   useEffect(() => {
     try {
-      localStorage.setItem('utop.reqtc.fsort', fsort)
+      prefSet('utop.reqtc.fsort', fsort)
     } catch {
       /* 사생활 보호 모드 */
     }
@@ -170,14 +171,14 @@ export default function ReqTc({ me }: Props) {
 
   const [treeReqs, setTreeReqs] = useState(() => {
     try {
-      return localStorage.getItem('utop.reqtc.treereqs') === '1'
+      return prefGet('utop.reqtc.treereqs') === '1'
     } catch {
       return false
     }
   })
   useEffect(() => {
     try {
-      localStorage.setItem('utop.reqtc.treereqs', treeReqs ? '1' : '0')
+      prefSet('utop.reqtc.treereqs', treeReqs ? '1' : '0')
     } catch {
       /* 사생활 보호 모드 */
     }
@@ -311,9 +312,9 @@ export default function ReqTc({ me }: Props) {
 
   /* 목록 정렬 — 세 화면이 같은 세 가지를 쓴다(트리 순서·이름·최근) */
   const [listSort, setListSort] = useState<ListSortMode>(
-    () => (localStorage.getItem('utop.reqtc.listsort') as ListSortMode) || 'tree',
+    () => (prefGet('utop.reqtc.listsort') as ListSortMode) || 'tree',
   )
-  useEffect(() => localStorage.setItem('utop.reqtc.listsort', listSort), [listSort])
+  useEffect(() => prefSet('utop.reqtc.listsort', listSort), [listSort])
 
   /* INFO 열 — **설정이 정본**이다(useInfoCols 가 이름·폭을 들고 온다).
      어느 열을 볼지는 사람마다 다르니 이 브라우저에 기억한다. */
@@ -328,7 +329,7 @@ export default function ReqTc({ me }: Props) {
   const infoCols = useInfoCols(mode === 'req' ? 'req' : 'tc')
   const [showCols, setShowCols] = useState<Set<string> | null>(() => {
     try {
-      const raw = localStorage.getItem('utop.reqtc.infocols')
+      const raw = prefGet('utop.reqtc.infocols')
       if (raw) return new Set(JSON.parse(raw) as string[])
     } catch {
       /* 깨진 값이면 기본으로 */
@@ -338,7 +339,7 @@ export default function ReqTc({ me }: Props) {
     return null
   })
   useEffect(() => {
-    if (showCols) localStorage.setItem('utop.reqtc.infocols', JSON.stringify([...showCols]))
+    if (showCols) prefSet('utop.reqtc.infocols', JSON.stringify([...showCols]))
   }, [showCols])
   const isOn = (k: string) => (showCols ? showCols.has(k) : true)
   const visCols = infoCols.filter((c) => isOn(c.k))

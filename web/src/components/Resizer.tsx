@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import './Resizer.css'
 
 /**
@@ -13,12 +14,12 @@ import './Resizer.css'
  */
 export function useResizableWidth(key: string, initial: number, min = 140, max = 900) {
   const [width, setWidth] = useState<number>(() => {
-    const saved = Number(localStorage.getItem(key))
+    const saved = Number(prefGet(key))
     return Number.isFinite(saved) && saved >= min && saved <= max ? saved : initial
   })
 
   useEffect(() => {
-    localStorage.setItem(key, String(Math.round(width)))
+    prefSet(key, String(Math.round(width)))
   }, [key, width])
 
   const clamp = useCallback((v: number) => Math.min(max, Math.max(min, v)), [min, max])

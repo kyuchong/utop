@@ -681,3 +681,13 @@ CREATE TABLE IF NOT EXISTS wiki_rev (
   at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_wiki_rev_page ON wiki_rev(page_id, at DESC);
+
+-- 화면 설정(보기) — 계정을 따라다닌다(지시: PC 는 안 따라가게).
+-- username '_team' 은 「모두의 기본」 자리.
+CREATE TABLE IF NOT EXISTS user_pref (
+  username   TEXT NOT NULL,
+  key        TEXT NOT NULL,
+  value      JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (username, key)
+);

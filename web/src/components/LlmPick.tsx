@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 
@@ -56,12 +57,12 @@ export default function LlmPick({
 /** 고른 것을 자리마다 기억한다 — 키는 `utop.llm.<자리>` */
 export function useLlmPick(slot: string): [string, (v: string) => void] {
   const key = `utop.llm.${slot}`
-  const [val, setVal] = useState(() => localStorage.getItem(key) || '')
+  const [val, setVal] = useState(() => prefGet(key) || '')
   return [
     val,
     (v: string) => {
       setVal(v)
-      localStorage.setItem(key, v)
+      prefSet(key, v)
     },
   ]
 }

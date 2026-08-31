@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi } from '@/api/client'
 import '@/components/ReqForm.css'
@@ -385,7 +386,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
   const [doneSel, setDoneSel] = useState<Set<string>>(new Set())
   /** 출력 개수 단위 — 0 은 전체. 골라 두면 기억한다 */
   const [pageSize, setPageSize] = useState<number>(() => {
-    const v = Number(localStorage.getItem('utop.cycle.donepage') ?? 50)
+    const v = Number(prefGet('utop.cycle.donepage') ?? 50)
     return Number.isFinite(v) ? v : 50
   })
   const [page, setPage] = useState(0)
@@ -1241,7 +1242,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
                           const v = Number(e.target.value)
                           setPageSize(v)
                           setPage(0)
-                          localStorage.setItem('utop.cycle.donepage', String(v))
+                          prefSet('utop.cycle.donepage', String(v))
                         }}
                       >
                         <option value={20}>20개씩</option>

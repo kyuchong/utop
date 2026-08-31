@@ -1,4 +1,5 @@
 import { useEffect, useState, type ComponentType } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import LlmSettings from '@/components/settings/LlmSettings'
 import PromptSettings from '@/components/settings/PromptSettings'
 import DeviceCatalog from '@/components/settings/DeviceCatalog'
@@ -119,11 +120,11 @@ export default function Settings() {
   // 보던 항목을 기억한다 — 새로고침할 때마다 LLM 으로 돌아가면
   // 카탈로그를 고치던 사람이 매번 다시 찾아 들어가야 한다(겪었다)
   const [sec, setSec] = useState<Section>(() => {
-    const saved = localStorage.getItem('utop.set.sec')
+    const saved = prefGet('utop.set.sec')
     return SECTIONS.some((x) => x.key === saved) ? (saved as Section) : 'llm'
   })
   useEffect(() => {
-    localStorage.setItem('utop.set.sec', sec)
+    prefSet('utop.set.sec', sec)
   }, [sec])
   const cur = SECTIONS.find((s) => s.key === sec)!
 

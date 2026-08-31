@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, categoryApi, projectApi } from '@/api/client'
 import {
@@ -79,14 +80,14 @@ export default function TcTree({
 }: Props) {
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('utop.tctree.open') || '[]')
+      const saved = JSON.parse(prefGet('utop.tctree.open') || '[]')
       return new Set(Array.isArray(saved) ? saved : [])
     } catch {
       return new Set()
     }
   })
   useEffect(() => {
-    localStorage.setItem('utop.tctree.open', JSON.stringify([...openIds]))
+    prefSet('utop.tctree.open', JSON.stringify([...openIds]))
   }, [openIds])
 
   const reqQ = useQuery({

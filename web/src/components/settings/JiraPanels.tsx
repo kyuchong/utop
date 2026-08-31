@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import JiraDefaults from './JiraDefaults'
 import { apiFetch } from '@/api/client'
 import SetTabs from './SetTabs'
@@ -131,10 +132,10 @@ export default function JiraPanels() {
   /* 두 가지 일이 한 화면에 쌓여 있었다(지적) — 탭으로 가른다.
      기본값: 이슈를 어디로 낼까 · 이슈 패널: 이슈 본문에 무엇을 담을까 */
   const [tab, setTab] = useState<'def' | 'panel'>(() =>
-    localStorage.getItem('utop.jirapanel.tab') === 'def' ? 'def' : 'panel',
+    prefGet('utop.jirapanel.tab') === 'def' ? 'def' : 'panel',
   )
   useEffect(() => {
-    localStorage.setItem('utop.jirapanel.tab', tab)
+    prefSet('utop.jirapanel.tab', tab)
   }, [tab])
 
   const setAll = (kind: string, on: boolean) =>

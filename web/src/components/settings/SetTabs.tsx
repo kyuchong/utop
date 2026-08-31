@@ -12,6 +12,7 @@
  * 갈래로 돌아가 있으면, 고치던 자리를 매번 다시 찾아야 한다.
  */
 import { useEffect, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import './SetTabs.css'
 
 export default function SetTabs<T extends string>({
@@ -45,9 +46,9 @@ export default function SetTabs<T extends string>({
 /** 고른 갈래를 기억한다 — 키는 `utop.tab.<자리>` */
 export function useSetTab<T extends string>(slot: string, first: T): [T, (v: T) => void] {
   const key = `utop.tab.${slot}`
-  const [v, setV] = useState<T>(() => (localStorage.getItem(key) as T) || first)
+  const [v, setV] = useState<T>(() => (prefGet(key) as T) || first)
   useEffect(() => {
-    localStorage.setItem(key, v)
+    prefSet(key, v)
   }, [key, v])
   return [v, setV]
 }

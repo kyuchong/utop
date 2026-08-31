@@ -1,4 +1,5 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import {
   IconCycle,
   IconExecution,
@@ -134,7 +135,7 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
   const crowd = usePageCrowd('')
   // 접힘 상태는 사람마다 취향이 갈리므로 브라우저에 기억시킨다.
   const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem(COLLAPSE_KEY) === '1',
+    () => prefGet(COLLAPSE_KEY) === '1',
   )
   /** 브랜딩 — 설정에서 올린 로고·이름·글꼴. 한 번만 읽는다 */
   const [brand, setBrand] = useState<{
@@ -176,7 +177,7 @@ export default function Layout({ user, onLogout, current, onNavigate, children }
   }, [])
 
   useEffect(() => {
-    localStorage.setItem(COLLAPSE_KEY, collapsed ? '1' : '0')
+    prefSet(COLLAPSE_KEY, collapsed ? '1' : '0')
   }, [collapsed])
 
   return (

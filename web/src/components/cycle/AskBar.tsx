@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { gotoClick, gotoHref } from '@/api/goto'
@@ -246,10 +247,10 @@ export default function AskBar({ devices }: Props) {
    * 고른 갈래는 기억한다.
    */
   const [mode, setMode] = useState<'basic' | 'adv'>(() =>
-    localStorage.getItem('utop.ai.mode') === 'basic' ? 'basic' : 'adv',
+    prefGet('utop.ai.mode') === 'basic' ? 'basic' : 'adv',
   )
   useEffect(() => {
-    localStorage.setItem('utop.ai.mode', mode)
+    prefSet('utop.ai.mode', mode)
   }, [mode])
   const [devId, setDevId] = useState('')
   const [err, setErr] = useState('')
@@ -274,13 +275,13 @@ export default function AskBar({ devices }: Props) {
   /** 이 브라우저에서 감춘 오프너 — 남의 화면은 그대로다 */
   const [exHide, setExHide] = useState<string[]>(() => {
     try {
-      return JSON.parse(localStorage.getItem('utop.ai.exhide') || '[]') as string[]
+      return JSON.parse(prefGet('utop.ai.exhide') || '[]') as string[]
     } catch {
       return []
     }
   })
   useEffect(() => {
-    localStorage.setItem('utop.ai.exhide', JSON.stringify(exHide))
+    prefSet('utop.ai.exhide', JSON.stringify(exHide))
   }, [exHide])
   const [exSay, setExSay] = useState('')
   const [amAdmin, setAmAdmin] = useState(false)

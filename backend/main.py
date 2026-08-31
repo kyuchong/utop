@@ -1474,6 +1474,63 @@ async def api_me_change_password(payload: dict, token: str = ""):
         _delete_one_session(k)
     return {"ok": True}
 
+_PREF_VAL_MAX = 64 * 1024      # 키당 64KB
+_PREF_TOTAL_MAX = 1024 * 1024  # 요청 총량 1MB
+
+
+def _check_pref_values(values) -> None:
+    """화면 설정 값 검사 — 문자열만, 크기 상한(검증: 100MB 폭탄·무한 누적)."""
+    if not isinstance(values, dict) or len(values) > 300:
+        raise HTTPException(400, "values(dict, 300개 이하)로 보내세요")
+    total = 0
+    for k, v in values.items():
+        if not isinstance(k, str) or not k or len(k) > 128:
+            raise HTTPException(400, "키는 128자 이하 문자열이어야 합니다")
+        if v is None:
+            continue
+        if not isinstance(v, str):
+            raise HTTPException(400, "값은 화면이 저장한 문자열 그대로 보내세요")
+        if len(v) > _PREF_VAL_MAX:
+            raise HTTPException(400, f"값이 너무 큽니다({k}) — 키당 64KB 이하")
+        total += len(v)
+    if total > _PREF_TOTAL_MAX:
+        raise HTTPException(400, "전체 크기가 너무 큽니다 — 요청당 1MB 이하")
+
+
+@app.get("/api/prefs")
+async def prefs_get_ep():
+    """화면 설정(보기) — 계정별(지시: PC 는 안 따라간다). 내 것 + 팀 기본."""
+    sess = _CUR_SESSION.get()
+    who = str((sess or {}).get("username") or "")
+    if not who:
+        raise HTTPException(401, "로그인이 필요합니다")
+    return {"mine": await db.prefs_get(who), "team": await db.prefs_get("_team")}
+
+
+@app.post("/api/prefs")
+async def prefs_set_ep(body: dict):
+    sess = _CUR_SESSION.get()
+    who = str((sess or {}).get("username") or "")
+    if not who:
+        raise HTTPException(401, "로그인이 필요합니다")
+    values = body.get("values")
+    _check_pref_values(values)
+    if await db.prefs_count(who) + len(values) > 500:
+        raise HTTPException(400, "저장된 설정이 너무 많습니다 — 초기화 후 다시 시도하세요")
+    await db.prefs_set(who, values)
+    return {"ok": True}
+
+
+@app.post("/api/prefs-team")
+async def prefs_team_ep(body: dict, token: str = ""):
+    """「모두의 기본으로 저장」 — 관리자만. 신규 계정·초기화의 기본이 된다."""
+    _require_admin(token)
+    values = body.get("values")
+    _check_pref_values(values)
+    await db.prefs_set("_team", values)
+    return {"ok": True}
+
+
 @app.get("/api/user-names")
 async def api_user_names(token: str = ""):
     """담당자 드롭다운용 — **이름만**. /api/users 는 관리자 전용이라

@@ -827,6 +827,39 @@ async def sessions_all() -> dict[str, dict]:
 # ══════════════════════════════════════════════════════════════════════
 # 스키마 적용
 # ══════════════════════════════════════════════════════════════════════
+async def prefs_count(username: str) -> int:
+    async with pool().acquire() as c:
+        return int(await c.fetchval("SELECT count(*) FROM user_pref WHERE username=$1", username) or 0)
+
+
+async def prefs_get(username: str) -> dict:
+    """한 사람의 화면 설정 전부 — {key: 값}. 값은 화면이 넣은 그대로."""
+    async with pool().acquire() as c:
+        rows = await c.fetch("SELECT key, value FROM user_pref WHERE username=$1", username)
+    # 커넥션 jsonb 코덱이 이미 파이썬 값으로 돌려준다 — 더 벗기면 안 된다
+    return {r["key"]: r["value"] for r in rows}
+
+
+async def prefs_set(username: str, values: dict) -> None:
+    """여러 키를 한 번에 — 값이 None 이면 지운다(기본으로 되돌리기)."""
+    async with pool().acquire() as c:
+        async with c.transaction():
+            for k, v in values.items():
+                if v is None:
+                    await c.execute(
+                        "DELETE FROM user_pref WHERE username=$1 AND key=$2", username, str(k)
+                    )
+                else:
+                    await c.execute(
+                        """INSERT INTO user_pref (username, key, value, updated_at)
+                           VALUES ($1, $2, $3::jsonb, now())
+                           ON CONFLICT (username, key)
+                           DO UPDATE SET value = EXCLUDED.value, updated_at = now()""",
+                        # 코덱이 인코딩한다 — 여기서 dumps 하면 겹싸인다(검증: _repair_double_json 사고 재현)
+                        username, str(k), v,
+                    )
+
+
 async def apply_schema() -> None:
     """db/schema.sql 을 기동할 때마다 적용한다.
 

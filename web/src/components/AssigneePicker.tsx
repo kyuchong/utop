@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import './AssigneePicker.css'
@@ -16,7 +17,7 @@ const RECENT_KEY = 'utop.ass.recent'
 const RECENT_ORG = '★ 최근'
 const readRecent = (): string[] => {
   try {
-    return (JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]') as string[]).slice(0, 8)
+    return (JSON.parse(prefGet(RECENT_KEY) ?? '[]') as string[]).slice(0, 8)
   } catch {
     return []
   }
@@ -25,7 +26,7 @@ const pushRecent = (name: string) => {
   if (!name) return
   try {
     const v = [name, ...readRecent().filter((x) => x !== name)].slice(0, 8)
-    localStorage.setItem(RECENT_KEY, JSON.stringify(v))
+    prefSet(RECENT_KEY, JSON.stringify(v))
   } catch {
     /* 사생활 보호 모드 */
   }

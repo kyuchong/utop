@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { prefGet, prefSet, hydratePrefs, flushPrefs, resetPrefs } from '@/lib/prefs'
 import Layout from '@/components/Layout'
 import Login from '@/components/Login'
 import { apiFetch, authApi, getToken, setToken, type MeUser } from '@/api/client'
@@ -36,7 +37,7 @@ export default function App() {
   // 요구사항으로 튕기면 다시 찾아 들어가야 한다.
   const [page, setPageRaw] = useState(() => {
     try {
-      const p = localStorage.getItem(PAGE_KEY) || 'reqtc'
+      const p = prefGet(PAGE_KEY) || 'reqtc'
       /* 지운 화면의 이름이 기억에 남아 있으면 「아직 안 옮겼습니다」 백지가
          나온다(지적: 이상한 페이지) — Requirements·Coverage 는 REQ-Coverage
          로 합쳐졌으므로 그리로 보낸다. */
@@ -59,7 +60,7 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(PAGE_KEY, page)
+      prefSet(PAGE_KEY, page)
     } catch {
       /* 사생활 보호 모드에서 저장이 막혀도 화면은 돌아야 한다 */
     }
@@ -89,6 +90,16 @@ export default function App() {
 
   // undefined = 확인 중 / null = 로그인 필요
   const [user, setUser] = useState<MeUser | null | undefined>(undefined)
+  /* 화면 설정(보기)은 계정을 따라다닌다(지시) — 로그인한 계정의 것을
+     서버에서 내려받은 **뒤에** 화면을 세운다. 먼저 세우면 그 PC 의 옛
+     localStorage 값으로 초기화돼 버린다. */
+  const [prefsReady, setPrefsReady] = useState(false)
+  useEffect(() => {
+    if (!user) return
+    setPrefsReady(false)
+    void hydratePrefs(String(user.username ?? user.name ?? '')).finally(() => setPrefsReady(true))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.username])
 
   // 저장된 토큰이 아직 살아 있는지 확인한다. 만료됐는데 앱을 띄우면
   // 모든 호출이 401 로 떨어져서 화면이 텅 빈 채로 남는다.
@@ -159,7 +170,7 @@ export default function App() {
           window.history.replaceState({ utop: true }, '', `${window.location.pathname}?${p}`)
         }
         try {
-          localStorage.setItem(store, id)
+          prefSet(store, id)
         } catch {
           /* 사생활 보호 모드 */
         }
@@ -216,27 +227,27 @@ export default function App() {
            그래서 「아직 새 UI로 옮기지 않았습니다」 벽이 떴다.
            시험(tc)은 'testcases' 로 보내고 있었는데 그것도 없어진 화면이다. */
         if (kind === 'tc') {
-          localStorage.setItem('utop.tc.open', id)
+          prefSet('utop.tc.open', id)
           setPage('reqtc')
         } else if (kind === 'cat') {
-          localStorage.setItem('utop.reqtc.cat', id)
+          prefSet('utop.reqtc.cat', id)
           setPage('reqtc')
         } else if (kind === 'wiki') {
-          localStorage.setItem('utop.wiki.open', id)
+          prefSet('utop.wiki.open', id)
           setPage('wiki')
         } else if (kind === 'cycle') {
-          localStorage.setItem('utop.cycle.sel', id)
+          prefSet('utop.cycle.sel', id)
           setPage('cycles')
         } else if (kind === 'ce') {
-          localStorage.setItem('utop.cycle.ce', id)
+          prefSet('utop.cycle.ce', id)
           setPage('cycles')
         } else if (kind === 'report') {
           // 지나간 실행을 시간순으로 보는 화면. 어느 회차에서 왔는지 남겨
           // 그 화면이 그것부터 보여 줄 수 있게 한다.
-          localStorage.setItem('utop.report.cycle', id)
+          prefSet('utop.report.cycle', id)
           setPage('executions')
         } else {
-          localStorage.setItem('utop.req.sel', id)
+          prefSet('utop.req.sel', id)
           setPage('reqtc')
         }
       }),
@@ -245,6 +256,7 @@ export default function App() {
 
   if (user === undefined) return <div className="empty">확인 중…</div>
   if (user === null) return <Login onDone={setUser} />
+  if (!prefsReady) return <div className="empty">화면 설정 읽는 중…</div>
 
   return (
     <>
@@ -259,8 +271,13 @@ export default function App() {
     <Layout
       user={user}
       onLogout={() => {
+        /* 안 나간 설정을 먼저 발사(keepalive — 토큰 지우기 전) 하고,
+           앞사람 것이 다음 계정에 안 새게 비운다(검증) */
+        flushPrefs()
         void authApi.logout()
         setToken('')
+        resetPrefs()
+        setPrefsReady(false)
         setUser(null)
       }}
       current={page}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { prefGet, prefSet, prefRemove } from '@/lib/prefs'
 import { IconChevron } from '@/components/icons'
 import { useQuery } from '@tanstack/react-query'
 import { projectApi } from '@/api/client'
@@ -15,7 +16,7 @@ const KEY = 'utop.project'
  * 잦다. 「전체」 는 고르기가 아니라 **비우기**라, 다른 것과 함께 고를 수 없다.
  */
 export function currentProjects(): string[] {
-  return (localStorage.getItem(KEY) || '').split(',').filter(Boolean)
+  return (prefGet(KEY) || '').split(',').filter(Boolean)
 }
 
 /** 옛 부름 — 첫 번째 하나만. 새 화면은 currentProjects 를 쓴다 */
@@ -79,8 +80,8 @@ export default function ProjectPicker() {
         ? sel.filter((x) => x !== catId)
         : [...sel, catId]
     setSel(next)
-    if (next.length) localStorage.setItem(KEY, next.join(','))
-    else localStorage.removeItem(KEY)
+    if (next.length) prefSet(KEY, next.join(','))
+    else prefRemove(KEY)
     if (!catId) setOpen(false)
     window.dispatchEvent(new Event('utop:project'))
   }

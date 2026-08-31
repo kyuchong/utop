@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import { apiFetch } from '@/api/client'
 import SetTabs from './SetTabs'
 import './Accounts.css'
@@ -57,7 +58,7 @@ export default function JiraSettings() {
   const [busy, setBusy] = useState('')
   /** 「지금 되는지 보기」 — 저장된 설정으로 실제 상태를 물어본다 */
   const [tab, setTab] = useState<Tab>(() =>
-    localStorage.getItem('utop.jira.tab') === 'login' ? 'login' : 'conn',
+    prefGet('utop.jira.tab') === 'login' ? 'login' : 'conn',
   )
   /** 계정 쪽 요약 — 로그인 탭 머리줄에 「명단이 몇인지」 를 적는다 */
   const [acc, setAcc] = useState<{ users?: number; jira?: number; last?: string } | null>(null)
@@ -88,7 +89,7 @@ export default function JiraSettings() {
     })()
   }, [])
   useEffect(() => {
-    localStorage.setItem('utop.jira.tab', tab)
+    prefSet('utop.jira.tab', tab)
   }, [tab])
   /* 로그인 탭을 열면 지금 상태를 한 번 읽어 온다 — 눌러야 보이면 안 본다 */
   useEffect(() => {

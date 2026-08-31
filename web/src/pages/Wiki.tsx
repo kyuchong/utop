@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { onGoto } from '@/api/goto'
@@ -46,14 +47,14 @@ export default function Wiki() {
      들어온 것도 App 이 여기에 넣어 준다. */
   const [openId, setOpenId] = useState(() => {
     try {
-      return localStorage.getItem('utop.wiki.open') ?? ''
+      return prefGet('utop.wiki.open') ?? ''
     } catch {
       return ''
     }
   })
   useEffect(() => {
     try {
-      if (openId) localStorage.setItem('utop.wiki.open', openId)
+      if (openId) prefSet('utop.wiki.open', openId)
     } catch {
       /* 사생활 보호 모드 */
     }

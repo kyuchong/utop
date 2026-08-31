@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { prefGet, prefSet } from '@/lib/prefs'
 import './ReqTcMode.css'
 
 /**
@@ -14,11 +15,11 @@ const KEY = 'utop.reqtc.mode'
 export type ReqTcMode = 'req' | 'tc'
 
 export function currentMode(): ReqTcMode {
-  return localStorage.getItem(KEY) === 'tc' ? 'tc' : 'req'
+  return prefGet(KEY) === 'tc' ? 'tc' : 'req'
 }
 
 export function setMode(m: ReqTcMode): void {
-  localStorage.setItem(KEY, m)
+  prefSet(KEY, m)
   window.dispatchEvent(new Event('utop:reqtcmode'))
 }
 
