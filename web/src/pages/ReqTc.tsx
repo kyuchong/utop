@@ -373,6 +373,12 @@ export default function ReqTc({ me }: Props) {
   /* 폭·숨김·순서는 prefSet 으로만 남는데 그것은 상태가 아니다 — 고쳐도
      화면이 안 다시 그려졌다(검증). 이 숫자를 올려 다시 읽게 한다. */
   const [nColRev, setNColRev] = useState(0)
+  /* 고치는 동안은 **화면이 정본**이다.
+     여태는 저장을 띄워 보내고 곧바로 서버의 옛 값으로 열을 다시 그렸다 —
+     그래서 값을 넣어도 사라지고, 여러 개 담으면 앞엣것이 지워졌다(지적).
+     저장이 끝나고 서버를 다시 읽은 뒤에야 이 자리를 비운다. */
+  const [nEdit, setNEdit] = useState<NCol[] | null>(null)
+  useEffect(() => setNEdit(null), [mode])
   /* 만든 칸(커스텀 필드)은 이제 **표에서** 만들고 고치고 지운다(지시:
      SETUP 커스텀 필드 화면을 없앤다). 정의는 서버 한 곳(custom_field)에
      그대로 산다 — 고칠 자리만 표로 옮긴 것이다. */
@@ -389,14 +395,14 @@ export default function ReqTc({ me }: Props) {
     () => (cfQ.data?.items ?? []).filter((x) => x.target === (mode === 'req' ? 'req' : 'tc')),
     [cfQ.data, mode],
   )
+  /** 필드 정의 저장 — 다시 읽기는 한 번만(부르는 쪽이 끝에 한다) */
   const cfSave = async (p: Record<string, unknown>) => {
     const r = await apiFetch('/api/custom-fields', { method: 'POST', body: JSON.stringify(p) })
     if (!r.ok) {
-      window.alert(((await r.json().catch(() => ({}))) as { detail?: string }).detail || '저장하지 못했습니다')
-      return
+      const msg = ((await r.json().catch(() => ({}))) as { detail?: string }).detail || '저장하지 못했습니다'
+      window.alert(msg)
+      throw new Error(msg)
     }
-    await cfQ.refetch()
-    setNColRev((n) => n + 1)
   }
   const cfDelete = async (f2: CustomField) => {
     const n = f2.used ?? 0
@@ -405,10 +411,8 @@ export default function ReqTc({ me }: Props) {
     const r = await apiFetch(`/api/custom-fields/${f2.id}`, { method: 'DELETE' })
     if (!r.ok) {
       window.alert('지우지 못했습니다')
-      return
+      throw new Error('삭제 실패')
     }
-    await cfQ.refetch()
-    setNColRev((n2) => n2 + 1)
   }
   /** 기본 열(상태·유형·중요도·타입·구분)이 쓰는 코드 종류 — 설정이 정본 */
   const KIND_OF: Record<string, string> =
@@ -463,9 +467,32 @@ export default function ReqTc({ me }: Props) {
         hit = true
       }
     }
-    if (hit) {
+    return hit
+  }
+
+  /**
+   * 열이 바뀌었다 — 화면을 먼저 잡고, 정의를 저장하고, **끝난 뒤에** 서버를
+   * 다시 읽는다. 순서를 뒤집으면 저장 중에 옛 값이 화면을 덮어 「넣어도
+   * 사라지는」 것처럼 보인다(지적).
+   */
+  const applyCols = async (before: NCol[], after: NCol[], pre: string, orderKey: string) => {
+    setNEdit(after)
+    for (const c of after) {
+      if (c.width) prefSet(`utop.ntb.w.${pre}${c.key}`, String(c.width))
+      prefSet(`utop.ntb.hide.${pre}${c.key}`, c.hidden ? '1' : '0')
+    }
+    prefSet(orderKey, after.map((c) => c.key).join(','))
+    try {
+      await cfApply(before, after)
+      await codeApply(before, after)
+      await cfQ.refetch()
       await codesQ.refetch()
       setNColRev((n) => n + 1)
+    } catch {
+      /* 까닭은 이미 알렸다 — 화면은 서버 값으로 되돌린다 */
+      setNColRev((n) => n + 1)
+    } finally {
+      setNEdit(null)
     }
   }
 
@@ -485,13 +512,13 @@ export default function ReqTc({ me }: Props) {
     }
   }
   /** 표가 준 열 변경을 **필드 정의**로 옮긴다 — 이름·타입·선택지·색·삭제 */
-  const cfApply = (before: NCol[], after: NCol[]) => {
+  const cfApply = async (before: NCol[], after: NCol[]) => {
     const byKey = new Map<string, CustomField>(cfMine.map((x) => [`cf_${x.key}`, x]))
     /* 지운 것 */
     for (const b of before) {
       if (after.some((a) => a.key === b.key)) continue
       const f3 = byKey.get(b.key)
-      if (f3) void cfDelete(f3)
+      if (f3) await cfDelete(f3)
     }
     /* 새로 만든 것 · 이름·타입이 바뀐 것 */
     for (const a of after) {
@@ -508,7 +535,7 @@ export default function ReqTc({ me }: Props) {
       }
       if (!f3) {
         if (before.some((b) => b.key === a.key)) continue
-        void cfSave({
+        await cfSave({
           target: mode === 'req' ? 'req' : 'tc',
           key: a.key.slice(3),
           label: a.label,
@@ -528,15 +555,17 @@ export default function ReqTc({ me }: Props) {
         const oldIcons = cfIcons(f3)
         const nameChanged = f3.label !== a.label
         const typeChanged = want !== f3.type
+        /* 「다중 선택」 이 빠져 있어 값을 넣어도 저장이 안 갔다(재현함) */
+        const isPick = want === 'select' || want === 'multiselect'
         const optChanged =
-          want === 'select' &&
+          isPick &&
           (optStr.trim() !== oldOpt ||
             JSON.stringify(colors) !== JSON.stringify(oldColors) ||
             JSON.stringify(icons) !== JSON.stringify(oldIcons))
         if (!nameChanged && !typeChanged && !optChanged) continue
         let sendOpt = optStr
         let sendColors = colors
-        if (want === 'select' && !sendOpt.trim()) {
+        if (isPick && !sendOpt.trim()) {
           /* 서버는 선택 타입에 **고를 값**을 반드시 요구한다 — 값 없이
              타입만 바꾸면 거절당해 「타입 선택이 안 된다」 로 보였다(지적).
              그래서 값을 먼저 묻는다. */
@@ -560,11 +589,11 @@ export default function ReqTc({ me }: Props) {
           }
           sendColors = oldColors
         }
-        void cfSave({
+        await cfSave({
           ...f3,
           label: a.label,
           type: want,
-          options: want === 'select' ? sendOpt : null,
+          options: isPick ? sendOpt : null,
           note: JSON.stringify({ colors: sendColors, icons }),
         })
       }
@@ -599,7 +628,7 @@ export default function ReqTc({ me }: Props) {
         return { value: x.value, color: fillOf(x.note, x.value).bg, icon }
       })
   /** 노션 표의 열 — 고정 칸 + 켜진 INFO 열(설정과 1:1) */
-  const nCols = useMemo<NCol[]>(() => {
+  const nColsBase = useMemo<NCol[]>(() => {
     const w = (k: string, d: number) => Number(prefGet(`utop.ntb.w.${k}`) ?? '') || d
     const base: NCol[] = [
       { key: 'tcid', label: 'ID', type: 'text', width: w('tcid', 116), fixed: true },
@@ -628,13 +657,24 @@ export default function ReqTc({ me }: Props) {
        「모두 보이기」 로도 못 되살린다(검증). 그리기는 NTable 이 거른다. */
     /* 만든 칸(커스텀 필드) — 정의가 정본이라 여기서 열로 편다 */
     for (const cf of cfMine) {
-      const ty = cf.type === 'select' ? 'select' : cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : 'text'
+      /* 「다중 선택」 을 몰라 열이 텍스트로 되돌아갔다 — 그래서 값을 넣어도
+         저장이 null 로 나갔다(재현함) */
+      const ty: NCol['type'] =
+        cf.type === 'select'
+          ? 'select'
+          : cf.type === 'multiselect'
+            ? 'multiselect'
+            : cf.type === 'number'
+              ? 'number'
+              : cf.type === 'date'
+                ? 'date'
+                : 'text'
       base.push({
         key: `cf_${cf.key}`,
         label: cf.label,
         type: ty,
         width: w(`cf_${cf.key}`, 110),
-        ...(ty === 'select'
+        ...(ty === 'select' || ty === 'multiselect'
           ? {
               options: (cf.options ?? '')
                 .split('\n')
@@ -1008,7 +1048,7 @@ export default function ReqTc({ me }: Props) {
   }, [tcs, q, cat, deep, reqOnly, reqById, prjCats, under])
 
   /** 요구사항 노션 표의 열 — 고정 칸 + 켜진 INFO 열 */
-  const nReqCols = useMemo<NCol[]>(() => {
+  const nReqColsBase = useMemo<NCol[]>(() => {
     const w = (k: string, d: number) => Number(prefGet(`utop.ntb.w.r_${k}`) ?? '') || d
     const base: NCol[] = [
       { key: 'rid', label: 'ID', type: 'text', width: w('rid', 116), fixed: true },
@@ -1033,13 +1073,24 @@ export default function ReqTc({ me }: Props) {
     }
     /* 만든 칸(커스텀 필드) — 정의가 정본이라 여기서 열로 편다 */
     for (const cf of cfMine) {
-      const ty = cf.type === 'select' ? 'select' : cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : 'text'
+      /* 「다중 선택」 을 몰라 열이 텍스트로 되돌아갔다 — 그래서 값을 넣어도
+         저장이 null 로 나갔다(재현함) */
+      const ty: NCol['type'] =
+        cf.type === 'select'
+          ? 'select'
+          : cf.type === 'multiselect'
+            ? 'multiselect'
+            : cf.type === 'number'
+              ? 'number'
+              : cf.type === 'date'
+                ? 'date'
+                : 'text'
       base.push({
         key: `cf_${cf.key}`,
         label: cf.label,
         type: ty,
         width: w(`cf_${cf.key}`, 110),
-        ...(ty === 'select'
+        ...(ty === 'select' || ty === 'multiselect'
           ? {
               options: (cf.options ?? '')
                 .split('\n')
@@ -1061,6 +1112,10 @@ export default function ReqTc({ me }: Props) {
     return withHide
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visCols, codesQ.data, nColRev, cfMine])
+
+  /* 고치는 중에는 화면이 정본 — 저장이 끝나면 서버 값으로 돌아간다 */
+  const nReqCols = nEdit && mode === 'req' ? nEdit : nReqColsBase
+  const nCols = nEdit && mode === 'tc' ? nEdit : nColsBase
 
   /** 지금 화면 한 벌 — 새 탭·덮어쓰기가 이것을 담는다 */
   const nBody: ViewBody = useMemo(
@@ -2463,22 +2518,7 @@ export default function ReqTc({ me }: Props) {
                   />
                 }
                 onNew={() => setEditReq(null)}
-                onColumns={(cs) => {
-                  /* 이름·타입·새 필드·삭제는 **필드 정의**로 간다(지시:
-                     SETUP 커스텀 필드 화면을 없애고 표에서 바로) */
-                  try {
-                    cfApply(nReqCols, cs)
-                    void codeApply(nReqCols, cs)
-                  } catch (e) {
-                    window.alert(`필드를 고치지 못했습니다 — ${String((e as Error).message)}`)
-                  }
-                  for (const c of cs) {
-                    if (c.width) prefSet(`utop.ntb.w.r_${c.key}`, String(c.width))
-                    prefSet(`utop.ntb.hide.r_${c.key}`, c.hidden ? '1' : '0')
-                  }
-                  prefSet('utop.ntb.order.r', cs.map((c) => c.key).join(','))
-                  setNColRev((n) => n + 1)
-                }}
+                onColumns={(cs) => void applyCols(nReqCols, cs, 'r_', 'utop.ntb.order.r')}
                 onCell={(id, key, v) => void setOneField('req', id, { [key]: v })}
                 readOnlyKeys={['model_group', 'model', 'cov', 'tcmap', 'mapb']}
                 idKey="rid"
@@ -2562,21 +2602,7 @@ export default function ReqTc({ me }: Props) {
                   />
                 }
                 onNew={() => setEditTc(null)}
-                onColumns={(cs) => {
-                  /* 이름·타입·새 필드·삭제는 **필드 정의**로 간다(지시) */
-                  try {
-                    cfApply(nCols, cs)
-                    void codeApply(nCols, cs)
-                  } catch (e) {
-                    window.alert(`필드를 고치지 못했습니다 — ${String((e as Error).message)}`)
-                  }
-                  for (const c of cs) {
-                    if (c.width) prefSet(`utop.ntb.w.${c.key}`, String(c.width))
-                    prefSet(`utop.ntb.hide.${c.key}`, c.hidden ? '1' : '0')
-                  }
-                  prefSet('utop.ntb.order', cs.map((c) => c.key).join(','))
-                  setNColRev((n) => n + 1)
-                }}
+                onColumns={(cs) => void applyCols(nCols, cs, '', 'utop.ntb.order')}
                 onCell={(id, key, v) => void setOneField('tc', id, { [key]: v })}
                 readOnlyKeys={['model_group', 'model', 'last', 'req']}
                 idKey="tcid"
