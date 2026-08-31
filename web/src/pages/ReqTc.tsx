@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
 import type React from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, categoryApi, projectApi, reqApi, apiFetch, type MeUser } from '@/api/client'
 import EditProjectDialog from '@/components/EditProjectDialog'
 import MoveCatDialog from '@/components/MoveCatDialog'
@@ -92,6 +92,7 @@ function pagesOf(cur: number, last: number): number[] {
 
 export default function ReqTc({ me }: Props) {
   void me
+  const queryClient = useQueryClient()
   /* 무엇을 볼지는 **상단바 토글**이 정한다(지시) — 여기서는 읽기만 한다.
      화면 안에도 토글을 두면 같은 것을 두 곳에서 고치게 된다. */
   const [mode, setModeState] = useState<Mode>(currentMode)
@@ -437,7 +438,23 @@ export default function ReqTc({ me }: Props) {
     let hit = false
     for (const a of after) {
       const kind = KIND_OF[a.key]
-      if (!kind || (a.type !== 'select' && a.type !== 'multiselect')) continue
+      if (!kind) continue
+      const b0 = before.find((x) => x.key === a.key)
+      /* 기본 열 **이름 바꾸기** — 여태 조용히 무시됐다(표에서 고쳐도 안 남음).
+         설정과 같은 통로(kind-label)로 보낸다. 세 화면이 함께 쓰는 이름이라
+         서버가 관리자만 받는다. */
+      if (b0 && b0.label !== a.label && a.label.trim()) {
+        const r = await apiFetch('/api/codes/kind-label', {
+          method: 'POST',
+          body: JSON.stringify({ kind, label: a.label.trim() }),
+        })
+        if (r.ok) hit = true
+        else {
+          window.alert('열 이름은 관리자만 바꿀 수 있습니다')
+          setNColRev((n) => n + 1)
+        }
+      }
+      if (a.type !== 'select' && a.type !== 'multiselect') continue
       const b = before.find((x) => x.key === a.key)
       const was = b?.options ?? []
       const now = a.options ?? []
@@ -467,6 +484,7 @@ export default function ReqTc({ me }: Props) {
         hit = true
       }
     }
+    if (hit) await queryClient.invalidateQueries({ queryKey: ['codes'] })
     return hit
   }
 
