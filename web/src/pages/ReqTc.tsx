@@ -21,6 +21,8 @@ import {
   IconTcDoc,
 } from '@/components/icons'
 import GlobalParams from '@/components/settings/GlobalParams'
+import NTable from '@/components/ntable/NTable'
+import { EMPTY_VIEW, type NCol, type NRow, type NView } from '@/components/ntable/types'
 import ListSortBtn, {
   FolderSortBtn,
   type FolderSortMode,
@@ -380,6 +382,47 @@ export default function ReqTc({ me }: Props) {
   const TC_RUN = useCodes('tc_run_type', ['수동', '자동'])
   const TC_ORIGIN = useCodes('tc_origin', ['자체', '고객'])
 
+  /* ── 노션 꼴 표(승인) — 기존 표는 그대로 두고 **골라서 켠다**.
+     열·색은 SETUP 이 정본이라, 여기서는 그 값을 노션 모양으로 옮겨 담기만
+     한다(두 벌 관리 금지). ── */
+  const [ntb, setNtb] = useState(() => prefGet('utop.reqtc.ntable') === '1')
+  useEffect(() => prefSet('utop.reqtc.ntable', ntb ? '1' : '0'), [ntb])
+  const [nview, setNview] = useState<NView>({ ...EMPTY_VIEW })
+  /** 그 종류(kind)의 선택지를 SETUP 코드에서 — 색까지 함께 */
+  const optsOf = (kind: string) =>
+    (codesQ.data?.items ?? [])
+      .filter((x) => x.kind === kind)
+      .map((x) => ({ value: x.value, color: fillOf(x.note, x.value).bg }))
+  /** 노션 표의 열 — 고정 칸 + 켜진 INFO 열(설정과 1:1) */
+  const nCols = useMemo<NCol[]>(() => {
+    const w = (k: string, d: number) => Number(prefGet(`utop.ntb.w.${k}`) ?? '') || d
+    const base: NCol[] = [
+      { key: 'tcid', label: 'ID', type: 'text', width: w('tcid', 116), fixed: true },
+      { key: 'name', label: '제목', type: 'text', width: w('name', 420), fixed: true },
+      { key: 'model_group', label: '모델그룹', type: 'text', width: w('model_group', 96) },
+      { key: 'model', label: '모델명', type: 'text', width: w('model', 88) },
+      { key: 'last', label: '최근 결과', type: 'text', width: w('last', 88) },
+      { key: 'req', label: 'REQ Map', type: 'text', width: w('req', 112) },
+    ]
+    const KIND: Record<string, { kind: string; field: string }> = {
+      f_type: { kind: 'tc_type', field: 'type' },
+      f_status: { kind: 'tc_status', field: 'status' },
+      f_severity: { kind: 'tc_severity', field: 'severity' },
+      f_kind: { kind: 'tc_run_type', field: 'run_type' },
+      f_origin: { kind: 'tc_origin', field: 'origin' },
+    }
+    for (const c of visCols) {
+      const m = KIND[c.k]
+      base.push(
+        m
+          ? { key: m.field, label: c.label, type: 'select', width: w(m.field, 92), options: optsOf(m.kind) }
+          : { key: c.k, label: c.label, type: 'text', width: w(c.k, 96) },
+      )
+    }
+    return base.filter((c) => prefGet(`utop.ntb.hide.${c.key}`) !== '1')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visCols, codesQ.data])
+
   /**
    * 한 칸만 고쳐 저장한다.
    *
@@ -703,8 +746,10 @@ export default function ReqTc({ me }: Props) {
   }
 
   /** 고른 것을 지운다 — 되돌릴 수 없으니 몇 건인지 적어 두고 묻는다 */
-  const deletePicked = async () => {
-    const ids = [...sel]
+  const deletePicked = async (only?: string[]) => {
+    /* 부를 때 줄을 직접 넘길 수 있다 — setSel 은 바로 반영되지 않아서,
+       방금 고른 것을 sel 로만 넘기면 옛 목록을 지운다(상태 지연) */
+    const ids = only ?? [...sel]
     if (!ids.length) return
     const what = mode === 'req' ? '요구사항' : '시험'
     if (!window.confirm(`고른 ${what} ${ids.length}건을 삭제합니다.\n되돌릴 수 없습니다. 계속할까요?`)) return
@@ -791,6 +836,31 @@ export default function ReqTc({ me }: Props) {
     }
     return tcs.filter((t) => ok(t) && (!n || `${t.tcid} ${t.name ?? ''}`.toLowerCase().includes(n)))
   }, [tcs, q, cat, deep, reqOnly, reqById, prjCats, under])
+
+  /** 노션 표의 줄 — 지금 폴더·프로젝트로 좁힌 시험들 */
+  const nRows = useMemo<NRow[]>(
+    () =>
+      tcRows.map((t) => {
+        const r = reqById.get(String(t.req_id ?? ''))
+        const p = prjOf(r)
+        return {
+          __id: t.tcid,
+          tcid: t.tcid,
+          name: t.name ?? '',
+          model_group: String(t.model_group ?? '') || p?.model_group || '',
+          model: String(t.model ?? '') || p?.model || '',
+          last: lastOf(t.tcid),
+          req: r ? reqLabel(r) : '',
+          type: String(t.type ?? ''),
+          status: String(t.status ?? ''),
+          severity: String(t.severity ?? ''),
+          run_type: String(t.run_type ?? t.kind ?? ''),
+          origin: String((t as unknown as Record<string, unknown>).origin ?? ''),
+        }
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tcRows, reqById, projects, lastQ.data],
+  )
 
   const crumb = useMemo(() => {
     const out: Array<{ id: string; name: string }> = []
@@ -1811,6 +1881,16 @@ export default function ReqTc({ me }: Props) {
             )}
             {/* 세로선 — 왼쪽은 「무엇을 볼지·무엇을 만들지」, 오른쪽은
                 「지금 어디를 보고 있나」(빵부스러기)다(지시). */}
+            {mode === 'tc' && (
+              <button
+                type="button"
+                className={`rqtc-ib${ntb ? ' on' : ''}`}
+                title={ntb ? '옛 표로 보기' : '노션 꼴 표로 보기 — 열·색·묶기를 표에서 바로'}
+                onClick={() => setNtb((v) => !v)}
+              >
+                {ntb ? '표 ▦' : '표 ▤'}
+              </button>
+            )}
             <span className="rqtc-vsep" aria-hidden="true" />
             {/* 여기 있던 여백(sp)을 걷어낸다.
                 왼쪽에 Requirements/Coverage 토글과 만들기 단추들이 서 있던
@@ -2326,6 +2406,64 @@ export default function ReqTc({ me }: Props) {
                 })}
                 {!reqRows.length && <div className="empty">보여 줄 요구사항이 없습니다.</div>}
               </>
+            ) : ntb ? (
+              /* 노션 꼴 표(승인) — 켰을 때만. 옛 표는 그대로 남아 있어
+                 언제든 되돌린다. Map·REQ Map·최근 결과처럼 특별한 칸은
+                 renderCell 로 이 화면이 직접 그린다. */
+              <NTable
+                columns={nCols}
+                rows={nRows}
+                view={nview}
+                onView={setNview}
+                onColumns={(cs) => {
+                  /* 폭·숨김은 계정별 보기 설정에 남긴다(서버로 따라간다).
+                     선택지·색은 SETUP 이 정본이라 여기서 안 건드린다. */
+                  for (const c of cs) {
+                    if (c.width) prefSet(`utop.ntb.w.${c.key}`, String(c.width))
+                    prefSet(`utop.ntb.hide.${c.key}`, c.hidden ? '1' : '0')
+                  }
+                }}
+                onCell={(id, key, v) => void setOneField('tc', id, { [key]: v })}
+                readOnlyKeys={['model_group', 'model', 'last', 'req']}
+                idKey="tcid"
+                titleKey="name"
+                onOpen={(id) => setOpenTc(id)}
+                onPeek={(id) => setPop({ kind: 'tc', id })}
+                onBulk={(a, ids) => {
+                  /* 고른 줄을 기존 일괄 통로(sel)로 넘긴다 — 삭제는 이미
+                     있는 deletePicked 가 확인창까지 갖고 있다. 나머지 일괄은
+                     다음 차례(지금 없는 것을 있는 척하지 않는다). */
+                  setSel(new Set(ids))
+                  if (a === 'del') void deletePicked(ids)
+                  else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
+                }}
+                renderCell={(r, c) => {
+                  if (c.key === 'req') {
+                    const t = tcRows.find((x) => x.tcid === r.__id)
+                    const rq = t ? reqById.get(String(t.req_id ?? '')) : undefined
+                    return rq ? (
+                      <button
+                        type="button"
+                        className="rqtc-rid"
+                        onClick={() => setPop({ kind: 'req', id: reqPk(rq) })}
+                      >
+                        {reqLabel(rq)}
+                      </button>
+                    ) : (
+                      <span className="ntb-empty">–</span>
+                    )
+                  }
+                  if (c.key === 'last') {
+                    const v = String(r.last ?? '')
+                    return v ? (
+                      <span className={`rqtc-lastv ${statusClass(v)}`}>{v}</span>
+                    ) : (
+                      <span className="ntb-empty">–</span>
+                    )
+                  }
+                  return undefined
+                }}
+              />
             ) : (
               <>
                 <div className="rqtc-tr tc rqtc-th" style={{ gridTemplateColumns: gridOf(true) }}>

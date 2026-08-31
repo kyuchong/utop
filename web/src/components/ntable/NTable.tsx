@@ -37,6 +37,10 @@ export interface NTableProps {
   onNew?: (seed?: { key: string; value: string }) => void
   /** 여러 줄 골라 한 번에 — 무엇을 할지는 쓰는 쪽이 정한다 */
   onBulk?: (action: string, ids: string[]) => void
+  /** 특별한 칸은 쓰는 쪽이 그린다(Map·REQ Map 처럼). undefined 를 주면 기본 그림 */
+  renderCell?: (row: NRow, col: NCol) => React.ReactNode | undefined
+  /** 값이 못 고치는 칸(계산된 값 등) */
+  readOnlyKeys?: string[]
   /** ID 로 쓸 열쇠(링크 꼴로 그린다) */
   idKey?: string
   /** 제목으로 쓸 열쇠(아이콘·열기 단추가 붙는다) */
@@ -58,6 +62,7 @@ export default function NTable(p: NTableProps) {
   const {
     columns, rows, view, onView, onColumns, onCell,
     people = [], meName, onOpen, onPeek, onNew, onBulk,
+    renderCell, readOnlyKeys = [],
     idKey = 'id', titleKey = 'title', title, busy,
   } = p
 
@@ -188,7 +193,11 @@ export default function NTable(p: NTableProps) {
 
   /* ── 한 칸 그리기 ── */
   const cell = (r: NRow, c: NCol) => {
+    const own = renderCell?.(r, c)
+    if (own !== undefined) return own
     const v = String(r[c.key] ?? '')
+    const ro = readOnlyKeys.includes(c.key)
+    if (ro) return <span className="ntb-txt">{v || <span className="ntb-empty">–</span>}</span>
     const editing = editAt?.row === r.__id && editAt.key === c.key
     if (c.key === idKey)
       return (

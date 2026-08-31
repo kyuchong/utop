@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { PALETTE, PALETTE_KEYS, autoColor, paintOf } from './palette'
+import { PALETTE, PALETTE_KEYS, autoColor, paintOfAny } from './palette'
 import type { NCol, NOption, NPerson, NType } from './types'
 import {
   IcCheck, IcCopy, IcDate, IcFilter, IcGroup, IcHide, IcLeft, IcNumber, IcPerson,
@@ -39,7 +39,7 @@ export function Pop({
 /** 값 알약 — 점 + 글자(+ ▾). 색은 옵션 정의에서 온다 */
 export function Pill({ value, color, caret }: { value: string; color?: string; caret?: boolean }) {
   if (!value) return <span className="ntb-empty">–</span>
-  const p = paintOf(color ?? autoColor(value))
+  const p = paintOfAny(color ?? autoColor(value))
   return (
     <span className="ntb-pill" style={{ background: p.bg, color: p.fg }}>
       <i className="ntb-dot" style={{ background: p.dot }} />

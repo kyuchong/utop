@@ -13,9 +13,11 @@ const COLS: NCol[] = [
   { key: 'title', label: '제목', type: 'text', width: 420, fixed: true },
   { key: 'type', label: '유형', type: 'select', width: 84,
     options: [{ value: '기능', color: 'lime' }, { value: '성능', color: 'blue' }, { value: '보안', color: 'purple' }] },
+  /* 상태는 **SETUP 이 준 색(hex)** 을 그대로 넣는다 — 노션 파스텔로
+     바뀌어 그려지는지 진짜로 본다(설정이 정본인 규칙을 안 깨는 다리) */
   { key: 'status', label: '상태', type: 'select', width: 104,
-    options: [{ value: '작성중', color: 'gray' }, { value: '검토중', color: 'amber' },
-              { value: '승인', color: 'emerald' }, { value: '보류', color: 'rose' }, { value: 'Draft', color: 'blue' }] },
+    options: [{ value: '작성중', color: '#fdab3d' }, { value: '검토중', color: '#579bfc' },
+              { value: '승인', color: '#00c875' }, { value: '보류', color: '#9ca3af' }, { value: 'Draft', color: '#e2445c' }] },
   { key: 'severity', label: '중요도', type: 'select', width: 82,
     options: [{ value: 'CR', color: 'rose' }, { value: 'MJ', color: 'orange' }, { value: 'MN', color: 'gray' }] },
   { key: 'run', label: '타입', type: 'select', width: 78,
