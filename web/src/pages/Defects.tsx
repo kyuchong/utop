@@ -148,10 +148,6 @@ export default function Defects() {
           existing={open}
           onClose={() => setOpen(null)}
           onSaved={() => void refetch()}
-          onDeleted={() => {
-            setOpen(null)
-            void refetch()
-          }}
         />
       )}
     </div>

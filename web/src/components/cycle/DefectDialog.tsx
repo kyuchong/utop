@@ -74,8 +74,6 @@ interface Props {
   existing: DefectRec | null
   onClose: () => void
   onSaved: (d: DefectRec) => void
-  /** 결함이 지워졌을 때(목록에서 삭제) */
-  onDeleted?: (id: string) => void
 }
 
 const isFail = (r: string) => r === 'Fail' || r === '불합격'
@@ -138,7 +136,7 @@ function briefsFromDefect(d: DefectRec | null): StepBrief[] {
  * UTOP 안에는 먼저 저장하고(항목당 하나), 「지라에 등록」 을 누를 때 실제로
  * 이슈가 생긴다 — 64건 돌려 20건 깨졌다고 이슈 20개가 한꺼번에 생기지 않게.
  */
-export default function DefectDialog({ cycle, item, existing, onClose, onSaved, onDeleted }: Props) {
+export default function DefectDialog({ cycle, item, existing, onClose, onSaved }: Props) {
   const briefs = useMemo(() => (item ? briefsOf(item) : briefsFromDefect(existing)), [item, existing])
 
   /* 설정 파일을 찾을 때는 **깨진 것만이 아니라 모든 스텝**을 본다.
@@ -436,20 +434,7 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
     }
   }
 
-  /** 결함을 지운다(목록에서 열었을 때) */
-  const remove = async () => {
-    if (!defect) return
-    if (!window.confirm(`결함 ${defect.id} 를 삭제할까요?`)) return
-    setBusy('del')
-    try {
-      await apiFetch(`/api/defects/${encodeURIComponent(defect.id)}`, { method: 'DELETE' })
-      onDeleted?.(defect.id)
-      onClose()
-    } catch (e) {
-      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
-      setBusy('')
-    }
-  }
+  /* 삭제는 결함 목록에서만 한다(지시) — 등록 창에는 단추를 두지 않는다 */
 
   /** 지라에 이슈를 올린다 — 없으면 먼저 저장하고 민다 */
   const push = async () => {
@@ -751,11 +736,6 @@ export default function DefectDialog({ cycle, item, existing, onClose, onSaved, 
           )}
           {msg.text && <span className={`muted small ${msg.kind}`}>{msg.text}</span>}
           <span className="sp" />
-          {defect && (
-            <button className="btn ghost" type="button" disabled={!!busy} onClick={() => void remove()}>
-              {busy === 'del' ? '삭제 중…' : '삭제'}
-            </button>
-          )}
           {pushed ? (
             <button className="btn" type="button" onClick={onClose}>
               닫기
