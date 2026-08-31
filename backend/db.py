@@ -1509,6 +1509,11 @@ CODE_KINDS = {
     # 사이클 INFO 필드 — 사이클 만들기·편집 드롭다운이 읽는다
     "cycle_status": "상태",
     "cycle_customer": "고객",
+    # 목업(Plans/Runs)이 쓰는 세 축. 화이트리스트에 없으면 서버가 값을
+    # 아예 안 받아 표에서 골라도 저장이 안 된다(씨앗이 여기서 걸렸다).
+    "cycle_stage": "단계",
+    "cycle_type": "유형",
+    "cycle_mode": "시험 방식",
     # 실행 결과 상태 — Pass·Fail·미실행(고정) 에 더해 사용자가 늘린다.
     # note 에 {"color":"#...","group":"pass|fail|neutral"} JSON 을 담는다
     "cycle_result": "실행 결과",
