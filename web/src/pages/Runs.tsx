@@ -7,6 +7,7 @@ import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
 import { useNFields } from '@/components/ntable/useNFields'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
 import type { CycleMeta } from '@/pages/Cycles'
+import RunDetail from '@/components/run/RunDetail'
 import './Runs.css'
 
 /**
@@ -231,8 +232,10 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
     nf.bump()
   }
 
-  /* ── 만들기 · 지우기 ── */
+  /* ── 만들기 · 지우기 · 열어 보기 ── */
   const [mk, setMk] = useState(false)
+  /** 고른 실행 — 있으면 상세를 그린다 */
+  const [sel, setSel] = useState('')
   const reload = () => void qc.invalidateQueries({ queryKey: ['plan-runs'] })
 
   const delRuns = async (ids: string[]) => {
@@ -252,6 +255,18 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
   }
 
   const scope = pick.version || (pick.group ? `${pick.group} 전체` : '전체 실행')
+
+  if (sel) {
+    const r = runs.find((x) => x.id === sel)
+    return (
+      <RunDetail
+        runId={sel}
+        plan={r?.plan_id ? planOf.get(r.plan_id) : undefined}
+        onBack={() => setSel('')}
+        onGone={() => setSel('')}
+      />
+    )
+  }
 
   return (
     <div className="rn-wrap">
@@ -394,6 +409,8 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
           ]}
           idKey="id"
           titleKey="name"
+          onOpen={(id) => setSel(id)}
+          onPeek={(id) => setSel(id)}
           meName={meName}
           onNew={() => setMk(true)}
           onBulk={(a, ids) => {
