@@ -4258,10 +4258,16 @@ async def codes_list(kind: str = ""):
         for k, v in ov.items():
             if k in kinds and str(v).strip():
                 kinds[k] = str(v).strip()
-        # 숨긴 기본 칸 — 탭·입력칸에서 빠진다 (값 자료는 남는다)
-        hid = _kv_load_sync("code_kind_hidden", []) or []
-        for k in hid:
-            kinds.pop(k, None)
+        # 기본 칸은 **감추지 않는다**(결정: A안).
+        #
+        # 예전엔 code_kind_hidden 에 든 종류를 여기서 빼 버렸다. 그런데 그걸
+        # 켜고 끄던 SETUP 화면이 사라진 뒤로 **되살릴 길이 없어졌다** — 실제로
+        # cycle_status(플랜 상태)가 그렇게 갇혀 「기타#1」 이라는 이름으로
+        # 어디에도 안 뜨고 있었다.
+        #
+        # 이제 열을 보이고 감추는 것은 **표가 계정별로** 한다(utop.ntb.hide.*).
+        # 그래서 서버가 통째로 감출 까닭이 없다 — 감추면 그 사람만이 아니라
+        # 모두가 못 보고, 되살릴 자리도 없다.
     except Exception:
         pass
     return {"items": items, "kinds": kinds}
@@ -4286,28 +4292,6 @@ async def cycle_desc_template_get():
 async def cycle_desc_template_set(payload: dict):
     _kv_save_sync("cycle_desc_template", {"text": str(payload.get("text") or "")})
     return {"success": True}
-
-
-@app.post("/api/codes/kind-hidden")
-async def codes_kind_hidden(payload: dict, token: str = ""):
-    """기본 칸(탭) 숨기기/되살리기 — 값 자료는 지우지 않는다.
-
-    **관리자만**(지시). 세 화면이 함께 쓰는 설정이라, 한 사람이 고치면 모두의
-    화면이 바뀐다."""
-    _require_admin(token)
-    kind = str(payload.get("kind") or "").strip()
-    hidden = bool(payload.get("hidden"))
-    if kind not in db.CODE_KINDS:
-        raise HTTPException(400, f"알 수 없는 종류입니다: {kind}")
-    hid = set(_kv_load_sync("code_kind_hidden", []) or [])
-    if hidden:
-        hid.add(kind)
-    else:
-        hid.discard(kind)
-    _kv_save_sync("code_kind_hidden", sorted(hid))
-    return {"success": True}
-
-
 @app.post("/api/codes/kind-label")
 async def codes_kind_label(payload: dict, token: str = ""):
     """기본 칸(탭)의 표시 이름 바꾸기 — 빈 이름이면 원래대로. **관리자만**(지시)."""
