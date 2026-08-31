@@ -497,7 +497,15 @@ export default function ReqTc({ me }: Props) {
     for (const a of after) {
       if (!a.key.startsWith('cf_')) continue
       const f3 = byKey.get(a.key)
-      const T: Record<string, CfType> = { text: 'text', number: 'number', date: 'date', select: 'select', person: 'text' }
+      /* 「여러 개 고르기」 가 빠져 있어 그걸 고르면 텍스트로 저장됐다(지적) */
+      const T: Record<string, CfType> = {
+        text: 'text',
+        number: 'number',
+        date: 'date',
+        select: 'select',
+        multiselect: 'multiselect',
+        person: 'text',
+      }
       if (!f3) {
         if (before.some((b) => b.key === a.key)) continue
         void cfSave({
@@ -2458,8 +2466,12 @@ export default function ReqTc({ me }: Props) {
                 onColumns={(cs) => {
                   /* 이름·타입·새 필드·삭제는 **필드 정의**로 간다(지시:
                      SETUP 커스텀 필드 화면을 없애고 표에서 바로) */
-                  cfApply(nReqCols, cs)
-                  void codeApply(nReqCols, cs)
+                  try {
+                    cfApply(nReqCols, cs)
+                    void codeApply(nReqCols, cs)
+                  } catch (e) {
+                    window.alert(`필드를 고치지 못했습니다 — ${String((e as Error).message)}`)
+                  }
                   for (const c of cs) {
                     if (c.width) prefSet(`utop.ntb.w.r_${c.key}`, String(c.width))
                     prefSet(`utop.ntb.hide.r_${c.key}`, c.hidden ? '1' : '0')
@@ -2552,8 +2564,12 @@ export default function ReqTc({ me }: Props) {
                 onNew={() => setEditTc(null)}
                 onColumns={(cs) => {
                   /* 이름·타입·새 필드·삭제는 **필드 정의**로 간다(지시) */
-                  cfApply(nCols, cs)
-                  void codeApply(nCols, cs)
+                  try {
+                    cfApply(nCols, cs)
+                    void codeApply(nCols, cs)
+                  } catch (e) {
+                    window.alert(`필드를 고치지 못했습니다 — ${String((e as Error).message)}`)
+                  }
                   for (const c of cs) {
                     if (c.width) prefSet(`utop.ntb.w.${c.key}`, String(c.width))
                     prefSet(`utop.ntb.hide.${c.key}`, c.hidden ? '1' : '0')

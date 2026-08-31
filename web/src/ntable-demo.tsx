@@ -25,6 +25,8 @@ const COLS: NCol[] = [
     options: [{ value: '수동', color: 'purple', icon: '👆' }, { value: '자동', color: 'emerald', icon: '⚙️' }] },
   { key: 'who', label: '담당', type: 'person', width: 98 },
   { key: 'due', label: '목표일', type: 'date', width: 106 },
+  /* 만든 칸 흉내 — 텍스트로 시작해서 유형 변경·속성 편집을 눌러 본다 */
+  { key: 'cf_probe', label: '검증단계', type: 'text', width: 110 },
 ]
 const ROWS: NRow[] = [
   { __id: '1', id: 'E61xx_T0084', title: '정지 팬 전원 복구 시 정상 동작 복귀 시간 측정', type: '성능', status: '작성중', severity: 'MJ', run: '수동', who: '전규종', due: '2026-09-04' },

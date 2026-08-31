@@ -562,8 +562,8 @@ export function FieldMenu({
   const [optAt, setOptAt] = useState<{ x: number; y: number } | null>(null)
   const TYPES: Array<{ k: NType; label: string }> = [
     { k: 'text', label: '텍스트' },
-    { k: 'select', label: '선택 (하나)' },
-    { k: 'multiselect', label: '선택 (여러 개)' },
+    { k: 'select', label: '선택' },
+    { k: 'multiselect', label: '다중 선택' },
     { k: 'number', label: '숫자' }, { k: 'date', label: '날짜' }, { k: 'person', label: '사람' },
   ]
   const Cur = TYPE_ICON[col.type]
@@ -582,19 +582,7 @@ export function FieldMenu({
         }}
         onBlur={() => name.trim() && name.trim() !== col.label && onCol({ ...col, label: name.trim() })}
       />
-      <button
-        type="button"
-        className="ntb-mi"
-        disabled={col.fixed || lockDefs}
-        onClick={(e) => {
-          const r = e.currentTarget.getBoundingClientRect()
-          setTypeAt(typeAt ? null : { x: r.right + 6, y: r.top })
-        }}
-      >
-        <Cur />
-        <span className="l">타입</span>
-        <span className="ntb-sub">{TYPES.find((t) => t.k === col.type)?.label} ›</span>
-      </button>
+      {/* 노션과 같은 두 줄 — 속성 편집(고를 값)과 유형 변경(칸 종류) */}
       {(col.type === 'select' || col.type === 'multiselect') && (
         <button
           type="button"
@@ -605,10 +593,23 @@ export function FieldMenu({
           }}
         >
           <IcSelect />
-          <span className="l">선택지 편집</span>
+          <span className="l">속성 편집</span>
           <span className="ntb-sub">{(col.options ?? []).length}개 ›</span>
         </button>
       )}
+      <button
+        type="button"
+        className="ntb-mi"
+        disabled={col.fixed || lockDefs}
+        onClick={(e) => {
+          const r = e.currentTarget.getBoundingClientRect()
+          setTypeAt(typeAt ? null : { x: r.right + 6, y: r.top })
+        }}
+      >
+        <Cur />
+        <span className="l">유형 변경</span>
+        <span className="ntb-sub">{TYPES.find((t) => t.k === col.type)?.label} ›</span>
+      </button>
       <div className="ntb-hr" />
       <button type="button" className="ntb-mi" onClick={() => go(() => onSort('asc'))}>
         <IcSortAsc /><span className="l">오름차순 정렬</span>
@@ -657,7 +658,15 @@ export function FieldMenu({
                 type="button"
                 key={t.k}
                 className="ntb-mi"
-                onClick={() => { onCol({ ...col, type: t.k }); setTypeAt(null); onClose() }}
+                onClick={() => {
+                  onCol({ ...col, type: t.k })
+                  setTypeAt(null)
+                  /* 고를 값이 있어야 뜻이 생기는 종류면 곧바로 속성 편집으로
+                     잇는다 — 바꾸고 나서 어디서 값을 넣는지 헤매지 않게 */
+                  if ((t.k === 'select' || t.k === 'multiselect') && !(col.options ?? []).length) {
+                    setOptAt({ x: at.x + 240, y: at.y })
+                  } else onClose()
+                }}
               >
                 <I /><span className="l">{t.label}</span>
                 {t.k === col.type && <IcCheck className="ntb-chk" />}
