@@ -91,7 +91,7 @@ export default function InfoPane({
 
   /** 제목 칸 — 드롭다운. 무엇을 뜻하는지는 화면마다 다르다(hint 로 적는다) */
   const titleCell = (label: string, l: InfoLink & { title: string }) => (
-    <label className="ip-f wide">
+    <label className="ip-f">
       <span>{label}</span>
       {l.onTitle ? (
         /* 이 화면이 들고 있는 기록의 제목 — 그대로 고친다 */
@@ -149,12 +149,12 @@ export default function InfoPane({
     <div className="ip">
       <section className="ip-card">
         <div className="ip-h">기본정보</div>
-        <div className="ip-grid">
+        <div className="ip-grid pairs">
           <label className="ip-f">
             <span>프로젝트</span>
             <input value={project ?? ''} readOnly />
           </label>
-          <label className="ip-f wide">
+          <label className="ip-f">
             <span>분류</span>
             <input value={category ?? ''} readOnly title={category} />
           </label>
