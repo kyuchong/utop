@@ -188,3 +188,20 @@
 .ntb-pg select { border: 1px solid var(--ntb-bd, #e7e5e4); border-radius: 6px; padding: 2px 5px; font: inherit; font-size: 12px; }
 .ntb-pg button { border: 1px solid var(--ntb-bd, #e7e5e4); background: #fff; border-radius: 6px; padding: 1px 7px; cursor: pointer; color: inherit; }
 .ntb-pg button:disabled { opacity: .35; cursor: not-allowed; }
+
+/* 보기(탭) 줄 — 늘 한 줄. 넘치면 「⋯ 더보기」 로 접는다 */
+.ntv { display: flex; align-items: center; gap: 2px; border-bottom: 1px solid var(--ntb-line, #f0efed); padding-bottom: 1px; }
+.ntv-tab {
+  display: inline-flex; align-items: center; gap: 5px; border: 0; background: none;
+  padding: 6px 10px; font: inherit; font-size: 12.5px; color: #a8a29e; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+  max-width: 190px; overflow: hidden; text-overflow: ellipsis;
+}
+.ntv-tab:hover { color: #57534e; }
+.ntv-tab.on { color: #292524; font-weight: 700; border-bottom-color: #292524; }
+.ntv-priv { font-style: normal; font-size: 7px; color: #c8c4c0; }
+.ntv-more { color: #a8a29e; padding: 0 2px; border-radius: 4px; }
+.ntv-more:hover { background: #f0efed; color: #292524; }
+.ntv-rest { color: #c8c4c0; }
+.ntv-add { border: 0; background: none; color: #c8c4c0; font-size: 15px; padding: 3px 8px; cursor: pointer; border-radius: 6px; }
+.ntv-add:hover { background: #fafaf9; color: #57534e; }

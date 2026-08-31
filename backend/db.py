@@ -827,6 +827,58 @@ async def sessions_all() -> dict[str, dict]:
 # ══════════════════════════════════════════════════════════════════════
 # 스키마 적용
 # ══════════════════════════════════════════════════════════════════════
+async def views_list(scope: str, username: str) -> list[dict]:
+    """이 표의 보기 목록 — 공용 전부 + 내 개인 것."""
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            """SELECT id, scope, name, owner, shared, body, sort_order
+                 FROM view_def
+                WHERE scope = $1 AND (shared OR owner = $2)
+                ORDER BY shared DESC, sort_order, updated_at""",
+            scope, username,
+        )
+    return [dict(r) for r in rows]
+
+
+async def views_count(scope: str, owner: str, shared: bool) -> int:
+    """탭 수 세기 — 난립을 막는 상한에 쓴다."""
+    async with pool().acquire() as c:
+        if shared:
+            n = await c.fetchval(
+                "SELECT count(*) FROM view_def WHERE scope=$1 AND shared", scope
+            )
+        else:
+            n = await c.fetchval(
+                "SELECT count(*) FROM view_def WHERE scope=$1 AND owner=$2 AND NOT shared",
+                scope, owner,
+            )
+    return int(n or 0)
+
+
+async def view_save(v: dict) -> None:
+    async with pool().acquire() as c:
+        await c.execute(
+            """INSERT INTO view_def (id, scope, name, owner, shared, body, sort_order, updated_at)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+               ON CONFLICT (id) DO UPDATE SET
+                 name = EXCLUDED.name, shared = EXCLUDED.shared, body = EXCLUDED.body,
+                 sort_order = EXCLUDED.sort_order, updated_at = now()""",
+            str(v["id"]), str(v["scope"]), str(v["name"]), str(v["owner"]),
+            bool(v.get("shared", True)), v.get("body") or {}, int(v.get("sort_order") or 0),
+        )
+
+
+async def view_get(vid: str) -> dict | None:
+    async with pool().acquire() as c:
+        r = await c.fetchrow("SELECT * FROM view_def WHERE id=$1", vid)
+    return dict(r) if r else None
+
+
+async def view_delete(vid: str) -> bool:
+    async with pool().acquire() as c:
+        return (await c.execute("DELETE FROM view_def WHERE id=$1", vid)).endswith("1")
+
+
 async def prefs_count(username: str) -> int:
     async with pool().acquire() as c:
         return int(await c.fetchval("SELECT count(*) FROM user_pref WHERE username=$1", username) or 0)

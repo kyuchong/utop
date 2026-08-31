@@ -1497,22 +1497,95 @@ def _check_pref_values(values) -> None:
         raise HTTPException(400, "전체 크기가 너무 큽니다 — 요청당 1MB 이하")
 
 
-@app.get("/api/prefs")
-async def prefs_get_ep():
-    """화면 설정(보기) — 계정별(지시: PC 는 안 따라간다). 내 것 + 팀 기본."""
+# 보기 종류 — 지금은 표만 만든다. 자리를 미리 열어 두면 나중에 표를
+# 안 건드리고 보드·캘린더만 붙일 수 있다(합의).
+_VIEW_KINDS = ("table", "board", "calendar", "timeline")
+_VIEW_CAP_SHARED = 12   # 공용 탭 — 팀 전체가 보는 줄이라 좁게
+_VIEW_CAP_MINE = 20     # 개인 탭
+
+
+def _who() -> str:
     sess = _CUR_SESSION.get()
     who = str((sess or {}).get("username") or "")
     if not who:
         raise HTTPException(401, "로그인이 필요합니다")
+    return who
+
+
+@app.get("/api/views")
+async def views_list_ep(scope: str = ""):
+    """표 보기(탭) — 공용은 **모두가 같이 본다**. 개인 것은 만든 사람만."""
+    who = _who()
+    if not scope:
+        raise HTTPException(400, "scope 를 주세요")
+    return {"views": await db.views_list(scope, who)}
+
+
+@app.post("/api/views")
+async def view_save_ep(body: dict):
+    """만들기·고치기 — 로그인한 사람이면 누구나(노션과 같은 결).
+    다만 **남의 개인 보기**는 못 건드린다."""
+    who = _who()
+    vid = str(body.get("id") or "").strip()
+    scope = str(body.get("scope") or "").strip()
+    name = str(body.get("name") or "").strip()
+    if not vid or not scope or not name:
+        raise HTTPException(400, "id·scope·name 이 필요합니다")
+    if len(name) > 60:
+        raise HTTPException(400, "이름은 60자 이하")
+    b = body.get("body")
+    if not isinstance(b, dict) or len(json.dumps(b)) > 64 * 1024:
+        raise HTTPException(400, "body(dict, 64KB 이하)로 보내세요")
+    kind = str(body.get("kind") or "table")
+    if kind not in _VIEW_KINDS:
+        raise HTTPException(400, f"모르는 보기 종류입니다 — {', '.join(_VIEW_KINDS)}")
+    old = await db.view_get(vid)
+    if old and not old["shared"] and old["owner"] != who:
+        raise HTTPException(403, "남의 개인 보기는 못 고칩니다")
+    shared = bool(body.get("shared", False))
+    # 난립 막기 — 한 줄에 편히 읽히는 수를 넘지 않게(지시)
+    if not old or bool(old["shared"]) != shared:
+        n = await db.views_count(scope, who, shared)
+        cap = _VIEW_CAP_SHARED if shared else _VIEW_CAP_MINE
+        if n >= cap:
+            raise HTTPException(
+                400,
+                f"{'공용' if shared else '내'} 탭은 {cap}개까지입니다 — 안 쓰는 것을 지우고 만드세요",
+            )
+    await db.view_save({
+        "id": vid, "scope": scope, "name": name,
+        "owner": (old or {}).get("owner") or who,
+        # 기본은 **나만 보기** — 「모두에게 보이기」 를 눌러야 공용이 된다(승인)
+        "shared": shared,
+        "body": {**b, "kind": kind},
+        "sort_order": int(body.get("sort_order") or 0),
+    })
+    return {"ok": True}
+
+
+@app.delete("/api/views/{vid}")
+async def view_delete_ep(vid: str, token: str = ""):
+    """지우기 — **만든 사람 또는 관리자**만(남의 탭이 실수로 사라지지 않게)."""
+    who = _who()
+    v = await db.view_get(vid)
+    if not v:
+        raise HTTPException(404, "없는 보기입니다")
+    if v["owner"] != who:
+        _require_admin(token)
+    await db.view_delete(vid)
+    return {"ok": True}
+
+
+@app.get("/api/prefs")
+async def prefs_get_ep():
+    """화면 설정(보기) — 계정별(지시: PC 는 안 따라간다). 내 것 + 팀 기본."""
+    who = _who()
     return {"mine": await db.prefs_get(who), "team": await db.prefs_get("_team")}
 
 
 @app.post("/api/prefs")
 async def prefs_set_ep(body: dict):
-    sess = _CUR_SESSION.get()
-    who = str((sess or {}).get("username") or "")
-    if not who:
-        raise HTTPException(401, "로그인이 필요합니다")
+    who = _who()
     values = body.get("values")
     _check_pref_values(values)
     if await db.prefs_count(who) + len(values) > 500:

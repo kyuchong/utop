@@ -22,6 +22,7 @@ import {
 } from '@/components/icons'
 import GlobalParams from '@/components/settings/GlobalParams'
 import NTable from '@/components/ntable/NTable'
+import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
 import ListSortBtn, {
   FolderSortBtn,
@@ -400,6 +401,24 @@ export default function ReqTc({ me }: Props) {
     }
   })
   const [nPer, setNPer] = useState(() => Number(prefGet('utop.ntb.per') ?? '') || 100)
+  /* 고른 보기(탭) — 만들면 나만 보기로 시작하고 「모두에게 보이기」 로
+     공용이 된다(승인). 탭을 고르면 그 한 벌이 화면에 얹힌다. */
+  const [nvId, setNvId] = useState('')
+  /** 지금 화면 한 벌 — 새 탭·덮어쓰기가 이것을 담는다 */
+  const nBody: ViewBody = useMemo(
+    () => ({ kind: 'table', view: nview, calcs: nCalc, perPage: nPer }),
+    [nview, nCalc, nPer],
+  )
+  const applyView = (v: ViewDef | null) => {
+    setNvId(v?.id ?? '')
+    if (!v) {
+      setNview({ ...EMPTY_VIEW })
+      return
+    }
+    setNview({ ...EMPTY_VIEW, ...(v.body?.view ?? {}) })
+    if (v.body?.calcs) setNCalc(v.body.calcs)
+    if (v.body?.perPage) setNPer(v.body.perPage)
+  }
   /** 노션 표가 제 목록(거르기·정렬·묶기·건수)을 통째로 쥔 상태 */
   const nOwn = ntb
   /** 표 모양 전환 — 구분선 **아래**, 표 제 도구줄에 선다(지시) */
@@ -2328,6 +2347,17 @@ export default function ReqTc({ me }: Props) {
           <>
           {/* 표 모양 전환 — 옛 표를 볼 때도 같은 자리(구분선 아래)에 선다 */}
           {!ntb && <div className="rqtc-tbbar">{tblToggle}</div>}
+          {/* 보기(탭) 줄 — 이 표를 보는 방법들. 만들면 나만 보기로 시작한다 */}
+          {ntb && !openTc && !openReq && !gpOpen && (
+            <NViews
+              scope={mode === 'req' ? 'reqtc.req' : 'reqtc.tc'}
+              curId={nvId}
+              onPick={applyView}
+              current={nBody}
+              meName={me?.username || me?.name || ''}
+              isAdmin={me?.role === 'admin'}
+            />
+          )}
           <div className="rqtc-tbl">
             {mode === 'req' && ntb ? (
               /* 요구사항도 노션 꼴로(지시) — 켰을 때만. 옛 표는 그대로 있다 */

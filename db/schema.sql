@@ -691,3 +691,17 @@ CREATE TABLE IF NOT EXISTS user_pref (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (username, key)
 );
+
+-- 표 보기(탭) — 만들면 **모두가 같이 본다**(shared=true 가 기본).
+-- shared=false 면 만든 사람에게만 보이는 개인 탭.
+CREATE TABLE IF NOT EXISTS view_def (
+  id         TEXT PRIMARY KEY,
+  scope      TEXT NOT NULL,              -- 어느 표인가: reqtc.tc · reqtc.req · plan …
+  name       TEXT NOT NULL,
+  owner      TEXT NOT NULL,              -- 만든 사람(삭제 권한)
+  shared     BOOLEAN NOT NULL DEFAULT TRUE,
+  body       JSONB NOT NULL DEFAULT '{}'::jsonb,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_view_def_scope ON view_def(scope, sort_order, updated_at);
