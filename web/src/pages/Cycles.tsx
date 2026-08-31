@@ -707,7 +707,10 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
     <>
       {/* 맨 위 줄 — 지금 어디를 보고 있나. 플랜·실행 화면은 Testiny 처럼
           제 머리가 있으니 이 줄을 안 그린다(지시: 빵부스러기 제거). */}
-      {(cur || cyView === 'list') && (
+      {/* 목록에서는 이 줄을 안 그린다(지시) — 「플랜 3건 …」 한 줄만
+          담고 있었고, 건수는 표가 아래에서 이미 센다. 플랜을 열면
+          경로·ID 알약·「함께 보는 중」 이 여기 서므로 그때만 그린다. */}
+      {cur && (
       <div className="rq-bar">
         <span className="rq-crumb">
           {/* 「플랜」 을 누르면 관제판(고른 것 없음)으로 돌아간다 */}
