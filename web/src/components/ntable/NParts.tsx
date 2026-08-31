@@ -240,8 +240,9 @@ function OptionEdit({
   )
 }
 
-/** 색 고르개 — **판 안에서** 고른다(지적: 색판이 화면 밖으로 나가 못 고른다).
-    계열을 고르면 그 자리에서 진하기 여섯 단계가 펴진다. 띄우는 판이 없다. */
+/** 색 고르개 — **판 안에서**, 107색을 **한눈에 다** 편다.
+    띄우는 판은 화면 밖으로 나가 못 골랐고(지적), 계열을 접으면 색이
+    줄어든 것처럼 보였다(지적). 그래서 옛 INFO 필드와 같은 격자 그대로. */
 function ColorRow({ cur, onPick }: { cur: string; onPick: (c: string) => void }) {
   const series = useMemo(() => {
     const m = new Map<string, Array<{ nm: string; color: string }>>()
@@ -252,35 +253,31 @@ function ColorRow({ cur, onPick }: { cur: string; onPick: (c: string) => void })
     return [...m.entries()]
   }, [])
   const curHex = (cur || '').toLowerCase()
-  const mine = series.find(([, v]) => v.some((x) => x.color.toLowerCase() === curHex))
-  const [sel, setSel] = useState(mine?.[0] ?? series[0]?.[0] ?? '')
-  const shades = series.find(([k]) => k === sel)?.[1] ?? []
   return (
     <div className="ntb-colors">
-      <div className="ntb-cser">
-        {series.map(([k, v]) => (
-          <button
-            type="button"
-            key={k}
-            title={k}
-            className={`ntb-cbtn${k === sel ? ' on' : ''}`}
-            onClick={() => setSel(k)}
-          >
-            <span className="ntb-cdot" style={{ background: v[2]?.color ?? v[0]?.color }} />
-          </button>
-        ))}
-      </div>
-      <div className="ntb-cshades">
-        {shades.map((x) => (
-          <button
-            type="button"
-            key={x.color}
-            title={x.nm}
-            className={`ntb-cs${x.color.toLowerCase() === curHex ? ' on' : ''}`}
-            style={{ background: x.color }}
-            onClick={() => onPick(x.color)}
-          />
-        ))}
+      {series.map(([k, v]) => (
+        <div className="ntb-crow2" key={k}>
+          <span className="ntb-cname">{k}</span>
+          {v.map((x) => (
+            <button
+              type="button"
+              key={x.color}
+              title={x.nm}
+              className={`ntb-cs${x.color.toLowerCase() === curHex ? ' on' : ''}`}
+              style={{ background: x.color }}
+              onClick={() => onPick(x.color)}
+            />
+          ))}
+        </div>
+      ))}
+      <div className="ntb-crow2">
+        <span className="ntb-cname">직접</span>
+        <input
+          type="color"
+          className="ntb-cany"
+          value={curHex || '#9ca3af'}
+          onChange={(e) => onPick(e.target.value)}
+        />
       </div>
     </div>
   )
