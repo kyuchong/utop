@@ -1045,15 +1045,28 @@ export default function ReqTc({ me }: Props) {
   }
 
   /** 요구사항 줄 */
+  /** 표의 **기본 차례**는 여기서 정한다 — 폴더 차례 다음 ID.
+      서버는 `updated_at DESC` 로 주는데 그걸 그대로 표에 쓰면 방금 고친
+      줄이 1번으로 튄다(지적: "가장 최근에 입력한 데이터 행이 1번 행이 돼").
+      숫자를 아는 비교라 11.HW 다음이 12.PERF 이고 2 다음이 10 이다. */
+  const byName = useMemo(
+    () => new Intl.Collator('ko', { numeric: true, sensitivity: 'base' }).compare,
+    [],
+  )
+  const stable = <T,>(list: T[], folder: (x: T) => string, id: (x: T) => string) =>
+    [...list].sort((a, b) => byName(folder(a), folder(b)) || byName(id(a), id(b)))
+
   const reqRows = useMemo(() => {
     const n = q.trim().toLowerCase()
-    return reqs.filter((r) => {
+    const hit = reqs.filter((r) => {
       if (!inPrj(r) || !inCat(r)) return false
       if (onlyBare && (tcOf.get(reqPk(r))?.length ?? 0) > 0) return false
       if (!n) return true
       return `${reqLabel(r)} ${r.title ?? ''}`.toLowerCase().includes(n)
     })
-  }, [reqs, q, cat, deep, onlyBare, tcOf, prjCats, under])
+    return stable(hit, (r) => String(r.folder ?? ''), (r) => reqLabel(r))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reqs, q, cat, deep, onlyBare, tcOf, prjCats, under, byName])
 
   /** 요구사항 노션 표의 줄 */
   const nReqRows = useMemo<NRow[]>(
@@ -1093,8 +1106,11 @@ export default function ReqTc({ me }: Props) {
       if (!r) return false
       return inPrj(r) && inCat(r)
     }
-    return tcs.filter((t) => ok(t) && (!n || `${t.tcid} ${t.name ?? ''}`.toLowerCase().includes(n)))
-  }, [tcs, q, cat, deep, reqOnly, reqById, prjCats, under])
+    const hit = tcs.filter((t) => ok(t) && (!n || `${t.tcid} ${t.name ?? ''}`.toLowerCase().includes(n)))
+    /* 시험항목도 같은 규칙 — 고친 줄이 제자리에 있어야 한다 */
+    return stable(hit, (t) => String(reqById.get(String(t.req_id ?? ''))?.folder ?? ''), (t) => String(t.tcid ?? ''))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tcs, q, cat, deep, reqOnly, reqById, prjCats, under, byName])
 
   /** 요구사항 노션 표의 열 — 고정 칸 + 켜진 INFO 열 */
   const nReqColsBase = useMemo<NCol[]>(() => {
