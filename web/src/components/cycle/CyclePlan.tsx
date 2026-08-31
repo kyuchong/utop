@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch } from '@/api/client'
 import IdPill from '@/components/IdPill'
 import AssigneePicker from '@/components/AssigneePicker'
-import { gotoHref } from '@/api/goto'
+import { goto, gotoHref } from '@/api/goto'
 import {
   itemVerdict,
   kindOf,
@@ -683,7 +683,7 @@ export default function CyclePlan({
               <div className="cpl-over">
                 {/* 목업의 판정 배너 · 시험 범위 · 이 플랜의 실행 · 빌드 간 회귀.
                     「실행」 이 별개 기록(plan_run)이 되면서 여기서 그것을 읽는다 */}
-                <PlanExtras plan={cur} />
+                <PlanExtras plan={cur} onOpenRun={(id) => goto('run', id)} />
                 <div className="cpl-cards">
                   <div className="cpl-card">
                     <div className="cpl-cardh">🗒 시험 계획 상세</div>

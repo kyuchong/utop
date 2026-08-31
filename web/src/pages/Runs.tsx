@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
-import { prefGet, prefSet } from '@/lib/prefs'
+import { prefGet, prefRemove, prefSet } from '@/lib/prefs'
+import { onGoto, reflectUrl } from '@/api/goto'
 import NTable from '@/components/ntable/NTable'
 import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
 import { useNFields } from '@/components/ntable/useNFields'
@@ -234,8 +235,24 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
 
   /* ── 만들기 · 지우기 · 열어 보기 ── */
   const [mk, setMk] = useState(false)
-  /** 고른 실행 — 있으면 상세를 그린다 */
-  const [sel, setSel] = useState('')
+  /** 고른 실행 — 있으면 상세를 그린다.
+      **주소가 정본**이다. 실행에만 주소가 없어서, 주소에 남아 있던 옛
+      ?cycle= 이 되살아나 왼쪽 메뉴가 Plans 로 되돌아갔다(지적). */
+  const [sel, setSel] = useState(() => prefGet('utop.runs.open') ?? '')
+  /** 다른 화면(플랜 개요의 실행 줄)에서 부르면 그 실행을 연다 */
+  useEffect(() => onGoto((kind, id) => kind === 'run' && setSel(id)), [])
+  const openRun = (id: string) => {
+    setSel(id)
+    prefSet('utop.runs.open', id)
+    reflectUrl('run', id)
+  }
+  const closeRun = () => {
+    setSel('')
+    prefRemove('utop.runs.open')
+    /* 목록으로 돌아왔으면 주소도 목록이어야 한다 — 안 그러면 새로 고칠
+       때 다시 그 실행이 열리고, 뒤로가기가 갈 곳을 잃는다 */
+    window.history.pushState({ utop: true }, '', `${window.location.pathname}?p=runs`)
+  }
   const reload = () => void qc.invalidateQueries({ queryKey: ['plan-runs'] })
 
   const delRuns = async (ids: string[]) => {
@@ -262,8 +279,8 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
       <RunDetail
         runId={sel}
         plan={r?.plan_id ? planOf.get(r.plan_id) : undefined}
-        onBack={() => setSel('')}
-        onGone={() => setSel('')}
+        onBack={closeRun}
+        onGone={closeRun}
       />
     )
   }
@@ -409,8 +426,8 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
           ]}
           idKey="id"
           titleKey="name"
-          onOpen={(id) => setSel(id)}
-          onPeek={(id) => setSel(id)}
+          onOpen={openRun}
+          onPeek={openRun}
           meName={meName}
           onNew={() => setMk(true)}
           onBulk={(a, ids) => {

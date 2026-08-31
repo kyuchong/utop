@@ -131,6 +131,9 @@ export default function App() {
       ['ce', 'utop.cycle.ce', 'cycles'],
       ['cycle', 'utop.cycle.sel', 'cycles'],
       ['report', 'utop.report.cycle', 'executions'],
+      /* ?run=E6100_R0001 — 시험 실행 링크. 실행만 주소가 없어서 주소와
+         화면이 서로 다른 말을 했다(지적: 실행을 봤는데 Plans 가 강조) */
+      ['run', 'utop.runs.open', 'runs'],
       /* ?cat=cat-… — REQ-Coverage 의 폴더 링크. 「지금 보는 이 자리」 를
          그대로 보내려면 폴더도 주소가 있어야 한다(지시: 링크 복사). */
       ['cat', 'utop.reqtc.cat', 'reqtc'],
@@ -239,6 +242,9 @@ export default function App() {
         } else if (kind === 'cycle') {
           prefSet('utop.cycle.sel', id)
           setPage('cycles')
+        } else if (kind === 'run') {
+          prefSet('utop.runs.open', id)
+          setPage('runs')
         } else if (kind === 'ce') {
           prefSet('utop.cycle.ce', id)
           setPage('cycles')

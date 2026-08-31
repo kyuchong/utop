@@ -12,7 +12,9 @@
     주소가 있어야 한다(지시: 링크 복사).
     wiki = 위키 문서. 문서끼리 서로 짚으려면 문서에도 주소가 있어야 한다 —
     링크 없는 위키는 그냥 글 뭉치다. */
-export type GotoKind = 'tc' | 'req' | 'cycle' | 'ce' | 'report' | 'cat' | 'wiki'
+/** run = 시험 실행(plan_run). 실행에만 주소가 없어서, 주소에 남아 있던
+    옛 ?cycle= 이 되살아나 왼쪽 메뉴가 Plans 로 되돌아갔다(지적). */
+export type GotoKind = 'tc' | 'req' | 'cycle' | 'ce' | 'report' | 'cat' | 'wiki' | 'run'
 
 export function goto(kind: GotoKind, id: string): void {
   window.dispatchEvent(new CustomEvent('utop:goto', { detail: { kind, id } }))
