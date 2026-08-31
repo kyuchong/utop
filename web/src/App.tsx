@@ -12,6 +12,7 @@ import Wiki from '@/pages/Wiki'
 import Settings from '@/pages/Settings'
 import AiTc from '@/pages/AiTc'
 import Cycles from '@/pages/Cycles'
+import Runs from '@/pages/Runs'
 import Defects from '@/pages/Defects'
 import Devices from '@/pages/Devices'
 import Instruments from '@/pages/Instruments'
@@ -294,8 +295,9 @@ export default function App() {
       ) : page === 'cycles' ? (
         <Cycles me={user} entry="cycles" />
       ) : page === 'runs' ? (
-        /* Runs — 같은 부품, 실행 얼굴로 들어간다(Testiny 의 Test Runs) */
-        <Cycles me={user} entry="runs" />
+        /* Runs — **제 화면**이 됐다. 플랜 1 : 실행 N 이라 실행은 플랜과
+           다른 것을 담는다(어느 빌드에 어느 장비로 돌렸는지). */
+        <Runs me={user} />
       ) : page === 'executions' ? (
         /* 옛 Reports 자리 — 북마크로 들어오면 플랜 화면을 보여 준다 */
         <Cycles me={user} />
