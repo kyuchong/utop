@@ -22,7 +22,7 @@ import {
 } from '@/components/icons'
 import GlobalParams from '@/components/settings/GlobalParams'
 import NTable from '@/components/ntable/NTable'
-import { EMPTY_VIEW, type NCol, type NRow, type NView } from '@/components/ntable/types'
+import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
 import ListSortBtn, {
   FolderSortBtn,
   type FolderSortMode,
@@ -391,6 +391,15 @@ export default function ReqTc({ me }: Props) {
   /* 폭·숨김·순서는 prefSet 으로만 남는데 그것은 상태가 아니다 — 고쳐도
      화면이 안 다시 그려졌다(검증). 이 숫자를 올려 다시 읽게 한다. */
   const [nColRev, setNColRev] = useState(0)
+  /* 열마다 아래에서 세는 것·줄 수 — 계정을 따라간다(prefs 접두어 동기화) */
+  const [nCalc, setNCalc] = useState<Record<string, NCalc>>(() => {
+    try {
+      return JSON.parse(prefGet('utop.ntb.calc') ?? '{}') as Record<string, NCalc>
+    } catch {
+      return {}
+    }
+  })
+  const [nPer, setNPer] = useState(() => Number(prefGet('utop.ntb.per') ?? '') || 100)
   /** 노션 표가 제 목록(거르기·정렬·묶기·건수)을 통째로 쥔 상태 */
   const nOwn = ntb
   /** 표 모양 전환 — 구분선 **아래**, 표 제 도구줄에 선다(지시) */
@@ -2324,6 +2333,16 @@ export default function ReqTc({ me }: Props) {
               /* 요구사항도 노션 꼴로(지시) — 켰을 때만. 옛 표는 그대로 있다 */
               <NTable
                 columns={nReqCols}
+                calcs={nCalc}
+                onCalcs={(v) => {
+                  setNCalc(v)
+                  prefSet('utop.ntb.calc', JSON.stringify(v))
+                }}
+                perPage={nPer}
+                onPerPage={(n) => {
+                  setNPer(n)
+                  prefSet('utop.ntb.per', String(n))
+                }}
                 rows={nReqRows}
                 view={nview}
                 onView={setNview}
@@ -2600,6 +2619,16 @@ export default function ReqTc({ me }: Props) {
                  renderCell 로 이 화면이 직접 그린다. */
               <NTable
                 columns={nCols}
+                calcs={nCalc}
+                onCalcs={(v) => {
+                  setNCalc(v)
+                  prefSet('utop.ntb.calc', JSON.stringify(v))
+                }}
+                perPage={nPer}
+                onPerPage={(n) => {
+                  setNPer(n)
+                  prefSet('utop.ntb.per', String(n))
+                }}
                 rows={nRows}
                 view={nview}
                 onView={setNview}

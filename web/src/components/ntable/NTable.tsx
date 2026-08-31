@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { autoColor } from './palette'
-import type { NCol, NPerson, NRow, NView } from './types'
+import { CALC_LABEL, type NCalc, type NCol, type NPerson, type NRow, type NView } from './types'
 import {
   DateEditor, FieldMenu, PersonEditor, Pill, Pop, SelectEditor, TextEditor,
 } from './NParts'
@@ -52,6 +52,12 @@ export interface NTableProps {
   busy?: boolean
   /** 도구줄 왼쪽 끝에 화면이 끼워 넣는 것(표 전환 단추 같은) */
   toolbarLeft?: React.ReactNode
+  /** 열마다 아래에서 세는 것 — 고르면 바로 저장된다 */
+  calcs?: Record<string, NCalc>
+  onCalcs?: (v: Record<string, NCalc>) => void
+  /** 한 쪽에 보여 줄 줄 수 */
+  perPage?: number
+  onPerPage?: (n: number) => void
 }
 
 const BULK = [
@@ -69,6 +75,7 @@ export default function NTable(p: NTableProps) {
     people = [], meName, onOpen, onPeek, onNew, onBulk,
     renderCell, readOnlyKeys = [], lockDefs,
     idKey = 'id', titleKey = 'title', title, busy, toolbarLeft,
+    calcs = {}, onCalcs, perPage = 100, onPerPage,
   } = p
 
   const [menuAt, setMenuAt] = useState<{ key: string; x: number; y: number } | null>(null)
@@ -78,6 +85,8 @@ export default function NTable(p: NTableProps) {
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [folded, setFolded] = useState<Set<string>>(new Set())
   const [widths, setWidths] = useState<Record<string, number>>({})
+  const [calcAt, setCalcAt] = useState<{ key: string; x: number; y: number } | null>(null)
+  const [page, setPage] = useState(1)
   const drag = useRef<{ key: string; x0: number; w0: number } | null>(null)
 
   const vis = useMemo(() => columns.filter((c) => !c.hidden), [columns])
@@ -120,12 +129,45 @@ export default function NTable(p: NTableProps) {
     return out
   }, [rows, view, vis])
 
+  /* 쪽 나누기 — 묶기를 켜면 나누지 않는다(묶음을 쪼개면 뜻이 깨진다) */
+  const pageN = Math.max(1, Math.ceil(shown.length / Math.max(1, perPage)))
+  useEffect(() => {
+    if (page > pageN) setPage(pageN)
+  }, [page, pageN])
+  useEffect(() => setPage(1), [view.q, view.filters, view.sorts, perPage])
+  const paged = useMemo(
+    () => (view.groupBy ? shown : shown.slice((page - 1) * perPage, page * perPage)),
+    [shown, view.groupBy, page, perPage],
+  )
+
+  /** 한 열의 계산 값 — 지금 보이는 줄들로 센다 */
+  const calcOf = (c: NCol): string => {
+    const k = calcs[c.key] ?? ''
+    if (!k) return ''
+    const vals = shown.map((r) => String(r[c.key] ?? '').trim())
+    const filled = vals.filter(Boolean)
+    const nums = filled.map((v) => Number(v.replace(/[^0-9.-]/g, ''))).filter((n) => !Number.isNaN(n))
+    const fx = (n: number) => (Math.round(n * 100) / 100).toLocaleString()
+    switch (k) {
+      case 'count': return String(vals.length)
+      case 'filled': return String(filled.length)
+      case 'empty': return String(vals.length - filled.length)
+      case 'pctFilled': return vals.length ? `${Math.round((filled.length / vals.length) * 100)}%` : '0%'
+      case 'unique': return String(new Set(filled).size)
+      case 'sum': return nums.length ? fx(nums.reduce((a, b) => a + b, 0)) : '–'
+      case 'avg': return nums.length ? fx(nums.reduce((a, b) => a + b, 0) / nums.length) : '–'
+      case 'min': return nums.length ? fx(Math.min(...nums)) : '–'
+      case 'max': return nums.length ? fx(Math.max(...nums)) : '–'
+      default: return ''
+    }
+  }
+
   const groups = useMemo(() => {
-    if (!view.groupBy) return [{ value: '', rows: shown }]
+    if (!view.groupBy) return [{ value: '', rows: paged }]
     const gc = colOf(view.groupBy)
     const order = (gc?.options ?? []).map((o) => o.value)
     const m = new Map<string, NRow[]>()
-    for (const r of shown) {
+    for (const r of paged) {
       const v = String(r[view.groupBy] ?? '')
       m.set(v, [...(m.get(v) ?? []), r])
     }
@@ -139,7 +181,7 @@ export default function NTable(p: NTableProps) {
     })
     return keys.map((k) => ({ value: k, rows: m.get(k) ?? [] }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shown, view.groupBy, columns])
+  }, [paged, view.groupBy, columns])
 
   /* ── 열 고치기 ── */
   const putCol = (key: string, next: NCol | null) => {
@@ -535,13 +577,63 @@ export default function NTable(p: NTableProps) {
               </tr>
             )}
           </tbody>
+          {/* 열마다 아래에서 센다(지시) — 누르면 무엇을 셀지 고른다 */}
+          <tfoot>
+            <tr className="ntb-calcrow">
+              <td className="ntb-gp" />
+              {vis.map((c) => {
+                const val = calcOf(c)
+                return (
+                  <td key={c.key}>
+                    <button
+                      type="button"
+                      className={`ntb-calcb${val ? ' on' : ''}`}
+                      title="이 열에서 셀 것을 고릅니다"
+                      onClick={(e) => {
+                        const b = e.currentTarget.getBoundingClientRect()
+                        setCalcAt(calcAt?.key === c.key ? null : { key: c.key, x: b.left - 40, y: b.top - 300 })
+                      }}
+                    >
+                      {val ? (
+                        <>
+                          <i>{CALC_LABEL[calcs[c.key] ?? '']}</i> {val}
+                        </>
+                      ) : (
+                        '계산 ▾'
+                      )}
+                    </button>
+                  </td>
+                )
+              })}
+              <td className="ntb-fill" />
+            </tr>
+          </tfoot>
         </table>
       </div>
 
       <div className="ntb-foot">
         {shown.length}건
+        <span className="ntb-pg">
+          <span>줄 수</span>
+          <select
+            value={perPage}
+            title="한 쪽에 보여 줄 줄 수"
+            onChange={(e) => onPerPage?.(Number(e.target.value))}
+          >
+            {[25, 50, 75, 100].map((n) => (
+              <option key={n} value={n}>{n}개</option>
+            ))}
+          </select>
+        </span>
+        {!view.groupBy && pageN > 1 && (
+          <span className="ntb-pg">
+            <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)}>‹</button>
+            {page} / {pageN}
+            <button type="button" disabled={page >= pageN} onClick={() => setPage(page + 1)}>›</button>
+          </span>
+        )}
+        {view.groupBy && <span className="ntb-sub">묶는 동안은 쪽을 안 나눕니다</span>}
         <span className="sp" />
-        <span className="ntb-calc">개수 {shown.length}</span>
       </div>
 
       {/* ── 헤더 필드 메뉴 ── */}
@@ -776,6 +868,26 @@ export default function NTable(p: NTableProps) {
           <button type="button" className="ntb-mi" onClick={() => onColumns(columns.map((c) => ({ ...c, hidden: false })))}>
             <span className="l">모두 보이기</span>
           </button>
+        </Pop>
+      )}
+
+      {calcAt && (
+        <Pop at={calcAt} w={168} h={330} onClose={() => setCalcAt(null)}>
+          <div className="ntb-sec">이 열에서 셀 것</div>
+          {(Object.keys(CALC_LABEL) as NCalc[]).map((k) => (
+            <button
+              type="button"
+              key={k || 'none'}
+              className="ntb-mi"
+              onClick={() => {
+                onCalcs?.({ ...calcs, [calcAt.key]: k })
+                setCalcAt(null)
+              }}
+            >
+              <span className="l">{CALC_LABEL[k]}</span>
+              {(calcs[calcAt.key] ?? '') === k && <IcCheck className="ntb-chk" />}
+            </button>
+          ))}
         </Pop>
       )}
 

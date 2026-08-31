@@ -161,3 +161,14 @@
 
 /* 남는 폭 먹는 빈 칸 — 지정한 폭이 그대로 서게 한다 */
 .ntb-fill { padding: 0 !important; }
+
+/* 열마다 아래에서 세기(지시) · 쪽·줄 수 */
+.ntb-calcrow td { border-top: 1px solid var(--ntb-line, #f0efed); border-bottom: 0; padding: 4px 6px; }
+.ntb-calcb { border: 0; background: none; border-radius: 6px; padding: 3px 7px; font: inherit; font-size: 11.5px; color: #c8c4c0; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ntb-calcb:hover { background: #fafaf9; color: #57534e; }
+.ntb-calcb.on { color: #292524; font-weight: 600; }
+.ntb-calcb i { font-style: normal; color: #a8a29e; font-weight: 400; margin-right: 3px; }
+.ntb-pg { display: inline-flex; align-items: center; gap: 5px; margin-left: 14px; font-size: 12.5px; }
+.ntb-pg select { border: 1px solid var(--ntb-bd, #e7e5e4); border-radius: 6px; padding: 2px 5px; font: inherit; font-size: 12px; }
+.ntb-pg button { border: 1px solid var(--ntb-bd, #e7e5e4); background: #fff; border-radius: 6px; padding: 1px 7px; cursor: pointer; color: inherit; }
+.ntb-pg button:disabled { opacity: .35; cursor: not-allowed; }

@@ -46,3 +46,28 @@ export interface NPerson {
   name: string
   org: string
 }
+
+/** 열 아래 계산 — 노션의 「계산」 줄 */
+export type NCalc =
+  | ''            // 안 셈
+  | 'count'       // 모두 세기
+  | 'filled'      // 값 있는 것
+  | 'empty'       // 빈 것
+  | 'pctFilled'   // 값 있는 것 비율
+  | 'unique'      // 서로 다른 값 수
+  | 'sum'         // 합(숫자)
+  | 'avg'         // 평균(숫자)
+  | 'min'
+  | 'max'
+export const CALC_LABEL: Record<NCalc, string> = {
+  '': '계산 안 함',
+  count: '모두',
+  filled: '값 있음',
+  empty: '빈 칸',
+  pctFilled: '채운 비율',
+  unique: '값 종류',
+  sum: '합',
+  avg: '평균',
+  min: '최소',
+  max: '최대',
+}

@@ -1,7 +1,7 @@
 import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import NTable from '@/components/ntable/NTable'
-import { EMPTY_VIEW, type NCol, type NRow, type NView } from '@/components/ntable/types'
+import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
 import '@/theme.css'
 
 /**
@@ -46,6 +46,8 @@ function Demo() {
   const [cols, setCols] = useState<NCol[]>(COLS)
   const [rows, setRows] = useState<NRow[]>(ROWS)
   const [view, setView] = useState<NView>({ ...EMPTY_VIEW })
+  const [calc, setCalc] = useState<Record<string, NCalc>>({ status: 'filled', due: 'empty', severity: 'unique' })
+  const [per, setPer] = useState(25)
   const [log, setLog] = useState<string[]>([])
   const say = (s: string) => setLog((l) => [s, ...l].slice(0, 6))
   return (
@@ -56,6 +58,10 @@ function Demo() {
         rows={rows}
         view={view}
         onView={setView}
+        calcs={calc}
+        onCalcs={setCalc}
+        perPage={per}
+        onPerPage={setPer}
         onColumns={setCols}
         onCell={(id, key, v) => {
           setRows((rs) => rs.map((r) => (r.__id === id ? { ...r, [key]: v } : r)))
