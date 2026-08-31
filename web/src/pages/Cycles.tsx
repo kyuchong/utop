@@ -1282,7 +1282,14 @@ function CycleBoard({
     /* 상태는 설정에서 숨겨져(code_kind_hidden) ⚙ 목록에는 안 뜬다 —
        그래서 여기서 **기본 칸으로 직접** 세운다. 이름은 설정 것을 쓰고,
        표 머리에서 바로 고칠 수 있다. */
-    kindOf: { status: 'cycle_status', customer: 'cycle_customer' },
+    kindOf: {
+      status: 'cycle_status',
+      customer: 'cycle_customer',
+      /* 목업이 쓰는 세 칸 — 값·색은 설정 코드가 정본이라 표에서 바로 고친다 */
+      stage: 'cycle_stage',
+      type: 'cycle_type',
+      mode: 'cycle_mode',
+    },
     pre: 'cy_',
     orderKey: 'utop.ntb.order.cy',
   })
@@ -1308,6 +1315,13 @@ function CycleBoard({
       { key: 'model', label: '모델명', type: 'text', width: w('model', 88) },
       { key: 'version_group', label: '버전그룹', type: 'text', width: w('version_group', 88) },
       { key: 'version', label: '버전', type: 'text', width: w('version', 110) },
+      /* 목업의 「유형」(표준항목·개선내역) */
+      { key: 'type', label: '유형', type: 'select', width: w('type', 92), options: nf.optsOf('cycle_type') },
+      /* 목업의 「시험 방식」(자동·수동) — 담을 수 있는 항목이 갈린다 */
+      { key: 'mode', label: '방식', type: 'select', width: w('mode', 76), options: nf.optsOf('cycle_mode') },
+      /* 목업의 「단계」(준비·진행·검토·발행) — 결과서를 낼 때까지가 플랜이다.
+         옛 「상태」 는 그대로 두었다(쓰던 값이 있다) */
+      { key: 'stage', label: '단계', type: 'select', width: w('stage', 80), options: nf.optsOf('cycle_stage') },
       { key: 'status', label: nf.labelOfKind('cycle_status', '상태'), type: 'select', width: w('status', 92), options: nf.optsOf('cycle_status') },
       { key: 'assignee', label: '담당', type: 'person', width: w('assignee', 84) },
       { key: 'start_date', label: '시작', type: 'date', width: w('start_date', 104) },
@@ -1338,6 +1352,9 @@ function CycleBoard({
           version_group: c.version_group ?? '',
           version: c.version ?? '',
           status: c.status ?? '',
+          type: String((c as unknown as Record<string, unknown>).type ?? ''),
+          mode: String((c as unknown as Record<string, unknown>).mode ?? ''),
+          stage: String((c as unknown as Record<string, unknown>).stage ?? ''),
           assignee: c.assignee ?? '',
           start_date: c.start_date ?? '',
           end_date: c.end_date ?? '',

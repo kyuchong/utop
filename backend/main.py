@@ -13238,6 +13238,31 @@ async def _db_init():
     except Exception as _se:
         print(f"[startup] 조직도 씨앗 실패: {_se}", flush=True)
 
+    # 플랜의 **단계·유형** 씨앗 — 목업(Plans/Runs)이 쓰는 값이다.
+    #
+    # 표에서 값을 만들 수 있지만, 칸이 텅 비어 있으면 처음 여는 사람이
+    # 무엇을 골라야 할지 모른다. 그래서 **비어 있을 때만** 기본값을 심고,
+    # 하나라도 있으면 손대지 않는다(사람이 고친 것을 배포가 덮으면 안 된다).
+    try:
+        _defaults = {
+            "cycle_stage": [("준비", "#6B7280"), ("진행", "#2563eb"),
+                            ("검토", "#b45309"), ("발행", "#0F7B6C")],
+            "cycle_type": [("표준항목", "#0F7B6C"), ("개선내역", "#b45309")],
+            "cycle_mode": [("자동", "#2563eb"), ("수동", "#b45309")],
+        }
+        for _kind, _vals in _defaults.items():
+            _have = [x for x in (await db.code_list()) if x.get("kind") == _kind]
+            if _have:
+                continue
+            for _i, (_v, _c) in enumerate(_vals):
+                await db.code_upsert({
+                    "kind": _kind, "value": _v, "sort_order": _i,
+                    "note": json.dumps({"color": _c, "fg": "#fff", "icon": "", "show": "both"}),
+                })
+            print(f"[startup] {_kind} 씨앗 {len(_vals)}개 심음", flush=True)
+    except Exception as _se:
+        print(f"[startup] 플랜 코드 씨앗 실패: {_se}", flush=True)
+
     # 역할 씨앗 — **딱 한 번만** 심는다.
     #
     # 팀장 24 · 담당 18 은 사람이 손으로 정한 값이다(role_by 가 비어 있다).
