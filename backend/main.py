@@ -1522,9 +1522,10 @@ async def views_list_ep(scope: str = ""):
 
 
 @app.post("/api/views")
-async def view_save_ep(body: dict):
+async def view_save_ep(body: dict, token: str = ""):
     """만들기·고치기 — 로그인한 사람이면 누구나(노션과 같은 결).
-    다만 **남의 개인 보기**는 못 건드린다."""
+    다만 **남의 개인 보기**는 못 건드리고, **공용으로 올리는 것은 관리자**만
+    한다(지시: 관리자가 고민하고 승인한다)."""
     who = _who()
     vid = str(body.get("id") or "").strip()
     scope = str(body.get("scope") or "").strip()
@@ -1543,6 +1544,10 @@ async def view_save_ep(body: dict):
     if old and not old["shared"] and old["owner"] != who:
         raise HTTPException(403, "남의 개인 보기는 못 고칩니다")
     shared = bool(body.get("shared", False))
+    # 공용으로 **올리는 것**만 관리자다(지시) — 만들기·고치기는 누구나,
+    # 「모두에게 보이기」 는 관리자가 고민하고 승인한다. 시스템 안정성.
+    if shared and not (old and old["shared"]):
+        _require_admin(token)
     # 난립 막기 — 한 줄에 편히 읽히는 수를 넘지 않게(지시)
     if not old or bool(old["shared"]) != shared:
         n = await db.views_count(scope, who, shared)

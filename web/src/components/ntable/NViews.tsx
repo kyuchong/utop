@@ -8,8 +8,9 @@ import type { NCalc, NView } from './types'
 /**
  * 보기(탭) 줄 — **한 줄이 곧 이 표를 보는 방법들**이다.
  *
- * 만들면 **나만 보기**로 시작하고, 「모두에게 보이기」 를 눌러야 공용이 된다
- * (승인). 40명이 각자 만들어도 공용 줄이 안 더러워지는 문턱이다.
+ * 만들면 **나만 보기**로 시작한다. 공용으로 올리는 「모두에게 보이기」 는
+ * **관리자만** 누른다(지시: 관리자가 고민하고 승인한다 — 시스템 안정성).
+ * 그 문턱이 있어 40명이 각자 만들어도 공용 줄이 안 더러워진다.
  * 넘치면 접어서 「⋯ 더보기」 로 낸다 — 탭 줄은 늘 한 줄이다.
  */
 export interface ViewBody {
@@ -221,13 +222,22 @@ export default function NViews({
           <button
             type="button"
             className="ntb-mi"
+            disabled={!menuAt.v.shared && !isAdmin}
+            title={
+              !menuAt.v.shared && !isAdmin
+                ? '공용으로 올리는 것은 관리자가 승인합니다'
+                : ''
+            }
             onClick={() => {
               save.mutate({ ...menuAt.v, shared: !menuAt.v.shared })
               setMenuAt(null)
             }}
           >
             <IcDots />
-            <span className="l">{menuAt.v.shared ? '나만 보기로 되돌리기' : '모두에게 보이기'}</span>
+            <span className="l">
+              {menuAt.v.shared ? '나만 보기로 되돌리기' : '모두에게 보이기'}
+              {!menuAt.v.shared && !isAdmin && <span className="ntb-sub"> 관리자</span>}
+            </span>
           </button>
           <div className="ntb-hr" />
           <button
