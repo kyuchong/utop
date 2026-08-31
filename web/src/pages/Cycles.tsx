@@ -16,7 +16,6 @@ import CycleInsight from '@/components/cycle/CycleInsight'
 import CyclePlan from '@/components/cycle/CyclePlan'
 import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
-import { useInfoCols } from '@/components/useInfoCols'
 import NTable from '@/components/ntable/NTable'
 import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
 import { useNFields } from '@/components/ntable/useNFields'
@@ -1077,10 +1076,8 @@ function CycleBoard({
   famOf,
   meName,
   isAdmin,
-  onDup,
   onDel,
   onEdit,
-  onRun,
   onRefresh,
   onOpenPlan,
 }: {
@@ -1128,36 +1125,8 @@ function CycleBoard({
   /* ＋New 행의 프로젝트 — 상단바가 「전체」 면 모델그룹이 안 실리던 문제(지적).
      행에서 직접 고른다. 상단바에 골라져 있으면 그게 기본. */
   /* 사업자·제품군·버전그룹 필터 — 폴더 레일이 하던 좁히기를 잇는다(승인) */
-  const [fCust, setFCust] = useState('')
-  const [fFam, setFFam] = useState('')
-  const [fVg, setFVg] = useState('')
-  /** ⚙ = 플랜 INFO 필드만(SETUP 과 1:1, 합의 규칙). 라벨 개명·숨김을
-      그대로 따른다. 실행 결과 탭은 열이 아니라 진행결과 바의 값 체계.
-      모델그룹·모델명은 고정 열(합의)이고 관리 열들도 고정이다. */
-  const infoCols = useInfoCols('cycle')
-  /** ⚙ — INFO 필드 보이기/숨기기. 고른 것은 저장한다 */
-  const [gearAt2, setGearAt2] = useState<{ x: number; y: number } | null>(null)
-  const [cytCols, setCytCols] = useState<Set<string>>(() => {
-    try {
-      const raw = prefGet('utop.cycle.infocols')
-      if (raw) return new Set((JSON.parse(raw) as string[]).filter((k) => k !== 'f_customer'))
-    } catch {
-      /* 깨진 저장값이면 기본으로 */
-    }
-    /* 목업에는 INFO 열이 없다 — 기본은 빈 판, ⚙ 로 켠다. 사업자는
-       고정 열이 됐으므로 저장값에 f_customer 가 남아 있어도 걷어낸다 */
-    return new Set<string>()
-  })
-  const toggleCytCol = (k: string) =>
-    setCytCols((cur) => {
-      const n = new Set(cur)
-      if (n.has(k)) n.delete(k)
-      else n.add(k)
-      prefSet('utop.cycle.infocols', JSON.stringify([...n]))
-      return n
-    })
-  /** 열 차례 — 머리글을 끌어 바꾼다(지시). 저장돼 다음에도 유지 */
-  /** 표에 서는 열들 — 고정(모델) + INFO(⚙) + 고정(관리), 끌어 둔 차례 반영 */
+  /* 열을 보이고 숨기는 것도 이제 **표 속성 판**이 한다 — 화면 ⚙ 은
+     걷어냈다(지시). 폭·숨김·차례는 useNFields 가 계정별로 담는다. */
   /* 목록 줄에서 바로 고친다(지시) — 값 목록은 설정의 코드표·카탈로그를 쓴다 */
   /**
    * 한 칸만 고쳐 저장한다.
@@ -1196,7 +1165,6 @@ function CycleBoard({
   /** 여러 개 고르고 Edit — 상태·고객·담당자를 한꺼번에 바꾼다 */
   const [bulkOpen, setBulkOpen] = useState(false)
   /** 방금 한 일의 결과 한 줄 — 시험항목 도구줄의 tc-msg 와 같은 자리 */
-  const [msg, setMsg] = useState('')
   /** 진행결과 막대 호버 카드 — 랙뷰 장비 카드(rv-tip)와 같은 문법 */
   /** ⋯ — 체크한 플랜 1개의 요약·보고서·내보내기 (실행 화면에서 옮겨 왔다) */
   const [moreAt, setMoreAt] = useState<{ x: number; y: number } | null>(null)
@@ -1276,9 +1244,7 @@ function CycleBoard({
   const shown = useMemo(() => {
     const nq = q.trim().toLowerCase()
     let arr = cycles
-    if (fCust) arr = arr.filter((c) => (c.customer ?? '') === fCust)
-    if (fFam) arr = arr.filter((c) => (famOf.get(c.model ?? '') ?? '') === fFam)
-    if (fVg) arr = arr.filter((c) => (c.version_group ?? '') === fVg)
+    /* 거르기는 표 도구줄의 「필터」 가 한다 — 화면 고르개는 걷어냈다(지시) */
     if (nq)
       arr = arr.filter((c) =>
         [c.cid, c.id, c.version, c.name, c.version_group, c.model]
@@ -1297,7 +1263,7 @@ function CycleBoard({
         cmp(String(a.folder ?? ''), String(b.folder ?? '')) ||
         cmp(a.cid || a.id, b.cid || b.id),
     )
-  }, [cycles, q, stats, fCust, fFam, fVg, famOf])
+  }, [cycles, q, stats, famOf])
 
 
   /* ══ 노션 꼴 표 — REQ-Coverage 와 **같은 부품**(지시) ══════════════
@@ -1434,145 +1400,9 @@ function CycleBoard({
           트렌드·메타·단추(항목 넣기빼기·결과 메일·결과서·실행 열기) */}
       {/* 시험항목 2열과 같은 카드 안에 도구줄·표가 든다 */}
       <section className="panel cyt-card">
-      {/* 도구줄 — 추가·복제·삭제는 왼쪽, 찾기는 오른쪽 */}
-      <div className="cy-tools">
-        <button
-          className="btn"
-          type="button"
-          /* 옛 인라인 만들기 행은 표와 함께 걷어냈다 — 만들기 창으로 간다 */
-          onClick={() => onEdit('')}
-        >
-          + New
-        </button>
-        {picked.size > 0 && (
-          <>
-            <button
-              className="btn"
-              type="button"
-              title={
-                picked.size === 1
-                  ? '고른 플랜을 편집합니다'
-                  : '고른 플랜들의 상태·고객·담당자를 한꺼번에 바꿉니다'
-              }
-              onClick={() => {
-                if (picked.size === 1) onEdit([...picked][0]!)
-                else setBulkOpen(true)
-              }}
-            >
-              {picked.size > 1 ? `Bulk Edit (${picked.size})` : 'Edit'}
-            </button>
-            <button
-              className="btn"
-              type="button"
-              disabled={picked.size !== 1}
-              title={picked.size === 1 ? '고른 플랜을 복제합니다' : '하나만 고르세요'}
-              onClick={() => onDup([...picked][0]!)}
-            >
-              Clone
-            </button>
-            <button
-              className="btn primary"
-              type="button"
-              disabled={picked.size !== 1}
-              title={picked.size === 1 ? '고른 플랜의 실행 화면을 엽니다' : '하나만 고르세요'}
-              onClick={() => onRun([...picked][0]!)}
-            >
-              ▶ Run
-            </button>
-            {/* Delete 는 맨 오른쪽, 구분선 너머 — New·Edit 옆에 두면
-                작업하다 자꾸 스친다(피드백: 지울 뻔한 사고 방지) */}
-            <span className="cy-vsep" aria-hidden="true" />
-            <button
-              className="btn danger"
-              type="button"
-              onClick={() => {
-                onDel([...picked])
-                setPicked(new Set())
-              }}
-            >
-              Delete ({picked.size})
-            </button>
-          </>
-        )}
-        {msg && <span className="tc-msg ok">{msg}</span>}
-        <span className="sp" />
-        {/* 사업자·제품군·버전그룹 — 폴더 레일이 하던 좁히기(승인 목업).
-            선택지는 지금 목록에 실제로 있는 값만 — 없는 것을 골라 봐야
-            빈 표만 나온다 */}
-        {([
-          ['사업자', fCust, setFCust, [...new Set(cycles.map((c) => c.customer ?? '').filter(Boolean))]],
-          ['제품군', fFam, setFFam, [...new Set(cycles.map((c) => famOf.get(c.model ?? '') ?? '').filter(Boolean))]],
-          ['버전그룹', fVg, setFVg, [...new Set(cycles.map((c) => c.version_group ?? '').filter(Boolean))]],
-        ] as Array<[string, string, (v: string) => void, string[]]>).map(([lab, v, set, opts]) => (
-          <select
-            key={lab}
-            className={`cyl-filter${v ? ' on' : ''}`}
-            value={v}
-            title={lab}
-            onChange={(e) => set(e.target.value)}
-          >
-            <option value=''>{lab} 전체</option>
-            {opts.sort((a, b) => a.localeCompare(b, 'ko')).map((o) => (
-              <option key={o}>{o}</option>
-            ))}
-          </select>
-        ))}
-        {/* 찾기·정렬·열 숨기기는 **표 제 도구줄**이 준다 — 두 벌이면
-            어느 쪽이 듣는지 몰라 헷갈린다(노션 표 얹으며 걷어냄) */}
-        <button
-          type="button"
-          className="btn cyt-more"
-          title={picked.size === 1 ? '요약 · 보고서 · 내보내기' : '플랜 하나를 체크하면 열립니다'}
-          disabled={picked.size !== 1}
-          onClick={(e) => {
-            const r2 = e.currentTarget.getBoundingClientRect()
-            setMoreAt((v) => (v ? null : { x: r2.left, y: r2.bottom + 4 }))
-          }}
-        >
-          ⋯
-        </button>
-        {gearAt2 && (
-          <>
-            <span className="cyt-gearovl" onClick={() => setGearAt2(null)} />
-            <div
-              className="tc-menu tc-colpop"
-              role="menu"
-              style={{
-                position: 'fixed',
-                left: Math.max(8, gearAt2.x - 170),
-                top: gearAt2.y,
-                right: 'auto',
-              }}
-            >
-              {/* SETUP 플랜 INFO 필드와 1:1(합의 규칙) */}
-              {infoCols.length === 0 && (
-                <span className="muted small">INFO 필드가 없습니다 — SETUP 에서 만듭니다</span>
-              )}
-              {infoCols.map((c2) => (
-                <label key={c2.k}>
-                  <input
-                    type="checkbox"
-                    checked={cytCols.has(c2.k)}
-                    onChange={() => toggleCytCol(c2.k)}
-                  />
-                  {c2.label}
-                </label>
-              ))}
-              <button
-                type="button"
-                className="linkish tc-coldef"
-                onClick={() => {
-                  const def = ['f_status', 'f_customer']
-                  setCytCols(new Set(def))
-                  prefSet('utop.cycle.infocols', JSON.stringify(def))
-                }}
-              >
-                기본값 복원
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+      {/* 옛 도구줄(＋New·Bulk Edit·Clone·Run·Delete·거르개·⋯)은 걷어냈다(지시).
+          표가 제 도구줄을 갖고 있어 두 벌이었다 — 만들기·찾기·정렬·거르기는
+          표 도구줄이, 여럿 골라 하는 일은 아래 띠가 맡는다. */}
 
       {/* 플랜 목록도 REQ-Coverage 와 **같은 노션 표**로(지시).
           옛 격자(폴더 묶음·펼쳐 보는 항목 카드)는 걷어냈다 — 항목은
@@ -1615,9 +1445,15 @@ function CycleBoard({
           onOpen={(id) => onOpenPlan(id)}
           onPeek={(id) => onEdit(id)}
           onBulk={(a, ids) => {
+            /* 옛 도구줄을 걷어내며 그 단추들이 여기로 왔다(지시) */
             if (a === 'del') onDel(ids)
-            else if (a === 'dup' && ids.length === 1 && ids[0]) onDup(ids[0])
-            else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
+            else if (a === 'assign' || a === 'status') setBulkOpen(true)
+            else if (a === 'csv') {
+              for (const id of ids) {
+                const c2 = cycles.find((x) => x.id === id)
+                if (c2) exportCycleCsv(c2)
+              }
+            } else window.alert('이 일괄 작업은 아직 없습니다 — 다음 차례에 답니다')
           }}
         />
       </div>
@@ -1691,8 +1527,8 @@ function CycleBoard({
           onDone={(m) => {
             setBulkOpen(false)
             setPicked(new Set())
-            setMsg(m)
-            window.setTimeout(() => setMsg(''), 8000)
+            /* 결과 한 줄을 띄우던 자리(옛 도구줄)가 사라져 알림으로 알린다 */
+            if (m) window.alert(m)
             onRefresh()
           }}
         />

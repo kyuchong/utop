@@ -62,11 +62,11 @@ export interface NTableProps {
   onPerPage?: (n: number) => void
 }
 
+/* 「복제」·「폴더 옮기기」 는 뺐다(지시) — 어느 화면도 받아 주지 않아
+   눌러도 「아직 없습니다」 만 뜨는 죽은 단추였다 */
 const BULK = [
   { k: 'assign', label: '담당 일괄' },
   { k: 'status', label: '상태 바꾸기' },
-  { k: 'dup', label: '복제' },
-  { k: 'move', label: '폴더 옮기기' },
   { k: 'csv', label: 'CSV' },
   { k: 'del', label: '삭제', danger: true },
 ]
