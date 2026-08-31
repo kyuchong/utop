@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { Pop } from './NParts'
@@ -58,6 +58,10 @@ export default function NViews({
   const [menuAt, setMenuAt] = useState<{ v: ViewDef; x: number; y: number } | null>(null)
   const [moreAt, setMoreAt] = useState<{ x: number; y: number } | null>(null)
   const [renaming, setRenaming] = useState<ViewDef | null>(null)
+  /* 고른 탭이 있으면 **열을 바꾸는 즉시 그 탭에 저장**한다(지적: 저장이
+     안 된다). 탭을 방금 고른 직후 한 번은 건너뛴다 — 고른 값을 도로
+     쓰는 헛 저장이라 저장 중 표시만 깜빡인다. */
+  const skip = useRef(true)
   const [name, setName] = useState('')
   useEffect(() => setName(renaming?.name ?? ''), [renaming])
 
@@ -77,8 +81,11 @@ export default function NViews({
     },
     onSuccess: (id) => {
       void qc.invalidateQueries({ queryKey: ['views', scope] })
-      const v = views.find((x) => x.id === id)
-      if (v) onPick(v)
+      /* 새로 만든 것만 골라 준다 — 자동 저장에서 다시 고르면 화면이 흔들린다 */
+      if (id !== curId) {
+        const v = views.find((x) => x.id === id)
+        if (v) onPick(v)
+      }
     },
     onError: (e) => window.alert(e instanceof Error ? e.message : '저장하지 못했습니다'),
   })
@@ -93,6 +100,23 @@ export default function NViews({
     },
     onError: (e) => window.alert(e instanceof Error ? e.message : '지우지 못했습니다'),
   })
+
+  const cur = views.find((v) => v.id === curId)
+  useEffect(() => {
+    skip.current = true
+  }, [curId])
+  useEffect(() => {
+    if (!cur) return
+    if (skip.current) {
+      skip.current = false
+      return
+    }
+    const t = window.setTimeout(() => {
+      save.mutate({ id: cur.id, name: cur.name, shared: cur.shared, body: current, sort_order: cur.sort_order })
+    }, 700)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current])
 
   const mkNew = (from?: ViewDef) =>
     save.mutate({

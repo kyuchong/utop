@@ -20,6 +20,7 @@ import GlobalParams from '@/components/settings/GlobalParams'
 import NTable from '@/components/ntable/NTable'
 import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
+import { type CfType, type CfMeta, type CustomField } from '@/hooks/useCustomFields'
 import ListSortBtn, {
   FolderSortBtn,
   type FolderSortMode,
@@ -371,6 +372,73 @@ export default function ReqTc({ me }: Props) {
   /* 폭·숨김·순서는 prefSet 으로만 남는데 그것은 상태가 아니다 — 고쳐도
      화면이 안 다시 그려졌다(검증). 이 숫자를 올려 다시 읽게 한다. */
   const [nColRev, setNColRev] = useState(0)
+  /* 만든 칸(커스텀 필드)은 이제 **표에서** 만들고 고치고 지운다(지시:
+     SETUP 커스텀 필드 화면을 없앤다). 정의는 서버 한 곳(custom_field)에
+     그대로 산다 — 고칠 자리만 표로 옮긴 것이다. */
+  const cfQ = useQuery({
+    queryKey: ['custom-fields'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/custom-fields')
+      if (!r.ok) throw new Error('커스텀 필드를 불러오지 못했습니다')
+      return (await r.json()) as CfMeta
+    },
+    staleTime: 60_000,
+  })
+  const cfMine = useMemo(
+    () => (cfQ.data?.items ?? []).filter((x) => x.target === (mode === 'req' ? 'req' : 'tc')),
+    [cfQ.data, mode],
+  )
+  const cfSave = async (p: Record<string, unknown>) => {
+    const r = await apiFetch('/api/custom-fields', { method: 'POST', body: JSON.stringify(p) })
+    if (!r.ok) {
+      window.alert(((await r.json().catch(() => ({}))) as { detail?: string }).detail || '저장하지 못했습니다')
+      return
+    }
+    await cfQ.refetch()
+    setNColRev((n) => n + 1)
+  }
+  const cfDelete = async (f2: CustomField) => {
+    const n = f2.used ?? 0
+    if (!window.confirm(`필드 「${f2.label}」 를 지웁니다.${n ? `\n값이 든 ${n}건이 있습니다 — 값은 남고 칸만 사라집니다.` : ''}`))
+      return
+    const r = await apiFetch(`/api/custom-fields/${f2.id}`, { method: 'DELETE' })
+    if (!r.ok) {
+      window.alert('지우지 못했습니다')
+      return
+    }
+    await cfQ.refetch()
+    setNColRev((n2) => n2 + 1)
+  }
+  /** 표가 준 열 변경을 **필드 정의**로 옮긴다 — 이름·타입·선택지·삭제 */
+  const cfApply = (before: NCol[], after: NCol[]) => {
+    const byKey = new Map<string, CustomField>(cfMine.map((x) => [`cf_${x.key}`, x]))
+    /* 지운 것 */
+    for (const b of before) {
+      if (after.some((a) => a.key === b.key)) continue
+      const f3 = byKey.get(b.key)
+      if (f3) void cfDelete(f3)
+    }
+    /* 새로 만든 것 · 이름·타입이 바뀐 것 */
+    for (const a of after) {
+      if (!a.key.startsWith('cf_')) continue
+      const f3 = byKey.get(a.key)
+      const T: Record<string, CfType> = { text: 'text', number: 'number', date: 'date', select: 'select', person: 'text' }
+      if (!f3) {
+        if (before.some((b) => b.key === a.key)) continue
+        void cfSave({
+          target: mode === 'req' ? 'req' : 'tc',
+          key: a.key.slice(3),
+          label: a.label,
+          type: T[a.type] ?? 'text',
+          show_list: true,
+          show_form: true,
+          sort_order: after.indexOf(a),
+        })
+      } else if (f3.label !== a.label || (T[a.type] ?? 'text') !== f3.type) {
+        void cfSave({ ...f3, label: a.label, type: T[a.type] ?? 'text' })
+      }
+    }
+  }
   /* 열마다 아래에서 세는 것·줄 수 — 계정을 따라간다(prefs 접두어 동기화) */
   const [nCalc, setNCalc] = useState<Record<string, NCalc>>(() => {
     try {
@@ -419,6 +487,25 @@ export default function ReqTc({ me }: Props) {
     }
     /* 숨긴 열도 배열에 **남긴다** — 빼 버리면 속성 판에서도 사라져
        「모두 보이기」 로도 못 되살린다(검증). 그리기는 NTable 이 거른다. */
+    /* 만든 칸(커스텀 필드) — 정의가 정본이라 여기서 열로 편다 */
+    for (const cf of cfMine) {
+      const ty = cf.type === 'select' ? 'select' : cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : 'text'
+      base.push({
+        key: `cf_${cf.key}`,
+        label: cf.label,
+        type: ty,
+        width: w(`cf_${cf.key}`, 110),
+        ...(ty === 'select'
+          ? {
+              options: (cf.options ?? '')
+                .split('\n')
+                .map((x) => x.trim())
+                .filter(Boolean)
+                .map((v) => ({ value: v, color: '' })),
+            }
+          : {}),
+      })
+    }
     const withHide = base.map((c) => ({ ...c, hidden: prefGet(`utop.ntb.hide.${c.key}`) === '1' }))
     /* 사람이 바꾼 순서도 되살린다 */
     const ord = (prefGet('utop.ntb.order') ?? '').split(',').filter(Boolean)
@@ -430,7 +517,7 @@ export default function ReqTc({ me }: Props) {
       })
     return withHide
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visCols, codesQ.data, nColRev])
+  }, [visCols, codesQ.data, nColRev, cfMine])
 
   /**
    * 한 칸만 고쳐 저장한다.
@@ -805,6 +892,25 @@ export default function ReqTc({ me }: Props) {
           : { key: c.k, label: c.label, type: 'text', width: w(c.k, 96) },
       )
     }
+    /* 만든 칸(커스텀 필드) — 정의가 정본이라 여기서 열로 편다 */
+    for (const cf of cfMine) {
+      const ty = cf.type === 'select' ? 'select' : cf.type === 'number' ? 'number' : cf.type === 'date' ? 'date' : 'text'
+      base.push({
+        key: `cf_${cf.key}`,
+        label: cf.label,
+        type: ty,
+        width: w(`cf_${cf.key}`, 110),
+        ...(ty === 'select'
+          ? {
+              options: (cf.options ?? '')
+                .split('\n')
+                .map((x) => x.trim())
+                .filter(Boolean)
+                .map((v) => ({ value: v, color: '' })),
+            }
+          : {}),
+      })
+    }
     const withHide = base.map((c) => ({ ...c, hidden: prefGet(`utop.ntb.hide.r_${c.key}`) === '1' }))
     const ord = (prefGet('utop.ntb.order.r') ?? '').split(',').filter(Boolean)
     if (ord.length)
@@ -815,7 +921,7 @@ export default function ReqTc({ me }: Props) {
       })
     return withHide
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visCols, codesQ.data, nColRev])
+  }, [visCols, codesQ.data, nColRev, cfMine])
 
   /** 지금 화면 한 벌 — 새 탭·덮어쓰기가 이것을 담는다 */
   const nBody: ViewBody = useMemo(
@@ -2218,8 +2324,10 @@ export default function ReqTc({ me }: Props) {
                   />
                 }
                 onNew={() => setEditReq(null)}
-                lockDefs
                 onColumns={(cs) => {
+                  /* 이름·타입·새 필드·삭제는 **필드 정의**로 간다(지시:
+                     SETUP 커스텀 필드 화면을 없애고 표에서 바로) */
+                  cfApply(nReqCols, cs)
                   for (const c of cs) {
                     if (c.width) prefSet(`utop.ntb.w.r_${c.key}`, String(c.width))
                     prefSet(`utop.ntb.hide.r_${c.key}`, c.hidden ? '1' : '0')
@@ -2310,10 +2418,9 @@ export default function ReqTc({ me }: Props) {
                   />
                 }
                 onNew={() => setEditTc(null)}
-                lockDefs
                 onColumns={(cs) => {
-                  /* 폭·숨김·순서는 계정별 보기 설정에 남긴다(서버로 따라간다).
-                     선택지·색·이름은 SETUP 이 정본이라 표에서 잠갔다(lockDefs). */
+                  /* 이름·타입·새 필드·삭제는 **필드 정의**로 간다(지시) */
+                  cfApply(nCols, cs)
                   for (const c of cs) {
                     if (c.width) prefSet(`utop.ntb.w.${c.key}`, String(c.width))
                     prefSet(`utop.ntb.hide.${c.key}`, c.hidden ? '1' : '0')

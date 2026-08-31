@@ -71,7 +71,9 @@ const GROUPS: Array<{ title: string; items: SecItem[] }> = [
       { key: 'cyclecodes', label: '플랜 INFO 필드', icon: IconCodeList, ready: true },
       { key: 'verdicts', label: '실행 판정 기준', icon: IconCodeList, ready: true },
       { key: 'stepacts', label: 'TC Step Action', icon: IconCodeList, ready: true },
-      { key: 'fields', label: '커스텀 필드', icon: IconCustomField, ready: true },
+      /* 커스텀 필드 화면은 내렸다(지시) — 이제 **표에서 바로** 만들고
+         고치고 지운다. 고칠 자리가 네 군데로 흩어져 한쪽만 고치던 사고가
+         이 화면에서 났다. 정의는 서버 한 곳(custom_field)에 그대로 있다. */
     ],
   },
   {

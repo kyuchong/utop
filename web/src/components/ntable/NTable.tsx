@@ -854,15 +854,19 @@ export default function NTable(p: NTableProps) {
             <button
               type="button"
               className="ntb-mi"
-              onClick={() =>
+              onClick={() => {
+                /* 이름을 먼저 묻는다 — 「새 속성」 이라는 이름의 칸이 생기고
+                   나서 다시 고치게 하면 두 걸음이다 */
+                const nm = window.prompt('새 필드 이름')?.trim()
+                if (!nm) return
                 onColumns([
                   ...columns,
-                  { key: `f_${Date.now()}`, label: '새 속성', type: 'text', width: 110 },
+                  { key: `cf_${Date.now().toString(36)}`, label: nm, type: 'text', width: 110 },
                 ])
-              }
+              }}
             >
               <IcPlus />
-              <span className="l">새 속성 만들기</span>
+              <span className="l">새 필드 만들기</span>
             </button>
           )}
           <button type="button" className="ntb-mi" onClick={() => onColumns(columns.map((c) => ({ ...c, hidden: false })))}>
