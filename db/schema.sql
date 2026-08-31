@@ -705,3 +705,41 @@ CREATE TABLE IF NOT EXISTS view_def (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_view_def_scope ON view_def(scope, sort_order, updated_at);
+
+-- ══════════════════════════════════════════════════════════════════════
+-- plan_run — 플랜에서 떠낸 **시험 실행 기록**
+--
+-- cycle_run 과 헷갈리지 말 것. 그쪽은 자동 실행기의 **작업 큐**(worker·
+-- heartbeat·live_steps)라 돌고 나면 의미가 없다. 이 표는 사람이 보는
+-- **기록**이다 — 어느 빌드에서 무엇을 돌렸고 무슨 결과가 났는지.
+--
+-- 플랜 1 : 실행 N 이다. 플랜은 「무엇을 시험할지」, 실행은 「어느 빌드에
+-- 어느 장비로 돌렸는지」. 그래서 빌드가 바뀌면 실행을 새로 뜬다.
+-- plan_id 가 비면 플랜 없이 만든 임시 실행이다(한 번만 돌릴 시험).
+--
+-- 만든 순간 플랜의 항목을 **복사**한다. 뒤에 플랜을 고쳐도 이미 뜬
+-- 실행은 안 바뀐다 — 결과서에 나간 숫자가 나중에 달라지면 안 된다.
+CREATE TABLE IF NOT EXISTS plan_run (
+  id             TEXT PRIMARY KEY,
+  plan_id        TEXT,
+  name           TEXT,
+  -- 빌드. R100_2026_08_31 처럼 <버전그룹>_<날짜> 꼴을 쓴다
+  version        TEXT,
+  -- version 앞머리. 트리에서 폴더가 된다(질의에 쓰므로 컬럼으로 뺀다)
+  version_group  TEXT,
+  owner          TEXT,
+  start_date     TEXT,
+  end_date       TEXT,
+  -- 닫힌 실행은 목록에서 접힌다. 다시 열 수 있다
+  closed_at      TIMESTAMPTZ,
+  -- 실패만 모아 다시 뜬 실행이면 원본 id
+  rerun_of       TEXT,
+  -- results{항목:p|f|b|n} · binds{역할:장비} · logs · notes · pchk · meta
+  data           JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_by     TEXT,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS plan_run_plan_idx  ON plan_run (plan_id);
+CREATE INDEX IF NOT EXISTS plan_run_vg_idx    ON plan_run (version_group);
+CREATE INDEX IF NOT EXISTS plan_run_upd_idx   ON plan_run (updated_at DESC);

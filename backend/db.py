@@ -550,6 +550,115 @@ async def cycle_list_meta() -> list[dict]:
         return out
 
 
+# ══════════════════════════════════════════════════════════════════════
+# plan_run — 플랜에서 떠낸 시험 실행 기록 (플랜 1 : 실행 N)
+#
+# 목록은 **data 를 통째로 읽지 않는다.** 한 실행의 results·logs 는 쉽게
+# 수 MB 가 되는데, 목록은 건수와 진행률만 필요하다. 그래서 집계는 SQL
+# 안에서 끝낸다 — cycle_list_meta 가 data 대신 data_summary 를 읽는 것과
+# 같은 까닭이다(그때 목록이 20MB 를 끌어 화면이 멎었다).
+# ══════════════════════════════════════════════════════════════════════
+_RUN_COUNTS = """
+  COALESCE((SELECT count(*) FROM jsonb_each_text(data->'results')), 0)                    AS n_total,
+  COALESCE((SELECT count(*) FROM jsonb_each_text(data->'results') WHERE value='p'), 0)    AS n_pass,
+  COALESCE((SELECT count(*) FROM jsonb_each_text(data->'results') WHERE value='f'), 0)    AS n_fail,
+  COALESCE((SELECT count(*) FROM jsonb_each_text(data->'results') WHERE value='b'), 0)    AS n_etc,
+  COALESCE((SELECT count(*) FROM jsonb_each_text(data->'results') WHERE value='n'), 0)    AS n_none
+"""
+
+
+def _run_row(r: dict) -> dict:
+    d = dict(r)
+    for k in ("created_at", "updated_at", "closed_at"):
+        v = d.get(k)
+        d[k] = v.isoformat() if v else None
+    return d
+
+
+async def plan_run_list(plan_id: str = "", with_closed: bool = True) -> list[dict]:
+    """목록용 슬림 응답 — data 는 안 읽고 집계만 센다."""
+    where, args = [], []
+    if plan_id:
+        args.append(plan_id)
+        where.append(f"plan_id = ${len(args)}")
+    if not with_closed:
+        where.append("closed_at IS NULL")
+    sql = f"""
+        SELECT id, plan_id, name, version, version_group, owner, start_date, end_date,
+               closed_at, rerun_of, created_by, created_at, updated_at,
+               data->'meta' AS meta, data->'binds' AS binds,
+               {_RUN_COUNTS}
+        FROM plan_run
+        {'WHERE ' + ' AND '.join(where) if where else ''}
+        ORDER BY updated_at DESC
+    """
+    async with pool().acquire() as c:
+        rows = await c.fetch(sql, *args)
+        return [_run_row(r) for r in rows]
+
+
+async def plan_run_get(rid: str) -> Optional[dict]:
+    async with pool().acquire() as c:
+        r = await c.fetchrow("SELECT * FROM plan_run WHERE id=$1", rid)
+        if not r:
+            return None
+        d = _run_row(r)
+        d.update(dict(d.pop("data", None) or {}))
+        return d
+
+
+async def plan_run_upsert(rid: str, item: dict) -> None:
+    """윗칸(질의에 쓰는 값)은 컬럼으로, 나머지는 통째로 data 에."""
+    top = {"id", "plan_id", "name", "version", "version_group", "owner",
+           "start_date", "end_date", "closed_at", "rerun_of", "created_by",
+           "created_at", "updated_at"}
+    data = {k: v for k, v in (item or {}).items() if k not in top}
+    ver = str(item.get("version") or "")
+    vg = str(item.get("version_group") or "") or (ver.split("_")[0] if ver else "")
+    closed = item.get("closed_at") or None
+    async with pool().acquire() as c:
+        await c.execute(
+            """
+            INSERT INTO plan_run (id, plan_id, name, version, version_group, owner,
+                                  start_date, end_date, closed_at, rerun_of, data, created_by)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::timestamptz,$10,$11::jsonb,$12)
+            ON CONFLICT (id) DO UPDATE SET
+              plan_id=EXCLUDED.plan_id, name=EXCLUDED.name, version=EXCLUDED.version,
+              version_group=EXCLUDED.version_group, owner=EXCLUDED.owner,
+              start_date=EXCLUDED.start_date, end_date=EXCLUDED.end_date,
+              closed_at=EXCLUDED.closed_at, rerun_of=EXCLUDED.rerun_of,
+              data=EXCLUDED.data, updated_at=now()
+            """,
+            rid, item.get("plan_id") or None, item.get("name") or "", ver, vg,
+            item.get("owner") or "", item.get("start_date") or "", item.get("end_date") or "",
+            closed, item.get("rerun_of") or None, data, item.get("created_by") or "",
+        )
+
+
+async def plan_run_delete(rid: str) -> bool:
+    async with pool().acquire() as c:
+        r = await c.execute("DELETE FROM plan_run WHERE id=$1", rid)
+        return r.endswith("1")
+
+
+async def plan_run_next_key(model: str) -> str:
+    """실행 Key 는 **모델명** 기준 — E6100_R0001 (목업 규칙).
+
+    플랜 Key 가 모델그룹(E61xx_P0001)인 것과 일부러 다르다. 실행은 어느
+    장비로 돌렸는지가 핵심이라 모델명이 앞에 서야 목록에서 읽힌다."""
+    pre = f"{(model or 'RUN').strip()}_R"
+    async with pool().acquire() as c:
+        rows = await c.fetch(
+            "SELECT id FROM plan_run WHERE id LIKE $1", pre + "%"
+        )
+    n = 0
+    for r in rows:
+        tail = str(r["id"])[len(pre):]
+        if tail.isdigit():
+            n = max(n, int(tail))
+    return f"{pre}{n + 1:04d}"
+
+
 async def cycle_backfill_summary() -> int:
     """data_summary 가 NULL 인 기존 cycle row 들의 요약을 재계산해 채움. 서버 startup 시 1회 호출."""
     async with pool().acquire() as c:

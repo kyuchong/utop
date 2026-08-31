@@ -12138,6 +12138,84 @@ async def _cycle_cid_prefix(data: dict) -> tuple[str, int]:
     return db._cid_prefix_of(_dt.now()), 3
 
 
+# ══════════════════════════════════════════════════════════════════════
+# 시험 실행(plan_run) — 플랜 1 : 실행 N
+#
+# 플랜은 「무엇을 시험할지」, 실행은 「어느 빌드에 어느 장비로 돌렸는지」.
+# 만들 때 플랜의 항목을 **복사**해 담는다 — 뒤에 플랜을 고쳐도 이미 뜬
+# 실행은 안 바뀌어야 결과서 숫자가 나중에 흔들리지 않는다.
+# ══════════════════════════════════════════════════════════════════════
+@app.get("/api/plan-runs")
+async def api_plan_runs(plan_id: str = "", closed: str = "1"):
+    return {"runs": await db.plan_run_list(plan_id, with_closed=closed != "0")}
+
+
+@app.get("/api/plan-runs/{run_id}")
+async def api_plan_run_get(run_id: str):
+    r = await db.plan_run_get(run_id)
+    if not r:
+        raise HTTPException(404, "실행을 찾을 수 없습니다")
+    return r
+
+
+@app.post("/api/plan-runs")
+async def api_plan_run_new(payload: dict):
+    """실행 만들기. 플랜을 주면 그 항목을 떠 담는다(복사)."""
+    p = payload or {}
+    plan_id = str(p.get("plan_id") or "").strip()
+    plan = await db.cycle_get(plan_id) if plan_id else None
+    if plan_id and not plan:
+        raise HTTPException(404, "플랜을 찾을 수 없습니다")
+
+    model = str(p.get("model") or (plan or {}).get("model") or "").strip()
+    rid = await db.plan_run_next_key(model or "RUN")
+
+    # 항목 복사 — 플랜의 items 를 결과칸이 빈 채로 떠 온다
+    results = dict(p.get("results") or {})
+    if plan and not results:
+        for it in (plan.get("items") or []):
+            k = str((it or {}).get("tcid") or "").strip()
+            if k:
+                results[k] = "n"
+
+    item = {
+        "id": rid,
+        "plan_id": plan_id or None,
+        "name": str(p.get("name") or "").strip() or rid,
+        "version": str(p.get("version") or (plan or {}).get("version") or ""),
+        "owner": str(p.get("owner") or (plan or {}).get("assignee") or ""),
+        "start_date": str(p.get("start_date") or ""),
+        "end_date": str(p.get("end_date") or ""),
+        "rerun_of": str(p.get("rerun_of") or "") or None,
+        "created_by": _who(),
+        "results": results,
+        "binds": dict(p.get("binds") or {}),
+        # 플랜 없는 실행은 제 메타를 들고 있어야 목록에 설 수 있다
+        "meta": dict(p.get("meta") or {}) or (
+            {} if plan else {"model": model}
+        ),
+    }
+    await db.plan_run_upsert(rid, item)
+    return {"id": rid, "run": await db.plan_run_get(rid)}
+
+
+@app.post("/api/plan-runs/{run_id}")
+async def api_plan_run_save(run_id: str, payload: dict):
+    cur = await db.plan_run_get(run_id)
+    if not cur:
+        raise HTTPException(404, "실행을 찾을 수 없습니다")
+    merged = {**cur, **(payload or {}), "id": run_id}
+    await db.plan_run_upsert(run_id, merged)
+    return {"success": True}
+
+
+@app.delete("/api/plan-runs/{run_id}")
+async def api_plan_run_delete(run_id: str):
+    if not await db.plan_run_delete(run_id):
+        raise HTTPException(404, "실행을 찾을 수 없습니다")
+    return {"success": True}
+
+
 @app.post("/api/cycle/{cycle_id}")
 async def save_cycle(cycle_id: str, data: dict):
     # 부여 ID — 없을 때만 새로 매긴다. 한 번 박히면 영원하다…
