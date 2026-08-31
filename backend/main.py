@@ -12150,6 +12150,63 @@ async def api_plan_runs(plan_id: str = "", closed: str = "1"):
     return {"runs": await db.plan_run_list(plan_id, with_closed=closed != "0")}
 
 
+@app.get("/api/plan-runs-regression")
+async def api_plan_run_regression(plan_id: str, a: str = "", b: str = ""):
+    """빌드 간 회귀 — 두 빌드에서 같은 항목의 결과가 어떻게 달라졌나.
+
+    한 빌드에서 항목의 대표 상태는 **한 번이라도 실패면 실패**다. 같은
+    빌드로 여러 실행을 뜰 수 있어서(장비를 바꿔 가며) 그중 하나만 깨져도
+    그 빌드는 깨진 것이다.
+
+    결과를 화면으로 다 보내면 수 MB 라, 여기서 접어 **바뀐 것만** 준다."""
+    runs = await db.plan_run_list(plan_id)
+    versions = []
+    for r in runs:
+        v = str(r.get("version") or "")
+        if v and v not in versions:
+            versions.append(v)
+    versions.sort(reverse=True)
+    if len(versions) < 2:
+        return {"versions": versions, "a": "", "b": "", "changed": [], "same": 0}
+
+    B = b if b in versions else versions[0]
+    A = a if (a in versions and a != B) else next(v for v in versions if v != B)
+
+    async def status_map(ver: str) -> dict:
+        out = {}
+        rank = {"f": 3, "b": 2, "n": 1, "p": 0}
+        for r in runs:
+            if str(r.get("version") or "") != ver:
+                continue
+            full = await db.plan_run_get(r["id"])
+            for k, v in (full or {}).get("results", {}).items():
+                if rank.get(v, 0) >= rank.get(out.get(k, "p"), 0):
+                    out[k] = v
+        return out
+
+    ma, mb = await status_map(A), await status_map(B)
+    changed, same = [], 0
+    bad = ("f", "b")
+    for k in set(ma) | set(mb):
+        x, y = ma.get(k), mb.get(k)
+        if y is None:
+            continue
+        if y == "n":
+            kind = "gone"
+        elif x == "p" and y in bad:
+            kind = "broke"
+        elif x in bad and y == "p":
+            kind = "fixed"
+        elif x in bad and y in bad:
+            kind = "still"
+        else:
+            same += 1
+            continue
+        changed.append({"tcid": k, "a": x, "b": y, "kind": kind})
+    changed.sort(key=lambda r: (["broke", "still", "gone", "fixed"].index(r["kind"]), r["tcid"]))
+    return {"versions": versions, "a": A, "b": B, "changed": changed, "same": same}
+
+
 @app.get("/api/plan-runs/{run_id}")
 async def api_plan_run_get(run_id: str):
     r = await db.plan_run_get(run_id)

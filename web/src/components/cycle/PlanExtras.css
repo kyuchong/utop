@@ -1,0 +1,65 @@
+/* 플랜 개요에 붙는 판정·범위·회귀. 접두어 pe- 하나만 쓴다 */
+.pe-sp { flex: 1; }
+.pe-muted { color: #93a6ab; font-size: 11.5px; font-weight: 400; }
+.pe-ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+.pe-verdict {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px; border-radius: 8px; border: 1px solid var(--c-border, #e3eaec);
+  font-size: 13px; margin-bottom: 14px;
+}
+.pe-verdict.ok { background: #eef8f4; border-color: #a7ddc9; color: #0b6d55; }
+.pe-verdict.block { background: #fdeef2; border-color: #f2c0ce; color: #a81742; }
+.pe-verdict.none { background: #fafcfc; color: #5b7176; }
+.pe-vi { font-size: 15px; font-weight: 700; }
+.pe-why { opacity: 0.85; font-size: 12.5px; }
+
+.pe-cards { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; margin-bottom: 14px; }
+@media (max-width: 900px) { .pe-cards { grid-template-columns: minmax(0, 1fr); } }
+.pe-card { background: #fff; border: 1px solid var(--c-border, #e3eaec); border-radius: 8px; overflow: hidden; }
+.pe-card h3 { margin: 0; padding: 8px 12px; font-size: 12px; font-weight: 600; border-bottom: 1px solid #f1f5f6; }
+.pe-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 10px 12px; }
+.pe-stat { border: 1px solid var(--c-border, #e3eaec); border-radius: 7px; padding: 9px 6px; text-align: center; }
+.pe-stat b { display: block; font-size: 19px; font-weight: 700; line-height: 1.1; }
+.pe-stat b.ok { color: #12a678; }
+.pe-stat b.bad { color: #d92953; }
+.pe-stat em { font-style: normal; font-size: 11px; color: #93a6ab; }
+.pe-rows { padding: 0 12px 10px; }
+.pe-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f6; font-size: 12.5px; }
+.pe-row:last-child { border-bottom: 0; }
+
+.pe-runs { padding: 4px 0 6px; }
+.pe-run {
+  display: grid; grid-template-columns: 132px minmax(0, 1fr) 128px 46px 56px;
+  gap: 8px; align-items: center; width: 100%; text-align: left;
+  padding: 7px 12px; border: 0; border-bottom: 1px solid #f1f5f6;
+  background: none; font: inherit; font-size: 12.5px; cursor: pointer; color: inherit;
+}
+.pe-run:hover { background: #fafcfc; }
+.pe-key { color: #0d8f89; font-weight: 600; font-variant-numeric: tabular-nums; }
+.pe-ver { color: #93a6ab; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.pe-pct { text-align: right; font-variant-numeric: tabular-nums; }
+.pe-st { font-size: 10.5px; font-weight: 700; border-radius: 4px; padding: 1px 6px; text-align: center; }
+.pe-st.idle { background: #f1f5f6; color: #93a6ab; }
+.pe-st.run { background: #e2f0ff; color: #1d61b5; }
+.pe-st.done { background: #e6f5f0; color: #0b6d55; }
+.pe-more { padding: 7px 12px; font-size: 11.5px; color: #93a6ab; }
+.pe-empty { padding: 26px 14px; text-align: center; color: #93a6ab; font-size: 12.5px; }
+.pe-empty strong { display: block; color: #5b7176; font-size: 13.5px; margin-bottom: 4px; }
+
+.pe-reg { background: #fff; border: 1px solid var(--c-border, #e3eaec); border-radius: 8px; overflow: hidden; }
+.pe-regh { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid #f1f5f6; font-size: 13px; }
+.pe-regh select { border: 1px solid var(--c-border, #e3eaec); border-radius: 6px; padding: 4px 8px; font: inherit; font-size: 12px; background: #fff; }
+.pe-fold { display: flex; align-items: center; gap: 7px; background: #f7fafa; padding: 6px 12px; font-size: 12px; font-weight: 600; color: #5b7176; border-bottom: 1px solid #f1f5f6; }
+.pe-dot { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 8px; }
+.pe-dot.p { background: #12a678; }
+.pe-dot.f { background: #d92953; }
+.pe-dot.b { background: #e8a33d; }
+.pe-dot.n { background: #dbe4e6; }
+.pe-crow { display: grid; grid-template-columns: 160px 80px 20px 80px; gap: 8px; align-items: center; padding: 6px 12px; border-bottom: 1px solid #f1f5f6; font-size: 12.5px; }
+.pe-arrow { color: #93a6ab; text-align: center; }
+.pe-res { font-weight: 700; font-size: 12px; }
+.pe-res.p { color: #12a678; }
+.pe-res.f { color: #d92953; }
+.pe-res.b { color: #e8a33d; }
+.pe-res.n { color: #93a6ab; }

@@ -15,6 +15,7 @@ import {
 import type { Requirement } from '@/types'
 import { reqPk } from '@/types'
 import './CyclePlan.css'
+import PlanExtras from './PlanExtras'
 
 /**
  * 플랜(플랜) 화면 — **Testiny 「Working with Test Runs」 배치 그대로**(지시:
@@ -680,6 +681,9 @@ export default function CyclePlan({
                 실행 열기 | 진행 도넛, 아래에 이 계획의 실행 목록 표 */}
             {mode === 'plan' && ptab === 'over' && (
               <div className="cpl-over">
+                {/* 목업의 판정 배너 · 시험 범위 · 이 플랜의 실행 · 빌드 간 회귀.
+                    「실행」 이 별개 기록(plan_run)이 되면서 여기서 그것을 읽는다 */}
+                <PlanExtras plan={cur} />
                 <div className="cpl-cards">
                   <div className="cpl-card">
                     <div className="cpl-cardh">🗒 시험 계획 상세</div>
