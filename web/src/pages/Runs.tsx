@@ -447,6 +447,20 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
               </span>
             )
           }}
+          rowIcon={(row) => {
+            /* 목업 규칙: 방식이 비면 **자동**으로 본다. 다만 그 사실을
+               말풍선에 적는다 — 안 적으면 정해 둔 값처럼 보인다. */
+            const m = String(row.mode ?? '')
+            const auto = m !== '수동'
+            return (
+              <i
+                className={`ntb-mi2 ${auto ? 'a' : 'm'}${m ? '' : ' dim'}`}
+                title={m ? `${m} 시험` : '방식 미지정 — 자동으로 봅니다'}
+              >
+                {auto ? '⚙' : '👆'}
+              </i>
+            )
+          }}
           onNew={() => setMk(true)}
           onBulk={(a, ids) => {
             if (a === 'del') void delRuns(ids)

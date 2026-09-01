@@ -1486,6 +1486,22 @@ function CycleBoard({
             />
           }
           onSelect={(ids) => setPicked(new Set(ids))}
+          /* Key 앞에 톱니(자동)·손(수동) — 목업 그대로. 값이 아니라 표시라
+             열을 하나 더 쓰지 않고 ID 칸에 얹는다 */
+          rowIcon={(row) => {
+            /* 목업 규칙: 방식이 비면 **자동**으로 본다. 다만 그 사실을
+               말풍선에 적는다 — 안 적으면 정해 둔 값처럼 보인다. */
+            const m = String(row.mode ?? '')
+            const auto = m !== '수동'
+            return (
+              <i
+                className={`ntb-mi2 ${auto ? 'a' : 'm'}${m ? '' : ' dim'}`}
+                title={m ? `${m} 시험` : '방식 미지정 — 자동으로 봅니다'}
+              >
+                {auto ? '⚙' : '👆'}
+              </i>
+            )
+          }}
           onColumns={(cs) => void nf.applyCols(nColsLive, cs)}
           onCell={(id, key, v) => void setCyOne(id, key, v)}
           /* 센 값이라 손으로 못 고친다 — 항목·결함·진행은 실행이 정한다 */

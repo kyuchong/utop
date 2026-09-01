@@ -306,3 +306,10 @@
   background: #0e7490; border: 1px solid #fff; border-radius: 2px;
   cursor: ns-resize; z-index: 3;
 }
+
+/* ID 앞 표시 — 줄의 성격을 한눈에(자동·수동) */
+.ntb-idw { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.ntb-mi2 { flex: none; display: grid; place-items: center; width: 15px; height: 15px; line-height: 1; font-size: 11px; }
+.ntb-mi2.a { color: #1d61b5; }
+.ntb-mi2.m { color: #8a6111; }
+.ntb-mi2.dim { opacity: .45; }

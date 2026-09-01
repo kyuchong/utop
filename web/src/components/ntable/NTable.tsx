@@ -39,6 +39,9 @@ export interface NTableProps {
   onBulk?: (action: string, ids: string[]) => void
   /** 지금 체크된 줄 — 화면 제 도구줄(복제·삭제·⋯)이 이걸 본다 */
   onSelect?: (ids: string[]) => void
+  /** ID 앞에 붙는 작은 표시 — 줄의 성격을 한눈에(자동·수동 같은).
+      값이 아니라 **표시**라 열을 하나 더 쓰지 않고 ID 칸에 얹는다. */
+  rowIcon?: (row: NRow) => React.ReactNode
   /** 특별한 칸은 쓰는 쪽이 그린다(Map·REQ Map 처럼). undefined 를 주면 기본 그림 */
   renderCell?: (row: NRow, col: NCol) => React.ReactNode | undefined
   /** 값이 못 고치는 칸(계산된 값 등) */
@@ -267,9 +270,12 @@ export default function NTable(p: NTableProps) {
        링크가 조용히 맨 글자로 떨어져 상세로 못 들어간다(플랜에서 재현). */
     if (c.key === idKey)
       return (
-        <button type="button" className="ntb-id" title="상세 화면으로" onClick={() => onOpen?.(r.__id)}>
-          {v}
-        </button>
+        <span className="ntb-idw">
+          {p.rowIcon?.(r)}
+          <button type="button" className="ntb-id" title="상세 화면으로" onClick={() => onOpen?.(r.__id)}>
+            {v}
+          </button>
+        </span>
       )
     const ro = readOnlyKeys.includes(c.key)
     if (ro) return <span className="ntb-txt">{v || <span className="ntb-empty">–</span>}</span>
