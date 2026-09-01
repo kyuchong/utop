@@ -433,7 +433,9 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
   const crowd = usePageCrowd('cycle')
   /* 표(목록) ↔ 플랜 — 표의 ID 를 누르면 플랜으로(지시). 기억한다:
      새로고침해도 보던 화면이 유지돼야 한다. */
-  const [cyView, setCyView] = useState<'list' | 'plan' | 'exec'>(() => {
+  /* 실행 화면은 **Plans 안에 두지 않는다**(지시). 실행은 Runs 가 맡는다 —
+     한 가지를 두 화면에서 하면 어느 쪽이 정본인지 갈린다. */
+  const [cyView, setCyView] = useState<'list' | 'plan'>(() => {
     if (entry === 'runs') return 'list'
     const v = prefGet('utop.cycle.view')
     return v === 'plan' ? v : 'list'
@@ -446,7 +448,35 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
     setCyView('list')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry])
-  const goView = (v: 'list' | 'plan' | 'exec', id?: string) => {
+  /** 이 플랜의 실행을 **Runs 에서** 연다 — 있으면 가장 최근 것, 없으면 하나 뜬다 */
+  const openRunOf = async (planId: string) => {
+    if (!planId) return
+    try {
+      const r = await apiFetch(`/api/plan-runs?plan_id=${encodeURIComponent(planId)}`)
+      const j = r.ok ? ((await r.json()) as { runs?: Array<{ id: string }> }) : { runs: [] }
+      const got = (j.runs ?? [])[0]
+      if (got) {
+        goto('run', got.id)
+        return
+      }
+      const p = cycles.find((c) => c.id === planId)
+      const mk = await apiFetch('/api/plan-runs', {
+        method: 'POST',
+        body: JSON.stringify({
+          plan_id: planId,
+          version: p?.version ?? '',
+          name: `${p?.name ?? p?.cid ?? planId} · ${p?.version ?? ''}`.trim(),
+        }),
+      })
+      if (!mk.ok) throw new Error('실행을 만들지 못했습니다')
+      const made = (await mk.json()) as { id?: string }
+      if (made.id) goto('run', made.id)
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '실행을 열지 못했습니다')
+    }
+  }
+
+  const goView = (v: 'list' | 'plan', id?: string) => {
     try {
       if (id) prefSet('utop.cycle.plan', id)
       prefSet('utop.cycle.view', v)
@@ -923,8 +953,10 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
             mgroupOf={mgroupOf}
             famOf={famOf}
             meName={me?.name || me?.username || ''}
-            onBack={() => goView(cyView === 'exec' ? 'plan' : 'list')}
-            onExec={() => goView('exec')}
+            onBack={() => goView('list')}
+            /* ▶ 실행 — 이 플랜의 실행을 **Runs 에서** 연다. 이미 있으면 최근
+               것으로, 없으면 하나 떠서 간다(지시: Plans 에서 실행 누르면 Runs) */
+            onExec={() => void openRunOf(sel)}
             onEdit={(id) => setEditId(id)}
             onAddItems={(id) => setAddToId(id)}
             onRun={(id) => setSel(id)}
@@ -978,7 +1010,7 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
             onEdit={(id) => setEditId(id)}
             onRun={(id) => setSel(id)}
             onMenu={(id, x, y) => setMenu({ id, x, y })}
-            onOpenPlan={(id) => goView(entry === 'runs' ? 'exec' : 'plan', id)}
+            onOpenPlan={(id) => goView('plan', id)}
             running={running}
             onRefresh={() => void listQ.refetch()}
           />
