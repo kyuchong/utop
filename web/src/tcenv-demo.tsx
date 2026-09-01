@@ -15,8 +15,8 @@ function H() {
   const on = (p: Record<string, unknown>) => setD((x) => ({ ...x, ...p }))
   return (
     <>
-      <TcEnv data={d as never} onChange={on as never} />
-      <TcManual data={d as never} onChange={on as never} />
+      <TcEnv data={d as never} onChange={on as never} tcid="E61xx_T0002" />
+      <TcManual data={d as never} onChange={on as never} tcid="E61xx_T0002" />
     </>
   )
 }
