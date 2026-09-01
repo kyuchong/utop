@@ -214,11 +214,11 @@
 .rd-live {
   flex: none;
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 0;
   padding: 0 14px;
   height: 34px;
-  background: #fbfcfc;
+  background: #fff;
   border-bottom: 1px solid var(--c-border, #e3eaec);
   font-size: 12px;
   overflow: hidden;
@@ -226,18 +226,29 @@
 }
 .rd-lb {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 6px;
   min-width: 0;
-  /* 칸이 좁아지면 글이 **구분선 위로 넘쳐** 다 붙어 보였다(지적:
-     「전체 2지금 항목」). 넘침을 자르고, 선은 진하게 · 여백은 넓게. */
+  /* 칸이 좁아지면 글이 구분선 위로 넘쳐 다 붙어 보였다 — 넘침은 자른다 */
   overflow: hidden;
   padding: 0 16px;
-  height: 100%;
-  border-right: 1px solid #ccd8dc;
+  position: relative;
 }
+/* 구분선은 **짧은 세로 획**이다. 띠 높이만큼 세우니 칸마다 상자를 두른
+   것처럼 보였다(지적: 디자인이 이상하다). 가운데 14px 만 긋는다. */
+.rd-lb::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 14px;
+  background: #d4dee1;
+}
+.rd-lb.last::after { display: none; }
 .rd-lb:first-child { padding-left: 0; }
-.rd-lb.last { border-right: 0; padding-right: 0; }
+.rd-lb.last { padding-right: 0; }
 .rd-lb.grow2 { flex: 0 1 330px; min-width: 250px; }
 .rd-lb.grow3 { flex: 1 1 auto; min-width: 0; }
 .rd-lb > em {

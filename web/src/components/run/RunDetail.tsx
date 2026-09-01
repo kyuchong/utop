@@ -73,7 +73,7 @@ interface DeviceLite {
  */
 function asStep(raw: Record<string, unknown>, i: number): {
   no: number; t: string; cmd: string; expected: string; action: string
-  session: string; out: string; mark?: string; took?: string; waitSec?: number
+  session: string; out: string; mark?: string; took?: string; waitSec?: number; at?: string
   /** 이 스텝이 실제로 돌았나. 판정이 없는 스텝(대기·조회)과 **안 돌린 스텝**은 다르다 */
   ran?: boolean
 } {
@@ -107,6 +107,9 @@ function asStep(raw: Record<string, unknown>, i: number): {
     mark: mark || undefined,
     took: Number.isFinite(ms) ? `${(ms / 1000).toFixed(2)}s` : g('took') || undefined,
     waitSec: Number(raw?.waitSec ?? 0) || undefined,
+    /* 스텝이 **언제** 돌았나. 안 실으면 이벤트 줄이 전부 항목 끝난 시각
+       하나로 찍혀, 무엇이 먼저였는지 알 수 없다. */
+    at: g('executed_at') || g('at') || undefined,
     /* 걸린 시간이나 출력이 있으면 돈 것이다. 실행기는 판정 기준이 없는
        스텝(대기·단순 조회)에는 status 를 안 남긴다 — 그걸 「미실행」 으로
        그려서 「건너뛴 것 같다」 는 말이 나왔다(지적). */
@@ -841,6 +844,7 @@ export default function RunDetail({
                 took: l.took ?? d2.took,
                 waitSec: l.waitSec ?? d2.waitSec,
                 ran: l.ran ?? d2.ran,
+                at: l.at ?? d2.at,
               }
             })
           })()}

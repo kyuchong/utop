@@ -54,6 +54,17 @@ const TITLE: Record<PanelId, string> = {
   tc: '시험 항목',
 }
 const RESN: Record<string, string> = { p: 'PASS', f: 'FAIL', b: '기타', n: 'WAIT' }
+/** 이벤트 시각 — **연월일까지**(지시). 시분초만 있으면 어제 것인지 오늘
+ *  것인지 알 수 없다. 자료에 ISO('…T08:01:41Z')와 'YYYY-MM-DD HH:MM:SS'
+ *  두 꼴이 섞여 있어 둘 다 받는다. */
+function stamp(v?: string): string {
+  const raw = String(v ?? '').trim()
+  if (!raw) return '—'
+  const d = new Date(raw.includes('T') ? raw : raw.replace(' ', 'T'))
+  if (Number.isNaN(d.getTime())) return raw.slice(0, 19) || '—'
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}
 /** 항목 판정 아이콘(지시).
  *  통과 = 초록 동그라미 + 흰 체크 · 실패 = 빨간 동그라미 + 흰 ✕
  *  글자(✓ !)로 그리면 글꼴에 따라 크기·굵기가 제각각이라 그림으로 그린다.
@@ -416,7 +427,7 @@ export default function RunAuto({
             <table className="ra-tbl ra-evt">
               <thead>
                 <tr>
-                  <th style={{ width: 74 }}>시각</th>
+                  <th style={{ width: 152 }}>시각</th>
                   <th style={{ width: 52 }}>Step</th>
                   <th style={{ width: 54 }}>결과</th>
                   <th>세부 내역</th>
@@ -425,7 +436,7 @@ export default function RunAuto({
               <tbody>
                 {events.map((e, i2) => (
                   <tr key={i2}>
-                    <td className="ra-num">{String(e.at ?? '').slice(11, 19) || '—'}</td>
+                    <td className="ra-num">{stamp(e.at)}</td>
                     <td>{e.step}</td>
                     <td>
                       <span className={`ra-ev ${e.kind}`}>{e.kind.toUpperCase()}</span>

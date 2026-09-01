@@ -220,3 +220,5 @@
 }
 .ra-pastl::after { content: ''; flex: 1; height: 1px; background: rgba(255, 255, 255, 0.14); }
 .ra-pastl.now { color: #7fc4ff; margin-top: 10px; }
+/* 이벤트 시각은 연월일까지 적는다 — 두 줄로 접히면 표가 들쭉날쭉해진다 */
+.ra-evt td.ra-num, .ra-evt th:first-child { white-space: nowrap; }
