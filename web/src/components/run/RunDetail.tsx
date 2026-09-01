@@ -230,7 +230,9 @@ export default function RunDetail({
       return (await r.json()) as {
         run?: { status?: string; done?: number; total?: number; item_name?: string
                 step_name?: string; step_at?: number; step_count?: number; error?: string
-        item_at?: number; ended_at?: string | null }
+        item_at?: number; ended_at?: string | null
+        /** 지금 도는 항목의 스텝들 — 결과가 차오르는 그대로다 */
+        live_steps?: unknown[] | null }
       }
     },
   })
@@ -746,7 +748,11 @@ export default function RunDetail({
               ? (oneQ.data?.steps as unknown[])
               : ((oneQ.data?.checks as unknown[] | undefined) ?? [])) as Array<Record<string, unknown>>
             const def = rawDef.map(asStep)
-            const lg = ((log?.steps ?? []) as unknown[]) as Array<Record<string, unknown>>
+            /* 도는 중에는 **실행기가 보내는 실시간 스텝**을 쓴다.
+               실행기는 항목을 다 마쳐야 저장하므로, 그 전까지 저장본은
+               **지난 실행의 값**이다 — 그걸 그리면 지금 것과 섞인다(지적). */
+            const live = jobLive && runId2 === cur && Array.isArray(job?.live_steps) ? job.live_steps : null
+            const lg = ((live ?? log?.steps ?? []) as unknown[]) as Array<Record<string, unknown>>
             if (!lg.length) return def
             const run2 = lg.map(asStep)
             if (!def.length) return run2

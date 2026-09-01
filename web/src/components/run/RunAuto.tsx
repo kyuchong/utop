@@ -240,7 +240,11 @@ export default function RunAuto({
    */
   const lastRan = steps.reduce((acc, s2, i) => (s2.ran || s2.out ? i : acc), -1)
   const seeUpTo = Math.min(
-    Math.max(runStep ?? stepAt, stepAt, lastRan),
+    /* **돌고 있으면 거기서 끊는다.** 뒤 스텝에 남아 있는 것은 지난 실행의
+       출력이라, 그대로 이어 붙이면 지금 나온 것과 섞인다(지적: 대기 20 19
+       18 밑에 벌써 show memory usage 결과가 붙어 있었다).
+       다 돌았거나 안 돌 때만 마지막까지 펼친다. */
+    runStep != null ? runStep : Math.max(stepAt, lastRan),
     Math.max(0, steps.length - 1),
   )
   const conRef = useRef<HTMLDivElement>(null)
