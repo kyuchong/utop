@@ -17,7 +17,6 @@ import './RunDetail.css'
  */
 
 export type Verdict = 'p' | 'f' | 'b' | 'n'
-const RESN2: Record<Verdict, string> = { p: 'PASS', f: 'FAIL', b: 'BLOCKED', n: 'WAIT' }
 
 export interface RunFull {
   id: string
@@ -115,6 +114,32 @@ export default function RunDetail({
     },
     staleTime: 60_000,
   })
+  /** 요구사항 이름표 — 자동 화면의 묶음 머리에 쓴다. 안쪽 키(rq-178…)를
+      그대로 보이면 사람은 그게 무엇인지 알 수 없다(지적). */
+  const reqQ = useQuery({
+    queryKey: ['req-names'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/req')
+      if (!r.ok) throw new Error('요구사항을 불러오지 못했습니다')
+      return (await r.json()) as { reqs?: Array<Record<string, unknown>> }
+    },
+    staleTime: 60_000,
+  })
+  const reqName = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const r of reqQ.data?.reqs ?? []) {
+      const title = String(r.title ?? '').trim()
+      const label = String(r.reqid ?? '').trim()
+      const nm = title || label
+      if (!nm) continue
+      for (const k of [r.id, r.pk, r.reqid]) {
+        const key = String(k ?? '').trim()
+        if (key) m.set(key, nm)
+      }
+    }
+    return m
+  }, [reqQ.data])
+
   const devQ = useQuery({
     queryKey: ['devices'],
     queryFn: async () => {
@@ -269,6 +294,11 @@ export default function RunDetail({
   const pv = (run.pchk ?? {})[cur] ?? []
   const msteps = manualSteps(oneQ.data)
   const log = (run.logs ?? {})[cur]
+  /** 지금 보고 있는 스텝 — 아직 판정 안 한 첫 스텝이다. 다 했으면 마지막 */
+  const stepNow = (() => {
+    const at = pv.findIndex((v) => !v)
+    return at < 0 ? Math.max(0, msteps.length - 1) : Math.min(at, Math.max(0, msteps.length - 1))
+  })()
 
   return (
     <div className="panel rd">
@@ -384,9 +414,15 @@ export default function RunDetail({
           </div>
         </div>
         <div className="rd-lb">
-          <div className="rd-lab">지금 결과</div>
-          <b className={`rd-res ${results[cur] ?? 'n'}`}>{RESN2[results[cur] ?? 'n']}</b>
-          <div className="rd-sub">{dut ? `${dut.name} · ${dut.ip ?? ''}` : '장비 미배정'}</div>
+          {/* 목업의 CURRENT STEP 자리. 항목 결과는 오른쪽 시험서에 크게
+              적혀 있어, 여기까지 또 적으면 같은 값이 세 번이다. */}
+          <div className="rd-lab">지금 스텝</div>
+          <b>
+            {msteps.length ? `Step ${Math.min(stepNow + 1, msteps.length)} / ${msteps.length}` : '스텝 없음'}
+          </b>
+          <div className="rd-sub rd-ell" title={msteps[stepNow]?.t ?? ''}>
+            {msteps[stepNow]?.t || (msteps.length ? '—' : '시험 항목에 절차가 없습니다')}
+          </div>
         </div>
       </div>
 
@@ -403,7 +439,7 @@ export default function RunDetail({
             return {
               id,
               name: String(t2?.name ?? id),
-              group: String(t2?.req_id ?? '기타'),
+              group: reqName.get(String(t2?.req_id ?? '')) ?? (t2?.req_id ? '이름 없는 요구사항' : '요구사항 없음'),
               verdict: (results[id] ?? 'n') as Verdict,
             }
           })}

@@ -130,7 +130,7 @@ export default function RunAuto({
     for (const it of items) t[it.verdict]++
     return t
   }, [items])
-  const pct = tal.total ? Math.round(((tal.p + tal.f + tal.b) / tal.total) * 100) : 0
+  /* 진행률은 위 띠(RunDetail)가 그린다 — 여기서 또 세지 않는다 */
 
   /** 이벤트 — 로그의 스텝에서 뽑는다(지어내지 않는다) */
   const [evf, setEvf] = useState<'all' | 'PASS' | 'FAIL' | 'INFO'>('all')
@@ -173,6 +173,7 @@ export default function RunAuto({
                   <th>Description</th>
                   <th>Expected Result</th>
                   <th style={{ width: 74 }}>Status</th>
+                  <th style={{ width: 62 }}>Time</th>
                 </tr>
               </thead>
               <tbody>
@@ -196,6 +197,7 @@ export default function RunAuto({
                         {s.mark === 'Pass' ? 'PASS' : s.mark === 'Fail' ? 'FAIL' : 'WAIT'}
                       </span>
                     </td>
+                    <td className="ra-num">{s.took || s.at || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -279,9 +281,8 @@ export default function RunAuto({
     return (
       <>
         <div className="ra-tctools">
-          <span className="ra-muted">
-            PASS {tal.p} · FAIL {tal.f} · 대기 {tal.n}
-          </span>
+          {/* 건수는 판 제목 옆에 이미 적힌다 — 두 번 적으면 자리만 먹는다 */}
+          <span className="ra-muted">고른 항목 판정</span>
           <span className="ra-sp" />
           <div className="ra-vb">
             {(['p', 'f', 'b', 'n'] as const).map((v) => (
@@ -328,6 +329,19 @@ export default function RunAuto({
     )
   }
 
+  /** 판 제목 옆 꼬리말 — 목업의 「CLI Response · Step 3 Live」 자리 */
+  const subOf = (p: PanelId): string => {
+    if (p === 'steps') return cur || ''
+    if (p === 'response') {
+      if (!steps.length) return ''
+      /* action 이 「—」 인 스텝이 있다 — 그대로 붙이면 「Step 1 · —」 가 된다 */
+      const a = String(curStep?.action ?? '').trim()
+      return `Step ${stepAt + 1}${a && a !== '—' ? ` · ${a}` : ''}`
+    }
+    if (p === 'events') return events.length ? `${events.length}줄` : ''
+    return `Pass ${tal.p} · Fail ${tal.f} · 대기 ${tal.n}`
+  }
+
   const panel = (slot: SlotId) => {
     const id = slots[slot]
     return (
@@ -352,8 +366,8 @@ export default function RunAuto({
             title="끌어서 다른 판과 자리를 바꿉니다"
           >
             <b>{TITLE[id]}</b>
-            {id === 'steps' && <small>· {cur}</small>}
-            {id === 'response' && curStep && <small>· Step {curStep.no}</small>}
+            {/* 목업처럼 판마다 「무엇을 보는 중인지」 를 제목 옆에 적는다 */}
+            {!!subOf(id) && <small>· {subOf(id)}</small>}
             <span className="ra-sp" />
             <span className="ra-grab">이동</span>
           </header>
@@ -365,48 +379,8 @@ export default function RunAuto({
 
   return (
     <div className="ra">
-      {/* ── 위: 지금 무엇이 도는가 ── */}
-      <div className="ra-live">
-        <div className="ra-lb">
-          <div className="ra-lab">진행</div>
-          <div className="ra-prow">
-            <span className="ra-bar">
-              <i className="p" style={{ flexGrow: tal.p }} />
-              <i className="f" style={{ flexGrow: tal.f }} />
-              <i className="b" style={{ flexGrow: tal.b }} />
-              <i className="n" style={{ flexGrow: tal.n }} />
-            </span>
-            <b>{pct}%</b>
-          </div>
-          <div className="ra-counts">
-            <span className="p">PASS {tal.p}</span>
-            <span className="f">FAIL {tal.f}</span>
-            <span className="n">대기 {tal.n}</span>
-            <span className="ra-muted">전체 {tal.total}</span>
-          </div>
-        </div>
-        <div className="ra-lb">
-          <div className="ra-lab">지금 항목</div>
-          <div className="ra-cur">{items.find((x) => x.id === cur)?.name ?? '—'}</div>
-          <div className="ra-sub">
-            {cur} · {items.findIndex((x) => x.id === cur) + 1} / {tal.total}
-          </div>
-        </div>
-        <div className="ra-lb">
-          <div className="ra-lab">지금 스텝</div>
-          <b>
-            {steps.length ? `Step ${stepAt + 1} / ${steps.length}` : '스텝 없음'}
-            {curStep?.action ? ` · ${curStep.action}` : ''}
-          </b>
-          <div className="ra-sub">{curStep?.cmd || curStep?.t || '—'}</div>
-        </div>
-        <div className="ra-lb">
-          <div className="ra-lab">마지막 수행</div>
-          <b className="ra-num">{logAt || '—'}</b>
-          <div className="ra-sub">{logAt ? '이 항목을 돌린 시각' : '아직 안 돌렸습니다'}</div>
-        </div>
-      </div>
-
+      {/* 위 띠는 **RunDetail 한 곳**에 있다(목업도 띠는 하나다). 여기에도
+          두었더니 경과·진행이 두 줄로 겹쳐 보였다(지적). */}
       {/* ── 아래: 네 판 작업대 ── */}
       <div className="ra-desk" ref={deskRef}>
         <div className="ra-col" ref={lRef} style={{ width: `${size.v}%` }}>
