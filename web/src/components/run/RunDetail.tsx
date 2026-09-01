@@ -712,10 +712,12 @@ export default function RunDetail({
                   : '실행이 끝났습니다 — 결과를 이 기록으로 옮겨 적었습니다.'}
         </div>
       )}
+      {/* 위 띠 — **한 줄**(지시). 값이 앞에 서고 곁들이는 것은 괄호 안에.
+          네 칸을 세로로 쌓으니 63px 을 먹었다 — 한 줄이면 그 절반이다. */}
       <div className="rd-live">
-        <div className="rd-lb">
-          <div className="rd-lab">경과</div>
-          <div className="rd-big">
+        <span className="rd-lb">
+          <em>경과</em>
+          <b>
             {(() => {
               if (!run.started_at) return '—'
               const end = stoppedAt ? new Date(stoppedAt).getTime() : Date.now()
@@ -723,57 +725,54 @@ export default function RunDetail({
               const p2 = (n: number) => String(n).padStart(2, '0')
               return `${p2(Math.floor(sec / 3600))}:${p2(Math.floor((sec % 3600) / 60))}:${p2(sec % 60)}`
             })()}
-          </div>
-          <div className="rd-sub">
-            {/* 「15시 40분 0초 시작」 은 좁은 칸에서 잘린다 — 15:40:00 로 */}
+          </b>
+          <i>
             {run.started_at
-              ? `${(() => {
+              ? `(${(() => {
                   const d = new Date(run.started_at)
                   const p = (n: number) => String(n).padStart(2, '0')
                   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
-                })()} 시작`
-              : '아직 시작 안 함'}
-          </div>
-        </div>
-        <div className="rd-lb">
-          <div className="rd-lab">전체 진행</div>
-          <div className="rd-prow">
-            <span className="rd-bar2">
-              <i className="p" style={{ flexGrow: tally.p }} />
-              <i className="f" style={{ flexGrow: tally.f }} />
-              <i className="b" style={{ flexGrow: tally.b }} />
-              <i className="n" style={{ flexGrow: tally.n }} />
-            </span>
-            <b>{pct}%</b>
-          </div>
-          <div className="rd-counts">
-            <span className="p">Pass {tally.p}</span>
-            <span className="f">Fail {tally.f}</span>
-            <span className="n">대기 {tally.n}</span>
-            <span className="rd-muted">전체 {tally.total}</span>
-          </div>
-        </div>
-        <div className="rd-lb">
-          <div className="rd-lab">지금 시험 항목</div>
-          <div className="rd-cur">
-            {cur} · {meta?.name ?? ''}
-          </div>
-          <div className="rd-sub">
-            할당자 {String((meta as Record<string, unknown> | undefined)?.assignee ?? '–')} · 실행자{' '}
-            {run.runner || run.owner || '–'}
-          </div>
-        </div>
-        <div className="rd-lb">
-          {/* 목업의 CURRENT STEP 자리. 항목 결과는 오른쪽 시험서에 크게
-              적혀 있어, 여기까지 또 적으면 같은 값이 세 번이다. */}
-          <div className="rd-lab">지금 스텝</div>
+                })()} 시작)`
+              : '(아직 시작 안 함)'}
+          </i>
+        </span>
+
+        <span className="rd-lb grow2">
+          <em>진행</em>
+          <span className="rd-bar2">
+            <i className="p" style={{ flexGrow: tally.p }} />
+            <i className="f" style={{ flexGrow: tally.f }} />
+            <i className="b" style={{ flexGrow: tally.b }} />
+            <i className="n" style={{ flexGrow: tally.n }} />
+          </span>
+          <b>{pct}%</b>
+          <i>
+            (<span className="p">Pass {tally.p}</span> <span className="f">Fail {tally.f}</span> 대기{' '}
+            {tally.n} · 전체 {tally.total})
+          </i>
+        </span>
+
+        <span className="rd-lb grow3">
+          <em>지금 항목</em>
+          <b className="rd-ell">
+            {cur}
+            {meta?.name ? ` · ${meta.name}` : ''}
+          </b>
+          <i className="rd-ell">
+            (할당자 {String((meta as Record<string, unknown> | undefined)?.assignee ?? '–')} · 실행자{' '}
+            {run.runner || run.owner || '–'})
+          </i>
+        </span>
+
+        <span className="rd-lb last">
+          <em>지금 스텝</em>
           <b>
             {msteps.length ? `Step ${Math.min(stepNow + 1, msteps.length)} / ${msteps.length}` : '스텝 없음'}
           </b>
-          <div className="rd-sub rd-ell" title={msteps[stepNow]?.t ?? ''}>
-            {msteps[stepNow]?.t || (msteps.length ? '—' : '시험 항목에 절차가 없습니다')}
-          </div>
-        </div>
+          <i className="rd-ell" title={msteps[stepNow]?.t ?? ''}>
+            {msteps.length ? `(${msteps[stepNow]?.t || '—'})` : ''}
+          </i>
+        </span>
       </div>
 
       {!ids.length ? (

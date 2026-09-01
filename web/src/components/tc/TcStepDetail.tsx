@@ -690,6 +690,31 @@ export default function TcStepDetail({
             {STEP_CONTENT[kind]?.hint && (
               <span className="sd-hint">{STEP_CONTENT[kind]?.hint}</span>
             )}
+            {/* 명령 뒤 **더 기다리는 시간**. 프롬프트가 돌아온 뒤에도 늦게
+                올라오는 syslog 를 받으려는 대기다. 비워 두면 서버 기본값으로
+                도는데, 그때 **명령마다 0.24초**가 그냥 나간다 — 조회만 하는
+                스텝은 0 으로 두면 그만큼 빨라진다(지시: 스텝만 빨라지게).
+                reload 처럼 한참 뒤에 더 뱉는 명령에만 올린다. */}
+            <span className="sd-sub">
+              <span className="sd-lab">명령 뒤 대기(초)</span>
+              <input
+                type="number"
+                min={0}
+                max={30}
+                step={0.1}
+                style={{ width: 92 }}
+                value={step.tailWait ?? ''}
+                placeholder="기본"
+                onChange={(e) => {
+                  const v = e.target.value.trim()
+                  onChange({ tailWait: v === '' ? undefined : Math.max(0, Number(v) || 0) })
+                }}
+              />
+              <span className="sd-hint">
+                비우면 기본(명령마다 0.24초쯤 더 기다립니다). <b>0</b> 이면 그 대기를 건너뜁니다 —
+                조회만 하는 명령은 0 이 빠릅니다. reload 처럼 늦게 더 뱉는 명령만 올리세요.
+              </span>
+            </span>
           </label>
         )}
         {/* CLI 로는 못 하는 것들. 세션이 없어도 되지만, 세션을 골라 두면

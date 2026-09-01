@@ -209,43 +209,50 @@
 .rd-fld select { width: 100%; padding: 7px 9px; border: 1px solid var(--c-border, #e3eaec); border-radius: 6px; font: inherit; background: #fff; }
 
 /* 위 띠 — 목업의 네 칸 */
-/* 네 칸 띠 — 폭을 크게 줄였다(지시). 넷을 화면 끝까지 늘려 놓으니
-   글자 사이가 벌어져 오히려 안 읽혔다. 필요한 만큼만 쓰고 나머지는 비운다. */
+/* 위 띠 — **한 줄**(지시).
+   값이 앞에 서고 곁들이는 것은 괄호 안에 흐리게. 자리를 최대한 쓴다. */
 .rd-live {
   flex: none;
-  display: grid;
-  /* 마지막 1fr 이 남는 자리를 **먹어 준다** — 안 그러면 네 칸이 화면 끝까지
-     늘어나(695px 짜리 칸이 생겼다) 글자 사이만 벌어진다. */
-  /* 「지금 시험 항목」 은 이름이 길어 잘렸다 — 넓힌다. 「지금 스텝」 은
-     Step 5 / 5 뿐이라 자리가 남았다 — 좁힌다(지시). */
-  grid-template-columns: 112px 186px minmax(300px, 560px) 104px 1fr;
-  gap: 10px;
-  padding: 4px 14px 5px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 14px;
+  height: 34px;
   background: #fbfcfc;
   border-bottom: 1px solid var(--c-border, #e3eaec);
+  font-size: 12px;
+  overflow: hidden;
+  white-space: nowrap;
 }
-.rd-lb { min-width: 0; border-right: 1px solid #e6ecee; padding-right: 10px; }
-.rd-lb:nth-child(4) { border-right: 0; }
-.rd-lb:last-child { border-right: 0; }
-.rd-lab { font-size: 8.5px; font-weight: 800; color: #8fa0a6; text-transform: uppercase; margin-bottom: 1px; }
-.rd-big { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15; }
-.rd-prow { display: flex; align-items: center; gap: 9px; }
-.rd-bar2 { display: flex; height: 6px; flex: 1; border-radius: 99px; overflow: hidden; background: #e1e8ea; }
+.rd-lb {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 12px;
+  border-right: 1px solid #e6ecee;
+}
+.rd-lb:first-child { padding-left: 0; }
+.rd-lb.last { border-right: 0; }
+.rd-lb.grow2 { flex: 0 1 300px; }
+.rd-lb.grow3 { flex: 1 1 auto; }
+.rd-lb > em {
+  flex: none; font-style: normal; font-size: 9.5px; font-weight: 800;
+  color: #9bacb2; text-transform: uppercase; letter-spacing: 0.3px;
+}
+.rd-lb > b { flex: none; font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rd-lb > i { font-style: normal; font-size: 11px; color: #8fa3a9; min-width: 0; }
+.rd-lb > i .p { color: #16a05b; font-weight: 700; margin-right: 6px; }
+.rd-lb > i .f { color: #e34663; font-weight: 700; margin-right: 6px; }
+.rd-bar2 {
+  display: flex; height: 6px; flex: 1 1 90px; min-width: 44px;
+  border-radius: 99px; overflow: hidden; background: #e1e8ea;
+}
 .rd-bar2 i { display: block; }
 .rd-bar2 .p { background: #16a05b; }
 .rd-bar2 .f { background: #e34663; }
 .rd-bar2 .b { background: #e49a31; }
 .rd-bar2 .n { background: #dbe4e6; }
-.rd-counts { display: flex; gap: 8px; font-size: 10px; font-weight: 700; margin-top: 2px; flex-wrap: nowrap; }
-.rd-counts .p { color: #16a05b; }
-.rd-counts .f { color: #e34663; }
-.rd-counts .n { color: #8c9da3; }
-.rd-cur { font-weight: 700; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rd-live .rd-res { font-size: 18px; font-weight: 800; }
-.rd-live .rd-res.p { color: #16a05b; }
-.rd-live .rd-res.f { color: #e34663; }
-.rd-live .rd-res.b { color: #e49a31; }
-.rd-live .rd-res.n { color: #8c9da3; }
 
 /* 머리줄 배지·시작 단추 */
 .rd-mode { font-size: 10px; font-weight: 800; border-radius: 6px; padding: 4px 8px; }
