@@ -127,9 +127,14 @@
   font-size: var(--fs-sm);
 }
 
+/* 편집기 높이는 **제가 책임진다.**
+   flex:1 + min-height:0 만 두면 부모가 세로 flex 일 때만 늘어난다. 팝업
+   본문(.rqtc-popbody)은 그냥 스크롤 상자라 그 안에서는 높이가 0이 됐다 —
+   도구줄만 남고 글 칸이 사라져 아무것도 못 적었다(지적: intent 편집이 안돼).
+   세로 flex 그릇에서는 여전히 남는 자리를 다 먹고, 아니면 이 높이로 선다. */
 .doc-editor {
   flex: 1;
-  min-height: 0;
+  min-height: 420px;
   display: flex;
   flex-direction: column;
   padding: var(--sp-2);
@@ -137,7 +142,7 @@
 
 .doc-editor .md-editor {
   flex: 1;
-  min-height: 0;
+  min-height: 360px;
 }
 
 .doc-bar .ok { color: var(--c-pass); }

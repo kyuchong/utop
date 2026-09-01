@@ -116,6 +116,32 @@ export default function InfoPane({
     </label>
   )
 
+  /** 모델 칸 — 고르는 목록이 비어도 **값은 보여야 한다.**
+      요구사항 화면은 제 모델이 없어 프로젝트 값을 비추는데, 목록이 비면
+      그 값을 담을 option 이 없어 빈 칸으로 보였다(지적: 아무 내용이 없어). */
+  const modelCell = (
+    label: string,
+    m?: { value: string; options: string[]; onChange?: (v: string) => void },
+  ) => (
+    <label className="ip-f">
+      <span>{label}</span>
+      <select
+        value={m?.value ?? ''}
+        onChange={(e) => m?.onChange?.(e.target.value)}
+        disabled={!m?.onChange}
+        title={m?.onChange ? undefined : '프로젝트에서 온 값입니다'}
+      >
+        <option value="">(공용)</option>
+        {(m?.options ?? []).map((o) => (
+          <option key={o}>{o}</option>
+        ))}
+        {m?.value && !(m.options ?? []).includes(m.value) && (
+          <option value={m.value}>{m.value}</option>
+        )}
+      </select>
+    </label>
+  )
+
   const pick = (f: InfoField) => (
     <label className="ip-f" key={f.key}>
       <span>{f.label}</span>
@@ -170,32 +196,8 @@ export default function InfoPane({
           적용 모델 <em>비우면 공용 — 플랜 만들기가 이 기준으로 항목을 거릅니다</em>
         </div>
         <div className="ip-grid">
-          <label className="ip-f">
-            <span>모델그룹</span>
-            <select
-              value={modelGroup?.value ?? ''}
-              onChange={(e) => modelGroup?.onChange?.(e.target.value)}
-              disabled={!modelGroup?.onChange}
-            >
-              <option value="">(공용)</option>
-              {(modelGroup?.options ?? []).map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-          </label>
-          <label className="ip-f">
-            <span>모델명</span>
-            <select
-              value={model?.value ?? ''}
-              onChange={(e) => model?.onChange?.(e.target.value)}
-              disabled={!model?.onChange}
-            >
-              <option value="">(공용)</option>
-              {(model?.options ?? []).map((o) => (
-                <option key={o}>{o}</option>
-              ))}
-            </select>
-          </label>
+          {modelCell('모델그룹', modelGroup)}
+          {modelCell('모델명', model)}
         </div>
       </section>
 
