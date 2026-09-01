@@ -95,6 +95,9 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
   const [tcSel, setTcSel] = useState<Set<string>>(new Set())
   const [tcQ, setTcQ] = useState('')
   /** 2열 거르개 — 옛 화면의 필터 줄. 자료에 실제로 있는 값만 띄운다 */
+  /** 모델을 안 정한(공용) 시험도 후보로 볼 것인가.
+      이 플랜 모델의 시험만 보고 싶을 때가 있어 끌 수 있어야 한다(지시). */
+  const [showCommon, setShowCommon] = useState(true)
   const [fMg, setFMg] = useState('')
   const [fMd, setFMd] = useState('')
   const [fSev, setFSev] = useState('')
@@ -381,6 +384,20 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
     })
   }, [reqSel, reqsUnderCat, tcQ, tcsByReq, allTcs, fMg, fMd, fSev, fStat, fKind, fTyp, model, mgroup])
 
+  /** 보이는 것 중 이 모델의 시험과 공용 시험이 각각 몇 건인가.
+      「71건」 만 적어 두면 그게 어디서 나온 수인지 알 수 없다. */
+  const tcSplit = useMemo(() => {
+    let mine = 0
+    let common = 0
+    for (const t of shownTcs) {
+      const tm = String((t as { model?: unknown }).model ?? '').trim()
+      const tg = String((t as { model_group?: unknown }).model_group ?? '').trim()
+      if (!tm && !tg) common++
+      else mine++
+    }
+    return { mine, common }
+  }, [shownTcs])
+
   /** 3열 — 요구사항으로 묶는다. 여섯 건만 넘어도 평평하면 안 읽힌다 */
   /** 완료 화면에서 체크한 항목들 (tcid) — 삭제·담당자 할당이 본다 */
   const [doneSel, setDoneSel] = useState<Set<string>>(new Set())
@@ -483,7 +500,19 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
   /** 숨긴 기본 칸이면 입력칸도 안 그린다 */
   const kindOn = (kind: string) => !codesQ.data?.kinds || kind in codesQ.data.kinds
 
-  const visTcs = hideAdded ? shownTcs.filter((t) => !pickedIds.has(t.tcid)) : shownTcs
+  /* 공용 거르기는 **여기서** 한다. shownTcs 에서 걸러 버리면 공용 수가
+     0 이 되어, 다시 켜는 손잡이까지 같이 사라진다(되돌릴 길이 없다). */
+  const visTcs = useMemo(() => {
+    let out = shownTcs
+    if (!showCommon)
+      out = out.filter((t) => {
+        const tm = String((t as { model?: unknown }).model ?? '').trim()
+        const tg = String((t as { model_group?: unknown }).model_group ?? '').trim()
+        return !!(tm || tg)
+      })
+    if (hideAdded) out = out.filter((t) => !pickedIds.has(t.tcid))
+    return out
+  }, [shownTcs, showCommon, hideAdded, pickedIds])
 
   const vg = (newVgroup.trim() || vgroup).trim()
   const ready = !!model && !!version.trim() && picked.length > 0
@@ -698,6 +727,39 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
                 onChange={(e) => setTcQ(e.target.value)}
               />
               <span className="sp" />
+            {/* 이 목록은 **이미 이 플랜 기준으로 좁혀** 있다. 그런데 필터는
+                모두 「전체」 라고 적혀 있어, 왜 72 건 중 71 건인지 알 수
+                없었다(지적). 무엇으로 좁혔는지 여기에 적는다. */}
+            <div className="ce-scope">
+              <b>이 플랜 기준</b>
+              {[
+                ['사업자', ccust],
+                ['제품군', family],
+                ['모델그룹', mgroup],
+                ['모델', model],
+              ]
+                .filter(([, v]) => String(v ?? '').trim())
+                .map(([k, v]) => (
+                  <span className="ce-sc" key={k}>
+                    {k} <em>{v}</em>
+                  </span>
+                ))}
+              <span className="sp" />
+              <span className="ce-scn">
+                이 모델 {tcSplit.mine}건
+                {tcSplit.common > 0 && ` · 공용 ${tcSplit.common}건`}
+              </span>
+              {tcSplit.common > 0 && (
+                <label className="ce-hide" title="모델을 안 정한 시험도 후보로 봅니다">
+                  <input
+                    type="checkbox"
+                    checked={showCommon}
+                    onChange={(e) => setShowCommon(e.target.checked)}
+                  />
+                  공용 항목도
+                </label>
+              )}
+            </div>
             <div className="ce-filters">
               <select value={fMg} onChange={(e) => setFMg(e.target.value)} title="모델그룹">
                 <option value="">모델그룹: 전체</option>
