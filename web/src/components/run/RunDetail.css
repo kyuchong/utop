@@ -216,29 +216,31 @@
   display: grid;
   /* 마지막 1fr 이 남는 자리를 **먹어 준다** — 안 그러면 네 칸이 화면 끝까지
      늘어나(695px 짜리 칸이 생겼다) 글자 사이만 벌어진다. */
-  grid-template-columns: 116px 200px minmax(210px, 380px) 150px 1fr;
+  /* 「지금 시험 항목」 은 이름이 길어 잘렸다 — 넓힌다. 「지금 스텝」 은
+     Step 5 / 5 뿐이라 자리가 남았다 — 좁힌다(지시). */
+  grid-template-columns: 112px 186px minmax(300px, 560px) 104px 1fr;
   gap: 10px;
-  padding: 6px 14px 7px;
+  padding: 4px 14px 5px;
   background: #fbfcfc;
   border-bottom: 1px solid var(--c-border, #e3eaec);
 }
 .rd-lb { min-width: 0; border-right: 1px solid #e6ecee; padding-right: 10px; }
 .rd-lb:nth-child(4) { border-right: 0; }
 .rd-lb:last-child { border-right: 0; }
-.rd-lab { font-size: 9px; font-weight: 800; color: #8fa0a6; text-transform: uppercase; margin-bottom: 2px; }
-.rd-big { font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.rd-lab { font-size: 8.5px; font-weight: 800; color: #8fa0a6; text-transform: uppercase; margin-bottom: 1px; }
+.rd-big { font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15; }
 .rd-prow { display: flex; align-items: center; gap: 9px; }
-.rd-bar2 { display: flex; height: 7px; flex: 1; border-radius: 99px; overflow: hidden; background: #e1e8ea; }
+.rd-bar2 { display: flex; height: 6px; flex: 1; border-radius: 99px; overflow: hidden; background: #e1e8ea; }
 .rd-bar2 i { display: block; }
 .rd-bar2 .p { background: #16a05b; }
 .rd-bar2 .f { background: #e34663; }
 .rd-bar2 .b { background: #e49a31; }
 .rd-bar2 .n { background: #dbe4e6; }
-.rd-counts { display: flex; gap: 9px; font-size: 10.5px; font-weight: 700; margin-top: 3px; flex-wrap: wrap; }
+.rd-counts { display: flex; gap: 8px; font-size: 10px; font-weight: 700; margin-top: 2px; flex-wrap: nowrap; }
 .rd-counts .p { color: #16a05b; }
 .rd-counts .f { color: #e34663; }
 .rd-counts .n { color: #8c9da3; }
-.rd-cur { font-weight: 700; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-cur { font-weight: 700; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rd-live .rd-res { font-size: 18px; font-weight: 800; }
 .rd-live .rd-res.p { color: #16a05b; }
 .rd-live .rd-res.f { color: #e34663; }
@@ -268,5 +270,5 @@
 .rd-warn.ok { background: #f1faf5; border-bottom-color: #b6ded0; color: #12684b; }
 .rd-warn.ok b { background: #16a05b; }
 /* 띠 안 글자도 한 급 줄인다 — 칸이 좁아진 만큼 */
-.rd-live .rd-sub { font-size: 10.5px; color: #93a6ab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rd-live .rd-lb > b { font-size: 12.5px; }
+.rd-live .rd-sub { font-size: 10px; line-height: 1.35; color: #93a6ab; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-live .rd-lb > b { font-size: 12px; line-height: 1.2; }
