@@ -225,6 +225,47 @@ export default function CyclePlan({
     }))
   }, [items, q, reqName])
 
+  /** 고른 항목을 플랜에서 **뺀다.**
+      담기만 있고 빼는 길이 없었다(지적). setItemField 와 같은 길로 간다 —
+      문서를 통째로 읽어 items 에서 덜어 내고 되저장한다. 요약만 되저장하면
+      items 가 통째로 날아가는 함정을 여기서도 피한다. */
+  const dropItems = async (keys: Set<string>) => {
+    if (!cur || !keys.size) return
+    setBusy(true)
+    try {
+      const r = await apiFetch(`/api/cycle/${encodeURIComponent(cur.id)}`)
+      const full = (await r.json()) as Record<string, unknown>
+      const arr = (full.items ?? []) as Array<Record<string, unknown>>
+      /* 결과가 남아 있는 항목은 빼면 그 결과도 사라진다 — 먼저 알린다 */
+      const hit = arr.filter((x) => keys.has(String(x.ceid ?? x.tcid ?? '')))
+      const withRes = hit.filter(
+        (x) =>
+          String(x.result ?? '').trim() ||
+          ((x.steps ?? []) as Array<Record<string, unknown>>).some((st) =>
+            String(st.result ?? '').trim(),
+          ),
+      )
+      const msg =
+        `시험 항목 ${hit.length}건을 이 플랜에서 뺍니다.` +
+        (withRes.length
+          ? `\n\n${withRes.length}건은 이미 결과가 있습니다 — 빼면 그 결과도 함께 사라집니다.`
+          : '') +
+        '\n\n되돌릴 수 없습니다. 빼시겠습니까?'
+      if (!window.confirm(msg)) return
+      full.items = arr.filter((x) => !keys.has(String(x.ceid ?? x.tcid ?? '')))
+      await apiFetch(`/api/cycle/${encodeURIComponent(cur.id)}`, {
+        method: 'POST',
+        body: JSON.stringify({ ...full, updated_by: meName }),
+      })
+      setChk(new Set())
+      onRefresh()
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '빼지 못했습니다')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   /* ── 그 자리에서 고치기 — 문서 통째 읽고 그 칸만 얹어 되저장.
      요약(summary)만 되저장하면 items 가 날아간다(코드베이스의 그 함정). ── */
   const [busy, setBusy] = useState(false)
@@ -823,6 +864,17 @@ export default function CyclePlan({
                   }}
                 >
                   👤 담당 일괄 ({chk.size})
+                </button>
+              )}
+              {mode === 'plan' && chk.size > 0 && (
+                <button
+                  type="button"
+                  className="btn small cpl-drop"
+                  disabled={busy}
+                  title="고른 항목을 이 플랜에서 뺍니다 — 시험 항목 자체는 남습니다"
+                  onClick={() => void dropItems(chk)}
+                >
+                  선택한 {chk.size}건 빼기
                 </button>
               )}
               {busy && <span className="muted small">저장 중…</span>}

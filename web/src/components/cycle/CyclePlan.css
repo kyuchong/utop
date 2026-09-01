@@ -441,3 +441,12 @@
 .cpl-tbl .w-chk { width: 30px; text-align: center; }
 .cpl-tbl .w-chk input, .cpl-grpchk { cursor: pointer; vertical-align: -2px; }
 .cpl-grpchk { margin-right: 8px; }
+
+/* 항목 빼기 — 지우는 일이라 눈에 띄되 첫 단추는 아니다 */
+.cpl-drop {
+  border-color: #f2c0ce;
+  color: #a81742;
+  background: #fdeef2;
+  font-weight: 600;
+}
+.cpl-drop:hover:not(:disabled) { background: #fbdde6; }
