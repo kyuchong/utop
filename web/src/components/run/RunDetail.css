@@ -214,7 +214,7 @@
 .rd-live {
   flex: none;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 0;
   padding: 0 14px;
   height: 34px;
@@ -229,13 +229,17 @@
   align-items: baseline;
   gap: 6px;
   min-width: 0;
-  padding: 0 12px;
-  border-right: 1px solid #e6ecee;
+  /* 칸이 좁아지면 글이 **구분선 위로 넘쳐** 다 붙어 보였다(지적:
+     「전체 2지금 항목」). 넘침을 자르고, 선은 진하게 · 여백은 넓게. */
+  overflow: hidden;
+  padding: 0 16px;
+  height: 100%;
+  border-right: 1px solid #ccd8dc;
 }
 .rd-lb:first-child { padding-left: 0; }
-.rd-lb.last { border-right: 0; }
-.rd-lb.grow2 { flex: 0 1 300px; }
-.rd-lb.grow3 { flex: 1 1 auto; }
+.rd-lb.last { border-right: 0; padding-right: 0; }
+.rd-lb.grow2 { flex: 0 1 330px; min-width: 250px; }
+.rd-lb.grow3 { flex: 1 1 auto; min-width: 0; }
 .rd-lb > em {
   flex: none; font-style: normal; font-size: 9.5px; font-weight: 800;
   color: #9bacb2; text-transform: uppercase; letter-spacing: 0.3px;
