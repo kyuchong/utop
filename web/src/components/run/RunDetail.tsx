@@ -456,7 +456,17 @@ export default function RunDetail({
      밑의 「고른 항목이 목록에 없으면 첫 항목으로」 와 서로 밀어내며 화면이
      T0033 ↔ T0034 로 튀었다(지적). 실행기가 다음 항목으로 넘어간 그 한
      번만 따라가고, 그 뒤로는 가만둔다. */
+  /** 마지막으로 본 실시간 스텝(항목별). 다음 항목으로 넘어가는 **사이**에도
+      방금 끝난 항목의 결과를 그대로 보여 주려고 붙들어 둔다. */
+  const lastLive = useRef<{ id: string; steps: unknown[] } | null>(null)
+  useEffect(() => {
+    if (!jobLive || !cur || runId2 !== cur) return
+    if (Array.isArray(job?.live_steps)) lastLive.current = { id: cur, steps: job.live_steps }
+  }, [job?.live_steps, jobLive, runId2, cur])
+
   const wentTo = useRef('')
+  /** 넘어갈 곳 — 늦춰 옮기는 사이에 또 바뀌면 **늘 최신**으로 간다 */
+  const nextItem = useRef('')
   useEffect(() => {
     if (!runId2 || wentTo.current === runId2) return
     /* 고정 중이면 **기억하지 않고** 그냥 넘긴다. 예전엔 먼저 기억해 두어,
@@ -464,9 +474,22 @@ export default function RunDetail({
        (지적: 실행기는 T0034 인데 화면은 T0033). */
     if (pinItem) return
     wentTo.current = runId2
-    setCur(runId2)
-    setStepAt(0)
-    setPinned(false)
+    nextItem.current = runId2
+    /* **바로 안 넘어간다.** 실행기는 마지막 스텝을 올린 직후 다음 항목
+       이름을 올린다 — 그 사이가 1초도 안 돼, 곧장 따라가면 방금 끝난
+       항목의 마지막 결과를 아무도 못 본다(지적). 1.6초 머문 뒤 넘어간다.
+       그 사이 또 바뀌면 늘 **최신** 항목으로 간다. */
+    const t = window.setTimeout(() => {
+      const go = nextItem.current
+      if (!go) return
+      setCur(go)
+      setStepAt(0)
+      setPinned(false)
+      /* 넘어가면서 실행 기록을 다시 읽는다 — 방금 끝난 항목의 결과가
+         서버에 옮겨 적혔다. 안 읽으면 되돌아가 볼 때 지난 값이 보인다. */
+      void qc.invalidateQueries({ queryKey: ['plan-run', runId] })
+    }, 1600)
+    return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runId2])
 
@@ -791,7 +814,11 @@ export default function RunDetail({
                실행기는 항목을 다 마쳐야 저장하므로, 그 전까지 저장본은
                **지난 실행의 값**이다 — 그걸 그리면 지금 것과 섞인다(지적). */
             const onAir = jobLive && runId2 === cur
-            const live = onAir && Array.isArray(job?.live_steps) ? job.live_steps : null
+            /* 넘어가는 사이(실행기는 다음 항목, 화면은 아직 이 항목)에도
+               붙들어 둔 실시간 스텝을 쓴다 — 그래야 마지막 결과가 안 사라진다 */
+            const held =
+              jobLive && !onAir && lastLive.current?.id === cur ? lastLive.current.steps : null
+            const live = onAir && Array.isArray(job?.live_steps) ? job.live_steps : held
             /* 도는 항목이면 저장본으로 **안 떨어진다.** 실행기는 항목을 다
                마쳐야 저장하므로 저장본은 지난 실행의 값이다 — 그게 남아서
                Time 이 계속 똑같아 보였다(지적). 아직 안 온 것은 빈 채로 둔다. */
@@ -832,7 +859,7 @@ export default function RunDetail({
             setPinned(true)
             setStepAt(i)
           }}
-          runStep={runStep}
+          runStep={runId2 === cur ? runStep : null}
           runItem={runId2}
           dut={dut?.name ?? 'DUT'}
           logAt={log?.at}
