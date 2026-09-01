@@ -300,7 +300,7 @@ export default function RunManual({
                     <button type="button" className="rm-sh" onClick={() => setOpen(isOpen ? null : i)}>
                       <span className="rm-no">{i + 1}</span>
                       <span className="rm-st">
-                        <b>{s.t}</b>
+                        <b>{s.t || `스텝 ${i + 1}`}</b>
                         <em>{s.expected}</em>
                       </span>
                       <span className={`rm-ss ${v || 'n'}`}>{v ? TAG[v as V] : 'WAIT'}</span>

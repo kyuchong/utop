@@ -112,20 +112,17 @@ function manualSteps(tc?: Record<string, unknown>): Array<{ t: string; e: string
   const raw = (tc?.steps as CycleStep[] | undefined) ?? []
   const steps = raw.length ? raw : ((tc?.checks as CycleStep[] | undefined) ?? [])
   const man = steps
-    /* checks 에는 step·expected 칸이 아예 없다(desc·cli·criteria 로 적힌다).
-       옛 거르개가 그것만 찾아 다섯 줄을 통째로 버렸다 — 그래서 표에는
-       스텝이 나오는데 띠는 「스텝 없음」 이었다(지적). 글이 있으면 스텝이다. */
-    .filter((s) => {
-      const r = s as unknown as Record<string, unknown>
-      return !!(s.step || s.expected || s.desc || r.cli || s.criteria || s.manual || s.action)
-    })
+    /* **거르지 않는다.** 예전엔 이름이 있는 것만 남겼는데, 대기·비교 스텝은
+       desc·cli 가 아예 없어 통째로 빠졌다. 그래서 표는 5줄인데 띠는
+       「Step 2 / 3」 이라 서로 다른 말을 했다(지적).
+       스텝은 스텝이다 — 이름이 없으면 그릴 때 「스텝 N」 으로 채운다. */
+    .filter((s) => !!s && typeof s === 'object')
     .map((s) => ({
       t: String(s.step ?? s.desc ?? (s as unknown as Record<string, unknown>).cli ?? '').trim(),
       e: String(s.expected ?? s.criteria ?? '').trim(),
       d: String(s.desc ?? '').trim(),
       da: String((s as unknown as Record<string, unknown>).data ?? '').trim(),
     }))
-    .filter((x) => x.t || x.e)
   /* 예전엔 스텝이 없으면 **기본 네 줄을 지어냈다.** 화면이 비는 걸 막으려던
      것인데 더 나빴다 — 없는 절차를 있는 것처럼 보이고, 그 껍데기에 판정·
      판정자·판정 시각까지 남아 결과서로 나간다. 게다가 「실행 Step 없음」 과
@@ -222,7 +219,9 @@ export default function RunDetail({
     enabled: !!jobId,
     refetchInterval: (q) => {
       const st = String((q.state.data as { run?: { status?: string } } | undefined)?.run?.status ?? '')
-      return st === 'queued' || st === 'running' ? 2000 : false
+      /* 1초. 2초로 두었더니 0.37초짜리 스텝은 통째로 지나가 버려
+         「실시간이 아닌 것 같다」 는 말이 나왔다(지적). */
+      return st === 'queued' || st === 'running' ? 1000 : false
     },
     queryFn: async () => {
       const r = await apiFetch(`/api/runs/${encodeURIComponent(jobId)}`)
@@ -433,8 +432,11 @@ export default function RunDetail({
   const wentTo = useRef('')
   useEffect(() => {
     if (!runId2 || wentTo.current === runId2) return
-    wentTo.current = runId2
+    /* 고정 중이면 **기억하지 않고** 그냥 넘긴다. 예전엔 먼저 기억해 두어,
+       고정을 푼 뒤에도 그 항목 바뀜이 영영 삼켜져 화면이 안 따라갔다
+       (지적: 실행기는 T0034 인데 화면은 T0033). */
     if (pinItem) return
+    wentTo.current = runId2
     setCur(runId2)
     setStepAt(0)
     setPinned(false)
