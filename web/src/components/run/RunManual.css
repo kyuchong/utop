@@ -189,3 +189,36 @@
 .rm-jr.n { color: #93a6ab; }
 .rm-act { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; row-gap: 8px; }
 .rm-act .rm-sp { flex: 1; }
+
+/* 머리 — 왼쪽은 제목·칩, 오른쪽은 **이 항목의 결과** */
+.rm-head { display: flex; align-items: flex-start; gap: 14px; }
+.rm-hl { min-width: 0; flex: 1; }
+.rm-big {
+  flex: none; min-width: 122px; text-align: center; cursor: default;
+  border: 1px solid #e0e7ea; border-radius: 9px; padding: 7px 12px 8px; background: #fbfdfd;
+}
+.rm-bigl { font-size: 9px; font-weight: 800; color: #82959c; text-transform: uppercase; letter-spacing: 0.4px; }
+.rm-bigv { display: block; font-size: 21px; font-weight: 800; line-height: 1.25; }
+.rm-bigs { font-size: 10px; color: #8c9da3; }
+.rm-big.p { border-color: #a7ddc9; background: #f2fbf7; }
+.rm-big.p .rm-bigv { color: #0f9151; }
+.rm-big.f { border-color: #f3ccd5; background: #fff5f7; }
+.rm-big.f .rm-bigv { color: #d43f5f; }
+.rm-big.b { border-color: #ecd3a4; background: #fffaf1; }
+.rm-big.b .rm-bigv { color: #c07d18; }
+.rm-big.n .rm-bigv { color: #93a6ab; }
+
+/* 스텝 속 — 붙어 있던 여백을 벌린다 */
+.rm-tstep { padding: 12px 14px 13px; margin-bottom: 0; border-bottom: 1px solid #edf1f2; }
+.rm-cmp > div { padding: 12px 14px 13px; }
+.rm-bl { margin-bottom: 6px; }
+.rm-bt { font-size: 12px; }
+.rm-judge { padding: 12px 14px; gap: 10px; }
+.rm-jb { padding: 9px 11px; }
+.rm-jv { font-size: 12px; line-height: 1.55; }
+.rm-act { padding: 11px 14px; }
+
+/* 머리는 붙어 있는다 — 스텝을 내려도 「시험 결과」가 눈에 남아야 한다 */
+.rm-head { position: sticky; top: 0; z-index: 3; background: #fff; }
+/* 밑으로 글이 지나간다는 걸 그림자로 알린다 — 안 그러면 반쯤 잘린 글씨가 고장으로 보인다 */
+.rm-head { box-shadow: 0 5px 9px -7px rgba(18, 40, 44, 0.35); }

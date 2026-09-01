@@ -18,6 +18,13 @@ import './RunManual.css'
 
 export type V = 'p' | 'f' | 'b' | 'n'
 const TAG: Record<V, string> = { p: 'PASS', f: 'FAIL', b: 'BLOCKED', n: 'WAIT' }
+/** 판정 시각 — 이 곳 시간으로, 한 줄에 들어가게 짧게 */
+const stamp = (iso: string) => {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '–'
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}
 
 export interface MItem {
   id: string
@@ -232,16 +239,33 @@ export default function RunManual({
         <section className="rm-panel">
           <div className="rm-scroll">
             <div className="rm-head">
-              <div className="rm-title">
-                {cur} · {one?.title ?? ''}
+              <div className="rm-hl">
+                <div className="rm-title">
+                  {cur} · {one?.title ?? ''}
+                </div>
+                <div className="rm-chips">
+                  <span className="rm-chip">할당자 {one?.assignee || '–'}</span>
+                  <span className="rm-chip">실행자 {one?.runner || '–'}</span>
+                  <span className="rm-chip">최근 결과 {TAG[one?.last ?? 'n']}</span>
+                  {!!one?.bugs && <span className="rm-chip">버그 {one.bugs}</span>}
+                  {one?.at && <span className="rm-chip">{one.at}</span>}
+                </div>
               </div>
-              <div className="rm-chips">
-                <span className="rm-chip">할당자 {one?.assignee || '–'}</span>
-                <span className="rm-chip">실행자 {one?.runner || '–'}</span>
-                <span className="rm-chip">최근 결과 {TAG[one?.last ?? 'n']}</span>
-                <span className={`rm-chip cur ${one?.v ?? 'n'}`}>지금 결과 {TAG[one?.v ?? 'n']}</span>
-                {!!one?.bugs && <span className="rm-chip">버그 {one.bugs}</span>}
-                {one?.at && <span className="rm-chip">{one.at}</span>}
+              {/* 이 항목의 결과 — **스텝 판정에서 굴러 나온 값**이라 여기서 고르지 않는다.
+                  하나라도 실패면 실패, 전부 통과라야 통과다. */}
+              <div
+                className={`rm-big ${one?.v ?? 'n'}`}
+                title={
+                  marked
+                    ? `스텝 ${steps.length}개 중 ${marked}개 판정 — 하나라도 실패면 실패입니다`
+                    : '아직 판정한 스텝이 없습니다'
+                }
+              >
+                <div className="rm-bigl">시험 결과</div>
+                <b className="rm-bigv">{TAG[one?.v ?? 'n']}</b>
+                <div className="rm-bigs">
+                  {marked} / {steps.length} 판정
+                </div>
               </div>
             </div>
 
@@ -328,7 +352,7 @@ export default function RunManual({
                           </div>
                           <div className="rm-jb">
                             <div className="rm-jl">판정 시각</div>
-                            <div className="rm-jv">{m?.at ? new Date(m.at).toLocaleString('ko-KR', { hour12: false }) : '–'}</div>
+                            <div className="rm-jv">{m?.at ? stamp(m.at) : '–'}</div>
                           </div>
                           <div className="rm-jb">
                             <div className="rm-jl">판정자</div>
