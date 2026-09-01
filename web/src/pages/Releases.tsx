@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { prefGet, prefSet } from '@/lib/prefs'
@@ -53,8 +53,80 @@ interface LinkTc {
 }
 type Store = Record<string, Record<string, { tcs?: Array<LinkTc | string>; statusCat?: string }>>
 
+/** 빈 목록은 **하나를 돌려쓴다** — 매번 [] 를 새로 만들면 그것만으로도
+ *  memo 가 깨진다. */
+const EMPTY: string[] = []
+
 const tcidOf = (t: LinkTc | string): string =>
   typeof t === 'string' ? t : String(t?.tcid ?? t?.id ?? '')
+
+
+/** 이슈 한 줄.
+ *
+ *  **따로 떼어 memo 로 감쌌다.** 한 줄 안에 다 두었더니 이슈 하나를 펼 때마다
+ *  97줄이 전부 다시 그려져 화면이 무거웠다(지적). 이제 눌린 줄만 다시 그린다.
+ */
+const IssueRow = memo(function IssueRow({
+  it, ver, open, tcs, tcById, resultOf, onToggle,
+}: {
+  it: JiraIssue
+  ver: string
+  open: boolean
+  tcs: string[]
+  tcById: Map<string, { name: string; kind: string }>
+  resultOf: (tcid: string) => string
+  onToggle: (k: string) => void
+}) {
+  const st = String(it.fields?.status?.name ?? '')
+  const cat = String(it.fields?.status?.statusCategory?.key ?? '')
+  return (
+    <div className="rls-iblock">
+      <div className="rls-irow">
+        <span
+          className="rls-car"
+          role="button"
+          tabIndex={0}
+          onClick={() => onToggle(`${ver}|${it.key}`)}
+          onKeyDown={(e) => e.key === 'Enter' && onToggle(`${ver}|${it.key}`)}
+        >
+          {open ? '⌄' : '›'}
+        </span>
+        <span className="rls-key">{it.key}</span>
+        <span className="rls-type">{it.fields?.issuetype?.name ?? ''}</span>
+        <span className={`rls-stat ${cat}`}>{st}</span>
+        <span className="rls-person">
+          <span>보고자</span>
+          {it.fields?.reporter?.displayName ?? '–'}
+        </span>
+        <span className="rls-person">
+          <span>담당자</span>
+          {it.fields?.assignee?.displayName ?? '–'}
+        </span>
+        <span className="rls-tcn">TC {tcs.length}</span>
+      </div>
+      <div className="rls-ititle">{it.fields?.summary ?? ''}</div>
+      {open && (
+        <div className="rls-tcs">
+          {tcs.map((tcid) => {
+            const t = tcById.get(tcid)
+            const rv = resultOf(tcid)
+            return (
+              <div className="rls-tcrow" key={tcid}>
+                <span className="rls-code">{tcid}</span>
+                <span className="rls-name">{t?.name ?? '(지워진 시험 항목)'}</span>
+                <span className="rls-kind">{t?.kind === '수동' ? 'MANUAL' : t?.kind ? 'AUTO' : ''}</span>
+                <span className={`rls-res ${rv.toLowerCase()}`}>{rv ? rv.toUpperCase() : ''}</span>
+              </div>
+            )
+          })}
+          {!tcs.length && (
+            <div className="rls-tcrow rls-empty">이 이슈에 붙은 시험 항목이 없습니다.</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+})
 
 export default function Releases() {
   const qc = useQueryClient()
@@ -65,6 +137,17 @@ export default function Releases() {
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [pick, setPick] = useState(false)
   const [openIssue, setOpenIssue] = useState<Set<string>>(new Set())
+
+  /** 이슈 펴기·접기 — **같은 함수**를 계속 준다. 매번 새로 만들면 memo 가
+      「달라졌다」 고 보고 다 다시 그린다. */
+  const toggleIssue = useCallback((k: string) => {
+    setOpenIssue((s0) => {
+      const n = new Set(s0)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      return n
+    })
+  }, [])
 
   const toggle = (set: Set<string>, k: string, put: (s: Set<string>) => void) => {
     const n = new Set(set)
@@ -249,10 +332,43 @@ export default function Releases() {
   )
 
   const store = sumQ.data?.releases ?? {}
-  const linkKey = (ver: string) => `${proj}@@${ver}`
-  const tcsOf = (ver: string, key: string): string[] =>
-    ((store[linkKey(ver)] ?? {})[key]?.tcs ?? []).map(tcidOf).filter(Boolean)
-  const resultOf = (tcid: string) => String((lastQ.data ?? {})[tcid]?.result ?? '')
+  const resultOf = useCallback(
+    (tcid: string) => String((lastQ.data ?? {})[tcid]?.result ?? ''),
+    [lastQ.data],
+  )
+
+  /** 이슈키 → 붙은 TC. **한 번 만들어 두고 같은 배열을 계속 준다.**
+   *  매 렌더마다 새 배열을 만들어 넘기면 memo 가 「달라졌다」 고 보고
+   *  99줄을 다 다시 그린다 — memo 를 걸어 놓고 무의미해진다. */
+  const tcMap = useMemo(() => {
+    const m = new Map<string, string[]>()
+    for (const [vn] of byVer) {
+      const bag = store[`${proj}@@${vn}`] ?? {}
+      for (const k of Object.keys(bag)) {
+        const arr = (bag[k]?.tcs ?? []).map(tcidOf).filter(Boolean)
+        if (arr.length) m.set(`${vn}|${k}`, arr)
+      }
+    }
+    return m
+  }, [byVer, store, proj])
+
+  /** 버전마다의 이슈 수·TC 수를 **한 번만** 센다.
+   *  예전엔 그릴 때마다 다시 셌다 — 이슈가 97건이면 한 번 누를 때마다
+   *  그 곱만큼 돌아 화면이 무거웠다(지적). */
+  const stat = useMemo(() => {
+    const m = new Map<string, { n: number; tc: number }>()
+    for (const [vn, list] of byVer) {
+      const kept = list.filter(
+        (it) =>
+          (!fType || String(it.fields?.issuetype?.name ?? '') === fType) &&
+          (!fStat || String(it.fields?.status?.name ?? '') === fStat),
+      )
+      let tc = 0
+      for (const it of kept) tc += (tcMap.get(`${vn}|${it.key}`) ?? EMPTY).length
+      m.set(vn, { n: kept.length, tc })
+    }
+    return m
+  }, [byVer, fType, fStat, tcMap])
 
   const err = projQ.data?.error || verQ.data?.error || issQ.data?.error
 
@@ -377,7 +493,7 @@ export default function Releases() {
           <div className="rls-none">이 프로젝트에는 버전이 없습니다.</div>
         )}
         {tree.map(([op, vers]) => {
-          const nIss = vers.reduce((a, v) => a + (byVer.get(String(v.name ?? '')) ?? []).filter(keep).length, 0)
+          const nIss = vers.reduce((a, v) => a + (stat.get(String(v.name ?? ''))?.n ?? 0), 0)
           const oOpen = !open.has(`op:${op}`)
           return (
             <div key={op}>
@@ -394,11 +510,11 @@ export default function Releases() {
               {oOpen &&
                 vers.map((v) => {
                   const vn = String(v.name ?? '')
-                  const list = (byVer.get(vn) ?? []).filter(keep)
-                  /* 버전은 접힌 채 시작한다. 실제 자료는 한 버전에 이슈가
-                     97건씩 있어, 펴 두면 화면이 통째로 벽이 된다(지적). */
+                  const st0 = stat.get(vn) ?? { n: 0, tc: 0 }
                   const vOpen = open.has(`v:${vn}`)
-                  const nTc = list.reduce((a, it) => a + tcsOf(vn, it.key).length, 0)
+                  /* 접혀 있으면 이슈 목록을 **만들지도 않는다** — 97건을
+                     걸러 놓고 안 그리는 것은 그냥 버리는 일이다. */
+                  const list = vOpen ? (byVer.get(vn) ?? []).filter(keep) : ([] as JiraIssue[])
                   return (
                     <div key={vn}>
                       <div className="rls-vrow" role="button" tabIndex={0}
@@ -408,74 +524,25 @@ export default function Releases() {
                         <span className="rls-vname">{vn}</span>
                         {v.released && <span className="rls-rel">released</span>}
                         <span className="rls-right">
-                          <span>Issues {list.length}</span>
-                          <span>TC {nTc}</span>
+                          <span>Issues {st0.n}</span>
+                          <span>TC {st0.tc}</span>
                           {v.releaseDate && <span>{v.releaseDate}</span>}
                         </span>
                       </div>
                       {vOpen &&
-                        list.map((it) => {
-                          const tcs = tcsOf(vn, it.key)
-                          const iOpen = openIssue.has(`${vn}|${it.key}`)
-                          const st = String(it.fields?.status?.name ?? '')
-                          const cat = String(it.fields?.status?.statusCategory?.key ?? '')
-                          return (
-                            <div className="rls-iblock" key={`${vn}|${it.key}`}>
-                              <div className="rls-irow">
-                                <span
-                                  className="rls-car"
-                                  role="button"
-                                  tabIndex={0}
-                                  onClick={() => toggle(openIssue, `${vn}|${it.key}`, setOpenIssue)}
-                                  onKeyDown={(e) =>
-                                    e.key === 'Enter' && toggle(openIssue, `${vn}|${it.key}`, setOpenIssue)
-                                  }
-                                >
-                                  {iOpen ? '⌄' : '›'}
-                                </span>
-                                <span className="rls-key">{it.key}</span>
-                                <span className="rls-type">{it.fields?.issuetype?.name ?? ''}</span>
-                                <span className={`rls-stat ${cat}`}>{st}</span>
-                                <span className="rls-person">
-                                  <span>보고자</span>
-                                  {it.fields?.reporter?.displayName ?? '–'}
-                                </span>
-                                <span className="rls-person">
-                                  <span>담당자</span>
-                                  {it.fields?.assignee?.displayName ?? '–'}
-                                </span>
-                                <span className="rls-tcn">TC {tcs.length}</span>
-                              </div>
-                              <div className="rls-ititle">{it.fields?.summary ?? ''}</div>
-                              {iOpen && (
-                                <div className="rls-tcs">
-                                  {tcs.map((tcid) => {
-                                    const t = tcById.get(tcid)
-                                    const rv = resultOf(tcid)
-                                    return (
-                                      <div className="rls-tcrow" key={tcid}>
-                                        <span className="rls-code">{tcid}</span>
-                                        <span className="rls-name">{t?.name ?? '(지워진 시험 항목)'}</span>
-                                        <span className="rls-kind">
-                                          {t?.kind === '수동' ? 'MANUAL' : t?.kind ? 'AUTO' : ''}
-                                        </span>
-                                        <span className={`rls-res ${rv.toLowerCase()}`}>
-                                          {rv ? rv.toUpperCase() : ''}
-                                        </span>
-                                      </div>
-                                    )
-                                  })}
-                                  {!tcs.length && (
-                                    <div className="rls-tcrow rls-empty">
-                                      이 이슈에 붙은 시험 항목이 없습니다.
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      {vOpen && !list.length && (
+                        list.map((it) => (
+                          <IssueRow
+                            key={`${vn}|${it.key}`}
+                            it={it}
+                            ver={vn}
+                            open={openIssue.has(`${vn}|${it.key}`)}
+                            tcs={tcMap.get(`${vn}|${it.key}`) ?? EMPTY}
+                            tcById={tcById}
+                            resultOf={resultOf}
+                            onToggle={toggleIssue}
+                          />
+                        ))}
+                      {vOpen && !st0.n && (
                         <div className="rls-iblock rls-empty">이 버전에 걸린 이슈가 없습니다.</div>
                       )}
                     </div>
