@@ -260,7 +260,6 @@ export default function RunDetail({
     /* 도는 중이거나 수동이 시작만 눌린 상태면 센다. 그 밖엔 멈춘다. */
     setTicking(jobLive || (!jobId && !!run?.started_at))
   }, [jobLive, jobId, run?.started_at])
-  const runStep = jobLive && typeof job?.step_at === 'number' && job.step_at >= 0 ? job.step_at : null
   /* 일감이 끝나면 실행을 한 번 다시 읽는다 — 서버가 옮겨 적은 결과를 본다 */
   const doneSeen = useRef('')
   useEffect(() => {
@@ -412,12 +411,40 @@ export default function RunDetail({
     if (!jobLive) return
     setPinned(false)
   }, [cur, jobLive])
+  /** 실행기가 도는 항목의 id.
+   *  이름으로 맞추되, 못 찾으면 **자리 번호**(item_at, 플랜 항목의 몇 번째)로
+   *  떨어진다. 플랜 항목 이름과 시험 항목 이름이 어긋나면 이름만으로는 못 찾고,
+   *  그러면 실시간 스텝이 안 붙어 지난 값이 그대로 남는다. */
+  const runId2 = (() => {
+    if (!jobLive) return ''
+    if (runItem) {
+      const byName = ids.find((k) => String(tcById.get(k)?.name ?? '') === runItem)
+      if (byName) return byName
+    }
+    const at = Number(job?.item_at ?? -1)
+    const pitems = (plan?.items ?? []) as Array<{ tcid?: string }>
+    if (at >= 0 && at < pitems.length) {
+      const k = String(pitems[at]?.tcid ?? '')
+      if (k && ids.includes(k)) return k
+    }
+    return ''
+  })()
+  /* 실행기는 항목을 **시작할 때 step_at 을 -1 로** 준다(스텝을 아직 안 집었다).
+     그걸 「도는 스텝 없음」 으로 읽으면 지난 실행 값이 통째로 펼쳐진다 —
+     막 시작한 항목은 **첫 스텝**으로 본다. */
+  const runStep =
+    !jobLive || typeof job?.step_at !== 'number'
+      ? null
+      : job.step_at >= 0
+        ? job.step_at
+        : runId2
+          ? 0
+          : null
+  /* 보는 스텝도 실행기를 따라간다 — 사람이 줄을 누르면 그 자리에 멈춘다 */
   useEffect(() => {
     if (pinned || runStep == null) return
     setStepAt(runStep)
   }, [runStep, pinned])
-  /** 실행기가 도는 항목의 id — 실행기는 **이름**을 주므로 이름으로 찾는다 */
-  const runId2 = runItem ? (ids.find((k) => String(tcById.get(k)?.name ?? '') === runItem) ?? '') : ''
   /* 보는 항목도 실행기를 따라간다. 안 그러면 첫 항목에 머문 채 밑에서만
      결과가 바뀌어, 위에서 아래로 도는 게 안 보인다(지적).
      사람이 다른 항목을 누르면 그 자리에 멈춘다. */
@@ -753,8 +780,12 @@ export default function RunDetail({
             /* 도는 중에는 **실행기가 보내는 실시간 스텝**을 쓴다.
                실행기는 항목을 다 마쳐야 저장하므로, 그 전까지 저장본은
                **지난 실행의 값**이다 — 그걸 그리면 지금 것과 섞인다(지적). */
-            const live = jobLive && runId2 === cur && Array.isArray(job?.live_steps) ? job.live_steps : null
-            const lg = ((live ?? log?.steps ?? []) as unknown[]) as Array<Record<string, unknown>>
+            const onAir = jobLive && runId2 === cur
+            const live = onAir && Array.isArray(job?.live_steps) ? job.live_steps : null
+            /* 도는 항목이면 저장본으로 **안 떨어진다.** 실행기는 항목을 다
+               마쳐야 저장하므로 저장본은 지난 실행의 값이다 — 그게 남아서
+               Time 이 계속 똑같아 보였다(지적). 아직 안 온 것은 빈 채로 둔다. */
+            const lg = ((live ?? (onAir ? [] : (log?.steps ?? []))) as unknown[]) as Array<Record<string, unknown>>
             if (!lg.length) return def
             const run2 = lg.map(asStep)
             if (!def.length) return run2
