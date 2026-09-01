@@ -151,3 +151,26 @@
 .ra-res.n { color: #8c9da3; }
 
 .ra-empty { padding: 26px 14px; text-align: center; color: #81949b; font-size: 12px; }
+
+/* ── 지금 도는 것 ──
+   「어느 스텝이 도는지 모르겠다」(지적). 색만으로는 고른 줄과 안 갈린다 —
+   왼쪽 막대 · 파란 바탕 · 뛰는 점, 셋을 함께 쓴다. */
+.ra-tbl tr.ra-running > td { background: #eaf2ff; }
+.ra-tbl tr.ra-running > td:first-child {
+  box-shadow: inset 3px 0 0 #2e70d6;
+  font-weight: 800;
+  color: #1d5bb0;
+}
+.ra-tbl tr.ra-running > td b { color: #1d5bb0; }
+.ra-st.run {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: #2e70d6; color: #fff; font-weight: 800;
+}
+.ra-st.run i {
+  width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+  animation: ra-beat 1s ease-in-out infinite;
+}
+@keyframes ra-beat { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .ra-st.run i { animation: none; } }
+.ra-tc.running { background: #eaf2ff; box-shadow: inset 3px 0 0 #2e70d6; }
+.ra-tc.running .ra-tcid { color: #1d5bb0; font-weight: 800; }

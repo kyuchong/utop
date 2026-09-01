@@ -102,9 +102,15 @@ function manualSteps(tc?: Record<string, unknown>): Array<{ t: string; e: string
   const raw = (tc?.steps as CycleStep[] | undefined) ?? []
   const steps = raw.length ? raw : ((tc?.checks as CycleStep[] | undefined) ?? [])
   const man = steps
-    .filter((s) => s.manual || s.action === '수동' || s.step || s.expected)
+    /* checks 에는 step·expected 칸이 아예 없다(desc·cli·criteria 로 적힌다).
+       옛 거르개가 그것만 찾아 다섯 줄을 통째로 버렸다 — 그래서 표에는
+       스텝이 나오는데 띠는 「스텝 없음」 이었다(지적). 글이 있으면 스텝이다. */
+    .filter((s) => {
+      const r = s as unknown as Record<string, unknown>
+      return !!(s.step || s.expected || s.desc || r.cli || s.criteria || s.manual || s.action)
+    })
     .map((s) => ({
-      t: String(s.step ?? s.desc ?? '').trim(),
+      t: String(s.step ?? s.desc ?? (s as unknown as Record<string, unknown>).cli ?? '').trim(),
       e: String(s.expected ?? s.criteria ?? '').trim(),
       d: String(s.desc ?? '').trim(),
       da: String((s as unknown as Record<string, unknown>).data ?? '').trim(),
@@ -210,12 +216,16 @@ export default function RunDetail({
       if (!r.ok) throw new Error('일감을 불러오지 못했습니다')
       return (await r.json()) as {
         run?: { status?: string; done?: number; total?: number; item_name?: string
-                step_name?: string; step_at?: number; step_count?: number; error?: string }
+                step_name?: string; step_at?: number; step_count?: number; error?: string
+        item_at?: number }
       }
     },
   })
   const job = jobQ.data?.run
   const jobLive = job?.status === 'queued' || job?.status === 'running'
+  /** 실행기가 지금 돌고 있는 항목·스텝. 안 돌면 없다 — 없는 것을 그리지 않는다 */
+  const runItem = jobLive ? String(job?.item_name ?? '') : ''
+  const runStep = jobLive && typeof job?.step_at === 'number' && job.step_at >= 0 ? job.step_at : null
   /* 일감이 끝나면 실행을 한 번 다시 읽는다 — 서버가 옮겨 적은 결과를 본다 */
   const doneSeen = useRef('')
   useEffect(() => {
@@ -327,6 +337,19 @@ export default function RunDetail({
     await save({ pchk, pmeta, results: { ...results, [cid]: roll } })
   }
 
+  /* 도는 동안에는 **실행기를 따라간다.** 안 그러면 CLI 판은 첫 스텝에
+     머문 채, 표에서만 파란 줄이 내려가 서로 다른 곳을 가리킨다.
+     사람이 줄을 누르면 그 자리에 멈춘다(pinned). */
+  const [pinned, setPinned] = useState(false)
+  useEffect(() => {
+    if (!jobLive) return
+    setPinned(false)
+  }, [cur, jobLive])
+  useEffect(() => {
+    if (pinned || runStep == null) return
+    setStepAt(runStep)
+  }, [runStep, pinned])
+
   /** 시험 시작.
       수동은 「사람이 시작했다」는 기록이면 충분하다. 자동은 **실행기에
       일감을 건다** — 실행기는 플랜만 알고 도니, 서버가 이 실행이 담은
@@ -414,6 +437,9 @@ export default function RunDetail({
   const log = (run.logs ?? {})[cur]
   /** 지금 보고 있는 스텝 — 아직 판정 안 한 첫 스텝이다. 다 했으면 마지막 */
   const stepNow = (() => {
+    /* 돌고 있으면 **실행기 자리**가 정본이다. 안 그러면 띠는 Step 1 인데
+       표에서는 3번 줄이 도는, 서로 다른 말을 하는 화면이 된다(지적). */
+    if (runStep != null && msteps.length) return Math.min(runStep, msteps.length - 1)
     if (!msteps.length) return 0
     const at = pv.findIndex((v) => !v)
     /* 하나도 판정 안 했으면 findIndex 가 -1 이 아니라 0 이어야 맞다.
@@ -622,7 +648,15 @@ export default function RunDetail({
             })
           })()}
           stepAt={stepAt}
-          onStep={setStepAt}
+          onStep={(i) => {
+            setPinned(true)
+            setStepAt(i)
+          }}
+          runStep={runStep}
+          runItem={
+            /* 실행기는 항목 **이름**을 준다. 화면은 id 로 센다 — 이름으로 찾는다 */
+            runItem ? (ids.find((k) => String(tcById.get(k)?.name ?? '') === runItem) ?? '') : ''
+          }
           dut={dut?.name ?? 'DUT'}
           logAt={log?.at}
           verdict={(results[cur] ?? 'n') as Verdict}

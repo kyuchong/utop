@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
 import './RunAuto.css'
 
@@ -49,10 +49,24 @@ const TITLE: Record<PanelId, string> = {
   tc: '시험 항목',
 }
 const RESN: Record<string, string> = { p: 'PASS', f: 'FAIL', b: '기타', n: 'WAIT' }
+/** 지금 도는 것을 알리는 표시 — 스텝 표와 항목 목록이 **같은 모양**을 쓴다 */
+function RunMark() {
+  return (
+    <span className="ra-st run">
+      <i />
+      RUN
+    </span>
+  )
+}
 
 export default function RunAuto({
   items, cur, onPick, steps, stepAt, onStep, dut, logAt, onVerdict, verdict,
+  runStep, runItem,
 }: {
+  /** 실행기가 **지금 돌고 있는** 스텝 자리(0부터). 안 돌면 없다 */
+  runStep?: number | null
+  /** 실행기가 지금 돌고 있는 항목 id */
+  runItem?: string | null
   items: AutoItem[]
   cur: string
   onPick: (id: string) => void
@@ -151,6 +165,13 @@ export default function RunAuto({
   }, [steps, logAt])
   const evShown = evf === 'all' ? events : events.filter((e) => e.kind === evf)
 
+  /** 도는 줄을 눈에 들어오게 끌어온다 — 스텝이 많으면 밑으로 흘러 안 보인다 */
+  const runRowRef = useRef<HTMLTableRowElement>(null)
+  useEffect(() => {
+    if (runStep == null) return
+    runRowRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [runStep])
+
   const curStep = steps[Math.min(stepAt, Math.max(0, steps.length - 1))]
   const groups = useMemo(() => {
     const m = new Map<string, AutoItem[]>()
@@ -180,7 +201,10 @@ export default function RunAuto({
                 {steps.map((s, i) => (
                   <tr
                     key={s.no ?? i}
-                    className={i === stepAt ? 'ra-on' : undefined}
+                    ref={i === runStep ? runRowRef : undefined}
+                    className={
+                      i === runStep ? 'ra-running' : i === stepAt ? 'ra-on' : undefined
+                    }
                     onClick={() => onStep(i)}
                   >
                     <td>{s.no ?? i + 1}</td>
@@ -191,11 +215,18 @@ export default function RunAuto({
                     <td>{s.cmd || s.t}</td>
                     <td>{s.expected ?? '—'}</td>
                     <td>
-                      <span
-                        className={`ra-st ${s.mark === 'Pass' ? 'ok' : s.mark === 'Fail' ? 'bad' : 'wait'}`}
-                      >
-                        {s.mark === 'Pass' ? 'PASS' : s.mark === 'Fail' ? 'FAIL' : 'WAIT'}
-                      </span>
+                      {i === runStep ? (
+                        <span className="ra-st run">
+                          <i />
+                          RUN
+                        </span>
+                      ) : (
+                        <span
+                          className={`ra-st ${s.mark === 'Pass' ? 'ok' : s.mark === 'Fail' ? 'bad' : 'wait'}`}
+                        >
+                          {s.mark === 'Pass' ? 'PASS' : s.mark === 'Fail' ? 'FAIL' : 'WAIT'}
+                        </span>
+                      )}
                     </td>
                     <td className="ra-num">{s.took || s.at || '—'}</td>
                   </tr>
@@ -311,7 +342,7 @@ export default function RunAuto({
                 <button
                   type="button"
                   key={it.id}
-                  className={`ra-tc${it.id === cur ? ' on' : ''}`}
+                  className={`ra-tc${it.id === cur ? ' on' : ''}${it.id === runItem ? ' running' : ''}`}
                   onClick={() => onPick(it.id)}
                 >
                   <span className={`ra-dot ${it.verdict}`}>
@@ -319,7 +350,9 @@ export default function RunAuto({
                   </span>
                   <span className="ra-tcid">{it.id}</span>
                   <span className="ra-tcnm">{it.name}</span>
-                  <span className={`ra-res ${it.verdict}`}>{RESN[it.verdict]}</span>
+                  {it.id === runItem ? <RunMark /> : (
+                    <span className={`ra-res ${it.verdict}`}>{RESN[it.verdict]}</span>
+                  )}
                 </button>
               ))}
             </div>
