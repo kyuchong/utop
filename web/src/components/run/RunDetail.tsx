@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import type { CycleMeta, CycleStep } from '@/pages/Cycles'
@@ -37,6 +37,8 @@ export interface RunFull {
   meta?: Record<string, string>
   /** 담긴 시험 항목 */
   items?: Array<{ tcid?: string }>
+  /** 실행기에 건 일감 번호 — 이게 있으면 자동 시험이 돌고 있(었)다 */
+  job_id?: string | null
   /** 자동·수동 — 플랜에서 물려받은 값. 없으면 항목에서 뽑는다 */
   mode?: string | null
   /** 시험을 시작한 시각 — 있으면 「돌고 있음」이다(ISO) */
@@ -88,6 +90,7 @@ export default function RunDetail({
   /* 판정하면 다음 항목으로 — 두 판 화면은 표에서 직접 고르므로 늘 켠다 */
   const autoNext = true
   const [bindOpen, setBindOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
   /* 경과 시간 — 시작했으면 1초마다 다시 그린다 */
   const [, tick] = useState(0)
   useEffect(() => {
@@ -150,6 +153,39 @@ export default function RunDetail({
 
   const run = runQ.data
   const results = useMemo(() => run?.results ?? {}, [run])
+  /** 실행기 일감 — 돌고 있으면 2초마다 다시 묻는다.
+      다 돌면 서버가 결과를 이 실행으로 옮겨 적으므로, 그때 실행도 다시 읽는다. */
+  const jobId = String(run?.job_id ?? '')
+  const jobQ = useQuery({
+    queryKey: ['run-job', jobId],
+    enabled: !!jobId,
+    refetchInterval: (q) => {
+      const st = String((q.state.data as { run?: { status?: string } } | undefined)?.run?.status ?? '')
+      return st === 'queued' || st === 'running' ? 2000 : false
+    },
+    queryFn: async () => {
+      const r = await apiFetch(`/api/runs/${encodeURIComponent(jobId)}`)
+      if (!r.ok) throw new Error('일감을 불러오지 못했습니다')
+      return (await r.json()) as {
+        run?: { status?: string; done?: number; total?: number; item_name?: string
+                step_name?: string; step_at?: number; step_count?: number; error?: string }
+      }
+    },
+  })
+  const job = jobQ.data?.run
+  const jobLive = job?.status === 'queued' || job?.status === 'running'
+  /* 일감이 끝나면 실행을 한 번 다시 읽는다 — 서버가 옮겨 적은 결과를 본다 */
+  const doneSeen = useRef('')
+  useEffect(() => {
+    const st = String(job?.status ?? '')
+    if (!st || st === 'queued' || st === 'running') return
+    const key = `${jobId}:${st}`
+    if (doneSeen.current === key) return
+    doneSeen.current = key
+    void qc.invalidateQueries({ queryKey: ['plan-run', runId] })
+    void qc.invalidateQueries({ queryKey: ['plan-runs'] })
+  }, [job?.status, jobId, qc, runId])
+
   /* 담긴 항목이 먼저다. 결과만 보면, 결과가 아직 안 깔린 실행이
      「항목이 없습니다」로 보인다 — 항목은 있는데. 둘을 합친다. */
   const ids = useMemo(() => {
@@ -249,6 +285,48 @@ export default function RunDetail({
     await save({ pchk, pmeta, results: { ...results, [cid]: roll } })
   }
 
+  /** 시험 시작.
+      수동은 「사람이 시작했다」는 기록이면 충분하다. 자동은 **실행기에
+      일감을 건다** — 실행기는 플랜만 알고 도니, 서버가 이 실행이 담은
+      항목만 골라 걸고 결과를 도로 옮겨 적는다. */
+  const start = async () => {
+    if (busy) return
+    const stamp = { started_at: new Date().toISOString(), runner: run?.owner ?? '' }
+    if (!isAuto) {
+      await save(stamp)
+      return
+    }
+    setBusy(true)
+    try {
+      const r = await apiFetch('/api/runs', {
+        method: 'POST',
+        body: JSON.stringify({ plan_run_id: runId }),
+      })
+      const j = (await r.json().catch(() => ({}))) as { run?: { id?: string }; detail?: string }
+      if (!r.ok) throw new Error(j.detail || '실행기에 걸지 못했습니다')
+      await save({ ...stamp, job_id: String(j.run?.id ?? '') })
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : '실행기에 걸지 못했습니다')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** 중지. 도는 일감이 있으면 실행기에 부탁하고(스텝 사이에서 내려온다),
+      없으면 시작 기록만 지운다. */
+  const stop = async () => {
+    if (jobLive && jobId) {
+      try {
+        await apiFetch(`/api/runs/${encodeURIComponent(jobId)}/stop`, { method: 'POST' })
+      } catch {
+        /* 이미 끝났을 수 있다 */
+      }
+      await jobQ.refetch()
+      return
+    }
+    await save({ started_at: null })
+  }
+
   /** 스텝의 실측값(Actual Result) — 결과서에 그대로 실린다 */
   const setAct = async (cid: string, ix: number, act: string) => {
     const mArr = [...((run?.pmeta ?? {})[cid] ?? [])]
@@ -318,10 +396,10 @@ export default function RunDetail({
         )}
         <span className="rd-sp" />
         <span className={`rd-mode ${isAuto ? 'a' : 'm'}`}>{isAuto ? '⚙ 자동' : '👆 수동'}</span>
-        {run.started_at && (
+        {(jobLive || (!isAuto && run.started_at)) && (
           <span className="rd-run">
             <i />
-            RUNNING
+            {jobLive ? (job?.status === 'queued' ? 'QUEUED' : 'RUNNING') : 'RUNNING'}
           </span>
         )}
         <span className="rd-sp" />
@@ -329,8 +407,8 @@ export default function RunDetail({
           <button
             type="button"
             className="rd-btn"
-            title="시험을 멈춥니다 — 남긴 결과는 그대로입니다"
-            onClick={() => void save({ started_at: null })}
+            title={jobLive ? '실행기에 멈춤을 부탁합니다 — 스텝 사이에서 내려옵니다' : '시험을 멈춥니다 — 남긴 결과는 그대로입니다'}
+            onClick={() => void stop()}
           >
             ■ 중지
           </button>
@@ -338,14 +416,15 @@ export default function RunDetail({
           <button
             type="button"
             className="rd-btn go"
+            disabled={busy}
             title={
               isAuto
-                ? '시작 시각과 실행자를 남깁니다. 자동 시험을 실제로 돌리려면 실행기 연결이 필요합니다 — 아직 안 붙었습니다'
+                ? '이 실행이 담은 항목을 실행기에 겁니다 — 실행기가 집어 가면 여기서 진행이 보입니다'
                 : '시험을 시작합니다 — 시작 시각과 실행자를 남깁니다'
             }
-            onClick={() => void save({ started_at: new Date().toISOString(), runner: run.owner ?? '' })}
+            onClick={() => void start()}
           >
-            {isAuto ? '▶ 시작 기록' : '▶ 시험 시작'}
+            {busy ? '거는 중…' : '▶ 시험 시작'}
           </button>
         )}
         <button type="button" className="rd-btn" onClick={() => setBindOpen(true)}>
@@ -376,11 +455,18 @@ export default function RunDetail({
       </div>
 
       {/* ── 위 띠 — 목업의 네 칸 ── */}
-      {isAuto && run.started_at && (
-        <div className="rd-warn">
-          <b>!</b>
-          자동 시험을 **돌리는 실행기**가 이 실행에 아직 안 붙었습니다 — 시작 시각만 남습니다.
-          Step·CLI·이벤트는 실행기가 결과를 쓰기 시작하면 채워집니다.
+      {isAuto && jobId && (
+        <div className={`rd-warn${jobLive ? ' live' : job?.status === 'failed' ? '' : ' ok'}`}>
+          <b>{jobLive ? '▶' : job?.status === 'failed' ? '!' : '✓'}</b>
+          {job?.status === 'queued'
+            ? '실행기가 집어 가기를 기다립니다 — 실행기가 꺼져 있으면 여기서 멈춰 있습니다.'
+            : job?.status === 'running'
+              ? `실행기가 돌고 있습니다 — ${job.done ?? 0} / ${job.total ?? 0}건${job.item_name ? ` · ${job.item_name}` : ''}${job.step_name ? ` · ${job.step_name}` : ''}`
+              : job?.status === 'failed'
+                ? `실행이 실패했습니다 — ${job.error || '까닭을 못 받았습니다'}`
+                : job?.status === 'stopped'
+                  ? '사람이 멈췄습니다 — 그때까지의 결과는 남아 있습니다.'
+                  : '실행이 끝났습니다 — 결과를 이 기록으로 옮겨 적었습니다.'}
         </div>
       )}
       <div className="rd-live">

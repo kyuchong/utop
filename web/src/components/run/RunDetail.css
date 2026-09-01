@@ -258,3 +258,7 @@
   flex: none; width: 17px; height: 17px; border-radius: 50%;
   background: #e0a91d; color: #fff; display: grid; place-items: center; font-size: 11px;
 }
+.rd-warn.live { background: #eef5ff; border-bottom-color: #b9d3f5; color: #1d5bb0; }
+.rd-warn.live b { background: #2e70d6; }
+.rd-warn.ok { background: #f1faf5; border-bottom-color: #b6ded0; color: #12684b; }
+.rd-warn.ok b { background: #16a05b; }

@@ -559,6 +559,13 @@ CREATE TABLE IF NOT EXISTS cycle_run_log (
 -- CREATE TABLE IF NOT EXISTS 는 이미 있는 표의 칸을 늘려 주지 않는다.
 ALTER TABLE cycle_run_log ADD COLUMN IF NOT EXISTS item_at INT DEFAULT -1;
 
+-- 이 일감이 **어느 실행(plan_run)** 의 것인가.
+-- 실행기는 플랜(cycle)만 알고 돈다. 그 결과를 실행 기록으로 옮겨 적으려면
+-- 일감에 실행 번호가 적혀 있어야 한다. 비어 있으면 옛 방식(플랜 직접 실행).
+ALTER TABLE cycle_run ADD COLUMN IF NOT EXISTS plan_run_id TEXT;
+CREATE INDEX IF NOT EXISTS cycle_run_plan_run_idx ON cycle_run (plan_run_id)
+  WHERE plan_run_id IS NOT NULL;
+
 -- ══════════════════════════════════════════════════════════════════════
 -- 결함 (defect) — UTOP 안에 먼저 쌓고, 나중에 Jira 로 밀지 정한다
 --

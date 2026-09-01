@@ -1872,7 +1872,7 @@ async def cf_usage(target: str, key: str) -> int:
 _RUN_COLS = (
     "id, cycle_id, cycle_name, picked, status, stop_asked, started_by, worker, "
     "total, done, item_at, item_name, step_at, step_count, step_name, live_steps, "
-    "error, queued_at, started_at, ended_at, heartbeat_at"
+    "error, queued_at, started_at, ended_at, heartbeat_at, plan_run_id"
 )
 
 
@@ -1891,14 +1891,74 @@ def _run_row(r) -> dict:
     return d
 
 
-async def run_create(run_id: str, cycle_id: str, cycle_name: str, picked: list, who: str, total: int) -> dict:
+async def run_create(run_id: str, cycle_id: str, cycle_name: str, picked: list, who: str,
+                     total: int, plan_run_id: str = "") -> dict:
     async with pool().acquire() as c:
         r = await c.fetchrow(
-            "INSERT INTO cycle_run (id, cycle_id, cycle_name, picked, started_by, total) "
-            "VALUES ($1,$2,$3,$4::jsonb,$5,$6) RETURNING " + _RUN_COLS,
+            "INSERT INTO cycle_run (id, cycle_id, cycle_name, picked, started_by, total, plan_run_id) "
+            "VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7) RETURNING " + _RUN_COLS,
             run_id, cycle_id, cycle_name, json.dumps(picked or []), who, int(total or 0),
+            plan_run_id or None,
         )
         return _run_row(r)
+
+
+# 항목 판정(글자) → 실행 기록의 한 글자. 화면과 같은 말을 써야 한다.
+_VERDICT_LETTER = {"pass": "p", "fail": "f", "": "n"}
+
+
+async def plan_run_mirror(plan_run_id: str, cycle_id: str) -> Optional[dict]:
+    """플랜에 쌓인 결과를 **실행 기록으로 옮겨 적는다.**
+
+    실행기는 plan_run 을 모른다 — 플랜(cycle)의 items 에만 쓴다. 그래서
+    서버가 옮긴다. 실행이 담은 항목만 본다: 플랜에 나중에 더 담긴 항목이
+    이미 돈 실행의 결과에 끼어들면 안 된다.
+
+    옮기는 것은 **결과와 스텝**이다. 스텝을 같이 옮겨야 화면의 실행 Step ·
+    CLI Response 가 채워진다.
+    """
+    pr = await plan_run_get(plan_run_id)
+    if not pr:
+        return None
+    cyc = await cycle_get(cycle_id)
+    if not cyc:
+        return None
+
+    mine = set(str(k) for k in (pr.get("results") or {}).keys())
+    for it in (pr.get("items") or []):
+        k = str((it or {}).get("tcid") or "").strip()
+        if k:
+            mine.add(k)
+
+    results = dict(pr.get("results") or {})
+    logs = dict(pr.get("logs") or {})
+    touched = 0
+    for it in (cyc.get("items") or []):
+        if not isinstance(it, dict):
+            continue
+        tcid = str(it.get("tcid") or "").strip()
+        if not tcid or (mine and tcid not in mine):
+            continue
+        steps = it.get("steps") if isinstance(it.get("steps"), list) else []
+        v = item_verdict(it, steps)
+        letter = _VERDICT_LETTER.get(str(v).strip().lower(), "b" if str(v).strip() else "n")
+        # 안 돈 항목을 「미실행」 으로 되돌리지 않는다 — 사람이 손으로 남긴
+        # 결과가 있을 수 있다. 실제로 무언가 나온 것만 덮는다.
+        if letter == "n" and not steps:
+            continue
+        results[tcid] = letter
+        logs[tcid] = {
+            "steps": [s for s in steps if isinstance(s, dict)],
+            "at": str(it.get("executed_at") or ""),
+            "by": str(it.get("executed_by") or ""),
+        }
+        touched += 1
+
+    if not touched:
+        return pr
+    merged = {**pr, "results": results, "logs": logs}
+    await plan_run_upsert(plan_run_id, merged)
+    return merged
 
 
 async def run_get(run_id: str) -> Optional[dict]:

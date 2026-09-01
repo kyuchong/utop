@@ -18732,6 +18732,16 @@ async def _run_push(run: dict, logs: list = None):
 async def run_queue(payload: dict, request: Request):
     """실행을 줄에 건다. 돌리는 것은 실행기가 한다."""
     cycle_id = str(payload.get("cycle_id") or "").strip()
+
+    # 실행(plan_run) 으로도 걸 수 있다. 실행기는 플랜만 알고 도니, 여기서
+    # **그 실행이 담은 항목만** 자리 번호로 바꿔 준다. 나중에 플랜에 더
+    # 담긴 항목이 이미 만든 실행에 끼어들면 안 된다.
+    plan_run_id = str(payload.get("plan_run_id") or "").strip()
+    prun = await db.plan_run_get(plan_run_id) if plan_run_id else None
+    if plan_run_id and not prun:
+        raise HTTPException(404, "실행을 찾을 수 없습니다")
+    if prun and not cycle_id:
+        cycle_id = str(prun.get("plan_id") or "").strip()
     if not cycle_id:
         raise HTTPException(400, "cycle_id 가 필요합니다")
     cyc = await db.cycle_get(cycle_id)
@@ -18740,6 +18750,18 @@ async def run_queue(payload: dict, request: Request):
 
     picked = [int(x) for x in (payload.get("pick") or []) if str(x).lstrip("-").isdigit()]
     items = cyc.get("items") if isinstance(cyc.get("items"), list) else []
+    if not picked and prun:
+        mine = set(str(k) for k in (prun.get("results") or {}).keys())
+        for it in (prun.get("items") or []):
+            k = str((it or {}).get("tcid") or "").strip()
+            if k:
+                mine.add(k)
+        picked = [
+            i for i, it in enumerate(items)
+            if isinstance(it, dict) and str(it.get("tcid") or "").strip() in mine
+        ]
+        if not picked:
+            raise HTTPException(400, "이 실행이 담은 항목이 플랜에 없습니다 — 플랜에서 항목이 빠졌는지 보세요")
     if not picked:
         picked = list(range(len(items)))
     if not picked:
@@ -18764,7 +18786,7 @@ async def run_queue(payload: dict, request: Request):
     run_id = _uuid4().hex[:16]
     run = await db.run_create(
         run_id, cycle_id, str(cyc.get("name") or ""), picked,
-        who or str(payload.get("who") or ""), len(picked),
+        who or str(payload.get("who") or ""), len(picked), plan_run_id,
     )
     await _run_push(run)
     return {"ok": True, "run": run}
@@ -18812,6 +18834,22 @@ async def run_stop(run_id: str):
 
 # ── 여기부터는 실행기가 부르는 자리 ──────────────────────────────
 
+async def _mirror_plan_run(run: dict) -> None:
+    """일감이 실행(plan_run)의 것이면 플랜에 쌓인 결과를 그리로 옮겨 적는다.
+
+    옮기다 넘어져도 **실행은 계속 돌아야 한다** — 옮기기 실패가 시험을
+    멈추게 하면 안 된다. 그래서 삼키고 로그만 남긴다.
+    """
+    pid = str((run or {}).get("plan_run_id") or "").strip()
+    cid = str((run or {}).get("cycle_id") or "").strip()
+    if not pid or not cid:
+        return
+    try:
+        await db.plan_run_mirror(pid, cid)
+    except Exception as e:  # noqa: BLE001
+        print(f"[plan_run_mirror] {pid} 옮기기 실패: {e}", flush=True)
+
+
 @app.post("/api/runner/claim")
 async def run_claim(payload: dict):
     _runner_guard(payload.get("key"))
@@ -18834,6 +18872,9 @@ async def run_progress(run_id: str, payload: dict):
     run = await db.run_progress(run_id, patch)
     if run is None:
         raise HTTPException(404, "실행을 찾을 수 없습니다")
+    # 실행기는 플랜에만 쓴다 — 항목이 하나 끝날 때마다 실행 기록으로 옮긴다.
+    # 여기서 안 옮기면 도는 내내 Runs 화면이 0% 인 채로 남는다.
+    await _mirror_plan_run(run)
     await _run_push(run, logs)
     # 멈춤을 부탁받았는지 실행기에게 알려준다 — 스텝 사이에서 스스로 내려온다
     return {"ok": True, "stop": bool(run.get("stop_asked"))}
@@ -18850,6 +18891,7 @@ async def run_done(run_id: str, payload: dict):
     )
     if run is None:
         raise HTTPException(404, "실행을 찾을 수 없습니다")
+    await _mirror_plan_run(run)
     await _run_push(run, logs)
     return {"ok": True}
 
