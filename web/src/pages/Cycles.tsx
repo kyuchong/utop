@@ -17,6 +17,7 @@ import CyclePlan from '@/components/cycle/CyclePlan'
 import DefectDialog, { type DefectRec } from '@/components/cycle/DefectDialog'
 import { useCycleRun } from '@/components/cycle/useCycleRun'
 import NTable from '@/components/ntable/NTable'
+import PlanSummary from '@/components/cycle/PlanSummary'
 import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
 import { useNFields } from '@/components/ntable/useNFields'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
@@ -1432,6 +1433,32 @@ function CycleBoard({
       {/* 플랜 목록도 REQ-Coverage 와 **같은 노션 표**로(지시).
           옛 격자(폴더 묶음·펼쳐 보는 항목 카드)는 걷어냈다 — 항목은
           Key 를 눌러 들어가는 **계획 화면**이 이미 통째로 보여 준다. */}
+      {/* 요약은 **지금 표에 보이는 플랜**을 센다(합의) — 거르면 같이 좁혀지고,
+          한 건만 남으면 자연히 그 한 건의 요약이 된다 */}
+      <PlanSummary
+        scope={
+          shown.length === cycles.length
+            ? `플랜 ${shown.length}건 전체`
+            : `거른 결과 — 플랜 ${shown.length}건 (전체 ${cycles.length})`
+        }
+        plans={shown.map((c) => {
+          const t2 = stats.get(c.id)
+          return { name: c.name ?? c.cid ?? c.id, done: t2?.done ?? 0, total: t2?.total ?? (c._item_count ?? 0) }
+        })}
+        today={new Date().toISOString().slice(0, 10)}
+        /* 항목마다 결과와 **언제 돌렸는지**를 넘긴다 — 추이를 지어내지 않는다 */
+        items={shown.flatMap((c) =>
+          (c.items ?? []).map((it) => {
+            const v = itemVerdict(it)
+            const g = groupOf(v)
+            return {
+              k: (g === 'pass' ? 'pass' : g === 'fail' ? 'fail' : v ? 'etc' : 'none') as
+                'pass' | 'fail' | 'etc' | 'none',
+              day: String(it.executed_at ?? '').slice(0, 10),
+            }
+          }),
+        )}
+      />
       <div className="cyt">
         <NTable
           columns={nColsLive}
