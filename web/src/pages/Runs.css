@@ -38,19 +38,21 @@
 .rn-sx:hover {
   background: #f1f5f6;
 }
+/* 줄이 카드 테두리에 딱 붙어 있었다(지적). REQ-Coverage 의 폴더 판처럼
+   판이 여백을 갖고, 고른 줄은 그 안에서 둥글게 앉는다. */
 .rn-tree {
   flex: 1;
   overflow: auto;
-  padding-bottom: 10px;
+  padding: 4px 6px 10px;
 }
 .rn-tn {
   display: flex;
   align-items: center;
   gap: 6px;
   width: 100%;
-  padding: 6px 12px;
+  padding: 6px 10px;
   border: 0;
-  border-left: 2px solid transparent;
+  border-radius: 6px;
   background: none;
   font: inherit;
   font-size: 12.5px;
@@ -63,12 +65,11 @@
 }
 .rn-tn.on {
   background: #eff8f7;
-  border-left-color: #0d8f89;
   color: #0d8f89;
   font-weight: 600;
 }
 .rn-tn.lv2 {
-  padding-left: 31px;
+  padding-left: 29px;
   font-variant-numeric: tabular-nums;
 }
 .rn-tn.muted {
