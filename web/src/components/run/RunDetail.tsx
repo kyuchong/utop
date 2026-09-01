@@ -331,13 +331,29 @@ export default function RunDetail({
             setCur(id)
             setStepAt(0)
           }}
-          steps={(log?.steps ?? []).map((s2, i2) => ({
-            no: s2.no ?? i2 + 1,
-            t: s2.t,
-            cmd: s2.cmd,
-            out: s2.out,
-            mark: s2.mark,
-          }))}
+          /* 스텝은 **시험 항목의 정의**가 바탕이다. 실행 로그만 보면 아직
+             안 돌린 항목은 「스텝이 없습니다」 가 되는데, 정의는 있다(지적).
+             정의를 깔고 그 위에 실행 결과를 자리(차례)로 얹는다. */
+          steps={(() => {
+            const def = ((oneQ.data?.steps ?? []) as CycleStep[]).map((s2, i2) => ({
+              no: i2 + 1,
+              t: String(s2.desc ?? s2.step ?? s2.cli ?? '').trim() || `스텝 ${i2 + 1}`,
+              cmd: String(s2.cli ?? ''),
+              expected: String(s2.criteria ?? s2.expected ?? '') || '—',
+              action: String(s2.action ?? (s2.cli ? 'command' : '')) || '—',
+              session: String((s2 as unknown as Record<string, unknown>).session ?? '') || '—',
+              out: String(s2.output ?? ''),
+              mark: undefined as string | undefined,
+            }))
+            const lg = log?.steps ?? []
+            if (!lg.length) return def
+            if (!def.length)
+              return lg.map((s2, i2) => ({ no: s2.no ?? i2 + 1, t: s2.t, cmd: s2.cmd, out: s2.out, mark: s2.mark }))
+            return def.map((d2, i2) => {
+              const l = lg[i2]
+              return l ? { ...d2, cmd: l.cmd || d2.cmd, out: l.out ?? d2.out, mark: l.mark } : d2
+            })
+          })()}
           stepAt={stepAt}
           onStep={setStepAt}
           dut={dut?.name ?? 'DUT'}
