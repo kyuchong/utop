@@ -326,6 +326,24 @@ export default function RunDetail({
     staleTime: 60_000,
   })
 
+  /* 일감이 끝나면 **마지막 스텝**으로 옮긴다. 중간에 멈춰 있으면 그 뒤
+     스텝이 안 돈 것처럼 보인다 — 실제로는 다 돌았다.
+     msteps 는 이른 return 아래에 있어 여기서 쓸 수 없다(훅 차례가 깨진다).
+     그냥 다시 센다 — 훅이 아니라 함수 호출이다. */
+  const doneMoved = useRef('')
+  const nSteps = manualSteps(oneQ.data).length
+  useEffect(() => {
+    /* 스텝이 아직 안 온 사이에 옮기려 하면 0 으로 가 버리고, 한 번 옮겼다고
+       표시돼 다시 안 옮긴다. 스텝이 온 뒤에 옮긴다. */
+    if (!jobDone || !jobId || !nSteps) return
+    const key = `${jobId}:${cur}:${nSteps}`
+    if (doneMoved.current === key) return
+    doneMoved.current = key
+    setPinned(false)
+    setStepAt(Math.max(0, nSteps - 1))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobDone, jobId, cur, nSteps])
+
   const tally = useMemo(() => {
     const t = { p: 0, f: 0, b: 0, n: 0, total: ids.length, done: 0 }
     for (const k of ids) t[results[k] ?? 'n']++
@@ -397,7 +415,6 @@ export default function RunDetail({
     if (pinned || runStep == null) return
     setStepAt(runStep)
   }, [runStep, pinned])
-
   /** 실행기가 도는 항목의 id — 실행기는 **이름**을 주므로 이름으로 찾는다 */
   const runId2 = runItem ? (ids.find((k) => String(tcById.get(k)?.name ?? '') === runItem) ?? '') : ''
   /* 보는 항목도 실행기를 따라간다. 안 그러면 첫 항목에 머문 채 밑에서만

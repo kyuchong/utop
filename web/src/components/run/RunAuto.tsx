@@ -231,8 +231,18 @@ export default function RunAuto({
     return sec > 0 ? `${sec}초 기다립니다` : '기다립니다'
   }
 
-  /** 콘솔은 지금 보는 스텝까지 쌓는다 */
-  const seeUpTo = Math.min(Math.max(runStep ?? stepAt, stepAt), Math.max(0, steps.length - 1))
+  /** 콘솔에 그릴 마지막 스텝.
+   *
+   *  예전엔 **보던 스텝까지만** 쌓았다. 그래서 항목이 다음으로 넘어가면
+   *  뒤 스텝(SNMP·비교)의 출력이 통째로 안 보여, 그것들이 돌았는지 알 수
+   *  없었다(지적). **돈 스텝은 전부 보인다** — 지금 보는 자리와 실제로
+   *  돈 마지막 자리 중 더 뒤쪽까지 쌓는다.
+   */
+  const lastRan = steps.reduce((acc, s2, i) => (s2.ran || s2.out ? i : acc), -1)
+  const seeUpTo = Math.min(
+    Math.max(runStep ?? stepAt, stepAt, lastRan),
+    Math.max(0, steps.length - 1),
+  )
   const conRef = useRef<HTMLDivElement>(null)
   const conEndRef = useRef<HTMLDivElement>(null)
   /* 콘솔은 **바닥을 따라간다.** 자리가 고정돼 있어 새 줄이 나올 때마다
