@@ -103,7 +103,18 @@ export default function PlanExtras({ plan, onOpenRun }: { plan: CycleMeta; onOpe
       : { k: 'ok', label: '결과서 발행 가능', why: `시험 항목 ${tal.total}건 전부 통과` }
   }, [runs.length, tal])
 
-  const reg = regQ.data
+  /* 서버 응답 모양이 다르면 **화면째 죽는다.** 회귀 판 하나 때문에
+     플랜 개요 전체가 안 뜨면 안 된다 — 빠진 칸은 빈 값으로 메운다. */
+  const raw = regQ.data
+  const reg: Reg | null = raw
+    ? {
+        versions: Array.isArray(raw.versions) ? raw.versions : [],
+        a: String(raw.a ?? ''),
+        b: String(raw.b ?? ''),
+        changed: Array.isArray(raw.changed) ? raw.changed : [],
+        same: Number(raw.same ?? 0),
+      }
+    : null
 
   return (
     <>

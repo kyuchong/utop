@@ -236,8 +236,13 @@ export default function CyclePlan({
       const r = await apiFetch(`/api/cycle/${encodeURIComponent(cur.id)}`)
       const full = (await r.json()) as Record<string, unknown>
       const arr = (full.items ?? []) as Array<Record<string, unknown>>
-      /* 결과가 남아 있는 항목은 빼면 그 결과도 사라진다 — 먼저 알린다 */
-      const hit = arr.filter((x) => keys.has(String(x.ceid ?? x.tcid ?? '')))
+      /* 체크 열쇠는 **`ceid|tcid`** 꼴이다(keyOfIt). 다른 꼴로 견주면
+         하나도 안 걸려 눌러도 아무 일이 없다 — 실제로 그랬다(지적). */
+      const hit = arr.filter((x) => keys.has(keyOfIt(x)))
+      if (!hit.length) {
+        window.alert('뺄 항목을 찾지 못했습니다 — 화면을 새로 고친 뒤 다시 고르세요')
+        return
+      }
       const withRes = hit.filter(
         (x) =>
           String(x.result ?? '').trim() ||
@@ -252,7 +257,7 @@ export default function CyclePlan({
           : '') +
         '\n\n되돌릴 수 없습니다. 빼시겠습니까?'
       if (!window.confirm(msg)) return
-      full.items = arr.filter((x) => !keys.has(String(x.ceid ?? x.tcid ?? '')))
+      full.items = arr.filter((x) => !keys.has(keyOfIt(x)))
       await apiFetch(`/api/cycle/${encodeURIComponent(cur.id)}`, {
         method: 'POST',
         body: JSON.stringify({ ...full, updated_by: meName }),
