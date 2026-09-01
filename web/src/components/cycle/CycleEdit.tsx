@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { useQuery } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi } from '@/api/client'
@@ -289,16 +289,35 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
   const groups = folders[model] ?? []
 
   /** 요구사항 id → 그 아래 TC */
+  /** 이 플랜이 **담을 수 있는** 시험인가 — 적용 모델 규칙 한 곳.
+      시험이 모델명을 명시했으면 그 모델일 때만, 모델그룹만 명시했으면 그
+      그룹일 때만 후보다. 미지정 시험은 공용이라 늘 후보다.
+      (모델마다 인터페이스가 달라 CLI·판정기준이 갈리는 현실의 답) */
+  const fitsPlan = useCallback(
+    (t: TestCaseMeta) => {
+      const tm = String((t as { model?: unknown }).model ?? '').trim()
+      const tg = String((t as { model_group?: unknown }).model_group ?? '').trim()
+      if (tm) return !!model && tm === model
+      if (tg) return !!mgroup && tg === mgroup
+      return true
+    },
+    [model, mgroup],
+  )
+  /** 후보만 — 거르개 선택지도 폴더의 TC 수도 **이것**을 세야 한다.
+      전부를 세면, 골라도 0 건인 죽은 선택지가 생긴다(지적: 왜 E59xxRL
+      이 나오나). 이 플랜은 E61xx 라 그 시험은 애초에 못 담는다. */
+  const candTcs = useMemo(() => allTcs.filter(fitsPlan), [allTcs, fitsPlan])
+
   const tcsByReq = useMemo(() => {
     const m = new Map<string, TestCaseMeta[]>()
-    for (const t of allTcs) {
+    for (const t of candTcs) {
       const k = String(t.req_id ?? '')
       const arr = m.get(k)
       if (arr) arr.push(t)
       else m.set(k, [t])
     }
     return m
-  }, [allTcs])
+  }, [candTcs])
 
   const pickedIds = useMemo(() => new Set(picked.map((x) => x.tcid)), [picked])
 
@@ -310,7 +329,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
     const typ = new Set<string>()
     const mg = new Set<string>()
     const md = new Set<string>()
-    for (const t of allTcs) {
+    for (const t of candTcs) {
       if (t.severity) sev.add(String(t.severity))
       if (t.status) stat.add(String(t.status))
       if (t.kind) kin.add(String(t.kind))
@@ -329,7 +348,10 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
       mg: [...mg].sort(srt),
       md: [...md].sort(srt),
     }
-  }, [allTcs])
+    /* candTcs 를 세면서 의존은 allTcs 로 남겨 두면, 플랜의 모델이 **늦게**
+       도착하는 사이 한 번 굳어 공용 값만 남는다. 세는 것과 기대는 것은
+       늘 같아야 한다. */
+  }, [candTcs])
 
   /** 이 폴더(하위 포함) 아래 요구사항들의 pk */
   const reqsUnderCat = useMemo(() => {
@@ -363,16 +385,9 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
         : allTcs
     const n = tcQ.trim().toLowerCase()
     return base.filter((t) => {
-      /* 적용 모델 — 시험이 모델명을 명시했으면 그 모델일 때만, 모델그룹만
-         명시했으면 그 그룹일 때만 후보다. 미지정 시험은 공용이라 늘 나온다.
-         (모델마다 인터페이스가 달라 CLI·판정기준이 갈리는 현실의 답) */
+      if (!fitsPlan(t)) return false
       const tm = String((t as { model?: unknown }).model ?? '').trim()
       const tg = String((t as { model_group?: unknown }).model_group ?? '').trim()
-      if (tm) {
-        if (!model || tm !== model) return false
-      } else if (tg) {
-        if (!mgroup || tg !== mgroup) return false
-      }
       if (fMg && tg !== (fMg === '\0' ? '' : fMg)) return false
       if (fMd && tm !== (fMd === '\0' ? '' : fMd)) return false
       if (fSev && String(t.severity ?? '') !== fSev) return false
@@ -382,7 +397,7 @@ export default function CycleEdit({ cycleId, folders, preset, onClose, onDone, p
       if (!n) return true
       return `${t.name ?? ''} ${t.tcid}`.toLowerCase().includes(n)
     })
-  }, [reqSel, reqsUnderCat, tcQ, tcsByReq, allTcs, fMg, fMd, fSev, fStat, fKind, fTyp, model, mgroup])
+  }, [reqSel, reqsUnderCat, tcQ, tcsByReq, allTcs, fMg, fMd, fSev, fStat, fKind, fTyp, fitsPlan])
 
   /** 보이는 것 중 이 모델의 시험과 공용 시험이 각각 몇 건인가.
       「71건」 만 적어 두면 그게 어디서 나온 수인지 알 수 없다. */
