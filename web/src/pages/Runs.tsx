@@ -7,6 +7,7 @@ import NTable from '@/components/ntable/NTable'
 import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
 import { useNFields } from '@/components/ntable/useNFields'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
+import { IcAuto, IcManual } from '@/components/ntable/NIcons'
 import type { CycleMeta } from '@/pages/Cycles'
 import RunDetail from '@/components/run/RunDetail'
 import './Runs.css'
@@ -448,16 +449,17 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
             )
           }}
           rowIcon={(row) => {
-            /* 목업 규칙: 방식이 비면 **자동**으로 본다. 다만 그 사실을
+            /* 목업 규칙: 방식이 비면 **자동**으로 본다. 다만 흐리게 그리고
                말풍선에 적는다 — 안 적으면 정해 둔 값처럼 보인다. */
             const m = String(row.mode ?? '')
             const auto = m !== '수동'
+            const I = auto ? IcAuto : IcManual
             return (
               <i
                 className={`ntb-mi2 ${auto ? 'a' : 'm'}${m ? '' : ' dim'}`}
                 title={m ? `${m} 시험` : '방식 미지정 — 자동으로 봅니다'}
               >
-                {auto ? '⚙' : '👆'}
+                <I />
               </i>
             )
           }}

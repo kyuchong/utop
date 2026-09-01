@@ -21,6 +21,7 @@ import PlanSummary from '@/components/cycle/PlanSummary'
 import NViews, { type ViewBody, type ViewDef } from '@/components/ntable/NViews'
 import { useNFields } from '@/components/ntable/useNFields'
 import { EMPTY_VIEW, type NCalc, type NCol, type NRow, type NView } from '@/components/ntable/types'
+import { IcAuto, IcManual } from '@/components/ntable/NIcons'
 import { useMultiSelect } from '@/components/useMultiSelect'
 import PresenceBar from '@/components/PresenceBar'
 import { usePageCrowd } from '@/components/usePageCrowd'
@@ -1489,16 +1490,17 @@ function CycleBoard({
           /* Key 앞에 톱니(자동)·손(수동) — 목업 그대로. 값이 아니라 표시라
              열을 하나 더 쓰지 않고 ID 칸에 얹는다 */
           rowIcon={(row) => {
-            /* 목업 규칙: 방식이 비면 **자동**으로 본다. 다만 그 사실을
+            /* 목업 규칙: 방식이 비면 **자동**으로 본다. 다만 흐리게 그리고
                말풍선에 적는다 — 안 적으면 정해 둔 값처럼 보인다. */
             const m = String(row.mode ?? '')
             const auto = m !== '수동'
+            const I = auto ? IcAuto : IcManual
             return (
               <i
                 className={`ntb-mi2 ${auto ? 'a' : 'm'}${m ? '' : ' dim'}`}
                 title={m ? `${m} 시험` : '방식 미지정 — 자동으로 봅니다'}
               >
-                {auto ? '⚙' : '👆'}
+                <I />
               </i>
             )
           }}
