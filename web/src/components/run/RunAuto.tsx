@@ -31,6 +31,8 @@ export interface AutoStep {
   took?: string
   /** 「대기」 스텝이 기다리기로 한 초. 카운트다운은 이 값에서 내려온다 */
   waitSec?: number
+  /** 실제로 돌았나 — 판정이 없는 스텝과 안 돌린 스텝을 가른다 */
+  ran?: boolean
 }
 
 export interface AutoItem {
@@ -198,7 +200,8 @@ export default function RunAuto({
          한 자리에서 숫자만 바뀌면 도는 건지 멎은 건지 안 보인다. */
       const trail: number[] = []
       for (let n = sec; n >= left && trail.length < 60; n--) trail.push(n)
-      return `${sec}초 기다립니다\n${trail.join(' ')}${left === 0 ? '\n기다림 끝' : ''}`
+      /* 한 줄에 늘어놓으면 길어질수록 옆으로 흘러 안 읽힌다 — **한 줄에 하나**(지시) */
+      return `${sec}초 기다립니다\n${trail.join('\n')}${left === 0 ? '\n기다림 끝' : ''}`
     }
     if (s2.out) return s2.out
     return sec > 0 ? `${sec}초 기다립니다` : '기다립니다'
@@ -268,10 +271,19 @@ export default function RunAuto({
                           RUN
                         </span>
                       ) : (
+                        /* 판정이 있으면 PASS·FAIL, 없어도 **돌았으면 완료**다.
+                           WAIT 는 아직 안 돌린 것만 — 안 그러면 건너뛴 것처럼 보인다. */
                         <span
-                          className={`ra-st ${s.mark === 'Pass' ? 'ok' : s.mark === 'Fail' ? 'bad' : 'wait'}`}
+                          className={`ra-st ${
+                            s.mark === 'Pass' ? 'ok' : s.mark === 'Fail' ? 'bad' : s.ran ? 'done' : 'wait'
+                          }`}
+                          title={
+                            s.mark || !s.ran
+                              ? undefined
+                              : '돌았습니다 — 이 스텝에는 견줄 기준이 없어 판정이 없습니다'
+                          }
                         >
-                          {s.mark === 'Pass' ? 'PASS' : s.mark === 'Fail' ? 'FAIL' : 'WAIT'}
+                          {s.mark === 'Pass' ? 'PASS' : s.mark === 'Fail' ? 'FAIL' : s.ran ? '완료' : 'WAIT'}
                         </span>
                       )}
                     </td>

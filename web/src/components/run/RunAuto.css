@@ -192,3 +192,5 @@
 .ra-ev.INFO { background: #eef2f4; color: #6b7f86; }
 .ra-ev.PASS { background: #e6f5ef; color: #0f9151; }
 .ra-ev.FAIL { background: #fdeaef; color: #d43f5f; }
+/* 돌았지만 견줄 기준이 없는 스텝 — 미실행(WAIT)과 갈라야 한다 */
+.ra-st.done { background: #eef3f5; color: #5b7176; }

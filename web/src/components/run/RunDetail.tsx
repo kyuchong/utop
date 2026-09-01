@@ -66,6 +66,8 @@ interface DeviceLite {
 function asStep(raw: Record<string, unknown>, i: number): {
   no: number; t: string; cmd: string; expected: string; action: string
   session: string; out: string; mark?: string; took?: string; waitSec?: number
+  /** 이 스텝이 실제로 돌았나. 판정이 없는 스텝(대기·조회)과 **안 돌린 스텝**은 다르다 */
+  ran?: boolean
 } {
   const g = (k: string) => String(raw?.[k] ?? '').trim()
   const cli = g('cli') || g('cmd')
@@ -94,6 +96,10 @@ function asStep(raw: Record<string, unknown>, i: number): {
     mark: mark || undefined,
     took: Number.isFinite(ms) ? `${(ms / 1000).toFixed(2)}s` : g('took') || undefined,
     waitSec: Number(raw?.waitSec ?? 0) || undefined,
+    /* 걸린 시간이나 출력이 있으면 돈 것이다. 실행기는 판정 기준이 없는
+       스텝(대기·단순 조회)에는 status 를 안 남긴다 — 그걸 「미실행」 으로
+       그려서 「건너뛴 것 같다」 는 말이 나왔다(지적). */
+    ran: Number.isFinite(ms) || !!g('output') || !!g('out') || !!g('executed_at') || !!res || !!st,
   }
 }
 
@@ -140,12 +146,15 @@ export default function RunDetail({
   const autoNext = true
   const [bindOpen, setBindOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  /* 경과 시간 — 시작했으면 1초마다 다시 그린다 */
+  /* 경과 시간 — **도는 동안에만** 1초마다 다시 그린다. 끝났는데도 계속
+     세면 화면은 「끝났습니다」 라면서 시계는 올라간다(지적). */
   const [, tick] = useState(0)
+  const [ticking, setTicking] = useState(true)
   useEffect(() => {
+    if (!ticking) return
     const t = window.setInterval(() => tick((n) => n + 1), 1000)
     return () => window.clearInterval(t)
-  }, [])
+  }, [ticking])
 
   const runQ = useQuery({
     queryKey: ['plan-run', runId],
@@ -218,7 +227,7 @@ export default function RunDetail({
       return (await r.json()) as {
         run?: { status?: string; done?: number; total?: number; item_name?: string
                 step_name?: string; step_at?: number; step_count?: number; error?: string
-        item_at?: number }
+        item_at?: number; ended_at?: string | null }
       }
     },
   })
@@ -226,6 +235,25 @@ export default function RunDetail({
   const jobLive = job?.status === 'queued' || job?.status === 'running'
   /** 실행기가 지금 돌고 있는 항목·스텝. 안 돌면 없다 — 없는 것을 그리지 않는다 */
   const runItem = jobLive ? String(job?.item_name ?? '') : ''
+  /** 시계를 멈출 시각 — 일감이 끝났으면 그 끝난 시각이다.
+      끝난 시각을 못 받았으면 「끝났다고 본 순간」 에 못 박는다. */
+  const froze = useRef('')
+  const stoppedAt = (() => {
+    if (jobLive) return ''
+    if (!jobId) return ''
+    const e = String(job?.ended_at ?? '')
+    if (e) return e
+    if (!job?.status) return ''
+    if (!froze.current) froze.current = new Date().toISOString()
+    return froze.current
+  })()
+  useEffect(() => {
+    if (jobLive) froze.current = ''
+  }, [jobLive])
+  useEffect(() => {
+    /* 도는 중이거나 수동이 시작만 눌린 상태면 센다. 그 밖엔 멈춘다. */
+    setTicking(jobLive || (!jobId && !!run?.started_at))
+  }, [jobLive, jobId, run?.started_at])
   const runStep = jobLive && typeof job?.step_at === 'number' && job.step_at >= 0 ? job.step_at : null
   /* 일감이 끝나면 실행을 한 번 다시 읽는다 — 서버가 옮겨 적은 결과를 본다 */
   const doneSeen = useRef('')
@@ -442,6 +470,9 @@ export default function RunDetail({
        표에서는 3번 줄이 도는, 서로 다른 말을 하는 화면이 된다(지적). */
     if (runStep != null && msteps.length) return Math.min(runStep, msteps.length - 1)
     if (!msteps.length) return 0
+    /* 다 돈 자동 실행은 **마지막 스텝**에서 멎는다. 첫 스텝으로 되돌리면
+       「끝났습니다」 옆에 Step 1 이 서서 아직 시작 전처럼 보인다. */
+    if (jobId && !jobLive && job?.status) return msteps.length - 1
     const at = pv.findIndex((v) => !v)
     /* 하나도 판정 안 했으면 findIndex 가 -1 이 아니라 0 이어야 맞다.
        빈 배열일 때만 -1 이 나오는데, 그때도 **첫 스텝**이지 마지막이 아니다. */
@@ -544,7 +575,8 @@ export default function RunDetail({
           <div className="rd-big">
             {(() => {
               if (!run.started_at) return '—'
-              const sec = Math.max(0, Math.floor((Date.now() - new Date(run.started_at).getTime()) / 1000))
+              const end = stoppedAt ? new Date(stoppedAt).getTime() : Date.now()
+              const sec = Math.max(0, Math.floor((end - new Date(run.started_at).getTime()) / 1000))
               const p2 = (n: number) => String(n).padStart(2, '0')
               return `${p2(Math.floor(sec / 3600))}:${p2(Math.floor((sec % 3600) / 60))}:${p2(sec % 60)}`
             })()}
@@ -646,6 +678,7 @@ export default function RunDetail({
                 mark: l.mark,
                 took: l.took ?? d2.took,
                 waitSec: l.waitSec ?? d2.waitSec,
+                ran: l.ran ?? d2.ran,
               }
             })
           })()}
