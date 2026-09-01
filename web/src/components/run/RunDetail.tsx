@@ -307,7 +307,11 @@ export default function RunDetail({
   }, [devices])
 
   useEffect(() => {
-    if (ids.length && (!cur || !ids.includes(cur))) setCur(ids[0]!)
+    if (!ids.length) return
+    if (cur && ids.includes(cur)) return
+    /* 실행기가 도는 항목이 있으면 그리로. 무턱대고 첫 항목으로 되돌리면
+       따라가기와 서로 밀어낸다. */
+    setCur(runId2 && ids.includes(runId2) ? runId2 : ids[0]!)
   }, [ids, cur])
 
   /** 지금 고른 항목의 **전체** 정의 — 스텝·합격 기준은 여기 있다 */
@@ -403,12 +407,20 @@ export default function RunDetail({
   useEffect(() => {
     if (jobLive) setPinItem(false)
   }, [jobLive])
+  /* **바뀐 순간에만** 옮긴다. 예전엔 cur 를 의존에 넣어 매 렌더마다 밀었고,
+     밑의 「고른 항목이 목록에 없으면 첫 항목으로」 와 서로 밀어내며 화면이
+     T0033 ↔ T0034 로 튀었다(지적). 실행기가 다음 항목으로 넘어간 그 한
+     번만 따라가고, 그 뒤로는 가만둔다. */
+  const wentTo = useRef('')
   useEffect(() => {
-    if (pinItem || !runId2 || runId2 === cur) return
+    if (!runId2 || wentTo.current === runId2) return
+    wentTo.current = runId2
+    if (pinItem) return
     setCur(runId2)
     setStepAt(0)
     setPinned(false)
-  }, [runId2, pinItem, cur])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [runId2])
 
   /** 이 항목을 도는 데 걸린 시간 — 스텝들의 걸린 시간을 더한다.
       실행기는 항목 단위 시간을 따로 안 준다. 안 돌린 항목은 비운다. */
