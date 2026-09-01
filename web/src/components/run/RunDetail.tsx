@@ -66,14 +66,12 @@ function manualSteps(tc?: Record<string, unknown>): Array<{ t: string; e: string
       da: String((s as unknown as Record<string, unknown>).data ?? '').trim(),
     }))
     .filter((x) => x.t || x.e)
-  if (man.length) return man
-  const crit = String(tc?.criteria ?? '') || '기대한 값이 나옵니다'
-  return [
-    { t: '대상 장비 세션 접속', e: '프롬프트가 뜨고 명령을 받을 수 있습니다' },
-    { t: String(tc?.name ?? '시험') + ' 절차를 수행', e: crit },
-    { t: '출력값 확인', e: '기대한 값이 나오고 오류 메시지가 없습니다' },
-    { t: '설정 원복 · 증적 저장', e: '변경한 설정을 되돌리고 화면·로그를 남깁니다' },
-  ]
+  /* 예전엔 스텝이 없으면 **기본 네 줄을 지어냈다.** 화면이 비는 걸 막으려던
+     것인데 더 나빴다 — 없는 절차를 있는 것처럼 보이고, 그 껍데기에 판정·
+     판정자·판정 시각까지 남아 결과서로 나간다. 게다가 「실행 Step 없음」 과
+     「지금 스텝 4/4」 가 한 화면에서 서로 다른 말을 했다(지적).
+     없으면 없다고 적는다. */
+  return man
 }
 
 export default function RunDetail({
@@ -296,8 +294,12 @@ export default function RunDetail({
   const log = (run.logs ?? {})[cur]
   /** 지금 보고 있는 스텝 — 아직 판정 안 한 첫 스텝이다. 다 했으면 마지막 */
   const stepNow = (() => {
+    if (!msteps.length) return 0
     const at = pv.findIndex((v) => !v)
-    return at < 0 ? Math.max(0, msteps.length - 1) : Math.min(at, Math.max(0, msteps.length - 1))
+    /* 하나도 판정 안 했으면 findIndex 가 -1 이 아니라 0 이어야 맞다.
+       빈 배열일 때만 -1 이 나오는데, 그때도 **첫 스텝**이지 마지막이 아니다. */
+    if (at >= 0) return Math.min(at, msteps.length - 1)
+    return pv.length ? msteps.length - 1 : 0
   })()
 
   return (
@@ -336,10 +338,14 @@ export default function RunDetail({
           <button
             type="button"
             className="rd-btn go"
-            title="시험을 시작합니다 — 시작 시각과 실행자를 남깁니다"
+            title={
+              isAuto
+                ? '시작 시각과 실행자를 남깁니다. 자동 시험을 실제로 돌리려면 실행기 연결이 필요합니다 — 아직 안 붙었습니다'
+                : '시험을 시작합니다 — 시작 시각과 실행자를 남깁니다'
+            }
             onClick={() => void save({ started_at: new Date().toISOString(), runner: run.owner ?? '' })}
           >
-            ▶ 시험 시작
+            {isAuto ? '▶ 시작 기록' : '▶ 시험 시작'}
           </button>
         )}
         <button type="button" className="rd-btn" onClick={() => setBindOpen(true)}>
@@ -370,6 +376,13 @@ export default function RunDetail({
       </div>
 
       {/* ── 위 띠 — 목업의 네 칸 ── */}
+      {isAuto && run.started_at && (
+        <div className="rd-warn">
+          <b>!</b>
+          자동 시험을 **돌리는 실행기**가 이 실행에 아직 안 붙었습니다 — 시작 시각만 남습니다.
+          Step·CLI·이벤트는 실행기가 결과를 쓰기 시작하면 채워집니다.
+        </div>
+      )}
       <div className="rd-live">
         <div className="rd-lb">
           <div className="rd-lab">경과</div>

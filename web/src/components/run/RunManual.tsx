@@ -385,7 +385,13 @@ export default function RunManual({
                   </div>
                 )
               })}
-              {!steps.length && <div className="rm-none">이 항목에는 적힌 절차가 없습니다</div>}
+              {!steps.length && (
+                <div className="rm-none">
+                  <strong>확인 절차가 없습니다</strong>
+                  이 시험 항목에 절차가 등록돼 있지 않습니다. 「시험 항목」 화면에서 스텝을
+                  등록하면 여기에 그대로 나옵니다.
+                </div>
+              )}
             </div>
 
             <div className="rm-sec">

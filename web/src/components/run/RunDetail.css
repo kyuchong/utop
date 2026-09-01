@@ -248,3 +248,13 @@
 .rd-run i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .rd-btn.go { background: #16a34a; border-color: #16a34a; color: #fff; font-weight: 700; }
 .rd-btn.go:hover { filter: brightness(1.07); }
+/* 자동인데 실행기가 안 붙은 상태 — 조용히 아무 일도 안 일어나면 고장으로 읽힌다 */
+.rd-warn {
+  flex: none; display: flex; align-items: center; gap: 9px;
+  padding: 8px 16px; background: #fff8e6; border-bottom: 1px solid #ecd9a4;
+  color: #7a5200; font-size: 12px;
+}
+.rd-warn b {
+  flex: none; width: 17px; height: 17px; border-radius: 50%;
+  background: #e0a91d; color: #fff; display: grid; place-items: center; font-size: 11px;
+}

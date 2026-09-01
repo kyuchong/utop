@@ -222,3 +222,5 @@
 .rm-head { position: sticky; top: 0; z-index: 3; background: #fff; }
 /* 밑으로 글이 지나간다는 걸 그림자로 알린다 — 안 그러면 반쯤 잘린 글씨가 고장으로 보인다 */
 .rm-head { box-shadow: 0 5px 9px -7px rgba(18, 40, 44, 0.35); }
+.rm-none { display: flex; flex-direction: column; gap: 4px; padding: 26px 16px; text-align: center; color: #93a6ab; font-size: 12px; line-height: 1.6; }
+.rm-none strong { font-size: 13px; color: #5b7176; }
