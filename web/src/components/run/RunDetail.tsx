@@ -238,6 +238,8 @@ export default function RunDetail({
   const jobLive = job?.status === 'queued' || job?.status === 'running'
   /** 실행기가 지금 돌고 있는 항목·스텝. 안 돌면 없다 — 없는 것을 그리지 않는다 */
   const runItem = jobLive ? String(job?.item_name ?? '') : ''
+  /** 일감이 끝났나 — 끝났으면 멈출 것이 없고, 다시 돌릴 수 있다 */
+  const jobDone = !!jobId && !jobLive && !!job?.status
   /** 시계를 멈출 시각 — 일감이 끝났으면 그 끝난 시각이다.
       끝난 시각을 못 받았으면 「끝났다고 본 순간」 에 못 박는다. */
   const froze = useRef('')
@@ -274,13 +276,21 @@ export default function RunDetail({
      「항목이 없습니다」로 보인다 — 항목은 있는데. 둘을 합친다. */
   const ids = useMemo(() => {
     const out: string[] = []
-    for (const it of (run?.items ?? []) as Array<{ tcid?: string }>) {
-      const k = String(it?.tcid ?? '')
+    const add = (k: string) => {
       if (k && !out.includes(k)) out.push(k)
     }
-    for (const k of Object.keys(results)) if (!out.includes(k)) out.push(k)
+    /* ① 실행이 담은 차례가 정본이다(배열이라 차례가 남는다) */
+    for (const it of (run?.items ?? []) as Array<{ tcid?: string }>) add(String(it?.tcid ?? ''))
+    /* ② 없으면 플랜의 항목 차례를 쓴다. results 키를 그냥 쓰면 안 된다 —
+       JSONB 는 키를 **정렬해 버려서** 담은 차례가 사라진다. 실행기는 위에서
+       아래로 도는데 화면만 뒤섞이면 순서대로 안 도는 것처럼 보인다(지적). */
+    if (!out.length)
+      for (const it of ((plan?.items ?? []) as Array<{ tcid?: string }>))
+        if (results[String(it?.tcid ?? '')] !== undefined) add(String(it?.tcid ?? ''))
+    /* ③ 그래도 빠진 것이 있으면 뒤에 붙인다 */
+    for (const k of Object.keys(results)) add(k)
     return out
-  }, [run, results])
+  }, [run, plan, results])
   const tcById = useMemo(() => {
     const m = new Map<string, TestCaseMeta>()
     for (const t of tcQ.data?.tcs ?? []) m.set(t.tcid, t)
@@ -324,6 +334,8 @@ export default function RunDetail({
   /* 방식은 **실행에 적힌 값이 먼저**다(플랜에서 손으로 정한 값이 여기까지 온다).
      없으면 지금 고른 항목의 성격에서 뽑는다 — Plans 와 같은 규칙이다. */
   const isAuto = String(run?.mode || meta?.run_type || meta?.kind || '자동') !== '수동'
+  /** 멈출 것이 있나 — 도는 일감이 있거나, 수동이 시작만 눌린 상태 */
+  const canStop = jobLive || (!isAuto && !!run?.started_at)
 
   const save = async (patch: Partial<RunFull>) => {
     const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}`, {
@@ -382,6 +394,22 @@ export default function RunDetail({
     setStepAt(runStep)
   }, [runStep, pinned])
 
+  /** 실행기가 도는 항목의 id — 실행기는 **이름**을 주므로 이름으로 찾는다 */
+  const runId2 = runItem ? (ids.find((k) => String(tcById.get(k)?.name ?? '') === runItem) ?? '') : ''
+  /* 보는 항목도 실행기를 따라간다. 안 그러면 첫 항목에 머문 채 밑에서만
+     결과가 바뀌어, 위에서 아래로 도는 게 안 보인다(지적).
+     사람이 다른 항목을 누르면 그 자리에 멈춘다. */
+  const [pinItem, setPinItem] = useState(false)
+  useEffect(() => {
+    if (jobLive) setPinItem(false)
+  }, [jobLive])
+  useEffect(() => {
+    if (pinItem || !runId2 || runId2 === cur) return
+    setCur(runId2)
+    setStepAt(0)
+    setPinned(false)
+  }, [runId2, pinItem, cur])
+
   /** 이 항목을 도는 데 걸린 시간 — 스텝들의 걸린 시간을 더한다.
       실행기는 항목 단위 시간을 따로 안 준다. 안 돌린 항목은 비운다. */
   const tookOf = (id: string): string => {
@@ -421,6 +449,7 @@ export default function RunDetail({
       })
       const j = (await r.json().catch(() => ({}))) as { run?: { id?: string }; detail?: string }
       if (!r.ok) throw new Error(j.detail || '실행기에 걸지 못했습니다')
+      froze.current = ''
       await save({ ...stamp, job_id: String(j.run?.id ?? '') })
     } catch (e) {
       window.alert(e instanceof Error ? e.message : '실행기에 걸지 못했습니다')
@@ -526,11 +555,14 @@ export default function RunDetail({
           </span>
         )}
         <span className="rd-sp" />
-        {run.started_at ? (
+        {/* 「중지」 는 **멈출 것이 있을 때만** 선다. 자동 실행이 끝난 뒤에도
+            started_at 이 남아 있어 계속 중지가 서 있었고, 눌러도 멈출 것이
+            없으니 아무 일도 안 일어났다(지적). 끝났으면 다시 돌릴 차례다. */}
+        {canStop ? (
           <button
             type="button"
             className="rd-btn"
-            title={jobLive ? '실행기에 멈춤을 부탁합니다 — 스텝 사이에서 내려옵니다' : '시험을 멈춥니다 — 남긴 결과는 그대로입니다'}
+            title={jobLive ? '실행기에 멈춤을 부탁합니다 — 스텝 사이에서 내려옵니다' : '시작 기록을 지웁니다 — 남긴 결과는 그대로입니다'}
             onClick={() => void stop()}
           >
             ■ 중지
@@ -541,13 +573,15 @@ export default function RunDetail({
             className="rd-btn go"
             disabled={busy}
             title={
-              isAuto
-                ? '이 실행이 담은 항목을 실행기에 겁니다 — 실행기가 집어 가면 여기서 진행이 보입니다'
-                : '시험을 시작합니다 — 시작 시각과 실행자를 남깁니다'
+              !isAuto
+                ? '시험을 시작합니다 — 시작 시각과 실행자를 남깁니다'
+                : jobDone
+                  ? '같은 항목을 실행기에 다시 겁니다 — 결과는 새로 덮입니다'
+                  : '이 실행이 담은 항목을 실행기에 겁니다 — 실행기가 집어 가면 여기서 진행이 보입니다'
             }
             onClick={() => void start()}
           >
-            {busy ? '거는 중…' : '▶ 시험 시작'}
+            {busy ? '거는 중…' : jobDone ? '▶ 다시 실행' : '▶ 시험 시작'}
           </button>
         )}
         <button type="button" className="rd-btn" onClick={() => setBindOpen(true)}>

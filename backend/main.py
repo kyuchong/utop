@@ -12214,13 +12214,24 @@ async def api_plan_run_new(payload: dict):
     pre = model or str((plan or {}).get("model_group") or "").strip()
     rid = await db.plan_run_next_key(pre or "RUN")
 
-    # 항목 복사 — 플랜의 items 를 결과칸이 빈 채로 떠 온다
+    # 항목 복사 — 플랜의 items 를 결과칸이 빈 채로 떠 온다.
+    #
+    # 차례는 **배열로** 따로 남긴다. results 는 JSONB 객체라 PostgreSQL 이
+    # 키를 정렬해 버려(넣은 차례가 아니다) 담은 차례를 알 수 없다. 실행기는
+    # 위에서 아래로 도는데 화면만 뒤섞이면 「순서대로 안 도는 것 같다」 가
+    # 된다(지적).
     results = dict(p.get("results") or {})
+    order = [dict(x) for x in (p.get("items") or []) if isinstance(x, dict)]
     if plan and not results:
         for it in (plan.get("items") or []):
             k = str((it or {}).get("tcid") or "").strip()
             if k:
                 results[k] = "n"
+    if plan and not order:
+        for it in (plan.get("items") or []):
+            k = str((it or {}).get("tcid") or "").strip()
+            if k and k in results:
+                order.append({"tcid": k})
 
     # 방식(자동·수동)은 **만들 때 굳힌다.** 플랜이 나중에 바뀌어도 이미 돈
     # 실행의 성격이 따라 바뀌면 안 된다 — 항목을 복사해 오는 것과 같은 뜻이다.
@@ -12245,6 +12256,8 @@ async def api_plan_run_new(payload: dict):
     item = {
         "id": rid,
         "mode": mode,
+        # 담은 차례 — 실행기가 도는 차례이자 화면이 그리는 차례다
+        "items": order,
         "plan_id": plan_id or None,
         "name": str(p.get("name") or "").strip() or rid,
         "version": str(p.get("version") or (plan or {}).get("version") or ""),
