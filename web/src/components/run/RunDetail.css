@@ -249,8 +249,12 @@
 .rd-lb.last::after { display: none; }
 .rd-lb:first-child { padding-left: 0; }
 .rd-lb.last { padding-right: 0; }
-.rd-lb.grow2 { flex: 0 1 330px; min-width: 250px; }
-.rd-lb.grow3 { flex: 1 1 auto; min-width: 0; }
+/* **늘어나지 않는다.** 늘어나면 그 칸의 오른쪽 여백만 커져서, 구분선이
+   글에서 564px 이나 떨어졌다(지적: 여백이 대칭이 안 맞는다). 줄어들기만
+   하고(긴 이름은 …로 자른다), 남는 자리는 맨 끝 rd-sp 가 먹는다. */
+.rd-lb.grow2 { flex: 0 1 auto; min-width: 0; }
+.rd-lb.grow3 { flex: 0 1 auto; min-width: 0; }
+.rd-live .rd-sp { flex: 1 1 auto; min-width: 0; }
 .rd-lb > em {
   flex: none; font-style: normal; font-size: 9.5px; font-weight: 800;
   color: #9bacb2; text-transform: uppercase; letter-spacing: 0.3px;

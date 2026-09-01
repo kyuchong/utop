@@ -776,6 +776,8 @@ export default function RunDetail({
             {msteps.length ? `(${msteps[stepNow]?.t || '—'})` : ''}
           </i>
         </span>
+        {/* 남는 자리는 여기가 먹는다 — 칸이 늘어나면 구분선만 밀려난다 */}
+        <span className="rd-sp" />
       </div>
 
       {!ids.length ? (
