@@ -1308,6 +1308,43 @@ function CycleBoard({
   }, [cycles, q, stats, famOf])
 
 
+  /** 시험 항목의 실행 타입 — 방식을 **항목에서 뽑을** 때 쓴다 */
+  const tcKindQ = useQuery({
+    queryKey: ['tc', 'kind', 'meta'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/tc?meta=1')
+      if (!r.ok) throw new Error('시험 항목을 불러오지 못했습니다')
+      return (await r.json()) as { tcs: Array<Record<string, unknown>> }
+    },
+    staleTime: 60_000,
+  })
+  const kindOfTc = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const t of tcKindQ.data?.tcs ?? [])
+      m.set(String(t.tcid), String(t.run_type ?? t.kind ?? '자동'))
+    return m
+  }, [tcKindQ.data])
+
+  /** 플랜의 시험 방식 — **담긴 항목이 정한다**(결정).
+      전부 자동이면 자동, 전부 수동이면 수동, 섞이면 비운다(혼합).
+      사람이 표에서 고른 값이 있으면 **그것이 이긴다**(덮어쓰기). */
+  const modeOf = (c: CycleMeta): { v: string; from: 'set' | 'items' | 'none'; why: string } => {
+    const set = String((c as unknown as Record<string, unknown>).mode ?? '')
+    if (set) return { v: set, from: 'set', why: `${set} — 손으로 정한 값` }
+    const its = (c.items ?? []) as Array<{ tcid?: string }>
+    let a = 0
+    let m = 0
+    for (const it of its) {
+      if (!it.tcid) continue
+      if ((kindOfTc.get(String(it.tcid)) ?? '자동') === '수동') m++
+      else a++
+    }
+    if (!a && !m) return { v: '', from: 'none', why: '담긴 항목이 없습니다' }
+    if (m && !a) return { v: '수동', from: 'items', why: `수동 ${m}건 — 항목에서 정해집니다` }
+    if (a && !m) return { v: '자동', from: 'items', why: `자동 ${a}건 — 항목에서 정해집니다` }
+    return { v: '', from: 'items', why: `자동 ${a} · 수동 ${m} — 섞여 있습니다` }
+  }
+
   /* ══ 노션 꼴 표 — REQ-Coverage 와 **같은 부품**(지시) ══════════════
      열 정의·선택지·색·보이기 저장은 useNFields 한 곳에서 돈다. 두 벌로
      두면 한쪽만 고쳐져 「요구사항은 되는데 플랜은 안 된다」 가 된다. */
@@ -1387,7 +1424,7 @@ function CycleBoard({
           version: c.version ?? '',
           status: c.status ?? '',
           type: String((c as unknown as Record<string, unknown>).type ?? ''),
-          mode: String((c as unknown as Record<string, unknown>).mode ?? ''),
+          mode: modeOf(c).v,
           stage: String((c as unknown as Record<string, unknown>).stage ?? ''),
           assignee: c.assignee ?? '',
           start_date: c.start_date ?? '',
@@ -1522,15 +1559,18 @@ function CycleBoard({
           /* Key 앞에 톱니(자동)·손(수동) — 목업 그대로. 값이 아니라 표시라
              열을 하나 더 쓰지 않고 ID 칸에 얹는다 */
           rowIcon={(row) => {
-            /* 목업 규칙: 방식이 비면 **자동**으로 본다. 다만 흐리게 그리고
-               말풍선에 적는다 — 안 적으면 정해 둔 값처럼 보인다. */
-            const m = String(row.mode ?? '')
+            /* 방식은 **담긴 항목이 정한다**(결정). 손으로 고른 값이 있으면
+               그것이 이기고 진하게, 항목에서 뽑은 값이면 흐리게 그린다 —
+               안 갈라 놓으면 정해 둔 값처럼 보인다. */
+            const c2 = shown.find((x) => x.id === row.__id)
+            const got = c2 ? modeOf(c2) : { v: '', from: 'none' as const, why: '' }
+            const m = got.v
             const auto = m !== '수동'
             const I = auto ? IcAuto : IcManual
             return (
               <i
-                className={`ntb-mi2 ${auto ? 'a' : 'm'}${m ? '' : ' dim'}`}
-                title={m ? `${m} 시험` : '방식 미지정 — 자동으로 봅니다'}
+                className={`ntb-mi2 ${auto ? 'a' : 'm'}${got.from === 'set' ? '' : ' dim'}`}
+                title={got.why || '방식 미지정'}
               >
                 <I />
               </i>
