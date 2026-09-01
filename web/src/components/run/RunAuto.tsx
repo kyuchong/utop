@@ -211,9 +211,26 @@ export default function RunAuto({
   const seeUpTo = Math.min(Math.max(runStep ?? stepAt, stepAt), Math.max(0, steps.length - 1))
   const conRef = useRef<HTMLDivElement>(null)
   const conEndRef = useRef<HTMLDivElement>(null)
+  /* 콘솔은 **바닥을 따라간다.** 자리가 고정돼 있어 새 줄이 나올 때마다
+     사람이 손으로 내려야 했다(지적).
+     다만 위로 올려 지난 출력을 읽는 중이면 따라가지 않는다 — 읽는 자리를
+     빼앗으면 안 된다. 다시 바닥까지 내리면 따라가기가 살아난다. */
+  const [follow, setFollow] = useState(true)
+  const onConScroll = () => {
+    const el = conRef.current
+    if (!el) return
+    const atEnd = el.scrollHeight - el.scrollTop - el.clientHeight < 24
+    setFollow(atEnd)
+  }
   useEffect(() => {
-    conEndRef.current?.scrollIntoView({ block: 'nearest' })
-  }, [seeUpTo, runStep])
+    if (!follow) return
+    const el = conRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  })
+  /* 스텝이 바뀌면 무조건 바닥으로 — 새 스텝을 보러 온 것이다 */
+  useEffect(() => {
+    setFollow(true)
+  }, [seeUpTo, cur])
 
   /** 도는 줄을 눈에 들어오게 끌어온다 — 스텝이 많으면 밑으로 흘러 안 보인다 */
   const runRowRef = useRef<HTMLTableRowElement>(null)
@@ -262,7 +279,7 @@ export default function RunAuto({
                       <b>{s.action ?? (s.cmd ? 'command' : '—')}</b>
                     </td>
                     <td>{s.session ?? '—'}</td>
-                    <td>{s.cmd || s.t}</td>
+                    <td>{s.cmd || s.t || `스텝 ${i + 1}`}</td>
                     <td>{s.expected ?? '—'}</td>
                     <td>
                       {i === runStep ? (
@@ -304,7 +321,7 @@ export default function RunAuto({
           {/* 콘솔은 **이어진다**(지시). 스텝마다 판을 갈아 끼우면 앞 명령의
               출력이 사라져, 무엇 다음에 무엇이 나왔는지 못 읽는다.
               지금 보는 스텝까지를 차례로 쌓고, 그 자리로 끌어 준다. */}
-          <div className="ra-con" ref={conRef}>
+          <div className="ra-con" ref={conRef} onScroll={onConScroll}>
             {steps.slice(0, Math.max(0, seeUpTo) + 1).map((s2, i2) => (
               <div className={`ra-blk${i2 === seeUpTo ? ' on' : ''}`} key={s2.no ?? i2} ref={i2 === seeUpTo ? conEndRef : undefined}>
                 {s2.cmd ? (
@@ -407,6 +424,12 @@ export default function RunAuto({
                   </span>
                   <span className="ra-tcid">{it.id}</span>
                   <span className="ra-tcnm">{it.name}</span>
+                  {/* 목업의 「18s · 2m12s」 자리 — 이 항목이 얼마나 걸렸나 */}
+                  {it.took ? (
+                    <span className="ra-tct" title="이 항목을 도는 데 걸린 시간">
+                      {it.took}
+                    </span>
+                  ) : null}
                   {it.id === runItem ? <RunMark /> : (
                     <span className={`ra-res ${it.verdict}`}>{RESN[it.verdict]}</span>
                   )}

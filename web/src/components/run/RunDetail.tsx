@@ -87,7 +87,10 @@ function asStep(raw: Record<string, unknown>, i: number): {
   const ms = Number(raw?.took_ms ?? NaN)
   return {
     no: Number(raw?.no ?? NaN) || i + 1,
-    t: g('desc') || g('step') || g('t') || cli || `스텝 ${i + 1}`,
+    /* 「스텝 2」 같은 자리 채우개를 여기서 넣으면, 로그 쪽 채우개가 정의
+       쪽 진짜 이름을 이겨 버린다(지적: Description 이 「스텝 2」). 비워
+       두고, 그릴 때 채운다. */
+    t: g('desc') || g('step') || g('t') || cli,
     cmd: cli,
     expected: expected || '—',
     action: g('action') || (g('kind') === 'cli' || cli ? 'command' : g('kind')) || '—',
@@ -379,6 +382,26 @@ export default function RunDetail({
     setStepAt(runStep)
   }, [runStep, pinned])
 
+  /** 이 항목을 도는 데 걸린 시간 — 스텝들의 걸린 시간을 더한다.
+      실행기는 항목 단위 시간을 따로 안 준다. 안 돌린 항목은 비운다. */
+  const tookOf = (id: string): string => {
+    const st = ((run?.logs ?? {})[id]?.steps ?? []) as Array<Record<string, unknown>>
+    let ms = 0
+    let saw = false
+    for (const s2 of st) {
+      const v = Number(s2?.took_ms ?? NaN)
+      if (Number.isFinite(v)) {
+        ms += v
+        saw = true
+      }
+    }
+    if (!saw) return ''
+    const sec = Math.round(ms / 1000)
+    if (sec < 60) return `${sec}s`
+    const m = Math.floor(sec / 60)
+    return `${m}m${String(sec % 60).padStart(2, '0')}s`
+  }
+
   /** 시험 시작.
       수동은 「사람이 시작했다」는 기록이면 충분하다. 자동은 **실행기에
       일감을 건다** — 실행기는 플랜만 알고 도니, 서버가 이 실행이 담은
@@ -641,6 +664,7 @@ export default function RunDetail({
               name: String(t2?.name ?? id),
               group: reqName.get(String(t2?.req_id ?? '')) ?? (t2?.req_id ? '이름 없는 요구사항' : '요구사항 없음'),
               verdict: (results[id] ?? 'n') as Verdict,
+              took: tookOf(id),
             }
           })}
           cur={cur}
