@@ -159,6 +159,10 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
       { key: 'id', label: 'ID', type: 'text', width: w('id', 132), fixed: true },
       { key: 'name', label: '제목', type: 'text', width: w('name', 260), fixed: true },
       { key: 'plan', label: '플랜', type: 'text', width: w('plan', 128) },
+      /* 자동인지 수동인지가 실행의 성격을 가른다 — 목록에서 바로 보여야
+         한다(지적: Runs 에서 자동·수동 구분이 안 된다). 플랜의 방식을
+         따르고, 플랜 없는 실행은 제 meta 에 든 값을 쓴다. */
+      { key: 'mode', label: '방식', type: 'text', width: w('mode', 72) },
       { key: 'version_group', label: '버전그룹', type: 'text', width: w('version_group', 84) },
       { key: 'version', label: '버전', type: 'text', width: w('version', 148) },
       { key: 'customer', label: '사업자', type: 'text', width: w('customer', 84) },
@@ -193,6 +197,9 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
           id: r.id,
           name: String(r.name ?? r.id) + (r.rerun_of ? ' (재시험)' : ''),
           plan: p ? String(p.cid || p.id) : r.plan_id ? '(지워진 플랜)' : '–',
+          mode: String(
+            (p as unknown as Record<string, unknown> | undefined)?.mode ?? meta.mode ?? '',
+          ),
           version_group: String(r.version_group ?? ''),
           version: String(r.version ?? ''),
           customer: String(p?.customer ?? meta.customer ?? ''),
@@ -420,7 +427,7 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
             }).then(reload)
           }}
           readOnlyKeys={[
-            'id', 'plan', 'version_group', 'version', 'customer', 'family',
+            'id', 'plan', 'mode', 'version_group', 'version', 'customer', 'family',
             'model_group', 'model', 'device', 'type', 'cases', 'fails',
             'prg', 'state', 'created', 'closed',
           ]}
@@ -429,6 +436,17 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
           onOpen={openRun}
           onPeek={openRun}
           meName={meName}
+          renderCell={(row, c) => {
+            if (c.key !== 'mode') return undefined
+            const v = String(row.mode ?? '')
+            if (!v) return <span className="rn-mode none">–</span>
+            /* 톱니는 자동, 손은 수동 — 세 화면이 같은 뜻으로 쓴다 */
+            return (
+              <span className={`rn-mode ${v === '수동' ? 'm' : 'a'}`}>
+                {v === '수동' ? '👆' : '⚙'} {v}
+              </span>
+            )
+          }}
           onNew={() => setMk(true)}
           onBulk={(a, ids) => {
             if (a === 'del') void delRuns(ids)

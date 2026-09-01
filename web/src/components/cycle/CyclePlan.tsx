@@ -445,6 +445,8 @@ export default function CyclePlan({
 
   /* 플랜의 탭 — Testiny 그대로: 개요 | 테스트 케이스(시험 항목) */
   const [ptab, setPtab] = useState<'over' | 'cases'>('over')
+  /** 실행을 만드는 중 — 두 번 눌러 둘이 생기는 것을 막는다 */
+  const [mkRun, setMkRun] = useState(false)
   const [moreAt, setMoreAt] = useState<{ x: number; y: number } | null>(null)
   const [mail, setMail] = useState(false)
   /* 담당 고르개(공용) — 지적: 두 번 누르고 손으로 치는 칸은 너무 불편.
@@ -527,6 +529,38 @@ export default function CyclePlan({
               ) : (
                 <button type="button" className="btn small cpl-teal" onClick={startRun}>
                   ▶ 시험 시작
+                </button>
+              )}
+              {mode === 'plan' && (
+                /* 플랜에서 **실행을 뜬다**(지시: Plans 에서 실행 시 Runs 로).
+                   항목을 복사한 실행이 서버에 생기고, 곧바로 그 실행으로 간다. */
+                <button
+                  type="button"
+                  className="btn small cpl-teal"
+                  disabled={mkRun}
+                  title="이 플랜의 항목을 복사해 시험 실행을 만듭니다"
+                  onClick={async () => {
+                    setMkRun(true)
+                    try {
+                      const r = await apiFetch('/api/plan-runs', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          plan_id: cur.id,
+                          version: cur.version ?? '',
+                          name: `${cur.name ?? cur.cid ?? cur.id} · ${cur.version ?? ''}`.trim(),
+                        }),
+                      })
+                      if (!r.ok) throw new Error('실행을 만들지 못했습니다')
+                      const j = (await r.json()) as { id?: string }
+                      if (j.id) goto('run', j.id)
+                    } catch (e) {
+                      window.alert(e instanceof Error ? e.message : '실행을 만들지 못했습니다')
+                    } finally {
+                      setMkRun(false)
+                    }
+                  }}
+                >
+                  ＋ 실행 만들기
                 </button>
               )}
               <button type="button" className="btn small" onClick={() => setMail(true)}>

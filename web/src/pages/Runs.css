@@ -214,3 +214,17 @@
   opacity: 0.45;
   cursor: default;
 }
+
+/* 자동·수동 — 목록에서 한눈에 갈린다 */
+.rn-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 4px;
+  padding: 1px 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+.rn-mode.a { background: #e2f0ff; color: #1d61b5; }
+.rn-mode.m { background: #fdf3e3; color: #8a6111; }
+.rn-mode.none { color: #93a6ab; font-weight: 400; }
