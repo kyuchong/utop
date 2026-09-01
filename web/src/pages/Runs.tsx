@@ -330,7 +330,7 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
   return (
     <div className="rn-wrap">
       {sideOpen && (
-        <aside className="rn-side">
+        <aside className="panel rn-side">
           <div className="rn-shd">
             <h2>버전</h2>
             <button
@@ -411,7 +411,7 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
         </aside>
       )}
 
-      <section className="rn-main">
+      <section className="panel rn-main">
         <NTable
           columns={nColsLive}
           rows={nRows}

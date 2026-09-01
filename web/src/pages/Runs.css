@@ -1,16 +1,17 @@
 /* Runs — 시험 실행 목록.
    접두어는 rn- 하나만 쓴다. 이름이 겹치면 다른 화면이 조용히 망가진다. */
+/* 두 판은 **카드**다 — REQ-Coverage 와 같은 꼴(.panel)이다(지시).
+   두 화면이 다른 꼴이면 같은 프로그램으로 안 읽힌다. 사이는 8px,
+   카드가 제 테두리를 가지므로 가르는 세로선은 뺀다. */
 .rn-wrap {
   flex: 1;
   min-height: 0;
   display: flex;
+  gap: 6px;
 }
 .rn-side {
   flex: 0 0 210px;
-  background: #fff;
-  border-right: 1px solid var(--c-border, #e3eaec);
-  display: flex;
-  flex-direction: column;
+  /* 바탕·테두리·둥근 모서리는 .panel 이 준다 */
   overflow: hidden;
 }
 .rn-shd {
@@ -91,8 +92,6 @@
 .rn-main {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
 }
 .rn-scope {

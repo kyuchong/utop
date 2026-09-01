@@ -271,7 +271,7 @@ export default function RunDetail({
   const log = (run.logs ?? {})[cur]
 
   return (
-    <div className="rd">
+    <div className="panel rd">
       {/* ── 머리줄 ── */}
       <div className="rd-bar">
         <button type="button" className="rd-home" onClick={onBack}>
