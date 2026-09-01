@@ -53,6 +53,30 @@ const TITLE: Record<PanelId, string> = {
   tc: '시험 항목',
 }
 const RESN: Record<string, string> = { p: 'PASS', f: 'FAIL', b: '기타', n: 'WAIT' }
+/** 항목 판정 아이콘(지시).
+ *  통과 = 초록 동그라미 + 흰 체크 · 실패 = 빨간 동그라미 + 흰 ✕
+ *  글자(✓ !)로 그리면 글꼴에 따라 크기·굵기가 제각각이라 그림으로 그린다.
+ */
+function Verdict({ v }: { v: string }) {
+  const title = v === 'p' ? '통과' : v === 'f' ? '실패' : v === 'b' ? '기타' : '아직 안 돌림'
+  return (
+    <span className={`ra-dot ${v}`} title={title} aria-label={title}>
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="8" />
+        {v === 'p' ? (
+          <path d="M4.2 8.3l2.5 2.5 5.1-5.1" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        ) : v === 'f' ? (
+          <path d="M5.2 5.2l5.6 5.6M10.8 5.2l-5.6 5.6" fill="none" strokeWidth="2" strokeLinecap="round" />
+        ) : v === 'b' ? (
+          <path d="M8 4.2v4.6M8 11.2v.6" fill="none" strokeWidth="2" strokeLinecap="round" />
+        ) : (
+          <circle cx="8" cy="8" r="2.1" className="ra-dotc" />
+        )}
+      </svg>
+    </span>
+  )
+}
+
 /** 지금 도는 것을 알리는 표시 — 스텝 표와 항목 목록이 **같은 모양**을 쓴다 */
 function RunMark() {
   return (
@@ -419,9 +443,7 @@ export default function RunAuto({
                   className={`ra-tc${it.id === cur ? ' on' : ''}${it.id === runItem ? ' running' : ''}`}
                   onClick={() => onPick(it.id)}
                 >
-                  <span className={`ra-dot ${it.verdict}`}>
-                    {it.verdict === 'p' ? '✓' : it.verdict === 'f' ? '!' : '·'}
-                  </span>
+                  <Verdict v={it.verdict} />
                   <span className="ra-tcid">{it.id}</span>
                   <span className="ra-tcnm">{it.name}</span>
                   {/* 목업의 「18s · 2m12s」 자리 — 이 항목이 얼마나 걸렸나 */}
