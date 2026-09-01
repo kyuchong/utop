@@ -63,6 +63,7 @@ export default function Releases() {
   const [fType, setFType] = useState('')
   const [fStat, setFStat] = useState('')
   const [open, setOpen] = useState<Set<string>>(new Set())
+  const [pick, setPick] = useState(false)
   const [openIssue, setOpenIssue] = useState<Set<string>>(new Set())
 
   const toggle = (set: Set<string>, k: string, put: (s: Set<string>) => void) => {
@@ -82,10 +83,51 @@ export default function Releases() {
       return (await r.json()) as { ok?: boolean; projects?: Array<{ key: string; name: string }>; error?: string }
     },
   })
-  const projects = projQ.data?.projects ?? []
+  const allProjects = useMemo(
+    () =>
+      [...(projQ.data?.projects ?? [])].sort((a, b) =>
+        String(a.key).localeCompare(String(b.key), undefined, { numeric: true }),
+      ),
+    [projQ.data],
+  )
+  /** 즐겨찾기 — Jira 설정의 fav_projects. 옛 화면과 **같은 열쇠**라 거기서
+   *  정해 둔 것이 그대로 온다. 비면 「전부」 인데, 실제 Jira 는 프로젝트가
+   *  서른 개가 넘어 탭이 가로로 넘쳐 못 쓴다(지적) — 그때는 고르개로 낸다. */
+  const cfgQ = useQuery({
+    queryKey: ['jira-cfg'],
+    staleTime: 300_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/jira/config')
+      if (!r.ok) return {} as Record<string, unknown>
+      return (await r.json()) as Record<string, unknown>
+    },
+  })
+  const favs = useMemo(() => {
+    const v = cfgQ.data?.fav_projects
+    const arr = Array.isArray(v)
+      ? v.map(String)
+      : String(v ?? '')
+          .split(/[,\s]+/)
+          .filter(Boolean)
+    return arr
+  }, [cfgQ.data])
+  const tabs = useMemo(
+    () => (favs.length ? allProjects.filter((p) => favs.includes(p.key)) : []),
+    [allProjects, favs],
+  )
   useEffect(() => {
-    if (!proj && projects.length) setProj(projects[0]!.key)
-  }, [projects, proj])
+    if (proj) return
+    if (tabs.length) setProj(tabs[0]!.key)
+  }, [tabs, proj])
+
+  /** 즐겨찾기 넣고 빼기 — Jira 설정에 남는다(옛 화면과 같은 자리) */
+  const saveFavs = async (next: string[]) => {
+    await apiFetch('/api/jira/config', {
+      method: 'POST',
+      body: JSON.stringify({ fav_projects: next }),
+    })
+    await qc.invalidateQueries({ queryKey: ['jira-cfg'] })
+  }
   useEffect(() => {
     if (proj) prefSet('utop.rls.proj', proj)
   }, [proj])
@@ -218,18 +260,78 @@ export default function Releases() {
     <div className="rls">
       {/* ── 프로젝트 탭 ── */}
       <div className="rls-tabs">
-        {projects.map((p) => (
+        {tabs.map((p) => (
           <button
             key={p.key}
             type="button"
             className={`rls-tab${proj === p.key ? ' on' : ''}`}
             onClick={() => setProj(p.key)}
+            title={`${p.key} · ${p.name}`}
           >
             {p.name} <small>{p.key}</small>
           </button>
         ))}
-        {!projects.length && !projQ.isLoading && <span className="rls-none">Jira 프로젝트가 없습니다</span>}
+        {/* 즐겨찾기가 없으면 탭 대신 고르개다 — 서른 개를 탭으로 늘어놓으면
+            가로로 넘쳐 아무것도 못 고른다(지적). */}
+        {!tabs.length && (
+          <select
+            className="rls-psel"
+            value={proj}
+            onChange={(e) => setProj(e.target.value)}
+            disabled={projQ.isLoading}
+          >
+            <option value="">
+              {projQ.isLoading ? '불러오는 중…' : `프로젝트 고르기 (${allProjects.length}개)`}
+            </option>
+            {allProjects.map((p) => (
+              <option key={p.key} value={p.key}>
+                {p.key} · {p.name}
+              </option>
+            ))}
+          </select>
+        )}
+        <button
+          type="button"
+          className="rls-plus"
+          title="자주 보는 프로젝트를 탭으로 고정합니다"
+          onClick={() => setPick((v) => !v)}
+        >
+          ＋
+        </button>
+        {!allProjects.length && !projQ.isLoading && (
+          <span className="rls-none">Jira 프로젝트가 없습니다</span>
+        )}
       </div>
+
+      {pick && (
+        <div className="rls-pick">
+          <div className="rls-pickh">
+            <b>탭에 고정할 프로젝트</b>
+            <span className="rls-pickn">{favs.length}개 고정됨 · 안 고르면 전부 고르개로 나옵니다</span>
+            <span className="sp" />
+            <button type="button" className="rls-btn" onClick={() => setPick(false)}>
+              닫기
+            </button>
+          </div>
+          <div className="rls-picks">
+            {allProjects.map((p) => (
+              <label key={p.key} className="rls-pitem">
+                <input
+                  type="checkbox"
+                  checked={favs.includes(p.key)}
+                  onChange={(e) =>
+                    void saveFavs(
+                      e.target.checked ? [...favs, p.key] : favs.filter((k) => k !== p.key),
+                    )
+                  }
+                />
+                <b>{p.key}</b>
+                <span>{p.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── 거르개 ── */}
       <div className="rls-filters">
@@ -293,7 +395,9 @@ export default function Releases() {
                 vers.map((v) => {
                   const vn = String(v.name ?? '')
                   const list = (byVer.get(vn) ?? []).filter(keep)
-                  const vOpen = !open.has(`v:${vn}`)
+                  /* 버전은 접힌 채 시작한다. 실제 자료는 한 버전에 이슈가
+                     97건씩 있어, 펴 두면 화면이 통째로 벽이 된다(지적). */
+                  const vOpen = open.has(`v:${vn}`)
                   const nTc = list.reduce((a, it) => a + tcsOf(vn, it.key).length, 0)
                   return (
                     <div key={vn}>
