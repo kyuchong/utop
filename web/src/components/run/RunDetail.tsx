@@ -28,7 +28,15 @@ export interface RunFull {
   rerun_of?: string | null
   results?: Record<string, Verdict>
   binds?: Record<string, string>
-  logs?: Record<string, { steps: Array<{ no: number; t: string; cmd?: string; out?: string; mark?: string }>; at?: string }>
+  logs?: Record<
+    string,
+    {
+      steps: Array<{ no: number; t: string; cmd?: string; out?: string; mark?: string }>
+      at?: string
+      /** 지난 실행의 출력 — 최근 두 번. 콘솔이 이번 것 위에 이어 쌓는다 */
+      past?: Array<{ steps?: unknown[]; at?: string; by?: string }>
+    }
+  >
   notes?: Record<string, string>
   /** 절차마다의 판정 — 수동 시험에서 쓴다 */
   pchk?: Record<string, string[]>
@@ -143,7 +151,6 @@ export default function RunDetail({
   const [cur, setCur] = useState('')
   const [stepAt, setStepAt] = useState(0)
   /* 판정하면 다음 항목으로 — 두 판 화면은 표에서 직접 고르므로 늘 켠다 */
-  const autoNext = true
   const [bindOpen, setBindOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   /* 경과 시간 — **도는 동안에만** 1초마다 다시 그린다. 끝났는데도 계속
@@ -372,16 +379,9 @@ export default function RunDetail({
     await qc.invalidateQueries({ queryKey: ['plan-runs'] })
   }
 
-  const setResult = async (cid: string, v: Verdict) => {
-    await save({ results: { ...results, [cid]: v } })
-    if (autoNext && v !== 'n') {
-      const i = ids.indexOf(cid)
-      if (i >= 0 && i < ids.length - 1) {
-        setCur(ids[i + 1]!)
-        setStepAt(0)
-      }
-    }
-  }
+  /* 「고른 항목 판정」 단추가 쓰던 길은 그 줄과 함께 걷었다(지시).
+     자동 시험의 결과는 실행기가 내고, 수동 시험의 항목 결과는 스텝
+     판정에서 굴러 나온다 — 사람이 항목 결과를 직접 찍는 자리는 없다. */
 
   const setProc = async (cid: string, ix: number, v: string) => {
     const arr = [...((run?.pchk ?? {})[cid] ?? [])]
@@ -818,20 +818,24 @@ export default function RunDetail({
               }
             })
           })()}
+          past={(() => {
+            /* 지난 실행의 출력 — 콘솔이 그 위에 이어 쌓는다(지시).
+               서버가 최근 두 번을 들고 있다. */
+            const ps = ((log?.past ?? []) as Array<{ steps?: unknown[]; at?: string }>) ?? []
+            return ps.map((p2) => ({
+              at: String(p2?.at ?? ''),
+              steps: ((p2?.steps ?? []) as Array<Record<string, unknown>>).map(asStep),
+            }))
+          })()}
           stepAt={stepAt}
           onStep={(i) => {
             setPinned(true)
             setStepAt(i)
           }}
           runStep={runStep}
-          runItem={
-            /* 실행기는 항목 **이름**을 준다. 화면은 id 로 센다 — 이름으로 찾는다 */
-            runItem ? (ids.find((k) => String(tcById.get(k)?.name ?? '') === runItem) ?? '') : ''
-          }
+          runItem={runId2}
           dut={dut?.name ?? 'DUT'}
           logAt={log?.at}
-          verdict={(results[cur] ?? 'n') as Verdict}
-          onVerdict={(v) => void setResult(cur, v)}
         />
       ) : (
         /* 수동은 **두 판**(주신 목업) — 왼쪽 촘촘한 표, 오른쪽 시험서 */

@@ -39,6 +39,7 @@ export interface AutoItem {
   id: string
   name: string
   group: string
+  /** 이 항목의 결과 — 아이콘과 알약이 이걸 그린다 */
   verdict: 'p' | 'f' | 'b' | 'n'
   took?: string
 }
@@ -88,9 +89,11 @@ function RunMark() {
 }
 
 export default function RunAuto({
-  items, cur, onPick, steps, stepAt, onStep, dut, logAt, onVerdict, verdict,
-  runStep, runItem,
+  items, cur, onPick, steps, stepAt, onStep, dut, logAt,
+  runStep, runItem, past,
 }: {
+  /** 지난 실행의 출력 — 콘솔이 이번 것 **위에** 이어 쌓는다 */
+  past?: Array<{ at: string; steps: AutoStep[] }>
   /** 실행기가 **지금 돌고 있는** 스텝 자리(0부터). 안 돌면 없다 */
   runStep?: number | null
   /** 실행기가 지금 돌고 있는 항목 id */
@@ -105,8 +108,6 @@ export default function RunAuto({
   dut: string
   /** 이 항목을 언제 돌렸나 */
   logAt?: string
-  onVerdict: (v: 'p' | 'f' | 'b' | 'n') => void
-  verdict: 'p' | 'f' | 'b' | 'n'
 }) {
   /* ── 판 자리 · 크기 (계정별) ── */
   const [slots, setSlots] = useState<Record<SlotId, PanelId>>(() => {
@@ -362,6 +363,24 @@ export default function RunAuto({
               출력이 사라져, 무엇 다음에 무엇이 나왔는지 못 읽는다.
               지금 보는 스텝까지를 차례로 쌓고, 그 자리로 끌어 준다. */}
           <div className="ra-con" ref={conRef} onScroll={onConScroll}>
+            {/* 지난 실행 — 다시 돌릴 때마다 콘솔이 초기화되던 것을 고쳤다(지시).
+                흐리게 그리고 가름선에 시각을 적어, 지금 것과 안 섞이게 한다. */}
+            {(past ?? []).map((p2, pi) => (
+              <div className="ra-past" key={`p${pi}`}>
+                <div className="ra-pastl">지난 실행{p2.at ? ` · ${p2.at}` : ''}</div>
+                {p2.steps.map((s2, i2) => (
+                  <div className="ra-blk" key={`p${pi}s${i2}`}>
+                    {s2.cmd ? (
+                      <div className="ra-cmd">
+                        {dut}# {s2.cmd}
+                      </div>
+                    ) : null}
+                    <pre>{s2.out || '(출력 없음)'}</pre>
+                  </div>
+                ))}
+              </div>
+            ))}
+            {!!(past ?? []).length && <div className="ra-pastl now">이번 실행</div>}
             {steps.slice(0, Math.max(0, seeUpTo) + 1).map((s2, i2) => (
               <div className={`ra-blk${i2 === seeUpTo ? ' on' : ''}`} key={s2.no ?? i2} ref={i2 === seeUpTo ? conEndRef : undefined}>
                 {s2.cmd ? (
@@ -425,32 +444,16 @@ export default function RunAuto({
     /* 시험 항목 */
     return (
       <>
-        <div className="ra-tctools">
-          {/* 건수는 판 제목 옆에 이미 적힌다 — 두 번 적으면 자리만 먹는다 */}
-          <span className="ra-muted">고른 항목 판정</span>
-          <span className="ra-sp" />
-          <div className="ra-vb">
-            {(['p', 'f', 'b', 'n'] as const).map((v) => (
-              <button
-                type="button"
-                key={v}
-                className={`ra-v ${v}${verdict === v ? ' on' : ''}`}
-                onClick={() => onVerdict(v)}
-                title="고른 항목의 결과를 남깁니다"
-              >
-                {RESN[v]}
-              </button>
-            ))}
-          </div>
-        </div>
+        {/* 「고른 항목 판정」 줄을 뺐다(지시). 자동 시험의 결과는 실행기가
+            내는 것이라, 사람이 여기서 덮어쓸 자리가 아니다. 손으로 고쳐야
+            하면 그건 수동 시험이다. */}
         <div className="ra-scroll">
           {groups.map(([g, arr]) => (
             <div key={g}>
+              {/* 묶음 옆 「1/2」 를 뺐다(지시) — 판 제목에 Pass·Fail·대기 가
+                  이미 적혀 있어 같은 값을 두 번 세는 셈이다. */}
               <div className="ra-grp">
                 <span>{g}</span>
-                <span>
-                  {arr.filter((x) => x.verdict === 'p').length}/{arr.length}
-                </span>
               </div>
               {arr.map((it) => (
                 <button

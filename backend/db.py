@@ -1968,12 +1968,25 @@ async def plan_run_mirror(plan_run_id: str, cycle_id: str) -> Optional[dict]:
         if letter == "n" and steps:
             # 돌긴 돌았다 — 판정이 안 나오는 것과 안 돌린 것은 다르다
             letter = "b"
-        results[tcid] = letter
-        logs[tcid] = {
+        fresh = {
             "steps": [s for s in steps if isinstance(s, dict)],
             "at": str(it.get("executed_at") or ""),
             "by": str(it.get("executed_by") or ""),
         }
+        # 지난 실행의 출력을 **버리지 않는다**(지시: CLI 는 계속 쌓여야 한다).
+        # 다시 돌릴 때마다 덮어써서 콘솔이 초기화됐다. 앞의 것을 past 로
+        # 밀어 두고 최근 두 번만 남긴다 — 스텝 출력이 커서 무한히 쌓으면
+        # 실행 기록이 수 MB 가 된다.
+        prev = logs.get(tcid) if isinstance(logs.get(tcid), dict) else None
+        past = list((prev or {}).get("past") or [])
+        if prev and prev.get("steps"):
+            same = prev.get("at") == fresh["at"] and len(prev["steps"]) == len(fresh["steps"])
+            if not same:
+                past.append({"steps": prev["steps"], "at": prev.get("at", ""), "by": prev.get("by", "")})
+        fresh["past"] = past[-2:]
+
+        results[tcid] = letter
+        logs[tcid] = fresh
         touched += 1
 
     if not touched:
