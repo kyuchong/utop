@@ -4,6 +4,7 @@ import { apiFetch } from '@/api/client'
 import type { CycleMeta, CycleStep } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
 import RunAuto from './RunAuto'
+import RunManual from './RunManual'
 import './RunDetail.css'
 
 /**
@@ -16,7 +17,6 @@ import './RunDetail.css'
  */
 
 export type Verdict = 'p' | 'f' | 'b' | 'n'
-const RESN: Record<Verdict, string> = { p: 'Pass', f: 'Fail', b: '기타', n: '미실행' }
 
 export interface RunFull {
   id: string
@@ -81,7 +81,8 @@ export default function RunDetail({
   const qc = useQueryClient()
   const [cur, setCur] = useState('')
   const [stepAt, setStepAt] = useState(0)
-  const [autoNext, setAutoNext] = useState(true)
+  /* 판정하면 다음 항목으로 — 두 판 화면은 표에서 직접 고르므로 늘 켠다 */
+  const autoNext = true
   const [bindOpen, setBindOpen] = useState(false)
 
   const runQ = useQuery({
@@ -232,9 +233,7 @@ export default function RunDetail({
   const note = (run.notes ?? {})[cur] ?? ''
   const pv = (run.pchk ?? {})[cur] ?? []
   const msteps = manualSteps(oneQ.data)
-  const marked = pv.filter(Boolean).length
   const log = (run.logs ?? {})[cur]
-  const i = ids.indexOf(cur)
 
   return (
     <div className="rd">
@@ -362,148 +361,42 @@ export default function RunDetail({
           onVerdict={(v) => void setResult(cur, v)}
         />
       ) : (
-        <div className="rd-view manual">
-          {/* ── 왼쪽: 대상 세션 + 항목 ── */}
-          <aside className="rd-side">
-            <div className="rd-h">대상 장비</div>
-            <div className="rd-sess">
-              {Object.keys(binds).length ? (
-                Object.entries(binds).map(([role, id]) => {
-                  const dv = devById.get(String(id))
-                  return (
-                    <div className="rd-srow" key={role}>
-                      <span className="rd-role">{role}</span>
-                      <span className="rd-ell">{dv?.name ?? '미배정'}</span>
-                      <span className="rd-ip">{dv?.ip ?? '–'}</span>
-                    </div>
-                  )
-                })
-              ) : (
-                <div className="rd-muted">아직 장비를 안 붙였습니다</div>
-              )}
-            </div>
-            <div className="rd-h">
-              시험 항목 <span className="rd-muted">{tally.total}</span>
-            </div>
-            <div className="rd-items">
-              {ids.map((id) => {
-                const t = tcById.get(id)
-                const k = results[id] ?? 'n'
-                return (
-                  <button
-                    type="button"
-                    key={id}
-                    className={`rd-item${id === cur ? ' on' : ''}`}
-                    onClick={() => {
-                      setCur(id)
-                      setStepAt(0)
-                    }}
-                  >
-                    <span className="rd-ell">{t?.name ?? id}</span>
-                    <i className={`rd-res ${k}`}>{RESN[k]}</i>
-                  </button>
-                )
-              })}
-            </div>
-          </aside>
-
-            /* ── 수동: 절차마다 판정 ── */
-            <section className="rd-main">
-              <div className="rd-h2">
-                {cur} · {meta?.name ?? ''}
-                <span className="rd-sp" />
-                <span className="rd-muted">
-                  절차 판정 {marked} / {msteps.length}
-                </span>
-                <button
-                  type="button"
-                  className="rd-btn"
-                  onClick={() =>
-                    void save({
-                      pchk: { ...(run.pchk ?? {}), [cur]: Array(msteps.length).fill('p') },
-                      results: { ...results, [cur]: 'p' },
-                    })
-                  }
-                >
-                  전부 통과
-                </button>
-              </div>
-              <div className="rd-procs">
-                <div className="rd-phd">
-                  <span>#</span>
-                  <span>절차</span>
-                  <span>기대 결과</span>
-                  <span>판정</span>
-                </div>
-                {msteps.map((x, ix) => {
-                  const v = pv[ix] ?? ''
-                  return (
-                    <div className={`rd-proc${v ? ` v-${v}` : ''}`} key={ix}>
-                      <span className="rd-no">{ix + 1}</span>
-                      <span>{x.t}</span>
-                      <span className="rd-exp">{x.e}</span>
-                      <span className="rd-pb">
-                        {(['p', 'f', 'b'] as const).map((o) => (
-                          <button
-                            type="button"
-                            key={o}
-                            className={`rd-vb ${o}${v === o ? ' on' : ''}`}
-                            onClick={() => void setProc(cur, ix, o)}
-                          >
-                            {o === 'p' ? '통과' : o === 'f' ? '실패' : '기타'}
-                          </button>
-                        ))}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="rd-note">
-                <div className="rd-h">비고 · 특이사항</div>
-                <textarea
-                  className="rd-ta"
-                  defaultValue={note}
-                  key={`m-${cur}`}
-                  placeholder="결과서의 비고 칸에 그대로 들어갑니다"
-                  onBlur={(e) => {
-                    if (e.target.value === note) return
-                    void save({ notes: { ...(run.notes ?? {}), [cur]: e.target.value } })
-                  }}
-                />
-              </div>
-              <div className="rd-foot">
-                {(['p', 'f', 'b', 'n'] as Verdict[]).map((v) => (
-                  <button
-                    type="button"
-                    key={v}
-                    className={`rd-mb ${v}${(results[cur] ?? 'n') === v ? ' on' : ''}`}
-                    onClick={() => void setResult(cur, v)}
-                  >
-                    {RESN[v]}
-                  </button>
-                ))}
-                <label className="rd-next">
-                  <input type="checkbox" checked={autoNext} onChange={(e) => setAutoNext(e.target.checked)} />
-                  판정 후 다음 항목으로
-                </label>
-                <span className="rd-sp" />
-                <button type="button" className="rd-btn" disabled={i <= 0} onClick={() => setCur(ids[i - 1]!)}>
-                  ‹
-                </button>
-                <span className="rd-muted">
-                  {i + 1} / {ids.length}
-                </span>
-                <button
-                  type="button"
-                  className="rd-btn"
-                  disabled={i >= ids.length - 1}
-                  onClick={() => setCur(ids[i + 1]!)}
-                >
-                  ›
-                </button>
-              </div>
-            </section>
-        </div>
+        /* 수동은 **두 판**(주신 목업) — 왼쪽 촘촘한 표, 오른쪽 시험서 */
+        <RunManual
+          items={ids.map((id) => {
+            const t2 = tcById.get(id)
+            return {
+              id,
+              title: String(t2?.name ?? id),
+              assignee: String((t2 as Record<string, unknown> | undefined)?.assignee ?? ''),
+              runner: String(run.owner ?? ''),
+              v: (results[id] ?? 'n') as Verdict,
+              /* 지난 빌드 결과는 아직 안 싣는다 — 없는 것을 지어내지 않는다 */
+              last: 'n' as Verdict,
+              bugs: 0,
+              at: String((run.logs ?? {})[id]?.at ?? '').slice(0, 10),
+            }
+          })}
+          cur={cur}
+          onPick={(id) => {
+            setCur(id)
+            setStepAt(0)
+          }}
+          steps={msteps.map((x) => ({ t: x.t, expected: x.e }))}
+          pchk={pv}
+          onStep={(ix, v) => void setProc(cur, ix, v)}
+          note={note}
+          onNote={(v) => void save({ notes: { ...(run.notes ?? {}), [cur]: v } })}
+          info={{
+            purpose: String(oneQ.data?.purpose ?? ''),
+            cond: String(oneQ.data?.precondition ?? ''),
+            topo: String(oneQ.data?.topology ?? ''),
+            crit: String(oneQ.data?.criteria ?? ''),
+          }}
+          planId={String(run.plan_id ?? '')}
+          runId={runId}
+          onBug={() => void qc.invalidateQueries({ queryKey: ['plan-run', runId] })}
+        />
       )}
       {bindOpen && (
         <BindDevices
