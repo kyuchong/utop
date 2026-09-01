@@ -1946,12 +1946,28 @@ async def plan_run_mirror(plan_run_id: str, cycle_id: str) -> Optional[dict]:
         if not tcid or (mine and tcid not in mine):
             continue
         steps = it.get("steps") if isinstance(it.get("steps"), list) else []
-        v = item_verdict(it, steps)
+        # item_verdict 는 **정리한** 스텝을 받는다(_cycle_item_meta_lite 와 같은 모양).
+        # 날것을 그대로 주면 s["result"] 만 보는데, 실행기는 s["status"] 에
+        # PASS/FAIL 을 적는다 — 그래서 다 돌고도 결과가 「미실행」 이었다.
+        norm = [
+            {
+                "result": step_verdict(s2),
+                "action": s2.get("action", ""),
+                "kind": s2.get("kind", ""),
+                "manual": bool(s2.get("manual")),
+            }
+            for s2 in steps
+            if isinstance(s2, dict)
+        ]
+        v = item_verdict(it, norm)
         letter = _VERDICT_LETTER.get(str(v).strip().lower(), "b" if str(v).strip() else "n")
         # 안 돈 항목을 「미실행」 으로 되돌리지 않는다 — 사람이 손으로 남긴
         # 결과가 있을 수 있다. 실제로 무언가 나온 것만 덮는다.
         if letter == "n" and not steps:
             continue
+        if letter == "n" and steps:
+            # 돌긴 돌았다 — 판정이 안 나오는 것과 안 돌린 것은 다르다
+            letter = "b"
         results[tcid] = letter
         logs[tcid] = {
             "steps": [s for s in steps if isinstance(s, dict)],

@@ -57,8 +57,50 @@ interface DeviceLite {
 }
 
 /** 수동 항목의 확인 절차 — TC 의 manual 스텝이 있으면 그것을, 없으면 기본 네 줄 */
+/** 스텝 하나를 화면이 아는 모양으로 바꾼다.
+ *
+ * 실제 자료의 칸 이름은 목업과 다르다 — 절차는 `cli`(명령)·`desc`(설명)·
+ * `rules`(견줄 것)·`status`(판정)·`took_ms`(걸린 시간)로 적힌다. 이걸 안
+ * 맞춰 줘서, 다 돌고도 표가 전부 「—」 였다(지적).
+ */
+function asStep(raw: Record<string, unknown>, i: number): {
+  no: number; t: string; cmd: string; expected: string; action: string
+  session: string; out: string; mark?: string; took?: string
+} {
+  const g = (k: string) => String(raw?.[k] ?? '').trim()
+  const cli = g('cli') || g('cmd')
+  /* 기대값 — criteria 가 비면 rules 를 사람 말로 잇는다 */
+  const rules = Array.isArray(raw?.rules) ? (raw.rules as Array<Record<string, unknown>>) : []
+  const expected =
+    g('criteria') ||
+    g('expected') ||
+    rules
+      .map((r) => `${String(r?.rhs ?? r?.t ?? '')} ${String(r?.op ?? '==')} ${String(r?.v ?? '')}`.trim())
+      .filter(Boolean)
+      .join(' && ')
+  /* 판정 — 사람이 적은 result 가 먼저, 없으면 실행기의 status */
+  const res = g('result')
+  const st = g('status').toUpperCase()
+  const mark = res || ({ PASS: 'Pass', FAIL: 'Fail', BLOCKED: 'Blocked', WIP: 'WIP' } as Record<string, string>)[st]
+  const ms = Number(raw?.took_ms ?? NaN)
+  return {
+    no: Number(raw?.no ?? NaN) || i + 1,
+    t: g('desc') || g('step') || g('t') || cli || `스텝 ${i + 1}`,
+    cmd: cli,
+    expected: expected || '—',
+    action: g('action') || (g('kind') === 'cli' || cli ? 'command' : g('kind')) || '—',
+    session: raw?.session === undefined || raw?.session === null ? '—' : `s${String(raw.session)}`,
+    out: g('output') || g('out'),
+    mark: mark || undefined,
+    took: Number.isFinite(ms) ? `${(ms / 1000).toFixed(2)}s` : g('took') || undefined,
+  }
+}
+
 function manualSteps(tc?: Record<string, unknown>): Array<{ t: string; e: string; d?: string; da?: string }> {
-  const steps = (tc?.steps as CycleStep[] | undefined) ?? []
+  /* 절차는 `steps` 가 아니라 **`checks`** 에 사는 항목이 많다(213 은 전부
+     그렇다). 한쪽만 보면 「절차가 없습니다」 로 잘못 뜬다. */
+  const raw = (tc?.steps as CycleStep[] | undefined) ?? []
+  const steps = raw.length ? raw : ((tc?.checks as CycleStep[] | undefined) ?? [])
   const man = steps
     .filter((s) => s.manual || s.action === '수동' || s.step || s.expected)
     .map((s) => ({
@@ -551,23 +593,32 @@ export default function RunDetail({
              안 돌린 항목은 「스텝이 없습니다」 가 되는데, 정의는 있다(지적).
              정의를 깔고 그 위에 실행 결과를 자리(차례)로 얹는다. */
           steps={(() => {
-            const def = ((oneQ.data?.steps ?? []) as CycleStep[]).map((s2, i2) => ({
-              no: i2 + 1,
-              t: String(s2.desc ?? s2.step ?? s2.cli ?? '').trim() || `스텝 ${i2 + 1}`,
-              cmd: String(s2.cli ?? ''),
-              expected: String(s2.criteria ?? s2.expected ?? '') || '—',
-              action: String(s2.action ?? (s2.cli ? 'command' : '')) || '—',
-              session: String((s2 as unknown as Record<string, unknown>).session ?? '') || '—',
-              out: String(s2.output ?? ''),
-              mark: undefined as string | undefined,
-            }))
-            const lg = log?.steps ?? []
+            /* 정의도 로그도 **같은 변환**을 탄다. 예전엔 로그만 있을 때
+               no·t·cmd·out·mark 만 옮겨, Action·Session·Expected·Time 이
+               통째로 비었다(지적: 다 돌았는데 표가 —). */
+            const rawDef = ((oneQ.data?.steps as unknown[] | undefined)?.length
+              ? (oneQ.data?.steps as unknown[])
+              : ((oneQ.data?.checks as unknown[] | undefined) ?? [])) as Array<Record<string, unknown>>
+            const def = rawDef.map(asStep)
+            const lg = ((log?.steps ?? []) as unknown[]) as Array<Record<string, unknown>>
             if (!lg.length) return def
-            if (!def.length)
-              return lg.map((s2, i2) => ({ no: s2.no ?? i2 + 1, t: s2.t, cmd: s2.cmd, out: s2.out, mark: s2.mark }))
+            const run2 = lg.map(asStep)
+            if (!def.length) return run2
+            /* 돈 값이 이긴다 — 정의는 빈 칸을 메우는 데만 쓴다 */
             return def.map((d2, i2) => {
-              const l = lg[i2]
-              return l ? { ...d2, cmd: l.cmd || d2.cmd, out: l.out ?? d2.out, mark: l.mark } : d2
+              const l = run2[i2]
+              if (!l) return d2
+              return {
+                ...d2,
+                cmd: l.cmd || d2.cmd,
+                out: l.out || d2.out,
+                expected: l.expected !== '—' ? l.expected : d2.expected,
+                action: l.action !== '—' ? l.action : d2.action,
+                session: l.session !== '—' ? l.session : d2.session,
+                t: l.t || d2.t,
+                mark: l.mark,
+                took: l.took ?? d2.took,
+              }
             })
           })()}
           stepAt={stepAt}
