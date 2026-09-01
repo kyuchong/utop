@@ -35,10 +35,17 @@ export interface MStep {
   t: string
   data?: string
   expected: string
+  /** 스텝 설명 — 목업의 TEST STEP 칸 */
+  desc?: string
+}
+export interface MMeta {
+  at?: string
+  by?: string
+  act?: string
 }
 
 export default function RunManual({
-  items, cur, onPick, steps, pchk, onStep, note, onNote, info, planId, runId, onBug,
+  items, cur, onPick, steps, pchk, pmeta, onStep, onAct, note, onNote, info, planId, runId, onBug,
 }: {
   items: MItem[]
   cur: string
@@ -46,7 +53,9 @@ export default function RunManual({
   steps: MStep[]
   /** 스텝마다의 판정 */
   pchk: string[]
+  pmeta?: Array<MMeta | null>
   onStep: (ix: number, v: string) => void
+  onAct?: (ix: number, text: string) => void
   note: string
   onNote: (v: string) => void
   info: { purpose: string; cond: string; topo: string; crit: string }
@@ -260,6 +269,7 @@ export default function RunManual({
               </div>
               {steps.map((s, i) => {
                 const v = pchk[i] ?? ''
+                const m = (pmeta ?? [])[i] ?? null
                 const isOpen = open === i
                 return (
                   <div className={`rm-step${isOpen ? ' open' : ''}`} key={i}>
@@ -274,6 +284,12 @@ export default function RunManual({
                     </button>
                     {isOpen && (
                       <div className="rm-sb">
+                        {(s.desc || s.t) && (
+                          <div className="rm-tstep">
+                            <div className="rm-bl">TEST STEP</div>
+                            <div className="rm-bt">{s.desc || s.t}</div>
+                          </div>
+                        )}
                         <div className="rm-cmp">
                           <div>
                             <div className="rm-bl">Test Data</div>
@@ -284,30 +300,57 @@ export default function RunManual({
                             <div className="rm-bt">{s.expected || '–'}</div>
                           </div>
                         </div>
+                        <div className="rm-cmp">
+                          <div>
+                            <div className="rm-bl">Actual Result</div>
+                            <textarea
+                              className="rm-ata"
+                              defaultValue={m?.act ?? ''}
+                              placeholder="실제로 나온 값을 적습니다 — 결과서에 그대로 실립니다"
+                              onBlur={(e) => {
+                                if (e.target.value !== (m?.act ?? '')) onAct?.(i, e.target.value)
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <div className="rm-bl">Evidence</div>
+                            <div className="rm-evi">증적은 아래 「비고 · 특이사항」에 적습니다</div>
+                          </div>
+                        </div>
                         <div className="rm-judge">
                           <div className="rm-jb">
                             <div className="rm-jl">판정 기준</div>
                             <div className="rm-jv">{info.crit || s.expected || '–'}</div>
                           </div>
                           <div className="rm-jb">
-                            <div className="rm-jl">이 절차의 판정</div>
-                            <div className="rm-vb">
-                              {(['p', 'f', 'b'] as const).map((o) => (
-                                <button
-                                  type="button"
-                                  key={o}
-                                  className={`rm-v ${o}${v === o ? ' on' : ''}`}
-                                  onClick={() => onStep(i, o)}
-                                >
-                                  {o === 'p' ? '통과' : o === 'f' ? '실패' : '기타'}
-                                </button>
-                              ))}
-                            </div>
+                            <div className="rm-jl">결과</div>
+                            <b className={`rm-jr ${v || 'n'}`}>{v ? TAG[v as V] : 'WAIT'}</b>
+                          </div>
+                          <div className="rm-jb">
+                            <div className="rm-jl">판정 시각</div>
+                            <div className="rm-jv">{m?.at ? new Date(m.at).toLocaleString('ko-KR', { hour12: false }) : '–'}</div>
+                          </div>
+                          <div className="rm-jb">
+                            <div className="rm-jl">판정자</div>
+                            <div className="rm-jv">{m?.by || '–'}</div>
                           </div>
                         </div>
                         <div className="rm-act">
+                          <div className="rm-vb">
+                            {(['p', 'f', 'b'] as const).map((o) => (
+                              <button
+                                type="button"
+                                key={o}
+                                className={`rm-v ${o}${v === o ? ' on' : ''}`}
+                                onClick={() => onStep(i, o)}
+                              >
+                                {o === 'p' ? '통과' : o === 'f' ? '실패' : '기타'}
+                              </button>
+                            ))}
+                          </div>
+                          <span className="rm-sp" />
                           <span className="rm-muted">
-                            {v === 'f' ? '이 절차가 깨졌습니다 — 결함을 남기세요' : '증적은 아래 비고에 적습니다'}
+                            {v === 'f' ? '이 절차가 깨졌습니다 — 결함을 남기세요' : ''}
                           </span>
                           <button type="button" className="rm-bugbtn" onClick={() => setBug(true)}>
                             🐞 결함 등록

@@ -207,3 +207,44 @@
 .rd-fld { display: block; margin-bottom: 12px; }
 .rd-fld > span { display: block; font-size: 12px; color: #5b7176; margin-bottom: 5px; font-weight: 600; }
 .rd-fld select { width: 100%; padding: 7px 9px; border: 1px solid var(--c-border, #e3eaec); border-radius: 6px; font: inherit; background: #fff; }
+
+/* 위 띠 — 목업의 네 칸 */
+.rd-live {
+  flex: none;
+  display: grid;
+  grid-template-columns: 150px minmax(240px, 1.2fr) minmax(240px, 1.2fr) 220px;
+  gap: 14px;
+  padding: 10px 16px;
+  background: #fbfcfc;
+  border-bottom: 1px solid var(--c-border, #e3eaec);
+}
+.rd-lb { min-width: 0; border-right: 1px solid #e6ecee; padding-right: 14px; }
+.rd-lb:last-child { border-right: 0; }
+.rd-lab { font-size: 9.5px; font-weight: 800; color: #8fa0a6; text-transform: uppercase; margin-bottom: 5px; }
+.rd-big { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.rd-prow { display: flex; align-items: center; gap: 9px; }
+.rd-bar2 { display: flex; height: 9px; flex: 1; border-radius: 99px; overflow: hidden; background: #e1e8ea; }
+.rd-bar2 i { display: block; }
+.rd-bar2 .p { background: #16a05b; }
+.rd-bar2 .f { background: #e34663; }
+.rd-bar2 .b { background: #e49a31; }
+.rd-bar2 .n { background: #dbe4e6; }
+.rd-counts { display: flex; gap: 12px; font-size: 11px; font-weight: 700; margin-top: 5px; flex-wrap: wrap; }
+.rd-counts .p { color: #16a05b; }
+.rd-counts .f { color: #e34663; }
+.rd-counts .n { color: #8c9da3; }
+.rd-cur { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rd-live .rd-res { font-size: 18px; font-weight: 800; }
+.rd-live .rd-res.p { color: #16a05b; }
+.rd-live .rd-res.f { color: #e34663; }
+.rd-live .rd-res.b { color: #e49a31; }
+.rd-live .rd-res.n { color: #8c9da3; }
+
+/* 머리줄 배지·시작 단추 */
+.rd-mode { font-size: 10px; font-weight: 800; border-radius: 6px; padding: 4px 8px; }
+.rd-mode.a { background: #eaf2ff; color: #2e70d6; }
+.rd-mode.m { background: #fff4df; color: #a66d18; }
+.rd-run { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 800; border-radius: 6px; padding: 4px 8px; background: #eaf2ff; color: #2e70d6; }
+.rd-run i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.rd-btn.go { background: #16a34a; border-color: #16a34a; color: #fff; font-weight: 700; }
+.rd-btn.go:hover { filter: brightness(1.07); }

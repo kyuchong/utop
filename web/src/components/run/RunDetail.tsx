@@ -17,6 +17,7 @@ import './RunDetail.css'
  */
 
 export type Verdict = 'p' | 'f' | 'b' | 'n'
+const RESN2: Record<Verdict, string> = { p: 'PASS', f: 'FAIL', b: 'BLOCKED', n: 'WAIT' }
 
 export interface RunFull {
   id: string
@@ -32,7 +33,17 @@ export interface RunFull {
   notes?: Record<string, string>
   /** 절차마다의 판정 — 수동 시험에서 쓴다 */
   pchk?: Record<string, string[]>
+  /** 스텝마다의 실측값·판정 시각·판정자 */
+  pmeta?: Record<string, Array<{ at?: string; by?: string; act?: string } | null>>
   meta?: Record<string, string>
+  /** 담긴 시험 항목 */
+  items?: Array<{ tcid?: string }>
+  /** 자동·수동 — 플랜에서 물려받은 값. 없으면 항목에서 뽑는다 */
+  mode?: string | null
+  /** 시험을 시작한 시각 — 있으면 「돌고 있음」이다(ISO) */
+  started_at?: string | null
+  /** 지금 돌리는 사람 */
+  runner?: string | null
 }
 
 interface DeviceLite {
@@ -45,13 +56,15 @@ interface DeviceLite {
 }
 
 /** 수동 항목의 확인 절차 — TC 의 manual 스텝이 있으면 그것을, 없으면 기본 네 줄 */
-function manualSteps(tc?: Record<string, unknown>): Array<{ t: string; e: string }> {
+function manualSteps(tc?: Record<string, unknown>): Array<{ t: string; e: string; d?: string; da?: string }> {
   const steps = (tc?.steps as CycleStep[] | undefined) ?? []
   const man = steps
     .filter((s) => s.manual || s.action === '수동' || s.step || s.expected)
     .map((s) => ({
       t: String(s.step ?? s.desc ?? '').trim(),
       e: String(s.expected ?? s.criteria ?? '').trim(),
+      d: String(s.desc ?? '').trim(),
+      da: String((s as unknown as Record<string, unknown>).data ?? '').trim(),
     }))
     .filter((x) => x.t || x.e)
   if (man.length) return man
@@ -62,12 +75,6 @@ function manualSteps(tc?: Record<string, unknown>): Array<{ t: string; e: string
     { t: '출력값 확인', e: '기대한 값이 나오고 오류 메시지가 없습니다' },
     { t: '설정 원복 · 증적 저장', e: '변경한 설정을 되돌리고 화면·로그를 남깁니다' },
   ]
-}
-
-function donutPath(pct: number) {
-  const R = 38
-  const C = 2 * Math.PI * R
-  return { R, C, off: C * (1 - pct / 100) }
 }
 
 export default function RunDetail({
@@ -84,6 +91,12 @@ export default function RunDetail({
   /* 판정하면 다음 항목으로 — 두 판 화면은 표에서 직접 고르므로 늘 켠다 */
   const autoNext = true
   const [bindOpen, setBindOpen] = useState(false)
+  /* 경과 시간 — 시작했으면 1초마다 다시 그린다 */
+  const [, tick] = useState(0)
+  useEffect(() => {
+    const t = window.setInterval(() => tick((n) => n + 1), 1000)
+    return () => window.clearInterval(t)
+  }, [])
 
   const runQ = useQuery({
     queryKey: ['plan-run', runId],
@@ -114,7 +127,17 @@ export default function RunDetail({
 
   const run = runQ.data
   const results = useMemo(() => run?.results ?? {}, [run])
-  const ids = useMemo(() => Object.keys(results), [results])
+  /* 담긴 항목이 먼저다. 결과만 보면, 결과가 아직 안 깔린 실행이
+     「항목이 없습니다」로 보인다 — 항목은 있는데. 둘을 합친다. */
+  const ids = useMemo(() => {
+    const out: string[] = []
+    for (const it of (run?.items ?? []) as Array<{ tcid?: string }>) {
+      const k = String(it?.tcid ?? '')
+      if (k && !out.includes(k)) out.push(k)
+    }
+    for (const k of Object.keys(results)) if (!out.includes(k)) out.push(k)
+    return out
+  }, [run, results])
   const tcById = useMemo(() => {
     const m = new Map<string, TestCaseMeta>()
     for (const t of tcQ.data?.tcs ?? []) m.set(t.tcid, t)
@@ -155,7 +178,9 @@ export default function RunDetail({
   const pct = tally.total ? Math.round((tally.done / tally.total) * 100) : 0
 
   const meta = tcById.get(cur)
-  const isAuto = String(meta?.run_type ?? meta?.kind ?? '자동') !== '수동'
+  /* 방식은 **실행에 적힌 값이 먼저**다(플랜에서 손으로 정한 값이 여기까지 온다).
+     없으면 지금 고른 항목의 성격에서 뽑는다 — Plans 와 같은 규칙이다. */
+  const isAuto = String(run?.mode || meta?.run_type || meta?.kind || '자동') !== '수동'
 
   const save = async (patch: Partial<RunFull>) => {
     const r = await apiFetch(`/api/plan-runs/${encodeURIComponent(runId)}`, {
@@ -185,6 +210,10 @@ export default function RunDetail({
     const arr = [...((run?.pchk ?? {})[cid] ?? [])]
     arr[ix] = arr[ix] === v ? '' : v
     const pchk = { ...(run?.pchk ?? {}), [cid]: arr }
+    /* 누가 언제 판정했는지 같이 남긴다 — 결과서의 판정 시각·판정자다 */
+    const mArr = [...((run?.pmeta ?? {})[cid] ?? [])]
+    mArr[ix] = { ...(mArr[ix] ?? {}), at: arr[ix] ? new Date().toISOString() : undefined, by: arr[ix] ? run?.owner ?? '' : undefined }
+    const pmeta = { ...(run?.pmeta ?? {}), [cid]: mArr }
     /* 절차 판정에서 항목 결과를 뽑는다 — 하나라도 실패면 실패 */
     const n = manualSteps(oneQ.data).length
     const roll: Verdict = arr.includes('f')
@@ -194,7 +223,14 @@ export default function RunDetail({
         : arr.filter((x) => x === 'p').length >= n
           ? 'p'
           : 'n'
-    await save({ pchk, results: { ...results, [cid]: roll } })
+    await save({ pchk, pmeta, results: { ...results, [cid]: roll } })
+  }
+
+  /** 스텝의 실측값(Actual Result) — 결과서에 그대로 실린다 */
+  const setAct = async (cid: string, ix: number, act: string) => {
+    const mArr = [...((run?.pmeta ?? {})[cid] ?? [])]
+    mArr[ix] = { ...(mArr[ix] ?? {}), act }
+    await save({ pmeta: { ...(run?.pmeta ?? {}), [cid]: mArr } })
   }
 
   /** 실패·기타만 모아 같은 빌드로 다시 뜬다 — 33건 중 2건 고치자고 전체를 안 돌린다 */
@@ -229,7 +265,6 @@ export default function RunDetail({
 
   const binds = run.binds ?? {}
   const dut = binds.DUT ? devById.get(String(binds.DUT)) : undefined
-  const d = donutPath(pct)
   const note = (run.notes ?? {})[cur] ?? ''
   const pv = (run.pchk ?? {})[cur] ?? []
   const msteps = manualSteps(oneQ.data)
@@ -243,7 +278,6 @@ export default function RunDetail({
           ← {run.version || '목록'}
         </button>
         <span className="rd-key">{run.id}</span>
-        <span className={`rd-mode ${isAuto ? 'a' : 'm'}`}>{isAuto ? '⚙ 자동' : '👆 수동'}</span>
         {plan && (
           <>
             <span className="rd-sep">·</span>
@@ -251,6 +285,33 @@ export default function RunDetail({
           </>
         )}
         <span className="rd-sp" />
+        <span className={`rd-mode ${isAuto ? 'a' : 'm'}`}>{isAuto ? '⚙ 자동' : '👆 수동'}</span>
+        {run.started_at && (
+          <span className="rd-run">
+            <i />
+            RUNNING
+          </span>
+        )}
+        <span className="rd-sp" />
+        {run.started_at ? (
+          <button
+            type="button"
+            className="rd-btn"
+            title="시험을 멈춥니다 — 남긴 결과는 그대로입니다"
+            onClick={() => void save({ started_at: null })}
+          >
+            ■ 중지
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="rd-btn go"
+            title="시험을 시작합니다 — 시작 시각과 실행자를 남깁니다"
+            onClick={() => void save({ started_at: new Date().toISOString(), runner: run.owner ?? '' })}
+          >
+            ▶ 시험 시작
+          </button>
+        )}
         <button type="button" className="rd-btn" onClick={() => setBindOpen(true)}>
           장비 배정
         </button>
@@ -278,34 +339,55 @@ export default function RunDetail({
         </button>
       </div>
 
-      {/* ── 요약 띠 ── */}
-      <div className="rd-strip">
-        <svg viewBox="0 0 100 100" width="64" height="64" aria-hidden="true">
-          <circle cx="50" cy="50" r={d.R} fill="none" stroke="#dbe4e6" strokeWidth="12" />
-          <circle
-            cx="50" cy="50" r={d.R} fill="none" stroke="#12a678" strokeWidth="12" strokeLinecap="round"
-            strokeDasharray={d.C} strokeDashoffset={d.off} transform="rotate(-90 50 50)"
-          />
-          <text x="50" y="52" textAnchor="middle" className="rd-dn">{pct}%</text>
-          <text x="50" y="63" textAnchor="middle" className="rd-dl">COMPLETE</text>
-        </svg>
-        <div className="rd-tal">
-          <span className="rd-res p">Pass {tally.p}</span>
-          <span className="rd-res f">Fail {tally.f}</span>
-          <span className="rd-res b">기타 {tally.b}</span>
-          <span className="rd-res n">미실행 {tally.n}</span>
-          <em>{tally.total}개 중 {tally.done}개</em>
+      {/* ── 위 띠 — 목업의 네 칸 ── */}
+      <div className="rd-live">
+        <div className="rd-lb">
+          <div className="rd-lab">경과</div>
+          <div className="rd-big">
+            {(() => {
+              if (!run.started_at) return '—'
+              const sec = Math.max(0, Math.floor((Date.now() - new Date(run.started_at).getTime()) / 1000))
+              const p2 = (n: number) => String(n).padStart(2, '0')
+              return `${p2(Math.floor(sec / 3600))}:${p2(Math.floor((sec % 3600) / 60))}:${p2(sec % 60)}`
+            })()}
+          </div>
+          <div className="rd-sub">
+            {run.started_at ? `${new Date(run.started_at).toLocaleTimeString('ko-KR', { hour12: false })} 시작` : '아직 시작 안 함'}
+          </div>
         </div>
-        <div className="rd-meta">
-          <b>{run.name || run.id}</b>
-          <span>
-            {[plan?.customer, plan?.model, run.version, dut ? `${dut.name} ${dut.ip ?? ''}` : '']
-              .filter(Boolean)
-              .join(' · ')}
-          </span>
+        <div className="rd-lb">
+          <div className="rd-lab">전체 진행</div>
+          <div className="rd-prow">
+            <span className="rd-bar2">
+              <i className="p" style={{ flexGrow: tally.p }} />
+              <i className="f" style={{ flexGrow: tally.f }} />
+              <i className="b" style={{ flexGrow: tally.b }} />
+              <i className="n" style={{ flexGrow: tally.n }} />
+            </span>
+            <b>{pct}%</b>
+          </div>
+          <div className="rd-counts">
+            <span className="p">Pass {tally.p}</span>
+            <span className="f">Fail {tally.f}</span>
+            <span className="n">대기 {tally.n}</span>
+            <span className="rd-muted">전체 {tally.total}</span>
+          </div>
         </div>
-        <span className="rd-sp" />
-        <span className="rd-chip">🔒 플랜에서 복사한 시점 고정</span>
+        <div className="rd-lb">
+          <div className="rd-lab">지금 시험 항목</div>
+          <div className="rd-cur">
+            {cur} · {meta?.name ?? ''}
+          </div>
+          <div className="rd-sub">
+            할당자 {String((meta as Record<string, unknown> | undefined)?.assignee ?? '–')} · 실행자{' '}
+            {run.runner || run.owner || '–'}
+          </div>
+        </div>
+        <div className="rd-lb">
+          <div className="rd-lab">지금 결과</div>
+          <b className={`rd-res ${results[cur] ?? 'n'}`}>{RESN2[results[cur] ?? 'n']}</b>
+          <div className="rd-sub">{dut ? `${dut.name} · ${dut.ip ?? ''}` : '장비 미배정'}</div>
+        </div>
       </div>
 
       {!ids.length ? (
@@ -382,9 +464,11 @@ export default function RunDetail({
             setCur(id)
             setStepAt(0)
           }}
-          steps={msteps.map((x) => ({ t: x.t, expected: x.e }))}
+          steps={msteps.map((x) => ({ t: x.t, expected: x.e, desc: x.d, data: x.da }))}
           pchk={pv}
+          pmeta={(run.pmeta ?? {})[cur] ?? []}
           onStep={(ix, v) => void setProc(cur, ix, v)}
+          onAct={(ix, t) => void setAct(cur, ix, t)}
           note={note}
           onNote={(v) => void save({ notes: { ...(run.notes ?? {}), [cur]: v } })}
           info={{
