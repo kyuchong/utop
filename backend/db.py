@@ -567,7 +567,13 @@ _RUN_COUNTS = """
 """
 
 
-def _run_row(r: dict) -> dict:
+def _plan_run_row(r: dict) -> dict:
+    """실행(plan_run) 한 줄.
+
+    이름을 「_run_row」 로 두면 안 된다 — 밑에 같은 이름의 함수가 하나 더
+    있어(실행기 일감용) 나중 것이 이것을 통째로 덮는다. 그 바람에 실행
+    목록이 일감용 변환을 타고, data 에서 꺼낸 문자열 started_at 에
+    .isoformat() 을 걸어 500 이 났다."""
     d = dict(r)
     for k in ("created_at", "updated_at", "closed_at"):
         v = d.get(k)
@@ -595,7 +601,7 @@ async def plan_run_list(plan_id: str = "", with_closed: bool = True) -> list[dic
     """
     async with pool().acquire() as c:
         rows = await c.fetch(sql, *args)
-        return [_run_row(r) for r in rows]
+        return [_plan_run_row(r) for r in rows]
 
 
 async def plan_run_get(rid: str) -> Optional[dict]:
@@ -603,7 +609,7 @@ async def plan_run_get(rid: str) -> Optional[dict]:
         r = await c.fetchrow("SELECT * FROM plan_run WHERE id=$1", rid)
         if not r:
             return None
-        d = _run_row(r)
+        d = _plan_run_row(r)
         d.update(dict(d.pop("data", None) or {}))
         return d
 
