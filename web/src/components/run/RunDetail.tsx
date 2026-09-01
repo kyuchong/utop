@@ -65,7 +65,7 @@ interface DeviceLite {
  */
 function asStep(raw: Record<string, unknown>, i: number): {
   no: number; t: string; cmd: string; expected: string; action: string
-  session: string; out: string; mark?: string; took?: string
+  session: string; out: string; mark?: string; took?: string; waitSec?: number
 } {
   const g = (k: string) => String(raw?.[k] ?? '').trim()
   const cli = g('cli') || g('cmd')
@@ -93,6 +93,7 @@ function asStep(raw: Record<string, unknown>, i: number): {
     out: g('output') || g('out'),
     mark: mark || undefined,
     took: Number.isFinite(ms) ? `${(ms / 1000).toFixed(2)}s` : g('took') || undefined,
+    waitSec: Number(raw?.waitSec ?? 0) || undefined,
   }
 }
 
@@ -644,6 +645,7 @@ export default function RunDetail({
                 t: l.t || d2.t,
                 mark: l.mark,
                 took: l.took ?? d2.took,
+                waitSec: l.waitSec ?? d2.waitSec,
               }
             })
           })()}

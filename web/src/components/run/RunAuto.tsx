@@ -29,6 +29,8 @@ export interface AutoStep {
   expected?: string
   at?: string
   took?: string
+  /** 「대기」 스텝이 기다리기로 한 초. 카운트다운은 이 값에서 내려온다 */
+  waitSec?: number
 }
 
 export interface AutoItem {
@@ -147,7 +149,6 @@ export default function RunAuto({
   /* 진행률은 위 띠(RunDetail)가 그린다 — 여기서 또 세지 않는다 */
 
   /** 이벤트 — 로그의 스텝에서 뽑는다(지어내지 않는다) */
-  const [evf, setEvf] = useState<'all' | 'PASS' | 'FAIL' | 'INFO'>('all')
   const events = useMemo(() => {
     const out: Array<{ at: string; step: string; kind: string; text: string }> = []
     steps.forEach((s) => {
@@ -163,7 +164,53 @@ export default function RunAuto({
     })
     return out
   }, [steps, logAt])
-  const evShown = evf === 'all' ? events : events.filter((e) => e.kind === evf)
+
+  /* ── 「대기」 스텝의 초읽기 ──
+     실행기는 「몇 번째 스텝을 도는 중」 까지만 알려 준다. 남은 초는 안 준다.
+     그래서 **그 스텝이 도는 것을 본 순간**부터 waitSec 에서 내려 센다.
+     도중에 들어오면 처음부터 세므로, 끝나면 실제 걸린 시간으로 갈아 적는다
+     — 지어낸 값이 기록에 남지 않게. */
+  const [, beat] = useState(0)
+  const waitFrom = useRef<{ at: number; ix: number } | null>(null)
+  useEffect(() => {
+    if (runStep == null) {
+      waitFrom.current = null
+      return
+    }
+    if (waitFrom.current?.ix !== runStep) waitFrom.current = { at: Date.now(), ix: runStep }
+  }, [runStep])
+  useEffect(() => {
+    if (runStep == null) return
+    const t = window.setInterval(() => beat((n) => n + 1), 500)
+    return () => window.clearInterval(t)
+  }, [runStep])
+
+  const isWait = (s2: AutoStep) =>
+    String(s2.action ?? '').toLowerCase() === 'wait' || Number(s2.waitSec ?? 0) > 0
+
+  /** 대기 줄 한 줄 — 도는 중이면 초읽기, 끝났으면 걸린 시간 */
+  const waitLine = (s2: AutoStep, i2: number): string => {
+    const sec = Number(s2.waitSec ?? 0)
+    if (i2 === runStep && sec > 0 && waitFrom.current?.ix === i2) {
+      const gone = Math.floor((Date.now() - waitFrom.current.at) / 1000)
+      const left = Math.max(0, sec - gone)
+      /* 콘솔처럼 **찍히게** 한다(지시) — 숫자가 하나씩 늘어서며 줄어든다.
+         한 자리에서 숫자만 바뀌면 도는 건지 멎은 건지 안 보인다. */
+      const trail: number[] = []
+      for (let n = sec; n >= left && trail.length < 60; n--) trail.push(n)
+      return `${sec}초 기다립니다\n${trail.join(' ')}${left === 0 ? '\n기다림 끝' : ''}`
+    }
+    if (s2.out) return s2.out
+    return sec > 0 ? `${sec}초 기다립니다` : '기다립니다'
+  }
+
+  /** 콘솔은 지금 보는 스텝까지 쌓는다 */
+  const seeUpTo = Math.min(Math.max(runStep ?? stepAt, stepAt), Math.max(0, steps.length - 1))
+  const conRef = useRef<HTMLDivElement>(null)
+  const conEndRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    conEndRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [seeUpTo, runStep])
 
   /** 도는 줄을 눈에 들어오게 끌어온다 — 스텝이 많으면 밑으로 흘러 안 보인다 */
   const runRowRef = useRef<HTMLTableRowElement>(null)
@@ -242,13 +289,25 @@ export default function RunAuto({
     if (id === 'response')
       return (
         <>
-          <div className="ra-con">
-            {curStep?.cmd && (
-              <div className="ra-cmd">
-                {dut}# {curStep.cmd}
+          {/* 콘솔은 **이어진다**(지시). 스텝마다 판을 갈아 끼우면 앞 명령의
+              출력이 사라져, 무엇 다음에 무엇이 나왔는지 못 읽는다.
+              지금 보는 스텝까지를 차례로 쌓고, 그 자리로 끌어 준다. */}
+          <div className="ra-con" ref={conRef}>
+            {steps.slice(0, Math.max(0, seeUpTo) + 1).map((s2, i2) => (
+              <div className={`ra-blk${i2 === seeUpTo ? ' on' : ''}`} key={s2.no ?? i2} ref={i2 === seeUpTo ? conEndRef : undefined}>
+                {s2.cmd ? (
+                  <div className="ra-cmd">
+                    {dut}# {s2.cmd}
+                  </div>
+                ) : null}
+                {isWait(s2) ? (
+                  <pre className="ra-wait">{waitLine(s2, i2)}</pre>
+                ) : (
+                  <pre>{s2.out || (i2 === runStep ? '…' : '(출력 없음)')}</pre>
+                )}
               </div>
-            )}
-            <pre>{curStep?.out ?? '아직 출력이 없습니다.'}</pre>
+            ))}
+            {!steps.length && <pre>아직 출력이 없습니다.</pre>}
           </div>
           <div className="ra-confoot">
             {curStep?.mark
@@ -262,50 +321,36 @@ export default function RunAuto({
 
     if (id === 'events')
       return (
-        <>
-          <div className="ra-chips">
-            {(['all', 'INFO', 'PASS', 'FAIL'] as const).map((k) => (
-              <button
-                type="button"
-                key={k}
-                className={`ra-chip${evf === k ? ' on' : ''}`}
-                onClick={() => setEvf(k)}
-              >
-                {k === 'all' ? '전체' : k}
-              </button>
-            ))}
-          </div>
-          <div className="ra-scroll">
-            {evShown.length ? (
-              <table className="ra-tbl">
-                <thead>
-                  <tr>
-                    <th style={{ width: 150 }}>Timestamp</th>
-                    <th style={{ width: 70 }}>Step</th>
-                    <th style={{ width: 62 }}>결과</th>
-                    <th>세부 내역</th>
+        /* 거르개를 뺐다(지시) — 줄이 몇 개 안 되고, 어차피 다 읽는다.
+           칸도 좁혔다: 시각은 시:분:초면 되고 결과는 알약 폭이면 된다. */
+        <div className="ra-scroll">
+          {events.length ? (
+            <table className="ra-tbl ra-evt">
+              <thead>
+                <tr>
+                  <th style={{ width: 74 }}>시각</th>
+                  <th style={{ width: 52 }}>Step</th>
+                  <th style={{ width: 54 }}>결과</th>
+                  <th>세부 내역</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((e, i2) => (
+                  <tr key={i2}>
+                    <td className="ra-num">{String(e.at ?? '').slice(11, 19) || '—'}</td>
+                    <td>{e.step}</td>
+                    <td>
+                      <span className={`ra-ev ${e.kind}`}>{e.kind.toUpperCase()}</span>
+                    </td>
+                    <td>{e.text}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {evShown.map((e, i) => (
-                    <tr key={i}>
-                      <td className="ra-ts">{e.at || '—'}</td>
-                      <td>{e.step}</td>
-                      <td>
-                        <b className={`ra-ev ${e.kind.toLowerCase()}`}>{e.kind}</b>
-                      </td>
-                      <td>{e.text}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="ra-empty">
-                남은 이벤트가 없습니다 — 실행 로그가 쌓이면 여기에 줄이 생깁니다.
-              </div>
-            )}
-          </div>
-        </>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="ra-none">남은 이벤트가 없습니다 — 실행 로그가 쌓이면 여기에 줄이 생깁니다.</div>
+          )}
+        </div>
       )
 
     /* 시험 항목 */

@@ -174,3 +174,21 @@
 @media (prefers-reduced-motion: reduce) { .ra-st.run i { animation: none; } }
 .ra-tc.running { background: #eaf2ff; box-shadow: inset 3px 0 0 #2e70d6; }
 .ra-tc.running .ra-tcid { color: #1d5bb0; font-weight: 800; }
+
+/* CLI 콘솔 — 스텝마다 한 덩이로 **이어진다** */
+.ra-blk { padding-bottom: 8px; }
+.ra-blk + .ra-blk { border-top: 1px solid rgba(255, 255, 255, 0.07); padding-top: 8px; }
+.ra-blk.on .ra-cmd { color: #7fc4ff; }
+.ra-wait { color: #e0b352; }
+.ra-blk pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+
+/* 실행 이벤트 — 거르개를 뺀 대신 칸을 좁혔다 */
+.ra-evt td, .ra-evt th { padding-top: 5px; padding-bottom: 5px; }
+.ra-evt .ra-num { font-variant-numeric: tabular-nums; color: #8c9da3; }
+.ra-ev {
+  display: inline-block; min-width: 44px; text-align: center;
+  border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 800;
+}
+.ra-ev.INFO { background: #eef2f4; color: #6b7f86; }
+.ra-ev.PASS { background: #e6f5ef; color: #0f9151; }
+.ra-ev.FAIL { background: #fdeaef; color: #d43f5f; }
