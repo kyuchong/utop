@@ -672,9 +672,12 @@ export default function RunDetail({
       </div>
 
       {/* ── 위 띠 — 목업의 네 칸 ── */}
-      {isAuto && jobId && (
-        <div className={`rd-warn${jobLive ? ' live' : job?.status === 'failed' ? '' : ' ok'}`}>
-          <b>{jobLive ? '▶' : job?.status === 'failed' ? '!' : '✓'}</b>
+      {/* 끝났다는 초록 띠는 뺐다(지시) — 머리줄의 「▶ 다시 실행」 과 진행
+          100% 가 이미 그 말을 한다. 도는 중과 **실패**만 남긴다: 그 둘은
+          다른 데서 알 수 없다(실패는 까닭이 여기에만 있다). */}
+      {isAuto && jobId && (jobLive || job?.status === 'failed') && (
+        <div className={`rd-warn${jobLive ? ' live' : ''}`}>
+          <b>{jobLive ? '▶' : '!'}</b>
           {job?.status === 'queued'
             ? '실행기가 집어 가기를 기다립니다 — 실행기가 꺼져 있으면 여기서 멈춰 있습니다.'
             : job?.status === 'running'
@@ -699,7 +702,14 @@ export default function RunDetail({
             })()}
           </div>
           <div className="rd-sub">
-            {run.started_at ? `${new Date(run.started_at).toLocaleTimeString('ko-KR', { hour12: false })} 시작` : '아직 시작 안 함'}
+            {/* 「15시 40분 0초 시작」 은 좁은 칸에서 잘린다 — 15:40:00 로 */}
+            {run.started_at
+              ? `${(() => {
+                  const d = new Date(run.started_at)
+                  const p = (n: number) => String(n).padStart(2, '0')
+                  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+                })()} 시작`
+              : '아직 시작 안 함'}
           </div>
         </div>
         <div className="rd-lb">

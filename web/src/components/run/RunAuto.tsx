@@ -118,7 +118,9 @@ export default function RunAuto({
     }
   })
   const [size, setSize] = useState(() => ({
-    v: Number(prefGet('utop.run.dock.v') ?? '') || 55,
+    /* 왼쪽(실행 Step) 을 좁힌다(지시). CLI 출력이 길어 오른쪽이 더 넓어야
+       읽힌다 — 55 → 42. 사람이 분할바로 옮기면 그 값이 남는다. */
+    v: Number(prefGet('utop.run.dock.v') ?? '') || 42,
     l: Number(prefGet('utop.run.dock.l') ?? '') || 56,
     r: Number(prefGet('utop.run.dock.r') ?? '') || 64,
   }))
