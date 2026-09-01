@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import type { CycleMeta, CycleStep } from '@/pages/Cycles'
 import type { TestCaseMeta } from '@/types'
+import RunAuto from './RunAuto'
 import './RunDetail.css'
 
 /**
@@ -313,8 +314,39 @@ export default function RunDetail({
           <strong>담긴 시험 항목이 없습니다</strong>
           플랜에 항목을 담고 실행을 다시 만드세요.
         </div>
+      ) : isAuto ? (
+        /* 자동은 **네 판 작업대**(주신 목업) — 판 크기와 자리는 계정별로 남는다 */
+        <RunAuto
+          items={ids.map((id) => {
+            const t2 = tcById.get(id)
+            return {
+              id,
+              name: String(t2?.name ?? id),
+              group: String(t2?.req_id ?? '기타'),
+              verdict: (results[id] ?? 'n') as Verdict,
+            }
+          })}
+          cur={cur}
+          onPick={(id) => {
+            setCur(id)
+            setStepAt(0)
+          }}
+          steps={(log?.steps ?? []).map((s2, i2) => ({
+            no: s2.no ?? i2 + 1,
+            t: s2.t,
+            cmd: s2.cmd,
+            out: s2.out,
+            mark: s2.mark,
+          }))}
+          stepAt={stepAt}
+          onStep={setStepAt}
+          dut={dut?.name ?? 'DUT'}
+          logAt={log?.at}
+          verdict={(results[cur] ?? 'n') as Verdict}
+          onVerdict={(v) => void setResult(cur, v)}
+        />
       ) : (
-        <div className={`rd-view${isAuto ? '' : ' manual'}`}>
+        <div className="rd-view manual">
           {/* ── 왼쪽: 대상 세션 + 항목 ── */}
           <aside className="rd-side">
             <div className="rd-h">대상 장비</div>
@@ -359,84 +391,6 @@ export default function RunDetail({
             </div>
           </aside>
 
-          {isAuto ? (
-            <>
-              {/* ── 가운데: 콘솔 ── */}
-              <section className="rd-main">
-                <div className="rd-h2">
-                  {cur} · {meta?.name ?? ''}
-                </div>
-                <div className="rd-con">
-                  {log?.steps?.length ? (
-                    <>
-                      <div className="rd-steps">
-                        {log.steps.map((s, ix) => (
-                          <button
-                            type="button"
-                            key={s.no ?? ix}
-                            className={`rd-step${ix === stepAt ? ' on' : ''}`}
-                            onClick={() => setStepAt(ix)}
-                          >
-                            <i className={`rd-mk ${s.mark === 'Pass' ? 'p' : s.mark === 'Fail' ? 'f' : 'd'}`}>
-                              {s.mark === 'Pass' ? '✓' : s.mark === 'Fail' ? '✗' : '·'}
-                            </i>
-                            <span className="rd-no">{s.no ?? ix + 1}</span>
-                            <span className="rd-ell">{s.t}</span>
-                          </button>
-                        ))}
-                      </div>
-                      {log.steps[stepAt]?.cmd && (
-                        <div className="rd-cmd">
-                          {(dut?.name ?? 'DUT')}# {log.steps[stepAt]?.cmd}
-                        </div>
-                      )}
-                      <pre className="rd-out">{log.steps[stepAt]?.out ?? ''}</pre>
-                    </>
-                  ) : (
-                    <div className="rd-empty">
-                      <strong>아직 출력이 없습니다</strong>
-                      자동 실행이 붙으면 주고받은 명령과 응답이 여기 남습니다. 지금은 오른쪽에서
-                      결과를 직접 남길 수 있습니다.
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              {/* ── 오른쪽: 합격 기준 · 결과 ── */}
-              <aside className="rd-right">
-                <div className="rd-h">합격 기준</div>
-                <div className="rd-box">
-                  <code>{String(oneQ.data?.criteria ?? '') || '–'}</code>
-                </div>
-                <div className="rd-h">결과</div>
-                <div className="rd-box">
-                  <div className="rd-vbtns">
-                    {(['p', 'f', 'b', 'n'] as Verdict[]).map((v) => (
-                      <button
-                        type="button"
-                        key={v}
-                        className={`rd-vb ${v}${(results[cur] ?? 'n') === v ? ' on' : ''}`}
-                        onClick={() => void setResult(cur, v)}
-                      >
-                        {RESN[v]}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="rd-h">비고</div>
-                <textarea
-                  className="rd-ta"
-                  defaultValue={note}
-                  key={`n-${cur}`}
-                  placeholder="결과서의 비고 칸에 그대로 들어갑니다"
-                  onBlur={(e) => {
-                    if (e.target.value === note) return
-                    void save({ notes: { ...(run.notes ?? {}), [cur]: e.target.value } })
-                  }}
-                />
-              </aside>
-            </>
-          ) : (
             /* ── 수동: 절차마다 판정 ── */
             <section className="rd-main">
               <div className="rd-h2">
@@ -533,10 +487,8 @@ export default function RunDetail({
                 </button>
               </div>
             </section>
-          )}
         </div>
       )}
-
       {bindOpen && (
         <BindDevices
           binds={binds}
