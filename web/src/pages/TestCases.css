@@ -3799,15 +3799,7 @@ html .tc-listview .rq-tr > div.tc-cell-fill.al-center { justify-content: center;
   background: var(--c-surface);
 }
 
-/* 스텝 옵션 한 줄 — 「명령 뒤 대기」 처럼 본 칸 밑에 붙는 작은 손잡이 */
-.sd-sub {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px dashed var(--c-border, #e3eaec);
-}
-.sd-sub > .sd-lab { margin: 0; flex: none; }
-.sd-sub > .sd-hint { flex: 1 1 240px; margin: 0; }
+/* 「명령 뒤 대기」 — 숫자 칸과 안내글을 오른쪽 칸 안에서 한 줄로 */
+.sd-wait { display: flex; align-items: center; gap: 8px; min-width: 0; flex-wrap: wrap; }
+.sd-wait > input { width: 84px; flex: none; }
+.sd-wait > .sd-hint { flex: 1 1 260px; min-width: 0; margin: 0; }
