@@ -587,6 +587,7 @@ async def plan_run_list(plan_id: str = "", with_closed: bool = True) -> list[dic
         SELECT id, plan_id, name, version, version_group, owner, start_date, end_date,
                closed_at, rerun_of, created_by, created_at, updated_at,
                data->'meta' AS meta, data->'binds' AS binds,
+               data->>'mode' AS mode, data->>'started_at' AS started_at,
                {_RUN_COUNTS}
         FROM plan_run
         {'WHERE ' + ' AND '.join(where) if where else ''}

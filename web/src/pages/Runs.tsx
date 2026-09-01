@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import { resolveMode, type ModeGot } from '@/lib/runMode'
 import { prefGet, prefRemove, prefSet } from '@/lib/prefs'
 import { onGoto, reflectUrl } from '@/api/goto'
 import NTable from '@/components/ntable/NTable'
@@ -38,6 +39,8 @@ interface RunLite {
   rerun_of?: string | null
   created_by?: string | null
   created_at?: string | null
+  /** 만들 때 굳힌 방식 — 플랜이 나중에 바뀌어도 이 실행은 안 바뀐다 */
+  mode?: string | null
   meta?: Record<string, string> | null
   binds?: Record<string, string> | null
   n_total: number
@@ -184,6 +187,36 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
   }, [nf.rev, nf.codesQ.data])
   const nColsLive = nf.edit ?? nCols
 
+  /** 항목마다 자동인지 수동인지 — 방식을 항목에서 뽑을 때 쓴다 */
+  const tcKindQ = useQuery({
+    queryKey: ['tc-meta-kind'],
+    queryFn: async () => {
+      const r = await apiFetch('/api/tc?meta=1')
+      if (!r.ok) throw new Error('시험 항목을 불러오지 못했습니다')
+      return (await r.json()) as { tcs?: Array<{ tcid?: string; kind?: string; run_type?: string }> }
+    },
+    staleTime: 60_000,
+  })
+  const kindOfTc = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const t of tcKindQ.data?.tcs ?? []) {
+      const k = String(t?.tcid ?? '')
+      if (k) m.set(k, String(t?.kind ?? t?.run_type ?? '자동') || '자동')
+    }
+    return m
+  }, [tcKindQ.data])
+  /** 실행의 방식 — **실행에 굳은 값**이 먼저, 없으면 플랜에서 Plans 와 같은 규칙으로 뽑는다 */
+  const modeOf = (r: RunLite, p?: CycleMeta): ModeGot => {
+    const own = String(r.mode ?? r.meta?.mode ?? '').trim()
+    if (own) return { v: own, from: 'set', why: `${own} 시험` }
+    if (!p) return { v: '', from: 'none', why: '플랜이 없어 방식을 알 수 없습니다' }
+    return resolveMode(
+      (p as unknown as Record<string, unknown>).mode as string,
+      p.items as Array<{ tcid?: string }>,
+      kindOfTc,
+    )
+  }
+
   const nRows = useMemo<NRow[]>(
     () =>
       shown.map((r) => {
@@ -198,9 +231,7 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
           id: r.id,
           name: String(r.name ?? r.id) + (r.rerun_of ? ' (재시험)' : ''),
           plan: p ? String(p.cid || p.id) : r.plan_id ? '(지워진 플랜)' : '–',
-          mode: String(
-            (p as unknown as Record<string, unknown> | undefined)?.mode ?? meta.mode ?? '',
-          ),
+          mode: modeOf(r, p).v,
           version_group: String(r.version_group ?? ''),
           version: String(r.version ?? ''),
           customer: String(p?.customer ?? meta.customer ?? ''),
@@ -218,7 +249,10 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
           closed: String(r.closed_at ?? '').slice(0, 10),
         }
       }),
-    [shown, planOf, devName],
+    /* kindOfTc 가 빠져 있어, 항목 종류가 늦게 오면 방식 칸이 **옛 값에
+       머물렀다** — 아이콘은 수동인데 글자는 자동인 채로 굳었다. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [shown, planOf, devName, kindOfTc],
   )
 
   const nBody: ViewBody = useMemo(
@@ -449,15 +483,22 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
             )
           }}
           rowIcon={(row) => {
-            /* 목업 규칙: 방식이 비면 **자동**으로 본다. 다만 흐리게 그리고
-               말풍선에 적는다 — 안 적으면 정해 둔 값처럼 보인다. */
-            const m = String(row.mode ?? '')
-            const auto = m !== '수동'
-            const I = auto ? IcAuto : IcManual
+            /* 모르는 것은 **모른다고** 그린다. 예전엔 빈 값을 자동으로 우겨서,
+               수동으로 만든 실행이 목록에서 자동으로 보였다(지적). */
+            const r = runs.find((x) => x.id === row.__id)
+            const got = r ? modeOf(r, r.plan_id ? planOf.get(r.plan_id) : undefined) : null
+            if (!got?.v) {
+              return (
+                <i className="ntb-mi2 none" title={got?.why ?? '방식을 아직 알 수 없습니다'}>
+                  ·
+                </i>
+              )
+            }
+            const I = got.v === '수동' ? IcManual : IcAuto
             return (
               <i
-                className={`ntb-mi2 ${auto ? 'a' : 'm'}${m ? '' : ' dim'}`}
-                title={m ? `${m} 시험` : '방식 미지정 — 자동으로 봅니다'}
+                className={`ntb-mi2 ${got.v === '수동' ? 'm' : 'a'}${got.from === 'set' ? '' : ' dim'}`}
+                title={got.why}
               >
                 <I />
               </i>

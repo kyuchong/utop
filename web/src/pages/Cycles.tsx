@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { resolveMode, type ModeGot } from '@/lib/runMode'
 import { prefGet, prefSet, prefRemove } from '@/lib/prefs'
 import IdPill from '@/components/IdPill'
 import Markdown from '@/components/Markdown'
@@ -1328,22 +1329,10 @@ function CycleBoard({
   /** 플랜의 시험 방식 — **담긴 항목이 정한다**(결정).
       전부 자동이면 자동, 전부 수동이면 수동, 섞이면 비운다(혼합).
       사람이 표에서 고른 값이 있으면 **그것이 이긴다**(덮어쓰기). */
-  const modeOf = (c: CycleMeta): { v: string; from: 'set' | 'items' | 'none'; why: string } => {
-    const set = String((c as unknown as Record<string, unknown>).mode ?? '')
-    if (set) return { v: set, from: 'set', why: `${set} — 손으로 정한 값` }
-    const its = (c.items ?? []) as Array<{ tcid?: string }>
-    let a = 0
-    let m = 0
-    for (const it of its) {
-      if (!it.tcid) continue
-      if ((kindOfTc.get(String(it.tcid)) ?? '자동') === '수동') m++
-      else a++
-    }
-    if (!a && !m) return { v: '', from: 'none', why: '담긴 항목이 없습니다' }
-    if (m && !a) return { v: '수동', from: 'items', why: `수동 ${m}건 — 항목에서 정해집니다` }
-    if (a && !m) return { v: '자동', from: 'items', why: `자동 ${a}건 — 항목에서 정해집니다` }
-    return { v: '', from: 'items', why: `자동 ${a} · 수동 ${m} — 섞여 있습니다` }
-  }
+  /** 방식은 lib/runMode 한 곳에서 정한다 — Runs 와 같은 규칙이어야 한다 */
+  const modeOf = (c: CycleMeta): ModeGot =>
+    resolveMode((c as unknown as Record<string, unknown>).mode as string, c.items as Array<{ tcid?: string }>, kindOfTc)
+
 
   /* ══ 노션 꼴 표 — REQ-Coverage 와 **같은 부품**(지시) ══════════════
      열 정의·선택지·색·보이기 저장은 useNFields 한 곳에서 돈다. 두 벌로

@@ -12222,8 +12222,29 @@ async def api_plan_run_new(payload: dict):
             if k:
                 results[k] = "n"
 
+    # 방식(자동·수동)은 **만들 때 굳힌다.** 플랜이 나중에 바뀌어도 이미 돈
+    # 실행의 성격이 따라 바뀌면 안 된다 — 항목을 복사해 오는 것과 같은 뜻이다.
+    # 플랜에 손으로 정한 값이 먼저고, 없으면 담긴 항목에서 뽑는다.
+    mode = str(p.get("mode") or (plan or {}).get("mode") or "").strip()
+    if not mode and plan:
+        keys = [str((it or {}).get("tcid") or "").strip() for it in (plan.get("items") or [])]
+        keys = [k for k in keys if k]
+        if keys:
+            async with db.pool().acquire() as _c:
+                rows = await _c.fetch(
+                    "SELECT tcid, coalesce(nullif(kind,''), data->>'run_type', '자동') AS k"
+                    " FROM tc WHERE tcid = ANY($1::text[])",
+                    keys,
+                )
+            kind = {r["tcid"]: str(r["k"] or "자동") for r in rows}
+            n_man = sum(1 for k in keys if kind.get(k, "자동") == "수동")
+            n_auto = len(keys) - n_man
+            # 섞여 있으면 비운다 — 한쪽으로 우기면 반대쪽 화면이 안 열린다
+            mode = "수동" if (n_man and not n_auto) else ("자동" if (n_auto and not n_man) else "")
+
     item = {
         "id": rid,
+        "mode": mode,
         "plan_id": plan_id or None,
         "name": str(p.get("name") or "").strip() or rid,
         "version": str(p.get("version") or (plan or {}).get("version") or ""),

@@ -314,3 +314,5 @@
 .ntb-mi2.a { color: #1d61b5; }
 .ntb-mi2.m { color: #8a6111; }
 .ntb-mi2.dim { opacity: .45; }
+/* 방식이 섞여 있거나 알 수 없을 때 — 우기지 않고 가운뎃점만 찍는다 */
+.ntb-mi2.none { color: #b3c1c5; font-size: 13px; line-height: 1; }
