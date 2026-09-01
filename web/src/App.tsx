@@ -9,6 +9,7 @@ import { goto, onGoto as onGotoEvent, reflectUrl } from '@/api/goto'
 import Dashboard from '@/pages/Dashboard'
 import ReqTc from '@/pages/ReqTc'
 import Wiki from '@/pages/Wiki'
+import Releases from '@/pages/Releases'
 import Settings from '@/pages/Settings'
 import AiTc from '@/pages/AiTc'
 import Cycles from '@/pages/Cycles'
@@ -318,16 +319,9 @@ export default function App() {
       ) : page === 'settings' ? (
         <Settings />
       ) : page === 'releases' ? (
-        /* 아직 안 만든 화면. 「기존 화면에서 계속 사용할 수 있습니다」 라고
-           적어 두었는데 옛 화면이 없어져 **거짓말**이 되었다(지적). 무엇을
-           할 자리인지와 지금 어디를 쓰면 되는지를 적는다. */
-        <div className="empty">
-          <b>Releases — 준비 중입니다.</b>
-          <br />
-          버전별로 무엇이 들어갔고 어느 시험이 돌았는지 모아 볼 자리입니다.
-          <br />
-          지금은 <b>Cycles</b> 에서 버전을 골라 보실 수 있습니다.
-        </div>
+        /* Jira 버전별 이슈와 그 이슈를 덮는 시험 — 주신 목업의 노션 꼴 표.
+           자료는 이미 도는 서버 것을 그대로 쓴다(jira/* · release-summary). */
+        <Releases />
       ) : (
         /* 여기로 오면 안 된다 — 주소·기억에 모르는 이름이 들어온 것이다.
            벽을 세우느니 쓸 수 있는 화면을 낸다. */
