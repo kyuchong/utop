@@ -79,6 +79,7 @@ export default function TcEnv({ data, onChange, tcid }: Props) {
           {/* 스텝은 캡쳐로 만들어지는데 이 글은 여전히 손으로 써야 했다.
               스텝을 읽고 대신 쓰게 한다 — 반대 방향(목적 → 스텝)은 이미
               「AI 로 만들기」 가 하고 있다. */}
+          <span className="tc-ai">
           <LlmPick value={llm} onChange={setLlm} />
           <button
             className="btn small"
@@ -96,6 +97,7 @@ export default function TcEnv({ data, onChange, tcid }: Props) {
           >
             <span className={`ai-mark${askM.isPending ? ' on' : ''}`}>✨</span> AI
           </button>
+          </span>
         </div>
 
         {err && <div className="tc-err">{err}</div>}

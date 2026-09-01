@@ -272,17 +272,20 @@ export default function TcManual({ data, onChange, tcid = '' }: Props) {
           <span className="muted small">
             {idxs.length}개 · 사람이 읽고 따라 하는 절차입니다
           </span>
+          {/* 오른쪽으로 밀지 않는다 — Object 탭과 같은 자리(지시) */}
+          <span className="tc-ai">
+            <LlmPick value={llm} onChange={setLlm} />
+            <button
+              className="btn small"
+              type="button"
+              disabled={aiBusy || !tcid}
+              title="시험 목적과 자동 스텝을 읽고 수동 시험서 초안을 씁니다"
+              onClick={() => void askAi()}
+            >
+              <span className={`ai-mark${aiBusy ? ' on' : ''}`}>✨</span> AI
+            </button>
+          </span>
           <span className="sp" />
-          <LlmPick value={llm} onChange={setLlm} />
-          <button
-            className="btn small"
-            type="button"
-            disabled={aiBusy || !tcid}
-            title="시험 목적과 자동 스텝을 읽고 수동 시험서 초안을 씁니다"
-            onClick={() => void askAi()}
-          >
-            <span className={`ai-mark${aiBusy ? ' on' : ''}`}>✨</span> AI
-          </button>
           <button className="btn small" type="button" onClick={add}>
             ＋ 수동 스텝
           </button>

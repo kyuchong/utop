@@ -73,6 +73,17 @@
 }
 .tc-card-head .btn { margin-left: auto; }
 
+/* LLM 고르개와 AI 단추는 **한 덩어리**다(지시: 1번을 2번 자리로).
+   위 규칙이 줄 안의 단추를 오른쪽 끝으로 미는데, 이 둘만은 예외다 —
+   무엇으로 만들지 고르는 칸과 만드는 단추가 떨어져 있으면 둘이 한 짝인
+   줄 모른다. */
+.tc-ai {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tc-card-head .tc-ai .btn { margin-left: 0; }
+
 .tc-text {
   border: 1px solid #b6bec8;
   border-radius: var(--radius-sm);
