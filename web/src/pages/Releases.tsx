@@ -672,7 +672,9 @@ export default function Releases() {
     const m = new Map<string, string[]>()
     for (const [vn, arr] of byVer)
       for (const it of arr) {
-        const list = (it.tcs ?? []).map(tcidOf).filter(Boolean)
+        /* 이미 겹쳐 저장된 자료가 있다 — **그릴 때도 하나로** 본다.
+           고쳐 쓸 때 걷히지만, 그 전에도 두 줄로 보이면 안 된다. */
+        const list = [...new Set((it.tcs ?? []).map(tcidOf).filter(Boolean))]
         if (list.length) m.set(`${vn}|${String(it.key ?? '')}`, list)
       }
     return m
@@ -699,9 +701,22 @@ export default function Releases() {
   /** 이슈에 붙은 TC 를 고쳐 저장한다. 자료 모양은 옛 화면 그대로다 —
    *  `프로젝트@@버전` 안에 이슈키별 `{tcs:[…]}`. 읽은 것 **위에 얹어** 보낸다. */
   const saveTcs = useCallback(
-    async (ver: string, key: string, tcs: string[]) => {
+    /** 붙은 시험을 고친다.
+     *
+     *  **고칠 것은 「어떻게 바꿀지」 지 「바꾼 결과」 가 아니다.** 예전엔
+     *  화면이 들고 있던 목록(tcMap)에 더하거나 빼서 그 결과를 통째로
+     *  보냈다. 그 목록은 방금 저장한 것이 아직 안 돌아온 낡은 사본일 수
+     *  있어서 —
+     *    · 같은 번호가 두 번 붙고(E61xx_T0085 가 둘)
+     *    · 지운 것이 되살아났다(지적)
+     *
+     *  이제 **서버에서 갓 읽은 목록 위에서** 바꾼다. 겹친 번호도 그때
+     *  함께 걷는다 — 이미 둘이 된 자료도 다음 손질에서 하나가 된다. */
+    async (ver: string, key: string, edit: (cur: string[]) => string[]) => {
       const k = `${proj}@@${ver}`
       const cur = await readStore()
+      const had = ((cur[k]?.[key]?.tcs ?? []) as Array<LinkTc | string>).map(tcidOf).filter(Boolean)
+      const tcs = [...new Set(edit(had))]
       const next: Store = {
         ...cur,
         [k]: { ...(cur[k] ?? {}), [key]: { ...(cur[k]?.[key] ?? {}), key, tcs } },
@@ -752,8 +767,7 @@ export default function Releases() {
              칸도 그대로 남는다(main.py:save_tc). */
           jira_issue_key: key,
         })
-        const cur = tcMap.get(`${ver}|${key}`) ?? EMPTY
-        await saveTcs(ver, key, [...cur, tcid])
+        await saveTcs(ver, key, (had) => [...had, tcid])
         /* **시험 목록도 다시 읽는다.** 안 그러면 방금 만든 것이 그 목록에
            없어서, 팝업이 「없는 시험」 으로 보고 목록 화면으로 되돌린다
            (TestCases 의 openId 확인). 세 화면이 각자 목록을 들고 있다. */
@@ -772,15 +786,14 @@ export default function Releases() {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mine, making, tcMap, saveTcs, qc],
+    [mine, making, saveTcs, qc],
   )
   const openDetail = useCallback((key: string) => setDetail(key), [])
   const dropTc = useCallback(
     (ver: string, key: string, tcid: string) => {
-      const cur = tcMap.get(`${ver}|${key}`) ?? EMPTY
-      void saveTcs(ver, key, cur.filter((x) => x !== tcid))
+      void saveTcs(ver, key, (had) => had.filter((x) => x !== tcid))
     },
-    [tcMap, saveTcs],
+    [saveTcs],
   )
 
   const err = projQ.data?.error || verQ.data?.error
@@ -1075,7 +1088,8 @@ export default function Releases() {
           tcs={tcQ.data?.tcs ?? []}
           onClose={() => setAddTo(null)}
           onSave={async (next) => {
-            await saveTcs(addTo.ver, addTo.key, next)
+            /* 고르개는 「이것들로 해 줘」 라고 말한다 — 그대로 놓는다 */
+            await saveTcs(addTo.ver, addTo.key, () => next)
             setAddTo(null)
           }}
         />
@@ -1089,8 +1103,7 @@ export default function Releases() {
           editing={null}
           presetName={newTo.summary}
           onCreated={(tcid) => {
-            const cur = tcMap.get(`${newTo.ver}|${newTo.key}`) ?? EMPTY
-            void saveTcs(newTo.ver, newTo.key, [...cur, tcid])
+            void saveTcs(newTo.ver, newTo.key, (had) => [...had, tcid])
               .then(() => qc.invalidateQueries({ queryKey: ['tc-meta-rls'] }))
               .then(() => setTcOpen(tcid))
           }}
