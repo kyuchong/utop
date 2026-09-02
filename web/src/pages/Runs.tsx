@@ -179,6 +179,7 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
       { key: 'fails', label: '결함', type: 'number', width: w('fails', 56) },
       { key: 'prg', label: '진행', type: 'text', width: w('prg', 80) },
       { key: 'state', label: '상태', type: 'text', width: w('state', 72) },
+      { key: 'period', label: '기간', type: 'text', width: w('period', 150) },
       { key: 'owner', label: '담당자', type: 'person', width: w('owner', 84) },
       { key: 'created', label: '생성', type: 'text', width: w('created', 96) },
       { key: 'closed', label: '종료', type: 'text', width: w('closed', 96) },
@@ -239,7 +240,17 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
           model_group: String(p?.model_group ?? meta.model_group ?? ''),
           model: String(p?.model ?? meta.model ?? ''),
           device: dut ? (others > 0 ? `${dut} 외 ${others}` : dut) : '',
-          type: String((p as unknown as Record<string, unknown> | undefined)?.type ?? ''),
+          /* 유형은 **실행 제 것이 먼저**다(만들 때 골랐다). 플랜 것을 그대로
+             읽으면 플랜을 고칠 때 이미 돈 실행의 성격까지 따라 바뀐다. */
+          type: String(
+            meta.type ?? (p as unknown as Record<string, unknown> | undefined)?.type ?? '',
+          ),
+          /* 시험 기간 — 「언제까지 하기로 했나」. 실제로 돌린 시각(생성·종료)과
+             다르다. 만들기 창에서 넣은 값이 여기 선다. */
+          period:
+            r.start_date || r.end_date
+              ? `${String(r.start_date ?? '').slice(0, 10) || '–'} ~ ${String(r.end_date ?? '').slice(0, 10) || '–'}`
+              : '',
           cases: String(r.n_total),
           fails: String(r.n_fail),
           prg: r.n_total ? `${Math.round((done / r.n_total) * 100)}%` : '',
@@ -463,7 +474,7 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
           }}
           readOnlyKeys={[
             'id', 'plan', 'mode', 'version_group', 'version', 'customer', 'family',
-            'model_group', 'model', 'device', 'type', 'cases', 'fails',
+            'model_group', 'model', 'device', 'type', 'period', 'cases', 'fails',
             'prg', 'state', 'created', 'closed',
           ]}
           idKey="id"

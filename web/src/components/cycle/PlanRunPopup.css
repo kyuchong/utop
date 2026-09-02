@@ -134,3 +134,5 @@
 .cyrp-btn.pri { background: #1f6f5c; border-color: #1f6f5c; color: #fff; }
 .cyrp-btn.pri:hover { background: #1a5d4d; }
 .cyrp-btn:disabled { opacity: 0.5; cursor: default; }
+/* 어긋난 값 알림 — 종료가 시작보다 빠를 때 */
+.cyrp-fld em.bad { color: #d43f5f; font-weight: 700; }

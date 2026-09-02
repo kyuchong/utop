@@ -69,6 +69,8 @@ export interface CycleMeta {
   assignee?: string | null
   start_date?: string | null
   end_date?: string | null
+  /** 유형 — 설정의 cycle_type 코드(표준항목·회귀…). 표에서 고른다 */
+  type?: string | null
   _item_count?: number
   _updated_at_pg?: string | null
   _created_at_pg?: string | null

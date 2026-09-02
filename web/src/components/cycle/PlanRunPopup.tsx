@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import RunDetail from '@/components/run/RunDetail'
+import { useCodes } from '@/hooks/useCodes'
 import type { CycleMeta } from '@/pages/Cycles'
 import './PlanRunPopup.css'
 
@@ -97,7 +99,33 @@ export function MakePlanRun({
   /** 버전그룹 — 버전명을 치면 첫 마디가 따라 들어온다(서버와 같은 규칙) */
   const [vg, setVg] = useState('')
   const [name, setName] = useState('')
+  /** 담당자 — 비면 이 실행을 만든 사람. Runs 목록의 「담당자」 칸이 이 값이다 */
+  const [who, setWho] = useState(owner)
+  /** 유형 — 플랜의 것을 물려받되 이 실행에서 바꿀 수 있다(표준항목·회귀…) */
+  const [type, setType] = useState(String(plan.type ?? ''))
+  /** 시험 기간 — 실제로 언제 돌았나(started_at)와 다르다. 「언제까지 하기로
+   *  했나」 이고, 플랜의 기간을 물려받는다. */
+  const [sd, setSd] = useState(String(plan.start_date ?? ''))
+  const [ed, setEd] = useState(String(plan.end_date ?? ''))
   const [busy, setBusy] = useState(false)
+
+  /** 담당 고를 이름들 — 온 화면이 쓰는 그 목록이다(퇴사자는 서버가 뺀다).
+   *  공용 고르개(AssigneePicker)는 창보다 아래(z-index 60)에 서서 이 창
+   *  뒤로 숨는다 — 여기서는 같은 자료를 고르개 한 줄로 낸다. */
+  const nameQ = useQuery({
+    queryKey: ['user-names'],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch('/api/user-names')
+      if (!r.ok) return { names: [] as Array<{ name: string; org: string }> }
+      return (await r.json()) as { names?: Array<{ name: string; org: string }> }
+    },
+  })
+  const people = useMemo(
+    () => [...new Set((nameQ.data?.names ?? []).map((x) => String(x.name ?? '')).filter(Boolean))],
+    [nameQ.data],
+  )
+  const TYPES = useCodes('cycle_type', ['표준항목'])
 
   const models = useMemo(
     () => catalog
@@ -128,7 +156,13 @@ export function MakePlanRun({
           model: mdl,
           version: ver,
           version_group: vg,
-          owner,
+          owner: who,
+          start_date: sd,
+          end_date: ed,
+          /* 유형은 실행이 제 것으로 들고 간다. 플랜의 유형을 그대로 읽으면
+             플랜을 나중에 고칠 때 이미 돈 실행의 성격까지 따라 바뀐다 —
+             항목을 복사해 오는 것과 같은 까닭이다. */
+          meta: { type },
           name: name.trim() || `${plan.name ?? plan.cid ?? plan.id} · ${ver}`.trim(),
         }),
       })
@@ -154,6 +188,26 @@ export function MakePlanRun({
           <label className="cyrp-fld">
             <span>제목</span>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="비우면 「플랜 · 버전」" />
+          </label>
+          <label className="cyrp-fld">
+            <span>담당자</span>
+            <select value={who} onChange={(e) => setWho(e.target.value)}>
+              <option value="">(안 정함)</option>
+              {people.map((n) => (
+                <option key={n}>{n}</option>
+              ))}
+              {!!who && !people.includes(who) && <option value={who}>{who}</option>}
+            </select>
+          </label>
+          <label className="cyrp-fld">
+            <span>유형</span>
+            <select value={type} onChange={(e) => setType(e.target.value)}>
+              <option value="">(안 정함)</option>
+              {TYPES.map((t) => (
+                <option key={t}>{t}</option>
+              ))}
+              {!!type && !TYPES.includes(type) && <option value={type}>{type}</option>}
+            </select>
           </label>
           <label className="cyrp-fld">
             <span>모델그룹</span>
@@ -214,6 +268,16 @@ export function MakePlanRun({
                 다시 돌릴 때는 이 값을 보고 그대로 적으면 된다. */}
             {!!plan.version && <em>플랜의 버전은 {plan.version} 입니다</em>}
           </label>
+          <label className="cyrp-fld">
+            <span>시작</span>
+            <input type="date" value={sd} onChange={(e) => setSd(e.target.value)} />
+          </label>
+          <label className="cyrp-fld">
+            <span>종료</span>
+            <input type="date" value={ed} onChange={(e) => setEd(e.target.value)} />
+            {/* 언제까지 하기로 했나다 — 실제로 돌린 시각(경과)과는 다르다 */}
+            {!!sd && !!ed && ed < sd && <em className="bad">종료가 시작보다 빠릅니다</em>}
+          </label>
         </div>
         <footer>
           <span className="cyrp-note2">만들면 Runs 로 갑니다</span>
@@ -221,7 +285,7 @@ export function MakePlanRun({
           <button type="button" className="cyrp-btn" onClick={onClose}>
             취소
           </button>
-          <button type="button" className="cyrp-btn pri" disabled={busy || !ver.trim()} onClick={() => void save()}>
+          <button type="button" className="cyrp-btn pri" disabled={busy || !ver.trim() || (!!sd && !!ed && ed < sd)} onClick={() => void save()}>
             {busy ? '만드는 중…' : '＋ 실행 만들기'}
           </button>
         </footer>
