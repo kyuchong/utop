@@ -236,7 +236,8 @@ export default function Runs({ me }: { me?: { username?: string; name?: string; 
           version_group: String(r.version_group ?? ''),
           version: String(r.version ?? ''),
           customer: String(p?.customer ?? meta.customer ?? ''),
-          family: String(p?.family ?? meta.family ?? ''),
+          /* 제품군도 유형과 같다 — 만들 때 고른 실행 제 값이 먼저다 */
+          family: String(meta.family ?? p?.family ?? ''),
           model_group: String(p?.model_group ?? meta.model_group ?? ''),
           model: String(p?.model ?? meta.model ?? ''),
           device: dut ? (others > 0 ? `${dut} 외 ${others}` : dut) : '',

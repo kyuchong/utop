@@ -76,7 +76,7 @@ export function MakePlanRun({
 }: {
   plan: CycleMeta
   /** 장비 카탈로그 — 모델그룹·모델명을 손으로 치면 표기가 갈린다 */
-  catalog: Array<{ kind?: string; name?: string; model_group?: string | null }>
+  catalog: Array<{ kind?: string; name?: string; model_group?: string | null; family?: string | null }>
   owner: string
   onClose: () => void
   onMade: (runId: string) => void
@@ -95,6 +95,10 @@ export function MakePlanRun({
    *  그대로 지난 버전으로 만들어졌다. 실행을 새로 뜨는 까닭은 대개
    *  「빌드가 새로 나와서」 다 — 그 값만은 사람이 적어야 한다.
    *  빈 값이면 만들기 단추가 안 눌린다(아래 disabled). */
+  /** 제품군 — 모델명에서 따라온다. 카탈로그가 정본이라 손으로 치면
+   *  표기가 갈린다(L3 · L3 스위치 …). 손대기 전까지만 따라온다. */
+  const [fam, setFam] = useState(String(plan.family ?? ''))
+  const [famTouched, setFamTouched] = useState(false)
   const [ver, setVer] = useState('')
   /** 버전그룹 — 버전명을 치면 첫 마디가 따라 들어온다(서버와 같은 규칙) */
   const [vg, setVg] = useState('')
@@ -136,6 +140,24 @@ export function MakePlanRun({
     [catalog, mg],
   )
 
+  /** 카탈로그에 있는 제품군들 */
+  const families = useMemo(
+    () => [...new Set(catalog.filter((x) => x.kind === 'model').map((x) => String(x.family ?? '')))]
+      .filter(Boolean)
+      .sort((a2, b2) => a2.localeCompare(b2, undefined, { numeric: true })),
+    [catalog],
+  )
+  /** 모델명 → 제품군. 모델을 고르면 제품군이 따라온다 */
+  const famOf = useMemo(
+    () => new Map(catalog.filter((x) => x.kind === 'model').map((x) => [String(x.name ?? ''), String(x.family ?? '')])),
+    [catalog],
+  )
+  useEffect(() => {
+    if (famTouched) return
+    const f = famOf.get(mdl)
+    if (f) setFam(f)
+  }, [mdl, famOf, famTouched])
+
   /* 버전 이름을 고치면 버전그룹도 따라간다 — 사람이 따로 손대기 전까지만.
      R100_2026_09_02 를 치면 폴더는 R100 이 되는 것이 자연스럽다. */
   const [vgTouched, setVgTouched] = useState(false)
@@ -162,7 +184,7 @@ export function MakePlanRun({
           /* 유형은 실행이 제 것으로 들고 간다. 플랜의 유형을 그대로 읽으면
              플랜을 나중에 고칠 때 이미 돈 실행의 성격까지 따라 바뀐다 —
              항목을 복사해 오는 것과 같은 까닭이다. */
-          meta: { type },
+          meta: { type, family: fam },
           name: name.trim() || `${plan.name ?? plan.cid ?? plan.id} · ${ver}`.trim(),
         }),
       })
@@ -207,6 +229,22 @@ export function MakePlanRun({
                 <option key={t}>{t}</option>
               ))}
               {!!type && !TYPES.includes(type) && <option value={type}>{type}</option>}
+            </select>
+          </label>
+          <label className="cyrp-fld">
+            <span>제품군</span>
+            <select
+              value={fam}
+              onChange={(e) => {
+                setFamTouched(true)
+                setFam(e.target.value)
+              }}
+            >
+              <option value="">(안 고름)</option>
+              {families.map((f) => (
+                <option key={f}>{f}</option>
+              ))}
+              {!!fam && !families.includes(fam) && <option value={fam}>{fam} (목록에 없음)</option>}
             </select>
           </label>
           <label className="cyrp-fld">
