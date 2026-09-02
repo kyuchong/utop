@@ -464,23 +464,48 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
   const openRunOf = async (planId: string) => {
     if (!planId) return
     try {
+      /* **「▶ 실행」 은 플랜을 기준으로 한다**(지시).
+         실행은 만들 때 항목을 복사해 굳는다(그래야 지난 결과가 안 흔들린다).
+         그래서 지난 실행을 그냥 열면, 플랜에서 자동 항목을 빼고 수동으로
+         채운 뒤에도 옛 자동 항목이 그대로 나온다(지적).
+         지난 실행이 **지금 플랜과 같은 항목**을 담고 있을 때만 다시 연다.
+         다르면 지금 플랜으로 새로 뜬다 — 지난 실행은 그대로 남는다. */
+      const p = cycles.find((c) => c.id === planId)
+      const want = [...new Set(((p?.items ?? []) as Array<{ tcid?: string }>)
+        .map((x) => String(x?.tcid ?? '').trim()).filter(Boolean))].sort()
+      /* 담긴 항목이 없으면 만들지 않는다 — 돌릴 것이 없는 실행만 목록에
+         쌓이고, 사람은 왜 아무 일도 안 일어났는지 알 수 없다. */
+      if (!want.length) {
+        window.alert('이 플랜에는 시험 항목이 없습니다 — 「시험 항목」 탭에서 먼저 담으세요')
+        return
+      }
       const r = await apiFetch(`/api/plan-runs?plan_id=${encodeURIComponent(planId)}`)
       const j = r.ok ? ((await r.json()) as { runs?: Array<{ id: string }> }) : { runs: [] }
       const got = (j.runs ?? [])[0]
       if (got) {
-        setRunPop({ run: got.id, plan: planId })
-        return
-      }
-      /* **실행이 하나도 없으면 지금 담긴 항목으로 하나 뜬다**(지시).
-         여기서는 버전을 묻지 않는다 — 「이 플랜을 돌려 보자」 가 뜻이고,
-         그 플랜이 가리키는 빌드가 곧 버전이다. 다른 빌드로 돌리려고
-         만드는 것은 「＋ 실행 만들기」 쪽 일이라 거기서만 묻는다. */
-      const p = cycles.find((c) => c.id === planId)
-      /* 담긴 항목이 없으면 만들지 않는다 — 돌릴 것이 없는 실행만 목록에
-         쌓이고, 사람은 왜 아무 일도 안 일어났는지 알 수 없다. */
-      if (!(p?.items ?? []).length) {
-        window.alert('이 플랜에는 시험 항목이 없습니다 — 「시험 항목」 탭에서 먼저 담으세요')
-        return
+        /* 목록 응답에는 담긴 항목이 없다(건수만 준다) — 가장 최근 것 하나만
+           펴 본다. 한 번 더 묻는 값이 「옛 항목이 나온다」 를 막는다. */
+        let same = false
+        try {
+          const d = await apiFetch(`/api/plan-runs/${encodeURIComponent(got.id)}`)
+          if (d.ok) {
+            const dj = (await d.json()) as {
+              items?: Array<{ tcid?: string }>
+              results?: Record<string, unknown>
+            }
+            const has = [...new Set([
+              ...((dj.items ?? []).map((x) => String(x?.tcid ?? '').trim())),
+              ...Object.keys(dj.results ?? {}),
+            ].filter(Boolean))].sort()
+            same = has.length === want.length && has.every((k, i) => k === want[i])
+          }
+        } catch {
+          /* 못 읽었으면 같다고 우기지 않는다 — 새로 뜨는 편이 안전하다 */
+        }
+        if (same) {
+          setRunPop({ run: got.id, plan: planId })
+          return
+        }
       }
       const mk = await apiFetch('/api/plan-runs', {
         method: 'POST',
