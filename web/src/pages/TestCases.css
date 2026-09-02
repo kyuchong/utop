@@ -14,8 +14,7 @@
 
 /* 이 화면 안에서만 쓰는 값. 전역 테마(theme.css)는 건드리지 않는다 —
    좋다고 판단되면 그때 전역으로 옮긴다. 래퍼를 새로 두면 기존 flex 배치가
-   한 겹 깊어지므로, 쓰는 두 곳에 직접 건다. */
-.tc-bar,
+   한 겹 깊어지므로,
 .tc-split {
   --tc-r: 6px;
   /* 판 바탕은 **흰색**이다. #fbfcfd 는 회색 바탕 위에서 고른 값이라,
@@ -28,30 +27,6 @@
   /* 줄 구분선. 테두리색보다 더 옅어야 '선을 그었다'는 느낌이 안 난다 —
      있는 줄 모르지만 없으면 눈이 옆줄로 새는 정도. */
   --tc-div: #f0f3f6;
-}
-
-/* ── 상단 한 줄 ───────────────────────────────────────────── */
-.tc-bar-unused {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: var(--sp-2) 0;
-  min-height: 44px;
-}
-
-.tc-bar .sp { margin-left: auto; }
-
-.tc-bar-ttl {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  margin-left: var(--sp-2);
-}
-
-.tc-bar-ttl b {
-  font-size: var(--fs-lg);
-  font-weight: 600;
 }
 
 /* ⋯ 메뉴 */
@@ -207,23 +182,6 @@
 .tc-split .tc-listcol { background: var(--tc-bg); }
 .tc-split .tc-detcol { background: var(--tc-bg); }
 
-.tc-col-head {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: 9px var(--sp-3) 5px;
-}
-
-.tc-col-head .panel-name {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-right: auto;
-  /* 요구사항 화면의 .panel-name 과 같은 모양이어야 한다. 여기만 작은
-     대문자로 두었더니 화면을 옮길 때 글자 크기가 바뀌어 보였다. */
-  font-weight: 700;
-}
-
 /* ── 1열: 폴더 · 요구사항 · TC 트리 ─────────────────────────
    트리 자체(폴더·요구사항 줄)는 요구사항 화면의 ReqTree.css 를 그대로 쓴다.
    여기서 다시 정하면 두 화면을 오갈 때 같은 것이 달라 보인다.
@@ -277,7 +235,6 @@
   line-height: 15px;
   text-align: center;
 }
-
 
 /* ── 2열: 실행 바 + 스텝 ─────────────────────────────────── */
 /*
@@ -2481,7 +2438,6 @@ table.tb tr.r-bad td:first-child {
 /* 아이콘과 ID 사이가 벌어져 보였다 — 격자 사이 간격이 아이콘에도 그대로
    붙어서다. 아이콘 뒤만 좁힌다. */
 
-
 /* Shift+누르기가 글자 선택으로도 잡힌다 — 트리에서는 막는다 */
 .tt-row,
 .tt-tc {
@@ -2501,12 +2457,6 @@ table.tb tr.r-bad td:first-child {
 .sd-f > .pk {
   grid-column: 2;
 }
-
-/* ── 머리줄을 칸 안으로 ──
-   위쪽 전체 폭에 제목과 탭을 나란히 두었더니 「무엇을 보고 있나」 와
-   「이 칸이 무엇을 보여주나」 가 화면 양끝으로 갈라졌다. 각자 제 칸으로
-   들어간다. */
-.tc-seqhead,
 /*
  * 탭 줄은 **한 줄**이다.
  *
@@ -2532,7 +2482,6 @@ table.tb tr.r-bad td:first-child {
   overflow: visible;
   white-space: nowrap;
 }
-.tc-seqhead .sp,
 .tc-dethead .sp { margin-left: auto; }
 
 /* 화면 전체의 알림. 전에는 「스텝을 골랐을 때 뜨는 띠」 안에만 있어서
@@ -2562,7 +2511,6 @@ table.tb tr.r-bad td:first-child {
   font-size: 12px;
   white-space: nowrap;
 }
-.tc-seqhead b { font-size: var(--fs-md); }
 .tc-dethead .btn { flex: none; }
 
 /* ── 오른쪽은 늘 한 칸 ──
@@ -2638,9 +2586,7 @@ table.tb tr.r-bad td:first-child {
    않는다. 모서리를 둥글게 자르는 `overflow: hidden` 은 그대로 둔다. */
 .tc-colh .tc-more { position: relative; }
 
-/* 제목은 탭 왼쪽. 줄을 따로 쓰면 그만큼 목록이 줄고, 「무엇을 보고 있나」
-   와 「그것의 무엇을 보나」 는 나란히 있는 편이 읽힌다. */
-.tc-dethead .tc-bar-ttl {
+/* 제목은 탭 왼쪽. 줄을 따로 쓰면 그만큼 목록이 줄고{
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
@@ -2648,7 +2594,6 @@ table.tb tr.r-bad td:first-child {
   white-space: nowrap;
   margin-right: 6px;
 }
-.tc-dethead .tc-bar-ttl b { font-size: var(--fs-md); }
 
 /* ── 전역 파라미터 고르기 창 ──
    칸 옆에 목록을 띄우면 파일이 여럿이고 값이 수십 개일 때 이름만 보고
@@ -2853,17 +2798,6 @@ table.tb tr.r-bad td:first-child {
   /* 칸 사이는 최소로(지시) — 이름이 그만큼 넓어진다. 폭은 열이 이미 진다 */
   column-gap: 3px;
 }
-.tc-req {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-}
-.tc-req > span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 /* 빵부스러기의 요구사항 — 폴더(흐린 글자)와 시험 이름(굵게) 사이 */
 .tc-crumb-req { color: var(--c-primary); }
@@ -2876,30 +2810,7 @@ table.tb tr.r-bad td:first-child {
   margin: 0 4px;
   background: var(--c-border);
 }
-
-/* REQ Map — 붙이기 단추와 몇 개 붙었나 */
-.tc-map { display: flex; align-items: center; gap: 7px; }
-.tc-mapn {
-  font-size: var(--fs-xs);
-  color: var(--c-text-faint);
-  min-width: 14px;
-}
-.tc-mapn.has { color: var(--c-pass, #1f7a45); font-weight: 700; }
-
-
-/* ── List 보기 — 요구사항 화면과 **같은 부품·같은 여백**을 쓴다.
-   여기서 따로 값을 주면 두 화면이 또 어긋난다. 다른 것은 열 구성뿐이다. */
-.tc-listview {
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 0;
-}
-/* 머리줄만 1열(.lh, 46px)과 높이를 맞춘다 */
-.tc-listhead {
+/* 머리줄만 1열(.lh{
   flex: none;
   display: flex;
   align-items: center;
@@ -2908,24 +2819,6 @@ table.tb tr.r-bad td:first-child {
   box-sizing: border-box;
   padding: 0 var(--sp-4);
   border-bottom: 1px solid var(--c-border);
-}
-/* 그 아래는 요구사항의 .rq-list 규칙(padding·gap)이 그대로 먹는다.
-   90건이라 표만 스크롤시킨다 — 머리 행은 붙여 둔다. */
-.tc-listview .rq-list { overflow: hidden; }
-.tc-listview .rq-table {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  /* 테두리 1px 이 첫 줄을 아래로 밀어 1열과 어긋나게 한다. 줄마다 제
-     구분선이 있으니 테두리는 없어도 표로 읽힌다. */
-  border: 0;
-  border-radius: 0;
-}
-.tc-listview .rq-tr.rq-th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  min-height: var(--row-h);
 }
 
 /*
@@ -2936,25 +2829,10 @@ table.tb tr.r-bad td:first-child {
  * 처음부터 12px 어긋난 채 나란히 내려갔다 — 어느 줄이 어느 줄인지
  * 눈으로 이어 볼 수가 없다.
  *
- * 그래서 2열도 같은 가락으로 끊는다. 일 줄이 머리(46px)를 맡고, 12px
- * 을 띄운 뒤로는 전부 26px 이다. 그러면 두 칸의 선이 같은 높이에서
- * 만난다.
- */
-.tc-listview > .rq-list {
+ * 그래서 2열도 같은 가락으로 끊는다. 일 줄이 머리(46px)를 맡고{
   padding: 0;
   gap: 0;
 }
-.tc-listview .rq-selbar {
-  flex: none;
-  margin-top: 12px;
-  min-height: var(--row-h);
-  box-sizing: border-box;
-  padding: 0 var(--row-px);
-}
-/* 바닥 상태 줄은 **세 화면이 같은 높이**여야 한다 — 여기만 0 이라 18px 로
-   눌려 있었다(요구사항·플랜은 30px). colbot 값을 그대로 쓴다. */
-.tc-listview .bottom { flex: none; margin-top: 0; padding: 6px 10px; }
-
 
 /* ── 요구사항 검색 콤보 (Info 탭) ── */
 .req-combo { position: relative; }
@@ -2991,19 +2869,6 @@ table.tb tr.r-bad td:first-child {
 .req-combo-list button.on { background: var(--c-primary-bg); color: var(--c-primary); font-weight: 700; }
 .req-combo-list button.muted { color: var(--c-text-faint); }
 
-
-/* Info 기본란 — ID(좁게) + 제목(넓게) 두 줄 */
-.tc-grid-idt {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 10px 12px;
-}
-.tc-grid-idt input[readonly] {
-  background: var(--c-surface-alt);
-  color: var(--c-text-muted);
-  cursor: default;
-}
-
 /* ── 표 인라인 세부 — 행 사이에 Detail 판이 통째로 펼쳐진다 ────────
    행과 인라인이 한 몸처럼 붙되, 경계는 확실해야 한다: 파란 왼줄 +
    테두리 + 그림자. 절차 줄들이 이 테 안에 있다는 것이 한눈에 갈린다. */
@@ -3015,63 +2880,6 @@ table.tb tr.r-bad td:first-child {
 /* 펼쳐도 행은 제자리 — 밀리는 것(왼줄·여백·굵기)은 하나도 안 얹는다.
    색만 바꾼다. 테두리·왼줄은 아래 인라인 판이 갖는다. */
 .rq-tr.tc-tr.expanded { background: var(--c-primary-bg); }
-.tc-inline {
-  border: 1px solid var(--c-border);
-  border-left: 3px solid var(--c-primary);
-  border-radius: 0 0 8px 8px;
-  background: var(--c-surface);
-  box-shadow: 0 4px 12px rgb(15 23 42 / 0.08);
-  padding: 6px 8px 10px;
-  margin: 0 0 8px;
-}
-/* 머리줄은 알림(함께 보는 중·저장 종·충돌)이 있을 때만 자리를 갖는다 —
-   저장·탭이 레일로 간 뒤 평소엔 빈 띠였다. sp(밀개)만 있으면 없는 줄. */
-.tc-inline .tc-dethead { padding: 0; margin: 0; border: 0; min-height: 0; }
-.tc-inline .tc-dethead:has(> :not(.sp)) {
-  padding: 4px 2px 8px;
-  border-bottom: 1px solid var(--c-border-soft);
-  margin-bottom: 8px;
-}
-.tc-inline-body {
-  display: flex;
-  height: 66vh;
-  min-height: 420px;
-}
-.tc-inline-body > * { flex: 1; min-width: 0; min-height: 0; }
-.tc-inline-body .panel { overflow: auto; }
-
-/* 아이콘 = 펼침 단추 — 누르는 것이니 누르게 생겨야 한다: 큼직한 캐럿과
-   넉넉한 판, 올리면 파랗게 */
-.tc-exp {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  padding: 3px 6px 3px 4px;
-  cursor: pointer;
-  color: inherit;
-}
-.tc-exp:hover {
-  background: var(--c-primary-bg);
-  border-color: #b9d4f5;
-}
-.tc-exp.on { background: var(--c-primary-bg); }
-/* 캐럿 자체는 트리의 .rt-caret 를 그대로 입는다(ReqTree.css). 여기서는
-   열림 색만 얹는다 — 회전은 .rt-caret.open svg 규칙이 이미 한다. */
-.tc-expcaret.open { color: var(--c-primary); }
-.tc-exp:hover .rt-caret { color: var(--c-primary); }
-
-/* List 도구줄의 ⋯ 이 오른끝(3번 자리)으로 가게 */
-.tc-listhead .rq-actions { width: 100%; }
-.tc-listhead .rq-actions .sp { flex: 1; }
-/* 도구줄 단추 — 플랜·요구사항과 같은 반 발짝 작게(26px).
-   여기만 기본 크기(31px)라 세 화면 버튼이 달라 보였다(피드백). */
-.tc-listhead .rq-actions .btn {
-  padding: 5px 12px;
-  font-size: var(--fs-sm);
-}
 
 /* ── 탭 레일 — 세부 왼쪽의 세로 탭 ──────────────────────────── */
 .tc-withrail {
@@ -3109,43 +2917,7 @@ table.tb tr.r-bad td:first-child {
   cursor: pointer;
 }
 .tc-colpop label:hover { color: var(--c-primary); }
-.tc-coldef { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--c-border-soft); font-size: var(--fs-xs); text-align: left; }
-
-/* 표 검색 — Select All 줄 가운데를 다 쓴다 */
-.tc-listq {
-  flex: 1;
-  min-width: 160px;
-  margin-left: 10px;
-  padding: 5px 10px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  font: inherit;
-  font-size: var(--fs-sm);
-}
-/* ⚙ — 표 바로 위 오른끝, 눈에 들어오는 크기 */
-.tc-gear {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 8px;
-}
-.tc-gear svg { width: 16px; height: 16px; }
-/* 열 팝오버 — 끌 손잡이 */
-.tc-colgrip { color: var(--c-text-faint); cursor: grab; font-size: 11px; }
 .tc-colpop label[draggable] { user-select: none; }
-/* 머리의 값 필터 — 고르기 전엔 머리글처럼, 고르면 파랗게 */
-.tc-colf {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-size: var(--fs-xs);
-  color: var(--c-text-faint);
-  cursor: pointer;
-  padding: 0;
-}
-.tc-colf.on { color: var(--c-primary); font-weight: 800; }
 
 /* Bulk Edit — 값 항목이 늘어 세로를 크게 쓴다 */
 .modal.bk {
@@ -3177,14 +2949,6 @@ table.tb tr.r-bad td:first-child {
   border-radius: var(--radius-sm);
   background: var(--c-surface);
 }
-
-/* 머리글 드래그 — 열 자리 바꾸기 (⚙ 의 ⠿ 와 같은 문법) */
-.tc-thdrag { display: flex; align-items: center; gap: 3px; min-width: 0; cursor: grab; }
-.tc-thdrag .tc-colgrip { opacity: 0.4; flex: none; }
-.tc-thdrag > select { min-width: 0; flex: 1; }
-
-/* 세션 없는 자동 시험 경고 — 돌릴 수 없는 항목이 목록에서 보인다 */
-.tc-nosess { color: #d97706; font-size: var(--fs-sm); margin-left: 4px; cursor: help; }
 
 /* Bulk Edit 세션 칩 — S 번호 + 장비. 자리 순서가 곧 S1·S2 */
 .bk-sess { flex-wrap: wrap; }
@@ -3457,27 +3221,6 @@ table.tb tr.r-bad td:first-child {
   min-height: 0;
 }
 
-/* 목록과 실행 로그 사이의 손잡이 — 얇게 두고, 잡으면 드러난다 */
-.tc-vsplit {
-  flex: none;
-  height: 7px;
-  cursor: ns-resize;
-  background: transparent;
-  position: relative;
-}
-.tc-vsplit::before {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: 2px;
-  width: 44px;
-  height: 3px;
-  margin-left: -22px;
-  border-radius: 999px;
-  background: var(--c-border);
-}
-.tc-vsplit:hover::before { background: var(--c-primary); }
-
 /* 목록은 남는 높이를 먹고 제 안에서 구른다 — 로그는 손잡이가 준 만큼 */
 .railsec[data-sec='steps'] .tc-seqcol { display: flex; flex-direction: column; min-height: 0; }
 .railsec[data-sec='steps'] .tc-seqcol > .sq { flex: 1; min-height: 0; }
@@ -3548,52 +3291,8 @@ table.tb tr.r-bad td:first-child {
   min-height: 0;
   overflow: auto;
 }
-
-/* 최근 결과 — 플랜 목록의 결과 배지와 같은 꼴 */
-.tc-lastres { display: flex; align-items: center; }
-.tc-lrchip {
-  padding: 1px 7px;
-  border-radius: 999px;
-  font-size: var(--fs-xs);
-  font-weight: 700;
-  /* 폭 한 값(지시) — Pass 와 Fail 이 글자 수대로 제각각이면 열이 들쭉하다 */
-  width: 56px;
-  text-align: center;
-  box-sizing: border-box;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 붙어 있는 요구사항으로 건너뛰는 길 — 목록 칸과 Info 칸, 빵부스러기 */
-.tc-reqgo {
-  color: var(--c-primary);
-  text-decoration: none;
-  font-size: var(--fs-xs);
-  white-space: nowrap;
-}
-.tc-reqgo:hover { text-decoration: underline; }
-.tc-map .tc-reqgo { margin-right: 6px; }
 .tc-crumb-go { margin-left: 4px; color: var(--c-primary); text-decoration: none; }
 .tc-crumb-go:hover { text-decoration: underline; }
-/* 요구사항 번호 — 칸처럼 서 있되 **번호 자체가 링크**다(지시).
-   테두리를 옅게 남겨 다른 칸들과 줄이 맞는다. */
-.tc-reqid-link {
-  display: flex;
-  align-items: center;
-  min-height: 30px;
-  padding: 4px 10px;
-  border: 1px solid var(--c-border-soft);
-  border-radius: var(--radius-sm);
-  background: var(--c-surface-soft, #fbfcfd);
-  color: var(--c-primary);
-  font-size: var(--fs-sm);
-  text-decoration: none;
-}
-.tc-reqid-link:hover { text-decoration: underline; border-color: var(--c-primary); }
-
-/* 아래로 채우기 — 우클릭(지시). 칸은 고르개가 그대로 다 쓴다 */
-.tc-fill { display: block; width: 100%; min-width: 0; }
 
 /* ══ 시험항목 2열 — 판 + Monday 표 (승인) ══ */
 html .split.tc-split { padding-top: 0; margin-right: -12px; margin-left: -12px; }
@@ -3603,67 +3302,7 @@ html .tc-split > .panel.tc-listcol {
   border-right: 1px solid var(--c-border);   /* 1열·2열 사이는 이 선 하나 */
   background: var(--c-surface);
 }
-html .tc-split > .panel.tc-listview {
-  border: 0;
-  border-radius: 0;
-  background: var(--c-surface);
-}
 html .tc-listcol > .lh { border-bottom: 0; }
-
-/* 엑셀 눈금 — 세로+가로 */
-html .tc-listview .rq-tr { column-gap: 0; }
-html .tc-listview .rq-tr > div {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  min-width: 0;
-  height: 100%;
-  padding: 0 4px;
-  border-right: 1px solid #dde3ea;
-}
-/* 고르개가 칸을 다 쓰게 — 좁혀 두면 값이 「Fu…」 로 잘린다(지적) */
-html .tc-listview .rq-tr .pick-live,
-html .tc-listview .rq-tr .tc-fill { width: 100%; min-width: 0; }
-html .tc-listview .rq-th .tc-colf { width: 100%; }
-html .tc-listview .rq-tr > div:last-child { border-right: 0; }
-html .tc-listview .rq-tr:not(.rq-th) { border-bottom: 1px solid #dde3ea; }
-html .tc-listview .rq-tr.rq-th { border-bottom: 1px solid var(--c-border); }
-/* 제목은 왼쪽 */
-html .tc-listview .rq-tr > div.tc-name,
-html .tc-listview .rq-tr > div.rq-name,
-html .tc-listview .rq-tr.rq-th > div:nth-child(2) {
-  justify-content: flex-start;
-  text-align: left;
-}
-/* 머리줄 — 옅은 바탕. 필터가 걸린 열은 파랗게 선다 */
-html .tc-listview .rq-tr.rq-th {
-  background: var(--surface-2, #f2f4f7);
-  color: var(--ink-2, #5d6472);
-  font-weight: 700;
-}
-html .tc-listview .rq-th .tc-colf { background: transparent; border: 0; font-weight: 700; color: inherit; }
-html .tc-listview .rq-th .tc-colf.on { color: var(--c-primary); }
-html .tc-listview .rq-tr:not(.rq-th):hover { background: var(--surface-2, #f2f4f7); }
-
-/* 통채움 — 상태 */
-html .tc-listview .rq-tr > div.tc-cell-fill { padding: 0; }
-.tc-mfill {
-  width: 100%;
-  height: 100%;
-  min-height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 700;
-  font-size: var(--fs-xs);
-}
-/* 글자색·굵기는 **설정이 정본**이다(지시) — 흰색으로 박혀 있었다 */
-.tc-mfill .pick-live { color: inherit; text-align: center; text-align-last: center; font-weight: inherit; }
-.tc-mfill select.pick-live:hover,
-.tc-mfill select.pick-live:focus { background: var(--c-surface); color: var(--c-text); }
-.tc-mfill .pick-live option { color: var(--c-text); background: var(--c-surface); font-weight: 400; }
 
 /* 2열 바깥 껍데기 — 이것이 카드였다(지적: 2열 상단 봐라).
    안쪽 판을 아무리 벗겨도 이 한 겹이 둥근 테두리로 감싸고 있었다.
@@ -3673,21 +3312,6 @@ html .tc-split > .tc-content {
   border-radius: 0;
   background: var(--c-surface);
 }
-
-/* 값이 없는 칸 — 칠하지 않는다. 빈 값에 색을 주면 뜻이 생긴다 */
-.tc-mfill.none { background: transparent; color: var(--c-text-faint); font-weight: 400; }
-.tc-mfill.none .pick-live { color: var(--c-text-muted); font-weight: 400; }
-
-/* 값 모양·정렬 — SETUP › INFO 필드에서 고른 것. 요구사항과 같은 이름을 쓴다 */
-.tc-mfill.sh-fill { border-radius: 0; width: 100%; height: 100%; }
-.tc-mfill.sh-pill { border-radius: 999px; width: auto; height: 22px; padding: 0 12px; min-width: 60px; }
-.tc-mfill.sh-tag { border-radius: 4px; width: auto; height: 22px; padding: 0 10px; min-width: 56px; }
-.tc-mfill.sh-text { background: none !important; color: var(--c-text) !important; font-weight: 600; }
-.tc-mfill.sh-text .pick-live { color: var(--c-text); }
-html .tc-listview .rq-tr > div.tc-cell-fill.al-left { justify-content: flex-start; }
-html .tc-listview .rq-tr > div.tc-cell-fill.al-center { justify-content: center; }
-/* 통채움 안의 값이 잘리지 않게 — 칸을 다 쓰고 넘치면 … 로 */
-.tc-mfill .pick-live { width: 100%; min-width: 0; text-overflow: ellipsis; font-size: inherit; }
 
 /* 표에서 값 뽑기 — 고른 것이 조용히 무시될 때 그것을 말해 주는 한 줄.
    마지막 행을 골랐는데 번호 꼴이 달라 범위가 안 되면, 여태는 아무 말 없이

@@ -1,7 +1,5 @@
 import { createPortal } from 'react-dom'
 import { prefGet, prefSet } from '@/lib/prefs'
-import { isManual } from '@/lib/runMode'
-import { isReleaseTc } from '@/lib/tcSeries'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiFetch, categoryApi, tcApi } from '@/api/client'
@@ -16,15 +14,12 @@ import {
   IconPanel,
   IconParam,
   IconPlaySq,
-  IconSettings,
   IconTarget,
-  IconTcDoc,
   IconTopo,
   IconWave,
 } from '@/components/icons'
 import VRail, { RailSec } from '@/components/VRail'
 import { useRailSpy } from '@/components/useRailSpy'
-import ListSortBtn, { type ListSortMode } from '@/components/ListSortBtn'
 import PresenceBar from '@/components/PresenceBar'
 import SaveBell, { type SaveEvent } from '@/components/SaveBell'
 import { usePresence } from '@/components/usePresence'
@@ -41,7 +36,6 @@ import { STEP_ACT_ON, type StepAct } from '@/components/settings/StepActions'
 import TcStepDetail from '@/components/tc/TcStepDetail'
 import TcTree from '@/components/tc/TcTree'
 import FolderSortBtn from '@/components/FolderSortBtn'
-import { useInfoCols } from '@/components/useInfoCols'
 import TcStart from '@/components/tc/TcStart'
 import TcSessionBar from '@/components/tc/TcSessionBar'
 import TcTerminal from '@/components/tc/TcTerminal'
@@ -73,8 +67,6 @@ import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { gotoClick, gotoHref, onGoto, reflectUrl } from '@/api/goto'
 import IdPill from '@/components/IdPill'
 import { useResults } from '@/pages/Cycles'
-import PickCell from '@/components/PickCell'
-import { useCodes } from '@/hooks/useCodes'
 import {
   reqLabel,
   reqPk,
@@ -105,8 +97,6 @@ import {
   type TcStep,
 } from '@/components/tc/types'
 import './TestCases.css'
-import { fillOf } from '@/lib/fieldFill'
-import { useKindStyle } from '@/components/useKindStyle'
 
 type Tab = 'steps' | 'info' | 'env' | 'topo' | 'traffic' | 'manual' | 'history' | 'cycle'
 
@@ -150,36 +140,6 @@ function blankStep(kind: StepKind): TcStep {
 // ⚙ = SETUP 시험항목 INFO 필드와 1:1(합의 규칙) — 열 정의는
 // useInfoCols('tc') 가 만든다. 고정 열(모델그룹·모델명·REQ Map)은
 // ⚙ 에 없다. TC ID·생성자·변경일 열은 뺐다 — Info 탭이 보여 준다.
-const COL_DEFAULT = ['f_type', 'f_status']
-
-/** 열 하나의 표시값 — 필터 드롭다운과 줄 필터가 같은 값을 쓴다.
-    컴포넌트 안에 두면 위쪽 useMemo 가 선언 전에 불러 TDZ 로 터진다. */
-function colVal(k: string, t: TestCaseMeta): string {
-  // INFO 열쇠(f_<필드>)는 기존 열쇠로 푼다 — 값 셈은 여기 한 곳뿐
-  if (k.startsWith('f_')) k = k.slice(2)
-  switch (k) {
-    case 'id': return t.tcid
-    case 'model_group': return (t.model_group as string) || '공용'
-    case 'model': return (t.model as string) || '–'
-    case 'type': return t.type || '–'
-    case 'severity': return t.severity || '–'
-    // 목록 API 는 data JSONB 를 돌려준다 — Info 탭의 실행 타입은 그 안에
-    // run_type 으로 있다. kind 만 보면 늘 비었다(겪었다).
-    case 'kind': return t.kind || (t.run_type as string) || '–'
-    case 'created_by': return (t.created_by as string) || '–'
-    case 'updated_by': return (t.updated_by as string) || '–'
-    case 'updated': return String(t._updated_at_pg ?? '').slice(0, 10) || '–'
-    case 'status': return t.status || '미실행'
-    case 'origin': return String((t as Record<string, unknown>).origin ?? '') || '–'
-    default:
-      // 커스텀 INFO 필드(cf_<key>) — 값은 data->custom 에 산다
-      if (k.startsWith('cf_')) {
-        const v = (t as unknown as { custom?: Record<string, unknown> }).custom?.[k.slice(3)]
-        return String(v ?? '') || '–'
-      }
-      return ''
-  }
-}
 
 const OPEN_KEY = 'utop.tc.open'
 const TAB_KEY = 'utop.tc.tab'
@@ -230,27 +190,10 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
   // 줄 클릭 = 전체 상세(레일), ← 목록으로 복귀. 인라인은 제약만 많았다.
   /** 보이는 INFO 필드 열 — ⚙ 는 SETUP 의 시험항목 INFO 필드와 1:1(합의).
       모델그룹·모델명·REQ Map 은 고정 열이라 ⚙ 에 없다. */
-  const [cols, setCols] = useState<string[]>(() => {
-    try {
-      const v = JSON.parse(prefGet('utop.tc.infocols') || '')
-      return Array.isArray(v) ? (v as string[]) : COL_DEFAULT
-    } catch {
-      return COL_DEFAULT
-    }
-  })
-  useEffect(() => {
-    prefSet('utop.tc.infocols', JSON.stringify(cols))
-  }, [cols])
-  const [colsOpen, setColsOpen] = useState(false)
   /** 판(버전) 이력 창 */
   const [revOpen, setRevOpen] = useState(false)
   // 열 차례 끌기는 뺐다 — ⚙ 는 SETUP INFO 필드 목록 그대로(합의 규칙),
   // 차례도 그 목록의 차례다.
-  /** 표 검색 — 트리 검색과 별개로, 지금 자리 안에서 좁힌다 */
-  const [listQ, setListQ] = useState('')
-  /** 열 값 필터 — 머리의 드롭다운 */
-  const [colF, setColF] = useState<Record<string, string>>({})
-  const view: 'list' | 'detail' = openId ? 'detail' : 'list'
   const [stepIdx, setStepIdx] = useState(-1)
   const [menuOpen, setMenuOpen] = useState(false)
   /* 메뉴 자리를 화면 좌표로 잡는다 — 줄 안에 두면 좁은 칸이 잘라 버려
@@ -437,24 +380,6 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
    * 연결의 정본이 두 군데다 — tc.req_id 한 칸과, 요구사항이 들고 있는
    * tc[] 참조. 둘이 어긋난 자료가 실제로 있어서 합집합으로 센다.
    */
-  const reqsOfTc = useMemo(() => {
-    const m = new Map<string, Set<string>>()
-    const add = (tcid: string, pk: string) => {
-      const s0 = m.get(tcid) ?? new Set<string>()
-      s0.add(pk)
-      m.set(tcid, s0)
-    }
-    for (const r of reqQ.data?.reqs ?? []) {
-      const pk = reqPk(r)
-      const label = reqLabel(r)
-      for (const t of tcs) {
-        const k = t.req_id || ''
-        if (k && (k === pk || k === label)) add(t.tcid, pk)
-      }
-      for (const ref of r.tc ?? []) if (ref?.tcid) add(ref.tcid, pk)
-    }
-    return m
-  }, [reqQ.data, tcs])
 
   /** 이 폴더(하위 포함)에 속한 요구사항인가 — 조상 사슬을 요구사항이 들고 있다 */
   /**
@@ -464,139 +389,8 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
    * 요구사항이 조상 사슬을 다 안 들고 있는 자료가 있다. 요구사항 화면이
    * 같은 병을 같은 방법(분류 트리 걷기)으로 고쳤다.
    */
-  const folderSet = useMemo(() => {
-    if (!selFolder) return null
-    const cats = catQ.data?.categories ?? []
-    const kids = new Map<string | null, string[]>()
-    for (const c of cats) {
-      const k = (c.parent_id ?? null) as string | null
-      if (!kids.has(k)) kids.set(k, [])
-      kids.get(k)!.push(c.id)
-    }
-    const ids = new Set<string>()
-    const walk = (id: string) => {
-      if (ids.has(id)) return
-      ids.add(id)
-      for (const k of kids.get(id) ?? []) walk(k)
-    }
-    walk(selFolder)
-    return ids
-  }, [selFolder, catQ.data])
 
-  const inFolder = (r: Requirement | undefined, _folder: string) =>
-    !!r &&
-    !!folderSet &&
-    ([r.cat1, r.cat2, r.cat3, r.cat4].some((c) => c && folderSet.has(c as string)))
 
-  /**
-   * List 표에 뿌릴 TC.
-   *
-   * 트리에서 요구사항을 골랐으면 그 요구사항 것만, 폴더를 골랐으면 그 폴더
-   * (하위 포함) 아래 요구사항의 것 전부. 아무것도 안 골랐으면 다 보여 준다 —
-   * 「고르기 전엔 텅 빈 화면」 이 제일 답답하다.
-   */
-  /** 2열 목록 정렬 — 기본은 **트리 순서**(지시) */
-  const [listSort, setListSort] = useState<ListSortMode>(() => {
-    const v = prefGet('utop.tc.listsort')
-    return v === 'name' || v === 'recent' ? v : 'tree'
-  })
-  useEffect(() => {
-    prefSet('utop.tc.listsort', listSort)
-  }, [listSort])
-
-  const listRows = useMemo(() => {
-    const n = treeQ.trim().toLowerCase()
-    const q2 = listQ.trim().toLowerCase()
-    return tcs.filter((t) => {
-      /* **릴리스 시험(_V)은 이 목록에 안 선다**(합의: 완전 분리) —
-         Releases 가 관리한다. 다만 **지금 열어 둔 것**은 남긴다: 이 화면을
-         Releases 안에 끼워 그 시험을 펴는데(embedTc), 목록에서 빼 버리면
-         「없는 시험」 으로 보고 목록으로 되돌린다. */
-      if (isReleaseTc(t.tcid) && t.tcid !== openId) return false
-      const r = reqByKey.get(t.req_id || '')
-      /* **찾을 때는 폴더를 넘어선다.**
-       *
-       *  시험의 자리는 그것이 붙은 요구사항의 자리다. 그래서 요구사항이
-       *  안 붙은 시험(Releases 에서 만든 것이 그렇다)은 폴더를 하나라도
-       *  짚어 둔 상태에서는 걸러져 나갔다 — TC 번호를 통째로 쳐 넣어도
-       *  「없다」 고 나왔다(지적: 검색이 안 돼).
-       *
-       *  찾는 사람은 「이 폴더 안에서」 가 아니라 「이것」 을 찾는다.
-       *  글자를 치는 동안에는 폴더·요구사항 좁히기를 쉬게 한다. */
-      if (!q2) {
-        // 요구사항에 안 붙은 시험들 — 트리의 「요구사항 없음」 줄
-        if (selReq === '__orphan__') {
-          if (r) return false
-        } else if (selReq && (t.req_id || '') !== selReq && (r ? reqPk(r) : '') !== selReq)
-          return false
-        if (!selReq && selFolder && !inFolder(r, selFolder)) return false
-      }
-      if (n && !(t.tcid.toLowerCase().includes(n) || (t.name ?? '').toLowerCase().includes(n)))
-        return false
-      if (q2 && !(t.tcid.toLowerCase().includes(q2) || (t.name ?? '').toLowerCase().includes(q2)))
-        return false
-      return true
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tcs, reqByKey, selReq, selFolder, folderSet, treeQ, listQ, openId])
-
-  /** 열 필터까지 먹인 줄들 — 드롭다운 선택지는 필터 전(base)에서 뽑는다 */
-  /**
-   * 트리에 선 차례.
-   *
-   * 시험은 **요구사항에 붙어** 트리에 선다. 그래서 시험의 자리는 그 요구사항의
-   * 자리다 — 분류를 깊이 우선으로 훑어 번호를 매기고, 같은 요구사항 안에서는
-   * TC 번호 차례. 이름순으로 세우면 같은 폴더 것이 목록 여기저기 흩어져
-   * 왼쪽에서 짚어 놓고도 오른쪽에서 다시 찾아야 한다(지적).
-   */
-  const treeRank = useMemo(() => {
-    const cats = catQ.data?.categories ?? []
-    const kids = new Map<string, typeof cats>()
-    for (const c of cats) {
-      const k = c.parent_id ?? ''
-      kids.set(k, [...(kids.get(k) ?? []), c])
-    }
-    const rank = new Map<string, number>()
-    let n = 0
-    const walk = (pid: string) => {
-      for (const c of [...(kids.get(pid) ?? [])].sort(
-        (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name, 'ko'),
-      )) {
-        if (rank.has(c.id)) continue
-        rank.set(c.id, n++)
-        walk(c.id)
-      }
-    }
-    walk('')
-    return (t: TestCaseMeta): [number, string] => {
-      const r = reqByKey.get(t.req_id || '')
-      const deep = r ? ((r.cat4 || r.cat3 || r.cat2 || r.cat1 || '') as string) : ''
-      return [rank.get(deep) ?? 1e9, String(r?.reqid ?? '')]
-    }
-  }, [catQ.data, reqByKey])
-
-  const shownListRows = useMemo(() => {
-    const keys = Object.keys(colF).filter((k) => colF[k])
-    const rows = keys.length
-      ? listRows.filter((t) => keys.every((k) => colVal(k, t) === colF[k]))
-      : [...listRows]
-    const at = (t: TestCaseMeta) => String(t._updated_at_pg ?? '')
-    if (listSort === 'name')
-      rows.sort((a, b) => (a.name ?? a.tcid).localeCompare(b.name ?? b.tcid, 'ko', { numeric: true }))
-    else if (listSort === 'recent') rows.sort((a, b) => at(b).localeCompare(at(a)))
-    else
-      rows.sort((a, b) => {
-        const [ra, qa] = treeRank(a)
-        const [rb, qb] = treeRank(b)
-        return (
-          ra - rb ||
-          qa.localeCompare(qb, 'ko', { numeric: true }) ||
-          a.tcid.localeCompare(b.tcid, 'ko', { numeric: true })
-        )
-      })
-    return rows
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listRows, colF, listSort, treeRank])
 
   /**
    * 지금 보고 있는 자리까지의 길 — 조상부터 차례로.
@@ -1800,7 +1594,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                       안에만 있어서, 저장했다는 말도 오류도 스텝을 골라야만
                       보였다. 늘 보이는 자리로 올린다. */}
                   {msg.text && <span className={`tc-msg ${msg.kind}`}>{msg.text}</span>}
-                  {view === 'detail' && moreMenu}
+                  {!!openId && moreMenu}
                 </div>
   )
 
@@ -1814,36 +1608,8 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
    * 결과는 플랜 안에 산다. 목록에서 못 보면 「이 시험 요즘 되나」 를
    * 알려고 플랜을 하나씩 열어 봐야 한다.
    */
-  const lastRes = useQuery({
-    queryKey: ['tc-last-result'],
-    staleTime: 30_000,
-    queryFn: async () => {
-      const r = await apiFetch('/api/tc-last-result')
-      if (!r.ok) return {} as Record<string, { result: string; cycle_name?: string; at?: string }>
-      const j = (await r.json()) as {
-        items?: Record<string, { result: string; cycle_name?: string; at?: string }>
-      }
-      return j.items ?? {}
-    },
-  })
 
-  const infoColDefs = useInfoCols('tc')
-  const visCols = useMemo(
-    () => infoColDefs.filter((c) => cols.includes(c.k)),
-    [infoColDefs, cols],
-  )
-  /** 고정: ☐·제목·모델그룹·모델명 | INFO 열들 | 최근 결과 · REQ Map */
-  const listGrid =
-    /* 값 실측대로 바싹(지시: 간격 최소) — 모델그룹 「LGU+_E61xx」 78 ·
-       모델명 「E6100」 62 · 최근 결과 딱지 62 · REQ Map 링크 148.
-       줄어든 것은 전부 제목 몫이다. */
-    `26px minmax(220px, 1fr) 86px 66px ${visCols.map((c) => c.w).join(' ')} 74px 150px`.trim()
   /* 목록에서 그 자리 고치기(지시) — 값 목록은 설정의 코드표를 쓴다 */
-  const C_TYPE = useCodes('tc_type', ['FT', 'Function'])
-  const C_STATUS = useCodes('tc_status', ['작성중', '검토중', '승인', 'PASS', 'FAIL', '보류'])
-  const C_SEV = useCodes('tc_severity', ['치명', '중대', '보통', '경미'])
-  const C_RUN = useCodes('tc_run_type', ['수동', '자동'])
-  const C_ORIGIN = useCodes('tc_origin', ['자체', '고객'])
   /**
    * 한 칸만 고쳐 저장한다.
    *
@@ -1851,51 +1617,11 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
    * 되돌려 보내면 그것들이 지워진다. 원본을 읽어 그 위에 얹는다.
    */
   /** 통채움 색 — SETUP 의 값 색이 정본, 없으면 Monday 팔레트(승인) */
-  const codesQ2 = useQuery({
-    queryKey: ['codes'],
-    queryFn: async () => {
-      const r = await apiFetch('/api/codes')
-      if (!r.ok) throw new Error('코드를 불러오지 못했습니다')
-      return (await r.json()) as {
-        items: Array<{ kind: string; value: string; note?: string | null }>
-      }
-    },
-    staleTime: 60_000,
-  })
   /* 칸의 모양·정렬·글꼴도 설정이 정본이다(지시) — 세 화면이 같은 부품 */
-  const { fontOf: kfont, shapeCls, alignCls } = useKindStyle()
   /** 기본색은 한 곳에서 온다(lib/fieldFill) — 설정 화면이 보여 주는 그 색이다.
       바탕뿐 아니라 **글자색도 설정이 정본**이다(지시) */
-  const codeFill = (kind: string, value: string): { bg: string; fg: string } => {
-    const it = (codesQ2.data?.items ?? []).find((x) => x.kind === kind && x.value === value)
-    return fillOf(it?.note, value)
-  }
 
   /** Monday 통채움 칸 하나(승인 A안) — 여섯 칸이 같은 부품을 쓴다 */
-  const fillCell = (
-    t: TestCaseMeta,
-    k: string,
-    kind: string,
-    v: string,
-    opts: readonly string[],
-  ) => {
-    const f = codeFill(kind, v)
-    return (
-      <div className={`tc-cell-fill ${alignCls(kind)}`} key={k}>
-        {v ? (
-          <div
-            className={`tc-mfill ${shapeCls(kind)}`}
-            style={{ background: f.bg, color: f.fg, ...kfont(kind) }}
-          >
-            {pick(t, k, v, opts)}
-          </div>
-        ) : (
-          /* 값이 없으면 칠하지 않는다 — 빈 값에 색을 주면 뜻이 생겨 버린다 */
-          <div className="tc-mfill none">{pick(t, k, v, opts)}</div>
-        )}
-      </div>
-    )
-  }
 
   /** 줄 우클릭 메뉴 — 요구사항 2열과 같은 부품(승인) */
   const [rowMenu, setRowMenu] = useState<{
@@ -1921,187 +1647,14 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
       window.removeEventListener('keydown', esc)
     }
   }, [rowMenu])
-  const COLLB: Record<string, string> = {
-    type: '유형', status: '상태', severity: '중요도', run_type: '타입', origin: '구분',
-  }
 
-  const setCell = async (tcid: string, p: Record<string, string>) => {
-    try {
-      const r = await apiFetch(`/api/tc/${encodeURIComponent(tcid)}`)
-      if (!r.ok) throw new Error('시험을 불러오지 못했습니다')
-      const cur = (await r.json()) as TcData
-      await tcApi.save(tcid, { ...cur, ...p, checks: cur.checks ?? [] })
-      await qc.invalidateQueries({ queryKey: ['tc'] })
-      void tcQ.refetch()
-    } catch (e) {
-      window.alert(e instanceof Error ? `저장하지 못했습니다 — ${e.message}` : '저장하지 못했습니다')
-    }
-  }
   /**
    * 아래로 채우기(지시) — 이 줄의 값을 **보이는 목록에서 이 줄 아래 전부**에
    * 넣는다. 새로 만든 시험 수십 건의 유형·중요도를 한 줄씩 고르는 일이
    * 실제로 있었다. 몇 건을 바꾸는지 물어보고 한다 — 엑셀 채우기와 같은 손.
    */
-  const fillDown = async (fromTcid: string, k: string, v: string) => {
-    const at = shownListRows.findIndex((x) => x.tcid === fromTcid)
-    if (at < 0) return
-    const below = shownListRows.slice(at + 1)
-    if (!below.length) {
-      window.alert('아래에 줄이 없습니다')
-      return
-    }
-    /* 한 건씩 저장하고 그때마다 목록을 다시 읽으면 수십 번 왕복한다 —
-       여덟씩 묶어 보내고 목록은 끝에 한 번만 다시 읽는다 */
-    setMsg({ kind: 'ok', text: `${below.length}건에 채우는 중…` })
-    try {
-      const CH = 8
-      for (let i = 0; i < below.length; i += CH) {
-        await Promise.all(
-          below.slice(i, i + CH).map(async (r) => {
-            const res = await apiFetch(`/api/tc/${encodeURIComponent(r.tcid)}`)
-            if (!res.ok) throw new Error('시험을 불러오지 못했습니다')
-            const cur = (await res.json()) as TcData
-            await tcApi.save(r.tcid, { ...cur, [k]: v, checks: cur.checks ?? [] })
-          }),
-        )
-      }
-      await qc.invalidateQueries({ queryKey: ['tc'] })
-      void tcQ.refetch()
-      setMsg({ kind: 'ok', text: `${below.length}건에 채웠습니다` })
-    } catch (e) {
-      setMsg({ kind: 'err', text: e instanceof Error ? e.message : String(e) })
-    }
-  }
 
-  const pick = (t: TestCaseMeta, k: string, v: string, opts: readonly string[], cls?: string) => (
-    /* 아래로 채우기는 **우클릭**이다(지시) — 단추를 세우면 자리를 먹고,
-       엑셀에서 손에 익은 문이 그쪽이다. 몇 건인지 물어보고 채운다 */
-    <span
-      className="tc-fill"
-      onContextMenu={(e) => {
-        /* 우클릭 = **메뉴**(승인) — 목업 그대로. 어느 칸에서 눌렀는지 담아
-           두고 메뉴가 「무엇을 채울지」 를 말한다 */
-        e.preventDefault()
-        e.stopPropagation()
-        setRowMenu({ tcid: t.tcid, k, v, x: e.clientX, y: e.clientY })
-      }}
-    >
-      <PickCell
-        value={v}
-        opts={opts}
-        title="고르면 바로 저장됩니다 · 우클릭 = 이 값을 아래 줄 전부에"
-        onSave={(nv) => setCell(t.tcid, { [k]: nv })}
-        {...(cls ? { cls } : {})}
-      />
-    </span>
-  )
 
-  /** 선택형 열 한 칸 — 열쇠(k)로 그린다 */
-  const colCell = (k: string, t: TestCaseMeta) => {
-    if (k.startsWith('f_')) k = k.slice(2)
-    switch (k) {
-      case 'id':
-        return <div className="muted" key={k}>{t.tcid}</div>
-      case 'model_group':
-      case 'model':
-        return <div className="muted" key={k}>{colVal(k, t)}</div>
-      case 'type':
-        return fillCell(t, 'type', 'tc_type', t.type ?? '', C_TYPE)
-      case 'severity':
-        return fillCell(t, 'severity', 'tc_severity', t.severity ?? '', C_SEV)
-      case 'kind':
-        // 값 셈은 colVal 한 곳만 — 두 군데로 갈라져 한쪽만 고치는 사고를 겪었다
-        return fillCell(
-          t,
-          'run_type',
-          'tc_run_type',
-          String(t.kind ?? (t.run_type as string) ?? ''),
-          C_RUN,
-        )
-      case 'last': {
-        const lr = lastRes.data?.[t.tcid]
-        const v = String(lr?.result ?? '')
-        const def = resDefs.find((d) => d.v === v)
-        return (
-          <div key={k} className="tc-cell-fill">
-            {v ? (
-              <div
-                className="tc-mfill"
-                style={{ background: def?.color ?? codeFill('cycle_result', v).bg, color: def?.fg ?? codeFill('cycle_result', v).fg }}
-                title={`${lr?.cycle_name ?? ''}${lr?.at ? ` · ${String(lr.at).slice(0, 10)}` : ''}`}
-              >
-                {def?.label ?? v}
-              </div>
-            ) : (
-              <div className="tc-mfill none">–</div>
-            )}
-          </div>
-        )
-      }
-      case 'map': {
-        /* 붙어 있는 요구사항으로 **건너뛰는 길**(지시: 시험항목에서 요구사항
-           페이지로 갈 수가 없다). 요구사항 화면이 시험으로 건너뛰는 것과
-           같은 문법이다 — 왼쪽 단추로 가고, Ctrl·오른쪽 단추로 새 탭. */
-        const rr = reqByKey.get(t.req_id || '')
-        return (
-          <div className="tc-map" key={k}>
-            {rr && (
-              <a
-                className="tc-reqgo"
-                href={gotoHref('req', reqPk(rr))}
-                title={`${reqLabel(rr)} ${rr.title ?? ''} — 이 요구사항으로 갑니다`}
-                onClick={(e) => gotoClick(e, 'req', reqPk(rr))}
-              >
-                {reqLabel(rr)}
-              </a>
-            )}
-            <button
-              type="button"
-              className="linkish"
-              title="이 시험에 요구사항을 붙입니다"
-              onClick={() => setMapTc(t)}
-            >
-              Map
-            </button>
-            <span className={`tc-mapn${(reqsOfTc.get(t.tcid)?.size ?? 0) ? ' has' : ''}`}>
-              {reqsOfTc.get(t.tcid)?.size ?? 0}
-            </span>
-          </div>
-        )
-      }
-      case 'created_by':
-        return <div className="muted" key={k}>{(t.created_by as string) || '–'}</div>
-      case 'updated_by':
-        return <div className="muted" key={k}>{(t.updated_by as string) || '–'}</div>
-      case 'updated':
-        return <div className="muted" key={k}>{String(t._updated_at_pg ?? '').slice(0, 10) || '–'}</div>
-      case 'status':
-        return fillCell(t, 'status', 'tc_status', t.status ?? '', C_STATUS)
-      case 'origin':
-        return fillCell(
-          t,
-          'origin',
-          'tc_origin',
-          String((t as Record<string, unknown>).origin ?? ''),
-          C_ORIGIN,
-        )
-      default: {
-        // 커스텀 INFO 필드 열 — 값은 data->custom 에 산다
-        if (k.startsWith('cf_')) {
-          const v = String(
-            ((t as unknown as { custom?: Record<string, unknown> }).custom?.[k.slice(3)] ?? '') ||
-              '',
-          )
-          return (
-            <div className="muted" key={k} title={v}>
-              {v || '–'}
-            </div>
-          )
-        }
-        return null
-      }
-    }
-  }
 
   /**
    * 3열 세부 — Info…Automation 탭 판.
@@ -2592,9 +2145,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
            */
           presetReqId={
             form === null
-              ? (view === 'list' && selReq
-                  ? selReq
-                  : tcs.find((x) => x.tcid === openId)?.req_id) || undefined
+              ? tcs.find((x) => x.tcid === openId)?.req_id || undefined
               : undefined
           }
           onCreated={(id) => pickTc(id)}
@@ -2604,28 +2155,6 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
       {mapTc && <TcMapReqDialog tc={mapTc} onClose={() => setMapTc(null)} />}
 
       {/* 줄 우클릭 메뉴 — 요구사항 2열과 같은 꼴(승인) */}
-      {rowMenu && (
-        <div
-          className="rq-ctxmenu"
-          style={{
-            left: Math.min(rowMenu.x, window.innerWidth - 220),
-            top: Math.min(rowMenu.y, window.innerHeight - 120),
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              const m = rowMenu
-              setRowMenu(null)
-              void fillDown(m.tcid, m.k, m.v)
-            }}
-          >
-            ⬇ 아래 행에 {COLLB[rowMenu.k] ?? '값'} 채우기
-          </button>
-        </div>
-      )}
       {revOpen && openId && (
         <TcRevisions
           tcid={openId}
@@ -2651,7 +2180,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
       )}
       {bulkEdit && (
         <TcBulkEdit
-          items={[...(view === 'list' ? listPick : pickedTc)].map((id) => ({
+          items={[...pickedTc].map((id) => ({
             tcid: id,
             name: tcs.find((x) => x.tcid === id)?.name,
           }))}
@@ -2725,7 +2254,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
           {/* 조상까지 다 적는다. 마지막(지금 자리)만 진하게 — 앞엣것은
               어디에 있는지를 알려주는 길잡이지 지금 보는 것이 아니다.
               눌러서 그 폴더로 올라갈 수 있다. */}
-          {view === 'list' &&
+          {false &&
             wherePath.map((f, i) => (
               <span className="rq-crumb-seg" key={f.id || `x${i}`}>
                 <span className="rq-crumb-sep">›</span>
@@ -2743,7 +2272,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
                 )}
               </span>
             ))}
-          {view === 'detail' && openId && (
+          {!!openId && (
             <>
               {detailPath.folders.map((f, i) => (
                 <span className="rq-crumb-seg" key={f.id || `d${i}`}>
@@ -2798,7 +2327,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
             </>
           )}
           <span className="muted small">
-            {view === 'list' ? `${shownListRows.length}건` : openId ? '' : '고른 것 없음'}
+            {openId ? '' : '고른 것 없음'}
           </span>
         </span>
         <span className="sp" />
@@ -2925,7 +2454,7 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
             Automation 일 때만 다시 좌우로 나뉜다. 바깥 칸 수가 탭마다
             달라지면 옮길 때마다 화면이 통째로 흔들린다. */}
         <div className="tc-content">
-          {view === 'detail' && openId && !gpOpen && detHead}
+          {!!openId && !gpOpen && detHead}
         {gpOpen ? (
           /* 파일 목록까지 통째로 — `only` 를 안 준다. 하나만 주면 옆의
              파일로 넘어갈 길이 없어 되돌아 나와야 한다.
@@ -2934,288 +2463,6 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
           <section className="panel tc-tabcol">
             <GlobalParams />
           </section>
-        ) : view === 'list' ? (
-          /* ── List — 이 자리의 시험을 표로 (요구사항 화면과 같은 모양) ──
-             열을 늘리지 않는다. 표가 편집기 자리를 대신 쓴다. */
-          <section className="panel tc-listview">
-            <div className="rq-list">
-              <div className="tc-listhead">
-                <div className="rq-actions">
-                  {/* 요구사항 2열과 같은 규칙(피드백):
-                      없음   → + New · + Bulk New
-                      1건    → … | Edit  Clone | Delete
-                      2건 이상 → … | Bulk Edit  Clone | Delete
-                      Export 는 뺐다. Delete 는 구분선 너머 끝자리. */}
-                  <button className="btn" type="button" onClick={() => setForm(null)}>
-                    + New
-                  </button>
-                  {/* 여러 건을 한 번에 만드는 창 — 요구사항 화면과 같은 이름 */}
-                  <button className="btn" type="button" onClick={() => setBulkOpen(true)}>
-                    + Bulk New
-                  </button>
-                  {/* 파일로 내보냈다 가져오는 대신 **자리를 골라 옮긴다**(승인).
-                      폴더·요구사항·시험을 골라 다른 자리에 붙인다 */}
-                  <button className="btn" type="button" onClick={() => setCopyOpen(true)}>
-                    + Copy
-                  </button>
-                  {listPick.size > 0 && (
-                    <>
-                      <span className="cy-vsep" aria-hidden="true" />
-                      {listPick.size === 1 ? (
-                        <button
-                          className="btn"
-                          type="button"
-                          title="고른 시험을 고칩니다"
-                          onClick={() => {
-                            const id = [...listPick][0]
-                            const meta = tcs.find((x) => x.tcid === id)
-                            if (meta) setForm(meta)
-                          }}
-                        >
-                          Edit
-                        </button>
-                      ) : (
-                        <button
-                          className="btn"
-                          type="button"
-                          title={`고른 ${listPick.size}건을 한꺼번에 고칩니다`}
-                          onClick={() => setBulkEdit(true)}
-                        >
-                          Bulk Edit
-                        </button>
-                      )}
-                      {/* 고른 것을 그대로 하나 더 — 스텝까지 통째로 베낀다 */}
-                      <button
-                        className="btn"
-                        type="button"
-                        disabled={cloning}
-                        title={`고른 ${listPick.size}건을 복사합니다 (스텝까지)`}
-                        onClick={() => setCloneAsk(true)}
-                      >
-                        {cloning ? '복사 중…' : 'Clone'}
-                      </button>
-                      <span className="cy-vsep" aria-hidden="true" />
-                      <button
-                        className="btn danger"
-                        type="button"
-                        onClick={() => {
-                          const ids = [...listPick]
-                          if (!window.confirm(`고른 시험 ${ids.length}건을 삭제합니다.\n되돌릴 수 없습니다.`))
-                            return
-                          void (async () => {
-                            for (const id of ids) await tcApi.remove(id)
-                            setListPick(new Set())
-                            void qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] })
-                          })()
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </>
-                  )}
-                  <span className="sp" />
-                  {/* 검색 — 요구사항 화면과 같은 자리(피드백: 2번 자리) */}
-                  <input
-                    className="tc-listq"
-                    placeholder="검색 (이름 · TC ID)"
-                    value={listQ}
-                    onChange={(e) => setListQ(e.target.value)}
-                  />
-                  {/* 펼친(연) 시험에 쓰는 ⋯ — 안 연 것에는 저장·내보내기가 꺼진다 */}
-                  {moreMenu}
-                  {/* 목록 정렬 — **⚙ 왼쪽**(지시). 기본은 트리 순서 */}
-                  <ListSortBtn value={listSort} onChange={setListSort} />
-                  {/* ⚙ — ⋯ 오른쪽(피드백). 고정 좌표 팝업이라 어디서든 뜬다 */}
-                  <button
-                    className="lh-findbtn"
-                    type="button"
-                    title="열(INFO 필드) 보이기/숨기기"
-                    aria-haspopup="menu"
-                    aria-expanded={colsOpen}
-                    onClick={() => setColsOpen((v) => !v)}
-                  >
-                    <IconSettings />
-                  </button>
-                  {colsOpen && (
-                    <>
-                      <div
-                        className="tc-menu-back"
-                        style={{ zIndex: 60 }}
-                        onClick={() => setColsOpen(false)}
-                      />
-                      <div
-                        className="tc-menu tc-colpop"
-                        role="menu"
-                        style={{ position: 'fixed', right: 16, top: 108, zIndex: 61 }}
-                      >
-                        {/* SETUP 시험항목 INFO 필드와 1:1(합의 규칙) */}
-                        {infoColDefs.length === 0 && (
-                          <span className="muted small">
-                            INFO 필드가 없습니다 — SETUP 에서 만듭니다
-                          </span>
-                        )}
-                        {infoColDefs.map((c) => (
-                          <label key={c.k}>
-                            <input
-                              type="checkbox"
-                              checked={cols.includes(c.k)}
-                              onChange={() =>
-                                setCols((v) =>
-                                  v.includes(c.k) ? v.filter((x) => x !== c.k) : [...v, c.k],
-                                )
-                              }
-                            />
-                            {c.label}
-                          </label>
-                        ))}
-                        <button
-                          type="button"
-                          className="linkish tc-coldef"
-                          onClick={() => {
-                            setCols([...COL_DEFAULT])
-                            setColF({})
-                          }}
-                        >
-                          기본값 복원
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Select All 줄은 걷었다(승인) — 전체 선택은 머리줄 첫 칸이 한다 */}
-              <div className="rq-table">
-                <div className="rq-tr tc-tr rq-th" style={{ gridTemplateColumns: listGrid }}>
-                  <div className="rq-ck">
-                    <input
-                      type="checkbox"
-                      checked={shownListRows.length > 0 && listPick.size === shownListRows.length}
-                      title={`전체 선택${listPick.size ? ` (${listPick.size}건 선택됨)` : ''}`}
-                      ref={(el) => {
-                        if (el)
-                          el.indeterminate = listPick.size > 0 && listPick.size < shownListRows.length
-                      }}
-                      disabled={!shownListRows.length}
-                      onChange={() =>
-                        setListPick(
-                          listPick.size === shownListRows.length
-                            ? new Set()
-                            : new Set(shownListRows.map((t) => t.tcid)),
-                        )
-                      }
-                    />
-                  </div>
-                  <div>제목</div>
-                  {/* 고정 열 + INFO 열 + REQ Map. 머리 자체가 필터다 */}
-                  {(
-                    [
-                      { k: 'model_group', label: '모델그룹' },
-                      { k: 'model', label: '모델명' },
-                      ...visCols,
-                    ] as Array<{ k: string; label: string }>
-                  ).map((c) => (
-                    <div key={c.k} className="tc-thdrag">
-                      <select
-                        className={`tc-colf${colF[c.k] ? ' on' : ''}`}
-                        value={colF[c.k] ?? ''}
-                        onChange={(e) => setColF((v) => ({ ...v, [c.k]: e.target.value }))}
-                      >
-                        <option value="">{c.label}</option>
-                        {[...new Set(listRows.map((t) => colVal(c.k, t)))].sort().map((v) => (
-                          <option key={v} value={v}>
-                            {v}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ))}
-                  <div>최근 결과</div>
-                  <div>REQ Map</div>
-                </div>
-                {shownListRows.length === 0 ? (
-                  <div className="empty">이 자리에 시험이 없습니다.</div>
-                ) : (
-                  shownListRows.map((t) => {
-                    return (
-                      <div key={t.tcid} className="tcl-rw">
-                      <div
-                        className={`rq-tr tc-tr${listPick.has(t.tcid) ? ' picked' : ''}`}
-                        style={{ gridTemplateColumns: listGrid }}
-                      >
-                        <div className="rq-ck">
-                          <input
-                            type="checkbox"
-                            checked={listPick.has(t.tcid)}
-                            aria-label={`${t.name || t.tcid} 고르기`}
-                            onChange={() =>
-                              setListPick((sv) => {
-                                const n = new Set(sv)
-                                if (n.has(t.tcid)) n.delete(t.tcid)
-                                else n.add(t.tcid)
-                                return n
-                              })
-                            }
-                          />
-                        </div>
-                        <div className="rq-name">
-                          {/* 인라인 펼침은 걷어냈다(피드백) — 이름을 누르면
-                              전체 상세(레일)로 간다. ← 목록으로 복귀. */}
-                          <span className="rq-icon" aria-hidden="true">
-                            <IconTcDoc />
-                          </span>
-                          {/* 누르면 그 시험을 열어 짠다 — Detail 로 넘어간다 */}
-                          <button
-                            type="button"
-                            className="linkish"
-                            title={`${t.tcid} — 열어서 시험 짜기`}
-                            onClick={() => pickTc(t.tcid)}
-                          >
-                            {t.name || '(제목 없음)'}
-                          </button>
-                          {/* 스텝 수는 열로 두지 않고 이름 꼬리에 — 트리와 같은 문법 */}
-                          {/* 판정 스텝 수(합의) — Automation 탭 배지와 같은 자 */}
-                          {(() => {
-                            const n =
-                              typeof (t as Record<string, unknown>)._step_count === 'number'
-                                ? ((t as Record<string, unknown>)._step_count as number)
-                                : (t._cli_count ?? 0)
-                            return n > 0 ? <span className="tt-n">{n}</span> : null
-                          })()}
-                          {/* 세션 없는 자동 시험 — 돌릴 수 없다. 미리 보인다 */}
-                          {(t._cli_count ?? 0) > 0 &&
-                            ((t as Record<string, unknown>)._sess_n ?? 0) === 0 &&
-                            !isManual((t as Record<string, unknown>).run_type) && (
-                              <span
-                                className="tc-nosess"
-                                title="세션(장비)이 없습니다 — 자동 스텝을 돌릴 수 없습니다. 열어서 + 세션으로 장비를 앉히거나 Bulk Edit 세션을 쓰세요"
-                              >
-                                ⚠
-                              </span>
-                            )}
-                        </div>
-                        {colCell('model_group', t)}
-                        {colCell('model', t)}
-                        {visCols.map((c) => colCell(c.k, t))}
-                        {colCell('last', t)}
-                        {colCell('map', t)}
-                      </div>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-              {/* 세 화면이 같은 자리에서 같은 말을 한다 — 요구사항과 같은 꼴 */}
-              <div className="bottom colbot">
-                <span>
-                  시험 {shownListRows.length}건
-                  {shownListRows.length !== listRows.length && ` (전체 ${listRows.length}건)`}
-                </span>
-                {listPick.size > 0 && <span>{listPick.size}건 선택됨</span>}
-              </div>
-            </div>
-          </section>
-
         ) : (
           <div className="tc-withrail h">
             <VRail
