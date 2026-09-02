@@ -504,17 +504,28 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
 
   const listRows = useMemo(() => {
     const n = treeQ.trim().toLowerCase()
+    const q2 = listQ.trim().toLowerCase()
     return tcs.filter((t) => {
       const r = reqByKey.get(t.req_id || '')
-      // 요구사항에 안 붙은 시험들 — 트리의 「요구사항 없음」 줄
-      if (selReq === '__orphan__') {
-        if (r) return false
-      } else if (selReq && (t.req_id || '') !== selReq && (r ? reqPk(r) : '') !== selReq)
-        return false
-      if (!selReq && selFolder && !inFolder(r, selFolder)) return false
+      /* **찾을 때는 폴더를 넘어선다.**
+       *
+       *  시험의 자리는 그것이 붙은 요구사항의 자리다. 그래서 요구사항이
+       *  안 붙은 시험(Releases 에서 만든 것이 그렇다)은 폴더를 하나라도
+       *  짚어 둔 상태에서는 걸러져 나갔다 — TC 번호를 통째로 쳐 넣어도
+       *  「없다」 고 나왔다(지적: 검색이 안 돼).
+       *
+       *  찾는 사람은 「이 폴더 안에서」 가 아니라 「이것」 을 찾는다.
+       *  글자를 치는 동안에는 폴더·요구사항 좁히기를 쉬게 한다. */
+      if (!q2) {
+        // 요구사항에 안 붙은 시험들 — 트리의 「요구사항 없음」 줄
+        if (selReq === '__orphan__') {
+          if (r) return false
+        } else if (selReq && (t.req_id || '') !== selReq && (r ? reqPk(r) : '') !== selReq)
+          return false
+        if (!selReq && selFolder && !inFolder(r, selFolder)) return false
+      }
       if (n && !(t.tcid.toLowerCase().includes(n) || (t.name ?? '').toLowerCase().includes(n)))
         return false
-      const q2 = listQ.trim().toLowerCase()
       if (q2 && !(t.tcid.toLowerCase().includes(q2) || (t.name ?? '').toLowerCase().includes(q2)))
         return false
       return true
