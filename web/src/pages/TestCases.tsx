@@ -790,9 +790,23 @@ export default function TestCases({ me, embedTc, embedActions, onEmbedBack, onEm
    * 것처럼 보인다. 목록이 오면 확인하고 지운다.
    */
   useEffect(() => {
+    /* **끼워 넣기(embedTc)에서는 이 정리를 하지 않는다.**
+     *
+     *  부른 쪽이 「이 시험을 펴라」 고 짚어 준 자리다. 그런데 방금 만든
+     *  시험은 목록 캐시에 아직 안 들어와 있어서, 여기서 「지워진 것」 으로
+     *  보고 목록으로 되돌렸다 — Releases 에서 TC 를 만들면 상세 대신
+     *  **시험 목록**이 떴다(지적). 목록에 없다고 닫을 일이 아니다. */
+    if (embedTc) return
     if (!openId || tcQ.isLoading || tcs.length === 0) return
     if (!tcs.some((x) => x.tcid === openId)) setOpenId('')
-  }, [openId, tcs, tcQ.isLoading])
+  }, [openId, tcs, tcQ.isLoading, embedTc])
+
+  /* 부른 쪽이 다른 시험으로 바꿔 주면 따라간다 — openId 는 처음 값만
+     embedTc 에서 받는다(useState 초기값). 창을 닫지 않고 다른 칩을 눌러도
+     바뀌게 하려면 이것이 있어야 한다. */
+  useEffect(() => {
+    if (embedTc) setOpenId(embedTc)
+  }, [embedTc])
 
   const devices = useMemo(() => devQ.data?.devices ?? [], [devQ.data])
 

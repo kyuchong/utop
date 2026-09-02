@@ -202,17 +202,21 @@ async function dlAtt(url: string, filename: string): Promise<void> {
   }
 }
 
-/** 날짜를 **지라 꼴로** — 「2021/01/05 3:23 오후」 */
+/** 날짜를 **지라 꼴로** — 「2021/01/05 3:23 오후」.
+ *  **시각이 없는 칸에는 시각을 붙이지 않는다**(지적): 기한(duedate)은
+ *  「2025-03-31」 처럼 날짜뿐인데 9:00 오전이 붙어 나왔다. */
 function jdate(v: unknown): string {
   const t = String(v ?? '').trim()
   if (!t) return ''
   const d = new Date(t)
   if (Number.isNaN(d.getTime())) return t
   const p = (n: number) => String(n).padStart(2, '0')
+  const ymd = `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`
+  if (!/[T ]\d{1,2}:\d{2}/.test(t)) return ymd
   const h = d.getHours()
   const ap = h < 12 ? '오전' : '오후'
   const h12 = h % 12 || 12
-  return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${h12}:${p(d.getMinutes())} ${ap}`
+  return `${ymd} ${h12}:${p(d.getMinutes())} ${ap}`
 }
 
 /** 지라 값 하나를 글로 — 사람·이름·값·목록을 다 같은 규칙으로 편다 */
@@ -240,6 +244,14 @@ const DETAIL_SKIP = new Set([
   'aggregateprogress', 'progress', 'timespent', 'timeestimate', 'timeoriginalestimate',
   'lastViewed', 'creator', 'environment',
 ])
+/** 지라 **내부용** 칸 — 사람이 읽을 것이 아니다(지적).
+ *  · Development: 개발 연동 덤프(`{summaryBean=com.atlassian…}`)가 통째로
+ *    쏟아져 화면 절반을 먹었다. 지라도 이 칸을 「자세히」 에 안 낸다.
+ *  · Rank: 목록 정렬용 열쇠(`0|i03vcn:`). 뜻이 없다.
+ *  · [CHART]·Σ: 지라가 만들어 두는 통계 칸. */
+const DETAIL_JUNK = /^(rank|development|epic colour|epic color|epic status|parent link|issue color|글로벌 순위|순위)$/i
+const isJunkName = (n: string) => DETAIL_JUNK.test(n.trim()) || /^(\[CHART\]|Σ)/.test(n.trim())
+
 /** 비어 있어도 「없음」 으로 내는 칸 — 지라 화면이 늘 세워 두는 것들 */
 const DETAIL_ALWAYS = [
   'issuetype', 'priority', 'versions', 'components', 'labels',
@@ -1504,11 +1516,15 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
       if (seen.has(id) || DETAIL_SKIP.has(id)) return
       if (traceId && id === traceId) return /* Traceability 는 제 칸에서 낸다 */
       const label = String(names[id] ?? '').trim()
-      if (!label) return
+      if (!label || isJunkName(label)) return
       seen.add(id)
       const raw = (f as Record<string, unknown>)[id]
       const html = DATE_FIELDS.has(id) ? '' : String((rf as Record<string, unknown>)[id] ?? '')
       const text = DATE_FIELDS.has(id) ? jdate(raw) : jval(raw)
+      /* 플러그인이 제 내부 객체를 통째로 뱉는 칸이 있다 — 자바 클래스
+         이름이 보이면 사람이 읽을 것이 아니다. 이름을 다 알 수 없으니
+         값으로 거른다. */
+      if (/com\.atlassian\.|\bcom\.\w+\.\w+\.\w+/.test(text) || /com\.atlassian\./.test(html)) return
       if (!always && !html.trim() && !text.trim()) return
       out.push({ id, label, html, text })
     }
@@ -1574,7 +1590,7 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
                         dangerouslySetInnerHTML={{ __html: jiraHtml(r.html, base) }}
                       />
                     ) : (
-                      <b>{r.text || '없음'}</b>
+                      <b title={r.text}>{r.text || '없음'}</b>
                     )}
                   </div>
                 ))}
