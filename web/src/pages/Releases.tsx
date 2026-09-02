@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isManual } from '@/lib/runMode'
 import { prefGet, prefSet } from '@/lib/prefs'
+import Resizer, { useResizableWidth } from '@/components/Resizer'
 import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
 import TcForm from '@/components/TcForm'
 import TestCases from '@/pages/TestCases'
@@ -494,15 +495,12 @@ export default function Releases() {
   /** **2열이 보여 줄 버전** — 한 번에 한 버전. 이슈가 백 건을 넘는 버전이
       흔해서, 여러 버전을 한 줄기에 늘어놓으면 어디를 보고 있는지 잃는다. */
   const [selVer, setSelVer] = useState(() => prefGet('utop.rls.ver') ?? '')
-  /** 1열 폭 — 계정별로 남는다(localStorage 직접 쓰기 금지) */
-  const [w1, setW1] = useState(() => {
-    const n = Number(prefGet('utop.rls.w1'))
-    return Number.isFinite(n) && n >= 160 && n <= 560 ? n : 268
-  })
-  /** 끌기가 끝날 때 「지금 폭」 을 읽어야 한다 — 핸들러가 잡아 둔 옛 값이
-      아니라. 이벤트 리스너는 붙을 때의 w1 만 안다. */
-  const w1Ref = useRef(w1)
-  w1Ref.current = w1
+  /** 1열 폭 — **REQ-Coverage 와 같은 부품**이 들고 저장한다(지시).
+   *  직접 만들어 쓰던 것을 걷었다: 세로바 모양도 저장 규칙도 한 곳에 있어야
+   *  두 화면이 안 갈린다. */
+  const [w1, setW1] = useResizableWidth('utop.rls.w1', 306, 160, 560)
+  /** 세로바가 「어디부터 재는지」 알려면 2행 왼쪽 끝이 필요하다 */
+  const splitRef = useRef<HTMLDivElement>(null)
   const [openIssue, setOpenIssue] = useState<Set<string>>(new Set())
   /** 머리줄에서 고른 UTOP 프로젝트 — 바뀌면 이 화면도 따라간다 */
   const [utop, setUtop] = useState<string[]>(() => currentProjects())
@@ -1144,7 +1142,7 @@ export default function Releases() {
              버전의 이슈. 한 줄기 트리로 늘어놓던 것을 갈랐다 — 버전이
              다섯이고 이슈가 188건이면 한 줄기로는 어디를 보고 있는지
              잃는다. REQ-Coverage 와 같은 배치라 익힐 것이 하나로 준다. ── */}
-      <div className="rls-split">
+      <div className="rls-split" ref={splitRef}>
 
         {/* 1열 — 사업자 ▸ 버전 */}
         <section className="panel rls-c1" style={{ flexBasis: w1 }}>
@@ -1186,12 +1184,22 @@ export default function Releases() {
                       onClick={() => setSelVer(vn)}
                       onKeyDown={(e) => e.key === 'Enter' && setSelVer(vn)}
                     >
-                      {/* **두 줄로 나눈다.** 한 줄에 이름·배지·수·단추를 다 넣었더니
-                          268px 칸에서 이름이 「E6100…」 으로 잘렸다 — 버전 이름은
-                          끝이 판별점이라 앞만 남으면 못 고른다. */}
-                      <div className="rls-vl1">
-                        <span className="rls-vname">{vn}</span>
-                        <span className="rls-vbs">
+                      {/* **한 줄로**(지시). 이름이 남는 자리를 다 먹고, 그 뒤에
+                          released 점·이슈/TC 수·단추가 붙는다. 자리가 빠듯해서
+                          released 는 글자 대신 초록 점이다(가리키면 글자로 뜬다).
+                          이름이 길어 잘리면 폭을 끌어 넓히면 된다 — 그 폭은
+                          계정을 따라다닌다. */}
+                      <span className="rls-vname" title={vn}>{vn}</span>
+                      {v?.released && <i className="rls-rel" title="released" />}
+                      {/* 이슈가 0건인 버전도 선다 — 「안 가져와졌다」 가 아니다 */}
+                      {st0.n ? (
+                        <span className="n">
+                          이슈 {st0.n} · TC {st0.tc}
+                        </span>
+                      ) : (
+                        <span className="rls-zero">이슈 0</span>
+                      )}
+                      <span className="rls-vbs">
                           <button
                             type="button"
                             className="rls-vb"
@@ -1216,19 +1224,7 @@ export default function Releases() {
                           >
                             ✕
                           </button>
-                        </span>
-                      </div>
-                      <div className="rls-vl2">
-                        {v?.released && <span className="rls-rel">released</span>}
-                        {/* 이슈가 0건인 버전도 선다 — 「안 가져와졌다」 가 아니다 */}
-                        {st0.n ? (
-                          <span className="n">
-                            이슈 {st0.n} · TC {st0.tc}
-                          </span>
-                        ) : (
-                          <span className="rls-zero">이슈 0</span>
-                        )}
-                      </div>
+                      </span>
                     </div>
                   )
                 })}
@@ -1237,23 +1233,11 @@ export default function Releases() {
           </div>
         </section>
 
-        {/* 끌어서 1열 폭을 바꾼다 — 폭은 계정별로 남는다 */}
-        <div
-          className="rls-sash"
-          role="separator"
-          title="끌어서 폭 조절"
-          onPointerDown={(e) => {
-            const x0 = e.clientX
-            const w0 = w1
-            const move = (m: PointerEvent) => setW1(Math.max(160, Math.min(560, w0 + m.clientX - x0)))
-            const up = () => {
-              window.removeEventListener('pointermove', move)
-              window.removeEventListener('pointerup', up)
-              prefSet('utop.rls.w1', String(w1Ref.current))
-            }
-            window.addEventListener('pointermove', move)
-            window.addEventListener('pointerup', up)
-          }}
+        {/* 칸 사이 세로바 — REQ-Coverage 와 **같은 부품**(지시) */}
+        <Resizer
+          label="사업자·버전 칸 폭 조절"
+          onResize={setW1}
+          getOrigin={() => splitRef.current?.getBoundingClientRect().left ?? 0}
         />
 
         {/* 2열 — 고른 버전의 이슈 */}

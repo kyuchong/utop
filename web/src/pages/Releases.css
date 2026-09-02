@@ -64,7 +64,9 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  gap: 8px;
+  /* 칸 사이는 **붙인다** — 그 자리는 세로바(.resizer)가 8px 로 가져간다.
+     REQ-Coverage 의 `.split` 과 같은 문법이다(지시). */
+  gap: 0;
 }
 .rls-c1 { flex: none; min-width: 160px; }
 /* 2열의 **칸 폭은 여기 한 곳**이다. 머리줄과 이슈줄이 같은 값을 봐야
@@ -139,18 +141,6 @@
 .rls-ihead .h-per { flex: none; width: var(--w-per, 104px); }
 .rls-sm { font-size: 11.5px; color: #98a2a8; }
 
-/* 끌개 — 얇지만 잡히는 자리는 넉넉하게 */
-.rls-sash {
-  flex: none;
-  width: 2px;
-  margin: 0 -3px;
-  padding: 0 3px;
-  background-clip: content-box;
-  background-color: transparent;
-  cursor: col-resize;
-  z-index: 2;
-}
-.rls-sash:hover { background-color: #b9c6d4; }
 
 /* 1열 — 사업자 머리 · 버전 줄 */
 .rls-op {
@@ -172,18 +162,18 @@
 }
 .rls-op:hover { background: #f3f5f7; }
 .rls-op .n { margin-left: auto; font-size: 11px; font-weight: 400; color: #8a949a; }
-/* 버전 한 칸 — 두 줄. 위는 이름(+↻·✕), 아래는 released·이슈·TC 수 */
+/* 버전 한 칸 — **한 줄**(지시). 이름이 남는 자리를 다 먹고 그 뒤에
+   released 점 · 이슈/TC 수 · 단추가 붙는다. */
 .rls-ver {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
-  padding: 5px 8px 6px 24px;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 6px 0 22px;
   border-bottom: 1px solid #f1f2f4;
   cursor: pointer;
   min-width: 0;
 }
-.rls-vl1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.rls-vl2 { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .rls-ver:hover { background: #f6f7f8; }
 /* 고른 버전 — 왼쪽에 굵은 자국을 둔다. 배경색만으로는 스캔이 안 된다 */
 .rls-ver.on {
@@ -191,13 +181,15 @@
   box-shadow: inset 3px 0 0 #3b6aa5;
 }
 .rls-ver .n {
-  font-size: 11px;
+  flex: none;
+  font-size: 10.5px;
   color: #8a949a;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 /* 이슈 0건 — 「못 가져왔다」 가 아니라 「가져왔는데 0건」 이다 */
 .rls-zero {
+  flex: none;
   font-size: 10.5px;
   color: #98a2a8;
   background: #f1f3f5;
@@ -218,13 +210,15 @@
   min-width: 0;
 }
 .rls-vname { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* released — **점 하나**. 한 줄에 넣으려니 「released」 일곱 글자가
+   이름 자리를 먹었다. 뜻은 가리키면 글자로 뜬다. */
 .rls-rel {
   flex: none;
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 9px;
-  background: #eaf4ee;
-  color: #2e7a53;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2e7a53;
+  font-style: normal;
 }
 /* 펼침·접기 — **가운데에 오도록 상자로 잡는다**(지시).
    예전엔 「⌄」 글자였는데, 그 글자는 제 네모칸의 아래쪽에 그려진다.
@@ -746,31 +740,34 @@
 .rls-tab {
   display: inline-flex;
   align-items: center;
-  border: 1px solid #dde3e6;
+  /* **청록**(지시) — 이 화면의 시험 번호(E61xx_V0001)가 쓰는 그 색이다.
+     회색 칩으로 두었더니 이슈 줄과 섞여 무엇이 시험인지 안 읽혔다. */
+  border: 1px solid #8fc9cf;
   border-radius: 8px;
-  background: #fff;
+  background: #e8f6f7;
   overflow: hidden;
 }
-.rls-tab.on { border-color: #0a8795; box-shadow: 0 0 0 2px rgba(10, 135, 149, 0.14); }
+.rls-tab:hover { border-color: #5fb2ba; background: #dff1f3; }
+.rls-tab.on { border-color: #0a8795; background: #d5edef; box-shadow: 0 0 0 2px rgba(10, 135, 149, 0.18); }
 .rls-tabb {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   border: 0;
   background: none;
-  color: #46555d;
+  color: #0a6b74;
   font: inherit;
   font-size: 11.5px;
   font-weight: 700;
   padding: 5px 4px 5px 11px;
   cursor: pointer;
 }
-.rls-tab.on .rls-tabb { color: #0a8795; }
+.rls-tab.on .rls-tabb { color: #06616b; }
 .rls-tabb i { font-style: normal; font-size: 9.5px; }
 .rls-tabx {
   border: 0;
   background: none;
-  color: #b3c1c5;
+  color: #8ab7bd;
   font: inherit;
   font-size: 11px;
   line-height: 1;
@@ -795,6 +792,11 @@
   z-index: 60;
   background: rgba(16, 24, 32, 0.34);
   display: flex;
+  /* **가장자리를 조금 남긴다**(지시: 「너무 확대 했어…여백을 약간」).
+     여백은 **덮개**가 준다 — 팝업에 vw·vh 를 주면 스크롤바 폭까지 세어
+     오른쪽·아래가 잘렸다(그 일을 한 번 겪었다). 화면이 커도 작아도
+     비슷해 보이게 clamp 로 잡는다. */
+  padding: clamp(10px, 1.8vh, 26px) clamp(10px, 1.2vw, 30px);
 }
 .rls-tcpop {
   /* **vw·vh 를 쓰지 않는다**(지적: 오른쪽과 아래가 잘렸다).
@@ -806,8 +808,9 @@
   min-width: 0;
   min-height: 0;
   background: #fff;
-  border: 0;
-  border-radius: 0;
+  border: 1px solid var(--c-border, #c3cbd4);
+  border-radius: 8px;
+  box-shadow: 0 18px 48px rgba(16, 24, 32, 0.28);
   display: flex;
   flex-direction: column;
   overflow: hidden;
