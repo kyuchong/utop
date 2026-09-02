@@ -1321,7 +1321,7 @@ export default function Releases() {
           뒤처진다. */}
       {!!tcOpen && (
         <div
-          className="rls-scrim"
+          className="rls-tcscrim"
           onMouseDown={(e) => e.target === e.currentTarget && setTcOpen('')}
         >
           <div className="rls-tcpop" role="dialog" aria-modal="true" aria-label={tcOpen}>
