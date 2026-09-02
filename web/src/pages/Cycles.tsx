@@ -925,6 +925,8 @@ export default function Cycles({ me, entry = 'cycles' }: PageProps & { entry?: '
             plan={p}
             catalog={catQ.data?.items ?? []}
             owner={me?.name || me?.username || ''}
+            /* 이미 쓰고 있는 버전그룹 — 손으로 치면 Runs 트리 폴더가 갈린다 */
+            vgroups={Object.keys(vgQ.data?.groups ?? {})}
             onClose={() => setMkRunFor('')}
             onMade={(id) => {
               /* 만든 뒤에는 **Runs 화면으로 넘어간다**(지시). 「▶ 실행」 은

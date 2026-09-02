@@ -72,12 +72,14 @@ export function PlanRunPopup({
  * 가는 일이다.
  */
 export function MakePlanRun({
-  plan, catalog, owner, onClose, onMade,
+  plan, catalog, owner, vgroups = [], onClose, onMade,
 }: {
   plan: CycleMeta
   /** 장비 카탈로그 — 모델그룹·모델명을 손으로 치면 표기가 갈린다 */
   catalog: Array<{ kind?: string; name?: string; model_group?: string | null; family?: string | null }>
   owner: string
+  /** 이미 쓰고 있는 버전그룹들 — 손으로 치면 폴더가 갈린다 */
+  vgroups?: string[]
   onClose: () => void
   onMade: (runId: string) => void
 }) {
@@ -130,6 +132,12 @@ export function MakePlanRun({
     [nameQ.data],
   )
   const TYPES = useCodes('cycle_type', ['표준항목'])
+  /** 고를 버전그룹 — 이미 쓰고 있는 것에 플랜 것을 더한다 */
+  const vgList = useMemo(
+    () => [...new Set([...(vgroups ?? []), String(plan.version_group ?? '')].filter(Boolean))]
+      .sort((a2, b2) => b2.localeCompare(a2, undefined, { numeric: true })),
+    [vgroups, plan.version_group],
+  )
 
   const models = useMemo(
     () => catalog
@@ -166,6 +174,16 @@ export function MakePlanRun({
     setVg(ver.split('_')[0] ?? '')
   }, [ver, vgTouched])
 
+  /** 오늘 — YYYY-MM-DD. 자리 채움 0 까지 맞춘다 */
+  const ymd = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  /** 「오늘」 단추 — 버전그룹 뒤에 오늘 날짜를 붙인다(R100_2026_09_02).
+   *  빌드 이름을 손으로 치다 자릿수를 틀리는 일이 잦다. */
+  const stampToday = () => {
+    const d = new Date()
+    setVer(`${vg || 'R'}_${d.getFullYear()}_${String(d.getMonth() + 1).padStart(2, '0')}_${String(d.getDate()).padStart(2, '0')}`)
+  }
+
   const save = async () => {
     if (busy) return
     setBusy(true)
@@ -179,8 +197,10 @@ export function MakePlanRun({
           version: ver,
           version_group: vg,
           owner: who,
-          start_date: sd,
-          end_date: ed,
+          /* 기간을 안 적으면 **오늘부터 일주일**로 둔다. 비워 두면 Runs 의
+             기간 칸이 빈 채로 남아 언제까지 하는 일인지 아무도 모른다. */
+          start_date: sd || ymd(new Date()),
+          end_date: ed || ymd(new Date(Date.now() + 7 * 864e5)),
           /* 유형은 실행이 제 것으로 들고 간다. 플랜의 유형을 그대로 읽으면
              플랜을 나중에 고칠 때 이미 돈 실행의 성격까지 따라 바뀐다 —
              항목을 복사해 오는 것과 같은 까닭이다. */
@@ -198,123 +218,104 @@ export function MakePlanRun({
     }
   }
 
+  const sel = (
+    label: string,
+    v: string,
+    set: (x: string) => void,
+    opts: string[],
+    hint?: string,
+  ) => (
+    <label className="cyrp-f">
+      <span>{label}</span>
+      <select value={v} onChange={(e) => set(e.target.value)}>
+        <option value="">(안 고름)</option>
+        {opts.map((o) => (
+          <option key={o}>{o}</option>
+        ))}
+        {!!v && !opts.includes(v) && <option value={v}>{v} (목록에 없음)</option>}
+      </select>
+      {!!hint && <em>{hint}</em>}
+    </label>
+  )
+
   return (
     <div className="cyrp-scrim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="cyrp-mk" role="dialog" aria-modal="true" aria-label="시험 실행 만들기">
-        <header>시험 실행 만들기</header>
+        {/* 안내는 **머리줄에 붙인다**(그림). 네모 판으로 띄워 두면 그것만
+            한 칸을 먹어, 정작 채울 칸이 밑으로 밀린다. */}
+        <header>
+          <b>시험 실행 만들기</b>
+          <span>
+            {plan.cid || plan.id} 의 시험 항목 {(plan.items ?? []).length}건을 복사합니다 · 복사 뒤
+            플랜을 고쳐도 이 실행은 안 바뀝니다
+          </span>
+        </header>
+        {/* 두 칸씩 나란히(그림) — 짝이 되는 것끼리 한 줄에 선다:
+            담당자·유형 / 제품군·모델그룹 / 모델명·버전그룹 */}
         <div className="cyrp-mb">
-          <p className="cyrp-note">
-            <b>{plan.cid || plan.id}</b> 의 시험 항목 {(plan.items ?? []).length}건을 <b>복사해</b> 실행을
-            만듭니다. 복사한 뒤에는 플랜을 고쳐도 이 실행은 안 바뀝니다.
-          </p>
-          <label className="cyrp-fld">
+          <label className="cyrp-f wide">
             <span>제목</span>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="비우면 「플랜 · 버전」" />
           </label>
-          <label className="cyrp-fld">
-            <span>담당자</span>
-            <select value={who} onChange={(e) => setWho(e.target.value)}>
-              <option value="">(안 정함)</option>
-              {people.map((n) => (
-                <option key={n}>{n}</option>
-              ))}
-              {!!who && !people.includes(who) && <option value={who}>{who}</option>}
-            </select>
-          </label>
-          <label className="cyrp-fld">
-            <span>유형</span>
-            <select value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="">(안 정함)</option>
-              {TYPES.map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-              {!!type && !TYPES.includes(type) && <option value={type}>{type}</option>}
-            </select>
-          </label>
-          <label className="cyrp-fld">
-            <span>제품군</span>
-            <select
-              value={fam}
-              onChange={(e) => {
-                setFamTouched(true)
-                setFam(e.target.value)
-              }}
-            >
-              <option value="">(안 고름)</option>
-              {families.map((f) => (
-                <option key={f}>{f}</option>
-              ))}
-              {!!fam && !families.includes(fam) && <option value={fam}>{fam} (목록에 없음)</option>}
-            </select>
-          </label>
-          <label className="cyrp-fld">
-            <span>모델그룹</span>
-            <select
-              value={mg}
-              onChange={(e) => {
-                setMg(e.target.value)
-                /* 그룹을 바꾸면 그 그룹에 없는 모델은 지운다 — 안 맞는 짝이
-                   남아 있으면 Key 앞머리가 엉뚱해진다 */
-                setMdl((m) =>
-                  catalog.some(
-                    (x) => x.kind === 'model' && x.name === m && String(x.model_group ?? '') === e.target.value,
-                  )
-                    ? m
-                    : '',
-                )
-              }}
-            >
-              <option value="">(안 고름)</option>
-              {groups.map((g) => (
-                <option key={g}>{g}</option>
-              ))}
-              {mg && !groups.includes(mg) && <option value={mg}>{mg} (목록에 없음)</option>}
-            </select>
-          </label>
-          <label className="cyrp-fld">
-            <span>모델명</span>
-            <select value={mdl} onChange={(e) => setMdl(e.target.value)}>
-              <option value="">(안 고름)</option>
-              {models.map((m) => (
-                <option key={m}>{m}</option>
-              ))}
-              {mdl && !models.includes(mdl) && <option value={mdl}>{mdl} (목록에 없음)</option>}
-            </select>
-            <em>실행 번호의 앞머리가 됩니다 — {(mdl || mg || 'RUN')}_R0001</em>
-          </label>
-          <label className="cyrp-fld">
-            <span>버전그룹</span>
-            <input
-              value={vg}
-              onChange={(e) => {
-                setVgTouched(true)
-                setVg(e.target.value)
-              }}
-              placeholder="R100"
-            />
-            <em>Runs 왼쪽 레일에서 이 폴더에 들어갑니다</em>
-          </label>
-          <label className="cyrp-fld">
+
+          {sel('담당자', who, setWho, people)}
+          {sel('유형', type, setType, TYPES)}
+
+          {sel('제품군', fam, (v) => {
+            setFamTouched(true)
+            setFam(v)
+          }, families)}
+          {sel('모델그룹', mg, (v) => {
+            setMg(v)
+            /* 그룹을 바꾸면 그 그룹에 없는 모델은 지운다 — 안 맞는 짝이
+               남아 있으면 실행 번호의 앞머리가 엉뚱해진다 */
+            setMdl((m) =>
+              catalog.some(
+                (x) => x.kind === 'model' && x.name === m && String(x.model_group ?? '') === v,
+              )
+                ? m
+                : '',
+            )
+          }, groups)}
+
+          {sel('모델명', mdl, setMdl, models)}
+          {sel('버전그룹', vg, (v) => {
+            setVgTouched(true)
+            setVg(v)
+          }, vgList)}
+
+          <label className="cyrp-f wide">
             <span>버전명</span>
-            <input
-              value={ver}
-              onChange={(e) => setVer(e.target.value)}
-              placeholder={String(plan.version ?? '') || 'R100_2026_08_31'}
-              autoFocus
-            />
-            {/* 플랜의 버전은 **알려만 준다** — 채워 넣지 않는다. 같은 빌드를
-                다시 돌릴 때는 이 값을 보고 그대로 적으면 된다. */}
-            {!!plan.version && <em>플랜의 버전은 {plan.version} 입니다</em>}
+            <div className="cyrp-row">
+              <input
+                value={ver}
+                onChange={(e) => setVer(e.target.value)}
+                placeholder={String(plan.version ?? '') || 'R100_2026_08_31'}
+                autoFocus
+              />
+              {/* 빌드 이름은 「버전그룹_날짜」 가 관례다 — 손으로 치다 자릿수를
+                  틀리느니 눌러서 넣는다 */}
+              <button type="button" className="cyrp-btn" onClick={stampToday} title="버전그룹 뒤에 오늘 날짜를 붙입니다">
+                오늘
+              </button>
+            </div>
+            <em>
+              실행 번호 {(mdl || mg || 'RUN')}_R0001 · Runs 트리 {vg || '–'} 폴더
+            </em>
           </label>
-          <label className="cyrp-fld">
-            <span>시작</span>
-            <input type="date" value={sd} onChange={(e) => setSd(e.target.value)} />
-          </label>
-          <label className="cyrp-fld">
-            <span>종료</span>
-            <input type="date" value={ed} onChange={(e) => setEd(e.target.value)} />
-            {/* 언제까지 하기로 했나다 — 실제로 돌린 시각(경과)과는 다르다 */}
-            {!!sd && !!ed && ed < sd && <em className="bad">종료가 시작보다 빠릅니다</em>}
+
+          <label className="cyrp-f wide">
+            <span>기간</span>
+            <div className="cyrp-row">
+              <input type="date" value={sd} onChange={(e) => setSd(e.target.value)} />
+              <i>~</i>
+              <input type="date" value={ed} onChange={(e) => setEd(e.target.value)} />
+            </div>
+            {!!sd && !!ed && ed < sd ? (
+              <em className="bad">종료가 시작보다 빠릅니다</em>
+            ) : (
+              <em>비워 두면 오늘부터 일주일</em>
+            )}
           </label>
         </div>
         <footer>
@@ -323,7 +324,12 @@ export function MakePlanRun({
           <button type="button" className="cyrp-btn" onClick={onClose}>
             취소
           </button>
-          <button type="button" className="cyrp-btn pri" disabled={busy || !ver.trim() || (!!sd && !!ed && ed < sd)} onClick={() => void save()}>
+          <button
+            type="button"
+            className="cyrp-btn pri"
+            disabled={busy || !ver.trim() || (!!sd && !!ed && ed < sd)}
+            onClick={() => void save()}
+          >
             {busy ? '만드는 중…' : '＋ 실행 만들기'}
           </button>
         </footer>
