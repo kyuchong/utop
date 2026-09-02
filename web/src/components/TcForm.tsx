@@ -12,6 +12,9 @@ interface Props {
   editing: TestCaseMeta | null
   /** 새로 만들 때 미리 연결해 둘 요구사항 (요구사항 화면의 「+ TC 생성」) */
   presetReqId?: string
+  /** 새로 만들 때 제목을 미리 채운다 — Releases 에서 이슈를 덮는 시험을
+   *  만들 때 그 이슈 제목으로 시작한다(같은 말을 두 번 치지 않는다) */
+  presetName?: string
   /** 새로 만들고 나면 그 시험을 연다 — 만들기는 곧 세부 작성의 시작이다 */
   onCreated?: (tcid: string) => void
   onClose: () => void
@@ -25,7 +28,7 @@ const FB_ORIGIN = ['자체', '고객']
 /** 「공용으로 하겠다」 는 명시적 선택 — 빈 값(안 고름)과 갈라야 필수가 된다 */
 const COMMON = '*'
 
-export default function TcForm({ editing, presetReqId, onCreated, onClose }: Props) {
+export default function TcForm({ editing, presetReqId, presetName, onCreated, onClose }: Props) {
   const qc = useQueryClient()
   const isNew = editing === null
 
@@ -59,7 +62,7 @@ export default function TcForm({ editing, presetReqId, onCreated, onClose }: Pro
     // 새 ID 는 아래의 딴 effect 가 받는다 — 모델그룹에 따라 앞머리가
     // 갈리므로 모델그룹을 고를 때마다 다시 물어야 한다.
 
-    setName(editing?.name ?? '')
+    setName(editing?.name ?? presetName ?? '')
     setReqId(editing?.req_id ?? presetReqId ?? '')
     setType(editing?.type ?? '')
     setStatus(editing?.status || FB_STATUS[0]!)
@@ -75,7 +78,7 @@ export default function TcForm({ editing, presetReqId, onCreated, onClose }: Pro
     const c = editing?.custom
     setCustom(c && typeof c === 'object' ? { ...(c as Record<string, unknown>) } : {})
     setError('')
-  }, [editing, presetReqId])
+  }, [editing, presetReqId, presetName])
 
   const reqQ = useQuery({
     queryKey: ['req', 'list'],

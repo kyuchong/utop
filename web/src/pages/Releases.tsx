@@ -1,23 +1,34 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
+import { goto } from '@/api/goto'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
+import TcForm from '@/components/TcForm'
 import type { Project } from '@/types'
 import './Releases.css'
 
 /**
  * **Releases — Jira 버전별 이슈와 그 이슈를 덮는 시험.**
  *
- * 「이번 릴리스의 이슈가 다 검증됐나」 를 배포 전에 보는 자리다. 주신 목업의
- * 노션 꼴 표를 따랐다 — 사업자 ▸ 버전 ▸ 이슈 ▸ TC 가 한 표 안에서 접히고
- * 펴진다.
+ * 「이번 릴리스의 이슈가 다 검증됐나」 를 배포 전에 보는 자리다.
  *
- * 자료는 **이미 도는 서버 것을 그대로** 쓴다.
- *  · 이슈·버전 : Jira (`/api/jira/versions` · `/api/jira/search-all`)
- *  · 이슈↔TC  : `/api/release-summary` — 열쇠는 `프로젝트@@버전` 이고 그 안이
- *    이슈키별 `{tcs:[…]}` 다. 옛 화면이 쓰던 모양 그대로라 **쌓아 둔 연결이
- *    그대로 보인다.**
+ * ## Sync 한 것은 남는다
+ *
+ * 예전엔 Sync 를 눌러야만 표가 찼고, 새로고침하면 도로 비었다(지적:
+ * 「계속 새로 해야 됩니다」). Jira 응답을 화면 안에만 들고 있었기 때문이다.
+ *
+ * 이제 **가져온 이슈를 `release_summary` 에 그대로 넣는다.** 옛 화면
+ * (`_rlsStore`)이 쓰던 모양 그대로다 —
+ *
+ *   releases["프로젝트@@버전"]["이슈키"] = { summary, type, status, statusCat,
+ *                                            assignee, reporter, …, tcs:[…] }
+ *
+ * 그래서 ① 새로고침해도 그대로 있고 ② 옛 화면이 쌓아 둔 것도 그대로 보이고
+ * ③ 표를 그릴 때 Jira 를 안 두드린다. 표에 서는 버전 = **Sync 한 버전**이다.
+ *
+ * Sync 는 두 자리에 있다. 위 줄의 것은 체크한 버전을 한꺼번에, 버전 줄의
+ * ↻ 는 그 버전 하나만 — 한 버전만 다시 보려고 79개를 다시 받지 않는다.
  */
 
 /** 사업자 — 버전 이름의 괄호에서 뽑는다. 옛 화면(_rlsOperator)과 같은 규칙이라
@@ -38,12 +49,16 @@ interface JiraVersion {
   startDate?: string
   description?: string
 }
+/** Jira 가 준 이슈 — 받은 그대로. 저장할 때 아래 StoredIssue 로 줄인다 */
 interface JiraIssue {
   key: string
   fields?: {
     summary?: string
+    created?: string
     status?: { name?: string; statusCategory?: { key?: string } }
     issuetype?: { name?: string }
+    priority?: { name?: string }
+    resolution?: { name?: string }
     reporter?: { displayName?: string }
     assignee?: { displayName?: string }
     fixVersions?: Array<{ name?: string }>
@@ -55,7 +70,25 @@ interface LinkTc {
   id?: string
   result?: string
 }
-type Store = Record<string, Record<string, { tcs?: Array<LinkTc | string>; statusCat?: string }>>
+/** **저장되는 이슈.** 칸 이름은 옛 화면과 한 글자도 다르지 않다 —
+ *  이름을 바꾸면 그 화면이 쌓아 둔 것을 못 읽는다. */
+interface StoredIssue {
+  key?: string
+  summary?: string
+  type?: string
+  status?: string
+  statusCat?: string
+  priority?: string
+  resolution?: string
+  assignee?: string
+  reporter?: string
+  created?: string
+  source?: string
+  /** 언제 Jira 에서 받아 왔나 — 버전 줄에 「마지막 Sync」 로 나온다 */
+  syncedAt?: string
+  tcs?: Array<LinkTc | string>
+}
+type Store = Record<string, Record<string, StoredIssue>>
 
 /** 빈 목록은 **하나를 돌려쓴다** — 매번 [] 를 새로 만들면 그것만으로도
  *  memo 가 깨진다. */
@@ -67,6 +100,58 @@ const KINDS = ['Defect', 'CR', '개발 Defect']
 const tcidOf = (t: LinkTc | string): string =>
   typeof t === 'string' ? t : String(t?.tcid ?? t?.id ?? '')
 
+/** 받은 이슈를 저장할 모양으로 줄인다. 화면이 그리는 칸만 남긴다 —
+ *  Jira 응답을 통째로 넣으면 이슈 백 건에 몇 MB 가 된다. */
+function shrink(it: JiraIssue, at: string, old?: StoredIssue): StoredIssue {
+  const f = it.fields ?? {}
+  return {
+    ...old,
+    key: it.key,
+    summary: String(f.summary ?? ''),
+    type: String(f.issuetype?.name ?? ''),
+    status: String(f.status?.name ?? ''),
+    statusCat: String(f.status?.statusCategory?.key ?? ''),
+    priority: String(f.priority?.name ?? ''),
+    resolution: String(f.resolution?.name ?? ''),
+    assignee: String(f.assignee?.displayName ?? ''),
+    reporter: String(f.reporter?.displayName ?? ''),
+    created: String(f.created ?? '').slice(0, 10),
+    source: old?.source || 'jira',
+    syncedAt: at,
+    /* 붙여 둔 시험은 **건드리지 않는다.** Sync 는 Jira 쪽 이야기를
+       새로 받는 것이지, 사람이 이어 둔 것을 지우는 일이 아니다. */
+    tcs: old?.tcs ?? [],
+  }
+}
+
+/** 언제 받아 왔나 — 「09-02 11:20」 */
+function stamp(iso: string): string {
+  const s = String(iso || '')
+  if (s.length < 16) return ''
+  return `${s.slice(5, 10).replace('-', '.')} ${s.slice(11, 16)}`
+}
+
+/** Jira 가 준 HTML 을 화면에 놓기 전에 손본다 — 옛 화면(_rlsJiraHtml)과 같은 규칙.
+ *
+ *  · `<script>` 와 `on…` 속성은 걷는다 — 남이 쓴 글이 내 화면에서 돌면 안 된다
+ *  · `<img src>` 는 인증 프록시로 돌린다 — 브라우저는 Jira 에 로그인해 있지 않아
+ *    그냥 두면 첨부 그림이 전부 깨진다
+ *  · 상대 링크는 절대로 펴고 새 탭에서 연다 */
+function jiraHtml(html: string, base: string): string {
+  let s = String(html || '')
+  s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
+  s = s.replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+  s = s.replace(/(<img\b[^>]*?\bsrc=")([^"]+)(")/gi, (m, a: string, u: string, b: string) => {
+    if (/^data:/i.test(u)) return m
+    const full = /^https?:/i.test(u) ? u : /^\//.test(u) ? base + u : `${base}/${u}`
+    return `${a}/api/jira/attachment?url=${encodeURIComponent(full)}${b}`
+  })
+  s = s.replace(
+    /(<a\b[^>]*?\bhref=")(\/[^"]*)(")/gi,
+    (_m, a: string, u: string, b: string) => `${a}${base}${u}${b} target="_blank" rel="noopener"`,
+  )
+  return s
+}
 
 /** 이슈 한 줄.
  *
@@ -74,11 +159,13 @@ const tcidOf = (t: LinkTc | string): string =>
  *  97줄이 전부 다시 그려져 화면이 무거웠다(지적). 이제 눌린 줄만 다시 그린다.
  */
 const IssueRow = memo(function IssueRow({
-  it, ver, open, tcs, tcById, resultOf, onToggle, onAdd, onDrop,
+  it, ver, open, tcs, tcById, resultOf, onToggle, onNew, onPick, onDrop, onDetail,
 }: {
-  onAdd: (ver: string, key: string) => void
+  onNew: (ver: string, key: string, summary: string) => void
+  onPick: (ver: string, key: string) => void
   onDrop: (ver: string, key: string, tcid: string) => void
-  it: JiraIssue
+  onDetail: (key: string) => void
+  it: StoredIssue
   ver: string
   open: boolean
   tcs: string[]
@@ -86,8 +173,7 @@ const IssueRow = memo(function IssueRow({
   resultOf: (tcid: string) => string
   onToggle: (k: string) => void
 }) {
-  const st = String(it.fields?.status?.name ?? '')
-  const cat = String(it.fields?.status?.statusCategory?.key ?? '')
+  const k = String(it.key ?? '')
   return (
     <div className="rls-iblock">
       <div className="rls-irow">
@@ -95,25 +181,34 @@ const IssueRow = memo(function IssueRow({
           className="rls-car"
           role="button"
           tabIndex={0}
-          onClick={() => onToggle(`${ver}|${it.key}`)}
-          onKeyDown={(e) => e.key === 'Enter' && onToggle(`${ver}|${it.key}`)}
+          onClick={() => onToggle(`${ver}|${k}`)}
+          onKeyDown={(e) => e.key === 'Enter' && onToggle(`${ver}|${k}`)}
         >
           {open ? '⌄' : '›'}
         </span>
-        <span className="rls-key">{it.key}</span>
-        <span className="rls-type">{it.fields?.issuetype?.name ?? ''}</span>
-        <span className={`rls-stat ${cat}`}>{st}</span>
+        {/* 이슈 키를 누르면 **서랍**이 열린다 — 설명·댓글은 Jira 로 건너가지
+            않고 여기서 본다(지시) */}
+        <button
+          type="button"
+          className="rls-key as-btn"
+          title="Jira 세부 보기 — 설명·댓글·첨부"
+          onClick={() => onDetail(k)}
+        >
+          {k}
+        </button>
+        <span className="rls-type">{it.type ?? ''}</span>
+        <span className={`rls-stat ${it.statusCat ?? ''}`}>{it.status ?? ''}</span>
         <span className="rls-person">
           <span>보고자</span>
-          {it.fields?.reporter?.displayName ?? '–'}
+          {it.reporter || '–'}
         </span>
         <span className="rls-person">
           <span>담당자</span>
-          {it.fields?.assignee?.displayName ?? '–'}
+          {it.assignee || '–'}
         </span>
         <span className="rls-tcn">TC {tcs.length}</span>
       </div>
-      <div className="rls-ititle">{it.fields?.summary ?? ''}</div>
+      <div className="rls-ititle">{it.summary ?? ''}</div>
       {open && (
         <div className="rls-tcs">
           {tcs.map((tcid) => {
@@ -121,7 +216,14 @@ const IssueRow = memo(function IssueRow({
             const rv = resultOf(tcid)
             return (
               <div className="rls-tcrow" key={tcid}>
-                <span className="rls-code">{tcid}</span>
+                <button
+                  type="button"
+                  className="rls-code as-btn"
+                  title="이 시험 항목을 엽니다"
+                  onClick={() => goto('tc', tcid)}
+                >
+                  {tcid}
+                </button>
                 <span className="rls-name">{t?.name ?? '(지워진 시험 항목)'}</span>
                 <span className="rls-kind">{t?.kind === '수동' ? 'MANUAL' : t?.kind ? 'AUTO' : ''}</span>
                 <span className={`rls-res ${rv.toLowerCase()}`}>{rv ? rv.toUpperCase() : ''}</span>
@@ -129,7 +231,7 @@ const IssueRow = memo(function IssueRow({
                   type="button"
                   className="rls-x"
                   title="이 이슈에서 뺍니다 — 시험 항목 자체는 안 지웁니다"
-                  onClick={() => onDrop(ver, it.key, tcid)}
+                  onClick={() => onDrop(ver, k, tcid)}
                 >
                   ✕
                 </button>
@@ -140,8 +242,24 @@ const IssueRow = memo(function IssueRow({
             <div className="rls-tcrow rls-empty">이 이슈에 붙은 시험 항목이 없습니다.</div>
           )}
           <div className="rls-tcrow">
-            <button type="button" className="rls-add" onClick={() => onAdd(ver, it.key)}>
+            {/* **＋ TC 추가 = 새로 만들어 그 자리에서 작성**(지시).
+                만들고 나면 시험 항목 화면으로 넘어간다 — 스텝을 적는 자리는
+                거기다. 여기서 반쪽짜리 편집기를 또 만들지 않는다. */}
+            <button
+              type="button"
+              className="rls-add"
+              title="이 이슈를 덮을 시험을 새로 만들고, 만든 뒤 그 시험 화면으로 갑니다"
+              onClick={() => onNew(ver, k, String(it.summary ?? ''))}
+            >
               ＋ TC 추가
+            </button>
+            <button
+              type="button"
+              className="rls-add sub"
+              title="이미 있는 시험 항목을 이 이슈에 붙입니다"
+              onClick={() => onPick(ver, k)}
+            >
+              이미 있는 것 붙이기
             </button>
           </div>
         </div>
@@ -161,13 +279,16 @@ export default function Releases() {
   /** 머리줄에서 고른 UTOP 프로젝트 — 바뀌면 이 화면도 따라간다 */
   const [utop, setUtop] = useState<string[]>(() => currentProjects())
   useEffect(() => onProjectChange(() => setUtop(currentProjects())), [])
-  /** 고른 버전. Sync 를 눌러야 세부를 가져온다 — 누른 「프로젝트@@버전」 이 synced 다 */
-  /** 고른 버전들 — **여러 개**를 체크해 한 번에 가져온다(지시) */
+  /** 체크한 버전들 — **Sync 할 것**을 고르는 자리다. 표에 서는 것은
+      「Sync 한 버전」 이지 여기서 체크한 것이 아니다. */
   const [vers, setVers] = useState<string[]>([])
   const [verOpen, setVerOpen] = useState(false)
-  /** TC 붙이는 창 — 어느 이슈에 붙일지 */
+  /** 이미 있는 시험 붙이는 창 · 새로 만드는 창 · Jira 세부 서랍 */
   const [addTo, setAddTo] = useState<{ ver: string; key: string } | null>(null)
-  const [synced, setSynced] = useState('')
+  const [newTo, setNewTo] = useState<{ ver: string; key: string; summary: string } | null>(null)
+  const [detail, setDetail] = useState('')
+  /** Sync 진행 — 「R1.1.2 (1/3)」. 몇 개 중 몇 번째인지 안 보이면 멈춘 줄 안다 */
+  const [busy, setBusy] = useState('')
 
   /** 이슈 펴기·접기 — **같은 함수**를 계속 준다. 매번 새로 만들면 memo 가
       「달라졌다」 고 보고 다 다시 그린다. */
@@ -229,8 +350,7 @@ export default function Releases() {
   }, [upQ.data, utop, jiraAll])
   const allProjects = linked
   /** 즐겨찾기 — Jira 설정의 fav_projects. 옛 화면과 **같은 열쇠**라 거기서
-   *  정해 둔 것이 그대로 온다. 비면 「전부」 인데, 실제 Jira 는 프로젝트가
-   *  서른 개가 넘어 탭이 가로로 넘쳐 못 쓴다(지적) — 그때는 고르개로 낸다. */
+   *  정해 둔 것이 그대로 온다. */
   const cfgQ = useQuery({
     queryKey: ['jira-cfg'],
     staleTime: 300_000,
@@ -249,6 +369,9 @@ export default function Releases() {
           .filter(Boolean)
     return arr
   }, [cfgQ.data])
+  /** Jira 주소 — 서랍의 그림·링크를 절대 주소로 펴는 데 쓴다 */
+  const jbase = useMemo(() => String(cfgQ.data?.url ?? '').replace(/\/+$/, ''), [cfgQ.data])
+
   useEffect(() => {
     /* 즐겨찾기(fav_projects)가 있으면 그 첫 번째로 시작한다 — 옛 화면과
        같은 열쇠라 거기서 정해 둔 것이 그대로 온다. */
@@ -273,33 +396,7 @@ export default function Releases() {
     },
   })
 
-  /* ── 이슈 — 버전이 붙은 것만 한 번에 받아 화면에서 나눈다 ── */
-  /* 이슈는 **Sync 를 눌러야** 가져온다(지시). 프로젝트만 바꿔도 Jira 를
-     두드리면, 서른 개를 훑는 동안 화면이 멎는다. */
-  const issQ = useQuery({
-    queryKey: ['jira-issues', synced],
-    enabled: !!synced,
-    staleTime: 60_000,
-    queryFn: async () => {
-      /* **이 셋만 가져온다**(지시). 나머지(Task·산출물·OS Release…)는 시험으로
-         덮을 것이 아니라 이 화면에 설 까닭이 없다. Jira 에서 걸러 오므로
-         받는 양도 그만큼 준다. */
-      const types = KINDS.map((k) => `"${k}"`).join(', ')
-      const [sp, sv] = synced.split('@@')
-      const list = String(sv ?? '').split('|').filter(Boolean)
-      const fv = list.map((v) => `"${v}"`).join(', ')
-      const jql =
-        `project = ${sp} AND fixVersion in (${fv}) AND issuetype in (${types}) ORDER BY key DESC`
-      const f = 'summary,status,issuetype,reporter,assignee,fixVersions'
-      const r = await apiFetch(
-        `/api/jira/search-all?jql=${encodeURIComponent(jql)}&fields=${encodeURIComponent(f)}`,
-      )
-      if (!r.ok) throw new Error('이슈를 불러오지 못했습니다')
-      return (await r.json()) as { ok?: boolean; issues?: JiraIssue[]; error?: string }
-    },
-  })
-
-  /* ── 이슈↔TC 연결 · 시험 항목 이름 · 최근 결과 ── */
+  /* ── 쌓아 둔 것 — 이슈·이슈↔TC 연결이 **여기 한 곳**에 있다 ── */
   const sumQ = useQuery({
     queryKey: ['release-summary'],
     staleTime: 30_000,
@@ -337,64 +434,198 @@ export default function Releases() {
     return m
   }, [tcQ.data])
 
-  /* ── 사업자 ▸ 버전 ▸ 이슈 로 접는다 ── */
-  const issues = issQ.data?.issues ?? []
-  const byVer = useMemo(() => {
-    const m = new Map<string, JiraIssue[]>()
-    for (const it of issues)
-      for (const fv of it.fields?.fixVersions ?? []) {
-        const k = String(fv?.name ?? '')
-        if (!k) continue
-        const arr = m.get(k)
-        if (arr) arr.push(it)
-        else m.set(k, [it])
+  const store = useMemo(() => sumQ.data?.releases ?? ({} as Store), [sumQ.data])
+
+  /* ── Sync — 받은 것을 **저장한다** ── */
+
+  /** 저장하기 직전에 **서버에서 다시 읽어** 그 위에 얹는다.
+   *
+   *  `/api/release-summary` 는 통째로 덮는 통로다. 손에 든 사본으로 쓰면
+   *  ① 그 사이 남이 저장한 것이 사라지고(둘이 같이 보는 화면이다)
+   *  ② 아직 못 읽은 채로 눌리면 **다른 프로젝트 것까지 빈 값으로 덮는다.**
+   *  한 번 더 읽는 이 한 겹이 그 둘을 다 막는다. */
+  const readStore = async (): Promise<Store> => {
+    const r = await apiFetch('/api/release-summary')
+    if (!r.ok) throw new Error('저장된 것을 읽지 못했습니다')
+    const j = (await r.json()) as { releases?: unknown }
+    const rel = j?.releases
+    return (rel && typeof rel === 'object' && !Array.isArray(rel) ? rel : {}) as Store
+  }
+
+  /** 한 버전의 이슈를 Jira 에서 받는다. 이 세 종류만(지시) — 나머지는
+   *  시험으로 덮을 거리가 아니라 이 화면에 설 까닭이 없다. Jira 에서
+   *  걸러 오므로 받는 양도 그만큼 준다. */
+  const fetchVer = async (p: string, ver: string): Promise<JiraIssue[]> => {
+    const types = KINDS.map((k) => `"${k}"`).join(', ')
+    const jql = `project = ${p} AND fixVersion = "${ver}" AND issuetype in (${types}) ORDER BY key DESC`
+    const f = 'summary,status,issuetype,priority,resolution,reporter,assignee,created,fixVersions'
+    const r = await apiFetch(
+      `/api/jira/search-all?jql=${encodeURIComponent(jql)}&fields=${encodeURIComponent(f)}`,
+    )
+    if (!r.ok) throw new Error('이슈를 불러오지 못했습니다')
+    const j = (await r.json()) as { ok?: boolean; issues?: JiraIssue[]; error?: string }
+    if (j.error) throw new Error(String(j.error))
+    return j.issues ?? []
+  }
+
+  /** 버전 몇 개를 받아 **한 번에** 저장한다.
+   *
+   *  버전마다 저장하면 그 사이에 남이 저장한 것을 덮는다 — 다 받아 놓고
+   *  한 번만 쓴다. 실패한 버전은 건너뛰고 까닭을 말한다(하나가 막혔다고
+   *  나머지까지 버릴 일이 아니다). */
+  const syncVers = useCallback(
+    async (list: string[]) => {
+      if (!proj || !list.length || busy) return
+      /* 먼저 **다 받는다.** 받는 중간에 저장하면, 뒤 버전이 실패했을 때
+         절반만 반영된 채로 남는다. */
+      const got: Array<[string, JiraIssue[]]> = []
+      const bad: string[] = []
+      let n = 0
+      for (const ver of list) {
+        n += 1
+        setBusy(`${ver} (${n}/${list.length})`)
+        try {
+          got.push([ver, await fetchVer(proj, ver)])
+        } catch {
+          bad.push(ver)
+        }
       }
+      if (got.length) {
+        setBusy('저장 중…')
+        try {
+          const next = await readStore()
+          for (const [ver, arr] of got) {
+            const at = new Date().toISOString()
+            const bag: Record<string, StoredIssue> = { ...(next[`${proj}@@${ver}`] ?? {}) }
+            const seen = new Set<string>()
+            for (const it of arr) {
+              if (!it?.key) continue
+              seen.add(it.key)
+              bag[it.key] = shrink(it, at, bag[it.key])
+            }
+            /* Jira 에서 이 버전이 떨어진 이슈는 뺀다 — 안 빼면 옮겨 간 이슈가
+               옛 버전에 영영 남는다. **다만 붙여 둔 시험이 있으면 남긴다**:
+               사람이 이어 둔 것을 Sync 가 조용히 지우면 안 된다. */
+            for (const k of Object.keys(bag)) {
+              if (seen.has(k)) continue
+              if ((bag[k]?.tcs ?? []).length) continue
+              delete bag[k]
+            }
+            next[`${proj}@@${ver}`] = bag
+          }
+          await apiFetch('/api/release-summary', {
+            method: 'POST',
+            body: JSON.stringify({ releases: next }),
+          })
+          await qc.invalidateQueries({ queryKey: ['release-summary'] })
+        } catch {
+          window.alert('가져온 것을 저장하지 못했습니다')
+        }
+      }
+      setBusy('')
+      if (bad.length) window.alert(`Jira 를 읽지 못한 버전: ${bad.join(', ')}`)
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [proj, busy, qc],
+  )
+
+  /** 이 버전을 표에서 치운다 — 붙여 둔 시험까지 사라지므로 한 번 묻는다 */
+  const dropVer = useCallback(
+    async (ver: string) => {
+      const bag = store[`${proj}@@${ver}`] ?? {}
+      const tcN = Object.values(bag).reduce((a, x) => a + (x?.tcs ?? []).length, 0)
+      if (
+        !window.confirm(
+          `${ver} 를 이 화면에서 치웁니다.\n이슈 ${Object.keys(bag).length}건${
+            tcN ? ` · 붙여 둔 시험 ${tcN}건` : ''
+          } 이 함께 사라집니다.\n(Jira 는 그대로입니다 — 다시 Sync 하면 이슈는 돌아옵니다)`,
+        )
+      )
+        return
+      const next: Store = await readStore()
+      delete next[`${proj}@@${ver}`]
+      await apiFetch('/api/release-summary', {
+        method: 'POST',
+        body: JSON.stringify({ releases: next }),
+      })
+      await qc.invalidateQueries({ queryKey: ['release-summary'] })
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [proj, qc],
+  )
+
+  /* ── 쌓아 둔 것에서 표를 세운다 ── */
+
+  /** **Sync 한 버전** — 옛 화면(_rlsProjVers)과 같다. 표에 서는 것은
+   *  체크한 것이 아니라 가져와 둔 것이다. */
+  const savedVers = useMemo(() => {
+    const pre = `${proj}@@`
+    return Object.keys(store)
+      .filter((k) => k.startsWith(pre) && Object.keys(store[k] ?? {}).length)
+      .map((k) => k.slice(pre.length))
+      .sort((a, b) => String(b).localeCompare(String(a), undefined, { numeric: true }))
+  }, [store, proj])
+
+  /** 처음 들어왔을 때 **가져와 둔 버전에 체크를 해 둔다** — 위 Sync 를
+   *  그냥 누르면 보고 있는 것이 새로 고쳐진다. */
+  const [primed, setPrimed] = useState('')
+  useEffect(() => {
+    if (!proj || sumQ.isLoading || primed === proj) return
+    setPrimed(proj)
+    setVers(savedVers)
+  }, [proj, savedVers, sumQ.isLoading, primed])
+
+  /** 버전 이름 → Jira 가 준 곁들이(배포 여부·날짜). 없으면 이름만 쓴다 */
+  const verMeta = useMemo(() => {
+    const m = new Map<string, JiraVersion>()
+    for (const v of verQ.data?.versions ?? []) m.set(String(v.name ?? ''), v)
     return m
-  }, [issues])
+  }, [verQ.data])
+
+  /** 버전별 이슈 — 저장된 것에서 꺼낸다. 제목·유형·시험이 다 없는 빈
+   *  껍데기는 안 보인다(옛 화면과 같은 규칙). */
+  const byVer = useMemo(() => {
+    const m = new Map<string, StoredIssue[]>()
+    for (const vn of savedVers) {
+      const bag = store[`${proj}@@${vn}`] ?? {}
+      const arr = Object.entries(bag)
+        .map(([k, v]) => ({ ...(v ?? {}), key: String(v?.key ?? k) }))
+        .filter((o) => String(o.summary ?? '').trim() || o.type || (o.tcs ?? []).length)
+        .sort((a, b) => String(a.key).localeCompare(String(b.key), undefined, { numeric: true }))
+      m.set(vn, arr)
+    }
+    return m
+  }, [savedVers, store, proj])
 
   const opts = useMemo(() => {
     const t = new Set<string>()
     const s = new Set<string>()
-    for (const it of issues) {
-      const ty = String(it.fields?.issuetype?.name ?? '')
-      const st = String(it.fields?.status?.name ?? '')
-      if (ty) t.add(ty)
-      if (st) s.add(st)
-    }
+    for (const arr of byVer.values())
+      for (const it of arr) {
+        if (it.type) t.add(String(it.type))
+        if (it.status) s.add(String(it.status))
+      }
     const srt = (a: string, b: string) => a.localeCompare(b, 'ko')
     return { types: [...t].sort(srt), stats: [...s].sort(srt) }
-  }, [issues])
+  }, [byVer])
 
-  const keep = (it: JiraIssue) =>
-    (!fType || String(it.fields?.issuetype?.name ?? '') === fType) &&
-    (!fStat || String(it.fields?.status?.name ?? '') === fStat)
+  const keep = (it: StoredIssue) =>
+    (!fType || String(it.type ?? '') === fType) && (!fStat || String(it.status ?? '') === fStat)
 
   const tree = useMemo(() => {
-    /* **Sync 한 버전만** 그린다(지적: 1.1.3 만 Sync 했는데 다 나온다).
-       위 고르개의 버전 목록은 「고를 수 있는 것 전부」 지만, 아래 표는
-       가져온 그 버전의 것이다 — 79개를 다 늘어놓으면 무엇을 가져왔는지
-       알 수 없다. */
-    const only = synced ? String(synced.split('@@')[1] ?? '').split('|').filter(Boolean) : []
-    const versions = (verQ.data?.versions ?? []).filter(
-      (v) => !v.archived && (!only.length || only.includes(String(v.name ?? ''))),
-    )
-    const g = new Map<string, JiraVersion[]>()
-    for (const v of versions) {
-      const op = operatorOf(String(v.name ?? ''))
+    const g = new Map<string, string[]>()
+    for (const vn of savedVers) {
+      const op = operatorOf(vn)
       if (fOp && op !== fOp) continue
       const arr = g.get(op)
-      if (arr) arr.push(v)
-      else g.set(op, [v])
+      if (arr) arr.push(vn)
+      else g.set(op, [vn])
     }
     return [...g.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'))
-  }, [verQ.data, fOp, synced])
+  }, [savedVers, fOp])
 
-  const ops = useMemo(
-    () => [...new Set(tree.map(([op]) => op))].sort(),
-    [tree],
-  )
+  const ops = useMemo(() => [...new Set(savedVers.map((v) => operatorOf(v)))].sort(), [savedVers])
 
-  const store = sumQ.data?.releases ?? {}
   const resultOf = useCallback(
     (tcid: string) => String((lastQ.data ?? {})[tcid]?.result ?? ''),
     [lastQ.data],
@@ -405,32 +636,30 @@ export default function Releases() {
    *  99줄을 다 다시 그린다 — memo 를 걸어 놓고 무의미해진다. */
   const tcMap = useMemo(() => {
     const m = new Map<string, string[]>()
-    for (const [vn] of byVer) {
-      const bag = store[`${proj}@@${vn}`] ?? {}
-      for (const k of Object.keys(bag)) {
-        const arr = (bag[k]?.tcs ?? []).map(tcidOf).filter(Boolean)
-        if (arr.length) m.set(`${vn}|${k}`, arr)
+    for (const [vn, arr] of byVer)
+      for (const it of arr) {
+        const list = (it.tcs ?? []).map(tcidOf).filter(Boolean)
+        if (list.length) m.set(`${vn}|${String(it.key ?? '')}`, list)
       }
-    }
     return m
-  }, [byVer, store, proj])
+  }, [byVer])
 
-  /** 버전마다의 이슈 수·TC 수를 **한 번만** 센다.
-   *  예전엔 그릴 때마다 다시 셌다 — 이슈가 97건이면 한 번 누를 때마다
-   *  그 곱만큼 돌아 화면이 무거웠다(지적). */
+  /** 버전마다의 이슈 수·TC 수·마지막 Sync 를 **한 번만** 센다. */
   const stat = useMemo(() => {
-    const m = new Map<string, { n: number; tc: number }>()
-    for (const [vn, list] of byVer) {
-      const kept = list.filter(
-        (it) =>
-          (!fType || String(it.fields?.issuetype?.name ?? '') === fType) &&
-          (!fStat || String(it.fields?.status?.name ?? '') === fStat),
-      )
+    const m = new Map<string, { n: number; tc: number; at: string }>()
+    for (const [vn, arr] of byVer) {
+      const kept = arr.filter(keep)
       let tc = 0
-      for (const it of kept) tc += (tcMap.get(`${vn}|${it.key}`) ?? EMPTY).length
-      m.set(vn, { n: kept.length, tc })
+      let at = ''
+      for (const it of kept) tc += (tcMap.get(`${vn}|${String(it.key ?? '')}`) ?? EMPTY).length
+      for (const it of arr) {
+        const s = String(it.syncedAt ?? '')
+        if (s > at) at = s
+      }
+      m.set(vn, { n: kept.length, tc, at })
     }
     return m
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [byVer, fType, fStat, tcMap])
 
   /** 이슈에 붙은 TC 를 고쳐 저장한다. 자료 모양은 옛 화면 그대로다 —
@@ -438,9 +667,10 @@ export default function Releases() {
   const saveTcs = useCallback(
     async (ver: string, key: string, tcs: string[]) => {
       const k = `${proj}@@${ver}`
+      const cur = await readStore()
       const next: Store = {
-        ...store,
-        [k]: { ...(store[k] ?? {}), [key]: { ...(store[k]?.[key] ?? {}), tcs } },
+        ...cur,
+        [k]: { ...(cur[k] ?? {}), [key]: { ...(cur[k]?.[key] ?? {}), key, tcs } },
       }
       await apiFetch('/api/release-summary', {
         method: 'POST',
@@ -448,9 +678,15 @@ export default function Releases() {
       })
       await qc.invalidateQueries({ queryKey: ['release-summary'] })
     },
-    [store, proj, qc],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [proj, qc],
   )
-  const openAdd = useCallback((ver: string, key: string) => setAddTo({ ver, key }), [])
+  const openPick = useCallback((ver: string, key: string) => setAddTo({ ver, key }), [])
+  const openNew = useCallback(
+    (ver: string, key: string, summary: string) => setNewTo({ ver, key, summary }),
+    [],
+  )
+  const openDetail = useCallback((key: string) => setDetail(key), [])
   const dropTc = useCallback(
     (ver: string, key: string, tcid: string) => {
       const cur = tcMap.get(`${ver}|${key}`) ?? EMPTY
@@ -459,14 +695,12 @@ export default function Releases() {
     [tcMap, saveTcs],
   )
 
-  const err = projQ.data?.error || verQ.data?.error || issQ.data?.error
+  const err = projQ.data?.error || verQ.data?.error
 
   return (
     <div className="rls">
-      {/* ── 프로젝트 탭 ── */}
       {/* ── 위 줄 — **프로젝트와 버전까지만** 불러온다(지시).
-             세부는 Sync 를 눌러야 온다. 프로젝트는 머리줄에서 고른 UTOP
-             프로젝트에 물린 Jira 프로젝트만 뜬다. ── */}
+             세부는 Sync 를 눌러야 오고, 온 것은 저장된다. ── */}
       <div className="rls-top">
         <b className="rls-h1">Releases</b>
         <select
@@ -475,7 +709,7 @@ export default function Releases() {
           onChange={(e) => {
             setProj(e.target.value)
             setVers([])
-            setSynced('')
+            setPrimed('')
           }}
           disabled={projQ.isLoading || upQ.isLoading}
           title="Jira 프로젝트"
@@ -497,7 +731,7 @@ export default function Releases() {
             className="rls-sel ver"
             disabled={!proj || verQ.isLoading}
             onClick={() => setVerOpen((v) => !v)}
-            title="버전 고르기"
+            title="Sync 할 버전 고르기"
           >
             {verQ.isLoading
               ? '버전 불러오는 중…'
@@ -521,6 +755,7 @@ export default function Releases() {
                   .map((v) => {
                     const vn = String(v.name ?? '')
                     const on = vers.includes(vn)
+                    const have = savedVers.includes(vn)
                     return (
                       <label key={vn} className={`rls-vrowp${on ? ' on' : ''}`}>
                         <input
@@ -532,6 +767,7 @@ export default function Releases() {
                         />
                         <span className="c1" title={vn}>
                           {vn}
+                          {have && <b className="rls-have" title="이미 가져와 둔 버전">저장됨</b>}
                         </span>
                         <span className="c2">
                           <i className={v.released ? 'rel' : 'unrel'}>
@@ -563,21 +799,15 @@ export default function Releases() {
         <button
           type="button"
           className="rls-sync"
-          disabled={!proj || !vers.length || issQ.isFetching}
+          disabled={!proj || !vers.length || !!busy}
           title={
             !proj || !vers.length
               ? '프로젝트와 버전을 먼저 고르세요'
-              : `고른 버전 ${vers.length}개의 이슈를 Jira 에서 가져옵니다`
+              : `고른 버전 ${vers.length}개의 이슈를 Jira 에서 가져와 저장합니다`
           }
-          onClick={() => {
-            const k = `${proj}@@${[...vers].sort().join('|')}`
-            if (synced === k) {
-              void qc.invalidateQueries({ queryKey: ['jira-issues', k] })
-              void qc.invalidateQueries({ queryKey: ['release-summary'] })
-            } else setSynced(k)
-          }}
+          onClick={() => void syncVers(vers)}
         >
-          {issQ.isFetching ? '가져오는 중…' : '↻ Sync'}
+          {busy ? `가져오는 중… ${busy}` : '↻ Sync'}
         </button>
         {/* 거르개 셋을 위 줄로 올렸다(지시) — 줄 하나가 통째로 없어진다 */}
         <select className="rls-f" value={fOp} onChange={(e) => setFOp(e.target.value)}>
@@ -614,17 +844,16 @@ export default function Releases() {
             물려 주세요.
           </div>
         )}
-        {!!allProjects.length && !synced && (
+        {!!allProjects.length && !sumQ.isLoading && !savedVers.length && (
           <div className="rls-none">
-            프로젝트와 버전을 고르고 <b>Sync</b> 를 누르면 그 버전의 이슈를 가져옵니다.
+            프로젝트와 버전을 고르고 <b>Sync</b> 를 누르면 그 버전의 이슈를 가져와 <b>저장</b>합니다.
+            <br />
+            한 번 가져온 것은 다시 들어와도 그대로 있습니다.
           </div>
         )}
-        {(verQ.isLoading || issQ.isLoading) && <div className="rls-none">불러오는 중…</div>}
-        {synced && !issQ.isLoading && !tree.length && !err && (
-          <div className="rls-none">이 버전에 걸린 이슈가 없습니다.</div>
-        )}
-        {!!synced && tree.map(([op, vers]) => {
-          const nIss = vers.reduce((a, v) => a + (stat.get(String(v.name ?? ''))?.n ?? 0), 0)
+        {sumQ.isLoading && <div className="rls-none">불러오는 중…</div>}
+        {tree.map(([op, list]) => {
+          const nIss = list.reduce((a, v) => a + (stat.get(v)?.n ?? 0), 0)
           const oOpen = !open.has(`op:${op}`)
           return (
             <div key={op}>
@@ -634,18 +863,18 @@ export default function Releases() {
                 <span className="rls-car">{oOpen ? '⌄' : '›'}</span>
                 <b>{op}</b>
                 <span className="rls-right">
-                  <span>버전 {vers.length}</span>
+                  <span>버전 {list.length}</span>
                   <span>이슈 {nIss}</span>
                 </span>
               </div>
               {oOpen &&
-                vers.map((v) => {
-                  const vn = String(v.name ?? '')
-                  const st0 = stat.get(vn) ?? { n: 0, tc: 0 }
+                list.map((vn) => {
+                  const v = verMeta.get(vn)
+                  const st0 = stat.get(vn) ?? { n: 0, tc: 0, at: '' }
                   const vOpen = open.has(`v:${vn}`)
                   /* 접혀 있으면 이슈 목록을 **만들지도 않는다** — 97건을
                      걸러 놓고 안 그리는 것은 그냥 버리는 일이다. */
-                  const list = vOpen ? (byVer.get(vn) ?? []).filter(keep) : ([] as JiraIssue[])
+                  const rows = vOpen ? (byVer.get(vn) ?? []).filter(keep) : ([] as StoredIssue[])
                   return (
                     <div key={vn}>
                       <div className="rls-vrow" role="button" tabIndex={0}
@@ -653,26 +882,59 @@ export default function Releases() {
                         onKeyDown={(e) => e.key === 'Enter' && toggle(open, `v:${vn}`, setOpen)}>
                         <span className="rls-car">{vOpen ? '⌄' : '›'}</span>
                         <span className="rls-vname">{vn}</span>
-                        {v.released && <span className="rls-rel">released</span>}
+                        {v?.released && <span className="rls-rel">released</span>}
                         <span className="rls-right">
+                          {st0.at && (
+                            <span className="rls-at" title="마지막으로 Jira 에서 가져온 때">
+                              {stamp(st0.at)}
+                            </span>
+                          )}
                           <span>Issues {st0.n}</span>
                           <span>TC {st0.tc}</span>
-                          {v.releaseDate && <span>{v.releaseDate}</span>}
+                          {v?.releaseDate && <span>{v.releaseDate}</span>}
+                          {/* 이 버전만 다시 가져온다(지시) — 한 버전 보려고
+                              고른 것 전부를 다시 받지 않는다 */}
+                          <button
+                            type="button"
+                            className="rls-vb"
+                            disabled={!!busy}
+                            title={`${vn} 의 이슈만 Jira 에서 다시 가져옵니다`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void syncVers([vn])
+                            }}
+                          >
+                            ↻
+                          </button>
+                          <button
+                            type="button"
+                            className="rls-vb del"
+                            disabled={!!busy}
+                            title={`${vn} 을 이 화면에서 치웁니다`}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              void dropVer(vn)
+                            }}
+                          >
+                            ✕
+                          </button>
                         </span>
                       </div>
                       {vOpen &&
-                        list.map((it) => (
+                        rows.map((it) => (
                           <IssueRow
-                            key={`${vn}|${it.key}`}
+                            key={`${vn}|${String(it.key ?? '')}`}
                             it={it}
                             ver={vn}
-                            open={openIssue.has(`${vn}|${it.key}`)}
-                            tcs={tcMap.get(`${vn}|${it.key}`) ?? EMPTY}
+                            open={openIssue.has(`${vn}|${String(it.key ?? '')}`)}
+                            tcs={tcMap.get(`${vn}|${String(it.key ?? '')}`) ?? EMPTY}
                             tcById={tcById}
                             resultOf={resultOf}
                             onToggle={toggleIssue}
-                            onAdd={openAdd}
+                            onNew={openNew}
+                            onPick={openPick}
                             onDrop={dropTc}
+                            onDetail={openDetail}
                           />
                         ))}
                       {vOpen && !st0.n && (
@@ -686,9 +948,17 @@ export default function Releases() {
         })}
       </div>
 
+      {detail && (
+        <IssueDrawer
+          ikey={detail}
+          base={jbase}
+          onClose={() => setDetail('')}
+        />
+      )}
+
       {addTo && (
         <TcPick
-          title={`${addTo.key} 에 시험 항목 붙이기`}
+          title={`${addTo.key} 에 이미 있는 시험 붙이기`}
           have={tcMap.get(`${addTo.ver}|${addTo.key}`) ?? EMPTY}
           tcs={tcQ.data?.tcs ?? []}
           onClose={() => setAddTo(null)}
@@ -698,6 +968,182 @@ export default function Releases() {
           }}
         />
       )}
+
+      {/* **＋ TC 추가.** 시험 항목 화면의 그 창을 그대로 부른다 — 편집기를
+          두 벌 만들면 한쪽은 반드시 뒤처진다(모델 고정·커스텀 필드 규칙이
+          거기 다 들어 있다). 만들고 나면 이슈에 붙이고 그 시험을 연다. */}
+      {newTo && (
+        <TcForm
+          editing={null}
+          presetName={newTo.summary}
+          onCreated={(tcid) => {
+            const cur = tcMap.get(`${newTo.ver}|${newTo.key}`) ?? EMPTY
+            void saveTcs(newTo.ver, newTo.key, [...cur, tcid]).then(() => goto('tc', tcid))
+          }}
+          onClose={() => setNewTo(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+/** **Jira 세부 서랍**(지시).
+ *
+ *  이슈 키를 누르면 오른쪽에서 열린다. 설명·댓글은 Jira 가 렌더한 HTML
+ *  (renderedFields)을 그대로 쓴다 — 표·코드블록·그림이 Jira 에서 보던
+ *  모양 그대로 선다. 그림은 인증 프록시를 거친다(브라우저는 Jira 에
+ *  로그인해 있지 않다).
+ */
+function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onClose: () => void }) {
+  const q = useQuery({
+    queryKey: ['jira-issue', ikey],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const r = await apiFetch(`/api/jira/issue/${encodeURIComponent(ikey)}`)
+      if (!r.ok) throw new Error('이슈 세부를 불러오지 못했습니다')
+      return (await r.json()) as {
+        ok?: boolean
+        error?: string
+        fields?: Record<string, unknown>
+        renderedFields?: Record<string, unknown>
+      }
+    },
+  })
+
+  /* Esc 로 닫는다 — 서랍은 덮는 것이라 빠져나갈 길이 손에 있어야 한다 */
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
+  }, [onClose])
+
+  const f = (q.data?.fields ?? {}) as Record<string, never>
+  const rf = (q.data?.renderedFields ?? {}) as Record<string, never>
+  const pick = (o: unknown, k: string): string =>
+    String((o as Record<string, unknown> | undefined)?.[k] ?? '')
+  /** 상태 칸의 색은 statusCategory.key 로 갈린다 — 한 겹 더 들어가 있다 */
+  const scat = String(
+    ((f.status as Record<string, unknown> | undefined)?.statusCategory as
+      | Record<string, unknown>
+      | undefined)?.key ?? '',
+  )
+  const descHtml = String(rf.description ?? '')
+  const descText = String(f.description ?? '')
+  const cmts = ((f.comment as { comments?: unknown[] } | undefined)?.comments ?? []) as Array<
+    Record<string, unknown>
+  >
+  const cmtHtml = ((rf.comment as { comments?: unknown[] } | undefined)?.comments ?? []) as Array<
+    Record<string, unknown>
+  >
+  const atts = (f.attachment ?? []) as Array<Record<string, unknown>>
+  const err = q.error ? String(q.error) : q.data && q.data.ok === false ? String(q.data.error ?? '') : ''
+
+  return (
+    <div className="rls-ovl" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="rls-drawer" role="dialog" aria-modal="true" aria-label={`${ikey} 세부`}>
+        <header>
+          <b>{ikey}</b>
+          <span className={`rls-stat ${scat}`}>{pick(f.status, 'name')}</span>
+          <span className="sp" />
+          {base && (
+            <a className="rls-jlink" href={`${base}/browse/${ikey}`} target="_blank" rel="noopener">
+              Jira 에서 열기 ↗
+            </a>
+          )}
+          <button type="button" className="rls-dx" onClick={onClose} title="닫기 (Esc)">
+            ✕
+          </button>
+        </header>
+
+        <div className="rls-dbody">
+          {q.isLoading && <div className="rls-none">불러오는 중…</div>}
+          {!!err && <div className="rls-err">{err}</div>}
+
+          {!q.isLoading && !err && (
+            <>
+              <div className="rls-dtitle">{String(f.summary ?? '')}</div>
+              <div className="rls-dmeta">
+                <span>유형</span>
+                <b>{pick(f.issuetype, 'name') || '–'}</b>
+                <span>우선순위</span>
+                <b>{pick(f.priority, 'name') || '–'}</b>
+                <span>보고자</span>
+                <b>{pick(f.reporter, 'displayName') || '–'}</b>
+                <span>담당자</span>
+                <b>{pick(f.assignee, 'displayName') || '–'}</b>
+                <span>버전</span>
+                <b>
+                  {((f.fixVersions ?? []) as Array<Record<string, unknown>>)
+                    .map((v) => String(v?.name ?? ''))
+                    .filter(Boolean)
+                    .join(', ') || '–'}
+                </b>
+                <span>고침</span>
+                <b>{String(f.updated ?? '').replace('T', ' ').slice(0, 16) || '–'}</b>
+              </div>
+
+              <h4 className="rls-dh">설명</h4>
+              {descHtml.trim() ? (
+                <div
+                  className="rls-jira"
+                  // eslint-disable-next-line react/no-danger
+                  dangerouslySetInnerHTML={{ __html: jiraHtml(descHtml, base) }}
+                />
+              ) : (
+                <div className="rls-dtext">{descText.trim() || '(설명 없음)'}</div>
+              )}
+
+              <h4 className="rls-dh">댓글 {cmts.length}</h4>
+              {!cmts.length && <div className="rls-dtext">(댓글 없음)</div>}
+              {cmts.map((c, i) => {
+                const who = pick(c.author, 'displayName')
+                const when = String(c.updated ?? c.created ?? '').replace('T', ' ').slice(0, 16)
+                const bh = String((cmtHtml[i] as Record<string, unknown> | undefined)?.body ?? '')
+                return (
+                  <div className="rls-cmt" key={String(c.id ?? i)}>
+                    <div className="rls-cmth">
+                      <i>{who.slice(0, 1) || '?'}</i>
+                      <b>{who || '–'}</b>
+                      <span>{when}</span>
+                    </div>
+                    {bh.trim() ? (
+                      <div
+                        className="rls-jira"
+                        // eslint-disable-next-line react/no-danger
+                        dangerouslySetInnerHTML={{ __html: jiraHtml(bh, base) }}
+                      />
+                    ) : (
+                      <div className="rls-dtext">{String(c.body ?? '')}</div>
+                    )}
+                  </div>
+                )
+              })}
+
+              {!!atts.length && (
+                <>
+                  <h4 className="rls-dh">첨부 {atts.length}</h4>
+                  {atts.map((a, i) => {
+                    const url = String(a?.content ?? '')
+                    return (
+                      <a
+                        className="rls-att"
+                        key={String(a?.id ?? i)}
+                        href={`/api/jira/attachment?url=${encodeURIComponent(url)}`}
+                        target="_blank"
+                        rel="noopener"
+                      >
+                        {String(a?.filename ?? '(이름 없음)')}
+                      </a>
+                    )
+                  })}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
