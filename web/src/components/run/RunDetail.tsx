@@ -858,7 +858,27 @@ export default function RunDetail({
             return def.map((d2, i2) => {
               const l = run2[i2]
               if (!l) return onAir ? { ...d2, mark: undefined, at: undefined, took: undefined, out: '', ran: false } : d2
-              if (onAir)
+              if (onAir) {
+                /* **아직 안 온 스텝은 결과를 비운다.** 실행기가 보내는
+                   live_steps 는 TC 정의를 통째로 복사해 만들어서, 지난 실행의
+                   status·executed_at 을 처음부터 안고 온다 — 그래서 2번이
+                   도는데 3·4·5번 이벤트가 옛 시각으로 떠 있었다(지적).
+                   믿을 수 있는 것은 **자리 번호**뿐이다: runStep 뒤는 안 돈 것. */
+                if (runStep != null && i2 > runStep)
+                  return {
+                    ...d2,
+                    cmd: l.cmd || d2.cmd,
+                    expected: l.expected !== '—' ? l.expected : d2.expected,
+                    action: l.action !== '—' ? l.action : d2.action,
+                    session: l.session !== '—' ? l.session : d2.session,
+                    t: l.t || d2.t,
+                    waitSec: l.waitSec ?? d2.waitSec,
+                    out: '',
+                    mark: undefined,
+                    took: undefined,
+                    at: undefined,
+                    ran: false,
+                  }
                 return {
                   ...d2,
                   cmd: l.cmd || d2.cmd,
@@ -869,13 +889,17 @@ export default function RunDetail({
                   waitSec: l.waitSec ?? d2.waitSec,
                   okMsg: l.okMsg ?? d2.okMsg,
                   ngMsg: l.ngMsg ?? d2.ngMsg,
-                  /* 결과 쪽은 **이번에 돈 것만** */
+                  /* 결과 쪽은 **이번에 돈 것만**.
+                     지금 도는 스텝은 아직 안 끝났다 — 판정·시각·걸린 시간을
+                     비운다. 안 그러면 실행기가 복사해 온 지난 값이 그대로
+                     떠서, 돌고 있는 스텝이 벌써 「기준 맞음」 이 된다(지적). */
                   out: l.out,
-                  mark: l.mark,
-                  took: l.took,
-                  at: l.at,
-                  ran: l.ran,
+                  mark: i2 === runStep ? undefined : l.mark,
+                  took: i2 === runStep ? undefined : l.took,
+                  at: i2 === runStep ? undefined : l.at,
+                  ran: i2 === runStep ? false : l.ran,
                 }
+              }
               return {
                 ...d2,
                 cmd: l.cmd || d2.cmd,
