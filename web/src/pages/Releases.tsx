@@ -1,10 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch, tcApi } from '@/api/client'
-import { goto } from '@/api/goto'
 import { prefGet, prefSet } from '@/lib/prefs'
 import { currentProjects, onProjectChange } from '@/components/ProjectPicker'
 import TcForm from '@/components/TcForm'
+import TestCases from '@/pages/TestCases'
 import type { Project } from '@/types'
 import './Releases.css'
 
@@ -159,13 +159,16 @@ function jiraHtml(html: string, base: string): string {
  *  97줄이 전부 다시 그려져 화면이 무거웠다(지적). 이제 눌린 줄만 다시 그린다.
  */
 const IssueRow = memo(function IssueRow({
-  it, ver, open, tcs, tcById, resultOf, onToggle, onNew, onPick, onDrop, onDetail, making,
+  it, ver, open, tcs, tcById, resultOf, onToggle, onNew, onPick, onDrop, onDetail, onOpenTc, making,
 }: {
   onNew: (ver: string, key: string, summary: string) => void
   making: boolean
   onPick: (ver: string, key: string) => void
   onDrop: (ver: string, key: string, tcid: string) => void
   onDetail: (key: string) => void
+  /** 붙은 시험을 연다 — **이 화면 위에 팝업**으로. 넘어가 버리면 이슈를
+   *  보던 자리를 잃는다(지적: 「TC 클릭해서 내용을 확인 할 수 없어」). */
+  onOpenTc: (tcid: string) => void
   it: StoredIssue
   ver: string
   open: boolean
@@ -221,15 +224,18 @@ const IssueRow = memo(function IssueRow({
             const t = tcById.get(tcid)
             const rv = resultOf(tcid)
             return (
-              <div className="rls-tcrow" key={tcid}>
-                <button
-                  type="button"
-                  className="rls-code as-btn"
-                  title="이 시험 항목을 엽니다"
-                  onClick={() => goto('tc', tcid)}
-                >
-                  {tcid}
-                </button>
+              /* **줄 전체가 열림쇠**다. ID 만 눌리게 두었더니 제목을 눌러
+                 보고 「안 열린다」 가 됐다(지적). ✕ 는 따로 막는다. */
+              <div
+                className="rls-tcrow open"
+                key={tcid}
+                role="button"
+                tabIndex={0}
+                title="이 시험 항목을 엽니다 — 스텝을 여기서 적습니다"
+                onClick={() => onOpenTc(tcid)}
+                onKeyDown={(e) => e.key === 'Enter' && onOpenTc(tcid)}
+              >
+                <span className="rls-code">{tcid}</span>
                 <span className="rls-name">{t?.name ?? '(지워진 시험 항목)'}</span>
                 <span className="rls-kind">{t?.kind === '수동' ? 'MANUAL' : t?.kind ? 'AUTO' : ''}</span>
                 <span className={`rls-res ${rv.toLowerCase()}`}>{rv ? rv.toUpperCase() : ''}</span>
@@ -237,7 +243,10 @@ const IssueRow = memo(function IssueRow({
                   type="button"
                   className="rls-x"
                   title="이 이슈에서 뺍니다 — 시험 항목 자체는 안 지웁니다"
-                  onClick={() => onDrop(ver, k, tcid)}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDrop(ver, k, tcid)
+                  }}
                 >
                   ✕
                 </button>
@@ -298,6 +307,8 @@ export default function Releases() {
   const [busy, setBusy] = useState('')
   /** 시험을 만드는 중인 이슈 — 두 번 눌러 두 개가 생기면 안 된다 */
   const [making, setMaking] = useState('')
+  /** 팝업으로 연 시험 항목 — 스텝을 적는 자리다 */
+  const [tcOpen, setTcOpen] = useState('')
 
   /** 이슈 펴기·접기 — **같은 함수**를 계속 준다. 매번 새로 만들면 memo 가
       「달라졌다」 고 보고 다 다시 그린다. */
@@ -742,8 +753,17 @@ export default function Releases() {
         })
         const cur = tcMap.get(`${ver}|${key}`) ?? EMPTY
         await saveTcs(ver, key, [...cur, tcid])
-        await qc.invalidateQueries({ queryKey: ['tc-meta-rls'] })
-        goto('tc', tcid)
+        /* **시험 목록도 다시 읽는다.** 안 그러면 방금 만든 것이 그 목록에
+           없어서, 팝업이 「없는 시험」 으로 보고 목록 화면으로 되돌린다
+           (TestCases 의 openId 확인). 세 화면이 각자 목록을 들고 있다. */
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ['tc-meta-rls'] }),
+          qc.invalidateQueries({ queryKey: ['tc', 'list', 'meta'] }),
+          qc.invalidateQueries({ queryKey: ['tcs'] }),
+        ])
+        /* 넘어가지 않고 **여기서 연다**(지적: 만들고 나면 스텝을 바로
+           적어야 하는데 적을 자리가 없었다). 팝업이 곧 그 화면이다. */
+        setTcOpen(tcid)
       } catch (e) {
         window.alert(e instanceof Error ? e.message : '시험을 만들지 못했습니다')
       } finally {
@@ -1000,6 +1020,7 @@ export default function Releases() {
                             onToggle={toggleIssue}
                             onNew={openNew}
                             making={making === String(it.key ?? '')}
+                            onOpenTc={setTcOpen}
                             onPick={openPick}
                             onDrop={dropTc}
                             onDetail={openDetail}
@@ -1015,6 +1036,28 @@ export default function Releases() {
           )
         })}
       </div>
+
+      {/* **시험 항목 팝업.** 시험 화면(TestCases)을 통째로 얹는다 —
+          Info·Object·Topology·Traffic·Manual·Automation·Execution·Cycle 이
+          그대로 서고, 스텝은 Automation 에서 적는다. 부품을 베껴 만들면
+          한쪽만 고쳐지는 날이 온다(REQ-Coverage 의 시험 창과 같은 방식). */}
+      {tcOpen && (
+        <div className="rls-ovl" onMouseDown={(e) => e.target === e.currentTarget && setTcOpen('')}>
+          <div className="rls-tcpop" role="dialog" aria-modal="true" aria-label="시험 항목">
+            <div className="rls-tch">
+              <b>시험 항목</b>
+              <span className="rls-tcid">{tcOpen}</span>
+              <span className="sp" />
+              <button type="button" className="rls-dx" onClick={() => setTcOpen('')} title="닫기">
+                ✕
+              </button>
+            </div>
+            <div className="rls-tcbody">
+              <TestCases embedTc={tcOpen} onEmbedBack={() => setTcOpen('')} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {detail && (
         <IssueDrawer
@@ -1046,7 +1089,9 @@ export default function Releases() {
           presetName={newTo.summary}
           onCreated={(tcid) => {
             const cur = tcMap.get(`${newTo.ver}|${newTo.key}`) ?? EMPTY
-            void saveTcs(newTo.ver, newTo.key, [...cur, tcid]).then(() => goto('tc', tcid))
+            void saveTcs(newTo.ver, newTo.key, [...cur, tcid])
+              .then(() => qc.invalidateQueries({ queryKey: ['tc-meta-rls'] }))
+              .then(() => setTcOpen(tcid))
           }}
           onClose={() => setNewTo(null)}
         />

@@ -12204,6 +12204,18 @@ async def api_plan_run_get(run_id: str):
 
 
 @app.post("/api/plan-runs")
+def _run_meta(p: dict, plan, model: str, mgroup: str) -> dict:
+    """실행이 들고 다닐 메타. 만들기 창에서 고른 모델을 잃지 않는다."""
+    meta = dict(p.get("meta") or {})
+    if model:
+        meta.setdefault("model", model)
+    if mgroup:
+        meta.setdefault("model_group", mgroup)
+    if not meta and not plan:
+        meta = {"model": model}
+    return meta
+
+
 async def api_plan_run_new(payload: dict):
     """실행 만들기. 플랜을 주면 그 항목을 떠 담는다(복사)."""
     p = payload or {}
@@ -12215,7 +12227,8 @@ async def api_plan_run_new(payload: dict):
     # Key 앞머리 — 모델명이 정본이고, 비면 모델그룹으로 떨어진다.
     # 둘 다 비어야 RUN 이다(그 플랜은 아직 장비를 안 정한 것이다).
     model = str(p.get("model") or (plan or {}).get("model") or "").strip()
-    pre = model or str((plan or {}).get("model_group") or "").strip()
+    mgroup = str(p.get("model_group") or (plan or {}).get("model_group") or "").strip()
+    pre = model or mgroup
     rid = await db.plan_run_next_key(pre or "RUN")
 
     # 항목 복사 — 플랜의 items 를 결과칸이 빈 채로 떠 온다.
@@ -12265,6 +12278,10 @@ async def api_plan_run_new(payload: dict):
         "plan_id": plan_id or None,
         "name": str(p.get("name") or "").strip() or rid,
         "version": str(p.get("version") or (plan or {}).get("version") or ""),
+        # 버전그룹은 **받은 값이 먼저**다. 안 주면 버전 이름의 첫 마디로
+        # 떨어진다(db.plan_run_upsert). 만들 때 손으로 골랐는데 이름에서
+        # 다시 뽑아 버리면 왼쪽 레일의 폴더가 고른 것과 달라진다.
+        "version_group": str(p.get("version_group") or "").strip(),
         "owner": str(p.get("owner") or (plan or {}).get("assignee") or ""),
         "start_date": str(p.get("start_date") or ""),
         "end_date": str(p.get("end_date") or ""),
@@ -12272,10 +12289,10 @@ async def api_plan_run_new(payload: dict):
         "created_by": _who(),
         "results": results,
         "binds": dict(p.get("binds") or {}),
-        # 플랜 없는 실행은 제 메타를 들고 있어야 목록에 설 수 있다
-        "meta": dict(p.get("meta") or {}) or (
-            {} if plan else {"model": model}
-        ),
+        # 플랜 없는 실행은 제 메타를 들고 있어야 목록에 설 수 있다.
+        # 만들 때 모델을 손으로 골랐으면 플랜이 있어도 그것을 적어 둔다 —
+        # 플랜의 모델과 다른 장비로 도는 실행이 있다(같은 플랜, 다른 모델).
+        "meta": _run_meta(p, plan, model, mgroup),
     }
     await db.plan_run_upsert(rid, item)
     return {"id": rid, "run": await db.plan_run_get(rid)}

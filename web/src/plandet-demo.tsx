@@ -25,6 +25,7 @@ createRoot(document.getElementById('root')!).render(
           cycles={[CY] as never}
           onBack={() => {}}
           onExec={() => {}}
+          onMakeRun={() => {}}
           famOf={new Map()}
           mgroupOf={new Map()}
           meName="관리자"

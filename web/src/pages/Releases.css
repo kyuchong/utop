@@ -387,3 +387,48 @@
   padding: 4px 0; border-bottom: 1px solid #f2f4f5;
 }
 .rls-att:hover { text-decoration: underline; }
+
+/* ── 시험 항목 팝업 ──
+      「＋ TC 추가」 로 만든 뒤에도, 붙은 시험 줄을 눌러도 여기서 열린다.
+      다른 화면으로 넘어가면 이슈를 보던 자리를 잃는다(지적: 만들고 나서
+      스텝을 적을 자리가 없었다 · TC 를 눌러도 내용을 못 본다). */
+.rls-tcpop {
+  position: absolute;
+  inset: 14px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 18px 48px rgba(16, 24, 40, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.rls-tch {
+  flex: none;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px 0 15px;
+  border-bottom: 1px solid #e3e8ea;
+  background: #f7f8f9;
+}
+.rls-tch b { font-size: 13.5px; font-weight: 800; }
+.rls-tch .sp { flex: 1; }
+.rls-tcid { font-size: 12px; font-weight: 700; color: #0a8795; }
+.rls-tcbody {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0 12px 10px;
+}
+/* 끼워 넣은 시험 화면의 **제 목록 줄**은 감춘다 — 팝업에는 이 시험
+   하나만 있으면 된다(REQ-Coverage 의 시험 창과 같은 규칙). */
+.rls-tcbody .rq-bar { display: none; }
+.rls-tcbody > .split { flex: 1; min-height: 0; }
+
+/* 붙은 시험 줄 — **줄 전체가 열림쇠**다 */
+.rls-tcrow.open { cursor: pointer; }
+.rls-tcrow.open:hover { background: #f2f6f8; }
