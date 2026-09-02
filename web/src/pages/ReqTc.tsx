@@ -1103,7 +1103,18 @@ export default function ReqTc({ me }: Props) {
       const rid = String(t.req_id ?? '')
       if (reqOnly) return rid === reqOnly
       const r = reqById.get(rid)
-      if (!r) return false
+      /* **요구사항이 안 붙은 시험도 낸다.**
+       *
+       *  여기서 그냥 `return false` 였다. 시험의 자리는 그것이 붙은
+       *  요구사항의 자리라서, 요구사항이 없으면 설 자리도 없다고 본 것이다.
+       *  그런데 Releases 의 「＋ TC 추가」 로 만든 시험이 바로 그런 것이라,
+       *  번호를 통째로 쳐 넣어도 이 화면에서 영영 안 나왔다(지적: 검색이
+       *  안 돼).
+       *
+       *  폴더는 요구사항의 것이니 이 시험에는 씌울 수 없다. 그래서
+       *  ① 찾는 중이거나 ② 폴더를 안 좁혔을 때(전체) 낸다 — 찾는 사람은
+       *  「이 폴더 안에서」 가 아니라 「이것」 을 찾는다. */
+      if (!r) return !!n || !cat
       return inPrj(r) && inCat(r)
     }
     const hit = tcs.filter((t) => ok(t) && (!n || `${t.tcid} ${t.name ?? ''}`.toLowerCase().includes(n)))
