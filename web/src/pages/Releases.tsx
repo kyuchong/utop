@@ -145,16 +145,73 @@ function jiraHtml(html: string, base: string): string {
   let s = String(html || '')
   s = s.replace(/<script[\s\S]*?<\/script>/gi, '')
   s = s.replace(/\son\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
-  s = s.replace(/(<img\b[^>]*?\bsrc=")([^"]+)(")/gi, (m, a: string, u: string, b: string) => {
+  /* **그림은 여기서 주소만 적어 두고, 받아 오는 것은 따로 한다.**
+   *
+   *  예전엔 `src` 를 그대로 `/api/jira/attachment?url=…` 로 바꿔 두었다.
+   *  그런데 이 서버는 /api/* 전체에 로그인을 요구하고, 그 표는 **헤더**
+   *  (Authorization: Bearer)로만 받는다. `<img src>` 는 브라우저가 그냥
+   *  긁어 오는 것이라 헤더를 얹을 수 없다 — 그래서 그림마다 401 이 오고
+   *  깨진 그림 자국만 남았다(지적: 「사진 정보가 안보이는 것 같은데」).
+   *
+   *  그래서 주소는 data-jsrc 에 적어 두고, 화면이 붙은 뒤에 표를 얹어
+   *  받아다 붙인다(loadJiraImgs). 자리는 미리 비워 둔다 — 빈 src 를 두면
+   *  브라우저가 「그림 없음」 자국을 그린다. */
+  s = s.replace(/(<img\b)([^>]*?)\bsrc="([^"]+)"/gi, (m, tag: string, rest: string, u: string) => {
     if (/^data:/i.test(u)) return m
     const full = /^https?:/i.test(u) ? u : /^\//.test(u) ? base + u : `${base}/${u}`
-    return `${a}/api/jira/attachment?url=${encodeURIComponent(full)}${b}`
+    return `${tag}${rest} data-jsrc="${full.replace(/"/g, '&quot;')}"`
   })
   s = s.replace(
     /(<a\b[^>]*?\bhref=")(\/[^"]*)(")/gi,
     (_m, a: string, u: string, b: string) => `${a}${base}${u}${b} target="_blank" rel="noopener"`,
   )
   return s
+}
+
+/** 적어 둔 Jira 그림을 **표를 얹어** 받아다 붙인다.
+ *
+ *  돌려주는 것은 뒷정리 함수다 — 만든 blob 주소를 거두지 않으면 서랍을
+ *  여닫을 때마다 메모리에 쌓인다.
+ */
+function loadJiraImgs(root: HTMLElement | null): () => void {
+  if (!root) return () => {}
+  const made: string[] = []
+  let dead = false
+  const imgs = [...root.querySelectorAll<HTMLImageElement>('img[data-jsrc]')]
+  for (const img of imgs) {
+    const u = img.dataset.jsrc ?? ''
+    if (!u) continue
+    delete img.dataset.jsrc /* 두 번 받지 않는다 */
+    img.alt = img.alt || '(그림 받는 중…)'
+    void (async () => {
+      try {
+        const r = await apiFetch(`/api/jira/attachment?url=${encodeURIComponent(u)}`)
+        if (!r.ok) throw new Error(String(r.status))
+        const b = await r.blob()
+        if (dead) return
+        const o = URL.createObjectURL(b)
+        made.push(o)
+        img.src = o
+        img.alt = ''
+      } catch {
+        /* 못 받았으면 자리라도 알려 준다 — 깨진 자국만 남으면 무엇이
+           빠졌는지 모른다 */
+        img.replaceWith(
+          Object.assign(document.createElement('a'), {
+            href: u,
+            target: '_blank',
+            rel: 'noopener',
+            className: 'rls-imgfail',
+            textContent: '그림을 못 받았습니다 — Jira 에서 열기 ↗',
+          }),
+        )
+      }
+    })()
+  }
+  return () => {
+    dead = true
+    for (const o of made) URL.revokeObjectURL(o)
+  }
 }
 
 /** 이슈 한 줄.
@@ -1216,6 +1273,11 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
     },
   })
 
+  /** 설명·댓글이 그려진 자리 — 여기 든 Jira 그림을 받아다 붙인다 */
+  const bodyRef = useRef<HTMLDivElement>(null)
+  /* 그려진 **뒤에** 돈다. 자료가 바뀌면(다른 이슈) 다시 돈다. */
+  useEffect(() => loadJiraImgs(bodyRef.current), [q.data])
+
   /* Esc 로 닫는다 — 서랍은 덮는 것이라 빠져나갈 길이 손에 있어야 한다 */
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -1263,7 +1325,7 @@ function IssueDrawer({ ikey, base, onClose }: { ikey: string; base: string; onCl
           </button>
         </header>
 
-        <div className="rls-dbody">
+        <div className="rls-dbody" ref={bodyRef}>
           {q.isLoading && <div className="rls-none">불러오는 중…</div>}
           {!!err && <div className="rls-err">{err}</div>}
 

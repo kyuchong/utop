@@ -9,10 +9,9 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  /* 카드 **뒤**는 흰색이다 — REQ-Coverage 와 같다. 뒤를 안 깔면 카드
-     사이 8px 틈으로 화면 바탕(청록)이 그대로 비친다. 그 자리에 청록이
-     비쳐 보이는 것을 이미 한 번 지적받았다. */
-  background: var(--c-surface, #fff);
+  /* 카드 **뒤는 안 칠한다**(지적: 「카드 아래 색상이 안보여」). 흰색을
+     깔았더니 카드 셋이 한 덩어리로 보여 어디까지가 한 장인지 안 읽혔다.
+     틈으로 화면 바탕이 비쳐야 카드가 카드로 보인다. */
 }
 
 /* 위 줄 — 프로젝트 고르개. 옛 화면에서 이것만 가져왔다.
@@ -92,33 +91,37 @@
 }
 .rls-c1 { flex: none; min-width: 160px; }
 .rls-c2 { flex: 1; min-width: 0; }
+/* 1열·2열 가로바 — **REQ-Coverage 와 같게**(지시). 그쪽 칸 머리는
+   회색 띠가 아니라 **흰 바탕에 아래 선 하나**이고 높이가 45px 다
+   (.req-search · .tc-panel .filter 와 같은 값). 여기만 회색 띠를 두면
+   두 화면을 오갈 때 칸 머리가 다른 것으로 읽힌다. */
 .rls-ch {
   flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 34px;
-  padding: 0 10px;
-  border-bottom: 1px solid #e6e8eb;
-  background: #fafbfc;
+  height: 45px;
+  padding: 0 var(--sp-2, 8px);
+  border-bottom: 1px solid var(--c-border-soft, #dfe4ea);
+  background: var(--c-surface, #fff);
   border-radius: var(--r-box, 6px) var(--r-box, 6px) 0 0;
-  font-size: 12px;
-  font-weight: 800;
-  color: #46555d;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-text, #131920);
   white-space: nowrap;
 }
 .rls-ch .n {
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--fs-sm, 12px);
   font-weight: 400;
-  color: #8a949a;
+  color: var(--c-text-muted, #4d5760);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 /* 2열 머리의 버전 이름 — 지금 무엇을 보고 있는지 */
 .rls-cv {
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
   color: #3b6aa5;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -221,19 +224,30 @@
    크기도 키웠다(지시). */
 .rls-car {
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   align-self: center;
   color: #8d989e;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1;
   border-radius: 4px;
   cursor: pointer;
 }
 .rls-car:hover { background: #e9eef1; color: #46555d; }
+/* 이슈 줄의 펼침·접기는 **더 크게**(지적: 「2열에서 펼침/접기 버튼이 너무
+   작아」). 이 화면에서 제일 자주 누르는 단추다 — 이슈를 펴야 시험이 보인다.
+   줄 높이가 34px 이라 28px 까지는 들어간다. */
+.rls-irow > .rls-car {
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  border-radius: 6px;
+  color: #6f7c85;
+}
+.rls-irow > .rls-car:hover { background: #e3ebf1; color: #2f4a63; }
 
 /* 이슈 */
 .rls-iblock { border-bottom: 1px solid #eef0f2; }
@@ -448,6 +462,18 @@
 }
 .rls-dx:hover { color: #46555d; }
 .rls-dbody { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px 24px; }
+/* Jira 그림 — 칸을 넘지 않게. 못 받은 것은 자리를 알려 주는 링크로 바뀐다 */
+.rls-jira img { max-width: 100%; height: auto; border-radius: 4px; }
+.rls-imgfail {
+  display: inline-block;
+  font-size: 12px;
+  color: #a8213f;
+  background: #fff4f6;
+  border: 1px solid #f2ccd5;
+  border-radius: 5px;
+  padding: 4px 9px;
+  text-decoration: none;
+}
 .rls-dtitle { font-size: 14.5px; font-weight: 700; line-height: 1.45; margin-bottom: 12px; }
 .rls-dmeta {
   display: grid; grid-template-columns: 58px 1fr 58px 1fr; gap: 6px 10px;
