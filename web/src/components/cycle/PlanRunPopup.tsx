@@ -83,9 +83,15 @@ export function MakePlanRun({
   )
   const [mg, setMg] = useState(String(plan.model_group ?? ''))
   const [mdl, setMdl] = useState(String(plan.model ?? ''))
-  const [ver, setVer] = useState(String(plan.version ?? ''))
-  /** 버전그룹 — 비워 두면 버전 이름의 첫 마디를 쓴다(서버와 같은 규칙) */
-  const [vg, setVg] = useState(String(plan.version_group ?? '') || String(plan.version ?? '').split('_')[0] || '')
+  /** 버전은 **비운 채로 시작한다**(지시).
+   *
+   *  플랜의 버전을 미리 적어 두었더니, 새 빌드를 돌리려고 만든 실행이
+   *  그대로 지난 버전으로 만들어졌다. 실행을 새로 뜨는 까닭은 대개
+   *  「빌드가 새로 나와서」 다 — 그 값만은 사람이 적어야 한다.
+   *  빈 값이면 만들기 단추가 안 눌린다(아래 disabled). */
+  const [ver, setVer] = useState('')
+  /** 버전그룹 — 버전명을 치면 첫 마디가 따라 들어온다(서버와 같은 규칙) */
+  const [vg, setVg] = useState('')
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -194,7 +200,15 @@ export function MakePlanRun({
           </label>
           <label className="cyrp-fld">
             <span>버전명</span>
-            <input value={ver} onChange={(e) => setVer(e.target.value)} placeholder="R100_2026_08_31" />
+            <input
+              value={ver}
+              onChange={(e) => setVer(e.target.value)}
+              placeholder={String(plan.version ?? '') || 'R100_2026_08_31'}
+              autoFocus
+            />
+            {/* 플랜의 버전은 **알려만 준다** — 채워 넣지 않는다. 같은 빌드를
+                다시 돌릴 때는 이 값을 보고 그대로 적으면 된다. */}
+            {!!plan.version && <em>플랜의 버전은 {plan.version} 입니다</em>}
           </label>
         </div>
         <footer>
