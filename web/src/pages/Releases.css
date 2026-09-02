@@ -872,6 +872,25 @@
 .rls-popx:hover { background: #f6f7f8; }
 .rls-popb { flex: 1; min-height: 0; display: flex; }
 .rls-popb > * { flex: 1; min-height: 0; }
-/* 끼워 넣은 시험 화면의 제 목록 줄은 감춘다 — 여기엔 이 시험 하나뿐이다 */
+/* 끼워 넣은 시험 화면의 제 목록 줄·머리줄은 감춘다.
+   **REQ-Coverage 와 같은 규칙**이다(.rqtc-embed .tc-dethead): 안쪽 머리줄을
+   두면 「← 목록·저장됨·⋯」 이 한 줄 더 서서 같은 단추가 두 줄로 겹친다 —
+   어느 것을 눌러야 하는지 묻게 된다(그쪽에서 이미 지적받은 자리다).
+   저장·⋯ 는 팝업 머리줄이 대신 그린다. */
 .rls-popb .rq-bar { display: none; }
-.rls-popb .tc-dethead { padding-left: 8px; }
+.rls-popb .tc-dethead { display: none; }
+
+/* 팝업 머리줄의 저장·⋯ */
+.rls-popsave {
+  border: 1px solid #d7dce0;
+  background: #fff;
+  border-radius: 5px;
+  padding: 4px 12px;
+  font: inherit;
+  font-size: 12px;
+  color: #7c858c;
+  cursor: pointer;
+}
+.rls-popsave.dirty { border-color: #0a8795; background: #0a8795; color: #fff; font-weight: 700; }
+.rls-popsave:disabled { cursor: default; }
+.rls-popmore { display: inline-flex; align-items: center; }

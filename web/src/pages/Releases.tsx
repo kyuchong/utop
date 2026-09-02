@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type WheelEvent } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type WheelEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { apiFetch } from '@/api/client'
 import { isManual } from '@/lib/runMode'
@@ -537,6 +537,16 @@ export default function Releases() {
   const [busy, setBusy] = useState('')
   /** 팝업으로 연 시험 항목 — 스텝을 적는 자리다 */
   const [tcOpen, setTcOpen] = useState('')
+  /** 끼워 넣은 시험 화면이 건네는 저장·⋯ — **팝업 머리줄이 그린다**.
+   *  REQ-Coverage 가 하는 것과 같다: 안쪽 머리줄을 그대로 두면 「← 목록·
+   *  저장됨·⋯」 이 한 줄 더 서서, 같은 단추가 두 줄로 겹친다(그쪽에서 이미
+   *  지적받아 고친 자리다). */
+  const [tcApi, setTcApi] = useState<{
+    dirty: boolean
+    saving: boolean
+    save: () => void
+    menu: ReactNode
+  } | null>(null)
 
   /** 이슈 펴기·접기 — **같은 함수**를 계속 준다. 매번 새로 만들면 memo 가
       「달라졌다」 고 보고 다 다시 그린다. */
@@ -1370,19 +1380,45 @@ export default function Releases() {
       {!!tcOpen && (
         <div
           className="rls-tcscrim"
-          onMouseDown={(e) => e.target === e.currentTarget && setTcOpen('')}
+          onMouseDown={(e) => {
+            if (e.target !== e.currentTarget) return
+            setTcOpen('')
+            setTcApi(null)
+          }}
         >
           <div className="rls-tcpop" role="dialog" aria-modal="true" aria-label={tcOpen}>
             <header className="rls-poph">
               <b>{tcOpen}</b>
               <span className="rls-pn">{tcById.get(tcOpen)?.name ?? ''}</span>
               <span className="sp" />
-              <button type="button" className="rls-popx" onClick={() => setTcOpen('')}>
+              {/* 저장·⋯ 는 **여기 한 곳**에서만 — 안쪽 줄은 감춘다 */}
+              <button
+                type="button"
+                className={`rls-popsave${tcApi?.dirty ? ' dirty' : ''}`}
+                disabled={!tcApi?.dirty || !!tcApi?.saving}
+                title={tcApi?.dirty ? '고친 값을 저장합니다' : '고친 것이 없습니다'}
+                onClick={() => tcApi?.save()}
+              >
+                {tcApi?.saving ? '저장 중…' : tcApi?.dirty ? '저장' : '저장됨'}
+              </button>
+              {tcApi?.menu && <span className="rls-popmore">{tcApi.menu}</span>}
+              <button
+                type="button"
+                className="rls-popx"
+                onClick={() => {
+                  setTcOpen('')
+                  setTcApi(null)
+                }}
+              >
                 ✕ 닫기
               </button>
             </header>
             <div className="rls-popb">
-              <TestCases embedTc={tcOpen} onEmbedBack={() => setTcOpen('')} />
+              <TestCases
+                embedTc={tcOpen}
+                onEmbedBack={() => setTcOpen('')}
+                onEmbedApi={setTcApi}
+              />
             </div>
           </div>
         </div>
