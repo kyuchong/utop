@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { resolveMode, type ModeGot } from '@/lib/runMode'
+import { normMode, resolveMode, type ModeGot } from '@/lib/runMode'
 import { prefGet, prefSet, prefRemove } from '@/lib/prefs'
 import IdPill from '@/components/IdPill'
 import Markdown from '@/components/Markdown'
@@ -1624,9 +1624,10 @@ function CycleBoard({
                그것이 이기고 진하게, 항목에서 뽑은 값이면 흐리게 그린다 —
                안 갈라 놓으면 정해 둔 값처럼 보인다. */
             const c2 = shown.find((x) => x.id === row.__id)
-            const got = c2 ? modeOf(c2) : { v: '', from: 'none' as const, why: '' }
-            const m = got.v
-            const auto = m !== '수동'
+            const got = c2 ? modeOf(c2) : { v: '', raw: '', from: 'none' as const, why: '' }
+            /* got.v 는 이미 풀어 읽은 값이다(lib/runMode). 그래도 한 번 더
+               거는 것은 공짜다 — 모르는 이름은 자동으로 그린다(예전과 같다). */
+            const auto = normMode(got.v) !== '수동'
             const I = auto ? IcAuto : IcManual
             return (
               <i
@@ -2501,9 +2502,12 @@ function CycleDetail({
     // 실행 타입의 값 체계는 SETUP 에서 바꿀 수 있다 — 'A'/'M' 을 쓰는
     // 곳이 실제로 있다. '자동' 글자만 알아듣던 탓에 A 로 적은 자동 TC 가
     // 플랜에서 전부 M(수동)으로 보였고 자동 실행 단추도 안 떴다.
-    const rt = String(tcRun.get(it.tcid) ?? '').trim().toUpperCase()
-    if (rt === '자동' || rt === 'A' || rt === 'AUTO') return 'auto'
-    if (rt === '수동' || rt === '혼합' || rt === 'M' || rt === 'MANUAL') return 'manual'
+    /* 별명 목록을 여기에도 베껴 두었었다 — 이제 한 곳에서 푼다(lib/runMode).
+       두 벌이면 한쪽만 늘어나 같은 값이 화면마다 다르게 읽힌다. */
+    const rt = String(tcRun.get(it.tcid) ?? '').trim()
+    const nm = normMode(rt)
+    if (nm === '자동') return 'auto'
+    if (nm === '수동' || rt === '혼합' || rt.toUpperCase() === 'MIXED') return 'manual'
     const kd = kindOf(it.steps ?? [])
     return kd === 'auto' || kd === 'mixed' ? 'auto' : 'manual'
   }

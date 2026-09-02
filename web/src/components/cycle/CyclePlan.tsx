@@ -435,8 +435,9 @@ export default function CyclePlan({
         const doc = j.data ?? j
         const checks = (doc.checks ?? []) as Array<Record<string, unknown>>
         if (!checks.length) return
-        const rt = String(doc.run_type ?? '').trim().toUpperCase()
-        const auto = rt === '자동' || rt === 'A' || rt === 'AUTO'
+        /* 한 곳에서 푼다(lib/runMode) — 여기는 자동 갈래만 손으로 넓혀
+           두어서, 모르는 값이 전부 수동으로 굴러떨어지고 있었다. */
+        const auto = normMode(doc.run_type) === '자동'
         const want = checks.filter((st) =>
           auto
             ? st.kind !== 'manual' && st.manual !== true && st.action !== '수동'
