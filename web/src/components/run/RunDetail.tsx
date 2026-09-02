@@ -850,10 +850,32 @@ export default function RunDetail({
             if (!lg.length) return def
             const run2 = lg.map(asStep)
             if (!def.length) return run2
-            /* 돈 값이 이긴다 — 정의는 빈 칸을 메우는 데만 쓴다 */
+            /* 돈 값이 이긴다 — 정의는 빈 칸을 메우는 데만 쓴다.
+               **도는 중이면 결과 쪽은 정의에서 안 가져온다.** 정의(checks)에는
+               지난 실행의 executed_at·status 가 그대로 남아 있어, 아직 안 돈
+               스텝이 이미 돈 것처럼 보인다 — 실행 이벤트가 5번까지 미리
+               나오던 까닭이다(지적). 이름·기대값만 정의에서 쓴다. */
             return def.map((d2, i2) => {
               const l = run2[i2]
-              if (!l) return d2
+              if (!l) return onAir ? { ...d2, mark: undefined, at: undefined, took: undefined, out: '', ran: false } : d2
+              if (onAir)
+                return {
+                  ...d2,
+                  cmd: l.cmd || d2.cmd,
+                  expected: l.expected !== '—' ? l.expected : d2.expected,
+                  action: l.action !== '—' ? l.action : d2.action,
+                  session: l.session !== '—' ? l.session : d2.session,
+                  t: l.t || d2.t,
+                  waitSec: l.waitSec ?? d2.waitSec,
+                  okMsg: l.okMsg ?? d2.okMsg,
+                  ngMsg: l.ngMsg ?? d2.ngMsg,
+                  /* 결과 쪽은 **이번에 돈 것만** */
+                  out: l.out,
+                  mark: l.mark,
+                  took: l.took,
+                  at: l.at,
+                  ran: l.ran,
+                }
               return {
                 ...d2,
                 cmd: l.cmd || d2.cmd,

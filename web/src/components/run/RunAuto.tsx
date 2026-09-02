@@ -205,7 +205,11 @@ export default function RunAuto({
   /** 이벤트 — 로그의 스텝에서 뽑는다(지어내지 않는다) */
   const events = useMemo(() => {
     const out: Array<{ at: string; step: string; kind: string; text: string }> = []
-    steps.forEach((s) => {
+    steps.forEach((s, i) => {
+      /* **돈 스텝만** 적는다. 명령이 적혀 있다고 보낸 것은 아니다 —
+         아직 안 온 스텝까지 「보냄」 으로 찍혀, 2번이 도는데 5번까지 다
+         나와 있었다(지적). 지금 도는 스텝은 「보냄」 까지는 맞다. */
+      if (!s.ran && i !== runStep) return
       const at = s.at ?? logAt ?? ''
       if (s.cmd) out.push({ at, step: `Step ${s.no}`, kind: 'INFO', text: `${s.cmd} 보냄` })
       if (s.mark)
@@ -223,7 +227,7 @@ export default function RunAuto({
         })
     })
     return out
-  }, [steps, logAt])
+  }, [steps, logAt, runStep])
 
   /* ── 「대기」 스텝의 초읽기 ──
      실행기는 「몇 번째 스텝을 도는 중」 까지만 알려 준다. 남은 초는 안 준다.

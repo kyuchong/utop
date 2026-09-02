@@ -252,7 +252,13 @@
 /* **늘어나지 않는다.** 늘어나면 그 칸의 오른쪽 여백만 커져서, 구분선이
    글에서 564px 이나 떨어졌다(지적: 여백이 대칭이 안 맞는다). 줄어들기만
    하고(긴 이름은 …로 자른다), 남는 자리는 맨 끝 rd-sp 가 먹는다. */
-.rd-lb.grow2 { flex: 0 1 auto; min-width: 0; }
+/* 「진행」 은 **안 줄어든다.** 글씨를 키우면서 줄어들어 「전체 2)」 가
+   잘렸고, 그러니 구분선이 글에 딱 붙어 보였다(지적).
+   줄어드는 것은 이름이 긴 「지금 항목」 하나뿐이다(… 로 자른다). */
+.rd-lb.grow2 { flex: 0 0 auto; overflow: visible; }
+/* 칸 안의 글도 안 줄어든다 — 줄어들면 「전체 2)」 의 끝이 잘린다.
+   줄어들 자리는 이름이 긴 「지금 항목」 하나뿐이다. */
+.rd-lb.grow2 > i, .rd-lb.grow2 > b, .rd-lb.grow2 > em { flex: none; white-space: nowrap; }
 .rd-lb.grow3 { flex: 0 1 auto; min-width: 0; }
 .rd-live .rd-sp { flex: 1 1 auto; min-width: 0; }
 .rd-lb > em {
